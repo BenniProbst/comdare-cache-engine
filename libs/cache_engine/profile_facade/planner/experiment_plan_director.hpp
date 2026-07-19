@@ -327,13 +327,16 @@ inline constexpr std::size_t kTierChunkCount = 4;
 // Submodul-Mechanik laeuft nachweislich ueber den REV-17-Deploy-Token). Der gleiche cache-Key wie der Parent =>
 // der Warm-ccache-Bestand zieht auch im Child (CI_PROJECT_NAME/CI_PROJECT_DIR sind im Child dieselben).
 inline void emit_child_ccache_config(std::string& out) {
-    // (a) ccache-/Parallel-Variablen (unter dem bereits geoeffneten variables:-Block).
-    out += "  CCACHE_DIR: \"$CI_PROJECT_DIR/.ccache\"          # Parent-Spiegel: projektlokaler ccache "
-           "(GitLab-cache synct)\n";
+    // (a) ccache-/Parallel-Variablen (unter dem bereits geoeffneten variables:-Block). NUR reine Literale --
+    //     CCACHE_DIR ("$CI_PROJECT_DIR/.ccache") gehoert NICHT hierher (W10-Nacharbeit 4, KLASSE): es wird
+    //     ausschliesslich per Runtime-Shell-Export im Prolog gesetzt (die vererbte Parent-Vorexpansion
+    //     ueberschriebe die Child-Def sonst versions-/wegabhaengig -> leeres /.ccache).
     out += "  CCACHE_MAXSIZE: \"3G\"\n";
     out +=
         "  CMAKE_BUILD_PARALLEL_LEVEL: \"6\"                 # Parent-Spiegel: Runner-Core-Budget (nicht -j nproc)\n";
-    // (b) top-level cache:-Block (gleicher Key wie Parent -> Warm-ccache zieht auch im Child).
+    // (b) top-level cache:-Block (gleicher Key wie Parent -> Warm-ccache zieht auch im Child). paths ist workdir-
+    //     relativ (.ccache), unabhaengig von der $CI_PROJECT_DIR-Frage; der Key nutzt $CI_PROJECT_NAME (Cache-
+    //     System-Expansion, nicht $CI_PROJECT_DIR).
     out += "cache:\n";
     out += "  key: \"ccache-$CI_PROJECT_NAME\"\n";
     out += "  paths: [\".ccache\"]\n";
@@ -349,21 +352,25 @@ inline void emit_child_ccache_config(std::string& out) {
 // C++-Bau nicht); --recursive holt ce's nested public-github-Submodul (concurrentqueue); --force + sync auf den
 // GEPINNTEN gitlink-SHA (idempotent auf stalem Workdir). EINE Single-Source fuer alle Bau-Jobs beider Stufen.
 //
-// W10-Nacharbeit 3 (§42, Serie-E2E 11586, NUR prod1/Runner 18.9.0): der Prolog setzt CCACHE_DIR/CCACHE_MAXSIZE
-// zusaetzlich per RUNTIME-SHELL-EXPORT. Die YAML-variables-Definition allein reicht NICHT: die gitlab-seitig
-// vorexpandierte Parent-globale CCACHE_DIR wird als Pipeline-Variable an das Child vererbt und ueberschreibt die
-// Child-YAML-Definition versions-/vererbungsabhaengig (leer expandiertes $CI_PROJECT_DIR -> /.ccache -> Permission
-// denied). Der Shell-Export zur Laufzeit ist immun gegen jede GitLab-Expansions-/Vererbungs-/Runner-Versions-
-// Semantik und schlaegt die vererbte Env-Variable (er laeuft in der Job-Shell VOR jedem cmake-Aufruf; die
-// YAML-variables + der cache:-Block bleiben harmlos-redundant erhalten).
+// W10-Nacharbeit 3+4 (§42, Serie-E2E 11586/Lauf 4, prod1-Klasse): der Prolog setzt ALLE $CI_PROJECT_DIR-abhaengigen
+// Env-Variablen per RUNTIME-SHELL-EXPORT (CCACHE_DIR, COMDARE_GOLDEN_N_PROFILE). Die YAML-variables-Definition
+// allein reicht NICHT: die gitlab-seitig VOREXPANDIERTE Parent-globale Variable wird als Pipeline-Variable an das
+// Child vererbt und ueberschreibt die Child-YAML-Definition versions-/vererbungsabhaengig -> leer expandiertes
+// $CI_PROJECT_DIR (/.ccache -> Permission denied; /Code/external/... -> "profile fehlt"). Der Shell-Export zur
+// Laufzeit ist immun gegen jede GitLab-Expansions-/Vererbungs-/Runner-Versions-Semantik und schlaegt die vererbte
+// Env-Variable (er laeuft in der Job-Shell VOR jedem cmake-/Treiber-Aufruf). KLASSEN-Regel: KEIN $CI_PROJECT_DIR-
+// Wert steht mehr in variables: (Contract-Test-Wache); nur reine Literale + der cache:-Block (workdir-relativ)
+// bleiben dort.
 inline void emit_child_submodule_prolog(std::string& out) {
     out += "    - |\n";
     out += "      set -euo pipefail\n";
-    out += "      # ccache-Env per RUNTIME-Shell-Export (Nacharbeit 3): immun gegen GitLab-variables-Expansion/\n";
-    out +=
-        "      # -Vererbung (vorexpandierte Parent-CCACHE_DIR ueberschreibt sonst versionsabhaengig die Child-Def).\n";
+    out += "      # RUNTIME-Shell-Export aller $CI_PROJECT_DIR-abhaengigen Env (Nacharbeit 3+4, KLASSE): immun gegen\n";
+    out += "      # die GitLab-variables-Vorexpansion/-Vererbung (die vorexpandierte Parent-Def ueberschriebe sonst\n";
+    out += "      # versions-/wegabhaengig die Child-Def -> leer expandiert -> /.ccache bzw. /Code/...-fehlt).\n";
     out += "      export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\"\n";
     out += "      export CCACHE_MAXSIZE=\"3G\"\n";
+    out += "      export COMDARE_GOLDEN_N_PROFILE=\"${CI_PROJECT_DIR}/Code/external/comdare-cache-engine/libs/"
+           "cache_engine/algorithm_profiles/thesis_profiles/all_axes_golden.profile.xml\"\n";
     out += "      # CHILD-SUBMODULE-KLON (W10-Nacharbeit 2): Parent-Spiegel, Deploy-Token via CI-Variablen (NIE "
            "Klartext).\n";
     out += "      if [ -f .gitmodules ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n";
@@ -423,10 +430,11 @@ public:
         // Child-eigene Defaults (self-contained fuer standalone-Lint; der Parent-Trigger reicht globale Variablen
         // ohnehin durch). Profil-Default = CI_PROJECT_DIR-relativ (host-unabhaengig). Range-Default = kleines,
         // SICHERES Fenster 0:4 (kein versehentlicher 2^17-Voll-Bau; COMDARE_GN_RANGE override).
+        // W10-Nacharbeit 4 (KLASSE): KEIN $CI_PROJECT_DIR-Wert mehr in variables: (die gitlab-seitige
+        // Vorexpansion + Vererbung an die Child ueberschreibt versions-/wegabhaengig und expandiert leer ->
+        // /Code/external/... -> "profile fehlt"). $CI_PROJECT_DIR-Werte werden AUSSCHLIESSLICH per Runtime-Shell-
+        // Export im Prolog gesetzt (emit_child_submodule_prolog). Hier bleiben NUR reine Literale.
         out_ += "variables:\n";
-        out_ += "  COMDARE_GOLDEN_N_PROFILE: "
-                "\"$CI_PROJECT_DIR/Code/external/comdare-cache-engine/libs/cache_engine/algorithm_profiles/"
-                "thesis_profiles/all_axes_golden.profile.xml\"\n";
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
         // W10-Nacharbeit 2: KEIN Runner-Auto-Fetch (failt am extraheader) -> die Bau-Jobs klonen die Submodule
@@ -583,10 +591,11 @@ public:
         out_ += "stages:\n";
         out_ += "  - tier-build\n";
         out_ += "  - measure\n";
+        // W10-Nacharbeit 4 (KLASSE): KEIN $CI_PROJECT_DIR-Wert mehr in variables: (die gitlab-seitige
+        // Vorexpansion + Vererbung an die Child ueberschreibt versions-/wegabhaengig und expandiert leer ->
+        // /Code/external/... -> "profile fehlt"). $CI_PROJECT_DIR-Werte werden AUSSCHLIESSLICH per Runtime-Shell-
+        // Export im Prolog gesetzt (emit_child_submodule_prolog). Hier bleiben NUR reine Literale.
         out_ += "variables:\n";
-        out_ += "  COMDARE_GOLDEN_N_PROFILE: "
-                "\"$CI_PROJECT_DIR/Code/external/comdare-cache-engine/libs/cache_engine/algorithm_profiles/"
-                "thesis_profiles/all_axes_golden.profile.xml\"\n";
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
         // W10-Nacharbeit 2: KEIN Runner-Auto-Fetch (failt am extraheader) -> die Bau-Jobs klonen die Submodule
