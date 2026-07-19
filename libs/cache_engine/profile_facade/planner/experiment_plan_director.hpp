@@ -318,6 +318,27 @@ private:
 // die Pilot-Matrix-Chunk-Zahl (GN_CHUNK 0..3, super/.gitlab-ci.yml) -- 2^17 Einzel-Jobs waeren keine Legende.
 inline constexpr std::size_t kTierChunkCount = 4;
 
+// W10-Nacharbeit (§42, Serie-E2E 11562/11566): die dynamischen Child-Pipelines ERBEN die globalen Parent-Variablen
+// NICHT (self-contained). Ohne die ccache-Konfiguration scheitert der CEB-/Tier-Bau am Runner an
+// `ccache: Failed to create directory /.ccache/lock: Permission denied` (ccache faellt auf $HOME/.ccache zurueck,
+// das im Runner-Container nicht schreibbar ist). Diese Naht spiegelt EXAKT den Parent (super/.gitlab-ci.yml:
+// CCACHE_DIR/MAXSIZE + CMAKE_BUILD_PARALLEL_LEVEL + top-level cache: key "ccache-$CI_PROJECT_NAME") -- EINE
+// Single-Source fuer BEIDE Stufen (CiYamlBuilder Stufe 1 + TierCiYamlBuilder Stufe 2). NUR diese Variablen (die
+// Submodul-Mechanik laeuft nachweislich ueber den REV-17-Deploy-Token). Der gleiche cache-Key wie der Parent =>
+// der Warm-ccache-Bestand zieht auch im Child (CI_PROJECT_NAME/CI_PROJECT_DIR sind im Child dieselben).
+inline void emit_child_ccache_config(std::string& out) {
+    // (a) ccache-/Parallel-Variablen (unter dem bereits geoeffneten variables:-Block).
+    out += "  CCACHE_DIR: \"$CI_PROJECT_DIR/.ccache\"          # Parent-Spiegel: projektlokaler ccache "
+           "(GitLab-cache synct)\n";
+    out += "  CCACHE_MAXSIZE: \"3G\"\n";
+    out +=
+        "  CMAKE_BUILD_PARALLEL_LEVEL: \"6\"                 # Parent-Spiegel: Runner-Core-Budget (nicht -j nproc)\n";
+    // (b) top-level cache:-Block (gleicher Key wie Parent -> Warm-ccache zieht auch im Child).
+    out += "cache:\n";
+    out += "  key: \"ccache-$CI_PROJECT_NAME\"\n";
+    out += "  paths: [\".ccache\"]\n";
+}
+
 // ── CiYamlBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-A-Zweistufigkeit). ───────
 //    Emittiert eine deterministische GitLab-Child-Pipeline-YAML: die MESS-ACHSEN-Stufe der CE-gesteuerten Kette.
 //    Je Mess-Achsen-Kombination [a,b,c] (aus der Anwender-XML, <measurement_categories>) EINE dynamische
@@ -366,6 +387,9 @@ public:
                 "thesis_profiles/all_axes_golden.profile.xml\"\n";
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
+        // W10-Nacharbeit: das Child erbt die Parent-Globals nicht -> ccache/Parallel-Variablen + cache:-Block selbst
+        // emittieren (sonst ccache-Permission-Fail am Runner). Single-Source-Spiegel des Parent (s. Fn-Doku).
+        emit_child_ccache_config(out_);
     }
     // STUFE 1 haengt an der Mess-Achsen-Ebene: je Mess-Kombination die drei CEB-Jobs.
     void begin_measurement_combo(PlanMeasurementCombo const& c) override {
@@ -522,6 +546,9 @@ public:
                 "thesis_profiles/all_axes_golden.profile.xml\"\n";
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
+        // W10-Nacharbeit: das Child erbt die Parent-Globals nicht -> ccache/Parallel-Variablen + cache:-Block selbst
+        // emittieren (sonst ccache-Permission-Fail am Runner). Single-Source-Spiegel des Parent (s. Fn-Doku).
+        emit_child_ccache_config(out_);
     }
     // Die CEB-Rolle emittiert je Mess-Kombination (die CEB, die --emit-tier-ci aufruft) ihre STUFE-2-Sicht. Heute
     // ist das die EINE Kombination des Profils; der combo-Kontext [a,b,c] wird fuer die Perm-Legenden gehalten.
