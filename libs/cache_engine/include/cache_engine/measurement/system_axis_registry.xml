@@ -69,6 +69,31 @@
         <flag dialect="msvc" value="/arch:AVX512"/>
       </option>
     </sub_axis>
+    <simd_feature_catalog count="23">
+      <flag cpuinfo="avx512f" gpp="-mavx512f" clang="-mavx512f" tier="avx512"/>
+      <flag cpuinfo="avx512cd" gpp="-mavx512cd" clang="-mavx512cd" tier="avx512"/>
+      <flag cpuinfo="avx512vl" gpp="-mavx512vl" clang="-mavx512vl" tier="avx512"/>
+      <flag cpuinfo="avx512dq" gpp="-mavx512dq" clang="-mavx512dq" tier="avx512"/>
+      <flag cpuinfo="avx512bw" gpp="-mavx512bw" clang="-mavx512bw" tier="avx512"/>
+      <flag cpuinfo="avx512ifma" gpp="-mavx512ifma" clang="-mavx512ifma" tier="avx512"/>
+      <flag cpuinfo="avx512vbmi" gpp="-mavx512vbmi" clang="-mavx512vbmi" tier="avx512"/>
+      <flag cpuinfo="avx512_vbmi2" gpp="-mavx512vbmi2" clang="-mavx512vbmi2" tier="avx512"/>
+      <flag cpuinfo="avx512_vnni" gpp="-mavx512vnni" clang="-mavx512vnni" tier="avx512"/>
+      <flag cpuinfo="avx512_bitalg" gpp="-mavx512bitalg" clang="-mavx512bitalg" tier="avx512"/>
+      <flag cpuinfo="avx512_vpopcntdq" gpp="-mavx512vpopcntdq" clang="-mavx512vpopcntdq" tier="avx512"/>
+      <flag cpuinfo="avx512_vp2intersect" gpp="-mavx512vp2intersect" clang="-mavx512vp2intersect" tier="avx512"/>
+      <flag cpuinfo="avx512_bf16" gpp="-mavx512bf16" clang="-mavx512bf16" tier="avx512"/>
+      <flag cpuinfo="avx512_fp16" gpp="-mavx512fp16" clang="-mavx512fp16" tier="avx512"/>
+      <flag cpuinfo="avx2" gpp="-mavx2" clang="-mavx2" tier="avx256"/>
+      <flag cpuinfo="fma" gpp="-mfma" clang="-mfma" tier="avx256"/>
+      <flag cpuinfo="f16c" gpp="-mf16c" clang="-mf16c" tier="avx256"/>
+      <flag cpuinfo="avx_vnni" gpp="-mavxvnni" clang="-mavxvnni" tier="avx256"/>
+      <flag cpuinfo="gfni" gpp="-mgfni" clang="-mgfni" tier="companion"/>
+      <flag cpuinfo="vaes" gpp="-mvaes" clang="-mvaes" tier="companion"/>
+      <flag cpuinfo="vpclmulqdq" gpp="-mvpclmulqdq" clang="-mvpclmulqdq" tier="companion"/>
+      <flag cpuinfo="bmi2" gpp="-mbmi2" clang="-mbmi2" tier="scalar"/>
+      <flag cpuinfo="popcnt" gpp="-mpopcnt" clang="-mpopcnt" tier="scalar"/>
+    </simd_feature_catalog>
   </axis>
   <axis id="target_isa" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="2">
     <baustein name="x86_64" wrapper="X86_64TargetIsa" type="::comdare::cache_engine::measurement::X86_64TargetIsa" enabled="true" native="true" triple="" march=""/>
@@ -90,4 +115,52 @@
     <baustein name="ycsb" wrapper="YcsbLoadFrameworkAxis" type="::comdare::cache_engine::measurement::YcsbLoadFrameworkAxis" enabled="true" framework_id="ycsb"/>
     <sub_axis id="workload" parent="load_framework" stage="runtime" value_type="token" option_source="user_load_profile_akten"/>
   </axis>
+  <machine_signatures count="3">
+    <machine id="prod1_zen5" host_isa="x86_64" flag_count="22">
+      <flag cpuinfo="avx2"/>
+      <flag cpuinfo="fma"/>
+      <flag cpuinfo="f16c"/>
+      <flag cpuinfo="avx_vnni"/>
+      <flag cpuinfo="bmi2"/>
+      <flag cpuinfo="popcnt"/>
+      <flag cpuinfo="gfni"/>
+      <flag cpuinfo="vaes"/>
+      <flag cpuinfo="vpclmulqdq"/>
+      <flag cpuinfo="avx512f"/>
+      <flag cpuinfo="avx512cd"/>
+      <flag cpuinfo="avx512vl"/>
+      <flag cpuinfo="avx512dq"/>
+      <flag cpuinfo="avx512bw"/>
+      <flag cpuinfo="avx512ifma"/>
+      <flag cpuinfo="avx512vbmi"/>
+      <flag cpuinfo="avx512_vbmi2"/>
+      <flag cpuinfo="avx512_vnni"/>
+      <flag cpuinfo="avx512_bitalg"/>
+      <flag cpuinfo="avx512_vpopcntdq"/>
+      <flag cpuinfo="avx512_vp2intersect"/>
+      <flag cpuinfo="avx512_bf16"/>
+    </machine>
+    <machine id="prod2_raptor_lake" host_isa="x86_64" flag_count="9">
+      <flag cpuinfo="avx2"/>
+      <flag cpuinfo="fma"/>
+      <flag cpuinfo="f16c"/>
+      <flag cpuinfo="avx_vnni"/>
+      <flag cpuinfo="bmi2"/>
+      <flag cpuinfo="popcnt"/>
+      <flag cpuinfo="gfni"/>
+      <flag cpuinfo="vaes"/>
+      <flag cpuinfo="vpclmulqdq"/>
+    </machine>
+    <machine id="odroid_gracemont" host_isa="x86_64" flag_count="9">
+      <flag cpuinfo="avx2"/>
+      <flag cpuinfo="fma"/>
+      <flag cpuinfo="f16c"/>
+      <flag cpuinfo="avx_vnni"/>
+      <flag cpuinfo="bmi2"/>
+      <flag cpuinfo="popcnt"/>
+      <flag cpuinfo="gfni"/>
+      <flag cpuinfo="vaes"/>
+      <flag cpuinfo="vpclmulqdq"/>
+    </machine>
+  </machine_signatures>
 </comdare_axis_registry>

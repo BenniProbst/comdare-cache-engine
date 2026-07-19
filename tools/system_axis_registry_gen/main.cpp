@@ -35,8 +35,10 @@
 #include <cache_engine/measurement/compiler_system_axis.hpp>
 #include <cache_engine/measurement/extension_hardware_family_axis.hpp>
 #include <cache_engine/measurement/load_framework_system_axis.hpp>
+#include <cache_engine/measurement/machine_simd_signature.hpp> // Section 40.a: deklarierte Maschinen-Signaturen
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
+#include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
 #include <cache_engine/measurement/simd_sub_axis.hpp>
 #include <cache_engine/measurement/target_isa_system_axis.hpp>
 
@@ -46,6 +48,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace cg   = ::comdare::cache_engine::builder::codegen;
@@ -150,7 +153,8 @@ int main(int argc, char** argv) {
     f << "<comdare_axis_registry engine=\"cache_engine_system\" schema=\"1\" generator=\"system_axis_registry_gen\">\n";
     f << "  <!-- GENERIERT von tools/system_axis_registry_gen (PAKET W2-B) per compile-time-Reflektion der\n";
     f << "       realen CebSystemAxis-Typen (measurement/*_system_axis.hpp/*_sub_axis.hpp). NICHT von Hand\n";
-    f << "       editieren. Ledger §28/§30: System-Art-Registry im Mess-/System-Modul (Angebot fuer System->CEB). -->\n";
+    f << "       editieren. Ledger §28/§30: System-Art-Registry im Mess-/System-Modul (Angebot fuer System->CEB). "
+         "-->\n";
     f << "  <!-- Haupt-Achse=CT-statisch (stage=ct, in die CEB/Tier-Binary einkompiliert); Unter-Achse=dynamisch\n";
     f << "       (stage=runtime, vom Planer permutiert). Q2/K2: opt_level/simd/atomic128 materialisieren als\n";
     f << "       CompileFn-Flags (build_version-Suffix), NIE als Laufzeit-Typ-Switch und NIE in der binary_id. -->\n";
@@ -162,8 +166,8 @@ int main(int argc, char** argv) {
     {
         std::string extra;
         extra = std::string{" driver=\""} + std::string{meas::GccCompilerAxis::driver_default()} +
-                "\" supports_fno_gnu_unique=\"" + (meas::GccCompilerAxis::supports_fno_gnu_unique() ? "true" : "false") +
-                "\"";
+                "\" supports_fno_gnu_unique=\"" +
+                (meas::GccCompilerAxis::supports_fno_gnu_unique() ? "true" : "false") + "\"";
         emit_baustein<meas::GccCompilerAxis>(f, meas::GccCompilerAxis::compiler_id(), extra);
         extra = std::string{" driver=\""} + std::string{meas::ClangCompilerAxis::driver_default()} +
                 "\" supports_fno_gnu_unique=\"" +
@@ -225,6 +229,16 @@ int main(int argc, char** argv) {
     emit_option(f, meas::SimdAvx512Option::simd_id(), meas::SimdAvx512Option::gcc_march_flag(),
                 meas::SimdAvx512Option::clang_march_flag(), meas::SimdAvx512Option::msvc_march_flag(), std::string{});
     f << "    </sub_axis>\n";
+    // Section 40.a: feingranulares SIMD-Flag-Vokabular (code=Wahrheit aus simd_feature_flag.hpp). Die grobe
+    // simd-Sub-Achse oben bleibt Runner-Routing-Vorstufe; DIESE Einzel-Flags entscheiden den Bau (E4-Gate).
+    // cpuinfo-Id (Signatur-Match) und g++/clang-Flag (Compile) sind GETRENNT gefuehrt (Unterstrich-Falle).
+    f << "    <simd_feature_catalog count=\"" << meas::kSimdFeatureFlagCatalog.size() << "\">\n";
+    for (auto const& fl : meas::kSimdFeatureFlagCatalog) {
+        note_name(fl.cpuinfo);
+        f << "      <flag cpuinfo=\"" << xml_escape(fl.cpuinfo) << "\" gpp=\"" << xml_escape(fl.gpp) << "\" clang=\""
+          << xml_escape(fl.clang) << "\" tier=\"" << xml_escape(meas::tier_label(fl.tier)) << "\"/>\n";
+    }
+    f << "    </simd_feature_catalog>\n";
     f << "  </axis>\n";
 
     // ── 3) target_isa (TargetIsaSystemAxis): 2 Bausteine x86_64/aarch64 (native + Cross-Triple/-march) ──
@@ -281,6 +295,26 @@ int main(int argc, char** argv) {
     }
     f << "  </axis>\n";
 
+    // ── Section 40.a: deklarierte per-Maschine SIMD-Flag-Signaturen (reflektiert aus machine_simd_signature.hpp,
+    //    Host-Capability-Domaene). DIESE Signatur entscheidet den Bau (Gate Organ <= Signatur geschnitten
+    //    Sinnhaftigkeit); die grobe simd-Sub-Achse bleibt Runner-Routing-Vorstufe. NIE binary_id. ──
+    {
+        f << "  <machine_signatures count=\"3\">\n";
+        // static-only Zugriff (die Signatur-Typen werden NIE instanziiert -- wie alle Achsen-Structs);
+        // std::type_identity traegt den Typ ohne Konstruktion (der Basis-ctor ist bewusst protected).
+        auto emit_machine = [&f]<class Sig>(std::type_identity<Sig>) {
+            note_name(Sig::machine_id());
+            f << "    <machine id=\"" << xml_escape(Sig::machine_id()) << "\" host_isa=\""
+              << xml_escape(Sig::host_isa()) << "\" flag_count=\"" << Sig::signature().size() << "\">\n";
+            for (auto const& fl : Sig::signature()) f << "      <flag cpuinfo=\"" << xml_escape(fl.cpuinfo) << "\"/>\n";
+            f << "    </machine>\n";
+        };
+        emit_machine(std::type_identity<meas::Prod1Zen5Signature>{});
+        emit_machine(std::type_identity<meas::Prod2RaptorLakeSignature>{});
+        emit_machine(std::type_identity<meas::OdroidGracemontSignature>{});
+        f << "  </machine_signatures>\n";
+    }
+
     f << "</comdare_axis_registry>\n";
     f.flush();
 
@@ -297,7 +331,8 @@ int main(int argc, char** argv) {
         return 4;
     }
 
-    std::cout << "system_axis_registry_gen: 5 System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), " << g_baustein_total << " Bausteine -> " << out_path
-              << "\n";
+    std::cout << "system_axis_registry_gen: 5 System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), "
+              << g_baustein_total << " Bausteine, simd_feature_catalog=" << meas::kSimdFeatureFlagCatalog.size()
+              << " Flags, machine_signatures=3 -> " << out_path << "\n";
     return 0;
 }
