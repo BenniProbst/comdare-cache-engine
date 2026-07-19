@@ -301,6 +301,24 @@ contract:profile_coverage:
     - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip|test_experiment_parser|test_measurement_categories|test_axis_registry_roundtrip)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
+# -- contract:axis-version-lock (GN-8/O-4, Ledger Sec.32-F4): der Heuristik-Header-Tripwire als HARTES CI-Gate. --
+# Digest-Drift an axis_spline/break_even/measurement_curve_loader OHNE algo_version-Bump -> Exit 1 -> Job ROT.
+# Tool ist EXCLUDE_FROM_ALL (Anti-Phantom) und wird hier explizit gebaut+gerufen. Nach bewusstem Header-Edit:
+# lokal --write + Lockfile-Regen-Commit (siehe tools/axis_version_lock/axis_version_lock.cpp Kopf).
+contract:axis-version-lock:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # Konvention der contract-Familie
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-axislock -G Ninja
+    - cmake --build build-axislock --target comdare_axis_version_lock
+    - ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check tools/axis_version_lock/axis_version.lock libs/cache_engine/heuristik/axis_spline.hpp libs/cache_engine/heuristik/break_even.hpp libs/cache_engine/heuristik/measurement_curve_loader.hpp
+  artifacts:
+    paths: []     # Storage-500-Konvention
+
 # -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --
 # #193-A fixte den SOTA-Profil-Resolver in experiment_driver.cpp, doch KEIN Gate baute die
 # comdare_builder_experiment_driver-Lib -> #193-A blieb pipeline-unverifiziert (nur lokal-MSVC). Dieses Gate
