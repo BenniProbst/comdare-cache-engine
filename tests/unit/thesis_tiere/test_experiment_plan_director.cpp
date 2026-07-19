@@ -705,3 +705,31 @@ TEST(TierCiYamlBuilder, StageTwoIsByteDeterministic) {
         EXPECT_EQ(a.text(), b.text()) << "experiment Stufe-2-cmake byte-deterministisch";
     }
 }
+
+// (W7) W10-Nacharbeit (Serie-E2E 11562/11566): die self-contained Child-YAMLs erben die Parent-Globals NICHT ->
+//      BEIDE CI-Stufen (CiYamlBuilder Stufe 1 + TierCiYamlBuilder Stufe 2) muessen die ccache-/Parallel-Variablen
+//      + einen top-level cache:-Block selbst emittieren (sonst ccache-Permission-Fail am Runner). Spiegel des Parent.
+TEST(CiYamlBuilder, BothStagesEmitParentMirroredCcacheConfig) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    planner::CiYamlBuilder     s1; // Stufe 1
+    planner::TierCiYamlBuilder s2; // Stufe 2
+    director.construct(*tp, s1);
+    director.construct(*tp, s2);
+
+    for (auto const* yaml : {&s1.text(), &s2.text()}) {
+        // ccache-/Parallel-Variablen (Parent-Spiegel, EXAKT).
+        EXPECT_NE(yaml->find("  CCACHE_DIR: \"$CI_PROJECT_DIR/.ccache\""), std::string::npos)
+            << "projektlokaler ccache (sonst /.ccache-Permission-Fail)";
+        EXPECT_NE(yaml->find("  CCACHE_MAXSIZE: \"3G\""), std::string::npos);
+        EXPECT_NE(yaml->find("  CMAKE_BUILD_PARALLEL_LEVEL: \"6\""), std::string::npos);
+        // top-level cache:-Block mit dem GLEICHEN Key wie der Parent (Warm-ccache zieht auch im Child).
+        EXPECT_NE(yaml->find("\ncache:\n  key: \"ccache-$CI_PROJECT_NAME\"\n  paths: [\".ccache\"]\n"),
+                  std::string::npos)
+            << "top-level cache:-Block (gleicher Key wie Parent)";
+        // genau EIN top-level cache:-Block je Child (kein Duplikat).
+        EXPECT_EQ(count_occurrences(*yaml, "\ncache:\n"), 1u);
+    }
+}
