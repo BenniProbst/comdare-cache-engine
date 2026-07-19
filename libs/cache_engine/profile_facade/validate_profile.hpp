@@ -516,6 +516,50 @@ struct RegistryContents {
     return rc;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PAKET W3-B / Planer-I1 (2026-07-19) — RegistryTrio: die DREI Achsen-Art-Angebots-Registries als EIN POD
+// (Ledger §28/§30, STUFE §3.C KONSOLIDIERUNG). GENERALISIERUNG von read_axis_registry OHNE zweiten Parser:
+//   * Organ-Registry       engine="cache_engine"             (Angebot der Tier-Stufe, bildet binary_id)
+//   * System-Registry      engine="cache_engine_system"      (Angebot der CEB-Stufe, NIE binary_id)
+//   * Mess-Registry        engine="cache_engine_measurement" (Angebot der Planer-Stufe, NIE binary_id)
+// Alle drei tragen dieselbe <comdare_axis_registry>-Wurzel => dieselbe read_axis_registry-Naht liest ALLE drei;
+// RegistryTrio buendelt sie NUR (Resolver-Vorstufe: der Experiment-Planer annotiert seinen Plan mit den 3
+// Angebots-Quellen). ADDITIV — die bestehende Einzel-read_axis_registry-Nutzung bleibt unberuehrt.
+// ─────────────────────────────────────────────────────────────────────────────
+struct RegistryTrio {
+    RegistryContents organ;       // Wurzel engine="cache_engine"
+    RegistryContents system;      // Wurzel engine="cache_engine_system"
+    RegistryContents measurement; // Wurzel engine="cache_engine_measurement"
+
+    // Zahl der Angebots-Achsen je Art (Organ-golden = 17, System = 5).
+    [[nodiscard]] std::size_t organ_axis_count() const { return organ.axis_names.size(); }
+    [[nodiscard]] std::size_t system_axis_count() const { return system.axis_names.size(); }
+    [[nodiscard]] std::size_t measurement_axis_count() const { return measurement.axis_names.size(); }
+    // Zahl der Angebots-Bausteine EINER Achse (0, wenn die Achse in dieser Registry fehlt).
+    [[nodiscard]] static std::size_t baustein_count(RegistryContents const& rc, std::string const& axis_id) {
+        auto const it = rc.axis_names.find(axis_id);
+        return it == rc.axis_names.end() ? std::size_t{0} : it->second.size();
+    }
+    // Zahl der Mess-KATEGORIEN (Angebots-Bausteine der Achse "measurement_category" = 16).
+    [[nodiscard]] std::size_t measurement_category_count() const {
+        return baustein_count(measurement, "measurement_category");
+    }
+};
+
+// read_axis_registry_trio — liest die 3 Art-Registries ueber DIESELBE read_axis_registry-Naht (kein zweiter
+// Parser). nullopt, wenn EINE der drei nicht lesbar / keine comdare_axis_registry-Wurzel ist (harter Ausfall
+// analog eines fehlenden dlsym-Symbols, STUFE §3.C.3 E-RES-I). Die Pfade reicht der Host per CMake-Interface
+// herein (statische Registry-Pfad-Defines, feedback_ceb_config_cmake_interface_static_registry_paths_prt_module).
+[[nodiscard]] inline std::optional<RegistryTrio>
+read_axis_registry_trio(std::filesystem::path const& organ_registry, std::filesystem::path const& system_registry,
+                        std::filesystem::path const& measurement_registry) {
+    auto o = read_axis_registry(organ_registry);
+    auto s = read_axis_registry(system_registry);
+    auto m = read_axis_registry(measurement_registry);
+    if (!o || !s || !m) return std::nullopt;
+    return RegistryTrio{std::move(*o), std::move(*s), std::move(*m)};
+}
+
 /// validate_experiment_profile — DIE reine Pruef-Logik (read-only). Zwei Registry-Aufloesungs-Modi:
 ///   • `engine_registry_paths` NICHT leer (Bruecke-I2, 2-Registry-Kanon): je Engine wird ihre Registry aus
 ///     DIESER Map (Schluessel = engine-id ee_ce/ee_prt, Wert = voller STATISCHER Registry-Pfad) aufgeloest — die

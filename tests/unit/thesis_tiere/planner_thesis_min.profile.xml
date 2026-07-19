@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PAKET W3-B / Planer-I1 Contract-Fixture (2026-07-19). Minimales comdare_thesis_profile OHNE <system_axes>
+     und OHNE <axis_sweeps> => der ExperimentPlanDirector-Thesis-Walk enumeriert GENAU 1 opt x simd Identitaets-
+     Perm (CEB-Default O3 / no_extension) x 1 Basis-Sweep-Pass = 1 Plan-Schritt. Belegt den Kontrast zu
+     all_axes_golden (2x2 Perms x 18 Sweep-Passes). NUR GELESEN — kein Bau, keine Messung, keine binary_id-Beruehrung. -->
+<comdare_thesis_profile id="planner_thesis_min" schema_version="1">
+  <base_tiers>
+    <tier id="ce_default" profile_ref="base_pilot" paper_ref="-"/>
+  </base_tiers>
+  <permute_axes>
+    <axis ref="search_algo"><value>bplus</value></axis>
+  </permute_axes>
+</comdare_thesis_profile>
