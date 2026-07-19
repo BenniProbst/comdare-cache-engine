@@ -173,6 +173,9 @@ static_assert(kSampleStatusCount == static_cast<std::size_t>(SampleStatus::Faile
 // Token-Kontrakt (D2/OD-1): die entscheidenden Zell-Vokabeln sind zementiert.
 static_assert(sample_status_token(SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_view{"n/a"});
+// E-6/K-10-QW (2026-07-19): der seg_*-n/a-Zell-Renderer (cache_engine_builder_iterator.hpp) rendert ueber
+// SourceUnavailable -- das Token ist hier zementiert, damit der Renderer-Umbau CSV-byte-neutral BLEIBT.
+static_assert(sample_status_token(SampleStatus::SourceUnavailable) == std::string_view{"n/a"});
 static_assert(sample_status_token(SampleStatus::Ok) != sample_status_token(SampleStatus::Failed));
 
 // INC-29.2: Infra-Domaene disjunkt von D1 + Drift-Guards + Policy-Concept-Erfuellung (alles compile-time).

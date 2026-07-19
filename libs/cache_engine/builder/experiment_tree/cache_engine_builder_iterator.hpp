@@ -25,18 +25,19 @@
 // Header-only, C++23.
 
 #include "experiment_tree.hpp"         // ExperimentTree / StaticBinaryView / NodeObserverSnapshot
-#include "axis_path_serialization.hpp" // (X) kCompositionAxisNames[18] — Single-Source der seg_*-Spaltennamen
+#include "axis_path_serialization.hpp" // (X) kCompositionAxisNames[17] — Single-Source der seg_*-Spaltennamen (INC-2d)
 #include "coverage_selection.hpp"      // BuildSelection
 #include "runtime_variable_loop.hpp"   // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
 #include <harness/perm_runner.hpp> // A2-Neben Stufe 2: run_observable_perm / format_perm_result (nach harness/ herausgeloest)
-#include "result_ingest.hpp"       // ingest_result_line
+#include <cache_engine/measurement/axis_error.hpp> // E-6/K-10: SampleStatus + sample_status_token (n/a-Zell-Renderer)
+#include "result_ingest.hpp"                       // ingest_result_line
 #include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
 #include "../../anatomy/observable_tier.hpp"       // IObservableTier
-#include "../../anatomy/measurable_workload.hpp"   // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (18 Segmente)
+#include "../../anatomy/measurable_workload.hpp" // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (17 Segmente, INC-2d)
 #include "../../anatomy/resource_controllable_tier.hpp" // IResourceControllableTier
 
 #include <algorithm> // #165-B: std::nth_element (Gruppen-Median im quality_flag)
@@ -374,16 +375,22 @@ struct LazyMeasuredRow {
             out += ';';
         }
     }
-    // (X) die 18 per-Segment-ns (T0..T17, INC-2c) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
+    // (X) die 17 per-Segment-ns (T0..T16, INC-2d) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
     // kCompositionAxisNames.size() in derselben Reihenfolge wie die Header-Spalten — single-source, keine Drift.
     // KONSOLIDIERUNG (I-B): seg_<achse>_ns bevorzugt aus dem EINEN konsolidierten POD = Pfad-B-Timing (reale
     // Komposition, User-Entscheid 2026-06-04). Fallback (additive Übergangsphase, entfällt in I-C): row.seg
     // (Pfad A) für noch nicht migrierte Aufrufer; sonst ehrlich n/a (alte DLL ohne konsolidierte tier_observe).
+    // E-6/K-10-QW (2026-07-19): der n/a-Zell-Renderer laeuft ueber die EINE D2-Taxonomie (axis_error.hpp:
+    // SampleStatus::SourceUnavailable -> sample_status_token() == "n/a", per static_assert dort zementiert)
+    // statt eines rohen Literals. CSV-Bytes UNVERAENDERT (golden-neutral); der volle bool-valid->SampleStatus-
+    // Split je Zelle bleibt der separate Klein-Increment (Roadmap K-10).
     auto seg_field = [&](int i) {
         if (row.unified_real)
             out += std::to_string(row.unified.seg_ns[i]); // Pfad-B-Timing aus dem EINEN POD
         else
-            out += "n/a"; // alte/Nicht-Mess-DLL → ehrlich n/a
+            out += ::comdare::cache_engine::measurement::sample_status_token(
+                ::comdare::cache_engine::measurement::SampleStatus::
+                    SourceUnavailable); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL)
         out += ';';
     };
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_field(static_cast<int>(i));
