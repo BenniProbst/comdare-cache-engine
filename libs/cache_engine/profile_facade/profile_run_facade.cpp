@@ -180,6 +180,22 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     return {}; // x86_64 (Default) = native = KEINE Cross-Flags (golden byte-identisch)
 }
 
+// H-10 (Bau-INC-2c, W9.1-Konformitaets-Nachzug): die telemetry-System-Achse (TelemetryConfig Active/Silent,
+// telemetry_mode.hpp) ist eine CEB-System-Achsen-Belegung -- ihre Wahl gehoert in die per-Binary-Provenienz
+// (.version-Sidecar, kein binary_id-Segment; registry_to_axis_levels.hpp:109). Der Smoke-Schalter ist
+// COMDARE_PILOT_TELEMETRY (Default Active = emittierend, wie die Tier-Binary-Telemetrie); "silent" waehlt den
+// Diff-Mess-Modus. Analog active_target_isa: Default-Wert = KEIN Suffix-Token -> build_version byte-identisch.
+[[nodiscard]] bool active_telemetry_is_silent() {
+    char const* e = std::getenv("COMDARE_PILOT_TELEMETRY");
+    if (e == nullptr || *e == '\0') return false; // Default = Active (TelemetryMode::Active)
+    std::string_view const mode = e;
+    if (mode == "silent") return true;
+    if (mode != "active")
+        std::cerr << "[profile_facade] COMDARE_PILOT_TELEMETRY='" << mode
+                  << "' unbekannt; nutze active (Telemetrie emittiert, Default).\n";
+    return false;
+}
+
 // INC-0: Allokator-ORGAN-Kanal -- der snmalloc-Vendor-Build-Vertrag (SNMALLOC_*-INTERFACE-Defs). Werte single-source
 // aus der Organ-Achse (SnmallocAllocator::vendor_compile_defs()), NICHT mehr CMake-string-gebacken. Gate = das GLOBALE
 // COMDARE_AXIS_06_USE_SNMALLOC (NIE per-Tier: der Umbrella zieht snmalloc.h in JEDE TU -> alle Tiers brauchen den
@@ -321,6 +337,17 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     if (std::string_view const t = active_target_isa();
         t != ::comdare::cache_engine::measurement::X86_64TargetIsa::target_isa_id())
         suffix += "+target=" + std::string{t};
+    // H-10 (W9.1): telemetry-System-Achsen-Provenienz. REGISTRY-GEGATED -- der Token wird NUR emittiert, wenn
+    // "telemetry" wirklich als System-Achse gefuehrt wird. Damit ist build_system_axis_levels() (bislang ausser der
+    // Byte-Identitaets-Fold in build_all_axis_levels() ohne echten Konsumenten -- Audit-Auflage A, 2026-07-17) ein
+    // ECHTER Produktions-Konsument: verschwaende die telemetry-System-Achse aus der Registry, entfiele der Token
+    // automatisch (Anti-Drift). NUR bei Silent (!= Default Active) -> Default byte-identisch (golden-neutral).
+    if (active_telemetry_is_silent()) {
+        auto const system_levels            = ex::build_system_axis_levels();
+        bool const telemetry_is_system_axis = std::any_of(system_levels.begin(), system_levels.end(),
+                                                          [](ex::AxisLevel const& l) { return l.axis == "telemetry"; });
+        if (telemetry_is_system_axis) suffix += "+tel=silent";
+    }
     return suffix;
 }
 
@@ -440,13 +467,15 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.golden_range_start         = args.golden_range_start; // INC-G6: Chunk-Fenster durchreichen (inert bei count==0)
     a.golden_range_count         = args.golden_range_count;
     a.provision_only             = args.provision_only; // INC-G6: provision-only durchreichen (inert bei false)
-    a.build_parallelism = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
-    a.gn_cell_opt       = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
-    a.gn_cell_simd      = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
-    a.workload_registry = std::move(workload_registry);
-    a.workload_values   = std::move(workload_values);
-    a.cache_push        = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
-    a.measurement_sink  = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
+    a.build_parallelism   = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
+    a.gn_cell_opt         = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
+    a.gn_cell_simd        = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
+    a.workload_registry   = std::move(workload_registry);
+    a.workload_values     = std::move(workload_values);
+    a.cache_push          = args.cache_push;          // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.measurement_sink    = args.measurement_sink;    // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
+    a.partial_marker_sink = args.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker durchreichen (No-Op-Default)
+    a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;
@@ -724,13 +753,15 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.working_set_override       = args.working_set_override;
     a.platform_override          = args.platform_override;
     a.build_version_tag_override = args.build_version_tag_override;
-    a.build_parallelism = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
-    a.gn_cell_opt       = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
-    a.gn_cell_simd      = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
-    a.workload_registry = std::move(workload_registry);
-    a.workload_values   = std::move(workload_values);
-    a.cache_push        = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
-    a.measurement_sink  = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
+    a.build_parallelism   = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
+    a.gn_cell_opt         = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
+    a.gn_cell_simd        = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
+    a.workload_registry   = std::move(workload_registry);
+    a.workload_values     = std::move(workload_values);
+    a.cache_push          = args.cache_push;          // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.measurement_sink    = args.measurement_sink;    // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
+    a.partial_marker_sink = args.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker durchreichen (No-Op-Default)
+    a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
 
     tlz::RunExperimentResult const r = tlz::run_experiment_profile(a);
     out.exit_code                    = r.exit_code;

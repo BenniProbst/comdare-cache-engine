@@ -56,18 +56,21 @@ struct RunExperimentArgs {
     ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
     ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
-    std::string           compiler_tag;     // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
-    std::uint64_t         n_ops                = 10000; // Mess-Workload je dyn-Setting
-    std::size_t           max_binaries         = 0;     // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
-    std::string           build_version        = "m3v2"; // Resume-Marke (.version-Sidecar)
-    std::uint32_t         n_repeats            = 3;      // Wiederholungen je (Binary×Setting) — repetition-DynDim
-    std::size_t           cores_per_build      = 4;
-    double                min_free_gb          = 0.0;
-    bool                  resume_override_set  = false;
-    bool                  resume               = true;
-    std::uint64_t         working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
-    std::string           platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
-    std::string           build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
+    // W11 (§43.c): BAU-Modus Teil-Marker-Sink + N -- SPIEGEL zu RunProfileArgs. Leer/0 = keine Teil-Marker (byte-neutral).
+    ex::PartialMarkerFn partial_marker_sink;
+    std::size_t         chunk_part_size = 0;
+    std::string         compiler_tag; // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
+    std::uint64_t       n_ops                = 10000;  // Mess-Workload je dyn-Setting
+    std::size_t         max_binaries         = 0;      // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
+    std::string         build_version        = "m3v2"; // Resume-Marke (.version-Sidecar)
+    std::uint32_t       n_repeats            = 3;      // Wiederholungen je (Binary×Setting) — repetition-DynDim
+    std::size_t         cores_per_build      = 4;
+    double              min_free_gb          = 0.0;
+    bool                resume_override_set  = false;
+    bool                resume               = true;
+    std::uint64_t       working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
+    std::string         platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
+    std::string         build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
     // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): der GN-Zellen-Filter der opt×simd-Delegations-Naht — SPIEGEL zu
     // RunProfileArgs::gn_cell_* (run_profile). Gesetzt (COMDARE_GN_OPT/COMDARE_GN_SIMD) ⇒ diese Cluster-Zelle baut
     // NUR die matchende (opt,simd)-Perm; leer (Default) = kein Filter = alle Perms ⇒ byte-neutral.
@@ -339,9 +342,11 @@ struct RunExperimentResult {
                         cfg.cores_per_build   = a.cores_per_build;
                         cfg.build_parallelism =
                             a.build_parallelism; // W6 (§32-F7): Bau-Pool-Override (0 = byte-neutral)
-                        cfg.per_binary_subdirs = true;
-                        cfg.cache_push         = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op)
-                        cfg.measurement_sink   = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op)
+                        cfg.per_binary_subdirs  = true;
+                        cfg.cache_push          = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op)
+                        cfg.measurement_sink    = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op)
+                        cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op)
+                        cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N
                         cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
                         cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
                         cfg.env_limits.thread_count   = 16;
