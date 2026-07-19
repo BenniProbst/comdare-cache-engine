@@ -77,8 +77,11 @@
 #include <builder/codegen/adhoc_emitter.hpp>                   // render_adhoc_module_source / strip_all_elaborated
 #include <builder/codegen/type_name.hpp>                       // type_name<W>
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (kanonische 17-Slot-Ordnung)
-#include <builder/experiment_tree/ceb_generator.hpp>         // ceb_parse_path (bestehende axis=value/-Parse-Konvention)
+#include <builder/experiment_tree/ceb_generator.hpp> // ceb_parse_path (bestehende axis=value/-Parse-Konvention)
+#include <builder/experiment_tree/axis_variant_version_table.hpp> // ex::compose_organ_stamp_line / build_axis_variant_version_table (W12-A2)
 #include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn
+
+#include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
 
 #include <boost/mp11.hpp>
 
@@ -181,10 +184,17 @@ template <class List>
 /// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC) EINER golden-N-`binary_id`, oder LEER (nicht materialisierbar).
 /// Der Permutations-Index im Kommentar-Kopf ist reine Doku (der Round-Trip-Key ist der Pfad) -> fixer
 /// Sentinel 0 (der lazy Emitter hat keinen laufenden Katalog-Index).
-[[nodiscard]] inline std::string lazy_adhoc_source_for(LazySlotTables const& tables, std::string const& binary_id) {
+[[nodiscard]] inline std::string lazy_adhoc_source_for(LazySlotTables const& tables, std::string const& binary_id,
+                                                       std::vector<ex::AxisVariantVersion> const& version_table) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {};
-    return cg::render_adhoc_module_source(0, macro_args);
+    // W12-A2 (Section 43): DENSELBEN geteilten Helfer + DENSELBEN binary_id wie der Katalog-Pfad
+    // (pilot_source_map.hpp build_pilot_source_map) benutzen -> byte-identische Stempel -> die 320-Round-Trip-
+    // Wache bleibt STRIKT. compose_organ_stamp_line = die reale Organ-Zeile aus der Version-TABELLE (NICHT das
+    // mock-only organ_stamp_line<Comp>); system_stamp_line = die statischen System-Achsen-Algo-Versionen.
+    std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
+    std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
+    return cg::render_adhoc_module_source(0, macro_args, organ, system);
 }
 
 /// make_lazy_adhoc_source_gen() -- die Naht: eine SourceGenFn (binary_id -> reale Modul-Quelle), die run_profile
@@ -194,7 +204,13 @@ template <class List>
 /// build_pilot_source_map -> GN-2-Guard unberuehrt.
 [[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen() {
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
-    return [tables](std::string const& binary_id) -> std::string { return lazy_adhoc_source_for(*tables, binary_id); };
+    // W12-A2 (Section 43): die {axis,variant->version}-Tabelle EINMAL bauen (wie die Flyweight-Tabellen,
+    // shared_ptr) -> per-Aufruf O(1)-Zugriff; identisch zum Katalog-Pfad (build_axis_variant_version_table).
+    auto version_table =
+        std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
+    return [tables, version_table](std::string const& binary_id) -> std::string {
+        return lazy_adhoc_source_for(*tables, binary_id, *version_table);
+    };
 }
 
 } // namespace comdare::cache_engine::thesis_lazy

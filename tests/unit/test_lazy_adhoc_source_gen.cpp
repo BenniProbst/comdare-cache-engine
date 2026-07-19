@@ -95,6 +95,35 @@ void check_320_byte_identity(std::vector<std::string> const& g320_ids) {
     check_true("(a) unbekannte id liefert leere lazy-Quelle", lazy("__unknown_binary_id__").empty());
 }
 
+// Die (erste) COMDARE_ANATOMY_VERSION_STAMP(...)-Zeile einer Modul-Quelle (oder leer, wenn keine).
+std::string stamp_line(std::string const& src) {
+    std::size_t const p = src.find("COMDARE_ANATOMY_VERSION_STAMP(");
+    if (p == std::string::npos) return {};
+    std::size_t const nl = src.find('\n', p);
+    return src.substr(p, nl == std::string::npos ? std::string::npos : nl - p);
+}
+
+// -- (a2) W12-A2 Emitter-Injektion: die Stempel-Zeile ist REAL PRAESENT (nicht nur beidseitig-leer) -----------
+// Ergaenzt (a): die Byte-Identitaet allein bliebe gruen, falls BEIDE Pfade den Stempel stumm nicht emittierten.
+// Diese Wache belegt die tatsaechliche Injektion -- Organ- + System-Stempel in X.Y.Z-Voll-Form, in BEIDEN Pfaden
+// byte-gleich. Golden-kritisch (Section 43): faellt der Stempel weg, gilt keine chirurgische Cache-Invalidierung.
+void check_stamp_injected(std::vector<std::string> const& g320_ids) {
+    std::cout << "\n---- (a2) W12-A2 Emitter-Injektion: Versionierungs-Stempel real praesent (beide Pfade) ----\n";
+    ex::SourceGenFn const cat  = tlz::generated_make_catalog_source_gen();
+    ex::SourceGenFn const lazy = tlz::make_lazy_adhoc_source_gen();
+    std::string const     id   = g320_ids.front();
+    std::string const     cs   = stamp_line(cat(id));
+    std::string const     ls   = stamp_line(lazy(id));
+    std::cout << "  lazy-Stempel-Zeile:    " << ls << "\n";
+    std::cout << "  Katalog-Stempel-Zeile: " << cs << "\n";
+    check_true("(a2) lazy-Quelle traegt COMDARE_ANATOMY_VERSION_STAMP(", !ls.empty());
+    check_true("(a2) Katalog-Quelle traegt COMDARE_ANATOMY_VERSION_STAMP(", !cs.empty());
+    check_true("(a2) Stempel-Zeile byte-gleich (lazy == Katalog)", ls == cs);
+    check_true("(a2) Organ-Stempel in X.Y.Z-Voll-Form (@1.0.0)", ls.find("@1.0.0") != std::string::npos);
+    // Der System-Stempel (system_stamp_line) traegt die statischen System-Achsen -- als 2. Makro-Argument.
+    check_true("(a2) System-Stempel-Achse compiler=code@ eingebettet", ls.find("compiler=code@") != std::string::npos);
+}
+
 // -- (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ------------------------------------
 void check_golden_n_nonempty(std::vector<std::string> const& g320_ids, std::vector<std::string> const& full_ids) {
     std::cout << "\n---- (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ----\n";
@@ -239,6 +268,7 @@ int main() {
     std::vector<std::string> const full_ids = binary_ids(tlz::catalog_static_levels<tlz::FullSourceCatalog>());
 
     check_320_byte_identity(g320_ids);
+    check_stamp_injected(g320_ids);
     check_golden_n_nonempty(g320_ids, full_ids);
     check_crc64_and_lazy_cover(full_ids);
     check_simd_organ_system_blind(full_ids);

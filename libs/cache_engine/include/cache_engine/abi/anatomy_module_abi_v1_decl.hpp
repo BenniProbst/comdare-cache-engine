@@ -101,6 +101,46 @@ void comdare_destroy_anatomy(::comdare::cache_engine::anatomy::IAnatomyBase* ptr
 
 } // extern "C"
 
+// -----------------------------------------------------------------------------
+// Optionale Versionierungs-Stempel-Probe (W12-A2 / Section 43) -- KEIN Major-Bump
+// -----------------------------------------------------------------------------
+// Ein OPTIONALES 5. extern-"C"-Symbol, das die einkompilierten Organ-/System-Stempel-Zeilen
+// (kOrganAxisVersionLine / kSystemAxisVersionLine) als POD exponiert. Der Loader verlangt weiter
+// NUR die 4 Pflicht-Symbole (comdare_create_anatomy et al.) -> KEIN ABI-Major-Bump; ein Modul ohne
+// COMDARE_ANATOMY_VERSION_STAMP exportiert das Symbol schlicht nicht (dlsym/GetProcAddress findet es
+// nicht). Der POD traegt nur String-Literal-Zeiger (im Modul static constexpr), kein std::string.
+
+namespace comdare::cache_engine::abi {
+
+/// AnatomyVersionLines -- POD der einkompilierten Versionierungs-Stempel eines Tier-Binary (W12-A2,
+/// Section 43). organ_line == kOrganAxisVersionLine, system_line == kSystemAxisVersionLine
+/// (anatomy_version_stamp.hpp). Die *_len-Felder geben die Laenge OHNE Nullterminator; der Zeiger ist
+/// dennoch nullterminiert (String-Literal). Loader-Seite liest read-only.
+struct AnatomyVersionLines {
+    std::uint32_t stamp_layout_version; ///< == kAnatomyVersionLinesLayout (POD-Layout-Wache)
+    std::uint32_t reserved;             ///< 0 (Ausrichtung / kuenftige Flags)
+    char const*   organ_line;           ///< kOrganAxisVersionLine (nullterminiert)
+    std::uint64_t organ_len;            ///< organ_line-Laenge ohne '\0'
+    char const*   system_line;          ///< kSystemAxisVersionLine (nullterminiert)
+    std::uint64_t system_len;           ///< system_line-Laenge ohne '\0'
+};
+
+/// Layout-Version des AnatomyVersionLines-POD -- unabhaengig vom ABI-Major. Ein POD-Layout-Wechsel bumpt
+/// DIESE Konstante, NICHT COMDARE_ANATOMY_ABI_MAJOR (das optionale Symbol ist nicht Loader-Pflicht).
+inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 1;
+
+} // namespace comdare::cache_engine::abi
+
+extern "C" {
+
+/// comdare_anatomy_version_lines() -- OPTIONALES Probe-Symbol: liefert die einkompilierten Stempel-Zeilen
+/// eines Tier-Binary. NICHT Teil der 4 Loader-Pflicht-Symbole; ein ohne COMDARE_ANATOMY_VERSION_STAMP
+/// gebautes Modul exportiert es gar nicht (dlsym liefert dann nullptr).
+COMDARE_ANATOMY_ABI_EXPORT
+::comdare::cache_engine::abi::AnatomyVersionLines const* comdare_anatomy_version_lines() noexcept;
+
+} // extern "C"
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AnatomyAbiVersion Helper-Klasse (host-seitig im Module-Loader)
 // ─────────────────────────────────────────────────────────────────────────────
