@@ -2,7 +2,8 @@
 // (F-SIMD, User-Ruling 2026-07-18: "F-SIMD strikt nach Plan-Empfehlung SYMMETRISCH").
 //
 // SPIEGELBILDLICH zu opt_level unter compiler (optimization_level_sub_axis.hpp, das strikte Vorbild):
-//   extension_hardware (Haupt-System-Achse, 6., Q2 Option C)
+//   extension_hardware (Haupt-System-Achse, 6., Q2 Option C; AKTIVER Familien-Knoten seit GN-1:
+//                       extension_hardware_family_axis.hpp -- dort loest parent_axis_label() auf)
 //     -> simd (Unter-Achse, parent_axis_label()=="extension_hardware")
 //        -> Optionen {no_extension, avx2, avx512}  (SimdNoExtOption / SimdAvx2Option / SimdAvx512Option)
 //

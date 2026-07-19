@@ -9,6 +9,10 @@
 // Block F haelt die Typen als Kontrast kompilierbar. NICHT LOESCHEN (Doku-nie-loeschen + Aufraeumen-unter-
 // Absprache) -- endgueltige Entfernung ist user-gated.
 //
+// GN-1 (2026-07-19): der AKTIVE Traeger des Labels "extension_hardware" ist seither der Familien-Knoten
+// measurement/extension_hardware_family_axis.hpp (ExtensionHardwareFamilyAxis/SimdExtensionHardwareFamily,
+// analog CompilerSystemAxis) -- SimdSubAxis.parent_axis_label loest dort auf. Diese Insel bleibt DEPRECATED.
+//
 // User-Ruling verbatim-treu: die CEB bekommt die Einstellungen vom Experiment-Planer, permutiert
 // die simd_extension-Auspraegungen aber SELBST zu ihrer Laufzeit durch und stattet Tier-Binaries
 // zur compile time mit diesen Eigenschaften aus (Erweiterungshardware = SIMD, spaeter GPU).

@@ -56,6 +56,7 @@
 #include <cache_engine/measurement/system_axis.hpp> // kAllMeasurementCategories (INC-D: Single-Source der 16 Kategorie-Enums)
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
+#include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
 #include <anatomy/pruefling_merge.hpp>             // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
 #include "xml_config_parser/xml_reader.hpp"        // INC-D: common-DOM zum Lesen der Registry-XML (kein regex)
@@ -570,6 +571,10 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     }
     // Single-Source: die gueltigen simd-ids kommen aus der SimdSubAxis-Familie (kAllSimdIds), NICHT hartkodiert
     // (Konformitaets-NACH F-SIMD 2026-07-18; deckungsgleich zur XSD-Enumeration extension_hardware/simd/option).
+    // GN-1-Anker: die <system_axes><extension_hardware>-Sektion validiert gegen die Unter-Achse des AKTIVEN
+    // Familien-Knotens (extension_hardware_family_axis.hpp) -- Label-Drift bricht compile-time, nicht erst hier.
+    static_assert(ms::SimdNoExtOption::parent_axis_label() == ms::SimdExtensionHardwareFamily::axis_label(),
+                  "GN-1: simd haengt unter dem aktiven extension_hardware-Familien-Knoten.");
     for (auto const& s :
          ep.extension_hardware.simd_options) { // Optionen der simd-Unter-Achse (extension_hardware → simd)
         ++r.simd_checked;
