@@ -10,7 +10,7 @@
 
 #include <memory>
 
-#include "pmc_source.hpp" // IPmcSource / NullPmcSource (UNVERÄNDERT)
+#include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource / NullPmcSource (nach A2-Neben Stufe 1)
 
 #if defined(COMDARE_ENABLE_PMC) && defined(_WIN32)
 #include "windows_pcm_pmc_source.hpp" // selbst guarded → leer ohne das Makro
@@ -26,13 +26,13 @@ namespace comdare::cache_engine::builder {
 /// COMDARE_ENABLE_PMC + Windows → reale Intel-PCM-Quelle; + Linux → reale perf_event_open-Quelle;
 /// sonst ehrliche NullPmcSource (available=false). Die OS-Diskriminierung (_WIN32 vs __linux__) macht
 /// AUSSCHLIESSLICH diese Factory — die konkreten Quellen-Header sind je selbst OS-/Makro-geguardet.
-[[nodiscard]] inline std::unique_ptr<IPmcSource> make_pmc_source() {
+[[nodiscard]] inline std::unique_ptr<measurement::IPmcSource> make_pmc_source() {
 #if defined(COMDARE_ENABLE_PMC) && defined(_WIN32)
     return std::make_unique<WindowsPcmPmcSource>();
 #elif defined(COMDARE_ENABLE_PMC) && defined(__linux__)
     return std::make_unique<LinuxPerfPmcSource>();
 #else
-    return std::make_unique<NullPmcSource>();
+    return std::make_unique<measurement::NullPmcSource>();
 #endif
 }
 

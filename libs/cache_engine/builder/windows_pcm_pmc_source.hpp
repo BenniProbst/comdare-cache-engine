@@ -21,7 +21,7 @@
 
 #if defined(COMDARE_ENABLE_PMC) && defined(_WIN32)
 
-#include "pmc_source.hpp" // IPmcSource / PmcCounters (UNVERÄNDERT)
+#include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource / PmcCounters (nach A2-Neben Stufe 1)
 
 // Intel PCM-Header NUR hier (innerhalb des Guards) — sonst würde der Default-Build ihn anfordern.
 #include <cpucounters.h>
@@ -31,7 +31,7 @@ namespace comdare::cache_engine::builder {
 /// REALE PMC-Quelle (Intel PCM, Windows). begin() = Snapshot, end() = zweiter Snapshot → Counter-Delta.
 /// `available()` spiegelt EHRLICH den PCM-Init-Status (program()==PCM::Success); schlägt der Treiber/MSR-
 /// Zugriff fehl (kein signiertes msr.sys / keine Admin-Rechte), bleibt available()=false → wie NullPmcSource.
-class WindowsPcmPmcSource final : public IPmcSource {
+class WindowsPcmPmcSource final : public measurement::IPmcSource {
 public:
     WindowsPcmPmcSource() noexcept {
         // PCM ist ein Prozess-Singleton; program() initialisiert den msr.sys-Treiber-Zugriff.
@@ -43,8 +43,8 @@ public:
         if (ready_ && pcm_ != nullptr) { before_ = pcm_->getSystemCounterState(); }
     }
 
-    [[nodiscard]] PmcCounters end() noexcept override {
-        PmcCounters c;
+    [[nodiscard]] measurement::PmcCounters end() noexcept override {
+        measurement::PmcCounters c;
         if (!ready_ || pcm_ == nullptr) {
             return c; // available=false (Default) — ehrlich „nicht gemessen"
         }

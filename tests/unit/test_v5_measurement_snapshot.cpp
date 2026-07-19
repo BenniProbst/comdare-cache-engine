@@ -99,7 +99,7 @@ TEST(V5MeasurementSnapshot, Pipeline16IsConsumableByStage04) {
 
 // #26 PMC-Quelle: NullPmcSource meldet EHRLICH „nicht verfügbar" → pmc_available=0, HW-Spalten bleiben 0.
 TEST(V5MeasurementSnapshot, NullPmcSourceReportsUnavailable) {
-    b::NullPmcSource pmc;
+    ::comdare::cache_engine::measurement::NullPmcSource pmc;
     EXPECT_FALSE(pmc.available());
     pmc.begin();
     auto const c = pmc.end();
@@ -113,7 +113,7 @@ TEST(V5MeasurementSnapshot, NullPmcSourceReportsUnavailable) {
 
 // #26 PMC-Quelle: eine VERFÜGBARE Quelle (Mock) speist die 6 HW-Spalten + setzt pmc_available=1.
 TEST(V5MeasurementSnapshot, AvailablePmcFillsHwColumns) {
-    b::PmcCounters c;
+    ::comdare::cache_engine::measurement::PmcCounters c;
     c.available               = true;
     c.cache_misses_l1         = 1111;
     c.cache_misses_l2         = 222;

@@ -12,7 +12,6 @@
 #include <string>
 
 namespace mm = ::comdare::cache_engine::measurement;
-namespace cb = ::comdare::cache_engine::builder;
 namespace cf = ::comdare::cache_engine::builder::curve_fit;
 
 namespace {
@@ -70,7 +69,7 @@ int main() {
     check_true("WallClock: needs_admin == false (immer verfuegbar)", !wall.capabilities().needs_admin);
 
     // ── (3) PmcSourceAdapter um NullPmcSource: ehrliche DriverMissing-Meldung. ──
-    cb::NullPmcSource    null_pmc;
+    mm::NullPmcSource    null_pmc;
     mm::PmcSourceAdapter adapter{null_pmc};
     check_true("Adapter(NullPmc): open == DriverMissing", adapter.open(want) == mm::SourceStatus::DriverMissing);
     adapter.begin();

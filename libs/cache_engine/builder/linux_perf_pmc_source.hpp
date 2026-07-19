@@ -32,7 +32,7 @@
 
 #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
 
-#include "pmc_source.hpp" // IPmcSource / PmcCounters (UNVERÄNDERT)
+#include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource / PmcCounters (nach A2-Neben Stufe 1)
 
 // Kernel-/POSIX-Header NUR hier (innerhalb des Guards) — sonst würde ein Nicht-Linux-Build sie anfordern.
 #include <linux/perf_event.h> // struct perf_event_attr, PERF_* Konstanten
@@ -194,7 +194,7 @@ inline bool read_rapl_max_range_uj(std::uint64_t& out_uj) noexcept {
 ///   cache_misses_l2         <- KEIN portabler generischer Counter → bleibt 0 (kein RAW-Rateversuch)
 ///   coherence_invalidations <- KEIN portabler generischer Counter → bleibt 0 (kein RAW-Rateversuch)
 ///   energy_micro_joules     <- best-effort RAPL (powercap energy_uj, Delta) → 0 ohne Zone/Leserecht
-class LinuxPerfPmcSource final : public IPmcSource {
+class LinuxPerfPmcSource final : public measurement::IPmcSource {
 public:
     LinuxPerfPmcSource() noexcept {
         using namespace detail_linux_perf;
@@ -234,9 +234,9 @@ public:
 #endif
     }
 
-    [[nodiscard]] PmcCounters end() noexcept override {
+    [[nodiscard]] measurement::PmcCounters end() noexcept override {
         using namespace detail_linux_perf;
-        PmcCounters c; // alle 0, available=false (POD-Default) — ehrliche Basis.
+        measurement::PmcCounters c; // alle 0, available=false (POD-Default) — ehrliche Basis.
         if (!ready_) {
 #if defined(COMDARE_ENABLE_PAPI)
             return end_papi_fallback_(c); // perf nicht live → ggf. PAPI; sonst available=false.
@@ -342,7 +342,7 @@ private:
         papi_ready_ = (PAPI_num_events(papi_evtset_) > 0);
     }
 
-    PmcCounters& end_papi_fallback_(PmcCounters& c) noexcept {
+    measurement::PmcCounters& end_papi_fallback_(measurement::PmcCounters& c) noexcept {
         if (!papi_ready_) return c; // available bleibt false.
         long long vals[3] = {0, 0, 0};
         if (PAPI_stop(papi_evtset_, vals) == PAPI_OK) {

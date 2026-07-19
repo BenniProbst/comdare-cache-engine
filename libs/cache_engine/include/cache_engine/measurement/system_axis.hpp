@@ -7,7 +7,7 @@
 #include <cache_engine/measurement/measurement_category.hpp>
 
 #include "../../../anatomy/observable_tier.hpp"
-#include "../../../builder/pmc_source.hpp"
+#include <cache_engine/measurement/pmc_source.hpp>
 #include "../../../topics/axis.hpp"
 
 #include <array>
@@ -285,7 +285,7 @@ static_assert(std::string_view{::comdare::cache_engine::anatomy::kV3AxisSchema[5
 static_assert(std::string_view{::comdare::cache_engine::anatomy::kV3AxisSchema[5].names[3]} == "cache_lines");
 
 struct PmcSystemAxis final : SystemAxis<PmcSystemAxis> {
-    using counters_t = ::comdare::cache_engine::builder::PmcCounters;
+    using counters_t = ::comdare::cache_engine::measurement::PmcCounters;
 
     counters_t const* counters = nullptr;
 

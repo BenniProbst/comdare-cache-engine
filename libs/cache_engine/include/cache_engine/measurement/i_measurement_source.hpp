@@ -6,11 +6,11 @@
 // run_workload-/tier_*-Aufruf am Dock. Runner-/Pruef-Dock-Verdrahtung = Folge-Increment (E1-Verweis).
 //
 // Review wf_c99a2132 (CONFIRMED-major, gefixt): read_delta zielt auf ein EIGENES, vollstaendiges
-// MeasuredDelta (alle 10 MeasuredEvents + per-Event-Gueltigkeit) — builder::PmcCounters (TABU,
+// MeasuredDelta (alle 10 MeasuredEvents + per-Event-Gueltigkeit) — measurement::PmcCounters (TABU,
 // Bestand) kann Cycles/Instructions/MemStall strukturell nicht ausdruecken und waere fuer die
 // Folge-Verdrahtung eine Sackgasse gewesen. Der ABI-heilige Snapshot-POD bleibt unberuehrt.
 
-#include "../../../builder/pmc_source.hpp" // builder::IPmcSource/PmcCounters (Bestands-Familie, nur Adapter)
+#include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource/PmcCounters (Bestands-Familie, nur Adapter)
 
 #include <array>
 #include <chrono>
@@ -127,7 +127,7 @@ private:
     std::chrono::steady_clock::time_point end_{};
 };
 
-/// GoF-ADAPTER: wickelt die Bestands-PMC-Familie (builder::IPmcSource) in das vendor-neutrale
+/// GoF-ADAPTER: wickelt die Bestands-PMC-Familie (measurement::IPmcSource) in das vendor-neutrale
 /// Interface — pmc_source.hpp bleibt byte-unberuehrt. EHRLICHKEITS-GRENZE (Review wf_c99a2132):
 /// IPmcSource kennt weder per-Event-Caps noch per-Event-Gueltigkeit (EIN available-Flag); der
 /// Adapter bewirbt deshalb nur die 7 STRUKTURELL ausdrueckbaren Kanaele und stempelt valid je
@@ -135,7 +135,7 @@ private:
 /// Erweiterung (P4/Vendor-Impls) = Folge-Increment.
 class PmcSourceAdapter final : public IMeasurementSource {
 public:
-    explicit PmcSourceAdapter(builder::IPmcSource& source) noexcept : source_{source} {}
+    explicit PmcSourceAdapter(measurement::IPmcSource& source) noexcept : source_{source} {}
 
     [[nodiscard]] std::string_view      vendor_id() const noexcept override { return source_.name(); }
     [[nodiscard]] MeasurementSourceCaps capabilities() const noexcept override {
@@ -151,12 +151,12 @@ public:
         return caps;
     }
     SourceStatus open(std::span<MeasuredEvent const> events) noexcept override {
-        last_ = builder::PmcCounters{}; // stale-Delta-Schutz (Review wf_c99a2132)
+        last_ = measurement::PmcCounters{}; // stale-Delta-Schutz (Review wf_c99a2132)
         if (!source_.available()) return SourceStatus::DriverMissing;
         return detail::validate_events(capabilities(), events);
     }
     void begin() noexcept override {
-        last_ = builder::PmcCounters{};
+        last_ = measurement::PmcCounters{};
         source_.begin();
     }
     void end() noexcept override { last_ = source_.end(); }
@@ -176,11 +176,11 @@ public:
         set(MeasuredEvent::CoherenceInval, last_.coherence_invalidations);
         set(MeasuredEvent::EnergyUj, last_.energy_micro_joules);
     }
-    void close() noexcept override { last_ = builder::PmcCounters{}; }
+    void close() noexcept override { last_ = measurement::PmcCounters{}; }
 
 private:
-    builder::IPmcSource& source_;
-    builder::PmcCounters last_{}; ///< Delta des letzten begin/end-Intervalls
+    measurement::IPmcSource& source_;
+    measurement::PmcCounters last_{}; ///< Delta des letzten begin/end-Intervalls
 };
 
 } // namespace comdare::cache_engine::measurement
