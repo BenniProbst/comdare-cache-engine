@@ -255,3 +255,118 @@ TEST(ExperimentPlanDirector, DirectorAnnotatesPlanHeaderWithRegistryTrio) {
     EXPECT_NE(text.text().find("organ=cache_engine"), std::string::npos);
     EXPECT_NE(text.text().find("measurement=cache_engine_measurement"), std::string::npos);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAKET W5-B / I2 — CMakeGraphBuilder: zweiter ConcreteBuilder (GoF Builder) am SELBEN Director-Walk. Emittiert
+// ein deterministisches experiment_plan.cmake (Bau-/Mess-Matrix als CMake-Graph). GEPRUEFT: (F/G) Topologie-
+// Isomorphie zum Director-Walk (dieselbe Perm-Menge + Schritt-Reihenfolge wie ein CountingBuilder, den auch der
+// PlanTextBuilder-Text spiegelt); (H) build:->measure:-Kanten je Perm + Aggregat-Target (Blaupausen-Treue
+// add_custom_command/DEPENDS/VERBATIM); (I) Byte-Determinismus des .cmake-Textes (Thesis + Experiment).
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace {
+std::size_t count_occurrences(std::string const& hay, std::string const& needle) {
+    std::size_t n = 0, pos = 0;
+    while ((pos = hay.find(needle, pos)) != std::string::npos) {
+        ++n;
+        pos += needle.size();
+    }
+    return n;
+}
+} // namespace
+
+// (F) Topologie-Isomorphie (Thesis): CMakeGraphBuilder und ein CountingBuilder (Referenz-Struktur, die auch der
+//     PlanTextBuilder-Text spiegelt) sehen ueber DASSELBE Profil dieselbe Perm-Menge + Schritt-Reihenfolge.
+TEST(CMakeGraphBuilder, ThesisTopologyIsomorphicToDirectorWalk) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    CountingBuilder                       ref;
+    planner::CMakeGraphBuilder            gb;
+    director.construct(*tp, ref);
+    director.construct(*tp, gb);
+
+    ASSERT_EQ(gb.perms().size(), ref.perms.size()) << "gleiche Perm-Menge";
+    ASSERT_EQ(gb.perms().size(), 4u) << "2 opt x 2 simd";
+    for (std::size_t i = 0; i < ref.perms.size(); ++i) {
+        EXPECT_EQ(gb.perms()[i].index, ref.perms[i].index);
+        EXPECT_EQ(gb.perms()[i].opt_id, ref.perms[i].opt_id);
+        EXPECT_EQ(gb.perms()[i].simd_id, ref.perms[i].simd_id);
+        ASSERT_EQ(gb.steps_per_perm()[i].size(), ref.steps_per_perm[i].size()) << "gleiche Schritt-Zahl je Perm";
+        for (std::size_t j = 0; j < ref.steps_per_perm[i].size(); ++j) {
+            EXPECT_EQ(gb.steps_per_perm()[i][j].kind, ref.steps_per_perm[i][j].kind);
+            EXPECT_EQ(gb.steps_per_perm()[i][j].label, ref.steps_per_perm[i][j].label) << "gleiche Reihenfolge";
+        }
+    }
+    // Cross-Check zum PlanTextBuilder: dessen perm_count-Kopfzeile deckt sich mit der Perm-Menge.
+    planner::PlanTextBuilder pt;
+    director.construct(*tp, pt);
+    EXPECT_NE(pt.text().find("perm_count=4"), std::string::npos);
+}
+
+// (G) Experiment-Kanal: dieselbe Isomorphie (3 Phasen -> 19 Passes je Perm -> 76 Schritte total).
+TEST(CMakeGraphBuilder, ExperimentTopologyIsomorphicToDirectorWalk) {
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    CountingBuilder                       ref;
+    planner::CMakeGraphBuilder            gb;
+    director.construct(*ep, ref);
+    director.construct(*ep, gb);
+
+    ASSERT_EQ(gb.perms().size(), ref.perms.size());
+    std::size_t gb_total = 0, ref_total = 0;
+    for (std::size_t i = 0; i < ref.perms.size(); ++i) {
+        ASSERT_EQ(gb.steps_per_perm()[i].size(), ref.steps_per_perm[i].size());
+        gb_total += gb.steps_per_perm()[i].size();
+        ref_total += ref.steps_per_perm[i].size();
+    }
+    EXPECT_EQ(gb_total, ref_total);
+    EXPECT_EQ(gb_total, 76u) << "4 Perms x 19 Passes";
+}
+
+// (H) build:->measure:-Kanten: N Perms => N build- + N measure-Targets + N build->measure-DEPENDS + 1 Aggregat.
+TEST(CMakeGraphBuilder, EmitsPerPermBuildMeasureEdgesAndAggregate) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::CMakeGraphBuilder            gb;
+    director.construct(*tp, gb);
+    std::string const& cmake = gb.text();
+
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_experiment_plan_build_perm"), 4u);
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_experiment_plan_measure_perm"), 4u);
+    EXPECT_EQ(count_occurrences(cmake, "# build:->measure:-Kante"), 4u) << "eine Bau->Mess-Kante je Perm";
+    EXPECT_NE(cmake.find("add_custom_target(comdare_experiment_plan_all DEPENDS"), std::string::npos);
+    // Blaupausen-Treue (catalog_codegen.cmake:27-37): add_custom_command + DEPENDS + VERBATIM.
+    EXPECT_NE(cmake.find("add_custom_command("), std::string::npos);
+    EXPECT_NE(cmake.find("VERBATIM)"), std::string::npos);
+}
+
+// (I) Byte-Determinismus des .cmake-Textes (Thesis + Experiment): zwei Laeufe -> byte-gleich.
+TEST(CMakeGraphBuilder, CMakeTextIsByteDeterministic) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    {
+        planner::CMakeGraphBuilder a;
+        planner::CMakeGraphBuilder b;
+        director.construct(*tp, a);
+        director.construct(*tp, b);
+        EXPECT_EQ(a.text(), b.text()) << "thesis .cmake byte-deterministisch";
+        EXPECT_FALSE(a.text().empty());
+    }
+    {
+        planner::CMakeGraphBuilder a;
+        planner::CMakeGraphBuilder b;
+        director.construct(*ep, a);
+        director.construct(*ep, b);
+        EXPECT_EQ(a.text(), b.text()) << "experiment .cmake byte-deterministisch";
+    }
+}

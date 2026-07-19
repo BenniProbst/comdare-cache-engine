@@ -175,6 +175,100 @@ private:
     std::string                      out_;
 };
 
+// ── CMakeGraphBuilder — zweiter ConcreteBuilder (GoF Builder) am SELBEN Director-Walk (PAKET W5-B / I2). ──────
+//    Emittiert ein deterministisches experiment_plan.cmake: die Bau-/Mess-Matrix als CMake-Graph. Pro Perm
+//    (opt x simd-Zelle) EIN build:-Schritt (Bau der Zell-Binaries) + EIN measure:-Schritt; die build:->measure:-
+//    Kante ist das DEPENDS des measure- auf den build-Stamp (Blaupause add_custom_command/DEPENDS/VERBATIM,
+//    cmake/catalog_codegen.cmake:27-37). REIN beschreibend: die COMMANDs sind No-Op (echo+touch), es findet KEIN
+//    echter Compile/Run statt (Anti-Phantom, golden-neutral, wie der PlanTextBuilder-Schwesterzweig). Host-
+//    unabhaengig reproduzierbar: der Text traegt nur CMake-Generator-Variablen (${CMAKE_CURRENT_BINARY_DIR}) als
+//    LITERALE, keine emit-Zeit-Host-Werte => byte-deterministisch. Isomorph zum PlanTextBuilder: BEIDE sehen
+//    ueber denselben Director-Walk dieselbe begin_perm/on_step-Folge (die perms()/steps_per_perm()-Aufzeichnung
+//    ist der strukturelle Zeuge fuer den Contract-Test).
+class CMakeGraphBuilder final : public IPlanBuilder {
+public:
+    void begin_plan(PlanHeader const& h) override {
+        header_ = h;
+        out_ += "# comdare-experiment-plan (generated .cmake blueprint, CMakeGraphBuilder v1)\n";
+        out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
+                " perm_count=" + std::to_string(h.perm_count) +
+                " registry_trio_loaded=" + std::string(h.registries.loaded ? "1" : "0") + "\n";
+        out_ += "#\n";
+        out_ += "# Deterministische Bau-/Mess-Matrix als CMake-Graph: pro Perm (opt x simd) EIN build:- + EIN\n";
+        out_ += "# measure:-Schritt; die build:->measure:-Kante ist das DEPENDS des measure- auf den build-Stamp.\n";
+    }
+    void begin_perm(PlanPerm const& p) override {
+        perms_.push_back(p);
+        steps_per_perm_.emplace_back();
+        out_ += "\n# --- perm " + std::to_string(p.index) + ": opt=" + nz(p.opt_id) + " simd=" + nz(p.simd_id) +
+                " build_version_suffix=" + nz(p.build_version_suffix) + " ---\n";
+    }
+    void on_step(PlanStep const& s) override {
+        steps_per_perm_.back().push_back(s);
+        out_ += "#   step " + std::to_string(s.index) + " kind=" + nz(s.kind) +
+                " label=" + (s.label.empty() ? std::string{"<basis>"} : s.label) + " merge=" + nz(s.merge) +
+                " binary_id=" + nz(s.binary_id) + " lebewesen=" + nz(s.lebewesen) + "\n";
+    }
+    void end_perm(PlanPerm const& p) override {
+        std::string const idx    = std::to_string(p.index);
+        std::string const stem   = "${CMAKE_CURRENT_BINARY_DIR}/experiment_plan/perm" + idx;
+        std::string const bstamp = stem + ".build.stamp";
+        std::string const mstamp = stem + ".measure.stamp";
+        std::string const cell   = "perm " + idx + " opt=" + nz(p.opt_id) + " simd=" + nz(p.simd_id) +
+                                   " steps=" + std::to_string(steps_per_perm_.back().size());
+        // build:-Schritt (Bau der Zell-Binaries dieser opt x simd-Perm).
+        out_ += "if(NOT TARGET " + build_target(p.index) + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + bstamp + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"build: " + cell + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
+        out_ += "        COMMENT \"build: " + cell + "\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + build_target(p.index) + " DEPENDS \"" + bstamp + "\")\n";
+        out_ += "endif()\n";
+        // measure:-Schritt mit build:->measure:-Kante (DEPENDS auf den build-Stamp derselben Perm).
+        out_ += "if(NOT TARGET " + measure_target(p.index) + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + mstamp + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"measure: " + cell + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + mstamp + "\"\n";
+        out_ += "        DEPENDS \"" + bstamp + "\" # build:->measure:-Kante\n";
+        out_ += "        COMMENT \"measure: " + cell + "\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + measure_target(p.index) + " DEPENDS \"" + mstamp + "\")\n";
+        out_ += "endif()\n";
+    }
+    void end_plan(PlanHeader const&) override {
+        // Aggregat-Target: alle measure:-Schritte (=> transitiv alle build:-Schritte via build:->measure:-Kante).
+        out_ += "\n# Aggregat: alle measure:-Schritte (transitiv alle build:-Schritte via DEPENDS-Kante).\n";
+        out_ += "if(NOT TARGET " + all_target() + ")\n";
+        out_ += "    add_custom_target(" + all_target() + " DEPENDS";
+        for (auto const& p : perms_) out_ += "\n        " + measure_target(p.index);
+        out_ += ")\n";
+        out_ += "endif()\n";
+    }
+
+    [[nodiscard]] std::string const&                        text() const noexcept { return out_; }
+    [[nodiscard]] PlanHeader const&                         header() const noexcept { return header_; }
+    [[nodiscard]] std::vector<PlanPerm> const&              perms() const noexcept { return perms_; }
+    [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
+
+private:
+    [[nodiscard]] static std::string nz(std::string const& s) { return s.empty() ? std::string{"-"} : s; }
+    [[nodiscard]] static std::string build_target(std::size_t i) {
+        return "comdare_experiment_plan_build_perm" + std::to_string(i);
+    }
+    [[nodiscard]] static std::string measure_target(std::size_t i) {
+        return "comdare_experiment_plan_measure_perm" + std::to_string(i);
+    }
+    [[nodiscard]] static std::string all_target() { return "comdare_experiment_plan_all"; }
+
+    PlanHeader                         header_;
+    std::vector<PlanPerm>              perms_;
+    std::vector<std::vector<PlanStep>> steps_per_perm_;
+    std::string                        out_;
+};
+
 // ── Registry-Trio-Annotation aus einem gelesenen RegistryTrio (Resolver-Vorstufe). ──────────────────────────
 [[nodiscard]] inline PlanRegistrySource make_plan_registry_source(tlz::RegistryContents const& rc) {
     std::size_t bausteine = 0;
