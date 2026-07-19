@@ -1700,7 +1700,8 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_kf12_kf13_slurm_prepare
     test_kf15_inverse_signature
     test_kf16_build_orchestrator
-    test_kf16b_build_resilience)
+    test_kf16b_build_resilience
+    test_w6_parallel_provision)     # W6 (§32-F7): paralleler provision-Bau-Pool + positions-treue Sink-Ordnung
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -3324,6 +3325,26 @@ target_compile_definitions(test_m_contract_system_axis_wurzel PRIVATE
 add_test(NAME test_m_contract_system_axis_wurzel COMMAND test_m_contract_system_axis_wurzel)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_contract_system_axis_wurzel)
 set_tests_properties(test_m_contract_system_axis_wurzel PROPERTIES LABELS "m;blut")
+
+# Querschnitt M - Section 40.a-E1: feingranularer SIMD-Flag-Katalog + Maschinen-Signaturen (header-only).
+add_executable(test_m_simd_feature_flag_catalog "test_m_simd_feature_flag_catalog.cpp")
+target_compile_features(test_m_simd_feature_flag_catalog PRIVATE cxx_std_23)
+target_include_directories(test_m_simd_feature_flag_catalog PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# Hermetik (CI-3): zieht transitiv topics/axis.hpp (boost::mp11) -- explizit an Boost::mp11 linken.
+target_link_libraries(test_m_simd_feature_flag_catalog PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_m_simd_feature_flag_catalog)
+target_compile_definitions(test_m_simd_feature_flag_catalog PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_m_simd_feature_flag_catalog COMMAND test_m_simd_feature_flag_catalog)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_simd_feature_flag_catalog)
+set_tests_properties(test_m_simd_feature_flag_catalog PROPERTIES LABELS "m;blut")
 
 # Limits-Entkopplung Vorstufe - XML-Profil generiert Build-Header, kein Produktivkonsum.
 add_executable(test_limits_entkopplung_vorstufe
