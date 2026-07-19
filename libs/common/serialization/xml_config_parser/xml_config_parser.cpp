@@ -84,6 +84,26 @@ std::vector<PermutationEntry> parse_entries_dom(comdare::common::xml::XmlNode co
     return (ec == std::errc{}) ? v : def;
 }
 
+// GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE <system_axes>-Parse-Naht. Vorher lebte dieser Block
+// NUR inline im comdare_experiment-Parser (parse_experiment_profile); jetzt EINE gemeinsame Funktion, die BEIDE
+// Kanaele (comdare_thesis_profile + comdare_experiment) additiv konsumieren. Konvention Haupt→Unter→Option
+// (V35 §2.1): compiler (Haupt) → opt_level (Unter-Achse, EIN Container) → <option>; extension_hardware (Haupt) →
+// simd (Unter-Achse, EIN Container) → <option> (symmetrisch zu opt_level, F-SIMD). Rohstrings; binary_id-neutral
+// (Provenienz). `sa` = der bereits aufgeloeste <system_axes>-Knoten (der Aufrufer prueft die Existenz). Fehlt der
+// Knoten, ruft der Aufrufer diese Funktion NICHT → beide PODs bleiben leer = heutiges Verhalten byte-identisch.
+void parse_system_axes(comdare::common::xml::XmlNode const& sa, CompilerAxisSel& compiler,
+                       ExtensionHardwareAxisSel& extension_hardware) {
+    if (auto const* comp = sa.child("compiler")) {
+        if (auto const* ol = comp->child("opt_level"))
+            for (auto const* o : ol->children_named("option")) compiler.opt_levels.push_back(o->attr("value"));
+    }
+    if (auto const* xh = sa.child("extension_hardware")) {
+        if (auto const* simd = xh->child("simd"))
+            for (auto const* o : simd->children_named("option"))
+                extension_hardware.simd_options.push_back(o->attr("value"));
+    }
+}
+
 } // anonymous namespace
 
 CacheEngineConfig XmlConfigParser::parse(std::filesystem::path const& root_dir) const {
@@ -347,6 +367,11 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     if (auto const* mc = root->child("measurement_categories")) {
         for (auto const* c : mc->children_named("category")) tp.measurement_categories.push_back(c->attr("name"));
     }
+    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): <system_axes> ADDITIV im Thesis-Kanal ueber die GETEILTE
+    //    parse_system_axes-Naht (deckungsgleich zum comdare_experiment-Kanal). compiler/opt_level + extension_
+    //    hardware/simd → binary_id-NEUTRAL (system_config, multiplizieren NUR die Bau-Matrix/Sidecar, NIE N).
+    //    Fehlt <system_axes>, bleiben tp.compiler/extension_hardware leer = heutiges Verhalten byte-identisch. ──
+    if (auto const* sa = root->child("system_axes")) parse_system_axes(*sa, tp.compiler, tp.extension_hardware);
     // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.
     if (auto const* ro = root->child("run_options")) {
         tp.run_options.cap           = to_int(ro->attr("cap", "0"), 0);
@@ -417,20 +442,10 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
         for (auto const* c : mc->children_named("category")) ep.measurement_categories.push_back(c->attr("name"));
     }
     if (auto const* ot = root->child("op_types")) ep.op_types = ot->text_tokens();
-    // <system_axes> (opt-f/A3): CEB-System-Achsen, konform Haupt→Unter→Option (V35 §2.1). compiler (Haupt) →
-    // opt_level (Unter-Achse, EIN Container) → <option>; extension_hardware (Haupt) → simd (Unter-Achse, EIN
-    // Container) → <option> (symmetrisch zu opt_level, F-SIMD). Rohstrings; binary_id-neutral (Provenienz).
-    if (auto const* sa = root->child("system_axes")) {
-        if (auto const* comp = sa->child("compiler")) {
-            if (auto const* ol = comp->child("opt_level"))
-                for (auto const* o : ol->children_named("option")) ep.compiler.opt_levels.push_back(o->attr("value"));
-        }
-        if (auto const* xh = sa->child("extension_hardware")) {
-            if (auto const* simd = xh->child("simd"))
-                for (auto const* o : simd->children_named("option"))
-                    ep.extension_hardware.simd_options.push_back(o->attr("value"));
-        }
-    }
+    // <system_axes> (opt-f/A3): CEB-System-Achsen ueber die GETEILTE parse_system_axes-Naht (GN-3, 2026-07-19) —
+    // deckungsgleich zum comdare_thesis_profile-Kanal (EINE Funktion, kein dupliziertes Lese-Muster). Konvention
+    // Haupt→Unter→Option (V35 §2.1). Rohstrings; binary_id-neutral (Provenienz).
+    if (auto const* sa = root->child("system_axes")) parse_system_axes(*sa, ep.compiler, ep.extension_hardware);
     if (auto const* out = root->child("output")) {
         if (auto const* b = out->child("binary_path")) ep.output.binary_path = b->text;
         if (auto const* c = out->child("csv_path")) ep.output.csv_path = c->text;
