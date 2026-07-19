@@ -43,9 +43,12 @@ namespace comdare::cache_engine::best_binary {
 
 // ── ABI-Identität fürs Manifest (Quelle: anatomy_module_abi_v1_decl.hpp) ──────────────────────────
 // Hart gespiegelt (KEINE Build-Abhängigkeit aufs Engine-Target); muss mit dem Decl-Header übereinstimmen.
-inline constexpr std::uint32_t kAbiMajor = 5; // Bau-INC-2b 4→5-Buendel-Bump (vorher #216-H2: 4)
+// K-5 (2026-07-19): Spiegel-Drift 5/".A5." -> 6/".A6." gesynct (Bau-INC-2d isa-Herausloesung, ABI-6) --
+// der Spiegel schrieb sonst FALSCHE Manifest-Provenienz. Paritaets-Gate: static_assert gegen den
+// Decl-Header in tests/unit/test_best_binary_selector_parse_rank.cpp (Tool selbst bleibt self-contained).
+inline constexpr std::uint32_t kAbiMajor = 6; // Bau-INC-2d 5→6 (vorher INC-2b 4→5, #216-H2: 4)
 inline constexpr std::uint32_t kAbiMinor = 0;
-inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141352EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA·A5·"
+inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141362EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A6."
 
 // ── orch_make_stem-Round-Trip (identisch BuildOrchestrator: sanitize + FNV-1a + kStemMax=120) ─────
 // Diese drei Funktionen sind eine 1:1-Spiegelung von build_orchestrator.hpp:114/122/138 — sie MÜSSEN
