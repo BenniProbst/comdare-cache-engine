@@ -431,12 +431,13 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.golden_range_start         = args.golden_range_start; // INC-G6: Chunk-Fenster durchreichen (inert bei count==0)
     a.golden_range_count         = args.golden_range_count;
     a.provision_only             = args.provision_only; // INC-G6: provision-only durchreichen (inert bei false)
-    a.gn_cell_opt                = args.gn_cell_opt;    // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
-    a.gn_cell_simd               = args.gn_cell_simd;   // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
-    a.workload_registry          = std::move(workload_registry);
-    a.workload_values            = std::move(workload_values);
-    a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
-    a.measurement_sink           = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
+    a.build_parallelism = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
+    a.gn_cell_opt       = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
+    a.gn_cell_simd      = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
+    a.workload_registry = std::move(workload_registry);
+    a.workload_values   = std::move(workload_values);
+    a.cache_push        = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.measurement_sink  = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;
@@ -535,11 +536,15 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
     return vr.ok ? 0 : 1;
 }
 
-int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os) {
-    // W5-B (--dump-plan): rein-lesende Emission des deterministischen ExperimentPlanDirector-Walks. Root-Tag-
-    // Sniff ueber den common-DOM (analog main.cpp:675-680): <comdare_thesis_profile> -> Thesis-Kanal,
-    // <comdare_experiment> -> Experiment-Kanal. Beide Parser liefern nullopt bei Fremd-Tag, daher ist der reine
-    // Root-Tag-Read gefahrlos. KEIN DLL-Bau, KEINE Messung, KEINE CSV (Anti-Phantom, golden-neutral).
+namespace {
+// GETEILTE Naht der --dump-plan/--dump-ci/--dump-cmake-Fassaden (W5-B/W7-A/W7-B): Root-Tag-Sniff ueber den
+// common-DOM (analog main.cpp:675-680) + Parse + EINER Director-Walk in den uebergebenen ConcreteBuilder.
+// <comdare_thesis_profile> -> Thesis-Kanal, <comdare_experiment> -> Experiment-Kanal. Beide Parser liefern
+// nullopt bei Fremd-Tag, daher ist der reine Root-Tag-Read gefahrlos. KEIN DLL-Bau, KEINE Messung, KEINE CSV
+// (Anti-Phantom, golden-neutral). Ohne Registry-Trio-Annotation (loaded=0): host-/registry-pfad-unabhaengig
+// reproduzierbar. Rueckgabe: 0 = Walk in den Builder gefahren, 5 = Profil nicht als bekannte Wurzel lesbar.
+int construct_plan_into(std::filesystem::path const& profile_path, planner::IPlanBuilder& builder, std::ostream& os,
+                        char const* what) {
     std::string root_tag;
     if (std::ifstream in{profile_path, std::ios::binary}; in) {
         std::ostringstream ss;
@@ -547,39 +552,59 @@ int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::
         if (auto const root = ::comdare::common::xml::parse_document(ss.str())) root_tag = root->tag;
     }
 
-    // Ohne Registry-Trio-Annotation (loaded=0): der CLI-Plan bleibt host-/registry-pfad-unabhaengig
-    // reproduzierbar (keine neuen einkompilierten Registry-Pfade im Treiber noetig). Die Trio-Annotation
-    // (Resolver-Vorstufe) bleibt der opt-in Contract-Test-Pfad ueber make_plan_registry_annotation.
     planner::ExperimentPlanDirector const director;
-    planner::PlanTextBuilder              builder;
-
     if (root_tag == "comdare_thesis_profile") {
         auto const tp = tlz::load_thesis_profile(profile_path);
         if (!tp) {
-            os << "[dump-plan] Thesis-Profil '" << profile_path.string()
+            os << "[" << what << "] Thesis-Profil '" << profile_path.string()
                << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
         director.construct(*tp, builder);
-        os << builder.text();
         return 0;
     }
     if (root_tag == "comdare_experiment") {
         cx::XmlConfigParser const parser;
         auto const                ep = parser.parse_experiment_profile(profile_path);
         if (!ep) {
-            os << "[dump-plan] Experiment-Profil '" << profile_path.string()
+            os << "[" << what << "] Experiment-Profil '" << profile_path.string()
                << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
         director.construct(*ep, builder);
-        os << builder.text();
         return 0;
     }
-    os << "[dump-plan] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
+    os << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
        << (root_tag.empty() ? "" : " '" + root_tag + "'")
        << " -- weder <comdare_thesis_profile> noch <comdare_experiment>. KEIN Plan emittiert.\n";
     return 5;
+}
+} // namespace
+
+int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // W5-B (--dump-plan): der deterministische PlanTextBuilder-Traeger am geteilten Director-Walk.
+    planner::PlanTextBuilder builder;
+    int const                rc = construct_plan_into(profile_path, builder, os, "dump-plan");
+    if (rc == 0) os << builder.text();
+    return rc;
+}
+
+int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // W7-A (--dump-ci, §40.b): der CiYamlBuilder-Traeger am geteilten Director-Walk. Emittiert die dynamische,
+    // Planer-gesteuerte GitLab-Child-Pipeline-YAML (STUFE 1 CEB-Bau-Jobs + STUFE 2 Tier-Emit/Grandchild-Trigger).
+    planner::CiYamlBuilder builder;
+    int const              rc = construct_plan_into(profile_path, builder, os, "dump-ci");
+    if (rc == 0) os << builder.text();
+    return rc;
+}
+
+int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // W7-B (--dump-cmake, §40.c): der scharfe CMakeGraphBuilder-Traeger am geteilten Director-Walk. Emittiert das
+    // Bare-Metal-experiment_plan.cmake (echte provision-only-build:-Kommandos + GN-11-gegatetes measure:-Skelett).
+    planner::CMakeGraphBuilder builder;
+    int const                  rc = construct_plan_into(profile_path, builder, os, "dump-cmake");
+    if (rc == 0) os << builder.text();
+    return rc;
 }
 
 ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args) {
@@ -682,12 +707,13 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.working_set_override       = args.working_set_override;
     a.platform_override          = args.platform_override;
     a.build_version_tag_override = args.build_version_tag_override;
-    a.gn_cell_opt                = args.gn_cell_opt;  // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
-    a.gn_cell_simd               = args.gn_cell_simd; // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
-    a.workload_registry          = std::move(workload_registry);
-    a.workload_values            = std::move(workload_values);
-    a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
-    a.measurement_sink           = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
+    a.build_parallelism = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
+    a.gn_cell_opt       = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
+    a.gn_cell_simd      = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
+    a.workload_registry = std::move(workload_registry);
+    a.workload_values   = std::move(workload_values);
+    a.cache_push        = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.measurement_sink  = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
 
     tlz::RunExperimentResult const r = tlz::run_experiment_profile(a);
     out.exit_code                    = r.exit_code;
