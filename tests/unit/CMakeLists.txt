@@ -3494,3 +3494,28 @@ if(TARGET comdare_axis_registry_gen)
     set_tests_properties(test_axis_registry_roundtrip
         PROPERTIES LABELS "contract;registry;roundtrip" TIMEOUT 120)
 endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GN-5 / L2 stale-skip-Guard (Roadmap 2026-07-19; #50-Stale-Green-Wurzel): reflect_versions-
+# Instanziierung ueber ALLE 17 Kompositions-Achsen als Default-ctest. build_axis_variant_version_table()
+# war bisher NUR von der CEB-Runtime instanziiert — eine Organ-Variante OHNE algo_version blieb im
+# Default-ctest unsichtbar (stale-skip; skaliert mit golden-N). Schon der BUILD dieser TU ist der Guard
+# (ill-formed W::algo_version-Zugriff bricht mit Typ-Namen); die Laufzeit-Checks belegen die 17-Achsen-
+# Vollstaendigkeit gegen kCompositionAxisNames. Schwere TU (registry_to_axis_levels -> 23 topic_config_sets),
+# isoliert retriggerbar — gleicher Include-/Define-Satz wie test_striktheit_axes_guard (das Blockvorbild).
+# KEIN contract-/pmc-Label: der Test MUSS im Default-Sweep test:unit (-LE contract|pmc) laufen.
+# ─────────────────────────────────────────────────────────────────────────────
+comdare_add_test(test_reflect_versions_all17
+    SOURCES test_reflect_versions_all17.cpp)
+target_include_directories(test_reflect_versions_all17 PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_reflect_versions_all17 PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_reflect_versions_all17 PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_reflect_versions_all17 PROPERTIES LABELS "striktheit;algo_version;stale_skip" TIMEOUT 120)
