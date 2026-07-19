@@ -78,3 +78,43 @@ TEST(ReflectVersionsAll17, ComposeSignatureUsesTableAndValuesetTail) {
     EXPECT_NE(sig.find(expected_slot), std::string::npos) << "sig='" << sig << "'";
     EXPECT_NE(sig.find(";sub=cacheline@v"), std::string::npos) << "sig='" << sig << "'";
 }
+
+// === W12-A Byte-Wache (§43, Golden-Wache des Versionierungs-Pakets) =================================
+// Die .algos-/Sidecar-Signatur-Serialisierung MUSS fuer ungebumpte Algorithmen BYTE-IDENTISCH bleiben: ein
+// Algorithmus bei X.Y.Z n.0.0 serialisiert WEITERHIN als sein roher algo_version-String (heute "vN"), NIE als
+// die X.Y.Z-Voll-Form ("1.0.0"/"v1.0.0"). Andernfalls invalidiert die W12-Versions-Migration den GESAMTEN
+// frisch gebauten 131072er-Cache. compose_algo_signature + AxisVariantVersion::version bleiben unangetastet;
+// die X.Y.Z-Voll-Form lebt AUSSCHLIESSLICH in den neuen Stempel-Zeilen/Planer/Registry (getrennte Welten).
+TEST(ReflectVersionsAll17, W12AByteGuardComposeSerializationRawVersionUnchanged) {
+    std::vector<ex::AxisVariantVersion> const table = ex::build_axis_variant_version_table();
+    ASSERT_FALSE(table.empty());
+    ex::AxisVariantVersion const&                          e    = table.front();
+    std::vector<std::pair<std::string, std::string>> const axes = {{std::string{e.axis}, e.variant}};
+    std::string const                                      sig  = ex::compose_algo_signature(axes, table);
+    // Byte-genau aus DENSELBEN Quellen gebaut (roher version-String + Sub-Achsen-Schwanz). Eine Normalisierung
+    // zu X.Y.Z im compose-Pfad wuerde diese Gleichheit brechen -> harte Golden-Wache.
+    std::string const expected =
+        std::string{e.axis} + "=" + e.variant + "@" + std::string{e.version} + ";" + ex::sub_axis_valueset_segment();
+    EXPECT_EQ(sig, expected);
+}
+
+// W12-A geteilter Emitter-Helfer: die kOrganAxisVersionLine aus der Version-TABELLE (loest den Metadaten-Blocker
+// -- die Composition-Strategie-Typen tragen kein name()/algo_version). SEPARATE Welt zur .algos-Sig.
+TEST(ReflectVersionsAll17, W12AOrganStampLineUsesXYZFromTableSeparateFromAlgosSig) {
+    std::vector<ex::AxisVariantVersion> const table = ex::build_axis_variant_version_table();
+    ASSERT_FALSE(table.empty());
+    ex::AxisVariantVersion const&                          e    = table.front();
+    std::vector<std::pair<std::string, std::string>> const axes = {{std::string{e.axis}, e.variant}};
+
+    std::string const stamp = ex::compose_organ_stamp_line(axes, table);
+    // X.Y.Z-Voll-Form aus der Tabelle (heute "v1" -> "1.0.0"), NUR Haupt-Achse, KEIN Sub-Achsen-Schwanz:
+    std::string const expected = std::string{e.axis} + "=" + e.variant + "@" +
+                                 ::comdare::cache_engine::measurement::algo_semver_string(e.version);
+    EXPECT_EQ(stamp, expected);
+    EXPECT_EQ(stamp.find(";sub="), std::string::npos); // Stempel: kein Sub-Achsen-Schwanz
+
+    // SEPARATE Welt zur .algos-Sig: die algos-Sig behaelt die ROHE Version ("@v1") + den Sub-Schwanz (Byte-Wache).
+    std::string const algos = ex::compose_algo_signature(axes, table);
+    EXPECT_NE(stamp, algos);
+    EXPECT_NE(algos.find(std::string{"@"} + std::string{e.version}), std::string::npos);
+}

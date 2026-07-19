@@ -24,6 +24,8 @@
 #include "axis_path_serialization.hpp" // kCompositionAxisNames (Slot-Reihenfolge der algo_sig)
 #include "registry_to_axis_levels.hpp" // axes26::T* Registry-Aliase (dieselbe Quelle wie build_all_axis_levels)
 
+#include <cache_engine/measurement/algo_semver.hpp> // W12-A: algo_semver_string (X.Y.Z-Voll-Form, NUR fuer Stempel)
+
 #include <axes/alloc/alloc_hw_config.hpp>       // kAllocHwSubaxisVersion (Sub-Achsen-Werteset, Bauplan §2)
 #include <axes/cacheline/cacheline_config.hpp>  // kCacheLineSubaxisVersion
 #include <axes/cacheline/node_width_config.hpp> // kNodeWidthSubaxisVersion
@@ -130,6 +132,34 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
     }
     if (!out.empty()) out += ';';
     out += sub_axis_valueset_segment();
+    return out;
+}
+
+/// compose_organ_stamp_line(axes, table) -- die kOrganAxisVersionLine "achse=variant@X.Y.Z;..." (Bau W12-A,
+/// Section 43, geteilter Emitter-Helfer). Der SHARED-Helfer, den BEIDE Emitter-Pfade (lazy + Katalog) aufrufen
+/// -> beide injizieren byte-identisch -> die 320-Round-Trip-Wache bleibt STRIKT (kein modulo).
+///
+/// LOEST DEN METADATEN-BLOCKER: die Version stammt aus der TABELLE (Registry-Wrapper name->algo_version), NICHT
+/// aus den Composition-Strategie-Typen (die tragen kein name()/algo_version). SEPARATE Welt zur .algos-Sig
+/// (compose_algo_signature bleibt byte-identisch): hier X.Y.Z-Voll-Form (algo_semver_string), NUR Haupt-Achsen
+/// (Section 42.b: kein Sub-Achsen-Schwanz), kanonische kCompositionAxisNames-Ordnung (Entscheid W12-A-5).
+/// Unbekannte (axis,value) -> "@0.0.0" (== der @v0-Sentinel des .algos-Pfads, in X.Y.Z). Determiniert.
+[[nodiscard]] inline std::string compose_organ_stamp_line(std::vector<std::pair<std::string, std::string>> const& axes,
+                                                          std::vector<AxisVariantVersion> const& table) {
+    std::string out;
+    for (std::string_view const slot : kCompositionAxisNames) {
+        for (auto const& [ax, val] : axes) {
+            if (ax != slot) continue;
+            std::string_view const ver = lookup_algo_version(table, slot, val);
+            if (!out.empty()) out += ';';
+            out += slot;
+            out += '=';
+            out += val;
+            out += '@';
+            out += ::comdare::cache_engine::measurement::algo_semver_string(ver.empty() ? std::string_view{"v0"} : ver);
+            break;
+        }
+    }
     return out;
 }
 
