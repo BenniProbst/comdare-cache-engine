@@ -32,6 +32,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iostream> // std::cerr (klassifizierte Infra-Fehlerzeile) — include-what-you-use, nicht transitiv verlassen
 #include <string>
 #include <string_view>
 #include <system_error>
