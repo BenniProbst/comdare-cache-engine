@@ -102,10 +102,46 @@
   <!-- (a-S1) WORKING-SET-SWEEP: wie m3v2 {2^14, 2^17, 2^20, 2^23}. -->
   <working_set_sweep>16384 131072 1048576 8388608</working_set_sweep>
 
+  <!-- (d) DATASETS [LIVE, ADDITIV — GN-3 2026-07-19, Mock-ENTWURF (d)]: heute parsbar (ThesisDatasetRef
+       id/akte_ref/loader). Reale Akten aus Code/test_data_xml/ = die Single-Source der Datensatz-Provenienz
+       (Fork 2/R2, KEINE test_data_sets.xml-Doppelquelle). url -> string_corpus + sosd_books_200M -> sosd_uint64
+       decken BEIDE DatasetLoaderRegistry-Familien ab (passend zur uint64/string-key_value_signature). Datensaetze
+       sind MESS-INPUTS, binary_id-NEUTRAL (golden-Roundtrip unberuehrt); der Loader-MESS-Konsum ist lauf-gated
+       (INC-G5), die Deklaration reist in datasets_signature/Resume-Stamp. -->
+  <datasets>
+    <dataset id="url"             akte_ref="test_data_xml/url.test_data.xml"             loader="string_corpus"/>
+    <dataset id="sosd_books_200M" akte_ref="test_data_xml/sosd_books_200M.test_data.xml" loader="sosd_uint64"/>
+  </datasets>
+
   <compile_dims>
     <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
     <telemetry mode="on" silent="true"/>
   </compile_dims>
+
+  <!-- (c-2) MESS-KATEGORIEN [LIVE, ADDITIV — GN-3 2026-07-19, Mock-ENTWURF (c-2)]: alle 16 EXPLIZIT statt
+       leer-implizit — die golden-N-Referenz dokumentiert ihren Ganz-System-Anspruch selbst; identisches Verhalten
+       wie leer (alle 16), also golden-neutral. Reine Spalten-PROJEKTION ueber die gemessenen Kategorien, KEINE
+       Vary-Achse (binary_id-neutral). Namen = kMeasurementAxisRegistry (measurement_axis_registry.hpp, 16
+       System-Kategorien, Single-Source; die validate_profile-Pruefung deckt jeden Namen ab). BRANCH_MISS/IPC_CPI/THROUGHPUT
+       sind gueltige Kategorie-Namen; ihre CSV-Record-Spalten sind separat (B17, Record-Erweiterung nachgelagert). -->
+  <measurement_categories>
+    <category name="CLU"/>
+    <category name="CACHE_MISS_L1"/>
+    <category name="CACHE_MISS_L2"/>
+    <category name="CACHE_MISS_L3"/>
+    <category name="DTLB_MISS"/>
+    <category name="MEMORY_FOOTPRINT"/>
+    <category name="BRANCH_MISS"/>
+    <category name="IPC_CPI"/>
+    <category name="LATENCY_MEAN"/>
+    <category name="LATENCY_P50"/>
+    <category name="LATENCY_P95"/>
+    <category name="LATENCY_P99"/>
+    <category name="LATENCY_P999"/>
+    <category name="THROUGHPUT"/>
+    <category name="ENERGY_J"/>
+    <category name="FILL_BUFFER_OCCUPANCY"/>
+  </measurement_categories>
 
   <runtime_dynamic>
     <thread_count>1</thread_count>
@@ -129,4 +165,28 @@
     <key_types>std::uint64_t</key_types>
     <value_types>std::string</value_types>
   </key_value_signature>
+
+  <!-- (sys) SYSTEM-ACHSEN [LIVE ab GN-3 2026-07-19, §33 Systembeweis-Traeger; Mock-ENTWURF system_axes-Block,
+       opt/simd-Teil]: die geteilte parse_system_axes-Naht liest diesen Block jetzt auch im Thesis-Kanal.
+       opt_level = O2 + O3 (deterministische Mess-golden-Baseline, §32-F4; Ofast bewusst WEGGELASSEN — bricht
+       IEEE-754-/Run-to-Run-Determinismus + den CRC64-golden-Anker). simd = no_extension + avx2 (universell auf
+       prod1(Zen5)+prod2(i9); avx512 nicht universell). system_config → binary_id-NEUTRAL: multipliziert NUR die
+       BAU-Matrix/Sidecar (build_version +opt=/+ext=), NIE N=2^17 (binary_id bleibt die 17-Organ-Kartesik). Der
+       Planer/CEB permutiert opt×simd real ueber den run_profile-opt×simd-Walk (ISA-gegated: avx2 nur x86_64).
+       compiler-FAMILIE (gcc/clang) + target_isa bleiben ZUKUNFT (B2, kein Parser-Kanal) — hier NICHT aufgefuehrt;
+       phases/output-ZUKUNFT-Bloecke bleiben ebenfalls inaktiv (INC-G4). -->
+  <system_axes>
+    <compiler>
+      <opt_level>
+        <option value="O2"/>
+        <option value="O3"/>
+      </opt_level>
+    </compiler>
+    <extension_hardware>
+      <simd>
+        <option value="no_extension"/>
+        <option value="avx2"/>
+      </simd>
+    </extension_hardware>
+  </system_axes>
 </comdare_thesis_profile>
