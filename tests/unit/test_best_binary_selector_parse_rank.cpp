@@ -18,6 +18,20 @@
 
 namespace bb = comdare::cache_engine::best_binary;
 
+// ── K-5-Paritaets-Gate (2026-07-19): der hart gespiegelte ABI-Spiegel des self-contained Tools MUSS ──
+// mit dem autoritativen Decl-Header uebereinstimmen, sonst schreibt das Manifest FALSCHE Provenienz
+// (der 5/".A5."-Drift des Bau-INC-2b-Stands blieb genau so unbemerkt). Der Vergleich lebt HIER im Test
+// (nicht im Tool): best_binary_selector bleibt engine-include-frei/self-contained (C++17-bat-Build).
+// Relative Includes (Decl-Schliessung ist relativ/std-only) -> KEINE tests-CMake-Aenderung
+// (Hotspot-8-Regel der Parallelisierungs-ANALYSE 20260719).
+#include "../../libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp"
+static_assert(bb::kAbiMajor == COMDARE_ANATOMY_ABI_MAJOR,
+              "K-5: kAbiMajor-Spiegel (best_binary_selector.hpp) driftet vom Decl-Header -- syncen!");
+static_assert(bb::kAbiMinor == COMDARE_ANATOMY_ABI_MINOR,
+              "K-5: kAbiMinor-Spiegel (best_binary_selector.hpp) driftet vom Decl-Header -- syncen!");
+static_assert(bb::kAbiMagic == COMDARE_ANATOMY_ABI_MAGIC,
+              "K-5: kAbiMagic-Spiegel (best_binary_selector.hpp) driftet vom Decl-Header -- syncen!");
+
 static int  g_fail = 0;
 static void check(bool ok, char const* msg) {
     std::printf("  [%s] %s\n", ok ? "OK" : "FAIL", msg);
