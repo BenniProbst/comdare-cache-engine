@@ -39,7 +39,7 @@ struct ViewCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
 };
 } // namespace detail
 
-/// ViewCompositionFromPermTuple<PermT> — materialisiert eine ViewComposition aus einem 7-Slot-PermTuple.
+/// ViewCompositionFromPermTuple<PermT> — materialisiert eine ViewComposition aus einem 5-Slot-PermTuple.
 template <class PermT>
 using ViewCompositionFromPermTuple = typename detail::ViewCompositionFromPermTupleImpl<PermT>::type;
 

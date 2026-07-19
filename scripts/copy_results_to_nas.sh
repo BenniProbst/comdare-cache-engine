@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# DEPRECATED (W9.5/G4, 2026-07-19) -- NICHT LOESCHEN, nur als Referenz erhalten.
+#   Superseded durch die CI-Mess-Rueckschreibungs-Pipeline (measurement/ + WRITE-Token, autonom persistiert).
+#   Zusaetzlich obsolet: der UNC-Zielhost \\backup1.comdare.de ist abgeschaltet (.de -> .local). Manuelle NAS-Ablage
+#   ist nur noch Notfall-Fallback; der offizielle Weg schreibt die Roh-CSVs ueber die Pipeline zurueck.
 # copy_results_to_nas.sh — robuste NAS-Ablage der Mess-Roh-CSVs (User-Direktive 2026-06-08).
 #
 # Das NAS (\\backup1.comdare.de\Cluster_NFS\experiment results) unterstützt nur UNC-Pfade + bash, und die

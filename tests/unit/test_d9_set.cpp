@@ -63,7 +63,7 @@ int main() {
     eq("SC::slot_count == 13", SC::slot_count, std::size_t{13});
     eq("composition_name", std::string{SAnat::composition_name()}, std::string{"SetComposition"});
     tr("genus() == Set (Vogel)", SAnat::genus() == cea::AnatomyGenus::Set);
-    eq("organ_count() == 14", SAnat::organ_count(), std::size_t{13});
+    eq("organ_count() == 13", SAnat::organ_count(), std::size_t{13});
     eq("SetObserverSnapshotV1 = 9 uint64", sizeof(cea::SetObserverSnapshotV1), std::size_t{9 * 8});
 
     std::cout << "\n==== D9 SetAnatomy K-only-Mengen-Semantik ====\n";

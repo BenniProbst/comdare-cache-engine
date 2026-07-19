@@ -2,7 +2,7 @@
 // INC-B / Fork R-B (2026-07-14) - Per-ORGAN-Location (Achsen-/Organ-Ebene).
 //
 // Analogon zu COMDARE_DEFINE_COMPOSITION_LOCATION (anatomy/composition_concept.hpp:103-105), aber fuer
-// EINEN Achsen-Baustein/Organ-Wrapper statt einer ganzen 19-Achsen-Komposition. Motivation: ein
+// EINEN Achsen-Baustein/Organ-Wrapper statt einer ganzen 17-Achsen-Komposition. Motivation: ein
 // name()->(FQ-Typ, Header)-Registry-Codegen (tools/axis_registry_gen INC-A, prt-art-Registry-Generator
 // INC-B) kann den Header eines Organs NICHT aus dem Typ-Namen ableiten (fragil/fabriziert). Der Wrapper
 // deklariert seine Lokation daher explizit - genau wie Reference-Compositions ihre COMPOSITION_LOCATION.

@@ -1,3 +1,5 @@
+# W9.5/G10 VERMERK: Einmal-Scaffolding-Werkzeug (Stub-Erzeugung), NICHT Teil der Build-Pipeline.
+# KEIN Python in der Buildchain (Talos OS hat kein Python, s. cmake/permutations.cmake); nur manueller Lauf.
 """Generiert CMakeLists.txt-Stubs + .gitkeep fuer alle Subverzeichnisse.
 
 Lazy: header-only INTERFACE-Libraries als Stub, damit das Skelett buildet

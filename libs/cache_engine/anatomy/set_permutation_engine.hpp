@@ -42,7 +42,7 @@ struct SetCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
 };
 } // namespace detail
 
-/// SetCompositionFromPermTuple<PermT> — materialisiert eine SetComposition aus einem 15-Slot-PermTuple.
+/// SetCompositionFromPermTuple<PermT> — materialisiert eine SetComposition aus einem 13-Slot-PermTuple.
 template <class PermT>
 using SetCompositionFromPermTuple = typename detail::SetCompositionFromPermTupleImpl<PermT>::type;
 

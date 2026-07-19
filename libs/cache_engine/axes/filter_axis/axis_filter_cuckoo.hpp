@@ -115,7 +115,7 @@ public:
 
     /// SPACE-Seite des T16-Kern-Trade-offs: strukturelles Bit-Budget der REALEN Bucket-Tabelle (kBuckets ×
     /// kSlotsPerBucket 1-Byte-Fingerprints = sizeof(table_)*8), compile-time. Static-constexpr-Descriptor analog
-    /// probe_multiplicity() — kein Datenmember, kein neuer Achsenwert, kein POD-Feld (golden-320/Gate-1/1416 neutral).
+    /// probe_multiplicity() — kein Datenmember, kein neuer Achsenwert, kein POD-Feld (golden-320/Gate-1/1272 neutral).
     [[nodiscard]] static constexpr std::size_t filter_bit_capacity() noexcept {
         return kBuckets * kSlotsPerBucket * 8u;
     }

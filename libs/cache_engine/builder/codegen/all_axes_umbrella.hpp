@@ -1,15 +1,15 @@
 #pragma once
-// V41.F.6.1 R5.G — Umbrella-Header: bündelt ALLE 19 Anatomie-Achsen-Registries (+ Varianten) + die
+// V41.F.6.1 R5.G — Umbrella-Header: bündelt ALLE 17 Anatomie-Achsen-Registries (+ Varianten) + die
 // AdHoc-Composition + das ADHOC-Materialisierungs-Makro in EINEM Include.
 //
 // Zweck (Auto-Emitter-Plumbing): ein vom Auto-Emitter generiertes Permutations-Modul-.cpp muss alle
 // Achsen-Vendor-Typen JEDER Permutation auflösen können. Statt pro Modul die spezifischen Achsen-Header
-// zu kennen, inkludiert es nur diesen Umbrella-Header + ruft COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<19
+// zu kennen, inkludiert es nur diesen Umbrella-Header + ruft COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17
 // FQ-Typ-Namen>) auf (die der Emitter via type_name<T>() aus for_each_composition_type ableitet).
 //
-// Reihenfolge der 19 Achsen (= AdHocComposition<T0..T18>, Doc 30 §8.0): search_algo, cache_traversal,
+// Reihenfolge der 17 Achsen (= AdHocComposition<T0..T16>, Doc 30 §8.0): search_algo, cache_traversal,
 // mapping, path_compression, node_type, memory_layout, allocator, prefetch, concurrency, serialization,
-// telemetry, value_handle, isa, index_organization, io_dispatch, migration_policy, filter,
+// value_handle, index_organization, io_dispatch, migration_policy, filter,
 // queuing_q1 (buffer_strategy), queuing_q2 (flush_policy).
 
 // Materialisierungs-Makro + AdHocComposition

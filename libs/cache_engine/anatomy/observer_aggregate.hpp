@@ -1,8 +1,8 @@
 #pragma once
-// V41.F.6.1.R5.A — ObserverAggregate<Composition> (ABI-stabiler 19-Achsen-Snapshot)
+// V41.F.6.1.R5.A — ObserverAggregate<Composition> (ABI-stabiler 17-Achsen-Snapshot)
 //
-// Pro Composition wird ein POD-Struct definiert, der 19 Achsen-Snapshots
-// (einer pro Achse) sammelt — 17 Such-Achsen + queuing q1/q2 (Doc 30 §8.0).
+// Pro Composition wird ein POD-Struct definiert, der 17 Achsen-Snapshots
+// (einer pro Achse) sammelt — 15 Such-Achsen + queuing q1/q2 (Doc 30 §8.0).
 // ABI-stabil durch standard_layout + trivially_copyable.
 // Achsen ohne statistics() liefern EmptyAxisSnapshot (= leerer POD).
 //
@@ -76,7 +76,7 @@ template <class A>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ObserverAggregate<Composition> — 19 named Snapshot-Members (17 + queuing q1/q2)
+// ObserverAggregate<Composition> — 17 named Snapshot-Members (15 + queuing q1/q2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// ObserverAggregate ist ABI-stabiler Snapshot-Container pro Composition.

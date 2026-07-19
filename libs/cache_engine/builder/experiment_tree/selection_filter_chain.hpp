@@ -41,7 +41,7 @@ struct FilterVerdict {
 /// Ein Kandidat der Generierungs-Steuerung: ein View-Index (je -> BinarySpec/binary_id) + optionale Auswertung.
 struct PermutationCandidate {
     std::size_t                                view_index = 0;
-    std::string                                binary_id; ///< 19-Achsen-Join-Schluessel (Auswertung <-> Generierung)
+    std::string                                binary_id; ///< 17-Achsen-Join-Schluessel (Auswertung <-> Generierung)
     std::optional<best_binary::MeasurementRow> row;       ///< Auswertung (falls schon gemessen), sonst nullopt
 };
 

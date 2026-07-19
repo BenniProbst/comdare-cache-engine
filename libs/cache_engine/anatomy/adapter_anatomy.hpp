@@ -96,11 +96,11 @@ private:
 };
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-// Adapter-Observer (gattungs-eigen) — flacher uint64-POD, getrennt vom SearchAlgorithm-ObserverAggregate<19>.
+// Adapter-Observer (gattungs-eigen) — flacher uint64-POD, getrennt vom SearchAlgorithm-ObserverAggregate<17>.
 // Felder spiegeln den Antrieb des inner_container (die real getriebene spezifische Achse, §28).
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
 struct
-    AdapterObserverSnapshot { // Adapter-Observer (gattungs-eigen, getrennt vom SearchAlgorithm-ObserverAggregate<19>)
+    AdapterObserverSnapshot { // Adapter-Observer (gattungs-eigen, getrennt vom SearchAlgorithm-ObserverAggregate<17>)
     std::uint64_t push_count        = 0; // push → inner_container
     std::uint64_t pop_count         = 0; // erfolgreiche pop_front/pop_back
     std::uint64_t front_reads       = 0; // front()-Zugriffe (FIFO-Disziplin)
@@ -216,7 +216,7 @@ public:
         obs_.current_occupancy = 0;
     }
 
-    /// observe_all() — EIGENER Adapter-Observer (NICHT der SearchAlgorithm-ObserverAggregate<19>).
+    /// observe_all() — EIGENER Adapter-Observer (NICHT der SearchAlgorithm-ObserverAggregate<17>).
     [[nodiscard]] AdapterObserverSnapshot observe_all() const noexcept { return obs_; }
 
 private:

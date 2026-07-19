@@ -138,7 +138,7 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
                                                               std::set<std::string> const& known_workload_ids = {}) {
     ProfileValidationResult r;
 
-    // Menge der bekannten Achsen-Namen: Registry-Keys (EnabledStrategies) ∪ kCompositionAxisNames (die 19 Slots).
+    // Menge der bekannten Achsen-Namen: Registry-Keys (EnabledStrategies) ∪ kCompositionAxisNames (die 17 Slots).
     std::set<std::string> known_axes;
     for (auto const& [axis, _] : registry) known_axes.insert(axis);
     for (auto const& a : ex::kCompositionAxisNames) known_axes.insert(std::string{a});

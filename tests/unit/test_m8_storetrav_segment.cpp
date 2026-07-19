@@ -9,7 +9,7 @@
 // Build (scratch, wie test_pathb): cl /std:c++latest /EHsc /bigobj /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1
 //   + voller ADHOC-Include-Satz (libs/cache_engine[+include,+src], libs/common, build/msvc-release/generated/**, boost_mp11).
 #include <builder/codegen/all_axes_umbrella.hpp> // LinearScanSearchAlgo (traversal::axis_03a_search_algo::)
-#include <compositions/art_reference.hpp>        // ArtComposition (19-Achsen-Vorlage)
+#include <compositions/art_reference.hpp>        // ArtComposition (17-Achsen-Vorlage)
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
@@ -21,7 +21,7 @@
 
 namespace comdare::cache_engine::compositions {
 // LinearScanComposition = ArtComposition-Spiegel, NUR search_algo getauscht auf das STORE-TRAVERSIERBARE
-// LinearScanSearchAlgo (axis_03a_store_traversable=true). Alle übrigen 18 Achsen identisch zu ArtComposition.
+// LinearScanSearchAlgo (axis_03a_store_traversable=true). Alle übrigen 16 Achsen identisch zu ArtComposition.
 struct LinearScanComposition {
     using search_algo      = traversal::axis_03a_search_algo::LinearScanSearchAlgo; // <-- store-traversierbar
     using cache_traversal  = traversal::axis_03b_cache_traversal::LinearFanout;

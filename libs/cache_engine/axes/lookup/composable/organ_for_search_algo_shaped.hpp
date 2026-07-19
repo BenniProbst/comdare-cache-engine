@@ -9,7 +9,7 @@
 // dieser Header ist ein reiner Sibling; Konsument ist der ABI-Adapter ueber seinen defaulted
 // ShapeCarrier-Parameter (void = exakt das einarmige Verhalten, typ-identisch).
 //
-// **Disziplin (Z.198 / Doc 30):** Shape ist KEIN 20. Slot -- die 19-Slot-ABI-Invariante bleibt; die
+// **Disziplin (Z.198 / Doc 30):** Shape ist KEIN 18. Slot -- die 17-Slot-ABI-Invariante bleibt; die
 // Scheinmultiplikation familienfremder Kombinationen wird ZWEIFACH verhindert: (1) auf Typ-Ebene faellt
 // jede nicht spezialisierte Familie auf die einarmige Zuordnung zurueck (Shape wirkt nicht), (2) der
 // Emitter emittiert Shaped-Quellen NUR hinter dem organ_for!=void-Filter (adhoc_emitter.hpp).

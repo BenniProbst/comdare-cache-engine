@@ -1,5 +1,5 @@
 // (X) BUILD-VERIFIKATION: der per-Achsen-Timer auf ALLE 18 SearchAlgorithm-Achsen (Bau-INC-2c: telemetry ist System-Achse) ausgeweitet
-// (IMeasurableWorkloadV3::run_workload_segmented_v2 → ComdareSegmentLatencyV2.seg_ns[18]) + Layout-Fix
+// (IMeasurableWorkloadV3::run_workload_segmented_v2 → ComdareSegmentLatencyV2.seg_ns[17]) + Layout-Fix
 // (aos_strict Stride 48 vs cache_line_aligned Stride 64). In-process Stand-in (identische vtable/POD-Layout
 // wie über die .dll-Grenze) — als „search_algo_grid o.ä." über mehrere reale SA-Kompositionen.
 //
@@ -81,21 +81,21 @@ static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_
     row.n_ops         = 4000;
     row.total_ns      = seg.total_ns;
     for (int i = 0; i < 17; ++i)
-        row.unified.seg_ns[i] = seg.seg_ns[i]; // I1-Konsolidierung: seg-Struct -> unified.seg_ns[18]
+        row.unified.seg_ns[i] = seg.seg_ns[i]; // I1-Konsolidierung: seg-Struct -> unified.seg_ns[17]
     row.unified.seg_framework_ns = seg.seg_framework_ns;
     row.unified.seg_run_total_ns = seg.seg_run_total_ns;
     row.unified.batches_measured = seg.batches_measured;
     row.unified_real             = (n > 0);
     csv_out += ex::format_csv_row(row);
 
-    std::cout << "  " << name << ": batches=" << n << "  seg_ns[T0..T17]=";
+    std::cout << "  " << name << ": batches=" << n << "  seg_ns[T0..T16]=";
     for (int i = 0; i < 17; ++i) std::cout << seg.seg_ns[i] << (i < 16 ? "," : "");
     std::cout << "  total=" << seg.total_ns << "\n";
     return seg;
 }
 
 int main() {
-    std::cout << "==== (X) per-Achsen-Timer auf ALLE 18 Achsen + Layout-Fix (in-process) ====\n";
+    std::cout << "==== (X) per-Achsen-Timer auf ALLE 17 Achsen + Layout-Fix (in-process) ====\n";
 
     std::string csv  = ex::lazy_csv_header();
     auto        art  = measure19<comp::ArtComposition>("ArtComposition", csv);

@@ -1,3 +1,5 @@
+# W9.5/G10 VERMERK: Einmal-Scaffolding-Werkzeug (Skelett-Erzeugung), NICHT Teil der Build-Pipeline.
+# KEIN Python in der Buildchain (Talos OS hat kein Python, s. cmake/permutations.cmake); nur manueller Lauf.
 """Generiert Re-Implementations-Skelette fuer LEGACY_REIMPL-Paper unter
 prt_art/legacy_reimpl/.
 

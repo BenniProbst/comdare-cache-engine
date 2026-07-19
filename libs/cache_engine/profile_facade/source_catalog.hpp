@@ -283,11 +283,11 @@ template <class Catalog>
 //
 // LOESUNG (Plan-Direktive, KEINE Compile-Explosion): NICHT den Basis-320-Katalog auf das volle Kartesisch der 4
 // vertieften Achsen freigeben (das waere 320×|mig|×|flt|×|vh|×|pc| compile-time → C1060). STATTDESSEN je vertiefte
-// Achse EINE KLEINE, separate Sweep-Source-Map: die BASELINE-Komposition (alle 4 Basis-Achsen + 14 uebrige Slots
+// Achse EINE KLEINE, separate Sweep-Source-Map: die BASELINE-Komposition (alle 4 Basis-Achsen + 13 uebrige Slots
 // auf Index 0 == take<…,1>) mit NUR DIESER EINEN vertieften Achse ueber ihre VOLLE Enabled-Liste variiert. Das sind
 // |Achsen-Werte| Eintraege je Achse (migration 4, filter 4, value_handle 5, path_compression 3 = 16 zusaetzliche
 // Typ-Materialisierungen, NICHT 320·…). Die per-Achse-Map wird mit der Basis-320-Map VEREINIGT (make_*-union); der
-// axis_sweep waehlt aus der Union. binary_id = serialize_composition_path<P> (18 Achsen, voll), distinkt je
+// axis_sweep waehlt aus der Union. binary_id = serialize_composition_path<P> (17 Achsen, voll), distinkt je
 // Auspraegung (z.B. migration_policy=migration_hot_cold ≠ migration_none = ANDERE DLL). Lazy-Compile (1 DLL=1 TU)
 // bleibt — die Union waehlt nur die richtige Quelle je binary_id.
 //
@@ -523,7 +523,7 @@ using PrefetchSweepCatalog =
            axis_name == "queuing_q1" || axis_name == "queuing_q2"; // Bau-INC-2d: "isa" raus (System-Achse)
 }
 
-/// make_all_axis_sweeps_source_map() — die VEREINIGTE Sweep-Quellen-map ueber ALLE 18 Achsen-Sweeps (disjunkte
+/// make_all_axis_sweeps_source_map() — die VEREINIGTE Sweep-Quellen-map ueber ALLE 17 Achsen-Sweeps (disjunkte
 /// binary_id-Pfade, da je Achse nur sie selbst von der Baseline abweicht; die Baseline-Auspraegung jeder Achse ist
 /// die GLEICHE Baseline-DLL → identischer binary_id → idempotente emplace, kein Konflikt). Eintragszahl =
 /// 1 Baseline + Sum(je Achse USE-Enabled − 1); enable-/HAVE-abhaengig (ce-Default-Baum: 72 — Gate:

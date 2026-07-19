@@ -37,7 +37,7 @@ template <class Engine>
     std::map<std::string, std::string> by_path;
     int                                idx = 0;
     Engine::for_each_permutation([&]<class P>() {
-        using Comp = anatomy::CompositionFromPermTuple<P>; // reale AdHocComposition<19> (compile-time materialisiert)
+        using Comp = anatomy::CompositionFromPermTuple<P>; // reale AdHocComposition<17> (compile-time materialisiert)
         std::string const path = serialize_composition_path<P>();
         by_path.emplace(path, codegen::render_adhoc_module_source(idx, codegen::adhoc_macro_args<Comp>()));
         ++idx;

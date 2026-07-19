@@ -1701,7 +1701,8 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_kf15_inverse_signature
     test_kf16_build_orchestrator
     test_kf16b_build_resilience
-    test_w6_parallel_provision)     # W6 (§32-F7): paralleler provision-Bau-Pool + positions-treue Sink-Ordnung
+    test_w6_parallel_provision      # W6 (§32-F7): paralleler provision-Bau-Pool + positions-treue Sink-Ordnung
+    test_w11_async_push_pump)       # W11 (§43.c): BAU-Modus async Push-Pump + ArtifactCache-Teil-Marker (Fake-mc)
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -2586,7 +2587,8 @@ target_include_directories(test_smoke_coverage_profile PRIVATE
 target_link_libraries(test_smoke_coverage_profile PRIVATE Boost::mp11)
 target_compile_definitions(test_smoke_coverage_profile PRIVATE
     "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
-    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
+    "COMDARE_GOLDEN_320_BYTE_GUARD_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\""
+    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"") # GN-8 (§33): _IDS = DEPRECATED-Alias -> _BYTE_GUARD_IDS; 320 = Byte-Wache (byte-identischer Gate-Waechter), NICHT der Systembeweis (= new-golden-Voll-Konfig)
 set_tests_properties(test_smoke_coverage_profile PROPERTIES LABELS "contract;profiles;coverage;smoke")
 
 # GO-5 Forks 1/2/6 (2026-07-12) — ctest-Gate fuer die ADDITIVEN E4-Profil-Schema-Erweiterungen
@@ -2613,7 +2615,8 @@ target_link_libraries(test_wdk_datasets_fairness PRIVATE Boost::mp11)
 target_compile_definitions(test_wdk_datasets_fairness PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
     "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
-    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
+    "COMDARE_GOLDEN_320_BYTE_GUARD_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\""
+    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"") # GN-8 (§33): _IDS = DEPRECATED-Alias -> _BYTE_GUARD_IDS; 320 = Byte-Wache (byte-identischer Gate-Waechter), NICHT der Systembeweis (= new-golden-Voll-Konfig)
 set_tests_properties(test_wdk_datasets_fairness PROPERTIES LABELS "contract;profiles;e4;go5")
 
 # INC-3 Familie A (2026-07-14) — ctest-Gate der ADDITIVEN E4-Profil-Schema-Erweiterung
@@ -2640,7 +2643,8 @@ target_link_libraries(test_measurement_categories PRIVATE Boost::mp11)
 target_compile_definitions(test_measurement_categories PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
     "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
-    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
+    "COMDARE_GOLDEN_320_BYTE_GUARD_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\""
+    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"") # GN-8 (§33): _IDS = DEPRECATED-Alias -> _BYTE_GUARD_IDS; 320 = Byte-Wache (byte-identischer Gate-Waechter), NICHT der Systembeweis (= new-golden-Voll-Konfig)
 set_tests_properties(test_measurement_categories PROPERTIES LABELS "contract;profiles;e4;inc3")
 
 # INC-D (2026-07-14) — ctest-Gate des comdare_experiment-Parsers als MODUL im allgemeinen ce-Parser
@@ -3345,6 +3349,26 @@ target_compile_definitions(test_m_simd_feature_flag_catalog PRIVATE
 add_test(NAME test_m_simd_feature_flag_catalog COMMAND test_m_simd_feature_flag_catalog)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_simd_feature_flag_catalog)
 set_tests_properties(test_m_simd_feature_flag_catalog PROPERTIES LABELS "m;blut")
+
+# Querschnitt M - W12-A (§43): X.Y.Z-Parse-Helfer + Planer-Selbst-Stempel (leichte TU, keine Registries).
+add_executable(test_m_w12_stamp_bausteine "test_m_w12_stamp_bausteine.cpp")
+target_compile_features(test_m_w12_stamp_bausteine PRIVATE cxx_std_23)
+target_include_directories(test_m_w12_stamp_bausteine PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# Hermetik (CI-3): planner_version.hpp zieht transitiv topics/axis.hpp (boost::mp11) -- explizit linken.
+target_link_libraries(test_m_w12_stamp_bausteine PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_m_w12_stamp_bausteine)
+target_compile_definitions(test_m_w12_stamp_bausteine PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_m_w12_stamp_bausteine COMMAND test_m_w12_stamp_bausteine)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_w12_stamp_bausteine)
+set_tests_properties(test_m_w12_stamp_bausteine PROPERTIES LABELS "m;blut")
 
 # Limits-Entkopplung Vorstufe - XML-Profil generiert Build-Header, kein Produktivkonsum.
 add_executable(test_limits_entkopplung_vorstufe

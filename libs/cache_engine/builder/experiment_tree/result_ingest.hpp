@@ -31,8 +31,8 @@ namespace comdare::cache_engine::builder::experiment {
         if (sc == std::string_view::npos) break;
         i = sc + 1;
     }
-    // KONSOLIDIERUNG (I-B.3, 2026-06-04; Bau-INC-2c 19→18): volle Matrix = binary_id + axis_stats[18][8] (144)
-    // + seg_ns[18] (18) + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured)
+    // KONSOLIDIERUNG (I-B.3, 2026-06-04; Bau-INC-2c 19→18): volle Matrix = binary_id + axis_stats[17][8] (136)
+    // + seg_ns[17] (17) + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured)
     // + P-MD3 (seg_framework_ns, seg_run_total_ns) = 159 Felder = 160 total (Bau-INC-2d: axis_stats[17][8]=136 +
     // seg_ns[17]=17 + 4 Meta + 2 P-MD3). MAJOR-MESS-09 (Audit A1): EXAKT ==160 prüfen (nicht ≥160). Ein ';'/Newline
     // in der binary_id (oder ein angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠160 → die axis_stats wären

@@ -547,7 +547,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Permutations-Codegen (F-EXTRA-5 — Python-Codegen erzeugt CMake-Targets)
+# Permutations-Codegen (F-EXTRA-5 — sh/bat-Codegen erzeugt CMake-Targets; KEIN Python in der Build-Pipeline, s. cmake/permutations.cmake:3 + tools/permutation_codegen/codegen.{sh,bat})
 # ─────────────────────────────────────────────────────────────────────────────
 if(COMDARE_BUILD_PERMUTATIONS)
   include(cmake/permutations.cmake OPTIONAL)

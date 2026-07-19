@@ -22,7 +22,7 @@ struct MappingStatistics {
     std::uint64_t total_reverse_lookup_count = 0;
     std::uint64_t peak_mapped                = 0;
     std::uint64_t total_indirection_steps =
-        0; // T2 Mess-Objective (Indirektions-CM): kumulierte Adress-Aufloesungs-Tiefe je resolve. DirectPlacement(MP01)=1 (Offset absolut gespeichert), PoolRelative(MP02)=2 (Lookup + pool_base-Rebase). Filter-lokal, NICHT Teil des eingefrorenen 1416-POD.
+        0; // T2 Mess-Objective (Indirektions-CM): kumulierte Adress-Aufloesungs-Tiefe je resolve. DirectPlacement(MP01)=1 (Offset absolut gespeichert), PoolRelative(MP02)=2 (Lookup + pool_base-Rebase). Filter-lokal, NICHT Teil des eingefrorenen 1272-POD.
 };
 
 /**

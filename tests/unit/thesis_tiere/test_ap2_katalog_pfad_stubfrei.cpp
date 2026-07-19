@@ -7,7 +7,7 @@
 //       `unordered_map`-Surrogat, V18-`prtart_body`-Template);
 //   (3) die Composition-Header selbst (prt_art_reference.hpp + prt_art_merge_reference.hpp, als
 //       DATEIEN gelesen) sind frei von den Surrogat-Markern — die Abstraktheit (W4) bleibt ERHALTEN,
-//       KEINE 19-Achsen-Vervollstaendigung wird gefordert;
+//       KEINE 17-Achsen-Vervollstaendigung wird gefordert;
 //   (4) Kompilier-Beweis: PrtArtComposition existiert compile-time (Include kompiliert in dieser TU).
 // Die 3 Alt-Pfade (V18-Template / EE-Adapter-HashBackend / Registry-Factory) sind im prt-art-Repo
 // mit QUARANTAENE-Notizen markiert (kein Mess-Pfad); dieser Test ist das ce-seitige Gegenstueck.

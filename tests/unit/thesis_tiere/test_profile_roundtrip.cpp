@@ -14,7 +14,7 @@
 
 #include "profile_runner.hpp" // build_profile_levels / build_profile_basis_levels / profile_select (Inc1/Inc3)
 
-#include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (19 Slot-Namen, Single-Source)
+#include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (17 Slot-Namen, Single-Source)
 #include <builder/experiment_tree/experiment_tree.hpp>         // ExperimentTree / StaticBinaryView
 
 #include <filesystem>

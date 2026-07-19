@@ -7,7 +7,7 @@
 // Zustands-Einschleppung, Diskriminator-Drift) automatisch beim Build/ctest.
 //
 // **ADDITIV & golden/ABI-NEUTRAL:** reiner static_assert-Test; keine Aenderung an
-// kCompositionAxisNames/serialize_composition_path/golden_fullpilot_320/POD/ABI-4.
+// kCompositionAxisNames/serialize_composition_path/golden_fullpilot_320/POD/ABI-6.
 
 #include <cache_engine/concepts/scheduling_strategy.hpp>
 #include <cache_engine/measurement/ceb_system_axis.hpp>

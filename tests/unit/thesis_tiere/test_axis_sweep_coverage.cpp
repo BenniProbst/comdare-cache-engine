@@ -47,7 +47,7 @@ TEST(AxisSweepCoverage, AllAxesMaterialize) {
     }
 }
 
-// make_all_axis_sweeps_source_map vereinigt ALLE 18 Achsen-Sweeps (disjunkte binary_id-Raeume bis auf
+// make_all_axis_sweeps_source_map vereinigt ALLE 17 Achsen-Sweeps (disjunkte binary_id-Raeume bis auf
 // die idempotente Baseline) -> jede per-Achse-id ist in der Vereinigung enthalten.
 TEST(AxisSweepCoverage, UnionCoversAllAxes) {
     auto const all = tlz::make_all_axis_sweeps_source_map();

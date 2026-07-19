@@ -94,7 +94,7 @@ TEST(R5D_AnatomyAbiVersion, CompatibilityRules) {
     static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{2, 0}));
     static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{0, 5}));
 
-    // Bau-INC-2b (Loader-Ablehnungs-Checkpoint): der REALE Host (ABI-5) verwirft alt-gebaute
+    // Bau-INC-2b (Loader-Ablehnungs-Checkpoint): der REALE Host (ABI-6) verwirft alt-gebaute
     // Major-4-Module — alle Permutations-DLLs der ABI-4-Aera werden nicht mehr geladen.
     static_assert(!ce_abi::kHostAnatomyAbiVersion.host_compatible_with(ce_abi::AnatomyAbiVersion{4, 0}));
     static_assert(ce_abi::kHostAnatomyAbiVersion.host_compatible_with(

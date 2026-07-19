@@ -1,9 +1,9 @@
 #pragma once
 // BR-3-OBS-22 (2026-06-02, Doc 27 §0.1/§3) — Observer-Klassifikation je der 26 Achsen ("kein Wegschrumpfen").
 //
-// User-Direktive 2026-06-02: ALLE 26 Achsen tragen einen EIGENEN Observer — NICHT nur die 19 SearchAlgorithm-
+// User-Direktive 2026-06-02: ALLE 26 Achsen tragen einen EIGENEN Observer — NICHT nur die 17 SearchAlgorithm-
 // Komposition-Slots. Die Differenzierung ist GATTUNGS-KORREKT (Doc 27 §0.1, User-Entscheidung „differenziert"):
-//   • SearchAlgorithmObserver : die 19 Komposition-Achsen → ObserverAggregate<19> (real für ObservableAxis,
+//   • SearchAlgorithmObserver : die 17 Komposition-Achsen → ObserverAggregate<17> (real für ObservableAxis,
 //     R5.B: search_algo + allocator + ... operativ; Rest Default-Snapshot). Träger: NodeObserverSnapshot (BR-3).
 //     korr. 2026-06-03 (Doc 30 §8.0): umfasst jetzt AUCH queuing q1/q2 (Slots T17/T18) — reguläre SA-Tier-Unterklasse-Achsen.
 //   • DefinitionOnly          : die Hardware-/Sub-Achsen page_type(01)/simd_extension(09b)/general_hardware(12)
@@ -24,7 +24,7 @@ namespace comdare::cache_engine::builder::experiment {
 
 /// Die drei Observer-Naturen der 26 Achsen (gattungs-korrekt, Doc 27 §0.1).
 enum class AxisObserverKind {
-    SearchAlgorithmObserver, // 19 Komposition-Achsen (inkl. queuing q1/q2 T17/T18): ObserverAggregate<19> (BR-3)
+    SearchAlgorithmObserver, // 17 Komposition-Achsen (inkl. queuing q1/q2 T15/T16): ObserverAggregate<17> (BR-3)
     DefinitionOnly,   // page_type/09b/12 + 4 node-shape (#234-K): Build-Konstanten → Definition statt Laufzeit-Observer
     ContainerObserver // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };
@@ -43,7 +43,7 @@ struct AxisObserverClass {
     AxisObserverKind kind;
 };
 
-/// ALLE 26 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 19 Komposition, dann 4 node-shape (#234-K) → 7 DefinitionOnly gesamt).
+/// ALLE 26 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 17 Komposition, dann 4 node-shape (#234-K) → 7 DefinitionOnly gesamt).
 inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
     {"search_algo", AxisObserverKind::SearchAlgorithmObserver},
     {"cache_traversal", AxisObserverKind::SearchAlgorithmObserver},

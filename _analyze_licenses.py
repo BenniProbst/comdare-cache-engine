@@ -1,3 +1,5 @@
+# W9.5/G10 VERMERK: Einmal-Scaffolding-Werkzeug (Lizenz-Sichtung), NICHT Teil der Build-Pipeline.
+# KEIN Python in der Buildchain (Talos OS hat kein Python, s. cmake/permutations.cmake); nur manueller Lauf.
 """Lizenz-Analyse aller geklonten Repos in ext/.
 
 Pruefe: existiert LICENSE/COPYING/NOTICE? Lese die ersten 50 Zeilen.

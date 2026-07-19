@@ -26,7 +26,7 @@ namespace comp = ::comdare::cache_engine::compositions;
 namespace ana  = ::comdare::cache_engine::anatomy;
 
 // MAKRO UNTER TEST: definiert comdare_anatomy_abi_version/magic/create/destroy für eine AdHoc-Permutation
-// (= ArtCompositions 19 Achsen-Typen, variadisch übergeben — löst das Komma-im-Template-Arg-Problem; Doc 30 §8.0).
+// (= ArtCompositions 17 Achsen-Typen, variadisch übergeben — löst das Komma-im-Template-Arg-Problem; Doc 30 §8.0).
 // cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
 // cppcheck-suppress unknownMacro
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(comp::ArtComposition::search_algo, comp::ArtComposition::cache_traversal,
@@ -48,7 +48,7 @@ TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     // Factory (vom Makro definiert) → AdHoc-Anatomie.
     ana::IAnatomyBase* base = comdare_create_anatomy();
     ASSERT_NE(base, nullptr);
-    EXPECT_EQ(base->organ_count(), 17u); // volle 19-Achsen-Anatomie (Doc 30 §8.0)
+    EXPECT_EQ(base->organ_count(), 17u); // volle 17-Achsen-Anatomie (Doc 30 §8.0)
     EXPECT_EQ(base->composition_name(), std::string_view{"AdHocComposition"});
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 
