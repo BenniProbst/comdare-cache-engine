@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- =========================================================================================
+     DEPRECATED (K-14, 2026-07-19; GO-5 Fork 2, R2 ENTSCHIEDEN 2026-07-12, Dossier A.2):
+     diese Datei ist eine historische Dataset-DOPPELQUELLE des Legacy-4-Datei-Schemas
+     (COMDARE_LEGACY_MESSREIHEN-gated, s. libs/common/serialization/xml_config_parser).
+     WAHRHEITSQUELLE der Datensaetze sind die Akten `Code/test_data_xml/*.test_data.xml`
+     (super-Repo, #25-Kanon), referenziert ueber <datasets> im comdare_thesis_profile.
+     NICHT loeschen (Doku-Doktrin: nur deprecaten), NICHT erweitern.
+     ========================================================================================= -->
 <comdare>
   <test_data_set id="ycsb_a">
     <type>YCSB</type>
