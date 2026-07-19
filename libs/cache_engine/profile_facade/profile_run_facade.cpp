@@ -8,6 +8,7 @@
 #include "validate_profile.hpp"     // P5: axis_registry_from_levels / validate_profile / print_validation_report
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
+#include "planner/experiment_plan_director.hpp" // W5-B: ExperimentPlanDirector/PlanTextBuilder (katalog-schwer -> NUR hier)
 
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=extension_hardware
@@ -27,21 +28,24 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream> // W5-B: --dump-plan Root-Tag-Sniff (ifstream)
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional> // GN-3: std::optional<cx::ThesisProfile> fuer den <system_axes>-Deklarations-Check
 #include <set>
+#include <sstream> // W5-B: --dump-plan Root-Tag-Sniff (ostringstream)
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::builder::profile_facade {
 
-namespace ex  = ::comdare::cache_engine::builder::experiment;
-namespace tlz = ::comdare::cache_engine::thesis_lazy;
-namespace wd  = ::comdare::cache_engine::builder::workload_driver;
-namespace cx  = ::comdare::builder::xml; // Bruecke-I2: XmlConfigParser / ExperimentProfile
+namespace ex      = ::comdare::cache_engine::builder::experiment;
+namespace tlz     = ::comdare::cache_engine::thesis_lazy;
+namespace wd      = ::comdare::cache_engine::builder::workload_driver;
+namespace cx      = ::comdare::builder::xml;          // Bruecke-I2: XmlConfigParser / ExperimentProfile
+namespace planner = ::comdare::cache_engine::planner; // W5-B: ExperimentPlanDirector / PlanTextBuilder
 
 namespace {
 
@@ -427,6 +431,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.golden_range_start         = args.golden_range_start; // INC-G6: Chunk-Fenster durchreichen (inert bei count==0)
     a.golden_range_count         = args.golden_range_count;
     a.provision_only             = args.provision_only; // INC-G6: provision-only durchreichen (inert bei false)
+    a.gn_cell_opt                = args.gn_cell_opt;    // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
+    a.gn_cell_simd               = args.gn_cell_simd;   // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
     a.workload_registry          = std::move(workload_registry);
     a.workload_values            = std::move(workload_values);
     a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
@@ -529,6 +535,53 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
     return vr.ok ? 0 : 1;
 }
 
+int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // W5-B (--dump-plan): rein-lesende Emission des deterministischen ExperimentPlanDirector-Walks. Root-Tag-
+    // Sniff ueber den common-DOM (analog main.cpp:675-680): <comdare_thesis_profile> -> Thesis-Kanal,
+    // <comdare_experiment> -> Experiment-Kanal. Beide Parser liefern nullopt bei Fremd-Tag, daher ist der reine
+    // Root-Tag-Read gefahrlos. KEIN DLL-Bau, KEINE Messung, KEINE CSV (Anti-Phantom, golden-neutral).
+    std::string root_tag;
+    if (std::ifstream in{profile_path, std::ios::binary}; in) {
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        if (auto const root = ::comdare::common::xml::parse_document(ss.str())) root_tag = root->tag;
+    }
+
+    // Ohne Registry-Trio-Annotation (loaded=0): der CLI-Plan bleibt host-/registry-pfad-unabhaengig
+    // reproduzierbar (keine neuen einkompilierten Registry-Pfade im Treiber noetig). Die Trio-Annotation
+    // (Resolver-Vorstufe) bleibt der opt-in Contract-Test-Pfad ueber make_plan_registry_annotation.
+    planner::ExperimentPlanDirector const director;
+    planner::PlanTextBuilder              builder;
+
+    if (root_tag == "comdare_thesis_profile") {
+        auto const tp = tlz::load_thesis_profile(profile_path);
+        if (!tp) {
+            os << "[dump-plan] Thesis-Profil '" << profile_path.string()
+               << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
+            return 5;
+        }
+        director.construct(*tp, builder);
+        os << builder.text();
+        return 0;
+    }
+    if (root_tag == "comdare_experiment") {
+        cx::XmlConfigParser const parser;
+        auto const                ep = parser.parse_experiment_profile(profile_path);
+        if (!ep) {
+            os << "[dump-plan] Experiment-Profil '" << profile_path.string()
+               << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
+            return 5;
+        }
+        director.construct(*ep, builder);
+        os << builder.text();
+        return 0;
+    }
+    os << "[dump-plan] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
+       << (root_tag.empty() ? "" : " '" + root_tag + "'")
+       << " -- weder <comdare_thesis_profile> noch <comdare_experiment>. KEIN Plan emittiert.\n";
+    return 5;
+}
+
 ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args) {
     ExperimentRunResult out;
 
@@ -629,6 +682,8 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.working_set_override       = args.working_set_override;
     a.platform_override          = args.platform_override;
     a.build_version_tag_override = args.build_version_tag_override;
+    a.gn_cell_opt                = args.gn_cell_opt;  // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
+    a.gn_cell_simd               = args.gn_cell_simd; // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel; leer = kein Filter)
     a.workload_registry          = std::move(workload_registry);
     a.workload_values            = std::move(workload_values);
     a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
