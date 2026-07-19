@@ -4,7 +4,7 @@
 
 #include "builder/experiment_tree/e2e_pipeline.hpp"
 #include "builder/experiment_tree/coverage_selection.hpp"
-#include "builder/experiment_tree/perm_runner.hpp"
+#include <harness/perm_runner.hpp>
 
 #include <atomic>
 #include <cstdint>

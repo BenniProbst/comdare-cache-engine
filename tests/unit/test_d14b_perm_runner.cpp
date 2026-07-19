@@ -3,7 +3,7 @@
 // (Format→Baum) liefern IDENTISCHE Werte. Mock-IObservableTier (DLL-Lade via AnatomyModuleLoader separat belegt,
 // test_dgenus/test_d4b). Build: cl /I libs/cache_engine (kein Boost).
 
-#include "builder/experiment_tree/perm_runner.hpp"
+#include <harness/perm_runner.hpp>
 #include "builder/experiment_tree/result_ingest.hpp"
 
 #include <cstdint>

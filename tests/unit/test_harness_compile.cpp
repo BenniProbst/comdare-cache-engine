@@ -12,7 +12,7 @@
 #include <builder/experiment_tree/axis_reflect.hpp>
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp>
 #include <builder/experiment_tree/experiment_tree.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>
+#include <harness/perm_runner.hpp>
 #include <builder/experiment_tree/result_ingest.hpp>
 #include <builder/pmc_source_factory.hpp>
 #include <builder/workload_driver/workload_orchestrator.hpp>
