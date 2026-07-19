@@ -7,7 +7,7 @@
 // Feldzahl (==169) + binary_id-Hygiene.
 
 #include "builder/experiment_tree/result_ingest.hpp"
-#include "builder/experiment_tree/perm_runner.hpp"
+#include <harness/perm_runner.hpp>
 
 #include <cstdint>
 #include <iostream>

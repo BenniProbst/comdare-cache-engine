@@ -29,8 +29,8 @@
 #include "coverage_selection.hpp"      // BuildSelection
 #include "runtime_variable_loop.hpp"   // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
-#include "perm_runner.hpp"             // run_observable_perm / format_perm_result
-#include "result_ingest.hpp"           // ingest_result_line
+#include <harness/perm_runner.hpp> // A2-Neben Stufe 2: run_observable_perm / format_perm_result (nach harness/ herausgeloest)
+#include "result_ingest.hpp"       // ingest_result_line
 #include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle

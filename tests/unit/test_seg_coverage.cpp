@@ -23,7 +23,7 @@
 #include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>                   // run_observable_perm (treibt den Mess-Pfad)
+#include <harness/perm_runner.hpp>                                   // run_observable_perm (treibt den Mess-Pfad)
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // format_csv_row / LazyMeasuredRow
 
 #include <compositions/art_reference.hpp>

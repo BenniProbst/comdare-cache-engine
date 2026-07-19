@@ -18,18 +18,20 @@
 //       IMeasurableWorkloadV3 (run_workload_segmented_v2) → 19 aufsummierte per-Achsen-ns (T0..T18). KEINE Achse
 //       n/a mehr (jede treibt eine reale, strategie-abhängige Op); nur eine DLL OHNE V3-Interface → CSV n/a.
 
-#include "experiment_tree.hpp"               // NodeObserverSnapshot
-#include "../../anatomy/observable_tier.hpp" // IObservableTier + ComdareTierObserverSnapshot (I1: EINE Schnittstelle/EIN POD)
-#include "../../anatomy/measurable_workload.hpp" // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
-#include "../../anatomy/rollbackable_tier.hpp" // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
-#include "../../anatomy/scannable_tier.hpp"        // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
+// A2-Neben Stufe 2 (2026-07-18): perm_runner nach harness/ herausgeloest — interne Includes root-relativ
+// (Include-Wurzel libs/cache_engine) statt "../.."-relativ, da harness/ Schwester von builder/ ist.
+#include <builder/experiment_tree/experiment_tree.hpp> // NodeObserverSnapshot
+#include <anatomy/observable_tier.hpp> // IObservableTier + ComdareTierObserverSnapshot (I1: EINE Schnittstelle/EIN POD)
+#include <anatomy/measurable_workload.hpp> // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
+#include <anatomy/rollbackable_tier.hpp> // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
+#include <anatomy/scannable_tier.hpp>              // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
 #include <cache_engine/measurement/axis_error.hpp> // INC-29.1 (D2): SampleStatus (Failed -> CSV "failed", nie Null)
 // Achse 2 (INC-1): run_workload_profile-Op-Skript-Runner (generischer CS-Interpreter über den flachen Op-Vektor — KEIN GoF-Interpreter mit Grammatik/AST) + WorkloadGenerator.
-#include "../workload_driver/workload_orchestrator.hpp" // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
-#include "../workload_driver/workload_profiles.hpp"   // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
-#include "../workload_driver/load_profile_parser.hpp" // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
-#include "../pruef_dock/conformance_gate.hpp" // (Audit K9 / V5-I4): Konformitäts-Gate VOR der Messung (import→GATE→messen)
-#include "../pmc_source_factory.hpp" // #156-De-Risk: make_pmc_source() (IPmcSource/PmcCounters) — PMC in den WIDE-Mess-Pfad
+#include <builder/workload_driver/workload_orchestrator.hpp> // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
+#include <builder/workload_driver/workload_profiles.hpp> // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
+#include <builder/workload_driver/load_profile_parser.hpp> // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
+#include <builder/pruef_dock/conformance_gate.hpp> // (Audit K9 / V5-I4): Konformitäts-Gate VOR der Messung (import→GATE→messen)
+#include <builder/pmc_source_factory.hpp> // #156-De-Risk: make_pmc_source() (IPmcSource/PmcCounters) — PMC in den WIDE-Mess-Pfad
 
 #include <array> // GOAL-L1: kOpKindNames + PermResult::op_lat (per-Interface-Funktions-Latenzen)
 #include <chrono>

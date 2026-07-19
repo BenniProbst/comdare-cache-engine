@@ -6,7 +6,7 @@
 
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/scannable_tier.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>
+#include <harness/perm_runner.hpp>
 
 #include <cstdint>
 #include <iostream>

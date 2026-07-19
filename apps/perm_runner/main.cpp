@@ -7,7 +7,7 @@
 // Aufruf:  perm_runner <perm.dll> [binary_id] [n_ops]   (Default binary_id = DLL-Pfad, n_ops = 1000).
 
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>
+#include <harness/perm_runner.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/observable_tier.hpp>
 

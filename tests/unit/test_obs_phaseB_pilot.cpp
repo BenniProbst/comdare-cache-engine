@@ -17,7 +17,7 @@
 #include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>
+#include <harness/perm_runner.hpp>
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp>
 
 #include <compositions/art_reference.hpp>
