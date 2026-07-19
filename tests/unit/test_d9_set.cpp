@@ -1,5 +1,5 @@
 // D9 / L-76a — Set-Gattung Typ-Ebene + Anatomie-Mechanik (in-process, leichtgewichtig).
-// Verifiziert: SetComposition (15 §28-Achsen, kein mapping/value_handle) + IsSetComposition + SetObserverSnapshotV1
+// Verifiziert: SetComposition (13 §28-Achsen, kein mapping/value_handle; INC-2c/2d ohne telemetry/isa) + IsSetComposition + SetObserverSnapshotV1
 // (ABI-POD) + SetAnatomy K-only-Mengen-Semantik (genus()==Set, keine Duplikate, contains/erase + Observer).
 // Das search_algo-Organ ist hier ein minimales std::set-basiertes API-Organ (echter Mengen-Algo; der Achsen-
 // Wrapper-Vollbeleg + DLL-Round-Trip via COMDARE_DEFINE_SET_MODULE = D9.2). Build: cl /I libs/cache_engine (kein Boost).
@@ -35,7 +35,10 @@ using SAnat = cea::SetAnatomy<SC>;
 
 static_assert(cea::IsSetComposition<SC>, "SetComposition muss IsSetComposition erfuellen");
 static_assert(SC::slot_count == 13, "Set = 13 Achsen (§28, K-A; INC-2d: isa ist System-Achse)");
-static_assert(cea::kSetCompositionSlotCount == 15);
+static_assert(cea::kSetCompositionSlotCount == 13,
+              "L4/K-3: Set = 13 Slots (INC-2c/2d) -- Konstante und slot_count muessen synchron bleiben");
+static_assert(cea::kSetCompositionSlotCount == SC::slot_count,
+              "L4/K-3: kSetCompositionSlotCount muss der live SetComposition::slot_count entsprechen");
 static_assert(SAnat::genus() == cea::AnatomyGenus::Set, "SetAnatomy genus == Set");
 
 static int g_fail = 0;

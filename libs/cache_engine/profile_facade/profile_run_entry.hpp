@@ -166,7 +166,7 @@ struct RunProfileResult {
     //    die Baseline-DLL + die Basis-Achsen-Sweep-ids, die identisch sind → idempotent; union_gen fragt die
     //    Basis-320 zuerst). SOTA liegt im disjunkten "sota_tier=…"-Raum.
     std::map<std::string, std::string> fused =
-        make_all_axis_sweeps_source_map(); // alle 19 Achsen-Sweeps (#26/GO-5; Eintragszahl USE-Enable-abhaengig)
+        make_all_axis_sweeps_source_map(); // alle 17 Achsen-Sweeps (#26/GO-5, INC-2d; Eintragszahl USE-Enable-abhaengig)
     for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn const union_gen = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
     ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
@@ -280,7 +280,7 @@ struct RunProfileResult {
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     // S7b — PASS 1..m: BASIS + ACHSEN-SWEEPS (permute_axes/axis_sweeps → source_catalog).
     //
-    // FF(#168) — ACHSEN-SWEEP: ist die Pass-Achse sweep-katalogisiert (seit #26/GO-5 ALLE 19 Achsen,
+    // FF(#168) — ACHSEN-SWEEP: ist die Pass-Achse sweep-katalogisiert (seit #26/GO-5 ALLE Achsen — heute 17, INC-2d,
     // is_deepened_axis), kann/soll der Basis-Baum sie nicht variieren (im Profil ggf. 1 Wert gepinnt →
     // level_size==1). Statt der Basis-View baut der Treiber einen EIGENEN Sweep-Baum aus axis_sweep_levels(axis)
     // — 18 Baseline-Ebenen + die gesweepte Achse VOLL — dessen 19-Achsen-binary_ids die axis_sweep_source_map-Keys
@@ -405,7 +405,7 @@ struct RunProfileResult {
             ex::BuildSelection const sel = ex::select_explicit({0});
             if (sota_seen_bids.insert(p.view_binary_id).second) ++res.sota_binary_ids; // M-CE-10 (b): distinkt
             // GO-5 Fork 7 + M-CE-10 (c): der tool-berechnete H2-Score wird ueber das HOST-Lebewesen (p.h2_lebewesen)
-            // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 18/19 Achsen). KORREKTUR F23 (2026-07-16):
+            // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 16/17 Achsen, INC-2d). KORREKTUR F23 (2026-07-16):
             // die fruehere Aussage 'fuer St2 FIX "hot", NIE das angefragte lebewesen' beschrieb die VOR-M-CE-10-
             // Semantik (nur der HOT-Host existierte als St2-Komposition). Seit der per-Host-Auffaecherung
             // (2026-07-14) gilt fuer ALLE Stufen St1/St2/St3: h2_lebewesen == lebewesen (der per-Host-Replace hat

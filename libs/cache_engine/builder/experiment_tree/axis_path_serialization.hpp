@@ -7,7 +7,7 @@
 // ab — so ist der Baum-Blatt-`binary_id` GARANTIERT gleich dem CompositionRegistry-Key (Round-Trip-Garant).
 //
 // Format (identisch zum Baum: experiment_tree.hpp StaticAxisNode::serialize() = "axis=value", "/"-join):
-//   "search_algo=<W0::name()>/cache_traversal=<W1::name()>/.../queuing_q2=<W18::name()>"
+//   "search_algo=<W0::name()>/cache_traversal=<W1::name()>/.../queuing_q2=<W16::name()>"  (17 Slots, INC-2d)
 // C++23, header-only, KEINE Achsen-Includes (umbrella-unabhängig; nimmt das PermTuple als Template-Param entgegen).
 
 #include <boost/mp11.hpp>

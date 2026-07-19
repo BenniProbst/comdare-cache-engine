@@ -26,7 +26,7 @@ namespace comdare::cache_engine::builder::codegen {
 /// render_adhoc_module_source_shaped -- der kompilierbare Modul-.cpp-Quelltext einer SHAPED-Permutation.
 /// Identisches Textformat wie render_adhoc_module_source, aber mit COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED
 /// und dem FQ-Shape-Typ als ERSTEM Argument (BUILDVARIANT-Praezedenz: benannte Args zuerst). Der Shape ist
-/// Adapter-Traeger, KEIN 20. Slot -- die 19 Achsen-Args bleiben unveraendert.
+/// Adapter-Traeger, KEIN 18. Slot -- die 17 Achsen-Args bleiben unveraendert (INC-2d).
 /// REVIEW-FIX (Critical-1, 07.07.): shape_include wird MIT-emittiert -- die Umbrella-Closure erreicht nur den
 /// Default-Shape der Familie (z.B. Kt4 via btree_node_pool_store.hpp:17); ohne expliziten Shape-Include waere
 /// die generierte TU fuer jeden Nicht-Default-Shape NICHT kompilierbar. Der Aufrufer liefert den Include-Pfad,

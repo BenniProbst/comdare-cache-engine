@@ -11,8 +11,9 @@
 // **ADDITIV & golden/ABI-NEUTRAL (bewusster Scope, Anatomie-/ABI-Kern unberuehrt):** KEINE Aenderung an
 // AnatomyGattung/AnatomyGenus-Enum, an den 4 Anatomien (adapter/set/sequence/view_anatomy.hpp), an
 // GenusBindingTraits, an golden_fullpilot_320_binary_ids.txt oder permutation_axes.xml. Jeder Container-TYP
-// BEHAELT seinen bisherigen Achsen-Satz ("exakt die bisherigen Container-Achsen": Adapter 13 / Set 15 /
-// Sequence 11 / View 7) -- dieser Header RE-EXPORTIERT die bestehende gattungs-parametrische Bau-Bindung,
+// BEHAELT seinen bisherigen Achsen-Satz ("exakt die bisherigen Container-Achsen": Adapter 11 / Set 13 /
+// Sequence 9 / View 5; L4/K-3-Sync auf die INC-2d-Slot-Counts der static_asserts unten) -- dieser Header
+// RE-EXPORTIERT die bestehende gattungs-parametrische Bau-Bindung,
 // er baut sie NICHT um. Eine echte Genus->Typ-UMSTRUKTURIERUNG (Set/Sequence als bloede Typen statt
 // eigener Genus) waere ABI/golden-beruehrend und bleibt ein SEPARATER User-GO (Ledger #29-GEPARKT).
 //

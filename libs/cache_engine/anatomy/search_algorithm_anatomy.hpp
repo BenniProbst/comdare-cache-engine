@@ -21,8 +21,8 @@ namespace comdare::cache_engine::anatomy {
 
 /// SearchAlgorithmAnatomy — zentrale Anatomie-Klasse fuer ALLE Suchalgorithmen.
 ///
-/// Template-Parameter Composition liefert die 19 Achsen-Auspraegungen (17 Such-Achsen
-/// + queuing q1/q2, Doc 30 §8.0). Konkrete Algorithmen (ART/HOT/Wormhole/SuRF/Masstree/
+/// Template-Parameter Composition liefert die 17 Achsen-Auspraegungen (15 Such-Achsen
+/// + queuing q1/q2, Doc 30 §8.0; INC-2c/2d: telemetry+isa sind System-Achsen). Konkrete Algorithmen (ART/HOT/Wormhole/SuRF/Masstree/
 /// START) sind reine Template-Instantiationen — siehe `anatomy::Art`, `anatomy::Hot` etc. unten.
 ///
 /// Phase R3 (Pilot): interner std::map<uint64_t,uint64_t> als Container.
@@ -133,7 +133,8 @@ public:
     [[nodiscard]] typename Composition::node_type&       node_type_organ() noexcept { return axis_node_type_; }
     [[nodiscard]] typename Composition::node_type const& node_type_organ() const noexcept { return axis_node_type_; }
 
-    /// Phase A (2026-06-04): Zugriff auf die 4 neu verdrahteten Achsen-Organe (T1/T2/T17/T18). Der Builder/
+    /// Phase A (2026-06-04): Zugriff auf die 4 neu verdrahteten Achsen-Organe (T1/T2/T15/T16 seit INC-2d;
+    /// historisch T1/T2/T17/T18). Der Builder/
     /// abi_adapter koppelt sie an die Tier-Op (register_entry/resolve, register_slot/resolve_offset, put/get,
     /// should_flush/on_flush_complete) → ihre statistics() fliessen via observe_all() in den Per-Achsen-Trace.
     [[nodiscard]] typename Composition::cache_traversal& cache_traversal_organ() noexcept {
@@ -187,7 +188,8 @@ private:
     // V42 L-74c: node_type-Huelle als 5. Organ.
     typename Composition::node_type axis_node_type_;
 
-    // Phase A (2026-06-04): die 4 neu verdrahteten Achsen-Organe (T1/T2/T17/T18). Default-konstruiert; vom
+    // Phase A (2026-06-04): die 4 neu verdrahteten Achsen-Organe (T1/T2/T15/T16 seit INC-2d; historisch
+    // T1/T2/T17/T18). Default-konstruiert; vom
     // Builder/abi_adapter ueber die Organ-Accessoren getrieben. statistics() fliesst via observe_all() (nur
     // STATISTICS-Build). KEIN `{}` (wie axis_telemetry_): die nackte Strategie kann ein Aggregat sein.
     typename Composition::cache_traversal axis_cache_traversal_;

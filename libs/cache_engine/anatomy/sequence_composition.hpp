@@ -1,6 +1,7 @@
 #pragma once
-// D10 / L-76b (2026-06-02) — SequenceComposition: die SEQUENCE-Gattungs-Komposition (Reptil, V-indexed). 10 geteilte
-// Achsen (Doku 14 §28 Reptile-Spalte, K-B aufgelöst) + axis_growth (eigene Achse) = 11 Slots. GETRENNTE Gattung
+// D10 / L-76b (2026-06-02) — SequenceComposition: die SEQUENCE-Gattungs-Komposition (Reptil, V-indexed). 8 geteilte
+// Achsen (Doku 14 §28 Reptile-Spalte, K-B aufgelöst; INC-2c/2d: telemetry+isa sind System-Achsen, kein Slot)
+// + axis_growth (eigene Achse) = 9 Slots. GETRENNTE Gattung
 // (Cross-Genus type-unmöglich, Doku 14 §32). Kein search_algo/cache_traversal/mapping/path_compression/node_type/
 // index_organization/filter (Sequence ist V-indexed, kein K-Suchorgan).
 //
@@ -62,6 +63,7 @@ concept IsSequenceComposition = requires {
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
 
-inline constexpr std::size_t kSequenceCompositionSlotCount = 11;
+/// L4/K-3 (2026-07-19): 11 → 9 gesynct (INC-2c telemetry + INC-2d isa raus) == SequenceComposition::slot_count.
+inline constexpr std::size_t kSequenceCompositionSlotCount = 9;
 
 } // namespace comdare::cache_engine::anatomy
