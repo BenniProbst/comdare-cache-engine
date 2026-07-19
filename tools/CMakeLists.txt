@@ -9,6 +9,12 @@ add_subdirectory(best_binary_selector)
 # INC-A (2026-07-14): axis_registry_gen — C++-Tool, erzeugt cache_engine_axis_registry.xml per
 # compile-time-Reflektion der Enabled*-Achsen-Listen (EXCLUDE_FROM_ALL, explizit gebaut).
 add_subdirectory(axis_registry_gen)
+# PAKET W2-B (2026-07-19): die 2 fehlenden Art-Registry-Generatoren (Ledger §28/§30) — je Achsen-ART
+# ein eigenes XML-Angebot des Compiles per compile-time-Reflektion (EXCLUDE_FROM_ALL, explizit gebaut).
+# system_axis_registry_gen -> System-Art (system_config); measurement_axis_registry_gen -> Mess-Art
+# (system_measurement). Roundtrip-Gates in tests/unit/CMakeLists.txt (Default-Sweep).
+add_subdirectory(system_axis_registry_gen)
+add_subdirectory(measurement_axis_registry_gen)
 # Bau-INC-2c (2026-07-17): gen_golden_fullpilot — autoritativer Golden-Fixture-Generator
 # (offizieller StaticBinaryView-Pfad; EXCLUDE_FROM_ALL, explizit im ABI-Fenster gebaut).
 add_subdirectory(gen_golden_fullpilot)
