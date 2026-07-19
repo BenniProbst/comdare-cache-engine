@@ -192,6 +192,24 @@ struct ThesisRunOptions {
     bool          resume_set = false; // true wenn <run_options resume=..> explizit gesetzt war
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// <system_axes> — CEB-System-Achsen (opt-f/A3), konform zur V35-Tabelle §2.1: Haupt-Achse → Unter-Achse → Optionen.
+// Die Parent-Ebene (compiler / extension_hardware) wird ERHALTEN (nicht flach gedroppt). binary_id-NEUTRAL
+// (system_config; opt/simd stehen NIE in kCompositionAxisNames). Rohstrings (cache_engine-frei); die Enum-/Flag-
+// Aufloesung (O0..Ofast → -O<n> / no_extension|avx2|avx512 → -march) erfolgt in der cache_engine-Schicht.
+// GETEILTE STRUKTUR (GN-3, 2026-07-19): dieselben zwei PODs tragen den <system_axes>-Block in BEIDEN Kanaelen —
+// ThesisProfile (comdare_thesis_profile) UND ExperimentProfile (comdare_experiment). Der Parser liest sie ueber
+// EINE gemeinsame parse_system_axes-Naht (xml_config_parser.cpp); leer = kein <system_axes> = heutiges Verhalten
+// byte-identisch (golden-Roundtrip unberuehrt).
+// ─────────────────────────────────────────────────────────────────────────────
+struct CompilerAxisSel {                 // Haupt-System-Achse "compiler" (15) — trägt dynamische Unter-Achsen
+    std::vector<std::string> opt_levels; // Unter-Achse "opt_level" (15.2): ihre Optionen <option value=O0..Ofast>
+};
+struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6., Q2 Option C)
+    std::vector<std::string>
+        simd_options; // Optionen der simd-Unter-Achse <simd><option value=no_extension|avx2|avx512> (Spiegel opt_levels)
+};
+
 struct ThesisProfile {
     std::string                 id;
     int                         schema_version = 0;
@@ -243,6 +261,17 @@ struct ThesisProfile {
     //    (kMeasurementAxisRegistry) lebt in der cache_engine-Schicht (profile_facade/validate_profile.hpp),
     //    exakt wie ThesisDatasetRef.loader gegen kKnownDatasetLoaderIds. ──
     std::vector<std::string> measurement_categories;
+
+    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): <system_axes> ADDITIV im comdare_thesis_profile-Kanal.
+    //    Dieselbe geteilte Naht (parse_system_axes) wie der comdare_experiment-Kanal befuellt diese beiden PODs:
+    //    compiler.opt_levels = die <compiler><opt_level><option>-Werte, extension_hardware.simd_options = die
+    //    <extension_hardware><simd><option>-Werte. system_config → binary_id-NEUTRAL (opt/simd stehen NIE in
+    //    kCompositionAxisNames; sie multiplizieren NUR die BAU-Matrix/Sidecar, NIE N). Fehlt <system_axes>, bleiben
+    //    beide Listen leer = heutiges Verhalten byte-identisch (golden-Roundtrip unberuehrt). Die Wert-Gueltigkeit
+    //    (opt O0..O3 zulaessig, Ofast REJECT gemaess §32-F4; simd gegen kAllSimdIds) prueft validate_profile in der
+    //    cache_engine-Schicht — hier keine Enum-Referenz (Baseline-Layering). ──
+    CompilerAxisSel          compiler;
+    ExtensionHardwareAxisSel extension_hardware;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,17 +314,8 @@ struct ExperimentOutput {
     bool        comparison_metrics = false; // <output><comparison_metrics> (bool)
 };
 
-// <system_axes> — CEB-System-Achsen (opt-f/A3), konform zur V35-Tabelle §2.1: Haupt-Achse → Unter-Achse → Optionen.
-// Die Parent-Ebene (compiler / extension_hardware) wird ERHALTEN (nicht flach gedroppt). binary_id-NEUTRAL
-// (system_config; opt/simd stehen NIE in kCompositionAxisNames). Rohstrings (cache_engine-frei); die Enum-/Flag-
-// Aufloesung (O0..Ofast → -O<n> / no_extension|avx2|avx512 → -march) erfolgt in der cache_engine-Schicht.
-struct CompilerAxisSel {                 // Haupt-System-Achse "compiler" (15) — trägt dynamische Unter-Achsen
-    std::vector<std::string> opt_levels; // Unter-Achse "opt_level" (15.2): ihre Optionen <option value=O0..Ofast>
-};
-struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6., Q2 Option C)
-    std::vector<std::string>
-        simd_options; // Optionen der simd-Unter-Achse <simd><option value=no_extension|avx2|avx512> (Spiegel opt_levels)
-};
+// CompilerAxisSel / ExtensionHardwareAxisSel — GN-3 (2026-07-19): jetzt VOR ThesisProfile definiert (geteilte
+// <system_axes>-PODs beider Kanaele; die frueher hier stehenden Definitionen sind dorthin relokiert). Doku dort.
 
 struct ExperimentProfile {
     std::string                   version;   // <comdare_experiment version=..>
