@@ -2,6 +2,14 @@
 #
 # Das Tool liegt unter apps/catalog_codegen_tool und existiert erst nach
 # add_subdirectory(apps). Der Header bleibt strikt im Build-Baum.
+#
+# GN-2/§26.6 (2026-07-19, Design BESTAETIGT): dieser Codegen bleibt BEWUSST auf dem 320er-m3v2-Profil --
+# die golden-N-REFERENZ (FullSourceCatalog, 2^17=131072) ist vom MATERIALISIERTEN Katalog entkoppelt und
+# wird NIE materialisiert (GB-TU/ICE). Die Entkopplung ist seit GN-2 nicht mehr nur Konvention: der
+# generierte Header ruft make_catalog_source_gen<GeneratedFullSourceCatalog>() und laeuft damit durch den
+# negativen Instanziierungs-Guard in profile_facade/source_catalog.hpp (static_assert gegen die Vollform +
+# Kardinalitaets-Grenze kMaxMaterializableCatalogCardinality). Ein Repoint dieses Profils auf eine Form
+# jenseits der Grenze bricht den Build compile-time, billig und laut -- NICHT erst als GB-TU im mp_product.
 
 get_filename_component(_comdare_catalog_codegen_ce_root
     "${CMAKE_CURRENT_LIST_DIR}/.."
