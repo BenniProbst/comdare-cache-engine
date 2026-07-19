@@ -733,3 +733,39 @@ TEST(CiYamlBuilder, BothStagesEmitParentMirroredCcacheConfig) {
         EXPECT_EQ(count_occurrences(*yaml, "\ncache:\n"), 1u);
     }
 }
+
+// (W8) W10-Nacharbeit 2 (Serie-E2E 11569/11576): die self-contained Child-YAMLs erben default:before_script NICHT
+//      -> JEDER Bau-Job beider Stufen traegt den Submodul-Klon-PROLOG (Deploy-Token via CI-Variablen, NIE Klartext)
+//      + global GIT_SUBMODULE_STRATEGY:none (kein Auto-Fetch, der am extraheader failt).
+TEST(CiYamlBuilder, BothStagesEmitSubmoduleClonePrologInBuildJobs) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    planner::CiYamlBuilder     s1; // Stufe 1: ceb:build + ceb:emit = 2 Bau-Jobs
+    planner::TierCiYamlBuilder s2; // Stufe 2: 4 Perms x kTierChunkCount tier:build = 16 Bau-Jobs
+    director.construct(*tp, s1);
+    director.construct(*tp, s2);
+    std::string const& y1 = s1.text();
+    std::string const& y2 = s2.text();
+
+    // Prolog-Marker: 1 je Bau-Job. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16 (tier:build), Mess-Jobs OHNE.
+    EXPECT_EQ(count_occurrences(y1, "# CHILD-SUBMODULE-KLON"), 2u) << "ceb:build + ceb:emit";
+    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 4u * planner::kTierChunkCount) << "je tier:build-Job";
+    for (auto const* yaml : {&y1, &y2}) {
+        // global GIT_SUBMODULE_STRATEGY:none (kein Auto-Fetch); KEIN per-Job recursive-Override mehr.
+        EXPECT_NE(yaml->find("  GIT_SUBMODULE_STRATEGY: \"none\""), std::string::npos);
+        EXPECT_EQ(yaml->find("GIT_SUBMODULE_STRATEGY: recursive"), std::string::npos)
+            << "kein Auto-Fetch-Override mehr (der failt am extraheader)";
+        // Deploy-Token NUR als CI-Variablen-Referenz, NIE Klartext (Byte-Determinismus + kein Leak).
+        EXPECT_NE(yaml->find("${CE_SUBMODULE_USER}:${CE_SUBMODULE_TOKEN}"), std::string::npos)
+            << "Token als Variablen-Referenz";
+        // Idempotenz-Haertung: --force + sync auf den gepinnten gitlink-SHA; ce + prt-art pfad-geskopt.
+        EXPECT_NE(yaml->find("git submodule update --init --recursive --force -- Code/external/comdare-cache-engine "
+                             "Code/external/comdare-prt-art"),
+                  std::string::npos);
+        // die Overleaf-Thesis wird NICHT geklont (C++-Bau braucht sie nicht).
+        EXPECT_EQ(yaml->find("20260931-overleaf-diplomarbeit"), std::string::npos)
+            << "Thesis-Submodul im Bau-Child nicht geklont";
+    }
+}

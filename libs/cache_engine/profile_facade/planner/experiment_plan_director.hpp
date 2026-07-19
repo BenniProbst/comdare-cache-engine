@@ -339,6 +339,35 @@ inline void emit_child_ccache_config(std::string& out) {
     out += "  paths: [\".ccache\"]\n";
 }
 
+// W10-Nacharbeit 2 (§42, Serie-E2E 11569/11576): die dynamischen Child-Pipelines erben `default:before_script`
+// NICHT -> ohne diesen PROLOG kompilieren die Bau-Jobs gegen STALE ce-Quellen frueherer Runner-Jobs (der
+// Child-Trace meldet `Skipping Git submodules setup`). Diese Naht spiegelt EXAKT den Parent-Klon-Mechanismus
+// (super/.gitlab-ci.yml default:before_script, REV-15/17): der Runner-Auto-Fetch failt am extraheader, DESHALB
+// GIT_SUBMODULE_STRATEGY:none + MANUELLER Klon mit Deploy-Token. Der Token steht NUR als CI-Variablen-Referenz
+// ($CE_SUBMODULE_USER/$CE_SUBMODULE_TOKEN -- projekt-weit/unprotected, auch im Child verfuegbar), NIE im
+// Klartext (=> Byte-Determinismus + kein Leak). Auf ce + prt-art PFAD-GESKOPT (die Overleaf-Thesis braucht der
+// C++-Bau nicht); --recursive holt ce's nested public-github-Submodul (concurrentqueue); --force + sync auf den
+// GEPINNTEN gitlink-SHA (idempotent auf stalem Workdir). EINE Single-Source fuer alle Bau-Jobs beider Stufen.
+inline void emit_child_submodule_prolog(std::string& out) {
+    out += "    - |\n";
+    out += "      set -euo pipefail\n";
+    out += "      # CHILD-SUBMODULE-KLON (W10-Nacharbeit 2): Parent-Spiegel, Deploy-Token via CI-Variablen (NIE "
+           "Klartext).\n";
+    out += "      if [ -f .gitmodules ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n";
+    out += "        for spec in \"Code/external/comdare-cache-engine:comdare-cache-engine\" "
+           "\"Code/external/comdare-prt-art:comdare-prt-art\"; do\n";
+    out += "          p=\"${spec%%:*}\"; r=\"${spec##*:}\"\n";
+    out += "          git config -f .gitmodules \"submodule.${p}.url\" "
+           "\"https://${CE_SUBMODULE_USER}:${CE_SUBMODULE_TOKEN}@${CI_SERVER_HOST}/comdare/research/${r}.git\"\n";
+    out += "        done\n";
+    out += "        git submodule sync --recursive -- Code/external/comdare-cache-engine "
+           "Code/external/comdare-prt-art\n";
+    out += "        git submodule update --init --recursive --force -- Code/external/comdare-cache-engine "
+           "Code/external/comdare-prt-art\n";
+    out += "        git checkout -- .gitmodules 2>/dev/null || true\n";
+    out += "      fi\n";
+}
+
 // ── CiYamlBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-A-Zweistufigkeit). ───────
 //    Emittiert eine deterministische GitLab-Child-Pipeline-YAML: die MESS-ACHSEN-Stufe der CE-gesteuerten Kette.
 //    Je Mess-Achsen-Kombination [a,b,c] (aus der Anwender-XML, <measurement_categories>) EINE dynamische
@@ -387,6 +416,10 @@ public:
                 "thesis_profiles/all_axes_golden.profile.xml\"\n";
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
+        // W10-Nacharbeit 2: KEIN Runner-Auto-Fetch (failt am extraheader) -> die Bau-Jobs klonen die Submodule
+        // MANUELL im Prolog (emit_child_submodule_prolog). Deshalb global GIT_SUBMODULE_STRATEGY:none deklarieren.
+        out_ += "  GIT_SUBMODULE_STRATEGY: \"none\"   # Child: manueller Deploy-Token-Klon im Job-Prolog, kein "
+                "Auto-Fetch\n";
         // W10-Nacharbeit: das Child erbt die Parent-Globals nicht -> ccache/Parallel-Variablen + cache:-Block selbst
         // emittieren (sonst ccache-Permission-Fail am Runner). Single-Source-Spiegel des Parent (s. Fn-Doku).
         emit_child_ccache_config(out_);
@@ -430,10 +463,8 @@ private:
         s += "  tags: [\"amd64\"]\n";
         s += "  resource_group: \"ceb-" + slug + "\"\n";
         s += "  interruptible: false   # CEB-Bau darf nie auto-cancelt werden\n";
-        s += "  variables:\n";
-        s += "    GIT_SUBMODULE_STRATEGY: recursive   # ce-Submodul fuer den Treiber-Bau (REV-17-Deploy-Token, "
-             "Architekt lintet)\n";
         s += "  script:\n";
+        emit_child_submodule_prolog(s); // W10-Nacharbeit 2: manueller ce-Submodul-Klon (kein Auto-Fetch)
         s += "    - 'echo \"== Toolchain ==\"; cmake --version; (g++ --version || c++ --version || echo \"KEIN "
              "C++-Compiler\")'\n";
         s += "    - cd Code\n";
@@ -458,9 +489,8 @@ private:
         s += "  stage: ceb-emit\n";
         s += "  tags: [\"amd64\"]\n";
         s += "  needs: [\"" + legend::ceb_build_job(c.legend) + "\"]\n";
-        s += "  variables:\n";
-        s += "    GIT_SUBMODULE_STRATEGY: recursive\n";
         s += "  script:\n";
+        emit_child_submodule_prolog(s); // W10-Nacharbeit 2: ceb:emit baut den Treiber neu -> braucht ce-Quellen
         s += "    - cd Code\n";
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -546,6 +576,10 @@ public:
                 "thesis_profiles/all_axes_golden.profile.xml\"\n";
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
+        // W10-Nacharbeit 2: KEIN Runner-Auto-Fetch (failt am extraheader) -> die Bau-Jobs klonen die Submodule
+        // MANUELL im Prolog (emit_child_submodule_prolog). Deshalb global GIT_SUBMODULE_STRATEGY:none deklarieren.
+        out_ += "  GIT_SUBMODULE_STRATEGY: \"none\"   # Child: manueller Deploy-Token-Klon im Job-Prolog, kein "
+                "Auto-Fetch\n";
         // W10-Nacharbeit: das Child erbt die Parent-Globals nicht -> ccache/Parallel-Variablen + cache:-Block selbst
         // emittieren (sonst ccache-Permission-Fail am Runner). Single-Source-Spiegel des Parent (s. Fn-Doku).
         emit_child_ccache_config(out_);
@@ -594,9 +628,8 @@ private:
         s += "  resource_group: \"tier-" + legend::cmake_slug(combo_legend_) + "-" + simd + "-" + opt + "-c" + kstr +
              "\"\n";
         s += "  interruptible: false   # provision-Bau darf nie auto-cancelt werden\n";
-        s += "  variables:\n";
-        s += "    GIT_SUBMODULE_STRATEGY: recursive\n";
         s += "  script:\n";
+        emit_child_submodule_prolog(s); // W10-Nacharbeit 2: manueller ce-Submodul-Klon (kein Auto-Fetch)
         s += "    - cd Code\n";
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
