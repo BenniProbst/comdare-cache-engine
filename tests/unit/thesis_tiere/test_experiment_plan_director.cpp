@@ -752,7 +752,14 @@ TEST(CiYamlBuilder, BothStagesEmitSubmoduleClonePrologInBuildJobs) {
     // Prolog-Marker: 1 je Bau-Job. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16 (tier:build), Mess-Jobs OHNE.
     EXPECT_EQ(count_occurrences(y1, "# CHILD-SUBMODULE-KLON"), 2u) << "ceb:build + ceb:emit";
     EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 4u * planner::kTierChunkCount) << "je tier:build-Job";
+    // W10-Nacharbeit 3: ccache-Env per RUNTIME-Shell-Export im Prolog (1 je Bau-Job, immun gegen die vererbte,
+    // vorexpandierte Parent-CCACHE_DIR). Stufe 1 = 2, Stufe 2 = 16.
+    EXPECT_EQ(count_occurrences(y1, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 2u);
+    EXPECT_EQ(count_occurrences(y2, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 4u * planner::kTierChunkCount);
     for (auto const* yaml : {&y1, &y2}) {
+        // Runtime-Export beider ccache-Variablen (VOR jedem cmake-Aufruf in der Job-Shell).
+        EXPECT_NE(yaml->find("export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), std::string::npos);
+        EXPECT_NE(yaml->find("export CCACHE_MAXSIZE=\"3G\""), std::string::npos);
         // global GIT_SUBMODULE_STRATEGY:none (kein Auto-Fetch); KEIN per-Job recursive-Override mehr.
         EXPECT_NE(yaml->find("  GIT_SUBMODULE_STRATEGY: \"none\""), std::string::npos);
         EXPECT_EQ(yaml->find("GIT_SUBMODULE_STRATEGY: recursive"), std::string::npos)
