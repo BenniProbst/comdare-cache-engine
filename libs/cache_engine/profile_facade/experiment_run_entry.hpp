@@ -34,6 +34,7 @@
 
 #include "profile_run_entry.hpp" // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
                                  //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
+#include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed (Spiegel-Filter, Single-Source)
 
 #include <ctime>
 
@@ -67,6 +68,11 @@ struct RunExperimentArgs {
     std::uint64_t         working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
     std::string           platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
     std::string           build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
+    // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): der GN-Zellen-Filter der opt×simd-Delegations-Naht — SPIEGEL zu
+    // RunProfileArgs::gn_cell_* (run_profile). Gesetzt (COMDARE_GN_OPT/COMDARE_GN_SIMD) ⇒ diese Cluster-Zelle baut
+    // NUR die matchende (opt,simd)-Perm; leer (Default) = kein Filter = alle Perms ⇒ byte-neutral.
+    std::string gn_cell_opt;  // leer = kein opt-Zellen-Filter
+    std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values; // die id-Werte der dynamischen Workload-Achse
@@ -241,6 +247,13 @@ struct RunExperimentResult {
             : ep.extension_hardware.simd_options;
     bool const capped = a.max_binaries > 0;
     for (auto const& opt_id : opt_perms) {
+        // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel run_profile). Ist COMDARE_GN_OPT gesetzt, baut diese Cluster-Zelle
+        // NUR ihre eine opt-Auspraegung; alle anderen werden hier uebersprungen (Muster der ISA-Gate-Skips unten).
+        if (!gn_cell_opt_allowed(a.gn_cell_opt, opt_id)) {
+            std::cout << "  [GN-ZELLE] opt=" << opt_id << " != Zellen-Filter '" << a.gn_cell_opt
+                      << "' — uebersprungen (§36.1: eine System-Perm je Cluster-Zelle)\n";
+            continue;
+        }
         std::string opt_flag = system_axis_opt_flag_of(opt_id);
         if (opt_flag.empty()) {
             std::cerr << "[Compiler-Compiler-Fehler: "
@@ -250,6 +263,13 @@ struct RunExperimentResult {
             opt_flag = std::string{cm::DefaultOptLevelOption::gcc_opt_flag()};
         }
         for (auto const& simd_id : simd_perms) {
+            // W5-C+ (§36.1): GN-Zellen-Filter (VOR dem ISA-Gate; Spiegel run_profile). Ist COMDARE_GN_SIMD gesetzt,
+            // baut diese Cluster-Zelle NUR ihre eine simd-Auspraegung.
+            if (!gn_cell_simd_allowed(a.gn_cell_simd, simd_id)) {
+                std::cout << "  [GN-ZELLE] simd=" << simd_id << " != Zellen-Filter '" << a.gn_cell_simd
+                          << "' — uebersprungen (§36.1: eine System-Perm je Cluster-Zelle)\n";
+                continue;
+            }
             if (!system_axis_host_supports_simd(simd_id)) {
                 std::cerr << "[Compiler-Compiler-Fehler: "
                           << cm::error_class_label(cm::CompilerCompilerErrorClass::HardwareErweiterungFehlt)

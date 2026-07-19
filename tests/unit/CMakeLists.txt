@@ -2462,6 +2462,61 @@ target_compile_definitions(test_lazy_resume_binary PRIVATE
 add_test(NAME test_lazy_resume_binary COMMAND test_lazy_resume_binary)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_resume_binary)
 set_tests_properties(test_lazy_resume_binary PROPERTIES LABELS "contract;standalone;harness;resume")
+
+# Welle 5 (W5-C, §38-Dock-Protokoll, 2026-07-19) - zwei Gates nach der Layering-Verlagerung:
+#   test_experiment_dock_payload -> TEIL 1 (planner): ExperimentSubtreePayload <-> R5-XML Byte-Roundtrip + Negativ.
+#   test_progress_delta          -> TEIL 2 (builder-Leaf): der Fortschritts-Delta-Kanal gegen die REALE
+#                                   StaticBinaryView-Folge (compute_progress_deltas freistehend, done 1x).
+# Bewusst leicht: header-only, KEIN run_lazy_static_then_dynamic (AnatomyModuleLoader/dlopen) -- gleicher Include-/
+# Define-Satz wie test_lazy_resume_binary. libs/common traegt die common-DOM (xml_reader) des R5-Parsers.
+add_executable(test_experiment_dock_payload "test_experiment_dock_payload.cpp")
+target_compile_features(test_experiment_dock_payload PRIVATE cxx_std_23)
+target_include_directories(test_experiment_dock_payload PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_experiment_dock_payload PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_experiment_dock_payload)
+target_compile_definitions(test_experiment_dock_payload PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_experiment_dock_payload COMMAND test_experiment_dock_payload)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_experiment_dock_payload)
+set_tests_properties(test_experiment_dock_payload PROPERTIES LABELS "contract;standalone;harness;welle5;dock")
+
+# W5-C TEIL 2 (builder-Leaf progress_delta.hpp) - Delta-Rekonstruktion gegen die reale StaticBinaryView (done 1x).
+add_executable(test_progress_delta "test_progress_delta.cpp")
+target_compile_features(test_progress_delta PRIVATE cxx_std_23)
+target_include_directories(test_progress_delta PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_progress_delta PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_progress_delta)
+target_compile_definitions(test_progress_delta PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_progress_delta COMMAND test_progress_delta)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_progress_delta)
+set_tests_properties(test_progress_delta PROPERTIES LABELS "contract;standalone;harness;welle5;dock")
+
+# W5-C+ (§36.1 Zellen-Locking, 2026-07-19) - Zaehl-Gate fuer den GN-Zellen-Filter der opt×simd-Delegations-Naht
+# (profile_facade/gn_cell_filter.hpp = Single-Source). Filter gesetzt -> genau 1 Perm; leer -> alle Perms; ISA-Gate.
+# Bewusst umbrella-FREI (nur der Leaf-Header, reines stdlib) -> kein Boost, kein Katalog, KEIN DLL-Bau im Test.
+add_executable(test_gn_cell_filter "test_gn_cell_filter.cpp")
+target_compile_features(test_gn_cell_filter PRIVATE cxx_std_23)
+target_include_directories(test_gn_cell_filter PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
+comdare_set_platform_defines(test_gn_cell_filter)
+add_test(NAME test_gn_cell_filter COMMAND test_gn_cell_filter)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_gn_cell_filter)
+set_tests_properties(test_gn_cell_filter PROPERTIES LABELS "contract;standalone;welle5;gn-cell")
 # AP-6/#240 rev: rein lesendes Profil-Coverage-Gate (SOTA P01-P33 + Allokator A01-A23).
 comdare_add_test(test_profile_coverage
     SOURCES thesis_tiere/test_profile_coverage.cpp

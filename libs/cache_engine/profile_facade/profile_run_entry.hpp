@@ -30,6 +30,7 @@
 #include "source_catalog.hpp"           // axis_sweep_source_map / axis_sweep_levels (Sweep-Quellen)
 #include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
 #include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
+#include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed / gn_walk_cells (Single-Source)
 
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
 #include <builder/experiment_tree/coverage_selection.hpp> // select_explicit
@@ -73,10 +74,19 @@ struct RunProfileArgs {
     // tp.extension_hardware.simd_options) SELBST und ruft die Fabrik je Perm mit den aufgeloesten Flags. Leer ⇒
     // Fallback auf `compile` (Einzel-Pfad, byte-identisch zum Vor-Wiring-Verhalten).
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
-    std::string              compiler_tag;     // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
-    ex::AlgoSigFn            algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
-    ex::CachePushFn          cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
-    ex::MeasurementSinkFn    measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
+    std::string compiler_tag; // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
+    // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): optionale GN-Zellen-Filter der opt×simd-Delegations-Naht. Die
+    // CI-Matrix weist jeder Cluster-Zelle GENAU EINE System-Perm zu (COMDARE_GN_OPT/COMDARE_GN_SIMD). Sind diese
+    // gesetzt, baut der Walk NUR die matchende (opt,simd)-Zelle; alle anderen Perms werden mit Log-Zeile
+    // uebersprungen. Leer (Default) = kein Filter = heutiges Verhalten (alle Profil-Perms) => byte-neutral. Werte
+    // matchen dieselben Bezeichner wie die Profil-System-Achsen (O2/O3 bzw. no_extension/avx2/avx512).
+    std::string           gn_cell_opt;      // leer = kein opt-Zellen-Filter
+    std::string           gn_cell_simd;     // leer = kein simd-Zellen-Filter
+    ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
+    ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
+    ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
+    ex::ProgressSinkFn
+        progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default); make_cfg reicht ihn je Pass durch
     std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
     std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
     std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
@@ -332,6 +342,7 @@ struct RunProfileResult {
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
         cfg.measurement_sink          = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
+        cfg.progress_sink = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
         cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
@@ -561,6 +572,13 @@ struct RunProfileResult {
                 ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
                 : tp.extension_hardware.simd_options;
         for (auto const& opt_id : opt_perms) {
+            // W5-C+ (§36.1): GN-Zellen-Filter. Ist COMDARE_GN_OPT gesetzt, baut diese Cluster-Zelle NUR ihre eine
+            // opt-Auspraegung; alle anderen werden hier uebersprungen (Muster der ISA-Gate-Skips unten).
+            if (!gn_cell_opt_allowed(a.gn_cell_opt, opt_id)) {
+                std::cout << "  [GN-ZELLE] opt=" << opt_id << " != Zellen-Filter '" << a.gn_cell_opt
+                          << "' — uebersprungen (§36.1: eine System-Perm je Cluster-Zelle)\n";
+                continue;
+            }
             std::string opt_flag = system_axis_opt_flag_of(opt_id);
             if (opt_flag.empty()) {
                 std::cerr << "[Compiler-Compiler-Fehler: "
@@ -570,6 +588,13 @@ struct RunProfileResult {
                 opt_flag = std::string{cm::DefaultOptLevelOption::gcc_opt_flag()};
             }
             for (auto const& simd_id : simd_perms) {
+                // W5-C+ (§36.1): GN-Zellen-Filter (VOR dem ISA-Gate, damit eine gefilterte Zelle als GN-Skip statt
+                // ISA-Skip erscheint). Ist COMDARE_GN_SIMD gesetzt, baut diese Cluster-Zelle NUR ihre eine simd-Auspraegung.
+                if (!gn_cell_simd_allowed(a.gn_cell_simd, simd_id)) {
+                    std::cout << "  [GN-ZELLE] simd=" << simd_id << " != Zellen-Filter '" << a.gn_cell_simd
+                              << "' — uebersprungen (§36.1: eine System-Perm je Cluster-Zelle)\n";
+                    continue;
+                }
                 if (!system_axis_host_supports_simd(simd_id)) {
                     std::cerr << "[Compiler-Compiler-Fehler: "
                               << cm::error_class_label(cm::CompilerCompilerErrorClass::HardwareErweiterungFehlt)

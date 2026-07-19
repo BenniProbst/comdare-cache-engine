@@ -34,6 +34,7 @@
 #include "result_ingest.hpp"                       // ingest_result_line
 #include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
+#include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
 #include "../../anatomy/observable_tier.hpp"       // IObservableTier
@@ -60,6 +61,9 @@ namespace comdare::cache_engine::builder::experiment {
 // analog dazu, wie CompileFn/AlgoSigFn im experiment-Namespace sichtbar sind.
 using CachePushFn       = ::comdare::cache_engine::builder::artifact_transport::CachePushFn;
 using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
+// Welle 5 (E-W5-2, §38-Rueck-Kanal): ProgressDelta / ProgressSinkFn / progress_delta_between liegen im
+// builder-Sibling-Leaf progress_delta.hpp (SELBER Namespace builder::experiment) -> hier ohne Alias direkt
+// sichtbar. Der achsen-blinde Iterator inkludiert NUR den builder-Leaf (kein Aufwaerts-Include in profile_facade).
 
 // ── Konfiguration des Lazy-E2E-Laufs ──────────────────────────────────────────
 struct LazyRunConfig {
@@ -148,6 +152,12 @@ struct LazyRunConfig {
     // result.csv -> measure-drop additiv (Ebene C). Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
     CachePushFn       cache_push;
     MeasurementSinkFn measurement_sink;
+    // Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): No-Op-Default => byte-neutral; Muster EXAKT wie cache_push/
+    // measurement_sink. Der Iterator feuert je Binary an der Per-Binary-Synchron-Naht (NACH result.csv+stamp/nach
+    // Provisionierung) GENAU EINEN ProgressDelta (erste Meldung = Voll-Konfiguration, danach mixed-radix-minimale
+    // Deltas in StaticBinaryView-Ordnung) und am Fensterende genau EINEN done=true-Delta (= §38.b-Fertig-Signal).
+    // KEIN Mess-Daten-Rueckfluss. Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
+    ProgressSinkFn progress_sink;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -748,6 +758,26 @@ struct LazyRunResult {
     result.built_skip         = result.build_stats.skipped;
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
 
+    // ── Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): Zustand + Feuerungs-Helfer. Der Kanal reist SYNCHRON aus
+    //    dem 1-Thread-Loop (nie aus den Build-Workern) und in StaticBinaryView-Ordnung (builds[j] entspricht
+    //    view[builds[j].index] = view[indices[j]] — provision_core fuellt results[j] positions-treu). progress_prev
+    //    haelt die zuletzt gemeldete mixed-radix-Ziffernfolge (leer => erste Meldung = Voll-Konfiguration). Alles
+    //    No-Op, wenn kein progress_sink gesetzt ist => byte-neutral. ──
+    std::vector<std::size_t> progress_prev;
+    auto                     fire_progress = [&](std::size_t view_index, std::size_t cursor) {
+        if (!cfg.progress_sink) return; // No-Op-Naht (byte-neutral)
+        std::vector<std::size_t> const cur = view.variant_tuple(view_index);
+        cfg.progress_sink(progress_delta_between(progress_prev, cur, cursor));
+        progress_prev = cur;
+    };
+    auto fire_progress_done = [&](std::size_t total) {
+        if (!cfg.progress_sink) return; // No-Op-Naht (byte-neutral)
+        ProgressDelta term;             // §38.b-Fertig-Signal: done genau EINMAL am Fensterende (changed leer)
+        term.cursor = total;
+        term.done   = true;
+        cfg.progress_sink(term);
+    };
+
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     // INC-G6 (Ledger 33/34, 2026-07-19, BAUPLAN Abschnitt 2): PROVISION-ONLY. Nach der STATISCHEN Kompilierung
     // (DLLs + .version/.algos-Sidecars stehen versions-aktuell) VOR der Lade-/Mess-Phase zurueckkehren: KEIN
@@ -764,6 +794,10 @@ struct LazyRunResult {
             for (BuildResult const& b : builds)
                 if (b.ok() && !b.output.parent_path().empty())
                     cfg.cache_push(b.output.parent_path(), cfg.build_version);
+        // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je bereitgestellte Binary EIN
+        // Delta (in StaticBinaryView-Ordnung), danach genau EIN done-Delta am Fensterende. No-Op ohne progress_sink.
+        for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
+        fire_progress_done(builds.size());
         return result;
     }
 
@@ -780,7 +814,9 @@ struct LazyRunResult {
     std::string const resume_stamp_prefix = lazy_resume_stamp_prefix(cfg, dyn_dims);
 
     // ── Je erfolgreich bereitgestellte DLL: laden + die zwei Lazy-Sub-Iteratoren fahren ──
+    std::size_t progress_cursor = 0; // Welle 5 (E-W5-2): fenster-relativer Perm-Index, VOR den continues inkrementiert
     for (BuildResult const& b : builds) {
+        std::size_t const this_progress_cursor = progress_cursor++; // Position DIESER Binary im Fenster (== Selektion)
         // Bauplan §8 (inkrementeller Cache): der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur.
         // b.algo_sig ist leer, wenn keine AlgoSigFn injiziert war -> binary_resume_stamp == resume_stamp_prefix
         // (BYTE-IDENTISCH zum Alt-Verhalten, kein Bruch bestehender Mess-Resumes). Ist sie gesetzt, invalidiert eine
@@ -975,8 +1011,19 @@ struct LazyRunResult {
                     cfg.measurement_sink(rcsv, bin_dir.filename().string() + "/result.csv");
             }
         }
+
+        // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal an DERSELBEN Per-Binary-Synchron-Naht (NACH result.csv+stamp
+        // + Storage-Push, VOR dem RAII-DLL-Unload). EIN Delta je an dieser Naht abgeschlossene Binary; cursor = der
+        // fenster-relative Perm-Index. No-Op ohne progress_sink (byte-neutral). Uebersprungene Binaries (Resume-Skip/
+        // Build-Fehler/Load-Fehler: die frueheren continue) feuern hier NICHT — der Kanal meldet die an dieser Naht
+        // fertiggestellten Konfigurationen; da der Delta-Diff sich stets auf die ZULETZT gemeldete Konfiguration
+        // bezieht, bleibt der Strom auch mit solchen Luecken selbst-konsistent rekonstruierbar.
+        fire_progress(b.index, this_progress_cursor);
         // handle: RAII entlädt die DLL am Schleifenende (Pointer zuerst, dann FreeLibrary).
     }
+
+    // Welle 5 (E-W5-2): §38.b-Fertig-Signal — done genau EINMAL am Fensterende (nach der GANZEN Binary-Schleife).
+    fire_progress_done(builds.size());
 
     return result;
 }

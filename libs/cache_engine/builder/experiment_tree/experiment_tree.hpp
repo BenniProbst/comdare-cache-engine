@@ -263,6 +263,19 @@ public:
         return i;
     }
 
+    /// Welle 5 (E-W5-2, §38-Rueck-Kanal): dekodiert Index i mixed-radix zur Ziffern-Folge (Varianten-Index je Ebene
+    /// d, GLEICHE Ordnung wie operator[]/binary_id). Leere Ebenen tragen Ziffer 0. Additiv (kein Aufrufer bricht) —
+    /// die EINE Single-Source der Ziffern-Dekodierung fuer den Fortschritts-Delta-Kanal (keine Duplizierung der
+    /// mixed-radix-Arithmetik host-seitig).
+    [[nodiscard]] std::vector<std::size_t> variant_tuple(std::size_t i) const {
+        std::vector<std::size_t> t(levels_.size(), 0);
+        for (std::size_t d = 0; d < levels_.size(); ++d) {
+            if (levels_[d].values.empty()) continue;
+            t[d] = (i / div_[d]) % levels_[d].values.size();
+        }
+        return t;
+    }
+
     /// On-demand: dekodiert Index i mixed-radix → EINE BinarySpec (materialisiert genau einen Pfad).
     [[nodiscard]] BinarySpec operator[](std::size_t i) const {
         BinarySpec s;

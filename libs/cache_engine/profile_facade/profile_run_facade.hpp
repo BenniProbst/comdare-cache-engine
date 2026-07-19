@@ -43,6 +43,11 @@ struct ProfileRunArgs {
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
     bool        provision_only     = false; // true = nur bauen, nicht messen
+    // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): der GN-Zellen-Filter der opt×simd-Delegations-Naht. Der Host
+    // (messung_driver) belegt sie aus COMDARE_GN_OPT/COMDARE_GN_SIMD. Gesetzt => run_profile baut in dieser
+    // Cluster-Zelle NUR die matchende (opt,simd)-Perm; leer (Default) = kein Filter = alle Perms => byte-neutral.
+    std::string gn_cell_opt;  // leer = kein opt-Zellen-Filter
+    std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
     // Storage #51 (No-Op-Default => byte-neutral): der Host (messung_driver) konstruiert sie via
     // artifact_transport::ArtifactCache::from_env und reicht sie zur per-Binary-/whole-run-Naht durch. Leer = No-Op.
     artifact_transport::CachePushFn       cache_push;
@@ -89,6 +94,10 @@ struct ExperimentRunArgs {
     std::uint64_t working_set_override = 0;
     std::string   platform_override;
     std::string   build_version_tag_override;
+    // W5-C+ (§36.1 Zellen-Locking): der GN-Zellen-Filter — SPIEGEL zu ProfileRunArgs::gn_cell_* (der Host belegt
+    // sie aus COMDARE_GN_OPT/COMDARE_GN_SIMD). Leer (Default) = kein Filter = alle Perms => byte-neutral.
+    std::string gn_cell_opt;  // leer = kein opt-Zellen-Filter
+    std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
     // Storage #51 (No-Op-Default => byte-neutral): wie ProfileRunArgs — vom Host via from_env konstruiert,
     // zur per-Binary-/whole-run-Naht durchgereicht. Leer = No-Op.
     artifact_transport::CachePushFn       cache_push;
@@ -123,5 +132,14 @@ struct ExperimentRunResult {
 [[nodiscard]] int validate_experiment_profile_facade(std::filesystem::path const& profile_path,
                                                      std::filesystem::path const& ce_registry_path,
                                                      std::filesystem::path const& prt_registry_path, std::ostream& os);
+
+// GoF Facade (PAKET W5-B, 2026-07-19): --dump-plan -- rein-lesende Emission des deterministischen
+// ExperimentPlanDirector-Walks (GoF Director + PlanTextBuilder) fuer BEIDE offiziellen Profil-Wurzeln. Ein
+// Root-Tag-Sniff (common-DOM, wie main.cpp:675-680) waehlt: <comdare_thesis_profile> -> Thesis-Kanal
+// (opt x simd x Sweep-Passes), <comdare_experiment> -> Experiment-Kanal (opt x simd x Phasen). Baut KEINE
+// DLL und misst NICHT (Anti-Phantom, golden-neutral). Rueckgabe: 0 = Plan-Text nach os emittiert, 5 = Profil
+// nicht als bekannte Wurzel lesbar. Der katalog-schwere Planer-Header (experiment_plan_director.hpp:42-43)
+// wird NUR in der Fassaden-.cpp inkludiert, NIE in diesem Header (umbrella-frei fuer den Treiber).
+[[nodiscard]] int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade
