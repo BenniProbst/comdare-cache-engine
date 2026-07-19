@@ -41,6 +41,8 @@ public:
     // Statische API durchgereicht (ComposedStore nutzt N::max_capacity() constexpr + N::name()).
     [[nodiscard]] static constexpr std::size_t      max_capacity() noexcept { return Strategy::max_capacity(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    static constexpr std::string_view               algo_version =
+        Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
     // INC-A #6: per-Organ-Codegen-Lokation. Der Wrapper-Typ ist die ObservableNodeType-Huelle (der
     // Registry-Enabled-Eintrag ist ObservableNodeType<Strategy>); der Header ist diese Huellen-Datei.
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::node::ObservableNodeType",

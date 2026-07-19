@@ -74,6 +74,8 @@ public:
     [[nodiscard]] static constexpr bool has_secondary_indexes() noexcept { return Strategy::has_secondary_indexes(); }
     [[nodiscard]] static constexpr bool data_embedded_in_leaf() noexcept { return Strategy::data_embedded_in_leaf(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    static constexpr std::string_view               algo_version =
+        Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
     [[nodiscard]] static constexpr std::string_view family_name() noexcept
         requires requires { Strategy::family_name(); }
     {

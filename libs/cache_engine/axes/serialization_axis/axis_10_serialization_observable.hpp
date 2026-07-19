@@ -41,6 +41,10 @@ public:
     // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht.
     [[nodiscard]] static constexpr bool supports_compression() noexcept { return Strategy::supports_compression(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz). reflect_versions liest W::algo_version ueber die
+    // Enabled-Huelle (ObservableSerialization<Strategy>, axis_variant_version_table.hpp:56) — ohne dieses Forwarding
+    // bricht die build_axis_variant_version_table-Instanziierung fuer die serialization-Achse (T09).
+    static constexpr std::string_view algo_version = Strategy::algo_version;
     // INC-A #6: per-Organ-Codegen-Lokation. Wrapper-Typ = ObservableSerialization-Huelle (Enabled-Eintrag =
     // ObservableSerialization<Strategy>); Header = diese Huellen-Datei.
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::serialization_axis::ObservableSerialization",

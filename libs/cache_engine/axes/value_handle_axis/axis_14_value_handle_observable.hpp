@@ -66,6 +66,8 @@ public:
     // rufen C::value_handle::name()).
     [[nodiscard]] static constexpr bool             is_inline() noexcept { return Strategy::is_inline(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    static constexpr std::string_view               algo_version =
+        Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
     [[nodiscard]] static constexpr std::string_view family_name() noexcept
         requires requires { Strategy::family_name(); }
     {

@@ -52,6 +52,8 @@ public:
     // rufen C::memory_layout::name()).
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    static constexpr std::string_view               algo_version =
+        Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
     // INC-A #6: per-Organ-Codegen-Lokation. Wrapper-Typ = ObservableMemoryLayout-Huelle (Enabled-Eintrag =
     // ObservableMemoryLayout<Strategy>); Header = diese Huellen-Datei.
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::layout::ObservableMemoryLayout",
