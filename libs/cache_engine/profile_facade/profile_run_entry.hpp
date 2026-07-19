@@ -95,7 +95,7 @@ struct RunProfileArgs {
     // COMDARE_WORKLOAD_RECORDS, wo das Harness die aeussere N-Schleife selbst faehrt). 0 = Profil-Sweep nutzen.
     std::uint64_t working_set_override = 0;
     // INC-G6 (Ledger 33/34/35, 2026-07-19, BAUPLAN Abschnitt 6.1): der golden-N-Materialisierungs-Kanal.
-    // ADDITIV/INERT -- golden_range_count==0 UND provision_only==false ⇒ byte-identisch zum Ist-Lauf.
+    // ADDITIV/INERT -- golden_range_count==0 UND provision_only==false => byte-identisch zum Ist-Lauf.
     //   golden_range_start/count: EIN Fenster [start, start+count) ueber die Basis-StaticBinaryView (Chunk-Bau
     //     ueber den 2^17-Indexraum statt der ersten N; 0 = kein Fenster = profile_make_basis 0..N-1).
     //   provision_only: NUR bauen (DLLs + .version/.algos-Sidecars), NICHT messen -- entkoppelt den ~8h-Bau vom
@@ -577,6 +577,17 @@ struct RunProfileResult {
                               << "' auf dieser ISA nicht verfuegbar — Permutation uebersprungen.\n";
                     continue;
                 }
+                // FREIGABE-KOPPLUNG System->Organ (Ledger 36/37/37.b, 2026-07-19; SIMD = Pilot-Instanz): DIES ist die
+                // CEB-BAU-DELEGATIONS-NAHT des Freigabe-Prinzips. Die freigegebene System-Zelle (simd_id, oben
+                // host-ISA-gegated via system_axis_host_supports_simd) wird ueber system_axis_march_of zur -march-Flag
+                // der per-Zelle montierten CompileFn `perm_compile`, die provision_all (BuildOrchestrator) je Binary
+                // VOR der Kompilation nutzt. Das -march IST das Gate der Organ-SIMD-Codegen (Organ-SIMD <= System-
+                // SIMD-Zulassung, ISA-Gate E1 oben): SIMD-faehige Organ-Varianten (SimdCapableStrategy: array256/
+                // vector_u8u8/...) DEGRADIEREN unter no_extension via #ifdef auf Skalar -- KEIN Bau-Fehler. Der
+                // Zulaessigkeits-Filter sitzt GENAU HIER (Auswahl VOR der Kompilation), NICHT im Emitter/Tier/Planer.
+                // Kuenftige System-Consumer-Achsen (NUMA/NPU/GPU/FPGA) + ein constexpr requires_simd()-Bau-Gate
+                // (Audit-G7) fuer HART-SIMD-Organe docken GENAU HIER an (State-Pattern durchs Pruef-Dock, Folge-
+                // Increment). Details am Emitter: lazy_adhoc_source_gen.hpp (FREIGABE-KOPPLUNG-Abschnitt).
                 std::string const march_flag = system_axis_march_of(simd_id);
                 perm_compile = a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
                 std::string const perm_suffix =

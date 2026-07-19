@@ -73,7 +73,7 @@ std::string body_after_first_line(std::string const& s) {
     return nl == std::string::npos ? std::string{} : s.substr(nl + 1);
 }
 
-// ── (a) golden-320: lazy Gen == Katalog Gen (modulo Index-Kommentar) ──────────────────────────────────────
+// -- (a) golden-320: lazy Gen == Katalog Gen (modulo Index-Kommentar) --------------------------------------
 void check_320_byte_identity(std::vector<std::string> const& g320_ids) {
     std::cout << "\n---- (a) golden-320: lazy Gen == Katalog Gen (modulo Index-Kommentar) ----\n";
     check_eq("(a) generated 320 binary_count", g320_ids.size(), std::size_t{320});
@@ -95,7 +95,7 @@ void check_320_byte_identity(std::vector<std::string> const& g320_ids) {
     check_true("(a) unbekannte id liefert leere lazy-Quelle", lazy("__unknown_binary_id__").empty());
 }
 
-// ── (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ────────────────────────────────────
+// -- (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ------------------------------------
 void check_golden_n_nonempty(std::vector<std::string> const& g320_ids, std::vector<std::string> const& full_ids) {
     std::cout << "\n---- (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ----\n";
     check_eq("(b) FullSourceCatalog view.size() == 131072", full_ids.size(), std::size_t{131072});
@@ -151,7 +151,7 @@ void check_golden_n_nonempty(std::vector<std::string> const& g320_ids, std::vect
     check_eq("(b) distinkte ids -> distinkte Modul-Ruempfe", distinct_bodies.size(), picks.size());
 }
 
-// ── (c) CRC64-Anker + lazy materialisiert jede enumerierte id ─────────────────────────────────────────────
+// -- (c) CRC64-Anker + lazy materialisiert jede enumerierte id ---------------------------------------------
 void check_crc64_and_lazy_cover(std::vector<std::string> const& full_ids) {
     std::cout << "\n---- (c) CRC64-Anker (kNewGolden131072Crc64) + lazy deckt jede enumerierte id ----\n";
     check_eq("(c) FullSourceCatalog view.size() == 131072", full_ids.size(), std::size_t{131072});
@@ -179,6 +179,54 @@ void check_crc64_and_lazy_cover(std::vector<std::string> const& full_ids) {
     check_eq("(c) lazy Gen materialisiert jede Stichproben-id (nicht-leer)", nonempty, checked);
 }
 
+// -- (d) Freigabe-Kopplung (Ledger 36/37/37.b): der Emitter rendert SIMD-Organ-Varianten SYSTEM-BLIND ----------
+// Belegt, dass der Zulaessigkeits-Filter (Organ-SIMD <= System-Freigabe) NICHT im Emitter sitzt (37.b): der lazy
+// Gen rendert eine SIMD-faehige search_algo-Organ-Variante (SimdCapableStrategy: array256/vector_u8u8) UNBEDINGT,
+// ohne jede Kenntnis der freigegebenen System-Zelle. Die Kopplung/Degradation liegt an der CompileFn/provision_all-
+// Naht (-march), nicht hier. Reiner Render-Check (kein Compile) -- die no_extension-Degradation selbst traegt die
+// -march-Abwesenheit + die #ifdef-Skalar-Pfade der Organ-Wrapper (Concept-Vertrag), separater Bau-Beleg.
+void check_simd_organ_system_blind(std::vector<std::string> const& full_ids) {
+    std::cout
+        << "\n---- (d) Freigabe-Kopplung: Emitter rendert SIMD-Organ system-blind (Filter an CompileFn-Naht) ----\n";
+    tlz::LazySlotTables const tables = tlz::lazy_slot_type_tables();
+    ex::SourceGenFn const     lazy   = tlz::make_lazy_adhoc_source_gen();
+    // Eine SIMD-gekoppelte search_algo-Organ-Variante (Slot 0) im enabled-Satz suchen. k_ary traegt
+    // supports_simd()==true + SimdCapableStrategy (data-parallel Layout) und ist im Default-Enabled-Satz;
+    // array256/vector_u8u8/original_* sind die weiteren SIMD-gekoppelten Kandidaten (falls opt-in enabled).
+    std::string simd_name, simd_cpp;
+    for (char const* cand : {"k_ary", "array256", "vector_u8u8", "original_art", "original_hot"}) {
+        for (auto const& e : tables[0])
+            if (e.name == cand) {
+                simd_name = e.name;
+                simd_cpp  = e.cpp_type;
+                break;
+            }
+        if (!simd_name.empty()) break;
+    }
+    check_true("(d) SIMD-gekoppelte search_algo-Variante im enabled-Satz (SimdCapableStrategy)", !simd_name.empty());
+    if (simd_name.empty()) return;
+
+    // Gueltigen 17-Achsen-binary_id bauen: Baseline aus full_ids[0], search_algo := die SIMD-Organ-Variante.
+    auto const  base_axes = ex::ceb_parse_path(full_ids.front());
+    std::string bid;
+    for (std::size_t slot = 0; slot < ex::kCompositionAxisNames.size(); ++slot) {
+        std::string_view const ax = ex::kCompositionAxisNames[slot];
+        std::string            val;
+        for (auto const& kv : base_axes)
+            if (kv.first == ax) {
+                val = kv.second;
+                break;
+            }
+        if (ax == std::string_view{"search_algo"}) val = simd_name;
+        if (!bid.empty()) bid += '/';
+        bid += std::string{ax} + "=" + val;
+    }
+    std::string const src   = lazy(bid);
+    std::string const label = "(d) lazy Gen rendert SIMD-Organ (" + simd_name + ") nicht-leer (system-blind)";
+    check_true(label.c_str(), !src.empty());
+    check_true("(d) gerenderte Quelle traegt den SIMD-Organ-Typ", src.find(simd_cpp) != std::string::npos);
+}
+
 } // namespace
 
 int main() {
@@ -193,6 +241,7 @@ int main() {
     check_320_byte_identity(g320_ids);
     check_golden_n_nonempty(g320_ids, full_ids);
     check_crc64_and_lazy_cover(full_ids);
+    check_simd_organ_system_blind(full_ids);
 
     std::cout << "\n==== INC-G6 lazy Gate: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";
