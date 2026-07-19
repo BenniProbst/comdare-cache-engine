@@ -43,10 +43,10 @@ namespace {
 namespace sha = ::comdare::cache_engine::sha256;
 
 struct HeaderFacts {
-    bool          exists  = false;
-    std::uint64_t version = 0;     // aus dem AXIS_ALGO_VERSION-Marker (0 = Marker fehlt)
+    bool          exists     = false;
+    std::uint64_t version    = 0; // aus dem AXIS_ALGO_VERSION-Marker (0 = Marker fehlt)
     bool          has_marker = false;
-    std::string   digest_hex;      // SHA-256 der ROHEN Datei-Bytes
+    std::string   digest_hex; // SHA-256 der ROHEN Datei-Bytes
 };
 
 /// Liest die ROHEN Bytes einer Datei. exists=false wenn nicht lesbar.
@@ -68,10 +68,10 @@ struct HeaderFacts {
     if (pos == std::string_view::npos) return false;
     std::size_t i = pos + kMarker.size();
     while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) ++i;
-    std::uint64_t v      = 0;
-    bool          digit  = false;
+    std::uint64_t v     = 0;
+    bool          digit = false;
     while (i < text.size() && text[i] >= '0' && text[i] <= '9') {
-        v = v * 10 + static_cast<std::uint64_t>(text[i] - '0');
+        v     = v * 10 + static_cast<std::uint64_t>(text[i] - '0');
         digit = true;
         ++i;
     }
@@ -81,11 +81,11 @@ struct HeaderFacts {
 }
 
 [[nodiscard]] HeaderFacts inspect_header(std::string const& path) {
-    HeaderFacts hf;
+    HeaderFacts               hf;
     std::vector<std::uint8_t> bytes;
     if (!read_file_bytes(path, bytes)) return hf; // exists=false
-    hf.exists         = true;
-    hf.has_marker     = parse_algo_version(bytes, hf.version);
+    hf.exists           = true;
+    hf.has_marker       = parse_algo_version(bytes, hf.version);
     sha::Digest const d = sha::sha256(std::span<const std::uint8_t>{bytes.data(), bytes.size()});
     auto const        h = sha::to_hex(d);
     hf.digest_hex.assign(h.begin(), h.end());
@@ -136,8 +136,8 @@ int do_write(std::string const& lockfile, std::vector<std::string> const& header
                          h.c_str());
         }
         out << hf.version << ' ' << hf.digest_hex << ' ' << h << '\n';
-        std::fprintf(stdout, "axis_version_lock: LOCK v%llu %s %s\n",
-                     static_cast<unsigned long long>(hf.version), hf.digest_hex.c_str(), h.c_str());
+        std::fprintf(stdout, "axis_version_lock: LOCK v%llu %s %s\n", static_cast<unsigned long long>(hf.version),
+                     hf.digest_hex.c_str(), h.c_str());
     }
     return rc;
 }
@@ -159,8 +159,7 @@ int do_check(std::string const& lockfile, std::vector<std::string> const& header
         }
         auto const it = lock.find(h);
         if (it == lock.end()) {
-            std::fprintf(stderr, "axis_version_lock: ROT Header nicht im Lock verzeichnet (unlocked): %s\n",
-                         h.c_str());
+            std::fprintf(stderr, "axis_version_lock: ROT Header nicht im Lock verzeichnet (unlocked): %s\n", h.c_str());
             red = 1;
             continue;
         }
@@ -178,15 +177,15 @@ int do_check(std::string const& lockfile, std::vector<std::string> const& header
             std::fprintf(stdout, "axis_version_lock: HINWEIS Lock erneuern (--write) fuer %s\n", h.c_str());
             continue;
         }
-        std::fprintf(stderr,
-                     "axis_version_lock: ROT Header-Digest geaendert OHNE algo_version-Bump (v%llu==v%llu) %s\n",
-                     static_cast<unsigned long long>(hf.version), static_cast<unsigned long long>(e.version),
-                     h.c_str());
+        std::fprintf(
+            stderr, "axis_version_lock: ROT Header-Digest geaendert OHNE algo_version-Bump (v%llu==v%llu) %s\n",
+            static_cast<unsigned long long>(hf.version), static_cast<unsigned long long>(e.version), h.c_str());
         std::fprintf(stderr, "axis_version_lock:     erwartet %s\n", e.digest_hex.c_str());
         std::fprintf(stderr, "axis_version_lock:     ist      %s\n", hf.digest_hex.c_str());
         red = 1;
     }
-    if (red == 0) std::fprintf(stdout, "axis_version_lock: GRUEN alle %zu Strategie-Header konsistent\n", headers.size());
+    if (red == 0)
+        std::fprintf(stdout, "axis_version_lock: GRUEN alle %zu Strategie-Header konsistent\n", headers.size());
     return red;
 }
 
