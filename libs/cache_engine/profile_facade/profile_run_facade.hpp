@@ -168,11 +168,26 @@ struct ExperimentRunResult {
 // DLL und misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
 [[nodiscard]] int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
-// GoF Facade (PAKET W7-B, §40.c): --dump-cmake -- rein-lesende Emission des scharfen experiment_plan.cmake
-// (CMakeGraphBuilder am SELBEN Director-Walk). Der Bare-Metal-Bauplan: pro Perm ein echtes provision-only-
-// Treiber-Kommando (build:) + ein GN-11-gegatetes measure:-Skelett. Byte-deterministisch/host-unabhaengig
-// (Treiber/Profil/Range/Out = CMake-Variablen mit Defaults; nur opt/simd = Plan-Konstanten). Baut KEINE DLL
-// und misst NICHT. Rueckgabe: 0 = .cmake nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+// GoF Facade (PAKET W7-B, §40.c): --dump-cmake -- rein-lesende Emission des STUFE-1-experiment_plan.cmake
+// (CMakeGraphBuilder am SELBEN Director-Walk). W10-A/§42: die MESS-ACHSEN-Stufe (Planer-Rolle) -- je
+// Mess-Kombination [a,b,c] ein CEB-Bau- + CEB-Emit-Target (--emit-tier-cmake => Stufe-2). Der Bare-Metal-Bau
+// ist damit dreistufig. Byte-deterministisch/host-unabhaengig (Treiber/Profil = CMake-Variablen). Baut KEINE
+// DLL und misst NICHT. Rueckgabe: 0 = .cmake nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
 [[nodiscard]] int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os);
+
+// GoF Facade (PAKET W10-A, §42/§42.b): --emit-tier-ci -- die CEB-ROLLEN-Emission (Stufe 2). Emittiert NUR die
+// STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums (System-Perms [d,e,f] + Tier-Chunk-Bau-Jobs "tier:build:[a,b,c]
+// [d,e,f]:chunk<k>" + GN-11/320er-gegatete Mess-Jobs "measure:[a,b,c][d,e,f][g,h,i]") als GitLab-Child-2-YAML
+// (TierCiYamlBuilder am SELBEN Director-Walk). CEB-Hoheit (§40.b-Praezisierung: der Planer steuert die CEB-Jobs
+// via --dump-ci, die CEB steuert die Tier-Jobs via --emit-tier-ci; heute EINE Binary in zwei Rollen). Baut
+// KEINE DLL, misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os);
+
+// GoF Facade (PAKET W10-A, §42/§42.b): --emit-tier-cmake -- der Bare-Metal-Gegenpart zu --emit-tier-ci. Emittiert
+// das STUFE-2-tier_plan.cmake (TierCmakeGraphBuilder): je System-Perm die REALEN provision-only-Tier-Chunk-Bau-
+// Targets + je Perm ein GN-11/320er-gegatetes measure:-Skelett. Der Ort des Tier-Baus in der dreistufigen
+// Bare-Metal-Kette. Byte-deterministisch/host-unabhaengig. Baut KEINE DLL, misst NICHT. Rueckgabe: 0 = .cmake
+// nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade

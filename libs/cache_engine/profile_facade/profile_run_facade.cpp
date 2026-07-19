@@ -637,10 +637,30 @@ int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::os
 }
 
 int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os) {
-    // W7-B (--dump-cmake, §40.c): der scharfe CMakeGraphBuilder-Traeger am geteilten Director-Walk. Emittiert das
-    // Bare-Metal-experiment_plan.cmake (echte provision-only-build:-Kommandos + GN-11-gegatetes measure:-Skelett).
+    // W7-B/W10-A (--dump-cmake, §40.c/§42): der CMakeGraphBuilder-Traeger (STUFE 1, Planer-Rolle) am geteilten
+    // Director-Walk. Emittiert das Bare-Metal-experiment_plan.cmake der Mess-Achsen-Stufe (CEB-Bau + CEB-Emit).
     planner::CMakeGraphBuilder builder;
     int const                  rc = construct_plan_into(profile_path, builder, os, "dump-cmake");
+    if (rc == 0) os << builder.text();
+    return rc;
+}
+
+int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // W10-A (--emit-tier-ci, §42/§42.b): der TierCiYamlBuilder-Traeger (STUFE 2, CEB-Rolle) am geteilten
+    // Director-Walk. Emittiert NUR die Stufe-2-Sicht des freigegebenen CEB-Raums (System-Perms + Tier-Chunk-Jobs
+    // + GN-11/320er-gegatete Mess-Jobs). CEB-Hoheit (§40.b-Praezisierung); heute EINE Binary in zwei Rollen.
+    planner::TierCiYamlBuilder builder;
+    int const                  rc = construct_plan_into(profile_path, builder, os, "emit-tier-ci");
+    if (rc == 0) os << builder.text();
+    return rc;
+}
+
+int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // W10-A (--emit-tier-cmake, §42/§42.b): der TierCmakeGraphBuilder-Traeger (STUFE 2, CEB-Rolle) am geteilten
+    // Director-Walk. Emittiert das Bare-Metal-tier_plan.cmake (reale provision-only-Tier-Chunk-Bau-Targets +
+    // GN-11/320er-gegatetes measure:-Skelett) -- der Ort des Tier-Baus in der dreistufigen Bare-Metal-Kette.
+    planner::TierCmakeGraphBuilder builder;
+    int const                      rc = construct_plan_into(profile_path, builder, os, "emit-tier-cmake");
     if (rc == 0) os << builder.text();
     return rc;
 }
