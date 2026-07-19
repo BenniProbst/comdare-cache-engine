@@ -146,6 +146,18 @@ struct SimdGateResult {
     return r;
 }
 
+// Section 37 Zulassung an der CEB-Bau-Delegation (provision_core, per-Binary): organ_required <= machine_signature.
+// Rueckgabe = D1-Fehlerklasse bei Verletzung (HardwareErweiterungFehlt), sonst kein Fehler. organ_required LEER
+// -> kein Fehler (byte-neutral). Fokussierte Durchsetzung fuer den Bau-Delegations-Punkt (ohne Flag-Emission --
+// die uebernimmt die per-Perm-CompileFn-Naht in der Fassade).
+[[nodiscard]] constexpr std::optional<CompilerCompilerErrorClass>
+admit_organ_on_machine(std::span<SimdFeatureFlag const> organ_required,
+                       std::span<SimdFeatureFlag const> machine_signature) noexcept {
+    for (auto const& f : organ_required)
+        if (!span_contains(machine_signature, f)) return CompilerCompilerErrorClass::HardwareErweiterungFehlt;
+    return std::nullopt;
+}
+
 // CompileFn-Emission (runtime, an der provision_all/CompileFn-Naht): die einzelnen -m-Flags des Ergebnisses.
 // Freigegeben -> je effektives Flag ein -m<flag>; NotApplicable/Abgelehnt -> LEER (CompileFn unveraendert).
 [[nodiscard]] inline std::vector<std::string> effective_march_flags(SimdGateResult const& r,
@@ -197,5 +209,7 @@ static_assert(route_of_march_flag("") == SimdRoute::NoExtension);
 // leere required-Menge -> NotApplicable, KEINE effektiven Flags (byte-/golden-neutral, Ist-Verhalten):
 static_assert(pruef_dock({}, {}, {}, SimdRoute::Avx512).state == SimdGateState::NotApplicable);
 static_assert(pruef_dock({}, {}, {}, SimdRoute::Avx512).effective_count == 0);
+// Section 37 per-Binary-Zulassung: leere Anforderung -> kein Fehler (byte-neutral); fehlendes Flag -> D1.
+static_assert(!admit_organ_on_machine({}, {}).has_value());
 
 } // namespace comdare::cache_engine::measurement

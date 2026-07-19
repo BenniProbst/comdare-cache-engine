@@ -5,6 +5,7 @@
 #include <cache_engine/measurement/machine_simd_signature.hpp>
 #include <cache_engine/measurement/simd_build_gate.hpp>
 #include <cache_engine/measurement/simd_feature_flag.hpp>
+#include <cache_engine/measurement/simd_organ_requirement.hpp>
 #include <cache_engine/measurement/simd_organ_sensibility.hpp>
 
 #include <gtest/gtest.h>
@@ -149,4 +150,27 @@ TEST(MSimdBuildGate, CompileFnSeamIsInertTodayForEveryRoute) {
     EXPECT_EQ(m::route_of_march_flag("-mavx512f"), m::SimdRoute::Avx512);
     EXPECT_EQ(m::route_of_march_flag("-mavx2"), m::SimdRoute::Avx2);
     EXPECT_EQ(m::route_of_march_flag(""), m::SimdRoute::NoExtension);
+}
+
+TEST(MSimdBuildGate, OrganRequirementIsEmptyTodaySoDelegationGateIsInert) {
+    // Heutiger Stand: KEIN Organ deklariert required-Flags -> die per-Binary-Aggregation ist leer ->
+    // provision_core-Zulassung trivial -> KEIN Compile-Skip (byte-/golden-neutral).
+    EXPECT_FALSE(m::any_organ_declares_required());
+    EXPECT_TRUE(m::required_of("filter").empty());
+    // Demo-Organ-Signatur (achse,wert)-Paare wie in spec.axes -> aggregierte Anforderung leer:
+    std::vector<std::pair<std::string, std::string>> const demo_axes{
+        {"search_algo", "k_ary"}, {"filter", "bloom"}, {"memory_layout", "soa"}};
+    EXPECT_TRUE(m::aggregate_required_for_axes(demo_axes).empty());
+}
+
+TEST(MSimdBuildGate, PerBinaryAdmissionEnforcesOrganSubsetMachineSignature) {
+    // Section 37 Durchsetzung an der Bau-Delegation: leere Anforderung -> zulaessig; ein von der Maschine
+    // nicht gefuehrtes required-Flag -> HardwareErweiterungFehlt (Log + weiter).
+    EXPECT_FALSE(m::admit_organ_on_machine({}, m::Prod2RaptorLakeSignature::signature()).has_value());
+    std::array const demo_required{m::kAvx512Vpopcntdq};
+    auto const       err = m::admit_organ_on_machine(demo_required, m::Prod2RaptorLakeSignature::signature());
+    ASSERT_TRUE(err.has_value());
+    EXPECT_EQ(*err, m::CompilerCompilerErrorClass::HardwareErweiterungFehlt);
+    // dieselbe Anforderung auf prod1 (hat avx512_vpopcntdq) -> zulaessig:
+    EXPECT_FALSE(m::admit_organ_on_machine(demo_required, m::Prod1Zen5Signature::signature()).has_value());
 }

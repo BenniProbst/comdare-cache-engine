@@ -17,6 +17,8 @@
 
 #include "../experiment_tree/experiment_tree.hpp"
 #include <cache_engine/measurement/axis_error.hpp> // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
+#include <cache_engine/measurement/simd_build_gate.hpp>        // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock)
+#include <cache_engine/measurement/simd_organ_requirement.hpp> // Section 40.a-E4: per-Binary organ_required-Aggregation
 
 #include <algorithm>
 #include <atomic>
@@ -361,6 +363,25 @@ private:
                 r.binary_id = spec.binary_id;
                 r.output    = job.output;
                 r.algo_sig  = algos;
+
+                // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock) an der CEB-Bau-Delegation. Aus der Organ-
+                // Signatur (spec.axes) wird die per-Binary-Anforderung aggregiert; solange kein Organ required-
+                // Flags deklariert (heutiger Stand ALLER Organe), ist sie LEER -> Zulassung trivial -> KEINE
+                // Wirkung (byte-/golden-neutral). Aktiviert: Section 37 "Organ <= Maschinen-Signatur" wird HIER
+                // durchgesetzt (Verletzung -> D1 HardwareErweiterungFehlt, Log + weiter; kein Compile) -- der
+                // per-Perm-Flag-Kanal (Fassade) bleibt unberuehrt, keine Doppelung.
+                if (auto const gate_req = ::comdare::cache_engine::measurement::aggregate_required_for_axes(spec.axes);
+                    !gate_req.empty()) {
+                    if (auto const gate_err = ::comdare::cache_engine::measurement::admit_organ_on_machine(
+                            gate_req, ::comdare::cache_engine::measurement::active_machine_signature())) {
+                        r.status   = -4; // Gate-Ablehnung: Organ verlangt ein von der Maschine nicht freigegebenes Flag
+                        r.message  = std::string{"simd-gate: "} +
+                                     std::string{::comdare::cache_engine::measurement::error_class_label(*gate_err)};
+                        r.outcome  = std::unexpected(::comdare::cache_engine::measurement::BuildError{*gate_err});
+                        results[j] = std::move(r);
+                        continue; // Log + weiter (baut/misst die uebrigen Binaries)
+                    }
+                }
 
                 // (A) INKREMENTELL: bestehende, versions- UND organ-aktuelle DLL überspringen (Resume nach Absturz).
                 if (dll_is_current(job.output, cfg_.build_version, algos)) {
