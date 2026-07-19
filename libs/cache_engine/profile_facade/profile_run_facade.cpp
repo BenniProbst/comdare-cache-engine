@@ -16,6 +16,7 @@
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
+#include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -413,6 +414,14 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
                     flags += ' ';
                     flags += march_flag;
                 }
+                // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein
+                // Organ required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable ->
+                // KEINE Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
+                for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
+                         ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
+                    flags += ' ';
+                    flags += mf;
+                }
                 return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
             };
     } else {
@@ -680,6 +689,14 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
         if (!march_flag.empty()) {
             flags += ' ';
             flags += march_flag;
+        }
+        // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein Organ
+        // required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable -> KEINE
+        // Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
+        for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
+                 ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
+            flags += ' ';
+            flags += mf;
         }
         return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
     };
