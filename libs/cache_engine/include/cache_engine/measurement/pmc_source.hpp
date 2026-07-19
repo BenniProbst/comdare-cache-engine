@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace comdare::cache_engine::builder {
+namespace comdare::cache_engine::measurement {
 
 /// Die HW-Counter (Delta über ein Mess-Intervall) + Verfügbarkeits-Flag (= pmc_available im POD).
 struct PmcCounters {
@@ -47,4 +47,4 @@ public:
     [[nodiscard]] std::string_view name() const noexcept override { return "null-pmc (P4/HW-gated)"; }
 };
 
-} // namespace comdare::cache_engine::builder
+} // namespace comdare::cache_engine::measurement

@@ -116,7 +116,7 @@ struct PermResult {
     // EINMAL pro Treiber-Lauf via make_pmc_source() erzeugt (KEIN Hot-Loop-Overhead), begin() unmittelbar VOR
     // t0=steady_clock, end() unmittelbar NACH t1. Default = PmcCounters{} (alle 0, available=false) → lokal mit
     // NullPmcSource (COMDARE_ENABLE_PMC=OFF) ehrlich 0/available=0; mit Intel-PCM (Montag, Linux/Win+Treiber) real.
-    builder::PmcCounters pmc{};
+    measurement::PmcCounters pmc{};
     // Achse 2 (INC-1): Lastprofil-Metadaten + Mess-GÜLTIGKEIT.
     std::string profile_name{};          // Lastprofil-Name (z.B. "YCSB_C_read_only"); leer = alter fixer Workload
     bool        two_phase_valid = false; // Zwei-Phasen-Cache-Warmup aktiv+empirisch-exakt → Messung GÜLTIG
@@ -174,7 +174,7 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
 /// → r.pmc bleibt 0/available=false, exakt das alte Verhalten; KEIN Mess-Overhead). begin()/end() klammern NUR
 /// den getimten Batch (NICHT je Op), parallel zur steady_clock-Wall-Clock.
 [[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier, std::string const& binary_id,
-                                                    std::uint64_t n_ops, builder::IPmcSource* pmc = nullptr) {
+                                                    std::uint64_t n_ops, measurement::IPmcSource* pmc = nullptr) {
     PermResult r;
     // (Audit K9 / V5-I4) import → GATE → (nur bei pass) messen: nicht-std::map-konforme Hüllen erzeugen KEINE gültige
     // Performance-Zeile. Das Gate leert das Tier selbst (RF1+RF7) → der folgende tier_clear() ist idempotent.
@@ -231,7 +231,7 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
                                                   std::string_view workload_id, std::uint64_t n_ops, std::uint64_t seed,
                                                   std::uint64_t                                    load_records = 0,
                                                   std::map<std::string, wd::WorkloadConfig> const* registry = nullptr,
-                                                  builder::IPmcSource*                             pmc      = nullptr) {
+                                                  measurement::IPmcSource*                         pmc      = nullptr) {
     // Achse 2 (#135): workload_id zuerst aus der XML-Lastprofil-Registry (Charakteristik aus dem XML); sonst aus
     // dem hartcodierten profile_by_name (env-String-Rückwärts-Kompat). Skala (records/n_ops) setzt der Aufrufer.
     wd::WorkloadConfig cfg{};

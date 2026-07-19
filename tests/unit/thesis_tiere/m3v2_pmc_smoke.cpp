@@ -23,13 +23,13 @@ namespace bld = comdare::cache_engine::builder;
 
 int main() {
     // (1) Die EINE PMC-Quelle (Factory wählt build-/OS-abhängig; lokal OFF → NullPmcSource).
-    std::unique_ptr<bld::IPmcSource> pmc = bld::make_pmc_source();
+    std::unique_ptr<::comdare::cache_engine::measurement::IPmcSource> pmc = bld::make_pmc_source();
     std::cout << "pmc_source.name      = " << pmc->name() << "\n";
     std::cout << "pmc_source.available = " << (pmc->available() ? "1" : "0") << "\n";
 
     // (1) begin()/end() um den (hier leeren) Mess-Batch — genau das Muster aus run_observable_perm. Delta = 0/false.
     pmc->begin();
-    bld::PmcCounters const delta = pmc->end();
+    ::comdare::cache_engine::measurement::PmcCounters const delta = pmc->end();
 
     // EINE Mess-Zeile (wie der Iterator sie aus PermResult zusammensetzt): row.pmc = pr.pmc (= delta).
     ex::LazyMeasuredRow row;

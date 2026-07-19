@@ -25,7 +25,7 @@ namespace bld = comdare::cache_engine::builder;
 
 int main() {
     // (1) Die EINE PMC-Quelle (Factory wählt build-/OS-abhängig). Auf Linux+PMC → LinuxPerfPmcSource.
-    std::unique_ptr<bld::IPmcSource> pmc = bld::make_pmc_source();
+    std::unique_ptr<::comdare::cache_engine::measurement::IPmcSource> pmc = bld::make_pmc_source();
     std::cout << "pmc_source.name      = " << pmc->name() << "\n";
     bool const avail_before = pmc->available();
     std::cout << "pmc_source.available = " << (avail_before ? "1" : "0") << "\n";
@@ -43,7 +43,7 @@ int main() {
         idx = buf[idx];
         acc += idx;
     }
-    bld::PmcCounters const delta = pmc->end();
+    ::comdare::cache_engine::measurement::PmcCounters const delta = pmc->end();
     // Compiler-Eliminierung des Loops verhindern (acc muss beobachtbar bleiben).
     std::cout << "workload_acc(checksum)=" << acc << "\n";
 

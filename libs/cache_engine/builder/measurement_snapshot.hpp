@@ -19,7 +19,7 @@
 
 #include <anatomy/observable_tier.hpp>
 #include "workload_driver/workload_orchestrator.hpp"
-#include "pmc_source.hpp" // V5-#26: pluggable HW-Counter-Quelle (PmcCounters) für die +6-Spalten
+#include <cache_engine/measurement/pmc_source.hpp> // V5-#26: pluggable HW-Counter-Quelle (measurement::PmcCounters) für die +6-Spalten
 
 #include <cstdint>
 #include <sstream>
@@ -118,7 +118,7 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
 /// EHRLICH `pmc.available`: NullPmcSource → 0 (HW-Spalten bleiben 0), reale Quelle → 1 + echte Werte.
 [[nodiscard]] inline ComdareMeasurementSnapshotV1
 measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, std::string_view permutation_id,
-                                 PmcCounters const& pmc) {
+                                 measurement::PmcCounters const& pmc) {
     auto m = measurement_from_workload_result(r, permutation_id);
     if (pmc.available) {
         m.cache_misses_l1         = pmc.cache_misses_l1;

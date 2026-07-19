@@ -197,7 +197,7 @@ struct LazyMeasuredRow {
     // PmcCounters{} = alle 0, available=false → lokal mit NullPmcSource (COMDARE_ENABLE_PMC=OFF) ehrlich 0/available=0;
     // mit Intel-PCM=ON real (Montag Linux+PMC). Die 7 PMC-Felder werden ADDITIV als LETZTE CSV-Spalten emittiert
     // (lazy_csv_header single-source) — bestehende Spalten unberührt → cowfix-v1/tier150-Leser bleiben kompatibel.
-    builder::PmcCounters pmc{};
+    measurement::PmcCounters pmc{};
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -743,7 +743,7 @@ struct LazyRunResult {
     // NICHT je Binary — und per Referenz in den WIDE-Mess-Pfad (run_observable_perm/run_workload_perm) gereicht; dort
     // klammert begin()/end() nur den getimten Batch. Schließt die #156-Naht: die WIDE-CSV trägt jetzt reale PMC-Counter
     // (lokal 0/available=0 mit NullPmcSource; Montag Linux+PMC=ON real). Identisches Muster wie f15_compare/main.cpp:252.
-    std::unique_ptr<IPmcSource> pmc = make_pmc_source();
+    std::unique_ptr<measurement::IPmcSource> pmc = make_pmc_source();
 
     // Mess-RESUME (#139): EIN Config-Stempel je Lauf (BuildVersion + Skala + volle dyn-Dimensions-Signatur).
     std::string const resume_stamp_prefix = lazy_resume_stamp_prefix(cfg, dyn_dims);

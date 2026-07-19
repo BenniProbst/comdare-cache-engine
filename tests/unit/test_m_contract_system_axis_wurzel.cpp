@@ -15,7 +15,6 @@
 
 namespace alloc  = ::comdare::cache_engine::alloc;
 namespace an     = ::comdare::cache_engine::anatomy;
-namespace b      = ::comdare::cache_engine::builder;
 namespace m      = ::comdare::cache_engine::measurement;
 namespace tel    = ::comdare::cache_engine::telemetry_axis;
 namespace topics = ::comdare::cache_engine::topics;
@@ -144,7 +143,7 @@ TEST(MSystemAxisWurzel, ObserverSnapshotCollectsReadOnlyHostPodValues) {
 }
 
 TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
-    b::PmcCounters counters{};
+    m::PmcCounters counters{};
     counters.available           = true;
     counters.cache_misses_l1     = 1111;
     counters.cache_misses_l2     = 222;
@@ -170,9 +169,9 @@ TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
 }
 
 TEST(MSystemAxisWurzel, PmcHonestZeroWhenUnavailable) {
-    b::NullPmcSource source;
+    m::NullPmcSource source;
     source.begin();
-    b::PmcCounters const counters = source.end();
+    m::PmcCounters const counters = source.end();
 
     m::PmcSystemAxis axis{counters};
     EXPECT_FALSE(axis.available());

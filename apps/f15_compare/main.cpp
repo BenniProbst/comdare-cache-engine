@@ -58,7 +58,8 @@ namespace cmd    = ::comdare::cache_engine::builder::commands;
 namespace stats  = ::comdare::cache_engine::builder::commands::stats;
 namespace wd     = ::comdare::cache_engine::builder::workload_driver;
 namespace pd     = ::comdare::cache_engine::builder::pruef_dock;
-namespace bld    = ::comdare::cache_engine::builder; // V5-I1 (#50): ComdareMeasurementSnapshotV1 + Serializer
+namespace bld    = ::comdare::cache_engine::builder;     // V5-I1 (#50): ComdareMeasurementSnapshotV1 + Serializer
+namespace meas   = ::comdare::cache_engine::measurement; // A2-Neben Stufe 1: PmcCounters/IPmcSource
 
 namespace {
 
@@ -294,8 +295,8 @@ int main(int argc, char** argv) {
         // V5-#26 / Task #153: die EINE PMC-Quelle (Factory wählt build-/OS-abhängig: Windows-Intel-PCM unter
         // COMDARE_ENABLE_PMC, sonst NullPmcSource → available=false → HW-Spalten ehrlich 0). begin()/end()
         // klammern den gemessenen Lauf je Komposition; das Counter-Delta speist die +6 HW-Spalten.
-        std::unique_ptr<bld::IPmcSource> pmc = bld::make_pmc_source();
-        int                              ok  = 0;
+        std::unique_ptr<meas::IPmcSource> pmc = bld::make_pmc_source();
+        int                               ok  = 0;
         for (std::size_t i = 0; i < handles.size(); ++i) {
             auto* base = handles[i].anatomy();
             if (base == nullptr) continue;
