@@ -85,6 +85,10 @@ struct RunProfileArgs {
     ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
     ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
+    // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
+    // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).
+    ex::PartialMarkerFn partial_marker_sink;
+    std::size_t         chunk_part_size = 0;
     ex::ProgressSinkFn
         progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default); make_cfg reicht ihn je Pass durch
     std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
@@ -232,7 +236,7 @@ struct RunProfileResult {
 
     // ── (3) S7a + FF(#168): die EINE vereinigte SourceGenFn (Basis-320 ∪ Achsen-Sweeps ∪ SOTA-Reihen).
     //    Reihenfolge unkritisch: Basis-320 ("search_algo=…/migration_policy=migration_none/…"-Pfade) und die
-    //    Achsen-Sweep-Map (gleicher 19-Achsen-Pfad-Namensraum, ABER andere Auspraegungen wie
+    //    Achsen-Sweep-Map (gleicher 17-Achsen-Pfad-Namensraum, ABER andere Auspraegungen wie
     //    …/migration_policy=migration_hot_cold/…, die im Basis-320 NICHT vorkommen) sind ueberlappungsfrei (bis auf
     //    die Baseline-DLL + die Basis-Achsen-Sweep-ids, die identisch sind → idempotent; union_gen fragt die
     //    Basis-320 zuerst). SOTA liegt im disjunkten "sota_tier=…"-Raum.
@@ -263,6 +267,19 @@ struct RunProfileResult {
     if (n_sweep.empty() && a.working_set_override > 0)
         n_sweep.push_back(a.working_set_override); // Fallback nur ohne Profil-Sweep
     if (n_sweep.empty()) n_sweep.push_back(0);     // 0 ⇒ Iterator setzt records = n_ops
+    // Task #31 (W11-Folge, Root-Cause): im provision_only-BAU ist die Tier-Binary N-UNABHAENGIG -- working_set_records
+    // (ws_n) ist ein MESS-Parameter (Runtime-Workload-Groesse), KEIN Kompilations-Freiheitsgrad. Die aeussere N-Sweep-
+    // Schleife (unten, je Pass) wuerde je N-Wert dieselben DLLs RE-provisionieren: der 2..k-te Durchlauf findet sie
+    // dll_is_current (skip) und re-pusht sie im Storage-Modus -> 4x redundanter Push + gedaempfter Async-Overlap (die
+    // Skip-Passe haben kein Bau-Fenster zum Ueberlappen). Daher im Bau-Modus GENAU EINE N-Iteration (der Sweep gehoert
+    // zum Messen, nicht zum Bauen). Push-MENGE: je Binary genau EINMAL (statt |n_sweep|x). Cluster-Resume BLEIBT sicher
+    // -- skip-resumierte Binaries werden weiterhin gepusht (nur nicht |n_sweep|-fach), also nie "geskippt bevor im
+    // Store". MESS-Modus (provision_only==false) UNVERAENDERT: dort ist jedes N eine echte Messung (voller n_sweep).
+    if (a.provision_only && n_sweep.size() > 1) {
+        std::cout << "  [Task#31] provision-only: N-Sweep (" << n_sweep.size()
+                  << " Werte) auf 1 kollabiert -- Tier-Binary ist N-unabhaengig (kein Re-Provision/Re-Push je N)\n";
+        n_sweep.resize(1);
+    }
 
     std::cout << "RUN_PROFILE (CEB-Eintritt): " << a.profile_path.string() << "  id=" << tp.id << " mode=" << mode_name
               << "  basis_count=" << basis_tree.binary_count() << " (N=" << N << ")"
@@ -347,6 +364,8 @@ struct RunProfileResult {
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
         cfg.measurement_sink          = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
+        cfg.partial_marker_sink       = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
+        cfg.chunk_part_size           = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
         cfg.progress_sink = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
@@ -380,7 +399,7 @@ struct RunProfileResult {
     // FF(#168) — ACHSEN-SWEEP: ist die Pass-Achse sweep-katalogisiert (seit #26/GO-5 ALLE Achsen — heute 17, INC-2d,
     // is_deepened_axis), kann/soll der Basis-Baum sie nicht variieren (im Profil ggf. 1 Wert gepinnt →
     // level_size==1). Statt der Basis-View baut der Treiber einen EIGENEN Sweep-Baum aus axis_sweep_levels(axis)
-    // — 18 Baseline-Ebenen + die gesweepte Achse VOLL — dessen 19-Achsen-binary_ids die axis_sweep_source_map-Keys
+    // — 16 Baseline-Ebenen + die gesweepte Achse VOLL — dessen 17-Achsen-binary_ids die axis_sweep_source_map-Keys
     // treffen (in der union_gen). So entsteht je Auspraegung eine REALE distinkte Lebewesen-DLL (z.B. migration_none
     // vs migration_hot_cold).
     //

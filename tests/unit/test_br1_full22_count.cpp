@@ -57,6 +57,21 @@ int main() {
     check_true("Gate-2: jede der 26 Achsen hat volles Enabled-Inventar (>0)", nonempty);
     check_true("block_id == Achsen-Name (Bidir.-Tag) für alle 26", block_ok);
 
+    // H-10 (W9.1): build_system_axis_levels() ist die single-source der 5 System-Achsen (binary_id-orthogonal).
+    // Direkt-Konsum (nicht nur die Byte-Identitaets-Fold in build_all_axis_levels()) -> lockt die Provenienz-
+    // Vertragsflaeche des .version-Sidecars: telemetry MUSS als System-Achse gefuehrt sein (sonst faellt der
+    // H-10-Telemetrie-Provenienz-Token in system_axes_version_suffix() lautlos weg = die Audit-Luecke von 2026-07-17).
+    std::vector<ex::AxisLevel> const sys = ex::build_system_axis_levels();
+    check_eq("H-10: build_system_axis_levels() liefert 5 System-Achsen", sys.size(), std::size_t{5});
+    std::set<std::string> sys_names;
+    for (auto const& l : sys) sys_names.insert(l.axis);
+    check_true("H-10: 'telemetry' ist eine gefuehrte System-Achse (Provenienz-Gate)",
+               sys_names.count("telemetry") == 1);
+    check_true("H-10: 'isa' ist eine gefuehrte System-Achse", sys_names.count("isa") == 1);
+    check_true("H-10: 'simd_extension' ist eine gefuehrte System-Achse", sys_names.count("simd_extension") == 1);
+    check_true("H-10: 'page_type' ist eine gefuehrte System-Achse", sys_names.count("page_type") == 1);
+    check_true("H-10: 'general_hardware' ist eine gefuehrte System-Achse", sys_names.count("general_hardware") == 1);
+
     // GATE-1 (Doc 27 §4.1+§6): tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_matrix_count()
     // (== PermutationEngine::count() per Kardinalitäts-Identität, OHNE mp_product-Materialisierung).
     constexpr std::size_t expected = ex::all_axes_matrix_count();

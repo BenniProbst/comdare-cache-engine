@@ -56,6 +56,12 @@ struct ProfileRunArgs {
     // artifact_transport::ArtifactCache::from_env und reicht sie zur per-Binary-/whole-run-Naht durch. Leer = No-Op.
     artifact_transport::CachePushFn       cache_push;
     artifact_transport::MeasurementSinkFn measurement_sink;
+    // W11 (Ledger §43.c): BAU-Modus async Push -- der Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N.
+    // Der Host konstruiert den Sink via ArtifactCache::push_chunk_partial_marker (range gekapselt) + liest N aus
+    // COMDARE_GN_PART_SIZE (Default 1024). Leer/0 = keine Teil-Marker (byte-neutral). Der Pump selbst (Ueberlappen)
+    // haengt nur an cache_push + provision_only -- die Push-MENGE bleibt unveraendert.
+    artifact_transport::PartialMarkerFn partial_marker_sink;
+    std::size_t                         chunk_part_size = 0;
 };
 
 struct ProfileRunResult {
@@ -109,6 +115,12 @@ struct ExperimentRunArgs {
     // zur per-Binary-/whole-run-Naht durchgereicht. Leer = No-Op.
     artifact_transport::CachePushFn       cache_push;
     artifact_transport::MeasurementSinkFn measurement_sink;
+    // W11 (Ledger §43.c): BAU-Modus async Push -- der Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N.
+    // Der Host konstruiert den Sink via ArtifactCache::push_chunk_partial_marker (range gekapselt) + liest N aus
+    // COMDARE_GN_PART_SIZE (Default 1024). Leer/0 = keine Teil-Marker (byte-neutral). Der Pump selbst (Ueberlappen)
+    // haengt nur an cache_push + provision_only -- die Push-MENGE bleibt unveraendert.
+    artifact_transport::PartialMarkerFn partial_marker_sink;
+    std::size_t                         chunk_part_size = 0;
 };
 
 struct ExperimentRunResult {
