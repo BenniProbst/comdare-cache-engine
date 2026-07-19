@@ -92,6 +92,8 @@ struct ProfileValidationResult {
     std::size_t workloads_checked = 0; // M-CE-12: gepruefte <workloads>-ids (0 = keine / Pruefung uebersprungen)
     std::size_t categories_checked =
         0; // INC-3 Familie A: gepruefte <measurement_categories>-Namen (0 = keine deklariert)
+    std::size_t opt_levels_checked = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
+    std::size_t simd_checked       = 0; // GN-3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
 };
 
 // ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
@@ -321,6 +323,51 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
         }
     }
 
+    // ── (8) GN-3 (§33 Systembeweis-Traeger, 2026-07-19): <system_axes> HART gegen die System-Achsen-Klassen.
+    //    opt_level: nur die IEEE-754-DETERMINISTISCHEN Stufen {O0,O1,O2,O3} sind im golden-Mess-Kanal zulaessig;
+    //    Ofast ist REJECT (§32-F4) — es bricht IEEE-754-/Run-to-Run-Determinismus und den CRC64-golden-Anker.
+    //    simd: gegen die SimdSubAxis-Optionen (kAllSimdIds = no_extension/avx2/avx512). Beide sind system_config →
+    //    binary_id-NEUTRAL (Provenienz build_version/Sidecar, NIE binary_id, NIE N); hier nur die Wert-Gueltigkeit.
+    //    LEER = kein <system_axes> = heutiges Verhalten byte-identisch (nichts zu pruefen, rueckwaerts-kompatibel). ──
+    {
+        // §32-F4-ANKER: O0..O3 IEEE-754-deterministisch, Ofast NICHT. Wechselt eine Achsen-Klasse ihre Semantik,
+        // bricht DIESER static_assert (nicht erst der Laufzeit-Check) — die Reject-Liste bleibt Single-Source der
+        // Klassen (kein Literal-Duplikat der Determinismus-Politik).
+        static_assert(ms::OptO0Option::is_ieee754_deterministic() && ms::OptO1Option::is_ieee754_deterministic() &&
+                          ms::OptO2Option::is_ieee754_deterministic() && ms::OptO3Option::is_ieee754_deterministic() &&
+                          !ms::OptOfastOption::is_ieee754_deterministic(),
+                      "§32-F4: O0..O3 sind IEEE-754-deterministisch, Ofast bricht den Determinismus — golden-Anker.");
+        static constexpr std::string_view kThesisOptLevels[] = {
+            ms::OptO0Option::opt_level_id(), ms::OptO1Option::opt_level_id(), ms::OptO2Option::opt_level_id(),
+            ms::OptO3Option::opt_level_id()};
+        for (auto const& lvl : tp.compiler.opt_levels) {
+            ++r.opt_levels_checked;
+            bool const zulaessig =
+                std::find(std::begin(kThesisOptLevels), std::end(kThesisOptLevels), lvl) != std::end(kThesisOptLevels);
+            if (zulaessig) continue;
+            r.ok = false;
+            if (lvl == ms::OptOfastOption::opt_level_id()) {
+                r.errors.push_back("UNZULAESSIGES <system_axes><compiler><opt_level value=\"Ofast\">: Ofast ist im "
+                                   "golden-Mess-Kanal REJECT (§32-F4) — es bricht IEEE-754-/Run-to-Run-Determinismus "
+                                   "und den CRC64-golden-Anker. Erlaubt sind O0/O1/O2/O3.");
+            } else {
+                r.errors.push_back("UNGUELTIGE <system_axes><compiler><opt_level value=\"" + lvl +
+                                   "\">: kein opt_level-Wert (optimization_level_sub_axis.hpp). Erlaubt (§32-F4, "
+                                   "deterministisch) = O0, O1, O2, O3.");
+            }
+        }
+        for (auto const& s : tp.extension_hardware.simd_options) {
+            ++r.simd_checked;
+            bool const known = std::find(ms::kAllSimdIds.begin(), ms::kAllSimdIds.end(), s) != ms::kAllSimdIds.end();
+            if (!known) {
+                r.ok = false;
+                r.errors.push_back("UNGUELTIGE <system_axes><extension_hardware><simd value=\"" + s +
+                                   "\">: kein simd-Wert der SimdSubAxis-Optionen (simd_sub_axis.hpp). Erlaubt = "
+                                   "no_extension, avx2, avx512.");
+            }
+        }
+    }
+
     // ── (6) M-CE-12: jede <workloads>-id ist eine REAL existente load_profiles/-id. Nur wenn der Host die
     //    entdeckten ids hereinreicht (known_workload_ids nicht leer) — leer = Pruefung uebersprungen
     //    (rueckwaerts-kompatibel: 2-arg-Aufrufer/Tests ohne Host-Enumeration). Leere <workloads> im Profil =
@@ -360,6 +407,10 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     // INC-3 Familie A: measurement_categories NUR ausgeben, wenn deklariert — die --validate-Ausgabe
     // bestehender Profile (ohne <measurement_categories>) bleibt byte-identisch (Default-Verhaltens-Gate).
     if (r.categories_checked > 0) os << ", " << r.categories_checked << " measurement_categories";
+    // GN-3/§32-F4: system_axes (opt_level/simd) NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender
+    // Profile (ohne <system_axes>) bleibt byte-identisch (Default-Verhaltens-Gate, wie datasets/categories).
+    if (r.opt_levels_checked > 0) os << ", " << r.opt_levels_checked << " opt_levels";
+    if (r.simd_checked > 0) os << ", " << r.simd_checked << " simd";
     os << "\n";
     for (auto const& w : r.warnings) os << "  [HINWEIS] " << w << "\n";
     for (auto const& e : r.errors) os << "  [FEHLER]  " << e << "\n";
