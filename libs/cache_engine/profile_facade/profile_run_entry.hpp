@@ -26,6 +26,7 @@
 
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
 #include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
+#include "lazy_adhoc_source_gen.hpp"    // INC-G6 (33/34): make_lazy_adhoc_source_gen (lazy golden-N-Fallback-Quelle)
 #include "source_catalog.hpp"           // axis_sweep_source_map / axis_sweep_levels (Sweep-Quellen)
 #include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
 #include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
@@ -93,6 +94,15 @@ struct RunProfileArgs {
     // er den Profil-Sweep durch EINEN einzigen N-Wert (rueckwaerts-kompatibel zur alten PS-foreach +
     // COMDARE_WORKLOAD_RECORDS, wo das Harness die aeussere N-Schleife selbst faehrt). 0 = Profil-Sweep nutzen.
     std::uint64_t working_set_override = 0;
+    // INC-G6 (Ledger 33/34/35, 2026-07-19, BAUPLAN Abschnitt 6.1): der golden-N-Materialisierungs-Kanal.
+    // ADDITIV/INERT -- golden_range_count==0 UND provision_only==false ⇒ byte-identisch zum Ist-Lauf.
+    //   golden_range_start/count: EIN Fenster [start, start+count) ueber die Basis-StaticBinaryView (Chunk-Bau
+    //     ueber den 2^17-Indexraum statt der ersten N; 0 = kein Fenster = profile_make_basis 0..N-1).
+    //   provision_only: NUR bauen (DLLs + .version/.algos-Sidecars), NICHT messen -- entkoppelt den ~8h-Bau vom
+    //     mehrtaegigen Messlauf; kein Schreiben von CSV-Mess-Zeilen (nur der CSV-Header).
+    std::size_t golden_range_start = 0;
+    std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
+    bool        provision_only     = false; // true = nur bauen, nicht messen
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values; // nur fuers Log (Achse-2-Werte)
@@ -107,6 +117,8 @@ struct RunProfileResult {
     std::size_t   sota_binary_ids  = 0; // distinkte SOTA-Reihen-binary_ids, die gebaut/gemessen wurden
     std::uint64_t any_measured     = 0;
     std::uint64_t any_resumed      = 0;
+    std::uint64_t any_provisioned =
+        0; // INC-G6: bereitgestellte DLLs (gebaut ODER resumiert) -- Erfolg im provision_only-Lauf
 };
 
 // Interne Helfer: zaehlt '\n' in einem CSV-Block (resumierte Zeilen liegen als String vor).
@@ -213,8 +225,21 @@ struct RunProfileResult {
     std::map<std::string, std::string> fused =
         make_all_axis_sweeps_source_map(); // alle 17 Achsen-Sweeps (#26/GO-5, INC-2d; Eintragszahl USE-Enable-abhaengig)
     for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
-    ex::SourceGenFn const union_gen = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
-    ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
+    ex::SourceGenFn base_union = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
+    // INC-G6 (33/34): der lazy Per-Index-Emitter als ZUSAETZLICHE Fallback-Quelle HINTER den bestehenden
+    // (Basis-320 / Sweeps / SOTA). Die Reihenfolge ist byte-kritisch: fuer die 320er/Sweep/SOTA-ids liefert
+    // base_union eine NICHT-leere Quelle -> der lazy Gen wird NIE konsultiert (golden-320 byte-identisch). Erst
+    // fuer die uebrigen golden-N-ids (die base_union LEER laesst) rendert der lazy Emitter die reale Quelle
+    // (O(17), umgeht build_pilot_source_map -> GN-2-Guard unberuehrt). Ohne golden-N-Fenster wird der lazy Gen
+    // im Ist-Lauf nie erreicht (alle selektierten ids liegen in base_union) -> byte-identisch.
+    ex::SourceGenFn const lazy_gen  = make_lazy_adhoc_source_gen();
+    ex::SourceGenFn const union_gen = [base = std::move(base_union),
+                                       lazy = lazy_gen](std::string const& binary_id) -> std::string {
+        std::string src = base ? base(binary_id) : std::string{};
+        if (!src.empty()) return src;
+        return lazy ? lazy(binary_id) : std::string{};
+    };
+    ex::FreeRamFn ram = ex::make_system_free_ram_fn();
 
     // ── (4) Working-Set-Sweep = die aeussere N-Liste (gilt fuer BEIDE Subsets identisch). Das Profil-
     //    <working_set_sweep> ist AUTORITATIV (XML steuert ALLES, #229/G3); working_set_override (env
@@ -304,7 +329,8 @@ struct RunProfileResult {
         cfg.cores_per_build           = a.cores_per_build;
         cfg.per_binary_subdirs        = true;
         cfg.resume_completed_binaries = resume;
-        cfg.cache_push                = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
+        cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
+        cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
         cfg.measurement_sink          = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
@@ -329,6 +355,7 @@ struct RunProfileResult {
         *row_sink += count_lines(r.resumed_csv_rows) + rows.size();
         res.any_measured += r.measured;
         res.any_resumed += r.resumed_binaries;
+        res.any_provisioned += r.built; // INC-G6: bereitgestellte DLLs (gebaut+resumiert) -- Erfolgsmass provision_only
     };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -388,8 +415,27 @@ struct RunProfileResult {
                 emit(r, &res.basis_rows);
             }
         } else {
-            ProfileTaggedSelection const pts = profile_select(tp, basis_levels, basis_view, pass_axis, N);
-            ex::BuildSelection           sel = pts.selection;
+            ProfileTaggedSelection const pts      = profile_select(tp, basis_levels, basis_view, pass_axis, N);
+            ex::BuildSelection           sel      = pts.selection;
+            std::size_t                  pass_cap = N;
+            // INC-G6 (33/34): Chunk-Fenster ueber den golden-N-Indexraum. NUR im reinen Basis-Pass (pass_axis
+            // leer) und nur bei golden_range_count>0 -> ersetzt die profile_make_basis-Selektion (0..N-1) durch das
+            // Fenster [start, start+count) ueber die Basis-View (geklemmt auf view.size()). pass_cap = Fenster-
+            // Groesse, damit run_lazy_static_then_dynamic die Selektion NICHT auf N kappt. Inert fuer count==0.
+            if (a.golden_range_count > 0 && pass_axis.empty()) {
+                std::size_t const start = (std::min)(a.golden_range_start, basis_view.size());
+                std::size_t const stop  = (std::min)(a.golden_range_start + a.golden_range_count, basis_view.size());
+                std::vector<std::size_t> ids;
+                if (stop > start) ids.reserve(stop - start);
+                for (std::size_t i = start; i < stop; ++i) ids.push_back(i);
+                pass_cap               = ids.size();
+                std::string const prov = "golden_n_range:" + std::to_string(start) + ":" + std::to_string(pass_cap);
+                sel                    = ex::select_explicit(std::move(ids));
+                sel.provenance         = prov;
+                std::cout << "  [INC-G6] golden-N Chunk-Fenster [" << start << "," << stop << ") = " << pass_cap
+                          << " Binaries (view.size=" << basis_view.size() << ")"
+                          << (a.provision_only ? " provision-only" : "") << "\n";
+            }
             { // Multi-Sweep-Dedupe (im Einzel-Pass-Fall leer ⇒ no-op, Selektion byte-identisch).
                 std::vector<std::size_t> fresh;
                 fresh.reserve(sel.indices.size());
@@ -408,8 +454,9 @@ struct RunProfileResult {
                 return;
             }
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-",
-                                                       /*fairness_mode=*/"-", /*h2_score=*/"-");
+                // INC-G6: pass_cap == N im Ist-Lauf (byte-identisch), == Fenster-Groesse im golden-N-Chunk-Lauf.
+                ex::LazyRunConfig cfg = make_cfg(ws_n, pass_cap, pts.series, pts.sweep_axis, /*pruefling_type=*/"-",
+                                                 /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(basis_tree, sel, perm_compile, union_gen, ram, cfg, a.algo_sig);
                 emit(r, &res.basis_rows);
@@ -553,6 +600,7 @@ struct RunProfileResult {
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
+              << " provisioned=" << res.any_provisioned << (a.provision_only ? " (provision-only)" : "")
               << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
@@ -562,7 +610,10 @@ struct RunProfileResult {
 
     // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
     // UND die CSV fehlerfrei geschrieben+geflusht (M11). Ein Stream-Schreib-/Flush-Fehler erzwingt exit!=0.
-    res.exit_code = ((res.any_measured > 0 || res.any_resumed > 0) && csv_ok) ? 0 : 1;
+    // INC-G6: im provision_only-Lauf misst NICHTS -> Erfolg = mind. 1 DLL bereitgestellt (gebaut/resumiert).
+    // Ohne provision_only unveraendert (any_provisioned floss zwar mit, wird aber nur in diesem Modus gewertet).
+    bool const provision_ok = a.provision_only && res.any_provisioned > 0;
+    res.exit_code           = (((res.any_measured > 0 || res.any_resumed > 0) || provision_ok) && csv_ok) ? 0 : 1;
     return res;
 }
 

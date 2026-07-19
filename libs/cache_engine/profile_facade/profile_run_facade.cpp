@@ -424,6 +424,9 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.build_version_tag_override = args.build_version_tag_override;
     a.run_sota_series            = args.run_sota_series;
     a.working_set_override       = args.working_set_override;
+    a.golden_range_start         = args.golden_range_start; // INC-G6: Chunk-Fenster durchreichen (inert bei count==0)
+    a.golden_range_count         = args.golden_range_count;
+    a.provision_only             = args.provision_only; // INC-G6: provision-only durchreichen (inert bei false)
     a.workload_registry          = std::move(workload_registry);
     a.workload_values            = std::move(workload_values);
     a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
