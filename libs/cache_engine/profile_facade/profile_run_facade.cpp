@@ -681,12 +681,15 @@ int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream&
     return rc;
 }
 
-int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                           std::string const& combo_selector) {
     // W10-A (--emit-tier-cmake, §42/§42.b): der TierCmakeGraphBuilder-Traeger (STUFE 2, CEB-Rolle) am geteilten
     // Director-Walk. Emittiert das Bare-Metal-tier_plan.cmake (reale provision-only-Tier-Chunk-Bau-Targets +
     // GN-11/320er-gegatetes measure:-Skelett) -- der Ort des Tier-Baus in der dreistufigen Bare-Metal-Kette.
+    // A8(a)-Symmetrie: der combo_selector reist bis zum Director-Walk durch, exakt wie in emit_tier_ci_facade
+    // (leer => Identitaet, byte-stabil zur heutigen 1-CEB-Strecke).
     planner::TierCmakeGraphBuilder builder;
-    int const                      rc = construct_plan_into(profile_path, builder, os, "emit-tier-cmake");
+    int const rc = construct_plan_into(profile_path, builder, os, "emit-tier-cmake", combo_selector);
     if (rc == 0) os << builder.text();
     return rc;
 }

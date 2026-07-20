@@ -329,6 +329,47 @@ private:
     return simd_id; // avx2 -> "avx2", avx512 -> "avx512", sonst der ISA-Name selbst
 }
 
+// A3 (Task #23/#24, Manager-Ruling Weg a = "Tags sind die REAL gebauten Flags"): die EHRLICHE flag-granulare
+// Runner-Tag-LISTE. Waehrend simd_runner_tag() EINEN groben ISA-Namen liefert, leitet diese Liste die Tags aus den
+// REAL an den Compiler gereichten -march-Flags ab (system_axis_march_of -- die SELBE Single-Source, aus der
+// PlanPerm::march_flag entsteht): je "-m<flag>"-Token EIN Tag (fuehrendes "-m" gestrippt). So taggt die Infra
+// einen Node nach seiner ECHTEN Maschinen-Faehigkeit und GitLab wertet die Liste als UND-Bedingung (der Job laeuft
+// NUR auf einem Runner, der ALLE gelisteten Tags traegt). Heute ein Element je simd: no_extension/leer -> {"amd64"};
+// avx2 -> {"avx2"} (aus -mavx2); avx512 -> {"avx512f"} (aus -mavx512f, static_assert simd_sub_axis.hpp:107 --
+// NICHT "avx512"). Unbekannte simd-id (march leer, aber nicht no_extension) -> {simd_id} (ISA-Name selbst,
+// deckungsgleich zu simd_runner_tag; kein stiller Fallback auf einen falschen Tag). Die Liste WAECHST automatisch
+// mit, sobald A7/§40.a die Flag-Signatur anreichert (z.B. avx512 -> "-mavx512f -mavx512dq" => {"avx512f",
+// "avx512dq"}). GETEILT zwischen Stufe-1 (CiYamlBuilder) und Stufe-2 (TierCiYamlBuilder) -- EINE Routing-Single-Source.
+[[nodiscard]] inline std::vector<std::string> simd_runner_tags(std::string const& simd_id) {
+    if (simd_id.empty() || simd_id == "no_extension") return {"amd64"};
+    std::string const march = tlz::system_axis_march_of(simd_id);
+    if (march.empty()) return {simd_id}; // unbekannte id => ISA-Name selbst (kein falscher Tag)
+    std::vector<std::string> tags;
+    std::size_t              pos = 0;
+    while (pos < march.size()) { // an Leerzeichen splitten; je Token fuehrendes "-m" strippen
+        std::size_t const sp    = march.find(' ', pos);
+        std::size_t const end   = (sp == std::string::npos) ? march.size() : sp;
+        std::string_view  token = std::string_view{march}.substr(pos, end - pos);
+        if (token.substr(0, 2) == "-m") token.remove_prefix(2); // -mavx2 -> avx2, -mavx512f -> avx512f
+        if (!token.empty()) tags.push_back(std::string(token));
+        pos = (sp == std::string::npos) ? march.size() : sp + 1;
+    }
+    return tags;
+}
+
+// A3: EINE Formatierungs-Single-Source der YAML-Tag-Sequenz ["a","b",...] (doppelte Quotes, komma-getrennt, kein
+// Leerraum) -- GitLab wertet die Liste als UND-Bedingung: der Runner muss ALLE Tags tragen. Ein-Element-Listen
+// rendern byte-identisch zur alten tags: ["x"]-Emission (=> golden-neutral fuer die no_extension/avx2-Live-Strecke).
+[[nodiscard]] inline std::string yaml_tag_list(std::vector<std::string> const& tags) {
+    std::string s = "[";
+    for (std::size_t i = 0; i < tags.size(); ++i) {
+        if (i != 0) s += ",";
+        s += "\"" + tags[i] + "\"";
+    }
+    s += "]";
+    return s;
+}
+
 // Wie viele Chunk-Bau-Jobs die CEB-Rolle je System-Perm emittiert (chunk buendelt das kombinierte
 // System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen, §42.b/§57). Default 4 =
 // die Pilot-Matrix-Chunk-Zahl (GN_CHUNK 0..3, super/.gitlab-ci.yml) -- 2^17 Einzel-Jobs waeren keine Legende.
@@ -488,6 +529,10 @@ public:
 
     [[nodiscard]] static std::string simd_runner_tag(std::string const& simd_id) {
         return ::comdare::cache_engine::planner::simd_runner_tag(simd_id);
+    }
+    // A3: die flag-granulare Tag-LISTE als Test-/Konsumenten-Surface (Symmetrie zur Free-Function-Single-Source).
+    [[nodiscard]] static std::vector<std::string> simd_runner_tags(std::string const& simd_id) {
+        return ::comdare::cache_engine::planner::simd_runner_tags(simd_id);
     }
 
 private:
@@ -661,7 +706,7 @@ public:
     void end_perm(PlanPerm const& p) override {
         std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
         out_ += "\n# perm " + std::to_string(p.index) + ": " + perm_legend +
-                " (runner-tag=" + simd_runner_tag(p.simd_id) + ")\n";
+                " (runner-tags=" + yaml_tag_list(simd_runner_tags(p.simd_id)) + ")\n";
         for (std::size_t k = 0; k < kTierChunkCount; ++k) out_ += emit_tier_build_job(p, perm_legend, k);
         out_ += emit_measure_job(p, perm_legend);
     }
@@ -692,7 +737,7 @@ private:
              " (STUFE 2: CEB steuert Tier-Bau; Legende [d,e,f][g,h,i], ceb=[a,b,c] nur Kontext)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: tier-build\n";
-        s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
+        s += "  tags: " + yaml_tag_list(simd_runner_tags(p.simd_id)) + "\n";
         s += "  resource_group: \"tier-" + legend::cmake_slug(combo_legend_) + "-" + simd + "-" + opt + "-c" + kstr +
              "\"\n";
         s += "  interruptible: false   # provision-Bau darf nie auto-cancelt werden\n";
@@ -747,7 +792,7 @@ private:
              " (STUFE 3: GN-11/320er-GEGATET, when: manual = Struktur ja / kein Auto-Messlauf)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: measure\n";
-        s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
+        s += "  tags: " + yaml_tag_list(simd_runner_tags(p.simd_id)) + "\n";
         s += "  needs:\n";
         // §56/§54-T6: die needs:-Kante MUSS exakt dieselbe korrigierte Bau-Legende referenzieren wie
         // emit_tier_build_job ([d,e,f][g,h,i]:chunk<k>, dasselbe organ = organ_reference()), sonst brechen die
