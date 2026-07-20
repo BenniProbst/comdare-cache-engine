@@ -582,7 +582,7 @@ namespace {
 // (Anti-Phantom, golden-neutral). Ohne Registry-Trio-Annotation (loaded=0): host-/registry-pfad-unabhaengig
 // reproduzierbar. Rueckgabe: 0 = Walk in den Builder gefahren, 5 = Profil nicht als bekannte Wurzel lesbar.
 int construct_plan_into(std::filesystem::path const& profile_path, planner::IPlanBuilder& builder, std::ostream& os,
-                        char const* what) {
+                        char const* what, std::string const& combo_selector = {}) {
     std::string root_tag;
     if (std::ifstream in{profile_path, std::ios::binary}; in) {
         std::ostringstream ss;
@@ -613,7 +613,7 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
-        director.construct(*tp, builder);
+        director.construct(*tp, builder, combo_selector); // A5: leer => Identitaet (byte-stabil), s. emit_tier_ci
         return 0;
     }
     if (root_tag == "comdare_experiment") {
@@ -624,7 +624,7 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
-        director.construct(*ep, builder);
+        director.construct(*ep, builder, combo_selector); // A5: leer => Identitaet (byte-stabil), s. emit_tier_ci
         return 0;
     }
     os << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
@@ -660,12 +660,14 @@ int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std:
     return rc;
 }
 
-int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                        std::string const& combo_selector) {
     // W10-A (--emit-tier-ci, §42/§42.b): der TierCiYamlBuilder-Traeger (STUFE 2, CEB-Rolle) am geteilten
     // Director-Walk. Emittiert NUR die Stufe-2-Sicht des freigegebenen CEB-Raums (System-Perms + Tier-Chunk-Jobs
     // + GN-11/320er-gegatete Mess-Jobs). CEB-Hoheit (§40.b-Praezisierung); heute EINE Binary in zwei Rollen.
+    // A5 (§56-T2-FANOUT D4): der combo_selector reicht bis zum Director-Walk durch (leer => Identitaet, byte-stabil).
     planner::TierCiYamlBuilder builder;
-    int const                  rc = construct_plan_into(profile_path, builder, os, "emit-tier-ci");
+    int const                  rc = construct_plan_into(profile_path, builder, os, "emit-tier-ci", combo_selector);
     if (rc == 0) os << builder.text();
     return rc;
 }

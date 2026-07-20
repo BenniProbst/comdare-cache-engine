@@ -1036,3 +1036,94 @@ TEST(CiYamlBuilder, BothStagesEmitSubmoduleClonePrologInBuildJobs) {
             << "Thesis-Submodul im Bau-Child nicht geklont";
     }
 }
+
+// (A5) §56-T2-FANOUT D4 -- der per-CEB Combo-Selektor an --emit-tier-ci. Der Fan-out-KERN select_measurement_combo ist
+//      isoliert testbar: --emit-tier-ci repraesentiert GENAU EINE CEB-Konfig (je ceb:emit-Job eine Konfig); da
+//      §56/T6 die Mess-Konfig aus der tier:build-Legende ENTFERNT hat (combo-unabhaengige Job-Namen), wuerden N>1
+//      CEB-Konfigs in EINEM Lauf kollidieren -> der Selektor behaelt NUR die Kombination mit cmake_slug(legend) ==
+//      Selektor. Leerer Selektor = IDENTITAET (heutige Live-Strecke, byte-stabil). Kein Treffer => ehrlich leer.
+TEST(SelectMeasurementCombo, EmptySelectorIsIdentityAndSlugMatchIsExact) {
+    // Drei CEB-Konfigs (die HAUPT-Auffaecherung {wallclock/macro/micro}); der Selektor arbeitet auf cmake_slug(legend).
+    auto const combos =
+        planner::ExperimentPlanDirector::measurement_combos_of({"CLU"}, {{"wallclock"}, {"macro"}, {"micro"}});
+    ASSERT_EQ(combos.size(), 3u);
+
+    // Leerer Selektor = IDENTITAET (die heutige Live-Strecke): alle Kombinationen bleiben, Original-index erhalten.
+    auto const identity = planner::ExperimentPlanDirector::select_measurement_combo(combos, "");
+    ASSERT_EQ(identity.size(), 3u) << "leerer Selektor = Identitaet (byte-stabil)";
+    EXPECT_EQ(identity[2].index, 2u) << "KEIN Re-Indexing: Original-index bleibt";
+
+    // Exakter cmake_slug-Match: [macro] => _macro_ => genau EINE Kombination (die repraesentierte CEB-Konfig).
+    auto const one = planner::ExperimentPlanDirector::select_measurement_combo(combos, "_macro_");
+    ASSERT_EQ(one.size(), 1u) << "genau die EINE repraesentierte CEB-Konfig";
+    EXPECT_EQ(one[0].legend, "[macro]");
+    EXPECT_EQ(one[0].index, 1u) << "die ueberlebende Kombination behaelt ihren Original-index (Walk-Determinismus)";
+
+    // Kein cmake_slug-Treffer => ehrlich leer (kein Crash, keine Phantom-Kombination).
+    auto const none = planner::ExperimentPlanDirector::select_measurement_combo(combos, "_nonexist_");
+    EXPECT_TRUE(none.empty()) << "kein Treffer => leer (ehrliche Null-Selektion)";
+}
+
+// (A5b) golden-Neutralitaet: der Default-Walk (leerer Selektor) und der explizite [all]-Selektor (_all_ =
+//       cmake_slug("[all]")) liefern eine BYTE-GLEICHE Stufe-2 (die heutige 1-CEB-Strecke traegt die Legende [all]).
+//       Ein nicht existierender Selektor liefert eine EHRLICH leere Stufe-2 (0 tier:build-Jobs), keinen Crash.
+TEST(SelectMeasurementCombo, GoldenNeutralDefaultEqualsAllSelectorAndMissIsEmpty) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    // Default (kein Selektor) vs expliziter [all]-Selektor -> byte-identische Stufe-2 (golden-neutral).
+    planner::TierCiYamlBuilder tb_default, tb_all;
+    director.construct(*tp, tb_default);
+    director.construct(*tp, tb_all, "_all_");
+    EXPECT_EQ(tb_default.text(), tb_all.text()) << "leerer Selektor == [all]-Selektor (heutige Live-Strecke)";
+    EXPECT_GT(count_occurrences(tb_default.text(), "# JOB tier-build "), 0u) << "Default emittiert Tier-Bau-Jobs";
+
+    // Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Jobs (ehrlich leer, kein Crash).
+    planner::TierCiYamlBuilder tb_none;
+    director.construct(*tp, tb_none, "_does_not_exist_");
+    EXPECT_EQ(count_occurrences(tb_none.text(), "# JOB tier-build "), 0u)
+        << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Tier-Bau-Jobs)";
+}
+
+// (A5c) STUFE 1 (CiYamlBuilder): bei N>1 CEB-Konfigs traegt jeder ceb:emit-Job den distinct --measurement-combo-
+//       Selektor (Kollisionsschutz der combo-unabhaengigen tier:build-Job-Namen, §56/T6). count==1 => KEIN Flag
+//       (byte-Stabilitaet zur heutigen 1-CEB-Strecke). Der Builder wird direkt getrieben (die Live-construct()-Naht
+//       reicht heute {} => 1 Combo; die Fan-out-Deklaration ist XML-gated, D2/D3).
+TEST(CiYamlBuilder, PerComboCebEmitCarriesDistinctMeasurementComboSelectorWhenFannedOut) {
+    auto const combos =
+        planner::ExperimentPlanDirector::measurement_combos_of({"CLU"}, {{"wallclock"}, {"macro"}, {"micro"}});
+    ASSERT_EQ(combos.size(), 3u);
+
+    planner::CiYamlBuilder yb;
+    planner::PlanHeader    h;
+    h.source_kind             = "thesis";
+    h.profile_id              = "fanout";
+    h.perm_count              = 1;
+    h.measurement_combo_count = combos.size(); // N>1 => Selektor-Naht AKTIV
+    yb.begin_plan(h);
+    for (auto const& c : combos) yb.begin_measurement_combo(c);
+    std::string const& yaml = yb.text();
+
+    // Je ceb:emit-Job traegt GENAU seinen distinct Selektor (cmake_slug der [a,b,c]-Legende).
+    EXPECT_NE(yaml.find("--measurement-combo=_wallclock_"), std::string::npos);
+    EXPECT_NE(yaml.find("--measurement-combo=_macro_"), std::string::npos);
+    EXPECT_NE(yaml.find("--measurement-combo=_micro_"), std::string::npos);
+    EXPECT_EQ(count_occurrences(yaml, "--measurement-combo="), 3u) << "je ceb:emit-Job genau EIN Selektor";
+}
+
+TEST(CiYamlBuilder, SingleComboCebEmitOmitsMeasurementComboSelectorForByteStability) {
+    auto const combos = planner::ExperimentPlanDirector::measurement_combos_of({"CLU"}); // 1 Voll-Konfig [all]
+    ASSERT_EQ(combos.size(), 1u);
+
+    planner::CiYamlBuilder yb;
+    planner::PlanHeader    h;
+    h.source_kind             = "thesis";
+    h.profile_id              = "single";
+    h.perm_count              = 1;
+    h.measurement_combo_count = 1; // heutige Live-Strecke => Selektor-Naht DORMANT
+    yb.begin_plan(h);
+    yb.begin_measurement_combo(combos[0]);
+    EXPECT_EQ(yb.text().find("--measurement-combo="), std::string::npos)
+        << "count==1 => KEIN --measurement-combo (byte-identisch zu vor A5)";
+}

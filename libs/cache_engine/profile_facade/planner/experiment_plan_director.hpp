@@ -468,7 +468,9 @@ public:
         out_ += "# measurement_combo " + std::to_string(c.index) + " legend=" + c.legend + " (CEB-Typ)\n";
         out_ += "# =================================================================================\n";
         out_ += emit_ceb_build_job(c);
-        out_ += emit_ceb_emit_job(c);
+        // A5 (§56-T2-FANOUT D4): der Selektor-Naht ist NUR bei N>1 CEB-Konfigs aktiv (measurement_combo_count > 1);
+        // count==1 (heutige Live-Strecke) => KEIN --measurement-combo => byte-identisch zu vor A5.
+        out_ += emit_ceb_emit_job(c, header_.measurement_combo_count > 1);
         out_ += emit_ceb_trigger_job(c);
     }
     void begin_perm(PlanPerm const& p) override {
@@ -518,7 +520,7 @@ private:
     }
 
     // STUFE 1b: die GEBAUTE CEB emittiert SELBST Child-2 (--emit-tier-ci, CEB-Rolle) -> Artefakt. §40.b-Hoheit.
-    [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c) {
+    [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c, bool emit_combo_selector) {
         std::string const slug = legend::cmake_slug(c.legend);
         std::string const art  = "tier-child-" + slug + ".yml";
         std::string       s;
@@ -537,7 +539,12 @@ private:
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      # §40.b-Praezisierung: die CEB (nicht der Planer) emittiert ihre STUFE-2-Sicht (System-Perms\n";
         s += "      # des FREIGEGEBENEN Raums + Tier-Chunk-Jobs + gegatete Mess-Jobs) via --emit-tier-ci.\n";
-        s += "      \"$DRIVER\" --emit-tier-ci \"$COMDARE_GOLDEN_N_PROFILE\" > \"$CI_PROJECT_DIR/" + art + "\"\n";
+        // A5 (§56-T2-FANOUT D4): bei N>1 CEB-Konfigs traegt der ceb:emit-Aufruf den distinct Combo-Selektor
+        // (--measurement-combo=<cmake_slug>) -- so emittiert jeder ceb:emit-Job GENAU seine EINE CEB-Konfig
+        // (Kollisionsschutz der combo-unabhaengigen tier:build-Job-Namen, §56/T6). count==1 => leer => byte-identisch.
+        std::string const combo_arg = emit_combo_selector ? " --measurement-combo=" + slug : std::string{};
+        s += "      \"$DRIVER\" --emit-tier-ci \"$COMDARE_GOLDEN_N_PROFILE\"" + combo_arg + " > \"$CI_PROJECT_DIR/" +
+             art + "\"\n";
         s +=
             "      echo \"== CEB-emittierte STUFE-2 (erste 20 Zeilen) ==\"; head -20 \"$CI_PROJECT_DIR/" + art + "\"\n";
         s += "  artifacts:\n";
@@ -948,15 +955,18 @@ public:
 
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
-    void construct(cx::ThesisProfile const& tp, IPlanBuilder& b) const {
+    void construct(cx::ThesisProfile const& tp, IPlanBuilder& b, std::string const& combo_selector = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
         std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
         // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
         // measurement_combos_of): tp traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
         // Sobald der Parser das Feld fuellt: measurement_combos_of(tp.measurement_categories, tp.measurement_tooling).
-        std::vector<PlanMeasurementCombo> const combos   = measurement_combos_of(tp.measurement_categories);
-        tlz::ResolverReport const               resolver = resolve_organ_position_(tp); // S3: INERT ohne volles Trio
+        std::vector<PlanMeasurementCombo> combos = measurement_combos_of(tp.measurement_categories);
+        // A5 (§56-T2-FANOUT D4): DORMANT bei leerem combo_selector (Live-Strecke {} => Identitaet, byte-stabil); ein
+        // gesetzter Selektor (nur --emit-tier-ci-Naht) waehlt die EINE repraesentierte CEB-Konfig (Kollisionsschutz).
+        combos                             = select_measurement_combo(std::move(combos), combo_selector);
+        tlz::ResolverReport const resolver = resolve_organ_position_(tp); // S3: INERT ohne volles Trio
         walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& sweep_axis : passes) {
@@ -976,7 +986,7 @@ public:
 
     /// Experiment-Kanal: opt x simd x (phase -> je real baubarem (merge x lebewesen)-Pass EIN Schritt). Die
     /// Phasen-Projektion ist die Bruecke-I3-Enumeration (nullopt-Paare ehrlich ausgelassen, kein Phantom-Schritt).
-    void construct(cx::ExperimentProfile const& ep, IPlanBuilder& b) const {
+    void construct(cx::ExperimentProfile const& ep, IPlanBuilder& b, std::string const& combo_selector = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
@@ -985,8 +995,11 @@ public:
         // Fan-out-VERDRAHTUNG hierher (measurement_combos_of(cats, ep.measurement_tooling)) gehoert dem Schwester-
         // Paket P-MESSTOOL — KERN-A reicht es NICHT durch. Default bleibt {} => 1 Voll-Konfig [all] (byte-stabil zur
         // heutigen 1-CEB-Strecke).
-        std::vector<PlanMeasurementCombo> const combos   = measurement_combos_of(ep.measurement_categories);
-        tlz::ResolverReport const               resolver = resolve_organ_position_(ep); // S3: INERT ohne volles Trio
+        std::vector<PlanMeasurementCombo> combos = measurement_combos_of(ep.measurement_categories);
+        // A5 (§56-T2-FANOUT D4): DORMANT bei leerem combo_selector (Live-Strecke {} => Identitaet, byte-stabil); ein
+        // gesetzter Selektor (nur --emit-tier-ci-Naht) waehlt die EINE repraesentierte CEB-Konfig (Kollisionsschutz).
+        combos                             = select_measurement_combo(std::move(combos), combo_selector);
+        tlz::ResolverReport const resolver = resolve_organ_position_(ep); // S3: INERT ohne volles Trio
         walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& proj : projections) {
@@ -1074,6 +1087,20 @@ public: // measurement_combos_of ist reine statische Fan-out-Kern-Logik -> als C
             combo.legend     = legend::measurement_tooling_combo(cfg); // [a,b,c]-HAUPT aus dem Tooling
             combos.push_back(std::move(combo));
         }
+        return combos;
+    }
+
+    // A5 (§56-T2-FANOUT D4): der per-CEB Combo-Selektor. --emit-tier-ci repraesentiert GENAU EINE CEB-Konfig (je
+    // ceb:emit-Job eine Konfig); da §56/T6 die Mess-Konfig aus der tier:build-Legende ENTFERNT hat (combo-unabhaengige
+    // Job-Namen), wuerden N>1 CEB-Konfigs in EINEM --emit-tier-ci-Lauf KOLLIDIEREN. Dieser Selektor loest das: er
+    // behaelt NUR die Kombination, deren cmake_slug(legend) == `selector` (der --measurement-combo-Wert). Leerer
+    // Selektor = IDENTITAET (die heutige Live-Strecke {} => 1 Voll-Konfig [all], byte-stabil). Kein Treffer => leer
+    // (ehrliche Null-Emission, kein Crash). KEIN Re-Indexing: die ueberlebende Kombination behaelt ihren
+    // Original-`index` (Walk-Determinismus, der perm_index-Lauf bleibt konsistent zum Voll-Walk).
+    [[nodiscard]] static std::vector<PlanMeasurementCombo>
+    select_measurement_combo(std::vector<PlanMeasurementCombo> combos, std::string const& selector) {
+        if (selector.empty()) return combos; // leerer Selektor = Identitaet (Live-Strecke, byte-stabil)
+        std::erase_if(combos, [&](PlanMeasurementCombo const& c) { return legend::cmake_slug(c.legend) != selector; });
         return combos;
     }
 

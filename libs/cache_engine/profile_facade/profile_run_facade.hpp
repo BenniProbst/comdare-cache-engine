@@ -176,12 +176,15 @@ struct ExperimentRunResult {
 [[nodiscard]] int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
 // GoF Facade (PAKET W10-A, §42/§42.b): --emit-tier-ci -- die CEB-ROLLEN-Emission (Stufe 2). Emittiert NUR die
-// STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums (System-Perms [d,e,f] + Tier-Chunk-Bau-Jobs "tier:build:[a,b,c]
-// [d,e,f]:chunk<k>" + GN-11/320er-gegatete Mess-Jobs "measure:[a,b,c][d,e,f][g,h,i]") als GitLab-Child-2-YAML
+// STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums (System-Perms [d,e,f] + Tier-Chunk-Bau-Jobs "tier:build:[d,e,f]
+// [g,h,i]:chunk<k>" + GN-11/320er-gegatete Mess-Jobs "measure:[a,b,c][d,e,f][g,h,i]") als GitLab-Child-2-YAML
 // (TierCiYamlBuilder am SELBEN Director-Walk). CEB-Hoheit (§40.b-Praezisierung: der Planer steuert die CEB-Jobs
 // via --dump-ci, die CEB steuert die Tier-Jobs via --emit-tier-ci; heute EINE Binary in zwei Rollen). Baut
 // KEINE DLL, misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os);
+// A5 (§56-T2-FANOUT D4): `combo_selector` (leer = Identitaet, heutige Live-Strecke byte-stabil) waehlt bei N>1
+// CEB-Konfigs die EINE repraesentierte Mess-Kombination (cmake_slug der [a,b,c]-Legende, --measurement-combo-Wert).
+[[nodiscard]] int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                                      std::string const& combo_selector = {});
 
 // GoF Facade (PAKET W10-A, §42/§42.b): --emit-tier-cmake -- der Bare-Metal-Gegenpart zu --emit-tier-ci. Emittiert
 // das STUFE-2-tier_plan.cmake (TierCmakeGraphBuilder): je System-Perm die REALEN provision-only-Tier-Chunk-Bau-
