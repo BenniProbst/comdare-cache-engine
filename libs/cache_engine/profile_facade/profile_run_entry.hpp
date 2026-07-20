@@ -34,7 +34,8 @@
 
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
 #include <builder/experiment_tree/coverage_selection.hpp> // select_explicit
-#include <builder/build_orchestrator/system_ram.hpp>      // make_system_free_ram_fn
+#include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (Dead-Code-Filter-Einhaengung)
+#include <builder/build_orchestrator/system_ram.hpp>          // make_system_free_ram_fn
 
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
@@ -432,7 +433,7 @@ struct RunProfileResult {
             for (std::size_t i = 0; i < sweep_n; ++i) // ALLE Auspraegungen (volle Achse), abzgl. bereits gefahrener
                 if (pass_seen_ids.insert(sweep_view[i].binary_id).second) ids.push_back(i);
             std::size_t const        fresh_n = ids.size();
-            ex::BuildSelection const sel     = ex::select_explicit(std::move(ids));
+            ex::BuildSelection const sel     = ex::resolve_selection(ex::select_explicit(std::move(ids)));
             std::cout << "  [BASIS/deep-sweep] axis=" << pass_axis << " auspraegungen=" << sweep_n
                       << " davon neu=" << fresh_n << " (eigener Sweep-Baum, NICHT Basis-View)\n";
             for (std::size_t const idx : sel.indices)
@@ -482,6 +483,9 @@ struct RunProfileResult {
                     sel.provenance         = prov;
                 }
             }
+            // A6/§50-CoR: die (mess-getriebene) Dead-Code-Filter-Kette einhaengen. Identitaets-Default (leere Kette)
+            // => sel byte-identisch (indices Wert+Reihenfolge + provenance), golden-neutral; realer Handler = deferred #156.
+            sel = ex::resolve_selection(std::move(sel));
             std::cout << "  [BASIS] label=" << pts.label << " provenance=" << sel.provenance
                       << " indices=" << sel.size() << " series=" << pts.series << " sweep=" << pts.sweep_axis << "\n";
             if (sel.indices.empty()) {
@@ -546,7 +550,7 @@ struct RunProfileResult {
                 sota_tree.build(sota_levels);
                 ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
                 // EIN Lebewesen je Reihe = view-Index 0. binary_id == p.view_binary_id ("sota_tier=…").
-                ex::BuildSelection const sel = ex::select_explicit({0});
+                ex::BuildSelection const sel = ex::resolve_selection(ex::select_explicit({0}));
                 if (sota_seen_bids.insert(p.view_binary_id).second) ++res.sota_binary_ids; // M-CE-10 (b): distinkt
                 // GO-5 Fork 7 + M-CE-10 (c): der tool-berechnete H2-Score wird ueber das HOST-Lebewesen (p.h2_lebewesen)
                 // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 16/17 Achsen, INC-2d). KORREKTUR F23 (2026-07-16):

@@ -35,6 +35,7 @@
 #include "profile_run_entry.hpp" // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
                                  //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
 #include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed (Spiegel-Filter, Single-Source)
+#include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (direkt genutzt, IWYU)
 
 #include <ctime>
 
@@ -315,7 +316,9 @@ struct RunExperimentResult {
                     ex::ExperimentTree sota_tree{sota_factory};
                     sota_tree.build(sota_levels);
                     ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
-                    ex::BuildSelection const   sel = ex::select_explicit({0}); // EIN Lebewesen je Reihe = view-Index 0
+                    // A6/§50-CoR: EIN Lebewesen je Reihe = view-Index 0; Dead-Code-Filter-Kette einhaengen
+                    // (Identitaets-Default => sel byte-identisch, golden-neutral; realer Handler = deferred #156).
+                    ex::BuildSelection const sel = ex::resolve_selection(ex::select_explicit({0}));
 
                     std::cout << "    SOTA-Pass phase=" << proj.phase_name << " series=" << p.series
                               << " pruefling_type=" << p.pruefling_type << " lebewesen=" << p.lebewesen
