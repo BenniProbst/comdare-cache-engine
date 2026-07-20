@@ -44,6 +44,15 @@
 #ifndef COMDARE_THESIS_PROFILES_DIR
 #error "COMDARE_THESIS_PROFILES_DIR must point to libs/cache_engine/algorithm_profiles/thesis_profiles"
 #endif
+#ifndef COMDARE_CE_AXIS_REGISTRY
+#error "COMDARE_CE_AXIS_REGISTRY must point to cache_engine_axis_registry.xml (S3 P-RESOLVER)"
+#endif
+#ifndef COMDARE_SYSTEM_AXIS_REGISTRY
+#error "COMDARE_SYSTEM_AXIS_REGISTRY must point to system_axis_registry.xml (S3 P-RESOLVER)"
+#endif
+#ifndef COMDARE_MEASUREMENT_AXIS_REGISTRY
+#error "COMDARE_MEASUREMENT_AXIS_REGISTRY must point to measurement_axis_registry.xml (S3 P-RESOLVER)"
+#endif
 
 namespace {
 
@@ -254,4 +263,98 @@ TEST(ValidateProfileSystemAxes, BogusTargetIsaRejected) {
     EXPECT_TRUE(any_contains(vr.errors, "target_isa"));
     EXPECT_TRUE(any_contains(vr.errors, "riscv"));
     EXPECT_EQ(vr.target_isa_checked, 1u);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3 P-RESOLVER (minimal-3-tief, 2026-07-20): resolve_axis_refs_against_trio macht das heute STILLE Verwerfen
+// fehlplatzierter Organ-Position-Achsen (profile_to_tree.hpp is_organ_composition_axis -> `continue`) zu einem
+// KLASSIFIZIERTEN, LAUTEN Reject/Route. Gegen das REALE 3-Art-Angebot (17 Organ / 5 System / 16 Mess) aufgeloest
+// -- Single-Source, keine hartkodierte Achsenliste. Je Fehlerklasse >=1 Negativ-Test mit DETERMINISTISCHER Meldung
+// MIT Koordinate (STUFE §4.4-I1); der Positiv-Fall (organ-reines Profil) belegt 0 Rejects. READ-ONLY, binary_id-neutral.
+// ─────────────────────────────────────────────────────────────────────────────
+namespace {
+// Das REALE RegistryTrio (committete Art-Registries) -- dieselbe Naht wie der Host/Director (read_axis_registry_trio).
+std::optional<tlz::RegistryTrio> real_trio() {
+    return tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
+                                        fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
+}
+} // namespace
+
+// (P0) Das reale Trio traegt 17/5/16 und die kanonischen Achsen (Grundlage der Klassifikation) -- unveraendert gruen.
+TEST(ResolveAxisRefsAgainstTrio, RealTrioIs17_5_16WithCanonicalAxes) {
+    auto const trio = real_trio();
+    ASSERT_TRUE(trio.has_value()) << "die 3 committeten Art-Registries muessen als comdare_axis_registry lesbar sein";
+    EXPECT_EQ(trio->organ_axis_count(), 17u) << "Organ-golden: 17 Kompositions-Achsen (isa raus, INC-2d)";
+    EXPECT_EQ(trio->system_axis_count(), 5u);
+    EXPECT_EQ(trio->measurement_category_count(), 16u);
+    EXPECT_EQ(trio->organ.axis_names.count("search_algo"), 1u) << "search_algo ist eine Organ-Achse";
+    EXPECT_EQ(trio->system.axis_names.count("target_isa"), 1u) << "target_isa ist eine System-Achse (INC-2d)";
+    EXPECT_EQ(trio->organ.axis_names.count("target_isa"), 0u) << "target_isa ist KEINE Organ-Achse";
+}
+
+// (P1) NEGATIV V-UNREG-AXIS: eine in KEINER Angebots-Registry registrierte Achse -> harter Reject mit Koordinate.
+TEST(ResolveAxisRefsAgainstTrio, UnregisteredAxisIsVUnregAxisWithCoordinate) {
+    auto const trio = real_trio();
+    ASSERT_TRUE(trio.has_value());
+
+    tlz::ResolverReport const rep = tlz::resolve_axis_refs_against_trio({"total_bogus_axis"}, *trio);
+    EXPECT_TRUE(rep.resolved) << "der Resolver LIEF (gegen ein Trio aufgeloest)";
+    EXPECT_FALSE(rep.ok);
+    ASSERT_EQ(rep.rejects.size(), 1u);
+    EXPECT_EQ(rep.rejects[0].code, "V-UNREG-AXIS");
+    EXPECT_EQ(rep.rejects[0].ref, "total_bogus_axis") << "die Ref-Koordinate steht im Reject";
+    // Deterministische Meldung MIT Koordinate + stabilem Fehlerklassen-Etikett (axis_error error_class_label).
+    EXPECT_NE(rep.rejects[0].message.find("V-UNREG-AXIS"), std::string::npos);
+    EXPECT_NE(rep.rejects[0].message.find("total_bogus_axis"), std::string::npos) << "Koordinate in der Meldung";
+    EXPECT_NE(rep.rejects[0].message.find("konfig_xml_parse"), std::string::npos) << "Fehlerklassen-Etikett (D1)";
+}
+
+// (P2) NEGATIV V-CATEGORY: eine registrierte SYSTEM-Achse (target_isa) in Organ-Position -> Route-Meldung mit
+//      Koordinate (gehoert ueber build_system_axis_levels, nicht den 17-Slot-Organ-Pfad).
+TEST(ResolveAxisRefsAgainstTrio, MisplacedSystemAxisIsVCategoryWithCoordinate) {
+    auto const trio = real_trio();
+    ASSERT_TRUE(trio.has_value());
+
+    tlz::ResolverReport const rep = tlz::resolve_axis_refs_against_trio({"target_isa"}, *trio);
+    EXPECT_FALSE(rep.ok);
+    ASSERT_EQ(rep.rejects.size(), 1u);
+    EXPECT_EQ(rep.rejects[0].code, "V-CATEGORY");
+    EXPECT_EQ(rep.rejects[0].ref, "target_isa");
+    EXPECT_NE(rep.rejects[0].message.find("V-CATEGORY"), std::string::npos);
+    EXPECT_NE(rep.rejects[0].message.find("target_isa"), std::string::npos) << "Koordinate in der Meldung";
+    EXPECT_NE(rep.rejects[0].message.find("build_system_axis_levels"), std::string::npos) << "Routing-Ziel benannt";
+    EXPECT_NE(rep.rejects[0].message.find("cache_engine_system"), std::string::npos) << "Angebots-Registry benannt";
+}
+
+// (P3) POSITIV: ein organ-reines Profil (nur Organ-Achsen + Organ-Sonderzweig-Unter-Achsen) -> 0 Rejects, ok=true.
+//      Belegt die Golden-Neutralitaet (die golden/m3v2-Profile sind organ-rein => keine Reject-Regression).
+TEST(ResolveAxisRefsAgainstTrio, OrganPureRefsYieldZeroRejects) {
+    auto const trio = real_trio();
+    ASSERT_TRUE(trio.has_value());
+
+    // Organ-Achsen + die 3 compile-time Organ-SUB-Achsen (cacheline/node_width/alloc_hw sind KEINE eigene
+    // Registry-<axis>, werden aber wie in build_axis_levels separat behandelt => KEIN Reject).
+    std::vector<std::string> const organ_pure = {"search_algo", "cache_traversal", "mapping",
+                                                 "cacheline",   "node_width",      "alloc_hw"};
+    tlz::ResolverReport const      rep        = tlz::resolve_axis_refs_against_trio(organ_pure, *trio);
+    for (auto const& rj : rep.rejects) ADD_FAILURE() << "[resolver] " << rj.message;
+    EXPECT_TRUE(rep.resolved);
+    EXPECT_TRUE(rep.ok);
+    EXPECT_TRUE(rep.rejects.empty());
+}
+
+// (P4) organ_position_refs zieht die Refs aus dem geparsten Thesis-Profil (permute_axes.ref) -- die Ref-Quelle
+//      des Resolvers. Das Minimal-Fixture traegt genau search_algo (organ-rein) => Resolver 0 Rejects end-to-end.
+TEST(ResolveAxisRefsAgainstTrio, ThesisPermuteAxesRefsResolveClean) {
+    auto const trio = real_trio();
+    ASSERT_TRUE(trio.has_value());
+    auto const tp = parse_temp(""); // permute_axes = {search_algo}
+    ASSERT_TRUE(tp.has_value());
+
+    std::vector<std::string> const refs = tlz::organ_position_refs(*tp);
+    ASSERT_EQ(refs.size(), 1u);
+    EXPECT_EQ(refs[0], "search_algo");
+    tlz::ResolverReport const rep = tlz::resolve_axis_refs_against_trio(refs, *trio);
+    EXPECT_TRUE(rep.ok);
+    EXPECT_TRUE(rep.rejects.empty());
 }

@@ -51,6 +51,7 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
 
+#include <optional> // S3 P-RESOLVER: der volle RegistryTrio als optionaler Director-Zustand (Resolver-Lauf)
 #include <string>
 #include <string_view>
 #include <utility>
@@ -102,6 +103,10 @@ struct PlanHeader {
     std::size_t perm_count              = 0; // |opt x simd| JE Mess-Kombination
     std::size_t measurement_combo_count = 0; // W10-A: Zahl der Mess-Achsen-Kombinationen (heute typisch 1)
     PlanRegistryTrioAnnotation registries;
+    // S3 P-RESOLVER (2026-07-20): der klassifizierte Organ-Position-Reject/Route-Report (resolve_axis_refs_against_
+    // trio). resolved=false (INERT-Default) wenn der Director OHNE volles RegistryTrio konstruiert wurde; sonst
+    // ok=true bei organ-reinem Profil (0 Rejects). binary_id-neutral -- reine Plan-Kopf-Annotation (kein Filter).
+    tlz::ResolverReport resolver;
 };
 
 /// EINE opt x simd Permutation (system_config => NIE binary_id, NIE N; nur BAU-/MESS-Matrix + build_version-Suffix).
@@ -175,6 +180,12 @@ public:
                 " measurement_offers=" + std::to_string(h.registries.measurement.baustein_count) + "\n";
         out_ += "measurement_combo_count=" + std::to_string(h.measurement_combo_count) + "\n";
         out_ += "perm_count=" + std::to_string(h.perm_count) + "\n";
+        // S3 P-RESOLVER: der Organ-Position-Reject/Route-Report sichtbar im --dump-plan (INERT-Default: resolved=0).
+        out_ += "resolver resolved=" + std::string(h.resolver.resolved ? "1" : "0") +
+                " ok=" + std::string(h.resolver.ok ? "1" : "0") +
+                " rejects=" + std::to_string(h.resolver.rejects.size()) + "\n";
+        for (auto const& rj : h.resolver.rejects)
+            out_ += "  reject code=" + rj.code + " ref=" + rj.ref + " message=" + rj.message + "\n";
     }
     // W10-A: die aeussere Mess-Achsen-Stufe im Plan-Text sichtbar machen (dreistufige Topologie).
     void begin_measurement_combo(PlanMeasurementCombo const& c) override {
@@ -926,6 +937,14 @@ class ExperimentPlanDirector {
 public:
     ExperimentPlanDirector() = default;
     explicit ExperimentPlanDirector(PlanRegistryTrioAnnotation trio) : trio_(std::move(trio)) {}
+    // S3 P-RESOLVER (2026-07-20): additiver Konstruktor mit dem VOLLEN RegistryTrio. Er traegt die Achsen-Namen-
+    // Mengen, die der Resolver (resolve_axis_refs_against_trio) fuer die Organ-Position-Aufloesung braucht -- die
+    // reine Zaehl-Annotation (PlanRegistryTrioAnnotation) reicht dafuer NICHT. Die Zaehl-Annotation wird aus DEMSELBEN
+    // Trio abgeleitet (make_plan_registry_annotation) -- EINE Quelle, kein Doppel-Argument. Init-Reihenfolge folgt der
+    // Member-DEKLARATION (trio_ vor full_trio_): make_plan_registry_annotation liest `trio` VOR dem move. Ohne diesen
+    // Konstruktor bleibt der Resolver INERT (resolved=false) und das Vor-S3-Verhalten byte-identisch.
+    explicit ExperimentPlanDirector(tlz::RegistryTrio trio)
+        : trio_(make_plan_registry_annotation(trio)), full_trio_(std::move(trio)) {}
 
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
@@ -936,8 +955,9 @@ public:
         // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
         // measurement_combos_of): tp traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
         // Sobald der Parser das Feld fuellt: measurement_combos_of(tp.measurement_categories, tp.measurement_tooling).
-        std::vector<PlanMeasurementCombo> const combos = measurement_combos_of(tp.measurement_categories);
-        walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
+        std::vector<PlanMeasurementCombo> const combos   = measurement_combos_of(tp.measurement_categories);
+        tlz::ResolverReport const               resolver = resolve_organ_position_(tp); // S3: INERT ohne volles Trio
+        walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& sweep_axis : passes) {
                 PlanStep s;
@@ -963,8 +983,9 @@ public:
         // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
         // measurement_combos_of): ep traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
         // Sobald der Parser das Feld fuellt: measurement_combos_of(ep.measurement_categories, ep.measurement_tooling).
-        std::vector<PlanMeasurementCombo> const combos = measurement_combos_of(ep.measurement_categories);
-        walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
+        std::vector<PlanMeasurementCombo> const combos   = measurement_combos_of(ep.measurement_categories);
+        tlz::ResolverReport const               resolver = resolve_organ_position_(ep); // S3: INERT ohne volles Trio
+        walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& proj : projections) {
                 for (auto const& p : proj.passes) {
@@ -984,6 +1005,15 @@ public:
     }
 
 private:
+    // S3 P-RESOLVER: der Organ-Position-Reject/Route-Report je Kanal. Ohne volles RegistryTrio (Default-/Annotation-
+    // Konstruktor) INERT (resolved=false, 0 Rejects); mit vollem Trio klassifiziert er die permute_axes/axes_default_
+    // lookup-Refs (tlz::organ_position_refs ueberladen je Profil-Art). READ-ONLY, binary_id-neutral (kein Filter).
+    template <class Profile>
+    [[nodiscard]] tlz::ResolverReport resolve_organ_position_(Profile const& p) const {
+        if (!full_trio_) return tlz::ResolverReport{}; // INERT-Default (resolved=false)
+        return tlz::resolve_axis_refs_against_trio(tlz::organ_position_refs(p), *full_trio_);
+    }
+
     // opt/simd-Listen-Ableitung IDENTISCH zu run_profile/run_experiment_profile (Welle-2-Naht): leer => EINE
     // Identitaets-Perm auf dem CEB-Default (O3 / no_extension) = Vor-Wiring-Verhalten byte-identisch.
     [[nodiscard]] static std::vector<std::string> opt_perms_of(std::vector<std::string> const& xml_opt_levels) {
@@ -1054,13 +1084,15 @@ private:
     template <class StepEmitter>
     void walk_perms_(std::string_view source_kind, std::string const& profile_id,
                      std::vector<PlanMeasurementCombo> const& combos, std::vector<std::string> const& opt_perms,
-                     std::vector<std::string> const& simd_perms, IPlanBuilder& b, StepEmitter&& emit_steps) const {
+                     std::vector<std::string> const& simd_perms, tlz::ResolverReport const& resolver, IPlanBuilder& b,
+                     StepEmitter&& emit_steps) const {
         PlanHeader header;
         header.source_kind             = std::string{source_kind};
         header.profile_id              = profile_id;
         header.perm_count              = opt_perms.size() * simd_perms.size();
         header.measurement_combo_count = combos.size();
         header.registries              = trio_;
+        header.resolver                = resolver; // S3 P-RESOLVER: Organ-Position-Report im Plan-Kopf (Annotation)
         b.begin_plan(header);
 
         std::size_t perm_index = 0;
@@ -1089,6 +1121,9 @@ private:
     }
 
     PlanRegistryTrioAnnotation trio_; // leer/loaded=false, wenn ohne Registry-Trio konstruiert
+    // S3 P-RESOLVER: das VOLLE RegistryTrio (Achsen-Namen-Mengen) fuer die Organ-Position-Aufloesung. nullopt =>
+    // der Resolver ist INERT (resolved=false) -- Default-/Annotation-Konstruktor-Pfad, Vor-S3-Verhalten byte-identisch.
+    std::optional<tlz::RegistryTrio> full_trio_;
 };
 
 } // namespace comdare::cache_engine::planner
