@@ -91,12 +91,12 @@ void restore_axis(A& a, memento_of_t<A> const& m) {
 // ─────────────────────────────────────────────────────────────────────────────
 // (K10-PMAJOR-02, 2026-06-18) MementoAggregate<Composition> ENTFERNT — toter Rev.1-Apparat.
 // ─────────────────────────────────────────────────────────────────────────────
-// Der frühere 19-Slot-Aggregat-Halter MementoAggregate<Composition> (+ stateful_count()/total_slots()) hatte
+// Der frühere 17-Slot-Aggregat-Halter MementoAggregate<Composition> (+ stateful_count()/total_slots()) hatte
 // grep-bestätigt NULL Konsumenten (kein Mess-Pfad, kein Test, kein Adapter — verifiziert
 //   grep -rIn "MementoAggregate|stateful_count|total_slots" libs apps tests benchmarks → nur dieser Header).
 // Der kanonische Zwei-Phasen-Memento läuft im abi_adapter über (a) Copy-on-Write Rev.2 (cow_materialize_copy_,
 // O(1)-save + lazy Vollkopie) und (b) den PER-ACHSEN-MementoAxis-Fallback (saved_search_m_/saved_container_m_)
-// — NICHT über ein Aggregat aller 19 Slots. Der Aggregat-Halter wäre nur eine nie-instanziierte Parallel-
+// — NICHT über ein Aggregat aller 17 Slots. Der Aggregat-Halter wäre nur eine nie-instanziierte Parallel-
 // struktur gewesen → entfernt statt etikett-getragen (Lehrbuch-Pattern: kein toter Memento-Apparat).
 //
 // LEBENDIG BLEIBT (von abi_adapter + tests test_v5_memento_axis/test_v5_disk_memento/test_v5_organ_memento
