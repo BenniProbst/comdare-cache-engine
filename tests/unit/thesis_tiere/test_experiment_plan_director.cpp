@@ -769,6 +769,36 @@ TEST(CiYamlBuilder, NoCiProjectDirInVariablesBlockBothStages) {
     EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u * planner::kTierChunkCount);
 }
 
+// (W10) W10-Nacharbeit 5 (Serie-E2E Lauf 5): je chunk<k>-Tier-Bau-Job berechnet sein DISJUNKTES Teilfenster zur
+//       Laufzeit (Pilot-Matrix-Chunk-Arithmetik) -- kein globales Fixfenster mehr in der Nutzlast (sonst baute der
+//       Voll-Build 4x die volle Range je Perm). Steuerung ueber COMDARE_GN_TOTAL (reine Zahl).
+TEST(TierCiYamlBuilder, PerChunkRangeArithmeticNoGlobalFixedWindow) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // Chunk-Arithmetik-Zeilen in JEDEM der 16 Tier-Bau-Jobs.
+    std::size_t const jobs = 4u * planner::kTierChunkCount;
+    EXPECT_EQ(count_occurrences(yaml, "CHUNK_SIZE=$(( (TOTAL + CCOUNT - 1) / CCOUNT ))"), jobs)
+        << "ceil-Arithmetik je Job";
+    EXPECT_EQ(count_occurrences(yaml, "START=$(( CHUNK * CHUNK_SIZE ))"), jobs);
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT_C}\""), jobs);
+    EXPECT_EQ(count_occurrences(yaml, "TOTAL=\"${COMDARE_GN_TOTAL:-16}\""), jobs) << "Default 16 = sicherer 4x4-Test";
+    // Je System-Perm 4 UNTERSCHIEDLICHE k-Werte -> je k genau 4x (einmal pro Perm) ueber die 4 Perms.
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=0\n"), 4u);
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=1\n"), 4u);
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=2\n"), 4u);
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=3\n"), 4u);
+    // KEIN globales Fixfenster mehr in der Nutzlast (der alte ${COMDARE_GN_RANGE:-0:4}-Fallback ist weg).
+    EXPECT_EQ(yaml.find("COMDARE_GN_RANGE:-0:4"), std::string::npos)
+        << "kein globales Fixfenster in der Nutzlast (sonst 4x volle Range je Perm im Voll-Build)";
+    // jenseits-TOTAL -> No-Op-Exit 0 (golden-neutral).
+    EXPECT_EQ(count_occurrences(yaml, "-> No-Op (golden-neutral) =="), jobs);
+}
+
 // (W8) W10-Nacharbeit 2 (Serie-E2E 11569/11576): die self-contained Child-YAMLs erben default:before_script NICHT
 //      -> JEDER Bau-Job beider Stufen traegt den Submodul-Klon-PROLOG (Deploy-Token via CI-Variablen, NIE Klartext)
 //      + global GIT_SUBMODULE_STRATEGY:none (kein Auto-Fetch, der am extraheader failt).
