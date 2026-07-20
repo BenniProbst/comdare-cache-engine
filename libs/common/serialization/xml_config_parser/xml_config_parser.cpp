@@ -91,16 +91,28 @@ std::vector<PermutationEntry> parse_entries_dom(comdare::common::xml::XmlNode co
 // simd (Unter-Achse, EIN Container) → <option> (symmetrisch zu opt_level, F-SIMD). Rohstrings; binary_id-neutral
 // (Provenienz). `sa` = der bereits aufgeloeste <system_axes>-Knoten (der Aufrufer prueft die Existenz). Fehlt der
 // Knoten, ruft der Aufrufer diese Funktion NICHT → beide PODs bleiben leer = heutiges Verhalten byte-identisch.
+// S2/A2 P-SYSREG (2026-07-20): zwei weitere Offer-Sub-Achsen VERDRAHTET (B1-voll): compiler/atomic128 (ZWEITE
+// Unter-Achse unter compiler, EIN Container, exakt wie opt_level) + target_isa (EIGENE Haupt-Achse, KEINE
+// Unter-Achse -> die <option>-Werte stehen DIREKT unter <target_isa>). Beide ADDITIV + binary_id-neutral; der
+// Parser ignoriert Unbekanntes ohnehin -> rein additiv, bestehende Profile byte-identisch.
 void parse_system_axes(comdare::common::xml::XmlNode const& sa, CompilerAxisSel& compiler,
-                       ExtensionHardwareAxisSel& extension_hardware) {
+                       ExtensionHardwareAxisSel& extension_hardware, TargetIsaAxisSel& target_isa) {
     if (auto const* comp = sa.child("compiler")) {
         if (auto const* ol = comp->child("opt_level"))
             for (auto const* o : ol->children_named("option")) compiler.opt_levels.push_back(o->attr("value"));
+        // S2/A2 P-SYSREG: atomic128 = zweite Unter-Achse unter compiler (EIN Container, deckungsgleich zu opt_level).
+        if (auto const* at = comp->child("atomic128"))
+            for (auto const* o : at->children_named("option")) compiler.atomic128.push_back(o->attr("value"));
     }
     if (auto const* xh = sa.child("extension_hardware")) {
         if (auto const* simd = xh->child("simd"))
             for (auto const* o : simd->children_named("option"))
                 extension_hardware.simd_options.push_back(o->attr("value"));
+    }
+    // S2/A2 P-SYSREG: target_isa = EIGENE Haupt-Achse (KEINE Unter-Achse) -- die <option>-Werte stehen DIREKT unter
+    // <target_isa> (Spiegel der x86_64/aarch64-Bausteine im OFFER). Fehlt der Knoten, bleibt die Liste leer.
+    if (auto const* ti = sa.child("target_isa")) {
+        for (auto const* o : ti->children_named("option")) target_isa.isa.push_back(o->attr("value"));
     }
 }
 
@@ -371,7 +383,8 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     //    parse_system_axes-Naht (deckungsgleich zum comdare_experiment-Kanal). compiler/opt_level + extension_
     //    hardware/simd → binary_id-NEUTRAL (system_config, multiplizieren NUR die Bau-Matrix/Sidecar, NIE N).
     //    Fehlt <system_axes>, bleiben tp.compiler/extension_hardware leer = heutiges Verhalten byte-identisch. ──
-    if (auto const* sa = root->child("system_axes")) parse_system_axes(*sa, tp.compiler, tp.extension_hardware);
+    if (auto const* sa = root->child("system_axes"))
+        parse_system_axes(*sa, tp.compiler, tp.extension_hardware, tp.target_isa);
     // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.
     if (auto const* ro = root->child("run_options")) {
         tp.run_options.cap           = to_int(ro->attr("cap", "0"), 0);
@@ -445,7 +458,8 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
     // <system_axes> (opt-f/A3): CEB-System-Achsen ueber die GETEILTE parse_system_axes-Naht (GN-3, 2026-07-19) —
     // deckungsgleich zum comdare_thesis_profile-Kanal (EINE Funktion, kein dupliziertes Lese-Muster). Konvention
     // Haupt→Unter→Option (V35 §2.1). Rohstrings; binary_id-neutral (Provenienz).
-    if (auto const* sa = root->child("system_axes")) parse_system_axes(*sa, ep.compiler, ep.extension_hardware);
+    if (auto const* sa = root->child("system_axes"))
+        parse_system_axes(*sa, ep.compiler, ep.extension_hardware, ep.target_isa);
     if (auto const* out = root->child("output")) {
         if (auto const* b = out->child("binary_path")) ep.output.binary_path = b->text;
         if (auto const* c = out->child("csv_path")) ep.output.csv_path = c->text;

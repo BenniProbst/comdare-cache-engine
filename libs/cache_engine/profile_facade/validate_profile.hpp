@@ -57,6 +57,8 @@
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
 #include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
+#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
+#include <cache_engine/measurement/target_isa_system_axis.hpp> // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
 #include <anatomy/pruefling_merge.hpp>             // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
 #include "xml_config_parser/xml_reader.hpp"        // INC-D: common-DOM zum Lesen der Registry-XML (kein regex)
@@ -94,6 +96,8 @@ struct ProfileValidationResult {
         0; // INC-3 Familie A: gepruefte <measurement_categories>-Namen (0 = keine deklariert)
     std::size_t opt_levels_checked = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
     std::size_t simd_checked       = 0; // GN-3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
+    std::size_t atomic128_checked  = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
+    std::size_t target_isa_checked = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
 };
 
 // ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
@@ -366,6 +370,38 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
                                    "no_extension, avx2, avx512.");
             }
         }
+        // S2/A2 P-SYSREG (B1-voll): atomic128 = ZWEITE Unter-Achse unter compiler; gegen kAllAtomic128Ids
+        // (compiler_atomic_sub_axis.hpp) -- Single-Source, NICHT hartkodiert. system_config -> binary_id-NEUTRAL;
+        // hier nur die Wert-Gueltigkeit. LEER = nichts zu pruefen (Default-Gate wie opt_level/simd; rueckwaerts-
+        // kompatibel: bestehende Profile ohne <atomic128> bleiben byte-identisch).
+        // GN-1-Anker: atomic128 haengt als Unter-Achse unter compiler (INC-0) -- Label-Drift bricht compile-time.
+        static_assert(ms::NoCx16Option::parent_axis_label() == std::string_view{"compiler"},
+                      "S2/A2: atomic128 haengt als Unter-Achse unter der Compiler-Haupt-Achse (INC-0-Ruling).");
+        for (auto const& a : tp.compiler.atomic128) {
+            ++r.atomic128_checked;
+            bool const known =
+                std::find(ms::kAllAtomic128Ids.begin(), ms::kAllAtomic128Ids.end(), a) != ms::kAllAtomic128Ids.end();
+            if (!known) {
+                r.ok = false;
+                r.errors.push_back("UNGUELTIGE <system_axes><compiler><atomic128 value=\"" + a +
+                                   "\">: kein atomic128-Wert der CompilerAtomicSubAxis-Optionen "
+                                   "(compiler_atomic_sub_axis.hpp). Erlaubt = no_cx16, cx16.");
+            }
+        }
+        // S2/A2 P-SYSREG (B1-voll): target_isa = EIGENE Haupt-Achse (INC-2d), KEINE Unter-Achse; gegen
+        // kAllTargetIsaIds (target_isa_system_axis.hpp) -- Single-Source, binary_id-NEUTRAL (isa verliess mit INC-2d
+        // die Komposition, 18->17). Wert-Gueltigkeit; LEER = CEB-Default x86_64 (host==target) = nichts zu pruefen.
+        for (auto const& t : tp.target_isa.isa) {
+            ++r.target_isa_checked;
+            bool const known =
+                std::find(ms::kAllTargetIsaIds.begin(), ms::kAllTargetIsaIds.end(), t) != ms::kAllTargetIsaIds.end();
+            if (!known) {
+                r.ok = false;
+                r.errors.push_back("UNGUELTIGE <system_axes><target_isa value=\"" + t +
+                                   "\">: kein target_isa-Wert der TargetIsaSystemAxis-Familie "
+                                   "(target_isa_system_axis.hpp). Erlaubt = x86_64, aarch64.");
+            }
+        }
     }
 
     // ── (6) M-CE-12: jede <workloads>-id ist eine REAL existente load_profiles/-id. Nur wenn der Host die
@@ -411,6 +447,10 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     // Profile (ohne <system_axes>) bleibt byte-identisch (Default-Verhaltens-Gate, wie datasets/categories).
     if (r.opt_levels_checked > 0) os << ", " << r.opt_levels_checked << " opt_levels";
     if (r.simd_checked > 0) os << ", " << r.simd_checked << " simd";
+    // S2/A2 P-SYSREG: atomic128/target_isa NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender
+    // Profile (ohne <atomic128>/<target_isa>) bleibt byte-identisch (Default-Verhaltens-Gate, wie opt_level/simd).
+    if (r.atomic128_checked > 0) os << ", " << r.atomic128_checked << " atomic128";
+    if (r.target_isa_checked > 0) os << ", " << r.target_isa_checked << " target_isa";
     os << "\n";
     for (auto const& w : r.warnings) os << "  [HINWEIS] " << w << "\n";
     for (auto const& e : r.errors) os << "  [FEHLER]  " << e << "\n";
@@ -490,6 +530,8 @@ struct ExperimentValidationResult {
     std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
     std::size_t opt_levels_checked = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
     std::size_t simd_checked       = 0; // opt-f/A3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
+    std::size_t atomic128_checked  = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
+    std::size_t target_isa_checked = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
 };
 
 // ── Inhalt einer comdare_axis_registry.xml: engine-Attr + axis-id -> {baustein name}. ──
@@ -679,6 +721,36 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.errors.push_back("UNGUELTIGE <simd value=\"" + s +
                                "\">: kein Wert der XSD-Enumeration no_extension/avx2/avx512 "
                                "(simd_sub_axis.hpp).");
+        }
+    }
+    // S2/A2 P-SYSREG (B1-voll): atomic128 = ZWEITE Unter-Achse unter compiler; gegen kAllAtomic128Ids
+    // (compiler_atomic_sub_axis.hpp) -- Single-Source, NICHT hartkodiert (deckungsgleich zur OFFER-sub_axis atomic128).
+    // system_config -> binary_id-neutral. LEER ist zulaessig (CEB-Default no_cx16; XSD minOccurs=0).
+    // GN-1-artiger Anker: atomic128 haengt als Unter-Achse unter compiler (INC-0) -- Label-Drift bricht compile-time.
+    static_assert(ms::NoCx16Option::parent_axis_label() == std::string_view{"compiler"},
+                  "S2/A2: atomic128 haengt als Unter-Achse unter der Compiler-Haupt-Achse (INC-0-Ruling).");
+    for (auto const& a : ep.compiler.atomic128) { // Optionen der atomic128-Unter-Achse unter compiler
+        ++r.atomic128_checked;
+        bool const known =
+            std::find(ms::kAllAtomic128Ids.begin(), ms::kAllAtomic128Ids.end(), a) != ms::kAllAtomic128Ids.end();
+        if (!known) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGE <atomic128 value=\"" + a +
+                               "\">: kein Wert der atomic128-Enumeration no_cx16/cx16 (compiler_atomic_sub_axis.hpp).");
+        }
+    }
+    // S2/A2 P-SYSREG (B1-voll): target_isa = EIGENE Haupt-Achse (INC-2d), KEINE Unter-Achse; gegen kAllTargetIsaIds
+    // (target_isa_system_axis.hpp) -- Single-Source, binary_id-neutral (isa verliess mit INC-2d die Komposition,
+    // 18->17). LEER ist zulaessig (CEB-Default x86_64 = host==target = keine Cross-Flags; golden byte-identisch).
+    for (auto const& t : ep.target_isa.isa) { // Optionen der target_isa-Haupt-Achse (x86_64/aarch64)
+        ++r.target_isa_checked;
+        bool const known =
+            std::find(ms::kAllTargetIsaIds.begin(), ms::kAllTargetIsaIds.end(), t) != ms::kAllTargetIsaIds.end();
+        if (!known) {
+            r.ok = false;
+            r.errors.push_back(
+                "UNGUELTIGE <target_isa value=\"" + t +
+                "\">: kein Wert der target_isa-Enumeration x86_64/aarch64 (target_isa_system_axis.hpp).");
         }
     }
 

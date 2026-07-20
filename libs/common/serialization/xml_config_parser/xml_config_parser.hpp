@@ -204,10 +204,23 @@ struct ThesisRunOptions {
 // ─────────────────────────────────────────────────────────────────────────────
 struct CompilerAxisSel {                 // Haupt-System-Achse "compiler" (15) — trägt dynamische Unter-Achsen
     std::vector<std::string> opt_levels; // Unter-Achse "opt_level" (15.2): ihre Optionen <option value=O0..Ofast>
+    // S2/A2 P-SYSREG (2026-07-20): atomic128 = ZWEITE dynamische Unter-Achse unter compiler (INC-0-Ruling:
+    // -mcx16/CMPXCHG16B ist ein Compiler-Codegen-Flag, KEIN optionales ISA-Feature). Optionen <atomic128>
+    // <option value=no_cx16|cx16> (Spiegel opt_level). ADDITIV — leer = kein <atomic128> = heutiges Verhalten
+    // byte-identisch; binary_id-NEUTRAL (system_config). Gueltigkeit prueft validate_profile gegen kAllAtomic128Ids.
+    std::vector<std::string> atomic128;
 };
 struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6., Q2 Option C)
     std::vector<std::string>
         simd_options; // Optionen der simd-Unter-Achse <simd><option value=no_extension|avx2|avx512> (Spiegel opt_levels)
+};
+// S2/A2 P-SYSREG (2026-07-20): target_isa = EIGENE Haupt-System-Achse (Ziel-ISA fuer Cross-Compile, INC-2d) — KEINE
+// Unter-Achse. Ihre Optionen stehen DIREKT unter <target_isa><option value=x86_64|aarch64> (Spiegel der Bausteine der
+// TargetIsaSystemAxis-Familie im OFFER, target_isa_system_axis.hpp). ADDITIV — leer = kein <target_isa> = heutiges
+// Verhalten byte-identisch; binary_id-NEUTRAL (system_config; isa verliess mit INC-2d die Komposition, 18->17).
+// Gueltigkeit prueft validate_profile gegen kAllTargetIsaIds.
+struct TargetIsaAxisSel {
+    std::vector<std::string> isa; // Optionen der target_isa-Haupt-Achse <target_isa><option value=x86_64|aarch64>
 };
 
 struct ThesisProfile {
@@ -272,6 +285,11 @@ struct ThesisProfile {
     //    cache_engine-Schicht — hier keine Enum-Referenz (Baseline-Layering). ──
     CompilerAxisSel          compiler;
     ExtensionHardwareAxisSel extension_hardware;
+    // S2/A2 P-SYSREG (2026-07-20): target_isa als EIGENE Haupt-System-Achse (INC-2d) im comdare_thesis_profile-Kanal,
+    // ueber dieselbe geteilte parse_system_axes-Naht befuellt. Die atomic128-Unter-Achse reist innerhalb von compiler
+    // (CompilerAxisSel::atomic128) mit. ADDITIV — leer = kein <target_isa> = heutiges Verhalten byte-identisch;
+    // binary_id-NEUTRAL. Wert-Gueltigkeit (x86_64/aarch64) prueft validate_profile (cache_engine-Schicht).
+    TargetIsaAxisSel target_isa;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,9 +349,10 @@ struct ExperimentProfile {
     std::vector<ThesisDatasetRef>      datasets;     // <datasets><dataset id akte_ref loader>* (Single-Source-Akten)
     std::vector<std::string> measurement_categories; // <measurement_categories><category name=..>* (Spalten-Projektion)
     std::vector<std::string> op_types;               // <op_types> (Whitespace-Tokens OP-1..OP-6)
-    CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse → opt_level-Unter-Achse → Optionen)
+    CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
     ExtensionHardwareAxisSel
                      extension_hardware; // <system_axes><extension_hardware><simd> (Haupt-Achse → simd-Unter-Achse)
+    TargetIsaAxisSel target_isa;         // <system_axes><target_isa> (eigene Haupt-Achse -> Optionen x86_64|aarch64)
     ExperimentOutput output;             // <output>
 };
 

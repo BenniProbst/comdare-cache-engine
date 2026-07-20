@@ -198,3 +198,60 @@ TEST(ValidateProfileWorkloads, RealFixedProfilesValidateAgainstRealLoadProfiles)
     tlz::ProfileValidationResult const vbad = tlz::validate_profile(*bad, registry, known);
     EXPECT_FALSE(vbad.ok) << "die vor-M-CE-11-Auswahl 'A C' muss gegen die realen ids scheitern";
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S2/A2 P-SYSREG (2026-07-20): die zwei NEU verdrahteten System-Achsen-Consumer im Thesis-Kanal —
+// compiler/atomic128 (Single-Source kAllAtomic128Ids) + target_isa (kAllTargetIsaIds). Struct-Injektion
+// (die geteilte parse_system_axes-Naht ist end-to-end in test_experiment_parser bewiesen); hier die
+// Validat-Bloecke + Report-Zeilen. binary_id-neutral (system_config) -> golden-Roundtrip unberuehrt.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (f) gueltige atomic128 + target_isa werden AKZEPTIERT; die Zaehler + Report-Zeilen stimmen.
+TEST(ValidateProfileSystemAxes, ValidAtomic128AndTargetIsaAccepted) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp(""); // Minimal-Profil, keine <workloads>
+    ASSERT_TRUE(tp.has_value());
+    tp->compiler.atomic128 = {"no_cx16", "cx16"};
+    tp->target_isa.isa     = {"x86_64", "aarch64"};
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.atomic128_checked, 2u);
+    EXPECT_EQ(vr.target_isa_checked, 2u);
+    std::ostringstream os;
+    tlz::print_validation_report(vr, *tp, os);
+    EXPECT_NE(os.str().find("2 atomic128"), std::string::npos) << os.str();
+    EXPECT_NE(os.str().find("2 target_isa"), std::string::npos) << os.str();
+}
+
+// (g) ein Bogus-atomic128-Wert (Tippfehler cx32) ist ein HARTER Fehler (erlaubt: no_cx16/cx16).
+TEST(ValidateProfileSystemAxes, BogusAtomic128Rejected) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->compiler.atomic128 = {"cx32"};
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "atomic128"));
+    EXPECT_TRUE(any_contains(vr.errors, "cx32"));
+    EXPECT_EQ(vr.atomic128_checked, 1u);
+}
+
+// (h) ein Bogus-target_isa-Wert (Tippfehler riscv) ist ein HARTER Fehler (erlaubt: x86_64/aarch64).
+TEST(ValidateProfileSystemAxes, BogusTargetIsaRejected) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->target_isa.isa = {"riscv"};
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "target_isa"));
+    EXPECT_TRUE(any_contains(vr.errors, "riscv"));
+    EXPECT_EQ(vr.target_isa_checked, 1u);
+}
