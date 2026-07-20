@@ -651,3 +651,112 @@ TEST(ExperimentParser, EmptyPhasesIsOkAndDerives) {
     std::error_code ec;
     fs::remove_all(reg, ec);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20) — die drei PASSIVEN Mess-UNTER-Achsen (run_methodology /
+// measurement_framework / writeback_methods) im comdare_experiment-Kanal. golden-neutral: die Golden-Instanz wird
+// nur gelesen/in-memory mutiert; die Parser-Naht ueber Temp-XML end-to-end belegt. Beweist je Kanal: PARSE, valide
+// ids AKZEPTIERT, Bogus-id HART, Abwesenheit = leer (byte-identisch). Die Semantik/Fan-out gehoert S5 (PASSIV hier).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (a9a) PARSE — der Parser liest die drei PASSIVEN Mess-UNTER-Achsen aus dem comdare_experiment-Kanal.
+TEST(ExperimentParser, ParsesA9MeasurementSubAxes) {
+    auto const ep = parse_experiment_with_system_axes("  <run_methodology>\n"
+                                                      "    <method value=\"debug\"/>\n"
+                                                      "    <method value=\"measure\"/>\n"
+                                                      "  </run_methodology>\n"
+                                                      "  <measurement_framework name=\"ycsb\"/>\n"
+                                                      "  <writeback_methods>\n"
+                                                      "    <method value=\"csv\"/>\n"
+                                                      "    <method value=\"latex_table\"/>\n"
+                                                      "  </writeback_methods>\n");
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->run_methodology.size(), 2u);
+    EXPECT_EQ(ep->run_methodology[0], "debug");
+    EXPECT_EQ(ep->run_methodology[1], "measure");
+    EXPECT_EQ(ep->measurement_framework, "ycsb");
+    ASSERT_EQ(ep->writeback_methods.size(), 2u);
+    EXPECT_EQ(ep->writeback_methods[0], "csv");
+    EXPECT_EQ(ep->writeback_methods[1], "latex_table");
+}
+
+// (a9b) valide A9.1-Werte werden AKZEPTIERT (Mess-UNTER-Achsen, binary_id-neutral); die Zaehler stimmen.
+TEST(ExperimentParser, ValidA9MeasurementSubAxesAreAccepted) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->run_methodology       = {"debug", "measure", "release"};
+    ep->measurement_framework = "ycsb";
+    ep->writeback_methods     = {"csv", "latex_table", "comparison_metrics"};
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.run_methodology_checked, 3u);
+    EXPECT_EQ(vr.measurement_framework_checked, 1u);
+    EXPECT_EQ(vr.writeback_methods_checked, 3u);
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (a9c) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release}).
+TEST(ExperimentParser, BogusRunMethodologyIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->run_methodology = {"measure", "profiling"}; // ausserhalb {debug,measure,release}
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "run_methodology"));
+    EXPECT_TRUE(any_contains(vr.errors, "profiling"));
+    EXPECT_EQ(vr.run_methodology_checked, 2u);
+}
+
+// (a9d) ein Bogus measurement_framework-Wert (tpcc) ist ein HARTER Fehler ({ycsb}, honest-1).
+TEST(ExperimentParser, BogusMeasurementFrameworkIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->measurement_framework = "tpcc"; // ausserhalb {ycsb}
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "measurement_framework"));
+    EXPECT_TRUE(any_contains(vr.errors, "tpcc"));
+    EXPECT_EQ(vr.measurement_framework_checked, 1u);
+}
+
+// (a9e) ein Bogus writeback_methods-Wert (pdf) ist ein HARTER Fehler -- pdf ist honest-0 KEIN Rueckschrieb-Kanal
+//       ({csv,latex_table,comparison_metrics}).
+TEST(ExperimentParser, BogusWritebackMethodIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->writeback_methods = {"csv", "pdf"}; // pdf ausserhalb {csv,latex_table,comparison_metrics}
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "writeback_methods"));
+    EXPECT_TRUE(any_contains(vr.errors, "pdf"));
+    EXPECT_EQ(vr.writeback_methods_checked, 2u);
+}
+
+// (a9f) Abwesenheit = leer = OK: die Golden-Instanz deklariert die A9.1-Elemente NICHT -> die Felder bleiben leer,
+//       die Zaehler bleiben 0 (Skip-Gate, byte-identisch zum heutigen Verhalten).
+TEST(ExperimentParser, AbsentA9MeasurementSubAxesAreEmptyAndSkip) {
+    auto const ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    EXPECT_TRUE(ep->run_methodology.empty());
+    EXPECT_TRUE(ep->measurement_framework.empty());
+    EXPECT_TRUE(ep->writeback_methods.empty());
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.run_methodology_checked, 0u);
+    EXPECT_EQ(vr.measurement_framework_checked, 0u);
+    EXPECT_EQ(vr.writeback_methods_checked, 0u);
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}

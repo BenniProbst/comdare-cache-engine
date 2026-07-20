@@ -59,6 +59,9 @@
 #include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
 #include <cache_engine/measurement/target_isa_system_axis.hpp> // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kRunMethodologyRegistry (debug/measure/release)
+#include <cache_engine/measurement/measurement_framework_registry.hpp> // A9.1: kMeasurementFrameworkRegistry (ycsb)
+#include <cache_engine/measurement/writeback_method_registry.hpp> // A9.1: kWritebackMethodRegistry (csv/latex_table/comparison_metrics)
 #include <cache_engine/measurement/axis_error.hpp> // S3 P-RESOLVER: error_class_label(KonfigXmlParse) NUR lesend (Fehlerklassen-Etikett; KEIN Enum-/Count-Bump)
 #include <anatomy/pruefling_merge.hpp>             // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
@@ -95,10 +98,13 @@ struct ProfileValidationResult {
     std::size_t workloads_checked = 0; // M-CE-12: gepruefte <workloads>-ids (0 = keine / Pruefung uebersprungen)
     std::size_t categories_checked =
         0; // INC-3 Familie A: gepruefte <measurement_categories>-Namen (0 = keine deklariert)
-    std::size_t opt_levels_checked = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
-    std::size_t simd_checked       = 0; // GN-3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
-    std::size_t atomic128_checked  = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
-    std::size_t target_isa_checked = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
+    std::size_t opt_levels_checked      = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
+    std::size_t simd_checked            = 0; // GN-3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
+    std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
+    std::size_t target_isa_checked      = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
+    std::size_t run_methodology_checked = 0; // A9.1: gepruefte <run_methodology><method> (0 = keine deklariert)
+    std::size_t measurement_framework_checked = 0; // A9.1: geprueftes <measurement_framework> (0 = nicht deklariert)
+    std::size_t writeback_methods_checked     = 0; // A9.1: gepruefte <writeback_methods><method> (0 = keine deklariert)
 };
 
 // ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
@@ -129,6 +135,42 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
     }
     if (vals.size() > cap) s += ", … (+" + std::to_string(vals.size() - cap) + ")";
     return s;
+}
+
+// ── A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): der gemeinsame id-Check einer PASSIVEN Mess-UNTER-Achse gegen
+//    ihre constexpr-Registry (run_methodology/measurement_framework/writeback_method). Single-Source = die Registry
+//    selbst (kein hartkodiertes id-Literal). Leer = Skip (Zaehler bleibt 0 = byte-identisch). In BEIDEN Kanaelen
+//    (Thesis + Experiment) genutzt, damit die Fehlermeldung/Semantik deckungsgleich ist. Steht NACH preview_values
+//    (Two-Phase-Lookup: der nicht-abhaengige Name muss vor der Template-Definition sichtbar sein). ──
+template <class Registry>
+[[nodiscard]] inline bool measurement_sub_axis_has_id(Registry const& reg, std::string const& id) {
+    for (auto const& info : reg)
+        if (info.id == id) return true;
+    return false;
+}
+template <class Registry>
+[[nodiscard]] inline std::vector<std::string> measurement_sub_axis_ids(Registry const& reg) {
+    std::vector<std::string> ids;
+    ids.reserve(reg.size());
+    for (auto const& info : reg) ids.emplace_back(info.id);
+    return ids;
+}
+// Prueft eine Token-Liste gegen die Registry; inkrementiert den Zaehler je Token, setzt ok=false + Meldung je
+// Unbekanntem. `element` = das XML-Element fuer die Meldung (z.B. "<run_methodology><method value>").
+template <class Registry>
+inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, Registry const& reg,
+                                       std::string const& element, std::size_t& counter, bool& ok,
+                                       std::vector<std::string>& errors) {
+    for (auto const& tok : tokens) {
+        ++counter;
+        if (!measurement_sub_axis_has_id(reg, tok)) {
+            ok = false;
+            errors.push_back("UNGUELTIGE " + element + " \"" + tok +
+                             "\": kein id ihrer Mess-UNTER-Achsen-Registry "
+                             "(A9.1, Single-Source im Code). Gueltig = " +
+                             preview_values(measurement_sub_axis_ids(reg)));
+        }
+    }
 }
 
 /// validate_profile — DIE reine Pruef-Logik (read-only). `registry` = axis-Name → gueltige Werte (aus den
@@ -426,6 +468,27 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
         }
     }
 
+    // ── (9) A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen hart gegen ihre
+    //    constexpr-Registries (run_methodology/measurement_framework/writeback_method) — Single-Source im Code, kein
+    //    hartkodiertes id-Literal. binary_id-NEUTRAL (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch:
+    //    bestehende Profile ohne diese Elemente validieren unveraendert). measurement_framework ist EINZELN. ──
+    check_measurement_sub_axis(tp.run_methodology, ms::kRunMethodologyRegistry,
+                               "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
+    if (!tp.measurement_framework.empty()) {
+        ++r.measurement_framework_checked;
+        if (!measurement_sub_axis_has_id(ms::kMeasurementFrameworkRegistry, tp.measurement_framework)) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGES <measurement_framework name=\"" + tp.measurement_framework +
+                               "\">: kein id der Mess-Framework-Registry (A9.1, Single-Source im Code). Gueltig = " +
+                               preview_values(measurement_sub_axis_ids(ms::kMeasurementFrameworkRegistry)));
+        }
+    }
+    check_measurement_sub_axis(tp.writeback_methods, ms::kWritebackMethodRegistry,
+                               "<writeback_methods><method value=", r.writeback_methods_checked, r.ok, r.errors);
+    // ── SCOPE (A9.1, 2026-07-20): <measurement_tooling> reist im Thesis-Kanal PASSIV mit (Feld + Parse + XSD), aber
+    //    seine SEMANTIK (Tooling-id in kMeasurementToolingRegistry + der N>1-Fan-out) gehoert dem Schwester-Paket
+    //    P-MESSTOOL -- HIER bewusst NICHT validiert (deckungsgleich zum Experiment-Kanal). --
+
     return r;
 }
 
@@ -452,6 +515,11 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     // Profile (ohne <atomic128>/<target_isa>) bleibt byte-identisch (Default-Verhaltens-Gate, wie opt_level/simd).
     if (r.atomic128_checked > 0) os << ", " << r.atomic128_checked << " atomic128";
     if (r.target_isa_checked > 0) os << ", " << r.target_isa_checked << " target_isa";
+    // A9.1: die 3 Mess-UNTER-Achsen NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender Profile
+    // (ohne diese Elemente) bleibt byte-identisch (Default-Verhaltens-Gate, wie categories/system_axes).
+    if (r.run_methodology_checked > 0) os << ", " << r.run_methodology_checked << " run_methodology";
+    if (r.measurement_framework_checked > 0) os << ", " << r.measurement_framework_checked << " measurement_framework";
+    if (r.writeback_methods_checked > 0) os << ", " << r.writeback_methods_checked << " writeback_methods";
     os << "\n";
     for (auto const& w : r.warnings) os << "  [HINWEIS] " << w << "\n";
     for (auto const& e : r.errors) os << "  [FEHLER]  " << e << "\n";
@@ -505,6 +573,10 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //       ref auf ein benanntes Paper-Template-Profil ist eine SPAETERE Erweiterung (Registries fuehren die
 //       Paper-Templates noch NICHT) -> unbekannter ref = KEIN harter Fehler (faellt auf full zurueck). Abwesenheit
 //       = kein Template (byte-identisch). Hier daher KEINE harte Pruefung -- reine Provenienz/Weitergabe.
+//  (15) A9.1 (S4-Delta B9, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen (run_methodology in {debug,measure,
+//       release} / measurement_framework in {ycsb} / writeback_methods in {csv,latex_table,comparison_metrics})
+//       hart gegen ihre constexpr-Registries (Single-Source im Code); leer = Skip (byte-identisch). binary_id-
+//       NEUTRAL (Planer-delegiert); der Fan-out/Vollzug gehoert S5.
 //   HINWEIS K7 (E11-gated): die Phasen-KARDINALITAET-Gate ist durch die KERN-Beschreibung RESOLVED (0=derive /
 //   sonst Override; die ==3-Phasen-Haertung ist damit bewusst DECIDED-AGAINST). Die verbleibenden STRUKTUR-Regeln —
 //   engine/engines-XOR, phase.engine(s)-Referenz-Checks gegen die engine-ids, merge-Enum-Kardinalitaet je Phase
@@ -540,11 +612,14 @@ struct ExperimentValidationResult {
     std::size_t              variants_checked   = 0; // gepruefte allowed_variants (0 = registry_dir leer / keine)
     std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
     std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
-    std::size_t opt_levels_checked = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
-    std::size_t simd_checked       = 0; // opt-f/A3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
-    std::size_t atomic128_checked  = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
-    std::size_t target_isa_checked = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
-    std::size_t axis_merge_checked = 0; // KERN-A (S4): gepruefte per-Achse <axis merge=..>-Modi (0 = keine)
+    std::size_t opt_levels_checked      = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
+    std::size_t simd_checked            = 0; // opt-f/A3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
+    std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
+    std::size_t target_isa_checked      = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
+    std::size_t axis_merge_checked      = 0; // KERN-A (S4): gepruefte per-Achse <axis merge=..>-Modi (0 = keine)
+    std::size_t run_methodology_checked = 0; // A9.1: gepruefte <run_methodology><method> (0 = keine deklariert)
+    std::size_t measurement_framework_checked = 0; // A9.1: geprueftes <measurement_framework> (0 = nicht deklariert)
+    std::size_t writeback_methods_checked     = 0; // A9.1: gepruefte <writeback_methods><method> (0 = keine deklariert)
 };
 
 // ── KERN-A (S4 Mess-Schema, 2026-07-20): die zwei erlaubten per-Achse Merge-Modi (Fork 4). Leer=""=replace-Default
@@ -1031,6 +1106,24 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     // ── SCOPE (2026-07-20): <measurement_tooling> ist im Schema ADDITIV vorhanden (KERN-A: geparst + getragen),
     //    aber die SEMANTIK (Tooling-id ∈ kMeasurementToolingRegistry + der N>1-Fan-out) gehoert dem Schwester-Paket
     //    P-MESSTOOL — HIER bewusst NICHT validiert (KERN-A traegt das Feld nur passiv; LEER = Default [all]). ──
+
+    // ── (15) A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen hart gegen ihre
+    //    constexpr-Registries (run_methodology/measurement_framework/writeback_method) — deckungsgleich zum Thesis-
+    //    Kanal (dieselben check_measurement_sub_axis-Naht + Meldungen). Single-Source im Code, binary_id-NEUTRAL
+    //    (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch). measurement_framework ist EINZELN. ──
+    check_measurement_sub_axis(ep.run_methodology, ms::kRunMethodologyRegistry,
+                               "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
+    if (!ep.measurement_framework.empty()) {
+        ++r.measurement_framework_checked;
+        if (!measurement_sub_axis_has_id(ms::kMeasurementFrameworkRegistry, ep.measurement_framework)) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGES <measurement_framework name=\"" + ep.measurement_framework +
+                               "\">: kein id der Mess-Framework-Registry (A9.1, Single-Source im Code). Gueltig = " +
+                               preview_values(measurement_sub_axis_ids(ms::kMeasurementFrameworkRegistry)));
+        }
+    }
+    check_measurement_sub_axis(ep.writeback_methods, ms::kWritebackMethodRegistry,
+                               "<writeback_methods><method value=", r.writeback_methods_checked, r.ok, r.errors);
 
     // ── (10) Bruecke-I1/M-CE-12 (2026-07-16): jede <workloads>-id ist eine REAL existente load_profiles/-id.
     //    Nur wenn der Host die entdeckten ids hereinreicht (known_workload_ids nicht leer) — leer = uebersprungen
