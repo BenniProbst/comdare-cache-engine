@@ -658,10 +658,27 @@ private:
         s += "    - |\n";
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
-        s += "      # STUFE 2: Tier-Bau der Zelle [a,b,c][d,e,f]=" + combo_legend_ + perm_legend + " chunk " + kstr +
-             " (provision-only, golden-neutral).\n";
-        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" "
-             "COMDARE_GOLDEN_N_RANGE=\"${COMDARE_GN_RANGE:-0:4}\" \\\n";
+        // W10-Nacharbeit 5 (§35.1): Chunk-Fenster-Arithmetik (Pilot-Matrix-Spiegel). Dieser chunk<k>-Job berechnet
+        // sein DISJUNKTES Teilfenster des Organ-Indexraums zur Laufzeit -> die kTierChunkCount Chunks je System-Perm
+        // bauen NICHT 4x dasselbe Fenster, sondern zusammen den ganzen Raum. Steuerung des Voll-Builds ueber die
+        // reine Zahl COMDARE_GN_TOTAL (vererbungs-/expansions-sicher, kein $CI_PROJECT_DIR). Chunk jenseits TOTAL =
+        // No-Op-Exit 0 (golden-neutral). CHUNK ist die COMPILE-TIME bekannte Chunk-Nummer dieses Jobs.
+        s += "      # Chunk-Fenster-Arithmetik (Pilot-Spiegel §35.1): dieser Job baut NUR sein disjunktes "
+             "Teilfenster.\n";
+        s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer 4x4-Serie-Test; Voll-Build: "
+             "COMDARE_GN_TOTAL=131072\n";
+        s += "      CCOUNT=" + std::to_string(kTierChunkCount) + "; CHUNK=" + kstr + "\n";
+        s += "      CHUNK_SIZE=$(( (TOTAL + CCOUNT - 1) / CCOUNT ))   # ceil(TOTAL/CCOUNT)\n";
+        s += "      START=$(( CHUNK * CHUNK_SIZE ))\n";
+        s += "      if [ \"$START\" -ge \"$TOTAL\" ]; then echo \"== chunk " + kstr +
+             " jenseits Indexraum ($TOTAL) -> No-Op (golden-neutral) ==\"; exit 0; fi\n";
+        s += "      REMAIN=$(( TOTAL - START )); COUNT_C=$CHUNK_SIZE; [ \"$COUNT_C\" -gt \"$REMAIN\" ] && "
+             "COUNT_C=$REMAIN   # letzter Chunk klemmt\n";
+        s += "      export COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT_C}\"\n";
+        s += "      echo \"== STUFE 2 Tier-Bau [a,b,c][d,e,f]=" + combo_legend_ + perm_legend + " chunk " + kstr +
+             ": Fenster $COMDARE_GOLDEN_N_RANGE (von $TOTAL), provision-only ==\"\n";
+        // Nutzlast: COMDARE_GOLDEN_N_RANGE kommt aus dem Export oben (kein globales Fixfenster mehr in der Zeile).
+        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
         s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
              "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
         s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/gn_out/" +
