@@ -3275,7 +3275,7 @@ target_compile_features(test_e4_contract_xml_to_axislevels PRIVATE cxx_std_23)
 target_include_directories(test_e4_contract_xml_to_axislevels PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/common/serialization")
-target_link_libraries(test_e4_contract_xml_to_axislevels PRIVATE comdare_builder_xml_config_parser)
+target_link_libraries(test_e4_contract_xml_to_axislevels PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
 comdare_set_platform_defines(test_e4_contract_xml_to_axislevels)
 add_test(NAME test_e4_contract_xml_to_axislevels COMMAND test_e4_contract_xml_to_axislevels
     "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/e4_contract_profile.xml")
