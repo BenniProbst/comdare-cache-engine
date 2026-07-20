@@ -11,11 +11,12 @@
 // Alle emittierten Job-/Pipeline-Namen der Kette laufen ausschliesslich ueber DIESE Funktionen — so ist das
 // Namensschema an EINER Stelle definiert (Anti-Drift), deterministisch und YAML-quote-sicher. Das Format der
 // Achsen-Arrays ist kurz (`[a,b,c]`), damit die Job-Namen Legenden bleiben und nicht zu Rauschen werden
-// (2^17 Organ-Einzel-Jobs waeren keine Legende — deshalb buendelt die Bau-Ebene als `chunk<k>`, §42.b).
+// (2^17 Organ-Einzel-Jobs waeren keine Legende — deshalb buendelt die Bau-Ebene das kombinierte
+// System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen als `chunk<k>`, §42.b/§57).
 //
 // Die drei Job-Ebenen (Legenden-Formen):
 //   Stufe 1 (Planer-Rolle, --dump-ci):     "ceb:build:[a,b,c]" / "ceb:emit:[a,b,c]" / "ceb:trigger:[a,b,c]"
-//   Stufe 2 (CEB-Rolle,   --emit-tier-ci): "tier:build:[a,b,c][d,e,f]:chunk<k>"
+//   Stufe 2 (CEB-Rolle,   --emit-tier-ci): "tier:build:[d,e,f][g,h,i]:chunk<k>"  (System-Achse x Organ-Achse)
 //   Stufe 3 (Mess-Job, GN-11/320er-gated): "measure:[a,b,c][d,e,f][g,h,i]"
 //
 // GOLDEN/HOST-NEUTRAL: reine String-Formatierung, keine Bau-/Mess-Semantik, keine Host-Werte.
@@ -23,7 +24,8 @@
 // -----------------------------------------------------------------------------
 
 #include <builder/experiment_tree/axis_path_serialization.hpp> // ex::kCompositionAxisNames (Organ-Haupt-Achsen-Namen, Single-Source)
-#include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (16 Mess-Kategorien, Single-Source)
+#include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (16 Mess-Kategorien = UNTER, Single-Source)
+#include <cache_engine/measurement/measurement_tooling_registry.hpp> // kMeasurementToolingRegistry (Mess-Tooling-HAUPT {wallclock/macro/micro}, Single-Source)
 
 #include <algorithm>
 #include <cstddef>
@@ -66,20 +68,35 @@ inline constexpr std::size_t kOrganReferenceAxisCount = 3;
     return out;
 }
 
-// ── [a,b,c] — die Mess-Achsen-Kombination (CEB-Typ). Aus der Anwender-XML (<measurement_categories>). ──
-// Kanonische Typ-Identitaet: dedupliziert + sortiert (Reihenfolge-unabhaengig => derselbe CEB-Typ). Deckt die
-// Auswahl ALLE 16 System-Kategorien ab (oder ist leer = kein Subset deklariert), kollabiert die Legende zum
-// kurzen, ehrlichen Sentinel `[all]` (das volle Mess-System). Single-Source der 16 = kMeasurementAxisRegistry.
-[[nodiscard]] inline std::string measurement_combo(std::vector<std::string> const& categories) {
+// ── Kanonische Combo-Kurzform: dedupliziert + sortiert (Reihenfolge-unabhaengig => dieselbe Identitaet). Deckt die
+//    Auswahl das VOLLE Angebot (full_count) ab ODER ist leer (= nichts deklariert), kollabiert die Legende zum
+//    kurzen, ehrlichen Sentinel `[all]` (= das volle Angebot). Gemeinsame Single-Source fuer HAUPT + UNTER. ──
+[[nodiscard]] inline std::string canonical_combo(std::vector<std::string> const& tokens, std::size_t full_count) {
     std::vector<std::string> canon;
-    canon.reserve(categories.size());
-    for (auto const& c : categories) {
-        std::string const s = sanitize_token(c);
+    canon.reserve(tokens.size());
+    for (auto const& t : tokens) {
+        std::string const s = sanitize_token(t);
         if (std::find(canon.begin(), canon.end(), s) == canon.end()) canon.push_back(s);
     }
     std::sort(canon.begin(), canon.end());
-    if (canon.empty() || canon.size() >= cm::kMeasurementAxisCount) return "[all]";
+    if (canon.empty() || canon.size() >= full_count) return "[all]";
     return axis_array(canon);
+}
+
+// ── [a,b,c] HAUPT — die Mess-Tooling-KONFIG (der CEB-Typ, §47/§54-T2/§55). Aus der Mess-Tooling-HAUPT-Achse
+//    {wallclock/macro/micro} (kMeasurementToolingRegistry, Single-Source) — NICHT aus den 16 <measurement_categories>
+//    (die sind Mess-Tooling-UNTER, CSV-Spalten, §54-T2). Volles Tooling-Angebot / leer => Sentinel `[all]` (das volle
+//    Mess-System). Jede Tooling-KONFIG => eine eigene ceb:build:[a,b,c]-Strecke (N Konfigs -> N CEB-Pipelines). ──
+[[nodiscard]] inline std::string measurement_tooling_combo(std::vector<std::string> const& tooling) {
+    return canonical_combo(tooling, cm::kMeasurementToolingCount);
+}
+
+// ── Die 16 <measurement_categories> als kanonische UNTER-Kurzform (Mess-Tooling-UNTER-Achse, §54-T2: Planer-
+//    gesteuert, manifestiert als CSV-Spalten, binary_id-neutral). Dies ist NICHT die [a,b,c]-HAUPT-Auffaecherung
+//    des CEB-Typs (die kommt aus measurement_tooling_combo) — die Kategorien faechern den CEB-Typ NICHT auf.
+//    Single-Source der 16 = kMeasurementAxisRegistry. ──
+[[nodiscard]] inline std::string measurement_combo(std::vector<std::string> const& categories) {
+    return canonical_combo(categories, cm::kMeasurementAxisCount);
 }
 
 // ── [d,e,f] — die System-Achsen-Permutation (opt x simd des Director-Walks; die HAUPT-System-Achsen). ──
@@ -104,10 +121,15 @@ inline constexpr std::size_t kOrganReferenceAxisCount = 3;
 [[nodiscard]] inline std::string ceb_emit_job(std::string const& combo) { return "ceb:emit:" + combo; }
 [[nodiscard]] inline std::string ceb_trigger_job(std::string const& combo) { return "ceb:trigger:" + combo; }
 
-// Stufe 2 (CEB-Rolle): je System-Perm die Tier-Chunk-Bau-Jobs (Organ-Raum als chunk<k> gebuendelt, §42.b —
-// KEINE Organ-Haupt-Achse und KEINE Unter-Achse in der Bau-Job-Legende).
-[[nodiscard]] inline std::string tier_build_job(std::string const& combo, std::string const& perm, std::size_t chunk) {
-    return "tier:build:" + combo + perm + ":chunk" + std::to_string(chunk);
+// Stufe 2 (CEB-Rolle): je System-Perm die Tier-Chunk-Bau-Jobs — System-Achse [d,e,f] x Organ-Achse [g,h,i]
+// (organ_reference), danach :chunk<k>. Der chunk<k> buendelt NICHT nur den Organ-Slot, sondern das KOMBINIERTE
+// System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§57): der 2^17-Organ-Raum x System-Achsen-Freigabe-
+// Durchfuehrung wird als chunk<k> gebuendelt (§56/§54-T6). Die Mess-Kombination [a,b,c] gehoert NICHT hierher:
+// sie lebt AUSSCHLIESSLICH in ceb:build:[a,b,c] — die CEB IST die Mess-Repraesentation, in Stufe 1 gebaut; die
+// Tier-Bau-Legende traegt sie nur STATISCH mit. Bau=Haupt-only-Gate (§42.b): NUR HAUPT-Achsen (System [d,e,f] +
+// Organ [g,h,i]) + chunk, KEINE Unter-Achse.
+[[nodiscard]] inline std::string tier_build_job(std::string const& perm, std::string const& organ, std::size_t chunk) {
+    return "tier:build:" + perm + organ + ":chunk" + std::to_string(chunk);
 }
 
 // Stufe 3 (Mess-Job, GN-11/320er-gated): die volle Haupt-Achsen-Legende inkl. Organ-Referenz.

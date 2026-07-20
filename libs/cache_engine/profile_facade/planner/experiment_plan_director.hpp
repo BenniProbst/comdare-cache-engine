@@ -80,15 +80,19 @@ struct PlanRegistryTrioAnnotation {
     bool               loaded = false; // true = alle 3 Registries gelesen und annotiert
 };
 
-/// EINE Mess-Achsen-Kombination (W10-A / §42): der AEUSSERSTE Walk-Schritt (Mess-Kombination -> System-Perms ->
-/// Chunk-Buendel). Sie bestimmt den CEB-TYP: die Anwender-XML (<measurement_categories>) waehlt die Mess-Achsen
-/// [a,b,c]; je Kombination EINE dynamische CEB-Pipeline. `legend` = die kanonische [a,b,c]-Kurzform (plan_legend;
-/// `[all]` = alle 16 System-Kategorien / kein Subset deklariert). `categories` = die deklarierten Roh-Namen
-/// (Dokument-Reihenfolge). Heute typisch EINE Kombination (ersetzt den GN_MSYS="default"-Platzhalter des Piloten).
+/// EINE Mess-Achsen-Kombination (W10-A / §42, §47/§54-T2/§55): der AEUSSERSTE Walk-Schritt (Mess-Kombination ->
+/// System-Perms -> Chunk-Buendel). Sie bestimmt den CEB-TYP. Die HAUPT-Auffaecherung [a,b,c] kommt aus der
+/// Mess-Tooling-HAUPT-Achse {wallclock/macro/micro} (§47/§55: N Tooling-Konfigs -> N ceb:build:[a,b,c]-Strecken),
+/// NICHT aus den 16 <measurement_categories> (die sind Mess-Tooling-UNTER = CSV-Spalten, §54-T2). `tooling` = die
+/// Tooling-HAUPT-KONFIG dieser Kombination (leer = volles Angebot => `[all]`). `legend` = die kanonische
+/// [a,b,c]-HAUPT-Kurzform (legend::measurement_tooling_combo). `categories` = die 16 <measurement_categories> als
+/// UNTER (fuer die CSV-Spalten downstream; faechern den CEB-Typ NICHT auf). Heute typisch EINE Kombination (das
+/// implizite volle Mess-System; die Mehr-Konfig-Auffaecherung ist XML-gated, s. measurement_combos_of).
 struct PlanMeasurementCombo {
     std::size_t              index = 0;  // 0-basierter Kombinations-Index im deterministischen Walk
-    std::vector<std::string> categories; // die deklarierten <measurement_categories> (leer = alle 16 Default)
-    std::string              legend;     // kanonische [a,b,c]-Kurzform (legend::measurement_combo)
+    std::vector<std::string> tooling;    // Mess-Tooling-HAUPT-KONFIG {wallclock/macro/micro} (leer = volles Angebot)
+    std::vector<std::string> categories; // Mess-Tooling-UNTER: die 16 <measurement_categories> (CSV-Spalten, §54-T2)
+    std::string              legend;     // kanonische [a,b,c]-HAUPT-Kurzform (legend::measurement_tooling_combo)
 };
 
 /// Kopf des Plans: Provenienz (Quelle/Profil) + Perm-Zahl + Registry-Trio-Annotation.
@@ -314,7 +318,8 @@ private:
     return simd_id; // avx2 -> "avx2", avx512 -> "avx512", sonst der ISA-Name selbst
 }
 
-// Wie viele Chunk-Bau-Jobs die CEB-Rolle je System-Perm emittiert (Organ-Raum-Buendelung, §42.b). Default 4 =
+// Wie viele Chunk-Bau-Jobs die CEB-Rolle je System-Perm emittiert (chunk buendelt das kombinierte
+// System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen, §42.b/§57). Default 4 =
 // die Pilot-Matrix-Chunk-Zahl (GN_CHUNK 0..3, super/.gitlab-ci.yml) -- 2^17 Einzel-Jobs waeren keine Legende.
 inline constexpr std::size_t kTierChunkCount = 4;
 
@@ -423,7 +428,8 @@ public:
         out_ +=
             "#           (ceb:build -> ceb:emit(--emit-tier-ci) -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
         out_ += "#   STUFE 2 (CEB-emittiert, --emit-tier-ci): je System-Perm [d,e,f] die Tier-Chunk-Jobs\n";
-        out_ += "#           \"tier:build:[a,b,c][d,e,f]:chunk<k>\" + GN-11/320er-gegatete Mess-Jobs.\n";
+        out_ += "#           \"tier:build:[d,e,f][g,h,i]:chunk<k>\" (System x Organ, §56) + GN-11/320er-gegatete "
+                "Mess-Jobs.\n";
         out_ += "stages:\n";
         out_ += "  - ceb-build\n";
         out_ += "  - ceb-emit\n";
@@ -540,11 +546,21 @@ private:
         s += "  needs:\n";
         s += "    - job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "      artifacts: true\n";
+        // S1/A1 P-TOTAL (Ledger 46): explizite Forward-Allowlist an der ZWEITEN Trigger-Grenze. Der Grandchild-
+        // Tier-Bau liest ${COMDARE_GN_TOTAL:-16}; self-contained Grandchild-Pipelines erben Pipeline-Variablen
+        // NICHT -> COMDARE_GN_TOTAL als YAML-Variable dieses Bridge-Jobs deklarieren (RHS = der aus STUFE 1
+        // geerbte Wert) und via forward:yaml_variables an die STUFE-2-Grandchild reichen. KEIN pipeline_variables
+        // (Isolation + Byte-Determinismus). So liest der Voll-Build 131072 statt des Sicherheits-Fallbacks 16.
+        s += "  variables:\n";
+        s += "    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n";
         s += "  trigger:\n";
         s += "    include:\n";
         s += "      - artifact: " + art + "\n";
         s += "        job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "    strategy: depend\n";
+        s += "    forward:\n";
+        s += "      yaml_variables: true       # Allowlist (COMDARE_GN_TOTAL) an die Grandchild reichen\n";
+        s += "      pipeline_variables: false  # kein blindes Erben des Eltern-Variablenraums (Isolation)\n";
         return s;
     }
 
@@ -562,17 +578,22 @@ private:
 //    vs CEB-Rolle DIESER Builder) -- ehrlich getrennt ueber getrennte CLI-Modi + getrennte Emissions-Sichten.
 //
 //    Je System-Perm [d,e,f] (des FREIGEGEBENEN Raums der Mess-Kombination):
-//      "tier:build:[a,b,c][d,e,f]:chunk<k>" (k=0..kTierChunkCount-1) -- baut die Tier-Binaries dieser Zelle;
-//         der 2^17-Organ-Raum ist als chunk<k> GEBUENDELT (§42.b: 2^17 Einzel-Jobs waeren Rauschen). Die
-//         Bau-Job-Legende traegt NUR HAUPT-Achsen (Mess [a,b,c] + System [d,e,f]) + chunk -- KEINE Organ-Haupt-
-//         Achse (die steckt im binary_id-Artefaktpfad) und KEINE Unter-Achse (Bau=Haupt-only-Gate, §42.b).
+//      "tier:build:[d,e,f][g,h,i]:chunk<k>" (k=0..kTierChunkCount-1) -- baut die Tier-Binaries dieser Zelle:
+//         System-Achse [d,e,f] x Organ-Achse [g,h,i] (organ_reference); der :chunk<k> buendelt NICHT nur den
+//         Organ-Slot, sondern das KOMBINIERTE System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§57) --
+//         der 2^17-Organ-Raum x System-Achsen-Freigabe-Durchfuehrung als chunk<k> (§56/§54-T6: 2^17 Einzel-Jobs
+//         waeren Rauschen). Die Bau-Job-Legende
+//         traegt NUR HAUPT-Achsen (System [d,e,f] + Organ [g,h,i]) + chunk -- KEINE Mess-Kombination [a,b,c]
+//         (sie lebt nur in ceb:build:[a,b,c]; die CEB IST die Mess-Repraesentation, sie traegt [a,b,c] STATISCH)
+//         und KEINE Unter-Achse (Bau=Haupt-only-Gate, §42.b).
 //      "measure:[a,b,c][d,e,f][g,h,i]" -- der GN-11/320er-GEGATETE Mess-Job (when: manual = Struktur ja,
 //         Auto-Messlauf nein). [g,h,i] = Organ-Referenz (fuehrende Organ-Haupt-Achsen; die reale Auffaecherung
 //         ist EIN Job je Organ-Haupt-Achsen-Perm = binary_id, gated). Der Job sweept zur Laufzeit die
 //         Unter-Achsen (§42.b) unter selbem Compile und schreibt EIN CSV zurueck.
 //
-//    GOLDEN/HOST-NEUTRAL: reine Text-Emission; nur CI-Variablen + [a,b,c][d,e,f]-Legenden als LITERALE =>
-//    byte-deterministisch. Isomorph zum Director-Walk (perms()/steps_per_perm() = struktureller Zeuge).
+//    GOLDEN/HOST-NEUTRAL: reine Text-Emission; nur CI-Variablen + die Legenden (tier:build:[d,e,f][g,h,i] /
+//    measure:[a,b,c][d,e,f][g,h,i]) als LITERALE => byte-deterministisch. Isomorph zum Director-Walk
+//    (perms()/steps_per_perm() = struktureller Zeuge).
 class TierCiYamlBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
@@ -584,8 +605,9 @@ public:
                 " perm_count=" + std::to_string(h.perm_count) + " chunks_per_perm=" + std::to_string(kTierChunkCount) +
                 "\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b (CEB-Rolle --emit-tier-ci): NUR die STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums.\n";
-        out_ += "#   tier:build:[a,b,c][d,e,f]:chunk<k> -- Tier-Bau (Organ-Raum als chunk gebuendelt, Haupt-only).\n";
+        out_ += "# Ledger §42.b/§56 (CEB-Rolle --emit-tier-ci): NUR die STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums.\n";
+        out_ += "#   tier:build:[d,e,f][g,h,i]:chunk<k> -- Tier-Bau (System x Organ; chunk buendelt das kombinierte "
+                "System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen, §57; Haupt-only).\n";
         out_ += "#   measure:[a,b,c][d,e,f][g,h,i]      -- GN-11/320er-GEGATET (when: manual = Struktur ja, kein "
                 "Auto-Messlauf).\n";
         out_ += "stages:\n";
@@ -633,17 +655,23 @@ public:
     [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
 
 private:
-    // STUFE 2 Bau-Job: EIN Chunk des 2^17-Organ-Raums dieser Zelle (Haupt-only-Legende, §42.b). script =
-    // provision-only-Treiber-Aufruf (Bau ohne Messung, golden-neutral), mit dem Chunk-Fenster als GN-Range.
+    // STUFE 2 Bau-Job: EIN Chunk des kombinierten System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumens dieser
+    // Zelle (§57; Haupt-only-Legende, §42.b). script = provision-only-Treiber-Aufruf (Bau ohne Messung,
+    // golden-neutral), mit dem Chunk-Fenster als GN-Range.
     [[nodiscard]] std::string emit_tier_build_job(PlanPerm const& p, std::string const& perm_legend,
                                                   std::size_t k) const {
-        std::string const job  = legend::tier_build_job(combo_legend_, perm_legend, k);
-        std::string const opt  = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
-        std::string const simd = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
-        std::string const kstr = std::to_string(k);
+        // §56/§54-T6: die Tier-Bau-Legende ist System-Achse [d,e,f] x Organ-Achse [g,h,i] (organ_reference),
+        // danach :chunk<k>. Der chunk buendelt das KOMBINIERTE System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen
+        // (§57), nicht nur den Organ-Slot. combo_legend_ ([a,b,c]) ist NUR CEB-Kontext (die CEB traegt [a,b,c]
+        // statisch), steht aber NICHT in der Bau-Job-Legende (das lebt in ceb:build:[a,b,c]).
+        std::string const organ = legend::organ_reference();
+        std::string const job   = legend::tier_build_job(perm_legend, organ, k);
+        std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+        std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+        std::string const kstr  = std::to_string(k);
         std::string       s;
-        s += "# JOB tier-build combo=" + combo_legend_ + " perm " + std::to_string(p.index) + " chunk " + kstr +
-             " (STUFE 2: CEB steuert Tier-Bau)\n";
+        s += "# JOB tier-build ceb=" + combo_legend_ + " perm " + std::to_string(p.index) + " chunk " + kstr +
+             " (STUFE 2: CEB steuert Tier-Bau; Legende [d,e,f][g,h,i], ceb=[a,b,c] nur Kontext)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: tier-build\n";
         s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
@@ -659,8 +687,9 @@ private:
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         // W10-Nacharbeit 5 (§35.1): Chunk-Fenster-Arithmetik (Pilot-Matrix-Spiegel). Dieser chunk<k>-Job berechnet
-        // sein DISJUNKTES Teilfenster des Organ-Indexraums zur Laufzeit -> die kTierChunkCount Chunks je System-Perm
-        // bauen NICHT 4x dasselbe Fenster, sondern zusammen den ganzen Raum. Steuerung des Voll-Builds ueber die
+        // sein DISJUNKTES Teilfenster des kombinierten System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumens (§57)
+        // zur Laufzeit -> die kTierChunkCount Chunks je System-Perm bauen NICHT 4x dasselbe Fenster, sondern
+        // zusammen den ganzen Raum. Steuerung des Voll-Builds ueber die
         // reine Zahl COMDARE_GN_TOTAL (vererbungs-/expansions-sicher, kein $CI_PROJECT_DIR). Chunk jenseits TOTAL =
         // No-Op-Exit 0 (golden-neutral). CHUNK ist die COMPILE-TIME bekannte Chunk-Nummer dieses Jobs.
         s += "      # Chunk-Fenster-Arithmetik (Pilot-Spiegel §35.1): dieser Job baut NUR sein disjunktes "
@@ -675,8 +704,9 @@ private:
         s += "      REMAIN=$(( TOTAL - START )); COUNT_C=$CHUNK_SIZE; [ \"$COUNT_C\" -gt \"$REMAIN\" ] && "
              "COUNT_C=$REMAIN   # letzter Chunk klemmt\n";
         s += "      export COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT_C}\"\n";
-        s += "      echo \"== STUFE 2 Tier-Bau [a,b,c][d,e,f]=" + combo_legend_ + perm_legend + " chunk " + kstr +
-             ": Fenster $COMDARE_GOLDEN_N_RANGE (von $TOTAL), provision-only ==\"\n";
+        s += "      echo \"== STUFE 2 Tier-Bau [d,e,f][g,h,i]=" + perm_legend + organ + " chunk " + kstr +
+             " (CEB [a,b,c]=" + combo_legend_ +
+             "): Fenster $COMDARE_GOLDEN_N_RANGE (von $TOTAL), provision-only ==\"\n";
         // Nutzlast: COMDARE_GOLDEN_N_RANGE kommt aus dem Export oben (kein globales Fixfenster mehr in der Zeile).
         s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
         s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
@@ -701,8 +731,11 @@ private:
         s += "  stage: measure\n";
         s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
         s += "  needs:\n";
+        // §56/§54-T6: die needs:-Kante MUSS exakt dieselbe korrigierte Bau-Legende referenzieren wie
+        // emit_tier_build_job ([d,e,f][g,h,i]:chunk<k>, dasselbe organ = organ_reference()), sonst brechen die
+        // Bau->Mess-Job-Kanten. combo_legend_ ([a,b,c]) gehoert NICHT in den needs-Schluessel.
         for (std::size_t k = 0; k < kTierChunkCount; ++k)
-            s += "    - \"" + legend::tier_build_job(combo_legend_, perm_legend, k) + "\"\n";
+            s += "    - \"" + legend::tier_build_job(perm_legend, organ, k) + "\"\n";
         s += "  rules:\n";
         s += "    - when: manual   # GN-11/320er-Gate: Messen erst nach User-Entscheid (kein Auto-Messlauf)\n";
         s += "  allow_failure: true\n";
@@ -744,14 +777,16 @@ private:
 
 // ── TierCmakeGraphBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b, --emit-tier-cmake). ──────────
 //    Der Bare-Metal-Gegenpart zum TierCiYamlBuilder: emittiert das tier_plan.cmake einer CEB (Mess-Kombination
-//    [a,b,c]) -- je System-Perm [d,e,f] die REALEN provision-only-Tier-Bau-Targets (Organ-Raum als chunk<k>
-//    gebuendelt) + je Perm EIN GN-11/320er-gegatetes measure:-Skelett-Target. Dies traegt den SCHARFEN
+//    [a,b,c]) -- je System-Perm [d,e,f] die REALEN provision-only-Tier-Bau-Targets (das kombinierte
+//    System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen als chunk<k> gebuendelt, §57) + je Perm EIN
+//    GN-11/320er-gegatetes measure:-Skelett-Target. Dies traegt den SCHARFEN
 //    provision-only-Treiber-Aufruf (der frueher in der W7-B-CMakeGraphBuilder-Zelle lag) -- die STUFE-2 ist der
 //    Ort des Tier-Baus. Ein Bare-Metal-Lauf der DREISTUFIGEN Kette: --dump-cmake (Stufe 1) -> CEB -> --emit-tier-
 //    cmake (Stufe 2, DIESER Builder) -> `cmake --build <dir> --target comdare_tier_build_perm0_chunk0`.
 //
-//    Host-unabhaengig: Treiber/Profil/Range/Out = CMake-Variablen mit Defaults; nur [a,b,c][d,e,f]-Legenden +
-//    chunk sind Plan-Konstanten. measure:-Target bleibt GN-11/320er-gegatet (Echo-Skelett, kein Auto-Messlauf).
+//    Host-unabhaengig: Treiber/Profil/Range/Out = CMake-Variablen mit Defaults; nur die [d,e,f][g,h,i]-Legende
+//    (System x Organ, §56; die CEB-Mess-Kombination [a,b,c] ist nur Kontext) + chunk sind Plan-Konstanten.
+//    measure:-Target bleibt GN-11/320er-gegatet (Echo-Skelett, kein Auto-Messlauf).
 class TierCmakeGraphBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
@@ -798,8 +833,13 @@ public:
         std::string const slug        = legend::cmake_slug(combo_legend_);
         std::string const stemdir     = "${CMAKE_CURRENT_BINARY_DIR}/tier";
         std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
-        out_ += "\n# perm " + idx + ": [a,b,c][d,e,f]=" + combo_legend_ + perm_legend + "\n";
-        // K Tier-Chunk-Bau-Targets (provision-only, SCHARF) je System-Perm. Organ-Raum als chunk<k> gebuendelt.
+        std::string const organ       = legend::organ_reference();
+        // §56/§54-T6: die Tier-Bau-Zelle ist System-Achse [d,e,f] x Organ-Achse [g,h,i]; combo_legend_ ([a,b,c])
+        // ist nur CEB-Kontext (die CEB traegt [a,b,c] statisch), nicht Teil der Bau-Legende.
+        out_ +=
+            "\n# perm " + idx + ": [d,e,f][g,h,i]=" + perm_legend + organ + " (CEB [a,b,c]=" + combo_legend_ + ")\n";
+        // K Tier-Chunk-Bau-Targets (provision-only, SCHARF) je System-Perm. Der chunk<k> buendelt das kombinierte
+        // System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§57).
         std::vector<std::string> chunk_stamps;
         for (std::size_t k = 0; k < kTierChunkCount; ++k) {
             std::string const kstr   = std::to_string(k);
@@ -831,7 +871,6 @@ public:
         // (Bau->Mess-Kante). Das echte Mess-Kommando steht NUR als Kommentar-Skelett (kein Auto-Messlauf).
         std::string const mstamp = stemdir + "/" + slug + "_perm" + idx + ".measure.stamp";
         std::string const mtgt   = tier_measure_target(p.index);
-        std::string const organ  = legend::organ_reference();
         out_ += "if(NOT TARGET " + mtgt + ")\n";
         out_ += "    add_custom_command(\n";
         out_ += "        OUTPUT \"" + mstamp + "\"\n";
@@ -891,10 +930,13 @@ public:
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
     void construct(cx::ThesisProfile const& tp, IPlanBuilder& b) const {
-        std::vector<std::string> const          opt_perms  = opt_perms_of(tp.compiler.opt_levels);
-        std::vector<std::string> const          simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
-        std::vector<std::string> const          passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
-        std::vector<PlanMeasurementCombo> const combos     = measurement_combos_of(tp.measurement_categories);
+        std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
+        std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
+        std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
+        // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
+        // measurement_combos_of): tp traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
+        // Sobald der Parser das Feld fuellt: measurement_combos_of(tp.measurement_categories, tp.measurement_tooling).
+        std::vector<PlanMeasurementCombo> const combos = measurement_combos_of(tp.measurement_categories);
         walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& sweep_axis : passes) {
@@ -918,7 +960,10 @@ public:
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
-        std::vector<PlanMeasurementCombo> const           combos = measurement_combos_of(ep.measurement_categories);
+        // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
+        // measurement_combos_of): ep traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
+        // Sobald der Parser das Feld fuellt: measurement_combos_of(ep.measurement_categories, ep.measurement_tooling).
+        std::vector<PlanMeasurementCombo> const combos = measurement_combos_of(ep.measurement_categories);
         walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& proj : projections) {
@@ -950,20 +995,56 @@ private:
                                         : xml_simd_options;
     }
 
-    // W10-A (§42): die Mess-Achsen-Kombinationen aus der Anwender-XML (<measurement_categories>). Heute traegt die
-    // Schema EINEN <measurement_categories>-Block => GENAU EINE Kombination (der CEB-Typ [a,b,c]); die Legende ist
-    // die kanonische Kurzform (legend::measurement_combo; `[all]` = alle 16 / kein Subset). Die Rueckgabe ist ein
-    // VECTOR (Struktur fuer die Zukunft: mehrere deklarierte Mess-Systeme => mehrere CEB-Pipelines), heute size==1.
-    // Ersetzt den konzeptlosen GN_MSYS="default"-Platzhalter des W4-Piloten durch die ECHT deklarierte Legende.
+public: // measurement_combos_of ist reine statische Fan-out-Kern-Logik -> als Contract-Surface fuer die
+    // isolierten Fan-out-Tests (§47/§55) exponiert. Der uebrige Direktor-Zustand bleibt privat.
+    // W10-A (§42) + §47/§54-T2/§55: die Mess-Achsen-Kombinationen. Die HAUPT-Auffaecherung [a,b,c] kommt aus der
+    // Mess-Tooling-HAUPT-Achse {wallclock/macro/micro} (kMeasurementToolingRegistry): je Tooling-KONFIG EINE
+    // dynamische CEB-Pipeline (ceb:build:[a,b,c]). Die 16 <measurement_categories> sind Mess-Tooling-UNTER
+    // (CSV-Spalten, §54-T2) und faechern den CEB-Typ NICHT auf — sie reisen als combo.categories mit.
+    //
+    // `tooling_configs` = die deklarierten Tooling-HAUPT-Konfigs (je Eintrag EINE Konfig = ein Vektor von
+    // Tooling-ids). LEER => EINE implizite VOLL-Konfig (das volle Mess-System, alle Tooling => Sentinel `[all]`) —
+    // dieselbe "leer = volles Angebot"-Idiomatik wie legend::measurement_tooling_combo. Damit bleibt die heutige
+    // Topologie (1 CEB-Strecke, Legende [all]) byte-stabil, bis die Mehr-Konfig-Deklaration verdrahtet ist.
+    //
+    // === OFFENE DESIGN-FRAGEN (§47/§55, GO-pflichtig — Manager, NICHT geraten): ===
+    //   (D1) XML-Schema: <measurement_tooling>-Element (HAUPT, auffaechernd) FEHLT — nur <measurement_categories>
+    //        (UNTER) existiert. Wie deklariert die Anwender-XML N Tooling-Konfigs? (validate_profile.hpp erweitern.)
+    //   (D2) Profil-Feld: cx::ThesisProfile / cx::ExperimentProfile tragen KEIN measurement_tooling-Feld — der
+    //        Parser (comdare::builder::xml) muss es fuellen; erst dann koennen die Call-Sites (construct(), s.u.) es
+    //        hierher reichen. HEUTE reichen die Call-Sites nichts => Default {} => 1 Voll-Konfig [all].
+    //   (D3) Registry-Angebot -> Anwahl (Resolver): kMeasurementToolingRegistry ist das ANGEBOT; WIE das
+    //        Anwender-XML (.pom) daraus die Konfigs waehlt (Resolver, §27/§28), ist offen.
+    //   (D4) Fan-out-Aktivierung + Kollisionsschutz: N>1 Konfigs => N ceb:build:[a,b,c]-Strecken; ABER da §56/T6 die
+    //        Mess-Konfig aus der tier:build-Legende ENTFERNT hat (tier:build:[d,e,f][g,h,i] ist combo-UNABHAENGIG),
+    //        wuerden die tier:build-Job-Namen VERSCHIEDENER CEB-Konfigs im SELBEN --emit-tier-ci-Lauf KOLLIDIEREN.
+    //        Loesung (offen): --emit-tier-ci selektiert die EINE CEB-Konfig, die es repraesentiert (je ceb:emit-Job
+    //        genau eine Konfig — heute walkt --emit-tier-ci ALLE combos in EINE Datei, s. TierCiYamlBuilder). Zudem:
+    //        N>1 verdreifacht die (GN-11/320er-)gegatete golden-Topologie -> Aktivierung ist Gate-/Manager-Entscheid.
+    //
+    // Der Fan-out-KERN (Tooling-Konfig -> Combo) ist hier real + isoliert testbar: measurement_combos_of(cats,
+    // {{"wallclock"},{"macro"}}) => 2 Combos [wallclock]/[macro]. Die LIVE-Call-Sites reichen heute {} (D2) => 1 Combo.
     [[nodiscard]] static std::vector<PlanMeasurementCombo>
-    measurement_combos_of(std::vector<std::string> const& measurement_categories) {
-        PlanMeasurementCombo combo;
-        combo.index      = 0;
-        combo.categories = measurement_categories;
-        combo.legend     = legend::measurement_combo(measurement_categories);
-        return {combo};
+    measurement_combos_of(std::vector<std::string> const&              measurement_categories,
+                          std::vector<std::vector<std::string>> const& tooling_configs = {}) {
+        // Deklarierte Konfigs; leer => EINE implizite VOLL-Konfig (leerer Tooling-Vektor => [all]-Sentinel).
+        std::vector<std::vector<std::string>> configs = tooling_configs;
+        if (configs.empty()) configs.emplace_back(); // {} => volles Mess-System => [all]
+        std::vector<PlanMeasurementCombo> combos;
+        combos.reserve(configs.size());
+        std::size_t idx = 0;
+        for (auto const& cfg : configs) {
+            PlanMeasurementCombo combo;
+            combo.index      = idx++;
+            combo.tooling    = cfg;                                    // Mess-Tooling-HAUPT-KONFIG (§47/§55)
+            combo.categories = measurement_categories;                 // Mess-Tooling-UNTER (CSV-Spalten, §54-T2)
+            combo.legend     = legend::measurement_tooling_combo(cfg); // [a,b,c]-HAUPT aus dem Tooling
+            combos.push_back(std::move(combo));
+        }
+        return combos;
     }
 
+private:
     // Der EINE dreistufige Walk (Mess-Kombination -> System-Perm (opt x simd) -> Chunk-Buendel) + Builder-Treiber.
     // Der Steps-Emitter ist der einzige art-abhaengige Teil (er ruft die BESTEHENDEN Callees). KEIN dritter
     // Enumerations-Walk: opt/simd/pass/phase stammen vollstaendig aus profile_sweep_passes/

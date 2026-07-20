@@ -508,6 +508,34 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
         << "Stufe 1 baut keine Tier-Binaries";
 }
 
+// (L2) S1/A1 P-TOTAL (Ledger 46): der emittierte ceb:trigger-Job forwardet COMDARE_GN_TOTAL vererbungssicher als
+//      EXPLIZITE Allowlist an die STUFE-2-Grandchild -- self-contained Grandchild-Pipelines erben Pipeline-Variablen
+//      NICHT (der Grandchild-Tier-Bau faellt sonst auf ${COMDARE_GN_TOTAL:-16} zurueck statt 131072 zu bauen).
+//      KEIN blindes pipeline_variables:true (Isolation + Byte-Determinismus des Bau-Raums).
+TEST(CiYamlBuilder, CebTriggerForwardsGnTotalAsExplicitAllowlist) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                yb;
+    director.construct(*tp, yb);
+    std::string const& yaml = yb.text();
+
+    // Die explizite Allowlist: der ceb:trigger-Bridge-Job deklariert COMDARE_GN_TOTAL als YAML-Variable (RHS = der
+    // aus STUFE 1 geerbte Wert). Genau EINE Kombination ([all]) => genau EIN solcher Block.
+    EXPECT_EQ(count_occurrences(yaml, "  variables:\n    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n"), 1u)
+        << "ceb:trigger deklariert COMDARE_GN_TOTAL als Forward-Allowlist";
+    // forward:yaml_variables reicht die Allowlist an die Grandchild; pipeline_variables bleibt AUS (Isolation).
+    EXPECT_NE(yaml.find("    forward:\n      yaml_variables: true"), std::string::npos)
+        << "forward:yaml_variables:true reicht die Allowlist an die Grandchild";
+    EXPECT_NE(yaml.find("      pipeline_variables: false"), std::string::npos)
+        << "KEIN blindes Erben des gesamten Eltern-Variablenraums";
+    EXPECT_EQ(yaml.find("pipeline_variables: true"), std::string::npos)
+        << "pipeline_variables:true ist verboten (Modul-Trigger-Isolation)";
+    // Der ceb:trigger bleibt der EINZIGE Grandchild-Trigger je Kombination (keine Struktur-Regression).
+    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u);
+}
+
 // (M) Byte-Determinismus der YAML (Thesis + Experiment): zwei Laeufe -> byte-gleich.
 TEST(CiYamlBuilder, YamlIsByteDeterministic) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
@@ -577,15 +605,61 @@ TEST(PlanLegend, FormatsShortDeterministicYamlSafeArraysAndJobNames) {
     EXPECT_EQ(lg::system_perm("O2", "avx2"), "[O2,avx2]");
     // Organ-Referenz [g,h,i] = die fuehrenden Organ-Haupt-Achsen (kCompositionAxisNames-Single-Source).
     EXPECT_EQ(lg::organ_reference(), "[search_algo,cache_traversal,mapping]");
-    // Mess-Kombination: leer ODER alle 16 => [all]; echtes Subset => sortiertes Array.
+    // §47/§54-T2/§55: die [a,b,c]-HAUPT-Kombination kommt aus der Mess-Tooling-HAUPT-Achse {wallclock/macro/micro}
+    // (measurement_tooling_combo) — leer/volles Angebot => [all]; echtes Subset => sortiertes Array.
+    EXPECT_EQ(lg::measurement_tooling_combo({}), "[all]") << "leer = volles Mess-System";
+    EXPECT_EQ(lg::measurement_tooling_combo({"wallclock", "macro", "micro"}), "[all]") << "volles Angebot => [all]";
+    EXPECT_EQ(lg::measurement_tooling_combo({"wallclock"}), "[wallclock]") << "Einzel-Tooling-Konfig";
+    EXPECT_EQ(lg::measurement_tooling_combo({"micro", "macro"}), "[macro,micro]") << "dedupliziert + sortiert";
+    // measurement_combo bleibt der UNTER-Kategorien-Formatter (CSV, §54-T2) — NICHT die HAUPT-Auffaecherung:
+    // leer ODER alle 16 => [all]; echtes Subset => sortiertes Array.
     EXPECT_EQ(lg::measurement_combo({}), "[all]");
     EXPECT_EQ(lg::measurement_combo({"THROUGHPUT", "CLU"}), "[CLU,THROUGHPUT]") << "dedupliziert + sortiert";
     // Job-Namen der drei Stufen.
     EXPECT_EQ(lg::ceb_build_job("[all]"), "ceb:build:[all]");
     EXPECT_EQ(lg::ceb_emit_job("[all]"), "ceb:emit:[all]");
     EXPECT_EQ(lg::ceb_trigger_job("[all]"), "ceb:trigger:[all]");
-    EXPECT_EQ(lg::tier_build_job("[all]", "[O2,avx2]", 3), "tier:build:[all][O2,avx2]:chunk3");
+    // §56/§54-T6: die Tier-Bau-Legende ist System-Perm [d,e,f] x Organ-Referenz [g,h,i] + chunk<k> im ORGAN-Slot;
+    // die Mess-Kombination [a,b,c] steht NICHT in der Bau-Legende (sie lebt nur in ceb:build:[a,b,c]).
+    EXPECT_EQ(lg::tier_build_job("[O2,avx2]", "[g,h,i]", 3), "tier:build:[O2,avx2][g,h,i]:chunk3");
     EXPECT_EQ(lg::measure_job("[all]", "[O2,avx2]", "[g,h,i]"), "measure:[all][O2,avx2][g,h,i]");
+}
+
+// (T2) §47/§54-T2/§55: die [a,b,c]-HAUPT-Auffaecherung kommt aus der Mess-Tooling-HAUPT-Achse {wallclock/macro/micro}
+//      (NICHT aus den 16 <measurement_categories> = UNTER). Fan-out-KERN: N Tooling-Konfigs => N Combos; Default
+//      (keine Konfig deklariert) => 1 Voll-Konfig [all] (Topologie byte-stabil); die Kategorien reisen als UNTER mit.
+TEST(MeasurementToolingFanOut, HauptAxisIsToolingNotCategories) {
+    namespace mt = comdare::cache_engine::measurement;
+    // Das Registry-ANGEBOT (OFFER): 3 Tooling {wallclock/macro/micro}, Index==Tooling (Single-Source).
+    ASSERT_EQ(mt::kMeasurementToolingCount, 3u);
+    EXPECT_EQ(mt::kMeasurementToolingRegistry[0].id, "wallclock");
+    EXPECT_EQ(mt::kMeasurementToolingRegistry[1].id, "macro");
+    EXPECT_EQ(mt::kMeasurementToolingRegistry[2].id, "micro");
+
+    std::vector<std::string> const cats{"THROUGHPUT", "CLU"};
+
+    // Default (keine Tooling-Konfig): EINE implizite VOLL-Konfig => HAUPT-Legende [all]; die Kategorien = UNTER.
+    auto const def = planner::ExperimentPlanDirector::measurement_combos_of(cats);
+    ASSERT_EQ(def.size(), 1u) << "Default = 1 Voll-Konfig (Topologie byte-stabil zur heutigen 1-CEB-Strecke)";
+    EXPECT_EQ(def[0].legend, "[all]") << "[a,b,c]-HAUPT = volles Mess-System";
+    EXPECT_EQ(def[0].categories, cats) << "die 16 Kategorien reisen als Mess-Tooling-UNTER (CSV) mit";
+    EXPECT_TRUE(def[0].tooling.empty()) << "leere Konfig = volles Angebot";
+
+    // Fan-out-KERN: N Tooling-Konfigs => N Combos; die HAUPT-Legende je Konfig kommt aus dem TOOLING.
+    auto const fan =
+        planner::ExperimentPlanDirector::measurement_combos_of(cats, {{"wallclock"}, {"macro"}, {"micro"}});
+    ASSERT_EQ(fan.size(), 3u) << "3 Tooling-Konfigs => 3 ceb:build:[a,b,c]-Strecken (§47/§55)";
+    EXPECT_EQ(fan[0].legend, "[wallclock]");
+    EXPECT_EQ(fan[1].legend, "[macro]");
+    EXPECT_EQ(fan[2].legend, "[micro]");
+    EXPECT_EQ(fan[0].index, 0u);
+    EXPECT_EQ(fan[2].index, 2u);
+    EXPECT_EQ(fan[1].tooling, (std::vector<std::string>{"macro"})) << "die Tooling-KONFIG reist mit";
+
+    // §54-T2: ein Kategorie-Subset (UNTER) faechert den CEB-Typ NICHT auf — die HAUPT-Legende bleibt tooling-bestimmt.
+    auto const cat_subset = planner::ExperimentPlanDirector::measurement_combos_of({"CLU"}, {{"wallclock"}});
+    ASSERT_EQ(cat_subset.size(), 1u);
+    EXPECT_EQ(cat_subset[0].legend, "[wallclock]") << "Kategorie-Subset ist UNTER, keine Auffaecherung (§54-T2)";
 }
 
 // (W2) DREISTUFIGE Topologie: die Anwender-XML bestimmt die Mess-Kombination; darunter die System-Perms.
@@ -639,10 +713,18 @@ TEST(TierCiYamlBuilder, EmitsFreedSystemPermsWithTierChunkAndGatedMeasureJobs) {
     // KEINE Stufe-1-CEB-Jobs in der Stufe-2-Sicht (die CEB-Jobs gehoeren in --dump-ci).
     EXPECT_EQ(yaml.find("ceb:build:"), std::string::npos) << "Stufe 2 enthaelt KEINE CEB-Bau-Jobs";
     EXPECT_EQ(yaml.find("stage: ceb-build"), std::string::npos);
-    // Die Tier-Bau-Jobs tragen die volle [a,b,c][d,e,f]:chunk<k>-Legende (die freigegebenen System-Perms).
-    EXPECT_NE(yaml.find("\"tier:build:[all][O2,no_extension]:chunk0\":"), std::string::npos);
-    EXPECT_NE(yaml.find("\"tier:build:[all][O2,avx2]:chunk0\":"), std::string::npos);
-    EXPECT_NE(yaml.find("\"tier:build:[all][O3,avx2]:chunk3\":"), std::string::npos);
+    // §56/§54-T6: die Tier-Bau-Jobs tragen die Legende [d,e,f][g,h,i]:chunk<k> = System-Perm x Organ-Referenz
+    // (organ_reference() = [search_algo,cache_traversal,mapping]); die Mess-Kombination [a,b,c] steht NICHT drin.
+    EXPECT_NE(yaml.find("\"tier:build:[O2,no_extension][search_algo,cache_traversal,mapping]:chunk0\":"),
+              std::string::npos);
+    EXPECT_NE(yaml.find("\"tier:build:[O2,avx2][search_algo,cache_traversal,mapping]:chunk0\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"tier:build:[O3,avx2][search_algo,cache_traversal,mapping]:chunk3\":"), std::string::npos);
+    // §56/§54-T6: die needs:-Kante der Mess-Jobs referenziert EXAKT dieselbe korrigierte Bau-Legende (sonst
+    // brechen die Bau->Mess-Job-Kanten). Literaler Beleg: die needs-Zeile traegt [d,e,f][g,h,i]:chunk<k>, NICHT
+    // die alte [a,b,c][d,e,f]-Fehlform.
+    EXPECT_NE(yaml.find("    - \"tier:build:[O2,no_extension][search_algo,cache_traversal,mapping]:chunk0\"\n"),
+              std::string::npos)
+        << "needs:-Kante referenziert die korrigierte tier:build-Legende";
     // Die Mess-Jobs tragen die volle [a,b,c][d,e,f][g,h,i]-Legende und sind provision-only im Bau (golden-neutral).
     EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_chunks)
         << "je Chunk-Bau-Job provision-only (Bau ohne Messung)";
