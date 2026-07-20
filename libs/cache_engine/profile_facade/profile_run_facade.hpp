@@ -8,6 +8,7 @@
 // -----------------------------------------------------------------------------
 
 #include <builder/artifact_transport/artifact_cache.hpp> // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
+#include <builder/experiment_tree/progress_delta.hpp> // Welle 5 (E-W5-2): ProgressSinkFn / ProgressDelta (§38-Naht, No-Op)
 
 #include <cstddef>
 #include <cstdint>
@@ -62,6 +63,11 @@ struct ProfileRunArgs {
     // haengt nur an cache_push + provision_only -- die Push-MENGE bleibt unveraendert.
     artifact_transport::PartialMarkerFn partial_marker_sink;
     std::size_t                         chunk_part_size = 0;
+    // Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): No-Op-Default => byte-neutral; Muster EXAKT wie cache_push/
+    // measurement_sink. Der Host (messung_driver) konstruiert den Sink und reicht ihn zur per-Binary-/Fenster-Naht
+    // durch; run_profile feuert je Binary EIN Delta + am Fensterende EIN done. Leer (Default) => No-Op => golden/CI
+    // byte-identisch (Anti-Phantom). Nur der Treiber-Host setzt ihn -- alle anderen Fassaden-Konsumenten bleiben inert.
+    experiment::ProgressSinkFn progress_sink;
 };
 
 struct ProfileRunResult {
@@ -121,6 +127,9 @@ struct ExperimentRunArgs {
     // haengt nur an cache_push + provision_only -- die Push-MENGE bleibt unveraendert.
     artifact_transport::PartialMarkerFn partial_marker_sink;
     std::size_t                         chunk_part_size = 0;
+    // Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): SPIEGEL zu ProfileRunArgs::progress_sink. No-Op-Default =>
+    // byte-neutral (Muster wie cache_push/measurement_sink); vom Host durchgereicht bis in den run_experiment-cfg.
+    experiment::ProgressSinkFn progress_sink;
 };
 
 struct ExperimentRunResult {

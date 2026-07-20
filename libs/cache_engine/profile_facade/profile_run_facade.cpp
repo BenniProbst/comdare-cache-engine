@@ -485,6 +485,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.measurement_sink    = args.measurement_sink;    // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
     a.partial_marker_sink = args.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker durchreichen (No-Op-Default)
     a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
+    a.progress_sink =
+        args.progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default => byte-neutral)
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;
@@ -811,6 +813,8 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.measurement_sink    = args.measurement_sink;    // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
     a.partial_marker_sink = args.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker durchreichen (No-Op-Default)
     a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
+    a.progress_sink =
+        args.progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default => byte-neutral)
 
     tlz::RunExperimentResult const r = tlz::run_experiment_profile(a);
     out.exit_code                    = r.exit_code;
