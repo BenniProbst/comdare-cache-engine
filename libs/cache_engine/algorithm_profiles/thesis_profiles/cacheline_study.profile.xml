@@ -154,4 +154,22 @@
       <option value="x86_64"/>
     </target_isa>
   </system_axes>
+
+  <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; PASSIV, Planer-delegiert]:
+       binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
+       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> --dump-plan byte-
+       identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
+       measure (Standard-Messmodus, 1-Thread/deterministisch); measurement_framework: ycsb (honest-1);
+       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ --
+       N>1 dormant bis S6). -->
+  <run_methodology>
+    <method value="measure"/>
+  </run_methodology>
+  <measurement_framework name="ycsb"/>
+  <writeback_methods>
+    <method value="csv"/>
+  </writeback_methods>
+  <measurement_tooling>
+    <combo tools="wallclock"/>
+  </measurement_tooling>
 </comdare_thesis_profile>
