@@ -290,6 +290,18 @@ struct ThesisProfile {
     // (CompilerAxisSel::atomic128) mit. ADDITIV — leer = kein <target_isa> = heutiges Verhalten byte-identisch;
     // binary_id-NEUTRAL. Wert-Gueltigkeit (x86_64/aarch64) prueft validate_profile (cache_engine-Schicht).
     TargetIsaAxisSel target_isa;
+    // ── A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): dieselben PASSIVEN Mess-UNTER-Achsen wie im
+    //    comdare_experiment-Kanal, additiv im comdare_thesis_profile-Kanal (Planer-delegiert, binary_id-NEUTRAL).
+    //    Getragen wie measurement_tooling/measurement_categories (Feld + Parse + XSD + validate-id-Check); der
+    //    Fan-out/Vollzug gehoert S5. Abwesenheit = leer/"" = heutiges Verhalten byte-identisch. Rohstrings; die
+    //    id-Gueltigkeit (gegen die 3 Registries) prueft validate_profile (cache_engine-Schicht). ──
+    std::vector<std::string> run_methodology;       // <run_methodology><method value=debug|measure|release>*
+    std::string              measurement_framework; // <measurement_framework name=ycsb> (einzeln; leer = Default)
+    std::vector<std::string> writeback_methods; // <writeback_methods><method value=csv|latex_table|comparison_metrics>*
+    // measurement_tooling = die Mess-Tooling-HAUPT-Achse (auffaechernd; Section 47/55), im Thesis-Kanal ebenfalls
+    // PASSIV getragen (SCOPE: die Semantik/Validierung ist P-MESSTOOL, wie im Experiment-Kanal). Je Eintrag = EINE
+    // Tooling-KONFIG (Vektor aus {wallclock/macro/micro}); leer = Default [all] (byte-stabil).
+    std::vector<std::vector<std::string>> measurement_tooling; // <measurement_tooling><combo tools=..>*
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -373,8 +385,15 @@ struct ExperimentProfile {
     // Konfig (byte-stabil). ADDITIV + PASSIV: KERN-A traegt das Feld nur (Schema-Vollstaendigkeit); die SEMANTIK
     // (id-Validierung gegen kMeasurementToolingRegistry + der N>1-Fan-out) gehoert dem Schwester-Paket P-MESSTOOL.
     std::vector<std::vector<std::string>> measurement_tooling; // <measurement_tooling><combo tools=..>*
-    std::vector<std::string>              op_types;            // <op_types> (Whitespace-Tokens OP-1..OP-6)
-    CompilerAxisSel compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
+    // A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): drei PASSIVE Mess-UNTER-Achsen (Planer-delegiert,
+    // binary_id-NEUTRAL) -- getragen wie measurement_tooling (Feld + Parse + XSD + validate-id-Check); der
+    // Fan-out/Vollzug gehoert S5. Abwesenheit = leer/"" = heutiges Verhalten byte-identisch. Rohstrings; die
+    // id-Gueltigkeit (gegen die 3 Registries) prueft validate_experiment_profile (cache_engine-Schicht).
+    std::vector<std::string> run_methodology;       // <run_methodology><method value=debug|measure|release>*
+    std::string              measurement_framework; // <measurement_framework name=ycsb> (einzeln; leer = Default)
+    std::vector<std::string> writeback_methods; // <writeback_methods><method value=csv|latex_table|comparison_metrics>*
+    std::vector<std::string> op_types;          // <op_types> (Whitespace-Tokens OP-1..OP-6)
+    CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
     ExtensionHardwareAxisSel
                      extension_hardware; // <system_axes><extension_hardware><simd> (Haupt-Achse → simd-Unter-Achse)
     TargetIsaAxisSel target_isa;         // <system_axes><target_isa> (eigene Haupt-Achse -> Optionen x86_64|aarch64)

@@ -385,6 +385,21 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     //    Fehlt <system_axes>, bleiben tp.compiler/extension_hardware leer = heutiges Verhalten byte-identisch. ──
     if (auto const* sa = root->child("system_axes"))
         parse_system_axes(*sa, tp.compiler, tp.extension_hardware, tp.target_isa);
+    // ── A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): die PASSIVEN Mess-UNTER-Achsen additiv im Thesis-Kanal,
+    //    deckungsgleich zum comdare_experiment-Kanal (run_methodology / measurement_framework / writeback_methods +
+    //    das HAUPT-Feld measurement_tooling, das im Thesis-Kanal ebenfalls PASSIV mitreist -- SCOPE-Semantik
+    //    P-MESSTOOL). Abwesenheit = leer/"" = heutiges Verhalten byte-identisch. Der Parser prueft die ids NICHT
+    //    (validate_profile, cache_engine-Schicht) -- rein additiv, roh belassen. ──
+    if (auto const* rm = root->child("run_methodology")) {
+        for (auto const* m : rm->children_named("method")) tp.run_methodology.push_back(m->attr("value"));
+    }
+    if (auto const* mf = root->child("measurement_framework")) tp.measurement_framework = mf->attr("name");
+    if (auto const* wm = root->child("writeback_methods")) {
+        for (auto const* m : wm->children_named("method")) tp.writeback_methods.push_back(m->attr("value"));
+    }
+    if (auto const* mt = root->child("measurement_tooling")) {
+        for (auto const* c : mt->children_named("combo")) tp.measurement_tooling.push_back(split_ws(c->attr("tools")));
+    }
     // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.
     if (auto const* ro = root->child("run_options")) {
         tp.run_options.cap           = to_int(ro->attr("cap", "0"), 0);
@@ -469,6 +484,16 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
     // (validate_profile, cache_engine-Schicht) -- rein additiv, Unbekanntes wird ignoriert.
     if (auto const* mt = root->child("measurement_tooling")) {
         for (auto const* c : mt->children_named("combo")) ep.measurement_tooling.push_back(split_ws(c->attr("tools")));
+    }
+    // A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen (run_methodology /
+    // measurement_framework / writeback_methods). Abwesenheit = leer/"" = heutiges Verhalten byte-identisch. Der
+    // Parser prueft die ids NICHT (validate_experiment_profile, cache_engine-Schicht) -- rein additiv, roh belassen.
+    if (auto const* rm = root->child("run_methodology")) {
+        for (auto const* m : rm->children_named("method")) ep.run_methodology.push_back(m->attr("value"));
+    }
+    if (auto const* mf = root->child("measurement_framework")) ep.measurement_framework = mf->attr("name");
+    if (auto const* wm = root->child("writeback_methods")) {
+        for (auto const* m : wm->children_named("method")) ep.writeback_methods.push_back(m->attr("value"));
     }
     if (auto const* ot = root->child("op_types")) ep.op_types = ot->text_tokens();
     // <system_axes> (opt-f/A3): CEB-System-Achsen ueber die GETEILTE parse_system_axes-Naht (GN-3, 2026-07-19) —

@@ -358,3 +358,99 @@ TEST(ResolveAxisRefsAgainstTrio, ThesisPermuteAxesRefsResolveClean) {
     EXPECT_TRUE(rep.ok);
     EXPECT_TRUE(rep.rejects.empty());
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen im comdare_thesis_profile-
+// Kanal (run_methodology/measurement_framework/writeback_methods). Struct-Injektion (die Parser-Naht ist
+// end-to-end in test_experiment_parser bewiesen); hier die Validat-Bloecke gegen die 3 constexpr-Registries +
+// die Report-Zeilen + das SKIP-Gate. binary_id-neutral (Planer-delegiert); der Fan-out/Vollzug gehoert S5.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (a9a) gueltige A9.1-Werte werden AKZEPTIERT; die Zaehler + Report-Zeilen stimmen.
+TEST(ValidateProfileMeasurementSubAxes, ValidA9SubAxesAccepted) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->run_methodology       = {"debug", "measure", "release"};
+    tp->measurement_framework = "ycsb";
+    tp->writeback_methods     = {"csv", "latex_table", "comparison_metrics"};
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.run_methodology_checked, 3u);
+    EXPECT_EQ(vr.measurement_framework_checked, 1u);
+    EXPECT_EQ(vr.writeback_methods_checked, 3u);
+    std::ostringstream os;
+    tlz::print_validation_report(vr, *tp, os);
+    EXPECT_NE(os.str().find("3 run_methodology"), std::string::npos) << os.str();
+    EXPECT_NE(os.str().find("1 measurement_framework"), std::string::npos) << os.str();
+    EXPECT_NE(os.str().find("3 writeback_methods"), std::string::npos) << os.str();
+}
+
+// (a9b) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release}).
+TEST(ValidateProfileMeasurementSubAxes, BogusRunMethodologyRejected) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->run_methodology = {"measure", "profiling"}; // ausserhalb {debug,measure,release}
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "run_methodology"));
+    EXPECT_TRUE(any_contains(vr.errors, "profiling"));
+    EXPECT_EQ(vr.run_methodology_checked, 2u);
+}
+
+// (a9c) ein Bogus measurement_framework-Wert (tpcc) ist ein HARTER Fehler ({ycsb}, honest-1).
+TEST(ValidateProfileMeasurementSubAxes, BogusMeasurementFrameworkRejected) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->measurement_framework = "tpcc"; // ausserhalb {ycsb}
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "measurement_framework"));
+    EXPECT_TRUE(any_contains(vr.errors, "tpcc"));
+    EXPECT_EQ(vr.measurement_framework_checked, 1u);
+}
+
+// (a9d) ein Bogus writeback_methods-Wert (pdf) ist ein HARTER Fehler -- pdf ist honest-0 KEIN Rueckschrieb-Kanal.
+TEST(ValidateProfileMeasurementSubAxes, BogusWritebackMethodRejected) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->writeback_methods = {"csv", "pdf"}; // pdf ausserhalb {csv,latex_table,comparison_metrics}
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "writeback_methods"));
+    EXPECT_TRUE(any_contains(vr.errors, "pdf"));
+    EXPECT_EQ(vr.writeback_methods_checked, 2u);
+}
+
+// (a9e) SKIP-Gate: leere A9.1-Achsen = nichts geprueft (Zaehler 0), ok=true, KEINE Report-Zeilen (byte-identisch
+//       zum heutigen Verhalten -- bestehende Profile ohne diese Elemente validieren unveraendert).
+TEST(ValidateProfileMeasurementSubAxes, EmptyA9SubAxesSkipAndByteIdentical) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    auto tp = parse_temp(""); // keine A9.1-Elemente -> alle Felder leer
+    ASSERT_TRUE(tp.has_value());
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.run_methodology_checked, 0u);
+    EXPECT_EQ(vr.measurement_framework_checked, 0u);
+    EXPECT_EQ(vr.writeback_methods_checked, 0u);
+    std::ostringstream os;
+    tlz::print_validation_report(vr, *tp, os);
+    EXPECT_EQ(os.str().find("run_methodology"), std::string::npos) << os.str();
+    EXPECT_EQ(os.str().find("measurement_framework"), std::string::npos) << os.str();
+    EXPECT_EQ(os.str().find("writeback_methods"), std::string::npos) << os.str();
+}
