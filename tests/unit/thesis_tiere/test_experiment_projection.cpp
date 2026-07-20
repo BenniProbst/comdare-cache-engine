@@ -173,3 +173,32 @@ TEST(ExperimentProjection, DegeneratePrtArtPairsHonestlyOmitted) {
                 << "kein Phantom-prt_art-Quellen-Key in Phase " << proj[i].phase_name << ": " << view_id;
     }
 }
+
+// (d) KERN-A (S4 Mess-Schema, 2026-07-20) — LEERE <phases> => der Planer LEITET die 3 Default-Stufen ab
+//     (Stufe1_CeOnly . Stufe2_PrueflingReplace . Stufe3_FullJoin, Abwesenheit = "alles messen"). Explizite Phasen
+//     bleiben byte-identisch (Test (a) oben); hier: die Golden-Instanz in-memory OHNE Phasen => genau die 3
+//     abgeleiteten Stufen mit denselben Pass-Keys wie die explizite 3-Phasen-Instanz. golden-neutral (nur gelesen).
+TEST(ExperimentProjection, EmptyPhasesDerivesThreeDefaultStufen) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->phases.clear(); // KERN-A: Abwesenheit => Default-Ableitung
+
+    std::vector<tlz::ExperimentPhaseProjection> const proj = tlz::project_experiment_to_sota_passes(*ep);
+    ASSERT_EQ(proj.size(), 3u) << "leere <phases> => 3 abgeleitete Default-Stufen";
+
+    // Reihenfolge + Merge-Strategien exakt wie die KERN-Beschreibung.
+    EXPECT_EQ(proj[0].merge, "Stufe1_CeOnly");
+    EXPECT_EQ(proj[1].merge, "Stufe2_PrueflingReplace");
+    EXPECT_EQ(proj[2].merge, "Stufe3_FullJoin");
+    // Provenienz: die abgeleiteten Namen tragen den "derived_"-Praefix (nicht die Golden-Phasennamen).
+    EXPECT_EQ(proj[0].phase_name, "derived_stufe1_ce_only");
+    EXPECT_EQ(proj[1].phase_name, "derived_stufe2_pruefling_replace");
+    EXPECT_EQ(proj[2].phase_name, "derived_stufe3_fulljoin");
+
+    // Die abgeleiteten Stufen liefern DIESELBEN Pass-Keys wie die explizite 3-Phasen-Golden-Projektion
+    // (die Ableitung ist NUR die Phasen-Quelle; das merge×lebewesen-Kreuzprodukt ist unveraendert).
+    EXPECT_EQ(pass_view_ids(proj[0]), kStufe1Keys);
+    EXPECT_EQ(pass_view_ids(proj[1]), kStufe2Keys);
+    EXPECT_EQ(pass_view_ids(proj[2]), kStufe3Keys);
+    EXPECT_EQ(proj[0].passes.size() + proj[1].passes.size() + proj[2].passes.size(), 19u); // 7 + 6 + 6
+}

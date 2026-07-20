@@ -462,16 +462,52 @@ struct ExperimentPhaseProjection {
     std::map<std::string, std::string> source_by_view_id; // view_binary_id → render_sota_module_source
 };
 
+/// derive_default_experiment_phases — KERN-A (S4 Mess-Schema, 2026-07-20): die 3 Default-Stufen, wenn ein
+/// comdare_experiment KEINE expliziten <phases> deklariert (Abwesenheit = "alles messen", die KERN-Beschreibung).
+/// Reihenfolge + Merge-Strategien spiegeln die KERN-Beschreibung 1:1:
+///   (1) Stufe1_CeOnly        = CE allein / self-contained (je Lebewesen isoliert, Reihe A);
+///   (2) Stufe2_PrueflingReplace = je Pruefling replace-Default (der per-Achse merge-Override ist Fork 4,
+///       binary_id-veraendernd => golden-regen-/gate-gated, HIER NOCH NICHT scharf);
+///   (3) Stufe3_FullJoin      = kombiniert (Reihe B).
+/// Das Kreuzprodukt phase.merge × ep.lebewesen ("je Pruefling") uebernimmt project_experiment_to_sota_passes
+/// unveraendert. REINE Ableitung — kein Bau, keine Messung. Die Namen sind bewusst "derived_*" (Provenienz).
+[[nodiscard]] inline std::vector<cx::ExperimentPhase> derive_default_experiment_phases() {
+    std::vector<cx::ExperimentPhase> phases;
+    phases.reserve(3);
+    cx::ExperimentPhase p1;
+    p1.name  = "derived_stufe1_ce_only";
+    p1.merge = "Stufe1_CeOnly";
+    phases.push_back(std::move(p1));
+    cx::ExperimentPhase p2;
+    p2.name  = "derived_stufe2_pruefling_replace";
+    p2.merge = "Stufe2_PrueflingReplace";
+    phases.push_back(std::move(p2));
+    cx::ExperimentPhase p3;
+    p3.name  = "derived_stufe3_fulljoin";
+    p3.merge = "Stufe3_FullJoin";
+    phases.push_back(std::move(p3));
+    return phases;
+}
+
 /// project_experiment_to_sota_passes — die Brücken-Projektion (I3). Je <phase> wird das Kreuzprodukt
 /// phase.merge × profile.lebewesen gebildet und über die schmalen (merge,lebewesen)-Overloads auf Pässe +
 /// Quellen-Map abgebildet. nullopt-Paare (z.B. prt_art unter Stufe2/Stufe3) werden EHRLICH ausgelassen (kein
 /// Phantom-Key/-Pass — Muster build_sota_passes:323). Reihenfolge = Phasen-Reihenfolge × lebewesen-Reihenfolge
 /// (stabil/resumierbar). KEIN Bau, KEIN Lauf.
+/// KERN-A (S4, 2026-07-20): leere <phases> => die 3 Default-Stufen ableiten (Abwesenheit = "alles messen"). Das
+/// ist die EINZIGE Verhaltensaenderung und greift NUR bei ep.phases.empty(); explizite Phasen (golden: 3 Stufen)
+/// bleiben byte-identisch zum Ist. Fork 3 (CacheEngine-self-Pass via phase.identity) + Fork 4 (per-Achse
+/// merge_mode in der Komposition) sind DATEN-getragen (Parser/validate), aber ihre binary_id-veraendernde
+/// AKTIVIERUNG ist golden-regen-/gate-gated und HIER NOCH NICHT scharf (das Kreuzprodukt bleibt merge×lebewesen).
 [[nodiscard]] inline std::vector<ExperimentPhaseProjection>
 project_experiment_to_sota_passes(cx::ExperimentProfile const& ep) {
+    std::vector<cx::ExperimentPhase> const derived =
+        ep.phases.empty() ? derive_default_experiment_phases() : std::vector<cx::ExperimentPhase>{};
+    std::vector<cx::ExperimentPhase> const& phases = ep.phases.empty() ? derived : ep.phases;
+
     std::vector<ExperimentPhaseProjection> out;
-    out.reserve(ep.phases.size());
-    for (auto const& phase : ep.phases) {
+    out.reserve(phases.size());
+    for (auto const& phase : phases) {
         std::vector<SotaMergeLebewesen> pairs;
         pairs.reserve(ep.lebewesen.size());
         for (auto const& l : ep.lebewesen) pairs.push_back(SotaMergeLebewesen{phase.merge, l});

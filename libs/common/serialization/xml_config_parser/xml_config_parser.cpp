@@ -419,6 +419,13 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
         if (auto const* n = md->child("name")) ep.metadata.name = n->text;
         if (auto const* m = md->child("mode")) ep.metadata.mode = m->text;
     }
+    // KERN-A (S4 Mess-Schema, 2026-07-20): <template ref=".." mode="full|..">. Der Research-Gesamtalgorithmus-Load
+    // (mode="full" = Voll-Whitelist-Basis + axes_default_lookup restrict/extend). Abwesenheit = beide leer = kein
+    // Template = heutiges Verhalten. Der Parser liest roh; die mode-/ref-Semantik lebt in der cache_engine-Schicht.
+    if (auto const* tmpl = root->child("template")) {
+        ep.templ.ref  = tmpl->attr("ref");
+        ep.templ.mode = tmpl->attr("mode");
+    }
     if (auto const* ee = root->child("execution_engines")) {
         for (auto const* e : ee->children_named("engine"))
             ep.engines.push_back({e->attr("id"), e->attr("type"), e->attr("registry")});
@@ -434,6 +441,7 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             phase.engine    = p->attr("engine");
             phase.engines   = split_ws(p->attr("engines")); // Whitespace-Liste (leer bei Einzel-engine)
             phase.pruefling = p->attr("pruefling");
+            phase.identity  = p->attr("identity"); // KERN-A: optionaler CacheEngine-self-Marker (leer = keiner)
             ep.phases.push_back(std::move(phase));
         }
     }
@@ -443,6 +451,7 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             ExperimentAxisDefault ax;
             ax.ref              = a->attr("ref");
             ax.allowed_variants = split_ws(a->attr("allowed_variants"));
+            ax.merge_mode       = a->attr("merge"); // KERN-A: per-Achse Merge-Modus (leer = replace-Default)
             ep.axes_default_lookup.push_back(std::move(ax));
         }
     }
@@ -453,6 +462,13 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
     }
     if (auto const* mc = root->child("measurement_categories")) {
         for (auto const* c : mc->children_named("category")) ep.measurement_categories.push_back(c->attr("name"));
+    }
+    // KERN-A (S4 Mess-Schema, 2026-07-20): <measurement_tooling> = die Mess-Tooling-HAUPT-Achse (auffaechernd;
+    // Section 47/55). Je <combo tools="..">-Kind EINE Tooling-KONFIG (Whitespace-Liste aus {wallclock/macro/micro}).
+    // Abwesenheit = leerer Vektor = Default [all] (byte-stabil, 1 Voll-Konfig). Der Parser prueft die ids NICHT
+    // (validate_profile, cache_engine-Schicht) -- rein additiv, Unbekanntes wird ignoriert.
+    if (auto const* mt = root->child("measurement_tooling")) {
+        for (auto const* c : mt->children_named("combo")) ep.measurement_tooling.push_back(split_ws(c->attr("tools")));
     }
     if (auto const* ot = root->child("op_types")) ep.op_types = ot->text_tokens();
     // <system_axes> (opt-f/A3): CEB-System-Achsen ueber die GETEILTE parse_system_axes-Naht (GN-3, 2026-07-19) —

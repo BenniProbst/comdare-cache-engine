@@ -306,6 +306,17 @@ struct ExperimentMetadata {
     std::string mode; // <metadata><mode> — defined|full|full_sampled (String; Enum-Pruefung = cache_engine-Schicht)
 };
 
+// KERN-A (S4 Mess-Schema, 2026-07-20): optionales <template ref=".." mode="full|..">. Der "Research-Gesamt-
+// algorithmus-Load": mode="full" = starte von der VOLLEN Whitelist aller Achsen + je Achse restrict/extend via
+// axes_default_lookup (der HEUTE funktionierende Pfad). ref = benanntes Paper-Template-Profil (SPAETERE Feature-
+// Erweiterung; die ce-/prt-Registries fuehren die Paper-Template-Profile noch NICHT -> ein unbekannter ref faellt
+// tolerant auf full zurueck). ADDITIV -- beide leer = heutiges Verhalten byte-identisch (die Aufloesung/Pruefung
+// lebt in der cache_engine-Schicht, NICHT hier -- Baseline-Layering).
+struct ExperimentTemplate {
+    std::string ref;  // <template ref=..> (benanntes Paper-Template-Profil; leer = kein Ref = mode-getrieben)
+    std::string mode; // <template mode=..> ("full" = Voll-Whitelist-Basis; leer = kein Template)
+};
+
 struct ExperimentEngine {
     std::string id;       // <engine id=..>
     std::string type;     // <engine type=..> (Adapter-Typname, roh belassen)
@@ -318,11 +329,19 @@ struct ExperimentPhase {
     std::string              engine;    // <phase engine=..> (optional Einzel-EE)
     std::vector<std::string> engines;   // <phase engines=..> (optional Whitespace-Liste von EE-ids)
     std::string              pruefling; // <phase pruefling=..> (optional)
+    // KERN-A (S4 Mess-Schema, 2026-07-20): optionales identity-Attribut. Markiert eine Phase als CacheEngine-self-
+    // Messung ("CacheEngine"/self; leer = kein self-Marker = heutiges Verhalten byte-identisch). Die Auswertung
+    // (CacheEngine-self-Pass, Fork 3) ist cache_engine-seitig (Director/Projektion) + binary_id-neutral.
+    std::string identity; // <phase identity=..> (optional; "CacheEngine"/self-Marker)
 };
 
 struct ExperimentAxisDefault {                 // <axes_default_lookup><axis ref allowed_variants/>
     std::string              ref;              // Registry-axis-id (z.B. "isa")
     std::vector<std::string> allowed_variants; // Whitespace-Liste von baustein-name-Werten (Teilmenge)
+    // KERN-A (S4 Mess-Schema, 2026-07-20): per-Achse Merge-Modus fuer die Pruefling-Komposition. Leer=""=replace-
+    // Default (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen (Fork 4). Die
+    // Enum-Pruefung {replace,merge} lebt in validate_profile (cache_engine-Schicht), NICHT hier (Baseline-Layering).
+    std::string merge_mode; // <axis merge=..> (optional; ""=replace-Default | "merge")
 };
 
 struct ExperimentOutput {
@@ -336,9 +355,10 @@ struct ExperimentOutput {
 // <system_axes>-PODs beider Kanaele; die frueher hier stehenden Definitionen sind dorthin relokiert). Doku dort.
 
 struct ExperimentProfile {
-    std::string                   version;   // <comdare_experiment version=..>
-    std::string                   id;        // <comdare_experiment id=..>
-    ExperimentMetadata            metadata;  // <metadata>
+    std::string                   version;  // <comdare_experiment version=..>
+    std::string                   id;       // <comdare_experiment id=..>
+    ExperimentMetadata            metadata; // <metadata>
+    ExperimentTemplate            templ; // KERN-A: <template ref mode> (Research-Gesamtalgorithmus-Load; leer = keiner)
     std::vector<ExperimentEngine> engines;   // <execution_engines><engine>* (Schema: GENAU 2)
     std::vector<std::string>      lebewesen; // <lebewesen><tier id=..>* (base_tier-ids)
     std::vector<ExperimentPhase>  phases;    // <phases><phase>* (Schema: >=1; Golden: 3 Kompositionale Joins)
@@ -348,8 +368,13 @@ struct ExperimentProfile {
     std::vector<std::string>           workloads;    // <workloads> (Whitespace-Tokens, YCSB-ids)
     std::vector<ThesisDatasetRef>      datasets;     // <datasets><dataset id akte_ref loader>* (Single-Source-Akten)
     std::vector<std::string> measurement_categories; // <measurement_categories><category name=..>* (Spalten-Projektion)
-    std::vector<std::string> op_types;               // <op_types> (Whitespace-Tokens OP-1..OP-6)
-    CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
+    // KERN-A (S4 Mess-Schema, 2026-07-20): Mess-Tooling-HAUPT-Achse (auffaechernd; Ledger Section 47/55). Je Eintrag
+    // = EINE Tooling-KONFIG = ein Vektor von Tooling-ids ({wallclock/macro/micro}). LEER = Default [all] = 1 Voll-
+    // Konfig (byte-stabil). ADDITIV + PASSIV: KERN-A traegt das Feld nur (Schema-Vollstaendigkeit); die SEMANTIK
+    // (id-Validierung gegen kMeasurementToolingRegistry + der N>1-Fan-out) gehoert dem Schwester-Paket P-MESSTOOL.
+    std::vector<std::vector<std::string>> measurement_tooling; // <measurement_tooling><combo tools=..>*
+    std::vector<std::string>              op_types;            // <op_types> (Whitespace-Tokens OP-1..OP-6)
+    CompilerAxisSel compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
     ExtensionHardwareAxisSel
                      extension_hardware; // <system_axes><extension_hardware><simd> (Haupt-Achse → simd-Unter-Achse)
     TargetIsaAxisSel target_isa;         // <system_axes><target_isa> (eigene Haupt-Achse -> Optionen x86_64|aarch64)

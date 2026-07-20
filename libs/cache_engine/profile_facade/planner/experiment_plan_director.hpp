@@ -980,9 +980,11 @@ public:
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
-        // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
-        // measurement_combos_of): ep traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
-        // Sobald der Parser das Feld fuellt: measurement_combos_of(ep.measurement_categories, ep.measurement_tooling).
+        // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. SCOPE (2026-07-20): das
+        // measurement_tooling-Feld ist ADDITIV im Schema (KERN-A: Parser fuellt es, Schema-Vollstaendigkeit), aber die
+        // Fan-out-VERDRAHTUNG hierher (measurement_combos_of(cats, ep.measurement_tooling)) gehoert dem Schwester-
+        // Paket P-MESSTOOL — KERN-A reicht es NICHT durch. Default bleibt {} => 1 Voll-Konfig [all] (byte-stabil zur
+        // heutigen 1-CEB-Strecke).
         std::vector<PlanMeasurementCombo> const combos   = measurement_combos_of(ep.measurement_categories);
         tlz::ResolverReport const               resolver = resolve_organ_position_(ep); // S3: INERT ohne volles Trio
         walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
@@ -1040,9 +1042,10 @@ public: // measurement_combos_of ist reine statische Fan-out-Kern-Logik -> als C
     // === OFFENE DESIGN-FRAGEN (§47/§55, GO-pflichtig — Manager, NICHT geraten): ===
     //   (D1) XML-Schema: <measurement_tooling>-Element (HAUPT, auffaechernd) FEHLT — nur <measurement_categories>
     //        (UNTER) existiert. Wie deklariert die Anwender-XML N Tooling-Konfigs? (validate_profile.hpp erweitern.)
-    //   (D2) Profil-Feld: cx::ThesisProfile / cx::ExperimentProfile tragen KEIN measurement_tooling-Feld — der
-    //        Parser (comdare::builder::xml) muss es fuellen; erst dann koennen die Call-Sites (construct(), s.u.) es
-    //        hierher reichen. HEUTE reichen die Call-Sites nichts => Default {} => 1 Voll-Konfig [all].
+    //   (D2) TEILWEISE — cx::ExperimentProfile traegt jetzt das PASSIVE Feld measurement_tooling (KERN-A: der Parser
+    //        fuellt es aus <measurement_tooling><combo tools=..>; reine Schema-Vollstaendigkeit). Die Call-Site-
+    //        Verdrahtung (construct() reicht ep.measurement_tooling hierher) + der Fan-out (D4) gehoeren dem
+    //        Schwester-Paket P-MESSTOOL. HEUTE reicht construct() {} => 1 Voll-Konfig [all] (byte-stabil).
     //   (D3) Registry-Angebot -> Anwahl (Resolver): kMeasurementToolingRegistry ist das ANGEBOT; WIE das
     //        Anwender-XML (.pom) daraus die Konfigs waehlt (Resolver, §27/§28), ist offen.
     //   (D4) Fan-out-Aktivierung + Kollisionsschutz: N>1 Konfigs => N ceb:build:[a,b,c]-Strecken; ABER da §56/T6 die
