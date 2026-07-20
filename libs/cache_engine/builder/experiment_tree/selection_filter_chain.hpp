@@ -100,4 +100,37 @@ protected:
     return out;
 }
 
+/// resolve_selection (§50-CoR-EINHAENGUNG) — die EINE Naht, die eine bestehende BuildSelection durch die (mess-
+/// getriebene) Filter-Kette schickt und die reduzierte BuildSelection zurueckliefert. So wird der CoR-Mechanismus
+/// (run_selection_filter_chain) an den Selektions->Bau-Seams AKTIVIERT: aus sel.indices entstehen Kandidaten, die
+/// Kette entscheidet je Kandidat (dispatch), Ueberlebende (!= Reject) bilden die neue Selektion.
+///
+/// NICHT-REDUKTION (row=std::nullopt): die Kandidaten tragen KEINE Auswertungs-Zeile (row=nullopt), weil an dieser
+/// Einhaengung die MeasurementRow-Rueckfuehrung noch nicht verdrahtet ist. Damit ist ResumeFilter::handle-Reject
+/// (feuert NUR bei c.row.has_value() && two_phase_valid) strukturell UNERREICHBAR — eine Kette aus row-abhaengigen
+/// Gliedern reduziert also nie, solange keine Zeilen gefuettert werden.
+///
+/// IDENTITAETS-GARANTIE (leere Kette): resolve_selection(sel, {}) ist byte-identisch zu sel — indices in Wert UND
+/// Reihenfolge unveraendert (run_selection_filter_chain behaelt PassToNext-Kandidaten in Eingabe-Reihenfolge) UND
+/// provenance byte-gleich: die "|filtered:cor"-Fortschreibung wird bei leerer Kette NICHT angehaengt, sondern
+/// sel.provenance zurueck-uebernommen. Der Default-Einhaengungspunkt ist damit golden-neutral (kein Byte anders
+/// als vor der Einhaengung).
+///
+/// DEFERRED (#156): ein echter row-gefuetterter Handler (join Auswertung<->Generierung ueber binary_id +
+/// MeasurementRow) reduziert real; er wird additiv als weiteres Ketten-Glied nachgezogen, wenn die Mess-
+/// Rueckfuehrung (best_binary_selector -> resolve_selection) verdrahtet ist. Bis dahin bleibt die Einhaengung eine
+/// reine Identitaet.
+[[nodiscard]] inline BuildSelection resolve_selection(BuildSelection                     sel,
+                                                      std::vector<FilterHandler*> const& chain = {}) {
+    std::vector<PermutationCandidate> candidates;
+    candidates.reserve(sel.indices.size());
+    // row=nullopt: ResumeFilter-Reject (row.has_value() && two_phase_valid) strukturell unerreichbar (Nicht-Reduktion).
+    for (std::size_t const idx : sel.indices)
+        candidates.push_back(PermutationCandidate{idx, std::string{}, std::nullopt});
+    BuildSelection out = run_selection_filter_chain(candidates, chain, sel.provenance);
+    // Strikte Identitaet bei leerer Kette: provenance byte-gleich zurueck (keine "|filtered:cor"-Fortschreibung).
+    if (chain.empty()) out.provenance = std::move(sel.provenance);
+    return out;
+}
+
 } // namespace comdare::cache_engine::builder::experiment
