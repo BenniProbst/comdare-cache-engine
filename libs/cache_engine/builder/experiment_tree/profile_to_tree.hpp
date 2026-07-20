@@ -92,7 +92,7 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
         // binary_id NICHT verunreinigen — sie laeuft ueber die CEB-System-Achsen-Schicht (build_system_axis_levels,
         // +ext=/+target=-Sidecar), NICHT den 17-Slot-Organ-Pfad. Damit ist "Organ-only-binary_id" STRUKTUR statt
         // Autor-Konvention (m3v2/golden waren schon organ-rein → golden-neutral). Der lautstarke Reject-/Routing-
-        // Pfad in validate_profile ist der Folge-Schritt P-RESOLVER (S3), der auf diesem Guard aufsetzt.
+        // Pfad in validate_profile ist erledigt in S3 (resolve_axis_refs_against_trio), der auf diesem Guard aufsetzt.
         if (!is_organ_composition_axis(ax.ref)) continue;
         std::vector<std::string> vals = ax.values; // explizit?
         if (vals.empty()) {                        // sonst volle Liste aus dem Registry

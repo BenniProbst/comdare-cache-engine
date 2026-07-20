@@ -271,6 +271,92 @@ TEST(ExperimentPlanDirector, DirectorAnnotatesPlanHeaderWithRegistryTrio) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// (E2/E3) S3 P-RESOLVER (minimal-3-tief, 2026-07-20): mit dem VOLLEN RegistryTrio konstruiert, ruft der Director
+// den Resolver (resolve_axis_refs_against_trio) auf den Organ-Position-Refs des Profils und traegt den
+// klassifizierten ResolverReport in den Plan-Kopf (sichtbar im --dump-plan). INERT-by-default: OHNE volles Trio
+// (Default-/Annotation-Konstruktor) bleibt der Resolver aus (resolved=0). binary_id-neutral -- reine Annotation.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (E2) POSITIV: organ-reines Thesis-Profil (planner_thesis_min: permute_axes = {search_algo}) -> 0 Rejects,
+//      resolved=1/ok=1 im Plan-Kopf + im --dump-plan-Text. RegistryTrio 17/5/16 bleibt unveraendert.
+TEST(ExperimentPlanDirector, ResolverOrganPureProfileZeroRejectsInPlanHead) {
+    auto const trio =
+        tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
+                                     fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
+    ASSERT_TRUE(trio.has_value());
+    ASSERT_EQ(trio->organ_axis_count(), 17u) << "RegistryTrio 17/5/16 unveraendert gruen";
+    ASSERT_EQ(trio->system_axis_count(), 5u);
+    ASSERT_EQ(trio->measurement_category_count(), 16u);
+
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director{*trio}; // VOLLES Trio => Resolver laeuft
+    CountingBuilder                       cb;
+    director.construct(*tp, cb);
+    EXPECT_TRUE(cb.header.resolver.resolved) << "mit vollem Trio LIEF der Resolver";
+    EXPECT_TRUE(cb.header.resolver.ok) << "organ-reines Profil => 0 Rejects";
+    EXPECT_TRUE(cb.header.resolver.rejects.empty());
+
+    planner::PlanTextBuilder text;
+    director.construct(*tp, text);
+    EXPECT_NE(text.text().find("resolver resolved=1 ok=1 rejects=0"), std::string::npos) << text.text();
+    EXPECT_EQ(text.text().find("reject code="), std::string::npos) << "kein Reject im organ-reinen Profil";
+}
+
+// (E3) NEGATIV/ROUTE: eine SYSTEM-Achse (target_isa) in Organ-Position (permute_axes) -> V-CATEGORY-Reject mit
+//      Koordinate im Plan-Kopf UND als reject-Zeile im --dump-plan. Die Perm-/Schritt-Topologie bleibt unberuehrt.
+TEST(ExperimentPlanDirector, ResolverRoutesMisplacedSystemAxisInDumpPlan) {
+    auto const trio =
+        tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
+                                     fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
+    ASSERT_TRUE(trio.has_value());
+
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp.has_value());
+    cx::ThesisAxisSpec bogus;
+    bogus.ref = "target_isa"; // System-Achse in Organ-Position => fehlplatziert (V-CATEGORY)
+    tp->permute_axes.push_back(bogus);
+
+    planner::ExperimentPlanDirector const director{*trio};
+    CountingBuilder                       cb;
+    director.construct(*tp, cb);
+    EXPECT_TRUE(cb.header.resolver.resolved);
+    EXPECT_FALSE(cb.header.resolver.ok) << "fehlplatzierte System-Achse => Reject";
+    ASSERT_EQ(cb.header.resolver.rejects.size(), 1u);
+    EXPECT_EQ(cb.header.resolver.rejects[0].code, "V-CATEGORY");
+    EXPECT_EQ(cb.header.resolver.rejects[0].ref, "target_isa") << "deterministische Koordinate";
+    // Die Perm-/Schritt-Topologie ist unberuehrt (permute_axes speist NICHT den Sweep-Walk).
+    ASSERT_EQ(cb.perms.size(), 1u) << "keine system_axes => 1 Identitaets-Perm (unberuehrt)";
+    EXPECT_EQ(cb.total_steps(), 1u) << "1 Basis-Sweep-Pass (unberuehrt)";
+
+    planner::PlanTextBuilder text;
+    director.construct(*tp, text);
+    EXPECT_NE(text.text().find("resolver resolved=1 ok=0 rejects=1"), std::string::npos) << text.text();
+    EXPECT_NE(text.text().find("reject code=V-CATEGORY ref=target_isa"), std::string::npos) << text.text();
+    EXPECT_NE(text.text().find("build_system_axis_levels"), std::string::npos) << "Routing-Ziel im --dump-plan";
+}
+
+// (E4) INERT-by-default: OHNE volles Trio (Default-Konstruktor, wie in der Fassade) bleibt der Resolver aus
+//      (resolved=0) -- das Vor-S3-Verhalten byte-identisch, kein Reject im --dump-plan.
+TEST(ExperimentPlanDirector, ResolverInertWithoutFullTrio) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director; // Default => full_trio_ leer
+    CountingBuilder                       cb;
+    director.construct(*tp, cb);
+    EXPECT_FALSE(cb.header.resolver.resolved) << "ohne volles Trio ist der Resolver INERT";
+    EXPECT_TRUE(cb.header.resolver.ok);
+    EXPECT_TRUE(cb.header.resolver.rejects.empty());
+
+    planner::PlanTextBuilder text;
+    director.construct(*tp, text);
+    EXPECT_NE(text.text().find("resolver resolved=0 ok=1 rejects=0"), std::string::npos) << text.text();
+    EXPECT_EQ(text.text().find("reject code="), std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PAKET W5-B / I2 — CMakeGraphBuilder: zweiter ConcreteBuilder (GoF Builder) am SELBEN Director-Walk. Emittiert
 // ein deterministisches experiment_plan.cmake (Bau-/Mess-Matrix als CMake-Graph). GEPRUEFT: (F/G) Topologie-
 // Isomorphie zum Director-Walk (dieselbe Perm-Menge + Schritt-Reihenfolge wie ein CountingBuilder, den auch der

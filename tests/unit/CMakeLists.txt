@@ -2794,7 +2794,12 @@ target_include_directories(test_validate_profile PRIVATE
 target_link_libraries(test_validate_profile PRIVATE Boost::mp11)
 target_compile_definitions(test_validate_profile PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
-    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\"")
+    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
+    # S3 P-RESOLVER (2026-07-20): die 3 Art-Registries fuer resolve_axis_refs_against_trio (REALES Angebot lesen
+    # statt eine Achsenliste hartkodieren -- Single-Source, kein Drift). Deckungsgleich zu test_experiment_plan_director.
+    "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
+    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml\""
+    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml\"")
 set_tests_properties(test_validate_profile PROPERTIES LABELS "contract;profiles;e4;validate")
 
 # GO-5 Fork 7 (2026-07-12, Dossier 20260712-go5 A.7) — ctest-Gate fuer die TOOL-BERECHNETE

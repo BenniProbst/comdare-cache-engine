@@ -59,6 +59,7 @@
 #include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
 #include <cache_engine/measurement/target_isa_system_axis.hpp> // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
+#include <cache_engine/measurement/axis_error.hpp> // S3 P-RESOLVER: error_class_label(KonfigXmlParse) NUR lesend (Fehlerklassen-Etikett; KEIN Enum-/Count-Bump)
 #include <anatomy/pruefling_merge.hpp>             // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
 #include "xml_config_parser/xml_reader.hpp"        // INC-D: common-DOM zum Lesen der Registry-XML (kein regex)
@@ -600,6 +601,98 @@ read_axis_registry_trio(std::filesystem::path const& organ_registry, std::filesy
     auto m = read_axis_registry(measurement_registry);
     if (!o || !s || !m) return std::nullopt;
     return RegistryTrio{std::move(*o), std::move(*s), std::move(*m)};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3 P-RESOLVER (minimal-3-tief, 2026-07-20, STUFE-Doc 20260719-...-resolver-STUFE.md §3.C.4 + §4.4-I1) —
+// resolve_axis_refs_against_trio: der LAUTE, KLASSIFIZIERTE Reject/Route-Schritt, der auf dem STRUKTURELLEN
+// Organ-only-binary_id-Guard (profile_to_tree.hpp is_organ_composition_axis) AUFSETZT. Wo build_axis_levels
+// heute eine fehlplatzierte System-/Mess-Achse STILL via `continue` verwirft (kein binary_id-Level entsteht),
+// macht dieser Resolver das Verwerfen SICHTBAR: er loest die BEREITS geparsten Anwender-Refs der ORGAN-POSITION
+// (Thesis permute_axes.ref / Experiment axes_default_lookup.ref) gegen das BEREITS existierende RegistryTrio-
+// ANGEBOT auf -- KEIN Parallel-Validator, KEIN zweiter Parser (STUFE §3.C.4: Ausbaustufe der Validat-Schicht).
+// Je Ref genau EINE Klassifikation:
+//   * (korrekt platziert) Ref in trio.organ.axis_names            -> KEIN Reject (organ-reines Profil => 0 Rejects).
+//   * V-CATEGORY          Ref in trio.system ODER trio.measurement, aber in Organ-Position -> Route-Meldung:
+//                         gehoert ueber die CEB-System-Schicht (build_system_axis_levels), NICHT den 17-Slot-
+//                         Organ-Pfad (binary_id-neutral) -- STUFE §4.4-I1 "System-/Mess-Ref in Organ-Position".
+//   * V-UNREG-AXIS        Ref in KEINER der 3 Angebots-Registries -> harter Reject (Symbol-Analogie: ein
+//                         fehlendes dlsym-Symbol, STUFE §3.C.3 E-RES-V).
+// Die Meldung traegt das STABILE Fehlerklassen-Etikett error_class_label(KonfigXmlParse) (axis_error.hpp, NUR
+// lesend eingebunden -- KEIN Enum-/Count-Bump; die V-Codes reisen als Detail-String darunter) + die Ref-
+// KOORDINATE (deterministisch, MIT Achsen-Name). ADDITIV + read-only: aendert KEINE AxisLevels/binary_id
+// (golden-neutral); die Nicht-Achsen-Sonderzweige cacheline/node_width/alloc_hw sind wie in build_axis_levels
+// separat behandelt (KEIN Reject). Datei-disjunkt zu etwaigen SampleStatus-Splits (axis_error.hpp read-only).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// EIN klassifizierter Reject: V-Code (Detail-String, KEIN axis_error-Enum-Wert) + Ref-Koordinate + Meldung.
+struct ClassifiedReject {
+    std::string code;    // "V-UNREG-AXIS" | "V-CATEGORY" (Detail-Vokabular, NICHT das CompilerCompilerErrorClass-Enum)
+    std::string ref;     // die Ref-KOORDINATE (Achsen-Name aus der Anwender-XML)
+    std::string message; // die deterministische, menschenlesbare Meldung MIT Koordinate + Fehlerklassen-Etikett
+};
+
+/// Ergebnis-POD der Organ-Position-Aufloesung: ok=true <=> 0 Rejects. `resolved` = true, sobald der Resolver
+/// gegen ein RegistryTrio LIEF (vs. dem Default-INERT-Zustand ohne Trio) -- der Plan-Kopf-Render gatet daran.
+struct ResolverReport {
+    bool                          ok       = true;  // true = alle Organ-Position-Refs sauber (0 Rejects)
+    bool                          resolved = false; // true = gegen ein RegistryTrio aufgeloest (nicht INERT-Default)
+    std::vector<ClassifiedReject> rejects;
+};
+
+/// resolve_axis_refs_against_trio — loest die Organ-Position-Refs gegen das 3-Art-Angebot auf (s. Block-Doku).
+/// `organ_position_refs` = die Achsen-Refs, die im Anwender-Profil in Organ-Position stehen. READ-ONLY; baut/misst
+/// nichts. `resolved`==true im Ergebnis (der Resolver LIEF); ok==true <=> die rejects-Liste ist leer.
+[[nodiscard]] inline ResolverReport resolve_axis_refs_against_trio(std::vector<std::string> const& organ_position_refs,
+                                                                   RegistryTrio const&             trio) {
+    ResolverReport report;
+    report.resolved = true;
+    // Stabiles Fehlerklassen-Etikett (axis_error.hpp, READ-ONLY): KonfigXmlParse = die D1-Klasse fuer eine
+    // ungueltige/unparsbare Konfig-XML-Achse. Die V-Codes sind der Detail-String darunter (kein Enum-Bump).
+    std::string const klass{ms::error_class_label(ms::CompilerCompilerErrorClass::KonfigXmlParse)};
+    for (auto const& ref : organ_position_refs) {
+        // Organ-Sonderzweig-Unter-Achsen (cacheline/node_width/alloc_hw): compile-time Organ-SUB-Achsen, NICHT als
+        // eigener Registry-<axis> gefuehrt (validate_profile Pruefung (1) behandelt sie separat als Warn-Skip); sie
+        // erreichen den is_organ_composition_axis-Guard nie und sind hier ebenso KEIN Reject (build-Verhalten-treu).
+        if (ref == "cacheline" || ref == "node_width" || ref == "alloc_hw") continue;
+        if (trio.organ.axis_names.count(ref) != 0) continue; // korrekt platziert (Organ-Achse) -> kein Reject
+        bool const in_system      = trio.system.axis_names.count(ref) != 0;
+        bool const in_measurement = trio.measurement.axis_names.count(ref) != 0;
+        report.ok                 = false;
+        if (in_system || in_measurement) {
+            std::string const art = in_system ? "System" : "Mess";
+            std::string const reg = in_system ? "cache_engine_system" : "cache_engine_measurement";
+            report.rejects.push_back(
+                ClassifiedReject{"V-CATEGORY", ref,
+                                 "[" + klass + "] V-CATEGORY <axis ref=\"" + ref +
+                                     "\"> in Organ-Position: die Achse ist eine " + art + "-Achse (Angebot " + reg +
+                                     "), NICHT organ-kompositional -- sie gehoert ueber die CEB-System-Schicht "
+                                     "build_system_axis_levels, NICHT den 17-Slot-Organ-Pfad (binary_id-neutral)."});
+        } else {
+            report.rejects.push_back(ClassifiedReject{
+                "V-UNREG-AXIS", ref,
+                "[" + klass + "] V-UNREG-AXIS <axis ref=\"" + ref +
+                    "\">: in KEINER Angebots-Registry (organ/system/measurement) registriert -- unaufloesbare "
+                    "Koordinate (Symbol-Analogie: fehlendes dlsym-Symbol)."});
+        }
+    }
+    return report;
+}
+
+/// organ_position_refs — die Organ-Position-Achsen-Refs eines Anwender-Profils (die Ref-Quellen des Resolvers).
+/// Thesis: permute_axes.ref. ADDITIV, read-only (die eigentliche binary_id-Ableitung bleibt build_axis_levels).
+[[nodiscard]] inline std::vector<std::string> organ_position_refs(cx::ThesisProfile const& tp) {
+    std::vector<std::string> refs;
+    refs.reserve(tp.permute_axes.size());
+    for (auto const& ax : tp.permute_axes) refs.push_back(ax.ref);
+    return refs;
+}
+/// Experiment: axes_default_lookup.ref (die Default-/Limit-Schicht = die Organ-Position der Experiment-XML).
+[[nodiscard]] inline std::vector<std::string> organ_position_refs(cx::ExperimentProfile const& ep) {
+    std::vector<std::string> refs;
+    refs.reserve(ep.axes_default_lookup.size());
+    for (auto const& ax : ep.axes_default_lookup) refs.push_back(ax.ref);
+    return refs;
 }
 
 /// validate_experiment_profile — DIE reine Pruef-Logik (read-only). Zwei Registry-Aufloesungs-Modi:
