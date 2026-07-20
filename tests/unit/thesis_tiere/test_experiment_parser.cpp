@@ -475,3 +475,179 @@ TEST(ExperimentParser, BogusTargetIsaIsError) {
     EXPECT_TRUE(any_contains(vr.errors, "riscv"));
     EXPECT_EQ(vr.target_isa_checked, 1u);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KERN-A (S4 Mess-Schema, 2026-07-20) — die additiven Felder + Checks der Mess-Schema-Steuerung. golden-neutral:
+// die Golden-Instanz wird nur gelesen/in-memory mutiert (kein XML angefasst); die Parser-Naht wird ueber Temp-XML
+// end-to-end belegt. Beweist: measurement_tooling-HAUPT PASSIV geparst (K1; die Semantik/Validierung ist P-MESSTOOL),
+// per-Achse merge_mode (K1/K3), phase.identity / CacheEngine-self (K1/K3), <template> (K1 + tolerante K3),
+// leere phases/categories = derive/all-16 (K3).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (k1a) K1 — der Parser liest die Mess-Tooling-HAUPT-Achse PASSIV: je <combo tools=".."/> EINE Tooling-KONFIG.
+//       (Die id-Validierung + der Fan-out gehoeren dem Schwester-Paket P-MESSTOOL; KERN-A traegt das Feld nur.)
+TEST(ExperimentParser, ParsesMeasurementToolingHauptAchse) {
+    auto const ep = parse_experiment_with_system_axes("  <measurement_tooling>\n"
+                                                      "    <combo tools=\"wallclock macro\"/>\n"
+                                                      "    <combo tools=\"micro\"/>\n"
+                                                      "  </measurement_tooling>\n");
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->measurement_tooling.size(), 2u);
+    ASSERT_EQ(ep->measurement_tooling[0].size(), 2u);
+    EXPECT_EQ(ep->measurement_tooling[0][0], "wallclock");
+    EXPECT_EQ(ep->measurement_tooling[0][1], "macro");
+    ASSERT_EQ(ep->measurement_tooling[1].size(), 1u);
+    EXPECT_EQ(ep->measurement_tooling[1][0], "micro");
+}
+
+// (k1c) K1 — der Parser liest das optionale <template ref mode> (Research-Gesamtalgorithmus-Load).
+TEST(ExperimentParser, ParsesTemplateElement) {
+    auto const ep = parse_experiment_with_system_axes("  <template ref=\"research_full\" mode=\"full\"/>\n");
+    ASSERT_TRUE(ep.has_value());
+    EXPECT_EQ(ep->templ.ref, "research_full");
+    EXPECT_EQ(ep->templ.mode, "full");
+}
+
+// (k3-tmpl-a) K3 — ein <template mode="full"> OHNE ref wird AKZEPTIERT (mode="full" = der bereits funktionierende
+//             Voll-Whitelist-Pfad + axes_default_lookup restrict/extend). Abwesenheit von ref = kein Fehler.
+TEST(ExperimentParser, TemplateModeFullWithoutRefIsAccepted) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->templ.ref  = ""; // kein benanntes Paper-Template -> rein mode-getrieben
+    ep->templ.mode = "full";
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok) << "<template mode=\"full\"> ohne ref = der heutige Voll-Whitelist-Pfad (kein Fehler)";
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (k3-tmpl-b) K3 — ein <template mode="full"> mit (noch) unbekanntem ref validiert TOLERANT (kein harter Fehler;
+//             die Paper-Template-Aufloesung ist post-v3, faellt auf full zurueck). mode="full" = heutiger Pfad.
+TEST(ExperimentParser, TemplateWithUnknownRefValidatesTolerant) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->templ.ref  = "some_future_paper_template"; // die Registries fuehren es NOCH NICHT
+    ep->templ.mode = "full";
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok) << "unbekannter template-ref = kein harter Fehler (post-v3, faellt auf full zurueck)";
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (k1b) K1 — der Parser liest per-Achse merge (axes_default_lookup/axis) + phase identity (CacheEngine-self-Marker).
+TEST(ExperimentParser, ParsesPerAxisMergeAndPhaseIdentity) {
+    auto const ep = parse_experiment_with_system_axes(
+        "  <phases>\n"
+        "    <phase name=\"self_phase\" merge=\"Stufe1_CeOnly\" identity=\"CacheEngine\"/>\n"
+        "  </phases>\n"
+        "  <axes_default_lookup enabled=\"true\">\n"
+        "    <axis ref=\"mapping\" allowed_variants=\"direct_placement\" merge=\"merge\"/>\n"
+        "    <axis ref=\"search_algo\" allowed_variants=\"btree\"/>\n"
+        "  </axes_default_lookup>\n");
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->phases.size(), 1u);
+    EXPECT_EQ(ep->phases[0].identity, "CacheEngine");
+    ASSERT_EQ(ep->axes_default_lookup.size(), 2u);
+    EXPECT_EQ(ep->axes_default_lookup[0].merge_mode, "merge");  // gesetzt
+    EXPECT_TRUE(ep->axes_default_lookup[1].merge_mode.empty()); // abwesend = replace-Default
+}
+
+// (k3c) K3 — ein Bogus per-Achse Merge-Modus ist ein HARTER Fehler ({replace,merge}; leer = replace-Default).
+TEST(ExperimentParser, BogusPerAxisMergeModeIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->axes_default_lookup[0].merge_mode = "kombiniere"; // ausserhalb {replace,merge}
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGER Merge-Modus"));
+    EXPECT_TRUE(any_contains(vr.errors, "kombiniere"));
+    EXPECT_EQ(vr.axis_merge_checked, 1u);
+}
+
+// (k3d) K3 — ein gueltiger per-Achse Merge-Modus ("merge") wird AKZEPTIERT; leere merge (Default) zaehlt nicht mit.
+TEST(ExperimentParser, ValidPerAxisMergeModeIsAccepted) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->axes_default_lookup[0].merge_mode = "merge"; // gueltig; axes[1..2] bleiben leer = replace-Default
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.axis_merge_checked, 1u); // nur die EINE gesetzte Achse
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (k3e) K3 Fork 3 — ein pruefling="CacheEngine" (self-Marker) wird AKZEPTIERT (misst die CacheEngine SELBST,
+//       NICHT dem <lebewesen>-Zwang unterworfen); ein identity="self" ebenso.
+TEST(ExperimentParser, CacheEngineSelfPrueflingAndIdentityAccepted) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->phases[1].pruefling = "CacheEngine"; // self-Marker statt eines <lebewesen>
+    ep->phases[0].identity  = "self";        // gueltiger self-Marker
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_FALSE(any_contains(vr.errors, "UNBEKANNTES Pruefling-Lebewesen"));
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (k3f) K3 Fork 3 — ein GESETZTES identity, das KEIN anerkannter self-Marker ist, ist ein HARTER Fehler
+//       (ein Tippfehler wuerde sonst still keinen CacheEngine-self-Pass markieren).
+TEST(ExperimentParser, BogusPhaseIdentityIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->phases[0].identity = "CachEngine"; // Tippfehler (nicht CacheEngine/self)
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "kein anerkannter CacheEngine-self-Marker"));
+    EXPECT_TRUE(any_contains(vr.errors, "CachEngine"));
+}
+
+// (k3g) K3 — LEERE <measurement_categories> = "alle 16 Kategorien" = OK (Check (6) uebersprungen, kein Fehler).
+TEST(ExperimentParser, EmptyMeasurementCategoriesIsOk) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->measurement_categories.clear();
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok) << "leere categories = alle 16 (kein Fehler)";
+    EXPECT_EQ(vr.categories_checked, 0u);
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (k3h) K3 — LEERE <phases> ist KEIN Fehler mehr (KERN-A: der Planer leitet die 3 Default-Stufen ab).
+TEST(ExperimentParser, EmptyPhasesIsOkAndDerives) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->phases.clear();
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok) << "leere <phases> = derive (kein Fehler)";
+    EXPECT_EQ(vr.phases_checked, 0u);
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}

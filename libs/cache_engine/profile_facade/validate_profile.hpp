@@ -494,10 +494,21 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //       ein leeres Element erfand still "OP-1". Die 6 Token spiegeln die XSD-Enumeration; der super-Treiber
 //       fuehrt dieselbe Tabelle (02_messung_driver/op_type_filter.hpp kOpTypeTable) — ce darf super nicht
 //       inkludieren (Baseline-Layering), daher hier der XSD-Kontrakt als Single-Source zitiert.
-//   HINWEIS K7 (E11-gated, BEWUSST NICHT hier): Kardinalitaets-/Struktur-Regeln, die vom E11-Entscheid
-//   (Phasen-Kardinalitaet/Serie) abhaengen — ==3-Phasen-Haertung, engine/engines-XOR, phase.engine(s)-
-//   Referenz-Checks gegen die engine-ids, merge-Enum-Kardinalitaet je Phase (F19/F21) — bleiben offen,
-//   bis der User-Fork C (F21) entschieden ist.
+//  (11) KERN-A (S4 Mess-Schema, 2026-07-20): phases sind OPTIONAL — leer/fehlend = der Planer LEITET die 3
+//       Default-Stufen ab (Stufe1_CeOnly . je Pruefling Stufe2 . Stufe3_FullJoin). Ein pruefling/identity=
+//       "CacheEngine"/"self" ist ein self-Marker (misst die CacheEngine SELBST, NICHT ∈ <lebewesen>-Zwang, Fork 3).
+//  (12) KERN-A: per-Achse <axes_default_lookup><axis merge=..> ∈ {replace,merge}, leer = replace-Default (Fork 4).
+//  (13) KERN-A: leere <measurement_categories> = alle 16 (Check (6) uebersprungen, kein Fehler). Das PASSIVE
+//       <measurement_tooling> ist nur geparst+getragen (leer = Default [all]); seine Semantik/Validierung ist P-MESSTOOL.
+//  (14) KERN-A: <template ref=".." mode="full|.."> (Research-Gesamtalgorithmus-Load). mode="full" = der HEUTE
+//       funktionierende Pfad (Voll-Whitelist aller Achsen + axes_default_lookup restrict/extend). TOLERANT: ein
+//       ref auf ein benanntes Paper-Template-Profil ist eine SPAETERE Erweiterung (Registries fuehren die
+//       Paper-Templates noch NICHT) -> unbekannter ref = KEIN harter Fehler (faellt auf full zurueck). Abwesenheit
+//       = kein Template (byte-identisch). Hier daher KEINE harte Pruefung -- reine Provenienz/Weitergabe.
+//   HINWEIS K7 (E11-gated): die Phasen-KARDINALITAET-Gate ist durch die KERN-Beschreibung RESOLVED (0=derive /
+//   sonst Override; die ==3-Phasen-Haertung ist damit bewusst DECIDED-AGAINST). Die verbleibenden STRUKTUR-Regeln —
+//   engine/engines-XOR, phase.engine(s)-Referenz-Checks gegen die engine-ids, merge-Enum-Kardinalitaet je Phase
+//   (F19/F21) — bleiben separat offen (nicht Teil des Mess-Schema-KERN), bis der User-Fork C (F21) entschieden ist.
 // registry_dir leer = (4)+(5) uebersprungen (rein strukturelle Validierung; der Host reicht das
 // Registry-Verzeichnis herein — analog validate_profile::known_workload_ids).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -533,7 +544,23 @@ struct ExperimentValidationResult {
     std::size_t simd_checked       = 0; // opt-f/A3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
     std::size_t atomic128_checked  = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
     std::size_t target_isa_checked = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
+    std::size_t axis_merge_checked = 0; // KERN-A (S4): gepruefte per-Achse <axis merge=..>-Modi (0 = keine)
 };
+
+// ── KERN-A (S4 Mess-Schema, 2026-07-20): die zwei erlaubten per-Achse Merge-Modi (Fork 4). Leer=""=replace-Default
+//    (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen. Single-Source hier. ──
+inline constexpr char const* kExperimentAxisMergeModes[] = {"replace", "merge"};
+
+// ── KERN-A (S4): die anerkannten CacheEngine-self-Marker fuer <phase pruefling=..> / <phase identity=..> (Fork 3).
+//    Ein so markierter Pruefling misst die CacheEngine SELBST (nicht ein SOTA-Lebewesen) => NICHT dem
+//    <lebewesen>-Zwang unterworfen. Single-Source hier (kein verstreuter String-Vergleich). ──
+inline constexpr char const* kCacheEngineSelfMarkers[] = {"CacheEngine", "self"};
+
+[[nodiscard]] inline bool is_cache_engine_self_marker(std::string const& s) {
+    for (auto const* m : kCacheEngineSelfMarkers)
+        if (s == m) return true;
+    return false;
+}
 
 // ── Inhalt einer comdare_axis_registry.xml: engine-Attr + axis-id -> {baustein name}. ──
 struct RegistryContents {
@@ -735,11 +762,11 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
 
-    // ── (2) mindestens 1 phase. ──
-    if (ep.phases.empty()) {
-        r.ok = false;
-        r.errors.push_back("EXPERIMENT braucht mindestens 1 <phases><phase> (die Kompositionalen Joins).");
-    }
+    // ── (2) KERN-A (S4 Mess-Schema, 2026-07-20): phases sind jetzt OPTIONAL — die E11/Fork-C-Kardinalitaets-Gate
+    //    ist durch die KERN-Beschreibung RESOLVED: leer/fehlend = der Planer LEITET die 3 Default-Stufen ab
+    //    (Stufe1_CeOnly . je Pruefling Stufe2 . Stufe3_FullJoin, experiment_plan_director). Explizite Phasen sind
+    //    der Override (byte-identisch zum Ist) und werden unten (3) gegen das MergeStrategy-Enum validiert. Ein
+    //    leeres <phases> ist damit KEIN Fehler mehr (vorher: mindestens 1 erzwungen). ──
 
     // ── (3) jede phase.merge ∈ MergeStrategy-Enum. (8) F22: gesetztes pruefling ∈ <lebewesen>-tier-ids. ──
     std::set<std::string> valid_merges;
@@ -754,12 +781,25 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
                 "UNGUELTIGE Merge-Strategie <phase name=\"" + ph.name + "\" merge=\"" + ph.merge +
                 "\">: kein MergeStrategy-Enum-Wert (pruefling_merge.hpp). Gueltig = " + preview_values(vm));
         }
-        if (!ph.pruefling.empty() && lebewesen_ids.find(ph.pruefling) == lebewesen_ids.end()) {
+        // KERN-A (S4, Fork 3): ein CacheEngine-self-Marker ("CacheEngine"/"self") als pruefling misst die
+        // CacheEngine SELBST (nicht ein SOTA-Lebewesen) => NICHT dem <lebewesen>-Zwang unterworfen. Ein sonstiger
+        // gesetzter pruefling muss weiterhin eine deklarierte <lebewesen><tier id> sein (Tippfehler = HARTER Fehler).
+        if (!ph.pruefling.empty() && !is_cache_engine_self_marker(ph.pruefling) &&
+            lebewesen_ids.find(ph.pruefling) == lebewesen_ids.end()) {
             r.ok = false;
             std::vector<std::string> const ids(lebewesen_ids.begin(), lebewesen_ids.end());
             r.errors.push_back("UNBEKANNTES Pruefling-Lebewesen <phase name=\"" + ph.name + "\" pruefling=\"" +
                                ph.pruefling +
-                               "\">: keine deklarierte <lebewesen><tier id>. Deklariert = " + preview_values(ids));
+                               "\">: keine deklarierte <lebewesen><tier id> (CacheEngine/self = self-Marker). "
+                               "Deklariert = " +
+                               preview_values(ids));
+        }
+        // KERN-A (S4, Fork 3): ein GESETZTES identity-Attribut muss ein anerkannter self-Marker sein — ein Tippfehler
+        // wuerde sonst still keinen CacheEngine-self-Pass markieren. Leer = kein self-Marker (heutiges Verhalten).
+        if (!ph.identity.empty() && !is_cache_engine_self_marker(ph.identity)) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGE <phase name=\"" + ph.name + "\" identity=\"" + ph.identity +
+                               "\">: kein anerkannter CacheEngine-self-Marker (CacheEngine/self).");
         }
     }
 
@@ -844,6 +884,23 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.errors.push_back(
                 "UNGUELTIGE <target_isa value=\"" + t +
                 "\">: kein Wert der target_isa-Enumeration x86_64/aarch64 (target_isa_system_axis.hpp).");
+        }
+    }
+
+    // ── KERN-A (S4, Fork 4): per-Achse Merge-Modus <axes_default_lookup><axis merge=..>. Leer=""=replace-Default
+    //    (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen. HART gegen
+    //    {replace,merge} (Single-Source kExperimentAxisMergeModes) — ein Bogus-Modus wuerde sonst still auf replace
+    //    zurueckfallen. binary_id-neutral (die Kompositions-AKTIVIERUNG von "merge" ist golden-regen-/gate-gated;
+    //    hier nur die Wohlgeformtheit). Rein enum-basiert => NICHT an registry_dir gebunden. ──
+    for (auto const& ax : ep.axes_default_lookup) {
+        if (ax.merge_mode.empty()) continue; // leer = replace-Default (nichts zu pruefen)
+        ++r.axis_merge_checked;
+        bool const known = std::find(std::begin(kExperimentAxisMergeModes), std::end(kExperimentAxisMergeModes),
+                                     ax.merge_mode) != std::end(kExperimentAxisMergeModes);
+        if (!known) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref + "\" merge=\"" +
+                               ax.merge_mode + "\">: kein {replace,merge} (KERN-A Fork 4; leer = replace-Default).");
         }
     }
 
@@ -970,6 +1027,10 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             }
         }
     }
+
+    // ── SCOPE (2026-07-20): <measurement_tooling> ist im Schema ADDITIV vorhanden (KERN-A: geparst + getragen),
+    //    aber die SEMANTIK (Tooling-id ∈ kMeasurementToolingRegistry + der N>1-Fan-out) gehoert dem Schwester-Paket
+    //    P-MESSTOOL — HIER bewusst NICHT validiert (KERN-A traegt das Feld nur passiv; LEER = Default [all]). ──
 
     // ── (10) Bruecke-I1/M-CE-12 (2026-07-16): jede <workloads>-id ist eine REAL existente load_profiles/-id.
     //    Nur wenn der Host die entdeckten ids hereinreicht (known_workload_ids nicht leer) — leer = uebersprungen

@@ -227,6 +227,23 @@ TEST(ExperimentPlanDirector, ExperimentGoldenWalksPhasesUnderEachPerm) {
     EXPECT_EQ(cb.total_steps(), 76u) << "4 Perms x 19 Passes";
 }
 
+// (D') KERN-A (S4 Mess-Schema, 2026-07-20): das measurement_tooling-Feld ist im Schema ADDITIV (Parser fuellt es),
+//      aber die Fan-out-VERDRAHTUNG in construct() gehoert dem Schwester-Paket P-MESSTOOL. KERN-A-Beleg: die
+//      LIVE-Call-Site bleibt bei Default 1 Combo [all] (byte-stabil zur heutigen 1-CEB-Strecke); die Golden-
+//      Instanz traegt kein <measurement_tooling>. (Der Fan-out-KERN measurement_combos_of ist separat in
+//      MeasurementToolingFanOut getestet.)
+TEST(ExperimentPlanDirector, MeasurementToolingStaysDefaultOneComboInKernA) {
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+    EXPECT_TRUE(ep->measurement_tooling.empty()) << "Golden deklariert KEIN <measurement_tooling> (passiv, Default)";
+
+    planner::ExperimentPlanDirector const director;
+    CountingBuilder                       cb;
+    director.construct(*ep, cb);
+    ASSERT_EQ(cb.combos.size(), 1u) << "KERN-A reicht measurement_tooling NICHT durch => 1 Combo [all] (byte-stabil)";
+    EXPECT_EQ(cb.combos[0].legend, "[all]");
+}
+
 // (C') Determinismus (Experiment): zwei Laeufe -> byte-gleicher Plan-Text.
 TEST(ExperimentPlanDirector, ExperimentDumpPlanIsByteDeterministic) {
     auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
