@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
         if (v.find("COMDARE_DEFINE_ANATOMY_MODULE_ADHOC") != std::string::npos) ++perk_real;
     }
     check("per-K: GENAU 4 Quellen sind reale Anatomie (COMDARE_DEFINE_ANATOMY_MODULE_ADHOC)", perk_real == 4);
-    check("per-K Levels: 19 statische Achsen-Ebenen (Single-Source mit der Map)", tlz::kary_perk_levels().size() == 19);
+    check("per-K Levels: 17 statische Achsen-Ebenen (17-Slot-Komposition; search_algo traegt die 4 per-K-Werte)", tlz::kary_perk_levels().size() == 17);
     if (have_toolchain) {
         std::cout << "  --- (E-real) REALER cl-Bau der 4 per-K-DLLs (Emission je KAryTraversal<K>) ---\n";
         int perk_built = 0;

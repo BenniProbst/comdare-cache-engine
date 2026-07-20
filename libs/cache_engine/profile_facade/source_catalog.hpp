@@ -590,8 +590,8 @@ struct KaryPerKCatalog {
     return ex::build_pilot_source_map<typename KaryPerKCatalog::Engine>();
 }
 
-/// kary_perk_levels() — die 18 STATISCHEN AxisLevels des per-K-Sweep-Baums: 17 Baseline-Ebenen (Index 0) + der
-/// search_algo-Slot mit den 4 per-K-Werten (k_ary_k2..k16). Single-Source mit kary_perk_source_map (gleiche
+/// kary_perk_levels() — die 17 STATISCHEN AxisLevels des per-K-Sweep-Baums (17-Slot-Komposition; A11 2026-07-20:
+/// gemessen 17, die alte "17+1=18"-Arithmetik war stale) — der search_algo-Slot traegt die 4 per-K-Werte
 /// Slot-Listen → die View-binary_ids treffen die map-Keys). DynamicDims haengt der Treiber an.
 [[nodiscard]] inline std::vector<ex::AxisLevel> kary_perk_levels() { return catalog_static_levels<KaryPerKCatalog>(); }
 
