@@ -71,6 +71,26 @@ std::optional<cx::ExperimentProfile> parse_golden() {
     return parser.parse_experiment_profile(fs::path{COMDARE_EXPERIMENT_GOLDEN});
 }
 
+// S2/A2 P-SYSREG: schreibt ein Minimal-<comdare_experiment> mit frei waehlbarem <system_axes>-Block in eine
+// Temp-Datei und parst es. Beweist die Parser-Naht end-to-end (ohne die Golden-Instanz anzufassen -> golden-neutral).
+std::optional<cx::ExperimentProfile> parse_experiment_with_system_axes(std::string const& system_axes_block) {
+    fs::path const p = fs::temp_directory_path() /
+                       ("comdare_sysreg_experiment_" +
+                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    {
+        std::ofstream out{p};
+        out << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_experiment version="1" id="sysreg_parse_fixture">
+)" << system_axes_block
+            << "</comdare_experiment>\n";
+    }
+    cx::XmlConfigParser const            parser;
+    std::optional<cx::ExperimentProfile> ep = parser.parse_experiment_profile(p);
+    std::error_code                      ec;
+    fs::remove(p, ec);
+    return ep;
+}
+
 } // namespace
 
 // (a) PARSE — die Golden-Instanz parst woertlich in ExperimentProfile.
@@ -378,4 +398,80 @@ TEST(ExperimentParser, EmptySystemAxesIsOk) {
     EXPECT_TRUE(vr.ok) << "leere <system_axes> duerfen kein Fehler sein (additiv, CEB-Default)";
     EXPECT_EQ(vr.opt_levels_checked, 0u);
     EXPECT_EQ(vr.simd_checked, 0u);
+}
+
+// (c15) S2/A2 P-SYSREG — der Parser liest die ZWEI neu verdrahteten Offer-Sub-Achsen aus <system_axes>:
+//       compiler/atomic128 (ZWEITE Unter-Achse unter compiler, neben opt_level) + target_isa (EIGENE Haupt-Achse,
+//       Optionen DIREKT darunter). End-to-End-Beweis der Parser-Naht (nicht nur Struct-Injektion).
+TEST(ExperimentParser, ParsesAtomic128AndTargetIsaFromSystemAxes) {
+    auto const ep = parse_experiment_with_system_axes(
+        "  <system_axes>\n"
+        "    <compiler>\n"
+        "      <opt_level><option value=\"O2\"/><option value=\"O3\"/></opt_level>\n"
+        "      <atomic128><option value=\"no_cx16\"/><option value=\"cx16\"/></atomic128>\n"
+        "    </compiler>\n"
+        "    <extension_hardware>\n"
+        "      <simd><option value=\"no_extension\"/><option value=\"avx2\"/></simd>\n"
+        "    </extension_hardware>\n"
+        "    <target_isa><option value=\"x86_64\"/><option value=\"aarch64\"/></target_isa>\n"
+        "  </system_axes>\n");
+    ASSERT_TRUE(ep.has_value());
+    // opt_level + atomic128 koexistieren unter compiler (zwei Unter-Achsen, je EIN Container).
+    ASSERT_EQ(ep->compiler.opt_levels.size(), 2u);
+    EXPECT_EQ(ep->compiler.opt_levels[0], "O2");
+    EXPECT_EQ(ep->compiler.opt_levels[1], "O3");
+    ASSERT_EQ(ep->compiler.atomic128.size(), 2u);
+    EXPECT_EQ(ep->compiler.atomic128[0], "no_cx16");
+    EXPECT_EQ(ep->compiler.atomic128[1], "cx16");
+    ASSERT_EQ(ep->extension_hardware.simd_options.size(), 2u);
+    EXPECT_EQ(ep->extension_hardware.simd_options[0], "no_extension");
+    // target_isa = eigene Haupt-Achse: die Optionen stehen DIREKT unter <target_isa> (kein Zwischen-Container).
+    ASSERT_EQ(ep->target_isa.isa.size(), 2u);
+    EXPECT_EQ(ep->target_isa.isa[0], "x86_64");
+    EXPECT_EQ(ep->target_isa.isa[1], "aarch64");
+}
+
+// (c16) S2/A2 P-SYSREG — gueltige atomic128 + target_isa werden AKZEPTIERT (System-Achsen, binary_id-neutral);
+//       die Zaehler stimmen. Belegt, dass die neu verdrahteten Validat-Bloecke die kanonischen Werte durchlassen.
+TEST(ExperimentParser, ValidAtomic128AndTargetIsaAreAccepted) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->compiler.atomic128 = {"no_cx16", "cx16"};
+    ep->target_isa.isa     = {"x86_64", "aarch64"};
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.atomic128_checked, 2u);
+    EXPECT_EQ(vr.target_isa_checked, 2u);
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (c17) S2/A2 P-SYSREG — ein Bogus-atomic128-Wert (Tippfehler cx32) ist ein HARTER Fehler (no_cx16/cx16).
+TEST(ExperimentParser, BogusAtomic128IsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->compiler.atomic128.push_back("cx32"); // ausserhalb no_cx16/cx16
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE <atomic128"));
+    EXPECT_TRUE(any_contains(vr.errors, "cx32"));
+    EXPECT_EQ(vr.atomic128_checked, 1u);
+}
+
+// (c18) S2/A2 P-SYSREG — ein Bogus-target_isa-Wert (Tippfehler riscv) ist ein HARTER Fehler (x86_64/aarch64).
+TEST(ExperimentParser, BogusTargetIsaIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->target_isa.isa.push_back("riscv"); // ausserhalb x86_64/aarch64
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE <target_isa"));
+    EXPECT_TRUE(any_contains(vr.errors, "riscv"));
+    EXPECT_EQ(vr.target_isa_checked, 1u);
 }
