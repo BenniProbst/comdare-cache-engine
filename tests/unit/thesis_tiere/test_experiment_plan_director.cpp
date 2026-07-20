@@ -695,6 +695,47 @@ TEST(CiYamlBuilder, SimdRunnerTagRoutingMatchesPilotMatrix) {
     EXPECT_NE(tb.text().find("tags: [\"avx2\"]"), std::string::npos) << "Stufe 2: avx2-Perm -> avx2";
 }
 
+// (N2) A3 (Task #23/#24, Manager-Ruling Weg a): die EHRLICHE flag-granulare Runner-Tag-LISTE leitet die Tags aus
+//      den REAL gebauten -march-Flags ab (system_axis_march_of): avx512 -> {"avx512f"} (aus -mavx512f, NICHT der
+//      grobe "avx512"-Tag), avx2 -> {"avx2"}, no_extension/leer -> {"amd64"}. GitLab wertet die Liste als
+//      UND-Bedingung (der Runner muss ALLE Tags tragen). Die Liste waechst automatisch mit A7/§40.a mit.
+TEST(SimdRunnerTags, FlagGranularListDerivesTagsFromRealMarch) {
+    using V = std::vector<std::string>;
+    EXPECT_EQ(planner::simd_runner_tags("avx512"), (V{"avx512f"})) << "-mavx512f => avx512f (NICHT 'avx512')";
+    EXPECT_EQ(planner::simd_runner_tags("avx2"), (V{"avx2"})) << "-mavx2 => avx2";
+    EXPECT_EQ(planner::simd_runner_tags("no_extension"), (V{"amd64"}));
+    EXPECT_EQ(planner::simd_runner_tags(""), (V{"amd64"})) << "leer = kein SIMD -> broadest amd64";
+    // Symmetrie zum Static-Wrapper (CiYamlBuilder-Test-Surface, EINE Routing-Single-Source).
+    EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tags("avx512"), (V{"avx512f"}));
+    // Unbekannte simd-id (march leer, aber nicht no_extension) => ISA-Name selbst (kein falscher Tag).
+    EXPECT_EQ(planner::simd_runner_tags("sse4"), (V{"sse4"}));
+
+    // Stufe-2-YAML: eine avx512-Perm traegt die flag-granulare Liste tags: ["avx512f"]. Da kein committetes Profil
+    // avx512 fuehrt (all_axes_golden = no_extension/avx2), wird der TierCiYamlBuilder direkt getrieben (wie A5c).
+    planner::TierCiYamlBuilder tb;
+    planner::PlanHeader        h;
+    h.source_kind             = "thesis";
+    h.profile_id              = "avx512probe";
+    h.perm_count              = 1;
+    h.measurement_combo_count = 1;
+    tb.begin_plan(h);
+    planner::PlanMeasurementCombo c;
+    c.index  = 0;
+    c.legend = "[all]";
+    tb.begin_measurement_combo(c);
+    planner::PlanPerm p;
+    p.index   = 0;
+    p.opt_id  = "O3";
+    p.simd_id = "avx512";
+    tb.begin_perm(p);
+    tb.end_perm(p);
+    tb.end_measurement_combo(c);
+    tb.end_plan(h);
+    EXPECT_NE(tb.text().find("tags: [\"avx512f\"]"), std::string::npos)
+        << "Stufe-2: avx512-Perm -> tags: [\"avx512f\"] (flag-granular)";
+    EXPECT_EQ(tb.text().find("tags: [\"avx512\"]"), std::string::npos) << "NICHT der grobe 'avx512'-Tag";
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PAKET W10-A / §42+§42.b — die DREISTUFIGE Legenden-Kette (CE erhaelt die XML und steuert ALLES). GEPRUEFT:
 // (W1) Legenden-Single-Source: [a,b,c]/[d,e,f]/[g,h,i]-Formatierung deterministisch + YAML-quote-sicher, Job-Namen.
@@ -1126,4 +1167,28 @@ TEST(CiYamlBuilder, SingleComboCebEmitOmitsMeasurementComboSelectorForByteStabil
     yb.begin_measurement_combo(combos[0]);
     EXPECT_EQ(yb.text().find("--measurement-combo="), std::string::npos)
         << "count==1 => KEIN --measurement-combo (byte-identisch zu vor A5)";
+}
+
+// (A8a) A8(a)-Symmetrie: der combo_selector reist auch bis --emit-tier-cmake durch (TierCmakeGraphBuilder), EXAKT
+//       symmetrisch zu --emit-tier-ci (A5b). Leerer Selektor = Identitaet (byte-gleich zum expliziten [all]-Selektor
+//       _all_ = cmake_slug("[all]"), der die heutige 1-CEB-Strecke traegt); ein nicht existierender Selektor =>
+//       ehrlich leere Stufe-2 (0 tier:build-Targets), kein Crash. Golden-neutral: nur die emittierten .cmake-Strings.
+TEST(SelectMeasurementCombo, EmitTierCmakeDefaultEqualsAllSelectorAndMissIsEmpty) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    // Default (kein Selektor) vs expliziter [all]-Selektor -> byte-identische Stufe-2-cmake (golden-neutral).
+    planner::TierCmakeGraphBuilder cm_default, cm_all;
+    director.construct(*tp, cm_default);
+    director.construct(*tp, cm_all, "_all_");
+    EXPECT_EQ(cm_default.text(), cm_all.text()) << "emit-tier-cmake: leerer Selektor == [all]-Selektor (byte-gleich)";
+    EXPECT_GT(count_occurrences(cm_default.text(), "add_custom_target(comdare_tier_build_perm"), 0u)
+        << "Default emittiert Tier-Bau-Targets";
+
+    // Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Targets (ehrlich leer, kein Crash).
+    planner::TierCmakeGraphBuilder cm_none;
+    director.construct(*tp, cm_none, "_does_not_exist_");
+    EXPECT_EQ(count_occurrences(cm_none.text(), "add_custom_target(comdare_tier_build_perm"), 0u)
+        << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Tier-Bau-Targets)";
 }

@@ -191,6 +191,10 @@ struct ExperimentRunResult {
 // Targets + je Perm ein GN-11/320er-gegatetes measure:-Skelett. Der Ort des Tier-Baus in der dreistufigen
 // Bare-Metal-Kette. Byte-deterministisch/host-unabhaengig. Baut KEINE DLL, misst NICHT. Rueckgabe: 0 = .cmake
 // nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os);
+// A8(a)-Symmetrie (§56-T2-FANOUT D4): `combo_selector` SPIEGELT emit_tier_ci_facade (leer = Identitaet, heutige
+// Live-Strecke byte-stabil) und waehlt bei N>1 CEB-Konfigs die EINE repraesentierte Mess-Kombination (cmake_slug
+// der [a,b,c]-Legende, --measurement-combo-Wert) -- damit die Bare-Metal- und CI-Naht dieselbe Selektor-Semantik tragen.
+[[nodiscard]] int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                                         std::string const& combo_selector = {});
 
 } // namespace comdare::cache_engine::builder::profile_facade
