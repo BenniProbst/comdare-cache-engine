@@ -2,8 +2,8 @@
 //
 // Belegt gegen die ECHTE 26-Achsen-Bindung (BR-1 build_all_axis_levels): JEDE der 26 Achsen ist
 // observer-klassifiziert (gattungs-korrekt) UND trägt ihre read-only Definition (reflect_names = reale
-// Wrapper-Namen) — keine Achse fällt weg. 17 SearchAlgorithmObserver + 3 DefinitionOnly (page_type/09b/12) +
-// 2 ContainerObserver (q1/q2) = 22.
+// Wrapper-Namen) — keine Achse fällt weg. Reklass 2026-07-20 (P-OBS): 17 SearchAlgorithmObserver (kCompositionAxisNames,
+// OHNE telemetry/isa) + 9 DefinitionOnly (page_type/09b/12 + telemetry + isa System-Achsen + 4 node-shape) + 0 ContainerObserver = 26.
 //
 // Build: cl /std:c++latest /EHsc /I<…> /I<build/generated…> (Voll-22-Include — RAM-Watchdog-gewahr, wie test_br1_full22)
 
@@ -58,17 +58,19 @@ int main() {
 
     check_eq("JEDE der 26 Achsen ist observer-klassifiziert (kein Wegschrumpfen)", classified, std::size_t{26});
     check_eq("JEDE der 26 Achsen trägt eine read-only Definition (values>0)", with_def, std::size_t{26});
-    // korr. 2026-06-03 (Doc 30 §8.0): queuing q1/q2 sind SA-Tier-Unterklasse-Achsen (Slots T17/T18) → 19/7/0=26,
-    // KEINE Container-Gattung. ContainerObserver ist reserviert für die echte Container-Gattung (#87) → aktuell 0.
-    check_eq("19 SearchAlgorithmObserver (ObserverAggregate<19>, inkl. queuing q1/q2)", sa, std::size_t{19});
-    check_eq("7 DefinitionOnly (page_type/09b/12 + 4 node-shape #234-K)", def_only, std::size_t{7});
+    // korr. 2026-06-03 (Doc 30 §8.0): queuing q1/q2 sind SA-Tier-Unterklasse-Achsen (Slots T17/T18); Reklass 2026-07-20
+    // (P-OBS): telemetry (INC-2c) + isa (INC-2d) haben die Komposition verlassen -> System-Achsen (DefinitionOnly) ->
+    // 17/9/0=26. SA == kCompositionAxisNames(17) == ObserverAggregate<17>. ContainerObserver reserviert (#87) -> 0.
+    check_eq("17 SearchAlgorithmObserver (ObserverAggregate<17>, kCompositionAxisNames inkl. queuing q1/q2)", sa,
+             std::size_t{17});
+    check_eq("9 DefinitionOnly (page_type/09b/12 + telemetry + isa + 4 node-shape #234-K)", def_only, std::size_t{9});
     check_eq("0 ContainerObserver (queuing→SA; ContainerObserver reserviert für echte Container-Gattung #87)", cont,
              std::size_t{0});
     // Konsistenz der constexpr-Klassifikation selbst:
-    check_eq("constexpr: 19 SearchAlgorithmObserver",
-             ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver), std::size_t{19});
-    check_eq("constexpr: 7 DefinitionOnly", ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly),
-             std::size_t{7});
+    check_eq("constexpr: 17 SearchAlgorithmObserver",
+             ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver), std::size_t{17});
+    check_eq("constexpr: 9 DefinitionOnly", ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly),
+             std::size_t{9});
     check_eq("constexpr: 0 ContainerObserver", ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver),
              std::size_t{0});
     check_true("Summe == 26 (alle Achsen abgedeckt, keine doppelt/fehlend)", sa + def_only + cont == 26);
