@@ -6,9 +6,16 @@
 //   • SearchAlgorithmObserver : die 17 Komposition-Achsen → ObserverAggregate<17> (real für ObservableAxis,
 //     R5.B: search_algo + allocator + ... operativ; Rest Default-Snapshot). Träger: NodeObserverSnapshot (BR-3).
 //     korr. 2026-06-03 (Doc 30 §8.0): umfasst jetzt AUCH queuing q1/q2 (Slots T17/T18) — reguläre SA-Tier-Unterklasse-Achsen.
+//     Reklass 2026-07-20 (P-OBS, WIDE-Angleichung): telemetry UND isa haben die Komposition VERLASSEN (INC-2c/2d),
+//     sie sind NICHT mehr SearchAlgorithmObserver. Damit gilt SearchAlgorithmObserver == kCompositionAxisNames (17) ==
+//     kV3AxisCount == ObserverAggregate<17>::total_slots() == seg_ns[17] (vorher faelschlich 19, mit telemetry/isa).
 //   • DefinitionOnly          : die Hardware-/Sub-Achsen page_type(01)/simd_extension(09b)/general_hardware(12)
 //     sind Build-Zeit-KONSTANTEN (kein Laufzeit-Zustand) → sie tragen eine read-only Achsen-DEFINITION
 //     (Wrapper-Identität/Properties), KEINEN Laufzeit-Observer. EHRLICH dokumentiert (nicht stillschweigend 0).
+//     Reklass 2026-07-20 (P-OBS): jetzt AUCH telemetry (INC-2c, CEB-System-Achse, Provenienz im .version-Sidecar/
+//     build_version via H-10) und isa (INC-2d, Target-ISA-System-Achse, build-config-Codegen-Traeger) -- beide
+//     System-Achsen OHNE per-Achsen-Observer-Slot im ComdareTierObserverSnapshot. binary_id UNVERAENDERT (Reklass ist
+//     rein diagnostisch: kCompositionAxisNames fuehrt telemetry/isa ohnehin schon NICHT). + 4 node-shape (#234-K).
 //   • ContainerObserver       : RESERVIERT für die ECHTE Container-Gattung (std::queue/stack/priority_queue =
 //     Adapter-Tier-Unterklasse, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT für queuing (das war der
 //     korrigierte Kategorienfehler, Doc 30 §8.0). Aktuell 0 Einträge.
@@ -24,8 +31,8 @@ namespace comdare::cache_engine::builder::experiment {
 
 /// Die drei Observer-Naturen der 26 Achsen (gattungs-korrekt, Doc 27 §0.1).
 enum class AxisObserverKind {
-    SearchAlgorithmObserver, // 17 Komposition-Achsen (inkl. queuing q1/q2 T15/T16): ObserverAggregate<17> (BR-3)
-    DefinitionOnly,   // page_type/09b/12 + 4 node-shape (#234-K): Build-Konstanten → Definition statt Laufzeit-Observer
+    SearchAlgorithmObserver, // 17 Komposition-Achsen (kCompositionAxisNames, inkl. queuing q1/q2): ObserverAggregate<17> (BR-3)
+    DefinitionOnly, // page_type/09b/12 + telemetry(INC-2c) + isa(INC-2d) System-Achsen + 4 node-shape (#234-K): Definition statt Laufzeit-Observer
     ContainerObserver // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };
 
@@ -43,7 +50,9 @@ struct AxisObserverClass {
     AxisObserverKind kind;
 };
 
-/// ALLE 26 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 17 Komposition, dann 4 node-shape (#234-K) → 7 DefinitionOnly gesamt).
+/// ALLE 26 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels). Aufteilung nach Reklass
+/// 2026-07-20 (P-OBS): 17 SearchAlgorithmObserver (= kCompositionAxisNames: 15 Kern + queuing q1/q2; OHNE telemetry/isa)
+/// + 9 DefinitionOnly (3 build-only page_type/09b/12 + telemetry + isa als System-Achsen + 4 node-shape #234-K) = 26.
 inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
     {"search_algo", AxisObserverKind::SearchAlgorithmObserver},
     {"cache_traversal", AxisObserverKind::SearchAlgorithmObserver},
@@ -55,9 +64,13 @@ inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
     {"prefetch", AxisObserverKind::SearchAlgorithmObserver},
     {"concurrency", AxisObserverKind::SearchAlgorithmObserver},
     {"serialization", AxisObserverKind::SearchAlgorithmObserver},
-    {"telemetry", AxisObserverKind::SearchAlgorithmObserver},
+    // Reklass 2026-07-20 (P-OBS): telemetry hat die Komposition VERLASSEN (INC-2c, F12iii, ABI-5) -> CEB-System-Achse,
+    // Provenienz im .version-Sidecar/build_version (H-10), kein per-Achsen-Observer-Slot -> DefinitionOnly (SA 19->17).
+    {"telemetry", AxisObserverKind::DefinitionOnly},
     {"value_handle", AxisObserverKind::SearchAlgorithmObserver},
-    {"isa", AxisObserverKind::SearchAlgorithmObserver},
+    // Reklass 2026-07-20 (P-OBS): isa hat die Komposition VERLASSEN (INC-2d, ABI-6) -> Target-ISA-System-Achse
+    // (build-config-Codegen-Traeger, permutiert nicht mehr), kein per-Achsen-Observer-Slot -> DefinitionOnly.
+    {"isa", AxisObserverKind::DefinitionOnly},
     {"index_organization", AxisObserverKind::SearchAlgorithmObserver},
     {"io_dispatch", AxisObserverKind::SearchAlgorithmObserver},
     {"migration_policy", AxisObserverKind::SearchAlgorithmObserver},
@@ -89,7 +102,7 @@ inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
     return false;
 }
 
-/// Anzahl Achsen je Observer-Natur (Diagnose: 19 / 7 / 0 = 26 — test-belegt br3_obs22/d7b).
+/// Anzahl Achsen je Observer-Natur (Diagnose nach Reklass 2026-07-20: 17 / 9 / 0 = 26 — test-belegt br3_obs22/d7b).
 [[nodiscard]] inline constexpr std::size_t count_observer_kind(AxisObserverKind k) noexcept {
     std::size_t n = 0;
     for (auto const& e : kAxisObserverClasses)

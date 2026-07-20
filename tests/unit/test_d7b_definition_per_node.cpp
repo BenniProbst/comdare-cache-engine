@@ -1,7 +1,7 @@
 // D7b / L-74b — per-Knoten getragene Build-Achsen-DEFINITION: NodeValue trägt build_def (BuildVariantDefinitionV1)
 // + build_def_real. Gemessene Knoten tragen die reale, ABI-gezogene Build-Identität der 3 Build-Achsen
 // (page_type/09b/12); ungemessene bleiben build_def_real=false (SPARSE-Kontrast, exakt wie observer_real).
-// + 22-Vollständigkeit: 17 SearchAlgorithmObserver + 3 DefinitionOnly + 2 ContainerObserver == 22, keine fällt weg.
+// + 26-Vollständigkeit (Reklass 2026-07-20 P-OBS): 17 SearchAlgorithmObserver + 9 DefinitionOnly + 0 ContainerObserver == 26, keine fällt weg.
 // Build: cl /I libs/cache_engine (kein Boost).
 
 #include "builder/experiment_tree/experiment_tree.hpp"                 // NodeValue
@@ -81,15 +81,16 @@ int main() {
     tr("Avx512-Knoten != Avx2-Knoten (Build-Varianten-Definition unterscheidbar)",
        !(measured.build_def == measured_avx2.build_def));
 
-    // (c) 22-Vollständigkeit (korr. 2026-06-03, Doc 30 §8.0): 19 SearchAlgorithmObserver (inkl. queuing q1/q2 = SA-Achsen
-    // T17/T18) + 7 DefinitionOnly (3 build-only + 4 node-shape #234-K) + 0 ContainerObserver == 26. ContainerObserver reserviert für echte Container-Gattung (#87).
+    // (c) 26-Vollständigkeit (korr. 2026-06-03, Doc 30 §8.0; Reklass 2026-07-20 P-OBS): 17 SearchAlgorithmObserver
+    // (kCompositionAxisNames inkl. queuing q1/q2, OHNE telemetry/isa) + 9 DefinitionOnly (3 build-only + telemetry
+    // (INC-2c) + isa (INC-2d) System-Achsen + 4 node-shape #234-K) + 0 ContainerObserver == 26. ContainerObserver reserviert (#87).
     std::cout << "\n-- 26-Vollständigkeit (keine Achse fällt weg) --\n";
     constexpr auto n_sa  = ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver);
     constexpr auto n_def = ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly);
     constexpr auto n_ctr = ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver);
-    static_assert(n_sa + n_def + n_ctr == 26, "19 + 7 + 0 == 26");
-    eq("SearchAlgorithmObserver == 19 (inkl. queuing q1/q2)", n_sa, std::size_t{19});
-    eq("DefinitionOnly (page_type/09b/12 + 4 node-shape #234-K) == 7", n_def, std::size_t{7});
+    static_assert(n_sa + n_def + n_ctr == 26, "17 + 9 + 0 == 26");
+    eq("SearchAlgorithmObserver == 17 (kCompositionAxisNames, inkl. queuing q1/q2)", n_sa, std::size_t{17});
+    eq("DefinitionOnly (page_type/09b/12 + telemetry + isa + 4 node-shape #234-K) == 9", n_def, std::size_t{9});
     eq("ContainerObserver == 0 (queuing→SA; reserviert für echte Container-Gattung #87)", n_ctr, std::size_t{0});
     eq("Summe == 26 (kAxisObserverClasses)", ex::kAxisObserverClasses.size(), std::size_t{26});
 
