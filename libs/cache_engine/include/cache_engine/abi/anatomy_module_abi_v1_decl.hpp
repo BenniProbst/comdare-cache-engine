@@ -112,10 +112,11 @@ void comdare_destroy_anatomy(::comdare::cache_engine::anatomy::IAnatomyBase* ptr
 
 namespace comdare::cache_engine::abi {
 
-/// AnatomyVersionLines -- POD der einkompilierten Versionierungs-Stempel eines Tier-Binary (W12-A2,
-/// Section 43). organ_line == kOrganAxisVersionLine, system_line == kSystemAxisVersionLine
-/// (anatomy_version_stamp.hpp). Die *_len-Felder geben die Laenge OHNE Nullterminator; der Zeiger ist
-/// dennoch nullterminiert (String-Literal). Loader-Seite liest read-only.
+/// AnatomyVersionLines -- POD der einkompilierten Versionierungs-Stempel eines Tier-Binary (W12-A2/A3,
+/// Section 43). organ_line == kOrganAxisVersionLine, system_line == kSystemAxisVersionLine,
+/// measurement_line == kMeasurementAxisVersionLine (anatomy_version_stamp.hpp). Die *_len-Felder geben die
+/// Laenge OHNE Nullterminator; der Zeiger ist dennoch nullterminiert (String-Literal). Loader-Seite liest
+/// read-only.
 struct AnatomyVersionLines {
     std::uint32_t stamp_layout_version; ///< == kAnatomyVersionLinesLayout (POD-Layout-Wache)
     std::uint32_t reserved;             ///< 0 (Ausrichtung / kuenftige Flags)
@@ -123,11 +124,30 @@ struct AnatomyVersionLines {
     std::uint64_t organ_len;            ///< organ_line-Laenge ohne '\0'
     char const*   system_line;          ///< kSystemAxisVersionLine (nullterminiert)
     std::uint64_t system_len;           ///< system_line-Laenge ohne '\0'
+    // W12-A3 (Section 43, Section 47: Mess-Tooling == HAUPT): die einkompilierte kMeasurementAxisVersionLine traegt
+    // GENAU die gewaehlte Mess-Tooling-HAUPT-Wahl {wallclock/macro/micro} (collector-Achse, Plan-D1). NUR die
+    // Haupt-Achse (Section 43): Ablaufmethodik (run_methodology) und Workloads/Framework (UNTER-Achsen) sind NIE
+    // Stempel-Bestandteil. APPEND-ONLY ans POD-Ende -> die Offsets von organ_/system_ bleiben stabil; nur
+    // kAnatomyVersionLinesLayout bumpt (1 -> 2). Leerer Stempel (kein Tooling einkompiliert) -> Zeiger auf ""
+    // (nie nullptr), measurement_len == 0.
+    char const*   measurement_line; ///< kMeasurementAxisVersionLine (nullterminiert; "" wenn kein Tooling gewaehlt)
+    std::uint64_t measurement_len;  ///< measurement_line-Laenge ohne '\0'
 };
 
 /// Layout-Version des AnatomyVersionLines-POD -- unabhaengig vom ABI-Major. Ein POD-Layout-Wechsel bumpt
 /// DIESE Konstante, NICHT COMDARE_ANATOMY_ABI_MAJOR (das optionale Symbol ist nicht Loader-Pflicht).
-inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 1;
+/// W12-A3 (2026-07-20): 1 -> 2 (measurement_line/measurement_len ans POD-Ende angehaengt).
+inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 2;
+
+/// W12-A3 Version-Line-Gate (POD-Layout-Wache): AnatomyVersionLines ist ein POD aus 8 Feldern (2x uint32 +
+/// 3x {char const*, uint64}), 8-aligned -> 56 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist das
+/// POD-Layout gewandert: dann kAnatomyVersionLinesLayout bumpen UND diesen erwarteten sizeof aktualisieren
+/// (die COMDARE_ANATOMY_VERSION_STAMP-Materialisierung + jeder Modul-Rebau haengen daran). KLEINES ABI-Gate,
+/// KEIN binary_id-/CRC-Bruch (das optionale Probe-Symbol ist nicht Loader-Pflicht, binary_id bleibt Organ-only).
+static_assert(sizeof(AnatomyVersionLines) == 56,
+              "AnatomyVersionLines-POD-Layout gewandert -- kAnatomyVersionLinesLayout bumpen + erwarteten "
+              "sizeof (56 auf x86_64) aktualisieren.");
+static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Ausrichtung erwartet (Zeiger).");
 
 } // namespace comdare::cache_engine::abi
 
