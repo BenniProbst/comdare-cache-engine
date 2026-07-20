@@ -1,6 +1,7 @@
 // Querschnitt M -- W12-A (Section43): X.Y.Z-Parse-Helfer (Inkrement 2) + Planer-Selbst-Stempel (Inkrement 3).
 // Leichte TU (keine Registries): verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
 
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
@@ -10,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <span>
 #include <string>
 #include <string_view>
@@ -100,6 +102,41 @@ TEST(MW12StampBausteine, SystemStampLineIsStaticSystemAxisAlgoVersions) {
     EXPECT_NE(line.find(";extension_hardware=code@1.0.0"), std::string::npos);
     EXPECT_NE(line.find(";load_framework=code@1.0.0"), std::string::npos);
     EXPECT_EQ(line.find("@v1"), std::string::npos); // separate Welt zur .algos-Sig
+}
+
+TEST(MW12StampBausteine, MeasurementStampLineCarriesOnlyToolingMain) {
+    // W12-A3 (Section 43, Section 47): der Mess-Stempel traegt GENAU die gewaehlte Mess-Tooling-HAUPT-Wahl als EINEN
+    // Eintrag "measurement_tooling=<tooling>@X.Y.Z" -- Voll-Form, SEPARATE Welt zur .algos-Sig, NUR die Haupt-Achse.
+    std::string const line = ::comdare::cache_engine::abi::measurement_stamp_line("wallclock");
+    EXPECT_EQ(line, std::string{"measurement_tooling=wallclock@1.0.0"});
+    // Genau EINE Haupt-Achse -> KEIN ';'-Trenner (Ablaufmethodik/Workloads sind UNTER -> nie Bestandteil).
+    EXPECT_EQ(std::count(line.begin(), line.end(), ';'), 0);
+    EXPECT_EQ(line.find("@v1"), std::string::npos); // separate Welt zur .algos-Sig (X.Y.Z, nicht roh)
+    // Andere Tooling-Haupt-Wahlen materialisieren analog.
+    EXPECT_EQ(::comdare::cache_engine::abi::measurement_stamp_line("macro"),
+              std::string{"measurement_tooling=macro@1.0.0"});
+    EXPECT_EQ(::comdare::cache_engine::abi::measurement_stamp_line("micro"),
+              std::string{"measurement_tooling=micro@1.0.0"});
+    // Leere Wahl -> leere Zeile (ehrlich: kein Mess-Tooling einkompiliert).
+    EXPECT_TRUE(::comdare::cache_engine::abi::measurement_stamp_line("").empty());
+}
+
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt56) {
+    // W12-A3 Version-Line-Gate: kMeasurementAxisVersionLine ist als measurement_line/measurement_len ANS ENDE des
+    // AnatomyVersionLines-POD angehaengt (append-only; organ_/system_-Offsets stabil). Der Layout-Bump 1 -> 2
+    // signalisiert die neuen Trailing-Felder; der sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und
+    // haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
+    using ::comdare::cache_engine::abi::AnatomyVersionLines;
+    static_assert(sizeof(AnatomyVersionLines) == 56, "POD-Layout-Wache: 8 Felder, 8-aligned -> 56 Byte (x86_64).");
+    static_assert(alignof(AnatomyVersionLines) == 8);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 56u);
+    EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 2u);
+    // Offset-Stabilitaet: organ_/system_ liegen unveraendert, die Mess-Felder folgen dahinter (append-only).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 48u);
 }
 
 TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {

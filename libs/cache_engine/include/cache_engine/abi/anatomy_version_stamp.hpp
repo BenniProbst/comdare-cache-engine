@@ -75,4 +75,25 @@ template <class Comp>
     return build_axis_version_stamp_line(entries);
 }
 
+/// measurement_stamp_line(tooling) -- die kMeasurementAxisVersionLine (Section 43, Section 47: Mess-Tooling == HAUPT,
+/// W12-A3). Traegt GENAU die gewaehlte Mess-Tooling-HAUPT-Wahl {wallclock/macro/micro} (die collector-Achse,
+/// Plan-D1: von binary_id="never" zur Fan-out-HAUPT promotet, binary_id-relevant NUR ueber diesen Version-Line-
+/// Stempel) als EINEN Eintrag "measurement_tooling=<tooling>@X.Y.Z". Analog zu system_stamp_line(): dieselbe
+/// AxisVersionEntry/build_axis_version_stamp_line-Welt, dieselbe X.Y.Z-Voll-Form (SEPARATE Welt zur .algos-Sig).
+///
+/// Section-43-INVARIANTE: NUR die Haupt-Achse. Die Ablaufmethodik (run_methodology debug/measure/release) und die
+/// Workloads/Framework (ycsb_*) sind UNTER-Achsen (Laufzeit-Sweep) und NIE Stempel-Bestandteil. Der Algorithmus-
+/// Marker == die gewaehlte Tooling-id; die Version == die statische Code-Identitaet der Mess-Tooling-Achse
+/// ("v1" -> 1.0.0). Leere Wahl -> leere Zeile (ehrlich: kein Mess-Tooling einkompiliert; die Makro-
+/// Materialisierung legt dann measurement_line auf "" mit measurement_len==0).
+[[nodiscard]] inline std::string measurement_stamp_line(std::string_view tooling) {
+    using ::comdare::cache_engine::measurement::AxisVersionEntry;
+    using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
+    if (tooling.empty()) return {};
+    std::array<AxisVersionEntry, 1> const entries{{
+        {"measurement_tooling", tooling, "v1"},
+    }};
+    return build_axis_version_stamp_line(entries);
+}
+
 } // namespace comdare::cache_engine::abi
