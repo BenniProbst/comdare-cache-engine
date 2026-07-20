@@ -94,9 +94,13 @@ int main(int argc, char** argv) {
     check_eq("base_tiers[0].id", tp->base_tiers.front().id, std::string{"art"});
     check_true("base_tiers[0].profile_ref enthaelt art.profile.xml",
                tp->base_tiers.front().profile_ref.find("art.profile.xml") != std::string::npos);
-    // BEWUSSTE Pin-Fortschreibung 8 -> 9 (Kanonisierung, GO-4/GO-5-Nebenbefund 2026-07-12): die Alt-isa-Achse
-    // {X86_SSE42/AVX2/AVX512} zerfaellt kanonisch in isa{isa_amd64} + simd_extension{simd_ext_sse2/avx2/avx512}.
-    check_eq("permute_axes", tp->permute_axes.size(), std::size_t{9});
+    // BEWUSSTE Pin-Fortschreibung 9 -> 6 (A1-Fehlplatzierungs-Fix, S3-Resolver-Aktivierung 2026-07-20): isa +
+    // simd_extension waren SYSTEM-Achsen faelschlich in der permute_axes-Organ-Position (der aktive S3-Resolver
+    // klassifizierte sie als V-UNREG-AXIS) -> kanonisch in den <system_axes>-Block relokiert (isa->target_isa,
+    // simd_extension->extension_hardware/simd). page_type (Baum-Knoten-PageKind = axis_01_page_type Build-Variante,
+    // §52-B10) verliess die Organ-Position ganz (ZUKUNFT, kein Parser-Kanal). Rest = 6 echte Organ-Achsen
+    // (memory_layout cache_traversal node_type prefetch allocator + der cacheline-Sonderzweig).
+    check_eq("permute_axes", tp->permute_axes.size(), std::size_t{6});
 
     // cacheline-Unterachse finden
     cx::ThesisAxisSpec const* cl = nullptr;
@@ -111,18 +115,23 @@ int main(int argc, char** argv) {
         check_eq("cacheline.sw_prefetch_hints", cl->sw_prefetch_hints.size(), std::size_t{5});
     }
 
-    // isa-Achse: kanonisch auf die CPU-Familie gepinnt (isa_amd64); der Alt-SIMD-Stufen-Spread (3 values)
-    // lebt kanonisch in der simd_extension-Achse (Kanonisierung 2026-07-12, s.o.).
-    cx::ThesisAxisSpec const* isa = nullptr;
-    for (auto const& a : tp->permute_axes)
-        if (a.ref == "isa") isa = &a;
-    check_true("isa-Achse vorhanden", isa != nullptr);
-    if (isa) check_eq("isa.values (Familie gepinnt)", isa->values.size(), std::size_t{1});
-    cx::ThesisAxisSpec const* simd = nullptr;
-    for (auto const& a : tp->permute_axes)
-        if (a.ref == "simd_extension") simd = &a;
-    check_true("simd_extension-Achse vorhanden", simd != nullptr);
-    if (simd) check_eq("simd_extension.values (Stufen-Spread)", simd->values.size(), std::size_t{3});
+    // A1-Fehlplatzierungs-Fix (2026-07-20): isa + simd_extension sind KEINE Organ-Kompositions-Achsen (nicht unter
+    // den 17 kCompositionAxisNames) -> sie stehen NICHT mehr in permute_axes, sondern kanonisch im <system_axes>-
+    // Block. Gegenprobe: in permute_axes NICHT auffindbar; im system_axes-POD die relokierten Werte.
+    bool isa_in_permute = false, simd_in_permute = false;
+    for (auto const& a : tp->permute_axes) {
+        if (a.ref == "isa") isa_in_permute = true;
+        if (a.ref == "simd_extension") simd_in_permute = true;
+    }
+    check_true("isa NICHT mehr in permute_axes (jetzt target_isa-System-Achse, A1)", !isa_in_permute);
+    check_true("simd_extension NICHT mehr in permute_axes (jetzt extension_hardware-System-Achse, A1)",
+               !simd_in_permute);
+    // isa->target_isa {x86_64}: der Alt-isa-Wert isa_amd64 kanonisiert auf den x86_64-Baustein.
+    check_eq("system_axes.target_isa (Alt-Ref isa)", tp->target_isa.isa.size(), std::size_t{1});
+    // simd_extension->extension_hardware/simd {no_extension,avx2,avx512}: der Alt-Stufen-Spread {SSE42/AVX2/AVX512}
+    // (SSE4.2 -> no_extension, kein Registry-Aequivalent).
+    check_eq("system_axes.simd (Alt-Ref simd_extension, Stufen-Spread)", tp->extension_hardware.simd_options.size(),
+             std::size_t{3});
 
     check_eq("workloads", tp->workloads.size(), std::size_t{6}); // A..F
     check_eq("telemetry_mode", tp->telemetry_mode, std::string{"on"});
