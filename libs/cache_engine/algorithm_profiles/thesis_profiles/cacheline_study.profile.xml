@@ -13,7 +13,13 @@
      isa{X86_SSE42/AVX2/AVX512} -> isa{isa_amd64} x simd_extension{simd_ext_sse2/avx2/avx512} (die Registry
      fuehrt kein SSE4.2; simd_ext_sse2 = niedrigste x86-SIMD-Stufe), allocator{SYSTEM_MALLOC/JEMALLOC/MIMALLOC}
      -> volle USE-Enabled-Liste (enable-agnostisch wie m3_smoke_coverage; jemalloc/mimalloc sind HAVE-gated
-     und kommen automatisch dazu, sobald der Vendor im Build vorhanden ist). -->
+     und kommen automatisch dazu, sobald der Vendor im Build vorhanden ist).
+     A1-FEHLPLATZIERUNGS-FIX (2026-07-20, S3-Resolver-Aktivierung): die 2026-07-12-"Uebersetzung" liess isa/
+     simd_extension/page_type FAELSCHLICH in der permute_axes-Organ-Position stehen -- das sind aber System-/
+     Build-Achsen, KEINE der 17 Organ-Kompositions-Achsen. Der jetzt aktive S3-Resolver klassifizierte sie
+     (V-UNREG-AXIS). Kanonisiert: isa->target_isa + simd_extension->extension_hardware/simd in den <system_axes>-
+     Block (unten); page_type (Baum-Knoten-PageKind = axis_01_page_type Build-Variante) raus als ZUKUNFT
+     (§52-B10; s. FP-Kommentare). Damit 0 Rejects im --dump-plan. -->
 <comdare_thesis_profile id="cacheline_study" schema_version="1">
 
   <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel).
@@ -35,14 +41,22 @@
        Achsen-/Werte-Namen = kanonische Registry-Namen (Kopf-Kommentar: KANONISIERT 2026-07-12). -->
   <permute_axes>
     <axis ref="memory_layout"/>
-    <!-- Alt-Intent isa{X86_SSE42/AVX2/AVX512}: die x86-SIMD-Stufen. Kanonisch zerfaellt das in die
-         CPU-Familie (isa, T12) x die SIMD-Stufe (simd_extension, axis_09b): Familie auf x86 gepinnt,
-         Stufen-Spread ueber die 09b-Achse. -->
-    <axis ref="isa"><value>isa_amd64</value></axis>
-    <axis ref="simd_extension"><value>simd_ext_sse2</value><value>simd_ext_avx2</value><value>simd_ext_avx512</value></axis>
+    <!-- FP-1/FP-2 (A1 Fehlplatzierungs-Fix, 2026-07-20): isa + simd_extension VERLIESSEN die Organ-Position.
+         Sie sind SYSTEM-Achsen (target_isa bzw. extension_hardware/simd), NICHT organ-kompositional (nicht unter
+         den 17 kCompositionAxisNames) und wurden in Organ-Position vom Resolver klassifiziert verworfen. Kanonisch
+         im <system_axes>-Block unten (geteilte parse_system_axes-Naht, S2/A2). Der Alt-SIMD-Stufen-Spread
+         {SSE42/AVX2/AVX512} lebt jetzt dort (SSE4.2 hat kein Registry-Aequivalent -> niedrigste reale = no_extension). -->
     <axis ref="cache_traversal"/>
     <axis ref="node_type"/>
-    <axis ref="page_type"/>
+    <!-- FP-3 (A1, 2026-07-20; Ledger §52-B10): der Alt-Ref page_type meinte die BAUM-KNOTEN-PageKind
+         (permutation_axes.xml axis id="page" = "Page-Layout der Knoten": DENSEBYTE_ART256/HOT_MULTIBYTE/... =
+         axis_01_page_type), NICHT die Hardware-Huge-Page (§52-B10-Namensfalle: axis_01_page_type ist NICHT
+         alloc_hw.page bzw. general_hardware). axis_01_page_type ist eine BUILD-VARIANTE
+         (axis_observer_classification.hpp: DefinitionOnly; NICHT unter den 17 Organ-Achsen; profile_to_tree.hpp
+         verwarf sie in Organ-Position ohnehin still) -> KEINE gueltige Organ-Registry-Achse. Sie hat (anders als
+         isa/simd_extension) heute KEINEN <system_axes>-Parser-Kanal ("KEINE neue Achse") -> raus aus der
+         Organ-Position, dokumentiert als ZUKUNFT-Build-Variante (analog target_isa/compiler-FAMILIE in
+         all_axes_golden). NICHT nach alloc_hw kanonisiert (das waere die §52-B10-Namensfalle). -->
     <axis ref="prefetch"/>
     <!-- Alt-Intent allocator{SYSTEM_MALLOC/JEMALLOC/MIMALLOC}: repraesentative Familien-Teilmenge.
          Kanonisch enable-agnostisch OHNE <value> = volle USE-Enabled-Liste des Builds (std_malloc/pmr/pool
@@ -53,7 +67,10 @@
          traegt eine EIGENE, unabhaengige Cache-Line-Einstellung -> bis 60^4 (beabsichtigt).
          C1 (GO4/#8 F-C, 2026-07-12): line_size 32 ADDITIV ergaenzt (KF-5 thesis-treu {32,64,128};
          32 = embedded, D_building_block_matrix.tex:251). ANS ENDE angehaengt, damit die Reihenfolge
-         der bestehenden Werte (und damit deren Ebenen-Ordnung im Experiment-Baum) stabil bleibt. -->
+         der bestehenden Werte (und damit deren Ebenen-Ordnung im Experiment-Baum) stabil bleibt.
+         per_organ = dokumentarische Cache-Line-Traeger-Namen (node_type/cache_traversal/allocator = Organe;
+         page_type = die Baum-Knoten-PageKind-Build-Variante, s. FP-3 oben) -- reine Metadaten, KEIN Resolver-
+         Check (organ_position_refs iteriert NUR <axis ref>, cacheline ist Sonderzweig), KEINE binary_id. -->
     <axis ref="cacheline" per_organ="page_type node_type cache_traversal allocator">
       <line_size>64</line_size>
       <line_size>128</line_size>
@@ -115,4 +132,26 @@
     <key_types>std::uint64_t</key_types>
     <value_types>std::string</value_types>
   </key_value_signature>
+
+  <!-- (sys) SYSTEM-ACHSEN (A1 Fehlplatzierungs-Fix, 2026-07-20; geteilte parse_system_axes-Naht, S2/A2 P-SYSREG):
+       die frueher fehlplatzierten Organ-Position-Refs isa + simd_extension sind hierher kanonisiert.
+       extension_hardware/simd = die SIMD-System-Achse (Alt-Ref simd_extension); der Alt-Stufen-Spread
+       {SSE42/AVX2/AVX512} bildet auf die realen SimdSubAxis-Stufen ab (simd_ext_sse2 -> no_extension = niedrigste
+       reale x86-Stufe, die Registry fuehrt kein SSE4.2; dazu avx2 + avx512). target_isa = die ISA-System-Achse
+       (Alt-Ref isa, Wert isa_amd64 -> x86_64-Baustein). system_config -> binary_id-NEUTRAL (multipliziert NUR die
+       Bau-Matrix/Sidecar, NIE die 17-Organ-Kartesik). page_type (Baum-Knoten-PageKind = axis_01_page_type
+       Build-Variante) hat heute KEINEN Parser-Kanal und bleibt ZUKUNFT (s. FP-3 oben) -- hier bewusst NICHT
+       aufgefuehrt. -->
+  <system_axes>
+    <extension_hardware>
+      <simd>
+        <option value="no_extension"/>
+        <option value="avx2"/>
+        <option value="avx512"/>
+      </simd>
+    </extension_hardware>
+    <target_isa>
+      <option value="x86_64"/>
+    </target_isa>
+  </system_axes>
 </comdare_thesis_profile>

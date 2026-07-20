@@ -128,6 +128,15 @@ target_compile_definitions(comdare_profile_run_facade PRIVATE
     COMDARE_CE_ENABLE_STATISTICS=1
     COMDARE_EXPERIMENT_MODE_ON=1)
 
+# S3 P-RESOLVER (A1 Produktions-Aktivierung, 2026-07-20): die DREI statischen ce-Registry-Pfade als Defines am
+# Facade-Target -- der CMake-Interface-Kanal, ueber den construct_plan_into() das RegistryTrio (Organ/System/Mess)
+# via read_axis_registry_trio liest. Muster wie der Contract-Test (test_experiment_plan_director, tests/unit/
+# CMakeLists.txt). Rein-lesend + binary_id-neutral: aktiviert NUR die Plan-Kopf-Resolver-Annotation, KEIN Bau/Mess.
+target_compile_definitions(comdare_profile_run_facade PRIVATE
+    "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
+    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml\""
+    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml\"")
+
 set(_facade_perm_inc_entries ${_facade_heavy_includes})
 list(APPEND _facade_perm_inc_entries "$<TARGET_PROPERTY:Boost::mp11,INTERFACE_INCLUDE_DIRECTORIES>")
 foreach(_target ${_facade_adapter_targets})

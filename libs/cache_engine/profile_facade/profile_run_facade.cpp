@@ -590,7 +590,22 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
         if (auto const root = ::comdare::common::xml::parse_document(ss.str())) root_tag = root->tag;
     }
 
-    planner::ExperimentPlanDirector const director;
+    // S3 P-RESOLVER (A1 Produktions-Aktivierung, 2026-07-20): das RegistryTrio (Organ/System/Mess) aus den per
+    // CMake-Interface hereingereichten STATISCHEN ce-Registry-Pfaden lesen (feedback_ceb_config_cmake_interface_
+    // static_registry_paths_prt_module). Erfolg -> der Director traegt den VOLLEN Trio (Full-Trio-Ctor): der
+    // Resolver LAEUFT und annotiert den Plan-Kopf (resolved=1, Organ-Position-Refs klassifiziert). Fehler
+    // (fehlende/unlesbare Registry) -> graceful Default-Ctor (INERT-Annotation resolved=0), NIE Crash. E-1: reine
+    // Plan-Kopf-Annotation, KEIN Exit!=0 im run/build-Pfad (kein harter --validate-Gate hier) -> golden-neutral.
+    // Guaranteed copy elision (C++17): der IIFE-Prvalue initialisiert `director` direkt, kein Move noetig.
+    auto const director = []() -> planner::ExperimentPlanDirector {
+#if defined(COMDARE_CE_AXIS_REGISTRY) && defined(COMDARE_SYSTEM_AXIS_REGISTRY) &&                                      \
+    defined(COMDARE_MEASUREMENT_AXIS_REGISTRY)
+        if (auto trio = tlz::read_axis_registry_trio(COMDARE_CE_AXIS_REGISTRY, COMDARE_SYSTEM_AXIS_REGISTRY,
+                                                     COMDARE_MEASUREMENT_AXIS_REGISTRY))
+            return planner::ExperimentPlanDirector{std::move(*trio)};
+#endif
+        return planner::ExperimentPlanDirector{};
+    }();
     if (root_tag == "comdare_thesis_profile") {
         auto const tp = tlz::load_thesis_profile(profile_path);
         if (!tp) {
