@@ -18,9 +18,11 @@
 
 #include "../curve_fit/curve_fit.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::builder::decision_lambda_trees {
@@ -32,6 +34,15 @@ struct SplineCandidate {
     std::string    binary_id;
     std::string    algo_set;
     cf::AxisSpline model;
+};
+
+/// Ein ROH-Kandidat: Binary-Identitaet + Algo-Satz + noch NICHT gefittete Mess-Kurve. Wird ueber ein
+/// waehlbares Fit-Verfahren (Default = monotoner, overshoot-sicherer Fritsch-Carlson-Spline) zu einem
+/// SplineCandidate modelliert (DecisionLambdaTree::from_curves).
+struct CurveCandidate {
+    std::string          binary_id;
+    std::string          algo_set;
+    cf::MeasurementCurve curve;
 };
 
 /// Eine Break-Even-Schwelle im Entscheidungsbaum: unterhalb x fuehrt below_id, oberhalb above_id.
@@ -46,6 +57,21 @@ struct DecisionThreshold {
 class DecisionLambdaTree {
 public:
     explicit DecisionLambdaTree(std::vector<SplineCandidate> candidates) : candidates_(std::move(candidates)) {}
+
+    /// Baut den Baum aus ROH-Kurven: jede Kurve wird mit `fit` modelliert. Default = fit_monotone_cubic_spline
+    /// (Fritsch-Carlson, overshoot-frei), sodass decide()/thresholds() denselben SCHEIN-Break-Even-freien
+    /// Spline nutzen wie die heuristik-Familie -- statt des UEBERSCHWINGENDEN natuerlichen Fits. Das Fit-
+    /// Verfahren ist compile-time durchgereicht (Template-Callable, kein Runtime-Switch); jeder Aufrufer kann
+    /// z.B. &cf::fit_natural_cubic_spline uebergeben, ohne die Klasse zu aendern.
+    template <class Fit = cf::AxisSpline (*)(cf::MeasurementCurve const&)>
+    [[nodiscard]] static DecisionLambdaTree from_curves(std::vector<CurveCandidate> curves,
+                                                        Fit fit = &cf::fit_monotone_cubic_spline) {
+        std::vector<SplineCandidate> cands;
+        cands.reserve(curves.size());
+        for (CurveCandidate& c : curves)
+            cands.push_back(SplineCandidate{std::move(c.binary_id), std::move(c.algo_set), fit(c.curve)});
+        return DecisionLambdaTree{std::move(cands)};
+    }
 
     /// Waehlt an x die Kandidaten-Binary mit minimalem Spline-Modellwert (nur valid() Kandidaten).
     /// Leere Rueckgabe = keine gueltige Entscheidung (honest-empty).
@@ -70,12 +96,19 @@ public:
         std::vector<DecisionThreshold> out;
         for (std::size_t i = 0; i < candidates_.size(); ++i) {
             for (std::size_t j = i + 1; j < candidates_.size(); ++j) {
-                auto const ix = cf::spline_intersections(candidates_[i].model, candidates_[j].model, samples);
+                cf::AxisSpline const& mi = candidates_[i].model;
+                cf::AxisSpline const& mj = candidates_[j].model;
+                if (!mi.valid() || !mj.valid()) continue;
+                auto const   ix   = cf::spline_intersections(mi, mj, samples);
+                double const lo   = std::max(mi.knots.front().x_log2, mj.knots.front().x_log2);
+                double const hi   = std::min(mi.knots.back().x_log2, mj.knots.back().x_log2);
+                double const side = (hi > lo) ? (hi - lo) * 1e-6 : 0.0; // span-relativer Seiten-Schritt (log2)
                 for (cf::SplineIntersection const& p : ix) {
-                    // Wer fuehrt knapp UNTERHALB der Schwelle (kleinere Kosten)?
-                    std::uint64_t const xb =
-                        (p.x_working_set_bytes > 2.0) ? static_cast<std::uint64_t>(p.x_working_set_bytes - 1.0) : 1u;
-                    bool const        i_below = candidates_[i].model.eval(xb) <= candidates_[j].model.eval(xb);
+                    // Wer fuehrt knapp UNTERHALB der Schwelle (kleinere Kosten)? Probe span-relativ LINKS in der
+                    // log2-Abszisse (nicht der grobe x-1.0-Byte-Schritt, der bei grossen Working-Sets in log2
+                    // verschwindet und die Fuehrungs-Bestimmung nahe dem Schnittpunkt mehrdeutig macht).
+                    double const      xl_probe = std::max(lo, p.x_log2 - side);
+                    bool const        i_below  = mi.eval_log2(xl_probe) <= mj.eval_log2(xl_probe);
                     DecisionThreshold t;
                     t.x_working_set_bytes = p.x_working_set_bytes;
                     t.below_id            = i_below ? candidates_[i].binary_id : candidates_[j].binary_id;
