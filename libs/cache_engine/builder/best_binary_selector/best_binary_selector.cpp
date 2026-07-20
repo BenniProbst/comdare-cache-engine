@@ -3,6 +3,7 @@
 
 #include <charconv>
 #include <cmath>
+#include <limits>
 #include <set>
 #include <unordered_map>
 
@@ -403,6 +404,181 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
 
     fs::remove_all(tmp_dir, ec); // leeres tmp-Verzeichnis aufräumen (best-effort)
     return art;
+}
+
+// ── HYBRID-BREAK-EVEN-SELEKTOR-SKELETON (Section 32-F8 / Section 49) — SELF-CONTAINED, siehe Header ──
+
+PiecewiseCurve::PiecewiseCurve(std::vector<CurveSample> samples) : samples_(std::move(samples)) {
+    std::sort(samples_.begin(), samples_.end(), [](CurveSample const& a, CurveSample const& b) { return a.x < b.x; });
+    // Distinkte x kollabieren (gleiche x = Samples EINER Stuetzstelle -> Mittel).
+    std::vector<CurveSample> uniq;
+    uniq.reserve(samples_.size());
+    for (std::size_t i = 0; i < samples_.size();) {
+        double const x   = samples_[i].x;
+        double       sum = 0.0;
+        std::size_t  cnt = 0;
+        while (i < samples_.size() && samples_[i].x == x) {
+            sum += samples_[i].y;
+            ++cnt;
+            ++i;
+        }
+        uniq.push_back(CurveSample{x, sum / static_cast<double>(cnt)});
+    }
+    samples_ = std::move(uniq);
+    // HONEST-EMPTY: >=2 distinkte x + endliche Werte.
+    valid_ = samples_.size() >= 2;
+    for (auto const& s : samples_)
+        if (!std::isfinite(s.x) || !std::isfinite(s.y)) valid_ = false;
+}
+
+double PiecewiseCurve::eval(double x) const {
+    if (!valid_) return std::numeric_limits<double>::quiet_NaN();
+    std::size_t const n = samples_.size();
+    if (x <= samples_.front().x) { // lineare Extrapolation links
+        CurveSample const& a = samples_[0];
+        CurveSample const& b = samples_[1];
+        return a.y + (b.y - a.y) / (b.x - a.x) * (x - a.x);
+    }
+    if (x >= samples_.back().x) { // lineare Extrapolation rechts
+        CurveSample const& a = samples_[n - 2];
+        CurveSample const& b = samples_[n - 1];
+        return b.y + (b.y - a.y) / (b.x - a.x) * (x - b.x);
+    }
+    std::size_t hi = 1;
+    while (hi < n && samples_[hi].x < x) ++hi;
+    CurveSample const& a = samples_[hi - 1];
+    CurveSample const& b = samples_[hi];
+    double const       t = (x - a.x) / (b.x - a.x);
+    return a.y + t * (b.y - a.y);
+}
+
+std::vector<BreakEvenPoint> find_break_evens(AlgoSetCandidate const& a, AlgoSetCandidate const& b,
+                                             std::size_t samples) {
+    std::vector<BreakEvenPoint> out;
+    if (!a.cost_curve.valid() || !b.cost_curve.valid() || samples < 2) return out;
+    double const lo = std::max(a.cost_curve.x_min(), b.cost_curve.x_min());
+    double const hi = std::min(a.cost_curve.x_max(), b.cost_curve.x_max());
+    if (!(hi > lo)) return out; // kein Ueberlapp
+    auto const d    = [&](double x) { return a.cost_curve.eval(x) - b.cost_curve.eval(x); };
+    auto const push = [&](double x, bool a_below) {
+        BreakEvenPoint be;
+        be.x            = x;
+        be.cost         = a.cost_curve.eval(x);
+        be.winner_below = a_below ? a.binary_id : b.binary_id;
+        be.winner_above = a_below ? b.binary_id : a.binary_id;
+        out.push_back(be);
+    };
+    double d_prev = d(lo);
+    double x_prev = lo;
+    for (std::size_t i = 1; i <= samples; ++i) {
+        double const x_cur = lo + (hi - lo) * static_cast<double>(i) / static_cast<double>(samples);
+        double const d_cur = d(x_cur);
+        if (d_prev != 0.0 && (d_prev < 0.0) != (d_cur < 0.0)) {
+            double xl = x_prev, xr = x_cur, dl = d_prev; // Bisektion auf dem Vorzeichenwechsel
+            for (int it = 0; it < 60 && (xr - xl) > 1e-12; ++it) {
+                double const xm = 0.5 * (xl + xr);
+                double const dm = d(xm);
+                if (dm == 0.0) {
+                    xl = xr = xm;
+                    break;
+                }
+                if ((dm < 0.0) == (dl < 0.0)) {
+                    xl = xm;
+                    dl = dm;
+                } else {
+                    xr = xm;
+                }
+            }
+            push(0.5 * (xl + xr), d_prev < 0.0); // d<0 unterhalb => a fuehrt unterhalb
+        }
+        x_prev = x_cur;
+        d_prev = d_cur;
+    }
+    return out;
+}
+
+std::optional<SelectionResult> HybridBinarySelector::select(double query_x) const {
+    SelectionResult best;
+    bool            found     = false;
+    double          best_cost = 0.0;
+    for (AlgoSetCandidate const& c : candidates_) {
+        if (!c.cost_curve.valid()) continue;
+        double const cost = obj_.cost_of(c.cost_curve.eval(query_x));
+        if (!std::isfinite(cost)) continue;
+        if (!found || cost < best_cost) {
+            best_cost         = cost;
+            best.binary_id    = c.binary_id;
+            best.algo_set     = c.algo_set;
+            best.modeled_cost = cost;
+            found             = true;
+        }
+    }
+    if (!found) return std::nullopt;
+    return best;
+}
+
+std::vector<BreakEvenPoint> HybridBinarySelector::break_even_table(double x_lo, double x_hi,
+                                                                   std::size_t samples) const {
+    std::vector<BreakEvenPoint> out;
+    if (candidates_.empty() || samples < 2 || !(x_hi > x_lo)) return out;
+    auto const leader_at = [&](double x) -> int {
+        int    best_i = -1;
+        double best_c = 0.0;
+        for (int i = 0; i < static_cast<int>(candidates_.size()); ++i) {
+            if (!candidates_[static_cast<std::size_t>(i)].cost_curve.valid()) continue;
+            double const c = obj_.cost_of(candidates_[static_cast<std::size_t>(i)].cost_curve.eval(x));
+            if (!std::isfinite(c)) continue;
+            if (best_i < 0 || c < best_c) {
+                best_i = i;
+                best_c = c;
+            }
+        }
+        return best_i;
+    };
+    int    leader = leader_at(x_lo);
+    double x_prev = x_lo;
+    for (std::size_t i = 1; i <= samples; ++i) {
+        double const x_cur   = x_lo + (x_hi - x_lo) * static_cast<double>(i) / static_cast<double>(samples);
+        int const    cur_ldr = leader_at(x_cur);
+        if (cur_ldr != leader && leader >= 0 && cur_ldr >= 0) {
+            AlgoSetCandidate const& A = candidates_[static_cast<std::size_t>(leader)];
+            AlgoSetCandidate const& B = candidates_[static_cast<std::size_t>(cur_ldr)];
+            auto const              d = [&](double x) {
+                return obj_.cost_of(A.cost_curve.eval(x)) - obj_.cost_of(B.cost_curve.eval(x));
+            };
+            // Fuehrungswechsel A->B => d = A-B geht von <=0 (A fuehrt, ggf. Gleichstand) auf >0 (B fuehrt).
+            // Liegt der Break-Even exakt auf dem Rasterpunkt x_prev (dl == 0), ist x_prev der Schnittpunkt;
+            // sonst per Bisektion auf dem echten Vorzeichenwechsel-Bracket [x_prev,x_cur] verfeinern.
+            double xl = x_prev, xr = x_cur, dl = d(x_prev);
+            double xb = x_prev;
+            if (dl != 0.0) {
+                for (int it = 0; it < 60 && (xr - xl) > 1e-12; ++it) {
+                    double const xm = 0.5 * (xl + xr);
+                    double const dm = d(xm);
+                    if (dm == 0.0) {
+                        xl = xr = xm;
+                        break;
+                    }
+                    if ((dm < 0.0) == (dl < 0.0)) {
+                        xl = xm;
+                        dl = dm;
+                    } else {
+                        xr = xm;
+                    }
+                }
+                xb = 0.5 * (xl + xr);
+            }
+            BreakEvenPoint be;
+            be.x            = xb;
+            be.cost         = obj_.cost_of(A.cost_curve.eval(xb));
+            be.winner_below = A.binary_id;
+            be.winner_above = B.binary_id;
+            out.push_back(be);
+        }
+        if (cur_ldr >= 0) leader = cur_ldr;
+        x_prev = x_cur;
+    }
+    return out;
 }
 
 } // namespace comdare::cache_engine::best_binary

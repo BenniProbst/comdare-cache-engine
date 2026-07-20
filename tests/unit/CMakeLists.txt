@@ -3247,6 +3247,28 @@ add_test(NAME test_best_binary_selector_parse_rank COMMAND test_best_binary_sele
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_best_binary_selector_parse_rank)
 set_tests_properties(test_best_binary_selector_parse_rank PROPERTIES LABELS "tools;best_binary" TIMEOUT 60)
 
+# 2026-07-20 (S1/A5, Section 32-F8 / Section 49): SYNTHETISCHE Verifikation des Hybrid-Break-Even-Vorbaus —
+# curve_fit.hpp AxisSpline (Spline je Achse) + best_binary_selector.hpp Break-Even/Rueckwaerts-Wahl (self-
+# contained, std-only) + decision_lambda_trees.hpp (Spline-Schnittpunkt-Entscheidungsbaum). GOLDEN-NEUTRAL
+# (rein synthetische Kurven, keine #156-Messdaten). Linkt comdare_decision_lambda_trees INTERFACE (belegt die
+# CMake-Anbindung) + kompiliert best_binary_selector.cpp direkt (engine-frei). Traegt zusaetzlich das K-5-
+# Paritaets-Gate am neuen Selektor-Rand (static_assert gegen anatomy_module_abi_v1_decl.hpp).
+add_executable(test_hybrid_spline_selector_scaffold
+    "test_hybrid_spline_selector_scaffold.cpp"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/best_binary_selector/best_binary_selector.cpp")
+target_compile_features(test_hybrid_spline_selector_scaffold PRIVATE cxx_std_23)
+target_include_directories(test_hybrid_spline_selector_scaffold PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/best_binary_selector")
+target_link_libraries(test_hybrid_spline_selector_scaffold PRIVATE comdare_decision_lambda_trees)
+comdare_set_platform_defines(test_hybrid_spline_selector_scaffold)
+target_compile_definitions(test_hybrid_spline_selector_scaffold PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_hybrid_spline_selector_scaffold COMMAND test_hybrid_spline_selector_scaffold)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_hybrid_spline_selector_scaffold)
+set_tests_properties(test_hybrid_spline_selector_scaffold PROPERTIES LABELS "tools;best_binary;hybrid;curve_fit" TIMEOUT 60)
+
 # Schicht E4 Paket B - XML-Eingang der Resource-Control-Felder bis zur E3-AxisLevel-Struktur.
 add_executable(test_e4_contract_xml_to_axislevels "test_e4_contract_xml_to_axislevels.cpp")
 target_compile_features(test_e4_contract_xml_to_axislevels PRIVATE cxx_std_23)
