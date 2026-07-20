@@ -125,30 +125,33 @@ namespace {
 // simd-Unter-Achse der extension_hardware-Haupt-Achse (F-SIMD, Q2-Option-C): die -march-Flag-QUELLE ist die
 // SimdSubAxis-Option (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = no_extension
 // (SimdNoExtOption, keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
-// kommt mit dem Planer-Strang, bis dahin ist COMDARE_PILOT_SIMD_POLICY der Smoke-Schalter.
+// kommt mit dem Planer-Strang. Single-XML (9dim-G3, Sec.50): die Einzelpfad-Wahl kommt aus dem Profil
+// (<system_axes><extension_hardware><simd>, GENAU EINER), nicht mehr aus COMDARE_PILOT_SIMD_POLICY-Env.
 // GN-1-Anker (opt-g-Facade): die hier gezogenen simd-Optionen haengen unter dem AKTIVEN extension_hardware-
 // Familien-Knoten (extension_hardware_family_axis.hpp, analog CompilerSystemAxis) -- Label-Drift bricht compile-time.
 static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis_label() ==
                   ::comdare::cache_engine::measurement::SimdExtensionHardwareFamily::axis_label(),
               "GN-1: die opt-g-Facade zieht simd-Flags nur ueber den aktiven extension_hardware-Knoten.");
-[[nodiscard]] std::string_view active_simd_policy() {
-    namespace cm            = ::comdare::cache_engine::measurement;
-    std::string_view policy = cm::SimdNoExtOption::simd_id();
-    if (char const* e = std::getenv("COMDARE_PILOT_SIMD_POLICY"); e != nullptr && *e != '\0') policy = e;
-    return policy;
+[[nodiscard]] std::string_view active_simd_policy(cx::ThesisProfile const* tp = nullptr) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    // Single-XML (9dim-G3): der EINE deklarierte <simd>-Wert des Profils ist die Quelle (GENAU EINER = Einzelpfad).
+    // 0 deklariert -> benannter Achsen-Default no_extension (byte-identisch, keine Flags); >1 traegt der
+    // Permutations-Pfad (run_profile), nicht diese Facade-Naht.
+    if (tp != nullptr && tp->extension_hardware.simd_options.size() == 1)
+        return tp->extension_hardware.simd_options.front();
+    return cm::SimdNoExtOption::simd_id();
 }
 
-[[nodiscard]] std::vector<std::string> perm_extension_hardware_cflags() {
+[[nodiscard]] std::vector<std::string> perm_extension_hardware_cflags(cx::ThesisProfile const* tp = nullptr) {
     namespace cm                  = ::comdare::cache_engine::measurement;
-    std::string_view const policy = active_simd_policy();
+    std::string_view const policy = active_simd_policy(tp);
     std::string_view       flag;
     if (policy == cm::SimdAvx2Option::simd_id()) {
         flag = cm::SimdAvx2Option::gcc_march_flag();
     } else if (policy == cm::SimdAvx512Option::simd_id()) {
         flag = cm::SimdAvx512Option::gcc_march_flag();
     } else if (policy != cm::SimdNoExtOption::simd_id()) {
-        std::cerr << "[profile_facade] COMDARE_PILOT_SIMD_POLICY='" << policy
-                  << "' unbekannt; nutze no_extension (generisch).\n";
+        std::cerr << "[profile_facade] simd-Politik '" << policy << "' unbekannt; nutze no_extension (generisch).\n";
     }
     if (flag.empty()) return {};
     return {std::string{flag}};
@@ -156,18 +159,19 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 
 // INC-2d: target_isa-System-Achse -- die ZIEL-ISA fuer Cross-Compile (x86->ARM64). Die Cross-Flags (-target/-march)
 // kommen single-source aus der TargetIsaSystemAxis-Auspraegung; Default X86_64TargetIsa = host==target = KEINE Flags
-// (golden byte-identisch). Der echte aarch64-Lauf braucht zusaetzlich den Cross-Treiber (Toolchain-Handover);
-// COMDARE_PILOT_TARGET_ISA ist der Smoke-Schalter bis zum Planer-Strang.
-[[nodiscard]] std::string_view active_target_isa() {
-    namespace cm            = ::comdare::cache_engine::measurement;
-    std::string_view target = cm::X86_64TargetIsa::target_isa_id();
-    if (char const* e = std::getenv("COMDARE_PILOT_TARGET_ISA"); e != nullptr && *e != '\0') target = e;
-    return target;
+// (golden byte-identisch). Der echte aarch64-Lauf braucht zusaetzlich den Cross-Treiber (Toolchain-Handover).
+// Single-XML (9dim-G3, Sec.50): der Einzelpfad-Wert kommt aus dem Profil (<system_axes><target_isa>, GENAU EINER),
+// nicht mehr aus COMDARE_PILOT_TARGET_ISA-Env; target_isa wird NICHT permutiert (eigene Haupt-Achse, host-weite
+// System-Config).
+[[nodiscard]] std::string_view active_target_isa(cx::ThesisProfile const* tp = nullptr) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (tp != nullptr && tp->target_isa.isa.size() == 1) return tp->target_isa.isa.front();
+    return cm::X86_64TargetIsa::target_isa_id();
 }
 
-[[nodiscard]] std::vector<std::string> perm_target_isa_cflags() {
+[[nodiscard]] std::vector<std::string> perm_target_isa_cflags(cx::ThesisProfile const* tp = nullptr) {
     namespace cm                  = ::comdare::cache_engine::measurement;
-    std::string_view const target = active_target_isa();
+    std::string_view const target = active_target_isa(tp);
     if (target == cm::Aarch64TargetIsa::target_isa_id()) {
         // "-target aarch64-linux-gnu" ist ZWEI Tokens -> auf Whitespace splitten (je Element ein Compiler-Arg).
         std::vector<std::string> out = split_on(std::string{cm::Aarch64TargetIsa::target_triple()}, ' ');
@@ -175,25 +179,23 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
         return out;
     }
     if (target != cm::X86_64TargetIsa::target_isa_id())
-        std::cerr << "[profile_facade] COMDARE_PILOT_TARGET_ISA='" << target
+        std::cerr << "[profile_facade] target_isa '" << target
                   << "' unbekannt; nutze x86_64 (host==target, kein Cross).\n";
     return {}; // x86_64 (Default) = native = KEINE Cross-Flags (golden byte-identisch)
 }
 
 // H-10 (Bau-INC-2c, W9.1-Konformitaets-Nachzug): die telemetry-System-Achse (TelemetryConfig Active/Silent,
 // telemetry_mode.hpp) ist eine CEB-System-Achsen-Belegung -- ihre Wahl gehoert in die per-Binary-Provenienz
-// (.version-Sidecar, kein binary_id-Segment; registry_to_axis_levels.hpp:109). Der Smoke-Schalter ist
-// COMDARE_PILOT_TELEMETRY (Default Active = emittierend, wie die Tier-Binary-Telemetrie); "silent" waehlt den
-// Diff-Mess-Modus. Analog active_target_isa: Default-Wert = KEIN Suffix-Token -> build_version byte-identisch.
+// (.version-Sidecar, kein binary_id-Segment; registry_to_axis_levels.hpp:109). A9.3 (Sec.50, 9dim-G3): der
+// COMDARE_PILOT_TELEMETRY-Env-Schalter entfaellt; Rueckgabe bleibt der benannte Default Active (== false),
+// UNVERAENDERT. BEWUSST KEIN Profil-Wiring hier: telemetry IST eine Registry-System-Achse (build_system_axis_
+// levels, T10_telemetry), UND die golden-320-Profile deklarieren <telemetry silent="true"> -- ein Durchreichen
+// von telemetry_silent haenge +tel=silent ans golden-build_version und BRECHE die Byte-Identitaet (das Alt-
+// Verhalten env-unset=>Active hat den XML-Wert nie getragen). Das telemetry_silent-Wiring ist damit ein bewusst
+// golden-BRECHENDER Folge-Schritt (eigene Absprache), NICHT Teil der golden-neutralen A9.3. Default Active =>
+// KEIN +tel=-Token => build_version byte-identisch.
 [[nodiscard]] bool active_telemetry_is_silent() {
-    char const* e = std::getenv("COMDARE_PILOT_TELEMETRY");
-    if (e == nullptr || *e == '\0') return false; // Default = Active (TelemetryMode::Active)
-    std::string_view const mode = e;
-    if (mode == "silent") return true;
-    if (mode != "active")
-        std::cerr << "[profile_facade] COMDARE_PILOT_TELEMETRY='" << mode
-                  << "' unbekannt; nutze active (Telemetrie emittiert, Default).\n";
-    return false;
+    return false; // Default = Active (TelemetryMode::Active); A9.3 golden-neutral: kein Profil-Wiring (s.o.)
 }
 
 // INC-0: Allokator-ORGAN-Kanal -- der snmalloc-Vendor-Build-Vertrag (SNMALLOC_*-INTERFACE-Defs). Werte single-source
@@ -252,12 +254,12 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // INC-0: der EINE Compile-Flag-Assembler fuer die Tier-Binary-Subprozesse -- macht die WAS/WIE-Schicht-Trennung
 // SICHTBAR statt eines flachen Misch-Vektors: (1) Mess-/OS-/Arch-Defines (perm_mess_defines), (2) Allokator-ORGAN-
 // Defs (snmalloc-Vertrag), (3) Compiler-SYSTEM-Flag -mcx16 (atomic128-Achse), (4) extension_hardware-SIMD -march.
-[[nodiscard]] std::vector<std::string> perm_compile_flags() {
+[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp = nullptr) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
-    for (auto& f : perm_extension_hardware_cflags()) d.push_back(std::move(f));
-    for (auto& f : perm_target_isa_cflags()) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
+    for (auto& f : perm_extension_hardware_cflags(tp)) d.push_back(std::move(f));
+    for (auto& f : perm_target_isa_cflags(tp)) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
     return d;
 }
 
@@ -281,18 +283,18 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // (OptO*SubAxis::gcc/clang/msvc_opt_flag, compile-time-Reflexion), der ORT ist der opt_flag-Param von
 // make_gpp_compile_fn (opt-b). CEB-DEFAULT = O3 (Ruling 2026-07-18, Option B): IEEE-754-deterministisch,
 // wahrt den 1-Thread-Mess-Determinismus der golden-Reihe. NICHTS GLOBAL GEPINNT — der Startwert kommt aus
-// der benannten Single-Source DefaultOptLevelOption (=O3), env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
-// bewegen JEDES Teil. Ofast/O0/O1/O2 leben additiv als +opt=-Sidecar-Vergleichs-Extreme.
-[[nodiscard]] std::string_view active_opt_level() {
-    // Startwert aus der benannten Achsen-Single-Source (kein rohes Literal, kein Pin) = "O3".
-    std::string_view level = ::comdare::cache_engine::measurement::DefaultOptLevelOption::opt_level_id();
-    if (char const* e = std::getenv("COMDARE_PILOT_OPT_LEVEL"); e != nullptr && *e != '\0') level = e;
-    return level;
+// der benannten Single-Source DefaultOptLevelOption (=O3); Single-XML (9dim-G3, Sec.50) + XML/Planer (A3) bewegen
+// JEDES Teil (nicht mehr COMDARE_PILOT_OPT_LEVEL-Env). Ofast/O0/O1/O2 leben additiv als +opt=-Sidecar-Extreme.
+[[nodiscard]] std::string_view active_opt_level(cx::ThesisProfile const* tp = nullptr) {
+    // Single-XML (9dim-G3): GENAU EIN deklarierter <opt_level> -> dieser Wert; sonst die benannte Achsen-Single-
+    // Source (kein rohes Literal, kein Pin) = "O3". Mehrere opt_levels traegt der Permutations-Pfad (run_profile).
+    if (tp != nullptr && tp->compiler.opt_levels.size() == 1) return tp->compiler.opt_levels.front();
+    return ::comdare::cache_engine::measurement::DefaultOptLevelOption::opt_level_id();
 }
 
-[[nodiscard]] std::string perm_opt_level_cflags() {
+[[nodiscard]] std::string perm_opt_level_cflags(cx::ThesisProfile const* tp = nullptr) {
     namespace cm                 = ::comdare::cache_engine::measurement;
-    std::string_view const level = active_opt_level();
+    std::string_view const level = active_opt_level(tp);
     bool const             clang = cxx_compiler().find("clang") != std::string::npos;
     auto pick = [&](std::string_view gcc, std::string_view cl) { return std::string{clang ? cl : gcc}; };
     if (level == cm::OptO0Option::opt_level_id())
@@ -308,7 +310,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // Fehlerklasse (INC-29.0, KonfigXmlParse-Nachbar): unbekannter Smoke-Wert -> sichtbar degradiert, NIE leer
     // (kein impliziter Compiler-Default /Od), NIE harter exit. Fallback = der bewegliche CEB-Default (O3), NICHT
     // ein O2-Pin. Formale D1-Log-Klassifikation an der Build-Naht folgt INC-29.2/d1-log.
-    std::cerr << "[profile_facade] COMDARE_PILOT_OPT_LEVEL='" << level << "' unbekannt; nutze CEB-Default "
+    std::cerr << "[profile_facade] opt_level '" << level << "' unbekannt; nutze CEB-Default "
               << cm::DefaultOptLevelOption::opt_level_id() << ".\n";
     return pick(cm::DefaultOptLevelOption::gcc_opt_flag(), cm::DefaultOptLevelOption::clang_opt_flag());
 }
@@ -318,14 +320,16 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // ein eigenes .version-Sidecar (kein falsches Skip via dll_is_current) und die CSV-Spalte
 // build_version traegt die Provenienz. Konstante Achsen (Scheduling/Last=Default) bleiben
 // weggelassen, bis die CEB-Laufzeit-Permutation sie variabel macht.
-[[nodiscard]] std::string system_axes_version_suffix() {
+[[nodiscard]] std::string system_axes_version_suffix(cx::ThesisProfile const* tp = nullptr) {
     // A1/OF-2 (Ruling 2026-07-18): KEIN globaler Byte-Anker mehr. Die opt_level-Provenienz wird IMMER emittiert
     // (kein O2-Sonderfall) -> jedes Teil beweglich, keine bevorzugte Referenz-Stufe. Folge: alle Tier-Binaries
     // tragen +opt=<level> (Default +opt=O3) -> dll_is_current sieht sie unter neuer Belegung als neu; die golden-
     // Reihe wird deterministisch unter O3 neu gebaut/gemessen (bewusster Neu-Mess-Lauf, alt-Reihen additiv erhalten).
-    std::string suffix = "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
+    // Single-XML (9dim-G3, Sec.50): die vier active_*-Aufloeser ziehen die Einzelpfad-Wahl aus dem Profil (tp), nicht
+    // mehr aus Env; kein Profil / keine Deklaration -> benannte Defaults -> Suffix byte-identisch (golden-neutral).
+    std::string suffix = "+ext=" + std::string{active_simd_policy(tp)} + "+cxx=" + cxx_compiler();
     suffix += "+opt=";
-    suffix += active_opt_level();
+    suffix += active_opt_level(tp);
     // Bauplan §4 (inkrementeller Cache): die CEB-Contract-Version (Framework/System-Ebene) faltet sich in die
     // build_version -> jeder Bump (ABI-Major AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell/
     // CI-Tripwire) laesst jede perm.dll.version mismatchen -> ALLE Tier-Binaries neu ("CEB-Aenderung betrifft alle").
@@ -334,7 +338,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
               std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
     // INC-2d: Cross-Compile-Provenienz NUR wenn Ziel != Host (native x86_64 = kein Suffix -> build_version
     // byte-identisch, golden-neutral). Ziel-ISA ist system_config -> .version-Sidecar, NIE binary_id.
-    if (std::string_view const t = active_target_isa();
+    if (std::string_view const t = active_target_isa(tp);
         t != ::comdare::cache_engine::measurement::X86_64TargetIsa::target_isa_id())
         suffix += "+target=" + std::string{t};
     // H-10 (W9.1): telemetry-System-Achsen-Provenienz. REGISTRY-GEGATED -- der Token wird NUR emittiert, wenn
@@ -342,7 +346,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // Byte-Identitaets-Fold in build_all_axis_levels() ohne echten Konsumenten -- Audit-Auflage A, 2026-07-17) ein
     // ECHTER Produktions-Konsument: verschwaende die telemetry-System-Achse aus der Registry, entfiele der Token
     // automatisch (Anti-Drift). NUR bei Silent (!= Default Active) -> Default byte-identisch (golden-neutral).
-    if (active_telemetry_is_silent()) {
+    if (active_telemetry_is_silent()) { // A9.3: Default Active (kein Profil-Wiring) -> golden byte-identisch
         auto const system_levels            = ex::build_system_axis_levels();
         bool const telemetry_is_system_axis = std::any_of(system_levels.begin(), system_levels.end(),
                                                           [](ex::AxisLevel const& l) { return l.axis == "telemetry"; });
@@ -372,6 +376,11 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     std::optional<cx::ThesisProfile> const tp_opt = tlz::load_thesis_profile(args.profile_path);
     std::vector<std::string>               workload_select;
     if (tp_opt) workload_select = tp_opt->workloads;
+    // Single-XML (9dim-G3, Sec.50): der Einzelpfad loest die System-Achsen-Wahl (opt/simd/target_isa/telemetry) aus
+    // dem GEPARSTEN Profil auf, nicht mehr aus COMDARE_PILOT_*-Env. Nullbarer Zeiger an die active_*-/perm_*-
+    // Aufloeser; kein/leeres Profil => benannte Achsen-Defaults (byte-identisch). Der Permutations-Pfad unten
+    // liest opt/simd ohnehin direkt aus dem Profil (compile_for_perm) -- daher hier NUR die Einzelpfad-Naht.
+    cx::ThesisProfile const* const tp_ptr = tp_opt ? &*tp_opt : nullptr;
     // GN-3 (§33 Systembeweis-Traeger, 2026-07-19): deklariert das Profil <system_axes> (opt_level/simd), permutiert
     // run_profile sie SELBST (opt×simd-Walk) und haengt je Kombination das +cxx=+opt=+ext=-Suffix ans build_version.
     // Dann darf die BASIS-build_version den system_axes_version_suffix() NICHT tragen (sonst doppelte Provenienz) —
@@ -409,8 +418,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
     a.compile      = ex::make_gpp_compile_fn(
-        perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
-        perm_opt_level_cflags(),           // opt-c: opt_level-Flag (Default O3, beweglich)
+        perm_include_dirs(), perm_compile_flags(tp_ptr), cxx_compiler(), perm_link_libs(),
+        perm_opt_level_cflags(tp_ptr),     // opt-c: opt_level-Flag (Default O3, beweglich; Single-XML aus tp)
         facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
     // Bauplan §5/§7: die AlgoSigFn aus der compile-time Versions-Tabelle (axis_variant_version_table). Der
     // Orchestrator berechnet damit je Binary die Organ-Signatur (perm.algos) und gated Rebuild + Neu-Messung. Die
@@ -452,7 +461,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
                 return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
             };
     } else {
-        a.build_version = args.build_version + system_axes_version_suffix(); // Einzel-Pfad byte-identisch
+        a.build_version = args.build_version + system_axes_version_suffix(tp_ptr); // Einzel-Pfad byte-identisch
     }
     a.n_repeats                  = args.n_repeats;
     a.cores_per_build            = args.cores_per_build;
