@@ -2702,6 +2702,29 @@ target_compile_definitions(test_experiment_projection PRIVATE
     "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\"")
 set_tests_properties(test_experiment_projection PROPERTIES LABELS "contract;profiles;e4;incd")
 
+# KERN-B K5 (Section 59, 2026-07-20) -- Gate der deklarativen Merge-Naht (merge_plan_from_profile) + des
+# direktiven-getriebenen Emitters (render_directive_merge_module_source). Reine Daten-/Render-Schritte (kein
+# DLL-Bau/keine Messung); sota_catalog.hpp zieht die Compositions => Boost::mp11 + Achsen-Generated-Dirs wie
+# test_experiment_projection.
+comdare_add_test(test_merge_plan_directive
+    SOURCES thesis_tiere/test_merge_plan_directive.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_merge_plan_directive)
+target_include_directories(test_merge_plan_directive PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_merge_plan_directive PRIVATE Boost::mp11)
+target_compile_definitions(test_merge_plan_directive PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_merge_plan_directive PROPERTIES LABELS "contract;profiles;kernb;merge")
+
 # PAKET W3-B / Phase-1-I1 (2026-07-19) — Contract-Test des ExperimentPlanDirector (GoF Director + Builder,
 # profile_facade/planner/experiment_plan_director.hpp) + des Registry-Trio-Lesers (validate_profile.hpp
 # read_axis_registry_trio). Beweist LITERAL: (T) die 3 Art-Registries (Organ/System/Mess) laden ueber DIESELBE

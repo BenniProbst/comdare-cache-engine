@@ -15,7 +15,9 @@
 #include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
 
 #include <array>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace comdare::cache_engine::abi {
 
@@ -94,6 +96,40 @@ template <class Comp>
         {"measurement_tooling", tooling, "v1"},
     }};
     return build_axis_version_stamp_line(entries);
+}
+
+/// merge_stamp_line(strategy, pruefling, merged_axes) -- die kMergeAxisVersionLine (Section 59, K6a): der DRITTE
+/// Tier-Binary-Stempel = die MERGE-KOMBINATION. Zusaetzlich zu den zwei Section-58-Arrays (System + Organ) traegt
+/// die Tier-Binary damit die Merge-Art (die MergeStrategy: Stufe1/Stufe2/Stufe3) + die Pruefling-Identitaet + die
+/// Namen/Versionen der beteiligten Achsen-Algorithmen (Section 59-C: "Namen + Versionen JEDER Achsen-Algorithmen
+/// IMMER im Stempel; PLUS ein dritter Tier-Binary-Stempel = die Merge-Kombination"). Format:
+///   "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]"
+/// -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt zur .algos-Sig wie organ/system/measurement (build_axis_version_
+/// stamp_line fuer den Achsen-Teil). NUR HAUPT-Achsen (Section 58-V; Unter-Achsen fliessen dynamisch zur Laufzeit
+/// durch).
+///
+/// ce-only-/IDENTITAETS-Fall -> LEERE Zeile (Section 59-C-golden-Konsequenz): leere/Stufe1_CeOnly-Strategie ODER
+/// leere/"CacheEngine"/"self"-Pruefling-Identitaet -> "" (kein Merge einkompiliert). So bleibt der ce-only-/
+/// Katalog-Pfad byte-identisch (die Makro-Materialisierung legt merge_line auf "" mit merge_len==0), der
+/// golden-CRC 0xF1C1F26A1232073B unberuehrt -- die Merges sind ein additiver id-Satz.
+[[nodiscard]] inline std::string
+merge_stamp_line(std::string_view strategy, std::string_view pruefling,
+                 std::span<::comdare::cache_engine::measurement::AxisVersionEntry const> merged_axes = {}) {
+    using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
+    // ce-only (Stufe1 / keine Merge-Art) -> leer (byte-identischer golden-Pfad).
+    if (strategy.empty() || strategy == "Stufe1_CeOnly") return {};
+    // Identitaets-/self-Pruefling ("CacheEngine"/self / kein Pruefling) -> leer (Fork 3: identity=self ist ce).
+    if (pruefling.empty() || pruefling == "CacheEngine" || pruefling == "self") return {};
+    std::string out = "merge=";
+    out += strategy;
+    out += ";pruefling=";
+    out += pruefling;
+    std::string const axes = build_axis_version_stamp_line(merged_axes);
+    if (!axes.empty()) {
+        out += ';';
+        out += axes;
+    }
+    return out;
 }
 
 } // namespace comdare::cache_engine::abi

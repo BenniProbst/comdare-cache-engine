@@ -132,21 +132,31 @@ struct AnatomyVersionLines {
     // (nie nullptr), measurement_len == 0.
     char const*   measurement_line; ///< kMeasurementAxisVersionLine (nullterminiert; "" wenn kein Tooling gewaehlt)
     std::uint64_t measurement_len;  ///< measurement_line-Laenge ohne '\0'
+    // K7a (Section 59, 2026-07-20; User-GO (1) "Anatomy = Stempel-Vorlage"): der DRITTE Tier-Binary-Stempel = die
+    // Merge-Kombination (kMergeAxisVersionLine, anatomy_version_stamp.hpp::merge_stamp_line). Zusaetzlich zu den zwei
+    // Section-58-Arrays (System + Organ) traegt die Tier-Binary damit die Merge-Art + Namen/Versionen der beteiligten
+    // Achsen-Algorithmen (Section 59-C). ce-only-/Identitaets-Fall (Stufe1_CeOnly / "CacheEngine"/self) -> Zeiger auf
+    // "" (nie nullptr), merge_len == 0 -> der ce-only-/Katalog-Pfad bleibt byte-identisch (golden-CRC unberuehrt; die
+    // Merges sind ein additiver id-Satz). APPEND-ONLY ans POD-Ende -> die Offsets von organ_/system_/measurement_
+    // bleiben stabil; nur kAnatomyVersionLinesLayout bumpt (2 -> 3). KEIN binary_id-/CRC-Bruch (POD-Layout != binary_id).
+    char const*   merge_line; ///< kMergeAxisVersionLine (nullterminiert; "" wenn ce-only/identity=self)
+    std::uint64_t merge_len;  ///< merge_line-Laenge ohne '\0'
 };
 
 /// Layout-Version des AnatomyVersionLines-POD -- unabhaengig vom ABI-Major. Ein POD-Layout-Wechsel bumpt
 /// DIESE Konstante, NICHT COMDARE_ANATOMY_ABI_MAJOR (das optionale Symbol ist nicht Loader-Pflicht).
 /// W12-A3 (2026-07-20): 1 -> 2 (measurement_line/measurement_len ans POD-Ende angehaengt).
-inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 2;
+/// K7a (Section 59, 2026-07-20): 2 -> 3 (merge_line/merge_len ans POD-Ende angehaengt = dritter Tier-Stempel).
+inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 3;
 
-/// W12-A3 Version-Line-Gate (POD-Layout-Wache): AnatomyVersionLines ist ein POD aus 8 Feldern (2x uint32 +
-/// 3x {char const*, uint64}), 8-aligned -> 56 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist das
+/// K7a Version-Line-Gate (POD-Layout-Wache): AnatomyVersionLines ist ein POD aus 10 Feldern (2x uint32 +
+/// 4x {char const*, uint64}), 8-aligned -> 72 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist das
 /// POD-Layout gewandert: dann kAnatomyVersionLinesLayout bumpen UND diesen erwarteten sizeof aktualisieren
 /// (die COMDARE_ANATOMY_VERSION_STAMP-Materialisierung + jeder Modul-Rebau haengen daran). KLEINES ABI-Gate,
 /// KEIN binary_id-/CRC-Bruch (das optionale Probe-Symbol ist nicht Loader-Pflicht, binary_id bleibt Organ-only).
-static_assert(sizeof(AnatomyVersionLines) == 56,
+static_assert(sizeof(AnatomyVersionLines) == 72,
               "AnatomyVersionLines-POD-Layout gewandert -- kAnatomyVersionLinesLayout bumpen + erwarteten "
-              "sizeof (56 auf x86_64) aktualisieren.");
+              "sizeof (72 auf x86_64) aktualisieren.");
 static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Ausrichtung erwartet (Zeiger).");
 
 } // namespace comdare::cache_engine::abi

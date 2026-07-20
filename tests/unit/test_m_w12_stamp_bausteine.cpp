@@ -121,22 +121,47 @@ TEST(MW12StampBausteine, MeasurementStampLineCarriesOnlyToolingMain) {
     EXPECT_TRUE(::comdare::cache_engine::abi::measurement_stamp_line("").empty());
 }
 
-TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt56) {
-    // W12-A3 Version-Line-Gate: kMeasurementAxisVersionLine ist als measurement_line/measurement_len ANS ENDE des
-    // AnatomyVersionLines-POD angehaengt (append-only; organ_/system_-Offsets stabil). Der Layout-Bump 1 -> 2
-    // signalisiert die neuen Trailing-Felder; der sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und
-    // haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt72) {
+    // K7a Version-Line-Gate (Section 59, 2026-07-20): kMergeAxisVersionLine ist als merge_line/merge_len ANS ENDE des
+    // AnatomyVersionLines-POD angehaengt (append-only; organ_/system_/measurement_-Offsets stabil) = der DRITTE
+    // Tier-Binary-Stempel (Merge-Kombination). Der Layout-Bump 2 -> 3 signalisiert die neuen Trailing-Felder; der
+    // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
+    // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 56, "POD-Layout-Wache: 8 Felder, 8-aligned -> 56 Byte (x86_64).");
+    static_assert(sizeof(AnatomyVersionLines) == 72, "POD-Layout-Wache: 10 Felder, 8-aligned -> 72 Byte (x86_64).");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 56u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 72u);
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
-    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 2u);
-    // Offset-Stabilitaet: organ_/system_ liegen unveraendert, die Mess-Felder folgen dahinter (append-only).
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 3u);
+    // Offset-Stabilitaet: organ_/system_/measurement_ liegen unveraendert, die Merge-Felder folgen dahinter (append-only).
     EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 48u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, merge_line), 56u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, merge_len), 64u);
+}
+
+TEST(MW12StampBausteine, MergeStampLineCarriesMergeCombinationOrEmptyForCeOnly) {
+    // K6a (Section 59, 2026-07-20): der DRITTE Tier-Binary-Stempel = die Merge-Kombination. Format
+    // "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]" -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt
+    // zur .algos-Sig; NUR Haupt-Achsen. ce-only-/Identitaets-Fall -> LEERE Zeile (golden-Konsequenz Section 59-C).
+    namespace abi = ::comdare::cache_engine::abi;
+    // ce-only (Stufe1 / leere Strategie) -> leer (byte-identischer golden-Pfad).
+    EXPECT_TRUE(abi::merge_stamp_line("Stufe1_CeOnly", "prt_art").empty());
+    EXPECT_TRUE(abi::merge_stamp_line("", "prt_art").empty());
+    // Identitaets-/self-Pruefling ("CacheEngine"/"self" / kein Pruefling) -> leer (Fork 3: identity=self ist ce).
+    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "CacheEngine").empty());
+    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "self").empty());
+    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "").empty());
+    // Merge-Fall OHNE Achsen-Versionen -> nur Merge-Art + Pruefling.
+    EXPECT_EQ(abi::merge_stamp_line("Stufe2_PrueflingReplace", "prt_art"),
+              std::string{"merge=Stufe2_PrueflingReplace;pruefling=prt_art"});
+    // Merge-Fall MIT Achsen-Versionen (Voll-Form via algo_semver; SEPARATE Welt zur .algos-Sig).
+    std::array<m::AxisVersionEntry, 1> const merged{{{"path_compression", "prt_patricia", "v2.3.4"}}};
+    std::string const                        line = abi::merge_stamp_line("Stufe3_FullJoin", "prt_art", merged);
+    EXPECT_EQ(line, std::string{"merge=Stufe3_FullJoin;pruefling=prt_art;path_compression=prt_patricia@2.3.4"});
+    EXPECT_EQ(line.find("@v2.3.4"), std::string::npos); // X.Y.Z, nicht die rohe Version
 }
 
 TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {

@@ -47,6 +47,7 @@
 //    Treiber-Header. C++23, header-only.
 
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisSotaSeries / ThesisProfile
+#include "merge_plan.hpp"                          // K5: AxisMergeDirective / merge_plan_from_profile (Direktiven-Naht)
 
 #include <compositions/known_compositions_list.hpp> // KnownReferenceCompositions (6 SOTA)
 #include <compositions/prt_art_reference.hpp>       // PrtArtComposition (Reihe A Prüfling)
@@ -102,15 +103,96 @@ struct SotaModule {
 /// render_sota_module_source — der kompilierbare Modul-.cpp-Quelltext einer SOTA/PRT-ART-Komposition.
 /// IDENTISCH zum CMake-Codegen-Modul (comdare_codegen_anatomy_module): ABI-Header + Composition-Header +
 /// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt für alle 6 SOTA + PRT-ART + Stufe3/B).
-[[nodiscard]] inline std::string render_sota_module_source(std::string const& fq_type, std::string const& header) {
-    return "// AUTO-GENERATED (STRANG-A Inc5 / S6) SOTA/PRT-ART Modul — DO NOT EDIT\n"
-           "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
-           "#include <cache_engine/abi/anatomy_module_abi_v1.hpp>\n"
-           "#include <" +
-           header +
-           ">\n"
+///
+/// K5/K7a (Section 59, 2026-07-20): APPEND-ONLY 3. Argument merge_line = der dritte Tier-Binary-Stempel
+/// (Merge-Kombination, anatomy_version_stamp.hpp::merge_stamp_line). LEER (ce-only/Identitaets-/Katalog-Fall)
+/// -> KEINE zusaetzliche Zeile -> der emittierte .cpp-Quelltext bleibt BYTE-IDENTISCH zum heutigen Stand (der
+/// bestehende Katalog-Pfad reicht merge_line NICHT herein -> Default "" -> byte-gleich; golden-CRC unberuehrt).
+/// NICHT-LEER (ein Pruefling-Merge) -> die 4-arg _MERGE-Form haengt den Merge-Stempel als POD an (organ/system/
+/// measurement HIER leer; der SOTA-Modul-Pfad traegt heute keinen organ/system-Stempel im emittierten Quelltext).
+[[nodiscard]] inline std::string render_sota_module_source(std::string const& fq_type, std::string const& header,
+                                                           std::string const& merge_line = {}) {
+    std::string src = "// AUTO-GENERATED (STRANG-A Inc5 / S6) SOTA/PRT-ART Modul — DO NOT EDIT\n"
+                      "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
+                      "#include <cache_engine/abi/anatomy_module_abi_v1.hpp>\n"
+                      "#include <" +
+                      header +
+                      ">\n"
+                      "COMDARE_DEFINE_ANATOMY_MODULE(" +
+                      fq_type + ")\n";
+    if (!merge_line.empty()) src += "COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"\", \"\", \"\", \"" + merge_line + "\")\n";
+    return src;
+}
+
+// -----------------------------------------------------------------------------
+// K5 (Section 59, 2026-07-20) -- der DIREKTIVEN-GETRIEBENE Merge-Emitter (Generalisierung der 6 hart aufgelisteten
+//   <Host>PrtStufeN-Katalog-Typen auf eine AxisMergeDirective-getriebene MergeAxis<>-Instanziierung). ADDITIV: der
+//   bestehende Katalog-Pfad (render_sota_module_source oben) bleibt fuer den heutigen phase.merge-x-lebewesen-Fall
+//   BYTE-IDENTISCH; DIESER Pfad greift NUR, wenn per-Achse-Direktiven vorliegen (merge_plan_from_profile != leer) --
+//   heute in KEINEM committeten Profil => alle emittierten .cpp-Quelltexte bleiben byte-gleich (golden-CRC
+//   0xF1C1F26A1232073B unberuehrt, die Merges sind ein additiver id-Satz).
+// -----------------------------------------------------------------------------
+
+/// DirectiveSlotTypes -- die realen FQ-Typen, mit denen eine (Achse, Pruefling)-Direktive eine MergeAxis<> belegt:
+/// die Host-Default-Varianten-Liste (2. MergeAxis-Argument) + der Pruefling-Slot (3. Argument). Generalisierter
+/// Pruefling-Slot statt hart path_compression -- die Aufloesung (directive_slot_types) haelt heute den EINEN realen
+/// Eintrag (path_compression/prt_art -> prt_art_merge_reference.hpp); weitere Achsen/Prueflinge liefert das
+/// Pruefling-Repo per Concept-Detection (Emitter-Paket/S5), ohne diesen Emitter zu aendern.
+struct DirectiveSlotTypes {
+    std::string default_variants_fq; // 2. MergeAxis-Arg: die Host-Default-Varianten-Liste (mp_list)
+    std::string pruefling_slot_fq;   // 3. MergeAxis-Arg: der Pruefling-Slot (PrueflingSlotConcept)
+};
+
+/// directive_slot_types(axis_ref, pruefling) -- die reale (default, slot)-Typaufloesung EINER Direktive, oder
+/// nullopt, wenn (Achse, Pruefling) heute NICHT real slot-hinterlegt ist (ehrlich: der Emitter emittiert dann die
+/// generalisierte Naht als annotierten Kommentar statt eine nicht-materialisierbare MergeAxis<>). Single-Source:
+/// prt_art_merge_reference.hpp (PrtArtPathCompressionSlot + HostDefaultPathCompressionVariants).
+[[nodiscard]] inline std::optional<DirectiveSlotTypes> directive_slot_types(std::string const& axis_ref,
+                                                                            std::string const& pruefling) {
+    if (axis_ref == "path_compression" && pruefling == "prt_art")
+        return DirectiveSlotTypes{"::comdare::cache_engine::compositions::HostDefaultPathCompressionVariants",
+                                  "::comdare::cache_engine::compositions::PrtArtPathCompressionSlot"};
+    return std::nullopt; // (Achse, Pruefling) ohne realen Slot heute -> generalisierte Naht als Kommentar (S5)
+}
+
+/// render_directive_merge_module_source -- der direktiven-getriebene Modul-.cpp-Quelltext: die Host-Komposition
+/// (host_fq_type/host_header) mit per-Achse MergeAxis<Strategy, HostDefault, PrueflingSlot>-Instanziierungen aus
+/// den Direktiven (statt der hart aufgelisteten <Host>PrtStufeN-Typen). Je real slot-hinterlegter Direktive
+/// (directive_slot_types != nullopt) ein reales `using DirectiveMerged_<axis> = pf::MergeAxis<...>;`; je
+/// (heute) nicht hinterlegter Direktive eine annotierte Naht-Zeile (Emitter-Paket/S5). merge_line = der dritte
+/// Tier-Binary-Stempel (K6a merge_stamp_line), APPEND-ONLY ans POD-Ende. LEERE Direktiven-Liste -> der Aufrufer
+/// nutzt stattdessen den Katalog-Pfad (render_sota_module_source; byte-identisch).
+[[nodiscard]] inline std::string render_directive_merge_module_source(std::string const& host_fq_type,
+                                                                      std::string const& host_header,
+                                                                      std::vector<AxisMergeDirective> const& directives,
+                                                                      std::string const& merge_line = {}) {
+    std::string src =
+        "// AUTO-GENERATED (KERN-B K5 / direktiven-getriebener Merge-Emitter, Section 59) -- DO NOT EDIT\n"
+        "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
+        "#include <cache_engine/abi/anatomy_module_abi_v1.hpp>\n"
+        "#include <" +
+        host_header +
+        ">\n"
+        "#include <compositions/prt_art_merge_reference.hpp>\n" // MergeAxis + reale Slots (Single-Source)
+        "namespace comdare::cache_engine::thesis_lazy::directive_merge {\n"
+        "namespace pf = ::comdare::cache_engine::anatomy::pruefling;\n";
+    for (auto const& d : directives) {
+        if (auto const st = directive_slot_types(d.axis_ref, d.pruefling_slot)) {
+            // Reale, generalisierte MergeAxis<>-Instanziierung ueber die directive-Achse (NICHT hart path_compression):
+            src += "using DirectiveMerged_" + d.axis_ref + " = pf::MergeAxis<pf::MergeStrategy::" + d.strategy + ", " +
+                   st->default_variants_fq + ", " + st->pruefling_slot_fq + ">;\n";
+        } else {
+            // Ehrlich: (Achse, Pruefling) heute ohne realen Slot -> die generalisierte Naht als annotierter Kommentar
+            // (das Pruefling-Repo liefert den per-Achse-Slot per Concept-Detection; Emitter-Paket/S5).
+            src += "// pf::MergeAxis<pf::MergeStrategy::" + d.strategy + ", /*HostDefault(" + d.axis_ref +
+                   ")*/, /*PrueflingSlot(" + d.pruefling_slot + ")*/>  // Slot via Pruefling-Repo (S5)\n";
+        }
+    }
+    src += "} // namespace comdare::cache_engine::thesis_lazy::directive_merge\n"
            "COMDARE_DEFINE_ANATOMY_MODULE(" +
-           fq_type + ")\n";
+           host_fq_type + ")\n";
+    if (!merge_line.empty()) src += "COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"\", \"\", \"\", \"" + merge_line + "\")\n";
+    return src;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
