@@ -48,10 +48,12 @@
 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
 #include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
 #include "planner/plan_legend.hpp" // W10-A: das dreistufige Legenden-Namensschema (EINE Formatierungs-Single-Source)
+#include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
 
-#include <optional> // S3 P-RESOLVER: der volle RegistryTrio als optionaler Director-Zustand (Resolver-Lauf)
+#include <algorithm> // S5-P1: std::find ueber das A9.1-Feld run_methodology (Build-Semantik-Aufloesung)
+#include <optional>  // S3 P-RESOLVER: der volle RegistryTrio als optionaler Director-Zustand (Resolver-Lauf)
 #include <string>
 #include <string_view>
 #include <utility>
@@ -96,6 +98,16 @@ struct PlanMeasurementCombo {
     std::string              legend;     // kanonische [a,b,c]-HAUPT-Kurzform (legend::measurement_tooling_combo)
 };
 
+/// S5-P1 (P-VOLLZUG, 2026-07-20): die vom Planer aufgeloeste Build-/Mess-Semantik der S5-Mess-Strecke (die measure-
+/// Methodik der run_methodology_registry). Der Tier-Emitter speist daraus CMAKE_BUILD_TYPE (Tier-Bau + Mess-Job)
+/// und die 1-Thread-Politik (COMDARE_BUILD_PARALLEL im Mess-Job). Default = measure-Semantik (Release/misst/1-Thread)
+/// => byte-identisch zum Vor-S5-tier:build. GOLDEN/binary_id-NEUTRAL: reine Bau-/Mess-Matrix, KEIN Stempel.
+struct PlanBuildSemantic {
+    std::string cmake_build_type = "Release"; // CMAKE_BUILD_TYPE des Tier-Baus/Mess-Baus (measure => "Release")
+    bool        measurement_on   = true;      // misst das Profil (measure/debug: true; nur-release: false) -- S6-Konsum
+    bool        single_thread    = true;      // 1-Thread-deterministischer Mess-Vollzug (Section 38.b)
+};
+
 /// Kopf des Plans: Provenienz (Quelle/Profil) + Perm-Zahl + Registry-Trio-Annotation.
 struct PlanHeader {
     std::string source_kind; // "thesis" | "experiment"
@@ -107,6 +119,10 @@ struct PlanHeader {
     // trio). resolved=false (INERT-Default) wenn der Director OHNE volles RegistryTrio konstruiert wurde; sonst
     // ok=true bei organ-reinem Profil (0 Rejects). binary_id-neutral -- reine Plan-Kopf-Annotation (kein Filter).
     tlz::ResolverReport resolver;
+    // S5-P1: die aufgeloeste Build-/Mess-Semantik (measure-Methodik). Nur der Tier-Emitter (emit_tier_build_job /
+    // emit_measure_job) liest sie; die uebrigen Builder rendern sie NICHT (=> ihre Emission unveraendert). Default
+    // (measure => Release) haelt den tier:build-Teil byte-identisch zu HEAD.
+    PlanBuildSemantic build_semantic;
 };
 
 /// EINE opt x simd Permutation (system_config => NIE binary_id, NIE N; nur BAU-/MESS-Matrix + build_version-Suffix).
@@ -744,7 +760,10 @@ private:
         s += "  script:\n";
         emit_child_submodule_prolog(s); // W10-Nacharbeit 2: manueller ce-Submodul-Klon (kein Auto-Fetch)
         s += "    - cd Code\n";
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
+        // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure-Methodik => "Release"); Default haelt
+        // den Tier-Bau byte-identisch zu HEAD (kein Magic-String mehr, Registry-Single-Source).
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
+             header_.build_semantic.cmake_build_type + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -779,40 +798,74 @@ private:
         return s;
     }
 
-    // STUFE 3 Mess-Job (GN-11/320er-GEGATET): when: manual = Struktur ja, Auto-Messlauf nein. [g,h,i] =
-    // Organ-Referenz (fuehrende Organ-Haupt-Achsen; reale Auffaecherung = EIN Job je binary_id, gated). needs =
-    // die Chunk-Bau-Jobs derselben Perm (Bau->Mess-Kante). Das echte Mess-Kommando steht NUR als Skelett-Kommentar.
+    // STUFE 3 Mess-Job (S5-P2 SCHARF, §38.b/§41/B14-#3): der REALE Mess-Vollzug der Zelle [a,b,c][d,e,f][g,h,i].
+    // Er baut den Treiber (CMAKE_BUILD_TYPE aus der measure-Methodik, S5-P1) und ruft ihn OHNE
+    // COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST (baut+misst in EINEM ccache-warmen Lauf) und schreibt
+    // EIN CSV je Zelle nach measure_out (der Rueckschreiber existiert). 1-Thread-deterministisch (§38.b):
+    // COMDARE_BUILD_PARALLEL=1 (single_thread der measure-Methodik; der Mess-Kern ist ohnehin 1-Thread, der Bau-Pool
+    // wird ebenfalls serialisiert). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt (die Abwesenheit von
+    // PROVISION_ONLY IST das Mess-Signal). resource_group ceb-measurement-exclusive (B14-#3): kein paralleler
+    // Messlauf auf demselben Runner (Run-to-Run-Stabilitaet). rules (§41/320er): Auto-Run NUR im smoke-Profil
+    // (COMDARE_MEASURE_PROFILE==smoke), sonst when:manual (der Voll-Abgabe-Messlauf bleibt ein User-Entscheid). needs
+    // = die Chunk-Bau-Jobs derselben Perm ([d,e,f][g,h,i]:chunk<k>, organ_reference; Bau->Mess-Kante).
     [[nodiscard]] std::string emit_measure_job(PlanPerm const& p, std::string const& perm_legend) const {
         std::string const organ = legend::organ_reference();
         std::string const job   = legend::measure_job(combo_legend_, perm_legend, organ);
         std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
         std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+        std::string const slug  = legend::cmake_slug(combo_legend_);
         std::string       s;
         s += "# JOB measure combo=" + combo_legend_ + " perm " + std::to_string(p.index) +
-             " (STUFE 3: GN-11/320er-GEGATET, when: manual = Struktur ja / kein Auto-Messlauf)\n";
+             " (STUFE 3: S5-P2 SCHARF -- realer Mess-Vollzug; smoke=Auto-Run / sonst when:manual = 320er-§41-Gate)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: measure\n";
         s += "  tags: " + yaml_tag_list(simd_runner_tags(p.simd_id)) + "\n";
+        // B14-#3: der Messlauf ist EXKLUSIV -- kein paralleler Mess-Job auf demselben Runner (Run-to-Run-Stabilitaet).
+        s += "  resource_group: \"ceb-measurement-exclusive\"\n";
+        s += "  interruptible: false   # ein laufender Messlauf darf nie auto-cancelt werden\n";
         s += "  needs:\n";
         // §56/§54-T6: die needs:-Kante MUSS exakt dieselbe korrigierte Bau-Legende referenzieren wie
         // emit_tier_build_job ([d,e,f][g,h,i]:chunk<k>, dasselbe organ = organ_reference()), sonst brechen die
         // Bau->Mess-Job-Kanten. combo_legend_ ([a,b,c]) gehoert NICHT in den needs-Schluessel.
         for (std::size_t k = 0; k < kTierChunkCount; ++k)
             s += "    - \"" + legend::tier_build_job(perm_legend, organ, k) + "\"\n";
+        // §41/320er: Auto-Messlauf NUR im smoke-Profil (kleiner Rauch-Test-Umfang); sonst when:manual (der
+        // Voll-Abgabe-Messlauf bleibt ein bewusster User-Entscheid -- die 320er-Abgabe-Strecke ist S6/manual).
         s += "  rules:\n";
-        s += "    - when: manual   # GN-11/320er-Gate: Messen erst nach User-Entscheid (kein Auto-Messlauf)\n";
+        s += "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'\n";
+        s += "      when: on_success   # smoke: Auto-Messlauf (kleiner Umfang, Rauch-Test der Mess-Strecke)\n";
+        s += "    - when: manual       # sonst: 320er-§41-Gate (Voll-Messlauf erst nach User-Entscheid)\n";
+        // Sichtbarkeits-Doktrin: Mess-Fehler => CSV 'failed' + Log, die Pipeline bleibt gruen (nicht still verschluckt).
         s += "  allow_failure: true\n";
         s += "  script:\n";
+        emit_child_submodule_prolog(s); // manueller ce-Submodul-Klon (kein Auto-Fetch), Spiegel des Bau-Jobs
+        s += "    - cd Code\n";
+        // S5-P1: CMAKE_BUILD_TYPE aus der measure-Methodik (=> "Release"); derselbe Bau-Typ wie der provision-Bau.
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
+             header_.build_semantic.cmake_build_type + "\n";
+        s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
-        s += "      echo \"measure GATED (GN-11/320er): Zelle [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
-             organ + " -- Skelett\"\n";
-        s += "      # MESS-KOMMANDO-SKELETT (GN-11/320er-gated, NICHT aktiv; COMDARE_GOLDEN_N_PROVISION_ONLY "
-             "ENTFERNT = echte Messung, 1-Thread-Doktrin §38.b, voller Unter-Achsen-Sweep, EIN CSV zurueck):\n";
-        s += "      #   DRIVER=$(find build -type f -name comdare-messung-driver | head -1)\n";
-        s += "      #   COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" COMDARE_GN_OPT=\"" + opt +
-             "\" COMDARE_GN_SIMD=\"" + simd + "\" COMDARE_RUN_MEASURE=true \\\n";
-        s += "      #     \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/measure_out\"\n";
+        s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
+        s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
+        // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (NICHT chunk-zerlegt; der Mess-Job misst die ganze
+        // Perm in EINEM Lauf). Inline gesetzt (kein eigener TOTAL=-Shell-Schritt -> keine Kollision mit der
+        // chunk-only-Arithmetik der Tier-Bau-Jobs). Default 16 = sicherer Serie-Test; Voll-Abgabe: COMDARE_GN_TOTAL=
+        // 131072, dann when:manual.
+        s +=
+            "      export COMDARE_GOLDEN_N_RANGE=\"0:${COMDARE_GN_TOTAL:-16}\"   # volles Zell-Fenster (Voll-Messlauf: "
+            "COMDARE_GN_TOTAL=131072)\n";
+        if (header_.build_semantic.single_thread)
+            s += "      export COMDARE_BUILD_PARALLEL=1   # §38.b (measure single_thread): 1-Thread-deterministischer "
+                 "Mess-Vollzug\n";
+        s += "      echo \"== STUFE 3 Mess-Vollzug [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend + organ +
+             ": Fenster $COMDARE_GOLDEN_N_RANGE, misst (KEIN provision-only) ==\"\n";
+        // Nutzlast: OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST. EIN CSV je Zelle nach measure_out.
+        // COMDARE_RUN_SOTA=0 wie im Bau (keine SOTA-Reihe). COMDARE_RUN_MEASURE NICHT gesetzt (null Konsumenten).
+        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+        s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd + "\" COMDARE_RUN_SOTA=0 \\\n";
+        s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" +
+             std::to_string(p.index) + "\"\n";
         return s;
     }
 
@@ -930,26 +983,34 @@ public:
             out_ += "    add_custom_target(" + tgt + " DEPENDS \"" + bstamp + "\")\n";
             out_ += "endif()\n";
         }
-        // measure:-Target (GN-11/320er-GEGATET): Echo-Skelett, DEPENDS auf ALLE Chunk-Bau-Stamps derselben Perm
-        // (Bau->Mess-Kante). Das echte Mess-Kommando steht NUR als Kommentar-Skelett (kein Auto-Messlauf).
+        // measure:-Target (S5-P2 SCHARF, §38.b): REALER Mess-Vollzug, DEPENDS auf ALLE Chunk-Bau-Stamps derselben
+        // Perm (Bau->Mess-Kante). Der Treiber wird OHNE COMDARE_GOLDEN_N_PROVISION_ONLY gerufen => run_profile MISST
+        // (statt nur zu provisionieren) und schreibt EIN CSV je Zelle nach ${COMDARE_PLAN_OUT}/measure. 1-Thread-
+        // deterministisch (§38.b, measure single_thread): COMDARE_BUILD_PARALLEL=1. Das Bare-Metal-Gate ist die
+        // EXPLIZITE Target-Invokation (der Nutzer baut comdare_tier_measure_perm<i> bewusst) -- kein when:manual im
+        // .cmake (das ist YAML/GitLab). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt.
         std::string const mstamp = stemdir + "/" + slug + "_perm" + idx + ".measure.stamp";
         std::string const mtgt   = tier_measure_target(p.index);
         out_ += "if(NOT TARGET " + mtgt + ")\n";
         out_ += "    add_custom_command(\n";
         out_ += "        OUTPUT \"" + mstamp + "\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
-        out_ += "            \"measure GATED (GN-11/320er): [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
-                organ + " -- Skelett\"\n";
-        out_ += "        # MESS-KOMMANDO-SKELETT (GN-11/320er-gated, NICHT aktiv; PROVISION_ONLY ENTFERNT = echte "
-                "Messung, 1-Thread §38.b):\n";
-        out_ += "        #   \"${CMAKE_COMMAND}\" -E env \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
-        out_ += "        #     \"COMDARE_GN_OPT=" + opt + "\" \"COMDARE_GN_SIMD=" + simd +
-                "\" COMDARE_RUN_MEASURE=true \\\n";
-        out_ += "        #     \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure\"\n";
+        out_ += "            \"measure (S5-P2 scharf, misst): [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
+                organ + "\"\n";
+        // Realer Mess-Aufruf via -E env -- KEIN COMDARE_GOLDEN_N_PROVISION_ONLY (=> misst), Ausgabe nach measure/.
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+        out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+        out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+        out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+        out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+        if (header_.build_semantic.single_thread)
+            out_ += "            COMDARE_BUILD_PARALLEL=1\n"; // §38.b: 1-Thread-deterministischer Mess-Vollzug
+        out_ += "            COMDARE_RUN_SOTA=0\n";
+        out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
+                "/perm" + idx + "\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + mstamp + "\"\n";
         for (auto const& st : chunk_stamps) out_ += "        DEPENDS \"" + st + "\" # tier:build->measure:-Kante\n";
-        out_ +=
-            "        COMMENT \"measure (GN-11/320er-gated skeleton): combo=" + combo_legend_ + " perm " + idx + "\"\n";
+        out_ += "        COMMENT \"measure (S5-P2 scharf, misst): combo=" + combo_legend_ + " perm " + idx + "\"\n";
         out_ += "        VERBATIM)\n";
         out_ += "    add_custom_target(" + mtgt + " DEPENDS \"" + mstamp + "\")\n";
         out_ += "endif()\n";
@@ -1012,7 +1073,9 @@ public:
         // gesetzter Selektor (nur --emit-tier-ci-Naht) waehlt die EINE repraesentierte CEB-Konfig (Kollisionsschutz).
         combos                             = select_measurement_combo(std::move(combos), combo_selector);
         tlz::ResolverReport const resolver = resolve_organ_position_(tp); // S3: INERT ohne volles Trio
-        walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
+        // S5-P1: die Build-/Mess-Semantik der S5-Mess-Strecke aus dem A9.1-Feld run_methodology (measure-Methodik).
+        PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(tp.run_methodology);
+        walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, resolver, build_semantic, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& sweep_axis : passes) {
                 PlanStep s;
@@ -1045,23 +1108,26 @@ public:
         // gesetzter Selektor (nur --emit-tier-ci-Naht) waehlt die EINE repraesentierte CEB-Konfig (Kollisionsschutz).
         combos                             = select_measurement_combo(std::move(combos), combo_selector);
         tlz::ResolverReport const resolver = resolve_organ_position_(ep); // S3: INERT ohne volles Trio
-        walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, b, [&](IPlanBuilder& bb) {
-            std::size_t j = 0;
-            for (auto const& proj : projections) {
-                for (auto const& p : proj.passes) {
-                    PlanStep s;
-                    s.index          = j++;
-                    s.kind           = "experiment_phase_pass";
-                    s.label          = proj.phase_name;
-                    s.merge          = proj.merge;
-                    s.binary_id      = p.view_binary_id;
-                    s.series         = p.series.empty() ? std::string{"-"} : p.series;
-                    s.pruefling_type = p.pruefling_type.empty() ? std::string{"-"} : p.pruefling_type;
-                    s.lebewesen      = p.lebewesen.empty() ? std::string{"-"} : p.lebewesen;
-                    bb.on_step(s);
-                }
-            }
-        });
+        // S5-P1: die Build-/Mess-Semantik der S5-Mess-Strecke aus dem A9.1-Feld run_methodology (measure-Methodik).
+        PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(ep.run_methodology);
+        walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, build_semantic, b,
+                    [&](IPlanBuilder& bb) {
+                        std::size_t j = 0;
+                        for (auto const& proj : projections) {
+                            for (auto const& p : proj.passes) {
+                                PlanStep s;
+                                s.index          = j++;
+                                s.kind           = "experiment_phase_pass";
+                                s.label          = proj.phase_name;
+                                s.merge          = proj.merge;
+                                s.binary_id      = p.view_binary_id;
+                                s.series         = p.series.empty() ? std::string{"-"} : p.series;
+                                s.pruefling_type = p.pruefling_type.empty() ? std::string{"-"} : p.pruefling_type;
+                                s.lebewesen      = p.lebewesen.empty() ? std::string{"-"} : p.lebewesen;
+                                bb.on_step(s);
+                            }
+                        }
+                    });
     }
 
 private:
@@ -1072,6 +1138,23 @@ private:
     [[nodiscard]] tlz::ResolverReport resolve_organ_position_(Profile const& p) const {
         if (!full_trio_) return tlz::ResolverReport{}; // INERT-Default (resolved=false)
         return tlz::resolve_axis_refs_against_trio(tlz::organ_position_refs(p), *full_trio_);
+    }
+
+    // S5-P1 (P-VOLLZUG): die Build-/Mess-Semantik der S5-Mess-Strecke aus dem A9.1-Feld run_methodology. Der Planer
+    // waehlt fuer die Mess-Strecke die measure-Methodik (run_methodology_registry-Single-Source: Release / misst /
+    // 1-Thread-deterministisch, §38.b); cmake_build_type/single_thread stammen IMMER aus dieser Zeile => tier:build
+    // byte-identisch zum Vor-S5-Verhalten (Default-Release). Das Feld wird gelesen: measurement_on spiegelt, ob das
+    // Profil ueberhaupt misst (leer ODER measure/debug deklariert => ja; NUR release => nein, reiner Referenz-
+    // Durchsatz -- S6-Konsum). Der per-Methodik-Fanout {debug,measure,release} zu N Mess-Strecken ist S6.
+    [[nodiscard]] static PlanBuildSemantic
+    build_semantic_of_run_methodology(std::vector<std::string> const& run_methodology) {
+        cm::RunMethodologyInfo const& measure = cm::run_methodology_info(cm::RunMethodology::Measure);
+        cm::RunMethodologyInfo const& debug   = cm::run_methodology_info(cm::RunMethodology::Debug);
+        auto const                    has     = [&](std::string_view id) {
+            return std::find(run_methodology.begin(), run_methodology.end(), std::string(id)) != run_methodology.end();
+        };
+        bool const measures = run_methodology.empty() || has(measure.id) || has(debug.id);
+        return PlanBuildSemantic{std::string(measure.cmake_build_type), measures, measure.single_thread};
     }
 
     // opt/simd-Listen-Ableitung IDENTISCH zu run_profile/run_experiment_profile (Welle-2-Naht): leer => EINE
@@ -1159,8 +1242,8 @@ private:
     template <class StepEmitter>
     void walk_perms_(std::string_view source_kind, std::string const& profile_id,
                      std::vector<PlanMeasurementCombo> const& combos, std::vector<std::string> const& opt_perms,
-                     std::vector<std::string> const& simd_perms, tlz::ResolverReport const& resolver, IPlanBuilder& b,
-                     StepEmitter&& emit_steps) const {
+                     std::vector<std::string> const& simd_perms, tlz::ResolverReport const& resolver,
+                     PlanBuildSemantic const& build_semantic, IPlanBuilder& b, StepEmitter&& emit_steps) const {
         PlanHeader header;
         header.source_kind             = std::string{source_kind};
         header.profile_id              = profile_id;
@@ -1168,6 +1251,7 @@ private:
         header.measurement_combo_count = combos.size();
         header.registries              = trio_;
         header.resolver                = resolver; // S3 P-RESOLVER: Organ-Position-Report im Plan-Kopf (Annotation)
+        header.build_semantic          = build_semantic; // S5-P1: measure-Methodik-Build-/Mess-Semantik (Tier-Emitter)
         b.begin_plan(header);
 
         std::size_t perm_index = 0;

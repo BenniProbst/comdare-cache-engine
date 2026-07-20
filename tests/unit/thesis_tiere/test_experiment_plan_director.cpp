@@ -498,8 +498,8 @@ TEST(CMakeGraphBuilder, CMakeTextIsByteDeterministic) {
 }
 
 // (J) STUFE 2 (W10-A/§42.b, TierCmakeGraphBuilder): der tier:build-Schritt traegt echte provision-only-Treiber-
-//     Kommandos, chunk-gebuendelt (kTierChunkCount je Perm); der measure:-Schritt ist GN-11/320er-gegatet.
-TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsGated) {
+//     Kommandos, chunk-gebuendelt (kTierChunkCount je Perm); der measure:-Schritt ist ab S5-P2 SCHARF (misst real).
+TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsSharp) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
@@ -508,24 +508,33 @@ TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsGated) {
     director.construct(*tp, gb);
     std::string const& cmake = gb.text();
 
-    // 4 Perms x kTierChunkCount(=4) = 16 Tier-Chunk-Bau-Targets, je mit provision-only. Der measure:-Schritt nutzt
-    // -E echo (kein -E env) -> das aktive env-getriebene Bau-COMMAND zaehlt genau 16x.
+    // 4 Perms x kTierChunkCount(=4) = 16 Tier-Chunk-Bau-Targets, je mit provision-only. Der measure:-Schritt ist ab
+    // S5-P2 SCHARF (eigenes -E env), setzt aber KEIN COMDARE_GOLDEN_N_PROVISION_ONLY -> die PROVISION_ONLY-Zahl
+    // bleibt genau 16 (nur die Tier-Bau-Targets provisionieren; die Mess-Targets messen).
     std::size_t const expected_builds = 4u * planner::kTierChunkCount;
     EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_builds)
-        << "je Perm x chunk ein provision-only-Tier-Bau";
+        << "je Perm x chunk ein provision-only-Tier-Bau (die Mess-Targets provisionieren NICHT)";
     EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_build_perm"), expected_builds);
     EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_measure_perm"), 4u)
-        << "1 gegateter Mess-Job je Perm";
+        << "1 scharfes Mess-Target je Perm";
     EXPECT_NE(cmake.find("\"COMDARE_GN_OPT=O2\""), std::string::npos) << "opt/simd als Plan-Konstanten (LITERALE)";
     EXPECT_NE(cmake.find("\"COMDARE_GN_SIMD=avx2\""), std::string::npos);
     // Host-unabhaengig: konfigurierbare Eingaben als CMake-Variablen mit Defaults, KEINE Host-Absolutpfade.
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_DRIVER)"), std::string::npos);
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_RANGE)"), std::string::npos);
     EXPECT_EQ(cmake.find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade im .cmake";
-    // Messen bleibt GN-11/320er-gegatet: der measure:-Schritt ist ein Skelett (kein aktiver COMDARE_RUN_MEASURE).
-    EXPECT_NE(cmake.find("measure GATED (GN-11/320er"), std::string::npos) << "measure:-Schritt ist gegatetes Skelett";
-    EXPECT_EQ(cmake.find("COMDARE_RUN_MEASURE=true\n"), std::string::npos)
-        << "das echte Mess-Kommando steht NUR als Kommentar-Skelett, nie als aktiver COMMAND";
+    // S5-P2 FLIP: der measure:-Schritt ist SCHARF (misst) -- KEIN gegatetes GN-11/320er-Skelett mehr. Realer
+    // Treiber-Aufruf nach measure/, 1-Thread-deterministisch (COMDARE_BUILD_PARALLEL=1), OHNE COMDARE_RUN_MEASURE.
+    EXPECT_EQ(cmake.find("measure GATED (GN-11/320er"), std::string::npos)
+        << "kein gegatetes Mess-Skelett mehr (S5-P2 scharf)";
+    EXPECT_NE(cmake.find("measure (S5-P2 scharf, misst)"), std::string::npos)
+        << "measure:-Target ist scharf (misst real)";
+    EXPECT_NE(cmake.find("${COMDARE_PLAN_OUT}/measure/"), std::string::npos)
+        << "scharfer Treiber-Aufruf schreibt EIN CSV je Zelle nach measure/";
+    EXPECT_EQ(count_occurrences(cmake, "COMDARE_BUILD_PARALLEL=1"), 4u)
+        << "je Mess-Target 1-Thread-deterministisch (COMDARE_BUILD_PARALLEL=1, §38.b)";
+    EXPECT_EQ(cmake.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
+        << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -885,8 +894,9 @@ TEST(TierCiYamlBuilder, EmitsFreedSystemPermsWithTierChunkAndGatedMeasureJobs) {
 }
 
 // (W5) §42.b Bau=Haupt-only-Gate: KEINE Unter-Achse (Laufzeit-Parameter) in irgendeiner Bau-Job-Legende; die
-//      Mess-Jobs sind GN-11/320er-gegatet (when: manual = Struktur ja, kein Auto-Messlauf).
-TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsGated) {
+//      Mess-Jobs sind ab S5-P2 SCHARF (misst real), gegatet ueber rules (smoke=Auto-Run / sonst when:manual,
+//      §41/320er) + resource_group ceb-measurement-exclusive (B14-#3) -- KEIN Skelett mehr.
+TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
@@ -909,13 +919,27 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsGated) {
             pos = eol;
         }
     }
-    // Die Mess-Jobs sind GN-11/320er-gegatet (rules: - when: manual) -- Struktur ja, Auto-Messlauf nein.
+    // S5-P2: die Mess-Jobs sind SCHARF, aber gegatet. rules (§41/320er): je Mess-Job EINE smoke-Auto-Run-Regel +
+    // EINE when:manual-Fallback-Regel (Voll-Messlauf erst nach User-Entscheid). Struktur ja, Auto-Voll-Messlauf nein.
     EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 4u)
-        << "je Mess-Job ein when:manual-Gate-Rule (kein Auto-Messlauf)";
-    EXPECT_NE(yaml.find("GN-11/320er"), std::string::npos) << "Gate-Provenienz dokumentiert";
-    // Das echte Mess-Kommando steht NUR als Kommentar-Skelett (kein aktiver COMDARE_RUN_MEASURE-Aufruf).
-    EXPECT_EQ(yaml.find("\n      COMDARE_RUN_MEASURE=true"), std::string::npos)
-        << "echtes Mess-Kommando nur als Kommentar-Skelett";
+        << "je Mess-Job ein when:manual-Fallback (Voll-Messlauf = User-Entscheid)";
+    EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 4u)
+        << "je Mess-Job eine smoke-Auto-Run-Regel (COMDARE_MEASURE_PROFILE==smoke => when:on_success)";
+    EXPECT_NE(yaml.find("320er"), std::string::npos) << "Gate-Provenienz (§41/320er) dokumentiert";
+    // B14-#3: je Mess-Job eine exklusive resource_group (kein paralleler Messlauf auf demselben Runner).
+    EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measurement-exclusive\""), 4u)
+        << "je Mess-Job resource_group ceb-measurement-exclusive (Run-to-Run-Stabilitaet)";
+    // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out, 1-Thread-deterministisch
+    // (COMDARE_BUILD_PARALLEL=1), OHNE COMDARE_GOLDEN_N_PROVISION_ONLY (die Abwesenheit IST das Mess-Signal) und
+    // OHNE COMDARE_RUN_MEASURE (null Konsumenten).
+    EXPECT_NE(yaml.find("$CI_PROJECT_DIR/Code/measure_out/"), std::string::npos)
+        << "scharfer Mess-Aufruf schreibt nach measure_out";
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=1"), 4u)
+        << "je Mess-Job 1-Thread-deterministisch (§38.b)";
+    EXPECT_EQ(yaml.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
+        << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
+    EXPECT_EQ(yaml.find("measure GATED (GN-11/320er"), std::string::npos)
+        << "kein gegatetes Mess-Skelett mehr (S5-P2 scharf)";
 }
 
 // (W6) Legenden-Determinismus beider Stufen: zwei Laeufe -> byte-gleich (Thesis + Experiment).
@@ -1000,9 +1024,10 @@ TEST(CiYamlBuilder, NoCiProjectDirInVariablesBlockBothStages) {
                   std::string::npos)
             << "COMDARE_GOLDEN_N_PROFILE per Runtime-Export im Prolog";
     }
-    // je Bau-Job ein GOLDEN_N_PROFILE-Export: Stufe 1 = 2 (ceb:build + ceb:emit), Stufe 2 = 16 (tier:build).
+    // je Job-mit-Klon-Prolog ein GOLDEN_N_PROFILE-Export: Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16
+    // (tier:build) + 4 (Mess-Jobs, ab S5-P2 SCHARF: self-clone + self-build + misst) = 20.
     EXPECT_EQ(count_occurrences(s1.text(), "export COMDARE_GOLDEN_N_PROFILE="), 2u);
-    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u * planner::kTierChunkCount);
+    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u * planner::kTierChunkCount + 4u);
 }
 
 // (W10) W10-Nacharbeit 5 (Serie-E2E Lauf 5): je chunk<k>-Tier-Bau-Job berechnet sein DISJUNKTES Teilfenster zur
@@ -1050,13 +1075,16 @@ TEST(CiYamlBuilder, BothStagesEmitSubmoduleClonePrologInBuildJobs) {
     std::string const& y1 = s1.text();
     std::string const& y2 = s2.text();
 
-    // Prolog-Marker: 1 je Bau-Job. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16 (tier:build), Mess-Jobs OHNE.
+    // Prolog-Marker: 1 je Job-mit-Klon-Prolog. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16 (tier:build) +
+    // 4 (Mess-Jobs, ab S5-P2 SCHARF: self-clone) = 20. (Vor S5-P2 waren die Mess-Jobs Skelette OHNE Prolog.)
     EXPECT_EQ(count_occurrences(y1, "# CHILD-SUBMODULE-KLON"), 2u) << "ceb:build + ceb:emit";
-    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 4u * planner::kTierChunkCount) << "je tier:build-Job";
-    // W10-Nacharbeit 3: ccache-Env per RUNTIME-Shell-Export im Prolog (1 je Bau-Job, immun gegen die vererbte,
-    // vorexpandierte Parent-CCACHE_DIR). Stufe 1 = 2, Stufe 2 = 16.
+    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 4u * planner::kTierChunkCount + 4u)
+        << "je tier:build-Job + je scharfem Mess-Job (S5-P2)";
+    // W10-Nacharbeit 3: ccache-Env per RUNTIME-Shell-Export im Prolog (1 je Job-mit-Prolog, immun gegen die vererbte,
+    // vorexpandierte Parent-CCACHE_DIR). Stufe 1 = 2, Stufe 2 = 16 tier:build + 4 Mess-Jobs (S5-P2) = 20.
     EXPECT_EQ(count_occurrences(y1, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 2u);
-    EXPECT_EQ(count_occurrences(y2, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 4u * planner::kTierChunkCount);
+    EXPECT_EQ(count_occurrences(y2, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""),
+              4u * planner::kTierChunkCount + 4u);
     for (auto const* yaml : {&y1, &y2}) {
         // Runtime-Export beider ccache-Variablen (VOR jedem cmake-Aufruf in der Job-Shell).
         EXPECT_NE(yaml->find("export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), std::string::npos);

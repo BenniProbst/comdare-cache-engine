@@ -34,13 +34,23 @@ struct RunMethodologyInfo {
     RunMethodology   methodology;
     std::string_view id;   ///< kanonischer XML-/Legenden-Token ("debug"/"measure"/"release")
     std::string_view name; ///< exakt der Enum-Name (Doku/Reporting)
+    // S5-P1 (P-VOLLZUG, Section 47/55, 2026-07-20): die Build-Semantik jeder Ablauf-Methode. Der Planer speist
+    // daraus den CMAKE_BUILD_TYPE + die Mess-/Thread-Politik der emittierten Bau-/Mess-Jobs (Single-Source statt
+    // Magic-String im Emitter). GOLDEN/binary_id-NEUTRAL: reine Bau-/Mess-Matrix, KEIN Stempel-Feld -- opt/simd/
+    // build_type sind system_config und fliessen NIE in binary_id (Q2 Option C).
+    std::string_view cmake_build_type; ///< CMAKE_BUILD_TYPE dieses Laufs ("Debug"/"Release")
+    bool             measurement_on;   ///< misst der Lauf (golden-Zahlen) oder baut/referenziert er nur
+    bool             single_thread;    ///< 1-Thread-deterministischer Mess-Vollzug (Section 38.b)
 };
 
 /// Die EINE Registry der Run-Methodik-UNTER-Achse -- Index == RunMethodology-Wert (static_assert-gesichert).
+/// S5-P1-Build-Semantik: measure = deterministischer 1-Thread-Messlauf (Release, misst); debug = paralleler
+/// Verdrahtungs-Check (Debug, misst, KEINE 1-Thread-Determinismus-Garantie); release = Referenz-Durchsatz (Release,
+/// misst NICHT). Der Emitter waehlt fuer die S5-Mess-Strecke die measure-Zeile (der Methodik-Fanout ist S6).
 inline constexpr std::array<RunMethodologyInfo, kRunMethodologyCount> kRunMethodologyRegistry{{
-    {RunMethodology::Debug, "debug", "Debug"},
-    {RunMethodology::Measure, "measure", "Measure"},
-    {RunMethodology::Release, "release", "Release"},
+    {RunMethodology::Debug, "debug", "Debug", "Debug", true, false},
+    {RunMethodology::Measure, "measure", "Measure", "Release", true, true},
+    {RunMethodology::Release, "release", "Release", "Release", false, false},
 }};
 
 namespace detail {
@@ -49,6 +59,7 @@ namespace detail {
         if (static_cast<std::size_t>(kRunMethodologyRegistry[i].methodology) != i) return false;
         if (kRunMethodologyRegistry[i].id.empty()) return false;
         if (kRunMethodologyRegistry[i].name.empty()) return false;
+        if (kRunMethodologyRegistry[i].cmake_build_type.empty()) return false; // S5-P1: Build-Typ nie leer
     }
     return true;
 }
@@ -63,6 +74,24 @@ static_assert(
         kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Measure)].id == std::string_view{"measure"} &&
         kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].id == std::string_view{"release"},
     "kRunMethodologyRegistry: id-Tokens sind {debug,measure,release} (Namen-Anker).");
+// S5-P1 Build-Semantik-Anker: Drift der Build-/Mess-/Thread-Politik einer Methode bricht hier compile-time. Der
+// Emitter verlaesst sich auf measure == {Release, misst, 1-Thread} (die S5-Mess-Strecke); direkter Index-Zugriff,
+// weil run_methodology_info() erst weiter unten deklariert ist.
+static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Measure)].cmake_build_type ==
+                      std::string_view{"Release"} &&
+                  kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Measure)].measurement_on &&
+                  kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Measure)].single_thread,
+              "kRunMethodologyRegistry: measure = {Release, misst, 1-Thread-deterministisch} (S5-Mess-Strecke).");
+static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Debug)].cmake_build_type ==
+                      std::string_view{"Debug"} &&
+                  kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Debug)].measurement_on &&
+                  !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Debug)].single_thread,
+              "kRunMethodologyRegistry: debug = {Debug, misst, parallel/kein 1-Thread-Garantie}.");
+static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].cmake_build_type ==
+                      std::string_view{"Release"} &&
+                  !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].measurement_on &&
+                  !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].single_thread,
+              "kRunMethodologyRegistry: release = {Release, misst NICHT, parallel} (Referenz-Durchsatz).");
 
 /// constexpr-Lookup (Index == RunMethodology-Wert, durch static_assert garantiert).
 [[nodiscard]] constexpr RunMethodologyInfo const& run_methodology_info(RunMethodology m) noexcept {

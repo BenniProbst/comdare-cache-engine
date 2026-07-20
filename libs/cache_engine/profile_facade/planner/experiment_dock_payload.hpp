@@ -54,6 +54,15 @@ struct AxisRangeEntry {
     [[nodiscard]] bool operator==(AxisRangeEntry const&) const = default;
 };
 
+// ---------------------------------------------------------------------------------------------------------------
+// [DEPRECATED -- S5-P4 Ruling, 2026-07-20] ExperimentSubtreePayload (in-process Dock-Wire-Format):
+//   Die LIVE-Kette Planer -> CEB -> Tier reicht die Achsen-Ranges NICHT ueber dieses in-process POD, sondern ueber
+//   den EMITTIERTEN CMake-/YAML-TEXT (experiment_plan_director.hpp: TierCiYamlBuilder/TierCmakeGraphBuilder, S5-P2 --
+//   COMDARE_GN_OPT/_SIMD/_GOLDEN_N_RANGE + measure_out). Das VOLLE Wire-Format (der 5-tiefe #19-Resolver ->
+//   LinkedExperimentPlan mit variant/sub-axis/range) ist Band-C DEFERRED (Task #19). Dieses POD samt emit/parse und
+//   seinem Byte-Roundtrip-Test BLEIBT (never-delete-Doktrin) -- es ist die getestete Referenz-Serialisierung fuer
+//   den spaeteren #19-Resolver, wird aber HEUTE von keiner Live-Call-Site konsumiert. KEIN Code entfernt.
+// ---------------------------------------------------------------------------------------------------------------
 /// Die POD-Nutzlast: die an ein Mess-Dock delegierte Teilbaum-Spezifikation (Achsen-Ranges in Dokument-Reihenfolge).
 struct ExperimentSubtreePayload {
     std::vector<AxisRangeEntry> axes;
