@@ -251,6 +251,114 @@ private:
     std::string           artifact_name_;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HYBRID-BREAK-EVEN-SELEKTOR-SKELETON (Section 32-F8 / Section 49, 2026-07-20) -- SELF-CONTAINED
+// ─────────────────────────────────────────────────────────────────────────────
+// Zweck (Thesis Section 32-F8 "Rueckwaerts-Wahl"): bei einer Anfrage (klassifizierte Operation x Workload,
+// hier als reelle Last-Koordinate x) RUECKWAERTS die optimale Binary + den optimalen Algorithmen-Satz aus
+// der ausgemessenen Heuristik waehlen. Die Switch-Thresholds sind die BREAK-EVEN-Punkte = Schnittpunkte
+// der f(x)-Modellkurven zweier Kandidaten (Section 32-F8-Mathematik).
+//
+// LEHRBUCH-PATTERN: Strategy (SelectionObjective -- Kosten kleiner = besser, austauschbar) + der Break-
+// Even-Finder als reine Funktion ueber der eval()-Kontur eines Kandidaten.
+//
+// SELF-CONTAINED-DOKTRIN (wie das ganze Tool): NUR C++17-Standardbibliothek, KEINE Engine-Kopplung -> der
+// Kandidaten-Kurven-Traeger ist hier ein std-only STUECKWEISE-LINEARES Modell ueber SYNTHETISCHEN Stuetz-
+// stellen (das Geruest ist gegen synthetische Kurven entwickelt/getestet). In S7 wird dieselbe eval()-
+// Kontur vom engine-seitigen natuerlichen kubischen Spline (curve_fit.hpp AxisSpline) gespeist (Adapter am
+// Engine-Rand); der Break-Even-Finder ist MODELL-AGNOSTISCH (Raster + Bisektion), sodass der Tausch
+// stueckweise-linear -> Spline ein Drop-in ist.
+//
+// Section-49-KORREKTUR-GRENZE: KEIN std::variant hier. Die Haupt-Kommunikation Hybrid<->Tier-Binary-
+// Observer bleibt statisch (IObservableTier / Pruef-Dock, zero-cost, Section 9). Die eng begrenzte
+// variant-/Abstract-Factory-Mechanik fuer ABWEICHENDE Unter-Pruef-Dock-Typen ist S7/S9, NICHT dieser
+// Selektor-Vorbau. K-5: waehlt dieser Selektor in S7 reale Saetze, schreibt er Provenienz ueber DENSELBEN
+// kAbiMajor/kAbiMagic-Spiegel oben (Paritaet gegen den Decl-Header via test_best_binary_selector_parse_rank).
+
+/// Synthetische Stuetzstelle einer Kandidaten-Kostenkurve. x = Anfrage-/Last-Koordinate (z.B. Working-Set-
+/// Groesse oder klassifizierte Last-Intensitaet); y = modellierte Kosten (kleiner = besser).
+struct CurveSample {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+/// PiecewiseCurve (SCAFFOLD-Modell): stueckweise-lineare Kostenkurve ueber sortierten Stuetzstellen.
+/// eval() interpoliert linear; ausserhalb [x_first,x_last] mit der Rand-Segment-Steigung extrapoliert.
+/// HONEST-EMPTY: <2 Stuetzstellen mit x-Streuung => !valid() (kein Phantom-Modell). In S7 ersetzt der
+/// engine-seitige AxisSpline dieses Modell hinter derselben eval()-Kontur.
+class PiecewiseCurve {
+public:
+    PiecewiseCurve() = default;
+    explicit PiecewiseCurve(std::vector<CurveSample> samples);
+
+    [[nodiscard]] bool   valid() const noexcept { return valid_; }
+    [[nodiscard]] double eval(double x) const; ///< NaN nur wenn !valid()
+    [[nodiscard]] double x_min() const noexcept { return valid_ ? samples_.front().x : 0.0; }
+    [[nodiscard]] double x_max() const noexcept { return valid_ ? samples_.back().x : 0.0; }
+
+private:
+    std::vector<CurveSample> samples_; ///< aufsteigend, distinkte x
+    bool                     valid_ = false;
+};
+
+/// Ein Kandidat der Rueckwaerts-Wahl: eine gebaute (oder zu bauende) Binary + ihr optimaler Algo-Satz,
+/// getragen von der modellierten Kostenkurve.
+struct AlgoSetCandidate {
+    std::string    binary_id;  ///< orch_make_stem-Identitaet (wie oben)
+    std::string    algo_set;   ///< Organ-Algorithmen-Signatur (perm.algos-Semantik); Provenienz, kein Schluessel
+    PiecewiseCurve cost_curve; ///< f(x) Modellkurve (kleiner = besser)
+};
+
+/// Break-Even-Punkt zwischen zwei Kandidaten: unterhalb x fuehrt winner_below, oberhalb winner_above.
+struct BreakEvenPoint {
+    double      x    = 0.0; ///< Switch-Threshold (Kurven-Schnittpunkt)
+    double      cost = 0.0; ///< gemeinsamer Modellwert am Schnittpunkt
+    std::string winner_below;
+    std::string winner_above;
+};
+
+/// Ergebnis der Rueckwaerts-Wahl an einer Anfrage-Koordinate.
+struct SelectionResult {
+    std::string binary_id;
+    std::string algo_set;
+    double      modeled_cost = 0.0;
+};
+
+/// SelectionObjective (Strategy): interpretiert einen Modellwert als Kosten. Default = Identitaet (kleiner
+/// = besser); austauschbar (z.B. spaeter energiegewichtet), ohne den Selektor zu aendern.
+struct SelectionObjective {
+    [[nodiscard]] double cost_of(double modeled_value) const { return modeled_value; }
+};
+
+/// Break-Even zwischen ZWEI Kandidaten-Kurven: Schnittpunkte im ueberlappenden x-Bereich. Modell-agnostisch
+/// (Raster ueber `samples` Stuetzstellen + Bisektion an Vorzeichenwechseln von a.eval - b.eval). Fuer jeden
+/// Schnittpunkt wird bestimmt, welcher Kandidat unter-/oberhalb fuehrt. Ungueltige Kurven / kein Ueberlapp =>
+/// leer (honest-empty).
+[[nodiscard]] std::vector<BreakEvenPoint> find_break_evens(AlgoSetCandidate const& a, AlgoSetCandidate const& b,
+                                                           std::size_t samples = 256);
+
+/// HybridBinarySelector (Rueckwaerts-Wahl Section 32-F8): waehlt an einer Anfrage-Koordinate x den Kandidaten
+/// mit minimaler modellierter Kosten (Strategy = obj) und liefert die Break-Even-Tabelle der Fuehrungswechsel
+/// (die Switch-Thresholds der Heuristik).
+class HybridBinarySelector {
+public:
+    explicit HybridBinarySelector(std::vector<AlgoSetCandidate> candidates, SelectionObjective obj = {})
+        : candidates_(std::move(candidates)), obj_(obj) {}
+
+    /// Kandidat mit minimaler modellierter Kosten an x (nur valid() Kurven). Kein gueltiger => nullopt.
+    [[nodiscard]] std::optional<SelectionResult> select(double query_x) const;
+
+    /// Alle Fuehrungswechsel (Break-Even-Tabelle) ueber [x_lo,x_hi], `samples`-gerastert; aufsteigend nach x.
+    [[nodiscard]] std::vector<BreakEvenPoint> break_even_table(double x_lo, double x_hi,
+                                                               std::size_t samples = 256) const;
+
+    [[nodiscard]] std::size_t candidate_count() const noexcept { return candidates_.size(); }
+
+private:
+    std::vector<AlgoSetCandidate> candidates_;
+    SelectionObjective            obj_;
+};
+
 } // namespace comdare::cache_engine::best_binary
 
 #endif // COMDARE_CACHE_ENGINE_BEST_BINARY_SELECTOR_HPP
