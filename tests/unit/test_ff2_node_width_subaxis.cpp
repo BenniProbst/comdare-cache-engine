@@ -161,14 +161,17 @@ int main(int argc, char** argv) {
     cx::ThesisProfile p0;
     p0.id         = "p0";
     p0.base_tiers = {{"art", "../sota/art.profile.xml", "P01"}, {"hot", "../sota/hot.profile.xml", "P02"}};
-    cx::ThesisAxisSpec isa;
-    isa.ref         = "isa";
-    isa.values      = {"X86_AVX2", "X86_AVX512"};
-    p0.permute_axes = {isa};
+    // #1-Fix-konform: eine ECHTE Organ-Kompositions-Achse (memory_layout ∈ kCompositionAxisNames) als generische
+    // 2-Wert-Baseline (der Organ-only-binary_id-Guard laesst nur Organ-Achsen ins statische Level; die frueher hier
+    // benutzte System-Achse isa ist seit INC-2d KEIN Kompositions-Slot mehr → nicht binary_id-tragend).
+    cx::ThesisAxisSpec ml;
+    ml.ref          = "memory_layout";
+    ml.values       = {"aos", "soa"};
+    p0.permute_axes = {ml};
     cx::ThesisMode m0;
     m0.name        = "ce_only";
     m0.merge       = "Stufe1_CeOnly";
-    m0.active_axes = {"isa"};
+    m0.active_axes = {"memory_layout"};
     p0.modes       = {m0};
 
     cx::ThesisProfile  p1 = p0; // + node_width deklariert, NICHT aktiviert
@@ -183,7 +186,7 @@ int main(int argc, char** argv) {
     auto const ids0 = ids_of(p0, "ce_only");
     auto const ids1 = ids_of(p1, "ce_only");
     auto const ids2 = ids_of(p2, "ce_only");
-    check_eq("P0: binary_count (tier2 x isa2)", ids0.size(), std::size_t{4});
+    check_eq("P0: binary_count (tier2 x memory_layout2)", ids0.size(), std::size_t{4});
     check_true("NEUTRALITAET: node_width deklariert-aber-inaktiv -> binary_ids byte-identisch", ids1 == ids0);
     check_eq("AKTIVIERT: binary_count x5 (node_width.width_in_lines)", ids2.size(), std::size_t{20});
     check_true("AKTIVIERT: binary_id traegt node_width.width_in_lines-Segment",

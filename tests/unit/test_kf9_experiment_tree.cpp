@@ -72,26 +72,29 @@ int main() {
     tp.id             = "t";
     tp.schema_version = 1;
     tp.base_tiers     = {{"art", "../sota/art.profile.xml", "P01"}, {"hot", "../sota/hot.profile.xml", "P02"}};
-    cx::ThesisAxisSpec isa;
-    isa.ref    = "isa";
-    isa.values = {"X86_AVX2", "X86_AVX512"};
+    // #1-Fix-konform: eine ECHTE Organ-Kompositions-Achse (memory_layout ∈ kCompositionAxisNames) als generische
+    // 2-Wert-Achse — der strukturelle Organ-only-binary_id-Guard laesst nur Organ-Achsen ins statische Level. (Frueher
+    // stand hier die System-Achse isa als Stand-in; isa ist seit INC-2d KEIN Kompositions-Slot mehr → nicht binary_id.)
+    cx::ThesisAxisSpec ml;
+    ml.ref    = "memory_layout";
+    ml.values = {"aos", "soa"};
     cx::ThesisAxisSpec cl;
     cl.ref           = "cacheline";
     cl.per_organ     = {"node"};
     cl.line_sizes    = {"64", "128"};
     cl.alignments    = {"none"};
-    tp.permute_axes  = {isa, cl};
+    tp.permute_axes  = {ml, cl};
     tp.thread_counts = {"1", "2"};
     cx::ThesisMode m;
     m.name        = "ce_only";
     m.merge       = "Stufe1_CeOnly";
-    m.active_axes = {"isa", "cacheline"};
+    m.active_axes = {"memory_layout", "cacheline"};
     tp.modes      = {m};
 
     auto               levels = ex::build_axis_levels(tp, "ce_only", ex::AxisRegistry{});
     ex::ExperimentTree tree2{factory};
     tree2.build(levels);
-    // statisch: tier(2) x isa(2) x cl_line(2) x cl_align(1) = 8 Binaries (UNVERAENDERT — die binary_id-Quelle).
+    // statisch: tier(2) x memory_layout(2) x cl_line(2) x cl_align(1) = 8 Binaries (die binary_id-Quelle).
     check_eq("Adapter: binary_count (2x2x2x1)", tree2.binary_count(), std::size_t{8});
     // dynamisch (Inc2 dyn-Dim-Konsolidierung, 2026-06-18): build_axis_levels ist jetzt die EINZIGE Quelle der
     // runtime_dynamic-Dimensionen UND emittiert die Wiederholungs-Achse (D, KF-10) SELBST. tp hat thread_counts

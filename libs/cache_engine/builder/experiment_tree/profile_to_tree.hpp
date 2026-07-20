@@ -11,17 +11,29 @@
 // Werte: explizit aus dem Profil; fehlen sie, expandiert die AxisRegistry (permutation_axes.xml) die volle Liste.
 // Doc architecture/26. C++23, header-only.
 
+#include "axis_path_serialization.hpp" // kCompositionAxisNames (17 Organ-Slots, Single-Source) — #1-Fix-Guard
 #include "experiment_tree.hpp"
 #include "xml_config_parser/xml_config_parser.hpp"
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
 
 /// Achsen-Wertebereiche aus permutation_axes.xml (axis-ref → volle Werteliste).
 using AxisRegistry = std::map<std::string, std::vector<std::string>>;
+
+/// #1-Fix-Guard (9dim-G1 == Ketten-A1): ist `ref` eine der 17 Organ-Kompositions-Achsen (die EINZIGEN
+/// binary_id-tragenden Achsen)? Single-Source ist kCompositionAxisNames (axis_path_serialization.hpp) — KEIN
+/// dupliziertes Achsen-Verzeichnis. Die statischen Organ-Sub-Achsen (cacheline/node_width/alloc_hw) werden im
+/// Aufrufer VOR diesem Punkt separat behandelt (eigene if-Zweige) und erreichen den Guard nicht.
+[[nodiscard]] inline bool is_organ_composition_axis(std::string const& ref) {
+    for (std::string_view a : kCompositionAxisNames)
+        if (a == ref) return true;
+    return false;
+}
 
 /// Baut die geordneten AxisLevels eines Modus aus dem Thesis-Profil.
 [[nodiscard]] inline std::vector<AxisLevel> build_axis_levels(comdare::builder::xml::ThesisProfile const& tp,
@@ -74,6 +86,14 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
             if (!ax.alloc_pages.empty()) levels.push_back(AxisLevel{"alloc_hw.page", ax.alloc_pages, true, ""});
             continue;
         }
+        // #1-Fix (9dim-G1 == Ketten-A1): STRUKTURELLER Organ-only-binary_id-Guard. Nur die 17 Organ-
+        // Kompositions-Achsen (kCompositionAxisNames) duerfen ein statisches (= binary_id-serialisiertes) Level
+        // erzeugen. Eine System-Achse (isa/simd_extension/page_type/telemetry) im permute_axes-Block darf die
+        // binary_id NICHT verunreinigen — sie laeuft ueber die CEB-System-Achsen-Schicht (build_system_axis_levels,
+        // +ext=/+target=-Sidecar), NICHT den 17-Slot-Organ-Pfad. Damit ist "Organ-only-binary_id" STRUKTUR statt
+        // Autor-Konvention (m3v2/golden waren schon organ-rein → golden-neutral). Der lautstarke Reject-/Routing-
+        // Pfad in validate_profile ist der Folge-Schritt P-RESOLVER (S3), der auf diesem Guard aufsetzt.
+        if (!is_organ_composition_axis(ax.ref)) continue;
         std::vector<std::string> vals = ax.values; // explizit?
         if (vals.empty()) {                        // sonst volle Liste aus dem Registry
             auto it = registry.find(ax.ref);
