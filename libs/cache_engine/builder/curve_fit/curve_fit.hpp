@@ -126,14 +126,24 @@ struct SplineKnot {
     double x_log2 = 0.0; ///< Modell-Abszisse = log2(working_set_bytes)
     double y      = 0.0; ///< Messwert an diesem Knoten
     double m2     = 0.0; ///< zweite Ableitung (natuerlicher Spline: Rand-Knoten m2 == 0)
+    double m1     = 0.0; ///< erste Ableitung (nur Interp::MonotoneHermite: Fritsch-Carlson-Knoten-Steigung)
 };
 
-/// Natuerlicher kubischer Spline EINER Mess-Achse ueber aufsteigende Working-Set-Groessen.
+/// Kubischer Spline EINER Mess-Achse ueber aufsteigende Working-Set-Groessen. Das Auswertungs-Verfahren
+/// (Interp) ist DATEN-getragen: der natuerliche Spline (m2-basiert, C2, kann UEBERSCHWINGEN) oder der
+/// monotonie-erhaltende kubische Hermite (m1-basiert, Fritsch-Carlson, overshoot-frei auf monotonen Daten).
 struct AxisSpline {
+    /// Auswertungs-Verfahren dieses Splines. Default = NaturalCubic (Rueckwaerts-Verhalten unveraendert).
+    enum class Interp : std::uint8_t {
+        NaturalCubic    = 0, ///< fit_natural_cubic_spline  -- Auswertung ueber m2 (zweite Ableitung)
+        MonotoneHermite = 1, ///< fit_monotone_cubic_spline -- Auswertung ueber m1 (Hermite-Steigung)
+    };
+
     FitStatus               status   = FitStatus::NoData;
     mm::MeasurementCategory category = mm::MeasurementCategory::CLU;
     std::string             axis_name;
-    std::vector<SplineKnot> knots; ///< streng aufsteigend nach x_log2
+    std::vector<SplineKnot> knots;                         ///< streng aufsteigend nach x_log2
+    Interp                  interp = Interp::NaturalCubic; ///< welche der m2-/m1-Auswertung eval nutzt
 
     [[nodiscard]] bool valid() const noexcept { return status == FitStatus::Ok && knots.size() >= 2; }
 
@@ -142,6 +152,25 @@ struct AxisSpline {
     [[nodiscard]] double eval_log2(double xl) const {
         if (!valid()) return std::numeric_limits<double>::quiet_NaN();
         std::size_t const n = knots.size();
+        if (interp == Interp::MonotoneHermite) {
+            // Monotone kubische Hermite-Auswertung mit den Fritsch-Carlson-Knoten-Steigungen m1 (identische
+            // Basis wie heuristik/axis_spline.hpp). Ausserhalb der Domaene: LINEARE Extrapolation mit der
+            // Rand-Knoten-Steigung (kein kubisches Ausschwingen).
+            if (xl <= knots.front().x_log2) return knots.front().y + knots.front().m1 * (xl - knots.front().x_log2);
+            if (xl >= knots.back().x_log2) return knots.back().y + knots.back().m1 * (xl - knots.back().x_log2);
+            std::size_t hi = 1;
+            while (hi < n && knots[hi].x_log2 < xl) ++hi;
+            std::size_t const lo  = hi - 1;
+            double const      h   = knots[hi].x_log2 - knots[lo].x_log2;
+            double const      t   = (xl - knots[lo].x_log2) / h;
+            double const      t2  = t * t;
+            double const      t3  = t2 * t;
+            double const      h00 = 2.0 * t3 - 3.0 * t2 + 1.0; // Hermite-Basis h00,h10,h01,h11
+            double const      h10 = t3 - 2.0 * t2 + t;
+            double const      h01 = -2.0 * t3 + 3.0 * t2;
+            double const      h11 = t3 - t2;
+            return h00 * knots[lo].y + h10 * h * knots[lo].m1 + h01 * knots[hi].y + h11 * h * knots[hi].m1;
+        }
         if (xl <= knots.front().x_log2) {
             double const h  = knots[1].x_log2 - knots[0].x_log2;
             double const s0 = (knots[1].y - knots[0].y) / h - h * (2.0 * knots[0].m2 + knots[1].m2) / 6.0;
@@ -241,6 +270,110 @@ struct AxisSpline {
     return s;
 }
 
+namespace detail {
+
+/// Fritsch-Carlson-Steigungen (1980) fuer den MONOTONIE-ERHALTENDEN kubischen Hermite-Spline: begrenzt die
+/// Knoten-Steigungen (alpha^2+beta^2 <= 9 je Segment), sodass zwischen zwei Stuetzstellen KEIN Ueberschwingen
+/// entsteht, wo die Daten monoton sind (numerisch begruendete Verfahrenswahl fuer Break-Even, vgl.
+/// heuristik/axis_spline.hpp MonotoneCubicHermiteStrategy -- hier als eigene builder-Kopie portiert). xs streng
+/// aufsteigend, xs.size() == ys.size() == n. Rueckgabe: genau EINE Steigung je Knoten (n Werte).
+[[nodiscard]] inline std::vector<double> fritsch_carlson_slopes(std::vector<double> const& xs,
+                                                                std::vector<double> const& ys) {
+    std::size_t const   n = xs.size();
+    std::vector<double> m(n, 0.0);
+    if (n < 2) return m;
+    std::vector<double> delta(n - 1, 0.0); // Sekanten-Steigungen
+    for (std::size_t i = 0; i + 1 < n; ++i) delta[i] = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]);
+    // Start-Init: Enden = Randsekante, innen = Mittel der beiden Nachbarsekanten.
+    m[0]     = delta[0];
+    m[n - 1] = delta[n - 2];
+    for (std::size_t i = 1; i + 1 < n; ++i) m[i] = 0.5 * (delta[i - 1] + delta[i]);
+    // Fritsch-Carlson-Begrenzung je Segment: erzwingt Monotonie-Erhalt.
+    for (std::size_t i = 0; i + 1 < n; ++i) {
+        if (delta[i] == 0.0) { // flaches Segment -> beide Endsteigungen 0 (kein Overshoot)
+            m[i]     = 0.0;
+            m[i + 1] = 0.0;
+            continue;
+        }
+        double const alpha = m[i] / delta[i];
+        double const beta  = m[i + 1] / delta[i];
+        if (alpha < 0.0) m[i] = 0.0;    // Vorzeichenwechsel am linken Knoten -> lokaler Extrempunkt
+        if (beta < 0.0) m[i + 1] = 0.0; // Vorzeichenwechsel am rechten Knoten
+        double const s = alpha * alpha + beta * beta;
+        if (s > 9.0) {
+            double const tau = 3.0 / std::sqrt(s);
+            m[i]             = tau * alpha * delta[i];
+            m[i + 1]         = tau * beta * delta[i];
+        }
+    }
+    return m;
+}
+
+} // namespace detail
+
+/// Monotonie-ERHALTENDER kubischer Hermite-Spline-Fit ueber (log2 x, y), Fritsch-Carlson 1980. Gleiche
+/// Honest-Doktrin + Vorverarbeitung wie fit_natural_cubic_spline (x==0/nicht-endlich => InvalidData; < 2
+/// DISTINKTE x => InsufficientPoints; Wiederholungen desselben x => y gemittelt). Im Gegensatz zum
+/// NATUERLICHEN Spline UEBERSCHWINGT dieser Fit auf monotonen Daten NICHT und erzeugt damit KEINE
+/// SCHEIN-Break-Even-Punkte -- der numerisch korrekte Default fuer die Break-Even-Heuristik (Section 32-F8).
+/// Auswertung ueber AxisSpline::eval_log2 (Interp::MonotoneHermite). fit_natural_cubic_spline bleibt daneben
+/// als glattere, aber overshoot-anfaellige Alternative bestehen.
+[[nodiscard]] inline AxisSpline fit_monotone_cubic_spline(MeasurementCurve const& curve) {
+    AxisSpline s;
+    s.category  = curve.category;
+    s.axis_name = curve.axis_name;
+    s.interp    = AxisSpline::Interp::MonotoneHermite;
+    if (curve.points.empty()) return s; // NoData
+    for (CurvePoint const& p : curve.points) {
+        if (p.x_working_set_bytes == 0 || !std::isfinite(p.y_value)) {
+            s.status = FitStatus::InvalidData;
+            return s;
+        }
+    }
+    // Nach x sortieren + auf DISTINKTE x (log2) mit gemitteltem y kollabieren (streng steigende Knoten).
+    std::vector<CurvePoint> pts = curve.points;
+    std::sort(pts.begin(), pts.end(),
+              [](CurvePoint const& a, CurvePoint const& b) { return a.x_working_set_bytes < b.x_working_set_bytes; });
+    std::vector<double> xs, ys;
+    for (std::size_t i = 0; i < pts.size();) {
+        std::uint64_t const x   = pts[i].x_working_set_bytes;
+        double              sum = 0.0;
+        std::size_t         cnt = 0;
+        while (i < pts.size() && pts[i].x_working_set_bytes == x) {
+            sum += pts[i].y_value;
+            ++cnt;
+            ++i;
+        }
+        xs.push_back(std::log2(static_cast<double>(x)));
+        ys.push_back(sum / static_cast<double>(cnt));
+    }
+    std::size_t const n = xs.size();
+    if (n < 2) {
+        s.status = FitStatus::InsufficientPoints;
+        return s;
+    }
+    std::vector<double> const m1 = detail::fritsch_carlson_slopes(xs, ys);
+    s.knots.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        if (!std::isfinite(m1[i])) { // Schutznetz: NIE Ok mit NaN
+            AxisSpline bad;
+            bad.category  = curve.category;
+            bad.axis_name = curve.axis_name;
+            bad.interp    = AxisSpline::Interp::MonotoneHermite;
+            bad.status    = FitStatus::InvalidData;
+            return bad;
+        }
+        SplineKnot k;
+        k.x_log2 = xs[i];
+        k.y      = ys[i];
+        k.m2     = 0.0; // ungenutzt in MonotoneHermite (die Auswertung laeuft ueber m1)
+        k.m1     = m1[i];
+        s.knots.push_back(k);
+    }
+    s.status = FitStatus::Ok;
+    return s;
+}
+
 /// Break-Even-Schnittpunkt zweier Achsen-Splines.
 struct SplineIntersection {
     double x_working_set_bytes = 0.0; ///< Break-Even-Working-Set (reale Skala, aus log2 zurueckgerechnet)
@@ -251,35 +384,47 @@ struct SplineIntersection {
 /// Schnittpunkte (Break-Even) zweier Achsen-Splines im ueberlappenden x-Bereich. Modell-agnostisch:
 /// rastert d(xl) = a.eval_log2 - b.eval_log2 ueber `samples` Stuetzstellen, lokalisiert Vorzeichenwechsel
 /// und verfeinert per Bisektion. `samples` >= 2; beide Splines muessen valid() sein; kein Ueberlapp => leer.
-[[nodiscard]] inline std::vector<SplineIntersection> spline_intersections(AxisSpline const& a, AxisSpline const& b,
-                                                                          std::size_t samples = 256) {
+/// `y_tol` ist ein TOLERANZBAND auf d (analog break_even.hpp sign_tol): |d| <= y_tol gilt als 0, sodass das
+/// strikte Gleitkomma-`d == 0.0` (das auf Realdaten praktisch nie feuert) durch ein toleriertes Vorzeichen
+/// ersetzt ist; ein zusammenhaengendes Null-/Tie-Band erzeugt genau EINEN Schnittpunkt (Band-Eintritt) statt
+/// je-Sample-Duplikate. Default-Arg wahrt die Bestands-Signatur.
+[[nodiscard]] inline std::vector<SplineIntersection>
+spline_intersections(AxisSpline const& a, AxisSpline const& b, std::size_t samples = 256, double y_tol = 1e-9) {
     std::vector<SplineIntersection> out;
     if (!a.valid() || !b.valid() || samples < 2) return out;
     double const lo = std::max(a.knots.front().x_log2, b.knots.front().x_log2);
     double const hi = std::min(a.knots.back().x_log2, b.knots.back().x_log2);
     if (!(hi > lo)) return out;
-    auto const d       = [&](double xl) { return a.eval_log2(xl) - b.eval_log2(xl); };
-    auto const push_ix = [&](double xl) { out.push_back(SplineIntersection{std::exp2(xl), xl, a.eval_log2(xl)}); };
-    double     d_prev  = d(lo);
-    if (d_prev == 0.0) push_ix(lo);
+    double const span    = hi - lo;
+    double const tol     = (y_tol > 0.0) ? y_tol : 0.0;
+    auto const   d       = [&](double xl) { return a.eval_log2(xl) - b.eval_log2(xl); };
+    auto const   sgn     = [&](double v) -> int { return (v > tol) ? 1 : ((v < -tol) ? -1 : 0); };
+    auto const   push_ix = [&](double xl) {
+        // Doppelzaehlung vermeiden (Knoten-Treffer, der auch als Segment-Wechsel erscheint).
+        if (!out.empty() && std::fabs(out.back().x_log2 - xl) <= span * 1e-9) return;
+        out.push_back(SplineIntersection{std::exp2(xl), xl, 0.5 * (a.eval_log2(xl) + b.eval_log2(xl))});
+    };
+    int    s_prev = sgn(d(lo));
     double x_prev = lo;
+    if (s_prev == 0) push_ix(lo); // Schnitt/Tie exakt am linken Rand
     for (std::size_t i = 1; i <= samples; ++i) {
-        double const x_cur = lo + (hi - lo) * static_cast<double>(i) / static_cast<double>(samples);
-        double const d_cur = d(x_cur);
-        if (d_cur == 0.0) {
-            push_ix(x_cur);
-        } else if (d_prev != 0.0 && (d_prev < 0.0) != (d_cur < 0.0)) {
-            double xl = x_prev, xr = x_cur, dl = d_prev; // Bisektion auf dem Vorzeichenwechsel
-            for (int it = 0; it < 60 && (xr - xl) > 1e-12; ++it) {
+        double const x_cur = lo + span * static_cast<double>(i) / static_cast<double>(samples);
+        int const    s_cur = sgn(d(x_cur));
+        if (s_cur == 0) {
+            if (s_prev != 0) push_ix(x_cur); // Eintritt in ein Tie-/Null-Band -> genau EINMAL erfassen
+        } else if (s_prev != 0 && s_prev != s_cur) {
+            double xl = x_prev, xr = x_cur; // Bisektion auf dem tolerierten Vorzeichenwechsel
+            int    sl = s_prev;
+            for (int it = 0; it < 60 && (xr - xl) > span * 1e-12; ++it) {
                 double const xm = 0.5 * (xl + xr);
-                double const dm = d(xm);
-                if (dm == 0.0) {
+                int const    sm = sgn(d(xm));
+                if (sm == 0) {
                     xl = xr = xm;
                     break;
                 }
-                if ((dm < 0.0) == (dl < 0.0)) {
+                if (sm == sl) {
                     xl = xm;
-                    dl = dm;
+                    sl = sm;
                 } else {
                     xr = xm;
                 }
@@ -287,7 +432,7 @@ struct SplineIntersection {
             push_ix(0.5 * (xl + xr));
         }
         x_prev = x_cur;
-        d_prev = d_cur;
+        s_prev = s_cur;
     }
     return out;
 }

@@ -15,7 +15,9 @@
 
 #include "../../libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -169,6 +171,76 @@ int main() {
         check("Decision-Tree: Schwelle x==1024, below=sp_small, above=sp_large",
               th.size() == 1 && std::fabs(th[0].x_working_set_bytes - 1024.0) < 1.0 && th[0].below_id == "sp_small" &&
                   th[0].above_id == "sp_large");
+    }
+
+    // ── (9) Monotone Stufen-Daten => KEIN Schein-Break-Even (spiegelt heuristik MonotonePreservation...) ──
+    // Klassischer Overshoot-Ausloeser: nicht-fallende Stufen. In der log2-Abszisse liegen die Knoten bei
+    // {0,1,2,3,4,5} (Working-Sets 2^0..2^5) mit y {0,0,0,1,1,1} -- IDENTISCH zur heuristik-Assertion
+    // (test_heuristik_spline_break_even.cpp MonotonePreservationVsNaturalOvershoot), nur in der builder-
+    // Familie (curve_fit.hpp). Der monotone Fit (Fritsch-Carlson) bleibt im Datenband [0,1] und erzeugt
+    // KEINE Schein-Schnitte; der natuerliche Fit UEBERSCHWINGT und erzeugt sie.
+    {
+        std::vector<std::uint64_t> const xs_step = {1u << 0, 1u << 1, 1u << 2, 1u << 3, 1u << 4, 1u << 5};
+        std::vector<double> const        ys_step = {0.0, 0.0, 0.0, 1.0, 1.0, 1.0};
+        cf::MeasurementCurve             step;
+        for (std::size_t k = 0; k < xs_step.size(); ++k) step.points.push_back({xs_step[k], ys_step[k], 1});
+
+        cf::AxisSpline const mono = cf::fit_monotone_cubic_spline(step);
+        cf::AxisSpline const nat  = cf::fit_natural_cubic_spline(step);
+        check("Stufen: monotoner Fit => Ok+valid", mono.status == cf::FitStatus::Ok && mono.valid());
+        check("Stufen: natuerlicher Fit => Ok+valid", nat.status == cf::FitStatus::Ok && nat.valid());
+        check("Stufen: monotoner Fit traegt MonotoneHermite-Auswertung",
+              mono.interp == cf::AxisSpline::Interp::MonotoneHermite);
+        check("Stufen: natuerlicher Fit bleibt NaturalCubic (Default unveraendert)",
+              nat.interp == cf::AxisSpline::Interp::NaturalCubic);
+
+        // Dichte Abtastung ueber log2 [0,5]: Monotonie-Erhalt + Band-Containment (monotoner Fit),
+        // Band-Verlassen (natuerlicher Fit).
+        double prev  = mono.eval_log2(0.0);
+        double m_min = prev, m_max = prev;
+        double n_min = nat.eval_log2(0.0), n_max = n_min;
+        bool   mono_nondecreasing = true;
+        for (int s = 0; s <= 500; ++s) {
+            double const xl = 5.0 * static_cast<double>(s) / 500.0;
+            double const vm = mono.eval_log2(xl);
+            double const vn = nat.eval_log2(xl);
+            if (vm < prev - 1e-9) mono_nondecreasing = false;
+            prev  = vm;
+            m_min = std::min(m_min, vm);
+            m_max = std::max(m_max, vm);
+            n_min = std::min(n_min, vn);
+            n_max = std::max(n_max, vn);
+        }
+        check("Stufen: monotoner Fit ist nicht-fallend (Segment-Monotonie erhalten)", mono_nondecreasing);
+        check("Stufen: monotoner Fit bleibt im Datenband [0,1] (kein Overshoot)",
+              m_min >= -1e-9 && m_max <= 1.0 + 1e-9);
+        check("Stufen: natuerlicher Fit VERLAESST das Band (Ueberschwingen -> Grund fuer Fritsch-Carlson)",
+              n_min < -1e-3 || n_max > 1.0 + 1e-3);
+
+        // Schein-Break-Even: Referenz-Konstante c ECHT im Ueberschwing-Bereich (1 < c < n_max, aus dem
+        // gemessenen Overshoot abgeleitet -> kein Magic-Threshold). Der monotone Fit bleibt <= 1 < c => 0
+        // Schnitte; der natuerliche Fit schwingt ueber c und faellt zurueck => >= 2 SCHEIN-Schnitte.
+        double const         c        = 1.0 + (n_max - 1.0) * 0.5;
+        cf::AxisSpline const flat_ref = cf::fit_monotone_cubic_spline(line_curve(xs_step, 0.0, c)); // y == c
+        auto const           ix_mono  = cf::spline_intersections(mono, flat_ref);
+        auto const           ix_nat   = cf::spline_intersections(nat, flat_ref);
+        check("Schein-Break-Even: monotoner Fit => 0 Schnitte oberhalb des Bandes (kein Schein)", ix_mono.empty());
+        check("Schein-Break-Even: natuerlicher Fit => >= 2 Schein-Schnitte (Ueberschwingen ueber c)",
+              ix_nat.size() >= 2);
+
+        // Entscheidungsbaum aus ROH-Kurven (Section-32-F8 Schritt 3): Default-Fit ist der monotone -> keine
+        // Schein-Schwellen; das explizit durchgereichte natuerliche Fit-Verfahren erzeugt sie sehr wohl.
+        dlt::DecisionLambdaTree const tree_mono = dlt::DecisionLambdaTree::from_curves(std::vector<dlt::CurveCandidate>{
+            {"mono_bin", "algo_mono", step}, {"flat_bin", "algo_flat", line_curve(xs_step, 0.0, c)}});
+        check("from_curves: Default-Fit modelliert 2 Kandidaten (monoton)", tree_mono.candidate_count() == 2u);
+        check("from_curves: monotone Modelle => KEINE Schein-Schwellen ueber der Referenz",
+              tree_mono.thresholds().empty());
+        dlt::DecisionLambdaTree const tree_nat = dlt::DecisionLambdaTree::from_curves(
+            std::vector<dlt::CurveCandidate>{{"nat_bin", "algo_nat", step},
+                                             {"flat_bin", "algo_flat", line_curve(xs_step, 0.0, c)}},
+            &cf::fit_natural_cubic_spline);
+        check("from_curves: natuerliches Fit-Verfahren durchgereicht => Schein-Schwellen entstehen",
+              !tree_nat.thresholds().empty());
     }
 
     std::cout << "\n==== Hybrid-Break-Even-Vorbau: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
