@@ -42,6 +42,8 @@
 #include <string_view>
 #include <vector>
 
+// A11/K-19 (2026-07-20): Namespace bewusst builder::experiment (K-19, Ledger) -- KEIN Rename auf harness::;
+// die Datei liegt in harness/ wegen des a1a2-Verzeichnis-Zyklus, gehoert logisch zum builder-Experiment-Kern.
 namespace comdare::cache_engine::builder::experiment {
 
 /// KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[17][8]"): formatiert den EINEN konsolidierten
