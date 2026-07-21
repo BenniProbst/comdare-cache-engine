@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="pmr_resource" family_ref="A22">
   <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:24; axes source: axis_06_allocator_pmr_resource.hpp:7,48,51,62-72 -->
   <metadata>

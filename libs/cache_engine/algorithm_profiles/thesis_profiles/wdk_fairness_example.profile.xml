@@ -17,7 +17,7 @@
      Mess-Input-/Reihen-METADATEN — sie aendern KEINE binary_id.
 
      EHRLICHKEIT (Fork 6): die zwei hot-Reihen unten (common_denominator vs native) erzeugen bis zur
-     DATEN-gated Kompositions-Pinnung (#156/#162-Fenster) DIESELBE DLL/binary_id — das --validate
+     DATEN-gated Kompositions-Pinnung (#156/#162-Fenster) DIESELBE DLL/binary_id — das -validate
      WARNT genau darueber (gewollt sichtbar, kein Fehler). -->
 <comdare_thesis_profile id="wdk_fairness_example" schema_version="1">
 
@@ -50,7 +50,7 @@
   <!-- GO-5 Fork 1: die Mess-INPUT-Dimension D — Referenzen auf die test_data-AKTEN (Single-Source).
        loader = DatasetLoaderRegistry-loader_id: string_corpus (String-Korpora des 6er-Kanons),
        sosd_uint64 (binaere SOSD-Akte). Die DATEI-Existenz ist super-seitig (Akten leben im super-Repo);
-       das --validate prueft hier das FORMAT (…*.test_data.xml) + die loader-Plausibilitaet. -->
+       das -validate prueft hier das FORMAT (…*.test_data.xml) + die loader-Plausibilitaet. -->
   <datasets>
     <dataset id="url"            akte_ref="test_data_xml/url.test_data.xml"            loader="string_corpus"/>
     <dataset id="english_words"  akte_ref="test_data_xml/english_words.test_data.xml"  loader="string_corpus"/>
@@ -60,7 +60,7 @@
   <!-- INC-3 Familie A: die dritte W/D/K-Dimension K — eine Spalten-PROJEKTION ueber die 16 gemessenen
        System-Kategorien (measurement_category.hpp). name = exakt der Enum-Name (Single-Source
        kMeasurementAxisRegistry). Reine SICHT-Auswahl, KEINE Achse → binary_id-neutral (golden-Roundtrip
-       unberuehrt); fehlt das Element ⇒ alle 16 Kategorien. Das --validate prueft jeden Namen gegen die Registry. -->
+       unberuehrt); fehlt das Element ⇒ alle 16 Kategorien. Das -validate prueft jeden Namen gegen die Registry. -->
   <measurement_categories>
     <category name="CLU"/>
     <category name="CACHE_MISS_L3"/>

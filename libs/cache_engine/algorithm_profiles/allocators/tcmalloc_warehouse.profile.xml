@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="tcmalloc_warehouse" family_ref="A14">
   <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:34; axes source: axis_06_allocator_tcmalloc_wh.hpp:5,38,41,57-64 -->
   <metadata>

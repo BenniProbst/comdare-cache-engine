@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="buddy" family_ref="A19">
   <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:27; axes source: axis_06_allocator_buddy.hpp:5,39,42,60-70 -->
   <metadata>

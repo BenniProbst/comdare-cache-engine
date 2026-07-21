@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="crystalline" family_ref="A17">
   <!-- metadata source: ext/allocator/REPOS_OVERVIEW.md:48 (Crystalline, Penn-State, URL pending);
        axes source: axis_06_allocator_crystalline.hpp:5,43,46,65-71. Missing paper/year/license fields are explicit unknowns. -->
