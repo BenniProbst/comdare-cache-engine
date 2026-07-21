@@ -1355,6 +1355,23 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos) << "debug-Profil => statisch Debug (j2)";
     EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "(i) Nicht-Default => +bt-Signal";
 
+    // (j3) §61-STUFEN Dual-Compile: der Debug-Mess-Job macht ZWEI Treiber-Aufrufe -- (1) Release provision-only
+    // (O2/O3-Reuse-Masse, eigenes _release_provision-Dir, KEIN +bt), (2) Debug-Bau+Messung (-O0/+bt). Blocker #50:
+    // ARTEFAKT_TRIES=1. Der measure/Release-Pfad (yaml oben) bleibt byte-stabil (EIN Aufruf, kein provision, kein Override).
+    EXPECT_NE(ydbg.find("(j3) Aufruf 1/2: Release provision-only"), std::string::npos)
+        << "(j3) Debug: Aufruf 1 = Release provision-only (Reuse-Masse)";
+    EXPECT_NE(ydbg.find("(j3) Aufruf 2/2: Debug-Bau+Messung"), std::string::npos)
+        << "(j3) Debug: Aufruf 2 = Debug measure";
+    EXPECT_NE(ydbg.find("COMDARE_GOLDEN_N_PROVISION_ONLY=true"), std::string::npos)
+        << "(j3) Debug-Mess-Job provisioniert die Reuse-Masse (Aufruf 1)";
+    EXPECT_NE(ydbg.find("_release_provision\""), std::string::npos)
+        << "(j3) Aufruf 1 hat ein EIGENES Ausgabe-Dir (Debug-Bau ueberschreibt die Release-.so nicht)";
+    EXPECT_NE(ydbg.find("export COMDARE_ARTEFAKT_TRIES=1"), std::string::npos)
+        << "(j3) Blocker #50: smoke/debug begrenzt die measure-drop-Retries (hart)";
+    EXPECT_EQ(yaml.find("(j3) Aufruf 1/2"), std::string::npos) << "measure => KEIN (j3)-Dual-Compile (byte-stabil)";
+    EXPECT_EQ(yaml.find("_release_provision"), std::string::npos) << "measure => kein Release-Provision-Vorlauf";
+    EXPECT_EQ(yaml.find("COMDARE_ARTEFAKT_TRIES"), std::string::npos) << "measure => kein ARTEFAKT_TRIES-Override";
+
     // Bare-metal (--emit-tier-cmake): DLL-Bau-Pool parallel (ProcessorCount) fuer measure; kein +bt. Debug => +bt.
     planner::TierCmakeGraphBuilder cm;
     director.construct(*tp, cm);
@@ -1366,6 +1383,16 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     planner::TierCmakeGraphBuilder cm_dbg;
     director.construct(*dbg, cm_dbg);
     EXPECT_NE(cm_dbg.text().find("\"COMDARE_BUILD_TYPE=Debug\""), std::string::npos) << "debug => +bt-Signal (cmake)";
+
+    // (j3) cmake-symmetrisch: das Debug-Mess-Target traegt VOR dem Debug-Mess-COMMAND einen Release-Provision-Vorlauf
+    // (eigenes _release_provision-Dir, ARTEFAKT_TRIES=1). measure/Release bleibt byte-stabil (kein Vorlauf).
+    EXPECT_NE(cm_dbg.text().find("(j3) 1/2: Release provision-only"), std::string::npos)
+        << "(j3) Debug cmake: Release-Provision-Vorlauf im Mess-Target";
+    EXPECT_NE(cm_dbg.text().find("_release_provision\""), std::string::npos)
+        << "(j3) Debug cmake: eigenes Provision-Dir";
+    EXPECT_NE(cm_dbg.text().find("\"COMDARE_ARTEFAKT_TRIES=1\""), std::string::npos) << "(j3) Debug cmake: Blocker #50";
+    EXPECT_EQ(cm.text().find("(j3) 1/2"), std::string::npos) << "measure cmake => kein (j3)-Vorlauf (byte-stabil)";
+    EXPECT_EQ(cm.text().find("_release_provision"), std::string::npos) << "measure cmake => kein Release-Provision-Dir";
 }
 
 // (i)-facade §61-STUFEN Byte-Wache: die facade-Suffix-Naht build_type_version_suffix liest COMDARE_BUILD_TYPE und
