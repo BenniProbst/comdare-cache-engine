@@ -149,7 +149,8 @@ TEST(ExperimentPlanDirector, ThesisMinYieldsSingleIdentityPermAndSinglePass) {
     EXPECT_EQ(cb.total_steps(), 1u);
 }
 
-// (B) all_axes_golden: 2x2 = 4 Perms x (1 Basis + 17 Sweep) = 18 Sweep-Passes je Perm = 72 Schritte.
+// (B) all_axes_golden: S6-P1 faechert auf 3 Mess-Combos {wallclock/macro/micro} auf -> 3 x (2x2) = 12 Perms x
+//     (1 Basis + 17 Sweep) = 18 Sweep-Passes je Perm = 216 Schritte. header.perm_count bleibt 4 (|opt x simd| JE Combo).
 TEST(ExperimentPlanDirector, ThesisAllAxesGoldenYields2x2PermsTimesSweepPasses) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value()) << "all_axes_golden.profile.xml nicht parsbar";
@@ -162,8 +163,8 @@ TEST(ExperimentPlanDirector, ThesisAllAxesGoldenYields2x2PermsTimesSweepPasses) 
     CountingBuilder                       cb;
     director.construct(*tp, cb);
 
-    ASSERT_EQ(cb.perms.size(), 4u) << "2 opt x 2 simd = 4 Perms";
-    EXPECT_EQ(cb.header.perm_count, 4u);
+    ASSERT_EQ(cb.perms.size(), 12u) << "3 Mess-Combos x 2 opt x 2 simd = 12 Perms";
+    EXPECT_EQ(cb.header.perm_count, 4u) << "perm_count = |opt x simd| JE Mess-Combo (unveraendert)";
     // Deterministische Perm-Reihenfolge (opt-aussen in Dokument-Reihenfolge, simd-innen).
     EXPECT_EQ(cb.perms[0].opt_id, "O2");
     EXPECT_EQ(cb.perms[0].simd_id, "no_extension");
@@ -181,7 +182,7 @@ TEST(ExperimentPlanDirector, ThesisAllAxesGoldenYields2x2PermsTimesSweepPasses) 
         EXPECT_EQ(steps[0].label, "") << "Basis-Pass immer zuerst (#26/GO-5)";
         EXPECT_EQ(steps[1].label, "search_algo") << "erster deklarierter <axis_sweep> in Dokument-Reihenfolge";
     }
-    EXPECT_EQ(cb.total_steps(), 72u) << "4 Perms x 18 Sweep-Passes";
+    EXPECT_EQ(cb.total_steps(), 216u) << "12 Perms x 18 Sweep-Passes (3 Mess-Combos)";
 }
 
 // (C) Determinismus (Thesis): zwei Laeufe -> byte-gleicher --dump-plan-Text.
@@ -227,20 +228,19 @@ TEST(ExperimentPlanDirector, ExperimentGoldenWalksPhasesUnderEachPerm) {
     EXPECT_EQ(cb.total_steps(), 76u) << "4 Perms x 19 Passes";
 }
 
-// (D') KERN-A (S4 Mess-Schema, 2026-07-20): das measurement_tooling-Feld ist im Schema ADDITIV (Parser fuellt es),
-//      aber die Fan-out-VERDRAHTUNG in construct() gehoert dem Schwester-Paket P-MESSTOOL. KERN-A-Beleg: die
-//      LIVE-Call-Site bleibt bei Default 1 Combo [all] (byte-stabil zur heutigen 1-CEB-Strecke); die Golden-
-//      Instanz traegt kein <measurement_tooling>. (Der Fan-out-KERN measurement_combos_of ist separat in
-//      MeasurementToolingFanOut getestet.)
-TEST(ExperimentPlanDirector, MeasurementToolingStaysDefaultOneComboInKernA) {
+// (D') S6-P1 (Fan-out SCHARF): die Fan-out-Verdrahtung in construct() ist aktiv (measurement_combos_of(cats,
+//      ep.measurement_tooling)). Diese Golden-Instanz (experiment_golden.xml) traegt KEIN <measurement_tooling> ->
+//      Default {} => 1 Combo [all] (byte-stabil zur heutigen 1-CEB-Strecke; NUR Profile MIT <measurement_tooling>
+//      faechern auf). (Der Fan-out-KERN measurement_combos_of ist separat in MeasurementToolingFanOut getestet.)
+TEST(ExperimentPlanDirector, MeasurementToolingStaysDefaultOneComboWhenUndeclared) {
     auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
     ASSERT_TRUE(ep.has_value());
-    EXPECT_TRUE(ep->measurement_tooling.empty()) << "Golden deklariert KEIN <measurement_tooling> (passiv, Default)";
+    EXPECT_TRUE(ep->measurement_tooling.empty()) << "Golden deklariert KEIN <measurement_tooling> (Default-Pfad)";
 
     planner::ExperimentPlanDirector const director;
     CountingBuilder                       cb;
     director.construct(*ep, cb);
-    ASSERT_EQ(cb.combos.size(), 1u) << "KERN-A reicht measurement_tooling NICHT durch => 1 Combo [all] (byte-stabil)";
+    ASSERT_EQ(cb.combos.size(), 1u) << "ohne <measurement_tooling> => Default {} => 1 Combo [all] (byte-stabil)";
     EXPECT_EQ(cb.combos[0].legend, "[all]");
 }
 
@@ -405,7 +405,7 @@ TEST(CMakeGraphBuilder, ThesisTopologyIsomorphicToDirectorWalk) {
     director.construct(*tp, gb);
 
     ASSERT_EQ(gb.perms().size(), ref.perms.size()) << "gleiche Perm-Menge";
-    ASSERT_EQ(gb.perms().size(), 4u) << "2 opt x 2 simd";
+    ASSERT_EQ(gb.perms().size(), 12u) << "3 Mess-Combos x 2 opt x 2 simd";
     for (std::size_t i = 0; i < ref.perms.size(); ++i) {
         EXPECT_EQ(gb.perms()[i].index, ref.perms[i].index);
         EXPECT_EQ(gb.perms()[i].opt_id, ref.perms[i].opt_id);
@@ -416,7 +416,7 @@ TEST(CMakeGraphBuilder, ThesisTopologyIsomorphicToDirectorWalk) {
             EXPECT_EQ(gb.steps_per_perm()[i][j].label, ref.steps_per_perm[i][j].label) << "gleiche Reihenfolge";
         }
     }
-    // Cross-Check zum PlanTextBuilder: dessen perm_count-Kopfzeile deckt sich mit der Perm-Menge.
+    // Cross-Check zum PlanTextBuilder: dessen perm_count-Kopfzeile (|opt x simd| JE Combo) bleibt 4.
     planner::PlanTextBuilder pt;
     director.construct(*tp, pt);
     EXPECT_NE(pt.text().find("perm_count=4"), std::string::npos);
@@ -445,7 +445,8 @@ TEST(CMakeGraphBuilder, ExperimentTopologyIsomorphicToDirectorWalk) {
 }
 
 // (H) STUFE 1 (W10-A): je Mess-Kombination EIN ceb:build- + EIN ceb:emit-Target (ceb:build->ceb:emit-Kante) +
-//     1 Aggregat. all_axes_golden traegt EINE Kombination ([all], alle 16 Kategorien) => 1+1 Targets.
+//     1 Aggregat. all_axes_golden faechert S6-P1 auf 3 Combos {wallclock/macro/micro} auf => 3 ceb:build- + 3
+//     ceb:emit-Targets + 3 Kanten (die 16 Kategorien reisen je Combo als UNTER mit).
 TEST(CMakeGraphBuilder, EmitsPerComboCebBuildEmitTargetsAndAggregate) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -455,12 +456,12 @@ TEST(CMakeGraphBuilder, EmitsPerComboCebBuildEmitTargetsAndAggregate) {
     director.construct(*tp, gb);
     std::string const& cmake = gb.text();
 
-    // EINE Mess-Kombination => 1 CEB-Bau- + 1 CEB-Emit-Target ([all]).
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_build_"), 1u)
-        << "1 CEB-Bau-Target je Kombination";
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_emit_"), 1u)
-        << "1 CEB-Emit-Target je Kombination";
-    EXPECT_EQ(count_occurrences(cmake, "# ceb:build->ceb:emit-Kante"), 1u) << "eine Bau->Emit-Kante je Kombination";
+    // DREI Mess-Kombinationen => 3 CEB-Bau- + 3 CEB-Emit-Targets ([wallclock]/[macro]/[micro]).
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_build_"), 3u)
+        << "1 CEB-Bau-Target je Kombination (3 Combos)";
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_emit_"), 3u)
+        << "1 CEB-Emit-Target je Kombination (3 Combos)";
+    EXPECT_EQ(count_occurrences(cmake, "# ceb:build->ceb:emit-Kante"), 3u) << "eine Bau->Emit-Kante je Kombination";
     // Der CEB-Emit-Schritt ruft --emit-tier-cmake (die CEB emittiert SELBST die Stufe-2, §40.b-Hoheit).
     EXPECT_NE(cmake.find("--emit-tier-cmake"), std::string::npos) << "CEB emittiert Stufe-2 selbst (--emit-tier-cmake)";
     EXPECT_NE(cmake.find("add_custom_target(comdare_experiment_plan_all DEPENDS"), std::string::npos);
@@ -508,15 +509,15 @@ TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsSharp) {
     director.construct(*tp, gb);
     std::string const& cmake = gb.text();
 
-    // 4 Perms x kTierChunkCount(=4) = 16 Tier-Chunk-Bau-Targets, je mit provision-only. Der measure:-Schritt ist ab
-    // S5-P2 SCHARF (eigenes -E env), setzt aber KEIN COMDARE_GOLDEN_N_PROVISION_ONLY -> die PROVISION_ONLY-Zahl
-    // bleibt genau 16 (nur die Tier-Bau-Targets provisionieren; die Mess-Targets messen).
-    std::size_t const expected_builds = 4u * planner::kTierChunkCount;
+    // S6-P1: 3 Mess-Combos x 4 Perms x kTierChunkCount(=4) = 48 Tier-Chunk-Bau-Targets, je mit provision-only. Der
+    // measure:-Schritt ist ab S5-P2 SCHARF (eigenes -E env), setzt aber KEIN COMDARE_GOLDEN_N_PROVISION_ONLY -> die
+    // PROVISION_ONLY-Zahl bleibt genau 48 (nur die Tier-Bau-Targets provisionieren; die Mess-Targets messen).
+    std::size_t const expected_builds = 3u * 4u * planner::kTierChunkCount;
     EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_builds)
-        << "je Perm x chunk ein provision-only-Tier-Bau (die Mess-Targets provisionieren NICHT)";
+        << "je Combo x Perm x chunk ein provision-only-Tier-Bau (die Mess-Targets provisionieren NICHT)";
     EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_build_perm"), expected_builds);
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_measure_perm"), 4u)
-        << "1 scharfes Mess-Target je Perm";
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_measure_perm"), 12u)
+        << "1 scharfes Mess-Target je Perm (3 Combos x 4 Perms)";
     EXPECT_NE(cmake.find("\"COMDARE_GN_OPT=O2\""), std::string::npos) << "opt/simd als Plan-Konstanten (LITERALE)";
     EXPECT_NE(cmake.find("\"COMDARE_GN_SIMD=avx2\""), std::string::npos);
     // Host-unabhaengig: konfigurierbare Eingaben als CMake-Variablen mit Defaults, KEINE Host-Absolutpfade.
@@ -531,8 +532,8 @@ TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsSharp) {
         << "measure:-Target ist scharf (misst real)";
     EXPECT_NE(cmake.find("${COMDARE_PLAN_OUT}/measure/"), std::string::npos)
         << "scharfer Treiber-Aufruf schreibt EIN CSV je Zelle nach measure/";
-    EXPECT_EQ(count_occurrences(cmake, "COMDARE_BUILD_PARALLEL=1"), 4u)
-        << "je Mess-Target 1-Thread-deterministisch (COMDARE_BUILD_PARALLEL=1, §38.b)";
+    EXPECT_EQ(count_occurrences(cmake, "COMDARE_BUILD_PARALLEL=1"), 12u)
+        << "je Mess-Target 1-Thread-deterministisch (COMDARE_BUILD_PARALLEL=1, §38.b; 3 Combos x 4 Perms)";
     EXPECT_EQ(cmake.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
 }
@@ -558,7 +559,7 @@ TEST(CiYamlBuilder, ThesisTopologyIsomorphicToDirectorWalk) {
     director.construct(*tp, yb);
 
     ASSERT_EQ(yb.perms().size(), ref.perms.size()) << "gleiche Perm-Menge";
-    ASSERT_EQ(yb.perms().size(), 4u) << "2 opt x 2 simd";
+    ASSERT_EQ(yb.perms().size(), 12u) << "3 Mess-Combos x 2 opt x 2 simd";
     for (std::size_t i = 0; i < ref.perms.size(); ++i) {
         EXPECT_EQ(yb.perms()[i].index, ref.perms[i].index);
         EXPECT_EQ(yb.perms()[i].opt_id, ref.perms[i].opt_id);
@@ -598,7 +599,8 @@ TEST(CiYamlBuilder, ExperimentTopologyIsomorphicToDirectorWalk) {
 }
 
 // (L) STUFE 1 (W10-A/§42): je Mess-Kombination GENAU 1 ceb:build-, 1 ceb:emit- und 1 ceb:trigger-Job +
-//     zweistufige stages-Struktur (ceb-build/ceb-emit). all_axes_golden => 1 Kombination ([all]).
+//     zweistufige stages-Struktur (ceb-build/ceb-emit). all_axes_golden faechert S6-P1 auf 3 Combos auf =>
+//     je 3 ceb:build/emit/trigger-Jobs mit den 3 DISTINKTEN Legenden [wallclock]/[macro]/[micro].
 TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -608,19 +610,21 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
     director.construct(*tp, yb);
     std::string const& yaml = yb.text();
 
-    // EINE Mess-Kombination => je 1 ceb:build/emit/trigger-Job (Marker-Kommentare, kollisionsfrei zu needs).
-    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-build combo "), 1u) << "1 CEB-Bau-Job je Kombination";
-    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-emit combo "), 1u) << "1 CEB-Emit-Job je Kombination (--emit-tier-ci)";
-    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-trigger combo "), 1u) << "1 Grandchild-Trigger-Job je Kombination";
-    // Die Legenden-Job-Namen tragen die [a,b,c]-Kurzform ([all] = alle 16 Kategorien).
-    EXPECT_NE(yaml.find("\"ceb:build:[all]\":"), std::string::npos) << "ceb:build:[a,b,c]-Legende (all)";
-    EXPECT_NE(yaml.find("\"ceb:emit:[all]\":"), std::string::npos);
-    EXPECT_NE(yaml.find("\"ceb:trigger:[all]\":"), std::string::npos);
+    // DREI Mess-Kombinationen => je 3 ceb:build/emit/trigger-Jobs (Marker-Kommentare, kollisionsfrei zu needs).
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-build combo "), 3u) << "1 CEB-Bau-Job je Kombination (3 Combos)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-emit combo "), 3u) << "1 CEB-Emit-Job je Kombination (--emit-tier-ci)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-trigger combo "), 3u) << "1 Grandchild-Trigger-Job je Kombination";
+    // Live-3-Combo-Assert: die 3 DISTINKTEN [a,b,c]-Legenden-Job-Namen {wallclock/macro/micro} sind ALLE praesent.
+    EXPECT_NE(yaml.find("\"ceb:build:[wallclock]\":"), std::string::npos) << "ceb:build:[wallclock]-Strecke";
+    EXPECT_NE(yaml.find("\"ceb:build:[macro]\":"), std::string::npos) << "ceb:build:[macro]-Strecke";
+    EXPECT_NE(yaml.find("\"ceb:build:[micro]\":"), std::string::npos) << "ceb:build:[micro]-Strecke";
+    EXPECT_NE(yaml.find("\"ceb:emit:[wallclock]\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"ceb:trigger:[wallclock]\":"), std::string::npos);
     // Die CEB emittiert SELBST die Stufe-2 (§40.b-Hoheit: --emit-tier-ci, nicht --dump-ci).
     EXPECT_NE(yaml.find("--emit-tier-ci"), std::string::npos) << "CEB-Hoheit: die CEB emittiert Stufe-2 selbst";
     // Genau EIN trigger:-Schluessel (Grandchild via include: artifact:) je Kombination.
-    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u) << "je Kombination ein trigger:-Schluessel";
-    EXPECT_EQ(count_occurrences(yaml, "include:\n      - artifact:"), 1u);
+    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 3u) << "je Kombination ein trigger:-Schluessel (3 Combos)";
+    EXPECT_EQ(count_occurrences(yaml, "include:\n      - artifact:"), 3u);
     // Zweistufige stages-Struktur (genau einmal, im Kopf).
     EXPECT_EQ(count_occurrences(yaml, "\nstages:\n"), 1u);
     EXPECT_NE(yaml.find("  - ceb-build\n"), std::string::npos);
@@ -644,14 +648,14 @@ TEST(CiYamlBuilder, CebTriggerForwardsGnTotalAsExplicitAllowlist) {
     std::string const& yaml = yb.text();
 
     // Die explizite Allowlist: der ceb:trigger-Bridge-Job deklariert COMDARE_GN_TOTAL als YAML-Variable (RHS = der
-    // aus STUFE 1 geerbte Wert). Genau EINE Kombination ([all]) => genau EIN solcher Block.
-    EXPECT_EQ(count_occurrences(yaml, "  variables:\n    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n"), 1u)
-        << "ceb:trigger deklariert COMDARE_GN_TOTAL als Forward-Allowlist";
+    // aus STUFE 1 geerbte Wert). DREI Kombinationen => genau 3 solche Bloecke (je Combo ein ceb:trigger-Job).
+    EXPECT_EQ(count_occurrences(yaml, "  variables:\n    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n"), 3u)
+        << "ceb:trigger deklariert COMDARE_GN_TOTAL als Forward-Allowlist (3 Combos)";
     // S5-P2-Rest (Smoke-Propagation): derselbe Bridge-Job forwardet zusaetzlich COMDARE_MEASURE_PROFILE -- sonst
     // faellt die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE == "smoke"' im Grandchild aus (Jobs bleiben when:manual
-    // statt Auto-Run; Befund CI-Smoke 11840/Grandchild 11858). Genau EINE Kombination ([all]) => genau EIN Block.
-    EXPECT_EQ(count_occurrences(yaml, "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n"), 1u)
-        << "ceb:trigger forwardet COMDARE_MEASURE_PROFILE (Smoke-Propagation an die Grandchild)";
+    // statt Auto-Run; Befund CI-Smoke 11840/Grandchild 11858). DREI Kombinationen => genau 3 Bloecke.
+    EXPECT_EQ(count_occurrences(yaml, "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n"), 3u)
+        << "ceb:trigger forwardet COMDARE_MEASURE_PROFILE (Smoke-Propagation an die Grandchild; 3 Combos)";
     // forward:yaml_variables reicht die Allowlist an die Grandchild; pipeline_variables bleibt AUS (Isolation).
     EXPECT_NE(yaml.find("    forward:\n      yaml_variables: true"), std::string::npos)
         << "forward:yaml_variables:true reicht die Allowlist an die Grandchild";
@@ -659,8 +663,8 @@ TEST(CiYamlBuilder, CebTriggerForwardsGnTotalAsExplicitAllowlist) {
         << "KEIN blindes Erben des gesamten Eltern-Variablenraums";
     EXPECT_EQ(yaml.find("pipeline_variables: true"), std::string::npos)
         << "pipeline_variables:true ist verboten (Modul-Trigger-Isolation)";
-    // Der ceb:trigger bleibt der EINZIGE Grandchild-Trigger je Kombination (keine Struktur-Regression).
-    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u);
+    // Der ceb:trigger bleibt der EINZIGE Grandchild-Trigger je Kombination (keine Struktur-Regression; 3 Combos).
+    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 3u);
 }
 
 // (M) Byte-Determinismus der YAML (Thesis + Experiment): zwei Laeufe -> byte-gleich.
@@ -839,13 +843,16 @@ TEST(ExperimentPlanDirector, ThreeStageTopologyMeasurementComboOuterSystemPermIn
     CountingBuilder                       cb;
     director.construct(*tp, cb);
 
-    // all_axes_golden deklariert alle 16 <measurement_categories> => EINE Kombination mit Legende [all].
-    ASSERT_EQ(cb.combos.size(), 1u) << "heute typisch EINE Mess-Kombination (ersetzt GN_MSYS=default)";
-    EXPECT_EQ(cb.header.measurement_combo_count, 1u);
-    EXPECT_EQ(cb.combos[0].legend, "[all]") << "alle 16 Kategorien => [all]-Sentinel";
-    // Die System-Perms bleiben byte-identisch zum Vor-W10-Verhalten (4 Perms je Kombination).
-    ASSERT_EQ(cb.perms.size(), 4u) << "2 opt x 2 simd je Mess-Kombination";
-    EXPECT_EQ(cb.header.perm_count, 4u) << "perm_count = |opt x simd| JE Mess-Kombination";
+    // all_axes_golden faechert S6-P1 auf 3 Mess-Tooling-Combos {wallclock/macro/micro} auf; die 16 Kategorien
+    // reisen je Combo als UNTER mit (die HAUPT-Legende kommt aus dem Tooling, NICHT aus den Kategorien).
+    ASSERT_EQ(cb.combos.size(), 3u) << "3 Mess-Kombinationen (Tooling-Fan-out {wallclock/macro/micro})";
+    EXPECT_EQ(cb.header.measurement_combo_count, 3u);
+    EXPECT_EQ(cb.combos[0].legend, "[wallclock]") << "erste Tooling-Combo";
+    EXPECT_EQ(cb.combos[1].legend, "[macro]");
+    EXPECT_EQ(cb.combos[2].legend, "[micro]");
+    // Die System-Perms je Kombination bleiben byte-identisch (4 Perms je Combo -> 3 x 4 = 12 Perms total).
+    ASSERT_EQ(cb.perms.size(), 12u) << "2 opt x 2 simd je Mess-Kombination x 3 Combos";
+    EXPECT_EQ(cb.header.perm_count, 4u) << "perm_count = |opt x simd| JE Mess-Kombination (unveraendert)";
 }
 
 // (W3) --dump-plan zeigt die Mess-Achsen-Stufe sichtbar (measurement_combo-Zeile + count-Kopf).
@@ -855,8 +862,10 @@ TEST(PlanTextBuilder, DumpPlanShowsMeasurementComboStage) {
     planner::ExperimentPlanDirector const director;
     planner::PlanTextBuilder              pt;
     director.construct(*tp, pt);
-    EXPECT_NE(pt.text().find("measurement_combo_count=1"), std::string::npos);
-    EXPECT_NE(pt.text().find("measurement_combo 0 legend=[all]"), std::string::npos);
+    EXPECT_NE(pt.text().find("measurement_combo_count=3"), std::string::npos);
+    EXPECT_NE(pt.text().find("measurement_combo 0 legend=[wallclock]"), std::string::npos);
+    EXPECT_NE(pt.text().find("measurement_combo 1 legend=[macro]"), std::string::npos);
+    EXPECT_NE(pt.text().find("measurement_combo 2 legend=[micro]"), std::string::npos);
     EXPECT_NE(pt.text().find("perm_count=4"), std::string::npos) << "Perm-Ebene bleibt unter der Kombination";
 }
 
@@ -871,10 +880,10 @@ TEST(TierCiYamlBuilder, EmitsFreedSystemPermsWithTierChunkAndGatedMeasureJobs) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    std::size_t const expected_chunks = 4u * planner::kTierChunkCount;
+    std::size_t const expected_chunks = 3u * 4u * planner::kTierChunkCount; // 3 Combos x 4 Perms x kTierChunkCount
     EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build "), expected_chunks)
-        << "kTierChunkCount Chunk-Bau-Jobs je Perm";
-    EXPECT_EQ(count_occurrences(yaml, "# JOB measure "), 4u) << "1 (gegateter) Mess-Job je System-Perm";
+        << "kTierChunkCount Chunk-Bau-Jobs je Perm (3 Combos x 4 Perms)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB measure "), 12u) << "1 (gegateter) Mess-Job je System-Perm (3 Combos x 4)";
     // Die zwei Stufen-2-stages.
     EXPECT_NE(yaml.find("  - tier-build\n"), std::string::npos);
     EXPECT_NE(yaml.find("  - measure\n"), std::string::npos);
@@ -926,21 +935,21 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     }
     // S5-P2: die Mess-Jobs sind SCHARF, aber gegatet. rules (§41/320er): je Mess-Job EINE smoke-Auto-Run-Regel +
     // EINE when:manual-Fallback-Regel (Voll-Messlauf erst nach User-Entscheid). Struktur ja, Auto-Voll-Messlauf nein.
-    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 4u)
-        << "je Mess-Job ein when:manual-Fallback (Voll-Messlauf = User-Entscheid)";
-    EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 4u)
+    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 12u)
+        << "je Mess-Job ein when:manual-Fallback (Voll-Messlauf = User-Entscheid; 3 Combos x 4 Perms)";
+    EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 12u)
         << "je Mess-Job eine smoke-Auto-Run-Regel (COMDARE_MEASURE_PROFILE==smoke => when:on_success)";
     EXPECT_NE(yaml.find("320er"), std::string::npos) << "Gate-Provenienz (§41/320er) dokumentiert";
     // B14-#3: je Mess-Job eine exklusive resource_group (kein paralleler Messlauf auf demselben Runner).
-    EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measurement-exclusive\""), 4u)
-        << "je Mess-Job resource_group ceb-measurement-exclusive (Run-to-Run-Stabilitaet)";
+    EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measurement-exclusive\""), 12u)
+        << "je Mess-Job resource_group ceb-measurement-exclusive (Run-to-Run-Stabilitaet; 3 Combos x 4 Perms)";
     // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out, 1-Thread-deterministisch
     // (COMDARE_BUILD_PARALLEL=1), OHNE COMDARE_GOLDEN_N_PROVISION_ONLY (die Abwesenheit IST das Mess-Signal) und
     // OHNE COMDARE_RUN_MEASURE (null Konsumenten).
     EXPECT_NE(yaml.find("$CI_PROJECT_DIR/Code/measure_out/"), std::string::npos)
         << "scharfer Mess-Aufruf schreibt nach measure_out";
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=1"), 4u)
-        << "je Mess-Job 1-Thread-deterministisch (§38.b)";
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=1"), 12u)
+        << "je Mess-Job 1-Thread-deterministisch (§38.b; 3 Combos x 4 Perms)";
     EXPECT_EQ(yaml.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
     EXPECT_EQ(yaml.find("measure GATED (GN-11/320er"), std::string::npos)
@@ -1030,9 +1039,10 @@ TEST(CiYamlBuilder, NoCiProjectDirInVariablesBlockBothStages) {
             << "COMDARE_GOLDEN_N_PROFILE per Runtime-Export im Prolog";
     }
     // je Job-mit-Klon-Prolog ein GOLDEN_N_PROFILE-Export: Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16
-    // (tier:build) + 4 (Mess-Jobs, ab S5-P2 SCHARF: self-clone + self-build + misst) = 20.
-    EXPECT_EQ(count_occurrences(s1.text(), "export COMDARE_GOLDEN_N_PROFILE="), 2u);
-    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u * planner::kTierChunkCount + 4u);
+    // (tier:build) + 4 (Mess-Jobs, ab S5-P2 SCHARF) = 20 -- JE Mess-Combo (S6-P1: x3 => 6 bzw. 60).
+    EXPECT_EQ(count_occurrences(s1.text(), "export COMDARE_GOLDEN_N_PROFILE="), 3u * 2u);
+    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="),
+              3u * (4u * planner::kTierChunkCount + 4u));
 }
 
 // (W10) W10-Nacharbeit 5 (Serie-E2E Lauf 5): je chunk<k>-Tier-Bau-Job berechnet sein DISJUNKTES Teilfenster zur
@@ -1046,18 +1056,18 @@ TEST(TierCiYamlBuilder, PerChunkRangeArithmeticNoGlobalFixedWindow) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    // Chunk-Arithmetik-Zeilen in JEDEM der 16 Tier-Bau-Jobs.
-    std::size_t const jobs = 4u * planner::kTierChunkCount;
+    // Chunk-Arithmetik-Zeilen in JEDEM der 48 Tier-Bau-Jobs (3 Combos x 4 Perms x kTierChunkCount).
+    std::size_t const jobs = 3u * 4u * planner::kTierChunkCount;
     EXPECT_EQ(count_occurrences(yaml, "CHUNK_SIZE=$(( (TOTAL + CCOUNT - 1) / CCOUNT ))"), jobs)
         << "ceil-Arithmetik je Job";
     EXPECT_EQ(count_occurrences(yaml, "START=$(( CHUNK * CHUNK_SIZE ))"), jobs);
     EXPECT_EQ(count_occurrences(yaml, "export COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT_C}\""), jobs);
     EXPECT_EQ(count_occurrences(yaml, "TOTAL=\"${COMDARE_GN_TOTAL:-16}\""), jobs) << "Default 16 = sicherer 4x4-Test";
-    // Je System-Perm 4 UNTERSCHIEDLICHE k-Werte -> je k genau 4x (einmal pro Perm) ueber die 4 Perms.
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=0\n"), 4u);
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=1\n"), 4u);
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=2\n"), 4u);
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=3\n"), 4u);
+    // Je System-Perm 4 UNTERSCHIEDLICHE k-Werte -> je k genau 12x (einmal pro Perm ueber 4 Perms x 3 Combos).
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=0\n"), 12u);
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=1\n"), 12u);
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=2\n"), 12u);
+    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=3\n"), 12u);
     // KEIN globales Fixfenster mehr in der Nutzlast (der alte ${COMDARE_GN_RANGE:-0:4}-Fallback ist weg).
     EXPECT_EQ(yaml.find("COMDARE_GN_RANGE:-0:4"), std::string::npos)
         << "kein globales Fixfenster in der Nutzlast (sonst 4x volle Range je Perm im Voll-Build)";
@@ -1082,14 +1092,14 @@ TEST(CiYamlBuilder, BothStagesEmitSubmoduleClonePrologInBuildJobs) {
 
     // Prolog-Marker: 1 je Job-mit-Klon-Prolog. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16 (tier:build) +
     // 4 (Mess-Jobs, ab S5-P2 SCHARF: self-clone) = 20. (Vor S5-P2 waren die Mess-Jobs Skelette OHNE Prolog.)
-    EXPECT_EQ(count_occurrences(y1, "# CHILD-SUBMODULE-KLON"), 2u) << "ceb:build + ceb:emit";
-    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 4u * planner::kTierChunkCount + 4u)
-        << "je tier:build-Job + je scharfem Mess-Job (S5-P2)";
+    EXPECT_EQ(count_occurrences(y1, "# CHILD-SUBMODULE-KLON"), 3u * 2u) << "ceb:build + ceb:emit je Combo (3 Combos)";
+    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 3u * (4u * planner::kTierChunkCount + 4u))
+        << "je tier:build-Job + je scharfem Mess-Job (S5-P2) x 3 Combos";
     // W10-Nacharbeit 3: ccache-Env per RUNTIME-Shell-Export im Prolog (1 je Job-mit-Prolog, immun gegen die vererbte,
-    // vorexpandierte Parent-CCACHE_DIR). Stufe 1 = 2, Stufe 2 = 16 tier:build + 4 Mess-Jobs (S5-P2) = 20.
-    EXPECT_EQ(count_occurrences(y1, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 2u);
+    // vorexpandierte Parent-CCACHE_DIR). Stufe 1 = 2, Stufe 2 = 16 tier:build + 4 Mess-Jobs (S5-P2) = 20 -- JE Combo (x3).
+    EXPECT_EQ(count_occurrences(y1, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 3u * 2u);
     EXPECT_EQ(count_occurrences(y2, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""),
-              4u * planner::kTierChunkCount + 4u);
+              3u * (4u * planner::kTierChunkCount + 4u));
     for (auto const* yaml : {&y1, &y2}) {
         // Runtime-Export beider ccache-Variablen (VOR jedem cmake-Aufruf in der Job-Shell).
         EXPECT_NE(yaml->find("export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), std::string::npos);
@@ -1138,22 +1148,32 @@ TEST(SelectMeasurementCombo, EmptySelectorIsIdentityAndSlugMatchIsExact) {
     EXPECT_TRUE(none.empty()) << "kein Treffer => leer (ehrliche Null-Selektion)";
 }
 
-// (A5b) golden-Neutralitaet: der Default-Walk (leerer Selektor) und der explizite [all]-Selektor (_all_ =
-//       cmake_slug("[all]")) liefern eine BYTE-GLEICHE Stufe-2 (die heutige 1-CEB-Strecke traegt die Legende [all]).
-//       Ein nicht existierender Selektor liefert eine EHRLICH leere Stufe-2 (0 tier:build-Jobs), keinen Crash.
-TEST(SelectMeasurementCombo, GoldenNeutralDefaultEqualsAllSelectorAndMissIsEmpty) {
+// (A5b) S6-P1: der per-CEB Combo-Selektor auf dem GEFANNTEN all_axes_golden (3 Combos {wallclock/macro/micro}).
+//       Die fruehere Byte-Identitaet "default == [all]-Selektor" war ein N=1-Sonderfall (die 1-CEB-Strecke trug
+//       [all]); mit N=3 testet die Trichotomie die Selektor-Semantik STAERKER: (i) leerer Selektor = Identitaet
+//       (voller 3-Combo-Walk); (ii) EIN realer Selektor "_wallclock_" = echtes nicht-leeres Subset (genau 1/3 der
+//       Tier-Bau-Jobs); (iii) Miss = ehrlich leere Stufe-2 (0 tier:build-Jobs), kein Crash.
+TEST(SelectMeasurementCombo, SelectorTrichotomyIdentitySubsetMissOnFannedFixture) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector const director;
 
-    // Default (kein Selektor) vs expliziter [all]-Selektor -> byte-identische Stufe-2 (golden-neutral).
-    planner::TierCiYamlBuilder tb_default, tb_all;
+    // (i) Identitaet: leerer Selektor == der explizite construct("") -- der volle 3-Combo-Walk (byte-gleich, > 0 Jobs).
+    planner::TierCiYamlBuilder tb_default, tb_empty;
     director.construct(*tp, tb_default);
-    director.construct(*tp, tb_all, "_all_");
-    EXPECT_EQ(tb_default.text(), tb_all.text()) << "leerer Selektor == [all]-Selektor (heutige Live-Strecke)";
-    EXPECT_GT(count_occurrences(tb_default.text(), "# JOB tier-build "), 0u) << "Default emittiert Tier-Bau-Jobs";
+    director.construct(*tp, tb_empty, "");
+    EXPECT_EQ(tb_default.text(), tb_empty.text()) << "leerer Selektor = Identitaet (voller 3-Combo-Walk)";
+    std::size_t const full_jobs = count_occurrences(tb_default.text(), "# JOB tier-build ");
+    EXPECT_GT(full_jobs, 0u) << "Default emittiert Tier-Bau-Jobs (3 Combos)";
 
-    // Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Jobs (ehrlich leer, kein Crash).
+    // (ii) EIN realer Selektor "_wallclock_" -> echtes nicht-leeres Subset: genau 1/3 der Tier-Bau-Jobs (1 von 3 Combos).
+    planner::TierCiYamlBuilder tb_one;
+    director.construct(*tp, tb_one, "_wallclock_");
+    std::size_t const one_jobs = count_occurrences(tb_one.text(), "# JOB tier-build ");
+    EXPECT_GT(one_jobs, 0u) << "der reale Selektor behaelt seine EINE CEB-Konfig";
+    EXPECT_EQ(one_jobs * 3u, full_jobs) << "genau 1/3 der Tier-Bau-Jobs (1 von 3 Combos)";
+
+    // (iii) Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Jobs (ehrlich leer, kein Crash).
     planner::TierCiYamlBuilder tb_none;
     director.construct(*tp, tb_none, "_does_not_exist_");
     EXPECT_EQ(count_occurrences(tb_none.text(), "# JOB tier-build "), 0u)
@@ -1203,25 +1223,68 @@ TEST(CiYamlBuilder, SingleComboCebEmitOmitsMeasurementComboSelectorForByteStabil
 }
 
 // (A8a) A8(a)-Symmetrie: der combo_selector reist auch bis --emit-tier-cmake durch (TierCmakeGraphBuilder), EXAKT
-//       symmetrisch zu --emit-tier-ci (A5b). Leerer Selektor = Identitaet (byte-gleich zum expliziten [all]-Selektor
-//       _all_ = cmake_slug("[all]"), der die heutige 1-CEB-Strecke traegt); ein nicht existierender Selektor =>
-//       ehrlich leere Stufe-2 (0 tier:build-Targets), kein Crash. Golden-neutral: nur die emittierten .cmake-Strings.
-TEST(SelectMeasurementCombo, EmitTierCmakeDefaultEqualsAllSelectorAndMissIsEmpty) {
+//       symmetrisch zu --emit-tier-ci (A5b). S6-P1 (gefanntes all_axes_golden, 3 Combos): dieselbe Trichotomie --
+//       (i) leerer Selektor = Identitaet (voller 3-Combo-Walk); (ii) EIN realer Selektor "_wallclock_" = echtes
+//       nicht-leeres Subset (genau 1/3 der Tier-Bau-Targets); (iii) Miss = ehrlich leere Stufe-2 (0 Targets), kein
+//       Crash. Golden-neutral: nur die emittierten .cmake-Strings.
+TEST(SelectMeasurementCombo, EmitTierCmakeSelectorTrichotomyIdentitySubsetMiss) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector const director;
 
-    // Default (kein Selektor) vs expliziter [all]-Selektor -> byte-identische Stufe-2-cmake (golden-neutral).
-    planner::TierCmakeGraphBuilder cm_default, cm_all;
+    // (i) Identitaet: leerer Selektor == der explizite construct("") -- der volle 3-Combo-Walk (byte-gleich, > 0).
+    planner::TierCmakeGraphBuilder cm_default, cm_empty;
     director.construct(*tp, cm_default);
-    director.construct(*tp, cm_all, "_all_");
-    EXPECT_EQ(cm_default.text(), cm_all.text()) << "emit-tier-cmake: leerer Selektor == [all]-Selektor (byte-gleich)";
-    EXPECT_GT(count_occurrences(cm_default.text(), "add_custom_target(comdare_tier_build_perm"), 0u)
-        << "Default emittiert Tier-Bau-Targets";
+    director.construct(*tp, cm_empty, "");
+    EXPECT_EQ(cm_default.text(), cm_empty.text()) << "emit-tier-cmake: leerer Selektor = Identitaet (3-Combo-Walk)";
+    std::size_t const full_targets = count_occurrences(cm_default.text(), "add_custom_target(comdare_tier_build_perm");
+    EXPECT_GT(full_targets, 0u) << "Default emittiert Tier-Bau-Targets (3 Combos)";
 
-    // Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Targets (ehrlich leer, kein Crash).
+    // (ii) EIN realer Selektor "_wallclock_" -> echtes nicht-leeres Subset: genau 1/3 der Tier-Bau-Targets.
+    planner::TierCmakeGraphBuilder cm_one;
+    director.construct(*tp, cm_one, "_wallclock_");
+    std::size_t const one_targets = count_occurrences(cm_one.text(), "add_custom_target(comdare_tier_build_perm");
+    EXPECT_GT(one_targets, 0u) << "der reale Selektor behaelt seine EINE CEB-Konfig";
+    EXPECT_EQ(one_targets * 3u, full_targets) << "genau 1/3 der Tier-Bau-Targets (1 von 3 Combos)";
+
+    // (iii) Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Targets (ehrlich leer, kein Crash).
     planner::TierCmakeGraphBuilder cm_none;
     director.construct(*tp, cm_none, "_does_not_exist_");
     EXPECT_EQ(count_occurrences(cm_none.text(), "add_custom_target(comdare_tier_build_perm"), 0u)
         << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Tier-Bau-Targets)";
+}
+
+// (S6-P1b-d) Env-Bruecke: die Tier-Bau-/Mess-Kommandos exportieren COMDARE_MEASUREMENT_COMBO=<combo-legend> ab N>1
+//       (der Director kennt die Combo aus dem gefilterten Walk, combo_legend_). Default/[all] (1-Combo-Profil) =>
+//       KEIN Export (byte-stabil). So reist die gewaehlte Combo bis zum Treiber (run_profile stempelt die je-Combo-DLLs).
+TEST(MeasurementComboEnvBridge, TierCommandsCarryComboEnvWhenFannedAndOmitForAll) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES); // 3 Combos {wallclock/macro/micro}
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    // Stufe-2-YAML (--emit-tier-ci): je-Combo COMDARE_MEASUREMENT_COMBO in den tier:build/measure-Treiber-Kommandos.
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+    EXPECT_NE(yaml.find("COMDARE_MEASUREMENT_COMBO=\"[wallclock]\""), std::string::npos);
+    EXPECT_NE(yaml.find("COMDARE_MEASUREMENT_COMBO=\"[macro]\""), std::string::npos);
+    EXPECT_NE(yaml.find("COMDARE_MEASUREMENT_COMBO=\"[micro]\""), std::string::npos);
+    // Der Export sitzt VOR COMDARE_GN_OPT im Treiber-Kommando (Bau + Mess).
+    EXPECT_NE(yaml.find("COMDARE_MEASUREMENT_COMBO=\"[wallclock]\" COMDARE_GN_OPT="), std::string::npos);
+
+    // Stufe-2-cmake (--emit-tier-cmake): dieselbe Combo bare-metal-symmetrisch (unquoted -E env-Zeile).
+    planner::TierCmakeGraphBuilder cm;
+    director.construct(*tp, cm);
+    EXPECT_NE(cm.text().find("COMDARE_MEASUREMENT_COMBO=[wallclock]"), std::string::npos);
+
+    // Default/[all] (planner_thesis_min: kein <measurement_tooling> => 1 Combo [all]) => KEIN Export (byte-stabil).
+    auto const tp_all = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp_all.has_value());
+    planner::TierCiYamlBuilder tb_all;
+    director.construct(*tp_all, tb_all);
+    EXPECT_EQ(tb_all.text().find("COMDARE_MEASUREMENT_COMBO="), std::string::npos)
+        << "[all]-Default => kein Combo-Export (byte-stabil zum Vor-S6-P1b-Kommando)";
+    planner::TierCmakeGraphBuilder cm_all;
+    director.construct(*tp_all, cm_all);
+    EXPECT_EQ(cm_all.text().find("COMDARE_MEASUREMENT_COMBO="), std::string::npos);
 }
