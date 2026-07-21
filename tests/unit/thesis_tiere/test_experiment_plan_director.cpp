@@ -1329,6 +1329,13 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_NE(yaml.find("  tags: [\"amd\"]"), std::string::npos) << "no_extension-Perm -> amd-Lane";
     EXPECT_NE(yaml.find("  tags: [\"intel\"]"), std::string::npos) << "avx2-Perm -> intel-Lane";
 
+    // (platform-Tag) §61/§62: der Mess-Job exportiert COMDARE_PLATFORM=<lane>@$(hostname) -> CSV-Spalte "platform"
+    // traegt die MESSENDE Maschine (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Beide Lanes praesent.
+    EXPECT_NE(yaml.find("export COMDARE_PLATFORM=\"amd@$(hostname)\""), std::string::npos)
+        << "amd-Lane-Mess-Job taggt die Plattform (prod1)";
+    EXPECT_NE(yaml.find("export COMDARE_PLATFORM=\"intel@$(hostname)\""), std::string::npos)
+        << "intel-Lane-Mess-Job taggt die Plattform (prod2)";
+
     // (k) measure_host_lane(simd, combo): no_extension folgt der Mess-Combo (F-4-Aufloesung); avx512/avx2 sind
     // combo-UNABHAENGIG (Hardware-Zwang bzw. Standard-Routing schlaegt die Combo).
     EXPECT_EQ(planner::measure_host_lane("no_extension", "[wallclock]"), "amd") << "no_ext+wallclock -> amd (prod1)";

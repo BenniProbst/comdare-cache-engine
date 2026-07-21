@@ -919,6 +919,13 @@ private:
         // PARALLEL_LEVEL-Deckel (6, separater Pool).
         s += "      export COMDARE_BUILD_PARALLEL=\"$(nproc)\"   # §61-MODI: DLL-Bau parallel; Messen 1-Thread "
              "(run_profile-Loop)\n";
+        // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen.
+        // compile_time_platform_tag (Treiber) trennt amd (Zen5) NICHT von intel (RaptorLake) -- beide x86_64. Der
+        // Emitter setzt daher die HOST-LANE + den realen Runner-Hostnamen als COMDARE_PLATFORM (-> run_profile ->
+        // platform_override -> CSV-Spalte). So ist die per-Maschine-Sicht (§62) robust; der Cross-Combo-Overhead bei
+        // no_extension bleibt plattform-konfundiert, aber im CSV nachvollziehbar (Replay-Nachmessung je Maschine).
+        s += "      export COMDARE_PLATFORM=\"" + host_lane +
+             "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (§61/§62 per-Maschine)\n";
         s += "      echo \"== STUFE 3 Mess-Vollzug [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend + organ +
              ": Fenster $COMDARE_GOLDEN_N_RANGE, misst (KEIN provision-only) ==\"\n";
         // Nutzlast: OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST. EIN CSV je Zelle nach measure_out.
