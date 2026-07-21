@@ -787,7 +787,10 @@ struct LazyRunResult {
         push_pump = std::make_unique<AsyncPushPump>(cfg.cache_push, cfg.build_version, cfg.partial_marker_sink,
                                                     cfg.chunk_part_size);
         orch.set_on_binary_done([&push_pump](BuildResult const& b) {
-            if (b.ok() && !b.output.parent_path().empty()) push_pump->enqueue(b.output.parent_path());
+            // S1: b.skipped (dll_is_current-Hit) NICHT re-pushen -- eine versions-aktuelle Binary kam entweder aus dem
+            // Warm-Cache-Pull (liegt bereits im Store) oder aus einem frueheren Lauf; ein erneuter mc-Push ist reine
+            // Redundanz (last-writer-wins, identische Bytes). Nur FRISCH gebaute ok()-Binaries wandern in die Queue.
+            if (b.ok() && !b.skipped && !b.output.parent_path().empty()) push_pump->enqueue(b.output.parent_path());
         });
     }
 

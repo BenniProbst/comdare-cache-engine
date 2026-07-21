@@ -20,8 +20,12 @@
 // der Aufrufer MISST WEITER (nie Abbruch, nie "measured=0"). SYNCHRON/blockierend — der Aufrufer haengt sie in den
 // 1-Thread-Mess-Loop; async/detached ist VERBOTEN (I/O-Contention = Messfehler). Header-only.
 
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-B (S1/§43): COMDARE_ANATOMY_ABI_MAJOR +
+                                                           // kCebContractCodegenMinor fuer das +ceb-Key-Segment
+                                                           // (Single-Source wie system_axes_version_suffix)
 #include <cache_engine/measurement/axis_error.hpp> // InfraErrorClass::ArtefaktIo + infra_error_label (Fehler-Log)
 
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
@@ -91,6 +95,11 @@ public:
         if (std::string const du = env_or_empty("COMDARE_NFS_DROP_USER"); !du.empty()) c.drop_user_ = du;
         if (std::string const mc = env_or_empty("COMDARE_MC_BIN"); !mc.empty()) c.mc_bin_ = mc;
         if (std::string const cu = env_or_empty("COMDARE_CURL_BIN"); !cu.empty()) c.curl_bin_ = cu;
+        // W12-B (S1): die vom Planer gewaehlte Mess-Tooling-Combo reist ueber COMDARE_MEASUREMENT_COMBO (leer/[all]-
+        // Default => Director exportiert sie NICHT, experiment_plan_director.hpp:779) und stempelt die DLL-Bytes REAL
+        // (lazy_adhoc_source_gen.hpp:227-238) OHNE Wirkung auf die Perm-build_version -> als +mtool-Key-Segment
+        // sanitisiert hinterlegt (unten cache_key_prefix), damit zwei Combos nicht auf denselben Objekt-Key kollidieren.
+        c.measurement_combo_ = sanitize_key_segment(env_or_empty("COMDARE_MEASUREMENT_COMBO"));
         // S5-Rest (Blackhole-Wache): curl-Timeouts + Retry-Budget aus env uebersteuerbar (Muster der Env-Gates oben).
         // Defaults konservativ (connect 10s, max-time 120s JE VERSUCH) -> bei ERREICHBAREM Storage feuern sie NIE
         // (keine Verhaltensaenderung); ein Netz-Blackhole/TLS-Stall terminiert nun BOUNDED (tries_ x max_time) statt
@@ -113,23 +122,42 @@ public:
 
     [[nodiscard]] std::string const& run_stamp() const noexcept { return run_stamp_; }
 
-    /// W11/W12 (§43): die EINE Stelle, an der aus der build_version der Objekt-Store-Key-PRAEFIX wird. HEUTE Identitaet
-    /// (== build_version) -> byte-identisch zum Ist. SINGLE-SOURCE: push_tier_binary (DLL-Key) UND
-    /// push_chunk_partial_marker (Teil-Marker-Key) ziehen den Praefix ausschliesslich von hier -> KEIN Key-Drift.
-    /// W12-B (§43-Cache-Key-Konsumption der einkompilierten X.Y.Z-Stempel) haengt seine Stempel-Zeilen GENAU HIER in
-    /// den Key ein -- an dieser einen Naht, ohne push_tier_binary/push_chunk_partial_marker/den Iterator anzufassen.
-    /// Die .version/.algos-Sidecar-Semantik bleibt davon UNBERUEHRT (nur der Objekt-Store-Key-Praefix).
-    [[nodiscard]] std::string cache_key_prefix(std::string const& build_version) const { return build_version; }
+    /// W11/W12 (§43): die EINE Stelle, an der aus der build_version der Objekt-Store-Key-PRAEFIX wird. SINGLE-SOURCE:
+    /// push_tier_binary (DLL-Key) UND push_chunk_partial_marker (Teil-Marker-Key) ziehen den Praefix ausschliesslich
+    /// von hier -> KEIN Key-Drift. Die .version/.algos-Sidecar-Semantik bleibt UNBERUEHRT (nur der Key-Praefix).
+    ///
+    /// S1 (W12-B, §43): der Praefix = die per-Perm build_version (traegt bereits +cxx=/+opt=/+ext=/[+bt=Debug],
+    /// profile_run_entry.hpp:652-656) PLUS die drei Segmente, die die Perm-build_version NICHT traegt, aber die
+    /// DLL-Bytes mitbestimmen:
+    ///   +ceb=<major>.<minor>  CEB-Contract-Version (System/Framework-Ebene): ein ABI-Bump invalidiert ALLE Binaries.
+    ///                         Single-Source-identisch zu system_axes_version_suffix (profile_run_facade.cpp:345); der
+    ///                         Perm-Pfad-build_version fehlt dieses Segment -> hier eingefaltet (kein Doppel-+ceb, da
+    ///                         push_tier_binary/push_chunk_partial_marker NUR die Perm-build_version einspeisen).
+    ///   +mtool=<combo>        sanitisierte COMDARE_MEASUREMENT_COMBO: die je-Combo-Bauten stempeln die DLL REAL ohne
+    ///                         Wirkung auf die Perm-build_version -> ohne dieses Segment kollidierten zwei Combos auf
+    ///                         denselben Key. Leer (Default/[all]) = Default-DLL.
+    ///   +mrg=none             Reserve-Segment fuer den spaeteren K6a-Merge-Stempel (#37): JETZT reserviert, damit die
+    ///                         PRT-Merge-Einfuehrung den dann befuellten Bucket NICHT ein zweites Mal invalidiert.
+    [[nodiscard]] std::string cache_key_prefix(std::string const& build_version) const {
+        return build_version + "+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
+               std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor) + "+mtool=" + measurement_combo_ +
+               "+mrg=none";
+    }
 
-    /// Ebene B: schiebt die Bau-Artefakte EINES Tier-Binary-Ordners in den Objekt-Store. Vollstaendigkeits-Marke:
-    /// perm.dll ZUERST, perm.dll.version ZULETZT (schlaegt perm.dll fehl, wird das Sidecar NICHT gepusht -> Pull
-    /// findet keine Marke -> kein falscher Reuse). Objekt-Key = <build_version>/<stem>/perm.dll(+.version), stem =
-    /// bin_dir.filename(). Fehler -> ArtefaktIo geloggt + lokale Kopie bleibt; MESSEN WEITER (kein throw).
+    /// Ebene B: schiebt die Bau-Artefakte EINES Tier-Binary-Ordners in den Objekt-Store. HARTE Reihenfolge perm.dll
+    /// ZUERST, perm.dll.algos MITTE (Organ-Provenienz, nur wenn lokal vorhanden), perm.dll.version ZULETZT — die
+    /// Vollstaendigkeits-Marke bleibt das LETZTE Objekt: schlaegt perm.dll ODER perm.dll.algos fehl, wird die
+    /// .version-Marke NICHT gepusht -> Pull findet keine vollstaendige Marke -> kein falscher Reuse. Objekt-Key =
+    /// <key_prefix>/<stem>/perm.dll(+.algos,+.version), stem = bin_dir.filename(). perm.dll.algos ist das Organ-Gate
+    /// von dll_is_current (build_orchestrator.hpp:242-246): ohne es ist jeder Remote-Treffer wirkungslos (AlgoSigFn
+    /// produktiv IMMER gesetzt); Organ-Gate AUS (keine AlgoSigFn) => .algos-Datei fehlt lokal => sauberer 2-Objekt-
+    /// Push (byte-neutral zum Alt-Verhalten). Fehler -> ArtefaktIo geloggt + lokale Kopie bleibt; MESSEN WEITER.
     void push_tier_binary(std::filesystem::path const& bin_dir, std::string const& build_version) const {
         if (!minio_enabled()) return; // No-Op (byte-neutral)
         std::string const stem     = bin_dir.filename().string();
         std::string const key_base = cache_key_prefix(build_version) + "/" + stem; // W11/W12: Single-Source-Praefix
         std::filesystem::path const dll     = bin_dir / "perm.dll";
+        std::filesystem::path const algos   = bin_dir / "perm.dll.algos"; // Organ-Provenienz-Sidecar (fehlt = Gate aus)
         std::filesystem::path const sidecar = bin_dir / "perm.dll.version";
         std::filesystem::path const log     = bin_dir / "perm.dll.push.log";
 
@@ -141,9 +169,19 @@ public:
         // (1) perm.dll ZUERST — die eigentliche Nutzlast.
         if (!mc_cp(dll, key_base + "/perm.dll", log)) {
             log_artefakt_io(log, "Push perm.dll fehlgeschlagen (lokale Kopie bleibt): " + key_base + "/perm.dll");
-            return; // Sidecar bewusst NICHT pushen -> halb-gepusht = kein Pull
+            return; // Sidecars bewusst NICHT pushen -> halb-gepusht = kein Pull
         }
-        // (2) perm.dll.version ZULETZT — die Vollstaendigkeits-/Versions-Marke.
+        // (2) perm.dll.algos MITTE — die Organ-Provenienz (nur wenn lokal vorhanden; Organ-Gate aus => uebersprungen).
+        //     Schlaegt der Push fehl, wird die .version-Marke bewusst NICHT gesetzt: unvollstaendiger Push = kein Pull.
+        if (std::filesystem::exists(algos, ec)) {
+            if (!mc_cp(algos, key_base + "/perm.dll.algos", log)) {
+                log_artefakt_io(log, "Push perm.dll.algos fehlgeschlagen (perm.dll ist oben, Marke bleibt weg -> kein "
+                                     "Pull): " +
+                                         key_base + "/perm.dll.algos");
+                return; // Version-Marke NICHT setzen -> unvollstaendig = kein falscher Reuse
+            }
+        }
+        // (3) perm.dll.version ZULETZT — die Vollstaendigkeits-/Versions-Marke (letztes Objekt).
         if (std::filesystem::exists(sidecar, ec)) {
             if (!mc_cp(sidecar, key_base + "/perm.dll.version", log))
                 log_artefakt_io(log,
@@ -437,6 +475,15 @@ private:
         return value;
     }
 
+    /// Sanitisiert ein Objekt-Key-Segment IDENTISCH zu orch_make_stem/orch_sanitize (build_orchestrator.hpp:178):
+    /// jedes Nicht-alnum-Zeichen wird '_'. Haelt den Key path-/shell-sicher (z.B. '[a,b,c]' -> '_a_b_c_', kein '/').
+    [[nodiscard]] static std::string sanitize_key_segment(std::string_view s) {
+        std::string out;
+        out.reserve(s.size());
+        for (char const c : s) out += (std::isalnum(static_cast<unsigned char>(c)) ? c : '_');
+        return out;
+    }
+
     /// YYYYMMDD-HHMMSS (lokale Zeit) — der datierte Lauf-Baum-Ordner der measure-drop-Senke.
     [[nodiscard]] static std::string make_run_stamp() {
         std::time_t const now = std::time(nullptr);
@@ -459,6 +506,7 @@ private:
     std::string drop_user_{"measure"};    // COMDARE_NFS_DROP_USER (Basic-Auth-User; HANDOFF3-Default 'measure')
     std::string mc_bin_   = "mc";         // COMDARE_MC_BIN override (Default via PATH)
     std::string curl_bin_ = "curl";       // COMDARE_CURL_BIN override (Default via PATH)
+    std::string measurement_combo_;       // COMDARE_MEASUREMENT_COMBO sanitisiert (+mtool-Segment des Objekt-Key)
     std::string run_stamp_;               // datierter Lauf-Baum (Sink-Besitzer des Timestamps)
     std::size_t tries_             = 12;  // Retry-Zahl (Vorbild copy_results_to_nas.sh: 12; COMDARE_ARTEFAKT_TRIES)
     std::size_t sleep_s_           = 5;   // Pause zwischen Versuchen (s; COMDARE_ARTEFAKT_RETRY_SLEEP_S)
