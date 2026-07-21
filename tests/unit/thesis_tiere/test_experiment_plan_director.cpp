@@ -19,6 +19,7 @@
 //
 // LESE-Schicht: alle Fixtures + Registries werden NUR GELESEN (per CMake-Define auf die realen/committeten Dateien).
 
+#include "build_type_stamp.hpp"                 // (i) §61-STUFEN: build_type_version_suffix (facade-Naht, Byte-Wache)
 #include "planner/experiment_plan_director.hpp" // ExperimentPlanDirector / IPlanBuilder / PlanTextBuilder / RegistryTrio-Annotation
 #include "planner/plan_legend.hpp"              // W10-A: das dreistufige Legenden-Namensschema (Single-Source)
 #include "validate_profile.hpp"                 // read_axis_registry_trio / RegistryTrio
@@ -27,6 +28,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <cstdlib> // (i) Byte-Wache: setenv/unsetenv (COMDARE_BUILD_TYPE)
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -1357,4 +1359,18 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     planner::TierCmakeGraphBuilder cm_dbg;
     director.construct(*dbg, cm_dbg);
     EXPECT_NE(cm_dbg.text().find("\"COMDARE_BUILD_TYPE=Debug\""), std::string::npos) << "debug => +bt-Signal (cmake)";
+}
+
+// (i)-facade §61-STUFEN Byte-Wache: die facade-Suffix-Naht build_type_version_suffix liest COMDARE_BUILD_TYPE und
+//       haengt +bt=Debug NUR bei Debug ans build_version. Ungesetzt/Release (Default) => "" => build_version BYTE-
+//       IDENTISCH (Sidecar/Resume/golden/dll_is_current unberuehrt). Reuse-Schluessel: Debug-DLL != Release-DLL.
+TEST(CompileTypeStamp, BtVersionSuffixOnlyForDebugElseByteStable) {
+    namespace tlz = comdare::cache_engine::thesis_lazy;
+    ::unsetenv("COMDARE_BUILD_TYPE");
+    EXPECT_EQ(tlz::build_type_version_suffix(), "") << "ungesetzt => kein Suffix (build_version byte-identisch)";
+    ::setenv("COMDARE_BUILD_TYPE", "Debug", 1);
+    EXPECT_EQ(tlz::build_type_version_suffix(), "+bt=Debug") << "Debug => +bt=Debug (Reuse-Schluessel scharf)";
+    ::setenv("COMDARE_BUILD_TYPE", "Release", 1);
+    EXPECT_EQ(tlz::build_type_version_suffix(), "") << "Release (Default) => kein Suffix (byte-identisch)";
+    ::unsetenv("COMDARE_BUILD_TYPE");
 }

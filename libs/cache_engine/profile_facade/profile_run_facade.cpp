@@ -352,6 +352,9 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
                                                           [](ex::AxisLevel const& l) { return l.axis == "telemetry"; });
         if (telemetry_is_system_axis) suffix += "+tel=silent";
     }
+    // (i) §61-STUFEN Compile-Kennzeichnung: +bt=Debug NUR bei Debug-Build (COMDARE_BUILD_TYPE=Debug, Emissions-Seite
+    // im Director). Release/Default => "" => build_version byte-identisch (golden/Sidecar/Resume unberuehrt).
+    suffix += tlz::build_type_version_suffix();
     return suffix;
 }
 

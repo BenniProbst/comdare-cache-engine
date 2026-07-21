@@ -291,7 +291,8 @@ struct RunExperimentResult {
                 a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
             std::string const perm_suffix =
                 "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
-                (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
+                (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id) +
+                build_type_version_suffix(); // (i) +bt=Debug NUR bei Debug (Release/Default byte-identisch)
             std::string const perm_build_version     = a.build_version + perm_suffix;
             std::string const perm_tag_build_version = tag_build_version + perm_suffix;
             std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
