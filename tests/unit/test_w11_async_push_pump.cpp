@@ -171,15 +171,131 @@ int main() {
 
         at::ArtifactCache const cache = at::ArtifactCache::from_env();
         check_true("Teil5: ArtifactCache minio_enabled (fake)", cache.minio_enabled());
-        cache.push_chunk_partial_marker("m3v2+cxx=g++-16+opt=O2", "32768:16384", 3);
-        // Erwarteter Key: <bv>/_gn_chunk_markers/32768-16384.part3.done (':' -> '-')
+        std::string const bv5 = "m3v2+cxx=g++-16+opt=O2";
+        cache.push_chunk_partial_marker(bv5, "32768:16384", 3);
+        // Erwarteter Key: <key_prefix>/_gn_chunk_markers/32768-16384.part3.done (':' -> '-'). Der Praefix zieht NUR
+        // aus cache_key_prefix (S1: inkl. +ceb/+mtool/+mrg) -- push_chunk_partial_marker teilt die Single-Source-Naht.
         std::filesystem::path const expect =
-            store / "m3v2+cxx=g++-16+opt=O2" / "_gn_chunk_markers" / "32768-16384.part3.done";
+            store / cache.cache_key_prefix(bv5) / "_gn_chunk_markers" / "32768-16384.part3.done";
         check_true("Teil5: Teil-Marker unter korrektem Objekt-Key im Fake-Store", std::filesystem::exists(expect, ec));
 
         ::unsetenv("COMDARE_MINIO_ENDPOINT");
         ::unsetenv("COMDARE_MINIO_BUCKET");
         ::unsetenv("COMDARE_MC_BIN");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════════
+    // Teil 6 (S1): push_tier_binary schiebt DREI Objekte in HARTER Reihenfolge perm.dll -> perm.dll.algos ->
+    //   perm.dll.version (Marke ZULETZT) unter dem Single-Source-Key (cache_key_prefix, inkl. +ceb/+mtool/+mrg).
+    //   Ohne .algos (Organ-Gate aus) sauberer 2-Objekt-Push. Via Fake-mc, der die cp-Reihenfolge protokolliert.
+    // ════════════════════════════════════════════════════════════════════════════════════════════════
+    {
+        std::filesystem::path const base = ::comdare::test::user_tmp_dir() / "comdare_s1_push_order";
+        std::error_code             ec;
+        std::filesystem::remove_all(base, ec);
+        std::filesystem::create_directories(base, ec);
+        std::filesystem::path const store  = base / "store";
+        std::filesystem::path const order  = base / "cp_order.log"; // je cp EINE Zeile = der Objekt-Key (Reihenfolge)
+        std::filesystem::path const fakemc = base / "fake_mc.sh";
+        {
+            std::ofstream f{fakemc};
+            f << "#!/bin/sh\n"
+                 "STORE=\""
+              << store.string() << "\"\nORDER=\"" << order.string()
+              << "\"\n"
+                 "if [ \"$1\" = \"cp\" ]; then\n"
+                 "  SRC=\"$3\"; DST=\"$4\"\n"               // cp --quiet SRC DST
+                 "  KEY=\"${DST#*/}\"; KEY=\"${KEY#*/}\"\n" // alias/ + bucket/ strippen
+                 "  mkdir -p \"$STORE/$(dirname \"$KEY\")\"\n"
+                 "  cp \"$SRC\" \"$STORE/$KEY\"\n"
+                 "  echo \"$KEY\" >> \"$ORDER\"\n" // Reihenfolge-Protokoll
+                 "  exit 0\n"
+                 "fi\n"
+                 "if [ \"$1\" = \"stat\" ]; then\n"
+                 "  DST=\"$3\"; KEY=\"${DST#*/}\"; KEY=\"${KEY#*/}\"\n"
+                 "  SZ=$(wc -c < \"$STORE/$KEY\" 2>/dev/null || echo 0)\n"
+                 "  echo \"{\\\"size\\\": $SZ}\"; exit 0\n"
+                 "fi\n"
+                 "exit 1\n";
+        }
+        std::filesystem::permissions(fakemc, std::filesystem::perms::owner_all, ec);
+
+        ::setenv("COMDARE_MINIO_ENDPOINT", "fakealias", 1);
+        ::setenv("COMDARE_MINIO_BUCKET", "fakebucket", 1);
+        ::setenv("COMDARE_MC_BIN", fakemc.string().c_str(), 1);
+        ::setenv("COMDARE_MEASUREMENT_COMBO", "[wallclock,macro]", 1); // -> +mtool=_wallclock_macro_
+        ::unsetenv("COMDARE_MEASUREMENT_DROP_URL");
+
+        at::ArtifactCache const cache = at::ArtifactCache::from_env();
+        check_true("Teil6: ArtifactCache minio_enabled (fake)", cache.minio_enabled());
+
+        std::string const bv  = "m3v2+cxx=g++-16+opt=O2+ext=avx2";
+        std::string const kp  = cache.cache_key_prefix(bv); // Single-Source-Praefix (inkl. +ceb/+mtool/+mrg)
+        auto const        obj = [&](std::string const& stem, char const* leaf) { return kp + "/" + stem + "/" + leaf; };
+
+        // (a) 3-Objekt-Push: perm.dll + perm.dll.algos + perm.dll.version vorhanden.
+        {
+            std::filesystem::remove(order, ec);
+            std::filesystem::path const bin_dir = base / "perm_cellA";
+            std::filesystem::create_directories(bin_dir, ec);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::binary} << "DLLBYTES-A"; }
+            { std::ofstream{bin_dir / "perm.dll.algos", std::ios::binary} << "algo=v1"; }
+            { std::ofstream{bin_dir / "perm.dll.version", std::ios::binary} << bv; }
+            cache.push_tier_binary(bin_dir, bv);
+
+            std::string const stem = bin_dir.filename().string();
+            check_true("Teil6a: perm.dll im Store", std::filesystem::exists(store / kp / stem / "perm.dll", ec));
+            check_true("Teil6a: perm.dll.algos im Store",
+                       std::filesystem::exists(store / kp / stem / "perm.dll.algos", ec));
+            check_true("Teil6a: perm.dll.version im Store",
+                       std::filesystem::exists(store / kp / stem / "perm.dll.version", ec));
+
+            std::vector<std::string> lines;
+            {
+                std::ifstream lf{order};
+                for (std::string l; std::getline(lf, l);)
+                    if (!l.empty()) lines.push_back(l);
+            }
+            check_eq("Teil6a: genau 3 cp-Aufrufe", lines.size(), std::size_t{3});
+            if (lines.size() == 3) {
+                // Reihenfolge-Assertion HART: dll -> algos -> version, plus Key-Montage-Stringgleichheit je Objekt.
+                check_eq("Teil6a: 1. Push == perm.dll (Key-Montage)", lines[0], obj(stem, "perm.dll"));
+                check_eq("Teil6a: 2. Push == perm.dll.algos (Key-Montage)", lines[1], obj(stem, "perm.dll.algos"));
+                check_eq("Teil6a: 3. Push == perm.dll.version ZULETZT (Key-Montage)", lines[2],
+                         obj(stem, "perm.dll.version"));
+            }
+        }
+
+        // (b) 2-Objekt-Fallback: kein .algos lokal (Organ-Gate aus) -> perm.dll -> perm.dll.version, KEIN .algos-Push.
+        {
+            std::filesystem::remove(order, ec);
+            std::filesystem::path const bin_dir = base / "perm_cellB";
+            std::filesystem::create_directories(bin_dir, ec);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::binary} << "DLLBYTES-B"; }
+            { std::ofstream{bin_dir / "perm.dll.version", std::ios::binary} << bv; }
+            cache.push_tier_binary(bin_dir, bv);
+
+            std::string const stem = bin_dir.filename().string();
+            check_true("Teil6b: perm.dll.algos NICHT im Store (Gate aus)",
+                       !std::filesystem::exists(store / kp / stem / "perm.dll.algos", ec));
+
+            std::vector<std::string> lines;
+            {
+                std::ifstream lf{order};
+                for (std::string l; std::getline(lf, l);)
+                    if (!l.empty()) lines.push_back(l);
+            }
+            check_eq("Teil6b: genau 2 cp-Aufrufe (Organ-Gate aus)", lines.size(), std::size_t{2});
+            if (lines.size() == 2) {
+                check_eq("Teil6b: 1. Push == perm.dll", lines[0], obj(stem, "perm.dll"));
+                check_eq("Teil6b: 2. Push == perm.dll.version ZULETZT", lines[1], obj(stem, "perm.dll.version"));
+            }
+        }
+
+        ::unsetenv("COMDARE_MINIO_ENDPOINT");
+        ::unsetenv("COMDARE_MINIO_BUCKET");
+        ::unsetenv("COMDARE_MC_BIN");
+        ::unsetenv("COMDARE_MEASUREMENT_COMBO");
     }
 
     std::cout << "\n==== W11 async Push-Pump + Teil-Marker (§43.c): "

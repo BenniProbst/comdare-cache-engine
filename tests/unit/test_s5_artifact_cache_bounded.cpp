@@ -12,6 +12,8 @@
 #include "builder/artifact_transport/artifact_cache.hpp"
 #include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // S1: +ceb-Segment-Konstanten fuer die Key-Montage-Probe
+
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -73,6 +75,21 @@ int main() {
 
     // Honest-Verhalten: Fehler -> lokale Kopie bleibt (nie geloescht), MESSEN WEITER.
     check_true("lokale Mess-Kopie bleibt nach fehlgeschlagenem PUT erhalten", std::filesystem::exists(local, ec));
+
+    // S1 (#46a Key-Haertung): die Objekt-Store-Key-Naht cache_key_prefix montiert +ceb/+mtool/+mrg an die
+    // build_version. Ebene B bleibt hier inert -- cache_key_prefix ist davon unabhaengig (nur der Push waere No-Op).
+    {
+        ::setenv("COMDARE_MEASUREMENT_COMBO", "[wallclock]", 1);
+        at::ArtifactCache const kc       = at::ArtifactCache::from_env();
+        std::string const       bv       = "m3v2+cxx=g++-16+opt=O2+ext=avx2";
+        std::string const       ceb      = "+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
+                                           std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+        std::string const       expected = bv + ceb + "+mtool=_wallclock_" + "+mrg=none";
+        std::string const       got      = kc.cache_key_prefix(bv);
+        std::cout << "  [KEY] cache_key_prefix = '" << got << "'\n";
+        check_true("cache_key_prefix montiert +ceb/+mtool/+mrg (Stringgleichheit)", got == expected);
+        ::unsetenv("COMDARE_MEASUREMENT_COMBO");
+    }
 
     ::unsetenv("COMDARE_MEASUREMENT_DROP_URL");
     ::unsetenv("COMDARE_NFS_DROP_TOKEN");
