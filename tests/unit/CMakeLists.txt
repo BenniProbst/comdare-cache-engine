@@ -1702,7 +1702,8 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_kf16_build_orchestrator
     test_kf16b_build_resilience
     test_w6_parallel_provision      # W6 (§32-F7): paralleler provision-Bau-Pool + positions-treue Sink-Ordnung
-    test_w11_async_push_pump)       # W11 (§43.c): BAU-Modus async Push-Pump + ArtifactCache-Teil-Marker (Fake-mc)
+    test_w11_async_push_pump        # W11 (§43.c): BAU-Modus async Push-Pump + ArtifactCache-Teil-Marker (Fake-mc)
+    test_s5_artifact_cache_bounded) # S5-Rest: measure-drop-PUT (curl) BOUNDED gegen Blackhole (Timeout-Wache)
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
