@@ -376,6 +376,9 @@ struct RunProfileResult {
         cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
         cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
+        // #45 (§16.2-M1/§61-MODI): der parallele Mess-Loop -- NUR im Debug-Modus (run_methodology). Measure/Release/
+        // undeklariert => 0 => sequentiell/1-Thread (byte-neutral). COMDARE_MEASURE_PARALLEL (getrennt vom Compile-Pool).
+        cfg.measure_parallelism = ex::resolve_measure_parallelism(tp.run_methodology);
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
         cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;

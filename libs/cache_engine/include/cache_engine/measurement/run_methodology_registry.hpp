@@ -15,8 +15,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace comdare::cache_engine::measurement {
 
@@ -102,6 +104,17 @@ static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::R
 /// constexpr-Lookup (Index == RunMethodology-Wert, durch static_assert garantiert).
 [[nodiscard]] constexpr RunMethodologyInfo const& run_methodology_info(RunMethodology m) noexcept {
     return kRunMethodologyRegistry[static_cast<std::size_t>(m)];
+}
+
+/// #45/§61-STUFEN: die AKTIVE Methodik aus den XML-Tokens (tp/ep.run_methodology; validate erzwingt exactly-one).
+/// Leer => measure-Default (Release, 1-Thread); unbekannt => ebenfalls measure-Default. SINGLE-SOURCE fuer den
+/// Runtime-Konsum (identische Regel wie experiment_plan_director::build_semantic_of_run_methodology, aber ohne
+/// Planer-Abhaengigkeit) -- der Mess-Loop leitet daraus single_thread ab (debug => paralleler Mess-Loop).
+[[nodiscard]] inline RunMethodologyInfo const& run_methodology_for_ids(std::vector<std::string> const& ids) {
+    if (!ids.empty())
+        for (std::size_t i = 0; i < kRunMethodologyCount; ++i)
+            if (kRunMethodologyRegistry[i].id == ids.front()) return kRunMethodologyRegistry[i];
+    return run_methodology_info(RunMethodology::Measure); // leer/unbekannt => measure-Default
 }
 
 /// Compile-time-Iteration ueber die Run-Methodik-UNTER-Achse (Metaprogrammierungs-Interface).

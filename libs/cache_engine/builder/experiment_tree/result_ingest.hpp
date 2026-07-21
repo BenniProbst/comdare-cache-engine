@@ -12,16 +12,21 @@
 
 #include <charconv>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Zerlegt `line` in binary_id + 13 uint64-Observer-Felder (';'-getrennt) und schreibt sie als gemessenen
-/// NodeValue in den Baum. Rückgabe: true bei wohlgeformter Zeile (≥14 Felder). Leerzeilen/Kommentare ('#') → false.
-[[nodiscard]] inline bool ingest_result_line(ExperimentTree& tree, std::string_view line) {
-    if (line.empty() || line.front() == '#') return false;
+/// #45 (paralleler Mess-Loop): die REINE Parse-Naht -- zerlegt `line` in binary_id + 159 Observer-Felder und baut den
+/// NodeValue OHNE einen Baum zu beruehren. Rueckgabe: {binary_id, NodeValue} bei wohlgeformter Zeile (==160 Felder),
+/// sonst std::nullopt. So kann der parallele Mess-Loop je Zelle worker-LOKAL parsen (kein geteilter ExperimentTree,
+/// kein Lock); ingest_result_line ist nur noch die duenne Baum-schreibende Huelle darum (byte-identisch zum Ist).
+[[nodiscard]] inline std::optional<std::pair<std::string, NodeValue>>
+parse_result_line_to_node_value(std::string_view line) {
+    if (line.empty() || line.front() == '#') return std::nullopt;
     std::vector<std::string_view> f;
     std::size_t                   i = 0;
     while (i <= line.size()) {
@@ -38,7 +43,7 @@ namespace comdare::cache_engine::builder::experiment {
     // in der binary_id (oder ein angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠160 → die axis_stats wären
     // gegen ihre Slots verschoben. format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die
     // zweite, lese-seitige Verteidigung (kein stiller Slot-Versatz).
-    if (f.size() != 160 || f[0].empty()) return false;
+    if (f.size() != 160 || f[0].empty()) return std::nullopt;
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
         std::uint64_t v = 0;
@@ -81,7 +86,16 @@ namespace comdare::cache_engine::builder::experiment {
     nv.observer               = o;
     nv.observer_real          = true; // aus echtem Cluster-Lauf (perm_runner tier_observe)
     nv.measured_setting_count = 1;
-    tree.set_node_value(std::string{f[0]}, nv);
+    return std::pair<std::string, NodeValue>{std::string{f[0]}, std::move(nv)};
+}
+
+/// Zerlegt `line` in binary_id + 159 Observer-Felder (';'-getrennt) und schreibt sie als gemessenen NodeValue in den
+/// Baum. Rueckgabe: true bei wohlgeformter Zeile (==160 Felder). Leerzeilen/Kommentare ('#') -> false. Duenne Huelle um
+/// parse_result_line_to_node_value (#45) -- byte-identisch zum Ist (Parse unveraendert, nur set_node_value angehaengt).
+[[nodiscard]] inline bool ingest_result_line(ExperimentTree& tree, std::string_view line) {
+    auto parsed = parse_result_line_to_node_value(line);
+    if (!parsed) return false;
+    tree.set_node_value(parsed->first, parsed->second);
     return true;
 }
 
