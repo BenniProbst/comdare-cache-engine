@@ -24,6 +24,7 @@
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 //    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
+#include "build_type_stamp.hpp"         // (i) §61-STUFEN: build_type_version_suffix (+bt=Debug bei COMDARE_BUILD_TYPE)
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
 #include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
 #include "lazy_adhoc_source_gen.hpp"    // INC-G6 (33/34): make_lazy_adhoc_source_gen (lazy golden-N-Fallback-Quelle)
@@ -168,6 +169,8 @@ struct RunProfileResult {
     if (simd_id == cm::SimdAvx512Option::simd_id()) return std::string{cm::SimdAvx512Option::gcc_march_flag()};
     return {}; // no_extension / unbekannt ⇒ generisch (kein -march)
 }
+// (i) §61-STUFEN Compile-Kennzeichnung: build_type_version_suffix() (+bt=Debug NUR bei COMDARE_BUILD_TYPE=Debug)
+// lebt im winzigen build_type_stamp.hpp (isoliert testbar); hier via Include verfuegbar (perm_suffix unten).
 // ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn der Host-Prozessor sie bietet. Die -march-Flag IST das
 // Gate fuer die Organ-SIMD-Codegen (Organ-SIMD ≤ System-SIMD-Zulassung); Bau- + Mess-Host sind derselbe (golden-
 // Lauf), daher __builtin_cpu_supports. Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfuegbar.
@@ -648,7 +651,8 @@ struct RunProfileResult {
                 perm_compile = a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
                 std::string const perm_suffix =
                     "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
-                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
+                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id) +
+                    build_type_version_suffix(); // (i) +bt=Debug NUR bei Debug (Release/Default byte-identisch)
                 perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
                 perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
                 std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
