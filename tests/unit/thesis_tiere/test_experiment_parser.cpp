@@ -680,11 +680,11 @@ TEST(ExperimentParser, ParsesA9MeasurementSubAxes) {
     EXPECT_EQ(ep->writeback_methods[1], "latex_table");
 }
 
-// (a9b) valide A9.1-Werte werden AKZEPTIERT (Mess-UNTER-Achsen, binary_id-neutral); die Zaehler stimmen.
+// (a9b) valide A9.1-Werte (exactly-one Modus, §61-STUFEN/j1) werden AKZEPTIERT (Mess-UNTER-Achsen, binary_id-neutral).
 TEST(ExperimentParser, ValidA9MeasurementSubAxesAreAccepted) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->run_methodology       = {"debug", "measure", "release"};
+    ep->run_methodology       = {"measure"}; // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil
     ep->measurement_framework = "ycsb";
     ep->writeback_methods     = {"csv", "latex_table", "comparison_metrics"};
 
@@ -692,7 +692,7 @@ TEST(ExperimentParser, ValidA9MeasurementSubAxesAreAccepted) {
     tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
-    EXPECT_EQ(vr.run_methodology_checked, 3u);
+    EXPECT_EQ(vr.run_methodology_checked, 1u);
     EXPECT_EQ(vr.measurement_framework_checked, 1u);
     EXPECT_EQ(vr.writeback_methods_checked, 3u);
 

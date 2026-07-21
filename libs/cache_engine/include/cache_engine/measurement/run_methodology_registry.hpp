@@ -40,7 +40,13 @@ struct RunMethodologyInfo {
     // build_type sind system_config und fliessen NIE in binary_id (Q2 Option C).
     std::string_view cmake_build_type; ///< CMAKE_BUILD_TYPE dieses Laufs ("Debug"/"Release")
     bool             measurement_on;   ///< misst der Lauf (golden-Zahlen) oder baut/referenziert er nur
-    bool             single_thread;    ///< 1-Thread-deterministischer Mess-Vollzug (Section 38.b)
+    // §61-MODI (User-Volldefinition 2026-07-21): single_thread bezeichnet die MESS-SEQUENTIALITAET (der Mess-Loop
+    // misst 1-Thread-deterministisch, Section 38.b) -- NICHT die Bau-Parallelitaet. Der BAU (DLL-Provision-Pool,
+    // COMDARE_BUILD_PARALLEL) bleibt in ALLEN Modi parallel; NUR das Messen ist bei measure/release sequentiell.
+    // Modi-Volldefinition (§61-MODI): debug = je Maschine parallel bauen + parallel MESSEN (paralleler Mess-Loop =
+    // §16.2-M1, heute UNGEBAUT); measure = parallel bauen + sequentiell messen; release = parallel bauen + sequentiell
+    // messen -> Auslieferung (Observer-frei + Wallclock-Beweis, S7/Post-Scope). Werte hier unveraendert.
+    bool single_thread; ///< MESS-Sequentialitaet (Mess-Loop 1-Thread, Section 38.b) -- NICHT Bau-Politik
 };
 
 /// Die EINE Registry der Run-Methodik-UNTER-Achse -- Index == RunMethodology-Wert (static_assert-gesichert).

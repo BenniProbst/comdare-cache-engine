@@ -373,6 +373,25 @@ private:
     return tags;
 }
 
+// (h)/(k) §61-MODI/§61-KONSOLIDIERUNG(d) Multi-Maschinen-Pflicht: die deterministische HOST-LANE eines Mess-Jobs
+// (per-Host-resource_group + Runner-Tag, statt der Vor-§61 globalen ceb-measurement-exclusive-Serialisierung --
+// "tagelanges Warten"). Cluster-Inventar (MATRIX 20260719-cluster-parallel-build Z.24-42): prod1=Zen5=EINZIGER
+// avx512-Node (Tag "amd"); prod2=RaptorLake=avx2 (Tag "intel"). Regel: (1) avx512* -> amd (Hardware-Zwang, nur prod1
+// kann es); (2) avx2 -> intel (Standard-Routing prod2; schlaegt die Combo); (3) no_extension (kein march) -> die
+// MESS-TOOLING-COMBO entscheidet die Lane (F-4-Aufloesung): macro -> intel (prod2), wallclock/micro/[all] -> amd
+// (prod1). OHNE (3) laegen reine no_extension-Laeufe (F-4-320er) KOMPLETT auf prod1 = Multi-Maschinen-Verstoss. JEDE
+// Combo-Lane bleibt VOLLSTAENDIG auf EINER Maschine (Vergleichbarkeit); avx512 NIE auf intel. Plattform-Provenienz
+// via platform-Tag im CSV (Cross-Combo-Overhead ist bei no_extension plattform-konfundiert, Replay-Nachmessung
+// moeglich). Exklusivitaet gilt PRO Maschine (resource_group ceb-measure-<host>), nicht mehr global.
+[[nodiscard]] inline std::string measure_host_lane(std::string const& simd_id, std::string const& combo_legend) {
+    std::string const march = tlz::system_axis_march_of(simd_id);
+    if (march.find("avx512") != std::string::npos) return "amd"; // (1) Hardware-Zwang: nur prod1/Zen5 traegt avx512
+    if (simd_id == "avx2") return "intel"; // (2) Standard-Routing prod2/RaptorLake (schlaegt Combo)
+    // (3) no_extension: die Combo entscheidet -- macro -> intel (prod2), wallclock/micro/[all] -> amd (prod1).
+    if (combo_legend.find("macro") != std::string::npos) return "intel";
+    return "amd";
+}
+
 // A3: EINE Formatierungs-Single-Source der YAML-Tag-Sequenz ["a","b",...] (doppelte Quotes, komma-getrennt, kein
 // Leerraum) -- GitLab wertet die Liste als UND-Bedingung: der Runner muss ALLE Tags tragen. Ein-Element-Listen
 // rendern byte-identisch zur alten tags: ["x"]-Emission (=> golden-neutral fuer die no_extension/avx2-Live-Strecke).
@@ -758,6 +777,12 @@ private:
         // (Default, 1-CEB-Strecke) => LEER => das Treiber-Kommando byte-identisch zu vor S6-P1b.
         std::string const combo_env =
             combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
+        // (i) §61-STUFEN Compile-Kennzeichnung (Emissions-Seite): der PROVISION-Bau der Tier-DLLs traegt dasselbe
+        // COMDARE_BUILD_TYPE-Signal wie der Mess-Job (Reuse-Schluessel: provisionierte + gemessene DLL desselben
+        // Debug-Profils bekommen +bt=Debug ans build_version -> identisch, wiederverwendbar). Release=Default => LEER
+        // => byte-stabil. Die Suffix-KOMPOSITION liegt facade-seitig (benannter Folgepunkt).
+        std::string const build_type_env =
+            header_.build_semantic.cmake_build_type == "Debug" ? "COMDARE_BUILD_TYPE=\"Debug\" " : std::string{};
         std::string s;
         s += "# JOB tier-build ceb=" + combo_legend_ + " perm " + std::to_string(p.index) + " chunk " + kstr +
              " (STUFE 2: CEB steuert Tier-Bau; Legende [d,e,f][g,h,i], ceb=[a,b,c] nur Kontext)\n";
@@ -801,23 +826,23 @@ private:
              "): Fenster $COMDARE_GOLDEN_N_RANGE (von $TOTAL), provision-only ==\"\n";
         // Nutzlast: COMDARE_GOLDEN_N_RANGE kommt aus dem Export oben (kein globales Fixfenster mehr in der Zeile).
         s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-        s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+        s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
              "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
         s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/gn_out/" +
              legend::cmake_slug(combo_legend_) + "/perm" + std::to_string(p.index) + "/chunk" + kstr + "\"\n";
         return s;
     }
 
-    // STUFE 3 Mess-Job (S5-P2 SCHARF, §38.b/§41/B14-#3): der REALE Mess-Vollzug der Zelle [a,b,c][d,e,f][g,h,i].
-    // Er baut den Treiber (CMAKE_BUILD_TYPE aus der measure-Methodik, S5-P1) und ruft ihn OHNE
-    // COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST (baut+misst in EINEM ccache-warmen Lauf) und schreibt
-    // EIN CSV je Zelle nach measure_out (der Rueckschreiber existiert). 1-Thread-deterministisch (§38.b):
-    // COMDARE_BUILD_PARALLEL=1 (single_thread der measure-Methodik; der Mess-Kern ist ohnehin 1-Thread, der Bau-Pool
-    // wird ebenfalls serialisiert). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt (die Abwesenheit von
-    // PROVISION_ONLY IST das Mess-Signal). resource_group ceb-measurement-exclusive (B14-#3): kein paralleler
-    // Messlauf auf demselben Runner (Run-to-Run-Stabilitaet). rules (§41/320er): Auto-Run NUR im smoke-Profil
-    // (COMDARE_MEASURE_PROFILE==smoke), sonst when:manual (der Voll-Abgabe-Messlauf bleibt ein User-Entscheid). needs
-    // = die Chunk-Bau-Jobs derselben Perm ([d,e,f][g,h,i]:chunk<k>, organ_reference; Bau->Mess-Kante).
+    // STUFE 3 Mess-Job (S5-P2 SCHARF, §38.b/§41/§61-MODI): der REALE Mess-Vollzug der Zelle [a,b,c][d,e,f][g,h,i].
+    // (g) §61-MODI: smoke waehlt die DEBUG-Methodik (Debug-Build), sonst measure (Release, S5-P1). Er baut den Treiber
+    // und ruft ihn OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST (baut+misst in EINEM ccache-warmen Lauf)
+    // und schreibt EIN CSV je Zelle nach measure_out. §61-MODI: der DLL-Bau laeuft PARALLEL (COMDARE_BUILD_PARALLEL=
+    // $(nproc)) -- NUR das Messen ist 1-Thread (run_profile-Loop; der alte =1 war ein Bau-serialisierender Regress).
+    // COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt (die Abwesenheit von PROVISION_ONLY IST das Mess-
+    // Signal). (h) §61-MODI: resource_group PRO MASCHINE (ceb-measure-<host>) statt global -- prod1+prod2 messen
+    // PARALLEL (s. measure_host_lane). rules (§41/320er): Auto-Run NUR im smoke-Profil (COMDARE_MEASURE_PROFILE==
+    // smoke), sonst when:manual (der Voll-Abgabe-Messlauf bleibt ein User-Entscheid). needs = die Chunk-Bau-Jobs
+    // derselben Perm ([d,e,f][g,h,i]:chunk<k>, organ_reference; Bau->Mess-Kante).
     [[nodiscard]] std::string emit_measure_job(PlanPerm const& p, std::string const& perm_legend) const {
         std::string const organ = legend::organ_reference();
         std::string const job   = legend::measure_job(combo_legend_, perm_legend, organ);
@@ -828,14 +853,27 @@ private:
         // Mess-Combo ebenso (COMDARE_MEASUREMENT_COMBO=[a,b,c]). [all] (Default) => LEER => byte-identisch.
         std::string const combo_env =
             combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
+        // (i) §61-STUFEN Compile-Kennzeichnung (Emissions-Seite, identitaets-stabil): NUR der Nicht-Default-Build
+        // (Debug) traegt ein COMDARE_BUILD_TYPE-Signal -> die facade-Suffix-Naht (run_profile/system_axes_version_
+        // suffix) haengt daraus +bt=Debug ans build_version (Reuse-Schluessel Debug<->measure, §61-STUFEN). Release=
+        // Default => LEER => build_version byte-identisch (keine Sidecar-/Resume-Invalidierung). Die Suffix-KOMPOSITION
+        // selbst liegt facade-seitig (system_axes_version_suffix) = benannter Folgepunkt (hier NICHT angefasst).
+        std::string const build_type_env =
+            header_.build_semantic.cmake_build_type == "Debug" ? "COMDARE_BUILD_TYPE=\"Debug\" " : std::string{};
         std::string s;
         s += "# JOB measure combo=" + combo_legend_ + " perm " + std::to_string(p.index) +
              " (STUFE 3: S5-P2 SCHARF -- realer Mess-Vollzug; smoke=Auto-Run / sonst when:manual = 320er-§41-Gate)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: measure\n";
-        s += "  tags: " + yaml_tag_list(simd_runner_tags(p.simd_id)) + "\n";
-        // B14-#3: der Messlauf ist EXKLUSIV -- kein paralleler Mess-Job auf demselben Runner (Run-to-Run-Stabilitaet).
-        s += "  resource_group: \"ceb-measurement-exclusive\"\n";
+        // (h) §61-MODI: HOST-LANE-Tag (amd/intel) statt der reinen simd-Faehigkeit -> die Lane wird EINER Maschine
+        // zugewiesen (prod1/amd traegt avx512, prod2/intel traegt avx2; s. measure_host_lane).
+        std::string const host_lane = measure_host_lane(p.simd_id, combo_legend_);
+        s += "  tags: " + yaml_tag_list({host_lane}) + "\n";
+        // (h) §61-MODI (Revision zu §38.b/B14-#3): die Mess-Exklusivitaet gilt PRO MASCHINE (resource_group
+        // ceb-measure-<host>) -- prod1 + prod2 messen PARALLEL. Die Vor-§61-Lesart war GLOBAL ("ceb-measurement-
+        // exclusive", LEDGER:2289-2296, cluster-weit EIN Messlauf); §61 (LEDGER:3168) revidiert auf per-Host, damit
+        // der 320er nicht tage-lang seriell wartet. Der v3.2-Gate-d (global) ist an dieser Stelle ueberholt.
+        s += "  resource_group: \"ceb-measure-" + host_lane + "\"\n";
         s += "  interruptible: false   # ein laufender Messlauf darf nie auto-cancelt werden\n";
         s += "  needs:\n";
         // §56/§54-T6: die needs:-Kante MUSS exakt dieselbe korrigierte Bau-Legende referenzieren wie
@@ -854,7 +892,11 @@ private:
         s += "  script:\n";
         emit_child_submodule_prolog(s); // manueller ce-Submodul-Klon (kein Auto-Fetch), Spiegel des Bau-Jobs
         s += "    - cd Code\n";
-        // S5-P1: CMAKE_BUILD_TYPE aus der measure-Methodik (=> "Release"); derselbe Bau-Typ wie der provision-Bau.
+        // (g)/(j2) §61-STUFEN: der Treiber-Build-Typ kommt aus dem PROFIL-Modus (build_semantic, exactly-one j1) --
+        // debug=Debug (Verdrahtungs-Check, parallel/schnell), measure/release=Release. Die Methodik-Quelle ist das
+        // PROFIL, NICHT die Env (COMDARE_MEASURE_PROFILE bleibt NUR der rules-Auto-Run-Trigger, s. rules oben). Der
+        // Treiber-cmake-Bau nutzt den Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel (6); die DLL-Bau-Parallelitaet steuert
+        // COMDARE_BUILD_PARALLEL unten (separater Pool, $(nproc)).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
              header_.build_semantic.cmake_build_type + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -869,15 +911,20 @@ private:
         s +=
             "      export COMDARE_GOLDEN_N_RANGE=\"0:${COMDARE_GN_TOTAL:-16}\"   # volles Zell-Fenster (Voll-Messlauf: "
             "COMDARE_GN_TOTAL=131072)\n";
-        if (header_.build_semantic.single_thread)
-            s += "      export COMDARE_BUILD_PARALLEL=1   # §38.b (measure single_thread): 1-Thread-deterministischer "
-                 "Mess-Vollzug\n";
+        // §61-MODI Regressions-Fix: der BAU (DLL-Provision-Pool) laeuft PARALLEL in ALLEN Modi -- der alte
+        // COMDARE_BUILD_PARALLEL=1 serialisierte faelschlich den BAU (Modus MESSUNG = parallel BAUEN + sequentiell
+        // MESSEN). NUR das MESSEN ist sequentiell (der run_profile-Mess-Loop selbst, 1-Thread-deterministisch,
+        // Section 38.b); paralleles MESSEN (debug-Ideal) = §16.2-M1, heute UNGEBAUT. $(nproc) = alle CPU-Threads
+        // (§61, prod1=32 freigegeben) fuer den DLL-Bau; der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_
+        // PARALLEL_LEVEL-Deckel (6, separater Pool).
+        s += "      export COMDARE_BUILD_PARALLEL=\"$(nproc)\"   # §61-MODI: DLL-Bau parallel; Messen 1-Thread "
+             "(run_profile-Loop)\n";
         s += "      echo \"== STUFE 3 Mess-Vollzug [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend + organ +
              ": Fenster $COMDARE_GOLDEN_N_RANGE, misst (KEIN provision-only) ==\"\n";
         // Nutzlast: OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST. EIN CSV je Zelle nach measure_out.
         // COMDARE_RUN_SOTA=0 wie im Bau (keine SOTA-Reihe). COMDARE_RUN_MEASURE NICHT gesetzt (null Konsumenten).
         s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-        s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+        s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
              "\" COMDARE_RUN_SOTA=0 \\\n";
         s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" +
              std::to_string(p.index) + "\"\n";
@@ -935,6 +982,10 @@ public:
         out_ += "#   COMDARE_PLAN_PROFILE = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
         out_ += "#   COMDARE_PLAN_RANGE   = golden-N Chunk-Fenster start:count (Default: 0:4 = SICHER klein)\n";
         out_ += "#   COMDARE_PLAN_OUT     = Ausgabe-Wurzel fuer die provision-DLLs (Default: <bindir>/tier/out)\n";
+        // (g)/§61-MODI: COMDARE_PLAN_MEASURE_PARALLEL = DLL-Bau-Pool im Mess-Target (Default = ProcessorCount, alle
+        // Kerne -- §61 Regressions-Fix: der BAU laeuft parallel, NUR das Messen ist 1-Thread). Der Modus (Debug/
+        // Release) kommt per (j2) STATISCH aus dem Profil (build_semantic, exactly-one) -- KEIN Env-Schalter mehr.
+        out_ += "#   COMDARE_PLAN_MEASURE_PARALLEL = DLL-Bau-Pool des Mess-Targets (Default: ProcessorCount)\n";
         out_ += "if(NOT DEFINED COMDARE_PLAN_DRIVER)\n";
         out_ += "    set(COMDARE_PLAN_DRIVER \"comdare-messung-driver\")\n";
         out_ += "endif()\n";
@@ -946,6 +997,16 @@ public:
         out_ += "endif()\n";
         out_ += "if(NOT DEFINED COMDARE_PLAN_OUT)\n";
         out_ += "    set(COMDARE_PLAN_OUT \"${CMAKE_CURRENT_BINARY_DIR}/tier/out\")\n";
+        out_ += "endif()\n";
+        // §61-MODI Regressions-Fix: der DLL-Bau des Mess-Targets laeuft PARALLEL (Default = alle Kerne); das Messen
+        // bleibt 1-Thread (run_profile-Loop). ProcessorCount-Default = bare-metal-Aequivalent zu $(nproc) der CI.
+        out_ += "if(NOT DEFINED COMDARE_PLAN_MEASURE_PARALLEL)\n";
+        out_ += "    include(ProcessorCount)\n";
+        out_ += "    ProcessorCount(_comdare_measure_nproc)\n";
+        out_ += "    if(_comdare_measure_nproc EQUAL 0)\n";
+        out_ += "        set(_comdare_measure_nproc 1)\n";
+        out_ += "    endif()\n";
+        out_ += "    set(COMDARE_PLAN_MEASURE_PARALLEL \"${_comdare_measure_nproc}\")\n";
         out_ += "endif()\n";
     }
     void begin_measurement_combo(PlanMeasurementCombo const& c) override {
@@ -970,6 +1031,12 @@ public:
         std::string const combo_line = combo_legend_ == "[all]"
                                            ? std::string{}
                                            : "            \"COMDARE_MEASUREMENT_COMBO=" + combo_legend_ + "\"\n";
+        // (i) §61-STUFEN Compile-Kennzeichnung (bare-metal-Emissions-Seite, identitaets-stabil): NUR Debug traegt ein
+        // COMDARE_BUILD_TYPE-Signal -> die facade-Suffix-Naht haengt +bt=Debug ans build_version (Folgepunkt).
+        // Release=Default => LEER => byte-stabil. Der Modus ist per (j2) STATISCH aus dem Profil (build_semantic).
+        std::string const cmake_bt_env = header_.build_semantic.cmake_build_type == "Debug"
+                                             ? std::string{"            \"COMDARE_BUILD_TYPE=Debug\"\n"}
+                                             : std::string{};
         // §56/§54-T6: die Tier-Bau-Zelle ist System-Achse [d,e,f] x Organ-Achse [g,h,i]; combo_legend_ ([a,b,c])
         // ist nur CEB-Kontext (die CEB traegt [a,b,c] statisch), nicht Teil der Bau-Legende.
         out_ +=
@@ -993,7 +1060,8 @@ public:
             out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
             out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
             out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
-            out_ += combo_line; // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
+            out_ += combo_line;   // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
+            out_ += cmake_bt_env; // (i): COMDARE_BUILD_TYPE=Debug nur bei Debug-Profil (Provision-Reuse-Schluessel)
             out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
             out_ += "            COMDARE_RUN_SOTA=0\n";
             out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/" + slug + "/perm" +
@@ -1006,10 +1074,10 @@ public:
         }
         // measure:-Target (S5-P2 SCHARF, §38.b): REALER Mess-Vollzug, DEPENDS auf ALLE Chunk-Bau-Stamps derselben
         // Perm (Bau->Mess-Kante). Der Treiber wird OHNE COMDARE_GOLDEN_N_PROVISION_ONLY gerufen => run_profile MISST
-        // (statt nur zu provisionieren) und schreibt EIN CSV je Zelle nach ${COMDARE_PLAN_OUT}/measure. 1-Thread-
-        // deterministisch (§38.b, measure single_thread): COMDARE_BUILD_PARALLEL=1. Das Bare-Metal-Gate ist die
-        // EXPLIZITE Target-Invokation (der Nutzer baut comdare_tier_measure_perm<i> bewusst) -- kein when:manual im
-        // .cmake (das ist YAML/GitLab). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt.
+        // (statt nur zu provisionieren) und schreibt EIN CSV je Zelle nach ${COMDARE_PLAN_OUT}/measure. §61-MODI: der
+        // DLL-Bau laeuft PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL), NUR das Messen ist 1-Thread (run_profile-Loop). Das
+        // Bare-Metal-Gate ist die EXPLIZITE Target-Invokation (der Nutzer baut comdare_tier_measure_perm<i> bewusst) --
+        // kein when:manual im .cmake (das ist YAML/GitLab). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt.
         std::string const mstamp = stemdir + "/" + slug + "_perm" + idx + ".measure.stamp";
         std::string const mtgt   = tier_measure_target(p.index);
         out_ += "if(NOT TARGET " + mtgt + ")\n";
@@ -1025,8 +1093,12 @@ public:
         out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
         out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
         out_ += combo_line; // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
-        if (header_.build_semantic.single_thread)
-            out_ += "            COMDARE_BUILD_PARALLEL=1\n"; // §38.b: 1-Thread-deterministischer Mess-Vollzug
+        // §61-MODI Regressions-Fix (bare-metal-symmetrisch zum ci-Mess-Job): der DLL-Bau-Pool laeuft PARALLEL
+        // (COMDARE_PLAN_MEASURE_PARALLEL, Default ProcessorCount) -- der alte COMDARE_BUILD_PARALLEL=1 serialisierte
+        // faelschlich den BAU. NUR das Messen ist 1-Thread (run_profile-Loop). (g) Debug-Variante ueber den Schalter
+        // COMDARE_PLAN_MEASURE_PROFILE (leer => measure; "smoke" => debug-Ideal), propagiert als COMDARE_MEASURE_PROFILE.
+        out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
+        out_ += cmake_bt_env; // (i): COMDARE_BUILD_TYPE=Debug nur bei Debug-Profil (Release => leer, byte-stabil)
         out_ += "            COMDARE_RUN_SOTA=0\n";
         out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
                 "/perm" + idx + "\"\n";
@@ -1172,13 +1244,19 @@ private:
     // Durchsatz -- S6-Konsum). Der per-Methodik-Fanout {debug,measure,release} zu N Mess-Strecken ist S6.
     [[nodiscard]] static PlanBuildSemantic
     build_semantic_of_run_methodology(std::vector<std::string> const& run_methodology) {
-        cm::RunMethodologyInfo const& measure = cm::run_methodology_info(cm::RunMethodology::Measure);
-        cm::RunMethodologyInfo const& debug   = cm::run_methodology_info(cm::RunMethodology::Debug);
-        auto const                    has     = [&](std::string_view id) {
-            return std::find(run_methodology.begin(), run_methodology.end(), std::string(id)) != run_methodology.end();
+        // §61-STUFEN/(j2): GENAU EIN aktiver Modus je Profil (validate erzwingt exactly-one, j1). Die Build-Semantik
+        // kommt aus DIESEM Modus -- Debug={Debug,misst,parallel}, Measure={Release,misst,1-Thread}, Release={Release,
+        // misst NICHT}. NICHT mehr fix measure (Vor-(j2)-Lesart). Leer => Default measure (Release, 1-Thread). Die
+        // Methodik-Quelle ist das PROFIL, NICHT die Env (COMDARE_MEASURE_PROFILE bleibt NUR der rules-Auto-Run-Trigger).
+        auto const info_for = [](std::string const& id) -> cm::RunMethodologyInfo const& {
+            for (std::size_t i = 0; i < cm::kRunMethodologyCount; ++i)
+                if (cm::kRunMethodologyRegistry[i].id == id) return cm::kRunMethodologyRegistry[i];
+            return cm::run_methodology_info(cm::RunMethodology::Measure); // unbekannt => measure-Default
         };
-        bool const measures = run_methodology.empty() || has(measure.id) || has(debug.id);
-        return PlanBuildSemantic{std::string(measure.cmake_build_type), measures, measure.single_thread};
+        cm::RunMethodologyInfo const& m = run_methodology.empty()
+                                              ? cm::run_methodology_info(cm::RunMethodology::Measure)
+                                              : info_for(run_methodology.front());
+        return PlanBuildSemantic{std::string(m.cmake_build_type), m.measurement_on, m.single_thread};
     }
 
     // opt/simd-Listen-Ableitung IDENTISCH zu run_profile/run_experiment_profile (Welle-2-Naht): leer => EINE
