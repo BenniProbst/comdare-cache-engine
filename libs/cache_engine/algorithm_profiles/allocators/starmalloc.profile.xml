@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="starmalloc" family_ref="A13">
   <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:29,43; axes source: axis_06_allocator_starmalloc.hpp:5,43,46,67-71 -->
   <metadata>

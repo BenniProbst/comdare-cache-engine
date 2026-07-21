@@ -8,18 +8,18 @@
      KANONISIERT (GO-4/GO-5-Nebenbefund, 2026-07-12): die <axis ref>-Namen/-Werte sind auf die kanonischen
      Registry-Namen gezogen (kCompositionAxisNames/EnabledStrategies, wie m3v2/m3_golden_coverage) — die
      permutation_axes.xml-Aliasse der KF-2-Aera (layout/node/traversal/page + GROSS-Werte wie X86_SSE42/
-     SYSTEM_MALLOC) kennt die AxisRegistry nicht mehr; `messung_driver --validate` prueft gegen die Registry.
+     SYSTEM_MALLOC) kennt die AxisRegistry nicht mehr; `messung_driver -validate` prueft gegen die Registry.
      Uebersetzung: layout->memory_layout, traversal->cache_traversal, node->node_type, page->page_type,
      isa{X86_SSE42/AVX2/AVX512} -> isa{isa_amd64} x simd_extension{simd_ext_sse2/avx2/avx512} (die Registry
      fuehrt kein SSE4.2; simd_ext_sse2 = niedrigste x86-SIMD-Stufe), allocator{SYSTEM_MALLOC/JEMALLOC/MIMALLOC}
      -> volle USE-Enabled-Liste (enable-agnostisch wie m3_smoke_coverage; jemalloc/mimalloc sind HAVE-gated
      und kommen automatisch dazu, sobald der Vendor im Build vorhanden ist).
      A1-FEHLPLATZIERUNGS-FIX (2026-07-20, S3-Resolver-Aktivierung): die 2026-07-12-"Uebersetzung" liess isa/
-     simd_extension/page_type FAELSCHLICH in der permute_axes-Organ-Position stehen -- das sind aber System-/
+     simd_extension/page_type FAELSCHLICH in der permute_axes-Organ-Position stehen - das sind aber System-/
      Build-Achsen, KEINE der 17 Organ-Kompositions-Achsen. Der jetzt aktive S3-Resolver klassifizierte sie
      (V-UNREG-AXIS). Kanonisiert: isa->target_isa + simd_extension->extension_hardware/simd in den <system_axes>-
      Block (unten); page_type (Baum-Knoten-PageKind = axis_01_page_type Build-Variante) raus als ZUKUNFT
-     (§52-B10; s. FP-Kommentare). Damit 0 Rejects im --dump-plan. -->
+     (§52-B10; s. FP-Kommentare). Damit 0 Rejects im -dump-plan. -->
 <comdare_thesis_profile id="cacheline_study" schema_version="1">
 
   <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel).
@@ -69,7 +69,7 @@
          32 = embedded, D_building_block_matrix.tex:251). ANS ENDE angehaengt, damit die Reihenfolge
          der bestehenden Werte (und damit deren Ebenen-Ordnung im Experiment-Baum) stabil bleibt.
          per_organ = dokumentarische Cache-Line-Traeger-Namen (node_type/cache_traversal/allocator = Organe;
-         page_type = die Baum-Knoten-PageKind-Build-Variante, s. FP-3 oben) -- reine Metadaten, KEIN Resolver-
+         page_type = die Baum-Knoten-PageKind-Build-Variante, s. FP-3 oben) - reine Metadaten, KEIN Resolver-
          Check (organ_position_refs iteriert NUR <axis ref>, cacheline ist Sonderzweig), KEINE binary_id. -->
     <axis ref="cacheline" per_organ="page_type node_type cache_traversal allocator">
       <line_size>64</line_size>
@@ -140,7 +140,7 @@
        reale x86-Stufe, die Registry fuehrt kein SSE4.2; dazu avx2 + avx512). target_isa = die ISA-System-Achse
        (Alt-Ref isa, Wert isa_amd64 -> x86_64-Baustein). system_config -> binary_id-NEUTRAL (multipliziert NUR die
        Bau-Matrix/Sidecar, NIE die 17-Organ-Kartesik). page_type (Baum-Knoten-PageKind = axis_01_page_type
-       Build-Variante) hat heute KEINEN Parser-Kanal und bleibt ZUKUNFT (s. FP-3 oben) -- hier bewusst NICHT
+       Build-Variante) hat heute KEINEN Parser-Kanal und bleibt ZUKUNFT (s. FP-3 oben) - hier bewusst NICHT
        aufgefuehrt. -->
   <system_axes>
     <extension_hardware>
@@ -157,10 +157,10 @@
 
   <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; PASSIV, Planer-delegiert]:
        binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
-       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> --dump-plan byte-
+       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> -dump-plan byte-
        identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
        measure (Standard-Messmodus, 1-Thread/deterministisch); measurement_framework: ycsb (honest-1);
-       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ --
+       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ -
        N>1 dormant bis S6). -->
   <run_methodology>
     <method value="measure"/>

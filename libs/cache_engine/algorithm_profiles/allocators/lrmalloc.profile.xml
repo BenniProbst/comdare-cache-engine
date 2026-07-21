@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="lrmalloc" family_ref="A11">
   <metadata>
     <name>lrmalloc (Lock-Free Reservation Allocator)</name>

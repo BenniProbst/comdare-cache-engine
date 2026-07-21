@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- DOKU-AKTE (#48 Scheibe 2, 2026-07-22): kein Code-Leser; Allocator-Wahl = CT-Adapter (Statischer-Dispatch-Doktrin). -->
 <comdare_allocator_profile id="jemalloc" family_ref="A05">
   <metadata>
     <name>jemalloc</name>

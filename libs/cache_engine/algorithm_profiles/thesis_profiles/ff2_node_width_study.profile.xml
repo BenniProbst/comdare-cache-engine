@@ -9,7 +9,7 @@
      binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert.
      KANONISIERT (GO-4/GO-5-Nebenbefund, 2026-07-12): <axis ref>-Namen/-Werte auf die kanonischen
      Registry-Namen gezogen (layout->memory_layout, node->node_type, SYSTEM_MALLOC->std_malloc) — die
-     permutation_axes.xml-Aliasse kennt die AxisRegistry nicht mehr (`messung_driver --validate`). -->
+     permutation_axes.xml-Aliasse kennt die AxisRegistry nicht mehr (`messung_driver -validate`). -->
 <comdare_thesis_profile id="ff2_node_width_study" schema_version="1">
 
   <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel), wie cacheline_study. -->
@@ -76,10 +76,10 @@
 
   <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; PASSIV, Planer-delegiert]:
        binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
-       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> --dump-plan byte-
+       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> -dump-plan byte-
        identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
        measure (Standard-Messmodus, 1-Thread/deterministisch); measurement_framework: ycsb (honest-1);
-       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ --
+       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ -
        N>1 dormant bis S6). -->
   <run_methodology>
     <method value="measure"/>
