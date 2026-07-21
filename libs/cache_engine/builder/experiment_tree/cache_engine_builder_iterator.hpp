@@ -31,7 +31,9 @@
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
 #include <harness/perm_runner.hpp> // A2-Neben Stufe 2: run_observable_perm / format_perm_result (nach harness/ herausgeloest)
 #include <cache_engine/measurement/axis_error.hpp> // E-6/K-10: SampleStatus + sample_status_token (n/a-Zell-Renderer)
-#include "result_ingest.hpp"                       // ingest_result_line
+#include "measure_parallelism.hpp"   // #45: resolve_measure_parallelism (Debug-Methodik -> Mess-Pool; Entry-Konsum)
+#include "result_ingest.hpp"         // ingest_result_line / parse_result_line_to_node_value (#45 reine Parse-Naht)
+#include "parallel_measure_pool.hpp" // #45 (§16.2-M1/§61-MODI): collect_ordered (Debug-Modus paralleler Mess-Loop)
 #include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
@@ -50,6 +52,7 @@
 #include <cstdio> // (C-1) std::snprintf für ns_per_op-Formatierung
 #include <filesystem>
 #include <fstream> // (E) per-Binary-Ergebnis-CSV schreiben
+#include <memory>  // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
 #include <span>
 #include <string>
 #include <system_error>
@@ -179,6 +182,13 @@ struct LazyRunConfig {
     // Aenderung an der Push-MENGE). Byte-neutral bleibt ausserdem garantiert, wenn cache_push leer ist (Storage inert).
     PartialMarkerFn partial_marker_sink;
     std::size_t     chunk_part_size = 0;
+    // #45 (§16.2-M1/§61-MODI, paralleler Mess-Loop): die Zahl paralleler MESS-Worker (ueber die Mess-Zellen). 0/1 =>
+    // STRIKT sequentiell (1-Thread-Mess-Vollzug, §38.b) => verhaltens-/byte-identisch zum Ist (Measure/Release/Default,
+    // golden-neutral). >1 => NUR im Debug-Modus (RunMethodology::Debug, single_thread==false) gesetzt: parallelisiert
+    // ueber die Zellen, Ergebnisse in KANONISCHER builds-Reihenfolge gemerged (CSV strukturell identisch; MESSWERTE ohne
+    // Garantie -- §61 "DASS es funktioniert"). Der Host/Entry belegt es aus der Methodik + COMDARE_MEASURE_PARALLEL.
+    // KLAR GETRENNT vom Bau-Pool (build_parallelism/COMDARE_BUILD_PARALLEL = KOMPILATIONS-Worker).
+    std::size_t measure_parallelism = 0;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -859,48 +869,50 @@ struct LazyRunResult {
     // NICHT je Binary — und per Referenz in den WIDE-Mess-Pfad (run_observable_perm/run_workload_perm) gereicht; dort
     // klammert begin()/end() nur den getimten Batch. Schließt die #156-Naht: die WIDE-CSV trägt jetzt reale PMC-Counter
     // (lokal 0/available=0 mit NullPmcSource; Montag Linux+PMC=ON real). Identisches Muster wie f15_compare/main.cpp:252.
-    std::unique_ptr<measurement::IPmcSource> pmc = make_pmc_source();
+    // #45 (§16.2-M1/§61-MODI): der PMC-Source wird PRO Mess-Worker einmal erzeugt (make_pmc_source in collect_ordered's
+    // Ctx-Factory) -- NICHT je Op/Binary und NICHT geteilt (ein realer LinuxPerfPmcSource ist nicht thread-safe teilbar).
+    // Sequentiell (measure/release/default) => genau EIN Source fuer den ganzen Lauf (byte-identisch zum Ist).
 
     // Mess-RESUME (#139): EIN Config-Stempel je Lauf (BuildVersion + Skala + volle dyn-Dimensions-Signatur).
     std::string const resume_stamp_prefix = lazy_resume_stamp_prefix(cfg, dyn_dims);
 
-    // ── Je erfolgreich bereitgestellte DLL: laden + die zwei Lazy-Sub-Iteratoren fahren ──
-    std::size_t progress_cursor = 0; // Welle 5 (E-W5-2): fenster-relativer Perm-Index, VOR den continues inkrementiert
-    for (BuildResult const& b : builds) {
-        std::size_t const this_progress_cursor = progress_cursor++; // Position DIESER Binary im Fenster (== Selektion)
-        // Bauplan §8 (inkrementeller Cache): der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur.
-        // b.algo_sig ist leer, wenn keine AlgoSigFn injiziert war -> binary_resume_stamp == resume_stamp_prefix
-        // (BYTE-IDENTISCH zum Alt-Verhalten, kein Bruch bestehender Mess-Resumes). Ist sie gesetzt, invalidiert eine
-        // Algo-Versions-Aenderung GENAU die betroffenen Binaries (ihr algo_sig aendert sich -> Stamp-Mismatch ->
-        // ehrliche Neu-Messung), waehrend unveraenderte Binaries ihre gecachte result.csv behalten. Read UND Write
-        // (unten) nutzen denselben Wert -> konsistent.
+    // #45: das Ergebnis EINER Mess-Zelle -- worker-LOKAL gesammelt (kein geteilter Baum/kein Lock), danach in
+    // KANONISCHER builds-Reihenfolge in `result` gemerged (deterministische CSV). Default-konstruierbar (Pool-Slot).
+    struct CellOutcome {
+        std::size_t                  measured               = 0;
+        std::size_t                  loaded                 = 0;
+        std::size_t                  load_failed            = 0;
+        std::size_t                  dynamic_settings_total = 0;
+        std::size_t                  resumed_binaries       = 0;
+        std::string                  resumed_csv_rows;
+        std::vector<LazyMeasuredRow> rows;
+        bool                         progress_eligible =
+            false; // fire_progress NUR fuer geladene/gemessene Zellen (wie das Ist; Skips feuern nie)
+    };
+
+    // #45: die per-Zelle Mess-Funktion -- OHNE geteilten Zustand. Der Baum-Round-Trip (ingest_result_line+node_value)
+    // ist durch parse_result_line_to_node_value (worker-lokal, rein) ersetzt -> byte-identischer NodeValue (setting_id
+    // == die id in pr.line). `result`/`tree`/`fire_progress` werden NICHT beruehrt; alles landet in `oc`. Fehler ->
+    // geloggt, kein throw (die Zelle liefert ein Outcome, der Loop misst weiter). Per-bin_dir-Schreib-/Push-Naehte sind
+    // je Binary isoliert (eigener Unterordner). Wird sequentiell ODER aus dem Worker-Pool aufgerufen.
+    auto measure_one_binary = [&](BuildResult const& b, measurement::IPmcSource* cell_pmc) -> CellOutcome {
+        CellOutcome oc;
+        // Bauplan §8: der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur (leer => == Prefix, Ist).
         std::string const binary_resume_stamp =
             b.algo_sig.empty() ? resume_stamp_prefix : (resume_stamp_prefix + "|algos=" + b.algo_sig);
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
-        // Mess-RESUME (#139 + Audit K8): Resume-Check VOR dem b.ok()-Gate. Ist die per-Binary result.csv für DIESE
-        // Konfiguration vollständig+aktuell (Stamp+Header+Zeilenzahl), wird die Binary übersprungen und ihre Zeilen
-        // unverändert in die globale CSV übernommen — AUCH wenn der aktuelle Build fehlschlägt (sonst stille CSV-Lücke
-        // bei Exit 0, obwohl ein gültiges Ergebnis bereits vorliegt). b.output ist die INTENDIERTE Pfad-Angabe
-        // (build_orchestrator:257, vor dem Build gesetzt) → der per-Binary-Unterordner steht auch bei Build-Fehler fest;
-        // lazy_try_resume_binary prüft exists() → fehlender Pfad scheitert sauber. Stale (Stamp-Mismatch, z.B. andere
-        // BuildVersion/n_ops/Workload/env/XML-Inhalt) → Neu-Messung mit Zwei-Phasen-Cache-Warmup (intrinsisch je Op).
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        // Mess-RESUME (#139 + Audit K8): Resume-Check VOR dem b.ok()-Gate. Vollstaendig+aktuell => Binary uebersprungen,
+        // ihre Zeilen unveraendert uebernommen -- auch bei Build-Fehler (sonst stille CSV-Luecke). Stale => Neu-Messung.
         if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
             std::string resumed_rows;
             if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
-                result.resumed_csv_rows += resumed_rows;
-                ++result.resumed_binaries;
-                continue;
+                oc.resumed_csv_rows = std::move(resumed_rows);
+                oc.resumed_binaries = 1;
+                return oc; // Resume-Skip: kein Progress (wie das frueherer continue-vor-fire_progress)
             }
         }
         if (!b.ok()) {
-            // d1-log (D1): den Bau-Fehler KLASSIFIZIERT im Log deklarieren (Compiler-Compiler-Fehler), statt
-            // stumm zu ueberspringen. Der Harness misst die uebrigen Permutationen WEITER (D1-Direktive:
-            // "IM LOG deklariert, Experiment MISST WEITER"). Die Klasse kommt aus dem d1-carrier (b.outcome).
-            namespace cm = ::comdare::cache_engine::measurement;
-            // CoR-Dispatch: der Bau-Fehler ist ENTWEDER Infra (Prozess/IO) ODER Compiler-Compiler (D1) — die
-            // Domaene waehlt das Log-Praefix (NIE fehletikettiert, Sweep-Fix). has_value() (unerwartet bei !ok())
-            // → D1-Default. Beide Domaenen loggen + der Harness MISST WEITER (continue).
+            // d1-log (D1): den Bau-Fehler KLASSIFIZIERT deklarieren (Infra ODER Compiler-Compiler), Harness MISST WEITER.
+            namespace cm               = ::comdare::cache_engine::measurement;
             cm::BuildError const   err = b.outcome.has_value()
                                              ? cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination}
                                              : b.outcome.error();
@@ -908,123 +920,95 @@ struct LazyRunResult {
                 cm::error_domain(err) == cm::ErrorDomain::Infra ? "Infra-Fehler" : "Compiler-Compiler-Fehler";
             std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='" << b.binary_id
                       << "' status=" << b.status << " log=" << b.output.string() << ".cxx.log\n";
-            continue; // Build-Fehler UND nicht resumebar → kein Mess-Eintrag (ehrlicher Sparse-Kontrast, jetzt geloggt)
+            return oc; // Build-Fehler UND nicht resumebar -> kein Mess-Eintrag (geloggt), kein Progress
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
-        // (2) LADEN: DLL → IAnatomyBase* → die zwei ABI-Sub-Interfaces via dynamic_cast.
-        //     IObservableTier  = Mess-Antrieb (nur bei COMDARE_MEASUREMENT_ON in der DLL vorhanden).
-        //     IResourceControllableTier = Laufzeit-Steuerung (IMMER vorhanden, auch Messung-aus).
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        // (2) LADEN: DLL -> IAnatomyBase* -> Sub-Interfaces via Dock-Vertrag. AnatomyModuleLoader::load ist thread-safe
+        //     fuer verschiedene .so (dlopen glibc-serialisiert, kein statischer Loader-Zustand) -> Pool-unbedenklich.
         anatomy_loader::AnatomyModuleHandle handle;
         int const                           st = anatomy_loader::AnatomyModuleLoader::load(b.output, handle);
         if (st != anatomy_loader::status_ok) {
-            ++result.load_failed;
-            continue;
+            oc.load_failed = 1;
+            return oc;
         }
-
-        // INC-2a (Q4, Prüf-Dock als EINZIGER Träger): die Antriebs-Beschaffung läuft über den Dock-Vertrag
-        // (acquire_search_algorithm_drive) statt roher dynamic_casts — semantisch identisch (obs=Pflicht,
-        // ctrl/rbk/scn optional für Settings/Zwei-Phasen/YCSB-E; alte DLLs → nullptr-Fallback).
         pruef_dock::SearchAlgorithmDrive drive;
         if (pruef_dock::acquire_search_algorithm_drive(handle, drive) != pruef_dock::dock_status_ok) {
-            ++result.load_failed;
-            continue;
-        } // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build) oder kein IAnatomyBase
-        auto* obs  = drive.obs;
-        auto* ctrl = drive.ctrl;
-        auto* rbk  = drive.rbk;
-        auto* scn  = drive.scn;
-        ++result.loaded;
+            oc.load_failed = 1;
+            return oc;
+        }
+        auto* obs            = drive.obs;
+        auto* ctrl           = drive.ctrl;
+        auto* rbk            = drive.rbk;
+        auto* scn            = drive.scn;
+        oc.loaded            = 1;
+        oc.progress_eligible = true; // geladen -> erreicht die Mess-Naht -> feuert (im Merge) Progress, wie das Ist
 
-        std::string const binary_id = b.binary_id;
-        // (E): der per-Binary-Ordner (= Parent der DLL bei per_binary_subdirs). Für die per-Binary-Ergebnis-CSV.
-        std::filesystem::path const bin_dir = b.output.parent_path();
-        std::string per_binary_csv;           // (E): akkumulierte CSV-Zeilen DIESER Binary (geschrieben am Binary-Ende)
-        std::size_t per_binary_rows      = 0; // #139: geschriebene Zeilen DIESER Binary (für den Stamp)
-        std::size_t per_binary_settings  = 0; // #139: besuchte dyn-Settings DIESER Binary (Vollständigkeits-Gate)
-        bool        per_binary_all_valid = true; // GOAL-M1.4: Stamp nur wenn JEDE Zeile two_phase_valid (Audit)
+        std::string const           binary_id = b.binary_id;
+        std::filesystem::path const bin_dir   = b.output.parent_path();
+        std::string                 per_binary_csv;
+        std::size_t                 per_binary_rows      = 0;
+        std::size_t                 per_binary_settings  = 0;
+        bool                        per_binary_all_valid = true;
 
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
-        // (3) GEFILTERT-DYNAMISCH-ITERATOR: LAZY über die virtuelle Kartesik des dynamischen Sub-Filterbaums
-        //     (tree.dynamic_filter()) auf der GELADENEN Binary (RuntimeVariableLoop — KEIN Neu-Bauen/Neu-Laden).
-        //     Je Setting wendet der Loop die Resource-Control an (tier_apply_resource_control, clamp gegen
-        //     caps∩env); im Visitor messen wir UNTER dem Setting + ingesten die Zeile.
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
         auto measure_under_setting = [&](RuntimeSetting const& s) {
-            ++result.dynamic_settings_total;
-            ++per_binary_settings; // #139: jede besuchte Einstellung zählt (auch wenn der Ingest scheitert)
-
-            // Messen UNTER dem angewandten Setting (Antrieb + Observer ziehen). run_observable_perm RESETET den
-            // Tier (A), misst die Gesamt-Wall-Clock (B) und liefert die result_ingest-Zeile als Observer-DELTA.
-            // Die ID prefixen wir mit dem Setting → eindeutig je (Binary × Setting × Rep, da rep eine dyn-Dim ist).
-            std::string const setting_id = s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
-            // KONSOLIDIERUNG (I1): EINE tier_observe liefert Observer-Stats + Pfad-B-seg_ns in EINEM POD.
-            // Achse 2 (INC-3): ist die Workload-Dim aktiv (workload_id im Label), treibt der bereits implementierte
-            // Interpreter (run_workload_perm) EIN Lastprofil mit Pflicht-Zwei-Phasen-Cache-Warmup über die
-            // map-Interfaces; sonst der alte fixe Workload (run_observable_perm, rückwärtskompatibel).
+            ++oc.dynamic_settings_total;
+            ++per_binary_settings;
+            std::string const setting_id  = s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
             std::string const workload_id = lazy_extract_workload_id(s.setting_label);
             PermResult const  pr =
                 workload_id.empty()
-                    ? run_observable_perm(*obs, setting_id, cfg.n_ops, pmc.get())
+                    ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
                     : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops, cfg.workload_seed,
-                                        cfg.workload_records, &cfg.workload_configs, pmc.get());
-
-            if (ingest_result_line(tree, pr.line)) {
-                ++result.measured;
-                // CSV-Zeile aus dem ge-ingesteten Baum-Knoten ziehen (Round-Trip-konsistent: identischer POD).
-                NodeValue const nv = tree.node_value(setting_id);
+                                        cfg.workload_records, &cfg.workload_configs, cell_pmc);
+            // #45: worker-lokaler Parse statt geteiltem Baum-Round-Trip -- identischer NodeValue, byte-identisch zum Ist.
+            if (auto parsed = parse_result_line_to_node_value(pr.line)) {
+                ++oc.measured;
+                NodeValue const nv = parsed->second;
                 LazyMeasuredRow row;
                 row.binary_id          = binary_id;
                 row.setting_label      = s.setting_label;
                 row.setting_id         = setting_id;
                 row.observer           = nv.observer;
                 row.applied_axis_count = s.applied_axis_count;
-                row.total_ns           = pr.total_ns; // (B)
+                row.total_ns           = pr.total_ns;
                 row.n_ops              = pr.n_ops;
-                row.timed_ops          = pr.timed_ops; // GOAL-M1.1: korrekte ns_per_op-Basis
-                row.op_lat             = pr.op_lat;    // GOAL-L1: per-Interface-Funktions-Latenzen
-                row.unified         = pr.unified; // KONSOLIDIERUNG (I1): maßgebliche CSV-Quelle (Stats + Pfad-B-seg_ns)
-                row.unified_real    = pr.unified_real;
-                row.profile_name    = pr.profile_name;    // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
-                row.two_phase_valid = pr.two_phase_valid; // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
-                row.sample_status   = pr.sample_status;   // INC-29.1 (D2): Failed -> CSV "failed" statt 0
-                row.pmc             = pr.pmc; // #156-De-Risk: die HW-PMC-Counter DIESER Messung → CSV-Endspalten
-                // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus der Config durchgereicht).
-                row.series         = cfg.row_series;
-                row.pruefling_type = cfg.row_pruefling_type; // #171: full/abstract/- (aus dem SOTA-/Pruefling-Pass)
-                row.sweep_axis     = cfg.row_sweep_axis;
-                row.working_set_n  = cfg.workload_records; // N = befüllte Sätze (= Working-Set-Achse, P-MD7)
-                row.platform       = cfg.row_platform;
-                row.build_version  = cfg.row_build_version;
-                row.fairness_mode  = cfg.row_fairness_mode; // GO-5 Fork 6: common_denominator/native/- (SOTA-Pass)
-                row.h2_score       = cfg.row_h2_score;      // GO-5 Fork 7: tool-berechneter H2-Score/n-a/- (SOTA-Pass)
-                // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
-                per_binary_all_valid = per_binary_all_valid && row.two_phase_valid; // GOAL-M1.4 Gültigkeits-Gate
+                row.timed_ops          = pr.timed_ops;
+                row.op_lat             = pr.op_lat;
+                row.unified            = pr.unified;
+                row.unified_real       = pr.unified_real;
+                row.profile_name       = pr.profile_name;
+                row.two_phase_valid    = pr.two_phase_valid;
+                row.sample_status      = pr.sample_status;
+                row.pmc                = pr.pmc;
+                row.series             = cfg.row_series;
+                row.pruefling_type     = cfg.row_pruefling_type;
+                row.sweep_axis         = cfg.row_sweep_axis;
+                row.working_set_n      = cfg.workload_records;
+                row.platform           = cfg.row_platform;
+                row.build_version      = cfg.row_build_version;
+                row.fairness_mode      = cfg.row_fairness_mode;
+                row.h2_score           = cfg.row_h2_score;
+                per_binary_all_valid   = per_binary_all_valid && row.two_phase_valid;
                 if (cfg.per_binary_subdirs) {
                     per_binary_csv += format_csv_row(row);
                     ++per_binary_rows;
                 }
-                result.csv_rows.push_back(std::move(row));
+                oc.rows.push_back(std::move(row));
             }
         };
 
         if (ctrl != nullptr && !dyn_dims.empty()) {
-            // Echte dynamische Variation: kartesisch über die dyn. Dimensionen auf der geladenen Binary.
             loop.run(*ctrl, dyn_dims, measure_under_setting);
         } else {
-            // Keine dyn. Dimensionen (oder keine Steuer-Ebene): EIN Mess-Punkt = die Binary „as built".
-            // (RuntimeVariableLoop mit leeren dims liefert ebenfalls genau 1 Setting; dieser Zweig deckt den
-            //  Fall ohne IResourceControllableTier ab — z.B. eine Nicht-Mess-/Alt-DLL, hier aber obs!=null.)
-            RuntimeSetting s{}; // leeres Label → setting_id == binary_id
+            RuntimeSetting s{}; // leeres Label -> setting_id == binary_id
             measure_under_setting(s);
         }
 
-        // (E): per-Binary-Ergebnis-CSV in den per-Binary-Ordner schreiben (Header + die Zeilen DIESER Binary).
+        // (E): per-Binary-Ergebnis-CSV schreiben (isoliert je bin_dir) + Resume-Stempel nur nach verifiziertem Write.
         if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
             std::error_code ec;
-            std::filesystem::create_directories(bin_dir, ec); // existiert i.d.R. schon (Build legte ihn an)
-            bool csv_write_ok = false; // GOAL-M1.4 (Audit M7): Stamp nur nach VERIFIZIERTEM Write
+            std::filesystem::create_directories(bin_dir, ec);
+            bool csv_write_ok = false;
             {
                 std::ofstream pf{bin_dir / "result.csv", std::ios::trunc};
                 if (pf) {
@@ -1033,26 +1017,17 @@ struct LazyRunResult {
                     csv_write_ok = pf.good();
                 }
             }
-            // Mess-RESUME (#139 + GOAL-M1.4): den Config-Stempel NUR schreiben, wenn (a) der CSV-Write
-            // stream-verifiziert gelang, (b) JEDE besuchte Einstellung eine Zeile lieferte (Vollständigkeit)
-            // und (c) JEDE Zeile two_phase_valid ist (Gültigkeit — ungültige Messungen nie als „fertig"
-            // einfrieren, Audit). Sonst Stempel entfernen → der nächste Lauf misst die Binary komplett neu.
             if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 && per_binary_all_valid) {
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
                 if (sf) { sf << binary_resume_stamp << "|rows=" << per_binary_rows << "\n"; }
             } else {
-                std::filesystem::remove(bin_dir / "result.csv.stamp", ec); // stale Stempel nie stehen lassen
+                std::filesystem::remove(bin_dir / "result.csv.stamp", ec);
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
-        // Storage #51 — NAHT-EINHAENGUNG (SYNCHRON, per-Binary, im 1-Thread-Mess-Loop): NACH result.csv+stamp,
-        // VOR dem RAII-DLL-Unload. (1) Push B->minio: perm.dll ZUERST + perm.dll.version ZULETZT (der Client
-        // leitet den Objekt-Key ab). (2) measure-drop-Sink C: result.csv additiv. BEIDE No-Op-Default (leere
-        // std::function) => golden byte-identisch (Anti-Phantom). SYNCHRON/blockierend => die naechste Messung
-        // startet erst nach Rueckkehr => NIE parallel zur Messung (I/O-Contention-Schutz; async/detached VERBOTEN).
-        // Fehler behandelt der Client selbst (ArtefaktIo geloggt, lokale Kopie bleibt) => MESSEN WEITER (kein throw).
-        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        // Storage #51 (per-bin_dir isoliert: eigener Ordner/mc-Prozess je Binary -> im Parallel-Debug thread-safe, da
+        // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
+        // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
             if (cfg.cache_push) cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+.version) -> Store
             if (cfg.measurement_sink) {
@@ -1062,18 +1037,39 @@ struct LazyRunResult {
                     cfg.measurement_sink(rcsv, bin_dir.filename().string() + "/result.csv");
             }
         }
+        return oc; // handle: RAII entlaedt die DLL beim Verlassen der Zelle
+    };
 
-        // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal an DERSELBEN Per-Binary-Synchron-Naht (NACH result.csv+stamp
-        // + Storage-Push, VOR dem RAII-DLL-Unload). EIN Delta je an dieser Naht abgeschlossene Binary; cursor = der
-        // fenster-relative Perm-Index. No-Op ohne progress_sink (byte-neutral). Uebersprungene Binaries (Resume-Skip/
-        // Build-Fehler/Load-Fehler: die frueheren continue) feuern hier NICHT — der Kanal meldet die an dieser Naht
-        // fertiggestellten Konfigurationen; da der Delta-Diff sich stets auf die ZULETZT gemeldete Konfiguration
-        // bezieht, bleibt der Strom auch mit solchen Luecken selbst-konsistent rekonstruierbar.
-        fire_progress(b.index, this_progress_cursor);
-        // handle: RAII entlädt die DLL am Schleifenende (Pointer zuerst, dann FreeLibrary).
+    // #45: DISPATCH. measure_parallelism<=1 => sequentiell (EIN pmc, in Reihenfolge -> byte-identisch zum Ist,
+    // Measure/Release/Default). >1 (nur Debug) => Worker-Pool, JE Worker ein eigener pmc; collect_ordered liefert die
+    // Outcomes in INDEX-Ordnung (results[j]) -> deterministisch unabhaengig von der Ausfuehrungsreihenfolge.
+    std::size_t              observed_max_concurrency = 0;
+    std::vector<CellOutcome> outcomes                 = collect_ordered<CellOutcome>(
+        builds.size(), cfg.measure_parallelism, [] { return make_pmc_source(); },
+        [&](std::unique_ptr<measurement::IPmcSource>& ctx, std::size_t j) {
+            return measure_one_binary(builds[j], ctx.get());
+        },
+        &observed_max_concurrency);
+    if (cfg.measure_parallelism > 1)
+        std::cerr << "[#45] paralleler Mess-Loop (Debug): pool=" << cfg.measure_parallelism
+                  << " zellen=" << builds.size() << " beobachtete-Spitze=" << observed_max_concurrency << "\n";
+
+    // #45: MERGE in KANONISCHER builds-Reihenfolge -> deterministische CSV (kein interleaved Append; Sortierung wie der
+    // sequentielle Loop). Progress an der Per-Binary-Naht SEQUENTIELL im Merge (progress_prev ist reihenfolge-abhaengig
+    // -> genau EIN Sequenzierungs-Thread). this_progress_cursor == j (die fenster-relative Perm-Position, wie im Ist).
+    for (std::size_t j = 0; j < outcomes.size(); ++j) {
+        CellOutcome& oc = outcomes[j];
+        result.resumed_csv_rows += oc.resumed_csv_rows;
+        result.resumed_binaries += oc.resumed_binaries;
+        result.load_failed += oc.load_failed;
+        result.loaded += oc.loaded;
+        result.dynamic_settings_total += oc.dynamic_settings_total;
+        result.measured += oc.measured;
+        for (auto& row : oc.rows) result.csv_rows.push_back(std::move(row));
+        if (oc.progress_eligible) fire_progress(builds[j].index, j);
     }
 
-    // Welle 5 (E-W5-2): §38.b-Fertig-Signal — done genau EINMAL am Fensterende (nach der GANZEN Binary-Schleife).
+    // Welle 5 (E-W5-2): §38.b-Fertig-Signal -- done genau EINMAL am Fensterende (nach dem GANZEN Merge).
     fire_progress_done(builds.size());
 
     return result;

@@ -358,6 +358,9 @@ struct RunExperimentResult {
                         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N
                         cfg.progress_sink =
                             a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
+                        // #45 (§16.2-M1/§61-MODI): paralleler Mess-Loop NUR im Debug-Modus (ep.run_methodology);
+                        // Measure/Release/undeklariert => 0 => sequentiell (byte-neutral). COMDARE_MEASURE_PARALLEL.
+                        cfg.measure_parallelism       = ex::resolve_measure_parallelism(ep.run_methodology);
                         cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
                         cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
                         cfg.env_limits.thread_count   = 16;
