@@ -115,13 +115,22 @@ public:
         if (c.tries_ == 0) c.tries_ = 1; // nie 0 -> sonst wird nie versucht (stiller Drop)
         c.sleep_s_ = env_size_or("COMDARE_ARTEFAKT_RETRY_SLEEP_S", c.sleep_s_);
         // S2 (#46a Pull): EIGENES, knappes Budget fuer die Warm-Cache-Hydrierung -- ein MISS/Netz-Blackhole darf den
-        // Bau-Start NICHT lange blockieren (im Gegensatz zum Push, der 12x/120s zaehen darf). Default 2 Versuche, 1s
-        // Pause; env-uebersteuerbar. (mc hat keinen per-Aufruf-Wall-Clock-Cap im Shellout-Muster -- wie beim Push; das
-        // knappe try-Budget IST die Bounded-Wache, ein harter Timeout-Wrapper ist ein Folge-Increment.)
+        // Bau-Start NICHT lange blockieren (im Gegensatz zum Push, der 12x zaehen darf). Default 2 Versuche, 1s Pause;
+        // env-uebersteuerbar. (Der harte per-Aufruf-Wall-Clock-Cap kommt UNTEN als timeout-Wrapper; das knappe
+        // try-Budget bounded zusaetzlich die Retry-ZAHL.)
         c.pull_tries_ = env_size_or("COMDARE_ARTEFAKT_PULL_TRIES", c.pull_tries_);
         if (c.pull_tries_ == 0) c.pull_tries_ = 1; // nie 0
         c.pull_sleep_s_ = env_size_or("COMDARE_ARTEFAKT_PULL_RETRY_SLEEP_S", c.pull_sleep_s_);
-        c.run_stamp_    = make_run_stamp(); // EIN datierter Lauf-Baum (Sink-Besitzer des Timestamps)
+        // Cache-Resthygiene (2026-07-21): harter Wall-Clock-Cap fuer die mc-Shellouts (Push UND Pull) gegen Netz-
+        // Blackhole/TLS-Stall (mc hat keinen eigenen per-Aufruf-Timeout). `timeout <s>`-Prefix, WENN das timeout-Binary
+        // vorhanden ist (sonst unveraendert). Default AN -- Blackhole-Schutz IST der Zweck: Push 120s, Pull 20s (kurz,
+        // damit ein MISS den Bau-Start nicht blockiert); env-uebersteuerbar. Nur bei Ebene B relevant -> nur dann proben.
+        if (std::string const tb = env_or_empty("COMDARE_TIMEOUT_BIN"); !tb.empty()) c.timeout_bin_ = tb;
+        c.mc_push_timeout_s_ = env_size_or("COMDARE_MC_TIMEOUT_S", c.mc_push_timeout_s_);
+        c.mc_pull_timeout_s_ = env_size_or("COMDARE_MC_PULL_TIMEOUT_S", c.mc_pull_timeout_s_);
+        if (!c.endpoint_.empty() && !c.bucket_.empty()) // Ebene B: einmalige Verfuegbarkeits-Probe (sonst kein Prefix)
+            c.timeout_available_ = probe_timeout(c.timeout_bin_);
+        c.run_stamp_ = make_run_stamp(); // EIN datierter Lauf-Baum (Sink-Besitzer des Timestamps)
         return c;
     }
 
@@ -266,7 +275,10 @@ public:
         for (std::size_t attempt = 1; attempt <= pull_tries_; ++attempt) {
             // `mc cp --recursive --exclude` spart den Marker-Namensraum aus (best-effort; Korrektheit haengt NICHT
             // daran -- Marker tragen kein perm.dll, dll_is_current ignoriert sie, und kein realer Stem == _gn_chunk_markers).
-            int const rc = run_argv({mc_bin_, "cp", "--recursive", "--exclude", "_gn_chunk_markers/*", src, dst}, log);
+            int const rc =
+                run_argv(mc_argv({mc_bin_, "cp", "--recursive", "--exclude", "_gn_chunk_markers/*", src, dst},
+                                 mc_pull_timeout_s_),
+                         log);
             if (rc == 0) return true;
             if (attempt < pull_tries_) sleep_seconds(pull_sleep_s_);
         }
@@ -324,7 +336,46 @@ public:
             log_artefakt_io(log, "measure-drop PUT fehlgeschlagen (lokale Kopie bleibt): " + url);
     }
 
+    /// Cache-Resthygiene (2026-07-21): umschliesst ein mc-argv mit einem `timeout <s>`-Wall-Clock-Cap, WENN das
+    /// timeout-Binary verfuegbar ist und timeout_s>0 (sonst UNVERAENDERT zurueck). Aufbau: `timeout -k 5 <s> mc ...`
+    /// (GNU coreutils: SIGTERM nach <s>, SIGKILL 5s Grace spaeter). REIN/STATISCH -> literal testbar (Kommando-Aufbau).
+    [[nodiscard]] static std::vector<std::string> build_mc_argv(std::vector<std::string> argv,
+                                                                std::string const& timeout_bin, bool timeout_available,
+                                                                std::size_t timeout_s) {
+        if (!timeout_available || timeout_s == 0 || argv.empty()) return argv; // kein Wrapper -> unveraendert
+        std::vector<std::string> out;
+        out.reserve(argv.size() + 4);
+        out.push_back(timeout_bin);
+        out.push_back("-k");
+        out.push_back("5"); // Grace: SIGKILL 5s nach SIGTERM (haengendes mc erzwungen beenden)
+        out.push_back(std::to_string(timeout_s));
+        for (auto& a : argv) out.push_back(std::move(a));
+        return out;
+    }
+
 private:
+    /// Instanz-Naht: umschliesst ein mc-argv mit dem Wall-Clock-Cap dieser Instanz (timeout_bin_/timeout_available_).
+    [[nodiscard]] std::vector<std::string> mc_argv(std::vector<std::string> argv, std::size_t timeout_s) const {
+        return build_mc_argv(std::move(argv), timeout_bin_, timeout_available_, timeout_s);
+    }
+
+    /// Einmalige Verfuegbarkeits-Probe des timeout-Binaries: `timeout --version` -> rc 0 vorhanden, 127 (ENOENT) fehlt.
+    /// Nur so wird der Wrapper aktiviert -> fehlt `timeout`, bleiben die mc-Kommandos UNVERAENDERT (kein 127-Bruch).
+    [[nodiscard]] static bool probe_timeout(std::string const& timeout_bin) {
+#ifdef _WIN32
+        (void)timeout_bin;
+        return false; // Storage-Weg ist Cluster-Linux; kein GNU timeout auf Windows
+#else
+        std::error_code             ec;
+        std::filesystem::path const probe =
+            std::filesystem::temp_directory_path(ec) /
+            ("comdare_timeout_probe_" + std::to_string(static_cast<long>(::getpid())) + ".out");
+        int const rc = run_argv({timeout_bin, "--version"}, probe);
+        std::filesystem::remove(probe, ec);
+        return rc == 0;
+#endif
+    }
+
     // ── curl-Shellout (Ebene C): SYNCHRON HTTPS-PUT an den write-only measure-drop. Der Bearer-Token geht ueber eine
     //    0600-curl-Config (-K), NIE in argv (ps-Leak-Schutz) und NIE ins Log. 409 = additiv-Duplikat -> OK (kein
     //    Fehler, kein Retry). 2xx = abgelegt. Sonst/Transport-Fehler -> Retry, dann false (Aufrufer loggt ArtefaktIo). ──
@@ -427,7 +478,8 @@ private:
 
         for (std::size_t attempt = 1; attempt <= tries_; ++attempt) {
             // `mc cp --quiet` = atomarer Put (mc verifiziert den Upload intern via ETag). stdout/stderr -> Log.
-            int const rc = run_argv({mc_bin_, "cp", "--quiet", local.string(), target}, log);
+            int const rc =
+                run_argv(mc_argv({mc_bin_, "cp", "--quiet", local.string(), target}, mc_push_timeout_s_), log);
             if (rc == 0 && mc_size_verified(target, local_size, log)) return true;
             if (attempt < tries_) sleep_seconds(sleep_s_);
         }
@@ -444,7 +496,8 @@ private:
         std::filesystem::path const scratch =
             std::filesystem::temp_directory_path(ec) /
             ("comdare_mc_stat_" + run_stamp_ + "_" + std::to_string(std::hash<std::string>{}(object_key)) + ".json");
-        int const rc = run_argv({mc_bin_, "stat", "--json", mc_target(object_key)}, scratch);
+        int const rc =
+            run_argv(mc_argv({mc_bin_, "stat", "--json", mc_target(object_key)}, mc_pull_timeout_s_), scratch);
         std::filesystem::remove(scratch, ec);
         return rc == 0;
     }
@@ -456,7 +509,8 @@ private:
         std::string const target = mc_target(object_key);
         std::error_code   ec;
         for (std::size_t attempt = 1; attempt <= pull_tries_; ++attempt) {
-            int const rc = run_argv({mc_bin_, "cp", "--quiet", target, local.string()}, log);
+            int const rc =
+                run_argv(mc_argv({mc_bin_, "cp", "--quiet", target, local.string()}, mc_pull_timeout_s_), log);
             if (rc == 0 && std::filesystem::exists(local, ec)) return true;
             if (attempt < pull_tries_) sleep_seconds(pull_sleep_s_);
         }
@@ -468,8 +522,8 @@ private:
     [[nodiscard]] bool mc_size_verified(std::string const& target, std::uintmax_t local_size,
                                         std::filesystem::path const& log) const {
         std::filesystem::path const stat_out = log.string() + ".stat";
-        int const                   rc       = run_argv({mc_bin_, "stat", "--json", target}, stat_out);
-        std::error_code             ec;
+        int const       rc = run_argv(mc_argv({mc_bin_, "stat", "--json", target}, mc_push_timeout_s_), stat_out);
+        std::error_code ec;
         if (rc != 0) {
             std::filesystem::remove(stat_out, ec);
             return true; // Verify nicht durchfuehrbar -> cp-exit-0 gilt (gutes Push nicht an einem stat-Quirk kippen)
@@ -626,6 +680,11 @@ private:
     std::size_t max_time_s_        = 120; // curl --max-time je Versuch (COMDARE_ARTEFAKT_MAX_TIME_S)
     std::size_t pull_tries_        = 2;   // S2: Pull-Retry-Budget (knapp; COMDARE_ARTEFAKT_PULL_TRIES)
     std::size_t pull_sleep_s_      = 1;   // S2: Pause zwischen Pull-Versuchen (s; COMDARE_ARTEFAKT_PULL_RETRY_SLEEP_S)
+    std::string timeout_bin_       = "timeout"; // COMDARE_TIMEOUT_BIN (Wall-Clock-Cap-Wrapper der mc-Shellouts)
+    bool        timeout_available_ = false; // einmalig probiert (probe_timeout); false => KEIN Prefix (unveraendert)
+    std::size_t mc_push_timeout_s_ = 120;   // mc-Push cp/stat Wall-Clock-Cap in s (COMDARE_MC_TIMEOUT_S; 0 = kein Cap)
+    std::size_t mc_pull_timeout_s_ =
+        20; // mc-Pull cp/stat Wall-Clock-Cap in s (COMDARE_MC_PULL_TIMEOUT_S; 0 = kein Cap)
 };
 
 } // namespace comdare::cache_engine::builder::artifact_transport
