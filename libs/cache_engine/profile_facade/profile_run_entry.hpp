@@ -36,7 +36,9 @@
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
 #include <builder/experiment_tree/coverage_selection.hpp> // select_explicit
 #include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (Dead-Code-Filter-Einhaengung)
-#include <builder/build_orchestrator/system_ram.hpp>          // make_system_free_ram_fn
+#include <builder/experiment_tree/axis_variant_version_table.hpp> // Resthygiene-2: compose_algo_signature / build_axis_variant_version_table
+#include <builder/experiment_tree/organ_fingerprint.hpp> // Resthygiene-2: organ_fingerprint_preimage_from_pairs (sort+concat)
+#include <builder/build_orchestrator/system_ram.hpp> // make_system_free_ram_fn
 
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
@@ -49,8 +51,10 @@
 #include <functional> // GN-3: std::function (per-Perm-CompileFn-Fabrik der opt×simd-Naht)
 #include <iostream>
 #include <map>
+#include <algorithm> // Resthygiene-2: std::sort/std::min im Chunk-Organ-Fingerprint
 #include <memory>
 #include <optional>
+#include <utility> // Resthygiene-2: std::pair (stem, algo_sig)
 #include <set>
 #include <string>
 #include <vector>
@@ -183,6 +187,34 @@ struct RunProfileResult {
     if (simd_id == cm::SimdAvx512Option::simd_id()) return __builtin_cpu_supports("avx512f");
 #endif
     return false; // avx* auf nicht-x86 / unbekannte id ⇒ nicht zulassen
+}
+
+/// Cache-Resthygiene-2: das PRE-IMAGE des Chunk-Organ-Fingerprints (COMDARE_GN_ALGO_SIG-Quelle) -- die perm.dll.algos-
+/// Inhalte (compose_algo_signature) der Range-Binaries, stem-sortiert + konkateniert. `| sha256sum` == der S1-F1-Marker-
+/// algo_sig. Rein aus dem KATALOG, OHNE DLL-Bau (Pre-Pull nutzbar). range_count==0 => ganze View. Leere algo_sig
+/// (Organ-Gate aus) => uebersprungen (write_algos_sidecar schriebe dann keine Datei -> nicht im find).
+[[nodiscard]] inline std::string chunk_organ_fingerprint_preimage(std::filesystem::path const& profile_path,
+                                                                  std::size_t range_start, std::size_t range_count) {
+    std::optional<cx::ThesisProfile> const tp_opt = load_thesis_profile(profile_path);
+    if (!tp_opt) return {};
+    auto const&        tp        = *tp_opt;
+    std::string const  mode_name = tp.modes.empty() ? std::string{"m3v2_base"} : tp.modes.front().name;
+    auto               factory   = std::make_shared<ex::ExperimentNodeFactory>();
+    ex::ExperimentTree basis_tree{factory};
+    basis_tree.build(build_profile_basis_levels(tp, mode_name, /*with_dynamic=*/true));
+    ex::StaticBinaryView const basis_view = basis_tree.static_binary_view();
+    auto const                 algo_table = ex::build_axis_variant_version_table();
+    std::size_t const          start      = (std::min)(range_start, basis_view.size());
+    std::size_t const          stop =
+        (range_count == 0) ? basis_view.size() : (std::min)(range_start + range_count, basis_view.size());
+    std::vector<std::pair<std::string, std::string>> pairs; // (stem, algo_sig)
+    for (std::size_t i = start; i < stop; ++i) {
+        ex::BinarySpec const spec = basis_view[i];
+        std::string          algo = ex::compose_algo_signature(spec.axes, algo_table);
+        if (algo.empty()) continue; // kein perm.dll.algos -> im find nicht enthalten (Organ-Gate aus)
+        pairs.emplace_back(ex::orch_make_stem(spec.binary_id, i), std::move(algo));
+    }
+    return ex::organ_fingerprint_preimage_from_pairs(std::move(pairs));
 }
 
 /// run_profile — DIE EINE deklarative CEB-Eintritts-API (S7c). Faehrt aus EINEM Profil BEIDE Subsets:

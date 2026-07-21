@@ -852,4 +852,12 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     return out;
 }
 
+// Cache-Resthygiene-2 (2026-07-21): das PRE-IMAGE nach os (die CI sha256summt es zu COMDARE_GN_ALGO_SIG). Reine
+// Katalog-Ableitung (kein DLL-Bau); Range/Empty-Verhalten in tlz::chunk_organ_fingerprint_preimage.
+int chunk_organ_fingerprint_facade(std::filesystem::path const& profile_path, std::size_t range_start,
+                                   std::size_t range_count, std::ostream& os) {
+    os << tlz::chunk_organ_fingerprint_preimage(profile_path, range_start, range_count);
+    return 0;
+}
+
 } // namespace comdare::cache_engine::builder::profile_facade
