@@ -1704,7 +1704,8 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_w6_parallel_provision      # W6 (§32-F7): paralleler provision-Bau-Pool + positions-treue Sink-Ordnung
     test_w11_async_push_pump        # W11 (§43.c): BAU-Modus async Push-Pump + ArtifactCache-Teil-Marker (Fake-mc)
     test_s5_artifact_cache_bounded  # S5-Rest: measure-drop-PUT (curl) BOUNDED gegen Blackhole (Timeout-Wache)
-    test_s1_cache_key_prefix)       # S1 (#46a): cache_key_prefix-Segment-Montage (+ceb/+mtool/+mrg), Push-Reihenfolge
+    test_s1_cache_key_prefix        # S1 (#46a): cache_key_prefix-Segment-Montage (+ceb/+mtool/+mrg), Push-Reihenfolge
+    test_s2_pull_tier_binary)       # S2 (#46a): pull_tier_binary + pull_tier_prefix (Fake-mc: Hit/Miss/Halb/Prefix/inert)
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)

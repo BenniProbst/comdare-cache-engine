@@ -86,6 +86,7 @@ struct RunProfileArgs {
     std::string           gn_cell_simd;     // leer = kein simd-Zellen-Filter
     ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
+    ex::CachePullFn       cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau; leer = No-Op
     ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
     // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
     // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).
@@ -370,10 +371,11 @@ struct RunProfileResult {
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
-        cfg.measurement_sink          = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
-        cfg.partial_marker_sink       = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
-        cfg.chunk_part_size           = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
-        cfg.progress_sink = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
+        cfg.cache_pull          = a.cache_pull; // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
+        cfg.measurement_sink    = a.measurement_sink;    // Storage #51: result.csv -> measure-drop (No-Op-Default)
+        cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
+        cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
+        cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
         cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;

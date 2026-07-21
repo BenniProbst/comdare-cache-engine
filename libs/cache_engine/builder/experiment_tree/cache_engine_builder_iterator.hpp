@@ -60,7 +60,8 @@ namespace comdare::cache_engine::builder::experiment {
 // Storage #51 (No-Op-Naht): die Transport-Injektions-Typen liegen kanonisch im artifact_transport-Modul (haelt den
 // achsen-blinden Iterator transport-frei) — hier nur als Alias hochgezogen (ex::CachePushFn / ex::MeasurementSinkFn),
 // analog dazu, wie CompileFn/AlgoSigFn im experiment-Namespace sichtbar sind.
-using CachePushFn       = ::comdare::cache_engine::builder::artifact_transport::CachePushFn;
+using CachePushFn = ::comdare::cache_engine::builder::artifact_transport::CachePushFn;
+using CachePullFn = ::comdare::cache_engine::builder::artifact_transport::CachePullFn; // S2 (#46a): Warm-Cache-Pull
 using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
 // W11 (§43.c): der Teil-Marker-Sink + der async Push-Pump (BAU-Modus). Wie CachePushFn transport-kanonisch, hier aliast.
 using PartialMarkerFn = ::comdare::cache_engine::builder::artifact_transport::PartialMarkerFn;
@@ -159,7 +160,10 @@ struct LazyRunConfig {
     // sie SYNCHRON an der per-Binary-Naht (NACH result.csv+stamp, VOR RAII-DLL-Unload) — nie async/detached (I/O-
     // Contention = Messfehler). cache_push: perm.dll(+.version) -> Objekt-Store (Ebene B). measurement_sink:
     // result.csv -> measure-drop additiv (Ebene C). Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
-    CachePushFn       cache_push;
+    CachePushFn cache_push;
+    // S2 (#46a): die BATCH-Warm-Cache-Hydrierung VOR dem Bau (Phase A, VOR provision_all). Leer (Default) => keine
+    // Hydrierung => byte-neutral; der Host belegt sie via ArtifactCache::pull_tier_prefix (scharf nur via Env/CI).
+    CachePullFn       cache_pull;
     MeasurementSinkFn measurement_sink;
     // Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): No-Op-Default => byte-neutral; Muster EXAKT wie cache_push/
     // measurement_sink. Der Iterator feuert je Binary an der Per-Binary-Synchron-Naht (NACH result.csv+stamp/nach
@@ -766,11 +770,15 @@ struct LazyRunResult {
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
     bcfg.build_parallelism       = cfg.build_parallelism;  // W6 (§32-F7): expliziter Bau-Pool-Worker-Override (0=heute)
 
-    // Storage #51 — PULL-HOOK-STELLE (push-only-first, NOCH NICHT AKTIV): die Warm-Cache-Hydrierung (minio->local)
-    // gehoert GENAU HIER in Phase A, VOR dem Bau — der Orchestrator prueft je Binary dll_is_current (build_orchestrator
-    // .hpp:332); ein Pull muesste perm.dll(+.version) unter <build_version>/<stem>/ ins output_dir legen, BEVOR
-    // provision_all laeuft, sodass dll_is_current sie als versions-aktuell erkennt und den Rebuild ueberspringt.
-    // Parallel-unbedenklich (pre-Messung). Das Folge-Increment aktiviert ihn (cfg.cache_pull); heute push-only.
+    // Storage #51 / S2 (#46a) — PULL-HOOK (AKTIV): die BATCH-Warm-Cache-Hydrierung (minio->local) laeuft GENAU HIER in
+    // Phase A, VOR dem Bau. Sie zieht den ganzen Objekt-Store-Praefix DIESER Perm rekursiv ins output_dir (unter
+    // <stem>/perm.dll(+.algos,+.version)), sodass der Orchestrator sie je Binary via dll_is_current (build_orchestrator
+    // .hpp:332) als versions-aktuell erkennt und den Rebuild ueberspringt. Korrektheit entscheidet danach AUSSCHLIESSLICH
+    // lokal dll_is_current (ein False-/Teil-Pull => kein/kein passendes .version/.algos => Neubau). Gilt in BEIDEN Modi
+    // (BAU + MESS: die Perm muss ohnehin materialisiert sein). Leer (Default) => No-Op => golden/CI byte-identisch; scharf
+    // nur, wenn der Host cfg.cache_pull belegt (Env/CI). Nur mit per_binary_subdirs (der <stem>/-Layout-Konvention, die
+    // dll_is_current UND der Push teilen). EIN mc-Prozess (nicht x|Binaries| Spawns; Dossier Option (a)).
+    if (cfg.cache_pull && cfg.per_binary_subdirs) cfg.cache_pull(cfg.output_dir, cfg.build_version);
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
     // Leer = Organ-Gate aus (byte-neutral).

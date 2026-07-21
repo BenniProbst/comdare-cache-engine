@@ -499,6 +499,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.workload_registry   = std::move(workload_registry);
     a.workload_values     = std::move(workload_values);
     a.cache_push          = args.cache_push;          // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.cache_pull          = args.cache_pull;          // S2 (#46a): BATCH-Warm-Cache-Hydrierung durchreichen (No-Op)
     a.measurement_sink    = args.measurement_sink;    // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
     a.partial_marker_sink = args.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker durchreichen (No-Op-Default)
     a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
@@ -834,6 +835,7 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.workload_registry   = std::move(workload_registry);
     a.workload_values     = std::move(workload_values);
     a.cache_push          = args.cache_push;          // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.cache_pull          = args.cache_pull;          // S2 (#46a): BATCH-Warm-Cache-Hydrierung durchreichen (No-Op)
     a.measurement_sink    = args.measurement_sink;    // Storage #51: perm.dll->Store (B) / CSV->measure-drop (C)
     a.partial_marker_sink = args.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker durchreichen (No-Op-Default)
     a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
