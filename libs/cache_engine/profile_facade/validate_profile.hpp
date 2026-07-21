@@ -626,14 +626,21 @@ struct ExperimentValidationResult {
     std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
     std::size_t target_isa_checked      = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
     std::size_t axis_merge_checked      = 0; // KERN-A (S4): gepruefte per-Achse <axis merge=..>-Modi (0 = keine)
+    std::size_t axis_pruefling_checked  = 0; // KERN #48-S4: gepruefte per-Achse <axis pruefling=..> (0 = keine)
+    std::size_t machines_checked        = 0; // KERN #48-S4: gepruefte <machines><machine> (0 = keine Menge)
+    std::size_t storage_checked         = 0; // KERN #48-S4: geprueftes <output><storage backend=..> (0 = keiner)
     std::size_t run_methodology_checked = 0; // A9.1: gepruefte <run_methodology><method> (0 = keine deklariert)
     std::size_t measurement_framework_checked = 0; // A9.1: geprueftes <measurement_framework> (0 = nicht deklariert)
     std::size_t writeback_methods_checked     = 0; // A9.1: gepruefte <writeback_methods><method> (0 = keine deklariert)
 };
 
-// ── KERN-A (S4 Mess-Schema, 2026-07-20): die zwei erlaubten per-Achse Merge-Modi (Fork 4). Leer=""=replace-Default
-//    (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen. Single-Source hier. ──
-inline constexpr char const* kExperimentAxisMergeModes[] = {"replace", "merge"};
+// ── KERN-A (S4 Mess-Schema, 2026-07-20) + KERN #48-S4 (Fork 4 dritter Token, 2026-07-22): die drei erlaubten
+//    per-Achse Merge-Modi. Leer=""=replace-Default (heutiges Verhalten byte-identisch); "merge" = additiver
+//    Zusammenschluss statt Ersetzen; "fulljoin" = die EXPLIZITE, Phase-3-gebundene Union (Verdikt V-a: Section-59-A
+//    trennt Stufe-2-Hybrid und Stufe-3-FullJoin woertlich). "fulljoin" ist NUR gueltig, wenn das Profil eine
+//    Phase-3-Bindung (eine <phase merge="Stufe3_FullJoin">) traegt -- dieser Bindungs-Check erfolgt unten. Single-
+//    Source der Token hier. ──
+inline constexpr char const* kExperimentAxisMergeModes[] = {"replace", "merge", "fulljoin"};
 
 // ── KERN-A (S4): die anerkannten CacheEngine-self-Marker fuer <phase pruefling=..> / <phase identity=..> (Fork 3).
 //    Ein so markierter Pruefling misst die CacheEngine SELBST (nicht ein SOTA-Lebewesen) => NICHT dem
@@ -976,6 +983,12 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     //    {replace,merge} (Single-Source kExperimentAxisMergeModes) — ein Bogus-Modus wuerde sonst still auf replace
     //    zurueckfallen. binary_id-neutral (die Kompositions-AKTIVIERUNG von "merge" ist golden-regen-/gate-gated;
     //    hier nur die Wohlgeformtheit). Rein enum-basiert => NICHT an registry_dir gebunden. ──
+    // KERN #48-S4: eine Phase-3-Bindung liegt vor, wenn das Profil eine <phase merge="Stufe3_FullJoin"> traegt.
+    // "fulljoin" als per-Achse-Merge-Modus ist NUR bei vorhandener Bindung gueltig (Verdikt V-a; sonst waere die
+    // Stufe-2-Hybrid-/Stufe-3-FullJoin-Trennung verletzt). Leere/abgeleitete Phasen (kein <phases>) => keine Bindung.
+    bool const has_full_join_phase = std::any_of(ep.phases.begin(), ep.phases.end(), [](cx::ExperimentPhase const& ph) {
+        return ph.merge == "Stufe3_FullJoin";
+    });
     for (auto const& ax : ep.axes_default_lookup) {
         if (ax.merge_mode.empty()) continue; // leer = replace-Default (nichts zu pruefen)
         ++r.axis_merge_checked;
@@ -984,7 +997,72 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         if (!known) {
             r.ok = false;
             r.errors.push_back("UNGUELTIGER Merge-Modus <axes_default_lookup><axis ref=\"" + ax.ref + "\" merge=\"" +
-                               ax.merge_mode + "\">: kein {replace,merge} (KERN-A Fork 4; leer = replace-Default).");
+                               ax.merge_mode +
+                               "\">: kein {replace,merge,fulljoin} (KERN Fork 4; leer = replace-Default).");
+        }
+        // KERN #48-S4 (Verdikt V-a): "fulljoin" verlangt eine Phase-3-Bindung (<phase merge="Stufe3_FullJoin">).
+        if (ax.merge_mode == "fulljoin" && !has_full_join_phase) {
+            r.ok = false;
+            r.errors.push_back(
+                "UNGUELTIGE Phase-Bindung <axes_default_lookup><axis ref=\"" + ax.ref +
+                "\" merge=\"fulljoin\">: 'fulljoin' ist NUR in Phase-3-Bindung gueltig, aber das Profil traegt keine "
+                "<phase merge=\"Stufe3_FullJoin\"> (Section-59-A: Stufe-2-Hybrid != Stufe-3-FullJoin).");
+        }
+    }
+
+    // ── KERN #48-S4 (Section 59-C/D, Fork 3): per-Achse <axes_default_lookup><axis pruefling=..>. Von WELCHEM
+    //    Pruefling die Achse stammt. Gueltig = eine deklarierte engine-id ODER eine <lebewesen>-tier-id ODER ein
+    //    CacheEngine-self-Marker ("CacheEngine"/"self"). Leer = Fallback auf die Phasen-Identitaet (kein Fehler;
+    //    merge_plan.hpp profile_pruefling_identity). Ein Bogus-Wert wuerde sonst still auf den Fallback fallen. ──
+    {
+        std::set<std::string> valid_pruefling;
+        for (auto const& e : ep.engines) valid_pruefling.insert(e.id);
+        for (auto const& l : ep.lebewesen) valid_pruefling.insert(l);
+        for (auto const& ax : ep.axes_default_lookup) {
+            if (ax.pruefling.empty()) continue; // leer = Phasen-Identitaet-Fallback (nichts zu pruefen)
+            ++r.axis_pruefling_checked;
+            if (is_cache_engine_self_marker(ax.pruefling)) continue; // self-Marker = CacheEngine selbst
+            if (valid_pruefling.find(ax.pruefling) == valid_pruefling.end()) {
+                r.ok = false;
+                std::vector<std::string> const ids(valid_pruefling.begin(), valid_pruefling.end());
+                r.errors.push_back("UNBEKANNTER Pruefling <axes_default_lookup><axis ref=\"" + ax.ref +
+                                   "\" pruefling=\"" + ax.pruefling +
+                                   "\">: keine engine-id / <lebewesen>-tier-id (CacheEngine/self = self-Marker). "
+                                   "Deklariert = " +
+                                   preview_values(ids));
+            }
+        }
+    }
+
+    // ── KERN #48-S4 (Section 62-C/D/E): <machines><machine>. Der Identitaets-KERN (cpu_fabrication + ram_pair)
+    //    muss nicht-leer sein (validate prueft den SCHLUESSEL, nicht den Namen); hostname_hint ist optional. Leer/
+    //    kein <machines> = keine Menge = heutiges Verhalten (kein Fehler). Konsum (Fertig-Gate) post-S4. ──
+    for (auto const& mc : ep.machines) {
+        ++r.machines_checked;
+        if (mc.cpu_fabrication.empty() || mc.ram_pair.empty()) {
+            r.ok = false;
+            r.errors.push_back(
+                "UNVOLLSTAENDIGE Maschinen-Identitaet <machine id=\"" + mc.id +
+                "\">: cpu_fabrication + ram_pair sind der Kern-Identitaets-Schluessel (Pflicht, nicht-leer; "
+                "hostname_hint ist nur ein Hinweis). Section 62-D/E.");
+        }
+    }
+
+    // ── KERN #48-S4 (Section 59-C-Slot): <output><storage backend=..>. backend in {local,minio} (wenn deklariert).
+    //    INERT (Konsum K7b/K8 post-Abgabe); hier nur die Wohlgeformtheit. minio ohne endpoint = Warnung. ──
+    if (!ep.output.storage_backend.empty()) {
+        ++r.storage_checked;
+        static constexpr std::string_view kValidStorageBackends[] = {"local", "minio"};
+        bool const backend_known = std::find(std::begin(kValidStorageBackends), std::end(kValidStorageBackends),
+                                             ep.output.storage_backend) != std::end(kValidStorageBackends);
+        if (!backend_known) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGES <output><storage backend=\"" + ep.output.storage_backend +
+                               "\">: kein {local,minio} (KERN #48-S4 Section 59-C-Slot; inert).");
+        }
+        if (ep.output.storage_backend == "minio" && ep.output.storage_endpoint.empty()) {
+            r.warnings.push_back("<output><storage backend=\"minio\"> ohne endpoint: der minio-Slot bleibt ohne "
+                                 "Ziel-Endpoint (inert in #48; Konsum K7b/K8 post-Abgabe).");
         }
     }
 

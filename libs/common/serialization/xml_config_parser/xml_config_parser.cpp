@@ -467,6 +467,7 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             ax.ref              = a->attr("ref");
             ax.allowed_variants = split_ws(a->attr("allowed_variants"));
             ax.merge_mode       = a->attr("merge"); // KERN-A: per-Achse Merge-Modus (leer = replace-Default)
+            ax.pruefling = a->attr("pruefling");    // KERN #48-S4: per-Achse Pruefling-Wahl (leer = Phasen-Fallback)
             ep.axes_default_lookup.push_back(std::move(ax));
         }
     }
@@ -499,6 +500,17 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
     // <system_axes> (opt-f/A3): CEB-System-Achsen ueber die GETEILTE parse_system_axes-Naht (GN-3, 2026-07-19) —
     // deckungsgleich zum comdare_thesis_profile-Kanal (EINE Funktion, kein dupliziertes Lese-Muster). Konvention
     // Haupt→Unter→Option (V35 §2.1). Rohstrings; binary_id-neutral (Provenienz).
+    // KERN #48-S4 (Section 62-C): <machines><machine id cpu_fabrication ram_pair hostname_hint/> (Maschinen-Menge).
+    if (auto const* mroot = root->child("machines")) {
+        for (auto const* m : mroot->children_named("machine")) {
+            ExperimentMachine mc;
+            mc.id              = m->attr("id");
+            mc.cpu_fabrication = m->attr("cpu_fabrication");
+            mc.ram_pair        = m->attr("ram_pair");
+            mc.hostname_hint   = m->attr("hostname_hint");
+            ep.machines.push_back(std::move(mc));
+        }
+    }
     if (auto const* sa = root->child("system_axes"))
         parse_system_axes(*sa, ep.compiler, ep.extension_hardware, ep.target_isa);
     if (auto const* out = root->child("output")) {
@@ -507,6 +519,11 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
         if (auto const* l = out->child("latex_path")) ep.output.latex_path = l->text;
         if (auto const* cm = out->child("comparison_metrics"))
             ep.output.comparison_metrics = (cm->text == "true" || cm->text == "1");
+        // KERN #48-S4 (Section 59-C-Slot): <output><storage backend=.. endpoint=..> (inert; Konsum post-Abgabe).
+        if (auto const* st = out->child("storage")) {
+            ep.output.storage_backend  = st->attr("backend");
+            ep.output.storage_endpoint = st->attr("endpoint");
+        }
     }
     return ep;
 }

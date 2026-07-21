@@ -38,13 +38,16 @@ struct AxisMergeDirective {
     std::vector<std::string> allowed_variants; ///< Achsen-Varianten-Whitelist (Teilmenge; leer = volle Liste)
 };
 
-/// merge_mode_to_strategy(merge_mode) -- die per-Achse merge_mode-Semantik (KERN-A Fork 4, {replace,merge}) auf die
+/// merge_mode_to_strategy(merge_mode) -- die per-Achse merge_mode-Semantik ({replace,merge,fulljoin}) auf die
 /// MergeStrategy-Namen abbilden (Single-Source der Zuordnung). ""/"replace" => Stufe2_PrueflingReplace (die
-/// Pruefling-Achse ERSETZT die CE-Achse mit Fallback); "merge" => Stufe3_FullJoin (Union CE + Pruefling,
-/// non-redundant = der "CE + Pruefling-Hybrid" der Section 59-A(2)/(3)). Section-59-A(1) Stufe1_CeOnly ist die
-/// Abwesenheit einer Pruefling-Direktive (kein axes_default_lookup-merge / self) -- nie ueber diese Funktion.
+/// Pruefling-Achse ERSETZT die CE-Achse mit Fallback); "merge"/"fulljoin" => Stufe3_FullJoin (Union CE + Pruefling,
+/// non-redundant). KERN #48-S4 (Verdikt V-a): "fulljoin" ist der EXPLIZITE Phase-3-Token -- validate erzwingt seine
+/// Phase-3-Bindung (validate_profile.hpp), waehrend "merge" der tolerante Legacy-Token bleibt; beide projizieren auf
+/// dieselbe FullJoin-Union (das MergeStrategy-Enum traegt heute genau drei Werte, pruefling_merge.hpp). Die volle
+/// Materialisierung einer getrennten Stufe-2-Hybrid-Strategie ist Director-Konsum (post-S4). Section-59-A(1)
+/// Stufe1_CeOnly ist die Abwesenheit einer Pruefling-Direktive (kein axes_default_lookup-merge / self).
 [[nodiscard]] inline std::string merge_mode_to_strategy(std::string const& merge_mode) {
-    if (merge_mode == "merge") return "Stufe3_FullJoin";
+    if (merge_mode == "merge" || merge_mode == "fulljoin") return "Stufe3_FullJoin";
     return "Stufe2_PrueflingReplace"; // "" (Default) und "replace" => ERSETZT-mit-Fallback (Stufe2)
 }
 

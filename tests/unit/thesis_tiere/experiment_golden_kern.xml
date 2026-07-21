@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- KERN #48-S4 TEST-FIXTURE (ce-lokal, 2026-07-22). Spiegelt die KERN-Elemente der kanonischen Referenz
+     super Code/test_data_xml/experiment_golden_kern.xml fuer die Parser-/Validator-Naht-Tests (KEIN Sync-Gate;
+     rein test-lokal). Diese Instanz ist BEWUSST valide (validate_experiment_profile ok=true ohne registry_dir):
+     sie ergaenzt die fuer die Validierung erforderlichen Felder (op_types required, lebewesen fuer phase.pruefling)
+     ueber die reine Struktur-Referenz hinaus. Traegt alle vier neuen #48-S4-Elemente:
+       - <machines> mit Kern-Identitaets-Schluessel (cpu_fabrication + ram_pair; hostname_hint nur Hinweis)
+       - <axes_default_lookup><axis pruefling=..> (engine-id / lebewesen-id / self-Marker)
+       - merge="fulljoin" (dritter Token, hier mit Phase-3-Bindung ueber <phase merge="Stufe3_FullJoin">)
+       - <output><storage backend=.. endpoint=..> (inert) -->
+<comdare_experiment version="2" id="diplomarbeit_golden_kern_fixture"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:noNamespaceSchemaLocation="experiment_schema.xsd">
+
+  <metadata>
+    <name>diplomarbeit_golden_kern_fixture</name>
+    <mode>full</mode>
+  </metadata>
+
+  <execution_engines>
+    <engine id="ee_ce"  type="CacheEngineExecutionEngineAdapter" registry="cache_engine_axis_registry.xml"/>
+    <engine id="ee_prt" type="PrtArtExecutionEngineAdapter"      registry="prt_art_axis_registry.xml"/>
+  </execution_engines>
+
+  <!-- KERN #48-S4: Maschinen-Menge (Section 62-C). Kern-Identitaet = cpu_fabrication + ram_pair; hostname nur Hint. -->
+  <machines>
+    <machine id="prod1" cpu_fabrication="amd_zen4_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
+    <machine id="prod2" cpu_fabrication="intel_avx2"      ram_pair="ddr4_2x32" hostname_hint="prod2"/>
+  </machines>
+
+  <lebewesen>
+    <tier id="prt_art"/>
+    <tier id="art"/>
+    <tier id="hot"/>
+  </lebewesen>
+
+  <phases>
+    <phase name="Stufe1_CeOnly"           merge="Stufe1_CeOnly"           engine="ee_ce"/>
+    <phase name="Stufe2_PrueflingReplace" merge="Stufe2_PrueflingReplace" engine="ee_prt" pruefling="prt_art"/>
+    <phase name="Stufe3_FullJoin"         merge="Stufe3_FullJoin"         engines="ee_ce ee_prt"/>
+  </phases>
+
+  <!-- KERN #48-S4: per-Achse pruefling + fulljoin-Token (Phase-3-Bindung liegt oben vor). -->
+  <axes_default_lookup enabled="true">
+    <axis ref="search_algo"      pruefling="ee_prt"  merge="replace"  allowed_variants="k_ary interpolation"/>
+    <axis ref="path_compression" pruefling="prt_art" merge="fulljoin"/>
+    <axis ref="mapping"          pruefling="self"    merge="merge"/>
+  </axes_default_lookup>
+
+  <system_axes>
+    <compiler>
+      <opt_level>
+        <option value="O2"/>
+        <option value="O3"/>
+      </opt_level>
+    </compiler>
+    <extension_hardware>
+      <simd>
+        <option value="no_extension"/>
+        <option value="avx2"/>
+      </simd>
+    </extension_hardware>
+  </system_axes>
+
+  <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
+
+  <op_types>OP-1 OP-3</op_types>
+
+  <output>
+    <binary_path>golden_kern/measurements/all_permutations.bin</binary_path>
+    <csv_path>golden_kern/measurements.csv</csv_path>
+    <latex_path>golden_kern/golden_kern_table.tex</latex_path>
+    <!-- KERN #48-S4: inert deklarierter Storage-Slot (Konsum K7b/K8 post-Abgabe). -->
+    <storage backend="minio" endpoint="minio.comdare.local"/>
+  </output>
+
+</comdare_experiment>
