@@ -55,7 +55,8 @@ struct ProfileRunArgs {
     std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
     // Storage #51 (No-Op-Default => byte-neutral): der Host (messung_driver) konstruiert sie via
     // artifact_transport::ArtifactCache::from_env und reicht sie zur per-Binary-/whole-run-Naht durch. Leer = No-Op.
-    artifact_transport::CachePushFn       cache_push;
+    artifact_transport::CachePushFn cache_push;
+    artifact_transport::CachePullFn cache_pull; // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
     artifact_transport::MeasurementSinkFn measurement_sink;
     // W11 (Ledger §43.c): BAU-Modus async Push -- der Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N.
     // Der Host konstruiert den Sink via ArtifactCache::push_chunk_partial_marker (range gekapselt) + liest N aus
@@ -119,7 +120,8 @@ struct ExperimentRunArgs {
     std::size_t build_parallelism = 0;
     // Storage #51 (No-Op-Default => byte-neutral): wie ProfileRunArgs — vom Host via from_env konstruiert,
     // zur per-Binary-/whole-run-Naht durchgereicht. Leer = No-Op.
-    artifact_transport::CachePushFn       cache_push;
+    artifact_transport::CachePushFn cache_push;
+    artifact_transport::CachePullFn cache_pull; // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
     artifact_transport::MeasurementSinkFn measurement_sink;
     // W11 (Ledger §43.c): BAU-Modus async Push -- der Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N.
     // Der Host konstruiert den Sink via ArtifactCache::push_chunk_partial_marker (range gekapselt) + liest N aus

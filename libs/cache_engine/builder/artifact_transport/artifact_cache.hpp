@@ -69,6 +69,11 @@ using MeasurementSinkFn =
 //   leitet den Key <build_version>/_gn_chunk_markers/<range>.part<k>.done ab (range im Client-Closure gekapselt).
 //   Leer = No-Op (byte-neutral). Reihenfolge-unabhaengig (Objekt-Store), daher aus dem Push-Thread erlaubt.
 using PartialMarkerFn = std::function<void(std::string const& build_version, std::size_t part_index)>;
+// S2 (#46a Pull): CachePullFn -- die BATCH-Warm-Cache-Hydrierung VOR dem Bau. Der Iterator ruft sie EINMAL in Phase A
+//   (VOR provision_all), sie zieht den ganzen Objekt-Store-Praefix EINER Perm rekursiv nach dest_root (=output_dir), so
+//   dass dll_is_current die gepullten DLLs als versions-aktuell erkennt und den Rebuild ueberspringt. Args (dest_root,
+//   build_version). Leer = No-Op (byte-neutral). Der Host belegt sie via ArtifactCache::pull_tier_prefix.
+using CachePullFn = std::function<void(std::filesystem::path const& dest_root, std::string const& build_version)>;
 
 // ── Der Transport-Client ──────────────────────────────────────────────────────────────────────────────────────
 class ArtifactCache {
@@ -108,8 +113,15 @@ public:
         c.max_time_s_        = env_size_or("COMDARE_ARTEFAKT_MAX_TIME_S", c.max_time_s_);
         c.tries_             = env_size_or("COMDARE_ARTEFAKT_TRIES", c.tries_);
         if (c.tries_ == 0) c.tries_ = 1; // nie 0 -> sonst wird nie versucht (stiller Drop)
-        c.sleep_s_   = env_size_or("COMDARE_ARTEFAKT_RETRY_SLEEP_S", c.sleep_s_);
-        c.run_stamp_ = make_run_stamp(); // EIN datierter Lauf-Baum (Sink-Besitzer des Timestamps)
+        c.sleep_s_ = env_size_or("COMDARE_ARTEFAKT_RETRY_SLEEP_S", c.sleep_s_);
+        // S2 (#46a Pull): EIGENES, knappes Budget fuer die Warm-Cache-Hydrierung -- ein MISS/Netz-Blackhole darf den
+        // Bau-Start NICHT lange blockieren (im Gegensatz zum Push, der 12x/120s zaehen darf). Default 2 Versuche, 1s
+        // Pause; env-uebersteuerbar. (mc hat keinen per-Aufruf-Wall-Clock-Cap im Shellout-Muster -- wie beim Push; das
+        // knappe try-Budget IST die Bounded-Wache, ein harter Timeout-Wrapper ist ein Folge-Increment.)
+        c.pull_tries_ = env_size_or("COMDARE_ARTEFAKT_PULL_TRIES", c.pull_tries_);
+        if (c.pull_tries_ == 0) c.pull_tries_ = 1; // nie 0
+        c.pull_sleep_s_ = env_size_or("COMDARE_ARTEFAKT_PULL_RETRY_SLEEP_S", c.pull_sleep_s_);
+        c.run_stamp_    = make_run_stamp(); // EIN datierter Lauf-Baum (Sink-Besitzer des Timestamps)
         return c;
     }
 
@@ -188,6 +200,77 @@ public:
                                 "Push perm.dll.version fehlgeschlagen (perm.dll ist oben, Marke fehlt -> kein Pull): " +
                                     key_base + "/perm.dll.version");
         }
+    }
+
+    /// S2 (#46a) Ebene B PULL (Spiegel zu push_tier_binary): holt die drei Objekte EINES Tier-Binary-Ordners aus dem
+    /// Objekt-Store nach bin_dir. Uebernahme NUR, wenn die REMOTE-Vollstaendigkeits-Marke perm.dll.version existiert
+    /// (invertierte ZULETZT-Pruefung: halb-gepusht ohne Marke => MISS => lokal bauen). HARTE Reihenfolge lokal: die
+    /// lokale .version/.algos ZUERST WEG (write-ZULETZT-Disziplin -> ein Teil-Pull hinterlaesst NIE eine irrefuehrende
+    /// Marke), dann perm.dll, dann perm.dll.algos (nur wenn remote vorhanden), dann perm.dll.version ZULETZT. Eigenes
+    /// knappes Timeout-Budget (pull_tries_, nicht die Push-Defaults). Fehler -> ArtefaktIo geloggt, kein throw, Rueckgabe
+    /// false => der Aufrufer BAUT (dll_is_current arbitriert danach ohnehin lokal). true = vollstaendiger Satz hydriert.
+    [[nodiscard]] bool pull_tier_binary(std::filesystem::path const& bin_dir, std::string const& build_version) const {
+        if (!minio_enabled()) return false; // inert (byte-neutral)
+        std::string const           stem     = bin_dir.filename().string();
+        std::string const           key_base = cache_key_prefix(build_version) + "/" + stem; // Single-Source-Praefix
+        std::filesystem::path const dll      = bin_dir / "perm.dll";
+        std::filesystem::path const algos    = bin_dir / "perm.dll.algos";
+        std::filesystem::path const version  = bin_dir / "perm.dll.version";
+        std::filesystem::path const log      = bin_dir / "perm.dll.pull.log";
+
+        // (0) REMOTE-Vollstaendigkeits-Marke pruefen: ohne remote perm.dll.version war der Push halb/nie -> MISS.
+        if (!mc_remote_exists(key_base + "/perm.dll.version")) return false; // MISS -> bauen (bin_dir NICHT angelegt)
+
+        std::error_code ec;
+        std::filesystem::create_directories(bin_dir, ec);
+        std::filesystem::remove(version, ec); // Marke ZUERST weg -> ein abgebrochener Pull ergibt garantiert Neubau
+        std::filesystem::remove(algos, ec);   // ebenso das Organ-Sidecar (lokal exakt der remote Satz nach Pull)
+
+        // (1) perm.dll ZUERST.
+        if (!mc_pull(key_base + "/perm.dll", dll, log)) {
+            log_artefakt_io(log, "Pull perm.dll fehlgeschlagen -> lokal bauen: " + key_base + "/perm.dll");
+            return false;
+        }
+        // (2) perm.dll.algos MITTE — nur wenn remote vorhanden (Organ-Gate aus beim Push => remote fehlt => uebersprungen).
+        if (mc_remote_exists(key_base + "/perm.dll.algos")) {
+            if (!mc_pull(key_base + "/perm.dll.algos", algos, log)) {
+                log_artefakt_io(log,
+                                "Pull perm.dll.algos fehlgeschlagen -> lokal bauen: " + key_base + "/perm.dll.algos");
+                return false; // .version bleibt weg -> dll_is_current baut neu
+            }
+        }
+        // (3) perm.dll.version ZULETZT — die lokale Vollstaendigkeits-Marke.
+        if (!mc_pull(key_base + "/perm.dll.version", version, log)) {
+            log_artefakt_io(log,
+                            "Pull perm.dll.version fehlgeschlagen -> lokal bauen: " + key_base + "/perm.dll.version");
+            return false;
+        }
+        return true;
+    }
+
+    /// S2 (#46a) BATCH-Warm-Cache-Hydrierung (der Iterator-PULL-HOOK, VOR provision_all): zieht den GANZEN Objekt-Store-
+    /// Praefix EINER Perm rekursiv nach dest_root -> dest_root/<stem>/perm.dll(+.algos,+.version). EIN mc-Prozess (nicht
+    /// x|Binaries| Spawns; vgl. Dossier Option (a) vs (b)). Der _gn_chunk_markers-Namensraum wird ausgespart (Marker sind
+    /// keine Tier-Binaries; orch_make_stem erzeugt diesen Stem nie). Korrektheit entscheidet danach AUSSCHLIESSLICH lokal
+    /// dll_is_current (ein Teil-Pull/False-Pull => der betroffene Stem hat kein/kein passendes .version/.algos => Neubau).
+    /// Leerer/fehlender Praefix (erste Welle) => mc-Fehler => false => alles lokal bauen. Kein throw; No-Op wenn inert.
+    bool pull_tier_prefix(std::string const& build_version, std::filesystem::path const& dest_root) const {
+        if (!minio_enabled()) return false; // inert (byte-neutral)
+        std::error_code ec;
+        std::filesystem::create_directories(dest_root, ec);
+        std::string src = mc_target(cache_key_prefix(build_version)); // <alias>/<bucket>/[<prefix>/]<KEY>
+        if (src.empty() || src.back() != '/') src += '/';             // mc cp --recursive erwartet SRC-Verzeichnis
+        std::string dst = dest_root.string();
+        if (dst.empty() || dst.back() != '/') dst += '/';
+        std::filesystem::path const log = dest_root / "perm.pull.recursive.log";
+        for (std::size_t attempt = 1; attempt <= pull_tries_; ++attempt) {
+            // `mc cp --recursive --exclude` spart den Marker-Namensraum aus (best-effort; Korrektheit haengt NICHT
+            // daran -- Marker tragen kein perm.dll, dll_is_current ignoriert sie, und kein realer Stem == _gn_chunk_markers).
+            int const rc = run_argv({mc_bin_, "cp", "--recursive", "--exclude", "_gn_chunk_markers/*", src, dst}, log);
+            if (rc == 0) return true;
+            if (attempt < pull_tries_) sleep_seconds(pull_sleep_s_);
+        }
+        return false; // MISS (leerer Praefix / Netzfehler) -> lokal bauen; dll_is_current bleibt der Arbiter
     }
 
     /// W11 (Ledger §43.c): Ebene B TEIL-Marker. Legt einen kleinen Marker <build_version>/_gn_chunk_markers/
@@ -347,6 +430,35 @@ private:
             int const rc = run_argv({mc_bin_, "cp", "--quiet", local.string(), target}, log);
             if (rc == 0 && mc_size_verified(target, local_size, log)) return true;
             if (attempt < tries_) sleep_seconds(sleep_s_);
+        }
+        return false;
+    }
+
+    // ── S2 (#46a) mc-Shellout PULL-Seite: remote-Existenz + `mc cp` remote->lokal, eigenes knappes pull_tries_-Budget. ──
+    /// `mc stat --json <object_key>` -> Existenz (rc==0). Fuer die invertierte ZULETZT-Pruefung (remote .version da?).
+    /// Die kurzlebige stat-Redirect-Datei (nur mc-stdout; kein Credential) liegt im TEMP-Verzeichnis (garantiert
+    /// existent -- NICHT im noch-nicht-angelegten Ziel-bin_dir). EIN Versuch (stat ist billig; ein Hang wuerde von
+    /// Retries nicht geheilt -- das knappe cp-Budget bounded den Gesamt-Pull).
+    [[nodiscard]] bool mc_remote_exists(std::string const& object_key) const {
+        std::error_code             ec;
+        std::filesystem::path const scratch =
+            std::filesystem::temp_directory_path(ec) /
+            ("comdare_mc_stat_" + run_stamp_ + "_" + std::to_string(std::hash<std::string>{}(object_key)) + ".json");
+        int const rc = run_argv({mc_bin_, "stat", "--json", mc_target(object_key)}, scratch);
+        std::filesystem::remove(scratch, ec);
+        return rc == 0;
+    }
+
+    /// `mc cp --quiet <remote> <local>` mit pull_tries_-Budget (nicht die Push-Defaults). Erfolg = rc==0 UND lokale
+    /// Datei existiert (mc cp verifiziert die Integritaet intern via ETag, wie push-seitig). stdout/stderr -> Log.
+    [[nodiscard]] bool mc_pull(std::string const& object_key, std::filesystem::path const& local,
+                               std::filesystem::path const& log) const {
+        std::string const target = mc_target(object_key);
+        std::error_code   ec;
+        for (std::size_t attempt = 1; attempt <= pull_tries_; ++attempt) {
+            int const rc = run_argv({mc_bin_, "cp", "--quiet", target, local.string()}, log);
+            if (rc == 0 && std::filesystem::exists(local, ec)) return true;
+            if (attempt < pull_tries_) sleep_seconds(pull_sleep_s_);
         }
         return false;
     }
@@ -512,6 +624,8 @@ private:
     std::size_t sleep_s_           = 5;   // Pause zwischen Versuchen (s; COMDARE_ARTEFAKT_RETRY_SLEEP_S)
     std::size_t connect_timeout_s_ = 10;  // curl --connect-timeout je Versuch (COMDARE_ARTEFAKT_CONNECT_TIMEOUT_S)
     std::size_t max_time_s_        = 120; // curl --max-time je Versuch (COMDARE_ARTEFAKT_MAX_TIME_S)
+    std::size_t pull_tries_        = 2;   // S2: Pull-Retry-Budget (knapp; COMDARE_ARTEFAKT_PULL_TRIES)
+    std::size_t pull_sleep_s_      = 1;   // S2: Pause zwischen Pull-Versuchen (s; COMDARE_ARTEFAKT_PULL_RETRY_SLEEP_S)
 };
 
 } // namespace comdare::cache_engine::builder::artifact_transport

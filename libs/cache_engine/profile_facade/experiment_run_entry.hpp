@@ -56,6 +56,7 @@ struct RunExperimentArgs {
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
     ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
+    ex::CachePullFn       cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau; leer = No-Op
     ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
     // W11 (§43.c): BAU-Modus Teil-Marker-Sink + N -- SPIEGEL zu RunProfileArgs. Leer/0 = keine Teil-Marker (byte-neutral).
     ex::PartialMarkerFn partial_marker_sink;
@@ -351,6 +352,7 @@ struct RunExperimentResult {
                             a.build_parallelism; // W6 (§32-F7): Bau-Pool-Override (0 = byte-neutral)
                         cfg.per_binary_subdirs  = true;
                         cfg.cache_push          = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op)
+                        cfg.cache_pull          = a.cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung (No-Op)
                         cfg.measurement_sink    = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op)
                         cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op)
                         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N
