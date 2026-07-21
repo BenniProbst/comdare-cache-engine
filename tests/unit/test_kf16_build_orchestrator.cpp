@@ -166,6 +166,41 @@ int main() {
         check_true("opt-b: opt_flag fliesst durch (default != O3)", rsp_default != rsp_o3);
     }
 
+    // ── Teil 6 (Scheibe 2b, Ledger 61/62 + §62-G (4)): Build-Typ-Debug-Flags-Naht + .rsp-Byte-Stabilitaet ──
+    // Die toolchain-abstrahierte Naht debug_flags_for_toolchain() liefert die Debug-Flags (-O0 -g). Die
+    // Facade reicht sie als opt_flag-WERT herunter (achsen-blinder Builder). Byte-Stabilitaets-Wache: ein
+    // normaler opt_flag ergibt eine .rsp OHNE -g; der Debug-Flag-Wert ergibt eine .rsp MIT -O0 UND -g und
+    // OHNE -O3. Prueft am .rsp-String (Kommando-Vergleich), nicht an der .so (deren Bytes variieren).
+    {
+        check_eq("2b: debug_flags_for_toolchain()", ex::debug_flags_for_toolchain(), std::string{"-O0 -g"});
+
+        auto const   tmp = comdare::test::user_tmp_dir();
+        ex::BuildJob job;
+        job.source = tmp / "dbg_probe.cpp";
+        job.output = tmp / "dbg_probe.so";
+        {
+            std::ofstream s{job.source};
+            s << "int main(){return 0;}\n";
+        }
+        auto rsp_of = [&](ex::CompileFn const& fn) -> std::string {
+            std::error_code ec;
+            std::filesystem::remove(job.output.string() + ".rsp", ec);
+            (void)fn(job);
+            std::ifstream f{job.output.string() + ".rsp"};
+            return std::string((std::istreambuf_iterator<char>(f)), {});
+        };
+        // Facade-Debug-Kanal simuliert: opt_flag == debug_flags_for_toolchain() (so montiert die Facade bei Debug).
+        std::string const rsp_dbg =
+            rsp_of(ex::make_gpp_compile_fn({}, {}, "g++-16", {}, ex::debug_flags_for_toolchain()));
+        std::string const rsp_o3 = rsp_of(ex::make_gpp_compile_fn({}, {}, "g++-16", {}, "-O3"));
+        check_true("2b: Debug-.rsp traegt -O0 -g", rsp_dbg.find("-O0 -g\n") != std::string::npos);
+        check_true("2b: Debug-.rsp traegt Debug-Info -g", rsp_dbg.find("-g") != std::string::npos);
+        check_true("2b: Debug-.rsp traegt NICHT -O3", rsp_dbg.find("-O3\n") == std::string::npos);
+        check_true("2b: Release-.rsp (-O3) traegt KEIN -g (byte-stabil, kein Debug-Leck)",
+                   rsp_o3.find("-g\n") == std::string::npos && rsp_o3.find("-O0") == std::string::npos);
+        check_true("2b: Debug- != Release-.rsp (echter Compile-Unterschied)", rsp_dbg != rsp_o3);
+    }
+
     std::cout << "\n==== KF-16 StaticBinaryView + BuildOrchestrator: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;

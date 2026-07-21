@@ -315,6 +315,14 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     return pick(cm::DefaultOptLevelOption::gcc_opt_flag(), cm::DefaultOptLevelOption::clang_opt_flag());
 }
 
+// Scheibe 2b (Ledger 61/62, §62-G (4)): Build-Typ-Entscheidung fuer den Compile-Flag-Kanal. SINGLE-SOURCE
+// mit dem (i)-Stempel -- dieselbe COMDARE_BUILD_TYPE-Env-Lesung (tlz::build_type_version_suffix(), nicht
+// eine zweite getenv-Quelle), damit -O0-g-Maschinencode und +bt=Debug-Stempel IMMER GEMEINSAM auftreten
+// (keine Divergenz zwischen Bytes und Stempel). Die FACADE liest die Env und reicht der achsen-blinde
+// Builder nur den Flag-WERT herunter (Muster (2), wie facade_supports_fno_gnu_unique). Ungesetzt/Release
+// => false => byte-identischer Compile-Kanal zum Ist-Stand.
+[[nodiscard]] bool facade_build_type_is_debug() { return !tlz::build_type_version_suffix().empty(); }
+
 // H-10 (Bau-INC-1g): die VARIABLEN System-Achsen-Belegungen (Erweiterungshardware-Politik,
 // Compiler, opt_level) werden in build_version kodiert — eine unter anderer Belegung gebaute DLL bekommt
 // ein eigenes .version-Sidecar (kein falsches Skip via dll_is_current) und die CSV-Spalte
@@ -422,7 +430,9 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.dll_dir      = args.dll_dir;
     a.compile      = ex::make_gpp_compile_fn(
         perm_include_dirs(), perm_compile_flags(tp_ptr), cxx_compiler(), perm_link_libs(),
-        perm_opt_level_cflags(tp_ptr),     // opt-c: opt_level-Flag (Default O3, beweglich; Single-XML aus tp)
+        // opt-c: opt_level-Flag (Default O3, beweglich; Single-XML aus tp). Scheibe 2b: bei Build-Typ Debug
+        // ersetzt -O0 -g die Optimierung (echter Debug-DLL-Bau); ungesetzt/Release => byte-identisch zum Ist.
+        facade_build_type_is_debug() ? ex::debug_flags_for_toolchain() : perm_opt_level_cflags(tp_ptr),
         facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
     // Bauplan §5/§7: die AlgoSigFn aus der compile-time Versions-Tabelle (axis_variant_version_table). Der
     // Orchestrator berechnet damit je Binary die Organ-Signatur (perm.algos) und gated Rebuild + Neu-Messung. Die
@@ -442,27 +452,31 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         // system_axes_version_suffix() (Spiegel run_experiment_profile_facade). compile_for_perm montiert je Perm
         // die CompileFn aus den aufgeloesten Flags (WAS/WIE-Trennung: run_profile permutiert, die Facade montiert;
         // include_dirs/defines/cxx/link_libs/fno_gnu_unique bleiben Facade-Wissen).
-        a.build_version = args.build_version;
-        a.compiler_tag  = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
-        a.compile_for_perm =
-            [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
-             fno = facade_supports_fno_gnu_unique()](std::string const& opt_flag, std::string const& march_flag) {
-                std::string flags =
-                    opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march (gcc/clang teilen Syntax)
-                if (!march_flag.empty()) {
-                    flags += ' ';
-                    flags += march_flag;
-                }
-                // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein
-                // Organ required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable ->
-                // KEINE Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
-                for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
-                         ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
-                    flags += ' ';
-                    flags += mf;
-                }
-                return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
-            };
+        a.build_version    = args.build_version;
+        a.compiler_tag     = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+        a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(),
+                              libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
+                              dbg = facade_build_type_is_debug()](std::string const& opt_flag,
+                                                                  std::string const& march_flag) {
+            // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
+            // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
+            // byte-identisch zum Ist-Compile-Kanal.
+            std::string flags =
+                dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile (opt + -march)
+            if (!march_flag.empty()) {
+                flags += ' ';
+                flags += march_flag;
+            }
+            // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein
+            // Organ required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable ->
+            // KEINE Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
+            for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
+                     ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
+                flags += ' ';
+                flags += mf;
+            }
+            return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
+        };
     } else {
         a.build_version = args.build_version + system_axes_version_suffix(tp_ptr); // Einzel-Pfad byte-identisch
     }
@@ -766,9 +780,13 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
     a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(),
-                          libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique()](
-                             std::string const& opt_flag, std::string const& march_flag) {
-        std::string flags = opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march (gcc/clang teilen Syntax)
+                          libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
+                          dbg = facade_build_type_is_debug()](std::string const& opt_flag,
+                                                              std::string const& march_flag) {
+        // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
+        // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
+        std::string flags =
+            dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march
         if (!march_flag.empty()) {
             flags += ' ';
             flags += march_flag;
@@ -792,8 +810,11 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
         };
     }
     // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null wäre) = beweglicher CEB-Default (O3).
+    // Scheibe 2b: bei Build-Typ Debug -O0 -g statt der Optimierung; ungesetzt/Release => byte-identisch zum Ist.
     a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
-                                        perm_opt_level_cflags(), facade_supports_fno_gnu_unique());
+                                        facade_build_type_is_debug() ? ex::debug_flags_for_toolchain()
+                                                                     : perm_opt_level_cflags(),
+                                        facade_supports_fno_gnu_unique());
     a.n_ops   = args.n_ops;
     a.max_binaries = args.max_binaries;
     // opt-g: BASIS ohne System-Achsen-Suffix — die Perm-Schleife hängt je opt×simd "+cxx=+opt=+ext=" an

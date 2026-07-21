@@ -610,6 +610,19 @@ namespace detail {
 
 } // namespace detail
 
+/// Scheibe 2b (Ledger 61/62, §62-G (4)) -- Build-Typ-Debug-Flags, TOOLCHAIN-abstrahiert (NICHT an einer
+/// Linux-Stelle hartkodiert). Fuer die gesamte g++/clang-Toolchain-Familie der Projekt-Doktrin gilt
+/// universal "-O0 -g" (kein Optimierer + volle Debug-Info):
+///   - g++-16 auf den 8 Docker-Distro-Baendern (Linux-Plattform-Doktrin),
+///   - MSYS2/MinGW-g++ auf Windows 11 + Windows Server,
+///   - clang bzw. g++ auf macOS x86_64 UND ARM64.
+/// Der Debug-Zweck ist "DASS es funktioniert" + schnellerer DLL-Bau fuer den Verdrahtungs-Check
+/// (§61-MODI), NICHT Mess-Korrektheit. Die PERM-Identitaet [d,e,f] bleibt im Stempel O3 (Perm-Kennung);
+/// die tatsaechliche Compile-Einstellung traegt der (i)-+bt=Debug-Stempel (Bruecke #49/K7b: immer-
+/// expliziter Compile-Stempel je Binary). Heute EIN Pfad, aber benannte Naht: ein kuenftiger MSVC-Pfad
+/// (cl: /Od /Zi) dockt ueber die Compiler-System-Achse am make_system_compile_fn-Spiegel an.
+[[nodiscard]] inline std::string debug_flags_for_toolchain() { return "-O0 -g"; }
+
 /// Default-CompileFn: realer MSVC-Subprozess, baut perm_<id>.cpp → perm_<id>.dll (SHARED). {cores} → /MP<cores>.
 /// Host-Werkzeug (ruft cl via std::system; cl muss im PATH/Env sein, z.B. vcvars64). Ausgabe unterdrückt.
 [[nodiscard]] inline CompileFn make_system_compile_fn(std::vector<std::string> include_dirs = {},
