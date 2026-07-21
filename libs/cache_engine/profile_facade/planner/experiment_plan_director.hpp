@@ -926,6 +926,35 @@ private:
         // no_extension bleibt plattform-konfundiert, aber im CSV nachvollziehbar (Replay-Nachmessung je Maschine).
         s += "      export COMDARE_PLATFORM=\"" + host_lane +
              "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (§61/§62 per-Maschine)\n";
+        std::string const measure_out = "$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" + std::to_string(p.index);
+        if (header_.build_semantic.cmake_build_type == "Debug") {
+            // (j3) §61-STUFEN Dual-Compile: der Debug-Mess-Job macht ZWEI Treiber-Aufrufe. Der Tier-Bau (Stufe 1)
+            // provisioniert im Debug-Profil bereits Debug-DLLs -- die shareable RELEASE-Reuse-Masse (O2/O3,
+            // [d,e,f]+Default-Stempel; §62-Nachtrag-4 CEB->Tier-Schluessel) fehlte sonst im Debug-Lauf. (1) fuellt sie
+            // NACH (KEIN Messen), (2) baut+misst Debug (-O0/+bt via 2b+(i)). BAU-VERZEICHNIS-SUBTILITAET: gleiche
+            // binary_id => gleicher perm.so-Pfad, daher schreibt (1) in ein EIGENES Ausgabe-Dir (_release_provision);
+            // sonst ueberschriebe der Debug-Bau (2) die Release-.so. ccache/gn_out: der Treiber-cmake-Bau (build/) ist
+            // geteilt (EIN Treiber-Binary, beide Aufrufe); die DLL-.o/.so liegen je Aufruf im eigenen dll_dir, und der
+            // g++-DLL-Bau nutzt KEIN ccache (make_gpp_compile_fn spawnt g++ direkt) => keine Kreuz-Kontamination.
+            // Blocker #50 (measure-drop down): der smoke/debug-Lauf begrenzt die Artefakt-Retries (Env-Gate, kein Code).
+            s += "      export COMDARE_ARTEFAKT_TRIES=1   # (j3) Blocker #50: smoke/debug grindet nicht in "
+                 "Retry-Schleifen (HART: schlaegt einen globalen COMDARE_ARTEFAKT_TRIES=12)\n";
+            s += "      echo \"== (j3) Aufruf 1/2: Release provision-only (O2/O3-Reuse-Masse, Default-Stempel, KEIN "
+                 "Messen): " +
+                 combo_legend_ + perm_legend + organ + " ==\"\n";
+            s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+            s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+                 "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
+            s += "        \"$DRIVER\" experiment_config \"" + measure_out + "_release_provision\"\n";
+            s += "      echo \"== (j3) Aufruf 2/2: Debug-Bau+Messung (-O0/+bt via 2b+(i)), misst (KEIN "
+                 "provision-only): " +
+                 combo_legend_ + perm_legend + organ + " ==\"\n";
+            s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+            s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+                 "\" COMDARE_RUN_SOTA=0 \\\n";
+            s += "        \"$DRIVER\" experiment_config \"" + measure_out + "\"\n";
+            return s;
+        }
         s += "      echo \"== STUFE 3 Mess-Vollzug [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend + organ +
              ": Fenster $COMDARE_GOLDEN_N_RANGE, misst (KEIN provision-only) ==\"\n";
         // Nutzlast: OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST. EIN CSV je Zelle nach measure_out.
@@ -933,8 +962,7 @@ private:
         s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
         s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
              "\" COMDARE_RUN_SOTA=0 \\\n";
-        s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" +
-             std::to_string(p.index) + "\"\n";
+        s += "        \"$DRIVER\" experiment_config \"" + measure_out + "\"\n";
         return s;
     }
 
@@ -1087,9 +1115,38 @@ public:
         // kein when:manual im .cmake (das ist YAML/GitLab). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt.
         std::string const mstamp = stemdir + "/" + slug + "_perm" + idx + ".measure.stamp";
         std::string const mtgt   = tier_measure_target(p.index);
+        // (j3) §61-STUFEN Dual-Compile (bare-metal-symmetrisch zum ci-Mess-Job): NUR im Debug-Profil laeuft VOR dem
+        // Debug-Mess-COMMAND ein Release-Provision-COMMAND -> fuellt die shareable RELEASE-Reuse-Masse (O2/O3,
+        // [d,e,f]+Default-Stempel) nach, die der Debug-Tier-Bau sonst nicht erzeugt. Eigenes Ausgabe-Dir
+        // (_release_provision), damit der Debug-Bau die Release-.so nicht ueberschreibt (gleiche binary_id). KEIN
+        // cmake_bt_env (=> Release-Default). COMDARE_ARTEFAKT_TRIES=1: Blocker #50 (measure-drop). Release/measure =>
+        // provision_prologue LEER => das Mess-Target ist byte-identisch zum Ist-Stand.
+        std::string provision_prologue;
+        if (header_.build_semantic.cmake_build_type == "Debug") {
+            provision_prologue += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
+            provision_prologue += "            \"(j3) 1/2: Release provision-only (O2/O3-Reuse-Masse, Default-Stempel, "
+                                  "KEIN Messen): " +
+                                  combo_legend_ + perm_legend + organ + "\"\n";
+            provision_prologue += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+            provision_prologue += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+            provision_prologue += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+            provision_prologue += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+            provision_prologue += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            provision_prologue += combo_line; // COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all])
+            provision_prologue += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
+            provision_prologue +=
+                "            \"COMDARE_ARTEFAKT_TRIES=1\"\n"; // Blocker #50: measure-drop-Retries begrenzt
+            provision_prologue +=
+                "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n"; // (1) provisioniert, misst NICHT
+            provision_prologue += "            COMDARE_RUN_SOTA=0\n";
+            provision_prologue +=
+                "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
+                "/perm" + idx + "_release_provision\"\n";
+        }
         out_ += "if(NOT TARGET " + mtgt + ")\n";
         out_ += "    add_custom_command(\n";
         out_ += "        OUTPUT \"" + mstamp + "\"\n";
+        out_ += provision_prologue; // (j3) Debug: Release-Provision-COMMAND VOR dem Debug-Mess-COMMAND; sonst LEER
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
         out_ += "            \"measure (S5-P2 scharf, misst): [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
                 organ + "\"\n";
