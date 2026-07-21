@@ -91,6 +91,15 @@ public:
         if (std::string const du = env_or_empty("COMDARE_NFS_DROP_USER"); !du.empty()) c.drop_user_ = du;
         if (std::string const mc = env_or_empty("COMDARE_MC_BIN"); !mc.empty()) c.mc_bin_ = mc;
         if (std::string const cu = env_or_empty("COMDARE_CURL_BIN"); !cu.empty()) c.curl_bin_ = cu;
+        // S5-Rest (Blackhole-Wache): curl-Timeouts + Retry-Budget aus env uebersteuerbar (Muster der Env-Gates oben).
+        // Defaults konservativ (connect 10s, max-time 120s JE VERSUCH) -> bei ERREICHBAREM Storage feuern sie NIE
+        // (keine Verhaltensaenderung); ein Netz-Blackhole/TLS-Stall terminiert nun BOUNDED (tries_ x max_time) statt
+        // unbegrenzt zu haengen und die resource_group ceb-measurement-exclusive endlos zu halten.
+        c.connect_timeout_s_ = env_size_or("COMDARE_ARTEFAKT_CONNECT_TIMEOUT_S", c.connect_timeout_s_);
+        c.max_time_s_        = env_size_or("COMDARE_ARTEFAKT_MAX_TIME_S", c.max_time_s_);
+        c.tries_             = env_size_or("COMDARE_ARTEFAKT_TRIES", c.tries_);
+        if (c.tries_ == 0) c.tries_ = 1; // nie 0 -> sonst wird nie versucht (stiller Drop)
+        c.sleep_s_   = env_size_or("COMDARE_ARTEFAKT_RETRY_SLEEP_S", c.sleep_s_);
         c.run_stamp_ = make_run_stamp(); // EIN datierter Lauf-Baum (Sink-Besitzer des Timestamps)
         return c;
     }
@@ -209,7 +218,11 @@ private:
         std::error_code             ec;
         bool                        ok = false;
         for (std::size_t attempt = 1; attempt <= tries_; ++attempt) {
-            int const  rc   = run_argv({curl_bin_, "-K", cfg.string()}, out);
+            // --connect-timeout/--max-time (S5-Rest): kappen Verbindungsaufbau + Gesamtdauer JE VERSUCH -> ein
+            // haengender curl (Netz-Blackhole/TLS-Stall) blockiert nicht mehr unbegrenzt (bounded ueber tries_).
+            int const  rc = run_argv({curl_bin_, "--connect-timeout", std::to_string(connect_timeout_s_), "--max-time",
+                                      std::to_string(max_time_s_), "-K", cfg.string()},
+                                     out);
             long const code = parse_http_code(out);
             if (rc == 0 && ((code >= 200 && code < 300) || code == 409)) {
                 ok = true; // 2xx = abgelegt; 409 = additiv-Duplikat (write-only-Doktrin) -> beides OK, kein Retry
@@ -411,6 +424,19 @@ private:
         return {};
     }
 
+    /// Liest eine nicht-negative Ganzzahl aus env (leer/unparsebar -> fallback). Fuer die curl-Timeout-/Retry-Gates
+    /// (COMDARE_ARTEFAKT_*): eine ungueltige Vorgabe faellt HONEST auf den konservativen Default zurueck (nie throw).
+    [[nodiscard]] static std::size_t env_size_or(char const* name, std::size_t fallback) {
+        std::string const v = env_or_empty(name);
+        if (v.empty()) return fallback;
+        std::size_t value = 0;
+        for (char const ch : v) {
+            if (ch < '0' || ch > '9') return fallback; // unparsebar -> Default
+            value = value * 10 + static_cast<std::size_t>(ch - '0');
+        }
+        return value;
+    }
+
     /// YYYYMMDD-HHMMSS (lokale Zeit) — der datierte Lauf-Baum-Ordner der measure-drop-Senke.
     [[nodiscard]] static std::string make_run_stamp() {
         std::time_t const now = std::time(nullptr);
@@ -425,17 +451,19 @@ private:
         return std::string{buf};
     }
 
-    std::string endpoint_;             // COMDARE_MINIO_ENDPOINT (mc-Alias-Name; leer = Ebene B aus)
-    std::string bucket_;               // COMDARE_MINIO_BUCKET
-    std::string prefix_;               // COMDARE_MINIO_PREFIX (optional)
-    std::string drop_url_;             // COMDARE_MEASUREMENT_DROP_URL (measure-drop Basis-URL; leer = Ebene C aus)
-    std::string token_;                // COMDARE_NFS_DROP_TOKEN (NIE geloggt, NIE in argv — nur 0600-curl-Config)
-    std::string drop_user_{"measure"}; // COMDARE_NFS_DROP_USER (Basic-Auth-User; HANDOFF3-Default 'measure')
-    std::string mc_bin_   = "mc";      // COMDARE_MC_BIN override (Default via PATH)
-    std::string curl_bin_ = "curl";    // COMDARE_CURL_BIN override (Default via PATH)
-    std::string run_stamp_;            // datierter Lauf-Baum (Sink-Besitzer des Timestamps)
-    std::size_t tries_   = 12;         // Retry-Zahl (Vorbild copy_results_to_nas.sh: 12)
-    std::size_t sleep_s_ = 5;          // Pause zwischen Versuchen (s)
+    std::string endpoint_;                // COMDARE_MINIO_ENDPOINT (mc-Alias-Name; leer = Ebene B aus)
+    std::string bucket_;                  // COMDARE_MINIO_BUCKET
+    std::string prefix_;                  // COMDARE_MINIO_PREFIX (optional)
+    std::string drop_url_;                // COMDARE_MEASUREMENT_DROP_URL (measure-drop Basis-URL; leer = Ebene C aus)
+    std::string token_;                   // COMDARE_NFS_DROP_TOKEN (NIE geloggt, NIE in argv — nur 0600-curl-Config)
+    std::string drop_user_{"measure"};    // COMDARE_NFS_DROP_USER (Basic-Auth-User; HANDOFF3-Default 'measure')
+    std::string mc_bin_   = "mc";         // COMDARE_MC_BIN override (Default via PATH)
+    std::string curl_bin_ = "curl";       // COMDARE_CURL_BIN override (Default via PATH)
+    std::string run_stamp_;               // datierter Lauf-Baum (Sink-Besitzer des Timestamps)
+    std::size_t tries_             = 12;  // Retry-Zahl (Vorbild copy_results_to_nas.sh: 12; COMDARE_ARTEFAKT_TRIES)
+    std::size_t sleep_s_           = 5;   // Pause zwischen Versuchen (s; COMDARE_ARTEFAKT_RETRY_SLEEP_S)
+    std::size_t connect_timeout_s_ = 10;  // curl --connect-timeout je Versuch (COMDARE_ARTEFAKT_CONNECT_TIMEOUT_S)
+    std::size_t max_time_s_        = 120; // curl --max-time je Versuch (COMDARE_ARTEFAKT_MAX_TIME_S)
 };
 
 } // namespace comdare::cache_engine::builder::artifact_transport

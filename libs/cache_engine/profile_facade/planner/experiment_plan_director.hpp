@@ -632,13 +632,18 @@ private:
         // (Isolation + Byte-Determinismus). So liest der Voll-Build 131072 statt des Sicherheits-Fallbacks 16.
         s += "  variables:\n";
         s += "    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n";
+        // S5-P2-Rest (Smoke-Propagation): COMDARE_MEASURE_PROFILE analog forwarden -- self-contained Grandchild-
+        // Pipelines erben Pipeline-Variablen NICHT, sonst faellt die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE ==
+        // "smoke"' im Grandchild aus und die Mess-Jobs bleiben when:manual statt Auto-Run (Befund CI-Smoke 11840).
+        s += "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n";
         s += "  trigger:\n";
         s += "    include:\n";
         s += "      - artifact: " + art + "\n";
         s += "        job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "    strategy: depend\n";
         s += "    forward:\n";
-        s += "      yaml_variables: true       # Allowlist (COMDARE_GN_TOTAL) an die Grandchild reichen\n";
+        s +=
+            "      yaml_variables: true       # Allowlist (COMDARE_GN_TOTAL + COMDARE_MEASURE_PROFILE) an Grandchild\n";
         s += "      pipeline_variables: false  # kein blindes Erben des Eltern-Variablenraums (Isolation)\n";
         return s;
     }

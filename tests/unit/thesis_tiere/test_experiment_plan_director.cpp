@@ -647,6 +647,11 @@ TEST(CiYamlBuilder, CebTriggerForwardsGnTotalAsExplicitAllowlist) {
     // aus STUFE 1 geerbte Wert). Genau EINE Kombination ([all]) => genau EIN solcher Block.
     EXPECT_EQ(count_occurrences(yaml, "  variables:\n    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n"), 1u)
         << "ceb:trigger deklariert COMDARE_GN_TOTAL als Forward-Allowlist";
+    // S5-P2-Rest (Smoke-Propagation): derselbe Bridge-Job forwardet zusaetzlich COMDARE_MEASURE_PROFILE -- sonst
+    // faellt die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE == "smoke"' im Grandchild aus (Jobs bleiben when:manual
+    // statt Auto-Run; Befund CI-Smoke 11840/Grandchild 11858). Genau EINE Kombination ([all]) => genau EIN Block.
+    EXPECT_EQ(count_occurrences(yaml, "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n"), 1u)
+        << "ceb:trigger forwardet COMDARE_MEASURE_PROFILE (Smoke-Propagation an die Grandchild)";
     // forward:yaml_variables reicht die Allowlist an die Grandchild; pipeline_variables bleibt AUS (Isolation).
     EXPECT_NE(yaml.find("    forward:\n      yaml_variables: true"), std::string::npos)
         << "forward:yaml_variables:true reicht die Allowlist an die Grandchild";
