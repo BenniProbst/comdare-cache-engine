@@ -208,4 +208,11 @@ struct ExperimentRunResult {
 [[nodiscard]] int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os,
                                          std::string const& combo_selector = {});
 
+// Cache-Resthygiene-2 (2026-07-21): --chunk-organ-fingerprint -- druckt das Chunk-Organ-Fingerprint-PRE-IMAGE nach os
+// (die stem-sortiert konkatenierten perm.dll.algos-Inhalte der Range-Binaries). Die CI pipet os durch `sha256sum` ->
+// COMDARE_GN_ALGO_SIG == der S1-F1-Whole-Chunk-Marker-algo_sig (macht die Marker-Wache scharf). Range = (start,count);
+// count==0 => ganze Basis-View. Baut KEINE DLL (rein aus dem Katalog). Rueckgabe 0 (immer, auch bei leerem Praefix).
+[[nodiscard]] int chunk_organ_fingerprint_facade(std::filesystem::path const& profile_path, std::size_t range_start,
+                                                 std::size_t range_count, std::ostream& os);
+
 } // namespace comdare::cache_engine::builder::profile_facade
