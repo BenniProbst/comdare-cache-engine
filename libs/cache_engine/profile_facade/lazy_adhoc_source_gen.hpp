@@ -87,6 +87,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdlib> // S6-P1b Env-Bruecke: std::getenv (COMDARE_MEASUREMENT_COMBO)
 #include <memory>
 #include <string>
 #include <string_view>
@@ -185,7 +186,8 @@ template <class List>
 /// Der Permutations-Index im Kommentar-Kopf ist reine Doku (der Round-Trip-Key ist der Pfad) -> fixer
 /// Sentinel 0 (der lazy Emitter hat keinen laufenden Katalog-Index).
 [[nodiscard]] inline std::string lazy_adhoc_source_for(LazySlotTables const& tables, std::string const& binary_id,
-                                                       std::vector<ex::AxisVariantVersion> const& version_table) {
+                                                       std::vector<ex::AxisVariantVersion> const& version_table,
+                                                       std::string const& measurement_stamp = {}) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {};
     // W12-A2 (Section 43): DENSELBEN geteilten Helfer + DENSELBEN binary_id wie der Katalog-Pfad
@@ -194,7 +196,11 @@ template <class List>
     // mock-only organ_stamp_line<Comp>); system_stamp_line = die statischen System-Achsen-Algo-Versionen.
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
-    return cg::render_adhoc_module_source(0, macro_args, organ, system);
+    // S6-P1b (Section 43/47): APPEND-ONLY measurement_stamp = die Mess-Tooling-HAUPT-Stempel-Zeile
+    // (abi::measurement_stamp_line(tooling)) der vom Planer gewaehlten Combo. Default "" (LEERE/[all]-Combo) =>
+    // render_adhoc_module_source emittiert EXAKT die 2-arg-Makro-Zeile -> byte-identisch zur heutigen Quelle (die
+    // 320-Round-Trip-/Byte-Wache bleibt STRIKT). Nicht-leer (explizite wallclock/macro/micro-Combo) => 3-arg _M-Form.
+    return cg::render_adhoc_module_source(0, macro_args, organ, system, /*merge_stamp=*/{}, measurement_stamp);
 }
 
 /// make_lazy_adhoc_source_gen() -- die Naht: eine SourceGenFn (binary_id -> reale Modul-Quelle), die run_profile
@@ -202,15 +208,33 @@ template <class List>
 /// Die 17 Flyweight-Tabellen werden EINMAL gebaut (shared_ptr, per-Aufruf O(17)). Fuer einen binary_id, dessen
 /// 17 Slot-Werte alle enabled sind, liefert sie eine REALE Quelle; sonst leer (ehrlich). Geht NIE durch
 /// build_pilot_source_map -> GN-2-Guard unberuehrt.
-[[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen() {
+[[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen(std::string measurement_stamp = {}) {
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     // W12-A2 (Section 43): die {axis,variant->version}-Tabelle EINMAL bauen (wie die Flyweight-Tabellen,
     // shared_ptr) -> per-Aufruf O(1)-Zugriff; identisch zum Katalog-Pfad (build_axis_variant_version_table).
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
-    return [tables, version_table](std::string const& binary_id) -> std::string {
-        return lazy_adhoc_source_for(*tables, binary_id, *version_table);
+    // S6-P1b (Section 43/47): APPEND-ONLY measurement_stamp = die Mess-Tooling-HAUPT-Stempel-Zeile der gewaehlten
+    // Combo (abi::measurement_stamp_line(tooling)), per Wert in die SourceGenFn eingefangen. Default "" => byte-
+    // identische Quellen zur heutigen 1-CEB-Strecke (die Wachen bleiben gruen). Die LIVE-Naht reicht die Combo ueber
+    // make_lazy_adhoc_source_gen_from_env() (die tier:build/measure-Kommandos exportieren COMDARE_MEASUREMENT_COMBO).
+    return [tables, version_table,
+            measurement_stamp = std::move(measurement_stamp)](std::string const& binary_id) -> std::string {
+        return lazy_adhoc_source_for(*tables, binary_id, *version_table, measurement_stamp);
     };
+}
+
+/// make_lazy_adhoc_source_gen_from_env() -- die LIVE-Naht der S6-P1b Env-Bruecke (d)-(f): die vom Planer gewaehlte
+/// Mess-Combo reist ueber die Umgebungsvariable COMDARE_MEASUREMENT_COMBO (die Director-Tier-Kommandos exportieren die
+/// [a,b,c]-Legende ab N>1; der CLI-Parser --measurement-combo im messung_driver waehlt die Combo im gefilterten Walk).
+/// run_profile ruft DIESE Naht: die Legende wird zur Mess-Tooling-Stempel-Zeile (abi::measurement_stamp_line_from_
+/// combo_legend) und in den lazy Source-Gen gespeist -> die je-Combo-Bauten stempeln ihre DLLs REAL. UNGESETZT/[all]
+/// => "" => byte-identische Quellen (Default-Pfad unberuehrt; golden-CRC/320 neutral).
+[[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen_from_env() {
+    std::string measurement_stamp;
+    if (char const* e = std::getenv("COMDARE_MEASUREMENT_COMBO"); e != nullptr && *e != '\0')
+        measurement_stamp = ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e);
+    return make_lazy_adhoc_source_gen(std::move(measurement_stamp));
 }
 
 } // namespace comdare::cache_engine::thesis_lazy

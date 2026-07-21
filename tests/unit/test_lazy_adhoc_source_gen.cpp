@@ -20,10 +20,12 @@
 #include "source_catalog.hpp"        // catalog_static_levels<FullSourceCatalog> / kNewGolden131072Crc64
 
 #include <builder/experiment_tree/experiment_tree.hpp> // ExperimentTree / StaticBinaryView / ExperimentNodeFactory
+#include <cache_engine/abi/anatomy_version_stamp.hpp>  // S6-P1b: abi::measurement_stamp_line (Mess-Tooling-Stempel)
 #include <cache_engine/fingerprint/crc64.hpp>          // crc64_ecma182_update
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib> // S6-P1b Env-Bruecke: setenv/unsetenv (COMDARE_MEASUREMENT_COMBO)
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -256,6 +258,80 @@ void check_simd_organ_system_blind(std::vector<std::string> const& full_ids) {
     check_true("(d) gerenderte Quelle traegt den SIMD-Organ-Typ", src.find(simd_cpp) != std::string::npos);
 }
 
+// -- (e) S6-P1b: die Mess-Tooling-HAUPT-Stempel-Zeile (kMeasurementAxisVersionLine) wird in die Modul-Quelle
+//    einkompiliert, sobald die vom Planer gewaehlte Combo ein Tooling traegt. Default (LEERE/[all]-Combo, make_lazy_
+//    adhoc_source_gen() ohne Arg) => EXAKT die 2-arg-Makro-Zeile => byte-identisch (die Wachen (a)/(a2) bleiben gruen);
+//    explizite wallclock/macro-Combo => 3-arg _M-Form mit verschiedenen measurement_tooling=..@1.0.0-Zeilen. Der
+//    ADHOC-Block (Organ/System/Umbrella) bleibt unveraendert => binary_id/CRC UNBERUEHRT (der Stempel != binary_id).
+void check_measurement_stamp_wiring(std::vector<std::string> const& g320_ids) {
+    std::cout << "\n---- (e) S6-P1b: Mess-Tooling-Stempel je Combo in die Modul-Quelle einkompiliert ----\n";
+    namespace abi                 = ::comdare::cache_engine::abi;
+    std::string const     id      = g320_ids.front();
+    ex::SourceGenFn const def     = tlz::make_lazy_adhoc_source_gen(); // [all]/leer
+    ex::SourceGenFn const wc      = tlz::make_lazy_adhoc_source_gen(abi::measurement_stamp_line("wallclock"));
+    ex::SourceGenFn const ma      = tlz::make_lazy_adhoc_source_gen(abi::measurement_stamp_line("macro"));
+    std::string const     src_def = def(id);
+    std::string const     src_wc  = wc(id);
+    std::string const     src_ma  = ma(id);
+
+    // Default: EXAKT die 2-arg-Makro-Zeile, KEIN _M, KEIN measurement_tooling (byte-identisch zu (a)/(a2)).
+    check_true("(e) Default-Quelle traegt 2-arg COMDARE_ANATOMY_VERSION_STAMP(",
+               src_def.find("COMDARE_ANATOMY_VERSION_STAMP(") != std::string::npos);
+    check_true("(e) Default-Quelle traegt KEIN _M / kein measurement_tooling (byte-stabil)",
+               src_def.find("COMDARE_ANATOMY_VERSION_STAMP_M(") == std::string::npos &&
+                   src_def.find("measurement_tooling=") == std::string::npos);
+
+    // wallclock: 3-arg _M-Form mit measurement_tooling=wallclock@1.0.0.
+    check_true("(e) wallclock-Quelle traegt 3-arg COMDARE_ANATOMY_VERSION_STAMP_M(",
+               src_wc.find("COMDARE_ANATOMY_VERSION_STAMP_M(") != std::string::npos);
+    check_true("(e) wallclock-Quelle traegt measurement_tooling=wallclock@1.0.0",
+               src_wc.find("measurement_tooling=wallclock@1.0.0") != std::string::npos);
+
+    // macro: verschiedene measurement-Zeile => 2 Combos => 2 verschiedene DLL-Quellen.
+    check_true("(e) macro-Quelle traegt measurement_tooling=macro@1.0.0",
+               src_ma.find("measurement_tooling=macro@1.0.0") != std::string::npos);
+    check_true("(e) wallclock- und macro-Quelle verschieden (je Combo verschiedene Bytes)", src_wc != src_ma);
+    check_true("(e) wallclock-Quelle != Default-Quelle (Stempel additiv, nicht ersetzend)", src_wc != src_def);
+
+    // Der ADHOC-Block (alles VOR der Stempel-Makro-Zeile: Umbrella + ADHOC-Block) bleibt byte-gleich -> nur die
+    // Mess-Zeile differenziert -> binary_id/CRC neutral (der Stempel lebt separat im kompilierten Binary).
+    auto adhoc_block = [](std::string const& s) {
+        std::size_t const p = s.find("COMDARE_ANATOMY_VERSION_STAMP");
+        return p == std::string::npos ? s : s.substr(0, p);
+    };
+    check_true("(e) ADHOC-Block byte-gleich Default==wallclock (Organ/System unveraendert, Stempel additiv)",
+               adhoc_block(src_def) == adhoc_block(src_wc));
+}
+
+// -- (f) S6-P1b Env-Bruecke (d)-(f): COMDARE_MEASUREMENT_COMBO (Combo-Legende) -> Mess-Tooling-Stempel -> Quelle.
+//    Der Legende-Helfer (abi::measurement_stamp_line_from_combo_legend) und die LIVE-Naht
+//    (make_lazy_adhoc_source_gen_from_env) bilden zusammen die letzte Meile: die vom Planer per Env gereichte Combo
+//    stempelt die je-Combo-DLL-Quelle REAL; UNGESETZT/[all] => "" => byte-identisch zum Default.
+void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids) {
+    std::cout << "\n---- (f) S6-P1b Env-Bruecke: COMDARE_MEASUREMENT_COMBO -> Stempel in der Quelle ----\n";
+    namespace abi = ::comdare::cache_engine::abi;
+    // Legende -> Stempel-Helfer: [wallclock] -> measurement_tooling=wallclock@1.0.0; [all]/leer -> "" (byte-stabil).
+    check_eq("(f) legend [wallclock] -> Stempel", abi::measurement_stamp_line_from_combo_legend("[wallclock]"),
+             std::string{"measurement_tooling=wallclock@1.0.0"});
+    check_true("(f) legend [all] -> leer (byte-stabil)",
+               abi::measurement_stamp_line_from_combo_legend("[all]").empty());
+    check_true("(f) leere legend -> leer", abi::measurement_stamp_line_from_combo_legend("").empty());
+
+    std::string const id = g320_ids.front();
+    // Env gesetzt ([macro]) -> die from_env-Naht stempelt die Quelle mit measurement_tooling=macro.
+    ::setenv("COMDARE_MEASUREMENT_COMBO", "[macro]", 1);
+    std::string const src_env = tlz::make_lazy_adhoc_source_gen_from_env()(id);
+    ::unsetenv("COMDARE_MEASUREMENT_COMBO");
+    check_true("(f) Env [macro] -> Quelle traegt measurement_tooling=macro@1.0.0",
+               src_env.find("measurement_tooling=macro@1.0.0") != std::string::npos);
+    // Env ungesetzt -> KEIN Stempel -> byte-identisch zum Default make_lazy_adhoc_source_gen().
+    std::string const src_unset = tlz::make_lazy_adhoc_source_gen_from_env()(id);
+    check_true("(f) Env ungesetzt -> KEIN measurement_tooling (byte-stabil)",
+               src_unset.find("measurement_tooling=") == std::string::npos);
+    check_true("(f) Env ungesetzt == Default make_lazy_adhoc_source_gen()",
+               src_unset == tlz::make_lazy_adhoc_source_gen()(id));
+}
+
 } // namespace
 
 int main() {
@@ -269,6 +345,8 @@ int main() {
 
     check_320_byte_identity(g320_ids);
     check_stamp_injected(g320_ids);
+    check_measurement_stamp_wiring(g320_ids);
+    check_measurement_combo_env_bridge(g320_ids);
     check_golden_n_nonempty(g320_ids, full_ids);
     check_crc64_and_lazy_cover(full_ids);
     check_simd_organ_system_blind(full_ids);

@@ -163,13 +163,13 @@
     <value_types>std::string</value_types>
   </key_value_signature>
 
-  <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; PASSIV, Planer-delegiert]:
-       binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
-       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> --dump-plan byte-
-       identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
-       measure (Standard-Messmodus, 1-Thread/deterministisch); measurement_framework: ycsb (honest-1);
-       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ --
-       N>1 dormant bis S6). -->
+  <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; Planer-delegiert]:
+       binary_id-NEUTRAL (der Katalog haengt NICHT am Tooling -> binary_ids UNVERAENDERT). Parse + validate gegen die
+       constexpr-Mess-Registries. Ids-Single-Source = die Mess-Registries. run_methodology: measure (Standard-
+       Messmodus, 1-Thread/deterministisch); measurement_framework: ycsb (honest-1); writeback_methods: csv (die
+       maschinen-lesbare Roh-Wahrheit). measurement_tooling [S6-P1, F-3-Vorbereitung]: die 3 SEPARATEN CEB-Combos
+       {wallclock}/{macro}/{micro} (exakt das all_axes_golden-Muster) -> der Plan-Director faechert via
+       measurement_combos_of(categories, tooling) auf 3 ceb:build:[a,b,c]-Strecken auf (N>1 scharf ab S6). -->
   <run_methodology>
     <method value="measure"/>
   </run_methodology>
@@ -179,5 +179,7 @@
   </writeback_methods>
   <measurement_tooling>
     <combo tools="wallclock"/>
+    <combo tools="macro"/>
+    <combo tools="micro"/>
   </measurement_tooling>
 </comdare_thesis_profile>

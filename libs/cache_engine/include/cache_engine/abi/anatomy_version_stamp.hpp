@@ -98,6 +98,19 @@ template <class Comp>
     return build_axis_version_stamp_line(entries);
 }
 
+/// measurement_stamp_line_from_combo_legend(legend) -- die Mess-Tooling-Stempel-Zeile aus einer Planer-Combo-Legende
+/// (S6-P1b Env-Bruecke: COMDARE_MEASUREMENT_COMBO traegt die vom Planer gewaehlte [a,b,c]-Legende, z.B. "[wallclock]").
+/// LEER oder "[all]" (das volle Mess-System, kein Tooling-spezifischer Fan-out) -> "" (kein Stempel; der byte-stabile
+/// Default-Pfad -> emittierte Quelltexte byte-identisch). Sonst: die inneren Tooling-ids (ohne die []-Klammern) als
+/// Stempel-Tooling. So reist die gewaehlte Combo bis in die emittierte DLL-Source, ohne den Emitter zu entblinden.
+[[nodiscard]] inline std::string measurement_stamp_line_from_combo_legend(std::string_view legend) {
+    if (legend.empty() || legend == "[all]") return {};
+    std::string_view inner = legend;
+    if (inner.size() >= 2 && inner.front() == '[' && inner.back() == ']') inner = inner.substr(1, inner.size() - 2);
+    if (inner.empty() || inner == "all") return {};
+    return measurement_stamp_line(inner);
+}
+
 /// merge_stamp_line(strategy, pruefling, merged_axes) -- die kMergeAxisVersionLine (Section 59, K6a): der DRITTE
 /// Tier-Binary-Stempel = die MERGE-KOMBINATION. Zusaetzlich zu den zwei Section-58-Arrays (System + Organ) traegt
 /// die Tier-Binary damit die Merge-Art (die MergeStrategy: Stufe1/Stufe2/Stufe3) + die Pruefling-Identitaet + die

@@ -753,7 +753,12 @@ private:
         std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
         std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
         std::string const kstr  = std::to_string(k);
-        std::string       s;
+        // S6-P1b Env-Bruecke (d): ab N>1 traegt das Treiber-Kommando die gewaehlte Mess-Combo (COMDARE_MEASUREMENT_
+        // COMBO=[a,b,c]) -> run_profile (make_lazy_adhoc_source_gen_from_env) stempelt die je-Combo-DLLs REAL. [all]
+        // (Default, 1-CEB-Strecke) => LEER => das Treiber-Kommando byte-identisch zu vor S6-P1b.
+        std::string const combo_env =
+            combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
+        std::string s;
         s += "# JOB tier-build ceb=" + combo_legend_ + " perm " + std::to_string(p.index) + " chunk " + kstr +
              " (STUFE 2: CEB steuert Tier-Bau; Legende [d,e,f][g,h,i], ceb=[a,b,c] nur Kontext)\n";
         s += "\"" + job + "\":\n";
@@ -796,7 +801,7 @@ private:
              "): Fenster $COMDARE_GOLDEN_N_RANGE (von $TOTAL), provision-only ==\"\n";
         // Nutzlast: COMDARE_GOLDEN_N_RANGE kommt aus dem Export oben (kein globales Fixfenster mehr in der Zeile).
         s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-        s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+        s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
              "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
         s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/gn_out/" +
              legend::cmake_slug(combo_legend_) + "/perm" + std::to_string(p.index) + "/chunk" + kstr + "\"\n";
@@ -819,7 +824,11 @@ private:
         std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
         std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
         std::string const slug  = legend::cmake_slug(combo_legend_);
-        std::string       s;
+        // S6-P1b Env-Bruecke (d): der scharfe Mess-Vollzug baut+misst dieselbe je-Combo-DLL -> er traegt die gewaehlte
+        // Mess-Combo ebenso (COMDARE_MEASUREMENT_COMBO=[a,b,c]). [all] (Default) => LEER => byte-identisch.
+        std::string const combo_env =
+            combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
+        std::string s;
         s += "# JOB measure combo=" + combo_legend_ + " perm " + std::to_string(p.index) +
              " (STUFE 3: S5-P2 SCHARF -- realer Mess-Vollzug; smoke=Auto-Run / sonst when:manual = 320er-§41-Gate)\n";
         s += "\"" + job + "\":\n";
@@ -868,7 +877,8 @@ private:
         // Nutzlast: OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST. EIN CSV je Zelle nach measure_out.
         // COMDARE_RUN_SOTA=0 wie im Bau (keine SOTA-Reihe). COMDARE_RUN_MEASURE NICHT gesetzt (null Konsumenten).
         s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-        s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd + "\" COMDARE_RUN_SOTA=0 \\\n";
+        s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+             "\" COMDARE_RUN_SOTA=0 \\\n";
         s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" +
              std::to_string(p.index) + "\"\n";
         return s;
@@ -955,6 +965,11 @@ public:
         std::string const stemdir     = "${CMAKE_CURRENT_BINARY_DIR}/tier";
         std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
         std::string const organ       = legend::organ_reference();
+        // S6-P1b Env-Bruecke (d), bare-metal-symmetrisch zu emit_tier_build_job/emit_measure_job: ab N>1 traegt der
+        // -E env-Block die gewaehlte Mess-Combo -> run_profile stempelt die je-Combo-DLL. [all] => LEER => byte-stabil.
+        std::string const combo_line = combo_legend_ == "[all]"
+                                           ? std::string{}
+                                           : "            \"COMDARE_MEASUREMENT_COMBO=" + combo_legend_ + "\"\n";
         // §56/§54-T6: die Tier-Bau-Zelle ist System-Achse [d,e,f] x Organ-Achse [g,h,i]; combo_legend_ ([a,b,c])
         // ist nur CEB-Kontext (die CEB traegt [a,b,c] statisch), nicht Teil der Bau-Legende.
         out_ +=
@@ -978,6 +993,7 @@ public:
             out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
             out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
             out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += combo_line; // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
             out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
             out_ += "            COMDARE_RUN_SOTA=0\n";
             out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/" + slug + "/perm" +
@@ -1008,6 +1024,7 @@ public:
         out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
         out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
         out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+        out_ += combo_line; // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
         if (header_.build_semantic.single_thread)
             out_ += "            COMDARE_BUILD_PARALLEL=1\n"; // §38.b: 1-Thread-deterministischer Mess-Vollzug
         out_ += "            COMDARE_RUN_SOTA=0\n";
@@ -1070,10 +1087,12 @@ public:
         std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
         std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
-        // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. OFFEN (D2, s.
-        // measurement_combos_of): tp traegt KEIN measurement_tooling-Feld -> Default {} => 1 Voll-Konfig [all].
-        // Sobald der Parser das Feld fuellt: measurement_combos_of(tp.measurement_categories, tp.measurement_tooling).
-        std::vector<PlanMeasurementCombo> combos = measurement_combos_of(tp.measurement_categories);
+        // Mess-Tooling-HAUPT {wallclock/macro/micro} faechert die [a,b,c]-Kombination auf. S6-P1 (SCHARF): die
+        // Fan-out-Verdrahtung ist aktiv -- measurement_combos_of(cats, tp.measurement_tooling) faechert je
+        // deklarierter <combo>-Tooling-Konfig EINE ceb:build:[a,b,c]-Strecke auf. LEER (kein <measurement_tooling>)
+        // => Default {} => 1 Voll-Konfig [all] (byte-stabil zur heutigen 1-CEB-Strecke).
+        std::vector<PlanMeasurementCombo> combos =
+            measurement_combos_of(tp.measurement_categories, tp.measurement_tooling);
         // A5 (§56-T2-FANOUT D4): DORMANT bei leerem combo_selector (Live-Strecke {} => Identitaet, byte-stabil); ein
         // gesetzter Selektor (nur --emit-tier-ci-Naht) waehlt die EINE repraesentierte CEB-Konfig (Kollisionsschutz).
         combos                             = select_measurement_combo(std::move(combos), combo_selector);
@@ -1103,12 +1122,12 @@ public:
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
-        // §47/§54-T2/§55: [a,b,c]-HAUPT faechert ueber Mess-Tooling {wallclock/macro/micro}. SCOPE (2026-07-20): das
-        // measurement_tooling-Feld ist ADDITIV im Schema (KERN-A: Parser fuellt es, Schema-Vollstaendigkeit), aber die
-        // Fan-out-VERDRAHTUNG hierher (measurement_combos_of(cats, ep.measurement_tooling)) gehoert dem Schwester-
-        // Paket P-MESSTOOL — KERN-A reicht es NICHT durch. Default bleibt {} => 1 Voll-Konfig [all] (byte-stabil zur
-        // heutigen 1-CEB-Strecke).
-        std::vector<PlanMeasurementCombo> combos = measurement_combos_of(ep.measurement_categories);
+        // Mess-Tooling-HAUPT {wallclock/macro/micro} faechert die [a,b,c]-Kombination auf. S6-P1 (SCHARF): die
+        // Fan-out-Verdrahtung ist aktiv -- measurement_combos_of(cats, ep.measurement_tooling) faechert je
+        // deklarierter <combo>-Tooling-Konfig EINE ceb:build:[a,b,c]-Strecke auf. LEER (kein <measurement_tooling>)
+        // => Default {} => 1 Voll-Konfig [all] (byte-stabil zur heutigen 1-CEB-Strecke).
+        std::vector<PlanMeasurementCombo> combos =
+            measurement_combos_of(ep.measurement_categories, ep.measurement_tooling);
         // A5 (§56-T2-FANOUT D4): DORMANT bei leerem combo_selector (Live-Strecke {} => Identitaet, byte-stabil); ein
         // gesetzter Selektor (nur --emit-tier-ci-Naht) waehlt die EINE repraesentierte CEB-Konfig (Kollisionsschutz).
         combos                             = select_measurement_combo(std::move(combos), combo_selector);

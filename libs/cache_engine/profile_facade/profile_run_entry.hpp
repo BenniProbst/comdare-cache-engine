@@ -251,7 +251,10 @@ struct RunProfileResult {
     // fuer die uebrigen golden-N-ids (die base_union LEER laesst) rendert der lazy Emitter die reale Quelle
     // (O(17), umgeht build_pilot_source_map -> GN-2-Guard unberuehrt). Ohne golden-N-Fenster wird der lazy Gen
     // im Ist-Lauf nie erreicht (alle selektierten ids liegen in base_union) -> byte-identisch.
-    ex::SourceGenFn const lazy_gen  = make_lazy_adhoc_source_gen();
+    // S6-P1b Env-Bruecke (e): die vom Planer gewaehlte Mess-Combo reist via COMDARE_MEASUREMENT_COMBO in den lazy
+    // Source-Gen (make_lazy_adhoc_source_gen_from_env) -> die je-Combo-Bauten stempeln ihre DLLs REAL. UNGESETZT/[all]
+    // => "" => byte-identische Quellen (der golden-320-/Sweep-/SOTA-Pfad bleibt unberuehrt, s. union_gen unten).
+    ex::SourceGenFn const lazy_gen  = make_lazy_adhoc_source_gen_from_env();
     ex::SourceGenFn const union_gen = [base = std::move(base_union),
                                        lazy = lazy_gen](std::string const& binary_id) -> std::string {
         std::string src = base ? base(binary_id) : std::string{};
