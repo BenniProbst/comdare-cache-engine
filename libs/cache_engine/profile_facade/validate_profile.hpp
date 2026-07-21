@@ -474,6 +474,15 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
     //    bestehende Profile ohne diese Elemente validieren unveraendert). measurement_framework ist EINZELN. ──
     check_measurement_sub_axis(tp.run_methodology, ms::kRunMethodologyRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
+    // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call -- die Build-Semantik (build_semantic_of_run_methodology)
+    // ist damit eindeutig (debug ODER measure ODER release). >1 ist mehrdeutig; die A9-"sweepbar"-Auslegung ist per
+    // §61-STUFEN supersediert. LEER = Default measure (kein Fehler, byte-stabil zu Profilen ohne das Element).
+    if (tp.run_methodology.size() > 1) {
+        r.ok = false;
+        r.errors.push_back(
+            "run_methodology: " + std::to_string(tp.run_methodology.size()) +
+            " Methoden deklariert -- GENAU EINE erlaubt (exactly-one je Profil/Call, Ledger 61-STUFEN).");
+    }
     if (!tp.measurement_framework.empty()) {
         ++r.measurement_framework_checked;
         if (!measurement_sub_axis_has_id(ms::kMeasurementFrameworkRegistry, tp.measurement_framework)) {
@@ -1113,6 +1122,13 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     //    (Planer-delegiert). LEER = Skip (Zaehler 0 = byte-identisch). measurement_framework ist EINZELN. ──
     check_measurement_sub_axis(ep.run_methodology, ms::kRunMethodologyRegistry,
                                "<run_methodology><method value=", r.run_methodology_checked, r.ok, r.errors);
+    // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil/Call (s. thesis-Zweig).
+    if (ep.run_methodology.size() > 1) {
+        r.ok = false;
+        r.errors.push_back(
+            "run_methodology: " + std::to_string(ep.run_methodology.size()) +
+            " Methoden deklariert -- GENAU EINE erlaubt (exactly-one je Profil/Call, Ledger 61-STUFEN).");
+    }
     if (!ep.measurement_framework.empty()) {
         ++r.measurement_framework_checked;
         if (!measurement_sub_axis_has_id(ms::kMeasurementFrameworkRegistry, ep.measurement_framework)) {

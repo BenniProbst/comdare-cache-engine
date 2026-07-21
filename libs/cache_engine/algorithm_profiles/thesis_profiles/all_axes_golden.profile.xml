@@ -192,17 +192,15 @@
 
   <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; PASSIV, Planer-delegiert]:
        die WAS/WIE-Fuellung der Mess-Achsen-Familie, binary_id-NEUTRAL. Alle vier Bloecke reisen im ThesisProfile
-       mit (Parse + validate gegen die 4 constexpr-Mess-Registries), aber der Plan-Director konsumiert sie NICHT:
-       measurement_combos_of(measurement_categories) laesst measurement_tooling dormant (der N>1-Fan-out gehoert
-       S5/P-MESSTOOL) -> --dump-plan byte-identisch. Ids-Single-Source = die Mess-Registries (run_methodology /
-       measurement_framework / writeback_method / measurement_tooling). Als Ganz-System-Referenz deklariert dieses
-       Profil die VOLLEN Familien: run_methodology alle 3 Ablauf-Methoden {debug,measure,release}; writeback_methods
-       das volle Rueckschrieb-Trio {csv,latex_table,comparison_metrics}; measurement_tooling alle drei CEB-Typen als
-       SEPARATE Combos {wallclock}/{macro}/{micro}. measurement_framework = ycsb (honest-1, heute EINZIGES Framework). -->
+       mit (Parse + validate gegen die 4 constexpr-Mess-Registries). Ids-Single-Source = die Mess-Registries
+       (run_methodology / measurement_framework / writeback_method / measurement_tooling). Als Ganz-System-
+       Abgabe-Referenz deklariert dieses Profil: run_methodology = measure (§61-STUFEN/(j1): GENAU EIN Modus je
+       Profil -- die golden-Abgabe IST der Mess-Modus, Release-Build + 1-Thread-Messen; die frueheren {debug,release}-
+       Eintraege waren die A9-"sweepbar"-Auslegung, per §61-STUFEN supersediert); writeback_methods das volle Trio
+       {csv,latex_table,comparison_metrics}; measurement_tooling alle drei CEB-Typen als SEPARATE Combos
+       {wallclock}/{macro}/{micro}. measurement_framework = ycsb (honest-1, heute EINZIGES Framework). -->
   <run_methodology>
-    <method value="debug"/>
     <method value="measure"/>
-    <method value="release"/>
   </run_methodology>
   <measurement_framework name="ycsb"/>
   <writeback_methods>

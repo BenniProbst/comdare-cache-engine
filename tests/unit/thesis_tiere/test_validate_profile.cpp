@@ -366,27 +366,52 @@ TEST(ResolveAxisRefsAgainstTrio, ThesisPermuteAxesRefsResolveClean) {
 // die Report-Zeilen + das SKIP-Gate. binary_id-neutral (Planer-delegiert); der Fan-out/Vollzug gehoert S5.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// (a9a) gueltige A9.1-Werte werden AKZEPTIERT; die Zaehler + Report-Zeilen stimmen.
+// (a9a) gueltige A9.1-Werte (exactly-one Modus, §61-STUFEN/j1) werden AKZEPTIERT; die Zaehler + Report-Zeilen stimmen.
 TEST(ValidateProfileMeasurementSubAxes, ValidA9SubAxesAccepted) {
     ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
 
     auto tp = parse_temp("");
     ASSERT_TRUE(tp.has_value());
-    tp->run_methodology       = {"debug", "measure", "release"};
+    tp->run_methodology       = {"measure"}; // §61-STUFEN/(j1): GENAU EIN aktiver Modus je Profil
     tp->measurement_framework = "ycsb";
     tp->writeback_methods     = {"csv", "latex_table", "comparison_metrics"};
 
     tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
-    EXPECT_EQ(vr.run_methodology_checked, 3u);
+    EXPECT_EQ(vr.run_methodology_checked, 1u);
     EXPECT_EQ(vr.measurement_framework_checked, 1u);
     EXPECT_EQ(vr.writeback_methods_checked, 3u);
     std::ostringstream os;
     tlz::print_validation_report(vr, *tp, os);
-    EXPECT_NE(os.str().find("3 run_methodology"), std::string::npos) << os.str();
+    EXPECT_NE(os.str().find("1 run_methodology"), std::string::npos) << os.str();
     EXPECT_NE(os.str().find("1 measurement_framework"), std::string::npos) << os.str();
     EXPECT_NE(os.str().find("3 writeback_methods"), std::string::npos) << os.str();
+}
+
+// (a9a-exactly-one) §61-STUFEN/(j1): MEHR als ein run_methodology-Modus ist ein HARTER Fehler (exactly-one je
+//     Profil/Call; die A9-"sweepbar"-Auslegung ist supersediert). Genau EIN Modus (measure/debug/release) = gueltig.
+TEST(ValidateProfileMeasurementSubAxes, RunMethodologyMustBeExactlyOne) {
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+    auto                   tp       = parse_temp("");
+    ASSERT_TRUE(tp.has_value());
+    tp->measurement_framework = "ycsb";
+    tp->writeback_methods     = {"csv"};
+
+    // >1 Modus => harter Fehler (exactly-one).
+    tp->run_methodology                      = {"debug", "measure"};
+    tlz::ProfileValidationResult const multi = tlz::validate_profile(*tp, registry);
+    EXPECT_FALSE(multi.ok) << "zwei Modi muessen abgelehnt werden (exactly-one)";
+    bool found = false;
+    for (auto const& e : multi.errors)
+        if (e.find("GENAU EINE") != std::string::npos) found = true;
+    EXPECT_TRUE(found) << "exactly-one-Fehlermeldung erwartet";
+
+    // Genau EIN Modus (debug) => gueltig.
+    tp->run_methodology                    = {"debug"};
+    tlz::ProfileValidationResult const one = tlz::validate_profile(*tp, registry);
+    EXPECT_TRUE(one.ok) << "ein Modus (debug) ist gueltig";
+    EXPECT_EQ(one.run_methodology_checked, 1u);
 }
 
 // (a9b) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release}).

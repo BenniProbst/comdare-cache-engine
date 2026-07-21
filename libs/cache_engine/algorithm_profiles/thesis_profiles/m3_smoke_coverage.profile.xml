@@ -162,11 +162,11 @@
        binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
        measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> --dump-plan byte-
        identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
-       measure (Standard-Messmodus, 1-Thread/deterministisch); measurement_framework: ycsb (honest-1);
-       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ --
-       N>1 dormant bis S6). -->
+       debug (§61-STUFEN/(j2): der Smoke IST der Debug-Modus -- Debug-Build, Verdrahtungs-Check "DASS es laeuft"; das
+       parallele Debug-MESSEN ist §16.2-M1/Task #45, heute 1-Thread); measurement_framework: ycsb (honest-1);
+       writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ). -->
   <run_methodology>
-    <method value="measure"/>
+    <method value="debug"/>
   </run_methodology>
   <measurement_framework name="ycsb"/>
   <writeback_methods>

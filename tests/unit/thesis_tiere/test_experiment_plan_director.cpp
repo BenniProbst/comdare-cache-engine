@@ -525,15 +525,18 @@ TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsSharp) {
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_RANGE)"), std::string::npos);
     EXPECT_EQ(cmake.find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade im .cmake";
     // S5-P2 FLIP: der measure:-Schritt ist SCHARF (misst) -- KEIN gegatetes GN-11/320er-Skelett mehr. Realer
-    // Treiber-Aufruf nach measure/, 1-Thread-deterministisch (COMDARE_BUILD_PARALLEL=1), OHNE COMDARE_RUN_MEASURE.
+    // Treiber-Aufruf nach measure/. §61-MODI: DLL-Bau PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL), Messen 1-Thread.
     EXPECT_EQ(cmake.find("measure GATED (GN-11/320er"), std::string::npos)
         << "kein gegatetes Mess-Skelett mehr (S5-P2 scharf)";
     EXPECT_NE(cmake.find("measure (S5-P2 scharf, misst)"), std::string::npos)
         << "measure:-Target ist scharf (misst real)";
     EXPECT_NE(cmake.find("${COMDARE_PLAN_OUT}/measure/"), std::string::npos)
         << "scharfer Treiber-Aufruf schreibt EIN CSV je Zelle nach measure/";
-    EXPECT_EQ(count_occurrences(cmake, "COMDARE_BUILD_PARALLEL=1"), 12u)
-        << "je Mess-Target 1-Thread-deterministisch (COMDARE_BUILD_PARALLEL=1, §38.b; 3 Combos x 4 Perms)";
+    // §61-MODI Regressions-Fix: der DLL-Bau des Mess-Targets laeuft PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL, Default
+    // ProcessorCount) -- NICHT mehr COMDARE_BUILD_PARALLEL=1. Das Messen selbst bleibt 1-Thread (run_profile-Loop).
+    EXPECT_EQ(count_occurrences(cmake, "COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}"), 12u)
+        << "je Mess-Target DLL-Bau parallel (§61-MODI; 3 Combos x 4 Perms)";
+    EXPECT_EQ(cmake.find("COMDARE_BUILD_PARALLEL=1\n"), std::string::npos) << "kein serialisierter Bau mehr (§61-MODI)";
     EXPECT_EQ(cmake.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
 }
@@ -940,16 +943,23 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 12u)
         << "je Mess-Job eine smoke-Auto-Run-Regel (COMDARE_MEASURE_PROFILE==smoke => when:on_success)";
     EXPECT_NE(yaml.find("320er"), std::string::npos) << "Gate-Provenienz (§41/320er) dokumentiert";
-    // B14-#3: je Mess-Job eine exklusive resource_group (kein paralleler Messlauf auf demselben Runner).
-    EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measurement-exclusive\""), 12u)
-        << "je Mess-Job resource_group ceb-measurement-exclusive (Run-to-Run-Stabilitaet; 3 Combos x 4 Perms)";
-    // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out, 1-Thread-deterministisch
-    // (COMDARE_BUILD_PARALLEL=1), OHNE COMDARE_GOLDEN_N_PROVISION_ONLY (die Abwesenheit IST das Mess-Signal) und
-    // OHNE COMDARE_RUN_MEASURE (null Konsumenten).
+    // (h)/(k) §61-KONSOLIDIERUNG: Mess-Exklusivitaet PRO MASCHINE (ceb-measure-<host>). all_axes_golden (no_ext+avx2,
+    // 3 Combos): avx2->intel IMMER (6 Jobs); no_ext folgt der Combo (wallclock->amd, macro->intel, micro->amd) =>
+    // amd = 2(wallclock)+0(macro)+2(micro) = 4; intel = 6(avx2) + 2(macro-no_ext) = 8. Summe 12.
+    EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measure-amd\""), 4u)
+        << "amd-Lane: no_ext bei wallclock+micro (2+2)";
+    EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measure-intel\""), 8u)
+        << "intel-Lane: alle avx2 (6) + no_ext bei macro (2)";
+    EXPECT_EQ(yaml.find("ceb-measurement-exclusive"), std::string::npos)
+        << "keine globale Mess-Serialisierung mehr (§61-MODI: prod1+prod2 messen parallel)";
+    // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out. §61-MODI: der DLL-Bau laeuft
+    // PARALLEL (COMDARE_BUILD_PARALLEL=$(nproc)), NUR das Messen ist 1-Thread (run_profile); OHNE COMDARE_RUN_MEASURE.
     EXPECT_NE(yaml.find("$CI_PROJECT_DIR/Code/measure_out/"), std::string::npos)
         << "scharfer Mess-Aufruf schreibt nach measure_out";
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=1"), 12u)
-        << "je Mess-Job 1-Thread-deterministisch (§38.b; 3 Combos x 4 Perms)";
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"$(nproc)\""), 12u)
+        << "je Mess-Job DLL-Bau parallel (§61-MODI Regressions-Fix; 3 Combos x 4 Perms)";
+    EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos)
+        << "kein serialisierter Bau mehr (§61-MODI: der alte =1 war eine Regression)";
     EXPECT_EQ(yaml.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
     EXPECT_EQ(yaml.find("measure GATED (GN-11/320er"), std::string::npos)
@@ -1287,4 +1297,64 @@ TEST(MeasurementComboEnvBridge, TierCommandsCarryComboEnvWhenFannedAndOmitForAll
     planner::TierCmakeGraphBuilder cm_all;
     director.construct(*tp_all, cm_all);
     EXPECT_EQ(cm_all.text().find("COMDARE_MEASUREMENT_COMBO="), std::string::npos);
+}
+
+// (S6-P1 g/h) §61-MODI: der Mess-Job traegt (g) den smoke=Debug-Branch (parallel/schnell) + measure=Release (sonst),
+//       den §61-Regressions-Fix (DLL-Bau parallel statt =1) und (h) per-Host-Lanes (prod1/amd, prod2/intel; avx512
+//       nie intel). Paralleles MESSEN (debug-Ideal) bleibt UNGEBAUT (§16.2-M1) -- hier NICHT getestet (ehrliche Luecke).
+TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
+    planner::ExperimentPlanDirector const director;
+
+    // MEASURE-Profil (all_axes_golden, run_methodology=measure per j1): STATISCHER Release-Build (KEIN Runtime-Branch;
+    // j2: Methodik aus dem PROFIL, nicht Env), §61-MODI-Regressions-Fix (DLL-Bau parallel), per-Host-Lanes, KEIN +bt.
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    ASSERT_EQ(tp->run_methodology.size(), 1u) << "exactly-one (j1)";
+    ASSERT_EQ(tp->run_methodology.front(), "measure");
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    EXPECT_NE(yaml.find("-DCMAKE_BUILD_TYPE=Release"), std::string::npos) << "measure => statisch Release (j2)";
+    EXPECT_EQ(yaml.find("COMDARE_MEASURE_BUILD_TYPE"), std::string::npos) << "kein Runtime-Build-Typ-Branch mehr (j2)";
+    EXPECT_EQ(yaml.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "measure=Default => kein +bt-Signal (i)";
+    // §61-MODI Regressions-Fix: DLL-Bau parallel ($(nproc)), NICHT =1.
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"$(nproc)\""), std::string::npos);
+    EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos);
+    // (h) per-Host-Lanes: amd + intel + Host-Tags (prod1+prod2 messen parallel).
+    EXPECT_NE(yaml.find("  resource_group: \"ceb-measure-amd\""), std::string::npos);
+    EXPECT_NE(yaml.find("  resource_group: \"ceb-measure-intel\""), std::string::npos);
+    EXPECT_NE(yaml.find("  tags: [\"amd\"]"), std::string::npos) << "no_extension-Perm -> amd-Lane";
+    EXPECT_NE(yaml.find("  tags: [\"intel\"]"), std::string::npos) << "avx2-Perm -> intel-Lane";
+
+    // (k) measure_host_lane(simd, combo): no_extension folgt der Mess-Combo (F-4-Aufloesung); avx512/avx2 sind
+    // combo-UNABHAENGIG (Hardware-Zwang bzw. Standard-Routing schlaegt die Combo).
+    EXPECT_EQ(planner::measure_host_lane("no_extension", "[wallclock]"), "amd") << "no_ext+wallclock -> amd (prod1)";
+    EXPECT_EQ(planner::measure_host_lane("no_extension", "[macro]"), "intel") << "no_ext+macro -> intel (prod2)";
+    EXPECT_EQ(planner::measure_host_lane("no_extension", "[micro]"), "amd") << "no_ext+micro -> amd (prod1)";
+    EXPECT_EQ(planner::measure_host_lane("avx512", "[macro]"), "amd") << "avx512 zwingend amd (Combo ignoriert)";
+    EXPECT_EQ(planner::measure_host_lane("avx2", "[wallclock]"), "intel") << "avx2 -> intel (Combo ignoriert)";
+    EXPECT_NE(planner::measure_host_lane("avx512", "[macro]"), "intel") << "avx512 landet NIE auf intel";
+
+    // DEBUG-Profil (j2: Methodik aus dem PROFIL): dieselben Achsen, run_methodology=debug -> STATISCH Debug-Build +
+    // (i) COMDARE_BUILD_TYPE=Debug-Signal (Nicht-Default => +bt=Debug an der facade-Suffix-Naht, benannter Folgepunkt).
+    auto dbg             = tp;
+    dbg->run_methodology = {"debug"};
+    planner::TierCiYamlBuilder tb_dbg;
+    director.construct(*dbg, tb_dbg);
+    std::string const& ydbg = tb_dbg.text();
+    EXPECT_NE(ydbg.find("-DCMAKE_BUILD_TYPE=Debug"), std::string::npos) << "debug-Profil => statisch Debug (j2)";
+    EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "(i) Nicht-Default => +bt-Signal";
+
+    // Bare-metal (--emit-tier-cmake): DLL-Bau-Pool parallel (ProcessorCount) fuer measure; kein +bt. Debug => +bt.
+    planner::TierCmakeGraphBuilder cm;
+    director.construct(*tp, cm);
+    EXPECT_NE(cm.text().find("COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}"), std::string::npos);
+    EXPECT_NE(cm.text().find("ProcessorCount(_comdare_measure_nproc)"), std::string::npos)
+        << "Default = ProcessorCount";
+    EXPECT_EQ(cm.text().find("COMDARE_BUILD_PARALLEL=1\n"), std::string::npos);
+    EXPECT_EQ(cm.text().find("COMDARE_BUILD_TYPE=Debug"), std::string::npos) << "measure => kein +bt (cmake)";
+    planner::TierCmakeGraphBuilder cm_dbg;
+    director.construct(*dbg, cm_dbg);
+    EXPECT_NE(cm_dbg.text().find("\"COMDARE_BUILD_TYPE=Debug\""), std::string::npos) << "debug => +bt-Signal (cmake)";
 }
