@@ -335,6 +335,19 @@ struct ExperimentEngine {
     std::string registry; // <engine registry=..> (Registry-XML-Dateiname; Existenz/Namen = validate)
 };
 
+// KERN #48-S4 (Section 62-C/D/E, 2026-07-22): <machines><machine id cpu_fabrication ram_pair hostname_hint/>.
+// Die Maschinen-MENGE ist das CI-Fertig-Gate-Kriterium (EINE XML fuer beide Maschinen, Symmetrie-Regel). Die
+// Identitaet ist zweistufig: der KERN ist cpu_fabrication + ram_pair (Pflicht, validate erzwingt nicht-leer);
+// hostname_hint ist NUR ein Hinweis (validate prueft den Schluessel, NICHT den Namen). ADDITIV + PASSIV: der
+// Parser traegt die Roh-Strings; leer/fehlend = kein <machines> = heutiges Verhalten byte-identisch. Der Konsum
+// (Fertig-Gate-Auswertung) gehoert dem Planer/CEB (post-S4).
+struct ExperimentMachine {
+    std::string id;              // <machine id=..>
+    std::string cpu_fabrication; // <machine cpu_fabrication=..> (Kern-Identitaet, Pflicht)
+    std::string ram_pair;        // <machine ram_pair=..> (Kern-Identitaet, Pflicht)
+    std::string hostname_hint;   // <machine hostname_hint=..> (optionaler Hinweis, NICHT Schluessel)
+};
+
 struct ExperimentPhase {
     std::string              name;      // <phase name=..>
     std::string              merge;     // <phase merge=..> (MergeStrategy-Name als String)
@@ -353,7 +366,12 @@ struct ExperimentAxisDefault {                 // <axes_default_lookup><axis ref
     // KERN-A (S4 Mess-Schema, 2026-07-20): per-Achse Merge-Modus fuer die Pruefling-Komposition. Leer=""=replace-
     // Default (heutiges Verhalten byte-identisch); "merge" = additiver Zusammenschluss statt Ersetzen (Fork 4). Die
     // Enum-Pruefung {replace,merge} lebt in validate_profile (cache_engine-Schicht), NICHT hier (Baseline-Layering).
-    std::string merge_mode; // <axis merge=..> (optional; ""=replace-Default | "merge")
+    std::string merge_mode; // <axis merge=..> (optional; ""=replace-Default | "merge" | "fulljoin")
+    // KERN #48-S4 (Section 59-C/D, 2026-07-22): per-Achse Pruefling-Wahl. Von WELCHEM Pruefling die Achse stammt
+    // (Engine-id/lebewesen-id oder self-Marker "CacheEngine"/"self"). Leer = Fallback auf die Phasen-Identitaet
+    // (merge_plan.hpp profile_pruefling_identity). ADDITIV: leer = heutiges Verhalten byte-identisch. Die
+    // Wert-Gueltigkeit prueft validate_experiment_profile (cache_engine-Schicht), NICHT hier (Baseline-Layering).
+    std::string pruefling; // <axis pruefling=..> (optional; leer = Phasen-Identitaet-Fallback)
 };
 
 struct ExperimentOutput {
@@ -361,6 +379,11 @@ struct ExperimentOutput {
     std::string csv_path;                   // <output><csv_path>
     std::string latex_path;                 // <output><latex_path>
     bool        comparison_metrics = false; // <output><comparison_metrics> (bool)
+    // KERN #48-S4 (Section 59-C-Slot, 2026-07-22): <output><storage backend=local|minio endpoint=..>. In #48 INERT
+    // deklariert (der Konsum K7b/K8 folgt post-Abgabe). backend leer = kein <storage> = heutiges Verhalten. endpoint
+    // ist nur bei backend="minio" sinnvoll. Die backend-Enum-Pruefung lebt in validate (cache_engine-Schicht).
+    std::string storage_backend;  // <output><storage backend=..> (""=keiner | "local" | "minio")
+    std::string storage_endpoint; // <output><storage endpoint=..> (nur minio; leer sonst)
 };
 
 // CompilerAxisSel / ExtensionHardwareAxisSel — GN-3 (2026-07-19): jetzt VOR ThesisProfile definiert (geteilte
@@ -371,9 +394,10 @@ struct ExperimentProfile {
     std::string                   id;       // <comdare_experiment id=..>
     ExperimentMetadata            metadata; // <metadata>
     ExperimentTemplate            templ; // KERN-A: <template ref mode> (Research-Gesamtalgorithmus-Load; leer = keiner)
-    std::vector<ExperimentEngine> engines;   // <execution_engines><engine>* (Schema: GENAU 2)
-    std::vector<std::string>      lebewesen; // <lebewesen><tier id=..>* (base_tier-ids)
-    std::vector<ExperimentPhase>  phases;    // <phases><phase>* (Schema: >=1; Golden: 3 Kompositionale Joins)
+    std::vector<ExperimentEngine> engines;    // <execution_engines><engine>* (Schema: GENAU 2)
+    std::vector<ExperimentMachine> machines;  // KERN #48-S4: <machines><machine>* (Section 62-C; leer = keine Menge)
+    std::vector<std::string>       lebewesen; // <lebewesen><tier id=..>* (base_tier-ids)
+    std::vector<ExperimentPhase>   phases;    // <phases><phase>* (Schema: >=1; Golden: 3 Kompositionale Joins)
     // <axes_default_lookup enabled=..> — reines LIMIT (ungenannte Achsen = volle Registry-Liste).
     bool                               axes_default_lookup_enabled = false;
     std::vector<ExperimentAxisDefault> axes_default_lookup;

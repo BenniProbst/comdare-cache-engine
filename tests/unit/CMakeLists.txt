@@ -2681,6 +2681,29 @@ target_compile_definitions(test_experiment_parser PRIVATE
     "COMDARE_PRT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/prt_art_axis_registry.xml\"")
 set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
 
+# KERN #48-S4 (2026-07-22) -- ctest-Gate der Minimal-Parser-/Validator-Naht der vier neuen comdare_experiment-v2-
+# Elemente (machines / axis@pruefling / merge=fulljoin / storage). ADDITIV: eigene Fixture experiment_golden_kern.xml
+# + eigenes Source-File; beruehrt KEINEN bestehenden Parser-/Projection-/Director-Pin. Fixture wird NUR GELESEN.
+comdare_add_test(test_experiment_kern_seam
+    SOURCES thesis_tiere/test_experiment_kern_seam.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_experiment_kern_seam)
+target_include_directories(test_experiment_kern_seam PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_experiment_kern_seam PRIVATE Boost::mp11)
+target_compile_definitions(test_experiment_kern_seam PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_EXPERIMENT_GOLDEN_KERN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden_kern.xml\"")
+set_tests_properties(test_experiment_kern_seam PROPERTIES LABELS "contract;profiles;e4;incd")
+
 # BRÜCKE I3 (2026-07-16) — ctest-Gate der Projektion ExperimentProfile → (merge×lebewesen)-Pässe/Quellen-Map
 # (sota_catalog.hpp::project_experiment_to_sota_passes, E5/Fork-5 (b) schmale Overloads). REINER Enumerations-/
 # Render-Schritt der Fork-A-Brücke — KEIN DLL-Bau, KEINE Messung. Beweist (a) je Phase die WÖRTLICH erwarteten

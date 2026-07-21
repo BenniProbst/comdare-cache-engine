@@ -39,11 +39,13 @@ TEST(MergePlanDirective, EmptyProfileYieldsNoDirectivesFallsBackToCatalog) {
         << "leeres merge_mode = replace-Default OHNE Direktive => Katalog-Pfad";
 }
 
-// (a2) merge_mode-Zuordnung (Single-Source): replace/""->Stufe2, merge->Stufe3.
+// (a2) merge_mode-Zuordnung (Single-Source): replace/""->Stufe2, merge/fulljoin->Stufe3.
 TEST(MergePlanDirective, MergeModeToStrategyMapping) {
     EXPECT_EQ(tlz::merge_mode_to_strategy(""), "Stufe2_PrueflingReplace");
     EXPECT_EQ(tlz::merge_mode_to_strategy("replace"), "Stufe2_PrueflingReplace");
     EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Stufe3_FullJoin");
+    // KERN #48-S4 (Verdikt V-a): "fulljoin" = der EXPLIZITE Phase-3-Token, projiziert wie "merge" auf FullJoin.
+    EXPECT_EQ(tlz::merge_mode_to_strategy("fulljoin"), "Stufe3_FullJoin");
 }
 
 // (a3) Ein per-Achse-merge-Profil => je markierter Achse EINE Direktive mit korrekter Strategie + Pruefling.
