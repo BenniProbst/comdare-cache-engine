@@ -41,7 +41,8 @@
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
-#include "../../anatomy/observable_tier.hpp"       // IObservableTier
+#include "../pruef_dock/pruef_only.hpp" // S3 (§62-B COMDARE_PRUEF_ONLY): run_so_conformance_gate (Load+Gate, kein Bau/Mess)
+#include "../../anatomy/observable_tier.hpp" // IObservableTier
 #include "../../anatomy/measurable_workload.hpp" // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (17 Segmente, INC-2d)
 #include "../../anatomy/resource_controllable_tier.hpp" // IResourceControllableTier
 
@@ -160,6 +161,11 @@ struct LazyRunConfig {
     // Lade-/Mess-Phase zurueck -> keine gemessenen CSV-Zeilen, kein DLL-Laden. Entkoppelt den ~8h-Materialisierungs-
     // Bau vom mehrtaegigen Messlauf (Storage-cachebar). Default false = altes Verhalten (byte-identisch).
     bool provision_only = false;
+    // S3 (§62-B COMDARE_PRUEF_ONLY): NUR das Konformitaets-Gate je bereits gebauter .so -- KEINE Messung, KEIN Neubau
+    // (provision_all laeuft im Resume-Modus -> versions-aktuelle .so werden uebersprungen). Kehrt in
+    // run_lazy_static_then_dynamic nach provision_all VOR der Mess-Phase zurueck. Default false = byte-identisch.
+    // Gegenseitig ausschliessend mit provision_only (das zuerst greift). Nur wirksam mit per_binary_subdirs.
+    bool pruef_only = false;
     // Storage #51 (Naht-Injektion, No-Op-Default => byte-neutral; Muster wie CompileFn/AlgoSigFn). Der Iterator ruft
     // sie SYNCHRON an der per-Binary-Naht (NACH result.csv+stamp, VOR RAII-DLL-Unload) — nie async/detached (I/O-
     // Contention = Messfehler). cache_push: perm.dll(+.version) -> Objekt-Store (Ebene B). measurement_sink:
@@ -636,6 +642,10 @@ struct LazyRunResult {
     // über die globale CSV; der Baum trägt nur die in DIESEM Lauf frisch gemessenen Knoten).
     std::size_t resumed_binaries = 0;
     std::string resumed_csv_rows;
+    // S3 (§62-B COMDARE_PRUEF_ONLY): Ergebnis der Gate-only-Phase. pruef_ok = .so geladen + Gate bestanden;
+    // pruef_failed = .so nicht ladbar ODER Gate durchgefallen. NUR im pruef_only-Lauf > 0 (sonst byte-neutral 0).
+    std::size_t pruef_ok     = 0;
+    std::size_t pruef_failed = 0;
 };
 
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
@@ -858,6 +868,51 @@ struct LazyRunResult {
         if (push_pump) push_pump->close();
         // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je bereitgestellte Binary EIN
         // Delta (in StaticBinaryView-Ordnung), danach genau EIN done-Delta am Fensterende. No-Op ohne progress_sink.
+        for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
+        fire_progress_done(builds.size());
+        return result;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    // S3 (§62-B COMDARE_PRUEF_ONLY): NUR das Konformitaets-Gate je bereits gebauter .so -- KEINE Messung. provision_all
+    // lief im Resume-Modus (versions-aktuelle .so uebersprungen -> KEIN Neubau im provision->pruef-Fluss); dieser Zweig
+    // laedt+gated jede ok()-Binary (run_so_conformance_gate, Herausloesung aus measure_one_binary) und kehrt VOR der
+    // Mess-Phase zurueck. Log-sichtbar je Zelle via S1-ProgressHeartbeat (zeit-gated) + je Fail eine geflushte Zeile.
+    // pruef_ok/pruef_failed -> der Entry (run_profile) setzt daraus den Exit-Code (!=0 bei Gate-Fail).
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    if (cfg.pruef_only) {
+        if (push_pump) push_pump->close();
+        ProgressHeartbeat pruef_hb{"pruef-zelle", builds.size()};
+        for (BuildResult const& b : builds) {
+            if (!b.ok()) {
+                ++result.load_failed;
+                ++result.pruef_failed;
+                std::cerr << "[pruef-fail] binary_id='" << b.binary_id << "' Bau-Fehler (status=" << b.status
+                          << ") -> nicht pruefbar\n"
+                          << std::flush;
+                pruef_hb.tick();
+                continue;
+            }
+            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output);
+            if (!oc.loaded) {
+                ++result.load_failed;
+                ++result.pruef_failed;
+                std::cerr << "[pruef-fail] binary_id='" << b.binary_id
+                          << "' .so nicht ladbar/kein Mess-Interface: " << b.output.string() << "\n"
+                          << std::flush;
+            } else if (oc.gate.passed()) {
+                ++result.loaded;
+                ++result.pruef_ok;
+            } else {
+                ++result.loaded;
+                ++result.pruef_failed;
+                std::cerr << "[pruef-fail] binary_id='" << b.binary_id << "' Gate " << oc.gate.cases_passed << "/"
+                          << oc.gate.cases_total << " first_fail=" << oc.gate.first_fail << "\n"
+                          << std::flush;
+            }
+            pruef_hb.tick();
+        }
+        pruef_hb.done();
         for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
         fire_progress_done(builds.size());
         return result;

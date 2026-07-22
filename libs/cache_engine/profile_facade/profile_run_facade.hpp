@@ -44,6 +44,9 @@ struct ProfileRunArgs {
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
     bool        provision_only     = false; // true = nur bauen, nicht messen
+    // S3 (§62-B COMDARE_PRUEF_ONLY): true = NUR das Konformitaets-Gate je gebauter .so (kein Bau, keine Messung). Der
+    // Host (messung_driver) belegt es aus COMDARE_PRUEF_ONLY. Gegenseitig ausschliessend mit provision_only.
+    bool pruef_only = false;
     // W6 (Ledger §32-F7, 2026-07-19): expliziter Bau-Pool-Worker-Override. Der Host (messung_driver) belegt ihn aus
     // COMDARE_BUILD_PARALLEL (env_parallelism_value). 0 = ungesetzt => parallel_jobs()-Heuristik = byte-neutrales Ist;
     // >0 = harte parallele Compile-Zahl (KOMPILATION parallel, MESSEN bleibt 1-Thread).

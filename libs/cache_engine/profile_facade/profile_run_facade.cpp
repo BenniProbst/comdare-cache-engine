@@ -544,6 +544,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.golden_range_start         = args.golden_range_start; // INC-G6: Chunk-Fenster durchreichen (inert bei count==0)
     a.golden_range_count         = args.golden_range_count;
     a.provision_only             = args.provision_only; // INC-G6: provision-only durchreichen (inert bei false)
+    a.pruef_only                 = args.pruef_only;     // S3 (§62-B): pruef-only durchreichen (inert bei false)
     a.build_parallelism   = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
     a.gn_cell_opt         = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
     a.gn_cell_simd        = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)

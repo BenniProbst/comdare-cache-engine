@@ -1456,6 +1456,23 @@ target_compile_definitions(test_v41_anatomy_adhoc_dll_load PRIVATE
     "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
 add_dependencies(test_v41_anatomy_adhoc_dll_load comdare_r5g_adhoc_perm)
 
+# S3 (§62-B COMDARE_PRUEF_ONLY): run_so_conformance_gate laedt die r5g-adhoc-.so-Fixture + faehrt NUR das Gate.
+comdare_add_test(test_pruef_only_gate
+    SOURCES test_pruef_only_gate.cpp)
+target_include_directories(test_pruef_only_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_pruef_only_gate PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+target_compile_definitions(test_pruef_only_gate PRIVATE
+    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
+add_dependencies(test_pruef_only_gate comdare_r5g_adhoc_perm)
+
 # V41.F.6.1 R5.G — SKALIERUNG: comdare-adhoc-emitter enumeriert den GANZEN Pilot-Raum (Configure-Time)
 # und CMake baut JEDE emittierte Permutation zu einer eigenen SHARED-DLL. 2-Pass:
 #   Pass 1: cmake -B build  (Tool noch nicht gebaut -> SKIPPED, Tool-Target eingehaengt)
