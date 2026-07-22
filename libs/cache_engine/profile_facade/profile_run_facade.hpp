@@ -215,4 +215,11 @@ struct ExperimentRunResult {
 [[nodiscard]] int chunk_organ_fingerprint_facade(std::filesystem::path const& profile_path, std::size_t range_start,
                                                  std::size_t range_count, std::ostream& os);
 
+// R8 (Nacht-Audit 2026-07-22): --print-cache-key -- druckt cache_key_prefix(base_build_version + Perm-Suffix aus der
+// Env) nach os (EINE Zeile), damit die CI (.golden_n_build) den VOLLEN ce-Objekt-Key LITERAL konsumiert (kein
+// bash-Key-Drift der +bt/+ceb/+mtool/+mrg-Segmente). base_build_version = die Mess-Lauf-build_version (main: "m3v2");
+// Perm-Suffix aus COMDARE_GN_OPT/COMDARE_GN_SIMD/COMDARE_CXX/COMDARE_BUILD_TYPE (perm-loop-Reihenfolge); +ceb/+mtool/
+// +mrg aus ArtifactCache::from_env(). Baut KEINE DLL. Rueckgabe 0.
+[[nodiscard]] int print_cache_key_facade(std::string const& base_build_version, std::ostream& os);
+
 } // namespace comdare::cache_engine::builder::profile_facade

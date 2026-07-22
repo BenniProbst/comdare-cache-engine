@@ -872,4 +872,30 @@ int chunk_organ_fingerprint_facade(std::filesystem::path const& profile_path, st
     return 0;
 }
 
+// R8 (Nacht-Audit 2026-07-22): --print-cache-key -- druckt den VOLLEN ce-Objekt-Cache-Key-Praefix
+// cache_key_prefix(perm_build_version) fuer die per Env gepinnte GN-Zelle nach os (EINE Zeile). So konsumiert die CI
+// (.golden_n_build) den Key LITERAL statt ihn in bash nachzubilden -> kein Key-Drift: die Segmente +bt/+ceb/+mtool/
+// +mrg UND die Perm-Suffix-Reihenfolge kommen Single-Source aus dem Treiber. Der Perm-Suffix wird EXAKT in der
+// perm-loop-Reihenfolge montiert (profile_run_entry.hpp: +cxx +opt +ext[!=no_extension] +bt); die single-XML-Naht
+// system_axes_version_suffix nutzt eine ANDERE Reihenfolge (+ext+cxx+opt) -- fuer die GN-Cluster-Zellen und die
+// YAML-GN_PREFIX ist die perm-loop-Reihenfolge autoritativ. Env: COMDARE_GN_OPT (opt), COMDARE_GN_SIMD (simd),
+// COMDARE_CXX (via cxx_compiler(), +cxx), COMDARE_BUILD_TYPE (+bt), COMDARE_MEASUREMENT_COMBO (+mtool via
+// ArtifactCache::from_env). Baut KEINE DLL, liest keinen Katalog. Rueckgabe 0.
+int print_cache_key_facade(std::string const& base_build_version, std::ostream& os) {
+    namespace cm   = ::comdare::cache_engine::measurement;
+    namespace at   = ::comdare::cache_engine::builder::artifact_transport;
+    auto const env = [](char const* key) -> std::string {
+        char const* const v = std::getenv(key);
+        return (v != nullptr) ? std::string{v} : std::string{};
+    };
+    std::string const opt    = env("COMDARE_GN_OPT");
+    std::string const simd   = env("COMDARE_GN_SIMD");
+    std::string       suffix = "+cxx=" + cxx_compiler() + "+opt=" + opt;
+    if (simd != std::string{cm::SimdNoExtOption::simd_id()}) suffix += "+ext=" + simd; // no_extension => KEIN +ext
+    suffix += tlz::build_type_version_suffix(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug (sonst byte-identisch)
+    at::ArtifactCache const cache = at::ArtifactCache::from_env(); // +mtool aus COMDARE_MEASUREMENT_COMBO, +ceb aus ABI
+    os << cache.cache_key_prefix(base_build_version + suffix) << "\n";
+    return 0;
+}
+
 } // namespace comdare::cache_engine::builder::profile_facade
