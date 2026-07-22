@@ -72,7 +72,7 @@ TEST(ExperimentKernSeam, ParsesMachinesWithCoreIdentity) {
     ASSERT_TRUE(ep.has_value());
     ASSERT_EQ(ep->machines.size(), 2u);
     EXPECT_EQ(ep->machines[0].id, "prod1");
-    EXPECT_EQ(ep->machines[0].cpu_fabrication, "amd_zen4_avx512");
+    EXPECT_EQ(ep->machines[0].cpu_fabrication, "amd_zen5_avx512");
     EXPECT_EQ(ep->machines[0].ram_pair, "ddr5_2x32");
     EXPECT_EQ(ep->machines[0].hostname_hint, "prod1");
     EXPECT_EQ(ep->machines[1].id, "prod2");
