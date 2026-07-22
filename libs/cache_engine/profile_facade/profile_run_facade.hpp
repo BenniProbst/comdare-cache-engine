@@ -222,4 +222,9 @@ struct ExperimentRunResult {
 // +mrg aus ArtifactCache::from_env(). Baut KEINE DLL. Rueckgabe 0.
 [[nodiscard]] int print_cache_key_facade(std::string const& base_build_version, std::ostream& os);
 
+// G1 (K7b-4, Section 62-B, B6-Auflage): --version -- druckt den Je-Binary-Selbst-Stempel des Treiber-Binary (Planer- +
+// CEB-Rolle) nach os: vier gelabelte non-empty Zeilen (planner-Selbst-Stempel / ceb-contract / build-type /
+// build-version = system_axes_version_suffix). Rein-lesend, baut KEINE DLL. Rueckgabe 0.
+[[nodiscard]] int print_version_facade(std::ostream& os);
+
 } // namespace comdare::cache_engine::builder::profile_facade
