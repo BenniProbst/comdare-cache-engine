@@ -3,7 +3,7 @@
 // Zwei-Cache-Storage-Naht (BAUPLAN-TWO-CACHE-STORAGE §3 / VERORTUNGS-BRIEF §1). Zwei getrennte Speicher-Ebenen:
 //
 //   B  CEB/Tier-Binary-Bau-Artefakte -> minio-Objekt-Store (mc-Shellout). Objekt-Key
-//      <build_version>/<stem>/perm.dll(+.version); Vollstaendigkeits-Marke: perm.dll ZUERST, perm.dll.version
+//      cache_key_prefix(build_version)/<stem>/perm.dll(+.version); Vollstaendigkeits-Marke: perm.dll ZUERST, perm.dll.version
 //      ZULETZT (halb-gepusht = kein Sidecar = kein Pull). Der Key KOPPELT an dieselbe build_version-Signatur, die
 //      dll_is_current lokal prueft -> stale ABI (5->6) wird NIE reused.
 //   C  Messergebnisse -> der bestehende write-only `measure-drop`-Pfad per HTTPS-PUT (curl-Shellout): PUT an
@@ -57,7 +57,7 @@ namespace comdare::cache_engine::builder::artifact_transport {
 // ── Injektions-Naht-Typen (No-Op-Default = leere std::function -> byte-neutral). ──────────────────────────────
 // Muster wie CompileFn/AlgoSigFn (build_orchestrator.hpp): der Iterator ruft sie SYNCHRON an der per-Binary-Naht.
 // CachePushFn: ein fertig gebautes Tier-Binary-Verzeichnis -> Objekt-Store (Ebene B). Args (bin_dir, build_version);
-//   der Client leitet Objekt-Key <build_version>/<stem>/perm.dll(+.version) ab (stem = bin_dir.filename()).
+//   der Client leitet Objekt-Key cache_key_prefix(build_version)/<stem>/perm.dll(+.version) ab (stem = bin_dir.filename()).
 using CachePushFn = std::function<void(std::filesystem::path const& bin_dir, std::string const& build_version)>;
 // MeasurementSinkFn: eine Mess-Datei additiv an die write-only measure-drop-Senke legen (Ebene C, HTTPS-PUT). Args
 //   (local_file, relative_dest); Ziel-URL = <drop_url>/<lauf_stamp>/<relative_dest>. Leer = No-Op.
@@ -66,7 +66,7 @@ using MeasurementSinkFn =
 // W11 (Ledger §43.c): PartialMarkerFn -- nach je N gepushten DLLs im BAU-Modus feuert der async Push-Pump einen
 //   TEIL-Marker in den Objekt-Store, damit ein Runner, der einen abgebrochenen Chunk-Job wieder aufnimmt, die
 //   bereits gepushten DLLs dieses Chunks pullen kann (Cluster-Resume). Args (build_version, part_index); der Client
-//   leitet den Key <build_version>/_gn_chunk_markers/<range>.part<k>.done ab (range im Client-Closure gekapselt).
+//   leitet den Key cache_key_prefix(build_version)/_gn_chunk_markers/<range>.part<k>.done ab (range im Client-Closure gekapselt).
 //   Leer = No-Op (byte-neutral). Reihenfolge-unabhaengig (Objekt-Store), daher aus dem Push-Thread erlaubt.
 using PartialMarkerFn = std::function<void(std::string const& build_version, std::size_t part_index)>;
 // S2 (#46a Pull): CachePullFn -- die BATCH-Warm-Cache-Hydrierung VOR dem Bau. Der Iterator ruft sie EINMAL in Phase A
@@ -285,7 +285,7 @@ public:
         return false; // MISS (leerer Praefix / Netzfehler) -> lokal bauen; dll_is_current bleibt der Arbiter
     }
 
-    /// W11 (Ledger §43.c): Ebene B TEIL-Marker. Legt einen kleinen Marker <build_version>/_gn_chunk_markers/
+    /// W11 (Ledger §43.c): Ebene B TEIL-Marker. Legt einen kleinen Marker cache_key_prefix(build_version)/_gn_chunk_markers/
     /// <range>.part<k>.done in den Objekt-Store (range: ':' -> '-', wie die YAML-Whole-Chunk-Marke). Signalisiert:
     /// die ersten k*N DLLs dieses Chunks sind gepusht -> ein resumierender Runner darf den PREFIX pullen und lokal
     /// via dll_is_current uebernehmen (nur die fehlenden werden neu gebaut). No-Op ohne Ebene B. Fehler -> ArtefaktIo
