@@ -2,7 +2,9 @@
 // Leichte TU (keine Registries): verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
+#include <cache_engine/abi/anatomy_fingerprint.hpp> // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
+#include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
 #include <profile_facade/planner/planner_version.hpp>
@@ -121,25 +123,43 @@ TEST(MW12StampBausteine, MeasurementStampLineCarriesOnlyToolingMain) {
     EXPECT_TRUE(::comdare::cache_engine::abi::measurement_stamp_line("").empty());
 }
 
-TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt72) {
-    // K7a Version-Line-Gate (Section 59, 2026-07-20): kMergeAxisVersionLine ist als merge_line/merge_len ANS ENDE des
-    // AnatomyVersionLines-POD angehaengt (append-only; organ_/system_/measurement_-Offsets stabil) = der DRITTE
-    // Tier-Binary-Stempel (Merge-Kombination). Der Layout-Bump 2 -> 3 signalisiert die neuen Trailing-Felder; der
-    // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
-    // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt88) {
+    // K7a (Section 59): kMergeAxisVersionLine als merge_line/merge_len ans POD-Ende (append-only, dritter Tier-Stempel).
+    // K7b-3 (Section 62-B, 2026-07-22): sha512_line/sha512_len ans POD-Ende angehaengt = SHA-512-Fingerprint der 4
+    // Stempel-Zeilen (5. Feld-Paar). Der Layout-Bump 3 -> 4 signalisiert das neue Trailing-Feld; die
+    // organ_/system_/measurement_/merge_-Offsets bleiben stabil (append-only). Der sizeof-static_assert lebt in
+    // anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
+    // binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 72, "POD-Layout-Wache: 10 Felder, 8-aligned -> 72 Byte (x86_64).");
+    static_assert(sizeof(AnatomyVersionLines) == 88, "POD-Layout-Wache: 12 Felder, 8-aligned -> 88 Byte (x86_64).");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 72u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 88u);
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
-    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 3u);
-    // Offset-Stabilitaet: organ_/system_/measurement_ liegen unveraendert, die Merge-Felder folgen dahinter (append-only).
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 4u);
+    // Offset-Stabilitaet: organ_/system_/measurement_/merge_ liegen unveraendert, das SHA-512-Feld folgt dahinter.
     EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 48u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, merge_line), 56u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, merge_len), 64u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 72u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 80u);
+}
+
+TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfConcat) {
+    // K7b-3 (Section 62-B): der 5. POD-Stempel == SHA-512(concat organ+system+measurement+merge) als 128-hex,
+    // nullterminiert (D3-Reihenfolge). Selbst-konsistent gegen die K7b-1-Primitive geprueft (kein externer Vektor).
+    namespace abi     = ::comdare::cache_engine::abi;
+    namespace s5      = ::comdare::cache_engine::sha512;
+    constexpr auto fp = abi::anatomy_fingerprint_hex("a", "b", "c", "d");
+    static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
+    constexpr auto ref = s5::to_hex(s5::sha512("abcd"));
+    for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp[i], ref[i]) << "hex-Stelle " << i;
+    // ce-only-/Katalog-Pfad: measurement == merge == "" -> Fingerprint von concat(organ+system) allein.
+    constexpr auto fp_ceonly  = abi::anatomy_fingerprint_hex("org", "sys", "", "");
+    constexpr auto ref_ceonly = s5::to_hex(s5::sha512("orgsys"));
+    for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp_ceonly[i], ref_ceonly[i]);
 }
 
 TEST(MW12StampBausteine, MergeStampLineCarriesMergeCombinationOrEmptyForCeOnly) {
