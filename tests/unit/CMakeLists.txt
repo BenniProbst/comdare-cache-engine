@@ -3459,6 +3459,26 @@ add_test(NAME test_m_w12_stamp_bausteine COMMAND test_m_w12_stamp_bausteine)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_w12_stamp_bausteine)
 set_tests_properties(test_m_w12_stamp_bausteine PROPERTIES LABELS "m;blut")
 
+# K7b-4 (§62-B, G1/B6-Auflage): G1-Je-Binary-Selbst-Stempel-Header (Format-Pin + non-empty je Feld; leichte TU).
+add_executable(test_g1_binary_version_stamp "test_g1_binary_version_stamp.cpp")
+target_compile_features(test_g1_binary_version_stamp PRIVATE cxx_std_23)
+target_include_directories(test_g1_binary_version_stamp PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# Hermetik (CI-3): planner_version.hpp zieht transitiv topics/axis.hpp (boost::mp11) -- explizit linken.
+target_link_libraries(test_g1_binary_version_stamp PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_g1_binary_version_stamp)
+target_compile_definitions(test_g1_binary_version_stamp PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_g1_binary_version_stamp COMMAND test_g1_binary_version_stamp)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_g1_binary_version_stamp)
+set_tests_properties(test_g1_binary_version_stamp PROPERTIES LABELS "m;blut")
+
 # Limits-Entkopplung Vorstufe - XML-Profil generiert Build-Header, kein Produktivkonsum.
 add_executable(test_limits_entkopplung_vorstufe
     "test_limits_entkopplung_vorstufe.cpp")

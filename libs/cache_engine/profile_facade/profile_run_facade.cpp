@@ -4,8 +4,9 @@
 #include "profile_run_facade.hpp"
 
 #include "profile_run_entry.hpp"
-#include "experiment_run_entry.hpp" // Brücke-I4: run_experiment_profile (comdare_experiment-Lauf-Unterbau)
-#include "validate_profile.hpp"     // P5: axis_registry_from_levels / validate_profile / print_validation_report
+#include "experiment_run_entry.hpp"    // Brücke-I4: run_experiment_profile (comdare_experiment-Lauf-Unterbau)
+#include "validate_profile.hpp"        // P5: axis_registry_from_levels / validate_profile / print_validation_report
+#include "g1_binary_version_stamp.hpp" // K7b-4/G1: g1_binary_version_block (Je-Binary-Selbst-Stempel, --version)
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 #include "planner/experiment_plan_director.hpp" // W5-B: ExperimentPlanDirector/PlanTextBuilder (katalog-schwer -> NUR hier)
@@ -941,6 +942,16 @@ int print_cache_key_facade(std::string const& base_build_version, std::ostream& 
     suffix += tlz::build_type_version_suffix(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug (sonst byte-identisch)
     at::ArtifactCache const cache = at::ArtifactCache::from_env(); // +mtool aus COMDARE_MEASUREMENT_COMBO, +ceb aus ABI
     os << cache.cache_key_prefix(base_build_version + suffix) << "\n";
+    return 0;
+}
+
+// G1 (K7b-4, Section 62-B, B6-Auflage): --version -- druckt den Je-Binary-Selbst-Stempel des Treiber-Binary (Planer- +
+// CEB-Rolle, EIN Binary) nach os. Vier gelabelte non-empty Zeilen (planner-Selbst-Stempel / ceb-contract / build-type /
+// build-version). system_axes_version_suffix() ist die Single-Source der System-Achsen-build_version (enthaelt bereits
+// +ceb/+bt/+ext/+cxx/+opt); die vier gelabelten Zeilen komponiert der header-only g1_binary_version_block. Rein-lesend,
+// baut KEINE DLL, liest keinen Katalog. Rueckgabe 0.
+int print_version_facade(std::ostream& os) {
+    os << g1_binary_version_block(system_axes_version_suffix());
     return 0;
 }
 
