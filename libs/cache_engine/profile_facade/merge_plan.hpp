@@ -32,23 +32,34 @@ namespace mp_cx = ::comdare::builder::xml;
 /// MergeStrategy (strategy, pruefling_merge.hpp-Name) um WELCHEN Pruefling-Slot (pruefling_slot) gemergt, ueber
 /// WELCHE Varianten-Whitelist (allowed_variants; leer = die volle Registry-Liste, Fork 5 Obergrenze = Angebot).
 struct AxisMergeDirective {
-    std::string axis_ref;       ///< Registry-axis-id (== ExperimentAxisDefault::ref, z.B. "path_compression")
-    std::string strategy;       ///< MergeStrategy-Name ("Stufe1_CeOnly"/"Stufe2_PrueflingReplace"/"Stufe3_FullJoin")
+    std::string axis_ref; ///< Registry-axis-id (== ExperimentAxisDefault::ref, z.B. "path_compression")
+    std::string
+        strategy; ///< MergeStrategy-Name ("Stufe1_CeOnly"/"Stufe2_PrueflingReplace"/"Stufe2_Hybrid"/"Stufe3_FullJoin")
     std::string pruefling_slot; ///< Pruefling-Identitaet, die den Slot belegt ("" / "CacheEngine"/"self" = ce, Stufe1)
     std::vector<std::string> allowed_variants; ///< Achsen-Varianten-Whitelist (Teilmenge; leer = volle Liste)
 };
 
 /// merge_mode_to_strategy(merge_mode) -- die per-Achse merge_mode-Semantik ({replace,merge,fulljoin}) auf die
 /// MergeStrategy-Namen abbilden (Single-Source der Zuordnung). ""/"replace" => Stufe2_PrueflingReplace (die
-/// Pruefling-Achse ERSETZT die CE-Achse mit Fallback); "merge"/"fulljoin" => Stufe3_FullJoin (Union CE + Pruefling,
-/// non-redundant). KERN #48-S4 (Verdikt V-a): "fulljoin" ist der EXPLIZITE Phase-3-Token -- validate erzwingt seine
-/// Phase-3-Bindung (validate_profile.hpp), waehrend "merge" der tolerante Legacy-Token bleibt; beide projizieren auf
-/// dieselbe FullJoin-Union (das MergeStrategy-Enum traegt heute genau drei Werte, pruefling_merge.hpp). Die volle
-/// Materialisierung einer getrennten Stufe-2-Hybrid-Strategie ist Director-Konsum (post-S4). Section-59-A(1)
-/// Stufe1_CeOnly ist die Abwesenheit einer Pruefling-Direktive (kein axes_default_lookup-merge / self).
+/// Pruefling-Achse ERSETZT die CE-Achse mit Fallback).
+/// R6 (Nacht-Audit 2026-07-22, §59-A(2)-Wortlaut = Gesetz): "merge" und "fulljoin" sind NICHT dasselbe und werden
+/// NICHT mehr vermischt --
+///   "merge"    => Stufe2_Hybrid   (§59-A(2): CE + Pruefling HYBRID je Pruefling),
+///   "fulljoin" => Stufe3_FullJoin (§59-A(3): kombinierte Union CE + Pruefling, non-redundant; validate erzwingt die
+///                 Phase-3-Bindung, validate_profile.hpp).
+/// Die fruehere Projektion (beide -> Stufe3_FullJoin) war die Regression: sie kollabierte am DRITTEN Tier-Stempel
+/// (merge_stamp_line, §59-C) die Trennung der Merge-Kategorien. merge_stamp_line traegt die Strategie VERBATIM
+/// ("merge=<strategy>;..."), damit ist Hybrid ("merge=Stufe2_Hybrid") != FullJoin ("merge=Stufe3_FullJoin").
+/// MATERIALISIERUNG DEFERRED (Director-Konsum, post-S4): das MergeStrategy-Enum (pruefling_merge.hpp) traegt heute
+/// NUR Stufe1_CeOnly/Stufe2_PrueflingReplace/Stufe3_FullJoin -- KEIN Stufe2_Hybrid. Der direktiven-getriebene Emitter
+/// (sota_catalog.hpp: render_directive_merge_module_source) rendert die Strategie als pf::MergeStrategy::<strategy>-
+/// TEXT; eine reale "merge"-Direktive MIT realem Slot ist damit erst kompilierbar, wenn die Materialisierung
+/// (Enum-Wert Stufe2_Hybrid + Spezialisierung) landet -- heute 0 Produktions-Aufrufer (dormant, nur String-getestet).
+/// Section-59-A(1) Stufe1_CeOnly ist die Abwesenheit einer Pruefling-Direktive (kein axes_default_lookup-merge / self).
 [[nodiscard]] inline std::string merge_mode_to_strategy(std::string const& merge_mode) {
-    if (merge_mode == "merge" || merge_mode == "fulljoin") return "Stufe3_FullJoin";
-    return "Stufe2_PrueflingReplace"; // "" (Default) und "replace" => ERSETZT-mit-Fallback (Stufe2)
+    if (merge_mode == "fulljoin") return "Stufe3_FullJoin"; // §59-A(3): kombinierte Union CE + Pruefling
+    if (merge_mode == "merge") return "Stufe2_Hybrid"; // §59-A(2): CE + Pruefling HYBRID je Pruefling (!= FullJoin)
+    return "Stufe2_PrueflingReplace";                  // "" (Default) und "replace" => ERSETZT-mit-Fallback (Stufe2)
 }
 
 /// profile_pruefling_identity(ep) -- die Pruefling-Identitaet der Merge-Phasen des Profils. Die erste <phase>, die

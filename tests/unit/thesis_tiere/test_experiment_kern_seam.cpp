@@ -189,8 +189,8 @@ TEST(ExperimentKernSeam, IdNamespaceWithoutPrueflingWarns) {
 
 // ── (d) merge_plan-Projektion nachgezogen ────────────────────────────────────
 TEST(ExperimentKernSeam, FulljoinProjectsToFullJoinStrategy) {
-    EXPECT_EQ(tlz::merge_mode_to_strategy("fulljoin"), "Stufe3_FullJoin");
-    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Stufe3_FullJoin");
+    EXPECT_EQ(tlz::merge_mode_to_strategy("fulljoin"), "Stufe3_FullJoin"); // §59-A(3): kombinierte Union
+    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Stufe2_Hybrid");      // R6/§59-A(2): Hybrid, NICHT FullJoin
     EXPECT_EQ(tlz::merge_mode_to_strategy("replace"), "Stufe2_PrueflingReplace");
 }
 
