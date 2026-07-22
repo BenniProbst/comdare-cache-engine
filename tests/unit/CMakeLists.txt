@@ -3479,6 +3479,17 @@ add_test(NAME test_g1_binary_version_stamp COMMAND test_g1_binary_version_stamp)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_g1_binary_version_stamp)
 set_tests_properties(test_g1_binary_version_stamp PROPERTIES LABELS "m;blut")
 
+# S1 (§62-B Log-Flush): ProgressHeartbeat -- geflushtes zeit-gatetes Fortschritts-Testat (leichte TU, nur std).
+add_executable(test_progress_heartbeat "test_progress_heartbeat.cpp")
+target_compile_features(test_progress_heartbeat PRIVATE cxx_std_23)
+target_include_directories(test_progress_heartbeat PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_progress_heartbeat PRIVATE gtest gtest_main)
+comdare_set_platform_defines(test_progress_heartbeat)
+add_test(NAME test_progress_heartbeat COMMAND test_progress_heartbeat)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_progress_heartbeat)
+set_tests_properties(test_progress_heartbeat PROPERTIES LABELS "m;blut")
+
 # Limits-Entkopplung Vorstufe - XML-Profil generiert Build-Header, kein Produktivkonsum.
 add_executable(test_limits_entkopplung_vorstufe
     "test_limits_entkopplung_vorstufe.cpp")
