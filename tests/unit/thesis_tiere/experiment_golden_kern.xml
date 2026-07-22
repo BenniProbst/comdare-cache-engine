@@ -36,8 +36,8 @@
 
   <phases>
     <phase name="Stufe1_CeOnly"           merge="Stufe1_CeOnly"           engine="ee_ce"/>
-    <phase name="Stufe2_PrueflingReplace" merge="Stufe2_PrueflingReplace" engine="ee_prt" pruefling="prt_art"/>
-    <phase name="Stufe3_FullJoin"         merge="Stufe3_FullJoin"         engines="ee_ce ee_prt"/>
+    <phase name="Stufe2_PrueflingReplace" merge="Stufe2_PrueflingReplace" engine="ee_prt" pruefling="prt_art" id_namespace="merge_prt_v1"/>
+    <phase name="Stufe3_FullJoin"         merge="Stufe3_FullJoin"         engines="ee_ce ee_prt" pruefling="prt_art" id_namespace="join_prt_v1"/>
   </phases>
 
   <!-- KERN #48-S4: per-Achse pruefling + fulljoin-Token (Phase-3-Bindung liegt oben vor). -->
