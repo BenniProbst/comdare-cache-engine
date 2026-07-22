@@ -380,6 +380,16 @@ target_include_directories(test_v41_paper_legacy_code PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_paper_legacy_code PRIVATE Boost::mp11)
 
+# K7b-1 (Section 62-B / Section 64) consteval SHA-512 fuer den Anatomy-Stempel-Fingerprint (6. AnatomyVersionLines-Feld)
+comdare_add_test(test_ctsha512
+    SOURCES test_ctsha512.cpp)
+target_include_directories(test_ctsha512 PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # V41.F.6.1.R2 Composition-Templates (Architektur-Refactoring nach Organ-Metapher)
 comdare_add_test(test_v41_compositions
     SOURCES test_v41_compositions.cpp)
