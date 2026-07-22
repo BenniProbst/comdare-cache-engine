@@ -464,6 +464,18 @@ inline void emit_child_submodule_prolog(std::string& out) {
     out += "      export CCACHE_MAXSIZE=\"3G\"\n";
     out += "      export COMDARE_GOLDEN_N_PROFILE=\"${CI_PROJECT_DIR}/Code/external/comdare-cache-engine/libs/"
            "cache_engine/algorithm_profiles/thesis_profiles/all_axes_golden.profile.xml\"\n";
+    // smoke=>debug-Entkopplung (2026-07-22): COMDARE_PLAN_METHODIK_PROFILE (Methodik-Profil-Selektor) analog FRISCH
+    // per Runtime-Export montieren. Die super-YAML forwardet NUR den BASENAME (KLASSE: KEIN $CI_PROJECT_DIR in den
+    // geforwardeten Child/Grandchild-variables -- sonst leer-vorexpandiert). Der Basename wird hier zum grandchild-
+    // lokalen Voll-Pfad unter thesis_profiles/ mit frischem ${CI_PROJECT_DIR} -- gilt fuer den CEB-emit (build_semantik
+    // = debug) UND den Grandchild-Mess-Run (parallel messen). IDEMPOTENT + Dual-Weg: leer => No-Op (kein Override =>
+    // byte-identisch); absolute /*-Pfade (bare-metal: lokaler Voll-Pfad steht direkt in der Env) bleiben unangetastet.
+    out += "      case \"${COMDARE_PLAN_METHODIK_PROFILE:-}\" in\n";
+    out += "        '') : ;;\n";
+    out += "        /*) : ;;\n";
+    out += "        *) export COMDARE_PLAN_METHODIK_PROFILE=\"${CI_PROJECT_DIR}/Code/external/comdare-cache-engine/"
+           "libs/cache_engine/algorithm_profiles/thesis_profiles/${COMDARE_PLAN_METHODIK_PROFILE}\" ;;\n";
+    out += "      esac\n";
     out += "      # CHILD-SUBMODULE-KLON (W10-Nacharbeit 2): Parent-Spiegel, Deploy-Token via CI-Variablen (NIE "
            "Klartext).\n";
     out += "      if [ -f .gitmodules ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n";
@@ -656,14 +668,20 @@ private:
         // Pipelines erben Pipeline-Variablen NICHT, sonst faellt die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE ==
         // "smoke"' im Grandchild aus und die Mess-Jobs bleiben when:manual statt Auto-Run (Befund CI-Smoke 11840).
         s += "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n";
+        // smoke=>debug-Entkopplung (2026-07-22): COMDARE_PLAN_METHODIK_PROFILE (Methodik-Profil-Selektor) EBENSO an die
+        // Grandchild forwarden -- self-contained Grandchild-Pipelines erben Pipeline-Variablen NICHT. Der Grandchild
+        // liest daraus die Mess-Loop-Methodik (run_profile_facade); die STUFE-2-emit_measure_job-Debug-Emission haengt
+        // am build_semantik aus DERSELBEN Env (--emit-tier-ci der CEB). Unset (Voll-Lauf) => leer => kein Override =>
+        // Mess-Verhalten byte-identisch. Die Env-Belegung (=m3_smoke_coverage im smoke) setzt die super-YAML (Schicht 4).
+        s += "    COMDARE_PLAN_METHODIK_PROFILE: \"$COMDARE_PLAN_METHODIK_PROFILE\"\n";
         s += "  trigger:\n";
         s += "    include:\n";
         s += "      - artifact: " + art + "\n";
         s += "        job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "    strategy: depend\n";
         s += "    forward:\n";
-        s +=
-            "      yaml_variables: true       # Allowlist (COMDARE_GN_TOTAL + COMDARE_MEASURE_PROFILE) an Grandchild\n";
+        s += "      yaml_variables: true       # Allowlist (COMDARE_GN_TOTAL + COMDARE_MEASURE_PROFILE + "
+             "COMDARE_PLAN_METHODIK_PROFILE) an Grandchild\n";
         s += "      pipeline_variables: false  # kein blindes Erben des Eltern-Variablenraums (Isolation)\n";
         return s;
     }

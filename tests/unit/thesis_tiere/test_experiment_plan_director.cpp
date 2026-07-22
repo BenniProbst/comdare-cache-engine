@@ -662,6 +662,11 @@ TEST(CiYamlBuilder, CebTriggerForwardsGnTotalAsExplicitAllowlist) {
     // statt Auto-Run; Befund CI-Smoke 11840/Grandchild 11858). DREI Kombinationen => genau 3 Bloecke.
     EXPECT_EQ(count_occurrences(yaml, "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n"), 3u)
         << "ceb:trigger forwardet COMDARE_MEASURE_PROFILE (Smoke-Propagation an die Grandchild; 3 Combos)";
+    // smoke=>debug-Entkopplung (2026-07-22): derselbe Bridge-Job forwardet AUCH COMDARE_PLAN_METHODIK_PROFILE (den
+    // Methodik-Profil-Selektor) -- sonst kann der Grandchild-Mess-Run die debug-Methodik (parallel + Dual-Compile)
+    // nicht ziehen. DREI Kombinationen => genau 3 Bloecke.
+    EXPECT_EQ(count_occurrences(yaml, "    COMDARE_PLAN_METHODIK_PROFILE: \"$COMDARE_PLAN_METHODIK_PROFILE\"\n"), 3u)
+        << "ceb:trigger forwardet COMDARE_PLAN_METHODIK_PROFILE (smoke=>debug-Entkopplung an die Grandchild; 3 Combos)";
     // forward:yaml_variables reicht die Allowlist an die Grandchild; pipeline_variables bleibt AUS (Isolation).
     EXPECT_NE(yaml.find("    forward:\n      yaml_variables: true"), std::string::npos)
         << "forward:yaml_variables:true reicht die Allowlist an die Grandchild";
@@ -1456,8 +1461,14 @@ TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
     director.construct(*tp, tb_ref);
     std::string const& yref = tb_ref.text();
     EXPECT_EQ(yref.find("(j3) Aufruf 1/2"), std::string::npos) << "measure-Katalog ohne Override => KEIN Dual-Compile";
-    EXPECT_EQ(yref.find("COMDARE_PLAN_METHODIK_PROFILE"), std::string::npos)
-        << "ohne Override => KEIN Methodik-Forward";
+    // Der Prolog-Re-Derive (Methodik-Selektor Basename->Voll-Pfad) ist IMMER emittiert (spiegelt COMDARE_GOLDEN_N_
+    // PROFILE; No-Op bei unset => measure byte-neutral). ABER der emit_measure_job-FORWARD (nur (j3)-Debug-Zweig) fehlt.
+    EXPECT_NE(yref.find("case \"${COMDARE_PLAN_METHODIK_PROFILE:-}\" in"), std::string::npos)
+        << "Prolog-Re-Derive des Methodik-Selektors ist immer emittiert (No-Op bei unset)";
+    EXPECT_NE(yref.find("thesis_profiles/${COMDARE_PLAN_METHODIK_PROFILE}\""), std::string::npos)
+        << "Prolog-Re-Derive Basename-Fall: montiert ${CI_PROJECT_DIR}/.../thesis_profiles/<Basename> (KLASSEN-Regel)";
+    EXPECT_EQ(yref.find("COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\""), std::string::npos)
+        << "measure ohne Override => KEIN emit_measure_job-Methodik-Forward (measure byte-identisch)";
 
     planner::TierCiYamlBuilder tb_dbg; // MIT Override {"debug"} => DEBUG-Methodik trotz measure-Katalog
     director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
@@ -1466,8 +1477,8 @@ TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
         << "Override debug => (j3)-Dual-Compile trotz measure-Katalog";
     EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "Override debug => +bt-Signal";
     EXPECT_NE(ydbg.find("export COMDARE_ARTEFAKT_TRIES=1"), std::string::npos) << "Override debug => Blocker #50";
-    EXPECT_NE(ydbg.find("COMDARE_PLAN_METHODIK_PROFILE"), std::string::npos)
-        << "Override debug => Methodik-Profil-Forward an den Grandchild-Mess-Run";
+    EXPECT_NE(ydbg.find("COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\""), std::string::npos)
+        << "Override debug => emit_measure_job-Methodik-Forward an den Grandchild-Mess-Run";
 
     // ENTKOPPLUNG: der Bau-Katalog (Perm-Lanes + Mess-Job-Zahl aus all_axes_golden) bleibt IDENTISCH -- nur die
     // Methodik wechselte, nicht der Katalog.
