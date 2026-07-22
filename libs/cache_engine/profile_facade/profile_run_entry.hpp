@@ -129,6 +129,9 @@ struct RunProfileArgs {
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
     bool        provision_only     = false; // true = nur bauen, nicht messen
+    // S3 (§62-B COMDARE_PRUEF_ONLY): true = NUR das Konformitaets-Gate je gebauter .so (kein Bau, keine Messung).
+    // Gegenseitig ausschliessend mit provision_only. Reist bis LazyRunConfig::pruef_only durch.
+    bool pruef_only = false;
     // W6 (Ledger §32-F7): expliziter Bau-Pool-Worker-Override (COMDARE_BUILD_PARALLEL). 0 = ungesetzt =>
     // parallel_jobs()-Heuristik = byte-neutrales Ist. >0 = harte parallele Compile-Zahl (KOMPILATION parallel,
     // MESSEN bleibt 1-Thread). Reist bis LazyRunConfig::build_parallelism durch.
@@ -149,6 +152,10 @@ struct RunProfileResult {
     std::uint64_t any_resumed      = 0;
     std::uint64_t any_provisioned =
         0; // INC-G6: bereitgestellte DLLs (gebaut ODER resumiert) -- Erfolg im provision_only-Lauf
+    // S3 (§62-B COMDARE_PRUEF_ONLY): Gate-Ergebnis-Aggregat ueber alle Paesse (nur im pruef_only-Lauf > 0).
+    // any_pruef_failed > 0 => Exit != 0 (User-Vertrag: exit!=0 bei Gate-Fail).
+    std::uint64_t any_pruef_ok     = 0;
+    std::uint64_t any_pruef_failed = 0;
 };
 
 // Interne Helfer: zaehlt '\n' in einem CSV-Block (resumierte Zeilen liegen als String vor).
@@ -407,6 +414,7 @@ struct RunProfileResult {
         cfg.per_binary_subdirs        = true;
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
+        cfg.pruef_only                = a.pruef_only;     // S3: nur Gate je gebauter .so (byte-identisch bei false)
         cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
         cfg.cache_pull          = a.cache_pull; // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
         cfg.measurement_sink    = a.measurement_sink;    // Storage #51: result.csv -> measure-drop (No-Op-Default)
@@ -444,6 +452,8 @@ struct RunProfileResult {
         res.any_measured += r.measured;
         res.any_resumed += r.resumed_binaries;
         res.any_provisioned += r.built; // INC-G6: bereitgestellte DLLs (gebaut+resumiert) -- Erfolgsmass provision_only
+        res.any_pruef_ok += r.pruef_ok; // S3 (§62-B): Gate bestanden je Zelle
+        res.any_pruef_failed += r.pruef_failed; // S3 (§62-B): Gate durchgefallen / .so nicht ladbar
     };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -730,7 +740,13 @@ struct RunProfileResult {
     // INC-G6: im provision_only-Lauf misst NICHTS -> Erfolg = mind. 1 DLL bereitgestellt (gebaut/resumiert).
     // Ohne provision_only unveraendert (any_provisioned floss zwar mit, wird aber nur in diesem Modus gewertet).
     bool const provision_ok = a.provision_only && res.any_provisioned > 0;
-    res.exit_code           = (((res.any_measured > 0 || res.any_resumed > 0) || provision_ok) && csv_ok) ? 0 : 1;
+    // S3 (§62-B COMDARE_PRUEF_ONLY): im Pruef-only-Lauf misst/baut NICHTS -> Erfolg = mind. 1 .so gepueft UND KEIN
+    // Gate-Fehler (nicht-ladbar zaehlt als Fehler). exit!=0 bei JEDEM Gate-Fail (User-Vertrag). CSV irrelevant (leer).
+    if (a.pruef_only) {
+        res.exit_code = (res.any_pruef_ok > 0 && res.any_pruef_failed == 0) ? 0 : 1;
+        return res;
+    }
+    res.exit_code = (((res.any_measured > 0 || res.any_resumed > 0) || provision_ok) && csv_ok) ? 0 : 1;
     return res;
 }
 
