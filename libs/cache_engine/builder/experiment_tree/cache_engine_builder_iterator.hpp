@@ -38,6 +38,7 @@
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
+#include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
 #include "../../anatomy/observable_tier.hpp"       // IObservableTier
@@ -1043,13 +1044,19 @@ struct LazyRunResult {
     // #45: DISPATCH. measure_parallelism<=1 => sequentiell (EIN pmc, in Reihenfolge -> byte-identisch zum Ist,
     // Measure/Release/Default). >1 (nur Debug) => Worker-Pool, JE Worker ein eigener pmc; collect_ordered liefert die
     // Outcomes in INDEX-Ordnung (results[j]) -> deterministisch unabhaengig von der Ausfuehrungsreihenfolge.
+    // S1 (§62-B Log-Flush, Befund 6h-stumm): geflushtes Mess-Fortschritts-Testat je fertiger Zelle (zeit-gated,
+    // thread-sicher -- im Debug-Pool feuert genau EIN Worker je Intervall). Rein auf std::cerr -> golden/CSV-NEUTRAL.
+    ProgressHeartbeat        measure_hb{"mess-zelle", builds.size()};
     std::size_t              observed_max_concurrency = 0;
     std::vector<CellOutcome> outcomes                 = collect_ordered<CellOutcome>(
         builds.size(), cfg.measure_parallelism, [] { return make_pmc_source(); },
         [&](std::unique_ptr<measurement::IPmcSource>& ctx, std::size_t j) {
-            return measure_one_binary(builds[j], ctx.get());
+            CellOutcome oc = measure_one_binary(builds[j], ctx.get());
+            measure_hb.tick(); // S1: je fertig gemessener/geladener Zelle ein geflushtes Fortschritts-Testat
+            return oc;
         },
         &observed_max_concurrency);
+    measure_hb.done(); // S1: Mess-Fenster abgeschlossen -- genau eine geflushte Abschluss-Zeile
     if (cfg.measure_parallelism > 1)
         std::cerr << "[#45] paralleler Mess-Loop (Debug): pool=" << cfg.measure_parallelism
                   << " zellen=" << builds.size() << " beobachtete-Spitze=" << observed_max_concurrency << "\n";

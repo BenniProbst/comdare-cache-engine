@@ -16,7 +16,8 @@
 // Die reale OS-RAM-Abfrage (GlobalMemoryStatusEx/sysinfo) liegt in system_ram.hpp (hält diesen Header windows.h-frei).
 
 #include "../experiment_tree/experiment_tree.hpp"
-#include <cache_engine/measurement/axis_error.hpp> // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
+#include "../experiment_tree/progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Bau-Fortschritts-Testat
+#include <cache_engine/measurement/axis_error.hpp>   // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
 #include <cache_engine/measurement/simd_build_gate.hpp>        // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock)
 #include <cache_engine/measurement/simd_organ_requirement.hpp> // Section 40.a-E4: per-Binary organ_required-Aggregation
 
@@ -334,10 +335,15 @@ private:
         // (active+1)×Budget — deterministisch + OOM-sicher, unabhängig vom Ramp-Lag des OS-free_ram.
         std::uint64_t const baseline_free = (cfg_.ram_per_build_bytes != 0) ? free_ram_() : 0;
 
+        // S1 (§62-B Log-Flush, Befund 6h-stumm): geflushtes Bau-Fortschritts-Testat je fertiger Binary (zeit-gated,
+        // thread-sicher). Rein auf std::cerr -> golden/CSV-NEUTRAL (kein Mess-Datum, kein binary_id-Byte).
+        ProgressHeartbeat build_hb{"tier-build", k};
+
         // W11: EINE Finalisierungs-Naht je Binary -> results[j] setzen + (falls gesetzt) den Completion-Hook feuern.
         // Feuert aus dem Worker-Thread in COMPLETION-Reihenfolge; der Hook-Konsument ist thread-safe. Leer = byte-neutral.
         auto finalize = [&](std::size_t slot, BuildResult&& res) {
             results[slot] = std::move(res);
+            build_hb.tick(); // S1: je fertiger Binary ein (zeit-gated geflushtes) Fortschritts-Testat
             if (on_binary_done_) on_binary_done_(results[slot]);
         };
 
@@ -496,6 +502,7 @@ private:
             pool.reserve(n_workers);
             for (std::size_t w = 0; w < n_workers; ++w) pool.emplace_back(worker);
         }
+        build_hb.done(); // S1: Bau-Phase abgeschlossen (nach dem jthread-Join) -- genau eine geflushte Abschluss-Zeile
 
         if (stats) {
             stats->total_jobs         = results.size();
