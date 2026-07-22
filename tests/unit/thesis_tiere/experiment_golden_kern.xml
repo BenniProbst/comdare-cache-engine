@@ -24,7 +24,7 @@
 
   <!-- KERN #48-S4: Maschinen-Menge (Section 62-C). Kern-Identitaet = cpu_fabrication + ram_pair; hostname nur Hint. -->
   <machines>
-    <machine id="prod1" cpu_fabrication="amd_zen4_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
+    <machine id="prod1" cpu_fabrication="amd_zen5_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
     <machine id="prod2" cpu_fabrication="intel_avx2"      ram_pair="ddr4_2x32" hostname_hint="prod2"/>
   </machines>
 
