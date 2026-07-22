@@ -5,7 +5,8 @@
 // BEWEIST LITERAL:
 //   (a) merge_plan: ein Profil OHNE per-Achse <axis merge=..> => LEERER Direktiven-Vektor => der Aufrufer nutzt
 //       den KATALOG-Pfad (byte-identisch). Ein per-Achse-merge-Profil => je markierter Achse EINE Direktive mit
-//       korrekter Strategie-Zuordnung (replace->Stufe2, merge->Stufe3) + Pruefling-Identitaet (Fork 3 self = leer).
+//       korrekter Strategie-Zuordnung (replace->Stufe2_PrueflingReplace, merge->Stufe2_Hybrid, fulljoin->Stufe3_
+//       FullJoin; R6/§59-A(2)+A(3)) + Pruefling-Identitaet (Fork 3 self = leer).
 //   (b) Direktiven-Pfad-Emission: eine synthetische per-Achse-merge-Direktive (path_compression/prt_art/Stufe2)
 //       => der emittierte Quelltext traegt eine REALE MergeAxis<MergeStrategy::..>-Instanziierung (die
 //       Generalisierung der hart aufgelisteten <Host>PrtStufeN-Typen) + den dritten Merge-Stempel.
@@ -39,12 +40,14 @@ TEST(MergePlanDirective, EmptyProfileYieldsNoDirectivesFallsBackToCatalog) {
         << "leeres merge_mode = replace-Default OHNE Direktive => Katalog-Pfad";
 }
 
-// (a2) merge_mode-Zuordnung (Single-Source): replace/""->Stufe2, merge/fulljoin->Stufe3.
+// (a2) merge_mode-Zuordnung (Single-Source): replace/""->Stufe2_PrueflingReplace, merge->Stufe2_Hybrid,
+//      fulljoin->Stufe3_FullJoin. R6/§59-A(2)+A(3): "merge" != "fulljoin" (nicht mehr vermischt).
 TEST(MergePlanDirective, MergeModeToStrategyMapping) {
     EXPECT_EQ(tlz::merge_mode_to_strategy(""), "Stufe2_PrueflingReplace");
     EXPECT_EQ(tlz::merge_mode_to_strategy("replace"), "Stufe2_PrueflingReplace");
-    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Stufe3_FullJoin");
-    // KERN #48-S4 (Verdikt V-a): "fulljoin" = der EXPLIZITE Phase-3-Token, projiziert wie "merge" auf FullJoin.
+    // R6 (§59-A(2)): "merge" = CE+Pruefling-Hybrid je Pruefling => eigener Name Stufe2_Hybrid (NICHT FullJoin).
+    EXPECT_EQ(tlz::merge_mode_to_strategy("merge"), "Stufe2_Hybrid");
+    // R6 (§59-A(3)): "fulljoin" = kombinierte Union, der EXPLIZITE Phase-3-Token => Stufe3_FullJoin.
     EXPECT_EQ(tlz::merge_mode_to_strategy("fulljoin"), "Stufe3_FullJoin");
 }
 
@@ -76,7 +79,7 @@ TEST(MergePlanDirective, PerAxisMergeProfileYieldsDirectives) {
     ASSERT_EQ(plan[0].allowed_variants.size(), 1u);
     EXPECT_EQ(plan[0].allowed_variants.front(), "prt_patricia");
     EXPECT_EQ(plan[1].axis_ref, "node_type");
-    EXPECT_EQ(plan[1].strategy, "Stufe3_FullJoin");
+    EXPECT_EQ(plan[1].strategy, "Stufe2_Hybrid"); // R6 (§59-A(2)): node_type=merge => Hybrid (NICHT FullJoin)
     EXPECT_EQ(plan[1].pruefling_slot, "prt_art");
 }
 

@@ -117,6 +117,10 @@ template <class Comp>
 /// Namen/Versionen der beteiligten Achsen-Algorithmen (Section 59-C: "Namen + Versionen JEDER Achsen-Algorithmen
 /// IMMER im Stempel; PLUS ein dritter Tier-Binary-Stempel = die Merge-Kombination"). Format:
 ///   "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]"
+/// R6 (§59-A(2)/A(3), Nacht-Audit 2026-07-22): der Stempel traegt die Strategie VERBATIM -- Stufe2_Hybrid (merge-
+/// Modus, CE+Pruefling-Hybrid je Pruefling) erzeugt damit einen ANDEREN Stempel als Stufe3_FullJoin (fulljoin-Modus,
+/// kombinierte Union); die beiden Merge-Kategorien bleiben am 3. Tier-Stempel getrennt (ihre Vermischung war die
+/// Regression, merge_plan.hpp::merge_mode_to_strategy).
 /// -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt zur .algos-Sig wie organ/system/measurement (build_axis_version_
 /// stamp_line fuer den Achsen-Teil). NUR HAUPT-Achsen (Section 58-V; Unter-Achsen fliessen dynamisch zur Laufzeit
 /// durch).
