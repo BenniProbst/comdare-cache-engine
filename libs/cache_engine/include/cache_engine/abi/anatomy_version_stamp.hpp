@@ -12,12 +12,15 @@
 
 #pragma once
 
-#include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/measurement/axis_version_stamp.hpp>           // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/measurement/measurement_tooling_registry.hpp> // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
 #include <array>
+#include <cstddef>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace comdare::cache_engine::abi {
 
@@ -98,17 +101,58 @@ template <class Comp>
     return build_axis_version_stamp_line(entries);
 }
 
+/// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
+/// kMeasurementAxisVersionLine. Statt EINER Tooling-Wahl traegt die Zeile die MENGE der gewaehlten Mess-Tools als N
+/// Eintraege "measurement_tooling=<t>@1.0.0" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
+/// Leere Tokens werden uebersprungen; leere/leer-gefilterte Menge -> leere Zeile. Dieselbe X.Y.Z-Voll-Form / SEPARATE
+/// Welt zur .algos-Sig wie die Einzel-Form (build_axis_version_stamp_line). binary_id-NEUTRAL (Mess-Achse
+/// binary_id="never" -> der Stempel lebt nur im Version-Line/Binary, nie in der binary_id/CRC).
+[[nodiscard]] inline std::string measurement_stamp_line(std::span<std::string_view const> toolings) {
+    using ::comdare::cache_engine::measurement::AxisVersionEntry;
+    using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
+    std::vector<AxisVersionEntry> entries;
+    entries.reserve(toolings.size());
+    for (std::string_view const t : toolings)
+        if (!t.empty()) entries.push_back({"measurement_tooling", t, "v1"});
+    return build_axis_version_stamp_line(entries);
+}
+
+/// measurement_stamp_line_full_set() -- K7b-2 (Section 64-D1-B): die VOLLE Mess-Tooling-Vollmenge
+/// {wallclock,macro,micro} (Single-Source kMeasurementToolingRegistry, Registry-Reihenfolge) als Mengen-Stempel. Das
+/// ist der Section-64-[all]-Default: eine [all]-CEB misst mit dem vollen Tooling-Angebot -> ihre Provenienz traegt
+/// ALLE Tools. Genau kMeasurementToolingCount Eintraege, immer non-empty (die Registry ist nie leer, static_assert).
+[[nodiscard]] inline std::string measurement_stamp_line_full_set() {
+    using ::comdare::cache_engine::measurement::kMeasurementToolingCount;
+    using ::comdare::cache_engine::measurement::kMeasurementToolingRegistry;
+    std::array<std::string_view, kMeasurementToolingCount> ids{};
+    for (std::size_t i = 0; i < kMeasurementToolingCount; ++i) ids[i] = kMeasurementToolingRegistry[i].id;
+    return measurement_stamp_line(std::span<std::string_view const>{ids});
+}
+
 /// measurement_stamp_line_from_combo_legend(legend) -- die Mess-Tooling-Stempel-Zeile aus einer Planer-Combo-Legende
 /// (S6-P1b Env-Bruecke: COMDARE_MEASUREMENT_COMBO traegt die vom Planer gewaehlte [a,b,c]-Legende, z.B. "[wallclock]").
 /// LEER oder "[all]" (das volle Mess-System, kein Tooling-spezifischer Fan-out) -> "" (kein Stempel; der byte-stabile
 /// Default-Pfad -> emittierte Quelltexte byte-identisch). Sonst: die inneren Tooling-ids (ohne die []-Klammern) als
 /// Stempel-Tooling. So reist die gewaehlte Combo bis in die emittierte DLL-Source, ohne den Emitter zu entblinden.
 [[nodiscard]] inline std::string measurement_stamp_line_from_combo_legend(std::string_view legend) {
-    if (legend.empty() || legend == "[all]") return {};
+    // Leere Legende = "keine Legende gereicht" -> byte-stabil leer (der from_env-UNGESETZT-Zweig entscheidet dort
+    // ueber die Vollmengen-Default-Semantik, NICHT dieser reine Legenden-Parser).
+    if (legend.empty()) return {};
     std::string_view inner = legend;
     if (inner.size() >= 2 && inner.front() == '[' && inner.back() == ']') inner = inner.substr(1, inner.size() - 2);
-    if (inner.empty() || inner == "all") return {};
-    return measurement_stamp_line(inner);
+    // Section 64-D1-B (2026-07-22): [all] / leer-innen -> die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz), NICHT
+    // mehr "" (das war die Regression: die [all]-Lane emittierte leere Mess-Provenienz).
+    if (inner.empty() || inner == "all") return measurement_stamp_line_full_set();
+    // Sonst: die inneren Tooling-ids als MENGE (komma-getrennt, Eingabe-Reihenfolge) -> N-Eintrags-Stempel.
+    std::vector<std::string_view> toks;
+    for (std::size_t start = 0; start <= inner.size();) {
+        std::size_t const comma = inner.find(',', start);
+        std::size_t const end   = comma == std::string_view::npos ? inner.size() : comma;
+        if (end > start) toks.push_back(inner.substr(start, end - start));
+        if (comma == std::string_view::npos) break;
+        start = comma + 1;
+    }
+    return measurement_stamp_line(std::span<std::string_view const>{toks});
 }
 
 /// merge_stamp_line(strategy, pruefling, merged_axes) -- die kMergeAxisVersionLine (Section 59, K6a): der DRITTE
