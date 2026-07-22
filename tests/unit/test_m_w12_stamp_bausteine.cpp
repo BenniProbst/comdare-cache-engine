@@ -123,6 +123,29 @@ TEST(MW12StampBausteine, MeasurementStampLineCarriesOnlyToolingMain) {
     EXPECT_TRUE(::comdare::cache_engine::abi::measurement_stamp_line("").empty());
 }
 
+TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
+    // K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form -- N Tools -> N ';'-getrennte
+    // measurement_tooling=<t>@1.0.0-Eintraege (Eingabe-Reihenfolge, Section-64-Vollmengen-Provenienz). Additive
+    // span-Ueberladung; die Einzel-Form oben bleibt unveraendert (der [all]/from_env-LIVE-Pfad routet ueber die Menge).
+    namespace abi                            = ::comdare::cache_engine::abi;
+    std::array<std::string_view, 2> const tw = {"wallclock", "macro"};
+    EXPECT_EQ(abi::measurement_stamp_line(std::span<std::string_view const>{tw}),
+              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0"});
+    // Leere Tokens werden uebersprungen (ehrlich: kein Tool an der Stelle).
+    std::array<std::string_view, 3> const gappy = {"wallclock", "", "micro"};
+    EXPECT_EQ(abi::measurement_stamp_line(std::span<std::string_view const>{gappy}),
+              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=micro@1.0.0"});
+    // Leere Menge -> leere Zeile.
+    EXPECT_TRUE(abi::measurement_stamp_line(std::span<std::string_view const>{}).empty());
+    // Die Vollmenge = das volle Registry-Angebot {wallclock,macro,micro} in Registry-Reihenfolge (Single-Source).
+    EXPECT_EQ(
+        abi::measurement_stamp_line_full_set(),
+        std::string{
+            "measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;measurement_tooling=micro@1.0.0"});
+    // SEPARATE Welt zur .algos-Sig: X.Y.Z-Voll-Form, NICHT die rohe "@v1".
+    EXPECT_EQ(abi::measurement_stamp_line_full_set().find("@v1"), std::string::npos);
+}
+
 TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt88) {
     // K7a (Section 59): kMergeAxisVersionLine als merge_line/merge_len ans POD-Ende (append-only, dritter Tier-Stempel).
     // K7b-3 (Section 62-B, 2026-07-22): sha512_line/sha512_len ans POD-Ende angehaengt = SHA-512-Fingerprint der 4

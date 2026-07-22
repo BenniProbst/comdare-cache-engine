@@ -196,10 +196,10 @@ template <class List>
     // mock-only organ_stamp_line<Comp>); system_stamp_line = die statischen System-Achsen-Algo-Versionen.
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
-    // S6-P1b (Section 43/47): APPEND-ONLY measurement_stamp = die Mess-Tooling-HAUPT-Stempel-Zeile
-    // (abi::measurement_stamp_line(tooling)) der vom Planer gewaehlten Combo. Default "" (LEERE/[all]-Combo) =>
-    // render_adhoc_module_source emittiert EXAKT die 2-arg-Makro-Zeile -> byte-identisch zur heutigen Quelle (die
-    // 320-Round-Trip-/Byte-Wache bleibt STRIKT). Nicht-leer (explizite wallclock/macro/micro-Combo) => 3-arg _M-Form.
+    // S6-P1b (Section 43/47): APPEND-ONLY measurement_stamp = die Mess-Tooling-Stempel-Zeile der gewaehlten Combo
+    // (abi::measurement_stamp_line, K7b-2 auch als MENGE). No-Arg-Default "" => render_adhoc_module_source emittiert
+    // EXAKT die 2-arg-Makro-Zeile -> byte-identisch zur heutigen Quelle (die 320-Round-Trip-/Byte-Wache bleibt STRIKT).
+    // Nicht-leer (explizite Combo bzw. [all]/UNGESETZT-Vollmenge ueber die from_env-Naht) => 3-arg _M-Form.
     return cg::render_adhoc_module_source(0, macro_args, organ, system, /*merge_stamp=*/{}, measurement_stamp);
 }
 
@@ -228,12 +228,17 @@ template <class List>
 /// Mess-Combo reist ueber die Umgebungsvariable COMDARE_MEASUREMENT_COMBO (die Director-Tier-Kommandos exportieren die
 /// [a,b,c]-Legende ab N>1; der CLI-Parser --measurement-combo im messung_driver waehlt die Combo im gefilterten Walk).
 /// run_profile ruft DIESE Naht: die Legende wird zur Mess-Tooling-Stempel-Zeile (abi::measurement_stamp_line_from_
-/// combo_legend) und in den lazy Source-Gen gespeist -> die je-Combo-Bauten stempeln ihre DLLs REAL. UNGESETZT/[all]
-/// => "" => byte-identische Quellen (Default-Pfad unberuehrt; golden-CRC/320 neutral).
+/// combo_legend) und in den lazy Source-Gen gespeist -> die je-Combo-Bauten stempeln ihre DLLs REAL.
+/// K7b-2 (Section 64-D1-B, 2026-07-22): COMDARE_MEASUREMENT_COMBO gesetzt -> die gewaehlte Combo-Legende stempelt als
+/// MENGE (N x measurement_tooling=<t>@1.0.0). UNGESETZT == [all] == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz;
+/// die [all]-Lane misst mit dem vollen Tooling-Angebot -> ihre DLL-Provenienz traegt ALLE Tools). NUR dieser LIVE-Pfad
+/// wechselt bewusst auf die 3-arg-_M-Form; der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> die
+/// 320er-Byte-Identitaets-Wachen + der binary_id/CRC-Anker (kNewGolden131072Crc64, ueber die view-ids) unberuehrt.
 [[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen_from_env() {
-    std::string measurement_stamp;
-    if (char const* e = std::getenv("COMDARE_MEASUREMENT_COMBO"); e != nullptr && *e != '\0')
-        measurement_stamp = ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e);
+    char const* const e           = std::getenv("COMDARE_MEASUREMENT_COMBO");
+    std::string measurement_stamp = (e != nullptr && *e != '\0')
+                                        ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
+                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
     return make_lazy_adhoc_source_gen(std::move(measurement_stamp));
 }
 

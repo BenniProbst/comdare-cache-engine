@@ -23,6 +23,7 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp>  // S6-P1b: abi::measurement_stamp_line (Mess-Tooling-Stempel)
 #include <cache_engine/fingerprint/crc64.hpp>          // crc64_ecma182_update
 
+#include <algorithm> // K7b-2: std::count (Trenner-Zaehlung der Mengen-Stempel-Zeile)
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib> // S6-P1b Env-Bruecke: setenv/unsetenv (COMDARE_MEASUREMENT_COMBO)
@@ -303,18 +304,33 @@ void check_measurement_stamp_wiring(std::vector<std::string> const& g320_ids) {
                adhoc_block(src_def) == adhoc_block(src_wc));
 }
 
-// -- (f) S6-P1b Env-Bruecke (d)-(f): COMDARE_MEASUREMENT_COMBO (Combo-Legende) -> Mess-Tooling-Stempel -> Quelle.
-//    Der Legende-Helfer (abi::measurement_stamp_line_from_combo_legend) und die LIVE-Naht
-//    (make_lazy_adhoc_source_gen_from_env) bilden zusammen die letzte Meile: die vom Planer per Env gereichte Combo
-//    stempelt die je-Combo-DLL-Quelle REAL; UNGESETZT/[all] => "" => byte-identisch zum Default.
+// -- (f) S6-P1b Env-Bruecke + K7b-2 (Section 64-D1-B): COMDARE_MEASUREMENT_COMBO (Combo-Legende) -> Mengen-Stempel ->
+//    Quelle. Der Legende-Helfer (abi::measurement_stamp_line_from_combo_legend) und die LIVE-Naht
+//    (make_lazy_adhoc_source_gen_from_env) bilden die letzte Meile: die vom Planer per Env gereichte Combo stempelt die
+//    je-Combo-DLL-Quelle als MENGE. BEWUSSTE Byte-Aenderung (K7b-2, 22.07.): [all]/UNGESETZT stempelt NEU die VOLLE
+//    3-Tool-Vollmenge (3-arg _M-Zeilen) statt leer -- die Section-64-Regression (leere [all]-Provenienz) ist geschlossen.
+//    UNBERUEHRT (2-arg, byte-stabil): der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" -> die 320er-Katalog-
+//    Wachen (a)/(a2) + der binary_id/CRC-Anker (c) bleiben GRUEN (der Stempel != binary_id).
 void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids) {
-    std::cout << "\n---- (f) S6-P1b Env-Bruecke: COMDARE_MEASUREMENT_COMBO -> Stempel in der Quelle ----\n";
+    std::cout << "\n---- (f) K7b-2 Env-Bruecke: COMDARE_MEASUREMENT_COMBO -> Mengen-Stempel in der Quelle ----\n";
     namespace abi = ::comdare::cache_engine::abi;
-    // Legende -> Stempel-Helfer: [wallclock] -> measurement_tooling=wallclock@1.0.0; [all]/leer -> "" (byte-stabil).
-    check_eq("(f) legend [wallclock] -> Stempel", abi::measurement_stamp_line_from_combo_legend("[wallclock]"),
+    // Einzel-Legende [wallclock] -> genau EIN Eintrag (unveraendert).
+    check_eq("(f) legend [wallclock] -> Einzel-Stempel", abi::measurement_stamp_line_from_combo_legend("[wallclock]"),
              std::string{"measurement_tooling=wallclock@1.0.0"});
-    check_true("(f) legend [all] -> leer (byte-stabil)",
-               abi::measurement_stamp_line_from_combo_legend("[all]").empty());
+    // Mehr-Token-Legende [wallclock,macro] -> MENGE (K7b-2): 2 Eintraege, ';'-getrennt (Eingabe-Reihenfolge).
+    check_eq("(f) legend [wallclock,macro] -> Mengen-Stempel (2 Eintraege)",
+             abi::measurement_stamp_line_from_combo_legend("[wallclock,macro]"),
+             std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0"});
+    // [all] -> die VOLLE Vollmenge (Section 64-D1-B): == measurement_stamp_line_full_set(), 3 Eintraege {wc,macro,micro}.
+    std::string const full = abi::measurement_stamp_line_full_set();
+    check_eq("(f) legend [all] -> Vollmenge (== full_set)", abi::measurement_stamp_line_from_combo_legend("[all]"),
+             full);
+    check_true("(f) full_set traegt wallclock+macro+micro (3 Eintraege, 2 Trenner)",
+               full.find("measurement_tooling=wallclock@1.0.0") != std::string::npos &&
+                   full.find("measurement_tooling=macro@1.0.0") != std::string::npos &&
+                   full.find("measurement_tooling=micro@1.0.0") != std::string::npos &&
+                   std::count(full.begin(), full.end(), ';') == 2);
+    // Leere Legende (== "keine Legende gereicht") -> leer; die Vollmengen-Default-Semantik entscheidet der from_env-Zweig.
     check_true("(f) leere legend -> leer", abi::measurement_stamp_line_from_combo_legend("").empty());
 
     std::string const id = g320_ids.front();
@@ -324,12 +340,21 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
     ::unsetenv("COMDARE_MEASUREMENT_COMBO");
     check_true("(f) Env [macro] -> Quelle traegt measurement_tooling=macro@1.0.0",
                src_env.find("measurement_tooling=macro@1.0.0") != std::string::npos);
-    // Env ungesetzt -> KEIN Stempel -> byte-identisch zum Default make_lazy_adhoc_source_gen().
+    // Env UNGESETZT == [all] -> NEU die VOLLE Vollmenge (Section 64-D1-B); byte-gleich zu einem explizit full_set-
+    // gestempelten Gen. Der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> UNGESETZT != No-Arg-Default.
     std::string const src_unset = tlz::make_lazy_adhoc_source_gen_from_env()(id);
-    check_true("(f) Env ungesetzt -> KEIN measurement_tooling (byte-stabil)",
-               src_unset.find("measurement_tooling=") == std::string::npos);
-    check_true("(f) Env ungesetzt == Default make_lazy_adhoc_source_gen()",
-               src_unset == tlz::make_lazy_adhoc_source_gen()(id));
+    check_true("(f) Env ungesetzt -> traegt die volle 3-Tool-Vollmenge",
+               src_unset.find("measurement_tooling=wallclock@1.0.0") != std::string::npos &&
+                   src_unset.find("measurement_tooling=macro@1.0.0") != std::string::npos &&
+                   src_unset.find("measurement_tooling=micro@1.0.0") != std::string::npos);
+    check_true("(f) Env ungesetzt == explizit full_set-gestempelte Quelle",
+               src_unset == tlz::make_lazy_adhoc_source_gen(abi::measurement_stamp_line_full_set())(id));
+    // Der No-Arg-Default bleibt 2-arg/leer (byte-stabil) -> BEWUSST verschieden vom [all]/UNGESETZT-Vollmengen-Pfad.
+    std::string const src_noarg = tlz::make_lazy_adhoc_source_gen()(id);
+    check_true("(f) No-Arg-Default traegt KEIN measurement_tooling (2-arg byte-stabil)",
+               src_noarg.find("measurement_tooling=") == std::string::npos);
+    check_true("(f) UNGESETZT-Vollmenge != No-Arg-Default (bewusste [all]-3-arg-Byte-Aenderung)",
+               src_unset != src_noarg);
 }
 
 } // namespace
