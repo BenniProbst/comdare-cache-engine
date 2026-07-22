@@ -1442,6 +1442,42 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
     EXPECT_NO_THROW(director.construct(*tp1, cm_one)) << "(R5) exactly-one-Profil baut normal (byte-neutral)";
 }
 
+// (smoke=>debug-Entkopplung 2026-07-22): der Director-Methodik-Override entkoppelt Bau-Profil != Methodik-Profil.
+// Ein all_axes_golden-Katalog (run_methodology=measure) emittiert MIT Override {"debug"} die DEBUG-Methodik
+// ((j3)-Dual-Compile + COMDARE_BUILD_TYPE=Debug + TRIES=1 + Methodik-Profil-Forward), WAEHREND Achsen/Perms/Lanes
+// aus tp UNVERAENDERT bleiben (nur die Methodik wechselt, nicht der Katalog). Leerer Override => byte-identisch.
+TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
+    planner::ExperimentPlanDirector const director;
+    auto const                            tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    ASSERT_EQ(tp->run_methodology.front(), "measure") << "Katalog-Profil traegt run_methodology=measure";
+
+    planner::TierCiYamlBuilder tb_ref; // ohne Override => measure-Emission (Referenz)
+    director.construct(*tp, tb_ref);
+    std::string const& yref = tb_ref.text();
+    EXPECT_EQ(yref.find("(j3) Aufruf 1/2"), std::string::npos) << "measure-Katalog ohne Override => KEIN Dual-Compile";
+    EXPECT_EQ(yref.find("COMDARE_PLAN_METHODIK_PROFILE"), std::string::npos)
+        << "ohne Override => KEIN Methodik-Forward";
+
+    planner::TierCiYamlBuilder tb_dbg; // MIT Override {"debug"} => DEBUG-Methodik trotz measure-Katalog
+    director.construct(*tp, tb_dbg, /*combo_selector=*/{}, /*methodik_run_methodology=*/{"debug"});
+    std::string const& ydbg = tb_dbg.text();
+    EXPECT_NE(ydbg.find("(j3) Aufruf 1/2: Release provision-only"), std::string::npos)
+        << "Override debug => (j3)-Dual-Compile trotz measure-Katalog";
+    EXPECT_NE(ydbg.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "Override debug => +bt-Signal";
+    EXPECT_NE(ydbg.find("export COMDARE_ARTEFAKT_TRIES=1"), std::string::npos) << "Override debug => Blocker #50";
+    EXPECT_NE(ydbg.find("COMDARE_PLAN_METHODIK_PROFILE"), std::string::npos)
+        << "Override debug => Methodik-Profil-Forward an den Grandchild-Mess-Run";
+
+    // ENTKOPPLUNG: der Bau-Katalog (Perm-Lanes + Mess-Job-Zahl aus all_axes_golden) bleibt IDENTISCH -- nur die
+    // Methodik wechselte, nicht der Katalog.
+    EXPECT_NE(ydbg.find("  tags: [\"amd\"]"), std::string::npos) << "no_extension-Perm-Lane aus tp erhalten";
+    EXPECT_NE(ydbg.find("  tags: [\"intel\"]"), std::string::npos) << "avx2-Perm-Lane aus tp erhalten";
+    EXPECT_GT(count_occurrences(yref, "# JOB measure combo="), 0u) << "Katalog emittiert Mess-Jobs";
+    EXPECT_EQ(count_occurrences(ydbg, "# JOB measure combo="), count_occurrences(yref, "# JOB measure combo="))
+        << "Perm-/Mess-Job-Zahl (Katalog) unveraendert -- Entkopplung Bau != Methodik";
+}
+
 // (i)-facade §61-STUFEN Byte-Wache: die facade-Suffix-Naht build_type_version_suffix liest COMDARE_BUILD_TYPE und
 //       haengt +bt=Debug NUR bei Debug ans build_version. Ungesetzt/Release (Default) => "" => build_version BYTE-
 //       IDENTISCH (Sidecar/Resume/golden/dll_is_current unberuehrt). Reuse-Schluessel: Debug-DLL != Release-DLL.

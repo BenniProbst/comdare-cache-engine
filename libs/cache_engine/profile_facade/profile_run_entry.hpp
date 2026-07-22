@@ -86,12 +86,17 @@ struct RunProfileArgs {
     // gesetzt, baut der Walk NUR die matchende (opt,simd)-Zelle; alle anderen Perms werden mit Log-Zeile
     // uebersprungen. Leer (Default) = kein Filter = heutiges Verhalten (alle Profil-Perms) => byte-neutral. Werte
     // matchen dieselben Bezeichner wie die Profil-System-Achsen (O2/O3 bzw. no_extension/avx2/avx512).
-    std::string           gn_cell_opt;      // leer = kein opt-Zellen-Filter
-    std::string           gn_cell_simd;     // leer = kein simd-Zellen-Filter
-    ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
-    ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
-    ex::CachePullFn       cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau; leer = No-Op
-    ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
+    std::string gn_cell_opt;  // leer = kein opt-Zellen-Filter
+    std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
+    // smoke=>debug-Entkopplung (2026-07-22): optionaler METHODIK-Override (run_methodology aus dem METHODIK-Profil
+    // COMDARE_PLAN_METHODIK_PROFILE, facade-resolved + exactly-one-validiert). Nicht-leer => resolve_measure_
+    // parallelism nutzt DIESE Methodik (z.B. debug=parallel) statt tp.run_methodology -- das Katalog-Profil bleibt der
+    // Bau-/Mess-Loop-Input. Leer (Default) => aus tp.run_methodology => byte-neutral zum Vor-Entkopplungs-Verhalten.
+    std::vector<std::string> methodik_run_methodology;
+    ex::AlgoSigFn            algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
+    ex::CachePushFn          cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
+    ex::CachePullFn          cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau; leer = No-Op
+    ex::MeasurementSinkFn    measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
     // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
     // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).
     ex::PartialMarkerFn partial_marker_sink;
@@ -410,7 +415,11 @@ struct RunProfileResult {
         cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
         // #45 (§16.2-M1/§61-MODI): der parallele Mess-Loop -- NUR im Debug-Modus (run_methodology). Measure/Release/
         // undeklariert => 0 => sequentiell/1-Thread (byte-neutral). COMDARE_MEASURE_PARALLEL (getrennt vom Compile-Pool).
-        cfg.measure_parallelism = ex::resolve_measure_parallelism(tp.run_methodology);
+        // smoke=>debug-Entkopplung (2026-07-22): ist ein METHODIK-Override gesetzt (a.methodik_run_methodology aus
+        // COMDARE_PLAN_METHODIK_PROFILE), speist DIESE Methodik den Mess-Loop (z.B. debug=parallel bei measure-Katalog);
+        // leer => aus tp.run_methodology (byte-neutral). Die Methodik bleibt profil-getrieben (facade-validiert).
+        cfg.measure_parallelism = ex::resolve_measure_parallelism(
+            a.methodik_run_methodology.empty() ? tp.run_methodology : a.methodik_run_methodology);
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
         cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;

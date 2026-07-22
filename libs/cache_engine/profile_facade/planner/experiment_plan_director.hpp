@@ -952,6 +952,13 @@ private:
                  "provision-only): " +
                  combo_legend_ + perm_legend + organ + " ==\"\n";
             s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+            // smoke=>debug-Entkopplung (2026-07-22): den METHODIK-PROFIL-Selektor an den Grandchild-Mess-Run
+            // durchreichen -- dortiges run_profile_facade zieht die Mess-Loop-Methodik (resolve_measure_parallelism)
+            // aus DIESEM Profil (z.B. debug=parallel), waehrend COMDARE_THESIS_PROFILE den all_axes_golden-Katalog
+            // stellt. ${..:-} (set -u-sicher): unset => leer => kein Override, Zeile harmlos. NUR im (j3)-Debug-Zweig
+            // emittiert => der measure/Voll-Pfad bleibt byte-identisch. Die Env-Belegung selbst kommt aus der YAML
+            // (Schicht 4, nur smoke-rules-Zweig).
+            s += "        COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\" \\\n";
             s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
                  "\" COMDARE_RUN_SOTA=0 \\\n";
             s += "        \"$DRIVER\" experiment_config \"" + measure_out + "\"\n";
@@ -1168,8 +1175,10 @@ public:
         out_ += combo_line; // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
         // §61-MODI Regressions-Fix (bare-metal-symmetrisch zum ci-Mess-Job): der DLL-Bau-Pool laeuft PARALLEL
         // (COMDARE_PLAN_MEASURE_PARALLEL, Default ProcessorCount) -- der alte COMDARE_BUILD_PARALLEL=1 serialisierte
-        // faelschlich den BAU. NUR das Messen ist 1-Thread (run_profile-Loop). (g) Debug-Variante ueber den Schalter
-        // COMDARE_PLAN_MEASURE_PROFILE (leer => measure; "smoke" => debug-Ideal), propagiert als COMDARE_MEASURE_PROFILE.
+        // faelschlich den BAU. NUR das Messen ist 1-Thread (run_profile-Loop). (g) Die Debug-/smoke-Methodik kommt aus
+        // dem METHODIK-Profil COMDARE_PLAN_METHODIK_PROFILE (2026-07-22, smoke=>debug-Entkopplung; der cmake-Build-Typ
+        // folgt cmake_bt_env aus derselben build_semantic). Der frueher hier genannte COMDARE_PLAN_MEASURE_PROFILE war
+        // NIE verdrahtet (dokumentierte WERT-Semantik "smoke=>debug-Ideal") und ist SUPERSEDIERT.
         out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
         out_ += cmake_bt_env; // (i): COMDARE_BUILD_TYPE=Debug nur bei Debug-Profil (Release => leer, byte-stabil)
         out_ +=
@@ -1230,7 +1239,8 @@ public:
 
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
-    void construct(cx::ThesisProfile const& tp, IPlanBuilder& b, std::string const& combo_selector = {}) const {
+    void construct(cx::ThesisProfile const& tp, IPlanBuilder& b, std::string const& combo_selector = {},
+                   std::vector<std::string> const& methodik_run_methodology = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
         std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
@@ -1245,7 +1255,13 @@ public:
         combos                             = select_measurement_combo(std::move(combos), combo_selector);
         tlz::ResolverReport const resolver = resolve_organ_position_(tp); // S3: INERT ohne volles Trio
         // S5-P1: die Build-/Mess-Semantik der S5-Mess-Strecke aus dem A9.1-Feld run_methodology (measure-Methodik).
-        PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(tp.run_methodology);
+        // smoke=>debug-Entkopplung (2026-07-22): ist ein METHODIK-Profil gesetzt (methodik_run_methodology aus
+        // COMDARE_PLAN_METHODIK_PROFILE, facade-validiert exactly-one), kommt die Methodik aus DIESEM Profil, waehrend
+        // tp den Bau-Katalog (Achsen/Perms) liefert -- so misst ein all_axes_golden-Bau mit der debug-Methodik von
+        // m3_smoke_coverage (parallel + (j3)-Dual-Compile). Leer => aus tp.run_methodology (BYTE-IDENTISCH). §61: die
+        // Methodik bleibt profil-getrieben+exactly-one; die Env ist Profil-SELEKTOR, nicht Methodik-Wert.
+        PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
+            methodik_run_methodology.empty() ? tp.run_methodology : methodik_run_methodology);
         walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, resolver, build_semantic, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& sweep_axis : passes) {
@@ -1265,7 +1281,8 @@ public:
 
     /// Experiment-Kanal: opt x simd x (phase -> je real baubarem (merge x lebewesen)-Pass EIN Schritt). Die
     /// Phasen-Projektion ist die Bruecke-I3-Enumeration (nullopt-Paare ehrlich ausgelassen, kein Phantom-Schritt).
-    void construct(cx::ExperimentProfile const& ep, IPlanBuilder& b, std::string const& combo_selector = {}) const {
+    void construct(cx::ExperimentProfile const& ep, IPlanBuilder& b, std::string const& combo_selector = {},
+                   std::vector<std::string> const& methodik_run_methodology = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
@@ -1280,7 +1297,10 @@ public:
         combos                             = select_measurement_combo(std::move(combos), combo_selector);
         tlz::ResolverReport const resolver = resolve_organ_position_(ep); // S3: INERT ohne volles Trio
         // S5-P1: die Build-/Mess-Semantik der S5-Mess-Strecke aus dem A9.1-Feld run_methodology (measure-Methodik).
-        PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(ep.run_methodology);
+        // smoke=>debug-Entkopplung (2026-07-22): METHODIK-Profil-Override (s. Thesis-Overload); leer => aus
+        // ep.run_methodology (BYTE-IDENTISCH). Achsen/Perms bleiben aus ep.
+        PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
+            methodik_run_methodology.empty() ? ep.run_methodology : methodik_run_methodology);
         walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, build_semantic, b,
                     [&](IPlanBuilder& bb) {
                         std::size_t j = 0;

@@ -106,6 +106,20 @@ int main() {
         check_true("(2) debug + unparsebares Env => nproc>0 (Default, kein Abbruch)",
                    ex::resolve_measure_parallelism({"debug"}) > 0);
         ::unsetenv("COMDARE_MEASURE_PARALLEL");
+
+        // (2b smoke=>debug-Entkopplung 2026-07-22): der METHODIK-Override (profile_run_entry-Naht
+        //   override.empty() ? tp.run_methodology : override) hat Vorrang -- ein measure-KATALOG misst PARALLEL, wenn
+        //   die Methodik debug ist; OHNE Override bleibt der measure-Katalog 1-Thread. Beweis der Entkopplung
+        //   Bau-Profil != Methodik-Profil (Runtime-Seite; die Emit-Seite deckt test_experiment_plan_director ab).
+        ::setenv("COMDARE_MEASURE_PARALLEL", "6", 1);
+        std::vector<std::string> const catalog_measure{"measure"}; // all_axes_golden-Katalog
+        std::vector<std::string> const methodik_debug{"debug"};    // m3_smoke_coverage-Methodik-Override
+        auto const                     eff = methodik_debug.empty() ? catalog_measure : methodik_debug; // Naht :413
+        check_eq("(2b) measure-Katalog + debug-Override => 6 (parallel; Override hat Vorrang)",
+                 ex::resolve_measure_parallelism(eff), std::size_t{6});
+        check_true("(2b) measure-Katalog OHNE Override => 0 (1-Thread, byte-neutral)",
+                   ex::resolve_measure_parallelism(catalog_measure) == 0);
+        ::unsetenv("COMDARE_MEASURE_PARALLEL");
     }
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════
