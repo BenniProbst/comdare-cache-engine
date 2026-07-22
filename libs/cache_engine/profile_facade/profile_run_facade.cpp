@@ -50,6 +50,33 @@ namespace planner = ::comdare::cache_engine::planner; // W5-B: ExperimentPlanDir
 
 namespace {
 
+// smoke=>debug-Entkopplung (2026-07-22): das METHODIK-Profil (COMDARE_PLAN_METHODIK_PROFILE) resolven -> dessen
+// run_methodology (exactly-one HART validiert). Ein PROFIL-SELEKTOR analog COMDARE_THESIS_PROFILE -- §61: die Methodik
+// bleibt profil-getrieben, die Env traegt NICHT den Methodik-Wert (COMDARE_MEASURE_PROFILE bleibt reiner rules-
+// Trigger). Rueckgabe {ok, run_methodology}: unset => {true, {}} (kein Override => byte-identisch); unlesbar / >1
+// Methoden => {false, {}} (der Aufrufer bricht ab). SINGLE-SOURCE fuer den EMIT-Pfad (construct_plan_into) UND den
+// RUNTIME-Pfad (run_profile_facade), damit Bau-Typ/Dual-Compile (Emit) und Mess-Loop-Parallelitaet (Runtime) DIESELBE
+// Methodik-Quelle tragen.
+struct MethodikOverride {
+    bool                     ok = true;
+    std::vector<std::string> run_methodology;
+};
+[[nodiscard]] MethodikOverride resolve_methodik_override(std::ostream& os) {
+    char const* const mp = std::getenv("COMDARE_PLAN_METHODIK_PROFILE");
+    if (mp == nullptr || *mp == '\0') return {}; // unset => kein Override (byte-identisch)
+    auto const mtp = tlz::load_thesis_profile(mp);
+    if (!mtp) {
+        os << "[methodik] COMDARE_PLAN_METHODIK_PROFILE '" << mp << "' nicht als Thesis-Profil lesbar.\n";
+        return {false, {}};
+    }
+    if (mtp->run_methodology.size() > 1) { // exactly-one HART (Ledger 61-STUFEN) auf dem METHODIK-Profil
+        os << "[methodik] METHODIK-Profil '" << mp << "': " << mtp->run_methodology.size()
+           << " Methoden deklariert -- GENAU EINE erlaubt (exactly-one je Call, Ledger 61-STUFEN).\n";
+        return {false, {}};
+    }
+    return {true, mtp->run_methodology};
+}
+
 [[nodiscard]] std::vector<std::string> split_on(std::string const& s, char sep) {
     std::vector<std::string> out;
     std::string              cur;
@@ -435,12 +462,23 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         }
     }
 
+    // smoke=>debug-Entkopplung (2026-07-22): das METHODIK-Profil (COMDARE_PLAN_METHODIK_PROFILE) speist -- falls
+    // gesetzt -- die Mess-Loop-Methodik (resolve_measure_parallelism, profile_run_entry); der Bau-/Mess-Katalog bleibt
+    // args.profile_path. Single-Source-Resolver (identisch zum Emit-Pfad construct_plan_into). Unlesbar/>1 => Abbruch
+    // VOR dem Bau; unset => leer => byte-neutral.
+    auto const methodik = resolve_methodik_override(std::cerr);
+    if (!methodik.ok) {
+        out.exit_code = 1;
+        return out;
+    }
+
     tlz::RunProfileArgs a;
-    a.profile_path = args.profile_path;
-    a.out_csv      = args.out_csv;
-    a.src_dir      = args.src_dir;
-    a.dll_dir      = args.dll_dir;
-    a.compile      = ex::make_gpp_compile_fn(
+    a.methodik_run_methodology = methodik.run_methodology;
+    a.profile_path             = args.profile_path;
+    a.out_csv                  = args.out_csv;
+    a.src_dir                  = args.src_dir;
+    a.dll_dir                  = args.dll_dir;
+    a.compile                  = ex::make_gpp_compile_fn(
         perm_include_dirs(), perm_compile_flags(tp_ptr), cxx_compiler(), perm_link_libs(),
         // opt-c: opt_level-Flag (Default O3, beweglich; Single-XML aus tp). Scheibe 2b: bei Build-Typ Debug
         // ersetzt -O0 -g die Optimierung (echter Debug-DLL-Bau); ungesetzt/Release => byte-identisch zum Ist.
@@ -647,6 +685,12 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
 #endif
         return planner::ExperimentPlanDirector{};
     }();
+    // smoke=>debug-Entkopplung (2026-07-22): das METHODIK-Profil (COMDARE_PLAN_METHODIK_PROFILE) liefert -- falls
+    // gesetzt -- die run_methodology (steuert Bau-Typ + (j3)-Dual-Compile im emittierten Mess-Job), waehrend
+    // profile_path den Bau-Katalog (Achsen/Perms) stellt. Single-Source-Resolver (resolve_methodik_override, oben);
+    // unlesbar/>1-Methoden => KEIN Plan emittiert (harter Abbruch); unset => leer => byte-identisch.
+    auto const methodik = resolve_methodik_override(os);
+    if (!methodik.ok) return 1;
     if (root_tag == "comdare_thesis_profile") {
         auto const tp = tlz::load_thesis_profile(profile_path);
         if (!tp) {
@@ -654,7 +698,8 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
-        director.construct(*tp, builder, combo_selector); // A5: leer => Identitaet (byte-stabil), s. emit_tier_ci
+        director.construct(*tp, builder, combo_selector,
+                           methodik.run_methodology); // A5 combo leer=>Identitaet; methodik leer=>aus tp
         return 0;
     }
     if (root_tag == "comdare_experiment") {
@@ -665,7 +710,8 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
-        director.construct(*ep, builder, combo_selector); // A5: leer => Identitaet (byte-stabil), s. emit_tier_ci
+        director.construct(*ep, builder, combo_selector,
+                           methodik.run_methodology); // A5 combo leer=>Identitaet; methodik leer=>aus ep
         return 0;
     }
     os << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
