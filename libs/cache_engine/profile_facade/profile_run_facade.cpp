@@ -371,6 +371,18 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     ProfileRunResult out;
 
+    // -- (R5) Pre-Flight-Validat (exactly-one-Gate) SYMMETRISCH zum ep-Pfad (run_experiment_profile_facade oben):
+    //    der tp-Validator erzwingt run_methodology exactly-one (validate_profile: >1 Methoden => nicht ok) sowie die
+    //    Achsen-/<workloads>-Struktur -- rein-lesend, KEIN Bau. Verstoss => Abbruch VOR jedem Bau/Messen, damit ein
+    //    2-Modi-Profil NICHT still mit ids.front()-Semantik (debug-Mess-Loop) durchlaeuft (Ledger §61-STUFEN, LED:3190).
+    //    Byte-neutral fuer valide Profile (rc=0). Der DLL-Bau ist teuer -- der Fehler faellt hier statt spaeter.
+    if (int const vrc = validate_profile_facade(args.profile_path, std::cout); vrc != 0) {
+        std::cerr << "[profile_facade] Pre-Flight-Validat fehlgeschlagen (rc=" << vrc
+                  << ") -- KEIN Bau, KEINE Messung.\n";
+        out.exit_code = vrc;
+        return out;
+    }
+
     // Achse-2-Lastprofile (#135/G1/#229): Gibt der Host kein Verzeichnis vor, defaultet die WIE-Schicht
     // auf die zum Thesis-Profil co-lokalisierten Lastprofile (algorithm_profiles/load_profiles/,
     // Schwesterordner von thesis_profiles/) — so ist die Profil-XML selbst-suffizient und braucht kein

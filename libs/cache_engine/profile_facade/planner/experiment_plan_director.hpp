@@ -54,6 +54,7 @@
 
 #include <algorithm> // S5-P1: std::find ueber das A9.1-Feld run_methodology (Build-Semantik-Aufloesung)
 #include <optional>  // S3 P-RESOLVER: der volle RegistryTrio als optionaler Director-Zustand (Resolver-Lauf)
+#include <stdexcept> // R5: std::invalid_argument (exactly-one Kontraktbruch in build_semantic_of_run_methodology)
 #include <string>
 #include <string_view>
 #include <utility>
@@ -914,7 +915,8 @@ private:
         // §61-MODI Regressions-Fix: der BAU (DLL-Provision-Pool) laeuft PARALLEL in ALLEN Modi -- der alte
         // COMDARE_BUILD_PARALLEL=1 serialisierte faelschlich den BAU (Modus MESSUNG = parallel BAUEN + sequentiell
         // MESSEN). NUR das MESSEN ist sequentiell (der run_profile-Mess-Loop selbst, 1-Thread-deterministisch,
-        // Section 38.b); paralleles MESSEN (debug-Ideal) = §16.2-M1, heute UNGEBAUT. $(nproc) = alle CPU-Threads
+        // Section 38.b); paralleles MESSEN (debug-Ideal) = §16.2-M1 GEBAUT (#45/99a608c2: debug misst nproc-parallel
+        // via resolve_measure_parallelism; der measure-Modus hier bleibt 1-Thread). $(nproc) = alle CPU-Threads
         // (§61, prod1=32 freigegeben) fuer den DLL-Bau; der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_
         // PARALLEL_LEVEL-Deckel (6, separater Pool).
         s += "      export COMDARE_BUILD_PARALLEL=\"$(nproc)\"   # §61-MODI: DLL-Bau parallel; Messen 1-Thread "
@@ -1072,6 +1074,13 @@ public:
         std::string const cmake_bt_env = header_.build_semantic.cmake_build_type == "Debug"
                                              ? std::string{"            \"COMDARE_BUILD_TYPE=Debug\"\n"}
                                              : std::string{};
+        // (j3)/R4 §61-Dual-Weg (LED:3164): der bare-metal Debug-Mess-COMMAND grindet -- wie der Release-Provision-
+        // COMMAND (unten) und der ci-Mess-Zwilling (.gitlab-ci.yml, export vor beiden Aufrufen) -- NICHT in measure-
+        // drop-Retry-Schleifen (Blocker #50). NUR Debug-Profil traegt COMDARE_ARTEFAKT_TRIES=1; Release/measure =>
+        // LEER => Mess-Target byte-identisch zum Ist-Stand (dieselbe Gate-Logik wie cmake_bt_env).
+        std::string const artefakt_tries_env = header_.build_semantic.cmake_build_type == "Debug"
+                                                   ? std::string{"            \"COMDARE_ARTEFAKT_TRIES=1\"\n"}
+                                                   : std::string{};
         // §56/§54-T6: die Tier-Bau-Zelle ist System-Achse [d,e,f] x Organ-Achse [g,h,i]; combo_legend_ ([a,b,c])
         // ist nur CEB-Kontext (die CEB traegt [a,b,c] statisch), nicht Teil der Bau-Legende.
         out_ +=
@@ -1163,6 +1172,8 @@ public:
         // COMDARE_PLAN_MEASURE_PROFILE (leer => measure; "smoke" => debug-Ideal), propagiert als COMDARE_MEASURE_PROFILE.
         out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
         out_ += cmake_bt_env; // (i): COMDARE_BUILD_TYPE=Debug nur bei Debug-Profil (Release => leer, byte-stabil)
+        out_ +=
+            artefakt_tries_env; // (j3)/R4: COMDARE_ARTEFAKT_TRIES=1 auch im Debug-Mess-COMMAND (Release => leer, byte-stabil)
         out_ += "            COMDARE_RUN_SOTA=0\n";
         out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
                 "/perm" + idx + "\"\n";
@@ -1312,6 +1323,12 @@ private:
         // kommt aus DIESEM Modus -- Debug={Debug,misst,parallel}, Measure={Release,misst,1-Thread}, Release={Release,
         // misst NICHT}. NICHT mehr fix measure (Vor-(j2)-Lesart). Leer => Default measure (Release, 1-Thread). Die
         // Methodik-Quelle ist das PROFIL, NICHT die Env (COMDARE_MEASURE_PROFILE bleibt NUR der rules-Auto-Run-Trigger).
+        // R5: >1 ist ein Kontraktbruch (validate gated ihn VOR dem Bau) -- HART statt still front(), damit ein
+        // 2-Modi-Profil nie zufaellig eine Modus-Semantik waehlt (symmetrisch zu run_methodology_for_ids).
+        if (run_methodology.size() > 1)
+            throw std::invalid_argument(
+                "build_semantic_of_run_methodology: " + std::to_string(run_methodology.size()) +
+                " Modi deklariert -- GENAU EINER erlaubt (exactly-one je Call, Ledger 61-STUFEN).");
         auto const info_for = [](std::string const& id) -> cm::RunMethodologyInfo const& {
             for (std::size_t i = 0; i < cm::kRunMethodologyCount; ++i)
                 if (cm::kRunMethodologyRegistry[i].id == id) return cm::kRunMethodologyRegistry[i];
