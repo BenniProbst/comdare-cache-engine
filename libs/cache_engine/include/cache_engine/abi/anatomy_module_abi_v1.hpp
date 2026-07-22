@@ -21,7 +21,8 @@
 // @task #706 V41.F.6.1.R5.D
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
 
-#include "anatomy_module_abi_v1_decl.hpp"   // leichte ABI-Schnittstelle (Version/Magic/Factory-Decls/Helper)
+#include "anatomy_module_abi_v1_decl.hpp" // leichte ABI-Schnittstelle (Version/Magic/Factory-Decls/Helper)
+#include "anatomy_fingerprint.hpp" // K7b-3: consteval SHA-512-Fingerprint der 4 Stempel-Zeilen (anatomy_fingerprint_hex)
 #include "../../../anatomy/abi_adapter.hpp" // SearchAlgorithmAbiAdapter (Makro-Materialisierung)
 #include "../../../anatomy/search_algorithm_anatomy.hpp"
 #include "../../../anatomy/composition_factory.hpp" // R5.G: AdHocComposition für Auto-Permutations-Codegen
@@ -119,13 +120,19 @@
 /// Algorithmen, ce-only/self -> ""). Die Literale werden im Modul als static constexpr char[] hinterlegt (KEIN
 /// std::string im Modul); der zurueckgegebene POD traegt nur Zeiger + Laengen. KEIN Loader-Pflicht-Symbol -> KEIN
 /// ABI-Bruch. Stempel-Strings sind C-literal-sicher (nur =@;.+_ und alnum, keine Quotes/Backslashes).
+/// K7b-3 (Section 62-B, 2026-07-22): INNEN wird zusaetzlich der SHA-512-Fingerprint von concat(organ+system+
+/// measurement+merge) materialisiert (anatomy_fingerprint_hex, consteval) und als 5. POD-Feld sha512_line/sha512_len
+/// abgelegt. Die EINGABE bleibt 4 String-Literale -> der emittierte Makro-Call ist byte-identisch (golden-neutral);
+/// der Fingerprint entsteht rein in der Makro-Expansion, nicht im emittierten Quelltext.
 #define COMDARE_ANATOMY_VERSION_STAMP_MERGE(organ_lit, system_lit, measurement_lit, merge_lit)                         \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::abi::AnatomyVersionLines const*                     \
     comdare_anatomy_version_lines() noexcept {                                                                         \
-        static constexpr char                                              kO[] = organ_lit;                           \
-        static constexpr char                                              kS[] = system_lit;                          \
-        static constexpr char                                              kM[] = measurement_lit;                     \
-        static constexpr char                                              kG[] = merge_lit;                           \
+        static constexpr char kO[] = organ_lit;                                                                        \
+        static constexpr char kS[] = system_lit;                                                                       \
+        static constexpr char kM[] = measurement_lit;                                                                  \
+        static constexpr char kG[] = merge_lit;                                                                        \
+        static constexpr auto kFP =                                                                                    \
+            ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, system_lit, measurement_lit, merge_lit);  \
         static constexpr ::comdare::cache_engine::abi::AnatomyVersionLines kL{                                         \
             ::comdare::cache_engine::abi::kAnatomyVersionLinesLayout,                                                  \
             0u,                                                                                                        \
@@ -136,7 +143,9 @@
             kM,                                                                                                        \
             sizeof(kM) - 1,                                                                                            \
             kG,                                                                                                        \
-            sizeof(kG) - 1};                                                                                           \
+            sizeof(kG) - 1,                                                                                            \
+            kFP.data(),                                                                                                \
+            kFP.size() - 1};                                                                                           \
         return &kL;                                                                                                    \
     }
 
