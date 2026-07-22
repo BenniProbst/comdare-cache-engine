@@ -627,6 +627,7 @@ struct ExperimentValidationResult {
     std::size_t target_isa_checked      = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
     std::size_t axis_merge_checked      = 0; // KERN-A (S4): gepruefte per-Achse <axis merge=..>-Modi (0 = keine)
     std::size_t axis_pruefling_checked  = 0; // KERN #48-S4: gepruefte per-Achse <axis pruefling=..> (0 = keine)
+    std::size_t id_namespace_checked    = 0; // KERN #48-S5: gepruefte <phase id_namespace=..> (0 = keine gesetzt)
     std::size_t machines_checked        = 0; // KERN #48-S4: gepruefte <machines><machine> (0 = keine Menge)
     std::size_t storage_checked         = 0; // KERN #48-S4: geprueftes <output><storage backend=..> (0 = keiner)
     std::size_t run_methodology_checked = 0; // A9.1: gepruefte <run_methodology><method> (0 = keine deklariert)
@@ -891,6 +892,18 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.ok = false;
             r.errors.push_back("UNGUELTIGE <phase name=\"" + ph.name + "\" identity=\"" + ph.identity +
                                "\">: kein anerkannter CacheEngine-self-Marker (CacheEngine/self).");
+        }
+        // KERN #48-S5 (Section 59-C): id_namespace = der eigene id-Satz je Merge-Phase (3. Tier-Binary-Stempel).
+        // Sinnvoll NUR auf einer Phase mit pruefling (der Stempel identifiziert die Merge-Kombination); ein
+        // id_namespace auf einer pruefling-losen Phase (z.B. Stufe1_CeOnly) ist folgenlos => WARNUNG (kein Fehler).
+        // Konsum (Stempel-Materialisierung) = K6a/#37; hier nur die Wohlgeformtheit.
+        if (!ph.id_namespace.empty()) {
+            ++r.id_namespace_checked;
+            if (ph.pruefling.empty()) {
+                r.warnings.push_back("<phase name=\"" + ph.name + "\" id_namespace=\"" + ph.id_namespace +
+                                     "\"> ohne pruefling: der eigene id-Satz (3. Merge-Stempel) ist nur auf einer "
+                                     "Pruefling-Merge-Phase wirksam (Section 59-C); hier folgenlos.");
+            }
         }
     }
 

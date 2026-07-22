@@ -60,6 +60,12 @@ bool has_error_containing(tlz::ExperimentValidationResult const& r, std::string 
     return false;
 }
 
+bool has_warning_containing(tlz::ExperimentValidationResult const& r, std::string const& frag) {
+    for (auto const& w : r.warnings)
+        if (w.find(frag) != std::string::npos) return true;
+    return false;
+}
+
 // ── (a) PARSE ────────────────────────────────────────────────────────────────
 TEST(ExperimentKernSeam, ParsesMachinesWithCoreIdentity) {
     auto ep = parse_kern();
@@ -94,6 +100,15 @@ TEST(ExperimentKernSeam, ParsesStorageSlot) {
     EXPECT_EQ(ep->output.storage_endpoint, "minio.comdare.local");
 }
 
+TEST(ExperimentKernSeam, ParsesPhaseIdNamespace) {
+    auto ep = parse_kern();
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->phases.size(), 3u);
+    EXPECT_TRUE(ep->phases[0].id_namespace.empty()); // Stufe1_CeOnly: kein eigener id-Satz
+    EXPECT_EQ(ep->phases[1].id_namespace, "merge_prt_v1");
+    EXPECT_EQ(ep->phases[2].id_namespace, "join_prt_v1");
+}
+
 // ── (b) VALIDATE OK ──────────────────────────────────────────────────────────
 TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
     auto ep = parse_kern();
@@ -105,6 +120,7 @@ TEST(ExperimentKernSeam, ValidatesOkWithNewCounters) {
     EXPECT_EQ(vr.storage_checked, 1u);
     EXPECT_EQ(vr.axis_pruefling_checked, 3u);
     EXPECT_EQ(vr.axis_merge_checked, 3u);
+    EXPECT_EQ(vr.id_namespace_checked, 2u); // Stufe2 + Stufe3 tragen je einen eigenen id-Satz
 }
 
 // ── (c) VALIDATE FEHLER -- je neuer Regel ein negativer Beleg ─────────────────
@@ -160,6 +176,15 @@ TEST(ExperimentKernSeam, UnknownAxisPrueflingIsError) {
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(ep);
     EXPECT_FALSE(vr.ok);
     EXPECT_TRUE(has_error_containing(vr, "UNBEKANNTER Pruefling"));
+}
+
+TEST(ExperimentKernSeam, IdNamespaceWithoutPrueflingWarns) {
+    cx::ExperimentProfile ep                 = make_base_ep();  // Stufe1_CeOnly ohne pruefling
+    ep.phases[0].id_namespace                = "orphan_id_set"; // id-Satz auf pruefling-loser Phase
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(ep);
+    EXPECT_TRUE(vr.ok); // Warnung, KEIN Fehler
+    EXPECT_EQ(vr.id_namespace_checked, 1u);
+    EXPECT_TRUE(has_warning_containing(vr, "ohne pruefling"));
 }
 
 // ── (d) merge_plan-Projektion nachgezogen ────────────────────────────────────

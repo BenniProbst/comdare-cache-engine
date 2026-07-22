@@ -354,6 +354,11 @@ struct ExperimentPhase {
     std::string              engine;    // <phase engine=..> (optional Einzel-EE)
     std::vector<std::string> engines;   // <phase engines=..> (optional Whitespace-Liste von EE-ids)
     std::string              pruefling; // <phase pruefling=..> (optional)
+    // KERN #48-S5 (Section 59-C, 2026-07-22): optionaler eigener id-Satz je Merge-Phase = der 3. Tier-Binary-Stempel
+    // (auch die Merge-Kombination bekommt einen id-Namensraum). ADDITIV + PASSIV: der Parser traegt den Roh-String;
+    // leer = kein eigener id-Satz = heutiges Verhalten byte-identisch. Sinnvoll nur auf Phasen mit pruefling
+    // (validate warnt sonst). Der Konsum (Stempel-Materialisierung) gehoert K6a/#37; hier nur Syntax + Wohlgeformtheit.
+    std::string id_namespace; // <phase id_namespace=..> (optional; leer = kein eigener id-Satz)
     // KERN-A (S4 Mess-Schema, 2026-07-20): optionales identity-Attribut. Markiert eine Phase als CacheEngine-self-
     // Messung ("CacheEngine"/self; leer = kein self-Marker = heutiges Verhalten byte-identisch). Die Auswertung
     // (CacheEngine-self-Pass, Fork 3) ist cache_engine-seitig (Director/Projektion) + binary_id-neutral.

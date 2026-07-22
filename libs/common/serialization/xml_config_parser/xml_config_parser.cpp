@@ -456,7 +456,9 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             phase.engine    = p->attr("engine");
             phase.engines   = split_ws(p->attr("engines")); // Whitespace-Liste (leer bei Einzel-engine)
             phase.pruefling = p->attr("pruefling");
-            phase.identity  = p->attr("identity"); // KERN-A: optionaler CacheEngine-self-Marker (leer = keiner)
+            phase.id_namespace =
+                p->attr("id_namespace");          // KERN #48-S5: eigener id-Satz (3. Merge-Stempel; leer=keiner)
+            phase.identity = p->attr("identity"); // KERN-A: optionaler CacheEngine-self-Marker (leer = keiner)
             ep.phases.push_back(std::move(phase));
         }
     }
