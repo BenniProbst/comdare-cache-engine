@@ -31,6 +31,7 @@
 #include <cstdlib> // (i) Byte-Wache: setenv/unsetenv (COMDARE_BUILD_TYPE)
 #include <filesystem>
 #include <optional>
+#include <stdexcept> // (R5) EXPECT_THROW std::invalid_argument (exactly-one-Haertung)
 #include <string>
 #include <vector>
 
@@ -1390,9 +1391,55 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
         << "(j3) Debug cmake: Release-Provision-Vorlauf im Mess-Target";
     EXPECT_NE(cm_dbg.text().find("_release_provision\""), std::string::npos)
         << "(j3) Debug cmake: eigenes Provision-Dir";
-    EXPECT_NE(cm_dbg.text().find("\"COMDARE_ARTEFAKT_TRIES=1\""), std::string::npos) << "(j3) Debug cmake: Blocker #50";
+    // (j3)/R4 LOCKSTEP: TRIES=1 steht jetzt in BEIDEN -E env-Bloecken je Debug-Perm (Provision-COMMAND UND Debug-Mess-
+    // COMMAND), nicht mehr nur im Provision-COMMAND. Perm-anzahl-robuste Invariante: #TRIES == #Provision + #Mess.
+    // (VOR R4 war #TRIES == #Provision allein -> der Debug-Mess-Aufruf konnte in measure-drop-Retries grinden.)
+    auto const n_tries_dbg = count_occurrences(cm_dbg.text(), "\"COMDARE_ARTEFAKT_TRIES=1\"");
+    auto const n_provision = count_occurrences(cm_dbg.text(), "(j3) 1/2: Release provision-only");
+    auto const n_mess_dbg  = count_occurrences(cm_dbg.text(), "measure (S5-P2 scharf, misst): [a,b,c][d,e,f][g,h,i]=");
+    EXPECT_GT(n_provision, 0u) << "(j3) Debug cmake: mindestens ein Provision-Block je Perm";
+    EXPECT_EQ(n_mess_dbg, n_provision) << "(j3) je Perm ein Provision- und ein Mess-COMMAND";
+    EXPECT_EQ(n_tries_dbg, n_provision + n_mess_dbg)
+        << "(j3)/R4 Debug cmake: TRIES=1 in BEIDEN env-Bloecken je Perm (Blocker #50)";
+    // Positions-Pruefung: mindestens eine TRIES-Instanz liegt NACH dem ersten Mess-Echo (= im Debug-Mess-COMMAND,
+    // nicht zweimal im Provision-Block).
+    auto const first_mess_echo = cm_dbg.text().find("measure (S5-P2 scharf, misst): [a,b,c][d,e,f][g,h,i]=");
+    ASSERT_NE(first_mess_echo, std::string::npos) << "(j3) Debug-Mess-Echo-Marker vorhanden";
+    EXPECT_NE(cm_dbg.text().find("\"COMDARE_ARTEFAKT_TRIES=1\"", first_mess_echo), std::string::npos)
+        << "(j3)/R4 Debug cmake: TRIES=1 auch im Mess-COMMAND (nach dem Mess-Echo)";
     EXPECT_EQ(cm.text().find("(j3) 1/2"), std::string::npos) << "measure cmake => kein (j3)-Vorlauf (byte-stabil)";
     EXPECT_EQ(cm.text().find("_release_provision"), std::string::npos) << "measure cmake => kein Release-Provision-Dir";
+    EXPECT_EQ(cm.text().find("COMDARE_ARTEFAKT_TRIES"), std::string::npos)
+        << "(j3)/R4 measure cmake => KEIN ARTEFAKT_TRIES (Release-Mess-Target byte-identisch zum Ist-Stand)";
+}
+
+// (R5) exactly-one-Haertung (Ledger §61-STUFEN, LED:3190): ein 2-Modi-Profil bricht auf dem tp-Pfad HART ab, statt
+// still ids.front() (debug-Semantik inkl. parallelem Mess-Loop) zu nehmen. Zwei Konsum-Ebenen: (1) der Director-Konsum
+// build_semantic_of_run_methodology via construct(); (2) der Runtime-Konsum run_methodology_for_ids (Mess-Loop-Naht).
+TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
+    namespace mm = comdare::cache_engine::measurement;
+    planner::ExperimentPlanDirector const director;
+
+    auto tp2 = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp2.has_value());
+    tp2->run_methodology = {"debug", "measure"}; // 2 Modi = Kontraktbruch (exactly-one verletzt)
+    planner::TierCmakeGraphBuilder cm_two;
+    EXPECT_THROW(director.construct(*tp2, cm_two), std::invalid_argument)
+        << "(R5) tp-Pfad: build_semantic_of_run_methodology bricht bei >1 Modi HART ab (kein stilles front())";
+
+    // Runtime-Konsum (Mess-Loop-Naht, resolve_measure_parallelism -> run_methodology_for_ids): wirft ebenfalls bei >1.
+    EXPECT_THROW(mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
+        << "(R5) run_methodology_for_ids bricht bei >1 Methoden HART ab";
+    EXPECT_THROW(mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
+
+    // exactly-one bleibt gueltig + byte-neutral (kein Fehlalarm):
+    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure); // leer => measure-Default
+    auto tp1 = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp1.has_value());
+    tp1->run_methodology = {"measure"};
+    planner::TierCmakeGraphBuilder cm_one;
+    EXPECT_NO_THROW(director.construct(*tp1, cm_one)) << "(R5) exactly-one-Profil baut normal (byte-neutral)";
 }
 
 // (i)-facade §61-STUFEN Byte-Wache: die facade-Suffix-Naht build_type_version_suffix liest COMDARE_BUILD_TYPE und

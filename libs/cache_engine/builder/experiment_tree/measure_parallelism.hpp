@@ -18,7 +18,8 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Leitet cfg.measure_parallelism aus der Methodik ab (siehe Datei-Kopf). Env-unparsebar/0 => nproc-Default (nie throw).
+/// Leitet cfg.measure_parallelism aus der Methodik ab (siehe Datei-Kopf). Env-unparsebar/0 => nproc-Default (kein throw
+/// fuer Env-Fehler). R5: run_methodology_for_ids wirft bei >1 Methoden (Kontraktbruch, validate-gegated) -- exactly-one.
 [[nodiscard]] inline std::size_t resolve_measure_parallelism(std::vector<std::string> const& run_methodology) {
     auto const& m = ::comdare::cache_engine::measurement::run_methodology_for_ids(run_methodology);
     if (!m.measurement_on || m.single_thread) return 0; // Measure/Release/undeklariert => 1-Thread (byte-neutral)
