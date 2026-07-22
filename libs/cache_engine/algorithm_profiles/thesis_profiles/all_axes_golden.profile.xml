@@ -197,8 +197,9 @@
        Abgabe-Referenz deklariert dieses Profil: run_methodology = measure (§61-STUFEN/(j1): GENAU EIN Modus je
        Profil -- die golden-Abgabe IST der Mess-Modus, Release-Build + 1-Thread-Messen; die frueheren {debug,release}-
        Eintraege waren die A9-"sweepbar"-Auslegung, per §61-STUFEN supersediert); writeback_methods das volle Trio
-       {csv,latex_table,comparison_metrics}; measurement_tooling alle drei CEB-Typen als SEPARATE Combos
-       {wallclock}/{macro}/{micro}. measurement_framework = ycsb (honest-1, heute EINZIGES Framework). -->
+       {csv,latex_table,comparison_metrics}; measurement_tooling die VOLLMENGE {wallclock,macro,micro} als EINE
+       vereinte Combo (§64: Default = eine CEB, gemischte Pruef-Dock-Abnahme; die frueheren 3 separaten Combos waren
+       die F-3-Regression). measurement_framework = ycsb (honest-1, heute EINZIGES Framework). -->
   <run_methodology>
     <method value="measure"/>
   </run_methodology>
@@ -209,8 +210,9 @@
     <method value="comparison_metrics"/>
   </writeback_methods>
   <measurement_tooling>
-    <combo tools="wallclock"/>
-    <combo tools="macro"/>
-    <combo tools="micro"/>
+    <!-- §64 (2026-07-22): EINE Vollmengen-Combo {wallclock,macro,micro} = EINE vereinte CEB (Default; Legende
+         kollabiert auf [all], measurement_combos_of => 1 Combo). Die frueheren 3 separaten Ein-Tool-Combos (3 CEB-
+         Lanen) waren die F-3-Regression; getrennt/Teilmengen bleibt XML-Recht (s. m3_smoke_coverage). -->
+    <combo tools="wallclock macro micro"/>
   </measurement_tooling>
 </comdare_thesis_profile>
