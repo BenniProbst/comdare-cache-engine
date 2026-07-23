@@ -113,6 +113,14 @@ struct PlanBuildSemantic {
 struct PlanHeader {
     std::string source_kind; // "thesis" | "experiment"
     std::string profile_id;
+    // S2-NACHT (2026-07-23): der Datei-BASENAME des AKTIVEN Profils (facade: profile_path.filename()). Der emittierte
+    // Child-Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE damit auf GENAU dieses Profil (thesis_profiles/<basename>) statt
+    // hart all_axes_golden -- sonst exerzierten die Stufe-1/2-Jobs trotz Smoke-Scope den vollen all_axes-Katalog.
+    // Quelle ist die DATEI, nicht profile_id (id != Basename moeglich, z.B. m3v2_sota_pilot.profile.xml traegt id="C").
+    // Leer (Legacy-/Direkt-Ctor-Pfad ohne profile_path) => Prolog-Fallback all_axes_golden.profile.xml (byte-identisch
+    // zu HEAD fuer die direkten Builder-Tests). KLASSEN-Regel bleibt: Prolog-Re-Derive mit frischem ${CI_PROJECT_DIR},
+    // nur der Basename ist dynamisch.
+    std::string profile_basename;
     std::size_t perm_count              = 0; // |opt x simd| JE Mess-Kombination
     std::size_t measurement_combo_count = 0; // W10-A: Zahl der Mess-Achsen-Kombinationen (heute typisch 1)
     PlanRegistryTrioAnnotation registries;
@@ -470,7 +478,14 @@ inline void emit_child_ccache_config(std::string& out) {
 // Env-Variable (er laeuft in der Job-Shell VOR jedem cmake-/Treiber-Aufruf). KLASSEN-Regel: KEIN $CI_PROJECT_DIR-
 // Wert steht mehr in variables: (Contract-Test-Wache); nur reine Literale + der cache:-Block (workdir-relativ)
 // bleiben dort.
-inline void emit_child_submodule_prolog(std::string& out) {
+// S2-NACHT (2026-07-23): profile_basename = der Datei-Basename des AKTIVEN Profils (PlanHeader::profile_basename). Der
+// COMDARE_GOLDEN_N_PROFILE-Export zeigt damit auf GENAU dieses Profil (thesis_profiles/<basename>), statt hart
+// all_axes_golden -- so exerzieren die von der CEB emittierten Stufe-1/2-Jobs den scope-richtigen Katalog (Smoke bleibt
+// Smoke). Leerer Basename (Legacy-/Direkt-Ctor-Pfad ohne profile_path) => Fallback all_axes_golden.profile.xml
+// (byte-identisch zu HEAD). KLASSEN-Regel bleibt: Re-Derive mit frischem ${CI_PROJECT_DIR}, nur der Basename dynamisch.
+inline void emit_child_submodule_prolog(std::string& out, std::string const& profile_basename) {
+    std::string const golden_basename =
+        profile_basename.empty() ? std::string{"all_axes_golden.profile.xml"} : profile_basename;
     out += "    - |\n";
     out += "      set -euo pipefail\n";
     out += "      # RUNTIME-Shell-Export aller $CI_PROJECT_DIR-abhaengigen Env (Nacharbeit 3+4, KLASSE): immun gegen\n";
@@ -479,7 +494,8 @@ inline void emit_child_submodule_prolog(std::string& out) {
     out += "      export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\"\n";
     out += "      export CCACHE_MAXSIZE=\"3G\"\n";
     out += "      export COMDARE_GOLDEN_N_PROFILE=\"${CI_PROJECT_DIR}/Code/external/comdare-cache-engine/libs/"
-           "cache_engine/algorithm_profiles/thesis_profiles/all_axes_golden.profile.xml\"\n";
+           "cache_engine/algorithm_profiles/thesis_profiles/" +
+           golden_basename + "\"\n";
     // smoke=>debug-Entkopplung (2026-07-22): COMDARE_PLAN_METHODIK_PROFILE (Methodik-Profil-Selektor) analog FRISCH
     // per Runtime-Export montieren. Die super-YAML forwardet NUR den BASENAME (KLASSE: KEIN $CI_PROJECT_DIR in den
     // geforwardeten Child/Grandchild-variables -- sonst leer-vorexpandiert). Der Basename wird hier zum grandchild-
@@ -572,10 +588,10 @@ public:
         out_ += "\n# =================================================================================\n";
         out_ += "# measurement_combo " + std::to_string(c.index) + " legend=" + c.legend + " (CEB-Typ)\n";
         out_ += "# =================================================================================\n";
-        out_ += emit_ceb_build_job(c);
+        out_ += emit_ceb_build_job(c, header_.profile_basename);
         // A5 (§56-T2-FANOUT D4): der Selektor-Naht ist NUR bei N>1 CEB-Konfigs aktiv (measurement_combo_count > 1);
         // count==1 (heutige Live-Strecke) => KEIN --measurement-combo => byte-identisch zu vor A5.
-        out_ += emit_ceb_emit_job(c, header_.measurement_combo_count > 1);
+        out_ += emit_ceb_emit_job(c, header_.measurement_combo_count > 1, header_.profile_basename);
         out_ += emit_ceb_trigger_job(c);
     }
     void begin_perm(PlanPerm const& p) override {
@@ -602,7 +618,8 @@ public:
 private:
     // STUFE 1a: der CEB-Bau-Job dieser Mess-Kombination. Baut die CEB (heute: comdare-messung-driver). Tag amd64
     // (broadest: der CEB-Bau ist compiler-only; die SIMD-Wahl faellt erst in der CEB-Rolle je System-Perm).
-    [[nodiscard]] static std::string emit_ceb_build_job(PlanMeasurementCombo const& c) {
+    [[nodiscard]] static std::string emit_ceb_build_job(PlanMeasurementCombo const& c,
+                                                        std::string const&          profile_basename) {
         std::string const slug = legend::cmake_slug(c.legend);
         std::string       s;
         s += "# JOB ceb-build combo " + std::to_string(c.index) + " (STUFE 1: Planer steuert CEB-Bau, CEB-Typ " +
@@ -613,7 +630,8 @@ private:
         s += "  resource_group: \"ceb-" + slug + "\"\n";
         s += "  interruptible: false   # CEB-Bau darf nie auto-cancelt werden\n";
         s += "  script:\n";
-        emit_child_submodule_prolog(s); // W10-Nacharbeit 2: manueller ce-Submodul-Klon (kein Auto-Fetch)
+        // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (profile_basename).
+        emit_child_submodule_prolog(s, profile_basename); // W10-Nacharbeit 2: manueller ce-Submodul-Klon
         s += "    - 'echo \"== Toolchain ==\"; cmake --version; (g++ --version || c++ --version || echo \"KEIN "
              "C++-Compiler\")'\n";
         s += "    - cd Code\n";
@@ -629,7 +647,8 @@ private:
     }
 
     // STUFE 1b: die GEBAUTE CEB emittiert SELBST Child-2 (--emit-tier-ci, CEB-Rolle) -> Artefakt. §40.b-Hoheit.
-    [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c, bool emit_combo_selector) {
+    [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c, bool emit_combo_selector,
+                                                       std::string const& profile_basename) {
         std::string const slug = legend::cmake_slug(c.legend);
         std::string const art  = "tier-child-" + slug + ".yml";
         std::string       s;
@@ -639,7 +658,9 @@ private:
         s += "  tags: [\"amd64\"]\n";
         s += "  needs: [\"" + legend::ceb_build_job(c.legend) + "\"]\n";
         s += "  script:\n";
-        emit_child_submodule_prolog(s); // W10-Nacharbeit 2: ceb:emit baut den Treiber neu -> braucht ce-Quellen
+        // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil; der --emit-tier-ci-Aufruf
+        // unten liest GENAU diese Variable ($COMDARE_GOLDEN_N_PROFILE) -> der Grandchild-Katalog folgt dem Profil-Scope.
+        emit_child_submodule_prolog(s, profile_basename); // W10-Nacharbeit 2: ceb:emit baut Treiber neu -> ce-Quellen
         s += "    - cd Code\n";
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -850,7 +871,8 @@ private:
         s += "  interruptible: false   # ein laufender Provision-/Pruef-Batch darf nie auto-cancelt werden\n";
         s += "  timeout: 7d            # GN-11-Mehrtaegigkeit (Runner-maximum_timeout >= 7d ist Infra-Vorbedingung)\n";
         s += "  script:\n";
-        emit_child_submodule_prolog(s); // W10-Nacharbeit 2: manueller ce-Submodul-Klon (kein Auto-Fetch)
+        // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
+        emit_child_submodule_prolog(s, header_.profile_basename); // W10-Nacharbeit 2: manueller ce-Submodul-Klon
         s += "    - cd Code\n";
         // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure => "Release"); Default byte-identisch zu HEAD.
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
@@ -969,7 +991,8 @@ private:
         // Sichtbarkeits-Doktrin: Mess-Fehler => CSV 'failed' + Log, die Pipeline bleibt gruen (nicht still verschluckt).
         s += "  allow_failure: true\n";
         s += "  script:\n";
-        emit_child_submodule_prolog(s); // manueller ce-Submodul-Klon (kein Auto-Fetch), Spiegel des Bau-Jobs
+        // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
+        emit_child_submodule_prolog(s, header_.profile_basename); // ce-Submodul-Klon, Spiegel des Bau-Jobs
         s += "    - cd Code\n";
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
              header_.build_semantic.cmake_build_type + "\n";
@@ -1352,7 +1375,8 @@ public:
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
     void construct(cx::ThesisProfile const& tp, IPlanBuilder& b, std::string const& combo_selector = {},
-                   std::vector<std::string> const& methodik_run_methodology = {}) const {
+                   std::vector<std::string> const& methodik_run_methodology = {},
+                   std::string const&              profile_basename         = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
         std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
@@ -1374,27 +1398,29 @@ public:
         // Methodik bleibt profil-getrieben+exactly-one; die Env ist Profil-SELEKTOR, nicht Methodik-Wert.
         PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
             methodik_run_methodology.empty() ? tp.run_methodology : methodik_run_methodology);
-        walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, resolver, build_semantic, b, [&](IPlanBuilder& bb) {
-            std::size_t j = 0;
-            for (auto const& sweep_axis : passes) {
-                PlanStep s;
-                s.index          = j++;
-                s.kind           = "thesis_sweep_pass";
-                s.label          = sweep_axis; // "" = Basis-Pass (PlanTextBuilder rendert <basis>)
-                s.merge          = "-";
-                s.binary_id      = "-";
-                s.series         = "-";
-                s.pruefling_type = "-";
-                s.lebewesen      = "-";
-                bb.on_step(s);
-            }
-        });
+        walk_perms_("thesis", tp.id, profile_basename, combos, opt_perms, simd_perms, resolver, build_semantic, b,
+                    [&](IPlanBuilder& bb) {
+                        std::size_t j = 0;
+                        for (auto const& sweep_axis : passes) {
+                            PlanStep s;
+                            s.index          = j++;
+                            s.kind           = "thesis_sweep_pass";
+                            s.label          = sweep_axis; // "" = Basis-Pass (PlanTextBuilder rendert <basis>)
+                            s.merge          = "-";
+                            s.binary_id      = "-";
+                            s.series         = "-";
+                            s.pruefling_type = "-";
+                            s.lebewesen      = "-";
+                            bb.on_step(s);
+                        }
+                    });
     }
 
     /// Experiment-Kanal: opt x simd x (phase -> je real baubarem (merge x lebewesen)-Pass EIN Schritt). Die
     /// Phasen-Projektion ist die Bruecke-I3-Enumeration (nullopt-Paare ehrlich ausgelassen, kein Phantom-Schritt).
     void construct(cx::ExperimentProfile const& ep, IPlanBuilder& b, std::string const& combo_selector = {},
-                   std::vector<std::string> const& methodik_run_methodology = {}) const {
+                   std::vector<std::string> const& methodik_run_methodology = {},
+                   std::string const&              profile_basename         = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
@@ -1413,7 +1439,7 @@ public:
         // ep.run_methodology (BYTE-IDENTISCH). Achsen/Perms bleiben aus ep.
         PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
             methodik_run_methodology.empty() ? ep.run_methodology : methodik_run_methodology);
-        walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, resolver, build_semantic, b,
+        walk_perms_("experiment", ep.id, profile_basename, combos, opt_perms, simd_perms, resolver, build_semantic, b,
                     [&](IPlanBuilder& bb) {
                         std::size_t j = 0;
                         for (auto const& proj : projections) {
@@ -1555,13 +1581,14 @@ private:
     // measurement_combos_of. perm_count = |opt x simd| JE Mess-Kombination (heute 1 Kombination => byte-identische
     // Perm-Menge zum Vor-W10-Verhalten; der perm_index laeuft ueber den gesamten Walk).
     template <class StepEmitter>
-    void walk_perms_(std::string_view source_kind, std::string const& profile_id,
+    void walk_perms_(std::string_view source_kind, std::string const& profile_id, std::string const& profile_basename,
                      std::vector<PlanMeasurementCombo> const& combos, std::vector<std::string> const& opt_perms,
                      std::vector<std::string> const& simd_perms, tlz::ResolverReport const& resolver,
                      PlanBuildSemantic const& build_semantic, IPlanBuilder& b, StepEmitter&& emit_steps) const {
         PlanHeader header;
         header.source_kind             = std::string{source_kind};
         header.profile_id              = profile_id;
+        header.profile_basename        = profile_basename; // S2-NACHT: Basename des aktiven Profils
         header.perm_count              = opt_perms.size() * simd_perms.size();
         header.measurement_combo_count = combos.size();
         header.registries              = trio_;

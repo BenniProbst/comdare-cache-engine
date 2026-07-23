@@ -700,8 +700,11 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
-        director.construct(*tp, builder, combo_selector,
-                           methodik.run_methodology); // A5 combo leer=>Identitaet; methodik leer=>aus tp
+        // S2-NACHT (2026-07-23): der Datei-Basename des AKTIVEN Profils reist bis in den Child-Prolog durch
+        // (COMDARE_GOLDEN_N_PROFILE zeigt auf GENAU dieses Profil, nicht hart all_axes_golden). Quelle ist die DATEI
+        // (profile_path.filename()), nicht tp.id (id != Basename moeglich, z.B. m3v2_sota_pilot.profile.xml id="C").
+        director.construct(*tp, builder, combo_selector, methodik.run_methodology,
+                           profile_path.filename().string()); // A5 combo leer=>Identitaet; methodik leer=>aus tp
         return 0;
     }
     if (root_tag == "comdare_experiment") {
@@ -712,8 +715,9 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
                << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Plan emittiert.\n";
             return 5;
         }
-        director.construct(*ep, builder, combo_selector,
-                           methodik.run_methodology); // A5 combo leer=>Identitaet; methodik leer=>aus ep
+        // S2-NACHT (2026-07-23): der Profil-Basename reist bis in den Child-Prolog durch (s. Thesis-Kanal oben).
+        director.construct(*ep, builder, combo_selector, methodik.run_methodology,
+                           profile_path.filename().string()); // A5 combo leer=>Identitaet; methodik leer=>aus ep
         return 0;
     }
     os << "[" << what << "] '" << profile_path.string() << "': unbekannte/unlesbare Wurzel"
