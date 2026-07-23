@@ -1267,6 +1267,37 @@ TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
         << "der alte konservative K-Wert 16 (intel) ist ersetzt (T-Wert 24)";
 }
 
+// (DRINGEND, 2026-07-23 Resume-CI-Fix) BatchJobsCarryGnOutPersistenceFlags: BEIDE STUFE-2-Batch-Typen (Build + Mess)
+//     tragen je GIT_CLEAN_FLAGS mit -e-Ausnahme fuer Code/gn_out + Code/build UND GIT_STRATEGY:fetch. Sonst loescht der
+//     GitLab-Checkout-Default 'git clean -ffdx' die Bau-Artefakte (.so + .version-Sidecar) am Job-Start und der
+//     per-Binary-Resume (dll_is_current) ist ueber Job-Grenzen wirkungslos. Der Flag-Count ist an die Batch-Job-Zahl
+//     gebunden (Build + Mess je Host) -- so beweist er, dass BEIDE Typen die Flags tragen (kein hartkodierter Wert).
+TEST(TierCiYamlBuilder, BatchJobsCarryGnOutPersistenceFlags) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // §64/§62-B: je Host EIN Build-Batch + EIN Mess-Batch; beide Typen sind vorhanden (all_axes_golden: amd + intel).
+    std::size_t const build_batches   = count_occurrences(yaml, "# JOB tier-build-batch ");
+    std::size_t const measure_batches = count_occurrences(yaml, "# JOB measure-batch ");
+    ASSERT_GT(build_batches, 0u) << "es gibt Build-Batch-Jobs";
+    ASSERT_GT(measure_batches, 0u) << "es gibt Mess-Batch-Jobs";
+    std::size_t const total_batches = build_batches + measure_batches;
+
+    // Jeder Batch-Job (Build + Mess, je Host) traegt beide Flags GENAU EINMAL -> Count == Batch-Job-Zahl (=> BEIDE
+    // Typen tragen sie; waeren sie nur im Build, waere der Count == build_batches < total_batches).
+    EXPECT_EQ(count_occurrences(yaml, "    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build\"\n"), total_batches)
+        << "beide Batch-Typen je Host tragen den gn_out/build-Clean-Ausschluss (dll_is_current ueberlebt)";
+    EXPECT_EQ(count_occurrences(yaml, "    GIT_STRATEGY: \"fetch\"\n"), total_batches)
+        << "beide Batch-Typen je Host tragen GIT_STRATEGY:fetch (kein Voll-Clone, Workdir erhalten)";
+    // KLASSEN-Regel: die neuen Job-variables tragen KEIN $CI_PROJECT_DIR (workdir-relative Pfade).
+    EXPECT_EQ(yaml.find("GIT_CLEAN_FLAGS: \"-ffdx -e $CI_PROJECT_DIR"), std::string::npos)
+        << "kein $CI_PROJECT_DIR in den Persistenz-Flags (KLASSE)";
+}
+
 // (S4-e) EmptyLaneEmitsNoJobPair (Leere-Lane-Regel): ein Profil mit NUR avx2-simd routet alle Perms nach intel =>
 //        NUR das intel-Job-Paar, kein amd-Batch (kein toter needs-Verweis).
 TEST(TierCiYamlBuilder, EmptyLaneEmitsNoJobPair) {
