@@ -37,6 +37,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream> // std::cerr (klassifizierte Infra-Fehlerzeile) — include-what-you-use, nicht transitiv verlassen
+#include <optional> // G5 (P-B): prune_verdict-Remote-Werte (std::optional)
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -53,6 +54,42 @@ extern char** environ;
 #endif
 
 namespace comdare::cache_engine::builder::artifact_transport {
+
+// G5 (P-B, Ledger Section 65/66): reine Prune-Entscheidung (Fake-testbar, keine mc-Abhaengigkeit).
+// Lokal loeschen NUR, wenn der Remote-Bestand die lokale Binary BEWEISBAR spiegelt: remote .version
+// existiert UND ist byte-gleich zur lokalen .version (Provenienz) UND die remote perm.dll-Groesse ist
+// gleich der lokalen. JEDER Zweifel (fehlend / mismatch / unbekannt / keine lokale .version) => KEIN
+// Loeschen (behalten). So kann ein Netz-/stat-Fehler NIE ein Artefakt vernichten.
+struct PruneVerdict {
+    bool        prune = false;
+    std::string reason;
+};
+[[nodiscard]] inline PruneVerdict prune_verdict(std::string const&                   local_version,
+                                                std::optional<std::string> const&    remote_version,
+                                                std::uintmax_t                       local_size,
+                                                std::optional<std::uintmax_t> const& remote_size) {
+    if (local_version.empty()) return {false, "no_local_version"};
+    if (!remote_version) return {false, "remote_version_missing"};
+    if (*remote_version != local_version) return {false, "version_mismatch"};
+    if (!remote_size) return {false, "remote_size_unknown"};
+    if (*remote_size != local_size) return {false, "size_mismatch"};
+    return {true, "verified"};
+}
+
+// G5 (P-B): die EINZIGEN Dateien, die geprunt werden duerfen -- die Tier-Binary + ihre zwei Sidecars.
+// NIEMALS result.csv / measure_out / Logs (Messdaten-nie-loeschen-Doktrin, HART -- prune.log ueberlebt,
+// weil es hier NICHT aufgelistet ist). Single-Source der Prune-Menge (Test + verify_remote_then_prune).
+[[nodiscard]] inline std::vector<std::filesystem::path> prunable_artifacts(std::filesystem::path const& bin_dir) {
+    return {bin_dir / "perm.dll", bin_dir / "perm.dll.version", bin_dir / "perm.dll.algos"};
+}
+
+// G5 (P-B): Zustand einer Prune-Pruefung je Stem. verified = Remote wurde geprueft (pruned+kept);
+// skipped = inert (kein minio) ODER keine lokale Binary (nichts zu tun).
+enum class PruneState { pruned, kept, skipped };
+struct PruneOutcome {
+    PruneState  state = PruneState::skipped;
+    std::string reason;
+};
 
 // ── Injektions-Naht-Typen (No-Op-Default = leere std::function -> byte-neutral). ──────────────────────────────
 // Muster wie CompileFn/AlgoSigFn (build_orchestrator.hpp): der Iterator ruft sie SYNCHRON an der per-Binary-Naht.
@@ -268,21 +305,70 @@ public:
         std::error_code ec;
         std::filesystem::create_directories(dest_root, ec);
         std::string src = mc_target(cache_key_prefix(build_version)); // <alias>/<bucket>/[<prefix>/]<KEY>
-        if (src.empty() || src.back() != '/') src += '/';             // mc cp --recursive erwartet SRC-Verzeichnis
+        if (src.empty() || src.back() != '/') src += '/';             // mc mirror erwartet SRC-Verzeichnis
         std::string dst = dest_root.string();
         if (dst.empty() || dst.back() != '/') dst += '/';
         std::filesystem::path const log = dest_root / "perm.pull.recursive.log";
         for (std::size_t attempt = 1; attempt <= pull_tries_; ++attempt) {
-            // `mc cp --recursive --exclude` spart den Marker-Namensraum aus (best-effort; Korrektheit haengt NICHT
-            // daran -- Marker tragen kein perm.dll, dll_is_current ignoriert sie, und kein realer Stem == _gn_chunk_markers).
-            int const rc =
-                run_argv(mc_argv({mc_bin_, "cp", "--recursive", "--exclude", "_gn_chunk_markers/*", src, dst},
-                                 mc_pull_timeout_s_),
-                         log);
+            // G5 (P-B, Design-Vorbedingung Hydration): `mc mirror` STATT `mc cp --recursive` -- INKREMENTELL
+            // (kopiert nur neue/geaenderte Objekte) und damit retry-RESUMIERBAR: ein abgebrochener Pull setzt beim
+            // naechsten Versuch fort statt alles neu zu ziehen. `--exclude` spart den Marker-Namensraum aus (best-
+            // effort; Korrektheit haengt NICHT daran -- Marker tragen kein perm.dll, dll_is_current ignoriert sie,
+            // kein realer Stem == _gn_chunk_markers). mc_pull_timeout_s_ = COMDARE_MC_PULL_TIMEOUT_S (Wall-Clock-Cap).
+            int const rc = run_argv(
+                mc_argv({mc_bin_, "mirror", "--exclude", "_gn_chunk_markers/*", src, dst}, mc_pull_timeout_s_), log);
             if (rc == 0) return true;
             if (attempt < pull_tries_) sleep_seconds(pull_sleep_s_);
         }
         return false; // MISS (leerer Praefix / Netzfehler) -> lokal bauen; dll_is_current bleibt der Arbiter
+    }
+
+    /// G5 (P-B, Ledger Section 65/66): PRUNE lokal->0 NACH verifiziertem Remote-Bestand. Loescht die lokale Tier-
+    /// Binary + ihre zwei Sidecars (prunable_artifacts) NUR, wenn der Objekt-Store sie BEWEISBAR spiegelt: remote
+    /// perm.dll.version existiert UND ist byte-gleich zur lokalen .version (Provenienz) UND die remote perm.dll-
+    /// Groesse == lokale. JEDER Fehler-/Zweifel-Pfad => KEIN Loeschen (behalten). NIEMALS Messdaten (nur die 3
+    /// prunable_artifacts; result.csv/measure_out/prune.log bleiben). Ein [PRUNE]-Testat je Stem an bin_dir/
+    /// perm.prune.log (append, bleibt). No-Op (skipped) wenn inert (kein minio) oder keine lokale Binary.
+    [[nodiscard]] PruneOutcome verify_remote_then_prune(std::filesystem::path const& bin_dir,
+                                                        std::string const&           build_version) const {
+        if (!minio_enabled())
+            return {PruneState::skipped, "inert"}; // opt-in: kein minio => nie loeschen (byte-neutral)
+        std::string const           stem     = bin_dir.filename().string();
+        std::string const           key_base = cache_key_prefix(build_version) + "/" + stem;
+        std::filesystem::path const dll      = bin_dir / "perm.dll";
+        std::filesystem::path const version  = bin_dir / "perm.dll.version";
+        std::filesystem::path const log      = bin_dir / "perm.prune.log";
+
+        std::error_code ec;
+        if (!std::filesystem::exists(dll, ec) || !std::filesystem::exists(version, ec)) {
+            log_prune_testat(log, stem, false, "no_local_artifact");
+            return {PruneState::skipped, "no_local_artifact"};
+        }
+        std::string const    local_version = read_text_file(version);
+        std::uintmax_t const local_size    = std::filesystem::file_size(dll, ec);
+        if (ec) {
+            log_prune_testat(log, stem, false, "local_size_unreadable");
+            return {PruneState::skipped, "local_size_unreadable"};
+        }
+
+        // Remote-Provenienz: remote perm.dll.version existiert? -> nach tmp holen -> Inhalt lesen (nullopt sonst).
+        std::optional<std::string> remote_version;
+        if (mc_remote_exists(key_base + "/perm.dll.version")) {
+            std::filesystem::path const tmp = version.string() + ".remote";
+            if (mc_pull(key_base + "/perm.dll.version", tmp, log)) remote_version = read_text_file(tmp);
+            std::filesystem::remove(tmp, ec);
+        }
+        // Remote-Groesse der perm.dll (STRIKT: nullopt bei jedem stat-/Parse-Fehler -> konservativ behalten).
+        std::optional<std::uintmax_t> const remote_size = mc_remote_size(key_base + "/perm.dll", log);
+
+        PruneVerdict const v = prune_verdict(local_version, remote_version, local_size, remote_size);
+        if (v.prune) {
+            for (auto const& p : prunable_artifacts(bin_dir)) std::filesystem::remove(p, ec);
+            log_prune_testat(log, stem, true, v.reason);
+            return {PruneState::pruned, v.reason};
+        }
+        log_prune_testat(log, stem, false, v.reason);
+        return {PruneState::kept, v.reason};
     }
 
     /// W11 (Ledger §43.c): Ebene B TEIL-Marker. Legt einen kleinen Marker cache_key_prefix(build_version)/_gn_chunk_markers/
@@ -535,6 +621,44 @@ private:
         std::uintmax_t remote_size = 0;
         if (!parse_json_size(content, remote_size)) return true; // Groesse nicht auffindbar -> best-effort-OK
         return remote_size == local_size;
+    }
+
+    /// G5 (P-B): remote Objekt-Groesse via `mc stat --json` -> nullopt bei stat-/Parse-Fehler. STRIKT (kein
+    /// best-effort-true wie mc_size_verified): fuer den Prune muss die Groesse BEWEISBAR gleich sein; ein
+    /// unbekannter Wert = KEIN Loeschen (prune_verdict behaelt bei remote_size==nullopt konservativ).
+    [[nodiscard]] std::optional<std::uintmax_t> mc_remote_size(std::string const&           object_key,
+                                                               std::filesystem::path const& log) const {
+        std::filesystem::path const stat_out = log.string() + ".prune.stat";
+        int const                   rc =
+            run_argv(mc_argv({mc_bin_, "stat", "--json", mc_target(object_key)}, mc_pull_timeout_s_), stat_out);
+        std::error_code ec;
+        if (rc != 0) {
+            std::filesystem::remove(stat_out, ec);
+            return std::nullopt;
+        }
+        std::ifstream f{stat_out, std::ios::binary};
+        std::string   content((std::istreambuf_iterator<char>(f)), {});
+        f.close();
+        std::filesystem::remove(stat_out, ec);
+        std::uintmax_t sz = 0;
+        if (!parse_json_size(content, sz)) return std::nullopt;
+        return sz;
+    }
+
+    /// G5 (P-B): Datei-Inhalt als String (leer bei Fehler). Fuer den byte-genauen .version-Provenienz-Vergleich.
+    [[nodiscard]] static std::string read_text_file(std::filesystem::path const& p) {
+        std::ifstream f{p, std::ios::binary};
+        if (!f) return {};
+        return std::string((std::istreambuf_iterator<char>(f)), {});
+    }
+
+    /// G5 (P-B): ein [PRUNE]-Testat je Stem an bin_dir/perm.prune.log ANHAENGEN (append; das Log ueberlebt den
+    /// Prune, weil es NICHT in prunable_artifacts steht). Format: [PRUNE] stem=<s> action=<pruned|behalten> reason=<r>.
+    static void log_prune_testat(std::filesystem::path const& log, std::string const& stem, bool pruned,
+                                 std::string const& reason) {
+        std::ofstream f{log, std::ios::binary | std::ios::app};
+        if (!f) return;
+        f << "[PRUNE] stem=" << stem << " action=" << (pruned ? "pruned" : "behalten") << " reason=" << reason << "\n";
     }
 
     /// Extrahiert das erste "size":<zahl>-Feld aus einem mc-stat-JSON (ohne JSON-Lib; robust gegen Whitespace).
