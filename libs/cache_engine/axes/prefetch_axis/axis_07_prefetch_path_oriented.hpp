@@ -56,7 +56,7 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view algo_version = "v1";
+    static constexpr std::string_view algo_version = "v1.0.0";
 
     // V41.F.6.1.F.6 — native Pfad-Tracking-Logik (prt-art REV 6 §5.17 + V11.1 Hot-Path).
     // Der Wrapper ist stateful: er verfolgt den aktiven Suchpfad und empfiehlt die naechste

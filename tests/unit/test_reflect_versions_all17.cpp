@@ -107,13 +107,14 @@ TEST(ReflectVersionsAll17, W12AOrganStampLineUsesXYZFromTableSeparateFromAlgosSi
     std::vector<std::pair<std::string, std::string>> const axes = {{std::string{e.axis}, e.variant}};
 
     std::string const stamp = ex::compose_organ_stamp_line(axes, table);
-    // X.Y.Z-Voll-Form aus der Tabelle (heute "v1" -> "1.0.0"), NUR Haupt-Achse, KEIN Sub-Achsen-Schwanz:
+    // X.Y.Z-Voll-Form aus der Tabelle (heute "v1.0.0" -> "1.0.0" nach A1-Migration), NUR Haupt-Achse, KEIN Sub-Schwanz:
     std::string const expected = std::string{e.axis} + "=" + e.variant + "@" +
                                  ::comdare::cache_engine::measurement::algo_semver_string(e.version);
     EXPECT_EQ(stamp, expected);
     EXPECT_EQ(stamp.find(";sub="), std::string::npos); // Stempel: kein Sub-Achsen-Schwanz
 
-    // SEPARATE Welt zur .algos-Sig: die algos-Sig behaelt die ROHE Version ("@v1") + den Sub-Schwanz (Byte-Wache).
+    // SEPARATE Welt zur .algos-Sig: die algos-Sig behaelt die ROHE Version ("@v1.0.0" nach A1) + den Sub-Schwanz.
+    // (Der Assert unten nutzt e.version dynamisch -> migrations-robust; erst ein echter Algo-Bump v1.1.0 aendert ihn.)
     std::string const algos = ex::compose_algo_signature(axes, table);
     EXPECT_NE(stamp, algos);
     EXPECT_NE(algos.find(std::string{"@"} + std::string{e.version}), std::string::npos);

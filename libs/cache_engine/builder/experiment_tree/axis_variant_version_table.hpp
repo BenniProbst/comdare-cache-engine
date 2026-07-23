@@ -55,6 +55,15 @@ template <class List>
 inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersion>& out) {
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, List>>([&](auto id) {
         using W = typename decltype(id)::type;
+        // A1 (G2-4a, W12-A, 2026-07-23): Concept-Guard der X.Y.Z-Disziplin -- JEDE registrierte Organ-Variante MUSS eine
+        // PARSBARE algo_version tragen (Form "vN" oder "vN.N.N"). Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v')
+        // parst zum Sentinel AlgoSemVer{} == {0,0,0} und bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den
+        // bestehenden requires-Existenz-Guard (Datei-Kopf) um die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab
+        // jetzt nicht mehr unbemerkt in eine Registry gelangen (render-neutral: "v1"/"v1.0.0" parsen beide zu {1,0,0}).
+        static_assert(
+            ::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version) !=
+                ::comdare::cache_engine::measurement::AlgoSemVer{},
+            "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vN\" oder \"vN.N.N\" (A10-X.Y.Z-Disziplin)");
         out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version}});
     });
 }
