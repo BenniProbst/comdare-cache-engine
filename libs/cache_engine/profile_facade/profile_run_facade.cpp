@@ -62,12 +62,17 @@ struct MethodikOverride {
     bool                     ok = true;
     std::vector<std::string> run_methodology;
 };
-[[nodiscard]] MethodikOverride resolve_methodik_override(std::ostream& os) {
+[[nodiscard]] MethodikOverride resolve_methodik_override(std::filesystem::path const& main_profile_path,
+                                                         std::ostream&                os) {
     char const* const mp = std::getenv("COMDARE_PLAN_METHODIK_PROFILE");
     if (mp == nullptr || *mp == '\0') return {}; // unset => kein Override (byte-identisch)
-    auto const mtp = tlz::load_thesis_profile(mp);
+    // S2-NACHT-3 (2026-07-23): ein BARE-BASENAME wird gegen thesis_profiles/ (= main_profile_path.parent_path())
+    // aufgeloest -- so kann die super-YAML den KLASSEN-konformen Basename setzen; ein Pfad-behafteter Wert bleibt gueltig.
+    std::filesystem::path const mp_path = resolve_methodik_profile_path(mp, main_profile_path);
+    auto const                  mtp     = tlz::load_thesis_profile(mp_path);
     if (!mtp) {
-        os << "[methodik] COMDARE_PLAN_METHODIK_PROFILE '" << mp << "' nicht als Thesis-Profil lesbar.\n";
+        os << "[methodik] COMDARE_PLAN_METHODIK_PROFILE '" << mp << "' nicht als Thesis-Profil lesbar (aufgeloest: '"
+           << mp_path.string() << "').\n";
         return {false, {}};
     }
     if (mtp->run_methodology.size() > 1) { // exactly-one HART (Ledger 61-STUFEN) auf dem METHODIK-Profil
@@ -467,7 +472,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     // gesetzt -- die Mess-Loop-Methodik (resolve_measure_parallelism, profile_run_entry); der Bau-/Mess-Katalog bleibt
     // args.profile_path. Single-Source-Resolver (identisch zum Emit-Pfad construct_plan_into). Unlesbar/>1 => Abbruch
     // VOR dem Bau; unset => leer => byte-neutral.
-    auto const methodik = resolve_methodik_override(std::cerr);
+    auto const methodik =
+        resolve_methodik_override(args.profile_path, std::cerr); // S2-NACHT-3: Basename gg. thesis_profiles/
     if (!methodik.ok) {
         out.exit_code = 1;
         return out;
@@ -691,7 +697,7 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     // gesetzt -- die run_methodology (steuert Bau-Typ + (j3)-Dual-Compile im emittierten Mess-Job), waehrend
     // profile_path den Bau-Katalog (Achsen/Perms) stellt. Single-Source-Resolver (resolve_methodik_override, oben);
     // unlesbar/>1-Methoden => KEIN Plan emittiert (harter Abbruch); unset => leer => byte-identisch.
-    auto const methodik = resolve_methodik_override(os);
+    auto const methodik = resolve_methodik_override(profile_path, os); // S2-NACHT-3: Basename gg. thesis_profiles/
     if (!methodik.ok) return 1;
     if (root_tag == "comdare_thesis_profile") {
         auto const tp = tlz::load_thesis_profile(profile_path);
