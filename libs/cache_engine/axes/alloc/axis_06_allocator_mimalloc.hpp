@@ -106,7 +106,7 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view               algo_version = "v1";
+    static constexpr std::string_view               algo_version = "v1.0.0";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MIMALLOC"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])

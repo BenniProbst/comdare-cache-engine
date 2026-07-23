@@ -39,7 +39,7 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view algo_version = "v1";
+    static constexpr std::string_view algo_version = "v1.0.0";
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). RCU = Read-Copy-Update
     // (McKenney OLS 2001): die Read-Side ist EXTREM billig — rcu_read_lock()/rcu_read_unlock()
