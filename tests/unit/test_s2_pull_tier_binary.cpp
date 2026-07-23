@@ -47,7 +47,8 @@ int main() {
     std::filesystem::path const fakemc   = base / "fake_mc_pull.sh";
     {
         // PULL-Fake-mc: stat = Existenz im Store (rc 0/1); cp --quiet REMOTE LOCAL = store->lokal (Pull-Richtung);
-        // cp --recursive --exclude PATTERN SRC/ DST/ = rekursiv store->lokal, _gn_chunk_markers ausgespart.
+        // G5 (P-B): mirror --exclude PATTERN SRC/ DST/ = rekursiv store->lokal (inkrementell), _gn_chunk_markers
+        // ausgespart. pull_tier_prefix nutzt jetzt `mc mirror` statt `mc cp --recursive` (retry-resumierbar).
         std::ofstream f{fakemc};
         f << "#!/bin/sh\n"
              "STORE=\""
@@ -59,8 +60,8 @@ int main() {
              "fi\n"
              "  exit 1\n"
              "fi\n"
-             "if [ \"$1\" = \"cp\" ] && [ \"$2\" = \"--recursive\" ]; then\n"
-             "  SRC=\"$5\"; DST=\"$6\"\n"
+             "if [ \"$1\" = \"mirror\" ]; then\n" // G5: mirror --exclude PATTERN SRC DST
+             "  SRC=\"$4\"; DST=\"$5\"\n"
              "  KEY=\"${SRC#*/}\"; KEY=\"${KEY#*/}\"; KEY=\"${KEY%/}\"\n"
              "  SRCD=\"$STORE/$KEY\"; DSTD=\"${DST%/}\"\n"
              "  [ -d \"$SRCD\" ] || exit 1\n"
