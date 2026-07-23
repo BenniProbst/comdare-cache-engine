@@ -16,8 +16,8 @@
 // eta_estimator.hpp. Kein Runtime-Switch, keine vtable im Hot-Path (der PromiseGuard-dtor ist I/O,
 // kein Hot-Path -> std::function-Callback zulaessig, Muster wie AsyncPushPump-Injektion).
 
-#include "bestandslog/bestandslog_document.hpp"
-#include "bestandslog/eta_estimator.hpp"
+#include "bestandslog_document.hpp"
+#include "eta_estimator.hpp"
 
 #include <array>
 #include <charconv>

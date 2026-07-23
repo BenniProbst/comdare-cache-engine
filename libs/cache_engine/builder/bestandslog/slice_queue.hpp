@@ -9,7 +9,7 @@
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare (§ erlaubt), nur stdlib (thread-sync), keine Deps.
 
-#include "bestandslog/bestandslog_document.hpp" // BatchTyp
+#include "bestandslog_document.hpp" // BatchTyp
 
 #include <condition_variable>
 #include <cstddef>

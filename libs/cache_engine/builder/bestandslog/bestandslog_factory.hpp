@@ -13,8 +13,8 @@
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib. Statischer Dispatch.
 
-#include "bestandslog/bestandslog_document.hpp"
-#include "bestandslog/bestandslog_index.hpp"
+#include "bestandslog_document.hpp"
+#include "bestandslog_index.hpp"
 
 #include <concepts>
 #include <cstddef>

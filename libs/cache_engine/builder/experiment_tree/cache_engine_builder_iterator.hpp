@@ -37,6 +37,7 @@
 #include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
+#include "../bestandslog/builder_registration.hpp"      // #46b I1: Bestandslog-Registrierung/Dedup (opt-in, No-Op-Naht)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
@@ -53,8 +54,10 @@
 #include <cstdint>
 #include <cstdio> // (C-1) std::snprintf für ns_per_op-Formatierung
 #include <filesystem>
-#include <fstream> // (E) per-Binary-Ergebnis-CSV schreiben
-#include <memory>  // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
+#include <fstream>    // (E) per-Binary-Ergebnis-CSV schreiben
+#include <functional> // #46b I1: bestand_key_of-Injektion (std::function)
+#include <memory>     // #45: std::unique_ptr<IPmcSource> als per-Worker-ctx im parallelen Mess-Loop
+#include <optional>   // #46b I1: bestand_key_of-Rueckgabe (std::optional<std::string>)
 #include <span>
 #include <string>
 #include <system_error>
@@ -70,7 +73,11 @@ using CachePullFn = ::comdare::cache_engine::builder::artifact_transport::CacheP
 using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
 // W11 (§43.c): der Teil-Marker-Sink + der async Push-Pump (BAU-Modus). Wie CachePushFn transport-kanonisch, hier aliast.
 using PartialMarkerFn = ::comdare::cache_engine::builder::artifact_transport::PartialMarkerFn;
-using AsyncPushPump   = ::comdare::cache_engine::builder::artifact_transport::AsyncPushPump;
+// #46b I1 (opt-in Bestandslog-Verdrahtung): der Transport-Naht-Typ + die Registrierungs-Zustandsmaschine liegen im
+// bestandslog-Modul; hier als Alias hochgezogen (Muster wie CachePushFn -- haelt den Iterator stamp-/transport-frei).
+namespace bestandslog  = ::comdare::cache_engine::builder::bestandslog;
+using BestandTransport = bestandslog::BestandTransport;
+using AsyncPushPump    = ::comdare::cache_engine::builder::artifact_transport::AsyncPushPump;
 // Welle 5 (E-W5-2, §38-Rueck-Kanal): ProgressDelta / ProgressSinkFn / progress_delta_between liegen im
 // builder-Sibling-Leaf progress_delta.hpp (SELBER Namespace builder::experiment) -> hier ohne Alias direkt
 // sichtbar. Der achsen-blinde Iterator inkludiert NUR den builder-Leaf (kein Aufwaerts-Include in profile_facade).
@@ -196,6 +203,15 @@ struct LazyRunConfig {
     // Garantie -- §61 "DASS es funktioniert"). Der Host/Entry belegt es aus der Methodik + COMDARE_MEASURE_PARALLEL.
     // KLAR GETRENNT vom Bau-Pool (build_parallelism/COMDARE_BUILD_PARALLEL = KOMPILATIONS-Worker).
     std::size_t measure_parallelism = 0;
+    // #46b I1 (Bestandslog-Verdrahtung, opt-in; Muster EXAKT wie cache_push/cache_pull): der Objekt-Store-Transport
+    // + Doc-Key + Key-Provider. Der Iterator konsultiert das Bestandslog VOR dem Bau (Dedup-Basis) und registriert
+    // frisch gebaute Binaries DANACH (store_document_merged). bestand_key_of nimmt den Binary-Ausgabepfad und liefert
+    // den 128-hex-Fingerprint (Option A, Host-injiziert; nullopt => diese Binary wird nicht registriert). ALLE
+    // leer/ungesetzt (Default) => KEINE Registrierung/Dedup => byte-/verhaltensneutral (golden/CI byte-identisch).
+    // Der Host (Facade) belegt sie aus Env COMDARE_BESTANDSLOG; der reale Provider kommt in I2 (.fingerprint-Sidecar).
+    BestandTransport                                                        bestand_transport;
+    std::function<std::optional<std::string>(std::filesystem::path const&)> bestand_key_of;
+    std::string                                                             bestand_doc_key;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -800,6 +816,16 @@ struct LazyRunResult {
     // nur, wenn der Host cfg.cache_pull belegt (Env/CI). Nur mit per_binary_subdirs (der <stem>/-Layout-Konvention, die
     // dll_is_current UND der Push teilen). EIN mc-Prozess (nicht x|Binaries| Spawns; Dossier Option (a)).
     if (cfg.cache_pull && cfg.per_binary_subdirs) cfg.cache_pull(cfg.output_dir, cfg.build_version);
+
+    // #46b I1 (opt-in): das Bestandslog VOR dem Bau konsultieren -- den vorbestehenden Lager-Bestand laden (Dedup-
+    // Basis fuer die per-Binary-Klassifikation + Merge-Basis fuer die Registrierung). Aktiv NUR, wenn Transport
+    // (fetch+store) + Doc-Key + Key-Provider gesetzt sind; sonst No-Op => byte-neutral (Muster wie cache_pull).
+    bool const bestandslog_active = static_cast<bool>(cfg.bestand_transport.fetch) &&
+                                    static_cast<bool>(cfg.bestand_transport.store) &&
+                                    static_cast<bool>(cfg.bestand_key_of) && !cfg.bestand_doc_key.empty();
+    bestandslog::LagerRunState lager;
+    if (bestandslog_active) lager.load(cfg.bestand_transport, cfg.bestand_doc_key);
+
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
     // Leer = Organ-Gate aus (byte-neutral).
@@ -812,14 +838,31 @@ struct LazyRunResult {
     // ein; der EINE Push-Thread serialisiert die mc-Aufrufe und UEBERLAPPT sie mit dem weiterlaufenden Bau. Die index-
     // geordnete progress_sink-/Determinismus-Naht (W6/§38) bleibt UNBERUEHRT (unten, 1-Thread, reihenfolge-stabil).
     std::unique_ptr<AsyncPushPump> push_pump;
-    if (cfg.provision_only && cfg.cache_push && cfg.per_binary_subdirs) {
+    if (cfg.provision_only && cfg.cache_push && cfg.per_binary_subdirs)
         push_pump = std::make_unique<AsyncPushPump>(cfg.cache_push, cfg.build_version, cfg.partial_marker_sink,
                                                     cfg.chunk_part_size);
-        orch.set_on_binary_done([&push_pump](BuildResult const& b) {
+    // #46b I1: EIN kombinierter Completion-Hook -- W11-Push-Enqueue (UNVERAENDERT) + opt-in Bestandslog-Registrierung.
+    // Feuert aus den Build-Workern (Completion-Reihenfolge); lager.observe ist thread-sicher. Wird NUR gesetzt, wenn
+    // Push ODER Bestandslog aktiv ist -- sonst kein Hook (byte-identisch zum Ist). Der Bestandslog-Zweig ist zusaetzlich
+    // gegated (bestandslog_active) -> ist NUR Push aktiv, bleibt das Verhalten des Push-Pfades byte-genau erhalten.
+    if (push_pump || bestandslog_active) {
+        orch.set_on_binary_done([&push_pump, &lager, &cfg, bestandslog_active](BuildResult const& b) {
             // S1: b.skipped (dll_is_current-Hit) NICHT re-pushen -- eine versions-aktuelle Binary kam entweder aus dem
             // Warm-Cache-Pull (liegt bereits im Store) oder aus einem frueheren Lauf; ein erneuter mc-Push ist reine
             // Redundanz (last-writer-wins, identische Bytes). Nur FRISCH gebaute ok()-Binaries wandern in die Queue.
-            if (b.ok() && !b.skipped && !b.output.parent_path().empty()) push_pump->enqueue(b.output.parent_path());
+            if (push_pump && b.ok() && !b.skipped && !b.output.parent_path().empty())
+                push_pump->enqueue(b.output.parent_path());
+            // #46b I1: die frisch gebaute Binary im Bestandslog registrieren/klassifizieren. Key = Host-Provider ueber
+            // den Ausgabepfad (Option A; nullopt => keine Registrierung dieser Binary). Nur ok()+FRISCH (nicht skipped).
+            if (bestandslog_active && b.ok() && !b.skipped) {
+                auto const          key = cfg.bestand_key_of(b.output);
+                std::error_code     ec;
+                std::uint64_t const bytes = std::filesystem::exists(b.output, ec)
+                                                ? static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec))
+                                                : 0;
+                lager.observe(key.value_or(std::string{}), b.output.string(), bytes, b.algo_sig,
+                              bestandslog::now_utc_iso());
+            }
         });
     }
 
@@ -830,6 +873,16 @@ struct LazyRunResult {
     result.built_new          = result.build_stats.built;
     result.built_skip         = result.build_stats.skipped;
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
+
+    // #46b I1 (opt-in): die frisch gebauten Binaries EINMAL ins Binary-Bestandslog mergen (single-threaded,
+    // deterministisch, store_document_merged = Union statt blinder Ersetzung). No-Op => byte-neutral, wenn inaktiv.
+    // Die cerr-Diagnose ist golden-/CSV-neutral (kein Mess-Datum, kein binary_id-Byte -- Muster wie die pruef-Zeilen).
+    if (bestandslog_active) {
+        auto const reg = lager.flush(cfg.bestand_transport, cfg.bestand_doc_key, bestandslog::now_utc_iso());
+        std::cerr << "[bestandslog] lager=" << lager.lager_size() << " hits=" << lager.lager_hits()
+                  << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (store-fehler)") << "\n"
+                  << std::flush;
+    }
 
     // ── Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): Zustand + Feuerungs-Helfer. Der Kanal reist SYNCHRON aus
     //    dem 1-Thread-Loop (nie aus den Build-Workern) und in StaticBinaryView-Ordnung (builds[j] entspricht

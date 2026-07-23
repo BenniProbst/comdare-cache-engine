@@ -11,7 +11,7 @@
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib + ctsha512.
 
-#include "bestandslog/bestandslog_document.hpp" // BestandEintrag
+#include "bestandslog_document.hpp" // BestandEintrag
 
 #include <sha512/ctsha512.hpp>
 
