@@ -11,6 +11,7 @@ if(COMDARE_BUILD_BUILDER)
   )
   target_include_directories(cache_engine_builder PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src" # A5: ceb_version_stamp.hpp -> anatomy_fingerprint.hpp -> sha512/ctsha512.hpp
   )
   target_link_libraries(cache_engine_builder PRIVATE
     comdare_builder_xml_config_parser

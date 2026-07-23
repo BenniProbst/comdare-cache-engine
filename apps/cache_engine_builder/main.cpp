@@ -32,6 +32,7 @@
 //   --skip-build         Generate sources + aggregator, do not invoke cmake
 //   --quiet              Disable per-phase diagnostic output
 
+#include "ceb_version_stamp.hpp" // G2-1/A5: CEB-Selbst-Stempel (Mess-Array-Provenienz + SHA-512) fuer den Log-Kopf
 #include "experiment_driver/experiment_driver.hpp"
 
 #include <comdare/workload_generator/workload_generator.hpp>
@@ -157,6 +158,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "==== CacheEngineBuilder (REV 7.6 Library-Wrapper) ====\n";
+    std::cout << "CEB-Stempel  : " << ::comdare::cache_engine::builder::ceb_version_stamp() << "\n"; // A5 (A8)
     std::cout << "Config       : " << opts.config_dir.string() << "\n";
     std::cout << "Output       : " << opts.output_dir.string() << "\n";
     std::cout << "Comdare-Root : " << opts.comdare_root.string() << "\n";
