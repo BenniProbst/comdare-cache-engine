@@ -27,4 +27,20 @@ if(COMDARE_BUILD_BUILDER)
   set_target_properties(cache_engine_builder PROPERTIES
     OUTPUT_NAME "comdare-cache-engine-builder"
   )
+
+  # G3/#46b (I1c): Produktions-Verdrahtung des CEB-Executables gegen das io_uring-Writer-Backend.
+  # Die Option COMDARE_WRITER_BACKEND ist in libs/cache_engine/builder/CMakeLists.txt definiert (VOR apps/
+  # verarbeitet -> hier als globale Cache-Var sichtbar); ihr add_compile_definitions ist aber directory-scoped
+  # auf builder/, daher setzt die App das CT-Define + den Vendor-Link hier SELBST. Bei io_uring: das vendored
+  # liburing (ext/io/liburing, NOT-TARGET-Guard fuer den on-demand-Einzug) + COMDARE_WRITER_BACKEND_IO_URING ->
+  # spool_writer.hpp waehlt io_uring. Default portable => KEINE Zusatz-Dep (byte-neutral). winring = Windows-Define.
+  if(COMDARE_WRITER_BACKEND STREQUAL "io_uring")
+    if(NOT TARGET comdare_vendored_liburing)
+      add_subdirectory("${PROJECT_SOURCE_DIR}/ext/io/liburing" "${CMAKE_BINARY_DIR}/_ext_io_liburing")
+    endif()
+    target_compile_definitions(cache_engine_builder PRIVATE COMDARE_WRITER_BACKEND_IO_URING)
+    target_link_libraries(cache_engine_builder PRIVATE comdare::vendored_liburing)
+  elseif(COMDARE_WRITER_BACKEND STREQUAL "winring")
+    target_compile_definitions(cache_engine_builder PRIVATE COMDARE_WRITER_BACKEND_WINRING)
+  endif()
 endif()
