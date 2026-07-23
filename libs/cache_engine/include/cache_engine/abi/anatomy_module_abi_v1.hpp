@@ -23,6 +23,7 @@
 
 #include "anatomy_module_abi_v1_decl.hpp" // leichte ABI-Schnittstelle (Version/Magic/Factory-Decls/Helper)
 #include "anatomy_fingerprint.hpp" // K7b-3: consteval SHA-512-Fingerprint der 4 Stempel-Zeilen (anatomy_fingerprint_hex)
+#include "anatomy_stamp_entries.hpp" // G2-1b/A4: consteval count/parse_stamp_entries + stamp_entries_ptr (Array-Form)
 #include "../../../anatomy/abi_adapter.hpp" // SearchAlgorithmAbiAdapter (Makro-Materialisierung)
 #include "../../../anatomy/search_algorithm_anatomy.hpp"
 #include "../../../anatomy/composition_factory.hpp" // R5.G: AdHocComposition für Auto-Permutations-Codegen
@@ -133,6 +134,15 @@
         static constexpr char kG[] = merge_lit;                                                                        \
         static constexpr auto kFP =                                                                                    \
             ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, system_lit, measurement_lit, merge_lit);  \
+        static constexpr auto kOE =                                                                                    \
+            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kO)>(  \
+                kO);                                                                                                   \
+        static constexpr auto kSE =                                                                                    \
+            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kS)>(  \
+                kS);                                                                                                   \
+        static constexpr auto kME =                                                                                    \
+            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kM)>(  \
+                kM);                                                                                                   \
         static constexpr ::comdare::cache_engine::abi::AnatomyVersionLines kL{                                         \
             ::comdare::cache_engine::abi::kAnatomyVersionLinesLayout,                                                  \
             0u,                                                                                                        \
@@ -145,7 +155,13 @@
             kG,                                                                                                        \
             sizeof(kG) - 1,                                                                                            \
             kFP.data(),                                                                                                \
-            kFP.size() - 1};                                                                                           \
+            kFP.size() - 1,                                                                                            \
+            ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                                                      \
+            kOE.size(),                                                                                                \
+            ::comdare::cache_engine::abi::stamp_entries_ptr(kSE),                                                      \
+            kSE.size(),                                                                                                \
+            ::comdare::cache_engine::abi::stamp_entries_ptr(kME),                                                      \
+            kME.size()};                                                                                               \
         return &kL;                                                                                                    \
     }
 

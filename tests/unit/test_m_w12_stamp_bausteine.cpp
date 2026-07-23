@@ -149,20 +149,20 @@ TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
     EXPECT_EQ(abi::measurement_stamp_line_full_set().find("@v1"), std::string::npos);
 }
 
-TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt88) {
-    // K7a (Section 59): kMergeAxisVersionLine als merge_line/merge_len ans POD-Ende (append-only, dritter Tier-Stempel).
-    // K7b-3 (Section 62-B, 2026-07-22): sha512_line/sha512_len ans POD-Ende angehaengt = SHA-512-Fingerprint der 4
-    // Stempel-Zeilen (5. Feld-Paar). Der Layout-Bump 3 -> 4 signalisiert das neue Trailing-Feld; die
-    // organ_/system_/measurement_/merge_-Offsets bleiben stabil (append-only). Der sizeof-static_assert lebt in
-    // anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
-    // binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt136) {
+    // K7a/K7b-3: merge_line/sha512_line append-only (Layout bis 4). G2-1b (A4, Section 58-V/Section 66): die drei
+    // {ptr,count}-Array-Paare (organ_/system_/measurement_entries) ans POD-Ende angehaengt = die Array-Form der
+    // Stempel-Zeilen. Layout-Bump 4 -> 5, sizeof 88 -> 136 (der EINE intendierte Pin-Nachzug im A4-Fenster). Die
+    // Offsets ALLER bisherigen Felder (bis sha512_len @80) bleiben stabil (append-only). Der sizeof-static_assert lebt
+    // in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
+    // binary_id/CRC UNBERUEHRT (POD-Layout != binary_id); die Byte-Wache bleibt gruen (emittierte Quelle unveraendert).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 88, "POD-Layout-Wache: 12 Felder, 8-aligned -> 88 Byte (x86_64).");
+    static_assert(sizeof(AnatomyVersionLines) == 136, "POD-Layout-Wache: 18 Felder, 8-aligned -> 136 Byte (x86_64).");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 88u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 136u);
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
-    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 4u);
-    // Offset-Stabilitaet: organ_/system_/measurement_/merge_ liegen unveraendert, das SHA-512-Feld folgt dahinter.
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 5u);
+    // Offset-Stabilitaet der 12 Alt-Felder (append-only): bis sha512_len unveraendert.
     EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
@@ -171,6 +171,13 @@ TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt88) {
     EXPECT_EQ(offsetof(AnatomyVersionLines, merge_len), 64u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 72u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 80u);
+    // A4: die drei neuen {ptr,count}-Paare folgen dahinter (@88..@128).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 88u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 96u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entries), 104u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entry_count), 112u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 120u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 128u);
 }
 
 TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfConcat) {
@@ -313,4 +320,73 @@ TEST(MW12StampBausteine, A3AnatomyStampEntryPodAndConstevalParser) {
     // (e) Sentinel: nie nullptr, leere Felder (""-Doktrin).
     EXPECT_NE(abi::kAnatomyStampNoEntries[0].axis, nullptr);
     EXPECT_EQ(abi::kAnatomyStampNoEntries[0].axis_len, std::uint64_t{0});
+}
+
+// A4 (G2-1b): die Array-Form reist durch das AnatomyVersionLines-POD. Der POD wird hier MANUELL exakt wie im
+// COMDARE_ANATOMY_VERSION_STAMP_MERGE-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist positions-
+// UND typgeprueft -> eine Feld-Vertauschung Zeiger<->uint64 waere ein Compile-Fehler). Der REALE Makro-POD wird
+// zusaetzlich vom Struktur-Smoke ueber echte DLL-Builds kompiliert. Beweis: entry_counts {17,5,3} + join(entries)==Zeile.
+TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
+    namespace abi = ::comdare::cache_engine::abi;
+    static constexpr char kOrgan[] =
+        "search_algo=k_ary@1.0.0;cache_traversal=t@1.0.0;mapping=m@1.0.0;path_compression=p@2.3.4;node_type=n@1.0.0;"
+        "memory_layout=l@1.0.0;allocator=a@1.0.0;prefetch=pf@1.0.0;concurrency=c@1.0.0;serialization=s@1.0.0;"
+        "value_handle=v@1.0.0;index_organization=i@1.0.0;io_dispatch=io@1.0.0;migration_policy=mp@1.0.0;filter=f@1.0.0;"
+        "queuing_q1=q1@1.0.0;queuing_q2=q2@1.0.0"; // 17 Haupt-Achsen
+    static constexpr char kSystem[]  = "compiler=code@1.0.0;extension_hardware=code@1.0.0;target_isa=code@1.0.0;"
+                                       "scheduling=code@1.0.0;load_framework=code@1.0.0"; // 5
+    static constexpr char kMeasure[] = "measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
+                                       "measurement_tooling=micro@1.0.0"; // 3
+
+    static constexpr auto kOE = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kOrgan})>(kOrgan);
+    static constexpr auto kSE = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSystem})>(kSystem);
+    static constexpr auto kME =
+        abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kMeasure})>(kMeasure);
+
+    abi::AnatomyVersionLines const v{abi::kAnatomyVersionLinesLayout,
+                                     0u,
+                                     kOrgan,
+                                     sizeof(kOrgan) - 1,
+                                     kSystem,
+                                     sizeof(kSystem) - 1,
+                                     kMeasure,
+                                     sizeof(kMeasure) - 1,
+                                     "",
+                                     0u,
+                                     "deadbeef",
+                                     8u,
+                                     abi::stamp_entries_ptr(kOE),
+                                     kOE.size(),
+                                     abi::stamp_entries_ptr(kSE),
+                                     kSE.size(),
+                                     abi::stamp_entries_ptr(kME),
+                                     kME.size()};
+
+    EXPECT_TRUE(abi::stamp_pod_has_entries(v));
+    EXPECT_EQ(v.stamp_layout_version, 5u);
+    EXPECT_EQ(v.organ_entry_count, 17u);
+    EXPECT_EQ(v.system_entry_count, 5u);
+    EXPECT_EQ(v.measurement_entry_count, 3u);
+
+    auto const join = [](abi::AnatomyStampEntryV1 const* e, std::uint64_t n) {
+        std::string out;
+        for (std::uint64_t i = 0; i < n; ++i) {
+            if (i != 0) out += ';';
+            out += std::string(e[i].axis, e[i].axis_len);
+            out += '=';
+            out += std::string(e[i].algorithm, e[i].algo_len);
+            out += '@';
+            out += std::to_string(e[i].x) + '.' + std::to_string(e[i].y) + '.' + std::to_string(e[i].z);
+        }
+        return out;
+    };
+    EXPECT_EQ(join(v.organ_entries, v.organ_entry_count), std::string(v.organ_line, v.organ_len));
+    EXPECT_EQ(join(v.system_entries, v.system_entry_count), std::string(v.system_line, v.system_len));
+    EXPECT_EQ(join(v.measurement_entries, v.measurement_entry_count),
+              std::string(v.measurement_line, v.measurement_len));
+
+    // Leeres Mess-Array (kein Tooling) -> Sentinel-Zeiger (nie nullptr), count 0.
+    static constexpr auto kEmpty = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{""})>("");
+    EXPECT_EQ(abi::stamp_entries_ptr(kEmpty), abi::kAnatomyStampNoEntries);
+    EXPECT_EQ(kEmpty.size(), std::size_t{0});
 }
