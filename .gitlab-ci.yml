@@ -102,14 +102,13 @@ pmc:amd:
 pmc:intel:
   extends: .pmc
   tags: [baremetal, intel]
-  # prod2-Runner pullt seit Secret-Swap nicht (Infra spielt meinen SSH-Key auf .212 → dann Runner-Fix).
-  # 2026-07-09: erneut deaktiviert (COMDARE_PROD2_AVAILABLE=false). Nach dem MinIO-prod→dev-Swap hängt der
-  #   cmake-configure auf prod2 VOR der Compiler-ID (stale Mount/Node-Überlast) → 3× 60min-Timeout, Pipeline 9h rot.
-  #   Beleg: gleicher sha 4d8aedce lief 20:36 grün (28s), ab 21:53 retriggert 60min-Kill; pmc:amd/prod1 grün.
-  #   Echter Fix = Infra (prod2-Node), Handover docs/sessions/20260709-*. pmc:amd/prod1 hält die PMC-Coverage.
-  # Reaktivieren (erst NACH prod2-Node-Fix + einem grünen Probe-Lauf): CI-Variable COMDARE_PROD2_AVAILABLE="true".
-  rules:
-    - if: '$COMDARE_PROD2_AVAILABLE == "true"'
+  # PMC-DOKTRIN (User 2026-07-23, HART): je Vendor-Maschine ihr eigener PMC-Beweis — pmc:amd nur auf
+  # prod1 (Tag amd), pmc:intel nur auf prod2 (Tag intel); BEIDE sind Pflicht-Jobs OHNE Gate/allow_failure:
+  # eine Maschine darf erst messen, wenn IHR pmc-Job gruen ist (perf_event_open-Realbeweis je PMU).
+  # Probe-Beleg der Reaktivierung: Pipeline 12757 pmc:intel=success + pmc:amd=success (23.07.).
+  # [DEPRECATED-Historie 09.-23.07.: Job war rules-gated auf COMDARE_PROD2_AVAILABLE wegen prod2-Node-
+  #  Problemen (stale Mount/Ueberlast, 3x 60min-Timeout, Handover docs/sessions/20260709-*); prod2 ist
+  #  seit 22.07. dauerhaft gesund (intel-Lane-Betrieb bewiesen) -> Gate entfernt.]
 
 # ── #270b (2026-07-07): 3-ISA-Teilmatrix-INSTANZIIERUNG — arm64-Smoke auf node7-rpi5-arm64 (tag arm64). ──
 # OPT-IN + advisory: die HARTE Scharfschaltung als CI-PFLICHT ist ausdruecklich #276 (letzte Ledger-Aufgabe).
