@@ -644,43 +644,79 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
         << "Stufe 1 baut keine Tier-Binaries";
 }
 
-// (L2) S1/A1 P-TOTAL (Ledger 46): der emittierte ceb:trigger-Job forwardet COMDARE_GN_TOTAL vererbungssicher als
-//      EXPLIZITE Allowlist an die STUFE-2-Grandchild -- self-contained Grandchild-Pipelines erben Pipeline-Variablen
-//      NICHT (der Grandchild-Tier-Bau faellt sonst auf ${COMDARE_GN_TOTAL:-16} zurueck statt 131072 zu bauen).
-//      KEIN blindes pipeline_variables:true (Isolation + Byte-Determinismus des Bau-Raums).
-TEST(CiYamlBuilder, CebTriggerForwardsGnTotalAsExplicitAllowlist) {
+// (L2) S1/A1 P-TOTAL (Ledger 46) + S2-NACHT-2 (2026-07-23, Zirkularitaets-Fix): der ceb:trigger-Bridge-Job forwardet
+//      COMDARE_GN_TOTAL/COMDARE_MEASURE_PROFILE/COMDARE_PLAN_METHODIK_PROFILE als EXPLIZITE Allowlist an die STUFE-2-
+//      Grandchild (self-contained Grandchild-Pipelines erben Pipeline-Variablen NICHT). Die RHS wird zur EMISSIONSZEIT
+//      LITERAL aus der Planer-Env eingebrannt -- NICHT NAME: "$NAME": diese Selbst-Referenz wertete GitLab im Child als
+//      'circular variable reference' aus (config_error, leeres failed-Child; Befund Struktur-Smoke 12628/12663). Leer/
+//      ungesetzt => Zeile ENTFAELLT (eine leere YAML-Variable ueberschriebe die Grandchild-'nicht gesetzt'-Semantik).
+//      BEWUSSTE Aenderung ggue. dem alten $VAR-Pin (S2-NACHT-2). Env via setenv/unsetenv gesteuert (Hygiene am Ende).
+TEST(CiYamlBuilder, CebTriggerForwardsAllowlistAsEmissionTimeLiteralsNoSelfRef) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-
     planner::ExperimentPlanDirector const director;
-    planner::CiYamlBuilder                yb;
-    director.construct(*tp, yb);
-    std::string const& yaml = yb.text();
 
-    // Die explizite Allowlist: der ceb:trigger-Bridge-Job deklariert COMDARE_GN_TOTAL als YAML-Variable (RHS = der
-    // aus STUFE 1 geerbte Wert). §64: EINE Vollmengen-Combo => genau 1 solcher Block (ein ceb:trigger-Job).
-    EXPECT_EQ(count_occurrences(yaml, "  variables:\n    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n"), 1u)
-        << "ceb:trigger deklariert COMDARE_GN_TOTAL als Forward-Allowlist (1 [all]-Combo)";
-    // S5-P2-Rest (Smoke-Propagation): derselbe Bridge-Job forwardet zusaetzlich COMDARE_MEASURE_PROFILE -- sonst
-    // faellt die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE == "smoke"' im Grandchild aus (Jobs bleiben when:manual
-    // statt Auto-Run; Befund CI-Smoke 11840/Grandchild 11858). DREI Kombinationen => genau 3 Bloecke.
-    EXPECT_EQ(count_occurrences(yaml, "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n"), 1u)
-        << "ceb:trigger forwardet COMDARE_MEASURE_PROFILE (Smoke-Propagation an die Grandchild; 1 [all]-Combo)";
-    // smoke=>debug-Entkopplung (2026-07-22): derselbe Bridge-Job forwardet AUCH COMDARE_PLAN_METHODIK_PROFILE (den
-    // Methodik-Profil-Selektor) -- sonst kann der Grandchild-Mess-Run die debug-Methodik (parallel + Dual-Compile)
-    // nicht ziehen. DREI Kombinationen => genau 3 Bloecke.
-    EXPECT_EQ(count_occurrences(yaml, "    COMDARE_PLAN_METHODIK_PROFILE: \"$COMDARE_PLAN_METHODIK_PROFILE\"\n"), 1u)
-        << "ceb:trigger forwardet COMDARE_PLAN_METHODIK_PROFILE (smoke=>debug-Entkopplung an die Grandchild; 1 "
-           "[all]-Combo)";
-    // forward:yaml_variables reicht die Allowlist an die Grandchild; pipeline_variables bleibt AUS (Isolation).
-    EXPECT_NE(yaml.find("    forward:\n      yaml_variables: true"), std::string::npos)
-        << "forward:yaml_variables:true reicht die Allowlist an die Grandchild";
-    EXPECT_NE(yaml.find("      pipeline_variables: false"), std::string::npos)
-        << "KEIN blindes Erben des gesamten Eltern-Variablenraums";
-    EXPECT_EQ(yaml.find("pipeline_variables: true"), std::string::npos)
-        << "pipeline_variables:true ist verboten (Modul-Trigger-Isolation)";
-    // Der ceb:trigger bleibt der EINZIGE Grandchild-Trigger je Kombination (keine Struktur-Regression; 1 [all]-Combo).
-    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u);
+    // (2) Gesetzte Env (smoke-typisch) => die drei LITERALE, KEIN $-Ref. §64: EINE Vollmengen-Combo => genau 1 Block.
+    ::setenv("COMDARE_GN_TOTAL", "131072", 1);
+    ::setenv("COMDARE_MEASURE_PROFILE", "smoke", 1);
+    ::setenv("COMDARE_PLAN_METHODIK_PROFILE", "m3_smoke_coverage.profile.xml", 1);
+    {
+        planner::CiYamlBuilder yb;
+        director.construct(*tp, yb);
+        std::string const& yaml = yb.text();
+        EXPECT_EQ(count_occurrences(yaml, "  variables:\n    COMDARE_GN_TOTAL: \"131072\"\n"), 1u)
+            << "GN_TOTAL LITERAL eingebrannt (kein $-Ref; 1 [all]-Combo)";
+        EXPECT_NE(yaml.find("    COMDARE_MEASURE_PROFILE: \"smoke\"\n"), std::string::npos)
+            << "MEASURE_PROFILE LITERAL (Smoke-Auto-Run-Propagation)";
+        EXPECT_NE(yaml.find("    COMDARE_PLAN_METHODIK_PROFILE: \"m3_smoke_coverage.profile.xml\"\n"),
+                  std::string::npos)
+            << "METHODIK-Basename LITERAL (smoke=>debug-Entkopplung)";
+        // (1) KEINE Selbst-Referenz-Form NAME: "$NAME" mehr (der Zirkularitaets-Ausloeser).
+        EXPECT_EQ(yaml.find("COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\""), std::string::npos)
+            << "keine Selbst-Referenz mehr (Zirkularitaets-Fix)";
+        EXPECT_EQ(yaml.find("COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\""), std::string::npos);
+        EXPECT_EQ(yaml.find("COMDARE_PLAN_METHODIK_PROFILE: \"$COMDARE_PLAN_METHODIK_PROFILE\""), std::string::npos);
+        // forward-Mechanismus unveraendert: yaml_variables:true, pipeline_variables:false, genau 1 trigger.
+        EXPECT_NE(yaml.find("    forward:\n      yaml_variables: true"), std::string::npos)
+            << "forward:yaml_variables:true reicht die Allowlist an die Grandchild";
+        EXPECT_NE(yaml.find("      pipeline_variables: false"), std::string::npos)
+            << "KEIN blindes Erben des gesamten Eltern-Variablenraums";
+        EXPECT_EQ(yaml.find("pipeline_variables: true"), std::string::npos)
+            << "pipeline_variables:true ist verboten (Modul-Trigger-Isolation)";
+        EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u) << "EIN Grandchild-Trigger (1 [all]-Combo)";
+    }
+
+    // (3) MEASURE_PROFILE + METHODIK ungesetzt => deren Zeilen FEHLEN komplett; GN_TOTAL bleibt (gesetzt).
+    ::unsetenv("COMDARE_MEASURE_PROFILE");
+    ::unsetenv("COMDARE_PLAN_METHODIK_PROFILE");
+    {
+        planner::CiYamlBuilder yb;
+        director.construct(*tp, yb);
+        std::string const& yaml = yb.text();
+        EXPECT_NE(yaml.find("    COMDARE_GN_TOTAL: \"131072\"\n"), std::string::npos) << "GN_TOTAL bleibt (gesetzt)";
+        // Absenz-Check auf die YAML-Variablen-Zeilenform "    NAME: \"" (4-Space-Indent) -- die kommt NUR im Trigger-
+        // variables-Block vor (die Prolog-Shell-Nutzung ${..:-} bzw. die $VAR-Rule tragen KEIN "    NAME: \"").
+        EXPECT_EQ(yaml.find("    COMDARE_MEASURE_PROFILE: \""), std::string::npos)
+            << "ungesetzt => Zeile entfaellt komplett (keine leere Variable)";
+        EXPECT_EQ(yaml.find("    COMDARE_PLAN_METHODIK_PROFILE: \""), std::string::npos)
+            << "ungesetzt => Zeile entfaellt komplett (keine leere Variable)";
+    }
+
+    // (3b) ALLE drei ungesetzt => KEIN Trigger-variables-Block (leerer Block ausgelassen); trigger-Struktur bleibt.
+    ::unsetenv("COMDARE_GN_TOTAL");
+    {
+        planner::CiYamlBuilder yb;
+        director.construct(*tp, yb);
+        std::string const& yaml = yb.text();
+        EXPECT_EQ(yaml.find("\n  variables:\n"), std::string::npos)
+            << "alle ungesetzt => kein (2-space-indentierter) Trigger-variables-Block";
+        EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u) << "trigger-Struktur bleibt (keine Regression)";
+    }
+
+    // Env-Hygiene: alle drei wieder entfernt (kein Leak in Folgetests).
+    ::unsetenv("COMDARE_GN_TOTAL");
+    ::unsetenv("COMDARE_MEASURE_PROFILE");
+    ::unsetenv("COMDARE_PLAN_METHODIK_PROFILE");
 }
 
 // (M) Byte-Determinismus der YAML (Thesis + Experiment): zwei Laeufe -> byte-gleich.
