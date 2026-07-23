@@ -22,7 +22,7 @@
 // DOKTRIN: header-only C++23, ASCII-Kommentare (§ erlaubt), nur stdlib + bestandslog_document.hpp.
 // Die Zeit ist ueber NowFn injizierbar -> Tests skripten ttl/Interleavings deterministisch.
 
-#include "bestandslog/bestandslog_document.hpp"
+#include "bestandslog_document.hpp"
 
 #include <algorithm>
 #include <charconv>

@@ -17,8 +17,8 @@
 // DOKTRIN: header-only C++23, ASCII-Kommentare (§ erlaubt), nur stdlib + slice_queue.hpp. Der
 // Planer-Thread ist I/O-/Koordinations-Ebene (kein Hot-Path) -> std::function-Praedikat zulaessig.
 
-#include "bestandslog/bestandslog_document.hpp" // BatchTyp
-#include "bestandslog/slice_queue.hpp"
+#include "bestandslog_document.hpp" // BatchTyp
+#include "slice_queue.hpp"
 
 #include <algorithm>
 #include <cstdint>

@@ -3957,3 +3957,13 @@ target_include_directories(test_g3_sha512_index PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
+
+# G3-I1 (S9a): Bestandslog-Registrierung/Dedup-Zustandsmaschine des Bau-Loops (builder_registration.hpp).
+# Braucht libs/cache_engine/src (ctsha512 via Index) + Threads (Mutex im LagerRunState).
+comdare_add_test(test_g3_builder_registration
+    SOURCES test_g3_builder_registration.cpp)
+target_include_directories(test_g3_builder_registration PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_builder_registration PRIVATE Threads::Threads)
