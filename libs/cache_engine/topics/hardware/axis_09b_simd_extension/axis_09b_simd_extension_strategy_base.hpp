@@ -14,6 +14,7 @@
 #include "concepts/axis_09b_simd_extension_cache_engine_permutation_concept.hpp"
 #include "../../axis_base.hpp"
 #include <cstddef>
+#include <cstdint> // A6: std::uint32_t fuer provides_avx10_version()
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
 
@@ -48,6 +49,11 @@ public:
     [[nodiscard]] static constexpr bool provides_avx512vpopcntdq() noexcept { return false; } // Bitmap-Indexes
     [[nodiscard]] static constexpr bool provides_avx512bf16() noexcept { return false; }
     [[nodiscard]] static constexpr bool provides_avx512fp16() noexcept { return false; }
+
+    // A6 (G2-2 / AVX10-Feld, 2026-07-23): konvergierte AVX10-Version (0 = kein AVX10, N = AVX10.N; 1/2). Default 0 --
+    // heute deklariert KEIN Wrapper AVX10-Hardware (ehrlich); ein kuenftiger AVX10-Wrapper ueberschreibt selektiv via
+    // Name-Hiding (exakt das provides_xxx-Muster oben). build_variant_definition liest es via detail::detect_avx10_version.
+    [[nodiscard]] static constexpr std::uint32_t provides_avx10_version() noexcept { return 0; }
 
     // ─── R7.7.c CPU-Sockel-Count + P/E-Cores Topologie ───────────────────────
     // units_per_socket: Anzahl SIMD-Einheiten pro CPU-Sockel.

@@ -34,6 +34,18 @@ struct X86_64Hw {
     static constexpr unsigned cache_line_size() noexcept { return 64; }
     static constexpr bool     numa_capable() noexcept { return true; }
 };
+// A6 (G2-2): AVX10-API-Formen fuer detect_avx10_version. Praezise API traegt die konvergierte Version als Wert;
+// grobe API die ja/nein-Form; die bestehenden Avx512Ext/Avx2Ext tragen KEINE -> Fallback 0.
+struct Avx10PreciseExt {
+    static constexpr unsigned      vector_width_bits() noexcept { return 512; }
+    static constexpr bool          provides_avx512f() noexcept { return true; }
+    static constexpr std::uint32_t provides_avx10_version() noexcept { return 2; } // AVX10.2
+};
+struct Avx10CoarseExt {
+    static constexpr unsigned vector_width_bits() noexcept { return 256; }
+    static constexpr bool     provides_avx512f() noexcept { return false; }
+    static constexpr bool     provides_avx10() noexcept { return true; } // grobe ja/nein-API -> 1
+};
 
 static int g_fail = 0;
 template <class A, class B>
@@ -58,6 +70,17 @@ int main() {
     constexpr auto def512 = cea::build_variant_definition<DenseBytePage, Avx512Ext, X86_64Hw>();
     static_assert(def512.simd_width_bits == 512, "Avx512 → 512 (compile-time)");
     eq("build_variant_definition Avx512 → simd_width_bits == 512", def512.simd_width_bits, std::uint64_t{512});
+
+    // (a2 / A6 G2-2) AVX10-Feld: detect_avx10_version -- praezise API traegt den Wert, grobe API 1/0, Fallback 0.
+    constexpr auto def_avx10p = cea::build_variant_definition<DenseBytePage, Avx10PreciseExt, X86_64Hw>();
+    static_assert(def_avx10p.simd_avx10_version == 2, "provides_avx10_version()==2 -> Feld 2 (compile-time)");
+    eq("A6 AVX10 praezise: simd_avx10_version == 2", def_avx10p.simd_avx10_version, std::uint64_t{2});
+    constexpr auto def_avx10c = cea::build_variant_definition<DenseBytePage, Avx10CoarseExt, X86_64Hw>();
+    eq("A6 AVX10 grob (provides_avx10): simd_avx10_version == 1", def_avx10c.simd_avx10_version, std::uint64_t{1});
+    eq("A6 Legacy ohne AVX10 (Avx512Ext): simd_avx10_version == 0 (Fallback)", def512.simd_avx10_version,
+       std::uint64_t{0});
+    // AVX10 gehoert unter die simd-Achse -> KEIN neues present-Bit (present_mask bleibt 7 = alle 3 Achsen).
+    eq("A6 present_mask == 7 (AVX10 fuegt KEIN present-Bit hinzu)", def_avx10p.present_mask, std::uint64_t{7});
 
     // (b) GEMESSENER Knoten trägt die reale Build-Definition (build_def_real==true); UNGEMESSENER bleibt false (SPARSE).
     std::cout << "\n-- per-Knoten: gemessen (real) vs ungemessen (SPARSE) --\n";
