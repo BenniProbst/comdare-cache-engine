@@ -1082,6 +1082,44 @@ TEST(CiYamlBuilder, NoCiProjectDirInVariablesBlockBothStages) {
     EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u);
 }
 
+// (S2-NACHT, 2026-07-23) PROFIL-DURCHREICHE: der emittierte Child-Prolog exportiert COMDARE_GOLDEN_N_PROFILE mit dem
+//     BASENAME des AKTIVEN Profils (facade: profile_path.filename()), NICHT mehr hart all_axes_golden. Sonst
+//     exerzierten die von der CEB emittierten Stufe-1/2-Jobs (ceb:emit --emit-tier-ci liest genau diese Variable)
+//     trotz Smoke-Scope den vollen all_axes-Katalog. KLASSEN-Regel bleibt: Re-Derive mit frischem ${CI_PROJECT_DIR},
+//     nur der Basename ist dynamisch. LOCKSTEP: (a) Nicht-Default-Profil => richtiger Basename, KEIN all_axes_golden;
+//     (b) golden-/Legacy-Pfad byte-unveraendert all_axes_golden.
+TEST(CiYamlBuilder, ChildPrologForwardsActiveProfileBasenameNotHardAllAxes) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    // (a) Nicht-Default-Profil-Basename => beide Stufen tragen GENAU diesen Basename, KEIN all_axes_golden-Literal.
+    //     (Der Katalog-Inhalt ist fuer die Basename-Durchreiche irrelevant -- getestet wird die Export-Verdrahtung.)
+    for (auto const* basename : {"m3v2_smoke.profile.xml", "cacheline_study.profile.xml"}) {
+        planner::CiYamlBuilder     s1;
+        planner::TierCiYamlBuilder s2;
+        director.construct(*tp, s1, "", {}, basename);
+        director.construct(*tp, s2, "", {}, basename);
+        for (auto const* yaml : {&s1.text(), &s2.text()}) {
+            EXPECT_NE(yaml->find(std::string("/thesis_profiles/") + basename + "\""), std::string::npos)
+                << "COMDARE_GOLDEN_N_PROFILE zeigt auf das AKTIVE Profil (" << basename << ")";
+            EXPECT_EQ(yaml->find("all_axes_golden.profile.xml"), std::string::npos)
+                << "kein hartes all_axes_golden mehr bei Nicht-Default-Profil (" << basename << ")";
+        }
+    }
+
+    // (b) golden-/Legacy-Pfad: expliziter all_axes-Basename UND leerer Ctor (kein profile_path) => beide byte-gleich
+    //     und beide tragen das all_axes_golden-Literal (byte-identisch zu HEAD => bestehende Byte-Wachen bleiben gruen).
+    planner::CiYamlBuilder golden_explicit;
+    planner::CiYamlBuilder golden_empty;
+    director.construct(*tp, golden_explicit, "", {}, "all_axes_golden.profile.xml");
+    director.construct(*tp, golden_empty); // leer => Prolog-Fallback all_axes_golden (byte-identisch zu HEAD)
+    EXPECT_EQ(golden_explicit.text(), golden_empty.text())
+        << "golden-Basename explizit == Legacy-Ctor-Fallback (byte-identisch)";
+    EXPECT_NE(golden_empty.text().find("/thesis_profiles/all_axes_golden.profile.xml\""), std::string::npos)
+        << "Default-/golden-Pfad bleibt all_axes_golden";
+}
+
 // (W10) S4-§62-B: der Build+Pruef-Batch durchlaeuft je Perm das [0,COMDARE_GN_TOTAL)-Fenster in kGnBatchSlice=4096er-
 //       Scheiben (Bestandslog-Korn). Die Scheiben-Arithmetik ist eine Shell-while-Schleife MIT dem 4096er-Literal;
 //       KEIN Env-Override (COMDARE_GN_BATCH_SLICE), KEIN Chunk-Konzept mehr.
