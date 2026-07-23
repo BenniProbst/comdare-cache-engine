@@ -12,7 +12,8 @@
 
 #pragma once
 
-#include <cache_engine/measurement/axis_version_stamp.hpp>           // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
 #include <array>
@@ -70,13 +71,12 @@ template <class Comp>
 [[nodiscard]] inline std::string system_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
-    std::array<AxisVersionEntry, 5> const entries{{
-        {"compiler", "code", "v1"},
-        {"extension_hardware", "code", "v1"},
-        {"target_isa", "code", "v1"},
-        {"scheduling", "code", "v1"},
-        {"load_framework", "code", "v1"},
-    }};
+    // A2 (G2-4 Schritt 3): die 5 Achsen + Code-Versionen aus der Single-Source system_axis_code_versions.hpp (frueher
+    // 5x hartkodiert {"<achse>","code","v1"}); "code" bleibt der Achsen-Marker, die Version ist je Achse bump-bar.
+    // Render-neutral: "v1.0.0" -> "1.0.0" wie zuvor "v1" -> "1.0.0".
+    std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
+    for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
+        entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
     return build_axis_version_stamp_line(entries);
 }
 
@@ -95,8 +95,10 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
+    // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
+    // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0"-Sentinel (@0.0.0, nur ungueltige ids).
     std::array<AxisVersionEntry, 1> const entries{{
-        {"measurement_tooling", tooling, "v1"},
+        {"measurement_tooling", tooling, ::comdare::cache_engine::measurement::tooling_version_for_id(tooling)},
     }};
     return build_axis_version_stamp_line(entries);
 }
@@ -113,7 +115,11 @@ template <class Comp>
     std::vector<AxisVersionEntry> entries;
     entries.reserve(toolings.size());
     for (std::string_view const t : toolings)
-        if (!t.empty()) entries.push_back({"measurement_tooling", t, "v1"});
+        if (!t.empty())
+            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0" fuer
+            // unbekannte ids (render-neutral fuer die gueltigen wallclock/macro/micro).
+            entries.push_back(
+                {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
     return build_axis_version_stamp_line(entries);
 }
 

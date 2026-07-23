@@ -4,6 +4,8 @@
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
 #include <cache_engine/abi/anatomy_fingerprint.hpp> // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
+#include <cache_engine/abi/system_axis_code_versions.hpp>            // A2: kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/measurement/measurement_tooling_registry.hpp> // A2: version-Feld + tooling_version_for_id
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
@@ -240,4 +242,31 @@ TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {
     EXPECT_NE(stamp.find("planner@1.0.0"), std::string::npos) << "stamp='" << stamp << "'";
     EXPECT_NE(stamp.find("isa=x86_64"), std::string::npos) << "stamp='" << stamp << "'";
     EXPECT_NE(stamp.find("os="), std::string::npos) << "stamp='" << stamp << "'";
+}
+
+// A2 (G2-4 Schritt 3+4): System-Achsen-Code-Versionen + Mess-Tooling-Version aus Single-Sources statt Hartkodierung.
+// Render-neutral fuer die gueltigen ids/Achsen; "v0"-Sentinel nur fuer ungueltige Tooling-ids.
+TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // (a) System-Achsen-Single-Source: 5 Achsen, alle Init-Version "v1.0.0".
+    EXPECT_EQ(abi::kSystemAxisCodeCount, std::size_t{5});
+    for (auto const& e : abi::kSystemAxisCodeVersions) {
+        EXPECT_FALSE(e.axis.empty());
+        EXPECT_EQ(e.version, std::string_view{"v1.0.0"});
+    }
+    // Neutralitaets-Anker: system_stamp_line() rendert byte-identisch zur frueheren "v1"-Hartkodierung.
+    EXPECT_EQ(abi::system_stamp_line(),
+              std::string{"compiler=code@1.0.0;extension_hardware=code@1.0.0;target_isa=code@1.0.0;"
+                          "scheduling=code@1.0.0;load_framework=code@1.0.0"});
+
+    // (b) Mess-Tooling-Version-Feld + id-Lookup.
+    for (auto const& t : m::kMeasurementToolingRegistry) EXPECT_EQ(t.version, std::string_view{"v1.0.0"});
+    EXPECT_EQ(m::tooling_version_for_id("wallclock"), std::string_view{"v1.0.0"});
+    EXPECT_EQ(m::tooling_version_for_id("macro"), std::string_view{"v1.0.0"});
+    EXPECT_EQ(m::tooling_version_for_id("micro"), std::string_view{"v1.0.0"});
+    EXPECT_EQ(m::tooling_version_for_id("bogus"), std::string_view{"v0"}); // unbekannt -> Sentinel
+
+    // (c) Sentinel-Render: ungueltige Tooling-id -> @0.0.0; gueltige bleiben @1.0.0 (render-neutral).
+    EXPECT_EQ(abi::measurement_stamp_line("bogus"), std::string{"measurement_tooling=bogus@0.0.0"});
+    EXPECT_EQ(abi::measurement_stamp_line("wallclock"), std::string{"measurement_tooling=wallclock@1.0.0"});
 }
