@@ -2,7 +2,8 @@
 // Leichte TU (keine Registries): verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
-#include <cache_engine/abi/anatomy_fingerprint.hpp> // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
+#include <cache_engine/abi/anatomy_fingerprint.hpp>   // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp> // A3: count/parse_stamp_entries + AnatomyStampEntryV1
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/system_axis_code_versions.hpp>            // A2: kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // A2: version-Feld + tooling_version_for_id
@@ -269,4 +270,47 @@ TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     // (c) Sentinel-Render: ungueltige Tooling-id -> @0.0.0; gueltige bleiben @1.0.0 (render-neutral).
     EXPECT_EQ(abi::measurement_stamp_line("bogus"), std::string{"measurement_tooling=bogus@0.0.0"});
     EXPECT_EQ(abi::measurement_stamp_line("wallclock"), std::string{"measurement_tooling=wallclock@1.0.0"});
+}
+
+// A3 (G2-1a): Entry-POD AnatomyStampEntryV1 (48B-Pin) + consteval count/parse_stamp_entries + parse_dotted_semver.
+// Reine Parser-/POD-Vorstufe (POD waechst erst in A4); tokenisiert die gerenderten "achse=algo@X.Y.Z"-Zeilen.
+TEST(MW12StampBausteine, A3AnatomyStampEntryPodAndConstevalParser) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // (a) Entry-POD sizeof/align-Pin.
+    EXPECT_EQ(sizeof(abi::AnatomyStampEntryV1), std::size_t{48});
+    EXPECT_EQ(alignof(abi::AnatomyStampEntryV1), std::size_t{8});
+    static_assert(sizeof(abi::AnatomyStampEntryV1) == 48);
+
+    // (b) parse_dotted_semver = Umkehrung von algo_semver_string (dotted "X.Y.Z", OHNE 'v').
+    EXPECT_EQ(m::parse_dotted_semver("1.0.0"), (m::AlgoSemVer{1, 0, 0}));
+    EXPECT_EQ(m::parse_dotted_semver("2.3.4"), (m::AlgoSemVer{2, 3, 4}));
+    EXPECT_EQ(m::parse_dotted_semver("v1.0.0"), (m::AlgoSemVer{0, 0, 0})); // rohe Form -> Sentinel
+    EXPECT_EQ(m::parse_dotted_semver("1.0"), (m::AlgoSemVer{0, 0, 0}));    // Kurzform -> Sentinel
+
+    // (c) count_stamp_entries: leer -> 0; N Segmente -> N.
+    EXPECT_EQ(abi::count_stamp_entries(""), std::size_t{0});
+    EXPECT_EQ(abi::count_stamp_entries("measurement_tooling=wallclock@1.0.0"), std::size_t{1});
+    EXPECT_EQ(abi::count_stamp_entries("a=b@1.0.0;c=d@2.3.4;e=f@0.0.0"), std::size_t{3});
+
+    // (d) parse_stamp_entries: Tokenisierung + {ptr,len}-Rekonstruktion == exakter Teilstring, X.Y.Z korrekt.
+    static constexpr char kLit[]  = "search_algo=k_ary@1.0.0;filter=bloom@2.3.4";
+    constexpr auto        entries = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kLit})>(kLit);
+    static_assert(entries.size() == 2);
+    EXPECT_EQ(std::string_view(entries[0].axis, entries[0].axis_len), std::string_view{"search_algo"});
+    EXPECT_EQ(std::string_view(entries[0].algorithm, entries[0].algo_len), std::string_view{"k_ary"});
+    EXPECT_EQ(entries[0].x, 1u);
+    EXPECT_EQ(entries[0].y, 0u);
+    EXPECT_EQ(entries[0].z, 0u);
+    EXPECT_EQ(std::string_view(entries[1].axis, entries[1].axis_len), std::string_view{"filter"});
+    EXPECT_EQ(std::string_view(entries[1].algorithm, entries[1].algo_len), std::string_view{"bloom"});
+    EXPECT_EQ(entries[1].x, 2u);
+    EXPECT_EQ(entries[1].y, 3u);
+    EXPECT_EQ(entries[1].z, 4u);
+    // consteval-Beweis: die Rekonstruktion haelt schon compile-time.
+    static_assert(std::string_view(entries[0].axis, entries[0].axis_len) == "search_algo");
+    static_assert(entries[1].z == 4u);
+
+    // (e) Sentinel: nie nullptr, leere Felder (""-Doktrin).
+    EXPECT_NE(abi::kAnatomyStampNoEntries[0].axis, nullptr);
+    EXPECT_EQ(abi::kAnatomyStampNoEntries[0].axis_len, std::uint64_t{0});
 }

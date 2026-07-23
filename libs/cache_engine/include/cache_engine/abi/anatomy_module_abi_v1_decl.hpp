@@ -112,6 +112,31 @@ void comdare_destroy_anatomy(::comdare::cache_engine::anatomy::IAnatomyBase* ptr
 
 namespace comdare::cache_engine::abi {
 
+/// AnatomyStampEntryV1 -- G2-1a (Lager-Gate A3, Section 58-V/Section 66): EIN geparster Stempel-Eintrag
+/// "achse=algorithmus@X.Y.Z" als ABI-stabiler POD. Die Zeiger sind {ptr,len}-Sichten INS Zeilen-Literal (D2-Doktrin,
+/// NICHT nullterminiert -- eine Laenge, kein '\0'); der gerenderte X.Y.Z-Teil ist als Tripel geparst (A10: X.Y =
+/// Feature, Z = Debug-Revision). NUR uint32/Zeiger -> standard_layout, cross-boundary-fest.
+///
+/// A3 = reine PARSER-/POD-VORSTUFE: dieser Entry-POD + der consteval-Parser (anatomy_stamp_entries.hpp). Die drei
+/// Array-Felder (organ/system/measurement entries + counts) haengen ERST in A4 (POD 88->136, Layout 4->5) ans
+/// AnatomyVersionLines-POD-Ende -- HIER waechst das POD noch NICHT (emitter-/golden-neutral).
+struct AnatomyStampEntryV1 {
+    char const*   axis;      ///< Achsen-Name, {ptr,len}-Sicht ins Zeilen-Literal (NICHT nullterminiert)
+    std::uint64_t axis_len;  ///< Laenge von axis
+    char const*   algorithm; ///< gewaehlter Algorithmus, {ptr,len}-Sicht ins Zeilen-Literal
+    std::uint64_t algo_len;  ///< Laenge von algorithm
+    std::uint32_t x;         ///< gerenderte X.Y.Z: X (Feature-Major)
+    std::uint32_t y;         ///< Y (Feature-Minor)
+    std::uint32_t z;         ///< Z (Debug-Revision)
+    std::uint32_t reserved;  ///< 0 (Ausrichtung / kuenftige Flags)
+};
+
+/// sizeof-Pin (ABI-Gate): 2x {char const*, uint64} + 4x uint32 -> 48 Byte auf x86_64, 8-aligned. Bricht der Wert,
+/// ist das Entry-POD-Layout gewandert (Parser-Materialisierung + Loader-Sicht in A4 haengen daran).
+static_assert(sizeof(AnatomyStampEntryV1) == 48,
+              "AnatomyStampEntryV1-POD-Layout gewandert -- erwarteten sizeof (48 auf x86_64) aktualisieren.");
+static_assert(alignof(AnatomyStampEntryV1) == 8, "AnatomyStampEntryV1: 8-Byte-Ausrichtung erwartet (Zeiger).");
+
 /// AnatomyVersionLines -- POD der einkompilierten Versionierungs-Stempel eines Tier-Binary (W12-A2/A3,
 /// Section 43). organ_line == kOrganAxisVersionLine, system_line == kSystemAxisVersionLine,
 /// measurement_line == kMeasurementAxisVersionLine (anatomy_version_stamp.hpp). Die *_len-Felder geben die
