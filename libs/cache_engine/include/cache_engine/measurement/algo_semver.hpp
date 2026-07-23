@@ -72,6 +72,23 @@ namespace detail {
     return std::to_string(v.x) + '.' + std::to_string(v.y) + '.' + std::to_string(v.z);
 }
 
+/// parse_dotted_semver (G2-1a / A3): parst die bereits GERENDERTE Voll-Form "X.Y.Z" (dotted, OHNE 'v') zurueck in
+/// ein Tripel -- die Umkehrung von algo_semver_string. Getrennt von parse_algo_semver (das die ROHE "vN"-Form parst):
+/// der consteval-Stempel-Parser (anatomy_stamp_entries.hpp) liest die "achse=algo@X.Y.Z"-Zeilen, deren Versions-Teil
+/// bereits die gerenderte Form traegt. STRENG: exakt drei dotted uints; alles andere (leer, mit 'v', Kurzform "X.Y",
+/// Zusatz-Rest, nicht-numerisch) -> {0,0,0}-Sentinel. Rein constexpr.
+[[nodiscard]] constexpr AlgoSemVer parse_dotted_semver(std::string_view v) noexcept {
+    auto const [x, okx] = detail::take_uint(v);
+    if (!okx || v.empty() || v.front() != '.') return {};
+    v.remove_prefix(1);
+    auto const [y, oky] = detail::take_uint(v);
+    if (!oky || v.empty() || v.front() != '.') return {}; // Kurzform "X.Y" verboten
+    v.remove_prefix(1);
+    auto const [z, okz] = detail::take_uint(v);
+    if (!okz || !v.empty()) return {}; // Rest muss leer sein (kein "X.Y.Z.extra")
+    return {x, y, z};
+}
+
 // -- Wohlgeformtheit (alles compile-time) --------------------------------------------------------
 static_assert(parse_algo_semver("v1") == AlgoSemVer{1, 0, 0}); // heutiger Stand ALLER Algos
 static_assert(parse_algo_semver("v0") == AlgoSemVer{0, 0, 0}); // Sentinel
@@ -82,5 +99,17 @@ static_assert(parse_algo_semver("1.0.0") == AlgoSemVer{0, 0, 0});    // ohne 'v'
 static_assert(parse_algo_semver("") == AlgoSemVer{0, 0, 0});         // leer -> Sentinel
 static_assert(parse_algo_semver("vx") == AlgoSemVer{0, 0, 0});       // nicht-numerisch -> Sentinel
 static_assert(parse_algo_semver("v1.2.3.4") == AlgoSemVer{0, 0, 0}); // Zusatz-Rest -> Sentinel
+
+// parse_dotted_semver (A3): die gerenderte "X.Y.Z"-Form; Umkehrung von algo_semver_string.
+static_assert(parse_dotted_semver("1.0.0") == AlgoSemVer{1, 0, 0}); // heutiger gerenderter Stand
+static_assert(parse_dotted_semver("2.3.4") == AlgoSemVer{2, 3, 4});
+static_assert(parse_dotted_semver("10.0.1") == AlgoSemVer{10, 0, 1});
+static_assert(parse_dotted_semver("v1.0.0") == AlgoSemVer{0, 0, 0});  // mit 'v' (rohe Form) -> Sentinel
+static_assert(parse_dotted_semver("1.0") == AlgoSemVer{0, 0, 0});     // Kurzform -> Sentinel
+static_assert(parse_dotted_semver("1.0.0.1") == AlgoSemVer{0, 0, 0}); // Zusatz-Rest -> Sentinel
+static_assert(parse_dotted_semver("") == AlgoSemVer{0, 0, 0});        // leer -> Sentinel
+static_assert(parse_dotted_semver("x.y.z") == AlgoSemVer{0, 0, 0});   // nicht-numerisch -> Sentinel
+// Round-Trip: algo_semver_string rendert "vN" -> "N.0.0", parse_dotted_semver liest es exakt zurueck.
+static_assert(parse_dotted_semver("1.0.0") == parse_algo_semver("v1"));
 
 } // namespace comdare::cache_engine::measurement
