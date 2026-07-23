@@ -121,21 +121,30 @@ inline constexpr std::size_t kOrganReferenceAxisCount = 3;
 [[nodiscard]] inline std::string ceb_emit_job(std::string const& combo) { return "ceb:emit:" + combo; }
 [[nodiscard]] inline std::string ceb_trigger_job(std::string const& combo) { return "ceb:trigger:" + combo; }
 
-// Stufe 2 (CEB-Rolle): je System-Perm die Tier-Chunk-Bau-Jobs — System-Achse [d,e,f] x Organ-Achse [g,h,i]
-// (organ_reference), danach :chunk<k>. Der chunk<k> buendelt NICHT nur den Organ-Slot, sondern das KOMBINIERTE
-// System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§57): der 2^17-Organ-Raum x System-Achsen-Freigabe-
-// Durchfuehrung wird als chunk<k> gebuendelt (§56/§54-T6). Die Mess-Kombination [a,b,c] gehoert NICHT hierher:
-// sie lebt AUSSCHLIESSLICH in ceb:build:[a,b,c] — die CEB IST die Mess-Repraesentation, in Stufe 1 gebaut; die
-// Tier-Bau-Legende traegt sie nur STATISCH mit. Bau=Haupt-only-Gate (§42.b): NUR HAUPT-Achsen (System [d,e,f] +
-// Organ [g,h,i]) + chunk, KEINE Unter-Achse.
-[[nodiscard]] inline std::string tier_build_job(std::string const& perm, std::string const& organ, std::size_t chunk) {
-    return "tier:build:" + perm + organ + ":chunk" + std::to_string(chunk);
-}
+// DEPRECATED (S4, §62-B-Batch-Emission 2026-07-23): die per-(System-Perm x chunk<k>) Einzel-Jobs
+// "tier:build:[d,e,f][g,h,i]:chunk<k>" ENTFALLEN zugunsten je-Host-Batches (tier_batch_build_job). Der chunk<k>
+// buendelte frueher das kombinierte System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§56/§57/§54-T6): der
+// 2^17-Organ-Raum x System-Achsen-Freigabe als chunk<k>; O(Perms x Chunks) war INTERIM (W4/INC-G6, vor §62-B).
+// §62-B kippt auf O(Maschinen): EIN Build+Pruef-Batch je Host iteriert INTERN alle zugeteilten Perms x 4096er-
+// Scheiben; die [d,e,f][g,h,i]-Kombi ist dann DOKUMENTIERTE Log-Legende des Batch-Laufs (Testat-Grammatik), kein
+// Job-Name mehr. Doku bleibt (§56/§57 nie loeschen); die tier_build_job-Funktion wurde in S4 entfernt (ABI frei).
 
-// Stufe 3 (Mess-Job, GN-11/320er-gated): die volle Haupt-Achsen-Legende inkl. Organ-Referenz.
+// Stufe 3 (Mess-Job, GN-11/320er-gated): die volle Haupt-Achsen-Legende inkl. Organ-Referenz. (Legenden-Helper,
+// weiterhin fuer die Log-/Doku-Kurzform der Mess-Zelle verwendet -- der Mess-JOB-Name ist ab S4 measure_batch_job.)
 [[nodiscard]] inline std::string measure_job(std::string const& combo, std::string const& perm,
                                              std::string const& organ) {
     return "measure:" + combo + perm + organ;
+}
+
+// Stufe 2/3 BATCH (S4, §62-B-Batch-Emission): je-Host-Batch-Jobs (O(Maschinen) statt O(Perms x Chunks)). Der
+// Build+Pruef-Batch traegt NUR die Host-Lane im Job-Namen (die CEB iteriert intern alle zugeteilten Host-Perms x
+// 4096er-Scheiben); die CEB-Identitaet [a,b,c] steht im Batch-KOPF (einmal je Job, §62-B-NACHTRAG-Testat-Grammatik),
+// NICHT im Job-Namen -- BAU-/PRUEF-Testate tragen je Schritt zelle=[d,e,f][g,h,i] (System- und Organ-Layer NIE
+// verschmolzen). Der Mess-Batch traegt die CEB-Identitaet [a,b,c] + die Lane (NUR MESS-Testate tragen alle drei
+// Klammern [a,b,c][d,e,f][g,h,i]).
+[[nodiscard]] inline std::string tier_batch_build_job(std::string const& host) { return "tier:build-batch:" + host; }
+[[nodiscard]] inline std::string measure_batch_job(std::string const& combo, std::string const& host) {
+    return "measure:" + combo + ":batch:" + host;
 }
 
 // ── CMake-Target-Slugs (Identifier-sicher: nur [A-Za-z0-9_]; die [..]-Legende steht im COMMENT/echo). ──
