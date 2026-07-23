@@ -39,6 +39,10 @@ cache:
 variables:
   CCACHE_DIR: "$CI_PROJECT_DIR/.ccache"
   CCACHE_MAXSIZE: "5G"
+  # PMC-Doktrin (User 23.07.): deklarierte Vendor-Lane-Menge dieses Clusters. Jede deklarierte Lane
+  # MUSS ihren pmc-Job gruen bestehen (AND ueber die Deklaration); Fremd-Cluster ueberschreiben per
+  # Projekt-/Pipeline-Variable (z.B. "intel" auf intel-only-Clustern) -> verschiffbare Pipeline.
+  COMDARE_PMC_LANES: "amd intel"
   GIT_SUBMODULE_STRATEGY: none
   CMAKE_BUILD_PARALLEL_LEVEL: "6"          # User 2026-07-06: 2x6 Kerne bei concurrent=2 (prod1 16C; revidiert 4@8-Kern-cgroup-Aera)
   COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
@@ -95,20 +99,29 @@ build:clang:
     - ctest --test-dir build -R '^(linux_perf_pmc_smoke|m3v2_pmc_smoke)$' --output-on-failure -V
   # KEINE Artefakte: das build/-Tree-Artefakt scheiterte am Object-Storage-500 (post-swap). Beleg = ctest-Log.
 
+# PMC-DOKTRIN (User 2026-07-23, 2 Stufen — Verschiffbarkeit): je Vendor-Maschine ihr eigener
+# PMC-Beweis (unsere Smokes = der PMC-Pfad UNSERES Programms), HART fuer jede DEKLARIERTE Lane:
+# COMDARE_PMC_LANES deklariert die Maschinen-Menge des Clusters (Default hier: "amd intel" =
+# AND, beide Pflicht ohne allow_failure — auf Comdare sind stets beide verfuegbar). Andere
+# Cluster verschiffen mit Projekt-/Pipeline-Override (z.B. "intel") -> nur die vorhandene Lane
+# wird instanziiert und muss gruen sein (XOR-Verfuegbarkeit), keine Phantom-Pflicht auf nicht
+# existente Vendor-Maschinen. Eine deklarierte, aber tote Maschine blockiert EHRLICH (die Lane
+# koennte auch nicht messen). Runner-Filter: prod1-Tags nur amd / prod2-Tags nur intel (UND-
+# Semantik) — nur die passende Vendor-Maschine kann ihren Job annehmen.
+# Probe-Beleg Reaktivierung: Pipeline 12757 pmc:intel=success + pmc:amd=success (23.07.).
+# [DEPRECATED-Historie 09.-23.07.: pmc:intel war rules-gated auf COMDARE_PROD2_AVAILABLE wegen
+#  prod2-Node-Problemen (Handover docs/sessions/20260709-*); prod2 seit 22.07. dauerhaft gesund.]
 pmc:amd:
   extends: .pmc
   tags: [baremetal, amd]
+  rules:
+    - if: '$COMDARE_PMC_LANES =~ /amd/'
 
 pmc:intel:
   extends: .pmc
   tags: [baremetal, intel]
-  # PMC-DOKTRIN (User 2026-07-23, HART): je Vendor-Maschine ihr eigener PMC-Beweis — pmc:amd nur auf
-  # prod1 (Tag amd), pmc:intel nur auf prod2 (Tag intel); BEIDE sind Pflicht-Jobs OHNE Gate/allow_failure:
-  # eine Maschine darf erst messen, wenn IHR pmc-Job gruen ist (perf_event_open-Realbeweis je PMU).
-  # Probe-Beleg der Reaktivierung: Pipeline 12757 pmc:intel=success + pmc:amd=success (23.07.).
-  # [DEPRECATED-Historie 09.-23.07.: Job war rules-gated auf COMDARE_PROD2_AVAILABLE wegen prod2-Node-
-  #  Problemen (stale Mount/Ueberlast, 3x 60min-Timeout, Handover docs/sessions/20260709-*); prod2 ist
-  #  seit 22.07. dauerhaft gesund (intel-Lane-Betrieb bewiesen) -> Gate entfernt.]
+  rules:
+    - if: '$COMDARE_PMC_LANES =~ /intel/'
 
 # ── #270b (2026-07-07): 3-ISA-Teilmatrix-INSTANZIIERUNG — arm64-Smoke auf node7-rpi5-arm64 (tag arm64). ──
 # OPT-IN + advisory: die HARTE Scharfschaltung als CI-PFLICHT ist ausdruecklich #276 (letzte Ledger-Aufgabe).
