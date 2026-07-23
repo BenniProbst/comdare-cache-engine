@@ -21,8 +21,9 @@
 // TABU-Wache: m3v2_study.profile.xml wird NICHT angefasst (byte-frozen); dieser Test liest die
 // load_profiles/-Verzeichnis-ids nur (kein Schreiben, kein Bau, keine Messung).
 
-#include "profile_runner.hpp"   // load_thesis_profile
-#include "validate_profile.hpp" // validate_profile / axis_registry_from_levels / print_validation_report
+#include "profile_run_facade.hpp" // S2-NACHT-3: resolve_methodik_profile_path (Basename-Haertung)
+#include "profile_runner.hpp"     // load_thesis_profile
+#include "validate_profile.hpp"   // validate_profile / axis_registry_from_levels / print_validation_report
 
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // build_all_axis_levels (EnabledStrategies)
 #include <builder/workload_driver/load_profile_parser.hpp>     // discover_load_profiles (real load_profiles/-ids)
@@ -478,4 +479,35 @@ TEST(ValidateProfileMeasurementSubAxes, EmptyA9SubAxesSkipAndByteIdentical) {
     EXPECT_EQ(os.str().find("run_methodology"), std::string::npos) << os.str();
     EXPECT_EQ(os.str().find("measurement_framework"), std::string::npos) << os.str();
     EXPECT_EQ(os.str().find("writeback_methods"), std::string::npos) << os.str();
+}
+
+// S2-NACHT-3 (2026-07-23) Facade-Basename-Haertung: ein COMDARE_PLAN_METHODIK_PROFILE-BARE-BASENAME wird gegen
+// thesis_profiles/ (das Verzeichnis des Haupt-Profils) aufgeloest und ist dann ladbar; ein Pfad-behafteter Wert
+// (absolut oder mit Verzeichnisanteil) bleibt UNVERAENDERT gueltig. So kann die super-YAML den KLASSEN-konformen
+// Basename setzen (der zugleich am ceb:trigger weitergereicht wird), waehrend die Facade ihn zur --dump-ci-
+// Emissionszeit laedt (resolve_methodik_override nutzt exakt diesen Helfer + tlz::load_thesis_profile).
+TEST(FacadeMethodikBasename, BareBasenameResolvesUnderThesisProfilesAndLoads) {
+    namespace pf        = comdare::cache_engine::builder::profile_facade;
+    fs::path const main = thesis_profiles_dir() / "all_axes_golden.profile.xml";
+
+    // (a) BARE-BASENAME => gegen thesis_profiles/ aufgeloest, und der aufgeloeste Pfad LAEDT m3_smoke_coverage.
+    fs::path const resolved = pf::resolve_methodik_profile_path("m3_smoke_coverage.profile.xml", main);
+    EXPECT_EQ(resolved, thesis_profiles_dir() / "m3_smoke_coverage.profile.xml");
+    EXPECT_TRUE(tlz::load_thesis_profile(resolved).has_value())
+        << "aufgeloester Basename laedt m3_smoke_coverage: " << resolved.string();
+
+    // (Negativ) nicht-existenter Basename => aufgeloest, aber load_thesis_profile scheitert HART (nullopt).
+    fs::path const missing = pf::resolve_methodik_profile_path("does_not_exist_ce_test.profile.xml", main);
+    EXPECT_EQ(missing, thesis_profiles_dir() / "does_not_exist_ce_test.profile.xml");
+    EXPECT_FALSE(tlz::load_thesis_profile(missing).has_value())
+        << "nicht-existenter Basename => harter Fehler (nullopt)";
+
+    // Pfad-behafteter Wert bleibt UNVERAENDERT: absoluter Pfad ...
+    EXPECT_EQ(pf::resolve_methodik_profile_path(main, main), main) << "absoluter Pfad unangetastet";
+    // ... und ein relativer Pfad MIT Verzeichnisanteil.
+    fs::path const with_dir{"sub/x.profile.xml"};
+    EXPECT_EQ(pf::resolve_methodik_profile_path(with_dir, main), with_dir) << "Pfad mit Verzeichnisanteil unangetastet";
+    // Leeres Haupt-Profil (degenerate) => Basename unveraendert (keine Aufloesung moeglich).
+    EXPECT_EQ(pf::resolve_methodik_profile_path("m3_smoke_coverage.profile.xml", fs::path{}),
+              fs::path{"m3_smoke_coverage.profile.xml"});
 }

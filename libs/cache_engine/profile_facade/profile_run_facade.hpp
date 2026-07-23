@@ -18,6 +18,20 @@
 
 namespace comdare::cache_engine::builder::profile_facade {
 
+// S2-NACHT-3 (2026-07-23): einen COMDARE_PLAN_METHODIK_PROFILE-Wert zum ladbaren Pfad aufloesen. Ein BARE-BASENAME
+// (kein Verzeichnisanteil, z.B. "m3_smoke_coverage.profile.xml") wird gegen DASSELBE Verzeichnis wie das Haupt-Profil
+// aufgeloest (thesis_profiles/ = main_profile_path.parent_path()) -- dieselbe Wurzel, aus der die anderen Profile
+// geladen werden. So kann die super-YAML den KLASSEN-konformen Basename setzen (der zugleich am ceb:trigger
+// weitergereicht wird), waehrend die Facade ihn zur Emissionszeit laedt. Ein bereits Pfad-behafteter Wert (absolut
+// ODER mit Verzeichnisanteil) bleibt UNVERAENDERT gueltig; leeres main_profile_path (degenerate) => Basename unveraendert.
+// Reine Pfad-Arithmetik (kein Datei-I/O) => direkt testbar.
+[[nodiscard]] inline std::filesystem::path
+resolve_methodik_profile_path(std::filesystem::path const& methodik_value,
+                              std::filesystem::path const& main_profile_path) {
+    if (methodik_value.has_parent_path() || main_profile_path.empty()) return methodik_value;
+    return main_profile_path.parent_path() / methodik_value;
+}
+
 struct ProfileRunArgs {
     std::filesystem::path profile_path;
     std::filesystem::path out_csv;
