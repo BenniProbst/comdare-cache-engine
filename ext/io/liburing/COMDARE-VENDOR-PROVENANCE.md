@@ -51,3 +51,10 @@ Eine erste self-contained UAPI-Fassung (rohe io_uring_setup/mmap/io_uring_enter 
 <linux/io_uring.h>) wurde zugunsten dieses liburing-Vendors verworfen (Vendoring-Doktrin ist
 geordnet: vendoren, wenn moeglich). liburing macht die SQ/CQ-Ring-Barriers korrekt; die rohe
 Syscall-Handarbeit entfaellt.
+
+## NACHTRAG 23.07. (CI-Fix untracked-generated-headers)
+Die upstream .gitignore des Snapshots schloss die von ./configure generierten Header
+(src/include/liburing/compat.h, io_uring_version.h) vom Commit aus -> CI-Builds brachen
+(liburing/compat.h: No such file). Da eine .gitignore in einem Vendor-SNAPSHOT funktionslos
+ist und aktiv schadet, wurde sie ENTFERNT und die generierten Header sind jetzt Teil des
+Snapshots (Mode-B-Build braucht sie).
