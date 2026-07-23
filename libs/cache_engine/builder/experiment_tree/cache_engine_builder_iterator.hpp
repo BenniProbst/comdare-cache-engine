@@ -38,6 +38,8 @@
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
 #include "../bestandslog/builder_registration.hpp"      // #46b I1: Bestandslog-Registrierung/Dedup (opt-in, No-Op-Naht)
+#include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
+#include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
@@ -49,6 +51,7 @@
 
 #include <algorithm> // #165-B: std::nth_element (Gruppen-Median im quality_flag)
 #include <array>     // GOAL-L1: LazyMeasuredRow::op_lat (per-Interface-Funktions-Latenzen)
+#include <chrono>    // #46b I1b: Slice-Wall-Clock fuer die ETA-Kalibrierung
 #include <cstddef>
 #include <map> // #165-B: Gruppen-Buckets (binary_id|profile_name) im annotate_quality_flags
 #include <cstdint>
@@ -212,6 +215,15 @@ struct LazyRunConfig {
     BestandTransport                                                        bestand_transport;
     std::function<std::optional<std::string>(std::filesystem::path const&)> bestand_key_of;
     std::string                                                             bestand_doc_key;
+    // #46b I1b (Planer-getriebener Slice-Bau, opt-in unter bestandslog_active): der Producer slict die SELEKTIERTEN
+    // indices in 4096er-Fenster (Determinismus A) und baut Fenster fuer Fenster; je Slice ein Reservierungs-Lifecycle
+    // (pro-forma -> Kalibrierung eta_s+avg_size -> Done, PromiseGuard). bestand_present ist der Host-injizierte Miss-
+    // Scan (Default absent => "alles fehlt" => baut alles; INFORMIERT nur die Reservierung/ETA, filtert den Bau NICHT;
+    // real selektiv mit I2/.fingerprint-Sidecar). owner_uuid/maschine identifizieren die Reservierungen; threads =
+    // build_parallelism. Alle leer/absent (Default) -> die Reservierungs-Schreibung ist inert; der Bau bleibt determin.
+    bestandslog::PresenceFn bestand_present;
+    std::string             bestand_owner_uuid;
+    std::string             bestand_maschine;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -772,6 +784,81 @@ struct LazyRunResult {
     return true;
 }
 
+// #46b I1b (opt-in): den Planer-getriebenen provision-Bau ausfuehren. Ein async Producer (SlicePlanner) slict die
+// SELBEN indices in 4096er-Fenster (Determinismus A); der Consumer baut Fenster fuer Fenster via provision_all,
+// akkumuliert den builds-Vektor + aggregiert die BuildStats -> IDENTISCH zu EINEM provision_all(alle indices)
+// (dll_is_current bleibt der Skip-Arbiter). Je Slice ein Reservierungs-Lifecycle (pro-forma -> Kalibrierung
+// eta_s+avg_size -> Done) mit PromiseGuard-Release bei Abbruch -- nur wenn Transport+Doc-Key gesetzt (sonst inert).
+[[nodiscard]] inline std::vector<BuildResult> run_planer_driven_provision(BuildOrchestrator&              orch,
+                                                                          StaticBinaryView const&         view,
+                                                                          std::vector<std::size_t> const& indices,
+                                                                          LazyRunConfig const& cfg, BuildStats& agg) {
+    std::vector<BuildResult>    builds;
+    bestandslog::SlicePlanQueue queue;
+    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, cfg.bestand_present);
+
+    bool const reserve           = static_cast<bool>(cfg.bestand_transport.store) &&
+                                   static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
+    auto       store_reservation = [&cfg](bestandslog::BatchReservierung const& r) {
+        bestandslog::BestandslogDocument doc;
+        doc.genus       = bestandslog::Genus::binary;
+        doc.created_utc = bestandslog::now_utc_iso();
+        doc.reservierungen.push_back(r);
+        (void)bestandslog::store_document_merged(cfg.bestand_transport, cfg.bestand_doc_key, doc);
+    };
+
+    std::size_t slice_seq = 0;
+    while (auto plan = queue.pop()) {
+        bestandslog::BatchReservierung           res;
+        std::optional<bestandslog::PromiseGuard> guard;
+        if (reserve) {
+            res = bestandslog::make_pro_forma_reservation(
+                cfg.bestand_owner_uuid + "/" + std::to_string(slice_seq), bestandslog::BatchTyp::tier,
+                cfg.bestand_maschine, static_cast<unsigned>(cfg.build_parallelism),
+                plan->view_indices.empty() ? 0 : static_cast<std::uint64_t>(plan->view_indices.front()),
+                static_cast<std::uint64_t>(plan->view_indices.size()), bestandslog::now_utc_iso(),
+                bestandslog::now_utc_iso());
+            store_reservation(res);
+            // PromiseGuard: bei Abbruch (Exception/early-return) wird die Reservierung released -> Takeover moeglich.
+            guard.emplace([&store_reservation, res]() mutable {
+                bestandslog::mark_released(res);
+                store_reservation(res);
+            });
+        }
+
+        auto const               t0 = std::chrono::steady_clock::now();
+        BuildStats               slice_stats;
+        std::vector<BuildResult> part =
+            orch.provision_all(view, std::span<const std::size_t>{plan->view_indices}, &slice_stats);
+        auto const t1 = std::chrono::steady_clock::now();
+
+        // BuildStats aggregieren (jede Binary genau einmal -> Summe == EINE-provision_all-Statistik).
+        agg.total_jobs += slice_stats.total_jobs;
+        agg.peak_concurrency = (std::max)(agg.peak_concurrency, slice_stats.peak_concurrency);
+        agg.succeeded += slice_stats.succeeded;
+        agg.failed += slice_stats.failed;
+        agg.skipped += slice_stats.skipped;
+        agg.built += slice_stats.built;
+        agg.min_free_ram_bytes = (std::min)(agg.min_free_ram_bytes, slice_stats.min_free_ram_bytes);
+
+        if (reserve) {
+            std::vector<std::uint64_t> sizes; // avg_size ueber die FRISCH gebauten Binaries dieses Blocks
+            std::error_code            ec;
+            for (auto const& b : part)
+                if (b.ok() && !b.skipped && std::filesystem::exists(b.output, ec))
+                    sizes.push_back(static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec)));
+            double const wall_s = std::chrono::duration<double>(t1 - t0).count();
+            bestandslog::apply_calibration(res, bestandslog::EtaResult{wall_s, bestandslog::average_size_bytes(sizes)});
+            bestandslog::mark_done(res);
+            store_reservation(res);
+            if (guard) guard->commit(); // erfolgreicher Slice -> kein Release
+        }
+        for (auto& b : part) builds.push_back(std::move(b));
+        ++slice_seq;
+    }
+    return builds; // Producer-Thread joined im SlicePlanner-dtor (RAII)
+}
+
 /// run_lazy_static_then_dynamic — DIE EINE fehlende Host-Treiber-Funktion. Verdrahtet die volle Lazy-Kette:
 /// (1) Haupt/statisch-Iterator über view+selection → BuildOrchestrator (STATISCHE Kompilierung, resumierbar/RAM-gated),
 /// (2) je DLL load → IObservableTier + IResourceControllableTier,
@@ -866,8 +953,14 @@ struct LazyRunResult {
         });
     }
 
-    std::vector<BuildResult> const builds =
-        orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
+    // #46b I1b (opt-in): bei bestandslog_active treibt der Planer den Bau slice-weise (Determinismus A -- DERSELBE
+    // builds-Vektor + dieselben aggregierten BuildStats wie der EINE provision_all; je Slice Reservierung + avg_size).
+    // Default (inaktiv) => der EINE provision_all => byte-identisch zum Ist.
+    std::vector<BuildResult> builds;
+    if (bestandslog_active)
+        builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats);
+    else
+        builds = orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
 
     result.built              = result.build_stats.succeeded;
     result.built_new          = result.build_stats.built;
