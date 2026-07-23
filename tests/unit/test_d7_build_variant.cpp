@@ -62,12 +62,17 @@ static void tr(char const* w, bool c) {
 
 int main() {
     std::cout << "==== D7 BuildVariantDefinitionV1 (Definition-statt-Observer der 3 Build-Achsen) ====\n";
-    eq("BuildVariantDefinitionV1 = 8 uint64", sizeof(cea::BuildVariantDefinitionV1), std::size_t{8 * 8});
+    // A6 (G2-2, 2026-07-23): der POD waechst um simd_avx10_version (append-only ans Ende) 8->9 uint64 = 64->72 Byte;
+    // kBuildVariantDefinitionVersion 1->2. Die 8 Bestandsfelder behalten Offset 0..63 (nur die Groesse waechst).
+    eq("BuildVariantDefinitionV1 = 9 uint64 (A6: +simd_avx10_version)", sizeof(cea::BuildVariantDefinitionV1),
+       std::size_t{9 * 8});
+    eq("kBuildVariantDefinitionVersion == 2 (A6)", cea::kBuildVariantDefinitionVersion, std::uint32_t{2});
 
     eq("D1.page_kind == 0 (DenseByte)", kD1.page_kind, std::uint64_t{0});
     eq("D1.page_is_leaf == 1", kD1.page_is_leaf, std::uint64_t{1});
     eq("D1.simd_width_bits == 512 (Avx512)", kD1.simd_width_bits, std::uint64_t{512});
     eq("D1.simd_avx512 == 1", kD1.simd_avx512, std::uint64_t{1});
+    eq("D1.simd_avx10_version == 0 (A6: kein AVX10-Wrapper deklariert)", kD1.simd_avx10_version, std::uint64_t{0});
     eq("D1.hw_cache_line == 64", kD1.hw_cache_line, std::uint64_t{64});
     eq("D1.present_mask == 7 (alle 3 Build-Achsen belegt)", kD1.present_mask, std::uint64_t{7});
 

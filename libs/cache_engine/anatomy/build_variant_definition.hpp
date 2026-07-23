@@ -27,6 +27,10 @@ struct BuildVariantDefinitionV1 {
     std::uint64_t hw_numa_capable = 0; // 0/1
     // ── present-Bits: welche der 3 Build-Achsen sind in dieser Definition belegt ──
     std::uint64_t present_mask = 0; // Bit0=page_type, Bit1=simd, Bit2=hw
+    // A6 (G2-2 / AVX10-Feld, 2026-07-23): APPEND-ONLY ans ENDE (Offsets 0..63 der 8 Bestandsfelder bleiben STABIL, nur
+    // die Groesse waechst 64->72; Gruppierung ist Doku, der OFFSET ist die ABI). Gehoert semantisch zur simd-Achse
+    // (kBuildSimdPresent deckt es mit ab, KEIN neues present-Bit). 0 = kein AVX10; N = konvergierte AVX10.N (1/2).
+    std::uint64_t simd_avx10_version = 0;
 
     [[nodiscard]] constexpr bool operator==(BuildVariantDefinitionV1 const&) const noexcept = default;
 };
@@ -36,7 +40,7 @@ static_assert(std::is_trivially_copyable_v<BuildVariantDefinitionV1>);
 inline constexpr std::uint64_t kBuildPagePresent              = 1;
 inline constexpr std::uint64_t kBuildSimdPresent              = 2;
 inline constexpr std::uint64_t kBuildHwPresent                = 4;
-inline constexpr std::uint32_t kBuildVariantDefinitionVersion = 1;
+inline constexpr std::uint32_t kBuildVariantDefinitionVersion = 2; // A6 (G2-2): 1->2 fuer das simd_avx10_version-Feld
 
 namespace detail {
 /// detect_avx512<SE>() — AVX-512-Fähigkeit tolerant aus der simd_extension-Achse ableiten, kompatibel sowohl zum
@@ -52,6 +56,21 @@ template <class SE>
     else
         return SE::vector_width_bits() >= 512u ? 1u : 0u; // Fallback
 }
+
+/// detect_avx10_version<SE>() (A6 / G2-2) -- die konvergierte AVX10-Version tolerant aus der simd_extension-Achse
+/// ableiten. Bevorzugt die praezise API `provides_avx10_version()` (Wert N = AVX10.N, s. SimdExtensionStrategyBase-
+/// Default 0); faellt auf die grobe `provides_avx10()`-ja/nein-Form zurueck (1/0); sonst 0 (kein AVX10 deklariert --
+/// ehrlich: heute existiert KEINE AVX10-Hardware im Wrapper-Bestand). So fuellt build_variant_definition das Feld aus
+/// den realen Wrappern ODER schlanken Stubs, OHNE eine Achsen-Aenderung zu erzwingen (Spiegel von detect_avx512).
+template <class SE>
+[[nodiscard]] constexpr std::uint64_t detect_avx10_version() noexcept {
+    if constexpr (requires { SE::provides_avx10_version(); })
+        return static_cast<std::uint64_t>(SE::provides_avx10_version()); // praezise API (konvergierte AVX10.N)
+    else if constexpr (requires { SE::provides_avx10(); })
+        return SE::provides_avx10() ? 1u : 0u; // grobe ja/nein-API
+    else
+        return 0u; // kein AVX10 deklariert (ehrlich)
+}
 } // namespace detail
 
 /// build_variant_definition<PT,SE,HW>() — compile-time Reader: füllt den POD aus den static-constexpr-Properties
@@ -60,14 +79,15 @@ template <class SE>
 template <class PT, class SE, class HW>
 [[nodiscard]] constexpr BuildVariantDefinitionV1 build_variant_definition() noexcept {
     BuildVariantDefinitionV1 v{};
-    v.page_kind       = static_cast<std::uint64_t>(PT::page_kind());
-    v.page_is_branch  = PT::is_branch() ? 1u : 0u;
-    v.page_is_leaf    = PT::is_leaf() ? 1u : 0u;
-    v.simd_width_bits = static_cast<std::uint64_t>(SE::vector_width_bits());
-    v.simd_avx512     = detail::detect_avx512<SE>();
-    v.hw_cache_line   = static_cast<std::uint64_t>(HW::cache_line_size());
-    v.hw_numa_capable = HW::numa_capable() ? 1u : 0u;
-    v.present_mask    = kBuildPagePresent | kBuildSimdPresent | kBuildHwPresent;
+    v.page_kind          = static_cast<std::uint64_t>(PT::page_kind());
+    v.page_is_branch     = PT::is_branch() ? 1u : 0u;
+    v.page_is_leaf       = PT::is_leaf() ? 1u : 0u;
+    v.simd_width_bits    = static_cast<std::uint64_t>(SE::vector_width_bits());
+    v.simd_avx512        = detail::detect_avx512<SE>();
+    v.simd_avx10_version = detail::detect_avx10_version<SE>(); // A6 (G2-2): 0 = kein AVX10 (heute ueberall)
+    v.hw_cache_line      = static_cast<std::uint64_t>(HW::cache_line_size());
+    v.hw_numa_capable    = HW::numa_capable() ? 1u : 0u;
+    v.present_mask       = kBuildPagePresent | kBuildSimdPresent | kBuildHwPresent;
     return v;
 }
 
