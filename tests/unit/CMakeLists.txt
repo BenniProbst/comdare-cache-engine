@@ -3910,3 +3910,12 @@ target_include_directories(test_g3_batch_planner PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_batch_planner PRIVATE Threads::Threads)
+
+# G3-B6 (S6): RAM-Spool 256MB + portabler Writer-Thread (CT-Strategy SpoolWriter<Backend>).
+# ram_spool.hpp/spool_writer.hpp/writer_backend_portable.hpp unter builder/artifact_transport/.
+comdare_add_test(test_g3_ram_spool_writer
+    SOURCES test_g3_ram_spool_writer.cpp)
+target_include_directories(test_g3_ram_spool_writer PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_ram_spool_writer PRIVATE Threads::Threads)
