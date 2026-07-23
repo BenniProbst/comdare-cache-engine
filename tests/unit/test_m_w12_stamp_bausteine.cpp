@@ -10,6 +10,7 @@
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
+#include "builder/ceb_version_stamp.hpp" // A5: CEB-Selbst-Stempel (consteval Mess-Array + SHA-512)
 #include <profile_facade/planner/planner_version.hpp>
 
 #include <gtest/gtest.h>
@@ -389,4 +390,28 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
     static constexpr auto kEmpty = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{""})>("");
     EXPECT_EQ(abi::stamp_entries_ptr(kEmpty), abi::kAnatomyStampNoEntries);
     EXPECT_EQ(kEmpty.size(), std::size_t{0});
+}
+
+// A5 (G2-1, A8): der CEB-Selbst-Stempel -- consteval Mess-Array-Zeile aus der Registry + eigene SHA-512-Provenienz.
+// Kern-Beweis: die consteval-CEB-Zeile ist DRIFT-FREI zur Runtime-Tier-Binary-Mengen-Form (eine Wahrheit).
+TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
+    namespace ceb = ::comdare::cache_engine::builder;
+    namespace abi = ::comdare::cache_engine::abi;
+    // Mess-Array-Zeile aus der Registry, X.Y.Z-gerendert (nicht die rohe v-Form).
+    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"measurement_tooling=wallclock@1.0.0;"
+                                                          "measurement_tooling=macro@1.0.0;"
+                                                          "measurement_tooling=micro@1.0.0"});
+    // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
+    // keine Parallel-Ableitung (Section-64-Vollmengen-Provenienz teilt sich die Quelle).
+    EXPECT_EQ(std::string{ceb::kCebMeasurementStamp}, abi::measurement_stamp_line_full_set());
+    // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess,"").
+    static_assert(ceb::kCebFingerprint.size() == 128);
+    EXPECT_EQ(ceb::kCebFingerprint.size(), std::size_t{128});
+    constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp, "");
+    EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
+    // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
+    std::string const stamp = ceb::ceb_version_stamp();
+    EXPECT_NE(stamp.find("ceb-measurement=measurement_tooling=wallclock@1.0.0"), std::string::npos);
+    EXPECT_NE(stamp.find(";sha512="), std::string::npos);
+    EXPECT_EQ(stamp.find("@v1"), std::string::npos);
 }
