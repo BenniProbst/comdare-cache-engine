@@ -3920,14 +3920,21 @@ target_include_directories(test_g3_ram_spool_writer PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_ram_spool_writer PRIVATE Threads::Threads)
 
-# G3-B3 (S2): Factory + SHA512-Index (bestandslog_factory.hpp, bestandslog_index.hpp). Braucht
-# zusaetzlich libs/cache_engine/src fuer <sha512/ctsha512.hpp> (die EINE SHA512-Wahrheit gegen A1).
-comdare_add_test(test_g3_sha512_index
-    SOURCES test_g3_sha512_index.cpp)
-target_include_directories(test_g3_sha512_index PRIVATE
+# G3-B7 (S7): io_uring-Writer-Backend gegen das VENDORED liburing (ext/io/liburing, Tag liburing-2.6).
+# Das kleine statische Vendor-Target wird on-demand hereingezogen (NOT-TARGET-Guard in seiner
+# CMakeLists) -- Reihenfolge garantiert, weil tests VOR ext/builder konfiguriert wird. Das Test-Target
+# erzwingt die CT-Wahl io_uring via -DCOMDARE_WRITER_BACKEND_IO_URING -> io_uring baut im Gate; Test
+# SKIPt bei ENOSYS.
+if(NOT TARGET comdare_vendored_liburing)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/ext/io/liburing" "${CMAKE_BINARY_DIR}/_ext_io_liburing")
+endif()
+comdare_add_test(test_g3_writer_backend_io_uring
+    SOURCES test_g3_writer_backend_io_uring.cpp)
+target_include_directories(test_g3_writer_backend_io_uring PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_g3_writer_backend_io_uring PRIVATE COMDARE_WRITER_BACKEND_IO_URING)
+target_link_libraries(test_g3_writer_backend_io_uring PRIVATE Threads::Threads comdare::vendored_liburing)
 
 # --- G2 Lane A Stempel-Tests (additiver Block; NUR Lane A erweitert diesen Block, nie fremde Bloecke) ---
 # A7 (G2-3): .variant-Sidecar-Serializer (build_variant_sidecar.hpp) + dll_is_current-4.-Param-Skip-Matrix
@@ -3941,3 +3948,12 @@ comdare_set_platform_defines(test_g2_variant_sidecar)
 add_test(NAME test_g2_variant_sidecar COMMAND test_g2_variant_sidecar)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_g2_variant_sidecar)
 set_tests_properties(test_g2_variant_sidecar PROPERTIES LABELS "g2;blut")
+
+# G3-B3 (S2): Factory + SHA512-Index (bestandslog_factory.hpp, bestandslog_index.hpp). Braucht
+# zusaetzlich libs/cache_engine/src fuer <sha512/ctsha512.hpp> (die EINE SHA512-Wahrheit gegen A1).
+comdare_add_test(test_g3_sha512_index
+    SOURCES test_g3_sha512_index.cpp)
+target_include_directories(test_g3_sha512_index PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
