@@ -120,8 +120,8 @@ struct PlanHeader {
     // trio). resolved=false (INERT-Default) wenn der Director OHNE volles RegistryTrio konstruiert wurde; sonst
     // ok=true bei organ-reinem Profil (0 Rejects). binary_id-neutral -- reine Plan-Kopf-Annotation (kein Filter).
     tlz::ResolverReport resolver;
-    // S5-P1: die aufgeloeste Build-/Mess-Semantik (measure-Methodik). Nur der Tier-Emitter (emit_tier_build_job /
-    // emit_measure_job) liest sie; die uebrigen Builder rendern sie NICHT (=> ihre Emission unveraendert). Default
+    // S5-P1: die aufgeloeste Build-/Mess-Semantik (measure-Methodik). Nur der Tier-Emitter (emit_batch_build_job /
+    // emit_batch_measure_job) liest sie; die uebrigen Builder rendern sie NICHT (=> ihre Emission unveraendert). Default
     // (measure => Release) haelt den tier:build-Teil byte-identisch zu HEAD.
     PlanBuildSemantic build_semantic;
 };
@@ -252,8 +252,7 @@ public:
         out_ += "# Ledger §42: STUFE 1 (Mess-Achsen-Stufe) -- je Mess-Kombination [a,b,c] EIN CEB-Bau-Target +\n";
         out_ += "# EIN CEB-Emit-Target (--emit-tier-cmake => Stufe-2-Plan). Dreistufiger Bare-Metal-Bau:\n";
         out_ += "#   cmake --build <dir> --target comdare_ceb_emit_<combo>  # emittiert tier_plan_<combo>.cmake\n";
-        out_ +=
-            "#   (dann Stufe-2: cmake -P/Konfiguration dieses tier_plan + --build comdare_tier_build_perm0_chunk0)\n";
+        out_ += "#   (dann Stufe-2: cmake -P/Konfiguration dieses tier_plan + --build comdare_tier_batch_amd)\n";
         out_ += "# Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
         out_ += "#   COMDARE_PLAN_DRIVER   = Pfad/Name des comdare-messung-driver / CEB (Default: PATH-Suche)\n";
         out_ += "#   COMDARE_PLAN_PROFILE  = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
@@ -393,6 +392,15 @@ private:
     return "amd";
 }
 
+// §62-B-K-Budget Single-Source (S4, 2026-07-23): die harte parallele Compile-Zahl (COMDARE_BUILD_PARALLEL) je
+// Host-Lane des Build+Mess-Batches. COMDARE_BUILD_PARALLEL ist der Bau-Pool-WORKER-Override ("harte parallele
+// Compile-Zahl", profile_run_entry.hpp:132-135) -- deshalb die §62-B-K-BUDGETS 24 (prod1=amd) / 16 (prod2=intel),
+// NICHT die T-Werte 32/24 (die waeren ein §62-B-Budget-Verstoss: T ist die Node-Thread-Freigabe, K der Compile-
+// Worker-Deckel). Voll ausschoepfbar, weil P4 (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN
+// Batch gleichzeitig laufen laesst; das MESSEN selbst bleibt 1-Thread (der run_profile-Loop). GETEILTE Single-Source
+// fuer beide Stufen (TierCiYamlBuilder Build-/Mess-Batch + TierCmakeGraphBuilder bare-metal-Batch).
+[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 24 : 16; }
+
 // A3: EINE Formatierungs-Single-Source der YAML-Tag-Sequenz ["a","b",...] (doppelte Quotes, komma-getrennt, kein
 // Leerraum) -- GitLab wertet die Liste als UND-Bedingung: der Runner muss ALLE Tags tragen. Ein-Element-Listen
 // rendern byte-identisch zur alten tags: ["x"]-Emission (=> golden-neutral fuer die no_extension/avx2-Live-Strecke).
@@ -406,10 +414,18 @@ private:
     return s;
 }
 
-// Wie viele Chunk-Bau-Jobs die CEB-Rolle je System-Perm emittiert (chunk buendelt das kombinierte
-// System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen, §42.b/§57). Default 4 =
-// die Pilot-Matrix-Chunk-Zahl (GN_CHUNK 0..3, super/.gitlab-ci.yml) -- 2^17 Einzel-Jobs waeren keine Legende.
-inline constexpr std::size_t kTierChunkCount = 4;
+// §62-B-Bestandslog-Korn (S4, 2026-07-23): die Scheiben-Groesse, in der EIN Build+Pruef-Batch je Host das
+// [0,COMDARE_GN_TOTAL)-Fenster INTERN durchlaeuft (4096er-Scheiben => bei 2^17 genau 32 Scheiben je Perm). HARTE
+// inline-Konstante mit BEWUSST KEINEM Env-Override: das verworfene COMDARE_GN_BATCH_SLICE waere ein §61-Verstoss --
+// die Env wuerde einen Methodik-nahen WERT waehlen (kein Profil) und die einheitliche Bestandslog-Saat (#46b)
+// gefaehrden. Das 4096er-Korn ist der Wiederaufnahme-Takt (Abbruch/Retry setzt an der ersten unfertigen Scheibe
+// fort) und der Testat-Rhythmus im Trace.
+//
+// DEPRECATED-Doku (§56/§57 nie loeschen): die frueheren kTierChunkCount=4 Chunk-Bau-Jobs je System-Perm (Pilot-
+// Matrix GN_CHUNK 0..3, super/.gitlab-ci.yml) buendelten das kombinierte System-Freigabe-Durchfuehrungs- x
+// Organ-Bau-Volumen als chunk<k> -- O(Perms x Chunks) war INTERIM (W4/INC-G6, vor dem §62-B-Gesetz). Ersetzt durch
+// die O(Maschinen)-Batch-Emission (kGnBatchSlice-Scheiben INNERHALB EINES Batch-Jobs je Host).
+inline constexpr std::size_t kGnBatchSlice = 4096;
 
 // W10-Nacharbeit (§42, Serie-E2E 11562/11566): die dynamischen Child-Pipelines ERBEN die globalen Parent-Variablen
 // NICHT (self-contained). Ohne die ccache-Konfiguration scheitert der CEB-/Tier-Bau am Runner an
@@ -527,9 +543,9 @@ public:
         out_ += "#   STUFE 1 (HIER, ceb-build/ceb-emit): je Mess-Kombination [a,b,c] EINE CEB-Pipeline\n";
         out_ +=
             "#           (ceb:build -> ceb:emit(--emit-tier-ci) -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
-        out_ += "#   STUFE 2 (CEB-emittiert, --emit-tier-ci): je System-Perm [d,e,f] die Tier-Chunk-Jobs\n";
-        out_ += "#           \"tier:build:[d,e,f][g,h,i]:chunk<k>\" (System x Organ, §56) + GN-11/320er-gegatete "
-                "Mess-Jobs.\n";
+        out_ += "#   STUFE 2 (CEB-emittiert, --emit-tier-ci, S4-§62-B-Batch): je Host-Lane EIN Build+Pruef-Batch\n";
+        out_ += "#           \"tier:build-batch:<host>\" (iteriert intern Perms x 4096er-Scheiben, Testate "
+                "[d,e,f][g,h,i]) + EIN Mess-Batch \"measure:[a,b,c]:batch:<host>\" (GN-11/320er-gegatet).\n";
         out_ += "stages:\n";
         out_ += "  - ceb-build\n";
         out_ += "  - ceb-emit\n";
@@ -631,7 +647,8 @@ private:
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      # §40.b-Praezisierung: die CEB (nicht der Planer) emittiert ihre STUFE-2-Sicht (System-Perms\n";
-        s += "      # des FREIGEGEBENEN Raums + Tier-Chunk-Jobs + gegatete Mess-Jobs) via --emit-tier-ci.\n";
+        s += "      # des FREIGEGEBENEN Raums + je-Host Build+Pruef-Batch + gegatete Mess-Batches) via "
+             "--emit-tier-ci.\n";
         // A5 (§56-T2-FANOUT D4): bei N>1 CEB-Konfigs traegt der ceb:emit-Aufruf den distinct Combo-Selektor
         // (--measurement-combo=<cmake_slug>) -- so emittiert jeder ceb:emit-Job GENAU seine EINE CEB-Konfig
         // (Kollisionsschutz der combo-unabhaengigen tier:build-Job-Namen, §56/T6). count==1 => leer => byte-identisch.
@@ -670,7 +687,7 @@ private:
         s += "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n";
         // smoke=>debug-Entkopplung (2026-07-22): COMDARE_PLAN_METHODIK_PROFILE (Methodik-Profil-Selektor) EBENSO an die
         // Grandchild forwarden -- self-contained Grandchild-Pipelines erben Pipeline-Variablen NICHT. Der Grandchild
-        // liest daraus die Mess-Loop-Methodik (run_profile_facade); die STUFE-2-emit_measure_job-Debug-Emission haengt
+        // liest daraus die Mess-Loop-Methodik (run_profile_facade); die STUFE-2-emit_batch_measure_job-Debug-Emission haengt
         // am build_semantik aus DERSELBEN Env (--emit-tier-ci der CEB). Unset (Voll-Lauf) => leer => kein Override =>
         // Mess-Verhalten byte-identisch. Die Env-Belegung (=m3_smoke_coverage im smoke) setzt die super-YAML (Schicht 4).
         s += "    COMDARE_PLAN_METHODIK_PROFILE: \"$COMDARE_PLAN_METHODIK_PROFILE\"\n";
@@ -692,46 +709,50 @@ private:
     std::string                        out_;
 };
 
-// ── TierCiYamlBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b, --emit-tier-ci). ─────────────────
+// ── TierCiYamlBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b + S4-§62-B-Batch, --emit-tier-ci). ──
 //    Emittiert NUR die STUFE-2-Sicht der CE-gesteuerten Kette: den FREIGEGEBENEN System-Achsen-Raum [d,e,f]
-//    (opt x simd des Director-Walks) einer CEB (=Mess-Kombination [a,b,c]) + die Tier-Chunk-Bau-Jobs + die
-//    GN-11/320er-gegateten Mess-Jobs. Dies ist die CEB-HOHEIT (§40.b-Praezisierung: der Planer steuert die
-//    CEB-Jobs, die CEB steuert die Tier-Jobs). Heute traegt EINE Binary beide Rollen (Planer-Rolle CiYamlBuilder
-//    vs CEB-Rolle DIESER Builder) -- ehrlich getrennt ueber getrennte CLI-Modi + getrennte Emissions-Sichten.
+//    (opt x simd des Director-Walks) einer CEB (=Mess-Kombination [a,b,c]). Dies ist die CEB-HOHEIT (§40.b-
+//    Praezisierung: der Planer steuert die CEB-Jobs, die CEB steuert die Tier-Jobs). Heute traegt EINE Binary
+//    beide Rollen (Planer-Rolle CiYamlBuilder vs CEB-Rolle DIESER Builder) -- ehrlich getrennt ueber getrennte
+//    CLI-Modi + getrennte Emissions-Sichten.
 //
-//    Je System-Perm [d,e,f] (des FREIGEGEBENEN Raums der Mess-Kombination):
-//      "tier:build:[d,e,f][g,h,i]:chunk<k>" (k=0..kTierChunkCount-1) -- baut die Tier-Binaries dieser Zelle:
-//         System-Achse [d,e,f] x Organ-Achse [g,h,i] (organ_reference); der :chunk<k> buendelt NICHT nur den
-//         Organ-Slot, sondern das KOMBINIERTE System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§57) --
-//         der 2^17-Organ-Raum x System-Achsen-Freigabe-Durchfuehrung als chunk<k> (§56/§54-T6: 2^17 Einzel-Jobs
-//         waeren Rauschen). Die Bau-Job-Legende
-//         traegt NUR HAUPT-Achsen (System [d,e,f] + Organ [g,h,i]) + chunk -- KEINE Mess-Kombination [a,b,c]
-//         (sie lebt nur in ceb:build:[a,b,c]; die CEB IST die Mess-Repraesentation, sie traegt [a,b,c] STATISCH)
-//         und KEINE Unter-Achse (Bau=Haupt-only-Gate, §42.b).
-//      "measure:[a,b,c][d,e,f][g,h,i]" -- der GN-11/320er-GEGATETE Mess-Job (when: manual = Struktur ja,
-//         Auto-Messlauf nein). [g,h,i] = Organ-Referenz (fuehrende Organ-Haupt-Achsen; die reale Auffaecherung
-//         ist EIN Job je Organ-Haupt-Achsen-Perm = binary_id, gated). Der Job sweept zur Laufzeit die
-//         Unter-Achsen (§42.b) unter selbem Compile und schreibt EIN CSV zurueck.
+//    S4-§62-B-BATCH-EMISSION (2026-07-23): die Job-Anzahl ist O(MASCHINEN), nie O(Perms x Chunks). Je CEB
+//    (Mess-Kombination [a,b,c]) und je HOST-LANE mit nicht-leerem Perm-Bucket (amd=prod1, intel=prod2; s.
+//    measure_host_lane):
+//      "tier:build-batch:<host>"          -- EIN Build+Pruef-Batch: iteriert INTERN alle der Lane zugeteilten
+//         System-Perms; je Perm laeuft er das [0,COMDARE_GN_TOTAL)-Fenster in kGnBatchSlice-Scheiben (4096er-
+//         Bestandslog-Korn) provision-only durch und faehrt DANACH das S3-Konformitaets-Gate (COMDARE_PRUEF_ONLY).
+//         Der Job-Name traegt NUR die Host-Lane; die Bau-/Pruef-Testate im Trace tragen je Schritt
+//         zelle=[d,e,f][g,h,i] (System-Haupt- x fuehrende Organ-Haupt-Achsen-Referenz, §42.b Haupt-only-Gate) --
+//         KEINE Mess-Kombination [a,b,c] (die steht EINMAL im Batch-KOPF, CEB-Ebene) und KEINE Unter-Achse. §62-B-
+//         NACHTRAG: System-Layer [d,e,f] und Organ-Layer [g,h,i] bleiben STRIKT GETRENNT -- auch in der Laufzeit
+//         (aeussere System-Perm-Schleife, inneres binary_id-/Scheiben-Fenster), nie eine 6-Achsen-Struktur.
+//      "measure:[a,b,c]:batch:<host>"     -- EIN Mess-Batch je Host: misst alle Lane-Perms real (EIN CSV je Zelle
+//         nach measure_out/<slug>/perm<idx>). NUR MESS-Testate tragen alle drei Klammern zelle=[a,b,c][d,e,f][g,h,i].
+//         rules: smoke=>Auto-Run, sonst when:manual (320er-§41-Gate).
+//    P4 (§62-B): Build-Batch und Mess-Batch teilen je Maschine die resource_group "ceb-measure-<host>" (GitLab
+//    serialisiert sie nativ) -- so laeuft je Maschine hoechstens EIN Batch, das K-Budget (24/16) ist voll
+//    ausschoepfbar. timeout: 7d (GN-11-Mehrtaegigkeit); Trace-Hygiene: Treiber-Detail je Scheibe/Perm in
+//    Artefakt-Log-Dateien (gn_out/.../logs/ bzw. measure_out/.../logs/), im Job-Trace stehen NUR KOPF + Testate.
 //
-//    GOLDEN/HOST-NEUTRAL: reine Text-Emission; nur CI-Variablen + die Legenden (tier:build:[d,e,f][g,h,i] /
-//    measure:[a,b,c][d,e,f][g,h,i]) als LITERALE => byte-deterministisch. Isomorph zum Director-Walk
-//    (perms()/steps_per_perm() = struktureller Zeuge).
+//    GOLDEN/HOST-NEUTRAL: reine Text-Emission; nur CI-Variablen + die Legenden als LITERALE => byte-deterministisch.
+//    Isomorph zum Director-Walk (perms()/steps_per_perm() = struktureller Zeuge; das Bucketing aendert den Walk NICHT).
 class TierCiYamlBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
         header_ = h;
-        out_ += "# comdare CEB-emitted tier child-pipeline (TierCiYamlBuilder v1, STUFE 2 = System-Achsen-Stufe) "
-                "-- GENERIERT, deterministisch, host-unabhaengig.\n";
+        out_ += "# comdare CEB-emitted tier child-pipeline (TierCiYamlBuilder v2, STUFE 2 = System-Achsen-Stufe, "
+                "S4-§62-B-Batch) -- GENERIERT, deterministisch, host-unabhaengig.\n";
         out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
                 " measurement_combo_count=" + std::to_string(h.measurement_combo_count) +
-                " perm_count=" + std::to_string(h.perm_count) + " chunks_per_perm=" + std::to_string(kTierChunkCount) +
-                "\n";
+                " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
+                " host_lanes=amd,intel\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b/§56 (CEB-Rolle --emit-tier-ci): NUR die STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums.\n";
-        out_ += "#   tier:build:[d,e,f][g,h,i]:chunk<k> -- Tier-Bau (System x Organ; chunk buendelt das kombinierte "
-                "System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen, §57; Haupt-only).\n";
-        out_ += "#   measure:[a,b,c][d,e,f][g,h,i]      -- GN-11/320er-GEGATET (when: manual = Struktur ja, kein "
-                "Auto-Messlauf).\n";
+        out_ += "# Ledger §42.b/§56 + §62-B-Batch (CEB-Rolle --emit-tier-ci): NUR die STUFE-2-Sicht, O(Maschinen).\n";
+        out_ += "#   tier:build-batch:<host>       -- EIN Build+Pruef-Batch je Host (iteriert intern Perms x 4096er-"
+                "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, §42.b).\n";
+        out_ += "#   measure:[a,b,c]:batch:<host>  -- EIN Mess-Batch je Host (smoke=>Auto / sonst when:manual, "
+                "320er-§41-Gate; MESS-Testate zelle=[a,b,c][d,e,f][g,h,i]).\n";
         out_ += "stages:\n";
         out_ += "  - tier-build\n";
         out_ += "  - measure\n";
@@ -750,10 +771,14 @@ public:
         // emittieren (sonst ccache-Permission-Fail am Runner). Single-Source-Spiegel des Parent (s. Fn-Doku).
         emit_child_ccache_config(out_);
     }
-    // Die CEB-Rolle emittiert je Mess-Kombination (die CEB, die --emit-tier-ci aufruft) ihre STUFE-2-Sicht. Heute
-    // ist das die EINE Kombination des Profils; der combo-Kontext [a,b,c] wird fuer die Perm-Legenden gehalten.
+    // Die CEB-Rolle emittiert je Mess-Kombination (die CEB, die --emit-tier-ci aufruft) ihre STUFE-2-Sicht. Der
+    // combo-Kontext [a,b,c] wird fuer die Batch-KOPF-/Perm-Legenden gehalten. S4: die Host-Lane-Buckets werden je
+    // CEB FRISCH gesammelt (die Batch-Jobs gehoeren EINER CEB -- die CEB IST die Mess-Kombination); die Emission
+    // geschieht batchweise am Kombinations-Ende (end_measurement_combo).
     void begin_measurement_combo(PlanMeasurementCombo const& c) override {
         combo_legend_ = c.legend;
+        lane_amd_.clear();
+        lane_intel_.clear();
         out_ += "\n# --- CEB-Raum " + c.legend + " (Mess-Kombination " + std::to_string(c.index) + ") ---\n";
     }
     void begin_perm(PlanPerm const& p) override {
@@ -761,13 +786,26 @@ public:
         steps_per_perm_.emplace_back();
     }
     void on_step(PlanStep const& s) override { steps_per_perm_.back().push_back(s); }
-    // Je System-Perm: die Tier-Chunk-Bau-Jobs + der gegatete Mess-Job (am Perm-Ende, wenn combo-Kontext steht).
+    // S4-§62-B: KEINE Job-Emission je Perm mehr (das war die O(Perms x Chunks)-Einzel-Job-Kette). Die Perm wird nur
+    // (i) als deterministischer Kommentar dokumentiert und (ii) in ihre HOST-LANE gebucket (measure_host_lane);
+    // die Batch-Jobs emittiert end_measurement_combo. perms_/steps_per_perm_ bleiben Walk-Zeuge (Isomorphie).
     void end_perm(PlanPerm const& p) override {
         std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
-        out_ += "\n# perm " + std::to_string(p.index) + ": " + perm_legend +
-                " (runner-tags=" + yaml_tag_list(simd_runner_tags(p.simd_id)) + ")\n";
-        for (std::size_t k = 0; k < kTierChunkCount; ++k) out_ += emit_tier_build_job(p, perm_legend, k);
-        out_ += emit_measure_job(p, perm_legend);
+        std::string const host        = measure_host_lane(p.simd_id, combo_legend_);
+        out_ += "# perm " + std::to_string(p.index) + ": " + perm_legend + " lane=" + host + "\n";
+        (host == "amd" ? lane_amd_ : lane_intel_).push_back(p);
+    }
+    // S4-§62-B-Batch-Emission: je Host-Lane in FESTER Reihenfolge {amd, intel} und NUR bei nicht-leerem Bucket
+    // (Leere-Lane-Regel: kein Job-Paar, kein toter needs-Verweis) EIN Build+Pruef-Batch + EIN Mess-Batch. Feste
+    // Reihenfolge + benannte Bucket-Vektoren => Byte-Determinismus der Stufe-2-YAML.
+    void end_measurement_combo(PlanMeasurementCombo const& /*c*/) override {
+        for (auto const& host : {std::string_view{"amd"}, std::string_view{"intel"}}) {
+            std::vector<PlanPerm> const& bucket = (host == "amd") ? lane_amd_ : lane_intel_;
+            if (bucket.empty()) continue; // Leere-Lane-Regel
+            std::string const h{host};
+            out_ += emit_batch_build_job(h, bucket);
+            out_ += emit_batch_measure_job(h, bucket);
+        }
     }
     void end_plan(PlanHeader const&) override {}
 
@@ -777,131 +815,153 @@ public:
     [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
 
 private:
-    // STUFE 2 Bau-Job: EIN Chunk des kombinierten System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumens dieser
-    // Zelle (§57; Haupt-only-Legende, §42.b). script = provision-only-Treiber-Aufruf (Bau ohne Messung,
-    // golden-neutral), mit dem Chunk-Fenster als GN-Range.
-    [[nodiscard]] std::string emit_tier_build_job(PlanPerm const& p, std::string const& perm_legend,
-                                                  std::size_t k) const {
-        // §56/§54-T6: die Tier-Bau-Legende ist System-Achse [d,e,f] x Organ-Achse [g,h,i] (organ_reference),
-        // danach :chunk<k>. Der chunk buendelt das KOMBINIERTE System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen
-        // (§57), nicht nur den Organ-Slot. combo_legend_ ([a,b,c]) ist NUR CEB-Kontext (die CEB traegt [a,b,c]
-        // statisch), steht aber NICHT in der Bau-Job-Legende (das lebt in ceb:build:[a,b,c]).
-        std::string const organ = legend::organ_reference();
-        std::string const job   = legend::tier_build_job(perm_legend, organ, k);
-        std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
-        std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
-        std::string const kstr  = std::to_string(k);
-        // S6-P1b Env-Bruecke (d): ab N>1 traegt das Treiber-Kommando die gewaehlte Mess-Combo (COMDARE_MEASUREMENT_
-        // COMBO=[a,b,c]) -> run_profile (make_lazy_adhoc_source_gen_from_env) stempelt die je-Combo-DLLs REAL. [all]
-        // (Default, 1-CEB-Strecke) => LEER => das Treiber-Kommando byte-identisch zu vor S6-P1b.
+    // S4-§62-B Build+Pruef-BATCH (2026-07-23): EIN Job je Host-Lane, der INTERN alle der Lane zugeteilten
+    // System-Perms durchlaeuft. Je Perm laeuft er das [0,COMDARE_GN_TOTAL)-Fenster in kGnBatchSlice-Scheiben
+    // (4096er-Bestandslog-Korn) provision-only durch (Bau ohne Messung, golden-neutral) und faehrt DANACH das
+    // S3-Konformitaets-Gate (COMDARE_PRUEF_ONLY=true) ueber dasselbe Fenster/dll_dir. O(Maschinen) statt
+    // O(Perms x Chunks). Trace-Hygiene: Treiber-Detail je Scheibe/Perm in Artefakt-Log-Dateien; im Job-Trace stehen
+    // NUR der Batch-KOPF ([a,b,c]+lane, CEB-Ebene, einmal) + die Schritt-Testate ([d,e,f][g,h,i], zwei Klammern,
+    // Bau=Haupt-only-Gate §42.b -- KEINE Unter-Achse, KEIN [a,b,c] je Schritt: die Layer bleiben getrennt, §62-B-
+    // NACHTRAG). set-e-sichere if-Guards je Aufruf; FAIL-Sammel-Exit am Batch-Ende (Batch baut/prueft durch).
+    [[nodiscard]] std::string emit_batch_build_job(std::string const& host, std::vector<PlanPerm> const& perms) const {
+        std::string const slug = legend::cmake_slug(combo_legend_);
+        std::string const job  = legend::tier_batch_build_job(host);
+        std::string const par  = std::to_string(lane_build_parallelism(host)); // §62-B-K-Budget-Literal
+        // S6-P1b Env-Bruecke (d): ab N>1 traegt das Treiber-Kommando die gewaehlte Mess-Combo. [all] => LEER =>
+        // byte-stabil. (i) §61-STUFEN: nur der Nicht-Default-Build (Debug) traegt COMDARE_BUILD_TYPE (Reuse-Schluessel).
         std::string const combo_env =
             combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
-        // (i) §61-STUFEN Compile-Kennzeichnung (Emissions-Seite): der PROVISION-Bau der Tier-DLLs traegt dasselbe
-        // COMDARE_BUILD_TYPE-Signal wie der Mess-Job (Reuse-Schluessel: provisionierte + gemessene DLL desselben
-        // Debug-Profils bekommen +bt=Debug ans build_version -> identisch, wiederverwendbar). Release=Default => LEER
-        // => byte-stabil. Die Suffix-KOMPOSITION liegt facade-seitig (benannter Folgepunkt).
         std::string const build_type_env =
             header_.build_semantic.cmake_build_type == "Debug" ? "COMDARE_BUILD_TYPE=\"Debug\" " : std::string{};
         std::string s;
-        s += "# JOB tier-build ceb=" + combo_legend_ + " perm " + std::to_string(p.index) + " chunk " + kstr +
-             " (STUFE 2: CEB steuert Tier-Bau; Legende [d,e,f][g,h,i], ceb=[a,b,c] nur Kontext)\n";
+        // Batch-KOPF (Kommentar, einmal je Job): CEB-Identitaet [a,b,c] + Host-Lane. §62-B-NACHTRAG: [a,b,c] ist
+        // die CEB-Ebene und steht NUR im KOPF, NICHT je Schritt.
+        s += "# JOB tier-build-batch host=" + host + " ceb=" + combo_legend_ +
+             " (STUFE 2 Batch, §62-B: O(Maschinen); Build+Pruef aller " + host +
+             "-Lane-Perms; Testate je Schritt [d,e,f][g,h,i], ceb=[a,b,c] nur KOPF)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: tier-build\n";
-        s += "  tags: " + yaml_tag_list(simd_runner_tags(p.simd_id)) + "\n";
-        s += "  resource_group: \"tier-" + legend::cmake_slug(combo_legend_) + "-" + simd + "-" + opt + "-c" + kstr +
-             "\"\n";
-        s += "  interruptible: false   # provision-Bau darf nie auto-cancelt werden\n";
+        // Host-Lane-Tag (avx512-Perms landen via measure_host_lane zwingend im amd-Bucket; das Treiber-ISA-Gate
+        // profile_run_entry ist die zweite Wache). NICHT die flag-granulare simd-Tag-Liste (die galt der Einzel-Job-Ebene).
+        s += "  tags: " + yaml_tag_list({host}) + "\n";
+        // P4 (§62-B): resource_group ceb-measure-<host> LITERAL-REUSE -- GitLab serialisiert Build-Batch vs Mess-Batch
+        // je Maschine (auch cross-pipeline gegen Alt-Jobs); NICHT umbenennen. So laeuft je Maschine EIN Batch.
+        s += "  resource_group: \"ceb-measure-" + host + "\"\n";
+        s += "  interruptible: false   # ein laufender Provision-/Pruef-Batch darf nie auto-cancelt werden\n";
+        s += "  timeout: 7d            # GN-11-Mehrtaegigkeit (Runner-maximum_timeout >= 7d ist Infra-Vorbedingung)\n";
         s += "  script:\n";
         emit_child_submodule_prolog(s); // W10-Nacharbeit 2: manueller ce-Submodul-Klon (kein Auto-Fetch)
         s += "    - cd Code\n";
-        // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure-Methodik => "Release"); Default haelt
-        // den Tier-Bau byte-identisch zu HEAD (kein Magic-String mehr, Registry-Single-Source).
+        // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure => "Release"); Default byte-identisch zu HEAD.
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
              header_.build_semantic.cmake_build_type + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
-        // W10-Nacharbeit 5 (§35.1): Chunk-Fenster-Arithmetik (Pilot-Matrix-Spiegel). Dieser chunk<k>-Job berechnet
-        // sein DISJUNKTES Teilfenster des kombinierten System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumens (§57)
-        // zur Laufzeit -> die kTierChunkCount Chunks je System-Perm bauen NICHT 4x dasselbe Fenster, sondern
-        // zusammen den ganzen Raum. Steuerung des Voll-Builds ueber die
-        // reine Zahl COMDARE_GN_TOTAL (vererbungs-/expansions-sicher, kein $CI_PROJECT_DIR). Chunk jenseits TOTAL =
-        // No-Op-Exit 0 (golden-neutral). CHUNK ist die COMPILE-TIME bekannte Chunk-Nummer dieses Jobs.
-        s += "      # Chunk-Fenster-Arithmetik (Pilot-Spiegel §35.1): dieser Job baut NUR sein disjunktes "
-             "Teilfenster.\n";
-        s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer 4x4-Serie-Test; Voll-Build: "
+        s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
+        // §62-B-K-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 24 (amd) / 16 (intel).
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B-K-Budget " + host +
+             " (lane_build_parallelism; harte Compile-Worker-Zahl statt der nproc-Heuristik)\n";
+        s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer Serie-Test; Voll-Bau: "
              "COMDARE_GN_TOTAL=131072\n";
-        s += "      CCOUNT=" + std::to_string(kTierChunkCount) + "; CHUNK=" + kstr + "\n";
-        s += "      CHUNK_SIZE=$(( (TOTAL + CCOUNT - 1) / CCOUNT ))   # ceil(TOTAL/CCOUNT)\n";
-        s += "      START=$(( CHUNK * CHUNK_SIZE ))\n";
-        s += "      if [ \"$START\" -ge \"$TOTAL\" ]; then echo \"== chunk " + kstr +
-             " jenseits Indexraum ($TOTAL) -> No-Op (golden-neutral) ==\"; exit 0; fi\n";
-        s += "      REMAIN=$(( TOTAL - START )); COUNT_C=$CHUNK_SIZE; [ \"$COUNT_C\" -gt \"$REMAIN\" ] && "
-             "COUNT_C=$REMAIN   # letzter Chunk klemmt\n";
-        s += "      export COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT_C}\"\n";
-        s += "      echo \"== STUFE 2 Tier-Bau [d,e,f][g,h,i]=" + perm_legend + organ + " chunk " + kstr +
-             " (CEB [a,b,c]=" + combo_legend_ +
-             "): Fenster $COMDARE_GOLDEN_N_RANGE (von $TOTAL), provision-only ==\"\n";
-        // Nutzlast: COMDARE_GOLDEN_N_RANGE kommt aus dem Export oben (kein globales Fixfenster mehr in der Zeile).
-        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-        s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
-             "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
-        s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/gn_out/" +
-             legend::cmake_slug(combo_legend_) + "/perm" + std::to_string(p.index) + "/chunk" + kstr + "\"\n";
+        s += "      SLICE=" + std::to_string(kGnBatchSlice) +
+             "   # §62-B-Bestandslog-Korn (harte Konstante, KEIN Env-Override)\n";
+        s += "      FAIL=0\n";
+        s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/gn_out/" + slug + "/" + host + "/logs\"\n";
+        s += "      mkdir -p \"$LOGDIR\"\n";
+        // Batch-KOPF (Echo, einmal): CEB-Identitaet [a,b,c] + Lane -> Trace-Legende der CEB-Ebene.
+        s += "      echo \"== [BATCH-BAU] ceb=" + combo_legend_ + " lane=" + host +
+             " total=$TOTAL slice=" + std::to_string(kGnBatchSlice) + " ts=$(date -u +%FT%TZ) ==\"\n";
+        for (auto const& p : perms) {
+            std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
+            std::string const organ       = legend::organ_reference();
+            std::string const opt         = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+            std::string const simd        = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+            std::string const idx         = std::to_string(p.index);
+            // Schritt-Zelle: [d,e,f][g,h,i] -- ZWEI Klammern (System- x fuehrende Organ-Haupt-Achsen-Referenz).
+            // KEIN [a,b,c] (Layer NIE verschmolzen), KEINE Unter-Achse (Bau=Haupt-only-Gate, §42.b).
+            std::string const cell    = perm_legend + organ;
+            std::string const dll_dir = "$CI_PROJECT_DIR/Code/gn_out/" + slug + "/" + host + "/perm" + idx;
+            s += "      echo \"== [BAU] zelle=" + cell + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+            // Fenster-Schleife: kGnBatchSlice-Scheiben ueber [0,TOTAL) (Bestandslog-Korn 4096). Jede Scheibe ist
+            // provision-only mit Inline-COMDARE_GOLDEN_N_RANGE; Detail nach $LOGDIR (Trace-Hygiene), if-Guard set-e-sicher.
+            s += "      START=0\n";
+            s += "      while [ \"$START\" -lt \"$TOTAL\" ]; do\n";
+            s += "        REMAIN=$(( TOTAL - START )); COUNT=$SLICE; [ \"$COUNT\" -gt \"$REMAIN\" ] && COUNT=$REMAIN   "
+                 "# letzte Scheibe klemmt\n";
+            s += "        if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+            s += "             " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
+                 simd + "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
+            s += "             COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT}\" \\\n";
+            s += "             \"$DRIVER\" experiment_config \"" + dll_dir + "\" \\\n";
+            s += "             > \"$LOGDIR/perm" + idx + "_bau_${START}.log\" 2>&1; then\n";
+            s += "          echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+                 " phase=bau fenster=${START}:${COUNT}\"; FAIL=1\n";
+            s += "        fi\n";
+            s += "        echo \"[TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+                 " phase=bau fenster=${START}:${COUNT}\"\n";
+            s += "        START=$(( START + COUNT ))\n";
+            s += "      done\n";
+            // S3-PRUEF-Schritt (UNBEDINGT je Perm nach der Fenster-Schleife): COMDARE_PRUEF_ONLY=true faehrt NUR das
+            // Konformitaets-Gate je gebauter .so ueber 0:TOTAL im GLEICHEN dll_dir (kein Bau, keine Messung). [d,e,f][g,h,i].
+            s += "      echo \"== [PRUEF] zelle=" + cell + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+            s += "      if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+            s += "           " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
+                 simd + "\" COMDARE_PRUEF_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
+            s += "           COMDARE_GOLDEN_N_RANGE=\"0:${TOTAL}\" \\\n";
+            s += "           \"$DRIVER\" experiment_config \"" + dll_dir + "\" \\\n";
+            s += "           > \"$LOGDIR/perm" + idx + "_pruef.log\" 2>&1; then\n";
+            s += "        echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+                 " phase=pruef fenster=0:${TOTAL}\"; FAIL=1\n";
+            s += "      else\n";
+            s += "        echo \"[PRUEF-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+                 " phase=pruef fenster=0:${TOTAL}\"\n";
+            s += "      fi\n";
+        }
+        s += "      exit $FAIL   # Fehler je Zelle sichtbar ([FEHLER-TESTAT] + Log-Artefakt); der Batch baut/prueft "
+             "durch\n";
+        s += "  artifacts:\n";
+        s += "    when: always\n";
+        s += "    paths:\n";
+        s += "      - Code/gn_out/" + slug + "/" + host + "/logs/\n";
+        s += "    expire_in: 4 weeks\n";
         return s;
     }
 
-    // STUFE 3 Mess-Job (S5-P2 SCHARF, §38.b/§41/§61-MODI): der REALE Mess-Vollzug der Zelle [a,b,c][d,e,f][g,h,i].
-    // (g) §61-MODI: smoke waehlt die DEBUG-Methodik (Debug-Build), sonst measure (Release, S5-P1). Er baut den Treiber
-    // und ruft ihn OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST (baut+misst in EINEM ccache-warmen Lauf)
-    // und schreibt EIN CSV je Zelle nach measure_out. §61-MODI: der DLL-Bau laeuft PARALLEL (COMDARE_BUILD_PARALLEL=
-    // $(nproc)) -- NUR das Messen ist 1-Thread (run_profile-Loop; der alte =1 war ein Bau-serialisierender Regress).
-    // COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt (die Abwesenheit von PROVISION_ONLY IST das Mess-
-    // Signal). (h) §61-MODI: resource_group PRO MASCHINE (ceb-measure-<host>) statt global -- prod1+prod2 messen
-    // PARALLEL (s. measure_host_lane). rules (§41/320er): Auto-Run NUR im smoke-Profil (COMDARE_MEASURE_PROFILE==
-    // smoke), sonst when:manual (der Voll-Abgabe-Messlauf bleibt ein User-Entscheid). needs = die Chunk-Bau-Jobs
-    // derselben Perm ([d,e,f][g,h,i]:chunk<k>, organ_reference; Bau->Mess-Kante).
-    [[nodiscard]] std::string emit_measure_job(PlanPerm const& p, std::string const& perm_legend) const {
-        std::string const organ = legend::organ_reference();
-        std::string const job   = legend::measure_job(combo_legend_, perm_legend, organ);
-        std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
-        std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
-        std::string const slug  = legend::cmake_slug(combo_legend_);
-        // S6-P1b Env-Bruecke (d): der scharfe Mess-Vollzug baut+misst dieselbe je-Combo-DLL -> er traegt die gewaehlte
-        // Mess-Combo ebenso (COMDARE_MEASUREMENT_COMBO=[a,b,c]). [all] (Default) => LEER => byte-identisch.
+    // S4-§62-B Mess-BATCH (2026-07-23): EIN Job je Host-Lane, der INTERN alle Lane-Perms real misst (Spiegel des
+    // frueheren emit_measure_job als Perm-Schleife). Er baut+misst OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile
+    // MISST und schreibt EIN CSV je Zelle nach measure_out/<slug>/perm<idx> (BYTE-GLEICHE Pfade, KEINE win-
+    // Fragmentierung, KEINE Lane-Konsolidierung). §61-MODI: der DLL-Bau laeuft PARALLEL (COMDARE_BUILD_PARALLEL=
+    // §62-B-K-Budget) -- NUR das Messen ist 1-Thread (run_profile-Loop). (h) resource_group PRO MASCHINE
+    // (ceb-measure-<host>, DIESELBE wie der Build-Batch = P4). rules (§41/320er): Auto-Run NUR im smoke-Profil, sonst
+    // when:manual. needs = der Build-Batch derselben Lane (1 Kante). MESS-Testate tragen alle drei Klammern
+    // zelle=[a,b,c][d,e,f][g,h,i] (nur die Mess-Ebene). Debug-Profil: (j3)-Dual-Compile je Perm UNVERAENDERT.
+    [[nodiscard]] std::string emit_batch_measure_job(std::string const&           host,
+                                                     std::vector<PlanPerm> const& perms) const {
+        std::string const slug = legend::cmake_slug(combo_legend_);
+        std::string const job  = legend::measure_batch_job(combo_legend_, host);
+        std::string const par  = std::to_string(lane_build_parallelism(host)); // §62-B-K-Budget (ersetzt $(nproc))
         std::string const combo_env =
             combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
-        // (i) §61-STUFEN Compile-Kennzeichnung (Emissions-Seite, identitaets-stabil): NUR der Nicht-Default-Build
-        // (Debug) traegt ein COMDARE_BUILD_TYPE-Signal -> die facade-Suffix-Naht (run_profile/system_axes_version_
-        // suffix) haengt daraus +bt=Debug ans build_version (Reuse-Schluessel Debug<->measure, §61-STUFEN). Release=
-        // Default => LEER => build_version byte-identisch (keine Sidecar-/Resume-Invalidierung). Die Suffix-KOMPOSITION
-        // selbst liegt facade-seitig (system_axes_version_suffix) = benannter Folgepunkt (hier NICHT angefasst).
         std::string const build_type_env =
             header_.build_semantic.cmake_build_type == "Debug" ? "COMDARE_BUILD_TYPE=\"Debug\" " : std::string{};
         std::string s;
-        s += "# JOB measure combo=" + combo_legend_ + " perm " + std::to_string(p.index) +
-             " (STUFE 3: S5-P2 SCHARF -- realer Mess-Vollzug; smoke=Auto-Run / sonst when:manual = 320er-§41-Gate)\n";
+        s += "# JOB measure-batch host=" + host + " ceb=" + combo_legend_ +
+             " (STUFE 3 Batch, §62-B: O(Maschinen); realer Mess-Vollzug aller " + host +
+             "-Lane-Perms; smoke=Auto-Run / sonst when:manual = 320er-§41-Gate)\n";
         s += "\"" + job + "\":\n";
         s += "  stage: measure\n";
-        // (h) §61-MODI: HOST-LANE-Tag (amd/intel) statt der reinen simd-Faehigkeit -> die Lane wird EINER Maschine
-        // zugewiesen (prod1/amd traegt avx512, prod2/intel traegt avx2; s. measure_host_lane).
-        std::string const host_lane = measure_host_lane(p.simd_id, combo_legend_);
-        s += "  tags: " + yaml_tag_list({host_lane}) + "\n";
-        // (h) §61-MODI (Revision zu §38.b/B14-#3): die Mess-Exklusivitaet gilt PRO MASCHINE (resource_group
-        // ceb-measure-<host>) -- prod1 + prod2 messen PARALLEL. Die Vor-§61-Lesart war GLOBAL ("ceb-measurement-
-        // exclusive", LEDGER:2289-2296, cluster-weit EIN Messlauf); §61 (LEDGER:3168) revidiert auf per-Host, damit
-        // der 320er nicht tage-lang seriell wartet. Der v3.2-Gate-d (global) ist an dieser Stelle ueberholt.
-        s += "  resource_group: \"ceb-measure-" + host_lane + "\"\n";
+        s += "  tags: " + yaml_tag_list({host}) + "\n";
+        // P4 (§62-B): DIESELBE resource_group wie der Build-Batch derselben Maschine -> je Maschine laeuft entweder
+        // der Build- ODER der Mess-Batch, nie beide gleichzeitig (native GitLab-Serialisierung; LITERAL-REUSE).
+        s += "  resource_group: \"ceb-measure-" + host + "\"\n";
         s += "  interruptible: false   # ein laufender Messlauf darf nie auto-cancelt werden\n";
+        s += "  timeout: 7d            # GN-11-Mehrtaegigkeit\n";
         s += "  needs:\n";
-        // §56/§54-T6: die needs:-Kante MUSS exakt dieselbe korrigierte Bau-Legende referenzieren wie
-        // emit_tier_build_job ([d,e,f][g,h,i]:chunk<k>, dasselbe organ = organ_reference()), sonst brechen die
-        // Bau->Mess-Job-Kanten. combo_legend_ ([a,b,c]) gehoert NICHT in den needs-Schluessel.
-        for (std::size_t k = 0; k < kTierChunkCount; ++k)
-            s += "    - \"" + legend::tier_build_job(perm_legend, organ, k) + "\"\n";
-        // §41/320er: Auto-Messlauf NUR im smoke-Profil (kleiner Rauch-Test-Umfang); sonst when:manual (der
-        // Voll-Abgabe-Messlauf bleibt ein bewusster User-Entscheid -- die 320er-Abgabe-Strecke ist S6/manual).
+        // §62-B: EINE Bau->Mess-Kante auf den Build-Batch derselben Lane (statt der 4 Chunk-Kanten je Perm).
+        s += "    - \"" + legend::tier_batch_build_job(host) + "\"\n";
+        // §41/320er: Auto-Messlauf NUR im smoke-Profil; sonst when:manual (BYTE-GLEICH zur Vor-S4-Emission).
         s += "  rules:\n";
         s += "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'\n";
         s += "      when: on_success   # smoke: Auto-Messlauf (kleiner Umfang, Rauch-Test der Mess-Strecke)\n";
@@ -911,11 +971,6 @@ private:
         s += "  script:\n";
         emit_child_submodule_prolog(s); // manueller ce-Submodul-Klon (kein Auto-Fetch), Spiegel des Bau-Jobs
         s += "    - cd Code\n";
-        // (g)/(j2) §61-STUFEN: der Treiber-Build-Typ kommt aus dem PROFIL-Modus (build_semantic, exactly-one j1) --
-        // debug=Debug (Verdrahtungs-Check, parallel/schnell), measure/release=Release. Die Methodik-Quelle ist das
-        // PROFIL, NICHT die Env (COMDARE_MEASURE_PROFILE bleibt NUR der rules-Auto-Run-Trigger, s. rules oben). Der
-        // Treiber-cmake-Bau nutzt den Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel (6); die DLL-Bau-Parallelitaet steuert
-        // COMDARE_BUILD_PARALLEL unten (separater Pool, $(nproc)).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
              header_.build_semantic.cmake_build_type + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -923,73 +978,76 @@ private:
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
-        // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (NICHT chunk-zerlegt; der Mess-Job misst die ganze
-        // Perm in EINEM Lauf). Inline gesetzt (kein eigener TOTAL=-Shell-Schritt -> keine Kollision mit der
-        // chunk-only-Arithmetik der Tier-Bau-Jobs). Default 16 = sicherer Serie-Test; Voll-Abgabe: COMDARE_GN_TOTAL=
-        // 131072, dann when:manual.
+        // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (BYTE-GLEICH zur Vor-S4-Emission). Einmal je Batch.
         s +=
             "      export COMDARE_GOLDEN_N_RANGE=\"0:${COMDARE_GN_TOTAL:-16}\"   # volles Zell-Fenster (Voll-Messlauf: "
             "COMDARE_GN_TOTAL=131072)\n";
-        // §61-MODI Regressions-Fix: der BAU (DLL-Provision-Pool) laeuft PARALLEL in ALLEN Modi -- der alte
-        // COMDARE_BUILD_PARALLEL=1 serialisierte faelschlich den BAU (Modus MESSUNG = parallel BAUEN + sequentiell
-        // MESSEN). NUR das MESSEN ist sequentiell (der run_profile-Mess-Loop selbst, 1-Thread-deterministisch,
-        // Section 38.b); paralleles MESSEN (debug-Ideal) = §16.2-M1 GEBAUT (#45/99a608c2: debug misst nproc-parallel
-        // via resolve_measure_parallelism; der measure-Modus hier bleibt 1-Thread). $(nproc) = alle CPU-Threads
-        // (§61, prod1=32 freigegeben) fuer den DLL-Bau; der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_
-        // PARALLEL_LEVEL-Deckel (6, separater Pool).
-        s += "      export COMDARE_BUILD_PARALLEL=\"$(nproc)\"   # §61-MODI: DLL-Bau parallel; Messen 1-Thread "
-             "(run_profile-Loop)\n";
-        // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen.
-        // compile_time_platform_tag (Treiber) trennt amd (Zen5) NICHT von intel (RaptorLake) -- beide x86_64. Der
-        // Emitter setzt daher die HOST-LANE + den realen Runner-Hostnamen als COMDARE_PLATFORM (-> run_profile ->
-        // platform_override -> CSV-Spalte). So ist die per-Maschine-Sicht (§62) robust; der Cross-Combo-Overhead bei
-        // no_extension bleibt plattform-konfundiert, aber im CSV nachvollziehbar (Replay-Nachmessung je Maschine).
-        s += "      export COMDARE_PLATFORM=\"" + host_lane +
+        // §61-MODI: der DLL-Bau laeuft PARALLEL, aber mit dem §62-B-K-Budget-Literal (ersetzt $(nproc)) -- NUR das
+        // MESSEN ist 1-Thread (run_profile-Loop). Der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel.
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B-K-Budget " + host +
+             " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; statt nproc-Heuristik)\n";
+        // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen
+        // (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Einmal je Batch (die Lane ist fix je Job).
+        s += "      export COMDARE_PLATFORM=\"" + host +
              "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (§61/§62 per-Maschine)\n";
-        std::string const measure_out = "$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" + std::to_string(p.index);
-        if (header_.build_semantic.cmake_build_type == "Debug") {
-            // (j3) §61-STUFEN Dual-Compile: der Debug-Mess-Job macht ZWEI Treiber-Aufrufe. Der Tier-Bau (Stufe 1)
-            // provisioniert im Debug-Profil bereits Debug-DLLs -- die shareable RELEASE-Reuse-Masse (O2/O3,
-            // [d,e,f]+Default-Stempel; §62-Nachtrag-4 CEB->Tier-Schluessel) fehlte sonst im Debug-Lauf. (1) fuellt sie
-            // NACH (KEIN Messen), (2) baut+misst Debug (-O0/+bt via 2b+(i)). BAU-VERZEICHNIS-SUBTILITAET: gleiche
-            // binary_id => gleicher perm.so-Pfad, daher schreibt (1) in ein EIGENES Ausgabe-Dir (_release_provision);
-            // sonst ueberschriebe der Debug-Bau (2) die Release-.so. ccache/gn_out: der Treiber-cmake-Bau (build/) ist
-            // geteilt (EIN Treiber-Binary, beide Aufrufe); die DLL-.o/.so liegen je Aufruf im eigenen dll_dir, und der
-            // g++-DLL-Bau nutzt KEIN ccache (make_gpp_compile_fn spawnt g++ direkt) => keine Kreuz-Kontamination.
-            // Blocker #50 (measure-drop down): der smoke/debug-Lauf begrenzt die Artefakt-Retries (Env-Gate, kein Code).
-            s += "      export COMDARE_ARTEFAKT_TRIES=1   # (j3) Blocker #50: smoke/debug grindet nicht in "
-                 "Retry-Schleifen (HART: schlaegt einen globalen COMDARE_ARTEFAKT_TRIES=12)\n";
-            s += "      echo \"== (j3) Aufruf 1/2: Release provision-only (O2/O3-Reuse-Masse, Default-Stempel, KEIN "
-                 "Messen): " +
-                 combo_legend_ + perm_legend + organ + " ==\"\n";
-            s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-            s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
-                 "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
-            s += "        \"$DRIVER\" experiment_config \"" + measure_out + "_release_provision\"\n";
-            s += "      echo \"== (j3) Aufruf 2/2: Debug-Bau+Messung (-O0/+bt via 2b+(i)), misst (KEIN "
-                 "provision-only): " +
-                 combo_legend_ + perm_legend + organ + " ==\"\n";
-            s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-            // smoke=>debug-Entkopplung (2026-07-22): den METHODIK-PROFIL-Selektor an den Grandchild-Mess-Run
-            // durchreichen -- dortiges run_profile_facade zieht die Mess-Loop-Methodik (resolve_measure_parallelism)
-            // aus DIESEM Profil (z.B. debug=parallel), waehrend COMDARE_THESIS_PROFILE den all_axes_golden-Katalog
-            // stellt. ${..:-} (set -u-sicher): unset => leer => kein Override, Zeile harmlos. NUR im (j3)-Debug-Zweig
-            // emittiert => der measure/Voll-Pfad bleibt byte-identisch. Die Env-Belegung selbst kommt aus der YAML
-            // (Schicht 4, nur smoke-rules-Zweig).
-            s += "        COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\" \\\n";
-            s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
-                 "\" COMDARE_RUN_SOTA=0 \\\n";
-            s += "        \"$DRIVER\" experiment_config \"" + measure_out + "\"\n";
-            return s;
+        s += "      FAIL=0\n";
+        s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/logs\"\n";
+        s += "      mkdir -p \"$LOGDIR\"\n";
+        s += "      echo \"== [BATCH-MESS] ceb=" + combo_legend_ + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+        for (auto const& p : perms) {
+            std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
+            std::string const organ       = legend::organ_reference();
+            std::string const opt         = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+            std::string const simd        = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+            std::string const idx         = std::to_string(p.index);
+            // NUR MESS: alle drei Klammern [a,b,c][d,e,f][g,h,i] (die Mess-Ebene traegt die volle Legende).
+            std::string const cell3       = combo_legend_ + perm_legend + organ;
+            std::string const measure_out = "$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" + idx;
+            if (header_.build_semantic.cmake_build_type == "Debug") {
+                // (j3) §61-STUFEN Dual-Compile (Manager-Entscheid: UNVERAENDERT, nur in die Perm-Schleife verlegt):
+                // (1) Release provision-only fuellt die shareable RELEASE-Reuse-Masse (eigenes _release_provision-Dir,
+                // sonst ueberschriebe (2) die Release-.so bei gleicher binary_id), (2) baut+misst Debug (-O0/+bt).
+                // Blocker #50: COMDARE_ARTEFAKT_TRIES=1. Debug=smoke (kleiner Umfang) -> kein if-Guard/Testat (UNVERAENDERT).
+                s += "      export COMDARE_ARTEFAKT_TRIES=1   # (j3) Blocker #50: smoke/debug grindet nicht in "
+                     "Retry-Schleifen (HART)\n";
+                s += "      echo \"== (j3) Aufruf 1/2: Release provision-only (O2/O3-Reuse-Masse, Default-Stempel, "
+                     "KEIN Messen): " +
+                     combo_legend_ + perm_legend + organ + " ==\"\n";
+                s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+                s += "        " + combo_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+                     "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
+                s += "        \"$DRIVER\" experiment_config \"" + measure_out + "_release_provision\"\n";
+                s += "      echo \"== (j3) Aufruf 2/2: Debug-Bau+Messung (-O0/+bt via 2b+(i)), misst (KEIN "
+                     "provision-only): " +
+                     combo_legend_ + perm_legend + organ + " ==\"\n";
+                s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+                // smoke=>debug-Entkopplung: den METHODIK-PROFIL-Selektor an den Grandchild-Mess-Run durchreichen.
+                s += "        COMDARE_PLAN_METHODIK_PROFILE=\"${COMDARE_PLAN_METHODIK_PROFILE:-}\" \\\n";
+                s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
+                     simd + "\" COMDARE_RUN_SOTA=0 \\\n";
+                s += "        \"$DRIVER\" experiment_config \"" + measure_out + "\"\n";
+            } else {
+                // Release: [MESS]-Schritt-KOPF (drei Klammern) + if-guarded Treiber-Aufruf (BYTE-GLEICHE Praefixe zur
+                // Vor-S4-Emission) mit Trace-Hygiene-Log-Umleitung + [MESS-TESTAT]/[FEHLER-TESTAT] (set-e-sicher).
+                s += "      echo \"== [MESS] zelle=" + cell3 + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+                s += "      if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
+                s += "           " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
+                     simd + "\" COMDARE_RUN_SOTA=0 \\\n";
+                s += "           \"$DRIVER\" experiment_config \"" + measure_out + "\" \\\n";
+                s += "           > \"$LOGDIR/perm" + idx + "_mess.log\" 2>&1; then\n";
+                s += "        echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
+                     " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"; FAIL=1\n";
+                s += "      fi\n";
+                s += "      echo \"[MESS-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
+                     " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"\n";
+            }
         }
-        s += "      echo \"== STUFE 3 Mess-Vollzug [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend + organ +
-             ": Fenster $COMDARE_GOLDEN_N_RANGE, misst (KEIN provision-only) ==\"\n";
-        // Nutzlast: OHNE COMDARE_GOLDEN_N_PROVISION_ONLY => run_profile MISST. EIN CSV je Zelle nach measure_out.
-        // COMDARE_RUN_SOTA=0 wie im Bau (keine SOTA-Reihe). COMDARE_RUN_MEASURE NICHT gesetzt (null Konsumenten).
-        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
-        s += "        " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
-             "\" COMDARE_RUN_SOTA=0 \\\n";
-        s += "        \"$DRIVER\" experiment_config \"" + measure_out + "\"\n";
+        s += "      exit $FAIL   # Mess-Fehler je Zelle sichtbar ([FEHLER-TESTAT] + Log); der Batch misst durch\n";
+        s += "  artifacts:\n";
+        s += "    when: always\n";
+        s += "    paths:\n";
+        s += "      - Code/measure_out/" + slug + "/logs/\n";
+        s += "    expire_in: 4 weeks\n";
         return s;
     }
 
@@ -997,7 +1055,11 @@ private:
     std::string                        combo_legend_ = "[all]"; // gesetzt in begin_measurement_combo
     std::vector<PlanPerm>              perms_;
     std::vector<std::vector<PlanStep>> steps_per_perm_;
-    std::string                        out_;
+    // S4-§62-B: die Host-Lane-Buckets der AKTUELLEN CEB (je begin_measurement_combo frisch). Benannte Vektoren
+    // (statt map) => Byte-Determinismus; end_measurement_combo emittiert je nicht-leerem Bucket EIN Job-Paar.
+    std::vector<PlanPerm> lane_amd_;
+    std::vector<PlanPerm> lane_intel_;
+    std::string           out_;
 };
 
 // ── Registry-Trio-Annotation aus einem gelesenen RegistryTrio (Resolver-Vorstufe). ──────────────────────────
@@ -1015,34 +1077,38 @@ private:
     return a;
 }
 
-// ── TierCmakeGraphBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b, --emit-tier-cmake). ──────────
-//    Der Bare-Metal-Gegenpart zum TierCiYamlBuilder: emittiert das tier_plan.cmake einer CEB (Mess-Kombination
-//    [a,b,c]) -- je System-Perm [d,e,f] die REALEN provision-only-Tier-Bau-Targets (das kombinierte
-//    System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen als chunk<k> gebuendelt, §57) + je Perm EIN
-//    GN-11/320er-gegatetes measure:-Skelett-Target. Dies traegt den SCHARFEN
-//    provision-only-Treiber-Aufruf (der frueher in der W7-B-CMakeGraphBuilder-Zelle lag) -- die STUFE-2 ist der
-//    Ort des Tier-Baus. Ein Bare-Metal-Lauf der DREISTUFIGEN Kette: --dump-cmake (Stufe 1) -> CEB -> --emit-tier-
-//    cmake (Stufe 2, DIESER Builder) -> `cmake --build <dir> --target comdare_tier_build_perm0_chunk0`.
+// ── TierCmakeGraphBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b + S4-§62-B-Batch, --emit-tier-cmake).
+//    Der Bare-Metal-Gegenpart (Dual-Weg §61-Spiegel) zum TierCiYamlBuilder: emittiert das tier_plan.cmake einer CEB
+//    (Mess-Kombination [a,b,c]). S4-§62-B-BATCH: je HOST-LANE mit nicht-leerem Perm-Bucket EIN Build+Pruef-Aggregat-
+//    Target comdare_tier_batch_<host> (verkettete per-Perm Provision- + S3-Pruef-Kommandos, provision-only SCHARF +
+//    Konformitaets-Gate; gleiche per-Perm-Ausgabedirs) + EIN Mess-Target comdare_tier_measure_<host> (SCHARF, misst
+//    real). Strukturell isomorph zum CI-Batch (emit_batch_build_job/emit_batch_measure_job). Bare-Metal-Lauf der
+//    DREISTUFIGEN Kette: --dump-cmake (Stufe 1) -> CEB -> --emit-tier-cmake (Stufe 2) -> `cmake --build <dir>
+//    --target comdare_tier_batch_amd` (baut+prueft die amd-Lane) bzw. `--target comdare_tier_measure_amd` (misst).
 //
 //    Host-unabhaengig: Treiber/Profil/Range/Out = CMake-Variablen mit Defaults; nur die [d,e,f][g,h,i]-Legende
-//    (System x Organ, §56; die CEB-Mess-Kombination [a,b,c] ist nur Kontext) + chunk sind Plan-Konstanten.
-//    measure:-Target bleibt GN-11/320er-gegatet (Echo-Skelett, kein Auto-Messlauf).
+//    (System x Organ, §56; die CEB-Mess-Kombination [a,b,c] ist nur Kontext, KOPF-Ebene) + die Host-Lanen sind
+//    Plan-Konstanten. §62-B-NACHTRAG: Bau-/Pruef-Echos tragen zelle=[d,e,f][g,h,i], nur die Mess-Echos alle drei
+//    Klammern. (DEPRECATED §56/§57: die per-(Perm x chunk<k>) comdare_tier_build_perm<i>_chunk<k>-Targets entfielen
+//    in S4 -- Doku bleibt.)
 class TierCmakeGraphBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
         header_ = h;
-        out_ += "# comdare tier-plan (generated .cmake blueprint, TierCmakeGraphBuilder v1 = STUFE 2)\n";
+        out_ +=
+            "# comdare tier-plan (generated .cmake blueprint, TierCmakeGraphBuilder v2 = STUFE 2, S4-§62-B-Batch)\n";
         out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
-                " perm_count=" + std::to_string(h.perm_count) + " chunks_per_perm=" + std::to_string(kTierChunkCount) +
-                "\n";
+                " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
+                " host_lanes=amd,intel\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b (CEB-Rolle --emit-tier-cmake): je System-Perm [d,e,f] die Tier-Chunk-Bau-Targets\n";
-        out_ += "# (provision-only, SCHARF) + EIN GN-11/320er-gegatetes measure:-Skelett-Target. Bare-Metal:\n";
-        out_ += "#   cmake --build <dir> --target comdare_tier_build_perm0_chunk0   # baut die Tier-DLLs (perm.dll)\n";
+        out_ += "# Ledger §42.b + §62-B-Batch (CEB-Rolle --emit-tier-cmake): je Host-Lane EIN Build+Pruef-Aggregat\n";
+        out_ += "# comdare_tier_batch_<host> (per-Perm Provision + S3-Pruef, SCHARF) + EIN Mess-Target\n";
+        out_ += "# comdare_tier_measure_<host> (SCHARF, misst). Bare-Metal:\n";
+        out_ += "#   cmake --build <dir> --target comdare_tier_batch_amd   # baut+prueft die amd-Lane-DLLs\n";
         out_ += "# Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
         out_ += "#   COMDARE_PLAN_DRIVER  = Pfad/Name des comdare-messung-driver (Default: PATH-Suche)\n";
         out_ += "#   COMDARE_PLAN_PROFILE = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
-        out_ += "#   COMDARE_PLAN_RANGE   = golden-N Chunk-Fenster start:count (Default: 0:4 = SICHER klein)\n";
+        out_ += "#   COMDARE_PLAN_RANGE   = golden-N Fenster start:count je Perm (Default: 0:4 = SICHER klein)\n";
         out_ += "#   COMDARE_PLAN_OUT     = Ausgabe-Wurzel fuer die provision-DLLs (Default: <bindir>/tier/out)\n";
         // (g)/§61-MODI: COMDARE_PLAN_MEASURE_PARALLEL = DLL-Bau-Pool im Mess-Target (Default = ProcessorCount, alle
         // Kerne -- §61 Regressions-Fix: der BAU laeuft parallel, NUR das Messen ist 1-Thread). Der Modus (Debug/
@@ -1071,8 +1137,12 @@ public:
         out_ += "    set(COMDARE_PLAN_MEASURE_PARALLEL \"${_comdare_measure_nproc}\")\n";
         out_ += "endif()\n";
     }
+    // S4: die Host-Lane-Buckets je CEB frisch sammeln (die Batch-Targets gehoeren EINER CEB); Emission am
+    // Kombinations-Ende (end_measurement_combo), strukturell isomorph zum CI-Batch (TierCiYamlBuilder).
     void begin_measurement_combo(PlanMeasurementCombo const& c) override {
         combo_legend_ = c.legend;
+        lane_amd_.clear();
+        lane_intel_.clear();
         out_ += "\n# --- CEB-Raum " + c.legend + " (Mess-Kombination " + std::to_string(c.index) + ") ---\n";
     }
     void begin_perm(PlanPerm const& p) override {
@@ -1080,142 +1150,31 @@ public:
         steps_per_perm_.emplace_back();
     }
     void on_step(PlanStep const& s) override { steps_per_perm_.back().push_back(s); }
+    // S4-§62-B: KEINE per-Perm-Targets mehr (das war die O(Perms x Chunks)-Chunk-Target-Kette). Die Perm wird nur
+    // dokumentiert + in ihre HOST-LANE gebucket; die je-Host-Aggregat-Targets emittiert end_measurement_combo.
     void end_perm(PlanPerm const& p) override {
-        std::string const idx         = std::to_string(p.index);
-        std::string const opt         = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
-        std::string const simd        = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
-        std::string const slug        = legend::cmake_slug(combo_legend_);
-        std::string const stemdir     = "${CMAKE_CURRENT_BINARY_DIR}/tier";
         std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
-        std::string const organ       = legend::organ_reference();
-        // S6-P1b Env-Bruecke (d), bare-metal-symmetrisch zu emit_tier_build_job/emit_measure_job: ab N>1 traegt der
-        // -E env-Block die gewaehlte Mess-Combo -> run_profile stempelt die je-Combo-DLL. [all] => LEER => byte-stabil.
-        std::string const combo_line = combo_legend_ == "[all]"
-                                           ? std::string{}
-                                           : "            \"COMDARE_MEASUREMENT_COMBO=" + combo_legend_ + "\"\n";
-        // (i) §61-STUFEN Compile-Kennzeichnung (bare-metal-Emissions-Seite, identitaets-stabil): NUR Debug traegt ein
-        // COMDARE_BUILD_TYPE-Signal -> die facade-Suffix-Naht haengt +bt=Debug ans build_version (Folgepunkt).
-        // Release=Default => LEER => byte-stabil. Der Modus ist per (j2) STATISCH aus dem Profil (build_semantic).
-        std::string const cmake_bt_env = header_.build_semantic.cmake_build_type == "Debug"
-                                             ? std::string{"            \"COMDARE_BUILD_TYPE=Debug\"\n"}
-                                             : std::string{};
-        // (j3)/R4 §61-Dual-Weg (LED:3164): der bare-metal Debug-Mess-COMMAND grindet -- wie der Release-Provision-
-        // COMMAND (unten) und der ci-Mess-Zwilling (.gitlab-ci.yml, export vor beiden Aufrufen) -- NICHT in measure-
-        // drop-Retry-Schleifen (Blocker #50). NUR Debug-Profil traegt COMDARE_ARTEFAKT_TRIES=1; Release/measure =>
-        // LEER => Mess-Target byte-identisch zum Ist-Stand (dieselbe Gate-Logik wie cmake_bt_env).
-        std::string const artefakt_tries_env = header_.build_semantic.cmake_build_type == "Debug"
-                                                   ? std::string{"            \"COMDARE_ARTEFAKT_TRIES=1\"\n"}
-                                                   : std::string{};
-        // §56/§54-T6: die Tier-Bau-Zelle ist System-Achse [d,e,f] x Organ-Achse [g,h,i]; combo_legend_ ([a,b,c])
-        // ist nur CEB-Kontext (die CEB traegt [a,b,c] statisch), nicht Teil der Bau-Legende.
-        out_ +=
-            "\n# perm " + idx + ": [d,e,f][g,h,i]=" + perm_legend + organ + " (CEB [a,b,c]=" + combo_legend_ + ")\n";
-        // K Tier-Chunk-Bau-Targets (provision-only, SCHARF) je System-Perm. Der chunk<k> buendelt das kombinierte
-        // System-Freigabe-Durchfuehrungs- x Organ-Bau-Volumen (§57).
-        std::vector<std::string> chunk_stamps;
-        for (std::size_t k = 0; k < kTierChunkCount; ++k) {
-            std::string const kstr   = std::to_string(k);
-            std::string const bstamp = stemdir + "/" + slug + "_perm" + idx + "_chunk" + kstr + ".build.stamp";
-            std::string const tgt    = tier_build_target(p.index, k);
-            std::string const cell   = "combo=" + combo_legend_ + " perm " + idx + " " + perm_legend + " chunk " + kstr;
-            chunk_stamps.push_back(bstamp);
-            out_ += "if(NOT TARGET " + tgt + ")\n";
-            out_ += "    add_custom_command(\n";
-            out_ += "        OUTPUT \"" + bstamp + "\"\n";
-            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
-            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"tier:build (provision-only): " + cell + "\"\n";
-            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
-            out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
-            out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
-            out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
-            out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
-            out_ += combo_line;   // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
-            out_ += cmake_bt_env; // (i): COMDARE_BUILD_TYPE=Debug nur bei Debug-Profil (Provision-Reuse-Schluessel)
-            out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
-            out_ += "            COMDARE_RUN_SOTA=0\n";
-            out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/" + slug + "/perm" +
-                    idx + "/chunk" + kstr + "\"\n";
-            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
-            out_ += "        COMMENT \"tier:build (provision-only): " + cell + "\"\n";
-            out_ += "        VERBATIM)\n";
-            out_ += "    add_custom_target(" + tgt + " DEPENDS \"" + bstamp + "\")\n";
-            out_ += "endif()\n";
+        std::string const host        = measure_host_lane(p.simd_id, combo_legend_);
+        out_ += "# perm " + std::to_string(p.index) + ": [d,e,f][g,h,i]=" + perm_legend + legend::organ_reference() +
+                " lane=" + host + "\n";
+        (host == "amd" ? lane_amd_ : lane_intel_).push_back(p);
+    }
+    // S4-§62-B-Batch: je Host-Lane in FESTER Reihenfolge {amd, intel}, NUR bei nicht-leerem Bucket (Leere-Lane-Regel).
+    void end_measurement_combo(PlanMeasurementCombo const& /*c*/) override {
+        for (auto const& host : {std::string_view{"amd"}, std::string_view{"intel"}}) {
+            std::vector<PlanPerm> const& bucket = (host == "amd") ? lane_amd_ : lane_intel_;
+            if (bucket.empty()) continue; // Leere-Lane-Regel
+            std::string const h{host};
+            emit_batch_targets(h, bucket);
+            measure_targets_.push_back(tier_measure_target(h)); // fuer das end_plan-Aggregat
         }
-        // measure:-Target (S5-P2 SCHARF, §38.b): REALER Mess-Vollzug, DEPENDS auf ALLE Chunk-Bau-Stamps derselben
-        // Perm (Bau->Mess-Kante). Der Treiber wird OHNE COMDARE_GOLDEN_N_PROVISION_ONLY gerufen => run_profile MISST
-        // (statt nur zu provisionieren) und schreibt EIN CSV je Zelle nach ${COMDARE_PLAN_OUT}/measure. §61-MODI: der
-        // DLL-Bau laeuft PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL), NUR das Messen ist 1-Thread (run_profile-Loop). Das
-        // Bare-Metal-Gate ist die EXPLIZITE Target-Invokation (der Nutzer baut comdare_tier_measure_perm<i> bewusst) --
-        // kein when:manual im .cmake (das ist YAML/GitLab). COMDARE_RUN_MEASURE hat KEINE Konsumenten -> nicht gesetzt.
-        std::string const mstamp = stemdir + "/" + slug + "_perm" + idx + ".measure.stamp";
-        std::string const mtgt   = tier_measure_target(p.index);
-        // (j3) §61-STUFEN Dual-Compile (bare-metal-symmetrisch zum ci-Mess-Job): NUR im Debug-Profil laeuft VOR dem
-        // Debug-Mess-COMMAND ein Release-Provision-COMMAND -> fuellt die shareable RELEASE-Reuse-Masse (O2/O3,
-        // [d,e,f]+Default-Stempel) nach, die der Debug-Tier-Bau sonst nicht erzeugt. Eigenes Ausgabe-Dir
-        // (_release_provision), damit der Debug-Bau die Release-.so nicht ueberschreibt (gleiche binary_id). KEIN
-        // cmake_bt_env (=> Release-Default). COMDARE_ARTEFAKT_TRIES=1: Blocker #50 (measure-drop). Release/measure =>
-        // provision_prologue LEER => das Mess-Target ist byte-identisch zum Ist-Stand.
-        std::string provision_prologue;
-        if (header_.build_semantic.cmake_build_type == "Debug") {
-            provision_prologue += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
-            provision_prologue += "            \"(j3) 1/2: Release provision-only (O2/O3-Reuse-Masse, Default-Stempel, "
-                                  "KEIN Messen): " +
-                                  combo_legend_ + perm_legend + organ + "\"\n";
-            provision_prologue += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
-            provision_prologue += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
-            provision_prologue += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
-            provision_prologue += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
-            provision_prologue += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
-            provision_prologue += combo_line; // COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all])
-            provision_prologue += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
-            provision_prologue +=
-                "            \"COMDARE_ARTEFAKT_TRIES=1\"\n"; // Blocker #50: measure-drop-Retries begrenzt
-            provision_prologue +=
-                "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n"; // (1) provisioniert, misst NICHT
-            provision_prologue += "            COMDARE_RUN_SOTA=0\n";
-            provision_prologue +=
-                "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
-                "/perm" + idx + "_release_provision\"\n";
-        }
-        out_ += "if(NOT TARGET " + mtgt + ")\n";
-        out_ += "    add_custom_command(\n";
-        out_ += "        OUTPUT \"" + mstamp + "\"\n";
-        out_ += provision_prologue; // (j3) Debug: Release-Provision-COMMAND VOR dem Debug-Mess-COMMAND; sonst LEER
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
-        out_ += "            \"measure (S5-P2 scharf, misst): [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
-                organ + "\"\n";
-        // Realer Mess-Aufruf via -E env -- KEIN COMDARE_GOLDEN_N_PROVISION_ONLY (=> misst), Ausgabe nach measure/.
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
-        out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
-        out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
-        out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
-        out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
-        out_ += combo_line; // S6-P1b: COMDARE_MEASUREMENT_COMBO ab N>1 (leer bei [all] => byte-stabil)
-        // §61-MODI Regressions-Fix (bare-metal-symmetrisch zum ci-Mess-Job): der DLL-Bau-Pool laeuft PARALLEL
-        // (COMDARE_PLAN_MEASURE_PARALLEL, Default ProcessorCount) -- der alte COMDARE_BUILD_PARALLEL=1 serialisierte
-        // faelschlich den BAU. NUR das Messen ist 1-Thread (run_profile-Loop). (g) Die Debug-/smoke-Methodik kommt aus
-        // dem METHODIK-Profil COMDARE_PLAN_METHODIK_PROFILE (2026-07-22, smoke=>debug-Entkopplung; der cmake-Build-Typ
-        // folgt cmake_bt_env aus derselben build_semantic). Der frueher hier genannte COMDARE_PLAN_MEASURE_PROFILE war
-        // NIE verdrahtet (dokumentierte WERT-Semantik "smoke=>debug-Ideal") und ist SUPERSEDIERT.
-        out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
-        out_ += cmake_bt_env; // (i): COMDARE_BUILD_TYPE=Debug nur bei Debug-Profil (Release => leer, byte-stabil)
-        out_ +=
-            artefakt_tries_env; // (j3)/R4: COMDARE_ARTEFAKT_TRIES=1 auch im Debug-Mess-COMMAND (Release => leer, byte-stabil)
-        out_ += "            COMDARE_RUN_SOTA=0\n";
-        out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
-                "/perm" + idx + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + mstamp + "\"\n";
-        for (auto const& st : chunk_stamps) out_ += "        DEPENDS \"" + st + "\" # tier:build->measure:-Kante\n";
-        out_ += "        COMMENT \"measure (S5-P2 scharf, misst): combo=" + combo_legend_ + " perm " + idx + "\"\n";
-        out_ += "        VERBATIM)\n";
-        out_ += "    add_custom_target(" + mtgt + " DEPENDS \"" + mstamp + "\")\n";
-        out_ += "endif()\n";
     }
     void end_plan(PlanHeader const&) override {
-        out_ += "\n# Aggregat: alle measure:-Targets (transitiv alle tier:build-Targets via DEPENDS-Kante).\n";
+        out_ +=
+            "\n# Aggregat: alle je-Host-Mess-Targets (transitiv die Build+Pruef-Batch-Targets via DEPENDS-Kante).\n";
         out_ += "if(NOT TARGET " + all_target() + ")\n";
         out_ += "    add_custom_target(" + all_target() + " DEPENDS";
-        for (auto const& p : perms_) out_ += "\n        " + tier_measure_target(p.index);
+        for (auto const& t : measure_targets_) out_ += "\n        " + t;
         out_ += ")\n";
         out_ += "endif()\n";
     }
@@ -1226,11 +1185,142 @@ public:
     [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
 
 private:
-    [[nodiscard]] static std::string tier_build_target(std::size_t i, std::size_t k) {
-        return "comdare_tier_build_perm" + std::to_string(i) + "_chunk" + std::to_string(k);
+    // S4-§62-B bare-metal Build+Pruef-BATCH + Mess-Target je Host-Lane (Dual-Weg §61-Spiegel von
+    // emit_batch_build_job/emit_batch_measure_job). Der Build+Pruef-Batch traegt verkettete per-Perm Provision- +
+    // S3-Pruef-COMMANDs (COMDARE_PLAN_RANGE-Fenster, gleiche per-Perm-Ausgabedirs); das Mess-Target per-Perm
+    // Mess-COMMANDs (Debug: (j3)-Dual UNVERAENDERT), DEPENDS auf den Build+Pruef-Stamp (Bau->Mess-Kante).
+    void emit_batch_targets(std::string const& host, std::vector<PlanPerm> const& perms) {
+        std::string const slug    = legend::cmake_slug(combo_legend_);
+        std::string const stemdir = "${CMAKE_CURRENT_BINARY_DIR}/tier";
+        // S6-P1b Env-Bruecke (d): ab N>1 COMDARE_MEASUREMENT_COMBO im -E env-Block. [all] => LEER => byte-stabil.
+        std::string const combo_line = combo_legend_ == "[all]"
+                                           ? std::string{}
+                                           : "            \"COMDARE_MEASUREMENT_COMBO=" + combo_legend_ + "\"\n";
+        // (i) §61-STUFEN: nur Debug traegt COMDARE_BUILD_TYPE (Reuse-Schluessel). (j3)/R4: nur Debug COMDARE_ARTEFAKT_TRIES=1.
+        std::string const cmake_bt_env       = header_.build_semantic.cmake_build_type == "Debug"
+                                                   ? std::string{"            \"COMDARE_BUILD_TYPE=Debug\"\n"}
+                                                   : std::string{};
+        std::string const artefakt_tries_env = header_.build_semantic.cmake_build_type == "Debug"
+                                                   ? std::string{"            \"COMDARE_ARTEFAKT_TRIES=1\"\n"}
+                                                   : std::string{};
+
+        // ── Build+Pruef-Aggregat-Target comdare_tier_batch_<host>: verkettete per-Perm Provision- + Pruef-COMMANDs.
+        std::string const bstamp = stemdir + "/" + slug + "_batch_" + host + ".build.stamp";
+        std::string const btgt   = tier_batch_target(host);
+        out_ += "\n# --- Host-Lane " + host + " (Build+Pruef-Batch, §62-B: alle " + host +
+                "-Lane-Perms; Testate [d,e,f][g,h,i], ceb=[a,b,c] nur KOPF) ---\n";
+        out_ += "if(NOT TARGET " + btgt + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + bstamp + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"[BATCH-BAU] ceb=" + combo_legend_ + " lane=" + host +
+                "\"\n";
+        for (auto const& p : perms) {
+            std::string const idx         = std::to_string(p.index);
+            std::string const opt         = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+            std::string const simd        = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+            std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
+            std::string const organ       = legend::organ_reference();
+            std::string const cell        = perm_legend + organ; // [d,e,f][g,h,i] (Haupt-only, kein [a,b,c])
+            std::string const dll_dir     = "${COMDARE_PLAN_OUT}/" + slug + "/" + host + "/perm" + idx;
+            // Provision-COMMAND (provision-only, SCHARF) ueber ${COMDARE_PLAN_RANGE}.
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"[BAU] zelle=" + cell + " lane=" + host + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+            out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+            out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+            out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+            out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += combo_line;
+            out_ += cmake_bt_env;
+            out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
+            out_ += "            COMDARE_RUN_SOTA=0\n";
+            out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"" + dll_dir + "\"\n";
+            // S3-Pruef-COMMAND (Konformitaets-Gate) ueber dasselbe Fenster/dll_dir (kein Bau, keine Messung).
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"[PRUEF] zelle=" + cell + " lane=" + host + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+            out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+            out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+            out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+            out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += combo_line;
+            out_ += cmake_bt_env;
+            out_ += "            \"COMDARE_PRUEF_ONLY=true\"\n";
+            out_ += "            COMDARE_RUN_SOTA=0\n";
+            out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"" + dll_dir + "\"\n";
+        }
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
+        out_ += "        COMMENT \"tier build+pruef batch (provision-only + Konformitaets-Gate): ceb=" + combo_legend_ +
+                " lane=" + host + "\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + btgt + " DEPENDS \"" + bstamp + "\")\n";
+        out_ += "endif()\n";
+
+        // ── Mess-Target comdare_tier_measure_<host> (S5-P2 SCHARF): per-Perm Mess-COMMANDs, DEPENDS auf den
+        //    Build+Pruef-Batch-Stamp (Bau->Mess-Kante). §61-MODI: DLL-Bau PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL),
+        //    Messen 1-Thread. (j3) Debug: Release-Provision-Vorlauf je Perm (eigenes _release_provision-Dir), UNVERAENDERT.
+        std::string const mstamp = stemdir + "/" + slug + "_batch_" + host + ".measure.stamp";
+        std::string const mtgt   = tier_measure_target(host);
+        out_ += "if(NOT TARGET " + mtgt + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + mstamp + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"[BATCH-MESS] ceb=" + combo_legend_ + " lane=" + host +
+                "\"\n";
+        for (auto const& p : perms) {
+            std::string const idx         = std::to_string(p.index);
+            std::string const opt         = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+            std::string const simd        = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+            std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
+            std::string const organ       = legend::organ_reference();
+            std::string const cell3       = combo_legend_ + perm_legend + organ; // [a,b,c][d,e,f][g,h,i] (nur MESS)
+            if (header_.build_semantic.cmake_build_type == "Debug") {
+                // (j3) 1/2: Release-Provision-Vorlauf (eigenes _release_provision-Dir; sonst ueberschriebe der Debug-
+                // Bau die Release-.so bei gleicher binary_id). COMDARE_ARTEFAKT_TRIES=1 (Blocker #50). UNVERAENDERT.
+                out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
+                out_ += "            \"(j3) 1/2: Release provision-only (O2/O3-Reuse-Masse, Default-Stempel, KEIN "
+                        "Messen): " +
+                        combo_legend_ + perm_legend + organ + "\"\n";
+                out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+                out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+                out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+                out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+                out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+                out_ += combo_line;
+                out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
+                out_ += "            \"COMDARE_ARTEFAKT_TRIES=1\"\n";
+                out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
+                out_ += "            COMDARE_RUN_SOTA=0\n";
+                out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" +
+                        slug + "/perm" + idx + "_release_provision\"\n";
+            }
+            // (2)/Release: realer Mess-COMMAND -- OHNE COMDARE_GOLDEN_N_PROVISION_ONLY (=> misst), EIN CSV je Zelle
+            // nach ${COMDARE_PLAN_OUT}/measure/<slug>/perm<idx>. Echo traegt alle drei Klammern (nur die Mess-Ebene).
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
+            out_ += "            \"measure (S5-P2 scharf, misst): [a,b,c][d,e,f][g,h,i]=" + cell3 + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+            out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+            out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+            out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+            out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += combo_line;
+            out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
+            out_ += cmake_bt_env;
+            out_ += artefakt_tries_env;
+            out_ += "            COMDARE_RUN_SOTA=0\n";
+            out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure/" + slug +
+                    "/perm" + idx + "\"\n";
+        }
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + mstamp + "\"\n";
+        out_ += "        DEPENDS \"" + bstamp + "\" # tier build+pruef -> measure-Kante\n";
+        out_ +=
+            "        COMMENT \"measure batch (S5-P2 scharf, misst): ceb=" + combo_legend_ + " lane=" + host + "\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + mtgt + " DEPENDS \"" + mstamp + "\")\n";
+        out_ += "endif()\n";
     }
-    [[nodiscard]] static std::string tier_measure_target(std::size_t i) {
-        return "comdare_tier_measure_perm" + std::to_string(i);
+
+    [[nodiscard]] static std::string tier_batch_target(std::string const& host) { return "comdare_tier_batch_" + host; }
+    [[nodiscard]] static std::string tier_measure_target(std::string const& host) {
+        return "comdare_tier_measure_" + host;
     }
     [[nodiscard]] static std::string all_target() { return "comdare_tier_plan_all"; }
 
@@ -1238,7 +1328,11 @@ private:
     std::string                        combo_legend_ = "[all]";
     std::vector<PlanPerm>              perms_;
     std::vector<std::vector<PlanStep>> steps_per_perm_;
-    std::string                        out_;
+    // S4-§62-B: Host-Lane-Buckets der aktuellen CEB + die je-Host-Mess-Targets fuer das end_plan-Aggregat.
+    std::vector<PlanPerm>    lane_amd_;
+    std::vector<PlanPerm>    lane_intel_;
+    std::vector<std::string> measure_targets_;
+    std::string              out_;
 };
 
 // ── ExperimentPlanDirector — DIRECTOR (GoF Builder). EIN deterministischer Walk, zwei Kanaele. ──────────────

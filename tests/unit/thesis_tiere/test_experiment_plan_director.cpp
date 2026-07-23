@@ -502,9 +502,10 @@ TEST(CMakeGraphBuilder, CMakeTextIsByteDeterministic) {
     }
 }
 
-// (J) STUFE 2 (W10-A/§42.b, TierCmakeGraphBuilder): der tier:build-Schritt traegt echte provision-only-Treiber-
-//     Kommandos, chunk-gebuendelt (kTierChunkCount je Perm); der measure:-Schritt ist ab S5-P2 SCHARF (misst real).
-TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsSharp) {
+// (J) STUFE 2 (W10-A/§42.b + S4-§62-B-Batch, TierCmakeGraphBuilder): je-Host-Aggregat-Targets comdare_tier_batch_
+//     <host> (per-Perm Provision- + S3-Pruef-Kommandos, SCHARF) + je-Host-Mess-Target comdare_tier_measure_<host>
+//     (misst real). Bare-Metal-Spiegel des CI-Batch (Dual-Weg §61).
+TEST(TierCmakeGraphBuilder, TierBatchIsProvisionPruefPerHostAndMeasureIsSharp) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
@@ -513,33 +514,33 @@ TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsSharp) {
     director.construct(*tp, gb);
     std::string const& cmake = gb.text();
 
-    // §64: 1 [all]-Combo x 4 Perms x kTierChunkCount(=4) = 16 Tier-Chunk-Bau-Targets, je mit provision-only. Der
-    // measure:-Schritt ist ab S5-P2 SCHARF (eigenes -E env), setzt aber KEIN COMDARE_GOLDEN_N_PROVISION_ONLY -> die
-    // PROVISION_ONLY-Zahl bleibt genau 16 (nur die Tier-Bau-Targets provisionieren; frueher 3 Combos = 48).
-    std::size_t const expected_builds = 1u * 4u * planner::kTierChunkCount;
-    EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_builds)
-        << "je Combo x Perm x chunk ein provision-only-Tier-Bau (die Mess-Targets provisionieren NICHT)";
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_build_perm"), expected_builds);
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_measure_perm"), 4u)
-        << "1 scharfes Mess-Target je Perm (§64: 1 [all]-Combo x 4 Perms)";
+    // §62-B-Batch: all_axes_golden [all] -> 4 Perms; measure_host_lane -> amd={O2/O3,no_ext} (2), intel={O2/O3,avx2}
+    // (2). Je Host EIN Build+Pruef-Aggregat comdare_tier_batch_<host> (2) + EIN Mess-Target comdare_tier_measure_
+    // <host> (2). Provision-only-Kommandos = 1 je Perm (Release) = 4; S3-Pruef-Kommandos = 1 je Perm = 4.
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_batch_"), 2u)
+        << "je Host-Lane EIN Build+Pruef-Aggregat-Target (amd + intel)";
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_measure_"), 2u)
+        << "je Host-Lane EIN scharfes Mess-Target (amd + intel)";
+    EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), 4u)
+        << "je Perm EIN provision-only-Kommando (Release; 4 Perms) -- die Mess-Kommandos provisionieren NICHT";
+    EXPECT_EQ(count_occurrences(cmake, "\"COMDARE_PRUEF_ONLY=true\""), 4u)
+        << "je Perm EIN S3-Konformitaets-Gate-Kommando (COMDARE_PRUEF_ONLY=true; 4 Perms)";
     EXPECT_NE(cmake.find("\"COMDARE_GN_OPT=O2\""), std::string::npos) << "opt/simd als Plan-Konstanten (LITERALE)";
     EXPECT_NE(cmake.find("\"COMDARE_GN_SIMD=avx2\""), std::string::npos);
     // Host-unabhaengig: konfigurierbare Eingaben als CMake-Variablen mit Defaults, KEINE Host-Absolutpfade.
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_DRIVER)"), std::string::npos);
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_RANGE)"), std::string::npos);
     EXPECT_EQ(cmake.find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade im .cmake";
-    // S5-P2 FLIP: der measure:-Schritt ist SCHARF (misst) -- KEIN gegatetes GN-11/320er-Skelett mehr. Realer
-    // Treiber-Aufruf nach measure/. §61-MODI: DLL-Bau PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL), Messen 1-Thread.
-    EXPECT_EQ(cmake.find("measure GATED (GN-11/320er"), std::string::npos)
-        << "kein gegatetes Mess-Skelett mehr (S5-P2 scharf)";
-    EXPECT_NE(cmake.find("measure (S5-P2 scharf, misst)"), std::string::npos)
-        << "measure:-Target ist scharf (misst real)";
+    // DEPRECATED: keine per-Perm-Chunk-Targets mehr (§56/§57 Chunk-Konzept in S4 abgeloest).
+    EXPECT_EQ(cmake.find("add_custom_target(comdare_tier_build_perm"), std::string::npos)
+        << "keine per-(Perm x chunk)-Targets mehr (§62-B-Batch)";
+    // S5-P2 SCHARF: realer Treiber-Aufruf nach measure/. §61-MODI: DLL-Bau PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL),
+    // Messen 1-Thread. Je Perm EIN Mess-Kommando (4 Perms).
+    EXPECT_NE(cmake.find("measure (S5-P2 scharf, misst)"), std::string::npos) << "Mess-Target ist scharf (misst real)";
     EXPECT_NE(cmake.find("${COMDARE_PLAN_OUT}/measure/"), std::string::npos)
         << "scharfer Treiber-Aufruf schreibt EIN CSV je Zelle nach measure/";
-    // §61-MODI Regressions-Fix: der DLL-Bau des Mess-Targets laeuft PARALLEL (COMDARE_PLAN_MEASURE_PARALLEL, Default
-    // ProcessorCount) -- NICHT mehr COMDARE_BUILD_PARALLEL=1. Das Messen selbst bleibt 1-Thread (run_profile-Loop).
     EXPECT_EQ(count_occurrences(cmake, "COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}"), 4u)
-        << "je Mess-Target DLL-Bau parallel (§61-MODI; §64: 1 [all]-Combo x 4 Perms)";
+        << "je Perm-Mess-Kommando DLL-Bau parallel (§61-MODI; 4 Perms)";
     EXPECT_EQ(cmake.find("COMDARE_BUILD_PARALLEL=1\n"), std::string::npos) << "kein serialisierter Bau mehr (§61-MODI)";
     EXPECT_EQ(cmake.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
@@ -713,8 +714,9 @@ TEST(CiYamlBuilder, SimdRunnerTagRoutingMatchesPilotMatrix) {
     EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("avx2"), "avx2");
     EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("avx512"), "avx512");
 
-    // all_axes_golden traegt no_extension + avx2 -> die STUFE-2-YAML (System-Perm-Ebene, TierCiYamlBuilder) routet
-    // auf beide Tags; die STUFE-1-YAML (CiYamlBuilder, CEB-Bau) ist compiler-only => broadest amd64.
+    // all_axes_golden traegt no_extension + avx2. Die STUFE-1-YAML (CiYamlBuilder, CEB-Bau) ist compiler-only =>
+    // broadest amd64. Die STUFE-2-YAML (S4-§62-B-Batch, TierCiYamlBuilder) taggt je HOST-LANE (amd/intel, s.
+    // measure_host_lane) statt der reinen simd-Faehigkeit -- die Lane-Zuordnung deckt die avx512->amd-Zwangsregel ab.
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector const director;
@@ -724,8 +726,10 @@ TEST(CiYamlBuilder, SimdRunnerTagRoutingMatchesPilotMatrix) {
     EXPECT_EQ(yb.text().find("tags: [\"avx2\"]"), std::string::npos) << "Stufe 1 routet NICHT per SIMD";
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
-    EXPECT_NE(tb.text().find("tags: [\"amd64\"]"), std::string::npos) << "Stufe 2: no_extension-Perm -> amd64";
-    EXPECT_NE(tb.text().find("tags: [\"avx2\"]"), std::string::npos) << "Stufe 2: avx2-Perm -> avx2";
+    EXPECT_NE(tb.text().find("tags: [\"amd\"]"), std::string::npos) << "Stufe 2 Batch: no_extension-Perm -> amd-Lane";
+    EXPECT_NE(tb.text().find("tags: [\"intel\"]"), std::string::npos) << "Stufe 2 Batch: avx2-Perm -> intel-Lane";
+    EXPECT_EQ(tb.text().find("tags: [\"avx2\"]"), std::string::npos)
+        << "Stufe 2 Batch taggt je Host-Lane (amd/intel), nicht per flag-granularem simd-Tag";
 }
 
 // (N2) A3 (Task #23/#24, Manager-Ruling Weg a): die EHRLICHE flag-granulare Runner-Tag-LISTE leitet die Tags aus
@@ -743,8 +747,9 @@ TEST(SimdRunnerTags, FlagGranularListDerivesTagsFromRealMarch) {
     // Unbekannte simd-id (march leer, aber nicht no_extension) => ISA-Name selbst (kein falscher Tag).
     EXPECT_EQ(planner::simd_runner_tags("sse4"), (V{"sse4"}));
 
-    // Stufe-2-YAML: eine avx512-Perm traegt die flag-granulare Liste tags: ["avx512f"]. Da kein committetes Profil
-    // avx512 fuehrt (all_axes_golden = no_extension/avx2), wird der TierCiYamlBuilder direkt getrieben (wie A5c).
+    // Stufe-2-YAML (S4-§62-B-Batch): eine avx512-Perm wird via measure_host_lane ZWINGEND in den amd-Bucket geroutet
+    // (nur prod1/Zen5 traegt avx512) -> der Build+Pruef-Batch traegt tags: ["amd"] (Host-Lane), NICHT den flag-
+    // granularen "avx512f"-Tag (der galt der abgeloesten Einzel-Job-Ebene). Das Treiber-ISA-Gate ist die zweite Wache.
     planner::TierCiYamlBuilder tb;
     planner::PlanHeader        h;
     h.source_kind             = "thesis";
@@ -764,9 +769,14 @@ TEST(SimdRunnerTags, FlagGranularListDerivesTagsFromRealMarch) {
     tb.end_perm(p);
     tb.end_measurement_combo(c);
     tb.end_plan(h);
-    EXPECT_NE(tb.text().find("tags: [\"avx512f\"]"), std::string::npos)
-        << "Stufe-2: avx512-Perm -> tags: [\"avx512f\"] (flag-granular)";
-    EXPECT_EQ(tb.text().find("tags: [\"avx512\"]"), std::string::npos) << "NICHT der grobe 'avx512'-Tag";
+    EXPECT_NE(tb.text().find("tags: [\"amd\"]"), std::string::npos)
+        << "Stufe-2 Batch: avx512-Perm -> amd-Lane (Hardware-Zwang, measure_host_lane)";
+    EXPECT_EQ(tb.text().find("tags: [\"avx512"), std::string::npos)
+        << "kein flag-granularer avx512-Tag mehr in der Batch-Emission (Host-Lane-Tag)";
+    EXPECT_NE(tb.text().find("\"tier:build-batch:amd\":"), std::string::npos)
+        << "die avx512-Perm landet im amd-Build-Batch";
+    EXPECT_EQ(tb.text().find("\"tier:build-batch:intel\":"), std::string::npos)
+        << "Leere-Lane-Regel: kein intel-Batch (avx512 nie intel)";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -806,9 +816,12 @@ TEST(PlanLegend, FormatsShortDeterministicYamlSafeArraysAndJobNames) {
     EXPECT_EQ(lg::ceb_build_job("[all]"), "ceb:build:[all]");
     EXPECT_EQ(lg::ceb_emit_job("[all]"), "ceb:emit:[all]");
     EXPECT_EQ(lg::ceb_trigger_job("[all]"), "ceb:trigger:[all]");
-    // §56/§54-T6: die Tier-Bau-Legende ist System-Perm [d,e,f] x Organ-Referenz [g,h,i] + chunk<k> im ORGAN-Slot;
-    // die Mess-Kombination [a,b,c] steht NICHT in der Bau-Legende (sie lebt nur in ceb:build:[a,b,c]).
-    EXPECT_EQ(lg::tier_build_job("[O2,avx2]", "[g,h,i]", 3), "tier:build:[O2,avx2][g,h,i]:chunk3");
+    // §62-B-Batch (S4): die Job-Namen sind O(Maschinen). Der Build+Pruef-Batch traegt NUR die Host-Lane; der
+    // Mess-Batch traegt CEB-Identitaet [a,b,c] + Lane. (Der fruehere tier_build_job-Chunk-Helper entfiel in S4.)
+    EXPECT_EQ(lg::tier_batch_build_job("amd"), "tier:build-batch:amd");
+    EXPECT_EQ(lg::tier_batch_build_job("intel"), "tier:build-batch:intel");
+    EXPECT_EQ(lg::measure_batch_job("[all]", "amd"), "measure:[all]:batch:amd");
+    // measure_job bleibt der Legenden-/Doku-Helper der vollen Mess-Zelle (drei Klammern).
     EXPECT_EQ(lg::measure_job("[all]", "[O2,avx2]", "[g,h,i]"), "measure:[all][O2,avx2][g,h,i]");
 }
 
@@ -881,9 +894,9 @@ TEST(PlanTextBuilder, DumpPlanShowsMeasurementComboStage) {
     EXPECT_NE(pt.text().find("perm_count=4"), std::string::npos) << "Perm-Ebene bleibt unter der Kombination";
 }
 
-// (W4) Stufe 2 (CEB-Rolle, TierCiYamlBuilder): NUR die freigegebenen System-Perms + Tier-Chunk-Jobs + gegatete
-//      Mess-Jobs. all_axes_golden: 4 Perms x kTierChunkCount Chunk-Bau-Jobs + 4 gegatete Mess-Jobs.
-TEST(TierCiYamlBuilder, EmitsFreedSystemPermsWithTierChunkAndGatedMeasureJobs) {
+// (W4) Stufe 2 (CEB-Rolle, TierCiYamlBuilder, S4-§62-B-Batch): je Host-Lane GENAU EIN Build+Pruef-Batch + EIN
+//      Mess-Batch, O(Maschinen). all_axes_golden [all]: amd={no_ext-Perms}, intel={avx2-Perms} => exakt 4 Jobs.
+TEST(TierCiYamlBuilder, EmitsOneBuildBatchAndOneMeasureBatchPerHost) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
@@ -892,38 +905,37 @@ TEST(TierCiYamlBuilder, EmitsFreedSystemPermsWithTierChunkAndGatedMeasureJobs) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    std::size_t const expected_chunks =
-        1u * 4u * planner::kTierChunkCount; // §64: 1 [all]-Combo x 4 Perms x kTierChunkCount
-    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build "), expected_chunks)
-        << "kTierChunkCount Chunk-Bau-Jobs je Perm (§64: 1 [all]-Combo x 4 Perms)";
-    EXPECT_EQ(count_occurrences(yaml, "# JOB measure "), 4u)
-        << "1 (gegateter) Mess-Job je System-Perm (§64: 1 [all] x 4)";
+    // O(Maschinen): je Host EIN Build+Pruef-Batch + EIN Mess-Batch => bei 2 nicht-leeren Lanes exakt 4 Jobs.
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build-batch "), 2u)
+        << "je Host-Lane EIN Build+Pruef-Batch (amd+intel)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB measure-batch "), 2u) << "je Host-Lane EIN Mess-Batch (amd+intel)";
+    // Die Job-Namen-Literale (Build+Pruef-Batch traegt NUR die Host-Lane; Mess-Batch traegt CEB-Identitaet + Lane).
+    EXPECT_NE(yaml.find("\"tier:build-batch:amd\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"tier:build-batch:intel\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"measure:[all]:batch:amd\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"measure:[all]:batch:intel\":"), std::string::npos);
+    // needs: EINE Bau->Mess-Kante je Mess-Batch auf den Build-Batch derselben Lane (statt 4 Chunk-Kanten).
+    EXPECT_NE(yaml.find("    - \"tier:build-batch:amd\"\n"), std::string::npos)
+        << "needs:-Kante des amd-Mess-Batch referenziert den amd-Build-Batch";
+    EXPECT_NE(yaml.find("    - \"tier:build-batch:intel\"\n"), std::string::npos);
     // Die zwei Stufen-2-stages.
     EXPECT_NE(yaml.find("  - tier-build\n"), std::string::npos);
     EXPECT_NE(yaml.find("  - measure\n"), std::string::npos);
     // KEINE Stufe-1-CEB-Jobs in der Stufe-2-Sicht (die CEB-Jobs gehoeren in --dump-ci).
     EXPECT_EQ(yaml.find("ceb:build:"), std::string::npos) << "Stufe 2 enthaelt KEINE CEB-Bau-Jobs";
     EXPECT_EQ(yaml.find("stage: ceb-build"), std::string::npos);
-    // §56/§54-T6: die Tier-Bau-Jobs tragen die Legende [d,e,f][g,h,i]:chunk<k> = System-Perm x Organ-Referenz
-    // (organ_reference() = [search_algo,cache_traversal,mapping]); die Mess-Kombination [a,b,c] steht NICHT drin.
-    EXPECT_NE(yaml.find("\"tier:build:[O2,no_extension][search_algo,cache_traversal,mapping]:chunk0\":"),
-              std::string::npos);
-    EXPECT_NE(yaml.find("\"tier:build:[O2,avx2][search_algo,cache_traversal,mapping]:chunk0\":"), std::string::npos);
-    EXPECT_NE(yaml.find("\"tier:build:[O3,avx2][search_algo,cache_traversal,mapping]:chunk3\":"), std::string::npos);
-    // §56/§54-T6: die needs:-Kante der Mess-Jobs referenziert EXAKT dieselbe korrigierte Bau-Legende (sonst
-    // brechen die Bau->Mess-Job-Kanten). Literaler Beleg: die needs-Zeile traegt [d,e,f][g,h,i]:chunk<k>, NICHT
-    // die alte [a,b,c][d,e,f]-Fehlform.
-    EXPECT_NE(yaml.find("    - \"tier:build:[O2,no_extension][search_algo,cache_traversal,mapping]:chunk0\"\n"),
-              std::string::npos)
-        << "needs:-Kante referenziert die korrigierte tier:build-Legende";
-    // Die Mess-Jobs tragen die volle [a,b,c][d,e,f][g,h,i]-Legende und sind provision-only im Bau (golden-neutral).
-    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_chunks)
-        << "je Chunk-Bau-Job provision-only (Bau ohne Messung)";
+    // §62-B-Batch: KEINE Chunk-Job-Namen mehr in der Stufe-2-YAML (die per-(Perm x chunk<k>)-Kette entfiel).
+    EXPECT_EQ(yaml.find("chunk"), std::string::npos) << "kein chunk-Text in der Batch-Stufe-2 (§62-B)";
+    // provision-only-Kommando 1 je Perm (im Batch-Script, in der Fenster-Schleife); 4 Perms total.
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), 4u)
+        << "je Perm EIN provision-only-Kommando (4 Perms; frueher 16)";
+    // S3-PRUEF-Schritt 1 je Perm (unbedingt nach der Fenster-Schleife emittiert).
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_PRUEF_ONLY=true"), 4u) << "je Perm EIN S3-Konformitaets-Gate";
 }
 
-// (W5) §42.b Bau=Haupt-only-Gate: KEINE Unter-Achse (Laufzeit-Parameter) in irgendeiner Bau-Job-Legende; die
-//      Mess-Jobs sind ab S5-P2 SCHARF (misst real), gegatet ueber rules (smoke=Auto-Run / sonst when:manual,
-//      §41/320er) + resource_group ceb-measurement-exclusive (B14-#3) -- KEIN Skelett mehr.
+// (W5) §42.b Bau=Haupt-only-Gate (S4-§62-B-Batch): KEINE Unter-Achse (Laufzeit-Parameter) in irgendeiner [BAU]-
+//      Schritt-Legende; §62-B-NACHTRAG: die [BAU]-/[PRUEF]-Testate tragen zelle=[d,e,f][g,h,i] (ZWEI Klammern, kein
+//      [a,b,c]); nur die [MESS]-Testate tragen alle drei Klammern. Mess ist SCHARF (misst real), gegatet ueber rules.
 TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -933,48 +945,53 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    // Die Bau-Job-Schluessel selbst tragen KEINE Unter-Achsen-Namen (reine Laufzeit-Parameter, §42.b). Wir pruefen
-    // die Legenden-Zeilen der Bau-Jobs ("tier:build:...) auf die bekannten dynamischen Unter-Achsen-Dimensionen.
+    // §42.b Bau=Haupt-only-Gate: KEINE Unter-Achse in irgendeiner [BAU]-Schritt-Legende (reine Laufzeit-Parameter).
+    // Wir scannen jede "[BAU] zelle="-Echo-Zeile auf die bekannten dynamischen Unter-Achsen-Dimensionen.
+    std::size_t bau_lines = 0;
     for (char const* sub :
          {"thread_count", "prefetch_distance", "pool_budget", "batch_size", "inline_threshold", "workload"}) {
-        // In den Bau-JOB-Namen darf keine Unter-Achse vorkommen: wir scannen jede "tier:build:"-Zeile.
         std::size_t pos = 0;
-        while ((pos = yaml.find("\"tier:build:", pos)) != std::string::npos) {
+        while ((pos = yaml.find("[BAU] zelle=", pos)) != std::string::npos) {
             std::size_t const eol  = yaml.find('\n', pos);
             std::string const line = yaml.substr(pos, eol - pos);
             EXPECT_EQ(line.find(sub), std::string::npos) << "Bau=Haupt-only-Gate (§42.b): Unter-Achse '" << sub
-                                                         << "' darf NICHT in der Bau-Legende stehen: " << line;
+                                                         << "' darf NICHT in der [BAU]-Legende stehen: " << line;
+            // §62-B-NACHTRAG: die [BAU]-Zelle traegt KEINE Mess-Kombination [a,b,c] (Layer NIE verschmolzen).
+            EXPECT_EQ(line.find("[all]"), std::string::npos)
+                << "[BAU]-Schritt-Legende traegt KEINE CEB-Kombination [a,b,c] (nur KOPF): " << line;
+            ++bau_lines;
             pos = eol;
         }
     }
-    // S5-P2: die Mess-Jobs sind SCHARF, aber gegatet. rules (§41/320er): je Mess-Job EINE smoke-Auto-Run-Regel +
-    // EINE when:manual-Fallback-Regel (Voll-Messlauf erst nach User-Entscheid). Struktur ja, Auto-Voll-Messlauf nein.
-    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 4u)
-        << "je Mess-Job ein when:manual-Fallback (Voll-Messlauf = User-Entscheid; §64: 1 [all]-Combo x 4 Perms)";
-    EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 4u)
-        << "je Mess-Job eine smoke-Auto-Run-Regel (COMDARE_MEASURE_PROFILE==smoke => when:on_success)";
+    EXPECT_GT(bau_lines, 0u) << "es gibt [BAU]-Schritt-Echos je Perm";
+    // §62-B-NACHTRAG: der Batch-KOPF (einmal je Job) traegt die CEB-Identitaet [a,b,c] + Lane; die MESS-Testate
+    // tragen alle drei Klammern. Beide Ebenen sind praesent, aber die Layer bleiben getrennt.
+    EXPECT_NE(yaml.find("[BATCH-BAU] ceb=[all] lane=amd"), std::string::npos) << "Batch-KOPF traegt [a,b,c] + Lane";
+    EXPECT_NE(yaml.find("[MESS] zelle=[all][O2,no_extension][search_algo,cache_traversal,mapping]"), std::string::npos)
+        << "MESS-Testat traegt alle drei Klammern [a,b,c][d,e,f][g,h,i]";
+    // rules (§41/320er): je Mess-Batch EINE smoke-Auto-Run-Regel + EINE when:manual-Fallback-Regel. 2 Mess-Batches.
+    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 2u)
+        << "je Mess-Batch ein when:manual-Fallback (2 Host-Lanes)";
+    EXPECT_EQ(count_occurrences(yaml, "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'"), 2u)
+        << "je Mess-Batch eine smoke-Auto-Run-Regel";
     EXPECT_NE(yaml.find("320er"), std::string::npos) << "Gate-Provenienz (§41/320er) dokumentiert";
-    // (h)/(k) §61-KONSOLIDIERUNG: Mess-Exklusivitaet PRO MASCHINE (ceb-measure-<host>). §64: all_axes_golden traegt die
-    // EINE [all]-Combo (4 Perms: O2/O3 x no_ext/avx2). avx2->intel IMMER (2 Jobs); no_ext + [all] -> amd (die Combo
-    // enthaelt kein "macro", s. measure_host_lane) => amd = 2 (no_ext), intel = 2 (avx2). Summe 4 (frueher 3 Combos=12).
+    // P4 (§62-B): resource_group ceb-measure-<host> je Maschine geteilt zwischen Build-Batch UND Mess-Batch -> je
+    // Host genau 2 Vorkommen (1 Build-Batch + 1 Mess-Batch), NICHT umbenannt.
     EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measure-amd\""), 2u)
-        << "amd-Lane: no_ext + [all] -> amd (2 Perms)";
+        << "amd-Lane: Build-Batch + Mess-Batch teilen ceb-measure-amd (P4)";
     EXPECT_EQ(count_occurrences(yaml, "  resource_group: \"ceb-measure-intel\""), 2u)
-        << "intel-Lane: avx2 -> intel (2 Perms)";
+        << "intel-Lane: Build-Batch + Mess-Batch teilen ceb-measure-intel (P4)";
     EXPECT_EQ(yaml.find("ceb-measurement-exclusive"), std::string::npos)
         << "keine globale Mess-Serialisierung mehr (§61-MODI: prod1+prod2 messen parallel)";
-    // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out. §61-MODI: der DLL-Bau laeuft
-    // PARALLEL (COMDARE_BUILD_PARALLEL=$(nproc)), NUR das Messen ist 1-Thread (run_profile); OHNE COMDARE_RUN_MEASURE.
+    // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out.
     EXPECT_NE(yaml.find("$CI_PROJECT_DIR/Code/measure_out/"), std::string::npos)
         << "scharfer Mess-Aufruf schreibt nach measure_out";
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"$(nproc)\""), 4u)
-        << "je Mess-Job DLL-Bau parallel (§61-MODI Regressions-Fix; §64: 1 [all]-Combo x 4 Perms)";
+    // §62-B-K-Budget (NICHT $(nproc)): der Mess-Batch exportiert COMDARE_BUILD_PARALLEL als Lane-Literal.
+    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B-K-Budget-Literale ersetzen $(nproc)";
     EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos)
         << "kein serialisierter Bau mehr (§61-MODI: der alte =1 war eine Regression)";
     EXPECT_EQ(yaml.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
-    EXPECT_EQ(yaml.find("measure GATED (GN-11/320er"), std::string::npos)
-        << "kein gegatetes Mess-Skelett mehr (S5-P2 scharf)";
 }
 
 // (W6) Legenden-Determinismus beider Stufen: zwei Laeufe -> byte-gleich (Thesis + Experiment).
@@ -1059,17 +1076,16 @@ TEST(CiYamlBuilder, NoCiProjectDirInVariablesBlockBothStages) {
                   std::string::npos)
             << "COMDARE_GOLDEN_N_PROFILE per Runtime-Export im Prolog";
     }
-    // je Job-mit-Klon-Prolog ein GOLDEN_N_PROFILE-Export: Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16
-    // (tier:build) + 4 (Mess-Jobs, ab S5-P2 SCHARF) = 20 -- §64: EINE [all]-Combo (frueher x3 => 6 bzw. 60).
+    // je Job-mit-Klon-Prolog ein GOLDEN_N_PROFILE-Export: Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 (S4-§62-B-
+    // Batch) = 2 Build-Batches + 2 Mess-Batches = 4 (§64: EINE [all]-Combo, 2 nicht-leere Host-Lanes).
     EXPECT_EQ(count_occurrences(s1.text(), "export COMDARE_GOLDEN_N_PROFILE="), 1u * 2u);
-    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="),
-              1u * (4u * planner::kTierChunkCount + 4u));
+    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u);
 }
 
-// (W10) W10-Nacharbeit 5 (Serie-E2E Lauf 5): je chunk<k>-Tier-Bau-Job berechnet sein DISJUNKTES Teilfenster zur
-//       Laufzeit (Pilot-Matrix-Chunk-Arithmetik) -- kein globales Fixfenster mehr in der Nutzlast (sonst baute der
-//       Voll-Build 4x die volle Range je Perm). Steuerung ueber COMDARE_GN_TOTAL (reine Zahl).
-TEST(TierCiYamlBuilder, PerChunkRangeArithmeticNoGlobalFixedWindow) {
+// (W10) S4-§62-B: der Build+Pruef-Batch durchlaeuft je Perm das [0,COMDARE_GN_TOTAL)-Fenster in kGnBatchSlice=4096er-
+//       Scheiben (Bestandslog-Korn). Die Scheiben-Arithmetik ist eine Shell-while-Schleife MIT dem 4096er-Literal;
+//       KEIN Env-Override (COMDARE_GN_BATCH_SLICE), KEIN Chunk-Konzept mehr.
+TEST(TierCiYamlBuilder, PerBatchSliceArithmetic4096) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector const director;
@@ -1077,23 +1093,122 @@ TEST(TierCiYamlBuilder, PerChunkRangeArithmeticNoGlobalFixedWindow) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    // Chunk-Arithmetik-Zeilen in JEDEM der 16 Tier-Bau-Jobs (§64: 1 [all]-Combo x 4 Perms x kTierChunkCount).
-    std::size_t const jobs = 1u * 4u * planner::kTierChunkCount;
-    EXPECT_EQ(count_occurrences(yaml, "CHUNK_SIZE=$(( (TOTAL + CCOUNT - 1) / CCOUNT ))"), jobs)
-        << "ceil-Arithmetik je Job";
-    EXPECT_EQ(count_occurrences(yaml, "START=$(( CHUNK * CHUNK_SIZE ))"), jobs);
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT_C}\""), jobs);
-    EXPECT_EQ(count_occurrences(yaml, "TOTAL=\"${COMDARE_GN_TOTAL:-16}\""), jobs) << "Default 16 = sicherer 4x4-Test";
-    // Je System-Perm 4 UNTERSCHIEDLICHE k-Werte -> je k genau 4x (einmal pro Perm ueber 4 Perms x 1 [all]-Combo).
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=0\n"), 4u);
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=1\n"), 4u);
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=2\n"), 4u);
-    EXPECT_EQ(count_occurrences(yaml, "; CHUNK=3\n"), 4u);
-    // KEIN globales Fixfenster mehr in der Nutzlast (der alte ${COMDARE_GN_RANGE:-0:4}-Fallback ist weg).
-    EXPECT_EQ(yaml.find("COMDARE_GN_RANGE:-0:4"), std::string::npos)
-        << "kein globales Fixfenster in der Nutzlast (sonst 4x volle Range je Perm im Voll-Build)";
-    // jenseits-TOTAL -> No-Op-Exit 0 (golden-neutral).
-    EXPECT_EQ(count_occurrences(yaml, "-> No-Op (golden-neutral) =="), jobs);
+    // Das 4096er-Bestandslog-Korn als HARTE Konstante (SLICE-Var je Build-Batch, 2 Host-Lanes).
+    EXPECT_EQ(count_occurrences(yaml, "SLICE=4096"), 2u) << "kGnBatchSlice=4096 je Build-Batch (2 Host-Lanes)";
+    // Fenster-Schleife + Klemm-Arithmetik je Perm (4 Perms ueber die 2 Build-Batches).
+    EXPECT_EQ(count_occurrences(yaml, "while [ \"$START\" -lt \"$TOTAL\" ]; do"), 4u) << "Scheiben-Schleife je Perm";
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT}\""), 4u) << "Inline-Range je Perm";
+    EXPECT_EQ(count_occurrences(yaml, "START=$(( START + COUNT ))"), 4u) << "Scheiben-Fortschritt je Perm";
+    // TOTAL-Default je Build-Batch (2 Host-Lanes); Voll-Bau: COMDARE_GN_TOTAL=131072.
+    EXPECT_EQ(count_occurrences(yaml, "TOTAL=\"${COMDARE_GN_TOTAL:-16}\""), 2u) << "Default 16 je Build-Batch";
+    // NEGATIV: KEIN Env-Override des 4096er-Korns (§61-Verstoss verworfen) und KEIN Chunk-Konzept mehr.
+    EXPECT_EQ(yaml.find("COMDARE_GN_BATCH_SLICE"), std::string::npos)
+        << "das 4096er-Korn ist eine harte Konstante, KEIN Env-Override (§61)";
+    EXPECT_EQ(yaml.find("CHUNK_SIZE"), std::string::npos) << "kein Chunk-Konzept mehr (§62-B-Batch)";
+    EXPECT_EQ(yaml.find("; CHUNK="), std::string::npos) << "keine CHUNK-Nummer mehr";
+    EXPECT_EQ(yaml.find("COMDARE_GN_RANGE:-0:4"), std::string::npos) << "kein globales Fixfenster in der Nutzlast";
+}
+
+// (S4-a) PruefStepEmittedPerPermWithContractEnv: der Build+Pruef-Batch emittiert je Perm UNBEDINGT den S3-Pruef-
+//        Schritt (COMDARE_PRUEF_ONLY=true, COMDARE_GN_OPT/SIMD, COMDARE_GOLDEN_N_RANGE=0:${TOTAL}, gleiches dll_dir)
+//        mit [PRUEF]-Legende + [PRUEF-TESTAT] (kein Existenz-Guard, S3-Vertrag fixiert).
+TEST(TierCiYamlBuilder, PruefStepEmittedPerPermWithContractEnv) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_PRUEF_ONLY=true"), 4u) << "je Perm EIN S3-Pruef-Schritt (4 Perms)";
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_RANGE=\"0:${TOTAL}\""), 4u)
+        << "der Pruef-Schritt faehrt ueber das VOLLE Perm-Fenster 0:${TOTAL}";
+    EXPECT_EQ(count_occurrences(yaml, "[PRUEF] zelle="), 4u) << "je Perm eine [PRUEF]-Schritt-Legende";
+    EXPECT_EQ(count_occurrences(yaml, "[PRUEF-TESTAT]"), 4u) << "je Perm ein [PRUEF-TESTAT] (Erfolgsfall)";
+    // Der Pruef-Aufruf traegt dieselbe Perm-Selektion (COMDARE_GN_OPT/SIMD) wie der Bau -> gleiches dll_dir.
+    EXPECT_NE(yaml.find("COMDARE_PRUEF_ONLY=true COMDARE_RUN_SOTA=0"), std::string::npos)
+        << "S3-Vertrag: COMDARE_PRUEF_ONLY + COMDARE_RUN_SOTA=0";
+}
+
+// (S4-b) SoftFailGuardAndFinalExit: jeder Treiber-Aufruf ist set-e-sicher if-guarded ([FEHLER-TESTAT] + FAIL=1),
+//        der Batch endet mit exit $FAIL (Fehler je Zelle sichtbar, der Batch laeuft durch).
+TEST(TierCiYamlBuilder, SoftFailGuardAndFinalExit) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    EXPECT_NE(yaml.find("set -euo pipefail"), std::string::npos) << "Batch-Script ist set -euo pipefail";
+    EXPECT_NE(yaml.find("if ! COMDARE_THESIS_PROFILE="), std::string::npos)
+        << "if-!-Guard je Treiber-Aufruf (set-e-vertraeglich)";
+    EXPECT_GT(count_occurrences(yaml, "[FEHLER-TESTAT]"), 0u) << "Fehler-Testat-Zweig je Aufruf";
+    EXPECT_GT(count_occurrences(yaml, "FAIL=1"), 0u) << "Sammel-Fehler-Flag je Aufruf";
+    EXPECT_EQ(count_occurrences(yaml, "exit $FAIL"), 4u) << "je Batch-Job (2 Build + 2 Mess) ein Sammel-Exit";
+}
+
+// (S4-c) TraceHygieneAndTimeout: Treiber-Detail je Aufruf nach $LOGDIR-Artefakt-Datei (>...log 2>&1); artifacts
+//        when:always mit den logs/-Verzeichnissen + expire_in 4 weeks; timeout: 7d an ALLEN Batch-Jobs.
+TEST(TierCiYamlBuilder, TraceHygieneAndTimeout) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // Detail-Output je Aufruf in Log-Artefakt-Dateien (im Job-Trace stehen NUR Testate).
+    EXPECT_GT(count_occurrences(yaml, "2>&1; then"), 0u) << "if-guarded Log-Umleitung je Aufruf (Trace-Hygiene)";
+    EXPECT_NE(yaml.find("_bau_${START}.log"), std::string::npos) << "Bau-Scheiben-Log-Datei";
+    EXPECT_NE(yaml.find("_pruef.log"), std::string::npos) << "Pruef-Log-Datei";
+    EXPECT_NE(yaml.find("_mess.log"), std::string::npos) << "Mess-Log-Datei";
+    // artifacts when:always fuer die logs/-Verzeichnisse, expire_in 4 weeks (je Batch-Job).
+    EXPECT_EQ(count_occurrences(yaml, "    when: always\n"), 4u) << "je Batch-Job artifacts when:always";
+    EXPECT_EQ(count_occurrences(yaml, "    expire_in: 4 weeks\n"), 4u) << "je Batch-Job expire_in 4 weeks";
+    EXPECT_NE(yaml.find("      - Code/gn_out/"), std::string::npos) << "Build-Batch logs/ als Artefakt";
+    EXPECT_NE(yaml.find("      - Code/measure_out/"), std::string::npos) << "Mess-Batch logs/ als Artefakt";
+    // timeout: 7d an allen Batch-Jobs (GN-11-Mehrtaegigkeit; Runner-maximum_timeout ist die Infra-Vorbedingung).
+    EXPECT_EQ(count_occurrences(yaml, "  timeout: 7d"), 4u) << "timeout: 7d an allen 4 Batch-Jobs";
+}
+
+// (S4-d) LaneBudgetLiteralsNoNproc: beide Batch-Typen exportieren COMDARE_BUILD_PARALLEL als §62-B-K-Budget-Literal
+//        (amd=24 / intel=16), NIE $(nproc) -- die K-Werte (Compile-Worker-Override), nicht die T-Werte 32/24.
+TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // Je Host 2 Batch-Jobs (Build + Mess) => 2x das Lane-Literal; T-Werte 32/24 duerfen NICHT vorkommen.
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"24\""), 2u)
+        << "amd-Lane K-Budget 24 (Build + Mess)";
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"16\""), 2u)
+        << "intel-Lane K-Budget 16 (Build + Mess)";
+    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "kein $(nproc) (§62-B-K-Budget-Literale)";
+    EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos)
+        << "NICHT der T-Wert 32 (amd) -- K-Budget, nicht T-Budget";
+}
+
+// (S4-e) EmptyLaneEmitsNoJobPair (Leere-Lane-Regel): ein Profil mit NUR avx2-simd routet alle Perms nach intel =>
+//        NUR das intel-Job-Paar, kein amd-Batch (kein toter needs-Verweis).
+TEST(TierCiYamlBuilder, EmptyLaneEmitsNoJobPair) {
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->extension_hardware.simd_options = {"avx2"}; // nur avx2 -> measure_host_lane immer intel -> amd-Bucket leer
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    EXPECT_NE(yaml.find("\"tier:build-batch:intel\":"), std::string::npos) << "intel-Batch vorhanden";
+    EXPECT_NE(yaml.find("\"measure:[all]:batch:intel\":"), std::string::npos) << "intel-Mess-Batch vorhanden";
+    EXPECT_EQ(yaml.find("\"tier:build-batch:amd\":"), std::string::npos) << "kein amd-Build-Batch (Leere-Lane-Regel)";
+    EXPECT_EQ(yaml.find("\"measure:[all]:batch:amd\":"), std::string::npos) << "kein amd-Mess-Batch";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build-batch "), 1u) << "nur EIN Build-Batch (intel)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB measure-batch "), 1u) << "nur EIN Mess-Batch (intel)";
 }
 
 // (W8) W10-Nacharbeit 2 (Serie-E2E 11569/11576): die self-contained Child-YAMLs erben default:before_script NICHT
@@ -1105,22 +1220,20 @@ TEST(CiYamlBuilder, BothStagesEmitSubmoduleClonePrologInBuildJobs) {
     planner::ExperimentPlanDirector const director;
 
     planner::CiYamlBuilder     s1; // Stufe 1: ceb:build + ceb:emit = 2 Bau-Jobs
-    planner::TierCiYamlBuilder s2; // Stufe 2: 4 Perms x kTierChunkCount tier:build = 16 Bau-Jobs
+    planner::TierCiYamlBuilder s2; // Stufe 2 (S4-§62-B-Batch): 2 Build-Batches + 2 Mess-Batches = 4 Jobs
     director.construct(*tp, s1);
     director.construct(*tp, s2);
     std::string const& y1 = s1.text();
     std::string const& y2 = s2.text();
 
-    // Prolog-Marker: 1 je Job-mit-Klon-Prolog. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 = 16 (tier:build) +
-    // 4 (Mess-Jobs, ab S5-P2 SCHARF: self-clone) = 20. (Vor S5-P2 waren die Mess-Jobs Skelette OHNE Prolog.)
+    // Prolog-Marker: 1 je Job-mit-Klon-Prolog. Stufe 1 = 2 (ceb:build + ceb:emit); Stufe 2 (S4-§62-B-Batch) =
+    // 2 Build-Batches + 2 Mess-Batches = 4 (je Batch-Job self-clone).
     EXPECT_EQ(count_occurrences(y1, "# CHILD-SUBMODULE-KLON"), 1u * 2u) << "ceb:build + ceb:emit (§64: 1 [all]-Combo)";
-    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 1u * (4u * planner::kTierChunkCount + 4u))
-        << "je tier:build-Job + je scharfem Mess-Job (S5-P2) x 1 [all]-Combo";
-    // W10-Nacharbeit 3: ccache-Env per RUNTIME-Shell-Export im Prolog (1 je Job-mit-Prolog, immun gegen die vererbte,
-    // vorexpandierte Parent-CCACHE_DIR). Stufe 1 = 2, Stufe 2 = 16 tier:build + 4 Mess-Jobs (S5-P2) = 20 -- JE Combo (x3).
+    EXPECT_EQ(count_occurrences(y2, "# CHILD-SUBMODULE-KLON"), 4u)
+        << "je Build-Batch + je Mess-Batch (2 Host-Lanes = 4 Batch-Jobs)";
+    // W10-Nacharbeit 3: ccache-Env per RUNTIME-Shell-Export im Prolog (1 je Job-mit-Prolog). Stufe 1 = 2, Stufe 2 = 4.
     EXPECT_EQ(count_occurrences(y1, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 1u * 2u);
-    EXPECT_EQ(count_occurrences(y2, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""),
-              1u * (4u * planner::kTierChunkCount + 4u));
+    EXPECT_EQ(count_occurrences(y2, "export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), 4u);
     for (auto const* yaml : {&y1, &y2}) {
         // Runtime-Export beider ccache-Variablen (VOR jedem cmake-Aufruf in der Job-Shell).
         EXPECT_NE(yaml->find("export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\""), std::string::npos);
@@ -1170,39 +1283,41 @@ TEST(SelectMeasurementCombo, EmptySelectorIsIdentityAndSlugMatchIsExact) {
 }
 
 // (A5b) S6-P1: der per-CEB Combo-Selektor auf dem GEFANNTEN all_axes_golden (3 Combos {wallclock/macro/micro}).
-//       Die fruehere Byte-Identitaet "default == [all]-Selektor" war ein N=1-Sonderfall (die 1-CEB-Strecke trug
-//       [all]); mit N=3 testet die Trichotomie die Selektor-Semantik STAERKER: (i) leerer Selektor = Identitaet
-//       (voller 3-Combo-Walk); (ii) EIN realer Selektor "_wallclock_" = echtes nicht-leeres Subset (genau 1/3 der
-//       Tier-Bau-Jobs); (iii) Miss = ehrlich leere Stufe-2 (0 tier:build-Jobs), kein Crash.
+//       S4-§62-B-Batch: die Trichotomie testet die Selektor-Semantik ueber die je-Host-Batch-Emission je Combo:
+//       (i) leerer Selektor = Identitaet (voller 3-Combo-Walk); (ii) EIN realer Selektor "_wallclock_" = echtes
+//       nicht-leeres Subset (< voller Walk); (iii) Miss = ehrlich leere Stufe-2 (0 Batch-Jobs), kein Crash. Die
+//       Batch-Zahl je Combo ist NICHT uniform (measure_host_lane routet no_extension bei [macro] nach intel => nur
+//       EIN nicht-leerer Bucket), daher kein *3-Verhaeltnis, sondern deterministische Batch-Zahlen.
 TEST(SelectMeasurementCombo, SelectorTrichotomyIdentitySubsetMissOnFannedFixture) {
     // §64: der all_axes-Default ist jetzt EINE [all]-Combo (Klasse-A-bewiesen). Dieser Test stellt die 3-Tool-XML-
-    // OPTION EXPLIZIT nach (measurement_tooling-Override) -> die N>1-Selektor-Trichotomie (Identitaet/Subset/Miss)
-    // bleibt als XML-Options-Absicherung gesichert.
+    // OPTION EXPLIZIT nach (measurement_tooling-Override) -> die N>1-Selektor-Trichotomie bleibt als Absicherung.
     auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     tp->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::ExperimentPlanDirector const director;
 
-    // (i) Identitaet: leerer Selektor == der explizite construct("") -- der volle 3-Combo-Walk (byte-gleich, > 0 Jobs).
+    // (i) Identitaet: leerer Selektor == der explizite construct("") -- der volle 3-Combo-Walk (byte-gleich). Je Combo:
+    // [wallclock] -> amd+intel (2 Build-Batches), [macro] -> nur intel (1; no_ext+macro->intel), [micro] -> amd+intel
+    // (2). Summe = 5 Build-Batches.
     planner::TierCiYamlBuilder tb_default, tb_empty;
     director.construct(*tp, tb_default);
     director.construct(*tp, tb_empty, "");
     EXPECT_EQ(tb_default.text(), tb_empty.text()) << "leerer Selektor = Identitaet (voller 3-Combo-Walk)";
-    std::size_t const full_jobs = count_occurrences(tb_default.text(), "# JOB tier-build ");
-    EXPECT_GT(full_jobs, 0u) << "Default emittiert Tier-Bau-Jobs (3 Combos)";
+    std::size_t const full_jobs = count_occurrences(tb_default.text(), "# JOB tier-build-batch ");
+    EXPECT_EQ(full_jobs, 5u) << "3 Combos: [wallclock]=2 + [macro]=1 (intel only) + [micro]=2 Build-Batches";
 
-    // (ii) EIN realer Selektor "_wallclock_" -> echtes nicht-leeres Subset: genau 1/3 der Tier-Bau-Jobs (1 von 3 Combos).
+    // (ii) EIN realer Selektor "_wallclock_" -> echtes nicht-leeres Subset: NUR die wallclock-Combo (amd+intel = 2).
     planner::TierCiYamlBuilder tb_one;
     director.construct(*tp, tb_one, "_wallclock_");
-    std::size_t const one_jobs = count_occurrences(tb_one.text(), "# JOB tier-build ");
-    EXPECT_GT(one_jobs, 0u) << "der reale Selektor behaelt seine EINE CEB-Konfig";
-    EXPECT_EQ(one_jobs * 3u, full_jobs) << "genau 1/3 der Tier-Bau-Jobs (1 von 3 Combos)";
+    std::size_t const one_jobs = count_occurrences(tb_one.text(), "# JOB tier-build-batch ");
+    EXPECT_EQ(one_jobs, 2u) << "der reale Selektor behaelt seine EINE CEB-Konfig (wallclock: amd+intel)";
+    EXPECT_LT(one_jobs, full_jobs) << "echtes Subset des vollen Walks";
 
-    // (iii) Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Jobs (ehrlich leer, kein Crash).
+    // (iii) Nicht existierender Selektor -> 0 Kombinationen -> 0 Batch-Jobs (ehrlich leer, kein Crash).
     planner::TierCiYamlBuilder tb_none;
     director.construct(*tp, tb_none, "_does_not_exist_");
-    EXPECT_EQ(count_occurrences(tb_none.text(), "# JOB tier-build "), 0u)
-        << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Tier-Bau-Jobs)";
+    EXPECT_EQ(count_occurrences(tb_none.text(), "# JOB tier-build-batch "), 0u)
+        << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Batch-Jobs)";
 }
 
 // (A5c) STUFE 1 (CiYamlBuilder): bei N>1 CEB-Konfigs traegt jeder ceb:emit-Job den distinct --measurement-combo-
@@ -1248,10 +1363,10 @@ TEST(CiYamlBuilder, SingleComboCebEmitOmitsMeasurementComboSelectorForByteStabil
 }
 
 // (A8a) A8(a)-Symmetrie: der combo_selector reist auch bis --emit-tier-cmake durch (TierCmakeGraphBuilder), EXAKT
-//       symmetrisch zu --emit-tier-ci (A5b). S6-P1 (gefanntes all_axes_golden, 3 Combos): dieselbe Trichotomie --
-//       (i) leerer Selektor = Identitaet (voller 3-Combo-Walk); (ii) EIN realer Selektor "_wallclock_" = echtes
-//       nicht-leeres Subset (genau 1/3 der Tier-Bau-Targets); (iii) Miss = ehrlich leere Stufe-2 (0 Targets), kein
-//       Crash. Golden-neutral: nur die emittierten .cmake-Strings.
+//       symmetrisch zu --emit-tier-ci (A5b). S4-§62-B-Batch (gefanntes all_axes_golden, 3 Combos): dieselbe
+//       Trichotomie ueber die je-Host-Build+Pruef-Aggregat-Targets comdare_tier_batch_<host> -- (i) Identitaet, (ii)
+//       echtes Subset "_wallclock_", (iii) Miss = 0 Targets. Nicht-uniform je Combo (measure_host_lane), daher
+//       deterministische Ziel-Zahlen statt *3. Golden-neutral: nur die emittierten .cmake-Strings.
 TEST(SelectMeasurementCombo, EmitTierCmakeSelectorTrichotomyIdentitySubsetMiss) {
     // §64: der all_axes-Default ist jetzt EINE [all]-Combo (Klasse-A-bewiesen). Dieser Test stellt die 3-Tool-XML-
     // OPTION EXPLIZIT nach -> die N>1-Selektor-Trichotomie (bare-metal-cmake) bleibt als XML-Options-Absicherung.
@@ -1260,26 +1375,27 @@ TEST(SelectMeasurementCombo, EmitTierCmakeSelectorTrichotomyIdentitySubsetMiss) 
     tp->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::ExperimentPlanDirector const director;
 
-    // (i) Identitaet: leerer Selektor == der explizite construct("") -- der volle 3-Combo-Walk (byte-gleich, > 0).
+    // (i) Identitaet: leerer Selektor == der explizite construct("") -- der volle 3-Combo-Walk (byte-gleich). Je Combo:
+    // [wallclock]=amd+intel (2), [macro]=intel (1), [micro]=amd+intel (2) => 5 Build+Pruef-Aggregat-Targets.
     planner::TierCmakeGraphBuilder cm_default, cm_empty;
     director.construct(*tp, cm_default);
     director.construct(*tp, cm_empty, "");
     EXPECT_EQ(cm_default.text(), cm_empty.text()) << "emit-tier-cmake: leerer Selektor = Identitaet (3-Combo-Walk)";
-    std::size_t const full_targets = count_occurrences(cm_default.text(), "add_custom_target(comdare_tier_build_perm");
-    EXPECT_GT(full_targets, 0u) << "Default emittiert Tier-Bau-Targets (3 Combos)";
+    std::size_t const full_targets = count_occurrences(cm_default.text(), "add_custom_target(comdare_tier_batch_");
+    EXPECT_EQ(full_targets, 5u) << "3 Combos: [wallclock]=2 + [macro]=1 + [micro]=2 Build+Pruef-Aggregat-Targets";
 
-    // (ii) EIN realer Selektor "_wallclock_" -> echtes nicht-leeres Subset: genau 1/3 der Tier-Bau-Targets.
+    // (ii) EIN realer Selektor "_wallclock_" -> echtes nicht-leeres Subset: NUR die wallclock-Combo (amd+intel = 2).
     planner::TierCmakeGraphBuilder cm_one;
     director.construct(*tp, cm_one, "_wallclock_");
-    std::size_t const one_targets = count_occurrences(cm_one.text(), "add_custom_target(comdare_tier_build_perm");
-    EXPECT_GT(one_targets, 0u) << "der reale Selektor behaelt seine EINE CEB-Konfig";
-    EXPECT_EQ(one_targets * 3u, full_targets) << "genau 1/3 der Tier-Bau-Targets (1 von 3 Combos)";
+    std::size_t const one_targets = count_occurrences(cm_one.text(), "add_custom_target(comdare_tier_batch_");
+    EXPECT_EQ(one_targets, 2u) << "der reale Selektor behaelt seine EINE CEB-Konfig (wallclock: amd+intel)";
+    EXPECT_LT(one_targets, full_targets) << "echtes Subset des vollen Walks";
 
-    // (iii) Nicht existierender Selektor -> 0 Kombinationen -> 0 tier:build-Targets (ehrlich leer, kein Crash).
+    // (iii) Nicht existierender Selektor -> 0 Kombinationen -> 0 Batch-Targets (ehrlich leer, kein Crash).
     planner::TierCmakeGraphBuilder cm_none;
     director.construct(*tp, cm_none, "_does_not_exist_");
-    EXPECT_EQ(count_occurrences(cm_none.text(), "add_custom_target(comdare_tier_build_perm"), 0u)
-        << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Tier-Bau-Targets)";
+    EXPECT_EQ(count_occurrences(cm_none.text(), "add_custom_target(comdare_tier_batch_"), 0u)
+        << "kein Selektor-Treffer => ehrlich leere Stufe-2 (0 Batch-Targets)";
 }
 
 // (S6-P1b-d) Env-Bruecke: die Tier-Bau-/Mess-Kommandos exportieren COMDARE_MEASUREMENT_COMBO=<combo-legend> ab N>1
@@ -1340,8 +1456,11 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_NE(yaml.find("-DCMAKE_BUILD_TYPE=Release"), std::string::npos) << "measure => statisch Release (j2)";
     EXPECT_EQ(yaml.find("COMDARE_MEASURE_BUILD_TYPE"), std::string::npos) << "kein Runtime-Build-Typ-Branch mehr (j2)";
     EXPECT_EQ(yaml.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "measure=Default => kein +bt-Signal (i)";
-    // §61-MODI Regressions-Fix: DLL-Bau parallel ($(nproc)), NICHT =1.
-    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"$(nproc)\""), std::string::npos);
+    // S4-§62-B-K-Budget (Regressions-Fix): DLL-Bau parallel, aber mit dem Lane-Literal (amd=24 / intel=16), NICHT
+    // mehr $(nproc) und NICHT =1. Beide Lanen praesent (Build- + Mess-Batch je Host).
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "amd-Lane K-Budget 24";
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"16\""), std::string::npos) << "intel-Lane K-Budget 16";
+    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B: K-Budget-Literale ersetzen $(nproc)";
     EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos);
     // (h) per-Host-Lanes: amd + intel + Host-Tags (prod1+prod2 messen parallel).
     EXPECT_NE(yaml.find("  resource_group: \"ceb-measure-amd\""), std::string::npos);
@@ -1498,8 +1617,8 @@ TEST(MeasurementModi61, MethodikOverrideDecouplesCatalogFromMethodik) {
     // Methodik wechselte, nicht der Katalog.
     EXPECT_NE(ydbg.find("  tags: [\"amd\"]"), std::string::npos) << "no_extension-Perm-Lane aus tp erhalten";
     EXPECT_NE(ydbg.find("  tags: [\"intel\"]"), std::string::npos) << "avx2-Perm-Lane aus tp erhalten";
-    EXPECT_GT(count_occurrences(yref, "# JOB measure combo="), 0u) << "Katalog emittiert Mess-Jobs";
-    EXPECT_EQ(count_occurrences(ydbg, "# JOB measure combo="), count_occurrences(yref, "# JOB measure combo="))
+    EXPECT_GT(count_occurrences(yref, "# JOB measure-batch "), 0u) << "Katalog emittiert Mess-Jobs";
+    EXPECT_EQ(count_occurrences(ydbg, "# JOB measure-batch "), count_occurrences(yref, "# JOB measure-batch "))
         << "Perm-/Mess-Job-Zahl (Katalog) unveraendert -- Entkopplung Bau != Methodik";
 }
 
