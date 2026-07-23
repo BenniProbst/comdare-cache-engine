@@ -1022,8 +1022,8 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
     // S5-P2 FLIP: der reale Mess-Vollzug schreibt EIN CSV je Zelle nach measure_out.
     EXPECT_NE(yaml.find("$CI_PROJECT_DIR/Code/measure_out/"), std::string::npos)
         << "scharfer Mess-Aufruf schreibt nach measure_out";
-    // §62-B-K-Budget (NICHT $(nproc)): der Mess-Batch exportiert COMDARE_BUILD_PARALLEL als Lane-Literal.
-    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B-K-Budget-Literale ersetzen $(nproc)";
+    // §62-B Lane-Budget (T-Wert, NICHT $(nproc)): der Mess-Batch exportiert COMDARE_BUILD_PARALLEL als Lane-Literal.
+    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B Lane-Budget-T-Wert-Literale ersetzen $(nproc)";
     EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos)
         << "kein serialisierter Bau mehr (§61-MODI: der alte =1 war eine Regression)";
     EXPECT_EQ(yaml.find("COMDARE_RUN_MEASURE=true"), std::string::npos)
@@ -1247,8 +1247,8 @@ TEST(TierCiYamlBuilder, TraceHygieneAndTimeout) {
 }
 
 // (S4-d) LaneBudgetLiteralsNoNproc: beide Batch-Typen exportieren COMDARE_BUILD_PARALLEL als Lane-Budget-Literal
-//        (User-KERN 23.07., T-Werte = nproc-Max: amd=32 / intel=24 -- alle Threads je Batch voll ausschoepfen), NIE
-//        $(nproc). Die frueher konservative K-Lesart (24/16) ist ueberstimmt (User-KERN ist Gesetz).
+//        (User-Drosselung 23.07. mit GO: amd von 32 auf 24 wegen RAM-Bound/Swap-Thrashing-Evidenz, intel bleibt 24 =>
+//        BEIDE Lanes 24), NIE $(nproc). Die fruehere 32/24-T-Wert-Lesart ist RAM-korrigiert.
 TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -1257,14 +1257,14 @@ TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    // Je Host 2 Batch-Jobs (Build + Mess) => 2x das Lane-Literal (T-Wert = nproc-Max je Maschine).
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"32\""), 2u)
-        << "amd-Lane T-Wert 32 (Build + Mess; nproc-Max)";
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"24\""), 2u)
-        << "intel-Lane T-Wert 24 (Build + Mess; nproc-Max)";
+    // BEIDE Lanes (amd+intel) x 2 Batch-Typen (Build + Mess) => 4x das Lane-Literal "24".
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"24\""), 4u)
+        << "beide Lanes 24 (amd von 32 gedrosselt, RAM-Bound) x Build+Mess = 4";
     EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "kein $(nproc) (harte Lane-Budget-Literale)";
+    EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos)
+        << "amd 32 auf 24 gedrosselt (RAM-Bound/Swap-Evidenz 23.07.)";
     EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"16\""), std::string::npos)
-        << "der alte konservative K-Wert 16 (intel) ist ersetzt (T-Wert 24)";
+        << "der alte konservative K-Wert 16 ist ersetzt";
 }
 
 // (DRINGEND, 2026-07-23 Resume-CI-Fix) BatchJobsCarryGnOutPersistenceFlags: BEIDE STUFE-2-Batch-Typen (Build + Mess)
@@ -1296,6 +1296,48 @@ TEST(TierCiYamlBuilder, BatchJobsCarryGnOutPersistenceFlags) {
     // KLASSEN-Regel: die neuen Job-variables tragen KEIN $CI_PROJECT_DIR (workdir-relative Pfade).
     EXPECT_EQ(yaml.find("GIT_CLEAN_FLAGS: \"-ffdx -e $CI_PROJECT_DIR"), std::string::npos)
         << "kein $CI_PROJECT_DIR in den Persistenz-Flags (KLASSE)";
+}
+
+// (#29+#27, 2026-07-23) BatchJobsCarryCancelTrapAndHeartbeatTee: jeder STUFE-2-Batch-Job (Build + Mess je Host) beginnt
+//     seinen work-Block mit dem #29-Cancel-Trap (SIGTERM/INT -> eigene Prozessgruppe beenden, keine Waisen) UND leitet
+//     jede LOG-umgeleitete Treiber-Invocation ueber die #27-tee-Naht (Detail nach <log>, [heartbeat]-Zeilen zusaetzlich
+//     line-gepuffert in den Trace via Process-Substitution -> Treiber-Exit-Code unangetastet).
+TEST(TierCiYamlBuilder, BatchJobsCarryCancelTrapAndHeartbeatTee) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    std::size_t const build_batches   = count_occurrences(yaml, "# JOB tier-build-batch ");
+    std::size_t const measure_batches = count_occurrences(yaml, "# JOB measure-batch ");
+    ASSERT_GT(build_batches, 0u);
+    ASSERT_GT(measure_batches, 0u);
+    std::size_t const total_batches = build_batches + measure_batches;
+
+    // #29 Cancel-Trap: genau EINER je Batch-Job (work-Block) -> Count == Batch-Job-Zahl (Build + Mess je Host). Der Trap
+    // demontiert sich zuerst (kein Re-Entry-Loop), dann kill -- -$$ (eigene Gruppe: bash-Loop+Driver+Compiler).
+    EXPECT_EQ(count_occurrences(yaml, "trap 'trap - TERM INT; kill -- -$$ 2>/dev/null' TERM INT"), total_batches)
+        << "jeder Batch-Job beginnt den work-Block mit dem #29-Cancel-Trap (keine Waisen)";
+    // #27 Heartbeat-tee: Process-Substitution 2> >(tee -a <log> | grep -F '[heartbeat]' >&2) -- an den LOG-umgeleiteten
+    // Treiber-Invocations (Build-Window + Pruef im Build-Batch, Release-Mess im Mess-Batch). Presence-Wache (>=1).
+    std::size_t const tee_count = count_occurrences(yaml, "2> >(tee -a \"$LOGDIR/perm");
+    EXPECT_GT(tee_count, 0u)
+        << "Treiber-Detail via Process-Substitution (nicht Pipe -> Exit-Code des Treibers bleibt der Wahrheitswert)";
+    EXPECT_GT(count_occurrences(yaml, "grep --line-buffered -F '[heartbeat]' >&2"), 0u)
+        << "NUR die [heartbeat]-Zeilen wandern zusaetzlich in den Job-Trace (Trace-Hygiene)";
+    // Symmetrie: so viele Heartbeat-Filter wie tee-Redirects (jede getee'te Invocation traegt beide Haelften).
+    EXPECT_EQ(tee_count, count_occurrences(yaml, "grep --line-buffered -F '[heartbeat]' >&2"))
+        << "jede tee-Invocation traegt genau EINEN Heartbeat-Filter";
+    // Review-Fix (Offset-Kollaps): JEDE getee'te Invocation truncated ihr LOG ZUERST explizit (: > <log>) und schreibt
+    // DANN im APPEND-Modus (>> <log> + tee -a). O_APPEND-Writes sind atomar ans Dateiende -> stdout ueberschreibt keine
+    // per tee angehaengten stderr-/[FEHLER-TESTAT]-Zeilen mehr. Truncate-Zahl == Append-Zahl == tee-Zahl.
+    EXPECT_EQ(count_occurrences(yaml, ": > \"$LOGDIR/perm"), tee_count)
+        << "jede getee'te Treiber-Invocation truncated ihr LOG genau einmal explizit (Retry-fest)";
+    EXPECT_EQ(count_occurrences(yaml, ">> \"$LOGDIR/perm"), tee_count)
+        << "die Treiber-Invocation schreibt stdout im APPEND-Modus (>>), NICHT O_TRUNC (kein Offset-Kollaps mit tee "
+           "-a)";
 }
 
 // (S4-e) EmptyLaneEmitsNoJobPair (Leere-Lane-Regel): ein Profil mit NUR avx2-simd routet alle Perms nach intel =>
@@ -1562,11 +1604,11 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_NE(yaml.find("-DCMAKE_BUILD_TYPE=Release"), std::string::npos) << "measure => statisch Release (j2)";
     EXPECT_EQ(yaml.find("COMDARE_MEASURE_BUILD_TYPE"), std::string::npos) << "kein Runtime-Build-Typ-Branch mehr (j2)";
     EXPECT_EQ(yaml.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "measure=Default => kein +bt-Signal (i)";
-    // S4-§62-B Lane-Budget (T-Werte, User-KERN 23.07.): DLL-Bau parallel mit dem Lane-Literal (amd=32 / intel=24 =
-    // nproc-Max), NICHT mehr $(nproc) und NICHT =1. Beide Lanen praesent (Build- + Mess-Batch je Host).
-    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos) << "amd-Lane T-Wert 32";
-    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "intel-Lane T-Wert 24";
-    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B: K-Budget-Literale ersetzen $(nproc)";
+    // S4-§62-B Lane-Budget (User-Drosselung 23.07. mit GO: amd 32->24 wegen RAM-Bound/Swap, intel bleibt 24 => beide
+    // Lanes 24): DLL-Bau parallel mit dem Lane-Literal (24), NICHT mehr $(nproc) und NICHT =1. Beide Lanen praesent.
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "Lane-Budget 24 (beide Lanes)";
+    EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos) << "amd 32 auf 24 gedrosselt";
+    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B: Lane-Budget-T-Wert-Literale ersetzen $(nproc)";
     EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos);
     // (h) per-Host-Lanes: amd + intel + Host-Tags (prod1+prod2 messen parallel).
     EXPECT_NE(yaml.find("  resource_group: \"ceb-measure-amd\""), std::string::npos);

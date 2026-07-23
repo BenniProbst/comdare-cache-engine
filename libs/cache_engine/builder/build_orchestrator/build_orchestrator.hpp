@@ -337,7 +337,10 @@ private:
 
         // S1 (§62-B Log-Flush, Befund 6h-stumm): geflushtes Bau-Fortschritts-Testat je fertiger Binary (zeit-gated,
         // thread-sicher). Rein auf std::cerr -> golden/CSV-NEUTRAL (kein Mess-Datum, kein binary_id-Byte).
-        ProgressHeartbeat build_hb{"tier-build", k};
+        // #27 (2026-07-23): ZUSAETZLICH zaehl-gated alle n_workers Builds (= K = effective_build_workers = COMDARE_BUILD_
+        // PARALLEL, lane_build_parallelism beide Lanes 24) -> der Job-Log zeigt "alle K Builds" den Slice-Fortschritt
+        // (X/<slice>), auch wenn K Builds schneller als 30s fertig sind. Kombiniert mit dem 30s-Zeit-Gate: was zuerst kommt.
+        ProgressHeartbeat build_hb{"tier-build", k, std::cerr, std::chrono::seconds{30}, n_workers};
 
         // W11: EINE Finalisierungs-Naht je Binary -> results[j] setzen + (falls gesetzt) den Completion-Hook feuern.
         // Feuert aus dem Worker-Thread in COMPLETION-Reihenfolge; der Hook-Konsument ist thread-safe. Leer = byte-neutral.
