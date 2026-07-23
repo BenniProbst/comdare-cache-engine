@@ -849,6 +849,19 @@ public:
     [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
 
 private:
+    // DRINGEND (2026-07-23, Resume-CI-Fix): der GitLab-Checkout-Default 'git clean -ffdx' loescht Code/gn_out/ (Bau-
+    // Artefakte je Zelle: .so + .version-Sidecar) UND Code/build/ am Job-Start -> der per-Binary-Sidecar-Resume
+    // (dll_is_current) ist ueber Job-Grenzen WIRKUNGSLOS (jeder Batch baut die Slice neu; Befund: prod1 0 .so/.version
+    // nach 12690-Vorlauf, 12718-amd baut Slice 1 komplett neu). Je STUFE-2-Batch-Job GIT_CLEAN_FLAGS mit -e-Ausnahmen
+    // fuer beide Verzeichnisse + GIT_STRATEGY:fetch -> gn_out/build ueberleben zwischen Jobs DESSELBEN Runners, der
+    // Resume greift real. KLASSE: reine Literale, workdir-relative Pfade, KEIN $CI_PROJECT_DIR. NUR Stufe 2 (die
+    // Stufe-1-build/ ist der Treiber-CMake -- separates Merkposten-Paket). Geteilte Single-Source fuer Build- + Mess-Batch.
+    static void emit_gn_out_persistence_variables(std::string& s) {
+        s += "  variables:\n";
+        s += "    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build\"\n";
+        s += "    GIT_STRATEGY: \"fetch\"\n";
+    }
+
     // S4-§62-B Build+Pruef-BATCH (2026-07-23): EIN Job je Host-Lane, der INTERN alle der Lane zugeteilten
     // System-Perms durchlaeuft. Je Perm laeuft er das [0,COMDARE_GN_TOTAL)-Fenster in kGnBatchSlice-Scheiben
     // (4096er-Bestandslog-Korn) provision-only durch (Bau ohne Messung, golden-neutral) und faehrt DANACH das
@@ -883,6 +896,8 @@ private:
         s += "  resource_group: \"ceb-measure-" + host + "\"\n";
         s += "  interruptible: false   # ein laufender Provision-/Pruef-Batch darf nie auto-cancelt werden\n";
         s += "  timeout: 7d            # GN-11-Mehrtaegigkeit (Runner-maximum_timeout >= 7d ist Infra-Vorbedingung)\n";
+        emit_gn_out_persistence_variables(
+            s); // Resume-CI-Fix: gn_out/build ueberleben den Checkout-Clean (dll_is_current)
         s += "  script:\n";
         // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
         emit_child_submodule_prolog(s, header_.profile_basename); // W10-Nacharbeit 2: manueller ce-Submodul-Klon
@@ -994,6 +1009,8 @@ private:
         s += "  resource_group: \"ceb-measure-" + host + "\"\n";
         s += "  interruptible: false   # ein laufender Messlauf darf nie auto-cancelt werden\n";
         s += "  timeout: 7d            # GN-11-Mehrtaegigkeit\n";
+        emit_gn_out_persistence_variables(
+            s); // Resume-CI-Fix: gn_out/build ueberleben den Checkout-Clean (dll_is_current)
         s += "  needs:\n";
         // §62-B: EINE Bau->Mess-Kante auf den Build-Batch derselben Lane (statt der 4 Chunk-Kanten je Perm).
         s += "    - \"" + legend::tier_batch_build_job(host) + "\"\n";
