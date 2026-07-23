@@ -3928,3 +3928,16 @@ target_include_directories(test_g3_sha512_index PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
+
+# --- G2 Lane A Stempel-Tests (additiver Block; NUR Lane A erweitert diesen Block, nie fremde Bloecke) ---
+# A7 (G2-3): .variant-Sidecar-Serializer (build_variant_sidecar.hpp) + dll_is_current-4.-Param-Skip-Matrix
+# (build_orchestrator.hpp). Include-/Link-Satz wie die MCE24-Plain-Tests, da build_orchestrator experiment_tree
+# und den XML-Config-Parser transitiv zieht; gtest zusaetzlich fuer die benannten Faelle.
+add_executable(test_g2_variant_sidecar "test_g2_variant_sidecar.cpp")
+target_compile_features(test_g2_variant_sidecar PRIVATE cxx_std_23)
+target_include_directories(test_g2_variant_sidecar PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_g2_variant_sidecar PRIVATE gtest gtest_main Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_g2_variant_sidecar)
+add_test(NAME test_g2_variant_sidecar COMMAND test_g2_variant_sidecar)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_g2_variant_sidecar)
+set_tests_properties(test_g2_variant_sidecar PROPERTIES LABELS "g2;blut")

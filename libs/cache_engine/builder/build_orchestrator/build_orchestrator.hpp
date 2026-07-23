@@ -65,6 +65,10 @@ struct BuildConfig {
     std::uint64_t ram_per_build_bytes     = 0; // RAM-Budget je Build; 0 = RAM-Gate AUS (nur CPU-Cap)
     std::uint64_t ram_safety_margin_bytes = 0; // Reserve, die immer frei bleiben muss
     std::string   build_version;               // Versions-/Anforderungs-Signatur; leer = nie überspringen
+    // G2-3 (Lager-Gate A7): Zell-/ISA-konstante Build-Varianten-Signatur (build_variant_sidecar.hpp::
+    // compose_variant_signature aus dem BuildVariantDefinitionV1-POD). Leer = Variant-Gate AUS (byte-neutral,
+    // reiner Versions-/Organ-Skip wie bisher); die CEB/Facade fuellt sie in der spaeteren Integrations-Scheibe.
+    std::string build_variant_sig;
     // (E) 2026-06-04: je Tier-Binary ein eigener Unterordner output_dir/<stem>/ (DLL + Source + .obj + .cl.log
     // + .version landen alle darin). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
     bool per_binary_subdirs = false;
@@ -224,13 +228,23 @@ inline constexpr std::size_t     kStemMax = 120;
 [[nodiscard]] inline std::filesystem::path algo_sidecar_path(std::filesystem::path const& output) {
     return std::filesystem::path{output.string() + ".algos"};
 }
+// G2-3 (Lager-Gate A7): das DRITTE, additive Sidecar `<output>.variant` traegt die Build-Varianten-Signatur (page_type/
+// simd_extension/general_hardware = Zell-/ISA-Ebene, build_variant_sidecar.hpp::compose_variant_signature) -- bewusst
+// SEPARAT von `.version` (System-Provenienz) und `.algos` (Organ-Provenienz). Trennungs-Doktrin :221-223 fortgefuehrt;
+// perm.dll.version bleibt byte-genau unveraendert (rueckwaerts-kompatibel).
+[[nodiscard]] inline std::filesystem::path variant_sidecar_path(std::filesystem::path const& output) {
+    return std::filesystem::path{output.string() + ".variant"};
+}
 /// true, wenn die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn
-/// eine algo_sig gefordert ist) ihr `.algos`-Sidecar exakt der erwarteten Organ-Signatur entspricht (→ überspringen).
-/// algo_sig LEER = Organ-Gate AUS (rueckwaerts-kompatibel: reiner Versions-Skip, byte-identisch zum Alt-Verhalten).
-/// Beide Prueflinge sind reine String-Gleichheit -> additiv, risikoarm; ein fehlendes `.algos` bei gesetzter Erwartung
-/// erzwingt Neubau (Alt-Binary vor der Cache-Einfuehrung -> einmal frisch, dann Sidecar vorhanden).
+/// eine algo_sig gefordert ist) ihr `.algos`-Sidecar exakt der erwarteten Organ-Signatur entspricht UND (nur wenn eine
+/// variant_sig gefordert ist) ihr `.variant`-Sidecar exakt der erwarteten Build-Varianten-Signatur entspricht
+/// (-> ueberspringen). algo_sig/variant_sig LEER = das jeweilige Gate AUS (rueckwaerts-kompatibel: reiner Versions-Skip,
+/// byte-identisch zum Alt-Verhalten). Alle drei Prueflinge sind reine String-Gleichheit -> additiv, risikoarm; ein
+/// fehlendes `.algos`/`.variant` bei gesetzter Erwartung erzwingt Neubau (Alt-Binary vor der Cache-Einfuehrung ->
+/// einmal frisch, dann Sidecar vorhanden).
 [[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version,
-                                         std::string const& algo_sig = std::string{}) {
+                                         std::string const& algo_sig    = std::string{},
+                                         std::string const& variant_sig = std::string{}) {
     if (version.empty()) return false; // ohne Versions-Anforderung nie überspringen
     std::error_code ec;
     if (!std::filesystem::exists(output, ec)) return false; // DLL fehlt → bauen
@@ -246,6 +260,12 @@ inline constexpr std::size_t     kStemMax = 120;
         std::string acontent((std::istreambuf_iterator<char>(af)), {});
         if (acontent != algo_sig) return false; // eine Variante im Tupel wurde gebumpt → GENAU diese Binary neu
     }
+    if (!variant_sig.empty()) { // Build-Variant-Gate aktiv: die Zell-/ISA-Signatur der Binary muss ebenfalls passen
+        std::ifstream vf{variant_sidecar_path(output), std::ios::binary};
+        if (!vf) return false; // kein Variant-Sidecar -> als veraltet behandeln (Neubau schreibt es)
+        std::string vcontent((std::istreambuf_iterator<char>(vf)), {});
+        if (vcontent != variant_sig) return false; // Build-Variante gewechselt -> GENAU diese Binary neu
+    }
     return true;
 }
 inline void write_version_sidecar(std::filesystem::path const& output, std::string const& version) {
@@ -259,6 +279,13 @@ inline void write_algos_sidecar(std::filesystem::path const& output, std::string
     if (algo_sig.empty()) return;
     std::ofstream f{algo_sidecar_path(output), std::ios::binary | std::ios::trunc};
     if (f) f << algo_sig;
+}
+/// Schreibt das Build-Varianten-Sidecar (`.variant`, G2-3/A7). Leer = no-op (keine Variant-Signatur injiziert ->
+/// byte-neutral). Nur bei erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Sidecar.
+inline void write_variant_sidecar(std::filesystem::path const& output, std::string const& variant_sig) {
+    if (variant_sig.empty()) return;
+    std::ofstream f{variant_sidecar_path(output), std::ios::binary | std::ios::trunc};
+    if (f) f << variant_sig;
 }
 
 // G5 (W9.5): dedizierter Rueckgabe-Code des Compile-Wrappers fuer "Compiler-Binary nicht gefunden"
@@ -418,8 +445,9 @@ private:
                     }
                 }
 
-                // (A) INKREMENTELL: bestehende, versions- UND organ-aktuelle DLL überspringen (Resume nach Absturz).
-                if (dll_is_current(job.output, cfg_.build_version, algos)) {
+                // (A) INKREMENTELL: bestehende, versions- UND organ- UND build-varianten-aktuelle DLL ueberspringen
+                // (Resume nach Absturz). cfg_.build_variant_sig leer => Variant-Gate aus (byte-neutral).
+                if (dll_is_current(job.output, cfg_.build_version, algos, cfg_.build_variant_sig)) {
                     r.status  = 0;
                     r.skipped = true;
                     r.message = "übersprungen (Version aktuell)";
@@ -488,6 +516,8 @@ private:
                     if (r.status == 0) {
                         write_version_sidecar(job.output, cfg_.build_version); // System-Provenienz-Resume-Marke
                         write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
+                        write_variant_sidecar(job.output,
+                                              cfg_.build_variant_sig); // Build-Variante (G2-3/A7); leer=no-op
                     }
                 }
                 finalize(j, std::move(r));
