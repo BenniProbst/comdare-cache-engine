@@ -3883,3 +3883,10 @@ comdare_add_test(test_g3_bestandslog_document
 target_include_directories(test_g3_bestandslog_document PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common")
+
+# G3-B2 (S3): Lock + Transport-Naht + Record-Union-Merge (bestandslog_lock.hpp, header-only).
+comdare_add_test(test_g3_bestandslog_lock
+    SOURCES test_g3_bestandslog_lock.cpp)
+target_include_directories(test_g3_bestandslog_lock PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
