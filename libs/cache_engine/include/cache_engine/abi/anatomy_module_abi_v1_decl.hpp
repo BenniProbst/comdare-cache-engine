@@ -173,6 +173,19 @@ struct AnatomyVersionLines {
     // ans POD-Ende -> Offsets von organ_/system_/measurement_/merge_ stabil; nur kAnatomyVersionLinesLayout bumpt (3 -> 4).
     char const*   sha512_line; ///< SHA-512-Fingerprint concat(organ+system+measurement+merge), 128-hex (nullterminiert)
     std::uint64_t sha512_len;  ///< sha512_line-Laenge ohne '\0' (immer 128)
+    // G2-1b (Lager-Gate A4, Section 58-V/Section 66): die ARRAY-Form der drei ersten Stempel-Zeilen als je ein
+    // {Zeiger,Count}-Paar von AnatomyStampEntryV1 (aus DENSELBEN Literalen INNEN im Makro consteval parst, keine zweite
+    // Wahrheit). Organ- und System-Array bleiben ZWEI getrennte Felder, NIE fusioniert (Layer-Doktrin). count==0 ->
+    // Zeiger auf kAnatomyStampNoEntries (nie nullptr, ""-Doktrin). APPEND-ONLY ans POD-Ende -> die Offsets aller
+    // bisherigen Felder (organ_/system_/measurement_/merge_/sha512_) bleiben stabil; nur kAnatomyVersionLinesLayout
+    // bumpt (4 -> 5). KEIN binary_id-/CRC-Bruch (POD-Layout != binary_id). Ein Konsument liest diese Felder NUR bei
+    // stamp_layout_version >= 5 (stamp_pod_has_entries) -- Alt-DLLs (Layout <= 4) tragen sie nicht.
+    AnatomyStampEntryV1 const* organ_entries;           ///< Organ-Array [g,h,i] (17 Haupt-Achsen)
+    std::uint64_t              organ_entry_count;       ///< Anzahl organ_entries
+    AnatomyStampEntryV1 const* system_entries;          ///< System-Array [d,e,f] (5 Achsen) -- NIE mit Organ fusioniert
+    std::uint64_t              system_entry_count;      ///< Anzahl system_entries
+    AnatomyStampEntryV1 const* measurement_entries;     ///< Mess-Array {wallclock,macro,micro}; count==0 -> Sentinel
+    std::uint64_t              measurement_entry_count; ///< Anzahl measurement_entries
 };
 
 /// Layout-Version des AnatomyVersionLines-POD -- unabhaengig vom ABI-Major. Ein POD-Layout-Wechsel bumpt
@@ -180,17 +193,26 @@ struct AnatomyVersionLines {
 /// W12-A3 (2026-07-20): 1 -> 2 (measurement_line/measurement_len ans POD-Ende angehaengt).
 /// K7a (Section 59, 2026-07-20): 2 -> 3 (merge_line/merge_len ans POD-Ende angehaengt = dritter Tier-Stempel).
 /// K7b-3 (Section 62-B, 2026-07-22): 3 -> 4 (sha512_line/sha512_len ans POD-Ende = SHA-512-Fingerprint der 4 Zeilen).
-inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 4;
+/// G2-1b (Lager-Gate A4, Section 58-V/Section 66): 4 -> 5 (drei {ptr,count}-Array-Paare ans POD-Ende = die Array-Form
+/// der Organ-/System-/Mess-Stempel-Zeilen; INNEN consteval aus denselben Literalen parst -> emitter-/golden-neutral).
+inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 5;
 
-/// K7a Version-Line-Gate (POD-Layout-Wache): AnatomyVersionLines ist ein POD aus 12 Feldern (2x uint32 +
-/// 5x {char const*, uint64}), 8-aligned -> 88 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist das
-/// POD-Layout gewandert: dann kAnatomyVersionLinesLayout bumpen UND diesen erwarteten sizeof aktualisieren
-/// (die COMDARE_ANATOMY_VERSION_STAMP-Materialisierung + jeder Modul-Rebau haengen daran). KLEINES ABI-Gate,
-/// KEIN binary_id-/CRC-Bruch (das optionale Probe-Symbol ist nicht Loader-Pflicht, binary_id bleibt Organ-only).
-static_assert(sizeof(AnatomyVersionLines) == 88,
+/// POD-Layout-Wache: AnatomyVersionLines ist ein POD aus 18 Feldern (2x uint32 + 5x {char const*, uint64} +
+/// 3x {AnatomyStampEntryV1 const*, uint64}), 8-aligned -> 136 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist
+/// das POD-Layout gewandert: dann kAnatomyVersionLinesLayout bumpen UND diesen erwarteten sizeof aktualisieren (die
+/// COMDARE_ANATOMY_VERSION_STAMP-Materialisierung + jeder Modul-Rebau haengen daran). KLEINES ABI-Gate, KEIN
+/// binary_id-/CRC-Bruch (das optionale Probe-Symbol ist nicht Loader-Pflicht, binary_id bleibt Organ-only).
+static_assert(sizeof(AnatomyVersionLines) == 136,
               "AnatomyVersionLines-POD-Layout gewandert -- kAnatomyVersionLinesLayout bumpen + erwarteten "
-              "sizeof (88 auf x86_64) aktualisieren.");
+              "sizeof (136 auf x86_64) aktualisieren.");
 static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Ausrichtung erwartet (Zeiger).");
+
+/// Loader-Gate (A4): true, wenn der POD die Array-Form (organ_/system_/measurement_entries) traegt (Layout >= 5).
+/// Alt-DLLs (Layout <= 4) haben die drei {ptr,count}-Paare NICHT -> ein Konsument MUSS das pruefen, bevor er
+/// organ_entries et al. liest (sonst Lesen ueber das Alt-POD-Ende hinaus). Die 12 Alt-Felder bleiben immer gueltig.
+[[nodiscard]] constexpr bool stamp_pod_has_entries(AnatomyVersionLines const& v) noexcept {
+    return v.stamp_layout_version >= 5;
+}
 
 } // namespace comdare::cache_engine::abi
 

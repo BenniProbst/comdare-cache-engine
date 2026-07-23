@@ -78,4 +78,16 @@ template <std::size_t N, std::size_t M>
 /// konsistent -- leere Felder, kein nullptr). Ein Eintrag genuegt (wird nie dereferenziert, da count==0).
 inline constexpr AnatomyStampEntryV1 kAnatomyStampNoEntries[1] = {{"", 0, "", 0, 0, 0, 0, 0}};
 
+/// Liefert den POD-Zeiger fuer ein Eintrags-Array (A4-Verdrahtung): fuer N==0 den Sentinel (NIE nullptr, ""-Doktrin),
+/// sonst arr.data(). So traegt das AnatomyVersionLines-POD auch bei leerem Mess-Array (kein Tooling) einen gueltigen,
+/// nicht dereferenzierten Zeiger + count==0.
+template <std::size_t N>
+[[nodiscard]] constexpr AnatomyStampEntryV1 const*
+stamp_entries_ptr(std::array<AnatomyStampEntryV1, N> const& arr) noexcept {
+    if constexpr (N == 0)
+        return kAnatomyStampNoEntries;
+    else
+        return arr.data();
+}
+
 } // namespace comdare::cache_engine::abi
