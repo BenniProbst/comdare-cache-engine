@@ -3968,6 +3968,14 @@ target_include_directories(test_g3_builder_registration PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_builder_registration PRIVATE Threads::Threads)
 
+# G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
+comdare_add_test(test_g3_planer_driven
+    SOURCES test_g3_planer_driven.cpp)
+target_include_directories(test_g3_planer_driven PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_planer_driven PRIVATE Threads::Threads)
+
 # G5 (P-B): verify_remote_then_prune-Kern (prune_verdict + prunable_artifacts) in artifact_cache.hpp.
 # Braucht libs/cache_engine/include (abi/measurement-Header von artifact_cache) + Threads (<thread>).
 comdare_add_test(test_g3_prune
