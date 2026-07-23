@@ -3902,3 +3902,11 @@ comdare_add_test(test_g3_reservation_lifecycle
 target_include_directories(test_g3_reservation_lifecycle PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common")
+
+# G3-B5 (S5): async Batch-Planer + Slice-Queue (batch_planner.hpp, slice_queue.hpp). Nutzt std::thread.
+comdare_add_test(test_g3_batch_planner
+    SOURCES test_g3_batch_planner.cpp)
+target_include_directories(test_g3_batch_planner PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_batch_planner PRIVATE Threads::Threads)
