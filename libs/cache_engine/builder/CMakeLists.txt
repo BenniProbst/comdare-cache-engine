@@ -3,6 +3,18 @@
 # verschoben (Pitchfork-/ClickHouse-Konvention: apps/ fuer Executables,
 # libs/ fuer Bibliotheken). Hier verbleibt nur der Library-Anteil.
 
+# G3-B7 (#46b, §62-B PLATTFORM-AUFLAGE): Writer-Backend-Wahl zur COMPILE-ZEIT (kein Runtime-Switch).
+# Genau EIN COMDARE_WRITER_BACKEND_* Define. Default portable (Pflicht-Basis + Korrektheits-Referenz);
+# io_uring = Linux-Beschleuniger (self-contained UAPI, kein liburing-Dep); winring = Windows (Vollausbau).
+# Directory-scoped -> gilt fuer die builder-Subkomponenten, die den SpoolWriter einkompilieren.
+set(COMDARE_WRITER_BACKEND "portable" CACHE STRING "SpoolWriter-Backend: portable|io_uring|winring")
+set_property(CACHE COMDARE_WRITER_BACKEND PROPERTY STRINGS portable io_uring winring)
+if(COMDARE_WRITER_BACKEND STREQUAL "io_uring")
+    add_compile_definitions(COMDARE_WRITER_BACKEND_IO_URING)
+elseif(COMDARE_WRITER_BACKEND STREQUAL "winring")
+    add_compile_definitions(COMDARE_WRITER_BACKEND_WINRING)
+endif()
+
 # Phase 6.4 (REV 7, 2026-05-13): Builder-Subkomponenten
 add_subdirectory(codegen)
 add_subdirectory(permutation_loop)
