@@ -1246,8 +1246,9 @@ TEST(TierCiYamlBuilder, TraceHygieneAndTimeout) {
     EXPECT_EQ(count_occurrences(yaml, "  timeout: 7d"), 4u) << "timeout: 7d an allen 4 Batch-Jobs";
 }
 
-// (S4-d) LaneBudgetLiteralsNoNproc: beide Batch-Typen exportieren COMDARE_BUILD_PARALLEL als §62-B-K-Budget-Literal
-//        (amd=24 / intel=16), NIE $(nproc) -- die K-Werte (Compile-Worker-Override), nicht die T-Werte 32/24.
+// (S4-d) LaneBudgetLiteralsNoNproc: beide Batch-Typen exportieren COMDARE_BUILD_PARALLEL als Lane-Budget-Literal
+//        (User-KERN 23.07., T-Werte = nproc-Max: amd=32 / intel=24 -- alle Threads je Batch voll ausschoepfen), NIE
+//        $(nproc). Die frueher konservative K-Lesart (24/16) ist ueberstimmt (User-KERN ist Gesetz).
 TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -1256,14 +1257,14 @@ TEST(TierCiYamlBuilder, LaneBudgetLiteralsNoNproc) {
     director.construct(*tp, tb);
     std::string const& yaml = tb.text();
 
-    // Je Host 2 Batch-Jobs (Build + Mess) => 2x das Lane-Literal; T-Werte 32/24 duerfen NICHT vorkommen.
+    // Je Host 2 Batch-Jobs (Build + Mess) => 2x das Lane-Literal (T-Wert = nproc-Max je Maschine).
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"32\""), 2u)
+        << "amd-Lane T-Wert 32 (Build + Mess; nproc-Max)";
     EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"24\""), 2u)
-        << "amd-Lane K-Budget 24 (Build + Mess)";
-    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_BUILD_PARALLEL=\"16\""), 2u)
-        << "intel-Lane K-Budget 16 (Build + Mess)";
-    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "kein $(nproc) (§62-B-K-Budget-Literale)";
-    EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos)
-        << "NICHT der T-Wert 32 (amd) -- K-Budget, nicht T-Budget";
+        << "intel-Lane T-Wert 24 (Build + Mess; nproc-Max)";
+    EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "kein $(nproc) (harte Lane-Budget-Literale)";
+    EXPECT_EQ(yaml.find("COMDARE_BUILD_PARALLEL=\"16\""), std::string::npos)
+        << "der alte konservative K-Wert 16 (intel) ist ersetzt (T-Wert 24)";
 }
 
 // (S4-e) EmptyLaneEmitsNoJobPair (Leere-Lane-Regel): ein Profil mit NUR avx2-simd routet alle Perms nach intel =>
@@ -1530,10 +1531,10 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
     EXPECT_NE(yaml.find("-DCMAKE_BUILD_TYPE=Release"), std::string::npos) << "measure => statisch Release (j2)";
     EXPECT_EQ(yaml.find("COMDARE_MEASURE_BUILD_TYPE"), std::string::npos) << "kein Runtime-Build-Typ-Branch mehr (j2)";
     EXPECT_EQ(yaml.find("COMDARE_BUILD_TYPE=\"Debug\""), std::string::npos) << "measure=Default => kein +bt-Signal (i)";
-    // S4-§62-B-K-Budget (Regressions-Fix): DLL-Bau parallel, aber mit dem Lane-Literal (amd=24 / intel=16), NICHT
-    // mehr $(nproc) und NICHT =1. Beide Lanen praesent (Build- + Mess-Batch je Host).
-    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "amd-Lane K-Budget 24";
-    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"16\""), std::string::npos) << "intel-Lane K-Budget 16";
+    // S4-§62-B Lane-Budget (T-Werte, User-KERN 23.07.): DLL-Bau parallel mit dem Lane-Literal (amd=32 / intel=24 =
+    // nproc-Max), NICHT mehr $(nproc) und NICHT =1. Beide Lanen praesent (Build- + Mess-Batch je Host).
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"32\""), std::string::npos) << "amd-Lane T-Wert 32";
+    EXPECT_NE(yaml.find("export COMDARE_BUILD_PARALLEL=\"24\""), std::string::npos) << "intel-Lane T-Wert 24";
     EXPECT_EQ(yaml.find("$(nproc)"), std::string::npos) << "§62-B: K-Budget-Literale ersetzen $(nproc)";
     EXPECT_EQ(yaml.find("export COMDARE_BUILD_PARALLEL=1"), std::string::npos);
     // (h) per-Host-Lanes: amd + intel + Host-Tags (prod1+prod2 messen parallel).

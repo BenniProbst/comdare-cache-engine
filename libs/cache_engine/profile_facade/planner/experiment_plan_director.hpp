@@ -401,14 +401,16 @@ private:
     return "amd";
 }
 
-// §62-B-K-Budget Single-Source (S4, 2026-07-23): die harte parallele Compile-Zahl (COMDARE_BUILD_PARALLEL) je
-// Host-Lane des Build+Mess-Batches. COMDARE_BUILD_PARALLEL ist der Bau-Pool-WORKER-Override ("harte parallele
-// Compile-Zahl", profile_run_entry.hpp:132-135) -- deshalb die §62-B-K-BUDGETS 24 (prod1=amd) / 16 (prod2=intel),
-// NICHT die T-Werte 32/24 (die waeren ein §62-B-Budget-Verstoss: T ist die Node-Thread-Freigabe, K der Compile-
-// Worker-Deckel). Voll ausschoepfbar, weil P4 (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN
-// Batch gleichzeitig laufen laesst; das MESSEN selbst bleibt 1-Thread (der run_profile-Loop). GETEILTE Single-Source
-// fuer beide Stufen (TierCiYamlBuilder Build-/Mess-Batch + TierCmakeGraphBuilder bare-metal-Batch).
-[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 24 : 16; }
+// §62-B Lane-Bau-Parallelitaet Single-Source (S4, 2026-07-23): die harte parallele Compile-Zahl
+// (COMDARE_BUILD_PARALLEL) je Host-Lane des Build+Mess-Batches. COMDARE_BUILD_PARALLEL ist der Bau-Pool-WORKER-Override
+// ("harte parallele Compile-Zahl", profile_run_entry.hpp:132-135). User-KERN (Korrektur 2026-07-23): "Die AMD verkraftet
+// 32 Threads und Intel 24 auf nproc max -- alle Threads je einzelnem Batch voll ausschoepfen." => die T-WERTE (nproc-Max
+// je Maschine) sind das Budget: 32 (prod1=amd) / 24 (prod2=intel). Die frueher hier gesetzte konservative K-Lesart
+// (24/16, "Compile-Worker-Deckel < T") ist damit UEBERSTIMMT -- der User-KERN ist Gesetz. Voll ausschoepfbar, weil P4
+// (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN Batch gleichzeitig laufen laesst; das MESSEN selbst
+// bleibt 1-Thread (der run_profile-Loop). GETEILTE Single-Source fuer beide Stufen (TierCiYamlBuilder Build-/Mess-Batch
+// + TierCmakeGraphBuilder bare-metal-Batch).
+[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 32 : 24; }
 
 // A3: EINE Formatierungs-Single-Source der YAML-Tag-Sequenz ["a","b",...] (doppelte Quotes, komma-getrennt, kein
 // Leerraum) -- GitLab wertet die Liste als UND-Bedingung: der Runner muss ALLE Tags tragen. Ein-Element-Listen
@@ -763,7 +765,7 @@ private:
 //         nach measure_out/<slug>/perm<idx>). NUR MESS-Testate tragen alle drei Klammern zelle=[a,b,c][d,e,f][g,h,i].
 //         rules: smoke=>Auto-Run, sonst when:manual (320er-§41-Gate).
 //    P4 (§62-B): Build-Batch und Mess-Batch teilen je Maschine die resource_group "ceb-measure-<host>" (GitLab
-//    serialisiert sie nativ) -- so laeuft je Maschine hoechstens EIN Batch, das K-Budget (24/16) ist voll
+//    serialisiert sie nativ) -- so laeuft je Maschine hoechstens EIN Batch, das Lane-Budget (T-Wert 32/24) ist voll
 //    ausschoepfbar. timeout: 7d (GN-11-Mehrtaegigkeit); Trace-Hygiene: Treiber-Detail je Scheibe/Perm in
 //    Artefakt-Log-Dateien (gn_out/.../logs/ bzw. measure_out/.../logs/), im Job-Trace stehen NUR KOPF + Testate.
 //
@@ -858,7 +860,7 @@ private:
     [[nodiscard]] std::string emit_batch_build_job(std::string const& host, std::vector<PlanPerm> const& perms) const {
         std::string const slug = legend::cmake_slug(combo_legend_);
         std::string const job  = legend::tier_batch_build_job(host);
-        std::string const par  = std::to_string(lane_build_parallelism(host)); // §62-B-K-Budget-Literal
+        std::string const par  = std::to_string(lane_build_parallelism(host)); // §62-B Lane-Budget-Literal (T-Wert)
         // S6-P1b Env-Bruecke (d): ab N>1 traegt das Treiber-Kommando die gewaehlte Mess-Combo. [all] => LEER =>
         // byte-stabil. (i) §61-STUFEN: nur der Nicht-Default-Build (Debug) traegt COMDARE_BUILD_TYPE (Reuse-Schluessel).
         std::string const combo_env =
@@ -893,7 +895,7 @@ private:
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
-        // §62-B-K-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 24 (amd) / 16 (intel).
+        // §62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 32 (amd) / 24 (intel) = nproc-Max.
         s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B-K-Budget " + host +
              " (lane_build_parallelism; harte Compile-Worker-Zahl statt der nproc-Heuristik)\n";
         s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer Serie-Test; Voll-Bau: "
@@ -974,7 +976,8 @@ private:
                                                      std::vector<PlanPerm> const& perms) const {
         std::string const slug = legend::cmake_slug(combo_legend_);
         std::string const job  = legend::measure_batch_job(combo_legend_, host);
-        std::string const par  = std::to_string(lane_build_parallelism(host)); // §62-B-K-Budget (ersetzt $(nproc))
+        std::string const par =
+            std::to_string(lane_build_parallelism(host)); // §62-B Lane-Budget (T-Wert, ersetzt $(nproc))
         std::string const combo_env =
             combo_legend_ == "[all]" ? std::string{} : "COMDARE_MEASUREMENT_COMBO=\"" + combo_legend_ + "\" ";
         std::string const build_type_env =
