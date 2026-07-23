@@ -22,17 +22,28 @@ namespace comdare::cache_engine::builder::experiment {
 ///   "[heartbeat] <phase> <done>/<total> t+<sekunden-seit-start>s"  bzw.  "... fertig <total>/<total> t+..s".
 class ProgressHeartbeat {
 public:
+    /// #27 (2026-07-23): `every_n` = zusaetzliches ZAEHL-Gate (0 = aus, byte-identisch zum Vor-#27-Verhalten). Ist es
+    /// gesetzt, emittiert JEDE every_n-te Einheit ein Testat -- kombiniert mit dem Zeit-Gate (`interval`): was zuerst
+    /// kommt. Der Bau-Loop setzt every_n = die Compile-Worker-Zahl K (lane_build_parallelism, beide Lanes 24) -> der
+    /// Job-Log zeigt "alle K Builds" den Slice-Fortschritt (User-Wunsch beim Zuschauen), auch wenn K Builds < 30s dauern.
     explicit ProgressHeartbeat(std::string_view phase, std::size_t total, std::ostream& os = std::cerr,
-                               std::chrono::seconds interval = std::chrono::seconds{30})
+                               std::chrono::seconds interval = std::chrono::seconds{30}, std::size_t every_n = 0)
         : phase_{phase}, total_{total}, os_{&os}, interval_s_{static_cast<std::int64_t>(interval.count())},
-          start_s_{now_s()}, last_emit_s_{start_s_} {}
+          every_n_{every_n}, start_s_{now_s()}, last_emit_s_{start_s_} {}
 
-    /// Je fertiggestellter Einheit aufrufen. Emittiert zeit-gated (>= interval seit der letzten Zeile) ODER bei der
-    /// ERSTEN Einheit (Sofort-Lebenszeichen). Thread-sicher; genau EIN Emitter je Intervall.
+    /// Je fertiggestellter Einheit aufrufen. Emittiert bei der ERSTEN Einheit (Sofort-Lebenszeichen), zeit-gated
+    /// (>= interval seit der letzten Zeile) ODER zaehl-gated (jede every_n-te Einheit) -- was zuerst kommt. Thread-sicher.
     void tick() {
-        std::size_t const  n    = ++done_; // atomar: genau EINE Einheit erhaelt n == 1
-        std::int64_t const now  = now_s();
-        std::int64_t       last = last_emit_s_.load(std::memory_order_relaxed);
+        std::size_t const  n   = ++done_; // atomar: genau EINE Einheit erhaelt jeden Wert von n
+        std::int64_t const now = now_s();
+        // #27: ZAEHL-Gate. n ist je Thread eindeutig -> jede every_n-te Einheit ist ein NATUERLICHER Ein-Emitter (kein
+        // CAS noetig). Zeitstempel mitfuehren, damit direkt danach kein Doppel-Beat aus dem Zeit-Gate faellt.
+        if (every_n_ != 0 && n % every_n_ == 0) {
+            last_emit_s_.store(now, std::memory_order_relaxed);
+            emit_line("", n, now);
+            return;
+        }
+        std::int64_t last = last_emit_s_.load(std::memory_order_relaxed);
         if (n != 1 && now - last < interval_s_) return;               // zu frueh (und nicht die erste Einheit)
         if (!last_emit_s_.compare_exchange_strong(last, now)) return; // ein anderer Thread hat gerade emittiert
         emit_line("", n, now);
@@ -59,6 +70,7 @@ private:
     std::size_t               total_;
     std::ostream*             os_;
     std::int64_t              interval_s_;
+    std::size_t               every_n_; // #27: ZAEHL-Gate-Kadenz (0 = aus)
     std::int64_t              start_s_;
     std::atomic<std::size_t>  done_{0};
     std::atomic<std::int64_t> last_emit_s_;

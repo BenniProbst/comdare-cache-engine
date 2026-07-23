@@ -403,14 +403,14 @@ private:
 
 // §62-B Lane-Bau-Parallelitaet Single-Source (S4, 2026-07-23): die harte parallele Compile-Zahl
 // (COMDARE_BUILD_PARALLEL) je Host-Lane des Build+Mess-Batches. COMDARE_BUILD_PARALLEL ist der Bau-Pool-WORKER-Override
-// ("harte parallele Compile-Zahl", profile_run_entry.hpp:132-135). User-KERN (Korrektur 2026-07-23): "Die AMD verkraftet
-// 32 Threads und Intel 24 auf nproc max -- alle Threads je einzelnem Batch voll ausschoepfen." => die T-WERTE (nproc-Max
-// je Maschine) sind das Budget: 32 (prod1=amd) / 24 (prod2=intel). Die frueher hier gesetzte konservative K-Lesart
-// (24/16, "Compile-Worker-Deckel < T") ist damit UEBERSTIMMT -- der User-KERN ist Gesetz. Voll ausschoepfbar, weil P4
-// (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN Batch gleichzeitig laufen laesst; das MESSEN selbst
-// bleibt 1-Thread (der run_profile-Loop). GETEILTE Single-Source fuer beide Stufen (TierCiYamlBuilder Build-/Mess-Batch
-// + TierCmakeGraphBuilder bare-metal-Batch).
-[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 32 : 24; }
+// ("harte parallele Compile-Zahl", profile_run_entry.hpp:132-135). User-KERN (Drosselung 2026-07-23, mit User-GO): amd
+// von 32 auf 24 GEDROSSELT -- Slice-1-Empirie: 32 Worker (19,95 min) ~ 24 Worker (19,4 min), aber 32 verursacht ~20G
+// Swap-Thrashing (RAM-Bound). intel bleibt 24. => BEIDE Lanes 24 (nicht mehr nproc-Max amd; die fruehere 32/24-T-Wert-
+// Lesart ist RAM-korrigiert). Der Host-Parameter/die Struktur bleiben (per-Host tunebar, falls die Lanes wieder
+// divergieren). Voll ausschoepfbar, weil P4 (geteilte resource_group ceb-measure-<host>) je Maschine nur EINEN Batch
+// gleichzeitig laufen laesst; das MESSEN selbst bleibt 1-Thread (run_profile-Loop). GETEILTE Single-Source fuer beide
+// Stufen (TierCiYamlBuilder Build-/Mess-Batch + TierCmakeGraphBuilder bare-metal-Batch).
+[[nodiscard]] inline std::size_t lane_build_parallelism(std::string const& host) { return host == "amd" ? 24 : 24; }
 
 // A3: EINE Formatierungs-Single-Source der YAML-Tag-Sequenz ["a","b",...] (doppelte Quotes, komma-getrennt, kein
 // Leerraum) -- GitLab wertet die Liste als UND-Bedingung: der Runner muss ALLE Tags tragen. Ein-Element-Listen
@@ -765,7 +765,7 @@ private:
 //         nach measure_out/<slug>/perm<idx>). NUR MESS-Testate tragen alle drei Klammern zelle=[a,b,c][d,e,f][g,h,i].
 //         rules: smoke=>Auto-Run, sonst when:manual (320er-§41-Gate).
 //    P4 (§62-B): Build-Batch und Mess-Batch teilen je Maschine die resource_group "ceb-measure-<host>" (GitLab
-//    serialisiert sie nativ) -- so laeuft je Maschine hoechstens EIN Batch, das Lane-Budget (T-Wert 32/24) ist voll
+//    serialisiert sie nativ) -- so laeuft je Maschine hoechstens EIN Batch, das Lane-Budget (je 24) ist voll
 //    ausschoepfbar. timeout: 7d (GN-11-Mehrtaegigkeit); Trace-Hygiene: Treiber-Detail je Scheibe/Perm in
 //    Artefakt-Log-Dateien (gn_out/.../logs/ bzw. measure_out/.../logs/), im Job-Trace stehen NUR KOPF + Testate.
 //
@@ -862,6 +862,40 @@ private:
         s += "    GIT_STRATEGY: \"fetch\"\n";
     }
 
+    // #27 (2026-07-23): das LOG EINMAL explizit truncieren, BEVOR die Treiber-Invocation im APPEND-Modus schreibt.
+    // ZWINGEND (Review-Fix): ohne dieses `: >` und mit `>` (O_TRUNC) haette stdout einen EIGENEN Offset gegen den
+    // O_APPEND-Offset von tee -> stdout-Writes ueberschrieben bereits per tee angehaengte stderr-/[FEHLER-TESTAT]-Zeilen
+    // (Log-Korruption in der Diagnosequelle). `: > <log>` haelt zudem die Frisch-Truncate-Semantik beim GitLab-Retry
+    // (LOGDIR liegt jetzt im clean-excludierten Bestand und kann Altstaende tragen).
+    static void emit_driver_log_truncate(std::string& s, std::string const& indent, std::string const& log_path) {
+        s += indent + ": > \"" + log_path + "\"   # #27: frisch truncieren, dann stdout+stderr im APPEND-Modus\n";
+    }
+
+    // #27 (2026-07-23, Slice-inneres Fortschritts-Testat): die Redirect-Naht JEDER Treiber-Invocation. stdout+stderr-
+    // Detail geht vollstaendig nach <log> (Trace-Hygiene, Artefakt) im APPEND-Modus (>> + tee -a: O_APPEND-Writes sind
+    // atomar ans Dateiende -> KEINE Offset-Kollision, der Voraussetzung ist das emit_driver_log_truncate davor). Die
+    // [heartbeat]-Zeilen (ProgressHeartbeat, std::cerr) werden ZUSAETZLICH line-gepuffert in den Job-Trace (fd 2 des
+    // Jobs) getee't -> der Zuschauer sieht "alle K Builds" den Slice-Fortschritt. Process-Substitution `2> >(...)` statt
+    // Pipe: der Treiber-Exit-Code bleibt UNANGETASTET (der `if !`-Guard + pipefail sehen GENAU den Treiber, nicht
+    // tee/grep -> Fehlersichtbarkeit unveraendert). Die Substitution wird nicht abgewartet (best-effort Trace);
+    // `-F '[heartbeat]'` = fixe Zeichenkette (kein Regex-Escape), `--line-buffered` = sofort sichtbar, `|| true` =
+    // set-e-sicher. Alle Nicht-Heartbeat-Zeilen bleiben NUR im <log>.
+    [[nodiscard]] static std::string driver_log_redirect(std::string const& log_path) {
+        return ">> \"" + log_path + "\" 2> >(tee -a \"" + log_path +
+               "\" | grep --line-buffered -F '[heartbeat]' >&2 || true)";
+    }
+
+    // #29 (2026-07-23, Cancel-Sauberkeit, lokal verifiziert): der Runner-Cancel schickt SIGTERM an die (orphan-)
+    // Job-bash -- die traegt eine EIGENE Prozessgruppe (PGID==$$, deshalb trifft der Wrapper-Kill die interne bash NICHT,
+    // #29-Befund). Der Trap demontiert sich ZUERST (trap - TERM INT), dann killt er die eigene Gruppe (kill -- -$$): das
+    // an SELF gesendete TERM terminiert per Default (KEIN Re-Entry-Loop), waehrend Driver + Compiler-Enkel (gleiche
+    // Gruppe) MITSTERBEN -> keine Waisen-Schleife mehr. Lokal verifiziert: Marker-Enkel friert nach Cancel ein, Trap
+    // feuert genau 1x. `2>/dev/null` schluckt die Fehlermeldung, falls die Gruppe schon weg ist.
+    static void emit_batch_cancel_trap(std::string& s) {
+        s += "      trap 'trap - TERM INT; kill -- -$$ 2>/dev/null' TERM INT   # #29: Cancel -> eigene Prozessgruppe "
+             "(bash-Loop+Driver+Compiler) beenden, keine Waisen\n";
+    }
+
     // S4-§62-B Build+Pruef-BATCH (2026-07-23): EIN Job je Host-Lane, der INTERN alle der Lane zugeteilten
     // System-Perms durchlaeuft. Je Perm laeuft er das [0,COMDARE_GN_TOTAL)-Fenster in kGnBatchSlice-Scheiben
     // (4096er-Bestandslog-Korn) provision-only durch (Bau ohne Messung, golden-neutral) und faehrt DANACH das
@@ -908,11 +942,13 @@ private:
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
+        emit_batch_cancel_trap(
+            s); // #29: Cancel-Sauberkeit -- SIGTERM/INT beendet die eigene Prozessgruppe, keine Waisen
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
-        // §62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 32 (amd) / 24 (intel) = nproc-Max.
-        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B-K-Budget " + host +
-             " (lane_build_parallelism; harte Compile-Worker-Zahl statt der nproc-Heuristik)\n";
+        // §62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 24 (beide Lanes; amd von 32 gedrosselt, RAM-Bound).
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
+             " (lane_build_parallelism; harte Compile-Worker-Zahl statt der nproc-Heuristik; amd RAM-gedrosselt)\n";
         s += "      TOTAL=\"${COMDARE_GN_TOTAL:-16}\"   # Default 16 = sicherer Serie-Test; Voll-Bau: "
              "COMDARE_GN_TOTAL=131072\n";
         s += "      SLICE=" + std::to_string(kGnBatchSlice) +
@@ -940,12 +976,14 @@ private:
             s += "      while [ \"$START\" -lt \"$TOTAL\" ]; do\n";
             s += "        REMAIN=$(( TOTAL - START )); COUNT=$SLICE; [ \"$COUNT\" -gt \"$REMAIN\" ] && COUNT=$REMAIN   "
                  "# letzte Scheibe klemmt\n";
+            emit_driver_log_truncate(s, "        ", "$LOGDIR/perm" + idx + "_bau_${START}.log");
             s += "        if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
             s += "             " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
                  simd + "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
             s += "             COMDARE_GOLDEN_N_RANGE=\"${START}:${COUNT}\" \\\n";
             s += "             \"$DRIVER\" experiment_config \"" + dll_dir + "\" \\\n";
-            s += "             > \"$LOGDIR/perm" + idx + "_bau_${START}.log\" 2>&1; then\n";
+            // #27: Detail nach <log>; die [heartbeat]-Zeilen (alle K Builds via ProgressHeartbeat every_n) zusaetzlich in den Trace.
+            s += "             " + driver_log_redirect("$LOGDIR/perm" + idx + "_bau_${START}.log") + "; then\n";
             s += "          echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
                  " phase=bau fenster=${START}:${COUNT}\"; FAIL=1\n";
             s += "        fi\n";
@@ -956,12 +994,14 @@ private:
             // S3-PRUEF-Schritt (UNBEDINGT je Perm nach der Fenster-Schleife): COMDARE_PRUEF_ONLY=true faehrt NUR das
             // Konformitaets-Gate je gebauter .so ueber 0:TOTAL im GLEICHEN dll_dir (kein Bau, keine Messung). [d,e,f][g,h,i].
             s += "      echo \"== [PRUEF] zelle=" + cell + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+            emit_driver_log_truncate(s, "      ", "$LOGDIR/perm" + idx + "_pruef.log");
             s += "      if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
             s += "           " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
                  simd + "\" COMDARE_PRUEF_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
             s += "           COMDARE_GOLDEN_N_RANGE=\"0:${TOTAL}\" \\\n";
             s += "           \"$DRIVER\" experiment_config \"" + dll_dir + "\" \\\n";
-            s += "           > \"$LOGDIR/perm" + idx + "_pruef.log\" 2>&1; then\n";
+            // #27: Detail nach <log>; die [heartbeat]-Zeilen (pruef-zelle) zusaetzlich in den Trace.
+            s += "           " + driver_log_redirect("$LOGDIR/perm" + idx + "_pruef.log") + "; then\n";
             s += "        echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
                  " phase=pruef fenster=0:${TOTAL}\"; FAIL=1\n";
             s += "      else\n";
@@ -1030,6 +1070,8 @@ private:
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
+        emit_batch_cancel_trap(
+            s); // #29: Cancel-Sauberkeit -- SIGTERM/INT beendet die eigene Prozessgruppe, keine Waisen
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
         // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (BYTE-GLEICH zur Vor-S4-Emission). Einmal je Batch.
@@ -1038,8 +1080,8 @@ private:
             "COMDARE_GN_TOTAL=131072)\n";
         // §61-MODI: der DLL-Bau laeuft PARALLEL, aber mit dem §62-B-K-Budget-Literal (ersetzt $(nproc)) -- NUR das
         // MESSEN ist 1-Thread (run_profile-Loop). Der Treiber-cmake-Bau bleibt beim Parent-CMAKE_BUILD_PARALLEL_LEVEL-Deckel.
-        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B-K-Budget " + host +
-             " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; statt nproc-Heuristik)\n";
+        s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
+             " (DLL-Bau parallel; Messen 1-Thread, run_profile-Loop; statt nproc-Heuristik; amd RAM-gedrosselt)\n";
         // (platform-Tag) §61/§62 Plattform-Provenienz: die CSV-Spalte "platform" MUSS die MESSENDE Maschine tragen
         // (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Einmal je Batch (die Lane ist fix je Job).
         s += "      export COMDARE_PLATFORM=\"" + host +
@@ -1084,11 +1126,13 @@ private:
                 // Release: [MESS]-Schritt-KOPF (drei Klammern) + if-guarded Treiber-Aufruf (BYTE-GLEICHE Praefixe zur
                 // Vor-S4-Emission) mit Trace-Hygiene-Log-Umleitung + [MESS-TESTAT]/[FEHLER-TESTAT] (set-e-sicher).
                 s += "      echo \"== [MESS] zelle=" + cell3 + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+                emit_driver_log_truncate(s, "      ", "$LOGDIR/perm" + idx + "_mess.log");
                 s += "      if ! COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" \\\n";
                 s += "           " + combo_env + build_type_env + "COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" +
                      simd + "\" COMDARE_RUN_SOTA=0 \\\n";
                 s += "           \"$DRIVER\" experiment_config \"" + measure_out + "\" \\\n";
-                s += "           > \"$LOGDIR/perm" + idx + "_mess.log\" 2>&1; then\n";
+                // #27: Detail nach <log>; die [heartbeat]-Zeilen (mess-zelle) zusaetzlich in den Trace.
+                s += "           " + driver_log_redirect("$LOGDIR/perm" + idx + "_mess.log") + "; then\n";
                 s += "        echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
                      " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"; FAIL=1\n";
                 s += "      fi\n";
