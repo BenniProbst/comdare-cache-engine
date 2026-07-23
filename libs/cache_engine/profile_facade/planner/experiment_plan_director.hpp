@@ -53,6 +53,7 @@
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
 
 #include <algorithm> // S5-P1: std::find ueber das A9.1-Feld run_methodology (Build-Semantik-Aufloesung)
+#include <cstdlib>   // S2-NACHT-2: std::getenv (Forward-Werte LITERAL aus der Planer-Env, kein X: "$X")
 #include <optional>  // S3 P-RESOLVER: der volle RegistryTrio als optionaler Director-Zustand (Resolver-Lauf)
 #include <stdexcept> // R5: std::invalid_argument (exactly-one Kontraktbruch in build_semantic_of_run_methodology)
 #include <string>
@@ -684,6 +685,15 @@ private:
         return s;
     }
 
+    // S2-NACHT-2 (2026-07-23): eine Forward-Allowlist-Zeile LITERAL aus der Planer-Env. Ungesetzt/leer => Zeile
+    // ENTFAELLT (kein NAME: "" -- das ueberschriebe im Grandchild die 'nicht gesetzt'-Rules-Semantik). NIE die
+    // Selbst-Referenz NAME: "$NAME" (GitLab-'circular variable reference' im Child). KLASSE: nur Werte, nie $CI_PROJECT_DIR.
+    static void append_forward_var_literal(std::string& out, char const* name) {
+        char const* const val = std::getenv(name);
+        if (val == nullptr || *val == '\0') return; // ungesetzt/leer => Zeile weglassen (Grandchild-Default-Semantik)
+        out += "    " + std::string{name} + ": \"" + val + "\"\n";
+    }
+
     // STUFE 1c: Grandchild-Trigger der CEB-emittierten Child-2-YAML (trigger: include: artifact:).
     [[nodiscard]] static std::string emit_ceb_trigger_job(PlanMeasurementCombo const& c) {
         std::string const slug = legend::cmake_slug(c.legend);
@@ -695,23 +705,24 @@ private:
         s += "  needs:\n";
         s += "    - job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "      artifacts: true\n";
-        // S1/A1 P-TOTAL (Ledger 46): explizite Forward-Allowlist an der ZWEITEN Trigger-Grenze. Der Grandchild-
-        // Tier-Bau liest ${COMDARE_GN_TOTAL:-16}; self-contained Grandchild-Pipelines erben Pipeline-Variablen
-        // NICHT -> COMDARE_GN_TOTAL als YAML-Variable dieses Bridge-Jobs deklarieren (RHS = der aus STUFE 1
-        // geerbte Wert) und via forward:yaml_variables an die STUFE-2-Grandchild reichen. KEIN pipeline_variables
-        // (Isolation + Byte-Determinismus). So liest der Voll-Build 131072 statt des Sicherheits-Fallbacks 16.
-        s += "  variables:\n";
-        s += "    COMDARE_GN_TOTAL: \"$COMDARE_GN_TOTAL\"\n";
-        // S5-P2-Rest (Smoke-Propagation): COMDARE_MEASURE_PROFILE analog forwarden -- self-contained Grandchild-
-        // Pipelines erben Pipeline-Variablen NICHT, sonst faellt die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE ==
-        // "smoke"' im Grandchild aus und die Mess-Jobs bleiben when:manual statt Auto-Run (Befund CI-Smoke 11840).
-        s += "    COMDARE_MEASURE_PROFILE: \"$COMDARE_MEASURE_PROFILE\"\n";
-        // smoke=>debug-Entkopplung (2026-07-22): COMDARE_PLAN_METHODIK_PROFILE (Methodik-Profil-Selektor) EBENSO an die
-        // Grandchild forwarden -- self-contained Grandchild-Pipelines erben Pipeline-Variablen NICHT. Der Grandchild
-        // liest daraus die Mess-Loop-Methodik (run_profile_facade); die STUFE-2-emit_batch_measure_job-Debug-Emission haengt
-        // am build_semantik aus DERSELBEN Env (--emit-tier-ci der CEB). Unset (Voll-Lauf) => leer => kein Override =>
-        // Mess-Verhalten byte-identisch. Die Env-Belegung (=m3_smoke_coverage im smoke) setzt die super-YAML (Schicht 4).
-        s += "    COMDARE_PLAN_METHODIK_PROFILE: \"$COMDARE_PLAN_METHODIK_PROFILE\"\n";
+        // S1/A1 P-TOTAL (Ledger 46) + S2-NACHT-2 (2026-07-23, Zirkularitaets-Fix): explizite Forward-Allowlist an der
+        // ZWEITEN Trigger-Grenze. Self-contained Grandchild-Pipelines erben Pipeline-Variablen NICHT -> die Werte als
+        // YAML-Variablen dieses Bridge-Jobs deklarieren und via forward:yaml_variables reichen. Die RHS wird zur
+        // EMISSIONSZEIT aus der Planer-Env LITERAL eingebrannt -- NICHT NAME: "$NAME": diese Selbst-Referenz wertet
+        // GitLab im Child als 'circular variable reference' aus (config_error, leeres failed-Child; Befund Struktur-
+        // Smoke 12628/12663). Leer/ungesetzt => Zeile ENTFAELLT (eine leere YAML-Variable ueberschriebe im Grandchild
+        // die 'nicht gesetzt'-Semantik: die STUFE-3-Mess-Rule '$COMDARE_MEASURE_PROFILE == "smoke"'-Auto-Run bzw. den
+        // ${COMDARE_GN_TOTAL:-16}-Fallback des Tier-Baus). Deterministische Reihenfolge; KLASSE: nur Werte/Basenames,
+        // nie $CI_PROJECT_DIR. Die Env setzt die super-YAML (Schicht 4): GN_TOTAL=131072 im Voll-Bau; MEASURE_PROFILE=
+        // smoke + METHODIK-Basename im Smoke. Leerer variables:-Block wird ausgelassen. KEIN pipeline_variables (Isolation).
+        std::string vars;
+        append_forward_var_literal(vars, "COMDARE_GN_TOTAL");
+        append_forward_var_literal(vars, "COMDARE_MEASURE_PROFILE");
+        append_forward_var_literal(vars, "COMDARE_PLAN_METHODIK_PROFILE");
+        if (!vars.empty()) {
+            s += "  variables:\n";
+            s += vars;
+        }
         s += "  trigger:\n";
         s += "    include:\n";
         s += "      - artifact: " + art + "\n";
