@@ -82,13 +82,16 @@
 #include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn
 
 #include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
+#include <sha512/ctsha512.hpp>                        // I2: Runtime-SHA-512 fuer den drift-freien Fingerprint-Provider
 
 #include <boost/mp11.hpp>
 
 #include <array>
 #include <cstddef>
+#include <cstdint> // I2: std::uint8_t fuer das SHA-512-Preimage
 #include <cstdlib> // S6-P1b Env-Bruecke: std::getenv (COMDARE_MEASUREMENT_COMBO)
 #include <memory>
+#include <span> // I2: std::span fuer die SHA-512-Primitive
 #include <string>
 #include <string_view>
 #include <utility>
@@ -240,6 +243,48 @@ template <class List>
                                         ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
                                         : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
     return make_lazy_adhoc_source_gen(std::move(measurement_stamp));
+}
+
+/// I2 (Lager-Gate): der drift-freie Fingerprint fuer binary_id -- 128-hex K7b-Fingerprint, IDENTISCH zu dem, den die
+/// DLL via comdare_anatomy_version_lines()->sha512_line traegt. Komponiert EXAKT dieselben vier Stempel-Zeilen wie
+/// lazy_adhoc_source_for (organ via compose_organ_stamp_line, system via system_stamp_line, measurement = dieselbe
+/// Combo, merge = "" im Lazy-/ce-only-Pfad) und hasht sie mit derselben Primitive (sha512 + to_hex) wie
+/// anatomy_fingerprint_hex (Preimage = concat(organ+system+measurement+merge), D3). Nicht materialisierbar -> "".
+[[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
+                                                            std::vector<ex::AxisVariantVersion> const& version_table,
+                                                            std::string const& measurement_stamp = {}) {
+    std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
+    if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
+    std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
+    std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
+    // Preimage = concat(organ + system + measurement + merge) in DIESER fixen Reihenfolge (anatomy_fingerprint.hpp D3);
+    // merge = "" (Lazy-/ce-only-Pfad, identisch zu lazy_adhoc_source_for -> merge_stamp={}).
+    std::string preimage;
+    preimage.reserve(organ.size() + system.size() + measurement_stamp.size());
+    preimage += organ;
+    preimage += system;
+    preimage += measurement_stamp;
+    auto const digest = ::comdare::cache_engine::sha512::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
+    auto const hex = ::comdare::cache_engine::sha512::to_hex(digest); // array<char, 128>
+    return std::string(hex.data(), hex.size());
+}
+
+/// make_lazy_adhoc_fingerprint_fn_from_env() -- die LIVE-Naht: ein FingerprintFn (binary_id -> 128-hex), der dieselbe
+/// Mess-Combo (COMDARE_MEASUREMENT_COMBO) einfaengt wie make_lazy_adhoc_source_gen_from_env -> die Fingerprint-Zeilen
+/// decken sich byte-genau mit den emittierten Stempel-Zeilen der DLL (drift-frei). Fuer den Lager-Index-Anker
+/// (bestand_fingerprint_fn): der Orchestrator schreibt je Binary das .fingerprint-Sidecar.
+[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env() {
+    auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
+    auto version_table =
+        std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
+    char const* const e           = std::getenv("COMDARE_MEASUREMENT_COMBO");
+    std::string measurement_stamp = (e != nullptr && *e != '\0')
+                                        ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
+                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+    return [tables, version_table, measurement_stamp = std::move(measurement_stamp)](std::string const& binary_id) {
+        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp);
+    };
 }
 
 } // namespace comdare::cache_engine::thesis_lazy

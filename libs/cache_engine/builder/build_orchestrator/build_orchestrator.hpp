@@ -167,6 +167,11 @@ using FreeRamFn   = std::function<std::uint64_t()>;                 // freier ph
 // compile-time Versions-Tabelle, axis_variant_version_table.hpp::compose_algo_signature). Leer/ungesetzt = Organ-Gate
 // AUS -> byte-neutrales Alt-Verhalten (nur perm.dll.version-Skip). Der achsen-blinde Orchestrator bleibt registry-frei.
 using AlgoSigFn = std::function<std::string(std::vector<std::pair<std::string, std::string>> const&)>;
+// I2 (Lager-Gate Integration): binary_id -> 128-hex K7b-Fingerprint (SHA-512 der vier gerenderten Stempel-Zeilen,
+// identisch zu dem, den die DLL via comdare_anatomy_version_lines()->sha512_line traegt). Die Facade komponiert ihn
+// aus DENSELBEN Zeilen wie der Emitter (compose_organ_stamp_line + system/measurement/merge) -> drift-frei. Leer/
+// ungesetzt = kein .fingerprint-Sidecar (byte-neutral). Der achsen-blinde Orchestrator bleibt load-/registry-frei.
+using FingerprintFn = std::function<std::string(std::string const&)>;
 // W11 (Ledger §43.c, 2026-07-19): Completion-Hook -- feuert je Binary SOFORT nach der Finalisierung von results[j]
 // (aus dem Build-Worker-Thread, in COMPLETION-Reihenfolge, NICHT index-geordnet). Zweck: der BAU-Modus (provision_only)
 // haengt hier einen asynchronen Push-Pump ein, der die fertige perm.dll ueberlappend mit dem weiterlaufenden Bau in den
@@ -287,6 +292,19 @@ inline void write_variant_sidecar(std::filesystem::path const& output, std::stri
     std::ofstream f{variant_sidecar_path(output), std::ios::binary | std::ios::trunc};
     if (f) f << variant_sig;
 }
+// I2: das VIERTE Sidecar `<output>.fingerprint` -- der 128-hex K7b-Fingerprint der Binary (Lager-Index-Schluessel,
+// bestand_key_of liest es). Bewusst SEPARAT von .version/.algos/.variant (das ist der kompakte Provenienz-Anker, kein
+// Skip-Kriterium). perm.dll.* bleiben byte-genau unveraendert.
+[[nodiscard]] inline std::filesystem::path fingerprint_sidecar_path(std::filesystem::path const& output) {
+    return std::filesystem::path{output.string() + ".fingerprint"};
+}
+/// Schreibt das Fingerprint-Sidecar (`.fingerprint`, I2). Leer = no-op (keine FingerprintFn injiziert -> byte-neutral).
+/// Nur bei erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Sidecar.
+inline void write_fingerprint_sidecar(std::filesystem::path const& output, std::string const& fingerprint) {
+    if (fingerprint.empty()) return;
+    std::ofstream f{fingerprint_sidecar_path(output), std::ios::binary | std::ios::trunc};
+    if (f) f << fingerprint;
+}
 
 // G5 (W9.5): dedizierter Rueckgabe-Code des Compile-Wrappers fuer "Compiler-Binary nicht gefunden"
 // (posix_spawnp ENOENT). Der Orchestrator klassifiziert ihn als ToolchainFehlt (die geforderte Toolchain
@@ -306,6 +324,10 @@ public:
     /// W11: den Completion-Hook setzen (BAU-Modus async Push-Feed). VOR provision_all aufrufen; leer = kein Hook
     /// (byte-neutral). Feuert je Binary aus dem Worker-Thread nach results[j]-Finalisierung (Completion-Reihenfolge).
     void set_on_binary_done(BinaryDoneFn fn) { on_binary_done_ = std::move(fn); }
+
+    /// I2: den Fingerprint-Provider setzen (Lager-Index-Anker je Binary). VOR provision_all aufrufen; leer = kein
+    /// .fingerprint-Sidecar (byte-neutral). Opt-in wie set_on_binary_done -> die ctor-Signatur bleibt unveraendert.
+    void set_fingerprint_provider(FingerprintFn fn) { fingerprint_ = std::move(fn); }
 
     /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit (rückwärtskompatibel): je Binary Source (KF-8)
     /// + DLL kompilieren — INKREMENTELL, RAM-gewahr, MULTITHREADED. ⚠️ results-Vektor O(view.size()): nur für
@@ -518,6 +540,9 @@ private:
                         write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
                         write_variant_sidecar(job.output,
                                               cfg_.build_variant_sig); // Build-Variante (G2-3/A7); leer=no-op
+                        write_fingerprint_sidecar(job.output, fingerprint_
+                                                                  ? fingerprint_(spec.binary_id)
+                                                                  : std::string{}); // I2 Lager-Anker; leer=no-op
                     }
                 }
                 finalize(j, std::move(r));
@@ -553,12 +578,13 @@ private:
         return results;
     }
 
-    BuildConfig  cfg_;
-    CompileFn    compile_;
-    SourceGenFn  gen_;
-    FreeRamFn    free_ram_;
-    AlgoSigFn    algo_sig_;       // Bauplan §3: spec.axes → algo_sig; leer = Organ-Gate aus (byte-neutral)
-    BinaryDoneFn on_binary_done_; // W11: per-Binary Completion-Hook (BAU-Modus async Push-Feed); leer = byte-neutral
+    BuildConfig   cfg_;
+    CompileFn     compile_;
+    SourceGenFn   gen_;
+    FreeRamFn     free_ram_;
+    AlgoSigFn     algo_sig_;       // Bauplan §3: spec.axes → algo_sig; leer = Organ-Gate aus (byte-neutral)
+    BinaryDoneFn  on_binary_done_; // W11: per-Binary Completion-Hook (BAU-Modus async Push-Feed); leer = byte-neutral
+    FingerprintFn fingerprint_;    // I2: binary_id -> 128-hex K7b-Fingerprint (.fingerprint-Sidecar); leer=byte-neutral
 };
 
 namespace detail {

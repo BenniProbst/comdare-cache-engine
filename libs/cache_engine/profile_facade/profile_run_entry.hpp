@@ -302,7 +302,17 @@ struct RunProfileResult {
     // S6-P1b Env-Bruecke (e): die vom Planer gewaehlte Mess-Combo reist via COMDARE_MEASUREMENT_COMBO in den lazy
     // Source-Gen (make_lazy_adhoc_source_gen_from_env) -> die je-Combo-Bauten stempeln ihre DLLs REAL. UNGESETZT/[all]
     // => "" => byte-identische Quellen (der golden-320-/Sweep-/SOTA-Pfad bleibt unberuehrt, s. union_gen unten).
-    ex::SourceGenFn const lazy_gen  = make_lazy_adhoc_source_gen_from_env();
+    ex::SourceGenFn const lazy_gen = make_lazy_adhoc_source_gen_from_env();
+    // I2 (Lager-Gate): opt-in Fingerprint-Provider fuer das .fingerprint-Sidecar (Lager-Index-Anker), EINMAL gebaut wie
+    // lazy_gen. Gated auf COMDARE_BESTANDSLOG (Default aus => leer => kein Sidecar => byte-neutral). Drift-frei: fasst
+    // dieselbe Combo (COMDARE_MEASUREMENT_COMBO) + version_table wie lazy_gen -> der Fingerprint deckt sich byte-genau
+    // mit dem sha512_line, den die DLL einkompiliert traegt (anatomy_fingerprint_hex ueber dieselben 4 Zeilen).
+    ex::FingerprintFn const lazy_fingerprint = [] {
+        char const* const bl = std::getenv("COMDARE_BESTANDSLOG");
+        return (bl != nullptr && std::string_view{bl} == std::string_view{"true"})
+                   ? make_lazy_adhoc_fingerprint_fn_from_env()
+                   : ex::FingerprintFn{};
+    }();
     ex::SourceGenFn const union_gen = [base = std::move(base_union),
                                        lazy = lazy_gen](std::string const& binary_id) -> std::string {
         std::string src = base ? base(binary_id) : std::string{};
@@ -412,6 +422,7 @@ struct RunProfileResult {
         cfg.cores_per_build           = a.cores_per_build;
         cfg.build_parallelism         = a.build_parallelism; // W6 (§32-F7): Bau-Pool-Worker-Override (0 = byte-neutral)
         cfg.per_binary_subdirs        = true;
+        cfg.bestand_fingerprint_fn    = lazy_fingerprint; // I2: opt-in .fingerprint-Sidecar (leer = byte-neutral)
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.pruef_only                = a.pruef_only;     // S3: nur Gate je gebauter .so (byte-identisch bei false)

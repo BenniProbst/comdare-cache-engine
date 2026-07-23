@@ -224,6 +224,10 @@ struct LazyRunConfig {
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
+    // I2 (Lager-Gate Integration): der reale Fingerprint-Provider (binary_id -> 128-hex K7b-Fingerprint). Der Host
+    // (Facade) komponiert ihn aus denselben Stempel-Zeilen wie der Emitter; der Orchestrator schreibt je gebauter
+    // Binary das `.fingerprint`-Sidecar, das bestand_key_of dann als Lager-Index-Schluessel liest. Leer = byte-neutral.
+    FingerprintFn bestand_fingerprint_fn;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -917,6 +921,8 @@ struct LazyRunResult {
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
     // Leer = Organ-Gate aus (byte-neutral).
     BuildOrchestrator orch{bcfg, std::move(compile), std::move(gen), std::move(ram), std::move(algo_sig)};
+    // I2: den Fingerprint-Provider (Lager-Anker je Binary) durchreichen. Leer = kein .fingerprint-Sidecar (byte-neutral).
+    orch.set_fingerprint_provider(cfg.bestand_fingerprint_fn);
 
     // W11 (Ledger §43.c): der BAU-MODUS async Push-Pump. NUR im provision_only-Bau (der Mess-Modus bleibt STRIKT
     // synchron -- er baut hier NICHT mit cache_push, sondern pusht per-Binary im 1-Thread-Mess-Loop unten). Gated auf
