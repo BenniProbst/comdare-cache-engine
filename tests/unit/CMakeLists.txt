@@ -3919,3 +3919,12 @@ target_include_directories(test_g3_ram_spool_writer PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_ram_spool_writer PRIVATE Threads::Threads)
+
+# G3-B3 (S2): Factory + SHA512-Index (bestandslog_factory.hpp, bestandslog_index.hpp). Braucht
+# zusaetzlich libs/cache_engine/src fuer <sha512/ctsha512.hpp> (die EINE SHA512-Wahrheit gegen A1).
+comdare_add_test(test_g3_sha512_index
+    SOURCES test_g3_sha512_index.cpp)
+target_include_directories(test_g3_sha512_index PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
