@@ -22,6 +22,7 @@
 #include <builder/experiment_tree/experiment_tree.hpp> // ExperimentTree / StaticBinaryView / ExperimentNodeFactory
 #include <cache_engine/abi/anatomy_version_stamp.hpp>  // S6-P1b: abi::measurement_stamp_line (Mess-Tooling-Stempel)
 #include <cache_engine/fingerprint/crc64.hpp>          // crc64_ecma182_update
+#include <sha512/ctsha512.hpp>                         // I2: Runtime-SHA-512 fuer den Fingerprint-Drift-Beweis
 
 #include <algorithm> // K7b-2: std::count (Trenner-Zaehlung der Mengen-Stempel-Zeile)
 #include <cstddef>
@@ -31,6 +32,7 @@
 #include <iostream>
 #include <memory>
 #include <set>
+#include <span> // I2: std::span fuer die SHA-512-Primitive im Drift-Beweis
 #include <string>
 #include <string_view>
 #include <vector>
@@ -357,6 +359,46 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
                src_unset != src_noarg);
 }
 
+// -- (a3) I2 Fingerprint-Drift-Beweis: der FingerprintFn == sha512 der EMITTIERTEN Stempel-Zeilen ---------------
+// Unabhaengige Referenz = der emittierte Makro-Text (den die DLL kompiliert): parse die gequoteten organ/system-
+// Argumente aus COMDARE_ANATOMY_VERSION_STAMP(...) + runtime-sha512(concat) == lazy_adhoc_fingerprint_for. Damit deckt
+// sich der .fingerprint-Sidecar-Wert byte-genau mit dem sha512_line, den die DLL einkompiliert traegt (anatomy_
+// fingerprint_hex = dieselbe concat+sha512+to_hex-Primitive). measurement/merge = "" im 2-arg-Default.
+std::vector<std::string> quoted_args(std::string const& line) {
+    std::vector<std::string> out;
+    std::size_t              pos = 0;
+    while (true) {
+        std::size_t const a = line.find('"', pos);
+        if (a == std::string::npos) break;
+        std::size_t const b = line.find('"', a + 1);
+        if (b == std::string::npos) break;
+        out.push_back(line.substr(a + 1, b - (a + 1)));
+        pos = b + 1;
+    }
+    return out;
+}
+
+void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
+    std::cout
+        << "\n---- (a3) I2 Fingerprint-Drift-Beweis: FingerprintFn == sha512 der emittierten Stempel-Zeilen ----\n";
+    auto const                     version_table = ex::build_axis_variant_version_table();
+    auto const                     tables        = tlz::lazy_slot_type_tables();
+    ex::SourceGenFn const          lazy          = tlz::make_lazy_adhoc_source_gen(); // 2-arg, measurement=""
+    std::string const              id            = g320_ids.front();
+    std::vector<std::string> const args          = quoted_args(stamp_line(lazy(id)));
+    check_true("(a3) 2-arg-Stempel traegt organ+system", args.size() >= 2);
+    if (args.size() < 2) return;
+    std::string const preimage = args[0] + args[1]; // organ+system (measurement="" merge="" im 2-arg-Default)
+    auto const        digest   = ::comdare::cache_engine::sha512::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
+    auto const        hex = ::comdare::cache_engine::sha512::to_hex(digest);
+    std::string const emitted_fp(hex.data(), hex.size());
+    std::string const provider_fp = tlz::lazy_adhoc_fingerprint_for(tables, id, version_table, /*measurement=*/{});
+    check_true("(a3) FingerprintFn ist 128-hex", provider_fp.size() == 128);
+    check_eq("(a3) FingerprintFn == sha512(emittierte organ+system) -- drift-frei zum DLL-sha512_line", provider_fp,
+             emitted_fp);
+}
+
 } // namespace
 
 int main() {
@@ -373,6 +415,7 @@ int main() {
     check_measurement_stamp_wiring(g320_ids);
     check_measurement_combo_env_bridge(g320_ids);
     check_golden_n_nonempty(g320_ids, full_ids);
+    check_fingerprint_drift_free(g320_ids); // I2: der .fingerprint-Sidecar-Provider deckt sich mit dem DLL-sha512_line
     check_crc64_and_lazy_cover(full_ids);
     check_simd_organ_system_blind(full_ids);
 
