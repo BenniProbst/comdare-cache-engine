@@ -33,16 +33,18 @@ inline constexpr std::size_t kMeasurementToolingCount = 3;
 
 struct MeasurementToolingInfo {
     MeasurementTooling tooling;
-    std::string_view   id;   ///< kanonischer Legenden-/XML-/Stempel-Token ("wallclock"/"macro"/"micro")
-    std::string_view   name; ///< exakt der Enum-Name (Doku/Reporting)
+    std::string_view   id;      ///< kanonischer Legenden-/XML-/Stempel-Token ("wallclock"/"macro"/"micro")
+    std::string_view   name;    ///< exakt der Enum-Name (Doku/Reporting)
+    std::string_view   version; ///< A2 (G2-4 Schritt 4): bump-bare Code-Version der Mess-Tooling-Achse ("v1.0.0",
+                                ///< render-neutral zu "v1"); measurement_stamp_line liest sie statt der Hartkodierung.
 };
 
 /// Die EINE Registry der Mess-Tooling-HAUPT-Achse -- Index == Tooling-Wert (static_assert-gesichert). Die `id`-Token
 /// stimmen mit measurement_stamp_line (abi/anatomy_version_stamp.hpp) ueberein: measurement_tooling=<id>@X.Y.Z.
 inline constexpr std::array<MeasurementToolingInfo, kMeasurementToolingCount> kMeasurementToolingRegistry{{
-    {MeasurementTooling::WallClock, "wallclock", "WallClock"},
-    {MeasurementTooling::Macro, "macro", "Macro"},
-    {MeasurementTooling::Micro, "micro", "Micro"},
+    {MeasurementTooling::WallClock, "wallclock", "WallClock", "v1.0.0"},
+    {MeasurementTooling::Macro, "macro", "Macro", "v1.0.0"},
+    {MeasurementTooling::Micro, "micro", "Micro", "v1.0.0"},
 }};
 
 namespace detail {
@@ -51,16 +53,27 @@ namespace detail {
         if (static_cast<std::size_t>(kMeasurementToolingRegistry[i].tooling) != i) return false;
         if (kMeasurementToolingRegistry[i].id.empty()) return false;
         if (kMeasurementToolingRegistry[i].name.empty()) return false;
+        if (kMeasurementToolingRegistry[i].version.empty()) return false; // A2: Code-Version nie leer
     }
     return true;
 }
 } // namespace detail
 static_assert(detail::tooling_registry_is_complete(),
-              "kMeasurementToolingRegistry: 3 Eintraege, Index==Tooling, id/name nie leer");
+              "kMeasurementToolingRegistry: 3 Eintraege, Index==Tooling, id/name/version nie leer");
 
 /// constexpr-Lookup (Index == Tooling-Wert, durch static_assert garantiert).
 [[nodiscard]] constexpr MeasurementToolingInfo const& tooling_info(MeasurementTooling t) noexcept {
     return kMeasurementToolingRegistry[static_cast<std::size_t>(t)];
+}
+
+/// A2 (G2-4 Schritt 4): die bump-bare Code-Version zu einer Tooling-`id` (Stempel-Token). Bekannte id -> ihre
+/// Registry-Version ("v1.0.0"); UNBEKANNTE id -> "v0"-Sentinel (dokumentierter Render-Wechsel @0.0.0 NUR fuer
+/// ungueltige ids; gueltige golden-ids bleiben render-neutral bei "v1.0.0" -> "1.0.0"). measurement_stamp_line
+/// (abi/anatomy_version_stamp.hpp) liest hierueber statt der frueheren "v1"-Hartkodierung.
+[[nodiscard]] constexpr std::string_view tooling_version_for_id(std::string_view id) noexcept {
+    for (std::size_t i = 0; i < kMeasurementToolingCount; ++i)
+        if (kMeasurementToolingRegistry[i].id == id) return kMeasurementToolingRegistry[i].version;
+    return "v0"; // unbekannte id -> Sentinel
 }
 
 /// Compile-time-Iteration ueber die Mess-Tooling-HAUPT-Achse (Metaprogrammierungs-Interface fuer den Fan-out).
