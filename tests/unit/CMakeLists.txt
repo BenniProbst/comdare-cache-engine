@@ -3890,3 +3890,15 @@ comdare_add_test(test_g3_bestandslog_lock
 target_include_directories(test_g3_bestandslog_lock PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common")
+
+# G3-B4 (S4): ETA-Rechner + Reservierungs-Lifecycle (eta_estimator.hpp, reservation_lifecycle.hpp).
+comdare_add_test(test_g3_eta_estimator
+    SOURCES test_g3_eta_estimator.cpp)
+target_include_directories(test_g3_eta_estimator PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+comdare_add_test(test_g3_reservation_lifecycle
+    SOURCES test_g3_reservation_lifecycle.cpp)
+target_include_directories(test_g3_reservation_lifecycle PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
