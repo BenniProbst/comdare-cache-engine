@@ -3871,3 +3871,15 @@ target_link_libraries(test_reflect_versions_all17 PRIVATE Boost::mp11 comdare::w
 target_compile_definitions(test_reflect_versions_all17 PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_reflect_versions_all17 PROPERTIES LABELS "striktheit;algo_version;stale_skip" TIMEOUT 120)
+
+# ---------------------------------------------------------------------------
+# G3 / #46b Lagerhaltung (Bestandslog-Kern, §62-B / §66 Lager-Gate). Header-only Module unter
+# libs/cache_engine/builder/bestandslog/ + builder/artifact_transport/. Unit-Tests OHNE minio
+# (Fake-Transport, deterministisch). B1 = Serialisierungs-Schicht (Dokument+XML-Emitter/Parser),
+# haengt nur am common-DOM (xml_reader.hpp, <serialization/...>) -> keine Link-Deps, kein Boost.
+# ---------------------------------------------------------------------------
+comdare_add_test(test_g3_bestandslog_document
+    SOURCES test_g3_bestandslog_document.cpp)
+target_include_directories(test_g3_bestandslog_document PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
