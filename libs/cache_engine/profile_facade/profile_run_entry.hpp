@@ -328,6 +328,24 @@ struct RunProfileResult {
                    ? ex::driver_build_variant_signature()
                    : std::string{};
     }();
+    // G4a (3) / Folge-A §62-N4: die HOST-Belegung der drei Zell-Koordinaten [d,e,f] dieses Laufs. Der Lager-Schluessel
+    // ist das TUPEL (Fingerprint, Zelle) -- der Fingerprint allein traegt die per-Zelle-ISA NICHT, zwei Bauten
+    // derselben Permutation unter avx2 und avx512 wuerden sonst falsch dedupliziert. Die Quellen sind DIESELBEN, aus
+    // denen die Testat-Zelle der emittierten Batch-Jobs gebildet wird (der Director exportiert je Perm
+    // COMDARE_MEASUREMENT_COMBO / COMDARE_GN_OPT / COMDARE_GN_SIMD) -- KEINE zweite Ableitung, kein Raten aus der
+    // build_version. Lauf-Konstante wie variant_gate_sig darueber: je Prozess EINE Zelle, nicht je Perm.
+    // Ungesetzt => alle drei leer => ZellKoordinaten::empty() => das Dedup verhaelt sich exakt wie vor Folge-A.
+    decltype(ex::LazyRunConfig::bestand_zelle) const bestand_zelle = [] {
+        auto const env_or_empty = [](char const* name) {
+            char const* const v = std::getenv(name);
+            return (v != nullptr) ? std::string{v} : std::string{};
+        };
+        decltype(ex::LazyRunConfig::bestand_zelle) z;
+        z.combo = env_or_empty("COMDARE_MEASUREMENT_COMBO");
+        z.opt   = env_or_empty("COMDARE_GN_OPT");
+        z.simd  = env_or_empty("COMDARE_GN_SIMD");
+        return z;
+    }();
     ex::SourceGenFn const union_gen = [base = std::move(base_union),
                                        lazy = lazy_gen](std::string const& binary_id) -> std::string {
         std::string src = base ? base(binary_id) : std::string{};
@@ -439,6 +457,7 @@ struct RunProfileResult {
         cfg.per_binary_subdirs        = true;
         cfg.bestand_fingerprint_fn    = lazy_fingerprint; // I2: opt-in .fingerprint-Sidecar (leer = byte-neutral)
         cfg.build_variant_sig         = variant_gate_sig; // A7-B: opt-in Build-Varianten-Gate (leer = byte-neutral)
+        cfg.bestand_zelle             = bestand_zelle;    // G4a(3)/§62-N4: [d,e,f] des Lager-Schluessel-Tupels
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.pruef_only                = a.pruef_only;     // S3: nur Gate je gebauter .so (byte-identisch bei false)

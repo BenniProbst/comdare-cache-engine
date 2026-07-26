@@ -651,10 +651,22 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
 //      'circular variable reference' aus (config_error, leeres failed-Child; Befund Struktur-Smoke 12628/12663). Leer/
 //      ungesetzt => Zeile ENTFAELLT (eine leere YAML-Variable ueberschriebe die Grandchild-'nicht gesetzt'-Semantik).
 //      BEWUSSTE Aenderung ggue. dem alten $VAR-Pin (S2-NACHT-2). Env via setenv/unsetenv gesteuert (Hygiene am Ende).
+// G4a (2026-07-26): die sechs ZUSAETZLICH forwardeten Opt-in-Variablen (Storage + Lager/Gate). Sie muessen in JEDEM
+// Allowlist-Test aktiv weggeraeumt werden -- eine geerbte Umgebung (Entwickler-Shell, Runner mit gesetztem
+// COMDARE_BESTANDSLOG) wuerde sonst einen variables:-Block erzeugen und den Absenz-Zweig (3b) unten falsch rot faerben.
+inline constexpr char const* kG4aForwardedOptIns[] = {"COMDARE_STORAGE_CACHE",        "COMDARE_BESTANDSLOG",
+                                                      "COMDARE_BESTANDSLOG_DOC_KEY",  "COMDARE_BESTANDSLOG_OWNER_UUID",
+                                                      "COMDARE_BESTANDSLOG_MASCHINE", "COMDARE_VARIANT_GATE"};
+
+inline void unset_g4a_forwarded_opt_ins() {
+    for (char const* n : kG4aForwardedOptIns) ::unsetenv(n);
+}
+
 TEST(CiYamlBuilder, CebTriggerForwardsAllowlistAsEmissionTimeLiteralsNoSelfRef) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector const director;
+    unset_g4a_forwarded_opt_ins(); // G4a: geerbte Opt-ins duerfen diesen Test nicht verfaelschen
 
     // (2) Gesetzte Env (smoke-typisch) => die drei LITERALE, KEIN $-Ref. §64: EINE Vollmengen-Combo => genau 1 Block.
     ::setenv("COMDARE_GN_TOTAL", "131072", 1);
@@ -717,6 +729,78 @@ TEST(CiYamlBuilder, CebTriggerForwardsAllowlistAsEmissionTimeLiteralsNoSelfRef) 
     ::unsetenv("COMDARE_GN_TOTAL");
     ::unsetenv("COMDARE_MEASURE_PROFILE");
     ::unsetenv("COMDARE_PLAN_METHODIK_PROFILE");
+    unset_g4a_forwarded_opt_ins();
+}
+
+// (L2-G4a) Die G4a-Erweiterung derselben Allowlist: der Storage-Schalter (P-A) und die vier Lager- plus die
+// Variant-Gate-Variable reisen nach DEMSELBEN emissions-gateten Muster ueber die zweite Trigger-Grenze. Ungesetzt =>
+// Zeile entfaellt => die emittierte YAML ist byte-identisch zum Stand vor G4a (das ist die Byte-Neutralitaets-Zusage).
+// Zusaetzlich die KLASSEN-Wache: kein Credential-Name darf je an dieser Naht auftauchen.
+TEST(CiYamlBuilder, CebTriggerForwardsStorageAndLagerGateOptInsEmissionGated) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+
+    // (a) ALLE sechs ungesetzt (und die drei Alt-Variablen ebenso) => KEIN variables:-Block, YAML wie vor G4a.
+    ::unsetenv("COMDARE_GN_TOTAL");
+    ::unsetenv("COMDARE_MEASURE_PROFILE");
+    ::unsetenv("COMDARE_PLAN_METHODIK_PROFILE");
+    unset_g4a_forwarded_opt_ins();
+    std::string baseline;
+    {
+        planner::CiYamlBuilder yb;
+        director.construct(*tp, yb);
+        baseline = yb.text();
+        EXPECT_EQ(baseline.find("\n  variables:\n"), std::string::npos)
+            << "alle Opt-ins ungesetzt => kein Trigger-variables-Block (byte-identisch zu vor G4a)";
+        for (char const* n : kG4aForwardedOptIns)
+            EXPECT_EQ(baseline.find(std::string{"    "} + n + ": \""), std::string::npos)
+                << "ungesetzt => Zeile entfaellt komplett: " << n;
+    }
+
+    // (b) Alle sechs gesetzt => je genau EINE Literal-Zeile, kein $-Selbstbezug.
+    ::setenv("COMDARE_STORAGE_CACHE", "true", 1);
+    ::setenv("COMDARE_BESTANDSLOG", "true", 1);
+    ::setenv("COMDARE_BESTANDSLOG_DOC_KEY", "lager/bestand.xml", 1);
+    ::setenv("COMDARE_BESTANDSLOG_OWNER_UUID", "6f1c2b3a-0000-4444-8888-abcdefabcdef", 1);
+    ::setenv("COMDARE_BESTANDSLOG_MASCHINE", "prod1", 1);
+    ::setenv("COMDARE_VARIANT_GATE", "true", 1);
+    {
+        planner::CiYamlBuilder yb;
+        director.construct(*tp, yb);
+        std::string const& yaml = yb.text();
+        EXPECT_EQ(count_occurrences(yaml, "    COMDARE_STORAGE_CACHE: \"true\"\n"), 1u);
+        EXPECT_EQ(count_occurrences(yaml, "    COMDARE_BESTANDSLOG: \"true\"\n"), 1u);
+        EXPECT_EQ(count_occurrences(yaml, "    COMDARE_BESTANDSLOG_DOC_KEY: \"lager/bestand.xml\"\n"), 1u);
+        EXPECT_EQ(
+            count_occurrences(yaml, "    COMDARE_BESTANDSLOG_OWNER_UUID: \"6f1c2b3a-0000-4444-8888-abcdefabcdef\"\n"),
+            1u);
+        EXPECT_EQ(count_occurrences(yaml, "    COMDARE_BESTANDSLOG_MASCHINE: \"prod1\"\n"), 1u);
+        EXPECT_EQ(count_occurrences(yaml, "    COMDARE_VARIANT_GATE: \"true\"\n"), 1u);
+        for (char const* n : kG4aForwardedOptIns)
+            EXPECT_EQ(yaml.find(std::string{n} + ": \"$"), std::string::npos) << "keine Selbst-Referenz: " << n;
+    }
+
+    // (c) KLASSEN-Wache (§ Credential-Verbot): die Geheimnis-Namen duerfen an KEINER Stelle der YAML stehen -- weder
+    // als Forward-Zeile noch sonstwo. Sie werden ausschliesslich maschinenlokal von comdare_storage_activation.sh
+    // gefaltet. Auch mit gesetzter Umgebung geprueft, damit ein spaeteres versehentliches Forwarden sofort rot wird.
+    {
+        ::setenv("MINIO_ACCESS_KEY", "AKIA-TESTONLY", 1);
+        ::setenv("MINIO_SECRET_KEY", "secret-testonly", 1);
+        ::setenv("COMDARE_NFS_DROP_TOKEN", "token-testonly", 1);
+        planner::CiYamlBuilder yb;
+        director.construct(*tp, yb);
+        std::string const& yaml = yb.text();
+        for (char const* secret : {"MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "COMDARE_NFS_DROP_TOKEN"})
+            EXPECT_EQ(yaml.find(secret), std::string::npos) << "Credential-Name darf NIE in die YAML: " << secret;
+        for (char const* val : {"AKIA-TESTONLY", "secret-testonly", "token-testonly"})
+            EXPECT_EQ(yaml.find(val), std::string::npos) << "Credential-WERT darf NIE in die YAML: " << val;
+        ::unsetenv("MINIO_ACCESS_KEY");
+        ::unsetenv("MINIO_SECRET_KEY");
+        ::unsetenv("COMDARE_NFS_DROP_TOKEN");
+    }
+
+    unset_g4a_forwarded_opt_ins(); // Env-Hygiene
 }
 
 // (M) Byte-Determinismus der YAML (Thesis + Experiment): zwei Laeufe -> byte-gleich.
@@ -1289,13 +1373,154 @@ TEST(TierCiYamlBuilder, BatchJobsCarryGnOutPersistenceFlags) {
 
     // Jeder Batch-Job (Build + Mess, je Host) traegt beide Flags GENAU EINMAL -> Count == Batch-Job-Zahl (=> BEIDE
     // Typen tragen sie; waeren sie nur im Build, waere der Count == build_batches < total_batches).
-    EXPECT_EQ(count_occurrences(yaml, "    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build\"\n"), total_batches)
-        << "beide Batch-Typen je Host tragen den gn_out/build-Clean-Ausschluss (dll_is_current ueberlebt)";
+    // G4a P-C: der Literal-Pin wandert um "-e Code/measure_out" (Mess-CSV ueberleben den Checkout-Clean). Die
+    // Zaehl-Semantik (== total_batches, also BEIDE Batch-Typen) bleibt unveraendert -- es ist bewusst DIESELBE Zeile
+    // in Bau- und Mess-Batch (im Bau-Batch existiert measure_out nicht, der Ausschluss ist dort folgenlos).
+    EXPECT_EQ(
+        count_occurrences(yaml, "    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build -e Code/measure_out\"\n"),
+        total_batches)
+        << "beide Batch-Typen je Host tragen den gn_out/build/measure_out-Clean-Ausschluss (dll_is_current ueberlebt, "
+           "Messdaten ueberleben)";
+    EXPECT_EQ(yaml.find("    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build\"\n"), std::string::npos)
+        << "die Vor-G4a-Form ohne measure_out darf nirgends mehr stehen (sonst haette ein Batch den Schutz nicht)";
     EXPECT_EQ(count_occurrences(yaml, "    GIT_STRATEGY: \"fetch\"\n"), total_batches)
         << "beide Batch-Typen je Host tragen GIT_STRATEGY:fetch (kein Voll-Clone, Workdir erhalten)";
     // KLASSEN-Regel: die neuen Job-variables tragen KEIN $CI_PROJECT_DIR (workdir-relative Pfade).
     EXPECT_EQ(yaml.find("GIT_CLEAN_FLAGS: \"-ffdx -e $CI_PROJECT_DIR"), std::string::npos)
         << "kein $CI_PROJECT_DIR in den Persistenz-Flags (KLASSE)";
+}
+
+// (G4a P-A/P-B/#37) Die vier unbedingten Emissions-Ergaenzungen der G4a-Scheibe, jeweils mit ihrer REIHENFOLGE-
+// Bedingung -- die Platzierung ist bei dreien korrektheits-relevant, nicht kosmetisch:
+//   Storage-Aktivierung: in BEIDEN Batches, vor jedem Treiber-Aufruf (sonst laeuft der Lauf storage-inert);
+//   PMC-Preflight: im Mess-Batch VOR der ersten Messung (sonst misst eine kaputte Lane tagelang Nullen);
+//   PRUNE: im Mess-Batch NACH der letzten Messung (sonst Netz-Rueckweg, s. D1);
+//   CSV-Artefakt: zusaetzlich zu den Logs (sonst ueberleben die Messdaten keinen Runner-Verlust).
+TEST(TierCiYamlBuilder, G4aStorageActivationPmcPreflightAndPruneAreEmittedInCorrectOrder) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb; // die Batch-Jobs stehen in der STUFE-2-Tier-YAML, nicht in der Child-1
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    std::size_t const build_batches   = count_occurrences(yaml, "# JOB tier-build-batch ");
+    std::size_t const measure_batches = count_occurrences(yaml, "# JOB measure-batch ");
+    ASSERT_GT(build_batches, 0u);
+    ASSERT_GT(measure_batches, 0u);
+    std::size_t const total_batches = build_batches + measure_batches;
+
+    // (a) P-A Storage-Aktivierung: EINE Literal-Quelle, genau einmal je Batch (Bau UND Mess).
+    EXPECT_EQ(count_occurrences(yaml, "      . external/comdare-cache-engine/scripts/comdare_storage_activation.sh\n"),
+              total_batches)
+        << "das Aktivierungs-Skript wird in JEDEM Batch gesourct (inert ohne COMDARE_STORAGE_CACHE)";
+    EXPECT_EQ(count_occurrences(yaml, "        export COMDARE_ARTEFAKT_TRIES=\"${COMDARE_ARTEFAKT_TRIES:-2}\"\n"),
+              total_batches)
+        << "der Blackhole-Deckel steht in jedem Batch";
+    // set -u-Haerte: der Schalter wird NIE unquoted/ungeschuetzt expandiert (der Block laeuft unter set -euo pipefail).
+    EXPECT_EQ(yaml.find("[ \"$COMDARE_STORAGE_CACHE\" ="), std::string::npos)
+        << "unter set -u waere die ungeschuetzte Expansion ein Abbruch -- immer ${VAR:-}";
+    // KLASSE: workdir-relativer Skript-Pfad, kein $CI_PROJECT_DIR.
+    EXPECT_EQ(yaml.find("$CI_PROJECT_DIR/Code/external/comdare-cache-engine/scripts/"), std::string::npos)
+        << "Skript-Pfad bleibt workdir-relativ (KLASSE)";
+
+    // (b) #37 PMC-Preflight: je Mess-Batch genau einmal, und VOR der ersten Messung dieses Batches.
+    EXPECT_EQ(count_occurrences(yaml, "      ctest --test-dir build -L pmc --output-on-failure\n"), measure_batches)
+        << "je Mess-Batch ein PMC-Preflight";
+    EXPECT_EQ(count_occurrences(yaml, "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n"),
+              measure_batches);
+    // Die Reihenfolge-Invarianten gelten PRO JOB, nicht global: die YAML traegt mehrere Mess-Batches (je Lane einen),
+    // und deren Bloecke stehen hintereinander. Global geprueft waere "letzte Messung vor erstem Prune" falsch (der
+    // Prune der amd-Lane steht vor der letzten Messung der intel-Lane), obwohl innerhalb jedes Jobs alles stimmt.
+    auto measure_job_blocks = [&yaml] {
+        std::vector<std::string> blocks;
+        std::size_t              pos = yaml.find("# JOB measure-batch ");
+        while (pos != std::string::npos) {
+            std::size_t const next = yaml.find("\n# JOB ", pos + 1);
+            blocks.push_back(yaml.substr(pos, next == std::string::npos ? std::string::npos : next - pos));
+            pos = yaml.find("# JOB measure-batch ", pos + 1);
+        }
+        return blocks;
+    }();
+    ASSERT_EQ(measure_job_blocks.size(), measure_batches);
+
+    for (std::string const& blk : measure_job_blocks) {
+        std::size_t const pmc        = blk.find("[PMC-PREFLIGHT]");
+        std::size_t const first_mess = blk.find("== [MESS] zelle=");
+        ASSERT_NE(pmc, std::string::npos) << "jeder Mess-Batch hat einen Preflight";
+        ASSERT_NE(first_mess, std::string::npos);
+        EXPECT_LT(pmc, first_mess) << "der PMC-Preflight steht VOR der ersten Messung DIESES Jobs";
+    }
+    // Hart in BEIDEN Profilen (D4): kein allow-failure-Kunstgriff am Preflight.
+    EXPECT_EQ(yaml.find("ctest --test-dir build -L pmc --output-on-failure || true"), std::string::npos)
+        << "der Preflight darf nicht weich gemacht werden (§66-N2: beide hart)";
+
+    // (c) P-B PRUNE: guarded, je Perm, NICHT-fatal, und NACH der letzten Messung.
+    EXPECT_NE(yaml.find("        COMDARE_PRUNE_ONLY=true \"$DRIVER\" experiment_config "), std::string::npos)
+        << "der Prune-Schritt wird emittiert";
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_PRUNE_ONLY=true"),
+              count_occurrences(yaml, "        echo \"== [PRUNE] zelle="))
+        << "je Prune-Aufruf genau ein [PRUNE]-Kopf (je Perm einer)";
+    EXPECT_NE(yaml.find("experiment_config \"$CI_PROJECT_DIR/Code/measure_out/"), std::string::npos);
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_PRUNE_ONLY=true \"$DRIVER\" experiment_config \""),
+              count_occurrences(yaml, "\" || true\n"))
+        << "jeder Prune-Aufruf ist NICHT-fatal (|| true; D2)";
+    for (std::string const& blk : measure_job_blocks) {
+        std::size_t const last_mess   = blk.rfind("[MESS-TESTAT]");
+        std::size_t const first_prune = blk.find("COMDARE_PRUNE_ONLY=true");
+        ASSERT_NE(last_mess, std::string::npos);
+        ASSERT_NE(first_prune, std::string::npos) << "jeder Mess-Batch raeumt am Ende lokal auf";
+        EXPECT_LT(last_mess, first_prune)
+            << "PRUNE laeuft NACH der letzten Messung DIESES Jobs (D1: sonst muesste der Mess-Batch alles "
+               "ueber das Netz zurueckziehen)";
+    }
+    // Der Prune darf in KEINEM Bau-Batch stehen -- genau das war die verworfene Variante (D1).
+    {
+        std::size_t pos = yaml.find("# JOB tier-build-batch ");
+        ASSERT_NE(pos, std::string::npos);
+        while (pos != std::string::npos) {
+            std::size_t const next = yaml.find("\n# JOB ", pos + 1);
+            std::string const blk  = yaml.substr(pos, next == std::string::npos ? std::string::npos : next - pos);
+            EXPECT_EQ(blk.find("COMDARE_PRUNE_ONLY"), std::string::npos)
+                << "kein Prune im Bau-Batch (die Binaries muessen fuer den Mess-Batch lokal liegen bleiben)";
+            pos = yaml.find("# JOB tier-build-batch ", pos + 1);
+        }
+    }
+
+    // (d) P-C: die Mess-CSV reisen als Artefakt mit (bisher nur die Logs).
+    EXPECT_EQ(count_occurrences(yaml, "/**/*.csv\n"), measure_batches) << "je Mess-Batch ein CSV-Artefakt-Glob";
+    EXPECT_NE(yaml.find("      - Code/measure_out/"), std::string::npos);
+}
+
+// (G4a-7) Die Planer-Vorreservierung als WERT: rein, uhrfrei, deterministisch. Der ce liefert sie, der Host schreibt
+// sie -- deshalb ist sie hier vollstaendig testbar, ohne Transport und ohne die Emitter-Reinheit anzutasten.
+TEST(PlanerBlockReservation, ProFormaShapeIsExactAndClockFree) {
+    auto const r = planner::make_planer_block_reservation("6f1c2b3a-0000-4444-8888-abcdefabcdef", 7, "prod1", 24,
+                                                          "2026-07-26T05:00:00Z", "2026-07-26T05:30:00Z");
+    namespace bl = ::comdare::cache_engine::builder::bestandslog;
+
+    EXPECT_EQ(r.id, "6f1c2b3a-0000-4444-8888-abcdefabcdef/7") << "id = owner_uuid/seq";
+    EXPECT_EQ(r.typ, bl::BatchTyp::planer_block) << "der Typ trennt die Planer-Sperre vom tier-Slice";
+    EXPECT_EQ(r.maschine, "prod1");
+    EXPECT_EQ(r.threads, 24u);
+    // Ein planer_block reserviert KEINE Datenscheibe -- er blockiert die Strecke als Ganzes.
+    EXPECT_EQ(r.slice_begin, 0u);
+    EXPECT_EQ(r.slice_count, 0u);
+    EXPECT_EQ(r.reserviert_utc, "2026-07-26T05:00:00Z");
+    EXPECT_EQ(r.pro_forma_bis_utc, "2026-07-26T05:30:00Z") << "30min pro-forma (B7), vom Aufrufer geliefert";
+    // OHNE ETA: die kommt erst mit der Kalibrierung (apply_calibration), nie schon bei der Vorreservierung.
+    EXPECT_EQ(r.eta_s, "");
+    EXPECT_EQ(r.avg_size_bytes, "");
+    EXPECT_EQ(r.status, bl::BatchStatus::offen);
+
+    // Uhrfrei => zwei Aufrufe mit denselben Argumenten sind identisch (kein versteckter now()-Zugriff).
+    auto const again = planner::make_planer_block_reservation("6f1c2b3a-0000-4444-8888-abcdefabcdef", 7, "prod1", 24,
+                                                              "2026-07-26T05:00:00Z", "2026-07-26T05:30:00Z");
+    EXPECT_EQ(r, again);
+
+    // Der Typ-Name serialisiert stabil (das Dokument-Format kennt ihn).
+    EXPECT_EQ(bl::to_string(bl::BatchTyp::planer_block), "planer_block");
+    EXPECT_EQ(bl::batch_typ_from_string("planer_block"), bl::BatchTyp::planer_block);
 }
 
 // (#29+#27, 2026-07-23) BatchJobsCarryCancelTrapAndHeartbeatTee: jeder STUFE-2-Batch-Job (Build + Mess je Host) beginnt
@@ -1657,7 +1882,14 @@ TEST(MeasurementModi61, ProfileDrivenModeParallelBuildLanesAndCompileStamp) {
         << "(j3) Blocker #50: smoke/debug begrenzt die measure-drop-Retries (hart)";
     EXPECT_EQ(yaml.find("(j3) Aufruf 1/2"), std::string::npos) << "measure => KEIN (j3)-Dual-Compile (byte-stabil)";
     EXPECT_EQ(yaml.find("_release_provision"), std::string::npos) << "measure => kein Release-Provision-Vorlauf";
-    EXPECT_EQ(yaml.find("COMDARE_ARTEFAKT_TRIES"), std::string::npos) << "measure => kein ARTEFAKT_TRIES-Override";
+    // G4a: dieser Pin war zu WEIT gefasst. Gemeint war immer der (j3)-DEBUG-Override "TRIES=1", nicht jede Erwaehnung
+    // der Variablen -- seit P-A traegt JEDER Batch zusaetzlich den guarded Blackhole-Deckel. Der Pin wird deshalb auf
+    // seine tatsaechliche Absicht VERSCHAERFT (exakte Debug-Form verboten) statt aufgeweicht, und der neue Deckel
+    // bekommt eine eigene positive Wache.
+    EXPECT_EQ(yaml.find("export COMDARE_ARTEFAKT_TRIES=1"), std::string::npos)
+        << "measure => kein (j3)-Debug-Override auf 1";
+    EXPECT_NE(yaml.find("export COMDARE_ARTEFAKT_TRIES=\"${COMDARE_ARTEFAKT_TRIES:-2}\""), std::string::npos)
+        << "P-A: der guarded Blackhole-Deckel ist auch im measure-Profil da (nur unter STORAGE_CACHE scharf)";
 
     // Bare-metal (--emit-tier-cmake): DLL-Bau-Pool parallel (ProcessorCount) fuer measure; kein +bt. Debug => +bt.
     planner::TierCmakeGraphBuilder cm;

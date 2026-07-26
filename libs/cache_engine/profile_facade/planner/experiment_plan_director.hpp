@@ -48,6 +48,7 @@
 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
 #include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
 #include "planner/plan_legend.hpp" // W10-A: das dreistufige Legenden-Namensschema (EINE Formatierungs-Single-Source)
+#include <builder/bestandslog/reservation_lifecycle.hpp> // G4a(7): make_pro_forma_reservation / BatchTyp::planer_block
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
@@ -721,6 +722,20 @@ private:
         append_forward_var_literal(vars, "COMDARE_GN_TOTAL");
         append_forward_var_literal(vars, "COMDARE_MEASURE_PROFILE");
         append_forward_var_literal(vars, "COMDARE_PLAN_METHODIK_PROFILE");
+        // G4a P-A (2026-07-26): der Storage-Schalter muss die ZWEITE Trigger-Grenze ueberleben, sonst laeuft der
+        // Grandchild-Strang (Bau-/Mess-Batch) storage-INERT -- kein Push, kein Pull, kein Prune. Reiner bool-Schalter,
+        // KEIN Credential: die MinIO-Rohcreds faltet scripts/comdare_storage_activation.sh maschinenlokal, sie duerfen
+        // diese Literal-Naht nie passieren (KLASSEN-Regel: nur Schalter/Schluessel/Namen, nie Geheimnisse).
+        append_forward_var_literal(vars, "COMDARE_STORAGE_CACHE");
+        // G4a Lager-/Gate-Durchreiche: die Opt-in-Schalter der beiden Gates, die Folge-A/Folge-B eingezogen haben.
+        // Alle NICHT-geheim: BESTANDSLOG=bool, DOC_KEY=Objekt-Schluessel im Store, OWNER_UUID=UUID, MASCHINE=Hostname,
+        // VARIANT_GATE=bool. Ungesetzt => Zeile entfaellt => YAML byte-identisch zum Stand vor G4a (Default-Semantik
+        // im Grandchild bleibt 'nicht gesetzt', nicht 'leer gesetzt').
+        append_forward_var_literal(vars, "COMDARE_BESTANDSLOG");
+        append_forward_var_literal(vars, "COMDARE_BESTANDSLOG_DOC_KEY");
+        append_forward_var_literal(vars, "COMDARE_BESTANDSLOG_OWNER_UUID");
+        append_forward_var_literal(vars, "COMDARE_BESTANDSLOG_MASCHINE");
+        append_forward_var_literal(vars, "COMDARE_VARIANT_GATE");
         if (!vars.empty()) {
             s += "  variables:\n";
             s += vars;
@@ -731,8 +746,7 @@ private:
         s += "        job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "    strategy: depend\n";
         s += "    forward:\n";
-        s += "      yaml_variables: true       # Allowlist (COMDARE_GN_TOTAL + COMDARE_MEASURE_PROFILE + "
-             "COMDARE_PLAN_METHODIK_PROFILE) an Grandchild\n";
+        s += "      yaml_variables: true       # Allowlist (exakt der variables:-Block oben) an Grandchild\n";
         s += "      pipeline_variables: false  # kein blindes Erben des Eltern-Variablenraums (Isolation)\n";
         return s;
     }
@@ -858,8 +872,33 @@ private:
     // Stufe-1-build/ ist der Treiber-CMake -- separates Merkposten-Paket). Geteilte Single-Source fuer Build- + Mess-Batch.
     static void emit_gn_out_persistence_variables(std::string& s) {
         s += "  variables:\n";
-        s += "    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build\"\n";
+        // G4a P-C (2026-07-26): Code/measure_out zusaetzlich vom Checkout-Clean ausgenommen. Ohne den Exclude loescht
+        // GitLabs Default `git clean -ffdx` die bereits geschriebenen Mess-CSV am Job-Start -- bei einem mehrtaegigen
+        // Mess-Batch, der neu aufgesetzt/resumiert wird, waeren das VERLORENE MESSDATEN (Doktrin: Messdaten nie
+        // loeschen). Bewusst in BEIDEN Batches derselbe Literal-String: im Bau-Batch existiert measure_out gar nicht,
+        // der Exclude ist dort folgenlos -- dafuer bleibt es EINE Zeile, EINE Wahrheit, EIN Pin.
+        s += "    GIT_CLEAN_FLAGS: \"-ffdx -e Code/gn_out -e Code/build -e Code/measure_out\"\n";
         s += "    GIT_STRATEGY: \"fetch\"\n";
+    }
+
+    // G4a P-A (2026-07-26): Storage-Scharfschaltung + Retry-Deckel, WORTGLEICH in beiden Batch-Emissionen (eine
+    // Literal-Quelle -> die Tests zaehlen Vorkommen == Zahl der Batches). Steht INNERHALB des `- |`-Blocks, nicht als
+    // einfache `- `-Zeile: eine Plain-Scalar-Zeile mit " #" wuerde YAML-seitig als Kommentar abgeschnitten, hier sind
+    // es echte Shell-Kommentare. Laeuft nach `cd Code`, der Pfad ist workdir-relativ (KLASSE: kein $CI_PROJECT_DIR).
+    static void emit_storage_activation(std::string& s) {
+        s += "      # G4a P-A: MinIO-Rohcreds maschinenlokal in MC_HOST_prodcache falten. Das Skript ist "
+             "source-sicher\n";
+        s += "      # (kein exit, kein set -e) und bei COMDARE_STORAGE_CACHE != true vollstaendig inert -- das\n";
+        s += "      # unbedingte Sourcen ist damit unschaedlich und haelt den Nicht-Storage-Lauf unveraendert.\n";
+        s += "      . external/comdare-cache-engine/scripts/comdare_storage_activation.sh\n";
+        s +=
+            "      # Blackhole-Schutz (P-A): der ArtifactCache-Default ist 12 Versuche (artifact_cache.hpp:923); mit\n";
+        s += "      # dem 120s-Timeout je Versuch grindet ein unerreichbarer Store pathologisch lange je Objekt.\n";
+        s += "      # Deckel NUR wenn Storage ueberhaupt scharf ist; ein bereits gesetzter Wert gewinnt. Die\n";
+        s += "      # :-Expansion ist Pflicht -- der umgebende Block laeuft unter `set -u`.\n";
+        s += "      if [ \"${COMDARE_STORAGE_CACHE:-}\" = \"true\" ]; then\n";
+        s += "        export COMDARE_ARTEFAKT_TRIES=\"${COMDARE_ARTEFAKT_TRIES:-2}\"\n";
+        s += "      fi\n";
     }
 
     // #27 (2026-07-23): das LOG EINMAL explizit truncieren, BEVOR die Treiber-Invocation im APPEND-Modus schreibt.
@@ -946,6 +985,7 @@ private:
             s); // #29: Cancel-Sauberkeit -- SIGTERM/INT beendet die eigene Prozessgruppe, keine Waisen
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
+        emit_storage_activation(s); // G4a P-A: Push/Pull scharfschalten (inert ohne COMDARE_STORAGE_CACHE) + Deckel
         // §62-B Lane-Budget (Bau-Pool-WORKER-Override, KEIN $(nproc)): lane_build_parallelism(host) = 24 (beide Lanes; amd von 32 gedrosselt, RAM-Bound).
         s += "      export COMDARE_BUILD_PARALLEL=\"" + par + "\"   # §62-B Lane-Budget " + host +
              " (lane_build_parallelism; harte Compile-Worker-Zahl statt der nproc-Heuristik; amd RAM-gedrosselt)\n";
@@ -1074,6 +1114,20 @@ private:
             s); // #29: Cancel-Sauberkeit -- SIGTERM/INT beendet die eigene Prozessgruppe, keine Waisen
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
+        emit_storage_activation(s); // G4a P-A: Pull/Push + Prune scharfschalten (inert ohne COMDARE_STORAGE_CACHE)
+        // G4a #37 / §66-N2 (PMC-DOKTRIN je Vendor): HARTER PMC-Preflight auf DIESER Lane-Maschine, VOR der ersten
+        // Messung. Grund: die super-Pipeline haelt zwar pmc:amd/pmc:intel hart, aber dieser Batch laeuft im
+        // GRANDCHILD-Strang und kann auf jene Jobs kein `needs:` setzen -- ohne Preflight koennte eine Lane eine
+        // mehrtaegige Messung mit kaputtem perf_event_open durchlaufen und lauter 0-Zaehler produzieren. Der Probe-Weg
+        // ist der OFFIZIELLE (die bestehenden ctest-Targets), KEIN Behelfs-Probeprogramm: Code/CMakeLists.txt zieht die
+        // ce per add_subdirectory ein und COMDARE_BUILD_TESTS ist ON -> beide PMC-Targets sind im `build`-Baum bereits
+        // KONFIGURIERT und muessen nur noch gebaut werden (kein zweiter cmake-Configure). linux_perf_pmc_smoke steht
+        // unter if(UNIX AND NOT APPLE) und existiert auf den Linux-Lanes daher immer. Unter `set -e` bricht ein
+        // Exit != 0 den Batch ehrlich ab -- HART in BEIDEN Profilen, auch smoke (§66-N2 "beide hart").
+        s += "      echo \"== [PMC-PREFLIGHT] lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+        s += "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n";
+        s += "      ctest --test-dir build -L pmc --output-on-failure\n";
+        s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " pmc=ok\"\n";
         // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (BYTE-GLEICH zur Vor-S4-Emission). Einmal je Batch.
         s +=
             "      export COMDARE_GOLDEN_N_RANGE=\"0:${COMDARE_GN_TOTAL:-16}\"   # volles Zell-Fenster (Voll-Messlauf: "
@@ -1140,11 +1194,38 @@ private:
                      " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"\n";
             }
         }
+        // G4a P-B (§65 lokal->0, #35): der PRUNE-Schritt als LETZTER Schritt des MESS-Batches, je Perm.
+        // REIHENFOLGE-BEGRUENDUNG (Manager-Entscheid D1, Abweichung vom urspruenglichen "am Bau-Ende"): Bau- und
+        // Mess-Batch teilen sich die resource_group ceb-measure-<host>, laufen also nacheinander auf DERSELBEN
+        // Maschine. Ein Prune zwischen Bau und Messung wuerde die eben gebauten Binaries loeschen und den Mess-Batch
+        // zwingen, sie vollstaendig ueber cache_pull aus minio zurueckzuholen -- ein kompletter Netz-Rueckweg ohne
+        // Gegenwert, denn die Platte ist nach dem Cleanup NICHT der Engpass. §65 meint "lokal->0 nach gesichertem
+        // Bestand UND abgeschlossener Messung": der Bau-Batch behaelt die Binaries lokal, der Mess-Batch findet sie
+        // vor, und erst danach wird lokal geraeumt.
+        // NICHT-FATAL (D2): kein FAIL=1, `|| true`. Ein fehlgeschlagener Prune laesst die lokalen Artefakte stehen --
+        // das ist der sichere Ausgang; die Messung daran scheitern zu lassen waere unverhaeltnismaessig. Sichtbar
+        // bleibt er trotzdem: der Treiber gibt selbst "[PRUNE-TESTAT] verified=.. pruned=.. behalten=.. skipped=.."
+        // aus (02_messung_driver/main.cpp). build_version wird bewusst NICHT gesetzt -- der Treiber nimmt seinen
+        // eigenen Default; weicht er vom real gebauten ab, findet verify_remote_then_prune den Remote-Stand nicht und
+        // entscheidet "behalten". Ein Mismatch degradiert also zu NICHT-Loeschen, nie zu einem falschen Loeschen.
+        s += "      if [ \"${COMDARE_STORAGE_CACHE:-}\" = \"true\" ]; then\n";
+        for (auto const& p : perms) {
+            std::string const idx = std::to_string(p.index);
+            std::string const cell3 =
+                combo_legend_ + legend::system_perm(p.opt_id, p.simd_id) + legend::organ_reference();
+            std::string const measure_out = "$CI_PROJECT_DIR/Code/measure_out/" + slug + "/perm" + idx;
+            s += "        echo \"== [PRUNE] zelle=" + cell3 + " lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
+            s += "        COMDARE_PRUNE_ONLY=true \"$DRIVER\" experiment_config \"" + measure_out + "\" || true\n";
+        }
+        s += "      fi\n";
         s += "      exit $FAIL   # Mess-Fehler je Zelle sichtbar ([FEHLER-TESTAT] + Log); der Batch misst durch\n";
         s += "  artifacts:\n";
         s += "    when: always\n";
         s += "    paths:\n";
         s += "      - Code/measure_out/" + slug + "/logs/\n";
+        // G4a P-C: die Mess-CSV selbst als Artefakt sichern. Bisher reisten nur die Logs mit -- die eigentlichen
+        // Messdaten haetten einen Runner-Verlust nicht ueberlebt (Messdaten-nie-loeschen-Doktrin).
+        s += "      - Code/measure_out/" + slug + "/**/*.csv\n";
         s += "    expire_in: 4 weeks\n";
         return s;
     }
@@ -1161,6 +1242,30 @@ private:
 };
 
 // ── Registry-Trio-Annotation aus einem gelesenen RegistryTrio (Resolver-Vorstufe). ──────────────────────────
+// G4a (7) / Integrations-Doc-I2-Restpunkt: die PLANER-VORRESERVIERUNG (BatchTyp::planer_block, 30min pro-forma, OHNE
+// ETA -- bestandslog_document.hpp:83). Sie meldet dem Lager, dass DIESER Planer gleich eine CEB-Compile-Strecke
+// anstoesst, damit ein zweiter Planer auf einer anderen Maschine nicht dieselbe Strecke doppelt reserviert.
+//
+// SCHNITT (bewusst, siehe Meldung): der Director ist ein REINER TEXT-EMITTER -- er haelt keinen Transport, macht kein
+// IO, und seine construct()-Walks sind byte-determinismus-getestet. Eine Schreib-Operation hier hinein zu legen wuerde
+// genau diese Reinheit zerstoeren und construct() umgebungsabhaengig machen. Deshalb liefert der ce den WERT der
+// Reservierung (rein, deterministisch, hier testbar), und der Host fuehrt den Effekt aus -- dort, wo das IO ohnehin
+// schon lebt (der Treiber haelt bereits ArtifactCache::from_env() und den Bestandslog-Transport). Das ist dieselbe
+// Dependency-Inversion wie bei bestand_transport/cache_pull, nur ohne eine tote std::function im Emitter.
+//
+// Zeitstempel kommen wie bei make_pro_forma_reservation VOM AUFRUFER ("Zeit-Formatierung ist nicht Sache dieser
+// Zustandsmaschine", reservation_lifecycle.hpp:54) -- damit ist die Funktion uhrfrei und exakt testbar.
+// slice_begin/slice_count sind 0/0: ein planer_block reserviert KEINE Datenscheibe, er blockiert die Strecke als
+// Ganzes (im Gegensatz zu BatchTyp::tier, der das 4096er-Korn traegt).
+[[nodiscard]] inline ::comdare::cache_engine::builder::bestandslog::BatchReservierung
+make_planer_block_reservation(std::string owner_uuid, std::size_t seq, std::string maschine, unsigned threads,
+                              std::string reserviert_utc, std::string pro_forma_bis_utc) {
+    namespace bl = ::comdare::cache_engine::builder::bestandslog;
+    return bl::make_pro_forma_reservation(
+        std::move(owner_uuid) + "/" + std::to_string(seq), bl::BatchTyp::planer_block, std::move(maschine), threads,
+        /*slice_begin=*/0, /*slice_count=*/0, std::move(reserviert_utc), std::move(pro_forma_bis_utc));
+}
+
 [[nodiscard]] inline PlanRegistrySource make_plan_registry_source(tlz::RegistryContents const& rc) {
     std::size_t bausteine = 0;
     for (auto const& [axis, names] : rc.axis_names) bausteine += names.size();
