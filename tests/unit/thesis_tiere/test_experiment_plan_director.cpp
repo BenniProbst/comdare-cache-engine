@@ -108,7 +108,8 @@ TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith17_5_16) {
     EXPECT_EQ(trio->system.engine, "cache_engine_system");
     EXPECT_EQ(trio->measurement.engine, "cache_engine_measurement");
 
-    EXPECT_EQ(trio->organ_axis_count(), 17u) << "Organ-golden: 17 Kompositions-Achsen (isa raus, INC-2d)";
+    EXPECT_EQ(trio->organ_axis_count(), 18u)
+        << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d, persistence_target rein STRUKT-R ORG-18)";
     EXPECT_EQ(trio->system_axis_count(), 5u)
         << "System: compiler/extension_hardware/target_isa/scheduling/load_framework";
     EXPECT_EQ(trio->measurement_category_count(), 16u) << "16 Mess-Kategorien (kMeasurementAxisRegistry)";
@@ -278,7 +279,7 @@ TEST(ExperimentPlanDirector, DirectorAnnotatesPlanHeaderWithRegistryTrio) {
 
     EXPECT_TRUE(cb.header.registries.loaded) << "der Plan-Kopf traegt die 3 Angebots-Quellen";
     EXPECT_EQ(cb.header.registries.organ.engine, "cache_engine");
-    EXPECT_EQ(cb.header.registries.organ.axis_count, 17u);
+    EXPECT_EQ(cb.header.registries.organ.axis_count, 18u);
     EXPECT_EQ(cb.header.registries.system.engine, "cache_engine_system");
     EXPECT_EQ(cb.header.registries.system.axis_count, 5u);
     EXPECT_EQ(cb.header.registries.measurement.engine, "cache_engine_measurement");
@@ -304,7 +305,7 @@ TEST(ExperimentPlanDirector, ResolverOrganPureProfileZeroRejectsInPlanHead) {
         tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
                                      fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
     ASSERT_TRUE(trio.has_value());
-    ASSERT_EQ(trio->organ_axis_count(), 17u) << "RegistryTrio 17/5/16 unveraendert gruen";
+    ASSERT_EQ(trio->organ_axis_count(), 18u) << "RegistryTrio 18/5/16 unveraendert gruen";
     ASSERT_EQ(trio->system_axis_count(), 5u);
     ASSERT_EQ(trio->measurement_category_count(), 16u);
 
@@ -1521,6 +1522,74 @@ TEST(PlanerBlockReservation, ProFormaShapeIsExactAndClockFree) {
     // Der Typ-Name serialisiert stabil (das Dokument-Format kennt ihn).
     EXPECT_EQ(bl::to_string(bl::BatchTyp::planer_block), "planer_block");
     EXPECT_EQ(bl::batch_typ_from_string("planer_block"), bl::BatchTyp::planer_block);
+}
+
+// (G4b-2/E4) Der Wert-Kern liegt jetzt in bestandslog/planer_block_value.hpp und nimmt eine EXPLIZITE id; der
+// Director-Helfer ist nur noch eine Huelle, die `owner_uuid + "/" + seq` als id einsetzt. Diese Wache haelt beides
+// fest: die Delegation ist wertgleich, und der Kern akzeptiert die zweite legitime id-Form (E2, owner + "/planer"),
+// die der Helfer strukturell nicht erzeugen kann.
+TEST(PlanerBlockReservation, DelegatesToValueCoreAndAcceptsExplicitId) {
+    namespace bl = ::comdare::cache_engine::builder::bestandslog;
+
+    // (a) Wertgleichheit: Huelle == Kern mit derselben, von der Huelle gebildeten id.
+    auto const via_huelle = planner::make_planer_block_reservation("6f1c2b3a-0000-4444-8888-abcdefabcdef", 7, "prod1",
+                                                                   24, "2026-07-26T05:00:00Z", "2026-07-26T05:30:00Z");
+    auto const via_kern = bl::make_planer_block_reservation_value("6f1c2b3a-0000-4444-8888-abcdefabcdef/7", "prod1", 24,
+                                                                  /*ceb_legende=*/"", /*ceb_key_sha512=*/"",
+                                                                  "2026-07-26T05:00:00Z", "2026-07-26T05:30:00Z");
+    EXPECT_EQ(via_huelle, via_kern) << "der Director-Helfer ist eine reine Delegation, kein zweiter Wert-Aufbau";
+    EXPECT_TRUE(via_huelle.ceb_legende.empty()) << "die Huelle meldet keine CEB-Bindung -- das tut der Emissions-Pfad";
+    EXPECT_TRUE(via_huelle.ceb_key_sha512.empty());
+
+    // (b) Die E2-id-Form: eine Sperre je LAUF, nicht je Sequenz. Ueber die seq-Huelle nicht erzeugbar.
+    auto const planer = bl::make_planer_block_reservation_value("prod1-job-4711@prod1/planer", "prod1", 24,
+                                                                /*ceb_legende=*/"", /*ceb_key_sha512=*/"",
+                                                                "2026-07-26T05:00:00Z", "2026-07-26T05:30:00Z");
+    EXPECT_EQ(planer.id, "prod1-job-4711@prod1/planer");
+    EXPECT_EQ(planer.typ, bl::BatchTyp::planer_block);
+    EXPECT_EQ(planer.maschine, "prod1") << "maschine ist ein EIGENES Feld, nicht aus der id zurueckgelesen";
+    EXPECT_EQ(planer.slice_begin, 0u) << "ein planer_block sperrt die Strecke, keine Datenscheibe";
+    EXPECT_EQ(planer.slice_count, 0u);
+    EXPECT_EQ(planer.status, bl::BatchStatus::offen);
+    EXPECT_TRUE(planer.eta_s.empty()) << "pro forma == ohne ETA";
+
+    // (c) Uhrfrei auch im Kern: zwei Aufrufe mit denselben Argumenten sind identisch.
+    auto const again = bl::make_planer_block_reservation_value("prod1-job-4711@prod1/planer", "prod1", 24,
+                                                               /*ceb_legende=*/"", /*ceb_key_sha512=*/"",
+                                                               "2026-07-26T05:00:00Z", "2026-07-26T05:30:00Z");
+    EXPECT_EQ(planer, again);
+}
+
+// (G4b-2/2.4-(7)) ceb:emit war der EINZIGE Job ohne Storage-Scharfschaltung -- und zugleich der Job, der
+// --emit-tier-ci faehrt. Ohne den Aufruf waere dort Push/Pull inert und eine Bestandslog-Reservierung Fiktion.
+// Die Aktivierung steht jetzt in JEDEM ceb:emit-Job der Stufe-1-YAML, aus DERSELBEN Literal-Quelle wie in Stufe 2.
+TEST(CiYamlBuilder, CebEmitJobCarriesStorageActivation) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                yb;
+    director.construct(*tp, yb);
+    std::string const& yaml = yb.text();
+
+    std::size_t const ceb_emit_jobs = count_occurrences(yaml, "# JOB ceb-emit combo ");
+    ASSERT_GT(ceb_emit_jobs, 0u);
+    EXPECT_EQ(count_occurrences(yaml, "      . external/comdare-cache-engine/scripts/comdare_storage_activation.sh\n"),
+              ceb_emit_jobs)
+        << "genau einmal je ceb:emit-Job -- und in keinem anderen Stufe-1-Job";
+    EXPECT_EQ(count_occurrences(yaml, "        export COMDARE_ARTEFAKT_TRIES=\"${COMDARE_ARTEFAKT_TRIES:-2}\"\n"),
+              ceb_emit_jobs)
+        << "der Blackhole-Deckel reist mit derselben Literal-Quelle";
+    // set -u-Haerte und KLASSE-Pfad gelten hier genauso wie in Stufe 2 (eine Quelle, ein Verhalten).
+    EXPECT_EQ(yaml.find("[ \"$COMDARE_STORAGE_CACHE\" ="), std::string::npos);
+    EXPECT_EQ(yaml.find("$CI_PROJECT_DIR/Code/external/comdare-cache-engine/scripts/"), std::string::npos);
+    // Die Aktivierung steht NACH der DRIVER-Ermittlung (sie braucht das gebaute Binary nicht, aber die
+    // Reihenfolge ist an den drei Aufrufstellen dieselbe -- eine Quelle, ein Muster).
+    auto const pos_driver = yaml.find("      DRIVER=$(find build -type f -name \"comdare-messung-driver\"");
+    auto const pos_activ  = yaml.find("      . external/comdare-cache-engine/scripts/comdare_storage_activation.sh\n");
+    ASSERT_NE(pos_driver, std::string::npos);
+    ASSERT_NE(pos_activ, std::string::npos);
+    EXPECT_LT(pos_driver, pos_activ);
 }
 
 // (#29+#27, 2026-07-23) BatchJobsCarryCancelTrapAndHeartbeatTee: jeder STUFE-2-Batch-Job (Build + Mess je Host) beginnt

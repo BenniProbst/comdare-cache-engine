@@ -24,6 +24,10 @@
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>  // Bauplan §4: ceb_contract_version (+ceb= in build_version)
 #include <builder/bestandslog/artifact_cache_transport.hpp> // G4b-1 (#46b I1): make_bestand_transport -- NUR hier, die
                                                             // eine Umbrella-TU (zieht den ce-XML-DOM nach)
+#include <builder/bestandslog/builder_registration.hpp>     // G4b-2: store_reservation_locked / make_lock_owner /
+// default_lock_ttl_s / utc_iso_from_epoch (der gelockte Weg)
+#include <builder/bestandslog/planer_block_value.hpp> // G4b-2/E4: make_planer_block_reservation_value (der Wert-Kern)
+#include <builder/ceb_version_stamp.hpp> // G4b-2/E3: kCebFingerprint (die 128-hex-CEB-SHA512 fuer ceb_key_sha512)
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // Bauplan §4/§5: AlgoSigFn aus compose_algo_signature
 #include <builder/experiment_tree/registry_to_axis_levels.hpp>    // P5: build_all_axis_levels (EnabledStrategies)
@@ -679,6 +683,118 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
 }
 
 namespace {
+// ---------------------------------------------------------------------------------------------------------------
+// G4b-2 (#46b I1b / E1+E2+E4): der planer_block-LEBENSZYKLUS um eine Emission.
+//
+//   store(offen) -> Emission -> rc==0 ? mark_done + store + commit : PromiseGuard laeuft in den Release
+//
+// Er liegt HIER und nicht im Treiber, weil der gelockte Schreibweg (with_document_lock_retry /
+// store_reservation_locked / make_lock_owner, builder_registration.hpp) ueber bestandslog_document.hpp:49 den
+// ce-XML-DOM zieht und libs/common nicht im Include-Satz des messung_driver-Targets liegt. Diese TU ist die eine,
+// die die Umbrella-Welt sehen darf -- und zugleich die, in der die Emission ohnehin passiert. Angenehme Folge:
+// 2.4-(2) ("rc in eine LOKALE Variable, nicht return-im-Ausdruck") ist hier strukturell erfuellt, der Guard lebt
+// garantiert laenger als die Berechnung des Rueckgabewerts.
+//
+// BUCHHALTUNG, NIE EMISSIONS-GATE: scheitert einer der drei Stores, laeuft die Emission TROTZDEM und es gibt EINE
+// Warnzeile auf cerr. Das Bestandslog informiert, es filtert nicht -- ein Lager-Ausfall darf keine CI-Emission
+// verhindern. Alle Zeilen gehen auf cerr, NIE auf cout: cout ist hier der YAML-Kanal.
+//
+// FRIST: reserviert_utc und pro_forma_bis_utc entstehen aus DEMSELBEN now_epoch, die Frist ueber
+// pro_forma_deadline_epoch_s -- exakt das Muster von make_slice_reservation (builder_registration.hpp:193-200),
+// damit die 30 Minuten echt sind und nicht eine Sekunde spaeter ablaufen.
+//
+// LOCK: ttl aus default_lock_ttl_s() (der LockRecord-Default ist die EINE Heimat der Zahl), Owner aus
+// make_lock_owner(owner_uuid, maschine). Ein planer_block ist der Millisekunden-Fall -- er berechnet keine ETA.
+// ---------------------------------------------------------------------------------------------------------------
+// GoF DECORATOR um einen IPlanBuilder: reicht das ganze Protokoll unveraendert an den inneren Builder weiter und
+// merkt sich NUR die [a,b,c]-Legenden, die auf der Mess-Achsen-Ebene vorbeikommen. Zweck: der planer_block soll die
+// CEB-Bindung (ceb_legende, E3) melden, und die Legende entsteht erst IM Director-Walk. Der Decorator holt sie aus
+// DEMSELBEN Walk -- kein zweites Parsen, keine neue Director-API, kein Eingriff in die Emitter-Reinheit.
+class LegendCollectingBuilder final : public planner::IPlanBuilder {
+public:
+    explicit LegendCollectingBuilder(planner::IPlanBuilder& inner) : inner_{inner} {}
+
+    void begin_plan(planner::PlanHeader const& h) override { inner_.begin_plan(h); }
+    void begin_perm(planner::PlanPerm const& p) override { inner_.begin_perm(p); }
+    void on_step(planner::PlanStep const& s) override { inner_.on_step(s); }
+    void end_perm(planner::PlanPerm const& p) override { inner_.end_perm(p); }
+    void end_plan(planner::PlanHeader const& h) override { inner_.end_plan(h); }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override {
+        legenden_.push_back(c.legend);
+        inner_.begin_measurement_combo(c);
+    }
+    void end_measurement_combo(planner::PlanMeasurementCombo const& c) override { inner_.end_measurement_combo(c); }
+
+    // Die EINE Legende dieser Emission -- oder leer. Leer bei null Kombinationen (nichts emittiert) UND bei
+    // mehreren: ein planer_block sperrt EINE Strecke, und fuer eine MENGE von Klammern gibt es keine Wire-Form.
+    // Statt hier ein Trennzeichen zu ERFINDEN, das kein Leser kennt, bleibt das Feld "nicht gemeldet" -- es ist
+    // ausdruecklich optional. Der Mehr-Combo-Fall wird sichtbar gemeldet, nicht verschwiegen.
+    [[nodiscard]] std::string eine_legende() const { return legenden_.size() == 1 ? legenden_.front() : std::string{}; }
+    [[nodiscard]] std::size_t combo_count() const noexcept { return legenden_.size(); }
+
+private:
+    planner::IPlanBuilder&   inner_;
+    std::vector<std::string> legenden_;
+};
+
+// Das Ergebnis einer Emission: ihr Rueckgabe-Code und die CEB-Bindung, die der planer_block danach melden kann.
+struct EmissionErgebnis {
+    int         rc = 1;
+    std::string ceb_legende; // leer = nicht gemeldet (0 oder >1 Kombinationen)
+    std::size_t combo_count = 0;
+};
+
+[[nodiscard]] int run_with_planer_block(PlanerBlockContext const& pb, std::function<EmissionErgebnis()> const& emit) {
+    if (!pb.aktiv()) return emit().rc; // AUS (Default) => byte-identisch zum Stand vor G4b-2
+
+    auto const      transport = bl::make_bestand_transport(*pb.cache);
+    auto const      me        = bl::make_lock_owner(pb.owner_uuid, pb.maschine);
+    int const       ttl_s     = bl::default_lock_ttl_s();
+    bl::NowFn const now_fn{&bl::system_now_epoch_s};
+
+    // ceb_key_sha512 steht schon VOR der Emission fest (die CEB ist diese Binary) und reist deshalb bereits am
+    // offen-Record mit. ceb_legende kann erst die Emission liefern -- sie kommt mit dem done-Record.
+    std::string const ceb_key{::comdare::cache_engine::builder::kCebFingerprint};
+    auto const        now_epoch = now_fn();
+    auto              res       = bl::make_planer_block_reservation_value(
+        pb.id, pb.maschine, pb.threads, /*ceb_legende=*/std::string{}, ceb_key, bl::utc_iso_from_epoch(now_epoch),
+        bl::utc_iso_from_epoch(bl::pro_forma_deadline_epoch_s(now_epoch)));
+
+    auto const store = [&transport, &pb, &me, ttl_s, &now_fn](bl::BatchReservierung const& r, char const* was) {
+        if (!bl::store_reservation_locked(transport, pb.doc_key, me, ttl_s, now_fn, r, was)) {
+            std::cerr << "[bestandslog] WARNUNG fehlerklasse=reservierung_nicht_gespeichert: planer_block id='" << r.id
+                      << "' (" << was << ") steht NICHT im Store -- Emission laeuft trotzdem weiter.\n";
+        }
+    };
+
+    store(res, "planer_block offen");
+    // Terminalitaet: der Guard schliesst die Reservierung AUCH im Fehler- und Wurf-Pfad -- released statt ewig
+    // offen, damit eine andere Maschine die Strecke uebernehmen kann.
+    bl::PromiseGuard guard{[&res, &store]() {
+        bl::mark_released(res);
+        store(res, "planer_block Release");
+    }};
+
+    EmissionErgebnis const erg = emit(); // LOKALE Variable (2.4-(2)): der Guard lebt hier noch
+    int const              rc  = erg.rc;
+    if (rc == 0) {
+        // Die CEB-Bindung steht erst jetzt fest (E3): die Legende kommt aus dem gelaufenen Walk.
+        if (!erg.ceb_legende.empty()) {
+            res.ceb_legende = erg.ceb_legende;
+        } else if (erg.combo_count > 1) {
+            std::cerr << "[bestandslog] WARNUNG fehlerklasse=ceb_legende_nicht_eindeutig: die Emission traegt "
+                      << erg.combo_count << " Mess-Kombinationen -- ceb_legende bleibt ungemeldet (ceb_key_sha512 "
+                      << "identifiziert die CEB weiterhin eindeutig).\n";
+        }
+        bl::mark_done(res);
+        store(res, "planer_block done");
+        guard.commit(); // Erfolg => kein Release
+    }
+    return rc;
+}
+} // namespace
+
+namespace {
 // GETEILTE Naht der --dump-plan/--dump-ci/--dump-cmake-Fassaden (W5-B/W7-A/W7-B): Root-Tag-Sniff ueber den
 // common-DOM (analog main.cpp:675-680) + Parse + EINER Director-Walk in den uebergebenen ConcreteBuilder.
 // <comdare_thesis_profile> -> Thesis-Kanal, <comdare_experiment> -> Experiment-Kanal. Beide Parser liefern
@@ -758,22 +874,33 @@ int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::
     return rc;
 }
 
-int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                              PlanerBlockContext const& pb) {
     // W7-A (--dump-ci, §40.b): der CiYamlBuilder-Traeger am geteilten Director-Walk. Emittiert die dynamische,
     // Planer-gesteuerte GitLab-Child-Pipeline-YAML (STUFE 1 CEB-Bau-Jobs + STUFE 2 Tier-Emit/Grandchild-Trigger).
-    planner::CiYamlBuilder builder;
-    int const              rc = construct_plan_into(profile_path, builder, os, "dump-ci");
-    if (rc == 0) os << builder.text();
-    return rc;
+    // G4b-2/E1: DIES ist eine der beiden Strecken, die real in einen CEB-Compile muenden -- deshalb haengt der
+    // planer_block hier (und an --dump-cmake), NICHT an --dump-plan oder den --emit-tier-*-Befehlen.
+    return run_with_planer_block(pb, [&]() -> EmissionErgebnis {
+        planner::CiYamlBuilder  builder;
+        LegendCollectingBuilder sammler{builder}; // Decorator: gleicher Walk, Legende fuer die CEB-Bindung
+        int const               rc = construct_plan_into(profile_path, sammler, os, "dump-ci");
+        if (rc == 0) os << builder.text();
+        return {rc, sammler.eine_legende(), sammler.combo_count()};
+    });
 }
 
-int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                                 PlanerBlockContext const& pb) {
     // W7-B/W10-A (--dump-cmake, §40.c/§42): der CMakeGraphBuilder-Traeger (STUFE 1, Planer-Rolle) am geteilten
     // Director-Walk. Emittiert das Bare-Metal-experiment_plan.cmake der Mess-Achsen-Stufe (CEB-Bau + CEB-Emit).
-    planner::CMakeGraphBuilder builder;
-    int const                  rc = construct_plan_into(profile_path, builder, os, "dump-cmake");
-    if (rc == 0) os << builder.text();
-    return rc;
+    // G4b-2/E1: die zweite CEB-Compile-Strecke -- derselbe planer_block-Lebenszyklus wie bei --dump-ci.
+    return run_with_planer_block(pb, [&]() -> EmissionErgebnis {
+        planner::CMakeGraphBuilder builder;
+        LegendCollectingBuilder    sammler{builder}; // Decorator wie im --dump-ci-Zweig
+        int const                  rc = construct_plan_into(profile_path, sammler, os, "dump-cmake");
+        if (rc == 0) os << builder.text();
+        return {rc, sammler.eine_legende(), sammler.combo_count()};
+    });
 }
 
 int emit_tier_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,

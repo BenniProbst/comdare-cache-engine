@@ -225,19 +225,58 @@ struct ExperimentRunResult {
 // wird NUR in der Fassaden-.cpp inkludiert, NIE in diesem Header (umbrella-frei fuer den Treiber).
 [[nodiscard]] int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
+// G4b-2 (#46b I1b / E1+E2+E4): der PLANER-BLOCK-KONTEXT der beiden Emissions-Fassaden.
+//
+// Ein planer_block meldet dem Lager, dass DIESER Planer gleich eine CEB-Compile-Strecke anstoesst, damit ein zweiter
+// Planer auf einer anderen Maschine dieselbe Strecke nicht doppelt reserviert. Der Lebenszyklus ist
+//   store(offen) -> Emission -> rc==0 ? mark_done+store : Release ueber den PromiseGuard
+// und laeuft VOLLSTAENDIG in profile_run_facade.cpp -- der einen Umbrella-TU. Der Host (messung_driver) uebergibt
+// nur diesen Kontext.
+//
+// WARUM DER HOST DEN EFFEKT NICHT SELBST AUSFUEHRT: der Lifecycle braucht with_document_lock_retry /
+// store_reservation_locked / make_lock_owner (builder_registration.hpp) und make_bestand_transport. Deren
+// Include-Kette laeuft ueber bestandslog_document.hpp:49 auf <serialization/xml_config_parser/xml_reader.hpp>, und
+// libs/common liegt NICHT im Include-Satz des messung_driver-Targets (02_messung_driver/CMakeLists.txt:6-11). Der
+// Treiber kann eine BatchReservierung also nicht einmal HALTEN. Deshalb dieselbe Aufteilung wie bei bestand_cache
+// in ProfileRunArgs: dieser Header bleibt umbrella-frei und traegt nur ArtifactCache + std-Typen.
+//
+// LEER = INERT: ein default-konstruierter Kontext (cache == nullptr) schaltet den planer_block AUS -- die Emission
+// laeuft dann byte-identisch zum Stand vor G4b-2. Der Host belegt ihn NUR bei
+// COMDARE_BESTANDSLOG=="true" UND cache->minio_enabled() UND gesetzten Pflicht-Variablen (AUF-B3-Systematik).
+//
+// id UND owner_uuid SIND ZWEI FELDER (E2/§66-N3-Geist): die `id` ist der Merge-Schluessel des Records
+// (owner_uuid + "/planer"), `owner_uuid` ist die Identitaet des Lock-Halters. Der owner wird NICHT aus der id
+// zurueckgelesen -- ein Rueckwaerts-Parsen des Schluessels waere eine stille Kopplung zwischen zwei Bedeutungen.
+struct PlanerBlockContext {
+    std::shared_ptr<artifact_transport::ArtifactCache const> cache; // leer => planer_block AUS (byte-neutral)
+    std::string                                              doc_key;
+    std::string                                              id;         // owner_uuid + "/planer" (E2)
+    std::string                                              owner_uuid; // Lock-Identitaet, eigenes Feld
+    std::string                                              maschine;
+    unsigned                                                 threads = 0;
+
+    [[nodiscard]] bool aktiv() const noexcept { return static_cast<bool>(cache) && !doc_key.empty() && !id.empty(); }
+};
+
 // GoF Facade (PAKET W7-A, §40.b): --dump-ci -- rein-lesende Emission der deterministischen GitLab-Child-
 // Pipeline-YAML (CiYamlBuilder am SELBEN Director-Walk). Die dynamische, Planer-gesteuerte Folge-CI (§40.b:
 // Pilot->Serie): zweistufig (STUFE 1 = CEB-Bau-Jobs je System-Perm; STUFE 2 = Tier-Job-Emitter + Grandchild-
 // Trigger). Byte-deterministisch/host-unabhaengig (nur CI-Variablen + opt/simd-Plan-Konstanten). Baut KEINE
 // DLL und misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os);
+// G4b-2/E1: `pb` traegt den planer_block. Default-Argument = leerer Kontext = AUS => bestehende Aufrufer und der
+// env-freie Lauf bleiben byte-identisch. Die YAML-Bytes aendern sich NIE durch den planer_block -- er schreibt
+// ausschliesslich ins Bestandslog-Dokument.
+[[nodiscard]] int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                                            PlanerBlockContext const& pb = {});
 
 // GoF Facade (PAKET W7-B, §40.c): --dump-cmake -- rein-lesende Emission des STUFE-1-experiment_plan.cmake
 // (CMakeGraphBuilder am SELBEN Director-Walk). W10-A/§42: die MESS-ACHSEN-Stufe (Planer-Rolle) -- je
 // Mess-Kombination [a,b,c] ein CEB-Bau- + CEB-Emit-Target (--emit-tier-cmake => Stufe-2). Der Bare-Metal-Bau
 // ist damit dreistufig. Byte-deterministisch/host-unabhaengig (Treiber/Profil = CMake-Variablen). Baut KEINE
 // DLL und misst NICHT. Rueckgabe: 0 = .cmake nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
-[[nodiscard]] int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os);
+// G4b-2/E1: `pb` wie bei dump_experiment_ci_facade -- derselbe Lifecycle, dieselbe Neutralitaet bei leerem Kontext.
+[[nodiscard]] int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os,
+                                               PlanerBlockContext const& pb = {});
 
 // GoF Facade (PAKET W10-A, §42/§42.b): --emit-tier-ci -- die CEB-ROLLEN-Emission (Stufe 2). Emittiert NUR die
 // STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums (System-Perms [d,e,f] + Tier-Chunk-Bau-Jobs "tier:build:[d,e,f]

@@ -37,6 +37,7 @@
 #include "bestandslog/artifact_cache_transport.hpp"
 #include "bestandslog/builder_registration.hpp"   // LagerRunState (der Konsument der gebundenen Naht)
 #include "bestandslog/fingerprint_key_source.hpp" // G4b-1/AUF-A3: make_fingerprint_key_fn (der reale key_of)
+#include "bestandslog/planer_block_value.hpp"     // G4b-2/E4: make_planer_block_reservation_value
 #include "bestandslog/reservation_lifecycle.hpp"  // G4b-1/AUF-C2: pro_forma_deadline_epoch_s + mark_done
 
 #include <gtest/gtest.h>
@@ -47,6 +48,7 @@
 #include <fstream>
 #include <map>
 #include <optional>
+#include <stdexcept> // G4b-2: std::runtime_error als Wurf im Guard-Test
 #include <string>
 #include <utility>
 #include <vector>
@@ -444,6 +446,162 @@ TEST(G3BestandslogFakeRound, MarkDoneErzeugtDenTerminalenRang) {
 // reserviert_utc und pro_forma_bis_utc denselben now-Wert, die Frist ist dort also eine Sekunde
 // spaeter abgelaufen. Diese Wache haelt die Rechenregel fest, damit der Fix daran andocken kann.
 // ===========================================================================
+// ===========================================================================
+// G4b-2 (d2): der planer_block-LEBENSZYKLUS gegen einen Fake-Transport.
+//
+// Nachgestellt wird genau die Sequenz, die run_with_planer_block (profile_run_facade.cpp) fuehrt:
+//   store(offen) -> Emission -> rc==0 ? mark_done + store : Release ueber den PromiseGuard
+// Der Lifecycle selbst liegt in der Fassaden-TU (die den ce-XML-DOM sehen darf); hier wird die
+// ZUSTANDS-FOLGE geprueft, die er erzeugt -- dep-frei, ohne mc/minio/Netz. Was danach im Dokument
+// steht, ist das, was eine zweite Maschine liest.
+// ===========================================================================
+namespace {
+// Liest die eine planer_block-Reservierung aus dem Fake-Store zurueck (ueber den echten Parser --
+// damit prueft der Test auch, dass der Record wirklich serialisierbar/lesbar ist).
+[[nodiscard]] std::optional<bl::BatchReservierung> lies_reservierung(FakeStore& store, std::string const& doc_key) {
+    auto const it = store.objekte.find(doc_key);
+    if (it == store.objekte.end()) return std::nullopt;
+    auto const doc = bl::parse_bestandslog(it->second);
+    if (!doc || doc->reservierungen.size() != 1) return std::nullopt;
+    return doc->reservierungen.front();
+}
+
+[[nodiscard]] bl::BatchReservierung planer_block(std::string id, std::string ceb_legende = {},
+                                                 std::string ceb_key_sha512 = {}) {
+    return bl::make_planer_block_reservation_value(std::move(id), "prod1", 24, std::move(ceb_legende),
+                                                   std::move(ceb_key_sha512), "2026-07-26T05:00:00Z",
+                                                   "2026-07-26T05:30:00Z");
+}
+} // namespace
+
+TEST(G3PlanerBlockLifecycle, ErfolgsfallEndetTerminalAlsDone) {
+    FakeStore  store;
+    auto const t  = store.transport();
+    auto const me = bl::make_lock_owner("prod1-job-4711@prod1", "prod1");
+
+    auto res = planer_block("prod1-job-4711@prod1/planer");
+    ASSERT_TRUE(bl::store_reservation_locked(t, kDocKey, me, bl::default_lock_ttl_s(),
+                                             bl::NowFn{&bl::system_now_epoch_s}, res, "planer_block offen"));
+    {
+        auto const offen = lies_reservierung(store, kDocKey);
+        ASSERT_TRUE(offen.has_value());
+        EXPECT_EQ(offen->status, bl::BatchStatus::offen);
+        EXPECT_EQ(offen->id, "prod1-job-4711@prod1/planer");
+    }
+
+    // Emission gelungen (rc==0) -> mark_done + store, der Guard wird committed und feuert nicht.
+    bl::mark_done(res);
+    ASSERT_TRUE(bl::store_reservation_locked(t, kDocKey, me, bl::default_lock_ttl_s(),
+                                             bl::NowFn{&bl::system_now_epoch_s}, res, "planer_block done"));
+    auto const done = lies_reservierung(store, kDocKey);
+    ASSERT_TRUE(done.has_value());
+    EXPECT_EQ(done->status, bl::BatchStatus::done) << "der Merge hebt offen -> done (Status-Rang)";
+    EXPECT_EQ(done->maschine, "prod1") << "maschine bleibt eigenes Feld";
+}
+
+TEST(G3PlanerBlockLifecycle, WurfFallEndetAlsReleasedUeberDenGuard) {
+    FakeStore  store;
+    auto const t  = store.transport();
+    auto const me = bl::make_lock_owner("prod1-job-4711@prod1", "prod1");
+
+    auto res = planer_block("prod1-job-4711@prod1/planer");
+    ASSERT_TRUE(bl::store_reservation_locked(t, kDocKey, me, bl::default_lock_ttl_s(),
+                                             bl::NowFn{&bl::system_now_epoch_s}, res, "planer_block offen"));
+
+    // Genau die Guard-Konstruktion der Fassade -- und ein Wurf statt einer gelungenen Emission.
+    try {
+        bl::PromiseGuard guard{[&]() {
+            bl::mark_released(res);
+            (void)bl::store_reservation_locked(t, kDocKey, me, bl::default_lock_ttl_s(),
+                                               bl::NowFn{&bl::system_now_epoch_s}, res, "planer_block Release");
+        }};
+        throw std::runtime_error("Emission gescheitert");
+    } catch (std::exception const&) {
+        // Der Guard hat im Unwinding gefeuert.
+    }
+
+    auto const nach = lies_reservierung(store, kDocKey);
+    ASSERT_TRUE(nach.has_value());
+    EXPECT_EQ(nach->status, bl::BatchStatus::released)
+        << "released statt ewig offen -- erst das macht die Strecke fuer eine andere Maschine uebernehmbar";
+}
+
+// Buchhaltung, nie Emissions-Gate: auf einem Transport, der NICHT speichern kann, meldet der Schreibweg
+// ehrlich false -- und die Fassade fuehrt die Emission trotzdem aus (eine Warnzeile, kein Abbruch).
+TEST(G3PlanerBlockLifecycle, StoreFehlerIstSichtbarUndKeinGate) {
+    at::ArtifactCache const cache; // inert
+    auto const              t  = bl::make_bestand_transport(cache);
+    auto const              me = bl::make_lock_owner("prod1-job-4711@prod1", "prod1");
+
+    auto const res = planer_block("prod1-job-4711@prod1/planer");
+    EXPECT_FALSE(bl::store_reservation_locked(t, kDocKey, me, bl::default_lock_ttl_s(),
+                                              bl::NowFn{&bl::system_now_epoch_s}, res, "planer_block offen"))
+        << "kein Phantom-Erfolg auf einem Transport ohne Objekt-Store";
+}
+
+// ===========================================================================
+// G4b-2 / E3: die CEB-BINDUNG als ROUNDTRIP -- emit -> parse -> Feld-fuer-Feld gleich.
+//
+// Beide Felder sind OPTIONAL. Der interessante Teil ist nicht das Setzen, sondern die Zusage nach
+// aussen: gefuellt reisen sie durch die Wire-Form, LEER wird das Attribut gar nicht geschrieben --
+// nur so bleibt ein v2-Leser lesefaehig, obwohl kSyntaxVersion jetzt 3 ist.
+// ===========================================================================
+TEST(G3CebBindung, GefuellteFelderUeberlebenDenRoundtrip) {
+    auto const legende = std::string{"[all]"};
+    auto const key     = std::string(128, 'b');
+
+    bl::BestandslogDocument doc;
+    doc.genus        = bl::Genus::binary;
+    doc.created_utc  = "2026-07-26T05:00:00Z";
+    doc.doc_revision = 1;
+    doc.reservierungen.push_back(planer_block("prod1-job-4711@prod1/planer", legende, key));
+
+    auto const wieder = bl::parse_bestandslog(bl::emit_document(doc));
+    ASSERT_TRUE(wieder.has_value());
+    ASSERT_EQ(wieder->reservierungen.size(), 1u);
+    EXPECT_EQ(wieder->reservierungen[0].ceb_legende, legende);
+    EXPECT_EQ(wieder->reservierungen[0].ceb_key_sha512, key);
+    EXPECT_EQ(wieder->reservierungen[0], doc.reservierungen[0]) << "Feld-fuer-Feld unveraendert";
+}
+
+TEST(G3CebBindung, LeereFelderErscheinenNichtInDerWireForm) {
+    bl::BestandslogDocument doc;
+    doc.genus        = bl::Genus::binary;
+    doc.created_utc  = "2026-07-26T05:00:00Z";
+    doc.doc_revision = 1;
+    doc.reservierungen.push_back(planer_block("prod1-job-4711@prod1/planer")); // beide Felder leer
+
+    auto const xml = bl::emit_document(doc);
+    EXPECT_EQ(xml.find("ceb_legende="), std::string::npos)
+        << "leer == nicht gemeldet -> das Attribut wird gar nicht geschrieben (v2-Lesbarkeit)";
+    EXPECT_EQ(xml.find("ceb_key_sha512="), std::string::npos);
+
+    auto const wieder = bl::parse_bestandslog(xml);
+    ASSERT_TRUE(wieder.has_value());
+    ASSERT_EQ(wieder->reservierungen.size(), 1u);
+    EXPECT_TRUE(wieder->reservierungen[0].ceb_legende.empty());
+    EXPECT_TRUE(wieder->reservierungen[0].ceb_key_sha512.empty());
+    EXPECT_EQ(wieder->reservierungen[0], doc.reservierungen[0]);
+}
+
+// Der Lifecycle-Weg: die Bindung reist mit dem done-Record durch den echten Schreibweg.
+TEST(G3CebBindung, BindungUeberlebtDenGelocktenSchreibweg) {
+    FakeStore  store;
+    auto const t  = store.transport();
+    auto const me = bl::make_lock_owner("prod1-job-4711@prod1", "prod1");
+
+    auto res = planer_block("prod1-job-4711@prod1/planer", "[all]", std::string(128, 'c'));
+    bl::mark_done(res);
+    ASSERT_TRUE(bl::store_reservation_locked(t, kDocKey, me, bl::default_lock_ttl_s(),
+                                             bl::NowFn{&bl::system_now_epoch_s}, res, "planer_block done"));
+
+    auto const gelesen = lies_reservierung(store, kDocKey);
+    ASSERT_TRUE(gelesen.has_value());
+    EXPECT_EQ(gelesen->ceb_legende, "[all]");
+    EXPECT_EQ(gelesen->ceb_key_sha512, std::string(128, 'c'));
+    EXPECT_EQ(gelesen->status, bl::BatchStatus::done);
+}
+
 TEST(G3ProFormaDeadline, DefaultSind30MinutenNachDerReservierung) {
     constexpr std::int64_t reserviert = 1'800'000'000;
     EXPECT_EQ(bl::pro_forma_deadline_epoch_s(reserviert), reserviert + 30 * 60);

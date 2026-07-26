@@ -48,6 +48,7 @@
 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
 #include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
 #include "planner/plan_legend.hpp" // W10-A: das dreistufige Legenden-Namensschema (EINE Formatierungs-Single-Source)
+#include <builder/bestandslog/planer_block_value.hpp> // G4b-2/E4: make_planer_block_reservation_value (der Wert-Kern)
 #include <builder/bestandslog/reservation_lifecycle.hpp> // G4a(7): make_pro_forma_reservation / BatchTyp::planer_block
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
 
@@ -529,6 +530,32 @@ inline void emit_child_submodule_prolog(std::string& out, std::string const& pro
     out += "      fi\n";
 }
 
+// G4a P-A (2026-07-26): Storage-Scharfschaltung + Retry-Deckel, WORTGLEICH in ALLEN Batch-Emissionen (eine
+// Literal-Quelle -> die Tests zaehlen Vorkommen == Zahl der Emissionen). Steht INNERHALB des `- |`-Blocks, nicht als
+// einfache `- `-Zeile: eine Plain-Scalar-Zeile mit " #" wuerde YAML-seitig als Kommentar abgeschnitten, hier sind
+// es echte Shell-Kommentare. Laeuft nach `cd Code`, der Pfad ist workdir-relativ (KLASSE: kein $CI_PROJECT_DIR).
+//
+// G4b-2/2.4-(7) (2026-07-26): von einem statischen TierCiYamlBuilder-Member zu einer FREIEN Funktion auf
+// Namespace-Ebene gehoben -- unveraendert im Rumpf. Grund: der dritte Aufrufer ist emit_ceb_emit_job, und der liegt
+// in CiYamlBuilder (Zeile 552 ff.), also in einer ANDEREN Klasse und VOR TierCiYamlBuilder. Ein Klassen-Member waere
+// von dort nicht erreichbar gewesen, und die Alternative -- die Zeilen ein zweites Mal hinzuschreiben -- haette
+// genau die eine Literal-Quelle zerstoert, auf der die Vorkommens-Zaehlung der Tests beruht. Der Rumpf greift auf
+// keinen Klassen-Zustand zu (nur `s +=`), die Verschiebung ist daher rein mechanisch.
+inline void emit_storage_activation(std::string& s) {
+    s += "      # G4a P-A: MinIO-Rohcreds maschinenlokal in MC_HOST_prodcache falten. Das Skript ist "
+         "source-sicher\n";
+    s += "      # (kein exit, kein set -e) und bei COMDARE_STORAGE_CACHE != true vollstaendig inert -- das\n";
+    s += "      # unbedingte Sourcen ist damit unschaedlich und haelt den Nicht-Storage-Lauf unveraendert.\n";
+    s += "      . external/comdare-cache-engine/scripts/comdare_storage_activation.sh\n";
+    s += "      # Blackhole-Schutz (P-A): der ArtifactCache-Default ist 12 Versuche (artifact_cache.hpp:923); mit\n";
+    s += "      # dem 120s-Timeout je Versuch grindet ein unerreichbarer Store pathologisch lange je Objekt.\n";
+    s += "      # Deckel NUR wenn Storage ueberhaupt scharf ist; ein bereits gesetzter Wert gewinnt. Die\n";
+    s += "      # :-Expansion ist Pflicht -- der umgebende Block laeuft unter `set -u`.\n";
+    s += "      if [ \"${COMDARE_STORAGE_CACHE:-}\" = \"true\" ]; then\n";
+    s += "        export COMDARE_ARTEFAKT_TRIES=\"${COMDARE_ARTEFAKT_TRIES:-2}\"\n";
+    s += "      fi\n";
+}
+
 // ── CiYamlBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-A-Zweistufigkeit). ───────
 //    Emittiert eine deterministische GitLab-Child-Pipeline-YAML: die MESS-ACHSEN-Stufe der CE-gesteuerten Kette.
 //    Je Mess-Achsen-Kombination [a,b,c] (aus der Anwender-XML, <measurement_categories>) EINE dynamische
@@ -671,6 +698,11 @@ private:
         s += "    - |\n";
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
+        // G4b-2/2.4-(7): ceb:emit war der EINZIGE Job, der die Storage-Aktivierung nicht rief -- und zugleich der
+        // Job, der --emit-tier-ci faehrt. Ohne den Aufruf ist hier Push/Pull inert, der 12er-TRIES-Default greift,
+        // und eine Bestandslog-Reservierung waere Fiktion (minio aus) oder stiller Leerlauf. Platzierung wie an den
+        // beiden anderen Aufrufstellen (:988/:1117): direkt hinter der DRIVER-Ermittlung, im selben `- |`-Block.
+        emit_storage_activation(s); // G4a P-A: Push/Pull scharfschalten (inert ohne COMDARE_STORAGE_CACHE) + Deckel
         s += "      # §40.b-Praezisierung: die CEB (nicht der Planer) emittiert ihre STUFE-2-Sicht (System-Perms\n";
         s += "      # des FREIGEGEBENEN Raums + je-Host Build+Pruef-Batch + gegatete Mess-Batches) via "
              "--emit-tier-ci.\n";
@@ -881,25 +913,9 @@ private:
         s += "    GIT_STRATEGY: \"fetch\"\n";
     }
 
-    // G4a P-A (2026-07-26): Storage-Scharfschaltung + Retry-Deckel, WORTGLEICH in beiden Batch-Emissionen (eine
-    // Literal-Quelle -> die Tests zaehlen Vorkommen == Zahl der Batches). Steht INNERHALB des `- |`-Blocks, nicht als
-    // einfache `- `-Zeile: eine Plain-Scalar-Zeile mit " #" wuerde YAML-seitig als Kommentar abgeschnitten, hier sind
-    // es echte Shell-Kommentare. Laeuft nach `cd Code`, der Pfad ist workdir-relativ (KLASSE: kein $CI_PROJECT_DIR).
-    static void emit_storage_activation(std::string& s) {
-        s += "      # G4a P-A: MinIO-Rohcreds maschinenlokal in MC_HOST_prodcache falten. Das Skript ist "
-             "source-sicher\n";
-        s += "      # (kein exit, kein set -e) und bei COMDARE_STORAGE_CACHE != true vollstaendig inert -- das\n";
-        s += "      # unbedingte Sourcen ist damit unschaedlich und haelt den Nicht-Storage-Lauf unveraendert.\n";
-        s += "      . external/comdare-cache-engine/scripts/comdare_storage_activation.sh\n";
-        s +=
-            "      # Blackhole-Schutz (P-A): der ArtifactCache-Default ist 12 Versuche (artifact_cache.hpp:923); mit\n";
-        s += "      # dem 120s-Timeout je Versuch grindet ein unerreichbarer Store pathologisch lange je Objekt.\n";
-        s += "      # Deckel NUR wenn Storage ueberhaupt scharf ist; ein bereits gesetzter Wert gewinnt. Die\n";
-        s += "      # :-Expansion ist Pflicht -- der umgebende Block laeuft unter `set -u`.\n";
-        s += "      if [ \"${COMDARE_STORAGE_CACHE:-}\" = \"true\" ]; then\n";
-        s += "        export COMDARE_ARTEFAKT_TRIES=\"${COMDARE_ARTEFAKT_TRIES:-2}\"\n";
-        s += "      fi\n";
-    }
+    // G4b-2/2.4-(7): emit_storage_activation stand hier als statisches Member. Sie ist auf Namespace-Ebene gehoben
+    // (oberhalb von CiYamlBuilder), weil emit_ceb_emit_job als dritter Aufrufer in CiYamlBuilder liegt -- Rumpf
+    // unveraendert, eine Literal-Quelle wie zuvor. Die Aufrufe hier unten bleiben wortgleich.
 
     // #27 (2026-07-23): das LOG EINMAL explizit truncieren, BEVOR die Treiber-Invocation im APPEND-Modus schreibt.
     // ZWINGEND (Review-Fix): ohne dieses `: >` und mit `>` (O_TRUNC) haette stdout einen EIGENEN Offset gegen den
@@ -1260,13 +1276,23 @@ private:
 // Zustandsmaschine", reservation_lifecycle.hpp:54) -- damit ist die Funktion uhrfrei und exakt testbar.
 // slice_begin/slice_count sind 0/0: ein planer_block reserviert KEINE Datenscheibe, er blockiert die Strecke als
 // Ganzes (im Gegensatz zu BatchTyp::tier, der das 4096er-Korn traegt).
+//
+// G4b-2/E4 (2026-07-26): der WERT-Aufbau ist nach bestandslog/planer_block_value.hpp gewandert; diese Funktion ist
+// jetzt eine reine DELEGATION und behaelt genau ihre bisherige Signatur samt id-Bildung `owner_uuid + "/" + seq`.
+// Grund fuer den Umzug: der Emissions-Pfad und die Test-TU mit dem builder-Include-Satz brauchen den Wert, ohne
+// diesen katalog-schweren Planer-Header zu ziehen. Kein Verhaltens-Unterschied, kein toter Code -- die gepinnten
+// Tests (test_experiment_plan_director.cpp:1502/:1517-1519) laufen unveraendert gegen diese Huelle.
 [[nodiscard]] inline ::comdare::cache_engine::builder::bestandslog::BatchReservierung
 make_planer_block_reservation(std::string owner_uuid, std::size_t seq, std::string maschine, unsigned threads,
                               std::string reserviert_utc, std::string pro_forma_bis_utc) {
     namespace bl = ::comdare::cache_engine::builder::bestandslog;
-    return bl::make_pro_forma_reservation(
-        std::move(owner_uuid) + "/" + std::to_string(seq), bl::BatchTyp::planer_block, std::move(maschine), threads,
-        /*slice_begin=*/0, /*slice_count=*/0, std::move(reserviert_utc), std::move(pro_forma_bis_utc));
+    // ceb_legende/ceb_key_sha512 bleiben LEER (E3: optional, "nicht gemeldet"): diese Huelle kennt weder die
+    // Mess-Achsen-Klammer der Emission noch den CEB-Fingerprint -- sie bildet nur den Wert. Der Emissions-Pfad
+    // (profile_run_facade.cpp) belegt beide. Leer heisst, der Emitter schreibt die Attribute gar nicht -- das
+    // Dokument bleibt fuer einen v2-Leser unveraendert, und die gepinnten Tests hier bleiben wertgleich.
+    return bl::make_planer_block_reservation_value(
+        std::move(owner_uuid) + "/" + std::to_string(seq), std::move(maschine), threads, /*ceb_legende=*/std::string{},
+        /*ceb_key_sha512=*/std::string{}, std::move(reserviert_utc), std::move(pro_forma_bis_utc));
 }
 
 [[nodiscard]] inline PlanRegistrySource make_plan_registry_source(tlz::RegistryContents const& rc) {
