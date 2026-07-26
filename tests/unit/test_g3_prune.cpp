@@ -2,7 +2,8 @@
 //
 // Testet den mockbaren KERN ohne mc: prune_verdict (die Verify-Matrix: remote fehlt/mismatch/size-
 // mismatch/ok/keine lokale .version -> nie loeschen ausser bei bewiesenem Spiegel) und prunable_artifacts
-// (die EINZIGEN loeschbaren Dateien = Binary + 2 Sidecars -- NIEMALS Messdaten). Der reale
+// (die EINZIGEN loeschbaren Dateien = Binary + Marke + die optionalen Sidecars aus kOptionalTierSidecars,
+// deckungsgleich mit dem Push-Satz -- NIEMALS Messdaten). Der reale
 // verify_remote_then_prune-mc-Weg ist ein duenner Wrapper um genau diese Funktionen (wie der Rest der
 // posix_spawn-mc-Methoden nicht unit-getestet).
 
@@ -11,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <cstddef> // #13-Nachtrag: std::size_t (Drift-Wache gegen kOptionalTierSidecars)
 #include <cstdint>
 #include <ctime>
 #include <filesystem>
@@ -85,19 +87,36 @@ TEST(G5Prune, VerdictVerifiedPrunes) {
 }
 
 // ---------------------------------------------------------------------------
-// prunable_artifacts = genau die 3 Artefakt-Dateien.
+// prunable_artifacts = genau die 5 Artefakt-Dateien (#13-Nachtrag: .fingerprint/.variant kamen dazu, damit die
+// Prune-Menge deckungsgleich mit dem Push-Satz ist -- sonst blieben sie als WAISEN neben einer geloeschten
+// perm.dll liegen, und ein `.fingerprint` ohne Binary ist eine Phantom-Quelle fuer bestand_key_of).
 // ---------------------------------------------------------------------------
-TEST(G5Prune, PrunableArtifactsAreExactlyThree) {
+TEST(G5Prune, PrunableArtifactsAreExactlyFive) {
     std::filesystem::path const bin = "/tmp/some/stem";
     auto const                  ps  = at::prunable_artifacts(bin);
-    ASSERT_EQ(ps.size(), 3u);
+    ASSERT_EQ(ps.size(), 5u);
     EXPECT_EQ(ps[0], bin / "perm.dll");
     EXPECT_EQ(ps[1], bin / "perm.dll.version");
     EXPECT_EQ(ps[2], bin / "perm.dll.algos");
+    EXPECT_EQ(ps[3], bin / "perm.dll.fingerprint");
+    EXPECT_EQ(ps[4], bin / "perm.dll.variant");
 }
 
 // ---------------------------------------------------------------------------
-// LOESCHSICHERHEIT (Messdaten-nie-loeschen, HART): ein Prune loescht NUR die 3 Artefakte; result.csv,
+// DRIFT-WACHE: die Sidecar-Schwaenze der Prune-Menge sind EXAKT kOptionalTierSidecars -- dieselbe Liste, aus der
+// push_tier_binary und pull_tier_binary lesen. Wer dort ein Objekt hinzufuegt, ohne den Prune mitzuziehen, faellt
+// hier auf (das war der Weg, auf dem `.fingerprint` ueberhaupt erst aus dem Push fiel).
+// ---------------------------------------------------------------------------
+TEST(G5Prune, PrunableArtifactsCoverAllOptionalSidecars) {
+    std::filesystem::path const bin = "/tmp/some/stem";
+    auto const                  ps  = at::prunable_artifacts(bin);
+    ASSERT_EQ(ps.size(), 2u + at::kOptionalTierSidecars.size());
+    for (std::size_t i = 0; i < at::kOptionalTierSidecars.size(); ++i)
+        EXPECT_EQ(ps[2 + i], bin / at::kOptionalTierSidecars[i]);
+}
+
+// ---------------------------------------------------------------------------
+// LOESCHSICHERHEIT (Messdaten-nie-loeschen, HART): ein Prune loescht NUR die 5 Artefakte; result.csv,
 // measure_out und das prune.log bleiben unangetastet.
 // ---------------------------------------------------------------------------
 TEST(G5Prune, PruneNeverTouchesMeasureData) {
@@ -106,6 +125,8 @@ TEST(G5Prune, PruneNeverTouchesMeasureData) {
     touch(bin / "perm.dll", "BINARY");
     touch(bin / "perm.dll.version", "version=m3v2");
     touch(bin / "perm.dll.algos", "search_algo=k_ary@1.0.0");
+    touch(bin / "perm.dll.fingerprint", std::string(128, 'a'));        // #13: Lager-Anker
+    touch(bin / "perm.dll.variant", "bv=1;pt=four_kb");                // #13: Build-Varianten-Signatur
     touch(bin / "result.csv", "binary_id;setting;ns_per_op\n1;a;5\n"); // MESSDATEN
     touch(bin / "measure_out.csv", "col\n1\n");                        // MESSDATEN
     touch(bin / "perm.prune.log", "[PRUNE] stem=x action=behalten\n"); // Log bleibt
@@ -114,14 +135,36 @@ TEST(G5Prune, PruneNeverTouchesMeasureData) {
     std::error_code ec;
     for (auto const& p : at::prunable_artifacts(bin)) std::filesystem::remove(p, ec);
 
-    // Die 3 Artefakte sind weg ...
+    // Die 5 Artefakte sind weg -- KEIN verwaistes Sidecar neben einer geloeschten Binary ...
     EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll"));
     EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll.version"));
     EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll.algos"));
+    EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll.fingerprint"));
+    EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll.variant"));
     // ... die Messdaten + das Log bleiben.
     EXPECT_TRUE(std::filesystem::exists(bin / "result.csv"));
     EXPECT_TRUE(std::filesystem::exists(bin / "measure_out.csv"));
     EXPECT_TRUE(std::filesystem::exists(bin / "perm.prune.log"));
+}
+
+// ---------------------------------------------------------------------------
+// #13-Nachtrag, Robustheit: ein Sidecar, das NIE erzeugt wurde (abgeschaltetes Gate), macht den Prune nicht
+// unruhig -- std::filesystem::remove auf ein fehlendes Ziel ist kein Fehler, und die vorhandenen Objekte gehen
+// trotzdem weg. Nur perm.dll + Marke liegen hier.
+// ---------------------------------------------------------------------------
+TEST(G5Prune, PruneToleratesMissingOptionalSidecars) {
+    TempDir tmp;
+    auto    bin = tmp.path;
+    touch(bin / "perm.dll", "BINARY");
+    touch(bin / "perm.dll.version", "version=m3v2");
+    touch(bin / "result.csv", "col\n1\n"); // MESSDATEN
+
+    std::error_code ec;
+    for (auto const& p : at::prunable_artifacts(bin)) std::filesystem::remove(p, ec);
+
+    EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll"));
+    EXPECT_FALSE(std::filesystem::exists(bin / "perm.dll.version"));
+    EXPECT_TRUE(std::filesystem::exists(bin / "result.csv"));
 }
 
 // ---------------------------------------------------------------------------

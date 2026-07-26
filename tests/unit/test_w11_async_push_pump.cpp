@@ -292,6 +292,78 @@ int main() {
             }
         }
 
+        // ---- (c) #13 (B25/L-d): VOLLER 5-Objekt-Satz. Reihenfolge-Assertion HART, weil genau sie das Protokoll ist:
+        //      perm.dll ZUERST (Nutzlast), dann kOptionalTierSidecars in Listen-Reihenfolge (.algos -> .fingerprint ->
+        //      .variant), perm.dll.version ZULETZT. Ohne .fingerprint im Satz trug eine hydrierte Binary nie einen
+        //      Lager-Anker (bestand_key_of -> nullopt -> DedupOutcome::no_key) und war fuer das Lager unsichtbar.
+        {
+            std::filesystem::remove(order, ec);
+            std::filesystem::path const bin_dir = base / "perm_cellC";
+            std::filesystem::create_directories(bin_dir, ec);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::binary} << "DLLBYTES-C"; }
+            { std::ofstream{bin_dir / "perm.dll.algos", std::ios::binary} << "algo=v1"; }
+            { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::binary} << std::string(128, 'a'); }
+            { std::ofstream{bin_dir / "perm.dll.variant", std::ios::binary} << "bv=1;pt=four_kb"; }
+            { std::ofstream{bin_dir / "perm.dll.version", std::ios::binary} << bv; }
+            cache.push_tier_binary(bin_dir, bv);
+
+            std::string const stem = bin_dir.filename().string();
+            check_true("Teil6c: perm.dll.fingerprint im Store (Lager-Anker der hydrierten Binary)",
+                       std::filesystem::exists(store / kp / stem / "perm.dll.fingerprint", ec));
+            check_true("Teil6c: perm.dll.variant im Store",
+                       std::filesystem::exists(store / kp / stem / "perm.dll.variant", ec));
+
+            std::vector<std::string> lines;
+            {
+                std::ifstream lf{order};
+                for (std::string l; std::getline(lf, l);)
+                    if (!l.empty()) lines.push_back(l);
+            }
+            check_eq("Teil6c: genau 5 cp-Aufrufe", lines.size(), std::size_t{5});
+            if (lines.size() == 5) {
+                check_eq("Teil6c: 1. Push == perm.dll", lines[0], obj(stem, "perm.dll"));
+                check_eq("Teil6c: 2. Push == perm.dll.algos", lines[1], obj(stem, "perm.dll.algos"));
+                check_eq("Teil6c: 3. Push == perm.dll.fingerprint", lines[2], obj(stem, "perm.dll.fingerprint"));
+                check_eq("Teil6c: 4. Push == perm.dll.variant", lines[3], obj(stem, "perm.dll.variant"));
+                check_eq("Teil6c: 5. Push == perm.dll.version ZULETZT (Vollstaendigkeits-Marke)", lines[4],
+                         obj(stem, "perm.dll.version"));
+            }
+        }
+
+        // ---- (d) #13: FEHLENDE Sidecars werden still uebersprungen (kein Fehler): nur .fingerprint lokal, kein
+        //      .algos, kein .variant -> 3-Objekt-Push, .version bleibt LETZTES Objekt. Das ist der Normalfall bei
+        //      abgeschalteten Gates (jedes der drei Sidecars haengt an einem eigenen opt-in).
+        {
+            std::filesystem::remove(order, ec);
+            std::filesystem::path const bin_dir = base / "perm_cellD";
+            std::filesystem::create_directories(bin_dir, ec);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::binary} << "DLLBYTES-D"; }
+            { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::binary} << std::string(128, 'b'); }
+            { std::ofstream{bin_dir / "perm.dll.version", std::ios::binary} << bv; }
+            cache.push_tier_binary(bin_dir, bv);
+
+            std::string const stem = bin_dir.filename().string();
+            check_true("Teil6d: perm.dll.algos NICHT im Store (fehlt lokal)",
+                       !std::filesystem::exists(store / kp / stem / "perm.dll.algos", ec));
+            check_true("Teil6d: perm.dll.variant NICHT im Store (fehlt lokal)",
+                       !std::filesystem::exists(store / kp / stem / "perm.dll.variant", ec));
+            check_true("Teil6d: perm.dll.version im Store (Push war ERFOLGREICH trotz fehlender Sidecars)",
+                       std::filesystem::exists(store / kp / stem / "perm.dll.version", ec));
+
+            std::vector<std::string> lines;
+            {
+                std::ifstream lf{order};
+                for (std::string l; std::getline(lf, l);)
+                    if (!l.empty()) lines.push_back(l);
+            }
+            check_eq("Teil6d: genau 3 cp-Aufrufe (zwei Sidecars fehlen lokal)", lines.size(), std::size_t{3});
+            if (lines.size() == 3) {
+                check_eq("Teil6d: 1. Push == perm.dll", lines[0], obj(stem, "perm.dll"));
+                check_eq("Teil6d: 2. Push == perm.dll.fingerprint", lines[1], obj(stem, "perm.dll.fingerprint"));
+                check_eq("Teil6d: 3. Push == perm.dll.version ZULETZT", lines[2], obj(stem, "perm.dll.version"));
+            }
+        }
+
         ::unsetenv("COMDARE_MINIO_ENDPOINT");
         ::unsetenv("COMDARE_MINIO_BUCKET");
         ::unsetenv("COMDARE_MC_BIN");

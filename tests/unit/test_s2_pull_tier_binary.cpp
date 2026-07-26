@@ -1,13 +1,19 @@
 // test_s2_pull_tier_binary -- S2 (#46a Pull-Faehigkeit): ArtifactCache::pull_tier_binary (per-Binary-Spiegel zu push)
 // + pull_tier_prefix (BATCH-Warm-Cache-Hydrierung). Belegt (mock-basiert, KEIN echter mc/minio, via COMDARE_MC_BIN):
-//   (1) HIT: vollstaendiger Remote-Satz (dll+algos+version) -> pull_tier_binary=true, lokal alle drei da.
+//   (1) HIT: vollstaendiger Remote-Satz (dll+algos+fingerprint+variant+version) -> pull_tier_binary=true, alle lokal.
 //   (2) MISS: kein Remote-Objekt -> pull_tier_binary=false, lokal NICHTS hydriert.
 //   (3) HALB-PUSH (remote dll[+algos] aber KEINE .version) -> invertierte ZULETZT-Pruefung => MISS => false, kein Pull.
 //   (4) MISMATCH-.algos => Neubau: nach dem Pull entscheidet AUSSCHLIESSLICH lokal dll_is_current -- passende
 //       version+algos => HIT (skip), gebumpte algos => false (Neubau). (Korrektheits-Arbiter, Dossier-Risiko 1.)
-//   (5) pull_tier_prefix (rekursiv): hydriert den ganzen Praefix -> dest/<stem>/perm.dll(+.algos,+.version); der
+//   (5) pull_tier_prefix (rekursiv): hydriert den ganzen Praefix -> dest/<stem>/perm.dll + JEDES Sidecar daneben; der
 //       _gn_chunk_markers-Namensraum wird ausgespart.
 //   (6) NEGATIV: unkonfiguriertes Env => inert() => pull_tier_binary/pull_tier_prefix=false, KEIN mc-Prozess-Spawn.
+//   (8) #13 (B25/L-d): die OPTIONALEN Sidecars .fingerprint/.variant reisen SPIEGELBILDLICH zum Push mit --
+//       (8a) voller Satz remote => lokal hydriert, und die Varianten-Provenienz traegt sich (dll_is_current mit
+//            gesetzter variant_sig sagt HIT statt Neubau);
+//       (8b) remote nur teilweise vorhanden => fehlende Sidecars werden uebersprungen, Pull bleibt ERFOLGREICH;
+//       (8c) ein STEHENGEBLIEBENES lokales Sidecar, das der Remote-Satz nicht deckt, ist nach dem Pull WEG (sonst
+//            taeuschte es dll_is_current eine Provenienz vor, die der Objekt-Store nie geliefert hat).
 // Build: plain main (KEIN gtest), Return 0/1 -- registriert via COMDARE_MCE24_PLAIN_TESTS (wie test_w11/test_s1).
 
 #include "builder/artifact_transport/artifact_cache.hpp"
@@ -18,6 +24,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator> // #13: std::istreambuf_iterator (read_file, Byte-Gleichheits-Beleg der Sidecars)
 #include <string>
 #include <system_error>
 
@@ -35,6 +42,13 @@ static void write_file(std::filesystem::path const& p, std::string const& conten
     std::filesystem::create_directories(p.parent_path(), ec);
     std::ofstream f{p, std::ios::binary | std::ios::trunc};
     f << content;
+}
+
+// #13: fuer den Byte-Gleichheits-Beleg der hydrierten Sidecars (leer, wenn die Datei fehlt).
+static std::string read_file(std::filesystem::path const& p) {
+    std::ifstream f{p, std::ios::binary};
+    if (!f) return {};
+    return std::string((std::istreambuf_iterator<char>(f)), {});
 }
 
 int main() {
@@ -94,11 +108,15 @@ int main() {
     std::string const bv      = "m3v2+cxx=g++-16+opt=O2+ext=avx2";
     std::string const kp      = cache.cache_key_prefix(bv); // Single-Source-Praefix (inkl. +ceb/+mtool/+mrg)
     std::string const algo_v1 = "algo=sortA,hashB";
+    std::string const fpr_v1  = std::string(128, 'a'); // #13: 128-hex-Lager-Anker (key_from_hex-Laenge)
+    std::string const var_v1  = "bv=1;pt=four_kb;se=avx2;hw=generic";
 
-    // ── (1) HIT: vollstaendiger Remote-Satz fuer stemA. ──
+    // ---- (1) HIT: vollstaendiger Remote-Satz fuer stemA (inkl. der #13-Sidecars .fingerprint/.variant). ----
     {
         write_file(store / kp / "perm_cellA" / "perm.dll", "DLLBYTES-A");
         write_file(store / kp / "perm_cellA" / "perm.dll.algos", algo_v1);
+        write_file(store / kp / "perm_cellA" / "perm.dll.fingerprint", fpr_v1);
+        write_file(store / kp / "perm_cellA" / "perm.dll.variant", var_v1);
         write_file(store / kp / "perm_cellA" / "perm.dll.version", bv);
         std::filesystem::path const bin_dir = base / "out" / "perm_cellA";
         bool const                  hit     = cache.pull_tier_binary(bin_dir, bv);
@@ -107,6 +125,18 @@ int main() {
         check_true("(1) HIT: lokale perm.dll.algos da", std::filesystem::exists(bin_dir / "perm.dll.algos", ec));
         check_true("(1) HIT: lokale perm.dll.version da (Marke ZULETZT)",
                    std::filesystem::exists(bin_dir / "perm.dll.version", ec));
+        // (8a) #13: die beiden neuen Sidecars sind mitgereist -- ohne .fingerprint waere die hydrierte Binary fuer
+        //      das Lager unsichtbar (bestand_key_of -> nullopt -> DedupOutcome::no_key).
+        check_true("(8a) HIT: lokale perm.dll.fingerprint da (Lager-Anker hydriert)",
+                   std::filesystem::exists(bin_dir / "perm.dll.fingerprint", ec));
+        check_true("(8a) HIT: lokale perm.dll.variant da", std::filesystem::exists(bin_dir / "perm.dll.variant", ec));
+        check_true("(8a) HIT: perm.dll.fingerprint byte-gleich zum Remote-Inhalt",
+                   read_file(bin_dir / "perm.dll.fingerprint") == fpr_v1);
+        // Die Varianten-Provenienz traegt sich: mit gesetzter variant_sig sagt der Arbiter HIT statt Neubau.
+        check_true("(8a) dll_is_current HIT bei passender version+algos+variant (skip)",
+                   ex::dll_is_current(bin_dir / "perm.dll", bv, algo_v1, var_v1));
+        check_true("(8a) dll_is_current FALSE bei gewechselter variant => Neubau",
+                   !ex::dll_is_current(bin_dir / "perm.dll", bv, algo_v1, "bv=1;pt=huge_2mb;se=avx2;hw=generic"));
         // (4) Mismatch-.algos => Neubau: der Korrektheits-Arbiter dll_is_current entscheidet nach dem Pull.
         check_true("(4) dll_is_current HIT bei passender version+algos (skip)",
                    ex::dll_is_current(bin_dir / "perm.dll", bv, algo_v1));
@@ -137,6 +167,47 @@ int main() {
                    !std::filesystem::exists(bin_dir / "perm.dll", ec));
     }
 
+    // ---- (8b) #13: remote nur TEILWEISE bestueckt (dll + .fingerprint + .version, KEIN .algos/.variant). Die fehlenden
+    //      Sidecars werden uebersprungen -- der Pull bleibt ERFOLGREICH (Gate-aus ist der legitime Default). ----
+    {
+        write_file(store / kp / "perm_cellPart" / "perm.dll", "DLLBYTES-PART");
+        write_file(store / kp / "perm_cellPart" / "perm.dll.fingerprint", fpr_v1);
+        write_file(store / kp / "perm_cellPart" / "perm.dll.version", bv);
+        std::filesystem::path const bin_dir = base / "out" / "perm_cellPart";
+        bool const                  hit     = cache.pull_tier_binary(bin_dir, bv);
+        check_true("(8b) TEIL-SATZ: pull_tier_binary == true (fehlende Sidecars sind kein Fehler)", hit);
+        check_true("(8b) TEIL-SATZ: perm.dll.fingerprint hydriert",
+                   std::filesystem::exists(bin_dir / "perm.dll.fingerprint", ec));
+        check_true("(8b) TEIL-SATZ: KEIN lokales perm.dll.algos (remote nicht vorhanden)",
+                   !std::filesystem::exists(bin_dir / "perm.dll.algos", ec));
+        check_true("(8b) TEIL-SATZ: KEIN lokales perm.dll.variant (remote nicht vorhanden)",
+                   !std::filesystem::exists(bin_dir / "perm.dll.variant", ec));
+        check_true("(8b) TEIL-SATZ: perm.dll.version da (Marke ZULETZT gesetzt)",
+                   std::filesystem::exists(bin_dir / "perm.dll.version", ec));
+    }
+
+    // ---- (8c) #13: ein STEHENGEBLIEBENES lokales Sidecar aus einem fruheren Bau, das der Remote-Satz NICHT deckt, muss
+    //      nach dem Pull weg sein. Sonst faende dll_is_current eine Varianten-/Lager-Provenienz, die der Objekt-Store
+    //      nie geliefert hat -- der lokale Satz MUSS nach dem Pull exakt der remote Satz sein. ----
+    {
+        std::filesystem::path const bin_dir = base / "out" / "perm_cellStale";
+        write_file(store / kp / "perm_cellStale" / "perm.dll", "DLLBYTES-STALE");
+        write_file(store / kp / "perm_cellStale" / "perm.dll.version", bv); // remote: NUR dll + Marke
+        write_file(bin_dir / "perm.dll.variant", "bv=1;pt=STALE");          // lokaler Rest eines fruheren Baus
+        write_file(bin_dir / "perm.dll.fingerprint", std::string(128, 'f'));
+        write_file(bin_dir / "perm.dll.algos", "algo=STALE");
+        bool const hit = cache.pull_tier_binary(bin_dir, bv);
+        check_true("(8c) STALE: pull_tier_binary == true", hit);
+        check_true("(8c) STALE: altes lokales perm.dll.variant ENTFERNT",
+                   !std::filesystem::exists(bin_dir / "perm.dll.variant", ec));
+        check_true("(8c) STALE: altes lokales perm.dll.fingerprint ENTFERNT",
+                   !std::filesystem::exists(bin_dir / "perm.dll.fingerprint", ec));
+        check_true("(8c) STALE: altes lokales perm.dll.algos ENTFERNT",
+                   !std::filesystem::exists(bin_dir / "perm.dll.algos", ec));
+        check_true("(8c) STALE: dll_is_current FALSE bei gesetzter variant_sig (kein Provenienz-Vortaeuschen)",
+                   !ex::dll_is_current(bin_dir / "perm.dll", bv, std::string{}, "bv=1;pt=STALE"));
+    }
+
     // ── (5) pull_tier_prefix (rekursiv): ganzer Praefix -> dest/<stem>/...; _gn_chunk_markers ausgespart. ──
     {
         write_file(store / kp / "perm_cellB" / "perm.dll", "DLLBYTES-B");
@@ -149,6 +220,12 @@ int main() {
                    std::filesystem::exists(dest / "perm_cellA" / "perm.dll", ec));
         check_true("(5) stemA .version hydriert",
                    std::filesystem::exists(dest / "perm_cellA" / "perm.dll.version", ec));
+        // #13: pull_tier_prefix ist SUFFIX-BLIND (mc mirror ueber den Praefix) -> die neuen Sidecars reisen ohne
+        // Code-Aenderung mit. Das ist der Weg, den der Voll-Bau real nimmt (BATCH-Hydrierung, EIN mc-Prozess).
+        check_true("(5) stemA .fingerprint hydriert (mirror ist suffix-blind)",
+                   std::filesystem::exists(dest / "perm_cellA" / "perm.dll.fingerprint", ec));
+        check_true("(5) stemA .variant hydriert",
+                   std::filesystem::exists(dest / "perm_cellA" / "perm.dll.variant", ec));
         check_true("(5) stemB hydriert (dest/perm_cellB/perm.dll)",
                    std::filesystem::exists(dest / "perm_cellB" / "perm.dll", ec));
         check_true("(5) _gn_chunk_markers AUSGESPART (nicht hydriert)",

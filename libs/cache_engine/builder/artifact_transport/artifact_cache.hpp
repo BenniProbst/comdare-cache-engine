@@ -3,9 +3,9 @@
 // Zwei-Cache-Storage-Naht (BAUPLAN-TWO-CACHE-STORAGE §3 / VERORTUNGS-BRIEF §1). Zwei getrennte Speicher-Ebenen:
 //
 //   B  CEB/Tier-Binary-Bau-Artefakte -> minio-Objekt-Store (mc-Shellout). Objekt-Key
-//      cache_key_prefix(build_version)/<stem>/perm.dll(+.version); Vollstaendigkeits-Marke: perm.dll ZUERST, perm.dll.version
-//      ZULETZT (halb-gepusht = kein Sidecar = kein Pull). Der Key KOPPELT an dieselbe build_version-Signatur, die
-//      dll_is_current lokal prueft -> stale ABI (5->6) wird NIE reused.
+//      cache_key_prefix(build_version)/<stem>/perm.dll(+ kOptionalTierSidecars +.version); Vollstaendigkeits-Marke:
+//      perm.dll ZUERST, perm.dll.version ZULETZT (halb-gepusht = keine Marke = kein Pull). Der Key KOPPELT an dieselbe
+//      build_version-Signatur, die dll_is_current lokal prueft -> stale ABI (5->6) wird NIE reused.
 //   C  Messergebnisse -> der bestehende write-only `measure-drop`-Pfad per HTTPS-PUT (curl-Shellout): PUT an
 //      <COMDARE_MEASUREMENT_DROP_URL>/<YYYYMMDD-HHMMSS>/<datei>. Write-only + additiv: Duplikat -> 409 (NIE
 //      ueberschreiben, still additiv-OK), unter einem EINEN datierten Lauf-Baum. Parallel zum bestehenden git-
@@ -25,6 +25,7 @@
                                                            // (Single-Source wie system_axes_version_suffix)
 #include <cache_engine/measurement/axis_error.hpp> // InfraErrorClass::ArtefaktIo + infra_error_label (Fehler-Log)
 
+#include <array> // #13 (B25): kOptionalTierSidecars -- die EINE Push-/Pull-Reihenfolge der optionalen Sidecars
 #include <cctype>
 #include <cerrno>
 #include <chrono>
@@ -76,11 +77,41 @@ struct PruneVerdict {
     return {true, "verified"};
 }
 
-// G5 (P-B): die EINZIGEN Dateien, die geprunt werden duerfen -- die Tier-Binary + ihre zwei Sidecars.
-// NIEMALS result.csv / measure_out / Logs (Messdaten-nie-loeschen-Doktrin, HART -- prune.log ueberlebt,
-// weil es hier NICHT aufgelistet ist). Single-Source der Prune-Menge (Test + verify_remote_then_prune).
+// #13 (B25/L-d): die OPTIONALEN Mittel-Sidecars EINES Tier-Binary-Ordners, in HARTER Push-Reihenfolge. Die EINE
+// Liste, aus der push_tier_binary, pull_tier_binary UND prunable_artifacts lesen -- keine der drei Richtungen kann
+// damit von den anderen abdriften (der Defekt, der `.fingerprint` ueberhaupt erst aus dem Push fallen liess).
+// perm.dll (Nutzlast, ZUERST) und perm.dll.version (Vollstaendigkeits-Marke, ZULETZT) stehen bewusst NICHT darin:
+// ihre Position IST das Protokoll und darf nicht in einer Schleife verschwinden.
+//   perm.dll.algos       Organ-Provenienz (build_orchestrator.hpp:234 algo_sidecar_path) -- Organ-Gate dll_is_current
+//   perm.dll.fingerprint 128-hex K7b-Lager-Anker (fingerprint_sidecar.hpp:34) -- ohne ihn liefert bestand_key_of
+//                        nullopt (DedupOutcome::no_key) und die hydrierte Binary ist fuer das Lager UNSICHTBAR
+//   perm.dll.variant     Build-Varianten-Signatur (build_orchestrator.hpp:242) -- Variant-Gate von dll_is_current
+// Die drei Suffixe stehen hier als Literale, wie schon "perm.dll"/"perm.dll.version" in dieser Datei: der Transport
+// haengt bewusst NICHT am build_orchestrator (die Abhaengigkeit zeigt nur in die andere Richtung).
+inline constexpr std::array<char const*, 3> kOptionalTierSidecars{"perm.dll.algos", "perm.dll.fingerprint",
+                                                                  "perm.dll.variant"};
+
+// G5 (P-B): die EINZIGEN Dateien, die geprunt werden duerfen -- die Tier-Binary, ihre Vollstaendigkeits-Marke und
+// ihre optionalen Sidecars. NIEMALS result.csv / measure_out / Logs (Messdaten-nie-loeschen-Doktrin, HART --
+// prune.log ueberlebt, weil es hier NICHT aufgelistet ist). Single-Source der Prune-Menge (Test +
+// verify_remote_then_prune).
+//
+// #13-Nachtrag: die Menge zieht die Sidecars aus kOptionalTierSidecars und ist damit per Konstruktion
+// DECKUNGSGLEICH mit dem Push-Satz. Vorher endeten .fingerprint/.variant nach einem Prune als WAISEN neben einer
+// geloeschten perm.dll -- und ein `.fingerprint` ohne Binary ist eine Phantom-Quelle fuer bestand_key_of (das Lager
+// haette eine Binary gemeldet, die lokal nicht mehr existiert). Ein Objekt, das nie erzeugt wurde, ist hier
+// unschaedlich: verify_remote_then_prune loescht ueber std::filesystem::remove, das ein fehlendes Ziel ignoriert.
+// EHRLICHE Grenze: hat ein AELTERER Push das .fingerprint noch nicht mitgeschoben, nimmt der Prune es lokal
+// dennoch mit -- eine spaetere Hydrierung liefert dann keinen Lager-Anker. Das ist genau der Alt-Zustand vor #13
+// (Lager-Unsichtbarkeit, nicht-fatal, dll_is_current traegt sich weiter ueber .version) und bewusst dem
+// Phantom-Eintrag vorgezogen.
 [[nodiscard]] inline std::vector<std::filesystem::path> prunable_artifacts(std::filesystem::path const& bin_dir) {
-    return {bin_dir / "perm.dll", bin_dir / "perm.dll.version", bin_dir / "perm.dll.algos"};
+    std::vector<std::filesystem::path> out;
+    out.reserve(2 + kOptionalTierSidecars.size());
+    out.push_back(bin_dir / "perm.dll");
+    out.push_back(bin_dir / "perm.dll.version");
+    for (char const* leaf : kOptionalTierSidecars) out.push_back(bin_dir / leaf);
+    return out;
 }
 
 // G5 (P-B): Zustand einer Prune-Pruefung je Stem. verified = Remote wurde geprueft (pruned+kept);
@@ -218,19 +249,25 @@ public:
     }
 
     /// Ebene B: schiebt die Bau-Artefakte EINES Tier-Binary-Ordners in den Objekt-Store. HARTE Reihenfolge perm.dll
-    /// ZUERST, perm.dll.algos MITTE (Organ-Provenienz, nur wenn lokal vorhanden), perm.dll.version ZULETZT — die
-    /// Vollstaendigkeits-Marke bleibt das LETZTE Objekt: schlaegt perm.dll ODER perm.dll.algos fehl, wird die
-    /// .version-Marke NICHT gepusht -> Pull findet keine vollstaendige Marke -> kein falscher Reuse. Objekt-Key =
-    /// <key_prefix>/<stem>/perm.dll(+.algos,+.version), stem = bin_dir.filename(). perm.dll.algos ist das Organ-Gate
-    /// von dll_is_current (build_orchestrator.hpp:242-246): ohne es ist jeder Remote-Treffer wirkungslos (AlgoSigFn
-    /// produktiv IMMER gesetzt); Organ-Gate AUS (keine AlgoSigFn) => .algos-Datei fehlt lokal => sauberer 2-Objekt-
-    /// Push (byte-neutral zum Alt-Verhalten). Fehler -> ArtefaktIo geloggt + lokale Kopie bleibt; MESSEN WEITER.
+    /// ZUERST, dann die optionalen Sidecars in der Reihenfolge von kOptionalTierSidecars (.algos, .fingerprint,
+    /// .variant), perm.dll.version ZULETZT -- die Vollstaendigkeits-Marke bleibt das LETZTE Objekt: schlaegt perm.dll
+    /// ODER einer der vorhandenen Sidecars fehl, wird die .version-Marke NICHT gepusht -> Pull findet keine
+    /// vollstaendige Marke -> kein falscher Reuse. Objekt-Key = <key_prefix>/<stem>/perm.dll(+.algos,+.fingerprint,
+    /// +.variant,+.version), stem = bin_dir.filename(). Ein Sidecar, das LOKAL FEHLT, wird still uebersprungen (kein
+    /// Fehler): jedes der drei haengt an einem eigenen opt-in (AlgoSigFn / bestand_fingerprint_fn / build_variant_sig),
+    /// und "nicht erzeugt" ist der legitime Default -> Gate aus => weniger Objekte, byte-neutral zum Alt-Verhalten.
+    /// Ein Sidecar, das lokal DA ist und dessen Push FEHLSCHLAEGT, ist dagegen ein unvollstaendiger Satz und haelt die
+    /// Marke zurueck (Praezedenz .algos): der Remote-Satz ist per Konstruktion entweder der lokale Satz oder gar nichts.
+    ///
+    /// #13 (B25/L-d): .fingerprint und .variant kamen NACH -- ohne sie trug eine hydrierte Binary nie einen
+    /// Lager-Anker (bestand_key_of -> nullopt -> DedupOutcome::no_key: das Lager konnte genau das nicht
+    /// inventarisieren, was es selbst hydriert hat) und nie ihre Varianten-Provenienz (dll_is_current haette bei
+    /// gesetzter Variant-Erwartung neu gebaut). Fehler -> ArtefaktIo geloggt + lokale Kopie bleibt; MESSEN WEITER.
     void push_tier_binary(std::filesystem::path const& bin_dir, std::string const& build_version) const {
         if (!minio_enabled()) return; // No-Op (byte-neutral)
         std::string const stem     = bin_dir.filename().string();
         std::string const key_base = cache_key_prefix(build_version) + "/" + stem; // W11/W12: Single-Source-Praefix
         std::filesystem::path const dll     = bin_dir / "perm.dll";
-        std::filesystem::path const algos   = bin_dir / "perm.dll.algos"; // Organ-Provenienz-Sidecar (fehlt = Gate aus)
         std::filesystem::path const sidecar = bin_dir / "perm.dll.version";
         std::filesystem::path const log     = bin_dir / "perm.dll.push.log";
 
@@ -244,13 +281,15 @@ public:
             log_artefakt_io(log, "Push perm.dll fehlgeschlagen (lokale Kopie bleibt): " + key_base + "/perm.dll");
             return; // Sidecars bewusst NICHT pushen -> halb-gepusht = kein Pull
         }
-        // (2) perm.dll.algos MITTE — die Organ-Provenienz (nur wenn lokal vorhanden; Organ-Gate aus => uebersprungen).
-        //     Schlaegt der Push fehl, wird die .version-Marke bewusst NICHT gesetzt: unvollstaendiger Push = kein Pull.
-        if (std::filesystem::exists(algos, ec)) {
-            if (!mc_cp(algos, key_base + "/perm.dll.algos", log)) {
-                log_artefakt_io(log, "Push perm.dll.algos fehlgeschlagen (perm.dll ist oben, Marke bleibt weg -> kein "
-                                     "Pull): " +
-                                         key_base + "/perm.dll.algos");
+        // (2) die OPTIONALEN Sidecars MITTE, in Listen-Reihenfolge (.algos -> .fingerprint -> .variant). Fehlt die
+        //     lokale Datei, wird sie uebersprungen; schlaegt ihr Push fehl, bleibt die .version-Marke bewusst weg.
+        for (char const* leaf : kOptionalTierSidecars) {
+            std::filesystem::path const local = bin_dir / leaf;
+            if (!std::filesystem::exists(local, ec)) continue; // Gate aus / nicht erzeugt -> nichts zu spiegeln
+            if (!mc_cp(local, key_base + "/" + leaf, log)) {
+                log_artefakt_io(log, std::string{"Push "} + leaf +
+                                         " fehlgeschlagen (perm.dll ist oben, Marke bleibt weg -> kein Pull): " +
+                                         key_base + "/" + leaf);
                 return; // Version-Marke NICHT setzen -> unvollstaendig = kein falscher Reuse
             }
         }
@@ -263,19 +302,24 @@ public:
         }
     }
 
-    /// S2 (#46a) Ebene B PULL (Spiegel zu push_tier_binary): holt die drei Objekte EINES Tier-Binary-Ordners aus dem
+    /// S2 (#46a) Ebene B PULL (Spiegel zu push_tier_binary): holt den Objekt-Satz EINES Tier-Binary-Ordners aus dem
     /// Objekt-Store nach bin_dir. Uebernahme NUR, wenn die REMOTE-Vollstaendigkeits-Marke perm.dll.version existiert
     /// (invertierte ZULETZT-Pruefung: halb-gepusht ohne Marke => MISS => lokal bauen). HARTE Reihenfolge lokal: die
-    /// lokale .version/.algos ZUERST WEG (write-ZULETZT-Disziplin -> ein Teil-Pull hinterlaesst NIE eine irrefuehrende
-    /// Marke), dann perm.dll, dann perm.dll.algos (nur wenn remote vorhanden), dann perm.dll.version ZULETZT. Eigenes
-    /// knappes Timeout-Budget (pull_tries_, nicht die Push-Defaults). Fehler -> ArtefaktIo geloggt, kein throw, Rueckgabe
+    /// lokale .version UND alle kOptionalTierSidecars ZUERST WEG (write-ZULETZT-Disziplin -> ein Teil-Pull hinterlaesst
+    /// NIE eine irrefuehrende Marke, und ein STEHENGEBLIEBENES Sidecar eines fruheren Baus kann dll_is_current nie eine
+    /// Provenienz vortaeuschen, die der Remote-Satz nicht deckt), dann perm.dll, dann die optionalen Sidecars in
+    /// Listen-Reihenfolge (je nur, wenn remote vorhanden), dann perm.dll.version ZULETZT. Eigenes knappes
+    /// Timeout-Budget (pull_tries_, nicht die Push-Defaults). Fehler -> ArtefaktIo geloggt, kein throw, Rueckgabe
     /// false => der Aufrufer BAUT (dll_is_current arbitriert danach ohnehin lokal). true = vollstaendiger Satz hydriert.
+    ///
+    /// KOSTEN, ehrlich: je optionalem Sidecar kostet die Existenz-Probe EIN zusaetzliches `mc stat` (drei statt eins).
+    /// Das ist der per-Binary-Weg; die BATCH-Hydrierung des Voll-Baus laeuft ueber pull_tier_prefix (EIN mc mirror,
+    /// keine Zusatz-Spawns).
     [[nodiscard]] bool pull_tier_binary(std::filesystem::path const& bin_dir, std::string const& build_version) const {
         if (!minio_enabled()) return false; // inert (byte-neutral)
         std::string const           stem     = bin_dir.filename().string();
         std::string const           key_base = cache_key_prefix(build_version) + "/" + stem; // Single-Source-Praefix
         std::filesystem::path const dll      = bin_dir / "perm.dll";
-        std::filesystem::path const algos    = bin_dir / "perm.dll.algos";
         std::filesystem::path const version  = bin_dir / "perm.dll.version";
         std::filesystem::path const log      = bin_dir / "perm.dll.pull.log";
 
@@ -285,18 +329,22 @@ public:
         std::error_code ec;
         std::filesystem::create_directories(bin_dir, ec);
         std::filesystem::remove(version, ec); // Marke ZUERST weg -> ein abgebrochener Pull ergibt garantiert Neubau
-        std::filesystem::remove(algos, ec);   // ebenso das Organ-Sidecar (lokal exakt der remote Satz nach Pull)
+        for (char const* leaf : kOptionalTierSidecars)
+            std::filesystem::remove(bin_dir / leaf, ec); // lokal exakt der remote Satz nach dem Pull
 
         // (1) perm.dll ZUERST.
         if (!mc_pull(key_base + "/perm.dll", dll, log)) {
             log_artefakt_io(log, "Pull perm.dll fehlgeschlagen -> lokal bauen: " + key_base + "/perm.dll");
             return false;
         }
-        // (2) perm.dll.algos MITTE — nur wenn remote vorhanden (Organ-Gate aus beim Push => remote fehlt => uebersprungen).
-        if (mc_remote_exists(key_base + "/perm.dll.algos")) {
-            if (!mc_pull(key_base + "/perm.dll.algos", algos, log)) {
-                log_artefakt_io(log,
-                                "Pull perm.dll.algos fehlgeschlagen -> lokal bauen: " + key_base + "/perm.dll.algos");
+        // (2) die optionalen Sidecars MITTE, in Listen-Reihenfolge -- je nur wenn remote vorhanden (Gate aus beim Push
+        //     => remote fehlt => uebersprungen, kein Fehler). Ein remote VORHANDENES, aber nicht holbares Sidecar ist
+        //     dagegen ein Fehlschlag: die Marke bleibt weg, dll_is_current baut neu.
+        for (char const* leaf : kOptionalTierSidecars) {
+            std::string const key = key_base + "/" + leaf;
+            if (!mc_remote_exists(key)) continue;
+            if (!mc_pull(key, bin_dir / leaf, log)) {
+                log_artefakt_io(log, std::string{"Pull "} + leaf + " fehlgeschlagen -> lokal bauen: " + key);
                 return false; // .version bleibt weg -> dll_is_current baut neu
             }
         }
@@ -310,7 +358,10 @@ public:
     }
 
     /// S2 (#46a) BATCH-Warm-Cache-Hydrierung (der Iterator-PULL-HOOK, VOR provision_all): zieht den GANZEN Objekt-Store-
-    /// Praefix EINER Perm rekursiv nach dest_root -> dest_root/<stem>/perm.dll(+.algos,+.version). EIN mc-Prozess (nicht
+    /// Praefix EINER Perm rekursiv nach dest_root -> dest_root/<stem>/perm.dll + JEDES daneben liegende Sidecar. Diese
+    /// Naht ist SUFFIX-BLIND (`mc mirror` ueber den Praefix, keine Objekt-Liste) und traegt die #13-Sidecars .fingerprint
+    /// /.variant deshalb OHNE Code-Aenderung mit -- anders als pull_tier_binary, das je Suffix einzeln probt. EIN
+    /// mc-Prozess (nicht
     /// x|Binaries| Spawns; vgl. Dossier Option (a) vs (b)). Der _gn_chunk_markers-Namensraum wird ausgespart (Marker sind
     /// keine Tier-Binaries; orch_make_stem erzeugt diesen Stem nie). Korrektheit entscheidet danach AUSSCHLIESSLICH lokal
     /// dll_is_current (ein Teil-Pull/False-Pull => der betroffene Stem hat kein/kein passendes .version/.algos => Neubau).
@@ -364,10 +415,11 @@ public:
     }
 
     /// G5 (P-B, Ledger Section 65/66): PRUNE lokal->0 NACH verifiziertem Remote-Bestand. Loescht die lokale Tier-
-    /// Binary + ihre zwei Sidecars (prunable_artifacts) NUR, wenn der Objekt-Store sie BEWEISBAR spiegelt: remote
-    /// perm.dll.version existiert UND ist byte-gleich zur lokalen .version (Provenienz) UND die remote perm.dll-
-    /// Groesse == lokale. JEDER Fehler-/Zweifel-Pfad => KEIN Loeschen (behalten). NIEMALS Messdaten (nur die 3
-    /// prunable_artifacts; result.csv/measure_out/prune.log bleiben). Ein [PRUNE]-Testat je Stem an bin_dir/
+    /// Binary + ihre Marke + ihre Sidecars (prunable_artifacts, deckungsgleich mit dem Push-Satz) NUR, wenn der
+    /// Objekt-Store sie BEWEISBAR spiegelt: remote perm.dll.version existiert UND ist byte-gleich zur lokalen
+    /// .version (Provenienz) UND die remote perm.dll-Groesse == lokale. JEDER Fehler-/Zweifel-Pfad => KEIN Loeschen
+    /// (behalten). NIEMALS Messdaten (NUR prunable_artifacts; result.csv/measure_out/prune.log bleiben, weil sie
+    /// dort nicht aufgelistet sind). Ein [PRUNE]-Testat je Stem an bin_dir/
     /// perm.prune.log (append, bleibt). No-Op (skipped) wenn inert (kein minio) oder keine lokale Binary.
     /// Der Praefix stammt aus prune_key_base (s. FIX A dort); `build_version` ist nur noch der Fallback.
     [[nodiscard]] PruneOutcome verify_remote_then_prune(std::filesystem::path const& bin_dir,
@@ -479,6 +531,33 @@ public:
     // INERT-NEUTRAL: ohne Ebene B (minio_enabled()==false) tut KEIN Verb etwas und meldet ehrlich "nichts
     // geschehen" (nullopt bzw. false) -- nie einen falschen Erfolg. Ein Aufrufer, der auf einer inerten Instanz
     // arbeitet, sieht ein leeres Lager und registriert nichts (byte-neutral wie der Rest dieser Klasse).
+
+    /// N7-D2 (Lock-Sektions-Budget): eine KOPIE dieser Instanz mit knapp budgetierten mc-Nahten -- identische
+    /// Konfiguration (Endpoint/Bucket/Praefix, Key-Montage, run_stamp, Ebene C), NUR die vier Budget-Zahlen ersetzt.
+    /// WARUM: der Bestandslog-Schreibvorgang laeuft unter einem Dokument-Lock mit endlicher ttl, und die Netz-Retries
+    /// liegen IN dieser Sektion. Mit den Push-Defaults (tries_=12 x cap 120s je cp + 120s je stat-Verify) ergibt das
+    /// eine Worst-Sektion von ~50 min und sprengt jede ttl -> eine zweite Maschine bricht den Lock, waehrend der erste
+    /// Schreiber noch schreibt (zwei Schreiber am Dokument, genau der verbotene Zustand). Der Host bindet deshalb NUR
+    /// den Bestandslog-Transport (bestandslog/artifact_cache_transport.hpp) an diese Zweit-Instanz; der Haupt-Cache
+    /// (Tier-Push/Pull) behaelt seine bewusst zaehen Defaults. KEIN Runtime-Switch und KEIN zweiter Transport-Weg:
+    /// dieselbe Klasse, dieselbe private mc-Schicht, dasselbe Retry-Regime -- nur andere Zahlen.
+    ///
+    /// tries==0 wird auf 1 geklemmt, identisch zur Doktrin in from_env (:167/:174): ein 0-Budget wuerde die
+    /// Retry-Schleifen nie betreten und JEDEN Push still verwerfen. timeout_s==0 bleibt erhalten und bedeutet -- wie
+    /// COMDARE_MC_TIMEOUT_S=0 -- bewusst "kein Wall-Clock-Cap".
+    ///
+    /// NEBENWIRKUNG, hier benannt statt verschwiegen: tries_ ist auch das curl-Retry-Budget der Ebene C (curl_put).
+    /// Die budgetierte Kopie ist per Auftrag ausschliesslich an die Objekt-per-Key-Verben gebunden, die kein curl
+    /// anfassen -> praktisch wirkungslos. sleep_s_/pull_sleep_s_ bleiben unberuehrt; bei tries==1 wird ohnehin nie
+    /// geschlafen (die Pause liegt ZWISCHEN Versuchen).
+    [[nodiscard]] ArtifactCache with_object_budget(std::size_t tries, std::size_t timeout_s) const {
+        ArtifactCache c      = *this;
+        c.tries_             = (tries == 0 ? 1 : tries); // nie 0 -> sonst nie ein Versuch (stiller Drop)
+        c.pull_tries_        = c.tries_;
+        c.mc_push_timeout_s_ = timeout_s;
+        c.mc_pull_timeout_s_ = timeout_s;
+        return c;
+    }
 
     /// Liest EIN Objekt als String. nullopt = nicht vorhanden, Pull-Fehler ODER inert -- alle drei bedeuten fuer
     /// den Aufrufer dasselbe: "dieser Inhalt steht nicht zur Verfuegung" (der Bestandslog-Leser faellt dann auf
