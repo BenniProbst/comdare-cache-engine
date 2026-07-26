@@ -199,7 +199,8 @@ using PFStoreBackedComposition = an::AdHocComposition<
     comp::HotComposition::value_handle, comp::HotComposition::index_organization, comp::HotComposition::io_dispatch,
     comp::HotComposition::migration_policy, comp::HotComposition::filter, comp::HotComposition::queuing_q1,
     comp::HotComposition::queuing_q2,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 template <class Composition>
 static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64_t n_keys,

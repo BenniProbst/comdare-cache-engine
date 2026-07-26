@@ -75,7 +75,8 @@ using RcComposition =
                          cc::BlockingConcurrency, ser::ObservableSerialization<ser::RawBinarySerialization>,
                          ValueHandle, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter,
                          q1::NoBuffer, q2::LazyFlush,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d: isa raus (17 Slots)
+                         /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+                         ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d: isa raus (17 Slots)
 
 template <class ValueHandle = vh::InlineValueHandle>
 using RcTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<RcComposition<ValueHandle>>>;

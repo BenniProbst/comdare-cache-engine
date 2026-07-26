@@ -71,7 +71,7 @@ public:
 
     // Statische Forwarding-/Instrumentierungs-Huelle (KEIN GoF-Decorator: haelt keine Komponenten-Instanz,
     // kein Voll-Interface): Strategie-Inspektion durchgereicht.
-    [[nodiscard]] static constexpr bool             writes_back_to_disk() noexcept { return Strategy::writes_back_to_disk(); }
+    [[nodiscard]] static constexpr bool writes_back_to_disk() noexcept { return Strategy::writes_back_to_disk(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     static constexpr std::string_view               algo_version =
         Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
@@ -102,7 +102,7 @@ public:
     /// damit die Huelle als persistence_target-Slot die Seg-Timer-Aufrufer im abi_adapter NICHT bricht.
     /// Diese Variante trackt NICHT (static, kein Instanz-State).
     [[nodiscard]] static std::uint64_t persistence_writeback_scan(unsigned char const* buf, std::size_t n,
-                                                                 std::size_t record_size) noexcept {
+                                                                  std::size_t record_size) noexcept {
         return Strategy::persistence_writeback_scan(buf, n, record_size);
     }
 
@@ -111,7 +111,7 @@ public:
     /// Rueckschreib-Vorbereitung wird observable. Getrennt von der static-Variante, weil die bestehenden
     /// Seg-Timer-Aufrufer static bleiben muessen.
     [[nodiscard]] std::uint64_t observe_writeback(unsigned char const* buf, std::size_t n,
-                                                 std::size_t record_size) noexcept {
+                                                  std::size_t record_size) noexcept {
         std::uint64_t const checksum = Strategy::persistence_writeback_scan(buf, n, record_size);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.writeback_rounds;

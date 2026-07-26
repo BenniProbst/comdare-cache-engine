@@ -56,7 +56,8 @@ using MigStoreBackedComposition = an::AdHocComposition<
     comp::HotComposition::serialization, comp::HotComposition::value_handle, comp::HotComposition::index_organization,
     comp::HotComposition::io_dispatch, MigrationPolicy, comp::HotComposition::filter, comp::HotComposition::queuing_q1,
     comp::HotComposition::queuing_q2,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 using MigNoneComposition    = MigStoreBackedComposition<mig::NoMigration>;
 using MigHotColdComposition = MigStoreBackedComposition<mig::HotColdMigration>;

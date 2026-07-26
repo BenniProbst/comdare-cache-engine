@@ -142,22 +142,23 @@ struct T19_PersistenceTarget {
     using StaticAxisVariants = mp::mp_list<::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 };
 
-using PilotDriver = ana::AnatomyPermutationDriver<
-    T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType, T5_MemoryLayout, T6_Allocator, T7_Prefetch,
-    T8_Concurrency, T9_Serialization, T11_ValueHandle, T13_IndexOrg, T14_IoDispatch, T15_Migration, T16_Filter,
-    T17_QueuingQ1, T18_QueuingQ2,
-    T19_PersistenceTarget>; // INC-2c/2d raus; STRUKT-R ORG-18 dazu (18 Slots)
+using PilotDriver =
+    ana::AnatomyPermutationDriver<T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
+                                  T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
+                                  T11_ValueHandle, T13_IndexOrg, T14_IoDispatch, T15_Migration, T16_Filter,
+                                  T17_QueuingQ1, T18_QueuingQ2,
+                                  T19_PersistenceTarget>; // INC-2c/2d raus; STRUKT-R ORG-18 dazu (18 Slots)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — AdHocComposition Concept-Conformance
 // ─────────────────────────────────────────────────────────────────────────────
 
-using AdHocArt =
-    ana::AdHocComposition<Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
-                          CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
-                          InlineValueHandle, IotIndexOrganization, InMemoryOnly, NoMigration, BloomFilter, NoBuffer,
-                          LazyFlush,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d isa raus; STRUKT-R ORG-18: 18 Slots
+using AdHocArt = ana::AdHocComposition<
+    Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType, CacheLineAligned,
+    MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer, InlineValueHandle, IotIndexOrganization,
+    InMemoryOnly, NoMigration, BloomFilter, NoBuffer, LazyFlush,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d isa raus; STRUKT-R ORG-18: 18 Slots
 
 TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
     static_assert(ana::IsComposition<AdHocArt>);
@@ -177,12 +178,11 @@ TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
 // §2 — CompositionFromPermTuple Materialization
 // ─────────────────────────────────────────────────────────────────────────────
 
-using SamplePermTuple =
-    pe::PermTuple<Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
-                  CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
-                  InlineValueHandle, IotIndexOrganization, InMemoryOnly, NoMigration, BloomFilter, NoBuffer,
-                  LazyFlush,
-                  ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d isa raus; STRUKT-R ORG-18: 18 Slots
+using SamplePermTuple = pe::PermTuple<
+    Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType, CacheLineAligned,
+    MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer, InlineValueHandle, IotIndexOrganization,
+    InMemoryOnly, NoMigration, BloomFilter, NoBuffer, LazyFlush,
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d isa raus; STRUKT-R ORG-18: 18 Slots
 
 TEST(AnatomyR4_Factory, CompositionFromPermTupleProducesValidComposition) {
     using Materialized = ana::CompositionFromPermTuple<SamplePermTuple>;

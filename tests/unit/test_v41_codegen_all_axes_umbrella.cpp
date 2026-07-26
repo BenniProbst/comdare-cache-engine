@@ -29,9 +29,10 @@ using SampleAdHoc =
                           ::comdare::cache_engine::io::axis_io::InMemoryOnly,
                           ::comdare::cache_engine::migration::axis_migration::NoMigration,
                           ::comdare::cache_engine::filter::axis_filter::BloomFilter,
-                          ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,   // T17 (Doc 30 §8.0)
+                          ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer, // T17 (Doc 30 §8.0)
                           ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // T18 (Doc 30 §8.0)
+                          /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+                          ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // T18 (Doc 30 §8.0)
 
 static_assert(ana::IsComposition<SampleAdHoc>,
               "Umbrella muss alle 17 Achsen-Typen für eine vollständige AdHoc-Composition liefern (Doc 30 §8.0; "

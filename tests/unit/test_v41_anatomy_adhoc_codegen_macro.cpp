@@ -39,7 +39,8 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(comp::ArtComposition::search_algo, comp::Art
                                     comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy,
                                     comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
                                     comp::ArtComposition::queuing_q2,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
+                                    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+                                    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
 
 TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     // ABI-Probe-Symbole (vom Makro definiert).

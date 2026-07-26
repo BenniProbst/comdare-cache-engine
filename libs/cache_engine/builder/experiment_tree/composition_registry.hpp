@@ -29,11 +29,11 @@ namespace comdare::cache_engine::builder::experiment {
 template <class C>
 [[nodiscard]] inline std::vector<std::pair<std::string, std::string>> composition_definition() {
     std::array<std::string_view, 18> const v = {
-        C::search_algo::name(), C::cache_traversal::name(),  C::mapping::name(),      C::path_compression::name(),
-        C::node_type::name(),   C::memory_layout::name(),    C::allocator::name(),    C::prefetch::name(),
-        C::concurrency::name(), C::serialization::name(),    C::value_handle::name(), C::index_organization::name(),
-        C::io_dispatch::name(), C::migration_policy::name(), C::filter::name(),       C::queuing_q1::name(),
-        C::queuing_q2::name(), C::persistence_target::name()}; // STRUKT-R ORG-18: T17
+        C::search_algo::name(), C::cache_traversal::name(),   C::mapping::name(),      C::path_compression::name(),
+        C::node_type::name(),   C::memory_layout::name(),     C::allocator::name(),    C::prefetch::name(),
+        C::concurrency::name(), C::serialization::name(),     C::value_handle::name(), C::index_organization::name(),
+        C::io_dispatch::name(), C::migration_policy::name(),  C::filter::name(),       C::queuing_q1::name(),
+        C::queuing_q2::name(),  C::persistence_target::name()}; // STRUKT-R ORG-18: T17
     std::vector<std::pair<std::string, std::string>> out;
     out.reserve(v.size());
     for (std::size_t i = 0; i < v.size(); ++i)

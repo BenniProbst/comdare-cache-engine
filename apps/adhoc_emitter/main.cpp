@@ -138,9 +138,9 @@ struct C19 {
     using StaticAxisVariants = mp::mp_list<PT>;
 }; // persistence_target
 
-using PilotEngine =
-    ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C13, C14, C15, C16, C17, C18,
-                                          C19>; // INC-2c: C10/telemetry, INC-2d: C12/isa raus; ORG-18: C19 dazu (18 Slots)
+using PilotEngine = ana::SearchAlgorithmPermutationEngine<
+    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C13, C14, C15, C16, C17, C18,
+    C19>; // INC-2c: C10/telemetry, INC-2d: C12/isa raus; ORG-18: C19 dazu (18 Slots)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die

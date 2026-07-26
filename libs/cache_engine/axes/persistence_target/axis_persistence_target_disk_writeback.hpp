@@ -73,7 +73,7 @@ public:
     // (`return 0`, kein Pfad) entsteht hier echte Kopier-/Faltungs-Arbeit -> der Seg-Timer trennt die
     // beiden Bausteine messbar, ohne Disk-Wartezeit zu behaupten.
     [[nodiscard]] static std::uint64_t persistence_writeback_scan(unsigned char const* buf, std::size_t n,
-                                                                 std::size_t record_size) noexcept {
+                                                                  std::size_t record_size) noexcept {
         // Staging-Fenster bewusst klein + stack-lokal: kein Allokator-Einfluss auf die Messung, kein
         // Seiteneffekt auf den Index. 64 Byte = eine Cache-Line (Cache-Line-Direktive).
         // Null-Init ist Pflicht, nicht Kosmetik: bei record_size < sizeof(uint32_t) deckt die Staging-Kopie

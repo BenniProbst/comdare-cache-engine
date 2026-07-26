@@ -37,17 +37,17 @@ struct LinearScanComposition {
     using serialization = serialization::axis_10_serialization::ObservableSerialization<
         serialization::axis_10_serialization::RawBinarySerialization>;
     using telemetry = telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>;
-    using value_handle                         = value_handle::axis_14_value_handle::InlineValueHandle;
-    using isa                                  = hardware::axis_09_isa::Amd64Isa;
-    using index_organization                   = search_engine::axis_01_index_organization::IotIndexOrganization;
-    using io_dispatch                          = io::axis_io::InMemoryOnly;
-    using migration_policy                     = migration::axis_migration::NoMigration;
-    using filter                               = filter::axis_filter::BloomFilter;
-    using queuing_q1                           = queuing::axis_q1_queuing::NoBuffer;
-    using queuing_q2                           = queuing::axis_q2_queuing::LazyFlush;
+    using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
+    using isa                = hardware::axis_09_isa::Amd64Isa;
+    using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
+    using io_dispatch        = io::axis_io::InMemoryOnly;
+    using migration_policy   = migration::axis_migration::NoMigration;
+    using filter             = filter::axis_filter::BloomFilter;
+    using queuing_q1         = queuing::axis_q1_queuing::NoBuffer;
+    using queuing_q2         = queuing::axis_q2_queuing::LazyFlush;
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view paper_id = "M8-test (LinearScan store-traversierbar)";
     static constexpr std::string_view paper_title =
         "LinearScan (ART Node4-Baseline, Leis ICDE 2013) - store-traversierbare M8-Basis";

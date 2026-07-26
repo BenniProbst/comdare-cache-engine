@@ -72,26 +72,26 @@ static_assert(std::is_same_v<lkc::organ_for_search_algo_shaped_t<lk::Array256Sea
 template <class SearchAlgoWrapper>
 // cppcheck-suppress ctuOneDefinitionRuleViolation // FP: anon. Namespace = interne Bindung je TU
 struct PoolFlipComposition {
-    using search_algo                          = SearchAlgoWrapper;
-    using cache_traversal                      = comp::ArtComposition::cache_traversal;
-    using mapping                              = comp::ArtComposition::mapping;
-    using path_compression                     = comp::ArtComposition::path_compression;
-    using node_type                            = comp::ArtComposition::node_type;
-    using memory_layout                        = comp::ArtComposition::memory_layout;
-    using allocator                            = comp::ArtComposition::allocator;
-    using prefetch                             = comp::ArtComposition::prefetch;
-    using concurrency                          = comp::ArtComposition::concurrency;
-    using serialization                        = comp::ArtComposition::serialization;
-    using value_handle                         = comp::ArtComposition::value_handle;
-    using index_organization                   = comp::ArtComposition::index_organization;
-    using io_dispatch                          = comp::ArtComposition::io_dispatch;
-    using migration_policy                     = comp::ArtComposition::migration_policy;
-    using filter                               = comp::ArtComposition::filter;
-    using queuing_q1                           = comp::ArtComposition::queuing_q1;
-    using queuing_q2                           = comp::ArtComposition::queuing_q2;
+    using search_algo        = SearchAlgoWrapper;
+    using cache_traversal    = comp::ArtComposition::cache_traversal;
+    using mapping            = comp::ArtComposition::mapping;
+    using path_compression   = comp::ArtComposition::path_compression;
+    using node_type          = comp::ArtComposition::node_type;
+    using memory_layout      = comp::ArtComposition::memory_layout;
+    using allocator          = comp::ArtComposition::allocator;
+    using prefetch           = comp::ArtComposition::prefetch;
+    using concurrency        = comp::ArtComposition::concurrency;
+    using serialization      = comp::ArtComposition::serialization;
+    using value_handle       = comp::ArtComposition::value_handle;
+    using index_organization = comp::ArtComposition::index_organization;
+    using io_dispatch        = comp::ArtComposition::io_dispatch;
+    using migration_policy   = comp::ArtComposition::migration_policy;
+    using filter             = comp::ArtComposition::filter;
+    using queuing_q1         = comp::ArtComposition::queuing_q1;
+    using queuing_q2         = comp::ArtComposition::queuing_q2;
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view paper_id = "234-V-b rest-family shaped emission proof";
     static constexpr std::string_view name     = "V234bRestFamilyShapedComposition";
 };
@@ -104,7 +104,7 @@ using PoolFlipPerm =
                     BstC::memory_layout, BstC::allocator, BstC::prefetch, BstC::concurrency, BstC::serialization,
                     BstC::value_handle, BstC::index_organization, BstC::io_dispatch, BstC::migration_policy,
                     BstC::filter, BstC::queuing_q1, BstC::queuing_q2,
-                  ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
+                    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 using BstPerm   = PoolFlipPerm<lk::BinarySearchTreeSearchAlgo>;
 using ArrayPerm = PoolFlipPerm<lk::Array256SearchAlgo>;
@@ -124,11 +124,11 @@ struct MiniEngineBst {
 } // namespace
 
 // Dateiweite Makro-Materialisierung: EINE repraesentative Rest-Familie (BST) als SHAPED-TU.
-COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(bst_shape::BstPtrU16, BstC::search_algo, BstC::cache_traversal,
-                                           BstC::mapping, BstC::path_compression, BstC::node_type, BstC::memory_layout,
-                                           BstC::allocator, BstC::prefetch, BstC::concurrency, BstC::serialization,
-                                           BstC::value_handle, BstC::index_organization, BstC::io_dispatch,
-                                           BstC::migration_policy, BstC::filter, BstC::queuing_q1, BstC::queuing_q2,
+COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(
+    bst_shape::BstPtrU16, BstC::search_algo, BstC::cache_traversal, BstC::mapping, BstC::path_compression,
+    BstC::node_type, BstC::memory_layout, BstC::allocator, BstC::prefetch, BstC::concurrency, BstC::serialization,
+    BstC::value_handle, BstC::index_organization, BstC::io_dispatch, BstC::migration_policy, BstC::filter,
+    BstC::queuing_q1, BstC::queuing_q2,
     /* STRUKT-R ORG-18: T17 persistence_target */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
 
 TEST(V234bRestFamiliesShaped, BinaryIdShapeSegmentIsDefaultOff) {

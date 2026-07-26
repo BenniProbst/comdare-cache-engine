@@ -147,26 +147,26 @@ TEST(AnatomyR3_MammalProof, DifferentTiereDifferentCompositionTypes) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct FrankensteinComposition {
-    using search_algo                          = ce_compos::ArtComposition::search_algo;
-    using cache_traversal                      = ce_compos::WormholeComposition::cache_traversal; // Hash von Wormhole
-    using mapping                              = ce_compos::SurfComposition::mapping; // PoolRelative von SuRF
-    using path_compression                     = ce_compos::ArtComposition::path_compression;
-    using node_type                            = ce_compos::ArtComposition::node_type;
-    using memory_layout                        = ce_compos::ArtComposition::memory_layout;
-    using allocator                            = ce_compos::ArtComposition::allocator;
-    using prefetch                             = ce_compos::ArtComposition::prefetch;
-    using concurrency                          = ce_compos::ArtComposition::concurrency;
-    using serialization                        = ce_compos::ArtComposition::serialization;
-    using value_handle                         = ce_compos::ArtComposition::value_handle;
-    using index_organization                   = ce_compos::ArtComposition::index_organization;
-    using io_dispatch                          = ce_compos::ArtComposition::io_dispatch;
-    using migration_policy                     = ce_compos::ArtComposition::migration_policy;
-    using filter                               = ce_compos::ArtComposition::filter;
-    using queuing_q1                           = ce_compos::ArtComposition::queuing_q1; // Doc 30 §8.0: SA-Achse T17
-    using queuing_q2                           = ce_compos::ArtComposition::queuing_q2; // Doc 30 §8.0: SA-Achse T18
+    using search_algo        = ce_compos::ArtComposition::search_algo;
+    using cache_traversal    = ce_compos::WormholeComposition::cache_traversal; // Hash von Wormhole
+    using mapping            = ce_compos::SurfComposition::mapping;             // PoolRelative von SuRF
+    using path_compression   = ce_compos::ArtComposition::path_compression;
+    using node_type          = ce_compos::ArtComposition::node_type;
+    using memory_layout      = ce_compos::ArtComposition::memory_layout;
+    using allocator          = ce_compos::ArtComposition::allocator;
+    using prefetch           = ce_compos::ArtComposition::prefetch;
+    using concurrency        = ce_compos::ArtComposition::concurrency;
+    using serialization      = ce_compos::ArtComposition::serialization;
+    using value_handle       = ce_compos::ArtComposition::value_handle;
+    using index_organization = ce_compos::ArtComposition::index_organization;
+    using io_dispatch        = ce_compos::ArtComposition::io_dispatch;
+    using migration_policy   = ce_compos::ArtComposition::migration_policy;
+    using filter             = ce_compos::ArtComposition::filter;
+    using queuing_q1         = ce_compos::ArtComposition::queuing_q1; // Doc 30 §8.0: SA-Achse T17
+    using queuing_q2         = ce_compos::ArtComposition::queuing_q2; // Doc 30 §8.0: SA-Achse T18
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view name     = "FrankensteinComposition";
     static constexpr std::string_view paper_id = "P00 AdHoc Frankenstein 2026";
 };

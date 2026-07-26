@@ -167,7 +167,8 @@ template <class Catalog>
 // DER GEFORDERTE COMPILE-GUARD (BAUPLAN §4): das neue golden-Ziel N=2^17 + die erhaltene 320-Grundlage, beide
 // compile-verankert und EXPLOSIONSFREI (∏ mp_size; NIE FullSourceCatalog::Engine::count() / mp_product bei 2^17).
 static_assert(catalog_axis_product<FullSourceCatalog>() == 131072u,
-              "NEW-GOLDEN-ALL-AXES: FullSourceCatalog muss 17 Achsen je 2 x persistence_target je 1 = 131072 abdecken (Q-1 FALL B).");
+              "NEW-GOLDEN-ALL-AXES: FullSourceCatalog muss 17 Achsen je 2 x persistence_target je 1 = 131072 abdecken "
+              "(Q-1 FALL B).");
 static_assert(catalog_axis_product<golden_320_catalog>() == 320u,
               "messdaten-erhaltend: golden_320_catalog muss die alte 4·4·5·4 = 320 Semantik behalten.");
 static_assert(catalog_axis_product<SmallSourceCatalog>() == 4u, "SmallSourceCatalog = 2·2 = 4 (E2E-Treiber-Test).");
@@ -436,7 +437,7 @@ using F11 = ce::search_engine::TopicConfigSet::StaticAxisVariants; // index_orga
 using F12 = ce::io::TopicConfigSet::StaticAxisVariants;            // io_dispatch (slot 12)
 using F15 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q1;    // queuing_q1 (slot 15)
 using F16 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q2;    // queuing_q2 (slot 16)
-using F17 = ce::io::TopicConfigSet::StaticAxisVariants_PT;          // persistence_target (slot 17, STRUKT-R)
+using F17 = ce::io::TopicConfigSet::StaticAxisVariants_PT;         // persistence_target (slot 17, STRUKT-R)
 
 using CacheTraversalSweepCatalog =
     AxisSweepCatalogFull<B00, F01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;

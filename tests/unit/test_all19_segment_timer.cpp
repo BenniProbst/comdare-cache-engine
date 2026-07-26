@@ -64,7 +64,7 @@ struct ArtAosStrictComposition {
     using queuing_q2         = comp::ArtComposition::queuing_q2;
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view paper_id = "P01b ART-aos_strict (Layout-Fix-Beleg)";
     static constexpr std::string_view name     = "ArtAosStrictComposition";
 };

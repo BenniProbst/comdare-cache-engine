@@ -60,9 +60,9 @@ using DistanceStoreBackedComposition = an::AdHocComposition<
     nd::ObservableNodeType<nd::Node256NodeType>, ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>,
     al::StdMalloc, pf::DistanceEstimatorPrefetch, cc::NoneConcurrency,
     ser::ObservableSerialization<ser::RawBinarySerialization>, vh::InlineValueHandle, idx::IotIndexOrganization,
-    ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer,
-    q2::LazyFlush,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d: isa raus (17 Slots)
+    ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer, q2::LazyFlush,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d: isa raus (17 Slots)
 
 using DistanceTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<DistanceStoreBackedComposition>>;
 

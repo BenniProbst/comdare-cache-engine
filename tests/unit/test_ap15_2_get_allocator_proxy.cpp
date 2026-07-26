@@ -37,26 +37,26 @@ using U64 = std::uint64_t;
 template <class SearchAlgoWrapper>
 // cppcheck-suppress ctuOneDefinitionRuleViolation // FP: anon. namespace = interne Bindung je TU
 struct PoolFlipComposition {
-    using search_algo                          = SearchAlgoWrapper;
-    using cache_traversal                      = comp::ArtComposition::cache_traversal;
-    using mapping                              = comp::ArtComposition::mapping;
-    using path_compression                     = comp::ArtComposition::path_compression;
-    using node_type                            = comp::ArtComposition::node_type;
-    using memory_layout                        = comp::ArtComposition::memory_layout;
-    using allocator                            = comp::ArtComposition::allocator;
-    using prefetch                             = comp::ArtComposition::prefetch;
-    using concurrency                          = comp::ArtComposition::concurrency;
-    using serialization                        = comp::ArtComposition::serialization;
-    using value_handle                         = comp::ArtComposition::value_handle;
-    using index_organization                   = comp::ArtComposition::index_organization;
-    using io_dispatch                          = comp::ArtComposition::io_dispatch;
-    using migration_policy                     = comp::ArtComposition::migration_policy;
-    using filter                               = comp::ArtComposition::filter;
-    using queuing_q1                           = comp::ArtComposition::queuing_q1;
-    using queuing_q2                           = comp::ArtComposition::queuing_q2;
+    using search_algo        = SearchAlgoWrapper;
+    using cache_traversal    = comp::ArtComposition::cache_traversal;
+    using mapping            = comp::ArtComposition::mapping;
+    using path_compression   = comp::ArtComposition::path_compression;
+    using node_type          = comp::ArtComposition::node_type;
+    using memory_layout      = comp::ArtComposition::memory_layout;
+    using allocator          = comp::ArtComposition::allocator;
+    using prefetch           = comp::ArtComposition::prefetch;
+    using concurrency        = comp::ArtComposition::concurrency;
+    using serialization      = comp::ArtComposition::serialization;
+    using value_handle       = comp::ArtComposition::value_handle;
+    using index_organization = comp::ArtComposition::index_organization;
+    using io_dispatch        = comp::ArtComposition::io_dispatch;
+    using migration_policy   = comp::ArtComposition::migration_policy;
+    using filter             = comp::ArtComposition::filter;
+    using queuing_q1         = comp::ArtComposition::queuing_q1;
+    using queuing_q2         = comp::ArtComposition::queuing_q2;
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view paper_id = "AP15-2 allocator proxy";
     static constexpr std::string_view name     = "AP152AllocatorProxyComposition";
 };

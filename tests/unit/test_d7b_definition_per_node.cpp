@@ -112,7 +112,8 @@ int main() {
     constexpr auto n_def = ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly);
     constexpr auto n_ctr = ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver);
     static_assert(n_sa + n_def + n_ctr == 27, "18 + 9 + 0 == 27 (STRUKT-R ORG-18)");
-    eq("SearchAlgorithmObserver == 18 (kCompositionAxisNames, inkl. queuing q1/q2 + persistence_target)", n_sa, std::size_t{18});
+    eq("SearchAlgorithmObserver == 18 (kCompositionAxisNames, inkl. queuing q1/q2 + persistence_target)", n_sa,
+       std::size_t{18});
     eq("DefinitionOnly (page_type/09b/12 + telemetry + isa + 4 node-shape #234-K) == 9", n_def, std::size_t{9});
     eq("ContainerObserver == 0 (queuing→SA; reserviert für echte Container-Gattung #87)", n_ctr, std::size_t{0});
     eq("Summe == 27 (kAxisObserverClasses)", ex::kAxisObserverClasses.size(), std::size_t{27});

@@ -42,8 +42,8 @@ int main() {
 
     // ── Die 22 realen Achsen aus den Registry-Enabled-Listen (registry-getrieben) ──
     std::vector<ex::AxisLevel> lv = ex::build_all_axis_levels();
-    check_eq("Gate-2: 27 Achsen als Baum-Ebene (22 + 4 node-shape #234-K + persistence_target/ORG-18)",
-             lv.size(), std::size_t{27});
+    check_eq("Gate-2: 27 Achsen als Baum-Ebene (22 + 4 node-shape #234-K + persistence_target/ORG-18)", lv.size(),
+             std::size_t{27});
 
     // Jede Achse hat ihr volles Enabled-Inventar (>0 reale Wrapper), block_id == Achsen-Name (Bidir.-Tag).
     bool        nonempty = true, block_ok = true;
@@ -96,8 +96,7 @@ int main() {
     });
     check_true("Knoten materialisiert (>0)", nodes > 0);
     check_true("jeder Knoten block_id()==axis() (Bidir. auf dem Gesamtbaum)", all_block);
-    check_eq("Knoten block-zuordbar (27 distinkte Achsen-Blöcke; STRUKT-R ORG-18)", blocks.size(),
-             std::size_t{27});
+    check_eq("Knoten block-zuordbar (27 distinkte Achsen-Blöcke; STRUKT-R ORG-18)", blocks.size(), std::size_t{27});
 
     std::cout << "\n==== BR-1 VOLL-22 Gate-1: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";

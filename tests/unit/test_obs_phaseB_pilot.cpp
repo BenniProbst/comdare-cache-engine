@@ -56,7 +56,8 @@ using StoreBackedAdHocComposition = an::AdHocComposition<
     comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
     comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
     comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2,
-    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 static int  g_fail = 0;
 static void tr(char const* w, bool c) {
@@ -154,7 +155,8 @@ int main() {
 
     check_one<StoreBackedAdHocComposition>("AdHocArray256StoreBacked", adhoc, true);
     // #188-4c-i: Referenz-Hüllen honest-0 auf den Store-Achsen → filled_axis_count komposition-spezifisch (Re-Kopplung #234).
-    check_one<comp::ArtComposition>("Art", art, false, /*expected_filled=*/10u); // STRUKT-R ORG-18: +1 (pt_organ_ traegt T17)
+    check_one<comp::ArtComposition>("Art", art, false,
+                                    /*expected_filled=*/10u); // STRUKT-R ORG-18: +1 (pt_organ_ traegt T17)
     check_one<comp::HotComposition>("Hot", hot, false, /*expected_filled=*/10u);
     check_one<comp::MasstreeComposition>("Masstree", mass, false, /*expected_filled=*/9u);
 

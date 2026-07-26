@@ -163,27 +163,27 @@ TEST(R5A_ObservableAxisCount, ArtAnatomyDiagnoseIsCompileTime) {
 
 // Composition wo ALLE Achsen non-observable sind (EmptyAxisSnapshot ueberall)
 struct AllEmptyComposition {
-    using search_algo                          = WithoutStatistics;
-    using cache_traversal                      = WithoutStatistics;
-    using mapping                              = WithoutStatistics;
-    using path_compression                     = WithoutStatistics;
-    using node_type                            = WithoutStatistics;
-    using memory_layout                        = WithoutStatistics;
-    using allocator                            = WithoutStatistics;
-    using prefetch                             = WithoutStatistics;
-    using concurrency                          = WithoutStatistics;
-    using serialization                        = WithoutStatistics;
-    using value_handle                         = WithoutStatistics;
-    using isa                                  = WithoutStatistics;
-    using index_organization                   = WithoutStatistics;
-    using io_dispatch                          = WithoutStatistics;
-    using migration_policy                     = WithoutStatistics;
-    using filter                               = WithoutStatistics;
-    using queuing_q1                           = WithoutStatistics; // Doc 30 §8.0: SA-Achse T17
-    using queuing_q2                           = WithoutStatistics; // Doc 30 §8.0: SA-Achse T18
+    using search_algo        = WithoutStatistics;
+    using cache_traversal    = WithoutStatistics;
+    using mapping            = WithoutStatistics;
+    using path_compression   = WithoutStatistics;
+    using node_type          = WithoutStatistics;
+    using memory_layout      = WithoutStatistics;
+    using allocator          = WithoutStatistics;
+    using prefetch           = WithoutStatistics;
+    using concurrency        = WithoutStatistics;
+    using serialization      = WithoutStatistics;
+    using value_handle       = WithoutStatistics;
+    using isa                = WithoutStatistics;
+    using index_organization = WithoutStatistics;
+    using io_dispatch        = WithoutStatistics;
+    using migration_policy   = WithoutStatistics;
+    using filter             = WithoutStatistics;
+    using queuing_q1         = WithoutStatistics; // Doc 30 §8.0: SA-Achse T17
+    using queuing_q2         = WithoutStatistics; // Doc 30 §8.0: SA-Achse T18
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view name     = "AllEmptyComposition";
     static constexpr std::string_view paper_id = "P00 EmptyTest";
 };

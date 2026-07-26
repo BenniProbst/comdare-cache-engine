@@ -70,26 +70,26 @@ static_assert(std::is_same_v<lkc::organ_for_search_algo_shaped_t<lk::Array256Sea
 template <class SearchAlgoWrapper>
 // cppcheck-suppress ctuOneDefinitionRuleViolation // FP: anon. Namespace = interne Bindung je TU
 struct PoolFlipComposition {
-    using search_algo                          = SearchAlgoWrapper;
-    using cache_traversal                      = comp::ArtComposition::cache_traversal;
-    using mapping                              = comp::ArtComposition::mapping;
-    using path_compression                     = comp::ArtComposition::path_compression;
-    using node_type                            = comp::ArtComposition::node_type;
-    using memory_layout                        = comp::ArtComposition::memory_layout;
-    using allocator                            = comp::ArtComposition::allocator;
-    using prefetch                             = comp::ArtComposition::prefetch;
-    using concurrency                          = comp::ArtComposition::concurrency;
-    using serialization                        = comp::ArtComposition::serialization;
-    using value_handle                         = comp::ArtComposition::value_handle;
-    using index_organization                   = comp::ArtComposition::index_organization;
-    using io_dispatch                          = comp::ArtComposition::io_dispatch;
-    using migration_policy                     = comp::ArtComposition::migration_policy;
-    using filter                               = comp::ArtComposition::filter;
-    using queuing_q1                           = comp::ArtComposition::queuing_q1;
-    using queuing_q2                           = comp::ArtComposition::queuing_q2;
+    using search_algo        = SearchAlgoWrapper;
+    using cache_traversal    = comp::ArtComposition::cache_traversal;
+    using mapping            = comp::ArtComposition::mapping;
+    using path_compression   = comp::ArtComposition::path_compression;
+    using node_type          = comp::ArtComposition::node_type;
+    using memory_layout      = comp::ArtComposition::memory_layout;
+    using allocator          = comp::ArtComposition::allocator;
+    using prefetch           = comp::ArtComposition::prefetch;
+    using concurrency        = comp::ArtComposition::concurrency;
+    using serialization      = comp::ArtComposition::serialization;
+    using value_handle       = comp::ArtComposition::value_handle;
+    using index_organization = comp::ArtComposition::index_organization;
+    using io_dispatch        = comp::ArtComposition::io_dispatch;
+    using migration_policy   = comp::ArtComposition::migration_policy;
+    using filter             = comp::ArtComposition::filter;
+    using queuing_q1         = comp::ArtComposition::queuing_q1;
+    using queuing_q2         = comp::ArtComposition::queuing_q2;
     // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
     // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
-    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
+    using persistence_target                   = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view paper_id = "234-V-a shaped emission proof";
     static constexpr std::string_view name     = "V234aShapedComposition";
 };
@@ -153,12 +153,11 @@ struct MiniEngine {
 // ── Makro-Materialisierungs-Beweis (REVIEW-FIX Critical-1): diese TU repliziert EXAKT den Inhalt der
 // emittierten SHAPED-Quelle (Umbrella-Include + Registry-Include + SHAPED-Makro mit Nicht-Default-Shape)
 // und beweist damit KOMPILIERBARKEIT + Funktion des Makro-Pfads in-process (extern-C-Symbole unten). ──
-COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ord::BtreeOrderKt2, BTreeC::search_algo, BTreeC::cache_traversal,
-                                           BTreeC::mapping, BTreeC::path_compression, BTreeC::node_type,
-                                           BTreeC::memory_layout, BTreeC::allocator, BTreeC::prefetch,
-                                           BTreeC::concurrency, BTreeC::serialization, BTreeC::value_handle,
-                                           BTreeC::index_organization, BTreeC::io_dispatch, BTreeC::migration_policy,
-                                           BTreeC::filter, BTreeC::queuing_q1, BTreeC::queuing_q2,
+COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(
+    ord::BtreeOrderKt2, BTreeC::search_algo, BTreeC::cache_traversal, BTreeC::mapping, BTreeC::path_compression,
+    BTreeC::node_type, BTreeC::memory_layout, BTreeC::allocator, BTreeC::prefetch, BTreeC::concurrency,
+    BTreeC::serialization, BTreeC::value_handle, BTreeC::index_organization, BTreeC::io_dispatch,
+    BTreeC::migration_policy, BTreeC::filter, BTreeC::queuing_q1, BTreeC::queuing_q2,
     /* STRUKT-R ORG-18: T17 persistence_target */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
 
 // (2a) Adapter-Traeger-Beweis STRUKTURELL (REVIEW-FIX Important-2, F1-Praezedenz): live_nodes ist die

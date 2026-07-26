@@ -60,31 +60,30 @@ template <class List>
 struct PilotCfg {
     using StaticAxisVariants = List;
 };
-using L0          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;
-using L1          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;
-using L2          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;
-using L3          = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
-using L4          = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;
-using L5          = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;
-using L6          = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
-using L7          = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
-using L8          = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
-using L9          = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
-using L11         = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
-using L12         = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;
-using L13         = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;
-using L14         = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
-using L15         = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
-using L16         = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
-using L17         = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1 (Doc 30 §8.0)
-using L18         = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2 (Doc 30 §8.0)
+using L0  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;
+using L1  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;
+using L2  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;
+using L3  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
+using L4  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;
+using L5  = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;
+using L6  = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
+using L7  = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
+using L8  = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
+using L9  = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
+using L11 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
+using L12 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;
+using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;
+using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
+using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
+using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
+using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1 (Doc 30 §8.0)
+using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2 (Doc 30 §8.0)
 // STRUKT-R ORG-18: 18. Slot. mp_take_c<...,1> ist bei Q-1 FALL B gueltig (1-elementige Enabled-Liste).
 using L19         = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants_PT, 1>; // persistence_target
 using PilotEngine = // INC-2d: PilotCfg<L12>/isa raus; STRUKT-R ORG-18: PilotCfg<L19> dazu (18 Slots)
     perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>, PilotCfg<L5>,
                             PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L13>,
-                            PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>,
-                            PilotCfg<L19>>;
+                            PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>, PilotCfg<L19>>;
 
 int main() {
     std::cout << "BR-3 (Pilot): Baum-Knoten trägt ECHTEN ObserverAggregate-Snapshot (kein Stub):\n";
@@ -161,7 +160,8 @@ int main() {
     ex::CompositionRecord const* rec = reg.lookup(path);
     check_true("Achsen-Definition für den Knoten abrufbar", rec != nullptr);
     if (rec)
-        check_eq("Definition traegt alle 18 Achsen (achse,wrapper; STRUKT-R ORG-18)", rec->definition.size(), std::size_t{18});
+        check_eq("Definition traegt alle 18 Achsen (achse,wrapper; STRUKT-R ORG-18)", rec->definition.size(),
+                 std::size_t{18});
 
     std::cout << "\n==== BR-3 Observer: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";
