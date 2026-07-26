@@ -22,6 +22,9 @@
 //   (2) Eine Fake-Transport-Runde (In-Memory-Map, kein mc/minio/Netz): Union-per-id ueber
 //       store_document_merged und die MERGE-Aufloesung ueber den Status-Rang (offen<released<done).
 //   (3) pro_forma_deadline_epoch_s: die 30-Minuten-Frist als Wache.
+//   (4) Die Ebenen-Praedikate minio_enabled/drop_enabled/inert, auf denen das Host-Gate steht
+//       (AUF-B3 korrigiert): NUR-Ebene-C ist nicht inert und hat dennoch keinen Objekt-Store.
+//       Dieser Block setzt Umgebungsvariablen und stellt sie per RAII wieder her.
 //
 // WAS DIESE TU AUSDRUECKLICH NICHT BEWEIST (AUF-C1, damit es niemand dafuer haelt): dass ohne
 // COMDARE_BESTANDSLOG kein Transport gebunden und kein Schreibpfad betreten wird. Diese
@@ -39,11 +42,13 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib> // AUF-B3-Wache: setenv/unsetenv/getenv fuer die Ebenen-Praedikate
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace at = comdare::cache_engine::builder::artifact_transport;
@@ -129,6 +134,38 @@ struct FakeStore {
     return r;
 }
 
+// Setzt die vier Ebenen-Variablen deterministisch und stellt den Vorzustand im Destruktor wieder her
+// (Muster wie test_cache_mc_timeout.cpp:65-92). Deterministisch UNABHAENGIG davon, was die Umgebung
+// des Test-Laufs zufaellig traegt: jede der vier Variablen wird entweder gesetzt oder explizit
+// entfernt, nie "gelassen wie sie ist".
+class EnvGuard {
+public:
+    EnvGuard() {
+        for (auto const* name : kNames) {
+            char const* const alt = std::getenv(name);
+            vorher_.emplace_back(name, alt != nullptr ? std::optional<std::string>{alt} : std::nullopt);
+            ::unsetenv(name);
+        }
+    }
+    ~EnvGuard() {
+        for (auto const& [name, wert] : vorher_) {
+            if (wert)
+                ::setenv(name, wert->c_str(), 1);
+            else
+                ::unsetenv(name);
+        }
+    }
+    EnvGuard(EnvGuard const&)            = delete;
+    EnvGuard& operator=(EnvGuard const&) = delete;
+
+    static void setze(char const* name, char const* wert) { ::setenv(name, wert, 1); }
+
+private:
+    static constexpr char const* kNames[] = {"COMDARE_MINIO_ENDPOINT", "COMDARE_MINIO_BUCKET", "COMDARE_MINIO_PREFIX",
+                                             "COMDARE_MEASUREMENT_DROP_URL"};
+    std::vector<std::pair<char const*, std::optional<std::string>>> vorher_;
+};
+
 // Ein Dokument mit genau diesen Reservierungen.
 [[nodiscard]] bl::BestandslogDocument dokument(std::vector<bl::BatchReservierung> res, std::uint64_t revision = 1) {
     bl::BestandslogDocument d;
@@ -191,8 +228,14 @@ TEST(G3ArtifactCacheTransport, LagerRunStateOnInertTransport) {
     EXPECT_EQ(st.lager_size(), 0u); // nichts zu laden -> leeres Lager
     EXPECT_EQ(st.lager_hits(), 0u);
 
+    // Der vierte flush-Parameter (LockOwner) kam mit dem N7-Schreib-Lock der Lager-Ertuechtigung hinzu;
+    // gebildet wird er mit dem Haus-Helfer, genau wie an der Produktions-Aufrufstelle im Iterator
+    // (make_lock_owner(bestand_owner_uuid, bestand_maschine)). Die Werte sind fuer diesen Test
+    // gleichgueltig -- auf einem inerten Transport kommt es nie zu einem Lock-Erwerb.
+    bl::LockOwner const ich = bl::make_lock_owner("test-owner", "testhost");
+
     // Ohne Beobachtung gibt es nichts zu schreiben -> 0 (kein Fehler, es wurde nichts versucht).
-    auto const nichts = st.flush(t, kDocKey, "2026-07-26T00:00:00Z");
+    auto const nichts = st.flush(t, kDocKey, "2026-07-26T00:00:00Z", ich);
     ASSERT_TRUE(nichts.has_value());
     EXPECT_EQ(*nichts, 0u);
 
@@ -200,7 +243,7 @@ TEST(G3ArtifactCacheTransport, LagerRunStateOnInertTransport) {
     // Erfolg vorzutaeuschen.
     bl::ZellKoordinaten const zelle{.combo = "default", .opt = "O2", .simd = "avx2"};
     EXPECT_EQ(st.observe(std::string(128, 'a'), zelle, "tier/0.dll", 1, "", "utc"), bl::DedupOutcome::fresh_register);
-    EXPECT_FALSE(st.flush(t, kDocKey, "2026-07-26T00:00:01Z").has_value());
+    EXPECT_FALSE(st.flush(t, kDocKey, "2026-07-26T00:00:01Z", ich).has_value());
 }
 
 // ---------------------------------------------------------------------------
@@ -406,6 +449,70 @@ TEST(G3ProFormaDeadline, DefaultSind30MinutenNachDerReservierung) {
     EXPECT_EQ(bl::pro_forma_deadline_epoch_s(reserviert), reserviert + 30 * 60);
     EXPECT_EQ(bl::pro_forma_deadline_epoch_s(reserviert), reserviert + 1800);
     EXPECT_EQ(bl::kProFormaMinutes, 30);
+}
+
+// ===========================================================================
+// G4b-1 / AUF-B3 (korrigiert 2026-07-26): die EBENEN-PRAEDIKATE, auf denen das Host-Gate steht.
+//
+// Das Gate im messung_driver lautet COMDARE_BESTANDSLOG=="true" UND minio_enabled() UND owner-
+// Identitaet gesetzt. Der Grund fuer minio_enabled() statt !inert() ist genau der Fall
+// NUR-EBENE-C unten: dort ist inert() bereits false, obwohl KEIN Objekt-Store existiert. Diese
+// Tests halten den Unterschied fest, damit die Gate-Bedingung nicht versehentlich zurueckgedreht
+// wird. Die Gate-ENTSCHEIDUNG selbst liegt in main.cpp und ist in dieser TU nicht fuehrbar
+// (AUF-C1) -- hier wird nur die Tatsache gesichert, auf die sie sich stuetzt.
+// ===========================================================================
+TEST(G3CacheEbenenPraedikate, NurEbeneCIstNichtInertAberOhneObjektStore) {
+    EnvGuard const guard; // alle vier Ebenen-Vars entfernt
+    EnvGuard::setze("COMDARE_MEASUREMENT_DROP_URL", "https://example.invalid/drop");
+    auto const cache = at::ArtifactCache::from_env();
+
+    EXPECT_TRUE(cache.drop_enabled());   // Ebene C konfiguriert
+    EXPECT_FALSE(cache.minio_enabled()); // Ebene B NICHT
+    EXPECT_FALSE(cache.inert());         // DIE FALLE: inert() ist hier schon false
+
+    // Und trotzdem sind alle drei Objekt-Verben tot -- ein daraus gebundener Transport waere
+    // vollstaendig belegt und vollstaendig wirkungslos.
+    EXPECT_FALSE(cache.object_fetch(kDocKey).has_value());
+    EXPECT_FALSE(cache.object_store(kDocKey, "<bestandslog/>"));
+    EXPECT_FALSE(cache.object_remove(kDocKey));
+
+    auto const t = bl::make_bestand_transport(cache);
+    EXPECT_TRUE(static_cast<bool>(t.store));          // belegt ...
+    EXPECT_FALSE(t.store(kDocKey, "<bestandslog/>")); // ... aber ohne Wirkung
+}
+
+TEST(G3CacheEbenenPraedikate, NurEbeneBErfuelltDieGateBedingung) {
+    EnvGuard const guard;
+    EnvGuard::setze("COMDARE_MINIO_ENDPOINT", "fakealias");
+    EnvGuard::setze("COMDARE_MINIO_BUCKET", "fakebucket");
+    auto const cache = at::ArtifactCache::from_env();
+
+    EXPECT_TRUE(cache.minio_enabled()); // die Gate-Bedingung
+    EXPECT_FALSE(cache.drop_enabled());
+    EXPECT_FALSE(cache.inert());
+}
+
+// Endpoint ODER Bucket allein genuegt NICHT -- minio_enabled() verlangt beide (artifact_cache.hpp:221).
+TEST(G3CacheEbenenPraedikate, HalbeMinioKonfigurationErfuelltDasGateNicht) {
+    {
+        EnvGuard const guard;
+        EnvGuard::setze("COMDARE_MINIO_ENDPOINT", "fakealias"); // ohne Bucket
+        EXPECT_FALSE(at::ArtifactCache::from_env().minio_enabled());
+    }
+    {
+        EnvGuard const guard;
+        EnvGuard::setze("COMDARE_MINIO_BUCKET", "fakebucket"); // ohne Endpoint
+        EXPECT_FALSE(at::ArtifactCache::from_env().minio_enabled());
+    }
+}
+
+TEST(G3CacheEbenenPraedikate, KeineEbeneIstInertUndErfuelltDasGateNicht) {
+    EnvGuard const guard; // alle vier entfernt
+    auto const     cache = at::ArtifactCache::from_env();
+
+    EXPECT_FALSE(cache.minio_enabled());
+    EXPECT_FALSE(cache.drop_enabled());
+    EXPECT_TRUE(cache.inert());
 }
 
 TEST(G3ProFormaDeadline, FristLiegtEchtInDerZukunft) {
