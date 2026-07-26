@@ -1,0 +1,55 @@
+#pragma once
+// G2 Folge-B (Lager-Gate, Stempel-Paket A7-B) -- die Mengen-Signatur DIESES Treibers: build_variant_set_signature.hpp
+// (registry-frei, generisch ueber Typlisten) angewandt auf die drei REALEN, CMake-enabled Registry-Listen
+//   EnabledPageTypes  (axis_01, topics/nodes)      -- mp_filter ueber T::enabled aus axis_01_page_type_flags.hpp
+//   EnabledExtensions (axis_09b, topics/hardware)  -- dito aus axis_09b_simd_extension_flags.hpp
+//   EnabledPlatforms  (axis_12, topics/hardware)   -- dito aus axis_12_general_hardware_flags.hpp
+// Die Flags-Header sind CMake-generiert (configure_file -> ${PROJECT_BINARY_DIR}/generated/topics/...), d.h. die
+// Signatur ist eine direkte Funktion der Build-Konfiguration DIESER Maschine. Genau darum ist sie das
+// Cross-Maschinen-Gate: eine per-Maschine restringierte Enable-Menge ergibt eine andere Signatur -> .variant-Sidecar-
+// Mismatch -> Neubau. Bei identischer (Voll-)Enable-Menge ist sie identisch und damit inert.
+//
+// DIESER Header ist von build_variant_set_signature.hpp GETRENNT, weil erst er die generierten Flags-Header
+// nachzieht: wer nur die generische CT-Maschinerie braucht (Tests mit synthetischen Listen), soll die Registry-
+// Abhaengigkeit nicht miterben.
+//
+// ZIRKULARITAETS-VERBOT: die Erwartungsseite kommt IMMER aus dieser aktuellen Treiber-Konfiguration, NIE aus der
+// alten DLL oder deren Sidecar. Ein Sidecar darf nur verglichen, niemals als Soll gelesen werden.
+
+#include "build_variant_set_signature.hpp" // variant_set_signature<PageList,SimdList,HwList>()
+
+#include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_registry.hpp>   // EnabledExtensions
+#include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_registry.hpp> // EnabledPlatforms
+#include <topics/nodes/axis_01_page_type/axis_01_page_type_registry.hpp>                  // EnabledPageTypes
+
+#include <string>
+#include <string_view>
+
+namespace comdare::cache_engine::builder::experiment {
+
+/// Die Mengen-Signatur dieses Treibers als compile-time Konstante.
+inline constexpr std::string_view kDriverBuildVariantSignature =
+    variant_set_signature<nodes::axis_01_page_type::EnabledPageTypes,
+                          hardware::axis_09b_simd_extension::EnabledExtensions,
+                          hardware::axis_12_general_hardware::EnabledPlatforms>();
+
+// CT-Wachen: die Signatur ist nicht leer, traegt den Format-/POD-Versions-Kopf und ALLE DREI Achsen-Klammern
+// (§66-N3 Punkt 4). Schlaegt eine dieser Zusicherungen fehl, ist die Signatur strukturell kaputt und das Gate wuerde
+// still falsch vergleichen -- deshalb bricht hier der Bau statt der Messung.
+static_assert(!kDriverBuildVariantSignature.empty());
+static_assert(kDriverBuildVariantSignature.starts_with("bvset="));
+static_assert(kDriverBuildVariantSignature.find(";page_type[") != std::string_view::npos);
+static_assert(kDriverBuildVariantSignature.find(";simd_extension[") != std::string_view::npos);
+static_assert(kDriverBuildVariantSignature.find(";general_hardware[") != std::string_view::npos);
+// Mindestens eine Variante je Achse -- die Registries erzwingen das bereits per eigenem static_assert
+// (mp_size<Enabled*> > 0); hier wird zusaetzlich geprueft, dass sie auch WIRKLICH in der Signatur landet
+// (eine leere Achse waere `page_type[]`, also unmittelbar von `[]` gefolgt).
+static_assert(kDriverBuildVariantSignature.find("page_type[]") == std::string_view::npos);
+static_assert(kDriverBuildVariantSignature.find("simd_extension[]") == std::string_view::npos);
+static_assert(kDriverBuildVariantSignature.find("general_hardware[]") == std::string_view::npos);
+
+/// Runtime-Naht fuer BuildConfig.build_variant_sig: liefert dieselbe CT-Konstante als std::string. Reine CT->RT-
+/// Materialisierung (erlaubte Richtung); es wird nichts abgeleitet, geparst oder geraten.
+[[nodiscard]] inline std::string driver_build_variant_signature() { return std::string{kDriverBuildVariantSignature}; }
+
+} // namespace comdare::cache_engine::builder::experiment

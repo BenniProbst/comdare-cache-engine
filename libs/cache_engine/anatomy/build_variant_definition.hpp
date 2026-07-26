@@ -73,20 +73,67 @@ template <class SE>
 }
 } // namespace detail
 
+// A7-B (G2 Folge-B, 2026-07-26) -- die JE-ACHSE-Feldleser als EINE Feldquelle. Grund: die Mengen-Signatur ueber die
+// Enabled-Typlisten (builder/build_variant_set_signature.hpp) klammert je Achse SEPARAT (§66-N3 Punkt 4) und braucht
+// deshalb genau EINE Achse ohne die beiden anderen -- der volle POD-Weg build_variant_definition<PT,SE,HW>() verlangt
+// dagegen alle drei. Statt einer zweiten Ableitung (= Zweitwahrheit) lesen BEIDE Wege hier: der POD setzt seine Felder
+// aus diesen Strukturen zusammen, die Mengen-Signatur serialisiert sie je Achse. Werte bitgleich zur Vor-Fassung.
+
+/// page_type (axis_01) -- die drei Definitions-Felder der Seitentyp-Achse.
+struct PageAxisFields {
+    std::uint64_t page_kind      = 0;
+    std::uint64_t page_is_branch = 0;
+    std::uint64_t page_is_leaf   = 0;
+};
+
+/// simd_extension (axis_09b) -- Breite + AVX-512-Flag + konvergierte AVX10-Version (A6-Feld).
+struct SimdAxisFields {
+    std::uint64_t simd_width_bits    = 0;
+    std::uint64_t simd_avx512        = 0;
+    std::uint64_t simd_avx10_version = 0;
+};
+
+/// general_hardware (axis_12) -- Cache-Line-Groesse + NUMA-Faehigkeit.
+struct HwAxisFields {
+    std::uint64_t hw_cache_line   = 0;
+    std::uint64_t hw_numa_capable = 0;
+};
+
+template <class PT>
+[[nodiscard]] constexpr PageAxisFields page_axis_fields() noexcept {
+    return PageAxisFields{static_cast<std::uint64_t>(PT::page_kind()), PT::is_branch() ? 1u : 0u,
+                          PT::is_leaf() ? 1u : 0u};
+}
+
+template <class SE>
+[[nodiscard]] constexpr SimdAxisFields simd_axis_fields() noexcept {
+    return SimdAxisFields{static_cast<std::uint64_t>(SE::vector_width_bits()), detail::detect_avx512<SE>(),
+                          detail::detect_avx10_version<SE>()}; // A6 (G2-2): 0 = kein AVX10 (heute ueberall)
+}
+
+template <class HW>
+[[nodiscard]] constexpr HwAxisFields hw_axis_fields() noexcept {
+    return HwAxisFields{static_cast<std::uint64_t>(HW::cache_line_size()), HW::numa_capable() ? 1u : 0u};
+}
+
 /// build_variant_definition<PT,SE,HW>() — compile-time Reader: füllt den POD aus den static-constexpr-Properties
 /// der 3 Build-Achsen (KEIN Treiben — reine Definition). PT/SE/HW erfüllen die page_type/simd/hw-Property-API
 /// (Stub ODER echter Wrapper — die simd-avx512-Erkennung ist via detail::detect_avx512 tolerant).
 template <class PT, class SE, class HW>
 [[nodiscard]] constexpr BuildVariantDefinitionV1 build_variant_definition() noexcept {
+    PageAxisFields const p = page_axis_fields<PT>();
+    SimdAxisFields const s = simd_axis_fields<SE>();
+    HwAxisFields const   h = hw_axis_fields<HW>();
+
     BuildVariantDefinitionV1 v{};
-    v.page_kind          = static_cast<std::uint64_t>(PT::page_kind());
-    v.page_is_branch     = PT::is_branch() ? 1u : 0u;
-    v.page_is_leaf       = PT::is_leaf() ? 1u : 0u;
-    v.simd_width_bits    = static_cast<std::uint64_t>(SE::vector_width_bits());
-    v.simd_avx512        = detail::detect_avx512<SE>();
-    v.simd_avx10_version = detail::detect_avx10_version<SE>(); // A6 (G2-2): 0 = kein AVX10 (heute ueberall)
-    v.hw_cache_line      = static_cast<std::uint64_t>(HW::cache_line_size());
-    v.hw_numa_capable    = HW::numa_capable() ? 1u : 0u;
+    v.page_kind          = p.page_kind;
+    v.page_is_branch     = p.page_is_branch;
+    v.page_is_leaf       = p.page_is_leaf;
+    v.simd_width_bits    = s.simd_width_bits;
+    v.simd_avx512        = s.simd_avx512;
+    v.simd_avx10_version = s.simd_avx10_version;
+    v.hw_cache_line      = h.hw_cache_line;
+    v.hw_numa_capable    = h.hw_numa_capable;
     v.present_mask       = kBuildPagePresent | kBuildSimdPresent | kBuildHwPresent;
     return v;
 }
