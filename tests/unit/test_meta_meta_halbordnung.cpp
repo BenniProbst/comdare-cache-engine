@@ -200,10 +200,15 @@ TEST(MetaMetaHalbordnung, NurDasFreigabeGateIstInertNichtDieSimdAchse) {
     //
     // Der Test nagelt deshalb GENAU DREI Dinge fest, jeweils mit eigener Bruchstelle:
 
-    // (1) Die drei Eingangs-Hooks des Gates sind leer (simd_build_gate.hpp:185-187).
+    // (1) NACHZUG C-3a: die drei Hooks sind seit der Scharfschaltung NICHT mehr pauschal leer --
+    //     dieser Test war die Tripwire dafuer und hat korrekt gebrochen. Der Ist-Stand ist jetzt:
+    //     required LEER (der dominante Schalter, Organ-Seite), meaningful ECHT gefuellt (Vereinigung
+    //     der Sinnhaftigkeits-Matrix), machine_signature leer SOLANGE die CEB nichts belegt hat.
     EXPECT_TRUE(meas::active_organ_required().empty());
-    EXPECT_TRUE(meas::active_organ_meaningful().empty());
-    EXPECT_TRUE(meas::active_machine_signature().empty());
+    EXPECT_FALSE(meas::active_organ_meaningful().empty())
+        << "C-3a fuellt Hook 2 mit der echten Vereinigung -- leer waere hier ein Rueckschritt.";
+    EXPECT_TRUE(meas::active_machine_signature().empty())
+        << "Ohne CEB-Belegung bleibt die Signatur leer (natuerlicher Kill-Switch).";
 
     // (2) Der DOMINANTE Schalter ist nicht Hook (3), sondern die Organ-Deklaration: solange kein Organ
     //     required-Flags traegt (simd_organ_requirement.hpp:40-50, static_assert :88), kehrt pruef_dock

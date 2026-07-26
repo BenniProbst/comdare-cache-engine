@@ -26,11 +26,17 @@
 #pragma once
 
 #include <cache_engine/measurement/axis_error.hpp>
+#include <cache_engine/measurement/machine_identity.hpp> // C-3a/O-4: welche Maschine laeuft
 #include <cache_engine/measurement/simd_feature_flag.hpp>
+#include <cache_engine/measurement/simd_organ_requirement.hpp> // C-3a: die required-Deklarationen
+#include <cache_engine/measurement/simd_organ_sensibility.hpp> // C-3a: die Sinnhaftigkeits-Matrix
 
+#include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -178,13 +184,156 @@ admit_organ_on_machine(std::span<SimdFeatureFlag const> organ_required,
     return SimdRoute::NoExtension;
 }
 
-// Die AKTIVEN Organ-Anforderungen des laufenden Baus. HEUTE LEER: kein Organ deklariert required-Flags ->
-// das Gate ist NotApplicable/inert -> die CompileFn-Naht haengt KEINE Zusatz-Flags an (byte-/golden-neutral,
-// Ist-Verhalten identisch). Diese drei Hooks sind der Single-Source-Einstieg, den die per-Organ-/per-Binary-
-// Aktivierung spaeter befuellt (organ_required aus den Organ-Wrappern, machine_signature aus der Host-Wahl).
+// =================================================================================================
+// PAKET C-3a -- SCHARFSCHALTUNG DER DREI HOOKS (Bauplan D2.3/D2.11, Owner-Vorab-GO Ledger §69.9)
+// =================================================================================================
+// Die drei Hooks werden GEMEINSAM gefuellt. Einzeln waere es wirkungslos: :187 allein ist ein
+// garantierter No-Op, weil pruef_dock:109 bei leerem required sofort NotApplicable zurueckgibt --
+// unabhaengig davon, welche Maschinen-Signatur eingesetzt wird (C-3b-Beleg).
+//
+// BYTE-KLASSE: byte-neutral scharf. Der DOMINANTE Schalter ist die Organ-Seite, und die ist leer
+// (simd_organ_requirement.hpp:88 static_assert -- alle 9 Klassen tragen kRequiredNone). Damit bleibt
+// pruef_dock NotApplicable, die rsp-Zeilen sind zeichengleich, und build_orchestrator.hpp:458-459
+// betritt seinen Gate-Block nie. Belegt per rsp-Diff je Route im unregistrierten C-3a-Test.
+//
+// NOT-AUS: ein Knopf, kein CMake-Schalter (§73.1 "keine Skripte ausser CMake, und CMake sparsam").
+#ifndef COMDARE_SIMD_GATE_ARMED
+#define COMDARE_SIMD_GATE_ARMED 1
+#endif
+inline constexpr bool kSimdGateArmed = (COMDARE_SIMD_GATE_ARMED != 0);
+
+// -- Die AKTIVE Maschinen-Deklaration (Einmal-Belegung durch die CEB) -----------------------------
+// Die CompileFn-Naht kennt keinen XML-Kontext. Die CEB belegt deshalb EINMAL beim Start -- VOR der
+// Perm-Schleife -- welches Eigenschafts-Tupel (cpu_fabrication, ram_pair) fuer diesen Lauf gilt; es
+// stammt aus <machines><machine> der Anwender-XML (Ein-Kanal-Doktrin §73.1, O-4).
+// DEFAULT LEER => keine Identitaet => Gate inert. Das ist der NATUERLICHE Kill-Switch.
+enum class MachineDeclarationSetResult : std::uint8_t {
+    Gesetzt                 = 0, ///< erste Belegung, uebernommen
+    BereitsGesetztIdentisch = 1, ///< erneute Belegung mit demselben Tupel -- geduldet, kein Effekt
+    AbgelehntAbweichend     = 2, ///< erneute Belegung mit ANDEREM Tupel -- ABGELEHNT, Altwert bleibt
+};
+
+namespace detail {
+struct ActiveMachineState {
+    std::mutex        mu;
+    std::atomic<bool> latched{false};
+    std::string       cpu_fabrication;
+    std::string       ram_pair;
+};
+[[nodiscard]] inline ActiveMachineState& active_machine_state() noexcept {
+    static ActiveMachineState s;
+    return s;
+}
+} // namespace detail
+
+/// EINMAL-BELEGUNG mit benanntem Verhalten beim zweiten Aufruf. Ein stilles Ueberschreiben mitten in
+/// der Perm-Schleife waere ein Determinismus-Bruch: die Haelfte der Binaries eines Laufs haette eine
+/// andere Freigabe als die andere. Ein abweichender Zweit-Aufruf wird deshalb ABGELEHNT, nicht
+/// uebernommen -- der Aufrufer bekommt das Urteil zurueck und muss es behandeln ([[nodiscard]]).
+/// Thread-sicher: die Belegung laeuft unter Mutex, das Latch-Flag traegt release/acquire.
+[[nodiscard]] inline MachineDeclarationSetResult set_active_machine_declaration(std::string_view cpu_fabrication,
+                                                                                std::string_view ram_pair) {
+    auto&                       s = detail::active_machine_state();
+    std::lock_guard<std::mutex> lk(s.mu);
+    if (s.latched.load(std::memory_order_relaxed)) {
+        return (s.cpu_fabrication == cpu_fabrication && s.ram_pair == ram_pair)
+                   ? MachineDeclarationSetResult::BereitsGesetztIdentisch
+                   : MachineDeclarationSetResult::AbgelehntAbweichend;
+    }
+    s.cpu_fabrication.assign(cpu_fabrication);
+    s.ram_pair.assign(ram_pair);
+    s.latched.store(true, std::memory_order_release);
+    return MachineDeclarationSetResult::Gesetzt;
+}
+
+/// NUR fuer Tests: die Einmal-Belegung zuruecksetzen. Im Produktions-Pfad gibt es kein Zuruecksetzen.
+inline void reset_active_machine_declaration_for_test() {
+    auto&                       s = detail::active_machine_state();
+    std::lock_guard<std::mutex> lk(s.mu);
+    s.cpu_fabrication.clear();
+    s.ram_pair.clear();
+    s.latched.store(false, std::memory_order_release);
+}
+
+// -- Hook 1/3: die AKTIVEN Organ-Anforderungen ----------------------------------------------------
+// Die Fassaden-Naht kennt KEINEN Organ-Kontext (sie sieht nur opt_flag + march_flag), der per-Binary
+// genaue Weg liegt allein im Orchestrator (aggregate_required_for_axes ueber spec.axes). Dieser Hook
+// ist deshalb die VEREINIGUNG ueber alle Organ-Klassen. Sie ist heute nachweislich LEER -- und solange
+// sie leer ist, IST {} exakt die Vereinigung. Der Tripwire darunter erzwingt, dass diese Gleichung gilt.
 [[nodiscard]] inline std::span<SimdFeatureFlag const> active_organ_required() noexcept { return {}; }
-[[nodiscard]] inline std::span<SimdFeatureFlag const> active_organ_meaningful() noexcept { return {}; }
-[[nodiscard]] inline std::span<SimdFeatureFlag const> active_machine_signature() noexcept { return {}; }
+
+namespace detail {
+[[nodiscard]] consteval std::size_t organ_required_union_size() {
+    std::size_t n = 0;
+    for (auto const& e : kSimdOrganRequirement) n += e.required.size();
+    return n;
+}
+} // namespace detail
+static_assert(detail::organ_required_union_size() == 0,
+              "C-3a-TRIPWIRE: ein Organ deklariert jetzt required-Flags, damit ist active_organ_required() "
+              "als leere Vereinigung FALSCH. Die globalen Hooks sind eine VEREINIGUNG ueber alle "
+              "Organ-Klassen -- jede Binary bekaeme die Flags, auch die, die das Organ gar nicht nutzt. "
+              "Per-Binary-Genauigkeit noetig: der Orchestrator-Weg (build_orchestrator.hpp "
+              "aggregate_required_for_axes, Bauplan D3.4 UNBERUEHRT) braucht VOR der ersten "
+              "required-Deklaration einen eigenen Owner-Paket-Entscheid.");
+
+// -- Hook 2/3: die Sinnhaftigkeits-Obergrenze -----------------------------------------------------
+// Anders als die required-Seite ist die Sinnhaftigkeits-Matrix NICHT leer. Die Vereinigung wird daher
+// compile-time wirklich gebildet (dedupliziert ueber den cpuinfo-Namen). Sie wird von pruef_dock erst
+// NACH der required-Pruefung gelesen und ist heute folgenlos -- aber sie ist echt, nicht gestubbt.
+namespace detail {
+[[nodiscard]] consteval std::size_t sensibility_union_count() {
+    std::array<std::string_view, kSimdFeatureFlagCatalog.size()> seen{};
+    std::size_t                                                  n = 0;
+    for (auto const& e : kSimdOrganSensibility)
+        for (auto const& f : e.meaningful) {
+            bool dup = false;
+            for (std::size_t i = 0; i < n; ++i)
+                if (seen[i] == f.cpuinfo) dup = true;
+            if (!dup) seen[n++] = f.cpuinfo;
+        }
+    return n;
+}
+[[nodiscard]] consteval auto make_sensibility_union() {
+    std::array<SimdFeatureFlag, sensibility_union_count()> out{};
+    std::size_t                                            n = 0;
+    for (auto const& e : kSimdOrganSensibility)
+        for (auto const& f : e.meaningful) {
+            bool dup = false;
+            for (std::size_t i = 0; i < n; ++i)
+                if (out[i].cpuinfo == f.cpuinfo) dup = true;
+            if (!dup) out[n++] = f;
+        }
+    return out;
+}
+} // namespace detail
+
+/// Die Vereinigung der Sinnhaftigkeits-Mengen aller Organ-Klassen (dedupliziert, compile-time).
+inline constexpr auto kSensibilityUnion = detail::make_sensibility_union();
+
+[[nodiscard]] inline std::span<SimdFeatureFlag const> active_organ_meaningful() noexcept {
+    if constexpr (!kSimdGateArmed) return {};
+    return kSensibilityUnion;
+}
+
+// -- Hook 3/3: die Signatur der laufenden Maschine ------------------------------------------------
+// Ueber O-4: die von der CEB belegte Deklaration -> Eigenschafts-Match -> Drift-Gegenprobe gegen die
+// echte CPU. Eine Signatur faellt AUSSCHLIESSLICH bei Verdict Match heraus; ohne Belegung, ohne
+// Tupel-Treffer, bei nicht erhobener Kern-Kennung und bei Abweichung bleibt sie LEER. Es gibt keinen
+// Zweig, der still eine fremde Maschinen-Identitaet annimmt.
+[[nodiscard]] inline std::span<SimdFeatureFlag const> active_machine_signature() noexcept {
+    if constexpr (!kSimdGateArmed) return {};
+    auto const& s = detail::active_machine_state();
+    if (!s.latched.load(std::memory_order_acquire)) return {}; // CEB hat nichts belegt -> inert
+    return identify_machine(s.cpu_fabrication, s.ram_pair, live_core_cpu_id()).signature();
+}
+
+/// Das Urteil zur laufenden Maschine (fuer Log/Diagnose an der Freigabe-Naht -- kein stiller Fallback).
+[[nodiscard]] inline MachineIdentityVerdict active_machine_verdict() noexcept {
+    auto const& s = detail::active_machine_state();
+    if (!s.latched.load(std::memory_order_acquire)) return MachineIdentityVerdict::UnbekannteMaschine;
+    return identify_machine(s.cpu_fabrication, s.ram_pair, live_core_cpu_id()).verdict;
+}
 
 // Die einzelnen -m-Flags, die das Gate an der CompileFn-Naht fuer die gegebene Grob-Route beisteuert.
 // Freigegeben -> die effektiven Flags; NotApplicable/Abgelehnt -> LEER (CompileFn byte-identisch). Heute stets leer.
@@ -193,6 +342,53 @@ admit_organ_on_machine(std::span<SimdFeatureFlag const> organ_required,
     SimdGateResult const r =
         pruef_dock(active_organ_required(), active_organ_meaningful(), active_machine_signature(), route, dialect);
     return effective_march_flags(r, dialect);
+}
+
+// =================================================================================================
+// §70.9 -- SICHTBARKEIT DES GATE-BEITRAGS IN DER IDENTITAET
+// =================================================================================================
+// Owner-Auflage §70.9 (aus dem C-3b-Beleg): "die Gate-Beitraege MUESSEN bei der Scharfschaltung in der
+// Identitaet sichtbar werden (Sidecar/Stempel)". GRUND: die Gate-Flags sind DISJUNKT zum Codegen-Kanal
+// ({-mgfni,-mavx512bitalg,-mavx512vpopcntdq} gegen {-mavx512f}), und die Sub-Feature-Flags implizieren
+// ihrerseits AVX512F. Ohne Sichtbarkeit koennten zwei Binaries mit demselben Etikett "+ext=avx512"
+// unterschiedlich compiliert sein.
+//
+// WAS HIER STEHT UND WAS NICHT (Manager-Entscheid Weiche 1 = Variante A): hier steht die kanonische
+// TEXT-REPRAESENTATION des Beitrags -- eine reine Funktion, ohne Konsumenten. Die EINHAENGUNG in den
+// build_version-Suffix (§70.6: System-Achsen tragen die Build-Version als Stempel-Variable) passiert
+// ABSICHTLICH NICHT hier: der Suffix ist Lane-F-Gebiet (profile_run_facade.cpp:369-405,
+// artifact_cache.hpp:245-249) und R3 fuehrt ihn gerade auf die EINE Traeger-Datei
+// system_version_suffix.hpp zusammen. Ein fuenfter Beitragsort unmittelbar davor waere gegen §73.1.
+// >>> O-8-PUNKT (Lane F / R3): diese Funktion als Suffix-/Stempel-Beitrag einhaengen. <<<
+//
+// STABILITAET: die Ausgabe ist SORTIERT (nach cpuinfo-Namen), damit sie nicht von der Katalog- oder
+// Signatur-Reihenfolge abhaengt -- eine Stempel-Variable darf nicht wackeln, wenn jemand eine
+// Tabellen-Zeile verschiebt. LEERER String = das Gate hat nichts beigetragen (heutiger Stand).
+/// Die reine Formatierung -- getrennt von der Quelle, damit die Stabilitaets-Zusage (Sortierung,
+/// Klammerung, Leer-Fall) unabhaengig vom Gate-Zustand pruefbar ist.
+[[nodiscard]] inline std::string format_gate_contribution(std::vector<std::string> flags) {
+    if (flags.empty()) return {}; // kein Beitrag -> kein Segment (Ist-Stand, byte-neutral)
+    std::sort(flags.begin(), flags.end());
+    std::string out = "gate=[";
+    for (std::size_t i = 0; i < flags.size(); ++i) {
+        if (i != 0) out += ',';
+        out += flags[i];
+    }
+    out += ']';
+    return out;
+}
+
+[[nodiscard]] inline std::string gate_contribution_identity_text(SimdRoute   route,
+                                                                 SimdDialect dialect = SimdDialect::Gpp) {
+    return format_gate_contribution(gate_extra_march_flags_for_build(route, dialect));
+}
+
+/// Traegt das Gate auf IRGENDEINER Route etwas bei? Die eine Frage, die der Stempel-/Sidecar-Weg
+/// stellen muss, bevor er ein Segment anlegt. Heute: nein.
+[[nodiscard]] inline bool gate_contributes_anything(SimdDialect dialect = SimdDialect::Gpp) {
+    for (auto route : {SimdRoute::NoExtension, SimdRoute::Avx2, SimdRoute::Avx512})
+        if (!gate_extra_march_flags_for_build(route, dialect).empty()) return true;
+    return false;
 }
 
 // -- Wohlgeformtheit + State-Pattern-Uebergaenge (alles compile-time) -----------------------------

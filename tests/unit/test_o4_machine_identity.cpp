@@ -144,11 +144,16 @@ TEST(O4MachineIdentity, AufProd1StimmtDieDeklarationMitDerEchtenCpuUEBEREIN) {
 // =================================================================================================
 // 4. ABGRENZUNG: O-4 SCHALTET DAS GATE NICHT SCHARF
 // =================================================================================================
-TEST(O4MachineIdentity, DieDreiGateStubsBleibenLeer) {
-    // Die Fuellung ist C-3a, nicht O-4. Bricht dieser Test, ist das Gate ungewollt scharf geworden
-    // und der Bau nicht mehr byte-neutral.
-    EXPECT_TRUE(meas::active_organ_required().empty());
-    EXPECT_TRUE(meas::active_organ_meaningful().empty());
+TEST(O4MachineIdentity, GateZustandNachC3a) {
+    // URSPRUENGLICH hiess dieser Test "DieDreiGateStubsBleibenLeer" und war die Abgrenzung von O-4
+    // gegen C-3a. Er war als TRIPWIRE gebaut und hat bei der Scharfschaltung korrekt gebrochen --
+    // das ist kein Defekt, sondern der beabsichtigte Zweck. Nachgezogen auf den C-3a-Stand:
+    EXPECT_TRUE(meas::active_organ_required().empty())
+        << "Die Organ-Seite bleibt der dominante Schalter und ist leer (simd_organ_requirement.hpp:88).";
+    EXPECT_FALSE(meas::active_organ_meaningful().empty())
+        << "C-3a fuellt die Sinnhaftigkeits-Obergrenze mit der echten Vereinigung.";
+    // O-4s eigentliche Zusage haelt weiter: OHNE belegte Maschinen-Deklaration keine Signatur.
+    meas::reset_active_machine_declaration_for_test();
     EXPECT_TRUE(meas::active_machine_signature().empty())
-        << "O-4 baut NUR die Identifikation. Das Fuellen dieses Hooks ist Paket C-3a.";
+        << "Ohne CEB-Belegung darf die Identifikation nichts freigeben (natuerlicher Kill-Switch).";
 }
