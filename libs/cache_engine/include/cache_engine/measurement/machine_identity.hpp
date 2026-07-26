@@ -360,10 +360,13 @@ static_assert(error_class_of_verdict(MachineIdentityVerdict::Abweichung) ==
 static_assert(!error_class_of_verdict(MachineIdentityVerdict::Match).has_value());
 static_assert(!error_class_of_verdict(MachineIdentityVerdict::UnbekannteMaschine).has_value());
 static_assert(!error_class_of_verdict(MachineIdentityVerdict::NichtDeklariert).has_value());
-// Die Taxonomie bleibt bei VIER Klassen -- O-4 fuegt bewusst keine hinzu (RF-3-Kollision, s.o.).
-static_assert(kCompilerCompilerErrorClassCount == 4,
-              "O-4 erweitert die Fehlerklassen NICHT. Wer hier eine fuenfte einzieht, muss die "
-              "RF-3-Kollision (BetriebssystemFeatureFehlt, §70.3) mit aufloesen.");
+// Die Taxonomie steht bei FUENF Klassen. HISTORIE: hier stand bis RF-3 die Zahl 4 mit der Auflage, dass
+// wer eine fuenfte einzieht, die RF-3-Kollision mit aufloesen muss -- genau das ist am 26.07. geschehen
+// (§70.3, BetriebssystemFeatureFehlt = 4, Count 4->5). Die Wache bleibt als Drift-Guard bestehen: O-4
+// selbst fuegt weiterhin KEINE Klasse hinzu, und ein weiterer Bump muss wieder hier vorbeikommen.
+static_assert(kCompilerCompilerErrorClassCount == 5,
+              "Fehlerklassen-Zahl driftet. Stand nach RF-3 (§70.3): 5. O-4 erweitert die Taxonomie NICHT "
+              "-- wer eine sechste einzieht, zieht diese Wache und die Etiketten-Wachen mit nach.");
 // Verdict-Etiketten sind eindeutig und nicht leer.
 static_assert(machine_identity_verdict_label(MachineIdentityVerdict::Match) == std::string_view{"match"});
 static_assert(machine_identity_verdict_label(MachineIdentityVerdict::Abweichung) !=

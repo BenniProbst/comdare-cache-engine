@@ -41,9 +41,16 @@ enum class CompilerCompilerErrorClass : std::uint8_t {
     ToolchainFehlt           = 1, // Compiler/Tool nicht verfuegbar (z.B. clang++-22 fehlt)
     HardwareErweiterungFehlt = 2, // ISA-/Beschleuniger-Erweiterung auf dem Host nicht verfuegbar (AVX512, GPU, FPGA)
     CompileKombination       = 3, // gueltige Achsen-Kombination vom Compiler abgelehnt (ISA-/Dialekt-Inkompat)
+    // RF-3 (§70.3, 2026-07-26): das OS-ANALOGON zu HardwareErweiterungFehlt. Nicht die Hardware fehlt,
+    // sondern eine Betriebssystem-Faehigkeit ist auf diesem Host nicht verfuegbar ODER nicht konfiguriert
+    // (hugetlbfs nicht gemountet, Kernel-Feature nicht gebaut, OS-Schnittstelle fehlt). Belegtes Material
+    // aus der OS-Flotten-Erhebung: musl-libc-Abweichung unter Alpine, BSD-/msys-grep-Portabilitaetsluecken
+    // unter macOS/Windows, PowerShell-Executor-Semantik der Windows-Runner. Ein solcher Zustand ist eine
+    // DEKLARIERTE Klasse, kein Absturz -- das Experiment misst die uebrigen Permutationen weiter.
+    BetriebssystemFeatureFehlt = 4, // OS-Feature auf dem Host nicht verfuegbar/konfiguriert
 };
 /// Single-Source der Klassenzahl (bei JEDER neuen Klasse mit hochzaehlen; der Drift-Guard unten faengt Vergessen).
-inline constexpr std::size_t kCompilerCompilerErrorClassCount = 4;
+inline constexpr std::size_t kCompilerCompilerErrorClassCount = 5;
 
 // ── D2: Sample-Status je (binary_id x setting)-Zelle (Runtime/Harness) ────────────────────────────
 // Ersetzt (spaeter) den konflatierenden bool valid. Trennt die drei ehrlichen Zell-Bedeutungen sauber:
@@ -65,6 +72,7 @@ inline constexpr std::size_t kSampleStatusCount = 4;
         case CompilerCompilerErrorClass::ToolchainFehlt: return "toolchain_fehlt";
         case CompilerCompilerErrorClass::HardwareErweiterungFehlt: return "hardware_erweiterung_fehlt";
         case CompilerCompilerErrorClass::CompileKombination: return "compile_kombination";
+        case CompilerCompilerErrorClass::BetriebssystemFeatureFehlt: return "betriebssystem_feature_fehlt";
     }
     return "unbekannt"; // out-of-range-Cast -> sicherer, sichtbarer Default (kein UB, kein stiller Skip)
 }
@@ -168,7 +176,13 @@ static_assert(static_cast<std::uint8_t>(SampleStatus::Ok) == 0, "Ok MUSS 0 sein 
 static_assert(SampleStatus::Failed != SampleStatus::NotApplicable, "Failed und NotApplicable MUESSEN disjunkt sein.");
 // Drift-Guards: neue Enum-Werte erzwingen ein Hochzaehlen der Count-Single-Source.
 static_assert(kCompilerCompilerErrorClassCount ==
-              static_cast<std::size_t>(CompilerCompilerErrorClass::CompileKombination) + 1);
+              static_cast<std::size_t>(CompilerCompilerErrorClass::BetriebssystemFeatureFehlt) + 1);
+// Die Namens-Pin-Form oben faengt ANHAENGEN+Count-vergessen nicht (die Gleichung bleibt wahr, RF-3
+// literal bewiesen). Diese zweite Richtung tut es: liegt hinter dem Count eine ETIKETTIERTE Klasse,
+// ist der Count zu klein.
+static_assert(error_class_label(static_cast<CompilerCompilerErrorClass>(kCompilerCompilerErrorClassCount)) ==
+                  std::string_view{"unbekannt"},
+              "Drift: hinter dem Count liegt eine etikettierte Klasse");
 static_assert(kSampleStatusCount == static_cast<std::size_t>(SampleStatus::Failed) + 1);
 // Token-Kontrakt (D2/OD-1): die entscheidenden Zell-Vokabeln sind zementiert.
 static_assert(sample_status_token(SampleStatus::Failed) == std::string_view{"failed"});

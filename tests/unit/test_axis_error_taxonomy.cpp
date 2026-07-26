@@ -17,14 +17,14 @@ namespace cem = ::comdare::cache_engine::measurement;
 // ── compile-time: POD-/Trennungs-/Drift-Garantien (spiegeln die Header-static_asserts, hier als Test-Gate) ──
 static_assert(std::is_same_v<std::underlying_type_t<cem::CompilerCompilerErrorClass>, std::uint8_t>);
 static_assert(std::is_same_v<std::underlying_type_t<cem::SampleStatus>, std::uint8_t>);
-static_assert(cem::kCompilerCompilerErrorClassCount == 4);
-static_assert(cem::kSampleStatusCount == 4);
+static_assert(cem::kCompilerCompilerErrorClassCount == 5); // RF-3 (§70.3): 4 -> 5, BetriebssystemFeatureFehlt
+static_assert(cem::kSampleStatusCount == 4);               // D2 unberuehrt (disjunkte Taxonomie)
 static_assert(static_cast<std::uint8_t>(cem::SampleStatus::Ok) == 0);
 static_assert(cem::SampleStatus::Failed != cem::SampleStatus::NotApplicable);
 // Drift-Guard: ein neuer Enum-Wert ohne Count-Bump bricht HIER (nicht still).
 static_assert(cem::kSampleStatusCount == static_cast<std::size_t>(cem::SampleStatus::Failed) + 1);
 static_assert(cem::kCompilerCompilerErrorClassCount ==
-              static_cast<std::size_t>(cem::CompilerCompilerErrorClass::CompileKombination) + 1);
+              static_cast<std::size_t>(cem::CompilerCompilerErrorClass::BetriebssystemFeatureFehlt) + 1);
 // D2/OD-1: die entscheidenden Zell-Vokabeln sind zementiert (compile-time).
 static_assert(cem::sample_status_token(cem::SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(cem::sample_status_token(cem::SampleStatus::NotApplicable) == std::string_view{"n/a"});
@@ -45,7 +45,13 @@ TEST(AxisErrorTaxonomy, D1_KlassenEtikettenSindStabilUndVollstaendig) {
               std::string_view{"hardware_erweiterung_fehlt"});
     EXPECT_EQ(cem::error_class_label(cem::CompilerCompilerErrorClass::KonfigXmlParse),
               std::string_view{"konfig_xml_parse"});
-    // jede der 4 Klassen liefert ein nicht-leeres, distinktes Etikett
+    // RF-3 (§70.3): das Etikett der fuenften Klasse ist ebenso zementiert wie die vier Bestands-Etiketten.
+    EXPECT_EQ(cem::error_class_label(cem::CompilerCompilerErrorClass::BetriebssystemFeatureFehlt),
+              std::string_view{"betriebssystem_feature_fehlt"});
+    // jede der 5 Klassen liefert ein nicht-leeres Etikett != "unbekannt" (die Schleife zaehlt ueber die
+    // Count-Single-Source, faengt die neue Klasse also automatisch mit). ANMERKUNG RF-3: `seen` wird
+    // hier nur befuellt, PAARWEISE Distinktheit prueft diese Schleife NICHT -- der Beweis dafuer steht
+    // im RF-3-Guard tests/unit/test_rf3_betriebssystem_feature_fehlt.cpp.
     std::string_view seen[cem::kCompilerCompilerErrorClassCount];
     for (std::size_t i = 0; i < cem::kCompilerCompilerErrorClassCount; ++i) {
         seen[i] = cem::error_class_label(static_cast<cem::CompilerCompilerErrorClass>(i));

@@ -93,10 +93,13 @@ TEST(O4MachineIdentity, AbweichungIstEinFehlerUndZwarD1) {
     EXPECT_EQ(*err, meas::CompilerCompilerErrorClass::HardwareErweiterungFehlt);
 }
 
-TEST(O4MachineIdentity, TaxonomieBleibtBeiVierFehlerklassen) {
-    // O-4 zieht KEINE fuenfte Klasse ein -- das waere die Nummern-Kollision mit RF-3 (§70.3,
-    // BetriebssystemFeatureFehlt, Count 4->5 in einem eigenen Paket).
-    EXPECT_EQ(meas::kCompilerCompilerErrorClassCount, 4u);
+TEST(O4MachineIdentity, TaxonomieZahlIstDieDesEigenenPakets) {
+    // HISTORIE: dieser Test hiess bis RF-3 "TaxonomieBleibtBeiVierFehlerklassen" und nagelte die 4 fest,
+    // weil O-4 die Nummer 4 NICHT verbrauchen durfte -- sie war fuer RF-3 reserviert. Am 26.07. hat RF-3
+    // (§70.3) sie eingezogen: BetriebssystemFeatureFehlt = 4, Count 4->5. Die Aussage des Tests bleibt
+    // dieselbe und gilt unveraendert: O-4 selbst fuegt KEINE Fehlerklasse hinzu; die Zahl, die hier steht,
+    // ist immer die des jeweils LETZTEN Taxonomie-Pakets.
+    EXPECT_EQ(meas::kCompilerCompilerErrorClassCount, 5u);
 }
 
 // =================================================================================================
