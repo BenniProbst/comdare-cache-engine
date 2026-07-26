@@ -33,9 +33,9 @@ namespace comdare::cache_engine::builder::bestandslog {
 inline constexpr int    kProFormaMinutes = 30;
 inline constexpr double kTakeoverFactor  = 1.5;
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Zahl <-> Wire-String (eta_s ist im Bestandslog ein String; hier die deterministische Bruecke).
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 [[nodiscard]] inline std::string format_seconds(double s) {
     std::array<char, 32> buf{};
     auto [ptr, ec] = std::to_chars(buf.data(), buf.data() + buf.size(), s, std::chars_format::fixed, 3);
@@ -49,11 +49,11 @@ inline constexpr double kTakeoverFactor  = 1.5;
     return v; // leer/nicht-numerisch -> 0.0
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // pro-forma-Registrierung: erste Reservierung, status=offen, OHNE ETA (die kommt mit der
 // Kalibrierung). Der Aufrufer liefert die ISO-Zeitstempel (Zeit-Formatierung ist nicht Sache dieser
 // Zustandsmaschine); pro_forma_deadline_epoch_s hilft beim Berechnen der 30min-Frist in Epoch.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 [[nodiscard]] inline std::int64_t pro_forma_deadline_epoch_s(std::int64_t reserviert_epoch_s,
                                                              int          minutes = kProFormaMinutes) noexcept {
     return reserviert_epoch_s + static_cast<std::int64_t>(minutes) * 60;
@@ -78,9 +78,9 @@ inline constexpr double kTakeoverFactor  = 1.5;
     return r;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Zustandsuebergaenge auf einer Reservierung.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 
 // Kalibrierung eintragen: eta_s + avg_size_bytes aus dem EtaResult (Mini-Batch, §62-B-NACHTRAG-2).
 inline void apply_calibration(BatchReservierung& r, EtaResult const& e) {
@@ -91,9 +91,9 @@ inline void apply_calibration(BatchReservierung& r, EtaResult const& e) {
 inline void mark_done(BatchReservierung& r) noexcept { r.status = BatchStatus::done; }
 inline void mark_released(BatchReservierung& r) noexcept { r.status = BatchStatus::released; }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Takeover-Praedikate (tote Pipeline uebernehmen).
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 
 // Vor der ETA-Kalibrierung greift die pro-forma-Frist: offen und ueber die 30min hinaus -> frei.
 [[nodiscard]] inline bool is_pro_forma_expired(std::int64_t pro_forma_bis_epoch_s, std::int64_t now_epoch_s) noexcept {
@@ -118,11 +118,11 @@ inline void mark_released(BatchReservierung& r) noexcept { r.status = BatchStatu
     return is_takeable_by_eta(parse_seconds(r.eta_s), last_update_epoch_s, now_epoch_s);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // PromiseGuard -- RAII: bei Abbruch (Destruktor ohne vorheriges commit()) feuert der best-effort
 // Release-Pfad (z.B. Reservierung auf released + store_document_merged). commit() bei erfolgreicher
 // Fertigstellung unterdrueckt den Release. Nicht kopierbar; move gibt das Versprechen weiter.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 class PromiseGuard {
 public:
     explicit PromiseGuard(std::function<void()> on_abort) : on_abort_{std::move(on_abort)} {}

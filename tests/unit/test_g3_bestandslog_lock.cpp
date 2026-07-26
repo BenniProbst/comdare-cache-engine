@@ -3,16 +3,31 @@
 // Deckt die Koordinations-Schicht ab: Transport-Naht (Fake = In-Memory-Map), Owner-Token-Verify-Lock
 // mit ttl-Bruch, skriptbare Race-Interleavings (verlorenes Race sichtbar), Record-UNION-Merge
 // (Doppel-Halt harmlos, Konflikt monoton) und "Lock endet mit erster pro-forma". Ohne minio.
+//
+// Ertuechtigung 26.07. (Lager-Gate): die VOLL-WIPE-WACHE in store_document_merged (unlesbares oder
+// grammatik-fremdes Remote wird nie ueberschrieben), die OWNER-PFLICHT in parse_lock (ein leerer
+// owner_uuid klaut keinen und loescht keinen Lock), die AEQUIVALENZ des map-Merge gegen die alte
+// Linear-Scan-Bauform (Referenz-Implementierung unten, Zufallsmengen) und der gelockte Schreib-
+// Zyklus with_document_lock (Normal-, Frist-, Konflikt-, Fehlschlag- und Wurf-Fall).
 
 #include "bestandslog/bestandslog_lock.hpp"
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <map>
 #include <optional>
+#include <random>
+#include <sstream>
+#include <stdexcept>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace bl = comdare::cache_engine::builder::bestandslog;
 
@@ -82,6 +97,146 @@ bl::BestandEintrag mk_eintrag(std::string key, std::uint64_t bytes, std::string 
     e.bytes      = bytes;
     e.done_utc   = std::move(done_utc);
     return e;
+}
+
+// Faengt std::cerr fuer die Dauer des Scopes ab -> die FEHLER-Zeilen der Wachen sind PRUEFBAR (Anzahl
+// und Text) statt Test-Rauschen. Der urspruengliche Puffer wird im Destruktor zurueckgesetzt.
+class CerrCapture {
+public:
+    CerrCapture() : alt_{std::cerr.rdbuf(puffer_.rdbuf())} {}
+    CerrCapture(CerrCapture const&)            = delete;
+    CerrCapture& operator=(CerrCapture const&) = delete;
+    ~CerrCapture() { std::cerr.rdbuf(alt_); }
+
+    [[nodiscard]] std::string text() const { return puffer_.str(); }
+    [[nodiscard]] std::size_t zeilen() const {
+        auto const        s = puffer_.str();
+        std::size_t const n = static_cast<std::size_t>(std::count(s.begin(), s.end(), '\n'));
+        return n;
+    }
+
+private:
+    std::ostringstream puffer_;
+    std::streambuf*    alt_;
+};
+
+// Skript-Uhr als NowFn: liefert die Zeitpunkte in fester Folge, der letzte Wert bleibt stehen ->
+// Frist- und ttl-Faelle deterministisch ohne Wall-Clock. with_document_lock fragt bis zu dreimal
+// (Erwerb, vor der Arbeit, nach der Arbeit).
+bl::NowFn scripted_now(std::vector<std::int64_t> ts) {
+    return [werte = std::move(ts), i = std::size_t{0}]() mutable -> std::int64_t {
+        std::int64_t const v = werte[std::min(i, werte.size() - 1)];
+        ++i;
+        return v;
+    };
+}
+
+// Referenz-Implementierung des Record-Union-Merge in der ALTEN Bauform: linearer std::find_if-Scan je
+// Element. Sie ist die Messlatte fuer die map-Variante -- identische Identitaets-Definition
+// (same_eintrag_identity), identische Konflikt-Aufloesung (detail::pick_*), identische Ausgabe-
+// Ordnung; NUR der Lookup unterscheidet sich. Damit misst der Aequivalenz-Test genau die Aenderung.
+bl::BestandslogDocument merge_documents_reference(bl::BestandslogDocument const& a, bl::BestandslogDocument const& b) {
+    bl::BestandslogDocument out;
+    out.genus             = a.genus;
+    out.syntax_version    = std::max(a.syntax_version, b.syntax_version);
+    out.semantics_version = std::max(a.semantics_version, b.semantics_version);
+    out.created_utc       = a.created_utc;
+    out.doc_revision      = std::max(a.doc_revision, b.doc_revision) + 1;
+
+    out.bestand = a.bestand;
+    for (auto const& be : b.bestand) {
+        auto it = std::find_if(out.bestand.begin(), out.bestand.end(),
+                               [&](bl::BestandEintrag const& x) { return bl::same_eintrag_identity(x, be); });
+        if (it == out.bestand.end())
+            out.bestand.push_back(be);
+        else
+            *it = bl::detail::pick_eintrag(*it, be);
+    }
+    std::sort(out.bestand.begin(), out.bestand.end(), bl::eintrag_identity_less);
+
+    out.reservierungen = a.reservierungen;
+    for (auto const& br : b.reservierungen) {
+        auto it = std::find_if(out.reservierungen.begin(), out.reservierungen.end(),
+                               [&](bl::BatchReservierung const& x) { return x.id == br.id; });
+        if (it == out.reservierungen.end())
+            out.reservierungen.push_back(br);
+        else
+            *it = bl::detail::pick_reservierung(*it, br);
+    }
+    std::sort(out.reservierungen.begin(), out.reservierungen.end(),
+              [](bl::BatchReservierung const& x, bl::BatchReservierung const& y) { return x.id < y.id; });
+    return out;
+}
+
+// Ruft store_document_merged mit abgefangenem cerr -> Ergebnis UND die Wach-Zeilen sind pruefbar.
+struct StoreProbe {
+    std::optional<bl::BestandslogDocument> written;
+    std::string                            cerr_text;
+    std::size_t                            cerr_zeilen = 0;
+};
+
+StoreProbe store_probe(bl::BestandTransport const& t, std::string const& doc_key,
+                       bl::BestandslogDocument const& local) {
+    StoreProbe        p;
+    CerrCapture const cap;
+    p.written     = bl::store_document_merged(t, doc_key, local);
+    p.cerr_text   = cap.text();
+    p.cerr_zeilen = cap.zeilen();
+    return p;
+}
+
+// Dasselbe fuer den gelockten Zyklus.
+struct LockProbe {
+    bl::LockOutcome outcome = bl::LockOutcome::lock_unavailable;
+    std::string     cerr_text;
+    std::size_t     cerr_zeilen = 0;
+};
+
+template <class Fn>
+LockProbe lock_probe(bl::BestandTransport const& t, std::string const& doc_key, bl::LockOwner const& me, int ttl_s,
+                     bl::NowFn const& now_fn, Fn&& fn) {
+    LockProbe         p;
+    CerrCapture const cap;
+    p.outcome     = bl::with_document_lock(t, doc_key, me, ttl_s, now_fn, std::forward<Fn>(fn));
+    p.cerr_text   = cap.text();
+    p.cerr_zeilen = cap.zeilen();
+    return p;
+}
+
+// Zufalls-Dokument aus KLEINEN Wert-Pools: die Pools erzwingen Kollisionen (gleiche Identitaet in a
+// und b, Doppel-Identitaeten INNERHALB eines Dokuments) -- genau die Faelle, in denen sich Lookup-
+// Bauformen unterscheiden koennten. Fester Seed -> reproduzierbar.
+bl::BestandslogDocument random_document(std::mt19937& rng, std::size_t n_bestand, std::size_t n_res) {
+    static constexpr char const* kSimd[] = {"", "sse42", "avx2", "avx512"};
+    static constexpr char const* kOpt[]  = {"O2", "O3"};
+    static constexpr char const* kZeit[] = {"2026-07-23T10:00:00Z", "2026-07-24T11:00:00Z", "2026-07-25T12:00:00Z"};
+    static constexpr int         kKeys   = 6; // kleiner Schluessel-Raum -> viele Treffer
+
+    auto pick = [&rng](int n) { return static_cast<std::size_t>(std::uniform_int_distribution<int>{0, n - 1}(rng)); };
+
+    bl::BestandslogDocument d;
+    d.doc_revision = std::uniform_int_distribution<std::uint64_t>{0, 9}(rng);
+    for (std::size_t i = 0; i < n_bestand; ++i) {
+        bl::BestandEintrag e;
+        e.key_sha512 = std::string(128, static_cast<char>('a' + pick(kKeys))); // 128 hex-Zeichen wie im Ernstfall
+        e.zelle.opt  = kOpt[pick(2)];
+        e.zelle.simd = kSimd[pick(4)];
+        e.pfad       = "pfad/" + std::to_string(pick(4));
+        e.bytes      = std::uniform_int_distribution<std::uint64_t>{1, 1000}(rng);
+        e.stempel    = "[a,b,c]";
+        e.done_utc   = kZeit[pick(3)];
+        d.bestand.push_back(std::move(e));
+    }
+    static constexpr bl::BatchStatus kStatus[] = {bl::BatchStatus::offen, bl::BatchStatus::released,
+                                                  bl::BatchStatus::done};
+    for (std::size_t i = 0; i < n_res; ++i) {
+        bl::BatchReservierung r;
+        r.id     = "uuid-" + std::to_string(pick(3)) + "/" + std::to_string(pick(8));
+        r.status = kStatus[pick(3)];
+        r.eta_s  = pick(2) == 0 ? "" : "1800.000"; // leere eta_s ist der Gleichstands-Tiebreak
+        d.reservierungen.push_back(std::move(r));
+    }
+    return d;
 }
 
 } // namespace
@@ -300,4 +455,368 @@ TEST(G3BestandslogLock, LockEndsWithFirstProForma) {
     ASSERT_TRUE(doc.has_value());
     ASSERT_EQ(doc->reservierungen.size(), 1u);
     EXPECT_EQ(doc->reservierungen[0].pro_forma_bis_utc, "2026-07-23T12:30:00Z");
+}
+
+// ---------------------------------------------------------------------------
+// OWNER-PFLICHT (N7-D5). Vorher genuegte die ANWESENHEIT des owner-Keys: ein leerer Wert kam durch,
+// und dann verglich try_acquire_lock "" != "" (falsch -> fremder frischer Lock ueberschrieben) bzw.
+// release_lock "" == "" (wahr -> fremder Lock geloescht). Beide Richtungen sind hier gewacht.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogLock, ParseLockRejectsEmptyOwner) {
+    EXPECT_FALSE(bl::parse_lock("owner=;host=prod1;pid=111;ts=1000;ttl=90").has_value()); // Wert leer
+    EXPECT_FALSE(bl::parse_lock("host=prod1;pid=111;ts=1000;ttl=90").has_value());        // Key fehlt
+    EXPECT_TRUE(bl::parse_lock("owner=uuid-A;host=prod1;pid=111;ts=1000;ttl=90").has_value());
+}
+
+TEST(G3BestandslogLock, EmptyOwnerStealsNoLock) {
+    FakeStore s;
+    auto      t = s.transport();
+    ASSERT_TRUE(bl::try_acquire_lock(t, kLockKey, owner_a(), 30, 1000));
+
+    bl::LockOwner const anonym{"", "prod2", 222};
+    EXPECT_FALSE(bl::try_acquire_lock(t, kLockKey, anonym, 30, 1005)); // fremd + frisch
+    EXPECT_EQ(lock_owner_in(s), "uuid-A");
+
+    // Fremd und STALE: auch dann nicht -- wer keinen Token hat, bricht keinen Lock, den er nicht
+    // halten koennte, und hinterlaesst auch kein wertloses Lock-Objekt.
+    auto const vorher = s.objs[kLockKey];
+    EXPECT_FALSE(bl::try_acquire_lock(t, kLockKey, anonym, 30, 1200));
+    EXPECT_EQ(s.objs[kLockKey], vorher);
+}
+
+TEST(G3BestandslogLock, EmptyOwnerReleasesNoLock) {
+    FakeStore s;
+    auto      t = s.transport();
+    ASSERT_TRUE(bl::try_acquire_lock(t, kLockKey, owner_a(), 30, 1000));
+
+    bl::release_lock(t, kLockKey, bl::LockOwner{"", "prod2", 222});
+    EXPECT_EQ(lock_owner_in(s), "uuid-A"); // fremder Lock ueberlebt die anonyme Freigabe
+
+    // Und ein von einem kaputten Peer geschriebenes Lock mit LEEREM owner ist fuer niemanden "eigen".
+    s.objs[kLockKey] = "owner=;host=prod2;pid=222;ts=1000;ttl=90";
+    bl::release_lock(t, kLockKey, bl::LockOwner{"", "prod2", 222});
+    EXPECT_TRUE(s.objs.contains(kLockKey));
+}
+
+TEST(G3BestandslogLock, TtlDefaultTraegtDieSchreibSektion) {
+    // N7-D3: 30 s trugen die Sektion (Netz-Verben + Parse/Merge/Emit des Voll-Dokuments) nicht.
+    EXPECT_EQ(bl::LockRecord{}.ttl_s, 90);
+}
+
+// ---------------------------------------------------------------------------
+// VOLL-WIPE-WACHE: ein vorhandenes, nicht leeres Remote-Dokument wird NIE ueberschrieben, wenn es
+// nicht parsbar oder grammatik-fremd ist. Der Objekt-Store schreibt ohne Versionierung und ohne
+// Backup, und im Reservierungs-Pfad ist der lokale Stand ein Dokument mit EINER Reservierung und
+// LEEREM bestand -- ein solcher Schreibvorgang loeschte den Lagerbestand eines mehrtaegigen Laufs.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogLock, WipeGuardKeepsUnparsableRemote) {
+    FakeStore s;
+    auto      t       = s.transport();
+    s.objs[kDocKey]   = "das ist kein Bestandslog";
+    auto const vorher = s.objs[kDocKey];
+
+    bl::BestandslogDocument local; // genau der Reservierungs-Pfad: eine Zeile, leerer bestand
+    local.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+
+    auto const p = store_probe(t, kDocKey, local);
+    EXPECT_FALSE(p.written.has_value());
+    EXPECT_EQ(s.objs[kDocKey], vorher); // Byte-identisch stehen gelassen
+    EXPECT_EQ(p.cerr_zeilen, 1u);
+    EXPECT_NE(p.cerr_text.find("[bestandslog] FEHLER"), std::string::npos) << p.cerr_text;
+}
+
+TEST(G3BestandslogLock, WipeGuardKeepsRemoteWithUnknownEnumValue) {
+    // Der reale Fall (B7): wohlgeformtes XML, aber ein Enum-Wert, den dieser Leser nicht kennt ->
+    // parse_bestandslog lehnt das GANZE Dokument ab. Ein neuerer Schreiber darf den Bestand nicht
+    // verlieren, nur weil ein aelterer Leser seine Grammatik nicht versteht.
+    FakeStore s;
+    auto      t = s.transport();
+
+    bl::BestandslogDocument remote;
+    remote.bestand.push_back(mk_eintrag(std::string(128, 'a'), 4096, "2026-07-25T10:00:00Z"));
+    remote.reservierungen.push_back(mk_res("uuid-B/0", bl::BatchStatus::offen, "prod2"));
+    std::string roh = bl::emit_document(remote);
+    auto const  pos = roh.find("status=\"offen\"");
+    ASSERT_NE(pos, std::string::npos);
+    roh.replace(pos, std::string_view{"status=\"offen\""}.size(), "status=\"zukunft\"");
+    s.objs[kDocKey]   = roh;
+    auto const vorher = s.objs[kDocKey];
+
+    bl::BestandslogDocument local;
+    local.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+
+    auto const p = store_probe(t, kDocKey, local);
+    EXPECT_FALSE(p.written.has_value());
+    EXPECT_EQ(s.objs[kDocKey], vorher);
+    EXPECT_EQ(p.cerr_zeilen, 1u);
+    EXPECT_NE(p.cerr_text.find("[bestandslog] FEHLER"), std::string::npos) << p.cerr_text;
+}
+
+TEST(G3BestandslogLock, SyntaxGuardRefusesHigherGrammar) {
+    // document_syntax_supported wird jetzt VOR dem Merge gerufen (vorher: 0 Produktions-Aufrufer,
+    // waehrend der Kommentar den Schutz behauptete). Hoehere Wire-Grammatik -> nicht anfassen.
+    FakeStore s;
+    auto      t = s.transport();
+
+    bl::BestandslogDocument zukunft;
+    zukunft.syntax_version = bl::kSyntaxVersion + 1;
+    zukunft.bestand.push_back(mk_eintrag(std::string(128, 'b'), 8192, "2026-07-25T10:00:00Z"));
+    s.objs[kDocKey]   = bl::emit_document(zukunft);
+    auto const vorher = s.objs[kDocKey];
+
+    bl::BestandslogDocument local;
+    local.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+
+    auto const p = store_probe(t, kDocKey, local);
+    EXPECT_FALSE(p.written.has_value());
+    EXPECT_EQ(s.objs[kDocKey], vorher);
+    EXPECT_EQ(p.cerr_zeilen, 1u);
+    EXPECT_NE(p.cerr_text.find("syntax_version"), std::string::npos) << p.cerr_text;
+
+    // Gegenprobe: eine AELTERE Grammatik bleibt vertraeglich und wird normal gemergt.
+    bl::BestandslogDocument alt;
+    alt.syntax_version = 1;
+    alt.bestand.push_back(mk_eintrag(std::string(128, 'b'), 8192, "2026-07-25T10:00:00Z"));
+    s.objs[kDocKey] = bl::emit_document(alt);
+    auto const q    = store_probe(t, kDocKey, local);
+    ASSERT_TRUE(q.written.has_value());
+    EXPECT_EQ(q.cerr_zeilen, 0u);
+    EXPECT_EQ(q.written->bestand.size(), 1u);        // Bestand des Remote uebernommen
+    EXPECT_EQ(q.written->reservierungen.size(), 1u); // lokale Reservierung dazu
+}
+
+TEST(G3BestandslogLock, BlankRemoteIsFirstWrite) {
+    // Leeres/fehlendes Remote bleibt die Erst-Anlage (kein Bestand kann verloren gehen), und
+    // doc_revision steigt auch in diesem Zweig.
+    FakeStore s;
+    auto      t = s.transport();
+
+    bl::BestandslogDocument local;
+    local.doc_revision = 7;
+    local.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+
+    s.objs[kDocKey] = "";
+    auto const leer = store_probe(t, kDocKey, local);
+    ASSERT_TRUE(leer.written.has_value());
+    EXPECT_EQ(leer.written->doc_revision, 8u);
+    EXPECT_EQ(leer.cerr_zeilen, 0u);
+
+    s.objs[kDocKey]       = "\n  \n";
+    auto const whitespace = store_probe(t, kDocKey, local);
+    ASSERT_TRUE(whitespace.written.has_value());
+    EXPECT_EQ(whitespace.written->doc_revision, 8u);
+    EXPECT_EQ(whitespace.cerr_zeilen, 0u);
+
+    s.objs.erase(kDocKey);
+    auto const fehlt = store_probe(t, kDocKey, local);
+    ASSERT_TRUE(fehlt.written.has_value());
+    EXPECT_EQ(fehlt.written->doc_revision, 8u);
+    EXPECT_EQ(fehlt.cerr_zeilen, 0u);
+}
+
+// ---------------------------------------------------------------------------
+// MERGE UEBER std::map: der Lookup wechselt von O(|a|*|b|) Linear-Scan auf O((n+m) log n), die
+// SEMANTIK nicht. Messlatte ist merge_documents_reference (die alte find_if-Bauform) auf
+// Zufallsmengen mit erzwungenen Kollisionen.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogLock, MergeMapMatchesLinearReference) {
+    std::mt19937 rng{20260726u};
+    for (int runde = 0; runde < 30; ++runde) {
+        auto const a = random_document(rng, 120, 40);
+        auto const b = random_document(rng, 150, 50);
+
+        auto const neu = bl::merge_documents(a, b);
+        ASSERT_EQ(neu, merge_documents_reference(a, b)) << "Runde " << runde;
+        ASSERT_EQ(bl::merge_documents(b, a), merge_documents_reference(b, a)) << "Runde " << runde << " rueckwaerts";
+
+        // Ordnung stabil: die Ausgabe ist nach dem Identitaets-Tupel bzw. der id sortiert -> der Emit
+        // bleibt byte-stabil, unabhaengig von der Eingabe-Reihenfolge.
+        EXPECT_TRUE(std::is_sorted(neu.bestand.begin(), neu.bestand.end(), bl::eintrag_identity_less));
+        EXPECT_TRUE(
+            std::is_sorted(neu.reservierungen.begin(), neu.reservierungen.end(),
+                           [](bl::BatchReservierung const& x, bl::BatchReservierung const& y) { return x.id < y.id; }));
+    }
+}
+
+TEST(G3BestandslogLock, MergeMapHandlesDuplicateIdentitiesLikeReference) {
+    // (1) Doppel-Identitaet INNERHALB von a (der Parser schliesst sie nicht aus): der Merge faellt
+    // nichts still zusammen, sondern trifft -- wie der alte find_if -- das ERSTE Vorkommen.
+    bl::BestandslogDocument a;
+    a.bestand.push_back(mk_eintrag(std::string(128, 'a'), 10, "2026-07-23T10:00:00Z"));
+    a.bestand.push_back(mk_eintrag(std::string(128, 'a'), 11, "2026-07-23T09:00:00Z"));
+    bl::BestandslogDocument b;
+    b.bestand.push_back(mk_eintrag(std::string(128, 'a'), 99, "2026-07-25T10:00:00Z"));
+
+    auto const neu = bl::merge_documents(a, b);
+    EXPECT_EQ(neu, merge_documents_reference(a, b));
+    ASSERT_EQ(neu.bestand.size(), 2u);
+    std::vector<std::uint64_t> bytes{neu.bestand[0].bytes, neu.bestand[1].bytes};
+    std::sort(bytes.begin(), bytes.end());
+    EXPECT_EQ(bytes, (std::vector<std::uint64_t>{11u, 99u})); // spaeteres done_utc gewann im ersten Slot
+
+    // (2) Doppel-Identitaet INNERHALB von b, in a unbekannt: der zweite b-Eintrag mergt in den
+    // frisch angehaengten hinein statt ein Duplikat anzulegen.
+    bl::BestandslogDocument leer;
+    bl::BestandslogDocument doppelt;
+    doppelt.bestand.push_back(mk_eintrag(std::string(128, 'c'), 1, "2026-07-23T10:00:00Z"));
+    doppelt.bestand.push_back(mk_eintrag(std::string(128, 'c'), 2, "2026-07-24T10:00:00Z"));
+    auto const zwei = bl::merge_documents(leer, doppelt);
+    EXPECT_EQ(zwei, merge_documents_reference(leer, doppelt));
+    ASSERT_EQ(zwei.bestand.size(), 1u);
+    EXPECT_EQ(zwei.bestand[0].bytes, 2u);
+
+    // (3) Dasselbe fuer die Reservierungen (Union per id).
+    bl::BestandslogDocument res_a;
+    res_a.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+    res_a.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+    bl::BestandslogDocument res_b;
+    res_b.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::done, "prod1"));
+    auto const res = bl::merge_documents(res_a, res_b);
+    EXPECT_EQ(res, merge_documents_reference(res_a, res_b));
+    ASSERT_EQ(res.reservierungen.size(), 2u);
+}
+
+// ---------------------------------------------------------------------------
+// with_document_lock: Acquire -> Frist-Wache -> Arbeit -> Release, EIN Versuch je Zyklus.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogLock, LockKeyForIsTheDocumentSidecar) {
+    EXPECT_EQ(bl::lock_key_for(kDocKey), kLockKey); // EINE Ableitung fuer Schreiber und Brecher
+}
+
+TEST(G3BestandslogLock, WithDocumentLockNormalCase) {
+    FakeStore s;
+    auto      t = s.transport();
+
+    bl::BestandslogDocument local;
+    local.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
+
+    auto const now = scripted_now({1000, 1000, 1001});
+    auto const p   = lock_probe(t, kDocKey, owner_a(), 90, now,
+                                [&]() { return bl::store_document_merged(t, kDocKey, local).has_value(); });
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::ok);
+    EXPECT_EQ(p.cerr_zeilen, 0u);    // gruener Zyklus schweigt
+    EXPECT_EQ(lock_owner_in(s), ""); // Lock endet mit dem Schreibvorgang
+    auto const doc = bl::parse_bestandslog(s.objs[kDocKey]);
+    ASSERT_TRUE(doc.has_value());
+    EXPECT_EQ(doc->reservierungen.size(), 1u);
+}
+
+TEST(G3BestandslogLock, WithDocumentLockYieldsToForeignFreshLock) {
+    FakeStore s;
+    auto      t = s.transport();
+    ASSERT_TRUE(bl::try_acquire_lock(t, kLockKey, owner_b(), 90, 1000));
+
+    bool       gelaufen = false;
+    auto const now      = scripted_now({1005});
+    auto const p        = lock_probe(t, kDocKey, owner_a(), 90, now, [&]() {
+        gelaufen = true;
+        return true;
+    });
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::lock_unavailable);
+    EXPECT_FALSE(gelaufen);                // NICHTS geschrieben
+    EXPECT_EQ(p.cerr_zeilen, 0u);          // Kollision ist der Normalfall -> der Aufrufer meldet
+    EXPECT_EQ(lock_owner_in(s), "uuid-B"); // fremder Lock unberuehrt
+    EXPECT_FALSE(s.objs.contains(kDocKey));
+}
+
+TEST(G3BestandslogLock, WithDocumentLockRefusesToWriteAfterHalfTtl) {
+    // Frist-Wache: schon der Erwerb hat mehr als ttl/2 gekostet -> NICHT schreiben, Lock freigeben,
+    // Wiederholung ist Sache des Aufrufers. Sonst schriebe der Halter unter einem Lock, den eine
+    // zweite Maschine gerade als stale bricht.
+    FakeStore s;
+    auto      t = s.transport();
+
+    bool       gelaufen = false;
+    auto const now      = scripted_now({1000, 1016}); // 16 s > ttl/2 = 15 s
+    auto const p        = lock_probe(t, kDocKey, owner_a(), 30, now, [&]() {
+        gelaufen = true;
+        return true;
+    });
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::deadline_exceeded);
+    EXPECT_FALSE(gelaufen);
+    EXPECT_EQ(p.cerr_zeilen, 1u);
+    EXPECT_NE(p.cerr_text.find("[bestandslog] FEHLER"), std::string::npos) << p.cerr_text;
+    EXPECT_EQ(lock_owner_in(s), "");        // Lock freigegeben, nicht liegen gelassen
+    EXPECT_FALSE(s.objs.contains(kDocKey)); // und nichts geschrieben
+
+    // Genau auf der Haelfte ist noch erlaubt (die Wache greift erst DARUEBER).
+    auto const grenze = scripted_now({2000, 2015, 2016});
+    auto const q      = lock_probe(t, kDocKey, owner_a(), 30, grenze, [&]() {
+        gelaufen = true;
+        return true;
+    });
+    EXPECT_EQ(q.outcome, bl::LockOutcome::ok);
+    EXPECT_TRUE(gelaufen);
+}
+
+TEST(G3BestandslogLock, WithDocumentLockReportsOverrunSection) {
+    // Nach-Wache: die Arbeit selbst hat die ttl gesprengt. Geschrieben ist dann schon (der
+    // Union-Merge traegt die Kollision), aber die Budget-Invariante war verletzt -> sichtbar.
+    FakeStore s;
+    auto      t = s.transport();
+
+    auto const now = scripted_now({1000, 1005, 1041}); // Sektion 41 s > ttl 30 s
+    auto const p   = lock_probe(t, kDocKey, owner_a(), 30, now, [&]() { return true; });
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::ok);
+    EXPECT_EQ(p.cerr_zeilen, 1u);
+    EXPECT_NE(p.cerr_text.find("[bestandslog] warn"), std::string::npos) << p.cerr_text;
+}
+
+TEST(G3BestandslogLock, WithDocumentLockReportsFailedWork) {
+    // fn liefert bool = "Arbeit gelungen" -> ein verschluckter Store-Fehler ist an dieser Naht
+    // nicht mehr moeglich; der Lock wird trotzdem freigegeben.
+    FakeStore s;
+    auto      t = s.transport();
+
+    auto const now = scripted_now({1000, 1000, 1000});
+    auto const p   = lock_probe(t, kDocKey, owner_a(), 90, now, [&]() { return false; });
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::work_failed);
+    EXPECT_EQ(lock_owner_in(s), "");
+}
+
+TEST(G3BestandslogLock, WithDocumentLockRejectsEmptyOwner) {
+    FakeStore s;
+    auto      t = s.transport();
+
+    bool       gelaufen = false;
+    auto const now      = scripted_now({1000});
+    auto const p        = lock_probe(t, kDocKey, bl::LockOwner{"", "prod1", 111}, 90, now, [&]() {
+        gelaufen = true;
+        return true;
+    });
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::lock_unavailable);
+    EXPECT_FALSE(gelaufen);
+    EXPECT_EQ(p.cerr_zeilen, 1u); // Konfigurations-Fehler des Hosts -> genau eine Zeile
+    EXPECT_NE(p.cerr_text.find("[bestandslog] FEHLER"), std::string::npos) << p.cerr_text;
+    EXPECT_TRUE(s.objs.empty()); // kein Lock-Objekt, kein Dokument
+}
+
+TEST(G3BestandslogLock, WithDocumentLockReleasesOnThrow) {
+    // Wirft die Arbeit, muss der Lock trotzdem weg sein -- sonst sperrte ein Abbruch das Dokument
+    // bis zum ttl-Bruch (RAII-Halter, nicht Straight-Line-Release).
+    FakeStore s;
+    auto      t = s.transport();
+
+    auto const now = scripted_now({1000, 1000});
+    EXPECT_THROW(
+        {
+            (void)bl::with_document_lock(t, kDocKey, owner_a(), 90, now, []() -> bool {
+                throw std::runtime_error("Abbruch mitten im Schreibvorgang");
+            });
+        },
+        std::runtime_error);
+    EXPECT_EQ(lock_owner_in(s), "");
+}
+
+TEST(G3BestandslogLock, LockOutcomeNames) {
+    EXPECT_EQ(bl::to_string(bl::LockOutcome::ok), "ok");
+    EXPECT_EQ(bl::to_string(bl::LockOutcome::lock_unavailable), "lock_unavailable");
+    EXPECT_EQ(bl::to_string(bl::LockOutcome::deadline_exceeded), "deadline_exceeded");
+    EXPECT_EQ(bl::to_string(bl::LockOutcome::work_failed), "work_failed");
 }
