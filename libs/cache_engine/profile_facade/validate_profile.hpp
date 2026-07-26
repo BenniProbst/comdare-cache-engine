@@ -751,12 +751,30 @@ struct ClassifiedReject {
     std::string message; // die deterministische, menschenlesbare Meldung MIT Koordinate + Fehlerklassen-Etikett
 };
 
+/// A9b (P6, 2026-07-26): EINE deklarierte Organ-Position-Achse MIT ihrer expliziten An-/Abwahl. Der Unterschied
+/// zum blossen Ref-String ist die dritte Aussage, die eine Anwender-XML bisher nicht treffen konnte: "genannt
+/// UND abgewaehlt" (bisher gab es nur "ungenannt" = volles Angebot und "genannt" = Override). Registry = ANGEBOT
+/// (§27): die Abwahl ist eine ERKLAERUNG des Anwenders, kein Verschwinden aus dem Angebot.
+struct DeclaredAxisRef {
+    std::string ref;           // die Ref-KOORDINATE (Achsen-Name aus der Anwender-XML)
+    bool        active = true; // <axis active=..>; abwesend == true (Bestands-Profile unveraendert)
+};
+
 /// Ergebnis-POD der Organ-Position-Aufloesung: ok=true <=> 0 Rejects. `resolved` = true, sobald der Resolver
 /// gegen ein RegistryTrio LIEF (vs. dem Default-INERT-Zustand ohne Trio) -- der Plan-Kopf-Render gatet daran.
 struct ResolverReport {
     bool                          ok       = true;  // true = alle Organ-Position-Refs sauber (0 Rejects)
     bool                          resolved = false; // true = gegen ein RegistryTrio aufgeloest (nicht INERT-Default)
     std::vector<ClassifiedReject> rejects;
+    /// A9b (P6): die Refs, die das Profil AUSDRUECKLICH abgewaehlt hat (active="false"). Reiner TRANSPORT-Slot --
+    /// er TRAEGT die Erklaerung, er WERTET sie nicht aus: die Achsen bleiben vollstaendig in der aufgeloesten
+    /// Bausteinmenge, und die Rejects/ok-Klassifikation ist Zeichen fuer Zeichen dieselbe wie ohne das Attribut.
+    /// Nur die DeclaredAxisRef-Ueberladung fuellt ihn; die Ref-String-Ueberladung laesst ihn leer, weshalb der
+    /// Plan-Kopf-Render (experiment_plan_director.hpp, liest ausschliesslich rejects) unveraendert bleibt.
+    /// Wirksam wird die Abwahl erst mit ihrem Verbraucher (declared_count) im Lane-F-Byte-Fenster -- heute
+    /// waere sie untersagt, weil ein entfernter Baustein die Katalog-Kardinalitaet und damit den golden-CRC
+    /// verschoebe (tests/unit/test_lazy_adhoc_source_gen.cpp).
+    std::vector<std::string> declared_inactive;
 };
 
 /// resolve_axis_refs_against_trio — loest die Organ-Position-Refs gegen das 3-Art-Angebot auf (s. Block-Doku).
@@ -798,6 +816,27 @@ struct ResolverReport {
     return report;
 }
 
+/// A9b (P6, 2026-07-26) -- ADDITIVE UEBERLADUNG mit expliziter An-/Abwahl. Sie ist bewusst KEIN zweiter Resolver:
+/// sie reicht ALLE deklarierten Refs (aktive UND abgewaehlte) an die Ref-String-Fassung oben durch und haengt die
+/// abgewaehlten anschliessend als Erklaerung an den Report. Genau darin liegt der A9b-Kern -- die Abwahl fuehrt
+/// den Baustein IN die Bausteinmenge (als markierte Erklaerung) statt ihn per Abwesenheit daraus verschwinden zu
+/// lassen. WIRKUNG HEUTE: keine. Fuer jedes Profil gilt Zeichen fuer Zeichen
+///   resolve(declared) .ok/.rejects == resolve(nur die Refs) .ok/.rejects,
+/// unabhaengig davon, wie viele Achsen active="false" tragen; einzig `declared_inactive` unterscheidet sich.
+/// Bewiesen im unregistrierten Guard tests/unit/test_a9b_active_deklaration_inert.cpp. Kein Produktiv-Aufrufer:
+/// experiment_plan_director.hpp:1678 ruft weiterhin die Ref-String-Fassung -- die Ueberladung ist damit
+/// byte-neutral (kein veraenderter Plan-Kopf, keine veraenderte AxisLevel-/binary_id-Ableitung).
+[[nodiscard]] inline ResolverReport resolve_axis_refs_against_trio(std::vector<DeclaredAxisRef> const& declared,
+                                                                   RegistryTrio const&                 trio) {
+    std::vector<std::string> refs;
+    refs.reserve(declared.size());
+    for (auto const& d : declared) refs.push_back(d.ref); // AUCH die abgewaehlten -- keine Abwahl durch Weglassen
+    ResolverReport report = resolve_axis_refs_against_trio(refs, trio);
+    for (auto const& d : declared)
+        if (!d.active) report.declared_inactive.push_back(d.ref);
+    return report;
+}
+
 /// organ_position_refs — die Organ-Position-Achsen-Refs eines Anwender-Profils (die Ref-Quellen des Resolvers).
 /// Thesis: permute_axes.ref. ADDITIV, read-only (die eigentliche binary_id-Ableitung bleibt build_axis_levels).
 [[nodiscard]] inline std::vector<std::string> organ_position_refs(cx::ThesisProfile const& tp) {
@@ -812,6 +851,22 @@ struct ResolverReport {
     refs.reserve(ep.axes_default_lookup.size());
     for (auto const& ax : ep.axes_default_lookup) refs.push_back(ax.ref);
     return refs;
+}
+
+/// A9b (P6, 2026-07-26) -- dieselben Organ-Position-Refs MIT der gelesenen An-/Abwahl. Additiv neben
+/// organ_position_refs (die unveraendert bleibt und weiterhin der Produktiv-Pfad ist). Die Reihenfolge ist die
+/// Profil-Reihenfolge, identisch zu organ_position_refs -- ein Vergleich beider Fassungen ist damit stellenweise.
+[[nodiscard]] inline std::vector<DeclaredAxisRef> organ_position_declared_axes(cx::ThesisProfile const& tp) {
+    std::vector<DeclaredAxisRef> declared;
+    declared.reserve(tp.permute_axes.size());
+    for (auto const& ax : tp.permute_axes) declared.push_back(DeclaredAxisRef{ax.ref, ax.active});
+    return declared;
+}
+[[nodiscard]] inline std::vector<DeclaredAxisRef> organ_position_declared_axes(cx::ExperimentProfile const& ep) {
+    std::vector<DeclaredAxisRef> declared;
+    declared.reserve(ep.axes_default_lookup.size());
+    for (auto const& ax : ep.axes_default_lookup) declared.push_back(DeclaredAxisRef{ax.ref, ax.active});
+    return declared;
 }
 
 /// validate_experiment_profile — DIE reine Pruef-Logik (read-only). Zwei Registry-Aufloesungs-Modi:

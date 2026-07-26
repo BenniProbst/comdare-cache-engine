@@ -84,6 +84,13 @@ std::vector<PermutationEntry> parse_entries_dom(comdare::common::xml::XmlNode co
     return (ec == std::errc{}) ? v : def;
 }
 
+// A9b (P6, 2026-07-26): xs:boolean-Attribut mit Default TRUE (<axis active=..>). Bewusst NICHT die
+// bestehende Affirmativ-Form (adl->attr("enabled") == "true" || == "1"): dort ist der Default false, hier
+// true. Nur die beiden lexikalischen Falsch-Werte von xs:boolean schalten ab; alles andere -- insbesondere
+// das ABWESENDE Attribut, das attr() als leeren String liefert -- bleibt true. Damit sind alle Bestands-
+// Profile ohne das Attribut unveraendert aktiv (byte-identisch).
+[[nodiscard]] bool attr_true_unless_false(std::string const& s) { return s != "false" && s != "0"; }
+
 // GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE <system_axes>-Parse-Naht. Vorher lebte dieser Block
 // NUR inline im comdare_experiment-Parser (parse_experiment_profile); jetzt EINE gemeinsame Funktion, die BEIDE
 // Kanaele (comdare_thesis_profile + comdare_experiment) additiv konsumieren. Konvention Haupt→Unter→Option
@@ -274,6 +281,10 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
         for (auto const* a : pa->children_named("axis")) {
             ThesisAxisSpec ax;
             ax.ref = a->attr("ref");
+            // A9b (P6): explizite An-/Abwahl der Achse. Abwesend == true (Bestands-Profile byte-identisch).
+            // NUR gelesen -- die Semantik lebt in validate_profile (Baseline-Layering), und ausgewertet wird
+            // sie heute von niemandem (wirksames false = Katalog-Kardinalitaet = golden-CRC, Lane-F-Fenster).
+            ax.active = attr_true_unless_false(a->attr("active"));
             for (auto const* v : a->children_named("value")) ax.values.push_back(v->text);
             if (ax.ref == "cacheline") { // per-Organ Cache-Line-Unterachse (KF-3)
                 ax.per_organ = split_ws(a->attr("per_organ"));
@@ -480,6 +491,9 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             ax.allowed_variants = split_ws(a->attr("allowed_variants"));
             ax.merge_mode       = a->attr("merge"); // KERN-A: per-Achse Merge-Modus (leer = replace-Default)
             ax.pruefling = a->attr("pruefling");    // KERN #48-S4: per-Achse Pruefling-Wahl (leer = Phasen-Fallback)
+            // A9b (P6): explizite Abwahl statt Abwahl-durch-Abwesenheit. Abwesend == true; nur gelesen, von
+            // keinem Verbraucher ausgewertet (s. ExperimentAxisDefault::active im Header).
+            ax.active = attr_true_unless_false(a->attr("active"));
             ep.axes_default_lookup.push_back(std::move(ax));
         }
     }

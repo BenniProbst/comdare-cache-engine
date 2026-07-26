@@ -112,6 +112,12 @@ struct ThesisAxisSpec {              // eine permutierte (dynamische) Achse
     // allen anderen Achsen/Profilen (Round-Trip bestehender Profile byte-identisch).
     std::vector<std::string> alloc_numa_nodes; // auto/0/1
     std::vector<std::string> alloc_pages;      // 4k/2m
+    // A9b (P6, 2026-07-26): EXPLIZITE Abwahl statt Abwahl-durch-Abwesenheit (Registry = ANGEBOT, §27).
+    // <axis active="true|false"> -- ABWESEND == true, damit Bestands-Profile byte-identisch bleiben. Das Feld
+    // wird hier nur GELESEN; kein Verbraucher wertet es aus (ein wirksames false aenderte die Katalog-
+    // Kardinalitaet und damit den golden-CRC -- der Verbraucher declared_count gehoert ins Lane-F-Fenster).
+    // Baseline-Layering: die Semantik lebt in validate_profile (cache_engine-Schicht), NICHT hier.
+    bool active = true; // <axis active=..> (optional; abwesend/ungueltig = true)
 };
 
 struct ThesisMode { // einer der 3 Permutationsmodi
@@ -387,6 +393,12 @@ struct ExperimentAxisDefault {                 // <axes_default_lookup><axis ref
     // (merge_plan.hpp profile_pruefling_identity). ADDITIV: leer = heutiges Verhalten byte-identisch. Die
     // Wert-Gueltigkeit prueft validate_experiment_profile (cache_engine-Schicht), NICHT hier (Baseline-Layering).
     std::string pruefling; // <axis pruefling=..> (optional; leer = Phasen-Identitaet-Fallback)
+    // A9b (P6, 2026-07-26): EXPLIZITE Abwahl statt Abwahl-durch-Abwesenheit (Registry = ANGEBOT, §27). Die
+    // Doku-Semantik dieses Blocks kennt bisher nur "ungenannt = volle Registry-Liste" und "genannt = Override";
+    // active unterscheidet zusaetzlich "genannt UND abgewaehlt". ABWESEND == true (Bestands-Profile
+    // byte-identisch). Rein deklarativ: gelesen und weitergereicht, von NIEMANDEM ausgewertet -- ein wirksames
+    // false aenderte die Katalog-Kardinalitaet und damit den golden-CRC (Verbraucher declared_count = Lane F).
+    bool active = true; // <axis active=..> (optional; abwesend/ungueltig = true)
 };
 
 struct ExperimentOutput {
