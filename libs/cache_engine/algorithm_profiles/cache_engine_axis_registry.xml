@@ -122,4 +122,7 @@
     <baustein name="timed_flush" wrapper="TimedFlush" type="::comdare::cache_engine::queuing::axis_q2_queuing::TimedFlush" header="topics/queuing/axis_q2_queuing/axis_q2_queuing_timed.hpp" enabled="true" golden_wired="false"/>
     <baustein name="adaptive_lsm_flush" wrapper="AdaptiveLsmFlush" type="::comdare::cache_engine::queuing::axis_q2_queuing::AdaptiveLsmFlush" header="topics/queuing/axis_q2_queuing/axis_q2_queuing_adaptive_lsm.hpp" enabled="true" golden_wired="false"/>
   </axis>
+  <axis id="persistence_target" slot="T17" category="composition" genus="SearchAlgorithm" baustein_count="1">
+    <baustein name="persistence_memory_only" wrapper="MemoryOnlyTarget" type="::comdare::cache_engine::persistence_target::MemoryOnlyTarget" header="axes/persistence_target/axis_persistence_target_memory_only.hpp" enabled="true" golden_wired="true"/>
+  </axis>
 </comdare_axis_registry>

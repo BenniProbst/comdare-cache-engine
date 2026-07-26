@@ -30,8 +30,13 @@ struct AxisOperabilityEntry {
 };
 
 /// Die 17 Kern-Achsen T0..T16 (Reihenfolge = composition_factory/axis_path_serialization; queuing_q1/q2 @ T17/T18 separat)
-/// mit ehrlichem R5.B-Status. 2 Operative + 4 OperativeCapable + 11 Descriptor == 17 (kein Achsen-Wegschrumpfen).
-inline constexpr std::array<AxisOperabilityEntry, 17> kAxisOperability = {{
+/// mit ehrlichem R5.B-Status. 2 Operative + 5 OperativeCapable + 11 Descriptor == 18 (kein Achsen-Wegschrumpfen).
+// VORBESTEHENDE STALENESS, hier BEWUSST NICHT mit-repariert (nicht Auftrag von STRUKT-R ORG-18, und eine
+// Umschreibung wuerde Aussagen UEBER ANDERE Achsen aendern): diese Tabelle listet noch telemetry und isa,
+// obwohl beide seit Bau-INC-2c/2d System-Achsen sind, und ihr fehlen queuing_q1/q2. Sie ist per NAME
+// geschluesselt (nicht index-gekoppelt an kCompositionAxisNames), daher ist der Zustand nicht compile-brechend.
+// STRUKT-R ORG-18 fuegt ausschliesslich den eigenen Eintrag hinzu: 17 -> 18.
+inline constexpr std::array<AxisOperabilityEntry, 18> kAxisOperability = {{
     {"search_algo", AxisOperability::Operative, "real getrieben (SearchAlgoStatistics im POD)"},
     {"cache_traversal", AxisOperability::Descriptor, "observable-faehig; nicht in tier_observe verdrahtet"},
     {"mapping", AxisOperability::Descriptor, "snapshot vorhanden; passiv"},
@@ -50,6 +55,11 @@ inline constexpr std::array<AxisOperabilityEntry, 17> kAxisOperability = {{
     {"io_dispatch", AxisOperability::Descriptor, "passiv"},
     {"migration_policy", AxisOperability::Descriptor, "passiv"},
     {"filter", AxisOperability::Descriptor, "passiv"},
+    // STRUKT-R ORG-18: ehrlicher Status. Die Achse IST verdrahtet (pt_organ_ im abi_adapter, Seg-Timer T17),
+    // aber ihr einzig aktiver Baustein memory_only hat per Definition keinen Rueckschreib-Pfad -> die Zahlen
+    // sind der Vergleichs-Nullpunkt. Echt-operativ wird sie erst mit einem Geraete-Schreibpfad.
+    {"persistence_target", AxisOperability::OperativeCapable,
+     "verdrahtet (pt_organ_/seg T17); memory_only = ehrlicher Nullpunkt, Geraete-Pfad fehlt noch"},
 }};
 
 [[nodiscard]] constexpr std::size_t count_operability(AxisOperability k) noexcept {

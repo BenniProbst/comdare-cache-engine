@@ -7,7 +7,7 @@
 // ab — so ist der Baum-Blatt-`binary_id` GARANTIERT gleich dem CompositionRegistry-Key (Round-Trip-Garant).
 //
 // Format (identisch zum Baum: experiment_tree.hpp StaticAxisNode::serialize() = "axis=value", "/"-join):
-//   "search_algo=<W0::name()>/cache_traversal=<W1::name()>/.../queuing_q2=<W16::name()>"  (17 Slots, INC-2d)
+//   "search_algo=<W0::name()>/.../queuing_q2=<W16::name()>/persistence_target=<W17::name()>"  (18 Slots, STRUKT-R)
 // C++23, header-only, KEINE Achsen-Includes (umbrella-unabhängig; nimmt das PermTuple als Template-Param entgegen).
 
 #include <boost/mp11.hpp>
@@ -22,7 +22,7 @@ namespace comdare::cache_engine::builder::experiment {
 
 namespace mp = boost::mp11;
 
-/// Die 17 Komposition-Achsen-Namen in AdHocComposition-Slot-Reihenfolge T0..T16 (composition_factory.hpp;
+/// Die 18 Komposition-Achsen-Namen in AdHocComposition-Slot-Reihenfolge T0..T17 (composition_factory.hpp;
 /// Doc 30 §8.0 erweitert um queuing_q1/queuing_q2). Bau-INC-2c (F12iii, ABI-5): "telemetry" hat die
 /// binary_id-permutierende Komposition verlassen (CEB-System-Achse, H-10-Sidecar; vorher Slot 10 von 19).
 /// Bau-INC-2d (ABI-6): "isa" hat die Komposition ebenfalls verlassen (Target-ISA-System-Achse, build-config-
@@ -31,10 +31,16 @@ namespace mp = boost::mp11;
 /// TEILMENGE der Achsen aus registry_to_axis_levels.hpp build_all_axis_levels() (BR-1, zentrale Quelle) —
 /// aber NICHT deren Präfix: dort stehen zwischen T15 und q1/q2 die 3 build-only-Achsen
 /// (page_type/simd_extension/general_hardware), dahinter die 4 node-shape-Achsen (#234-K).
-inline constexpr std::array<std::string_view, 17> kCompositionAxisNames = {
+/// STRUKT-R ORG-18 (Session-Doc §5, Bauplan-Beleg N-3): 18. Organ-Haupt-Achse "persistence_target" als
+/// T17-ANHANG hinter queuing_q2. Bewusst angehaengt statt in die fachliche Gruppe 05_write_path_io
+/// eingeschoben: der Anhang haengt an jede binary_id genau EIN neues Segment und laesst alle 17
+/// bestehenden Segment-POSITIONEN unberuehrt, waehrend ein Einschub die mixed-radix-Reihenfolge der
+/// StaticBinaryView neu schneiden wuerde (groesserer Bruch ohne Gewinn). Die fachliche Gruppen-Ordnung
+/// aus Session-Doc §5 wird auf der Lager-Baum-/Ordner-Ebene realisiert, NICHT in der binary_id-Radix-Folge.
+inline constexpr std::array<std::string_view, 18> kCompositionAxisNames = {
     "search_algo", "cache_traversal",  "mapping",     "path_compression", "node_type",    "memory_layout",
     "allocator",   "prefetch",         "concurrency", "serialization",    "value_handle", "index_organization",
-    "io_dispatch", "migration_policy", "filter",      "queuing_q1",       "queuing_q2"};
+    "io_dispatch", "migration_policy", "filter",      "queuing_q1",       "queuing_q2",   "persistence_target"};
 
 /// Ein Achsen-Pfad-Segment: "axis=value" (= experiment_tree.hpp StaticAxisNode::serialize()).
 [[nodiscard]] inline std::string serialize_axis_segment(std::string_view axis, std::string_view value) {
@@ -44,8 +50,8 @@ inline constexpr std::array<std::string_view, 17> kCompositionAxisNames = {
     return s;
 }
 
-/// serialize_composition_path<P>() — der serialisierte Static-Pfad EINER 17-Achsen-Permutation (PermTuple<V0..V16>; INC-2d).
-/// Baut "search_algo=<V0::name()>/.../queuing_q2=<V16::name()>" — exakt der `binary_id`, den der Experiment-Baum für
+/// serialize_composition_path<P>() -- der serialisierte Static-Pfad EINER 18-Achsen-Permutation (PermTuple<V0..V17>; STRUKT-R).
+/// Baut "search_algo=<V0::name()>/.../persistence_target=<V17::name()>" -- exakt der `binary_id`, den der Experiment-Baum fuer
 /// dasselbe Tupel erzeugt (gleiche Achsen-Namen, gleiche W::name()-Werte, gleiche Reihenfolge, gleiches Format).
 template <class P>
 [[nodiscard]] inline std::string serialize_composition_path() {
@@ -62,19 +68,21 @@ template <class P>
     return out;
 }
 
-/// serialize_composition_from_slots<C>() — derselbe Pfad, aber aus den 17 NAMED using-Slots einer
-/// AdHocComposition<…> (C::search_algo::name() … C::filter::name()). Round-Trip-Beleg (BR-2): wenn
+/// serialize_composition_from_slots<C>() -- derselbe Pfad, aber aus den 18 NAMED using-Slots einer
+/// AdHocComposition<...> (C::search_algo::name() ... C::persistence_target::name()). Round-Trip-Beleg (BR-2): wenn
 /// serialize_composition_from_slots<CompositionFromPermTuple<P>>() == serialize_composition_path<P>(),
-/// hat CompositionFromPermTuple die Slot-Reihenfolge T0..T16 KORREKT erhalten (P → Composition verlustfrei).
+/// hat CompositionFromPermTuple die Slot-Reihenfolge T0..T17 KORREKT erhalten (P -> Composition verlustfrei).
 /// Bau-INC-2d: C::isa::name() ist raus (isa ist keine Kompositions-Achse mehr — Target-ISA-System-Achse).
 template <class C>
 [[nodiscard]] inline std::string serialize_composition_from_slots() {
-    std::array<std::string_view, 17> const v = {
+    // HANDARBEIT (anders als serialize_composition_path, das index-getrieben mitzieht): jeder Slot steht
+    // hier explizit. STRUKT-R ORG-18 haengt C::persistence_target::name() als 18. Eintrag an.
+    std::array<std::string_view, 18> const v = {
         C::search_algo::name(), C::cache_traversal::name(),  C::mapping::name(),      C::path_compression::name(),
         C::node_type::name(),   C::memory_layout::name(),    C::allocator::name(),    C::prefetch::name(),
         C::concurrency::name(), C::serialization::name(),    C::value_handle::name(), C::index_organization::name(),
         C::io_dispatch::name(), C::migration_policy::name(), C::filter::name(),       C::queuing_q1::name(),
-        C::queuing_q2::name()};
+        C::queuing_q2::name(),  C::persistence_target::name()};
     std::string out;
     for (std::size_t i = 0; i < v.size(); ++i) {
         if (!out.empty()) out += '/';
@@ -84,10 +92,10 @@ template <class C>
 }
 
 /// with_shape_segment<Shape>(path, shape_axis) — haengt OPTIONAL EIN node-shape-Segment
-/// "/<shape_axis>=<Shape::name()>" an einen serialisierten 17-Achsen-binary_id. Default-OFF: Shape=void => path
-/// BYTE-IDENTISCH zurueck (golden_fullpilot_320 unberuehrt). Nur bei aktivem Shape-Traeger EINER organ-backed
-/// Familie (234-V-b) wird das Segment NACH queuing_q2 emittiert. shape_axis-Name vom Aufrufer (dieser Header
-/// bleibt achsen-frei).
+/// "/<shape_axis>=<Shape::name()>" an einen serialisierten 18-Achsen-binary_id. Default-OFF: Shape=void => path
+/// BYTE-IDENTISCH zurueck. Nur bei aktivem Shape-Traeger EINER organ-backed Familie (234-V-b) wird das Segment
+/// als LETZTES emittiert -- seit STRUKT-R ORG-18 also hinter persistence_target, nicht mehr hinter queuing_q2.
+/// shape_axis-Name vom Aufrufer (dieser Header bleibt achsen-frei).
 template <class Shape>
 [[nodiscard]] inline std::string with_shape_segment(std::string path, std::string_view shape_axis) {
     if constexpr (!std::is_same_v<Shape, void>) {

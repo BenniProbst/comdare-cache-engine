@@ -1,7 +1,7 @@
-// test_br2_roundtrip — BR-2 (2026-06-02, Doc 27 §3) — Baum-Blatt ↔ reale AdHocComposition<17> Round-Trip.
+// test_br2_roundtrip — BR-2 (2026-06-02, Doc 27 §3) — Baum-Blatt ↔ reale AdHocComposition<18> Round-Trip.
 //
 // Beweist gegen ECHTE Wrapper: jeder statische Baum-Blatt-Pfad bildet auf GENAU EINE reale, materialisierbare
-// AdHocComposition<17> ab, und die Pfad-Serialisierung ist BR-1↔BR-2 IDENTISCH (axis_path_serialization.hpp).
+// AdHocComposition<18> ab, und die Pfad-Serialisierung ist BR-1↔BR-2 IDENTISCH (axis_path_serialization.hpp).
 //
 // C1060-SICHER: das volle 17-Achsen-mp_product über reale Enabled-Inventare sprengt den Heap → wir nutzen ein
 // PILOT-Engine (schwere Achsen ×1, leichte node_type/memory_layout ×2 → ∏=4). Doc 27 §6: nur EIN (bzw. wenige
@@ -82,30 +82,33 @@ using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
 using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;        // filter
 using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;    // queuing_q1 ×1 (Doc 30 §8.0)
 using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;    // queuing_q2 ×1 (Doc 30 §8.0)
+// STRUKT-R ORG-18: 18. Slot. mp_take_c<...,1> ist bei Q-1 FALL B gueltig (1-elementige Enabled-Liste).
+using L19 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants_PT, 1>;         // persistence_target ×1
 
-using PilotEngine = // INC-2d: PilotCfg<L12>/isa raus (17 Slots)
+using PilotEngine = // INC-2d: PilotCfg<L12>/isa raus; STRUKT-R ORG-18: PilotCfg<L19> dazu (18 Slots)
     perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>, PilotCfg<L5>,
                             PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L13>,
-                            PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
+                            PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>,
+                            PilotCfg<L19>>;
 
 int main() {
-    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<17> Round-Trip:\n";
+    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<18> Round-Trip:\n";
 
-    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<17>.
+    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<18>.
     ex::CompositionRegistry reg;
     reg.register_from_engine<PilotEngine>();
     std::cout << "  PilotEngine::count() = " << PilotEngine::count() << "  reg.size() = " << reg.size() << "\n";
     check_eq("reg.size() == PilotEngine::count()", reg.size(), PilotEngine::count());
     check_true("∏ > 1 (echtes Fanout: node_type ×2 · memory_layout ×2)", reg.size() > 1);
 
-    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<17>: path (aus PermTuple) == slot_path
+    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<18>: path (aus PermTuple) == slot_path
     //     (aus den 17 named Slots) + materialisiert + 17-Achsen-Definition.
     bool        rt     = true;
     std::size_t def_ok = 0;
     reg.for_each([&](ex::CompositionRecord const& r) {
         if (r.path != r.slot_path) rt = false; // P→Composition Slot-Reihenfolge verlustfrei
         if (!r.materialized) rt = false;       // CompositionFromPermTuple<P> kompilierte
-        if (r.definition.size() == 17)
+        if (r.definition.size() == 18)
             ++def_ok; // reale Achsen-Definition je Slot (Doc 30 §8.0 + INC-2c: 16 + queuing q1/q2)
     });
     check_true("Round-Trip: path == slot_path + materialized (alle)", rt);
@@ -131,6 +134,9 @@ int main() {
     ex::push_static_axis<L16>(lv, "filter");
     ex::push_static_axis<L17>(lv, "queuing_q1");
     ex::push_static_axis<L18>(lv, "queuing_q2");
+    // STRUKT-R ORG-18: der Baum MUSS den 18. Slot fuehren, sonst fehlt dem Baum-Blatt-Pfad das Segment
+    // "/persistence_target=..." das serialize_composition_path jetzt emittiert -> Round-Trip 0 statt 4.
+    ex::push_static_axis<L19>(lv, "persistence_target");
 
     auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};

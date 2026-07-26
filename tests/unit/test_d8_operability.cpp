@@ -11,9 +11,10 @@
 
 namespace ex = comdare::cache_engine::builder::experiment;
 
-static_assert(ex::kAxisOperability.size() == 17, "17 SearchAlgorithm-Komposition-Achsen");
+static_assert(ex::kAxisOperability.size() == 18, "18 SearchAlgorithm-Komposition-Achsen");
 static_assert(ex::count_operability(ex::AxisOperability::Operative) == 2, "2 real operativ (search_algo+allocator)");
-static_assert(ex::count_operability(ex::AxisOperability::OperativeCapable) == 4, "4 operativ-faehig");
+static_assert(ex::count_operability(ex::AxisOperability::OperativeCapable) == 5,
+              "5 operativ-faehig (STRUKT-R ORG-18: persistence_target kommt hinzu)");
 static_assert(ex::count_operability(ex::AxisOperability::Descriptor) == 11, "11 Deskriptor (ehrlich passiv)");
 static_assert(ex::operative_axis_count() == 2);
 
@@ -34,17 +35,17 @@ static void tr(char const* w, bool c) {
 }
 
 int main() {
-    std::cout << "==== D8 R5.B-Operabilitaets-Klassifikation (ehrlich, 17 Achsen) ====\n";
-    eq("kAxisOperability.size() == 17", ex::kAxisOperability.size(), std::size_t{17});
+    std::cout << "==== D8 R5.B-Operabilitaets-Klassifikation (ehrlich, 18 Achsen) ====\n";
+    eq("kAxisOperability.size() == 18", ex::kAxisOperability.size(), std::size_t{18});
     eq("Operative (real getrieben) == 2", ex::count_operability(ex::AxisOperability::Operative), std::size_t{2});
-    eq("OperativeCapable (verdrahtbar) == 4", ex::count_operability(ex::AxisOperability::OperativeCapable),
-       std::size_t{4});
+    eq("OperativeCapable (verdrahtbar) == 5", ex::count_operability(ex::AxisOperability::OperativeCapable),
+       std::size_t{5});
     eq("Descriptor (ehrlich passiv) == 11", ex::count_operability(ex::AxisOperability::Descriptor), std::size_t{11});
-    eq("Summe == 17 (kein Achsen-Wegschrumpfen)",
+    eq("Summe == 18 (kein Achsen-Wegschrumpfen)",
        ex::count_operability(ex::AxisOperability::Operative) +
            ex::count_operability(ex::AxisOperability::OperativeCapable) +
            ex::count_operability(ex::AxisOperability::Descriptor),
-       std::size_t{17});
+       std::size_t{18});
 
     // Die 2 Operative SIND search_algo (T0) + allocator (T6) — die R5.B-Grenze (node_value_measurement.hpp), via BR-4 real belegt.
     tr("T0 == search_algo, Operative", std::string{ex::kAxisOperability[0].axis} == "search_algo" &&

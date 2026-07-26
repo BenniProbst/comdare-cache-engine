@@ -9,9 +9,9 @@
 // sobald ihre Komposition/Anatomie existiert (Cross-Genus type-unmöglich, Doku 14 §32 — daher GETRENNTE Traits).
 // C++23, header-only.
 
-#include "axis_path_serialization.hpp"          // kCompositionAxisNames (17 SearchAlgorithm-Achsen, Doc 30 §8.0)
+#include "axis_path_serialization.hpp"          // kCompositionAxisNames (18 SearchAlgorithm-Achsen, STRUKT-R ORG-18)
 #include "anatomy/anatomy_base.hpp"             // AnatomyGenus
-#include "anatomy/composition_factory.hpp"      // CompositionFromPermTuple / AdHocComposition<17>
+#include "anatomy/composition_factory.hpp"      // CompositionFromPermTuple / AdHocComposition<18>
 #include "anatomy/search_algorithm_anatomy.hpp" // SearchAlgorithmAnatomy
 #include "anatomy/adapter_anatomy.hpp"          // AdapterAnatomy / AdapterComposition (Container-Gattung)
 #include "anatomy/set_anatomy.hpp"              // SetAnatomy / SetComposition (Set-Gattung, D9)
@@ -31,22 +31,29 @@ namespace cea = ::comdare::cache_engine::anatomy;
 template <cea::AnatomyGenus G>
 struct GenusBindingTraits;
 
-/// SearchAlgorithm — der VERIFIZIERTE Spezialfall (alle 4 Brücken literal grün). 17-Slot-Komposition
-/// (15 Such-Achsen + queuing q1/q2 als reguläre SA-Achse, Doc 30 §8.0).
+/// SearchAlgorithm -- der VERIFIZIERTE Spezialfall (alle 4 Bruecken literal gruen). 18-Slot-Komposition
+/// (15 Such-Achsen + queuing q1/q2 als regulaere SA-Achse, Doc 30 §8.0 + persistence_target, STRUKT-R ORG-18).
+///
+/// NUR diese Gattung haengt am zentralen kCompositionAxisNames-Array; Adapter/Set/Sequence/View unten
+/// tragen EIGENE Namenslisten (11/13/9/5). persistence_target ist NICHT auf sie ausgedehnt -- Owner-Entscheid
+/// Q-8 vom 26.07.2026: Gattungen sind per Direktive disjunkt, und das Rueckschreib-Ziel ist eine
+/// Such-/Index-Eigenschaft. Wer das aendert, braucht einen neuen Owner-Entscheid, nicht nur einen Patch.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
-    static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::SearchAlgorithm;
-    static constexpr std::size_t       slot_count = 17; // INC-2d: isa raus (war 18 nach INC-2c-telemetry, 19 davor)
-    static constexpr std::string_view  name       = "SearchAlgorithm";
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::SearchAlgorithm;
+    // STRUKT-R ORG-18: 18 (war 17 nach INC-2d/isa-raus, 18 nach INC-2c/telemetry-raus, 19 davor).
+    static constexpr std::size_t      slot_count = 18;
+    static constexpr std::string_view name       = "SearchAlgorithm";
 
-    /// Blatt-PermTuple<17> → reale Komposition (AdHocComposition<17>) → Gattungs-Anatomie.
+    /// Blatt-PermTuple<18> -> reale Komposition (AdHocComposition<18>) -> Gattungs-Anatomie.
     template <class PermT>
     using CompositionFor = cea::CompositionFromPermTuple<PermT>;
     template <class Comp>
     using AnatomyFor = cea::SearchAlgorithmAnatomy<Comp>;
 
-    /// Die Achsen-Namen der Komposition-Slots (Reihenfolge T0..T16) — zentrale Pfad-Konvention (BR-2).
-    [[nodiscard]] static constexpr std::array<std::string_view, 17> const& axis_names() noexcept {
+    /// Die Achsen-Namen der Komposition-Slots (Reihenfolge T0..T17) -- zentrale Pfad-Konvention (BR-2).
+    /// Die Aritaet MUSS kCompositionAxisNames folgen (Rueckgabe ist eine Referenz DARAUF, kein Kopie-Array).
+    [[nodiscard]] static constexpr std::array<std::string_view, 18> const& axis_names() noexcept {
         return kCompositionAxisNames;
     }
 };

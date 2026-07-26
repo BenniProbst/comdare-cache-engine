@@ -101,6 +101,13 @@ public:
         if constexpr (ObservableAxis<typename Composition::queuing_q2>) {
             agg.queuing_q2 = axis_queuing_q2_.statistics();
         }
+        // STRUKT-R ORG-18: persistence_target-Slot. Wie io_dispatch/migration_policy wird das Organ NICHT hier
+        // gehalten, sondern im abi_adapter (pt_organ_) als Pfad-B-Scan getrieben; der Guard greift daher nur,
+        // wenn die Composition eine observable Huelle traegt (ObservablePersistenceTarget). Sonst bleibt der
+        // Slot EmptyAxisSnapshot -- korrekt, kein Sonderfall.
+        if constexpr (ObservableAxis<typename Composition::persistence_target>) {
+            agg.persistence_target = axis_persistence_target_.statistics();
+        }
         return agg;
     }
 
@@ -150,6 +157,15 @@ public:
     [[nodiscard]] typename Composition::queuing_q2&       queuing_q2_organ() noexcept { return axis_queuing_q2_; }
     [[nodiscard]] typename Composition::queuing_q2 const& queuing_q2_organ() const noexcept { return axis_queuing_q2_; }
 
+    /// STRUKT-R ORG-18: Zugriff auf das persistence_target-Organ (18. Slot). Getrieben wird es im abi_adapter
+    /// (pt_organ_, Pfad-B-Scan); dieser Accessor haelt die Anatomie-Oberflaeche vollstaendig.
+    [[nodiscard]] typename Composition::persistence_target& persistence_target_organ() noexcept {
+        return axis_persistence_target_;
+    }
+    [[nodiscard]] typename Composition::persistence_target const& persistence_target_organ() const noexcept {
+        return axis_persistence_target_;
+    }
+
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
         return observer_aggregate_t::observable_count();
@@ -196,6 +212,10 @@ private:
     typename Composition::mapping         axis_mapping_;
     typename Composition::queuing_q1      axis_queuing_q1_;
     typename Composition::queuing_q2      axis_queuing_q2_;
+
+    // STRUKT-R ORG-18: persistence_target als 18. Organ-Slot. KEIN `{}` (wie die vier oben): der Slot kann eine
+    // nackte Aggregat-Strategie sein, fuer die Aggregat + `{}` ill-formed waere (test_d_v42_probe2).
+    typename Composition::persistence_target axis_persistence_target_;
 };
 
 } // namespace comdare::cache_engine::anatomy

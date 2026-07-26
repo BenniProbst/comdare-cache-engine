@@ -46,9 +46,12 @@ namespace comdare::cache_engine::best_binary {
 // K-5 (2026-07-19): Spiegel-Drift 5/".A5." -> 6/".A6." gesynct (Bau-INC-2d isa-Herausloesung, ABI-6) --
 // der Spiegel schrieb sonst FALSCHE Manifest-Provenienz. Paritaets-Gate: static_assert gegen den
 // Decl-Header in tests/unit/test_best_binary_selector_parse_rank.cpp (Tool selbst bleibt self-contained).
-inline constexpr std::uint32_t kAbiMajor = 6; // Bau-INC-2d 5→6 (vorher INC-2b 4→5, #216-H2: 4)
+// STRUKT-R ORG-18 (2026-07-26): Spiegel-Drift 6/".A6." -> 7/".A7." gesynct (18. Organ-Achse
+// persistence_target, ABI-7). Ohne diesen Nachzug schrieb der Spiegel FALSCHE Manifest-Provenienz
+// und der Selector haette jede neu gebaute Major-7-Binary verworfen.
+inline constexpr std::uint32_t kAbiMajor = 7; // STRUKT-R ORG-18 6->7 (vorher INC-2d 5->6, INC-2b 4->5, #216-H2: 4)
 inline constexpr std::uint32_t kAbiMinor = 0;
-inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141362EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A6."
+inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141372EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A7."
 
 // ── orch_make_stem-Round-Trip (identisch BuildOrchestrator: sanitize + FNV-1a + kStemMax=120) ─────
 // Diese drei Funktionen sind eine 1:1-Spiegelung von build_orchestrator.hpp:114/122/138 — sie MÜSSEN

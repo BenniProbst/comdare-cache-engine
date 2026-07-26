@@ -1,14 +1,14 @@
 #pragma once
 // BR-3-OBS-22 (2026-06-02, Doc 27 §0.1/§3) — Observer-Klassifikation je der 26 Achsen ("kein Wegschrumpfen").
 //
-// User-Direktive 2026-06-02: ALLE 26 Achsen tragen einen EIGENEN Observer — NICHT nur die 17 SearchAlgorithm-
+// User-Direktive 2026-06-02: ALLE 26 Achsen tragen einen EIGENEN Observer -- NICHT nur die 18 SearchAlgorithm-
 // Komposition-Slots. Die Differenzierung ist GATTUNGS-KORREKT (Doc 27 §0.1, User-Entscheidung „differenziert"):
-//   • SearchAlgorithmObserver : die 17 Komposition-Achsen → ObserverAggregate<17> (real für ObservableAxis,
+//   - SearchAlgorithmObserver : die 18 Komposition-Achsen -> ObserverAggregate<18> (real fuer ObservableAxis,
 //     R5.B: search_algo + allocator + ... operativ; Rest Default-Snapshot). Träger: NodeObserverSnapshot (BR-3).
 //     korr. 2026-06-03 (Doc 30 §8.0): umfasst jetzt AUCH queuing q1/q2 (Slots T17/T18) — reguläre SA-Tier-Unterklasse-Achsen.
 //     Reklass 2026-07-20 (P-OBS, WIDE-Angleichung): telemetry UND isa haben die Komposition VERLASSEN (INC-2c/2d),
-//     sie sind NICHT mehr SearchAlgorithmObserver. Damit gilt SearchAlgorithmObserver == kCompositionAxisNames (17) ==
-//     kV3AxisCount == ObserverAggregate<17>::total_slots() == seg_ns[17] (vorher faelschlich 19, mit telemetry/isa).
+//     sie sind NICHT mehr SearchAlgorithmObserver. Damit gilt SearchAlgorithmObserver == kCompositionAxisNames (18) ==
+//     kV3AxisCount == ObserverAggregate<18>::total_slots() == seg_ns[18] (vorher faelschlich 19, mit telemetry/isa).
 //   • DefinitionOnly          : die Hardware-/Sub-Achsen page_type(01)/simd_extension(09b)/general_hardware(12)
 //     sind Build-Zeit-KONSTANTEN (kein Laufzeit-Zustand) → sie tragen eine read-only Achsen-DEFINITION
 //     (Wrapper-Identität/Properties), KEINEN Laufzeit-Observer. EHRLICH dokumentiert (nicht stillschweigend 0).
@@ -31,7 +31,7 @@ namespace comdare::cache_engine::builder::experiment {
 
 /// Die drei Observer-Naturen der 26 Achsen (gattungs-korrekt, Doc 27 §0.1).
 enum class AxisObserverKind {
-    SearchAlgorithmObserver, // 17 Komposition-Achsen (kCompositionAxisNames, inkl. queuing q1/q2): ObserverAggregate<17> (BR-3)
+    SearchAlgorithmObserver, // 18 Komposition-Achsen (kCompositionAxisNames, inkl. queuing q1/q2): ObserverAggregate<18> (BR-3)
     DefinitionOnly, // page_type/09b/12 + telemetry(INC-2c) + isa(INC-2d) System-Achsen + 4 node-shape (#234-K): Definition statt Laufzeit-Observer
     ContainerObserver // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };

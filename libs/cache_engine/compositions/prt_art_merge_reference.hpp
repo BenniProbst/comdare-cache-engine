@@ -29,6 +29,7 @@
 
 #include <boost/mp11.hpp>
 #include <string_view>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace comdare::cache_engine::compositions {
 
@@ -95,6 +96,9 @@ struct HostPrtMergeComposition {
     using filter             = typename Host::filter;
     using queuing_q1         = typename Host::queuing_q1;
     using queuing_q2         = typename Host::queuing_q2;
+    // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
+    // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
+    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
 
     static constexpr std::string_view paper_id = "PRT-ART merge (SOTA host + PRT redirect organ)";
     static constexpr std::string_view paper_title =

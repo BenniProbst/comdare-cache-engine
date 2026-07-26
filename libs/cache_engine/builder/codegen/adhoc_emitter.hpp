@@ -73,6 +73,7 @@ template <class C>
     add(type_name<typename C::filter>());
     add(type_name<typename C::queuing_q1>()); // Doc 30 §8.0: queuing q1 (buffer_strategy)
     add(type_name<typename C::queuing_q2>()); // Doc 30 §8.0: queuing q2 (flush_policy)
+    add(type_name<typename C::persistence_target>()); // STRUKT-R ORG-18: T17 persistence_target
     return s;
 }
 

@@ -42,6 +42,7 @@
 #include "../anatomy/composition_concept.hpp"
 
 #include <string_view>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace comdare::cache_engine::compositions {
 
@@ -75,6 +76,9 @@ struct ArtPaperBindingComposition {
     // Topic queuing T15/T16 (INC-2d; Doc 30 §8.0: historisch T17/T18) — explizit gewaehlter Durchreich-Algorithmus (kein „weglassen")
     using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
     using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
+    // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
+    // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
+    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
 
     static constexpr std::string_view paper_id    = "P01 Leis/Kemper/Neumann ICDE 2013 (Paper-Binding)";
     static constexpr std::string_view paper_title = "The Adaptive Radix Tree: ARTful Indexing (unodb::db Paper-Source)";

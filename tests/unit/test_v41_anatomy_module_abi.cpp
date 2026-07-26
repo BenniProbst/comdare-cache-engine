@@ -49,15 +49,15 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
     static_assert(COMDARE_ANATOMY_ABI_MAJOR ==
-                  6); // Bau-INC-2d (TABU-GO): 5→6-Bump (isa-Herauslösung aus binary_id; vorher 2b 4→5)
+                  7); // STRUKT-R ORG-18 (Owner-GO): 6→7-Bump (persistence_target in die binary_id; vorher 2d 5→6)
     static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // Minor auf 0 zurückgesetzt beim Major-Bump
     static_assert(COMDARE_ANATOMY_ABI_MAGIC ==
-                  0x434F4D444141362EULL); // "COMDA·A6·" (Magic kodiert Major, Minor-Bump ändert es nicht)
+                  0x434F4D444141372EULL); // "COMDA·A7·" (Magic kodiert Major, Minor-Bump ändert es nicht)
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 6); // Bau-INC-2d (isa raus; vorher 2b: 5)
+    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 7); // STRUKT-R ORG-18 (vorher 2d: 6)
     static_assert(ce_abi::kHostAnatomyAbiVersion.minor == 0);
     SUCCEED();
 }
@@ -126,7 +126,7 @@ TEST(R5D_AnatomyFactory, CreateAnatomyReturnsValidPointer) {
     // ArtComposition wurde im Macro hinterlegt
     EXPECT_EQ(ptr->composition_name(), std::string_view{"ArtComposition"});
     EXPECT_EQ(ptr->genus(), ana::AnatomyGenus::SearchAlgorithm);
-    EXPECT_EQ(ptr->organ_count(), 17u);
+    EXPECT_EQ(ptr->organ_count(), 18u); // STRUKT-R ORG-18: persistence_target ist der 18. Organ-Slot
     EXPECT_EQ(ptr->engine_kind(), ee::ExecutionEngineKind::Anatomy);
     comdare_destroy_anatomy(ptr);
 }

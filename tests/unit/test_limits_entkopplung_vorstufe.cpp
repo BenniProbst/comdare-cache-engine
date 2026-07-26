@@ -65,7 +65,7 @@ std::vector<std::string> binary_ids(std::vector<ex::AxisLevel> const& levels) {
 
 void check_level_equivalence(std::vector<ex::AxisLevel> const& generated, std::vector<ex::AxisLevel> const& reference) {
     check_eq("Stufe 1: static_levels count", generated.size(), reference.size());
-    check_eq("Stufe 1: static_levels count == 17", generated.size(), std::size_t{17}); // INC-2d: isa raus
+    check_eq("Stufe 1: static_levels count == 18", generated.size(), std::size_t{18}); // STRUKT-R ORG-18: 17 -> 18 (persistence_target)
 
     bool axes_ok   = generated.size() == reference.size();
     bool values_ok = axes_ok;
@@ -123,7 +123,7 @@ void check_new_golden_131072() {
              std::size_t{320});
 
     std::vector<ex::AxisLevel> const ref_levels = tlz::catalog_static_levels<tlz::FullSourceCatalog>();
-    check_eq("NEW-GOLDEN: FullSourceCatalog static_levels == 17", ref_levels.size(), std::size_t{17});
+    check_eq("NEW-GOLDEN: FullSourceCatalog static_levels == 18", ref_levels.size(), std::size_t{18});
     std::vector<std::string> const ref_ids = binary_ids(ref_levels); // LAZY view-Iteration (kein mp_product)
     check_eq("NEW-GOLDEN: FullSourceCatalog view.size() == 131072", ref_ids.size(), std::size_t{131072});
 

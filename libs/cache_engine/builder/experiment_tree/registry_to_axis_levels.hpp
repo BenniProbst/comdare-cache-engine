@@ -75,6 +75,10 @@ using T22_btree_order      = ce::nodes::axis_btree_order::EnabledShapes;
 using T23_skip_list_shape  = ce::nodes::axis_skip_list_shape::EnabledShapes;
 using T24_bst_shape        = ce::nodes::axis_bst_shape::EnabledShapes;
 using T25_hash_probe_shape = ce::nodes::axis_hash_probe_shape::EnabledShapes;
+// STRUKT-R ORG-18: 18. Organ-Haupt-Achse. Der Alias heisst T26, weil T17..T25 BELEGT sind
+// (page_type/simd_extension/general_hardware/queuing_q1/q2/4 Shapes, Bauplan-Beleg N-3) -- die Ziffer im
+// Alias ist die Registry-Reflexions-Nummer, NICHT der Kompositions-Slot. Der Kompositions-SLOT ist 17.
+using T26_persistence_target = ce::io::axis_persistence_target::EnabledTargets;
 } // namespace axes26
 
 /// Bau-INC-1b (Schichtung, System ⊃ Tier): die 26 Achsen zerfallen in drei benannte Schicht-Bausteine.
@@ -121,10 +125,13 @@ inline void append_organ_core_axis_levels(std::vector<AxisLevel>& lv) {
     return lv;
 }
 
-/// Die 2 queuing-Kompositions-Achsen (q1/q2, T15/T16 der 17-Slot-Komposition) + die 4 Shape-Achsen.
+/// Die 2 queuing-Kompositions-Achsen (q1/q2, T15/T16 der 18-Slot-Komposition) + persistence_target (T17,
+/// STRUKT-R ORG-18) + die 4 Shape-Achsen. Die REIHENFOLGE ist bindend: persistence_target MUSS direkt hinter
+/// queuing_q2 und VOR den Shape-Achsen stehen -- genau so haengt axis_path_serialization das Segment an.
 inline void append_composition_tail_axis_levels(std::vector<AxisLevel>& lv) {
     push_static_axis<axes26::T20_queuing_q1>(lv, "queuing_q1");
     push_static_axis<axes26::T21_queuing_q2>(lv, "queuing_q2");
+    push_static_axis<axes26::T26_persistence_target>(lv, "persistence_target");
     push_static_axis<axes26::T22_btree_order>(lv, "btree_order");
     push_static_axis<axes26::T23_skip_list_shape>(lv, "skip_list_shape");
     push_static_axis<axes26::T24_bst_shape>(lv, "bst_shape");
@@ -160,7 +167,8 @@ inline void append_composition_tail_axis_levels(std::vector<AxisLevel>& lv) {
            enabled_count<axes26::T18_simd_extension> * enabled_count<axes26::T19_general_hardware> *
            enabled_count<axes26::T20_queuing_q1> * enabled_count<axes26::T21_queuing_q2> *
            enabled_count<axes26::T22_btree_order> * enabled_count<axes26::T23_skip_list_shape> *
-           enabled_count<axes26::T24_bst_shape> * enabled_count<axes26::T25_hash_probe_shape>;
+           enabled_count<axes26::T24_bst_shape> * enabled_count<axes26::T25_hash_probe_shape> *
+           enabled_count<axes26::T26_persistence_target>; // STRUKT-R ORG-18
 }
 
 } // namespace comdare::cache_engine::builder::experiment

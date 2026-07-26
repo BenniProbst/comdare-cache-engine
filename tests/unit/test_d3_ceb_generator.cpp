@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 using namespace comdare::cache_engine::builder::experiment;
 
@@ -35,6 +36,9 @@ struct FakeComp {
     using filter             = int;
     using queuing_q1         = int;
     using queuing_q2         = int;
+    // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
+    // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
+    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
 };
 struct FakeEngine {
     template <class F>

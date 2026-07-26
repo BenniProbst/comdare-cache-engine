@@ -89,7 +89,7 @@ template <class A>
 /// Aufbau zur Compile-Zeit:
 ///   ObserverAggregate<MyComposition> agg;
 ///   agg.search_algo_snapshot = my_anatomy.axis_search_algo_.statistics();
-///   // ... 16 weitere ...
+///   // ... 17 weitere ...
 template <IsComposition Composition>
 struct ObserverAggregate {
     snapshot_of_t<typename Composition::search_algo>        search_algo;
@@ -111,6 +111,9 @@ struct ObserverAggregate {
     // bei COMDARE_CE_ENABLE_STATISTICS; sonst EmptyAxisSnapshot via snapshot_of_t — wie alle anderen).
     snapshot_of_t<typename Composition::queuing_q1> queuing_q1;
     snapshot_of_t<typename Composition::queuing_q2> queuing_q2;
+    // STRUKT-R ORG-18 (Session-Doc §5): 18. Organ-Achse. PersistenceTargetSnapshot bei
+    // COMDARE_CE_ENABLE_STATISTICS (nur ueber die Observable-Huelle), sonst EmptyAxisSnapshot via snapshot_of_t.
+    snapshot_of_t<typename Composition::persistence_target> persistence_target;
 
     /// Anzahl der "echten" (nicht-Empty) Snapshots — Diagnose fuer Mess-Treiber.
     [[nodiscard]] static constexpr std::size_t observable_count() noexcept {
@@ -132,12 +135,14 @@ struct ObserverAggregate {
         if constexpr (ObservableAxis<typename Composition::filter>) ++n;
         if constexpr (ObservableAxis<typename Composition::queuing_q1>) ++n;
         if constexpr (ObservableAxis<typename Composition::queuing_q2>) ++n;
+        if constexpr (ObservableAxis<typename Composition::persistence_target>) ++n;
         return n;
     }
 
-    /// Total Achsen-Slot-Anzahl (Pflicht: 17 fuer Vollausbau — 15 Such-Achsen + queuing q1/q2;
-    /// Doc 30 §8.0 i.V.m. Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot mehr)
-    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 17; }
+    /// Total Achsen-Slot-Anzahl (Pflicht: 18 fuer Vollausbau -- 15 Such-Achsen + queuing q1/q2 +
+    /// persistence_target; Doc 30 §8.0 i.V.m. Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen,
+    /// kein Slot mehr; STRUKT-R ORG-18: persistence_target kommt hinzu)
+    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 18; }
 };
 
 } // namespace comdare::cache_engine::anatomy

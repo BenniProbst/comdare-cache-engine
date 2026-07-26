@@ -57,8 +57,13 @@ namespace comdare::cache_engine::anatomy {
 /// Gattung). Ein nicht-pufferndes Tier wählt EXPLIZIT den Durchreich-Algorithmus
 /// (NoBuffer/LazyFlush) — das ist ein Algorithmus, kein „weglassen". KEINE
 /// Template-Defaults: jedes Tier deklariert q1/q2 ebenso explizit wie die 15 davor.
+///
+/// STRUKT-R ORG-18 (Session-Doc §5): T17 = persistence_target (persistence_target::axis_persistence_target)
+/// als 18. Organ-Haupt-Achse, T17-Anhang hinter queuing_q2 (Bauplan-Beleg N-3). Auch hier gilt die Regel
+/// oben unveraendert: KEINE Template-Defaults -- jedes Tier deklariert persistence_target explizit. Der
+/// Durchreich-Wert ist MemoryOnlyTarget (kein Rueckschreib-Pfad), nicht ein "weglassen".
 template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
-          class T11, class T12, class T13, class T14, class T15, class T16>
+          class T11, class T12, class T13, class T14, class T15, class T16, class T17>
 struct AdHocComposition {
     using search_algo        = T0;
     using cache_traversal    = T1;
@@ -77,6 +82,7 @@ struct AdHocComposition {
     using filter             = T14;
     using queuing_q1         = T15;
     using queuing_q2         = T16;
+    using persistence_target = T17;
 
     static constexpr std::string_view paper_id = "P00 AdHoc Permutation R4";
     static constexpr std::string_view name     = "AdHocComposition";
@@ -92,19 +98,19 @@ namespace detail {
 template <class PermT>
 struct CompositionFromPermTupleImpl;
 
-/// Match PermTuple<Vs...> — PermutationEngine produziert PermTuple<V0,V1,...V16>
+/// Match PermTuple<Vs...> -- PermutationEngine produziert PermTuple<V0,V1,...V17>
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct CompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 17,
-                  "PermTuple muss exakt 17 Achsen-Werte enthalten (Bau-INC-2c/F12iii: telemetry ist "
+    static_assert(sizeof...(Vs) == 18,
+                  "PermTuple muss exakt 18 Achsen-Werte enthalten (Bau-INC-2c/F12iii: telemetry ist "
                   "System-Achse; Bau-INC-2d/ABI-6: isa ist Target-ISA-System-Achse — beide kein Slot mehr; "
-                  "15 Such-Achsen + queuing q1/q2)");
+                  "15 Such-Achsen + queuing q1/q2 + STRUKT-R ORG-18: persistence_target)");
     using type = AdHocComposition<Vs...>;
 };
 
 } // namespace detail
 
-/// CompositionFromPermTuple<PermT> — extrahiert die 17 Vendor-Typen aus einem
+/// CompositionFromPermTuple<PermT> -- extrahiert die 18 Vendor-Typen aus einem
 /// PermTuple und materialisiert eine AdHocComposition.
 ///
 /// Typische Verwendung im PermutationEngine-Visitor:
@@ -119,8 +125,8 @@ template <class PermT>
 using CompositionFromPermTuple = typename detail::CompositionFromPermTupleImpl<PermT>::type;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Concept: PermT ist ein 17-Slot-PermTuple das in AdHocComposition passt
-// (Doc 30 §8.0 i.V.m. Bau-INC-2c/2d: 15 Such-Achsen + queuing q1/q2)
+// Concept: PermT ist ein 18-Slot-PermTuple das in AdHocComposition passt
+// (Doc 30 §8.0 i.V.m. Bau-INC-2c/2d: 15 Such-Achsen + queuing q1/q2 + STRUKT-R: persistence_target)
 // ─────────────────────────────────────────────────────────────────────────────
 
 template <class PermT>
@@ -128,7 +134,8 @@ concept IsPermTuple19 = requires { typename detail::CompositionFromPermTupleImpl
                         IsComposition<typename detail::CompositionFromPermTupleImpl<PermT>::type>;
 
 /// Rückwärts-kompatible Aliase (historische Slot-Zahlen 17/19 im Namen; die
-/// Slot-Zahl ist seit Bau-INC-2d 17 — Namen bleiben für bestehende Verwender stabil).
+/// Slot-Zahl ist seit STRUKT-R ORG-18 achtzehn -- Namen bleiben fuer bestehende Verwender stabil.
+/// Beide Aliase bezeichnen dieselbe aktuelle Aritaet; die Ziffer im Namen ist Historie, kein Kontrakt).
 template <class PermT>
 concept IsPermTuple17 = IsPermTuple19<PermT>;
 

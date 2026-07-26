@@ -57,6 +57,16 @@ public:
     // einsetzbar (composition_registry / axis_path_serialization rufen C::io_dispatch::name()).
     using topic_tag = typename Strategy::topic_tag;
 
+    // STRUKT-R ORG-18 (2026-07-26, Alt-Defekt-Nachzug): axis_tag/family_id/enabled fehlten hier BIS HEUTE
+    // durchgereicht -> ObservableIoDispatch erfuellte concepts::CacheEnginePermutationStrategy NICHT
+    // ("the required type typename P::axis_tag is invalid"). Gefunden beim Bau der Schwester-Huelle
+    // ObservablePersistenceTarget, die an genau derselben Stelle brach. Rein additiv: die Huelle gewinnt
+    // Concept-Erfuellung, kein bestehender Aufrufer aendert sein Verhalten (Layout/Bytes unberuehrt).
+    using axis_tag  = typename Strategy::axis_tag;
+    using family_id = typename Strategy::family_id;
+
+    static constexpr bool enabled = Strategy::enabled;
+
     // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht.
     [[nodiscard]] static constexpr bool is_in_memory_only() noexcept { return Strategy::is_in_memory_only(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }

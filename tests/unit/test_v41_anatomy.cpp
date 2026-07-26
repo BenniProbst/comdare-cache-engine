@@ -23,6 +23,7 @@
 #include <anatomy/known_algorithms.hpp>
 
 #include <type_traits>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana       = ::comdare::cache_engine::anatomy;
 namespace ce_compos = ::comdare::cache_engine::compositions;
@@ -48,12 +49,12 @@ TEST(AnatomyR3_Concept, AllSixCompositionsConform) {
 }
 
 TEST(AnatomyR3_Concept, OrganCountIsEighteenForAllCompositions) {
-    static_assert(ana::composition_organ_count<ce_compos::ArtComposition>::value == 17);
-    static_assert(ana::composition_organ_count<ce_compos::HotComposition>::value == 17);
-    static_assert(ana::composition_organ_count<ce_compos::WormholeComposition>::value == 17);
-    static_assert(ana::composition_organ_count<ce_compos::SurfComposition>::value == 17);
-    static_assert(ana::composition_organ_count<ce_compos::MasstreeComposition>::value == 17);
-    static_assert(ana::composition_organ_count<ce_compos::StartComposition>::value == 17);
+    static_assert(ana::composition_organ_count<ce_compos::ArtComposition>::value == 18);
+    static_assert(ana::composition_organ_count<ce_compos::HotComposition>::value == 18);
+    static_assert(ana::composition_organ_count<ce_compos::WormholeComposition>::value == 18);
+    static_assert(ana::composition_organ_count<ce_compos::SurfComposition>::value == 18);
+    static_assert(ana::composition_organ_count<ce_compos::MasstreeComposition>::value == 18);
+    static_assert(ana::composition_organ_count<ce_compos::StartComposition>::value == 18);
     SUCCEED();
 }
 
@@ -98,12 +99,12 @@ TEST(AnatomyR3_Inspection, CompositionNameAndPaperIdMatch) {
 }
 
 TEST(AnatomyR3_Inspection, AllSixAlgosHaveNineteenOrgans) {
-    static_assert(ana::Art::organ_count() == 17);
-    static_assert(ana::Hot::organ_count() == 17);
-    static_assert(ana::Wormhole::organ_count() == 17);
-    static_assert(ana::SuRF::organ_count() == 17);
-    static_assert(ana::Masstree::organ_count() == 17);
-    static_assert(ana::Start::organ_count() == 17);
+    static_assert(ana::Art::organ_count() == 18);
+    static_assert(ana::Hot::organ_count() == 18);
+    static_assert(ana::Wormhole::organ_count() == 18);
+    static_assert(ana::SuRF::organ_count() == 18);
+    static_assert(ana::Masstree::organ_count() == 18);
+    static_assert(ana::Start::organ_count() == 18);
     SUCCEED();
 }
 
@@ -163,6 +164,9 @@ struct FrankensteinComposition {
     using filter                               = ce_compos::ArtComposition::filter;
     using queuing_q1                           = ce_compos::ArtComposition::queuing_q1; // Doc 30 §8.0: SA-Achse T17
     using queuing_q2                           = ce_compos::ArtComposition::queuing_q2; // Doc 30 §8.0: SA-Achse T18
+    // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
+    // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
+    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view name     = "FrankensteinComposition";
     static constexpr std::string_view paper_id = "P00 AdHoc Frankenstein 2026";
 };
@@ -173,7 +177,7 @@ TEST(AnatomyR3_Frankenstein, AdHocCompositionInstantiatesNewTier) {
     [[maybe_unused]] Frankenstein f;
     // Identitaet: neues Tier, identische Anatomie
     static_assert(Frankenstein::composition_name() == std::string_view{"FrankensteinComposition"});
-    static_assert(Frankenstein::organ_count() == 17);
+    static_assert(Frankenstein::organ_count() == 18);
     SUCCEED();
 }
 
@@ -249,16 +253,16 @@ TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingShareOrganDifferInProvenance) {
 }
 
 TEST(AnatomyR3_2_Promotion, ElevenAlgosFromAnatomyOrganCount19) {
-    static_assert(ana::Art::organ_count() == 17);
-    static_assert(ana::Hot::organ_count() == 17);
-    static_assert(ana::Wormhole::organ_count() == 17);
-    static_assert(ana::SuRF::organ_count() == 17);
-    static_assert(ana::Masstree::organ_count() == 17);
-    static_assert(ana::Start::organ_count() == 17);
-    static_assert(ana::ArtPaperBinding::organ_count() == 17);
-    static_assert(ana::HotPaperBinding::organ_count() == 17);
-    static_assert(ana::StartPaperBinding::organ_count() == 17);
-    static_assert(ana::WormholePaperBinding::organ_count() == 17);
-    static_assert(ana::SurfPaperBinding::organ_count() == 17);
+    static_assert(ana::Art::organ_count() == 18);
+    static_assert(ana::Hot::organ_count() == 18);
+    static_assert(ana::Wormhole::organ_count() == 18);
+    static_assert(ana::SuRF::organ_count() == 18);
+    static_assert(ana::Masstree::organ_count() == 18);
+    static_assert(ana::Start::organ_count() == 18);
+    static_assert(ana::ArtPaperBinding::organ_count() == 18);
+    static_assert(ana::HotPaperBinding::organ_count() == 18);
+    static_assert(ana::StartPaperBinding::organ_count() == 18);
+    static_assert(ana::WormholePaperBinding::organ_count() == 18);
+    static_assert(ana::SurfPaperBinding::organ_count() == 18);
     SUCCEED();
 }

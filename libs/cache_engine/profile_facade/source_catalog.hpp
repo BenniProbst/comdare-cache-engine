@@ -82,7 +82,7 @@ struct CatalogCfg {
 //    (Die mp_take_c-Reihenfolge + die per-Slot-Wahl ist die zentrale Konvention, die die Profil-binary_ids reproduziert
 //     — siehe golden_fullpilot_320_binary_ids.txt / golden_fullpilot_131072_binary_ids.txt; golden-gegated.) ──
 // NEW-GOLDEN-ALL-AXES (2026-07-18, BAUPLAN-NEW-GOLDEN-ALL-AXES.md §4): CatalogAxes ist ueber ALLE 17 Kompositions-
-// Achsen parametrisiert (K00..K16 = mp_take_c-Grad je Slot, kanonische L00..L16-Reihenfolge). Der golden-REFERENZ-
+// Achsen parametrisiert (K00..K17 = mp_take_c-Grad je Slot, kanonische L00..L17-Reihenfolge). Der golden-REFERENZ-
 // Katalog FullSourceCatalog variiert ab jetzt ALLE 17 Achsen je 2 (N=2^17=131072 = Ganz-System-Regressions-Detektor);
 // der messdaten-erhaltende golden_320_catalog behaelt die alte 4*4*5*4-Semantik. WICHTIG: Engine ist NUR ein Typ-Alias
 // (PermutationEngine<...> wird NICHT instanziiert, solange niemand ::count()/::AllPermutations/for_each_permutation
@@ -90,7 +90,7 @@ struct CatalogCfg {
 // ausschliesslich ueber catalog_axis_product<> (reines ∏ mp_size, s.u.) bzw. den LAZY StaticBinaryView (view.size()).
 template <std::size_t K00, std::size_t K01, std::size_t K02, std::size_t K03, std::size_t K04, std::size_t K05,
           std::size_t K06, std::size_t K07, std::size_t K08, std::size_t K09, std::size_t K10, std::size_t K11,
-          std::size_t K12, std::size_t K13, std::size_t K14, std::size_t K15, std::size_t K16>
+          std::size_t K12, std::size_t K13, std::size_t K14, std::size_t K15, std::size_t K16, std::size_t K17>
 struct CatalogAxes {
     using L00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, K00>; // search_algo
     using L01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, K01>; // cache_traversal
@@ -110,12 +110,20 @@ struct CatalogAxes {
     using L14 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, K14>;     // filter
     using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, K15>; // queuing_q1
     using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, K16>; // queuing_q2
+    // STRUKT-R ORG-18: persistence_target (2. Achse des io-Topics, Bauplan N-4).
+    // BELEGTE FALLE (Bauplan §4 Q-1): mp_take_c<L,2> ist auf einer 1-elementigen Liste ILL-FORMED
+    // (cmake/third_party/boost_mp11/include/boost/mp11/algorithm.hpp:430,447 -- das Primaer-Template hat kein
+    // ::type) und CatalogAxes hat KEINEN min()-Schutz (anders als axis_registry_gen/main.cpp:140-141, das per
+    // kTake = min(GoldenK,kSize) klemmt). Owner-Entscheid Q-1 = FALL B haelt disk_writeback per option() AUS
+    // -> StaticAxisVariants_PT ist 1-elementig -> JEDER Katalog MUSS hier K17=1 uebergeben. Ein uniformes
+    // <2,...,2> mit 18 Zweien bricht bereits im TU, nicht erst im Test.
+    using L17 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants_PT, K17>; // persistence_target
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
 };
 
 // NEW-GOLDEN-ALL-AXES: der golden-REFERENZ-Katalog variiert ALLE 17 Kompositions-Achsen je 2 (kartesisch) →
@@ -124,15 +132,20 @@ struct CatalogAxes {
 // generated_source_catalog.hpp/GeneratedFullSourceCatalog bei 320/kuratiert — s. catalog_codegen.cmake, m3v2-XML).
 // mp_take_c<..., 2> ist fuer JEDE Achse gueltig (kleinstes enabled Inventar = mapping = 2). Es wird KEIN mp_product
 // materialisiert (Engine ist nur ein Typ-Alias; Zaehlung via catalog_axis_product<>/view.size()).
-using FullSourceCatalog = CatalogAxes<2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2>; // 2^17 = 131.072
+// STRUKT-R ORG-18 / Owner-Entscheid Q-1 = FALL B: 17 Achsen je 2, persistence_target (K17) auf 1 GEPINNT.
+// Damit bleibt der Raum 2^17 * 1 = 131072 (~224 GB / ~24 h Voll-Bau) statt 2^18 = 262144 (~448 GB / ~48 h,
+// Bauplan-Beleg N-2). Aufschaltung = K17 auf 2 heben UND COMDARE_AXIS_PERSISTENCE_ENABLE_DISK_WRITEBACK=ON;
+// beides zusammen, sonst bricht mp_take_c (s. L17-Kommentar oben).
+using FullSourceCatalog = CatalogAxes<2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1>; // 2^17 * 1 = 131.072
 // Messdaten-erhaltend: die ALTE 320-Semantik (search_algo×node_type×memory_layout×prefetch = 4·4·5·4; die uebrigen
 // 13 Achsen je 1 Wert gepinnt) als benannter Alias. Deckungsgleich zum m3v2-Profil / GeneratedFullSourceCatalog →
 // bleibt compile-verankert (static_assert unten) + test-verankert (test_limits/test_profile_roundtrip/test_smoke).
-using golden_320_catalog = CatalogAxes<4, 1, 1, 1, 4, 5, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 4·4·5·4 = 320
+// Q-10b: GoldenK der neuen Achse = 1 (nur memory_only im 320er-Snapshot) -- bei FALL B ohnehin erzwungen.
+using golden_320_catalog = CatalogAxes<4, 1, 1, 1, 4, 5, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 4*4*5*4 = 320
 // Klein-Katalog (node_type×memory_layout je 2 = 4 Kompositionen): für den schnellen E2E-Treiber-Test
 // (test_lazy_static_dynamic_driver), der real 4 DLLs baut+lädt+misst. KEINE Lauf-Selektion — nur eine kleine
 // Materialisierungs-Domäne für den Test.
-using SmallSourceCatalog = CatalogAxes<1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 2·2 = 4
+using SmallSourceCatalog = CatalogAxes<1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 2*2 = 4
 
 // catalog_axis_product<Catalog>() — der EXPLOSIONSFREIE golden-Count: reines ∏ mp_size(L00..L16) (17 constexpr-
 // Multiplikationen, KEINE mp_product-Materialisierung; dieselbe Kardinalitaets-Identitaet wie all_axes_matrix_count(),
@@ -148,13 +161,13 @@ template <class Catalog>
            mp::mp_size<typename Catalog::L10>::value * mp::mp_size<typename Catalog::L11>::value *
            mp::mp_size<typename Catalog::L12>::value * mp::mp_size<typename Catalog::L13>::value *
            mp::mp_size<typename Catalog::L14>::value * mp::mp_size<typename Catalog::L15>::value *
-           mp::mp_size<typename Catalog::L16>::value;
+           mp::mp_size<typename Catalog::L16>::value * mp::mp_size<typename Catalog::L17>::value;
 }
 
 // DER GEFORDERTE COMPILE-GUARD (BAUPLAN §4): das neue golden-Ziel N=2^17 + die erhaltene 320-Grundlage, beide
 // compile-verankert und EXPLOSIONSFREI (∏ mp_size; NIE FullSourceCatalog::Engine::count() / mp_product bei 2^17).
 static_assert(catalog_axis_product<FullSourceCatalog>() == 131072u,
-              "NEW-GOLDEN-ALL-AXES: FullSourceCatalog muss alle 17 Achsen je 2 = 2^17 = 131072 abdecken.");
+              "NEW-GOLDEN-ALL-AXES: FullSourceCatalog muss 17 Achsen je 2 x persistence_target je 1 = 131072 abdecken (Q-1 FALL B).");
 static_assert(catalog_axis_product<golden_320_catalog>() == 320u,
               "messdaten-erhaltend: golden_320_catalog muss die alte 4·4·5·4 = 320 Semantik behalten.");
 static_assert(catalog_axis_product<SmallSourceCatalog>() == 4u, "SmallSourceCatalog = 2·2 = 4 (E2E-Treiber-Test).");
@@ -165,7 +178,15 @@ static_assert(catalog_axis_product<SmallSourceCatalog>() == 4u, "SmallSourceCata
 // ueber die Mirrors + CI). test_limits regeneriert die ids ON-DEMAND (lazy StaticBinaryView) und prueft ihre CRC64
 // gegen DIESEN committeten Wert. Neu-Ermittlung/Inspektion: `gen_golden_fullpilot --crc64` (druckt den Wert) bzw.
 // `gen_golden_fullpilot <datei>` (materialisiert die Datei manuell). Aenderung nur im koordinierten ABI-Fenster.
-inline constexpr std::uint64_t kNewGolden131072Crc64 = 0xF1C1F26A1232073BULL;
+// STRUKT-R ORG-18 RE-ANKER (2026-07-26, Owner-GO fuer den TABU-Wert). Jede der 131072 ids traegt jetzt das
+// 18. Segment "/persistence_target=persistence_memory_only" -> der Alt-Anker 0xF1C1F26A1232073B (ABI-6,
+// 17 Slots) ist nicht mehr reproduzierbar. Der neue Wert ist NICHT gerechnet, sondern LITERALER Werkzeug-Output:
+//   $ comdare_gen_golden_fullpilot --crc64
+//   gen_golden_fullpilot: N=131072 ids  CRC64-ECMA-182 = 0x56F1B721C72DC10E
+//     anchor kNewGolden131072Crc64 = 0xF1C1F26A1232073B  [MISMATCH]
+// Kardinalitaet unveraendert mitbelegt (N=131072) -- der Bruch ist reine Segment-Verlaengerung, keine
+// Raum-Aenderung (Q-1 FALL B: persistence_target mit K17=1).
+inline constexpr std::uint64_t kNewGolden131072Crc64 = 0x56F1B721C72DC10EULL;
 
 // ── GN-2 / §26.6 (Register-Kritik 9): NEGATIVER INSTANZIIERUNGS-GUARD an der Katalog-Naht ────────────────────
 // Die golden-REFERENZ (FullSourceCatalog, 2^17) ist vom MATERIALISIERTEN Katalog (GeneratedFullSourceCatalog,
@@ -189,7 +210,7 @@ static_assert(catalog_axis_product<FullSourceCatalog>() > kMaxMaterializableCata
 static_assert(catalog_axis_product<golden_320_catalog>() <= kMaxMaterializableCatalogCardinality,
               "GN-2/§26.6: die Materialisierungs-Grenze muss den 320-Basis-Katalog zulassen.");
 
-/// catalog_static_levels<Catalog>() — die 17 STATISCHEN AxisLevels des Katalogs (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen; gleiche reduzierte Listen + gleiche
+/// catalog_static_levels<Catalog>() -- die 18 STATISCHEN AxisLevels des Katalogs (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen; gleiche reduzierte Listen + gleiche
 /// Achsen-Namen-Reihenfolge wie der Katalog-Engine = die binary_ids, die der Katalog materialisiert). Das ist KEINE
 /// Lauf-Selektion (der Lauf-Baum kommt aus build_axis_levels(Profil)) — es ist die REFERENZ-Level-Quelle, mit der die
 /// committete golden_fullpilot_320_binary_ids.txt EINMAL erzeugt + im Test gegen den Profil-Pfad gegengeprüft wird.
@@ -214,6 +235,7 @@ template <class Catalog>
     ex::push_static_axis<typename Catalog::L14>(lv, "filter");
     ex::push_static_axis<typename Catalog::L15>(lv, "queuing_q1");
     ex::push_static_axis<typename Catalog::L16>(lv, "queuing_q2");
+    ex::push_static_axis<typename Catalog::L17>(lv, "persistence_target"); // STRUKT-R ORG-18 (T17-Anhang)
     return lv;
 }
 
@@ -320,12 +342,15 @@ struct AxisSweepCatalog {
     using L14 = SweepListL14;                                                 // filter (sweep|Baseline)
     using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
     using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
+    // STRUKT-R ORG-18: Baseline-Slot der 18. Achse. Pflicht, weil catalog_static_levels<T> jetzt T::L17
+    // reflektiert -- ohne diesen Member waere JEDER AxisSweepCatalog ill-formed.
+    using L17 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants_PT, 1>; // persistence_target
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
 };
 
 // Die 4 Baseline-Slot-Listen (Index 0 == take<…,1>) — fuer die je 3 NICHT gesweepten der 4 vertieften Achsen.
@@ -346,13 +371,13 @@ using ValueHandleSweepCatalog     = AxisSweepCatalog<Pc1, VhAll, Mg1, Flt1>;
 using PathCompressionSweepCatalog = AxisSweepCatalog<PcAll, Vh1, Mg1, Flt1>;
 
 // ── #18 Golden-Coverage: die 10 uebrigen Achsen (seit INC-2c ohne telemetry; nicht Basis-320, nicht vertieft) brauchen je einen eigenen
-//    Sweep-Katalog, damit der Coverage-Test JEDE Achse beruehrt. Voll-17-Slot-parametrisiert (INC-2d: isa raus):
-//    genau EIN Slot = volle Enabled-Liste, die uebrigen 16 = Baseline (Index 0) → byte-identische Baseline-DLL
+//    Sweep-Katalog, damit der Coverage-Test JEDE Achse beruehrt. Voll-18-Slot-parametrisiert (STRUKT-R ORG-18):
+//    genau EIN Slot = volle Enabled-Liste, die uebrigen 17 = Baseline (Index 0) -> byte-identische Baseline-DLL
 //    (idempotenter Baseline-Key, disjunkter binary_id-Raum wie die 4 vertieften Sweeps). Slot-Reihenfolge == AxisSweepCatalog. ──
 template <class P00, class P01, class P02, class P03, class P04, class P05, class P06, class P07, class P08, class P09,
-          class P10, class P11, class P12, class P13, class P14, class P15, class P16>
+          class P10, class P11, class P12, class P13, class P14, class P15, class P16, class P17>
 struct AxisSweepCatalogFull {
-    // L00..L16 als Member-Typen exponiert — catalog_static_levels<T> reflektiert T::L00..L16 (wie AxisSweepCatalog).
+    // L00..L17 als Member-Typen exponiert -- catalog_static_levels<T> reflektiert T::L00..L17 (wie AxisSweepCatalog).
     using L00 = P00;
     using L01 = P01;
     using L02 = P02;
@@ -370,14 +395,15 @@ struct AxisSweepCatalogFull {
     using L14 = P14;
     using L15 = P15;
     using L16 = P16;
+    using L17 = P17; // STRUKT-R ORG-18: persistence_target
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
 };
 
-// Baseline (Index 0) je Slot — Reihenfolge identisch zu AxisSweepCatalog/CatalogAxes (INC-2d: isa raus, 17 Slots).
+// Baseline (Index 0) je Slot -- Reihenfolge identisch zu AxisSweepCatalog/CatalogAxes (STRUKT-R ORG-18, 18 Slots).
 using B00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>; // search_algo
 using B01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>; // cache_traversal
 using B02 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>; // mapping
@@ -396,6 +422,9 @@ using B13 = Mg1;                                                             // 
 using B14 = Flt1;                                                            // filter
 using B15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
 using B16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
+// STRUKT-R ORG-18: Baseline-Slot der 18. Achse. Bei Q-1 FALL B ist StaticAxisVariants_PT 1-elementig,
+// mp_take_c<...,1> ist daher gueltig und liefert genau memory_only (den golden_wired-Durchreich-Wert).
+using B17 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants_PT, 1>; // persistence_target
 
 // Volle Enabled-Liste je gesweepter (nicht-Basis, nicht-vertiefter) Achse — die 9 uebrigen Achsen (INC-2d: isa raus).
 using F01 = ce::traversal::TopicConfigSet::StaticAxisVariants_03b; // cache_traversal
@@ -407,26 +436,33 @@ using F11 = ce::search_engine::TopicConfigSet::StaticAxisVariants; // index_orga
 using F12 = ce::io::TopicConfigSet::StaticAxisVariants;            // io_dispatch (slot 12)
 using F15 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q1;    // queuing_q1 (slot 15)
 using F16 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q2;    // queuing_q2 (slot 16)
+using F17 = ce::io::TopicConfigSet::StaticAxisVariants_PT;          // persistence_target (slot 17, STRUKT-R)
 
 using CacheTraversalSweepCatalog =
-    AxisSweepCatalogFull<B00, F01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, F01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using MappingSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, F02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, F02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using AllocatorSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, F06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, F06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using ConcurrencySweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, F08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, F08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using SerializationSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, F09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, F09, B10, B11, B12, B13, B14, B15, B16, B17>;
 // (Bau-INC-2d: IsaSweepCatalog entfernt — isa ist Target-ISA-System-Achse, keine sweepbare Kompositions-Achse mehr.)
 using IndexOrganizationSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, F11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, F11, B12, B13, B14, B15, B16, B17>;
 using IoDispatchSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, F12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, F12, B13, B14, B15, B16, B17>;
 using QueuingQ1SweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, F15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, F15, B16, B17>;
 using QueuingQ2SweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, F16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, F16, B17>;
+// STRUKT-R ORG-18: Sweep-Katalog der 18. Achse, damit der Coverage-Test JEDE Achse beruehrt.
+// EHRLICHE EINSCHRAENKUNG unter Q-1 FALL B: StaticAxisVariants_PT ist 1-elementig -> dieser Sweep traegt
+// GENAU EINE binary_id und ist damit deckungsgleich mit der Baseline (kein zusaetzlicher Bau). Er wird erst
+// zu einem echten Sweep, wenn disk_writeback per option() aufgeschaltet wird.
+using PersistenceTargetSweepCatalog =
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, F17>;
 
 // ── #26/GO-5 (B.4.1-a, 2026-07-12): auch die 4 BASIS-Achsen (search_algo/node_type/memory_layout/prefetch)
 //    bekommen je einen dedizierten Sweep-Katalog nach der #18-Schablone. GRUND: ein Smoke-/Coverage-Profil mit
@@ -443,13 +479,13 @@ using F05 = ce::memory_layout::TopicConfigSet::StaticAxisVariants; // memory_lay
 using F07 = ce::prefetch::TopicConfigSet::StaticAxisVariants;      // prefetch
 
 using SearchAlgoSweepCatalog =
-    AxisSweepCatalogFull<F00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<F00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using NodeTypeSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, F04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, F04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using MemoryLayoutSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, F05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, F05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 using PrefetchSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, F07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, F07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
 
 /// axis_sweep_source_map(axis_name) — die KLEINE per-Achse Sweep-Quellen-map (binary_id → reale Modul-Quelle) der
 /// gesweepten Achse. |Achsen-Werte| Eintraege; jeder ist eine reale AdHocComposition (Baseline + nur
@@ -457,6 +493,8 @@ using PrefetchSweepCatalog =
 /// reine Materialisierungs-Domaene EINER Achse. Seit #26/GO-5 fuer ALLE 18 Kompositions-Achsen (4 Basis +
 /// 4 vertiefte + 10 uebrige; INC-2c: telemetry ist System-Achse).
 [[nodiscard]] inline std::map<std::string, std::string> axis_sweep_source_map(std::string const& axis_name) {
+    if (axis_name == "persistence_target")
+        return ex::build_pilot_source_map<typename PersistenceTargetSweepCatalog::Engine>();
     if (axis_name == "search_algo") return ex::build_pilot_source_map<typename SearchAlgoSweepCatalog::Engine>();
     if (axis_name == "node_type") return ex::build_pilot_source_map<typename NodeTypeSweepCatalog::Engine>();
     if (axis_name == "memory_layout") return ex::build_pilot_source_map<typename MemoryLayoutSweepCatalog::Engine>();
@@ -547,7 +585,7 @@ using PrefetchSweepCatalog =
 // Basis-320-Katalog (L00 = mp_take_c<EnabledStrategies,4> = die First-4 [k_ary, interpolation, eytzinger, linear_scan]).
 // Die per-K-Wrapper stehen aber bewusst am ENDE von AllStrategies + sind Default OFF -> NICHT in den First-4. Darum ein
 // EIGENER Katalog mit EXPLIZITEM L00 = mp_list<KArySearchAlgoK2/4/8/16> (direkte Typen -> bypassen EnabledStrategies/
-// mp_take_c; die per-K-Wrapper sind unabhaengig vom enable-Flag voll funktional). Alle 17 uebrigen Achsen Baseline
+// mp_take_c; die per-K-Wrapper sind unabhaengig vom enable-Flag voll funktional). Alle 17 uebrigen Achsen Baseline (inkl. persistence_target, ORG-18)
 // (Index 0) = deckungsgleich zur 320-Baseline -> nur der search_algo-Slot variiert ueber die 4 per-K. Ergebnis: genau
 // 4 reale Kompositionen (je K eine; container_traversal_t fuehrt jede ueber SEIN KAryTraversal<K>, Weg-A). Die Emission
 // der 4 per-K-DLLs ist katalog-gated -> KEIN 320-Bruch (disjunkter binary_id-Raum, search_algo=k_ary_k*). Fuer den
@@ -575,12 +613,13 @@ struct KaryPerKCatalog {
     using L14 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;     // filter
     using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
     using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
+    using L17 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants_PT, 1>;      // persistence_target (ORG-18)
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
 };
 
 /// kary_perk_source_map() — die per-K Sweep-Quellen-map (binary_id → reale Modul-Quelle): genau 4 Eintraege

@@ -370,6 +370,16 @@ option(COMDARE_AXIS_IO_ENABLE_DIRECT         "IO Direct (O_DIRECT bypass OS-cach
 option(COMDARE_AXIS_IO_ENABLE_BUFFERED       "IO Buffered (OS page-cache, default)" ON)
 option(COMDARE_AXIS_IO_ENABLE_MMAP           "IO Mmap (mmap-based, Persistent Memory)" ON)
 
+# STRUKT-R ORG-18 axis_persistence_target (2 Bausteine; 18. Organ-Haupt-Achse, Session-Doc §5)
+# Owner-Entscheid Q-1 = FALL B: DISK_WRITEBACK bleibt AUS -> EnabledTargets 1-elementig -> Voll-Bau-Raum
+# bleibt 2^17 (131072) statt 2^18 (262144). Aufschaltung ohne Code-Aenderung moeglich, verdoppelt aber den
+# Bau (Bauplan N-2: 448 GB / 48 h gegen 224 GB / 24 h) UND misst weiterhin nur Rueckschreib-Staging,
+# solange DiskWritebackTarget::has_device_writeback_path() false meldet.
+# MEMORY_ONLY darf NIE aus: es ist der golden_wired-Durchreich-Wert jeder bestehenden Komposition
+# (Registry-static_assert faengt das ab).
+option(COMDARE_AXIS_PERSISTENCE_ENABLE_MEMORY_ONLY    "PersistenceTarget MemoryOnly (RAM-only, golden_wired Durchreich-Baseline)" ON)
+option(COMDARE_AXIS_PERSISTENCE_ENABLE_DISK_WRITEBACK "PersistenceTarget DiskWriteback (Staging; Geraete-Pfad fehlt -> Q-1 FALL B: AUS)" OFF)
+
 # V41.F.6.1.R7.5.g axis_migration (4 Strategien)
 option(COMDARE_AXIS_MIGRATION_ENABLE_NONE       "Migration None (static placement baseline)" ON)
 option(COMDARE_AXIS_MIGRATION_ENABLE_HOT_COLD   "Migration HotCold (LRU/probabilistic Hot/Cold separation)" ON)
@@ -1178,6 +1188,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/io_dispatch/axis_io_flags.hpp"
     @ONLY)
 message(STATUS "  axis_io (4 io-strategies): IN_MEM=${COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY} DIRECT=${COMDARE_AXIS_IO_USE_DIRECT} BUFFERED=${COMDARE_AXIS_IO_USE_BUFFERED} MMAP=${COMDARE_AXIS_IO_USE_MMAP}")
+
+# STRUKT-R ORG-18 axis_persistence_target Flags (USE = ENABLE)
+foreach(_pt MEMORY_ONLY DISK_WRITEBACK)
+    if(COMDARE_AXIS_PERSISTENCE_ENABLE_${_pt})
+        set(COMDARE_AXIS_PERSISTENCE_USE_${_pt} 1)
+    else()
+        set(COMDARE_AXIS_PERSISTENCE_USE_${_pt} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/persistence_target/axis_persistence_target_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/persistence_target/axis_persistence_target_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_persistence_target (2 targets): MEMORY_ONLY=${COMDARE_AXIS_PERSISTENCE_USE_MEMORY_ONLY} DISK_WRITEBACK=${COMDARE_AXIS_PERSISTENCE_USE_DISK_WRITEBACK} (Q-1 FALL B: DISK_WRITEBACK=0 haelt den Voll-Bau bei 2^17)")
 
 # V41.F.6.1.R7.5.g axis_migration Flags (USE = ENABLE)
 foreach(_m NONE HOT_COLD TIER_BASED ADAPTIVE)

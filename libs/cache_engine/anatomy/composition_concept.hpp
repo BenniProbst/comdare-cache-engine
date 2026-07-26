@@ -1,8 +1,9 @@
 #pragma once
 // V41.F.6.1.R3 — Composition-Concept fuer Saeugetier-Anatomie
 //
-// Validiert dass jede Composition alle 19 Pflicht-using-Aliases (15 Topics +
-// 2 zusaetzliche Achsen aus traversal/nodes + queuing q1/q2) UND paper_id/name liefert.
+// Validiert dass jede Composition alle 18 Pflicht-using-Aliases (15 Such-Achsen + queuing q1/q2 +
+// persistence_target) UND paper_id/name liefert. (Die frueher hier genannte 19 war schon vor STRUKT-R
+// stale: Bau-INC-2c nahm telemetry heraus, Bau-INC-2d isa.)
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §11.2
 // @doku docs/architecture/30_audit_achsen_delegation_pflichtachsen.md §8.0 (queuing = SA-Achse)
@@ -14,8 +15,8 @@ namespace comdare::cache_engine::anatomy {
 
 /// IsComposition — Pflicht-Concept fuer SearchAlgorithmAnatomy<C>.
 ///
-/// Saeugetier-Anatomie-Metapher: jede Composition muss ALLE 19 "Organe"
-/// nennen — auch wenn die Auspraegung NoMigration/PathCompressionNone/NoBuffer etc. ist.
+/// Saeugetier-Anatomie-Metapher: jede Composition muss ALLE 18 "Organe"
+/// nennen -- auch wenn die Auspraegung NoMigration/PathCompressionNone/NoBuffer/MemoryOnlyTarget etc. ist.
 template <typename C>
 concept IsComposition = requires {
     // Topic 3 traversal (3 Achsen)
@@ -50,18 +51,24 @@ concept IsComposition = requires {
     // Topic queuing (Doc 30 §8.0: q1 buffer_strategy + q2 flush_policy — reguläre SA-Achse)
     typename C::queuing_q1;
     typename C::queuing_q2;
+    // Topic io, 2. Achse -- STRUKT-R ORG-18 (Session-Doc §5): persistence_target. Pflicht-Slot wie jeder
+    // andere; der Durchreich-Wert MemoryOnlyTarget ist ein Algorithmus ("kein Rueckschreib-Pfad"), kein
+    // Weglassen. Deshalb steht er hier als harte typename-Forderung und NICHT als optionales requires.
+    typename C::persistence_target;
     // Identifikation
     { C::name } -> std::convertible_to<std::string_view>;
     { C::paper_id } -> std::convertible_to<std::string_view>;
 };
 
 /// Helper: zaehlt zur Compile-Zeit wie viele "Organe" eine Composition liefert.
-/// Pflicht: 17 (3 traversal + 2 nodes + 10 weitere Topics + 2 queuing q1/q2; Doc 30 §8.0
-/// i.V.m. Bau-INC-2c: telemetry ist System-Achse; Bau-INC-2d/ABI-6: isa ist Target-ISA-System-Achse —
-/// beide kein Organ-Slot mehr).
+/// Pflicht: 18 (3 traversal + 2 nodes + 10 weitere Topics + 2 queuing q1/q2 + persistence_target;
+/// Doc 30 §8.0 i.V.m. Bau-INC-2c: telemetry ist System-Achse; Bau-INC-2d/ABI-6: isa ist
+/// Target-ISA-System-Achse -- beide kein Organ-Slot mehr; STRUKT-R ORG-18: persistence_target kommt hinzu).
+/// ACHTUNG: dieser Wert speist das ABI-Symbol organ_count() (search_algorithm_anatomy.hpp:42) -- jede
+/// Aenderung hier ist ein ABI-Bruch und verlangt den Major-Bump in anatomy_module_abi_v1_decl.hpp.
 template <typename C>
 struct composition_organ_count {
-    static constexpr std::size_t value = 17; // 3 + 2 + 10 + 2 queuing
+    static constexpr std::size_t value = 18; // 3 + 2 + 10 + 2 queuing + 1 persistence_target
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

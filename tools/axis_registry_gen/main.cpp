@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
     }
 
     std::vector<AxisOut> axes;
-    // -- Die 19 KOMPOSITION-Achsen T00..T18 (serialize_composition_path-Reihenfolge, kCompositionAxisNames). --
+    // -- Die 18 KOMPOSITION-Achsen T00..T17 (serialize_composition_path-Reihenfolge, kCompositionAxisNames). --
     axes.push_back(make_axis<ex::axes26::T00_search_algo, 4>("T00", "search_algo", "composition"));
     axes.push_back(make_axis<ex::axes26::T01_cache_traversal, 1>("T01", "cache_traversal", "composition"));
     axes.push_back(make_axis<ex::axes26::T02_mapping, 1>("T02", "mapping", "composition"));
@@ -222,6 +222,11 @@ int main(int argc, char** argv) {
     axes.push_back(make_axis<ex::axes26::T16_filter, 1>("T14", "filter", "composition"));
     axes.push_back(make_axis<ex::axes26::T20_queuing_q1, 1>("T15", "queuing_q1", "composition"));
     axes.push_back(make_axis<ex::axes26::T21_queuing_q2, 1>("T16", "queuing_q2", "composition"));
+    // STRUKT-R ORG-18: 18. Organ-Haupt-Achse auf Kompositions-Slot T17 (Q-10/Q-10b OWNER-BESTAETIGT
+    // 26.07.2026: T-Anhang hinter queuing_q2, GoldenK=1 -- nur memory_only
+    // im 320er-Snapshot; unter Q-1 FALL B ohnehin erzwungen, und reflect_axis klemmt per min(GoldenK,kSize)).
+    axes.push_back(
+        make_axis<ex::axes26::T26_persistence_target, 1>("T17", "persistence_target", "composition"));
 
     // -- Optional: Build/Shape-/System-Achsen (NICHT im serialize-Pfad; golden_wired stets false). --
     if (with_extra) {

@@ -91,6 +91,8 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
     reflect_versions<axes26::T16_filter>("filter", t);
     reflect_versions<axes26::T20_queuing_q1>("queuing_q1", t);
     reflect_versions<axes26::T21_queuing_q2>("queuing_q2", t);
+    // STRUKT-R ORG-18: 18. Organ-Haupt-Achse. Reihenfolge = kCompositionAxisNames (T17 hinter queuing_q2).
+    reflect_versions<axes26::T26_persistence_target>("persistence_target", t);
     return t;
 }
 
@@ -121,7 +123,7 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
 /// Sub-Achsen-Werteset-Schwanz. Nicht-Kompositions-Achsen (Shapes) und in spec.axes fehlende Slots werden
 /// uebersprungen; eine unbekannte (axis,value)-Kombination -> @v0-Sentinel (statt zu raten). Der Rebuild-/Neu-Mess-
 /// Selektor vergleicht diese Signatur String-gleich gegen den .algos-Sidecar -> nur Binaries mit geaenderter Signatur
-/// (= eine gebumpte Variante im 17-Tupel ODER ein Werteset-Bump) werden neu gebaut/gemessen; die binary_id bleibt
+/// (= eine gebumpte Variante im 18-Tupel ODER ein Werteset-Bump) werden neu gebaut/gemessen; die binary_id bleibt
 /// unberuehrt (die Version lebt ausschliesslich im Sidecar).
 [[nodiscard]] inline std::string compose_algo_signature(std::vector<std::pair<std::string, std::string>> const& axes,
                                                         std::vector<AxisVariantVersion> const&                  table) {

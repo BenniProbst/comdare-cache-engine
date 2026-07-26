@@ -36,6 +36,7 @@ std::vector<std::string> const kSweepAxes = {
 } // namespace
 
 // Jede Achse liefert eine nicht-leere Sweep-Quellen-map (mind. die Baseline-Auspraegung) + 18-slotige
+// (STRUKT-R ORG-18: war 17, persistence_target ist der 18. Slot jedes Sweep-Katalogs)
 // Sweep-Levels (Single-Source mit der Map) -> beruehrbar.
 TEST(AxisSweepCoverage, AllAxesMaterialize) {
     for (auto const& ax : kSweepAxes) {
@@ -43,7 +44,7 @@ TEST(AxisSweepCoverage, AllAxesMaterialize) {
         auto const m = tlz::axis_sweep_source_map(ax);
         EXPECT_FALSE(m.empty()) << "Sweep-Katalog leer (nicht materialisierbar) fuer Achse: " << ax;
         auto const lv = tlz::axis_sweep_levels(ax);
-        EXPECT_EQ(lv.size(), 17u) << "Sweep-Levels nicht 17-slotig fuer Achse: " << ax;
+        EXPECT_EQ(lv.size(), 18u) << "Sweep-Levels nicht 18-slotig fuer Achse: " << ax; // STRUKT-R ORG-18
     }
 }
 

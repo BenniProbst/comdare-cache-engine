@@ -42,11 +42,12 @@ namespace comdare::cache_engine::anatomy {
 // Schreiber↔CSV-Spaltenname; I1-Konsolidierung lässt diese unverändert, nur die Alt-PODs V1/V2/V3 entfallen).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anzahl der Achsen-Slots im Observer-POD = die 17 SearchAlgorithm-Achsen (T0..T16, kCompositionAxisNames-
-/// Reihenfolge, identisch zu seg_ns[17]). Bau-INC-2c (F12iii, ABI-5): telemetry hat die Komposition verlassen
+/// Anzahl der Achsen-Slots im Observer-POD = die 18 SearchAlgorithm-Achsen (T0..T17, kCompositionAxisNames-
+/// Reihenfolge, identisch zu seg_ns[18]). Bau-INC-2c (F12iii, ABI-5): telemetry hat die Komposition verlassen
 /// (CEB-System-Achse, H-10-Sidecar) — vorher T10 von 19. Bau-INC-2d (ABI-6): isa hat die Komposition ebenfalls
 /// verlassen (Target-ISA-System-Achse, build-config-Codepfad) — vorher T11 von 18.
-inline constexpr std::size_t kV3AxisCount = 17;
+/// STRUKT-R ORG-18 (ABI-7): persistence_target kommt als T17 hinzu (Session-Doc §5) -- 17 -> 18.
+inline constexpr std::size_t kV3AxisCount = 18;
 /// Feld-Spalten je Achse (K). 8 deckt die breiteste befüllte statistics()-Struktur (search_algo: 6,
 /// alloc: 5, cache_traversal/mapping: 6, q1/q2: 5) mit Reserve; schema-stabil gegen weitere Felder (Phase B).
 inline constexpr std::size_t kV3FieldCount = 8;
@@ -97,6 +98,10 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
     /*T15 queuing_q1*/ {{"put", "get", "overflow", "underflow", "peak_size", nullptr, nullptr, nullptr}},
     /*T16 queuing_q2*/
     {{"decisions", "full_flush", "partial_flush", "no_flush", "flush_complete", nullptr, nullptr, nullptr}},
+    /*T17 persistence_target (STRUKT-R ORG-18). Reihenfolge = Schreib-Reihenfolge in fill_observer_v3.
+      EHRLICHKEIT: bytes_staged ist Rueckschreib-STAGING, nicht Platten-Durchsatz; device_flushes bleibt 0,
+      solange DiskWritebackTarget::has_device_writeback_path() false meldet.*/
+    {{"rounds", "bytes_staged", "records_staged", "device_flushes", "checksum", nullptr, nullptr, nullptr}},
 };
 
 /// Anzahl der im POD befüllten Achsen = Achsen mit mindestens EINEM benannten Schema-Feld (single-source aus
@@ -116,16 +121,16 @@ inline constexpr std::size_t kV3FilledAxisCount = v3_count_filled_axes();
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Komposition-UNABHÄNGIGER, flacher, versionierter Observer-POD über die Modul-Binary-ABI-Grenze. EIN POD für
-/// ALLES: `axis_stats[17][8]` = die Per-Achsen-Observer-Felder (Schema = kV3AxisSchema, single-source);
-/// `seg_ns[17]` = das Pfad-B-Per-Achsen-Timing über die REALE Komposition (User-Entscheid 2026-06-04); + Meta.
+/// ALLES: `axis_stats[18][8]` = die Per-Achsen-Observer-Felder (Schema = kV3AxisSchema, single-source);
+/// `seg_ns[18]` = das Pfad-B-Per-Achsen-Timing ueber die REALE Komposition (User-Entscheid 2026-06-04); + Meta.
 /// Ersetzt die getrennten V1/V2/V3-Observer-PODs + den seg_ns-Timing-POD (Preflight wkqt7a0il: axis_stats+Meta
 /// subsumiert JEDES frühere V1- (13) + V2-Feld (26) — V1 search→[0][0..5], alloc→[6][0..4]; V2 telemetry→[10],
 /// layout→[5], serialization→[9], node_type→[4]; obs_axes/fill→Meta). Layout bitweise stabil (alle Member 8-B-
-/// Ints, kein Padding; sizeof==1272 nach Bau-INC-2d (war 1344 mit T11-isa nach INC-2c, 1416 mit T10-telemetry;
-/// isa-Herausloesung, ABI-6 = 17·8·8 + 17·8 + 48 Meta), alignof==8) → memcpy über die ABI-Grenze. Versionierung
+/// Ints, kein Padding; sizeof==1344 nach STRUKT-R ORG-18 (war 1272 nach INC-2d, 1344 mit T11-isa nach INC-2c,
+/// 1416 mit T10-telemetry; ABI-7 = 18*8*8 + 18*8 + 48 Meta), alignof==8) -> memcpy ueber die ABI-Grenze. Versionierung
 /// jetzt über ABI-Major.
 struct ComdareTierObserverSnapshot {
-    std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {}; // T0..T16 × 8 Felder (Schema = kV3AxisSchema)
+    std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {}; // T0..T17 x 8 Felder (Schema = kV3AxisSchema)
     std::int64_t  seg_ns[kV3AxisCount]                    = {}; // Pfad-B Per-Achsen-Timing (ns, je Achse)
     std::uint64_t observable_axis_count                   = 0;  // Meta: # observable Achsen (in-process)
     std::uint64_t tier_fill_level                         = 0;  // Meta: aktueller Füllstand (tier_size)
@@ -146,17 +151,21 @@ static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshot>,
               "ABI-Pflicht: konsolidierter Observer-POD muss standard_layout sein (memcpy über DLL-Grenze)");
 static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshot>,
               "ABI-Pflicht: konsolidierter Observer-POD muss trivially_copyable sein");
-// L3/K-2 (Register QW1, 2026-07-19): das dokumentierte Layout (Kommentar oben, sizeof==1272 seit
-// Bau-INC-2d/ABI-6 = 17*8*8 axis_stats + 17*8 seg_ns + 48 Meta) wird hier compile-time zementiert --
+// L3/K-2 (Register QW1, 2026-07-19): das dokumentierte Layout (Kommentar oben, sizeof==1344 seit
+// STRUKT-R ORG-18/ABI-7 = 18*8*8 axis_stats + 18*8 seg_ns + 48 Meta) wird hier compile-time zementiert --
 // vorher nur Laufzeit-EXPECT. Jede Layout-Aenderung ist ein ABI-Major-Bump und muss diesen Wert bewusst anfassen.
-static_assert(sizeof(ComdareTierObserverSnapshot) == 1272,
-              "ABI-Bruch: sizeof(ComdareTierObserverSnapshot) != 1272 (ABI-6/Bau-INC-2d) -- "
+// STRUKT-R ORG-18 (ABI-7): 18*8*8 axis_stats (1152) + 18*8 seg_ns (144) + 48 Meta = 1344.
+// ACHTUNG Verwechslungs-Falle: 1344 war schon einmal der Wert (INC-2c, 18 Achsen INKLUSIVE isa). Gleiche Zahl,
+// ANDERER Achsen-Satz -- die Unterscheidung leistet der ABI-Major (6 -> 7), nicht die Groesse.
+static_assert(sizeof(ComdareTierObserverSnapshot) == 1344,
+              "ABI-Bruch: sizeof(ComdareTierObserverSnapshot) != 1344 (ABI-7/STRUKT-R ORG-18) -- "
               "Layout-Aenderung erfordert koordinierten ABI-Major-Bump (anatomy_module_abi_v1_decl.hpp)");
 
 /// Format-Version des konsolidierten Observer-POD (die Loader-Kompatibilität läuft über ABI-Major, s.
 /// anatomy_module_abi_v1_decl.hpp; diese Konstante dient der Diagnose/Tests).
 inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified =
-    7; // Bau-INC-2d (ABI-6): isa-Slot entfernt — axis_stats[17][8] + seg_ns[17] (war 6: INC-2c 1344, 5: P-MD3 1416)
+    8; // STRUKT-R ORG-18 (ABI-7): persistence_target-Slot -- axis_stats[18][8] + seg_ns[18], sizeof 1344
+       // (war 7: INC-2d 1272, 6: INC-2c 1344 mit isa, 5: P-MD3 1416)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — die EINE ABI-stabile Observer-Schnittstelle (I1)

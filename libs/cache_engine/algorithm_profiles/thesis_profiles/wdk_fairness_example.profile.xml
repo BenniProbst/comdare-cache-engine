@@ -45,6 +45,8 @@
     <axis ref="filter"><value>filter_bloom</value></axis>
     <axis ref="queuing_q1"><value>no_buffer</value></axis>
     <axis ref="queuing_q2"><value>eager_flush</value></axis>
+    <!-- STRUKT-R ORG-18: 18. Organ-Haupt-Achse, EIN Wert (Q-1 FALL B: disk_writeback ist AUS). -->
+    <axis ref="persistence_target"><value>persistence_memory_only</value></axis>
   </permute_axes>
 
   <!-- GO-5 Fork 1: die Mess-INPUT-Dimension D — Referenzen auf die test_data-AKTEN (Single-Source).
@@ -92,7 +94,7 @@
 
   <modes>
     <mode name="wdk_example_base" merge="Stufe1_CeOnly"
-          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
   </modes>
 
   <static_axes from="base_tier"/>

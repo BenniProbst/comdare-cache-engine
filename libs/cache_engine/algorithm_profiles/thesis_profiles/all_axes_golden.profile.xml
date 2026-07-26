@@ -50,9 +50,18 @@
     <axis ref="filter"><value>filter_bloom</value><value>filter_cuckoo</value></axis>
     <axis ref="queuing_q1"><value>no_buffer</value><value>fifo_queue</value></axis>
     <axis ref="queuing_q2"><value>eager_flush</value><value>watermark_flush</value></axis>
+    <!-- STRUKT-R ORG-18: 18. Organ-Haupt-Achse. NUR EIN Wert, weil Owner-Entscheid Q-1 = FALL B
+         disk_writeback per option() AUS haelt -> persistence_disk_writeback ist kein registrierter
+         Baustein und wuerde von validate_profile abgelehnt. Der Raum bleibt damit 2^17 = 131072. -->
+    <axis ref="persistence_target"><value>persistence_memory_only</value></axis>
   </permute_axes>
 
-  <!-- (b') PER-ACHSEN-SWEEP: hier ALLE 17 Achsen (Ganz-System-Coverage). Deklarativ; die vertieften Achsen laufen
+  <!-- (b') PER-ACHSEN-SWEEP: hier die 17 SWEEPBAREN Achsen (Ganz-System-Coverage).
+       persistence_target ist BEWUSST NICHT dabei: unter Owner-Entscheid Q-1 FALL B ist disk_writeback per
+       option() AUS, die Achse hat also genau EINEN Wert und ein Sweep darueber erzeugt exakt die Baseline-
+       Binary -- ein No-op-Pass, den der Coverage-Guard (>=2 Auspraegungen je Sweep-Achse) zu Recht ablehnt.
+       Die Achse ist trotzdem in permute_axes deklariert und steckt damit in JEDER binary_id. Sobald
+       disk_writeback aufgeschaltet wird, kommt hier EINE Sweep-Zeile dazu -- symmetrisch zur option(). Deklarativ; die vertieften Achsen laufen
        ueber eigene Sweep-Baeume (axis_sweep_levels + axis_sweep_source_map), die Basis-Achsen ueber ihre Katalog-View. -->
   <axis_sweeps>
     <axis_sweep axis="search_algo"        baseline="index0"/>
@@ -156,7 +165,7 @@
   <!-- (g) EIN Basis-Modus (Stufe-1 ce-only): alle 17 Slots aktiv in kanonischer Reihenfolge. -->
   <modes>
     <mode name="all_axes_golden_base" merge="Stufe1_CeOnly"
-          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2 persistence_target"/>
   </modes>
 
   <static_axes from="base_tier"/>

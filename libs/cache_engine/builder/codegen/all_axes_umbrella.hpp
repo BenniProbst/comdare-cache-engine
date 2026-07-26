@@ -38,6 +38,9 @@
 // alle Varianten inkl. der Durchreich-Defaults NoBuffer (q1) / LazyFlush (q2), die ein nicht-pufferndes Tier wählt.
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp> // T17 queuing_q1
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp> // T18 queuing_q2
+// STRUKT-R ORG-18: 18. Organ-Haupt-Achse. Ohne diesen Include melden die emittierten perm_<id>.cpp
+// "kein Member persistence_target" -- der Umbrella IST die Sichtbarkeits-Quelle des Codegen.
+#include <topics/io/axis_persistence_target/axis_persistence_target_registry.hpp> // persistence_target
 
 // V42 L-74c (2026-06-03, L-LAZY-E2E): die ObservableXxx<Inner>-HÜLLEN. Die TopicConfigSets (BR-1) dekorieren
 // node_type/memory_layout/serialization/telemetry via mp_transform<make_observable_*, Enabled*> → die realen

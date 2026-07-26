@@ -109,7 +109,7 @@ struct LazyVariantEntry {
     std::string cpp_type; // == strip_all_elaborated(type_name<W>()) -> byte-identisch zu adhoc_macro_args
 };
 
-using LazySlotTables = std::array<std::vector<LazyVariantEntry>, 17>;
+using LazySlotTables = std::array<std::vector<LazyVariantEntry>, 18>; // STRUKT-R ORG-18
 
 /// lazy_variants_for_list<List>() -- die kleine Flyweight-Tabelle EINER Achse aus ihrer Enabled-Typ-Liste
 /// (Muster variants_for_list, catalog_codegen_tool/main.cpp:103). WICHTIG: der cpp_type wird mit demselben
@@ -149,7 +149,8 @@ template <class List>
         lazy_variants_for_list<ce::migration::TopicConfigSet::StaticAxisVariants>(),     // 13 migration_policy
         lazy_variants_for_list<ce::filter::TopicConfigSet::StaticAxisVariants>(),        // 14 filter
         lazy_variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1>(),    // 15 queuing_q1
-        lazy_variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>()};   // 16 queuing_q2
+        lazy_variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>(),    // 16 queuing_q2
+        lazy_variants_for_list<ce::io::TopicConfigSet::StaticAxisVariants_PT>()};        // 17 persistence_target
 }
 
 /// lazy_adhoc_macro_args_for(tables, binary_id) -- der COMDARE_DEFINE_ANATOMY_MODULE_ADHOC-Argument-Block (die

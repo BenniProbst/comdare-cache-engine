@@ -30,6 +30,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an        = ::comdare::cache_engine::anatomy;
 namespace b         = ::comdare::cache_engine::builder;
@@ -88,6 +89,9 @@ struct PoolFlipComposition {
     using filter                               = comp::ArtComposition::filter;
     using queuing_q1                           = comp::ArtComposition::queuing_q1;
     using queuing_q2                           = comp::ArtComposition::queuing_q2;
+    // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
+    // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
+    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
     static constexpr std::string_view paper_id = "234-V-b rest-family shaped emission proof";
     static constexpr std::string_view name     = "V234bRestFamilyShapedComposition";
 };

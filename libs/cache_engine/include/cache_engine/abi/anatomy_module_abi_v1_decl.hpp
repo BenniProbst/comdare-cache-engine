@@ -51,11 +51,19 @@
 /// telemetry-/INC-2c-treu). Observer-POD schrumpft axis_stats[18][8]+seg_ns[18] → axis_stats[17][8]+seg_ns[17]
 /// (sizeof 1344→1272). Loader lehnt Major-5-DLLs ab (alle Permutations-DLLs werden neu gebaut); Alt-golden als
 /// golden_fullpilot_320_binary_ids_abi5.txt additiv eingefroren. Magic kodiert den Major → von .A5. auf .A6. bewegt.
-#define COMDARE_ANATOMY_ABI_MAJOR 6
+/// STRUKT-R ORG-18 (2026-07-26, Owner-GO Session-Doc §5) ABI-Bruch Major 6->7, Minor->0: die 18. Organ-Haupt-
+/// Achse persistence_target tritt in die binary_id-permutierende Komposition ein (memory_only golden_wired +
+/// disk_writeback per option() AUS, Owner-Entscheid Q-1 = FALL B). Observer-POD waechst
+/// axis_stats[17][8]+seg_ns[17] -> axis_stats[18][8]+seg_ns[18] (sizeof 1272->1344); organ_count() 17->18;
+/// jede binary_id erhaelt das Segment "/persistence_target=<name>". Loader lehnt Major-6-DLLs ab (alle
+/// Permutations-DLLs werden neu gebaut). Magic kodiert den Major -> von .A6. auf .A7. bewegt.
+/// ACHTUNG: sizeof 1344 gab es schon bei INC-2c (18 Achsen INKLUSIVE isa) -- gleiche Groesse, anderer
+/// Achsen-Satz; die Unterscheidung leistet ausschliesslich der Major.
+#define COMDARE_ANATOMY_ABI_MAJOR 7
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A6·" als big-endian uint64_t (Bau-INC-2d Major 6).
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141362EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA*A7*" als big-endian uint64_t (STRUKT-R ORG-18 Major 7).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141372EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)

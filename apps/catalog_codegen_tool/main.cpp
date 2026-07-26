@@ -110,8 +110,9 @@ template <class List>
     return out;
 }
 
-[[nodiscard]] std::array<SlotSpec, 17> make_slots() {
-    // Kanonische 17-Slot-Tabelle (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot).
+[[nodiscard]] std::array<SlotSpec, 18> make_slots() {
+    // Kanonische 18-Slot-Tabelle (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot;
+    // STRUKT-R ORG-18: persistence_target als L17).
     // L00 search_algo        -> traversal::TopicConfigSet::StaticAxisVariants_03a
     // L01 cache_traversal    -> traversal::TopicConfigSet::StaticAxisVariants_03b
     // L02 mapping            -> traversal::TopicConfigSet::StaticAxisVariants_03m
@@ -129,6 +130,7 @@ template <class List>
     // L14 filter             -> filter::TopicConfigSet::StaticAxisVariants
     // L15 queuing_q1         -> queuing::TopicConfigSet::StaticAxisVariants_Q1
     // L16 queuing_q2         -> queuing::TopicConfigSet::StaticAxisVariants_Q2
+    // L17 persistence_target -> io::TopicConfigSet::StaticAxisVariants_PT   (STRUKT-R ORG-18)
     return {SlotSpec{"search_algo", variants_for_list<ce::traversal::TopicConfigSet::StaticAxisVariants_03a>()},
             SlotSpec{"cache_traversal", variants_for_list<ce::traversal::TopicConfigSet::StaticAxisVariants_03b>()},
             SlotSpec{"mapping", variants_for_list<ce::traversal::TopicConfigSet::StaticAxisVariants_03m>()},
@@ -145,10 +147,11 @@ template <class List>
             SlotSpec{"migration_policy", variants_for_list<ce::migration::TopicConfigSet::StaticAxisVariants>()},
             SlotSpec{"filter", variants_for_list<ce::filter::TopicConfigSet::StaticAxisVariants>()},
             SlotSpec{"queuing_q1", variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1>()},
-            SlotSpec{"queuing_q2", variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>()}};
+            SlotSpec{"queuing_q2", variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>()},
+            SlotSpec{"persistence_target", variants_for_list<ce::io::TopicConfigSet::StaticAxisVariants_PT>()}};
 }
 
-[[nodiscard]] SlotSpec const* find_slot(std::array<SlotSpec, 17> const& slots, std::string_view axis) {
+[[nodiscard]] SlotSpec const* find_slot(std::array<SlotSpec, 18> const& slots, std::string_view axis) {
     auto const it = std::find_if(slots.begin(), slots.end(), [&](SlotSpec const& s) { return s.axis == axis; });
     return it == slots.end() ? nullptr : &*it;
 }
@@ -159,14 +162,14 @@ template <class List>
     return it == slot.variants.end() ? nullptr : &*it;
 }
 
-[[nodiscard]] std::vector<std::string> value_axes(std::array<SlotSpec, 17> const& slots, std::string_view value) {
+[[nodiscard]] std::vector<std::string> value_axes(std::array<SlotSpec, 18> const& slots, std::string_view value) {
     std::vector<std::string> axes;
     for (SlotSpec const& slot : slots)
         if (find_variant(slot, value) != nullptr) axes.push_back(slot.axis);
     return axes;
 }
 
-[[nodiscard]] std::optional<std::vector<SelectedSlot>> select_slots(std::array<SlotSpec, 17> const& slots,
+[[nodiscard]] std::optional<std::vector<SelectedSlot>> select_slots(std::array<SlotSpec, 18> const& slots,
                                                                     cx::ThesisProfile const&        profile) {
     std::map<std::string, std::vector<std::string>> by_axis;
     std::size_t                                     last_slot_index = 0;
@@ -294,7 +297,7 @@ bool write_header(fs::path const& out_path, std::vector<SelectedSlot> const& sel
            "                                CatalogCfg<L04>, CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>,\n"
            "                                CatalogCfg<L08>, CatalogCfg<L09>, CatalogCfg<L10>, CatalogCfg<L11>,\n"
            "                                CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>, CatalogCfg<L15>,\n"
-           "                                CatalogCfg<L16>>;\n"
+           "                                CatalogCfg<L16>, CatalogCfg<L17>>;\n" // STRUKT-R ORG-18
            "};\n\n"
            "[[nodiscard]] inline std::vector<ex::AxisLevel> generated_catalog_static_levels() {\n"
            "    return catalog_static_levels<GeneratedFullSourceCatalog>();\n"
@@ -319,7 +322,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    std::array<SlotSpec, 17> const                 slots    = make_slots();
+    std::array<SlotSpec, 18> const                 slots    = make_slots();
     std::optional<std::vector<SelectedSlot>> const selected = select_slots(slots, *profile);
     if (!selected) return 3;
 

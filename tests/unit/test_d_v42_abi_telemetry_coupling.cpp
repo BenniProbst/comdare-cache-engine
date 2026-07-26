@@ -49,7 +49,7 @@ int main() {
 
     // I1: die EINE konsolidierte Observer-Methode (axis_stats[17][8] + seg_ns[17]/Pfad B + Meta).
     // F12iii/INC-2d-NEGATIV-GUARD (compile-time): POD traegt exakt 17 Achsen-Zeilen — keine telemetry-/isa-Zeile.
-    static_assert(ana::kV3AxisCount == 17,
+    static_assert(ana::kV3AxisCount == 18,
                   "Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, POD hat 17 Zeilen");
     ana::ComdareTierObserverSnapshot u{};
     ad.tier_observe(&u);

@@ -100,6 +100,7 @@
 #include "../axes/path_compression/axis_02_path_compression_observable.hpp"
 #include "../axes/index_organization/axis_01_index_organization_observable.hpp"
 #include "../axes/io_dispatch/axis_io_dispatch_observable.hpp"
+#include "../axes/persistence_target/axis_persistence_target_observable.hpp" // STRUKT-R ORG-18: T17-Mess-Organ
 #include "../axes/migration_policy/axis_migration_observable.hpp"
 #include "../axes/filter_axis/axis_filter_observable.hpp"
 
@@ -603,7 +604,9 @@ public:
             using Filter     = typename A::composition_t::filter;
             using QueuingQ1  = typename A::composition_t::queuing_q1;
             using QueuingQ2  = typename A::composition_t::queuing_q2;
-            using K          = typename SearchAlgo::key_type;
+            // STRUKT-R ORG-18: T17 persistence_target (Seg-Timer-Traeger, static Op wie IoDispatch/Migration).
+            using PersistenceTarget = typename A::composition_t::persistence_target;
+            using K                 = typename SearchAlgo::key_type;
 
             // ── Setup (EINMAL, NICHT gemessen) ───────────────────────────────────────────────────────────
             SearchAlgo algo;
@@ -668,10 +671,10 @@ public:
             auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
-            std::int64_t  acc[17] = {};
+            std::int64_t  acc[18] = {}; // STRUKT-R ORG-18: 18 (war 17 nach INC-2d)
             std::uint64_t sink    = 0;
 
-            // ── EIN Batch: die 17 Achsen-Segmente, jedes einzeln gezeitet (Index = Seg-Map T0..T16, INC-2d) ─────────
+            // -- EIN Batch: die 18 Achsen-Segmente, jedes einzeln gezeitet (Index = Seg-Map T0..T17, STRUKT-R) -------
             auto do_seg19 = [&]() {
                 clock::time_point t0, t1;
                 // T0 search_algo: Lookups auf der geladenen Such-Struktur.
@@ -835,6 +838,14 @@ public:
                 }
                 t1 = clock::now();
                 acc[16] += seg_ns(t0, t1);
+                // T17 persistence_target (STRUKT-R ORG-18): persistence_writeback_scan.
+                // EHRLICHKEIT: MemoryOnlyTarget hat keinen Rueckschreib-Pfad (Op == return 0) -> dieses Segment
+                // misst dann den Vergleichs-Nullpunkt der Achse, nicht "nichts". DiskWritebackTarget misst
+                // Rueckschreib-STAGING, NICHT die Platte (Kopf-Deklaration in axis_persistence_target_disk_writeback.hpp).
+                t0 = clock::now();
+                sink += PersistenceTarget::persistence_writeback_scan(lbuf, kRecords, kRecordSize);
+                t1 = clock::now();
+                acc[17] += seg_ns(t0, t1);
             };
 
             do_seg19(); // Warmup (verworfen)
@@ -1401,6 +1412,21 @@ public:
             r[4]         = q.flush_complete_count;
             ++filled;
         }
+        // -- T17 persistence_target (STRUKT-R ORG-18, Pfad-B Zustand-Scan ueber die REAL gespeicherten Keys) --
+        //    pt_organ_ (ObservablePersistenceTarget-Huelle) treibt persistence_writeback_scan. EHRLICHKEIT:
+        //    bytes_staged ist 0 fuer MemoryOnlyTarget (kein Rueckschreib-Pfad, writes_back_to_disk()==false) und
+        //    device_flushes ist IMMER 0, solange has_device_writeback_path() false meldet -- eine Zahl dort waere
+        //    eine Messwert-Luege. reset()+scan idempotent wie idx/io/mig/flt.
+        if constexpr (requires { pt_organ_.statistics(); }) {
+            auto const pt = pt_organ_.statistics();
+            auto*      r  = s.axis_stats[17];
+            r[0]          = pt.writeback_rounds;
+            r[1]          = pt.bytes_staged;
+            r[2]          = pt.records_staged;
+            r[3]          = pt.device_flushes;
+            r[4]          = pt.last_checksum;
+            ++filled;
+        }
 #endif // COMDARE_CE_ENABLE_STATISTICS
         s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         s.tier_fill_level       = tier_size();
@@ -1451,7 +1477,7 @@ public:
             std::uint64_t const n_ops    = t1_shape.n_ops; // Ops JE Batch (Fenster-Groesse)
             std::uint64_t const batches  = t1_shape.batch_count;
             std::uint64_t       t1_base  = 0;  // rotierende Fenster-Basis (vom Batch-Loop gesetzt)
-            std::int64_t        acc[17]  = {}; // Bau-INC-2d: isa raus (war 18 nach INC-2c-telemetry, 19 davor)
+            std::int64_t        acc[18]  = {}; // STRUKT-R ORG-18: 18 (war 17 nach INC-2d/isa-raus)
             std::uint64_t       sink     = 0;
 
             auto do_batch = [&]() {
@@ -1632,6 +1658,16 @@ public:
                 }
                 t1 = clock::now();
                 acc[16] += dns(t0, t1);
+                // T17 persistence_target (STRUKT-R ORG-18): Instanz-Driver observe_writeback ueber die REAL
+                // gespeicherten Keys als Rueckschreib-Strom. Analog Pfad A misst das bei MemoryOnlyTarget den
+                // Vergleichs-Nullpunkt (Op == return 0) und bei DiskWritebackTarget das Staging, NICHT die Platte.
+                t0 = clock::now();
+                if constexpr (requires { pt_organ_.observe_writeback(nullptr, std::size_t{}, std::size_t{}); }) {
+                    auto const* kb = reinterpret_cast<unsigned char const*>(keys.data());
+                    sink += pt_organ_.observe_writeback(kb, nk, sizeof(typename decltype(keys)::value_type));
+                }
+                t1 = clock::now();
+                acc[17] += dns(t0, t1);
             };
 
             do_batch(); // Warmup (verworfen, Basis 0)
@@ -1672,6 +1708,7 @@ public:
             if constexpr (requires { queuing_q1_organ_.clear(); }) queuing_q1_organ_.clear();
             if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset();
             if constexpr (requires { queuing_q2_organ_.reset(); }) queuing_q2_organ_.reset();
+            if constexpr (requires { pt_organ_.reset(); }) pt_organ_.reset(); // T17 (STRUKT-R ORG-18)
         } catch (...) { *out = ComdareSegmentLatencyV2{}; }
 #endif // COMDARE_CE_ENABLE_STATISTICS
     }
@@ -1975,6 +2012,7 @@ private:
         if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
         if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
         if constexpr (requires { pc_organ_.reset(); }) pc_organ_.reset();
+        if constexpr (requires { pt_organ_.reset(); }) pt_organ_.reset(); // T17 (STRUKT-R ORG-18)
     }
 #endif // COMDARE_MEASUREMENT_ON
     // K9-Fix (User §4.4 / 2026-06-18) + GAP #3 Exaktheits-Dokumentation (P5d-Rest, 2026-06-18):
@@ -2128,6 +2166,12 @@ private:
     mutable ::comdare::cache_engine::migration_policy::ObservableMigration<typename Composition::migration_policy>
                                                                                                  mig_organ_{};
     mutable ::comdare::cache_engine::filter_axis::ObservableFilter<typename Composition::filter> flt_organ_{};
+    // STRUKT-R ORG-18: T17 persistence_target. Wie io/mig/flt traegt die Composition die NACKTE Strategie
+    // (kein statistics()) -> die Huelle haelt das Mess-Organ. Getrieben als Pfad-B-Scan in fill_segment_timing_v3
+    // und gelesen in fill_observer_v3. mutable: das Tracking im const-Pfad ist logisch nicht-const (analog io_organ_).
+    mutable ::comdare::cache_engine::persistence_target::ObservablePersistenceTarget<
+        typename Composition::persistence_target>
+        pt_organ_{};
     // KF-4/L-MEAS: zuletzt angewandte Resource-Control (IMMER, auch Messung-aus) — vom RuntimeVariableLoop je dyn.
     // Einstellung gesetzt. Reiner Steuer-Zustand (quert die ABI nicht; der Host liest die Wirkung über den Observer).
     ComdareResourceControlV1 applied_rc_{};

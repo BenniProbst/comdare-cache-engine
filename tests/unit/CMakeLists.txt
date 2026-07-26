@@ -2598,6 +2598,32 @@ target_include_directories(test_axis_sweep_coverage PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_axis_sweep_coverage PRIVATE Boost::mp11)
 
+# STRUKT-R ORG-18 (2026-07-26): Gate der 18. Organ-Haupt-Achse persistence_target. Deckt den Owner-Pflicht-
+# Beweis der XML-/option()-DEAKTIVIERBARKEIT (Q-1-Zusatz) end-to-end ab -- CMake-option -> flags-Header ->
+# Baustein::enabled -> mp_filter -> EnabledTargets -> Katalog-Kardinalitaet 2^17 -> Registry-XML (genau 1
+# Baustein, der deaktivierte Name fehlt) -- plus die belegte mp_take_c-Falle (K17==1), die Lese-seitige
+# Alt-id-Normalisierung inkl. Byte-Pin auf die unveraenderte Alt-Mess-CSV, und die Concept-Erfuellung BEIDER
+# Observable-Huellen (persistence_target + der nachgezogene io_dispatch-Alt-Defekt).
+comdare_add_test(test_org18_persistence_target
+    SOURCES test_org18_persistence_target.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_org18_persistence_target)
+target_include_directories(test_org18_persistence_target PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_org18_persistence_target PRIVATE Boost::mp11)
+target_compile_definitions(test_org18_persistence_target PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
+    "COMDARE_ORG18_AXIS_REGISTRY_XML=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
+    "COMDARE_ORG18_TIER150_CSV=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/tier150_measurements.csv\"")
+set_tests_properties(test_org18_persistence_target PROPERTIES LABELS "contract;registry;org18")
+
 # #26/GO-5 (2026-07-12): Gate fuer das Smoke-/Coverage-MESS-Profil m3_smoke_coverage.profile.xml + den
 # Multi-Sweep-Durchlauf (profile_sweep_passes). Pinnt die Binary-Zaehlung (Default-Configure dieses Baums:
 # 72 Sweep-/Baseline-DLLs + 21 SOTA = 93; USE=ENABLE&&HAVE-abhaengig, s. Test-Kopf), beweist golden-

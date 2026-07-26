@@ -32,9 +32,9 @@ int main() {
     std::cout << "Gattungs-Generik (Schritt 2): GenusBindingTraits<G> — Bau-Brücke gattungs-parametrisch:\n";
 
     using SA = ex::GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>;
-    check_eq("SearchAlgorithm: slot_count == 17", SA::slot_count, std::size_t{17});
+    check_eq("SearchAlgorithm: slot_count == 18", SA::slot_count, std::size_t{18});
     check_eq("SearchAlgorithm: name", std::string{SA::name}, std::string{"SearchAlgorithm"});
-    check_eq("SearchAlgorithm: axis_names() size == 17", SA::axis_names().size(), std::size_t{17});
+    check_eq("SearchAlgorithm: axis_names() size == 18", SA::axis_names().size(), std::size_t{18});
     check_eq("axis_names[0] == search_algo", std::string{SA::axis_names()[0]}, std::string{"search_algo"});
     // Bau-INC-2d (17-Slot, isa raus): filter=14, queuing_q1=15, queuing_q2=16 (Indizes ab 11 um -1 gerueckt).
     check_eq("axis_names[14] == filter", std::string{SA::axis_names()[14]}, std::string{"filter"});

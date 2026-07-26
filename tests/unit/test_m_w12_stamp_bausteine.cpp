@@ -21,6 +21,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace m  = ::comdare::cache_engine::measurement;
 namespace pl = ::comdare::cache_engine::planner;
@@ -53,6 +54,9 @@ struct MockComposition {
     using filter             = MockAxisV234; // abweichende X.Y.Z-Voll-Form
     using queuing_q1         = MockAxisV1;
     using queuing_q2         = MockAxisV1;
+    // STRUKT-R ORG-18: 18. Organ-Slot (Pflicht, kein Default). MemoryOnlyTarget = Durchreich-Wert:
+    // kein Rueckschreib-Pfad. VOLL qualifiziert, weil der Member-Alias den Namespace sonst verdeckt.
+    using persistence_target = ::comdare::cache_engine::persistence_target::MemoryOnlyTarget;
 };
 } // namespace
 

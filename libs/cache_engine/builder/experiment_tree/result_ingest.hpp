@@ -11,6 +11,7 @@
 #include "experiment_tree.hpp"
 
 #include <charconv>
+#include <iostream> // Q-9-Auflage: Log-Zeile je verworfener Feldzahl (kein stiller Verwurf)
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -19,6 +20,48 @@
 #include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
+
+/// STRUKT-R ORG-18 / Owner-Entscheid 26.07.2026 -- LESE-SEITIGE Alt-id-Normalisierung.
+///
+/// PROBLEM: der 18. Kompositions-Slot persistence_target haengt an JEDE neue binary_id das Segment
+/// "/persistence_target=<name>". Eine Ergebnis-Zeile im ALT-Format (160 Felder, Q-9) traegt per Konstruktion
+/// eine 17-Segment-id und wuerde sonst keinen Baum-Knoten mehr treffen. Diese Funktion ist damit das
+/// id-seitige Gegenstueck zur feld-seitigen Q-9-Regel: ohne sie waere die Laengen-Akzeptanz wirkungslos,
+/// weil die Zeile zwar geparst, aber auf keinen Knoten geschrieben wuerde.
+///
+/// ABGRENZUNG (live geprueft 2026-07-26, NICHT der Anwendungsfall): tests/unit/thesis_tiere/
+/// tier150_measurements.csv liegt in einem ANDEREN Format (Builder-Iterator-CSV
+/// "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;seg_*", 134 Spalten) und wird von
+/// heuristik/measurement_curve_loader.hpp gelesen, NICHT von result_ingest. Ihre 5760 ids sind
+/// 19-segmentig (sie tragen noch telemetry= und isa=), also VOR-INC-2c/2d -- sie waren durch die beiden
+/// frueheren ABI-Bruecke bereits nicht mehr deckungsgleich, lange vor ORG-18. Der Curve-Loader nutzt die
+/// binary_id ausserdem nur als GRUPPIERUNGS-Dimension (variant_col), nicht als Baum-Schluessel. ORG-18
+/// fuegt dort also KEINE neue Regression hinzu.
+///
+/// ENTSCHEID: die CSV-DATEIEN bleiben BYTE-UNVERAENDERT (Messdaten-Doktrin "nie aendern, nie loeschen");
+/// normalisiert wird ausschliesslich beim LESEN. Das ist inhaltlich korrekt und keine Erfindung: zur
+/// Erhebungszeit existierte nur ein Rueckschreib-Ziel, jede Alt-Messung WAR memory_only. Dieselbe Logik
+/// wie die Q-9-Feldzahl-Regel (160 impliziert memory_only), nur auf id-Ebene.
+///
+/// POSITION: das Segment wird NICHT angehaengt, sondern direkt HINTER "queuing_q2=<wert>" eingeschoben --
+/// genau dort emittiert es serialize_composition_path. Ein blindes Anhaengen waere bei ids mit
+/// Shape-Segment (with_shape_segment haengt NACH der Komposition an) falsch sortiert und wuerde einen
+/// Pfad erzeugen, den der Baum nie bildet.
+///
+/// IDEMPOTENT: eine id, die das Segment schon traegt, kommt unveraendert zurueck.
+[[nodiscard]] inline std::string normalize_legacy_binary_id(std::string_view id) {
+    constexpr std::string_view kAxis    = "persistence_target=";
+    constexpr std::string_view kSegment = "/persistence_target=persistence_memory_only";
+    constexpr std::string_view kAnchor  = "queuing_q2=";
+    if (id.find(kAxis) != std::string_view::npos) return std::string{id}; // schon 18-Slot-Form
+    std::size_t const a = id.find(kAnchor);
+    if (a == std::string_view::npos) return std::string{id}; // keine SA-Kompositions-id -> unberuehrt
+    std::size_t const seg_end = id.find('/', a + kAnchor.size());
+    std::string       out{id.substr(0, seg_end == std::string_view::npos ? id.size() : seg_end)};
+    out += kSegment;
+    if (seg_end != std::string_view::npos) out += id.substr(seg_end); // Shape-Schwanz bleibt HINTEN
+    return out;
+}
 
 /// #45 (paralleler Mess-Loop): die REINE Parse-Naht -- zerlegt `line` in binary_id + 159 Observer-Felder und baut den
 /// NodeValue OHNE einen Baum zu beruehren. Rueckgabe: {binary_id, NodeValue} bei wohlgeformter Zeile (==160 Felder),
@@ -36,14 +79,40 @@ parse_result_line_to_node_value(std::string_view line) {
         if (sc == std::string_view::npos) break;
         i = sc + 1;
     }
-    // KONSOLIDIERUNG (I-B.3, 2026-06-04; Bau-INC-2c 19→18): volle Matrix = binary_id + axis_stats[17][8] (136)
-    // + seg_ns[17] (17) + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured)
-    // + P-MD3 (seg_framework_ns, seg_run_total_ns) = 159 Felder = 160 total (Bau-INC-2d: axis_stats[17][8]=136 +
-    // seg_ns[17]=17 + 4 Meta + 2 P-MD3). MAJOR-MESS-09 (Audit A1): EXAKT ==160 prüfen (nicht ≥160). Ein ';'/Newline
-    // in der binary_id (oder ein angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠160 → die axis_stats wären
-    // gegen ihre Slots verschoben. format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die
+    // KONSOLIDIERUNG (I-B.3, 2026-06-04; Bau-INC-2c 19->18): volle Matrix = binary_id + axis_stats[N][8]
+    // + seg_ns[N] + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured)
+    // + P-MD3 (seg_framework_ns, seg_run_total_ns) = 1 + N*8 + N + 4 + 2 Felder.
+    // MAJOR-MESS-09 (Audit A1): die Feldzahl wird EXAKT geprueft (nicht >=). Ein ';'/Newline in der binary_id
+    // (oder ein angehaengtes/verschmolzenes Feld) erzeugt eine unerwartete Laenge -> die axis_stats waeren gegen
+    // ihre Slots verschoben. format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die
     // zweite, lese-seitige Verteidigung (kein stiller Slot-Versatz).
-    if (f.size() != 160 || f[0].empty()) return std::nullopt;
+    //
+    // STRUKT-R ORG-18 / Q-9 OWNER-BESTAETIGT 26.07.2026 (VERSIONIERTER READER, Direktive "Messdaten nie loeschen"): es werden ZWEI Laengen
+    // akzeptiert, damit die vor dem 18-Achsen-Bruch erhobenen Mess-CSV LESBAR BLEIBEN statt still zu
+    // verschwinden (der frueher harte `!= 160` haette jede Alt-Zeile per return nullopt unsichtbar verworfen):
+    //   169 = 18 Achsen (aktuell, mit persistence_target)
+    //   160 = 17 Achsen (Alt-Format vor STRUKT-R)
+    // Eine 160er-Zeile IMPLIZIERT persistence_target=memory_only. Deren T17-Slots bleiben 0 -- und das ist
+    // KEINE erfundene Null, sondern der korrekte Wert: MemoryOnlyTarget hat keinen Rueckschreib-Pfad, seine
+    // Mess-Op liefert echte 0 und die Huelle stagt 0 Bytes/0 device_flushes. Alt- und Neu-Zeile sind an dieser
+    // Stelle also inhaltsgleich, nicht bloss laengen-kompatibel.
+    constexpr std::size_t kAxesCurrent = 18; // == anatomy::kV3AxisCount
+    constexpr std::size_t kAxesLegacy  = 17; // vor STRUKT-R ORG-18
+    auto const            fields_for   = [](std::size_t n) { return 1u + n * 8u + n + 4u + 2u; };
+    std::size_t           axis_count   = 0;
+    if (f.size() == fields_for(kAxesCurrent))
+        axis_count = kAxesCurrent;
+    else if (f.size() == fields_for(kAxesLegacy))
+        axis_count = kAxesLegacy;
+    if (axis_count == 0 || f[0].empty()) {
+        // Q-9-Auflage (Owner 26.07.2026): KEIN stiller Verwurf mehr. Der frueher blanke `return nullopt`
+        // liess jede laengen-abweichende Zeile unsichtbar verschwinden -- genau der geruegte Zustand.
+        // Eine Zeile hier ist die Ausnahme (wohlgeformte Laengen sind 169 und 160), kein Hot-Path-Spam.
+        std::cerr << "[result_ingest] Zeile verworfen: unerwartete Feldzahl " << f.size() << " (erwartet "
+                  << fields_for(kAxesCurrent) << " aktuell oder " << fields_for(kAxesLegacy) << " Alt-Format)"
+                  << (f.empty() || f[0].empty() ? "; binary_id leer" : "") << "\n";
+        return std::nullopt;
+    }
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
         std::uint64_t v = 0;
@@ -57,9 +126,11 @@ parse_result_line_to_node_value(std::string_view line) {
     };
     NodeObserverSnapshot o{};
     std::size_t          idx = 1;
-    for (std::size_t t = 0; t < 17; ++t) // Bau-INC-2d: 17 Achsen (isa raus)
+    // Q-9: axis_count ist 18 (aktuell) oder 17 (Alt-CSV). Die Ziel-Arrays sind IMMER [18] -- bei einer
+    // Alt-Zeile bleibt Slot 17 auf seiner Null-Initialisierung, was genau memory_only entspricht (s. oben).
+    for (std::size_t t = 0; t < axis_count; ++t)
         for (std::size_t fi = 0; fi < 8; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
-    for (std::size_t t = 0; t < 17; ++t) o.seg_ns[t] = i64(f[idx++]);
+    for (std::size_t t = 0; t < axis_count; ++t) o.seg_ns[t] = i64(f[idx++]);
     o.observable_axis_count = u64(f[idx++]);
     o.tier_fill_level       = u64(f[idx++]);
     o.filled_axis_count     = u64(f[idx++]);
@@ -86,7 +157,9 @@ parse_result_line_to_node_value(std::string_view line) {
     nv.observer               = o;
     nv.observer_real          = true; // aus echtem Cluster-Lauf (perm_runner tier_observe)
     nv.measured_setting_count = 1;
-    return std::pair<std::string, NodeValue>{std::string{f[0]}, std::move(nv)};
+    // STRUKT-R ORG-18: Alt-ids (17 Segmente) werden hier auf die 18-Slot-Form normalisiert, damit
+    // Mess-CSV von VOR dem Bruch weiter ihren Baum-Knoten treffen. Neue ids passieren unveraendert.
+    return std::pair<std::string, NodeValue>{normalize_legacy_binary_id(f[0]), std::move(nv)};
 }
 
 /// Zerlegt `line` in binary_id + 159 Observer-Felder (';'-getrennt) und schreibt sie als gemessenen NodeValue in den

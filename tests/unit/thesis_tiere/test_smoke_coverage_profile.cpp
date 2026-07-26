@@ -107,7 +107,7 @@ TEST(SmokeCoverageProfile, DeclaresFullCoverageWithPinnedBasis) {
     ASSERT_TRUE(tp.has_value()) << "Profil nicht lesbar: " << smoke_profile_path().string();
     EXPECT_EQ(tp->id, "m3_smoke_coverage");
     EXPECT_EQ(tp->base_tiers.size(), 7u);
-    ASSERT_EQ(tp->permute_axes.size(), 17u); // INC-2d: ohne telemetry+isa
+    ASSERT_EQ(tp->permute_axes.size(), 18u); // INC-2d ohne telemetry+isa; STRUKT-R ORG-18: +persistence_target
     std::size_t basis_cells = 1;
     for (auto const& ax : tp->permute_axes) {
         EXPECT_EQ(ax.values.size(), 1u) << "Basis nicht gepinnt (Achse " << ax.ref << ")";
@@ -228,7 +228,7 @@ TEST(SmokeCoverageProfile, ValidatesAgainstEnabledStrategies) {
     tlz::ProfileValidationResult const vr       = tlz::validate_profile(*tp, registry);
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
-    EXPECT_EQ(vr.axes_checked, 17u);
-    EXPECT_EQ(vr.sweeps_checked, 17u);
+    EXPECT_EQ(vr.axes_checked, 18u);   // STRUKT-R ORG-18: 18 deklarierte Achsen
+    EXPECT_EQ(vr.sweeps_checked, 17u); // ABER weiter 17 Sweeps: persistence_target hat 1 Wert
     EXPECT_EQ(vr.series_checked, 21u);
 }

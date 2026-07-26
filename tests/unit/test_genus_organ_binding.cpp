@@ -45,7 +45,7 @@ int main() {
     check(!ex::is_organ_axis_label("extension_hardware"), "extension_hardware ist KEINE Organ-Achse (System)");
 
     // (c) RequiredOrgans<G>() liefert genau die slot_count Organ-Achsen je Gattung.
-    check(ex::RequiredOrgans<cea::AnatomyGenus::SearchAlgorithm>().size() == 17u, "SearchAlgorithm RequiredOrgans==17");
+    check(ex::RequiredOrgans<cea::AnatomyGenus::SearchAlgorithm>().size() == 18u, "SearchAlgorithm RequiredOrgans==18");
     check(ex::RequiredOrgans<cea::AnatomyGenus::Adapter>().size() == 11u, "Adapter RequiredOrgans==11");
     check(ex::RequiredOrgans<cea::AnatomyGenus::Set>().size() == 13u, "Set RequiredOrgans==13");
     check(ex::RequiredOrgans<cea::AnatomyGenus::Sequence>().size() == 9u, "Sequence RequiredOrgans==9");
