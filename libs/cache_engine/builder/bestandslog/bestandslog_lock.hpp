@@ -82,19 +82,30 @@ struct LockOwner {
     long        pid = 0;
 };
 
+// Die zwei Zeit-Groessen des Locks sind GETRENNT -- das ist der Kern der Owner-Semantik:
+//
+// (1) ttl_s = OBERGRENZE fuer den Stale-Bruch, EREIGNIS-gebunden, harte Grenze 30 Minuten
+//     (LED:3225, Owner-Praezisierung-3 vom 22.07.: "Das lock fuer Schreiben eines Bestandslogs,
+//     endet mit der ersten pro forma 30 Minuten Reservierung spaetestens"). Der Ledger nennt KEINE
+//     Sekundenzahl fuer die ttl selbst -- die Grenze ist das Ereignis, und die 30 Minuten sind die
+//     Obergrenze, jenseits derer JEDE Maschine brechen darf (eine tote Maschine sperrt nie laenger).
+//     Es sind dieselben 30 Minuten, die reservation_lifecycle.hpp als kProFormaMinutes fuehrt; hier
+//     bewusst eigenstaendig ausgedrueckt, weil diese Scheibe (B2) nicht auf B4 zeigen darf.
+// (2) Das SEKTIONS-BUDGET des einzelnen Zyklus (kSectionBudgetSeconds, Parameter von
+//     with_document_lock). Der NORMALE Schreibvorgang ist laut Owner "nur millisekunden" -- er wird
+//     also nicht von der ttl begrenzt, sondern von diesem knappen Budget. Der einzige laengere Fall
+//     ist die ETA-BERECHNUNG: sie darf das Lock EXKLUSIV halten, bis die ETA feststeht, bis maximal
+//     zur Obergrenze (1) -- ein solcher Aufrufer uebergibt section_budget_s = ttl_s.
+inline constexpr int kLockTtlSeconds = 1800; // 30 min Obergrenze (Ereignis-Ende hat Vorrang)
+
 struct LockRecord {
     std::string  owner_uuid;
     std::string  host;
     long         pid        = 0;
     std::int64_t ts_epoch_s = 0; // Erwerbs-Zeit
-    // ttl-DEFAULT (N7-D3): 90 s. Der Ledger nennt keine Zahl; 30 s waren zu knapp, weil die
-    // Schreib-Sektion aus Netz-Verben (fetch + store + Zweit-Verify) UND dem Parse/Merge/Emit des
-    // vollen Dokuments besteht -- schon das knapp budgetierte Objekt-Store-Profil liegt im
-    // Worst-Fall bei ca. 40 s. Bricht eine zweite Maschine den Lock, WAEHREND der erste noch
-    // schreibt, entsteht genau der Zwei-Schreiber-Zustand, den das Lock verhindern soll
-    // (Invariante: Sektions-Wall-Clock < ttl). Die ttl bleibt PARAMETER von try_acquire_lock --
-    // dieser Default gilt nur fuer frisch gebaute Records.
-    int ttl_s = 90;
+    // Obergrenze fuer den Stale-Bruch (s. oben). Bleibt PARAMETER von try_acquire_lock -- dieser
+    // Default gilt nur fuer frisch gebaute Records.
+    int ttl_s = kLockTtlSeconds;
 
     friend bool operator==(LockRecord const&, LockRecord const&) = default;
 };
@@ -211,6 +222,12 @@ inline void release_lock(BestandTransport const& t, std::string const& lock_key,
     return k;
 }
 
+// Budget EINES normalen Schreib-Zyklus (s. die zwei Zeit-Groessen an LockRecord): der Owner nennt den
+// Normalfall "nur millisekunden"; 30 s sind der Ingenieurs-Spielraum darueber (das knapp budgetierte
+// Objekt-Store-Profil liegt bei ca. 10 s Cap je Verb). Das ist KEINE Ledger-Zahl, sondern die Wache,
+// die verhindert, dass ein hakender Zyklus die 30-Minuten-Obergrenze als Arbeitszeit missversteht.
+inline constexpr int kSectionBudgetSeconds = 30;
+
 // Ergebnis EINES Zyklus -- benanntes Outcome statt bool-Salat, weil der Aufrufer die Faelle
 // unterschiedlich behandelt: lock_unavailable/deadline_exceeded sind WIEDERHOLBAR (Jitter-Zyklus),
 // work_failed ist ein echter Fehlschlag der Arbeit selbst.
@@ -270,19 +287,27 @@ private:
 // lock_unavailable ABSICHTLICH NICHT geloggt -- das ist der normale Kollisionsfall; erst der
 // Aufrufer weiss, ob es der letzte Versuch war, und faerbt die Meldung.
 //
-// FRIST-WACHE (N7-D3): schon der Acquire kostet Netz-Zeit (fetch + store + Zweit-Verify). Sind davon
-// mehr als ttl/2 verbraucht, wird NICHT MEHR GESCHRIEBEN, sondern der Lock freigegeben und
-// deadline_exceeded gemeldet -- sonst schriebe der Halter unter einem Lock, den eine zweite Maschine
-// als stale bricht, waehrend er noch schreibt (genau der Zwei-Schreiber-Zustand, den das Lock
-// verhindern soll). Die Invariante dahinter: Sektions-Wall-Clock < ttl.
+// FRIST-WACHE: schon der Acquire kostet Netz-Zeit (fetch + store + Zweit-Verify). Ist davon mehr als
+// das SEKTIONS-BUDGET verbraucht, wird NICHT MEHR GESCHRIEBEN, sondern der Lock freigegeben und
+// deadline_exceeded gemeldet. Gewacht wird gegen section_budget_s, NICHT gegen die ttl: die ttl ist
+// die 30-Minuten-OBERGRENZE fuer den Stale-Bruch (Owner-Semantik an LockRecord), aus ihr abgeleitete
+// Schwellen waeren als Wache eines millisekunden-kurzen Zyklus wertlos.
+//
+// Der ETA-FALL ist derselbe Zyklus mit weitem Budget: ein ETA-Aufrufer uebergibt
+// section_budget_s = ttl_s und haelt das Lock damit exklusiv, bis die ETA feststeht -- bis maximal zur
+// Obergrenze. Gebaut wird dieser Pfad erst mit der ETA-Verdrahtung; der Helfer traegt ihn schon.
 //
 // fn liefert bool = "Arbeit gelungen" (z.B. store_document_merged(...).has_value()) -- ein
 // verschluckter Store-Fehler ist an dieser Naht damit nicht mehr moeglich. Die Zeit kommt ueber
 // NowFn, also skripten die Tests Frist- und Konfliktfaelle ohne Wall-Clock.
+//
+// section_budget_s steht HINTER fn, weil nur so ein Default moeglich ist -- die bestehende
+// Sechs-Argument-Aufrufform bleibt damit unveraendert gueltig.
 // ---------------------------------------------------------------------------
 template <class Fn>
 [[nodiscard]] inline LockOutcome with_document_lock(BestandTransport const& t, std::string const& doc_key,
-                                                    LockOwner const& me, int ttl_s, NowFn const& now_fn, Fn&& fn) {
+                                                    LockOwner const& me, int ttl_s, NowFn const& now_fn, Fn&& fn,
+                                                    int section_budget_s = kSectionBudgetSeconds) {
     static_assert(std::is_invocable_r_v<bool, Fn&>,
                   "fn muss bool liefern: true == Arbeit gelungen (kein verschluckter Store-Fehler)");
 
@@ -301,21 +326,24 @@ template <class Fn>
     detail::LockHold const hold{t, lock_key, me}; // Freigabe auf JEDEM Ausgang, auch bei Wurf aus fn
 
     std::int64_t const vor_arbeit = now_fn();
-    if (vor_arbeit - acquired_at > static_cast<std::int64_t>(ttl_s) / 2) {
-        std::cerr << "[bestandslog] FEHLER: Lock-Frist auf '" << doc_key << "' zur Haelfte verbraucht ("
-                  << (vor_arbeit - acquired_at) << "s von ttl=" << ttl_s
+    if (vor_arbeit - acquired_at > static_cast<std::int64_t>(section_budget_s)) {
+        std::cerr << "[bestandslog] FEHLER: Sektions-Budget auf '" << doc_key << "' schon vor der Arbeit verbraucht ("
+                  << (vor_arbeit - acquired_at) << "s von budget=" << section_budget_s
                   << "s) -- NICHT geschrieben, Lock freigegeben\n";
         return LockOutcome::deadline_exceeded;
     }
 
     if (!fn()) return LockOutcome::work_failed;
 
-    // Nach-Wache: die Arbeit selbst kann die Frist gesprengt haben. Geschrieben IST dann schon (der
-    // Union-Merge traegt die Kollision), aber die Budget-Invariante war verletzt -- das muss sichtbar
-    // sein, sonst misst niemand, dass die Sektion aus dem ttl gelaufen ist.
-    if (std::int64_t const nach_arbeit = now_fn(); nach_arbeit - acquired_at > static_cast<std::int64_t>(ttl_s))
+    // Nach-Wache: die Arbeit selbst kann das Budget gesprengt haben. Geschrieben IST dann schon (der
+    // Union-Merge traegt die Kollision), aber die Invariante war verletzt -- das muss sichtbar sein,
+    // sonst misst niemand, dass der "millisekunden"-Zyklus aus dem Budget gelaufen ist. Die Zeile
+    // nennt beide Grenzen, damit ein Leser sofort sieht, ob auch die ttl-Obergrenze naeher rueckt.
+    if (std::int64_t const nach_arbeit = now_fn();
+        nach_arbeit - acquired_at > static_cast<std::int64_t>(section_budget_s))
         std::cerr << "[bestandslog] warn: Lock-Sektion auf '" << doc_key << "' dauerte " << (nach_arbeit - acquired_at)
-                  << "s > ttl=" << ttl_s << "s (der Schreibvorgang war zu diesem Zeitpunkt erfolgt)\n";
+                  << "s > budget=" << section_budget_s << "s (ttl-Obergrenze " << ttl_s
+                  << "s; der Schreibvorgang war zu diesem Zeitpunkt erfolgt)\n";
     return LockOutcome::ok;
 }
 

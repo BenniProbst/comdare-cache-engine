@@ -194,10 +194,10 @@ struct LockProbe {
 
 template <class Fn>
 LockProbe lock_probe(bl::BestandTransport const& t, std::string const& doc_key, bl::LockOwner const& me, int ttl_s,
-                     bl::NowFn const& now_fn, Fn&& fn) {
+                     bl::NowFn const& now_fn, Fn&& fn, int section_budget_s = bl::kSectionBudgetSeconds) {
     LockProbe         p;
     CerrCapture const cap;
-    p.outcome     = bl::with_document_lock(t, doc_key, me, ttl_s, now_fn, std::forward<Fn>(fn));
+    p.outcome     = bl::with_document_lock(t, doc_key, me, ttl_s, now_fn, std::forward<Fn>(fn), section_budget_s);
     p.cerr_text   = cap.text();
     p.cerr_zeilen = cap.zeilen();
     return p;
@@ -498,9 +498,15 @@ TEST(G3BestandslogLock, EmptyOwnerReleasesNoLock) {
     EXPECT_TRUE(s.objs.contains(kLockKey));
 }
 
-TEST(G3BestandslogLock, TtlDefaultTraegtDieSchreibSektion) {
-    // N7-D3: 30 s trugen die Sektion (Netz-Verben + Parse/Merge/Emit des Voll-Dokuments) nicht.
-    EXPECT_EQ(bl::LockRecord{}.ttl_s, 90);
+TEST(G3BestandslogLock, TtlIstDie30MinutenObergrenze) {
+    // OWNER-GESETZ, nicht Ingenieurs-Wahl (LED:3225, Praezisierung-3 vom 22.07.): "Das lock fuer
+    // Schreiben eines Bestandslogs, endet mit der ersten pro forma 30 Minuten Reservierung
+    // spaetestens." Die ttl ist die OBERGRENZE fuer den Stale-Bruch (30 min = 1800 s), nicht die
+    // Dauer eines Zyklus -- den begrenzt das Sektions-Budget. Diese Zahl ist gepinnt, damit sie
+    // nicht wieder zu einem Agenten-Schaetzwert wird.
+    EXPECT_EQ(bl::kLockTtlSeconds, 1800);
+    EXPECT_EQ(bl::LockRecord{}.ttl_s, 1800);
+    EXPECT_EQ(bl::kSectionBudgetSeconds, 30); // Kurz-Zyklus-Wache ("nur millisekunden" + Spielraum)
 }
 
 // ---------------------------------------------------------------------------
@@ -691,7 +697,7 @@ TEST(G3BestandslogLock, WithDocumentLockNormalCase) {
     local.reservierungen.push_back(mk_res("uuid-A/0", bl::BatchStatus::offen, "prod1"));
 
     auto const now = scripted_now({1000, 1000, 1001});
-    auto const p   = lock_probe(t, kDocKey, owner_a(), 90, now,
+    auto const p   = lock_probe(t, kDocKey, owner_a(), bl::kLockTtlSeconds, now,
                                 [&]() { return bl::store_document_merged(t, kDocKey, local).has_value(); });
 
     EXPECT_EQ(p.outcome, bl::LockOutcome::ok);
@@ -705,11 +711,11 @@ TEST(G3BestandslogLock, WithDocumentLockNormalCase) {
 TEST(G3BestandslogLock, WithDocumentLockYieldsToForeignFreshLock) {
     FakeStore s;
     auto      t = s.transport();
-    ASSERT_TRUE(bl::try_acquire_lock(t, kLockKey, owner_b(), 90, 1000));
+    ASSERT_TRUE(bl::try_acquire_lock(t, kLockKey, owner_b(), bl::kLockTtlSeconds, 1000));
 
     bool       gelaufen = false;
     auto const now      = scripted_now({1005});
-    auto const p        = lock_probe(t, kDocKey, owner_a(), 90, now, [&]() {
+    auto const p        = lock_probe(t, kDocKey, owner_a(), bl::kLockTtlSeconds, now, [&]() {
         gelaufen = true;
         return true;
     });
@@ -721,16 +727,17 @@ TEST(G3BestandslogLock, WithDocumentLockYieldsToForeignFreshLock) {
     EXPECT_FALSE(s.objs.contains(kDocKey));
 }
 
-TEST(G3BestandslogLock, WithDocumentLockRefusesToWriteAfterHalfTtl) {
-    // Frist-Wache: schon der Erwerb hat mehr als ttl/2 gekostet -> NICHT schreiben, Lock freigeben,
-    // Wiederholung ist Sache des Aufrufers. Sonst schriebe der Halter unter einem Lock, den eine
-    // zweite Maschine gerade als stale bricht.
+TEST(G3BestandslogLock, WithDocumentLockRefusesToWriteBeyondSectionBudget) {
+    // Frist-Wache: schon der Erwerb hat mehr als das SEKTIONS-BUDGET gekostet -> NICHT schreiben,
+    // Lock freigeben, Wiederholung ist Sache des Aufrufers. Gewacht wird gegen das Budget, NICHT
+    // gegen die ttl: die ttl ist die 30-Minuten-Obergrenze fuer den Stale-Bruch, aus ihr abgeleitete
+    // Schwellen (900 s) waeren als Wache eines millisekunden-kurzen Zyklus wertlos.
     FakeStore s;
     auto      t = s.transport();
 
     bool       gelaufen = false;
-    auto const now      = scripted_now({1000, 1016}); // 16 s > ttl/2 = 15 s
-    auto const p        = lock_probe(t, kDocKey, owner_a(), 30, now, [&]() {
+    auto const now      = scripted_now({1000, 1031}); // 31 s > budget 30 s (Default)
+    auto const p        = lock_probe(t, kDocKey, owner_a(), bl::kLockTtlSeconds, now, [&]() {
         gelaufen = true;
         return true;
     });
@@ -739,12 +746,13 @@ TEST(G3BestandslogLock, WithDocumentLockRefusesToWriteAfterHalfTtl) {
     EXPECT_FALSE(gelaufen);
     EXPECT_EQ(p.cerr_zeilen, 1u);
     EXPECT_NE(p.cerr_text.find("[bestandslog] FEHLER"), std::string::npos) << p.cerr_text;
+    EXPECT_NE(p.cerr_text.find("budget=30"), std::string::npos) << p.cerr_text;
     EXPECT_EQ(lock_owner_in(s), "");        // Lock freigegeben, nicht liegen gelassen
     EXPECT_FALSE(s.objs.contains(kDocKey)); // und nichts geschrieben
 
-    // Genau auf der Haelfte ist noch erlaubt (die Wache greift erst DARUEBER).
-    auto const grenze = scripted_now({2000, 2015, 2016});
-    auto const q      = lock_probe(t, kDocKey, owner_a(), 30, grenze, [&]() {
+    // Genau AUF dem Budget ist noch erlaubt (die Wache greift erst DARUEBER).
+    auto const grenze = scripted_now({2000, 2030, 2031});
+    auto const q      = lock_probe(t, kDocKey, owner_a(), bl::kLockTtlSeconds, grenze, [&]() {
         gelaufen = true;
         return true;
     });
@@ -752,18 +760,64 @@ TEST(G3BestandslogLock, WithDocumentLockRefusesToWriteAfterHalfTtl) {
     EXPECT_TRUE(gelaufen);
 }
 
-TEST(G3BestandslogLock, WithDocumentLockReportsOverrunSection) {
-    // Nach-Wache: die Arbeit selbst hat die ttl gesprengt. Geschrieben ist dann schon (der
-    // Union-Merge traegt die Kollision), aber die Budget-Invariante war verletzt -> sichtbar.
+TEST(G3BestandslogLock, WithDocumentLockHonoursExplicitSectionBudget) {
+    // Ein Aufrufer darf sein Budget selbst setzen (der Parameter steht hinter fn und hat einen
+    // Default, damit die bestehende Sechs-Argument-Aufrufform gueltig bleibt).
     FakeStore s;
     auto      t = s.transport();
 
-    auto const now = scripted_now({1000, 1005, 1041}); // Sektion 41 s > ttl 30 s
-    auto const p   = lock_probe(t, kDocKey, owner_a(), 30, now, [&]() { return true; });
+    bool       gelaufen = false;
+    auto const now      = scripted_now({1000, 1006}); // 6 s > eigenes Budget 5 s
+    auto const p        = lock_probe(
+        t, kDocKey, owner_a(), bl::kLockTtlSeconds, now,
+        [&]() {
+            gelaufen = true;
+            return true;
+        },
+        5);
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::deadline_exceeded);
+    EXPECT_FALSE(gelaufen);
+    EXPECT_NE(p.cerr_text.find("budget=5"), std::string::npos) << p.cerr_text;
+}
+
+TEST(G3BestandslogLock, WithDocumentLockEtaFormHoldsUntilEtaIsFixed) {
+    // Der ETA-Fall (Owner: der EINZIGE laengere Schreib-Lock-Fall) ist derselbe Zyklus mit
+    // section_budget_s = ttl_s: das Lock wird exklusiv gehalten, bis die ETA feststeht -- bis maximal
+    // zur 30-Minuten-Obergrenze. Eine 200-s-Sektion ist damit regulaer und schweigt.
+    FakeStore s;
+    auto      t = s.transport();
+
+    bool       gelaufen = false;
+    auto const now      = scripted_now({1000, 1200, 1201}); // 200 s Rechenzeit vor dem Schreiben
+    auto const p        = lock_probe(
+        t, kDocKey, owner_a(), bl::kLockTtlSeconds, now,
+        [&]() {
+            gelaufen = true;
+            return true;
+        },
+        bl::kLockTtlSeconds);
+
+    EXPECT_EQ(p.outcome, bl::LockOutcome::ok);
+    EXPECT_TRUE(gelaufen);
+    EXPECT_EQ(p.cerr_zeilen, 0u); // exklusiv erlaubt -> keine Budget-Warnung
+}
+
+TEST(G3BestandslogLock, WithDocumentLockReportsOverrunSection) {
+    // Nach-Wache: die Arbeit selbst hat das Budget gesprengt. Geschrieben ist dann schon (der
+    // Union-Merge traegt die Kollision), aber die Invariante war verletzt -> sichtbar, mit BEIDEN
+    // Grenzen in der Zeile (Budget und ttl-Obergrenze).
+    FakeStore s;
+    auto      t = s.transport();
+
+    auto const now = scripted_now({1000, 1005, 1041}); // Sektion 41 s > budget 30 s
+    auto const p   = lock_probe(t, kDocKey, owner_a(), bl::kLockTtlSeconds, now, [&]() { return true; });
 
     EXPECT_EQ(p.outcome, bl::LockOutcome::ok);
     EXPECT_EQ(p.cerr_zeilen, 1u);
     EXPECT_NE(p.cerr_text.find("[bestandslog] warn"), std::string::npos) << p.cerr_text;
+    EXPECT_NE(p.cerr_text.find("budget=30"), std::string::npos) << p.cerr_text;
+    EXPECT_NE(p.cerr_text.find("1800"), std::string::npos) << p.cerr_text;
 }
 
 TEST(G3BestandslogLock, WithDocumentLockReportsFailedWork) {
@@ -773,7 +827,7 @@ TEST(G3BestandslogLock, WithDocumentLockReportsFailedWork) {
     auto      t = s.transport();
 
     auto const now = scripted_now({1000, 1000, 1000});
-    auto const p   = lock_probe(t, kDocKey, owner_a(), 90, now, [&]() { return false; });
+    auto const p   = lock_probe(t, kDocKey, owner_a(), bl::kLockTtlSeconds, now, [&]() { return false; });
 
     EXPECT_EQ(p.outcome, bl::LockOutcome::work_failed);
     EXPECT_EQ(lock_owner_in(s), "");
@@ -785,7 +839,7 @@ TEST(G3BestandslogLock, WithDocumentLockRejectsEmptyOwner) {
 
     bool       gelaufen = false;
     auto const now      = scripted_now({1000});
-    auto const p        = lock_probe(t, kDocKey, bl::LockOwner{"", "prod1", 111}, 90, now, [&]() {
+    auto const p        = lock_probe(t, kDocKey, bl::LockOwner{"", "prod1", 111}, bl::kLockTtlSeconds, now, [&]() {
         gelaufen = true;
         return true;
     });
@@ -806,7 +860,7 @@ TEST(G3BestandslogLock, WithDocumentLockReleasesOnThrow) {
     auto const now = scripted_now({1000, 1000});
     EXPECT_THROW(
         {
-            (void)bl::with_document_lock(t, kDocKey, owner_a(), 90, now, []() -> bool {
+            (void)bl::with_document_lock(t, kDocKey, owner_a(), bl::kLockTtlSeconds, now, []() -> bool {
                 throw std::runtime_error("Abbruch mitten im Schreibvorgang");
             });
         },
