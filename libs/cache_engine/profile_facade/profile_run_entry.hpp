@@ -104,7 +104,8 @@ struct RunProfileArgs {
     // (:216) und ausdruecklich NICHT ex::FingerprintFn (build_orchestrator.hpp:174, string->string) -- die beiden
     // Namen sind benachbart und bedeuten Verschiedenes (AUF-A4). Der reale Provider ist
     // bestandslog::make_fingerprint_key_fn (fingerprint_key_source.hpp), den der Host injiziert.
-    // KEIN Gate auf dieser Ebene: das harte Doppel-Gate sitzt beim Host (AUF-B3). Alle leer (Default) =>
+    // KEIN Gate auf dieser Ebene: das harte Doppel-Gate sitzt beim Host (AUF-B3 -- COMDARE_BESTANDSLOG=="true" UND
+    // minio_enabled() UND owner-Identitaet, s. profile_run_facade.hpp). Alle leer (Default) =>
     // bestandslog_active (:927-929) false => keine Registrierung/Dedup, Bau bleibt auf provision_all => byte-neutral.
     ex::BestandTransport                                                    bestand_transport;
     std::function<std::optional<std::string>(std::filesystem::path const&)> bestand_key_of;

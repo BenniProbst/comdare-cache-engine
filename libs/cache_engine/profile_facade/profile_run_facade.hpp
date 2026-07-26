@@ -96,10 +96,13 @@ struct ProfileRunArgs {
     // (main.cpp:840), und der Transport wird nur innerhalb dieses Aufrufs gebunden und benutzt. Ein Binden an eine
     // temporaere from_env()-Instanz ist damit strukturell ausgeschlossen.
     //
-    // HARTES DOPPEL-GATE (AUF-B3): der HOST belegt diese Felder NUR, wenn COMDARE_BESTANDSLOG=="true" UND der
-    // ArtifactCache nicht inert ist UND die owner-Identitaet gesetzt ist. Die Fassade GATET NICHT -- sie reicht
-    // durch. Alle leer/null (Default) => bestandslog_active false => KEINE Registrierung/Dedup und der Bau bleibt
-    // auf provision_all => golden/CI byte-identisch (Anti-Phantom).
+    // HARTES DOPPEL-GATE (AUF-B3, korrigiert 2026-07-26): der HOST belegt diese Felder NUR, wenn
+    // COMDARE_BESTANDSLOG=="true" UND cache.minio_enabled() UND die owner-Identitaet gesetzt ist. Die zweite
+    // Bedingung ist ausdruecklich minio_enabled() und NICHT !inert(): die vier Objekt-Verben, aus denen der
+    // BestandTransport besteht, gaten alle auf Ebene B (artifact_cache.hpp:487/507/535), waehrend inert() bereits
+    // bei blosser Ebene C (measure-drop) false ist -- ein Nur-drop-Lauf wuerde sonst einen toten Transport binden.
+    // Die Fassade GATET NICHT -- sie reicht durch. Alle leer/null (Default) => bestandslog_active false => KEINE
+    // Registrierung/Dedup und der Bau bleibt auf provision_all => golden/CI byte-identisch (Anti-Phantom).
     //
     // NUR ProfileRunArgs: ExperimentRunArgs (unten) bleibt bewusst OHNE bestand_*-Felder -- der
     // comdare_experiment-Weg ist in dieser Scheibe INERT (AUF-B2).
