@@ -15,9 +15,15 @@ namespace comdare::cache_engine::topics {
 
 /// Familien-Diskriminator des Achsen-Dachs.
 enum class AxisKind : unsigned char {
-    organ,              ///< Organ-/Tier-Binary-Achse (permutiert die binary_id, 17 Slots; INC-2d)
+    organ,              ///< Organ-/Tier-Binary-Achse (permutiert die binary_id, 18 Slots; STRUKT-R ORG-18)
     system_measurement, ///< Mess-System-Achse ("Blut", host-seitig immer praesent, golden-neutral)
     system_config,      ///< CEB-Konfig-System-Achse (Bau-/Steuer-Parameter, beruehrt NIE die binary_id)
+    /// Meta-Meta-Achse (Lane A A1, Auftrag Abschnitt 1.4): eine VOLLE CT-Haupt-Achse, die unter dem
+    /// external_utils-HUB haengt und selbst RT-Unter-Achsen tragen darf (externe HW, SIMD/AVX,
+    /// Mess-Framework; load_framework ist die ERSTE Meta-Meta). Rein ADDITIVER Diskriminator: solange
+    /// keine Achse ihn zurueckgibt, ist er verhaltens- und byte-neutral. Er ist KEIN drittes festes
+    /// Level -- die Rekursion bleibt offen (Layer-Modell D4: Unter-Achse == Voll-Achse).
+    system_meta_meta,
 };
 
 /// Das Dach: empty base, keine vtable, keine Familien-Semantik. Der Concept-Guard
