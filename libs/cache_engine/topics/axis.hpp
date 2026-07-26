@@ -18,11 +18,15 @@ enum class AxisKind : unsigned char {
     organ,              ///< Organ-/Tier-Binary-Achse (permutiert die binary_id, 18 Slots; STRUKT-R ORG-18)
     system_measurement, ///< Mess-System-Achse ("Blut", host-seitig immer praesent, golden-neutral)
     system_config,      ///< CEB-Konfig-System-Achse (Bau-/Steuer-Parameter, beruehrt NIE die binary_id)
-    /// Meta-Meta-Achse (Lane A A1, Auftrag Abschnitt 1.4): eine VOLLE CT-Haupt-Achse, die unter dem
-    /// external_utils-HUB haengt und selbst RT-Unter-Achsen tragen darf (externe HW, SIMD/AVX,
-    /// Mess-Framework; load_framework ist die ERSTE Meta-Meta). Rein ADDITIVER Diskriminator: solange
-    /// keine Achse ihn zurueckgibt, ist er verhaltens- und byte-neutral. Er ist KEIN drittes festes
-    /// Level -- die Rekursion bleibt offen (Layer-Modell D4: Unter-Achse == Voll-Achse).
+    /// SYSTEM-Meta-Meta-Achse (Lane A A1 / Lane C C-1', Auftrag Abschnitt 1.4): eine VOLLE CT-Haupt-Achse,
+    /// die unter dem external_utils-HUB haengt und selbst RT-Unter-Achsen tragen darf. NACHZUG R-G
+    /// (Ledger 69.1, Owner-KERN 26.07.): der Hub traegt AUSSCHLIESSLICH System-Meta-Metas -- SIMD/AVX,
+    /// externe Hardware, spaeter GPU/FPGA/NPU. Der frueher hier genannte Halbsatz "Mess-Framework;
+    /// load_framework ist die ERSTE Meta-Meta" ist SUPERSEDED: load_framework ist eine Meta-Meta-
+    /// HAUPT-Achse der MESS-Achsen (Planer-Stufe) und verlaesst die System-Welt ersatzlos.
+    /// Rein ADDITIVER Diskriminator: solange keine Achse ihn zurueckgibt, ist er verhaltens- und
+    /// byte-neutral. Er ist KEIN drittes festes Level -- die Rekursion bleibt offen (Layer-Modell D4:
+    /// Unter-Achse == Voll-Achse). Ein eigener Diskriminator fuer den Mess-Realm ist offen (RF-1).
     system_meta_meta,
 };
 

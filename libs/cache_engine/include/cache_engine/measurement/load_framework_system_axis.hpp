@@ -6,6 +6,16 @@
 // neutral), deren Eigenschaften ueber das Pruef-Dock als Settings an die Tier-Binary gehen.
 // Diese Achse ist die Single-Source des Unter-Achsen-Labels "workload" (setting_label-Konvention
 // "workload.workload_id=X" -> two_phase_valid, cache_engine_builder_iterator.hpp:789-793).
+//
+// REALM-KLASSIFIKATION (NACHZUG R-G, Ledger 69.1, Owner-KERN 26.07. -- KOMMENTAR-ONLY, kein Code):
+// Diese Achse ist KEINE System-Haupt-Achse und AUCH KEINE System-Meta-Meta unter dem external_utils-Hub.
+// Owner-Einordnung: "load_framework wird rein den Mess-Achsen-Typen als weitere Meta-Meta-Hauptachse
+// zugeordnet" -- der PLANER generiert die Loads und DELEGIERT sie ans CEB-Interface, das erfaehrt, welche
+// Binary-Rekombination gegen welche Lasten gemessen werden soll. Der Umzug in den Mess-/Planer-Realm
+// (raus aus kSystemAxisOrder/kSystemAxisCodeVersions, Registry-Top-Level, Versions-Traeger in die
+// Mess-Framework-Registry) ist ein BYTE-Vorgang und liegt in Paket A3 bzw. IV.2.4 im EINEN Byte-Fenster
+// hinter O-8 -- deshalb bleibt dieser Header hier bis dahin unveraendert im System-Namensraum stehen.
+// Lane C (C-1') instanziiert diese Achse ausdruecklich NICHT als Hub-Glied.
 
 #pragma once
 

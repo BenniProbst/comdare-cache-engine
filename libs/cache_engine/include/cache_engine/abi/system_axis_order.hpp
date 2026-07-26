@@ -17,9 +17,11 @@
 // A1 traegt AUSSCHLIESSLICH den IST-Stand (5 Achsen, Reihenfolge == kSystemAxisCodeVersions).
 // Die finale System-Achsen-Ordnung legt Bauplan-v3 fest -- KEINE Vorwegnahme hier: nach dem
 // Owner-KERN sind es GENAU DREI Haupt-Achsen (target_isa, operating_system, external_utils);
-// load_framework ist eine META-META unter external_utils, NICHT eine Haupt-Achse; compiler wird
-// Unter-Achsen-GRUPPE, scheduling Unter-Achse von target_isa. Erst A3 setzt die Ordnung + weitet
-// die Wache auf "Suffix-Emitter == kSystemAxisOrder == XML-Kopf" aus.
+// load_framework VERLAESST die Ordnung Richtung MESS-Realm (Planer-Meta-Meta-Haupt-Achse) -- NACHZUG
+// R-G, Ledger 69.1: die frueher hier notierte Zuordnung "META-META unter external_utils" ist
+// SUPERSEDED, der Hub traegt nur SYSTEM-Meta-Metas; der Teil "NICHT eine Haupt-Achse" bleibt richtig.
+// compiler wird Unter-Achsen-GRUPPE, scheduling Unter-Achse von target_isa. Erst A3 setzt die Ordnung
+// + weitet die Wache auf "Suffix-Emitter == kSystemAxisOrder == XML-Kopf" aus.
 
 #pragma once
 
