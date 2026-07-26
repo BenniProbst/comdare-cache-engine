@@ -338,21 +338,46 @@ public:
         return false; // MISS (leerer Praefix / Netzfehler) -> lokal bauen; dll_is_current bleibt der Arbiter
     }
 
+    /// FIX A (2026-07-26, Regression zu G4a f3a6e68d): der Remote-Praefix eines Prune-Laufs kommt aus der LOKALEN
+    /// `perm.dll.version` NEBEN dem Artefakt -- nicht aus einem uebergebenen/env-geratenen Wert. Der Parameter
+    /// `build_version_fallback` greift nur noch, wenn die Sidecar-Datei fehlt oder leer ist.
+    ///
+    /// WARUM: push_tier_binary legt die Objekte unter cache_key_prefix(<PER-PERM build_version>)/<stem> ab -- die
+    /// Facade haengt je Permutation "+cxx=...+opt=...+ext=..." an (profile_run_entry.hpp), und GENAU dieser
+    /// suffigierte String steht auch in der lokalen `.version` (write_version_sidecar schreibt cfg_.build_version).
+    /// Der Prune-Aufrufer kannte den Suffix nicht und reichte den nackten Basis-Wert ("m3v2") herein -> der Praefix
+    /// zeigte ins Leere -> mc_remote_exists immer false -> JEDER Stem endete auf "behalten", pruned=0, DAUERHAFT und
+    /// unauffaellig (nicht-fatal). Die Sidecar-Datei ist die einzige Quelle, die per Konstruktion mit dem Push
+    /// uebereinstimmt: derselbe String, der die Binary gestempelt hat. Damit ist der Fehler strukturell nicht
+    /// wiederholbar -- ein neues build_version-Segment wandert automatisch in beide Praefixe.
+    ///
+    /// Der Inhalt wird BEWUSST NICHT normalisiert (kein Trim): write_version_sidecar schreibt den String roh und ohne
+    /// Zeilenende, push_tier_binary nutzt denselben String. Jede Normalisierung hier waere eine zweite Wahrheit, die
+    /// vom Push abweichen koennte. Derselbe rohe Inhalt dient unten zusaetzlich dem Byte-Gleichheits-Vergleich gegen
+    /// die Remote-Sidecar -- Praefix-Quelle und Provenienz-Beweis stammen also aus EINER Lesung.
+    [[nodiscard]] std::string prune_key_base(std::filesystem::path const& bin_dir,
+                                             std::string const&           build_version_fallback) const {
+        std::string const stem           = bin_dir.filename().string();
+        std::string const local_version  = read_text_file(bin_dir / "perm.dll.version");
+        std::string const prefix_version = local_version.empty() ? build_version_fallback : local_version;
+        return cache_key_prefix(prefix_version) + "/" + stem;
+    }
+
     /// G5 (P-B, Ledger Section 65/66): PRUNE lokal->0 NACH verifiziertem Remote-Bestand. Loescht die lokale Tier-
     /// Binary + ihre zwei Sidecars (prunable_artifacts) NUR, wenn der Objekt-Store sie BEWEISBAR spiegelt: remote
     /// perm.dll.version existiert UND ist byte-gleich zur lokalen .version (Provenienz) UND die remote perm.dll-
     /// Groesse == lokale. JEDER Fehler-/Zweifel-Pfad => KEIN Loeschen (behalten). NIEMALS Messdaten (nur die 3
     /// prunable_artifacts; result.csv/measure_out/prune.log bleiben). Ein [PRUNE]-Testat je Stem an bin_dir/
     /// perm.prune.log (append, bleibt). No-Op (skipped) wenn inert (kein minio) oder keine lokale Binary.
+    /// Der Praefix stammt aus prune_key_base (s. FIX A dort); `build_version` ist nur noch der Fallback.
     [[nodiscard]] PruneOutcome verify_remote_then_prune(std::filesystem::path const& bin_dir,
                                                         std::string const&           build_version) const {
         if (!minio_enabled())
             return {PruneState::skipped, "inert"}; // opt-in: kein minio => nie loeschen (byte-neutral)
-        std::string const           stem     = bin_dir.filename().string();
-        std::string const           key_base = cache_key_prefix(build_version) + "/" + stem;
-        std::filesystem::path const dll      = bin_dir / "perm.dll";
-        std::filesystem::path const version  = bin_dir / "perm.dll.version";
-        std::filesystem::path const log      = bin_dir / "perm.prune.log";
+        std::string const           stem    = bin_dir.filename().string();
+        std::filesystem::path const dll     = bin_dir / "perm.dll";
+        std::filesystem::path const version = bin_dir / "perm.dll.version";
+        std::filesystem::path const log     = bin_dir / "perm.prune.log";
 
         std::error_code ec;
         if (!std::filesystem::exists(dll, ec) || !std::filesystem::exists(version, ec)) {
@@ -365,6 +390,8 @@ public:
             log_prune_testat(log, stem, false, "local_size_unreadable");
             return {PruneState::skipped, "local_size_unreadable"};
         }
+        // FIX A: Praefix erst JETZT bilden -- er haengt an der eben gelesenen lokalen .version, nicht am Parameter.
+        std::string const key_base = prune_key_base(bin_dir, build_version);
 
         // Remote-Provenienz: remote perm.dll.version existiert? -> nach tmp holen -> Inhalt lesen (nullopt sonst).
         std::optional<std::string> remote_version;

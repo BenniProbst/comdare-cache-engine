@@ -1205,9 +1205,12 @@ private:
         // NICHT-FATAL (D2): kein FAIL=1, `|| true`. Ein fehlgeschlagener Prune laesst die lokalen Artefakte stehen --
         // das ist der sichere Ausgang; die Messung daran scheitern zu lassen waere unverhaeltnismaessig. Sichtbar
         // bleibt er trotzdem: der Treiber gibt selbst "[PRUNE-TESTAT] verified=.. pruned=.. behalten=.. skipped=.."
-        // aus (02_messung_driver/main.cpp). build_version wird bewusst NICHT gesetzt -- der Treiber nimmt seinen
-        // eigenen Default; weicht er vom real gebauten ab, findet verify_remote_then_prune den Remote-Stand nicht und
-        // entscheidet "behalten". Ein Mismatch degradiert also zu NICHT-Loeschen, nie zu einem falschen Loeschen.
+        // aus (02_messung_driver/main.cpp). COMDARE_BUILD_VERSION wird bewusst NICHT gesetzt: der Remote-Praefix
+        // stammt seit FIX A NICHT mehr aus dieser Variablen, sondern aus der lokalen perm.dll.version NEBEN jedem
+        // Artefakt (artifact_cache.hpp::prune_key_base) -- also aus genau dem per-Perm-String, unter dem
+        // push_tier_binary abgelegt hat. Der Treiber-Default dient nur noch als Rueckfall fuer Stems ohne Sidecar.
+        // (Vor FIX A zeigte der Praefix auf den nackten Basis-Wert und traf nie -> pruned=0 dauerhaft; s. den
+        // Folge-Commit zu f3a6e68d.)
         s += "      if [ \"${COMDARE_STORAGE_CACHE:-}\" = \"true\" ]; then\n";
         for (auto const& p : perms) {
             std::string const idx = std::to_string(p.index);
