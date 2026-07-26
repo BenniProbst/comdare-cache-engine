@@ -215,7 +215,8 @@ struct LazyRunConfig {
     BestandTransport                                                        bestand_transport;
     std::function<std::optional<std::string>(std::filesystem::path const&)> bestand_key_of;
     std::string                                                             bestand_doc_key;
-    // #46b I1b (Planer-getriebener Slice-Bau, opt-in unter bestandslog_active): der Producer slict die SELEKTIERTEN
+    // #46b I1b (Planer-getriebener Slice-Bau, opt-in unter bestandslog_active UND provision_only -- s.
+    // planer_driven_active): der Producer slict die SELEKTIERTEN
     // indices in 4096er-Fenster (Determinismus A) und baut Fenster fuer Fenster; je Slice ein Reservierungs-Lifecycle
     // (pro-forma -> Kalibrierung eta_s+avg_size -> Done, PromiseGuard). bestand_present ist der Host-injizierte Miss-
     // Scan (Default absent => "alles fehlt" => baut alles; INFORMIERT nur die Reservierung/ETA, filtert den Bau NICHT;
@@ -805,6 +806,12 @@ struct LazyRunResult {
 // akkumuliert den builds-Vektor + aggregiert die BuildStats -> IDENTISCH zu EINEM provision_all(alle indices)
 // (dll_is_current bleibt der Skip-Arbiter). Je Slice ein Reservierungs-Lifecycle (pro-forma -> Kalibrierung
 // eta_s+avg_size -> Done) mit PromiseGuard-Release bei Abbruch -- nur wenn Transport+Doc-Key gesetzt (sonst inert).
+//
+// Ertuechtigung 26.07.: alle drei Reservierungs-Schreibvorgaenge (pro-forma / Done / Release) laufen durch den EINEN
+// gelockten Zyklus store_reservation_locked (N7-D1) und ihr Ergebnis wird AUSGEWERTET (B13: der frueher verworfene
+// Rueckgabewert machte jeden Store-Fehler unsichtbar). Die pro-forma-Frist ist eine ECHTE 30min-Frist (B11) --
+// make_slice_reservation leitet sie aus EINEM now ab. Ein misslungener Eintrag ist NIE ein Bau-Fehler: das
+// Bestandslog ist Buchhaltung, der Bau laeuft weiter und die Zahl der Fehlschlaege steht am Ende als EINE Zeile.
 [[nodiscard]] inline std::vector<BuildResult> run_planer_driven_provision(BuildOrchestrator&              orch,
                                                                           StaticBinaryView const&         view,
                                                                           std::vector<std::size_t> const& indices,
@@ -813,32 +820,38 @@ struct LazyRunResult {
     bestandslog::SlicePlanQueue queue;
     bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, cfg.bestand_present);
 
-    bool const reserve           = static_cast<bool>(cfg.bestand_transport.store) &&
-                                   static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
-    auto       store_reservation = [&cfg](bestandslog::BatchReservierung const& r) {
-        bestandslog::BestandslogDocument doc;
-        doc.genus       = bestandslog::Genus::binary;
-        doc.created_utc = bestandslog::now_utc_iso();
-        doc.reservierungen.push_back(r);
-        (void)bestandslog::store_document_merged(cfg.bestand_transport, cfg.bestand_doc_key, doc);
+    bool const reserve = static_cast<bool>(cfg.bestand_transport.store) &&
+                         static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
+    // Der Schreib-Kontext dieses Prozesses: Owner-Token (fail-closed, wenn der Host keines gesetzt hat), die ttl aus
+    // ihrer EINEN Heimat (LockRecord-Default) und die System-Uhr als NowFn (die Tests skripten sie an der Naht in
+    // builder_registration.hpp, nicht hier).
+    bestandslog::LockOwner const me     = bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine);
+    int const                    ttl_s  = bestandslog::default_lock_ttl_s();
+    bestandslog::NowFn const     now_fn = bestandslog::NowFn{&bestandslog::system_now_epoch_s};
+    // Die EINE Reservierungs-Schreibstelle dieses Laufs (gelockt); `was` benennt die Station im Lifecycle.
+    auto store_reservation = [&cfg, &me, ttl_s, &now_fn](bestandslog::BatchReservierung const& r,
+                                                         std::string_view                      was) {
+        return bestandslog::store_reservation_locked(cfg.bestand_transport, cfg.bestand_doc_key, me, ttl_s, now_fn, r,
+                                                     was);
     };
+    std::size_t res_fehler = 0; // nicht persistierte Reservierungs-Schreibvorgaenge (Testat am Ende)
 
     std::size_t slice_seq = 0;
     while (auto plan = queue.pop()) {
         bestandslog::BatchReservierung           res;
         std::optional<bestandslog::PromiseGuard> guard;
         if (reserve) {
-            res = bestandslog::make_pro_forma_reservation(
-                cfg.bestand_owner_uuid + "/" + std::to_string(slice_seq), bestandslog::BatchTyp::tier,
-                cfg.bestand_maschine, static_cast<unsigned>(cfg.build_parallelism),
+            res = bestandslog::make_slice_reservation(
+                cfg.bestand_owner_uuid, slice_seq, cfg.bestand_maschine, static_cast<unsigned>(cfg.build_parallelism),
                 plan->view_indices.empty() ? 0 : static_cast<std::uint64_t>(plan->view_indices.front()),
-                static_cast<std::uint64_t>(plan->view_indices.size()), bestandslog::now_utc_iso(),
-                bestandslog::now_utc_iso());
-            store_reservation(res);
+                static_cast<std::uint64_t>(plan->view_indices.size()), now_fn());
+            if (!store_reservation(res, "pro-forma-Reservierung")) ++res_fehler;
             // PromiseGuard: bei Abbruch (Exception/early-return) wird die Reservierung released -> Takeover moeglich.
+            // Best-effort im Abbau-Pfad: das Ergebnis ist hier nicht mehr zaehlbar (der Zaehler lebt kuerzer als der
+            // Wurf), die Testat-Zeile schreibt der gelockte Zyklus selbst.
             guard.emplace([&store_reservation, res]() mutable {
                 bestandslog::mark_released(res);
-                store_reservation(res);
+                (void)store_reservation(res, "Release-Reservierung");
             });
         }
 
@@ -866,12 +879,18 @@ struct LazyRunResult {
             double const wall_s = std::chrono::duration<double>(t1 - t0).count();
             bestandslog::apply_calibration(res, bestandslog::EtaResult{wall_s, bestandslog::average_size_bytes(sizes)});
             bestandslog::mark_done(res);
-            store_reservation(res);
+            if (!store_reservation(res, "Done-Reservierung")) ++res_fehler;
             if (guard) guard->commit(); // erfolgreicher Slice -> kein Release
         }
         for (auto& b : part) builds.push_back(std::move(b));
         ++slice_seq;
     }
+    // B13-Testat: die Fehlschlaege der Buchhaltung EINMAL beziffert (je Slice zwei planmaessige Schreibvorgaenge).
+    // Kein Erfolgs-Haken ohne Ausgabe -- und kein Bau-Abbruch: die Binaries dieses Laufs sind davon unberuehrt.
+    if (res_fehler > 0)
+        std::cerr << "[bestandslog] warn: " << res_fehler << " von " << (2 * slice_seq)
+                  << " Reservierungs-Schreibvorgaengen nicht persistiert (Zeilen oben) -- der Bau ist unberuehrt\n"
+                  << std::flush;
     return builds; // Producer-Thread joined im SlicePlanner-dtor (RAII)
 }
 
@@ -972,11 +991,13 @@ struct LazyRunResult {
         });
     }
 
-    // #46b I1b (opt-in): bei bestandslog_active treibt der Planer den Bau slice-weise (Determinismus A -- DERSELBE
-    // builds-Vektor + dieselben aggregierten BuildStats wie der EINE provision_all; je Slice Reservierung + avg_size).
-    // Default (inaktiv) => der EINE provision_all => byte-identisch zum Ist.
+    // #46b I1b (opt-in): im BEREITSTELLUNGS-Lauf mit aktivem Bestandslog treibt der Planer den Bau slice-weise
+    // (Determinismus A -- DERSELBE builds-Vektor + dieselben aggregierten BuildStats wie der EINE provision_all; je
+    // Slice Reservierung + avg_size). Das Gate ist DOPPELT (planer_driven_active, B5): im MESS-Lauf wuerden die
+    // Reservierungen je Fenster zwei Dokument-Roundtrips mit je mehreren mc-Spawns in die 1-Thread-Messung legen --
+    // verboten (Batch-Typen nie mischen, Mess-Exklusivitaet). Inaktiv => der EINE provision_all => byte-identisch.
     std::vector<BuildResult> builds;
-    if (bestandslog_active)
+    if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
         builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats);
     else
         builds = orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
@@ -987,12 +1008,15 @@ struct LazyRunResult {
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
 
     // #46b I1 (opt-in): die frisch gebauten Binaries EINMAL ins Binary-Bestandslog mergen (single-threaded,
-    // deterministisch, store_document_merged = Union statt blinder Ersetzung). No-Op => byte-neutral, wenn inaktiv.
+    // deterministisch, store_document_merged = Union statt blinder Ersetzung, GELOCKT ueber den einen Zyklus). No-Op
+    // => byte-neutral, wenn inaktiv. Bleibt der Schreibvorgang aus (nullopt), bleiben die Eintraege vorgemerkt
+    // (Re-Queue) und die Zeile sagt es -- die Details stehen in der Testat-Zeile des Zyklus darueber.
     // Die cerr-Diagnose ist golden-/CSV-neutral (kein Mess-Datum, kein binary_id-Byte -- Muster wie die pruef-Zeilen).
     if (bestandslog_active) {
-        auto const reg = lager.flush(cfg.bestand_transport, cfg.bestand_doc_key, bestandslog::now_utc_iso());
+        auto const reg = lager.flush(cfg.bestand_transport, cfg.bestand_doc_key, bestandslog::now_utc_iso(),
+                                     bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine));
         std::cerr << "[bestandslog] lager=" << lager.lager_size() << " hits=" << lager.lager_hits()
-                  << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (store-fehler)") << "\n"
+                  << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (nicht persistiert)") << "\n"
                   << std::flush;
     }
 
