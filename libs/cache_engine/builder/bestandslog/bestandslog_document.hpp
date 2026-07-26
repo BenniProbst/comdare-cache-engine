@@ -29,8 +29,8 @@
 // filterbar und ohne Trennzeichen-Mehrdeutigkeit bleibt. Leere Zell-Felder sind zulaessig und bedeuten
 // "keine Zell-Koordinate gemeldet" (Default-neutral: ein Host, der sie nicht setzt, deduped wie zuvor).
 //
-// Grammatik (syntax_version 2):
-//   <bestandslog syntax_version="2" semantics_version="1" genus="binary|measurement"
+// Grammatik (syntax_version 3):
+//   <bestandslog syntax_version="3" semantics_version="1" genus="binary|measurement"
 //                doc_revision="N" created_utc="...">
 //     <bestand>
 //       <eintrag key_sha512="hex128" combo="..." opt="O2" simd="avx2" pfad="..." bytes="N"
@@ -39,9 +39,12 @@
 //     <reservierungen>
 //       <batch id="owner_uuid/seq" typ="tier|ceb|planer_block" slice_begin="0" slice_count="4096"
 //              maschine="prod1" threads="32" reserviert_utc="..." pro_forma_bis_utc="..."
-//              eta_s="" avg_size_bytes="" status="offen|done|released"/>
+//              eta_s="" avg_size_bytes="" status="offen|done|released"
+//              [ceb_legende="[a,b,c]"] [ceb_key_sha512="hex128"]/>
 //     </reservierungen>
 //   </bestandslog>
+// Die beiden ceb_*-Attribute am <batch> sind OPTIONAL (in [] notiert): sie stehen nur im Dokument,
+// wenn die Reservierung eine CEB-Bindung traegt (planer_block), und dann als ZWEI getrennte Felder.
 // doc_revision ist monoton -> Grundlage des B2-Record-Union-Merge (fetch->merge->store). eta_s und
 // avg_size_bytes bleiben leer, bis die B4-Mini-Batch-Kalibrierung sie fuellt; ihre Wire-Form ist
 // STRING (leer == noch nicht geschaetzt), die numerische Arithmetik liegt im eta_estimator (B4).
@@ -70,8 +73,21 @@ namespace comdare::cache_engine::builder::bestandslog {
 // syntax-Bump, weil document_syntax_supported ein Dokument mit HOEHERER Grammatik ablehnt. Umgekehrt
 // liest ein v2-Leser ein v1-Dokument treu (fehlende Attribute = leere Zell-Koordinaten). semantics_version
 // bleibt 1: an den Feldern, die ein v1-Leser kennt, aendert sich keine Bedeutung.
+//
+// 2 -> 3 (Owner-Abnahme zur Versions-Bindung): zwei OPTIONALE Attribute am <batch> --
+// ceb_legende (die [a,b,c]-Mess-Kombinatorik der emittierenden CEB-Strecke) und ceb_key_sha512
+// (128-hex SHA512 der CEB). Sie tragen die vom Plan verlangte Bindung "fuer diese Version" als
+// EIGENE FELDER; die id bleibt unberuehrt (§66-N3: je Achse ihr eigenes Feld, KEINE Fusion in
+// Signaturen/Schluessel/Stempel -- eine in die id gequetschte Version waere genau diese Fusion).
+// Nach oben ist auch das ein Wire-Bruch: ein v2-Leser schluckte die Attribute stillschweigend und
+// hielte eine versions-FREMDE Reservierung fuer die eigene -- deshalb lehnt document_syntax_supported
+// beim v2-Leser ein v3-Dokument ab. Nach unten liest ein v3-Leser v1/v2 treu (fehlende Attribute =
+// leere Felder, kein Fehler). semantics_version bleibt 1: an den Feldern, die ein v2-Leser kennt,
+// aendert sich keine Bedeutung.
+// Emittiert werden die zwei Attribute NUR gefuellt -> eine Reservierung ohne CEB-Bindung ist in der
+// Ausgabe byte-identisch zur v2-Form; nur der Header-Stempel unterscheidet die Dokumente.
 // ---------------------------------------------------------------------------
-inline constexpr int kSyntaxVersion    = 2;
+inline constexpr int kSyntaxVersion    = 3;
 inline constexpr int kSemanticsVersion = 1;
 
 // Genus des Bestandslogs -- die zwei Bestands-Gattungen (§62-B, B3-Factory instanziiert je Genus).
@@ -198,6 +214,15 @@ struct BatchReservierung {
     std::string   eta_s;             // geschaetzte Restzeit in Sekunden (leer = noch nicht kalibriert)
     std::string   avg_size_bytes;    // avg-Binary-Groesse des Blocks (leer = noch nicht kalibriert)
     BatchStatus   status = BatchStatus::offen;
+    // Die CEB-BINDUNG (syntax_version 3, optional -- leer = keine Bindung gemeldet). ZWEI getrennt
+    // geklammerte Felder statt eines fusionierten Schluessels: die Legende ist die Mess-Achsen-Klammer
+    // der CEB, der SHA512 ist ihr Binary-Fingerprint; beide beantworten "welche Version" auf
+    // verschiedenen Ebenen und bleiben deshalb einzeln lesbar und filterbar. Getragen werden sie vom
+    // planer_block (Vorreservierung eines CEB-Compiles); tier-Batches lassen sie leer.
+    // Stehen am ENDE der Feld-Folge, weil die Attribut-Reihenfolge des Emitters Teil der
+    // Byte-Stabilitaet ist -- neue Felder kommen hinten dazu, nie zwischen die bestehenden.
+    std::string ceb_legende;    // z.B. "[a,b,c]" (leer = nicht gemeldet)
+    std::string ceb_key_sha512; // 128 hex (leer = nicht gemeldet)
 
     friend bool operator==(BatchReservierung const&, BatchReservierung const&) = default;
 };
@@ -329,6 +354,17 @@ namespace detail {
         out += detail::xml_encode(r.avg_size_bytes);
         out += "\" status=\"";
         out += to_string(r.status);
+        // syntax_version 3: die CEB-Bindung nur, wenn sie gefuellt ist. Eine Reservierung ohne Bindung
+        // emittiert damit exakt die v2-Bytes (der Grund, weshalb die Felder ANS ENDE gehoeren und der
+        // Emitter sie nicht als leere Attribute schreibt).
+        if (!r.ceb_legende.empty()) {
+            out += "\" ceb_legende=\"";
+            out += detail::xml_encode(r.ceb_legende);
+        }
+        if (!r.ceb_key_sha512.empty()) {
+            out += "\" ceb_key_sha512=\"";
+            out += detail::xml_encode(r.ceb_key_sha512);
+        }
         out += "\"/>\n";
     }
     out += "  </reservierungen>\n";
@@ -389,6 +425,10 @@ namespace detail {
             auto s               = batch_status_from_string(b->attr("status"));
             if (!s) return std::nullopt;
             br.status = *s;
+            // CEB-Bindung (syntax_version 3): OPTIONAL -- fehlende Attribute ergeben leere Strings
+            // ("nicht gemeldet"), kein Fehler. Damit bleibt jedes v1-/v2-Dokument treu lesbar.
+            br.ceb_legende    = b->attr("ceb_legende");
+            br.ceb_key_sha512 = b->attr("ceb_key_sha512");
             d.reservierungen.push_back(std::move(br));
         }
     }

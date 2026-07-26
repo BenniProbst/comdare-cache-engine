@@ -234,6 +234,11 @@ bl::BestandslogDocument random_document(std::mt19937& rng, std::size_t n_bestand
         r.id     = "uuid-" + std::to_string(pick(3)) + "/" + std::to_string(pick(8));
         r.status = kStatus[pick(3)];
         r.eta_s  = pick(2) == 0 ? "" : "1800.000"; // leere eta_s ist der Gleichstands-Tiebreak
+        // CEB-Bindung mal gesetzt, mal nicht -> die Aequivalenz-Wache deckt auch v2-/v3-Mischungen ab.
+        if (pick(2) == 0) {
+            r.ceb_legende    = "[a,b,c]";
+            r.ceb_key_sha512 = std::string(128, static_cast<char>('a' + pick(kKeys)));
+        }
         d.reservierungen.push_back(std::move(r));
     }
     return d;
@@ -680,6 +685,90 @@ TEST(G3BestandslogLock, MergeMapHandlesDuplicateIdentitiesLikeReference) {
     auto const res = bl::merge_documents(res_a, res_b);
     EXPECT_EQ(res, merge_documents_reference(res_a, res_b));
     ASSERT_EQ(res.reservierungen.size(), 2u);
+}
+
+// ---------------------------------------------------------------------------
+// syntax_version 3: die CEB-Bindung (ceb_legende / ceb_key_sha512) reist durch den Merge, ohne dass
+// der Merge sie kennt -- die Konflikt-Aufloesung waehlt ganze RECORDS, nicht Felder.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogLock, MergeCarriesCebBindingThrough) {
+    auto mit_bindung = [](std::string id, bl::BatchStatus status) {
+        auto r           = mk_res(std::move(id), status, "prod1");
+        r.typ            = bl::BatchTyp::planer_block;
+        r.ceb_legende    = "[a,b,c]";
+        r.ceb_key_sha512 = std::string(128, 'e');
+        return r;
+    };
+
+    // Fremde ids: beide Records ueberleben, die Bindung unangetastet.
+    bl::BestandslogDocument a;
+    a.reservierungen.push_back(mit_bindung("uuid-A/plan/0", bl::BatchStatus::offen));
+    bl::BestandslogDocument b;
+    b.reservierungen.push_back(mk_res("uuid-B/0", bl::BatchStatus::offen, "prod2")); // v2-Form, ohne Bindung
+
+    auto const m = bl::merge_documents(a, b);
+    ASSERT_EQ(m.reservierungen.size(), 2u);
+    EXPECT_EQ(m.reservierungen[0].ceb_legende, "[a,b,c]");
+    EXPECT_EQ(m.reservierungen[0].ceb_key_sha512, std::string(128, 'e'));
+    EXPECT_TRUE(m.reservierungen[1].ceb_legende.empty()); // v2-Record bleibt v2-Record
+    EXPECT_EQ(m, merge_documents_reference(a, b));
+
+    // GLEICHE id, Fortschritt gewinnt: der GANZE Record des Gewinners zaehlt. Traegt der Gewinner die
+    // Bindung, reist sie mit; traegt er sie nicht, ist sie fort. Das ist die bestehende Record-Regel,
+    // hier bewusst festgenagelt -- ein Feld-weiser Merge waere eine andere Semantik und ist nicht gebaut.
+    bl::BestandslogDocument offen_mit;
+    offen_mit.reservierungen.push_back(mit_bindung("uuid-A/plan/0", bl::BatchStatus::offen));
+    bl::BestandslogDocument done_ohne;
+    done_ohne.reservierungen.push_back(mk_res("uuid-A/plan/0", bl::BatchStatus::done, "prod1"));
+
+    auto const gewinner_ohne = bl::merge_documents(offen_mit, done_ohne);
+    ASSERT_EQ(gewinner_ohne.reservierungen.size(), 1u);
+    EXPECT_EQ(gewinner_ohne.reservierungen[0].status, bl::BatchStatus::done);
+    EXPECT_TRUE(gewinner_ohne.reservierungen[0].ceb_legende.empty());
+    EXPECT_EQ(gewinner_ohne, merge_documents_reference(offen_mit, done_ohne));
+
+    // Umgekehrt: traegt der done-Record die Bindung, ueberlebt sie den Merge in beiden Richtungen.
+    bl::BestandslogDocument done_mit;
+    done_mit.reservierungen.push_back(mit_bindung("uuid-A/plan/0", bl::BatchStatus::done));
+    bl::BestandslogDocument offen_ohne;
+    offen_ohne.reservierungen.push_back(mk_res("uuid-A/plan/0", bl::BatchStatus::offen, "prod1"));
+    for (auto const& m2 : {bl::merge_documents(offen_ohne, done_mit), bl::merge_documents(done_mit, offen_ohne)}) {
+        ASSERT_EQ(m2.reservierungen.size(), 1u);
+        EXPECT_EQ(m2.reservierungen[0].status, bl::BatchStatus::done);
+        EXPECT_EQ(m2.reservierungen[0].ceb_legende, "[a,b,c]");
+    }
+}
+
+TEST(G3BestandslogLock, StoreDocumentMergedAcceptsV2RemoteAndKeepsCebBinding) {
+    // Der Weg, den der Planer nimmt: das Remote ist noch ein v2-Dokument (kein ceb_*), lokal steht ein
+    // planer_block MIT Bindung. Der Syntax-Guard laesst v2 durch (nach unten vertraeglich), der Merge
+    // vereinigt, und das geschriebene Dokument traegt die Bindung samt v3-Stempel.
+    FakeStore s;
+    auto      t = s.transport();
+
+    bl::BestandslogDocument remote;
+    remote.syntax_version = 2;
+    remote.reservierungen.push_back(mk_res("uuid-B/0", bl::BatchStatus::offen, "prod2"));
+    s.objs[kDocKey] = bl::emit_document(remote);
+
+    bl::BestandslogDocument local;
+    auto                    block = mk_res("uuid-A/plan/0", bl::BatchStatus::offen, "prod1");
+    block.typ                     = bl::BatchTyp::planer_block;
+    block.ceb_legende             = "[a,b,c]";
+    block.ceb_key_sha512          = std::string(128, 'e');
+    local.reservierungen.push_back(block);
+
+    auto const p = store_probe(t, kDocKey, local);
+    ASSERT_TRUE(p.written.has_value());
+    EXPECT_EQ(p.cerr_zeilen, 0u);
+    EXPECT_EQ(p.written->syntax_version, bl::kSyntaxVersion); // max(2, 3) -> 3
+    ASSERT_EQ(p.written->reservierungen.size(), 2u);
+
+    auto const doc = bl::parse_bestandslog(s.objs[kDocKey]);
+    ASSERT_TRUE(doc.has_value());
+    ASSERT_EQ(doc->reservierungen.size(), 2u);
+    EXPECT_EQ(doc->reservierungen[0].ceb_legende, "[a,b,c]"); // sortiert: uuid-A/plan/0 zuerst
+    EXPECT_EQ(doc->reservierungen[0].ceb_key_sha512, std::string(128, 'e'));
 }
 
 // ---------------------------------------------------------------------------

@@ -48,7 +48,9 @@ bl::BestandslogDocument make_reference_binary() {
                                                      .pro_forma_bis_utc = "2026-07-23T12:30:01Z",
                                                      .eta_s             = "912.5",
                                                      .avg_size_bytes    = "428032",
-                                                     .status            = bl::BatchStatus::offen});
+                                                     .status            = bl::BatchStatus::offen,
+                                                     .ceb_legende       = "", // tier-Batch: keine CEB-Bindung
+                                                     .ceb_key_sha512    = ""});
     d.reservierungen.push_back(bl::BatchReservierung{.id                = "owner-1234/1",
                                                      .typ               = bl::BatchTyp::planer_block,
                                                      .slice_begin       = 4096,
@@ -59,7 +61,11 @@ bl::BestandslogDocument make_reference_binary() {
                                                      .pro_forma_bis_utc = "2026-07-23T12:30:02Z",
                                                      .eta_s             = "", // planer_block: keine ETA (B7)
                                                      .avg_size_bytes    = "",
-                                                     .status            = bl::BatchStatus::done});
+                                                     .status            = bl::BatchStatus::done,
+                                                     // planer_block TRAEGT die CEB-Bindung (syntax_version 3):
+                                                     // zwei getrennte Felder, keine Fusion in die id.
+                                                     .ceb_legende    = "[a,b,c]",
+                                                     .ceb_key_sha512 = std::string(128, 'e')});
     return d;
 }
 
@@ -256,23 +262,109 @@ TEST(G3BestandslogDocument, ReadsLegacyV1DocumentWithoutCellAttributes) {
     EXPECT_EQ(p->bestand[0].bytes, 7u);
 }
 
-// Der Syntax-Bump ist gesetzt und schuetzt genau nach unten: ein v1-LESER lehnt ein v2-Dokument ab.
-TEST(G3BestandslogDocument, SyntaxVersionBumpedToTwo) {
-    EXPECT_EQ(bl::kSyntaxVersion, 2);
+// Der Syntax-Bump ist gesetzt und schuetzt genau nach unten: ein aelterer LESER lehnt ein neueres
+// Dokument ab, waehrend der heutige Leser alle aelteren Grammatiken vertraegt.
+TEST(G3BestandslogDocument, SyntaxVersionBumpedToThree) {
+    EXPECT_EQ(bl::kSyntaxVersion, 3);
     EXPECT_EQ(bl::kSemanticsVersion, 1);
 
     bl::BestandslogDocument d;
-    EXPECT_EQ(d.syntax_version, 2); // frisch erzeugte Dokumente tragen die neue Grammatik
-    EXPECT_NE(bl::emit_document(d).find("syntax_version=\"2\""), std::string::npos);
+    EXPECT_EQ(d.syntax_version, 3); // frisch erzeugte Dokumente tragen die neue Grammatik
+    EXPECT_NE(bl::emit_document(d).find("syntax_version=\"3\""), std::string::npos);
 
-    // Ein v1-Dokument bleibt fuer den heutigen Leser vertraeglich (Rueckwaerts-Lesbarkeit).
-    bl::BestandslogDocument alt;
-    alt.syntax_version = 1;
-    EXPECT_TRUE(bl::document_syntax_supported(alt));
+    // Nach unten vertraeglich: v1 (ohne Zell-Koordinaten) und v2 (ohne CEB-Bindung) bleiben lesbar.
+    for (int alt_version : {1, 2}) {
+        bl::BestandslogDocument alt;
+        alt.syntax_version = alt_version;
+        EXPECT_TRUE(bl::document_syntax_supported(alt)) << alt_version;
+    }
+    // Nach oben geschlossen: die naechste Grammatik ist fuer diesen Leser nicht sicher lesbar.
+    bl::BestandslogDocument zukunft;
+    zukunft.syntax_version = 4;
+    EXPECT_FALSE(bl::document_syntax_supported(zukunft));
 
-    // Umgekehrt haette ein v1-Leser (kSyntaxVersion==1) dieses Dokument abgelehnt -- genau das ist der
-    // Schutz: er wuerde sonst ueber den key_sha512 ALLEIN falsch deduplizieren.
-    EXPECT_GT(d.syntax_version, 1);
+    // Und der Sinn des Bumps: ein v2-Leser haette die zwei neuen batch-Attribute stillschweigend
+    // geschluckt und eine versions-FREMDE Reservierung fuer die eigene gehalten.
+    EXPECT_GT(d.syntax_version, 2);
+}
+
+// ---------------------------------------------------------------------------
+// syntax_version 3: die CEB-BINDUNG am <batch> -- zwei getrennte, OPTIONALE Attribute (keine Fusion
+// in die id, §66-N3). Getragen vom planer_block; tier-Batches lassen sie leer.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogDocument, CebBindingRoundtrip) {
+    bl::BestandslogDocument d;
+    d.created_utc = "2026-07-26T12:00:00Z";
+    bl::BatchReservierung r;
+    r.id             = "owner-1234/plan/0";
+    r.typ            = bl::BatchTyp::planer_block;
+    r.maschine       = "prod1";
+    r.threads        = 32;
+    r.ceb_legende    = "[a,b,c]";
+    r.ceb_key_sha512 = std::string(128, 'e');
+    d.reservierungen.push_back(r);
+
+    std::string const x1 = bl::emit_document(d);
+    EXPECT_NE(x1.find("ceb_legende=\"[a,b,c]\""), std::string::npos) << x1;
+    EXPECT_NE(x1.find("ceb_key_sha512=\"" + std::string(128, 'e') + "\""), std::string::npos);
+    // Die Bindung steht HINTER status -- die Attribut-Reihenfolge ist Teil der Byte-Stabilitaet.
+    EXPECT_LT(x1.find("status="), x1.find("ceb_legende="));
+
+    auto const p = bl::parse_bestandslog(x1);
+    ASSERT_TRUE(p.has_value());
+    ASSERT_EQ(p->reservierungen.size(), 1u);
+    EXPECT_EQ(p->reservierungen[0].ceb_legende, "[a,b,c]");
+    EXPECT_EQ(p->reservierungen[0].ceb_key_sha512, std::string(128, 'e'));
+    EXPECT_EQ(*p, d);                     // Feld-Identitaet
+    EXPECT_EQ(bl::emit_document(*p), x1); // Byte-Identitaet
+    EXPECT_TRUE(bl::document_syntax_supported(*p));
+
+    // Nur EIN Feld gefuellt ist zulaessig (die Felder sind getrennt geklammert, nicht gekoppelt).
+    bl::BestandslogDocument nur_legende          = d;
+    nur_legende.reservierungen[0].ceb_key_sha512 = "";
+    std::string const y                          = bl::emit_document(nur_legende);
+    EXPECT_NE(y.find("ceb_legende="), std::string::npos);
+    EXPECT_EQ(y.find("ceb_key_sha512="), std::string::npos);
+    auto const py = bl::parse_bestandslog(y);
+    ASSERT_TRUE(py.has_value());
+    EXPECT_EQ(*py, nur_legende);
+}
+
+TEST(G3BestandslogDocument, CebBindingOmittedWhenEmptyKeepsV2Bytes) {
+    // Ohne Bindung schreibt der Emitter die Attribute NICHT -- die batch-Zeile ist dann byte-identisch
+    // zur v2-Form. Deshalb steht hier die erwartete Zeile literal, nicht als Suchmuster.
+    bl::BestandslogDocument d;
+    bl::BatchReservierung   r;
+    r.id     = "owner-1234/0";
+    r.typ    = bl::BatchTyp::tier;
+    r.status = bl::BatchStatus::offen;
+    d.reservierungen.push_back(r);
+
+    std::string const x = bl::emit_document(d);
+    EXPECT_EQ(x.find("ceb_legende="), std::string::npos);
+    EXPECT_EQ(x.find("ceb_key_sha512="), std::string::npos);
+    EXPECT_NE(x.find("    <batch id=\"owner-1234/0\" typ=\"tier\" slice_begin=\"0\" slice_count=\"0\" maschine=\"\" "
+                     "threads=\"0\" reserviert_utc=\"\" pro_forma_bis_utc=\"\" eta_s=\"\" avg_size_bytes=\"\" "
+                     "status=\"offen\"/>\n"),
+              std::string::npos)
+        << x;
+}
+
+// Ein v2-Dokument (mit Zell-Koordinaten, ohne CEB-Bindung) bleibt lesbar: fehlende Attribute = leer.
+TEST(G3BestandslogDocument, ReadsLegacyV2DocumentWithoutCebAttributes) {
+    char const* v2 = "<bestandslog syntax_version=\"2\" semantics_version=\"1\" genus=\"binary\" doc_revision=\"9\">"
+                     "<bestand><eintrag key_sha512=\"abc\" combo=\"\" opt=\"O2\" simd=\"avx2\" pfad=\"tier/0.dll\" "
+                     "bytes=\"7\"/></bestand>"
+                     "<reservierungen><batch id=\"owner-9/0\" typ=\"planer_block\" status=\"offen\"/></reservierungen>"
+                     "</bestandslog>";
+    auto const  p  = bl::parse_bestandslog(v2);
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->syntax_version, 2);
+    EXPECT_TRUE(bl::document_syntax_supported(*p)); // aeltere Grammatik bleibt vertraeglich
+    ASSERT_EQ(p->reservierungen.size(), 1u);
+    EXPECT_TRUE(p->reservierungen[0].ceb_legende.empty());
+    EXPECT_TRUE(p->reservierungen[0].ceb_key_sha512.empty());
+    EXPECT_EQ(p->reservierungen[0].typ, bl::BatchTyp::planer_block);
 }
 
 // ---------------------------------------------------------------------------
