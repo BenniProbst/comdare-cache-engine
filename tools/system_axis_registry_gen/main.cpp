@@ -100,14 +100,13 @@ using SystemAxisEmissionTypes =
     std::tuple<meas::GccCompilerAxis, meas::SimdExtensionHardwareFamily, meas::X86_64TargetIsa,
                meas::DefaultSchedulingSystemAxis, meas::YcsbLoadFrameworkAxis>;
 
-inline constexpr std::array<std::string_view, std::tuple_size_v<SystemAxisEmissionTypes>>
-    kEmissionOrderFromTypes{{
-        meas::GccCompilerAxis::axis_label(),
-        meas::SimdExtensionHardwareFamily::axis_label(),
-        meas::X86_64TargetIsa::axis_label(),
-        meas::DefaultSchedulingSystemAxis::axis_label(),
-        meas::YcsbLoadFrameworkAxis::axis_label(),
-    }};
+inline constexpr std::array<std::string_view, std::tuple_size_v<SystemAxisEmissionTypes>> kEmissionOrderFromTypes{{
+    meas::GccCompilerAxis::axis_label(),
+    meas::SimdExtensionHardwareFamily::axis_label(),
+    meas::X86_64TargetIsa::axis_label(),
+    meas::DefaultSchedulingSystemAxis::axis_label(),
+    meas::YcsbLoadFrameworkAxis::axis_label(),
+}};
 
 [[nodiscard]] consteval bool emission_types_match_order() {
     if (kEmissionOrderFromTypes.size() != cabi::kSystemAxisOrderCount) return false;
@@ -198,40 +197,10 @@ void emit_axis_open(std::ofstream& f, std::string_view id, std::string_view stag
       << " binary_id=\"never\" stage=\"" << xml_escape(stage) << "\" baustein_count=\"" << baustein_count << "\">\n";
 }
 
-} // namespace
-
-int main(int argc, char** argv) {
-    std::string out_path = "system_axis_registry.xml";
-    for (int i = 1; i < argc; ++i) {
-        std::string_view const a = argv[i];
-        if (a == "--out" && i + 1 < argc) {
-            out_path = argv[++i];
-        } else if (a == "--help" || a == "-h") {
-            std::cout << "system_axis_registry_gen --out <file>\n";
-            return 0;
-        } else {
-            std::cerr << "system_axis_registry_gen: unbekanntes Argument '" << a << "'\n";
-            return 2;
-        }
-    }
-
-    std::ofstream f{out_path, std::ios::binary};
-    if (!f) {
-        std::cerr << "system_axis_registry_gen: kann Ausgabedatei nicht oeffnen: " << out_path << "\n";
-        return 4;
-    }
-
-    f << "<comdare_axis_registry engine=\"cache_engine_system\" schema=\"1\" generator=\"system_axis_registry_gen\">\n";
-    f << "  <!-- GENERIERT von tools/system_axis_registry_gen (PAKET W2-B) per compile-time-Reflektion der\n";
-    f << "       realen CebSystemAxis-Typen (measurement/*_system_axis.hpp/*_sub_axis.hpp). NICHT von Hand\n";
-    f << "       editieren. Ledger §28/§30: System-Art-Registry im Mess-/System-Modul (Angebot fuer System->CEB). "
-         "-->\n";
-    f << "  <!-- Haupt-Achse=CT-statisch (stage=ct, in die CEB/Tier-Binary einkompiliert); Unter-Achse=dynamisch\n";
-    f << "       (stage=runtime, vom Planer permutiert). Q2/K2: opt_level/simd/atomic128 materialisieren als\n";
-    f << "       CompileFn-Flags (build_version-Suffix), NIE als Laufzeit-Typ-Switch und NIE in der binary_id. -->\n";
-    f << "  <!-- AUSSCHLUSS: extension_hardware_system_axis.hpp = DEPRECATED-Insel; hardware_isa_system_axis.hpp =\n";
-    f << "       HOST-Deskriptor (treibt NICHT den Bau) -- beide NICHT Teil dieses Bau-treibenden Angebots. -->\n";
-
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "compiler" (1:1 aus main() herausgezogen, Inhalt
+/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
+/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
+void emit_system_axis_compiler(std::ofstream& f) {
     // ── 1) compiler (CompilerSystemAxis): 2 Bausteine gcc/clang + Unter-Achsen opt_level/atomic128 ──
     emit_axis_open(f, meas::GccCompilerAxis::axis_label(), "ct", 2);
     {
@@ -282,7 +251,12 @@ int main(int argc, char** argv) {
                 meas::Cx16Option::msvc_flag(), std::string{});
     f << "    </sub_axis>\n";
     f << "  </axis>\n";
+}
 
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "extension_hardware" (1:1 aus main() herausgezogen, Inhalt
+/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
+/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
+void emit_system_axis_extension_hardware(std::ofstream& f) {
     // ── 2) extension_hardware (ExtensionHardwareFamilyAxis): Familie simd + Unter-Achse simd (march je Dialekt) ──
     emit_axis_open(f, meas::SimdExtensionHardwareFamily::axis_label(), "ct", 1);
     {
@@ -311,7 +285,12 @@ int main(int argc, char** argv) {
     }
     f << "    </simd_feature_catalog>\n";
     f << "  </axis>\n";
+}
 
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "target_isa" (1:1 aus main() herausgezogen, Inhalt
+/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
+/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
+void emit_system_axis_target_isa(std::ofstream& f) {
     // ── 3) target_isa (TargetIsaSystemAxis): 2 Bausteine x86_64/aarch64 (native + Cross-Triple/-march) ──
     emit_axis_open(f, meas::X86_64TargetIsa::axis_label(), "ct", 2);
     {
@@ -325,7 +304,12 @@ int main(int argc, char** argv) {
         emit_baustein<meas::Aarch64TargetIsa>(f, meas::Aarch64TargetIsa::target_isa_id(), extra);
     }
     f << "  </axis>\n";
+}
 
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "scheduling" (1:1 aus main() herausgezogen, Inhalt
+/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
+/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
+void emit_system_axis_scheduling(std::ofstream& f) {
     // ── 4) scheduling (SchedulingSystemAxis): 1 Baustein; 5 fixe Sub-Dimensionen (getypte Accessoren). ──
     // Die id-Etiketten der Sub-Dims haben KEINE string-Single-Source (nur getypte Accessoren) -> sie sind
     // an den Accessor-AUFRUF compile-gekoppelt (Rename bricht diesen Build). Enum-WERTE als Ordinal reflektiert.
@@ -351,7 +335,12 @@ int main(int argc, char** argv) {
         f << "    </sub_axis>\n";
     }
     f << "  </axis>\n";
+}
 
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "load_framework" (1:1 aus main() herausgezogen, Inhalt
+/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
+/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
+void emit_system_axis_load_framework(std::ofstream& f) {
     // ── 5) load_framework (LoadFrameworkSystemAxis): 1 Baustein ycsb + dynamische Unter-Achse "workload". ──
     // Die workload-Optionen (ycsb_a..f/Ranges) sind Anwender-XML-Selektion (Lastprofil-Akten), kein CT-Angebot;
     // hier wird NUR das Unter-Achsen-Label reflektiert (Single-Source der setting_label-Konvention).
@@ -365,6 +354,85 @@ int main(int argc, char** argv) {
           << "\" stage=\"runtime\" value_type=\"token\" option_source=\"user_load_profile_akten\"/>\n";
     }
     f << "  </axis>\n";
+}
+
+// =====================================================================================================
+// P5/A9a -- EMITTER-TABELLE: der Generator ITERIERT die Ordnung, statt sie von Hand aufzurufen.
+//
+// VORHER standen hier fuenf handgeschriebene emit_axis_open-Aufrufe hintereinander in main(). Die
+// Reihenfolge war damit eine EIGENSCHAFT DES KONTROLLFLUSSES - unlesbar fuer jede Wache und nur durch
+// Lesen der Datei pruefbar. JETZT ist sie ein Datum: diese Tabelle. main() laeuft sie ab.
+//
+// WARUM Funktions-Zeiger und kein mp11-Fold: mp11 ist in dieser TU nicht verfuegbar (nur type_name.hpp,
+// kein boost/mp11-Include), und dieser Generator ist ein BAU-ZEIT-WERKZEUG, kein Mess-Pfad -- die
+// Zero-Cost-/Kein-Runtime-Switch-Direktive schuetzt die gemessene Bibliothek, nicht dieses Tool. Es ist
+// ausserdem KEIN Switch: die Tabelle wird positions-getreu abgelaufen, es gibt keine Verzweigung auf
+// Laufzeit-Zustand und keine String-Dispatch.
+//
+// Die Tabelle traegt das Label aus dem REALEN Typ (nicht als Literal) -- NETZ 1 unten prueft, dass ihre
+// Folge kSystemAxisOrder ist, NETZ 2 in main prueft, dass die Emission ihr wirklich folgt.
+// =====================================================================================================
+struct SystemAxisEmitter {
+    std::string_view label;       ///< aus <Typ>::axis_label(), nie handgeschrieben
+    void (*emit)(std::ofstream&); ///< der herausgezogene Emissions-Koerper
+};
+
+inline constexpr std::array<SystemAxisEmitter, cabi::kSystemAxisOrderCount> kSystemAxisEmitters{{
+    {meas::GccCompilerAxis::axis_label(), &emit_system_axis_compiler},
+    {meas::SimdExtensionHardwareFamily::axis_label(), &emit_system_axis_extension_hardware},
+    {meas::X86_64TargetIsa::axis_label(), &emit_system_axis_target_isa},
+    {meas::DefaultSchedulingSystemAxis::axis_label(), &emit_system_axis_scheduling},
+    {meas::YcsbLoadFrameworkAxis::axis_label(), &emit_system_axis_load_framework},
+}};
+
+[[nodiscard]] consteval bool emitter_table_matches_order() {
+    if (kSystemAxisEmitters.size() != cabi::kSystemAxisOrderCount) return false;
+    for (std::size_t i = 0; i < cabi::kSystemAxisOrderCount; ++i) {
+        if (kSystemAxisEmitters[i].label != cabi::kSystemAxisOrder[i]) return false;
+        if (kSystemAxisEmitters[i].emit == nullptr) return false;
+    }
+    return true;
+}
+static_assert(emitter_table_matches_order(),
+              "P5/A9a: die Emitter-Tabelle folgt nicht abi::kSystemAxisOrder (Reihenfolge, Zahl oder ein "
+              "nullptr-Emitter). kSystemAxisOrder ist die Single-Source (A1) - dort aendern, nicht hier.");
+
+} // namespace
+
+int main(int argc, char** argv) {
+    std::string out_path = "system_axis_registry.xml";
+    for (int i = 1; i < argc; ++i) {
+        std::string_view const a = argv[i];
+        if (a == "--out" && i + 1 < argc) {
+            out_path = argv[++i];
+        } else if (a == "--help" || a == "-h") {
+            std::cout << "system_axis_registry_gen --out <file>\n";
+            return 0;
+        } else {
+            std::cerr << "system_axis_registry_gen: unbekanntes Argument '" << a << "'\n";
+            return 2;
+        }
+    }
+
+    std::ofstream f{out_path, std::ios::binary};
+    if (!f) {
+        std::cerr << "system_axis_registry_gen: kann Ausgabedatei nicht oeffnen: " << out_path << "\n";
+        return 4;
+    }
+
+    f << "<comdare_axis_registry engine=\"cache_engine_system\" schema=\"1\" generator=\"system_axis_registry_gen\">\n";
+    f << "  <!-- GENERIERT von tools/system_axis_registry_gen (PAKET W2-B) per compile-time-Reflektion der\n";
+    f << "       realen CebSystemAxis-Typen (measurement/*_system_axis.hpp/*_sub_axis.hpp). NICHT von Hand\n";
+    f << "       editieren. Ledger §28/§30: System-Art-Registry im Mess-/System-Modul (Angebot fuer System->CEB). "
+         "-->\n";
+    f << "  <!-- Haupt-Achse=CT-statisch (stage=ct, in die CEB/Tier-Binary einkompiliert); Unter-Achse=dynamisch\n";
+    f << "       (stage=runtime, vom Planer permutiert). Q2/K2: opt_level/simd/atomic128 materialisieren als\n";
+    f << "       CompileFn-Flags (build_version-Suffix), NIE als Laufzeit-Typ-Switch und NIE in der binary_id. -->\n";
+    f << "  <!-- AUSSCHLUSS: extension_hardware_system_axis.hpp = DEPRECATED-Insel; hardware_isa_system_axis.hpp =\n";
+    f << "       HOST-Deskriptor (treibt NICHT den Bau) -- beide NICHT Teil dieses Bau-treibenden Angebots. -->\n";
+
+    // -- P5/A9a: die Ordnung wird ABGELAUFEN, nicht wiederholt. Fuenf Handaufrufe sind hier entfallen. --
+    for (auto const& e : kSystemAxisEmitters) e.emit(f);
 
     // == Section 40.a: deklarierte per-Maschine SIMD-Flag-Signaturen (reflektiert aus machine_simd_signature.hpp,
     //    Host-Capability-Domaene). DIESE Signatur entscheidet den Bau (Gate Organ <= Signatur geschnitten
@@ -425,8 +493,8 @@ int main(int argc, char** argv) {
     // NETZ 3: die Anzahl kommt aus der Single-Source, nicht aus einem Literal. Byte-neutral - der Text
     // lautet weiter "5 ...", weil kSystemAxisOrderCount heute 5 IST; in A3 zieht die Zahl automatisch mit.
     std::cout << "system_axis_registry_gen: " << cabi::kSystemAxisOrderCount
-              << " System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), "
-              << g_baustein_total << " Bausteine, simd_feature_catalog=" << meas::kSimdFeatureFlagCatalog.size()
+              << " System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), " << g_baustein_total
+              << " Bausteine, simd_feature_catalog=" << meas::kSimdFeatureFlagCatalog.size()
               << " Flags, machine_signatures=3 -> " << out_path << "\n";
     return 0;
 }
