@@ -31,6 +31,7 @@
 
 #include <builder/codegen/type_name.hpp> // type_name<W>() (FQ-Typ, compile-time)
 
+#include <cache_engine/abi/system_axis_order.hpp> // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/compiler_system_axis.hpp>
 #include <cache_engine/measurement/extension_hardware_family_axis.hpp>
@@ -42,19 +43,83 @@
 #include <cache_engine/measurement/simd_sub_axis.hpp>
 #include <cache_engine/measurement/target_isa_system_axis.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
 namespace cg   = ::comdare::cache_engine::builder::codegen;
 namespace meas = ::comdare::cache_engine::measurement;
+namespace cabi = ::comdare::cache_engine::abi;
+
+// =====================================================================================================
+// P5/A7' -- ORDNUNGS-WACHE (Lane A, 26.07.2026). Byte-neutral: prueft nur, aendert nichts.
+//
+// PROBLEM (Riss 2): die kanonische System-Achsen-Ordnung existiert mehrfach - als kSystemAxisOrder
+// (abi/system_axis_order.hpp, Single-Source seit A1), als Reihenfolge der emit_axis_open-Aufrufe hier
+// unten, als Kopf-Reihenfolge der generierten XML und als Segment-Folge im build_version-Suffix.
+// Bis A1 pruefte NICHTS die Reihenfolge; A1 hat Ordnung <-> Code-Versions-Tabelle gekoppelt. Dieses
+// Paket schliesst die naechsten zwei Kopien: Generator-Aufruffolge und XML-Kopf (inkl. Anzahl-Literal).
+//
+// DREI NETZE, absichtlich unterschiedlich, weil sie unterschiedliche Drift fangen:
+//   NETZ 1 (compile-time, unten): die fuenf REALEN Achsen-TYPEN, deren axis_label() der Generator
+//           emittiert, gegen kSystemAxisOrder. Faengt Typ-/Label-Drift und falsche Deklaration.
+//   NETZ 2 (Laufzeit, in main): die TATSAECHLICHE emit_axis_open-Aufruffolge gegen kSystemAxisOrder.
+//           Faengt Aufruf-Umsortierung - das kann NETZ 1 grundsaetzlich nicht sehen, weil eine
+//           Reihenfolge, die nur in der Anweisungs-FOLGE steckt, compile-time nicht lesbar ist.
+//   NETZ 3 (Laufzeit): das Anzahl-Literal der stdout-Zeile kommt aus kSystemAxisOrderCount statt "5".
+//
+// T-c -- BENANNTE WACHEN-LUECKE, ABSICHTLICH OFFEN:
+//   Die vierte Kopie, die SUFFIX-EMITTER-Reihenfolge, ist hier NICHT geprueft und kann es heute nicht
+//   sein. Grund: profile_run_facade.cpp:369-405 baut das Suffix imperativ per Konkatenation
+//   (suffix += "+opt=", += "+ceb=", += "+target=", ...) - es gibt keine deklarative Ordnung, gegen die
+//   ein Vergleich laufen koennte. Sie deklarativ zu machen IST R3 (Traeger-Datei
+//   profile_facade/system_version_suffix.hpp als EINZIGE Suffix-Quelle) und gehoert damit zu Lane F im
+//   O-8-Fenster; die Datei liegt zudem in der Lane-F-Sperrmenge.
+//   => Suffix-Klausel folgt mit R3/T-c im O-8-Fenster (Lane F; braucht deklarative Suffix-Quelle
+//      system_version_suffix.hpp). Der Fenster-Agent findet diese Erweiterungsstelle per grep "T-c".
+//   Wenn T-c gebaut wird, ist hier NUR ein viertes Netz zu ergaenzen - die Wache muss nicht neu
+//   erfunden werden.
+//
+// A3-HINWEIS: diese Wache zieht mit der Ordnung um (5 -> 3 Haupt-Achsen). Sie ist bewusst gegen
+// kSystemAxisOrder formuliert und nicht gegen eine Zahl, damit A3 nur die Single-Source aendern muss.
+// =====================================================================================================
 
 namespace {
+
+/// NETZ 1: die Achsen-TYPEN in genau der Folge, in der main() sie unten per emit_axis_open emittiert.
+/// Diese Liste ist die einzige Stelle, an der die Emissions-Folge deklarativ steht; NETZ 2 belegt zur
+/// Laufzeit, dass die Aufrufe ihr wirklich folgen.
+using SystemAxisEmissionTypes =
+    std::tuple<meas::GccCompilerAxis, meas::SimdExtensionHardwareFamily, meas::X86_64TargetIsa,
+               meas::DefaultSchedulingSystemAxis, meas::YcsbLoadFrameworkAxis>;
+
+inline constexpr std::array<std::string_view, std::tuple_size_v<SystemAxisEmissionTypes>>
+    kEmissionOrderFromTypes{{
+        meas::GccCompilerAxis::axis_label(),
+        meas::SimdExtensionHardwareFamily::axis_label(),
+        meas::X86_64TargetIsa::axis_label(),
+        meas::DefaultSchedulingSystemAxis::axis_label(),
+        meas::YcsbLoadFrameworkAxis::axis_label(),
+    }};
+
+[[nodiscard]] consteval bool emission_types_match_order() {
+    if (kEmissionOrderFromTypes.size() != cabi::kSystemAxisOrderCount) return false;
+    for (std::size_t i = 0; i < cabi::kSystemAxisOrderCount; ++i)
+        if (kEmissionOrderFromTypes[i] != cabi::kSystemAxisOrder[i]) return false;
+    return true;
+}
+static_assert(emission_types_match_order(),
+              "P5/A7' NETZ 1: die Achsen-TYPEN, die dieser Generator emittiert, stimmen in Zahl oder "
+              "Reihenfolge nicht mit abi::kSystemAxisOrder ueberein. kSystemAxisOrder ist die "
+              "Single-Source (A1) - entweder die Ordnung dort anpassen oder die Typ-Liste hier, NIE "
+              "nur eine von beiden.");
 
 // XML-Escape (identisch zur axis_registry_gen-Konvention).
 [[nodiscard]] std::string xml_escape(std::string_view s) {
@@ -96,6 +161,11 @@ template <class W>
 std::vector<std::string> g_names;
 std::size_t              g_baustein_total = 0;
 
+/// P5/A7' NETZ 2: sammelt AUSSCHLIESSLICH die Haupt-Achsen-Ids in ihrer echten Emissions-Folge.
+/// Getrennt von g_names, weil dort auch Bausteine und Optionen landen - fuer die Ordnungs-Wache zaehlt
+/// nur die Achsen-Ebene. Gefuellt in emit_axis_open, geprueft am Ende von main.
+std::vector<std::string> g_system_axis_order;
+
 void note_name(std::string_view n) { g_names.emplace_back(n); }
 
 // -- Emit-Bausteine (jeder Wert aus einem realen Typ-Member reflektiert). --
@@ -123,6 +193,7 @@ void emit_option(std::ofstream& f, std::string_view id, std::string_view gpp, st
 
 void emit_axis_open(std::ofstream& f, std::string_view id, std::string_view stage, std::size_t baustein_count) {
     note_name(id);
+    g_system_axis_order.emplace_back(id); // P5/A7' NETZ 2: echte Emissions-Folge der Haupt-Achsen
     f << "  <axis id=\"" << xml_escape(id) << "\" category=\"system_config\" axis_kind=\"system_config\""
       << " binary_id=\"never\" stage=\"" << xml_escape(stage) << "\" baustein_count=\"" << baustein_count << "\">\n";
 }
@@ -331,7 +402,30 @@ int main(int argc, char** argv) {
         return 4;
     }
 
-    std::cout << "system_axis_registry_gen: 5 System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), "
+    // -- P5/A7' NETZ 2: ORDNUNGS-WACHE ueber die TATSAECHLICHE Emissions-Folge der Haupt-Achsen. --
+    //    NETZ 1 (static_assert oben) prueft die DEKLARIERTE Typ-Folge; nur dieses Netz belegt, dass die
+    //    emit_axis_open-AUFRUFE ihr wirklich folgen. Bricht mit rc!=0, damit Roundtrip-/Build-Schritt es sieht.
+    //    Der XML-Kopf ist damit mit-abgedeckt: die <axis>-Elemente stehen in genau dieser Aufruf-Folge in
+    //    der Datei, also ist "XML-Kopf == kSystemAxisOrder" die direkte Folge dieser Pruefung.
+    if (g_system_axis_order.size() != cabi::kSystemAxisOrderCount) {
+        std::cerr << "system_axis_registry_gen: ORDNUNGS-WACHE - " << g_system_axis_order.size()
+                  << " Haupt-Achsen emittiert, kSystemAxisOrder erwartet " << cabi::kSystemAxisOrderCount
+                  << " (Single-Source abi/system_axis_order.hpp).\n";
+        return 5;
+    }
+    for (std::size_t i = 0; i < cabi::kSystemAxisOrderCount; ++i) {
+        if (g_system_axis_order[i] != cabi::kSystemAxisOrder[i]) {
+            std::cerr << "system_axis_registry_gen: ORDNUNGS-WACHE - Position " << i << " ist '"
+                      << g_system_axis_order[i] << "', kSystemAxisOrder verlangt '" << cabi::kSystemAxisOrder[i]
+                      << "'. Generator-Aufruffolge und Single-Source sind auseinandergelaufen.\n";
+            return 5;
+        }
+    }
+
+    // NETZ 3: die Anzahl kommt aus der Single-Source, nicht aus einem Literal. Byte-neutral - der Text
+    // lautet weiter "5 ...", weil kSystemAxisOrderCount heute 5 IST; in A3 zieht die Zahl automatisch mit.
+    std::cout << "system_axis_registry_gen: " << cabi::kSystemAxisOrderCount
+              << " System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), "
               << g_baustein_total << " Bausteine, simd_feature_catalog=" << meas::kSimdFeatureFlagCatalog.size()
               << " Flags, machine_signatures=3 -> " << out_path << "\n";
     return 0;
