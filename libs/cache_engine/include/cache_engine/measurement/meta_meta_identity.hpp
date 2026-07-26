@@ -63,8 +63,7 @@ struct contained_in {
 /// Die Relation ist reflexiv und transitiv, also eine Halbordnung -- sie ist NICHT symmetrisch, und
 /// genau diese Asymmetrie IST die "nur aufwaerts"-Doktrin.
 template <class Machine, class Program>
-inline constexpr bool subsumes_v =
-    mp::mp_all_of_q<Program, detail::contained_in<Machine>>::value;
+inline constexpr bool subsumes_v = mp::mp_all_of_q<Program, detail::contained_in<Machine>>::value;
 
 /// Concept-Schreibweise derselben Relation (fuer requires-Klauseln an Freigabe-Nahten).
 template <class Program, class Machine>
@@ -81,7 +80,7 @@ inline constexpr std::size_t meta_meta_count_v = mp::mp_size<Set>::value;
 namespace detail {
 struct ProofSimd {};
 struct ProofGpu {};
-using ProofCpuOnly = MetaMetaSet<>;
+using ProofCpuOnly  = MetaMetaSet<>;
 using ProofSimdOnly = MetaMetaSet<ProofSimd>;
 using ProofSimdGpu  = MetaMetaSet<ProofSimd, ProofGpu>;
 } // namespace detail

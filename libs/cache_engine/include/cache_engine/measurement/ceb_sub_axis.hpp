@@ -43,9 +43,7 @@ struct CebSubAxis : CebSystemAxis<Derived> {
 
     /// ABGELEITET aus der Eltern-Achse (NICHT von Hand wiederholt). Signatur und Rueckgabe-Typ sind
     /// identisch zur bestehenden String-Konvention, damit ein Umhaengen in A3 byte-neutral bleibt.
-    [[nodiscard]] static constexpr std::string_view parent_axis_label() noexcept {
-        return ParentAxis::axis_label();
-    }
+    [[nodiscard]] static constexpr std::string_view parent_axis_label() noexcept { return ParentAxis::axis_label(); }
 
 protected:
     constexpr CebSubAxis() noexcept = default;
@@ -58,8 +56,7 @@ template <class A>
 concept CebSubAxisConcept = CebSystemAxisConcept<A> && requires {
     typename A::parent_axis;
     { A::parent_axis_label() } -> std::convertible_to<std::string_view>;
-} && CebSystemAxisConcept<typename A::parent_axis> &&
-    std::derived_from<A, CebSubAxis<A, typename A::parent_axis>>;
+} && CebSystemAxisConcept<typename A::parent_axis> && std::derived_from<A, CebSubAxis<A, typename A::parent_axis>>;
 
 /// OFFENE REKURSION, compile-time abfragbar: die Tiefe einer Achse in ihrer eigenen Kette. Eine
 /// Haupt-Achse hat Tiefe 0, ihre Unter-Achse 1, deren Unter-Achse 2 -- ohne dass irgendwo ein Maximum
