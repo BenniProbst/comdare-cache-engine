@@ -1,4 +1,12 @@
 # tools/permutation_codegen/codegen.cmake — Cache-Engine Permutations-Codegen
+#
+# =====================================================================================
+# RETIRED (2026-07-26, Owner-Entscheid Diplom-Ledger §71/§73): Dieser V36.B-Kanal wird
+# STILLGELEGT und in den Fassaden-Kanal (direkte C++23-Metaprogrammierung, CompileFn)
+# GEMERGED. Der #25-B-Byte-Identitaets-Vertrag ist abgeloest. KEINE Weiterentwicklung
+# hier; Fahrplan = super docs/sessions/...BAUPLAN...-ADVERSARIAL.md TEIL V (V-0..V-7).
+# Datei bleibt bis zum V-4-Retire als Referenz stehen (Doku-nie-loeschen).
+# =====================================================================================
 # V36.B (2026-05-23) — Vollausbau gemaess User-Direktive:
 #   - "alle Rekombinationen umfassend gebaut"
 #   - Tri-State Mode: on_rebuild / on_build_on_demand / off_pause_build
