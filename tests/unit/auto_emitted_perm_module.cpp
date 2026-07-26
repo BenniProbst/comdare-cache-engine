@@ -4,7 +4,7 @@
 // Wird als SHARED-Lib zu einer Permutations-DLL gebaut → schließt die R5.G-Materialisierung end-to-end:
 // eine AUTO-ENUMERIERTE AdHoc-Komposition (NICHT eine benannte Composition wie bei den F.5-Pilots) wird
 // zu einer ladbaren, mess-fähigen DLL. Der einzige Include ist der Umbrella-Header; das ADHOC-Makro baut
-// AdHocComposition<17 Achsen> intern + exportiert die 4 extern-C-ABI-Symbole.
+// AdHocComposition<18 Achsen> intern + exportiert die 4 extern-C-ABI-Symbole.
 //
 // Achsen-Belegung = Art-Default-Permutation (Array256/LinearFanout/.../Bloom).
 
@@ -18,6 +18,8 @@
 // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 — Durchreich-Defaults NoBuffer/LazyFlush.
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+// STRUKT-R ORG-18: 18. Organ-Slot (der Umbrella zieht die Registry, der Baustein-Header explizit).
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp>
 
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo,
@@ -43,4 +45,6 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::filter::axis_filter::BloomFilter,
     // ── T17/T18 queuing (Doc 30 §8.0): explizit gewählter Durchreich-Algorithmus (kein „weglassen") ──
     ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,
-    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush)
+    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush,
+    // STRUKT-R ORG-18: T17 persistence_target -- ebenso explizit gewaehlter Durchreich-Wert (kein Weglassen).
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)

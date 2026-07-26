@@ -46,6 +46,7 @@
 #include <cstddef>
 #include <string_view>
 #include <vector>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana = ::comdare::cache_engine::anatomy;
 namespace pe  = ::comdare::cache_engine::permutations;
@@ -136,11 +137,16 @@ struct T17_QueuingQ1 {
 struct T18_QueuingQ2 {
     using StaticAxisVariants = mp::mp_list<LazyFlush>;
 }; // Doc 30 §8.0
+// STRUKT-R ORG-18: 18. Kompositions-Slot (T17 persistence_target, Durchreich-Wert).
+struct T19_PersistenceTarget {
+    using StaticAxisVariants = mp::mp_list<::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
+};
 
 using PilotDriver = ana::AnatomyPermutationDriver<
     T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType, T5_MemoryLayout, T6_Allocator, T7_Prefetch,
     T8_Concurrency, T9_Serialization, T11_ValueHandle, T13_IndexOrg, T14_IoDispatch, T15_Migration, T16_Filter,
-    T17_QueuingQ1, T18_QueuingQ2>; // INC-2c T10_Telemetry / INC-2d T12_Isa raus (17 Slots)
+    T17_QueuingQ1, T18_QueuingQ2,
+    T19_PersistenceTarget>; // INC-2c/2d raus; STRUKT-R ORG-18 dazu (18 Slots)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — AdHocComposition Concept-Conformance
@@ -150,7 +156,8 @@ using AdHocArt =
     ana::AdHocComposition<Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
                           CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
                           InlineValueHandle, IotIndexOrganization, InMemoryOnly, NoMigration, BloomFilter, NoBuffer,
-                          LazyFlush>; // INC-2d: 17 Slots (isa raus)
+                          LazyFlush,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d isa raus; STRUKT-R ORG-18: 18 Slots
 
 TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
     static_assert(ana::IsComposition<AdHocArt>);
@@ -161,7 +168,7 @@ TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
 TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
     [[maybe_unused]] ana::SearchAlgorithmAnatomy<AdHocArt> algo;
     // R5.B: Composition-Inspection statt Container-Ops
-    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::organ_count() == 17); // INC-2d: isa raus
+    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::organ_count() == 18); // ORG-18: +persistence_target
     static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::composition_name() == std::string_view{"AdHocComposition"});
     SUCCEED();
 }
@@ -174,7 +181,8 @@ using SamplePermTuple =
     pe::PermTuple<Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
                   CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
                   InlineValueHandle, IotIndexOrganization, InMemoryOnly, NoMigration, BloomFilter, NoBuffer,
-                  LazyFlush>; // INC-2d: 17 Slots (isa raus)
+                  LazyFlush,
+                  ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d isa raus; STRUKT-R ORG-18: 18 Slots
 
 TEST(AnatomyR4_Factory, CompositionFromPermTupleProducesValidComposition) {
     using Materialized = ana::CompositionFromPermTuple<SamplePermTuple>;
@@ -195,8 +203,8 @@ TEST(AnatomyR4_Factory, IsPermTuple19ConceptValidatesArity) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(AnatomyR4_Driver, PilotDriverArityAndCount) {
-    static_assert(PilotDriver::arity() == 17,
-                  "17 Topic-Achsen Pflicht (15 + queuing q1/q2; INC-2c telemetry / INC-2d isa raus)");
+    static_assert(PilotDriver::arity() == 18,
+                  "18 Topic-Achsen Pflicht (15 + queuing q1/q2 + persistence_target; INC-2c/2d raus)");
     static_assert(PilotDriver::count() == 6, "3 search_algo × 2 cache_traversal × 1^17 = 6 (queuing ×1)");
     SUCCEED();
 }
@@ -208,7 +216,7 @@ TEST(AnatomyR4_Driver, ForEachAnimalIteratesAllSixTiere) {
         // R5.B Smoke-Test: Anatomie ist instantiiert + Composition-Inspection OK
         // Container-Ops sind in AnatomyExecutionContext (siehe test_v41_builder_anatomy_commands.cpp)
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        EXPECT_EQ(AnatomyT::organ_count(), 18u); // STRUKT-R ORG-18
     });
     EXPECT_EQ(visited_names.size(), 6u);
     // Alle 6 Tiere haben den Default-Namen AdHocComposition (kein paper_id Unterschied)
@@ -253,7 +261,7 @@ TEST(AnatomyR4_Driver, AllSixTiereInstantiateIndependently) {
     std::size_t instantiate_count = 0;
     PilotDriver::for_each_animal([&](auto& anatomy, std::string_view) {
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        EXPECT_EQ(AnatomyT::organ_count(), 18u); // STRUKT-R ORG-18
         ++instantiate_count;
     });
     EXPECT_EQ(instantiate_count, 6u);
@@ -265,7 +273,7 @@ TEST(AnatomyR4_Driver, AllSixTiereInstantiateIndependently) {
 
 // Minimal-Verifikation: zwei T0/T1 Compositions erlauben Vergleich (Tier-Variation)
 TEST(AnatomyR4_Driver, NonEmptyAxisCountMatchesArity) {
-    static_assert(PilotDriver::arity() == 17); // INC-2d
+    static_assert(PilotDriver::arity() == 18); // STRUKT-R ORG-18
     // PermutationEngine::non_empty_axis_count ist intern bereits validiert per static_assert
     SUCCEED();
 }

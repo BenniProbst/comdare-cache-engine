@@ -35,6 +35,7 @@
 #include <vector>
 #include <random>
 #include <set>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace comp  = ::comdare::cache_engine::compositions;
@@ -123,7 +124,8 @@ using PFStoreBackedComp = an::AdHocComposition<
     comp::HotComposition::allocator, PFStrategy, comp::HotComposition::concurrency, comp::HotComposition::serialization,
     comp::HotComposition::value_handle, comp::HotComposition::index_organization, comp::HotComposition::io_dispatch,
     comp::HotComposition::migration_policy, comp::HotComposition::filter, comp::HotComposition::queuing_q1,
-    comp::HotComposition::queuing_q2>;
+    comp::HotComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 template <class Composition>
 static an::ComdareTierObserverSnapshot drive_composition(std::uint64_t n, std::uint64_t key_mask = ~0ull) {

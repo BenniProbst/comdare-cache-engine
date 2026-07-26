@@ -31,6 +31,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace al    = ::comdare::cache_engine::allocator::axis_06_allocator;
@@ -60,7 +61,8 @@ using DistanceStoreBackedComposition = an::AdHocComposition<
     al::StdMalloc, pf::DistanceEstimatorPrefetch, cc::NoneConcurrency,
     ser::ObservableSerialization<ser::RawBinarySerialization>, vh::InlineValueHandle, idx::IotIndexOrganization,
     ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer,
-    q2::LazyFlush>; // INC-2d: isa raus (17 Slots)
+    q2::LazyFlush,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d: isa raus (17 Slots)
 
 using DistanceTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<DistanceStoreBackedComposition>>;
 

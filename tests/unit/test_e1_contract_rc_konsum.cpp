@@ -41,6 +41,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace al    = ::comdare::cache_engine::allocator::axis_06_allocator;
@@ -73,7 +74,8 @@ using RcComposition =
                          ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>, al::StdMalloc, pf::NonePrefetch,
                          cc::BlockingConcurrency, ser::ObservableSerialization<ser::RawBinarySerialization>,
                          ValueHandle, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter,
-                         q1::NoBuffer, q2::LazyFlush>; // INC-2d: isa raus (17 Slots)
+                         q1::NoBuffer, q2::LazyFlush,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // INC-2d: isa raus (17 Slots)
 
 template <class ValueHandle = vh::InlineValueHandle>
 using RcTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<RcComposition<ValueHandle>>>;

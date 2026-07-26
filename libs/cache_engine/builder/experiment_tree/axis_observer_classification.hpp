@@ -51,9 +51,9 @@ struct AxisObserverClass {
 };
 
 /// ALLE 26 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels). Aufteilung nach Reklass
-/// 2026-07-20 (P-OBS): 17 SearchAlgorithmObserver (= kCompositionAxisNames: 15 Kern + queuing q1/q2; OHNE telemetry/isa)
+/// 2026-07-20 (P-OBS) + STRUKT-R ORG-18: 18 SearchAlgorithmObserver (= kCompositionAxisNames: 15 Kern + queuing q1/q2; OHNE telemetry/isa)
 /// + 9 DefinitionOnly (3 build-only page_type/09b/12 + telemetry + isa als System-Achsen + 4 node-shape #234-K) = 26.
-inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
+inline constexpr std::array<AxisObserverClass, 27> kAxisObserverClasses = {{
     {"search_algo", AxisObserverKind::SearchAlgorithmObserver},
     {"cache_traversal", AxisObserverKind::SearchAlgorithmObserver},
     {"mapping", AxisObserverKind::SearchAlgorithmObserver},
@@ -85,6 +85,9 @@ inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
     {"queuing_q2",
      AxisObserverKind::
          SearchAlgorithmObserver}, // korr. 2026-06-03 (Doc 30 §8.0): SA-Tier-Unterklasse-Achse T18 (flush_policy) — KEINE Gattung
+    // STRUKT-R ORG-18: die 18. Kompositions-Achse ist ebenfalls SearchAlgorithmObserver. Ohne diesen
+    // Eintrag zaehlt test_br3_obs22 nur 26 von 27 Baum-Achsen als klassifiziert ("Wegschrumpfen").
+    {"persistence_target", AxisObserverKind::SearchAlgorithmObserver},
     {"btree_order", AxisObserverKind::DefinitionOnly},
     {"skip_list_shape", AxisObserverKind::DefinitionOnly},
     {"bst_shape", AxisObserverKind::DefinitionOnly},

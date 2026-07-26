@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <string_view>
 #include <vector>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace comp = ::comdare::cache_engine::compositions;
 namespace ana  = ::comdare::cache_engine::anatomy;
@@ -37,7 +38,8 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(comp::ArtComposition::search_algo, comp::Art
                                     comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
                                     comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy,
                                     comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
-                                    comp::ArtComposition::queuing_q2)
+                                    comp::ArtComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
 
 TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     // ABI-Probe-Symbole (vom Makro definiert).
@@ -48,7 +50,7 @@ TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     // Factory (vom Makro definiert) → AdHoc-Anatomie.
     ana::IAnatomyBase* base = comdare_create_anatomy();
     ASSERT_NE(base, nullptr);
-    EXPECT_EQ(base->organ_count(), 17u); // volle 17-Achsen-Anatomie (Doc 30 §8.0)
+    EXPECT_EQ(base->organ_count(), 18u); // volle 18-Achsen-Anatomie (Doc 30 §8.0 + STRUKT-R ORG-18)
     EXPECT_EQ(base->composition_name(), std::string_view{"AdHocComposition"});
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 

@@ -72,6 +72,7 @@
 #include <string_view>
 #include <type_traits>
 #include <vector>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana = ::comdare::cache_engine::anatomy;
 namespace pf  = ::comdare::cache_engine::anatomy::pruefling;
@@ -162,12 +163,16 @@ struct T17_QueuingQ1 {
 struct T18_QueuingQ2 {
     using StaticAxisVariants = mp::mp_list<LazyFlush>;
 }; // Doc 30 §8.0
+// STRUKT-R ORG-18: 18. Kompositions-Slot (T17 persistence_target, Durchreich-Wert).
+struct T19_PersistenceTarget {
+    using StaticAxisVariants = mp::mp_list<::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
+};
 
 using PilotEngine = // INC-2d: T12_Isa raus (17 Slots)
     ana::SearchAlgorithmPermutationEngine<T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
                                           T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
                                           T11_ValueHandle, T13_IndexOrg, T14_IoDispatch, T15_Migration, T16_Filter,
-                                          T17_QueuingQ1, T18_QueuingQ2>;
+                                          T17_QueuingQ1, T18_QueuingQ2, T19_PersistenceTarget>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sample-Slots fuer Gattungs-Constraint-Tests
@@ -214,8 +219,8 @@ TEST(R5CB_SearchAlgoEngine, GenusIsSearchAlgorithm) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CB_SearchAlgoEngine, ArityAndCountMatchPermutationEngine) {
-    static_assert(PilotEngine::arity() == 17,
-                  "17 Topic-Achsen Pflicht (15 + queuing q1/q2; INC-2c telemetry / INC-2d isa raus)");
+    static_assert(PilotEngine::arity() == 18,
+                  "18 Topic-Achsen Pflicht (15 + queuing q1/q2 + persistence_target; INC-2c/2d raus)");
     static_assert(PilotEngine::count() == 6, "3 search_algo × 2 cache_traversal × 1^16 = 6 (queuing ×1)");
     SUCCEED();
 }
@@ -312,7 +317,7 @@ TEST(R5CB_VisitorApi, ForEachSearchAlgorithmIteratesAllPermutations) {
     PilotEngine::for_each_search_algorithm([&](auto& anatomy, std::string_view name) {
         visited_names.push_back(name);
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        EXPECT_EQ(AnatomyT::organ_count(), 18u); // STRUKT-R ORG-18
         EXPECT_EQ(AnatomyT::genus(), ana::AnatomyGenus::SearchAlgorithm);
     });
     EXPECT_EQ(visited_names.size(), 6u);
@@ -341,7 +346,7 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
         // Pro Permutation ein IAnatomyBase mit korrekter Gattung
         genera_seen.push_back(base.genus());
         names_seen.push_back(name);
-        EXPECT_EQ(base.organ_count(), 17u);
+        EXPECT_EQ(base.organ_count(), 18u);
         EXPECT_EQ(base.engine_kind(), ee::ExecutionEngineKind::Anatomy);
 
         // R5.C.A4: vollstaendiger Mess-Lifecycle (CacheEngineBuilder-Pattern R5.D)

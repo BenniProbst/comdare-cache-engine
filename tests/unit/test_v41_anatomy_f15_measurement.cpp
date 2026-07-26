@@ -68,6 +68,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace stats  = ::comdare::cache_engine::builder::commands::stats;
@@ -80,7 +81,8 @@ using StoreBackedAdHocComposition = ::comdare::cache_engine::anatomy::AdHocCompo
     comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
     comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
     comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
-    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
+    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 namespace {
 
@@ -141,7 +143,7 @@ TEST(F15Measurement, LoadsGeneratedPermutationDllsAndRunsLifecycle) {
         auto* a = h.anatomy();
         ASSERT_NE(a, nullptr);
         EXPECT_FALSE(a->composition_name().empty()); // Identität aus der DLL
-        EXPECT_EQ(a->organ_count(), 17u);            // volle Anatomie (17 Achsen, INC-2d: isa raus)
+        EXPECT_EQ(a->organ_count(), 18u);            // volle Anatomie (18 Achsen, STRUKT-R ORG-18)
         // Lifecycle (state-Flips; keine Daten — s. Datei-Kopf): muss ohne Crash durchlaufen.
         a->warm_up();
         a->run();

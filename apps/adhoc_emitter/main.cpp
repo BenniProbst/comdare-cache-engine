@@ -39,7 +39,7 @@ namespace mp  = ::boost::mp11;
 
 namespace {
 
-// 17 Achsen-Default-Typen (via Umbrella verfügbar).
+// 18 Achsen-Default-Typen (via Umbrella verfuegbar; STRUKT-R ORG-18: persistence_target dazu).
 using SA0  = ce::traversal::axis_03a_search_algo::Array256SearchAlgo;         // dense direct-addressed (u8)
 using SA1  = ce::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;       // sorted lower_bound (u8)
 using SA2  = ce::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;     // sorted lower_bound (u16)
@@ -75,6 +75,9 @@ using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
 using Q1  = ce::queuing::axis_q1_queuing::NoBuffer;  // T17 queuing_q1 (Doc 30 §8.0: mandatorische SA-Achse, 19-Slot)
 using Q2  = ce::queuing::axis_q2_queuing::LazyFlush; // T18 queuing_q2
+// STRUKT-R ORG-18 (2026-07-26): 18. Organ-Haupt-Achse. VOLL qualifiziert ueber den io-Topic-Andock-Namespace,
+// weil ein Alias-Name "persistence_target" den gleichnamigen Namespace verdecken wuerde.
+using PT = ce::io::axis_persistence_target::MemoryOnlyTarget; // T17-Slot persistence_target (Durchreich-Wert)
 
 // Pilot-Raum (R5.B 3-Achsen): search_algo (12) × allocator (2) × memory_layout (2) = 48 Permutationen.
 struct C0 {
@@ -129,10 +132,15 @@ struct C17 {
 struct C18 {
     using StaticAxisVariants = mp::mp_list<Q2>;
 }; // T18 queuing_q2
+// STRUKT-R ORG-18: 18. Kompositions-Slot. Nummer 19 ist die laufende C-Nummer dieser Datei (C10/C12 sind
+// historisch entfallen), NICHT der Slot-Index -- der Kompositions-Slot ist 17 (T-Anhang hinter queuing_q2).
+struct C19 {
+    using StaticAxisVariants = mp::mp_list<PT>;
+}; // persistence_target
 
 using PilotEngine =
-    ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C13, C14, C15, C16, C17,
-                                          C18>; // INC-2c: C10/telemetry, INC-2d: C12/isa raus (17 Slots)
+    ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C13, C14, C15, C16, C17, C18,
+                                          C19>; // INC-2c: C10/telemetry, INC-2d: C12/isa raus; ORG-18: C19 dazu (18 Slots)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die
@@ -157,7 +165,8 @@ using SampledComposition =
                           mp::mp_at_c<LayoutList, R::value % kNl>, // T5  memory_layout
                           mp::mp_at_c<AllocList, R::value % kNa>,  // T6  allocator
                           PF, CC, SE, VH, IO, IOD, MG, FL,         // T7..T14 (INC-2c: TM, INC-2d: IS raus)
-                          Q1, Q2>;                                 // T15 queuing_q1, T16 queuing_q2 (17-Slot, INC-2d)
+                          Q1, Q2,                                  // T15 queuing_q1, T16 queuing_q2
+                          PT>;                                     // T17 persistence_target (18-Slot, STRUKT-R ORG-18)
 
 using SampleList = mp::mp_transform<SampledComposition, mp::mp_iota_c<kMax>>;
 

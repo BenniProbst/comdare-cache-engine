@@ -129,9 +129,9 @@ int main() {
     std::cout << "CSV: " << out_path << "\n";
 
     // #188-4c-i: Referenz-Hüllen honest-0 auf den Store-Achsen → filled_axis_count komposition-spezifisch (Re-Kopplung #234).
-    check_one<comp::ArtComposition>("Art", art, /*expected_filled=*/9u);
-    check_one<comp::HotComposition>("Hot", hot, /*expected_filled=*/9u);
-    check_one<comp::MasstreeComposition>("Masstree", mass, /*expected_filled=*/8u);
+    check_one<comp::ArtComposition>("Art", art, /*expected_filled=*/10u); // STRUKT-R ORG-18: +1 (pt_organ_ traegt T17)
+    check_one<comp::HotComposition>("Hot", hot, /*expected_filled=*/10u);
+    check_one<comp::MasstreeComposition>("Masstree", mass, /*expected_filled=*/9u);
 
     // INC-29.1 (D2): eine SampleStatus::Failed-Zelle traegt "failed" (NIE 0/still), Ok rendert die op_lat-Zahlen
     // byte-identisch ("Messung nie als Nullen"). Guard gegen eine stille Rueckkehr zu genullten Fehlschlag-Zeilen.

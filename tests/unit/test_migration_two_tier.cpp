@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace comp  = ::comdare::cache_engine::compositions;
@@ -54,7 +55,8 @@ using MigStoreBackedComposition = an::AdHocComposition<
     comp::HotComposition::allocator, comp::HotComposition::prefetch, comp::HotComposition::concurrency,
     comp::HotComposition::serialization, comp::HotComposition::value_handle, comp::HotComposition::index_organization,
     comp::HotComposition::io_dispatch, MigrationPolicy, comp::HotComposition::filter, comp::HotComposition::queuing_q1,
-    comp::HotComposition::queuing_q2>;
+    comp::HotComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 using MigNoneComposition    = MigStoreBackedComposition<mig::NoMigration>;
 using MigHotColdComposition = MigStoreBackedComposition<mig::HotColdMigration>;

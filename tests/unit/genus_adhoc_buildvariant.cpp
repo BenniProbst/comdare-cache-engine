@@ -1,5 +1,5 @@
 // L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL trägt SOWOHL die 17-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole,
-// genus()==SearchAlgorithm, organ_count()==17, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
+// genus()==SearchAlgorithm, organ_count()==18 (STRUKT-R ORG-18), Doc 30 §8.0) ALS AUCH die Build-Identitaet der 3 Build-Achsen (page_type/09b/12)
 // als extern-"C"-Inspection-Symbol. Beweist Doc 27 §0.1: die 3 Build-Achsen sind Build-Parameter DERSELBEN
 // 17-Slot-Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung (KEINE AdHocComposition<18>).
 //
@@ -7,13 +7,14 @@
 // Baut im CMake-Kontext (all_axes_umbrella braucht generierte flags.hpp-Dirs + Boost::mp11). cl /LD /DCOMDARE_ANATOMY_MODULE_BUILD.
 
 #include <cache_engine/abi/anatomy_module_abi_v1.hpp> // COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT
-#include <builder/codegen/all_axes_umbrella.hpp>      // die 17 SearchAlgorithm-Achsen-Typen
+#include <builder/codegen/all_axes_umbrella.hpp>      // die 18 SearchAlgorithm-Achsen-Typen
 #include <topics/nodes/axis_01_page_type/axis_01_page_type_dense_byte.hpp>              // PT
 #include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_avx512.hpp>   // SE
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp> // HW
 // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 — Durchreich-Defaults NoBuffer/LazyFlush.
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     // ── die 3 Build-Achsen ZUERST (named PT, SE, HW) ──
@@ -38,4 +39,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     ::comdare::cache_engine::filter::axis_filter::BloomFilter,
     // ── T17/T18 queuing (Doc 30 §8.0): explizit gewählter Durchreich-Algorithmus (kein „weglassen") ──
     ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,
-    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush)
+    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush,
+    // STRUKT-R ORG-18: T17 persistence_target (18. Kompositions-Achse; die 3 Build-Achsen
+    // PT/SE/HW stehen VORNE und sind davon unberuehrt).
+    ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)

@@ -1,6 +1,6 @@
 // test_br3_obs22 — BR-3-OBS-22 (2026-06-02, Doc 27 §0.1/§3) — 22-Observer-Differenzierung, „kein Wegschrumpfen".
 //
-// Belegt gegen die ECHTE 26-Achsen-Bindung (BR-1 build_all_axis_levels): JEDE der 26 Achsen ist
+// Belegt gegen die ECHTE 26-Achsen-Bindung (BR-1 build_all_axis_levels): JEDE der 27 Achsen ist
 // observer-klassifiziert (gattungs-korrekt) UND trägt ihre read-only Definition (reflect_names = reale
 // Wrapper-Namen) — keine Achse fällt weg. Reklass 2026-07-20 (P-OBS): 17 SearchAlgorithmObserver (kCompositionAxisNames,
 // OHNE telemetry/isa) + 9 DefinitionOnly (page_type/09b/12 + telemetry + isa System-Achsen + 4 node-shape) + 0 ContainerObserver = 26.
@@ -35,7 +35,7 @@ int main() {
     std::cout << "BR-3-OBS-22: 26-Observer-Differenzierung (kein Wegschrumpfen):\n";
 
     std::vector<ex::AxisLevel> lv = ex::build_all_axis_levels(); // BR-1: alle 26 Achsen, registry-getrieben
-    check_eq("BR-1 liefert 26 Achsen (22 + 4 node-shape #234-K)", lv.size(), std::size_t{26});
+    check_eq("BR-1 liefert 27 Achsen (22 + 4 node-shape #234-K + persistence_target)", lv.size(), std::size_t{27});
 
     std::size_t classified = 0, with_def = 0, sa = 0, def_only = 0, cont = 0;
     for (auto const& l : lv) {
@@ -56,24 +56,26 @@ int main() {
                   << " Wrapper)\n";
     }
 
-    check_eq("JEDE der 26 Achsen ist observer-klassifiziert (kein Wegschrumpfen)", classified, std::size_t{26});
-    check_eq("JEDE der 26 Achsen trägt eine read-only Definition (values>0)", with_def, std::size_t{26});
+    check_eq("JEDE der 27 Achsen ist observer-klassifiziert (kein Wegschrumpfen)", classified, std::size_t{27});
+    check_eq("JEDE der 27 Achsen traegt eine read-only Definition (values>0)", with_def, std::size_t{27});
     // korr. 2026-06-03 (Doc 30 §8.0): queuing q1/q2 sind SA-Tier-Unterklasse-Achsen (Slots T17/T18); Reklass 2026-07-20
     // (P-OBS): telemetry (INC-2c) + isa (INC-2d) haben die Komposition verlassen -> System-Achsen (DefinitionOnly) ->
-    // 17/9/0=26. SA == kCompositionAxisNames(17) == ObserverAggregate<17>. ContainerObserver reserviert (#87) -> 0.
-    check_eq("17 SearchAlgorithmObserver (ObserverAggregate<17>, kCompositionAxisNames inkl. queuing q1/q2)", sa,
-             std::size_t{17});
+    // STRUKT-R ORG-18: persistence_target kommt als 18. SA-Achse -> 18/9/0=27.
+    // SA == kCompositionAxisNames(18) == ObserverAggregate<18>. ContainerObserver reserviert (#87) -> 0.
+    check_eq("18 SearchAlgorithmObserver (ObserverAggregate<18>, kCompositionAxisNames inkl. queuing q1/q2 + "
+             "persistence_target)",
+             sa, std::size_t{18});
     check_eq("9 DefinitionOnly (page_type/09b/12 + telemetry + isa + 4 node-shape #234-K)", def_only, std::size_t{9});
     check_eq("0 ContainerObserver (queuing→SA; ContainerObserver reserviert für echte Container-Gattung #87)", cont,
              std::size_t{0});
     // Konsistenz der constexpr-Klassifikation selbst:
-    check_eq("constexpr: 17 SearchAlgorithmObserver",
-             ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver), std::size_t{17});
+    check_eq("constexpr: 18 SearchAlgorithmObserver",
+             ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver), std::size_t{18});
     check_eq("constexpr: 9 DefinitionOnly", ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly),
              std::size_t{9});
     check_eq("constexpr: 0 ContainerObserver", ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver),
              std::size_t{0});
-    check_true("Summe == 26 (alle Achsen abgedeckt, keine doppelt/fehlend)", sa + def_only + cont == 26);
+    check_true("Summe == 27 (alle Achsen abgedeckt, keine doppelt/fehlend)", sa + def_only + cont == 27);
 
     std::cout << "\n==== BR-3-OBS-22 (22 Observer differenziert): "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";

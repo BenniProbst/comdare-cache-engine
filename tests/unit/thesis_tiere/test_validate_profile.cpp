@@ -281,11 +281,12 @@ std::optional<tlz::RegistryTrio> real_trio() {
 }
 } // namespace
 
-// (P0) Das reale Trio traegt 17/5/16 und die kanonischen Achsen (Grundlage der Klassifikation) -- unveraendert gruen.
+// (P0) Das reale Trio traegt 18/5/16 (STRUKT-R ORG-18: Organ 17->18) und die kanonischen Achsen.
 TEST(ResolveAxisRefsAgainstTrio, RealTrioIs17_5_16WithCanonicalAxes) {
     auto const trio = real_trio();
     ASSERT_TRUE(trio.has_value()) << "die 3 committeten Art-Registries muessen als comdare_axis_registry lesbar sein";
-    EXPECT_EQ(trio->organ_axis_count(), 17u) << "Organ-golden: 17 Kompositions-Achsen (isa raus, INC-2d)";
+    EXPECT_EQ(trio->organ_axis_count(), 18u)
+        << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d; persistence_target dazu STRUKT-R ORG-18)";
     EXPECT_EQ(trio->system_axis_count(), 5u);
     EXPECT_EQ(trio->measurement_category_count(), 16u);
     EXPECT_EQ(trio->organ.axis_names.count("search_algo"), 1u) << "search_algo ist eine Organ-Achse";

@@ -31,6 +31,7 @@
 #include <compositions/surf_paper_binding_reference.hpp>
 
 #include <string_view>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana  = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
@@ -75,7 +76,8 @@ TEST(R5G_CompositionLocation, AdHocCompositionDoesNotConform) {
         comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
         comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
         comp::ArtComposition::queuing_q1,                  // T17 (Doc 30 §8.0)
-        comp::ArtComposition::queuing_q2>;                 // T18 (Doc 30 §8.0)
+        comp::ArtComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;                 // T18 (Doc 30 §8.0)
     static_assert(ana::IsComposition<AdHocArt>);           // existing Concept passt
     static_assert(!ana::HasCompositionLocation<AdHocArt>); // R5.G NEU: kein Location
     SUCCEED();

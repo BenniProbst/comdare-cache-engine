@@ -8,6 +8,7 @@
 #include <builder/codegen/all_axes_umbrella.hpp> // EINZIGER Achsen-Include
 
 #include <gtest/gtest.h>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace ana = ::comdare::cache_engine::anatomy;
 
@@ -29,7 +30,8 @@ using SampleAdHoc =
                           ::comdare::cache_engine::migration::axis_migration::NoMigration,
                           ::comdare::cache_engine::filter::axis_filter::BloomFilter,
                           ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,   // T17 (Doc 30 §8.0)
-                          ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush>; // T18 (Doc 30 §8.0)
+                          ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>; // T18 (Doc 30 §8.0)
 
 static_assert(ana::IsComposition<SampleAdHoc>,
               "Umbrella muss alle 17 Achsen-Typen für eine vollständige AdHoc-Composition liefern (Doc 30 §8.0; "
@@ -40,6 +42,6 @@ TEST(R5G_Umbrella, AllAxesResolveViaSingleIncludeAndComposeFullAnatomy) {
     static_assert(ana::AnatomyConcept<Anatomy>);
     ana::SearchAlgorithmAbiAdapter<Anatomy> adapter;
     ana::IAnatomyBase*                      base = &adapter;
-    EXPECT_EQ(base->organ_count(), 17u);
+    EXPECT_EQ(base->organ_count(), 18u);
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 }

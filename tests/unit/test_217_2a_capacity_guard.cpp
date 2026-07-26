@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
@@ -29,7 +30,8 @@ using StoreBackedAdHocComposition = an::AdHocComposition<
     comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
     comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
     comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
-    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
+    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 template <class SearchAlgo>
 using AdapterFor = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<StoreBackedAdHocComposition<SearchAlgo>>>;

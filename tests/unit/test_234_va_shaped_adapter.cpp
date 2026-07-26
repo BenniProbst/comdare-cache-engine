@@ -158,7 +158,8 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ord::BtreeOrderKt2, BTreeC::search_al
                                            BTreeC::memory_layout, BTreeC::allocator, BTreeC::prefetch,
                                            BTreeC::concurrency, BTreeC::serialization, BTreeC::value_handle,
                                            BTreeC::index_organization, BTreeC::io_dispatch, BTreeC::migration_policy,
-                                           BTreeC::filter, BTreeC::queuing_q1, BTreeC::queuing_q2)
+                                           BTreeC::filter, BTreeC::queuing_q1, BTreeC::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget)
 
 // (2a) Adapter-Traeger-Beweis STRUKTURELL (REVIEW-FIX Important-2, F1-Praezedenz): live_nodes ist die
 // pool-native Groesse (zaehlt je new_node, unabhaengig von vector-Growth-Buckets) -- Kt2 (max 3 Keys/
@@ -273,7 +274,7 @@ TEST(V234aShapedAdapter, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 6);
-    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1272u);
-    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 7u);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 7);
+    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
+    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 8u);
 }

@@ -40,6 +40,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace an    = ::comdare::cache_engine::anatomy;
 namespace comp  = ::comdare::cache_engine::compositions;
@@ -54,7 +55,8 @@ using StoreBackedAdHocComposition = an::AdHocComposition<
     comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
     comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
     comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
-    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
+    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2,
+    /* STRUKT-R ORG-18: T17 persistence_target, expliziter Durchreich-Wert */ ::comdare::cache_engine::persistence_target::MemoryOnlyTarget>;
 
 static int  g_fail = 0;
 static void tr(char const* w, bool c) {
@@ -99,8 +101,8 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
                       std::uint32_t expected_filled = 0) {
     if (store_axes_backed) {
         // Store-backed AdHoc bleibt die volle Phase-B-Coverage-Kontrolle: alle Schema-Achsen sind befüllt.
-        tr((std::string{name} + ": filled_axis_count == 17 (store-backed; INC-2d)").c_str(),
-           s.filled_axis_count == 17u);
+        tr((std::string{name} + ": filled_axis_count == 18 (store-backed; STRUKT-R ORG-18)").c_str(),
+           s.filled_axis_count == 18u);
         tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount (store-backed)").c_str(),
            s.filled_axis_count == an::kV3FilledAxisCount);
         // Bau-INC-2d: index_org/io/migration/filter sind von T12-T15 auf T11-T14 gerueckt (isa raus, Indizes >=11 -1);
@@ -152,9 +154,9 @@ int main() {
 
     check_one<StoreBackedAdHocComposition>("AdHocArray256StoreBacked", adhoc, true);
     // #188-4c-i: Referenz-Hüllen honest-0 auf den Store-Achsen → filled_axis_count komposition-spezifisch (Re-Kopplung #234).
-    check_one<comp::ArtComposition>("Art", art, false, /*expected_filled=*/9u);
-    check_one<comp::HotComposition>("Hot", hot, false, /*expected_filled=*/9u);
-    check_one<comp::MasstreeComposition>("Masstree", mass, false, /*expected_filled=*/8u);
+    check_one<comp::ArtComposition>("Art", art, false, /*expected_filled=*/10u); // STRUKT-R ORG-18: +1 (pt_organ_ traegt T17)
+    check_one<comp::HotComposition>("Hot", hot, false, /*expected_filled=*/10u);
+    check_one<comp::MasstreeComposition>("Masstree", mass, false, /*expected_filled=*/9u);
 
     // (3) STRATEGIE-DIVERGENZ-BELEG: dieselbe Treibe-Last, KONTRASTIERENDE Strategien → divergente Zähler.
     std::cout << "---- Strategie-Divergenz (gleiche Last, verschiedene Strategie) ----\n";
