@@ -98,6 +98,19 @@ struct RunProfileArgs {
     ex::CachePushFn          cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
     ex::CachePullFn          cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau; leer = No-Op
     ex::MeasurementSinkFn    measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
+    // G4b-1 (#46b I1, Host-Verdrahtung; Muster EXAKT wie die drei Felder darueber): die mittlere Schicht der
+    // dreischichtigen Bestandslog-Naht. ProfileRunArgs (Fassade) -> DIESE Felder -> LazyRunConfig::bestand_*
+    // (cache_engine_builder_iterator.hpp:215-226). Der Typ von bestand_key_of ist EXAKT der Iterator-Feldtyp
+    // (:216) und ausdruecklich NICHT ex::FingerprintFn (build_orchestrator.hpp:174, string->string) -- die beiden
+    // Namen sind benachbart und bedeuten Verschiedenes (AUF-A4). Der reale Provider ist
+    // bestandslog::make_fingerprint_key_fn (fingerprint_key_source.hpp), den der Host injiziert.
+    // KEIN Gate auf dieser Ebene: das harte Doppel-Gate sitzt beim Host (AUF-B3). Alle leer (Default) =>
+    // bestandslog_active (:927-929) false => keine Registrierung/Dedup, Bau bleibt auf provision_all => byte-neutral.
+    ex::BestandTransport                                                    bestand_transport;
+    std::function<std::optional<std::string>(std::filesystem::path const&)> bestand_key_of;
+    std::string                                                             bestand_doc_key;
+    std::string                                                             bestand_owner_uuid;
+    std::string                                                             bestand_maschine;
     // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
     // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).
     ex::PartialMarkerFn partial_marker_sink;
@@ -462,8 +475,19 @@ struct RunProfileResult {
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.pruef_only                = a.pruef_only;     // S3: nur Gate je gebauter .so (byte-identisch bei false)
         cfg.cache_push                = a.cache_push;     // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
-        cfg.cache_pull          = a.cache_pull; // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
-        cfg.measurement_sink    = a.measurement_sink;    // Storage #51: result.csv -> measure-drop (No-Op-Default)
+        cfg.cache_pull       = a.cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
+        cfg.measurement_sink = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
+        // G4b-1 (#46b I1): die letzte Schicht der Bestandslog-Naht -- ab hier liest der Iterator. Erst
+        // bestandslog_active (:927-929) entscheidet: alle vier Traeger belegt UND doc_key nicht leer. bestand_
+        // fingerprint_fn (oben, das SCHREIBEN des Sidecars) und bestand_key_of (hier, das LESEN) sind die beiden
+        // Haelften desselben Vorgangs und muessen zusammen belegt sein, damit das Lager etwas sieht -- beide haengen
+        // host-seitig am gleichen COMDARE_BESTANDSLOG-Opt-in. bestand_present bleibt UNBELEGT (Default absent =>
+        // "alles fehlt" => der Planer filtert den Bau nicht, er informiert nur die Reservierung).
+        cfg.bestand_transport   = a.bestand_transport;
+        cfg.bestand_key_of      = a.bestand_key_of;
+        cfg.bestand_doc_key     = a.bestand_doc_key;
+        cfg.bestand_owner_uuid  = a.bestand_owner_uuid;
+        cfg.bestand_maschine    = a.bestand_maschine;
         cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
         cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)

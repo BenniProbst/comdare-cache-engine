@@ -17,7 +17,8 @@
 
 #include "../experiment_tree/experiment_tree.hpp"
 #include "../experiment_tree/progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Bau-Fortschritts-Testat
-#include <cache_engine/measurement/axis_error.hpp>   // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
+#include "fingerprint_sidecar.hpp" // G4b-1/AUF-A2: fingerprint_sidecar_path (hierher extrahiert, Single Source)
+#include <cache_engine/measurement/axis_error.hpp> // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
 #include <cache_engine/measurement/simd_build_gate.hpp>        // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock)
 #include <cache_engine/measurement/simd_organ_requirement.hpp> // Section 40.a-E4: per-Binary organ_required-Aggregation
 
@@ -295,9 +296,9 @@ inline void write_variant_sidecar(std::filesystem::path const& output, std::stri
 // I2: das VIERTE Sidecar `<output>.fingerprint` -- der 128-hex K7b-Fingerprint der Binary (Lager-Index-Schluessel,
 // bestand_key_of liest es). Bewusst SEPARAT von .version/.algos/.variant (das ist der kompakte Provenienz-Anker, kein
 // Skip-Kriterium). perm.dll.* bleiben byte-genau unveraendert.
-[[nodiscard]] inline std::filesystem::path fingerprint_sidecar_path(std::filesystem::path const& output) {
-    return std::filesystem::path{output.string() + ".fingerprint"};
-}
+// G4b-1/AUF-A2 (2026-07-26): fingerprint_sidecar_path steht seit dieser Scheibe in fingerprint_sidecar.hpp (oben
+// inkludiert) -- unveraendert, gleicher Namespace. Grund: der Lager-Binder (bestandslog/fingerprint_key_source.hpp)
+// muss denselben Pfad bilden, ohne diesen schweren Header zu ziehen. Es gibt weiter nur EINE Wahrheit zum Suffix.
 /// Schreibt das Fingerprint-Sidecar (`.fingerprint`, I2). Leer = no-op (keine FingerprintFn injiziert -> byte-neutral).
 /// Nur bei erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Sidecar.
 inline void write_fingerprint_sidecar(std::filesystem::path const& output, std::string const& fingerprint) {

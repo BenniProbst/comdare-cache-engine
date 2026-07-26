@@ -21,7 +21,9 @@
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
-#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // Bauplan §4: ceb_contract_version (+ceb= in build_version)
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>  // Bauplan §4: ceb_contract_version (+ceb= in build_version)
+#include <builder/bestandslog/artifact_cache_transport.hpp> // G4b-1 (#46b I1): make_bestand_transport -- NUR hier, die
+                                                            // eine Umbrella-TU (zieht den ce-XML-DOM nach)
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // Bauplan §4/§5: AlgoSigFn aus compose_algo_signature
 #include <builder/experiment_tree/registry_to_axis_levels.hpp>    // P5: build_all_axis_levels (EnabledStrategies)
@@ -43,6 +45,7 @@
 
 namespace comdare::cache_engine::builder::profile_facade {
 
+namespace bl      = ::comdare::cache_engine::builder::bestandslog; // G4b-1: make_bestand_transport (die T1-Kante)
 namespace ex      = ::comdare::cache_engine::builder::experiment;
 namespace tlz     = ::comdare::cache_engine::thesis_lazy;
 namespace wd      = ::comdare::cache_engine::builder::workload_driver;
@@ -563,6 +566,20 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.chunk_part_size     = args.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
     a.progress_sink =
         args.progress_sink; // Welle 5 (E-W5-2): §38-Fortschritts-Rueck-Kanal (No-Op-Default => byte-neutral)
+    // G4b-1 (#46b I1): die Bestandslog-Naht. Diese TU ist die EINE, die die Umbrella-Welt sehen darf (s. Kopf von
+    // profile_run_facade.hpp) -- deshalb wird der BestandTransport GENAU HIER aus dem uebergebenen ArtifactCache
+    // gebunden und nicht im Host. KEIN Gate hier: das harte Doppel-Gate sitzt beim Host (messung_driver, AUF-B3);
+    // die Fassade urteilt nicht ueber Env. Ist bestand_cache leer (Default), bleibt bestand_transport unbelegt =>
+    // bestandslog_active (iterator:927-929) false => keine Registrierung/Dedup, der Bau bleibt auf provision_all =>
+    // byte-neutral. LEBENSDAUER (AUF-B5): der shared_ptr des Hosts ueberlebt diesen Aufruf; make_bestand_transport
+    // haelt eine const& auf genau diese Instanz und wird ausschliesslich innerhalb von run_profile benutzt.
+    // NUR dieser pa-Pfad (run_profile_facade): der xa-Pfad (run_experiment_facade, weiter unten) bleibt bewusst
+    // ohne bestand_*-Felder -- AUF-B2, ausgewiesen inert.
+    if (args.bestand_cache) a.bestand_transport = bl::make_bestand_transport(*args.bestand_cache);
+    a.bestand_key_of     = args.bestand_key_of;
+    a.bestand_doc_key    = args.bestand_doc_key;
+    a.bestand_owner_uuid = args.bestand_owner_uuid;
+    a.bestand_maschine   = args.bestand_maschine;
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;

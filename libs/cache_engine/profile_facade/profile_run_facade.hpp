@@ -13,6 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional> // G4b-1: bestand_key_of (std::function<optional<string>(path const&)>, AUF-A4)
+#include <memory>     // G4b-1: shared_ptr<ArtifactCache const> (der Bestandslog-Transport-Traeger)
+#include <optional>   // G4b-1: bestand_key_of-Rueckgabe
 #include <ostream>
 #include <string>
 
@@ -75,6 +78,36 @@ struct ProfileRunArgs {
     artifact_transport::CachePushFn cache_push;
     artifact_transport::CachePullFn cache_pull; // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau (No-Op-Default)
     artifact_transport::MeasurementSinkFn measurement_sink;
+    // G4b-1 (#46b I1, Host-Verdrahtung des Bestandslogs; Muster EXAKT wie cache_push/cache_pull/measurement_sink
+    // darueber): der Objekt-Store-Traeger + Doc-Key + Key-Provider + die beiden Identitaeten. Sie reisen bis
+    // LazyRunConfig::bestand_* (cache_engine_builder_iterator.hpp:215-226) durch; erst dort entscheidet
+    // bestandslog_active (:927-929) ueber Konsultation und Registrierung.
+    //
+    // WARUM DER CACHE UND NICHT DER FERTIGE BestandTransport: dieser Header ist ausweislich seines Kopfes die
+    // UMBRELLA-FREIE POD-Signatur -- main.cpp und die anderen produktiven Konsumenten sehen nur ihn. Ein Feld vom
+    // Typ bestandslog::BestandTransport wuerde bestandslog_lock.hpp und damit bestandslog_document.hpp
+    // (<serialization/xml_config_parser/xml_reader.hpp>, der ce-XML-DOM) in JEDE konsumierende TU ziehen. Der
+    // messung_driver-Include-Satz enthaelt libs/common gar nicht, der Bau bricht dort literal ab. Stattdessen reist
+    // der ArtifactCache selbst (dessen Typ dieser Header ohnehin schon kennt, s. cache_push darueber) und
+    // profile_run_facade.cpp -- die EINE Umbrella-TU -- bindet make_bestand_transport daraus.
+    //
+    // LEBENSDAUER (AUF-B5): make_bestand_transport haelt ArtifactCache CONST&. Der shared_ptr macht die
+    // Lebensdauer selbsttragend: der Host uebergibt DENSELBEN Zeiger, den auch cache_push/cache_pull kapseln
+    // (main.cpp:840), und der Transport wird nur innerhalb dieses Aufrufs gebunden und benutzt. Ein Binden an eine
+    // temporaere from_env()-Instanz ist damit strukturell ausgeschlossen.
+    //
+    // HARTES DOPPEL-GATE (AUF-B3): der HOST belegt diese Felder NUR, wenn COMDARE_BESTANDSLOG=="true" UND der
+    // ArtifactCache nicht inert ist UND die owner-Identitaet gesetzt ist. Die Fassade GATET NICHT -- sie reicht
+    // durch. Alle leer/null (Default) => bestandslog_active false => KEINE Registrierung/Dedup und der Bau bleibt
+    // auf provision_all => golden/CI byte-identisch (Anti-Phantom).
+    //
+    // NUR ProfileRunArgs: ExperimentRunArgs (unten) bleibt bewusst OHNE bestand_*-Felder -- der
+    // comdare_experiment-Weg ist in dieser Scheibe INERT (AUF-B2).
+    std::shared_ptr<artifact_transport::ArtifactCache const>                bestand_cache;
+    std::function<std::optional<std::string>(std::filesystem::path const&)> bestand_key_of;
+    std::string                                                             bestand_doc_key;
+    std::string                                                             bestand_owner_uuid;
+    std::string                                                             bestand_maschine;
     // W11 (Ledger §43.c): BAU-Modus async Push -- der Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N.
     // Der Host konstruiert den Sink via ArtifactCache::push_chunk_partial_marker (range gekapselt) + liest N aus
     // COMDARE_GN_PART_SIZE (Default 1024). Leer/0 = keine Teil-Marker (byte-neutral). Der Pump selbst (Ueberlappen)
