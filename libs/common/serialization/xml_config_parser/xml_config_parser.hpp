@@ -219,8 +219,18 @@ struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6.
 // TargetIsaSystemAxis-Familie im OFFER, target_isa_system_axis.hpp). ADDITIV — leer = kein <target_isa> = heutiges
 // Verhalten byte-identisch; binary_id-NEUTRAL (system_config; isa verliess mit INC-2d die Komposition, 18->17).
 // Gueltigkeit prueft validate_profile gegen kAllTargetIsaIds.
+// O-2 ENTSCHIEDEN / Lane A (c), 26.07.2026: target_isa traegt jetzt UNTER-ACHSEN (D2.6: numa_node + page,
+// parent="target_isa"). Der Satz oben "KEINE Unter-Achse" beschreibt den Stand vom 20.07. und ist damit im
+// Unter-Achsen-Teil SUPERSEDED; richtig bleibt, dass die Optionen der HAUPT-Achse direkt unter <target_isa>
+// stehen (kein Zwischen-Container) - die Unter-Achsen dagegen haben je einen eigenen Container.
+// Die zwei Felder sind BEWUSST HINTEN angehaengt (additive Erweiterung, keine Umsortierung): jede
+// bestehende Aggregat-Initialisierung von TargetIsaAxisSel bleibt gueltig.
+// KEIN KONSUMENT in diesem Paket: der Parser fuellt sie, niemand liest sie. Damit ist der Kanal erreichbar
+// (BLOCKER-4 aufgehoben), ohne dass sich Verhalten, Bytes oder golden aendern.
 struct TargetIsaAxisSel {
-    std::vector<std::string> isa; // Optionen der target_isa-Haupt-Achse <target_isa><option value=x86_64|aarch64>
+    std::vector<std::string> isa;       // Optionen der target_isa-Haupt-Achse <target_isa><option value=x86_64|aarch64>
+    std::vector<std::string> numa_node; // Unter-Achse <target_isa><numa_node><option value=..>
+    std::vector<std::string> page;      // Unter-Achse <target_isa><page><option value=..> (NICHT axis_01_page_type)
 };
 
 struct ThesisProfile {

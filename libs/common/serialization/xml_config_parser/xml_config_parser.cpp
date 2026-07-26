@@ -113,6 +113,16 @@ void parse_system_axes(comdare::common::xml::XmlNode const& sa, CompilerAxisSel&
     // <target_isa> (Spiegel der x86_64/aarch64-Bausteine im OFFER). Fehlt der Knoten, bleibt die Liste leer.
     if (auto const* ti = sa.child("target_isa")) {
         for (auto const* o : ti->children_named("option")) target_isa.isa.push_back(o->attr("value"));
+        // O-2 ENTSCHIEDEN / Lane A (c), 26.07.2026: die zwei target_isa-UNTER-Achsen (D2.6). Muster
+        // deckungsgleich zu compiler/opt_level bzw. extension_hardware/simd: EIN Container je Unter-Achse,
+        // darin die <option value=..>. Vorher gab es fuer sie GAR KEINEN Lese-Pfad - das Registry-Angebot
+        // war per XML unerreichbar (BLOCKER-4). Rein ADDITIV: fehlt der Knoten, bleibt die Liste leer und
+        // das Verhalten ist byte-identisch zum Ist. In diesem Paket gibt es KEINEN Konsumenten der Felder;
+        // die Gueltigkeits-Pruefung gegen das Angebot folgt mit dem Resolver-Schritt.
+        if (auto const* nn = ti->child("numa_node"))
+            for (auto const* o : nn->children_named("option")) target_isa.numa_node.push_back(o->attr("value"));
+        if (auto const* pg = ti->child("page"))
+            for (auto const* o : pg->children_named("option")) target_isa.page.push_back(o->attr("value"));
     }
 }
 
