@@ -270,6 +270,13 @@ struct LazyMeasuredRow {
     // statt 0 ("Messung nie als Nullen"). Default Ok = gueltige Messung (Zahlen, byte-identisch).
     ::comdare::cache_engine::measurement::SampleStatus sample_status =
         ::comdare::cache_engine::measurement::SampleStatus::Ok;
+    // RF-2 (§70.2, D1): ZULASSUNGS-Status dieser Perm -- disjunkt zu sample_status (D2). Gesperrt heisst
+    // "auf dieser Maschine nicht zugelassen, deshalb GAR NICHT gemessen" und rendert das eigene D1-Token
+    // statt Zahlen; Failed hiesse "gemessen und gescheitert". Default Zugelassen = heutiges Verhalten,
+    // byte-identisch. HEUTE SETZT DAS NIEMAND: der Entscheider (simd_release_on_machine) kommt mit A6 --
+    // bis dahin ist der Kanal gebaut und unausgeloest (Beleg: test_rf2_admission_marker_inert.cpp).
+    ::comdare::cache_engine::measurement::AdmissionStatus admission_status =
+        ::comdare::cache_engine::measurement::AdmissionStatus::Zugelassen;
     // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus LazyRunConfig durchgereicht). Reine
     // Metadaten (kein Mess-Einfluss) → ermöglichen die Trennung Basis vs Per-Achsen-Sweep vs SOTA-Reihe A/B/C
     // sowie die Working-Set-N- und Plattform/Build-Version-Achsen in der Auswertung.
@@ -460,9 +467,25 @@ struct LazyMeasuredRow {
     // INC-29.1 (D2): eine algo-/mess-fehlerhafte Zelle (SampleStatus::Failed) traegt "failed" (NIE 0/still) —
     // "Messung nie als Nullen"; der Ok-Pfad rendert byte-identisch die Zahlen. Failed setzt perm_runner
     // (gate_failed_result_ / catch-OOM). Gleiche Spaltenzahl (3 je Op-Art) -> CSV-Ausrichtung unveraendert.
+    // RF-2 (D1, §70.2): eine ZULASSUNGS-gesperrte Perm traegt ihr EIGENES Token (nie "failed" -- W-4:
+    // gesperrt heisst NICHT GEMESSEN, failed heisst GEMESSEN UND GESCHEITERT; die Token-Disjunktheit ist
+    // in axis_error.hpp compile-time verwacht). Derselbe Zell-Satz, dieselbe Spaltenzahl wie beim
+    // D2-Pendant -> CSV-Ausrichtung unveraendert. Default Zugelassen rendert byte-identisch die Zahlen.
     bool const cell_failed = (row.sample_status == ::comdare::cache_engine::measurement::SampleStatus::Failed);
+    bool const cell_gesperrt =
+        (row.admission_status == ::comdare::cache_engine::measurement::AdmissionStatus::Gesperrt);
+    std::string const gesperrt_zelle{::comdare::cache_engine::measurement::admission_status_token(
+        ::comdare::cache_engine::measurement::AdmissionStatus::Gesperrt)};
     for (auto const& ol : row.op_lat) {
-        if (cell_failed) {
+        if (cell_gesperrt) {
+            // D1 hat Vorrang vor D2: was nie gemessen wurde, kann nicht "failed" sein.
+            out += gesperrt_zelle;
+            out += ';';
+            out += gesperrt_zelle;
+            out += ';';
+            out += gesperrt_zelle;
+            out += ';';
+        } else if (cell_failed) {
             out += "failed;failed;failed;";
         } else {
             out += std::to_string(ol.n);

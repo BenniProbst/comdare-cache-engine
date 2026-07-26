@@ -16,7 +16,9 @@
 //
 // ROBUST gegen n/a-Zellen (K-10-Token, measurement/axis_error.hpp :: sample_status_token): die ehrlichen
 // Zell-Tokens "n/a" (NotApplicable/SourceUnavailable) und "failed" (Failed) sind KEINE Zahlen -> die Zeile
-// wird GEZAEHLT uebersprungen (skipped_rows), NIE zu einem Phantom-Punkt (0,0). Streng-numerisches Parsen
+// wird GEZAEHLT uebersprungen (skipped_rows), NIE zu einem Phantom-Punkt (0,0). RF-2 (§70.2) ergaenzt das
+// D1-Token "gesperrt" (admission_status_token) -- ebenfalls keine Zahl, aber aus der ANDEREN Domaene:
+// nicht gemessen statt Messung gescheitert. Streng-numerisches Parsen
 // (ganze Zelle muss konsumiert werden) -- gleiche Doktrin wie builder/curve_fit/curve_fit.hpp.
 //
 // HONEST-EMPTY: fehlende Spalte / leere Datei -> leeres Ergebnis (der Aufrufer erkennt es an .empty()).
@@ -47,7 +49,12 @@ struct LoaderSpec {
     std::string x_col        = "working_set_n"; // Parameter-Achse
     std::string y_col        = "ns_per_op";     // Messwert
     // Ehrliche Nicht-Zahl-Tokens (K-10) -> Zeile wird uebersprungen. Leere Zelle zaehlt ebenfalls als n/a.
-    std::vector<std::string> na_tokens = {"n/a", "failed", "-", ""};
+    // RF-2 (§70.2): "gesperrt" ist das D1-Zulassungs-Token (axis_error.hpp :: admission_status_token) und
+    // gehoert AUS DEMSELBEN GRUND hierher wie "failed" -- es ist keine Zahl. Semantisch ist es aber etwas
+    // anderes: "failed" heisst gemessen-und-gescheitert, "gesperrt" heisst gar-nicht-erst-gemessen. Fuer
+    // die Kurve ist beides gleich zu behandeln (kein Phantom-Punkt); wer die beiden Faelle TRENNEN will,
+    // liest die Marker-Zeile ueber ihr eigenes Token, nicht ueber diese Liste.
+    std::vector<std::string> na_tokens = {"n/a", "failed", "gesperrt", "-", ""};
 };
 
 /// Default-Spezifikationen fuer die zwei realen CSV-Dialekte des ce.

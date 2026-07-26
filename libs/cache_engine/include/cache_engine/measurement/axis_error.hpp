@@ -64,6 +64,25 @@ enum class SampleStatus : std::uint8_t {
 /// Single-Source der Status-Zahl (Drift-Guard unten).
 inline constexpr std::size_t kSampleStatusCount = 4;
 
+// -- RF-2 (§70.2): Zulassungs-Status je Permutation (D1-Zell-Vokabular) ---------------------------
+// Owner-Begruendung verbatim (§70.2): "die Hardware-Erweiterung spezialisiert die CPU-Spezifikation,
+// jede untergeordnete Gesamtrekombination ist eine eigene Permutation+Messevaluation". Eine Perm, die
+// auf dieser Maschine NICHT ZUGELASSEN ist (z.B. avx512 ohne Freigabe), ist deshalb kein verschwiegener
+// Leerraum, sondern ein eigener, sichtbarer Datensatz.
+//
+// WARUM EINE EIGENE TAXONOMIE statt eines weiteren SampleStatus-Werts (W-4-Doktrin, Bauplan TEIL II):
+// eine ZULASSUNGS-Entscheidung ist D1 (Planer-/Compile-Zeit), ein Mess-Ergebnis ist D2 (Runtime).
+// `sample_status_token(Failed)` hiesse "der Algorithmus/die Messung ist gescheitert" -- gesperrt heisst
+// aber, dass GAR NICHT GEMESSEN WURDE. Die Domaenen-Trennung dieser Datei (s. Kopf, D1 vs D2) waere
+// verletzt, wenn eine Zulassungs-Aussage durch das D2-Vokabular reiste. Die Disjunktheit der Tokens ist
+// unten compile-time verwacht, damit die Doktrin nicht nur im Kommentar steht.
+enum class AdmissionStatus : std::uint8_t {
+    Zugelassen = 0, // Perm ist auf dieser Maschine freigegeben -> es wird real gemessen (Default)
+    Gesperrt   = 1, // Perm ist D1-zulassungs-gesperrt -> Marker-Datensatz statt Messung, NIE eine Null
+};
+/// Single-Source der Zulassungs-Status-Zahl (beide Drift-Wachen unten).
+inline constexpr std::size_t kAdmissionStatusCount = 2;
+
 // ── Error-Category: stabile Etiketten (Single-Source fuer Log + Serialisierung) ───────────────────
 /// Log-Etikett je D1-Klasse (stabil; darf in Experiment-Logs zitiert werden).
 [[nodiscard]] constexpr std::string_view error_class_label(CompilerCompilerErrorClass c) noexcept {
@@ -87,6 +106,17 @@ inline constexpr std::size_t kSampleStatusCount = 4;
         case SampleStatus::Failed: return "failed";
     }
     return "failed";
+}
+
+/// CSV-Zell-Token je Zulassungs-Status (RF-2). "gesperrt" = die Perm wurde NICHT gemessen, weil sie auf
+/// dieser Maschine nicht zugelassen ist -- eine D1-Aussage. Unbekannt -> "gesperrt" (sicherer Default in
+/// dieselbe Richtung wie das D2-Pendant: lieber sichtbar-nicht-gemessen als eine stille Zahl).
+[[nodiscard]] constexpr std::string_view admission_status_token(AdmissionStatus a) noexcept {
+    switch (a) {
+        case AdmissionStatus::Zugelassen: return "zugelassen"; // Platzhalter-Etikett; hier rendert der Aufrufer Zahlen
+        case AdmissionStatus::Gesperrt: return "gesperrt";
+    }
+    return "gesperrt";
 }
 
 // ── INC-29.2: Infra-Fehlerklassen (Prozess-/IO-Ebene) — DISJUNKT von D1 (Compiler-Compiler-Fehler). ──
@@ -184,6 +214,34 @@ static_assert(error_class_label(static_cast<CompilerCompilerErrorClass>(kCompile
                   std::string_view{"unbekannt"},
               "Drift: hinter dem Count liegt eine etikettierte Klasse");
 static_assert(kSampleStatusCount == static_cast<std::size_t>(SampleStatus::Failed) + 1);
+static_assert(sample_status_token(static_cast<SampleStatus>(kSampleStatusCount)) == std::string_view{"failed"},
+              "Drift: hinter dem Count liegt ein etikettierter SampleStatus");
+
+// -- RF-2: die Zulassungs-Taxonomie, beide Drift-Richtungen (RF-3-Lehre) + die W-4-DISJUNKTHEIT ----
+static_assert(std::is_same_v<std::underlying_type_t<AdmissionStatus>, std::uint8_t>);
+static_assert(std::is_trivially_copyable_v<AdmissionStatus>);
+static_assert(static_cast<std::uint8_t>(AdmissionStatus::Zugelassen) == 0,
+              "Zugelassen MUSS 0 sein (Default-Init = gemessen wie bisher, byte-identisch).");
+// (1) Namens-Pin und (2) Etikett-hinter-Count -- beide, weil (1) allein ein ANHAENGEN nicht faengt (RF-3).
+static_assert(kAdmissionStatusCount == static_cast<std::size_t>(AdmissionStatus::Gesperrt) + 1);
+static_assert(admission_status_token(static_cast<AdmissionStatus>(kAdmissionStatusCount)) ==
+                  std::string_view{"gesperrt"},
+              "Drift: hinter dem Count liegt ein etikettierter AdmissionStatus");
+// W-4 ALS WACHE, nicht als Kommentar: kein Zulassungs-Token darf je mit einem Mess-Token zusammenfallen.
+// Faellt hier etwas um, hat jemand die Domaenen-Trennung D1/D2 aufgeweicht -- und ein Auswerte-Reader
+// koennte "nicht gemessen" nicht mehr von "Messung gescheitert" unterscheiden.
+static_assert(admission_status_token(AdmissionStatus::Gesperrt) != sample_status_token(SampleStatus::Failed));
+static_assert(admission_status_token(AdmissionStatus::Gesperrt) != sample_status_token(SampleStatus::Ok));
+static_assert(admission_status_token(AdmissionStatus::Gesperrt) != sample_status_token(SampleStatus::NotApplicable));
+static_assert(admission_status_token(AdmissionStatus::Gesperrt) !=
+              sample_status_token(SampleStatus::SourceUnavailable));
+static_assert(admission_status_token(AdmissionStatus::Zugelassen) != sample_status_token(SampleStatus::Failed));
+static_assert(admission_status_token(AdmissionStatus::Zugelassen) != sample_status_token(SampleStatus::Ok));
+static_assert(admission_status_token(AdmissionStatus::Zugelassen) != sample_status_token(SampleStatus::NotApplicable));
+static_assert(admission_status_token(AdmissionStatus::Zugelassen) !=
+              sample_status_token(SampleStatus::SourceUnavailable));
+// Das Token ist zementiert: der Auswerte-Reader fuehrt es in seiner Verwerf-Liste (measurement_curve_loader).
+static_assert(admission_status_token(AdmissionStatus::Gesperrt) == std::string_view{"gesperrt"});
 // Token-Kontrakt (D2/OD-1): die entscheidenden Zell-Vokabeln sind zementiert.
 static_assert(sample_status_token(SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_view{"n/a"});
