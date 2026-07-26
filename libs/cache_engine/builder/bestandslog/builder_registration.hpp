@@ -26,6 +26,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -60,7 +61,8 @@ enum class DedupOutcome {
 class LagerRunState {
 public:
     // Vor dem Bau: den vorbestehenden Lager-Bestand aus dem Store laden (fetch doc -> parse ->
-    // Sha512Index). Fehlt/unlesbar -> leerer Index (alles gilt als frisch). Idempotent.
+    // LagerIndex). Fehlt/unlesbar -> leerer Index (alles gilt als frisch). Idempotent. Der Index
+    // traegt ALLE Zellen des Lagers; welche Zelle DIESER Lauf baut, sagt erst die Abfrage.
     void load(BestandTransport const& t, std::string const& doc_key) {
         auto bestand = make_binary_bestand();
         if (t.fetch) {
@@ -71,12 +73,17 @@ public:
         lager_ = bestand.index();
     }
 
-    // Aus dem Completion-Hook (MULTITHREADED): eine fertige Binary klassifizieren. key_hex leer ->
-    // no_key. Im Lager -> lager_hit (dedup, kein Neu-Eintrag). Sonst -> fresh_register (vorgemerkt).
-    DedupOutcome observe(std::string key_hex, std::string pfad, std::uint64_t bytes, std::string stempel,
-                         std::string done_utc) {
+    // Aus dem Completion-Hook (MULTITHREADED): eine fertige Binary klassifizieren. key_hex leer oder
+    // kein gueltiges 128-hex -> no_key. Im Lager (unter DEM Tupel aus Fingerprint UND Zelle) ->
+    // lager_hit (dedup, kein Neu-Eintrag). Sonst -> fresh_register (vorgemerkt).
+    //
+    // zelle sind die drei Zell-Koordinaten DIESES Bau-Laufs (§62-NACHTRAG-4): der Host reicht sie mit,
+    // weil der Fingerprint die per-Zelle-ISA nicht traegt. Leere Zelle = "nicht gemeldet" -> das
+    // Verhalten entspricht dem Ein-Feld-Dedup von zuvor (default-neutral).
+    DedupOutcome observe(std::string key_hex, ZellKoordinaten zelle, std::string pfad, std::uint64_t bytes,
+                         std::string stempel, std::string done_utc) {
         if (key_hex.empty()) return DedupOutcome::no_key;
-        auto const key = key_from_hex(key_hex);
+        auto const key = lager_key_from_hex(key_hex, zelle);
         if (!key) return DedupOutcome::no_key;
         std::lock_guard<std::mutex> lk(mtx_);
         if (lager_.find(*key) != lager_.end()) {
@@ -85,12 +92,31 @@ public:
         }
         BestandEintrag e;
         e.key_sha512 = std::move(key_hex);
+        e.zelle      = std::move(zelle);
         e.pfad       = std::move(pfad);
         e.bytes      = bytes;
         e.stempel    = std::move(stempel);
         e.done_utc   = std::move(done_utc);
         fresh_.push_back(std::move(e));
         return DedupOutcome::fresh_register;
+    }
+
+    // Folge-A (T2): LESENDER Lager-Zugriff fuer die Presence-Naht (lager_presence.hpp). Thread-sicher --
+    // liest lager_ unter demselben mtx_ wie observe(), damit ein Presence-Scan aus dem Planer-Thread und
+    // die Klassifikation aus den Build-Workern nebeneinander laufen duerfen. lager_ selbst wird nach
+    // load() nicht mehr veraendert; der Mutex schuetzt gegen ein NEBENLAEUFIGES load() und haelt die
+    // Invariante "jeder Zugriff auf lager_ unter mtx_" ohne Ausnahme.
+    [[nodiscard]] bool lager_contains(LagerKey const& k) const {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return lager_.find(k) != lager_.end();
+    }
+
+    // Bequemlichkeits-Ueberladung fuer die Laufzeit-Naht: 128-hex + Zelle. Ungueltiges Hex -> false
+    // (KONSERVATIVER Miss: lieber einmal zu viel bauen als eine fehlende Binary als vorhanden melden).
+    [[nodiscard]] bool lager_contains(std::string_view key_hex, ZellKoordinaten const& zelle) const {
+        auto const k = lager_key_from_hex(key_hex, zelle);
+        if (!k) return false;
+        return lager_contains(*k);
     }
 
     // Nach dem Bau (SINGLE-THREADED): die frisch vorgemerkten Eintraege in EINEM store_document_merged
@@ -128,7 +154,7 @@ public:
 
 private:
     mutable std::mutex          mtx_;
-    Sha512Index                 lager_; // vorbestehender Lager-Bestand (Dedup-Basis)
+    LagerIndex                  lager_; // vorbestehender Lager-Bestand (Dedup-Basis, alle Zellen)
     std::vector<BestandEintrag> fresh_; // frisch gebaute, noch nicht persistierte Eintraege
     std::size_t                 hits_ = 0;
 };

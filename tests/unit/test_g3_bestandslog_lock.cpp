@@ -204,6 +204,43 @@ TEST(G3BestandslogLock, MergeBestandLaterDoneUtcWins) {
 }
 
 // ---------------------------------------------------------------------------
+// §62-NACHTRAG-4: der Bestands-Union laeuft ueber das TUPEL (key_sha512 + Zell-Koordinaten). Gleicher
+// Fingerprint unter verschiedener ISA darf NICHT verschmelzen -- sonst verlore der zweite Bau seinen
+// Pfad. Zusaetzlich: die Ausgabe ist nach dem Tupel sortiert, also eingabe-reihenfolge-unabhaengig.
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogLock, MergeBestandKeepsCellsApart) {
+    auto with_cell = [](std::string key, std::string simd, std::uint64_t bytes) {
+        auto e       = mk_eintrag(std::move(key), bytes, "2026-07-23T10:00:00Z");
+        e.zelle.opt  = "O2";
+        e.zelle.simd = std::move(simd);
+        return e;
+    };
+
+    bl::BestandslogDocument a;
+    a.bestand.push_back(with_cell("k", "avx2", 10));
+    bl::BestandslogDocument b;
+    b.bestand.push_back(with_cell("k", "avx512", 20));
+
+    auto const m = bl::merge_documents(a, b);
+    ASSERT_EQ(m.bestand.size(), 2u); // ZWEI Eintraege trotz identischem key_sha512
+    EXPECT_EQ(m.bestand[0].key_sha512, m.bestand[1].key_sha512);
+    EXPECT_EQ(m.bestand[0].zelle.simd, "avx2"); // sortiert nach dem Tupel
+    EXPECT_EQ(m.bestand[1].zelle.simd, "avx512");
+
+    // Reihenfolge-unabhaengig: der umgekehrte Merge liefert exakt dieselbe Liste.
+    auto const m_rev = bl::merge_documents(b, a);
+    EXPECT_EQ(m_rev.bestand, m.bestand);
+
+    // Und bei GLEICHER Zelle greift die alte Regel weiter (spaeteres done_utc gewinnt).
+    bl::BestandslogDocument c;
+    c.bestand.push_back(with_cell("k", "avx2", 99));
+    c.bestand[0].done_utc = "2026-07-23T12:00:00Z";
+    auto const m_same     = bl::merge_documents(a, c);
+    ASSERT_EQ(m_same.bestand.size(), 1u);
+    EXPECT_EQ(m_same.bestand[0].bytes, 99u);
+}
+
+// ---------------------------------------------------------------------------
 // store_document_merged: fetch->merge->store (nie blinde Ersetzung). Doppel-Halt ueber den Store.
 // ---------------------------------------------------------------------------
 TEST(G3BestandslogLock, StoreDocumentMergedUnionsWithRemote) {

@@ -3985,3 +3985,26 @@ target_include_directories(test_g3_prune PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_prune PRIVATE Threads::Threads)
+
+# --- G3 Folge-A ---
+# T1-Binder: Objekt-per-Key-Verben des ArtifactCache + make_bestand_transport (inert, ohne minio).
+# Include-Satz wie test_g3_prune (artifact_cache zieht abi/measurement aus libs/cache_engine/include),
+# zusaetzlich libs/cache_engine/src fuer ctsha512 (via bestandslog_index) + Threads (LagerRunState-Mutex).
+comdare_add_test(test_g3_artifact_cache_transport
+    SOURCES test_g3_artifact_cache_transport.cpp)
+target_include_directories(test_g3_artifact_cache_transport PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_artifact_cache_transport PRIVATE Threads::Threads)
+
+# T3-Naht: lager_presence (Index-Key-Naht + PresenceFn). Braucht libs/cache_engine/src (ctsha512 via
+# Index) + Threads (LagerRunState-Mutex und der SlicePlanner-Thread im Abschluss-Test).
+comdare_add_test(test_g3_lager_presence
+    SOURCES test_g3_lager_presence.cpp)
+target_include_directories(test_g3_lager_presence PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_lager_presence PRIVATE Threads::Threads)

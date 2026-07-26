@@ -34,6 +34,11 @@ constexpr std::string_view kFrozenFingerprintV1 = "0f0c0eb44d4308c3a9d05f92abcb1
 
 std::array<std::string_view, 4> frozen_lines() { return {kOrgan, kSystem, kMeasure, kMerge}; }
 
+// Zwei Zell-Koordinaten-Saetze DERSELBEN Permutation, die sich nur in der ISA unterscheiden
+// (Section 62-NACHTRAG-4). Genau der Fall, den der Fingerprint allein NICHT auseinanderhaelt.
+bl::ZellKoordinaten zelle_avx2() { return {.combo = "default", .opt = "O2", .simd = "avx2"}; }
+bl::ZellKoordinaten zelle_avx512() { return {.combo = "default", .opt = "O2", .simd = "avx512"}; }
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -72,18 +77,57 @@ TEST(G3Sha512Index, HitAndMiss) {
     e.bytes    = 428032;
     e.stempel  = "[d,e,f][g,h,i]+bt=Release";
     e.done_utc = "2026-07-23T12:05:11Z";
-    bestand.add(lines, e);
+    bestand.add(lines, zelle_avx2(), e);
 
-    bl::Sha512Key const key = bl::Bestand<bl::BinaryKeyPolicy>::key_of(lines);
+    bl::LagerKey const key = bl::Bestand<bl::BinaryKeyPolicy>::lager_key_of(lines, zelle_avx2());
     EXPECT_TRUE(bestand.contains(key));
     ASSERT_NE(bestand.find(key), nullptr);
     EXPECT_EQ(bestand.find(key)->pfad, "tier/perm_00042.dll");
     EXPECT_EQ(bestand.find(key)->key_sha512, kFrozenFingerprintV1); // add() hat den hex gesetzt
+    EXPECT_EQ(bestand.find(key)->zelle, zelle_avx2());              // add() hat die Zelle mitgesetzt
 
-    // Miss: ein anderer Key ist nicht drin.
+    // Der Digest-Teil bleibt die EINE SHA512-Wahrheit -- die Zelle veraendert ihn nicht.
+    EXPECT_EQ(bl::to_hex(key.sha), kFrozenFingerprintV1);
+    EXPECT_EQ(bl::Bestand<bl::BinaryKeyPolicy>::key_of(lines), key.sha);
+
+    // Miss: ein anderer Digest ist nicht drin.
     std::array<std::string_view, 1> other{"etwas-anderes"};
-    EXPECT_FALSE(bestand.contains(bl::BinaryKeyPolicy::derive_key(other)));
+    EXPECT_FALSE(bestand.contains(bl::BinaryKeyPolicy::derive_lager_key(other, zelle_avx2())));
     EXPECT_EQ(bestand.size(), 1u);
+}
+
+// ---------------------------------------------------------------------------
+// Section 62-NACHTRAG-4 (der Kern-Grund der Erweiterung): GLEICHE Permutation, VERSCHIEDENE ISA ->
+// ZWEI Eintraege. Ueber den Fingerprint allein waere der zweite Bau ein Dedup-Treffer gewesen und
+// seine Binary im Lager nie erfasst worden.
+// ---------------------------------------------------------------------------
+TEST(G3Sha512Index, SamePermutationDifferentSimdAreTwoEntries) {
+    auto       bestand = bl::make_binary_bestand();
+    auto const lines   = frozen_lines();
+
+    bl::BestandEintrag a;
+    a.pfad = "tier/avx2/perm_00042.dll";
+    bestand.add(lines, zelle_avx2(), a);
+
+    bl::BestandEintrag b;
+    b.pfad = "tier/avx512/perm_00042.dll";
+    bestand.add(lines, zelle_avx512(), b);
+
+    EXPECT_EQ(bestand.size(), 2u); // NICHT dedupliziert
+
+    auto const k_avx2   = bl::Bestand<bl::BinaryKeyPolicy>::lager_key_of(lines, zelle_avx2());
+    auto const k_avx512 = bl::Bestand<bl::BinaryKeyPolicy>::lager_key_of(lines, zelle_avx512());
+    EXPECT_NE(k_avx2, k_avx512);
+    EXPECT_EQ(k_avx2.sha, k_avx512.sha); // der Digest-Teil ist identisch -- die Zelle trennt sie
+
+    ASSERT_NE(bestand.find(k_avx2), nullptr);
+    ASSERT_NE(bestand.find(k_avx512), nullptr);
+    EXPECT_EQ(bestand.find(k_avx2)->pfad, "tier/avx2/perm_00042.dll");
+    EXPECT_EQ(bestand.find(k_avx512)->pfad, "tier/avx512/perm_00042.dll");
+
+    // Eine dritte, nicht gebaute Zelle bleibt ein Miss (die Zelle wirkt in BEIDE Richtungen).
+    EXPECT_FALSE(bestand.contains(
+        bl::Bestand<bl::BinaryKeyPolicy>::lager_key_of(lines, {.combo = "default", .opt = "O3", .simd = "avx2"})));
 }
 
 // ---------------------------------------------------------------------------
@@ -99,8 +143,8 @@ TEST(G3Sha512Index, TwoGeneraSeparate) {
     auto messwert = bl::make_messwert_bestand();
     auto lines    = frozen_lines();
 
-    binary.add(lines, bl::BestandEintrag{});
-    bl::Sha512Key const key = bl::BinaryKeyPolicy::derive_key(lines);
+    binary.add(lines, zelle_avx2(), bl::BestandEintrag{});
+    bl::LagerKey const key = bl::BinaryKeyPolicy::derive_lager_key(lines, zelle_avx2());
     EXPECT_TRUE(binary.contains(key));
     EXPECT_FALSE(messwert.contains(key)); // separater Index -> kein Cross-Leak
     EXPECT_EQ(messwert.size(), 0u);
@@ -114,6 +158,7 @@ TEST(G3Sha512Index, LoadFromDocument) {
     doc.genus = bl::Genus::binary;
     bl::BestandEintrag e;
     e.key_sha512 = std::string(kFrozenFingerprintV1);
+    e.zelle      = zelle_avx2();
     e.pfad       = "tier/perm_00042.dll";
     e.bytes      = 428032;
     doc.bestand.push_back(e);
@@ -122,9 +167,22 @@ TEST(G3Sha512Index, LoadFromDocument) {
     bestand.load_from_document(doc);
     EXPECT_EQ(bestand.size(), 1u);
 
-    auto k = bl::key_from_hex(kFrozenFingerprintV1);
+    auto k = bl::lager_key_from_hex(kFrozenFingerprintV1, zelle_avx2());
     ASSERT_TRUE(k.has_value());
     EXPECT_TRUE(bestand.contains(*k));
     // Derselbe Key kommt aus der Stempel-Ableitung -- Dokument-hex und Live-Ableitung treffen sich.
-    EXPECT_TRUE(bestand.contains(bl::BinaryKeyPolicy::derive_key(frozen_lines())));
+    EXPECT_TRUE(bestand.contains(bl::BinaryKeyPolicy::derive_lager_key(frozen_lines(), zelle_avx2())));
+    // ... aber NICHT unter einer anderen Zelle: die geladene Zelle reist mit in den Schluessel.
+    EXPECT_FALSE(bestand.contains(bl::BinaryKeyPolicy::derive_lager_key(frozen_lines(), zelle_avx512())));
+
+    // Ein Eintrag mit ungueltigem Hex gehoert nicht in den Index (er waere nicht adressierbar).
+    bl::BestandslogDocument bad;
+    bad.genus = bl::Genus::binary;
+    bl::BestandEintrag kaputt;
+    kaputt.key_sha512 = "kein-hex";
+    kaputt.zelle      = zelle_avx2();
+    bad.bestand.push_back(kaputt);
+    auto empty = bl::make_binary_bestand();
+    empty.load_from_document(bad);
+    EXPECT_EQ(empty.size(), 0u);
 }

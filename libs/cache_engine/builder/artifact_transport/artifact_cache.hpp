@@ -91,6 +91,21 @@ struct PruneOutcome {
     std::string reason;
 };
 
+// Folge-A (T1, Ledger §62-NACHTRAG-4): Metadaten EINES Objekts unter EINEM Key -- der Rueckgabe-POD von
+// ArtifactCache::object_stat. LOKAL zu dieser Schicht: er kennt weder das Bestandslog noch dessen
+// Transport-Naht (die Uebersetzung in bestandslog::ObjectStat macht der eine Binder,
+// bestandslog/artifact_cache_transport.hpp) -> die Abhaengigkeit zeigt NUR in diese Richtung.
+//
+// mtime_epoch_s ist EHRLICH begrenzt: die mc-stat-Naht dieses Clients parst ausschliesslich das
+// size-Feld (parse_json_size) -- der Wert bleibt deshalb 0 == "nicht ermittelt" und darf NIE als
+// echter Zeitstempel gelesen werden. Er steht hier, weil die Transport-Naht ihn im Vertrag fuehrt;
+// ein Konsument, der ihn braucht, muss zuerst den lastModified-Parser nachziehen (dann faellt dieser
+// Kommentar). Kein Phantom-Wert: 0 ist als "unbekannt" definiert, nicht als "1970".
+struct ObjectMeta {
+    std::uint64_t size          = 0;
+    std::int64_t  mtime_epoch_s = 0; // 0 == unbekannt (diese Naht ermittelt keine mtime)
+};
+
 // ── Injektions-Naht-Typen (No-Op-Default = leere std::function -> byte-neutral). ──────────────────────────────
 // Muster wie CompileFn/AlgoSigFn (build_orchestrator.hpp): der Iterator ruft sie SYNCHRON an der per-Binary-Naht.
 // CachePushFn: ein fertig gebautes Tier-Binary-Verzeichnis -> Objekt-Store (Ebene B). Args (bin_dir, build_version);
@@ -422,6 +437,89 @@ public:
             log_artefakt_io(log, "measure-drop PUT fehlgeschlagen (lokale Kopie bleibt): " + url);
     }
 
+    // ── Folge-A (T1, §62-NACHTRAG-4): der OBJEKT-PER-KEY-Weg ────────────────────────────────────────────────────
+    //
+    // push_/pull_tier_binary bewegen den DREI-Objekt-Satz EINES Tier-Binary-Ordners (mit der .version-
+    // Vollstaendigkeitsmarke als Protokoll). Das Bestandslog braucht etwas anderes: EIN Objekt unter EINEM Key,
+    // Inhalt im Speicher (kleine XML-/key=value-Nutzlasten: das Bestandslog-Dokument und sein Lock-Nebenobjekt).
+    // Diese vier Verben sind genau das -- ADDITIV ueber DERSELBEN privaten mc-Schicht (mc_cp/mc_pull/
+    // mc_remote_exists/mc_remote_size + das neue idempotente mc_rm), also mit denselben Retries, denselben
+    // Wall-Clock-Caps und demselben Ziel-/Praefix-Aufbau. KEIN zweiter Transport-Weg, kein zweites Retry-Regime.
+    //
+    // Weil mc dateibasiert arbeitet, geht jeder Verb ueber eine kurzlebige TEMP-Datei; sie wird immer entfernt,
+    // das Fehler-Log NUR im Fehlerfall behalten (sichtbarer Fehler, vgl. Messdaten-/Log-Doktrin).
+    //
+    // INERT-NEUTRAL: ohne Ebene B (minio_enabled()==false) tut KEIN Verb etwas und meldet ehrlich "nichts
+    // geschehen" (nullopt bzw. false) -- nie einen falschen Erfolg. Ein Aufrufer, der auf einer inerten Instanz
+    // arbeitet, sieht ein leeres Lager und registriert nichts (byte-neutral wie der Rest dieser Klasse).
+
+    /// Liest EIN Objekt als String. nullopt = nicht vorhanden, Pull-Fehler ODER inert -- alle drei bedeuten fuer
+    /// den Aufrufer dasselbe: "dieser Inhalt steht nicht zur Verfuegung" (der Bestandslog-Leser faellt dann auf
+    /// den leeren Stand zurueck). Ein leeres Objekt liefert einen leeren String; der Parser lehnt ihn ohnehin ab.
+    [[nodiscard]] std::optional<std::string> object_fetch(std::string const& object_key) const {
+        if (!minio_enabled()) return std::nullopt; // inert (byte-neutral)
+        if (!mc_remote_exists(object_key)) return std::nullopt;
+        std::filesystem::path const tmp = object_scratch_path(object_key, ".fetch");
+        std::filesystem::path const log = tmp.string() + ".pull.log";
+        std::error_code             ec;
+        std::filesystem::remove(tmp, ec); // Rest eines abgebrochenen Vorlaufs -> nie einen alten Inhalt lesen
+        if (!mc_pull(object_key, tmp, log)) {
+            log_artefakt_io(log, "object_fetch fehlgeschlagen: " + object_key);
+            std::filesystem::remove(tmp, ec);
+            return std::nullopt;
+        }
+        std::string content = read_text_file(tmp);
+        std::filesystem::remove(tmp, ec);
+        std::filesystem::remove(log, ec); // Erfolg -> kein Log-Rest im TEMP
+        return content;
+    }
+
+    /// Schreibt EIN Objekt (ueberschreibend). true = beweisbar oben (mc cp exit 0 + Groessen-Verify von mc_cp).
+    /// false = inert, TEMP nicht schreibbar oder Push fehlgeschlagen -> der Aufrufer behandelt es als Store-Fehler.
+    [[nodiscard]] bool object_store(std::string const& object_key, std::string const& content) const {
+        if (!minio_enabled()) return false; // inert (byte-neutral)
+        std::filesystem::path const tmp = object_scratch_path(object_key, ".store");
+        std::filesystem::path const log = tmp.string() + ".push.log";
+        std::error_code             ec;
+        {
+            std::ofstream f{tmp, std::ios::binary | std::ios::trunc};
+            if (!f) {
+                log_artefakt_io(log, "object_store: TEMP-Datei nicht schreibbar: " + tmp.string());
+                return false;
+            }
+            f.write(content.data(), static_cast<std::streamsize>(content.size()));
+            f.flush();
+            if (!f) { // Schreib-/Flush-Fehler -> NICHT pushen (ein halber Inhalt waere schlimmer als keiner)
+                log_artefakt_io(log, "object_store: TEMP-Datei unvollstaendig geschrieben: " + tmp.string());
+                std::filesystem::remove(tmp, ec);
+                return false;
+            }
+        }
+        bool const ok = mc_cp(tmp, object_key, log);
+        if (!ok) log_artefakt_io(log, "object_store fehlgeschlagen (Objekt NICHT geschrieben): " + object_key);
+        std::filesystem::remove(tmp, ec);
+        if (ok) std::filesystem::remove(log, ec);
+        return ok;
+    }
+
+    /// Loescht EIN Objekt. IDEMPOTENT: ein bereits fehlendes Objekt gilt als geloescht (true). false = inert oder
+    /// `mc rm` fehlgeschlagen. Die Idempotenz traegt den Lock-Bruch (release/stale-break duerfen doppelt laufen).
+    [[nodiscard]] bool object_remove(std::string const& object_key) const {
+        if (!minio_enabled()) return false; // inert (byte-neutral)
+        return mc_rm(object_key);
+    }
+
+    /// Metadaten EINES Objekts. nullopt = fehlt, Groesse nicht beweisbar ODER inert. STRIKT wie mc_remote_size:
+    /// eine unbekannte Groesse ergibt KEIN Halb-Ergebnis mit size==0 (das waere von einem leeren Objekt nicht zu
+    /// unterscheiden). Zur mtime siehe ObjectMeta: diese Naht ermittelt sie nicht (0 == unbekannt).
+    [[nodiscard]] std::optional<ObjectMeta> object_stat(std::string const& object_key) const {
+        if (!minio_enabled()) return std::nullopt; // inert (byte-neutral)
+        if (!mc_remote_exists(object_key)) return std::nullopt;
+        auto const sz = mc_remote_size(object_key, object_scratch_path(object_key, ".stat"));
+        if (!sz) return std::nullopt;
+        return ObjectMeta{static_cast<std::uint64_t>(*sz), 0};
+    }
+
     /// Cache-Resthygiene (2026-07-21): umschliesst ein mc-argv mit einem `timeout <s>`-Wall-Clock-Cap, WENN das
     /// timeout-Binary verfuegbar ist und timeout_s>0 (sonst UNVERAENDERT zurueck). Aufbau: `timeout -k 5 <s> mc ...`
     /// (GNU coreutils: SIGTERM nach <s>, SIGKILL 5s Grace spaeter). REIN/STATISCH -> literal testbar (Kommando-Aufbau).
@@ -643,6 +741,30 @@ private:
         std::uintmax_t sz = 0;
         if (!parse_json_size(content, sz)) return std::nullopt;
         return sz;
+    }
+
+    /// Folge-A (T1): `mc rm <target>` -- der EINE Loesch-Verb dieser Schicht, IDEMPOTENT: ein bereits fehlendes
+    /// Objekt gilt als geloescht (true), ohne mc ueberhaupt zu rufen. EIN Versuch (rm ist billig; ein Hang wuerde
+    /// von Retries nicht geheilt -- der Wall-Clock-Cap bounded ihn, wie bei mc_remote_exists). Die kurzlebige
+    /// Redirect-Datei traegt nur mc-stdout (kein Credential) und liegt im TEMP-Verzeichnis.
+    [[nodiscard]] bool mc_rm(std::string const& object_key) const {
+        if (!mc_remote_exists(object_key)) return true; // idempotent: fehlend == geloescht
+        std::filesystem::path const scratch = object_scratch_path(object_key, ".rm.out");
+        int const                   rc =
+            run_argv(mc_argv({mc_bin_, "rm", "--quiet", mc_target(object_key)}, mc_pull_timeout_s_), scratch);
+        std::error_code ec;
+        std::filesystem::remove(scratch, ec);
+        return rc == 0;
+    }
+
+    /// Folge-A (T1): kurzlebiger TEMP-Pfad je (Objekt-Key, Verb). Das TEMP-Verzeichnis ist garantiert vorhanden
+    /// (anders als ein noch nicht angelegtes Ziel-bin_dir; Muster mc_remote_exists). run_stamp_ + Key-Hash halten
+    /// zwei parallele Laeufe/Keys auseinander; das Suffix nennt den Verb, damit ein zurueckgebliebenes Log
+    /// zuordenbar bleibt.
+    [[nodiscard]] std::filesystem::path object_scratch_path(std::string const& object_key, char const* tag) const {
+        std::error_code ec;
+        return std::filesystem::temp_directory_path(ec) /
+               ("comdare_obj_" + run_stamp_ + "_" + std::to_string(std::hash<std::string>{}(object_key)) + tag);
     }
 
     /// G5 (P-B): Datei-Inhalt als String (leer bei Fehler). Fuer den byte-genauen .version-Provenienz-Vergleich.

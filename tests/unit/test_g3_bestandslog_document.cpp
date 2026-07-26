@@ -26,11 +26,13 @@ bl::BestandslogDocument make_reference_binary() {
     d.created_utc       = "2026-07-23T12:00:00Z";
 
     d.bestand.push_back(bl::BestandEintrag{.key_sha512 = std::string(128, 'a'),
+                                           .zelle      = {.combo = "default", .opt = "O2", .simd = "avx2"},
                                            .pfad       = "tier/perm_00042.dll",
                                            .bytes      = 428032,
                                            .stempel    = "[d,e,f][g,h,i]+bt=Release",
                                            .done_utc   = "2026-07-23T12:05:11Z"});
     d.bestand.push_back(bl::BestandEintrag{.key_sha512 = std::string(128, 'b'),
+                                           .zelle      = {.combo = "", .opt = "O3", .simd = "avx512"},
                                            .pfad       = "ceb/cache_engine_builder",
                                            .bytes      = 12000000,
                                            .stempel    = "[a,b,c]",
@@ -119,6 +121,7 @@ TEST(G3BestandslogDocument, MeasurementGenusRoundtrip) {
     d.genus = bl::Genus::measurement;
     d.bestand.clear();
     d.bestand.push_back(bl::BestandEintrag{.key_sha512 = std::string(128, 'c'),
+                                           .zelle      = {}, // Messwert-Genus ohne gemeldete Zelle
                                            .pfad       = "measure/cell_00007.csv",
                                            .bytes      = 8192,
                                            .stempel    = "[d,e,f][g,h,i]+hwident",
@@ -151,6 +154,7 @@ TEST(G3BestandslogDocument, EntityEscapingRoundtrip) {
     bl::BestandslogDocument d;
     d.created_utc = "t";
     d.bestand.push_back(bl::BestandEintrag{.key_sha512 = std::string(128, 'd'),
+                                           .zelle      = {},
                                            .pfad       = "path/with & < > \" ' chars",
                                            .bytes      = 1,
                                            .stempel    = "[d,e,f] & [g,h,i] <bt=\"Release\">",
@@ -192,6 +196,83 @@ TEST(G3BestandslogDocument, RejectsUnknownEnumValues) {
                              "<reservierungen><batch id=\"x/0\" typ=\"tier\" status=\"halb\"/></reservierungen>"
                              "</bestandslog>";
     EXPECT_FALSE(bl::parse_bestandslog(bad_status).has_value());
+}
+
+// ---------------------------------------------------------------------------
+// §62-NACHTRAG-4: die drei Zell-Koordinaten sind SEPARATE Attribute, ueberleben den Roundtrip
+// einzeln und tragen die Identitaet als TUPEL (kein fusionierter Schluessel-String).
+// ---------------------------------------------------------------------------
+TEST(G3BestandslogDocument, ZellKoordinatenAreSeparateAttributes) {
+    auto const        d  = make_reference_binary();
+    std::string const x1 = bl::emit_document(d);
+
+    // Die Koordinaten stehen als eigene Attribute im Wire-Format -- nicht in einen Key konkateniert.
+    EXPECT_NE(x1.find("combo=\"default\""), std::string::npos);
+    EXPECT_NE(x1.find("opt=\"O2\""), std::string::npos);
+    EXPECT_NE(x1.find("simd=\"avx2\""), std::string::npos);
+
+    auto const p = bl::parse_bestandslog(x1);
+    ASSERT_TRUE(p.has_value());
+    ASSERT_EQ(p->bestand.size(), 2u);
+    EXPECT_EQ(p->bestand[0].zelle.combo, "default");
+    EXPECT_EQ(p->bestand[0].zelle.opt, "O2");
+    EXPECT_EQ(p->bestand[0].zelle.simd, "avx2");
+    EXPECT_TRUE(p->bestand[1].zelle.combo.empty()); // leere Koordinate bleibt leer
+    EXPECT_EQ(p->bestand[1].zelle.simd, "avx512");
+}
+
+TEST(G3BestandslogDocument, EintragIdentityIsTheTuple) {
+    bl::BestandEintrag a;
+    a.key_sha512         = std::string(128, 'a');
+    a.zelle              = {.combo = "default", .opt = "O2", .simd = "avx2"};
+    bl::BestandEintrag b = a;
+    EXPECT_TRUE(bl::same_eintrag_identity(a, b));
+    EXPECT_FALSE(bl::eintrag_identity_less(a, b));
+    EXPECT_FALSE(bl::eintrag_identity_less(b, a));
+
+    // Gleicher Fingerprint, andere ISA -> ANDERE Identitaet (der Kern-Grund der Erweiterung).
+    b.zelle.simd = "avx512";
+    EXPECT_FALSE(bl::same_eintrag_identity(a, b));
+    EXPECT_TRUE(bl::eintrag_identity_less(a, b)); // "avx2" < "avx512"
+
+    // Die Nutzdaten gehoeren NICHT zur Identitaet.
+    bl::BestandEintrag c = a;
+    c.pfad               = "ganz/anderer/pfad";
+    c.bytes              = 999;
+    EXPECT_TRUE(bl::same_eintrag_identity(a, c));
+}
+
+// Ein v1-Dokument (ohne die drei Attribute) bleibt lesbar: fehlende Koordinaten = leer.
+TEST(G3BestandslogDocument, ReadsLegacyV1DocumentWithoutCellAttributes) {
+    char const* v1 = "<bestandslog syntax_version=\"1\" semantics_version=\"1\" genus=\"binary\" doc_revision=\"3\">"
+                     "<bestand><eintrag key_sha512=\"abc\" pfad=\"tier/0.dll\" bytes=\"7\"/></bestand>"
+                     "</bestandslog>";
+    auto const  p  = bl::parse_bestandslog(v1);
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->syntax_version, 1);
+    EXPECT_TRUE(bl::document_syntax_supported(*p)); // aeltere Grammatik bleibt vertraeglich
+    ASSERT_EQ(p->bestand.size(), 1u);
+    EXPECT_TRUE(p->bestand[0].zelle.empty());
+    EXPECT_EQ(p->bestand[0].bytes, 7u);
+}
+
+// Der Syntax-Bump ist gesetzt und schuetzt genau nach unten: ein v1-LESER lehnt ein v2-Dokument ab.
+TEST(G3BestandslogDocument, SyntaxVersionBumpedToTwo) {
+    EXPECT_EQ(bl::kSyntaxVersion, 2);
+    EXPECT_EQ(bl::kSemanticsVersion, 1);
+
+    bl::BestandslogDocument d;
+    EXPECT_EQ(d.syntax_version, 2); // frisch erzeugte Dokumente tragen die neue Grammatik
+    EXPECT_NE(bl::emit_document(d).find("syntax_version=\"2\""), std::string::npos);
+
+    // Ein v1-Dokument bleibt fuer den heutigen Leser vertraeglich (Rueckwaerts-Lesbarkeit).
+    bl::BestandslogDocument alt;
+    alt.syntax_version = 1;
+    EXPECT_TRUE(bl::document_syntax_supported(alt));
+
+    // Umgekehrt haette ein v1-Leser (kSyntaxVersion==1) dieses Dokument abgelehnt -- genau das ist der
+    // Schutz: er wuerde sonst ueber den key_sha512 ALLEIN falsch deduplizieren.
+    EXPECT_GT(d.syntax_version, 1);
 }
 
 // ---------------------------------------------------------------------------

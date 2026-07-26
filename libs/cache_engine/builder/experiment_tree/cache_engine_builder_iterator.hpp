@@ -224,10 +224,22 @@ struct LazyRunConfig {
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
+    // Folge-A (§62-NACHTRAG-4): die drei Zell-Koordinaten [d,e,f] DIESES Laufs (combo/opt/simd). Der Lager-
+    // Schluessel ist das TUPEL (Fingerprint, Zelle) -- der Fingerprint allein traegt die per-Zelle-ISA nicht,
+    // zwei Bauten derselben Permutation unter avx2/avx512 wuerden sonst falsch dedupliziert. Je Lauf konstant
+    // (combo aus der Prozess-Umgebung, opt/simd aus der per-Perm build_version); der Host (Facade) belegt sie
+    // aus denselben Quellen wie den Objekt-Key-Praefix. Leer (Default) => Zell-Feld leer => das Dedup verhaelt
+    // sich wie zuvor ueber den Fingerprint allein (byte-/verhaltensneutral).
+    bestandslog::ZellKoordinaten bestand_zelle;
     // I2 (Lager-Gate Integration): der reale Fingerprint-Provider (binary_id -> 128-hex K7b-Fingerprint). Der Host
     // (Facade) komponiert ihn aus denselben Stempel-Zeilen wie der Emitter; der Orchestrator schreibt je gebauter
     // Binary das `.fingerprint`-Sidecar, das bestand_key_of dann als Lager-Index-Schluessel liest. Leer = byte-neutral.
     FingerprintFn bestand_fingerprint_fn;
+    // A7-B (G2 Folge-B): die MENGEN-Signatur der CMake-enabled Achsen-Typlisten DIESES Treibers (der Host/Facade
+    // belegt sie opt-in aus driver_build_variant_signature()). Sie reist unveraendert nach BuildConfig.build_variant_sig
+    // weiter; der Orchestrator vergleicht sie beim Skip-Check gegen das `.variant`-Sidecar und schreibt sie bei Erfolg.
+    // Leer (Default) = Variant-Gate AUS (byte-neutral: exakt der bisherige Versions-/Organ-Skip).
+    std::string build_variant_sig;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -897,6 +909,7 @@ struct LazyRunResult {
     bcfg.ram_safety_margin_bytes = cfg.ram_safety_margin_bytes;
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
     bcfg.build_parallelism       = cfg.build_parallelism;  // W6 (§32-F7): expliziter Bau-Pool-Worker-Override (0=heute)
+    bcfg.build_variant_sig       = cfg.build_variant_sig;  // A7-B: Treiber-Mengen-Signatur; leer = Variant-Gate AUS
 
     // Storage #51 / S2 (#46a) — PULL-HOOK (AKTIV): die BATCH-Warm-Cache-Hydrierung (minio->local) laeuft GENAU HIER in
     // Phase A, VOR dem Bau. Sie zieht den ganzen Objekt-Store-Praefix DIESER Perm rekursiv ins output_dir (unter
@@ -953,7 +966,7 @@ struct LazyRunResult {
                 std::uint64_t const bytes = std::filesystem::exists(b.output, ec)
                                                 ? static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec))
                                                 : 0;
-                lager.observe(key.value_or(std::string{}), b.output.string(), bytes, b.algo_sig,
+                lager.observe(key.value_or(std::string{}), cfg.bestand_zelle, b.output.string(), bytes, b.algo_sig,
                               bestandslog::now_utc_iso());
             }
         });

@@ -37,11 +37,11 @@
 
 namespace comdare::cache_engine::builder::bestandslog {
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Transport-Naht -- vier Verben auf dem Objekt-Store. std::function-Injektion (Muster CachePushFn,
 // artifact_transport-Schicht): real gebunden an ArtifactCache/mc, im Test eine In-Memory-Map. Das
 // ist I/O (mc-Shellout), KEIN Hot-Path -> std::function ist zulaessig und hausueblich.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 struct ObjectStat {
     std::uint64_t size          = 0;
     std::int64_t  mtime_epoch_s = 0;
@@ -66,10 +66,10 @@ using NowFn = std::function<std::int64_t()>;
         .count();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Lock-Objekt: {owner_uuid, host, pid, ts, ttl}. Kleines Nebenobjekt <doc>.lock. Serialisierung als
 // kompakte, deterministische key=value-Zeile (Owner/Host sind kontrollierte Tokens ohne ';'/'=').
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 struct LockOwner {
     std::string owner_uuid; // per-Maschine-Prozess eindeutig (uuid)
     std::string host;       // z.B. prod1
@@ -140,12 +140,12 @@ struct LockRecord {
     return (now_s - r.ts_epoch_s) > static_cast<std::int64_t>(r.ttl_s);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // try_acquire_lock -- EIN Versuch (kein Backoff-Loop; der Aufrufer wiederholt mit Zufalls-Jitter).
 // Ablauf: bestehenden Lock lesen -> fremd & frisch => nicht bekommen; fremd & stale => brechen;
 // eigenen Token schreiben -> Zweit-Verify (erneut lesen) -> owner==ich ? bekommen : verloren.
 // Der Zweit-Verify faengt die MEISTEN Races ab; das Rest-Fenster traegt der Record-Union-Merge.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 [[nodiscard]] inline bool try_acquire_lock(BestandTransport const& t, std::string const& lock_key, LockOwner const& me,
                                            int ttl_s, std::int64_t now_s) {
     if (auto raw = t.fetch(lock_key)) {
@@ -174,16 +174,17 @@ inline void release_lock(BestandTransport const& t, std::string const& lock_key,
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Record-Union-Merge -- fetch->merge->store statt blinder Ersetzung. Vereinigt zwei Dokument-
-// Versionen deterministisch (Reihenfolge egal): bestand per key_sha512, reservierungen per id.
-// Konflikt-Aufloesung ist MONOTON (Fortschritt geht nie verloren) und deterministisch:
-//   * bestand:        gleicher Key -> spaeteres done_utc gewinnt; Gleichstand -> a (stabil).
+// Versionen deterministisch (Reihenfolge egal): bestand per (key_sha512, combo, opt, simd),
+// reservierungen per id. Konflikt-Aufloesung ist MONOTON (Fortschritt geht nie verloren) und
+// deterministisch:
+//   * bestand:        gleiches Tupel -> spaeteres done_utc gewinnt; Gleichstand -> a (stabil).
 //   * reservierungen: gleiche id -> hoehere Fortschritts-Stufe gewinnt (offen<released<done);
 //                     Gleichstand -> die mit gefuellter eta_s (kalibriert); sonst a (stabil).
 // doc_revision(merged) = max(a,b)+1 (monoton). Ausgabe-Vektoren nach Key sortiert -> byte-stabiler
 // Emit unabhaengig von der Eingabe-Reihenfolge.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 namespace detail {
 
 [[nodiscard]] inline int status_rank(BatchStatus s) noexcept {
@@ -221,18 +222,20 @@ namespace detail {
     out.created_utc       = a.created_utc;
     out.doc_revision      = std::max(a.doc_revision, b.doc_revision) + 1;
 
-    // bestand: Union per key_sha512.
+    // bestand: Union per IDENTITAETS-TUPEL (key_sha512 + Zell-Koordinaten, §62-NACHTRAG-4). Ueber den
+    // key_sha512 ALLEIN wuerden zwei Bauten derselben Permutation unter verschiedener ISA zu EINEM
+    // Eintrag verschmelzen -- der zweite verlore seinen Pfad. same_eintrag_identity/eintrag_identity_less
+    // sind die eine Definition (bestandslog_document.hpp), gegen die auch der Index schluesselt.
     out.bestand = a.bestand;
     for (auto const& be : b.bestand) {
         auto it = std::find_if(out.bestand.begin(), out.bestand.end(),
-                               [&](BestandEintrag const& x) { return x.key_sha512 == be.key_sha512; });
+                               [&](BestandEintrag const& x) { return same_eintrag_identity(x, be); });
         if (it == out.bestand.end())
             out.bestand.push_back(be);
         else
             *it = detail::pick_eintrag(*it, be);
     }
-    std::sort(out.bestand.begin(), out.bestand.end(),
-              [](BestandEintrag const& x, BestandEintrag const& y) { return x.key_sha512 < y.key_sha512; });
+    std::sort(out.bestand.begin(), out.bestand.end(), eintrag_identity_less);
 
     // reservierungen: Union per id.
     out.reservierungen = a.reservierungen;
@@ -250,12 +253,12 @@ namespace detail {
     return out;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // store_document_merged -- der eine sichere Schreib-Weg: remote lesen, mit dem lokalen Stand
 // mergen (Union), zurueckschreiben. NIE blinde Ersetzung. Fehlt das Remote-Objekt, wird der lokale
 // Stand mit bumped doc_revision geschrieben. Gibt das TATSAECHLICH geschriebene Dokument zurueck
 // (fuer den Aufrufer: der neue doc_revision-Stand) bzw. nullopt bei Store-Fehler.
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 [[nodiscard]] inline std::optional<BestandslogDocument>
 store_document_merged(BestandTransport const& t, std::string const& doc_key, BestandslogDocument const& local) {
     BestandslogDocument to_write;

@@ -19,11 +19,21 @@
 // load_profile_writer.hpp). detail::xml_encode ist die INVERSE zu xml_reader detail::decode_entities
 // ('&' zuerst, sonst Doppel-Encode) und deckungsgleich mit den beiden bestehenden Encodern.
 //
-// Grammatik (syntax_version 1):
-//   <bestandslog syntax_version="1" semantics_version="1" genus="binary|measurement"
+// ZELL-KOORDINATEN (§62-NACHTRAG-4, syntax_version 2): der SHA512-Fingerprint traegt die per-ZELLE
+// gewaehlte ISA/Optimierung NICHT -- er ist die Anatomie-Digest der vier Stempel-Zeilen. Zwei Bauten
+// DERSELBEN Permutation unter avx2 bzw. avx512 haetten also denselben key_sha512 und wuerden im Lager
+// FALSCH dedupliziert (der zweite Bau gaelte als Treffer, obwohl die Bytes andere sind). Deshalb traegt
+// jeder Eintrag die drei Zell-Koordinaten combo/opt/simd als EIGENE Felder; die Eindeutigkeit laeuft
+// ueber das TUPEL (key_sha512, combo, opt, simd). KEINE String-Konkatenation als Schluessel-Fusion --
+// die Felder bleiben getrennt geklammert (§66-N3, Punkt 4), damit jede Koordinate einzeln lesbar,
+// filterbar und ohne Trennzeichen-Mehrdeutigkeit bleibt. Leere Zell-Felder sind zulaessig und bedeuten
+// "keine Zell-Koordinate gemeldet" (Default-neutral: ein Host, der sie nicht setzt, deduped wie zuvor).
+//
+// Grammatik (syntax_version 2):
+//   <bestandslog syntax_version="2" semantics_version="1" genus="binary|measurement"
 //                doc_revision="N" created_utc="...">
 //     <bestand>
-//       <eintrag key_sha512="hex128" pfad="..." bytes="N"
+//       <eintrag key_sha512="hex128" combo="..." opt="O2" simd="avx2" pfad="..." bytes="N"
 //                stempel="[d,e,f][g,h,i]+bt=Release" done_utc="..."/>
 //     </bestand>
 //     <reservierungen>
@@ -43,6 +53,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -52,8 +63,15 @@ namespace comdare::cache_engine::builder::bestandslog {
 // Header-Versionen (§62-B). syntax_version = Wire-Grammatik (Bruch => Ablehnung eines HOEHEREN
 // Dokuments); semantics_version = additive Bedeutung (darf differieren, Leser interpretiert das
 // bekannte Feld-Set). Beide getrennt gestempelt -> chirurgische Invalidierung.
+//
+// 1 -> 2 (§62-NACHTRAG-4): die drei Zell-Koordinaten-Attribute combo/opt/simd am <eintrag>. Das ist ein
+// WIRE-Bruch nach unten, nicht nach oben: ein v1-Leser wuerde die neuen Attribute schlucken und dann
+// ueber das ALTE Ein-Feld-Kriterium (nur key_sha512) falsch deduplizieren -- genau das verhindert der
+// syntax-Bump, weil document_syntax_supported ein Dokument mit HOEHERER Grammatik ablehnt. Umgekehrt
+// liest ein v2-Leser ein v1-Dokument treu (fehlende Attribute = leere Zell-Koordinaten). semantics_version
+// bleibt 1: an den Feldern, die ein v1-Leser kennt, aendert sich keine Bedeutung.
 // ---------------------------------------------------------------------------
-inline constexpr int kSyntaxVersion    = 1;
+inline constexpr int kSyntaxVersion    = 2;
 inline constexpr int kSemanticsVersion = 1;
 
 // Genus des Bestandslogs -- die zwei Bestands-Gattungen (§62-B, B3-Factory instanziiert je Genus).
@@ -119,16 +137,53 @@ enum class BatchStatus { offen, done, released };
 // PODs. Defaulted operator== dient den Roundtrip-/Merge-Tests (B1/B2).
 // ---------------------------------------------------------------------------
 
-// Ein Bestands-Eintrag: gebautes Artefakt, ueber key_sha512 (K7b-Fingerprint) identifizierbar.
+// Die drei ZELL-KOORDINATEN [d,e,f] eines Bau-Ziels (§62-NACHTRAG-4). Runtime-Strings, exakt so
+// geschrieben wie in den Testaten (combo z.B. "" oder ein Mess-Tool-Kuerzel, opt z.B. "O2", simd z.B.
+// "avx2"). Sie sind der Teil der Bau-Identitaet, den der Anatomie-Fingerprint NICHT traegt.
+//
+// EIN Typ fuer alle Konsumenten (Eintrag, Lager-Schluessel, Key-Policy, Registrierung, Presence-Naht) ->
+// die Koordinaten koennen zwischen Serialisierung und Lookup nicht auseinanderdriften. Der Vergleich ist
+// feldweise (defaulted <=>), NIE ueber einen fusionierten String -- zwei Zellen sind genau dann gleich,
+// wenn alle drei Koordinaten gleich sind. §66-N3-rein: reine RT->RT-Abbildung (Runtime-Strings bleiben
+// Runtime-Strings; nichts davon wird zu einem CT-Typ hochgezogen).
+struct ZellKoordinaten {
+    std::string combo; // [d] Mess-/Tool-Kombination (COMDARE_MEASUREMENT_COMBO-Auspraegung; leer = Default)
+    std::string opt;   // [e] Optimierungsstufe (z.B. O2/O3)
+    std::string simd;  // [f] ISA-/SIMD-Auspraegung (z.B. sse42/avx2/avx512)
+
+    friend auto operator<=>(ZellKoordinaten const&, ZellKoordinaten const&) = default;
+    friend bool operator==(ZellKoordinaten const&, ZellKoordinaten const&)  = default;
+
+    // true, wenn KEINE Koordinate gemeldet wurde (Default-neutraler Zustand).
+    [[nodiscard]] bool empty() const noexcept { return combo.empty() && opt.empty() && simd.empty(); }
+};
+
+// Ein Bestands-Eintrag: gebautes Artefakt, identifiziert ueber das TUPEL (key_sha512, zelle) -- der
+// K7b-Fingerprint ALLEIN reicht nicht, weil er die per-Zelle-ISA nicht traegt (s. Kopf).
 struct BestandEintrag {
-    std::string   key_sha512; // 128 hex chars (SHA512 der Stempel-Zeilen bzw. Messwert-Key)
-    std::string   pfad;       // Objekt-Store-Pfad relativ zum Bestandslog-Praefix
-    std::uint64_t bytes = 0;  // Groesse des Artefakts
-    std::string   stempel;    // "[d,e,f][g,h,i]+bt=Release" (Varianten-Identitaet, §62-B)
-    std::string   done_utc;   // Fertigstellungs-Zeitstempel (ISO-8601 UTC)
+    std::string     key_sha512; // 128 hex chars (SHA512 der Stempel-Zeilen bzw. Messwert-Key)
+    ZellKoordinaten zelle;      // [d,e,f] -- zweiter, GETRENNTER Teil der Identitaet (keine Fusion)
+    std::string     pfad;       // Objekt-Store-Pfad relativ zum Bestandslog-Praefix
+    std::uint64_t   bytes = 0;  // Groesse des Artefakts
+    std::string     stempel;    // "[d,e,f][g,h,i]+bt=Release" (Varianten-Identitaet, §62-B)
+    std::string     done_utc;   // Fertigstellungs-Zeitstempel (ISO-8601 UTC)
 
     friend bool operator==(BestandEintrag const&, BestandEintrag const&) = default;
 };
+
+// ---------------------------------------------------------------------------
+// IDENTITAET eines Bestands-Eintrags -- die EINE Definition, gegen die Index (B3), Merge (B2) und
+// Registrierung (I1) arbeiten. Wer sie umgeht, riskiert genau den Dedup-Drift, den NACHTRAG-4 schliesst.
+// ---------------------------------------------------------------------------
+[[nodiscard]] inline bool same_eintrag_identity(BestandEintrag const& a, BestandEintrag const& b) noexcept {
+    return a.key_sha512 == b.key_sha512 && a.zelle == b.zelle;
+}
+
+// Strikte Ordnung ueber dasselbe Tupel (fuer den byte-stabilen, eingabe-reihenfolge-unabhaengigen Emit).
+[[nodiscard]] inline bool eintrag_identity_less(BestandEintrag const& a, BestandEintrag const& b) noexcept {
+    return std::tie(a.key_sha512, a.zelle.combo, a.zelle.opt, a.zelle.simd) <
+           std::tie(b.key_sha512, b.zelle.combo, b.zelle.opt, b.zelle.simd);
+}
 
 // Eine batch-Reservierung: Besitz eines Slice-Fensters durch eine Bau-Maschine (§2 des Designs).
 struct BatchReservierung {
@@ -228,8 +283,16 @@ namespace detail {
 
     out += "  <bestand>\n";
     for (auto const& e : d.bestand) {
+        // Identitaets-Block ZUERST (key_sha512 + die drei Zell-Koordinaten), danach die Nutzdaten. Die
+        // Attribut-Reihenfolge ist Teil der Byte-Stabilitaet -> hier festgeschrieben, nie umsortiert.
         out += "    <eintrag key_sha512=\"";
         out += detail::xml_encode(e.key_sha512);
+        out += "\" combo=\"";
+        out += detail::xml_encode(e.zelle.combo);
+        out += "\" opt=\"";
+        out += detail::xml_encode(e.zelle.opt);
+        out += "\" simd=\"";
+        out += detail::xml_encode(e.zelle.simd);
         out += "\" pfad=\"";
         out += detail::xml_encode(e.pfad);
         out += "\" bytes=\"";
@@ -296,10 +359,14 @@ namespace detail {
         for (auto const* e : bestand->children_named("eintrag")) {
             BestandEintrag be;
             be.key_sha512 = e->attr("key_sha512");
-            be.pfad       = e->attr("pfad");
-            be.bytes      = detail::parse_u64(e->attr("bytes"));
-            be.stempel    = e->attr("stempel");
-            be.done_utc   = e->attr("done_utc");
+            // Zell-Koordinaten: fehlende Attribute (v1-Dokument) ergeben leere Strings == "nicht gemeldet".
+            be.zelle.combo = e->attr("combo");
+            be.zelle.opt   = e->attr("opt");
+            be.zelle.simd  = e->attr("simd");
+            be.pfad        = e->attr("pfad");
+            be.bytes       = detail::parse_u64(e->attr("bytes"));
+            be.stempel     = e->attr("stempel");
+            be.done_utc    = e->attr("done_utc");
             d.bestand.push_back(std::move(be));
         }
     }
