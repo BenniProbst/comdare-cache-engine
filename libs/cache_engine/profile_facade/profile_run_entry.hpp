@@ -38,7 +38,8 @@
 #include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (Dead-Code-Filter-Einhaengung)
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // Resthygiene-2: compose_algo_signature / build_axis_variant_version_table
 #include <builder/experiment_tree/organ_fingerprint.hpp> // Resthygiene-2: organ_fingerprint_preimage_from_pairs (sort+concat)
-#include <builder/build_orchestrator/system_ram.hpp> // make_system_free_ram_fn
+#include <builder/build_orchestrator/system_ram.hpp>  // make_system_free_ram_fn
+#include <builder/driver_build_variant_signature.hpp> // A7-B: driver_build_variant_signature (Mengen-Sig des Treibers)
 
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
@@ -313,6 +314,20 @@ struct RunProfileResult {
                    ? make_lazy_adhoc_fingerprint_fn_from_env()
                    : ex::FingerprintFn{};
     }();
+    // A7-B (Lager-Gate, G2 Folge-B): das BUILD-VARIANTEN-Gate, gleiches opt-in-Muster wie COMDARE_BESTANDSLOG darueber.
+    // Gated auf COMDARE_VARIANT_GATE=true; Default AUS => leerer String => Variant-Gate AUS => byte-neutral (exakt der
+    // bisherige Versions-/Organ-Skip, das `.variant`-Sidecar wird ignoriert). Scharf traegt es die MENGEN-Signatur der
+    // CMake-enabled Achsen-Typlisten DIESES Treibers: eine per-Maschine anders konfigurierte Enable-Menge ergibt eine
+    // andere Signatur -> `.variant`-Mismatch -> Neubau GENAU dieser Binary (das Cross-Maschinen-Gate). Bei identischer
+    // Enable-Menge identisch => inert. EINMAL ausgewertet (Lauf-Konstante), nicht je Perm -- die Treiber-Config ist
+    // eine Compile-Zeit-Eigenschaft dieses Prozesses. ZIRKULARITAETS-VERBOT: die Soll-Seite kommt aus der AKTUELLEN
+    // Treiber-Konfiguration, NIEMALS aus der alten DLL oder deren Sidecar (das darf nur verglichen werden).
+    std::string const variant_gate_sig = [] {
+        char const* const vg = std::getenv("COMDARE_VARIANT_GATE");
+        return (vg != nullptr && std::string_view{vg} == std::string_view{"true"})
+                   ? ex::driver_build_variant_signature()
+                   : std::string{};
+    }();
     ex::SourceGenFn const union_gen = [base = std::move(base_union),
                                        lazy = lazy_gen](std::string const& binary_id) -> std::string {
         std::string src = base ? base(binary_id) : std::string{};
@@ -423,6 +438,7 @@ struct RunProfileResult {
         cfg.build_parallelism         = a.build_parallelism; // W6 (§32-F7): Bau-Pool-Worker-Override (0 = byte-neutral)
         cfg.per_binary_subdirs        = true;
         cfg.bestand_fingerprint_fn    = lazy_fingerprint; // I2: opt-in .fingerprint-Sidecar (leer = byte-neutral)
+        cfg.build_variant_sig         = variant_gate_sig; // A7-B: opt-in Build-Varianten-Gate (leer = byte-neutral)
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.pruef_only                = a.pruef_only;     // S3: nur Gate je gebauter .so (byte-identisch bei false)
