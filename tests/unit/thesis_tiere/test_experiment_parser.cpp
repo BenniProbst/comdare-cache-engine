@@ -17,6 +17,8 @@
 #include "validate_profile.hpp"                    // validate_experiment_profile / ExperimentValidationResult
 #include "xml_config_parser/xml_config_parser.hpp" // XmlConfigParser / ExperimentProfile
 
+#include <cache_engine/measurement/run_methodology_registry.hpp> // Lane D: kRunMethodologyCount/Compare (4. Modus)
+
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -25,6 +27,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -43,6 +46,7 @@ namespace {
 namespace cx  = comdare::builder::xml;
 namespace tlz = comdare::cache_engine::thesis_lazy;
 namespace fs  = std::filesystem;
+namespace mm  = comdare::cache_engine::measurement; // Lane D: die Run-Methodik-Registry (Anzahl-/Namen-Anker)
 
 // Baut ein temporaeres Registry-Verzeichnis, in das die REALE ce-Registry (Single-Source) + die prt-Registry
 // unter den vom Golden referenzierten Dateinamen kopiert werden. So loest validate_experiment_profile die
@@ -700,17 +704,61 @@ TEST(ExperimentParser, ValidA9MeasurementSubAxesAreAccepted) {
     fs::remove_all(reg, ec);
 }
 
-// (a9c) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release}).
+// (a9c) ein Bogus run_methodology-Wert (profiling) ist ein HARTER Fehler ({debug,measure,release,compare}).
 TEST(ExperimentParser, BogusRunMethodologyIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->run_methodology = {"measure", "profiling"}; // ausserhalb {debug,measure,release}
+    ep->run_methodology = {"measure", "profiling"}; // ausserhalb {debug,measure,release,compare} (Lane D)
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_FALSE(vr.ok);
     EXPECT_TRUE(any_contains(vr.errors, "run_methodology"));
     EXPECT_TRUE(any_contains(vr.errors, "profiling"));
     EXPECT_EQ(vr.run_methodology_checked, 2u);
+}
+
+// (a9c-compare) STRUKT-R Lane D (Q-4/Q-5, 2026-07-26): COMPARE ist der 4. Registry-Modus (§62-C: Replay-Sichten-
+//       Vergleich je Maschine NACH der Release-Messung); vorher lebte er NUR als XSD-Kommentar-Reserve. Die Wache
+//       haelt die WAEHLBARKEIT literal fest: (i) Anzahl-/Namen-Anker compile-time, (ii) ein Profil-XML mit
+//       <method value="compare"/> PARST, (iii) der Validator AKZEPTIERT das Token OHNE Zutun (registry-getrieben
+//       ueber check_measurement_sub_axis -- kein id-Literal in Validator/Parser/XSD), (iv) exactly-one
+//       (§61-STUFEN) gilt UNVERAENDERT auch fuer compare.
+//       NICHT bewiesen und NICHT behauptet: ein modus-SPEZIFISCHER Ablauf. compare baut heute release-gleich
+//       {Release, misst NICHT, parallel}; der Vollzug (Replay-Vergleich) ist das Nach-Trigger-Paket D2.
+TEST(ExperimentParser, CompareIsFourthRunMethodologyRegistryMode) {
+    static_assert(mm::kRunMethodologyCount == 4, "Lane D: COMPARE ist der 4. Registry-Modus (Anzahl-Anker).");
+    static_assert(mm::run_methodology_info(mm::RunMethodology::Compare).id == std::string_view{"compare"},
+                  "Lane D: das id-Token des 4. Modus ist \"compare\" (Namen-Anker).");
+    static_assert(mm::run_methodology_info(mm::RunMethodology::Compare).cmake_build_type == std::string_view{"Release"},
+                  "Lane D/Q-5: compare baut Release (Etikett-Stand; Vollzug D2).");
+
+    // (ii) PARSE aus echtem XML -- das Token kommt durch den Parser, nicht aus einem Feld-Literal.
+    auto const parsed = parse_experiment_with_system_axes("  <run_methodology>\n"
+                                                          "    <method value=\"compare\"/>\n"
+                                                          "  </run_methodology>\n");
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_EQ(parsed->run_methodology.size(), 1u);
+    EXPECT_EQ(parsed->run_methodology[0], "compare");
+
+    // (iii) VALIDAT: das GEPARSTE Token in die Golden-Instanz (golden-neutral, nur in-memory) -> ok, Zaehler 1.
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->run_methodology = parsed->run_methodology;
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok) << "compare ist ein gueltiger Modus (Registry-getrieben, kein Validator-Patch)";
+    EXPECT_EQ(vr.run_methodology_checked, 1u);
+
+    // (iv) exactly-one gilt auch fuer den neuen Modus: {compare,release} bleibt ein HARTER Fehler.
+    ep->run_methodology                            = {"compare", "release"};
+    tlz::ExperimentValidationResult const vr_multi = tlz::validate_experiment_profile(*ep, reg);
+    EXPECT_FALSE(vr_multi.ok) << "zwei Modi muessen abgelehnt werden (exactly-one, §61-STUFEN)";
+    EXPECT_TRUE(any_contains(vr_multi.errors, "GENAU EINE"));
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
 }
 
 // (a9d) ein Bogus measurement_framework-Wert (tpcc) ist ein HARTER Fehler ({ycsb}, honest-1).

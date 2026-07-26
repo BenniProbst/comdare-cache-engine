@@ -1,8 +1,18 @@
 #pragma once
-// Run-Methodik-Mess-UNTER-Achse (Ledger Section 47 / Section 54-T2 / Section 55, 2026-07-20): die 3 Ablauf-
-// Methoden {Debug, Measure, Release} des Mess-Vollzugs. Sie TYPISIERT den offenen TODO in
+// Run-Methodik-Mess-UNTER-Achse (Ledger Section 47 / Section 54-T2 / Section 55, 2026-07-20): die 4 Ablauf-
+// Methoden {Debug, Measure, Release, Compare} des Mess-Vollzugs. Sie TYPISIERT den offenen TODO in
 // measurement_axis_registry.xml:55-56 ("die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen ->
 // nicht emittiert; erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar").
+//
+// STRUKT-R Lane D (Q-4, 2026-07-26): COMPARE ist der 4. Registry-Modus (§62-C: Replay-Sichten-Vergleich je
+// Maschine NACH der Release-Messung); zuvor lebte er NUR als XSD-Kommentar-Reserve (experiment_schema.xsd:60-61),
+// nicht als Typ. WAEHLBARKEIT, NICHT VOLLZUG: seine Build-Semantik ist heute bewusst release-GLEICH
+// {Release, misst NICHT, parallel}, damit die Wahl von compare an KEINER Emissions-Naht ein anderes Verhalten
+// erzeugt (die Emitter verzweigen ausschliesslich auf cmake_build_type == "Debug"; measurement_on gatet allein
+// die Mess-Parallelitaet, measure_parallelism.hpp:25). Der modus-SPEZIFISCHE Ablauf (Replay-Vergleich statt
+// Messen) ist das Nach-Trigger-Paket D2 -- bis dahin ist compare ein waehlbares, validierbares ETIKETT.
+// CUSTOM_COMPILE ist KEIN Modus (Q-4): es ueberschreibt spaeter als CLI-Feature (§60-R3) die 4 Modi und liefert
+// dem Anwender die Wunsch-Binary -- es kommt NIE in diese Registry.
 //
 // ABGRENZUNG (Section 54-T2): dies ist eine Mess-Tooling-UNTER-Achse (Planer-gesteuert, delegiert,
 // binary_id-NEUTRAL) -- NICHT die HAUPT-Auffaecherung (das ist MeasurementTooling {WallClock/Macro/Micro},
@@ -28,10 +38,11 @@ enum class RunMethodology : std::uint8_t {
     Debug,   ///< Debug-Lauf -- parallel/schnell, KEINE Mess-golden-Zahlen (Verifikation der Verdrahtung)
     Measure, ///< Mess-Lauf -- 1-Thread/deterministisch, die golden-Messung (Run-to-Run-stabil)
     Release, ///< Release-Lauf -- Voll-Optimierung ohne Mess-Instrumentierung (Referenz-Durchsatz)
+    Compare, ///< COMPARE-Lauf -- Replay-Sichten-Vergleich der Release-Messung je Maschine (§62-C); Etikett bis D2
 };
 
-// Single-Source: Drift einer 4. Methode bricht hier compile-time (statt still 3 zu bleiben).
-inline constexpr std::size_t kRunMethodologyCount = 3;
+// Single-Source: Drift einer 5. Methode bricht hier compile-time (statt still 4 zu bleiben).
+inline constexpr std::size_t kRunMethodologyCount = 4;
 
 struct RunMethodologyInfo {
     RunMethodology   methodology;
@@ -57,10 +68,14 @@ struct RunMethodologyInfo {
 /// S5-P1-Build-Semantik: measure = deterministischer 1-Thread-Messlauf (Release, misst); debug = paralleler
 /// Verdrahtungs-Check (Debug, misst, KEINE 1-Thread-Determinismus-Garantie); release = Referenz-Durchsatz (Release,
 /// misst NICHT). Der Emitter waehlt fuer die S5-Mess-Strecke die measure-Zeile (der Methodik-Fanout ist S6).
+/// Lane D (Q-4/Q-5): compare = Replay-Sichten-Vergleich NACH der Release-Messung -- baut wie release (Release,
+/// misst NICHT, parallel), weil es die BEREITS gemessenen Sichten vergleicht und selbst KEINE golden-Zahlen
+/// erhebt. Die Zeile ist damit bewusst byte-gleich zu release: Waehlbarkeit ohne Verhaltens-Aenderung (Vollzug D2).
 inline constexpr std::array<RunMethodologyInfo, kRunMethodologyCount> kRunMethodologyRegistry{{
     {RunMethodology::Debug, "debug", "Debug", "Debug", true, false},
     {RunMethodology::Measure, "measure", "Measure", "Release", true, true},
     {RunMethodology::Release, "release", "Release", "Release", false, false},
+    {RunMethodology::Compare, "compare", "Compare", "Release", false, false},
 }};
 
 namespace detail {
@@ -77,13 +92,14 @@ namespace detail {
 static_assert(kRunMethodologyRegistry.size() == kRunMethodologyCount,
               "kRunMethodologyRegistry: Array-Groesse == kRunMethodologyCount (Anzahl-Anker).");
 static_assert(detail::run_methodology_registry_is_complete(),
-              "kRunMethodologyRegistry: 3 Eintraege, Index==RunMethodology, id/name nie leer.");
+              "kRunMethodologyRegistry: 4 Eintraege, Index==RunMethodology, id/name nie leer.");
 // Namen-Anker: Drift eines id-Tokens (Umbenennung/Vertauschung) bricht hier compile-time.
 static_assert(
     kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Debug)].id == std::string_view{"debug"} &&
         kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Measure)].id == std::string_view{"measure"} &&
-        kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].id == std::string_view{"release"},
-    "kRunMethodologyRegistry: id-Tokens sind {debug,measure,release} (Namen-Anker).");
+        kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].id == std::string_view{"release"} &&
+        kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Compare)].id == std::string_view{"compare"},
+    "kRunMethodologyRegistry: id-Tokens sind {debug,measure,release,compare} (Namen-Anker).");
 // S5-P1 Build-Semantik-Anker: Drift der Build-/Mess-/Thread-Politik einer Methode bricht hier compile-time. Der
 // Emitter verlaesst sich auf measure == {Release, misst, 1-Thread} (die S5-Mess-Strecke); direkter Index-Zugriff,
 // weil run_methodology_info() erst weiter unten deklariert ist.
@@ -102,6 +118,15 @@ static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::R
                   !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].measurement_on &&
                   !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Release)].single_thread,
               "kRunMethodologyRegistry: release = {Release, misst NICHT, parallel} (Referenz-Durchsatz).");
+// Lane D (Q-5): compare = {Release, misst NICHT, parallel} -- der ETIKETT-Stand. Der Anker ist die Tripwire fuer
+// D2: wer compare seinen eigenen Ablauf gibt (Replay-Vergleich statt Bau/Mess-Semantik von release), muss ihn
+// BEWUSST loesen, statt still eine Emissions-Naht mitzunehmen. cmake_build_type nicht-leer ist Pflicht (consteval
+// run_methodology_registry_is_complete) -- "Release" ist die korrekte Wahl, weil compare Release-Sichten vergleicht.
+static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Compare)].cmake_build_type ==
+                      std::string_view{"Release"} &&
+                  !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Compare)].measurement_on &&
+                  !kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::Compare)].single_thread,
+              "kRunMethodologyRegistry: compare = {Release, misst NICHT, parallel} (Etikett-Stand, Vollzug D2).");
 
 /// constexpr-Lookup (Index == RunMethodology-Wert, durch static_assert garantiert).
 [[nodiscard]] constexpr RunMethodologyInfo const& run_methodology_info(RunMethodology m) noexcept {
