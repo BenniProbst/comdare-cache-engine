@@ -178,7 +178,7 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 /// Die Deklarations-Tabelle. Die Tupel-Werte sind NICHT hier erfunden, sondern WOERTLICH aus der
 /// Anwender-XML uebernommen (tests/unit/thesis_tiere/experiment_golden_kern.xml):
 ///     <machine id="prod1" cpu_fabrication="amd_zen5_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
-///     <machine id="prod2" cpu_fabrication="intel_avx2"      ram_pair="ddr4_2x32" hostname_hint="prod2"/>
+///     <machine id="prod2" cpu_fabrication="intel_avx2"      ram_pair="ddr5_2x32" hostname_hint="prod2"/>
 ///
 /// WARUM DIE ODROID-KLASSE FEHLT: fuer OdroidGracemontSignature deklariert HEUTE keine XML ein
 /// Eigenschafts-Tupel. Ein Tupel hier zu erfinden waere eine Falsch-Aussage ueber echte Hardware -- die
@@ -205,15 +205,21 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 /// (i9-14900KS) NICHT die heutige prod2 (i9-12900K) ist. Fuer prod2 zaehlt jetzt die Messung, nicht die
 /// Planung; fuer prod1 bleibt der Planungswert das, was er ist -- kein Ist-Wert, also keine Deklaration.
 ///
-/// OFFENER WIDERSPRUCH IM SCHLUESSEL (gemeldet, hier bewusst NICHT gefixt): derselbe dmidecode-Beleg
-/// weist prod2 als DDR5 2x32 aus, waehrend der Aufloesungs-Schluessel dieser Zeile ram_pair="ddr4_2x32"
-/// lautet. Der Schluessel ist ein symbolisches Etikett aus der Anwender-XML und zugleich die halbe
-/// Identitaet (resolve_machine_by_properties); ihn zu aendern beruehrt XML, Registry-Reflektion und
-/// Stempel-Aufloesung gleichzeitig und ist damit kein additiver Nachtrag. Die Frequenz-Nachdeklaration
-/// steht unabhaengig davon: sie ist belegt und wirkt nur im eigenen Feld.
+/// SCHLUESSEL-KORREKTUR E-2 (27.07.2026, Owner-GO): prod2 traegt jetzt ram_pair="ddr5_2x32". Der Wert
+/// stand vorher auf "ddr4_2x32" und widersprach damit dem eigenen Beleg dieser Datei -- derselbe
+/// dmidecode-Lauf, der die 4800 MT/s lieferte, weist die Riegel als DDR5 aus (2x32 GB war schon immer
+/// richtig, nur die Generation nicht). Das Etikett ist kein Kommentar, sondern die halbe Identitaet:
+/// resolve_machine_by_properties bindet ueber (cpu_fabrication, ram_pair), deshalb wandert die Korrektur
+/// zugleich durch die Anwender-XML, die Auspraegung in target_isa_complex_axis.hpp und alle Wachen.
+///
+/// WAS SICH DADURCH STRUKTURELL AENDERT: prod1 und prod2 tragen jetzt DASSELBE ram_pair. Ihre
+/// Unterscheidung haengt damit allein an cpu_fabrication -- was korrekt ist (beide Maschinen haben
+/// tatsaechlich 2x32 GB DDR5), aber die Tupel-Disjunktheit auf ein einziges Glied stellt. Der
+/// static_assert am Dateiende haelt genau das fest, damit ein spaeterer Eingriff an cpu_fabrication
+/// nicht unbemerkt beide Zeilen auf dieselbe Identitaet zusammenfallen laesst.
 inline constexpr std::array<DeclaredMachine, 2> kDeclaredMachines{{
     {"amd_zen5_avx512", "ddr5_2x32", Prod1Zen5Signature::machine_id(), kProd1Zen5Core, Prod1Zen5Signature::signature()},
-    {"intel_avx2", "ddr4_2x32", Prod2RaptorLakeSignature::machine_id(), kProd2AlderLakeCore,
+    {"intel_avx2", "ddr5_2x32", Prod2RaptorLakeSignature::machine_id(), kProd2AlderLakeCore,
      Prod2RaptorLakeSignature::signature(), 4800},
 }};
 
@@ -395,6 +401,16 @@ static_assert(kDeclaredMachines[1].machine_id == std::string_view{"prod2_raptor_
 static_assert(resolve_machine_by_properties("amd_zen5_avx512", "ddr5_2x32") == &kDeclaredMachines[0]);
 static_assert(resolve_machine_by_properties("amd_zen5_avx512", "ddr4_2x32") == nullptr,
               "Teil-Treffer ist KEIN Treffer -- das Tupel gilt als Ganzes (§70.6 'exakter Match').");
+// E-2-Gegenrichtung: seit prod1 und prod2 DASSELBE ram_pair tragen, ist das RAM-Etikett allein kein
+// Schluessel mehr. Diese Zeile belegt die zweite Halb-Treffer-Richtung (bekanntes RAM, fremde CPU).
+static_assert(resolve_machine_by_properties("gibt_es_nicht", "ddr5_2x32") == nullptr,
+              "Ein bekanntes ram_pair bindet NICHT allein -- sonst waere das Tupel halbiert.");
+// Und die eigentliche E-2-Wache: die beiden Zeilen duerfen NIE auf dieselbe Identitaet auflaufen.
+// Nach der Schluessel-Korrektur trennt sie nur noch cpu_fabrication; faellt das, ist prod2 = prod1.
+static_assert(resolve_machine_by_properties("amd_zen5_avx512", "ddr5_2x32") !=
+                  resolve_machine_by_properties("intel_avx2", "ddr5_2x32"),
+              "prod1 und prod2 teilen seit E-2 das ram_pair -- ihre Trennung haengt allein an der "
+              "cpu_fabrication und muss erhalten bleiben.");
 static_assert(resolve_machine_by_properties("prod1", "ddr5_2x32") == nullptr,
               "Die XML-id ist NICHT der Schluessel; gebunden wird ueber das Eigenschafts-Tupel.");
 // Kein Treffer -> keine Identitaet, keine Signatur. Der Kern der "kein stiller Fallback"-Auflage.
@@ -409,16 +425,16 @@ static_assert(!identify_machine("amd_zen5_avx512", "ddr5_2x32", kProd1Zen5Core).
 // O-8 Schritt 5b (O-4a-VOLLZUG): prod2 ist jetzt deklariert. Ein prod1-Kern gegen prod2s Tupel ist
 // deshalb keine fehlende Deklaration mehr, sondern eine echte ABWEICHUNG -- und die ist ein Fehler.
 // Die Zeile stand vorher auf NichtDeklariert; sie hat den Nachzug erzwungen, statt ihn zu verschlucken.
-static_assert(identify_machine("intel_avx2", "ddr4_2x32", kProd1Zen5Core).verdict ==
+static_assert(identify_machine("intel_avx2", "ddr5_2x32", kProd1Zen5Core).verdict ==
               MachineIdentityVerdict::Abweichung);
-static_assert(identify_machine("intel_avx2", "ddr4_2x32", kProd1Zen5Core).signature().empty());
+static_assert(identify_machine("intel_avx2", "ddr5_2x32", kProd1Zen5Core).signature().empty());
 // prod2 gegen seine eigenen erhobenen Werte: Match, und erst DANN gibt es eine Signatur.
-static_assert(identify_machine("intel_avx2", "ddr4_2x32", kProd2AlderLakeCore).verdict ==
+static_assert(identify_machine("intel_avx2", "ddr5_2x32", kProd2AlderLakeCore).verdict ==
               MachineIdentityVerdict::Match);
-static_assert(!identify_machine("intel_avx2", "ddr4_2x32", kProd2AlderLakeCore).signature().empty());
+static_assert(!identify_machine("intel_avx2", "ddr5_2x32", kProd2AlderLakeCore).signature().empty());
 // Der NichtDeklariert-Zustand bleibt erreichbar -- er haengt jetzt an der LIVE-Seite (CPUID nicht
 // lesbar), nicht mehr an einer fehlenden Deklaration. Ohne diese Zeile waere er unbelegt.
-static_assert(identify_machine("intel_avx2", "ddr4_2x32", MachineCoreCpuId{}).verdict ==
+static_assert(identify_machine("intel_avx2", "ddr5_2x32", MachineCoreCpuId{}).verdict ==
               MachineIdentityVerdict::NichtDeklariert);
 // Abweichung -> D1 HardwareErweiterungFehlt; die uebrigen Urteile sind KEINE Fehler.
 static_assert(error_class_of_verdict(MachineIdentityVerdict::Abweichung) ==

@@ -36,9 +36,18 @@ TEST(O4MachineIdentity, HostnameIstNichtDerSchluessel) {
 
 TEST(O4MachineIdentity, DasTupelGiltALSGANZES) {
     // "exakter Eigenschafts-Match" (§70.6): ein halber Treffer ist kein Treffer.
-    EXPECT_EQ(meas::resolve_machine_by_properties("amd_zen5_avx512", "ddr4_2x32"), nullptr);
-    EXPECT_EQ(meas::resolve_machine_by_properties("intel_avx2", "ddr5_2x32"), nullptr);
-    EXPECT_NE(meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32"), nullptr);
+    // E-2 (27.07.): prod1 UND prod2 tragen jetzt BEIDE ram_pair="ddr5_2x32". Die Kreuzprobe kann
+    // deshalb nicht mehr ueber das RAM-Etikett laufen -- "intel_avx2 + ddr5_2x32" ist seither prod2,
+    // also ein VOLL-Treffer. Geprueft werden stattdessen die zwei echten Halb-Treffer-Richtungen.
+    EXPECT_EQ(meas::resolve_machine_by_properties("amd_zen5_avx512", "ddr4_2x32"), nullptr)
+        << "bekannte CPU-Fabrikation, aber ein ram_pair, das keine Zeile mehr fuehrt";
+    EXPECT_EQ(meas::resolve_machine_by_properties("gibt_es_nicht", "ddr5_2x32"), nullptr)
+        << "bekanntes ram_pair allein bindet NICHT -- sonst waere das Tupel halbiert";
+    EXPECT_NE(meas::resolve_machine_by_properties("intel_avx2", "ddr5_2x32"), nullptr);
+    // Die eigentliche E-2-Folge: seit beide Zeilen dasselbe ram_pair tragen, haengt ihre Trennung
+    // ALLEIN an cpu_fabrication. Faellt diese Zusicherung, loesen prod1 und prod2 auf dieselbe Zeile auf.
+    EXPECT_NE(meas::resolve_machine_by_properties("amd_zen5_avx512", "ddr5_2x32"),
+              meas::resolve_machine_by_properties("intel_avx2", "ddr5_2x32"));
 }
 
 TEST(O4MachineIdentity, WiederverwendbarkeitUeberMaschinenTypenHinweg) {
@@ -70,7 +79,7 @@ TEST(O4MachineIdentity, Prod2KernKennungIstMitO4aErhobenUndDeklariert) {
     // (Infra-Handout, GenuineIntel/6/151/2 = Alder Lake-S, i9-12900K), also kehrt sich die Zusicherung
     // um. Die Umkehr ist der Punkt: der alte Test war kein Wunsch, sondern die ehrliche Beschreibung
     // eines Zwischenzustands, und der ist beendet.
-    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32");
+    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr5_2x32");
     ASSERT_NE(m, nullptr);
     EXPECT_TRUE(m->core.declared) << "prod2s Kern-Kennung ist mit O-4a erhoben.";
     EXPECT_EQ(m->core.vendor, std::string_view{"GenuineIntel"});
@@ -89,7 +98,7 @@ TEST(O4MachineIdentity, Prod2RamFrequenzIstErhobenUndCasBleibtEhrlichOffen) {
     // Die CAS-Latenz bleibt 0: SMBIOS Type 17 fuehrt sie nicht, decode-dimms ist auf prod2 nicht
     // installiert. Beide Zusicherungen zusammen sind der Punkt -- ein erhobenes Glied wird deklariert,
     // ein nicht erhobenes wird NICHT geschaetzt, nur weil daneben eine Zahl steht.
-    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32");
+    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr5_2x32");
     ASSERT_NE(m, nullptr);
     EXPECT_EQ(m->ram_frequency_mhz, 4800u);
     EXPECT_EQ(m->cas_latency_cl, 0u) << "0 heisst 'nicht erhoben' -- CL0 gibt es als realen Wert nicht.";
@@ -105,18 +114,18 @@ TEST(O4MachineIdentity, Prod2RamFrequenzIstErhobenUndCasBleibtEhrlichOffen) {
 TEST(O4MachineIdentity, Prod2MatchtDieEigeneDeklarationUndNichtsAnderes) {
     // HOST-UNABHAENGIG: die Gegenprobe laeuft gegen SYNTHETISCHE live-Werte, nicht gegen die CPU des
     // Testlaeufers -- sonst haenge das Ergebnis daran, auf welcher Kiste ctest gerade laeuft.
-    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32");
+    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr5_2x32");
     ASSERT_NE(m, nullptr);
 
     meas::MachineCoreCpuId passend = m->core;
     passend.brand                  = "12th Gen Intel(R) Core(TM) i9-12900K"; // live-Brand darf reicher sein
-    auto const treffer             = meas::identify_machine("intel_avx2", "ddr4_2x32", passend);
+    auto const treffer             = meas::identify_machine("intel_avx2", "ddr5_2x32", passend);
     EXPECT_EQ(treffer.verdict, meas::MachineIdentityVerdict::Match);
     EXPECT_FALSE(treffer.signature().empty()) << "Bei Match faellt die deklarierte Signatur heraus.";
 
     meas::MachineCoreCpuId fremd = m->core;
     fremd.model                  = 183; // andere Intel-Generation
-    auto const abweichung        = meas::identify_machine("intel_avx2", "ddr4_2x32", fremd);
+    auto const abweichung        = meas::identify_machine("intel_avx2", "ddr5_2x32", fremd);
     EXPECT_EQ(abweichung.verdict, meas::MachineIdentityVerdict::Abweichung);
     EXPECT_TRUE(abweichung.signature().empty()) << "Ohne bestaetigte Identitaet NIE eine Signatur.";
 }
@@ -126,7 +135,7 @@ TEST(O4MachineIdentity, NichtErhobeneLiveKennungWirdWEITERHIN_EHRLICHGemeldet) {
     // (CPUID nicht lesbar) statt an einer fehlenden Deklaration. Ohne diesen Test waere mit dem
     // O-4a-Nachzug die einzige Abdeckung des Zustands verschwunden.
     meas::MachineCoreCpuId const nicht_lesbar{}; // declared == false
-    auto const                   r = meas::identify_machine("intel_avx2", "ddr4_2x32", nicht_lesbar);
+    auto const                   r = meas::identify_machine("intel_avx2", "ddr5_2x32", nicht_lesbar);
     ASSERT_NE(r.machine, nullptr);
     EXPECT_EQ(r.verdict, meas::MachineIdentityVerdict::NichtDeklariert);
     EXPECT_TRUE(r.signature().empty());

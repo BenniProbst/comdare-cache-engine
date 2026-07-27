@@ -141,7 +141,7 @@ TEST(C3aScharfschaltung, EinmalBelegungMitBenanntemVerhalten) {
               meas::MachineDeclarationSetResult::BereitsGesetztIdentisch);
     // Zweite, ABWEICHENDE Belegung: ABGELEHNT -- ein Wechsel mitten im Lauf waere ein
     // Determinismus-Bruch (halbe Perm-Schleife mit anderer Freigabe).
-    EXPECT_EQ(meas::set_active_machine_declaration("intel_avx2", "ddr4_2x32"),
+    EXPECT_EQ(meas::set_active_machine_declaration("intel_avx2", "ddr5_2x32"),
               meas::MachineDeclarationSetResult::AbgelehntAbweichend);
     // Der ALTWERT haelt -- die Ablehnung ist wirksam, nicht bloss eine Meldung.
     if (meas::live_hostname() == "prod1")

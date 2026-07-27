@@ -137,7 +137,7 @@ struct Prod1Zen5TargetIsa final : TargetIsaComplexAxis<Prod1Zen5TargetIsa, X86_6
 struct Prod2RaptorLakeTargetIsa final : TargetIsaComplexAxis<Prod2RaptorLakeTargetIsa, X86_64TargetIsa> {
     [[nodiscard]] static constexpr std::string_view do_complex_id() noexcept { return "prod2_raptor_lake"; }
     [[nodiscard]] static constexpr std::string_view do_cpu_fabrication_key() noexcept { return "intel_avx2"; }
-    [[nodiscard]] static constexpr std::string_view do_ram_pair_key() noexcept { return "ddr4_2x32"; }
+    [[nodiscard]] static constexpr std::string_view do_ram_pair_key() noexcept { return "ddr5_2x32"; }
 };
 
 /// CEB-Default = prod1-Klasse (die Bau-/Mess-Flotte laeuft heute dort) -- beweglicher Startwert, KEIN Pin.
