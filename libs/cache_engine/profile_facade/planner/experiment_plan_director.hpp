@@ -375,8 +375,8 @@ public:
         out_ += "    add_custom_command(\n";
         out_ += "        OUTPUT \"" + tierpl + "\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"${COMDARE_PLAN_TIER_OUT}\"\n";
-        out_ += "        COMMAND \"${COMDARE_PLAN_DRIVER}\" tier cmake \"${COMDARE_PLAN_PROFILE}\" > \"" + tierpl +
-                "\"\n";
+        out_ +=
+            "        COMMAND \"${COMDARE_PLAN_DRIVER}\" tier cmake \"${COMDARE_PLAN_PROFILE}\" > \"" + tierpl + "\"\n";
         out_ += "        DEPENDS \"" + bstamp + "\" # ceb:build->ceb:emit-Kante\n";
         out_ += "        COMMENT \"ceb:emit " + c.legend + " ('tier cmake' => Stufe-2-Plan)\"\n";
         out_ += "        VERBATIM)\n";
