@@ -1,32 +1,58 @@
-# gitleaks-Konfiguration — comdare-cache-engine (CI-Stufe lint:secrets, HART)
-# Erweitert die offiziellen Default-Regeln; allowlistet Nicht-Quell-/Vendored-/Doku-Pfade,
-# damit der harte Secret-Gate keine False-Positives wirft. In CI sind ext/-Submodule wegen
-# GIT_SUBMODULE_STRATEGY:none ohnehin absent — diese Allowlist deckt die restlichen FP-Quellen.
+# gitleaks-Konfiguration -- comdare-cache-engine (CI-Stufe lint:secrets, HART).
+#
+# VERHAELTNIS ZUR ZENTRALEN BASIS (ci-templates/gitleaks/gitleaks-base.toml): .lint-secrets waehlt
+# bei vorhandener Projekt-toml AUSSCHLIESSLICH diese hier (-c ./.gitleaks.toml); die zentrale Basis
+# greift dann NICHT. Diese Datei DUPLIZIERT deshalb die Basis-Bloecke -- die Basis-Policy nennt das
+# ausdruecklich als eine der beiden erlaubten Varianten -- statt sie per [extend] path zu ziehen:
+# ein Pfad-Verweis auf eine nur in CI materialisierte Basis wuerde lokale gitleaks-Laeufe ausserhalb
+# der CI brechen. Wer die Basis aendert, zieht hier nach.
+#
+# OP-3-ZUSCHNITT (27.07.2026): das Projekt-DELTA ist auf NULL geschnitten -- die Bloecke unten sind
+# reine Basis-Duplikate. Gestrichen wurden zwei Blanket-Pfade, beide vorher empirisch gegengeprueft
+# (gitleaks 8.30.1, Scan gegen den Ist-Baum, Findings jeweils 0):
+#   docs/     3.34 MB werden ohne den Eintrag real gescannt und liefern KEIN Finding. Das Blanket
+#             hat also nichts abgefangen, haette aber jedes kuenftig in die Doku hineinkopierte
+#             echte Secret verdeckt -- genau der Grund, aus dem die zentrale Basis ein
+#             Blanket-docs/ bewusst NICHT fuehrt.
+#   modules/  deckt heute genau eine getrackte README (2.5 KB), 0 Findings. Die Modul-Spiegel sind
+#             geloescht; der Eintrag schuetzte nichts mehr.
+# Beide Baeume werden ab jetzt MITGESCANNT. Das ist die Absicht: was dort auftaucht, ist ein echter
+# Befund und kein False Positive.
 title = "comdare-cache-engine gitleaks"
 
+# --- BASIS-DUPLIKAT (gitleaks-base.toml) -------------------------------------------------------
 [extend]
 useDefault = true
 # `generic-api-key` ist entropie-basiert und wirft auf C++-Doku-Kommentaren systematische
-# False-Positives (z.B. `// std::queue-API: peek_front=oldest` → "Secret" peek_front=oldest).
+# False-Positives (z.B. `// std::queue-API: peek_front=oldest` -> "Secret" peek_front=oldest).
 # Deaktiviert; die 100+ spezifischen High-Confidence-Regeln (aws/github/gcp/azure/private-key/
-# slack/stripe/…) bleiben aktiv → echte Secret-Erkennung erhalten, Rausch-Regel entfernt.
+# slack/stripe/...) bleiben aktiv -> echte Secret-Erkennung erhalten, Rausch-Regel entfernt.
 disabledRules = ["generic-api-key"]
 
+# --- BASIS-DUPLIKAT (gitleaks-base.toml) -------------------------------------------------------
+# P9-FALLE (empirisch 27.07.): Pfad-Muster IMMER mit '(^|/)'-Praefix verankern. Das weite Muster
+# '(^|/)build[^/]*/' traf '/builds/' im absoluten Runner-Pfad und allowlistete den GESAMTEN Scan
+# (0-Byte-Gruen). Sicher ist das hier nur zusammen mit dem relativen Scan des Jobs (cd + 'dir .').
 [[allowlists]]
-description = "Nicht-Quell-/Vendored-/Build-/Doku-Pfade (keine echten Secrets)"
+description = "Nicht-Quell-/Vendored-/Build-/Dep-Pfade (keine echten Secrets)"
 paths = [
   '''(^|/)ext/''',
+  '''(^|/)_deps/''',
   '''(^|/)build/''',
   '''(^|/)build-[^/]+/''',
   '''(^|/)cmake-build-[^/]*/''',
-  '''(^|/)modules/''',
   '''(^|/)_archive_code_pre_migration/''',
   '''(^|/)\.citools/''',
-  '''(^|/)docs/''',
+  # MARATHON-SCAN-FALLE (27.07.): der persistente Runner-Checkout traegt untracked Bau-Artefakte --
+  # der ccache-Store sind GB Binaerdaten. Ohne diesen Eintrag scannt gitleaks sie mit (super-Job
+  # 335274 lief 24 min ohne Trace-Ausgabe). Der Eintrag MUSS hier stehen und nicht nur zentral:
+  # die Projekt-toml schlaegt die Basis (siehe Kopf).
+  '''(^|/)\.ccache/''',
 ]
 
+# --- BASIS-DUPLIKAT (gitleaks-base.toml) -------------------------------------------------------
 [[allowlists]]
-description = "Test-Fixtures mit absichtlichen Pseudo-Schlüsseln (deterministische Testdaten, keine echten Secrets)"
+description = "Wert-basierte Pseudo-Secret-Marker (deterministische Testdaten, keine echten Secrets)"
 regexTarget = "match"
 regexes = [
   '''(?i)(example|dummy|sample|test|fake|placeholder)[-_]?(key|token|secret|pw|password)''',
