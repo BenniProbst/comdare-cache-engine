@@ -26,8 +26,17 @@ enum class AxisKind : unsigned char {
     /// HAUPT-Achse der MESS-Achsen (Planer-Stufe) und verlaesst die System-Welt ersatzlos.
     /// Rein ADDITIVER Diskriminator: solange keine Achse ihn zurueckgibt, ist er verhaltens- und
     /// byte-neutral. Er ist KEIN drittes festes Level -- die Rekursion bleibt offen (Layer-Modell D4:
-    /// Unter-Achse == Voll-Achse). Ein eigener Diskriminator fuer den Mess-Realm ist offen (RF-1).
+    /// Unter-Achse == Voll-Achse). Der eigene Diskriminator fuer den Mess-Realm ist ENTSCHIEDEN
+    /// (Ledger 70.1, RF-1 VOLLES GO): siehe measurement_meta_meta unten.
     system_meta_meta,
+    /// MESS-Meta-Meta-Achse (O-8 Schritt 2; Ledger 70.1 / RF-1 VOLLES GO). Gegenstueck zu
+    /// system_meta_meta auf der MESS-Seite: Mess-Achsen leben im PLANER und sind von den
+    /// CEB-System-/Organ-Achsen VOELLIG getrennt -- je Realm ein eigener Meta-Meta-Diskriminator.
+    /// Erster Traeger wird load_framework, das die System-Welt ersatzlos verlaesst (Ledger 69.1,
+    /// Umzug in O-8 Schritt 4). ANS ENDE angefuegt, damit die Zahlenwerte der bestehenden
+    /// Diskriminatoren unveraendert bleiben; bis Schritt 4 gibt ihn KEINE Achse zurueck --
+    /// bis dahin verhaltens- und byte-neutral.
+    measurement_meta_meta,
 };
 
 /// Das Dach: empty base, keine vtable, keine Familien-Semantik. Der Concept-Guard
