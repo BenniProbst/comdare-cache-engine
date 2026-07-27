@@ -654,8 +654,7 @@ public:
         out_ += "#\n";
         out_ += "# Ledger §42: CE erhaelt die XML und steuert ALLES. DREISTUFIGE Legenden-Kette --\n";
         out_ += "#   STUFE 1 (HIER, ceb-build/ceb-emit): je Mess-Kombination [a,b,c] EINE CEB-Pipeline\n";
-        out_ +=
-            "#           (ceb:build -> ceb:emit('tier ci') -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
+        out_ += "#           (ceb:build -> ceb:emit('tier ci') -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
         out_ += "#   STUFE 2 (CEB-emittiert, 'tier ci', S4-§62-B-Batch): je Host-Lane EIN Build+Pruef-Batch\n";
         out_ += "#           \"tier:build-batch:<host>\" (iteriert intern Perms x 4096er-Scheiben, Testate "
                 "[d,e,f][g,h,i]) + EIN Mess-Batch \"measure:[a,b,c]:batch:<host>\" (GN-11/320er-gegatet).\n";
