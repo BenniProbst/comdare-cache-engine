@@ -32,6 +32,7 @@
 #include <builder/codegen/type_name.hpp> // type_name<W>() (FQ-Typ, compile-time)
 
 #include <cache_engine/abi/system_axis_order.hpp> // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
+#include <profile_facade/system_version_suffix.hpp> // T-c/NETZ 4: kSuffixSegmentOrder (Suffix-Single-Source)
 #include <cache_engine/measurement/ceb_complex_system_axis.hpp> // O-8 Schritt 6: aeussere Komplex-Achse + Gruppe
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/compiler_system_axis.hpp>
@@ -61,6 +62,7 @@
 namespace cg   = ::comdare::cache_engine::builder::codegen;
 namespace meas = ::comdare::cache_engine::measurement;
 namespace cabi = ::comdare::cache_engine::abi;
+namespace cpf  = ::comdare::cache_engine::profile_facade;
 
 // =====================================================================================================
 // P5/A7' -- ORDNUNGS-WACHE (Lane A, 26.07.2026). Byte-neutral: prueft nur, aendert nichts.
@@ -79,17 +81,23 @@ namespace cabi = ::comdare::cache_engine::abi;
 //           Reihenfolge, die nur in der Anweisungs-FOLGE steckt, compile-time nicht lesbar ist.
 //   NETZ 3 (Laufzeit): das Anzahl-Literal der stdout-Zeile kommt aus kSystemAxisOrderCount, nie als Zahl.
 //
-// T-c -- BENANNTE WACHEN-LUECKE, ABSICHTLICH OFFEN:
-//   Die vierte Kopie, die SUFFIX-EMITTER-Reihenfolge, ist hier NICHT geprueft und kann es heute nicht
-//   sein. Grund: profile_run_facade.cpp:369-405 baut das Suffix imperativ per Konkatenation
-//   (suffix += "+opt=", += "+ceb=", += "+target=", ...) - es gibt keine deklarative Ordnung, gegen die
-//   ein Vergleich laufen koennte. Sie deklarativ zu machen IST R3 (Traeger-Datei
-//   profile_facade/system_version_suffix.hpp als EINZIGE Suffix-Quelle) und gehoert damit zu Lane F im
-//   O-8-Fenster; die Datei liegt zudem in der Lane-F-Sperrmenge.
-//   => Suffix-Klausel folgt mit R3/T-c im O-8-Fenster (Lane F; braucht deklarative Suffix-Quelle
-//      system_version_suffix.hpp). Der Fenster-Agent findet diese Erweiterungsstelle per grep "T-c".
-//   Wenn T-c gebaut wird, ist hier NUR ein viertes Netz zu ergaenzen - die Wache muss nicht neu
-//   erfunden werden.
+//   NETZ 4 (T-c, compile-time, O-8 Schritt 11): die vierte Kopie -- die SUFFIX-Segment-Ordnung.
+//           Sie war bis R3 nicht pruefbar, weil das Suffix an fuenf Orten imperativ zusammengeklebt
+//           wurde; seit profile_facade/system_version_suffix.hpp ist die Ordnung ein DATUM
+//           (kSuffixSegmentOrder), und damit existiert erstmals etwas, wogegen verglichen werden kann.
+//
+//   WAS NETZ 4 PRUEFT -- und was ausdruecklich NICHT: es prueft die ABDECKUNG, nicht die relative
+//   Reihenfolge gegen kSystemAxisOrder. Der Grund ist eine echte Eigenschaft, keine Bequemlichkeit:
+//   die bindende Suffix-Form ist "+cxx+opt+ext" (Perm-Schleife), waehrend die Achsen-Ordnung
+//   target_isa, operating_system, external_utils lautet. Das Suffix folgt also der BAU-Reihenfolge,
+//   die Achsen-Ordnung der Achsen-Systematik -- zwei verschiedene Ordnungen mit je eigener
+//   Berechtigung. Eine Wache, die sie gleichsetzt, wuerde eine Uebereinstimmung behaupten, die weder
+//   der Owner noch der Plan verlangt. Die INNERE Ordnung des Suffix ist stattdessen dort verankert,
+//   wo sie hingehoert: als static_assert an kSuffixSegmentOrder selbst.
+//   Netz 4 faengt die Drift, die dort NICHT sichtbar waere: eine System-HAUPT-Achse, die in die
+//   Ordnung eintritt oder sie verlaesst, ohne dass jemand entschieden hat, ob und wie sie im Suffix
+//   auftaucht. Genau das ist gerade zweimal passiert (A3: 5 -> 3 Achsen; Schritt 6: operating_system
+//   neu) -- und niemand haette es gemerkt.
 //
 // A3 IST VOLLZOGEN (O-8 Schritt 4): die Wache ist mit der Ordnung umgezogen (5 -> 3 Haupt-Achsen),
 // ohne dass hier eine Zahl stand -- sie war gegen kSystemAxisOrder formuliert, also genuegte die
@@ -484,6 +492,50 @@ inline constexpr std::array<SystemAxisEmitter, cabi::kSystemAxisOrderCount> kSys
     }
     return true;
 }
+// =====================================================================================================
+// NETZ 4 (T-c): je System-HAUPT-Achse eine bewusste Suffix-Entscheidung.
+//
+// Die Tabelle ordnet jeder Achse aus kSystemAxisOrder ihr Suffix-Segment zu -- oder ausdruecklich
+// KEINES. "Kein Segment" ist eine gueltige, aber BENANNTE Antwort: operating_system erscheint heute
+// nicht im build_version, weil die Flotte je Runner ohnehin genau ein OS faehrt und die Distro eine
+// Stempel-Variable ist (OP-10). Wer das aendert, aendert es hier sichtbar.
+// =====================================================================================================
+struct SuffixSegmentBinding {
+    std::string_view axis;    ///< aus kSystemAxisOrder, nie handgeschrieben
+    std::string_view segment; ///< aus kSuffixSegmentOrder, oder leer = bewusst kein Segment
+};
+
+inline constexpr std::array<SuffixSegmentBinding, cabi::kSystemAxisOrderCount> kSuffixSegmentBindings{{
+    {meas::X86_64TargetIsa::axis_label(), cpf::kSuffixSegmentOrder[4]},        // "+target=" (nur bei Cross)
+    {meas::LinuxOperatingSystem::axis_label(), std::string_view{}},            // bewusst KEIN Segment (OP-10)
+    {meas::SimdExternalUtilsFamily::axis_label(), cpf::kSuffixSegmentOrder[2]}, // "+ext=" (Hub-Auspraegung)
+}};
+
+[[nodiscard]] consteval bool suffix_bindings_cover_axis_order() {
+    if (kSuffixSegmentBindings.size() != cabi::kSystemAxisOrderCount) return false;
+    for (std::size_t i = 0; i < cabi::kSystemAxisOrderCount; ++i)
+        if (kSuffixSegmentBindings[i].axis != cabi::kSystemAxisOrder[i]) return false;
+    return true;
+}
+[[nodiscard]] consteval bool suffix_bindings_are_known_segments() {
+    for (auto const& b : kSuffixSegmentBindings) {
+        if (b.segment.empty()) continue; // benanntes "kein Segment"
+        bool found = false;
+        for (auto const& seg : cpf::kSuffixSegmentOrder)
+            if (seg == b.segment) found = true;
+        if (!found) return false;
+    }
+    return true;
+}
+static_assert(suffix_bindings_cover_axis_order(),
+              "T-c/NETZ 4: fuer JEDE System-Haupt-Achse aus kSystemAxisOrder muss hier eine "
+              "Suffix-Entscheidung stehen -- ein Segment ODER ausdruecklich keines. Eine Achse ist "
+              "eingetreten, ausgetreten oder umsortiert worden, ohne dass jemand entschieden hat, wie "
+              "sie im build_version erscheint.");
+static_assert(suffix_bindings_are_known_segments(),
+              "T-c/NETZ 4: ein hier genanntes Suffix-Segment steht nicht in kSuffixSegmentOrder "
+              "(profile_facade/system_version_suffix.hpp) -- die Segment-Namen haben EINE Quelle.");
+
 static_assert(emitter_table_matches_order(),
               "P5/A9a: die Emitter-Tabelle folgt nicht abi::kSystemAxisOrder (Reihenfolge, Zahl oder ein "
               "nullptr-Emitter). kSystemAxisOrder ist die Single-Source (A1) - dort aendern, nicht hier.");
