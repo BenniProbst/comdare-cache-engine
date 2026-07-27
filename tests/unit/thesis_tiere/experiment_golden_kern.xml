@@ -54,12 +54,12 @@
         <option value="O3"/>
       </opt_level>
     </compiler>
-    <extension_hardware>
+    <external_utils>
       <simd>
         <option value="no_extension"/>
         <option value="avx2"/>
       </simd>
-    </extension_hardware>
+    </external_utils>
   </system_axes>
 
   <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>

@@ -111,7 +111,7 @@ TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith17_5_16) {
     EXPECT_EQ(trio->organ_axis_count(), 18u)
         << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d, persistence_target rein STRUKT-R ORG-18)";
     EXPECT_EQ(trio->system_axis_count(), 5u)
-        << "System: compiler/extension_hardware/target_isa/scheduling/load_framework";
+        << "System: compiler/external_utils/target_isa/scheduling/load_framework";
     EXPECT_EQ(trio->measurement_category_count(), 16u) << "16 Mess-Kategorien (kMeasurementAxisRegistry)";
 
     // S2/A2 P-SYSREG (2026-07-20): das System-ANGEBOT traegt genau die kanonischen Haupt-Achsen; target_isa ist
@@ -119,7 +119,7 @@ TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith17_5_16) {
     // ABWESEND (=S11). atomic128 reist als sub_axis unter compiler (nicht als eigener axis-Key) und wird ueber
     // die Parser-/Validat-Consumer-Verdrahtung + den Byte-Roundtrip (test_system_axis_registry_roundtrip) gedeckt.
     EXPECT_EQ(trio->system.axis_names.count("compiler"), 1u);
-    EXPECT_EQ(trio->system.axis_names.count("extension_hardware"), 1u);
+    EXPECT_EQ(trio->system.axis_names.count("external_utils"), 1u);
     EXPECT_EQ(trio->system.axis_names.count("target_isa"), 1u) << "target_isa = eigene Haupt-System-Achse (INC-2d)";
     EXPECT_EQ(tlz::RegistryTrio::baustein_count(trio->system, "target_isa"), 2u) << "x86_64 + aarch64";
     EXPECT_EQ(trio->system.axis_names.count("numa"), 0u) << "NUMA (7. Achse) korrekt abwesend (=S11)";
@@ -130,7 +130,7 @@ TEST(ExperimentPlanDirector, ThesisMinYieldsSingleIdentityPermAndSinglePass) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
     ASSERT_TRUE(tp.has_value()) << "planner_thesis_min.profile.xml nicht parsbar: " << COMDARE_PLANNER_THESIS_MIN;
     ASSERT_TRUE(tp->compiler.opt_levels.empty()) << "Fixture MUSS ohne <system_axes> sein";
-    ASSERT_TRUE(tp->extension_hardware.simd_options.empty());
+    ASSERT_TRUE(tp->external_utils.simd_options.empty());
 
     planner::ExperimentPlanDirector const director;
     CountingBuilder                       cb;
@@ -160,7 +160,7 @@ TEST(ExperimentPlanDirector, ThesisAllAxesGoldenYields2x2PermsTimesSweepPasses) 
     ASSERT_TRUE(tp.has_value()) << "all_axes_golden.profile.xml nicht parsbar";
     // Das committete Golden traegt opt O2/O3 x simd no_extension/avx2 + 17 <axis_sweep>.
     ASSERT_EQ(tp->compiler.opt_levels.size(), 2u);
-    ASSERT_EQ(tp->extension_hardware.simd_options.size(), 2u);
+    ASSERT_EQ(tp->external_utils.simd_options.size(), 2u);
     ASSERT_EQ(tp->axis_sweeps.size(), 17u);
 
     planner::ExperimentPlanDirector const director;
@@ -213,7 +213,7 @@ TEST(ExperimentPlanDirector, ExperimentGoldenWalksPhasesUnderEachPerm) {
     ASSERT_EQ(ep->phases.size(), 3u);
     // experiment_golden traegt dieselben System-Achsen wie all_axes_golden: 2 opt x 2 simd.
     ASSERT_EQ(ep->compiler.opt_levels.size(), 2u);
-    ASSERT_EQ(ep->extension_hardware.simd_options.size(), 2u);
+    ASSERT_EQ(ep->external_utils.simd_options.size(), 2u);
 
     planner::ExperimentPlanDirector const director;
     CountingBuilder                       cb;
@@ -1639,7 +1639,7 @@ TEST(TierCiYamlBuilder, BatchJobsCarryCancelTrapAndHeartbeatTee) {
 TEST(TierCiYamlBuilder, EmptyLaneEmitsNoJobPair) {
     auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    tp->extension_hardware.simd_options = {"avx2"}; // nur avx2 -> measure_host_lane immer intel -> amd-Bucket leer
+    tp->external_utils.simd_options = {"avx2"}; // nur avx2 -> measure_host_lane immer intel -> amd-Bucket leer
     planner::ExperimentPlanDirector const director;
     planner::TierCiYamlBuilder            tb;
     director.construct(*tp, tb);

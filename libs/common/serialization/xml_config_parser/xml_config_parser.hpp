@@ -200,7 +200,7 @@ struct ThesisRunOptions {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // <system_axes> — CEB-System-Achsen (opt-f/A3), konform zur V35-Tabelle §2.1: Haupt-Achse → Unter-Achse → Optionen.
-// Die Parent-Ebene (compiler / extension_hardware) wird ERHALTEN (nicht flach gedroppt). binary_id-NEUTRAL
+// Die Parent-Ebene (compiler / external_utils) wird ERHALTEN (nicht flach gedroppt). binary_id-NEUTRAL
 // (system_config; opt/simd stehen NIE in kCompositionAxisNames). Rohstrings (cache_engine-frei); die Enum-/Flag-
 // Aufloesung (O0..Ofast → -O<n> / no_extension|avx2|avx512 → -march) erfolgt in der cache_engine-Schicht.
 // GETEILTE STRUKTUR (GN-3, 2026-07-19): dieselben zwei PODs tragen den <system_axes>-Block in BEIDEN Kanaelen —
@@ -216,7 +216,7 @@ struct CompilerAxisSel {                 // Haupt-System-Achse "compiler" (15) �
     // byte-identisch; binary_id-NEUTRAL (system_config). Gueltigkeit prueft validate_profile gegen kAllAtomic128Ids.
     std::vector<std::string> atomic128;
 };
-struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6., Q2 Option C)
+struct ExternalUtilsAxisSel { // Haupt-System-Achse "external_utils" (6., Q2 Option C)
     std::vector<std::string>
         simd_options; // Optionen der simd-Unter-Achse <simd><option value=no_extension|avx2|avx512> (Spiegel opt_levels)
 };
@@ -293,14 +293,14 @@ struct ThesisProfile {
 
     // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): <system_axes> ADDITIV im comdare_thesis_profile-Kanal.
     //    Dieselbe geteilte Naht (parse_system_axes) wie der comdare_experiment-Kanal befuellt diese beiden PODs:
-    //    compiler.opt_levels = die <compiler><opt_level><option>-Werte, extension_hardware.simd_options = die
-    //    <extension_hardware><simd><option>-Werte. system_config → binary_id-NEUTRAL (opt/simd stehen NIE in
+    //    compiler.opt_levels = die <compiler><opt_level><option>-Werte, external_utils.simd_options = die
+    //    <external_utils><simd><option>-Werte. system_config -> binary_id-NEUTRAL (opt/simd stehen NIE in
     //    kCompositionAxisNames; sie multiplizieren NUR die BAU-Matrix/Sidecar, NIE N). Fehlt <system_axes>, bleiben
     //    beide Listen leer = heutiges Verhalten byte-identisch (golden-Roundtrip unberuehrt). Die Wert-Gueltigkeit
     //    (opt O0..O3 zulaessig, Ofast REJECT gemaess §32-F4; simd gegen kAllSimdIds) prueft validate_profile in der
     //    cache_engine-Schicht — hier keine Enum-Referenz (Baseline-Layering). ──
     CompilerAxisSel          compiler;
-    ExtensionHardwareAxisSel extension_hardware;
+    ExternalUtilsAxisSel external_utils;
     // S2/A2 P-SYSREG (2026-07-20): target_isa als EIGENE Haupt-System-Achse (INC-2d) im comdare_thesis_profile-Kanal,
     // ueber dieselbe geteilte parse_system_axes-Naht befuellt. Die atomic128-Unter-Achse reist innerhalb von compiler
     // (CompilerAxisSel::atomic128) mit. ADDITIV — leer = kein <target_isa> = heutiges Verhalten byte-identisch;
@@ -413,7 +413,7 @@ struct ExperimentOutput {
     std::string storage_endpoint; // <output><storage endpoint=..> (nur minio; leer sonst)
 };
 
-// CompilerAxisSel / ExtensionHardwareAxisSel — GN-3 (2026-07-19): jetzt VOR ThesisProfile definiert (geteilte
+// CompilerAxisSel / ExternalUtilsAxisSel -- GN-3 (2026-07-19): jetzt VOR ThesisProfile definiert (geteilte
 // <system_axes>-PODs beider Kanaele; die frueher hier stehenden Definitionen sind dorthin relokiert). Doku dort.
 
 struct ExperimentProfile {
@@ -445,8 +445,8 @@ struct ExperimentProfile {
     std::vector<std::string> writeback_methods; // <writeback_methods><method value=csv|latex_table|comparison_metrics>*
     std::vector<std::string> op_types;          // <op_types> (Whitespace-Tokens OP-1..OP-6)
     CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
-    ExtensionHardwareAxisSel
-                     extension_hardware; // <system_axes><extension_hardware><simd> (Haupt-Achse → simd-Unter-Achse)
+    ExternalUtilsAxisSel
+                     external_utils; // <system_axes><external_utils><simd> (Haupt-Achse -> simd-Unter-Achse)
     TargetIsaAxisSel target_isa;         // <system_axes><target_isa> (eigene Haupt-Achse -> Optionen x86_64|aarch64)
     ExperimentOutput output;             // <output>
 };

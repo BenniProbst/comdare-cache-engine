@@ -50,9 +50,9 @@
       </option>
     </sub_axis>
   </axis>
-  <axis id="extension_hardware" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="1">
-    <baustein name="simd" wrapper="SimdExtensionHardwareFamily" type="::comdare::cache_engine::measurement::SimdExtensionHardwareFamily" enabled="true" family_id="simd"/>
-    <sub_axis id="simd" parent="extension_hardware" stage="runtime" value_type="token" option_count="3">
+  <axis id="external_utils" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="1">
+    <baustein name="simd" wrapper="SimdExternalUtilsFamily" type="::comdare::cache_engine::measurement::SimdExternalUtilsFamily" enabled="true" family_id="simd"/>
+    <sub_axis id="simd" parent="external_utils" stage="runtime" value_type="token" option_count="3">
       <option id="no_extension">
         <flag dialect="gpp" value=""/>
         <flag dialect="clang" value=""/>

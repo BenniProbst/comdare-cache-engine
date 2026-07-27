@@ -3,7 +3,7 @@
 //
 // ZUSCHNITT (Ledger §69.1 / R-G, Owner-KERN): dieser Header traegt AUSSCHLIESSLICH SYSTEM-Meta-Metas --
 // SIMD/AVX, externe Hardware, spaeter GPU/FPGA/NPU-Familien. `external_utils` (heute noch
-// extension_hardware) bleibt deren HUB. load_framework wird hier AUSDRUECKLICH NICHT instanziiert: es
+// external_utils) bleibt deren HUB. load_framework wird hier AUSDRUECKLICH NICHT instanziiert: es
 // ist per R-G eine Meta-Meta-HAUPT-Achse der MESS-Achsen (Planer-Stufe -- der Planer generiert die Loads
 // und delegiert sie ans CEB-Interface) und verlaesst die System-Welt ersatzlos (Bauplan IV.2.1).
 // Die aeltere Lesart "load_framework = ERSTE Meta-Meta unter dem external_utils-Hub" ist im
@@ -72,7 +72,7 @@ namespace comdare::cache_engine::measurement {
 /// Marker-Basis (Marker Interface, leer). Sie ist der OPT-IN: eine Achse wird nicht dadurch zur
 /// Meta-Meta, dass sie zufaellig die richtigen Member hat, sondern dadurch, dass sie es ERKLAERT.
 /// Leer und nicht-polymorph, damit alle is_empty_v-Wachen (ceb_system_axis.hpp:34, topics/axis.hpp:40,
-/// extension_hardware_family_axis.hpp) unveraendert gruen bleiben.
+/// external_utils_family_axis.hpp) unveraendert gruen bleiben.
 struct SystemMetaMetaAxisTag {
 protected:
     constexpr SystemMetaMetaAxisTag() noexcept = default;

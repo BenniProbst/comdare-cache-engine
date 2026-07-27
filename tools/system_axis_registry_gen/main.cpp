@@ -19,7 +19,7 @@
 // (kein '(' / ' ' / leer). Konsument+Contract-Test IM SELBEN Increment = der registry_roundtrip-ctest.
 //
 // AUSSCHLUSS (dokumentiert): extension_hardware_system_axis.hpp = DEPRECATED-Insel (abgeloest durch
-// extension_hardware_family_axis + simd_sub_axis; nicht reaktiviert) und hardware_isa_system_axis.hpp =
+// external_utils_family_axis + simd_sub_axis; nicht reaktiviert) und hardware_isa_system_axis.hpp =
 // HOST-Deskriptor/Mess-Gate (treibt NICHT den Bau) -> beide sind NICHT Teil des Bau-treibenden Angebots.
 //
 // binary_id-DOKTRIN: System-Achsen stehen NIE in kCompositionAxisNames -> binary_id="never" je Achse
@@ -34,7 +34,7 @@
 #include <cache_engine/abi/system_axis_order.hpp> // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/compiler_system_axis.hpp>
-#include <cache_engine/measurement/extension_hardware_family_axis.hpp>
+#include <cache_engine/measurement/external_utils_family_axis.hpp>
 #include <cache_engine/measurement/load_framework_system_axis.hpp>
 #include <cache_engine/measurement/machine_simd_signature.hpp> // Section 40.a: deklarierte Maschinen-Signaturen
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
@@ -97,12 +97,12 @@ namespace {
 /// Diese Liste ist die einzige Stelle, an der die Emissions-Folge deklarativ steht; NETZ 2 belegt zur
 /// Laufzeit, dass die Aufrufe ihr wirklich folgen.
 using SystemAxisEmissionTypes =
-    std::tuple<meas::GccCompilerAxis, meas::SimdExtensionHardwareFamily, meas::X86_64TargetIsa,
+    std::tuple<meas::GccCompilerAxis, meas::SimdExternalUtilsFamily, meas::X86_64TargetIsa,
                meas::DefaultSchedulingSystemAxis, meas::YcsbLoadFrameworkAxis>;
 
 inline constexpr std::array<std::string_view, std::tuple_size_v<SystemAxisEmissionTypes>> kEmissionOrderFromTypes{{
     meas::GccCompilerAxis::axis_label(),
-    meas::SimdExtensionHardwareFamily::axis_label(),
+    meas::SimdExternalUtilsFamily::axis_label(),
     meas::X86_64TargetIsa::axis_label(),
     meas::DefaultSchedulingSystemAxis::axis_label(),
     meas::YcsbLoadFrameworkAxis::axis_label(),
@@ -253,16 +253,16 @@ void emit_system_axis_compiler(std::ofstream& f) {
     f << "  </axis>\n";
 }
 
-/// P5/A9a: Emissions-Koerper der Haupt-Achse "extension_hardware" (1:1 aus main() herausgezogen, Inhalt
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "external_utils" (1:1 aus main() herausgezogen, Inhalt
 /// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
 /// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
-void emit_system_axis_extension_hardware(std::ofstream& f) {
-    // ── 2) extension_hardware (ExtensionHardwareFamilyAxis): Familie simd + Unter-Achse simd (march je Dialekt) ──
-    emit_axis_open(f, meas::SimdExtensionHardwareFamily::axis_label(), "ct", 1);
+void emit_system_axis_external_utils(std::ofstream& f) {
+    // -- 2) external_utils (ExternalUtilsFamilyAxis): Familie simd + Unter-Achse simd (march je Dialekt) --
+    emit_axis_open(f, meas::SimdExternalUtilsFamily::axis_label(), "ct", 1);
     {
         std::string const extra =
-            std::string{" family_id=\""} + std::string{meas::SimdExtensionHardwareFamily::family_id()} + "\"";
-        emit_baustein<meas::SimdExtensionHardwareFamily>(f, meas::SimdExtensionHardwareFamily::family_id(), extra);
+            std::string{" family_id=\""} + std::string{meas::SimdExternalUtilsFamily::family_id()} + "\"";
+        emit_baustein<meas::SimdExternalUtilsFamily>(f, meas::SimdExternalUtilsFamily::family_id(), extra);
     }
     f << "    <sub_axis id=\"" << xml_escape(meas::SimdNoExtOption::axis_label()) << "\" parent=\""
       << xml_escape(meas::SimdNoExtOption::parent_axis_label())
@@ -379,7 +379,7 @@ struct SystemAxisEmitter {
 
 inline constexpr std::array<SystemAxisEmitter, cabi::kSystemAxisOrderCount> kSystemAxisEmitters{{
     {meas::GccCompilerAxis::axis_label(), &emit_system_axis_compiler},
-    {meas::SimdExtensionHardwareFamily::axis_label(), &emit_system_axis_extension_hardware},
+    {meas::SimdExternalUtilsFamily::axis_label(), &emit_system_axis_external_utils},
     {meas::X86_64TargetIsa::axis_label(), &emit_system_axis_target_isa},
     {meas::DefaultSchedulingSystemAxis::axis_label(), &emit_system_axis_scheduling},
     {meas::YcsbLoadFrameworkAxis::axis_label(), &emit_system_axis_load_framework},

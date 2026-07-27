@@ -15,7 +15,7 @@
 //         - thesis_lazy::profile_sweep_passes(tp, "")            (profile_runner.hpp:283, #26/GO-5)
 //         - thesis_lazy::project_experiment_to_sota_passes(ep)   (sota_catalog.hpp:470, Bruecke I3)
 //         - die opt/simd-Listen aus dem GEPARSTEN Profil (Welle-2-Naht: compiler.opt_levels /
-//           extension_hardware.simd_options) + system_axis_opt_flag_of / system_axis_march_of
+//           external_utils.simd_options) + system_axis_opt_flag_of / system_axis_march_of
 //           (profile_run_entry.hpp:125/134, geteilte GN-3-Naht).
 //       KEINE Aenderung der Callees, KEIN dritter Enumerations-Walk (der v32-Antrieb im super-Repo bleibt
 //       unberuehrt — Bauplan Phase-0-Kritik-Blocker). Der Perm-Walk ist EINMAL implementiert (walk_perms_),
@@ -1652,7 +1652,7 @@ public:
                    std::vector<std::string> const& methodik_run_methodology = {},
                    std::string const&              profile_basename         = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
-        std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
+        std::vector<std::string> const simd_perms = simd_perms_of(tp.external_utils.simd_options);
         std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
         // Mess-Tooling-HAUPT {wallclock/macro/micro} faechert die [a,b,c]-Kombination auf. S6-P1 (SCHARF): die
         // Fan-out-Verdrahtung ist aktiv -- measurement_combos_of(cats, tp.measurement_tooling) faechert je
@@ -1701,7 +1701,7 @@ public:
                    std::vector<std::string> const& methodik_run_methodology = {},
                    std::string const&              profile_basename         = {}) const {
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
-        std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
+        std::vector<std::string> const simd_perms = simd_perms_of(ep.external_utils.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
         // Mess-Tooling-HAUPT {wallclock/macro/micro} faechert die [a,b,c]-Kombination auf. S6-P1 (SCHARF): die
         // Fan-out-Verdrahtung ist aktiv -- measurement_combos_of(cats, ep.measurement_tooling) faechert je

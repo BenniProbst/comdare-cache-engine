@@ -174,9 +174,9 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     ASSERT_EQ(ep->compiler.opt_levels.size(), 2u);
     EXPECT_EQ(ep->compiler.opt_levels[0], "O2");
     EXPECT_EQ(ep->compiler.opt_levels[1], "O3");
-    ASSERT_EQ(ep->extension_hardware.simd_options.size(), 2u);
-    EXPECT_EQ(ep->extension_hardware.simd_options[0], "no_extension");
-    EXPECT_EQ(ep->extension_hardware.simd_options[1], "avx2");
+    ASSERT_EQ(ep->external_utils.simd_options.size(), 2u);
+    EXPECT_EQ(ep->external_utils.simd_options[0], "no_extension");
+    EXPECT_EQ(ep->external_utils.simd_options[1], "avx2");
 
     // output.comparison_metrics == true (+ Pfade nicht leer).
     EXPECT_FALSE(ep->output.binary_path.empty());
@@ -382,7 +382,7 @@ TEST(ExperimentParser, BogusOptLevelIsError) {
 TEST(ExperimentParser, BogusSimdExtensionIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->extension_hardware.simd_options.push_back("avx1024"); // ausserhalb der Enumeration
+    ep->external_utils.simd_options.push_back("avx1024"); // ausserhalb der Enumeration
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_FALSE(vr.ok);
@@ -396,7 +396,7 @@ TEST(ExperimentParser, EmptySystemAxesIsOk) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
     ep->compiler.opt_levels.clear();
-    ep->extension_hardware.simd_options.clear();
+    ep->external_utils.simd_options.clear();
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << "leere <system_axes> duerfen kein Fehler sein (additiv, CEB-Default)";
@@ -414,9 +414,9 @@ TEST(ExperimentParser, ParsesAtomic128AndTargetIsaFromSystemAxes) {
         "      <opt_level><option value=\"O2\"/><option value=\"O3\"/></opt_level>\n"
         "      <atomic128><option value=\"no_cx16\"/><option value=\"cx16\"/></atomic128>\n"
         "    </compiler>\n"
-        "    <extension_hardware>\n"
+        "    <external_utils>\n"
         "      <simd><option value=\"no_extension\"/><option value=\"avx2\"/></simd>\n"
-        "    </extension_hardware>\n"
+        "    </external_utils>\n"
         "    <target_isa><option value=\"x86_64\"/><option value=\"aarch64\"/></target_isa>\n"
         "  </system_axes>\n");
     ASSERT_TRUE(ep.has_value());
@@ -427,8 +427,8 @@ TEST(ExperimentParser, ParsesAtomic128AndTargetIsaFromSystemAxes) {
     ASSERT_EQ(ep->compiler.atomic128.size(), 2u);
     EXPECT_EQ(ep->compiler.atomic128[0], "no_cx16");
     EXPECT_EQ(ep->compiler.atomic128[1], "cx16");
-    ASSERT_EQ(ep->extension_hardware.simd_options.size(), 2u);
-    EXPECT_EQ(ep->extension_hardware.simd_options[0], "no_extension");
+    ASSERT_EQ(ep->external_utils.simd_options.size(), 2u);
+    EXPECT_EQ(ep->external_utils.simd_options[0], "no_extension");
     // target_isa = eigene Haupt-Achse: die Optionen stehen DIREKT unter <target_isa> (kein Zwischen-Container).
     ASSERT_EQ(ep->target_isa.isa.size(), 2u);
     EXPECT_EQ(ep->target_isa.isa[0], "x86_64");

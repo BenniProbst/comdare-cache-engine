@@ -9,7 +9,7 @@
 // NICHTS gepinnt, JEDES TEIL beweglich. CEB-Default = O3 (IEEE-754-deterministisch, Option B, Ruling
 // 2026-07-18), per env/XML/Planer ueberschreibbar; Ofast/O0/O1/O2 additiv als Vergleichs-Extreme.
 //
-// Fluss wie extension_hardware (das strikte Vorbild): CompileFn-Flag (-O<n>) + H-10-Sidecar-
+// Fluss wie external_utils (das strikte Vorbild): CompileFn-Flag (-O<n>) + H-10-Sidecar-
 // Provenienz (build_version "+opt="); binary_id-NEUTRAL (steht nie in kCompositionAxisNames,
 // golden==320 unberuehrt). Metaprogrammierung: CRTP + Concept, static-dispatch, keine vtable.
 //

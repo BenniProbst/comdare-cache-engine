@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
     // BEWUSSTE Pin-Fortschreibung 9 -> 6 (A1-Fehlplatzierungs-Fix, S3-Resolver-Aktivierung 2026-07-20): isa +
     // simd_extension waren SYSTEM-Achsen faelschlich in der permute_axes-Organ-Position (der aktive S3-Resolver
     // klassifizierte sie als V-UNREG-AXIS) -> kanonisch in den <system_axes>-Block relokiert (isa->target_isa,
-    // simd_extension->extension_hardware/simd). page_type (Baum-Knoten-PageKind = axis_01_page_type Build-Variante,
+    // simd_extension->external_utils/simd). page_type (Baum-Knoten-PageKind = axis_01_page_type Build-Variante,
     // §52-B10) verliess die Organ-Position ganz (ZUKUNFT, kein Parser-Kanal). Rest = 6 echte Organ-Achsen
     // (memory_layout cache_traversal node_type prefetch allocator + der cacheline-Sonderzweig).
     check_eq("permute_axes", tp->permute_axes.size(), std::size_t{6});
@@ -124,13 +124,13 @@ int main(int argc, char** argv) {
         if (a.ref == "simd_extension") simd_in_permute = true;
     }
     check_true("isa NICHT mehr in permute_axes (jetzt target_isa-System-Achse, A1)", !isa_in_permute);
-    check_true("simd_extension NICHT mehr in permute_axes (jetzt extension_hardware-System-Achse, A1)",
+    check_true("simd_extension NICHT mehr in permute_axes (jetzt external_utils-System-Achse, A1)",
                !simd_in_permute);
     // isa->target_isa {x86_64}: der Alt-isa-Wert isa_amd64 kanonisiert auf den x86_64-Baustein.
     check_eq("system_axes.target_isa (Alt-Ref isa)", tp->target_isa.isa.size(), std::size_t{1});
-    // simd_extension->extension_hardware/simd {no_extension,avx2,avx512}: der Alt-Stufen-Spread {SSE42/AVX2/AVX512}
+    // simd_extension->external_utils/simd {no_extension,avx2,avx512}: der Alt-Stufen-Spread {SSE42/AVX2/AVX512}
     // (SSE4.2 -> no_extension, kein Registry-Aequivalent).
-    check_eq("system_axes.simd (Alt-Ref simd_extension, Stufen-Spread)", tp->extension_hardware.simd_options.size(),
+    check_eq("system_axes.simd (Alt-Ref simd_extension, Stufen-Spread)", tp->external_utils.simd_options.size(),
              std::size_t{3});
 
     check_eq("workloads", tp->workloads.size(), std::size_t{6}); // A..F

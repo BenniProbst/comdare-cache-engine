@@ -93,14 +93,17 @@ static_assert(cem::Avx2ExtensionHardwareAxis::gcc_march_flag() == std::string_vi
 static_assert(cem::GenericExtensionHardwareAxis::gcc_march_flag().empty());
 static_assert(cem::GenericExtensionHardwareAxis::clang_march_flag().empty());
 
-// ── Block F.2 (F-SIMD, 2026-07-18): simd als Unter-Achse UNTER extension_hardware (symmetrisch zu opt_level/compiler) ──
-// compile-time CRTP+Concept, keine vtable; parent_axis_label()=="extension_hardware" verankert die Unter-Achsen-
+// -- Block F.2 (F-SIMD, 2026-07-18): simd als Unter-Achse UNTER external_utils (symmetrisch zu opt_level/compiler) --
+// compile-time CRTP+Concept, keine vtable; parent_axis_label()=="external_utils" verankert die Unter-Achsen-
 // Zugehoerigkeit. no_extension/avx2/avx512 sind OPTIONEN der simd-Unter-Achse, KEINE Geschwister-System-Achsen.
+// A2-RENAME (O-8 Schritt 3): der AKTIVE Parent heisst ab hier external_utils. Block F oben behaelt bewusst
+// "extension_hardware" -- das ist die DEPRECATED-Insel, die den Alt-Namen als Kontrast konserviert. Genau
+// diese Divergenz ist gewollt: sie macht aktive und verwaiste Kette am Label unterscheidbar.
 static_assert(cem::SimdSubAxisConcept<cem::SimdNoExtOption>);
 static_assert(cem::SimdSubAxisConcept<cem::SimdAvx2Option>);
 static_assert(cem::SimdSubAxisConcept<cem::SimdAvx512Option>);
 static_assert(cem::SimdAvx2Option::axis_label() == std::string_view{"simd"});
-static_assert(cem::SimdAvx2Option::parent_axis_label() == std::string_view{"extension_hardware"});
+static_assert(cem::SimdAvx2Option::parent_axis_label() == std::string_view{"external_utils"});
 static_assert(cem::SimdAvx512Option::gcc_march_flag() == std::string_view{"-mavx512f"});
 static_assert(cem::SimdAvx2Option::gcc_march_flag() == std::string_view{"-mavx2"});
 static_assert(cem::SimdNoExtOption::gcc_march_flag().empty());

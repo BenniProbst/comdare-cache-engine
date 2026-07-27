@@ -78,7 +78,7 @@ struct RunProfileArgs {
     // GN-3 (§33, 2026-07-19): per-Permutation-CompileFn-Fabrik (System-Achsen opt_level × simd), SPIEGEL der
     // RunExperimentArgs::compile_for_perm-Naht. Der Facade-Planer liefert sie (kennt include_dirs/defines/cxx/
     // link_libs/fno_gnu_unique); run_profile permutiert opt×simd aus dem GEPARSTEN Profil (tp.compiler.opt_levels /
-    // tp.extension_hardware.simd_options) SELBST und ruft die Fabrik je Perm mit den aufgeloesten Flags. Leer ⇒
+    // tp.external_utils.simd_options) SELBST und ruft die Fabrik je Perm mit den aufgeloesten Flags. Leer =>
     // Fallback auf `compile` (Einzel-Pfad, byte-identisch zum Vor-Wiring-Verhalten).
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
     std::string compiler_tag; // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
@@ -712,7 +712,7 @@ struct RunProfileResult {
 
     // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): opt×simd-System-Achsen-Permutation UM die Passes (Spiegel
     //    experiment_run_entry.hpp:257-289, KEINE Parallel-Schleife). Quelle = das GEPARSTE Profil
-    //    (tp.compiler.opt_levels / tp.extension_hardware.simd_options, geteilte parse_system_axes-Naht). KEIN
+    //    (tp.compiler.opt_levels / tp.external_utils.simd_options, geteilte parse_system_axes-Naht). KEIN
     //    <system_axes> ⇒ EINE Identitaets-Perm: run_all_passes() genau einmal, perm_compile/perm_build_version/
     //    perm_tag_build_version bleiben auf a.compile/a.build_version/tag_build_version → byte-identisch zum
     //    Vor-Wiring-Verhalten (golden-320/golden_fullpilot unberuehrt; die Facade traegt dort den
@@ -721,7 +721,7 @@ struct RunProfileResult {
     //    (opt/simd=system_config, NIE binary_id, NIE N) — es waechst NUR die MESS-Matrix (CSV × |opt×simd|).
     //    ISA-gegated (avx2 nur x86_64, wie system_axis_host_supports_simd). ──
     namespace cm = ::comdare::cache_engine::measurement;
-    if (tp.compiler.opt_levels.empty() && tp.extension_hardware.simd_options.empty()) {
+    if (tp.compiler.opt_levels.empty() && tp.external_utils.simd_options.empty()) {
         run_all_passes(); // Identitaet: perm_* bleiben unveraendert (Vor-Wiring-Verhalten)
     } else {
         std::vector<std::string> const opt_perms =
@@ -729,9 +729,9 @@ struct RunProfileResult {
                 ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
                 : tp.compiler.opt_levels;
         std::vector<std::string> const simd_perms =
-            tp.extension_hardware.simd_options.empty()
+            tp.external_utils.simd_options.empty()
                 ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
-                : tp.extension_hardware.simd_options;
+                : tp.external_utils.simd_options;
         for (auto const& opt_id : opt_perms) {
             // W5-C+ (§36.1): GN-Zellen-Filter. Ist COMDARE_GN_OPT gesetzt, baut diese Cluster-Zelle NUR ihre eine
             // opt-Auspraegung; alle anderen werden hier uebersprungen (Muster der ISA-Gate-Skips unten).

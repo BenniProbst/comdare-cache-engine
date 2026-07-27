@@ -17,7 +17,7 @@
      A1-FEHLPLATZIERUNGS-FIX (2026-07-20, S3-Resolver-Aktivierung): die 2026-07-12-"Uebersetzung" liess isa/
      simd_extension/page_type FAELSCHLICH in der permute_axes-Organ-Position stehen - das sind aber System-/
      Build-Achsen, KEINE der 17 Organ-Kompositions-Achsen. Der jetzt aktive S3-Resolver klassifizierte sie
-     (V-UNREG-AXIS). Kanonisiert: isa->target_isa + simd_extension->extension_hardware/simd in den <system_axes>-
+     (V-UNREG-AXIS). Kanonisiert: isa->target_isa + simd_extension->external_utils/simd in den <system_axes>-
      Block (unten); page_type (Baum-Knoten-PageKind = axis_01_page_type Build-Variante) raus als ZUKUNFT
      (§52-B10; s. FP-Kommentare). Damit 0 Rejects im -dump-plan. -->
 <comdare_thesis_profile id="cacheline_study" schema_version="1">
@@ -42,7 +42,7 @@
   <permute_axes>
     <axis ref="memory_layout"/>
     <!-- FP-1/FP-2 (A1 Fehlplatzierungs-Fix, 2026-07-20): isa + simd_extension VERLIESSEN die Organ-Position.
-         Sie sind SYSTEM-Achsen (target_isa bzw. extension_hardware/simd), NICHT organ-kompositional (nicht unter
+         Sie sind SYSTEM-Achsen (target_isa bzw. external_utils/simd), NICHT organ-kompositional (nicht unter
          den 17 kCompositionAxisNames) und wurden in Organ-Position vom Resolver klassifiziert verworfen. Kanonisch
          im <system_axes>-Block unten (geteilte parse_system_axes-Naht, S2/A2). Der Alt-SIMD-Stufen-Spread
          {SSE42/AVX2/AVX512} lebt jetzt dort (SSE4.2 hat kein Registry-Aequivalent -> niedrigste reale = no_extension). -->
@@ -135,7 +135,7 @@
 
   <!-- (sys) SYSTEM-ACHSEN (A1 Fehlplatzierungs-Fix, 2026-07-20; geteilte parse_system_axes-Naht, S2/A2 P-SYSREG):
        die frueher fehlplatzierten Organ-Position-Refs isa + simd_extension sind hierher kanonisiert.
-       extension_hardware/simd = die SIMD-System-Achse (Alt-Ref simd_extension); der Alt-Stufen-Spread
+       external_utils/simd = die SIMD-System-Achse (Alt-Ref simd_extension); der Alt-Stufen-Spread
        {SSE42/AVX2/AVX512} bildet auf die realen SimdSubAxis-Stufen ab (simd_ext_sse2 -> no_extension = niedrigste
        reale x86-Stufe, die Registry fuehrt kein SSE4.2; dazu avx2 + avx512). target_isa = die ISA-System-Achse
        (Alt-Ref isa, Wert isa_amd64 -> x86_64-Baustein). system_config -> binary_id-NEUTRAL (multipliziert NUR die
@@ -143,13 +143,13 @@
        Build-Variante) hat heute KEINEN Parser-Kanal und bleibt ZUKUNFT (s. FP-3 oben) - hier bewusst NICHT
        aufgefuehrt. -->
   <system_axes>
-    <extension_hardware>
+    <external_utils>
       <simd>
         <option value="no_extension"/>
         <option value="avx2"/>
         <option value="avx512"/>
       </simd>
-    </extension_hardware>
+    </external_utils>
     <target_isa>
       <option value="x86_64"/>
     </target_isa>

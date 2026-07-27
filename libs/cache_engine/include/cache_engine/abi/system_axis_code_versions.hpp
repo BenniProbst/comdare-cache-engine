@@ -19,7 +19,7 @@ namespace comdare::cache_engine::abi {
 
 /// Eine System-Haupt-Achse und ihre bump-bare Code-Version (die statische Code-Identitaet der Achse).
 struct SystemAxisCodeVersion {
-    std::string_view axis; ///< System-Haupt-Achsen-Name ("compiler"/"extension_hardware"/...)
+    std::string_view axis; ///< System-Haupt-Achsen-Name ("compiler"/"external_utils"/...)
     std::string_view
         version; ///< rohe Code-Version ("v1.0.0"); wird von build_axis_version_stamp_line zu X.Y.Z gerendert
 };
@@ -31,7 +31,7 @@ inline constexpr std::size_t kSystemAxisCodeCount = 5;
 /// W12-A-1). Init "v1.0.0" x5 (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
 inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystemAxisCodeVersions{{
     {"compiler", "v1.0.0"},
-    {"extension_hardware", "v1.0.0"},
+    {"external_utils", "v1.0.0"},
     {"target_isa", "v1.0.0"},
     {"scheduling", "v1.0.0"},
     {"load_framework", "v1.0.0"},

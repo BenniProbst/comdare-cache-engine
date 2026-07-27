@@ -12,8 +12,8 @@
 #include "planner/experiment_plan_director.hpp" // W5-B: ExperimentPlanDirector/PlanTextBuilder (katalog-schwer -> NUR hier)
 
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
-#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=extension_hardware
-#include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
+#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
+#include <cache_engine/measurement/external_utils_family_axis.hpp> // GN-1: aktiver external_utils-Familien-Knoten
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
@@ -162,27 +162,27 @@ struct MethodikOverride {
 #endif
 }
 
-// simd-Unter-Achse der extension_hardware-Haupt-Achse (F-SIMD, Q2-Option-C): die -march-Flag-QUELLE ist die
+// simd-Unter-Achse der external_utils-Haupt-Achse (F-SIMD, Q2-Option-C): die -march-Flag-QUELLE ist die
 // SimdSubAxis-Option (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = no_extension
 // (SimdNoExtOption, keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
 // kommt mit dem Planer-Strang. Single-XML (9dim-G3, Sec.50): die Einzelpfad-Wahl kommt aus dem Profil
-// (<system_axes><extension_hardware><simd>, GENAU EINER), nicht mehr aus COMDARE_PILOT_SIMD_POLICY-Env.
-// GN-1-Anker (opt-g-Facade): die hier gezogenen simd-Optionen haengen unter dem AKTIVEN extension_hardware-
-// Familien-Knoten (extension_hardware_family_axis.hpp, analog CompilerSystemAxis) -- Label-Drift bricht compile-time.
+// (<system_axes><external_utils><simd>, GENAU EINER), nicht mehr aus COMDARE_PILOT_SIMD_POLICY-Env.
+// GN-1-Anker (opt-g-Facade): die hier gezogenen simd-Optionen haengen unter dem AKTIVEN external_utils-
+// Familien-Knoten (external_utils_family_axis.hpp, analog CompilerSystemAxis) -- Label-Drift bricht compile-time.
 static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis_label() ==
-                  ::comdare::cache_engine::measurement::SimdExtensionHardwareFamily::axis_label(),
-              "GN-1: die opt-g-Facade zieht simd-Flags nur ueber den aktiven extension_hardware-Knoten.");
+                  ::comdare::cache_engine::measurement::SimdExternalUtilsFamily::axis_label(),
+              "GN-1: die opt-g-Facade zieht simd-Flags nur ueber den aktiven external_utils-Knoten.");
 [[nodiscard]] std::string_view active_simd_policy(cx::ThesisProfile const* tp = nullptr) {
     namespace cm = ::comdare::cache_engine::measurement;
     // Single-XML (9dim-G3): der EINE deklarierte <simd>-Wert des Profils ist die Quelle (GENAU EINER = Einzelpfad).
     // 0 deklariert -> benannter Achsen-Default no_extension (byte-identisch, keine Flags); >1 traegt der
     // Permutations-Pfad (run_profile), nicht diese Facade-Naht.
-    if (tp != nullptr && tp->extension_hardware.simd_options.size() == 1)
-        return tp->extension_hardware.simd_options.front();
+    if (tp != nullptr && tp->external_utils.simd_options.size() == 1)
+        return tp->external_utils.simd_options.front();
     return cm::SimdNoExtOption::simd_id();
 }
 
-[[nodiscard]] std::vector<std::string> perm_extension_hardware_cflags(cx::ThesisProfile const* tp = nullptr) {
+[[nodiscard]] std::vector<std::string> perm_external_utils_cflags(cx::ThesisProfile const* tp = nullptr) {
     namespace cm                  = ::comdare::cache_engine::measurement;
     std::string_view const policy = active_simd_policy(tp);
     std::string_view       flag;
@@ -287,18 +287,18 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     d.emplace_back("-DCOMDARE_CACHE_LINE_SIZE=" + std::to_string(static_cast<long long>(COMDARE_CACHE_LINE_SIZE)));
 #endif
     // INC-0-Entmischung: perm_mess_defines() traegt NUR noch Mess-/OS-/Arch-/Cache-Line-Defines. Die Achsen-Flags
-    // (Allokator-Organ, Compiler-atomic128, extension_hardware-SIMD) montiert perm_compile_flags() getrennt.
+    // (Allokator-Organ, Compiler-atomic128, external_utils-SIMD) montiert perm_compile_flags() getrennt.
     return d;
 }
 
 // INC-0: der EINE Compile-Flag-Assembler fuer die Tier-Binary-Subprozesse -- macht die WAS/WIE-Schicht-Trennung
 // SICHTBAR statt eines flachen Misch-Vektors: (1) Mess-/OS-/Arch-Defines (perm_mess_defines), (2) Allokator-ORGAN-
-// Defs (snmalloc-Vertrag), (3) Compiler-SYSTEM-Flag -mcx16 (atomic128-Achse), (4) extension_hardware-SIMD -march.
+// Defs (snmalloc-Vertrag), (3) Compiler-SYSTEM-Flag -mcx16 (atomic128-Achse), (4) external_utils-SIMD -march.
 [[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp = nullptr) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
-    for (auto& f : perm_extension_hardware_cflags(tp)) d.push_back(std::move(f));
+    for (auto& f : perm_external_utils_cflags(tp)) d.push_back(std::move(f));
     for (auto& f : perm_target_isa_cflags(tp)) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
     return d;
 }
@@ -449,7 +449,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     // Dann darf die BASIS-build_version den system_axes_version_suffix() NICHT tragen (sonst doppelte Provenienz) —
     // exakt wie run_experiment_profile_facade. OHNE <system_axes> bleibt der Einzel-Pfad byte-identisch.
     bool const profile_has_system_axes =
-        tp_opt && (!tp_opt->compiler.opt_levels.empty() || !tp_opt->extension_hardware.simd_options.empty());
+        tp_opt && (!tp_opt->compiler.opt_levels.empty() || !tp_opt->external_utils.simd_options.empty());
     auto const is_selected = [&workload_select](std::string const& id) {
         return workload_select.empty() ||
                std::find(workload_select.begin(), workload_select.end(), id) != workload_select.end();

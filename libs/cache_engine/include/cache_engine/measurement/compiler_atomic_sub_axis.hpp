@@ -1,16 +1,16 @@
 // measurement/compiler_atomic_sub_axis.hpp -- atomic128 als dynamische Unter-Achse der Compiler-System-Haupt-Achse
 // (INC-0, User-Ruling 2026-07-18: "die anderen Flags gehoeren auf die Compiler Achse der System-Achsen").
 //
-// SPIEGELBILDLICH zu opt_level unter compiler (optimization_level_sub_axis.hpp) und simd unter extension_hardware
+// SPIEGELBILDLICH zu opt_level unter compiler (optimization_level_sub_axis.hpp) und simd unter external_utils
 // (simd_sub_axis.hpp):
 //   compiler (Haupt-System-Achse)
 //     -> atomic128 (Unter-Achse, parent_axis_label()=="compiler")
 //        -> Optionen {no_cx16, cx16}  (NoCx16Option / Cx16Option)
 //
-// WARUM COMPILER-ACHSE, NICHT extension_hardware (INC-0-Fork, aufgeloest): -mcx16 schaltet dem Compiler das
+// WARUM COMPILER-ACHSE, NICHT external_utils (INC-0-Fork, aufgeloest): -mcx16 schaltet dem Compiler das
 // Emittieren von CMPXCHG16B/DCAS (128-bit lock-free CAS) frei. Syntaktisch ein -m<feature>-Flag wie -mavx2, ABER
 // semantisch ANDERS: CMPXCHG16B ist BASELINE-x86-64 (auf jeder x86-64-CPU seit ~2004, KEIN __builtin_cpu_supports-
-// Present-Check noetig), waehrend die extension_hardware-Achse (Q2-Ruling) OPTIONALE, ISA-praesenz-gepruefte
+// Present-Check noetig), waehrend die external_utils-Achse (Q2-Ruling) OPTIONALE, ISA-praesenz-gepruefte
 // Erweiterungen (AVX2/AVX512, spaeter GPU) traegt. -mcx16 ist also ein reines Compiler-Codegen-Flag -> Compiler-
 // System-Achse (User-INC-0-Ruling verbatim). Freigabe-Prinzip: die Compiler-System-Achse GIBT -mcx16 frei, das
 // snmalloc-Organ (Umbrella) SETZT es durch (ds/aba.h #error You must compile with -mcx16).

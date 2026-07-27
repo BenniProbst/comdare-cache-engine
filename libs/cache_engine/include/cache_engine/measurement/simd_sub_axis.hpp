@@ -2,16 +2,16 @@
 // (F-SIMD, User-Ruling 2026-07-18: "F-SIMD strikt nach Plan-Empfehlung SYMMETRISCH").
 //
 // SPIEGELBILDLICH zu opt_level unter compiler (optimization_level_sub_axis.hpp, das strikte Vorbild):
-//   extension_hardware (Haupt-System-Achse, 6., Q2 Option C; AKTIVER Familien-Knoten seit GN-1:
-//                       extension_hardware_family_axis.hpp -- dort loest parent_axis_label() auf)
-//     -> simd (Unter-Achse, parent_axis_label()=="extension_hardware")
+//   external_utils (Haupt-System-Achse, 6., Q2 Option C; AKTIVER Familien-Knoten seit GN-1:
+//                       external_utils_family_axis.hpp -- dort loest parent_axis_label() auf)
+//     -> simd (Unter-Achse, parent_axis_label()=="external_utils")
 //        -> Optionen {no_extension, avx2, avx512}  (SimdNoExtOption / SimdAvx2Option / SimdAvx512Option)
 //
-// Vorher hingen no_extension/avx2/avx512 DIREKT an der extension_hardware-Haupt-Achse (asymmetrisch zu
+// Vorher hingen no_extension/avx2/avx512 DIREKT an der external_utils-Haupt-Achse (asymmetrisch zu
 // compiler->opt_level->option; Konformitaets-Sweep-Befund F-SIMD). Diese Datei fuehrt die simd-UNTER-Achse ein,
-// deren Auspraegungen die simd-Optionen sind -- genau die Ebenen-Symmetrie compiler/opt_level ↔ extension_hardware/simd.
+// deren Auspraegungen die simd-Optionen sind -- genau die Ebenen-Symmetrie compiler/opt_level <-> external_utils/simd.
 //
-// Fluss (wie opt_level / das Vorbild extension_hardware): CompileFn-Flag (-march) + H-10-Sidecar-Provenienz
+// Fluss (wie opt_level / das Vorbild external_utils): CompileFn-Flag (-march) + H-10-Sidecar-Provenienz
 // (build_version "+ext="); binary_id-NEUTRAL (system_config, steht nie in kCompositionAxisNames, golden==320
 // unberuehrt). Die -march/-mavx-Werte sind deckungsgleich zur codegen-Praezedenz (permutation_codegen_tool
 // simd_flags). ISA-gegated (nur wenn die Ziel-ISA sie bietet). Metaprog: CRTP + Concept, static-dispatch, keine vtable.
@@ -34,8 +34,8 @@ struct SimdSubAxis : CebSystemAxis<Derived> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "simd"; }
 
     /// Deklarative Zugehoerigkeit: simd haengt UNTER der Erweiterungs-Hardware-Haupt-Achse.
-    /// Single-Source fuer die Serialisierungs-/Permutations-Konvention "extension_hardware.simd=...".
-    [[nodiscard]] static constexpr std::string_view parent_axis_label() noexcept { return "extension_hardware"; }
+    /// Single-Source fuer die Serialisierungs-/Permutations-Konvention "external_utils.simd=...".
+    [[nodiscard]] static constexpr std::string_view parent_axis_label() noexcept { return "external_utils"; }
 
     /// Deklarative Auspraegungs-Kennung (Ordner-/Sidecar-Etikett; deckungsgleich zur 09b-simd_extension-Nomenklatur).
     [[nodiscard]] static constexpr std::string_view simd_id() noexcept { return Derived::do_simd_id(); }
@@ -93,7 +93,7 @@ using DefaultSimdOption = SimdNoExtOption;
 
 /// Single-Source der gueltigen simd-ids (Reihenfolge = Design-Space-Vokabular). Speist die Profil-Validierung
 /// (validate_profile kValidSimd) + jede kuenftige Enum-Wohlgeformtheits-Pruefung, damit die Werte nicht dupliziert
-/// werden (Konformitaets-NACH F-SIMD 2026-07-18). Deckungsgleich zur XSD-Enumeration extension_hardware/simd/option.
+/// werden (Konformitaets-NACH F-SIMD 2026-07-18). Deckungsgleich zur XSD-Enumeration external_utils/simd/option.
 inline constexpr std::array<std::string_view, 3> kAllSimdIds = {SimdNoExtOption::simd_id(), SimdAvx2Option::simd_id(),
                                                                 SimdAvx512Option::simd_id()};
 
@@ -101,7 +101,7 @@ static_assert(SimdSubAxisConcept<SimdNoExtOption>);
 static_assert(SimdSubAxisConcept<SimdAvx2Option>);
 static_assert(SimdSubAxisConcept<SimdAvx512Option>);
 static_assert(SimdNoExtOption::do_axis_label() == std::string_view{"simd"});
-static_assert(SimdAvx2Option::parent_axis_label() == std::string_view{"extension_hardware"});
+static_assert(SimdAvx2Option::parent_axis_label() == std::string_view{"external_utils"});
 // Flag-Deckung zur codegen-Praezedenz (permutation_codegen_tool simd_flags: avx512->-mavx512f, avx2->-mavx2):
 static_assert(SimdAvx2Option::gcc_march_flag() == std::string_view{"-mavx2"});
 static_assert(SimdAvx512Option::gcc_march_flag() == std::string_view{"-mavx512f"});

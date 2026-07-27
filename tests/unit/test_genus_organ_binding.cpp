@@ -42,7 +42,7 @@ int main() {
     check(!ex::is_organ_axis_label("isa"), "isa ist KEINE Organ-Achse mehr (Target-ISA-System-Achse, INC-2d)");
     check(!ex::is_organ_axis_label("compiler"), "compiler ist KEINE Organ-Achse (system_config)");
     check(!ex::is_organ_axis_label("opt_level"), "opt_level ist KEINE Organ-Achse (System-Unter-Achse)");
-    check(!ex::is_organ_axis_label("extension_hardware"), "extension_hardware ist KEINE Organ-Achse (System)");
+    check(!ex::is_organ_axis_label("external_utils"), "external_utils ist KEINE Organ-Achse (System)");
 
     // (c) RequiredOrgans<G>() liefert genau die slot_count Organ-Achsen je Gattung.
     check(ex::RequiredOrgans<cea::AnatomyGenus::SearchAlgorithm>().size() == 18u, "SearchAlgorithm RequiredOrgans==18");

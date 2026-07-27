@@ -1,8 +1,14 @@
-// measurement/extension_hardware_family_axis.hpp -- extension_hardware als AKTIVER Familien-Knoten der
+// measurement/external_utils_family_axis.hpp -- external_utils als AKTIVER Familien-Knoten der
 // 6. CEB-Konfig-System-Haupt-Achse (GN-1/E-4, Q2-Ruling Option C; Roadmap 2026-07-19).
 //
-// LUECKE (Register E-4 / Audit G2): seit F-SIMD (2026-07-18) traegt NUR die DEPRECATED-Insel
-// extension_hardware_system_axis.hpp das Label "extension_hardware" -- SimdSubAxis::parent_axis_label()
+// A2-RENAME (O-8 Schritt 3, Ledger 69.1): der Knoten hiess bis hierher "extension_hardware"; der
+// Hub-Zuschnitt macht ihn zum KOPF aller SYSTEM-Meta-Metas, und dafuer ist "external_utils" der
+// FINALE Name (Auftrag 1.4). Die DEPRECATED-Insel extension_hardware_system_axis.hpp behaelt
+// bewusst das ALTE Label "extension_hardware" -- sie ist der Kontrast-Fall, kein Mitzieher; damit
+// sind aktive und verwaiste Kette ab jetzt auch am Label unterscheidbar.
+//
+// LUECKE (Register E-4 / Audit G2): seit F-SIMD (2026-07-18) trug NUR jene DEPRECATED-Insel das
+// damalige Label -- SimdSubAxis::parent_axis_label()
 // zeigte damit auf einen VERWAISTEN String (kein aktiver CebSystemAxis mit diesem Label). Dieser Header
 // schliesst die Luecke: der aktive Haupt-Achsen-Knoten, ANALOG CompilerSystemAxis (compiler -> gcc|clang),
 // symmetrisch fuer gcc/clang (die je-Dialekt-Flag-Reflexion liefern die drangehaengten Unter-Achsen-
@@ -10,12 +16,12 @@
 // OptimizationLevelSubAxis). Die DEPRECATED-F-SIMD-Insel wird NICHT reaktiviert -- sie bleibt reiner
 // Kontrast (test_striktheit_axis_dach_guard Block F); dieser Knoten ist der EINE aktive Traeger des Labels.
 //
-// STRUKTUR (Ebenen-Symmetrie compiler/opt_level <-> extension_hardware/simd, F-SIMD):
-//   extension_hardware (Haupt-System-Achse, DIESER Knoten)
+// STRUKTUR (Ebenen-Symmetrie compiler/opt_level <-> external_utils/simd, F-SIMD):
+//   external_utils (Haupt-System-Achse, DIESER Knoten)
 //     -> Familie {simd (heute), gpu (spaeter, Q2: SIMD->GPU)}  -- je Familie eine dynamische Unter-Achse
 //        -> simd-Optionen {no_extension, avx2, avx512}         -- SimdSubAxis (simd_sub_axis.hpp)
 //
-// Die Familien-Kennung ist zugleich das Unter-Achsen-Label (Konvention "extension_hardware.simd=...";
+// Die Familien-Kennung ist zugleich das Unter-Achsen-Label (Konvention "external_utils.simd=...";
 // Single-Source-Muster wie LoadFrameworkSystemAxis::sub_axis_label()=="workload"). binary_id-NEUTRAL
 // (system_config, steht nie in kCompositionAxisNames, golden unberuehrt); der -march-WERT kommt aus der
 // Unter-Achsen-Option, der ORT ist die CompileFn-Naht (opt-g-Facade), die PROVENIENZ das H-10-Sidecar.
@@ -30,14 +36,15 @@
 //   (1) jede Erweiterungs-Hardware-FAMILIE ist ab jetzt eine SYSTEM-META-META (SystemMetaMetaAxis-
 //       Schicht) -- also eine volle CT-Haupt-Achse mit eigener RT-Unter-Achse, nicht bloss ein
 //       Familien-Etikett;
-//   (2) den MANAGER ExtensionHardwareHub (Command-Pattern-Invoker), der die Glieder verwaltet und
+//   (2) den MANAGER ExternalUtilsHub (Command-Pattern-Invoker), der die Glieder verwaltet und
 //       freigibt, waehrend jedes Glied eine eigenstaendige Instanz bleibt.
 // BYTE-NEUTRAL: alle bestehenden Member, Labels und static_asserts bleiben unveraendert. Der Hub-Typ
 // emittiert KEIN Label; der Registry-Generator arbeitet mit hartkodierten Bloecken
 // (tools/system_axis_registry_gen/main.cpp:215-242) und sieht ihn nicht -- die Roundtrip-Wache
 // (registry_roundtrip.cmake:53-55) bleibt gruen (literal belegt: regenerierte XML byte-identisch).
-// NAME: nach dem A2-Rename heisst der Kopf external_utils. Bis dahin bleibt das Label byte-stabil
-// "extension_hardware"; C-3 nimmt den Rename NICHT vorweg (er gehoert Lane A, Paket A2, O-8-Fenster).
+// NAME: der A2-Rename IST mit O-8 Schritt 3 vollzogen -- der Kopf heisst external_utils. Der
+// C-3-Vermerk "Rename nicht vorwegnehmen" ist damit erledigt. Die Byte-Neutralitaets-Zusage von C-3
+// gilt unveraendert fuer C-3; Schritt 3 selbst ist golden-veraendernd (Registry-Regen + Stempel).
 
 #pragma once
 
@@ -52,7 +59,7 @@
 
 namespace comdare::cache_engine::measurement {
 
-/// extension_hardware -- der aktive Familien-Knoten der Erweiterungs-Hardware-Haupt-Achse. Jede Auspraegung
+/// external_utils -- der aktive Familien-Knoten der Erweiterungs-Hardware-Haupt-Achse. Jede Auspraegung
 /// ist eine HARDWARE-FAMILIE (simd heute, gpu spaeter), deren Auspraegungs-Raum die gleichnamige dynamische
 /// Unter-Achse traegt. Analog CompilerSystemAxis (Haupt-Knoten, Familien-Kennung je Auspraegung).
 ///
@@ -61,25 +68,25 @@ namespace comdare::cache_engine::measurement {
 /// CebSystemAxis ab und fuegt nur die leere Marker-Basis hinzu; axis_label(), axis_kind() und alle
 /// Concept-Zusagen bleiben identisch, und is_empty_v bleibt wahr (leere Basen sind emptiness-neutral).
 template <class Derived>
-struct ExtensionHardwareFamilyAxis : SystemMetaMetaAxis<Derived> {
-    [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "extension_hardware"; }
+struct ExternalUtilsFamilyAxis : SystemMetaMetaAxis<Derived> {
+    [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "external_utils"; }
 
     /// Familien-Kennung (Ordner-/Sidecar-Etikett): "simd" | spaeter "gpu".
     [[nodiscard]] static constexpr std::string_view family_id() noexcept { return Derived::do_family_id(); }
 
     /// Label der dynamischen Unter-Achse dieser Familie (Single-Source der Serialisierungs-/Permutations-
-    /// Konvention "extension_hardware.<sub>=..."; Muster LoadFrameworkSystemAxis::sub_axis_label()).
+    /// Konvention "external_utils.<sub>=..."; Muster LoadFrameworkSystemAxis::sub_axis_label()).
     /// Per Konvention == family_id (die Familie SPANNT ihre gleichnamige Unter-Achse).
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return Derived::do_family_id(); }
 
 protected:
-    constexpr ExtensionHardwareFamilyAxis() noexcept = default;
+    constexpr ExternalUtilsFamilyAxis() noexcept = default;
 };
 
 template <class A>
-concept ExtensionHardwareFamilyAxisConcept =
-    CebSystemAxisConcept<A> && std::derived_from<A, ExtensionHardwareFamilyAxis<A>> &&
-    std::is_empty_v<ExtensionHardwareFamilyAxis<A>> && (!std::is_polymorphic_v<ExtensionHardwareFamilyAxis<A>>) &&
+concept ExternalUtilsFamilyAxisConcept =
+    CebSystemAxisConcept<A> && std::derived_from<A, ExternalUtilsFamilyAxis<A>> &&
+    std::is_empty_v<ExternalUtilsFamilyAxis<A>> && (!std::is_polymorphic_v<ExternalUtilsFamilyAxis<A>>) &&
     requires {
         { A::family_id() } -> std::same_as<std::string_view>;
         { A::sub_axis_label() } -> std::same_as<std::string_view>;
@@ -87,31 +94,31 @@ concept ExtensionHardwareFamilyAxisConcept =
 
 /// SIMD ist die erste (und aktuell einzige) Erweiterungs-Hardware-Familie (Q2 Option C: SIMD -> GPU).
 /// Ihre Auspraegungen {no_extension, avx2, avx512} leben in der SimdSubAxis-Familie (simd_sub_axis.hpp).
-struct SimdExtensionHardwareFamily final : ExtensionHardwareFamilyAxis<SimdExtensionHardwareFamily> {
+struct SimdExternalUtilsFamily final : ExternalUtilsFamilyAxis<SimdExternalUtilsFamily> {
     [[nodiscard]] static constexpr std::string_view do_family_id() noexcept { return "simd"; }
 };
 
 /// CEB-Default-Familie -- simd (die einzige angebundene). Beweglicher Startwert, KEIN Pin.
-using DefaultExtensionHardwareFamily = SimdExtensionHardwareFamily;
+using DefaultExternalUtilsFamily = SimdExternalUtilsFamily;
 
 /// Single-Source der gueltigen Familien-Kennungen (Design-Space-Vokabular; gpu folgt mit dem GPU-Increment).
-inline constexpr std::array<std::string_view, 1> kAllExtensionHardwareFamilyIds = {
-    SimdExtensionHardwareFamily::family_id()};
+inline constexpr std::array<std::string_view, 1> kAllExternalUtilsFamilyIds = {
+    SimdExternalUtilsFamily::family_id()};
 
-static_assert(ExtensionHardwareFamilyAxisConcept<SimdExtensionHardwareFamily>);
+static_assert(ExternalUtilsFamilyAxisConcept<SimdExternalUtilsFamily>);
 // TRIPWIRE (C-3): die System-Meta-Metas melden HEUTE noch system_config. topics::AxisKind::
 // system_meta_meta existiert seit A1, ist dort aber ausdruecklich additiv und unbenutzt. Die
 // Umschaltung ist ein Stempel-/Ordnungs-Vorgang und gehoert in das EINE Byte-Fenster hinter O-8
 // (Bauplan IV.4.4) -- sie bricht genau diese Zeile, und das ist der Ort, an dem sie quittiert wird.
-static_assert(SimdExtensionHardwareFamily::axis_kind() == topics::AxisKind::system_config);
-static_assert(SimdExtensionHardwareFamily::axis_label() == std::string_view{"extension_hardware"});
-static_assert(SimdExtensionHardwareFamily::family_id() == std::string_view{"simd"});
+static_assert(SimdExternalUtilsFamily::axis_kind() == topics::AxisKind::system_config);
+static_assert(SimdExternalUtilsFamily::axis_label() == std::string_view{"external_utils"});
+static_assert(SimdExternalUtilsFamily::family_id() == std::string_view{"simd"});
 
 // ── GN-1-AUFLOESUNG ("SimdSubAxis dranhaengen"): parent_axis_label() der Unter-Achse zeigt jetzt auf DIESEN
 //    aktiven Knoten (nicht mehr auf den verwaisten String der DEPRECATED-Insel). Drift bricht hier. ──
-static_assert(SimdNoExtOption::parent_axis_label() == SimdExtensionHardwareFamily::axis_label(),
-              "GN-1: SimdSubAxis.parent_axis_label muss auf den aktiven extension_hardware-Knoten aufloesen.");
-static_assert(SimdNoExtOption::do_axis_label() == SimdExtensionHardwareFamily::sub_axis_label(),
+static_assert(SimdNoExtOption::parent_axis_label() == SimdExternalUtilsFamily::axis_label(),
+              "GN-1: SimdSubAxis.parent_axis_label muss auf den aktiven external_utils-Knoten aufloesen.");
+static_assert(SimdNoExtOption::do_axis_label() == SimdExternalUtilsFamily::sub_axis_label(),
               "GN-1: die simd-Familie spannt die gleichnamige Unter-Achse (Label-Konvention).");
 // Symmetrie gcc/clang (analog CompilerSystemAxis gcc|clang): jede drangehaengte simd-Option reflektiert BEIDE
 // Dialekt-Flags compile-time (SimdSubAxisConcept erzwingt gcc_march_flag UND clang_march_flag; hier der Anker).
@@ -137,11 +144,11 @@ static_assert(SimdAvx512Option::gcc_march_flag() == SimdAvx512Option::clang_marc
 ///
 /// IDENTITAET: der Hub hat KEINE eigene. Seine Identitaet IST exakt die Konfiguration seiner Glieder
 /// (Owner Q-A: die Komplex-Achse hat nur eine INDIREKTE Identitaet ueber die gewrappten Glieder).
-struct ExtensionHardwareHub {
+struct ExternalUtilsHub {
     /// Die Glied-Reihenfolge -- heute genau EIN Glied. load_framework ist hier AUSDRUECKLICH NICHT
     /// enthalten (Ledger §69.1 / R-G: Mess-Realm, nicht System-Hub); gpu/fpga/npu-Familien treten
     /// additiv hier ein, sobald sie als Typ existieren.
-    using meta_metas = MetaMetaMembers<SimdExtensionHardwareFamily>;
+    using meta_metas = MetaMetaMembers<SimdExternalUtilsFamily>;
 
     /// Verwaltet der Manager dieses Glied? Mengen-PRIMITIVE, ausdruecklich NICHT die Halbordnung:
     /// die Teilmengen-Relation ueber Identitaeten ist und bleibt subsumes_v (meta_meta_identity.hpp).
@@ -191,33 +198,33 @@ struct ExtensionHardwareHub {
 
 // -- Hub-Wachen (alles compile-time) --------------------------------------------------------------
 // Das Glied ist eine wohlgeformte System-Meta-Meta-Achse -- die eigentliche C-1'-Zusage am echten Typ.
-static_assert(SystemMetaMetaAxisConcept<SimdExtensionHardwareFamily>);
+static_assert(SystemMetaMetaAxisConcept<SimdExternalUtilsFamily>);
 // Es bleibt eine EIGENSTAENDIGE Instanz: es erfuellt das volle Achsen-Concept fuer sich allein.
-static_assert(CebSystemAxisConcept<SimdExtensionHardwareFamily>);
+static_assert(CebSystemAxisConcept<SimdExternalUtilsFamily>);
 // Der Manager verwaltet genau seine Glieder -- und nichts sonst.
-static_assert(ExtensionHardwareHub::meta_metas::size == 1);
-static_assert(ExtensionHardwareHub::manages<SimdExtensionHardwareFamily>);
-static_assert(!ExtensionHardwareHub::manages<SimdAvx2Option>, "eine Unter-Achsen-OPTION ist keine Meta-Meta.");
+static_assert(ExternalUtilsHub::meta_metas::size == 1);
+static_assert(ExternalUtilsHub::manages<SimdExternalUtilsFamily>);
+static_assert(!ExternalUtilsHub::manages<SimdAvx2Option>, "eine Unter-Achsen-OPTION ist keine Meta-Meta.");
 // Freigabe = verwaltet UND wohlgeformt.
-static_assert(ExtensionHardwareHub::releases<SimdExtensionHardwareFamily>);
-static_assert(!ExtensionHardwareHub::releases<SimdNoExtOption>);
+static_assert(ExternalUtilsHub::releases<SimdExternalUtilsFamily>);
+static_assert(!ExternalUtilsHub::releases<SimdNoExtOption>);
 // R-G-TRIPWIRE (Ledger §69.1): der Hub traegt AUSSCHLIESSLICH System-Meta-Metas. Wer load_framework
 // oder eine andere Mess-Realm-Achse hier einhaengt, bricht diese Zeile. Die Pruefung laeuft ueber die
 // Glied-ANZAHL, damit sie ohne einen #include der Mess-Realm-Achse auskommt (Layer-Trennung).
 static_assert(
-    std::is_same_v<ExtensionHardwareHub::identity_as<MetaMetaMembers>, MetaMetaMembers<SimdExtensionHardwareFamily>>,
+    std::is_same_v<ExternalUtilsHub::identity_as<MetaMetaMembers>, MetaMetaMembers<SimdExternalUtilsFamily>>,
     "R-G (Ledger 69.1): der external_utils-Hub traegt NUR System-Meta-Metas -- load_framework "
     "ist Mess-Realm und darf hier nie erscheinen.");
 // Das Glied spannt eine EIGENE RT-Unter-Achse (getrennte Klammerung, Owner Q-A).
-static_assert(SimdExtensionHardwareFamily::sub_axis_label() == std::string_view{"simd"});
+static_assert(SimdExternalUtilsFamily::sub_axis_label() == std::string_view{"simd"});
 // Das Glied ist heute ein BLATT (nicht selbst Hub) -- der Hub hat damit Tiefe 1. Die Zahl ist emergent:
 // baut jemand spaeter eine Meta-Meta ein, die selbst verwaltet (Q-D: GPU-Cluster am PCIe), waechst sie
 // ohne eine einzige Code-Aenderung. KEIN festes drittes Level.
-static_assert(hub_depth_v<SimdExtensionHardwareFamily> == 0);
-static_assert(hub_depth_v<ExtensionHardwareHub> == 1);
+static_assert(hub_depth_v<SimdExternalUtilsFamily> == 0);
+static_assert(hub_depth_v<ExternalUtilsHub> == 1);
 // Solange kein Glied selbst Hub ist, fallen flache und geschachtelte Form zusammen -- das ist der
 // SONDERFALL der heutigen Ein-Ebenen-Konfiguration, nicht die Regel (vgl. die Klammerungs-Beweise in
 // hardware_meta_meta_axis.hpp, wo beide Formen bewusst auseinanderfallen).
-static_assert(transitive_members_t<ExtensionHardwareHub>::size == ExtensionHardwareHub::meta_metas::size);
+static_assert(transitive_members_t<ExternalUtilsHub>::size == ExternalUtilsHub::meta_metas::size);
 
 } // namespace comdare::cache_engine::measurement

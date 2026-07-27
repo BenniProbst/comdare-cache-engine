@@ -94,7 +94,7 @@ std::vector<PermutationEntry> parse_entries_dom(comdare::common::xml::XmlNode co
 // GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE <system_axes>-Parse-Naht. Vorher lebte dieser Block
 // NUR inline im comdare_experiment-Parser (parse_experiment_profile); jetzt EINE gemeinsame Funktion, die BEIDE
 // Kanaele (comdare_thesis_profile + comdare_experiment) additiv konsumieren. Konvention Haupt→Unter→Option
-// (V35 §2.1): compiler (Haupt) → opt_level (Unter-Achse, EIN Container) → <option>; extension_hardware (Haupt) →
+// (V35 §2.1): compiler (Haupt) -> opt_level (Unter-Achse, EIN Container) -> <option>; external_utils (Haupt) ->
 // simd (Unter-Achse, EIN Container) → <option> (symmetrisch zu opt_level, F-SIMD). Rohstrings; binary_id-neutral
 // (Provenienz). `sa` = der bereits aufgeloeste <system_axes>-Knoten (der Aufrufer prueft die Existenz). Fehlt der
 // Knoten, ruft der Aufrufer diese Funktion NICHT → beide PODs bleiben leer = heutiges Verhalten byte-identisch.
@@ -103,7 +103,7 @@ std::vector<PermutationEntry> parse_entries_dom(comdare::common::xml::XmlNode co
 // Unter-Achse -> die <option>-Werte stehen DIREKT unter <target_isa>). Beide ADDITIV + binary_id-neutral; der
 // Parser ignoriert Unbekanntes ohnehin -> rein additiv, bestehende Profile byte-identisch.
 void parse_system_axes(comdare::common::xml::XmlNode const& sa, CompilerAxisSel& compiler,
-                       ExtensionHardwareAxisSel& extension_hardware, TargetIsaAxisSel& target_isa) {
+                       ExternalUtilsAxisSel& external_utils, TargetIsaAxisSel& target_isa) {
     if (auto const* comp = sa.child("compiler")) {
         if (auto const* ol = comp->child("opt_level"))
             for (auto const* o : ol->children_named("option")) compiler.opt_levels.push_back(o->attr("value"));
@@ -111,17 +111,17 @@ void parse_system_axes(comdare::common::xml::XmlNode const& sa, CompilerAxisSel&
         if (auto const* at = comp->child("atomic128"))
             for (auto const* o : at->children_named("option")) compiler.atomic128.push_back(o->attr("value"));
     }
-    if (auto const* xh = sa.child("extension_hardware")) {
+    if (auto const* xh = sa.child("external_utils")) {
         if (auto const* simd = xh->child("simd"))
             for (auto const* o : simd->children_named("option"))
-                extension_hardware.simd_options.push_back(o->attr("value"));
+                external_utils.simd_options.push_back(o->attr("value"));
     }
     // S2/A2 P-SYSREG: target_isa = EIGENE Haupt-Achse (KEINE Unter-Achse) -- die <option>-Werte stehen DIREKT unter
     // <target_isa> (Spiegel der x86_64/aarch64-Bausteine im OFFER). Fehlt der Knoten, bleibt die Liste leer.
     if (auto const* ti = sa.child("target_isa")) {
         for (auto const* o : ti->children_named("option")) target_isa.isa.push_back(o->attr("value"));
         // O-2 ENTSCHIEDEN / Lane A (c), 26.07.2026: die zwei target_isa-UNTER-Achsen (D2.6). Muster
-        // deckungsgleich zu compiler/opt_level bzw. extension_hardware/simd: EIN Container je Unter-Achse,
+        // deckungsgleich zu compiler/opt_level bzw. external_utils/simd: EIN Container je Unter-Achse,
         // darin die <option value=..>. Vorher gab es fuer sie GAR KEINEN Lese-Pfad - das Registry-Angebot
         // war per XML unerreichbar (BLOCKER-4). Rein ADDITIV: fehlt der Knoten, bleibt die Liste leer und
         // das Verhalten ist byte-identisch zum Ist. In diesem Paket gibt es KEINEN Konsumenten der Felder;
@@ -403,9 +403,9 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): <system_axes> ADDITIV im Thesis-Kanal ueber die GETEILTE
     //    parse_system_axes-Naht (deckungsgleich zum comdare_experiment-Kanal). compiler/opt_level + extension_
     //    hardware/simd → binary_id-NEUTRAL (system_config, multiplizieren NUR die Bau-Matrix/Sidecar, NIE N).
-    //    Fehlt <system_axes>, bleiben tp.compiler/extension_hardware leer = heutiges Verhalten byte-identisch. ──
+    //    Fehlt <system_axes>, bleiben tp.compiler/external_utils leer = heutiges Verhalten byte-identisch. --
     if (auto const* sa = root->child("system_axes"))
-        parse_system_axes(*sa, tp.compiler, tp.extension_hardware, tp.target_isa);
+        parse_system_axes(*sa, tp.compiler, tp.external_utils, tp.target_isa);
     // ── A9.1 (S4-Delta B9 Mess-Schema-Kern, 2026-07-20): die PASSIVEN Mess-UNTER-Achsen additiv im Thesis-Kanal,
     //    deckungsgleich zum comdare_experiment-Kanal (run_methodology / measurement_framework / writeback_methods +
     //    das HAUPT-Feld measurement_tooling, das im Thesis-Kanal ebenfalls PASSIV mitreist -- SCOPE-Semantik
@@ -538,7 +538,7 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
         }
     }
     if (auto const* sa = root->child("system_axes"))
-        parse_system_axes(*sa, ep.compiler, ep.extension_hardware, ep.target_isa);
+        parse_system_axes(*sa, ep.compiler, ep.external_utils, ep.target_isa);
     if (auto const* out = root->child("output")) {
         if (auto const* b = out->child("binary_path")) ep.output.binary_path = b->text;
         if (auto const* c = out->child("csv_path")) ep.output.csv_path = c->text;

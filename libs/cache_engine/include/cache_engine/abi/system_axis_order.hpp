@@ -11,7 +11,7 @@
 //
 // A1-AUFTRAG, WORTGETREU: "NEUER Header kSystemAxisOrder als Single-Source (zunaechst mit dem
 // IST-Inhalt)". Der Inhalt unten ist daher BIT-FUER-BIT die heutige Reihenfolge aus
-// kSystemAxisCodeVersions -- compiler, extension_hardware, target_isa, scheduling, load_framework.
+// kSystemAxisCodeVersions -- compiler, external_utils, target_isa, scheduling, load_framework.
 // A1 aendert KEINE Ordnung und KEINEN Namen; der Stempel bleibt byte-identisch (A1-GATE).
 //
 // A1 traegt AUSSCHLIESSLICH den IST-Stand (5 Achsen, Reihenfolge == kSystemAxisCodeVersions).
@@ -41,7 +41,7 @@ inline constexpr std::size_t kSystemAxisOrderCount = kSystemAxisCodeCount;
 /// nachbilden. Reihenfolge == IST-Stand vor Lane A (siehe Kopf-Kommentar).
 inline constexpr std::array<std::string_view, kSystemAxisOrderCount> kSystemAxisOrder{{
     "compiler",
-    "extension_hardware",
+    "external_utils",
     "target_isa",
     "scheduling",
     "load_framework",

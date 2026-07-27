@@ -13,7 +13,7 @@
 // ECHTEN Hub dasselbe bedeuten und dasselbe Urteil liefern wie das flag-genaue Pruef-Dock
 // (simd_build_gate.hpp). Genau diese Bruecken-Aussagen stehen hier.
 
-#include <cache_engine/measurement/extension_hardware_family_axis.hpp> // C-3: der Hub + sein Glied
+#include <cache_engine/measurement/external_utils_family_axis.hpp> // C-3: der Hub + sein Glied
 // R-G-TRIPWIRE-Include: der HUB zieht load_framework absichtlich NICHT mehr (Ledger 69.1 -- Mess-Realm,
 // nicht System-Hub). Wer die Realm-Grenze PRUEFEN will, muss die Achse deshalb selbst hereinholen. Genau
 // diese Include-Asymmetrie ist Teil des Belegs: der Hub kennt load_framework nicht.
@@ -74,7 +74,7 @@ using IdAvx512Gpu = meas::MetaMetaSet<Avx512MetaMeta, GpuMetaMeta>;
 // =================================================================================================
 // C-1': die Typ-Familie traegt das echte Glied
 // =================================================================================================
-static_assert(meas::SystemMetaMetaAxisConcept<meas::SimdExtensionHardwareFamily>);
+static_assert(meas::SystemMetaMetaAxisConcept<meas::SimdExternalUtilsFamily>);
 static_assert(meas::SystemMetaMetaAxisConcept<Avx512MetaMeta>);
 static_assert(meas::SystemMetaMetaAxisConcept<GpuClusterMetaMeta>);
 // Zero-cost: keine vtable, kein Zustand -- die Anti-Runtime-Switch-Sicherung gilt auch fuer Meta-Metas.
@@ -83,10 +83,10 @@ static_assert(std::is_empty_v<GpuClusterMetaMeta> && !std::is_polymorphic_v<GpuC
 
 TEST(MetaMetaTypFamilie, GliedIstEineEigenstaendigeVollAchse) {
     // Command-Pattern: das Glied ist fuer sich allein gueltig, nicht nur im Verband des Managers.
-    EXPECT_TRUE(meas::CebSystemAxisConcept<meas::SimdExtensionHardwareFamily>);
+    EXPECT_TRUE(meas::CebSystemAxisConcept<meas::SimdExternalUtilsFamily>);
     // ... und es spannt eine EIGENE RT-Unter-Achse. Getrennte Klammerung, keine Fusion (Owner Q-A).
-    EXPECT_EQ(meas::SimdExtensionHardwareFamily::sub_axis_label(), std::string_view{"simd"});
-    EXPECT_EQ(meas::SimdExtensionHardwareFamily::axis_label(), std::string_view{"extension_hardware"});
+    EXPECT_EQ(meas::SimdExternalUtilsFamily::sub_axis_label(), std::string_view{"simd"});
+    EXPECT_EQ(meas::SimdExternalUtilsFamily::axis_label(), std::string_view{"external_utils"});
 }
 
 TEST(MetaMetaTypFamilie, MarkerIstEinOptInKeineZufallsErkennung) {
@@ -106,8 +106,8 @@ TEST(MetaMetaTypFamilie, RGLoadFrameworkIstKeineSystemMetaMeta) {
     // Realm-Grenze; sie bricht, sobald jemand die alte (superseded) Zuordnung wieder einbaut.
     EXPECT_FALSE(meas::is_system_meta_meta_axis_v<meas::YcsbLoadFrameworkAxis>);
     EXPECT_FALSE(meas::SystemMetaMetaAxisConcept<meas::YcsbLoadFrameworkAxis>);
-    EXPECT_FALSE((meas::ExtensionHardwareHub::manages<meas::YcsbLoadFrameworkAxis>));
-    EXPECT_FALSE((meas::ExtensionHardwareHub::releases<meas::YcsbLoadFrameworkAxis>));
+    EXPECT_FALSE((meas::ExternalUtilsHub::manages<meas::YcsbLoadFrameworkAxis>));
+    EXPECT_FALSE((meas::ExternalUtilsHub::releases<meas::YcsbLoadFrameworkAxis>));
     // Die Achse selbst bleibt unveraendert eine gueltige Konfig-System-Achse -- der Umzug in den
     // Mess-Realm ist ein BYTE-Vorgang und liegt in A3 / im O-8-Fenster, nicht hier.
     EXPECT_TRUE(meas::CebSystemAxisConcept<meas::YcsbLoadFrameworkAxis>);
@@ -229,39 +229,39 @@ TEST(MetaMetaHalbordnung, NurDasFreigabeGateIstInertNichtDieSimdAchse) {
 // =================================================================================================
 // C-3: die Hub-Mechanik am echten Knoten
 // =================================================================================================
-TEST(ExtensionHardwareHub, ManagerVerwaltetUndGibtFrei) {
-    EXPECT_EQ(meas::ExtensionHardwareHub::meta_metas::size, 1u);
-    EXPECT_TRUE((meas::ExtensionHardwareHub::manages<meas::SimdExtensionHardwareFamily>));
-    EXPECT_FALSE((meas::ExtensionHardwareHub::manages<Avx512MetaMeta>)) << "test-lokale Meta-Meta ist nicht im Hub.";
-    EXPECT_TRUE((meas::ExtensionHardwareHub::releases<meas::SimdExtensionHardwareFamily>));
+TEST(ExternalUtilsHub, ManagerVerwaltetUndGibtFrei) {
+    EXPECT_EQ(meas::ExternalUtilsHub::meta_metas::size, 1u);
+    EXPECT_TRUE((meas::ExternalUtilsHub::manages<meas::SimdExternalUtilsFamily>));
+    EXPECT_FALSE((meas::ExternalUtilsHub::manages<Avx512MetaMeta>)) << "test-lokale Meta-Meta ist nicht im Hub.";
+    EXPECT_TRUE((meas::ExternalUtilsHub::releases<meas::SimdExternalUtilsFamily>));
     // Eine Unter-Achsen-Option wird nie freigegeben -- sie ist keine Meta-Meta.
-    EXPECT_FALSE((meas::ExtensionHardwareHub::releases<meas::SimdNoExtOption>));
+    EXPECT_FALSE((meas::ExternalUtilsHub::releases<meas::SimdNoExtOption>));
 }
 
-TEST(ExtensionHardwareHub, IdentitaetIstDieKonfigurationDerGlieder) {
+TEST(ExternalUtilsHub, IdentitaetIstDieKonfigurationDerGlieder) {
     // Owner Q-A: der Hub hat KEINE eigene Identitaet, nur die indirekte ueber seine Glieder. Mit A1s
     // Listen-Vokabular ist sie unmittelbar eine MetaMetaSet, auf die subsumes_v anwendbar ist.
-    using HubIdentitaet = meas::ExtensionHardwareHub::identity_as<meas::MetaMetaSet>;
-    static_assert(std::is_same_v<HubIdentitaet, meas::MetaMetaSet<meas::SimdExtensionHardwareFamily>>,
+    using HubIdentitaet = meas::ExternalUtilsHub::identity_as<meas::MetaMetaSet>;
+    static_assert(std::is_same_v<HubIdentitaet, meas::MetaMetaSet<meas::SimdExternalUtilsFamily>>,
                   "Die Hub-Identitaet IST die Glied-Konfiguration.");
     EXPECT_EQ(meas::meta_meta_count_v<HubIdentitaet>, 1u);
     // Die Basis-Identitaet laeuft auch unter der Hub-Identitaet (Aufwaerts-Doktrin am echten Hub).
     EXPECT_TRUE((meas::subsumes_v<HubIdentitaet, meas::CpuOnlyIdentity>));
     // Eine Teil-Identitaet mit GROESSERER Hardware-Verwendung ist NICHT gueltig.
     EXPECT_FALSE(
-        (meas::subsumes_v<HubIdentitaet, meas::MetaMetaSet<meas::SimdExtensionHardwareFamily, Avx512MetaMeta>>));
+        (meas::subsumes_v<HubIdentitaet, meas::MetaMetaSet<meas::SimdExternalUtilsFamily, Avx512MetaMeta>>));
     // Und dasselbe Urteil ueber die C-2-Ueberladung.
     EXPECT_FALSE((meas::admit_organ_on_machine<HubIdentitaet, meas::CpuOnlyIdentity>().has_value()));
 }
 
-TEST(ExtensionHardwareHub, VisitorLaeuftUeberDieGlieder) {
+TEST(ExternalUtilsHub, VisitorLaeuftUeberDieGlieder) {
     std::vector<std::string_view> reihenfolge;
-    meas::ExtensionHardwareHub::for_each([&](auto tag) {
+    meas::ExternalUtilsHub::for_each([&](auto tag) {
         using Glied = typename decltype(tag)::type;
         reihenfolge.emplace_back(Glied::axis_label());
     });
     ASSERT_EQ(reihenfolge.size(), 1u);
-    EXPECT_EQ(reihenfolge[0], std::string_view{"extension_hardware"});
+    EXPECT_EQ(reihenfolge[0], std::string_view{"external_utils"});
 }
 
 // =================================================================================================
@@ -269,8 +269,8 @@ TEST(ExtensionHardwareHub, VisitorLaeuftUeberDieGlieder) {
 // =================================================================================================
 TEST(MetaMetaRekursion, TiefeIstEmergentUndUnbegrenzt) {
     // Blaetter: Tiefe 0. Der heutige Hub: Tiefe 1.
-    EXPECT_EQ((meas::hub_depth_v<meas::SimdExtensionHardwareFamily>), 0u);
-    EXPECT_EQ((meas::hub_depth_v<meas::ExtensionHardwareHub>), 1u);
+    EXPECT_EQ((meas::hub_depth_v<meas::SimdExternalUtilsFamily>), 0u);
+    EXPECT_EQ((meas::hub_depth_v<meas::ExternalUtilsHub>), 1u);
     // Eine Meta-Meta, die SELBST verwaltet, hebt die Tiefe -- ohne eine Zeile im Rahmen zu aendern.
     EXPECT_EQ((meas::hub_depth_v<GpuClusterMetaMeta>), 1u);
     struct TiefererHub {

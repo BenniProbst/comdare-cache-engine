@@ -56,7 +56,7 @@
 #include <cache_engine/measurement/system_axis.hpp> // kAllMeasurementCategories (INC-D: Single-Source der 16 Kategorie-Enums)
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
-#include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
+#include <cache_engine/measurement/external_utils_family_axis.hpp> // GN-1: aktiver external_utils-Familien-Knoten
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
 #include <cache_engine/measurement/target_isa_system_axis.hpp> // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
 #include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kRunMethodologyRegistry (debug/measure/release)
@@ -99,7 +99,7 @@ struct ProfileValidationResult {
     std::size_t categories_checked =
         0; // INC-3 Familie A: gepruefte <measurement_categories>-Namen (0 = keine deklariert)
     std::size_t opt_levels_checked      = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
-    std::size_t simd_checked            = 0; // GN-3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
+    std::size_t simd_checked            = 0; // GN-3: gepruefte <system_axes><external_utils><simd> (0 = keine)
     std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
     std::size_t target_isa_checked      = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
     std::size_t run_methodology_checked = 0; // A9.1: gepruefte <run_methodology><method> (0 = keine deklariert)
@@ -403,12 +403,12 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
                                    "deterministisch) = O0, O1, O2, O3.");
             }
         }
-        for (auto const& s : tp.extension_hardware.simd_options) {
+        for (auto const& s : tp.external_utils.simd_options) {
             ++r.simd_checked;
             bool const known = std::find(ms::kAllSimdIds.begin(), ms::kAllSimdIds.end(), s) != ms::kAllSimdIds.end();
             if (!known) {
                 r.ok = false;
-                r.errors.push_back("UNGUELTIGE <system_axes><extension_hardware><simd value=\"" + s +
+                r.errors.push_back("UNGUELTIGE <system_axes><external_utils><simd value=\"" + s +
                                    "\">: kein simd-Wert der SimdSubAxis-Optionen (simd_sub_axis.hpp). Erlaubt = "
                                    "no_extension, avx2, avx512.");
             }
@@ -622,7 +622,7 @@ struct ExperimentValidationResult {
     std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
     std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
     std::size_t opt_levels_checked      = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
-    std::size_t simd_checked            = 0; // opt-f/A3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
+    std::size_t simd_checked            = 0; // opt-f/A3: gepruefte <system_axes><external_utils><simd> (0 = keine)
     std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
     std::size_t target_isa_checked      = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><target_isa> (0 = keine)
     std::size_t axis_merge_checked      = 0; // KERN-A (S4): gepruefte per-Achse <axis merge=..>-Modi (0 = keine)
@@ -999,13 +999,13 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
     // Single-Source: die gueltigen simd-ids kommen aus der SimdSubAxis-Familie (kAllSimdIds), NICHT hartkodiert
-    // (Konformitaets-NACH F-SIMD 2026-07-18; deckungsgleich zur XSD-Enumeration extension_hardware/simd/option).
-    // GN-1-Anker: die <system_axes><extension_hardware>-Sektion validiert gegen die Unter-Achse des AKTIVEN
-    // Familien-Knotens (extension_hardware_family_axis.hpp) -- Label-Drift bricht compile-time, nicht erst hier.
-    static_assert(ms::SimdNoExtOption::parent_axis_label() == ms::SimdExtensionHardwareFamily::axis_label(),
-                  "GN-1: simd haengt unter dem aktiven extension_hardware-Familien-Knoten.");
+    // (Konformitaets-NACH F-SIMD 2026-07-18; deckungsgleich zur XSD-Enumeration external_utils/simd/option).
+    // GN-1-Anker: die <system_axes><external_utils>-Sektion validiert gegen die Unter-Achse des AKTIVEN
+    // Familien-Knotens (external_utils_family_axis.hpp) -- Label-Drift bricht compile-time, nicht erst hier.
+    static_assert(ms::SimdNoExtOption::parent_axis_label() == ms::SimdExternalUtilsFamily::axis_label(),
+                  "GN-1: simd haengt unter dem aktiven external_utils-Familien-Knoten.");
     for (auto const& s :
-         ep.extension_hardware.simd_options) { // Optionen der simd-Unter-Achse (extension_hardware → simd)
+         ep.external_utils.simd_options) { // Optionen der simd-Unter-Achse (external_utils -> simd)
         ++r.simd_checked;
         bool const known = std::find(ms::kAllSimdIds.begin(), ms::kAllSimdIds.end(), s) != ms::kAllSimdIds.end();
         if (!known) {

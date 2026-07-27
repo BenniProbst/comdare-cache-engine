@@ -27,7 +27,7 @@
 
 #include <cache_engine/measurement/load_framework_system_axis.hpp> // INC-1f: Single-Source des "workload"-Unter-Achsen-Labels
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // opt-g: OptO*SubAxis (opt_level-id -> -O<n>)
-#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (simd_id -> -march), parent=extension_hardware
+#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (simd_id -> -march), parent=external_utils
 #include <cache_engine/measurement/axis_error.hpp> // opt-g: CompilerCompilerErrorClass (D1-Log)
 
 #include <functional> // opt-g: std::function (per-Perm-CompileFn-Fabrik)
@@ -253,9 +253,9 @@ struct RunExperimentResult {
             ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
             : ep.compiler.opt_levels;
     std::vector<std::string> const simd_perms =
-        ep.extension_hardware.simd_options.empty()
+        ep.external_utils.simd_options.empty()
             ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
-            : ep.extension_hardware.simd_options;
+            : ep.external_utils.simd_options;
     bool const capped = a.max_binaries > 0;
     for (auto const& opt_id : opt_perms) {
         // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel run_profile). Ist COMDARE_GN_OPT gesetzt, baut diese Cluster-Zelle

@@ -70,21 +70,21 @@ template <class MachineIdentity, class ProgramIdentity>
 
 /// Die Basis-Identitaet ist die leere Menge -- sie erfuellt die Achsen-Auflage trivial.
 static_assert(identity_members_are_axes_v<CpuOnlyIdentity>);
-static_assert(identity_members_are_axes_v<MetaMetaSet<SimdExtensionHardwareFamily>>);
+static_assert(identity_members_are_axes_v<MetaMetaSet<SimdExternalUtilsFamily>>);
 // Gegenprobe: ein Nicht-Achsen-Typ wird als Mengen-Glied ABGELEHNT (die Haertung greift).
 static_assert(!identity_members_are_axes_v<MetaMetaSet<SimdAvx2Option>>,
               "Eine Unter-Achsen-Option ist keine Meta-Meta und darf keine Identitaets-Menge bilden.");
 
 // Basis laeuft ueberall: leere Programm-Menge -> immer zugelassen.
-static_assert(!admit_organ_on_machine<MetaMetaSet<SimdExtensionHardwareFamily>, CpuOnlyIdentity>().has_value());
+static_assert(!admit_organ_on_machine<MetaMetaSet<SimdExternalUtilsFamily>, CpuOnlyIdentity>().has_value());
 static_assert(!admit_organ_on_machine<CpuOnlyIdentity, CpuOnlyIdentity>().has_value());
 // Reflexiv: die eigene Identitaet ist immer zugelassen.
 static_assert(
-    !admit_organ_on_machine<MetaMetaSet<SimdExtensionHardwareFamily>, MetaMetaSet<SimdExtensionHardwareFamily>>()
+    !admit_organ_on_machine<MetaMetaSet<SimdExternalUtilsFamily>, MetaMetaSet<SimdExternalUtilsFamily>>()
          .has_value());
 // ABWAERTS nein: Hardware nicht vorhanden -> D1 HardwareErweiterungFehlt, dieselbe Klasse wie auf der
 // Flag-Ebene. Das ist die Aequivalenz-Aussage der Hebung.
-static_assert(admit_organ_on_machine<CpuOnlyIdentity, MetaMetaSet<SimdExtensionHardwareFamily>>() ==
+static_assert(admit_organ_on_machine<CpuOnlyIdentity, MetaMetaSet<SimdExternalUtilsFamily>>() ==
                   CompilerCompilerErrorClass::HardwareErweiterungFehlt,
               "Meta-Meta-Ebene muss dieselbe Fehlerklasse sprechen wie die Flag-Ebene (Section 37).");
 // Die Alt-Signatur bleibt unangetastet erreichbar (Ueberladung, keine Ersetzung): leere Anforderung ->
