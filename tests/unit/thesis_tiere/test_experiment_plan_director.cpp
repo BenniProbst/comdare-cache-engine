@@ -98,7 +98,7 @@ std::optional<cx::ExperimentProfile> parse_experiment(char const* path) {
 } // namespace
 
 // (T) Die 3 Art-Registries laden ueber DIESELBE read_axis_registry-Naht — 17/5/16.
-TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith17_5_16) {
+TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith18_3_16) {
     auto const trio =
         tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
                                      fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
@@ -110,15 +110,22 @@ TEST(ExperimentPlanDirector, RegistryTrioLoadsThreeArtRegistriesWith17_5_16) {
 
     EXPECT_EQ(trio->organ_axis_count(), 18u)
         << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d, persistence_target rein STRUKT-R ORG-18)";
-    EXPECT_EQ(trio->system_axis_count(), 5u)
-        << "System: compiler/external_utils/target_isa/scheduling/load_framework";
+    EXPECT_EQ(trio->system_axis_count(), 3u)
+        << "System nach O-8 Schritt 4 (A3-Kern): target_isa/operating_system/external_utils";
     EXPECT_EQ(trio->measurement_category_count(), 16u) << "16 Mess-Kategorien (kMeasurementAxisRegistry)";
 
     // S2/A2 P-SYSREG (2026-07-20): das System-ANGEBOT traegt genau die kanonischen Haupt-Achsen; target_isa ist
     // als EIGENE Haupt-Achse angeboten (INC-2d, 2 Bausteine x86_64/aarch64) und NUMA (7. Achse) ist korrekt
     // ABWESEND (=S11). atomic128 reist als sub_axis unter compiler (nicht als eigener axis-Key) und wird ueber
     // die Parser-/Validat-Consumer-Verdrahtung + den Byte-Roundtrip (test_system_axis_registry_roundtrip) gedeckt.
-    EXPECT_EQ(trio->system.axis_names.count("compiler"), 1u);
+    // O-8 Schritt 4/6: compiler ist KEINE System-HAUPT-Achse mehr, sondern Sub-Achse der Komplex-Achse
+    // build_target_complex (system_axis_registry.xml: <sub_axis id="compiler" parent="build_target_complex">);
+    // scheduling ist analog unter target_isa gewandert. Beide sind damit aus axis_names verschwunden -- die
+    // 0u-Erwartungen sind der Beleg dafuer, dass der Umbau vollzogen und nicht nur die Zaehlung gesenkt wurde.
+    EXPECT_EQ(trio->system.axis_names.count("compiler"), 0u) << "compiler = Sub-Achse des build_target_complex";
+    EXPECT_EQ(trio->system.axis_names.count("scheduling"), 0u) << "scheduling = Sub-Achse unter target_isa";
+    EXPECT_EQ(trio->system.axis_names.count("load_framework"), 0u) << "load_framework = Mess-Realm (K1)";
+    EXPECT_EQ(trio->system.axis_names.count("operating_system"), 1u);
     EXPECT_EQ(trio->system.axis_names.count("external_utils"), 1u);
     EXPECT_EQ(trio->system.axis_names.count("target_isa"), 1u) << "target_isa = eigene Haupt-System-Achse (INC-2d)";
     EXPECT_EQ(tlz::RegistryTrio::baustein_count(trio->system, "target_isa"), 2u) << "x86_64 + aarch64";
@@ -281,7 +288,7 @@ TEST(ExperimentPlanDirector, DirectorAnnotatesPlanHeaderWithRegistryTrio) {
     EXPECT_EQ(cb.header.registries.organ.engine, "cache_engine");
     EXPECT_EQ(cb.header.registries.organ.axis_count, 18u);
     EXPECT_EQ(cb.header.registries.system.engine, "cache_engine_system");
-    EXPECT_EQ(cb.header.registries.system.axis_count, 5u);
+    EXPECT_EQ(cb.header.registries.system.axis_count, 3u); // A3-Kern: 5 -> 3 System-Haupt-Achsen
     EXPECT_EQ(cb.header.registries.measurement.engine, "cache_engine_measurement");
     // Der --dump-plan-Text traegt die Annotation sichtbar (loaded=1 + die 3 engine-Namen).
     planner::PlanTextBuilder text;
@@ -305,8 +312,8 @@ TEST(ExperimentPlanDirector, ResolverOrganPureProfileZeroRejectsInPlanHead) {
         tlz::read_axis_registry_trio(fs::path{COMDARE_CE_AXIS_REGISTRY}, fs::path{COMDARE_SYSTEM_AXIS_REGISTRY},
                                      fs::path{COMDARE_MEASUREMENT_AXIS_REGISTRY});
     ASSERT_TRUE(trio.has_value());
-    ASSERT_EQ(trio->organ_axis_count(), 18u) << "RegistryTrio 18/5/16 unveraendert gruen";
-    ASSERT_EQ(trio->system_axis_count(), 5u);
+    ASSERT_EQ(trio->organ_axis_count(), 18u) << "RegistryTrio 18/3/16 nach A3-Kern";
+    ASSERT_EQ(trio->system_axis_count(), 3u);
     ASSERT_EQ(trio->measurement_category_count(), 16u);
 
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);

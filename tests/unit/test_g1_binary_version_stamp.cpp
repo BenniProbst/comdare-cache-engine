@@ -7,6 +7,7 @@
 #include <profile_facade/build_type_stamp.hpp>             // build_type_version_suffix() (Referenz fuer build-type)
 #include <profile_facade/g1_binary_version_stamp.hpp>      // Pruefling: g1_binary_version_block + Helfer
 #include <profile_facade/planner/planner_version.hpp>      // planner_version_stamp() (Referenz fuer Zeile 1)
+#include <profile_facade/system_version_suffix.hpp>        // compose_system_version_suffix (Suffix-Single-Source, S10)
 
 #include <gtest/gtest.h>
 
@@ -16,6 +17,9 @@
 #include <vector>
 
 namespace pf  = ::comdare::cache_engine::builder::profile_facade;
+// Die Suffix-Single-Source liegt in einem ANDEREN Namespace als der G1-Stempel-Header (kein builder::) --
+// eigenes Alias, damit die Verwechslung nicht als "pf::" durchrutscht.
+namespace svs = ::comdare::cache_engine::profile_facade;
 namespace pl  = ::comdare::cache_engine::planner;
 namespace tlz = ::comdare::cache_engine::thesis_lazy;
 
@@ -60,8 +64,15 @@ TEST(G1BinaryVersionStamp, BuildTypeLabelMirrorsSuffixAndIsAlwaysNonEmpty) {
 }
 
 TEST(G1BinaryVersionStamp, BinaryVersionBlockHasFourLabeledNonEmptyLines) {
-    // Repraesentativer, immer non-empty System-Suffix (system_axes_version_suffix beginnt stets mit "+ext=").
-    std::string const              sys   = "+ext=avx2+cxx=gcc+opt=O3+ceb=6.0";
+    // Repraesentativer, immer non-empty System-Suffix. O-8 Schritt 12: der Suffix wird NICHT mehr als Literal
+    // hingeschrieben, sondern aus der Suffix-Single-Source zusammengesetzt (system_version_suffix.hpp, Schritt 10).
+    // Grund: der frueher hier stehende Fixture "+ext=avx2+cxx=gcc+opt=O3+ceb=6.0" trug die ALTE Segment-Ordnung und
+    // darueber die inzwischen falsche Behauptung "beginnt stets mit '+ext='" -- die bindende Form beginnt mit "+cxx=".
+    // Der Test war dabei nie rot (er reicht den Fixture nur durch), und genau das ist die Falle: ein gruener Test,
+    // der eine abgeschaffte Ordnung als Referenz zeigt. Aus der Single-Source gebaut kann er nicht wieder driften.
+    std::string const              sys =
+        svs::compose_system_version_suffix({.cxx = "gcc", .opt = "O3", .simd = "avx2", .ceb = "6.0"});
+    ASSERT_EQ(sys, "+cxx=gcc+opt=O3+ext=avx2+ceb=6.0") << "bindende Segment-Ordnung (kSuffixSegmentOrder)";
     std::string const              block = pf::g1_binary_version_block(sys);
     std::vector<std::string> const lines = split_lines(block);
 
@@ -95,7 +106,12 @@ TEST(G1BinaryVersionStamp, BinaryVersionBlockHasFourLabeledNonEmptyLines) {
 
 TEST(G1BinaryVersionStamp, BuildVersionLineMirrorsExactlyThePassedSuffix) {
     // Single-Source-Beweis: der Header erfindet die build_version NICHT, er reicht den hereingegebenen Suffix DURCH.
-    std::string const other = "+ext=no_ext+cxx=clang+opt=O2+ceb=6.0+bt=Debug";
+    // Zweiter Fixture, ebenfalls aus der Single-Source (S12): eine ANDERE Belegung inkl. +bt=Debug, damit der
+    // Durchreich-Beweis nicht am selben String haengt wie der Test darueber. "no_ext" ist hier ein gewoehnlicher
+    // simd-Wert -- die D2.8(ii)-Leer-Regel (no_extension emittiert GAR KEIN +ext=) greift nur bei leerem Glied.
+    std::string const other = svs::compose_system_version_suffix(
+        {.cxx = "clang", .opt = "O2", .simd = "no_ext", .ceb = "6.0", .build_type = "Debug"});
+    ASSERT_EQ(other, "+cxx=clang+opt=O2+ext=no_ext+ceb=6.0+bt=Debug") << "bindende Ordnung inkl. +bt am Ende";
     std::string const block = pf::g1_binary_version_block(other);
     EXPECT_NE(block.find("\nbuild-version=" + other + "\n"), std::string::npos) << "block=\n" << block;
     // Der Planer-/ceb-/build-type-Kopf bleibt vom hereingereichten Suffix unberuehrt (drei feste Kopf-Zeilen davor).

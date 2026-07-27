@@ -126,7 +126,11 @@ void check_stamp_injected(std::vector<std::string> const& g320_ids) {
     check_true("(a2) Stempel-Zeile byte-gleich (lazy == Katalog)", ls == cs);
     check_true("(a2) Organ-Stempel in X.Y.Z-Voll-Form (@1.0.0)", ls.find("@1.0.0") != std::string::npos);
     // Der System-Stempel (system_stamp_line) traegt die statischen System-Achsen -- als 2. Makro-Argument.
-    check_true("(a2) System-Stempel-Achse compiler=code@ eingebettet", ls.find("compiler=code@") != std::string::npos);
+    // O-8 Schritt 4 (A3-Kern): geankert auf target_isa statt auf compiler; compiler ist keine System-Haupt-Achse
+    // mehr. Die Gegenprobe steht daneben, damit der Anker nicht bloss verschoben, sondern der Umbau belegt ist.
+    check_true("(a2) System-Stempel-Achse target_isa=code@ eingebettet",
+               ls.find("target_isa=code@") != std::string::npos);
+    check_true("(a2) System-Stempel traegt KEIN compiler= mehr (A3-Kern)", ls.find("compiler=") == std::string::npos);
 }
 
 // -- (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ------------------------------------
@@ -316,22 +320,27 @@ void check_measurement_stamp_wiring(std::vector<std::string> const& g320_ids) {
 void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids) {
     std::cout << "\n---- (f) K7b-2 Env-Bruecke: COMDARE_MEASUREMENT_COMBO -> Mengen-Stempel in der Quelle ----\n";
     namespace abi = ::comdare::cache_engine::abi;
-    // Einzel-Legende [wallclock] -> genau EIN Eintrag (unveraendert).
+    // O-8 Schritt 9: jede nicht-leere Mess-Zeile fuehrt das load_framework-Segment EINMAL vorne -- auch die
+    // ueber die Combo-Legende gebaute. Alle drei Erwartungen hier sind aus dem Werkzeug-Output geankert.
+    // Einzel-Legende [wallclock] -> load_framework + genau EIN Tooling-Eintrag.
     check_eq("(f) legend [wallclock] -> Einzel-Stempel", abi::measurement_stamp_line_from_combo_legend("[wallclock]"),
-             std::string{"measurement_tooling=wallclock@1.0.0"});
+             std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0"});
     // Mehr-Token-Legende [wallclock,macro] -> MENGE (K7b-2): 2 Eintraege, ';'-getrennt (Eingabe-Reihenfolge).
     check_eq("(f) legend [wallclock,macro] -> Mengen-Stempel (2 Eintraege)",
              abi::measurement_stamp_line_from_combo_legend("[wallclock,macro]"),
-             std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0"});
+             std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0;"
+                         "measurement_tooling=macro@1.0.0"});
     // [all] -> die VOLLE Vollmenge (Section 64-D1-B): == measurement_stamp_line_full_set(), 3 Eintraege {wc,macro,micro}.
     std::string const full = abi::measurement_stamp_line_full_set();
     check_eq("(f) legend [all] -> Vollmenge (== full_set)", abi::measurement_stamp_line_from_combo_legend("[all]"),
              full);
-    check_true("(f) full_set traegt wallclock+macro+micro (3 Eintraege, 2 Trenner)",
-               full.find("measurement_tooling=wallclock@1.0.0") != std::string::npos &&
+    // Trenner-Zahl 2 -> 3: das load_framework-Segment bringt einen vierten Eintrag und damit einen dritten ';'.
+    check_true("(f) full_set traegt load_framework + wallclock+macro+micro (4 Eintraege, 3 Trenner)",
+               full.rfind("load_framework=ycsb@1.0.0", 0) == 0 &&
+                   full.find("measurement_tooling=wallclock@1.0.0") != std::string::npos &&
                    full.find("measurement_tooling=macro@1.0.0") != std::string::npos &&
                    full.find("measurement_tooling=micro@1.0.0") != std::string::npos &&
-                   std::count(full.begin(), full.end(), ';') == 2);
+                   std::count(full.begin(), full.end(), ';') == 3);
     // Leere Legende (== "keine Legende gereicht") -> leer; die Vollmengen-Default-Semantik entscheidet der from_env-Zweig.
     check_true("(f) leere legend -> leer", abi::measurement_stamp_line_from_combo_legend("").empty());
 
