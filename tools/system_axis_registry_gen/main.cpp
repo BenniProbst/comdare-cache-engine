@@ -32,6 +32,7 @@
 #include <builder/codegen/type_name.hpp> // type_name<W>() (FQ-Typ, compile-time)
 
 #include <cache_engine/abi/system_axis_order.hpp> // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
+#include <cache_engine/measurement/ceb_complex_system_axis.hpp> // O-8 Schritt 6: aeussere Komplex-Achse + Gruppe
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/compiler_system_axis.hpp>
 #include <cache_engine/measurement/external_utils_family_axis.hpp>
@@ -42,6 +43,8 @@
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
 #include <cache_engine/measurement/simd_sub_axis.hpp>
+#include <cache_engine/measurement/target_isa_complex_axis.hpp> // O-8 Schritt 6: innerer Komplex-Wrapper
+#include <cache_engine/measurement/target_isa_sub_axes.hpp>     // O-8 Schritt 6: numa_node + page
 #include <cache_engine/measurement/target_isa_system_axis.hpp>
 
 #include <array>
@@ -172,24 +175,28 @@ void note_name(std::string_view n) { g_names.emplace_back(n); }
 // -- Emit-Bausteine (jeder Wert aus einem realen Typ-Member reflektiert). --
 
 // Ein <baustein> mit FQ-Typ + Kurz-Typ; zusaetzliche Attribute schreibt der Aufrufer via extra.
+// O-8 Schritt 6: `indent` ist neu und hat den bisherigen Wert als DEFAULT -- alle Bestands-Aufrufe
+// emittieren damit byte-identisch weiter. Gebraucht wird er von der aeusseren Komplex-Achse, deren
+// Unter-Achsen-Gruppe eine Ebene tiefer sitzt als eine Haupt-Achse.
 template <class W>
-void emit_baustein(std::ofstream& f, std::string_view name, std::string const& extra) {
+void emit_baustein(std::ofstream& f, std::string_view name, std::string const& extra,
+                   std::string_view indent = "    ") {
     std::string const type = fq_type<W>();
     note_name(name);
     ++g_baustein_total;
-    f << "    <baustein name=\"" << xml_escape(name) << "\" wrapper=\"" << xml_escape(short_name(type)) << "\" type=\""
-      << xml_escape(type) << "\" enabled=\"true\"" << extra << "/>\n";
+    f << indent << "<baustein name=\"" << xml_escape(name) << "\" wrapper=\"" << xml_escape(short_name(type))
+      << "\" type=\"" << xml_escape(type) << "\" enabled=\"true\"" << extra << "/>\n";
 }
 
 // Eine <option> einer Unter-Achse mit den 3 Dialekt-Flags (gpp/clang/msvc) + optionalem extra-Attribut.
 void emit_option(std::ofstream& f, std::string_view id, std::string_view gpp, std::string_view clang,
-                 std::string_view msvc, std::string const& extra) {
+                 std::string_view msvc, std::string const& extra, std::string_view indent = "      ") {
     note_name(id);
-    f << "      <option id=\"" << xml_escape(id) << "\"" << extra << ">\n";
-    f << "        <flag dialect=\"gpp\" value=\"" << xml_escape(gpp) << "\"/>\n";
-    f << "        <flag dialect=\"clang\" value=\"" << xml_escape(clang) << "\"/>\n";
-    f << "        <flag dialect=\"msvc\" value=\"" << xml_escape(msvc) << "\"/>\n";
-    f << "      </option>\n";
+    f << indent << "<option id=\"" << xml_escape(id) << "\"" << extra << ">\n";
+    f << indent << "  <flag dialect=\"gpp\" value=\"" << xml_escape(gpp) << "\"/>\n";
+    f << indent << "  <flag dialect=\"clang\" value=\"" << xml_escape(clang) << "\"/>\n";
+    f << indent << "  <flag dialect=\"msvc\" value=\"" << xml_escape(msvc) << "\"/>\n";
+    f << indent << "</option>\n";
 }
 
 void emit_axis_open(std::ofstream& f, std::string_view id, std::string_view stage, std::size_t baustein_count) {
@@ -199,32 +206,36 @@ void emit_axis_open(std::ofstream& f, std::string_view id, std::string_view stag
       << " binary_id=\"never\" stage=\"" << xml_escape(stage) << "\" baustein_count=\"" << baustein_count << "\">\n";
 }
 
-/// P5/A9a: Emissions-Koerper der Haupt-Achse "compiler" (1:1 aus main() herausgezogen, Inhalt
-/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
-/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
-[[maybe_unused]] void emit_system_axis_compiler(std::ofstream& f) {
-    // ── 1) compiler (CompilerSystemAxis): 2 Bausteine gcc/clang + Unter-Achsen opt_level/atomic128 ──
-    emit_axis_open(f, meas::GccCompilerAxis::axis_label(), "ct", 2);
+/// P5/A9a war dies der Emissions-Koerper der HAUPT-Achse "compiler".
+/// A3 (O-8 Schritt 4) nahm compiler aus kSystemAxisEmitters; O-8 Schritt 6 haengt es hier als Glied
+/// der Unter-Achsen-GRUPPE an die AEUSSERE Komplex-Achse (O-1r, Owner-GO OP-5) -- ausdruecklich NICHT
+/// an target_isa: die Gruppe beschreibt, WIE aus der Rekombination aller drei Achsen gebaut wird.
+/// Inhalt (Bausteine, opt_level, atomic128) UNVERAENDERT; nur die Klammer darum ist neu.
+void emit_compound_sub_axis_group_compiler(std::ofstream& f) {
+    // -- compiler (CompilerSystemAxis): 2 Bausteine gcc/clang + Unter-Achsen opt_level/atomic128 --
+    note_name(meas::GccCompilerAxis::axis_label());
+    f << "      <sub_axis id=\"" << xml_escape(meas::GccCompilerAxis::axis_label()) << "\" parent=\""
+      << xml_escape(meas::CebCompoundSystemAxis::axis_label()) << "\" stage=\"ct\" baustein_count=\"2\">\n";
     {
         std::string extra;
         extra = std::string{" driver=\""} + std::string{meas::GccCompilerAxis::driver_default()} +
                 "\" supports_fno_gnu_unique=\"" +
                 (meas::GccCompilerAxis::supports_fno_gnu_unique() ? "true" : "false") + "\"";
-        emit_baustein<meas::GccCompilerAxis>(f, meas::GccCompilerAxis::compiler_id(), extra);
+        emit_baustein<meas::GccCompilerAxis>(f, meas::GccCompilerAxis::compiler_id(), extra, "        ");
         extra = std::string{" driver=\""} + std::string{meas::ClangCompilerAxis::driver_default()} +
                 "\" supports_fno_gnu_unique=\"" +
                 (meas::ClangCompilerAxis::supports_fno_gnu_unique() ? "true" : "false") + "\"";
-        emit_baustein<meas::ClangCompilerAxis>(f, meas::ClangCompilerAxis::compiler_id(), extra);
+        emit_baustein<meas::ClangCompilerAxis>(f, meas::ClangCompilerAxis::compiler_id(), extra, "        ");
     }
     // opt_level (Unter-Achse; parent aus parent_axis_label(); Optionen O0..Ofast; is_ieee754_deterministic).
-    f << "    <sub_axis id=\"" << xml_escape(meas::OptO0Option::axis_label()) << "\" parent=\""
+    f << "        <sub_axis id=\"" << xml_escape(meas::OptO0Option::axis_label()) << "\" parent=\""
       << xml_escape(meas::OptO0Option::parent_axis_label())
       << "\" stage=\"runtime\" value_type=\"token\" option_count=\"5\">\n";
     {
         auto emit_opt = [&](std::string_view id, std::string_view gpp, std::string_view clang, std::string_view msvc,
                             bool det) {
             std::string const extra = std::string{" ieee754_deterministic=\""} + (det ? "true" : "false") + "\"";
-            emit_option(f, id, gpp, clang, msvc, extra);
+            emit_option(f, id, gpp, clang, msvc, extra, "          ");
         };
         emit_opt(meas::OptO0Option::opt_level_id(), meas::OptO0Option::gcc_opt_flag(),
                  meas::OptO0Option::clang_opt_flag(), meas::OptO0Option::msvc_opt_flag(),
@@ -242,17 +253,17 @@ void emit_axis_open(std::ofstream& f, std::string_view id, std::string_view stag
                  meas::OptOfastOption::clang_opt_flag(), meas::OptOfastOption::msvc_opt_flag(),
                  meas::OptOfastOption::is_ieee754_deterministic());
     }
-    f << "    </sub_axis>\n";
+    f << "        </sub_axis>\n";
     // atomic128 (Unter-Achse unter compiler; Optionen no_cx16/cx16; -mcx16 = Codegen-Flag).
-    f << "    <sub_axis id=\"" << xml_escape(meas::NoCx16Option::axis_label()) << "\" parent=\""
+    f << "        <sub_axis id=\"" << xml_escape(meas::NoCx16Option::axis_label()) << "\" parent=\""
       << xml_escape(meas::NoCx16Option::parent_axis_label())
       << "\" stage=\"runtime\" value_type=\"token\" option_count=\"2\">\n";
-    emit_option(f, meas::NoCx16Option::atomic128_id(), meas::NoCx16Option::gcc_flag(), meas::NoCx16Option::clang_flag(),
-                meas::NoCx16Option::msvc_flag(), std::string{});
-    emit_option(f, meas::Cx16Option::atomic128_id(), meas::Cx16Option::gcc_flag(), meas::Cx16Option::clang_flag(),
-                meas::Cx16Option::msvc_flag(), std::string{});
-    f << "    </sub_axis>\n";
-    f << "  </axis>\n";
+    emit_option(f, meas::NoCx16Option::atomic128_id(), meas::NoCx16Option::gcc_flag(),
+                meas::NoCx16Option::clang_flag(), meas::NoCx16Option::msvc_flag(), std::string{}, "          ");
+    emit_option(f, meas::Cx16Option::atomic128_id(), meas::Cx16Option::gcc_flag(),
+                meas::Cx16Option::clang_flag(), meas::Cx16Option::msvc_flag(), std::string{}, "          ");
+    f << "        </sub_axis>\n";
+    f << "      </sub_axis>\n";
 }
 
 /// P5/A9a: Emissions-Koerper der Haupt-Achse "external_utils" (1:1 aus main() herausgezogen, Inhalt
@@ -289,9 +300,67 @@ void emit_system_axis_external_utils(std::ofstream& f) {
     f << "  </axis>\n";
 }
 
-/// P5/A9a: Emissions-Koerper der Haupt-Achse "target_isa" (1:1 aus main() herausgezogen, Inhalt
-/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
-/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
+// O-8 Schritt 6: die Unter-Achsen des target_isa-Komplex-Wrappers. Vorwaerts deklariert, weil ihre
+// Koerper weiter unten stehen (scheduling war bis A3 eine Haupt-Achse und behaelt seinen Platz in
+// der Datei; numa_node/page sind neu).
+void emit_target_isa_sub_axis_scheduling(std::ofstream& f);
+
+/// O-8 Schritt 6 (Bauplan IV.2.2 / Owner OD-2): die drei FESTEN GLIEDER des Komplexes, je benannter
+/// Rekombination. Muster fixed_enum_tuple (wie scheduling): die Glieder sind sub_dims EINER Achse,
+/// NICHT drei Achsen -- RF-7, "EIN Feld im Haupt-Achsen-Array".
+/// Ein nicht deklariertes Glied wird als declared="false" OHNE Wert emittiert: die Registry sagt dann
+/// ehrlich "nicht erhoben" statt einer erfundenen Zahl.
+void emit_target_isa_complex_members(std::ofstream& f) {
+    auto emit_complex = [&f]<class Cx>(std::type_identity<Cx>) {
+        note_name(Cx::complex_id());
+        f << "      <complex id=\"" << xml_escape(Cx::complex_id()) << "\" isa=\""
+          << xml_escape(Cx::target_isa_id()) << "\">\n";
+        auto const emit_num = [&f](std::string_view id, std::uint32_t v) {
+            f << "        <sub_dim id=\"" << xml_escape(id) << "\" declared=\"" << (v != 0 ? "true" : "false") << "\"";
+            if (v != 0) f << " value=\"" << v << "\"";
+            f << "/>\n";
+        };
+        emit_num("ram_frequency_mhz", Cx::ram_frequency_mhz());
+        emit_num("cas_latency_cl", Cx::cas_latency_cl());
+        // Glied 3 = das O-4a-Kern-Tupel vendor/family/model/stepping (OP-4-Format), NICHT das
+        // symbolische XML-Etikett gleichen Namens -- jenes ist der Aufloesungs-Schluessel.
+        auto const core = Cx::cpu_fabrication();
+        f << "        <sub_dim id=\"cpu_fabrication\" declared=\"" << (core.declared ? "true" : "false") << "\"";
+        if (core.declared) {
+            f << " value=\"" << xml_escape(core.vendor) << "/" << core.family << "/" << core.model << "/"
+              << core.stepping << "\"";
+        }
+        f << "/>\n";
+        f << "      </complex>\n";
+    };
+    f << "    <sub_axis id=\"target_isa_complex\" parent=\""
+      << xml_escape(meas::TargetIsaAxisTag::axis_label()) << "\" stage=\"ct\" kind=\"fixed_enum_tuple\""
+      << " complex_count=\"" << meas::kAllTargetIsaComplexIds.size() << "\">\n";
+    f << "      <!-- Die drei festen Glieder je benannter Rekombination (Owner OD-2). Werte kommen aus\n";
+    f << "           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b). -->\n";
+    emit_complex(std::type_identity<meas::Prod1Zen5TargetIsa>{});
+    emit_complex(std::type_identity<meas::Prod2RaptorLakeTargetIsa>{});
+    f << "    </sub_axis>\n";
+}
+
+/// O-8 Schritt 6: die zwei Unter-Achsen OHNE compile-statischen Options-Katalog (numa_node, page).
+/// Ihre zulaessige Werte-Menge haengt an der Maschine und wird zur Laufzeit aufgeloest (OD-10,
+/// Folge-Paket) -- hier steht das ANGEBOT, nicht die Aufloesung. Muster: die workload-Unter-Achse.
+void emit_target_isa_open_sub_axes(std::ofstream& f) {
+    auto emit_open = [&f]<class Sub>(std::type_identity<Sub>) {
+        note_name(Sub::axis_label());
+        f << "    <sub_axis id=\"" << xml_escape(Sub::axis_label()) << "\" parent=\""
+          << xml_escape(Sub::parent_axis_label()) << "\" stage=\"runtime\" value_type=\"token\" option_source=\""
+          << xml_escape(Sub::option_source()) << "\"/>\n";
+    };
+    emit_open(std::type_identity<meas::NumaNodeSubAxis>{});
+    emit_open(std::type_identity<meas::PageSubAxis>{});
+}
+
+/// P5/A9a: Emissions-Koerper der Haupt-Achse "target_isa".
+/// O-8 Schritt 6: target_isa ist jetzt der KOMPLEX-WRAPPER (Owner OD-2) -- zu den zwei ISA-Bausteinen
+/// treten die drei festen Glieder als fixed_enum_tuple und die drei Unter-Achsen scheduling,
+/// numa_node und page, die "allein der Komplex-Wrapper erhaelt".
 void emit_system_axis_target_isa(std::ofstream& f) {
     // ── 3) target_isa (TargetIsaSystemAxis): 2 Bausteine x86_64/aarch64 (native + Cross-Triple/-march) ──
     emit_axis_open(f, meas::X86_64TargetIsa::axis_label(), "ct", 2);
@@ -305,6 +374,9 @@ void emit_system_axis_target_isa(std::ofstream& f) {
                 std::string{meas::Aarch64TargetIsa::target_march()} + "\"";
         emit_baustein<meas::Aarch64TargetIsa>(f, meas::Aarch64TargetIsa::target_isa_id(), extra);
     }
+    emit_target_isa_complex_members(f);
+    emit_target_isa_sub_axis_scheduling(f);
+    emit_target_isa_open_sub_axes(f);
     f << "  </axis>\n";
 }
 
@@ -329,37 +401,33 @@ void emit_system_axis_operating_system(std::ofstream& f) {
     f << "  </axis>\n";
 }
 
-/// P5/A9a: Emissions-Koerper der Haupt-Achse "scheduling" (1:1 aus main() herausgezogen, Inhalt
-/// UNVERAENDERT -- die XML muss byte-identisch bleiben).
-/// A3 (O-8 Schritt 4): scheduling ist KEINE Haupt-Achse mehr und steht daher nicht mehr in
-/// kSystemAxisEmitters. Der Koerper bleibt erhalten, weil Schritt 6 ihn als sub_axis unter dem
-/// target_isa-Komplex-Wrapper wieder einhaengt -- er ist geparkt, nicht tot.
-[[maybe_unused]] void emit_system_axis_scheduling(std::ofstream& f) {
-    // ── 4) scheduling (SchedulingSystemAxis): 1 Baustein; 5 fixe Sub-Dimensionen (getypte Accessoren). ──
+/// P5/A9a war dies der Emissions-Koerper der HAUPT-Achse "scheduling".
+/// A3 (O-8 Schritt 4) nahm scheduling aus kSystemAxisEmitters; O-8 Schritt 6 haengt es hier als
+/// UNTER-Achse am target_isa-Komplex-Wrapper wieder ein (Owner OD-2). Damit ist es weder Haupt-Achse
+/// noch geparkt, sondern an seinem endgueltigen Platz.
+/// UNVERAENDERT bleiben die 5 Sub-Dimensionen und ihre Werte: der Umzug ist eine Struktur-Aenderung,
+/// keine Inhalts-Aenderung. Das `parent` kommt jetzt aus dem TYP (CebSubAxis), nicht mehr aus dem
+/// eigenen Label -- deshalb steht hier parent_axis_label() und nicht axis_label().
+void emit_target_isa_sub_axis_scheduling(std::ofstream& f) {
     // Die id-Etiketten der Sub-Dims haben KEINE string-Single-Source (nur getypte Accessoren) -> sie sind
     // an den Accessor-AUFRUF compile-gekoppelt (Rename bricht diesen Build). Enum-WERTE als Ordinal reflektiert.
-    emit_axis_open(f, meas::DefaultSchedulingSystemAxis::axis_label(), "ct", 1);
-    {
-        std::string const type = fq_type<meas::DefaultSchedulingSystemAxis>();
-        emit_baustein<meas::DefaultSchedulingSystemAxis>(f, short_name(type), std::string{});
-        f << "    <sub_axis id=\"scheduling_dims\" parent=\""
-          << xml_escape(meas::DefaultSchedulingSystemAxis::axis_label())
-          << "\" stage=\"ct\" kind=\"fixed_enum_tuple\">\n";
-        f << "      <!-- Ordinals = rohe Enum-Werte (kein CT-Label-Vorbild); id-Strings sind an die Accessor-\n";
-        f << "           Aufrufe compile-gekoppelt (concepts::scheduling_strategy.hpp). -->\n";
-        f << "      <sub_dim id=\"worker_pool_layout\" value_ordinal=\""
-          << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::worker_pool_layout()) << "\"/>\n";
-        f << "      <sub_dim id=\"simd_worker_count_limit\" value=\""
-          << meas::DefaultSchedulingSystemAxis::simd_worker_count_limit() << "\"/>\n";
-        f << "      <sub_dim id=\"hetero_core_dispatch\" value_ordinal=\""
-          << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::hetero_core_dispatch()) << "\"/>\n";
-        f << "      <sub_dim id=\"co_routine_strategy\" value_ordinal=\""
-          << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::co_routine_strategy()) << "\"/>\n";
-        f << "      <sub_dim id=\"batch_granularity\" value_ordinal=\""
-          << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::batch_granularity()) << "\"/>\n";
-        f << "    </sub_axis>\n";
-    }
-    f << "  </axis>\n";
+    note_name(meas::DefaultSchedulingSystemAxis::axis_label());
+    f << "    <sub_axis id=\"" << xml_escape(meas::DefaultSchedulingSystemAxis::axis_label()) << "\" parent=\""
+      << xml_escape(meas::DefaultSchedulingSystemAxis::parent_axis_label())
+      << "\" stage=\"ct\" kind=\"fixed_enum_tuple\">\n";
+    f << "      <!-- Ordinals = rohe Enum-Werte (kein CT-Label-Vorbild); id-Strings sind an die Accessor-\n";
+    f << "           Aufrufe compile-gekoppelt (concepts::scheduling_strategy.hpp). -->\n";
+    f << "      <sub_dim id=\"worker_pool_layout\" value_ordinal=\""
+      << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::worker_pool_layout()) << "\"/>\n";
+    f << "      <sub_dim id=\"simd_worker_count_limit\" value=\""
+      << meas::DefaultSchedulingSystemAxis::simd_worker_count_limit() << "\"/>\n";
+    f << "      <sub_dim id=\"hetero_core_dispatch\" value_ordinal=\""
+      << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::hetero_core_dispatch()) << "\"/>\n";
+    f << "      <sub_dim id=\"co_routine_strategy\" value_ordinal=\""
+      << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::co_routine_strategy()) << "\"/>\n";
+    f << "      <sub_dim id=\"batch_granularity\" value_ordinal=\""
+      << static_cast<std::uint32_t>(meas::DefaultSchedulingSystemAxis::batch_granularity()) << "\"/>\n";
+    f << "    </sub_axis>\n";
 }
 
 /// P5/A9a: Emissions-Koerper der Haupt-Achse "load_framework" (1:1 aus main() herausgezogen, Inhalt
@@ -420,6 +488,39 @@ static_assert(emitter_table_matches_order(),
               "P5/A9a: die Emitter-Tabelle folgt nicht abi::kSystemAxisOrder (Reihenfolge, Zahl oder ein "
               "nullptr-Emitter). kSystemAxisOrder ist die Single-Source (A1) - dort aendern, nicht hier.");
 
+/// O-8 Schritt 6 (Bauplan IV.2.7 / O-1r, Owner-GO OP-5): die AEUSSERE System-Komplex-Haupt-Achse.
+///
+/// WARUM SIE NICHT IN kSystemAxisEmitters STEHT: sie ist keine vierte Haupt-Achse, sondern die
+/// KLAMMER um die drei ("alle 3 sind Haupt-Achsen, verhalten sich aber wie EINE"). Sie hier in die
+/// Tabelle zu haengen wuerde kSystemAxisOrderCount auf 4 treiben und damit den Owner-KERN "GENAU DREI
+/// Haupt-Achsen" brechen -- die drei Ordnungs-Netze wuerden das auch sofort melden. Sie wird deshalb
+/// NACH der Ordnungs-Schleife emittiert, wie machine_signatures auch.
+///
+/// Die Glieder-Liste kommt aus member_labels() des Typs, nie aus Literalen: driftet die Rekombination,
+/// driftet die XML mit, und die compile-time-Wachen im Header schlagen zuerst an.
+void emit_system_complex_axis(std::ofstream& f) {
+    note_name(meas::CebCompoundSystemAxis::axis_label());
+    auto const members = meas::CebCompoundSystemAxis::member_labels();
+    f << "  <system_complex_axis id=\"" << xml_escape(meas::CebCompoundSystemAxis::axis_label())
+      << "\" category=\"system_config\" binary_id=\"never\" stage=\"ct\" member_count=\"" << members.size()
+      << "\">\n";
+    f << "    <!-- Command-Pattern-Wrapper der Rekombination der DREI Haupt-Achsen (O-1r). Er ist KEINE\n";
+    f << "         vierte Haupt-Achse: kSystemAxisOrder bleibt bei dreien. load_framework ist KEIN Glied\n";
+    f << "         (es lebt seit A3 im Mess-Realm), die System-Meta-Metas fahren unter external_utils. -->\n";
+    for (auto const& m : members) f << "    <member axis=\"" << xml_escape(m) << "\"/>\n";
+    f << "    <sub_axis_group id=\"" << xml_escape(meas::BuildToolchainSubAxes::group_label())
+      << "\" sub_axis_count=\"" << meas::BuildToolchainSubAxes::size() << "\">\n";
+    f << "      <!-- compiler + opt_level + atomic128 haengen HIER und nicht an target_isa: die Gruppe\n";
+    f << "           beschreibt den BAU aus der Rekombination aller drei Achsen (O-1r). Die Liste nennt\n";
+    f << "           die drei Glieder flach; die Verschachtelung darunter zeigt die tatsaechliche\n";
+    f << "           Eltern-Kette (opt_level und atomic128 haengen unveraendert an compiler). -->\n";
+    for (auto const& g : meas::BuildToolchainSubAxes::labels())
+        f << "      <group_member axis=\"" << xml_escape(g) << "\"/>\n";
+    emit_compound_sub_axis_group_compiler(f);
+    f << "    </sub_axis_group>\n";
+    f << "  </system_complex_axis>\n";
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -456,6 +557,10 @@ int main(int argc, char** argv) {
 
     // -- P5/A9a: die Ordnung wird ABGELAUFEN, nicht wiederholt. Fuenf Handaufrufe sind hier entfallen. --
     for (auto const& e : kSystemAxisEmitters) e.emit(f);
+
+    // == O-8 Schritt 6 (IV.2.7/O-1r): die AEUSSERE Komplex-Achse. NACH der Ordnungs-Schleife, weil sie
+    //    die Klammer um die drei Haupt-Achsen ist und keine vierte von ihnen (siehe Funktions-Kommentar). ==
+    emit_system_complex_axis(f);
 
     // == Section 40.a: deklarierte per-Maschine SIMD-Flag-Signaturen (reflektiert aus machine_simd_signature.hpp,
     //    Host-Capability-Domaene). DIESE Signatur entscheidet den Bau (Gate Organ <= Signatur geschnitten

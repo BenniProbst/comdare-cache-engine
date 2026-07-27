@@ -7,10 +7,18 @@
 // Runtime-vtable (ISchedulingStrategy, 0 Konsumenten) bleibt unberuehrt daneben stehen — ihr
 // Ersatz ist der koordinierte Bau-INC-2.
 
+// O-8 Schritt 6 (Bauplan IV.2.2 / Owner OD-2): scheduling ist KEINE System-HAUPT-Achse mehr, sondern
+// UNTER-Achse des target_isa-Komplex-Wrappers ("der Komplex-Wrapper erhaelt allein die zugehoerigen
+// target_isa Unter-System-Achsen, die zuvor vereinbart waren"). Die Abgangs-Wache in
+// abi/system_axis_order.hpp haelt fest, dass sie nicht still als Haupt-Achse zurueckkehrt.
+// Der Eltern-Bezug ist ein TYP (CebSubAxis, Paket A1), das parent_axis_label() daraus ABGELEITET --
+// die 5 Sub-Dimensionen und ihre Semantik bleiben davon voellig unberuehrt.
+
 #pragma once
 
 #include <cache_engine/concepts/scheduling_strategy.hpp>
-#include <cache_engine/measurement/ceb_system_axis.hpp>
+#include <cache_engine/measurement/ceb_sub_axis.hpp>
+#include <cache_engine/measurement/target_isa_complex_axis.hpp>
 
 #include <concepts>
 #include <cstddef>
@@ -20,7 +28,7 @@
 namespace comdare::cache_engine::measurement {
 
 template <class Derived>
-struct SchedulingSystemAxis : CebSystemAxis<Derived> {
+struct SchedulingSystemAxis : CebSubAxis<Derived, TargetIsaAxisTag> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "scheduling"; }
 
     [[nodiscard]] static constexpr concepts::WorkerPoolLayout worker_pool_layout() noexcept {
@@ -43,9 +51,12 @@ protected:
     constexpr SchedulingSystemAxis() noexcept = default;
 };
 
+// O-8 Schritt 6: das Concept fordert jetzt zusaetzlich die UNTER-Achsen-Schicht (CebSubAxisConcept).
+// Damit ist der Eltern-Bezug Teil der Zusicherung: eine scheduling-Auspraegung, die nicht mehr am
+// target_isa-Komplex haengt, erfuellt das Concept nicht mehr.
 template <class A>
 concept SchedulingSystemAxisConcept =
-    CebSystemAxisConcept<A> && std::derived_from<A, SchedulingSystemAxis<A>> &&
+    CebSubAxisConcept<A> && std::derived_from<A, SchedulingSystemAxis<A>> &&
     std::is_empty_v<SchedulingSystemAxis<A>> && (!std::is_polymorphic_v<SchedulingSystemAxis<A>>) && requires {
         { A::worker_pool_layout() } -> std::same_as<concepts::WorkerPoolLayout>;
         { A::simd_worker_count_limit() } -> std::same_as<std::size_t>;
@@ -74,5 +85,9 @@ struct DefaultSchedulingSystemAxis final : SchedulingSystemAxis<DefaultSchedulin
 };
 
 static_assert(SchedulingSystemAxisConcept<DefaultSchedulingSystemAxis>);
+// O-8 Schritt 6 EINHAENGUNGS-WACHE: scheduling haengt am target_isa-Komplex, ueber den TYP.
+static_assert(DefaultSchedulingSystemAxis::parent_axis_label() == std::string_view{"target_isa"});
+static_assert(std::same_as<DefaultSchedulingSystemAxis::parent_axis, TargetIsaAxisTag>);
+static_assert(axis_depth_v<DefaultSchedulingSystemAxis> == 1);
 
 } // namespace comdare::cache_engine::measurement

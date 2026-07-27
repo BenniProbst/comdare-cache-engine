@@ -10,6 +10,31 @@
   <axis id="target_isa" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="2">
     <baustein name="x86_64" wrapper="X86_64TargetIsa" type="::comdare::cache_engine::measurement::X86_64TargetIsa" enabled="true" native="true" triple="" march=""/>
     <baustein name="aarch64" wrapper="Aarch64TargetIsa" type="::comdare::cache_engine::measurement::Aarch64TargetIsa" enabled="true" native="false" triple="-target aarch64-linux-gnu" march="-march=armv8-a"/>
+    <sub_axis id="target_isa_complex" parent="target_isa" stage="ct" kind="fixed_enum_tuple" complex_count="2">
+      <!-- Die drei festen Glieder je benannter Rekombination (Owner OD-2). Werte kommen aus
+           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b). -->
+      <complex id="prod1_zen5" isa="x86_64">
+        <sub_dim id="ram_frequency_mhz" declared="false"/>
+        <sub_dim id="cas_latency_cl" declared="false"/>
+        <sub_dim id="cpu_fabrication" declared="true" value="AuthenticAMD/26/68/0"/>
+      </complex>
+      <complex id="prod2_raptor_lake" isa="x86_64">
+        <sub_dim id="ram_frequency_mhz" declared="false"/>
+        <sub_dim id="cas_latency_cl" declared="false"/>
+        <sub_dim id="cpu_fabrication" declared="false"/>
+      </complex>
+    </sub_axis>
+    <sub_axis id="scheduling" parent="target_isa" stage="ct" kind="fixed_enum_tuple">
+      <!-- Ordinals = rohe Enum-Werte (kein CT-Label-Vorbild); id-Strings sind an die Accessor-
+           Aufrufe compile-gekoppelt (concepts::scheduling_strategy.hpp). -->
+      <sub_dim id="worker_pool_layout" value_ordinal="0"/>
+      <sub_dim id="simd_worker_count_limit" value="2"/>
+      <sub_dim id="hetero_core_dispatch" value_ordinal="0"/>
+      <sub_dim id="co_routine_strategy" value_ordinal="0"/>
+      <sub_dim id="batch_granularity" value_ordinal="0"/>
+    </sub_axis>
+    <sub_axis id="numa_node" parent="target_isa" stage="runtime" value_type="token" option_source="machine_resolved"/>
+    <sub_axis id="page" parent="target_isa" stage="runtime" value_type="token" option_source="machine_resolved"/>
   </axis>
   <axis id="operating_system" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="3">
     <baustein name="linux" wrapper="LinuxOperatingSystem" type="::comdare::cache_engine::measurement::LinuxOperatingSystem" enabled="true" posix="true"/>
@@ -61,6 +86,66 @@
       <flag cpuinfo="popcnt" gpp="-mpopcnt" clang="-mpopcnt" tier="scalar"/>
     </simd_feature_catalog>
   </axis>
+  <system_complex_axis id="build_target_complex" category="system_config" binary_id="never" stage="ct" member_count="3">
+    <!-- Command-Pattern-Wrapper der Rekombination der DREI Haupt-Achsen (O-1r). Er ist KEINE
+         vierte Haupt-Achse: kSystemAxisOrder bleibt bei dreien. load_framework ist KEIN Glied
+         (es lebt seit A3 im Mess-Realm), die System-Meta-Metas fahren unter external_utils. -->
+    <member axis="target_isa"/>
+    <member axis="operating_system"/>
+    <member axis="external_utils"/>
+    <sub_axis_group id="build_toolchain" sub_axis_count="3">
+      <!-- compiler + opt_level + atomic128 haengen HIER und nicht an target_isa: die Gruppe
+           beschreibt den BAU aus der Rekombination aller drei Achsen (O-1r). Die Liste nennt
+           die drei Glieder flach; die Verschachtelung darunter zeigt die tatsaechliche
+           Eltern-Kette (opt_level und atomic128 haengen unveraendert an compiler). -->
+      <group_member axis="compiler"/>
+      <group_member axis="opt_level"/>
+      <group_member axis="atomic128"/>
+      <sub_axis id="compiler" parent="build_target_complex" stage="ct" baustein_count="2">
+        <baustein name="gcc" wrapper="GccCompilerAxis" type="::comdare::cache_engine::measurement::GccCompilerAxis" enabled="true" driver="g++-16" supports_fno_gnu_unique="true"/>
+        <baustein name="clang" wrapper="ClangCompilerAxis" type="::comdare::cache_engine::measurement::ClangCompilerAxis" enabled="true" driver="clang++-22" supports_fno_gnu_unique="false"/>
+        <sub_axis id="opt_level" parent="compiler" stage="runtime" value_type="token" option_count="5">
+          <option id="O0" ieee754_deterministic="true">
+            <flag dialect="gpp" value="-O0"/>
+            <flag dialect="clang" value="-O0"/>
+            <flag dialect="msvc" value="/Od"/>
+          </option>
+          <option id="O1" ieee754_deterministic="true">
+            <flag dialect="gpp" value="-O1"/>
+            <flag dialect="clang" value="-O1"/>
+            <flag dialect="msvc" value="/O1"/>
+          </option>
+          <option id="O2" ieee754_deterministic="true">
+            <flag dialect="gpp" value="-O2"/>
+            <flag dialect="clang" value="-O2"/>
+            <flag dialect="msvc" value="/O2"/>
+          </option>
+          <option id="O3" ieee754_deterministic="true">
+            <flag dialect="gpp" value="-O3"/>
+            <flag dialect="clang" value="-O3"/>
+            <flag dialect="msvc" value="/O2"/>
+          </option>
+          <option id="Ofast" ieee754_deterministic="false">
+            <flag dialect="gpp" value="-Ofast"/>
+            <flag dialect="clang" value="-Ofast"/>
+            <flag dialect="msvc" value="/O2"/>
+          </option>
+        </sub_axis>
+        <sub_axis id="atomic128" parent="compiler" stage="runtime" value_type="token" option_count="2">
+          <option id="no_cx16">
+            <flag dialect="gpp" value=""/>
+            <flag dialect="clang" value=""/>
+            <flag dialect="msvc" value=""/>
+          </option>
+          <option id="cx16">
+            <flag dialect="gpp" value="-mcx16"/>
+            <flag dialect="clang" value="-mcx16"/>
+            <flag dialect="msvc" value=""/>
+          </option>
+        </sub_axis>
+      </sub_axis>
+    </sub_axis_group>
+  </system_complex_axis>
   <machine_signatures count="3">
     <machine id="prod1_zen5" host_isa="x86_64" flag_count="22">
       <flag cpuinfo="avx2"/>

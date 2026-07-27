@@ -42,6 +42,7 @@
 #include <builder/driver_build_variant_signature.hpp> // A7-B: driver_build_variant_signature (Mengen-Sig des Treibers)
 
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
+#include <cache_engine/measurement/simd_build_gate.hpp>             // C-3c: active_machine_signature (deklarierte Klasse)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
 #include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
 
@@ -203,17 +204,43 @@ struct RunProfileResult {
 }
 // (i) §61-STUFEN Compile-Kennzeichnung: build_type_version_suffix() (+bt=Debug NUR bei COMDARE_BUILD_TYPE=Debug)
 // lebt im winzigen build_type_stamp.hpp (isoliert testbar); hier via Include verfuegbar (perm_suffix unten).
-// ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn der Host-Prozessor sie bietet. Die -march-Flag IST das
-// Gate fuer die Organ-SIMD-Codegen (Organ-SIMD ≤ System-SIMD-Zulassung); Bau- + Mess-Host sind derselbe (golden-
-// Lauf), daher __builtin_cpu_supports. Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfuegbar.
+// ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn sie verfuegbar ist. Die -march-Flag IST das
+// Gate fuer die Organ-SIMD-Codegen (Organ-SIMD <= System-SIMD-Zulassung).
+//
+// C-3c (O-8 Schritt 6, Bauplan TEIL I P7, PATCH-AN-A3): die Zulassung fragt jetzt ZUERST die
+// DEKLARIERTE KLASSEN-Identitaet, nicht den Host. Grund: der Host ist eine INSTANZ-Eigenschaft
+// ("auf welcher Kiste laufe ich"), die Zulassung gehoert aber zur KLASSE ("was fuer eine Maschine
+// ist das") -- sonst hat dieselbe Maschinen-Klasse auf zwei Kisten zwei verschiedene Zulassungen,
+// und genau das verbietet Ledger 70.6. Die Kette ist die des O-4-Pakets: <machines>-Tupel ->
+// kDeclaredMachines -> deklarierte SIMD-Signatur, mit Drift-Gegenprobe gegen die echte CPU.
+// active_machine_signature() liefert AUSSCHLIESSLICH bei Verdict Match etwas; ohne Belegung, bei
+// Tupel-Fehltreffer, nicht erhobener Kern-Kennung oder Abweichung bleibt sie leer.
+//
+// WARUM DIE HOST-PROBE BLEIBT: sie ist der ehrliche Fallback fuer den Zustand "es ist gar keine
+// Maschine deklariert" -- heute der Normalfall, weil die CEB set_active_machine_declaration noch
+// nicht ruft (0 Produktions-Aufrufer). Sie ersatzlos zu streichen wuerde avx2/avx512 sofort ueberall
+// verbieten und den Bau still veraendern. Sobald die CEB belegt, gewinnt die Deklaration; der
+// Fallback verschwindet damit von selbst, ohne zweiten Kanal und ohne stillen Zwischenzustand.
 [[nodiscard]] inline bool system_axis_host_supports_simd(std::string_view simd_id) {
     namespace cm = ::comdare::cache_engine::measurement;
     if (simd_id == cm::SimdNoExtOption::simd_id()) return true;
+    // Welches cpuinfo-Flag die Grob-Route mindestens braucht (Unterstrich-Falle: cpuinfo-Id != -m-Flag).
+    std::string_view required{};
+    if (simd_id == cm::SimdAvx2Option::simd_id()) required = "avx2";
+    else if (simd_id == cm::SimdAvx512Option::simd_id()) required = "avx512f";
+    else return false; // unbekannte id => nicht zulassen
+    if (auto const signature = cm::active_machine_signature(); !signature.empty()) {
+        for (auto const& flag : signature)
+            if (flag.cpuinfo == required) return true;
+        return false; // deklarierte Klasse kennt das Flag NICHT -> abgelehnt, ohne Host-Rueckfrage
+    }
 #if defined(__x86_64__) || defined(_M_X64)
-    if (simd_id == cm::SimdAvx2Option::simd_id()) return __builtin_cpu_supports("avx2");
-    if (simd_id == cm::SimdAvx512Option::simd_id()) return __builtin_cpu_supports("avx512f");
+    // Keine Deklaration: Bau- und Mess-Host sind im golden-Lauf derselbe, daher die CPUID-Probe.
+    // Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfuegbar.
+    if (required == "avx2") return __builtin_cpu_supports("avx2");
+    if (required == "avx512f") return __builtin_cpu_supports("avx512f");
 #endif
-    return false; // avx* auf nicht-x86 / unbekannte id ⇒ nicht zulassen
+    return false; // avx* auf nicht-x86 -> nicht zulassen
 }
 
 /// Cache-Resthygiene-2: das PRE-IMAGE des Chunk-Organ-Fingerprints (COMDARE_GN_ALGO_SIG-Quelle) -- die perm.dll.algos-
