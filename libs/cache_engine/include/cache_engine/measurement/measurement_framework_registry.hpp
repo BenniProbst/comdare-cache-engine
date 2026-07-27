@@ -32,11 +32,16 @@ struct MeasurementFrameworkInfo {
     MeasurementFramework framework;
     std::string_view     id;   ///< kanonischer XML-/Legenden-Token ("ycsb")
     std::string_view     name; ///< exakt der Enum-Name (Doku/Reporting)
+    std::string_view
+        version; ///< O-8 Schritt 0A: bump-bare Code-Version der Mess-Framework-Achse ("v1.0.0",
+                 ///< render-neutral zu "v1"; Muster MeasurementToolingInfo.version). INERT angelegt --
+                 ///< der Emissions-Konsument (Segment der kMeasurementAxisVersionLine) entsteht erst mit
+                 ///< der Scharfschaltung in O-8 Schritt 9. Bis dahin liest sie NIEMAND: byte-neutral.
 };
 
 /// Die EINE Registry der Mess-Framework-UNTER-Achse -- Index == MeasurementFramework-Wert (static_assert-gesichert).
 inline constexpr std::array<MeasurementFrameworkInfo, kMeasurementFrameworkCount> kMeasurementFrameworkRegistry{{
-    {MeasurementFramework::Ycsb, "ycsb", "Ycsb"},
+    {MeasurementFramework::Ycsb, "ycsb", "Ycsb", "v1.0.0"},
 }};
 
 namespace detail {
@@ -45,6 +50,7 @@ namespace detail {
         if (static_cast<std::size_t>(kMeasurementFrameworkRegistry[i].framework) != i) return false;
         if (kMeasurementFrameworkRegistry[i].id.empty()) return false;
         if (kMeasurementFrameworkRegistry[i].name.empty()) return false;
+        if (kMeasurementFrameworkRegistry[i].version.empty()) return false;
     }
     return true;
 }
@@ -52,7 +58,7 @@ namespace detail {
 static_assert(kMeasurementFrameworkRegistry.size() == kMeasurementFrameworkCount,
               "kMeasurementFrameworkRegistry: Array-Groesse == kMeasurementFrameworkCount (Anzahl-Anker).");
 static_assert(detail::measurement_framework_registry_is_complete(),
-              "kMeasurementFrameworkRegistry: 1 Eintrag, Index==MeasurementFramework, id/name nie leer.");
+              "kMeasurementFrameworkRegistry: 1 Eintrag, Index==MeasurementFramework, id/name/version nie leer.");
 // Namen-Anker: Drift des id-Tokens (Umbenennung) bricht hier compile-time.
 static_assert(kMeasurementFrameworkRegistry[static_cast<std::size_t>(MeasurementFramework::Ycsb)].id ==
                   std::string_view{"ycsb"},
