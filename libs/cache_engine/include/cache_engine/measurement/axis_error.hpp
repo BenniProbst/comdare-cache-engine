@@ -141,6 +141,58 @@ inline constexpr std::size_t kInfraErrorClassCount = 3;
     return "unbekannt";
 }
 
+// -- Task #7 / P1: Hardware-ERHEBUNGS-Fehlerklassen: EIGENE Domaene, disjunkt von D1 und Infra. -----
+// Warum eine eigene Domaene und nicht HardwareErweiterungFehlt (D1): D1 sagt "die Hardware KANN etwas
+// nicht" (AVX512 fehlt) und ist ein Urteil ueber die MASCHINE. Hier geht es um die ERHEBUNG selbst --
+// die Quelle war nicht da, nicht lesbar, kaputt oder in einem unbekannten Format. Das ist kein Urteil
+// ueber die Hardware, sondern ueber unseren ZUGANG zu ihr; beides zu vermischen wuerde eine fehlende
+// Datei als fehlende CPU-Faehigkeit ausweisen. Die D1-Count-Wache (kCompilerCompilerErrorClassCount)
+// bleibt damit unberuehrt (RF-3-Kollisionslehre: eine neue Klasse in einem fremden Enum zieht dessen
+// Count-Wachen und bricht sie still).
+//
+// QuelleFehlt vs. QuelleKorrupt ist die tragende Unterscheidung (Auflage A4): eine FEHLENDE Quelle ist
+// der ERWARTETE Normalfall (kein SPD-Knoten, keine Boot-Cache-Datei) -- die Erhebungs-Kette faellt
+// ehrlich auf die naechste Stufe durch. Eine VORHANDENE, aber kaputte Quelle ist ein BEFUND: dort
+// stimmt etwas nicht, und ein stilles Durchfallen wuerde genau das verbergen. Beide muessen im
+// Degradations-Pfad unterscheidbar bleiben.
+enum class HardwareProbeErrorClass : std::uint8_t {
+    QuelleFehlt     = 0, // Knoten/Datei existiert nicht (erwarteter Zustand -> naechste Stufe, kein Alarm)
+    QuelleUnlesbar  = 1, // existiert, aber kein Zugriff (gemessen: /sys/firmware/dmi/tables/DMI ist 0400 root)
+    QuelleKorrupt   = 2, // vorhanden+lesbar, aber inhaltlich unbrauchbar (zu kurz, Nullwerte) -> BEFUND, nie still
+    FormatUnbekannt = 3, // Kennung passt zu keinem unterstuetzten Format -> NIE interpretieren, nie raten
+};
+/// Single-Source der Erhebungs-Klassenzahl (Drift-Guards unten, beide Richtungen).
+inline constexpr std::size_t kHardwareProbeErrorClassCount = 4;
+
+/// Log-Etikett je Erhebungs-Klasse. Der Fallback heisst BEWUSST nicht "unbekannt": dieses Wort tragen
+/// bereits error_class_label und infra_error_label als Fallback, und die Disjunktheits-Wachen unten
+/// sollen eine echte Aussage machen statt an einem geteilten Sammelbegriff zu scheitern.
+[[nodiscard]] constexpr std::string_view hardware_probe_label(HardwareProbeErrorClass c) noexcept {
+    switch (c) {
+        case HardwareProbeErrorClass::QuelleFehlt: return "quelle_fehlt";
+        case HardwareProbeErrorClass::QuelleUnlesbar: return "quelle_unlesbar";
+        case HardwareProbeErrorClass::QuelleKorrupt: return "quelle_korrupt";
+        case HardwareProbeErrorClass::FormatUnbekannt: return "format_unbekannt";
+    }
+    return "hardware_probe_unbekannt";
+}
+
+/// Ist ein Etikett gegen ALLE bestehenden Zell-/Fehler-Vokabeln disjunkt? Die Schleifen laufen ueber die
+/// Count-Single-Sources statt ueber handgepflegte Listen: waechst eine fremde Taxonomie, waechst diese
+/// Pruefung automatisch mit. Eine Liste haette genau beim naechsten Zuwachs geschwiegen -- dieselbe
+/// Blindheit, die die zweite Drift-Richtung unten verhindert.
+[[nodiscard]] constexpr bool probe_label_ist_disjunkt(std::string_view t) noexcept {
+    for (std::size_t i = 0; i < kCompilerCompilerErrorClassCount; ++i)
+        if (t == error_class_label(static_cast<CompilerCompilerErrorClass>(i))) return false;
+    for (std::size_t i = 0; i < kSampleStatusCount; ++i)
+        if (t == sample_status_token(static_cast<SampleStatus>(i))) return false;
+    for (std::size_t i = 0; i < kAdmissionStatusCount; ++i)
+        if (t == admission_status_token(static_cast<AdmissionStatus>(i))) return false;
+    for (std::size_t i = 0; i < kInfraErrorClassCount; ++i)
+        if (t == infra_error_label(static_cast<InfraErrorClass>(i))) return false;
+    return true;
+}
+
 // ── Chain-of-Responsibility: die Fehler-DOMAENE diskriminiert, welche Log-/Behandlungs-Kette greift. ──
 // error_domain() ist je Fehler-Typ ueberladen (Tag-Dispatch, compile-time); die rekursive Dock-Kette
 // (Planer->CEB->Tier) reicht einen Fehler an die zustaendige Domaene weiter OHNE Runtime-Typ-Pruefung.
@@ -148,8 +200,12 @@ enum class ErrorDomain : std::uint8_t {
     Infra            = 0, // Prozess/IO — kein Compiler-Urteil, kein Mess-Ergebnis
     CompilerCompiler = 1, // D1: HW-/Compile-Fehlen — Log, Experiment misst weiter
     Sample           = 2, // D2: Mess-Zell-Status (Ok/n-a/failed)
+    HardwareProbe    = 3, // Task #7: ZUGANG zur Hardware-Quelle, kein Urteil ueber die Hardware selbst
 };
 [[nodiscard]] constexpr ErrorDomain error_domain(InfraErrorClass) noexcept { return ErrorDomain::Infra; }
+[[nodiscard]] constexpr ErrorDomain error_domain(HardwareProbeErrorClass) noexcept {
+    return ErrorDomain::HardwareProbe;
+}
 [[nodiscard]] constexpr ErrorDomain error_domain(CompilerCompilerErrorClass) noexcept {
     return ErrorDomain::CompilerCompiler;
 }
@@ -271,5 +327,41 @@ static_assert(!LogAndContinueInfraPolicy::aborts() && !LogAndContinueD1Policy::a
               !FailedCellD2Policy::aborts()); // honest-weiter, nie Abbruch (Pipeline reisst nicht)
 static_assert(LogAndContinueInfraPolicy::domain() == ErrorDomain::Infra &&
               FailedCellD2Policy::domain() == ErrorDomain::Sample);
+
+// -- Task #7 / P1: die Erhebungs-Domaene -- POD-Form, BEIDE Drift-Richtungen, volle Disjunktheit ----
+static_assert(std::is_same_v<std::underlying_type_t<HardwareProbeErrorClass>, std::uint8_t>);
+static_assert(std::is_trivially_copyable_v<HardwareProbeErrorClass>);
+static_assert(static_cast<std::uint8_t>(HardwareProbeErrorClass::QuelleFehlt) == 0,
+              "QuelleFehlt MUSS 0 sein: der erwartete Normalfall ist der Default-Zustand.");
+// (1) Namens-Pin und (2) Etikett-hinter-Count -- beide, weil (1) allein ein ANHAENGEN nicht faengt (RF-3).
+static_assert(kHardwareProbeErrorClassCount == static_cast<std::size_t>(HardwareProbeErrorClass::FormatUnbekannt) + 1);
+static_assert(hardware_probe_label(static_cast<HardwareProbeErrorClass>(kHardwareProbeErrorClassCount)) ==
+                  std::string_view{"hardware_probe_unbekannt"},
+              "Drift: hinter dem Count liegt eine etikettierte Erhebungs-Klasse");
+// Die Domaenen-Trennung ist zementiert: eine nicht lesbare Quelle ist NIE ein Urteil ueber die Hardware
+// (D1) und NIE ein Prozess-/IO-Fehler des Bau-Kanals (Infra). Wer das aufweicht, meldet eine fehlende
+// Datei als fehlende CPU-Faehigkeit.
+static_assert(error_domain(HardwareProbeErrorClass::QuelleFehlt) == ErrorDomain::HardwareProbe);
+static_assert(error_domain(HardwareProbeErrorClass::QuelleFehlt) !=
+              error_domain(CompilerCompilerErrorClass::HardwareErweiterungFehlt));
+static_assert(error_domain(HardwareProbeErrorClass::QuelleFehlt) != error_domain(InfraErrorClass::ArtefaktIo));
+static_assert(error_domain(HardwareProbeErrorClass::QuelleFehlt) != error_domain(SampleStatus::Failed));
+// A4-KERN: fehlend und korrupt duerfen NIE zusammenfallen -- sonst verschwindet der Befund "Quelle
+// vorhanden, aber kaputt" im erwarteten Normalfall "Quelle nicht da" und degradiert still.
+static_assert(HardwareProbeErrorClass::QuelleFehlt != HardwareProbeErrorClass::QuelleKorrupt);
+static_assert(hardware_probe_label(HardwareProbeErrorClass::QuelleFehlt) !=
+              hardware_probe_label(HardwareProbeErrorClass::QuelleKorrupt));
+// Token-Disjunktheit gegen ALLE bestehenden Vokabeln, jede Klasse einzeln + der Fallback.
+static_assert(probe_label_ist_disjunkt(hardware_probe_label(HardwareProbeErrorClass::QuelleFehlt)));
+static_assert(probe_label_ist_disjunkt(hardware_probe_label(HardwareProbeErrorClass::QuelleUnlesbar)));
+static_assert(probe_label_ist_disjunkt(hardware_probe_label(HardwareProbeErrorClass::QuelleKorrupt)));
+static_assert(probe_label_ist_disjunkt(hardware_probe_label(HardwareProbeErrorClass::FormatUnbekannt)));
+static_assert(
+    probe_label_ist_disjunkt(hardware_probe_label(static_cast<HardwareProbeErrorClass>(kHardwareProbeErrorClassCount))),
+    "Auch der Fallback muss disjunkt sein -- 'unbekannt' ist bereits doppelt vergeben.");
+// Gegenprobe der Wache selbst: sie muss ein bekannt KOLLIDIERENDES Etikett auch wirklich ablehnen,
+// sonst waere die Disjunktheits-Aussage oben eine leere Zusicherung (Negativfall = der eigentliche Test).
+static_assert(!probe_label_ist_disjunkt(sample_status_token(SampleStatus::Failed)));
+static_assert(!probe_label_ist_disjunkt(infra_error_label(InfraErrorClass::ArtefaktIo)));
 
 } // namespace comdare::cache_engine::measurement
