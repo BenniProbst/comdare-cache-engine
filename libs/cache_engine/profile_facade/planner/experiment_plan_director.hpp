@@ -113,6 +113,13 @@ struct PlanBuildSemantic {
 };
 
 /// Kopf des Plans: Provenienz (Quelle/Profil) + Perm-Zahl + Registry-Trio-Annotation.
+// Plan-Kopf v1.1: die profil-seitigen Substanz-Zahlen als EIN Argument (statt zweier loser size_t am
+// ohnehin langen walk_perms_-Kopf). Je Profil-Art anders erhoben, s. PlanHeader::profile_axis_count.
+struct PlanProfileSubstance {
+    std::size_t axes   = 0;
+    std::size_t values = 0;
+};
+
 struct PlanHeader {
     std::string source_kind; // "thesis" | "experiment"
     std::string profile_id;
@@ -126,6 +133,16 @@ struct PlanHeader {
     std::string profile_basename;
     std::size_t perm_count              = 0; // |opt x simd| JE Mess-Kombination
     std::size_t measurement_combo_count = 0; // W10-A: Zahl der Mess-Achsen-Kombinationen (heute typisch 1)
+    // V-2/2a-Nachzug (Plan-Kopf v1.1, 2026-07-27): die PROFIL-SEITIGE Substanz -- wie viele Achsen und
+    // Werte das Anwender-Profil ueberhaupt deklariert. Warum das noetig wurde: perm_count und die
+    // Schritt-Zahl sind fuer ein Thesis-Profil IMMER >= 1 (es gibt stets eine Default-System-Perm und den
+    // Basis-Pass), ein achsenloses Profil sah im Plan also aus wie ein gueltiger Lauf und fiel erst tief
+    // unten an der Achse-2-Wache um. Diese beiden Zahlen machen "das Profil deklariert nichts" AM PLAN
+    // sichtbar -- der Validat kannte sie laengst ("geprueft: N Achsen, M Werte"), der Plan nicht.
+    // Thesis: |permute_axes| und die Summe ihrer <value>-Eintraege. Experiment: |axes_default_lookup| und
+    // die Summe der allowed_variants. Reine Kopf-Annotation, kein Filter (binary_id-neutral).
+    std::size_t                profile_axis_count  = 0;
+    std::size_t                profile_value_count = 0;
     PlanRegistryTrioAnnotation registries;
     // S3 P-RESOLVER (2026-07-20): der klassifizierte Organ-Position-Reject/Route-Report (resolve_axis_refs_against_
     // trio). resolved=false (INERT-Default) wenn der Director OHNE volles RegistryTrio konstruiert wurde; sonst
@@ -183,9 +200,10 @@ public:
 
 // ── PlanTextBuilder — ConcreteBuilder + der --dump-plan-Traeger. Deterministische Zeilen-Textform. ──────────
 //    Format (stabil, byte-reproduzierbar; keine host-abhaengigen Felder):
-//      # comdare-experiment-plan v1
+//      # comdare-experiment-plan v1.1
 //      source_kind=<thesis|experiment>
 //      profile_id=<id>
+//      profile axes=<n> values=<m>          (v1.1: profil-seitige Substanz, additiv)
 //      registry_trio loaded=<0|1> organ=<engine> organ_axes=<n> organ_offers=<n> system=... measurement=...
 //      perm_count=<n>
 //      perm <i> opt=<id> simd=<id> opt_flag=<f> march_flag=<f> build_version_suffix=<s>
@@ -193,9 +211,13 @@ public:
 class PlanTextBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
-        out_ += "# comdare-experiment-plan v1\n";
+        out_ += "# comdare-experiment-plan v1.1\n";
         out_ += "source_kind=" + h.source_kind + "\n";
         out_ += "profile_id=" + h.profile_id + "\n";
+        // v1.1 (2026-07-27): die profil-seitige Substanz. Steht bewusst VOR registry_trio -- erst was das
+        // Profil deklariert, dann was das Angebot dagegen haelt.
+        out_ += "profile axes=" + std::to_string(h.profile_axis_count) +
+                " values=" + std::to_string(h.profile_value_count) + "\n";
         out_ += "registry_trio loaded=" + std::string(h.registries.loaded ? "1" : "0") +
                 " organ=" + nz(h.registries.organ.engine) +
                 " organ_axes=" + std::to_string(h.registries.organ.axis_count) +
@@ -252,7 +274,10 @@ private:
 // Bewusst OHNE Text/Allokation: der Gate-Pfad laeuft vor JEDEM Messlauf und darf nichts kosten.
 class PlanSizeBuilder final : public IPlanBuilder {
 public:
-    void begin_plan(PlanHeader const&) override {}
+    void begin_plan(PlanHeader const& h) override {
+        axes_   = h.profile_axis_count; // Plan-Kopf v1.1
+        values_ = h.profile_value_count;
+    }
     void begin_perm(PlanPerm const&) override { ++perms_; }
     void on_step(PlanStep const&) override { ++steps_; }
     void end_perm(PlanPerm const&) override {}
@@ -260,14 +285,25 @@ public:
 
     [[nodiscard]] std::size_t perm_count() const noexcept { return perms_; }
     [[nodiscard]] std::size_t step_count() const noexcept { return steps_; }
-    /// LEER = es gibt nichts zu tun. Beide Zahlen zaehlen: 0 Perms = keine Rekombination geplant;
-    /// Perms ohne Steps = nichts zu messen. Der Aufrufer meldet BEIDE Zahlen, damit der Fall
-    /// unterscheidbar bleibt statt in einem pauschalen "leer" zu verschwinden.
-    [[nodiscard]] bool empty() const noexcept { return perms_ == 0 || steps_ == 0; }
+    [[nodiscard]] std::size_t profile_axis_count() const noexcept { return axes_; }
+    [[nodiscard]] std::size_t profile_value_count() const noexcept { return values_; }
+
+    /// LEER = es gibt nichts zu tun. DREI Zahlen, weil sie drei verschiedene Leer-Arten treffen:
+    ///   perms_==0   -- keine Rekombination geplant (Experiment-Wurzel ohne Kombinationen);
+    ///   steps_==0   -- Perms ohne Arbeit (Experiment-Wurzel ohne Phasen);
+    ///   axes_==0    -- das PROFIL deklariert gar keine Achse. Diese dritte Art war der Grund fuer v1.1:
+    ///                  ein achsenloses THESIS-Profil hat immer >=1 Perm (Default-System-Perm) und >=1
+    ///                  Schritt (Basis-Pass) -- es sah am Plan wie ein gueltiger Lauf aus und fiel erst
+    ///                  tief unten an der Achse-2-Wache um (Exit 4). Jetzt faellt es hier, benannt.
+    /// Der Aufrufer meldet ALLE Zahlen, damit die Arten unterscheidbar bleiben statt in einem pauschalen
+    /// "leer" zu verschwinden.
+    [[nodiscard]] bool empty() const noexcept { return perms_ == 0 || steps_ == 0 || axes_ == 0; }
 
 private:
-    std::size_t perms_ = 0;
-    std::size_t steps_ = 0;
+    std::size_t perms_  = 0;
+    std::size_t steps_  = 0;
+    std::size_t axes_   = 0;
+    std::size_t values_ = 0;
 };
 
 // ── CMakeGraphBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-B-Zell-Direktbau-Sicht).
@@ -1636,8 +1672,13 @@ public:
         // Methodik bleibt profil-getrieben+exactly-one; die Env ist Profil-SELEKTOR, nicht Methodik-Wert.
         PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
             methodik_run_methodology.empty() ? tp.run_methodology : methodik_run_methodology);
-        walk_perms_("thesis", tp.id, profile_basename, combos, opt_perms, simd_perms, resolver, build_semantic, b,
-                    [&](IPlanBuilder& bb) {
+        // Plan-Kopf v1.1: Substanz des THESIS-Profils = permutierte Achsen + Summe ihrer <value>-Eintraege
+        // (dieselbe Zaehlung, die der Validat als "N Achsen, M Werte" meldet).
+        PlanProfileSubstance thesis_substance;
+        thesis_substance.axes = tp.permute_axes.size();
+        for (auto const& ax : tp.permute_axes) thesis_substance.values += ax.values.size();
+        walk_perms_("thesis", tp.id, profile_basename, thesis_substance, combos, opt_perms, simd_perms, resolver,
+                    build_semantic, b, [&](IPlanBuilder& bb) {
                         std::size_t j = 0;
                         for (auto const& sweep_axis : passes) {
                             PlanStep s;
@@ -1677,8 +1718,13 @@ public:
         // ep.run_methodology (BYTE-IDENTISCH). Achsen/Perms bleiben aus ep.
         PlanBuildSemantic const build_semantic = build_semantic_of_run_methodology(
             methodik_run_methodology.empty() ? ep.run_methodology : methodik_run_methodology);
-        walk_perms_("experiment", ep.id, profile_basename, combos, opt_perms, simd_perms, resolver, build_semantic, b,
-                    [&](IPlanBuilder& bb) {
+        // Plan-Kopf v1.1: Substanz des EXPERIMENT-Profils = axes_default_lookup-Eintraege + Summe ihrer
+        // allowed_variants (die Default-/Limit-Schicht ist hier die Achsen-Deklaration des Anwenders).
+        PlanProfileSubstance experiment_substance;
+        experiment_substance.axes = ep.axes_default_lookup.size();
+        for (auto const& ax : ep.axes_default_lookup) experiment_substance.values += ax.allowed_variants.size();
+        walk_perms_("experiment", ep.id, profile_basename, experiment_substance, combos, opt_perms, simd_perms,
+                    resolver, build_semantic, b, [&](IPlanBuilder& bb) {
                         std::size_t j = 0;
                         for (auto const& proj : projections) {
                             for (auto const& p : proj.passes) {
@@ -1820,15 +1866,18 @@ private:
     // Perm-Menge zum Vor-W10-Verhalten; der perm_index laeuft ueber den gesamten Walk).
     template <class StepEmitter>
     void walk_perms_(std::string_view source_kind, std::string const& profile_id, std::string const& profile_basename,
-                     std::vector<PlanMeasurementCombo> const& combos, std::vector<std::string> const& opt_perms,
-                     std::vector<std::string> const& simd_perms, tlz::ResolverReport const& resolver,
-                     PlanBuildSemantic const& build_semantic, IPlanBuilder& b, StepEmitter&& emit_steps) const {
+                     PlanProfileSubstance const& substance, std::vector<PlanMeasurementCombo> const& combos,
+                     std::vector<std::string> const& opt_perms, std::vector<std::string> const& simd_perms,
+                     tlz::ResolverReport const& resolver, PlanBuildSemantic const& build_semantic, IPlanBuilder& b,
+                     StepEmitter&& emit_steps) const {
         PlanHeader header;
         header.source_kind             = std::string{source_kind};
         header.profile_id              = profile_id;
         header.profile_basename        = profile_basename; // S2-NACHT: Basename des aktiven Profils
         header.perm_count              = opt_perms.size() * simd_perms.size();
         header.measurement_combo_count = combos.size();
+        header.profile_axis_count      = substance.axes;   // Plan-Kopf v1.1
+        header.profile_value_count     = substance.values; // Plan-Kopf v1.1
         header.registries              = trio_;
         header.resolver                = resolver; // S3 P-RESOLVER: Organ-Position-Report im Plan-Kopf (Annotation)
         header.build_semantic          = build_semantic; // S5-P1: measure-Methodik-Build-/Mess-Semantik (Tier-Emitter)

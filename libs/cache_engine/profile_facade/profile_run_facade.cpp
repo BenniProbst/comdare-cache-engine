@@ -881,15 +881,18 @@ int assert_plan_nonempty_facade(std::filesystem::path const& profile_path, std::
     if (int const rc = construct_plan_into(profile_path, builder, os, "startgate"); rc != 0) return rc;
     if (builder.empty()) {
         os << "FATAL [V-2 Startgate]: Kein Experiment moeglich -- der Plan dieses Profils ist leer.\n"
-           << "  Profil:      " << profile_path.string() << "\n"
-           << "  Perms:       " << builder.perm_count() << "\n"
-           << "  Schritte:    " << builder.step_count() << "\n"
-           << "  Bedeutung:   0 Perms = keine Rekombination geplant; Perms ohne Schritte = nichts zu messen.\n"
-           << "  Naechstes:   Profil pruefen (--validate) bzw. --dump-plan fuer den vollen Plan-Text.\n";
+           << "  Profil:        " << profile_path.string() << "\n"
+           << "  Profil-Achsen: " << builder.profile_axis_count() << " (Werte: " << builder.profile_value_count()
+           << ")\n"
+           << "  Perms:         " << builder.perm_count() << "\n"
+           << "  Schritte:      " << builder.step_count() << "\n"
+           << "  Bedeutung:     0 Achsen = das Profil deklariert nichts zu permutieren; 0 Perms = keine\n"
+           << "                 Rekombination geplant; Perms ohne Schritte = nichts zu messen.\n"
+           << "  Naechstes:     Profil pruefen (--validate) bzw. --dump-plan fuer den vollen Plan-Text.\n";
         return 2;
     }
-    os << "[V-2 Startgate] Plan traegt " << builder.perm_count() << " Perm(s) mit " << builder.step_count()
-       << " Schritt(en) -- Lauf startet.\n";
+    os << "[V-2 Startgate] Plan traegt " << builder.profile_axis_count() << " Profil-Achse(n), " << builder.perm_count()
+       << " Perm(s) mit " << builder.step_count() << " Schritt(en) -- Lauf startet.\n";
     return 0;
 }
 
