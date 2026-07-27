@@ -81,6 +81,7 @@
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // ex::compose_organ_stamp_line / build_axis_variant_version_table (W12-A2)
 #include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn
 
+#include <cache_engine/abi/anatomy_fingerprint.hpp>   // A8.3: kOverlaySourceHash (5. Preimage-Glied)
 #include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
 #include <sha512/ctsha512.hpp>                        // I2: Runtime-SHA-512 fuer den drift-freien Fingerprint-Provider
 
@@ -260,11 +261,18 @@ template <class List>
     std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
     // Preimage = concat(organ + system + measurement + merge) in DIESER fixen Reihenfolge (anatomy_fingerprint.hpp D3);
     // merge = "" (Lazy-/ce-only-Pfad, identisch zu lazy_adhoc_source_for -> merge_stamp={}).
+    // A8.3 (O-8 Schritt 8): das 5. Glied -- der Overlay-Source-Hash -- steht am ENDE, exakt wie im
+    // consteval-Zwilling anatomy_fingerprint_hex. Heute leer (Pre-Build-Codegen setzt das Define noch
+    // nicht), traegt also nichts bei; die beiden Wege bleiben aber auch dann deckungsgleich, wenn er
+    // gefuellt wird. Wer die Reihenfolge hier aendert, muss sie DORT mitaendern -- sonst driftet der
+    // Lager-Index-Anker vom einkompilierten sha512_line weg.
+    auto const overlay = ::comdare::cache_engine::abi::kOverlaySourceHash;
     std::string preimage;
-    preimage.reserve(organ.size() + system.size() + measurement_stamp.size());
+    preimage.reserve(organ.size() + system.size() + measurement_stamp.size() + overlay.size());
     preimage += organ;
     preimage += system;
     preimage += measurement_stamp;
+    preimage += overlay;
     auto const digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const hex = ::comdare::cache_engine::sha512::to_hex(digest); // array<char, 128>

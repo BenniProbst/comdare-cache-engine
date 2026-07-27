@@ -47,6 +47,10 @@ struct Sha512Key {
 // Key aus den Stempel-Zeilen: sha512(concat(lines...)) OHNE Separator. Fuer die Binary-Genus sind das
 // die vier Anatomy-Zeilen in Reihenfolge organ + system + measurement + merge -> identisch zu
 // abi::anatomy_fingerprint_hex. Kein zweiter Delimiter, sonst driftet der Lager-Key vom Stempel weg.
+// A8.3 (O-8 Schritt 8): das Preimage hat dort ein FUENFTES Glied bekommen -- den Overlay-Source-Hash,
+// als Anhang ans Ende. Diese Funktion bleibt bewusst generisch (sie konkateniert, was der Aufrufer
+// gibt); wer die Binary-Genus-Zeilen zusammenstellt, haengt das Glied als letzte Zeile an. Solange der
+// Pre-Build-Codegen das Define nicht setzt, ist es leer und der Key bleibt unveraendert.
 [[nodiscard]] inline Sha512Key derive_key_from_lines(std::span<std::string_view const> lines) {
     std::string pre;
     for (std::string_view l : lines) pre.append(l);
