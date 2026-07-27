@@ -154,10 +154,29 @@ inline constexpr MachineCoreCpuId kProd1Zen5Core{.vendor   = "AuthenticAMD",
                                                  .brand    = "AMD Ryzen 9 9950X3D",
                                                  .declared = true};
 
-/// prod2 / odroid -- die CPU-Kern-Kennung ist NOCH NICHT abgeleitet. Sie wird hier BEWUSST NICHT
-/// geraten: der Cluster ist fuer mich read-only, ich konnte die beiden Hosts nicht abfragen. Bis die
-/// Werte offline erhoben sind (siehe Herkunfts-Block im Kopf), meldet verify_declared_cpu() ehrlich
-/// NichtDeklariert statt eines erfundenen Treffers.
+/// prod2 -- O-4a-VOLLZUG (Nachzug O-8 Schritt 5b, 27.07.2026): die Kern-Kennung ist jetzt OFFLINE
+/// ERHOBEN (Infra-Handout fee32eb, 5 lscpu-Werte) und damit deklarierbar. Family 6 / Model 151 /
+/// Stepping 2 ist Alder Lake-S, die CPU des Hosts prod2 (i9-12900K).
+///
+/// WARUM DER BRAND-STRING LEER BLEIBT: core_cpu_matches vergleicht den Brand als PRAEFIX gegen den
+/// live gelesenen String (bei prod1 belegt: "AMD Ryzen 9 9950X3D 16-Core Processor  "). Fuer prod2
+/// liegt mir der LIVE-String nicht vor, nur die Modell-Bezeichnung. Ein aus ihr konstruierter Praefix
+/// waere geraten und wuerde bei der kleinsten Abweichung (Prefix "12th Gen ", andere Schreibweise)
+/// eine FALSCHE Abweichung melden -- also genau den stillen Fehler, den die Drift-Gegenprobe
+/// verhindern soll. Ein leerer Brand ist im Matcher ausdruecklich vorgesehen und heisst "Brand nicht
+/// mitpruefen"; die vier harten CPUID-Felder pruefen weiterhin voll. Nachtrag rein additiv.
+inline constexpr MachineCoreCpuId kProd2AlderLakeCore{.vendor   = "GenuineIntel",
+                                                      .family   = 6,
+                                                      .model    = 151,
+                                                      .stepping = 2,
+                                                      .brand    = "",
+                                                      .declared = true};
+
+/// odroid -- die CPU-Kern-Kennung ist NOCH NICHT abgeleitet. Sie wird hier BEWUSST NICHT geraten:
+/// der Cluster ist read-only, der Host nicht abfragbar. Bis die Werte offline erhoben sind (siehe
+/// Herkunfts-Block im Kopf), meldet verify_declared_cpu() ehrlich NichtDeklariert statt eines
+/// erfundenen Treffers. Die Konstante bleibt als benannter Zustand stehen -- sie ist der Platzhalter
+/// fuer jede kuenftige, noch nicht erhobene Maschine, nicht toter Code.
 inline constexpr MachineCoreCpuId kUndeclaredCore{};
 
 /// Die Deklarations-Tabelle. Die Tupel-Werte sind NICHT hier erfunden, sondern WOERTLICH aus der
@@ -183,7 +202,7 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 /// die Werte erhoben sind, treten sie als zwei Zahlen je Zeile ein, ohne Struktur-Aenderung.
 inline constexpr std::array<DeclaredMachine, 2> kDeclaredMachines{{
     {"amd_zen5_avx512", "ddr5_2x32", Prod1Zen5Signature::machine_id(), kProd1Zen5Core, Prod1Zen5Signature::signature()},
-    {"intel_avx2", "ddr4_2x32", Prod2RaptorLakeSignature::machine_id(), kUndeclaredCore,
+    {"intel_avx2", "ddr4_2x32", Prod2RaptorLakeSignature::machine_id(), kProd2AlderLakeCore,
      Prod2RaptorLakeSignature::signature()},
 }};
 
@@ -376,10 +395,20 @@ static_assert(identify_machine("gibt_es_nicht", "auch_nicht", kProd1Zen5Core).si
 static_assert(identify_machine("amd_zen5_avx512", "ddr5_2x32", kProd1Zen5Core).verdict ==
               MachineIdentityVerdict::Match);
 static_assert(!identify_machine("amd_zen5_avx512", "ddr5_2x32", kProd1Zen5Core).signature().empty());
-// Noch nicht erhobene Kern-Kennung -> ehrlich NichtDeklariert und KEINE Signatur (statt Raten).
+// O-8 Schritt 5b (O-4a-VOLLZUG): prod2 ist jetzt deklariert. Ein prod1-Kern gegen prod2s Tupel ist
+// deshalb keine fehlende Deklaration mehr, sondern eine echte ABWEICHUNG -- und die ist ein Fehler.
+// Die Zeile stand vorher auf NichtDeklariert; sie hat den Nachzug erzwungen, statt ihn zu verschlucken.
 static_assert(identify_machine("intel_avx2", "ddr4_2x32", kProd1Zen5Core).verdict ==
-              MachineIdentityVerdict::NichtDeklariert);
+              MachineIdentityVerdict::Abweichung);
 static_assert(identify_machine("intel_avx2", "ddr4_2x32", kProd1Zen5Core).signature().empty());
+// prod2 gegen seine eigenen erhobenen Werte: Match, und erst DANN gibt es eine Signatur.
+static_assert(identify_machine("intel_avx2", "ddr4_2x32", kProd2AlderLakeCore).verdict ==
+              MachineIdentityVerdict::Match);
+static_assert(!identify_machine("intel_avx2", "ddr4_2x32", kProd2AlderLakeCore).signature().empty());
+// Der NichtDeklariert-Zustand bleibt erreichbar -- er haengt jetzt an der LIVE-Seite (CPUID nicht
+// lesbar), nicht mehr an einer fehlenden Deklaration. Ohne diese Zeile waere er unbelegt.
+static_assert(identify_machine("intel_avx2", "ddr4_2x32", MachineCoreCpuId{}).verdict ==
+              MachineIdentityVerdict::NichtDeklariert);
 // Abweichung -> D1 HardwareErweiterungFehlt; die uebrigen Urteile sind KEINE Fehler.
 static_assert(error_class_of_verdict(MachineIdentityVerdict::Abweichung) ==
               CompilerCompilerErrorClass::HardwareErweiterungFehlt);

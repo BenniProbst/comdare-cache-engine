@@ -172,9 +172,14 @@ static_assert(Prod1Zen5TargetIsa::declared_machine() != Prod2RaptorLakeTargetIsa
 // Stelle, an der eine spaetere Nachdeklaration bewusst quittiert werden muss, statt still zu wirken.
 static_assert(Prod1Zen5TargetIsa::cpu_fabrication().declared,
               "prod1 hat eine erhobene CPU-Kern-Kennung (O-4, live gegengeprueft).");
-static_assert(!Prod2RaptorLakeTargetIsa::cpu_fabrication().declared,
-              "prod2s Kern-Kennung ist der offene O-4a-Nachzug. Wird sie deklariert, ist DIESE Zeile "
-              "nachzuziehen -- zusammen mit test_o4_machine_identity (NichtDeklariert-Zusicherung).");
+// O-8 Schritt 5b: der O-4a-Nachzug ist VOLLZOGEN -- prod2s Kern-Kennung ist erhoben und deklariert.
+// Diese Zeile stand vorher invertiert hier und hat den Nachzug erzwungen, statt ihn zu vergessen.
+static_assert(Prod2RaptorLakeTargetIsa::cpu_fabrication().declared,
+              "prod2s Kern-Kennung ist mit O-4a erhoben (GenuineIntel/6/151/2). Faellt sie wieder weg, "
+              "ist das ein Rueckschritt und keine Bereinigung.");
+static_assert(Prod1Zen5TargetIsa::cpu_fabrication().vendor != Prod2RaptorLakeTargetIsa::cpu_fabrication().vendor,
+              "Die beiden Rekombinationen muessen sich im CPU-Fabrikations-Glied unterscheiden -- sonst "
+              "waere eine der beiden Deklarationen aus der anderen abgeschrieben.");
 static_assert(!Prod1Zen5TargetIsa::has_all_members_declared() && !Prod2RaptorLakeTargetIsa::has_all_members_declared(),
               "Solange RAM-Frequenz/CAS nicht erhoben sind, ist KEINE Rekombination vollstaendig. Wer "
               "diese Zeile bricht, hat Werte nachdeklariert -- dann gehoert sie angepasst, nicht entfernt.");

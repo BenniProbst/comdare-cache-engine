@@ -21,7 +21,7 @@
       <complex id="prod2_raptor_lake" isa="x86_64">
         <sub_dim id="ram_frequency_mhz" declared="false"/>
         <sub_dim id="cas_latency_cl" declared="false"/>
-        <sub_dim id="cpu_fabrication" declared="false"/>
+        <sub_dim id="cpu_fabrication" declared="true" value="GenuineIntel/6/151/2"/>
       </complex>
     </sub_axis>
     <sub_axis id="scheduling" parent="target_isa" stage="ct" kind="fixed_enum_tuple">

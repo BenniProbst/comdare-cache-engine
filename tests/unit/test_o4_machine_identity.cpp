@@ -64,14 +64,54 @@ TEST(O4MachineIdentity, UnbekannteMaschineLiefertKEINEIdentitaetUndKEINESignatur
     EXPECT_FALSE(meas::error_class_of_verdict(r.verdict).has_value());
 }
 
-TEST(O4MachineIdentity, NochNichtErhobeneKernKennungWirdEHRLICHGemeldet) {
-    // prod2s CPU-Kern-Kennung ist noch nicht abgeleitet (Cluster read-only). Das Ergebnis muss
-    // NichtDeklariert sein -- nicht "Match" und nicht "Abweichung".
-    auto const r = meas::identify_machine("intel_avx2", "ddr4_2x32", meas::live_core_cpu_id());
+TEST(O4MachineIdentity, Prod2KernKennungIstMitO4aErhobenUndDeklariert) {
+    // O-8 Schritt 5b (O-4a-VOLLZUG): DIESER Test stand hier invertiert -- er sicherte zu, dass prod2
+    // NichtDeklariert meldet, solange die Kern-Kennung nicht erhoben war. Sie IST jetzt erhoben
+    // (Infra-Handout, GenuineIntel/6/151/2 = Alder Lake-S, i9-12900K), also kehrt sich die Zusicherung
+    // um. Die Umkehr ist der Punkt: der alte Test war kein Wunsch, sondern die ehrliche Beschreibung
+    // eines Zwischenzustands, und der ist beendet.
+    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32");
+    ASSERT_NE(m, nullptr);
+    EXPECT_TRUE(m->core.declared) << "prod2s Kern-Kennung ist mit O-4a erhoben.";
+    EXPECT_EQ(m->core.vendor, std::string_view{"GenuineIntel"});
+    EXPECT_EQ(m->core.family, 6);
+    EXPECT_EQ(m->core.model, 151);
+    EXPECT_EQ(m->core.stepping, 2);
+    // Der Brand bleibt BEWUSST leer: der live gelesene String von prod2 liegt nicht vor, und ein aus
+    // der Modell-Bezeichnung konstruierter Praefix wuerde eine falsche Abweichung melden koennen.
+    EXPECT_TRUE(m->core.brand.empty());
+}
+
+TEST(O4MachineIdentity, Prod2MatchtDieEigeneDeklarationUndNichtsAnderes) {
+    // HOST-UNABHAENGIG: die Gegenprobe laeuft gegen SYNTHETISCHE live-Werte, nicht gegen die CPU des
+    // Testlaeufers -- sonst haenge das Ergebnis daran, auf welcher Kiste ctest gerade laeuft.
+    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32");
+    ASSERT_NE(m, nullptr);
+
+    meas::MachineCoreCpuId passend = m->core;
+    passend.brand                  = "12th Gen Intel(R) Core(TM) i9-12900K"; // live-Brand darf reicher sein
+    auto const treffer             = meas::identify_machine("intel_avx2", "ddr4_2x32", passend);
+    EXPECT_EQ(treffer.verdict, meas::MachineIdentityVerdict::Match);
+    EXPECT_FALSE(treffer.signature().empty()) << "Bei Match faellt die deklarierte Signatur heraus.";
+
+    meas::MachineCoreCpuId fremd = m->core;
+    fremd.model                  = 183; // andere Intel-Generation
+    auto const abweichung        = meas::identify_machine("intel_avx2", "ddr4_2x32", fremd);
+    EXPECT_EQ(abweichung.verdict, meas::MachineIdentityVerdict::Abweichung);
+    EXPECT_TRUE(abweichung.signature().empty()) << "Ohne bestaetigte Identitaet NIE eine Signatur.";
+}
+
+TEST(O4MachineIdentity, NichtErhobeneLiveKennungWirdWEITERHIN_EHRLICHGemeldet) {
+    // Die NichtDeklariert-Klasse bleibt erreichbar und ehrlich -- sie haengt jetzt an der LIVE-Seite
+    // (CPUID nicht lesbar) statt an einer fehlenden Deklaration. Ohne diesen Test waere mit dem
+    // O-4a-Nachzug die einzige Abdeckung des Zustands verschwunden.
+    meas::MachineCoreCpuId const nicht_lesbar{}; // declared == false
+    auto const                   r = meas::identify_machine("intel_avx2", "ddr4_2x32", nicht_lesbar);
     ASSERT_NE(r.machine, nullptr);
     EXPECT_EQ(r.verdict, meas::MachineIdentityVerdict::NichtDeklariert);
     EXPECT_TRUE(r.signature().empty());
-    EXPECT_FALSE(meas::error_class_of_verdict(r.verdict).has_value());
+    EXPECT_FALSE(meas::error_class_of_verdict(r.verdict).has_value())
+        << "NichtDeklariert ist ein definierter Zustand, kein Fehler.";
 }
 
 TEST(O4MachineIdentity, AbweichungIstEinFehlerUndZwarD1) {
