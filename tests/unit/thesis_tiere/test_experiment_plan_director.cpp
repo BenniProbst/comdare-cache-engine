@@ -628,7 +628,7 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
 
     // §64: EINE Vollmengen-Combo [all] => je 1 ceb:build/emit/trigger-Job (Marker-Kommentare, kollisionsfrei zu needs).
     EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-build combo "), 1u) << "1 CEB-Bau-Job (1 [all]-Combo)";
-    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-emit combo "), 1u) << "1 CEB-Emit-Job (--emit-tier-ci, 1 [all]-Combo)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-emit combo "), 1u) << "1 CEB-Emit-Job ('tier ci', 1 [all]-Combo)";
     EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-trigger combo "), 1u) << "1 Grandchild-Trigger-Job (1 [all]-Combo)";
     // §64: die Vollmenge kollabiert auf die Legende [all] -> der EINE ceb:build/emit/trigger:[all]-Job. Die 3 distinkten
     // [wallclock]/[macro]/[micro]-Legenden bleiben XML-Option (s. MeasurementToolingFanOut/SelectMeasurementCombo).
@@ -637,8 +637,16 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
     EXPECT_NE(yaml.find("\"ceb:trigger:[all]\":"), std::string::npos);
     EXPECT_EQ(yaml.find("[wallclock]"), std::string::npos)
         << "§64: keine separaten Tool-Lanen im Default (vereint als [all])";
-    // Die CEB emittiert SELBST die Stufe-2 (§40.b-Hoheit: --emit-tier-ci, nicht --dump-ci).
-    EXPECT_NE(yaml.find("--emit-tier-ci"), std::string::npos) << "CEB-Hoheit: die CEB emittiert Stufe-2 selbst";
+    // Die CEB emittiert SELBST die Stufe-2 (§40.b-Hoheit: 'tier ci', nicht 'plan ci').
+    // P8-REST (27.07.): geprueft wird der REALE Aufruf, nicht eine blosse Erwaehnung -- 'tier ci' kommt sonst
+    // auch in den beschreibenden Kommentarzeilen vor und der Test waere gegen eine Regression blind.
+    EXPECT_NE(yaml.find("\"$DRIVER\" tier ci "), std::string::npos)
+        << "CEB-Hoheit: die CEB emittiert Stufe-2 selbst, in der Subkommando-Form";
+    // Und die Gegenrichtung, die den Zustand ERZWINGT: das DEPRECATED-Alt-Flag darf NIRGENDS mehr im
+    // emittierten YAML stehen. Faellt der Alias im Abschluss-Aufraeumpass (Ledger §75), braeche eine
+    // Alias-Emission genau dann -- und zwar erst im CI. Dieser Test faengt es vorher.
+    EXPECT_EQ(yaml.find("--emit-tier-ci"), std::string::npos)
+        << "Alt-Flag im emittierten Child-YAML: bricht, sobald §75 die Aliase entfernt";
     // Genau EIN trigger:-Schluessel (Grandchild via include: artifact:) je Kombination.
     EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u)
         << "je Kombination ein trigger:-Schluessel (1 [all]-Combo)";
@@ -647,7 +655,7 @@ TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
     EXPECT_EQ(count_occurrences(yaml, "\nstages:\n"), 1u);
     EXPECT_NE(yaml.find("  - ceb-build\n"), std::string::npos);
     EXPECT_NE(yaml.find("  - ceb-emit\n"), std::string::npos);
-    // STUFE 1 (Planer-Rolle) baut KEINE Tier-Binaries (kein provision-only) -- das ist Stufe-2 (--emit-tier-ci).
+    // STUFE 1 (Planer-Rolle) baut KEINE Tier-Binaries (kein provision-only) -- das ist Stufe-2 ('tier ci').
     EXPECT_EQ(yaml.find("COMDARE_GOLDEN_N_PROVISION_ONLY=true"), std::string::npos)
         << "Stufe 1 baut keine Tier-Binaries";
 }

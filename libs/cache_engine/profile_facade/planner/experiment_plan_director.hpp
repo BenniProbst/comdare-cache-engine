@@ -627,10 +627,10 @@ inline void emit_storage_activation(std::string& s) {
 //    Je Mess-Achsen-Kombination [a,b,c] (aus der Anwender-XML, <measurement_categories>) EINE dynamische
 //    CEB-Pipeline:
 //      "ceb:build:[a,b,c]"   -> baut die CEB fuer diesen CEB-Typ (Messsystem).
-//      "ceb:emit:[a,b,c]"    -> die GEBAUTE CEB emittiert SELBST Child-2 (--emit-tier-ci, §40.b-Praezisierung:
+//      "ceb:emit:[a,b,c]"    -> die GEBAUTE CEB emittiert SELBST Child-2 ("tier ci", §40.b-Praezisierung:
 //                               Planer steuert CEB-Jobs, CEB steuert Tier-Jobs) aus ihren einkompilierten
-//                               System-Achsen-Freigaben. Heute EINE Binary in zwei Rollen (Planer-Rolle --dump-ci
-//                               vs CEB-Rolle --emit-tier-ci; ehrlich dokumentiert, kein Schein-Split).
+//                               System-Achsen-Freigaben. Heute EINE Binary in zwei Rollen (Planer-Rolle "plan ci"
+//                               vs CEB-Rolle "tier ci"; ehrlich dokumentiert, kein Schein-Split).
 //      "ceb:trigger:[a,b,c]" -> Grandchild-Trigger der Child-2-YAML (trigger: include: artifact:).
 //
 //    Der Director-Walk ist dreistufig (Mess-Kombination -> System-Perm -> Chunk-Buendel); die STUFE-1-Emission
@@ -655,8 +655,8 @@ public:
         out_ += "# Ledger §42: CE erhaelt die XML und steuert ALLES. DREISTUFIGE Legenden-Kette --\n";
         out_ += "#   STUFE 1 (HIER, ceb-build/ceb-emit): je Mess-Kombination [a,b,c] EINE CEB-Pipeline\n";
         out_ +=
-            "#           (ceb:build -> ceb:emit(--emit-tier-ci) -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
-        out_ += "#   STUFE 2 (CEB-emittiert, --emit-tier-ci, S4-§62-B-Batch): je Host-Lane EIN Build+Pruef-Batch\n";
+            "#           (ceb:build -> ceb:emit('tier ci') -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
+        out_ += "#   STUFE 2 (CEB-emittiert, 'tier ci', S4-§62-B-Batch): je Host-Lane EIN Build+Pruef-Batch\n";
         out_ += "#           \"tier:build-batch:<host>\" (iteriert intern Perms x 4096er-Scheiben, Testate "
                 "[d,e,f][g,h,i]) + EIN Mess-Batch \"measure:[a,b,c]:batch:<host>\" (GN-11/320er-gegatet).\n";
         out_ += "stages:\n";
@@ -743,7 +743,7 @@ private:
         return s;
     }
 
-    // STUFE 1b: die GEBAUTE CEB emittiert SELBST Child-2 (--emit-tier-ci, CEB-Rolle) -> Artefakt. §40.b-Hoheit.
+    // STUFE 1b: die GEBAUTE CEB emittiert SELBST Child-2 ("tier ci", CEB-Rolle) -> Artefakt. §40.b-Hoheit.
     [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c, bool emit_combo_selector,
                                                        std::string const& profile_basename) {
         std::string const slug = legend::cmake_slug(c.legend);
@@ -755,7 +755,7 @@ private:
         s += "  tags: [\"amd64\"]\n";
         s += "  needs: [\"" + legend::ceb_build_job(c.legend) + "\"]\n";
         s += "  script:\n";
-        // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil; der --emit-tier-ci-Aufruf
+        // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil; der "tier ci"-Aufruf
         // unten liest GENAU diese Variable ($COMDARE_GOLDEN_N_PROFILE) -> der Grandchild-Katalog folgt dem Profil-Scope.
         emit_child_submodule_prolog(s, profile_basename); // W10-Nacharbeit 2: ceb:emit baut Treiber neu -> ce-Quellen
         s += "    - cd Code\n";
@@ -765,19 +765,23 @@ private:
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
         // G4b-2/2.4-(7): ceb:emit war der EINZIGE Job, der die Storage-Aktivierung nicht rief -- und zugleich der
-        // Job, der --emit-tier-ci faehrt. Ohne den Aufruf ist hier Push/Pull inert, der 12er-TRIES-Default greift,
+        // Job, der "tier ci" faehrt. Ohne den Aufruf ist hier Push/Pull inert, der 12er-TRIES-Default greift,
         // und eine Bestandslog-Reservierung waere Fiktion (minio aus) oder stiller Leerlauf. Platzierung wie an den
         // beiden anderen Aufrufstellen (:988/:1117): direkt hinter der DRIVER-Ermittlung, im selben `- |`-Block.
         emit_storage_activation(s); // G4a P-A: Push/Pull scharfschalten (inert ohne COMDARE_STORAGE_CACHE) + Deckel
         s += "      # §40.b-Praezisierung: die CEB (nicht der Planer) emittiert ihre STUFE-2-Sicht (System-Perms\n";
         s += "      # des FREIGEGEBENEN Raums + je-Host Build+Pruef-Batch + gegatete Mess-Batches) via "
-             "--emit-tier-ci.\n";
+             "'tier ci'.\n";
         // A5 (§56-T2-FANOUT D4): bei N>1 CEB-Konfigs traegt der ceb:emit-Aufruf den distinct Combo-Selektor
         // (--measurement-combo=<cmake_slug>) -- so emittiert jeder ceb:emit-Job GENAU seine EINE CEB-Konfig
         // (Kollisionsschutz der combo-unabhaengigen tier:build-Job-Namen, §56/T6). count==1 => leer => byte-identisch.
         std::string const combo_arg = emit_combo_selector ? " --measurement-combo=" + slug : std::string{};
-        s += "      \"$DRIVER\" --emit-tier-ci \"$COMDARE_GOLDEN_N_PROFILE\"" + combo_arg + " > \"$CI_PROJECT_DIR/" +
-             art + "\"\n";
+        // P8-REST (27.07.): der emittierte Aufruf steht in der SUBKOMMANDO-Form 'tier ci'. Das Alt-Flag
+        // --emit-tier-ci ist heute nur noch ein DEPRECATED-Alias, den der Abschluss-Aufraeumpass (Ledger §75)
+        // entfernt -- eine Emission, die den Alias faehrt, wuerde in genau diesem Moment brechen. Der Selektor
+        // bleibt ein Flag und haengt unveraendert hinten an (Dispatcher kanonisiert nur argv[1]/argv[2]).
+        s += "      \"$DRIVER\" tier ci \"$COMDARE_GOLDEN_N_PROFILE\"" + combo_arg + " > \"$CI_PROJECT_DIR/" + art +
+             "\"\n";
         s +=
             "      echo \"== CEB-emittierte STUFE-2 (erste 20 Zeilen) ==\"; head -20 \"$CI_PROJECT_DIR/" + art + "\"\n";
         s += "  artifacts:\n";
@@ -894,7 +898,7 @@ public:
                 " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
                 " host_lanes=amd,intel\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b/§56 + §62-B-Batch (CEB-Rolle --emit-tier-ci): NUR die STUFE-2-Sicht, O(Maschinen).\n";
+        out_ += "# Ledger §42.b/§56 + §62-B-Batch (CEB-Rolle 'tier ci'): NUR die STUFE-2-Sicht, O(Maschinen).\n";
         out_ += "#   tier:build-batch:<host>       -- EIN Build+Pruef-Batch je Host (iteriert intern Perms x 4096er-"
                 "Scheiben; Testate je Schritt zelle=[d,e,f][g,h,i]; Haupt-only, §42.b).\n";
         out_ += "#   measure:[a,b,c]:batch:<host>  -- EIN Mess-Batch je Host (smoke=>Auto / sonst when:manual, "
