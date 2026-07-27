@@ -41,6 +41,22 @@ option(COMDARE_BUILD_TESTS         "Build Google-Tests (generic + specific)"   O
 option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       OFF)
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
+# V-1 (O-8 Schritt 1): Vendor-Provisioning-ENTKOPPLUNG.
+# Die sechs COMDARE_VENDOR_*-Optionen (ext/CMakeLists.txt) hingen bisher direkt am
+# Permutations-Schalter -- "Allokatoren bereitstellen" und "Massen-Permutationen bauen"
+# waren damit derselbe Belang. Sie sind es nicht: der Voll-Bau braucht die Vendor,
+# ein reiner Vendor-Bau braucht die Permutationen nicht. Ab hier steuert dieser eigene
+# Schalter das Provisioning.
+# Default = ${COMDARE_BUILD_PERMUTATIONS}: die Effektiv-Werte bleiben in JEDEM heutigen
+# Aufruf unveraendert (ce-standalone OFF, super ON, dokumentierter README-Weg
+# -DCOMDARE_BUILD_PERMUTATIONS=ON weiterhin ON) -- die Entkopplung ist additiv, keine
+# Verhaltensaenderung. Neu MOEGLICH ist die Kombination PROVISION=ON + PERMUTATIONS=OFF.
+# Der super-Baum setzt den Schalter zusaetzlich EXPLIZIT (Code/CMakeLists.txt), damit das
+# Provisioning das geplante V-3-Abschalten von COMDARE_BUILD_PERMUTATIONS ueberlebt.
+option(COMDARE_PROVISION_VENDOR_ALLOCATORS
+       "Vendor-Allokatoren bereitstellen (ext/: mimalloc/jemalloc/snmalloc/tcmalloc/hoard/scalloc)"
+       ${COMDARE_BUILD_PERMUTATIONS})
+
 # ─────────────────────────────────────────────────────────────────────────────
 # V5-#26 / Task #153 — Intel-PCM Windows-Cache-Miss-Quelle (WindowsPcmPmcSource)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -567,15 +583,24 @@ endif()
 # ─────────────────────────────────────────────────────────────────────────────
 # Permutations-Codegen (F-EXTRA-5 — sh/bat-Codegen erzeugt CMake-Targets; KEIN Python in der Build-Pipeline, s. cmake/permutations.cmake:3 + tools/permutation_codegen/codegen.{sh,bat})
 # ─────────────────────────────────────────────────────────────────────────────
-if(COMDARE_BUILD_PERMUTATIONS)
-  include(cmake/permutations.cmake OPTIONAL)
-  # generiert build/generated/permutations.cmake (siehe tools/permutation_codegen/)
+# V-1 (O-8 Schritt 1): Der Block laeuft, wenn Permutationen ODER Vendor-Provisioning
+# gewuenscht sind. Das ODER ist tragend, nicht kosmetisch: der V40.A-FIX unten verlangt
+# ext/ VOR der Permutations-Inklusion, und der spaete Fallback-add_subdirectory(ext)
+# (siehe "if(NOT _comdare_ext_added)") laeuft erst NACH ihr.
+if(COMDARE_BUILD_PERMUTATIONS OR COMDARE_PROVISION_VENDOR_ALLOCATORS)
+  if(COMDARE_BUILD_PERMUTATIONS)
+    include(cmake/permutations.cmake OPTIONAL)
+    # generiert build/generated/permutations.cmake (siehe tools/permutation_codegen/)
+  endif()
   # V40.A FIX: ext/ MUSS VOR der Permutations-Inklusion gebaut werden, weil
   # die Permutationen comdare::vendor_mimalloc/jemalloc Targets benoetigen.
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/CMakeLists.txt")
     add_subdirectory(ext)
     set(_comdare_ext_added TRUE)
   endif()
+  # V-1: die beiden Vendor-Vererbungs-Bloecke sind reine Provisioning-Belange und haengen
+  # ab hier am eigenen Schalter (Effektiv-Wert unveraendert, siehe Option-Kommentar oben).
+  if(COMDARE_PROVISION_VENDOR_ALLOCATORS)
   # wf_1009d16f-FIX (2026-07-12): Vendor-Include-VERERBUNG an der Quelle.
   # Das USE-Flag (USE = ENABLE && HAVE, s.u. "MIMALLOC: ENABLE && HAVE") wird per
   # configure_file GLOBAL in generated/axes/alloc/axis_06_allocator_flags.hpp gebacken —
@@ -611,7 +636,8 @@ if(COMDARE_BUILD_PERMUTATIONS)
   if(COMDARE_AXIS_06_ENABLE_SNMALLOC AND COMDARE_HAVE_SNMALLOC AND TARGET comdare::vendor_snmalloc)
     link_libraries(comdare::vendor_snmalloc)
   endif()
-  if(EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
+  endif() # COMDARE_PROVISION_VENDOR_ALLOCATORS
+  if(COMDARE_BUILD_PERMUTATIONS AND EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
     include("${CMAKE_BINARY_DIR}/generated/permutations.cmake")
   endif()
 endif()

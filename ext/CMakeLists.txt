@@ -14,9 +14,12 @@
 # ...
 
 # V40.A (2026-05-24): Allokator-Achse echt — mimalloc als Vendor-Library
-# Aktiviert wenn COMDARE_BUILD_PERMUTATIONS=ON (Permutationen brauchen den Allokator)
+# V-1 (O-8 Schritt 1): Aktiviert wenn COMDARE_PROVISION_VENDOR_ALLOCATORS=ON.
+# Frueher hing der Default direkt an COMDARE_BUILD_PERMUTATIONS; der Provisioning-Schalter
+# (Wurzel-CMakeLists.txt) uebernimmt dessen Wert als Default, die Effektiv-Werte sind
+# unveraendert. Permutationen brauchen den Allokator weiterhin -- aber nicht umgekehrt.
 option(COMDARE_VENDOR_MIMALLOC "Build vendored mimalloc (ext/allocator/A04-mimalloc)"
-       ${COMDARE_BUILD_PERMUTATIONS})
+       ${COMDARE_PROVISION_VENDOR_ALLOCATORS})
 # V41.A1-FIX (#19, 2026-06-01): Pfad korrigiert auf allocator/A04-mimalloc — die baubare Amalgamation
 # (src/static.c) liegt unter ext/allocator/A04-mimalloc, NICHT ext/A04-mimalloc (Letzteres = Upstream-
 # Checkout ohne static.c). Vorher schlug der EXISTS-Check fehl → der Branch lief NIE → mimalloc nie gebaut.
@@ -54,7 +57,7 @@ endif()
 #   2. Pre-generierte jemalloc.h vorhanden (User hat autogen.sh manuell laufen lassen)
 #   3. Bare-State (nur .h.in templates): klare Hinweis-Message + Fallback
 option(COMDARE_VENDOR_JEMALLOC "jemalloc-Detection (system / pre-configured / Fallback)"
-       ${COMDARE_BUILD_PERMUTATIONS})
+       ${COMDARE_PROVISION_VENDOR_ALLOCATORS})
 set(COMDARE_HAVE_JEMALLOC OFF CACHE BOOL "" FORCE)
 
 if(COMDARE_VENDOR_JEMALLOC)
@@ -120,7 +123,7 @@ endif()
 # Build-Setup (siehe TODO V41.A2 Sub-Tasks).
 
 # --- snmalloc (Microsoft Research, header-only-faehig) ---
-option(COMDARE_VENDOR_SNMALLOC "Snmalloc Detection (header-only-Setup)" ${COMDARE_BUILD_PERMUTATIONS})
+option(COMDARE_VENDOR_SNMALLOC "Snmalloc Detection (header-only-Setup)" ${COMDARE_PROVISION_VENDOR_ALLOCATORS})
 set(COMDARE_HAVE_SNMALLOC OFF CACHE BOOL "" FORCE)
 if(COMDARE_VENDOR_SNMALLOC)
     # V41.A2-FIX (M-CE-21): Pfad korrigiert auf allocator/A07-snmalloc — der
@@ -155,7 +158,7 @@ if(COMDARE_VENDOR_SNMALLOC)
 endif()
 
 # --- tcmalloc (Google, braucht Abseil + komplexes Setup) ---
-option(COMDARE_VENDOR_TCMALLOC "tcmalloc Detection (system / Fallback)" ${COMDARE_BUILD_PERMUTATIONS})
+option(COMDARE_VENDOR_TCMALLOC "tcmalloc Detection (system / Fallback)" ${COMDARE_PROVISION_VENDOR_ALLOCATORS})
 set(COMDARE_HAVE_TCMALLOC OFF CACHE BOOL "" FORCE)
 if(COMDARE_VENDOR_TCMALLOC)
     find_library(TCMALLOC_LIB NAMES tcmalloc tcmalloc_minimal libtcmalloc)
@@ -176,7 +179,7 @@ if(COMDARE_VENDOR_TCMALLOC)
 endif()
 
 # --- hoard (Emery Berger, eigene CMakeLists vorhanden aber komplex) ---
-option(COMDARE_VENDOR_HOARD "hoard Detection (system / Fallback)" ${COMDARE_BUILD_PERMUTATIONS})
+option(COMDARE_VENDOR_HOARD "hoard Detection (system / Fallback)" ${COMDARE_PROVISION_VENDOR_ALLOCATORS})
 set(COMDARE_HAVE_HOARD OFF CACHE BOOL "" FORCE)
 if(COMDARE_VENDOR_HOARD)
     find_library(HOARD_LIB NAMES hoard libhoard)
@@ -199,7 +202,7 @@ if(COMDARE_VENDOR_HOARD)
 endif()
 
 # --- scalloc (separat, kein CMake, gyp-based; nur Detection) ---
-option(COMDARE_VENDOR_SCALLOC "scalloc Detection (system / Fallback)" ${COMDARE_BUILD_PERMUTATIONS})
+option(COMDARE_VENDOR_SCALLOC "scalloc Detection (system / Fallback)" ${COMDARE_PROVISION_VENDOR_ALLOCATORS})
 set(COMDARE_HAVE_SCALLOC OFF CACHE BOOL "" FORCE)
 if(COMDARE_VENDOR_SCALLOC)
     find_library(SCALLOC_LIB NAMES scalloc libscalloc)
