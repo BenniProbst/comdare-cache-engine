@@ -34,7 +34,7 @@
 
 #include "profile_run_entry.hpp"
 #include "system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
-                                 //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
+                                     //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
 #include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed (Spiegel-Filter, Single-Source)
 #include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (direkt genutzt, IWYU)
 
@@ -254,9 +254,8 @@ struct RunExperimentResult {
             ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
             : ep.compiler.opt_levels;
     std::vector<std::string> const simd_perms =
-        ep.external_utils.simd_options.empty()
-            ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
-            : ep.external_utils.simd_options;
+        ep.external_utils.simd_options.empty() ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
+                                               : ep.external_utils.simd_options;
     bool const capped = a.max_binaries > 0;
     for (auto const& opt_id : opt_perms) {
         // W5-C+ (§36.1): GN-Zellen-Filter (Spiegel run_profile). Ist COMDARE_GN_OPT gesetzt, baut diese Cluster-Zelle

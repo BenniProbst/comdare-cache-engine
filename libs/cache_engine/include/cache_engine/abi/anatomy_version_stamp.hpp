@@ -15,7 +15,7 @@
 #include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 9: load_framework-Segment
-#include <cache_engine/measurement/measurement_tooling_registry.hpp> // K7b-2: kMeasurementToolingRegistry (Vollmenge)
+#include <cache_engine/measurement/measurement_tooling_registry.hpp>   // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
 #include <array>
 #include <cstddef>

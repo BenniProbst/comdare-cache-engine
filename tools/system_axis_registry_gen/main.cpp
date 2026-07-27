@@ -31,7 +31,7 @@
 
 #include <builder/codegen/type_name.hpp> // type_name<W>() (FQ-Typ, compile-time)
 
-#include <cache_engine/abi/system_axis_order.hpp> // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
+#include <cache_engine/abi/system_axis_order.hpp>   // P5/A7': kSystemAxisOrder (Ordnungs-Single-Source)
 #include <profile_facade/system_version_suffix.hpp> // T-c/NETZ 4: kSuffixSegmentOrder (Suffix-Single-Source)
 #include <cache_engine/measurement/ceb_complex_system_axis.hpp> // O-8 Schritt 6: aeussere Komplex-Achse + Gruppe
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
@@ -266,10 +266,10 @@ void emit_compound_sub_axis_group_compiler(std::ofstream& f) {
     f << "        <sub_axis id=\"" << xml_escape(meas::NoCx16Option::axis_label()) << "\" parent=\""
       << xml_escape(meas::NoCx16Option::parent_axis_label())
       << "\" stage=\"runtime\" value_type=\"token\" option_count=\"2\">\n";
-    emit_option(f, meas::NoCx16Option::atomic128_id(), meas::NoCx16Option::gcc_flag(),
-                meas::NoCx16Option::clang_flag(), meas::NoCx16Option::msvc_flag(), std::string{}, "          ");
-    emit_option(f, meas::Cx16Option::atomic128_id(), meas::Cx16Option::gcc_flag(),
-                meas::Cx16Option::clang_flag(), meas::Cx16Option::msvc_flag(), std::string{}, "          ");
+    emit_option(f, meas::NoCx16Option::atomic128_id(), meas::NoCx16Option::gcc_flag(), meas::NoCx16Option::clang_flag(),
+                meas::NoCx16Option::msvc_flag(), std::string{}, "          ");
+    emit_option(f, meas::Cx16Option::atomic128_id(), meas::Cx16Option::gcc_flag(), meas::Cx16Option::clang_flag(),
+                meas::Cx16Option::msvc_flag(), std::string{}, "          ");
     f << "        </sub_axis>\n";
     f << "      </sub_axis>\n";
 }
@@ -321,8 +321,8 @@ void emit_target_isa_sub_axis_scheduling(std::ofstream& f);
 void emit_target_isa_complex_members(std::ofstream& f) {
     auto emit_complex = [&f]<class Cx>(std::type_identity<Cx>) {
         note_name(Cx::complex_id());
-        f << "      <complex id=\"" << xml_escape(Cx::complex_id()) << "\" isa=\""
-          << xml_escape(Cx::target_isa_id()) << "\">\n";
+        f << "      <complex id=\"" << xml_escape(Cx::complex_id()) << "\" isa=\"" << xml_escape(Cx::target_isa_id())
+          << "\">\n";
         auto const emit_num = [&f](std::string_view id, std::uint32_t v) {
             f << "        <sub_dim id=\"" << xml_escape(id) << "\" declared=\"" << (v != 0 ? "true" : "false") << "\"";
             if (v != 0) f << " value=\"" << v << "\"";
@@ -341,8 +341,8 @@ void emit_target_isa_complex_members(std::ofstream& f) {
         f << "/>\n";
         f << "      </complex>\n";
     };
-    f << "    <sub_axis id=\"target_isa_complex\" parent=\""
-      << xml_escape(meas::TargetIsaAxisTag::axis_label()) << "\" stage=\"ct\" kind=\"fixed_enum_tuple\""
+    f << "    <sub_axis id=\"target_isa_complex\" parent=\"" << xml_escape(meas::TargetIsaAxisTag::axis_label())
+      << "\" stage=\"ct\" kind=\"fixed_enum_tuple\""
       << " complex_count=\"" << meas::kAllTargetIsaComplexIds.size() << "\">\n";
     f << "      <!-- Die drei festen Glieder je benannter Rekombination (Owner OD-2). Werte kommen aus\n";
     f << "           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b). -->\n";
@@ -400,8 +400,7 @@ void emit_system_axis_operating_system(std::ofstream& f) {
         std::string extra =
             std::string{" posix=\""} + (meas::LinuxOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
         emit_baustein<meas::LinuxOperatingSystem>(f, meas::LinuxOperatingSystem::os_family_id(), extra);
-        extra =
-            std::string{" posix=\""} + (meas::WindowsOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
+        extra = std::string{" posix=\""} + (meas::WindowsOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
         emit_baustein<meas::WindowsOperatingSystem>(f, meas::WindowsOperatingSystem::os_family_id(), extra);
         extra = std::string{" posix=\""} + (meas::MacosOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
         emit_baustein<meas::MacosOperatingSystem>(f, meas::MacosOperatingSystem::os_family_id(), extra);
@@ -506,8 +505,8 @@ struct SuffixSegmentBinding {
 };
 
 inline constexpr std::array<SuffixSegmentBinding, cabi::kSystemAxisOrderCount> kSuffixSegmentBindings{{
-    {meas::X86_64TargetIsa::axis_label(), cpf::kSuffixSegmentOrder[4]},        // "+target=" (nur bei Cross)
-    {meas::LinuxOperatingSystem::axis_label(), std::string_view{}},            // bewusst KEIN Segment (OP-10)
+    {meas::X86_64TargetIsa::axis_label(), cpf::kSuffixSegmentOrder[4]},         // "+target=" (nur bei Cross)
+    {meas::LinuxOperatingSystem::axis_label(), std::string_view{}},             // bewusst KEIN Segment (OP-10)
     {meas::SimdExternalUtilsFamily::axis_label(), cpf::kSuffixSegmentOrder[2]}, // "+ext=" (Hub-Auspraegung)
 }};
 
@@ -554,14 +553,13 @@ void emit_system_complex_axis(std::ofstream& f) {
     note_name(meas::CebCompoundSystemAxis::axis_label());
     auto const members = meas::CebCompoundSystemAxis::member_labels();
     f << "  <system_complex_axis id=\"" << xml_escape(meas::CebCompoundSystemAxis::axis_label())
-      << "\" category=\"system_config\" binary_id=\"never\" stage=\"ct\" member_count=\"" << members.size()
-      << "\">\n";
+      << "\" category=\"system_config\" binary_id=\"never\" stage=\"ct\" member_count=\"" << members.size() << "\">\n";
     f << "    <!-- Command-Pattern-Wrapper der Rekombination der DREI Haupt-Achsen (O-1r). Er ist KEINE\n";
     f << "         vierte Haupt-Achse: kSystemAxisOrder bleibt bei dreien. load_framework ist KEIN Glied\n";
     f << "         (es lebt seit A3 im Mess-Realm), die System-Meta-Metas fahren unter external_utils. -->\n";
     for (auto const& m : members) f << "    <member axis=\"" << xml_escape(m) << "\"/>\n";
-    f << "    <sub_axis_group id=\"" << xml_escape(meas::BuildToolchainSubAxes::group_label())
-      << "\" sub_axis_count=\"" << meas::BuildToolchainSubAxes::size() << "\">\n";
+    f << "    <sub_axis_group id=\"" << xml_escape(meas::BuildToolchainSubAxes::group_label()) << "\" sub_axis_count=\""
+      << meas::BuildToolchainSubAxes::size() << "\">\n";
     f << "      <!-- compiler + opt_level + atomic128 haengen HIER und nicht an target_isa: die Gruppe\n";
     f << "           beschreibt den BAU aus der Rekombination aller drei Achsen (O-1r). Die Liste nennt\n";
     f << "           die drei Glieder flach; die Verschachtelung darunter zeigt die tatsaechliche\n";

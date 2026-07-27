@@ -17,8 +17,8 @@
 // Alles consteval (registry-abgeleitet, Compile-Zeit-konstant); nur die Ausgabe-Formatierung (ceb_version_stamp())
 // ist Runtime. Ausgabe im CEB-Log-Kopf (apps/cache_engine_builder). Rein additiv, golden-/binary_id-neutral.
 
-#include <cache_engine/abi/anatomy_fingerprint.hpp> // anatomy_fingerprint_hex (consteval SHA-512)
-#include <cache_engine/measurement/algo_semver.hpp> // parse_algo_semver (rohe "vX.Y.Z" -> {x,y,z})
+#include <cache_engine/abi/anatomy_fingerprint.hpp>                    // anatomy_fingerprint_hex (consteval SHA-512)
+#include <cache_engine/measurement/algo_semver.hpp>                    // parse_algo_semver (rohe "vX.Y.Z" -> {x,y,z})
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
 

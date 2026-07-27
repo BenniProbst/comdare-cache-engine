@@ -13,13 +13,13 @@
 
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
-#include <cache_engine/measurement/external_utils_family_axis.hpp> // GN-1: aktiver external_utils-Familien-Knoten
+#include <cache_engine/measurement/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
 
-#include "system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include "system_version_suffix.hpp"                 // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -179,8 +179,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // Single-XML (9dim-G3): der EINE deklarierte <simd>-Wert des Profils ist die Quelle (GENAU EINER = Einzelpfad).
     // 0 deklariert -> benannter Achsen-Default no_extension (byte-identisch, keine Flags); >1 traegt der
     // Permutations-Pfad (run_profile), nicht diese Facade-Naht.
-    if (tp != nullptr && tp->external_utils.simd_options.size() == 1)
-        return tp->external_utils.simd_options.front();
+    if (tp != nullptr && tp->external_utils.simd_options.size() == 1) return tp->external_utils.simd_options.front();
     return cm::SimdNoExtOption::simd_id();
 }
 
@@ -384,14 +383,13 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     namespace pf = ::comdare::cache_engine::profile_facade;
     namespace cm = ::comdare::cache_engine::measurement;
     pf::SystemVersionSuffixParts parts;
-    std::string const cxx_tag = cxx_compiler();
-    std::string const opt_id  = std::string{active_opt_level(tp)};
-    parts.cxx                 = cxx_tag;
-    parts.opt                 = opt_id;
+    std::string const            cxx_tag = cxx_compiler();
+    std::string const            opt_id  = std::string{active_opt_level(tp)};
+    parts.cxx                            = cxx_tag;
+    parts.opt                            = opt_id;
     // D2.8(ii): no_extension emittiert KEIN Segment -- das leere Glied ist die Aussage.
     std::string_view const simd_policy = active_simd_policy(tp);
-    if (simd_policy != ::comdare::cache_engine::measurement::SimdNoExtOption::simd_id())
-        parts.simd = simd_policy;
+    if (simd_policy != ::comdare::cache_engine::measurement::SimdNoExtOption::simd_id()) parts.simd = simd_policy;
     // Bauplan §4 (inkrementeller Cache): die CEB-Contract-Version (Framework/System-Ebene) faltet sich in die
     // build_version -> jeder Bump (ABI-Major AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell/
     // CI-Tripwire) laesst jede perm.dll.version mismatchen -> ALLE Tier-Binaries neu ("CEB-Aenderung betrifft alle").
@@ -423,8 +421,8 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // Scharfschaltung in der Identitaet sichtbar werden. C-3a ist scharf, der Text existierte fertig
     // und hatte NULL Produktions-Konsumenten -- hier ist er. Leerer Beitrag => KEIN Segment (heute der
     // Normalfall, also byte-neutral); OP-7: das Segment steht am ENDE der Ordnung.
-    std::string const gate = cm::gate_contribution_identity_text(
-        cm::route_of_simd_id(simd_policy), cm::SimdDialect::Gpp);
+    std::string const gate =
+        cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_policy), cm::SimdDialect::Gpp);
     parts.gate_contribution = gate;
     return pf::compose_system_version_suffix(parts);
 }
@@ -1135,8 +1133,8 @@ int print_cache_key_facade(std::string const& base_build_version, std::ostream& 
         char const* const v = std::getenv(key);
         return (v != nullptr) ? std::string{v} : std::string{};
     };
-    std::string const opt    = env("COMDARE_GN_OPT");
-    std::string const simd   = env("COMDARE_GN_SIMD");
+    std::string const opt  = env("COMDARE_GN_OPT");
+    std::string const simd = env("COMDARE_GN_SIMD");
     // Lane F R3 (O-8 Schritt 10): auch dieser dritte Beitragsort liest jetzt die EINE Suffix-Quelle.
     // Er baute die bindende Form bereits richtig nach -- "richtig nachgebaut" ist aber genau der
     // Zustand, aus dem Divergenz entsteht.
@@ -1146,12 +1144,11 @@ int print_cache_key_facade(std::string const& base_build_version, std::ostream& 
     parts.cxx                            = cxx_tag;
     parts.opt                            = opt;
     if (simd != std::string{cm::SimdNoExtOption::simd_id()}) parts.simd = simd; // no_extension => KEIN +ext
-    std::string const bt = tlz::build_type_version_value(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug
-    parts.build_type     = bt;
-    std::string const gate =
-        cm::gate_contribution_identity_text(cm::route_of_simd_id(simd), cm::SimdDialect::Gpp);
-    parts.gate_contribution  = gate; // OP-7: am ENDE; leer => kein Segment
-    std::string const suffix = pf::compose_system_version_suffix(parts);
+    std::string const bt    = tlz::build_type_version_value(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug
+    parts.build_type        = bt;
+    std::string const gate  = cm::gate_contribution_identity_text(cm::route_of_simd_id(simd), cm::SimdDialect::Gpp);
+    parts.gate_contribution = gate; // OP-7: am ENDE; leer => kein Segment
+    std::string const       suffix = pf::compose_system_version_suffix(parts);
     at::ArtifactCache const cache = at::ArtifactCache::from_env(); // +mtool aus COMDARE_MEASUREMENT_COMBO, +ceb aus ABI
     os << cache.cache_key_prefix(base_build_version + suffix) << "\n";
     return 0;

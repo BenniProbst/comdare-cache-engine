@@ -56,8 +56,8 @@ protected:
 // target_isa-Komplex haengt, erfuellt das Concept nicht mehr.
 template <class A>
 concept SchedulingSystemAxisConcept =
-    CebSubAxisConcept<A> && std::derived_from<A, SchedulingSystemAxis<A>> &&
-    std::is_empty_v<SchedulingSystemAxis<A>> && (!std::is_polymorphic_v<SchedulingSystemAxis<A>>) && requires {
+    CebSubAxisConcept<A> && std::derived_from<A, SchedulingSystemAxis<A>> && std::is_empty_v<SchedulingSystemAxis<A>> &&
+    (!std::is_polymorphic_v<SchedulingSystemAxis<A>>) && requires {
         { A::worker_pool_layout() } -> std::same_as<concepts::WorkerPoolLayout>;
         { A::simd_worker_count_limit() } -> std::same_as<std::size_t>;
         { A::hetero_core_dispatch() } -> std::same_as<concepts::HeteroCoreDispatch>;

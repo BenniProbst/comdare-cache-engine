@@ -124,8 +124,7 @@ int main(int argc, char** argv) {
         if (a.ref == "simd_extension") simd_in_permute = true;
     }
     check_true("isa NICHT mehr in permute_axes (jetzt target_isa-System-Achse, A1)", !isa_in_permute);
-    check_true("simd_extension NICHT mehr in permute_axes (jetzt external_utils-System-Achse, A1)",
-               !simd_in_permute);
+    check_true("simd_extension NICHT mehr in permute_axes (jetzt external_utils-System-Achse, A1)", !simd_in_permute);
     // isa->target_isa {x86_64}: der Alt-isa-Wert isa_amd64 kanonisiert auf den x86_64-Baustein.
     check_eq("system_axes.target_isa (Alt-Ref isa)", tp->target_isa.isa.size(), std::size_t{1});
     // simd_extension->external_utils/simd {no_extension,avx2,avx512}: der Alt-Stufen-Spread {SSE42/AVX2/AVX512}

@@ -1701,8 +1701,8 @@ public:
     void construct(cx::ExperimentProfile const& ep, IPlanBuilder& b, std::string const& combo_selector = {},
                    std::vector<std::string> const& methodik_run_methodology = {},
                    std::string const&              profile_basename         = {}) const {
-        std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
-        std::vector<std::string> const simd_perms = simd_perms_of(ep.external_utils.simd_options);
+        std::vector<std::string> const                    opt_perms   = opt_perms_of(ep.compiler.opt_levels);
+        std::vector<std::string> const                    simd_perms  = simd_perms_of(ep.external_utils.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
         // Mess-Tooling-HAUPT {wallclock/macro/micro} faechert die [a,b,c]-Kombination auf. S6-P1 (SCHARF): die
         // Fan-out-Verdrahtung ist aktiv -- measurement_combos_of(cats, ep.measurement_tooling) faechert je

@@ -16,7 +16,7 @@
 #include <string_view>
 #include <vector>
 
-namespace pf  = ::comdare::cache_engine::builder::profile_facade;
+namespace pf = ::comdare::cache_engine::builder::profile_facade;
 // Die Suffix-Single-Source liegt in einem ANDEREN Namespace als der G1-Stempel-Header (kein builder::) --
 // eigenes Alias, damit die Verwechslung nicht als "pf::" durchrutscht.
 namespace svs = ::comdare::cache_engine::profile_facade;
@@ -70,7 +70,7 @@ TEST(G1BinaryVersionStamp, BinaryVersionBlockHasFourLabeledNonEmptyLines) {
     // darueber die inzwischen falsche Behauptung "beginnt stets mit '+ext='" -- die bindende Form beginnt mit "+cxx=".
     // Der Test war dabei nie rot (er reicht den Fixture nur durch), und genau das ist die Falle: ein gruener Test,
     // der eine abgeschaffte Ordnung als Referenz zeigt. Aus der Single-Source gebaut kann er nicht wieder driften.
-    std::string const              sys =
+    std::string const sys =
         svs::compose_system_version_suffix({.cxx = "gcc", .opt = "O3", .simd = "avx2", .ceb = "6.0"});
     ASSERT_EQ(sys, "+cxx=gcc+opt=O3+ext=avx2+ceb=6.0") << "bindende Segment-Ordnung (kSuffixSegmentOrder)";
     std::string const              block = pf::g1_binary_version_block(sys);

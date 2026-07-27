@@ -256,8 +256,8 @@ int main() {
     // memory_layout plus die DYNAMISCHE Wiederholungs-Ebene, die build_axis_levels aus dem Default
     // <repetitions>=3 selbst emittiert (KF-10). Die dynamische Ebene geht in keine binary_id ein -- der Baum
     // filtert sie ueber is_static heraus. Bestands-Profile nennen das Attribut nie und landen genau hier.
-    check_eq("Vergleichs-Satz OHNE Attribut unveraendert (2 statische Organ-Ebenen + 1 dynamische)",
-             levels_abs.size(), std::size_t{3});
+    check_eq("Vergleichs-Satz OHNE Attribut unveraendert (2 statische Organ-Ebenen + 1 dynamische)", levels_abs.size(),
+             std::size_t{3});
     // Der ABGEWAEHLTE Satz verliert GENAU EINE Ebene: die statische Organ-Ebene memory_layout. Die dynamische
     // Wiederholungs-Ebene haengt nicht an permute_axes und bleibt deshalb stehen -- 3 - 1 = 2.
     check_eq("abgewaehlter Satz verliert genau die eine statische Ebene", levels_off.size(), std::size_t{2});
@@ -277,8 +277,7 @@ int main() {
 
     auto const ids_off = binary_ids_of(levels_off);
     auto const ids_abs = binary_ids_of(levels_abs);
-    check_eq("Vergleichs-binary_count unveraendert (search_algo 2 x memory_layout 2)", ids_abs.size(),
-             std::size_t{4});
+    check_eq("Vergleichs-binary_count unveraendert (search_algo 2 x memory_layout 2)", ids_abs.size(), std::size_t{4});
     check_eq("binary_count mit active=\"false\" halbiert sich auf search_algo 2", ids_off.size(), std::size_t{2});
     check_true("die binary_id-Listen sind NICHT mehr identisch", ids_off != ids_abs);
     check_true("KEINE binary_id traegt noch ein Segment der abgewaehlten Achse",

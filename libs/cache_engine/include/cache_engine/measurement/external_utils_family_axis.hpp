@@ -86,8 +86,7 @@ protected:
 template <class A>
 concept ExternalUtilsFamilyAxisConcept =
     CebSystemAxisConcept<A> && std::derived_from<A, ExternalUtilsFamilyAxis<A>> &&
-    std::is_empty_v<ExternalUtilsFamilyAxis<A>> && (!std::is_polymorphic_v<ExternalUtilsFamilyAxis<A>>) &&
-    requires {
+    std::is_empty_v<ExternalUtilsFamilyAxis<A>> && (!std::is_polymorphic_v<ExternalUtilsFamilyAxis<A>>) && requires {
         { A::family_id() } -> std::same_as<std::string_view>;
         { A::sub_axis_label() } -> std::same_as<std::string_view>;
     };
@@ -102,8 +101,7 @@ struct SimdExternalUtilsFamily final : ExternalUtilsFamilyAxis<SimdExternalUtils
 using DefaultExternalUtilsFamily = SimdExternalUtilsFamily;
 
 /// Single-Source der gueltigen Familien-Kennungen (Design-Space-Vokabular; gpu folgt mit dem GPU-Increment).
-inline constexpr std::array<std::string_view, 1> kAllExternalUtilsFamilyIds = {
-    SimdExternalUtilsFamily::family_id()};
+inline constexpr std::array<std::string_view, 1> kAllExternalUtilsFamilyIds = {SimdExternalUtilsFamily::family_id()};
 
 static_assert(ExternalUtilsFamilyAxisConcept<SimdExternalUtilsFamily>);
 // TRIPWIRE (C-3): die System-Meta-Metas melden HEUTE noch system_config. topics::AxisKind::
@@ -114,8 +112,8 @@ static_assert(SimdExternalUtilsFamily::axis_kind() == topics::AxisKind::system_c
 static_assert(SimdExternalUtilsFamily::axis_label() == std::string_view{"external_utils"});
 static_assert(SimdExternalUtilsFamily::family_id() == std::string_view{"simd"});
 
-// ── GN-1-AUFLOESUNG ("SimdSubAxis dranhaengen"): parent_axis_label() der Unter-Achse zeigt jetzt auf DIESEN
-//    aktiven Knoten (nicht mehr auf den verwaisten String der DEPRECATED-Insel). Drift bricht hier. ──
+// -- GN-1-AUFLOESUNG ("SimdSubAxis dranhaengen"): parent_axis_label() der Unter-Achse zeigt jetzt auf DIESEN
+//    aktiven Knoten (nicht mehr auf den verwaisten String der DEPRECATED-Insel). Drift bricht hier. --
 static_assert(SimdNoExtOption::parent_axis_label() == SimdExternalUtilsFamily::axis_label(),
               "GN-1: SimdSubAxis.parent_axis_label muss auf den aktiven external_utils-Knoten aufloesen.");
 static_assert(SimdNoExtOption::do_axis_label() == SimdExternalUtilsFamily::sub_axis_label(),
@@ -211,10 +209,9 @@ static_assert(!ExternalUtilsHub::releases<SimdNoExtOption>);
 // R-G-TRIPWIRE (Ledger §69.1): der Hub traegt AUSSCHLIESSLICH System-Meta-Metas. Wer load_framework
 // oder eine andere Mess-Realm-Achse hier einhaengt, bricht diese Zeile. Die Pruefung laeuft ueber die
 // Glied-ANZAHL, damit sie ohne einen #include der Mess-Realm-Achse auskommt (Layer-Trennung).
-static_assert(
-    std::is_same_v<ExternalUtilsHub::identity_as<MetaMetaMembers>, MetaMetaMembers<SimdExternalUtilsFamily>>,
-    "R-G (Ledger 69.1): der external_utils-Hub traegt NUR System-Meta-Metas -- load_framework "
-    "ist Mess-Realm und darf hier nie erscheinen.");
+static_assert(std::is_same_v<ExternalUtilsHub::identity_as<MetaMetaMembers>, MetaMetaMembers<SimdExternalUtilsFamily>>,
+              "R-G (Ledger 69.1): der external_utils-Hub traegt NUR System-Meta-Metas -- load_framework "
+              "ist Mess-Realm und darf hier nie erscheinen.");
 // Das Glied spannt eine EIGENE RT-Unter-Achse (getrennte Klammerung, Owner Q-A).
 static_assert(SimdExternalUtilsFamily::sub_axis_label() == std::string_view{"simd"});
 // Das Glied ist heute ein BLATT (nicht selbst Hub) -- der Hub hat damit Tiefe 1. Die Zahl ist emergent:

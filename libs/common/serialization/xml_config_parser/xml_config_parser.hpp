@@ -299,7 +299,7 @@ struct ThesisProfile {
     //    beide Listen leer = heutiges Verhalten byte-identisch (golden-Roundtrip unberuehrt). Die Wert-Gueltigkeit
     //    (opt O0..O3 zulaessig, Ofast REJECT gemaess §32-F4; simd gegen kAllSimdIds) prueft validate_profile in der
     //    cache_engine-Schicht — hier keine Enum-Referenz (Baseline-Layering). ──
-    CompilerAxisSel          compiler;
+    CompilerAxisSel      compiler;
     ExternalUtilsAxisSel external_utils;
     // S2/A2 P-SYSREG (2026-07-20): target_isa als EIGENE Haupt-System-Achse (INC-2d) im comdare_thesis_profile-Kanal,
     // ueber dieselbe geteilte parse_system_axes-Naht befuellt. Die atomic128-Unter-Achse reist innerhalb von compiler
@@ -363,12 +363,12 @@ struct ExperimentEngine {
 // (CPU-Fabrikation) hat KEIN eigenes Attribut -- es ist das O-4a-Kern-Tupel aus machine_identity.hpp,
 // aufgeloest ueber den unveraenderten Schluessel cpu_fabrication + ram_pair.
 struct ExperimentMachine {
-    std::string id;              // <machine id=..>
-    std::string cpu_fabrication; // <machine cpu_fabrication=..> (Kern-Identitaet, Pflicht)
-    std::string ram_pair;        // <machine ram_pair=..> (Kern-Identitaet, Pflicht)
-    std::string hostname_hint;   // <machine hostname_hint=..> (optionaler Hinweis, NICHT Schluessel)
-    int ram_frequency_mhz = 0;   // <machine ram_frequency_mhz=..> (target_isa-Glied; 0 = nicht deklariert)
-    int cas_latency_cl    = 0;   // <machine cas_latency_cl=..> (target_isa-Glied; 0 = nicht deklariert)
+    std::string id;                    // <machine id=..>
+    std::string cpu_fabrication;       // <machine cpu_fabrication=..> (Kern-Identitaet, Pflicht)
+    std::string ram_pair;              // <machine ram_pair=..> (Kern-Identitaet, Pflicht)
+    std::string hostname_hint;         // <machine hostname_hint=..> (optionaler Hinweis, NICHT Schluessel)
+    int         ram_frequency_mhz = 0; // <machine ram_frequency_mhz=..> (target_isa-Glied; 0 = nicht deklariert)
+    int         cas_latency_cl    = 0; // <machine cas_latency_cl=..> (target_isa-Glied; 0 = nicht deklariert)
 };
 
 struct ExperimentPhase {
@@ -452,10 +452,9 @@ struct ExperimentProfile {
     std::vector<std::string> writeback_methods; // <writeback_methods><method value=csv|latex_table|comparison_metrics>*
     std::vector<std::string> op_types;          // <op_types> (Whitespace-Tokens OP-1..OP-6)
     CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse -> opt_level + atomic128 Unter-Achsen)
-    ExternalUtilsAxisSel
-                     external_utils; // <system_axes><external_utils><simd> (Haupt-Achse -> simd-Unter-Achse)
-    TargetIsaAxisSel target_isa;         // <system_axes><target_isa> (eigene Haupt-Achse -> Optionen x86_64|aarch64)
-    ExperimentOutput output;             // <output>
+    ExternalUtilsAxisSel     external_utils; // <system_axes><external_utils><simd> (Haupt-Achse -> simd-Unter-Achse)
+    TargetIsaAxisSel         target_isa; // <system_axes><target_isa> (eigene Haupt-Achse -> Optionen x86_64|aarch64)
+    ExperimentOutput         output;     // <output>
 };
 
 class XmlConfigParser {

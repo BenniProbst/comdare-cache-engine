@@ -48,8 +48,7 @@ void check_eq(char const* what, std::string const& got, std::string const& want)
 /// Zaehlt, wie oft `needle` in `hay` vorkommt (nicht ueberlappend).
 [[nodiscard]] std::size_t count_occurrences(std::string const& hay, std::string_view needle) {
     std::size_t n = 0;
-    for (std::size_t pos = hay.find(needle); pos != std::string::npos; pos = hay.find(needle, pos + needle.size()))
-        ++n;
+    for (std::size_t pos = hay.find(needle); pos != std::string::npos; pos = hay.find(needle, pos + needle.size())) ++n;
     return n;
 }
 
@@ -108,8 +107,7 @@ int main() {
               count_occurrences(pf::compose_system_version_suffix(full_parts()), "+ceb=") == 1u);
         pf::SystemVersionSuffixParts p = full_parts();
         p.ceb                          = {};
-        check("Ohne CEB-Glied gar kein +ceb=",
-              count_occurrences(pf::compose_system_version_suffix(p), "+ceb=") == 0u);
+        check("Ohne CEB-Glied gar kein +ceb=", count_occurrences(pf::compose_system_version_suffix(p), "+ceb=") == 0u);
     }
 
     std::cout << "== T-c: Segment-Ordnung ==\n";

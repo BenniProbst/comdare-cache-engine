@@ -143,8 +143,8 @@ struct Prod2RaptorLakeTargetIsa final : TargetIsaComplexAxis<Prod2RaptorLakeTarg
 using DefaultTargetIsaComplex = Prod1Zen5TargetIsa;
 
 /// Single-Source der gueltigen Rekombinations-Ids (analog kAllTargetIsaIds/kAllOperatingSystemIds).
-inline constexpr std::array<std::string_view, 2> kAllTargetIsaComplexIds = {
-    Prod1Zen5TargetIsa::complex_id(), Prod2RaptorLakeTargetIsa::complex_id()};
+inline constexpr std::array<std::string_view, 2> kAllTargetIsaComplexIds = {Prod1Zen5TargetIsa::complex_id(),
+                                                                            Prod2RaptorLakeTargetIsa::complex_id()};
 
 static_assert(TargetIsaComplexAxisConcept<Prod1Zen5TargetIsa>);
 static_assert(TargetIsaComplexAxisConcept<Prod2RaptorLakeTargetIsa>);

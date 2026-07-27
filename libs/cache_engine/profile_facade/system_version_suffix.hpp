@@ -41,20 +41,20 @@ inline constexpr std::array<std::string_view, 8> kSuffixSegmentOrder = {
 /// Die Glieder des Suffix. LEER heisst IMMER "kein Segment" -- es gibt keinen Zweig, der ein leeres
 /// Glied als leeres Segment schreibt. Der Aufrufer fuellt nur, was er wirklich weiss.
 struct SystemVersionSuffixParts {
-    std::string_view cxx{};             ///< Compiler-Tag (+cxx=)
-    std::string_view opt{};             ///< opt_level-id (+opt=)
-    std::string_view simd{};            ///< simd-id (+ext=); no_extension wird vom Aufrufer als leer uebergeben
-    std::string_view ceb{};             ///< "<abi_major>.<codegen_minor>" (+ceb=)
-    std::string_view target_isa{};      ///< NUR bei Ziel != Host (+target=)
-    std::string_view telemetry{};       ///< NUR bei abweichendem Regime, z.B. "silent" (+tel=)
-    std::string_view build_type{};      ///< "Debug" (+bt=); Release/Default = leer
+    std::string_view cxx{};               ///< Compiler-Tag (+cxx=)
+    std::string_view opt{};               ///< opt_level-id (+opt=)
+    std::string_view simd{};              ///< simd-id (+ext=); no_extension wird vom Aufrufer als leer uebergeben
+    std::string_view ceb{};               ///< "<abi_major>.<codegen_minor>" (+ceb=)
+    std::string_view target_isa{};        ///< NUR bei Ziel != Host (+target=)
+    std::string_view telemetry{};         ///< NUR bei abweichendem Regime, z.B. "silent" (+tel=)
+    std::string_view build_type{};        ///< "Debug" (+bt=); Release/Default = leer
     std::string_view gate_contribution{}; ///< OP-7 / Ledger 70.9: die Gate-Beitraege (+gate=), leer = kein Segment
 };
 
 /// Setzt den Suffix in der EINEN Ordnung zusammen. Reine Funktion: gleiche Glieder, gleicher String.
 [[nodiscard]] inline std::string compose_system_version_suffix(SystemVersionSuffixParts const& p) {
     std::string out;
-    auto const append = [&out](std::string_view key, std::string_view value) {
+    auto const  append = [&out](std::string_view key, std::string_view value) {
         if (value.empty()) return; // leeres Glied => KEIN Segment (D2.8(ii), Ledger 70.9)
         out += key;
         out += value;

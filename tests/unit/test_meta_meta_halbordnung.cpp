@@ -248,8 +248,7 @@ TEST(ExternalUtilsHub, IdentitaetIstDieKonfigurationDerGlieder) {
     // Die Basis-Identitaet laeuft auch unter der Hub-Identitaet (Aufwaerts-Doktrin am echten Hub).
     EXPECT_TRUE((meas::subsumes_v<HubIdentitaet, meas::CpuOnlyIdentity>));
     // Eine Teil-Identitaet mit GROESSERER Hardware-Verwendung ist NICHT gueltig.
-    EXPECT_FALSE(
-        (meas::subsumes_v<HubIdentitaet, meas::MetaMetaSet<meas::SimdExternalUtilsFamily, Avx512MetaMeta>>));
+    EXPECT_FALSE((meas::subsumes_v<HubIdentitaet, meas::MetaMetaSet<meas::SimdExternalUtilsFamily, Avx512MetaMeta>>));
     // Und dasselbe Urteil ueber die C-2-Ueberladung.
     EXPECT_FALSE((meas::admit_organ_on_machine<HubIdentitaet, meas::CpuOnlyIdentity>().has_value()));
 }

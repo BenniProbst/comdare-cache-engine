@@ -31,10 +31,10 @@
 
 #include <builder/codegen/type_name.hpp> // type_name<W>() (FQ-Typ der Kollektoren)
 
-#include <anatomy/resource_controllable_tier.hpp>            // ComdareResourceControlV1 + kResourceControlVersion
+#include <anatomy/resource_controllable_tier.hpp> // ComdareResourceControlV1 + kResourceControlVersion
 #include <cache_engine/measurement/load_framework_measurement_axis.hpp> // workload-Unter-Achsen-Label (Single-Source)
-#include <cache_engine/measurement/measurement_axis_registry.hpp>  // kMeasurementAxisRegistry + for_each + axis_info
-#include <cache_engine/measurement/system_axis.hpp>                // 3 Kollektoren + MeasurementRegime + regime_of
+#include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry + for_each + axis_info
+#include <cache_engine/measurement/system_axis.hpp>               // 3 Kollektoren + MeasurementRegime + regime_of
 
 #include <cstddef>
 #include <cstdint>
@@ -93,8 +93,8 @@ void emit_collector(std::ofstream& f) {
     std::string const name = short_name(type);
     note_name(name);
     f << "    <baustein name=\"" << xml_escape(name) << "\" wrapper=\"" << xml_escape(name) << "\" type=\""
-      << xml_escape(type) << "\" enabled=\"true\" regime_ordinal=\""
-      << static_cast<std::uint32_t>(Collector::regime()) << "\">\n";
+      << xml_escape(type) << "\" enabled=\"true\" regime_ordinal=\"" << static_cast<std::uint32_t>(Collector::regime())
+      << "\">\n";
     for (meas::MeasurementCategory const cat : Collector::do_categories()) {
         std::string_view const cname = meas::axis_info(cat).name;
         f << "      <category ref=\"" << xml_escape(cname) << "\"/>\n";
@@ -129,7 +129,8 @@ int main(int argc, char** argv) {
          "generator=\"measurement_axis_registry_gen\">\n";
     f << "  <!-- GENERIERT von tools/measurement_axis_registry_gen (PAKET W2-B) per compile-time-Reflektion\n";
     f << "       der realen Mess-Achsen-Typen (measurement/measurement_axis_registry.hpp + system_axis.hpp).\n";
-    f << "       NICHT von Hand editieren. Ledger §28/§30: Mess-Art-Registry im Mess-Modul (Angebot Mess->Planer). -->\n";
+    f << "       NICHT von Hand editieren. Ledger §28/§30: Mess-Art-Registry im Mess-Modul (Angebot Mess->Planer). "
+         "-->\n";
     f << "  <!-- Mess-Achsen (\"Blut\") stehen NIE in der binary_id (binary_id=never); Werte = CSV-Spalten/\n";
     f << "       setting_label. Regime-Ordinal: 0=TimeObserver, 1=PmcCounter (system_axis.hpp regime_of). -->\n";
 
@@ -196,17 +197,18 @@ int main(int argc, char** argv) {
         f << "    <dim id=\"" << xml_escape(wl)
           << "\" stage=\"runtime\" source=\"measurement:load_framework\" value_type=\"token\"/>\n";
     }
-    f << "    <!-- RC-POD-gekoppelte Dimensionen (ComdareResourceControlV1-Felder; setting_label axis.var=value). -->\n";
-    for (std::string_view const dim :
-         {std::string_view{"thread_count"}, std::string_view{"prefetch_distance"},
-          std::string_view{"pool_budget_bytes"}, std::string_view{"batch_size"},
-          std::string_view{"inline_threshold_bytes"}}) {
+    f << "    <!-- RC-POD-gekoppelte Dimensionen (ComdareResourceControlV1-Felder; setting_label axis.var=value). "
+         "-->\n";
+    for (std::string_view const dim : {std::string_view{"thread_count"}, std::string_view{"prefetch_distance"},
+                                       std::string_view{"pool_budget_bytes"}, std::string_view{"batch_size"},
+                                       std::string_view{"inline_threshold_bytes"}}) {
         note_name(dim);
         f << "    <dim id=\"" << xml_escape(dim) << "\" stage=\"runtime\" source=\"resource_control_pod\""
           << " value_type=\"uint\"/>\n";
     }
     f << "    <!-- TODO(W2-B): repetition ist eine reine setting_label-DynDim OHNE CT-Anker -> nicht emittiert\n";
-    f << "         (kein handgeschriebenes Phantom). Erst mit einer constexpr-Namens-Single-Source reflektierbar. -->\n";
+    f << "         (kein handgeschriebenes Phantom). Erst mit einer constexpr-Namens-Single-Source reflektierbar. "
+         "-->\n";
     f << "    <!-- TODO(W2-B, §32-F1/F7): die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen ->\n";
     f << "         nicht emittiert; erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar. -->\n";
     f << "  </dynamic_dims>\n";

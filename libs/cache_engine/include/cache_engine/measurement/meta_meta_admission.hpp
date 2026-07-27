@@ -80,8 +80,7 @@ static_assert(!admit_organ_on_machine<MetaMetaSet<SimdExternalUtilsFamily>, CpuO
 static_assert(!admit_organ_on_machine<CpuOnlyIdentity, CpuOnlyIdentity>().has_value());
 // Reflexiv: die eigene Identitaet ist immer zugelassen.
 static_assert(
-    !admit_organ_on_machine<MetaMetaSet<SimdExternalUtilsFamily>, MetaMetaSet<SimdExternalUtilsFamily>>()
-         .has_value());
+    !admit_organ_on_machine<MetaMetaSet<SimdExternalUtilsFamily>, MetaMetaSet<SimdExternalUtilsFamily>>().has_value());
 // ABWAERTS nein: Hardware nicht vorhanden -> D1 HardwareErweiterungFehlt, dieselbe Klasse wie auf der
 // Flag-Ebene. Das ist die Aequivalenz-Aussage der Hebung.
 static_assert(admit_organ_on_machine<CpuOnlyIdentity, MetaMetaSet<SimdExternalUtilsFamily>>() ==

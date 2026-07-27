@@ -266,7 +266,7 @@ template <class List>
     // nicht), traegt also nichts bei; die beiden Wege bleiben aber auch dann deckungsgleich, wenn er
     // gefuellt wird. Wer die Reihenfolge hier aendert, muss sie DORT mitaendern -- sonst driftet der
     // Lager-Index-Anker vom einkompilierten sha512_line weg.
-    auto const overlay = ::comdare::cache_engine::abi::kOverlaySourceHash;
+    auto const  overlay = ::comdare::cache_engine::abi::kOverlaySourceHash;
     std::string preimage;
     preimage.reserve(organ.size() + system.size() + measurement_stamp.size() + overlay.size());
     preimage += organ;

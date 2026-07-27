@@ -84,8 +84,7 @@ using DefaultOperatingSystem = LinuxOperatingSystem;
 
 /// Single-Source der gueltigen os_family_ids (analog kAllTargetIsaIds/kAllSimdIds).
 inline constexpr std::array<std::string_view, 3> kAllOperatingSystemIds = {
-    LinuxOperatingSystem::os_family_id(), WindowsOperatingSystem::os_family_id(),
-    MacosOperatingSystem::os_family_id()};
+    LinuxOperatingSystem::os_family_id(), WindowsOperatingSystem::os_family_id(), MacosOperatingSystem::os_family_id()};
 
 static_assert(OperatingSystemAxisConcept<LinuxOperatingSystem>);
 static_assert(OperatingSystemAxisConcept<WindowsOperatingSystem>);

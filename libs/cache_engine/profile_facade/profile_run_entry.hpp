@@ -42,11 +42,11 @@
 #include <builder/driver_build_variant_signature.hpp> // A7-B: driver_build_variant_signature (Mengen-Sig des Treibers)
 
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
-#include <cache_engine/measurement/simd_build_gate.hpp>             // C-3c: active_machine_signature (deklarierte Klasse)
+#include <cache_engine/measurement/simd_build_gate.hpp> // C-3c: active_machine_signature (deklarierte Klasse)
 
-#include "system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
-#include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
-#include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
+#include "system_version_suffix.hpp"                  // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include <cache_engine/measurement/simd_sub_axis.hpp> // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
+#include <cache_engine/measurement/axis_error.hpp>    // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
 
 #include <cstddef>
 #include <cstdint>
@@ -228,9 +228,12 @@ struct RunProfileResult {
     if (simd_id == cm::SimdNoExtOption::simd_id()) return true;
     // Welches cpuinfo-Flag die Grob-Route mindestens braucht (Unterstrich-Falle: cpuinfo-Id != -m-Flag).
     std::string_view required{};
-    if (simd_id == cm::SimdAvx2Option::simd_id()) required = "avx2";
-    else if (simd_id == cm::SimdAvx512Option::simd_id()) required = "avx512f";
-    else return false; // unbekannte id => nicht zulassen
+    if (simd_id == cm::SimdAvx2Option::simd_id())
+        required = "avx2";
+    else if (simd_id == cm::SimdAvx512Option::simd_id())
+        required = "avx512f";
+    else
+        return false; // unbekannte id => nicht zulassen
     if (auto const signature = cm::active_machine_signature(); !signature.empty()) {
         for (auto const& flag : signature)
             if (flag.cpuinfo == required) return true;

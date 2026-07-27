@@ -139,10 +139,10 @@ struct DeclaredMachine {
     std::string_view                 cpu_fabrication; ///< == <machine cpu_fabrication=..> der XML
     std::string_view                 ram_pair;        ///< == <machine ram_pair=..> der XML
     std::string_view                 machine_id;      ///< == MachineSimdSignature::machine_id()
-    MachineCoreCpuId                 core;            ///< fuer verify_declared_cpu(); = target_isa-Glied CPU-Fabrikation
-    std::span<SimdFeatureFlag const> signature;       ///< die deklarierte SIMD-Signatur
-    std::uint32_t ram_frequency_mhz = 0;              ///< == <machine ram_frequency_mhz=..>; 0 = NICHT deklariert
-    std::uint32_t cas_latency_cl    = 0;              ///< == <machine cas_latency_cl=..>; 0 = NICHT deklariert
+    MachineCoreCpuId                 core;      ///< fuer verify_declared_cpu(); = target_isa-Glied CPU-Fabrikation
+    std::span<SimdFeatureFlag const> signature; ///< die deklarierte SIMD-Signatur
+    std::uint32_t                    ram_frequency_mhz = 0; ///< == <machine ram_frequency_mhz=..>; 0 = NICHT deklariert
+    std::uint32_t                    cas_latency_cl    = 0; ///< == <machine cas_latency_cl=..>; 0 = NICHT deklariert
 };
 
 /// prod1 -- LIVE ABGELEITET am 26.07.2026 auf dem Host `prod1` und gegen /proc/cpuinfo gegengeprueft
@@ -165,12 +165,8 @@ inline constexpr MachineCoreCpuId kProd1Zen5Core{.vendor   = "AuthenticAMD",
 /// eine FALSCHE Abweichung melden -- also genau den stillen Fehler, den die Drift-Gegenprobe
 /// verhindern soll. Ein leerer Brand ist im Matcher ausdruecklich vorgesehen und heisst "Brand nicht
 /// mitpruefen"; die vier harten CPUID-Felder pruefen weiterhin voll. Nachtrag rein additiv.
-inline constexpr MachineCoreCpuId kProd2AlderLakeCore{.vendor   = "GenuineIntel",
-                                                      .family   = 6,
-                                                      .model    = 151,
-                                                      .stepping = 2,
-                                                      .brand    = "",
-                                                      .declared = true};
+inline constexpr MachineCoreCpuId kProd2AlderLakeCore{
+    .vendor = "GenuineIntel", .family = 6, .model = 151, .stepping = 2, .brand = "", .declared = true};
 
 /// odroid -- die CPU-Kern-Kennung ist NOCH NICHT abgeleitet. Sie wird hier BEWUSST NICHT geraten:
 /// der Cluster ist read-only, der Host nicht abfragbar. Bis die Werte offline erhoben sind (siehe

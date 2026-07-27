@@ -56,7 +56,7 @@
 #include <cache_engine/measurement/system_axis.hpp> // kAllMeasurementCategories (INC-D: Single-Source der 16 Kategorie-Enums)
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
-#include <cache_engine/measurement/external_utils_family_axis.hpp> // GN-1: aktiver external_utils-Familien-Knoten
+#include <cache_engine/measurement/external_utils_family_axis.hpp>  // GN-1: aktiver external_utils-Familien-Knoten
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // S2/A2: kAllAtomic128Ids (Single-Source der atomic128-ids)
 #include <cache_engine/measurement/target_isa_system_axis.hpp> // S2/A2: kAllTargetIsaIds (Single-Source der target_isa-ids)
 #include <cache_engine/measurement/run_methodology_registry.hpp> // A9.1: kRunMethodologyRegistry (debug/measure/release)
@@ -1004,8 +1004,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     // Familien-Knotens (external_utils_family_axis.hpp) -- Label-Drift bricht compile-time, nicht erst hier.
     static_assert(ms::SimdNoExtOption::parent_axis_label() == ms::SimdExternalUtilsFamily::axis_label(),
                   "GN-1: simd haengt unter dem aktiven external_utils-Familien-Knoten.");
-    for (auto const& s :
-         ep.external_utils.simd_options) { // Optionen der simd-Unter-Achse (external_utils -> simd)
+    for (auto const& s : ep.external_utils.simd_options) { // Optionen der simd-Unter-Achse (external_utils -> simd)
         ++r.simd_checked;
         bool const known = std::find(ms::kAllSimdIds.begin(), ms::kAllSimdIds.end(), s) != ms::kAllSimdIds.end();
         if (!known) {

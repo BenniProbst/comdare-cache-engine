@@ -63,11 +63,9 @@ inline constexpr std::string_view kOverlaySourceHash = COMDARE_OVERLAY_SOURCE_HA
 /// sich am Inhalt der vier Zeilen etwas geaendert haette; der Anhang laesst sie unberuehrt, solange das
 /// Glied leer ist. Die Reihenfolge darf nur GEMEINSAM an allen Orten der Kette geaendert werden
 /// (dieser Header, der Laufzeit-Zwilling lazy_adhoc_fingerprint_for, der Bestandslog-Index).
-[[nodiscard]] consteval std::array<char, 129> anatomy_fingerprint_hex(std::string_view organ, std::string_view system,
-                                                                      std::string_view measurement,
-                                                                      std::string_view merge,
-                                                                      std::string_view overlay_source_hash
-                                                                      = kOverlaySourceHash) noexcept {
+[[nodiscard]] consteval std::array<char, 129>
+anatomy_fingerprint_hex(std::string_view organ, std::string_view system, std::string_view measurement,
+                        std::string_view merge, std::string_view overlay_source_hash = kOverlaySourceHash) noexcept {
     std::array<std::uint8_t, kAnatomyFingerprintPreimageMax> preimage{};
     std::size_t                                              n      = 0;
     auto                                                     append = [&](std::string_view s) {

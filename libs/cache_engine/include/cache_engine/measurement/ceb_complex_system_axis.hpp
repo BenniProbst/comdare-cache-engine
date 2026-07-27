@@ -76,10 +76,10 @@ using BuildToolchainSubAxes = SubAxisGroup<GccCompilerAxis, OptO3Option, Cx16Opt
 template <class TargetIsaComplex, class OperatingSystem, class ExternalUtils, class SubAxes>
 struct CompoundSystemAxis
     : CebSystemAxis<CompoundSystemAxis<TargetIsaComplex, OperatingSystem, ExternalUtils, SubAxes>> {
-    using target_isa_axis     = TargetIsaComplex;
+    using target_isa_axis       = TargetIsaComplex;
     using operating_system_axis = OperatingSystem;
-    using external_utils_axis = ExternalUtils;
-    using sub_axis_group      = SubAxes;
+    using external_utils_axis   = ExternalUtils;
+    using sub_axis_group        = SubAxes;
 
     /// Ein EIGENER Achsen-Name: der Komplex ist nicht eine seiner Teil-Achsen, sondern ihre Klammer.
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "build_target_complex"; }
@@ -112,8 +112,8 @@ concept CompoundSystemAxisConcept = CebSystemAxisConcept<A> && requires {
 /// DIE aeussere Komplex-Achse der CEB: die Rekombination der drei Default-Auspraegungen, mit der
 /// Bau-Gruppe daran. "Default" heisst hier beweglicher Startwert, KEIN Pin -- der Planer bzw. die XML
 /// waehlt die Auspraegungen; die KLAMMER bleibt dieselbe.
-using CebCompoundSystemAxis = CompoundSystemAxis<DefaultTargetIsaComplex, DefaultOperatingSystem,
-                                                 SimdExternalUtilsFamily, BuildToolchainSubAxes>;
+using CebCompoundSystemAxis =
+    CompoundSystemAxis<DefaultTargetIsaComplex, DefaultOperatingSystem, SimdExternalUtilsFamily, BuildToolchainSubAxes>;
 
 static_assert(CompoundSystemAxisConcept<CebCompoundSystemAxis>);
 static_assert(CebCompoundSystemAxis::axis_label() == std::string_view{"build_target_complex"});

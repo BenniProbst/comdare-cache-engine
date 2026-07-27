@@ -47,8 +47,8 @@ protected:
 template <class A>
 concept LoadFrameworkMeasurementAxisConcept =
     MeasurementMetaMetaAxisConcept<A> && std::derived_from<A, LoadFrameworkMeasurementAxis<A>> &&
-    std::is_empty_v<LoadFrameworkMeasurementAxis<A>> &&
-    (!std::is_polymorphic_v<LoadFrameworkMeasurementAxis<A>>) && requires {
+    std::is_empty_v<LoadFrameworkMeasurementAxis<A>> && (!std::is_polymorphic_v<LoadFrameworkMeasurementAxis<A>>) &&
+    requires {
         { A::framework_id() } -> std::same_as<std::string_view>;
         { A::sub_axis_label() } -> std::same_as<std::string_view>;
     };
