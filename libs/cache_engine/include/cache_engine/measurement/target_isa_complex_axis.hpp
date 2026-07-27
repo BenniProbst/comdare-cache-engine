@@ -131,8 +131,9 @@ struct Prod1Zen5TargetIsa final : TargetIsaComplexAxis<Prod1Zen5TargetIsa, X86_6
     [[nodiscard]] static constexpr std::string_view do_ram_pair_key() noexcept { return "ddr5_2x32"; }
 };
 
-/// prod2-Klasse: x86_64 + Intel-Fabrikation. Kern-Tupel und RAM-Glieder heute nicht deklariert --
-/// die Auspraegung existiert trotzdem, weil die KLASSE deklariert ist; sie stempelt ehrlich unvollstaendig.
+/// prod2-Klasse: x86_64 + Intel-Fabrikation. Zwei der drei Glieder sind erhoben -- das Kern-Tupel (O-4a,
+/// Schritt 5b) und die RAM-Frequenz (P7-Nachzug, dmidecode). Es fehlt allein die CAS-Latenz, die SMBIOS
+/// nicht fuehrt; die Auspraegung stempelt deshalb weiterhin ehrlich unvollstaendig statt geschaetzt.
 struct Prod2RaptorLakeTargetIsa final : TargetIsaComplexAxis<Prod2RaptorLakeTargetIsa, X86_64TargetIsa> {
     [[nodiscard]] static constexpr std::string_view do_complex_id() noexcept { return "prod2_raptor_lake"; }
     [[nodiscard]] static constexpr std::string_view do_cpu_fabrication_key() noexcept { return "intel_avx2"; }
@@ -167,9 +168,10 @@ static_assert(Prod2RaptorLakeTargetIsa::declared_machine() != nullptr, "Prod2Rap
 static_assert(Prod1Zen5TargetIsa::declared_machine() != Prod2RaptorLakeTargetIsa::declared_machine(),
               "Zwei Rekombinationen duerfen nicht auf dieselbe Deklarations-Zeile zeigen.");
 
-// EHRLICHKEITS-ANKER (Ist-Stand, kein Soll): das Kern-Tupel ist heute NUR fuer prod1 erhoben, die
-// RAM-Glieder fuer KEINE Maschine (Ledger #49: Erhebung beim Infra-Agenten). Diese Asserts sind die
-// Stelle, an der eine spaetere Nachdeklaration bewusst quittiert werden muss, statt still zu wirken.
+// EHRLICHKEITS-ANKER (Ist-Stand, kein Soll): sie halten fest, WAS heute erhoben ist -- Kern-Tupel fuer
+// beide Maschinen (O-4a + Schritt 5b), RAM-Frequenz nur fuer prod2 (P7-Nachzug 27.07.), CAS-Latenz fuer
+// keine. Diese Asserts sind die Stelle, an der jede weitere Nachdeklaration bewusst quittiert werden
+// muss, statt still zu wirken.
 static_assert(Prod1Zen5TargetIsa::cpu_fabrication().declared,
               "prod1 hat eine erhobene CPU-Kern-Kennung (O-4, live gegengeprueft).");
 // O-8 Schritt 5b: der O-4a-Nachzug ist VOLLZOGEN -- prod2s Kern-Kennung ist erhoben und deklariert.
@@ -180,8 +182,21 @@ static_assert(Prod2RaptorLakeTargetIsa::cpu_fabrication().declared,
 static_assert(Prod1Zen5TargetIsa::cpu_fabrication().vendor != Prod2RaptorLakeTargetIsa::cpu_fabrication().vendor,
               "Die beiden Rekombinationen muessen sich im CPU-Fabrikations-Glied unterscheiden -- sonst "
               "waere eine der beiden Deklarationen aus der anderen abgeschrieben.");
+// P7-Nachzug 27.07.: prod2s RAM-Frequenz ist erhoben (dmidecode --type 17: Speed == Configured Memory
+// Speed == 4800 MT/s, also JEDEC-Basistakt ohne XMP/EXPO). Der Wert steht hier als Wache, damit ein
+// stiller Rueckfall auf 0 auffaellt -- 0 hiesse "nicht erhoben" und waere nach dieser Erhebung falsch.
+static_assert(Prod2RaptorLakeTargetIsa::ram_frequency_mhz() == 4800U,
+              "prod2s RAM-Frequenz ist mit P7 erhoben (4800 MT/s, JEDEC-Basis). Faellt sie auf 0 zurueck, "
+              "ist das ein Rueckschritt und keine Bereinigung.");
+static_assert(Prod1Zen5TargetIsa::ram_frequency_mhz() == 0U,
+              "Fuer prod1 liegt KEINE RAM-Erhebung vor. Eine Zahl hier waere geraten -- der Planungswert "
+              "aus Termin 7 beschreibt eine andere Aufstellung (siehe kDeclaredMachines).");
+static_assert(Prod1Zen5TargetIsa::cas_latency_cl() == 0U && Prod2RaptorLakeTargetIsa::cas_latency_cl() == 0U,
+              "Die CAS-Latenz ist fuer KEINE Maschine erhoben: SMBIOS Type 17 fuehrt sie nicht, und "
+              "decode-dimms (SPD/i2c) ist auf prod2 nicht installiert.");
 static_assert(!Prod1Zen5TargetIsa::has_all_members_declared() && !Prod2RaptorLakeTargetIsa::has_all_members_declared(),
-              "Solange RAM-Frequenz/CAS nicht erhoben sind, ist KEINE Rekombination vollstaendig. Wer "
-              "diese Zeile bricht, hat Werte nachdeklariert -- dann gehoert sie angepasst, nicht entfernt.");
+              "Solange die CAS-Latenz fehlt, ist KEINE Rekombination vollstaendig -- bei prod2 haengt es "
+              "nur noch an ihr. Wer diese Zeile bricht, hat CAS nachdeklariert; dann gehoert sie "
+              "angepasst, nicht entfernt.");
 
 } // namespace comdare::cache_engine::measurement

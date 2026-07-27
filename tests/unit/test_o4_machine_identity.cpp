@@ -82,6 +82,26 @@ TEST(O4MachineIdentity, Prod2KernKennungIstMitO4aErhobenUndDeklariert) {
     EXPECT_TRUE(m->core.brand.empty());
 }
 
+TEST(O4MachineIdentity, Prod2RamFrequenzIstErhobenUndCasBleibtEhrlichOffen) {
+    // P7-Nachzug 27.07.: der zweite Teil der prod2-Erhebung. `dmidecode --type 17` liefert zwei
+    // bestueckte Slots a 32 GB mit Speed == Configured Memory Speed == 4800 MT/s -- dieses Zusammenfallen
+    // IST die Aussage "JEDEC-Basistakt, kein XMP/EXPO", also ein Ist-Wert und kein Modul-Etikett.
+    // Die CAS-Latenz bleibt 0: SMBIOS Type 17 fuehrt sie nicht, decode-dimms ist auf prod2 nicht
+    // installiert. Beide Zusicherungen zusammen sind der Punkt -- ein erhobenes Glied wird deklariert,
+    // ein nicht erhobenes wird NICHT geschaetzt, nur weil daneben eine Zahl steht.
+    auto const* m = meas::resolve_machine_by_properties("intel_avx2", "ddr4_2x32");
+    ASSERT_NE(m, nullptr);
+    EXPECT_EQ(m->ram_frequency_mhz, 4800u);
+    EXPECT_EQ(m->cas_latency_cl, 0u) << "0 heisst 'nicht erhoben' -- CL0 gibt es als realen Wert nicht.";
+
+    // prod1 ist von dieser Erhebung NICHT beruehrt und bleibt vollstaendig undeklariert. Ohne diese
+    // Gegenprobe koennte eine spaetere Sammel-Deklaration prod1 stillschweigend mitnehmen.
+    auto const* p1 = meas::resolve_machine_by_properties("amd_zen5_avx512", "ddr5_2x32");
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->ram_frequency_mhz, 0u);
+    EXPECT_EQ(p1->cas_latency_cl, 0u);
+}
+
 TEST(O4MachineIdentity, Prod2MatchtDieEigeneDeklarationUndNichtsAnderes) {
     // HOST-UNABHAENGIG: die Gegenprobe laeuft gegen SYNTHETISCHE live-Werte, nicht gegen die CPU des
     // Testlaeufers -- sonst haenge das Ergebnis daran, auf welcher Kiste ctest gerade laeuft.

@@ -186,20 +186,35 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 /// fuehrt, tritt sie hier als vierte Zeile ein. Bis dahin loest sie ehrlich auf nullptr auf.
 /// Eine neue Maschine tritt IMMER doppelt ein: hier als Zeile UND in der XML als <machine>.
 ///
-/// O-8 Schritt 5 (O-4b): die zwei RAM-seitigen target_isa-Glieder (ram_frequency_mhz, cas_latency_cl)
-/// tragen BEIDE Zeilen bewusst NICHT -- sie bleiben auf dem Default 0 = nicht deklariert. Grund: fuer
-/// KEINE der beiden Maschinen liegt ein erhobener Ist-Wert vor. Ledger #49 weist die Erhebung
-/// ausdruecklich dem Infra-Agenten zu; fuer prod2 ist sie angefragt und offen. Aeltere Planungs-Doks
-/// nennen zwar "64 GB DDR5-5600 CL36" fuer die Produktions-Plattform (Termin 7, 05/2026), beschreiben
-/// dort aber eine Zwei-Maschinen-Aufstellung, deren zweite CPU (i9-14900KS) NICHT die heutige prod2
-/// (i9-12900K) ist -- die Angabe ist damit kein belastbarer Ist-Wert fuer eine bestimmte Zeile hier.
-/// Sie zu uebernehmen waere genau die Falsch-Aussage ueber echte Hardware, die der Kopf-Block dieses
-/// Headers fuer die CPU-Seite schon einmal ausschliesst. Die Nachdeklaration ist rein additiv: sobald
-/// die Werte erhoben sind, treten sie als zwei Zahlen je Zeile ein, ohne Struktur-Aenderung.
+/// O-8 Schritt 5 (O-4b) / P7-NACHZUG (27.07.2026): der Stand der zwei RAM-seitigen target_isa-Glieder
+/// ist je Zeile VERSCHIEDEN, und genau so steht er hier -- 0 heisst weiterhin "nicht erhoben", nie 0 MHz.
+///
+///   prod2  ram_frequency_mhz = 4800   ERHOBEN. Quelle: `dmidecode --type 17` auf prod2 (Infra-Antwort
+///                                     27.07.2026): zwei bestueckte Slots a 32 GB, Speed == Configured
+///                                     Memory Speed == 4800 MT/s. Dass konfigurierter und maximaler Takt
+///                                     zusammenfallen, ist die Aussage "JEDEC-Basistakt, KEIN XMP/EXPO" --
+///                                     der Wert beschreibt also den real laufenden Zustand, nicht ein
+///                                     Modul-Etikett.
+///   prod2  cas_latency_cl    = 0      NICHT erhebbar mit dem heutigen Werkzeug: SMBIOS Type 17 fuehrt
+///                                     keine CAS-Latency, und `decode-dimms` (SPD/i2c) ist auf prod2
+///                                     nicht installiert. Bleibt offen statt geschaetzt.
+///   prod1  beide             = 0      Fuer prod1 liegt keine Erhebung vor.
+///
+/// KEIN PLANUNGSWERT ALS ERSATZ: aeltere Planungs-Doks nennen "64 GB DDR5-5600 CL36" fuer die
+/// Produktions-Plattform (Termin 7, 05/2026), beschreiben dort aber eine Aufstellung, deren zweite CPU
+/// (i9-14900KS) NICHT die heutige prod2 (i9-12900K) ist. Fuer prod2 zaehlt jetzt die Messung, nicht die
+/// Planung; fuer prod1 bleibt der Planungswert das, was er ist -- kein Ist-Wert, also keine Deklaration.
+///
+/// OFFENER WIDERSPRUCH IM SCHLUESSEL (gemeldet, hier bewusst NICHT gefixt): derselbe dmidecode-Beleg
+/// weist prod2 als DDR5 2x32 aus, waehrend der Aufloesungs-Schluessel dieser Zeile ram_pair="ddr4_2x32"
+/// lautet. Der Schluessel ist ein symbolisches Etikett aus der Anwender-XML und zugleich die halbe
+/// Identitaet (resolve_machine_by_properties); ihn zu aendern beruehrt XML, Registry-Reflektion und
+/// Stempel-Aufloesung gleichzeitig und ist damit kein additiver Nachtrag. Die Frequenz-Nachdeklaration
+/// steht unabhaengig davon: sie ist belegt und wirkt nur im eigenen Feld.
 inline constexpr std::array<DeclaredMachine, 2> kDeclaredMachines{{
     {"amd_zen5_avx512", "ddr5_2x32", Prod1Zen5Signature::machine_id(), kProd1Zen5Core, Prod1Zen5Signature::signature()},
     {"intel_avx2", "ddr4_2x32", Prod2RaptorLakeSignature::machine_id(), kProd2AlderLakeCore,
-     Prod2RaptorLakeSignature::signature()},
+     Prod2RaptorLakeSignature::signature(), 4800},
 }};
 
 /// Stufe 2: exakter EIGENSCHAFTS-Match (§70.6 -- ausdruecklich NICHT ueber den Namen). Zwei formal

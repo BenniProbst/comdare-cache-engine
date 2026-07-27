@@ -19,7 +19,7 @@
         <sub_dim id="cpu_fabrication" declared="true" value="AuthenticAMD/26/68/0"/>
       </complex>
       <complex id="prod2_raptor_lake" isa="x86_64">
-        <sub_dim id="ram_frequency_mhz" declared="false"/>
+        <sub_dim id="ram_frequency_mhz" declared="true" value="4800"/>
         <sub_dim id="cas_latency_cl" declared="false"/>
         <sub_dim id="cpu_fabrication" declared="true" value="GenuineIntel/6/151/2"/>
       </complex>
