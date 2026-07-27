@@ -38,7 +38,6 @@ set_property(CACHE COMDARE_DETECTION_MODE PROPERTY STRINGS COMPILE_TIME RUNTIME)
 option(COMDARE_BUILD_BUILDER       "Build CacheEngineBuilder (main.cpp)"       ON)
 option(COMDARE_BUILD_BENCHMARKS    "Build benchmark-Targets (YCSB + Custom)"   ON)
 option(COMDARE_BUILD_TESTS         "Build Google-Tests (generic + specific)"   ON)
-option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       OFF)
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
 # V-1 (O-8 Schritt 1): Vendor-Provisioning-ENTKOPPLUNG.
@@ -581,17 +580,14 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Permutations-Codegen (F-EXTRA-5 — sh/bat-Codegen erzeugt CMake-Targets; KEIN Python in der Build-Pipeline, s. cmake/permutations.cmake:3 + tools/permutation_codegen/codegen.{sh,bat})
+# Vendor-Provisioning (V-4, 27.07.: der Permutations-Codegen-Kanal ist retired -- der Waechter unten
+# traegt seither NUR noch das Vendor-Provisioning + die V40.A-Reihenfolge ext/ vor Inklusion)
 # ─────────────────────────────────────────────────────────────────────────────
 # V-1 (O-8 Schritt 1): Der Block laeuft, wenn Permutationen ODER Vendor-Provisioning
 # gewuenscht sind. Das ODER ist tragend, nicht kosmetisch: der V40.A-FIX unten verlangt
 # ext/ VOR der Permutations-Inklusion, und der spaete Fallback-add_subdirectory(ext)
 # (siehe "if(NOT _comdare_ext_added)") laeuft erst NACH ihr.
 if(COMDARE_BUILD_PERMUTATIONS OR COMDARE_PROVISION_VENDOR_ALLOCATORS)
-  if(COMDARE_BUILD_PERMUTATIONS)
-    include(cmake/permutations.cmake OPTIONAL)
-    # generiert build/generated/permutations.cmake (siehe tools/permutation_codegen/)
-  endif()
   # V40.A FIX: ext/ MUSS VOR der Permutations-Inklusion gebaut werden, weil
   # die Permutationen comdare::vendor_mimalloc/jemalloc Targets benoetigen.
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/CMakeLists.txt")
@@ -637,9 +633,6 @@ if(COMDARE_BUILD_PERMUTATIONS OR COMDARE_PROVISION_VENDOR_ALLOCATORS)
     link_libraries(comdare::vendor_snmalloc)
   endif()
   endif() # COMDARE_PROVISION_VENDOR_ALLOCATORS
-  if(COMDARE_BUILD_PERMUTATIONS AND EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
-    include("${CMAKE_BINARY_DIR}/generated/permutations.cmake")
-  endif()
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────

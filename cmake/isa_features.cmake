@@ -99,28 +99,6 @@ if(NOT COMDARE_ISA_SUMMARY)
     set(COMDARE_ISA_SUMMARY "scalar-only")
 endif()
 
-# Helper: aktiviere fuer ein Target nur die SIMD-Flags die kompilierbar sind
-function(COMDARE_apply_simd_flags target)
-    if(COMDARE_HAS_AVX2 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        target_compile_options(${target} PRIVATE /arch:AVX2)
-    elseif(COMDARE_HAS_AVX2)
-        target_compile_options(${target} PRIVATE -mavx2)
-    endif()
-
-    if(COMDARE_HAS_BMI2 AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        target_compile_options(${target} PRIVATE -mbmi2)
-    endif()
-
-    if(COMDARE_HAS_AVX512 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        target_compile_options(${target} PRIVATE /arch:AVX512)
-    elseif(COMDARE_HAS_AVX512)
-        target_compile_options(${target} PRIVATE -mavx512f -mavx512bw -mavx512vl)
-    endif()
-
-    if(COMDARE_HAS_SVE2)
-        target_compile_options(${target} PRIVATE -march=armv8.5-a+sve2)
-    endif()
-endfunction()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GO-3 A1 (Task #5 Hebel-A-Rest, 2026-07-12): comdare_apply_simd_extension_flags(<target> <EXT>)
@@ -130,11 +108,10 @@ endfunction()
 # faehrt der T12-Kernel (Amd64Isa::simd_field_sum-Dispatch) real den SSE2-Pfad (Mess-Etikett != Mess-
 # Gegenstand). Compile-time-Gegenstueck: consteval-Guard axis_09b_build_coherence.hpp + additives Makro
 # COMDARE_DEFINE_BUILD_VARIANT_INSPECTION_CHECKED (static_assert bei Inkohaerenz).
-# ABGRENZUNG: COMDARE_apply_simd_flags (oben) appliziert ALLE detektierten Stufen auf einmal (Detection-
-# orientiert) und bleibt unveraendert daneben bestehen; DIESE Funktion waehlt je-Extension (09b-orientiert) —
-# die Flag-Kaskade ist damit EINMAL zentral (keine Dreifach-Spiegelung in Test-/Produkt-CMakeLists).
-# Der Legacy-V36.B-Permutations-Codegen (_p_simd-Kanal, tools/permutation_codegen/codegen.cmake) und sein
-# C++23-Backend stehen unter dem #25-B-Byte-Identitaets-Vertrag — bewusst NICHT beruehrt (GO-2-Sequenz).
+# V-4 (27.07.): die frueher hier danebenstehende Detection-Variante COMDARE_apply_simd_flags hatte 0 Aufrufer
+# und ist mit dem Permutations-Retire entfallen; ebenso der Verweis auf den Legacy-Codegen-Kanal, der unter
+# dem #25-B-Byte-Identitaets-Vertrag stand. Diese Funktion waehlt je-Extension (09b-orientiert) und ist damit
+# die EINZIGE zentrale Flag-Kaskade (keine Dreifach-Spiegelung in Test-/Produkt-CMakeLists).
 # ─────────────────────────────────────────────────────────────────────────────
 function(comdare_apply_simd_extension_flags target ext)
     if(ext MATCHES "^(SSE2|AVX2|AVX512)$" AND NOT COMDARE_ARCH_X86_64)
