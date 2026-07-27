@@ -56,6 +56,9 @@
 //     cpu_fabrication (symbolisches Etikett)      <- vom Menschen aus obigen Werten vergeben
 //     ram_pair (Frequenz/CAS/Bestueckung)         <- `sudo dmidecode -t memory` bzw. `decode-dimms`
 //                                                    (braucht root/i2c -> deshalb NIE im Bau)
+//     ram_frequency_mhz (MT/s, ganzzahlig)        <- dieselbe Quelle wie ram_pair (O-8 Schritt 5/O-4b);
+//     cas_latency_cl (reine CL-Zahl)                 SPD/SMBIOS ist autoritativ, Ledger #49 weist die
+//                                                    Erhebung dem Infra-Agenten zu. NICHT deklariert = 0.
 // DRIFT-GEGENPROBE: verify_declared_cpu() unten prueft die CPU-Seite live gegen die Deklaration. Die
 // RAM-Seite ist in-Prozess NICHT pruefbar (SMBIOS braucht Privilegien) und bleibt deklarations-basiert.
 //
@@ -122,12 +125,24 @@ struct MachineCoreCpuId {
 
 /// Eine deklarierte Maschine: das Eigenschafts-TUPEL (die Identitaet, §70.6) plus das, was daran
 /// haengt -- die CT-Signatur und die CPU-Kern-Kennung fuer die Drift-Gegenprobe.
+///
+/// O-8 Schritt 5 (Paket O-4b): hier haengen zusaetzlich die DREI festen Glieder der Komplex-Haupt-
+/// System-Achse target_isa (Owner: "feste Rekombination aus RAM-Frequenz und CAS und CPU-Fabrikation").
+/// Zwei davon sind neue Felder (RAM-Seite); das dritte ist KEIN neues Feld, sondern `core` -- das
+/// O-4a-Kern-Tupel vendor/family/model/stepping IST die CPU-Fabrikation. Der Wrapper liest die Glieder
+/// hier ab, nicht aus einer zweiten Tabelle (Ein-Kanal-Doktrin, Ledger 73.1).
+///
+/// WARUM 0 UND NICHT "unbekannt": 0 MHz und CL0 existieren als reale Werte nicht, 0 ist daher die
+/// eindeutige NICHT-DEKLARIERT-Marke -- dieselbe Ehrlichkeits-Regel wie kUndeclaredCore auf der
+/// CPU-Seite. Ein nicht deklariertes Glied wird als solches gestempelt, NIE geraten.
 struct DeclaredMachine {
     std::string_view                 cpu_fabrication; ///< == <machine cpu_fabrication=..> der XML
     std::string_view                 ram_pair;        ///< == <machine ram_pair=..> der XML
     std::string_view                 machine_id;      ///< == MachineSimdSignature::machine_id()
-    MachineCoreCpuId                 core;            ///< fuer verify_declared_cpu()
+    MachineCoreCpuId                 core;            ///< fuer verify_declared_cpu(); = target_isa-Glied CPU-Fabrikation
     std::span<SimdFeatureFlag const> signature;       ///< die deklarierte SIMD-Signatur
+    std::uint32_t ram_frequency_mhz = 0;              ///< == <machine ram_frequency_mhz=..>; 0 = NICHT deklariert
+    std::uint32_t cas_latency_cl    = 0;              ///< == <machine cas_latency_cl=..>; 0 = NICHT deklariert
 };
 
 /// prod1 -- LIVE ABGELEITET am 26.07.2026 auf dem Host `prod1` und gegen /proc/cpuinfo gegengeprueft
@@ -155,6 +170,17 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 /// CT-Signatur existiert, aber ihre Maschinen-KLASSE ist noch nicht deklariert. Sobald eine XML sie
 /// fuehrt, tritt sie hier als vierte Zeile ein. Bis dahin loest sie ehrlich auf nullptr auf.
 /// Eine neue Maschine tritt IMMER doppelt ein: hier als Zeile UND in der XML als <machine>.
+///
+/// O-8 Schritt 5 (O-4b): die zwei RAM-seitigen target_isa-Glieder (ram_frequency_mhz, cas_latency_cl)
+/// tragen BEIDE Zeilen bewusst NICHT -- sie bleiben auf dem Default 0 = nicht deklariert. Grund: fuer
+/// KEINE der beiden Maschinen liegt ein erhobener Ist-Wert vor. Ledger #49 weist die Erhebung
+/// ausdruecklich dem Infra-Agenten zu; fuer prod2 ist sie angefragt und offen. Aeltere Planungs-Doks
+/// nennen zwar "64 GB DDR5-5600 CL36" fuer die Produktions-Plattform (Termin 7, 05/2026), beschreiben
+/// dort aber eine Zwei-Maschinen-Aufstellung, deren zweite CPU (i9-14900KS) NICHT die heutige prod2
+/// (i9-12900K) ist -- die Angabe ist damit kein belastbarer Ist-Wert fuer eine bestimmte Zeile hier.
+/// Sie zu uebernehmen waere genau die Falsch-Aussage ueber echte Hardware, die der Kopf-Block dieses
+/// Headers fuer die CPU-Seite schon einmal ausschliesst. Die Nachdeklaration ist rein additiv: sobald
+/// die Werte erhoben sind, treten sie als zwei Zahlen je Zeile ein, ohne Struktur-Aenderung.
 inline constexpr std::array<DeclaredMachine, 2> kDeclaredMachines{{
     {"amd_zen5_avx512", "ddr5_2x32", Prod1Zen5Signature::machine_id(), kProd1Zen5Core, Prod1Zen5Signature::signature()},
     {"intel_avx2", "ddr4_2x32", Prod2RaptorLakeSignature::machine_id(), kUndeclaredCore,

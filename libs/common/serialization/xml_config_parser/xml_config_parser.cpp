@@ -534,6 +534,11 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             mc.cpu_fabrication = m->attr("cpu_fabrication");
             mc.ram_pair        = m->attr("ram_pair");
             mc.hostname_hint   = m->attr("hostname_hint");
+            // O-8 Schritt 5 (O-4b): die zwei RAM-seitigen target_isa-Glieder, ADDITIV und OPTIONAL.
+            // Abwesendes Attribut -> attr() liefert "" -> to_int faellt auf den Default 0 = NICHT
+            // deklariert. Bestands-Profile ohne die Attribute bleiben damit byte-identisch.
+            mc.ram_frequency_mhz = to_int(m->attr("ram_frequency_mhz"), 0);
+            mc.cas_latency_cl    = to_int(m->attr("cas_latency_cl"), 0);
             ep.machines.push_back(std::move(mc));
         }
     }

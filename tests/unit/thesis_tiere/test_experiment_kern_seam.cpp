@@ -19,7 +19,9 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
@@ -66,6 +68,27 @@ bool has_warning_containing(tlz::ExperimentValidationResult const& r, std::strin
     return false;
 }
 
+// O-8 Schritt 5 (O-4b): schreibt ein Minimal-<comdare_experiment> mit frei waehlbarem <machines>-Block in eine
+// Temp-Datei und parst es. Beweist die Parser-Naht der neuen target_isa-Glieder end-to-end, OHNE die
+// Golden-Instanz anzufassen (golden-neutral; Muster test_experiment_parser.cpp:80-96).
+std::optional<cx::ExperimentProfile> parse_experiment_with_machines(std::string const& machines_block) {
+    fs::path const p = fs::temp_directory_path() /
+                       ("comdare_o4b_machines_" +
+                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    {
+        std::ofstream out{p};
+        out << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_experiment version="1" id="o4b_machines_fixture">
+)" << machines_block
+            << "</comdare_experiment>\n";
+    }
+    cx::XmlConfigParser const            parser;
+    std::optional<cx::ExperimentProfile> ep = parser.parse_experiment_profile(p);
+    std::error_code                      ec;
+    fs::remove(p, ec);
+    return ep;
+}
+
 // ── (a) PARSE ────────────────────────────────────────────────────────────────
 TEST(ExperimentKernSeam, ParsesMachinesWithCoreIdentity) {
     auto ep = parse_kern();
@@ -77,6 +100,33 @@ TEST(ExperimentKernSeam, ParsesMachinesWithCoreIdentity) {
     EXPECT_EQ(ep->machines[0].hostname_hint, "prod1");
     EXPECT_EQ(ep->machines[1].id, "prod2");
     EXPECT_EQ(ep->machines[1].cpu_fabrication, "intel_avx2");
+
+    // O-8 Schritt 5 (O-4b): die Fixture deklariert die zwei RAM-seitigen target_isa-Glieder NICHT. Sie
+    // muessen deshalb auf 0 stehen -- das ist die NICHT-DEKLARIERT-Marke, nicht "0 MHz". Diese Zusicherung
+    // ist der Byte-Identitaets-Beleg des Schrittes: ein Bestands-Profil ohne die neuen Attribute verhaelt
+    // sich exakt wie vorher.
+    EXPECT_EQ(ep->machines[0].ram_frequency_mhz, 0);
+    EXPECT_EQ(ep->machines[0].cas_latency_cl, 0);
+    EXPECT_EQ(ep->machines[1].ram_frequency_mhz, 0);
+    EXPECT_EQ(ep->machines[1].cas_latency_cl, 0);
+}
+
+// O-8 Schritt 5 (O-4b): die Gegenrichtung -- deklarierte Glieder kommen woertlich als Zahlen an. Ohne diesen
+// Beleg waere die 0-Zusicherung oben auch dann erfuellt, wenn der Leser die Attribute gar nicht liest.
+TEST(ExperimentKernSeam, ParsesDeclaredTargetIsaMemberValues) {
+    auto const ep = parse_experiment_with_machines(
+        R"(  <machines>
+    <machine id="m_voll" cpu_fabrication="fab_a" ram_pair="ddr5_2x32" ram_frequency_mhz="5600" cas_latency_cl="36"/>
+    <machine id="m_teil" cpu_fabrication="fab_b" ram_pair="ddr4_2x32" ram_frequency_mhz="3200"/>
+  </machines>
+)");
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->machines.size(), 2u);
+    EXPECT_EQ(ep->machines[0].ram_frequency_mhz, 5600);
+    EXPECT_EQ(ep->machines[0].cas_latency_cl, 36);
+    // Teil-Deklaration ist erlaubt und bleibt ehrlich: das fehlende Glied ist 0, nicht geraten.
+    EXPECT_EQ(ep->machines[1].ram_frequency_mhz, 3200);
+    EXPECT_EQ(ep->machines[1].cas_latency_cl, 0);
 }
 
 TEST(ExperimentKernSeam, ParsesAxisPrueflingAndFulljoinToken) {

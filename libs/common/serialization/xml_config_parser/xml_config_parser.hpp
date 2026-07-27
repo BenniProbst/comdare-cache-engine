@@ -357,11 +357,18 @@ struct ExperimentEngine {
 // hostname_hint ist NUR ein Hinweis (validate prueft den Schluessel, NICHT den Namen). ADDITIV + PASSIV: der
 // Parser traegt die Roh-Strings; leer/fehlend = kein <machines> = heutiges Verhalten byte-identisch. Der Konsum
 // (Fertig-Gate-Auswertung) gehoert dem Planer/CEB (post-S4).
+// O-8 Schritt 5 (Paket O-4b, Ledger 70.6 / RF-6): <machines> ist zusaetzlich der Deklarations-Kanal der
+// RAM-seitigen Glieder der Komplex-Haupt-System-Achse target_isa. ADDITIV + OPTIONAL: 0 = NICHT deklariert
+// (nicht "0 MHz"), damit eine Maschine ehrlich unvollstaendig deklariert sein darf. Das dritte Glied
+// (CPU-Fabrikation) hat KEIN eigenes Attribut -- es ist das O-4a-Kern-Tupel aus machine_identity.hpp,
+// aufgeloest ueber den unveraenderten Schluessel cpu_fabrication + ram_pair.
 struct ExperimentMachine {
     std::string id;              // <machine id=..>
     std::string cpu_fabrication; // <machine cpu_fabrication=..> (Kern-Identitaet, Pflicht)
     std::string ram_pair;        // <machine ram_pair=..> (Kern-Identitaet, Pflicht)
     std::string hostname_hint;   // <machine hostname_hint=..> (optionaler Hinweis, NICHT Schluessel)
+    int ram_frequency_mhz = 0;   // <machine ram_frequency_mhz=..> (target_isa-Glied; 0 = nicht deklariert)
+    int cas_latency_cl    = 0;   // <machine cas_latency_cl=..> (target_isa-Glied; 0 = nicht deklariert)
 };
 
 struct ExperimentPhase {
