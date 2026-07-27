@@ -874,6 +874,25 @@ int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::
     return rc;
 }
 
+int assert_plan_nonempty_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    // V-2/2a: derselbe Walk wie --dump-plan, nur mit einem zaehlenden statt einem textenden Builder.
+    // Kein zweiter Mechanismus, keine zweite Wahrheit (§73.1).
+    planner::PlanSizeBuilder builder;
+    if (int const rc = construct_plan_into(profile_path, builder, os, "startgate"); rc != 0) return rc;
+    if (builder.empty()) {
+        os << "FATAL [V-2 Startgate]: Kein Experiment moeglich -- der Plan dieses Profils ist leer.\n"
+           << "  Profil:      " << profile_path.string() << "\n"
+           << "  Perms:       " << builder.perm_count() << "\n"
+           << "  Schritte:    " << builder.step_count() << "\n"
+           << "  Bedeutung:   0 Perms = keine Rekombination geplant; Perms ohne Schritte = nichts zu messen.\n"
+           << "  Naechstes:   Profil pruefen (--validate) bzw. --dump-plan fuer den vollen Plan-Text.\n";
+        return 2;
+    }
+    os << "[V-2 Startgate] Plan traegt " << builder.perm_count() << " Perm(s) mit " << builder.step_count()
+       << " Schritt(en) -- Lauf startet.\n";
+    return 0;
+}
+
 int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os,
                               PlanerBlockContext const& pb) {
     // W7-A (--dump-ci, §40.b): der CiYamlBuilder-Traeger am geteilten Director-Walk. Emittiert die dynamische,

@@ -225,6 +225,24 @@ struct ExperimentRunResult {
 // wird NUR in der Fassaden-.cpp inkludiert, NIE in diesem Header (umbrella-frei fuer den Treiber).
 [[nodiscard]] int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
+// V-2/2a (Bauplan TEIL V, M3-Ersatz-Gate, 2026-07-27): das START-GATE des Mess-Treibers.
+//
+// ERSETZT den Gegenstand des Alt-Gates, nicht bloss dessen Mechanik. Bis hierher fragte
+// super Code/02_messung_driver/main.cpp ueber permutations_runtime_check.hpp zwei CONFIGURE-ZEIT-Manifeste
+// (generated/permutations_manifest.txt) -- also die Perm-DLL-Menge des V36.B-Alt-Kanals. Ob der
+// bevorstehende E4-XML-Lauf etwas zu tun hat, sagte das NICHT. Diese Fassade fragt stattdessen den
+// deterministischen Director-Walk, den der Lauf ohnehin nimmt (derselbe construct_plan_into wie
+// --dump-plan), und zwar mit einem reinen Zaehl-Builder: baut KEINE DLL, misst NICHT, schreibt nichts.
+//
+// Rueckgabe:
+//   0 = der Plan traegt mindestens eine Perm MIT mindestens einem Schritt -> der Lauf darf starten.
+//   2 = LEERER PLAN. Beibehaltener Alt-Code (etablierte Semantik "kein Experiment moeglich"); die Meldung
+//       nennt Profil-Pfad, Perm- und Schritt-Zahl, damit der Fall diagnostizierbar bleibt.
+//   5 = Profil nicht als bekannte Wurzel lesbar (durchgereicht aus dem geteilten Root-Tag-Sniff).
+// Die Erfolgs-Zeile geht nach `os` (Ersatz der alten "[V36.D] Permutationen: ..."-Zeile; gemessen 2026-07-27:
+// kein Parser in CI/Skripten/Doku, kein Konsument von rc==2).
+[[nodiscard]] int assert_plan_nonempty_facade(std::filesystem::path const& profile_path, std::ostream& os);
+
 // G4b-2 (#46b I1b / E1+E2+E4): der PLANER-BLOCK-KONTEXT der beiden Emissions-Fassaden.
 //
 // Ein planer_block meldet dem Lager, dass DIESER Planer gleich eine CEB-Compile-Strecke anstoesst, damit ein zweiter

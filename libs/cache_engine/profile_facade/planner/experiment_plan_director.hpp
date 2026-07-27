@@ -241,6 +241,35 @@ private:
     std::string                      out_;
 };
 
+// -- PlanSizeBuilder -- ConcreteBuilder, der NICHTS emittiert, sondern nur die Groesse des Plans zaehlt. ----
+// V-2/2a (Bauplan TEIL V, M3-Ersatz-Gate, 2026-07-27): das Treiber-Startgate fragte bis hierher ein
+// CONFIGURE-ZEIT-Artefakt (generated/permutations_manifest.txt) -- also die Perm-DLL-Menge des Alt-Kanals,
+// NICHT die Frage, ob der bevorstehende E4-XML-Lauf ueberhaupt etwas zu tun hat. Dieser Builder beantwortet
+// die richtige Frage, und zwar am SELBEN deterministischen Director-Walk, den der Lauf ohnehin nimmt
+// (construct_plan_into): ein Kanal, eine Wahrheit (§73.1). Der Kopf-Kommentar des IPlanBuilder sieht
+// "struktur-zaehlende Builder" ausdruecklich vor -- das hier ist einer.
+//
+// Bewusst OHNE Text/Allokation: der Gate-Pfad laeuft vor JEDEM Messlauf und darf nichts kosten.
+class PlanSizeBuilder final : public IPlanBuilder {
+public:
+    void begin_plan(PlanHeader const&) override {}
+    void begin_perm(PlanPerm const&) override { ++perms_; }
+    void on_step(PlanStep const&) override { ++steps_; }
+    void end_perm(PlanPerm const&) override {}
+    void end_plan(PlanHeader const&) override {}
+
+    [[nodiscard]] std::size_t perm_count() const noexcept { return perms_; }
+    [[nodiscard]] std::size_t step_count() const noexcept { return steps_; }
+    /// LEER = es gibt nichts zu tun. Beide Zahlen zaehlen: 0 Perms = keine Rekombination geplant;
+    /// Perms ohne Steps = nichts zu messen. Der Aufrufer meldet BEIDE Zahlen, damit der Fall
+    /// unterscheidbar bleibt statt in einem pauschalen "leer" zu verschwinden.
+    [[nodiscard]] bool empty() const noexcept { return perms_ == 0 || steps_ == 0; }
+
+private:
+    std::size_t perms_ = 0;
+    std::size_t steps_ = 0;
+};
+
 // ── CMakeGraphBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-B-Zell-Direktbau-Sicht).
 //    Emittiert ein deterministisches experiment_plan.cmake der MESS-ACHSEN-Stufe: je Mess-Kombination [a,b,c]
 //    (aus der Anwender-XML) EIN CEB-Bau-Target + EIN CEB-Emit-Target, das die CEB SELBST die STUFE-2-Sicht
