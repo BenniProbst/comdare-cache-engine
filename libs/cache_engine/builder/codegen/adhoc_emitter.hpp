@@ -1,6 +1,6 @@
 #pragma once
 // V41.F.6.1 R5.G — adhoc_emitter: schreibt pro Permutation eines PermutationEngine ein KOMPILIERBARES
-// Modul-.cpp (Umbrella-Include + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC mit den 17 FQ-Achsen-Typen).
+// Modul-.cpp (Umbrella-Include + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC mit den 18 FQ-Achsen-Typen).
 //
 // Das ist die wiederverwendbare Kern-Funktion des R5.G-Auto-Emitters: aus einer Engine über den
 // gemergten Permutations-Raum (for_each_composition_type) werden alle Modul-.cpp generiert, die dann
@@ -43,9 +43,11 @@ namespace comdare::cache_engine::builder::codegen {
     return out;
 }
 
-/// adhoc_macro_args<C>() — die 17 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
-/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T16>
-/// (15 Such-Achsen + queuing q1/q2; Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot mehr).
+/// adhoc_macro_args<C>() -- die 18 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
+/// (Argument fuer COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T17>
+/// (15 Such-Achsen + queuing q1/q2 + persistence_target; Bau-INC-2c: telemetry / Bau-INC-2d: isa sind
+/// System-Achsen, kein Slot mehr). Die Zahl stand hier auf 17, waehrend der Rumpf seit STRUKT-R ORG-18
+/// achtzehn Typen anhaengt -- dieselbe Nachzug-Luecke, die A8.2 in der Stempel-Zeile geschlossen hat.
 /// Jeder Name wird via strip_all_elaborated von INNEN-liegenden
 /// "class "/"struct "-Keywords befreit (sonst Syntaxfehler bei Wrapper<class Inner>-Slots).
 template <class C>

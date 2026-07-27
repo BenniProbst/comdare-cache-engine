@@ -25,9 +25,27 @@
 
 namespace comdare::cache_engine::abi {
 
-/// organ_stamp_line<Comp>() -- die kOrganAxisVersionLine "achse=algo@X.Y.Z;..." aus den 17 benannten
+/// Die Zahl der Organ-HAUPT-Achsen (ORG-18, topics/axis.hpp:18 "18 Slots"). Sie steht hier als
+/// benannte Konstante und nicht als nackte 17/18 im Array-Typ, damit der static_assert unten die
+/// Drift fangen kann, die A8.2 gerade behoben hat.
+///
+/// WARUM NICHT kCompositionAxisNames direkt: das Array wohnt in builder/experiment_tree/ und dieser
+/// Header in abi/ -- ein Include waere eine Layer-Inversion (abi darf nicht auf builder zeigen). Die
+/// Kopplung laeuft deshalb ueber die Zahl plus die Namens-Liste im Array unten, nicht ueber einen
+/// Include. Wer ORG-18 aendert, aendert BEIDE Orte.
+inline constexpr std::size_t kOrganAxisCount = 18;
+
+/// organ_stamp_line<Comp>() -- die kOrganAxisVersionLine "achse=algo@X.Y.Z;..." aus den 18 benannten
 /// Achsen-Aliassen einer Composition, in kanonischer compose-Ordnung (== AdHocComposition-Alias-Ordnung
 /// == kCompositionAxisNames). Jede Achse muss name() + algo_version tragen.
+///
+/// A8.2 (O-8 Schritt 7, OP-11): die Zeile traegt jetzt ACHTZEHN Eintraege -- persistence_target ist
+/// DAZUGEKOMMEN. Das 17er-Array war ein golden-neutral bedingter Nicht-Nachzug der ORG-18-Welle: der
+/// Stempel durfte damals nicht brechen, also blieb die 18. Achse draussen. Das OD-1-Stempel-PRINZIP
+/// verlangt aber ALLE Organ-Achsen mit je-Achse-Algorithmus-Version; eine fehlende 18. Achse waere
+/// eine Stempel-BLINDSTELLE, in der eine persistence_target-Drift unsichtbar bliebe.
+/// KEINE Meta-Meta-Eintraege in dieser Zeile (RF-7: je Typ EINE Array-Zeile, Typ-Trennung) --
+/// load_framework stempelt in der MESS-Zeile, die System-Meta-Metas in der System-Sphaere.
 ///
 /// BLOCKER (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
 /// (z.B. ObservableComposedContainer<...>) und tragen KEIN name()/algo_version -- nur die Registry-WRAPPER
@@ -39,7 +57,7 @@ template <class Comp>
 [[nodiscard]] inline std::string organ_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
-    std::array<AxisVersionEntry, 17> const entries{{
+    std::array<AxisVersionEntry, kOrganAxisCount> const entries{{
         {"search_algo", Comp::search_algo::name(), Comp::search_algo::algo_version},
         {"cache_traversal", Comp::cache_traversal::name(), Comp::cache_traversal::algo_version},
         {"mapping", Comp::mapping::name(), Comp::mapping::algo_version},
@@ -57,7 +75,13 @@ template <class Comp>
         {"filter", Comp::filter::name(), Comp::filter::algo_version},
         {"queuing_q1", Comp::queuing_q1::name(), Comp::queuing_q1::algo_version},
         {"queuing_q2", Comp::queuing_q2::name(), Comp::queuing_q2::algo_version},
+        // A8.2 (OP-11): der 18. Slot. Er stand als einziger nicht in dieser Zeile.
+        {"persistence_target", Comp::persistence_target::name(), Comp::persistence_target::algo_version},
     }};
+    static_assert(entries.size() == kOrganAxisCount,
+                  "Die Organ-Stempel-Zeile muss ALLE Organ-Haupt-Achsen tragen (ORG-18). Genau diese "
+                  "Luecke war A8.2: das Array stand auf 17 und liess persistence_target aus, wodurch "
+                  "eine Drift dieser Achse im Stempel unsichtbar blieb.");
     return build_axis_version_stamp_line(entries);
 }
 
