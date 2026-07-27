@@ -9,19 +9,19 @@
 // UMSORTIERUNG nicht. Genau diese Luecke hat die drei konkurrierenden Suffix-Ordnungen ermoeglicht,
 // die Lane F (W-13) einsammelt.
 //
-// A1-AUFTRAG, WORTGETREU: "NEUER Header kSystemAxisOrder als Single-Source (zunaechst mit dem
-// IST-Inhalt)". Der Inhalt unten ist daher BIT-FUER-BIT die heutige Reihenfolge aus
-// kSystemAxisCodeVersions -- compiler, external_utils, target_isa, scheduling, load_framework.
-// A1 aendert KEINE Ordnung und KEINEN Namen; der Stempel bleibt byte-identisch (A1-GATE).
+// A1 legte diesen Header mit dem damaligen IST-Stand an (5 Achsen: compiler, external_utils,
+// target_isa, scheduling, load_framework) und aenderte bewusst nichts an der Ordnung.
 //
-// A1 traegt AUSSCHLIESSLICH den IST-Stand (5 Achsen, Reihenfolge == kSystemAxisCodeVersions).
-// Die finale System-Achsen-Ordnung legt Bauplan-v3 fest -- KEINE Vorwegnahme hier: nach dem
-// Owner-KERN sind es GENAU DREI Haupt-Achsen (target_isa, operating_system, external_utils);
-// load_framework VERLAESST die Ordnung Richtung MESS-Realm (Planer-Meta-Meta-Haupt-Achse) -- NACHZUG
-// R-G, Ledger 69.1: die frueher hier notierte Zuordnung "META-META unter external_utils" ist
-// SUPERSEDED, der Hub traegt nur SYSTEM-Meta-Metas; der Teil "NICHT eine Haupt-Achse" bleibt richtig.
-// compiler wird Unter-Achsen-GRUPPE, scheduling Unter-Achse von target_isa. Erst A3 setzt die Ordnung
-// + weitet die Wache auf "Suffix-Emitter == kSystemAxisOrder == XML-Kopf" aus.
+// A3 (O-8 Schritt 4) SETZT die finale Ordnung des Owner-KERNs: GENAU DREI Haupt-Achsen --
+// target_isa, operating_system, external_utils. Die drei Abgaenge sind UMZUEGE, keine Loeschungen:
+//   * load_framework VERLAESST die System-Welt ERSATZLOS Richtung MESS-Realm (Planer-Meta-Meta-
+//     Haupt-Achse; NACHZUG R-G, Ledger 69.1). Die aeltere Notiz "META-META unter external_utils"
+//     ist SUPERSEDED -- der Hub traegt NUR System-Meta-Metas; "NICHT eine Haupt-Achse" bleibt richtig.
+//   * compiler wird Unter-Achsen-GRUPPE der aeusseren System-Komplex-Achse (O-1r, Schritt 6).
+//   * scheduling wird Unter-Achse (sub_axis) des target_isa-Komplex-Wrappers (Schritt 6).
+// Die Abgaenge sind unten durch eigene static_asserts gesichert, damit keiner still zurueckkehrt.
+// Die A3-Wache ueber Generator-Blockfolge und XML-Kopf haengt an denselben Netzen im Registry-
+// Generator (kSystemAxisEmitters / kEmissionOrderFromTypes), die kSystemAxisOrder lesen.
 
 #pragma once
 
@@ -33,18 +33,16 @@
 
 namespace comdare::cache_engine::abi {
 
-/// Anzahl der System-HAUPT-Achsen in der kanonischen Ordnung. A1: unveraendert 5 (IST-Stand).
+/// Anzahl der System-HAUPT-Achsen in der kanonischen Ordnung. A3 (O-8 Schritt 4): DREI.
 inline constexpr std::size_t kSystemAxisOrderCount = kSystemAxisCodeCount;
 
 /// DIE kanonische Reihenfolge der System-Haupt-Achsen. Jeder Konsument, der eine Ordnung braucht
 /// (Stempel-Zeile, Generator-Blockfolge, XML-Kopf, Suffix-Segmente), MUSS sie hier lesen und nirgends
-/// nachbilden. Reihenfolge == IST-Stand vor Lane A (siehe Kopf-Kommentar).
+/// nachbilden. A3 setzt die finale Ordnung des Owner-KERNs (siehe Kopf-Kommentar).
 inline constexpr std::array<std::string_view, kSystemAxisOrderCount> kSystemAxisOrder{{
-    "compiler",
-    "external_utils",
     "target_isa",
-    "scheduling",
-    "load_framework",
+    "operating_system",
+    "external_utils",
 }};
 
 /// Index einer Achse in der kanonischen Ordnung; kSystemAxisOrderCount, falls unbekannt.
@@ -91,8 +89,24 @@ static_assert(detail::system_axis_order_matches_code_versions(),
 static_assert(detail::system_axis_order_names_unique(),
               "kSystemAxisOrder: Namen muessen nicht leer und paarweise verschieden sein.");
 // Selbst-Test der Suche (haelt die Konsumenten-API ehrlich, kostet nichts zur Laufzeit).
-static_assert(system_axis_order_index("target_isa") == 2);
-static_assert(!is_known_system_axis("operating_system"),
-              "operating_system tritt erst mit Paket A3 in die Ordnung ein -- A1 ist ordnungs-neutral.");
+static_assert(system_axis_order_index("target_isa") == 0);
+static_assert(system_axis_order_index("operating_system") == 1);
+static_assert(system_axis_order_index("external_utils") == 2);
+static_assert(is_known_system_axis("operating_system"),
+              "A3 (O-8 Schritt 4): operating_system IST mit diesem Paket in die Ordnung eingetreten. "
+              "Die A1-Zusage 'tritt erst mit A3 ein' ist damit eingeloest, nicht gebrochen.");
+// ABGANGS-WACHEN (A3): die drei Abgaenge duerfen NICHT still zurueckkehren. Sie sind nicht geloescht,
+// sondern umgezogen -- compiler und scheduling in Schritt 6 (aeussere Komplex-Achse bzw. sub_axis am
+// target_isa-Wrapper), load_framework ERSATZLOS in den Mess-Realm (Ledger 69.1). Wer einen von ihnen
+// wieder als System-HAUPT-Achse eintraegt, bricht hier compile-time und muss den Umzug widerrufen.
+static_assert(!is_known_system_axis("compiler"),
+              "compiler ist mit A3 Unter-Achsen-GRUPPE der aeusseren System-Komplex-Achse (O-1r), "
+              "keine System-Haupt-Achse mehr.");
+static_assert(!is_known_system_axis("scheduling"),
+              "scheduling ist mit A3 sub_axis am target_isa-Komplex-Wrapper, keine Haupt-Achse mehr.");
+static_assert(!is_known_system_axis("load_framework"),
+              "load_framework hat die System-Welt mit A3 ERSATZLOS verlassen (Ledger 69.1 / R-G): es ist "
+              "Meta-Meta-HAUPT-Achse der MESS-Achsen im Planer. Es gehoert weder in diese Ordnung noch "
+              "unter den external_utils-Hub.");
 
 } // namespace comdare::cache_engine::abi

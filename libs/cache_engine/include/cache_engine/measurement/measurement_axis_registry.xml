@@ -40,10 +40,14 @@
       <category ref="ENERGY_J"/>
     </baustein>
   </axis>
+  <axis id="load_framework" category="measurement_meta_meta" axis_kind="measurement_meta_meta" binary_id="never" stage="ct" baustein_count="1">
+    <baustein name="ycsb" sub_axis_label="workload" enabled="true"/>
+  </axis>
   <dynamic_dims resource_control_version="1">
-    <!-- workload: Single-Source LoadFrameworkSystemAxis::sub_axis_label() (Angebots-Eigner =
-         System-Registry load_framework); hier als Mess-Sweep-Dimension referenziert. -->
-    <dim id="workload" stage="runtime" source="system:load_framework" value_type="token"/>
+    <!-- workload: Single-Source LoadFrameworkMeasurementAxis::sub_axis_label(). Angebots-Eigner ist
+         seit dem K1-Umzug (O-8 Schritt 4) die load_framework-Achse DIESER Registry, nicht mehr die
+         System-Registry; hier als Mess-Sweep-Dimension referenziert. -->
+    <dim id="workload" stage="runtime" source="measurement:load_framework" value_type="token"/>
     <!-- RC-POD-gekoppelte Dimensionen (ComdareResourceControlV1-Felder; setting_label axis.var=value). -->
     <dim id="thread_count" stage="runtime" source="resource_control_pod" value_type="uint"/>
     <dim id="prefetch_distance" stage="runtime" source="resource_control_pod" value_type="uint"/>

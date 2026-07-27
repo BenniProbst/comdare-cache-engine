@@ -14,7 +14,7 @@
 #include <cache_engine/measurement/compiler_system_axis.hpp>
 #include <cache_engine/measurement/extension_hardware_system_axis.hpp>
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp>
-#include <cache_engine/measurement/load_framework_system_axis.hpp>
+#include <cache_engine/measurement/load_framework_measurement_axis.hpp>
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_sub_axis.hpp>
@@ -116,7 +116,7 @@ static_assert(cem::ObserverSnapshotSystemAxis::axis_kind() == cet::AxisKind::sys
 static_assert(cem::PmcSystemAxis::axis_kind() == cet::AxisKind::system_measurement);
 
 // ── Block H (INC-1f): Last-Framework-Achse (H-9) + Single-Source des Unter-Achsen-Labels ──────────────────
-static_assert(cem::LoadFrameworkSystemAxisConcept<cem::YcsbLoadFrameworkAxis>);
+static_assert(cem::LoadFrameworkMeasurementAxisConcept<cem::YcsbLoadFrameworkAxis>);
 static_assert(cem::YcsbLoadFrameworkAxis::axis_label() == std::string_view{"load_framework"});
 static_assert(cem::YcsbLoadFrameworkAxis::framework_id() == std::string_view{"ycsb"});
 // Die Zwei-Phasen-Konvention "workload.workload_id=..." haengt an diesem String — Drift bricht hier.

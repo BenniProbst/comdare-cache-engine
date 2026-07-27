@@ -71,8 +71,11 @@ template <class Comp>
 [[nodiscard]] inline std::string system_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
-    // A2 (G2-4 Schritt 3): die 5 Achsen + Code-Versionen aus der Single-Source system_axis_code_versions.hpp (frueher
-    // 5x hartkodiert {"<achse>","code","v1"}); "code" bleibt der Achsen-Marker, die Version ist je Achse bump-bar.
+    // A2 (G2-4 Schritt 3): die Achsen + Code-Versionen aus der Single-Source system_axis_code_versions.hpp
+    // (frueher hartkodiert als {"<achse>","code","v1"}); "code" bleibt der Achsen-Marker, die Version ist je
+    // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt jetzt GENAU DREI Segmente statt fuenf -- die
+    // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
+    // wurde die Hartkodierung damals aufgeloest.
     // Render-neutral: "v1.0.0" -> "1.0.0" wie zuvor "v1" -> "1.0.0".
     std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
     for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)

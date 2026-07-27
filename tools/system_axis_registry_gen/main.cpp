@@ -4,7 +4,7 @@
 //
 // WAS (Ledger §28/§30): die System-Achsen-ART (system_config, AxisKind::system_config) bekommt ihre
 // EIGENE Registry-Bibliothek in IHREM Modul -- das Angebot des Compiles fuer die CEB-Stufe (System->CEB).
-// Reflektiert werden die 6 aktiven, BAU-TREIBENDEN CebSystemAxis-Haupt-Achsen samt ihrer Unter-Achsen/
+// Reflektiert werden die BAU-TREIBENDEN CebSystemAxis-Haupt-Achsen (seit A3: DREI) samt ihrer Unter-Achsen/
 // Optionen/Flags je Compiler-Dialekt. Kein zweiter Parser: die Wurzel bleibt <comdare_axis_registry>
 // mit <axis id=...>/<baustein name=...>, sodass read_axis_registry (validate_profile.hpp) das
 // Achsen-/Baustein-Skelett weiterhin lesen kann; die neuen Unter-Achsen-/Flag-Kind-Elemente sind
@@ -35,8 +35,9 @@
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/compiler_system_axis.hpp>
 #include <cache_engine/measurement/external_utils_family_axis.hpp>
-#include <cache_engine/measurement/load_framework_system_axis.hpp>
+#include <cache_engine/measurement/load_framework_measurement_axis.hpp>
 #include <cache_engine/measurement/machine_simd_signature.hpp> // Section 40.a: deklarierte Maschinen-Signaturen
+#include <cache_engine/measurement/operating_system_axis.hpp>
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
@@ -68,12 +69,12 @@ namespace cabi = ::comdare::cache_engine::abi;
 // Paket schliesst die naechsten zwei Kopien: Generator-Aufruffolge und XML-Kopf (inkl. Anzahl-Literal).
 //
 // DREI NETZE, absichtlich unterschiedlich, weil sie unterschiedliche Drift fangen:
-//   NETZ 1 (compile-time, unten): die fuenf REALEN Achsen-TYPEN, deren axis_label() der Generator
+//   NETZ 1 (compile-time, unten): die REALEN Achsen-TYPEN, deren axis_label() der Generator
 //           emittiert, gegen kSystemAxisOrder. Faengt Typ-/Label-Drift und falsche Deklaration.
 //   NETZ 2 (Laufzeit, in main): die TATSAECHLICHE emit_axis_open-Aufruffolge gegen kSystemAxisOrder.
 //           Faengt Aufruf-Umsortierung - das kann NETZ 1 grundsaetzlich nicht sehen, weil eine
 //           Reihenfolge, die nur in der Anweisungs-FOLGE steckt, compile-time nicht lesbar ist.
-//   NETZ 3 (Laufzeit): das Anzahl-Literal der stdout-Zeile kommt aus kSystemAxisOrderCount statt "5".
+//   NETZ 3 (Laufzeit): das Anzahl-Literal der stdout-Zeile kommt aus kSystemAxisOrderCount, nie als Zahl.
 //
 // T-c -- BENANNTE WACHEN-LUECKE, ABSICHTLICH OFFEN:
 //   Die vierte Kopie, die SUFFIX-EMITTER-Reihenfolge, ist hier NICHT geprueft und kann es heute nicht
@@ -87,8 +88,9 @@ namespace cabi = ::comdare::cache_engine::abi;
 //   Wenn T-c gebaut wird, ist hier NUR ein viertes Netz zu ergaenzen - die Wache muss nicht neu
 //   erfunden werden.
 //
-// A3-HINWEIS: diese Wache zieht mit der Ordnung um (5 -> 3 Haupt-Achsen). Sie ist bewusst gegen
-// kSystemAxisOrder formuliert und nicht gegen eine Zahl, damit A3 nur die Single-Source aendern muss.
+// A3 IST VOLLZOGEN (O-8 Schritt 4): die Wache ist mit der Ordnung umgezogen (5 -> 3 Haupt-Achsen),
+// ohne dass hier eine Zahl stand -- sie war gegen kSystemAxisOrder formuliert, also genuegte die
+// Aenderung der Single-Source. Genau dafuer wurde sie so gebaut.
 // =====================================================================================================
 
 namespace {
@@ -96,16 +98,16 @@ namespace {
 /// NETZ 1: die Achsen-TYPEN in genau der Folge, in der main() sie unten per emit_axis_open emittiert.
 /// Diese Liste ist die einzige Stelle, an der die Emissions-Folge deklarativ steht; NETZ 2 belegt zur
 /// Laufzeit, dass die Aufrufe ihr wirklich folgen.
+/// A3 (O-8 Schritt 4): DREI Haupt-Achsen. compiler und scheduling sind Unter-Achsen geworden
+/// (Schritt 6), load_framework hat den Realm gewechselt (Mess-Seite, Ledger 69.1) -- ihre
+/// Emissions-Koerper bleiben geparkt, aber sie stehen nicht mehr in dieser Folge.
 using SystemAxisEmissionTypes =
-    std::tuple<meas::GccCompilerAxis, meas::SimdExternalUtilsFamily, meas::X86_64TargetIsa,
-               meas::DefaultSchedulingSystemAxis, meas::YcsbLoadFrameworkAxis>;
+    std::tuple<meas::X86_64TargetIsa, meas::LinuxOperatingSystem, meas::SimdExternalUtilsFamily>;
 
 inline constexpr std::array<std::string_view, std::tuple_size_v<SystemAxisEmissionTypes>> kEmissionOrderFromTypes{{
-    meas::GccCompilerAxis::axis_label(),
-    meas::SimdExternalUtilsFamily::axis_label(),
     meas::X86_64TargetIsa::axis_label(),
-    meas::DefaultSchedulingSystemAxis::axis_label(),
-    meas::YcsbLoadFrameworkAxis::axis_label(),
+    meas::LinuxOperatingSystem::axis_label(),
+    meas::SimdExternalUtilsFamily::axis_label(),
 }};
 
 [[nodiscard]] consteval bool emission_types_match_order() {
@@ -200,7 +202,7 @@ void emit_axis_open(std::ofstream& f, std::string_view id, std::string_view stag
 /// P5/A9a: Emissions-Koerper der Haupt-Achse "compiler" (1:1 aus main() herausgezogen, Inhalt
 /// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
 /// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
-void emit_system_axis_compiler(std::ofstream& f) {
+[[maybe_unused]] void emit_system_axis_compiler(std::ofstream& f) {
     // ── 1) compiler (CompilerSystemAxis): 2 Bausteine gcc/clang + Unter-Achsen opt_level/atomic128 ──
     emit_axis_open(f, meas::GccCompilerAxis::axis_label(), "ct", 2);
     {
@@ -306,10 +308,33 @@ void emit_system_axis_target_isa(std::ofstream& f) {
     f << "  </axis>\n";
 }
 
+/// A3 (O-8 Schritt 4): Emissions-Koerper der NEUEN Haupt-Achse "operating_system". Aufbau nach dem
+/// target_isa-Muster (fixed_enum_tuple, OP-10): drei feste Klassen-Identitaeten als Bausteine.
+/// Distribution/Version sind AUSDRUECKLICH keine Bausteine, sondern Stempel-Variablen aus <machines>.
+void emit_system_axis_operating_system(std::ofstream& f) {
+    emit_axis_open(f, meas::LinuxOperatingSystem::axis_label(), "ct", 3);
+    {
+        // Rein statische Reflexion wie beim target_isa-Emitter -- KEINE Instanzen: die CRTP-Basis
+        // haelt ihren Konstruktor protected (leeres Dach, Anti-Runtime-Switch), eine Aggregat-
+        // Initialisierung Os{} kaeme daran nicht vorbei.
+        std::string extra =
+            std::string{" posix=\""} + (meas::LinuxOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
+        emit_baustein<meas::LinuxOperatingSystem>(f, meas::LinuxOperatingSystem::os_family_id(), extra);
+        extra =
+            std::string{" posix=\""} + (meas::WindowsOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
+        emit_baustein<meas::WindowsOperatingSystem>(f, meas::WindowsOperatingSystem::os_family_id(), extra);
+        extra = std::string{" posix=\""} + (meas::MacosOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
+        emit_baustein<meas::MacosOperatingSystem>(f, meas::MacosOperatingSystem::os_family_id(), extra);
+    }
+    f << "  </axis>\n";
+}
+
 /// P5/A9a: Emissions-Koerper der Haupt-Achse "scheduling" (1:1 aus main() herausgezogen, Inhalt
-/// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
-/// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
-void emit_system_axis_scheduling(std::ofstream& f) {
+/// UNVERAENDERT -- die XML muss byte-identisch bleiben).
+/// A3 (O-8 Schritt 4): scheduling ist KEINE Haupt-Achse mehr und steht daher nicht mehr in
+/// kSystemAxisEmitters. Der Koerper bleibt erhalten, weil Schritt 6 ihn als sub_axis unter dem
+/// target_isa-Komplex-Wrapper wieder einhaengt -- er ist geparkt, nicht tot.
+[[maybe_unused]] void emit_system_axis_scheduling(std::ofstream& f) {
     // ── 4) scheduling (SchedulingSystemAxis): 1 Baustein; 5 fixe Sub-Dimensionen (getypte Accessoren). ──
     // Die id-Etiketten der Sub-Dims haben KEINE string-Single-Source (nur getypte Accessoren) -> sie sind
     // an den Accessor-AUFRUF compile-gekoppelt (Rename bricht diesen Build). Enum-WERTE als Ordinal reflektiert.
@@ -340,8 +365,8 @@ void emit_system_axis_scheduling(std::ofstream& f) {
 /// P5/A9a: Emissions-Koerper der Haupt-Achse "load_framework" (1:1 aus main() herausgezogen, Inhalt
 /// UNVERAENDERT -- die XML muss byte-identisch bleiben). Aufgerufen ausschliesslich ueber die
 /// kSystemAxisEmitters-Tabelle, die kSystemAxisOrder folgt.
-void emit_system_axis_load_framework(std::ofstream& f) {
-    // ── 5) load_framework (LoadFrameworkSystemAxis): 1 Baustein ycsb + dynamische Unter-Achse "workload". ──
+[[maybe_unused]] void emit_system_axis_load_framework(std::ofstream& f) {
+    // -- 5) load_framework (LoadFrameworkMeasurementAxis): 1 Baustein ycsb + dyn. Unter-Achse "workload". --
     // Die workload-Optionen (ycsb_a..f/Ranges) sind Anwender-XML-Selektion (Lastprofil-Akten), kein CT-Angebot;
     // hier wird NUR das Unter-Achsen-Label reflektiert (Single-Source der setting_label-Konvention).
     emit_axis_open(f, meas::YcsbLoadFrameworkAxis::axis_label(), "ct", 1);
@@ -378,11 +403,9 @@ struct SystemAxisEmitter {
 };
 
 inline constexpr std::array<SystemAxisEmitter, cabi::kSystemAxisOrderCount> kSystemAxisEmitters{{
-    {meas::GccCompilerAxis::axis_label(), &emit_system_axis_compiler},
-    {meas::SimdExternalUtilsFamily::axis_label(), &emit_system_axis_external_utils},
     {meas::X86_64TargetIsa::axis_label(), &emit_system_axis_target_isa},
-    {meas::DefaultSchedulingSystemAxis::axis_label(), &emit_system_axis_scheduling},
-    {meas::YcsbLoadFrameworkAxis::axis_label(), &emit_system_axis_load_framework},
+    {meas::LinuxOperatingSystem::axis_label(), &emit_system_axis_operating_system},
+    {meas::SimdExternalUtilsFamily::axis_label(), &emit_system_axis_external_utils},
 }};
 
 [[nodiscard]] consteval bool emitter_table_matches_order() {
@@ -491,7 +514,7 @@ int main(int argc, char** argv) {
     }
 
     // NETZ 3: die Anzahl kommt aus der Single-Source, nicht aus einem Literal. Byte-neutral - der Text
-    // lautet weiter "5 ...", weil kSystemAxisOrderCount heute 5 IST; in A3 zieht die Zahl automatisch mit.
+    // kommt aus kSystemAxisOrderCount; mit A3 (O-8 Schritt 4) meldet sie automatisch 3 statt frueher 5.
     std::cout << "system_axis_registry_gen: " << cabi::kSystemAxisOrderCount
               << " System-Achsen-Elemente (opt_level/atomic128/simd als sub_axis), " << g_baustein_total
               << " Bausteine, simd_feature_catalog=" << meas::kSimdFeatureFlagCatalog.size()

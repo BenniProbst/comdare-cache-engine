@@ -22,7 +22,7 @@
 //        -> simd-Optionen {no_extension, avx2, avx512}         -- SimdSubAxis (simd_sub_axis.hpp)
 //
 // Die Familien-Kennung ist zugleich das Unter-Achsen-Label (Konvention "external_utils.simd=...";
-// Single-Source-Muster wie LoadFrameworkSystemAxis::sub_axis_label()=="workload"). binary_id-NEUTRAL
+// Single-Source-Muster wie LoadFrameworkMeasurementAxis::sub_axis_label()=="workload"). binary_id-NEUTRAL
 // (system_config, steht nie in kCompositionAxisNames, golden unberuehrt); der -march-WERT kommt aus der
 // Unter-Achsen-Option, der ORT ist die CompileFn-Naht (opt-g-Facade), die PROVENIENZ das H-10-Sidecar.
 // Metaprog: CRTP + Concept, static-dispatch, keine vtable (Lehrbuch-Pattern, kein Runtime-Switch).
@@ -75,7 +75,7 @@ struct ExternalUtilsFamilyAxis : SystemMetaMetaAxis<Derived> {
     [[nodiscard]] static constexpr std::string_view family_id() noexcept { return Derived::do_family_id(); }
 
     /// Label der dynamischen Unter-Achse dieser Familie (Single-Source der Serialisierungs-/Permutations-
-    /// Konvention "external_utils.<sub>=..."; Muster LoadFrameworkSystemAxis::sub_axis_label()).
+    /// Konvention "external_utils.<sub>=..."; Muster LoadFrameworkMeasurementAxis::sub_axis_label()).
     /// Per Konvention == family_id (die Familie SPANNT ihre gleichnamige Unter-Achse).
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return Derived::do_family_id(); }
 

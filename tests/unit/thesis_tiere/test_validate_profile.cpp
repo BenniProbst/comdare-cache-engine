@@ -281,13 +281,17 @@ std::optional<tlz::RegistryTrio> real_trio() {
 }
 } // namespace
 
-// (P0) Das reale Trio traegt 18/5/16 (STRUKT-R ORG-18: Organ 17->18) und die kanonischen Achsen.
-TEST(ResolveAxisRefsAgainstTrio, RealTrioIs17_5_16WithCanonicalAxes) {
+// (P0) Das reale Trio traegt 18/3/16 (STRUKT-R ORG-18: Organ 17->18; A3: System 5->3) und die
+// kanonischen Achsen.
+TEST(ResolveAxisRefsAgainstTrio, RealTrioIs18_3_16WithCanonicalAxes) {
     auto const trio = real_trio();
     ASSERT_TRUE(trio.has_value()) << "die 3 committeten Art-Registries muessen als comdare_axis_registry lesbar sein";
     EXPECT_EQ(trio->organ_axis_count(), 18u)
         << "Organ-golden: 18 Kompositions-Achsen (isa raus INC-2d; persistence_target dazu STRUKT-R ORG-18)";
-    EXPECT_EQ(trio->system_axis_count(), 5u);
+    EXPECT_EQ(trio->system_axis_count(), 3u)
+        << "A3 (O-8 Schritt 4): GENAU DREI System-Haupt-Achsen (target_isa, operating_system, "
+           "external_utils). compiler und scheduling sind Unter-Achsen geworden, load_framework hat den "
+           "Realm gewechselt (Mess-Registry) -- die Zahl kommt aus der regenerierten System-Registry.";
     EXPECT_EQ(trio->measurement_category_count(), 16u);
     EXPECT_EQ(trio->organ.axis_names.count("search_algo"), 1u) << "search_algo ist eine Organ-Achse";
     EXPECT_EQ(trio->system.axis_names.count("target_isa"), 1u) << "target_isa ist eine System-Achse (INC-2d)";

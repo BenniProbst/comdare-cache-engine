@@ -32,7 +32,7 @@
 #include <builder/codegen/type_name.hpp> // type_name<W>() (FQ-Typ der Kollektoren)
 
 #include <anatomy/resource_controllable_tier.hpp>            // ComdareResourceControlV1 + kResourceControlVersion
-#include <cache_engine/measurement/load_framework_system_axis.hpp> // workload-Unter-Achsen-Label (Single-Source)
+#include <cache_engine/measurement/load_framework_measurement_axis.hpp> // workload-Unter-Achsen-Label (Single-Source)
 #include <cache_engine/measurement/measurement_axis_registry.hpp>  // kMeasurementAxisRegistry + for_each + axis_info
 #include <cache_engine/measurement/system_axis.hpp>                // 3 Kollektoren + MeasurementRegime + regime_of
 
@@ -152,6 +152,29 @@ int main(int argc, char** argv) {
     emit_collector<meas::PmcSystemAxis>(f);
     f << "  </axis>\n";
 
+    // -- 2b) K1 (O-8 Schritt 4): load_framework als Meta-Meta-HAUPT-Achse des MESS-Realms. Sie kommt
+    //    aus der System-Registry HERUEBER (Ledger 69.1 / R-G) und ist dort ERSATZLOS entfallen -- der
+    //    Angebots-Eigner ist ab hier diese Registry. axis_kind wird aus dem REALEN Typ reflektiert,
+    //    nicht als Literal geschrieben: ein Rueckfall der Achse auf CebSystemAxis wuerde hier sofort
+    //    system_config emittieren und der Roundtrip-Vergleich schluege an.
+    // Das axis_kind-Etikett ist ein Literal (C++23 hat keine Enum-Namen-Reflexion, genau wie bei den
+    // beiden Bloecken oben) -- aber an den REALEN Enum-Wert compile-gekoppelt: faellt die Achse auf
+    // system_config zurueck, bricht dieser static_assert, nicht erst der Roundtrip.
+    static_assert(meas::YcsbLoadFrameworkAxis::axis_kind() ==
+                      ::comdare::cache_engine::topics::AxisKind::measurement_meta_meta,
+                  "K1: das emittierte axis_kind-Literal 'measurement_meta_meta' und der reale Achsen-Typ "
+                  "sind auseinandergelaufen.");
+    f << "  <axis id=\"" << xml_escape(meas::YcsbLoadFrameworkAxis::axis_label())
+      << "\" category=\"measurement_meta_meta\" axis_kind=\"measurement_meta_meta\""
+      << " binary_id=\"never\" stage=\"ct\" baustein_count=\"1\">\n";
+    {
+        note_name(meas::YcsbLoadFrameworkAxis::framework_id());
+        f << "    <baustein name=\"" << xml_escape(meas::YcsbLoadFrameworkAxis::framework_id())
+          << "\" sub_axis_label=\"" << xml_escape(meas::YcsbLoadFrameworkAxis::sub_axis_label())
+          << "\" enabled=\"true\"/>\n";
+    }
+    f << "  </axis>\n";
+
     // ── 3) Die dynamischen Mess-Dimensionen (RuntimeVariableLoop). RC-POD-Dims sind an den Feldzugriff auf
     //    ComdareResourceControlV1 compile-gekoppelt; workload aus dem realen Unter-Achsen-Label reflektiert. ──
     // Compile-Kopplung: ein Feld-Rename am RC-POD bricht DIESE Zugriffe (kein stiller XML-Phantom). Die
@@ -164,13 +187,14 @@ int main(int argc, char** argv) {
     static_cast<void>(kRcProbe.inline_threshold_bytes);
 
     f << "  <dynamic_dims resource_control_version=\"" << anat::kResourceControlVersion << "\">\n";
-    f << "    <!-- workload: Single-Source LoadFrameworkSystemAxis::sub_axis_label() (Angebots-Eigner =\n";
-    f << "         System-Registry load_framework); hier als Mess-Sweep-Dimension referenziert. -->\n";
+    f << "    <!-- workload: Single-Source LoadFrameworkMeasurementAxis::sub_axis_label(). Angebots-Eigner ist\n";
+    f << "         seit dem K1-Umzug (O-8 Schritt 4) die load_framework-Achse DIESER Registry, nicht mehr die\n";
+    f << "         System-Registry; hier als Mess-Sweep-Dimension referenziert. -->\n";
     {
         std::string_view const wl = meas::YcsbLoadFrameworkAxis::sub_axis_label();
         note_name(wl);
         f << "    <dim id=\"" << xml_escape(wl)
-          << "\" stage=\"runtime\" source=\"system:load_framework\" value_type=\"token\"/>\n";
+          << "\" stage=\"runtime\" source=\"measurement:load_framework\" value_type=\"token\"/>\n";
     }
     f << "    <!-- RC-POD-gekoppelte Dimensionen (ComdareResourceControlV1-Felder; setting_label axis.var=value). -->\n";
     for (std::string_view const dim :

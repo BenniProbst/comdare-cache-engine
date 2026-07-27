@@ -17,7 +17,7 @@
 // R-G-TRIPWIRE-Include: der HUB zieht load_framework absichtlich NICHT mehr (Ledger 69.1 -- Mess-Realm,
 // nicht System-Hub). Wer die Realm-Grenze PRUEFEN will, muss die Achse deshalb selbst hereinholen. Genau
 // diese Include-Asymmetrie ist Teil des Belegs: der Hub kennt load_framework nicht.
-#include <cache_engine/measurement/load_framework_system_axis.hpp>
+#include <cache_engine/measurement/load_framework_measurement_axis.hpp>
 #include <cache_engine/measurement/machine_simd_signature.hpp> // die echten Maschinen-Signaturen
 #include <cache_engine/measurement/meta_meta_admission.hpp>    // C-2: die gehobene Zulassung
 #include <cache_engine/measurement/meta_meta_identity.hpp>     // A1: MetaMetaSet + subsumes_v

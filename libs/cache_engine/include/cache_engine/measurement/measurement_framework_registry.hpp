@@ -1,7 +1,7 @@
 #pragma once
 // Mess-Framework-Mess-UNTER-Achse (Ledger Section 47 / Section 54-T2 / Section 55, 2026-07-20): WELCHES
 // Last-/Mess-Framework den Workload treibt. Heute EIN ehrlicher Baustein {Ycsb} (honest-1) -- der reale
-// YCSB-Generator/-Konsum (load_framework_system_axis.hpp / discover_load_profiles). Eine spaetere
+// YCSB-Generator/-Konsum (load_framework_measurement_axis.hpp / discover_load_profiles). Eine spaetere
 // Erweiterung (z.B. ein zweites Framework) faechert diese Registry additiv auf (der static_assert unten
 // bricht dann bewusst, bis der Zaehler nachgezogen ist -- kein stilles Phantom).
 //

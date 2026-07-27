@@ -1,5 +1,5 @@
 #pragma once
-// abi/system_axis_code_versions.hpp -- Single-Source der 5 System-Achsen-CODE-Versionen (Bau W12 / G2-4 Schritt 3,
+// abi/system_axis_code_versions.hpp -- Single-Source der System-Achsen-CODE-Versionen (Bau W12 / G2-4 Schritt 3,
 // Lager-Gate A2). Frueher waren diese Versionen in system_stamp_line() (anatomy_version_stamp.hpp) hartkodiert als
 // 5x {"<achse>","code","v1"}. Jetzt: EINE Tabelle -> die Stempel-Funktion iteriert sie; ab jetzt ist jede System-
 // Achsen-Code-Version einzeln BUMP-BAR (A10-X.Y.Z-Disziplin), ohne die Stempel-Funktion anzufassen.
@@ -24,17 +24,21 @@ struct SystemAxisCodeVersion {
         version; ///< rohe Code-Version ("v1.0.0"); wird von build_axis_version_stamp_line zu X.Y.Z gerendert
 };
 
-// Single-Source: Drift einer 6. System-Achse bricht hier compile-time (statt still 5 zu bleiben).
-inline constexpr std::size_t kSystemAxisCodeCount = 5;
+// Single-Source: Drift einer 4. System-Haupt-Achse bricht hier compile-time (statt still 3 zu bleiben).
+// A3 (O-8 Schritt 4): 5 -> 3. Der Owner-KERN kennt GENAU DREI System-Haupt-Achsen; die drei
+// Abgaenge sind KEINE Loeschungen, sondern Umzuege in die ihnen zustehende Ebene:
+//   * compiler   -> Unter-Achsen-GRUPPE der AEUSSEREN System-Komplex-Achse (O-1r; Schritt 6)
+//   * scheduling -> sub_axis am target_isa-Komplex-Wrapper (Schritt 6)
+//   * load_framework -> MESS-Realm, Meta-Meta-HAUPT-Achse des Planers (Ledger 69.1 / R-G;
+//     verlaesst die System-Welt ERSATZLOS -- kein Platzhalter, keine Restzeile hier)
+inline constexpr std::size_t kSystemAxisCodeCount = 3;
 
 /// Die EINE Tabelle der System-Achsen-Code-Versionen -- Reihenfolge == kanonische System-Stempel-Ordnung (Section 43,
-/// W12-A-1). Init "v1.0.0" x5 (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
+/// W12-A-1). Init "v1.0.0" (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
 inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystemAxisCodeVersions{{
-    {"compiler", "v1.0.0"},
-    {"external_utils", "v1.0.0"},
     {"target_isa", "v1.0.0"},
-    {"scheduling", "v1.0.0"},
-    {"load_framework", "v1.0.0"},
+    {"operating_system", "v1.0.0"},
+    {"external_utils", "v1.0.0"},
 }};
 
 namespace detail {
@@ -47,6 +51,6 @@ namespace detail {
 }
 } // namespace detail
 static_assert(detail::system_axis_code_versions_complete(),
-              "kSystemAxisCodeVersions: 5 Eintraege, axis/version nie leer");
+              "kSystemAxisCodeVersions: 3 Eintraege, axis/version nie leer");
 
 } // namespace comdare::cache_engine::abi
