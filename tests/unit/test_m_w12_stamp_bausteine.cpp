@@ -438,7 +438,10 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     namespace ceb = ::comdare::cache_engine::builder;
     namespace abi = ::comdare::cache_engine::abi;
     // Mess-Array-Zeile aus der Registry, X.Y.Z-gerendert (nicht die rohe v-Form).
-    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"measurement_tooling=wallclock@1.0.0;"
+    // O-8 Schritt 12: mit fuehrendem load_framework-Segment -- die consteval-CEB-Fassung ist dem
+    // Schritt-9-Stand nachgezogen worden, damit der Drift-Guard darunter wieder Gleichheit sehen kann.
+    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"load_framework=ycsb@1.0.0;"
+                                                          "measurement_tooling=wallclock@1.0.0;"
                                                           "measurement_tooling=macro@1.0.0;"
                                                           "measurement_tooling=micro@1.0.0"});
     // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
@@ -451,7 +454,8 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
     std::string const stamp = ceb::ceb_version_stamp();
-    EXPECT_NE(stamp.find("ceb-measurement=measurement_tooling=wallclock@1.0.0"), std::string::npos);
+    EXPECT_NE(stamp.find("ceb-measurement=load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0"),
+              std::string::npos);
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
 }
