@@ -14,6 +14,7 @@
 
 #include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 9: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
 #include <array>
@@ -113,18 +114,45 @@ template <class Comp>
 /// Stempel) als EINEN Eintrag "measurement_tooling=<tooling>@X.Y.Z". Analog zu system_stamp_line(): dieselbe
 /// AxisVersionEntry/build_axis_version_stamp_line-Welt, dieselbe X.Y.Z-Voll-Form (SEPARATE Welt zur .algos-Sig).
 ///
-/// Section-43-INVARIANTE: NUR die Haupt-Achse. Die Ablaufmethodik (run_methodology debug/measure/release) und die
-/// Workloads/Framework (ycsb_*) sind UNTER-Achsen (Laufzeit-Sweep) und NIE Stempel-Bestandteil. Der Algorithmus-
+/// Section-43-INVARIANTE, PRAEZISIERT (O-8 Schritt 9 / RF-1): NUR Haupt-Achsen. Die Ablaufmethodik
+/// (run_methodology debug/measure/release) bleibt UNTER-Achse (Laufzeit-Sweep) und NIE Stempel-Bestandteil.
+/// Beim Last-Framework ist zu TRENNEN, was der alte Text zusammenwarf: die Framework-WAHL ist seit A3 eine
+/// Meta-Meta-HAUPT-Achse des Mess-Realms und damit STEMPELBAR (sie steht als erstes Segment in dieser Zeile);
+/// die Workload-WERTE (ycsb_a..f, Ranges) bleiben RT-Unter-Achse und werden NIE gestempelt. Der Algorithmus-
 /// Marker == die gewaehlte Tooling-id; die Version == die statische Code-Identitaet der Mess-Tooling-Achse
 /// ("v1" -> 1.0.0). Leere Wahl -> leere Zeile (ehrlich: kein Mess-Tooling einkompiliert; die Makro-
 /// Materialisierung legt dann measurement_line auf "" mit measurement_len==0).
+/// O-8 Schritt 9 (RF-1 / Ledger 70.1, IV.2.4 K3): das load_framework-SEGMENT der Mess-Zeile.
+///
+/// SCHARFSCHALTUNG des in Schritt 0A inert angelegten version-Feldes: die Mess-Framework-Achse wird
+/// jetzt gestempelt. load_framework hat mit A3 die System-Welt ERSATZLOS verlassen und ist
+/// Meta-Meta-HAUPT-Achse des MESS-Realms -- sein Segment gehoert deshalb NUR in diese Zeile und NIE in
+/// die System- oder Organ-Zeile (RF-7: je Achsen-Typ EINE Array-Zeile).
+///
+/// POSITION (OP-3, Manager-Entscheid): ERSTES Meta-Meta-Segment, VOR measurement_tooling -- die
+/// Bauplan-Vorgabe "load_framework = ERSTE Meta-Meta" auf die Segment-Ordnung uebertragen.
+///
+/// WARUM NUR BEI NICHT-LEERER ZEILE: eine leere Mess-Zeile heisst "kein Mess-Tooling einkompiliert",
+/// und die Makro-Materialisierung verlaesst sich darauf (measurement_line == "", measurement_len == 0).
+/// Ein Segment in eine sonst leere Zeile zu schreiben wuerde aus "nichts gemessen" ein "etwas
+/// gemessen" machen -- die Zeile bleibt deshalb leer, wenn sie leer ist.
+[[nodiscard]] inline ::comdare::cache_engine::measurement::AxisVersionEntry load_framework_stamp_entry() noexcept {
+    namespace cm = ::comdare::cache_engine::measurement;
+    // Heute genau EIN reales Last-Framework (kMeasurementFrameworkCount == 1, static_assert-gesichert);
+    // id und Version kommen aus der Registry, nicht aus Literalen.
+    auto const& info = cm::measurement_framework_info(cm::MeasurementFramework::Ycsb);
+    return {"load_framework", info.id, info.version};
+}
+
 [[nodiscard]] inline std::string measurement_stamp_line(std::string_view tooling) {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
     // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0"-Sentinel (@0.0.0, nur ungueltige ids).
-    std::array<AxisVersionEntry, 1> const entries{{
+    // O-8 Schritt 9 (OP-3): load_framework steht als ERSTES Segment VOR measurement_tooling.
+    std::array<AxisVersionEntry, 2> const entries{{
+        load_framework_stamp_entry(),
         {"measurement_tooling", tooling, ::comdare::cache_engine::measurement::tooling_version_for_id(tooling)},
     }};
     return build_axis_version_stamp_line(entries);
@@ -140,13 +168,18 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     std::vector<AxisVersionEntry> entries;
-    entries.reserve(toolings.size());
+    entries.reserve(toolings.size() + 1);
+    // O-8 Schritt 9 (OP-3): load_framework als ERSTES Segment -- aber nur, wenn die Zeile ueberhaupt
+    // entsteht. Die Leer-Semantik ("kein Mess-Tooling einkompiliert" => leere Zeile) bleibt unberuehrt;
+    // der Eintrag wird deshalb erst NACH der Filterung vorangestellt.
     for (std::string_view const t : toolings)
         if (!t.empty())
             // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0" fuer
             // unbekannte ids (render-neutral fuer die gueltigen wallclock/macro/micro).
             entries.push_back(
                 {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
+    if (entries.empty()) return {};
+    entries.insert(entries.begin(), load_framework_stamp_entry());
     return build_axis_version_stamp_line(entries);
 }
 
