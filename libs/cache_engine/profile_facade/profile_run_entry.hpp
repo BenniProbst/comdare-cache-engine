@@ -43,6 +43,8 @@
 
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
 #include <cache_engine/measurement/simd_build_gate.hpp>             // C-3c: active_machine_signature (deklarierte Klasse)
+
+#include "system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
 #include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
 
@@ -803,10 +805,22 @@ struct RunProfileResult {
                 // Increment). Details am Emitter: lazy_adhoc_source_gen.hpp (FREIGABE-KOPPLUNG-Abschnitt).
                 std::string const march_flag = system_axis_march_of(simd_id);
                 perm_compile = a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
+                // Lane F R3 (O-8 Schritt 10): diese Kette WAR die bindende Form -- jetzt kommt sie aus der
+                // EINEN Suffix-Quelle, statt sie hier ein zweites Mal zu buchstabieren. Die erzeugten Bytes
+                // bleiben identisch (dieselbe Ordnung, dieselbe no_extension-Regel), aber es gibt nur noch
+                // eine Stelle, die die Ordnung kennt -- und damit erstmals etwas, wogegen eine Wache prueft.
+                ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
+                perm_parts.cxx = a.compiler_tag;
+                perm_parts.opt = opt_id;
+                if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) perm_parts.simd = simd_id;
+                std::string const perm_bt = build_type_version_value();
+                perm_parts.build_type     = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
+                // Ledger 70.9 / OP-7: Gate-Beitraege am ENDE, leer => kein Segment (heute leer).
+                std::string const perm_gate =
+                    cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                perm_parts.gate_contribution = perm_gate;
                 std::string const perm_suffix =
-                    "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
-                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id) +
-                    build_type_version_suffix(); // (i) +bt=Debug NUR bei Debug (Release/Default byte-identisch)
+                    ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);
                 perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
                 perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
                 std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag

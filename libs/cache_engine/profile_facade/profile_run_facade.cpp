@@ -18,6 +18,8 @@
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
+
+#include "system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -375,20 +377,33 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // Reihe wird deterministisch unter O3 neu gebaut/gemessen (bewusster Neu-Mess-Lauf, alt-Reihen additiv erhalten).
     // Single-XML (9dim-G3, Sec.50): die vier active_*-Aufloeser ziehen die Einzelpfad-Wahl aus dem Profil (tp), nicht
     // mehr aus Env; kein Profil / keine Deklaration -> benannte Defaults -> Suffix byte-identisch (golden-neutral).
-    std::string suffix = "+ext=" + std::string{active_simd_policy(tp)} + "+cxx=" + cxx_compiler();
-    suffix += "+opt=";
-    suffix += active_opt_level(tp);
+    // Lane F R3 (O-8 Schritt 10): die Glieder werden GESAMMELT und von der EINEN Suffix-Quelle
+    // zusammengesetzt (system_version_suffix.hpp). Die frueher hier gebaute Ordnung "+ext+cxx+opt"
+    // faellt damit auf die bindende Form "+cxx+opt+ext" -- eine bewusste, golden-veraendernde
+    // Vereinheitlichung der Divergenz W-6/W-13, kein Umformatieren.
+    namespace pf = ::comdare::cache_engine::profile_facade;
+    namespace cm = ::comdare::cache_engine::measurement;
+    pf::SystemVersionSuffixParts parts;
+    std::string const cxx_tag = cxx_compiler();
+    std::string const opt_id  = std::string{active_opt_level(tp)};
+    parts.cxx                 = cxx_tag;
+    parts.opt                 = opt_id;
+    // D2.8(ii): no_extension emittiert KEIN Segment -- das leere Glied ist die Aussage.
+    std::string_view const simd_policy = active_simd_policy(tp);
+    if (simd_policy != ::comdare::cache_engine::measurement::SimdNoExtOption::simd_id())
+        parts.simd = simd_policy;
     // Bauplan §4 (inkrementeller Cache): die CEB-Contract-Version (Framework/System-Ebene) faltet sich in die
     // build_version -> jeder Bump (ABI-Major AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell/
     // CI-Tripwire) laesst jede perm.dll.version mismatchen -> ALLE Tier-Binaries neu ("CEB-Aenderung betrifft alle").
     // Konsistent zum Loader-host_compatible_with-Major-Backstop. Organ-Provenienz bleibt STRIKT getrennt (perm.algos).
-    suffix += "+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
-              std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+    std::string const ceb_version = std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
+                                    std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+    parts.ceb                     = ceb_version;
     // INC-2d: Cross-Compile-Provenienz NUR wenn Ziel != Host (native x86_64 = kein Suffix -> build_version
     // byte-identisch, golden-neutral). Ziel-ISA ist system_config -> .version-Sidecar, NIE binary_id.
     if (std::string_view const t = active_target_isa(tp);
         t != ::comdare::cache_engine::measurement::X86_64TargetIsa::target_isa_id())
-        suffix += "+target=" + std::string{t};
+        parts.target_isa = t;
     // H-10 (W9.1): telemetry-System-Achsen-Provenienz. REGISTRY-GEGATED -- der Token wird NUR emittiert, wenn
     // "telemetry" wirklich als System-Achse gefuehrt wird. Damit ist build_system_axis_levels() (bislang ausser der
     // Byte-Identitaets-Fold in build_all_axis_levels() ohne echten Konsumenten -- Audit-Auflage A, 2026-07-17) ein
@@ -398,12 +413,20 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
         auto const system_levels            = ex::build_system_axis_levels();
         bool const telemetry_is_system_axis = std::any_of(system_levels.begin(), system_levels.end(),
                                                           [](ex::AxisLevel const& l) { return l.axis == "telemetry"; });
-        if (telemetry_is_system_axis) suffix += "+tel=silent";
+        if (telemetry_is_system_axis) parts.telemetry = "silent";
     }
     // (i) §61-STUFEN Compile-Kennzeichnung: +bt=Debug NUR bei Debug-Build (COMDARE_BUILD_TYPE=Debug, Emissions-Seite
     // im Director). Release/Default => "" => build_version byte-identisch (golden/Sidecar/Resume unberuehrt).
-    suffix += tlz::build_type_version_suffix();
-    return suffix;
+    std::string const bt = tlz::build_type_version_value();
+    parts.build_type     = bt;
+    // Ledger 70.9 (Lane F R3, Einhaengung am O-8-PUNKT): die Gate-Beitraege MUESSEN bei der
+    // Scharfschaltung in der Identitaet sichtbar werden. C-3a ist scharf, der Text existierte fertig
+    // und hatte NULL Produktions-Konsumenten -- hier ist er. Leerer Beitrag => KEIN Segment (heute der
+    // Normalfall, also byte-neutral); OP-7: das Segment steht am ENDE der Ordnung.
+    std::string const gate = cm::gate_contribution_identity_text(
+        cm::route_of_simd_id(simd_policy), cm::SimdDialect::Gpp);
+    parts.gate_contribution = gate;
+    return pf::compose_system_version_suffix(parts);
 }
 
 } // namespace
@@ -1114,9 +1137,21 @@ int print_cache_key_facade(std::string const& base_build_version, std::ostream& 
     };
     std::string const opt    = env("COMDARE_GN_OPT");
     std::string const simd   = env("COMDARE_GN_SIMD");
-    std::string       suffix = "+cxx=" + cxx_compiler() + "+opt=" + opt;
-    if (simd != std::string{cm::SimdNoExtOption::simd_id()}) suffix += "+ext=" + simd; // no_extension => KEIN +ext
-    suffix += tlz::build_type_version_suffix(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug (sonst byte-identisch)
+    // Lane F R3 (O-8 Schritt 10): auch dieser dritte Beitragsort liest jetzt die EINE Suffix-Quelle.
+    // Er baute die bindende Form bereits richtig nach -- "richtig nachgebaut" ist aber genau der
+    // Zustand, aus dem Divergenz entsteht.
+    namespace pf = ::comdare::cache_engine::profile_facade;
+    pf::SystemVersionSuffixParts parts;
+    std::string const            cxx_tag = cxx_compiler();
+    parts.cxx                            = cxx_tag;
+    parts.opt                            = opt;
+    if (simd != std::string{cm::SimdNoExtOption::simd_id()}) parts.simd = simd; // no_extension => KEIN +ext
+    std::string const bt = tlz::build_type_version_value(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug
+    parts.build_type     = bt;
+    std::string const gate =
+        cm::gate_contribution_identity_text(cm::route_of_simd_id(simd), cm::SimdDialect::Gpp);
+    parts.gate_contribution  = gate; // OP-7: am ENDE; leer => kein Segment
+    std::string const suffix = pf::compose_system_version_suffix(parts);
     at::ArtifactCache const cache = at::ArtifactCache::from_env(); // +mtool aus COMDARE_MEASUREMENT_COMBO, +ceb aus ABI
     os << cache.cache_key_prefix(base_build_version + suffix) << "\n";
     return 0;

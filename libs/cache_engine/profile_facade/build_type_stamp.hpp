@@ -23,4 +23,14 @@ namespace comdare::cache_engine::thesis_lazy {
     return {};
 }
 
+/// build_type_version_value() -- dasselbe Urteil, aber nur der WERT ("Debug" bzw. ""), ohne das
+/// "+bt="-Praefix. Lane F R3 (O-8 Schritt 10): die Suffix-Single-Source setzt die Segment-Schluessel
+/// selbst zusammen und braucht deshalb die Glieder roh. Die alte Form bleibt fuer Aufrufer, die einen
+/// fertigen Anhang wollen -- beide lesen dieselbe Env-Entscheidung, es gibt keine zweite Wahrheit.
+[[nodiscard]] inline std::string build_type_version_value() {
+    if (char const* e = std::getenv("COMDARE_BUILD_TYPE"); e != nullptr && std::string_view{e} == "Debug")
+        return "Debug";
+    return {};
+}
+
 } // namespace comdare::cache_engine::thesis_lazy

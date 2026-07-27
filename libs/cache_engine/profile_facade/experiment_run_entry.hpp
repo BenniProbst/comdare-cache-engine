@@ -32,7 +32,8 @@
 
 #include <functional> // opt-g: std::function (per-Perm-CompileFn-Fabrik)
 
-#include "profile_run_entry.hpp" // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
+#include "profile_run_entry.hpp"
+#include "system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
                                  //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
 #include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed (Spiegel-Filter, Single-Source)
 #include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (direkt genutzt, IWYU)
@@ -290,10 +291,20 @@ struct RunExperimentResult {
             std::string const   march_flag = system_axis_march_of(simd_id);
             ex::CompileFn const perm_compile =
                 a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
+            // Lane F R3 (O-8 Schritt 10): der Zwilling der Perm-Schleife aus profile_run_entry.hpp -- er
+            // buchstabierte dieselbe Ordnung ein zweites Mal. Jetzt liest auch er die EINE Suffix-Quelle,
+            // damit die beiden Lauf-Pfade nicht auseinanderlaufen koennen.
+            ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
+            perm_parts.cxx = a.compiler_tag;
+            perm_parts.opt = opt_id;
+            if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) perm_parts.simd = simd_id;
+            std::string const perm_bt = build_type_version_value();
+            perm_parts.build_type     = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
+            std::string const perm_gate =
+                cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+            perm_parts.gate_contribution = perm_gate; // OP-7: am ENDE, leer => kein Segment
             std::string const perm_suffix =
-                "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
-                (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id) +
-                build_type_version_suffix(); // (i) +bt=Debug NUR bei Debug (Release/Default byte-identisch)
+                ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);
             std::string const perm_build_version     = a.build_version + perm_suffix;
             std::string const perm_tag_build_version = tag_build_version + perm_suffix;
             std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag

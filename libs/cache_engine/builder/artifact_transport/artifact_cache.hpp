@@ -242,6 +242,11 @@ public:
     ///                         denselben Key. Leer (Default/[all]) = Default-DLL.
     ///   +mrg=none             Reserve-Segment fuer den spaeteren K6a-Merge-Stempel (#37): JETZT reserviert, damit die
     ///                         PRT-Merge-Einfuehrung den dann befuellten Bucket NICHT ein zweites Mal invalidiert.
+    /// Lane F R3 (O-8 Schritt 10): `build_version` kommt ab hier VOLLSTAENDIG aus der EINEN Suffix-Quelle
+    /// (profile_facade/system_version_suffix.hpp) -- diese Funktion baut den System-Achsen-Teil also nicht
+    /// mehr nach, sie konsumiert ihn. Was sie ANHAENGT, sind ausschliesslich CACHE-scoped Segmente
+    /// (+ceb/+mtool/+mrg): sie beschreiben den Objekt-Bucket, nicht die System-Achsen-Belegung, und
+    /// gehoeren deshalb bewusst NICHT in kSuffixSegmentOrder.
     [[nodiscard]] std::string cache_key_prefix(std::string const& build_version) const {
         return build_version + "+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
                std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor) + "+mtool=" + measurement_combo_ +

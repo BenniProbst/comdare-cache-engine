@@ -44,6 +44,7 @@
 // -----------------------------------------------------------------------------
 
 #include "profile_run_entry.hpp" // system_axis_opt_flag_of / system_axis_march_of / system_axis_host_supports_simd
+#include "../system_version_suffix.hpp" // Lane F R3: die EINE Suffix-Quelle
 //   + profile_sweep_passes (via profile_runner.hpp) + project_experiment_to_sota_passes
 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
 #include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
@@ -1895,9 +1896,17 @@ private:
                     perm.opt_flag           = tlz::system_axis_opt_flag_of(opt_id); // leer => D1-Degradierung beim Lauf
                     perm.march_flag         = tlz::system_axis_march_of(simd_id);   // leer bei no_extension
                     perm.host_supports_simd = tlz::system_axis_host_supports_simd(simd_id); // ANNOTATION, kein Filter
-                    perm.build_version_suffix =
-                        "+opt=" + opt_id +
-                        (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
+                    // Lane F R3 (O-8 Schritt 10): auch die Planer-ANNOTATION kommt aus der EINEN
+                    // Suffix-Quelle. Sie traegt bewusst KEIN +cxx (der Planer kennt den Compiler-Tag an
+                    // dieser Stelle nicht) -- ein leeres Glied erzeugt kein Segment, die Ordnung der
+                    // uebrigen bleibt trotzdem die bindende.
+                    {
+                        ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts plan_parts;
+                        plan_parts.opt = opt_id;
+                        if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) plan_parts.simd = simd_id;
+                        perm.build_version_suffix =
+                            ::comdare::cache_engine::profile_facade::compose_system_version_suffix(plan_parts);
+                    }
                     b.begin_perm(perm);
                     emit_steps(b);
                     b.end_perm(perm);
