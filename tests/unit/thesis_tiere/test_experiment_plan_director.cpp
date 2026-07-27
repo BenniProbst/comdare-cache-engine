@@ -474,13 +474,21 @@ TEST(CMakeGraphBuilder, EmitsPerComboCebBuildEmitTargetsAndAggregate) {
     EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_emit_"), 1u)
         << "1 CEB-Emit-Target (1 [all]-Combo)";
     EXPECT_EQ(count_occurrences(cmake, "# ceb:build->ceb:emit-Kante"), 1u) << "eine Bau->Emit-Kante (1 [all]-Combo)";
-    // Der CEB-Emit-Schritt ruft --emit-tier-cmake (die CEB emittiert SELBST die Stufe-2, §40.b-Hoheit).
-    EXPECT_NE(cmake.find("--emit-tier-cmake"), std::string::npos) << "CEB emittiert Stufe-2 selbst (--emit-tier-cmake)";
+    // Der CEB-Emit-Schritt ruft "tier cmake" (die CEB emittiert SELBST die Stufe-2, §40.b-Hoheit).
+    // P8-REST-ZWILLING (27.07.): geprueft wird die REALE COMMAND-Zeile, nicht eine blosse Erwaehnung -- der Wortlaut
+    // steht sonst auch im COMMENT und im Kopf-Kommentar, und der Test waere gegen eine Regression blind.
+    EXPECT_NE(cmake.find("\"${COMDARE_PLAN_DRIVER}\" tier cmake "), std::string::npos)
+        << "CEB emittiert Stufe-2 selbst, in der Subkommando-Form";
+    // Gegenrichtung, die den Zustand ERZWINGT (Zwilling der CI-Wache): das DEPRECATED-Alt-Flag darf NIRGENDS mehr
+    // im emittierten Bare-Metal-Plan stehen. Faellt der Alias im Abschluss-Aufraeumpass (Ledger §75), braeche eine
+    // Alias-Emission sonst erst beim realen Bare-Metal-Bau.
+    EXPECT_EQ(cmake.find("--emit-tier-cmake"), std::string::npos)
+        << "Alt-Flag im emittierten Plan: bricht, sobald §75 die Aliase entfernt";
     EXPECT_NE(cmake.find("add_custom_target(comdare_experiment_plan_all DEPENDS"), std::string::npos);
     // Blaupausen-Treue (catalog_codegen.cmake:27-37): add_custom_command + DEPENDS + VERBATIM.
     EXPECT_NE(cmake.find("add_custom_command("), std::string::npos);
     EXPECT_NE(cmake.find("VERBATIM)"), std::string::npos);
-    // STUFE 1 baut KEINE Tier-Binaries (kein provision-only-Kommando) -- das ist Stufe-2 (--emit-tier-cmake).
+    // STUFE 1 baut KEINE Tier-Binaries (kein provision-only-Kommando) -- das ist Stufe-2 ("tier cmake").
     EXPECT_EQ(cmake.find("COMDARE_GOLDEN_N_PROVISION_ONLY=true"), std::string::npos)
         << "Stufe 1 (Planer-Rolle) baut keine Tier-Binaries";
 }

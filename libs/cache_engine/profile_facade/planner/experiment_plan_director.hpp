@@ -327,7 +327,7 @@ public:
                 " registry_trio_loaded=" + std::string(h.registries.loaded ? "1" : "0") + "\n";
         out_ += "#\n";
         out_ += "# Ledger §42: STUFE 1 (Mess-Achsen-Stufe) -- je Mess-Kombination [a,b,c] EIN CEB-Bau-Target +\n";
-        out_ += "# EIN CEB-Emit-Target (--emit-tier-cmake => Stufe-2-Plan). Dreistufiger Bare-Metal-Bau:\n";
+        out_ += "# EIN CEB-Emit-Target ('tier cmake' => Stufe-2-Plan). Dreistufiger Bare-Metal-Bau:\n";
         out_ += "#   cmake --build <dir> --target comdare_ceb_emit_<combo>  # emittiert tier_plan_<combo>.cmake\n";
         out_ += "#   (dann Stufe-2: cmake -P/Konfiguration dieses tier_plan + --build comdare_tier_batch_amd)\n";
         out_ += "# Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
@@ -345,7 +345,7 @@ public:
         out_ += "    set(COMDARE_PLAN_TIER_OUT \"${CMAKE_CURRENT_BINARY_DIR}/tier_plans\")\n";
         out_ += "endif()\n";
     }
-    // STUFE 1 haengt an der Mess-Achsen-Ebene: je Mess-Kombination CEB-Bau + CEB-Emit(--emit-tier-cmake).
+    // STUFE 1 haengt an der Mess-Achsen-Ebene: je Mess-Kombination CEB-Bau + CEB-Emit("tier cmake").
     void begin_measurement_combo(PlanMeasurementCombo const& c) override {
         combos_.push_back(c);
         std::string const slug    = legend::cmake_slug(c.legend);
@@ -366,16 +366,19 @@ public:
         out_ += "        VERBATIM)\n";
         out_ += "    add_custom_target(" + ceb_build_target(slug) + " DEPENDS \"" + bstamp + "\")\n";
         out_ += "endif()\n";
-        // CEB-Emit-Target (STUFE 1->2): die GEBAUTE CEB emittiert ihre STUFE-2-Sicht (--emit-tier-cmake). CEB-Hoheit
+        // CEB-Emit-Target (STUFE 1->2): die GEBAUTE CEB emittiert ihre STUFE-2-Sicht ("tier cmake"). CEB-Hoheit
         // (§40.b). DEPENDS auf den CEB-Bau-Stamp (Bau->Emit-Kante). Host-unabhaengig (Treiber/Profil = Variablen).
+        // P8-REST-ZWILLING (27.07.): Subkommando-Form wie auf der CI-Seite. In CMake stehen "tier" und "cmake"
+        // unquoted nebeneinander und werden damit als ZWEI Argumente uebergeben -- genau das, was der Dispatcher
+        // erwartet (argv[1]/argv[2]). VERBATIM escaped sie einzeln, klebt sie also nicht zusammen.
         out_ += "if(NOT TARGET " + ceb_emit_target(slug) + ")\n";
         out_ += "    add_custom_command(\n";
         out_ += "        OUTPUT \"" + tierpl + "\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"${COMDARE_PLAN_TIER_OUT}\"\n";
-        out_ += "        COMMAND \"${COMDARE_PLAN_DRIVER}\" --emit-tier-cmake \"${COMDARE_PLAN_PROFILE}\" > \"" +
-                tierpl + "\"\n";
+        out_ += "        COMMAND \"${COMDARE_PLAN_DRIVER}\" tier cmake \"${COMDARE_PLAN_PROFILE}\" > \"" + tierpl +
+                "\"\n";
         out_ += "        DEPENDS \"" + bstamp + "\" # ceb:build->ceb:emit-Kante\n";
-        out_ += "        COMMENT \"ceb:emit " + c.legend + " (--emit-tier-cmake => Stufe-2-Plan)\"\n";
+        out_ += "        COMMENT \"ceb:emit " + c.legend + " ('tier cmake' => Stufe-2-Plan)\"\n";
         out_ += "        VERBATIM)\n";
         out_ += "    add_custom_target(" + ceb_emit_target(slug) + " DEPENDS \"" + tierpl + "\")\n";
         out_ += "endif()\n";
@@ -1402,7 +1405,7 @@ public:
                 " perm_count=" + std::to_string(h.perm_count) + " batch_slice=" + std::to_string(kGnBatchSlice) +
                 " host_lanes=amd,intel\n";
         out_ += "#\n";
-        out_ += "# Ledger §42.b + §62-B-Batch (CEB-Rolle --emit-tier-cmake): je Host-Lane EIN Build+Pruef-Aggregat\n";
+        out_ += "# Ledger §42.b + §62-B-Batch (CEB-Rolle 'tier cmake'): je Host-Lane EIN Build+Pruef-Aggregat\n";
         out_ += "# comdare_tier_batch_<host> (per-Perm Provision + S3-Pruef, SCHARF) + EIN Mess-Target\n";
         out_ += "# comdare_tier_measure_<host> (SCHARF, misst). Bare-Metal:\n";
         out_ += "#   cmake --build <dir> --target comdare_tier_batch_amd   # baut+prueft die amd-Lane-DLLs\n";
