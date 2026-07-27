@@ -1,6 +1,7 @@
 // tests/unit/test_o4_machine_identity.cpp -- Lane C, Paket O-4 (Bauplan IV.2.6, Ledger §70.6).
-// UNREGISTRIERT (tests/unit/CMakeLists.txt bleibt unangetastet; Hand-Bau nach dem Muster-Block
-// tests/unit/CMakeLists.txt:3466-3483).
+// V-4 (27.07.): REGISTRIERT im ctest-Gate. Der Test lief bis dahin nur per Hand-Bau; der einzige
+// genannte Grund war Paket-Disziplin des O-4-Pakets, kein inhaltlicher -- und ein Identitaets-Test
+// ohne Gate faengt eine Regression erst, wenn ihn jemand zufaellig von Hand baut.
 //
 // WAS HIER BEWIESEN WIRD: dass die Maschinen-Identifikation die zwei Identitaets-Begriffe SAUBER
 // trennt (Hostname = Instanz-Lookup, Eigenschafts-Tupel = Klassen-Identitaet, §70.6), dass sie NIE

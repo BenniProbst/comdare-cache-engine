@@ -1,5 +1,5 @@
 // tests/unit/test_c3a_gate_scharfschaltung.cpp -- Lane C, Paket C-3a (Bauplan D2.3/D2.11,
-// Owner-Vorab-GO Ledger §69.9, Identitaets-Auflage §70.9). UNREGISTRIERT.
+// Owner-Vorab-GO Ledger §69.9, Identitaets-Auflage §70.9). REGISTRIERT im ctest-Gate (V-4, 27.07.: vorher nur Hand-Bau, ohne inhaltlichen Grund).
 //
 // C-3a schaltet die DREI Gate-Hooks GEMEINSAM scharf. Dieser Test ist der Beleg, dass das
 // BYTE-NEUTRAL geschieht -- und zwar nicht, weil das Gate abgeschaltet waere, sondern weil der

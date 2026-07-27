@@ -3501,6 +3501,28 @@ add_test(NAME test_p1_spd_ddr5_parser COMMAND test_p1_spd_ddr5_parser)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_p1_spd_ddr5_parser)
 set_tests_properties(test_p1_spd_ddr5_parser PROPERTIES LABELS "hwprobe;spd;measurement")
 
+# O-4 / C-3a: die zwei IDENTITAETS-Tests. Sie liefen bis V-4 nur per Hand-Bau -- der einzige in den
+# Dateikoepfen genannte Grund war Paket-Disziplin ("tests/unit/CMakeLists.txt bleibt unangetastet"),
+# kein inhaltlicher. Ein Identitaets-Test ohne Gate ist ein unsichtbarer Test: er faengt eine
+# Regression erst, wenn jemand ihn zufaellig von Hand baut. Beide tragen dieselbe leichte
+# Include-Menge wie test_p1 (kein Boost::mp11, keine topics/axis.hpp-Kette).
+foreach(_ident_test test_o4_machine_identity test_c3a_gate_scharfschaltung)
+    add_executable(${_ident_test} "${_ident_test}.cpp")
+    target_compile_features(${_ident_test} PRIVATE cxx_std_23)
+    target_include_directories(${_ident_test} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated")
+    target_link_libraries(${_ident_test} PRIVATE gtest gtest_main)
+    comdare_set_platform_defines(${_ident_test})
+    target_compile_definitions(${_ident_test} PRIVATE
+        COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_ident_test} COMMAND ${_ident_test})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_ident_test})
+    set_tests_properties(${_ident_test} PROPERTIES LABELS "identitaet;measurement")
+endforeach()
+
 # Querschnitt M - W12-A (§43): X.Y.Z-Parse-Helfer + Planer-Selbst-Stempel (leichte TU, keine Registries).
 add_executable(test_m_w12_stamp_bausteine "test_m_w12_stamp_bausteine.cpp")
 target_compile_features(test_m_w12_stamp_bausteine PRIVATE cxx_std_23)
