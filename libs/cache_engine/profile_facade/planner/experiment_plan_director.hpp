@@ -49,6 +49,7 @@
 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
 #include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
 #include "planner/plan_legend.hpp" // W10-A: das dreistufige Legenden-Namensschema (EINE Formatierungs-Single-Source)
+#include <builder/build_orchestrator/build_orchestrator.hpp> // OP-9: ex::orch_make_stem == die REALE Stem-Bildung
 #include <builder/bestandslog/planer_block_value.hpp> // G4b-2/E4: make_planer_block_reservation_value (der Wert-Kern)
 #include <builder/bestandslog/reservation_lifecycle.hpp> // G4a(7): make_pro_forma_reservation / BatchTyp::planer_block
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
@@ -209,6 +210,8 @@ public:
 //      perm_count=<n>
 //      perm <i> opt=<id> simd=<id> opt_flag=<f> march_flag=<f> build_version_suffix=<s>
 //        step <j> kind=<k> label=<l> merge=<m> binary_id=<b> series=<s> pruefling_type=<p> lebewesen=<le>
+//             built_stem=<st>          (OP-9, additiv unter v1.1: der real gebaute Datei-Stem; "-" = keine id
+//                                       bzw. Stem ohne View-Index nicht bestimmbar, s. built_stem_field)
 class PlanTextBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
@@ -251,7 +254,8 @@ public:
         out_ += "  step " + std::to_string(s.index) + " kind=" + nz(s.kind) +
                 " label=" + (s.label.empty() ? std::string{"<basis>"} : s.label) + " merge=" + nz(s.merge) +
                 " binary_id=" + nz(s.binary_id) + " series=" + nz(s.series) +
-                " pruefling_type=" + nz(s.pruefling_type) + " lebewesen=" + nz(s.lebewesen) + "\n";
+                " pruefling_type=" + nz(s.pruefling_type) + " lebewesen=" + nz(s.lebewesen) +
+                " built_stem=" + built_stem_field(s.binary_id) + "\n";
     }
     void end_perm(PlanPerm const&) override {}
     void end_plan(PlanHeader const&) override {}
@@ -261,7 +265,33 @@ public:
 private:
     // Leerer String -> "-" (stabile, eindeutige Feldtrennung; kein Feld bleibt leer im Zeilen-Text).
     [[nodiscard]] static std::string nz(std::string const& s) { return s.empty() ? std::string{"-"} : s; }
-    std::string                      out_;
+
+    /// OP-9: der DATEI-STEM, den der Orchestrator fuer diesen Schritt real erzeugt -- damit der
+    /// Auswerter ihn LIEST statt ihn nachzubauen (super/tier_binary_report.hpp:103 fuehrt heute eine
+    /// Zweit-Implementierung der Sanitisierung; die faellt damit weg).
+    ///
+    /// EIN KANAL: der Wert kommt aus orch_make_stem, derselben Funktion, die build_orchestrator.hpp:420
+    /// beim echten Bau aufruft -- keine nachgebaute Regel.
+    ///
+    /// WARUM DER INDEX HIER FEHLEN DARF, und wann NICHT: orch_make_stem kappt nur IDs, deren sanitisierte
+    /// Form kStemMax (120) ueberschreitet, und haengt dann '_<perm-index>_<fnv1a-hex>' an. Unterhalb der
+    /// Grenze ist das Ergebnis allein aus der binary_id bestimmt -- der Index ist dort nachweislich
+    /// irrelevant. Genau dieser Fall ist im Plan der einzige reale: der THESIS-Kanal fuehrt gar keine ids
+    /// ("-"), der EXPERIMENT-Kanal fuehrt "sota_tier=<name>" (gemessen: max. 55 Zeichen). Die ~520 Zeichen
+    /// langen 17-Achsen-ids entstehen erst in der Bau-View, nicht im Plan.
+    /// Sollte dennoch je eine lange id hier ankommen, wird KEIN Stem behauptet: der Director kennt den
+    /// View-Index der Binary an dieser Stelle nicht (PlanStep::index ist der Schritt-Index INNERHALB der
+    /// Perm, BinarySpec::index dagegen der View-Index), und ein mit falschem Index gebildeter Hash-Suffix
+    /// waere schlimmer als kein Wert -- er zeigte auf eine Datei, die es nicht gibt. Dann steht "-".
+    [[nodiscard]] static std::string built_stem_field(std::string const& binary_id) {
+        if (binary_id.empty() || binary_id == "-") return "-";
+        if (::comdare::cache_engine::builder::experiment::orch_sanitize(binary_id).size() >
+            ::comdare::cache_engine::builder::experiment::kStemMax)
+            return "-"; // Index unbekannt -> nichts behaupten
+        return ::comdare::cache_engine::builder::experiment::orch_make_stem(binary_id,
+                                                                            0); // Kurz-Zweig: index-unabhaengig
+    }
+    std::string out_;
 };
 
 // -- PlanSizeBuilder -- ConcreteBuilder, der NICHTS emittiert, sondern nur die Groesse des Plans zaehlt. ----

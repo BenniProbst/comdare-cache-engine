@@ -493,6 +493,62 @@ TEST(CMakeGraphBuilder, EmitsPerComboCebBuildEmitTargetsAndAggregate) {
         << "Stufe 1 (Planer-Rolle) baut keine Tier-Binaries";
 }
 
+// (OP-9) Der Plan weist je step den REAL gebauten Datei-Stem aus -- damit der Auswerter ihn LIEST
+//        statt ihn nachzubauen. Additiv unter UNVERAENDERTEM v1.1-Kopf (supers Formatwache pinnt den
+//        Anker hart; ein v1.2-Bump waere ohne Zwei-Schritt-Koordination ein rotes CI).
+TEST(PlanTextBuilder, StepTraegtDenRealGebautenStemUndDerKopfBleibtV11) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::PlanTextBuilder              tb;
+    director.construct(*tp, tb);
+    std::string const& txt = tb.text();
+
+    // Der Kopf-Anker MUSS v1.1 bleiben -- das ist die Koordinations-Zusage an super.
+    EXPECT_NE(txt.find("# comdare-experiment-plan v1.1"), std::string::npos)
+        << "Kopf-Anker gebumpt: supers 2c-Formatwache (kPlanAnchor) schlaegt hart fehl";
+    EXPECT_EQ(txt.find("# comdare-experiment-plan v1.2"), std::string::npos);
+    // Jede step-Zeile traegt das Feld -- kein Feld bleibt leer (nz-Doktrin der Zeilenform).
+    EXPECT_EQ(count_occurrences(txt, " step "), count_occurrences(txt, " built_stem="))
+        << "je step genau ein built_stem-Feld";
+    // THESIS fuehrt keine binary_ids ("-") -> der Stem ist ehrlich "-", NIE ein erfundener Name.
+    EXPECT_NE(txt.find("binary_id=- "), std::string::npos);
+    EXPECT_NE(txt.find("built_stem=-"), std::string::npos) << "ohne binary_id darf kein Stem behauptet werden";
+}
+
+// (OP-9b) Die Stem-Bildung ist EIN Kanal: der emittierte Wert ist byte-gleich dem, was der
+//         Orchestrator beim echten Bau erzeugt -- geprueft gegen orch_make_stem SELBST, nicht
+//         gegen eine im Test nachgebaute Regel.
+TEST(PlanTextBuilder, BuiltStemIstByteGleichDerOrchestratorFunktion) {
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::PlanTextBuilder              tb;
+    director.construct(*ep, tb);
+    std::string const& txt = tb.text();
+
+    // Aus dem emittierten Text die Paare (binary_id, built_stem) ziehen und JEDES gegen die reale
+    // Orchestrator-Funktion pruefen. Die realen Plan-ids sind kurz (gemessen max. 55 Zeichen), also
+    // greift dort der index-unabhaengige Zweig von orch_make_stem -- genau deshalb ist der Wert im
+    // Plan ueberhaupt bestimmbar.
+    std::size_t geprueft = 0;
+    for (std::size_t pos = txt.find("binary_id="); pos != std::string::npos; pos = txt.find("binary_id=", pos + 1)) {
+        std::size_t const id_end = txt.find(' ', pos);
+        std::string const id     = txt.substr(pos + 10, id_end - pos - 10);
+        std::size_t const st     = txt.find("built_stem=", id_end);
+        if (id == "-" || st == std::string::npos) continue;
+        std::size_t const st_end = txt.find_first_of(" \n", st);
+        std::string const stem   = txt.substr(st + 11, st_end - st - 11);
+        ASSERT_LE(::comdare::cache_engine::builder::experiment::orch_sanitize(id).size(),
+                  ::comdare::cache_engine::builder::experiment::kStemMax)
+            << "unerwartet lange Plan-id: dann darf der Plan KEINEN Stem behaupten";
+        EXPECT_EQ(stem, ::comdare::cache_engine::builder::experiment::orch_make_stem(id, 0))
+            << "Zweit-Implementierung: der Plan-Stem weicht vom Orchestrator-Stem ab (id=" << id << ")";
+        ++geprueft;
+    }
+    EXPECT_GT(geprueft, 0u) << "das Experiment-Profil muss echte binary_ids fuehren, sonst prueft der Test nichts";
+}
+
 // (I) Byte-Determinismus des .cmake-Textes (Thesis + Experiment): zwei Laeufe -> byte-gleich.
 TEST(CMakeGraphBuilder, CMakeTextIsByteDeterministic) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
