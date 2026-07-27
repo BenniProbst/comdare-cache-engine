@@ -64,6 +64,21 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
     // 2. Freigegebene permute_axes → statische Ebenen.
     for (auto const& ax : tp.permute_axes) {
         if (!is_active(ax.ref)) continue;
+        // A9b/P6, O-8 Schritt 11b -- DER VERBRAUCHER der expliziten Abwahl (declared_count).
+        // Bis hierher war <axis active="false"> nur LESBAR (Parser) und TRANSPORTIERBAR
+        // (validate_profile.hpp ResolverReport::declared_inactive), aber wirkungslos. Der Owner-Satz
+        // "Die Achse wird per XML deaktiviert und das muss unterstuetzt sein" war damit nicht erfuellt:
+        // eine Anwender-XML konnte eine Achse nur durch WEGLASSEN abwaehlen, und das kehrt den Kanon
+        // um (Registry = ANGEBOT, Anwender-XML = ANZEIGE -- Abschnitt 27). Die Abwahl wirkt hier an
+        // genau der Stelle, an der die Modus-Freigabe schon wirkt: die Achse erzeugt keine Ebene und
+        // damit kein binary_id-Segment.
+        // WARUM DAS BYTE-NEUTRAL BLEIBT: ein abwesendes Attribut ist true (Bestands-Profile
+        // unveraendert), und KEIN Profil in beiden Baeumen waehlt eine Achse ab -- gemessen am
+        // 27.07.2026 ueber beide Baeume: das Muster '<axis[^>]*active=' hat 0 Treffer, kein Profil-XML
+        // traegt das Attribut ueberhaupt. Ein wirksames active="false" veraenderte die
+        // Katalog-Kardinalitaet und damit den golden-CRC; das bleibt untersagt, und die
+        // kNewGolden131072Crc64-Wache (source_catalog.hpp) ist genau der Schutz dagegen.
+        if (!ax.active) continue;
         if (ax.ref == "cacheline") { // compile-time → statische Sub-Ebenen (Binary-Identität)
             if (!ax.line_sizes.empty()) levels.push_back(AxisLevel{"cacheline.line_size", ax.line_sizes, true, ""});
             if (!ax.alignments.empty()) levels.push_back(AxisLevel{"cacheline.alignment", ax.alignments, true, ""});

@@ -14,24 +14,44 @@
 //       tests/unit/test_a9b_active_deklaration_inert.cpp \
 //       libs/common/serialization/xml_config_parser/xml_config_parser.cpp -o <build>/test_a9b_guard
 //
-// WAS HIER BEWIESEN WIRD -- und warum die UMKEHRUNG der ueblichen Beweisrichtung Absicht ist:
-// A9b baut einen KANAL, der heute bewusst INERT bleibt. Das Attribut <axis active="true|false"> gibt der
-// Anwender-XML zum ersten Mal die dritte Aussage "genannt UND abgewaehlt" (bisher nur "ungenannt" = volles
-// Angebot, "genannt" = Override) -- Registry ist ein ANGEBOT (§27), die Abwahl ist eine ERKLAERUNG des
-// Anwenders. WIRKSAM darf diese Erklaerung heute nicht werden: ein tatsaechlich entfernter Baustein
-// veraenderte die Katalog-Kardinalitaet und damit den golden-CRC (kNewGolden131072Crc64,
-// tests/unit/test_lazy_adhoc_source_gen.cpp) -- das waere ein DRITTER Anker in einer Welle, die
-// binary_id-NEUTRAL zu bleiben hat. Der auswertende Verbraucher (declared_count) gehoert in das
-// Lane-F-Byte-Fenster.
+// WAS HIER BEWIESEN WIRD:
+// A9b baut einen KANAL fuer die dritte Aussage, die eine Anwender-XML bisher nicht treffen konnte:
+// <axis active="true|false"> = "genannt UND abgewaehlt" (bisher nur "ungenannt" = volles Angebot,
+// "genannt" = Override) -- Registry ist ein ANGEBOT (Kanon-Abschnitt 27), die Abwahl ist eine
+// ERKLAERUNG des Anwenders.
+//
+// STANDS-WECHSEL 27.07.2026 (O-8 Schritt 11b): DER KANAL IST NICHT MEHR INERT. Bis zum 26.07. war die
+// Erklaerung bewusst wirkungslos, weil ihr Verbraucher fehlte; dieser Guard belegte deshalb die
+// WIRKUNGSLOSIGKEIT. Der Verbraucher ist jetzt im Lane-F-Byte-Fenster gebaut
+// (profile_to_tree.hpp build_axis_levels: "if (!ax.active) continue;", direkt neben der
+// Modus-Freigabe), und damit kehrt sich Teil 2 um: eine abgewaehlte Achse erzeugt KEINE statische
+// Ebene und kein binary_id-Segment mehr. Der Owner-Satz "Die Achse wird per XML deaktiviert und das
+// muss unterstuetzt sein" ist damit erfuellt.
+//
+// WARUM DAS TROTZDEM BYTE-NEUTRAL IST -- und wo die Grenze bleibt: ein abwesendes Attribut ist true, und
+// KEIN Profil in beiden Baeumen waehlt eine Achse ab (gemessen 27.07.2026 ueber beide Baeume: das Muster
+// '<axis[^>]*active=' hat 0 Treffer -- kein Profil-XML traegt das Attribut ueberhaupt; der weiter gefasste
+// Suchbegriff active="false|0" trifft lediglich zwei biblatex-Steuerzeilen in
+// thesis/_archiv_entwurf1/main.run.xml, die mit Achsen nichts zu tun haben und hier nur genannt sind, damit
+// die Zahl nachpruefbar bleibt). Kein Produktions-Katalog aendert also seine Kardinalitaet. Ein
+// wirksames active="false" IN EINEM PRODUKTIONS-PROFIL bleibt untersagt: es verschoebe den golden-CRC
+// (kNewGolden131072Crc64, tests/unit/test_lazy_adhoc_source_gen.cpp), und genau diese Wache ist der
+// Schutz dagegen. Der Guard hier setzt das Attribut ausschliesslich in seinen EIGENEN Wegwerf-Profilen.
+//
+// DER DATEINAME IST STEHEN GEBLIEBEN ("..._inert"), obwohl der Kanal nicht mehr inert ist: der Test ist
+// unregistriert und wird per Hand gebaut, ein Rename waere eine Umbenennung ohne Absicherung durch das
+// ctest-Gate. Er ist als Kandidat fuer den Abschluss-Aufraeumpass vermerkt, nicht vergessen.
 //
 // Dieser Guard nagelt deshalb BEIDE Haelften fest:
 //   Teil 1  ANGEBOT LESBAR   -- der Parser liest active in BEIDEN Anwender-Kanaelen (Thesis permute_axes
 //                               und Experiment axes_default_lookup), inklusive der Abwesenheits-Semantik
 //                               (fehlendes Attribut == true) und der xs:boolean-Lexik {true,false,1,0}.
-//   Teil 2  WIRKUNG GESPERRT -- zwei Profile, die sich EINZIG im active="false"-Attribut unterscheiden,
-//                               liefern denselben AxisLevel-Satz, dieselbe binary_count und Zeichen fuer
-//                               Zeichen dieselbe binary_id-Liste. Das ist der eigentliche Kern: der Test
-//                               belegt die WIRKUNGSLOSIGKEIT, nicht die Wirkung.
+//   Teil 2  WIRKUNG SCHARF   -- INVERTIERT am 27.07. (O-8 Schritt 11b). Zwei Profile, die sich EINZIG im
+//                               active="false"-Attribut unterscheiden, liefern jetzt VERSCHIEDENE
+//                               AxisLevel-Saetze: die abgewaehlte Achse faellt als statische Ebene weg,
+//                               die binary_count halbiert sich und kein binary_id traegt ihr Segment
+//                               mehr. Bis zum 26.07. sicherte dieser Teil das exakte Gegenteil zu --
+//                               er war die ehrliche Beschreibung eines Zwischenzustands, kein Wunsch.
 //   Teil 3  RESOLVER TRAEGT  -- die additive Ueberladung resolve_axis_refs_against_trio(DeclaredAxisRef)
 //                               fuehrt die abgewaehlte Achse IN die Bausteinmenge (statt Abwahl durch
 //                               Abwesenheit) und meldet sie separat; ok/rejects bleiben identisch zur
@@ -44,10 +64,13 @@
 //
 // NEGATIV-BEWEIS (26.07., gegen eine Schatten-Kopie im Scratchpad, der Baum blieb unberuehrt): baut man die
 // Abwahl in der Resolver-Ueberladung WIRKSAM ein (`if (d.active) refs.push_back(...)`), faellt Teil 3 mit 3
-// Fehlern und der Guard endet mit EXIT=1. Der Guard laeuft also nicht leer. Teil 2 bleibt bei dieser Sabotage
-// gruen -- und das ist kein Loch, sondern die Aussage selbst: der Baum-Pfad (build_axis_levels) kennt `active`
-// UEBERHAUPT NICHT, er kann vom Resolver aus gar nicht erreicht werden. Genau diese Trennung ist der Grund,
-// warum die Deklaration heute byte-neutral landen darf.
+// Fehlern und der Guard endet mit EXIT=1. Der Guard laeuft also nicht leer.
+// NACHZUG 27.07. (O-8 Schritt 11b): der Zusatz von damals -- "Teil 2 bleibt bei dieser Sabotage gruen, weil
+// der Baum-Pfad `active` UEBERHAUPT NICHT kennt" -- ist mit dem Verbraucher HINFAELLIG und waere ab jetzt eine
+// Falschaussage. build_axis_levels kennt `active` seit heute; Resolver-Pfad und Baum-Pfad bleiben aber
+// weiterhin GETRENNT (der Resolver traegt die Erklaerung nur, siehe Teil 3), weshalb eine Sabotage im Resolver
+// nach wie vor NUR Teil 3 umwirft und eine Sabotage in build_axis_levels NUR Teil 2. Genau diese Trennung
+// zweier unabhaengig scharfer Wachen ist der Grund, warum die Umschaltung nachpruefbar bleibt.
 
 #include "builder/experiment_tree/experiment_tree.hpp"
 #include "builder/experiment_tree/profile_to_tree.hpp"
@@ -221,28 +244,49 @@ int main() {
     check_true("Lexik: ungueltiger Wert bleibt true (Tippfehler waehlt NIE still ab)",
                tp_junk.has_value() && tp_junk->permute_axes[1].active == true);
 
-    // -- Teil 2: WIRKUNG GESPERRT ----------------------------------------------------------------------
-    std::cout << "\n== Teil 2: die Wirkung ist gesperrt (Baum und binary_ids sind identisch) ==\n";
+    // -- Teil 2: WIRKUNG SCHARF ------------------------------------------------------------------------
+    std::cout << "\n== Teil 2: die Wirkung ist scharf (die abgewaehlte Achse faellt aus Baum und binary_id) ==\n";
 
     auto const levels_off = ex::build_axis_levels(*tp_off, "ce_only", ex::AxisRegistry{});
     auto const levels_abs = ex::build_axis_levels(*tp_abs, "ce_only", ex::AxisRegistry{});
-    check_true("AxisLevel-Satz mit active=\"false\" == Satz ohne das Attribut", levels_equal(levels_off, levels_abs));
-    // 3 Ebenen: die zwei STATISCHEN Organ-Ebenen search_algo und memory_layout plus die DYNAMISCHE
-    // Wiederholungs-Ebene, die build_axis_levels aus dem Default <repetitions>=3 selbst emittiert (KF-10).
-    // Die dynamische Ebene geht in keine binary_id ein -- der Baum filtert sie ueber is_static heraus.
-    check_eq("Ebenen-Satz unveraendert (2 statische Organ-Ebenen + 1 dynamische Wiederholungs-Ebene)",
-             levels_off.size(), std::size_t{3});
-    std::size_t static_levels = 0;
-    for (auto const& l : levels_off)
-        if (l.is_static) ++static_levels;
-    check_eq("die abgewaehlte Achse erzeugt WEITERHIN ihre statische Ebene", static_levels, std::size_t{2});
+    check_true("AxisLevel-Satz mit active=\"false\" != Satz ohne das Attribut (die Abwahl WIRKT)",
+               !levels_equal(levels_off, levels_abs));
+    // Der VERGLEICHS-Satz (kein Attribut) ist unveraendert derselbe wie vor der Umschaltung -- das ist die
+    // Byte-Neutralitaets-Haelfte des Beweises: 3 Ebenen = die zwei STATISCHEN Organ-Ebenen search_algo und
+    // memory_layout plus die DYNAMISCHE Wiederholungs-Ebene, die build_axis_levels aus dem Default
+    // <repetitions>=3 selbst emittiert (KF-10). Die dynamische Ebene geht in keine binary_id ein -- der Baum
+    // filtert sie ueber is_static heraus. Bestands-Profile nennen das Attribut nie und landen genau hier.
+    check_eq("Vergleichs-Satz OHNE Attribut unveraendert (2 statische Organ-Ebenen + 1 dynamische)",
+             levels_abs.size(), std::size_t{3});
+    // Der ABGEWAEHLTE Satz verliert GENAU EINE Ebene: die statische Organ-Ebene memory_layout. Die dynamische
+    // Wiederholungs-Ebene haengt nicht an permute_axes und bleibt deshalb stehen -- 3 - 1 = 2.
+    check_eq("abgewaehlter Satz verliert genau die eine statische Ebene", levels_off.size(), std::size_t{2});
+    auto count_static = [](std::vector<ex::AxisLevel> const& ls) {
+        std::size_t n = 0;
+        for (auto const& l : ls)
+            if (l.is_static) ++n;
+        return n;
+    };
+    check_eq("Vergleichs-Satz: 2 statische Ebenen", count_static(levels_abs), std::size_t{2});
+    check_eq("die abgewaehlte Achse erzeugt KEINE statische Ebene mehr", count_static(levels_off), std::size_t{1});
+    check_true("und die verbliebene statische Ebene ist search_algo (nicht memory_layout)",
+               std::none_of(levels_off.begin(), levels_off.end(),
+                            [](ex::AxisLevel const& l) { return l.axis == "memory_layout"; }) &&
+                   std::any_of(levels_off.begin(), levels_off.end(),
+                               [](ex::AxisLevel const& l) { return l.axis == "search_algo" && l.is_static; }));
 
     auto const ids_off = binary_ids_of(levels_off);
     auto const ids_abs = binary_ids_of(levels_abs);
-    check_eq("binary_count mit active=\"false\" (search_algo 2 x memory_layout 2)", ids_off.size(), std::size_t{4});
-    check_true("binary_id-Liste Zeichen fuer Zeichen identisch", ids_off == ids_abs);
-    check_true("jede binary_id traegt das Segment der abgewaehlten Achse unveraendert",
-               !ids_off.empty() && std::all_of(ids_off.begin(), ids_off.end(), [](std::string const& id) {
+    check_eq("Vergleichs-binary_count unveraendert (search_algo 2 x memory_layout 2)", ids_abs.size(),
+             std::size_t{4});
+    check_eq("binary_count mit active=\"false\" halbiert sich auf search_algo 2", ids_off.size(), std::size_t{2});
+    check_true("die binary_id-Listen sind NICHT mehr identisch", ids_off != ids_abs);
+    check_true("KEINE binary_id traegt noch ein Segment der abgewaehlten Achse",
+               !ids_off.empty() && std::none_of(ids_off.begin(), ids_off.end(), [](std::string const& id) {
+                   return id.find("memory_layout=") != std::string::npos;
+               }));
+    check_true("waehrend der Vergleichs-Satz das Segment unveraendert in JEDER binary_id traegt",
+               !ids_abs.empty() && std::all_of(ids_abs.begin(), ids_abs.end(), [](std::string const& id) {
                    return id.find("memory_layout=") != std::string::npos;
                }));
 
@@ -292,7 +336,9 @@ int main() {
                pt::flags::memory_only_enabled && !pt::flags::disk_writeback_enabled);
 
     fs::remove_all(dir);
-    std::cout << "\n==== A9b active-Deklaration INERT: "
+    // Die Schluss-Zeile trug bis zum 26.07. das Wort INERT; sie benennt jetzt den scharfen Kanal (S11b).
+    // Der DATEINAME bleibt vorerst stehen -- Begruendung im Kopf-Block (unregistriert, Rename ohne Gate).
+    std::cout << "\n==== A9b active-Deklaration SCHARF (Verbraucher gebaut): "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }
