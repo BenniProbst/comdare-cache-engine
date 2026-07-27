@@ -3483,6 +3483,24 @@ add_test(NAME test_m_simd_feature_flag_catalog COMMAND test_m_simd_feature_flag_
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_simd_feature_flag_catalog)
 set_tests_properties(test_m_simd_feature_flag_catalog PROPERTIES LABELS "m;blut")
 
+# Task #7 P1: DDR5-SPD-Byte-Parser (header-only, reine span-Funktionen, KEIN IO im Parser).
+# Bewusst OHNE Boost::mp11: der Test zieht nur measurement/spd_ddr5_parser.hpp + axis_error.hpp +
+# ram_frequency_reading.hpp, also keine topics/axis.hpp-Kette (verifiziert per -fsyntax-only).
+add_executable(test_p1_spd_ddr5_parser "test_p1_spd_ddr5_parser.cpp")
+target_compile_features(test_p1_spd_ddr5_parser PRIVATE cxx_std_23)
+target_include_directories(test_p1_spd_ddr5_parser PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated")
+target_link_libraries(test_p1_spd_ddr5_parser PRIVATE gtest gtest_main)
+comdare_set_platform_defines(test_p1_spd_ddr5_parser)
+target_compile_definitions(test_p1_spd_ddr5_parser PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_p1_spd_ddr5_parser COMMAND test_p1_spd_ddr5_parser)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_p1_spd_ddr5_parser)
+set_tests_properties(test_p1_spd_ddr5_parser PROPERTIES LABELS "hwprobe;spd;measurement")
+
 # Querschnitt M - W12-A (§43): X.Y.Z-Parse-Helfer + Planer-Selbst-Stempel (leichte TU, keine Registries).
 add_executable(test_m_w12_stamp_bausteine "test_m_w12_stamp_bausteine.cpp")
 target_compile_features(test_m_w12_stamp_bausteine PRIVATE cxx_std_23)
