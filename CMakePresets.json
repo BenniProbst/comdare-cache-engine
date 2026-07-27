@@ -64,6 +64,27 @@
   ],
   "testPresets": [
     { "name": "msvc-release", "configurePreset": "msvc-release", "configuration": "Release", "output": { "outputOnFailure": true } },
-    { "name": "gcc-release",  "configurePreset": "gcc-release", "output": { "outputOnFailure": true } }
+    { "name": "gcc-release",  "configurePreset": "gcc-release", "output": { "outputOnFailure": true } },
+    { "name": "clang-release","configurePreset": "clang-release", "output": { "outputOnFailure": true } }
+  ],
+  "workflowPresets": [
+    {
+      "name": "gcc-release",
+      "displayName": "GCC Release: Configure -> Build -> Test (V-6ii Ein-Kommando-Weg)",
+      "steps": [
+        { "type": "configure", "name": "gcc-release" },
+        { "type": "build",     "name": "gcc-release" },
+        { "type": "test",      "name": "gcc-release" }
+      ]
+    },
+    {
+      "name": "clang-release",
+      "displayName": "Clang Release: Configure -> Build -> Test (V-6ii)",
+      "steps": [
+        { "type": "configure", "name": "clang-release" },
+        { "type": "build",     "name": "clang-release" },
+        { "type": "test",      "name": "clang-release" }
+      ]
+    }
   ]
 }

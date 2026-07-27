@@ -13,8 +13,9 @@ Diese Anleitung beschreibt, wie die Lösung **von Hand** gebaut und gestartet wi
 
 ## 0. Voraussetzungen
 
-- C++23-Compiler (MSVC 19.4x / GCC 13+ / Clang 17+ — Details: `README.md` §Compiler-Anforderungen)
-- CMake ≥ 3.24, Ninja **oder** Visual Studio 17 2022
+- C++23-Compiler: **GCC ≥ 15.3** (Toolchain-Floor V-6iii/Ledger §73.4, hart per CMake-Assert; kein
+  Versions-Pin) / MSVC 19.4x / Clang 17+ — Details: `README.md` §Compiler-Anforderungen
+- CMake **≥ 3.28** (reales Minimum, `CMakeLists.txt`/`CMakePresets.json`), Ninja **oder** Visual Studio 17 2022
 - Boost (Offline-Prerequisite-Mechanismus s. `prerequisites/README.md`)
 
 ## 1. Konfigurieren & bauen

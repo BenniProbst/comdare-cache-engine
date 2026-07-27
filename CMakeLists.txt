@@ -17,6 +17,14 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# V-6iii (Bauplan TEIL V, Ledger 73.4 Q5, 2026-07-27): Toolchain-FLOOR fuer den GNU-Hauptcompiler --
+# g++ >= 15.3 ist Minimum UND Standard der Flotte (prod1/prod2 + der dokumentierte CI==baremetal-Weg),
+# bewusst KEIN Versions-Pin (neuere g++ zugelassen; kein 16er-Pin, P2996-Reflection bleibt spaeterer
+# Drop-in, mp11 ist der Metaprog-Weg). Clang/MSVC bleiben ungefloort (W2: build:clang-Matrix lebt).
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.3)
+    message(FATAL_ERROR "g++ >= 15.3 erforderlich (Toolchain-Floor V-6iii/Ledger 73.4; gefunden: ${CMAKE_CXX_COMPILER_VERSION})")
+endif()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Build-Modi (F9 — Compile-Time vs Runtime SIMD-Detection, mutually exclusive)
 # ─────────────────────────────────────────────────────────────────────────────
