@@ -41,8 +41,10 @@
 
 #include <cache_engine/measurement/axis_error.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -91,19 +93,85 @@ inline constexpr std::size_t kRamReadingStateCount = 2;
     return "zustand_unbekannt";
 }
 
+// -- P2: DER DEGRADATIONS-PFAD ---------------------------------------------------------------------
+// Die Erhebungs-Kette (P2, ram_probe_chain.hpp) fragt die Stufen der Reihe nach. Das Ergebnis allein
+// sagt am Ende nur, WOHER der Wert kam -- nicht, was auf dem Weg dorthin geschah. Genau das ist die
+// interessante Auskunft: fiel Stufe 1 durch, weil die Boot-Cache-Datei fehlt (erwartet), oder weil sie
+// da war und HALB GESCHRIEBEN (Befund)? Auflage A4 verlangt, dass diese beiden nie zusammenfallen --
+// also muss der Weg mitreisen, nicht nur das Ziel.
+//
+// Der Pfad ist ueber die PROVENIENZ-Stufen indiziert und fuehrt bewusst KEIN zweites Stufen-Enum: eine
+// Kette mit eigener Stufen-Nummerierung koennte gegen die Provenienz-Ordnung driften, und dann stuende
+// im Pfad Stufe 2 fuer etwas anderes als im Ergebnis. Eine Quelle, eine Ordnung.
+
+/// Der Ausgang EINER Stufe. Die drei Werte sind bewusst unterscheidbar: "nicht gefragt" ist kein
+/// Fehlschlag (eine bessere Stufe hatte schon geliefert), und ein Fehlschlag ohne Grund waere die
+/// stille Degradation, die A4 verbietet.
+enum class ProbeStageOutcome : std::uint8_t {
+    NichtGefragt  = 0, // die Kette kam nicht bis hierher -- eine hoehere Stufe hat geliefert
+    Geliefert     = 1, // diese Stufe hat den Wert geliefert
+    Durchgefallen = 2, // gefragt und ohne Wert zurueck -- der Grund steht in der Fehlerklasse
+};
+inline constexpr std::size_t kProbeStageOutcomeCount = 3;
+
+[[nodiscard]] constexpr std::string_view probe_stage_outcome_token(ProbeStageOutcome o) noexcept {
+    switch (o) {
+        case ProbeStageOutcome::NichtGefragt: return "nicht_gefragt";
+        case ProbeStageOutcome::Geliefert: return "geliefert";
+        case ProbeStageOutcome::Durchgefallen: return "durchgefallen";
+    }
+    return "stufen_ausgang_unbekannt";
+}
+
+/// Der Weg der Kette: je Provenienz-Stufe ein Ausgang und (nur bei Durchgefallen) ein Grund.
+/// Fester Array statt Liste -- der Typ bleibt damit trivially_copyable und allokiert nie.
+struct RamProbeTrail {
+    std::array<ProbeStageOutcome, kRamFrequencyProvenanceCount>       outcome{};
+    std::array<HardwareProbeErrorClass, kRamFrequencyProvenanceCount> reason{};
+};
+
+[[nodiscard]] constexpr ProbeStageOutcome stage_outcome(RamProbeTrail const& t, RamFrequencyProvenance s) noexcept {
+    return t.outcome[static_cast<std::size_t>(s)];
+}
+
+/// Der Grund, warum eine Stufe durchfiel -- und NUR dann. Bei NichtGefragt/Geliefert gibt es keinen
+/// Grund zu lesen, und das Ergebnis sagt das strukturell (nullopt) statt per Konvention. Ohne diesen
+/// Schnitt wuerde das Default-Feld QuelleFehlt=0 als "fehlte" gelesen, wo gar nichts fehlte.
+[[nodiscard]] constexpr std::optional<HardwareProbeErrorClass> stage_reason(RamProbeTrail const&   t,
+                                                                            RamFrequencyProvenance s) noexcept {
+    auto const i = static_cast<std::size_t>(s);
+    if (t.outcome[i] != ProbeStageOutcome::Durchgefallen) return std::nullopt;
+    return t.reason[i];
+}
+
+constexpr void record_stage_failure(RamProbeTrail& t, RamFrequencyProvenance s, HardwareProbeErrorClass c) noexcept {
+    auto const i = static_cast<std::size_t>(s);
+    t.outcome[i] = ProbeStageOutcome::Durchgefallen;
+    t.reason[i]  = c;
+}
+
+constexpr void record_stage_success(RamProbeTrail& t, RamFrequencyProvenance s) noexcept {
+    t.outcome[static_cast<std::size_t>(s)] = ProbeStageOutcome::Geliefert;
+}
+
 // -- Der Ergebnis-Typ ------------------------------------------------------------------------------
 /// Das Erhebungs-Ergebnis EINER Maschine. Default-konstruiert ist es ehrlich leer (NichtErhoben, 0),
 /// nicht etwa "0 MT/s deklariert" -- dieselbe Ehrlichkeits-Regel wie die 0-Marke in kDeclaredMachines.
 ///
-/// P2 erweitert diesen POD additiv um den Degradations-Pfad (welche Stufen fielen mit welchem
-/// HardwareProbeErrorClass durch) und den Erhebungs-Zeitpunkt. Beides fuellt erst die Kette; hier
-/// stehen nur Felder, die der Parser-/Deklarations-Weg selbst belegen kann.
+/// P2-ZUWACHS (additiv ans Ende, damit die bestehenden Aggregat-Initialisierungen gueltig bleiben):
+/// der Degradations-Pfad und der Erhebungs-Zeitpunkt. Beide fuellt die Kette; der Parser-Weg laesst
+/// sie leer, weil er weder eine Kette noch eine Uhr kennt.
 struct RamFrequencyReading {
     std::uint32_t          mts                = 0; ///< MT/s; NUR gueltig bei state==Erhoben
     std::uint32_t          tck_ps             = 0; ///< SPD-Rohwert tCKAVGmin (ps), Ableitungs-Beleg
     std::uint32_t          xmp_expo_offer_mts = 0; ///< ANGEBOT der Riegel (XMP/EXPO), NIE der Ist-Wert
     RamFrequencyProvenance provenance         = RamFrequencyProvenance::DeclaredNotMeasured;
     RamReadingState        state              = RamReadingState::NichtErhoben;
+    RamProbeTrail          trail{}; ///< welche Stufe lieferte, welche fiel warum durch
+    /// Unix-Sekunden der Erhebung; 0 = nicht erhoben. GOLDEN-REGEL (A10): dieser Wert ist der einzige
+    /// im Typ, der sich zwischen zwei identischen Laeufen aendert -- er gehoert deshalb NIE in ein
+    /// byte-gegatetes Artefakt (Stempel, binary_id, Registry-XML), sondern ausschliesslich in Log/CSV.
+    std::uint64_t collected_at_unix_s = 0;
 };
 
 /// Traegt das Ergebnis einen benutzbaren Wert? Einzige zulaessige Art, die 0 zu interpretieren.
@@ -156,5 +224,46 @@ static_assert(probe_label_ist_disjunkt(provenance_token(RamFrequencyProvenance::
 static_assert(probe_label_ist_disjunkt(provenance_token(RamFrequencyProvenance::DeclaredNotMeasured)));
 static_assert(probe_label_ist_disjunkt(reading_state_token(RamReadingState::NichtErhoben)));
 static_assert(probe_label_ist_disjunkt(reading_state_token(RamReadingState::Erhoben)));
+
+// -- P2-Wachen: Degradations-Pfad ------------------------------------------------------------------
+// Der Zuwachs darf die POD-Form nicht kippen (die Kette gibt das Ergebnis by value zurueck) und die
+// Ehrlichkeits-Aussagen oben nicht verschieben.
+static_assert(std::is_trivially_copyable_v<RamProbeTrail>);
+static_assert(std::is_trivially_copyable_v<RamFrequencyReading>, "P2-Zuwachs haelt die POD-Form.");
+static_assert(std::is_aggregate_v<RamFrequencyReading>, "P2-Zuwachs haelt die Aggregat-Form.");
+static_assert(!has_frequency(RamFrequencyReading{}), "Der Zuwachs aendert den Leer-Default NICHT.");
+static_assert(kProbeStageOutcomeCount == static_cast<std::size_t>(ProbeStageOutcome::Durchgefallen) + 1);
+static_assert(probe_stage_outcome_token(static_cast<ProbeStageOutcome>(kProbeStageOutcomeCount)) ==
+                  std::string_view{"stufen_ausgang_unbekannt"},
+              "Drift: hinter dem Count liegt ein etikettierter Stufen-Ausgang");
+static_assert(probe_label_ist_disjunkt(probe_stage_outcome_token(ProbeStageOutcome::NichtGefragt)));
+static_assert(probe_label_ist_disjunkt(probe_stage_outcome_token(ProbeStageOutcome::Geliefert)));
+static_assert(probe_label_ist_disjunkt(probe_stage_outcome_token(ProbeStageOutcome::Durchgefallen)));
+// Der Pfad ist ueber die PROVENIENZ indiziert -- waechst das Stufen-Ranking, waechst er mit. Diese
+// Zeile ist die Naht zwischen beiden: faellt sie, zeigt ein Pfad-Eintrag auf die falsche Stufe.
+static_assert(RamProbeTrail{}.outcome.size() == kRamFrequencyProvenanceCount);
+static_assert(RamProbeTrail{}.reason.size() == kRamFrequencyProvenanceCount);
+// Der Leer-Pfad behauptet nichts: keine Stufe gefragt, kein Grund lesbar.
+static_assert(stage_outcome(RamProbeTrail{}, RamFrequencyProvenance::ConfiguredMeasured) ==
+              ProbeStageOutcome::NichtGefragt);
+static_assert(!stage_reason(RamProbeTrail{}, RamFrequencyProvenance::ConfiguredMeasured).has_value());
+// A4 als Wache: ein durchgefallener Grund ist lesbar UND unterscheidet fehlend von korrupt; eine
+// gelieferte Stufe hat ueberhaupt keinen Grund (nicht etwa den Default QuelleFehlt).
+static_assert(
+    [] {
+        RamProbeTrail t{};
+        record_stage_failure(t, RamFrequencyProvenance::ConfiguredMeasured, HardwareProbeErrorClass::QuelleFehlt);
+        record_stage_failure(t, RamFrequencyProvenance::SpdJedecBase, HardwareProbeErrorClass::QuelleKorrupt);
+        record_stage_success(t, RamFrequencyProvenance::DeclaredNotMeasured);
+        return stage_reason(t, RamFrequencyProvenance::ConfiguredMeasured) == HardwareProbeErrorClass::QuelleFehlt &&
+               stage_reason(t, RamFrequencyProvenance::SpdJedecBase) == HardwareProbeErrorClass::QuelleKorrupt &&
+               stage_outcome(t, RamFrequencyProvenance::DeclaredNotMeasured) == ProbeStageOutcome::Geliefert &&
+               !stage_reason(t, RamFrequencyProvenance::DeclaredNotMeasured).has_value();
+    }(),
+    "Der Degradations-Pfad muss fehlend von korrupt trennen und darf einer gelieferten Stufe keinen "
+    "Grund andichten (Auflage A4).");
+// Der Erhebungs-Zeitpunkt ist im Leer-Ergebnis 0 -- ein default-konstruiertes Reading behauptet also
+// auch keinen Zeitpunkt. Damit bleibt der Typ in constexpr-Kontexten vollstaendig zeit-frei.
+static_assert(RamFrequencyReading{}.collected_at_unix_s == 0);
 
 } // namespace comdare::cache_engine::measurement
