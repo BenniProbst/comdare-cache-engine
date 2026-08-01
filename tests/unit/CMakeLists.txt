@@ -3501,6 +3501,31 @@ add_test(NAME test_p1_spd_ddr5_parser COMMAND test_p1_spd_ddr5_parser)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_p1_spd_ddr5_parser)
 set_tests_properties(test_p1_spd_ddr5_parser PROPERTIES LABELS "hwprobe;spd;measurement")
 
+# Task #7 P2: die RT-Erhebungs-Kette + CT-Factory (Zelle ISA-Komplex x OS) und die RAM-Drift-
+# Gegenprobe. Dieselbe leichte Include-Menge wie test_p1 -- die neuen Header ziehen nur die
+# measurement-Kette (axis_error/ram_frequency_reading/spd_ddr5_parser/machine_identity + die beiden
+# Achsen-Header), also KEIN Boost::mp11 und keine topics/axis.hpp-Kette (verifiziert per
+# -fsyntax-only ohne mp11-Include-Pfad).
+# Der Ketten-Test legt Wegwerf-Baeume unter temp_directory_path an (Muster wie
+# test_best_binary_selector_parse_rank/test_a9b) und raeumt sie im Destruktor wieder ab; er liest
+# KEINE Live-Hardware-Werte, sondern eingespielte Puffer (Auflage A9).
+foreach(_p2_test test_p2_ram_probe_chain test_p2_ram_identity_verdict)
+    add_executable(${_p2_test} "${_p2_test}.cpp")
+    target_compile_features(${_p2_test} PRIVATE cxx_std_23)
+    target_include_directories(${_p2_test} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated")
+    target_link_libraries(${_p2_test} PRIVATE gtest gtest_main)
+    comdare_set_platform_defines(${_p2_test})
+    target_compile_definitions(${_p2_test} PRIVATE
+        COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_p2_test} COMMAND ${_p2_test})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_p2_test})
+    set_tests_properties(${_p2_test} PROPERTIES LABELS "hwprobe;measurement")
+endforeach()
+
 # O-4 / C-3a: die zwei IDENTITAETS-Tests. Sie liefen bis V-4 nur per Hand-Bau -- der einzige in den
 # Dateikoepfen genannte Grund war Paket-Disziplin ("tests/unit/CMakeLists.txt bleibt unangetastet"),
 # kein inhaltlicher. Ein Identitaets-Test ohne Gate ist ein unsichtbarer Test: er faengt eine
