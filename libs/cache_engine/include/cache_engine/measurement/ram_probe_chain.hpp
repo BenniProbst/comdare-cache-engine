@@ -382,15 +382,45 @@ struct DeclaredProbe {
 };
 
 // =================================================================================================
-// 7. DIE TRAVERSIERUNG (Verdrahtung CT als Typliste, Ablauf RT)
+// 7. DAS NICHT-IMPLEMENTIERT-GLIED (A8/K3) -- Durchfallen mit Namen statt Fehlen
+// =================================================================================================
+
+/// Eine Stufe, die es auf dieser Plattform-Zelle NICHT gibt.
+///
+/// WARUM DIESES GLIED UND NICHT EINFACH WEGLASSEN: eine weggelassene Stufe steht im Degradations-Pfad
+/// als NichtGefragt -- und das heisst dort ausdruecklich "eine bessere Stufe hat geliefert". Genau das
+/// waere auf einer declared-only-Zelle die falsche Auskunft: die Stufe wurde nicht uebersprungen, weil
+/// etwas Besseres da war, sondern weil es sie hier nicht gibt. Das Glied macht den Unterschied
+/// sichtbar (Durchgefallen mit Grund); WELCHE Zelle so ausgepraegt ist und warum, sagt zusaetzlich
+/// ihr device_id()/not_implemented_reason() (hardware_probe_factory.hpp). A8 verlangt genau das:
+/// ein ehrliches Nicht-implementiert-Durchfallen, nie eine stille Luecke.
+///
+/// QuelleFehlt ist dabei die inhaltlich richtige Klasse: fuer diese Zelle existiert kein Zugriffsweg
+/// zur Quelle -- der erwartete Zustand, kein Alarm. Eine eigene Klasse dafuer waere eine fuenfte in
+/// einer fremden Taxonomie und zoege deren Count-Wachen (RF-3-Kollisionslehre).
+template <RamFrequencyProvenance Stage>
+struct NotImplementedProbe {
+    [[nodiscard]] static constexpr RamFrequencyProvenance stage() noexcept { return Stage; }
+
+    [[nodiscard]] ProbeStageResult probe(RamProbeContext const&) const {
+        return std::unexpected(HardwareProbeErrorClass::QuelleFehlt);
+    }
+};
+
+// =================================================================================================
+// 8. DIE TRAVERSIERUNG (Verdrahtung CT als Typliste, Ablauf RT)
 // =================================================================================================
 
 /// Die kanonische Reihenfolge. Sie steht hier EINMAL; jede Zelle der Factory verweist darauf, statt
 /// sie zu wiederholen -- sonst koennte eine Zelle die Vertrauens-Ordnung unbemerkt umdrehen.
 using LinuxRamProbeChain = std::tuple<BootCacheDmiProbe, SpdEepromProbe, DeclaredProbe>;
-/// Die Kette einer Zelle ohne eigene Erhebung (A8/K3): nur das Terminal-Glied. Kein leeres Tupel --
-/// eine Zelle ohne JEDE Stufe koennte nicht einmal die Deklaration ausweisen.
-using DeclaredOnlyRamProbeChain = std::tuple<DeclaredProbe>;
+
+/// Die Kette einer Zelle ohne eigene Erhebung (A8/K3). Sie ist NICHT kuerzer als die Linux-Kette,
+/// sondern gleich lang: die beiden oberen Stufen sind ausdruecklich als nicht implementiert besetzt.
+/// Eine Kette aus nur dem Terminal-Glied haette dieselben Werte geliefert, aber einen Pfad erzeugt,
+/// der die fehlenden Stufen als "nicht gefragt" ausweist -- also als etwas anderes, als sie sind.
+using DeclaredOnlyRamProbeChain = std::tuple<NotImplementedProbe<RamFrequencyProvenance::ConfiguredMeasured>,
+                                             NotImplementedProbe<RamFrequencyProvenance::SpdJedecBase>, DeclaredProbe>;
 
 /// Fuehrt die Kette in TYP-Reihenfolge aus und liefert das Ergebnis der hoechsten erreichbaren Stufe.
 ///
@@ -433,11 +463,12 @@ template <class... Handlers>
 }
 
 // =================================================================================================
-// 8. WACHEN (compile-time)
+// 9. WACHEN (compile-time)
 // =================================================================================================
 static_assert(RamProbeStageHandler<BootCacheDmiProbe>);
 static_assert(RamProbeStageHandler<SpdEepromProbe>);
 static_assert(RamProbeStageHandler<DeclaredProbe>);
+static_assert(RamProbeStageHandler<NotImplementedProbe<RamFrequencyProvenance::ConfiguredMeasured>>);
 // Die Handler sind zustandslos -- ein Kettenglied mit Zustand waere zwischen zwei Erhebungen nicht
 // mehr dasselbe Glied, und die Memoisierung an der Freigabe-Naht haette einen zweiten Gedaechtnisort.
 static_assert(std::is_empty_v<BootCacheDmiProbe> && std::is_empty_v<SpdEepromProbe> && std::is_empty_v<DeclaredProbe>);
@@ -457,10 +488,23 @@ static_assert(provenance_trust_rank(std::tuple_element_t<0, LinuxRamProbeChain>:
 // Degradations-Pfad dauerhaft NichtGefragt und niemandem faellt auf, dass sie nie gefragt wurde.
 static_assert(std::tuple_size_v<LinuxRamProbeChain> == kRamFrequencyProvenanceCount,
               "Die Linux-Kette MUSS jede Provenienz-Stufe tragen.");
-// Das Terminal-Glied steht am Ende -- und die declared-only-Kette besteht genau aus ihm.
+// Das Terminal-Glied steht am Ende -- in BEIDEN Ketten.
 static_assert(
     std::is_same_v<std::tuple_element_t<kRamFrequencyProvenanceCount - 1, LinuxRamProbeChain>, DeclaredProbe>);
-static_assert(std::is_same_v<std::tuple_element_t<0, DeclaredOnlyRamProbeChain>, DeclaredProbe>);
+static_assert(
+    std::is_same_v<std::tuple_element_t<kRamFrequencyProvenanceCount - 1, DeclaredOnlyRamProbeChain>, DeclaredProbe>);
+// Die declared-only-Kette ist GLEICH LANG wie die volle: ihre oberen Stufen sind besetzt, nicht
+// weggelassen. Waere sie kuerzer, stuenden die fehlenden Stufen im Pfad als NichtGefragt -- also als
+// "eine bessere Stufe hat geliefert", was auf dieser Zelle nachweislich falsch ist (A8).
+static_assert(std::tuple_size_v<DeclaredOnlyRamProbeChain> == std::tuple_size_v<LinuxRamProbeChain>,
+              "Eine declared-only-Zelle laesst Stufen nicht WEG, sie besetzt sie ehrlich als nicht "
+              "implementiert -- sonst luegt der Degradations-Pfad ueber den Grund.");
+// Und beide Ketten belegen dieselben Stufen in derselben Ordnung -- eine declared-only-Zelle darf die
+// Vertrauens-Ordnung nicht umbauen, nur ihre Erreichbarkeit anders beantworten.
+static_assert(std::tuple_element_t<0, DeclaredOnlyRamProbeChain>::stage() ==
+                  std::tuple_element_t<0, LinuxRamProbeChain>::stage() &&
+              std::tuple_element_t<1, DeclaredOnlyRamProbeChain>::stage() ==
+                  std::tuple_element_t<1, LinuxRamProbeChain>::stage());
 // Die Redundanz zwischen Handler-Ergebnis und Ketten-Bindung ist konsistent: reading_from_spd (P1)
 // setzt dieselbe Stufe, die SpdEepromProbe deklariert. Faellt das auseinander, ueberschreibt die
 // Kette den Handler stillschweigend -- richtig im Ergebnis, aber ein Zeichen fuer einen Denkfehler.
