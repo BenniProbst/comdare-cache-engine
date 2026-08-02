@@ -1188,6 +1188,25 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         term.done   = true;
         cfg.progress_sink(term);
     };
+    // TP1FK1-B5 (Codex-Befund): der CURSOR ist laut Vertrag der FENSTER-RELATIVE Perm-Index
+    // (progress_delta.hpp) -- also die Position in der Selektion `indices` DIESES Laufs. Gefeuert wurde
+    // aber die Laufvariable j ueber `builds`. Seit dem Bau-Filter (TP1-N3/B-2c) ist builds die TEILMENGE
+    // der wirklich gebauten Indizes: nach einem Lager-Skip rutschen alle folgenden Cursor um die Zahl der
+    // Skips nach vorn (Cursor-KOMPRESSION), waehrend das done-Delta die VOLLE Menge meldet -- der
+    // Rueck-Kanal-Konsument bekam Positionen, die es im Fenster so nie gab.
+    //
+    // Die Abbildung ist deshalb view_index -> Position in `indices`. In den beiden NICHT planer-getriebenen
+    // Pfaden (pruef_only + Mess-Merge) ist builds positions-treu zur uebergebenen Liste, dort liefert sie
+    // beweisbar wieder j -> jene Pfade bleiben byte-identisch. EINE Regel statt zweier, damit ein kuenftiger
+    // Filter an anderer Stelle diesen Defekt nicht erneut erzeugt. Doppelte Indizes in `indices` waeren eine
+    // kaputte Selektion; die erste Position gewinnt, und der Fallback (die Laufvariable) greift nur, wenn ein
+    // gebauter Index gar nicht in der Selektion stand -- ein Widerspruch, der dann wenigstens nicht abstuerzt.
+    std::map<std::size_t, std::size_t> fenster_pos;
+    for (std::size_t k = 0; k < indices.size(); ++k) fenster_pos.emplace(indices[k], k);
+    auto fenster_cursor_of = [&fenster_pos](std::size_t view_index, std::size_t rueckfall) {
+        auto const it = fenster_pos.find(view_index);
+        return (it == fenster_pos.end()) ? rueckfall : it->second;
+    };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     // INC-G6 (Ledger 33/34, 2026-07-19, BAUPLAN Abschnitt 2): PROVISION-ONLY. Nach der STATISCHEN Kompilierung
@@ -1236,7 +1255,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // Delta (in StaticBinaryView-Ordnung; Lager-Treffer haben keine Konfigurations-Aenderung zu melden).
         // TP1-N3 (B-2b): das done-Delta traegt die VOLLE bereitgestellte Menge (gebaut + Lager-Bestand) --
         // builds.size() allein unterzaehlte seit dem Bau-Filter die Bereitstellung dieses Fensters.
-        for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
+        for (std::size_t j = 0; j < builds.size(); ++j)
+            fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
         fire_progress_done(builds.size() + result.bestand_lager_skips);
         return result;
     }
@@ -1282,7 +1302,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             pruef_hb.tick();
         }
         pruef_hb.done();
-        for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
+        for (std::size_t j = 0; j < builds.size(); ++j)
+            fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
         fire_progress_done(builds.size());
         return result;
     }
@@ -1568,7 +1589,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         result.dynamic_settings_total += oc.dynamic_settings_total;
         result.measured += oc.measured;
         for (auto& row : oc.rows) result.csv_rows.push_back(std::move(row));
-        if (oc.progress_eligible) fire_progress(builds[j].index, j);
+        if (oc.progress_eligible)
+            fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
     }
 
     // Welle 5 (E-W5-2): §38.b-Fertig-Signal -- done genau EINMAL am Fensterende (nach dem GANZEN Merge).
