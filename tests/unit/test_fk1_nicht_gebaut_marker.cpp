@@ -32,7 +32,24 @@
 //   Teil 7  VORRANG         -- nicht_gebaut schlaegt gesperrt schlaegt failed: was nie gebaut wurde,
 //                              kann weder zugelassen noch gemessen worden sein.
 //   Teil 8  READER-PFLICHT  -- der Kurven-Leser verwirft das Token wie "failed"/"gesperrt": kein
-//                              Phantom-Punkt; die NEGATIV-Richtung belegt, dass der Listen-Eintrag traegt.
+//                              Phantom-Punkt.
+//   Teil 9  LISTEN-PIN vs. TRAGENDE LISTE -- und zwar EHRLICH getrennt (Codex-Review B13, 02.08.2026).
+//                              Die frueher hier stehende "NEGATIV-Richtung" behauptete, sie belege, dass
+//                              der Listen-Eintrag TRAEGT. Das tat sie nicht: "nicht_gebaut" ist nicht
+//                              numerisch, also verwirft der streng-numerische Pfad (parse_double_cell
+//                              konsumiert die GANZE Zelle) die Zeile auch OHNE Listen-Eintrag. Bewiesen
+//                              war damit nur die Listen-MITGLIEDSCHAFT -- ein PIN, kein Verhalten.
+//                              Teil 9 sagt beides getrennt:
+//                                (a) PIN         -- das Token steht in LoaderSpec::na_tokens (Absicht,
+//                                                   dokumentiert, gegen stilles Entfernen gesichert);
+//                                (b) DECKUNG     -- fuer ein nicht-numerisches Token sind Listen-Pfad und
+//                                                   Streng-Pfad DECKUNGSGLEICH: ein beliebiges Wort
+//                                                   ("quatsch") verhaelt sich Zeile fuer Zeile identisch.
+//                                                   Der Listen-Eintrag ist dort das ZWEITE Netz;
+//                                (c) TRAGEND     -- dass der Listen-Pfad ueberhaupt entscheidet, zeigt nur
+//                                                   ein Fall, in dem der Streng-Pfad NICHT abfangen kann:
+//                                                   ein NUMERISCH parsbares Token. Mit Listen-Eintrag wird
+//                                                   die Zeile verworfen, ohne ihn wird sie ein Punkt.
 
 #include "builder/experiment_tree/cache_engine_builder_iterator.hpp"
 #include "heuristik/measurement_curve_loader.hpp"
@@ -45,6 +62,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace ex  = ::comdare::cache_engine::builder::experiment;
@@ -225,23 +243,68 @@ int main() {
     check_eq("nur die zwei echten Punkte kommen an (kein Phantom-Punkt)", punkte, std::size_t{2});
     check_eq("die nicht_gebaut- UND die failed-Zeile werden gezaehlt uebersprungen", uebersprungen, std::uint64_t{2});
 
-    // NEGATIV-Richtung: nimmt man das Token aus der Verwerf-Liste, muss die Zeile ueber den
-    // Streng-Numerisch-Pfad fallen -- der Listen-Eintrag traegt also, er laeuft nicht bloss mit.
+    std::cout << "\n== Teil 9: Listen-PIN, Netz-DECKUNG und der Fall, in dem die Liste wirklich traegt ==\n";
+
+    // Ein Lauf ueber DREI Zeilen (2 echte Punkte + 1 Verdaechtige) -- ueberall dieselbe Form, damit die
+    // Faelle vergleichbar sind. Rueckgabe: {Punkte, uebersprungene Zeilen}.
+    auto lauf = [](std::string_view verdaechtige_zelle, heu::LoaderSpec const& s) {
+        std::istringstream csv{std::string{"sweep_axis;binary_id;workload;working_set_n;ns_per_op\n"
+                                           "achse;var;wl;1000;10.0\n"
+                                           "achse;var;wl;2000;"} +
+                               std::string{verdaechtige_zelle} +
+                               "\n"
+                               "achse;var;wl;4000;40.0\n"};
+        std::size_t        punkte = 0;
+        std::uint64_t      skips  = 0;
+        for (auto const& [key, serie] : heu::load_curves(csv, s)) {
+            punkte += serie.samples.size();
+            skips += serie.skipped_rows;
+        }
+        return std::pair<std::size_t, std::uint64_t>{punkte, skips};
+    };
+
+    // (a) LISTEN-PIN: der Eintrag steht in der Default-Liste. Das ist eine ABSICHTS-Aussage (das Token
+    //     ist als Nicht-Zahl DEKLARIERT), kein Verhaltens-Beweis -- deshalb heisst es hier auch so.
     heu::LoaderSpec ohne_token = spec;
     ohne_token.na_tokens.erase(
         std::remove(ohne_token.na_tokens.begin(), ohne_token.na_tokens.end(), std::string{"nicht_gebaut"}),
         ohne_token.na_tokens.end());
-    check_eq("Gegenprobe: das Token stand wirklich in der Default-Liste", spec.na_tokens.size(),
+    check_true("PIN: 'nicht_gebaut' steht in der Default-na_tokens-Liste",
+               std::find(spec.na_tokens.begin(), spec.na_tokens.end(), std::string{"nicht_gebaut"}) !=
+                   spec.na_tokens.end());
+    check_eq("PIN: genau EIN Eintrag weniger, wenn man ihn entfernt", spec.na_tokens.size(),
              ohne_token.na_tokens.size() + 1);
-    std::istringstream nochmal{"sweep_axis;binary_id;workload;working_set_n;ns_per_op\n"
-                               "achse;var;wl;1000;10.0\n"
-                               "achse;var;wl;2000;nicht_gebaut\n"
-                               "achse;var;wl;4000;40.0\n"};
-    auto const         ohne_liste        = heu::load_curves(nochmal, ohne_token);
-    std::size_t        punkte_ohne_liste = 0;
-    for (auto const& [key, serie] : ohne_liste) punkte_ohne_liste += serie.samples.size();
-    check_eq("auch ohne den Listen-Eintrag bleiben es 2 Punkte (streng-numerisch faengt zusaetzlich ab)",
-             punkte_ohne_liste, std::size_t{2});
+
+    // (b) NETZ-DECKUNG, ehrlich benannt: fuer ein NICHT-numerisches Token entscheidet die Liste NICHT
+    //     allein -- der streng-numerische Pfad verwirft die Zeile ohnehin. Beide Beobachtungen sind
+    //     identisch zum generischen Nichtnumerik-Wort; genau das macht den Listen-Eintrag zum ZWEITEN
+    //     Netz (Absicht + Redundanz), nicht zum unterscheidenden Merkmal.
+    auto const [p_token_mit, s_token_mit]   = lauf("nicht_gebaut", spec);
+    auto const [p_token_ohne, s_token_ohne] = lauf("nicht_gebaut", ohne_token);
+    auto const [p_wort, s_wort]             = lauf("quatsch", spec);
+    check_eq("DECKUNG: mit Listen-Eintrag 2 Punkte / 1 Skip", p_token_mit, std::size_t{2});
+    check_eq("DECKUNG: mit Listen-Eintrag 1 uebersprungene Zeile", s_token_mit, std::uint64_t{1});
+    check_true("DECKUNG: OHNE Listen-Eintrag exakt dasselbe Ergebnis (Streng-Pfad faengt es auch)",
+               p_token_ohne == p_token_mit && s_token_ohne == s_token_mit);
+    check_true("DECKUNG: ein generisches Nichtnumerik-Wort verhaelt sich identisch",
+               p_wort == p_token_mit && s_wort == s_token_mit);
+
+    // (c) TRAGENDE LISTE: der Fall, den NUR der Listen-Pfad entscheiden kann. "-1" ist eine vollstaendig
+    //     parsbare Zahl -- der Streng-Pfad laesst sie durch. Steht sie in na_tokens, MUSS die Zeile
+    //     trotzdem fallen; steht sie nicht drin, MUSS sie ein Punkt werden. Erst dieser Unterschied
+    //     beweist, dass is_na() ueberhaupt eine Wirkung hat (und damit, dass der Pin oben etwas anschaltet
+    //     und nicht bloss mitlaeuft).
+    heu::LoaderSpec mit_zahl_token = spec;
+    mit_zahl_token.na_tokens.emplace_back("-1");
+    auto const [p_zahl_gelistet, s_zahl_gelistet]     = lauf("-1", mit_zahl_token);
+    auto const [p_zahl_ungelistet, s_zahl_ungelistet] = lauf("-1", spec);
+    check_eq("TRAGEND: numerisches Token IN der Liste -> Zeile faellt (2 Punkte)", p_zahl_gelistet, std::size_t{2});
+    check_eq("TRAGEND: ... und wird als uebersprungen gezaehlt", s_zahl_gelistet, std::uint64_t{1});
+    check_eq("TRAGEND: dasselbe Token NICHT in der Liste -> Zeile wird ein Punkt (3 Punkte)", p_zahl_ungelistet,
+             std::size_t{3});
+    check_eq("TRAGEND: ... und nichts wird uebersprungen", s_zahl_ungelistet, std::uint64_t{0});
+    check_true("TRAGEND: die Liste ist damit VERHALTENS-wirksam, nicht nur deklarativ",
+               p_zahl_gelistet != p_zahl_ungelistet);
 
     std::cout << "\n==== A15/FK-1 nicht_gebaut-Marker: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
