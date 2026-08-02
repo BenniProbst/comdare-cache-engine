@@ -32,6 +32,9 @@
 // Version steigen, damit Messungen aus verschiedenen Erhebungs-Verfahren unterscheidbar bleiben. Der
 // Familien-Teil wird aus OsAxis::os_family_id() in einen constexpr-Puffer komponiert und nirgendwo als
 // zweites Literal gepflegt. Das ist dieselbe Verfahrens-Identitaet wie device_id() der HW-Erhebung.
+// kOsProbeVersion ist eine weitere Migrations-Naht des A13-M2/M3-Fensters: sie wird dort zusammen
+// mit dem uebrigen Bestand auf "v1.0.0c" gezogen. Die gated ENFORCE-Wache bricht beim Scharfschalten
+// genau dafuer mit.
 //
 // A-15 STEMPEL-NEUTRALITAET: OperatingSystemInstance ist ein reines Runtime-Blatt. Dieser Header kennt
 // weder ABI-Stempel noch Registry, XML, Generator oder Binary-ID und bietet keine Naht dorthin. Kein
@@ -268,6 +271,11 @@ template <class OsAxis>
            !parsed.experimental && version.find('e') == std::string_view::npos;
 }
 
+template <class OsAxis>
+[[nodiscard]] consteval bool os_probe_version_satisfies_cpu_enforce() noexcept {
+    return ce_owned_version_satisfies_cpu_enforce(os_probe_version_part(OperatingSystemProbe<OsAxis>::probe_id()));
+}
+
 } // namespace detail
 
 static_assert(OperatingSystemProbeConcept<OperatingSystemProbe<LinuxOperatingSystem>>);
@@ -280,6 +288,18 @@ static_assert(detail::os_probe_id_contract_is_satisfied<WindowsOperatingSystem>(
               "K5: die Windows-probe_id verletzt Praefix/Familie/Trenner/Versions-Grammatik.");
 static_assert(detail::os_probe_id_contract_is_satisfied<MacosOperatingSystem>(),
               "K5: die macOS-probe_id verletzt Praefix/Familie/Trenner/Versions-Grammatik.");
+
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+static_assert(detail::os_probe_version_satisfies_cpu_enforce<LinuxOperatingSystem>(),
+              "K5: die Linux-probe_id-Version verletzt die CPU-only-Pflicht: sie MUSS auf 'c' enden und darf NIE "
+              "'e' tragen (Owner-Q3/E2 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
+static_assert(detail::os_probe_version_satisfies_cpu_enforce<WindowsOperatingSystem>(),
+              "K5: die Windows-probe_id-Version verletzt die CPU-only-Pflicht: sie MUSS auf 'c' enden und darf NIE "
+              "'e' tragen (Owner-Q3/E2 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
+static_assert(detail::os_probe_version_satisfies_cpu_enforce<MacosOperatingSystem>(),
+              "K5: die macOS-probe_id-Version verletzt die CPU-only-Pflicht: sie MUSS auf 'c' enden und darf NIE "
+              "'e' tragen (Owner-Q3/E2 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
+#endif
 
 // Paarweise verschieden, alle drei Vergleiche: zwei Familien duerfen nie als dasselbe Verfahren im
 // Log oder Messergebnis erscheinen. Die IDs bleiben trotzdem vollstaendig aus os_family_id() abgeleitet.
