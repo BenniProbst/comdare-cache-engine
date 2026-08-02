@@ -42,13 +42,21 @@ namespace detail {
 }
 /// consteval: Laenge des fuehrenden load_framework-Segments "load_framework=<id>@X.Y.Z" (ohne Trenner).
 /// O-8 Schritt 12: dieselbe Quelle und dieselbe Form wie in abi::measurement_stamp_line (Schritt 9).
+// A13-M1b-Fixup (Review-BEFUND-2): der konsteval-Zwilling rendert den Owner-Q3-Flag-Schwanz MIT --
+// heute no-op (Bestand flaglos), nach der M2/M3-Migration auf "v1.0.0c" automatisch korrekt. Laenge
+// und Renderer sind symmetrisch aus denselben Registry-Werten berechnet; der Zwillingstest
+// (test_m_w12, CEB-Zeile == abi::measurement_stamp_line) bleibt damit ueber die Migration gruen.
+[[nodiscard]] consteval std::size_t ceb_flag_len(::comdare::cache_engine::measurement::AlgoSemVer const& v) noexcept {
+    return (::comdare::cache_engine::measurement::hardware_flag_char(v.hardware) != '\0' ? 1U : 0U) +
+           (v.experimental ? 1U : 0U);
+}
 [[nodiscard]] consteval std::size_t ceb_load_framework_segment_len() noexcept {
     using ::comdare::cache_engine::measurement::kMeasurementFrameworkRegistry;
     using ::comdare::cache_engine::measurement::parse_algo_semver;
     auto const& fw = kMeasurementFrameworkRegistry[0];
     auto const  v  = parse_algo_semver(fw.version);
     return std::string_view{"load_framework="}.size() + fw.id.size() + 1 // '@'
-           + ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z);
+           + ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z) + ceb_flag_len(v);
 }
 /// consteval: Laenge der gerenderten Mess-Array-Zeile
 /// "load_framework=<id>@X.Y.Z;measurement_tooling=<id>@X.Y.Z;..." (ohne '\0').
@@ -65,7 +73,7 @@ namespace detail {
         n += kMeasurementToolingRegistry[i].id.size();
         ++n; // '@'
         auto const v = parse_algo_semver(kMeasurementToolingRegistry[i].version);
-        n += ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z);
+        n += ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z) + ceb_flag_len(v);
     }
     return n;
 }
@@ -107,6 +115,10 @@ ceb_measurement_stamp_array() noexcept {
         put_num(fv.y);
         out[p++] = '.';
         put_num(fv.z);
+        // A13-M1b-Fixup: Flag-Schwanz (heute no-op, Migration-sicher -- s. ceb_flag_len).
+        if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(fv.hardware); hw != '\0')
+            out[p++] = hw;
+        if (fv.experimental) out[p++] = 'e';
         out[p++] = ';';
     }
     for (std::size_t i = 0; i < kMeasurementToolingCount; ++i) {
@@ -120,6 +132,10 @@ ceb_measurement_stamp_array() noexcept {
         put_num(v.y);
         out[p++] = '.';
         put_num(v.z);
+        // A13-M1b-Fixup: Flag-Schwanz (heute no-op, Migration-sicher -- s. ceb_flag_len).
+        if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(v.hardware); hw != '\0')
+            out[p++] = hw;
+        if (v.experimental) out[p++] = 'e';
     }
     out[p] = '\0';
     return out;

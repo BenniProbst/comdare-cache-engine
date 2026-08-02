@@ -15,6 +15,8 @@
 #include <cstddef>
 #include <string_view>
 
+#include <cache_engine/measurement/algo_semver.hpp> // A13-M1b-Fixup: Flag-Grammatik-Wachen (Owner-Q3)
+
 namespace comdare::cache_engine::abi {
 
 /// Eine System-Haupt-Achse und ihre bump-bare Code-Version (die statische Code-Identitaet der Achse).
@@ -51,6 +53,31 @@ inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystem
     {"operating_system", "v1.0.0"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
     {"external_utils", "v1.0.0"},
 }};
+
+namespace detail {
+// A13-M1b-Fixup (Review-BEFUND-1): Wachen-Doppelung wie an Organ-/Mess-Registries -- die System-Achsen-
+// Code-Versionen stempeln in system_stamp_line und muessen der Owner-Q3-Flag-Grammatik folgen.
+[[nodiscard]] consteval bool system_versionen_flag_konform() {
+    for (auto const& e : kSystemAxisCodeVersions)
+        if (::comdare::cache_engine::measurement::parse_algo_semver(e.version).has_hardware_flag() &&
+            !::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(e.version))
+            return false;
+    return true;
+}
+[[nodiscard]] consteval bool system_versionen_cpu_pflicht() {
+    for (auto const& e : kSystemAxisCodeVersions)
+        if (!::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(e.version)) return false;
+    return true;
+}
+} // namespace detail
+static_assert(detail::system_versionen_flag_konform(),
+              "System-Achsen-Code-Version mit FALSCHEM Hardware-Flag: im CPU-only-Scope ist GENAU 'c' (bzw. "
+              "'ce') zulaessig (Owner-Q3 02.08.2026)");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+static_assert(detail::system_versionen_cpu_pflicht(),
+              "System-Achsen-Code-Version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' "
+              "oder 'ce' enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+#endif
 
 namespace detail {
 [[nodiscard]] consteval bool system_axis_code_versions_complete() {

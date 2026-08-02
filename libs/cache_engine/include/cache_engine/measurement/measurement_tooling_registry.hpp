@@ -19,6 +19,8 @@
 #include <string_view>
 #include <utility>
 
+#include <cache_engine/measurement/algo_semver.hpp> // A13-M1b-Fixup: Flag-Grammatik-Wachen (Owner-Q3)
+
 namespace comdare::cache_engine::measurement {
 
 /// Die Mess-Tooling-HAUPT-Achse: WELCHE Mess-Instrumentierung fest einkompiliert wird (Section 47/55).
@@ -46,6 +48,30 @@ inline constexpr std::array<MeasurementToolingInfo, kMeasurementToolingCount> kM
     {MeasurementTooling::Macro, "macro", "Macro", "v1.0.0"},
     {MeasurementTooling::Micro, "micro", "Micro", "v1.0.0"},
 }};
+
+namespace detail {
+// A13-M1b-Fixup (Review-BEFUND-1): dieselbe Wachen-Doppelung wie an der Organ-Registry
+// (axis_variant_version_table.hpp) auch HIER -- die Mess-Tooling-Versionen stempeln in die Mess-Zeile.
+[[nodiscard]] consteval bool tooling_versionen_flag_konform() {
+    for (auto const& e : kMeasurementToolingRegistry)
+        if (parse_algo_semver(e.version).has_hardware_flag() && !version_satisfies_cpu_only_policy(e.version))
+            return false;
+    return true;
+}
+[[nodiscard]] consteval bool tooling_versionen_cpu_pflicht() {
+    for (auto const& e : kMeasurementToolingRegistry)
+        if (!version_satisfies_cpu_only_policy(e.version)) return false;
+    return true;
+}
+} // namespace detail
+static_assert(detail::tooling_versionen_flag_konform(),
+              "Mess-Tooling-Version mit FALSCHEM Hardware-Flag: im CPU-only-Scope ist GENAU 'c' (bzw. 'ce') "
+              "zulaessig (Owner-Q3 02.08.2026)");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+static_assert(detail::tooling_versionen_cpu_pflicht(),
+              "Mess-Tooling-Version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' oder "
+              "'ce' enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+#endif
 
 namespace detail {
 [[nodiscard]] consteval bool tooling_registry_is_complete() {

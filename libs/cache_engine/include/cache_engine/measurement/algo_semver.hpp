@@ -63,6 +63,16 @@
 /// SELBEN Commit, der die Bestands-Strings auf "v1.0.0c" zieht (ein Byte-Ereignis, ein Neuanker). Wer das
 /// Define frueher scharf schaltet, bricht den Bau; wer die Migration ohne das Define landet, laesst die
 /// Pflicht undurchgesetzt.
+/// MIGRATIONS-NAHT-LISTE (A13-M1b-Fixup, Review-BEFUND-2 -- der Migrations-Commit zieht ALLE Quellen,
+/// nicht nur die 122 W::algo_version-Literale):
+///   (a) 7 Nicht-Organ-Literale: abi/system_axis_code_versions.hpp (3x), measurement/
+///       measurement_tooling_registry.hpp (3x), measurement/measurement_framework_registry.hpp (1x) --
+///       alle tragen seit dem Fixup dieselbe gated ENFORCE-Wache und brechen beim Scharfschalten mit.
+///   (b) builder/ceb_version_stamp.hpp: der konsteval-Zwilling rendert den Flag-Schwanz seit dem Fixup
+///       symmetrisch mit (ceb_flag_len) -- der Zwillingstest bleibt ueber die Migration gruen.
+///   (c) compose_algo_signature (axis_variant_version_table.hpp) serialisiert W::algo_version VERBATIM:
+///       die 122er-Migration ist damit AUCH ein .algos-Sidecar-Byte-Ereignis (Skip-/Rebuild-Kaskade der
+///       Sidecar-Welt) und ist im EINEN M2/M3-Byte-Ereignis-Fenster mit zu budgetieren.
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 0
 #endif
