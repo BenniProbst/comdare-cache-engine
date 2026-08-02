@@ -28,6 +28,12 @@
 //   HWFLAG  := 'c' (CPU) | 'g' (GPU) | 'f' (FPGA) | 'n' (NPU)    -- GENAU EINES, klein, direkt angehaengt
 // Reihenfolge FIX: erst das Hardware-Flag, dann optional 'e'. Ein 'e' OHNE Hardware-Flag ist ungueltig
 // (Sentinel) -- "vNe" gab es nur in der A13-M1-Zwischenform und ist mit dem Kurzform-Rueckbau erledigt.
+//   UINT    := '0' | [1-9][0-9]{0,5}   -- KEINE fuehrende Null (ausser der Komponente "0" selbst),
+//              HOECHSTENS kMaxSemVerComponentDigits Ziffern (B11, Codex-Review 02.08.2026). Beides
+//              verhindert ALIAS-IDENTITAETEN: "v01.0.0c" und "v4294967297.0.0c" stempelten frueher wie
+//              "v1.0.0c" (Leading-Zero bzw. stiller Modulo-2^32-Umlauf), waehrend compose_algo_signature
+//              die rohen Literale VERBATIM serialisiert -- ein Lager-Key-Zusammenfall bei roh
+//              verschiedenen Binaries. Beide Formen sind jetzt Sentinel.
 //
 // KURZFORM-RUECKBAU (A13-M1b, bindend): "vN" und "vNe" sind SENTINEL. Belegt vor dem Umbau per grep: der
 // Bestand traegt KEIN vN-Literal als echte Version -- alle 122 W::algo_version, die 3 System-Achsen-Code-
@@ -52,7 +58,9 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -138,15 +146,43 @@ struct AlgoSemVer {
     return a.x == b.x && a.y == b.y && a.z == b.z && a.hardware == b.hardware && a.experimental == b.experimental;
 }
 
+/// A13-M1b/B11 ZIFFERN-DECKEL einer Versions-KOMPONENTE (X, Y bzw. Z). Sechs Stellen (bis 999999) liegen
+/// weit ueber jedem realen Achsen-/Tooling-Stand; alles darueber ist keine Version, sondern ein Tippfehler
+/// oder ein Angriff auf die Stempel-Identitaet. Der Deckel ist die FACHLICHE Wache; die arithmetische
+/// Ueberlauf-Wache in take_uint ist das zweite, deckel-unabhaengige Netz.
+inline constexpr std::size_t kMaxSemVerComponentDigits = 6;
+
 namespace detail {
-/// Konsumiert eine Dezimalzahl am Anfang von s (modifiziert s). Rueckgabe {wert, gefunden}.
+/// Konsumiert eine Dezimalzahl am Anfang von s (modifiziert s NUR im Erfolgsfall). Rueckgabe {wert, gefunden}.
+///
+/// B11-WACHEN (Codex-Review 02.08.2026) -- ohne sie erzeugte der Parser ALIAS-IDENTITAETEN, also zwei ROH
+/// verschiedene Versions-Literale mit demselben Stempel-Segment (und damit demselben SHA512-/Lager-Key,
+/// waehrend die .algos-Sidecar-Signatur die Literale roh verschieden serialisiert):
+///   (1) UEBERLAUF: "v4294967297.0.0c" wickelte modulo 2^32 auf 1 um und stempelte wie "v1.0.0c".
+///   (2) FUEHRENDE NULL: "v01.0.0c" stempelte wie "v1.0.0c".
+/// Beide sind ab jetzt SENTINEL -- die Registry-Wachen (parsbar-Pflicht) brechen darauf compile-time.
+///
+/// Reihenfolge der Netze: erst der Ziffern-Deckel (fachlich), dann die Ueberlauf-Wache (arithmetisch).
+/// Bei kMaxSemVerComponentDigits <= 9 kann der zweite Zweig rechnerisch nicht mehr greifen -- er steht
+/// bewusst trotzdem da, weil er bei einer spaeteren Deckel-Anhebung OHNE Nacharbeit weitertraegt (die
+/// Klasse "stiller Ueberlauf" darf nicht an einer Konstante haengen).
 [[nodiscard]] constexpr std::pair<std::uint32_t, bool> take_uint(std::string_view& s) noexcept {
     if (s.empty() || s.front() < '0' || s.front() > '9') return {0u, false};
-    std::uint32_t n = 0;
-    while (!s.empty() && s.front() >= '0' && s.front() <= '9') {
-        n = n * 10u + static_cast<std::uint32_t>(s.front() - '0');
-        s.remove_prefix(1);
+    bool const       fuehrende_null = (s.front() == '0');
+    std::string_view rest           = s; // erst pruefen, dann committen: nie ein halb konsumierter Rest
+    std::uint32_t    n              = 0;
+    std::size_t      ziffern        = 0;
+    while (!rest.empty() && rest.front() >= '0' && rest.front() <= '9') {
+        if (++ziffern > kMaxSemVerComponentDigits) return {0u, false}; // (1a) Ziffern-Deckel
+        auto const d = static_cast<std::uint32_t>(rest.front() - '0');
+        if (n > (std::numeric_limits<std::uint32_t>::max() - d) / 10u) return {0u, false}; // (1b) Ueberlauf
+        n = n * 10u + d;
+        rest.remove_prefix(1);
     }
+    // (2) LEADING-ZERO-VERBOT: exakt "0" ist erlaubt (der Sentinel und jede echte Null-Komponente),
+    //     "01"/"007" nicht -- sonst gaebe es zu jeder Version unendlich viele rohe Schreibweisen.
+    if (fuehrende_null && ziffern > 1) return {0u, false};
+    s = rest;
     return {n, true};
 }
 
@@ -287,6 +323,35 @@ static_assert(parse_algo_semver("v1e") == AlgoSemVer{}); // A13-M1-Kurzform mit 
 static_assert(parse_algo_semver("v1c") == AlgoSemVer{}); // auch mit Hardware-Flag bleibt die Kurzform verboten
 static_assert(parse_algo_semver("v1ce") == AlgoSemVer{});
 static_assert(parse_algo_semver("v12") == AlgoSemVer{}); // mehrstellige Kurzform ebenso
+
+// -- B11: UEBERLAUF-/LEADING-ZERO-WACHE der Komponenten (Codex-Review 02.08.2026) -------------------
+// Die Wache existiert gegen ALIAS-IDENTITAETEN: zwei roh verschiedene Literale duerfen nie dasselbe
+// Stempel-Segment erzeugen (der .algos-Sidecar-Pfad serialisiert die rohen Literale VERBATIM -- ein
+// Alias waere ein Lager-Key-Zusammenfall bei roh verschiedenen Binaries).
+// (a) UEBERLAUF: der frueher stille Modulo-2^32-Umlauf ist Sentinel.
+static_assert(parse_algo_semver("v4294967297.0.0c") == AlgoSemVer{});                    // wickelte auf {1,0,0,cpu} um
+static_assert(parse_algo_semver("v4294967296.0.0") == AlgoSemVer{});                     // 2^32 selbst
+static_assert(parse_algo_semver("v1.0.4294967297") == AlgoSemVer{});                     // auch in der Z-Komponente
+static_assert(parse_dotted_semver("4294967297.0.0") == AlgoSemVer{});                    // und in der gerenderten Form
+static_assert(!(parse_algo_semver("v4294967297.0.0c") == parse_algo_semver("v1.0.0c"))); // kein Alias mehr
+// (b) ZIFFERN-DECKEL: sechsstellig ist die Grenze -- 999999 traegt, 1000000 nicht.
+static_assert(parse_algo_semver("v999999.0.0c") == AlgoSemVer{999999, 0, 0, HardwareFlag::cpu});
+static_assert(parse_algo_semver("v1000000.0.0c") == AlgoSemVer{}); // 7 Ziffern
+static_assert(parse_algo_semver("v1.1000000.0") == AlgoSemVer{});
+static_assert(parse_dotted_semver("0.0.1000000") == AlgoSemVer{});
+static_assert(kMaxSemVerComponentDigits == 6);
+// (c) LEADING-ZERO-VERBOT: exakt "0" bleibt gueltig, jede aufgefuellte Schreibweise ist Sentinel.
+static_assert(parse_algo_semver("v01.0.0c") == AlgoSemVer{}); // stempelte wie "v1.0.0c"
+static_assert(parse_algo_semver("v1.00.0") == AlgoSemVer{});
+static_assert(parse_algo_semver("v1.0.007") == AlgoSemVer{});
+static_assert(parse_dotted_semver("01.0.0") == AlgoSemVer{});
+static_assert(parse_dotted_semver("1.0.00") == AlgoSemVer{});
+static_assert(parse_algo_semver("v0.0.0") == AlgoSemVer{});          // exakt "0" je Komponente: Sentinel-Literal
+static_assert(parse_algo_semver("v10.0.1") == AlgoSemVer{10, 0, 1}); // fuehrende Ziffer != '0' bleibt heil
+static_assert(parse_algo_semver("v0.1.0") == AlgoSemVer{0, 1, 0});   // "0" als ECHTE Komponente
+static_assert(parse_dotted_semver("0.0.1") == AlgoSemVer{0, 0, 1});
+// (d) der Bestand ist unberuehrt (die 122x-/Nicht-Organ-Literale sind einstellig ohne fuehrende Null).
+static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{1, 0, 0});
 
 // -- A13-M1b: FLAG-GRAMMATIK (Owner-Q3 02.08.2026) -- vollstaendige CT-Batterie ---------------------
 // (a) Uebergangs-Toleranz: der flaglose dreistellige Bestand parst weiter und traegt KEINE Flags.
