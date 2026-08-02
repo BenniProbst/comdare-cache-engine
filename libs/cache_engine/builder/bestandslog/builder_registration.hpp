@@ -88,6 +88,11 @@ namespace comdare::cache_engine::builder::bestandslog {
 // ("YYYY-MM-DDTHH:MM:SSZ", 20 Zeichen). Alles andere -> nullopt, nie geraten: die Zeit-Anker der
 // Takeover-Entscheidung (unten) duerfen auf einem kaputten Feld keine Uebernahme begruenden.
 //
+// TP1FK1-B3 (fail-closed): geprueft wird das ZIVILDATUM, nicht nur die Ziffern-Form -- Tage je Monat
+// inklusive Schaltjahr-Regel und Sekunde <= 59. Die days-from-civil-Formel unten ist eine reine
+// Abbildung und NORMALISIERT Unmoegliches klaglos (31.04. -> 01.05., 29.02.2027 -> 01.03.2027); ein
+// so "gerettetes" Datum waere ein erfundener Anker unter einer Enteignungs-Entscheidung.
+//
 // Rein arithmetisch (days-from-civil), ohne timegm/_mkgmtime: dieselbe Antwort auf jeder Plattform
 // und in jedem Prozess-Zeitzonen-Zustand -- eine Frist, die je nach TZ-Env anders laege, waere im
 // Zwei-Maschinen-Betrieb genau die stille Divergenz, die das Bestandslog ausschliessen soll.
@@ -110,7 +115,24 @@ namespace comdare::cache_engine::builder::bestandslog {
     auto const mi = zahl(14, 2);
     auto const se = zahl(17, 2);
     if (!y || !mo || !d || !h || !mi || !se) return std::nullopt;
-    if (*mo < 1 || *mo > 12 || *d < 1 || *d > 31 || *h > 23 || *mi > 59 || *se > 60) return std::nullopt;
+    if (*mo < 1 || *mo > 12 || *h > 23 || *mi > 59) return std::nullopt;
+    // TP1FK1-B3 (fail-closed): SEKUNDE <= 59. Der Formatter dieser Datei (strftime %S ueber gmtime)
+    // erzeugt niemals 60 -- eine 60 kann also nur aus einer FREMDEN Quelle stammen und wuerde hier
+    // still auf die naechste Minute normalisiert. Ein Zeit-Anker, den wir nicht selbst geschrieben
+    // haben koennen, begruendet keine Uebernahme.
+    if (*se > 59) return std::nullopt;
+    // TP1FK1-B3 (fail-closed): ECHTE Zivildaten-Pruefung statt der frueheren Pauschale d<=31. Die
+    // days-from-civil-Formel unten ist eine reine Abbildung -- sie rechnet den 31.04. klaglos auf
+    // den 01.05. und den 29.02.2027 auf den 01.03.2027 um. Ein solches Datum steht nie in einem von
+    // uns geschriebenen Feld; es still zu NORMALISIEREN hiesse, einen Zeit-Anker zu erfinden und
+    // darauf eine fremde Reservierung zu enteignen. Schaltjahr = gregorianische Regel (durch 4, aber
+    // nicht durch 100, ausser durch 400) -- dieselbe Regel, auf der die Formel unten fusst.
+    {
+        bool const         schaltjahr = (*y % 4 == 0 && *y % 100 != 0) || (*y % 400 == 0);
+        constexpr int      tage[12]   = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        std::int64_t const max_tag    = tage[*mo - 1] + ((*mo == 2 && schaltjahr) ? 1 : 0); // Februar: 29
+        if (*d < 1 || *d > max_tag) return std::nullopt;
+    }
     // days-from-civil (proleptischer Gregorianischer Kalender; Standard-Herleitung, era-basiert).
     std::int64_t        yy   = *y - (*mo <= 2 ? 1 : 0);
     std::int64_t const  era  = (yy >= 0 ? yy : yy - 399) / 400;
@@ -308,8 +330,11 @@ template <class Fn>
         // kaputtes Feld wuerde eine LEBENDE Maschine enteignen. Der Record wird stattdessen wie
         // unkalibriert geurteilt (pro-forma-Zweig); das deckt zugleich die F5-Zukunft, in der
         // periodische Updates die eta_s fortschreiben.
+        // TP1FK1-B3: die Frage stellt jetzt has_usable_eta (STRIKTE Parse inkl. Endzeiger) -- dieselbe
+        // EINE Auslegung, die auch is_reservation_takeable benutzt. Das Leeren bleibt noetig, weil die
+        // ANKER-WAHL zwei Zeilen weiter unten daran haengt (Frist vs. reserviert_utc).
         BatchReservierung urteil = r;
-        if (!urteil.eta_s.empty() && !(parse_seconds(urteil.eta_s) > 0.0)) urteil.eta_s.clear();
+        if (!urteil.eta_s.empty() && !has_usable_eta(urteil.eta_s)) urteil.eta_s.clear();
         auto const frist = epoch_from_utc_iso(r.pro_forma_bis_utc); // Anker des pro-forma-Falls
         auto const anker = epoch_from_utc_iso(r.reserviert_utc);    // Anker des ETA-Falls (s. Kopf)
         if (urteil.eta_s.empty() && !frist) continue;               // kaputter Anker -> konservativ stehen lassen
