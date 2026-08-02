@@ -57,8 +57,19 @@
 // dem '@'. Der Tokenizer unten fasst beides nie an derselben Stelle an.
 // Im Entry-POD reist die Ebene in den reserved-BITS 3-5. Ebene 0 == Bit-Muster 0 -> der flaglose,
 // klammerlose Bestand bleibt exakt bei reserved == 0 (Byte-Gleichheit unveraendert).
-// STRENGE: unbalancierte Klammern und eine Tiefe > 7 sind KEINE tolerierten Fehlformen, sondern brechen
-// die consteval-Auswertung hart (der Stempel ist Identitaet -- er darf nie still falsch reisen).
+// STRENGE (A13-M2/B2 vervollstaendigt): KEINE dieser Fehlformen wird toleriert -- jede bricht die
+// consteval-Auswertung hart (der Stempel ist Identitaet -- er darf nie still falsch reisen):
+//   * unbalancierte Klammern ( ']' ohne '[' / '[' ohne ']' ),
+//   * Tiefe > 7 (passt nicht in die reserved-Bits 3-5),
+//   * die GEKLEBTE Gruppe "a=b@1.0.0[c=d@1.0.0]" und die aneinandergereihte Gruppe "[a=b@1.0.0][c=d@1.0.0]"
+//     -- ein '[' ist NUR am Segment-Anfang zulaessig (Zeilenanfang, nach ';' oder nach '['). Genau das ist
+//     der bindende Owner-Q1-Satz "ein group ist IMMER ein regulaeres ';'-Geschwister-Segment"; ohne diese
+//     Wache ergaeben zwei byte-VERSCHIEDENE Zeilen dasselbe Entry-Array und die Zusage "Zeile aus dem
+//     Entry-Array VERLUSTFREI rekonstruierbar" gaelte nur noch fuer kanonische Zeilen,
+//   * die LEERE Gruppe "[]" (und "[;]") -- der Renderer liefert fuer ein Blatt einen LEEREN Anhang, nie
+//     einen leeren Rahmen (meta_meta_stamp_suffix); die Grammatik zementiert diese Zusage.
+// Die Fehlformen sind unten als CT-NEGATIVPROBEN (stamp_line_is_parsable) festgenagelt -- die Wachen sind
+// damit nicht bloss behauptet, sondern bewiesen.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1
 #include <cache_engine/measurement/algo_semver.hpp>        // parse_dotted_semver (X.Y.Z-Ruecklesung)
@@ -156,32 +167,84 @@ struct StampSegment {
 /// LEERE Spannen zwischen zwei Trennern liefern KEIN Segment (so ist ein reiner Klammer-Anhang
 /// "...;[a=b@1.0.0]" genau ein Eintrag und nicht drei). Die gerenderten Zeilen sind stets wohlgeformt.
 ///
-/// HARTE FEHLFORMEN (der Stempel IST Identitaet -- er darf nie still falsch reisen): ein ']' ohne offene
-/// Klammer, eine am Zeilenende offen gebliebene Klammer und eine Tiefe > kStampEntryMaxMetaLevel brechen die
-/// Auswertung. In den einzigen Aufrufern (consteval) ist das ein COMPILE-Fehler, kein Laufzeit-Wurf.
+/// HARTE FEHLFORMEN (der Stempel IST Identitaet -- er darf nie still falsch reisen). In den einzigen
+/// Aufrufern (consteval) ist jede davon ein COMPILE-Fehler, kein Laufzeit-Wurf:
+///   (F1) ']' ohne offene Klammer,
+///   (F2) am Zeilenende offen gebliebene Klammer,
+///   (F3) Tiefe > kStampEntryMaxMetaLevel (passt nicht in die reserved-Bits 3-5),
+///   (F4) A13-M2/B2-HAERTUNG: ein '[' AUSSERHALB eines Segment-ANFANGS -- also die GEKLEBTE Form
+///        "a=b@1.0.0[c=d@1.0.0]" (group direkt ans vorige entry gehaengt) und die aneinandergereihte
+///        Form "[a=b@1.0.0][c=d@1.0.0]" (group direkt hinter einem ']'),
+///  (F4b) dieselbe Klebe-Fehlform SPIEGELVERKEHRT: ein entry direkt hinter einem ']' ohne ';'-Trenner
+///        ("[a=b@1.0.0]c=d@1.0.0"). Nach einem ']' darf NUR ';', ']' oder das Zeilenende folgen.
+///   (F5) A13-M2/B2-HAERTUNG: die LEERE Gruppe "[]" (auch "[;]" und jede Gruppe ohne ein einziges
+///        Segment -- eine Gruppe, die nichts traegt, ist keine Ebene).
+///
+/// WARUM F4/F5 hart brechen muessen (Owner-Q1-Ledger-Satz, bindend): "Ein group ist IMMER ein regulaeres
+/// ';'-Geschwister-Segment (nie ans vorige entry geklebt) -- dadurch ist die Zeile aus dem Entry-Array samt
+/// Ebenen VERLUSTFREI rekonstruierbar." Die geklebte Form parste bis A13-M2/B2 KOMMENTARLOS in dasselbe
+/// Entry-Array wie die kanonische Geschwister-Form. Zwei byte-VERSCHIEDENE Zeilen (verschiedener SHA512,
+/// verschiedene Lager-Identitaet) haetten damit denselben POD ergeben -- die Rekonstruktions-Zusage waere
+/// nur noch fuer kanonische Zeilen wahr gewesen, und der Stempel darf genau das nie. Die leere Gruppe
+/// lieferte still 0 Eintraege und damit einen Rahmen ohne Inhalt; der kanonische Renderer erzeugt statt
+/// dessen einen LEEREN Anhang (meta_meta_stamp_suffix eines Blattes ist "", nie "[]") -- die Haertung
+/// zementiert genau diese Renderer-Zusage in der Grammatik.
+/// ZULAESSIGE VORGAENGER eines '[' sind daher AUSSCHLIESSLICH: Zeilenanfang, ';' und '['. Ein '[' nach ']'
+/// oder nach einem Namens-/Versions-Zeichen bricht. Und spiegelbildlich (F4b): auf ein ']' darf nur ';',
+/// ']' oder das Zeilenende folgen -- sonst waeren "[a=b@1.0.0]c=d@1.0.0" und "[a=b@1.0.0];c=d@1.0.0" wieder
+/// zwei byte-verschiedene Zeilen mit identischem Entry-Array (dieselbe Verlust-Stelle, nur andersherum).
 template <class Visitor>
 constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
     std::uint32_t depth = 0;
     std::size_t   start = 0;
-    auto const    flush = [&](std::size_t end) {
-        if (end > start) visit(StampSegment{start, end, depth});
+    // Der zuletzt gesehene Trenner; '\0' == Zeilenanfang. Er allein entscheidet ueber F4 -- "pos == start"
+    // genuegt NICHT, weil auch die Position direkt hinter einem ']' ein Segment-Anfang waere.
+    char last_delim = '\0';
+    // Anzahl der Segmente, die in der auf dieser Tiefe aktuell OFFENEN Gruppe schon gesehen wurden. Ein
+    // verschachteltes group zaehlt in seiner ELTERN-Ebene als ein Segment (Grammatik: segment := entry|group)
+    // -- deshalb ist "[[a=b@1.0.0]]" wohlgeformt, "[]" und "[;]" dagegen nicht. Index 0 == Zeilen-Ebene
+    // (nie geprueft, eine leere ZEILE ist zulaessig).
+    std::array<std::size_t, kStampEntryMaxMetaLevel + 1> seen{};
+    auto const                                           flush = [&](std::size_t end) {
+        if (end > start) {
+            // (F4b) Ein Segment darf nie direkt hinter einem ']' beginnen -- das waere die geklebte Form
+            // spiegelverkehrt ("[a=b@1.0.0]c=d@1.0.0" statt "[a=b@1.0.0];c=d@1.0.0").
+            if (last_delim == ']')
+                throw "A13-M2 Klammer-Grammatik: Segment direkt hinter ']' geklebt -- nach einer Gruppe folgt "
+                      "';', eine weitere schliessende Klammer oder das Zeilenende";
+            visit(StampSegment{start, end, depth});
+            ++seen[depth];
+        }
     };
     for (std::size_t pos = 0; pos < line.size(); ++pos) {
         char const c = line[pos];
         if (c == ';') {
             flush(pos);
-            start = pos + 1;
+            start      = pos + 1;
+            last_delim = ';';
         } else if (c == '[') {
+            // (F4) NUR am Segment-ANFANG: Zeilenanfang, direkt nach ';' oder direkt nach '['.
+            if (pos != start || (last_delim != '\0' && last_delim != ';' && last_delim != '['))
+                throw "A13-M2 Klammer-Grammatik: '[' steht nicht am Segment-Anfang -- ein group ist IMMER ein "
+                      "regulaeres ';'-Geschwister-Segment (nie ans vorige entry oder an ein ']' geklebt)";
             flush(pos);
             ++depth;
             if (depth > kStampEntryMaxMetaLevel)
                 throw "A13-M2 Klammer-Grammatik: Meta-Meta-Ebene > 7 passt nicht in die reserved-Bits 3-5";
-            start = pos + 1;
+            seen[depth] = 0;
+            start       = pos + 1;
+            last_delim  = '[';
         } else if (c == ']') {
             flush(pos);
             if (depth == 0) throw "A13-M2 Klammer-Grammatik: schliessende Klammer ohne oeffnende";
+            // (F5) Eine Gruppe ohne ein einziges Segment ist keine Ebene, sondern ein leerer Rahmen.
+            if (seen[depth] == 0)
+                throw "A13-M2 Klammer-Grammatik: leere Gruppe '[]' -- der Renderer liefert fuer ein Blatt einen "
+                      "LEEREN Anhang, nie einen leeren Rahmen";
             --depth;
-            start = pos + 1;
+            ++seen[depth]; // das gerade geschlossene group ist ein Segment SEINER Eltern-Ebene.
+            start      = pos + 1;
+            last_delim = ']';
         }
     }
     if (depth != 0) throw "A13-M2 Klammer-Grammatik: offene Klammer am Zeilenende";
@@ -236,6 +299,78 @@ constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
     detail::scan_stamp_segments(line, [&n](detail::StampSegment const&) { ++n; });
     return n;
 }
+
+// == A13-M2/B2: DIE CT-NEGATIVPROBEN ==============================================================
+// Eine harte Fehlform ist im consteval-Pfad ein COMPILE-Fehler -- man kann sie also nicht einfach in einem
+// static_assert aufrufen (das braeche die Uebersetzung genau dieser Datei). Das Praedikat unten dreht das
+// um: es fragt, OB die Zeile ueberhaupt konstant auswertbar ist, und macht damit die Nicht-Parsbarkeit
+// selbst zu einer beweisbaren, positiven Aussage. Mechanik: schlaegt die Auswertung im Default-Template-
+// Argument fehl, ist das eine Substitutions-Ablehnung (kein Fehler) und die '...'-Ueberladung gewinnt.
+
+namespace detail {
+
+/// Nicht-Typ-Template-Parameter-Traeger fuer ein Zeilen-Literal (std::string_view ist kein strukturaler Typ
+/// und als NTTP unzulaessig; ein public char-Array ist es).
+template <std::size_t N>
+struct StampLineLiteral {
+    char data[N]{};
+    consteval StampLineLiteral(char const (&s)[N]) {
+        for (std::size_t i = 0; i < N; ++i) data[i] = s[i];
+    }
+    [[nodiscard]] constexpr std::string_view view() const noexcept { return std::string_view{data, N - 1}; }
+};
+template <std::size_t N>
+StampLineLiteral(char const (&)[N]) -> StampLineLiteral<N>;
+
+template <StampLineLiteral L, std::size_t = count_stamp_entries(L.view())>
+consteval bool stamp_line_is_parsable_impl(int) {
+    return true;
+}
+template <StampLineLiteral L>
+consteval bool stamp_line_is_parsable_impl(...) {
+    return false;
+}
+
+} // namespace detail
+
+/// true genau dann, wenn die Zeile die A13-M2-Klammer-Grammatik erfuellt (also consteval durchlaeuft).
+/// Nutzung: `static_assert(!stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">);`
+template <detail::StampLineLiteral L>
+inline constexpr bool stamp_line_is_parsable = detail::stamp_line_is_parsable_impl<L>(0);
+
+// -- POSITIV: die kanonischen Formen, die der Renderer wirklich erzeugt --
+static_assert(stamp_line_is_parsable<"">, "die leere Realm-Zeile ist zulaessig (0 Eintraege).");
+static_assert(stamp_line_is_parsable<"search_algo=k_ary@1.0.0;filter=bloom@2.3.4">, "klammerloser Bestand.");
+static_assert(stamp_line_is_parsable<"external_utils=code@1.0.0;[simd=code@1.0.0]">, "Geschwister-Anhang (System).");
+static_assert(stamp_line_is_parsable<"[load_framework=ycsb@1.0.0]">, "Anhang als EINZIGES Segment der Zeile.");
+static_assert(stamp_line_is_parsable<"external_utils=code@1.0.0;[gpu=code@2.0.0;[nvlink=code@3.0.0]]">,
+              "offene Rekursion: ein group als Geschwister INNERHALB eines group.");
+static_assert(stamp_line_is_parsable<"[[a=b@1.0.0]]">, "ein group als ERSTES Segment eines group ('[' nach '[').");
+static_assert(stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">, "zwei Anhaenge, sauber durch ';' getrennt.");
+
+// -- NEGATIV (F4): '[' ausserhalb eines Segment-Anfangs --
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">,
+              "GEKLEBTE Gruppe: ein group ist IMMER ein regulaeres ';'-Geschwister-Segment (Owner-Q1). Ohne "
+              "diese Wache haette diese Zeile dasselbe Entry-Array wie 'a=b@1.0.0;[c=d@1.0.0]' -- zwei "
+              "byte-verschiedene Zeilen mit identischem POD.");
+static_assert(!stamp_line_is_parsable<"[a=b@1.0.0][c=d@1.0.0]">, "aneinandergereihte Gruppen ohne ';'-Trenner.");
+
+// -- NEGATIV (F4b): dieselbe Klebe-Fehlform spiegelverkehrt -- entry direkt hinter ']' --
+static_assert(!stamp_line_is_parsable<"[a=b@1.0.0]c=d@1.0.0">,
+              "Segment direkt hinter ']' geklebt -- haette dasselbe Entry-Array wie '[a=b@1.0.0];c=d@1.0.0'.");
+static_assert(stamp_line_is_parsable<"[a=b@1.0.0];c=d@1.0.0">, "... die kanonische Form derselben Zeile.");
+
+// -- NEGATIV (F5): die leere Gruppe --
+static_assert(!stamp_line_is_parsable<"[]">, "leerer Rahmen ohne Inhalt: der Renderer liefert stattdessen "
+                                             "einen LEEREN Anhang (meta_meta_stamp_suffix eines Blattes).");
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0;[]">, "leere Gruppe auch als Anhang einer belegten Zeile.");
+static_assert(!stamp_line_is_parsable<"[;]">, "eine Gruppe aus lauter leeren Spannen ist ebenfalls leer.");
+
+// -- NEGATIV (F1/F2/F3): die schon vor B2 deklarierten harten Fehlformen, jetzt ebenfalls BEWIESEN --
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0]">, "schliessende Klammer ohne oeffnende.");
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0">, "offene Klammer am Zeilenende.");
+static_assert(!stamp_line_is_parsable<"[[[[[[[[a=b@1.0.0]]]]]]]]">, "Tiefe 8 > kStampEntryMaxMetaLevel (7).");
+static_assert(stamp_line_is_parsable<"[[[[[[[a=b@1.0.0]]]]]]]">, "Tiefe 7 ist die letzte zulaessige Ebene.");
 
 /// Parst die Stempel-Zeile aus dem Literal `lit` (nullterminiert, effektive Laenge M-1) in genau N Eintraege
 /// (N == count_stamp_entries(lit)), in TEXT-Reihenfolge -- die Klammer-Anhaenge stehen also hinter den

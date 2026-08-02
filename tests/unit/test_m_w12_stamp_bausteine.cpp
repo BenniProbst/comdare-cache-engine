@@ -342,6 +342,25 @@ TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
         EXPECT_EQ(abi::stamp_entry_meta_level(x), 0u);
         EXPECT_EQ(x.reserved, std::uint32_t{0});
     }
+
+    // (f) A13-M2/B2-HAERTUNG (Review-BEFUND-2): die Grammatik ist STRENG, nicht bloss tolerant. Die
+    // Negativproben leben als static_assert im Header selbst (anatomy_stamp_entries.hpp, Praedikat
+    // abi::stamp_line_is_parsable) -- hier stehen sie noch einmal an der Test-Naht, damit der Bruch der
+    // Zusage im Test-Bericht sichtbar wuerde und nicht nur in einer Uebersetzungs-Fehlermeldung.
+    // KERN-Zusage (Owner-Q1): "Ein group ist IMMER ein regulaeres ';'-Geschwister-Segment" -- sonst
+    // ergaeben zwei byte-VERSCHIEDENE Zeilen dasselbe Entry-Array.
+    static_assert(abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0]">, "kanonische Geschwister-Form.");
+    static_assert(!abi::stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">, "GEKLEBTE Gruppe bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"[a=b@1.0.0][c=d@1.0.0]">, "Gruppen ohne ';' bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"[a=b@1.0.0]c=d@1.0.0">, "Entry hinter ']' bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"[]">, "leere Gruppe bricht hart.");
+    EXPECT_TRUE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0]">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"[]">));
+    // Und die REALEN Zeilen bleiben selbstverstaendlich parsbar -- die Haertung darf den Bestand nie treffen.
+    EXPECT_TRUE((abi::stamp_line_is_parsable<
+                 "target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0;[simd=code@1.0.0]">));
+    EXPECT_TRUE((abi::stamp_line_is_parsable<"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]">));
 }
 
 TEST(MW12StampBausteine, MeasurementStampLineCarriesToolingMainThenLoadFrameworkKlammer) {
