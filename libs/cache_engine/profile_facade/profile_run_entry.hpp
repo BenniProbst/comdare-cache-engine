@@ -400,7 +400,7 @@ struct RunProfileResult {
     // denselben Quellen wie die Zell-Koordinaten darueber -- KEINE zweite Ableitung. Gerendert wird ueber die EINE
     // Legenden-Quelle des Planers (plan_legend), damit die Treiber-Marker und die Shell-Testate desselben Fensters
     // BYTE-GLEICHE zelle=-Werte tragen: nur dann treffen beide Sichten auf denselben Aggregator-Key (zelle, fenster).
-    // Layer-Trennung wie in der Shell-Grammatik (§62-B-NACHTRAG): zelle = [d,e,f][g,h,i] (System-Perm + Organ-
+    // Layer-Trennung wie in der Shell-Grammatik (Section 62-B-NACHTRAG): zelle = [d,e,f][g,h,i] (System-Perm + Organ-
     // Referenz), die CEB-Ebene [a,b,c] steht im EIGENEN ceb-Feld. lane = COMDARE_LANE (die emittierende Stufe-2-
     // Bau-/Mess-Batch-Lane setzt sie); ungesetzt => der Renderer schreibt den ehrlichen Sentinel "unbelegt".
     // Die opt/simd-Defaults (O3 / no_extension) spiegeln die Emissions-Seite (experiment_plan_director), damit ein
