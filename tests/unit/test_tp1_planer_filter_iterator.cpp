@@ -231,15 +231,17 @@ int main() {
         cfg.bestand_present = drei_im_bestand;
         cfg.max_binaries    = 8;
 
-        std::size_t konfig_deltas = 0;
-        std::size_t done_cursor   = 0;
-        std::size_t done_count    = 0;
-        cfg.progress_sink         = [&](ex::ProgressDelta const& d) {
+        std::size_t              konfig_deltas = 0;
+        std::size_t              done_cursor   = 0;
+        std::size_t              done_count    = 0;
+        std::vector<std::size_t> konfig_cursor; // TP1FK1-B5: die gemeldeten Fenster-Positionen, in Reihenfolge
+        cfg.progress_sink = [&](ex::ProgressDelta const& d) {
             if (d.done) {
                 ++done_count;
                 done_cursor = d.cursor;
             } else {
                 ++konfig_deltas;
+                konfig_cursor.push_back(d.cursor);
             }
         };
 
@@ -258,6 +260,23 @@ int main() {
         check_eq("(5) je gebauter Binary EIN Konfig-Delta", konfig_deltas, std::size_t{5});
         check_eq("(5) genau EIN done-Delta", done_count, std::size_t{1});
         check_eq("(5) done-Cursor == VOLLE bereitgestellte Menge (5+3)", done_cursor, std::size_t{8});
+
+        // -- TP1FK1-B5 (Codex-Befund): der Cursor ist der FENSTER-Index, nicht die builds-Laufvariable.
+        //    Lage: die Indizes 0..2 liegen im Lager, gebaut werden 3..7. Der Vertrag von ProgressDelta
+        //    (progress_delta.hpp) nennt cursor "fenster-relativer Perm-Index" -- erwartet sind also 3,4,5,6,7.
+        //    VOR dem Fix meldete der Kanal 0,1,2,3,4 (Cursor-KOMPRESSION um die Zahl der Lager-Skips) und
+        //    danach ein done bei 8: Positionen, die es im Fenster so nie gab, und ein Sprung am Ende.
+        //    Die Erwartung ist ABGELEITET (die drei Lager-Treffer stehen in drei_im_bestand), nicht gezaehlt.
+        std::vector<std::size_t> erwartete_cursor;
+        for (std::size_t i : alle)
+            if (!drei_im_bestand(i)) erwartete_cursor.push_back(i); // gebaut => sein Fenster-Index ist i
+        check_eq("(5/B5) Zahl der Konfig-Cursor", konfig_cursor.size(), erwartete_cursor.size());
+        check_true("(5/B5) Cursor sind die FENSTER-Indizes der gebauten Binaries (keine Kompression)",
+                   konfig_cursor == erwartete_cursor);
+        check_true("(5/B5) kein Cursor faellt in den Lager-Bereich 0..2",
+                   konfig_cursor.empty() || konfig_cursor.front() >= 3);
+        check_true("(5/B5) der letzte Konfig-Cursor liegt unter dem done-Cursor (kein Sprung ueber das Fenster)",
+                   !konfig_cursor.empty() && konfig_cursor.back() < done_cursor);
     }
 
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");
