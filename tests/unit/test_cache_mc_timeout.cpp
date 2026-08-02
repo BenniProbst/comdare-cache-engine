@@ -4,6 +4,8 @@
 //       timeout nicht verfuegbar ODER s==0 => argv UNVERAENDERT.
 //   (2) End-to-End: ein HAENGENDES mc (fake, sleep) terminiert BOUNDED ueber den timeout-Wrapper -> push_tier_binary
 //       kehrt zurueck (kein Hang), Fehlerdoktrin ArtefaktIo + lokale Kopie bleibt. (Gegatet auf verfuegbares `timeout`.)
+//       TP1FK1-B2: die Rueckkehr ist seit dem Fix ein WURF (ArtefaktPushFehler) statt eines stillen return -- die
+//       Aussage bleibt die BOUNDED Terminierung, der Wurf wird zusaetzlich als Pflicht geprueft.
 // Build: plain main (KEIN gtest), Return 0/1 -- registriert via COMDARE_MCE24_PLAIN_TESTS.
 
 #include "builder/artifact_transport/artifact_cache.hpp"
@@ -75,12 +77,22 @@ int main() {
 
         double const bound_s = /* tries */ 1.0 * (/* cap */ 2.0 + /* grace */ 5.0) + /* spawn/OS */ 20.0;
         auto const   t0      = std::chrono::steady_clock::now();
-        cache.push_tier_binary(bin_dir, "m3v2"); // MUSS bounded zurueckkehren (kein 20s-Hang je Versuch), kein throw
+        // TP1FK1-B2: der Push WIRFT jetzt bei Transport-Fehler (vorher log+return, fuer die void-CachePushFn von
+        // einem Erfolg ununterscheidbar). Die Aussage DIESES Tests bleibt unveraendert die BOUNDED Terminierung --
+        // der Wurf wird gefangen, damit die Zeitmessung sie weiterhin belegt, und zusaetzlich als Pflicht geprueft.
+        bool geworfen = false;
+        try {
+            cache.push_tier_binary(bin_dir, "m3v2"); // MUSS bounded zurueckkehren (kein 20s-Hang je Versuch)
+        } catch (at::ArtefaktPushFehler const& e) {
+            geworfen = true;
+            std::cout << "  [INFO] erwarteter ArtefaktPushFehler: " << e.what() << "\n";
+        }
         auto const   t1    = std::chrono::steady_clock::now();
         double const dur_s = std::chrono::duration<double>(t1 - t0).count();
         std::cout << "  [DAUER] push_tier_binary gegen haengendes mc terminierte nach " << dur_s
                   << " s (obere Schranke " << bound_s << " s; cap=2s tries=1)\n";
         check_true("(2) push TERMINIERT bounded (Cap greift, kein 20s-Hang)", dur_s < bound_s);
+        check_true("(2/TP1FK1-B2) das gekappte mc ist ein SICHTBARER Transport-Fehler (ArtefaktPushFehler)", geworfen);
         check_true("(2) lokale perm.dll bleibt (ArtefaktIo-Doktrin: MESSEN WEITER)",
                    std::filesystem::exists(bin_dir / "perm.dll", ec));
 

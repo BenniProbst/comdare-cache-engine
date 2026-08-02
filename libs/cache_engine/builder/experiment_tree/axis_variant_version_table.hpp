@@ -92,11 +92,16 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
         // oder 'ce' enden"). GEBAUT, aber per Define ausgeschaltet, solange der Bestand flaglos ist: das Define geht
         // im MIGRATIONS-COMMIT des A13-M2/M3-Neuanker-Fensters auf ON -- im selben Commit, der die 122
         // W::algo_version-Literale von "v1.0.0" auf "v1.0.0c" zieht. Die Wachen-LOGIK selbst
-        // (version_satisfies_cpu_only_policy) ist immer kompiliert und in algo_semver.hpp CT-bewiesen; das Define
-        // schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
-        static_assert(::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
-                      "algo_version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' oder 'ce' "
-                      "enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+        // (ce_owned_version_satisfies_cpu_enforce) ist immer kompiliert und in algo_semver.hpp CT-bewiesen; das
+        // Define schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
+        // B12 (Codex-Review 02.08.2026): der ENFORCE-Zweig prueft cpu UND !experimental ueber DIESELBE
+        // Politik-Funktion wie die drei Nicht-Organ-Registries. version_satisfies_cpu_only_policy allein liesse
+        // "v1.0.0ce" durch ('ce' erfuellt die CPU-Politik) -- hier faengt es heute schon die ungated 'e'-Wache
+        // oben ab, aber die Politik darf nicht davon ABHAENGEN, dass die zweite Wache daneben steht.
+        static_assert(::comdare::cache_engine::measurement::ce_owned_version_satisfies_cpu_enforce(W::algo_version),
+                      "algo_version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version auf "
+                      "'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
+                      "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
 #endif
         out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version}});
     });

@@ -24,6 +24,7 @@
 
 #include "ceb_system_axis.hpp"
 
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <string_view>
@@ -72,5 +73,48 @@ struct axis_depth<A> {
 };
 template <class A>
 inline constexpr std::size_t axis_depth_v = axis_depth<A>::value;
+
+/// SubAxisMembership<ParentAxis, Subs...> -- die MITGLIEDSCHAFT einer Haupt-Achse als TYP-LISTE.
+///
+/// PROBLEM, das sie loest (Codex-Review B7, 02.08.2026): eine "genau N Unter-Achsen"-Wache, die auf einem
+/// `std::array<std::string_view, N>` sitzt, ist TAUTOLOGISCH -- `.size() == N` kann per Konstruktion nie
+/// falsch werden. Und ein Emitter, der seine Mitglieder als N handgeschriebene Aufrufe fuehrt, emittiert
+/// eine hinzugekommene (N+1)-te Achse entweder gar nicht oder unbewacht. Beide Fehler haben dieselbe
+/// Wurzel: die MITGLIEDSCHAFT existierte nirgends als EIN Gegenstand.
+///
+/// LOESUNG: die Liste IST der Gegenstand. Aus ihr gehen hervor: die Anzahl (`size`), die Label-Liste
+/// (`labels()`) und die Emission (`for_each`). Wer ein Mitglied hinzufuegt, aendert GENAU EINE Stelle --
+/// und die Anzahl-Wache schlaegt dort an, wo die Zahl steht.
+///
+/// Der Eltern-Bezug ist Teil der Liste (nicht nur der Mitglieder): eine Achse, die an einer ANDEREN
+/// Haupt-Achse haengt, kann hier nicht Mitglied werden. Damit ist "die drei Unter-Achsen VON
+/// operating_system" eine typ-geprueft Aussage statt einer Sammlung, die zufaellig zusammensteht.
+///
+/// Metaprog: Concept-constrained Variadic Type List + Fold-Expression (statischer Dispatch, keine vtable,
+/// kein Runtime-Switch). BEWUSST boost-frei: der Host-Generator tools/system_axis_registry_gen iteriert
+/// sie und soll dafuer keine Zusatz-Abhaengigkeit ziehen muessen.
+template <class ParentAxis, class... Subs>
+    requires(CebSubAxisConcept<Subs> && ...) && (std::same_as<typename Subs::parent_axis, ParentAxis> && ...)
+struct SubAxisMembership {
+    /// Die Haupt-Achse, deren Mitgliedschaft diese Liste ist.
+    using parent_axis = ParentAxis;
+
+    /// Die ANZAHL der Mitglieder -- aus der Liste abgeleitet, nicht daneben gepflegt. HIER sitzt die
+    /// "genau N"-Wache des jeweiligen Achsen-Headers, und nur hier ist sie nicht tautologisch.
+    static constexpr std::size_t size = sizeof...(Subs);
+
+    /// Statischer Besuch in LISTEN-Reihenfolge (== Emissions-/Spalten-Reihenfolge). Der Besucher bekommt
+    /// std::type_identity<Sub>: der Achsen-Typ wird NIE instanziiert (die CRTP-Basis haelt ihren
+    /// Konstruktor protected -- leeres Dach, Anti-Runtime-Switch).
+    template <class Visitor>
+    static constexpr void for_each(Visitor&& visit) {
+        (visit(std::type_identity<Subs>{}), ...);
+    }
+
+    /// Die Labels in Listen-Reihenfolge -- ABGELEITET aus den Typen, nirgends wiederholt.
+    [[nodiscard]] static constexpr std::array<std::string_view, sizeof...(Subs)> labels() noexcept {
+        return {Subs::axis_label()...};
+    }
+};
 
 } // namespace comdare::cache_engine::measurement
