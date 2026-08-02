@@ -8,6 +8,17 @@
 //
 // A3 liefert NUR den Parser + den Sentinel; die Verdrahtung ans AnatomyVersionLines-POD (drei Zeiger+Count-Paare)
 // folgt in A4 (POD 88->136, Layout 4->5). header-only, C++23, rein consteval/constexpr (kein Runtime-Switch).
+//
+// A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix der Versionsbezifferung ("achse=algo@X.Y.Ze") markiert
+// einen EXPERIMENTELLEN Achsen-Algorithmus aus einem Pruefling. Im Entry-POD reist die Markierung im dafuer
+// vorgesehenen reserved-Feld (anatomy_module_abi_v1_decl.hpp: "0 (Ausrichtung / kuenftige Flags)") als BIT 0 --
+// kein sizeof-/Layout-Bruch am 48-Byte-Entry-POD, keine Entry-Layout-Versions-Folge. Ohne 'e' bleibt reserved == 0
+// -> der gesamte Bestand ist byte-identisch (golden-neutral).
+//
+// NAMENS-TOLERANZ (Owner-Nachtrag Q2 vom 02.08.2026): erweiterte HIERARCHISCHE Algorithmus-/Achsen-Namen nach dem
+// Muster "prt-art.memory.abc@1.0.0" sind zulaessig. Der Tokenizer teilt strikt an '=' (erstes) und '@' (erstes nach
+// dem '='), danach liest parse_dotted_semver -- ein '.' im NAMENS-Anteil VOR dem '@' ist damit transparenter
+// Namens-Bestandteil, ein '.' im VERSIONS-Anteil bleibt reiner Zahlen-Trenner (drei Zahlen, sonst Sentinel).
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1
 #include <cache_engine/measurement/algo_semver.hpp>        // parse_dotted_semver (X.Y.Z-Ruecklesung)
@@ -18,6 +29,15 @@
 #include <string_view>
 
 namespace comdare::cache_engine::abi {
+
+/// A13-M1: Bit 0 des AnatomyStampEntryV1::reserved-Feldes == "experimenteller Achsen-Algorithmus" ('e'-Suffix der
+/// Versionsbezifferung, Owner-E2). Die uebrigen 31 Bits bleiben 0/reserviert. EINZIGE Wahrheit dieser Belegung.
+inline constexpr std::uint32_t kStampEntryFlagExperimental = 1u << 0;
+
+/// Praedikat statt Bit-Fummelei am Aufruf-Ort (Konsumenten: Lager-Identitaet/Skip-Gate, spaeter G-E6/A2).
+[[nodiscard]] constexpr bool stamp_entry_is_experimental(AnatomyStampEntryV1 const& e) noexcept {
+    return (e.reserved & kStampEntryFlagExperimental) != 0u;
+}
 
 /// Zaehlt die ';'-getrennten Eintraege einer Stempel-Zeile. Leere Zeile -> 0 (kein Eintrag). Die gerenderten Zeilen
 /// (build_axis_version_stamp_line) haben nie ein Trailing-';', daher: Eintraege == 1 + Anzahl der ';'.
@@ -66,6 +86,8 @@ template <std::size_t N, std::size_t M>
             e.x = sv.x;
             e.y = sv.y;
             e.z = sv.z;
+            // A13-M1: das 'e'-Suffix wandert als Bit 0 ins reserved-Feld (ohne 'e' bleibt reserved == 0).
+            if (sv.experimental) e.reserved |= kStampEntryFlagExperimental;
         }
         if (idx < N) out[idx] = e;
         ++idx;
@@ -89,5 +111,26 @@ stamp_entries_ptr(std::array<AnatomyStampEntryV1, N> const& arr) noexcept {
     else
         return arr.data();
 }
+
+// -- A13-M1: CT-Selbstbeweis des Parsers (Experimental-Bit + Owner-Q2-Namens-Toleranz) -------------------------
+// Der Probe-Literal liegt bewusst NAMESPACE-SCOPE constexpr: nur so ueberleben die {ptr,len}-Sichten des
+// consteval-Ergebnisses als Konstant-Ausdruck (dieselbe K7b-3-Praezedenz wie im Makro-Aufrufer).
+namespace detail {
+inline constexpr char kStampEntryProbeLine[] = "prt-art.memory.abc=prt_patricia@2.3.4e;filter=bloom@1.0.0";
+inline constexpr auto kStampEntryProbe =
+    parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryProbeLine})>(kStampEntryProbeLine);
+
+static_assert(kStampEntryProbe.size() == 2, "Probe-Zeile hat genau zwei ';'-Segmente.");
+// Owner-Q2: hierarchischer Name mit Punkten VOR dem '@' bleibt EIN Achsen-Name (kein Versions-Anteil).
+static_assert(std::string_view(kStampEntryProbe[0].axis, kStampEntryProbe[0].axis_len) == "prt-art.memory.abc");
+static_assert(std::string_view(kStampEntryProbe[0].algorithm, kStampEntryProbe[0].algo_len) == "prt_patricia");
+static_assert(kStampEntryProbe[0].x == 2u && kStampEntryProbe[0].y == 3u && kStampEntryProbe[0].z == 4u);
+// A13-M1: 'e' -> Bit 0; ohne 'e' bleibt reserved sauber 0 (Bestands-Byte-Gleichheit).
+static_assert(stamp_entry_is_experimental(kStampEntryProbe[0]));
+static_assert(kStampEntryProbe[0].reserved == kStampEntryFlagExperimental);
+static_assert(!stamp_entry_is_experimental(kStampEntryProbe[1]));
+static_assert(kStampEntryProbe[1].reserved == 0u);
+static_assert(kStampEntryProbe[1].x == 1u && kStampEntryProbe[1].y == 0u && kStampEntryProbe[1].z == 0u);
+} // namespace detail
 
 } // namespace comdare::cache_engine::abi
