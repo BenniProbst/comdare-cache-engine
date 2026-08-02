@@ -46,8 +46,12 @@
 //   EBENE    := die KLAMMER-TIEFE, in der das entry steht: 0 == Haupt-Achse (der gesamte heutige
 //               Bestand, byte-unveraendert), 1 == Meta-Meta, 2 == Meta-Meta-Meta, ... Die Rekursion ist
 //               OFFEN (Layer-Modell D4 / Owner Q-D: kein festes drittes Level).
-// Ein group DIREKT hinter einem entry traegt dessen EIGENE Glieder (eine Ebene tiefer) -- die Zuordnung
-// Glied->Hub ist damit allein an der Klammerung ablesbar und braucht keinen Namens-Pfad.
+// EIN group ist IMMER ein regulaeres ';'-GESCHWISTER-Segment (nie ans vorige entry geklebt) -- die
+// Grammatik ist damit auf JEDER Ebene dieselbe, und die Zeile ist aus dem Entry-Array samt Ebenen
+// VERLUSTFREI rekonstruierbar. ZUORDNUNG: ein group traegt die Meta-Metas der Ebene, in der es steht --
+// auf ZEILEN-Ebene die der Realm-Zeile (Owner-E2: "ans Ende der Kette"), INNERHALB eines group die
+// Glieder des unmittelbar vorangehenden Geschwister-entry (Q-A: "ein Glied, das selbst Hub ist, behaelt
+// seine eigene Klammer"). Kein Namens-Pfad noetig.
 // ZWEI NAMENSRAEUME, keine Kollision (Owner-Nachtrag ~12:1x): die EBENE lebt in den KLAMMERN (hier), die
 // hierarchischen ALGORITHMUS-/Achsen-Namen ("prt-art.memory.abc", Owner-Q2) leben in den PUNKTEN VOR
 // dem '@'. Der Tokenizer unten fasst beides nie an derselben Stelle an.
@@ -353,7 +357,7 @@ static_assert(std::string_view(kStampEntryBracketProbe[2].axis, kStampEntryBrack
 
 // (3) OFFENE REKURSION (Layer-Modell D4 / Owner Q-D): die Klammer-ANZAHL kodiert die Ebene, ohne dass ein
 //     drittes Level irgendwo deklariert waere. Ein Glied, das selbst Hub ist, behaelt seine eigene Klammer.
-inline constexpr char kStampEntryNestedLine[] = "external_utils=code@1.0.0;[gpu=code@2.0.0[nvlink=code@3.0.0]]";
+inline constexpr char kStampEntryNestedLine[] = "external_utils=code@1.0.0;[gpu=code@2.0.0;[nvlink=code@3.0.0]]";
 inline constexpr auto kStampEntryNestedProbe =
     parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryNestedLine})>(kStampEntryNestedLine);
 

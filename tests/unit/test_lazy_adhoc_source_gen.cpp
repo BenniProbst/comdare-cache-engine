@@ -329,27 +329,29 @@ void check_measurement_stamp_wiring(std::vector<std::string> const& g320_ids) {
 void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids) {
     std::cout << "\n---- (f) K7b-2 Env-Bruecke: COMDARE_MEASUREMENT_COMBO -> Mengen-Stempel in der Quelle ----\n";
     namespace abi = ::comdare::cache_engine::abi;
-    // O-8 Schritt 9: jede nicht-leere Mess-Zeile fuehrt das load_framework-Segment EINMAL vorne -- auch die
-    // ueber die Combo-Legende gebaute. Alle drei Erwartungen hier sind aus dem Werkzeug-Output geankert.
-    // Einzel-Legende [wallclock] -> load_framework + genau EIN Tooling-Eintrag.
+    // A13-M2 (OP-3-Rueckbau, Owner-E2 "ans Ende der Kette" + Owner-Q1 Klammer-Form): jede nicht-leere
+    // Mess-Zeile fuehrt den load_framework-Anhang EINMAL -- GEKLAMMERT AM ENDE statt vorne. Alle Erwartungen
+    // hier sind aus dem Ist-Output des A13-M2-Laufs neu geankert.
+    // Einzel-Legende [wallclock] -> genau EIN Tooling-Eintrag + der Klammer-Anhang.
     check_eq("(f) legend [wallclock] -> Einzel-Stempel", abi::measurement_stamp_line_from_combo_legend("[wallclock]"),
-             std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0"});
+             std::string{"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]"});
     // Mehr-Token-Legende [wallclock,macro] -> MENGE (K7b-2): 2 Eintraege, ';'-getrennt (Eingabe-Reihenfolge).
     check_eq("(f) legend [wallclock,macro] -> Mengen-Stempel (2 Eintraege)",
              abi::measurement_stamp_line_from_combo_legend("[wallclock,macro]"),
-             std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0;"
-                         "measurement_tooling=macro@1.0.0"});
+             std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
+                         "[load_framework=ycsb@1.0.0]"});
     // [all] -> die VOLLE Vollmenge (Section 64-D1-B): == measurement_stamp_line_full_set(), 3 Eintraege {wc,macro,micro}.
     std::string const full = abi::measurement_stamp_line_full_set();
     check_eq("(f) legend [all] -> Vollmenge (== full_set)", abi::measurement_stamp_line_from_combo_legend("[all]"),
              full);
-    // Trenner-Zahl 2 -> 3: das load_framework-Segment bringt einen vierten Eintrag und damit einen dritten ';'.
-    check_true("(f) full_set traegt load_framework + wallclock+macro+micro (4 Eintraege, 3 Trenner)",
-               full.rfind("load_framework=ycsb@1.0.0", 0) == 0 &&
-                   full.find("measurement_tooling=wallclock@1.0.0") != std::string::npos &&
+    // Trenner-Zahl bleibt 3 (4 Eintraege), aber die ORDNUNG ist neu: Toolings zuerst, Meta-Meta geklammert
+    // am Ende. Die Legenden-KLAMMERN der Eingabe ("[all]") und die STEMPEL-Klammern sind zwei verschiedene
+    // Welten -- der Legenden-Parser sieht die Stempel-Klammer nie.
+    check_true("(f) full_set traegt wallclock+macro+micro + [load_framework] am Ende (4 Eintraege, 3 Trenner)",
+               full.rfind("measurement_tooling=wallclock@1.0.0", 0) == 0 &&
                    full.find("measurement_tooling=macro@1.0.0") != std::string::npos &&
                    full.find("measurement_tooling=micro@1.0.0") != std::string::npos &&
-                   std::count(full.begin(), full.end(), ';') == 3);
+                   full.ends_with(";[load_framework=ycsb@1.0.0]") && std::count(full.begin(), full.end(), ';') == 3);
     // Leere Legende (== "keine Legende gereicht") -> leer; die Vollmengen-Default-Semantik entscheidet der from_env-Zweig.
     check_true("(f) leere legend -> leer", abi::measurement_stamp_line_from_combo_legend("").empty());
 

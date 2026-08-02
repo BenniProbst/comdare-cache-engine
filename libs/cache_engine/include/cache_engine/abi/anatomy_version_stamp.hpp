@@ -144,8 +144,17 @@ template <class Comp>
 /// Meta-Meta-HAUPT-Achse des MESS-Realms -- sein Segment gehoert deshalb NUR in diese Zeile und NIE in
 /// die System- oder Organ-Zeile (RF-7: je Achsen-Typ EINE Array-Zeile).
 ///
-/// POSITION (OP-3, Manager-Entscheid): ERSTES Meta-Meta-Segment, VOR measurement_tooling -- die
-/// Bauplan-Vorgabe "load_framework = ERSTE Meta-Meta" auf die Segment-Ordnung uebertragen.
+/// POSITION -- OP-3-RUECKBAU (A13-M2, Owner-Entscheid E2 vom 02.08.2026): load_framework stand seit O-8
+/// Schritt 9 als ERSTES Segment VOR measurement_tooling (OP-3, Manager-Entscheid vom 27.07.2026, Quelle
+/// super docs/sessions/20260727-PLAN-o8-fenster-atomar-ultracode.md:781-783). Der Owner-Wortlaut vom
+/// 02.08.2026 verdraengt ihn: "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen oder
+/// Organ-Achsen gehoert, wird sie auch einfach dynamisch ANS ENDE DER KETTE in den bestehenden Zeilen
+/// angehaengt." load_framework IST die Meta-Meta-HAUPT-Achse des Mess-Realms (measurement_meta_meta_axis.hpp)
+/// und steht deshalb ab jetzt AM ENDE -- und zwar in derselben KLAMMER-Form wie die System-Meta-Metas
+/// (Owner-Q1): "measurement_tooling=<t>@X.Y.Z;[load_framework=<id>@X.Y.Z]".
+/// EINE Regel fuer alle Realms: waere das Mess-Meta-Meta ein klammerloses Segment, traege der Entry-POD es
+/// als Ebene 0 == Haupt-Achse -- ein Konsument (Lager-Identitaet/G-E6/A2) koennte es dann nicht mehr von
+/// einer Mess-HAUPT-Achse unterscheiden, waehrend er es im System-Realm sehr wohl kann.
 ///
 /// WARUM NUR BEI NICHT-LEERER ZEILE: eine leere Mess-Zeile heisst "kein Mess-Tooling einkompiliert",
 /// und die Makro-Materialisierung verlaesst sich darauf (measurement_line == "", measurement_len == 0).
@@ -159,6 +168,14 @@ template <class Comp>
     return {"load_framework", info.id, info.version};
 }
 
+/// A13-M2: der Mess-Meta-Meta-Klammer-Anhang. EINE Stelle fuer beide Ueberladungen (Einzel- und Mengen-Form)
+/// -- sonst existierte die Owner-E2-Ordnung zweimal und koennte driften (genau die O-8-Schritt-12-Falle).
+[[nodiscard]] inline std::string measurement_meta_meta_suffix() {
+    using ::comdare::cache_engine::measurement::AxisVersionEntry;
+    std::array<AxisVersionEntry, 1> const metas{{load_framework_stamp_entry()}};
+    return meta_meta_stamp_suffix_from(std::span<AxisVersionEntry const>{metas});
+}
+
 [[nodiscard]] inline std::string measurement_stamp_line(std::string_view tooling) {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
@@ -166,12 +183,14 @@ template <class Comp>
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
     // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur ungueltige
     // ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
-    // O-8 Schritt 9 (OP-3): load_framework steht als ERSTES Segment VOR measurement_tooling.
-    std::array<AxisVersionEntry, 2> const entries{{
-        load_framework_stamp_entry(),
+    // A13-M2 (OP-3-Rueckbau, Owner-E2): load_framework steht NICHT mehr vorne, sondern als KLAMMER-Anhang
+    // ANS ENDE.
+    std::array<AxisVersionEntry, 1> const entries{{
         {"measurement_tooling", tooling, ::comdare::cache_engine::measurement::tooling_version_for_id(tooling)},
     }};
-    return build_axis_version_stamp_line(entries);
+    std::string                           line = build_axis_version_stamp_line(entries);
+    append_meta_meta_suffix(line, measurement_meta_meta_suffix());
+    return line;
 }
 
 /// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
@@ -184,10 +203,10 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     std::vector<AxisVersionEntry> entries;
-    entries.reserve(toolings.size() + 1);
-    // O-8 Schritt 9 (OP-3): load_framework als ERSTES Segment -- aber nur, wenn die Zeile ueberhaupt
-    // entsteht. Die Leer-Semantik ("kein Mess-Tooling einkompiliert" => leere Zeile) bleibt unberuehrt;
-    // der Eintrag wird deshalb erst NACH der Filterung vorangestellt.
+    entries.reserve(toolings.size());
+    // A13-M2 (OP-3-Rueckbau, Owner-E2 "ans Ende der Kette"): load_framework wandert als KLAMMER-Anhang ans
+    // ZEILEN-ENDE -- aber nur, wenn die Zeile ueberhaupt entsteht. Die Leer-Semantik ("kein Mess-Tooling
+    // einkompiliert" => leere Zeile) bleibt unberuehrt; append_meta_meta_suffix laesst eine leere Zeile leer.
     for (std::string_view const t : toolings)
         if (!t.empty())
             // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
@@ -195,8 +214,9 @@ template <class Comp>
             entries.push_back(
                 {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
     if (entries.empty()) return {};
-    entries.insert(entries.begin(), load_framework_stamp_entry());
-    return build_axis_version_stamp_line(entries);
+    std::string line = build_axis_version_stamp_line(entries);
+    append_meta_meta_suffix(line, measurement_meta_meta_suffix());
+    return line;
 }
 
 /// measurement_stamp_line_full_set() -- K7b-2 (Section 64-D1-B): die VOLLE Mess-Tooling-Vollmenge

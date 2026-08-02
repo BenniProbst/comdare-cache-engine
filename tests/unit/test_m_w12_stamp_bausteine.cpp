@@ -322,7 +322,7 @@ TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
     EXPECT_EQ(std::string_view(se[2].axis, se[2].axis_len), std::string_view{"external_utils"});
 
     // (d) OFFENE REKURSION (Layer-Modell D4 / Owner Q-D): die zweite Ebene braucht keine Code-Zeile.
-    static constexpr char kNested[] = "external_utils=code@1.0.0;[gpu=code@2.0.0[nvlink=code@3.0.0]]";
+    static constexpr char kNested[] = "external_utils=code@1.0.0;[gpu=code@2.0.0;[nvlink=code@3.0.0]]";
     constexpr auto        ne = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kNested})>(kNested);
     static_assert(ne.size() == 3);
     EXPECT_EQ(abi::stamp_entry_meta_level(ne[0]), 0u);
@@ -344,26 +344,29 @@ TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
     }
 }
 
-TEST(MW12StampBausteine, MeasurementStampLineCarriesLoadFrameworkThenToolingMain) {
+TEST(MW12StampBausteine, MeasurementStampLineCarriesToolingMainThenLoadFrameworkKlammer) {
     // W12-A3 (Section 43, Section 47): der Mess-Stempel traegt die gewaehlte Mess-Tooling-HAUPT-Wahl als
     // Eintrag "measurement_tooling=<tooling>@X.Y.Z" -- Voll-Form, SEPARATE Welt zur .algos-Sig.
-    // O-8 Schritt 9 (K1-Anschluss, Scharfschaltung): DAVOR steht jetzt IMMER das load_framework-Segment.
-    // load_framework war bis Schritt 4 eine System-Haupt-Achse; mit dem Umzug in den Mess-Realm ist es das
-    // ERSTE Segment dieser Zeile geworden. Alle Erwartungen unten sind aus dem Werkzeug-Output des
-    // Fenster-Laufs geankert (Ist "load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0").
+    // A13-M2 (OP-3-RUECKBAU, Owner-Entscheid E2 vom 02.08.2026): load_framework stand seit O-8 Schritt 9 als
+    // ERSTES Segment davor (OP-3, Manager-Entscheid 27.07.). Der Owner-Wortlaut verdraengt ihn -- Meta-Metas
+    // werden "einfach dynamisch ans Ende der Kette in den bestehenden Zeilen angehaengt", und zwar in der
+    // Klammer-Form (Owner-Q1). load_framework ist die Meta-Meta-HAUPT-Achse des Mess-Realms und steht deshalb
+    // jetzt AM ENDE, geklammert. Neu geankert aus dem Ist-Output des A13-M2-Laufs.
     std::string const line = ::comdare::cache_engine::abi::measurement_stamp_line("wallclock");
-    EXPECT_EQ(line, std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0"});
-    // load_framework + EINE Tooling-Haupt-Achse -> genau EIN ';'-Trenner (Ablaufmethodik/Workloads sind
-    // UNTER-Achsen -> nie Bestandteil; die Zahl steigt also von 0 auf 1, nicht weiter).
+    EXPECT_EQ(line, std::string{"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]"});
+    // EINE Tooling-Haupt-Achse + der Klammer-Anhang -> genau EIN ';'-Trenner (Ablaufmethodik/Workloads sind
+    // UNTER-Achsen -> nie Bestandteil).
     EXPECT_EQ(std::count(line.begin(), line.end(), ';'), 1);
-    EXPECT_EQ(line.rfind("load_framework=ycsb@1.0.0", 0), 0u); // ERSTES Segment, nicht irgendwo
-    EXPECT_EQ(line.find("@v1"), std::string::npos);            // separate Welt zur .algos-Sig (X.Y.Z, nicht roh)
-    // Andere Tooling-Haupt-Wahlen materialisieren analog -- das load_framework-Segment bleibt konstant davor.
+    EXPECT_EQ(line.rfind("measurement_tooling=wallclock@1.0.0", 0), 0u); // ERSTES Segment ist jetzt das Tooling
+    EXPECT_TRUE(line.ends_with(";[load_framework=ycsb@1.0.0]")) << "line=" << line;
+    EXPECT_EQ(line.find("@v1"), std::string::npos); // separate Welt zur .algos-Sig (X.Y.Z, nicht roh)
+    // Andere Tooling-Haupt-Wahlen materialisieren analog -- der load_framework-Anhang bleibt konstant dahinter.
     EXPECT_EQ(::comdare::cache_engine::abi::measurement_stamp_line("macro"),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=macro@1.0.0"});
+              std::string{"measurement_tooling=macro@1.0.0;[load_framework=ycsb@1.0.0]"});
     EXPECT_EQ(::comdare::cache_engine::abi::measurement_stamp_line("micro"),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=micro@1.0.0"});
-    // Leere Wahl -> leere Zeile (ehrlich: kein Mess-Tooling einkompiliert).
+              std::string{"measurement_tooling=micro@1.0.0;[load_framework=ycsb@1.0.0]"});
+    // Leere Wahl -> leere Zeile (ehrlich: kein Mess-Tooling einkompiliert). AUCH der Klammer-Anhang entfaellt
+    // dann: eine Mess-Zeile ohne jedes Tooling ist ehrlich leer und nie ein einsamer Rahmen-Anhang.
     EXPECT_TRUE(::comdare::cache_engine::abi::measurement_stamp_line("").empty());
 }
 
@@ -371,25 +374,26 @@ TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
     // K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form -- N Tools -> N ';'-getrennte
     // measurement_tooling=<t>@1.0.0-Eintraege (Eingabe-Reihenfolge, Section-64-Vollmengen-Provenienz). Additive
     // span-Ueberladung; die Einzel-Form oben bleibt unveraendert (der [all]/from_env-LIVE-Pfad routet ueber die Menge).
-    // O-8 Schritt 9: auch die MENGEN-Form fuehrt das load_framework-Segment EINMAL vorne (nicht je Tool) --
-    // es ist eine Eigenschaft der Mess-Zeile, nicht des einzelnen Tooling-Eintrags. Aus Werkzeug-Output geankert.
+    // A13-M2 (OP-3-Rueckbau, Owner-E2/Q1): auch die MENGEN-Form fuehrt den load_framework-Anhang EINMAL --
+    // aber jetzt geklammert AM ENDE (nicht je Tool und nicht vorne). Er ist eine Eigenschaft der Mess-ZEILE,
+    // nicht des einzelnen Tooling-Eintrags. Neu geankert aus dem Ist-Output des A13-M2-Laufs.
     namespace abi                            = ::comdare::cache_engine::abi;
     std::array<std::string_view, 2> const tw = {"wallclock", "macro"};
     EXPECT_EQ(abi::measurement_stamp_line(std::span<std::string_view const>{tw}),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0;"
-                          "measurement_tooling=macro@1.0.0"});
+              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
+                          "[load_framework=ycsb@1.0.0]"});
     // Leere Tokens werden uebersprungen (ehrlich: kein Tool an der Stelle).
     std::array<std::string_view, 3> const gappy = {"wallclock", "", "micro"};
     EXPECT_EQ(abi::measurement_stamp_line(std::span<std::string_view const>{gappy}),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0;"
-                          "measurement_tooling=micro@1.0.0"});
-    // Leere Menge -> leere Zeile. AUCH das load_framework-Segment entfaellt dann: eine Mess-Zeile ohne jedes
-    // Tooling ist ehrlich leer und nicht ein einsames Rahmen-Segment.
+              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=micro@1.0.0;"
+                          "[load_framework=ycsb@1.0.0]"});
+    // Leere Menge -> leere Zeile. AUCH der load_framework-Anhang entfaellt dann: eine Mess-Zeile ohne jedes
+    // Tooling ist ehrlich leer und nicht ein einsamer Rahmen-Anhang.
     EXPECT_TRUE(abi::measurement_stamp_line(std::span<std::string_view const>{}).empty());
     // Die Vollmenge = das volle Registry-Angebot {wallclock,macro,micro} in Registry-Reihenfolge (Single-Source).
     EXPECT_EQ(abi::measurement_stamp_line_full_set(),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0;"
-                          "measurement_tooling=macro@1.0.0;measurement_tooling=micro@1.0.0"});
+              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
+                          "measurement_tooling=micro@1.0.0;[load_framework=ycsb@1.0.0]"});
     // SEPARATE Welt zur .algos-Sig: X.Y.Z-Voll-Form, NICHT die rohe "@v1".
     EXPECT_EQ(abi::measurement_stamp_line_full_set().find("@v1"), std::string::npos);
 }
@@ -527,11 +531,11 @@ TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     EXPECT_EQ(m::tooling_version_for_id("bogus"), std::string_view{"v0.0.0"}); // unbekannt -> Sentinel
 
     // (c) Sentinel-Render: ungueltige Tooling-id -> @0.0.0; gueltige bleiben @1.0.0 (render-neutral).
-    // Das load_framework-Segment (Schritt 9) steht auch hier vorne -- der Sentinel betrifft nur das Tooling-Glied.
+    // A13-M2: der load_framework-Anhang steht geklammert AM ENDE -- der Sentinel betrifft nur das Tooling-Glied.
     EXPECT_EQ(abi::measurement_stamp_line("bogus"),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=bogus@0.0.0"});
+              std::string{"measurement_tooling=bogus@0.0.0;[load_framework=ycsb@1.0.0]"});
     EXPECT_EQ(abi::measurement_stamp_line("wallclock"),
-              std::string{"load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0"});
+              std::string{"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]"});
 }
 
 // A3 (G2-1a): Entry-POD AnatomyStampEntryV1 (48B-Pin) + consteval count/parse_stamp_entries + parse_dotted_semver.
@@ -669,10 +673,13 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
         "memory_layout=l@1.0.0;allocator=a@1.0.0;prefetch=pf@1.0.0;concurrency=c@1.0.0;serialization=s@1.0.0;"
         "value_handle=v@1.0.0;index_organization=i@1.0.0;io_dispatch=io@1.0.0;migration_policy=mp@1.0.0;filter=f@1.0.0;"
         "queuing_q1=q1@1.0.0;queuing_q2=q2@1.0.0;persistence_target=pt@1.0.0"; // 18 Haupt-Achsen (A8.2)
-    static constexpr char kSystem[] =
-        "target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0"; // 3 (A3-Kern + A2-Rename)
-    static constexpr char kMeasure[] = "load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0;"
-                                       "measurement_tooling=macro@1.0.0;measurement_tooling=micro@1.0.0"; // 4 (K1/S9)
+    // A13-M2: BEIDE Nicht-Organ-Fixtures sind auf die Klammer-Welt nachgezogen (Owner-E2/Q1) -- System-Zeile
+    // 3 -> 4 Eintraege (Meta-Meta-Anhang), Mess-Zeile mit load_framework GEKLAMMERT AM ENDE statt vorne. Ein
+    // Fixture, der die alte Ordnung stehen laesst, liest sich fuer den Naechsten wie eine gueltige Referenz.
+    static constexpr char kSystem[]  = "target_isa=code@1.0.0;operating_system=code@1.0.0;"
+                                       "external_utils=code@1.0.0;[simd=code@1.0.0]"; // 3 + 1 Meta-Meta (A13-M2)
+    static constexpr char kMeasure[] = "measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
+                                       "measurement_tooling=micro@1.0.0;[load_framework=ycsb@1.0.0]"; // 3 + 1
 
     static constexpr auto kOE = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kOrgan})>(kOrgan);
     static constexpr auto kSE = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSystem})>(kSystem);
@@ -701,19 +708,42 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
     EXPECT_EQ(v.stamp_layout_version, 5u);
     EXPECT_EQ(v.organ_entry_count, 18u);
-    EXPECT_EQ(v.system_entry_count, 3u);
+    EXPECT_EQ(v.system_entry_count, 4u); // A13-M2: 3 Haupt-Achsen + 1 geklammerte Meta-Meta
     EXPECT_EQ(v.measurement_entry_count, 4u);
+    // A13-M2: die Meta-Meta-Eintraege reisen mit ihrer EBENE durch das POD -- ein Konsument unterscheidet
+    // Haupt-Achse und Meta-Meta ohne die Zeile erneut zu tokenisieren.
+    EXPECT_EQ(abi::stamp_entry_meta_level(v.system_entries[2]), 0u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(v.system_entries[3]), 1u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(v.measurement_entries[2]), 0u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(v.measurement_entries[3]), 1u);
+    for (std::uint64_t i = 0; i < v.organ_entry_count; ++i)
+        EXPECT_EQ(abi::stamp_entry_meta_level(v.organ_entries[i]), 0u)
+            << "die Organ-Zeile traegt heute KEINE Meta-Meta (leere Typliste, no-op). i=" << i;
 
+    // A13-M2: die Rekonstruktion faehrt die KLAMMER-Grammatik mit -- aus (Text, EBENE) je Eintrag entsteht
+    // die Zeile VERLUSTFREI zurueck. Das ist der eigentliche Beweis der Grammatik: haette der Renderer eine
+    // andere Trenner-Regel als der Parser, faellt genau hier die Gleichheit.
     auto const join = [](abi::AnatomyStampEntryV1 const* e, std::uint64_t n) {
-        std::string out;
+        std::string   out;
+        std::uint32_t prev = 0;
         for (std::uint64_t i = 0; i < n; ++i) {
-            if (i != 0) out += ';';
+            std::uint32_t const lvl = abi::stamp_entry_meta_level(e[i]);
+            if (i == 0) {
+                for (std::uint32_t k = 0; k < lvl; ++k) out += '[';
+            } else if (lvl > prev) {
+                for (std::uint32_t k = prev; k < lvl; ++k) out += ";[";
+            } else {
+                for (std::uint32_t k = lvl; k < prev; ++k) out += ']';
+                out += ';';
+            }
             out += std::string(e[i].axis, e[i].axis_len);
             out += '=';
             out += std::string(e[i].algorithm, e[i].algo_len);
             out += '@';
             out += std::to_string(e[i].x) + '.' + std::to_string(e[i].y) + '.' + std::to_string(e[i].z);
+            prev = lvl;
         }
+        for (std::uint32_t k = 0; k < prev; ++k) out += ']';
         return out;
     };
     EXPECT_EQ(join(v.organ_entries, v.organ_entry_count), std::string(v.organ_line, v.organ_len));
@@ -733,12 +763,13 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     namespace ceb = ::comdare::cache_engine::builder;
     namespace abi = ::comdare::cache_engine::abi;
     // Mess-Array-Zeile aus der Registry, X.Y.Z-gerendert (nicht die rohe v-Form).
-    // O-8 Schritt 12: mit fuehrendem load_framework-Segment -- die consteval-CEB-Fassung ist dem
-    // Schritt-9-Stand nachgezogen worden, damit der Drift-Guard darunter wieder Gleichheit sehen kann.
-    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"load_framework=ycsb@1.0.0;"
-                                                          "measurement_tooling=wallclock@1.0.0;"
+    // A13-M2 (OP-3-Rueckbau, Owner-E2/Q1): der ZWILLING ist symmetrisch nachgezogen -- load_framework steht
+    // als geklammerter Meta-Meta-Anhang AM ENDE. Genau dieser Header war der von O-8 Schritt 12 dokumentierte
+    // DRITTE Ableitungsweg; wer ihn beim Umbau vergisst, bekommt dieselbe Drift zurueck.
+    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"measurement_tooling=wallclock@1.0.0;"
                                                           "measurement_tooling=macro@1.0.0;"
-                                                          "measurement_tooling=micro@1.0.0"});
+                                                          "measurement_tooling=micro@1.0.0;"
+                                                          "[load_framework=ycsb@1.0.0]"});
     // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
     // keine Parallel-Ableitung (Section-64-Vollmengen-Provenienz teilt sich die Quelle).
     EXPECT_EQ(std::string{ceb::kCebMeasurementStamp}, abi::measurement_stamp_line_full_set());
@@ -749,8 +780,8 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
     std::string const stamp = ceb::ceb_version_stamp();
-    EXPECT_NE(stamp.find("ceb-measurement=load_framework=ycsb@1.0.0;measurement_tooling=wallclock@1.0.0"),
-              std::string::npos);
+    EXPECT_NE(stamp.find("ceb-measurement=measurement_tooling=wallclock@1.0.0"), std::string::npos);
+    EXPECT_NE(stamp.find(";[load_framework=ycsb@1.0.0];sha512="), std::string::npos) << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
 }

@@ -91,7 +91,15 @@ template <class M>
     out += algo_semver_string(M::axis_code_version); // X.Y.Z-Voll-Form (SEPARATE Welt zur .algos-Sig)
     // OFFENE REKURSION (D4/Q-D): kein Level-Zaehler, kein Maximum -- ein Glied, das `meta_metas` exponiert,
     // bekommt seine eigene Klammer, und zwar ohne dass hier eine Ebene benannt waere.
-    out += render_meta_meta_members(::comdare::cache_engine::measurement::meta_meta_members_of_t<M>{});
+    // Die eigene Klammer ist ein ';'-GESCHWISTER-Segment hinter dem Glied, nicht direkt angeklebt: nur so
+    // ist die Grammatik auf JEDER Ebene dieselbe (segment := entry | group) und die Zeile aus dem
+    // Entry-Array samt Ebenen VERLUSTFREI rekonstruierbar (Beweis: test_m_w12 A4-Round-Trip).
+    if (std::string const sub =
+            render_meta_meta_members(::comdare::cache_engine::measurement::meta_meta_members_of_t<M>{});
+        !sub.empty()) {
+        out += ';';
+        out += sub;
+    }
     return out;
 }
 

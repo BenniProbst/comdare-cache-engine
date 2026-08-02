@@ -11,14 +11,22 @@
 // den Fehler gefunden hat; abgeschwaecht wurde er nicht. Die Zeile bleibt golden-/binary_id-neutral (sie geht
 // in keine binary_id ein), aendert aber ihre eigene SHA-512-Provenienz kCebFingerprint und den CEB-Log-Kopf --
 // das ist die beabsichtigte Byte-Folge, nicht ein Nebeneffekt.
+//
+// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): der ZWILLING wird SYMMETRISCH nachgezogen --
+// load_framework steht nicht mehr vorne, sondern als KLAMMER-ANHANG ANS ENDE der Mess-Zeile
+// ("measurement_tooling=...;[load_framework=ycsb@1.0.0]"). Genau dieser Header ist der von O-8 Schritt 12
+// dokumentierte DRITTE Ableitungsweg; wer ihn beim Umbau der Mess-Ordnung vergisst, bekommt exakt dieselbe
+// Drift zurueck. Die Klammer-Zeichen kommen aus abi::kMetaMetaGroupOpen/Close (EINE Wahrheit ihrer
+// Schreibweise), die Ordnung aus diesem Kommentar -- und der Drift-Guard beweist beides.
 // Dazu eine eigene SHA-512-Provenienz-Zeile ueber diese Mess-Array-Zeile, via anatomy_fingerprint_hex mit leeren
 // organ/system/merge-Anteilen ("","",mess,"") -- die EINE K7b-Primitive wiederverwendet, keine zweite.
 //
 // Alles consteval (registry-abgeleitet, Compile-Zeit-konstant); nur die Ausgabe-Formatierung (ceb_version_stamp())
 // ist Runtime. Ausgabe im CEB-Log-Kopf (apps/cache_engine_builder). Rein additiv, golden-/binary_id-neutral.
 
-#include <cache_engine/abi/anatomy_fingerprint.hpp>                    // anatomy_fingerprint_hex (consteval SHA-512)
-#include <cache_engine/measurement/algo_semver.hpp>                    // parse_algo_semver (rohe "vX.Y.Z" -> {x,y,z})
+#include <cache_engine/abi/anatomy_fingerprint.hpp>    // anatomy_fingerprint_hex (consteval SHA-512)
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: kMetaMetaGroupOpen/Close (EINE Klammer-Wahrheit)
+#include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver (rohe "vX.Y.Z" -> {x,y,z})
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
 
@@ -59,14 +67,13 @@ namespace detail {
            + ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z) + ceb_flag_len(v);
 }
 /// consteval: Laenge der gerenderten Mess-Array-Zeile
-/// "load_framework=<id>@X.Y.Z;measurement_tooling=<id>@X.Y.Z;..." (ohne '\0').
+/// "measurement_tooling=<id>@X.Y.Z;...;[load_framework=<id>@X.Y.Z]" (ohne '\0').
+/// A13-M2: der Klammer-Anhang kostet ';' + '[' + Segment + ']' == Segment + 3 Zeichen.
 [[nodiscard]] consteval std::size_t ceb_measurement_stamp_len() noexcept {
     using ::comdare::cache_engine::measurement::kMeasurementToolingCount;
     using ::comdare::cache_engine::measurement::kMeasurementToolingRegistry;
     using ::comdare::cache_engine::measurement::parse_algo_semver;
     std::size_t n = 0;
-    // Leer-Semantik wie in Schritt 9: das Rahmen-Segment entsteht NUR, wenn ueberhaupt Tooling da ist.
-    if (kMeasurementToolingCount != 0) n += ceb_load_framework_segment_len() + 1; // + ';'
     for (std::size_t i = 0; i < kMeasurementToolingCount; ++i) {
         if (i != 0) ++n; // ';'
         n += std::string_view{"measurement_tooling="}.size();
@@ -75,12 +82,16 @@ namespace detail {
         auto const v = parse_algo_semver(kMeasurementToolingRegistry[i].version);
         n += ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z) + ceb_flag_len(v);
     }
+    // Leer-Semantik wie in Schritt 9: der Meta-Meta-Anhang entsteht NUR, wenn ueberhaupt Tooling da ist
+    // (eine sonst leere Mess-Zeile bleibt leer und wird nie zu einem einsamen Rahmen-Segment).
+    if (kMeasurementToolingCount != 0) n += ceb_load_framework_segment_len() + 3; // ';' + '[' + ']'
     return n;
 }
 } // namespace detail
 
 /// consteval: die gerenderte Mess-Array-Zeile als fixed char array (+ '\0'). X.Y.Z via parse_algo_semver -> keine
 /// Drift zur Tier-Binary-measurement_stamp_line. Single-Source: kMeasurementToolingRegistry.
+/// A13-M2: Reihenfolge == Toolings, danach der geklammerte load_framework-Anhang (Owner-E2/Q1).
 [[nodiscard]] consteval std::array<char, detail::ceb_measurement_stamp_len() + 1>
 ceb_measurement_stamp_array() noexcept {
     using ::comdare::cache_engine::measurement::kMeasurementToolingCount;
@@ -100,27 +111,6 @@ ceb_measurement_stamp_array() noexcept {
         } while (v != 0);
         for (std::size_t k = 0; k < d; ++k) out[p++] = tmp[d - 1 - k];
     };
-    // O-8 Schritt 12: das load_framework-Segment steht VORNE -- dieselbe Ordnung wie in
-    // abi::measurement_stamp_line (Schritt 9, OP-3: erstes Meta-Meta-Segment). Es entsteht nur bei
-    // nicht-leerer Tooling-Menge, damit die Leer-Zeile leer bleibt.
-    if (kMeasurementToolingCount != 0) {
-        using ::comdare::cache_engine::measurement::kMeasurementFrameworkRegistry;
-        auto const& fw = kMeasurementFrameworkRegistry[0];
-        put("load_framework=");
-        put(fw.id);
-        out[p++]      = '@';
-        auto const fv = parse_algo_semver(fw.version);
-        put_num(fv.x);
-        out[p++] = '.';
-        put_num(fv.y);
-        out[p++] = '.';
-        put_num(fv.z);
-        // A13-M1b-Fixup: Flag-Schwanz (heute no-op, Migration-sicher -- s. ceb_flag_len).
-        if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(fv.hardware); hw != '\0')
-            out[p++] = hw;
-        if (fv.experimental) out[p++] = 'e';
-        out[p++] = ';';
-    }
     for (std::size_t i = 0; i < kMeasurementToolingCount; ++i) {
         if (i != 0) out[p++] = ';';
         put("measurement_tooling=");
@@ -136,6 +126,30 @@ ceb_measurement_stamp_array() noexcept {
         if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(v.hardware); hw != '\0')
             out[p++] = hw;
         if (v.experimental) out[p++] = 'e';
+    }
+    // A13-M2 (OP-3-Rueckbau, Owner-E2 "ans Ende der Kette" + Owner-Q1 Klammer-Form): das load_framework-
+    // Segment steht als geklammerter Meta-Meta-Anhang AM ENDE -- dieselbe Ordnung wie in
+    // abi::measurement_stamp_line. Es entsteht nur bei nicht-leerer Tooling-Menge, damit die Leer-Zeile
+    // leer bleibt.
+    if (kMeasurementToolingCount != 0) {
+        using ::comdare::cache_engine::measurement::kMeasurementFrameworkRegistry;
+        auto const& fw = kMeasurementFrameworkRegistry[0];
+        out[p++]       = ';';
+        out[p++]       = ::comdare::cache_engine::abi::kMetaMetaGroupOpen;
+        put("load_framework=");
+        put(fw.id);
+        out[p++]      = '@';
+        auto const fv = parse_algo_semver(fw.version);
+        put_num(fv.x);
+        out[p++] = '.';
+        put_num(fv.y);
+        out[p++] = '.';
+        put_num(fv.z);
+        // A13-M1b-Fixup: Flag-Schwanz (heute no-op, Migration-sicher -- s. ceb_flag_len).
+        if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(fv.hardware); hw != '\0')
+            out[p++] = hw;
+        if (fv.experimental) out[p++] = 'e';
+        out[p++] = ::comdare::cache_engine::abi::kMetaMetaGroupClose;
     }
     out[p] = '\0';
     return out;
