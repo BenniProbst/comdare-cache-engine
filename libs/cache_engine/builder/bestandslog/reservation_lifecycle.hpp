@@ -23,8 +23,10 @@
 #include <charconv>
 #include <cstdint>
 #include <functional>
+#include <optional> // TP1FK1-B3: parse_seconds meldet "nicht deutbar" als nullopt (fail-closed)
 #include <string>
 #include <string_view>
+#include <system_error> // TP1FK1-B3: std::errc -- der Fehlercode-Teil der from_chars-Auswertung
 #include <utility>
 
 namespace comdare::cache_engine::builder::bestandslog {
@@ -43,10 +45,26 @@ inline constexpr double kTakeoverFactor  = 1.5;
     return std::string(buf.data(), ptr);
 }
 
-[[nodiscard]] inline double parse_seconds(std::string_view s) noexcept {
-    double v = 0.0;
-    std::from_chars(s.data(), s.data() + s.size(), v);
-    return v; // leer/nicht-numerisch -> 0.0
+// TP1FK1-B3 (fail-closed): die STRIKTE Inverse zu format_seconds. std::from_chars meldet BEIDES --
+// einen Fehlercode UND einen Endzeiger -- und beides wird hier ausgewertet:
+//   * ec != errc{}                  -> gar keine Zahl am Anfang ("", "murks")   -> nullopt
+//   * ptr != s.data() + s.size()    -> nachgestellter Muell ("1junk", "1 2")    -> nullopt
+// Vorher blieb der Endzeiger ungeprueft: "1junk" ergab 1.0 -- ein frei erfundener Wert, aus dem das
+// Takeover-Praedikat "ETA 1s" ableitete und eine LEBENDE Maschine nach 1,5 Sekunden enteignete. Ein
+// nicht deutbares Feld ist ab hier KEINE Kalibrierung (nullopt) und faellt auf den pro-forma-Zweig.
+[[nodiscard]] inline std::optional<double> parse_seconds(std::string_view s) noexcept {
+    double v             = 0.0;
+    auto const [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+    if (ec != std::errc{} || ptr != s.data() + s.size()) return std::nullopt;
+    return v;
+}
+
+// Die EINE Auslegung "traegt dieser Record eine BRAUCHBARE Kalibrierung?" -- strikt parsbar UND
+// positiv. Sie steht hier, weil sowohl das Praedikat unten als auch der Sweep-Konsument
+// (collect_takeable_reservations) dieselbe Frage stellen; zwei Formulierungen waeren zwei Wahrheiten.
+[[nodiscard]] inline bool has_usable_eta(std::string_view eta_s) noexcept {
+    auto const v = parse_seconds(eta_s);
+    return v.has_value() && *v > 0.0;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,8 +132,11 @@ inline void mark_released(BatchReservierung& r) noexcept { r.status = BatchStatu
                                                   std::int64_t pro_forma_bis_epoch_s,
                                                   std::int64_t now_epoch_s) noexcept {
     if (r.status != BatchStatus::offen) return false;
-    if (r.eta_s.empty()) return is_pro_forma_expired(pro_forma_bis_epoch_s, now_epoch_s);
-    return is_takeable_by_eta(parse_seconds(r.eta_s), last_update_epoch_s, now_epoch_s);
+    // TP1FK1-B3: der Zweig-Entscheid haengt an has_usable_eta, nicht mehr an "eta_s nicht leer" --
+    // ein unparsbares oder nicht positives Feld ist keine Kalibrierung und darf nie den ETA-Zweig
+    // waehlen (dort haette eine 0/erfundene ETA "sofort uebernehmbar" bedeutet).
+    if (!has_usable_eta(r.eta_s)) return is_pro_forma_expired(pro_forma_bis_epoch_s, now_epoch_s);
+    return is_takeable_by_eta(*parse_seconds(r.eta_s), last_update_epoch_s, now_epoch_s);
 }
 
 // ---------------------------------------------------------------------------
