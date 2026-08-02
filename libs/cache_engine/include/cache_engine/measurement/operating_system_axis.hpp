@@ -11,10 +11,22 @@
 // Identitaeten -- linux / windows / macos. Das sind FAMILIEN, keine Distributionen: die reale Flotte
 // (Windows 11 + Windows Server 2022, die Linux-Docker-Matrix, 2x macOS) faellt vollstaendig in diese
 // drei. Distribution und Version (debian-13/trixie, windows-server-2022, macOS-Version) sind
-// AUSDRUECKLICH KEINE Auspraegungen dieser Achse, sondern STEMPEL-VARIABLEN (analog der BUILD-Version
-// nach Ledger 69.2/70.6): je Maschine in <machines> deklariert (O-4b, Schritt 5), je Runner ermittelt.
-// Wer eine Distribution als vierte Auspraegung einfuegen will, hat den Schnitt missverstanden --
-// die Achse traegt die Klassen-Identitaet, die Stempel-Variable die Instanz.
+// AUSDRUECKLICH KEINE Auspraegungen dieser Achse: die Achse traegt die KLASSEN-Identitaet.
+//
+// WO DIE INSTANZ WOHNT (A14/OS-U1, Owner-Entscheid E3 vom 02.08.2026): in den DREI Unter-Achsen
+// os_version / kernel / build (operating_system_sub_axes.hpp; "build" traegt den Update-Zustand
+// mit -- Owner E-12: "Wir mergen den Update Zustand in Build"). Sie sind stage="runtime" mit
+// option_source="machine_resolved": die Werte werden je Maschine erhoben, die <machines>-Deklaration
+// (O-4b, Schritt 5) ist die ERWARTUNG dafuer, nicht die Quelle. Das ist die systematische Form dessen,
+// was OP-10 als "STEMPEL-VARIABLE" (analog der BUILD-Version nach Ledger 69.2/70.6) beschrieben hat --
+// kein Widerspruch zu OP-10, sondern seine Typ-Fassung.
+// Wer eine Distribution als vierte Auspraegung DIESER Achse einfuegen will, hat den Schnitt weiterhin
+// missverstanden: die Familie ist die Klasse, os_version die Instanz.
+//
+// STEMPEL-NEUTRAL (A-15 + Auflage K5): die drei Unter-Achsen sind RT-Unter-Achsen und stehen deshalb
+// NIE im Binary-Stempel. Weder ihre Einfuehrung noch ihre Werte duerfen
+// abi::kSystemAxisCodeVersions["operating_system"] bumpen -- ein Bump verschoebe den SHA512 aller
+// Neubauten gegen den Bestand und erzwaenge exakt den Neubau, den Owner-E3 ausschliesst.
 //
 // WIRKUNG: NUR Stempel-Identitaet (RF-6-Linie, wie target_isa): gleiche Kombination => gleicher
 // Stempel. KEINE Laufzeit-/Dispatch-Wirkung, KEIN Eintrag in der binary_id (binary_id="never" --
@@ -91,7 +103,9 @@ static_assert(OperatingSystemAxisConcept<WindowsOperatingSystem>);
 static_assert(OperatingSystemAxisConcept<MacosOperatingSystem>);
 static_assert(LinuxOperatingSystem::axis_label() == std::string_view{"operating_system"});
 // Katalog-Anker (OP-10): GENAU DREI Familien. Eine vierte Auspraegung bricht hier compile-time -- das
-// ist der Ort, an dem die Distro-als-Achse-Verwechslung auffaellt (Distro = Stempel-Variable).
+// ist der Ort, an dem die Distro-als-Achse-Verwechslung auffaellt. Die Distribution ist seit A14/OS-U1
+// die Unter-Achse os_version (operating_system_sub_axes.hpp), NIE eine vierte Familie hier. Erst eine
+// echte vierte FAMILIE (z.B. bsd) waere ein bewusstes CT-Ereignis an dieser Zeile.
 static_assert(kAllOperatingSystemIds.size() == 3);
 static_assert(DefaultOperatingSystem::os_family_id() == std::string_view{"linux"});
 static_assert(LinuxOperatingSystem::is_posix_family() && MacosOperatingSystem::is_posix_family() &&

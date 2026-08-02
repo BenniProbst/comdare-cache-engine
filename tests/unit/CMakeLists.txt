@@ -2011,6 +2011,21 @@ target_include_directories(test_striktheit_axis_dach_guard PRIVATE
 target_compile_definitions(test_striktheit_axis_dach_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 
+# Paket A14 / OS-U1 (Owner-Entscheid E3, 02.08.2026): Wachen-Test der DREI operating_system-Unter-Achsen
+# (os_version/kernel/build). Er ist zugleich die TU, in der operating_system_sub_axes.hpp im Default-Sweep
+# tatsaechlich uebersetzt wird -- ein nie inkludierter Header haette nur dekorative Wachen. Additiv,
+# golden/ABI-neutral; die Stempel-Neutralitaet (A-15/K5) wird als Gegenprobe mitgeprueft.
+comdare_add_test(test_a14_os_sub_axes_guard
+    SOURCES test_a14_os_sub_axes_guard.cpp)
+target_include_directories(test_a14_os_sub_axes_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_a14_os_sub_axes_guard PRIVATE Boost::mp11)
+target_compile_definitions(test_a14_os_sub_axes_guard PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
 # Fehlerklassifizierungs-Framework INC-29.0 (Task #29): reiner static_assert-Taxonomie-Guard (axis_error.hpp,
 # header-only Enums; kein boost, keine lib). Beweist D1/D2-Taxonomie + Count-Drift-Guards + CSV-Token-Vokabeln.
 comdare_add_test(test_axis_error_taxonomy

@@ -35,9 +35,20 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 
 /// Die EINE Tabelle der System-Achsen-Code-Versionen -- Reihenfolge == kanonische System-Stempel-Ordnung (Section 43,
 /// W12-A-1). Init "v1.0.0" (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
+///
+/// BUMP-WACHE operating_system (A14 / Auflage K5, Owner-Entscheid E3 vom 02.08.2026) -- KOMMENTAR-WACHE,
+/// bewusst kein static_assert, damit ein spaeterer, GEWOLLTER Bump nicht an dieser Datei haengenbleibt:
+/// Die Einfuehrung der drei operating_system-UNTER-Achsen (os_version/kernel/build,
+/// measurement/operating_system_sub_axes.hpp) darf den Eintrag "operating_system" NICHT bumpen. Die
+/// Unter-Achsen sind RT-Unter-Achsen (A-15: nie im Binary-Stempel); der in die Binary kompilierte
+/// Achsen-CODE aendert sich durch sie nicht. Ein Bump ginge in system_stamp_line ein, verschoebe den
+/// SHA512 ALLER Neubauten gegen den Bestand und liesse das Lager-Skip-Gate an den Alt-Binaries
+/// vorbeilaufen -- exakt die Folge, die Owner-E3 ausschliesst ("ansonsten muessen alle Binaries bei
+/// Einfuehrung neu gebaut werden"). Wer hier dennoch bumpt, tut das aus einem ANDEREN Grund und muss
+/// ihn benennen.
 inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystemAxisCodeVersions{{
     {"target_isa", "v1.0.0"},
-    {"operating_system", "v1.0.0"},
+    {"operating_system", "v1.0.0"}, // A14/K5: NICHT wegen der Unter-Achsen bumpen (Wache oben)
     {"external_utils", "v1.0.0"},
 }};
 
