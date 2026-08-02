@@ -24,7 +24,7 @@
 #include "axis_path_serialization.hpp" // kCompositionAxisNames (Slot-Reihenfolge der algo_sig)
 #include "registry_to_axis_levels.hpp" // axes26::T* Registry-Aliase (dieselbe Quelle wie build_all_axis_levels)
 
-#include <cache_engine/abi/anatomy_version_stamp.hpp>  // A13-M2: kOrganMetaMetas (Single-Source der Organ-Meta-Metas)
+#include <cache_engine/abi/anatomy_version_stamp.hpp>  // A13-M2: abi::OrganMetaMetas (Organ-Meta-Meta-Single-Source)
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
 #include <cache_engine/measurement/algo_semver.hpp>    // W12-A: algo_semver_string (X.Y.Z-Voll-Form, NUR fuer Stempel)
 
@@ -222,7 +222,7 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
     // A13-M2 (OP-11-Rueckbau, Owner-E2): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE -- an BEIDEN
     // Organ-Zeilen-Quellen (hier der REALE Emitter-Pfad, in abi::organ_stamp_line<Comp>() der Mock-Pfad).
     // Ein Anhang nur auf einer Seite waere exakt die O-8-Schritt-12-Falle ("uebersehener dritter
-    // Ableitungsweg"). kOrganMetaMetas ist heute LEER -> die Zeile bleibt BYTE-IDENTISCH (no-op), belegt
+    // Ableitungsweg"). abi::OrganMetaMetas ist heute LEER -> die Zeile bleibt BYTE-IDENTISCH (no-op), belegt
     // durch die unveraenderten 320er-Round-Trip- und CRC-Anker.
     ::comdare::cache_engine::abi::append_meta_meta_suffix(
         out, ::comdare::cache_engine::abi::meta_meta_stamp_suffix_from_members<

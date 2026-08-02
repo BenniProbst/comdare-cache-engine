@@ -67,10 +67,10 @@ using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
 /// SUPERSEDED durch den Owner-Wortlaut: "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen
 /// oder ORGAN-Achsen gehoert, wird sie auch einfach dynamisch ans Ende der Kette in den bestehenden Zeilen
 /// angehaengt." Die Organ-Zeile KANN ab jetzt Meta-Metas tragen -- als geklammerten Anhang an ihrem Ende,
-/// gespeist aus kOrganMetaMetas.
+/// gespeist aus abi::OrganMetaMetas.
 /// RF-7 BLEIBT GUELTIG: je Achsen-Typ EINE Array-Zeile. Eine Organ-Meta-Meta stempelt im ORGAN-Realm und
 /// NIE zeilen-fremd; load_framework bleibt in der Mess-Zeile, die System-Meta-Metas in der System-Zeile.
-/// HEUTE: kOrganMetaMetas ist LEER -> der Anhang ist leer -> diese Zeile ist BYTE-IDENTISCH (no-op).
+/// HEUTE: abi::OrganMetaMetas ist LEER -> der Anhang ist leer -> diese Zeile ist BYTE-IDENTISCH (no-op).
 ///
 /// BLOCKER (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
 /// (z.B. ObservableComposedContainer<...>) und tragen KEIN name()/algo_version -- nur die Registry-WRAPPER
@@ -108,7 +108,7 @@ template <class Comp>
                   "Luecke war A8.2: das Array stand auf 17 und liess persistence_target aus, wodurch "
                   "eine Drift dieser Achse im Stempel unsichtbar blieb.");
     std::string line = build_axis_version_stamp_line(entries);
-    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. kOrganMetaMetas ist heute leer
+    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. abi::OrganMetaMetas ist heute leer
     // -> append_meta_meta_suffix laesst die Zeile BYTE-IDENTISCH. Der Mechanismus ist damit gebaut, ohne
     // ein einziges Byte zu bewegen (Beweis: die Organ-Golden-Anker in test_m_w12 blieben unveraendert).
     append_meta_meta_suffix(line, meta_meta_stamp_suffix_from_members<OrganMetaMetas>());

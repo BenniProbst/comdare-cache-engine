@@ -180,7 +180,7 @@ static_assert(cem::X86_64TargetIsa::axis_label() != cem::Amd64HostIsaAxis::axis_
 // A13-M2 (Owner-Entscheid E2 vom 02.08.2026, OP-11-Rueckbau): die ORGAN-Realm-Meta-Meta-Wurzel. Owner-Wortlaut:
 // "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen oder ORGAN-Achsen gehoert ..." -- zwei der
 // drei Realms hatten einen Diskriminator, der dritte fehlte. Diese Beweis-Achse ist LOKAL (kein echter Traeger:
-// kOrganMetaMetas ist bewusst leer, die Organ-Zeile bleibt byte-identisch); sie belegt, dass der MECHANISMUS
+// abi::OrganMetaMetas ist bewusst leer, die Organ-Zeile bleibt byte-identisch); sie belegt, dass der MECHANISMUS
 // wohlgeformt ist und ein kuenftiger Traeger nur eingehaengt werden muss.
 namespace {
 struct ProofOrganMetaMeta final : cet::OrganMetaMetaAxis<ProofOrganMetaMeta> {

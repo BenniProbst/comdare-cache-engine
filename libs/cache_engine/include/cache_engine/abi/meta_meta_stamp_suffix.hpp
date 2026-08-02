@@ -127,7 +127,7 @@ template <class Members>
 
 /// meta_meta_stamp_suffix_from_members<Members>() -- der Klammer-Anhang aus einer bereits BENANNTEN
 /// Glied-Liste. Fuer Realms, die ihre Glieder als eigene Single-Source fuehren statt an einem Hub-TYP
-/// (Organ-Realm: kOrganMetaMetas, heute leer). Leere Liste -> leerer Anhang (byte-neutral, no-op).
+/// (Organ-Realm: abi::OrganMetaMetas, heute leer). Leere Liste -> leerer Anhang (byte-neutral, no-op).
 template <class Members>
 [[nodiscard]] inline std::string meta_meta_stamp_suffix_from_members() {
     return detail::render_meta_meta_members(Members{});

@@ -17,7 +17,7 @@
 // Mess-Zeile. Superseded ist ausschliesslich der Satz "die Organ-Zeile traegt gar keine".
 //
 // HEUTIGER ZUSTAND, ehrlich: es gibt KEINE Organ-Meta-Meta. Die Typliste (abi/anatomy_version_stamp.hpp:
-// kOrganMetaMetas) ist LEER, der Klammer-Anhang damit leer, die Organ-Zeile BYTE-IDENTISCH. Gebaut ist der
+// abi::OrganMetaMetas) ist LEER, der Klammer-Anhang damit leer, die Organ-Zeile BYTE-IDENTISCH. Gebaut ist der
 // MECHANISMUS -- die Erfuellung der Owner-Forderung E-10/nr798-B3org ("ORGAN-analoges Meta-Meta-Array +
 // erweiterbarer Compile-Raum-Stempel", super docs/sessions/20260726-SESSION-...-982-E01-E26.md:54-56): wer
 // eine Organ-Meta-Meta baut, haengt sie in die Typliste und sie stempelt, ohne dass eine Zeile Emitter-Code
