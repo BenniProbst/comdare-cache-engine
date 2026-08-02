@@ -38,8 +38,9 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 /// Die EINE Tabelle der System-Achsen-Code-Versionen -- Reihenfolge == kanonische System-Stempel-Ordnung (Section 43,
 /// W12-A-1). Init "v1.0.0" (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
 ///
-/// BUMP-WACHE operating_system (A14 / Bump-Verbots-Wache (Design-3/RISIKEN; K5 selbst = probe_id-Versionierung, OS-U3), Owner-Entscheid E3 vom 02.08.2026) -- KOMMENTAR-WACHE,
-/// bewusst kein static_assert, damit ein spaeterer, GEWOLLTER Bump nicht an dieser Datei haengenbleibt:
+/// BUMP-WACHE operating_system (A14 / Bump-Verbots-Wache (Design-3/RISIKEN; K5 selbst = probe_id-Versionierung, OS-U3), Owner-Entscheid E3 vom 02.08.2026) -- seit B6
+/// (Codex-Review 02.08.2026) HART als static_assert je Eintrag unter der Tabelle, nicht mehr nur als
+/// Kommentar (der einzige maschinelle Anker war zuvor der test_m_w12-Golden-String, also indirekt):
 /// Die Einfuehrung der drei operating_system-UNTER-Achsen (os_version/kernel/build,
 /// measurement/operating_system_sub_axes.hpp) darf den Eintrag "operating_system" NICHT bumpen. Die
 /// Unter-Achsen sind RT-Unter-Achsen (A-15: nie im Binary-Stempel); der in die Binary kompilierte
@@ -53,6 +54,43 @@ inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystem
     {"operating_system", "v1.0.0"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
     {"external_utils", "v1.0.0"},
 }};
+
+// -- B6 (Codex-Review 02.08.2026): die BUMP-WACHE ist ab hier MASCHINELL -------------------------------
+// Je Eintrag ein expliziter static_assert auf (Achse, Version) an SEINEM Index. Vorher stand die Auflage
+// NUR im Kommentar oben; der einzige maschinelle Anker war der test_m_w12-Golden-String -- also indirekt
+// (er faellt erst auf, wenn jemand den erwarteten Stempel MIT nachzieht). Der Golden-String bleibt als
+// ZWEITER Anker bestehen; diese Asserts sind der erste.
+//
+// BEWUSSTER BUMP == ASSERT MIT-AENDERN (DOPPEL-ABSICHT). Wer eine dieser Code-Versionen hebt, muss im
+// SELBEN Commit die Zeile hier nachziehen UND das BYTE-EREIGNIS DEKLARIEREN: die Version geht ueber
+// system_stamp_line in den System-Stempel, verschiebt den SHA512 ALLER Neubauten gegen den Bestand und
+// laesst damit das Lager-Skip-Gate an den Alt-Binaries vorbeilaufen. Zwei bewusste Handgriffe statt eines
+// versehentlichen -- genau die Folge, die Owner-E3 vom 02.08.2026 ausschliesst ("ansonsten muessen alle
+// Binaries bei Einfuehrung neu gebaut werden").
+//
+// Der INDEX ist mit gepinnt (nicht nur die Version): die Reihenfolge dieser Tabelle IST die kanonische
+// System-Stempel-Ordnung (Section 43 / W12-A-1). Eine reine Umsortierung waere sonst ein Byte-Ereignis,
+// das keine der Wachen sieht.
+//
+// MIGRATIONS-NAHT: im A13-M2/M3-Neuanker-Fenster ziehen die drei Literale auf "v1.0.0c" (Owner-Q3) --
+// DIESE DREI ASSERTS GEHEN IM SELBEN COMMIT MIT. Das ist Absicht: die Migration ist ein deklariertes
+// Byte-Ereignis, kein stiller Nachzug (Naht-Liste (a) in measurement/algo_semver.hpp).
+static_assert(kSystemAxisCodeVersions[0].axis == std::string_view{"target_isa"} &&
+                  kSystemAxisCodeVersions[0].version == std::string_view{"v1.0.0"},
+              "System-Achsen-Code-Version [0] target_isa != \"v1.0.0\": ein Bump ist ein STEMPEL-/SHA512-"
+              "BYTE-EREIGNIS (system_stamp_line -> Lager-/Skip-Identitaet). Wenn er GEWOLLT ist, diese Zeile "
+              "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
+static_assert(kSystemAxisCodeVersions[1].axis == std::string_view{"operating_system"} &&
+                  kSystemAxisCodeVersions[1].version == std::string_view{"v1.0.0"},
+              "System-Achsen-Code-Version [1] operating_system != \"v1.0.0\": die drei OS-UNTER-Achsen "
+              "(os_version/kernel/build) sind RT-Unter-Achsen (A-15) und duerfen diesen Eintrag NICHT bumpen "
+              "(Owner-E3 02.08.2026). Ein Bump aus einem ANDEREN Grund ist ein STEMPEL-/SHA512-BYTE-EREIGNIS: "
+              "diese Zeile im selben Commit mit-aendern und den Grund benennen (Doppel-Absicht).");
+static_assert(kSystemAxisCodeVersions[2].axis == std::string_view{"external_utils"} &&
+                  kSystemAxisCodeVersions[2].version == std::string_view{"v1.0.0"},
+              "System-Achsen-Code-Version [2] external_utils != \"v1.0.0\": ein Bump ist ein STEMPEL-/SHA512-"
+              "BYTE-EREIGNIS (system_stamp_line -> Lager-/Skip-Identitaet). Wenn er GEWOLLT ist, diese Zeile "
+              "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
 
 namespace detail {
 // A13-M1b-Fixup (Review-BEFUND-1): Wachen-Doppelung wie an Organ-/Mess-Registries -- die System-Achsen-
