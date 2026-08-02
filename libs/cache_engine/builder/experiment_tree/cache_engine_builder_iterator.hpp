@@ -1471,10 +1471,19 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             // TP1FK1-B10: die per-Binary-Ablage wird INVALIDIERT, BEVOR der Resume-Check des NAECHSTEN
             // Laufs sie faende. Der Stamp faellt (kein Resume-Anspruch mehr) und die result.csv traegt
             // genau die Marker-Zeile, die auch in die globale CSV geht -- statt der Erfolgs-Zeilen eines
-            // Laufs, dessen Binary es nicht mehr gibt. Das ist KEIN Messdaten-Verlust im Sinne der
-            // Doktrin: die Zeilen beschrieben eine Binary, die dieser Bau gerade als nicht herstellbar
-            // erwiesen hat -- sie weiter als gueltigen Messstand zu fuehren waere die Luege. Der
-            // Fehlschlag beim Schreiben ist selbst ein Befund und wird beziffert, nie verschluckt.
+            // Laufs, dessen Binary es nicht mehr gibt. Sie weiter als gueltigen Messstand zu fuehren
+            // waere die Luege. Der Fehlschlag beim Schreiben ist selbst ein Befund und wird beziffert,
+            // nie verschluckt.
+            //
+            // F-B10 Owner-Default (b) (02.08.), Doktrin "Messdaten nie loeschen": der alte Stand wird
+            // NICHT ueberschrieben, sondern ZUERST nach result.csv.stale UMBENANNT und bleibt damit als
+            // Rohdatum erhalten (ent-wertet, nicht entfernt -- der Resume-Check liest ausschliesslich
+            // result.csv + result.csv.stamp, ein .stale hat also keinen Resume-Anspruch). Erst danach
+            // schreibt dieser Zweig die nicht_gebaut-Marker-Zeile als NEUE result.csv.
+            // RANDFALL (deklariert): ein bereits vorhandenes result.csv.stale wird dabei ersetzt --
+            // fs::rename ueberschreibt. Das ist gewollt: beide Staende beschreiben DIESELBE, in diesem
+            // wie im vorherigen Lauf nicht baubare Binary; die Ablage traegt genau einen ent-werteten
+            // Vorgaenger-Stand statt einer unbegrenzt wachsenden Kette.
             if (cfg.per_binary_subdirs) {
                 std::filesystem::path const fehl_dir = b.output.parent_path();
                 if (!fehl_dir.empty()) {
@@ -1483,6 +1492,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                     // Stamp ZUERST weg (write-ZULETZT-Disziplin): ein Abbruch mitten drin darf nie eine
                     // Marke zuruecklassen, die auf eine halb geschriebene CSV zeigt.
                     std::filesystem::remove(fehl_dir / "result.csv.stamp", fec);
+                    // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, ist rename ein
+                    // No-Op ueber den error_code -- kein throw, der Marker wird trotzdem geschrieben.
+                    std::error_code rec;
+                    if (std::filesystem::exists(fehl_dir / "result.csv", rec))
+                        std::filesystem::rename(fehl_dir / "result.csv", fehl_dir / "result.csv.stale", rec);
                     bool marker_geschrieben = false;
                     {
                         std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
@@ -1496,7 +1510,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                         std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
                                   << b.binary_id << "' nicht_gebaut-Marker NICHT in "
                                   << (fehl_dir / "result.csv").string()
-                                  << " geschrieben -- der Stamp ist entfernt, ein Folgelauf misst also neu\n"
+                                  << " geschrieben -- der Stamp ist entfernt und der Alt-Stand liegt als "
+                                     "result.csv.stale, ein Folgelauf misst also neu\n"
                                   << std::flush;
                 }
             }

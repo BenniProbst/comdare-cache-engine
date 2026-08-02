@@ -373,11 +373,16 @@ int main() {
             check_true("(6a) result.csv.stamp bleibt stehen", fs::exists(bin_dir / "result.csv.stamp", ec));
             check_true("(6a) result.csv bleibt der alte Stand",
                        datei_text(bin_dir / "result.csv").find(kAltMarke) != std::string::npos);
+            check_true("(6a) kein result.csv.stale -- ent-wertet wird NUR im Bau-Fehler-Zweig",
+                       !fs::exists(bin_dir / "result.csv.stale", ec));
         }
 
         // (6b) DER BEFUND: derselbe alte Stand, aber der Compile scheitert -> KEIN Resume, sondern der
-        //      nicht_gebaut-Marker ERSETZT die stale Erfolgs-CSV, und der Stamp faellt (kein Resume-
-        //      Anspruch im Folgelauf mehr).
+        //      nicht_gebaut-Marker TRITT AN DIE STELLE der stale Erfolgs-CSV, und der Stamp faellt (kein
+        //      Resume-Anspruch im Folgelauf mehr).
+        //      F-B10 Owner-Default (b) (02.08.), Doktrin "Messdaten nie loeschen": der alte Stand ist
+        //      dabei NICHT weg, sondern liegt ent-wertet als result.csv.stale -- geprueft wird also
+        //      BEIDES: er ist aus der gelesenen result.csv verschwunden UND in der .stale erhalten.
         {
             ex::LazyRunConfig cfg6b        = mach_cfg(base / "b10_fehler");
             fs::path const    bin_dir      = lege_altstand(cfg6b);
@@ -398,10 +403,14 @@ int main() {
             check_true("(6b) result.csv.stamp ist WEG (kein Resume-Anspruch mehr)",
                        !fs::exists(bin_dir / "result.csv.stamp", ec));
             std::string const csv_neu = datei_text(bin_dir / "result.csv");
-            check_true("(6b) der alte Erfolgs-Stand steht NICHT mehr in der per-Binary-CSV",
-                       csv_neu.find(kAltMarke) == std::string::npos);
-            check_true("(6b) stattdessen die nicht_gebaut-Marker-Datei",
+            check_true("(6b) die per-Binary-CSV traegt jetzt die nicht_gebaut-Marker-Zeile",
                        csv_neu.find("nicht_gebaut") != std::string::npos);
+            check_true("(6b) der alte Erfolgs-Stand ist aus der resume-gelesenen result.csv geraeumt",
+                       csv_neu.find(kAltMarke) == std::string::npos);
+            check_true("(6b) er ist aber ERHALTEN: result.csv.stale existiert (Messdaten nie loeschen)",
+                       fs::exists(bin_dir / "result.csv.stale", ec));
+            check_true("(6b) und traegt genau den alten Erfolgs-Stand",
+                       datei_text(bin_dir / "result.csv.stale").find(kAltMarke) != std::string::npos);
             check_true("(6b) der Bau-Fehler ist klassifiziert geloggt (Nie-stumm)",
                        log.find("Compiler-Compiler-Fehler") != std::string::npos);
 
