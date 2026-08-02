@@ -5,6 +5,8 @@
 #include <cache_engine/abi/anatomy_fingerprint.hpp>   // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
 #include <cache_engine/abi/anatomy_stamp_entries.hpp> // A3: count/parse_stamp_entries + AnatomyStampEntryV1
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>               // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/measurement/external_utils_family_axis.hpp>   // A13-M2: ExternalUtilsHub (System-Realm)
 #include <cache_engine/abi/system_axis_code_versions.hpp>            // A2: kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // A2: version-Feld + tooling_version_for_id
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
@@ -250,8 +252,12 @@ TEST(MW12StampBausteine, SystemStampLineIsStaticSystemAxisAlgoVersions) {
     // werden: compiler und scheduling sind KEINE System-Haupt-Achsen mehr, extension_hardware heisst seit
     // A2 external_utils, und load_framework ist in den MESS-Realm umgezogen (K1) -- es steht deshalb nicht
     // mehr in dieser Zeile, sondern als erstes Segment der Mess-Zeile (siehe die Mess-Tests unten).
+    // A13-M2 (Owner-E2 + Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen haengt jetzt der KLAMMER-ANHANG der
+    // System-Meta-Metas -- heute "[simd=code@1.0.0]". Der Trenner-Anker steigt deshalb BEWUSST von 2 auf 3
+    // (drei Haupt-Achsen + ein Klammer-Anhang == VIER Eintraege). Neu geankert aus dem Ist-Output des
+    // A13-M2-Laufs, nicht aus der Zaehlung von Hand.
     std::string const line = ::comdare::cache_engine::abi::system_stamp_line();
-    EXPECT_EQ(std::count(line.begin(), line.end(), ';'), 2); // 3 System-Haupt-Achsen -> 2 Trenner
+    EXPECT_EQ(std::count(line.begin(), line.end(), ';'), 3); // 3 Haupt-Achsen + 1 Klammer-Anhang -> 3 Trenner
     EXPECT_EQ(line.rfind("target_isa=code@1.0.0", 0), 0u);
     EXPECT_NE(line.find(";operating_system=code@1.0.0"), std::string::npos);
     EXPECT_NE(line.find(";external_utils=code@1.0.0"), std::string::npos);
@@ -261,6 +267,81 @@ TEST(MW12StampBausteine, SystemStampLineIsStaticSystemAxisAlgoVersions) {
     EXPECT_EQ(line.find("extension_hardware="), std::string::npos);
     EXPECT_EQ(line.find("load_framework="), std::string::npos);
     EXPECT_EQ(line.find("@v1"), std::string::npos); // separate Welt zur .algos-Sig
+    // A13-M2: der Anhang steht ANS ENDE der Kette (Owner-E2) und ist geklammert (Owner-Q1) -- NICHT als
+    // Punkt-Pfad "external_utils.simd=" (die verworfene Design-Empfehlung) und NICHT vor den Haupt-Achsen.
+    EXPECT_TRUE(line.ends_with(";[simd=code@1.0.0]")) << "line=" << line;
+    EXPECT_EQ(line.find("external_utils.simd"), std::string::npos)
+        << "Punkt-Pfad-Form ist VERWORFEN (Owner-Q1 = Klammer-Form). line=" << line;
+    EXPECT_EQ(std::count(line.begin(), line.end(), '['), 1);
+    EXPECT_EQ(std::count(line.begin(), line.end(), ']'), 1);
+}
+
+// A13-M2 (Owner-Antwort Q1 vom 02.08.2026, verbatim): "Q1 - Wie empfohlen nach Klammern (derzeit auch so
+// geplant, bitte nachlesen)." Die Klammer-Anzahl kodiert die EBENE (Q-A-Auflage, hardware_meta_meta_axis.hpp
+// Kopf). Hier: Renderer und consteval-Parser treffen sich -- was die Zeile schreibt, liest der POD zurueck.
+TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // (a) Der Renderer: der System-Hub liefert genau seine Typlisten-Glieder, geklammert.
+    EXPECT_EQ(abi::meta_meta_stamp_suffix<m::ExternalUtilsHub>(), std::string{"[simd=code@1.0.0]"});
+    // Leerer Hub (ein Blatt ist kein Hub) -> LEERER Anhang, kein "[]": daran haengt die Byte-Neutralitaet
+    // des heute leeren Organ-Realms.
+    EXPECT_TRUE(abi::meta_meta_stamp_suffix<m::SimdExternalUtilsFamily>().empty());
+    // Die ENTRY-getriebene Form (Mess-Realm: die Wahl kommt aus der Registry, nicht aus dem Typ) schreibt
+    // dieselbe Klammer ueber dieselbe Stelle.
+    std::array<m::AxisVersionEntry, 1> const lf{{{"load_framework", "ycsb", "v1.0.0"}}};
+    EXPECT_EQ(abi::meta_meta_stamp_suffix_from(std::span<m::AxisVersionEntry const>{lf}),
+              std::string{"[load_framework=ycsb@1.0.0]"});
+    EXPECT_TRUE(abi::meta_meta_stamp_suffix_from(std::span<m::AxisVersionEntry const>{}).empty());
+
+    // (b) append_meta_meta_suffix: ANS ENDE; leere Zeile bleibt leer; leerer Anhang laesst die Zeile gleich.
+    std::string line = "a=b@1.0.0";
+    abi::append_meta_meta_suffix(line, "[c=d@2.0.0]");
+    EXPECT_EQ(line, std::string{"a=b@1.0.0;[c=d@2.0.0]"});
+    std::string leer;
+    abi::append_meta_meta_suffix(leer, "[c=d@2.0.0]");
+    EXPECT_TRUE(leer.empty()) << "eine leere Realm-Zeile darf nie ein einsames Rahmen-Segment bekommen";
+    std::string unveraendert = "a=b@1.0.0";
+    abi::append_meta_meta_suffix(unveraendert, "");
+    EXPECT_EQ(unveraendert, std::string{"a=b@1.0.0"});
+
+    // (c) Der consteval-Parser liest die reale System-Zeile mit den EBENEN zurueck (Klammer-Tiefe == Ebene).
+    static constexpr char kSys[] =
+        "target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0;[simd=code@1.0.0]";
+    constexpr auto se = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSys})>(kSys);
+    static_assert(se.size() == 4, "3 Haupt-Achsen + 1 geklammerte Meta-Meta == 4 Eintraege.");
+    EXPECT_EQ(se.size(), std::size_t{4});
+    EXPECT_EQ(abi::stamp_entry_meta_level(se[0]), 0u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(se[2]), 0u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(se[3]), 1u);
+    EXPECT_TRUE(abi::stamp_entry_is_meta_meta(se[3]));
+    EXPECT_FALSE(abi::stamp_entry_is_meta_meta(se[2]));
+    EXPECT_EQ(std::string_view(se[3].axis, se[3].axis_len), std::string_view{"simd"});
+    EXPECT_EQ(std::string_view(se[3].algorithm, se[3].algo_len), std::string_view{"code"});
+    EXPECT_EQ(se[3].x, 1u);
+    // Die Klammern gehoeren NIE in einen Namen -- sonst waere der Anhang ein Namens-Praefix statt einer Ebene.
+    EXPECT_EQ(std::string_view(se[2].axis, se[2].axis_len), std::string_view{"external_utils"});
+
+    // (d) OFFENE REKURSION (Layer-Modell D4 / Owner Q-D): die zweite Ebene braucht keine Code-Zeile.
+    static constexpr char kNested[] = "external_utils=code@1.0.0;[gpu=code@2.0.0[nvlink=code@3.0.0]]";
+    constexpr auto        ne = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kNested})>(kNested);
+    static_assert(ne.size() == 3);
+    EXPECT_EQ(abi::stamp_entry_meta_level(ne[0]), 0u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(ne[1]), 1u);
+    EXPECT_EQ(abi::stamp_entry_meta_level(ne[2]), 2u);
+    // Die Ebenen sind im reserved-Feld paarweise verschieden (sonst waeren zwei Ebenen im POD gleich).
+    EXPECT_NE(ne[0].reserved, ne[1].reserved);
+    EXPECT_NE(ne[1].reserved, ne[2].reserved);
+    // Die drei Bit-Gruppen ueberlappen NICHT: Bit 0 ('e') / Bits 1-2 (HW-Flag) / Bits 3-5 (Ebene).
+    EXPECT_EQ(abi::kStampEntryFlagExperimental & abi::kStampEntryMetaLevelMask, std::uint32_t{0});
+    EXPECT_EQ(abi::kStampEntryHwFlagMask & abi::kStampEntryMetaLevelMask, std::uint32_t{0});
+
+    // (e) Die KLAMMERLOSE Bestands-Zeile bleibt Ebene 0 und reserved == 0 -- die Erweiterung ist byte-neutral.
+    static constexpr char kPlain[] = "search_algo=k_ary@1.0.0;filter=bloom@2.3.4";
+    constexpr auto        pe = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kPlain})>(kPlain);
+    for (auto const& x : pe) {
+        EXPECT_EQ(abi::stamp_entry_meta_level(x), 0u);
+        EXPECT_EQ(x.reserved, std::uint32_t{0});
+    }
 }
 
 TEST(MW12StampBausteine, MeasurementStampLineCarriesLoadFrameworkThenToolingMain) {
@@ -429,8 +510,12 @@ TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     // Der frueher hier stehende "Neutralitaets-Anker" (byte-identisch zur alten v1-Hartkodierung) ist mit dem
     // A3-Rueckbau gegenstandslos: die Zeile SOLL sich geaendert haben. Sie ist aus dem Werkzeug-Output des
     // Fenster-Laufs neu geankert und bindet jetzt die Drei-Achsen-Ordnung.
-    EXPECT_EQ(abi::system_stamp_line(),
-              std::string{"target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0"});
+    // A13-M2 (Owner-E2 + Q1): NEU GEANKERT -- hinter den drei Haupt-Achsen steht jetzt der Meta-Meta-
+    // KLAMMER-ANHANG "[simd=code@1.0.0]". Das ist der beabsichtigte Byte-Wechsel der System-Zeile (und damit
+    // des Fingerprints ALLER kuenftigen Binaries), nicht eine Drift: vor Voll-Bau-4 existiert kein
+    // schuetzenswerter Bestand, das eine Neuanker-Fenster ist genau hier.
+    EXPECT_EQ(abi::system_stamp_line(), std::string{"target_isa=code@1.0.0;operating_system=code@1.0.0;"
+                                                    "external_utils=code@1.0.0;[simd=code@1.0.0]"});
 
     // (b) Mess-Tooling-Version-Feld + id-Lookup.
     for (auto const& t : m::kMeasurementToolingRegistry) EXPECT_EQ(t.version, std::string_view{"v1.0.0"});

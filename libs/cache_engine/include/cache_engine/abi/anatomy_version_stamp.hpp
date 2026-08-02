@@ -12,8 +12,10 @@
 
 #pragma once
 
-#include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
-#include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>             // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/abi/system_axis_code_versions.hpp>          // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/measurement/axis_version_stamp.hpp>         // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/measurement/external_utils_family_axis.hpp> // A13-M2: ExternalUtilsHub (System-Meta-Meta-Glieder)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 9: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
@@ -93,19 +95,32 @@ template <class Comp>
 /// (perm_compile kennt die Zelle) ergaenzt die Zellwerte via Compile-Define -> DANN ist die Zeile komplett,
 /// ohne den Emitter zu entblinden. Format identisch zur Organ-Zeile ("achse=algo@X.Y.Z"); Algorithmus-Marker
 /// "code" = die statische Code-Identitaet der System-Achse.
+///
+/// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
+/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0]", also VIER Eintraege statt
+/// drei. Die Glieder kommen aus der EINEN Typliste ExternalUtilsHub::meta_metas (keine zweite Liste); die
+/// EBENE steckt in der Klammer-Tiefe, nicht im Namen. Owner-E2 woertlich: Meta-Metas werden "einfach dynamisch
+/// ans Ende der Kette in den bestehenden Zeilen angehaengt" -- keine Sonderzeile, kein Sonderfeld.
+/// BYTE-FOLGE (beabsichtigt, nicht Nebeneffekt): die System-Zeile aendert sich fuer JEDE Binary -> alle
+/// kuenftigen Fingerprints/Lager-Keys verschieben sich. Das ist der geplante M2-Anteil des einen
+/// Fingerprint-Global-Shifts VOR Voll-Bau-4 (vorher existiert kein schuetzenswerter Bestand).
 [[nodiscard]] inline std::string system_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     // A2 (G2-4 Schritt 3): die Achsen + Code-Versionen aus der Single-Source system_axis_code_versions.hpp
     // (frueher hartkodiert als {"<achse>","code","v1"}); "code" bleibt der Achsen-Marker, die Version ist je
-    // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt jetzt GENAU DREI Segmente statt fuenf -- die
+    // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt GENAU DREI HAUPT-Achsen-Segmente statt fuenf -- die
     // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
     // wurde die Hartkodierung damals aufgeloest.
     // Render-neutral: "v1.0.0" -> "1.0.0" wie zuvor "v1" -> "1.0.0".
     std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
     for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
         entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
-    return build_axis_version_stamp_line(entries);
+    std::string line = build_axis_version_stamp_line(entries);
+    // A13-M2: der Meta-Meta-Klammer-Anhang ANS ENDE. Single-Source der Glieder == ExternalUtilsHub::meta_metas
+    // (external_utils_family_axis.hpp:149) -- ein spaeteres gpu/fpga/npu-Glied erscheint hier ohne Edit.
+    append_meta_meta_suffix(line, meta_meta_stamp_suffix<::comdare::cache_engine::measurement::ExternalUtilsHub>());
+    return line;
 }
 
 /// measurement_stamp_line(tooling) -- die kMeasurementAxisVersionLine (Section 43, Section 47: Mess-Tooling == HAUPT,

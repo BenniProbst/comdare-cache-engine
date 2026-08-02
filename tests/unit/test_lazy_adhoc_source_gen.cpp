@@ -131,6 +131,15 @@ void check_stamp_injected(std::vector<std::string> const& g320_ids) {
     check_true("(a2) System-Stempel-Achse target_isa=code@ eingebettet",
                ls.find("target_isa=code@") != std::string::npos);
     check_true("(a2) System-Stempel traegt KEIN compiler= mehr (A3-Kern)", ls.find("compiler=") == std::string::npos);
+    // A13-M2 (Owner-E2 + Q1 vom 02.08.2026): der Meta-Meta-KLAMMER-ANHANG reist bis in den emittierten
+    // Modul-Quelltext. NEU GEANKERT: ohne diese Wache bliebe (a2) auch dann gruen, wenn der Anhang im
+    // Emitter-Pfad verloren ginge -- der Stempel waere dann in der Binary blind fuer die Meta-Metas.
+    check_true("(a2) Meta-Meta-Klammer-Anhang [simd=code@1.0.0] im emittierten Quelltext",
+               ls.find(";[simd=code@1.0.0]") != std::string::npos);
+    check_true("(a2) Klammer-Form, NICHT die verworfene Punkt-Pfad-Form (Owner-Q1)",
+               ls.find("external_utils.simd") == std::string::npos);
+    // Die Klammern sind C-literal-sicher -- sie duerfen im emittierten .cpp NIE escaped auftauchen.
+    check_true("(a2) Klammern ohne Escaping emittiert", ls.find("\\[") == std::string::npos);
 }
 
 // -- (b) Nicht-320 golden-N ids: lazy Gen nicht-leer + Werte-Round-Trip ------------------------------------
