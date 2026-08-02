@@ -1171,6 +1171,14 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // denen der Maschinen-Kanal (Bestandslog-Done-Records) ebenfalls schweigt (storage-INERT).
         // Die Plan-Zeile steht VOR dem Bau: lager=0/zu_bauen==gesamt, weil ohne Praedikat nicht
         // gefiltert wird (keine erfundene Lager-Zahl).
+        //
+        // GELTUNGSBEREICH (bewusst, nicht versehentlich): planer_driven_active haengt an provision_only,
+        // also faehrt AUCH der pruef_only-Lauf und der Mess-Lauf durch diesen Zweig -- beide fuehren
+        // real einen provision_all (im Resume-Modus) aus, und phase=bau benennt genau den. Der Nutzen
+        // ist diagnostisch: im pruef_only-Lauf MUSS gebaut_neu=0 stehen. Steht dort eine Zahl > 0, hat
+        // der Pruef-Prozess Binaries NEU gebaut, die der Lager-Bau-Filter zuvor uebersprungen hatte --
+        // die stille Negierung des Lager-Skips (G-A2-Wechselwirkung) waere damit im Trace SICHTBAR,
+        // statt erst am ETA-Ende aufzufallen.
         std::cerr << marker_kopf(kMarkePlanTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", lauf_fenster)
                   << " gesamt=" << indices.size() << " lager=0"
                   << " zu_bauen=" << indices.size() << "\n"
