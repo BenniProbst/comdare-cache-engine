@@ -49,8 +49,12 @@ using Klasse  = cem::CompilerCompilerErrorClass;
 
 static int g_fail = 0;
 
+// Interne Bindung (static) fuer beide Helfer: seit der FK-0-Registrierung uebersetzt der Test unter dem
+// Projekt-Warnsatz (COMDARE_set_default_warnings, u.a. -Wmissing-declarations). Ein Helfer mit externer
+// Bindung und ohne vorherige Deklaration warnt dort -- der Hand-Bau (-Wall) sah das nicht. static ist
+// hier die sachlich richtige Bindung: beide Helfer leben nur in dieser einen Uebersetzungseinheit.
 template <typename A, typename B>
-void check_eq(char const* what, A const& got, B const& want) {
+static void check_eq(char const* what, A const& got, B const& want) {
     bool const ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
     if (!ok) {
@@ -60,7 +64,7 @@ void check_eq(char const* what, A const& got, B const& want) {
     std::cout << "\n";
 }
 
-void check_true(char const* what, bool cond) {
+static void check_true(char const* what, bool cond) {
     std::cout << (cond ? "  [OK]  " : "  [ERR] ") << what << "\n";
     if (!cond) ++g_fail;
 }
