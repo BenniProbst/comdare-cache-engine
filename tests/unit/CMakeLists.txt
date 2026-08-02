@@ -4186,3 +4186,19 @@ target_compile_definitions(test_fk1_nicht_gebaut_marker PRIVATE
 add_test(NAME test_fk1_nicht_gebaut_marker COMMAND test_fk1_nicht_gebaut_marker)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_fk1_nicht_gebaut_marker)
 set_tests_properties(test_fk1_nicht_gebaut_marker PROPERTIES LABELS "fehlerklassen;standalone;measured")
+
+# E-04-P1 (Slice-Kanal, Marker-Familie v2, Owner-KERN "live sehen ... exakt WELCHE ... noch offen"):
+# Guard der Zeilen-Grammatik des Live-Fortschritts-Kanals. Tragende Aussage: lane=/zelle=/fenster=
+# sind Pflichtfelder und der Aggregator-Schluessel ist das TUPEL (zelle, fenster) -- der Guard weist
+# negativ nach, dass fenster= allein zwei Perms EINER Lane verschmelzen wuerde. Die Tee-Filter-
+# Erwartung wird aus kSliceMarkerTraceMarken abgeleitet (Lehre "gruene Tests zementieren alte
+# Ordnung"). slice_marker.hpp ist std-only -> minimaler Include-Satz, kein Achsen-/Katalog-Zug.
+add_executable(test_e04_slice_marker "test_e04_slice_marker.cpp")
+target_compile_features(test_e04_slice_marker PRIVATE cxx_std_23)
+target_include_directories(test_e04_slice_marker PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+add_test(NAME test_e04_slice_marker COMMAND test_e04_slice_marker)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e04_slice_marker)
+set_tests_properties(test_e04_slice_marker PROPERTIES LABELS "e04;slice_kanal;standalone")
