@@ -129,6 +129,22 @@ inline constexpr std::size_t kBuildCellStatusCount = 2;
     return "failed";
 }
 
+/// A15/FK-1: LOG-Etikett je D2-Status -- das Gegenstueck zu error_class_label/infra_error_label/
+/// hardware_probe_label fuer die Mess-Domaene. Es ist bewusst NICHT der Zell-Token: der Zell-Token
+/// bildet NotApplicable und SourceUnavailable BEIDE auf "n/a" ab (so soll die CSV lesen), im Log muss
+/// aber unterscheidbar bleiben, ob eine Achse fuer diese Binary sinnlos war oder ob die Mess-Quelle
+/// fehlte -- sonst klassifiziert das Log nichts, sondern wiederholt nur die Zelle. Unbekannt ->
+/// "sample_status_unbekannt" (eigener Fallback; "unbekannt" ist bereits doppelt vergeben).
+[[nodiscard]] constexpr std::string_view sample_status_label(SampleStatus s) noexcept {
+    switch (s) {
+        case SampleStatus::Ok: return "mess_ok";
+        case SampleStatus::NotApplicable: return "nicht_anwendbar";
+        case SampleStatus::SourceUnavailable: return "quelle_nicht_verfuegbar";
+        case SampleStatus::Failed: return "mess_fehler";
+    }
+    return "sample_status_unbekannt";
+}
+
 /// CSV-Zell-Token je Zulassungs-Status (RF-2). "gesperrt" = die Perm wurde NICHT gemessen, weil sie auf
 /// dieser Maschine nicht zugelassen ist -- eine D1-Aussage. Unbekannt -> "gesperrt" (sicherer Default in
 /// dieselbe Richtung wie das D2-Pendant: lieber sichtbar-nicht-gemessen als eine stille Zahl).
@@ -218,6 +234,10 @@ inline constexpr std::size_t kHardwareProbeErrorClassCount = 4;
         if (t == error_class_label(static_cast<CompilerCompilerErrorClass>(i))) return false;
     for (std::size_t i = 0; i < kSampleStatusCount; ++i)
         if (t == sample_status_token(static_cast<SampleStatus>(i))) return false;
+    // A15/FK-1: die D2-LOG-Etiketten sind ein eigenes Vokabular neben den Zell-Tokens und muessen
+    // ebenso gegen alles andere disjunkt bleiben (sonst liest ein Log-Grep eine fremde Domaene mit).
+    for (std::size_t i = 0; i < kSampleStatusCount; ++i)
+        if (t == sample_status_label(static_cast<SampleStatus>(i))) return false;
     for (std::size_t i = 0; i < kAdmissionStatusCount; ++i)
         if (t == admission_status_token(static_cast<AdmissionStatus>(i))) return false;
     // A15/FK-1: die Bau-Status-Tokens laufen aus demselben Grund mit wie die Zulassungs-Tokens -- sie
@@ -342,6 +362,27 @@ static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_vi
 static_assert(sample_status_token(SampleStatus::SourceUnavailable) == std::string_view{"n/a"});
 static_assert(sample_status_token(SampleStatus::Ok) != sample_status_token(SampleStatus::Failed));
 
+// -- A15/FK-1: die D2-LOG-Etiketten -- Drift-Wache + die Unterscheidung, die der Zell-Token NICHT hat -
+static_assert(sample_status_label(static_cast<SampleStatus>(kSampleStatusCount)) ==
+                  std::string_view{"sample_status_unbekannt"},
+              "Drift: hinter dem Count liegt ein etikettierter SampleStatus (Log-Seite)");
+// Der Kern dieses Vokabulars: n/a-Zelle ja, n/a-LOG nein. Waeren diese beiden Etiketten gleich, koennte
+// die Lade-/Dock-Naht nicht mehr melden, WARUM eine Zelle leer blieb.
+static_assert(sample_status_label(SampleStatus::NotApplicable) != sample_status_label(SampleStatus::SourceUnavailable));
+static_assert(sample_status_token(SampleStatus::NotApplicable) == sample_status_token(SampleStatus::SourceUnavailable),
+              "Die Zell-Sicht bleibt bewusst zusammengefasst -- nur das Log differenziert.");
+static_assert(sample_status_label(SampleStatus::Ok) != sample_status_label(SampleStatus::Failed));
+// Log-Etikett und Zell-Token duerfen nie verwechselbar sein (ein Log-Grep darf keine Zelle treffen).
+static_assert(sample_status_label(SampleStatus::Failed) != sample_status_token(SampleStatus::Failed));
+static_assert(sample_status_label(SampleStatus::SourceUnavailable) !=
+              sample_status_token(SampleStatus::SourceUnavailable));
+static_assert(sample_status_label(SampleStatus::SourceUnavailable) !=
+              hardware_probe_label(HardwareProbeErrorClass::QuelleFehlt));
+static_assert(sample_status_label(SampleStatus::SourceUnavailable) !=
+              hardware_probe_label(HardwareProbeErrorClass::QuelleUnlesbar));
+static_assert(sample_status_label(SampleStatus::SourceUnavailable) ==
+              std::string_view{"quelle_nicht_verfuegbar"}); // zementiert: die Lade-/Dock-Naht loggt es woertlich
+
 // -- A15/FK-1: die Bau-Status-Taxonomie, BEIDE Drift-Richtungen + die DREIFACH-Disjunktheit ---------
 static_assert(std::is_same_v<std::underlying_type_t<BuildCellStatus>, std::uint8_t>);
 static_assert(std::is_trivially_copyable_v<BuildCellStatus>);
@@ -432,5 +473,7 @@ static_assert(!probe_label_ist_disjunkt(infra_error_label(InfraErrorClass::Artef
 // eine leere Zusicherung (die Wache muss das neue Vokabular auch wirklich ablehnen).
 static_assert(!probe_label_ist_disjunkt(build_cell_status_token(BuildCellStatus::NichtGebaut)));
 static_assert(!probe_label_ist_disjunkt(build_cell_status_token(BuildCellStatus::Gebaut)));
+static_assert(!probe_label_ist_disjunkt(sample_status_label(SampleStatus::SourceUnavailable)));
+static_assert(!probe_label_ist_disjunkt(sample_status_label(SampleStatus::Failed)));
 
 } // namespace comdare::cache_engine::measurement
