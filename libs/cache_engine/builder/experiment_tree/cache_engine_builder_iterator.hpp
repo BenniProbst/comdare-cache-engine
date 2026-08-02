@@ -1365,16 +1365,16 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // Bauplan §8: der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur (leer => == Prefix, Ist).
         std::string const binary_resume_stamp =
             b.algo_sig.empty() ? resume_stamp_prefix : (resume_stamp_prefix + "|algos=" + b.algo_sig);
-        // Mess-RESUME (#139 + Audit K8): Resume-Check VOR dem b.ok()-Gate. Vollstaendig+aktuell => Binary uebersprungen,
-        // ihre Zeilen unveraendert uebernommen -- auch bei Build-Fehler (sonst stille CSV-Luecke). Stale => Neu-Messung.
-        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
-            std::string resumed_rows;
-            if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
-                oc.resumed_csv_rows = std::move(resumed_rows);
-                oc.resumed_binaries = 1;
-                return oc; // Resume-Skip: kein Progress (wie das frueherer continue-vor-fire_progress)
-            }
-        }
+        // TP1FK1-B10 (Codex-Befund, BLOCK): der BAU-FEHLER-ZWEIG STEHT VOR DEM RESUME-KURZSCHLUSS.
+        //
+        // Frueher lief der Resume-Check zuerst -- ausdruecklich "auch bei Build-Fehler, sonst stille
+        // CSV-Luecke". Seit A15/FK-1 gibt es die Luecke nicht mehr: der Fehlerzweig schreibt eine ehrliche
+        // nicht_gebaut-Marker-Zeile. Damit kehrte sich die Reihenfolge ins Gegenteil um: eine Binary, die
+        // sich HEUTE NICHT MEHR BAUEN LAESST, uebernahm die ERFOLGS-CSV eines frueheren Laufs und der
+        // Marker kam nie zustande. Der naechste Lauf faende dieselbe CSV samt gueltigem Stamp erneut --
+        // ein Bau-Fehler konnte so beliebig lange hinter alten Messwerten verschwinden. (Ein reiner
+        // Wiedereinstieg ist davon nicht betroffen: eine versions-aktuelle Binary wird vom Orchestrator
+        // als b.ok()+skipped gemeldet und laeuft weiter durch den Resume-Zweig unten.)
         if (!b.ok()) {
             // d1-log (D1): den Bau-Fehler KLASSIFIZIERT deklarieren (Infra ODER Compiler-Compiler), Harness MISST WEITER.
             namespace cm               = ::comdare::cache_engine::measurement;
@@ -1392,8 +1392,52 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             // nichts gemessen) und progress_eligible bleibt false (die Zelle erreicht die Mess-Naht nie).
             LazyMeasuredRow marker = make_marker_row(b.binary_id);
             marker.build_status    = cm::BuildCellStatus::NichtGebaut;
+            // TP1FK1-B10: die per-Binary-Ablage wird INVALIDIERT, BEVOR der Resume-Check des NAECHSTEN
+            // Laufs sie faende. Der Stamp faellt (kein Resume-Anspruch mehr) und die result.csv traegt
+            // genau die Marker-Zeile, die auch in die globale CSV geht -- statt der Erfolgs-Zeilen eines
+            // Laufs, dessen Binary es nicht mehr gibt. Das ist KEIN Messdaten-Verlust im Sinne der
+            // Doktrin: die Zeilen beschrieben eine Binary, die dieser Bau gerade als nicht herstellbar
+            // erwiesen hat -- sie weiter als gueltigen Messstand zu fuehren waere die Luege. Der
+            // Fehlschlag beim Schreiben ist selbst ein Befund und wird beziffert, nie verschluckt.
+            if (cfg.per_binary_subdirs) {
+                std::filesystem::path const fehl_dir = b.output.parent_path();
+                if (!fehl_dir.empty()) {
+                    std::error_code fec;
+                    std::filesystem::create_directories(fehl_dir, fec);
+                    // Stamp ZUERST weg (write-ZULETZT-Disziplin): ein Abbruch mitten drin darf nie eine
+                    // Marke zuruecklassen, die auf eine halb geschriebene CSV zeigt.
+                    std::filesystem::remove(fehl_dir / "result.csv.stamp", fec);
+                    bool marker_geschrieben = false;
+                    {
+                        std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
+                        if (mf) {
+                            mf << lazy_csv_header() << format_csv_row(marker);
+                            mf.flush();
+                            marker_geschrieben = mf.good();
+                        }
+                    }
+                    if (!marker_geschrieben)
+                        std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                  << b.binary_id << "' nicht_gebaut-Marker NICHT in "
+                                  << (fehl_dir / "result.csv").string()
+                                  << " geschrieben -- der Stamp ist entfernt, ein Folgelauf misst also neu\n"
+                                  << std::flush;
+                }
+            }
             oc.rows.push_back(std::move(marker));
-            return oc; // Build-Fehler UND nicht resumebar -> KEINE Messung, aber ein sichtbarer Datensatz
+            return oc; // Build-Fehler -> KEINE Messung, aber ein sichtbarer Datensatz (Zeile + Ablage)
+        }
+        // Mess-RESUME (#139 + Audit K8): Vollstaendig+aktuell => Binary uebersprungen, ihre Zeilen unveraendert
+        // uebernommen. Stale => Neu-Messung. TP1FK1-B10: erreicht wird der Zweig nur noch fuer b.ok()-Binaries
+        // (gebaut ODER versions-aktuell uebersprungen) -- fuer eine EXISTIERENDE Binary ist der resumierte
+        // Stand die Wahrheit, fuer eine nicht herstellbare war er es nie.
+        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
+            std::string resumed_rows;
+            if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
+                oc.resumed_csv_rows = std::move(resumed_rows);
+                oc.resumed_binaries = 1;
+                return oc; // Resume-Skip: kein Progress (wie das frueherer continue-vor-fire_progress)
+            }
         }
 
         // (2) LADEN: DLL -> IAnatomyBase* -> Sub-Interfaces via Dock-Vertrag. AnatomyModuleLoader::load ist thread-safe
