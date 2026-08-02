@@ -23,7 +23,8 @@
 #include "planner/experiment_plan_director.hpp" // ExperimentPlanDirector / IPlanBuilder / PlanTextBuilder / RegistryTrio-Annotation
 #include "planner/plan_legend.hpp"              // W10-A: das dreistufige Legenden-Namensschema (Single-Source)
 #include "validate_profile.hpp"                 // read_axis_registry_trio / RegistryTrio
-#include "xml_config_parser/xml_config_parser.hpp" // XmlConfigParser / ThesisProfile / ExperimentProfile
+#include "xml_config_parser/xml_config_parser.hpp"  // XmlConfigParser / ThesisProfile / ExperimentProfile
+#include <builder/experiment_tree/slice_marker.hpp> // E-04-P1: kSliceMarkerTraceMarken (Tee-Filter-Single-Source)
 
 #include <gtest/gtest.h>
 
@@ -59,6 +60,7 @@ namespace {
 namespace cx      = comdare::builder::xml;
 namespace tlz     = comdare::cache_engine::thesis_lazy;
 namespace planner = comdare::cache_engine::planner;
+namespace bex     = comdare::cache_engine::builder::experiment; // E-04-P1: Marken der Marker-Familie v2
 namespace fs      = std::filesystem;
 
 // CountingBuilder — ConcreteBuilder, der Mess-Kombinationen + Perms + Schritte je Perm zaehlt (strukturelle
@@ -1693,16 +1695,28 @@ TEST(TierCiYamlBuilder, BatchJobsCarryCancelTrapAndHeartbeatTee) {
     // demontiert sich zuerst (kein Re-Entry-Loop), dann kill -- -$$ (eigene Gruppe: bash-Loop+Driver+Compiler).
     EXPECT_EQ(count_occurrences(yaml, "trap 'trap - TERM INT; kill -- -$$ 2>/dev/null' TERM INT"), total_batches)
         << "jeder Batch-Job beginnt den work-Block mit dem #29-Cancel-Trap (keine Waisen)";
-    // #27 Heartbeat-tee: Process-Substitution 2> >(tee -a <log> | grep -F '[heartbeat]' >&2) -- an den LOG-umgeleiteten
+    // #27 Heartbeat-tee: Process-Substitution 2> >(tee -a <log> | grep -F -e ... >&2) -- an den LOG-umgeleiteten
     // Treiber-Invocations (Build-Window + Pruef im Build-Batch, Release-Mess im Mess-Batch). Presence-Wache (>=1).
     std::size_t const tee_count = count_occurrences(yaml, "2> >(tee -a \"$LOGDIR/perm");
     EXPECT_GT(tee_count, 0u)
         << "Treiber-Detail via Process-Substitution (nicht Pipe -> Exit-Code des Treibers bleibt der Wahrheitswert)";
-    EXPECT_GT(count_occurrences(yaml, "grep --line-buffered -F '[heartbeat]' >&2"), 0u)
-        << "NUR die [heartbeat]-Zeilen wandern zusaetzlich in den Job-Trace (Trace-Hygiene)";
-    // Symmetrie: so viele Heartbeat-Filter wie tee-Redirects (jede getee'te Invocation traegt beide Haelften).
-    EXPECT_EQ(tee_count, count_occurrences(yaml, "grep --line-buffered -F '[heartbeat]' >&2"))
-        << "jede tee-Invocation traegt genau EINEN Heartbeat-Filter";
+    // E-04-P1 (Teil 1c, MIGRIERT): der Filter laesst jetzt [heartbeat] PLUS die Marken der Marker-Familie v2
+    // durch. Die Erwartung wird aus bex::kSliceMarkerTraceMarken ABGELEITET, nicht handgelistet -- eine vierte
+    // Marke bricht diesen Pin sofort, statt still am Job-Trace vorbeizulaufen (Lehre: gruene Tests zementieren
+    // alte Ordnung). Der Filter-Anfang (-F -e '[heartbeat]') bleibt der unveraenderte Trace-Hygiene-Kern.
+    std::string erwarteter_filter = "grep --line-buffered -F -e '[heartbeat]'";
+    for (std::string_view const marke : bex::kSliceMarkerTraceMarken)
+        erwarteter_filter += " -e '[" + std::string{marke} + "]'";
+    erwarteter_filter += " >&2";
+    EXPECT_GT(count_occurrences(yaml, erwarteter_filter), 0u)
+        << "der Tee-Filter fuehrt [heartbeat] + JEDE Marke der Marker-Familie v2 (sonst waere der Kanal stumm)";
+    // Symmetrie: so viele Filter wie tee-Redirects (jede getee'te Invocation traegt beide Haelften).
+    EXPECT_EQ(tee_count, count_occurrences(yaml, erwarteter_filter))
+        << "jede tee-Invocation traegt genau EINEN (vollstaendigen) Marker-Filter";
+    // NEGATIV: der alte, marker-blinde Filter darf NICHT mehr vorkommen -- sonst liefe eine Invocation weiter
+    // mit der Vor-E-04-P1-Liste und ihre Fortschritts-Zeilen blieben im Artefakt-Log haengen.
+    EXPECT_EQ(count_occurrences(yaml, "grep --line-buffered -F '[heartbeat]' >&2"), 0u)
+        << "kein Rest des marker-blinden Ein-Muster-Filters";
     // Review-Fix (Offset-Kollaps): JEDE getee'te Invocation truncated ihr LOG ZUERST explizit (: > <log>) und schreibt
     // DANN im APPEND-Modus (>> <log> + tee -a). O_APPEND-Writes sind atomar ans Dateiende -> stdout ueberschreibt keine
     // per tee angehaengten stderr-/[FEHLER-TESTAT]-Zeilen mehr. Truncate-Zahl == Append-Zahl == tee-Zahl.
@@ -1711,6 +1725,73 @@ TEST(TierCiYamlBuilder, BatchJobsCarryCancelTrapAndHeartbeatTee) {
     EXPECT_EQ(count_occurrences(yaml, ">> \"$LOGDIR/perm"), tee_count)
         << "die Treiber-Invocation schreibt stdout im APPEND-Modus (>>), NICHT O_TRUNC (kein Offset-Kollaps mit tee "
            "-a)";
+}
+
+// (E-04-P1) SliceKanalMarkerFamilyV2Emission: die Emissions-Seite des Live-Fortschritts-Kanals.
+//   Der Owner-KERN verlangt "live sehen ... ob der CacheEngineBuilder Orchestrator gebaut wird und exakt WELCHE
+//   Tier-Binary Rekombinationen und WIE VIELE davon noch offen sind". Der Treiber liefert die Fenster-Zahlen
+//   ([PLAN-TESTAT]/[BILANZ-TESTAT], eigener Iterator-Anker); die Emission liefert die drei Bezugsgroessen, ohne
+//   die eine Fenster-Zeile nicht einordenbar waere: die Lane als Vertrag (COMDARE_LANE), die Gesamt-Zahl der
+//   Fenster + Perms im Batch-KOPF und den Rest-Zaehler offen= je Schritt-Testat.
+TEST(TierCiYamlBuilder, SliceKanalMarkerFamilyV2Emission) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // (a) LANE-VERTRAG: je Batch-Job (2 Build + 2 Mess) genau EIN export COMDARE_LANE mit dem Lane-Namen des
+    //     Jobs. Der Treiber raet die Lane nie -- der emittierende Planer sagt sie.
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_LANE=\"amd\""), 2u)
+        << "amd: Build-Batch + Mess-Batch exportieren ihre Lane";
+    EXPECT_EQ(count_occurrences(yaml, "export COMDARE_LANE=\"intel\""), 2u)
+        << "intel: Build-Batch + Mess-Batch exportieren ihre Lane";
+
+    // (b) BATCH-KOPF: die Fenster-Gesamtzahl ist Shell-arithmetisch (byte-deterministisch, kein Planer-Literal --
+    //     TOTAL ist erst zur Laufzeit bekannt), die Perm-Zahl ein Planer-Literal (er kennt seine Lane-Perms).
+    EXPECT_EQ(count_occurrences(yaml, "fenster_gesamt=$(( (TOTAL + SLICE - 1) / SLICE ))"), 2u)
+        << "je Build-Batch EINE Fenster-Gesamtzahl im KOPF (Aufrundung, kein Ganzzahl-Abschnitt)";
+    EXPECT_NE(yaml.find("[BATCH-BAU] ceb=[all] lane=amd"), std::string::npos) << "KOPF-Grammatik unveraendert";
+    EXPECT_EQ(count_occurrences(yaml, " perms="), 2u) << "je Build-Batch EINE Perm-Zahl im KOPF";
+
+    // (c) OFFEN-ZAEHLER: jedes Schritt-Testat der Fenster-Schleife traegt den Rest der Perm. Ein [TESTAT] ohne
+    //     offen= waere die alte, zaehlerlose Zeile -- deshalb Gleichheit gegen die Zahl der [TESTAT]-Zeilen.
+    std::size_t const testate = count_occurrences(yaml, "[TESTAT] ts=");
+    EXPECT_GT(testate, 0u) << "es gibt Schritt-Testate der Fenster-Schleife";
+    EXPECT_EQ(count_occurrences(yaml, " offen=$(( TOTAL - START - COUNT ))"), testate)
+        << "JEDES Schritt-Testat traegt den Rest-Zaehler (kein zaehlerloses Testat mehr)";
+
+    // (d) STUFE 1: das CEB-Bau-Ereignis maschinenlesbar (der Owner-Teil "ob der CEB gebaut wird"). Genau EINES je
+    //     CEB-Strecke -- hier ist die Stufe-1-YAML eine andere Builder-Ausgabe, deshalb separat erhoben.
+    planner::CiYamlBuilder cb;
+    director.construct(*tp, cb);
+    std::string const& stufe1 = cb.text();
+    EXPECT_EQ(count_occurrences(stufe1, "[CEB-TESTAT] ts="), 1u) << "je CEB-Strecke EIN maschinenlesbares Bau-Testat";
+    EXPECT_NE(stufe1.find("[CEB-TESTAT] ts=$(date -u +%FT%TZ) ceb=[all] status=gebaut"), std::string::npos)
+        << "Testat-Grammatik: Marke, ts=, dann Felder";
+}
+
+// (E-04-P1, Section 61-Dual-Weg) SliceKanalLaneReachesBareMetalPath: der bare-metal-Weg (CMake-Targets) traegt
+//   DIESELBE Lane-Aussage wie die CI-Emission. Fehlte sie dort, stuende der lokale Dual-Weg-Beweis mit
+//   lane=unbelegt gegen die CI-Zeilen -- die beiden Wege waeren nicht mehr vergleichbar (Section 61 verlangt
+//   genau diese Vergleichbarkeit).
+TEST(TierCmakeGraphBuilder, SliceKanalLaneReachesBareMetalPath) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCmakeGraphBuilder        cm;
+    director.construct(*tp, cm);
+    std::string const& txt = cm.text();
+
+    // Je Treiber-COMMAND genau eine Lane-Zeile: die Zahl muss der Zahl der COMDARE_GN_SIMD-Zeilen entsprechen
+    // (abgeleitet, nicht handgezaehlt -- kommt eine Perm/ein COMMAND dazu, faellt der Pin).
+    std::size_t const simd_zeilen = count_occurrences(txt, "\"COMDARE_GN_SIMD=");
+    EXPECT_GT(simd_zeilen, 0u) << "der bare-metal-Weg emittiert Treiber-COMMANDs mit Perm-Selektion";
+    EXPECT_EQ(count_occurrences(txt, "\"COMDARE_LANE="), simd_zeilen)
+        << "JEDER Treiber-COMMAND des bare-metal-Wegs traegt seine Lane (Section 61-Dual-Weg-Symmetrie)";
+    EXPECT_NE(txt.find("\"COMDARE_LANE=amd\""), std::string::npos) << "amd-Lane im bare-metal-Weg benannt";
+    EXPECT_NE(txt.find("\"COMDARE_LANE=intel\""), std::string::npos) << "intel-Lane im bare-metal-Weg benannt";
 }
 
 // (S4-e) EmptyLaneEmitsNoJobPair (Leere-Lane-Regel): ein Profil mit NUR avx2-simd routet alle Perms nach intel =>

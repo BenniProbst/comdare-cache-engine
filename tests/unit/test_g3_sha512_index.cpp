@@ -23,6 +23,14 @@ namespace {
 
 // Die vier EINGEFRORENEN A1-Stempel-Zeilen (Quelle: test_m_w12_stamp_bausteine.cpp). NIE aendern
 // ohne A1-Neu-Einfrierung -- Drift hier ODER dort bricht die Lane-B-Konsistenz.
+//
+// A13-M2 (Owner-E2/Q1 vom 02.08.2026): der Fingerprint-Global-Shift von A13-M2 (System-Zeile +Klammer-Anhang,
+// Mess-Zeile load_framework ans Ende) beruehrt DIESEN Vektor NICHT -- er rechnet ueber die vier FESTEN Literale
+// unten, nicht ueber die live gerenderten Stempel-Zeilen. Literal geprueft: der Hex ist unveraendert, beide
+// Module sind gruen. NEU EINZUFRIEREN ist er mit A13-M3, wenn die merge-ZEILE ersatzlos entfaellt (Owner-E2:
+// "Merge Zeile kann daher nicht existieren") -- dann faellt kMerge aus dem Preimage. Der Neuanker gehoert dann
+// in EINEN Commit mit test_m_w12_stamp_bausteine.cpp (Lane-B-Drift-Verbot); die ausfuehrliche Begruendung steht
+// dort ueber MW12StampBausteine.FrozenFingerprintTestVectorForLagerGateB3.
 constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0;path_compression=path_compression_none@1.0.0";
 constexpr std::string_view kSystem  = "compiler=code@1.0.0;isa=amd64";
 constexpr std::string_view kMeasure = "wallclock@1.0.0";

@@ -71,16 +71,40 @@
 /// SELBEN Commit, der die Bestands-Strings auf "v1.0.0c" zieht (ein Byte-Ereignis, ein Neuanker). Wer das
 /// Define frueher scharf schaltet, bricht den Bau; wer die Migration ohne das Define landet, laesst die
 /// Pflicht undurchgesetzt.
-/// MIGRATIONS-NAHT-LISTE (A13-M1b-Fixup, Review-BEFUND-2 -- der Migrations-Commit zieht ALLE Quellen,
-/// nicht nur die 122 W::algo_version-Literale):
+/// MIGRATIONS-NAHT-LISTE (A13-M1b-Fixup Review-BEFUND-2; Klasse (d) aus A13-M2 Review-BEFUND-3 -- der
+/// Migrations-Commit zieht ALLE Quellen, nicht nur die 122 W::algo_version-Literale).
+/// DOKTRIN VORWEG: diese Liste ist AUS DEM DIFF/GREP ABZULEITEN, NIE HANDGEPFLEGT. Genau das Fortschreiben
+/// von Hand ist beim M2-Bau unterblieben (BEFUND-3). Ueberall dort, wo die Fundstellen ZAEHLBAR sind und
+/// mit dem Bestand WACHSEN, steht deshalb unten das KOMMANDO, mit dem der Migrations-Commit seine
+/// Fundstellen selbst erhebt -- die genannten Zahlen sind Momentaufnahmen und altern, die Kommandos nicht:
 ///   (a) 7 Nicht-Organ-Literale: abi/system_axis_code_versions.hpp (3x), measurement/
 ///       measurement_tooling_registry.hpp (3x), measurement/measurement_framework_registry.hpp (1x) --
 ///       alle tragen seit dem Fixup dieselbe gated ENFORCE-Wache und brechen beim Scharfschalten mit.
+///       Erhebung: grep -n '"v[0-9]' auf genau diese drei Dateien (Feld `version` der Registry-Tabellen).
 ///   (b) builder/ceb_version_stamp.hpp: der konsteval-Zwilling rendert den Flag-Schwanz seit dem Fixup
 ///       symmetrisch mit (ceb_flag_len) -- der Zwillingstest bleibt ueber die Migration gruen.
 ///   (c) compose_algo_signature (axis_variant_version_table.hpp) serialisiert W::algo_version VERBATIM:
 ///       die 122er-Migration ist damit AUCH ein .algos-Sidecar-Byte-Ereignis (Skip-/Rebuild-Kaskade der
 ///       Sidecar-Welt) und ist im EINEN M2/M3-Byte-Ereignis-Fenster mit zu budgetieren.
+///   (d) A13-M2 (Review-BEFUND-3): die META-META-Code-Versionen. Seit dem Owner-Entscheid E2
+///       ("Die Meta-Meta-Achsen und deren Stempel-Eintraege sind wie alle Hauptachsen PFLICHT") traegt
+///       JEDE Meta-Meta ein eigenes `axis_code_version`-Literal -- eine VIERTE Quelle neben (a)-(c),
+///       die es beim A13-M1b-Fixup noch nicht gab. Zwei Sorten, und der Unterschied ist der Grund,
+///       warum diese Klasse ueberhaupt eigens genannt wird:
+///         * MECHANISCH GESICHERT (bricht beim Scharfschalten von selbst mit): jede Stelle, an der
+///           neben dem ungated meta_meta_version_wohlgeformt<> auch der gated
+///           meta_meta_version_cpu_pflicht<>-Zwilling steht -- heute
+///           measurement/external_utils_family_axis.hpp (SimdExternalUtilsFamily).
+///         * UNGESICHERT (bricht NICHT mit, muss aktiv gefunden werden): test-lokale Meta-Metas ohne
+///           gated Wache -- heute tests/unit/test_striktheit_axis_dach_guard.cpp (ProofOrganMetaMeta)
+///           und tests/unit/test_meta_meta_halbordnung.cpp (Avx512MetaMeta, GpuMetaMeta,
+///           GpuClusterMetaMeta). Diese Sorte waechst mit jeder neuen Test-Meta-Meta.
+///       GREP-ANWEISUNG (bindend):
+///           grep -rn 'axis_code_version *=' --include=*.hpp --include=*.cpp libs tests tools apps
+///       liefert die vollstaendige Klasse (d); ihre gated Absicherung findet
+///           grep -rn 'meta_meta_version_cpu_pflicht' libs tests
+///       Wer eine Meta-Meta hinzufuegt, ohne den gated Zwilling danebenzustellen, legt eine neue
+///       UNGESICHERTE Naht -- deshalb ist der erste grep der Migrations-Einstieg, nicht diese Liste.
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 0
 #endif

@@ -96,7 +96,8 @@ template <class C>
     // W12-A2 (Section 43): bei nicht-leerem organ_stamp die OPTIONALE Versionierungs-Stempel-Zeile anhaengen.
     // Beide Emitter-Pfade (lazy + Katalog) reichen denselben compose_organ_stamp_line + system_stamp_line durch
     // -> byte-identisch -> die Round-Trip-Byte-Wache bleibt STRIKT. Stempel-Strings sind C-literal-sicher
-    // (nur =@;.+_ und alnum, keine Quotes/Backslashes) -> kein Escaping.
+    // (nur =@;.+_ [] und alnum, keine Quotes/Backslashes) -> kein Escaping. A13-M2 (Owner-Q1): '[' und ']'
+    // sind mit dem Meta-Meta-Klammer-Anhang dazugekommen und ebenfalls escaping-frei.
     if (!organ_stamp.empty()) {
         // K5/K7a (Section 59): APPEND-ONLY merge_stamp = der dritte Tier-Binary-Stempel (Merge-Kombination,
         // anatomy_version_stamp.hpp::merge_stamp_line). S6-P1b (Section 43/47): APPEND-ONLY measurement_stamp = die

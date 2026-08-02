@@ -21,6 +21,10 @@
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/target_isa_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
+// A13-M2 (Owner-E2 02.08.2026, OP-11-Rueckbau): die ORGAN-Realm-Meta-Meta-Wurzel. Dieser Test ist zugleich
+// die TU, in der der Header im Default-Sweep TATSAECHLICH uebersetzt wird -- eine nie inkludierte Wurzel
+// haette nur dekorative Wachen (Lehre "Gruene Tests zementieren alte Ordnung", umgekehrte Richtung).
+#include "topics/organ_meta_meta_axis.hpp"
 
 #include <gtest/gtest.h>
 
@@ -173,9 +177,49 @@ static_assert(cem::Aarch64TargetIsa::target_triple() == std::string_view{"-targe
 // Zwei ISA-System-Achsen, ABER verschiedene Labels (kollisionsfrei): target_isa (Ziel) != hardware (Host).
 static_assert(cem::X86_64TargetIsa::axis_label() != cem::Amd64HostIsaAxis::axis_label());
 
+// A13-M2 (Owner-Entscheid E2 vom 02.08.2026, OP-11-Rueckbau): die ORGAN-Realm-Meta-Meta-Wurzel. Owner-Wortlaut:
+// "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen oder ORGAN-Achsen gehoert ..." -- zwei der
+// drei Realms hatten einen Diskriminator, der dritte fehlte. Diese Beweis-Achse ist LOKAL (kein echter Traeger:
+// abi::OrganMetaMetas ist bewusst leer, die Organ-Zeile bleibt byte-identisch); sie belegt, dass der MECHANISMUS
+// wohlgeformt ist und ein kuenftiger Traeger nur eingehaengt werden muss.
+namespace {
+struct ProofOrganMetaMeta final : cet::OrganMetaMetaAxis<ProofOrganMetaMeta> {
+    [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "proof_organ_meta_meta"; }
+    [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "proof_sub"; }
+    static constexpr std::string_view               axis_code_version = "v1.0.0";
+};
+} // namespace
+
+static_assert(cet::OrganMetaMetaAxisConcept<ProofOrganMetaMeta>);
+static_assert(cet::AxisConcept<ProofOrganMetaMeta>); // haengt unterm gemeinsamen Dach
+static_assert(ProofOrganMetaMeta::axis_kind() == cet::AxisKind::organ_meta_meta);
+static_assert(ProofOrganMetaMeta::axis_label() == std::string_view{"proof_organ_meta_meta"});
+// Realm-ANKER: eine Organ-Meta-Meta ist KEINE Organ-HAUPT-Achse -- ein Rueckfall auf AxisKind::organ bricht hier.
+static_assert(ProofOrganMetaMeta::axis_kind() != cet::AxisKind::organ);
+// Die Schicht bleibt leer/nicht-polymorph (Anti-vtable-Sicherung wie an allen Nachbar-Wurzeln).
+static_assert(std::is_empty_v<cet::OrganMetaMetaAxis<ProofOrganMetaMeta>>);
+static_assert(!std::is_polymorphic_v<cet::OrganMetaMetaAxis<ProofOrganMetaMeta>>);
+
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::system_measurement),
               static_cast<unsigned>(cet::AxisKind::system_config));
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_config));
+    // A13-M2: der dritte Meta-Meta-Realm ist von allen fuenf Nachbarn verschieden -- sonst waeren zwei
+    // Realms im Stempel/Payload ununterscheidbar.
+    EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ_meta_meta), static_cast<unsigned>(cet::AxisKind::organ));
+    EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ_meta_meta),
+              static_cast<unsigned>(cet::AxisKind::system_meta_meta));
+    EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ_meta_meta),
+              static_cast<unsigned>(cet::AxisKind::measurement_meta_meta));
+    EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ_meta_meta),
+              static_cast<unsigned>(cet::AxisKind::system_config));
+    EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ_meta_meta),
+              static_cast<unsigned>(cet::AxisKind::system_measurement));
+    // Die BESTEHENDEN Zahlenwerte sind durch das Anhaengen ans Enum-Ende unveraendert geblieben
+    // (Payload-/Wire-Vertraeglichkeit: experiment_dock_payload serialisiert die Faerbung).
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::organ), 0u);
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_measurement), 1u);
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::system_config), 2u);
+    EXPECT_EQ(static_cast<unsigned>(cet::AxisKind::organ_meta_meta), 5u); // ANS ENDE angefuegt
 }

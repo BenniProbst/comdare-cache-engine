@@ -1,10 +1,19 @@
-// tests/unit/test_meta_meta_halbordnung.cpp -- Lane C, Paket C-5 (26.07.2026). UNREGISTRIERT.
+// tests/unit/test_meta_meta_halbordnung.cpp -- Lane C, Paket C-5 (26.07.2026).
 //
-// Dieser Test ist ABSICHTLICH NICHT in tests/unit/CMakeLists.txt eingetragen: die Datei ist
-// Lane-A-Konflikt-Zone (Auftrag Abschnitt 3, Bauplan-v3 D3). Der Voll-ctest-Zaehler bleibt dadurch
-// unveraendert; die Verifikation laeuft ueber einen Hand-Bau mit exakt dem Include-/Link-Satz des
-// Muster-Blocks tests/unit/CMakeLists.txt:3466-3483 (dort ist Boost::mp11 verlinkt, was
-// meta_meta_identity.hpp und meta_meta_admission.hpp brauchen).
+// HISTORIE (bis 02.08.2026): dieser Test war ABSICHTLICH NICHT in tests/unit/CMakeLists.txt
+// eingetragen, weil die Datei damals Lane-A-Konflikt-Zone war (Auftrag Abschnitt 3, Bauplan-v3 D3);
+// die Verifikation lief ueber einen Hand-Bau mit dem Include-/Link-Satz eines Muster-Blocks.
+//
+// SEIT A13-M2 (Review-BEFUND-1, Owner-Entscheid F-WAISEN Variante (b) vom 02.08.2026) IST DIESE TU
+// REGISTRIERT. Grund: die Lane-A-Konflikt-Zone existiert nicht mehr, und der Hand-Bau hat genau das
+// verschleiert, was er verhindern sollte -- die Verschaerfung von SystemMetaMetaAxisConcept
+// (axis_code_version-Pflicht) brach diese TU compile-hart, ohne dass ein Voll-ctest es zeigte
+// ("Lokale Voll-Bau-Luecken = falsches Gruen"). Sie steht ab jetzt im normalen Sweep.
+// Von den acht nie registrierten Waisen-TUs in tests/unit/ ist bewusst NUR diese eine registriert
+// worden (sie ist die einzige, die von A13-M2 beruehrte Header inkludiert); die uebrigen sieben
+// (br4_emit, br4_load, kf16_e2e_real_build, test_a9b_active_deklaration_inert,
+// test_c3b_kanal_merge_beleg, test_d4b_container_dll, test_rf2_admission_marker_inert) sind
+// Bestands-Schuld ausserhalb des Wellen-Scopes und stehen auf der Abschluss-Aufraeumpass-Kandidatenliste.
 //
 // WAS HIER BEWIESEN WIRD (und warum es nicht in die Header gehoert): die Header tragen jeweils ihre
 // EIGENEN Invarianten. Was sie NICHT tragen koennen, ist die Aussage UEBER DIE SCHICHTEN HINWEG --
@@ -44,15 +53,23 @@ namespace {
 
 /// Eine Meta-Meta, die die AVX-512-Faehigkeit der Maschine repraesentiert (Typ-Gegenstueck zu den
 /// avx512-Flags der Flag-Ebene). Volle CT-Haupt-Achse mit eigener RT-Unter-Achse -- Auftrag 1.4.
+/// A13-M2 (Review-BEFUND-1, 02.08.2026): axis_code_version ist seit der Verschaerfung von
+/// SystemMetaMetaAxisConcept (hardware_meta_meta_axis.hpp, Owner-Entscheid E2 "Meta-Meta-Stempel sind
+/// PFLICHT wie alle Hauptachsen") ein PFLICHT-Member. Ohne sie schlagen die
+/// static_assert(SystemMetaMetaAxisConcept<...>)-Zeilen im Abschnitt C-1' hart fehl.
+/// FLAGLOS wie der Bestand (Owner-Q3-Uebergangs-Toleranz) -- diese drei Test-Typen stehen deshalb auf der
+/// Migrations-Naht-Liste in algo_semver.hpp, Klasse (d) (grep-Anweisung dort).
 struct Avx512MetaMeta final : meas::SystemMetaMetaAxis<Avx512MetaMeta> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "test_avx512"; }
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "test_avx512_level"; }
+    static constexpr std::string_view               axis_code_version = "v1.0.0";
 };
 
 /// Eine zweite, unabhaengige Meta-Meta (Platzhalter fuer externe Hardware -- GPU/FPGA/NPU-Klasse).
 struct GpuMetaMeta final : meas::SystemMetaMetaAxis<GpuMetaMeta> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "test_gpu"; }
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "test_gpu_device"; }
+    static constexpr std::string_view               axis_code_version = "v1.0.0";
 };
 
 /// Eine Meta-Meta, die SELBST Manager ist -- der Beleg fuer die offene Rekursion (Q-D: NVIDIA-GPUs als
@@ -60,7 +77,8 @@ struct GpuMetaMeta final : meas::SystemMetaMetaAxis<GpuMetaMeta> {
 struct GpuClusterMetaMeta final : meas::SystemMetaMetaAxis<GpuClusterMetaMeta> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "test_gpu_cluster"; }
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "test_gpu_cluster_fabric"; }
-    using meta_metas = meas::MetaMetaMembers<GpuMetaMeta>;
+    static constexpr std::string_view               axis_code_version = "v1.0.0";
+    using meta_metas                                                  = meas::MetaMetaMembers<GpuMetaMeta>;
 };
 
 // Identitaeten (A1-Vokabular) ueber ECHTEN Meta-Meta-TYPEN -- nicht ueber A1s Platzhaltern.
@@ -108,9 +126,21 @@ TEST(MetaMetaTypFamilie, RGLoadFrameworkIstKeineSystemMetaMeta) {
     EXPECT_FALSE(meas::SystemMetaMetaAxisConcept<meas::YcsbLoadFrameworkAxis>);
     EXPECT_FALSE((meas::ExternalUtilsHub::manages<meas::YcsbLoadFrameworkAxis>));
     EXPECT_FALSE((meas::ExternalUtilsHub::releases<meas::YcsbLoadFrameworkAxis>));
-    // Die Achse selbst bleibt unveraendert eine gueltige Konfig-System-Achse -- der Umzug in den
-    // Mess-Realm ist ein BYTE-Vorgang und liegt in A3 / im O-8-Fenster, nicht hier.
-    EXPECT_TRUE(meas::CebSystemAxisConcept<meas::YcsbLoadFrameworkAxis>);
+    // NACHZUG A13-M2 (Review-BEFUND-1-Folgebefund, 02.08.2026): hier stand bis heute
+    //   EXPECT_TRUE(meas::CebSystemAxisConcept<meas::YcsbLoadFrameworkAxis>)
+    // mit dem Kommentar "der Umzug in den Mess-Realm ... liegt in A3 / im O-8-Fenster, nicht hier".
+    // Der Umzug IST seither vollzogen (K1, O-8 Schritt 4 / Paket A3): die Basis ist
+    // MeasurementMetaMetaAxis statt CebSystemAxis, axis_kind() liefert measurement_meta_meta
+    // (REALM-ANKER static_assert in load_framework_measurement_axis.hpp). Die alte Erwartung war
+    // also nicht "noch nicht dran", sondern SUPERSEDED -- sie ist nur deshalb nie gebrochen, weil
+    // diese TU als Waise nie gebaut wurde ("Lokale Voll-Bau-Luecken = falsches Gruen"). Ab jetzt
+    // nagelt der Test die NEUE Ordnung fest, in beide Richtungen.
+    EXPECT_FALSE(meas::CebSystemAxisConcept<meas::YcsbLoadFrameworkAxis>);
+    EXPECT_TRUE(meas::MeasurementMetaMetaAxisConcept<meas::YcsbLoadFrameworkAxis>);
+    EXPECT_EQ(meas::YcsbLoadFrameworkAxis::axis_kind(), comdare::cache_engine::topics::AxisKind::measurement_meta_meta);
+    // Dieser Gegentest ist in der Mess-Header-Datei selbst ABSICHTLICH nicht moeglich (er zoege
+    // ceb_system_axis.hpp in den Include-Graph der Mess-Seite, s. Kommentar dort). In DIESER TU sind
+    // beide Realms ohnehin sichtbar -- sie ist damit der einzig realm-saubere Ort fuer die Gegenprobe.
     EXPECT_EQ(meas::YcsbLoadFrameworkAxis::sub_axis_label(), std::string_view{"workload"});
 }
 
