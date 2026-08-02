@@ -50,6 +50,7 @@
 #include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
 #include "planner/plan_legend.hpp" // W10-A: das dreistufige Legenden-Namensschema (EINE Formatierungs-Single-Source)
 #include <builder/build_orchestrator/build_orchestrator.hpp> // OP-9: ex::orch_make_stem == die REALE Stem-Bildung
+#include <builder/experiment_tree/slice_marker.hpp>   // E-04-P1: kSliceMarkerTraceMarken (Tee-Filter-Single-Source)
 #include <builder/bestandslog/planer_block_value.hpp> // G4b-2/E4: make_planer_block_reservation_value (der Wert-Kern)
 #include <builder/bestandslog/reservation_lifecycle.hpp> // G4a(7): make_pro_forma_reservation / BatchTyp::planer_block
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
@@ -70,6 +71,7 @@ namespace comdare::cache_engine::planner {
 namespace cx  = ::comdare::builder::xml;
 namespace cm  = ::comdare::cache_engine::measurement;
 namespace tlz = ::comdare::cache_engine::thesis_lazy;
+namespace bex = ::comdare::cache_engine::builder::experiment; // E-04-P1: die Marken der Marker-Familie v2
 
 // ── Plan-Wertobjekte (POD, reine Beschreibung — kein Verhalten, keine Bau-Semantik). ────────────────────────
 
@@ -772,6 +774,10 @@ private:
         s +=
             "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver (CEB) fehlt\"; exit 1; }\n";
         s += "      echo \"== STUFE 1: CEB " + c.legend + " gebaut (Messsystem-Typ) ==\"\n";
+        // E-04-P1 (Teil 1b): dasselbe Ereignis MASCHINENLESBAR. Der Owner-KERN fragt woertlich, "ob der
+        // CacheEngineBuilder Orchestrator gebaut wird" -- die Prosa-Zeile darueber beantwortet das fuer den
+        // Menschen, diese fuer den Aggregator (gleiche Testat-Grammatik: Marke, ts=, dann Felder).
+        s += "      echo \"[CEB-TESTAT] ts=$(date -u +%FT%TZ) ceb=" + c.legend + " status=gebaut\"\n";
         return s;
     }
 
@@ -1035,11 +1041,22 @@ private:
     // Jobs) getee't -> der Zuschauer sieht "alle K Builds" den Slice-Fortschritt. Process-Substitution `2> >(...)` statt
     // Pipe: der Treiber-Exit-Code bleibt UNANGETASTET (der `if !`-Guard + pipefail sehen GENAU den Treiber, nicht
     // tee/grep -> Fehlersichtbarkeit unveraendert). Die Substitution wird nicht abgewartet (best-effort Trace);
-    // `-F '[heartbeat]'` = fixe Zeichenkette (kein Regex-Escape), `--line-buffered` = sofort sichtbar, `|| true` =
-    // set-e-sicher. Alle Nicht-Heartbeat-Zeilen bleiben NUR im <log>.
+    // `-F -e '...'` = fixe Zeichenketten (kein Regex-Escape), `--line-buffered` = sofort sichtbar, `|| true` =
+    // set-e-sicher. Alle nicht gelisteten Zeilen bleiben NUR im <log>.
+    //
+    // E-04-P1 (Teil 1c): die Filter-Liste traegt zusaetzlich zum [heartbeat] die Marken der Marker-Familie v2 --
+    // ABGELEITET aus bex::kSliceMarkerTraceMarken (dieselbe Konstante, die der Treiber emittiert). Eine per Hand
+    // gepflegte zweite Liste haette den Filter still hinter einem umbenannten/ergaenzten Marker zurueckgelassen:
+    // der Kanal waere gruen und stumm zugleich. Trace-Hygiene bleibt: Detail (Compiler-Ausgabe, [pruef-fail],
+    // [bestandslog]) bleibt im Artefakt-Log; im Trace stehen nur KOPF + Testate.
     [[nodiscard]] static std::string driver_log_redirect(std::string const& log_path) {
-        return ">> \"" + log_path + "\" 2> >(tee -a \"" + log_path +
-               "\" | grep --line-buffered -F '[heartbeat]' >&2 || true)";
+        std::string filter = "grep --line-buffered -F -e '[heartbeat]'";
+        for (std::string_view const marke : bex::kSliceMarkerTraceMarken) {
+            filter += " -e '[";
+            filter += marke;
+            filter += "]'";
+        }
+        return ">> \"" + log_path + "\" 2> >(tee -a \"" + log_path + "\" | " + filter + " >&2 || true)";
     }
 
     // #29 (2026-07-23, Cancel-Sauberkeit, lokal verifiziert): der Runner-Cancel schickt SIGTERM an die (orphan-)
@@ -1114,9 +1131,19 @@ private:
         s += "      FAIL=0\n";
         s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/gn_out/" + slug + "/" + host + "/logs\"\n";
         s += "      mkdir -p \"$LOGDIR\"\n";
+        // E-04-P1: die Host-Lane als EXPLIZITER Vertrag an den Treiber -- er rendert daraus das Pflichtfeld lane=
+        // seiner Marker-Zeilen. Ohne diese Zeile muesste der Treiber die Lane raten (Hostname-Heuristik); der
+        // emittierende Planer kennt sie und sagt sie.
+        s += "      export COMDARE_LANE=\"" + host +
+             "\"   # E-04-P1: Pflichtfeld lane= der Treiber-Marker (Planer sagt die Lane, der Treiber raet nie)\n";
         // Batch-KOPF (Echo, einmal): CEB-Identitaet [a,b,c] + Lane -> Trace-Legende der CEB-Ebene.
+        // E-04-P1 (Teil 1b): zusaetzlich die BEZUGSGROESSEN des Fortschritts -- fenster_gesamt (Aufrundung
+        // TOTAL/SLICE, rein Shell-arithmetisch und damit byte-deterministisch) und perms (die Zahl der Perms
+        // DIESER Lane). Erst damit ist ein Testat "fenster=X:Y" ohne Kenntnis der Emission einordenbar.
         s += "      echo \"== [BATCH-BAU] ceb=" + combo_legend_ + " lane=" + host +
-             " total=$TOTAL slice=" + std::to_string(kGnBatchSlice) + " ts=$(date -u +%FT%TZ) ==\"\n";
+             " total=$TOTAL slice=" + std::to_string(kGnBatchSlice) +
+             " fenster_gesamt=$(( (TOTAL + SLICE - 1) / SLICE )) perms=" + std::to_string(perms.size()) +
+             " ts=$(date -u +%FT%TZ) ==\"\n";
         for (auto const& p : perms) {
             std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
             std::string const organ       = legend::organ_reference();
@@ -1145,8 +1172,13 @@ private:
             s += "          echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
                  " phase=bau fenster=${START}:${COUNT}\"; FAIL=1\n";
             s += "        fi\n";
+            // E-04-P1 (Teil 1b): offen= = die nach DIESEM Fenster noch ausstehenden Binaries der Perm
+            // (TOTAL - START - COUNT, rein Shell-arithmetisch => byte-deterministisch). Beantwortet den
+            // Owner-KERN "wie viele davon noch offen" auf der SHELL-Ebene; die Treiber-Zeile [PLAN-TESTAT]
+            // beantwortet dieselbe Frage INNERHALB des Fensters (zu_bauen nach Lager-Filter). Zwei Sichten,
+            // eine Frage -- deshalb dasselbe Vokabular.
             s += "        echo \"[TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
-                 " phase=bau fenster=${START}:${COUNT}\"\n";
+                 " phase=bau fenster=${START}:${COUNT} offen=$(( TOTAL - START - COUNT ))\"\n";
             s += "        START=$(( START + COUNT ))\n";
             s += "      done\n";
             // S3-PRUEF-Schritt (UNBEDINGT je Perm nach der Fenster-Schleife): COMDARE_PRUEF_ONLY=true faehrt NUR das
@@ -1258,6 +1290,10 @@ private:
         // (compile_time_platform_tag trennt amd/intel-x86_64 NICHT). Einmal je Batch (die Lane ist fix je Job).
         s += "      export COMDARE_PLATFORM=\"" + host +
              "@$(hostname)\"   # (platform-Tag) ISA-Lane@Maschine -> CSV-Provenienz (§61/§62 per-Maschine)\n";
+        // E-04-P1: dieselbe Lane-Aussage wie im Bau-Batch. Auch der Mess-Batch faehrt einen Treiber-Bau (der
+        // Fallback-Kanal emittiert dort seine Bilanz) -- ohne diese Zeile stuende dort lane=unbelegt.
+        s += "      export COMDARE_LANE=\"" + host +
+             "\"   # E-04-P1: Pflichtfeld lane= der Treiber-Marker (Planer sagt die Lane)\n";
         s += "      FAIL=0\n";
         s += "      LOGDIR=\"$CI_PROJECT_DIR/Code/measure_out/" + slug + "/logs\"\n";
         s += "      mkdir -p \"$LOGDIR\"\n";
@@ -1523,6 +1559,11 @@ private:
     // emit_batch_build_job/emit_batch_measure_job). Der Build+Pruef-Batch traegt verkettete per-Perm Provision- +
     // S3-Pruef-COMMANDs (COMDARE_PLAN_RANGE-Fenster, gleiche per-Perm-Ausgabedirs); das Mess-Target per-Perm
     // Mess-COMMANDs (Debug: (j3)-Dual UNVERAENDERT), DEPENDS auf den Build+Pruef-Stamp (Bau->Mess-Kante).
+    // E-04-P1 (§61-Dual-Weg-Symmetrie): JEDER der vier Treiber-COMMANDs traegt COMDARE_LANE -- der bare-metal-Weg
+    // liefert dieselbe Marker-Lane wie die CI-Emission. Fehlte sie hier, stuende der lokale Dual-Weg-Beweis mit
+    // lane=unbelegt gegen die CI-Zeilen und die beiden Wege waeren nicht mehr vergleichbar. fenster_gesamt/offen=
+    // haben hier bewusst KEIN Gegenstueck: dieser Weg faehrt EIN Fenster (${COMDARE_PLAN_RANGE}), keine
+    // Scheiben-Schleife -- eine erfundene Fenster-Zahl waere eine Aussage ueber etwas, das es hier nicht gibt.
     void emit_batch_targets(std::string const& host, std::vector<PlanPerm> const& perms) {
         std::string const slug    = legend::cmake_slug(combo_legend_);
         std::string const stemdir = "${CMAKE_CURRENT_BINARY_DIR}/tier";
@@ -1564,6 +1605,7 @@ private:
             out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
             out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
             out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += "            \"COMDARE_LANE=" + host + "\"\n";
             out_ += combo_line;
             out_ += cmake_bt_env;
             out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
@@ -1576,6 +1618,7 @@ private:
             out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
             out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
             out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += "            \"COMDARE_LANE=" + host + "\"\n";
             out_ += combo_line;
             out_ += cmake_bt_env;
             out_ += "            \"COMDARE_PRUEF_ONLY=true\"\n";
@@ -1618,6 +1661,7 @@ private:
                 out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
                 out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
                 out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+                out_ += "            \"COMDARE_LANE=" + host + "\"\n";
                 out_ += combo_line;
                 out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
                 out_ += "            \"COMDARE_ARTEFAKT_TRIES=1\"\n";
@@ -1635,6 +1679,7 @@ private:
             out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
             out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
             out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += "            \"COMDARE_LANE=" + host + "\"\n";
             out_ += combo_line;
             out_ += "            \"COMDARE_BUILD_PARALLEL=${COMDARE_PLAN_MEASURE_PARALLEL}\"\n";
             out_ += cmake_bt_env;
