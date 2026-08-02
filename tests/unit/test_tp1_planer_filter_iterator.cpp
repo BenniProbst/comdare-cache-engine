@@ -231,15 +231,17 @@ int main() {
         cfg.bestand_present = drei_im_bestand;
         cfg.max_binaries    = 8;
 
-        std::size_t konfig_deltas = 0;
-        std::size_t done_cursor   = 0;
-        std::size_t done_count    = 0;
-        cfg.progress_sink         = [&](ex::ProgressDelta const& d) {
+        std::size_t              konfig_deltas = 0;
+        std::size_t              done_cursor   = 0;
+        std::size_t              done_count    = 0;
+        std::vector<std::size_t> konfig_cursor; // TP1FK1-B5: die gemeldeten Fenster-Positionen, in Reihenfolge
+        cfg.progress_sink = [&](ex::ProgressDelta const& d) {
             if (d.done) {
                 ++done_count;
                 done_cursor = d.cursor;
             } else {
                 ++konfig_deltas;
+                konfig_cursor.push_back(d.cursor);
             }
         };
 
@@ -258,6 +260,121 @@ int main() {
         check_eq("(5) je gebauter Binary EIN Konfig-Delta", konfig_deltas, std::size_t{5});
         check_eq("(5) genau EIN done-Delta", done_count, std::size_t{1});
         check_eq("(5) done-Cursor == VOLLE bereitgestellte Menge (5+3)", done_cursor, std::size_t{8});
+
+        // -- TP1FK1-B5 (Codex-Befund): der Cursor ist der FENSTER-Index, nicht die builds-Laufvariable.
+        //    Lage: die Indizes 0..2 liegen im Lager, gebaut werden 3..7. Der Vertrag von ProgressDelta
+        //    (progress_delta.hpp) nennt cursor "fenster-relativer Perm-Index" -- erwartet sind also 3,4,5,6,7.
+        //    VOR dem Fix meldete der Kanal 0,1,2,3,4 (Cursor-KOMPRESSION um die Zahl der Lager-Skips) und
+        //    danach ein done bei 8: Positionen, die es im Fenster so nie gab, und ein Sprung am Ende.
+        //    Die Erwartung ist ABGELEITET (die drei Lager-Treffer stehen in drei_im_bestand), nicht gezaehlt.
+        std::vector<std::size_t> erwartete_cursor;
+        for (std::size_t i : alle)
+            if (!drei_im_bestand(i)) erwartete_cursor.push_back(i); // gebaut => sein Fenster-Index ist i
+        check_eq("(5/B5) Zahl der Konfig-Cursor", konfig_cursor.size(), erwartete_cursor.size());
+        check_true("(5/B5) Cursor sind die FENSTER-Indizes der gebauten Binaries (keine Kompression)",
+                   konfig_cursor == erwartete_cursor);
+        check_true("(5/B5) kein Cursor faellt in den Lager-Bereich 0..2",
+                   konfig_cursor.empty() || konfig_cursor.front() >= 3);
+        check_true("(5/B5) der letzte Konfig-Cursor liegt unter dem done-Cursor (kein Sprung ueber das Fenster)",
+                   !konfig_cursor.empty() && konfig_cursor.back() < done_cursor);
+    }
+
+    // -- Fall (6): TP1FK1-B10 (Codex-Befund) -- der Bau-Fehler-Zweig INVALIDIERT die per-Binary-Ablage ----
+    //    LAGE: eine Binary hat aus einem frueheren Lauf eine VOLLSTAENDIGE, konfigurations-AKTUELLE
+    //    result.csv + result.csv.stamp. Heute laesst sie sich NICHT MEHR BAUEN.
+    //    VOR dem Fix lief der Resume-Check VOR dem b.ok()-Gate: die Erfolgs-CSV wurde uebernommen, der
+    //    A15/FK-1-Marker "nicht_gebaut" kam nie zustande, und weil weder CSV noch Stamp angefasst wurden,
+    //    faende der NAECHSTE Lauf denselben Stand erneut -- ein Bau-Fehler konnte beliebig lange hinter
+    //    alten Messwerten verschwinden.
+    //    Der "alte Stand" wird ueber DIESELBEN Funktionen erzeugt, die der Resume-Check liest
+    //    (lazy_csv_header + lazy_resume_stamp_prefix) -- kein handkopierter Stempel-String.
+    {
+        auto const            dims          = tree.dynamic_filter();
+        ex::BinarySpec const  spec0         = view[0];
+        std::string const     stem0         = ex::orch_make_stem(spec0.binary_id, spec0.index);
+        constexpr char const* kAltMarke     = "ALTER-ERFOLGS-STAND";
+        auto const            lege_altstand = [&](ex::LazyRunConfig const& c) {
+            fs::path const  bin_dir = c.output_dir / stem0;
+            std::error_code lec;
+            fs::create_directories(bin_dir, lec);
+            { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
+            {
+                std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc} << ex::lazy_resume_stamp_prefix(c, dims)
+                                                                             << "|rows=1\n";
+            }
+            return bin_dir;
+        };
+        auto const datei_text = [](fs::path const& p) {
+            std::ifstream     f{p};
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str();
+        };
+        auto const mach_cfg = [&](fs::path const& out) {
+            FakeStore         dummy;
+            ex::LazyRunConfig c         = make_cfg(dummy, out);
+            c.provision_only            = false; // MESS-Modus: hier lebt der Resume-Kurzschluss
+            c.bestand_transport         = {};    // Bestandslog inaktiv -> reiner Resume-/Bau-Pfad
+            c.resume_completed_binaries = true;
+            c.max_binaries              = 1;
+            return c;
+        };
+        ex::BuildSelection sel1;
+        sel1.indices        = {0};
+        sel1.provenance     = "explicit";
+        auto const ram_stub = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+        // (6a) GEGENPROBE ZUERST: baut die Binary (Stub-Compile exit 0), dann MUSS der alte Stand
+        //      unveraendert resumiert werden -- die Umstellung der Reihenfolge darf den Resume nicht kippen.
+        {
+            ex::LazyRunConfig cfg6a   = mach_cfg(base / "b10_gruen");
+            fs::path const    bin_dir = lege_altstand(cfg6a);
+            CerrCapture       fang;
+            auto const        r = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6a);
+            check_eq("(6a) baubare Binary: resumed_binaries == 1", r.resumed_binaries, std::size_t{1});
+            check_true("(6a) die alten Zeilen reisen unveraendert weiter",
+                       r.resumed_csv_rows.find(kAltMarke) != std::string::npos);
+            check_true("(6a) result.csv.stamp bleibt stehen", fs::exists(bin_dir / "result.csv.stamp", ec));
+            check_true("(6a) result.csv bleibt der alte Stand",
+                       datei_text(bin_dir / "result.csv").find(kAltMarke) != std::string::npos);
+        }
+
+        // (6b) DER BEFUND: derselbe alte Stand, aber der Compile scheitert -> KEIN Resume, sondern der
+        //      nicht_gebaut-Marker ERSETZT die stale Erfolgs-CSV, und der Stamp faellt (kein Resume-
+        //      Anspruch im Folgelauf mehr).
+        {
+            ex::LazyRunConfig cfg6b        = mach_cfg(base / "b10_fehler");
+            fs::path const    bin_dir      = lege_altstand(cfg6b);
+            auto const        compile_fail = [](ex::BuildJob const&) -> int { return 1; }; // Compiler lehnt ab (D1)
+            CerrCapture       fang;
+            auto const        r = ex::run_lazy_static_then_dynamic(tree, sel1, compile_fail, gen_stub, ram_stub, cfg6b);
+            std::string const log = fang.text();
+
+            check_eq("(6b) KEIN Resume auf einer nicht baubaren Binary", r.resumed_binaries, std::size_t{0});
+            check_true("(6b) die stale Erfolgs-CSV fliesst NICHT in die globale CSV",
+                       r.resumed_csv_rows.find(kAltMarke) == std::string::npos);
+            check_eq("(6b) genau EINE Marker-Zeile im Ergebnis", r.csv_rows.size(), std::size_t{1});
+            check_true("(6b) und sie traegt den Bau-Status nicht_gebaut",
+                       r.csv_rows.size() == 1 &&
+                           r.csv_rows[0].build_status ==
+                               ::comdare::cache_engine::measurement::BuildCellStatus::NichtGebaut);
+            // Der Kern des Befunds: die ABLAGE, die der naechste Lauf liest.
+            check_true("(6b) result.csv.stamp ist WEG (kein Resume-Anspruch mehr)",
+                       !fs::exists(bin_dir / "result.csv.stamp", ec));
+            std::string const csv_neu = datei_text(bin_dir / "result.csv");
+            check_true("(6b) der alte Erfolgs-Stand steht NICHT mehr in der per-Binary-CSV",
+                       csv_neu.find(kAltMarke) == std::string::npos);
+            check_true("(6b) stattdessen die nicht_gebaut-Marker-Datei",
+                       csv_neu.find("nicht_gebaut") != std::string::npos);
+            check_true("(6b) der Bau-Fehler ist klassifiziert geloggt (Nie-stumm)",
+                       log.find("Compiler-Compiler-Fehler") != std::string::npos);
+
+            // (6c) FOLGELAUF-BEWEIS: derselbe Zustand ein zweites Mal -- der Resume-Check darf die
+            //      Marker-Datei NICHT als Erfolgs-Stand annehmen (ohne Stamp gibt es keinen Anspruch).
+            auto const r2 = ex::run_lazy_static_then_dynamic(tree, sel1, compile_fail, gen_stub, ram_stub, cfg6b);
+            check_eq("(6c) Folgelauf resumiert ebenfalls NICHT", r2.resumed_binaries, std::size_t{0});
+            check_eq("(6c) Folgelauf meldet wieder genau die Marker-Zeile", r2.csv_rows.size(), std::size_t{1});
+        }
     }
 
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");

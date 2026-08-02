@@ -102,10 +102,21 @@ struct BuildSubAxis final : OperatingSystemSubAxis<BuildSubAxis> {
     [[nodiscard]] static constexpr std::string_view do_option_source() noexcept { return "machine_resolved"; }
 };
 
+/// DIE MITGLIEDSCHAFT der Haupt-Achse operating_system als TYP-LISTE -- die EINE Single-Source der FINAL
+/// DREI (B7, Codex-Review 02.08.2026). Vorher gab es sie DREIMAL nebeneinander: als Label-Array hier, als
+/// Zahl in der FINAL-DREI-Wache (die auf `array<...,3>` sass und damit tautologisch war) und als drei
+/// handgeschriebene emit_open-Aufrufe im Registry-Generator. Eine VIERTE Unter-Achse waere dadurch
+/// entweder unemittiert geblieben ODER unbewacht in die XML gelaufen.
+/// AB JETZT: wer hier ein Mitglied eintraegt, aendert Label-Liste, Wache UND XML-Emission in einem Zug --
+/// und die Anzahl-Wache unten schlaegt an, weil sie auf DIESER Liste sitzt.
+using OperatingSystemSubAxes = SubAxisMembership<OperatingSystemAxisTag, OsVersionSubAxis, KernelSubAxis, BuildSubAxis>;
+
 /// Single-Source der Unter-Achsen-Labels an der Haupt-Achse operating_system. Der Registry-Generator
 /// und jeder Spalten-/Dateinamen-Erzeuger ziehen ihre Liste HIER, nie aus Literalen.
-inline constexpr std::array<std::string_view, 3> kOperatingSystemSubAxisLabels = {
-    OsVersionSubAxis::axis_label(), KernelSubAxis::axis_label(), BuildSubAxis::axis_label()};
+/// B7: ABGELEITET aus OperatingSystemSubAxes -- die Labels stehen nicht mehr ein zweites Mal da, und die
+/// Array-GROESSE ist jetzt eine Folge der Mitgliedschaft (vorher eine unabhaengig gepflegte 3).
+inline constexpr std::array<std::string_view, OperatingSystemSubAxes::size> kOperatingSystemSubAxisLabels =
+    OperatingSystemSubAxes::labels();
 
 namespace detail {
 
@@ -159,13 +170,24 @@ static_assert(OperatingSystemAxisTag::axis_label() == std::string_view{"operatin
 static_assert(axis_depth_v<OsVersionSubAxis> == 1 && axis_depth_v<KernelSubAxis> == 1 &&
               axis_depth_v<BuildSubAxis> == 1);
 
-// FINAL-DREI-WACHE (A-08 / K-04 / Owner E-12). Eine VIERTE Unter-Achse bricht hier compile-time -- das
-// ist der Ort, an dem die zurueckgekehrte update_zustand-Achse auffaellt.
-static_assert(kOperatingSystemSubAxisLabels.size() == 3,
+// FINAL-DREI-WACHE (A-08 / K-04 / Owner E-12), B7-korrigiert: sie sitzt jetzt auf der MITGLIEDSCHAFTS-
+// LISTE, nicht mehr auf einem `std::array<..., 3>`. Das ist der eigentliche Fix: `array<...,3>.size()==3`
+// war per Konstruktion wahr und konnte nie anschlagen -- die Wache SAH aus wie eine Wache. Eine vierte
+// Unter-Achse in OperatingSystemSubAxes bricht hier ab jetzt wirklich compile-time (und weil der
+// Registry-Generator DIESELBE Liste iteriert, kann sie auch nicht an der Wache vorbei in die XML).
+static_assert(OperatingSystemSubAxes::size == 3,
               "A-08/K-04 + Owner E-12: operating_system hat GENAU DREI Unter-Achsen (os_version, kernel, "
               "build). Der Update-Zustand ist in 'build' GEMERGT ('Wir mergen den Update Zustand in "
               "Build') und ist AUSDRUECKLICH keine vierte Achse. Wer hier eine vierte eintraegt, hebt "
               "einen Owner-Entscheid auf und muss das quittieren, statt die Zahl nachzuziehen.");
+// KOPPLUNGS-GEGENPROBE: Label-Liste und Mitgliedschaft sind dasselbe Ding in zwei Sichten. Faellt die
+// Ableitung je auseinander (jemand schreibt das Array wieder von Hand), bricht es hier.
+static_assert(kOperatingSystemSubAxisLabels.size() == OperatingSystemSubAxes::size,
+              "kOperatingSystemSubAxisLabels ist ABGELEITET aus OperatingSystemSubAxes -- die beiden duerfen "
+              "nicht auseinanderlaufen (sonst waere die FINAL-DREI-Wache wieder tautologisch).");
+// Die Liste haengt als GANZE an operating_system (nicht nur ihre Mitglieder einzeln).
+static_assert(std::same_as<OperatingSystemSubAxes::parent_axis, OperatingSystemAxisTag>);
+static_assert(OperatingSystemSubAxes::parent_axis::axis_label() == std::string_view{"operating_system"});
 static_assert(detail::operating_system_sub_axis_labels_are_distinct(),
               "Zwei operating_system-Unter-Achsen tragen dasselbe Label -- in der Registry-XML waeren das "
               "zwei <sub_axis>-Zeilen mit derselben id, von denen jeder Leser eine still verliert.");

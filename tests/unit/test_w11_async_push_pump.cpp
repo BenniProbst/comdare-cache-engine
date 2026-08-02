@@ -405,6 +405,144 @@ int main() {
         check_eq("Teil7: Teil-Marker zaehlt nur Erfolge (1 Marker)", parts.size(), std::size_t{1});
     }
 
+    // ================================================================================================
+    // Teil 8 (TP1FK1-B2, Codex-Befund): der ECHTE Transport wirft. Teil 7 belegt nur, dass der Pump
+    // WERFENDE Pushes verbucht -- der reale ArtifactCache::push_tier_binary tat genau das NICHT
+    // (log+return), also war failed_dirs() im Produktionspfad per Konstruktion IMMER leer und der
+    // B-1-Bestandslog-Ausschluss lief ins Leere. Hier laeuft die Transport-Funktion DIREKT gegen ein
+    // Fake-mc, das scheitert -- plus die Gegenprobe, dass der Erfolgsfall weiterhin nicht wirft, und
+    // die End-zu-End-Kopplung Transport -> Pump -> failed_dirs().
+    // ================================================================================================
+    {
+        std::filesystem::path const base = ::comdare::test::user_tmp_dir() / "comdare_b2_push_wirft";
+        std::error_code             ec;
+        std::filesystem::remove_all(base, ec);
+        std::filesystem::create_directories(base, ec);
+        std::filesystem::path const store  = base / "store";
+        std::filesystem::path const fakemc = base / "fake_mc.sh";
+        // Fake-mc mit Skript-Schalter: `cp` scheitert (exit 7) fuer jeden Key, dessen Pfad das Wort
+        // "kaputt" enthaelt, sonst kopiert es normal. `stat` verhaelt sich wie in Teil 5/6.
+        {
+            std::ofstream f{fakemc};
+            f << "#!/bin/sh\n"
+                 "STORE=\""
+              << store.string()
+              << "\"\n"
+                 "if [ \"$1\" = \"cp\" ]; then\n"
+                 "  SRC=\"$3\"; DST=\"$4\"\n"
+                 "  KEY=\"${DST#*/}\"; KEY=\"${KEY#*/}\"\n"
+                 "  case \"$KEY\" in *kaputt*) exit 7;; esac\n"
+                 "  mkdir -p \"$STORE/$(dirname \"$KEY\")\"\n"
+                 "  cp \"$SRC\" \"$STORE/$KEY\"\n"
+                 "  exit 0\n"
+                 "fi\n"
+                 "if [ \"$1\" = \"stat\" ]; then\n"
+                 "  DST=\"$3\"; KEY=\"${DST#*/}\"; KEY=\"${KEY#*/}\"\n"
+                 "  SZ=$(wc -c < \"$STORE/$KEY\" 2>/dev/null || echo 0)\n"
+                 "  echo \"{\\\"size\\\": $SZ}\"; exit 0\n"
+                 "fi\n"
+                 "exit 1\n";
+        }
+        std::filesystem::permissions(fakemc, std::filesystem::perms::owner_all, ec);
+
+        ::setenv("COMDARE_MINIO_ENDPOINT", "fakealias", 1);
+        ::setenv("COMDARE_MINIO_BUCKET", "fakebucket", 1);
+        ::setenv("COMDARE_MC_BIN", fakemc.string().c_str(), 1);
+        ::setenv("COMDARE_ARTEFAKT_TRIES", "1", 1); // 1 Versuch -> der Test wartet nicht auf Retries
+        ::setenv("COMDARE_ARTEFAKT_RETRY_SLEEP_S", "0", 1);
+        ::unsetenv("COMDARE_MEASUREMENT_DROP_URL");
+        ::unsetenv("COMDARE_MEASUREMENT_COMBO");
+
+        at::ArtifactCache const cache = at::ArtifactCache::from_env();
+        std::string const       bv    = "m3v2+cxx=g++-16+opt=O2";
+
+        // (a) FEHLSCHLAG des Nutzlast-Push -> Wurf mit Pfad, Objekt-Key und mc-Exit.
+        {
+            std::filesystem::path const bin_dir = base / "perm_kaputt_a";
+            std::filesystem::create_directories(bin_dir, ec);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::binary} << "DLLBYTES-K"; }
+            { std::ofstream{bin_dir / "perm.dll.version", std::ios::binary} << bv; }
+            bool        geworfen = false;
+            std::string key, text;
+            int         exit_code = 0;
+            try {
+                cache.push_tier_binary(bin_dir, bv);
+            } catch (at::ArtefaktPushFehler const& e) {
+                geworfen  = true;
+                key       = e.object_key();
+                exit_code = e.exit_code();
+                text      = e.what();
+            }
+            check_true("Teil8a: fehlgeschlagener perm.dll-Push WIRFT (vorher log+return = unsichtbar)", geworfen);
+            check_eq("Teil8a: der Wurf nennt den Objekt-Key", key,
+                     cache.cache_key_prefix(bv) + "/" + bin_dir.filename().string() + "/perm.dll");
+            check_eq("Teil8a: der Wurf nennt den mc-Exit", exit_code, 7);
+            check_true("Teil8a: der Fehlertext nennt den LOKALEN Pfad",
+                       text.find(bin_dir.string()) != std::string::npos);
+            check_true("Teil8a: lokale Kopie bleibt (Doktrin unveraendert)",
+                       std::filesystem::exists(bin_dir / "perm.dll", ec));
+            check_true("Teil8a: die ArtefaktIo-Log-Zeile neben der Datei bleibt",
+                       std::filesystem::exists(bin_dir / "perm.dll.push.log", ec));
+        }
+
+        // (b) GEGENPROBE: der Erfolgsfall wirft NICHT (der Fix darf den gruenen Pfad nicht verschieben).
+        {
+            std::filesystem::path const bin_dir = base / "perm_gut_b";
+            std::filesystem::create_directories(bin_dir, ec);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::binary} << "DLLBYTES-G"; }
+            { std::ofstream{bin_dir / "perm.dll.version", std::ios::binary} << bv; }
+            bool geworfen = false;
+            try {
+                cache.push_tier_binary(bin_dir, bv);
+            } catch (...) { geworfen = true; }
+            check_true("Teil8b: erfolgreicher Push wirft NICHT", !geworfen);
+            check_true("Teil8b: perm.dll.version im Store (voller Satz)",
+                       std::filesystem::exists(
+                           store / cache.cache_key_prefix(bv) / bin_dir.filename().string() / "perm.dll.version", ec));
+        }
+
+        // (c) "perm.dll fehlt lokal" ist KEIN Transport-Fehler -> weiterhin kein Wurf.
+        {
+            std::filesystem::path const bin_dir = base / "perm_leer_c";
+            std::filesystem::create_directories(bin_dir, ec);
+            bool geworfen = false;
+            try {
+                cache.push_tier_binary(bin_dir, bv);
+            } catch (...) { geworfen = true; }
+            check_true("Teil8c: 'nichts zu pushen' wirft NICHT (es gibt keine Aussage zu widerrufen)", !geworfen);
+        }
+
+        // (d) END-ZU-END: derselbe REALE Transport durch den Pump -> failed_dirs() greift jetzt WIRKLICH.
+        //     Genau diese Kette war vor dem Fix tot (log+return -> failed_dirs immer leer).
+        {
+            std::filesystem::path const schlecht = base / "perm_kaputt_d";
+            std::filesystem::path const gut      = base / "perm_gut_d";
+            for (auto const& d : {schlecht, gut}) {
+                std::filesystem::create_directories(d, ec);
+                { std::ofstream{d / "perm.dll", std::ios::binary} << "DLLBYTES-E2E"; }
+                { std::ofstream{d / "perm.dll.version", std::ios::binary} << bv; }
+            }
+            at::CachePushFn const push = [&cache](std::filesystem::path const& d, std::string const& v) {
+                cache.push_tier_binary(d, v);
+            };
+            at::AsyncPushPump pump{push, bv, {}, 0};
+            pump.enqueue(schlecht);
+            pump.enqueue(gut);
+            pump.close();
+            auto const failed = pump.failed_dirs();
+            check_eq("Teil8d: failed_dirs sieht den REALEN Transport-Fehler", failed.size(), std::size_t{1});
+            if (failed.size() == 1)
+                check_eq("Teil8d: und zwar genau das kaputte Verzeichnis", failed[0].string(), schlecht.string());
+            check_eq("Teil8d: pushed_count zaehlt nur den gelungenen", pump.pushed_count(), std::size_t{1});
+        }
+
+        ::unsetenv("COMDARE_MINIO_ENDPOINT");
+        ::unsetenv("COMDARE_MINIO_BUCKET");
+        ::unsetenv("COMDARE_MC_BIN");
+        ::unsetenv("COMDARE_ARTEFAKT_TRIES");
+        ::unsetenv("COMDARE_ARTEFAKT_RETRY_SLEEP_S");
+    }
+
     std::cout << "\n==== W11 async Push-Pump + Teil-Marker (§43.c): "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;

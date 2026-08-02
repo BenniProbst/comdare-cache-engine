@@ -38,15 +38,18 @@
 #include "bestandslog_lock.hpp"
 #include "reservation_lifecycle.hpp" // pro_forma_deadline_epoch_s/make_pro_forma_reservation (B4, nur lesend genutzt)
 
+#include <algorithm> // TP1FK1-B1: sort/unique/lower_bound der Selektions-Deckung (SweepScope)
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <functional>
 #include <iostream>
+#include <limits> // TP1FK1-B1: Ueberlauf-Wache slice_begin + slice_count
 #include <mutex>
 #include <optional>
 #include <random>
+#include <span> // TP1FK1-B1: die Selektions-Menge dieses Laufs kommt als zusammenhaengende Sicht
 #include <string>
 #include <string_view>
 #include <thread>
@@ -88,6 +91,11 @@ namespace comdare::cache_engine::builder::bestandslog {
 // ("YYYY-MM-DDTHH:MM:SSZ", 20 Zeichen). Alles andere -> nullopt, nie geraten: die Zeit-Anker der
 // Takeover-Entscheidung (unten) duerfen auf einem kaputten Feld keine Uebernahme begruenden.
 //
+// TP1FK1-B3 (fail-closed): geprueft wird das ZIVILDATUM, nicht nur die Ziffern-Form -- Tage je Monat
+// inklusive Schaltjahr-Regel und Sekunde <= 59. Die days-from-civil-Formel unten ist eine reine
+// Abbildung und NORMALISIERT Unmoegliches klaglos (31.04. -> 01.05., 29.02.2027 -> 01.03.2027); ein
+// so "gerettetes" Datum waere ein erfundener Anker unter einer Enteignungs-Entscheidung.
+//
 // Rein arithmetisch (days-from-civil), ohne timegm/_mkgmtime: dieselbe Antwort auf jeder Plattform
 // und in jedem Prozess-Zeitzonen-Zustand -- eine Frist, die je nach TZ-Env anders laege, waere im
 // Zwei-Maschinen-Betrieb genau die stille Divergenz, die das Bestandslog ausschliessen soll.
@@ -110,7 +118,24 @@ namespace comdare::cache_engine::builder::bestandslog {
     auto const mi = zahl(14, 2);
     auto const se = zahl(17, 2);
     if (!y || !mo || !d || !h || !mi || !se) return std::nullopt;
-    if (*mo < 1 || *mo > 12 || *d < 1 || *d > 31 || *h > 23 || *mi > 59 || *se > 60) return std::nullopt;
+    if (*mo < 1 || *mo > 12 || *h > 23 || *mi > 59) return std::nullopt;
+    // TP1FK1-B3 (fail-closed): SEKUNDE <= 59. Der Formatter dieser Datei (strftime %S ueber gmtime)
+    // erzeugt niemals 60 -- eine 60 kann also nur aus einer FREMDEN Quelle stammen und wuerde hier
+    // still auf die naechste Minute normalisiert. Ein Zeit-Anker, den wir nicht selbst geschrieben
+    // haben koennen, begruendet keine Uebernahme.
+    if (*se > 59) return std::nullopt;
+    // TP1FK1-B3 (fail-closed): ECHTE Zivildaten-Pruefung statt der frueheren Pauschale d<=31. Die
+    // days-from-civil-Formel unten ist eine reine Abbildung -- sie rechnet den 31.04. klaglos auf
+    // den 01.05. und den 29.02.2027 auf den 01.03.2027 um. Ein solches Datum steht nie in einem von
+    // uns geschriebenen Feld; es still zu NORMALISIEREN hiesse, einen Zeit-Anker zu erfinden und
+    // darauf eine fremde Reservierung zu enteignen. Schaltjahr = gregorianische Regel (durch 4, aber
+    // nicht durch 100, ausser durch 400) -- dieselbe Regel, auf der die Formel unten fusst.
+    {
+        bool const         schaltjahr = (*y % 4 == 0 && *y % 100 != 0) || (*y % 400 == 0);
+        constexpr int      tage[12]   = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        std::int64_t const max_tag    = tage[*mo - 1] + ((*mo == 2 && schaltjahr) ? 1 : 0); // Februar im Schaltjahr: 29
+        if (*d < 1 || *d > max_tag) return std::nullopt;
+    }
     // days-from-civil (proleptischer Gregorianischer Kalender; Standard-Herleitung, era-basiert).
     std::int64_t        yy   = *y - (*mo <= 2 ? 1 : 0);
     std::int64_t const  era  = (yy >= 0 ? yy : yy - 399) / 400;
@@ -276,6 +301,64 @@ template <class Fn>
 // ein nicht parsbares oder syntax-fremdes Dokument stoppt den Sweep komplett.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// TP1FK1-B1 (Codex-Befund): der SWEEP-SCOPE -- die zwei Kopplungen, ohne die ein Takeover Arbeit
+// LIEGEN LASSEN kann. Ein Release ist keine Buchungs-Kosmetik: es entzieht der fremden Maschine den
+// Claim UND setzt darauf, dass DIESER Lauf die Arbeit ueber den per-Binary-Miss-Weg mit aufnimmt.
+// Genau diese zweite Haelfte war nicht gekoppelt:
+//   (a) BATCH-TYP: der Sweep lief ueber ALLE Typen. Ein `planer_block` (CEB-Vorreservierung vor
+//       einem Compile, B7) beschreibt gar keine Tier-Binaries -- der Tier-Sweep kann seine Arbeit
+//       weder erkennen noch bauen. Er darf ihn deshalb auch nicht enteignen. Geurteilt wird
+//       ausschliesslich ueber Reservierungen des EIGENEN Typs.
+//   (b) SELEKTIONS-DECKUNG: ein Fenster [slice_begin, slice_begin+slice_count) ausserhalb der
+//       indices-Menge dieses Laufs wird von ihm NIE gebaut. Es freizugeben hiesse: der Claim ist
+//       weg, die Arbeit macht niemand. Konservative Regel -- WER DIE ARBEIT NICHT UEBERNEHMEN KANN,
+//       ENTEIGNET NICHT.
+//
+// LESART des Fensters, ehrlich benannt: die Reservierung traegt (slice_begin, slice_count) --
+// gesetzt aus plan->view_indices.front() und .size() (run_planer_driven_provision). Fuer die
+// zusammenhaengenden 4096er-Slices, die dieses System schneidet, ist das exakt der halboffene
+// Bereich; bei einer LUECKENHAFTEN Selektion beschreibt das Paar mehr Indizes als das Fenster
+// wirklich enthielt -> die Deckungs-Frage faellt dann STRENGER aus (weniger Uebernahmen), nie
+// laxer. Die konservative Richtung ist die sichere.
+// ---------------------------------------------------------------------------
+struct SweepScope {
+    BatchTyp typ = BatchTyp::tier; // NUR Reservierungen dieses Typs urteilt der Sweep
+    // Die view-Indizes DIESES Laufs, aufsteigend sortiert + dedupliziert (make_sweep_scope stellt
+    // das her). LEER == dieser Lauf baut nichts == er kann nichts uebernehmen -> kein Release.
+    std::vector<std::uint64_t> selection;
+};
+
+// Den Scope aus der Selektions-Liste des Laufs bauen (die EINE Stelle, die sortiert/dedupliziert --
+// scope_covers_slice setzt beides voraus und prueft es nicht noch einmal nach).
+[[nodiscard]] inline SweepScope make_sweep_scope(BatchTyp typ, std::span<std::size_t const> selection) {
+    SweepScope sc;
+    sc.typ = typ;
+    sc.selection.reserve(selection.size());
+    for (std::size_t i : selection) sc.selection.push_back(static_cast<std::uint64_t>(i));
+    std::sort(sc.selection.begin(), sc.selection.end());
+    sc.selection.erase(std::unique(sc.selection.begin(), sc.selection.end()), sc.selection.end());
+    return sc;
+}
+
+// Deckt die Selektion dieses Laufs das ganze Fenster ab? VOLLE Deckung ist gefordert: eine
+// Teil-Deckung hiesse, dass ein Rest der freigegebenen Arbeit von niemandem gebaut wird.
+[[nodiscard]] inline bool scope_covers_slice(SweepScope const& sc, std::uint64_t slice_begin,
+                                             std::uint64_t slice_count) noexcept {
+    if (slice_count == 0) return false; // ein Fenster ohne Inhalt ist nichts, was man uebernehmen koennte
+    if (slice_count > (std::numeric_limits<std::uint64_t>::max)() - slice_begin) return false; // krummes Feld
+    auto const lo = std::lower_bound(sc.selection.begin(), sc.selection.end(), slice_begin);
+    auto const hi = std::lower_bound(lo, sc.selection.end(), slice_begin + slice_count);
+    return static_cast<std::uint64_t>(hi - lo) == slice_count;
+}
+
+// Zaehlwerk der zwei neuen Ausschluesse (Testat-Pflicht: ein Nicht-Handeln, das niemand sieht, ist
+// von einem Defekt nicht zu unterscheiden).
+struct SweepAusschluesse {
+    std::size_t typ_fremd     = 0; // verfallen, aber ein anderer Batch-Typ -> nicht Sache dieses Sweeps
+    std::size_t nicht_gedeckt = 0; // verfallen + eigener Typ, aber ausserhalb der Selektion dieses Laufs
+};
+
 // Der Owner-Anteil einer Reservierungs-id. Beide gebauten id-Formen sind owner_uuid + "/" + Suffix
 // (make_slice_reservation bzw. planer_block_value) -- der Anteil vor dem ERSTEN '/' ist der Owner.
 [[nodiscard]] inline std::string_view reservation_owner_of(std::string_view id) noexcept {
@@ -291,9 +374,14 @@ template <class Fn>
 // Die uebernehmbaren Reservierungen eines Dokuments (pure, zeit-parametrisiert -> literal testbar).
 // Das URTEIL faellt is_reservation_takeable (B4) -- diese Funktion liefert ihm nur die geparsten
 // Zeit-Anker und haelt die konservativen Ausschluesse davor.
-[[nodiscard]] inline std::vector<BatchReservierung> collect_takeable_reservations(BestandslogDocument const& doc,
-                                                                                  std::string_view own_owner_uuid,
-                                                                                  std::int64_t     now_epoch_s) {
+//
+// TP1FK1-B1: die beiden Scope-Kopplungen stehen NACH dem Zeit-Urteil. Fachlich waere die Reihenfolge
+// gleichgueltig (beide Filter sind unabhaengig), aber so zaehlen aus[] genau das, was der Sweep
+// OHNE die Kopplung freigegeben HAETTE -- die Testat-Zahl ist damit die Wirkung des Fixes und nicht
+// die Zahl der ohnehin lebenden fremden Claims.
+[[nodiscard]] inline std::vector<BatchReservierung>
+collect_takeable_reservations(BestandslogDocument const& doc, std::string_view own_owner_uuid, std::int64_t now_epoch_s,
+                              SweepScope const& scope, SweepAusschluesse* aus = nullptr) {
     std::vector<BatchReservierung> out;
     for (auto const& r : doc.reservierungen) {
         if (r.status != BatchStatus::offen) continue; // done/released sind nie uebernehmbar
@@ -308,13 +396,28 @@ template <class Fn>
         // kaputtes Feld wuerde eine LEBENDE Maschine enteignen. Der Record wird stattdessen wie
         // unkalibriert geurteilt (pro-forma-Zweig); das deckt zugleich die F5-Zukunft, in der
         // periodische Updates die eta_s fortschreiben.
+        // TP1FK1-B3: die Frage stellt jetzt has_usable_eta (STRIKTE Parse inkl. Endzeiger) -- dieselbe
+        // EINE Auslegung, die auch is_reservation_takeable benutzt. Das Leeren bleibt noetig, weil die
+        // ANKER-WAHL zwei Zeilen weiter unten daran haengt (Frist vs. reserviert_utc).
         BatchReservierung urteil = r;
-        if (!urteil.eta_s.empty() && !(parse_seconds(urteil.eta_s) > 0.0)) urteil.eta_s.clear();
+        if (!urteil.eta_s.empty() && !has_usable_eta(urteil.eta_s)) urteil.eta_s.clear();
         auto const frist = epoch_from_utc_iso(r.pro_forma_bis_utc); // Anker des pro-forma-Falls
         auto const anker = epoch_from_utc_iso(r.reserviert_utc);    // Anker des ETA-Falls (s. Kopf)
         if (urteil.eta_s.empty() && !frist) continue;               // kaputter Anker -> konservativ stehen lassen
         if (!urteil.eta_s.empty() && !anker) continue;
         if (!is_reservation_takeable(urteil, anker.value_or(0), frist.value_or(0), now_epoch_s)) continue;
+        // TP1FK1-B1 (a): ein fremder Batch-Typ ist nicht die Arbeit dieses Sweeps -- ein planer_block
+        // beschreibt keine Tier-Binaries, der Tier-Lauf kann sie weder finden noch bauen.
+        if (r.typ != scope.typ) {
+            if (aus != nullptr) ++aus->typ_fremd;
+            continue;
+        }
+        // TP1FK1-B1 (b): was ausserhalb der Selektion dieses Laufs liegt, baut er nie -- ein Release
+        // dort nimmt der toten Maschine den Claim, ohne dass jemand die Arbeit aufnimmt.
+        if (!scope_covers_slice(scope, r.slice_begin, r.slice_count)) {
+            if (aus != nullptr) ++aus->nicht_gedeckt;
+            continue;
+        }
         out.push_back(r);
     }
     return out;
@@ -322,23 +425,51 @@ template <class Fn>
 
 // Ergebnis des Lauf-Start-Sweeps (Zahlen fuer Testat + Tests).
 struct TakeoverSweepErgebnis {
-    std::size_t              offene_fremde = 0;     // gesehene fremde OFFENE Reservierungen
-    std::size_t              uebernommen   = 0;     // davon released geschrieben (== ids.size())
-    bool                     geschrieben   = false; // der gelockte Schreib-Zyklus war ok
-    std::vector<std::string> ids;                   // die UEBERNOMMENEN ids -- nur bei geschrieben gefuellt (A-3): ein
-                                                    // gescheiterter Store hat nichts uebernommen, also nennt er nichts
+    std::size_t offene_fremde = 0; // gesehene fremde OFFENE Reservierungen (alle Typen)
+    // TP1FK1-B1: die zwei Scope-Ausschluesse -- verfallene fremde Claims, die dieser Lauf BEWUSST
+    // stehen laesst, weil er ihre Arbeit nicht uebernehmen kann.
+    std::size_t typ_fremd     = 0; // anderer Batch-Typ (z.B. planer_block im Tier-Sweep)
+    std::size_t nicht_gedeckt = 0; // Fenster ausserhalb der Selektion dieses Laufs
+    // TP1FK1-B4: uebernommen zaehlt nur, was NACH dem Store im zurueckgelesenen Merge-Ergebnis
+    // wirklich `released` ist -- nicht mehr die Vor-Lock-Kandidatenliste.
+    std::size_t uebernommen       = 0;     // bestaetigt released (== ids.size())
+    std::size_t vom_owner_beendet = 0;     // done gewann im Merge -> der Owner war doch fertig, keine Uebernahme
+    std::size_t nicht_bestaetigt  = 0;     // nach dem Store weder released noch done (bzw. verschwunden)
+    bool        geschrieben       = false; // der gelockte Schreib-Zyklus war ok
+    bool        revalidiert       = false; // das Dokument liess sich nach dem Store lesen+parsen
+    std::vector<std::string> ids;          // die BESTAETIGT uebernommenen ids (A-3/B4: nichts Unbelegtes)
 };
+
+// TP1FK1-B4: der Status EINER id im zurueckgelesenen Dokument (nullopt == der Record ist weg).
+[[nodiscard]] inline std::optional<BatchStatus> reservation_status_in(BestandslogDocument const& doc,
+                                                                      std::string_view           id) noexcept {
+    for (auto const& r : doc.reservierungen)
+        if (r.id == id) return r.status;
+    return std::nullopt;
+}
 
 // Der Sweep: fetch -> klassifizieren -> verfallene als released in EINEM gelockten Zyklus mergen.
 //
-// WETTLAUF-AUFLOESUNG OHNE ZWEIT-FETCH: die Klassifikation laeuft auf dem Vor-Lock-Stand; sollte die
-// "gestorbene" Maschine zwischen fetch und store doch noch Done schreiben, loest der Record-Union-
-// Merge das deterministisch auf (status_rank: done schlaegt released -- Fortschritt geht nie
-// verloren). Ein zweiter Taker schreibt released auf released (idempotent).
+// WETTLAUF-AUFLOESUNG OHNE ZWEIT-FETCH BEIM URTEIL: die Klassifikation laeuft auf dem Vor-Lock-Stand;
+// sollte die "gestorbene" Maschine zwischen fetch und store doch noch Done schreiben, loest der
+// Record-Union-Merge das deterministisch auf (status_rank: done schlaegt released -- Fortschritt geht
+// nie verloren). Ein zweiter Taker schreibt released auf released (idempotent).
+//
+// TP1FK1-B4 (Codex-Befund): der ZAEHLUNG genuegte das nicht. Wer die Kandidatenliste von VOR dem Lock
+// als "uebernommen" meldet, behauptet eine Uebernahme auch dort, wo der Merge sie gerade richtig
+// VERHINDERT hat (done gewinnt). Deshalb wird nach dem Store EINMAL zurueckgelesen und je Kandidat am
+// Store-Resultat entschieden: released == uebernommen; done == vom Owner beendet (kein Fehler, kein
+// Anspruch); alles andere == nicht bestaetigt. Das ist der einzige Zweit-Fetch und er urteilt nicht,
+// er BELEGT.
+//
+// `scope` ist Pflicht (TP1FK1-B1): ohne die Angabe, WELCHEN Batch-Typ dieser Lauf faehrt und WELCHE
+// Indizes er baut, laesst sich die Frage "kann ich die Arbeit ueberhaupt uebernehmen?" nicht stellen
+// -- und ein Release ohne diese Antwort laesst Arbeit liegen. Ein Default-Argument gaebe es hier
+// nicht: es waere genau die stille Annahme, die der Befund benennt.
 [[nodiscard]] inline TakeoverSweepErgebnis takeover_expired_reservations(BestandTransport const& t,
                                                                          std::string const&      doc_key,
                                                                          LockOwner const& me, int ttl_s,
-                                                                         NowFn const& now_fn) {
+                                                                         NowFn const& now_fn, SweepScope const& scope) {
     TakeoverSweepErgebnis erg;
     // Fail-closed wie der Lock selbst: ohne Owner-Token wird nicht geurteilt (der Schreib-Zyklus
     // wuerde ohnehin ablehnen, und ein Urteil ohne Schreiber waere folgenlose Behauptung).
@@ -349,7 +480,18 @@ struct TakeoverSweepErgebnis {
     if (!doc || !document_syntax_supported(*doc)) return erg; // kaputtes/fremdes Doc -> Haende weg
     for (auto const& r : doc->reservierungen)
         if (r.status == BatchStatus::offen && is_foreign_reservation(r, me.owner_uuid)) ++erg.offene_fremde;
-    auto kandidaten = collect_takeable_reservations(*doc, me.owner_uuid, now_fn());
+    SweepAusschluesse aus;
+    auto              kandidaten = collect_takeable_reservations(*doc, me.owner_uuid, now_fn(), scope, &aus);
+    erg.typ_fremd                = aus.typ_fremd;
+    erg.nicht_gedeckt            = aus.nicht_gedeckt;
+    // TP1FK1-B1-Testat (Nie-stumm): ein bewusstes Nicht-Handeln muss benannt sein, sonst ist es von
+    // einem Defekt nicht zu unterscheiden. 0-Fall schweigt (Normalbetrieb bleibt zeilen-identisch).
+    if (erg.typ_fremd > 0 || erg.nicht_gedeckt > 0)
+        std::cerr << "[bestandslog] takeover-scope: " << erg.typ_fremd << " verfallene fremde Reservierung(en) anderen "
+                  << "Batch-Typs und " << erg.nicht_gedeckt
+                  << " ausserhalb der Selektion dieses Laufs STEHEN GELASSEN -- wer die Arbeit nicht "
+                     "uebernehmen kann, enteignet nicht\n"
+                  << std::flush;
     if (kandidaten.empty()) return erg; // 0-Fall schweigt (kein Rauschen im Normalbetrieb)
     BestandslogDocument local;
     local.genus       = doc->genus;
@@ -363,15 +505,51 @@ struct TakeoverSweepErgebnis {
     erg.geschrieben = with_document_lock_retry(t, doc_key, me, ttl_s, now_fn, "Takeover-Release", [&]() {
                           return store_document_merged(t, doc_key, local).has_value();
                       }) == LockOutcome::ok;
-    if (erg.geschrieben) {
-        erg.ids         = std::move(kandidaten_ids);
-        erg.uebernommen = erg.ids.size();
-        // Testat (Nie-stumm-Doktrin): eine Uebernahme ist ein sichtbares Ereignis mit Namen.
+    if (!erg.geschrieben) return erg; // A-3: ein gescheiterter Store hat nichts uebernommen, also nennt er nichts
+
+    // TP1FK1-B4: REVALIDIERUNG AM STORE-RESULTAT. Der Merge kann eine Uebernahme richtigerweise
+    // verhindert haben (done schlaegt released, status_rank) -- dann ist der Owner doch fertig
+    // geworden und wir haben NICHTS uebernommen. Das darf die Zahl nicht behaupten.
+    auto const                         nach_raw = t.fetch(doc_key);
+    std::optional<BestandslogDocument> nachher =
+        nach_raw ? parse_bestandslog(*nach_raw) : std::optional<BestandslogDocument>{};
+    if (!nachher) {
+        // Ehrlich: der Store meldete Erfolg, aber wir koennen es nicht BELEGEN -> keine Uebernahme
+        // behaupten (uebernommen bleibt 0, ids leer). Der Bau ist davon unberuehrt (Buchhaltung).
+        std::cerr << "[bestandslog] warn: Takeover-Release geschrieben, aber das Dokument '" << doc_key
+                  << "' war danach nicht lesbar/parsbar -- KEINE Uebernahme belegt (der Bau laeuft weiter)\n"
+                  << std::flush;
+        return erg;
+    }
+    erg.revalidiert = true;
+    for (auto const& id : kandidaten_ids) {
+        auto const st = reservation_status_in(*nachher, id);
+        if (st == BatchStatus::released) {
+            erg.ids.push_back(id);
+        } else if (st == BatchStatus::done) {
+            ++erg.vom_owner_beendet; // done gewann im Merge: der "gestorbene" Owner war fertig
+        } else {
+            ++erg.nicht_bestaetigt; // noch offen bzw. Record verschwunden -> nichts behaupten
+        }
+    }
+    erg.uebernommen = erg.ids.size();
+    // Testat (Nie-stumm-Doktrin): eine Uebernahme ist ein sichtbares Ereignis mit Namen.
+    if (erg.uebernommen > 0) {
         std::cerr << "[bestandslog] takeover: " << erg.uebernommen
                   << " verfallene fremde Reservierung(en) uebernommen (";
         for (std::size_t i = 0; i < erg.ids.size(); ++i) std::cerr << (i == 0 ? "" : ", ") << erg.ids[i];
         std::cerr << ") -- die nicht als Bestand verzeichnete Arbeit nimmt dieser Lauf auf\n";
     }
+    // TP1FK1-B4: die zwei Nicht-Uebernahmen bekommen ihre eigene, unmissverstaendliche Zeile.
+    if (erg.vom_owner_beendet > 0)
+        std::cerr << "[bestandslog] takeover: " << erg.vom_owner_beendet
+                  << " Reservierung(en) wurden zwischen Klassifikation und Store VOM OWNER BEENDET (done gewinnt im "
+                     "Merge) -- das ist KEINE Uebernahme und kein Fehler\n";
+    if (erg.nicht_bestaetigt > 0)
+        std::cerr << "[bestandslog] warn: " << erg.nicht_bestaetigt
+                  << " Takeover-Kandidat(en) standen nach dem Store weder auf released noch auf done -- nicht als "
+                     "uebernommen gezaehlt\n";
+    std::cerr << std::flush;
     return erg;
 }
 

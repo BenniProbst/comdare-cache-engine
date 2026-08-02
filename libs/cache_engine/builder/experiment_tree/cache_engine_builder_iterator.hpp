@@ -56,7 +56,8 @@
 #include <cstddef>
 #include <map> // #165-B: Gruppen-Buckets (binary_id|profile_name) im annotate_quality_flags
 #include <cstdint>
-#include <cstdio> // (C-1) std::snprintf für ns_per_op-Formatierung
+#include <cstdio>    // (C-1) std::snprintf fuer ns_per_op-Formatierung
+#include <exception> // TP1FK1-B2: std::exception -- der werfende Transport wird im Mess-Pfad klassifiziert gefangen
 #include <filesystem>
 #include <fstream>    // (E) per-Binary-Ergebnis-CSV schreiben
 #include <functional> // #46b I1: bestand_key_of-Injektion (std::function)
@@ -1040,11 +1041,19 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // (planer_driven_active): Reservierungen sind ein Bau-Batch-Konzern, und im Mess-Lauf haette der
     // Roundtrip in der 1-Thread-Exklusivitaet nichts verloren. Ein Fehlschlag ist NIE ein Bau-Fehler
     // (Buchhaltung; Testat-Zeilen schreibt der Sweep selbst).
+    //
+    // TP1FK1-B1: der Sweep ist an DIESEN Lauf GEKOPPELT. Er urteilt nur ueber Reservierungen vom Typ
+    // `tier` -- denselben Typ, den run_planer_driven_provision hier schreibt (make_slice_reservation)
+    // -- und nur ueber Fenster, die die Selektion `indices` dieses Laufs voll abdeckt. Beides folgt
+    // aus derselben Ueberlegung: ein Release ist nur dann korrekt, wenn dieser Lauf die freigegebene
+    // Arbeit ueber den per-Binary-Miss-Weg auch wirklich aufnimmt. Ein planer_block (CEB-Compile) und
+    // ein Fenster ausserhalb von `indices` erfuellen das nicht -> stehen lassen.
     if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
         (void)bestandslog::takeover_expired_reservations(
             cfg.bestand_transport, cfg.bestand_doc_key,
             bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine),
-            bestandslog::default_lock_ttl_s(), bestandslog::NowFn{&bestandslog::system_now_epoch_s});
+            bestandslog::default_lock_ttl_s(), bestandslog::NowFn{&bestandslog::system_now_epoch_s},
+            bestandslog::make_sweep_scope(bestandslog::BatchTyp::tier, std::span<std::size_t const>{indices}));
 
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
@@ -1179,6 +1188,25 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         term.done   = true;
         cfg.progress_sink(term);
     };
+    // TP1FK1-B5 (Codex-Befund): der CURSOR ist laut Vertrag der FENSTER-RELATIVE Perm-Index
+    // (progress_delta.hpp) -- also die Position in der Selektion `indices` DIESES Laufs. Gefeuert wurde
+    // aber die Laufvariable j ueber `builds`. Seit dem Bau-Filter (TP1-N3/B-2c) ist builds die TEILMENGE
+    // der wirklich gebauten Indizes: nach einem Lager-Skip rutschen alle folgenden Cursor um die Zahl der
+    // Skips nach vorn (Cursor-KOMPRESSION), waehrend das done-Delta die VOLLE Menge meldet -- der
+    // Rueck-Kanal-Konsument bekam Positionen, die es im Fenster so nie gab.
+    //
+    // Die Abbildung ist deshalb view_index -> Position in `indices`. In den beiden NICHT planer-getriebenen
+    // Pfaden (pruef_only + Mess-Merge) ist builds positions-treu zur uebergebenen Liste, dort liefert sie
+    // beweisbar wieder j -> jene Pfade bleiben byte-identisch. EINE Regel statt zweier, damit ein kuenftiger
+    // Filter an anderer Stelle diesen Defekt nicht erneut erzeugt. Doppelte Indizes in `indices` waeren eine
+    // kaputte Selektion; die erste Position gewinnt, und der Fallback (die Laufvariable) greift nur, wenn ein
+    // gebauter Index gar nicht in der Selektion stand -- ein Widerspruch, der dann wenigstens nicht abstuerzt.
+    std::map<std::size_t, std::size_t> fenster_pos;
+    for (std::size_t k = 0; k < indices.size(); ++k) fenster_pos.emplace(indices[k], k);
+    auto fenster_cursor_of = [&fenster_pos](std::size_t view_index, std::size_t rueckfall) {
+        auto const it = fenster_pos.find(view_index);
+        return (it == fenster_pos.end()) ? rueckfall : it->second;
+    };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     // INC-G6 (Ledger 33/34, 2026-07-19, BAUPLAN Abschnitt 2): PROVISION-ONLY. Nach der STATISCHEN Kompilierung
@@ -1227,7 +1255,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // Delta (in StaticBinaryView-Ordnung; Lager-Treffer haben keine Konfigurations-Aenderung zu melden).
         // TP1-N3 (B-2b): das done-Delta traegt die VOLLE bereitgestellte Menge (gebaut + Lager-Bestand) --
         // builds.size() allein unterzaehlte seit dem Bau-Filter die Bereitstellung dieses Fensters.
-        for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
+        for (std::size_t j = 0; j < builds.size(); ++j)
+            fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
         fire_progress_done(builds.size() + result.bestand_lager_skips);
         return result;
     }
@@ -1273,7 +1302,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             pruef_hb.tick();
         }
         pruef_hb.done();
-        for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
+        for (std::size_t j = 0; j < builds.size(); ++j)
+            fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
         fire_progress_done(builds.size());
         return result;
     }
@@ -1335,16 +1365,16 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // Bauplan §8: der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur (leer => == Prefix, Ist).
         std::string const binary_resume_stamp =
             b.algo_sig.empty() ? resume_stamp_prefix : (resume_stamp_prefix + "|algos=" + b.algo_sig);
-        // Mess-RESUME (#139 + Audit K8): Resume-Check VOR dem b.ok()-Gate. Vollstaendig+aktuell => Binary uebersprungen,
-        // ihre Zeilen unveraendert uebernommen -- auch bei Build-Fehler (sonst stille CSV-Luecke). Stale => Neu-Messung.
-        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
-            std::string resumed_rows;
-            if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
-                oc.resumed_csv_rows = std::move(resumed_rows);
-                oc.resumed_binaries = 1;
-                return oc; // Resume-Skip: kein Progress (wie das frueherer continue-vor-fire_progress)
-            }
-        }
+        // TP1FK1-B10 (Codex-Befund, BLOCK): der BAU-FEHLER-ZWEIG STEHT VOR DEM RESUME-KURZSCHLUSS.
+        //
+        // Frueher lief der Resume-Check zuerst -- ausdruecklich "auch bei Build-Fehler, sonst stille
+        // CSV-Luecke". Seit A15/FK-1 gibt es die Luecke nicht mehr: der Fehlerzweig schreibt eine ehrliche
+        // nicht_gebaut-Marker-Zeile. Damit kehrte sich die Reihenfolge ins Gegenteil um: eine Binary, die
+        // sich HEUTE NICHT MEHR BAUEN LAESST, uebernahm die ERFOLGS-CSV eines frueheren Laufs und der
+        // Marker kam nie zustande. Der naechste Lauf faende dieselbe CSV samt gueltigem Stamp erneut --
+        // ein Bau-Fehler konnte so beliebig lange hinter alten Messwerten verschwinden. (Ein reiner
+        // Wiedereinstieg ist davon nicht betroffen: eine versions-aktuelle Binary wird vom Orchestrator
+        // als b.ok()+skipped gemeldet und laeuft weiter durch den Resume-Zweig unten.)
         if (!b.ok()) {
             // d1-log (D1): den Bau-Fehler KLASSIFIZIERT deklarieren (Infra ODER Compiler-Compiler), Harness MISST WEITER.
             namespace cm               = ::comdare::cache_engine::measurement;
@@ -1362,8 +1392,52 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             // nichts gemessen) und progress_eligible bleibt false (die Zelle erreicht die Mess-Naht nie).
             LazyMeasuredRow marker = make_marker_row(b.binary_id);
             marker.build_status    = cm::BuildCellStatus::NichtGebaut;
+            // TP1FK1-B10: die per-Binary-Ablage wird INVALIDIERT, BEVOR der Resume-Check des NAECHSTEN
+            // Laufs sie faende. Der Stamp faellt (kein Resume-Anspruch mehr) und die result.csv traegt
+            // genau die Marker-Zeile, die auch in die globale CSV geht -- statt der Erfolgs-Zeilen eines
+            // Laufs, dessen Binary es nicht mehr gibt. Das ist KEIN Messdaten-Verlust im Sinne der
+            // Doktrin: die Zeilen beschrieben eine Binary, die dieser Bau gerade als nicht herstellbar
+            // erwiesen hat -- sie weiter als gueltigen Messstand zu fuehren waere die Luege. Der
+            // Fehlschlag beim Schreiben ist selbst ein Befund und wird beziffert, nie verschluckt.
+            if (cfg.per_binary_subdirs) {
+                std::filesystem::path const fehl_dir = b.output.parent_path();
+                if (!fehl_dir.empty()) {
+                    std::error_code fec;
+                    std::filesystem::create_directories(fehl_dir, fec);
+                    // Stamp ZUERST weg (write-ZULETZT-Disziplin): ein Abbruch mitten drin darf nie eine
+                    // Marke zuruecklassen, die auf eine halb geschriebene CSV zeigt.
+                    std::filesystem::remove(fehl_dir / "result.csv.stamp", fec);
+                    bool marker_geschrieben = false;
+                    {
+                        std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
+                        if (mf) {
+                            mf << lazy_csv_header() << format_csv_row(marker);
+                            mf.flush();
+                            marker_geschrieben = mf.good();
+                        }
+                    }
+                    if (!marker_geschrieben)
+                        std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                  << b.binary_id << "' nicht_gebaut-Marker NICHT in "
+                                  << (fehl_dir / "result.csv").string()
+                                  << " geschrieben -- der Stamp ist entfernt, ein Folgelauf misst also neu\n"
+                                  << std::flush;
+                }
+            }
             oc.rows.push_back(std::move(marker));
-            return oc; // Build-Fehler UND nicht resumebar -> KEINE Messung, aber ein sichtbarer Datensatz
+            return oc; // Build-Fehler -> KEINE Messung, aber ein sichtbarer Datensatz (Zeile + Ablage)
+        }
+        // Mess-RESUME (#139 + Audit K8): Vollstaendig+aktuell => Binary uebersprungen, ihre Zeilen unveraendert
+        // uebernommen. Stale => Neu-Messung. TP1FK1-B10: erreicht wird der Zweig nur noch fuer b.ok()-Binaries
+        // (gebaut ODER versions-aktuell uebersprungen) -- fuer eine EXISTIERENDE Binary ist der resumierte
+        // Stand die Wahrheit, fuer eine nicht herstellbare war er es nie.
+        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
+            std::string resumed_rows;
+            if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
+                oc.resumed_csv_rows = std::move(resumed_rows);
+                oc.resumed_binaries = 1;
+                return oc; // Resume-Skip: kein Progress (wie das frueherer continue-vor-fire_progress)
+            }
         }
 
         // (2) LADEN: DLL -> IAnatomyBase* -> Sub-Interfaces via Dock-Vertrag. AnatomyModuleLoader::load ist thread-safe
@@ -1495,7 +1569,28 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
         // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
-            if (cfg.cache_push) cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+.version) -> Store
+            if (cfg.cache_push) {
+                // TP1FK1-B2: der reale Transport WIRFT jetzt bei Push-Fehler (ArtefaktPushFehler) -- vorher war
+                // ein fehlgeschlagener Push von einem gelungenen nicht zu unterscheiden. Im MESS-Pfad darf das
+                // den Lauf NIE abreissen (eine Zelle ist gemessen, die CSV liegt lokal, die naechste Zelle wartet)
+                // -> klassifiziert loggen und WEITERMESSEN. Das ist dieselbe Politik wie zuvor, aber jetzt eine
+                // sichtbare Entscheidung dieses Faengers statt einer stillen Eigenschaft des Transports.
+                try {
+                    cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+Sidecars,+.version) -> Store
+                } catch (std::exception const& e) {
+                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                              << "] binary_id='" << binary_id
+                              << "' Push in den Objekt-Store fehlgeschlagen: " << e.what()
+                              << " -- lokale Kopie bleibt, der Lauf MISST WEITER\n"
+                              << std::flush;
+                } catch (...) {
+                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                              << "] binary_id='" << binary_id
+                              << "' Push in den Objekt-Store mit unbekanntem Fehler abgebrochen -- lokale Kopie "
+                                 "bleibt, der Lauf MISST WEITER\n"
+                              << std::flush;
+                }
+            }
             if (cfg.measurement_sink) {
                 std::error_code             sec;
                 std::filesystem::path const rcsv = bin_dir / "result.csv";
@@ -1538,7 +1633,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         result.dynamic_settings_total += oc.dynamic_settings_total;
         result.measured += oc.measured;
         for (auto& row : oc.rows) result.csv_rows.push_back(std::move(row));
-        if (oc.progress_eligible) fire_progress(builds[j].index, j);
+        if (oc.progress_eligible)
+            fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
     }
 
     // Welle 5 (E-W5-2): §38.b-Fertig-Signal -- done genau EINMAL am Fensterende (nach dem GANZEN Merge).

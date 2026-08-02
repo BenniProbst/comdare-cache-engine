@@ -37,8 +37,9 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <iostream> // std::cerr (klassifizierte Infra-Fehlerzeile) — include-what-you-use, nicht transitiv verlassen
-#include <optional> // G5 (P-B): prune_verdict-Remote-Werte (std::optional)
+#include <iostream>  // std::cerr (klassifizierte Infra-Fehlerzeile) -- include-what-you-use, nicht transitiv verlassen
+#include <optional>  // G5 (P-B): prune_verdict-Remote-Werte (std::optional)
+#include <stdexcept> // TP1FK1-B2: ArtefaktPushFehler (sichtbarer Transport-Fehler des Tier-Push)
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -137,10 +138,43 @@ struct ObjectMeta {
     std::int64_t  mtime_epoch_s = 0; // 0 == unbekannt (diese Naht ermittelt keine mtime)
 };
 
+// -- TP1FK1-B2 (Codex-Befund): der SICHTBARE Transport-Fehler des Tier-Push ------------------------------------
+// BEFUND: push_tier_binary loggte einen fehlgeschlagenen mc-Push und kehrte zurueck. Fuer JEDEN Aufrufer war das
+// von einem Erfolg nicht zu unterscheiden -- die CachePushFn ist void. Zwei Folgen, beide real:
+//   * AsyncPushPump::failed_dirs() (TP1-N2/B-1) sieht nur GEWORFENE Pushes. Mit einem log+return-Transport war die
+//     Liste per Konstruktion IMMER leer -> der B-1-Ausschluss (Bestandslog-Eintraege ohne Store-Objekt verwerfen)
+//     lief ins Leere und das geteilte Dokument meldete Binaries, die der Store nie erhielt. Der Bau-Filter des
+//     Folgelaufs uebersprang dann eine nirgends existierende Binary -- der stille Verlustpfad.
+//   * der synchrone Mess-Pfad-Push konnte gar nicht erst merken, dass er nichts abgelegt hat.
+// FIX: ein fehlgeschlagener Objekt-Push WIRFT. Die ArtefaktIo-Log-Zeile NEBEN der Datei bleibt unveraendert
+// (Klassifikation + Pfad + mc-Ausgabe); die Exception traegt zusaetzlich Pfad, Objekt-Key und den letzten
+// mc-Exit-Code, damit der Faenger nicht raten muss. WER FAENGT, ENTSCHEIDET: der Pump verbucht failed_dirs und
+// baut weiter, der Mess-Pfad loggt klassifiziert und MISST WEITER -- kein Pfad bricht einen Lauf ab.
+class ArtefaktPushFehler : public std::runtime_error {
+public:
+    ArtefaktPushFehler(std::string const& was, std::filesystem::path lokal, std::string object_key, int exit_code)
+        : std::runtime_error{was + " -- lokal='" + lokal.string() + "' objekt_key='" + object_key +
+                             "' letzter_mc_exit=" + std::to_string(exit_code)},
+          lokal_{std::move(lokal)}, object_key_{std::move(object_key)}, exit_code_{exit_code} {}
+
+    [[nodiscard]] std::filesystem::path const& lokal() const noexcept { return lokal_; }
+    [[nodiscard]] std::string const&           object_key() const noexcept { return object_key_; }
+    /// Exit des LETZTEN mc-Versuchs. 0 bedeutet "mc cp meldete Erfolg, aber der Groessen-Verify war negativ".
+    [[nodiscard]] int exit_code() const noexcept { return exit_code_; }
+
+private:
+    std::filesystem::path lokal_;
+    std::string           object_key_;
+    int                   exit_code_;
+};
+
 // ── Injektions-Naht-Typen (No-Op-Default = leere std::function -> byte-neutral). ──────────────────────────────
 // Muster wie CompileFn/AlgoSigFn (build_orchestrator.hpp): der Iterator ruft sie SYNCHRON an der per-Binary-Naht.
 // CachePushFn: ein fertig gebautes Tier-Binary-Verzeichnis -> Objekt-Store (Ebene B). Args (bin_dir, build_version);
 //   der Client leitet Objekt-Key cache_key_prefix(build_version)/<stem>/perm.dll(+.version) ab (stem = bin_dir.filename()).
+//   TP1FK1-B2: die Naht DARF WERFEN (ArtefaktPushFehler beim realen Client) -- ein Transport-Fehler ist kein
+//   Rueckgabewert dieser void-Signatur und war deshalb bisher unsichtbar. Jeder Aufrufer faengt (Pump: failed_dirs;
+//   Mess-Pfad: klassifiziertes Log + weitermessen); ein Lauf-Abriss ist an KEINER Stelle erlaubt.
 using CachePushFn = std::function<void(std::filesystem::path const& bin_dir, std::string const& build_version)>;
 // MeasurementSinkFn: eine Mess-Datei additiv an die write-only measure-drop-Senke legen (Ebene C, HTTPS-PUT). Args
 //   (local_file, relative_dest); Ziel-URL = <drop_url>/<lauf_stamp>/<relative_dest>. Leer = No-Op.
@@ -268,6 +302,14 @@ public:
     /// Lager-Anker (bestand_key_of -> nullopt -> DedupOutcome::no_key: das Lager konnte genau das nicht
     /// inventarisieren, was es selbst hydriert hat) und nie ihre Varianten-Provenienz (dll_is_current haette bei
     /// gesetzter Variant-Erwartung neu gebaut). Fehler -> ArtefaktIo geloggt + lokale Kopie bleibt; MESSEN WEITER.
+    ///
+    /// TP1FK1-B2 (Codex-Befund): JEDER der drei Fehl-Ausgaenge WIRFT jetzt ArtefaktPushFehler (mit lokalem Pfad,
+    /// Objekt-Key und letztem mc-Exit) -- zusaetzlich zur unveraenderten ArtefaktIo-Log-Zeile neben der Datei. Vorher
+    /// war log+return fuer die void-CachePushFn von einem Erfolg ununterscheidbar: AsyncPushPump::failed_dirs() blieb
+    /// per Konstruktion leer, der B-1-Bestandslog-Ausschluss lief ins Leere, und das geteilte Dokument meldete
+    /// Binaries, die der Store nie erhielt. "MESSEN WEITER" bleibt gueltig -- es ist jetzt eine Entscheidung des
+    /// FAENGERS (Pump/Mess-Pfad) statt einer stillen Eigenschaft des Transports. Der Fall "perm.dll fehlt lokal" ist
+    /// KEIN Transport-Fehler und wirft weiterhin nicht (es gab nichts zu pushen).
     void push_tier_binary(std::filesystem::path const& bin_dir, std::string const& build_version) const {
         if (!minio_enabled()) return; // No-Op (byte-neutral)
         std::string const stem     = bin_dir.filename().string();
@@ -278,32 +320,50 @@ public:
 
         std::error_code ec;
         if (!std::filesystem::exists(dll, ec)) {
+            // KEIN Transport-Fehler: es gibt schlicht nichts zu pushen (kein Wurf -- der Aufrufer haette
+            // nichts zu entscheiden). Die Log-Zeile bleibt, damit der Fall nicht stumm ist.
             log_artefakt_io(log, "perm.dll fehlt lokal, nichts zu pushen: " + dll.string());
             return;
         }
+        int exit_code = -1;
         // (1) perm.dll ZUERST — die eigentliche Nutzlast.
-        if (!mc_cp(dll, key_base + "/perm.dll", log)) {
+        if (!mc_cp(dll, key_base + "/perm.dll", log, &exit_code)) {
             log_artefakt_io(log, "Push perm.dll fehlgeschlagen (lokale Kopie bleibt): " + key_base + "/perm.dll");
-            return; // Sidecars bewusst NICHT pushen -> halb-gepusht = kein Pull
+            // TP1FK1-B2: Sidecars bewusst NICHT pushen (halb-gepusht = kein Pull) UND werfen -- ohne den Wurf
+            // waere dieser Ausgang fuer die void-CachePushFn von einem Erfolg nicht zu unterscheiden.
+            throw ArtefaktPushFehler{"Push perm.dll fehlgeschlagen (lokale Kopie bleibt, kein Objekt im Store)", dll,
+                                     key_base + "/perm.dll", exit_code};
         }
         // (2) die OPTIONALEN Sidecars MITTE, in Listen-Reihenfolge (.algos -> .fingerprint -> .variant). Fehlt die
         //     lokale Datei, wird sie uebersprungen; schlaegt ihr Push fehl, bleibt die .version-Marke bewusst weg.
         for (char const* leaf : kOptionalTierSidecars) {
             std::filesystem::path const local = bin_dir / leaf;
             if (!std::filesystem::exists(local, ec)) continue; // Gate aus / nicht erzeugt -> nichts zu spiegeln
-            if (!mc_cp(local, key_base + "/" + leaf, log)) {
+            if (!mc_cp(local, key_base + "/" + leaf, log, &exit_code)) {
                 log_artefakt_io(log, std::string{"Push "} + leaf +
                                          " fehlgeschlagen (perm.dll ist oben, Marke bleibt weg -> kein Pull): " +
                                          key_base + "/" + leaf);
-                return; // Version-Marke NICHT setzen -> unvollstaendig = kein falscher Reuse
+                // TP1FK1-B2: der Satz ist unvollstaendig -- Version-Marke NICHT setzen (kein falscher Reuse) und
+                // den Fehler sichtbar machen. Ein Bestandslog-Eintrag auf einen halben Satz waere ein Phantom.
+                throw ArtefaktPushFehler{
+                    std::string{"Push "} + leaf +
+                        " fehlgeschlagen (Satz unvollstaendig, Vollstaendigkeits-Marke bleibt weg)",
+                    local, key_base + "/" + leaf, exit_code};
             }
         }
         // (3) perm.dll.version ZULETZT — die Vollstaendigkeits-/Versions-Marke (letztes Objekt).
         if (std::filesystem::exists(sidecar, ec)) {
-            if (!mc_cp(sidecar, key_base + "/perm.dll.version", log))
+            if (!mc_cp(sidecar, key_base + "/perm.dll.version", log, &exit_code)) {
                 log_artefakt_io(log,
                                 "Push perm.dll.version fehlgeschlagen (perm.dll ist oben, Marke fehlt -> kein Pull): " +
                                     key_base + "/perm.dll.version");
+                // TP1FK1-B2: OHNE die Marke findet kein Pull den Satz -- fuer den Store ist diese Binary nicht
+                // vorhanden. Genau deshalb muss der Aufrufer es erfahren (Bestandslog-Ausschluss).
+                throw ArtefaktPushFehler{
+                    "Push perm.dll.version fehlgeschlagen (ohne Vollstaendigkeits-Marke ist der Satz fuer den Pull "
+                    "nicht vorhanden)",
+                    sidecar, key_base + "/perm.dll.version", exit_code};
+            }
         }
     }
 
@@ -475,6 +535,11 @@ public:
     /// die ersten k*N DLLs dieses Chunks sind gepusht -> ein resumierender Runner darf den PREFIX pullen und lokal
     /// via dll_is_current uebernehmen (nur die fehlenden werden neu gebaut). No-Op ohne Ebene B. Fehler -> ArtefaktIo
     /// geloggt, Bau LAEUFT WEITER (kein throw). Inhalt = part/utc-Metadaten (nur informativ; die Existenz zaehlt).
+    ///
+    /// TP1FK1-B2, BEWUSSTE ABGRENZUNG: der Teil-Marker bleibt NICHT-werfend. Er behauptet nichts ueber einen
+    /// abgelegten Satz -- sein Fehlen IST das ehrliche Signal (der resumierende Runner pullt dann eben nicht und
+    /// baut). Nur der Objekt-Push selbst (push_tier_binary) traegt eine Aussage, deren Fehlschlag unsichtbar
+    /// bleiben WUERDE und deshalb geworfen werden MUSS.
     void push_chunk_partial_marker(std::string const& build_version, std::string const& range,
                                    std::size_t part_index) const {
         if (!minio_enabled()) return; // No-Op (byte-neutral)
@@ -765,16 +830,23 @@ private:
         return digit ? code : 0;
     }
     // ── mc-Shellout (Ebene B): SYNCHRON `mc cp` mit Retry + `mc stat`-Groessen-Verify. Kein /bin/sh, kein Python. ──
+    //
+    // TP1FK1-B2: `letzter_exit` (optional) nimmt den Exit-Code des LETZTEN mc-cp-Versuchs auf -- ohne ihn koennte
+    // die Fehlermeldung des werfenden Aufrufers den Grund nur behaupten. -1 = nie gestartet (tries_ ist per
+    // from_env/with_object_budget auf >=1 geklemmt, der Wert ist also die ehrliche Reserve). 0 bei false bedeutet
+    // "mc cp meldete Erfolg, aber der Groessen-Verify war negativ" -- eine andere Lage als ein cp-Fehler.
     [[nodiscard]] bool mc_cp(std::filesystem::path const& local, std::string const& object_key,
-                             std::filesystem::path const& log) const {
+                             std::filesystem::path const& log, int* letzter_exit = nullptr) const {
         std::string const    target = mc_target(object_key);
         std::error_code      ec;
         std::uintmax_t const local_size = std::filesystem::file_size(local, ec);
+        if (letzter_exit != nullptr) *letzter_exit = -1;
 
         for (std::size_t attempt = 1; attempt <= tries_; ++attempt) {
             // `mc cp --quiet` = atomarer Put (mc verifiziert den Upload intern via ETag). stdout/stderr -> Log.
             int const rc =
                 run_argv(mc_argv({mc_bin_, "cp", "--quiet", local.string(), target}, mc_push_timeout_s_), log);
+            if (letzter_exit != nullptr) *letzter_exit = rc;
             if (rc == 0 && mc_size_verified(target, local_size, log)) return true;
             if (attempt < tries_) sleep_seconds(sleep_s_);
         }

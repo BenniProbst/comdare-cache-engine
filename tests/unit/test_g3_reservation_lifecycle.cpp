@@ -45,13 +45,46 @@ TEST(G3ReservationLifecycle, ApplyCalibrationFillsEtaAndAvg) {
     bl::apply_calibration(r, bl::EtaResult{912.5, 428032});
     EXPECT_EQ(r.eta_s, "912.500");
     EXPECT_EQ(r.avg_size_bytes, "428032");
-    EXPECT_DOUBLE_EQ(bl::parse_seconds(r.eta_s), 912.5);
+    ASSERT_TRUE(bl::parse_seconds(r.eta_s).has_value());
+    EXPECT_DOUBLE_EQ(*bl::parse_seconds(r.eta_s), 912.5);
 }
 
 TEST(G3ReservationLifecycle, FormatParseSecondsRoundtrip) {
     EXPECT_EQ(bl::format_seconds(256.0), "256.000");
-    EXPECT_DOUBLE_EQ(bl::parse_seconds("256.000"), 256.0);
-    EXPECT_DOUBLE_EQ(bl::parse_seconds(""), 0.0);
+    ASSERT_TRUE(bl::parse_seconds("256.000").has_value());
+    EXPECT_DOUBLE_EQ(*bl::parse_seconds("256.000"), 256.0);
+    // TP1FK1-B3: LEER ist keine 0.0 mehr, sondern "nicht kalibriert" -- der Unterschied entscheidet
+    // im Takeover, ob der ETA- oder der pro-forma-Zweig urteilt.
+    EXPECT_FALSE(bl::parse_seconds("").has_value());
+}
+
+// TP1FK1-B3 (NEGATIVTEST, Codex-Befund): parse_seconds prueft Fehlercode UND Endzeiger. Vor der
+// Haertung lieferte "1junk" die 1.0 -- eine erfundene ETA, aus der das Takeover-Praedikat nach
+// 1,5 Sekunden "Maschine gestorben" ableitete.
+TEST(G3ReservationLifecycle, B3ParseSecondsIstFailClosed) {
+    EXPECT_FALSE(bl::parse_seconds("1junk").has_value()) << "Nachgestellter Muell -> nullopt, nie 1.0.";
+    EXPECT_FALSE(bl::parse_seconds("12.5s").has_value());
+    EXPECT_FALSE(bl::parse_seconds("murks").has_value());
+    EXPECT_FALSE(bl::parse_seconds(" 12.5").has_value()) << "Fuehrender Whitespace ist nicht unsere Wire-Form.";
+    EXPECT_FALSE(bl::parse_seconds("12.5 ").has_value());
+    // Die von format_seconds erzeugte Form bleibt gueltig (der Roundtrip ist der Vertrag).
+    ASSERT_TRUE(bl::parse_seconds(bl::format_seconds(0.5)).has_value());
+    EXPECT_DOUBLE_EQ(*bl::parse_seconds(bl::format_seconds(0.5)), 0.5);
+    // has_usable_eta = strikt parsbar UND positiv (die EINE Auslegung beider Konsumenten).
+    EXPECT_TRUE(bl::has_usable_eta("100.000"));
+    EXPECT_FALSE(bl::has_usable_eta("1junk"));
+    EXPECT_FALSE(bl::has_usable_eta("0.000"));
+    EXPECT_FALSE(bl::has_usable_eta(""));
+}
+
+// TP1FK1-B3: die Wirkung am Praedikat -- ein Record mit "1junk" faellt auf den pro-forma-Zweig
+// (und ist VOR der Frist damit nicht uebernehmbar), statt nach 1,5s als "tot" zu gelten.
+TEST(G3ReservationLifecycle, B3KaputteEtaFaelltAufProFormaZweig) {
+    bl::BatchReservierung r;
+    r.status = bl::BatchStatus::offen;
+    r.eta_s  = "1junk"; // wuerde vor dem Fix als ETA 1s gelesen
+    EXPECT_FALSE(bl::is_reservation_takeable(r, 1000, 2800, 1002)) << "1,5s nach dem Update ist die Maschine LEBEND.";
+    EXPECT_TRUE(bl::is_reservation_takeable(r, 1000, 2800, 2801)) << "Erst die pro-forma-Frist gibt sie frei.";
 }
 
 TEST(G3ReservationLifecycle, MarkDoneAndReleased) {

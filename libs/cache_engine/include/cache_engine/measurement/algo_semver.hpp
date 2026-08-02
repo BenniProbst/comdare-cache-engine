@@ -28,6 +28,12 @@
 //   HWFLAG  := 'c' (CPU) | 'g' (GPU) | 'f' (FPGA) | 'n' (NPU)    -- GENAU EINES, klein, direkt angehaengt
 // Reihenfolge FIX: erst das Hardware-Flag, dann optional 'e'. Ein 'e' OHNE Hardware-Flag ist ungueltig
 // (Sentinel) -- "vNe" gab es nur in der A13-M1-Zwischenform und ist mit dem Kurzform-Rueckbau erledigt.
+//   UINT    := '0' | [1-9][0-9]{0,5}   -- KEINE fuehrende Null (ausser der Komponente "0" selbst),
+//              HOECHSTENS kMaxSemVerComponentDigits Ziffern (B11, Codex-Review 02.08.2026). Beides
+//              verhindert ALIAS-IDENTITAETEN: "v01.0.0c" und "v4294967297.0.0c" stempelten frueher wie
+//              "v1.0.0c" (Leading-Zero bzw. stiller Modulo-2^32-Umlauf), waehrend compose_algo_signature
+//              die rohen Literale VERBATIM serialisiert -- ein Lager-Key-Zusammenfall bei roh
+//              verschiedenen Binaries. Beide Formen sind jetzt Sentinel.
 //
 // KURZFORM-RUECKBAU (A13-M1b, bindend): "vN" und "vNe" sind SENTINEL. Belegt vor dem Umbau per grep: der
 // Bestand traegt KEIN vN-Literal als echte Version -- alle 122 W::algo_version, die 3 System-Achsen-Code-
@@ -52,7 +58,9 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -138,15 +146,43 @@ struct AlgoSemVer {
     return a.x == b.x && a.y == b.y && a.z == b.z && a.hardware == b.hardware && a.experimental == b.experimental;
 }
 
+/// A13-M1b/B11 ZIFFERN-DECKEL einer Versions-KOMPONENTE (X, Y bzw. Z). Sechs Stellen (bis 999999) liegen
+/// weit ueber jedem realen Achsen-/Tooling-Stand; alles darueber ist keine Version, sondern ein Tippfehler
+/// oder ein Angriff auf die Stempel-Identitaet. Der Deckel ist die FACHLICHE Wache; die arithmetische
+/// Ueberlauf-Wache in take_uint ist das zweite, deckel-unabhaengige Netz.
+inline constexpr std::size_t kMaxSemVerComponentDigits = 6;
+
 namespace detail {
-/// Konsumiert eine Dezimalzahl am Anfang von s (modifiziert s). Rueckgabe {wert, gefunden}.
+/// Konsumiert eine Dezimalzahl am Anfang von s (modifiziert s NUR im Erfolgsfall). Rueckgabe {wert, gefunden}.
+///
+/// B11-WACHEN (Codex-Review 02.08.2026) -- ohne sie erzeugte der Parser ALIAS-IDENTITAETEN, also zwei ROH
+/// verschiedene Versions-Literale mit demselben Stempel-Segment (und damit demselben SHA512-/Lager-Key,
+/// waehrend die .algos-Sidecar-Signatur die Literale roh verschieden serialisiert):
+///   (1) UEBERLAUF: "v4294967297.0.0c" wickelte modulo 2^32 auf 1 um und stempelte wie "v1.0.0c".
+///   (2) FUEHRENDE NULL: "v01.0.0c" stempelte wie "v1.0.0c".
+/// Beide sind ab jetzt SENTINEL -- die Registry-Wachen (parsbar-Pflicht) brechen darauf compile-time.
+///
+/// Reihenfolge der Netze: erst der Ziffern-Deckel (fachlich), dann die Ueberlauf-Wache (arithmetisch).
+/// Bei kMaxSemVerComponentDigits <= 9 kann der zweite Zweig rechnerisch nicht mehr greifen -- er steht
+/// bewusst trotzdem da, weil er bei einer spaeteren Deckel-Anhebung OHNE Nacharbeit weitertraegt (die
+/// Klasse "stiller Ueberlauf" darf nicht an einer Konstante haengen).
 [[nodiscard]] constexpr std::pair<std::uint32_t, bool> take_uint(std::string_view& s) noexcept {
     if (s.empty() || s.front() < '0' || s.front() > '9') return {0u, false};
-    std::uint32_t n = 0;
-    while (!s.empty() && s.front() >= '0' && s.front() <= '9') {
-        n = n * 10u + static_cast<std::uint32_t>(s.front() - '0');
-        s.remove_prefix(1);
+    bool const       fuehrende_null = (s.front() == '0');
+    std::string_view rest           = s; // erst pruefen, dann committen: nie ein halb konsumierter Rest
+    std::uint32_t    n              = 0;
+    std::size_t      ziffern        = 0;
+    while (!rest.empty() && rest.front() >= '0' && rest.front() <= '9') {
+        if (++ziffern > kMaxSemVerComponentDigits) return {0u, false}; // (1a) Ziffern-Deckel
+        auto const d = static_cast<std::uint32_t>(rest.front() - '0');
+        if (n > (std::numeric_limits<std::uint32_t>::max() - d) / 10u) return {0u, false}; // (1b) Ueberlauf
+        n = n * 10u + d;
+        rest.remove_prefix(1);
     }
+    // (2) LEADING-ZERO-VERBOT: exakt "0" ist erlaubt (der Sentinel und jede echte Null-Komponente),
+    //     "01"/"007" nicht -- sonst gaebe es zu jeder Version unendlich viele rohe Schreibweisen.
+    if (fuehrende_null && ziffern > 1) return {0u, false};
+    s = rest;
     return {n, true};
 }
 
@@ -189,6 +225,13 @@ namespace detail {
     return make_semver(x, y, z, hw, exp);
 }
 } // namespace detail
+
+/// Der EINE dokumentierte SENTINEL-WORTLAUT der rohen Form ("kein bekannter Stand"). Er ist die
+/// dreistellige Owner-Q3-Form (A13-M1b) und die EINZIGE Sentinel-Schreibweise, die eine Registry-Wache
+/// als ABSICHT durchgehen laesst -- jedes ANDERE Literal, das auf den Sentinel parst, ist ein Tippfehler
+/// und muss compile-time brechen (B12). Single-Source: tooling_version_for_id gibt ihn fuer unbekannte
+/// ids zurueck; die Wachen vergleichen gegen genau diese Konstante, nie gegen ein zweites Literal.
+inline constexpr std::string_view kAlgoSemVerSentinelLiteral = "v0.0.0";
 
 /// Parst die ROHE Form "vX.Y.Z" (Uebergangs-Toleranz, flaglos) sowie die A13-M1b-Flag-Formen "vX.Y.Zc",
 /// "vX.Y.Zce", "vX.Y.Zg"/"f"/"n"[e]. Alles andere -> {0,0,0}-Sentinel: leer, ohne 'v', die
@@ -233,6 +276,39 @@ namespace detail {
 [[nodiscard]] constexpr bool version_satisfies_cpu_only_policy(std::string_view raw) noexcept {
     AlgoSemVer const v = parse_algo_semver(raw);
     return !v.is_sentinel() && v.hardware == HardwareFlag::cpu;
+}
+
+/// B12 (a): PARSBAR-PFLICHT. Ein Literal, das auf den Sentinel parst, ist entweder ABSICHT (dann steht es
+/// exakt als kAlgoSemVerSentinelLiteral da) oder ein Tippfehler. Ohne diese Wache fiel jedes junk-Literal
+/// ("v1.0", "1.0.0c", "vX", "") still auf @0.0.0 -- die Registry haette eine Version behauptet und der
+/// Stempel haette einen Nicht-Stand gerendert, ohne dass irgendetwas bricht.
+[[nodiscard]] constexpr bool version_is_parsable_or_documented_sentinel(std::string_view raw) noexcept {
+    return !parse_algo_semver(raw).is_sentinel() || raw == kAlgoSemVerSentinelLiteral;
+}
+
+/// B12: die VOLLE Wohlgeformtheits-Politik einer ce-EIGENEN Version -- die EINE Stelle, an der die drei
+/// UNGATED Pflichten zusammenstehen, damit sie nicht je Registry einzeln (und luecken-verschieden)
+/// nachgebaut werden. Genutzt von der Organ-Registry (axis_variant_version_table.hpp) und den DREI
+/// Nicht-Organ-Registries (System-Achsen-Code, Mess-Tooling, Mess-Framework):
+///   (a) PARSBAR (oder exakt der dokumentierte Sentinel)      -- kein stiller @0.0.0-Fall,
+///   (b) NIE experimentell ('e' ist AUSSCHLIESSLICH die Pruefling-Markierung, Owner-E2 02.08.2026),
+///   (c) wenn ein Hardware-Flag da ist, dann 'c' (Owner-Q3; g/f/n sind reserviert, nicht produziert).
+/// Die Owner-PFLICHT "ein Flag MUSS da sein" ist bewusst NICHT hier, sondern im gated Zwilling unten --
+/// bis zur M2/M3-Migration ist der flaglose Bestand toleriert.
+[[nodiscard]] constexpr bool ce_owned_version_is_wellformed(std::string_view raw) noexcept {
+    if (!version_is_parsable_or_documented_sentinel(raw)) return false;
+    AlgoSemVer const v = parse_algo_semver(raw);
+    if (v.experimental) return false;
+    return !v.has_hardware_flag() || version_satisfies_cpu_only_policy(raw);
+}
+
+/// B12 (c): der GATED Zwilling (COMDARE_VERSION_HW_FLAG_ENFORCE). Er prueft das CPU-Flag UND weiterhin
+/// '!experimental' -- version_satisfies_cpu_only_policy allein laesst "v1.0.0ce" passieren, weil 'ce' die
+/// CPU-Politik erfuellt. In einer ce-eigenen Registry ist das 'e' aber nie zulaessig, auch nicht im
+/// scharfgeschalteten Zustand: sonst waere die Pruefling-Markierung ausgerechnet nach der Migration
+/// wieder unbewacht.
+[[nodiscard]] constexpr bool ce_owned_version_satisfies_cpu_enforce(std::string_view raw) noexcept {
+    return version_satisfies_cpu_only_policy(raw) && !parse_algo_semver(raw).experimental;
 }
 
 /// parse_dotted_semver (G2-1a / A3): parst die bereits GERENDERTE Voll-Form "X.Y.Z" (dotted, OHNE 'v') zurueck in
@@ -287,6 +363,35 @@ static_assert(parse_algo_semver("v1e") == AlgoSemVer{}); // A13-M1-Kurzform mit 
 static_assert(parse_algo_semver("v1c") == AlgoSemVer{}); // auch mit Hardware-Flag bleibt die Kurzform verboten
 static_assert(parse_algo_semver("v1ce") == AlgoSemVer{});
 static_assert(parse_algo_semver("v12") == AlgoSemVer{}); // mehrstellige Kurzform ebenso
+
+// -- B11: UEBERLAUF-/LEADING-ZERO-WACHE der Komponenten (Codex-Review 02.08.2026) -------------------
+// Die Wache existiert gegen ALIAS-IDENTITAETEN: zwei roh verschiedene Literale duerfen nie dasselbe
+// Stempel-Segment erzeugen (der .algos-Sidecar-Pfad serialisiert die rohen Literale VERBATIM -- ein
+// Alias waere ein Lager-Key-Zusammenfall bei roh verschiedenen Binaries).
+// (a) UEBERLAUF: der frueher stille Modulo-2^32-Umlauf ist Sentinel.
+static_assert(parse_algo_semver("v4294967297.0.0c") == AlgoSemVer{});                    // wickelte auf {1,0,0,cpu} um
+static_assert(parse_algo_semver("v4294967296.0.0") == AlgoSemVer{});                     // 2^32 selbst
+static_assert(parse_algo_semver("v1.0.4294967297") == AlgoSemVer{});                     // auch in der Z-Komponente
+static_assert(parse_dotted_semver("4294967297.0.0") == AlgoSemVer{});                    // und in der gerenderten Form
+static_assert(!(parse_algo_semver("v4294967297.0.0c") == parse_algo_semver("v1.0.0c"))); // kein Alias mehr
+// (b) ZIFFERN-DECKEL: sechsstellig ist die Grenze -- 999999 traegt, 1000000 nicht.
+static_assert(parse_algo_semver("v999999.0.0c") == AlgoSemVer{999999, 0, 0, HardwareFlag::cpu});
+static_assert(parse_algo_semver("v1000000.0.0c") == AlgoSemVer{}); // 7 Ziffern
+static_assert(parse_algo_semver("v1.1000000.0") == AlgoSemVer{});
+static_assert(parse_dotted_semver("0.0.1000000") == AlgoSemVer{});
+static_assert(kMaxSemVerComponentDigits == 6);
+// (c) LEADING-ZERO-VERBOT: exakt "0" bleibt gueltig, jede aufgefuellte Schreibweise ist Sentinel.
+static_assert(parse_algo_semver("v01.0.0c") == AlgoSemVer{}); // stempelte wie "v1.0.0c"
+static_assert(parse_algo_semver("v1.00.0") == AlgoSemVer{});
+static_assert(parse_algo_semver("v1.0.007") == AlgoSemVer{});
+static_assert(parse_dotted_semver("01.0.0") == AlgoSemVer{});
+static_assert(parse_dotted_semver("1.0.00") == AlgoSemVer{});
+static_assert(parse_algo_semver("v0.0.0") == AlgoSemVer{});          // exakt "0" je Komponente: Sentinel-Literal
+static_assert(parse_algo_semver("v10.0.1") == AlgoSemVer{10, 0, 1}); // fuehrende Ziffer != '0' bleibt heil
+static_assert(parse_algo_semver("v0.1.0") == AlgoSemVer{0, 1, 0});   // "0" als ECHTE Komponente
+static_assert(parse_dotted_semver("0.0.1") == AlgoSemVer{0, 0, 1});
+// (d) der Bestand ist unberuehrt (die 122x-/Nicht-Organ-Literale sind einstellig ohne fuehrende Null).
+static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{1, 0, 0});
 
 // -- A13-M1b: FLAG-GRAMMATIK (Owner-Q3 02.08.2026) -- vollstaendige CT-Batterie ---------------------
 // (a) Uebergangs-Toleranz: der flaglose dreistellige Bestand parst weiter und traegt KEINE Flags.
@@ -371,5 +476,45 @@ static_assert(!version_satisfies_cpu_only_policy("v1.0.0n"));
 static_assert(!version_satisfies_cpu_only_policy("v0.0.0c")); // Sentinel erfuellt nie eine Politik
 static_assert(!version_satisfies_cpu_only_policy("v1c"));     // Kurzform erfuellt nie eine Politik
 static_assert(!version_satisfies_cpu_only_policy(""));
+
+// -- B12: die REGISTRY-POLITIK ce-eigener Versionen (Codex-Review 02.08.2026) -----------------------
+// (a) PARSBAR-PFLICHT: nur der dokumentierte Sentinel-Wortlaut darf auf den Sentinel parsen.
+static_assert(version_is_parsable_or_documented_sentinel("v1.0.0"));
+static_assert(version_is_parsable_or_documented_sentinel("v1.0.0c"));
+static_assert(version_is_parsable_or_documented_sentinel(kAlgoSemVerSentinelLiteral)); // ABSICHT
+static_assert(!version_is_parsable_or_documented_sentinel("v0.0.0c"));  // Sentinel-WERT, falsches Literal
+static_assert(!version_is_parsable_or_documented_sentinel("v1.0"));     // Kurzform -> junk
+static_assert(!version_is_parsable_or_documented_sentinel("1.0.0c"));   // gerenderte Form -> junk
+static_assert(!version_is_parsable_or_documented_sentinel("v01.0.0c")); // B11-Leading-Zero -> junk
+static_assert(!version_is_parsable_or_documented_sentinel("vX"));
+static_assert(!version_is_parsable_or_documented_sentinel(""));
+// (b) ce-EIGENE Versionen tragen NIE 'e' -- weder flaglos-experimentell (grammatisch schon Sentinel)
+//     noch als wohlgeformtes "ce".
+static_assert(ce_owned_version_is_wellformed("v1.0.0"));  // flagloser Uebergangs-Bestand
+static_assert(ce_owned_version_is_wellformed("v1.0.0c")); // Ziel-Form nach der M2/M3-Migration
+static_assert(ce_owned_version_is_wellformed(kAlgoSemVerSentinelLiteral));
+static_assert(!ce_owned_version_is_wellformed("v1.0.0ce")); // 'e' == Pruefling-Markierung
+static_assert(!ce_owned_version_is_wellformed("v2.3.4ce"));
+static_assert(!ce_owned_version_is_wellformed("v1.0.0g")); // (c) falsches Hardware-Flag
+static_assert(!ce_owned_version_is_wellformed("v1.0.0f"));
+static_assert(!ce_owned_version_is_wellformed("v1.0.0n"));
+static_assert(!ce_owned_version_is_wellformed("v1.0.0ge"));
+static_assert(!ce_owned_version_is_wellformed("v1.0"));             // (a) unparsbar
+static_assert(!ce_owned_version_is_wellformed("v0.0.0c"));          // (a) Sentinel-Wert, undokumentiertes Literal
+static_assert(!ce_owned_version_is_wellformed("v4294967297.0.0c")); // (a) B11-Ueberlauf
+static_assert(!ce_owned_version_is_wellformed(""));
+// (c) GATED: das CPU-Flag ist Pflicht UND das 'e' bleibt verboten (die Luecke, die
+//     version_satisfies_cpu_only_policy allein offen liess).
+static_assert(ce_owned_version_satisfies_cpu_enforce("v1.0.0c"));
+static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0"));   // flaglos -> nach der Migration hart
+static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0ce")); // HIER lag die Luecke
+static_assert(version_satisfies_cpu_only_policy("v1.0.0ce"));       // ... und so sah sie aus
+static_assert(!ce_owned_version_satisfies_cpu_enforce("v2.3.4ce"));
+static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0g"));
+static_assert(!ce_owned_version_satisfies_cpu_enforce(kAlgoSemVerSentinelLiteral));
+static_assert(!ce_owned_version_satisfies_cpu_enforce(""));
+// Der gated Zwilling ist STRENGER als der ungated Teil -- nie umgekehrt (Ordnungs-Gegenprobe).
+static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0ce") && !ce_owned_version_is_wellformed("v1.0.0ce"));
+static_assert(ce_owned_version_satisfies_cpu_enforce("v1.0.0c") && ce_owned_version_is_wellformed("v1.0.0c"));
 
 } // namespace comdare::cache_engine::measurement
