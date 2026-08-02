@@ -4162,3 +4162,27 @@ target_include_directories(test_g3_lager_presence PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_lager_presence PRIVATE Threads::Threads)
+
+# Fehlerklassen-Framework A15/FK-1 (Task #29, Owner-Entscheid E6 + Volles GO vom 02.08. auf die
+# Bauplan-Empfehlung Q4): Marker-Zeile 'nicht_gebaut' fuer bau-gescheiterte Permutationen +
+# SourceUnavailable-Zeile fuer Lade-/Dock-Fehler. Der Guard prueft die Marker-Form FIXTURE-UNABHAENGIG
+# gegen lazy_csv_header() (Spalten-NAMEN statt einer hartkodierten Feldzahl) -- Lehre "gruene Tests
+# zementieren alte Ordnung": eine neue Mess-Spalte faellt automatisch in die Token-Pflicht.
+# Include-/Define-Satz wie test_lazy_resume_binary (header-only, KEIN dlopen/AnatomyModuleLoader).
+add_executable(test_fk1_nicht_gebaut_marker "test_fk1_nicht_gebaut_marker.cpp")
+target_compile_features(test_fk1_nicht_gebaut_marker PRIVATE cxx_std_23)
+target_include_directories(test_fk1_nicht_gebaut_marker PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_fk1_nicht_gebaut_marker PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_fk1_nicht_gebaut_marker)
+target_compile_definitions(test_fk1_nicht_gebaut_marker PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_fk1_nicht_gebaut_marker COMMAND test_fk1_nicht_gebaut_marker)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_fk1_nicht_gebaut_marker)
+set_tests_properties(test_fk1_nicht_gebaut_marker PROPERTIES LABELS "fehlerklassen;standalone;measured")
