@@ -26,7 +26,7 @@
 // Es wird hier KEINE zweite Hostname-Tabelle aufgemacht. Die Zuordnung Hostname -> Maschine steht
 // bereits in der Anwender-XML und wird bereits geparst:
 //     <machines><machine id cpu_fabrication ram_pair hostname_hint/>
-//     xml_config_parser.cpp:529-538 -> ExperimentMachine (xml_config_parser.hpp:360-365)
+//     xml_config_parser.cpp:530-550 -> ExperimentMachine (xml_config_parser.hpp:372-384)
 //     Beispiel-Deklaration: tests/unit/thesis_tiere/experiment_golden_kern.xml
 //         <machine id="prod1" cpu_fabrication="amd_zen5_avx512" ram_pair="ddr5_2x32" hostname_hint="prod1"/>
 // Die Aufloesung laeuft daher in ZWEI Stufen, jede in ihrer eigenen Welt:

@@ -129,6 +129,49 @@ TEST(ExperimentKernSeam, ParsesDeclaredTargetIsaMemberValues) {
     EXPECT_EQ(ep->machines[1].cas_latency_cl, 0);
 }
 
+// A14/OS-U2 (Owner-Entscheid E3, 02.08.2026): die drei operating_system-Unter-Achsen als ERWARTUNGS-
+// Attribute am <machine>. Bestands-Profile ohne die Attribute bleiben byte-identisch (leer = nicht
+// deklariert); deklarierte Werte kommen woertlich an. Ohne diesen zweiten Beleg waere die Leer-
+// Zusicherung auch dann erfuellt, wenn der Leser die Attribute gar nicht liest.
+TEST(ExperimentKernSeam, ParsesDeclaredOsExpectationValues) {
+    auto const ep = parse_experiment_with_machines(
+        R"(  <machines>
+    <machine id="m_os_voll" cpu_fabrication="fab_a" ram_pair="ddr5_2x32" os_version="debian-13" kernel="6.17.0-35-generic" build="13.1" os_declaration_source="handout infra 2026-08"/>
+    <machine id="m_os_teil" cpu_fabrication="fab_b" ram_pair="ddr4_2x32" os_version="ubuntu-24.04"/>
+  </machines>
+)");
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->machines.size(), 2u);
+    EXPECT_EQ(ep->machines[0].os_version, "debian-13");
+    EXPECT_EQ(ep->machines[0].kernel, "6.17.0-35-generic");
+    EXPECT_EQ(ep->machines[0].build, "13.1");
+    EXPECT_EQ(ep->machines[0].os_declaration_source, "handout infra 2026-08");
+    // Teil-Deklaration ist erlaubt und bleibt ehrlich: die fehlenden Werte sind LEER, nicht geraten.
+    EXPECT_EQ(ep->machines[1].os_version, "ubuntu-24.04");
+    EXPECT_TRUE(ep->machines[1].kernel.empty());
+    EXPECT_TRUE(ep->machines[1].build.empty());
+    EXPECT_TRUE(ep->machines[1].os_declaration_source.empty());
+}
+
+// A14/OS-U2: die Byte-Identitaets-Zusicherung. Die Golden-Kern-Fixture deklariert KEINE OS-Erwartung --
+// alle vier Felder muessen leer bleiben. Ein Bestands-Profil ohne die neuen Attribute verhaelt sich
+// exakt wie vorher; die Attribute sind ADDITIV und PASSIV (kein Validator-Zwang, keine Warnung).
+TEST(ExperimentKernSeam, MachinesWithoutOsExpectationStayEmpty) {
+    auto ep = parse_kern();
+    ASSERT_TRUE(ep.has_value());
+    ASSERT_EQ(ep->machines.size(), 2u);
+    for (auto const& mc : ep->machines) {
+        EXPECT_TRUE(mc.os_version.empty()) << mc.id;
+        EXPECT_TRUE(mc.kernel.empty()) << mc.id;
+        EXPECT_TRUE(mc.build.empty()) << mc.id;
+        EXPECT_TRUE(mc.os_declaration_source.empty()) << mc.id;
+    }
+    // Die Kern-Identitaet ist davon unberuehrt -- validate zaehlt weiterhin beide Maschinen.
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_TRUE(vr.ok) << (vr.errors.empty() ? "" : vr.errors.front());
+    EXPECT_EQ(vr.machines_checked, 2u);
+}
+
 TEST(ExperimentKernSeam, ParsesAxisPrueflingAndFulljoinToken) {
     auto ep = parse_kern();
     ASSERT_TRUE(ep.has_value());

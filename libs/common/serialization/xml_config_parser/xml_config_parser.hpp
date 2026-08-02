@@ -362,6 +362,13 @@ struct ExperimentEngine {
 // (nicht "0 MHz"), damit eine Maschine ehrlich unvollstaendig deklariert sein darf. Das dritte Glied
 // (CPU-Fabrikation) hat KEIN eigenes Attribut -- es ist das O-4a-Kern-Tupel aus machine_identity.hpp,
 // aufgeloest ueber den unveraenderten Schluessel cpu_fabrication + ram_pair.
+// A14/OS-U2 (Owner-Entscheid E3, 02.08.2026): <machines> ist zusaetzlich der ERWARTUNGS-Kanal der drei
+// operating_system-Unter-Achsen os_version/kernel/build (measurement/operating_system_sub_axes.hpp).
+// AUSDRUECKLICH ERWARTUNG, NICHT WERTE-QUELLE: die Werte werden je Lauf auf der Maschine ERHOBEN
+// (Paket OS-U3, Owner-KERN 27.07. "HW-Werte nie statisch"); was hier steht, ist der Soll-Wert, gegen den
+// die Erhebung gegengeprueft wird. ADDITIV + OPTIONAL + PASSIV: leer/fehlend = nicht deklariert (NICHT
+// "leeres OS"); Bestands-Profile ohne diese Attribute bleiben byte-identisch. Die neuen Felder stehen am
+// ENDE der Struct -- bestehende Aggregat-Initialisierungen bleiben gueltig.
 struct ExperimentMachine {
     std::string id;                    // <machine id=..>
     std::string cpu_fabrication;       // <machine cpu_fabrication=..> (Kern-Identitaet, Pflicht)
@@ -369,6 +376,14 @@ struct ExperimentMachine {
     std::string hostname_hint;         // <machine hostname_hint=..> (optionaler Hinweis, NICHT Schluessel)
     int         ram_frequency_mhz = 0; // <machine ram_frequency_mhz=..> (target_isa-Glied; 0 = nicht deklariert)
     int         cas_latency_cl    = 0; // <machine cas_latency_cl=..> (target_isa-Glied; 0 = nicht deklariert)
+    // A14/OS-U2: Erwartungs-Werte der drei operating_system-Unter-Achsen (leer = nicht deklariert).
+    // Die vier Felder tragen einen ausgeschriebenen Default {}, damit bestehende Aggregat-
+    // Initialisierungen mit weniger Elementen (z.B. ExperimentMachine{id, fab, ram_pair, hint}) NICHT
+    // in -Wmissing-field-initializers laufen -- dieselbe Vorsorge wie bei den zwei int-Feldern daueber.
+    std::string os_version{};            // <machine os_version=..> (Distributions-/Release-Identitaet der Instanz)
+    std::string kernel{};                // <machine kernel=..> (Kernel-Release der Instanz)
+    std::string build{};                 // <machine build=..> (OS-Build/Patch-Stand INKL. Update-Zustand, E-12)
+    std::string os_declaration_source{}; // <machine os_declaration_source=..> (Herkunfts-Notiz der drei Werte)
 };
 
 struct ExperimentPhase {

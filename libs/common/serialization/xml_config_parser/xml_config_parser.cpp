@@ -539,6 +539,14 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
             // deklariert. Bestands-Profile ohne die Attribute bleiben damit byte-identisch.
             mc.ram_frequency_mhz = to_int(m->attr("ram_frequency_mhz"), 0);
             mc.cas_latency_cl    = to_int(m->attr("cas_latency_cl"), 0);
+            // A14/OS-U2 (Owner-E3): die ERWARTUNGS-Werte der drei operating_system-Unter-Achsen.
+            // Abwesendes Attribut -> attr() liefert "" -> nicht deklariert. Rein additiv und PASSIV:
+            // der Parser traegt die Roh-Strings, der Abgleich gegen die ERHOBENEN Werte gehoert der
+            // Laufzeit-Erhebung (Paket OS-U3) -- hier wird nichts geprueft und nichts geraten.
+            mc.os_version            = m->attr("os_version");
+            mc.kernel                = m->attr("kernel");
+            mc.build                 = m->attr("build");
+            mc.os_declaration_source = m->attr("os_declaration_source");
             ep.machines.push_back(std::move(mc));
         }
     }
