@@ -56,7 +56,8 @@
 #include <cstddef>
 #include <map> // #165-B: Gruppen-Buckets (binary_id|profile_name) im annotate_quality_flags
 #include <cstdint>
-#include <cstdio> // (C-1) std::snprintf für ns_per_op-Formatierung
+#include <cstdio>    // (C-1) std::snprintf für ns_per_op-Formatierung
+#include <exception> // TP1FK1-B2: std::exception -- der werfende Transport wird im Mess-Pfad klassifiziert gefangen
 #include <filesystem>
 #include <fstream>    // (E) per-Binary-Ergebnis-CSV schreiben
 #include <functional> // #46b I1: bestand_key_of-Injektion (std::function)
@@ -1503,7 +1504,28 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
         // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
-            if (cfg.cache_push) cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+.version) -> Store
+            if (cfg.cache_push) {
+                // TP1FK1-B2: der reale Transport WIRFT jetzt bei Push-Fehler (ArtefaktPushFehler) -- vorher war
+                // ein fehlgeschlagener Push von einem gelungenen nicht zu unterscheiden. Im MESS-Pfad darf das
+                // den Lauf NIE abreissen (eine Zelle ist gemessen, die CSV liegt lokal, die naechste Zelle wartet)
+                // -> klassifiziert loggen und WEITERMESSEN. Das ist dieselbe Politik wie zuvor, aber jetzt eine
+                // sichtbare Entscheidung dieses Faengers statt einer stillen Eigenschaft des Transports.
+                try {
+                    cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+Sidecars,+.version) -> Store
+                } catch (std::exception const& e) {
+                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                              << "] binary_id='" << binary_id
+                              << "' Push in den Objekt-Store fehlgeschlagen: " << e.what()
+                              << " -- lokale Kopie bleibt, der Lauf MISST WEITER\n"
+                              << std::flush;
+                } catch (...) {
+                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                              << "] binary_id='" << binary_id
+                              << "' Push in den Objekt-Store mit unbekanntem Fehler abgebrochen -- lokale Kopie "
+                                 "bleibt, der Lauf MISST WEITER\n"
+                              << std::flush;
+                }
+            }
             if (cfg.measurement_sink) {
                 std::error_code             sec;
                 std::filesystem::path const rcsv = bin_dir / "result.csv";
