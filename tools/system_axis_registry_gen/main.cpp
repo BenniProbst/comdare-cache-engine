@@ -403,18 +403,18 @@ void emit_system_axis_target_isa(std::ofstream& f) {
 /// OHNE compile-statischen Options-Katalog (os_version, kernel, build). Ihre zulaessige Werte-Menge
 /// haengt an der konkreten OS-INSTANZ und wird zur Laufzeit erhoben (Paket OS-U3) -- hier steht das
 /// ANGEBOT, nicht die Aufloesung. Emissions-Muster identisch zu numa_node/page am target_isa-Komplex.
-/// Die Liste kommt aus kOperatingSystemSubAxisLabels-Typen, nie aus Literalen: driftet ein Label,
-/// driftet die XML mit, und die FINAL-DREI-Wache im Header schlaegt zuerst an.
+/// B7 (Codex-Review 02.08.2026): iteriert die MITGLIEDSCHAFTS-LISTE meas::OperatingSystemSubAxes, statt
+/// drei Aufrufe von Hand zu fuehren. Vorher war die Zahl DREI hier ein zweites Mal kodiert -- eine vierte
+/// Unter-Achse waere entweder gar nicht emittiert worden oder (bei handischem Nachzug) an der damals
+/// tautologischen Header-Wache vorbei in die XML gelaufen. Jetzt gibt es EINE Quelle fuer Wache UND
+/// Emission: die Liste. Emissions-Reihenfolge == Listen-Reihenfolge (XML byte-stabil).
 void emit_operating_system_open_sub_axes(std::ofstream& f) {
-    auto emit_open = [&f]<class Sub>(std::type_identity<Sub>) {
+    meas::OperatingSystemSubAxes::for_each([&f]<class Sub>(std::type_identity<Sub>) {
         note_name(Sub::axis_label());
         f << "    <sub_axis id=\"" << xml_escape(Sub::axis_label()) << "\" parent=\""
           << xml_escape(Sub::parent_axis_label()) << "\" stage=\"runtime\" value_type=\"token\" option_source=\""
           << xml_escape(Sub::option_source()) << "\"/>\n";
-    };
-    emit_open(std::type_identity<meas::OsVersionSubAxis>{});
-    emit_open(std::type_identity<meas::KernelSubAxis>{});
-    emit_open(std::type_identity<meas::BuildSubAxis>{});
+    });
 }
 
 /// A3 (O-8 Schritt 4): Emissions-Koerper der NEUEN Haupt-Achse "operating_system". Aufbau nach dem
