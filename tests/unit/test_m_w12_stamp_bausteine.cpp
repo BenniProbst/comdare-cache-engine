@@ -29,9 +29,12 @@ namespace pl = ::comdare::cache_engine::planner;
 
 namespace {
 // Mock-Achsen (name() + algo_version) + Mock-Composition (17 benannte Aliase) fuer organ_stamp_line<Comp>().
+// A13-M1b (Owner-Q3 02.08.2026, Kurzform-Rueckbau): die Mock-Version stand als Kurzform "v1" da und ist auf die
+// dreistellige Form gezogen. RENDER-NEUTRAL -- "v1" und "v1.0.0" rendern beide "1.0.0", die Golden-Strings der
+// Organ-/Stempel-Zeilen unten bleiben damit byte-identisch (kein Anker wurde nachgezogen).
 struct MockAxisV1 {
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "algoA"; }
-    static constexpr std::string_view               algo_version = "v1";
+    static constexpr std::string_view               algo_version = "v1.0.0";
 };
 struct MockAxisV234 {
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "algoB"; }
@@ -61,101 +64,157 @@ struct MockComposition {
 };
 } // namespace
 
-TEST(MW12StampBausteine, AlgoSemVerParsesVnAndVnnnOnly) {
-    // Entscheid W12-A-2: NUR "vN" und "vN.N.N"; Kurzformen/Fremdformen -> Sentinel {0,0,0}.
-    EXPECT_EQ(m::parse_algo_semver("v1"), (m::AlgoSemVer{1, 0, 0}));
+TEST(MW12StampBausteine, AlgoSemVerParsesVxyzOnly) {
+    // A13-M1b (Owner-Q3 02.08.2026): "Die Kurzform ist verboten, Versionierungen sind einheitlich und immer
+    // 3-Stellig und beginnen mit 'v'." -> NUR "vX.Y.Z" (plus Flag-Schwanz); die frueher erlaubte Kurzform "vN"
+    // ist ZURUECKGEBAUT und faellt jetzt in den Sentinel {0,0,0}.
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0"), (m::AlgoSemVer{1, 0, 0}));
     EXPECT_EQ(m::parse_algo_semver("v2.3.4"), (m::AlgoSemVer{2, 3, 4}));
-    EXPECT_EQ(m::parse_algo_semver("v0"), (m::AlgoSemVer{0, 0, 0}));
+    EXPECT_EQ(m::parse_algo_semver("v0.0.0"), (m::AlgoSemVer{0, 0, 0}));
+    EXPECT_EQ(m::parse_algo_semver("v1"), (m::AlgoSemVer{0, 0, 0}));    // KURZFORM-RUECKBAU (frueher {1,0,0})
+    EXPECT_EQ(m::parse_algo_semver("v0"), (m::AlgoSemVer{0, 0, 0}));    // war und bleibt Sentinel
+    EXPECT_EQ(m::parse_algo_semver("v12"), (m::AlgoSemVer{0, 0, 0}));   // auch mehrstellig
     EXPECT_EQ(m::parse_algo_semver("v1.2"), (m::AlgoSemVer{0, 0, 0}));  // Kurzform verboten
     EXPECT_EQ(m::parse_algo_semver("1.0.0"), (m::AlgoSemVer{0, 0, 0})); // ohne 'v'
     EXPECT_EQ(m::parse_algo_semver(""), (m::AlgoSemVer{0, 0, 0}));
 }
 
 TEST(MW12StampBausteine, AlgoSemVerFullFormForStampsOnly) {
-    // Die X.Y.Z-VOLL-Form fuer Stempel/Registry -- der heutige "v1"-Stand aller Algos wird zu "1.0.0".
-    EXPECT_EQ(m::algo_semver_string("v1"), std::string{"1.0.0"});
+    // Die X.Y.Z-VOLL-Form fuer Stempel/Registry -- der heutige "v1.0.0"-Stand aller Algos rendert "1.0.0".
+    EXPECT_EQ(m::algo_semver_string("v1.0.0"), std::string{"1.0.0"});
     EXPECT_EQ(m::algo_semver_string("v2.3.4"), std::string{"2.3.4"});
-    EXPECT_EQ(m::algo_semver_string("v0"), std::string{"0.0.0"});
+    EXPECT_EQ(m::algo_semver_string("v0.0.0"), std::string{"0.0.0"});
+    // A13-M1b: die zurueckgebaute Kurzform ist Sentinel und rendert deshalb "0.0.0" statt frueher "1.0.0".
+    EXPECT_EQ(m::algo_semver_string("v1"), std::string{"0.0.0"});
     // Byte-Trennung zur .algos-Welt: die Voll-Form ist NICHT der rohe algo_version-String.
-    EXPECT_NE(m::algo_semver_string("v1"), std::string{"v1"});
+    EXPECT_NE(m::algo_semver_string("v1.0.0"), std::string{"v1.0.0"});
 }
 
-// A13-M1 (Owner-Entscheid E2 vom 02.08.2026): "Die Markierung experimenteller Achsen-Algorithmen aus einem
-// Pruefling wird in der Versionsbezifferung eines jeden Achsen-Algorithmus mit einem angehaengten 'e' fuer
-// 'experimental' markiert." Hier: rohe Form ("v1e"/"v2.3.4e"), gerenderte Form ("2.3.4e") und die
-// Review-Auflage K-5 (Sentinel-Wache "v0e"/"0.0.0e").
-TEST(MW12StampBausteine, A13M1ExperimentalSuffixParsesInRawAndDottedForm) {
-    // (a) Bestand bleibt nicht-experimentell -> golden-neutral (kein Bestands-String traegt heute ein 'e').
-    EXPECT_FALSE(m::parse_algo_semver("v1").experimental);
+// A13-M1b (Owner-Antwort Q3 vom 02.08.2026, verbatim): "Die Kurzform ist verboten, Versionierungen sind
+// einheitlich und immer 3-Stellig und beginnen mit 'v'. Das 'e' ist eine Flag und kann spaeter gegen andere
+// Falgs wie 'g' fuer GPU, 'c' fuer CPU, 'f' fuer FPGA und 'n' fuer NPU code erweitert werden. Wir produzieren
+// nur CPU code, daher muessen alle Versionen mit 'c' oder 'ce' enden."
+// Ersetzt die A13-M1-Erwartungen ("vNe"-Kurzform). Hier: Uebergangs-Toleranz, volle Flag-Familie, die
+// FIXE Reihenfolge (HW-Flag, dann 'e') und die Review-Auflage K-5 (Sentinel-Batterie mit Flags).
+TEST(MW12StampBausteine, A13M1bFlagGrammarParsesInRawAndDottedForm) {
+    // (a) UEBERGANGS-TOLERANZ: der flaglose dreistellige Bestand parst weiter und traegt KEIN Flag.
+    EXPECT_FALSE(m::parse_algo_semver("v1.0.0").has_hardware_flag());
+    EXPECT_FALSE(m::parse_algo_semver("v1.0.0").experimental);
     EXPECT_FALSE(m::parse_algo_semver("v2.3.4").experimental);
-    EXPECT_FALSE(m::parse_dotted_semver("1.0.0").experimental);
+    EXPECT_FALSE(m::parse_dotted_semver("1.0.0").has_hardware_flag());
 
-    // (b) Rohe Form MIT 'e' -- Kurzform "vNe" UND Voll-Form "vN.N.Ne".
-    EXPECT_EQ(m::parse_algo_semver("v1e"), (m::AlgoSemVer{1, 0, 0, true}));
-    EXPECT_EQ(m::parse_algo_semver("v2.3.4e"), (m::AlgoSemVer{2, 3, 4, true}));
-    EXPECT_TRUE(m::parse_algo_semver("v10.0.1e").experimental);
+    // (b) Die volle Flag-Familie c/g/f/n an der ROHEN Form.
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0c"), (m::AlgoSemVer{1, 0, 0, m::HardwareFlag::cpu}));
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0g"), (m::AlgoSemVer{1, 0, 0, m::HardwareFlag::gpu}));
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0f"), (m::AlgoSemVer{1, 0, 0, m::HardwareFlag::fpga}));
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0n"), (m::AlgoSemVer{1, 0, 0, m::HardwareFlag::npu}));
+    EXPECT_TRUE(m::parse_algo_semver("v10.0.1c").has_hardware_flag());
 
-    // (c) Gerenderte Form MIT 'e' (die Stempel-Zeilen-Ruecklesung).
-    EXPECT_EQ(m::parse_dotted_semver("2.3.4e"), (m::AlgoSemVer{2, 3, 4, true}));
-    EXPECT_EQ(m::parse_dotted_semver("1.0.0e"), (m::AlgoSemVer{1, 0, 0, true}));
+    // (c) Reihenfolge FIX: erst das Hardware-Flag, dann optional 'e' ("v2.3.4ce").
+    EXPECT_EQ(m::parse_algo_semver("v2.3.4ce"), (m::AlgoSemVer{2, 3, 4, m::HardwareFlag::cpu, true}));
+    EXPECT_EQ(m::parse_algo_semver("v2.3.4ge"), (m::AlgoSemVer{2, 3, 4, m::HardwareFlag::gpu, true}));
+    EXPECT_TRUE(m::parse_algo_semver("v2.3.4ce").experimental);
 
-    // (d) Fehlformen -> Sentinel: nur klein-'e', genau eines, ganz am Ende, nie an der verbotenen Kurzform.
-    EXPECT_EQ(m::parse_algo_semver("v1.2e"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_algo_semver("v1E"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_algo_semver("v1ee"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_algo_semver("v1e5"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_algo_semver("ve"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_dotted_semver("1.0e"), (m::AlgoSemVer{}));
+    // (d) Gerenderte Form MIT Flags (die Stempel-Zeilen-Ruecklesung).
+    EXPECT_EQ(m::parse_dotted_semver("1.0.0c"), (m::AlgoSemVer{1, 0, 0, m::HardwareFlag::cpu}));
+    EXPECT_EQ(m::parse_dotted_semver("2.3.4ce"), (m::AlgoSemVer{2, 3, 4, m::HardwareFlag::cpu, true}));
+    EXPECT_EQ(m::parse_dotted_semver("2.3.4n"), (m::AlgoSemVer{2, 3, 4, m::HardwareFlag::npu}));
+
+    // (e) GENAU EIN Hardware-Flag; 'e' NUR NACH einem Hardware-Flag; nur Kleinbuchstaben; kein Rest.
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0cc"), (m::AlgoSemVer{}));  // zweites Flag
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0cg"), (m::AlgoSemVer{}));  // zwei verschiedene Flags
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0ec"), (m::AlgoSemVer{}));  // Reihenfolge verdreht
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0e"), (m::AlgoSemVer{}));   // 'e' OHNE Hardware-Flag
+    EXPECT_EQ(m::parse_algo_semver("v2.3.4e"), (m::AlgoSemVer{}));   // die A13-M1-Form ohne HW-Flag
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0C"), (m::AlgoSemVer{}));   // Gross-'C'
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0cE"), (m::AlgoSemVer{}));  // Gross-'E'
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0cee"), (m::AlgoSemVer{})); // doppeltes 'e'
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0ce5"), (m::AlgoSemVer{})); // Rest nach dem 'e'
+    EXPECT_EQ(m::parse_algo_semver("v1.0.0x"), (m::AlgoSemVer{}));   // unbekanntes Flag-Zeichen
+    EXPECT_EQ(m::parse_algo_semver("v1.2ce"), (m::AlgoSemVer{}));    // Kurzform bleibt verboten
+    EXPECT_EQ(m::parse_algo_semver("v1ce"), (m::AlgoSemVer{}));      // Kurzform mit Flags -> Sentinel
+    EXPECT_EQ(m::parse_dotted_semver("1.0c"), (m::AlgoSemVer{}));
     EXPECT_EQ(m::parse_dotted_semver("2.3.4E"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_dotted_semver("v2.3.4e"), (m::AlgoSemVer{})); // rohe Form in der gerenderten Wache
+    EXPECT_EQ(m::parse_dotted_semver("2.3.4e"), (m::AlgoSemVer{}));   // 'e' ohne Hardware-Flag
+    EXPECT_EQ(m::parse_dotted_semver("2.3.4cc"), (m::AlgoSemVer{}));  // zweites Flag
+    EXPECT_EQ(m::parse_dotted_semver("v2.3.4ce"), (m::AlgoSemVer{})); // rohe Form in der gerenderten Wache
 
-    // (e) AUFLAGE K-5 -- "v0e"/"v0.0.0e"/"0.0.0e" sind der REINE Sentinel: das Null-Tripel bleibt der Sentinel,
-    //     das Flag faellt weg. Sonst haette ein "v0e" die Registry-Wache (parse != Sentinel) ausgehebelt.
-    EXPECT_EQ(m::parse_algo_semver("v0e"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_algo_semver("v0.0.0e"), (m::AlgoSemVer{}));
-    EXPECT_EQ(m::parse_dotted_semver("0.0.0e"), (m::AlgoSemVer{}));
-    EXPECT_FALSE(m::parse_algo_semver("v0e").experimental);
-    EXPECT_FALSE(m::parse_dotted_semver("0.0.0e").experimental);
+    // (f) AUFLAGE K-5 -- "v0c"/"v0.0.0c"/"v0.0.0ce"/"0.0.0ce" sind der REINE Sentinel: das Null-Tripel bleibt
+    //     der Sentinel, die Flags fallen weg. Sonst haette ein "v0.0.0c" die Registry-Wache ausgehebelt.
+    EXPECT_EQ(m::parse_algo_semver("v0c"), (m::AlgoSemVer{}));
+    EXPECT_EQ(m::parse_algo_semver("v0.0.0c"), (m::AlgoSemVer{}));
+    EXPECT_EQ(m::parse_algo_semver("v0.0.0ce"), (m::AlgoSemVer{}));
+    EXPECT_EQ(m::parse_dotted_semver("0.0.0c"), (m::AlgoSemVer{}));
+    EXPECT_EQ(m::parse_dotted_semver("0.0.0ce"), (m::AlgoSemVer{}));
+    EXPECT_FALSE(m::parse_algo_semver("v0.0.0ce").experimental);
+    EXPECT_FALSE(m::parse_algo_semver("v0.0.0ce").has_hardware_flag());
+    EXPECT_FALSE(m::parse_dotted_semver("0.0.0ce").experimental);
     // is_sentinel prueft NUR das x/y/z-Tripel (K-5: Wachen nicht am Struct-Vergleich haengen).
-    EXPECT_TRUE(m::parse_algo_semver("v0e").is_sentinel());
+    EXPECT_TRUE(m::parse_algo_semver("v0.0.0c").is_sentinel());
     EXPECT_TRUE(m::parse_algo_semver("v0").is_sentinel());
-    EXPECT_TRUE(m::parse_dotted_semver("0.0.0e").is_sentinel());
-    EXPECT_FALSE(m::parse_algo_semver("v1e").is_sentinel());
-    EXPECT_FALSE(m::parse_algo_semver("v2.3.4e").is_sentinel());
+    EXPECT_TRUE(m::parse_dotted_semver("0.0.0ce").is_sentinel());
+    EXPECT_FALSE(m::parse_algo_semver("v1.0.0c").is_sentinel());
+    EXPECT_FALSE(m::parse_algo_semver("v2.3.4ce").is_sentinel());
     // compile-time-Beweis derselben Wache (die Registry-Wachen laufen consteval).
-    static_assert(m::parse_algo_semver("v0e") == m::AlgoSemVer{});
-    static_assert(m::parse_dotted_semver("0.0.0e").is_sentinel());
-    static_assert(!m::parse_algo_semver("v2.3.4e").is_sentinel());
+    static_assert(m::parse_algo_semver("v0.0.0ce") == m::AlgoSemVer{});
+    static_assert(m::parse_dotted_semver("0.0.0ce").is_sentinel());
+    static_assert(!m::parse_algo_semver("v2.3.4ce").is_sentinel());
 
-    // (f) UNTERSCHEIDBARKEIT: experimentell != stabil bei sonst gleichem Tripel -> eigener Stempel/Fingerprint.
-    EXPECT_NE(m::parse_algo_semver("v1e"), m::parse_algo_semver("v1"));
-    EXPECT_NE(m::parse_dotted_semver("2.3.4e"), m::parse_dotted_semver("2.3.4"));
-    // (g) Round-Trip rohe <-> gerenderte Form INKLUSIVE Flag.
-    EXPECT_EQ(m::parse_dotted_semver("2.3.4e"), m::parse_algo_semver("v2.3.4e"));
+    // (g) UNTERSCHEIDBARKEIT: jedes Flag erzeugt ein anderes Stempel-Segment -> eigener Fingerprint/Lager-Key.
+    EXPECT_NE(m::parse_algo_semver("v1.0.0c"), m::parse_algo_semver("v1.0.0"));
+    EXPECT_NE(m::parse_algo_semver("v1.0.0c"), m::parse_algo_semver("v1.0.0g"));
+    EXPECT_NE(m::parse_algo_semver("v1.0.0c"), m::parse_algo_semver("v1.0.0ce"));
+    EXPECT_NE(m::parse_dotted_semver("2.3.4ce"), m::parse_dotted_semver("2.3.4c"));
+    // (h) Round-Trip rohe <-> gerenderte Form INKLUSIVE beider Flags.
+    EXPECT_EQ(m::parse_dotted_semver("1.0.0c"), m::parse_algo_semver("v1.0.0c"));
+    EXPECT_EQ(m::parse_dotted_semver("2.3.4ce"), m::parse_algo_semver("v2.3.4ce"));
+
+    // (i) Die Owner-PFLICHT-Wache selbst (immer gebaut, unabhaengig von COMDARE_VERSION_HW_FLAG_ENFORCE):
+    //     nur "...c"/"...ce" erfuellen den CPU-only-Scope. Der HEUTIGE Bestand erfuellt sie bewusst NICHT --
+    //     genau deshalb steht das Define auf OFF, bis der M2/M3-Migrations-Commit die Literale zieht.
+    EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v1.0.0c"));
+    EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v2.3.4ce"));
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0")); // der heutige 122x-Bestand
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0g"));
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0f"));
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0n"));
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v0.0.0c")); // Sentinel erfuellt nie eine Politik
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1c"));     // Kurzform erfuellt nie eine Politik
+    // Der Bestand ist heute (noch) flaglos -- das ist der dokumentierte, befristete Zustand:
+    for (auto const& t : m::kMeasurementToolingRegistry)
+        EXPECT_FALSE(m::version_satisfies_cpu_only_policy(t.version))
+            << "Bestands-Version '" << t.version << "' traegt schon ein 'c'? Dann ist die M2/M3-Migration "
+            << "gelaufen und COMDARE_VERSION_HW_FLAG_ENFORCE gehoert auf ON.";
 }
 
-TEST(MW12StampBausteine, A13M1ExperimentalSuffixRendersAndStaysGoldenNeutral) {
-    // Render: das 'e' haengt direkt an der Voll-Form; der Sentinel rendert IMMER "0.0.0" (nie "0.0.0e").
-    EXPECT_EQ(m::algo_semver_string("v1e"), std::string{"1.0.0e"});
-    EXPECT_EQ(m::algo_semver_string("v2.3.4e"), std::string{"2.3.4e"});
-    EXPECT_EQ(m::algo_semver_string("v0e"), std::string{"0.0.0"});
-    EXPECT_EQ(m::algo_semver_string("v0.0.0e"), std::string{"0.0.0"});
-    // GOLDEN-NEUTRALITAET: der gesamte Bestand ("v1"/"v2.3.4"/"v0") rendert byte-identisch wie vor A13-M1.
-    EXPECT_EQ(m::algo_semver_string("v1"), std::string{"1.0.0"});
+TEST(MW12StampBausteine, A13M1bFlagsRenderAndStayGoldenNeutral) {
+    // Render: erst das Hardware-Flag, dann das 'e'; der Sentinel rendert IMMER nackt "0.0.0".
+    EXPECT_EQ(m::algo_semver_string("v1.0.0c"), std::string{"1.0.0c"});
+    EXPECT_EQ(m::algo_semver_string("v2.3.4ce"), std::string{"2.3.4ce"});
+    EXPECT_EQ(m::algo_semver_string("v2.3.4g"), std::string{"2.3.4g"});
+    EXPECT_EQ(m::algo_semver_string("v2.3.4ne"), std::string{"2.3.4ne"});
+    EXPECT_EQ(m::algo_semver_string("v0.0.0c"), std::string{"0.0.0"});
+    EXPECT_EQ(m::algo_semver_string("v0.0.0ce"), std::string{"0.0.0"});
+    // GOLDEN-NEUTRALITAET: der flaglose Bestand ("v1.0.0"/"v2.3.4") rendert byte-identisch wie vor A13-M1b.
+    EXPECT_EQ(m::algo_semver_string("v1.0.0"), std::string{"1.0.0"});
     EXPECT_EQ(m::algo_semver_string("v2.3.4"), std::string{"2.3.4"});
-    EXPECT_EQ(m::algo_semver_string("v0"), std::string{"0.0.0"});
-    // Die gerenderte Zeile eines experimentellen Standes ist nachweislich verschieden von der stabilen.
-    EXPECT_NE(m::algo_semver_string("v2.3.4e"), m::algo_semver_string("v2.3.4"));
-    // Stempel-Zeile end-to-end: das 'e' erscheint im Segment (und damit im SHA-512-Preimage).
+    EXPECT_EQ(m::algo_semver_string("v0.0.0"), std::string{"0.0.0"});
+    // Jede Flag-Belegung ist gerendert verschieden von der flaglosen und von jeder anderen.
+    EXPECT_NE(m::algo_semver_string("v2.3.4c"), m::algo_semver_string("v2.3.4"));
+    EXPECT_NE(m::algo_semver_string("v2.3.4c"), m::algo_semver_string("v2.3.4g"));
+    EXPECT_NE(m::algo_semver_string("v2.3.4ce"), m::algo_semver_string("v2.3.4c"));
+    // Stempel-Zeile end-to-end: die Flags erscheinen im Segment (und damit im SHA-512-Preimage).
     std::array<m::AxisVersionEntry, 2> const entries{
-        {{"path_compression", "prt_patricia", "v2.3.4e"}, {"filter", "bloom", "v1"}}};
+        {{"path_compression", "prt_patricia", "v2.3.4ce"}, {"filter", "bloom", "v1.0.0"}}};
     EXPECT_EQ(m::build_axis_version_stamp_line(entries),
-              std::string{"path_compression=prt_patricia@2.3.4e;filter=bloom@1.0.0"});
+              std::string{"path_compression=prt_patricia@2.3.4ce;filter=bloom@1.0.0"});
 }
 
 TEST(MW12StampBausteine, AxisVersionStampLineUsesFullSemverAndCanonicalOrder) {
     // Stempel-Zeile "achse=algorithmus@X.Y.Z;..." in Eingabe- (== compose-) Reihenfolge, Voll-Form via algo_semver.
-    std::array<m::AxisVersionEntry, 2> const entries{{{"search_algo", "bst", "v1"}, {"filter", "bloom", "v2.3.4"}}};
+    // A13-M1b: die Eingabe steht dreistellig ("v1" war Kurzform) -- RENDER-NEUTRAL, der Golden-String unten
+    // ist unveraendert.
+    std::array<m::AxisVersionEntry, 2> const entries{{{"search_algo", "bst", "v1.0.0"}, {"filter", "bloom", "v2.3.4"}}};
     std::string const                        line = m::build_axis_version_stamp_line(entries);
     EXPECT_EQ(line, std::string{"search_algo=bst@1.0.0;filter=bloom@2.3.4"});
     // SEPARATE Welt zur .algos-Sig: der Stempel traegt X.Y.Z, NICHT die rohe "@v1"-Form.
@@ -358,7 +417,7 @@ TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {
 }
 
 // A2 (G2-4 Schritt 3+4): System-Achsen-Code-Versionen + Mess-Tooling-Version aus Single-Sources statt Hartkodierung.
-// Render-neutral fuer die gueltigen ids/Achsen; "v0"-Sentinel nur fuer ungueltige Tooling-ids.
+// Render-neutral fuer die gueltigen ids/Achsen; "v0.0.0"-Sentinel nur fuer ungueltige Tooling-ids (A13-M1b).
 TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     namespace abi = ::comdare::cache_engine::abi;
     // (a) System-Achsen-Single-Source: DREI Achsen (O-8 Schritt 4, A3-Kern), alle Init-Version "v1.0.0".
@@ -378,7 +437,9 @@ TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     EXPECT_EQ(m::tooling_version_for_id("wallclock"), std::string_view{"v1.0.0"});
     EXPECT_EQ(m::tooling_version_for_id("macro"), std::string_view{"v1.0.0"});
     EXPECT_EQ(m::tooling_version_for_id("micro"), std::string_view{"v1.0.0"});
-    EXPECT_EQ(m::tooling_version_for_id("bogus"), std::string_view{"v0"}); // unbekannt -> Sentinel
+    // A13-M1b (Owner-Q3, dreistellig): der Sentinel-Rueckgabewert ist "v0.0.0" statt der Kurzform "v0" --
+    // byte-neutral, beide rendern "0.0.0" (Beleg im Render-Block (c) unten: "@0.0.0" unveraendert).
+    EXPECT_EQ(m::tooling_version_for_id("bogus"), std::string_view{"v0.0.0"}); // unbekannt -> Sentinel
 
     // (c) Sentinel-Render: ungueltige Tooling-id -> @0.0.0; gueltige bleiben @1.0.0 (render-neutral).
     // Das load_framework-Segment (Schritt 9) steht auch hier vorne -- der Sentinel betrifft nur das Tooling-Glied.
@@ -433,17 +494,22 @@ TEST(MW12StampBausteine, A3AnatomyStampEntryPodAndConstevalParser) {
     EXPECT_EQ(abi::kAnatomyStampNoEntries[0].reserved, std::uint32_t{0});
 }
 
-// A13-M1 (Owner-E2 02.08.2026 + Nachtrag Q2): das 'e'-Suffix reist als Bit 0 im reserved-Feld des 48-Byte-Entry-PODs
-// (kein sizeof-/Layout-Bruch), und hierarchische Namen "prt-art.memory.abc@1.0.0" bleiben reiner NAMENS-Anteil.
-TEST(MW12StampBausteine, A13M1StampEntryCarriesExperimentalFlagAndTolerantNames) {
+// A13-M1/M1b (Owner-E2 + Nachtraege Q2/Q3 vom 02.08.2026): das 'e' reist als Bit 0, das Hardware-Flag als
+// Bits 1-2 im reserved-Feld des 48-Byte-Entry-PODs (kein sizeof-/Layout-Bruch); hierarchische Namen
+// "prt-art.memory.abc@1.0.0c" bleiben reiner NAMENS-Anteil.
+TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
     namespace abi = ::comdare::cache_engine::abi;
-    // (a) Entry-POD-Groesse UNVERAENDERT -- das Flag nutzt das vorgesehene reserved-Feld.
+    // (a) Entry-POD-Groesse UNVERAENDERT -- beide Flag-Gruppen nutzen das vorgesehene reserved-Feld.
     static_assert(sizeof(abi::AnatomyStampEntryV1) == 48);
     EXPECT_EQ(abi::kStampEntryFlagExperimental, std::uint32_t{1});
+    EXPECT_EQ(abi::kStampEntryHwFlagShift, std::uint32_t{1});
+    EXPECT_EQ(abi::kStampEntryHwFlagMask, std::uint32_t{6}); // Bits 1-2
+    // Die Bit-Gruppen ueberlappen NICHT (sonst wuerde ein Hardware-Flag das 'e' ueberschreiben).
+    EXPECT_EQ(abi::kStampEntryFlagExperimental & abi::kStampEntryHwFlagMask, std::uint32_t{0});
 
     // (b) Owner-Q2-Namens-Toleranz: Punkte im Namens-Anteil VOR dem '@' sind Namens-Bestandteil (Achse UND
-    //     Algorithmus), Punkte NACH dem '@' bleiben reine Zahlen-Trenner.
-    static constexpr char kLit[] = "prt-art.memory.abc=prt_patricia.simd@2.3.4e;filter=bloom@1.0.0";
+    //     Algorithmus), Punkte NACH dem '@' bleiben reine Zahlen-Trenner. Owner-Q3-Voll-Form "ce".
+    static constexpr char kLit[] = "prt-art.memory.abc=prt_patricia.simd@2.3.4ce;filter=bloom@1.0.0";
     constexpr auto        e      = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kLit})>(kLit);
     static_assert(e.size() == 2);
     EXPECT_EQ(std::string_view(e[0].axis, e[0].axis_len), std::string_view{"prt-art.memory.abc"});
@@ -453,15 +519,40 @@ TEST(MW12StampBausteine, A13M1StampEntryCarriesExperimentalFlagAndTolerantNames)
     EXPECT_EQ(e[0].z, 4u);
     static_assert(std::string_view(e[0].axis, e[0].axis_len) == "prt-art.memory.abc");
 
-    // (c) 'e' -> Bit 0 gesetzt; ohne 'e' bleibt reserved sauber 0 (Byte-Gleichheit des Bestands).
+    // (c) 'ce' -> Bit 0 gesetzt, Hardware-Bits 0 (c IST der Default); ohne Flags bleibt reserved sauber 0.
     EXPECT_TRUE(abi::stamp_entry_is_experimental(e[0]));
+    EXPECT_EQ(abi::stamp_entry_hardware_flag(e[0]), abi::StampEntryHardwareFlag::cpu);
     EXPECT_EQ(e[0].reserved, abi::kStampEntryFlagExperimental);
     EXPECT_FALSE(abi::stamp_entry_is_experimental(e[1]));
+    EXPECT_EQ(abi::stamp_entry_hardware_flag(e[1]), abi::StampEntryHardwareFlag::cpu); // Default-Lesart
     EXPECT_EQ(e[1].reserved, std::uint32_t{0});
     static_assert(abi::stamp_entry_is_experimental(e[0]));
     static_assert(!abi::stamp_entry_is_experimental(e[1]));
 
-    // (d) GOLDEN-NEUTRALITAET: eine Bestands-Zeile ohne 'e' setzt in KEINEM Eintrag ein Flag.
+    // (c2) A13-M1b: die NICHT-CPU-Flags belegen die Bits 1-2 PAARWEISE VERSCHIEDEN -- sonst waeren zwei
+    //      Hardware-Staende im POD ununterscheidbar (Lager-Key-Kollision). 'ne' setzt beide Gruppen zugleich.
+    static constexpr char kHw[] = "a=x@1.0.0g;b=y@1.0.0f;c=z@1.0.0n;d=w@1.0.0ne";
+    constexpr auto        h     = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kHw})>(kHw);
+    static_assert(h.size() == 4);
+    EXPECT_EQ(abi::stamp_entry_hardware_flag(h[0]), abi::StampEntryHardwareFlag::gpu);
+    EXPECT_EQ(abi::stamp_entry_hardware_flag(h[1]), abi::StampEntryHardwareFlag::fpga);
+    EXPECT_EQ(abi::stamp_entry_hardware_flag(h[2]), abi::StampEntryHardwareFlag::npu);
+    EXPECT_EQ(abi::stamp_entry_hardware_flag(h[3]), abi::StampEntryHardwareFlag::npu);
+    EXPECT_TRUE(abi::stamp_entry_is_experimental(h[3]));
+    EXPECT_FALSE(abi::stamp_entry_is_experimental(h[2]));
+    EXPECT_NE(h[0].reserved, h[1].reserved);
+    EXPECT_NE(h[1].reserved, h[2].reserved);
+    EXPECT_NE(h[2].reserved, h[3].reserved);
+    EXPECT_NE(h[0].reserved, e[1].reserved); // g != flagloser Bestand
+    static_assert(abi::stamp_entry_hardware_flag(h[1]) == abi::StampEntryHardwareFlag::fpga);
+
+    // (c3) Fehlform: ein ZWEITES Hardware-Flag ist grammatisch Sentinel -> KEIN Bit wandert ins reserved-Feld.
+    static constexpr char kTwoFlags[] = "a=x@1.0.0cg";
+    constexpr auto tf = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kTwoFlags})>(kTwoFlags);
+    EXPECT_EQ(tf[0].x, 0u);
+    EXPECT_EQ(tf[0].reserved, std::uint32_t{0});
+
+    // (d) GOLDEN-NEUTRALITAET: eine Bestands-Zeile ohne Flags setzt in KEINEM Eintrag ein Bit.
     static constexpr char kPlain[] =
         "search_algo=k_ary@1.0.0;filter=bloom@2.3.4;target_isa=code@1.0.0"; // heutige Bestands-Form
     constexpr auto p = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kPlain})>(kPlain);
@@ -473,7 +564,7 @@ TEST(MW12StampBausteine, A13M1StampEntryCarriesExperimentalFlagAndTolerantNames)
     EXPECT_EQ(b[0].x, 0u);
     EXPECT_EQ(b[0].y, 0u);
     EXPECT_EQ(b[0].z, 0u);
-    EXPECT_EQ(b[0].reserved, std::uint32_t{0}); // Sentinel traegt kein Experimental-Flag (K-5)
+    EXPECT_EQ(b[0].reserved, std::uint32_t{0}); // Sentinel traegt weder Experimental- noch Hardware-Bit (K-5)
 }
 
 // A4 (G2-1b): die Array-Form reist durch das AnatomyVersionLines-POD. Der POD wird hier MANUELL exakt wie im
