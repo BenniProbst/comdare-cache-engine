@@ -12,8 +12,10 @@
 
 #pragma once
 
-#include <cache_engine/abi/system_axis_code_versions.hpp>  // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
-#include <cache_engine/measurement/axis_version_stamp.hpp> // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/abi/meta_meta_stamp_suffix.hpp>             // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
+#include <cache_engine/abi/system_axis_code_versions.hpp>          // A2 (G2-4): kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/measurement/axis_version_stamp.hpp>         // AxisVersionEntry + build_axis_version_stamp_line
+#include <cache_engine/measurement/external_utils_family_axis.hpp> // A13-M2: ExternalUtilsHub (System-Meta-Meta-Glieder)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 9: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // K7b-2: kMeasurementToolingRegistry (Vollmenge)
 
@@ -36,6 +38,18 @@ namespace comdare::cache_engine::abi {
 /// Include. Wer ORG-18 aendert, aendert BEIDE Orte.
 inline constexpr std::size_t kOrganAxisCount = 18;
 
+/// A13-M2 (Owner-E2, OP-11-Rueckbau): die Glied-Reihenfolge der ORGAN-Realm-Meta-Metas -- die SINGLE-SOURCE.
+/// HEUTE LEER: es gibt keine Organ-Meta-Meta, der Klammer-Anhang ist damit leer und die Organ-Zeile
+/// BYTE-IDENTISCH (no-op). Gebaut ist der MECHANISMUS (Owner-Forderung E-10/nr798-B3org "ORGAN-analoges
+/// Meta-Meta-Array + erweiterbarer Compile-Raum-Stempel"): wer eine Organ-Meta-Meta baut
+/// (topics::OrganMetaMetaAxis), traegt sie HIER ein und sie stempelt, ohne dass eine Zeile Emitter-Code
+/// angefasst wird.
+/// WARUM DIE LISTE HIER (abi/) UND NICHT IN topics/ NEBEN DER WURZEL: MetaMetaMembers ist ein
+/// measurement-Layer-Typ, und topics/ darf nicht auf measurement/ zeigen (Layer-Inversion). Die WURZEL
+/// (topics/organ_meta_meta_axis.hpp) und die LISTE liegen deshalb bewusst getrennt; es gibt trotzdem nur
+/// EINE Liste.
+using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
+
 /// organ_stamp_line<Comp>() -- die kOrganAxisVersionLine "achse=algo@X.Y.Z;..." aus den 18 benannten
 /// Achsen-Aliassen einer Composition, in kanonischer compose-Ordnung (== AdHocComposition-Alias-Ordnung
 /// == kCompositionAxisNames). Jede Achse muss name() + algo_version tragen.
@@ -45,8 +59,18 @@ inline constexpr std::size_t kOrganAxisCount = 18;
 /// Stempel durfte damals nicht brechen, also blieb die 18. Achse draussen. Das OD-1-Stempel-PRINZIP
 /// verlangt aber ALLE Organ-Achsen mit je-Achse-Algorithmus-Version; eine fehlende 18. Achse waere
 /// eine Stempel-BLINDSTELLE, in der eine persistence_target-Drift unsichtbar bliebe.
-/// KEINE Meta-Meta-Eintraege in dieser Zeile (RF-7: je Typ EINE Array-Zeile, Typ-Trennung) --
-/// load_framework stempelt in der MESS-Zeile, die System-Meta-Metas in der System-Sphaere.
+/// OP-11-RUECKBAU (A13-M2, Owner-Entscheid E2 vom 02.08.2026). HISTORIE, hier woertlich erhalten
+/// (Doku-Doktrin: supersedieren, nie loeschen) -- an dieser Stelle stand bis zum 02.08.2026:
+///   "KEINE Meta-Meta-Eintraege in dieser Zeile (RF-7: je Typ EINE Array-Zeile, Typ-Trennung) --
+///    load_framework stempelt in der MESS-Zeile, die System-Meta-Metas in der System-Sphaere."
+/// (Quelle des Verbots: OP-11, super docs/sessions/20260727-PLAN-o8-fenster-atomar-ultracode.md:813-822.)
+/// SUPERSEDED durch den Owner-Wortlaut: "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen
+/// oder ORGAN-Achsen gehoert, wird sie auch einfach dynamisch ans Ende der Kette in den bestehenden Zeilen
+/// angehaengt." Die Organ-Zeile KANN ab jetzt Meta-Metas tragen -- als geklammerten Anhang an ihrem Ende,
+/// gespeist aus abi::OrganMetaMetas.
+/// RF-7 BLEIBT GUELTIG: je Achsen-Typ EINE Array-Zeile. Eine Organ-Meta-Meta stempelt im ORGAN-Realm und
+/// NIE zeilen-fremd; load_framework bleibt in der Mess-Zeile, die System-Meta-Metas in der System-Zeile.
+/// HEUTE: abi::OrganMetaMetas ist LEER -> der Anhang ist leer -> diese Zeile ist BYTE-IDENTISCH (no-op).
 ///
 /// BLOCKER (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
 /// (z.B. ObservableComposedContainer<...>) und tragen KEIN name()/algo_version -- nur die Registry-WRAPPER
@@ -83,7 +107,12 @@ template <class Comp>
                   "Die Organ-Stempel-Zeile muss ALLE Organ-Haupt-Achsen tragen (ORG-18). Genau diese "
                   "Luecke war A8.2: das Array stand auf 17 und liess persistence_target aus, wodurch "
                   "eine Drift dieser Achse im Stempel unsichtbar blieb.");
-    return build_axis_version_stamp_line(entries);
+    std::string line = build_axis_version_stamp_line(entries);
+    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. abi::OrganMetaMetas ist heute leer
+    // -> append_meta_meta_suffix laesst die Zeile BYTE-IDENTISCH. Der Mechanismus ist damit gebaut, ohne
+    // ein einziges Byte zu bewegen (Beweis: die Organ-Golden-Anker in test_m_w12 blieben unveraendert).
+    append_meta_meta_suffix(line, meta_meta_stamp_suffix_from_members<OrganMetaMetas>());
+    return line;
 }
 
 /// system_stamp_line() -- die kSystemAxisVersionLine (Section 43, Entscheid W12-A-1). ZWEIPHASIG dokumentiert:
@@ -93,19 +122,32 @@ template <class Comp>
 /// (perm_compile kennt die Zelle) ergaenzt die Zellwerte via Compile-Define -> DANN ist die Zeile komplett,
 /// ohne den Emitter zu entblinden. Format identisch zur Organ-Zeile ("achse=algo@X.Y.Z"); Algorithmus-Marker
 /// "code" = die statische Code-Identitaet der System-Achse.
+///
+/// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
+/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0]", also VIER Eintraege statt
+/// drei. Die Glieder kommen aus der EINEN Typliste ExternalUtilsHub::meta_metas (keine zweite Liste); die
+/// EBENE steckt in der Klammer-Tiefe, nicht im Namen. Owner-E2 woertlich: Meta-Metas werden "einfach dynamisch
+/// ans Ende der Kette in den bestehenden Zeilen angehaengt" -- keine Sonderzeile, kein Sonderfeld.
+/// BYTE-FOLGE (beabsichtigt, nicht Nebeneffekt): die System-Zeile aendert sich fuer JEDE Binary -> alle
+/// kuenftigen Fingerprints/Lager-Keys verschieben sich. Das ist der geplante M2-Anteil des einen
+/// Fingerprint-Global-Shifts VOR Voll-Bau-4 (vorher existiert kein schuetzenswerter Bestand).
 [[nodiscard]] inline std::string system_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     // A2 (G2-4 Schritt 3): die Achsen + Code-Versionen aus der Single-Source system_axis_code_versions.hpp
     // (frueher hartkodiert als {"<achse>","code","v1"}); "code" bleibt der Achsen-Marker, die Version ist je
-    // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt jetzt GENAU DREI Segmente statt fuenf -- die
+    // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt GENAU DREI HAUPT-Achsen-Segmente statt fuenf -- die
     // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
     // wurde die Hartkodierung damals aufgeloest.
     // Render-neutral: "v1.0.0" -> "1.0.0" wie zuvor "v1" -> "1.0.0".
     std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
     for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
         entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
-    return build_axis_version_stamp_line(entries);
+    std::string line = build_axis_version_stamp_line(entries);
+    // A13-M2: der Meta-Meta-Klammer-Anhang ANS ENDE. Single-Source der Glieder == ExternalUtilsHub::meta_metas
+    // (external_utils_family_axis.hpp:149) -- ein spaeteres gpu/fpga/npu-Glied erscheint hier ohne Edit.
+    append_meta_meta_suffix(line, meta_meta_stamp_suffix<::comdare::cache_engine::measurement::ExternalUtilsHub>());
+    return line;
 }
 
 /// measurement_stamp_line(tooling) -- die kMeasurementAxisVersionLine (Section 43, Section 47: Mess-Tooling == HAUPT,
@@ -129,8 +171,17 @@ template <class Comp>
 /// Meta-Meta-HAUPT-Achse des MESS-Realms -- sein Segment gehoert deshalb NUR in diese Zeile und NIE in
 /// die System- oder Organ-Zeile (RF-7: je Achsen-Typ EINE Array-Zeile).
 ///
-/// POSITION (OP-3, Manager-Entscheid): ERSTES Meta-Meta-Segment, VOR measurement_tooling -- die
-/// Bauplan-Vorgabe "load_framework = ERSTE Meta-Meta" auf die Segment-Ordnung uebertragen.
+/// POSITION -- OP-3-RUECKBAU (A13-M2, Owner-Entscheid E2 vom 02.08.2026): load_framework stand seit O-8
+/// Schritt 9 als ERSTES Segment VOR measurement_tooling (OP-3, Manager-Entscheid vom 27.07.2026, Quelle
+/// super docs/sessions/20260727-PLAN-o8-fenster-atomar-ultracode.md:781-783). Der Owner-Wortlaut vom
+/// 02.08.2026 verdraengt ihn: "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen oder
+/// Organ-Achsen gehoert, wird sie auch einfach dynamisch ANS ENDE DER KETTE in den bestehenden Zeilen
+/// angehaengt." load_framework IST die Meta-Meta-HAUPT-Achse des Mess-Realms (measurement_meta_meta_axis.hpp)
+/// und steht deshalb ab jetzt AM ENDE -- und zwar in derselben KLAMMER-Form wie die System-Meta-Metas
+/// (Owner-Q1): "measurement_tooling=<t>@X.Y.Z;[load_framework=<id>@X.Y.Z]".
+/// EINE Regel fuer alle Realms: waere das Mess-Meta-Meta ein klammerloses Segment, traege der Entry-POD es
+/// als Ebene 0 == Haupt-Achse -- ein Konsument (Lager-Identitaet/G-E6/A2) koennte es dann nicht mehr von
+/// einer Mess-HAUPT-Achse unterscheiden, waehrend er es im System-Realm sehr wohl kann.
 ///
 /// WARUM NUR BEI NICHT-LEERER ZEILE: eine leere Mess-Zeile heisst "kein Mess-Tooling einkompiliert",
 /// und die Makro-Materialisierung verlaesst sich darauf (measurement_line == "", measurement_len == 0).
@@ -144,6 +195,14 @@ template <class Comp>
     return {"load_framework", info.id, info.version};
 }
 
+/// A13-M2: der Mess-Meta-Meta-Klammer-Anhang. EINE Stelle fuer beide Ueberladungen (Einzel- und Mengen-Form)
+/// -- sonst existierte die Owner-E2-Ordnung zweimal und koennte driften (genau die O-8-Schritt-12-Falle).
+[[nodiscard]] inline std::string measurement_meta_meta_suffix() {
+    using ::comdare::cache_engine::measurement::AxisVersionEntry;
+    std::array<AxisVersionEntry, 1> const metas{{load_framework_stamp_entry()}};
+    return meta_meta_stamp_suffix_from(std::span<AxisVersionEntry const>{metas});
+}
+
 [[nodiscard]] inline std::string measurement_stamp_line(std::string_view tooling) {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
@@ -151,12 +210,14 @@ template <class Comp>
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
     // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur ungueltige
     // ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
-    // O-8 Schritt 9 (OP-3): load_framework steht als ERSTES Segment VOR measurement_tooling.
-    std::array<AxisVersionEntry, 2> const entries{{
-        load_framework_stamp_entry(),
+    // A13-M2 (OP-3-Rueckbau, Owner-E2): load_framework steht NICHT mehr vorne, sondern als KLAMMER-Anhang
+    // ANS ENDE.
+    std::array<AxisVersionEntry, 1> const entries{{
         {"measurement_tooling", tooling, ::comdare::cache_engine::measurement::tooling_version_for_id(tooling)},
     }};
-    return build_axis_version_stamp_line(entries);
+    std::string                           line = build_axis_version_stamp_line(entries);
+    append_meta_meta_suffix(line, measurement_meta_meta_suffix());
+    return line;
 }
 
 /// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
@@ -169,10 +230,10 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     std::vector<AxisVersionEntry> entries;
-    entries.reserve(toolings.size() + 1);
-    // O-8 Schritt 9 (OP-3): load_framework als ERSTES Segment -- aber nur, wenn die Zeile ueberhaupt
-    // entsteht. Die Leer-Semantik ("kein Mess-Tooling einkompiliert" => leere Zeile) bleibt unberuehrt;
-    // der Eintrag wird deshalb erst NACH der Filterung vorangestellt.
+    entries.reserve(toolings.size());
+    // A13-M2 (OP-3-Rueckbau, Owner-E2 "ans Ende der Kette"): load_framework wandert als KLAMMER-Anhang ans
+    // ZEILEN-ENDE -- aber nur, wenn die Zeile ueberhaupt entsteht. Die Leer-Semantik ("kein Mess-Tooling
+    // einkompiliert" => leere Zeile) bleibt unberuehrt; append_meta_meta_suffix laesst eine leere Zeile leer.
     for (std::string_view const t : toolings)
         if (!t.empty())
             // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
@@ -180,8 +241,9 @@ template <class Comp>
             entries.push_back(
                 {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
     if (entries.empty()) return {};
-    entries.insert(entries.begin(), load_framework_stamp_entry());
-    return build_axis_version_stamp_line(entries);
+    std::string line = build_axis_version_stamp_line(entries);
+    append_meta_meta_suffix(line, measurement_meta_meta_suffix());
+    return line;
 }
 
 /// measurement_stamp_line_full_set() -- K7b-2 (Section 64-D1-B): die VOLLE Mess-Tooling-Vollmenge

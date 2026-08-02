@@ -120,7 +120,8 @@
 /// Merge-Kombinations-Stempel; kMergeAxisVersionLine traegt die Merge-Art + Namen/Versionen der beteiligten Achsen-
 /// Algorithmen, ce-only/self -> ""). Die Literale werden im Modul als static constexpr char[] hinterlegt (KEIN
 /// std::string im Modul); der zurueckgegebene POD traegt nur Zeiger + Laengen. KEIN Loader-Pflicht-Symbol -> KEIN
-/// ABI-Bruch. Stempel-Strings sind C-literal-sicher (nur =@;.+_ und alnum, keine Quotes/Backslashes).
+/// ABI-Bruch. Stempel-Strings sind C-literal-sicher (nur =@;.+_ [] und alnum, keine Quotes/Backslashes) --
+/// A13-M2 (Owner-Q1): '[' und ']' kamen mit dem Meta-Meta-Klammer-Anhang dazu und brauchen kein Escaping.
 /// K7b-3 (Section 62-B, 2026-07-22): INNEN wird zusaetzlich der SHA-512-Fingerprint von concat(organ+system+
 /// measurement+merge) materialisiert (anatomy_fingerprint_hex, consteval) und als 5. POD-Feld sha512_line/sha512_len
 /// abgelegt. Die EINGABE bleibt 4 String-Literale -> der emittierte Makro-Call ist byte-identisch (golden-neutral);

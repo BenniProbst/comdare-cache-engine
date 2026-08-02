@@ -2026,6 +2026,24 @@ target_link_libraries(test_a14_os_sub_axes_guard PRIVATE Boost::mp11)
 target_compile_definitions(test_a14_os_sub_axes_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 
+# Lane C / Paket C-5 -- NACHREGISTRIERUNG A13-M2 (Review-BEFUND-1, Owner-Entscheid F-WAISEN Variante (b)
+# vom 02.08.2026). Die TU lag seit 26.07. als WAISE im Baum (nie in dieser Datei eingetragen, damals wegen
+# Lane-A-Konflikt-Zone). Genau diese Luecke war falsches Gruen: die A13-M2-Verschaerfung von
+# SystemMetaMetaAxisConcept (axis_code_version-Pflicht) brach die TU compile-hart, und der K1-Realm-Umzug
+# von load_framework hatte eine ihrer Erwartungen still superseded -- beides blieb im Voll-ctest unsichtbar.
+# Sie ist die einzige der acht Waisen-TUs, die von A13-M2 beruehrte Header inkludiert; die uebrigen sieben
+# bleiben bewusst unangetastet (Abschluss-Aufraeumpass-Kandidaten).
+# Include-Menge MINIMAL am Ist geprueft (g++ -fsyntax-only): der Test zieht ausschliesslich
+# cache_engine/measurement/*-Header, also genuegt EIN Include-Dir -- kein builder/, kein common/, keine
+# generierten Achsen-Dirs. Boost::mp11 ist echte Abhaengigkeit (meta_meta_identity.hpp/meta_meta_admission.hpp).
+comdare_add_test(test_meta_meta_halbordnung
+    SOURCES test_meta_meta_halbordnung.cpp)
+target_include_directories(test_meta_meta_halbordnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_meta_meta_halbordnung PRIVATE Boost::mp11)
+target_compile_definitions(test_meta_meta_halbordnung PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
 # Fehlerklassifizierungs-Framework INC-29.0 (Task #29): reiner static_assert-Taxonomie-Guard (axis_error.hpp,
 # header-only Enums; kein boost, keine lib). Beweist D1/D2-Taxonomie + Count-Drift-Guards + CSV-Token-Vokabeln.
 comdare_add_test(test_axis_error_taxonomy
