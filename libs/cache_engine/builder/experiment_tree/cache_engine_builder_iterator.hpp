@@ -1306,6 +1306,25 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             false; // fire_progress NUR fuer geladene/gemessene Zellen (wie das Ist; Skips feuern nie)
     };
 
+    // A15/FK-1 (Auflage K3): die Identitaets-/Lauf-Tags einer MARKER-Zeile stammen ausschliesslich aus der
+    // Lauf-KONFIGURATION -- es gab keine Messung, aus der etwas anderes stammen koennte. Es sind exakt
+    // dieselben Felder, die measure_under_setting einer gemessenen Zeile gibt (Single-Source-Naehe: wer dort
+    // ein Tag ergaenzt, sieht hier die Luecke). Alles Uebrige bleibt Default und wird vom Renderer ueber
+    // zell_ersatz ersetzt -- eine Marker-Zeile traegt daher NIE eine Null.
+    auto make_marker_row = [&](std::string const& binary_id) {
+        LazyMeasuredRow row;
+        row.binary_id      = binary_id;
+        row.series         = cfg.row_series;
+        row.pruefling_type = cfg.row_pruefling_type;
+        row.sweep_axis     = cfg.row_sweep_axis;
+        row.working_set_n  = cfg.workload_records;
+        row.platform       = cfg.row_platform;
+        row.build_version  = cfg.row_build_version;
+        row.fairness_mode  = cfg.row_fairness_mode;
+        row.h2_score       = cfg.row_h2_score;
+        return row;
+    };
+
     // #45: die per-Zelle Mess-Funktion -- OHNE geteilten Zustand. Der Baum-Round-Trip (ingest_result_line+node_value)
     // ist durch parse_result_line_to_node_value (worker-lokal, rein) ersetzt -> byte-identischer NodeValue (setting_id
     // == die id in pr.line). `result`/`tree`/`fire_progress` werden NICHT beruehrt; alles landet in `oc`. Fehler ->
@@ -1336,7 +1355,15 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 cm::error_domain(err) == cm::ErrorDomain::Infra ? "Infra-Fehler" : "Compiler-Compiler-Fehler";
             std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='" << b.binary_id
                       << "' status=" << b.status << " log=" << b.output.string() << ".cxx.log\n";
-            return oc; // Build-Fehler UND nicht resumebar -> kein Mess-Eintrag (geloggt), kein Progress
+            // A15/FK-1 (Owner-Q4 per Volles-GO 02.08., Auflage K3): der Bau-Fehler verschwindet nicht mehr
+            // NUR ins Log. Genau EINE Marker-Zeile je nicht gebauter Binary (nicht je Setting -- ohne
+            // geladene DLL ist die dynamische Belegung schlicht unbekannt, jede Setting-Aufspaltung waere
+            // erfunden). Spaltenzahl-erhaltend ueber den EINEN Renderer; oc.measured bleibt 0 (es wurde
+            // nichts gemessen) und progress_eligible bleibt false (die Zelle erreicht die Mess-Naht nie).
+            LazyMeasuredRow marker = make_marker_row(b.binary_id);
+            marker.build_status    = cm::BuildCellStatus::NichtGebaut;
+            oc.rows.push_back(std::move(marker));
+            return oc; // Build-Fehler UND nicht resumebar -> KEINE Messung, aber ein sichtbarer Datensatz
         }
 
         // (2) LADEN: DLL -> IAnatomyBase* -> Sub-Interfaces via Dock-Vertrag. AnatomyModuleLoader::load ist thread-safe
@@ -1345,11 +1372,34 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         int const                           st = anatomy_loader::AnatomyModuleLoader::load(b.output, handle);
         if (st != anatomy_loader::status_ok) {
             oc.load_failed = 1;
+            // A15/FK-1: bis hier war der Lade-Fehler ein ZEILEN-NICHTS ohne jedes Fehlerklassen-Log -- nur
+            // der Aggregat-Zaehler load_failed wusste davon. Jetzt: klassifiziertes D2-Log (Praefix aus der
+            // EINEN Behandlungs-Politik, Etikett aus der EINEN Taxonomie) + eine ehrliche Zeile. Die Binary
+            // EXISTIERT -- es fehlt die Mess-QUELLE; deshalb SourceUnavailable ("n/a") und NICHT
+            // nicht_gebaut. Beide Aussagen bleiben so unterscheidbar.
+            std::cerr << "[" << measurement::FailedCellD2Policy::log_prefix() << ": "
+                      << measurement::sample_status_label(measurement::SampleStatus::SourceUnavailable)
+                      << "] binary_id='" << b.binary_id << "' .so nicht ladbar (loader_status=" << st << ") -> "
+                      << b.output.string() << "\n"
+                      << std::flush;
+            LazyMeasuredRow marker = make_marker_row(b.binary_id);
+            marker.sample_status   = measurement::SampleStatus::SourceUnavailable;
+            oc.rows.push_back(std::move(marker));
             return oc;
         }
         pruef_dock::SearchAlgorithmDrive drive;
         if (pruef_dock::acquire_search_algorithm_drive(handle, drive) != pruef_dock::dock_status_ok) {
             oc.load_failed = 1;
+            // A15/FK-1: dieselbe Naht eine Stufe weiter -- die DLL laedt, aber der Dock-Vertrag liefert kein
+            // Mess-Interface. Auch das ist eine fehlende Mess-Quelle, kein Bau- und kein Zulassungs-Fall.
+            std::cerr << "[" << measurement::FailedCellD2Policy::log_prefix() << ": "
+                      << measurement::sample_status_label(measurement::SampleStatus::SourceUnavailable)
+                      << "] binary_id='" << b.binary_id << "' kein Mess-Interface am Dock -> " << b.output.string()
+                      << "\n"
+                      << std::flush;
+            LazyMeasuredRow marker = make_marker_row(b.binary_id);
+            marker.sample_status   = measurement::SampleStatus::SourceUnavailable;
+            oc.rows.push_back(std::move(marker));
             return oc;
         }
         auto* obs            = drive.obs;
