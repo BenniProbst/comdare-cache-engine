@@ -16,6 +16,14 @@
 //       ein Konfigurations-Delta (B-2b), und LazyRunResult.bestand_lager_skips liefert die
 //       Differenzierung der zwei Skip-Quellen (B-3).
 //
+// ADDITIV E-04-P1 (Marker-Familie v2, Slice-Kanal):
+//   (1m) je Fenster genau EIN [PLAN-TESTAT] (Soll: gesamt/lager/zu_bauen) und EIN [BILANZ-TESTAT]
+//        (Ist: gebaut_neu/sidecar_skip/lager_skip/fehl) -- die Zahlen stammen aus DEMSELBEN
+//        slice_stats/Filter-Ergebnis wie die geprueften Aggregat-Zahlen (Single-Source-Beleg).
+//   (6m) FALLBACK-KANAL ohne aktives Bestandslog: der Live-Kanal bleibt beziffert (nicht stumm), und
+//        die Bilanz macht built_new/built_skip zu Konsumenten. Die Pflichtfelder lane=/zelle=/fenster=
+//        reisen aus cfg.marker_kontext in JEDE Zeile -- das Substrat des (zelle, fenster)-Keys.
+//
 // Deterministisch, ohne minio/mc: FakeTransport (in-Memory), Stub-Compile ohne echte DLLs.
 // Build: plain main (KEIN gtest), Return 0/1 -- Registrierung nach dem test_lazy_resume_binary-Muster
 // (schwerer Host-Treiber-Header + Boost::mp11).
@@ -127,7 +135,18 @@ ex::LazyRunConfig make_cfg(FakeStore& store, fs::path const& out) {
     cfg.bestand_doc_key    = kDocKey;
     cfg.bestand_owner_uuid = "uuid-tp1-anker";
     cfg.bestand_maschine   = "prodX";
+    // E-04-P1: die Pflicht-Koordinaten der Marker-Familie (im Betrieb aus COMDARE_LANE/GN_OPT/GN_SIMD/
+    // MEASUREMENT_COMBO; hier fest, damit die Zeilen-Pins unabhaengig von der Test-Umgebung greifen).
+    cfg.marker_kontext = ex::MarkerKontext{"amd", "[O2,avx2][a,b,c]", "[all]"};
     return cfg;
+}
+
+// Zaehlt nicht-ueberlappende Vorkommen (Marker-Zeilen-Pins; Muster count_occurrences der Director-Tests).
+[[nodiscard]] std::size_t zaehle(std::string const& heu, std::string const& nadel) {
+    if (nadel.empty()) return 0;
+    std::size_t n = 0;
+    for (std::size_t p = heu.find(nadel); p != std::string::npos; p = heu.find(nadel, p + nadel.size())) ++n;
+    return n;
 }
 
 } // namespace
@@ -181,6 +200,23 @@ int main() {
         check_eq("(2) Buchung: built == 5 (die Fehlenden)", agg.built, std::size_t{5});
         check_true("(2) Testat-Zeile 'bau-filter: 3' vorhanden",
                    cerr_fang.text().find("bau-filter: 3") != std::string::npos);
+
+        // -- (1m) E-04-P1: die Marker-Familie v2 am realen Slice-Pfad --------------------------------
+        std::string const spur = cerr_fang.text();
+        check_eq("(1m) genau EIN [PLAN-TESTAT] je Fenster", zaehle(spur, "[PLAN-TESTAT] "), std::size_t{1});
+        check_eq("(1m) genau EIN [BILANZ-TESTAT] je Fenster", zaehle(spur, "[BILANZ-TESTAT] "), std::size_t{1});
+        // Pflichtfelder: die Zeile ist FUER SICH zuordenbar (kein Rueckgriff auf den Zeilen-Kontext).
+        check_eq("(1m) lane= in jeder Marker-Zeile", zaehle(spur, " lane=amd "), std::size_t{2});
+        check_eq("(1m) zelle= in jeder Marker-Zeile", zaehle(spur, " zelle=[O2,avx2][a,b,c] "), std::size_t{2});
+        check_eq("(1m) ceb= in jeder Marker-Zeile (eigener Layer)", zaehle(spur, " ceb=[all] "), std::size_t{2});
+        // fenster= traegt die GLOBALEN View-Indizes des Fensters (hier das volle 0:8).
+        check_eq("(1m) fenster= in jeder Marker-Zeile", zaehle(spur, " fenster=0:8 "), std::size_t{2});
+        // Die Zaehler stammen aus DEMSELBEN Filter-/slice_stats-Ergebnis wie die Aggregat-Pruefungen oben.
+        check_true("(1m) SOLL: gesamt=8 lager=3 zu_bauen=5",
+                   spur.find(" gesamt=8 lager=3 zu_bauen=5") != std::string::npos);
+        check_true("(1m) IST: gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0",
+                   spur.find(" gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0") != std::string::npos);
+        check_true("(1m) die Bilanz-Zeile traegt die Fenster-Wall-Clock", spur.find(" dauer_s=") != std::string::npos);
 
         auto const raw = store.objs.find(kDocKey);
         check_true("(3) Reservierung im Store", raw != store.objs.end());
@@ -258,6 +294,38 @@ int main() {
         check_eq("(5) je gebauter Binary EIN Konfig-Delta", konfig_deltas, std::size_t{5});
         check_eq("(5) genau EIN done-Delta", done_count, std::size_t{1});
         check_eq("(5) done-Cursor == VOLLE bereitgestellte Menge (5+3)", done_cursor, std::size_t{8});
+    }
+
+    // -- Fall (6m): E-04-P1 FALLBACK-KANAL -- provision_only OHNE aktives Bestandslog ---------------
+    //    Ohne Transport/Doc-Key ist planer_driven_active falsch: es gibt keinen Slice-Loop und keine
+    //    Done-Records. Genau dann darf der Live-Kanal NICHT stumm sein (Nie-stumm-Doktrin) -- die
+    //    Invocation IST das eine Fenster, und die Bilanz zieht ihre Zahlen aus built_new/built_skip.
+    {
+        FakeStore         store;
+        ex::LazyRunConfig cfg = make_cfg(store, base / "fallback_kanal");
+        cfg.bestand_transport = {}; // Storage INERT -> kein Bestandslog -> kein planer-getriebener Bau
+        cfg.bestand_doc_key.clear();
+        cfg.max_binaries = 8;
+
+        ex::BuildSelection sel;
+        sel.indices    = alle;
+        sel.provenance = "explicit";
+
+        CerrCapture cerr_fang;
+        auto const  ram_stub = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+        auto const  r        = ex::run_lazy_static_then_dynamic(tree, sel, compile_stub, gen_stub, ram_stub, cfg);
+
+        std::string const spur = cerr_fang.text();
+        check_eq("(6m) Fallback: genau EIN [PLAN-TESTAT]", zaehle(spur, "[PLAN-TESTAT] "), std::size_t{1});
+        check_eq("(6m) Fallback: genau EIN [BILANZ-TESTAT]", zaehle(spur, "[BILANZ-TESTAT] "), std::size_t{1});
+        check_eq("(6m) Fallback: Pflichtfeld lane= in beiden Zeilen", zaehle(spur, " lane=amd "), std::size_t{2});
+        check_eq("(6m) Fallback: Pflichtfeld fenster= in beiden Zeilen", zaehle(spur, " fenster=0:8 "), std::size_t{2});
+        check_eq("(6m) Fallback: KEINE Reservierung geschrieben", store.objs.size(), std::size_t{0});
+        // Die Bilanz-Zahlen sind exakt die LazyRunResult-Felder -> built_new/built_skip haben einen Leser.
+        std::string const erwartet = " gebaut_neu=" + std::to_string(r.built_new) +
+                                     " sidecar_skip=" + std::to_string(r.built_skip) + " lager_skip=0 fehl=0";
+        check_true("(6m) Fallback-Bilanz konsumiert built_new/built_skip", spur.find(erwartet) != std::string::npos);
+        check_eq("(6m) Fallback: 8 frisch gebaut (kein Bestand, kein Sidecar)", r.built_new, std::size_t{8});
     }
 
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");
