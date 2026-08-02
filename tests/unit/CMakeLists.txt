@@ -3581,6 +3581,26 @@ foreach(_p2_test test_p2_ram_probe_chain test_p2_ram_identity_verdict)
     set_tests_properties(${_p2_test} PROPERTIES LABELS "hwprobe;measurement")
 endforeach()
 
+# Paket OS-U3: prozessfreie RT-Erhebung von os_version/kernel/build per CT-Familien-Spezialisierung.
+# Der Test fuehrt die K4-Fehlerproduzenten, unabhaengige Linux-Live-Gegenproben und die A-15-Stempel-
+# Neutralitaet aus. Boost::mp11 und der builder-Include-Pfad folgen dem A14-Stempel-Guard, weil auch
+# diese TU abi/anatomy_version_stamp.hpp direkt einbindet.
+add_executable(test_os_u3_probe "test_os_u3_probe.cpp")
+target_compile_features(test_os_u3_probe PRIVATE cxx_std_23)
+target_include_directories(test_os_u3_probe PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated")
+target_link_libraries(test_os_u3_probe PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_os_u3_probe)
+target_compile_definitions(test_os_u3_probe PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_os_u3_probe COMMAND test_os_u3_probe)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_os_u3_probe)
+set_tests_properties(test_os_u3_probe PROPERTIES LABELS "osprobe;measurement")
+
 # Task #7 P3: der Stufe-1-REAL-Beweis (F13 "erst prod1 testen"). Fixture-Teil: v1-Kontrakt-Dateien in
 # der ECHTEN Schreiber-Form (Werte-Schluessel je DIMM wiederholt -- vom live verifizierten Format
 # abgeleitet, A9); Live-Teil: liest den echten Boot-Cache dieses Hosts mit benanntem Skip-Guard
