@@ -37,6 +37,16 @@ enum class AxisKind : unsigned char {
     /// Diskriminatoren unveraendert bleiben; bis Schritt 4 gibt ihn KEINE Achse zurueck --
     /// bis dahin verhaltens- und byte-neutral.
     measurement_meta_meta,
+    /// ORGAN-Meta-Meta-Achse (A13-M2, Owner-Entscheid E2 vom 02.08.2026). Der Owner-Wortlaut kennt DREI
+    /// Realms, zu denen eine Meta-Meta gehoeren kann: "Da eine Meta-Meta-Achse immer zu den Mess-Achsen,
+    /// System-Achsen oder Organ-Achsen gehoert ...". Zwei davon hatten bisher einen eigenen Diskriminator;
+    /// der dritte fehlte -- und mit ihm der MECHANISMUS, ueber den eine Organ-Meta-Meta ueberhaupt
+    /// stempeln koennte. Dieser Enumerator schliesst die Luecke. ANS ENDE angefuegt (Zahlenwerte der
+    /// bestehenden Diskriminatoren unveraendert). HEUTE gibt ihn KEINE Achse zurueck und die
+    /// Organ-Meta-Meta-Typliste ist LEER -- der Mechanismus ist gebaut, die Organ-Zeile bleibt
+    /// byte-identisch (no-op). Genau so ist der OP-11-Rueckbau gemeint: nicht "Meta-Metas in die
+    /// Organ-Zeile schuetten", sondern "die Organ-Zeile kann sie ab jetzt tragen".
+    organ_meta_meta,
 };
 
 /// Das Dach: empty base, keine vtable, keine Familien-Semantik. Der Concept-Guard

@@ -38,6 +38,18 @@ namespace comdare::cache_engine::abi {
 /// Include. Wer ORG-18 aendert, aendert BEIDE Orte.
 inline constexpr std::size_t kOrganAxisCount = 18;
 
+/// A13-M2 (Owner-E2, OP-11-Rueckbau): die Glied-Reihenfolge der ORGAN-Realm-Meta-Metas -- die SINGLE-SOURCE.
+/// HEUTE LEER: es gibt keine Organ-Meta-Meta, der Klammer-Anhang ist damit leer und die Organ-Zeile
+/// BYTE-IDENTISCH (no-op). Gebaut ist der MECHANISMUS (Owner-Forderung E-10/nr798-B3org "ORGAN-analoges
+/// Meta-Meta-Array + erweiterbarer Compile-Raum-Stempel"): wer eine Organ-Meta-Meta baut
+/// (topics::OrganMetaMetaAxis), traegt sie HIER ein und sie stempelt, ohne dass eine Zeile Emitter-Code
+/// angefasst wird.
+/// WARUM DIE LISTE HIER (abi/) UND NICHT IN topics/ NEBEN DER WURZEL: MetaMetaMembers ist ein
+/// measurement-Layer-Typ, und topics/ darf nicht auf measurement/ zeigen (Layer-Inversion). Die WURZEL
+/// (topics/organ_meta_meta_axis.hpp) und die LISTE liegen deshalb bewusst getrennt; es gibt trotzdem nur
+/// EINE Liste.
+using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
+
 /// organ_stamp_line<Comp>() -- die kOrganAxisVersionLine "achse=algo@X.Y.Z;..." aus den 18 benannten
 /// Achsen-Aliassen einer Composition, in kanonischer compose-Ordnung (== AdHocComposition-Alias-Ordnung
 /// == kCompositionAxisNames). Jede Achse muss name() + algo_version tragen.
@@ -47,8 +59,18 @@ inline constexpr std::size_t kOrganAxisCount = 18;
 /// Stempel durfte damals nicht brechen, also blieb die 18. Achse draussen. Das OD-1-Stempel-PRINZIP
 /// verlangt aber ALLE Organ-Achsen mit je-Achse-Algorithmus-Version; eine fehlende 18. Achse waere
 /// eine Stempel-BLINDSTELLE, in der eine persistence_target-Drift unsichtbar bliebe.
-/// KEINE Meta-Meta-Eintraege in dieser Zeile (RF-7: je Typ EINE Array-Zeile, Typ-Trennung) --
-/// load_framework stempelt in der MESS-Zeile, die System-Meta-Metas in der System-Sphaere.
+/// OP-11-RUECKBAU (A13-M2, Owner-Entscheid E2 vom 02.08.2026). HISTORIE, hier woertlich erhalten
+/// (Doku-Doktrin: supersedieren, nie loeschen) -- an dieser Stelle stand bis zum 02.08.2026:
+///   "KEINE Meta-Meta-Eintraege in dieser Zeile (RF-7: je Typ EINE Array-Zeile, Typ-Trennung) --
+///    load_framework stempelt in der MESS-Zeile, die System-Meta-Metas in der System-Sphaere."
+/// (Quelle des Verbots: OP-11, super docs/sessions/20260727-PLAN-o8-fenster-atomar-ultracode.md:813-822.)
+/// SUPERSEDED durch den Owner-Wortlaut: "Da eine Meta-Meta-Achse immer zu den Mess-Achsen, System-Achsen
+/// oder ORGAN-Achsen gehoert, wird sie auch einfach dynamisch ans Ende der Kette in den bestehenden Zeilen
+/// angehaengt." Die Organ-Zeile KANN ab jetzt Meta-Metas tragen -- als geklammerten Anhang an ihrem Ende,
+/// gespeist aus kOrganMetaMetas.
+/// RF-7 BLEIBT GUELTIG: je Achsen-Typ EINE Array-Zeile. Eine Organ-Meta-Meta stempelt im ORGAN-Realm und
+/// NIE zeilen-fremd; load_framework bleibt in der Mess-Zeile, die System-Meta-Metas in der System-Zeile.
+/// HEUTE: kOrganMetaMetas ist LEER -> der Anhang ist leer -> diese Zeile ist BYTE-IDENTISCH (no-op).
 ///
 /// BLOCKER (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
 /// (z.B. ObservableComposedContainer<...>) und tragen KEIN name()/algo_version -- nur die Registry-WRAPPER
@@ -85,7 +107,12 @@ template <class Comp>
                   "Die Organ-Stempel-Zeile muss ALLE Organ-Haupt-Achsen tragen (ORG-18). Genau diese "
                   "Luecke war A8.2: das Array stand auf 17 und liess persistence_target aus, wodurch "
                   "eine Drift dieser Achse im Stempel unsichtbar blieb.");
-    return build_axis_version_stamp_line(entries);
+    std::string line = build_axis_version_stamp_line(entries);
+    // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. kOrganMetaMetas ist heute leer
+    // -> append_meta_meta_suffix laesst die Zeile BYTE-IDENTISCH. Der Mechanismus ist damit gebaut, ohne
+    // ein einziges Byte zu bewegen (Beweis: die Organ-Golden-Anker in test_m_w12 blieben unveraendert).
+    append_meta_meta_suffix(line, meta_meta_stamp_suffix_from_members<OrganMetaMetas>());
+    return line;
 }
 
 /// system_stamp_line() -- die kSystemAxisVersionLine (Section 43, Entscheid W12-A-1). ZWEIPHASIG dokumentiert:

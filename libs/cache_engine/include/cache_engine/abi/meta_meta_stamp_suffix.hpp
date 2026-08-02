@@ -125,12 +125,20 @@ template <class Members>
 
 } // namespace detail
 
+/// meta_meta_stamp_suffix_from_members<Members>() -- der Klammer-Anhang aus einer bereits BENANNTEN
+/// Glied-Liste. Fuer Realms, die ihre Glieder als eigene Single-Source fuehren statt an einem Hub-TYP
+/// (Organ-Realm: kOrganMetaMetas, heute leer). Leere Liste -> leerer Anhang (byte-neutral, no-op).
+template <class Members>
+[[nodiscard]] inline std::string meta_meta_stamp_suffix_from_members() {
+    return detail::render_meta_meta_members(Members{});
+}
+
 /// meta_meta_stamp_suffix<Hub>() -- der TYP-getriebene Klammer-Anhang eines Hubs (System-Realm). Leerer Hub
 /// -> leerer Anhang (byte-neutral). Die Glied-Reihenfolge ist die der Hub-Typliste (Single-Source), NIE eine
 /// hier nachgebaute Ordnung.
 template <class Hub>
 [[nodiscard]] inline std::string meta_meta_stamp_suffix() {
-    return detail::render_meta_meta_members(::comdare::cache_engine::measurement::meta_meta_members_of_t<Hub>{});
+    return meta_meta_stamp_suffix_from_members<::comdare::cache_engine::measurement::meta_meta_members_of_t<Hub>>();
 }
 
 /// meta_meta_stamp_suffix_from(entries) -- der ENTRY-getriebene Klammer-Anhang (Mess-Realm: die Meta-Meta-WAHL
