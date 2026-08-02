@@ -2018,6 +2018,20 @@ comdare_add_test(test_axis_error_taxonomy
 target_include_directories(test_axis_error_taxonomy PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
+# Fehlerklassen-Framework A15/FK-0 (Task #29, Owner-Entscheid E6 vom 02.08.: "Fehlerklassen bitte jetzt
+# mit bauen"): der RF-3-Guard (§70.3) zur fuenften D1-Klasse BetriebssystemFeatureFehlt wird hier am Join
+# nachregistriert (bis 02.08. lag er unregistriert im Baum, Sammel-Registrierung war so vorgesehen).
+# Er beweist ZWEI Dinge, die der Nachbar test_axis_error_taxonomy NICHT prueft: die PAARWEISE
+# Distinktheit aller fuenf D1-Etiketten und die Anhaenge-Wache (hinter dem Count darf kein etikettierter
+# Enum-Wert liegen). Include-Menge deshalb identisch zum Nachbarn: der Test zieht ausschliesslich
+# measurement/axis_error.hpp (header-only Enums, kein boost, keine lib).
+# Bewusst OHNE gtest geschrieben (eigenes main, Exit 0/1) -- comdare_add_test linkt gtest/gtest_main nur
+# als Archive; der main-tragende Archiv-Member wird nicht gezogen, weil main hier schon definiert ist.
+comdare_add_test(test_rf3_betriebssystem_feature_fehlt
+    SOURCES test_rf3_betriebssystem_feature_fehlt.cpp)
+target_include_directories(test_rf3_betriebssystem_feature_fehlt PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # Goal-V3 Striktheit (Metaprogrammierung): prospektiver compile-time-Guard. Beweist POSITIV, dass die 11
 # Referenz-Anatomien nicht-polymorph (keine vtable im Hot-Path) + AnatomyConcept-erfuellt sind, und dass die
 # ABI-Grenze (IAnatomyBase/IDriveableTier/IMeasurableWorkload) bewusst polymorph bleibt -- faengt jede

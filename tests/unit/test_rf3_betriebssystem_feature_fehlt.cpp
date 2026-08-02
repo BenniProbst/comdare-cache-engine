@@ -1,10 +1,16 @@
-// tests/unit/test_rf3_betriebssystem_feature_fehlt.cpp -- RF-3 (§70.3), 26.07.2026. UNREGISTRIERT.
+// tests/unit/test_rf3_betriebssystem_feature_fehlt.cpp -- RF-3 (§70.3), 26.07.2026.
+// REGISTRIERT seit A15/FK-0 (02.08.2026, Owner-Entscheid E6 "Fehlerklassen bitte jetzt mit bauen").
 //
-// Absichtlich NICHT in tests/unit/CMakeLists.txt eingetragen (Sammel-Registrierung am Join, wie die
-// Lane-C-Guards und der A9b-Guard): der Voll-ctest-Zaehler bleibt dadurch unveraendert. Bewusst OHNE
-// gtest geschrieben, damit der Hand-Bau eine einzige Zeile ohne Link-Satz ist. Literal gelaufen (26.07.),
-// hier ohne Zeilenfortsetzung notiert, weil ein Backslash am Zeilenende einen //-Kommentar fortsetzt
-// (-Wcomment):
+// STAND 26.07. (ueberholt, Wortlaut erhalten): "Absichtlich NICHT in tests/unit/CMakeLists.txt
+// eingetragen (Sammel-Registrierung am Join, wie die Lane-C-Guards und der A9b-Guard): der
+// Voll-ctest-Zaehler bleibt dadurch unveraendert."
+// STAND 02.08.: der Join ist erfolgt -- der Guard ist per comdare_add_test neben seinem Nachbarn
+// test_axis_error_taxonomy registriert und laeuft als regulaerer ctest-Eintrag mit; der Voll-Zaehler
+// waechst um genau diesen einen Eintrag. Bewusst OHNE gtest geschrieben, damit der Hand-Bau eine
+// einzige Zeile ohne Link-Satz ist -- das bleibt so (eigenes main, Exit 0/1; der von comdare_add_test
+// mitgelinkte gtest_main-Archiv-Member wird nicht gezogen). Hand-Bau weiterhin moeglich, literal
+// gelaufen (26.07.), hier ohne Zeilenfortsetzung notiert, weil ein Backslash am Zeilenende einen
+// //-Kommentar fortsetzt (-Wcomment):
 //
 //   g++ -std=c++23 -O0 -Wall -I libs/cache_engine/include tests/unit/test_rf3_betriebssystem_feature_fehlt.cpp -o <build>/test_rf3_guard
 //
