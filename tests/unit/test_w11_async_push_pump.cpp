@@ -379,6 +379,7 @@ int main() {
         std::mutex               m;
         std::vector<std::string> ok_pushes;
         auto                     push = [&](std::filesystem::path const& bin_dir, std::string const&) {
+            // cppcheck-suppress throwInEntryPoint // FP: Lambda ist kein Entry-Point; wirft absichtlich zur Fehlerpfad-Pruefung (B-1)
             if (bin_dir.string().find("kaputt") != std::string::npos) throw std::runtime_error{"push-fehler"};
             std::lock_guard<std::mutex> lk(m);
             ok_pushes.push_back(bin_dir.string());
