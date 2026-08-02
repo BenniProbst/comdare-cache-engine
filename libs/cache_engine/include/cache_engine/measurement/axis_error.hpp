@@ -83,6 +83,27 @@ enum class AdmissionStatus : std::uint8_t {
 /// Single-Source der Zulassungs-Status-Zahl (beide Drift-Wachen unten).
 inline constexpr std::size_t kAdmissionStatusCount = 2;
 
+// -- A15/FK-1: BAU-Status je Permutations-Zeile (D1-Zell-Vokabular, DRITTE Nicht-Zahl-Semantik) -----
+// Owner-Freigabe 02.08.2026 (Volles GO auf die Bauplan-Empfehlung Q4): eine Permutation, deren Binary
+// GAR NICHT GEBAUT werden konnte, bekommt einen eigenen, sichtbaren Datensatz statt einer verschwiegenen
+// Luecke -- exakt die Doktrin, die RF-2 fuer die Zulassung eingefuehrt hat. Bis dahin verschwand ein
+// Bau-Fehler NUR ins Log (kein Mess-Eintrag), und die Auswerte-CSV konnte "nie gebaut" nicht von
+// "nie geplant" unterscheiden.
+//
+// WARUM EINE DRITTE EIGENE TAXONOMIE (W-4-Doktrin, wie schon bei AdmissionStatus): es sind DREI
+// Aussagen, die eine Auswertung auseinanderhalten koennen MUSS und die eine gemeinsame Vokabel
+// unwiederbringlich verschmelzen wuerde --
+//   failed       (D2, SampleStatus)     = GEMESSEN und dabei GESCHEITERT,
+//   gesperrt     (D1, AdmissionStatus)  = gebaut/baubar, aber NICHT ZUGELASSEN, deshalb nicht gemessen,
+//   nicht_gebaut (D1, BuildCellStatus)  = es gibt gar keine Binary, der Bau selbst ist gescheitert.
+// Die Disjunktheit dieser drei Tokens ist unten compile-time verwacht (nicht bloss im Kommentar).
+enum class BuildCellStatus : std::uint8_t {
+    Gebaut      = 0, // Binary liegt vor -> die Zeile rendert wie bisher (Default, byte-identisch)
+    NichtGebaut = 1, // Bau gescheitert (D1: Infra ODER Compiler-Compiler) -> Marker-Zeile statt Zeilen-Nichts
+};
+/// Single-Source der Bau-Status-Zahl (beide Drift-Wachen unten).
+inline constexpr std::size_t kBuildCellStatusCount = 2;
+
 // ── Error-Category: stabile Etiketten (Single-Source fuer Log + Serialisierung) ───────────────────
 /// Log-Etikett je D1-Klasse (stabil; darf in Experiment-Logs zitiert werden).
 [[nodiscard]] constexpr std::string_view error_class_label(CompilerCompilerErrorClass c) noexcept {
@@ -117,6 +138,17 @@ inline constexpr std::size_t kAdmissionStatusCount = 2;
         case AdmissionStatus::Gesperrt: return "gesperrt";
     }
     return "gesperrt";
+}
+
+/// CSV-Zell-Token je Bau-Status (A15/FK-1). "nicht_gebaut" = fuer diese Permutation existiert keine
+/// Binary; es wurde weder zugelassen noch gemessen. Unbekannt -> "nicht_gebaut" (sicherer Default in
+/// dieselbe Richtung wie die beiden Nachbarn: lieber sichtbar-nicht-vorhanden als eine stille Zahl).
+[[nodiscard]] constexpr std::string_view build_cell_status_token(BuildCellStatus s) noexcept {
+    switch (s) {
+        case BuildCellStatus::Gebaut: return "gebaut"; // Platzhalter-Etikett; hier rendert der Aufrufer Zahlen
+        case BuildCellStatus::NichtGebaut: return "nicht_gebaut";
+    }
+    return "nicht_gebaut";
 }
 
 // ── INC-29.2: Infra-Fehlerklassen (Prozess-/IO-Ebene) — DISJUNKT von D1 (Compiler-Compiler-Fehler). ──
@@ -188,6 +220,10 @@ inline constexpr std::size_t kHardwareProbeErrorClassCount = 4;
         if (t == sample_status_token(static_cast<SampleStatus>(i))) return false;
     for (std::size_t i = 0; i < kAdmissionStatusCount; ++i)
         if (t == admission_status_token(static_cast<AdmissionStatus>(i))) return false;
+    // A15/FK-1: die Bau-Status-Tokens laufen aus demselben Grund mit wie die Zulassungs-Tokens -- sie
+    // sind Zell-Vokabeln derselben CSV und muessen gegen JEDE andere Vokabel disjunkt bleiben.
+    for (std::size_t i = 0; i < kBuildCellStatusCount; ++i)
+        if (t == build_cell_status_token(static_cast<BuildCellStatus>(i))) return false;
     for (std::size_t i = 0; i < kInfraErrorClassCount; ++i)
         if (t == infra_error_label(static_cast<InfraErrorClass>(i))) return false;
     return true;
@@ -306,6 +342,35 @@ static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_vi
 static_assert(sample_status_token(SampleStatus::SourceUnavailable) == std::string_view{"n/a"});
 static_assert(sample_status_token(SampleStatus::Ok) != sample_status_token(SampleStatus::Failed));
 
+// -- A15/FK-1: die Bau-Status-Taxonomie, BEIDE Drift-Richtungen + die DREIFACH-Disjunktheit ---------
+static_assert(std::is_same_v<std::underlying_type_t<BuildCellStatus>, std::uint8_t>);
+static_assert(std::is_trivially_copyable_v<BuildCellStatus>);
+static_assert(static_cast<std::uint8_t>(BuildCellStatus::Gebaut) == 0,
+              "Gebaut MUSS 0 sein (Default-Init = gebaut wie bisher, byte-identisch).");
+// (1) Namens-Pin und (2) Etikett-hinter-Count -- beide, weil (1) allein ein ANHAENGEN nicht faengt (RF-3).
+static_assert(kBuildCellStatusCount == static_cast<std::size_t>(BuildCellStatus::NichtGebaut) + 1);
+static_assert(build_cell_status_token(static_cast<BuildCellStatus>(kBuildCellStatusCount)) ==
+                  std::string_view{"nicht_gebaut"},
+              "Drift: hinter dem Count liegt ein etikettierter BuildCellStatus");
+// DIE DREI NICHT-ZAHL-SEMANTIKEN, paarweise verwacht. Faellt hier etwas um, kann ein Auswerte-Reader
+// "nie gebaut" nicht mehr von "nicht zugelassen" und beides nicht mehr von "gemessen und gescheitert"
+// unterscheiden -- genau die Verschmelzung, gegen die W-4 gebaut wurde.
+static_assert(build_cell_status_token(BuildCellStatus::NichtGebaut) != sample_status_token(SampleStatus::Failed));
+static_assert(build_cell_status_token(BuildCellStatus::NichtGebaut) !=
+              admission_status_token(AdmissionStatus::Gesperrt));
+static_assert(build_cell_status_token(BuildCellStatus::NichtGebaut) != sample_status_token(SampleStatus::Ok));
+static_assert(build_cell_status_token(BuildCellStatus::NichtGebaut) !=
+              sample_status_token(SampleStatus::NotApplicable));
+static_assert(build_cell_status_token(BuildCellStatus::NichtGebaut) !=
+              sample_status_token(SampleStatus::SourceUnavailable));
+static_assert(build_cell_status_token(BuildCellStatus::Gebaut) != sample_status_token(SampleStatus::Failed));
+static_assert(build_cell_status_token(BuildCellStatus::Gebaut) != admission_status_token(AdmissionStatus::Gesperrt));
+static_assert(build_cell_status_token(BuildCellStatus::Gebaut) != admission_status_token(AdmissionStatus::Zugelassen));
+static_assert(build_cell_status_token(BuildCellStatus::Gebaut) != sample_status_token(SampleStatus::NotApplicable));
+// Das Token ist zementiert: der Auswerte-Reader fuehrt es woertlich in seiner Verwerf-Liste
+// (measurement_curve_loader), und die xlsx-/Lager-Strecke uebernimmt es ueber dieselbe Vokabel.
+static_assert(build_cell_status_token(BuildCellStatus::NichtGebaut) == std::string_view{"nicht_gebaut"});
+
 // INC-29.2: Infra-Domaene disjunkt von D1 + Drift-Guards + Policy-Concept-Erfuellung (alles compile-time).
 static_assert(std::is_same_v<std::underlying_type_t<InfraErrorClass>, std::uint8_t>);
 static_assert(std::is_same_v<std::underlying_type_t<ErrorDomain>, std::uint8_t>);
@@ -363,5 +428,9 @@ static_assert(
 // sonst waere die Disjunktheits-Aussage oben eine leere Zusicherung (Negativfall = der eigentliche Test).
 static_assert(!probe_label_ist_disjunkt(sample_status_token(SampleStatus::Failed)));
 static_assert(!probe_label_ist_disjunkt(infra_error_label(InfraErrorClass::ArtefaktIo)));
+// A15/FK-1: dieselbe Gegenprobe fuer die neu eingehaengte Schleife -- ohne sie waere der Zuwachs oben
+// eine leere Zusicherung (die Wache muss das neue Vokabular auch wirklich ablehnen).
+static_assert(!probe_label_ist_disjunkt(build_cell_status_token(BuildCellStatus::NichtGebaut)));
+static_assert(!probe_label_ist_disjunkt(build_cell_status_token(BuildCellStatus::Gebaut)));
 
 } // namespace comdare::cache_engine::measurement
