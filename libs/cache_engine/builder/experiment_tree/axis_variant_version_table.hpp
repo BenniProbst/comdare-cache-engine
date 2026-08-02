@@ -45,7 +45,7 @@ namespace mp = boost::mp11;
 struct AxisVariantVersion {
     std::string_view axis;    ///< kCompositionAxisNames-Slot (z.B. "search_algo")
     std::string      variant; ///< W::name() (z.B. "bst")
-    std::string      version; ///< W::algo_version (z.B. "v1")
+    std::string      version; ///< W::algo_version (z.B. "v1.0.0"; A13-M1b: kuenftig "v1.0.0c")
 };
 
 /// mp_for_each ueber eine Registry-Enabled-Liste -> {axis, W::name(), W::algo_version} je Variante. mp_identity
@@ -56,15 +56,17 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, List>>([&](auto id) {
         using W = typename decltype(id)::type;
         // A1 (G2-4a, W12-A, 2026-07-23): Concept-Guard der X.Y.Z-Disziplin -- JEDE registrierte Organ-Variante MUSS eine
-        // PARSBARE algo_version tragen (Form "vN" oder "vN.N.N"). Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v')
-        // parst zum Sentinel und bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden
-        // requires-Existenz-Guard (Datei-Kopf) um die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab jetzt nicht
-        // mehr unbemerkt in eine Registry gelangen (render-neutral: "v1"/"v1.0.0" parsen beide zu {1,0,0}).
+        // PARSBARE algo_version tragen. Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v') parst zum Sentinel und
+        // bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden requires-Existenz-Guard (Datei-Kopf) um
+        // die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab jetzt nicht mehr unbemerkt in eine Registry gelangen.
         // A13-M1-Auflage K-5: die Wache prueft das x/y/z-TRIPEL (is_sentinel), NICHT den Struct-Vergleich gegen
-        // AlgoSemVer{} -- sonst koennte eine experimentelle Sentinel-Form die Wache umgehen.
+        // AlgoSemVer{} -- sonst koennte eine Flag-Sentinel-Form die Wache umgehen.
+        // A13-M1b (Owner-Q3 02.08.2026): die zulaessige Form ist "vX.Y.Z[HWFLAG[e]]" -- die Kurzform "vN" faellt seit
+        // dem Rueckbau ebenfalls in diese Wache (sie ist jetzt Sentinel).
         static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).is_sentinel(),
-                      "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vN\" oder \"vN.N.N\" (optional mit "
-                      "Experimental-Suffix 'e') -- A10-X.Y.Z-Disziplin");
+                      "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vX.Y.Z\" mit optional GENAU EINEM "
+                      "Hardware-Flag (c/g/f/n) und danach optional 'e' -- die Kurzform \"vN\" ist verboten "
+                      "(Owner-Q3 02.08.2026), A10-X.Y.Z-Disziplin");
         // A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix markiert experimentelle Achsen-Algorithmen
         // AUS EINEM PRUEFLING. Die ce-EIGENEN Registry-Varianten sind der stabile Bestand und duerfen es nie tragen
         // -- sonst waeren die ce-Stempel/Fingerprints/Lager-Keys nicht mehr beweisbar golden-neutral. Ein 'e' in
@@ -72,6 +74,30 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
         static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).experimental,
                       "algo_version experimentell ('e'-Suffix): das 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung "
                       "(Owner-E2 02.08.2026) -- ce-eigene Registry-Varianten tragen es NIE");
+        // A13-M1b, WACHE "wenn Flag vorhanden, dann GENAU EIN -- und im CPU-Scope 'c'" (Owner-Q3 02.08.2026).
+        // Die Zweiteilung ist Absicht und deckt die Uebergangs-Phase sauber ab:
+        //   * MEHRFACH-/Fremd-/Gross-Flags ("v1.0.0cg", "v1.0.0ec", "v1.0.0C", "v1.0.0x") sind schon grammatisch
+        //     unparsbar und laufen in die Sentinel-Wache oben -- "genau EIN Flag" ist damit durchgesetzt.
+        //   * Diese Wache HIER faengt den verbleibenden Fall: ein WOHLGEFORMTES, aber im CPU-only-Scope falsches
+        //     Flag ("v1.0.0g"/"v1.0.0f"/"v1.0.0n"). Sie ist NICHT tautologisch -- eine ce-Registry-Variante mit
+        //     "v1.0.0g" bricht hier compile-time MIT dem Typ-Namen, waehrend der flaglose Bestand ("v1.0.0")
+        //     bewusst durchgeht (Uebergangs-Toleranz bis zum M2/M3-Migrations-Commit).
+        //   * Die restliche Owner-Pflicht -- dass ueberhaupt ein Flag DA sein MUSS -- ist der ENFORCE-Block unten.
+        static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).has_hardware_flag() ||
+                          ::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
+                      "algo_version mit FALSCHEM Hardware-Flag: zulaessig ist im CPU-only-Scope GENAU 'c' (bzw. 'ce') "
+                      "-- g/f/n sind reserviert und werden hier nicht produziert (Owner-Q3 02.08.2026)");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+        // A13-M1b SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code, daher muessen alle Versionen mit 'c'
+        // oder 'ce' enden"). GEBAUT, aber per Define ausgeschaltet, solange der Bestand flaglos ist: das Define geht
+        // im MIGRATIONS-COMMIT des A13-M2/M3-Neuanker-Fensters auf ON -- im selben Commit, der die 122
+        // W::algo_version-Literale von "v1.0.0" auf "v1.0.0c" zieht. Die Wachen-LOGIK selbst
+        // (version_satisfies_cpu_only_policy) ist immer kompiliert und in algo_semver.hpp CT-bewiesen; das Define
+        // schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
+        static_assert(::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
+                      "algo_version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' oder 'ce' "
+                      "enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+#endif
         out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version}});
     });
 }
@@ -145,6 +171,10 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
             out += '=';
             out += val;
             out += '@';
+            // A13-M1b: HIER bleibt die Kurzform "v0" stehen. Dieser Zweig ist die ROHE .algos-Signatur --
+            // eine SEPARATE, byte-eingefrorene Welt (der Sidecar-Vergleich ist String-gleich). Der
+            // Owner-Q3-Dreistelligkeits-Rueckbau betrifft die VERSIONS-Grammatik (algo_semver), nicht diesen
+            // Signatur-Token; ein Wechsel auf "v0.0.0" waere hier ein Byte-Bruch ohne Nutzen.
             out += ver.empty() ? std::string_view{"v0"} : ver;
             break;
         }
@@ -175,7 +205,10 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
             out += '=';
             out += val;
             out += '@';
-            out += ::comdare::cache_engine::measurement::algo_semver_string(ver.empty() ? std::string_view{"v0"} : ver);
+            // A13-M1b: dreistelliger Sentinel (Owner-Q3). Byte-neutral -- "v0" und "v0.0.0" rendern beide
+            // "0.0.0"; nach dem Kurzform-Rueckbau ist "v0.0.0" aber der ABSICHTLICHE statt der zufaellige Weg.
+            out += ::comdare::cache_engine::measurement::algo_semver_string(ver.empty() ? std::string_view{"v0.0.0"}
+                                                                                        : ver);
             break;
         }
     }
