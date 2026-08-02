@@ -314,7 +314,15 @@ concept HandlingPolicyConcept = requires {
 static_assert(std::is_same_v<std::underlying_type_t<CompilerCompilerErrorClass>, std::uint8_t>);
 static_assert(std::is_same_v<std::underlying_type_t<SampleStatus>, std::uint8_t>);
 static_assert(std::is_trivially_copyable_v<SampleStatus> && std::is_trivially_copyable_v<CompilerCompilerErrorClass>);
-static_assert(static_cast<std::uint8_t>(SampleStatus::Ok) == 0, "Ok MUSS 0 sein (Default-Init = gueltig).");
+// FK-2/K1 -- GELTUNGSBEREICH dieser Zusicherung, praezisiert: Ok==0 ist eine WIRE-/POD-Aussage ueber
+// PermResult.sample_status (harness/perm_runner.hpp:129-133). Dort ist der Default Ok richtig, weil die
+// Zelle erst entsteht, NACHDEM die Messung gelaufen ist -- und weil ein von 0 verschiedener Default den
+// Wire-/golden-Pfad byte-verschieben wuerde. Sie ist AUSDRUECKLICH KEINE Aussage ueber host-seitige
+// Traeger: SystemAxisSample (measurement/system_axis.hpp) haelt bewusst einen FAIL-SAFE-Default
+// (SourceUnavailable), damit eine nie-collectete Sample NIE als gueltige Messung liest. Wer diesen
+// Kommentar liest, um einen weiteren Ok-Default zu rechtfertigen, liest ihn falsch.
+static_assert(static_cast<std::uint8_t>(SampleStatus::Ok) == 0,
+              "Ok MUSS 0 sein (PermResult-Wire-POD: Default-Init = gueltig; gilt NICHT host-seitig).");
 static_assert(SampleStatus::Failed != SampleStatus::NotApplicable, "Failed und NotApplicable MUESSEN disjunkt sein.");
 // Drift-Guards: neue Enum-Werte erzwingen ein Hochzaehlen der Count-Single-Source.
 static_assert(kCompilerCompilerErrorClassCount ==
