@@ -371,10 +371,10 @@ int main() {
         ::unsetenv("COMDARE_MEASUREMENT_COMBO");
     }
 
-    // ════════════════════════════════════════════════════════════════════════════════════════════════
+    // ================================================================================================
     // Teil 7 (TP1-N2/B-1): Push-Fehler sind SICHTBAR -- werfende Pushes landen in failed_dirs(),
     // zaehlen NICHT als pushed und feuern keinen Teil-Marker; der Pump-Thread ueberlebt den Wurf.
-    // ════════════════════════════════════════════════════════════════════════════════════════════════
+    // ================================================================================================
     {
         std::mutex               m;
         std::vector<std::string> ok_pushes;

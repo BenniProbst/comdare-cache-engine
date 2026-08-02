@@ -696,7 +696,7 @@ inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
 
 // ── Ergebnis des Lazy-E2E-Laufs (rein zählend + die Mess-Zeilen; kein ∏-Vektor) ──
 struct LazyRunResult {
-    std::size_t selected = 0; // selektierte statische Blätter (== min(max_binaries, view))
+    std::size_t selected = 0; // selektierte statische Blaetter (== min(max_binaries, view))
     // FESTGEZOGEN (TP1-N3/B-2): built = BEREITGESTELLT im Batch-Sinn -- gebaut ODER lokal resumiert
     // ODER (im planer-getriebenen Bau) als Lager-Bestand belegt uebersprungen. built_skip ist die
     // SUMME beider Skip-Quellen (dll_is_current-Resume + Lager-Bestand); die Lager-Quelle steht
@@ -1195,7 +1195,7 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // TP1-N2 (B-1): der flush laeuft NACH dem Push-Drain -- registriert wird nur, was den Store
         // real erreichen konnte.
         bestandslog_flush();
-        // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je GEBAUTE Binary EIN
+        // Welle 5 (E-W5-2): der Paragraf-38-Rueck-Kanal feuert AUCH im provision_only-Lauf -- je GEBAUTE Binary EIN
         // Delta (in StaticBinaryView-Ordnung; Lager-Treffer haben keine Konfigurations-Aenderung zu melden).
         // TP1-N3 (B-2b): das done-Delta traegt die VOLLE bereitgestellte Menge (gebaut + Lager-Bestand) --
         // builds.size() allein unterzaehlte seit dem Bau-Filter die Bereitstellung dieses Fensters.

@@ -151,7 +151,7 @@ int main() {
     // Praesenz-Praedikat der Faelle (1)-(3): Indizes 0..2 liegen "im Lager".
     bl::PresenceFn const drei_im_bestand = [](std::size_t i) { return i < 3; };
 
-    // ── Faelle (1)-(3): run_planer_driven_provision DIREKT, mit Filter ──────────────────────────
+    // -- Faelle (1)-(3): run_planer_driven_provision DIREKT, mit Filter --------------------------
     {
         FakeStore         store;
         ex::LazyRunConfig cfg = make_cfg(store, base / "gefiltert");
@@ -199,7 +199,7 @@ int main() {
         }
     }
 
-    // ── Fall (4): OHNE Praedikat -- der byte-identische Ist-Pfad ─────────────────────────────────
+    // -- Fall (4): OHNE Praedikat -- der byte-identische Ist-Pfad ---------------------------------
     {
         FakeStore         store;
         ex::LazyRunConfig cfg = make_cfg(store, base / "voll");
@@ -220,7 +220,7 @@ int main() {
         check_eq("(4) ohne Praedikat: skipped == 0", agg.skipped, std::size_t{0});
     }
 
-    // ── Fall (5): VOLLER run_lazy_static_then_dynamic -- done-Menge + bestand_lager_skips ────────
+    // -- Fall (5): VOLLER run_lazy_static_then_dynamic -- done-Menge + bestand_lager_skips --------
     {
         FakeStore         store;
         ex::LazyRunConfig cfg = make_cfg(store, base / "voller_lauf");
