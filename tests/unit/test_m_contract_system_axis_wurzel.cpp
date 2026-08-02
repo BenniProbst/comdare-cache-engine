@@ -79,6 +79,16 @@ static_assert(topics::MeasurementVisitable<tel::InsertCounter, NoMeasurementVisi
 
 } // namespace
 
+// FK-2-LAYOUT-PIN: der Groessen-/Ausrichtungs-Vertrag des host-seitigen Samples, VOR der Status-Hebung
+// gemessen. Der Header traegt denselben Pin compile-time; hier steht er als LITERALE Laufzeit-Ausgabe,
+// damit ein Drift auch im ctest-Protokoll sichtbar wird und nicht nur den Compiler bricht.
+TEST(MSystemAxisWurzel, SampleLayoutIstGepinntUndGroessenNeutral) {
+    EXPECT_EQ(sizeof(m::SystemAxisSample), 24u);
+    EXPECT_EQ(alignof(m::SystemAxisSample), 8u);
+    EXPECT_TRUE(std::is_standard_layout_v<m::SystemAxisSample>);
+    EXPECT_TRUE(std::is_trivially_copyable_v<m::SystemAxisSample>);
+}
+
 TEST(MSystemAxisWurzel, RegimeOfCoversAllCategoriesAndPmcThesisSet) {
     EXPECT_EQ(m::kAllMeasurementCategories.size(), 16u);
     EXPECT_EQ(count_regime(m::MeasurementRegime::PmcCounter), m::kPmcCounterCategories.size());

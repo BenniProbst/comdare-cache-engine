@@ -140,6 +140,14 @@ struct SystemAxisSample {
 
 static_assert(std::is_standard_layout_v<SystemAxisSample>);
 static_assert(std::is_trivially_copyable_v<SystemAxisSample>);
+// FK-2-LAYOUT-PIN (VOR der Status-Hebung gemessen und festgeschrieben, Auflage aus dem Design-Dossier):
+// die anstehende Hebung `bool valid` -> `SampleStatus status` (beide 1 Byte) muss GROESSEN-NEUTRAL sein.
+// Der Pin steht bewusst hier und nicht erst nach dem Umbau: nur so beweist er, dass sich nichts bewegt
+// hat. Bricht er, ist ein stiller Layout-Drift im host-seitigen Sample passiert -- genau der Fall, den
+// die Risiko-Liste des Pakets benennt.
+static_assert(sizeof(SystemAxisSample) == 24,
+              "FK-2: SystemAxisSample-Groesse ist gepinnt (die Status-Hebung ist groessen-neutral)");
+static_assert(alignof(SystemAxisSample) == 8, "FK-2: SystemAxisSample-Ausrichtung ist gepinnt");
 
 /// System-Achsen sind bei eingeschalteter Messung immer host-seitig praesent (Blut-Direktive), unabhaengig von
 /// Tier-Permutation und E2/E3-Baum. Sie sind keine Organ-Taxonomie und kein austauschbarer Achsen-Slot.
