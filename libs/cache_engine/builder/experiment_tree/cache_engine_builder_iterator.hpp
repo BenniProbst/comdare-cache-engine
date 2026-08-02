@@ -696,10 +696,14 @@ inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
 
 // ── Ergebnis des Lazy-E2E-Laufs (rein zählend + die Mess-Zeilen; kein ∏-Vektor) ──
 struct LazyRunResult {
-    std::size_t                  selected    = 0; // selektierte statische Blätter (== min(max_binaries, view))
-    std::size_t                  built       = 0; // erfolgreich bereitgestellte DLLs (gebaut ODER resumiert)
+    std::size_t selected = 0; // selektierte statische Blätter (== min(max_binaries, view))
+    // FESTGEZOGEN (TP1-N3/B-2): built = BEREITGESTELLT im Batch-Sinn -- gebaut ODER lokal resumiert
+    // ODER (im planer-getriebenen Bau) als Lager-Bestand belegt uebersprungen. built_skip ist die
+    // SUMME beider Skip-Quellen (dll_is_current-Resume + Lager-Bestand); die Lager-Quelle steht
+    // zusaetzlich einzeln in bestand_lager_skips (unten), damit die Auswertung differenzieren kann.
+    std::size_t                  built       = 0; // erfolgreich bereitgestellte DLLs (s. FESTGEZOGEN oben)
     std::size_t                  built_new   = 0; // davon tatsächlich (neu) kompiliert
-    std::size_t                  built_skip  = 0; // davon resumiert (versions-aktuell, .version-Sidecar)
+    std::size_t                  built_skip  = 0; // davon uebersprungen (dll_is_current-Resume + Lager-Bestand)
     std::size_t                  loaded      = 0; // DLLs, die geladen + als IObservableTier nutzbar waren
     std::size_t                  load_failed = 0; // gebaut, aber nicht ladbar / kein Mess-Interface
     std::size_t                  measured    = 0; // gemessene (Binary × dyn-Setting)-Zeilen, in den Baum ge-ingestet
@@ -718,6 +722,11 @@ struct LazyRunResult {
     // pruef_failed = .so nicht ladbar ODER Gate durchgefallen. NUR im pruef_only-Lauf > 0 (sonst byte-neutral 0).
     std::size_t pruef_ok     = 0;
     std::size_t pruef_failed = 0;
+    // TP1-N3 (B-3, additiv): die als LAGER-BESTAND uebersprungenen Binaries des planer-getriebenen
+    // Baus -- die zweite Skip-Quelle neben dll_is_current, EINZELN ausgewiesen (E-04-P1 braucht die
+    // Differenzierung: dll_is_current-Resumes == built_skip - bestand_lager_skips). 0 ausserhalb des
+    // planer-getriebenen Pfads bzw. ohne Praesenz-Praedikat (byte-neutral).
+    std::size_t bestand_lager_skips = 0;
 };
 
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
@@ -843,11 +852,10 @@ struct LazyRunResult {
 // Rueckgabewert machte jeden Store-Fehler unsichtbar). Die pro-forma-Frist ist eine ECHTE 30min-Frist (B11) --
 // make_slice_reservation leitet sie aus EINEM now ab. Ein misslungener Eintrag ist NIE ein Bau-Fehler: das
 // Bestandslog ist Buchhaltung, der Bau laeuft weiter und die Zahl der Fehlschlaege steht am Ende als EINE Zeile.
-[[nodiscard]] inline std::vector<BuildResult> run_planer_driven_provision(BuildOrchestrator&              orch,
-                                                                          StaticBinaryView const&         view,
-                                                                          std::vector<std::size_t> const& indices,
-                                                                          LazyRunConfig const& cfg, BuildStats& agg,
-                                                                          bestandslog::PresenceFn const& present) {
+[[nodiscard]] inline std::vector<BuildResult>
+run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& view,
+                            std::vector<std::size_t> const& indices, LazyRunConfig const& cfg, BuildStats& agg,
+                            bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr) {
     std::vector<BuildResult>    builds;
     bestandslog::SlicePlanQueue queue;
     bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, present);
@@ -940,6 +948,9 @@ struct LazyRunResult {
                   << " Binaries als Bestand uebersprungen (per-Binary-Miss, LEDGER:3397) -- dll_is_current bleibt "
                      "zweite Verteidigungslinie\n"
                   << std::flush;
+    // TP1-N3 (B-3): die Lager-Skip-Zahl reist zum Aufrufer (LazyRunResult.bestand_lager_skips) --
+    // builds traegt nur die GEBAUTEN, die Skips waeren sonst im Ergebnis unsichtbar.
+    if (bestand_skips_out != nullptr) *bestand_skips_out = bestand_skips_gesamt;
     return builds; // Producer-Thread joined im SlicePlanner-dtor (RAII)
 }
 
@@ -1086,7 +1097,8 @@ struct LazyRunResult {
     }
     std::vector<BuildResult> builds;
     if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
-        builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats, bestand_present);
+        builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats, bestand_present,
+                                             &result.bestand_lager_skips);
     else
         builds = orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
 
@@ -1118,8 +1130,11 @@ struct LazyRunResult {
     };
 
     // ── Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): Zustand + Feuerungs-Helfer. Der Kanal reist SYNCHRON aus
-    //    dem 1-Thread-Loop (nie aus den Build-Workern) und in StaticBinaryView-Ordnung (builds[j] entspricht
-    //    view[builds[j].index] = view[indices[j]] — provision_core fuellt results[j] positions-treu). progress_prev
+    //    dem 1-Thread-Loop (nie aus den Build-Workern) und in StaticBinaryView-Ordnung: builds[j] entspricht
+    //    view[builds[j].index] (provision_core fuellt results[] positions-treu zur UEBERGEBENEN Index-Liste).
+    //    KORREKTUR TP1-N3 (B-2c): "builds[j] == view[indices[j]]" gilt seit dem Bau-Filter NICHT mehr -- im
+    //    planer-getriebenen Bau ist builds die TEILMENGE der wirklich gebauten Indizes (Lager-Treffer fehlen
+    //    darin); massgeblich ist ausschliesslich builds[j].index. progress_prev
     //    haelt die zuletzt gemeldete mixed-radix-Ziffernfolge (leer => erste Meldung = Voll-Konfiguration). Alles
     //    No-Op, wenn kein progress_sink gesetzt ist => byte-neutral. ──
     std::vector<std::size_t> progress_prev;
@@ -1180,10 +1195,12 @@ struct LazyRunResult {
         // TP1-N2 (B-1): der flush laeuft NACH dem Push-Drain -- registriert wird nur, was den Store
         // real erreichen konnte.
         bestandslog_flush();
-        // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je bereitgestellte Binary EIN
-        // Delta (in StaticBinaryView-Ordnung), danach genau EIN done-Delta am Fensterende. No-Op ohne progress_sink.
+        // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je GEBAUTE Binary EIN
+        // Delta (in StaticBinaryView-Ordnung; Lager-Treffer haben keine Konfigurations-Aenderung zu melden).
+        // TP1-N3 (B-2b): das done-Delta traegt die VOLLE bereitgestellte Menge (gebaut + Lager-Bestand) --
+        // builds.size() allein unterzaehlte seit dem Bau-Filter die Bereitstellung dieses Fensters.
         for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
-        fire_progress_done(builds.size());
+        fire_progress_done(builds.size() + result.bestand_lager_skips);
         return result;
     }
 

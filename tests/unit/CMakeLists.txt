@@ -2481,6 +2481,32 @@ set_tests_properties(test_harness_compile PROPERTIES LABELS "contract;standalone
 # (false, kein Crash/UB), (c) veraltet (Version-/Schema-/Format-Mismatch) -> Neustart. Temp-Dateien
 # user-eindeutig (comdare_test_tmp, #278/#24). Gleicher schwerer Include-/Define-Satz wie test_harness_compile
 # (derselbe Host-Treiber-Header). Ergaenzt das PROFIL-Pfad-Gate (test_profile_roundtrip) um die BINARY-Ebene.
+# Lager-TP1-Nachbesserung N3 (B-2/B-3): Iterator-Ebene-Anker fuer den Bau-Filter -- builds-Schrumpfung,
+# Skip-Buchung, Fenster-Reservierung, done-Menge des Paragraf-38-Kanals und bestand_lager_skips gegen
+# den ECHTEN run_planer_driven_provision/run_lazy_static_then_dynamic (Stub-Compile, FakeTransport,
+# kein minio). Include-/Define-Satz wie test_lazy_resume_binary (schwerer Host-Treiber-Header).
+add_executable(test_tp1_planer_filter_iterator "test_tp1_planer_filter_iterator.cpp")
+target_compile_features(test_tp1_planer_filter_iterator PRIVATE cxx_std_23)
+target_include_directories(test_tp1_planer_filter_iterator PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+# Der Test RUFT run_lazy_static_then_dynamic wirklich auf (anders als test_lazy_resume_binary) --
+# der Linker braucht deshalb die beiden Nicht-Header-Bausteine des Laufs (WorkloadGenerator,
+# AnatomyModuleLoader), auch wenn der provision_only-Zweig sie nie betritt.
+target_link_libraries(test_tp1_planer_filter_iterator PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver)
+comdare_set_platform_defines(test_tp1_planer_filter_iterator)
+target_compile_definitions(test_tp1_planer_filter_iterator PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_tp1_planer_filter_iterator COMMAND test_tp1_planer_filter_iterator)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_tp1_planer_filter_iterator)
+set_tests_properties(test_tp1_planer_filter_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
