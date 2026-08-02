@@ -8,15 +8,36 @@
 // Emit-Zeitstempel -> genau EIN Emitter je Intervall (auch im Debug-Mess-Pool). Header-only, nur std.
 
 #include <atomic>
+#include <charconv> // E-04-P1: COMDARE_HEARTBEAT_EVERY vollstaendig-dezimal parsen (kein atoi-Teilfrass)
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib> // E-04-P1: std::getenv (Trace-Budget-Deckel des Voll-Bau-Profils)
 #include <iostream>
 #include <ostream>
 #include <string>
 #include <string_view>
 
 namespace comdare::cache_engine::builder::experiment {
+
+/// E-04-P1 (Trace-Budget, Teil 1d): die ZAEHL-Kadenz des Heartbeats env-steuerbar. COMDARE_HEARTBEAT_EVERY
+/// ersetzt `voreinstellung` (heute die Compile-Worker-Zahl K); "0" schaltet das Zaehl-Gate ab (nur noch das
+/// Zeit-Gate). UNGESETZT oder nicht als VOLLSTAENDIGE Dezimalzahl lesbar => `voreinstellung` => byte-identisch
+/// zum Vor-E-04-P1-Verhalten (der Default aendert sich HEUTE nicht).
+/// WARUM: beim Voll-Bau (2^17 je Perm) ergibt K=24 rund 33k Heartbeat-Zeilen je Lane-Job und damit eine
+/// Trace-Groesse nahe am GitLab-Default-Limit -- ein truncierter Trace killt den Live-Kanal ausgerechnet am
+/// Job-Ende. Das Voll-Bau-Profil hebt die Kadenz spaeter (Vorschlag 256); die Infra-Seite (runner
+/// output_limit) ist der zweite, davon unabhaengige Hebel.
+[[nodiscard]] inline std::size_t heartbeat_every_n(std::size_t voreinstellung) noexcept {
+    char const* const roh = std::getenv("COMDARE_HEARTBEAT_EVERY");
+    if (roh == nullptr) return voreinstellung;
+    std::string_view const s{roh};
+    if (s.empty()) return voreinstellung;
+    std::size_t v      = 0;
+    auto const [p, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+    if (ec != std::errc{} || p != s.data() + s.size()) return voreinstellung; // Teil-Parse zaehlt NICHT
+    return v;
+}
 
 /// Ein geflushtes, zeit-gatetes Fortschritts-Testat je Bau-/Mess-Schleife. Format der Zeile:
 ///   "[heartbeat] <phase> <done>/<total> t+<sekunden-seit-start>s"  bzw.  "... fertig <total>/<total> t+..s".

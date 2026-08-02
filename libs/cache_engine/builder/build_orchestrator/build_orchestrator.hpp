@@ -390,7 +390,9 @@ private:
         // #27 (2026-07-23): ZUSAETZLICH zaehl-gated alle n_workers Builds (= K = effective_build_workers = COMDARE_BUILD_
         // PARALLEL, lane_build_parallelism beide Lanes 24) -> der Job-Log zeigt "alle K Builds" den Slice-Fortschritt
         // (X/<slice>), auch wenn K Builds schneller als 30s fertig sind. Kombiniert mit dem 30s-Zeit-Gate: was zuerst kommt.
-        ProgressHeartbeat build_hb{"tier-build", k, std::cerr, std::chrono::seconds{30}, n_workers};
+        // E-04-P1 (Trace-Budget): die Kadenz ist ab jetzt env-deckelbar (COMDARE_HEARTBEAT_EVERY) --
+        // ungesetzt => n_workers => byte-identisch zum Ist. Nur das Voll-Bau-Profil hebt sie spaeter.
+        ProgressHeartbeat build_hb{"tier-build", k, std::cerr, std::chrono::seconds{30}, heartbeat_every_n(n_workers)};
 
         // W11: EINE Finalisierungs-Naht je Binary -> results[j] setzen + (falls gesetzt) den Completion-Hook feuern.
         // Feuert aus dem Worker-Thread in COMPLETION-Reihenfolge; der Hook-Konsument ist thread-safe. Leer = byte-neutral.
