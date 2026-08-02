@@ -36,7 +36,7 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 /// Die EINE Tabelle der System-Achsen-Code-Versionen -- Reihenfolge == kanonische System-Stempel-Ordnung (Section 43,
 /// W12-A-1). Init "v1.0.0" (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
 ///
-/// BUMP-WACHE operating_system (A14 / Auflage K5, Owner-Entscheid E3 vom 02.08.2026) -- KOMMENTAR-WACHE,
+/// BUMP-WACHE operating_system (A14 / Bump-Verbots-Wache (Design-3/RISIKEN; K5 selbst = probe_id-Versionierung, OS-U3), Owner-Entscheid E3 vom 02.08.2026) -- KOMMENTAR-WACHE,
 /// bewusst kein static_assert, damit ein spaeterer, GEWOLLTER Bump nicht an dieser Datei haengenbleibt:
 /// Die Einfuehrung der drei operating_system-UNTER-Achsen (os_version/kernel/build,
 /// measurement/operating_system_sub_axes.hpp) darf den Eintrag "operating_system" NICHT bumpen. Die
@@ -48,7 +48,7 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 /// ihn benennen.
 inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystemAxisCodeVersions{{
     {"target_isa", "v1.0.0"},
-    {"operating_system", "v1.0.0"}, // A14/K5: NICHT wegen der Unter-Achsen bumpen (Wache oben)
+    {"operating_system", "v1.0.0"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
     {"external_utils", "v1.0.0"},
 }};
 

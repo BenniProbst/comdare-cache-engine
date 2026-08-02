@@ -23,7 +23,7 @@
 // Wer eine Distribution als vierte Auspraegung DIESER Achse einfuegen will, hat den Schnitt weiterhin
 // missverstanden: die Familie ist die Klasse, os_version die Instanz.
 //
-// STEMPEL-NEUTRAL (A-15 + Auflage K5): die drei Unter-Achsen sind RT-Unter-Achsen und stehen deshalb
+// STEMPEL-NEUTRAL (A-15 + Bump-Verbots-Wache): die drei Unter-Achsen sind RT-Unter-Achsen und stehen deshalb
 // NIE im Binary-Stempel. Weder ihre Einfuehrung noch ihre Werte duerfen
 // abi::kSystemAxisCodeVersions["operating_system"] bumpen -- ein Bump verschoebe den SHA512 aller
 // Neubauten gegen den Bestand und erzwaenge exakt den Neubau, den Owner-E3 ausschliesst.

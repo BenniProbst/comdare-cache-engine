@@ -24,10 +24,10 @@
 // Die LAUFZEIT-ERHEBUNG der Werte ist AUSDRUECKLICH nicht Teil dieses Headers (Paket OS-U3): hier
 // entsteht nur die statische Einhaengung, also das ANGEBOT.
 //
-// -- STEMPEL-NEUTRALITAET (A-15 + Auflage K5) ----------------------------------------------------
+// -- STEMPEL-NEUTRALITAET (A-15 + Bump-Verbots-Wache) ----------------------------------------------------
 // A-15 gilt hart: RT-Unter-Achsen stehen NIE im Binary-Stempel. Dieser Header aendert deshalb WEDER
 // die Stempel-Zeilen NOCH den SHA512 NOCH den build_version-Suffix -- er ist rein additiv.
-// AUFLAGE K5 (bindende Wache, Bauplan A14): abi::kSystemAxisCodeVersions["operating_system"] darf durch
+// BUMP-VERBOTS-WACHE (bindend, Design-3/RISIKEN des A14-Dossiers; die Dossier-Auflage K5 = probe_id-Versionierung gehoert zu OS-U3): abi::kSystemAxisCodeVersions["operating_system"] darf durch
 // die Einhaengung dieser Unter-Achsen NICHT gebumpt werden. Der in die Binary kompilierte Achsen-CODE
 // aendert sich nicht; ein Bump wuerde system_stamp_line und damit den SHA512 ALLER Neubauten gegen den
 // Bestand verschieben -- das Skip-Gate verfehlte die Alt-Binaries, also genau die Folge, die Owner-E3

@@ -295,9 +295,9 @@ selbst CSV -- der Ergebnis-Rueckschrieb bleibt CEB-Aufgabe nach Planer-Bestimmun
    Bestandslog-/Baum-API der laufenden Lager-Strecke; Hybrid-Sonderknoten sind nicht noetig.
 6. **heuristik/-API-Freeze:** `heuristik/axis_spline.hpp`, `heuristik/break_even.hpp`,
    `heuristik/measurement_curve_loader.hpp` im §75-Abschluss-Aufraeumpass NICHT umbenennen und NICHT
-   entfernen -- sie speisen den Router. Eintrag in die §75-Kandidatenliste als NICHT-Kandidaten.
+   entfernen -- sie speisen den Router. Eintrag in die §75-Kandidatenliste als NICHT-Kandidaten (Lead, super-Repo -- Text unten, Vollzug beim Lead).
 7. **`IPruefDock::measure`-Vertrag stabil halten** (`pruef_dock.hpp:78-79`): die Hybrid-Binary haengt
-   als normales Modul daran. Ebenfalls NICHT-Kandidat des §75-Passes.
+   als normales Modul daran. Ebenfalls NICHT-Kandidat des §75-Passes (Lead, super-Repo).
 8. **Verzeichnis-/Namespace-Reservierung** `ce libs/cache_engine/hybrid/` (dieses Paket, Stub-README),
    damit kein anderes Paket den Namen belegt.
 
@@ -387,7 +387,8 @@ ist die Abgabe-Pflicht auch bei schrumpfendem Zeitfenster gedeckt.
 | Paket | Inhalt | Status |
 |---|---|---|
 | HY-D1 | V7.2-Praezisierung + E-11-Aufloesung als additiver Ledger-Vermerk (Lead-only, super-Repo) + K4-Einordnung | Text entworfen, Lead vollzieht |
-| HY-D2 | dieses Architektur-Doc + Verzeichnis-Stub `libs/cache_engine/hybrid/` + XSD-Kommentar-Reserve-Text + Freeze-Vermerke (§75-NICHT-Kandidaten, E-24-Sequenz) | dieses Paket |
+| HY-D2 | dieses Architektur-Doc + Verzeichnis-Stub `libs/cache_engine/hybrid/` | dieses Paket (geliefert) |
+| HY-D2/Lead | XSD-Kommentar-Reserve-Text + Freeze-Vermerke (§75-NICHT-Kandidaten, E-24-Sequenz) | Text entworfen, Lead vollzieht (super-Repo) |
 
 **AUSWERTUNGSPHASE (nach Voll-Bau-4 + Voll-Messung, nach E-24):**
 
@@ -460,7 +461,7 @@ Pruefung -> CI gruen.
 | Reserve-Muster | super `Code/test_data_xml/experiment_schema.xsd:50-64` + `include/cache_engine/measurement/run_methodology_registry.hpp:7-10` | COMPARE lebte zuerst als XSD-Kommentar-Reserve, dann als Typ |
 | Planer-Dock-POD | `libs/cache_engine/profile_facade/planner/experiment_dock_payload.hpp:58` | DEPRECATED; Muster fuer ein spaeteres Manifest-Wire-Format, keine Live-Abhaengigkeit |
 | PRT-ART-Naht | `libs/cache_engine/anatomy/pruefling_merge.hpp:1-16` | PrueflingSlot + drei kompositionale Joins |
-| Kein Hybrid-Code | `grep -rn "hybrid" libs/` | nur `common/platform/hybrid_core_pinning` (unverwandt: CPU-Kern-Pinning) und der synthetische Vorbau-Test `tests/unit/test_hybrid_spline_selector_scaffold.cpp` -- KEINE Hybrid-Tier-Stufe |
+| Kein Hybrid-Code | Identifier-/Verzeichnis-Ebene: `hybrid_tier`/`HybridTier` = 0 Treffer (das nackte Wort "hybrid" trifft zusaetzlich unverwandte Kommentar-Stellen) | nur `common/platform/hybrid_core_pinning` (unverwandt: CPU-Kern-Pinning) und der synthetische Vorbau-Test `tests/unit/test_hybrid_spline_selector_scaffold.cpp` -- KEINE Hybrid-Tier-Stufe |
 | Ledger-Anker | LEDGER `:89`, `:187(e)`, `:490`, `:1692-1698`, `:2230`, `:2265-2270`, `:2654-2663`, `:3250`, `:3489` | V7.2-variant-Satz, 4-Modi-Ziel, rekursive Dock-Doktrin, delegierte Bau-Rekursion, §32-F8, §49 + §49-KORREKTUR, Release-Observer-Abschaltung, CEB-Duldung |
 
 **Anker-Korrektur gegenueber der Design-Review:** die Review-Notiz K7 verortete `AnatomyGenus` bei

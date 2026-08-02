@@ -4,7 +4,7 @@
   ZWECK DIESES ORDNERS (Paket HY-D2, 02.08.2026)
   Dieser Ordner ist eine reine NAMENS- UND SCHNITTSTELLEN-RESERVIERUNG fuer die Hybrid-Tier-Stufe
   nach Owner-Entscheid E1 vom 02.08.2026. Er enthaelt bewusst NUR diese README.
-  KEIN Header, KEINE Quelle, KEINE CMakeLists, KEIN Build-Anschluss -- libs/cache_engine/CMakeLists.txt
+  KEIN Header, KEINE Quelle, KEINE CMakeLists, KEIN Build-Anschluss - libs/cache_engine/CMakeLists.txt
   listet seine Unterverzeichnisse einzeln per add_subdirectory (kein GLOB), dieser Ordner ist dort
   NICHT eingetragen und damit build- und byte-neutral.
   ANFASSEN ERST in der Auswertungsphase (Pakete HY-B1..HY-B4), nach Voll-Bau-4 und nach E-24.

@@ -14,7 +14,7 @@
 // golden_fullpilot_320, POD-Layout oder Stempel-Zeilen.
 
 #include <cache_engine/abi/anatomy_version_stamp.hpp>     // A-15-Gegenprobe: system_stamp_line()
-#include <cache_engine/abi/system_axis_code_versions.hpp> // K5: kSystemAxisCodeVersions (Single-Source)
+#include <cache_engine/abi/system_axis_code_versions.hpp> // Bump-Verbots-Wache: kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/ceb_sub_axis.hpp>
 #include <cache_engine/measurement/operating_system_axis.hpp>
 #include <cache_engine/measurement/operating_system_sub_axes.hpp>
@@ -102,7 +102,7 @@ TEST(A14OsSubAxes, NamensfallenBuildUndOsSindAusgeschlossen) {
         for (auto const& forbidden : cem::detail::kOperatingSystemSubAxisForbiddenLabels) EXPECT_NE(label, forbidden);
 }
 
-// -- Block F (Laufzeit): STEMPEL-NEUTRALITAET (A-15 + Auflage K5) ------------------------------------
+// -- Block F (Laufzeit): STEMPEL-NEUTRALITAET (A-15 + Bump-Verbots-Wache) ------------------------------------
 TEST(A14OsSubAxes, UnterAchsenStehenNichtImSystemStempel) {
     std::string const line = cabi::system_stamp_line();
     // A-15: RT-Unter-Achsen stehen NIE im Binary-Stempel. Taucht hier ein Unter-Achsen-Label auf, ist
@@ -112,7 +112,7 @@ TEST(A14OsSubAxes, UnterAchsenStehenNichtImSystemStempel) {
             << "A-15-Bruch: '" << label << "' steht in der System-Stempel-Zeile: " << line;
     // Die Haupt-Achse selbst steht dort weiterhin -- die Zeile ist nicht etwa leer geworden.
     EXPECT_NE(line.find(std::string{cem::LinuxOperatingSystem::axis_label()}), std::string::npos) << line;
-    // K5-Gegenprobe: die Tabelle traegt weiterhin GENAU DREI System-Haupt-Achsen; die Unter-Achsen
+    // Bump-Verbots-Gegenprobe: die Tabelle traegt weiterhin GENAU DREI System-Haupt-Achsen; die Unter-Achsen
     // haben KEINEN Eintrag bekommen (ein Eintrag hier waere ein Stempel-Byte-Ereignis).
     EXPECT_EQ(cabi::kSystemAxisCodeCount, 3u);
     for (auto const& entry : cabi::kSystemAxisCodeVersions)
