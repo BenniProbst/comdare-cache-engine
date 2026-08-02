@@ -57,13 +57,21 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
         using W = typename decltype(id)::type;
         // A1 (G2-4a, W12-A, 2026-07-23): Concept-Guard der X.Y.Z-Disziplin -- JEDE registrierte Organ-Variante MUSS eine
         // PARSBARE algo_version tragen (Form "vN" oder "vN.N.N"). Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v')
-        // parst zum Sentinel AlgoSemVer{} == {0,0,0} und bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den
-        // bestehenden requires-Existenz-Guard (Datei-Kopf) um die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab
-        // jetzt nicht mehr unbemerkt in eine Registry gelangen (render-neutral: "v1"/"v1.0.0" parsen beide zu {1,0,0}).
-        static_assert(
-            ::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version) !=
-                ::comdare::cache_engine::measurement::AlgoSemVer{},
-            "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vN\" oder \"vN.N.N\" (A10-X.Y.Z-Disziplin)");
+        // parst zum Sentinel und bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden
+        // requires-Existenz-Guard (Datei-Kopf) um die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab jetzt nicht
+        // mehr unbemerkt in eine Registry gelangen (render-neutral: "v1"/"v1.0.0" parsen beide zu {1,0,0}).
+        // A13-M1-Auflage K-5: die Wache prueft das x/y/z-TRIPEL (is_sentinel), NICHT den Struct-Vergleich gegen
+        // AlgoSemVer{} -- sonst koennte eine experimentelle Sentinel-Form die Wache umgehen.
+        static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).is_sentinel(),
+                      "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vN\" oder \"vN.N.N\" (optional mit "
+                      "Experimental-Suffix 'e') -- A10-X.Y.Z-Disziplin");
+        // A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix markiert experimentelle Achsen-Algorithmen
+        // AUS EINEM PRUEFLING. Die ce-EIGENEN Registry-Varianten sind der stabile Bestand und duerfen es nie tragen
+        // -- sonst waeren die ce-Stempel/Fingerprints/Lager-Keys nicht mehr beweisbar golden-neutral. Ein 'e' in
+        // einer ce-Registry bricht hier compile-time MIT dem Typ-Namen.
+        static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).experimental,
+                      "algo_version experimentell ('e'-Suffix): das 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung "
+                      "(Owner-E2 02.08.2026) -- ce-eigene Registry-Varianten tragen es NIE");
         out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version}});
     });
 }
