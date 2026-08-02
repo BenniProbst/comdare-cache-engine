@@ -20,10 +20,12 @@
 // Der deklarierte prod2-Wert 4800 stammt nachweislich aus einem `dmidecode --type 17`-Lauf
 // (machine_identity.hpp) -- er IST ein eingefrorenes Stufe-1-Ergebnis. Trotzdem wird er NICHT als
 // configured_measured gefuehrt: A2 haelt fest, dass der Ursprung eine NOTIZ bleibt und keine Stufe
-// wird, weil eine Stufe eine Aussage ueber die LAUFENDE Erhebung ist. Die Notiz wird hier als eigener
-// Typ gefuehrt (DeclarationOrigin) und ist genau die Angabe, die A3 fuer ihr Urteil braucht.
-// P3 fuellt sie aus dem Generator; bis dahin ist sie Unbekannt, und dieser Header behandelt das als
-// benannten Fall, nicht als Luecke.
+// wird, weil eine Stufe eine Aussage ueber die LAUFENDE Erhebung ist.
+// P3-VOLLZUG: die Notiz (DeclarationOrigin) lebt jetzt am Ort der Deklaration selbst -- als Feld
+// von DeclaredMachine (machine_identity.hpp, dort auch der Typ) -- und ist fuer prod2 produktiv
+// gefuellt (EingefrorenesDmi, source_id "dmidecode 2026-07"). Dieser Header LIEST sie nur: die
+// 2-Argument-Form von verify_declared_ram unten zieht die Notiz aus der Maschine, die
+// 3-Argument-Form bleibt fuer Tests und fremde Notiz-Quellen bestehen.
 //
 // -- GOLDEN-NEUTRALITAET -------------------------------------------------------------------------
 // Ein Urteil ist eine Log-/CSV-Aussage. Es gibt hier keine Funktion, die es an eine Stempel-, Achsen-
@@ -43,25 +45,10 @@ namespace comdare::cache_engine::measurement {
 // =================================================================================================
 // 1. DER URSPRUNG EINER DEKLARATIONS-ZAHL (A2-Notiz, KEINE Stufe)
 // =================================================================================================
-
-/// Woher die deklarierte Zahl einmal kam. Das ist eine Herkunfts-NOTIZ ueber einen eingefrorenen
-/// Vorgang, keine Provenienz-Stufe der laufenden Erhebung -- deshalb ein eigener Typ und nicht ein
-/// vierter Wert in RamFrequencyProvenance (dieselbe Trennung, die P1 fuer "nicht erhoben" gezogen hat).
-enum class DeclarationOrigin : std::uint8_t {
-    Unbekannt        = 0, ///< keine Notiz -- die Zahl ist schlicht der deklarierte Wert
-    EingefrorenesDmi = 1, ///< aus einem dmidecode-T17-Lauf (Groesse: konfigurierter Ist-Takt)
-    EingefrorenesSpd = 2, ///< aus einem SPD-Lesen (Groesse: JEDEC-Nennrate)
-};
-inline constexpr std::size_t kDeclarationOriginCount = 3;
-
-[[nodiscard]] constexpr std::string_view declaration_origin_token(DeclarationOrigin o) noexcept {
-    switch (o) {
-        case DeclarationOrigin::Unbekannt: return "ursprung_unbekannt";
-        case DeclarationOrigin::EingefrorenesDmi: return "eingefrorenes_dmi";
-        case DeclarationOrigin::EingefrorenesSpd: return "eingefrorenes_spd";
-    }
-    return "deklarations_ursprung_unbekannt";
-}
+// Der Typ DeclarationOrigin ist mit P3 dorthin umgezogen, wo die Deklaration lebt:
+// machine_identity.hpp (Feld DeclaredMachine::ram_frequency_origin + source_id-Notiz). Er ist ueber
+// den Include oben unveraendert sichtbar; die Umzugs-Begruendung steht am neuen Wohnort. Hier bleibt
+// das URTEIL -- der einzige Leser der Notiz.
 
 // =================================================================================================
 // 2. DAS VERDIKT
@@ -175,6 +162,17 @@ inline constexpr std::string_view kRamPairGenerationsPraefix = "ddr";
     return reading.mts == declared->ram_frequency_mhz ? RamIdentityVerdict::Match : RamIdentityVerdict::Abweichung;
 }
 
+/// P3: die PRODUKTIONS-Form -- die Ursprungs-Notiz kommt aus der Deklaration SELBST
+/// (DeclaredMachine::ram_frequency_origin), nicht vom Aufrufer. Damit kann kein Aufrufer die
+/// A3-Regel versehentlich entschaerfen, indem er Unbekannt durchreicht, wo die Maschine eine echte
+/// Notiz traegt. Die 3-Argument-Form darueber bleibt: sie ist die pruefbare Kern-Regel, gegen die
+/// Tests jede Notiz-Kombination fahren koennen, ohne Maschinen zu erfinden.
+[[nodiscard]] constexpr RamIdentityVerdict verify_declared_ram(DeclaredMachine const*     declared,
+                                                               RamFrequencyReading const& reading) noexcept {
+    return verify_declared_ram(declared, reading,
+                               declared != nullptr ? declared->ram_frequency_origin : DeclarationOrigin::Unbekannt);
+}
+
 /// Abbildung auf die BESTEHENDE D1-Taxonomie -- ohne neue Klasse (Owner-Entscheid E-4).
 ///
 /// DIE DEHNUNG, AUSDRUECKLICH BENANNT: HardwareErweiterungFehlt beschreibt woertlich eine fehlende
@@ -198,10 +196,8 @@ error_class_of_ram_verdict(RamIdentityVerdict v) noexcept {
 // =================================================================================================
 // 5. WACHEN (compile-time)
 // =================================================================================================
-static_assert(kDeclarationOriginCount == static_cast<std::size_t>(DeclarationOrigin::EingefrorenesSpd) + 1);
-static_assert(declaration_origin_token(static_cast<DeclarationOrigin>(kDeclarationOriginCount)) ==
-                  std::string_view{"deklarations_ursprung_unbekannt"},
-              "Drift: hinter dem Count liegt ein etikettierter Deklarations-Ursprung");
+// (Die DeclarationOrigin-Drift- und Etiketten-Wachen sind mit dem Typ nach machine_identity.hpp
+//  umgezogen -- sie stehen dort neben der Tabelle, deren Notiz sie bewachen.)
 static_assert(kRamIdentityVerdictCount == static_cast<std::size_t>(RamIdentityVerdict::EtikettWiderspruch) + 1);
 static_assert(ram_identity_verdict_label(static_cast<RamIdentityVerdict>(kRamIdentityVerdictCount)) ==
                   std::string_view{"ram_verdikt_unbekannt"},
@@ -210,7 +206,6 @@ static_assert(ram_identity_verdict_label(static_cast<RamIdentityVerdict>(kRamIde
 // dort bereits vergeben, und zwei Spalten nebeneinander mit demselben Wort waeren nicht lesbar.
 static_assert(probe_label_ist_disjunkt(ram_identity_verdict_label(RamIdentityVerdict::Match)));
 static_assert(probe_label_ist_disjunkt(ram_identity_verdict_label(RamIdentityVerdict::Abweichung)));
-static_assert(probe_label_ist_disjunkt(declaration_origin_token(DeclarationOrigin::EingefrorenesDmi)));
 static_assert(ram_identity_verdict_label(RamIdentityVerdict::Match) !=
                   machine_identity_verdict_label(MachineIdentityVerdict::Match),
               "RAM- und CPU-Verdikt stehen als eigene Spalten nebeneinander -- gleiche Worte waeren "
@@ -281,6 +276,34 @@ static_assert(verify_declared_ram(kVerdictProbeProd2,
                                                       .state      = RamReadingState::Erhoben},
                                   DeclarationOrigin::EingefrorenesDmi) == RamIdentityVerdict::UnvergleichbareStufen,
               "A3 im Urteil: dieselben Zahlen, aber ungleiche Groessen -- kein Match.");
+// -- P3: DIE NOTIZ IST PRODUKTIV -- dieselben Faelle ueber die 2-ARGUMENT-Form, die die Notiz aus
+// der Maschine zieht. Der SPD-4800-Fall, der mit Unbekannt oben ein Match war, kippt jetzt OHNE
+// explizite Notiz auf UnvergleichbareStufen -- der Beleg, dass die Deklaration ihre eigene
+// Groessen-Aussage mitbringt und kein Aufrufer sie vergessen kann.
+static_assert(verify_declared_ram(kVerdictProbeProd2,
+                                  RamFrequencyReading{.mts        = 4800,
+                                                      .provenance = RamFrequencyProvenance::SpdJedecBase,
+                                                      .state      = RamReadingState::Erhoben}) ==
+                  RamIdentityVerdict::UnvergleichbareStufen,
+              "P3: prod2s Deklaration traegt den dmidecode-Ursprung SELBST -- eine SPD-Nennrate darf "
+              "auch ohne explizite Notiz-Angabe nie dagegen als Match/Abweichung geurteilt werden.");
+static_assert(verify_declared_ram(kVerdictProbeProd2,
+                                  RamFrequencyReading{.mts        = 4800,
+                                                      .provenance = RamFrequencyProvenance::ConfiguredMeasured,
+                                                      .state = RamReadingState::Erhoben}) == RamIdentityVerdict::Match,
+              "P3: gleiche Groesse (Ist-Takt gegen eingefrorenen Ist-Takt) bleibt ueber die "
+              "2-Argument-Form ein echtes Urteil.");
+// prod1 ueber die 2-Argument-Form: F11 -- keine Deklaration, keine Notiz, kein Urteil.
+static_assert(verify_declared_ram(kVerdictProbeProd1,
+                                  RamFrequencyReading{.mts        = 5600,
+                                                      .provenance = RamFrequencyProvenance::ConfiguredMeasured,
+                                                      .state      = RamReadingState::Erhoben}) ==
+              RamIdentityVerdict::KeineDeklaration);
+// Und der nullptr-Fall der neuen Form: keine Maschine -> keine Notiz -> benannter Ausgang.
+static_assert(verify_declared_ram(nullptr, RamFrequencyReading{.mts        = 4800,
+                                                               .provenance = RamFrequencyProvenance::SpdJedecBase,
+                                                               .state      = RamReadingState::Erhoben}) ==
+              RamIdentityVerdict::KeineDeklaration);
 // EtikettWiderspruch: ein SPD-Beleg (= DDR5) gegen ein ddr4-Etikett. Der Fall ist seit dem
 // E-2-Schluesselfix auf prod2 nicht mehr auslesbar, der ZUSTAND bleibt aber noetig -- er ist der
 // benannte Nicht-Fehler, in dem die halbe Identitaet der Hardware widerspricht.

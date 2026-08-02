@@ -123,6 +123,32 @@ struct MachineCoreCpuId {
 // 2. DIE DEKLARIERTEN MASCHINEN (Stufe 2 der Aufloesung: Eigenschafts-Tupel -> Typ)
 // =================================================================================================
 
+/// Woher eine deklarierte RAM-Zahl einmal kam (Task #7, P3; Auflage A2). Das ist eine
+/// Herkunfts-NOTIZ ueber einen EINGEFRORENEN Vorgang, keine Provenienz-Stufe der laufenden
+/// Erhebung -- deshalb ein eigener Typ und nicht ein vierter Wert in RamFrequencyProvenance
+/// (dieselbe Trennung, die P1 fuer "nicht erhoben" gezogen hat). Eine Stufe ist eine Aussage
+/// ueber die LAUFENDE Erhebung; die Notiz sagt nur, aus welcher Groessen-Welt die eingefrorene
+/// Zahl stammt. Genau diese Angabe braucht die A3-Gleichheitsregel (ram_identity_verdict.hpp):
+/// eine JEDEC-Nennrate gegen einen eingefrorenen Ist-Takt ist KEIN vergleichbares Paar.
+///
+/// WOHNORT-ENTSCHEID (P3): der Typ lebt HIER und nicht im Verdikt-Header, weil er eine
+/// Eigenschaft der DEKLARATION ist (Feld von DeclaredMachine unten) -- das Urteil liest ihn nur.
+enum class DeclarationOrigin : std::uint8_t {
+    Unbekannt        = 0, ///< keine Notiz -- die Zahl ist schlicht der deklarierte Wert
+    EingefrorenesDmi = 1, ///< aus einem dmidecode-T17-Lauf (Groesse: konfigurierter Ist-Takt)
+    EingefrorenesSpd = 2, ///< aus einem SPD-Lesen (Groesse: JEDEC-Nennrate)
+};
+inline constexpr std::size_t kDeclarationOriginCount = 3;
+
+[[nodiscard]] constexpr std::string_view declaration_origin_token(DeclarationOrigin o) noexcept {
+    switch (o) {
+        case DeclarationOrigin::Unbekannt: return "ursprung_unbekannt";
+        case DeclarationOrigin::EingefrorenesDmi: return "eingefrorenes_dmi";
+        case DeclarationOrigin::EingefrorenesSpd: return "eingefrorenes_spd";
+    }
+    return "deklarations_ursprung_unbekannt";
+}
+
 /// Eine deklarierte Maschine: das Eigenschafts-TUPEL (die Identitaet, §70.6) plus das, was daran
 /// haengt -- die CT-Signatur und die CPU-Kern-Kennung fuer die Drift-Gegenprobe.
 ///
@@ -143,6 +169,12 @@ struct DeclaredMachine {
     std::span<SimdFeatureFlag const> signature; ///< die deklarierte SIMD-Signatur
     std::uint32_t                    ram_frequency_mhz = 0; ///< == <machine ram_frequency_mhz=..>; 0 = NICHT deklariert
     std::uint32_t                    cas_latency_cl    = 0; ///< == <machine cas_latency_cl=..>; 0 = NICHT deklariert
+    // -- P3-ZUWACHS (additiv ans Ende, bestehende Aggregat-Zeilen bleiben gueltig): die A2-Notiz --
+    /// Aus welcher Groessen-Welt die deklarierte RAM-Zahl stammt. Unbekannt = keine Notiz.
+    DeclarationOrigin ram_frequency_origin = DeclarationOrigin::Unbekannt;
+    /// Die konservierte source_id der Notiz (A2, z.B. "dmidecode 2026-07"). Leer = keine Notiz.
+    /// Sie reist in die Registry-XML als declaration_source-Attribut -- als NOTIZ, nie als Stufe.
+    std::string_view ram_frequency_source{};
 };
 
 /// prod1 -- LIVE ABGELEITET am 26.07.2026 auf dem Host `prod1` und gegen /proc/cpuinfo gegengeprueft
@@ -198,7 +230,20 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 ///   prod2  cas_latency_cl    = 0      NICHT erhebbar mit dem heutigen Werkzeug: SMBIOS Type 17 fuehrt
 ///                                     keine CAS-Latency, und `decode-dimms` (SPD/i2c) ist auf prod2
 ///                                     nicht installiert. Bleibt offen statt geschaetzt.
-///   prod1  beide             = 0      Fuer prod1 liegt keine Erhebung vor.
+///   prod1  beide             = 0      Fuer prod1 liegt keine DEKLARATION vor -- und das ist seit dem
+///                                     Owner-Entscheid F11 (01.08.2026) DAUERHAFT so gewollt: die 0 ist
+///                                     die ehrliche Abwesenheits-Marke, die Erhebungs-Kette (P2) liefert
+///                                     den Wert JE LAUF (auf prod1 live belegt: Stufe 1 configured 5600,
+///                                     XMP aktiv). Eine SPD-4800-Nachdeklaration waere moeglich und
+///                                     truege die Notiz EingefrorenesSpd -- sie wird BEWUSST NICHT
+///                                     gesetzt (B-3): sie wuerde die JEDEC-Basis deklarieren, wo die
+///                                     Maschine real mit XMP-5600 laeuft, und damit genau die
+///                                     Groessen-Verwechslung einfrieren, gegen die A2/A3 gebaut sind.
+///
+/// P3 (A2-NOTIZ): die prod2-Zeile traegt jetzt ihren eingefrorenen Ursprung MASCHINENLESBAR --
+/// EingefrorenesDmi mit source_id "dmidecode 2026-07" (der dmidecode-T17-Lauf oben). Damit wird die
+/// A3-Gleichheitsregel produktiv: eine SPD-Nennrate (spd_jedec_base) darf gegen diese Deklaration NIE
+/// als Match/Abweichung geurteilt werden (UnvergleichbareStufen), obwohl beide "4800" lauten.
 ///
 /// KEIN PLANUNGSWERT ALS ERSATZ: aeltere Planungs-Doks nennen "64 GB DDR5-5600 CL36" fuer die
 /// Produktions-Plattform (Termin 7, 05/2026), beschreiben dort aber eine Aufstellung, deren zweite CPU
@@ -220,7 +265,7 @@ inline constexpr MachineCoreCpuId kUndeclaredCore{};
 inline constexpr std::array<DeclaredMachine, 2> kDeclaredMachines{{
     {"amd_zen5_avx512", "ddr5_2x32", Prod1Zen5Signature::machine_id(), kProd1Zen5Core, Prod1Zen5Signature::signature()},
     {"intel_avx2", "ddr5_2x32", Prod2RaptorLakeSignature::machine_id(), kProd2AlderLakeCore,
-     Prod2RaptorLakeSignature::signature(), 4800},
+     Prod2RaptorLakeSignature::signature(), 4800, 0, DeclarationOrigin::EingefrorenesDmi, "dmidecode 2026-07"},
 }};
 
 /// Stufe 2: exakter EIGENSCHAFTS-Match (§70.6 -- ausdruecklich NICHT ueber den Namen). Zwei formal
@@ -397,6 +442,40 @@ static_assert(
 // Jede Zeile zeigt auf eine der drei echten CT-Signaturen (Namens-Drift bricht hier).
 static_assert(kDeclaredMachines[0].machine_id == std::string_view{"prod1_zen5"});
 static_assert(kDeclaredMachines[1].machine_id == std::string_view{"prod2_raptor_lake"});
+// -- P3: die A2-Notiz (DeclarationOrigin) -- Drift-Wachen in beide Richtungen (RF-3-Muster) --
+static_assert(kDeclarationOriginCount == static_cast<std::size_t>(DeclarationOrigin::EingefrorenesSpd) + 1);
+static_assert(declaration_origin_token(static_cast<DeclarationOrigin>(kDeclarationOriginCount)) ==
+                  std::string_view{"deklarations_ursprung_unbekannt"},
+              "Drift: hinter dem Count liegt ein etikettierter Deklarations-Ursprung");
+// Die Notiz-Etiketten stehen in Log/CSV neben allen anderen Vokabeln -- Disjunktheit wie ueberall.
+static_assert(probe_label_ist_disjunkt(declaration_origin_token(DeclarationOrigin::Unbekannt)));
+static_assert(probe_label_ist_disjunkt(declaration_origin_token(DeclarationOrigin::EingefrorenesDmi)));
+static_assert(probe_label_ist_disjunkt(declaration_origin_token(DeclarationOrigin::EingefrorenesSpd)));
+// NOTIZ-KOHAERENZ: Ursprung und source_id treten nur PAARWEISE auf, und nur an einer Zeile, die
+// ueberhaupt eine Zahl deklariert. Eine Notiz ohne Zahl waere eine Herkunft von nichts; eine
+// Herkunft ohne source_id waere nicht belegbar; eine source_id ohne Ursprung waere unlesbar.
+static_assert(
+    [] {
+        for (auto const& m : kDeclaredMachines) {
+            bool const hat_ursprung = m.ram_frequency_origin != DeclarationOrigin::Unbekannt;
+            if (hat_ursprung != !m.ram_frequency_source.empty()) return false;
+            if (hat_ursprung && m.ram_frequency_mhz == 0U) return false;
+        }
+        return true;
+    }(),
+    "A2-Notiz-Kohaerenz: origin != Unbekannt <=> source_id nicht leer, und beides nur an einer "
+    "Zeile mit deklarierter Zahl.");
+// Der P3-Ist-Stand, quittiert: prod2 traegt den eingefrorenen dmidecode-Ursprung; prod1 traegt
+// KEINE Notiz -- F11 (Owner, 01.08.2026): die 0-Marke bleibt dauerhaft, die Kette liefert je Lauf.
+// Eine hier auftauchende prod1-Notiz waere eine Nachdeklaration gegen F11 und muss quittiert werden.
+static_assert(kDeclaredMachines[1].ram_frequency_origin == DeclarationOrigin::EingefrorenesDmi &&
+                  !kDeclaredMachines[1].ram_frequency_source.empty(),
+              "prod2s 4800 ist ein eingefrorenes dmidecode-T17-Ergebnis -- die Notiz ist Teil der "
+              "Deklaration und darf nicht stumm verschwinden (A2).");
+static_assert(kDeclaredMachines[0].ram_frequency_origin == DeclarationOrigin::Unbekannt &&
+                  kDeclaredMachines[0].ram_frequency_source.empty(),
+              "prod1 bleibt OHNE Nachdeklaration (Owner-Entscheid F11): die 0 ist die ehrliche "
+              "Abwesenheits-Marke, die Erhebungs-Kette liefert den Wert je Lauf.");
 // Eigenschafts-Match trifft, Namens-Match ist gar nicht erst moeglich (XML-id != machine_id).
 static_assert(resolve_machine_by_properties("amd_zen5_avx512", "ddr5_2x32") == &kDeclaredMachines[0]);
 static_assert(resolve_machine_by_properties("amd_zen5_avx512", "ddr4_2x32") == nullptr,

@@ -216,6 +216,60 @@ TEST(P2RamIdentityVerdict, JedesVerdiktTraegtEinEigenesLesbaresEtikett) {
     }
 }
 
+// =================================================================================================
+// 3b. P3 -- DIE URSPRUNGS-NOTIZ IST PRODUKTIV (Kreuzproben zur 2-Argument-Form)
+// =================================================================================================
+TEST(P3DeclarationOrigin, DieProduktiveNotizKipptDasFruehereMatch) {
+    // DER Umschlag-Fall des Pakets: VOR P3 war die Notiz ueberall Unbekannt, und eine SPD-Nennrate
+    // mit der deklarierten Zahl ergab ein Match (der Test oben mit explizitem Unbekannt belegt das
+    // weiterhin). SEIT P3 traegt die Referenz-Zeile ihren dmidecode-Ursprung selbst -- dieselben
+    // Zahlen ergeben ueber die Produktions-Form UnvergleichbareStufen (A3).
+    auto const& m = referenz_maschine();
+    ASSERT_EQ(m.ram_frequency_origin, meas::DeclarationOrigin::EingefrorenesDmi)
+        << "Die Referenz-Zeile (einzige mit deklarierter Frequenz) MUSS seit P3 den eingefrorenen "
+           "dmidecode-Ursprung tragen -- faellt er weg, ist A3 wieder entschaerft.";
+    EXPECT_FALSE(m.ram_frequency_source.empty()) << "Die source_id-Notiz (A2) gehoert zur Deklaration.";
+
+    auto const spd = erhoben(m.ram_frequency_mhz, meas::RamFrequencyProvenance::SpdJedecBase);
+    EXPECT_EQ(meas::verify_declared_ram(&m, spd), meas::RamIdentityVerdict::UnvergleichbareStufen)
+        << "Die 2-Argument-Form zieht die Notiz aus der Maschine -- gleiche Zahlen, ungleiche "
+           "Groessen, kein Match.";
+    // Gleiche Groesse bleibt ein echtes Urteil -- in beide Richtungen.
+    EXPECT_EQ(
+        meas::verify_declared_ram(&m, erhoben(m.ram_frequency_mhz, meas::RamFrequencyProvenance::ConfiguredMeasured)),
+        meas::RamIdentityVerdict::Match);
+    EXPECT_EQ(meas::verify_declared_ram(
+                  &m, erhoben(m.ram_frequency_mhz + 800U, meas::RamFrequencyProvenance::ConfiguredMeasured)),
+              meas::RamIdentityVerdict::Abweichung);
+}
+
+TEST(P3DeclarationOrigin, DieZweiArgumentFormLiestGenauDieNotizDerMaschine) {
+    // Selbstkonsistenz statt zweiter Regel-Tabelle: fuer JEDE deklarierte Maschine und JEDE
+    // Provenienz muss die Produktions-Form exakt das Urteil der Kern-Form mit der Maschinen-Notiz
+    // liefern. Damit kann die Overload nie eine eigene, leicht andere Regel entwickeln.
+    for (auto const& m : meas::kDeclaredMachines) {
+        for (std::size_t p = 0; p < meas::kRamFrequencyProvenanceCount; ++p) {
+            auto const r = erhoben(4800, static_cast<meas::RamFrequencyProvenance>(p));
+            EXPECT_EQ(meas::verify_declared_ram(&m, r), meas::verify_declared_ram(&m, r, m.ram_frequency_origin))
+                << "Maschine " << m.machine_id << ", Provenienz " << p;
+        }
+    }
+    // Der nullptr-Fall der neuen Form bleibt der benannte Ausgang.
+    EXPECT_EQ(meas::verify_declared_ram(nullptr, erhoben(4800, meas::RamFrequencyProvenance::SpdJedecBase)),
+              meas::RamIdentityVerdict::KeineDeklaration);
+}
+
+TEST(P3DeclarationOrigin, F11Prod1BleibtOhneNachdeklaration) {
+    // Owner-Entscheid F11 (01.08.2026, dauerhaft): die 0-Marken-Maschine bleibt undeklariert und
+    // traegt folgerichtig KEINE Notiz -- die Kette liefert ihren Wert je Lauf (Stufe 1 live).
+    auto const& ohne = maschine_mit_nullmarke();
+    EXPECT_EQ(ohne.ram_frequency_origin, meas::DeclarationOrigin::Unbekannt);
+    EXPECT_TRUE(ohne.ram_frequency_source.empty());
+    EXPECT_EQ(meas::verify_declared_ram(&ohne, erhoben(5600, meas::RamFrequencyProvenance::ConfiguredMeasured)),
+              meas::RamIdentityVerdict::KeineDeklaration)
+        << "Eine echte Stufe-1-Erhebung gegen die 0-Marke ist KEIN Vergleich und KEINE Abweichung.";
+}
+
 TEST(P2RamIdentityVerdict, RamUndCpuVerdikteSindNebeneinanderLesbar) {
     // Beide Urteile stehen als eigene Spalten nebeneinander. Ein geteiltes Wort ("match") waere dort
     // nicht auseinanderzuhalten -- deshalb tragen die RAM-Etiketten durchgaengig ihr Praefix.

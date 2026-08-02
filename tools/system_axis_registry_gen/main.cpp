@@ -318,17 +318,25 @@ void emit_target_isa_sub_axis_scheduling(std::ofstream& f);
 /// NICHT drei Achsen -- RF-7, "EIN Feld im Haupt-Achsen-Array".
 /// Ein nicht deklariertes Glied wird als declared="false" OHNE Wert emittiert: die Registry sagt dann
 /// ehrlich "nicht erhoben" statt einer erfundenen Zahl.
+/// P3 (Auflage A2, Owner-Entscheid E-3 "additiv"): ein deklariertes RAM-Glied traegt ZUSAETZLICH
+/// declaration_source -- die konservierte source_id des eingefrorenen Ursprungs (z.B.
+/// "dmidecode 2026-07"). Das ist eine NOTIZ, keine Stufe: Laufzeit-Stufen (configured_measured/
+/// spd_jedec_base) erscheinen ausschliesslich in CSV+Log, NIE in dieser XML. Das declared-Attribut
+/// BLEIBT unveraendert (A6-Konsumenten-Schutz); der Generator probt weiterhin NIE -- der Wert kommt
+/// aus der constexpr-Deklarations-Tabelle und ist damit maschinen-unabhaengig byte-stabil.
 void emit_target_isa_complex_members(std::ofstream& f) {
     auto emit_complex = [&f]<class Cx>(std::type_identity<Cx>) {
         note_name(Cx::complex_id());
         f << "      <complex id=\"" << xml_escape(Cx::complex_id()) << "\" isa=\"" << xml_escape(Cx::target_isa_id())
           << "\">\n";
-        auto const emit_num = [&f](std::string_view id, std::uint32_t v) {
+        auto const emit_num = [&f](std::string_view id, std::uint32_t v, std::string_view source = {}) {
             f << "        <sub_dim id=\"" << xml_escape(id) << "\" declared=\"" << (v != 0 ? "true" : "false") << "\"";
             if (v != 0) f << " value=\"" << v << "\"";
+            // Die A2-Notiz reist nur mit einem deklarierten Wert (Kohaerenz-Wache: machine_identity.hpp).
+            if (v != 0 && !source.empty()) f << " declaration_source=\"" << xml_escape(source) << "\"";
             f << "/>\n";
         };
-        emit_num("ram_frequency_mhz", Cx::ram_frequency_mhz());
+        emit_num("ram_frequency_mhz", Cx::ram_frequency_mhz(), Cx::declared_machine()->ram_frequency_source);
         emit_num("cas_latency_cl", Cx::cas_latency_cl());
         // Glied 3 = das O-4a-Kern-Tupel vendor/family/model/stepping (OP-4-Format), NICHT das
         // symbolische XML-Etikett gleichen Namens -- jenes ist der Aufloesungs-Schluessel.
@@ -345,7 +353,9 @@ void emit_target_isa_complex_members(std::ofstream& f) {
       << "\" stage=\"ct\" kind=\"fixed_enum_tuple\""
       << " complex_count=\"" << meas::kAllTargetIsaComplexIds.size() << "\">\n";
     f << "      <!-- Die drei festen Glieder je benannter Rekombination (Owner OD-2). Werte kommen aus\n";
-    f << "           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b). -->\n";
+    f << "           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b).\n";
+    f << "           declaration_source konserviert den eingefrorenen Ursprung einer deklarierten Zahl\n";
+    f << "           (A2-Notiz, keine Stufe; Laufzeit-Stufen stehen NIE in dieser XML; P3). -->\n";
     emit_complex(std::type_identity<meas::Prod1Zen5TargetIsa>{});
     emit_complex(std::type_identity<meas::Prod2RaptorLakeTargetIsa>{});
     f << "    </sub_axis>\n";

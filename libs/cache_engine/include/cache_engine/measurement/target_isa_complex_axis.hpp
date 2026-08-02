@@ -168,9 +168,17 @@ static_assert(Prod2RaptorLakeTargetIsa::declared_machine() != nullptr, "Prod2Rap
 static_assert(Prod1Zen5TargetIsa::declared_machine() != Prod2RaptorLakeTargetIsa::declared_machine(),
               "Zwei Rekombinationen duerfen nicht auf dieselbe Deklarations-Zeile zeigen.");
 
-// EHRLICHKEITS-ANKER (Ist-Stand, kein Soll): sie halten fest, WAS heute erhoben ist -- Kern-Tupel fuer
-// beide Maschinen (O-4a + Schritt 5b), RAM-Frequenz nur fuer prod2 (P7-Nachzug 27.07.), CAS-Latenz fuer
-// keine. Diese Asserts sind die Stelle, an der jede weitere Nachdeklaration bewusst quittiert werden
+// EHRLICHKEITS-ANKER (Ist-Stand, kein Soll) -- seit P3 in PROVENIENZ-SPRACHE: sie halten fest, WELCHE
+// Glieder eine Deklaration mit welchem URSPRUNG tragen, und pinnen keine Hardware-ZAHL mehr (A1: der
+// alte ==4800U-Zahlen-Pin ist zum Praesenz-Anker !=0U migriert). Die ZAHL selbst wird seither von drei
+// Ersatz-Schichten getragen, die zusammen mehr sehen als ein CT-Pin je konnte:
+//   (1) Zustands-Asserts HIER + an der Tabelle selbst (machine_identity.hpp: A2-Notiz-Kohaerenz,
+//       F11-Pin) -- WER deklariert, mit welchem Ursprung;
+//   (2) das Roundtrip-Byte-Gate (test_system_axis_registry_roundtrip): die Zahl steht reflektiert in
+//       der Registry-XML, jede Drift zwischen Code und XML ist FATAL;
+//   (3) das Laufzeit-Verdikt (verify_declared_ram, seit P2.4): die Deklaration wird je Lauf gegen die
+//       ERHOBENE Wirklichkeit geurteilt -- mit A3-Groessen-Regel statt nacktem Zahlenvergleich.
+// Diese Asserts bleiben die Stelle, an der jede weitere Nachdeklaration bewusst quittiert werden
 // muss, statt still zu wirken.
 static_assert(Prod1Zen5TargetIsa::cpu_fabrication().declared,
               "prod1 hat eine erhobene CPU-Kern-Kennung (O-4, live gegengeprueft).");
@@ -182,15 +190,25 @@ static_assert(Prod2RaptorLakeTargetIsa::cpu_fabrication().declared,
 static_assert(Prod1Zen5TargetIsa::cpu_fabrication().vendor != Prod2RaptorLakeTargetIsa::cpu_fabrication().vendor,
               "Die beiden Rekombinationen muessen sich im CPU-Fabrikations-Glied unterscheiden -- sonst "
               "waere eine der beiden Deklarationen aus der anderen abgeschrieben.");
-// P7-Nachzug 27.07.: prod2s RAM-Frequenz ist erhoben (dmidecode --type 17: Speed == Configured Memory
-// Speed == 4800 MT/s, also JEDEC-Basistakt ohne XMP/EXPO). Der Wert steht hier als Wache, damit ein
-// stiller Rueckfall auf 0 auffaellt -- 0 hiesse "nicht erhoben" und waere nach dieser Erhebung falsch.
-static_assert(Prod2RaptorLakeTargetIsa::ram_frequency_mhz() == 4800U,
-              "prod2s RAM-Frequenz ist mit P7 erhoben (4800 MT/s, JEDEC-Basis). Faellt sie auf 0 zurueck, "
-              "ist das ein Rueckschritt und keine Bereinigung.");
+// A1-MIGRATION (P3): hier stand bis P3 der Zahlen-Pin ==4800U. Er ist zum PRAESENZ-Anker geworden:
+// diese Achse bewacht, DASS prod2 eine RAM-Deklaration mit benanntem Ursprung traegt -- die ZAHL
+// bewachen Roundtrip-Byte-Gate und Laufzeit-Verdikt (siehe Kopf des Anker-Blocks). Ein CT-Pin auf
+// eine Hardware-Zahl war genau die Statik, die der Owner-KERN 27.07. abloesen laesst.
+static_assert(Prod2RaptorLakeTargetIsa::ram_frequency_mhz() != 0U,
+              "prod2 traegt eine deklarierte RAM-Frequenz (eingefrorenes dmidecode-T17-Ergebnis). "
+              "Faellt sie auf die 0-Marke zurueck, ist das ein Rueckschritt und keine Bereinigung.");
+static_assert(Prod2RaptorLakeTargetIsa::declared_machine()->ram_frequency_origin == DeclarationOrigin::EingefrorenesDmi,
+              "prod2s Deklaration MUSS ihren eingefrorenen dmidecode-Ursprung als Notiz tragen (A2) -- "
+              "ohne Notiz koennte eine SPD-Nennrate wieder als Match dagegen geurteilt werden (A3).");
+// F11 (Owner, 01.08.2026, DAUERHAFT): prod1 bleibt bewusst OHNE Deklaration. Die 0 pinnt die
+// ABWESENHEITS-MARKE, keine Hardware-Zahl -- die Erhebungs-Kette (P2) liefert den Wert je Lauf
+// (live belegt: Stufe 1 configured 5600, XMP aktiv). Eine SPD-4800-Nachdeklaration truege die
+// Notiz EingefrorenesSpd, wird aber NICHT gesetzt (B-3, siehe kDeclaredMachines).
 static_assert(Prod1Zen5TargetIsa::ram_frequency_mhz() == 0U,
-              "Fuer prod1 liegt KEINE RAM-Erhebung vor. Eine Zahl hier waere geraten -- der Planungswert "
-              "aus Termin 7 beschreibt eine andere Aufstellung (siehe kDeclaredMachines).");
+              "prod1 ist bewusst NICHT deklariert (Owner-Entscheid F11): die Kette liefert je Lauf. "
+              "Eine Zahl hier waere eine Nachdeklaration gegen F11 und muss quittiert werden.");
+static_assert(Prod1Zen5TargetIsa::declared_machine()->ram_frequency_origin == DeclarationOrigin::Unbekannt,
+              "prod1 ohne Deklaration kann keinen Deklarations-Ursprung tragen (A2-Kohaerenz).");
 static_assert(Prod1Zen5TargetIsa::cas_latency_cl() == 0U && Prod2RaptorLakeTargetIsa::cas_latency_cl() == 0U,
               "Die CAS-Latenz ist fuer KEINE Maschine erhoben: SMBIOS Type 17 fuehrt sie nicht, und "
               "decode-dimms (SPD/i2c) ist auf prod2 nicht installiert.");

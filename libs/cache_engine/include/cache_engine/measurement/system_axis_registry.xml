@@ -12,14 +12,16 @@
     <baustein name="aarch64" wrapper="Aarch64TargetIsa" type="::comdare::cache_engine::measurement::Aarch64TargetIsa" enabled="true" native="false" triple="-target aarch64-linux-gnu" march="-march=armv8-a"/>
     <sub_axis id="target_isa_complex" parent="target_isa" stage="ct" kind="fixed_enum_tuple" complex_count="2">
       <!-- Die drei festen Glieder je benannter Rekombination (Owner OD-2). Werte kommen aus
-           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b). -->
+           kDeclaredMachines, das seinerseits <machines> der Anwender-XML spiegelt (O-4b).
+           declaration_source konserviert den eingefrorenen Ursprung einer deklarierten Zahl
+           (A2-Notiz, keine Stufe; Laufzeit-Stufen stehen NIE in dieser XML; P3). -->
       <complex id="prod1_zen5" isa="x86_64">
         <sub_dim id="ram_frequency_mhz" declared="false"/>
         <sub_dim id="cas_latency_cl" declared="false"/>
         <sub_dim id="cpu_fabrication" declared="true" value="AuthenticAMD/26/68/0"/>
       </complex>
       <complex id="prod2_raptor_lake" isa="x86_64">
-        <sub_dim id="ram_frequency_mhz" declared="true" value="4800"/>
+        <sub_dim id="ram_frequency_mhz" declared="true" value="4800" declaration_source="dmidecode 2026-07"/>
         <sub_dim id="cas_latency_cl" declared="false"/>
         <sub_dim id="cpu_fabrication" declared="true" value="GenuineIntel/6/151/2"/>
       </complex>
