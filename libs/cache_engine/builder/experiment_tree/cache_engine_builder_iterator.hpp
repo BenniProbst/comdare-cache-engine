@@ -281,6 +281,14 @@ struct LazyMeasuredRow {
     // bis dahin ist der Kanal gebaut und unausgeloest (Beleg: test_rf2_admission_marker_inert.cpp).
     ::comdare::cache_engine::measurement::AdmissionStatus admission_status =
         ::comdare::cache_engine::measurement::AdmissionStatus::Zugelassen;
+    // A15/FK-1 (Owner-Q4 per Volles-GO 02.08.): BAU-Status dieser Zeile -- die dritte, von sample_status
+    // (D2) und admission_status (D1-Zulassung) disjunkte Aussage. NichtGebaut heisst "es gibt fuer diese
+    // Permutation gar keine Binary"; bis zu diesem Paket verschwand ein Bau-Fehler nur ins Log und die
+    // Auswerte-CSV konnte "nie gebaut" nicht von "nie geplant" unterscheiden. Default Gebaut = heutiges
+    // Verhalten, byte-identisch; gesetzt wird es AUSSCHLIESSLICH im Bau-Fehler-Zweig von
+    // measure_one_binary -- der gruene Pfad kennt den Wert nie.
+    ::comdare::cache_engine::measurement::BuildCellStatus build_status =
+        ::comdare::cache_engine::measurement::BuildCellStatus::Gebaut;
     // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus LazyRunConfig durchgereicht). Reine
     // Metadaten (kein Mess-Einfluss) → ermöglichen die Trennung Basis vs Per-Achsen-Sweep vs SOTA-Reihe A/B/C
     // sowie die Working-Set-N- und Plattform/Build-Version-Achsen in der Auswertung.
@@ -446,16 +454,40 @@ struct LazyMeasuredRow {
     auto const& o = row.observer;
     std::string out;
     out.reserve(256);
-    out += row.binary_id;
+    namespace cem = ::comdare::cache_engine::measurement;
+    // A15/FK-1 (Owner-Q4 per Volles-GO 02.08.): der ZEILEN-WEITE Ersatz-Zell-Inhalt. Es gibt zwei Faelle,
+    // in denen es fuer diese Zeile ueberhaupt keine Messwerte GEBEN kann und in denen eine 0 eine Luege
+    // waere ("Messung nie als Nullen"):
+    //   (a) die Binary wurde nie gebaut          -> D1-Token "nicht_gebaut" (BuildCellStatus),
+    //   (b) die .so war nicht ladbar / trug kein Mess-Interface -> D2 "n/a" (SourceUnavailable).
+    // Beide bekommen EINE Marker-Zeile je Binary, gerendert aus DIESEM Renderer (nie aus einer
+    // handgezaehlten Feldliste) -- damit ist die Spaltenzahl per Konstruktion erhalten (Auflage K3).
+    // Betroffen ist jede Zelle, deren Wert aus der (nicht stattgefundenen) Messung ODER aus der (mangels
+    // DLL unbekannten) dynamischen Belegung kaeme; die Identitaets- und Lauf-Tag-Spalten stammen aus der
+    // Lauf-KONFIGURATION und bleiben befuellt, damit die Marker-Zeile dem Lauf zuordenbar bleibt.
+    // VORRANG: (a) vor (b) vor gesperrt vor failed -- was nie gebaut wurde, kann weder zugelassen noch
+    // gemessen worden sein. Der gruene Pfad (Gebaut + Ok/Failed) laesst zell_ersatz LEER und rendert
+    // Zeichen fuer Zeichen wie vor diesem Paket.
+    std::string_view zell_ersatz{};
+    if (row.build_status == cem::BuildCellStatus::NichtGebaut)
+        zell_ersatz = cem::build_cell_status_token(cem::BuildCellStatus::NichtGebaut);
+    else if (row.sample_status == cem::SampleStatus::SourceUnavailable ||
+             row.sample_status == cem::SampleStatus::NotApplicable)
+        zell_ersatz = cem::sample_status_token(row.sample_status); // "n/a", in axis_error.hpp zementiert
+    // Wert-Zelle: im Marker-Fall der Ersatz, sonst der gerenderte Wert. EINE Naht -- so kann keine Spalte
+    // versehentlich eine Null behalten. `zelle` schreibt ohne Trenner, `zelle_sep` mit.
+    auto zelle     = [&](std::string_view v) { out += (zell_ersatz.empty() ? v : zell_ersatz); };
+    auto zelle_sep = [&](std::string_view v) {
+        zelle(v);
+        out += ';';
+    };
+    out += row.binary_id; // Identitaet: steht IMMER da, auch in der Marker-Zeile
     out += ';';
-    out += (row.setting_label.empty() ? std::string{"-"} : row.setting_label);
-    out += ';';
-    out += lazy_extract_repetition(row.setting_label);
-    out += ';';
-    out += std::to_string(row.n_ops);
-    out += ';';
-    out += std::to_string(row.total_ns);
-    out += ';';
+    // setting/repetition stammen aus der dynamischen Belegung -- ohne geladene DLL gibt es keine.
+    zelle_sep(row.setting_label.empty() ? std::string_view{"-"} : std::string_view{row.setting_label});
+    zelle_sep(lazy_extract_repetition(row.setting_label));
+    zelle_sep(std::to_string(row.n_ops));
+    zelle_sep(std::to_string(row.total_ns));
     // GOAL-M1.1 (Audit K2): ns_per_op = total_ns / timed_ops (tatsächlich getimte Einzel-Ops; Workload-Pfad
     // = Σ Samples inkl. Scan-Skips, Legacy = 2*n_ops). Der frühere fixe 2*n_ops-Divisor halbierte alle
     // Lastprofil-Zeilen. timed_ops==0 → 0.
@@ -464,9 +496,8 @@ struct LazyMeasuredRow {
     {
         char      buf[48];
         int const n = std::snprintf(buf, sizeof(buf), "%.3f", ns_per_op);
-        out.append(buf, (n > 0) ? static_cast<std::size_t>(n) : 0);
+        zelle_sep(std::string_view{buf, (n > 0) ? static_cast<std::size_t>(n) : 0});
     }
-    out += ';';
     // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge identisch zum Header / kOpKindNames).
     // INC-29.1 (D2): eine algo-/mess-fehlerhafte Zelle (SampleStatus::Failed) traegt "failed" (NIE 0/still) —
     // "Messung nie als Nullen"; der Ok-Pfad rendert byte-identisch die Zahlen. Failed setzt perm_runner
@@ -481,7 +512,13 @@ struct LazyMeasuredRow {
     std::string const gesperrt_zelle{::comdare::cache_engine::measurement::admission_status_token(
         ::comdare::cache_engine::measurement::AdmissionStatus::Gesperrt)};
     for (auto const& ol : row.op_lat) {
-        if (cell_gesperrt) {
+        if (!zell_ersatz.empty()) {
+            // A15/FK-1: nicht gebaut ODER Quelle nicht da -> derselbe Ersatz wie im Rest der Zeile.
+            // Vorrang vor gesperrt/failed: beide setzen eine Binary voraus, die es hier nicht gibt.
+            zelle_sep(zell_ersatz);
+            zelle_sep(zell_ersatz);
+            zelle_sep(zell_ersatz);
+        } else if (cell_gesperrt) {
             // D1 hat Vorrang vor D2: was nie gemessen wurde, kann nicht "failed" sein.
             out += gesperrt_zelle;
             out += ';';
@@ -511,12 +548,10 @@ struct LazyMeasuredRow {
     // Split je Zelle bleibt der separate Klein-Increment (Roadmap K-10).
     auto seg_field = [&](int i) {
         if (row.unified_real)
-            out += std::to_string(row.unified.seg_ns[i]); // Pfad-B-Timing aus dem EINEN POD
+            zelle_sep(std::to_string(row.unified.seg_ns[i])); // Pfad-B-Timing aus dem EINEN POD
         else
-            out += ::comdare::cache_engine::measurement::sample_status_token(
-                ::comdare::cache_engine::measurement::SampleStatus::
-                    SourceUnavailable); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL)
-        out += ';';
+            zelle_sep(cem::sample_status_token(
+                cem::SampleStatus::SourceUnavailable)); // "n/a": Quelle fehlt (alte/Nicht-Mess-DLL)
     };
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_field(static_cast<int>(i));
     // P-MD3 (2026-06-18): die Coverage-Versöhnung. seg_framework_ns/seg_run_total_ns ehrlich n/a, wenn keine Mess-DLL;
@@ -525,15 +560,13 @@ struct LazyMeasuredRow {
     if (row.unified_real) {
         std::int64_t seg_sum = 0;
         for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_sum += row.unified.seg_ns[i];
-        out += std::to_string(row.unified.seg_framework_ns);
-        out += ';';
-        out += std::to_string(row.unified.seg_run_total_ns);
-        out += ';';
+        zelle_sep(std::to_string(row.unified.seg_framework_ns));
+        zelle_sep(std::to_string(row.unified.seg_run_total_ns));
         if (row.unified.seg_run_total_ns > 0) {
             double const cov = static_cast<double>(seg_sum) / static_cast<double>(row.unified.seg_run_total_ns);
             char         buf[48];
             int const    nb = std::snprintf(buf, sizeof(buf), "%.6f", cov);
-            out.append(buf, (nb > 0) ? static_cast<std::size_t>(nb) : 0);
+            zelle(std::string_view{buf, (nb > 0) ? static_cast<std::size_t>(nb) : 0});
         } else {
             // G6 (W9.5): Coverage bei seg_run_total_ns==0 nicht berechenbar (die Mess-DLL IST da, aber der Nenner
             // ist 0) -> das ist NICHT SourceUnavailable, sondern SampleStatus::NotApplicable ("Wert fuer diese
@@ -541,59 +574,48 @@ struct LazyMeasuredRow {
             // per static_assert == "n/a") -> CSV-Bytes UNVERAENDERT (golden-neutral), aber die Semantik ist
             // jetzt praezise NotApplicable statt eines rohen Literals. (Der !unified_real-Zweig unten bleibt
             // SourceUnavailable = keine Mess-DLL -> ebenfalls "n/a".)
-            out += ::comdare::cache_engine::measurement::sample_status_token(
-                ::comdare::cache_engine::measurement::SampleStatus::NotApplicable);
+            zelle(cem::sample_status_token(cem::SampleStatus::NotApplicable));
         }
         out += ';';
     } else {
-        out += "n/a;n/a;n/a;";
+        zelle_sep("n/a");
+        zelle_sep("n/a");
+        zelle_sep("n/a");
     }
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
-    out += std::to_string(o.search_lookup_count);
-    out += ';';
-    out += std::to_string(o.search_hit_count);
-    out += ';';
-    out += std::to_string(o.search_miss_count);
-    out += ';';
-    out += std::to_string(o.search_insert_count);
-    out += ';';
-    out += std::to_string(o.search_erase_count);
-    out += ';';
-    out += std::to_string(o.search_peak_occupancy);
-    out += ';';
-    out += std::to_string(o.alloc_bytes_allocated);
-    out += ';';
-    out += std::to_string(o.alloc_bytes_in_use);
-    out += ';';
-    out += std::to_string(o.alloc_allocation_count);
-    out += ';';
-    out += std::to_string(o.alloc_deallocation_count);
-    out += ';';
-    out += std::to_string(o.alloc_failure_count);
-    out += ';';
-    out += std::to_string(o.observable_axis_count);
-    out += ';';
-    out += std::to_string(o.tier_fill_level);
-    out += ';';
-    out += std::to_string(row.applied_axis_count);
-    out += ';'; // applied_axes
+    zelle_sep(std::to_string(o.search_lookup_count));
+    zelle_sep(std::to_string(o.search_hit_count));
+    zelle_sep(std::to_string(o.search_miss_count));
+    zelle_sep(std::to_string(o.search_insert_count));
+    zelle_sep(std::to_string(o.search_erase_count));
+    zelle_sep(std::to_string(o.search_peak_occupancy));
+    zelle_sep(std::to_string(o.alloc_bytes_allocated));
+    zelle_sep(std::to_string(o.alloc_bytes_in_use));
+    zelle_sep(std::to_string(o.alloc_allocation_count));
+    zelle_sep(std::to_string(o.alloc_deallocation_count));
+    zelle_sep(std::to_string(o.alloc_failure_count));
+    zelle_sep(std::to_string(o.observable_axis_count));
+    zelle_sep(std::to_string(o.tier_fill_level));
+    zelle_sep(std::to_string(row.applied_axis_count)); // applied_axes
     // Phase A: die per-Achsen-Observer-Werte stat_<achse>_<feld> (WIDE, generisch aus kV3AxisSchema). Echt wenn
     // unified_real (Modul trägt das Mess-Interface), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
     for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) {
         for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) {
             if (anatomy::kV3AxisSchema[t].names[f] == nullptr) continue; // ungenutzt / Phase B → keine Spalte
             if (row.unified_real)
-                out += std::to_string(row.unified.axis_stats[t][f]); // konsolidierter POD
+                zelle_sep(std::to_string(row.unified.axis_stats[t][f])); // konsolidierter POD
             else
-                out += "n/a"; // alte/Nicht-Mess-DLL → ehrlich n/a
-            out += ';';
+                zelle_sep("n/a"); // alte/Nicht-Mess-DLL -> ehrlich n/a
         }
     }
-    out += (row.unified_real ? std::to_string(row.unified.filled_axis_count) : std::string{"n/a"}); // filled_axes
+    if (row.unified_real)
+        zelle(std::to_string(row.unified.filled_axis_count)); // filled_axes
+    else
+        zelle("n/a");
     out += ';';
-    out += (row.profile_name.empty() ? std::string{"-"} : row.profile_name); // workload (Achse 2)
+    zelle(row.profile_name.empty() ? std::string_view{"-"} : std::string_view{row.profile_name}); // workload (Achse 2)
     out += ';';
-    out += (row.two_phase_valid ? "1" : "0"); // Mess-Gültigkeit (Cache-Warmup)
+    zelle(row.two_phase_valid ? "1" : "0"); // Mess-Gueltigkeit (Cache-Warmup)
     // M3v2-SELEKTION (Task #156): die 5 Selektions-/Lauf-Tags (Reihenfolge IDENTISCH zum Header).
     out += ';';
     out += (row.series.empty() ? std::string{"-"} : row.series);
@@ -611,29 +633,32 @@ struct LazyMeasuredRow {
     // #165-B (P-MD8, 2026-06-20): quality_flag ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). 0 = kein
     // Ausreißer / nicht annotiert (Default); 1 = statistischer Ausreißer (s. annotate_quality_flags). Gate-frei.
     out += ';';
-    out += std::to_string(row.quality_flag);
+    zelle(std::to_string(row.quality_flag));
     // #156-De-Risk (2026-06-20): die 7 PMC/HW-Counter ALS LETZTE Spalten (Reihenfolge IDENTISCH zum Header). Mit
     // NullPmcSource (COMDARE_ENABLE_PMC=OFF) sind alle Werte 0 und pmc_available=0 (ehrlich „nicht real gemessen");
     // mit Intel-PCM=ON real. Additiv → cowfix-v1/tier150-Leser unberührt (leere PMC-Spalten dort = n-a).
     out += ';';
-    out += std::to_string(row.pmc.cache_misses_l1);
+    zelle(std::to_string(row.pmc.cache_misses_l1));
     out += ';';
-    out += std::to_string(row.pmc.cache_misses_l2);
+    zelle(std::to_string(row.pmc.cache_misses_l2));
     out += ';';
-    out += std::to_string(row.pmc.cache_misses_l3);
+    zelle(std::to_string(row.pmc.cache_misses_l3));
     out += ';';
-    out += std::to_string(row.pmc.dtlb_misses);
+    zelle(std::to_string(row.pmc.dtlb_misses));
     out += ';';
-    out += std::to_string(row.pmc.coherence_invalidations);
+    zelle(std::to_string(row.pmc.coherence_invalidations));
     out += ';';
-    out += std::to_string(row.pmc.energy_micro_joules);
+    zelle(std::to_string(row.pmc.energy_micro_joules));
     out += ';';
-    out += (row.pmc.available ? "1" : "0");
+    zelle(row.pmc.available ? "1" : "0");
     // CMD-2/#252 (2026-07-11): container_store_ops ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). Host-seitige
     // Container-in-SA-Attribution (c1 = lookup+insert+erase; ABI-neutral, 0 neue POD-Spalten). unified_real==false ->
     // "n/a" (Phantom-Schutz, exakt wie stat_*/PMC); additiv -> alte CSVs/Leser unberuehrt.
     out += ';';
-    out += (row.unified_real ? std::to_string(container_attribution(row.unified).store_ops) : std::string{"n/a"});
+    if (row.unified_real)
+        zelle(std::to_string(container_attribution(row.unified).store_ops));
+    else
+        zelle("n/a");
     // GO-5 Fork 6 (2026-07-12): fairness_mode (Reihenfolge IDENTISCH zum Header).
     // "-" fuer Basis/Sweep/ungesetzte Reihen; der Wert kommt aus <sota_series fairness=..> via SotaPass.
     out += ';';
