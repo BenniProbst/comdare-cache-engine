@@ -1,5 +1,6 @@
 // Querschnitt M -- SystemAxis-Wurzel + CMD-1-b MeasurementVisitable.
 
+#include <cache_engine/measurement/axis_error.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 #include <topics/axis_command_base.hpp>
 
@@ -190,6 +191,147 @@ TEST(MSystemAxisWurzel, PmcHonestZeroWhenUnavailable) {
         auto const sample = collect(axis, category);
         EXPECT_FALSE(sample.valid());
         EXPECT_EQ(sample.value, 0u);
+    }
+}
+
+// FK-2/K1 PFLICHT-NEGATIVTEST: eine default-konstruierte, nie collectete Sample darf NIE als gueltige
+// Messung lesen. Genau hier saesse sonst die Blindstelle "Messung als Nullen" -- ein vergessener
+// collect()-Aufruf laese als "gueltiger Wert 0". Der Test prueft BEIDE Konstruktionsformen, auch die
+// Designated-Init-Form, die der Harness-Helfer oben benutzt.
+TEST(MSystemAxisWurzel, DefaultKonstruierteSampleIstNiemalsValid) {
+    m::SystemAxisSample const frisch{};
+    EXPECT_FALSE(frisch.valid());
+    EXPECT_NE(frisch.status, m::SampleStatus::Ok);
+    EXPECT_EQ(frisch.status, m::SampleStatus::SourceUnavailable);
+    EXPECT_EQ(frisch.value, 0u);
+
+    m::SystemAxisSample const benannt{.category = m::MeasurementCategory::CLU};
+    EXPECT_FALSE(benannt.valid());
+    EXPECT_NE(benannt.status, m::SampleStatus::Ok);
+
+    // Zweiter, vom Accessor UNABHAENGIGER Ableitungsweg (Lehre "gruene Tests zementieren alte
+    // Ordnung"): das CSV-Zell-Token der Taxonomie. Eine nie erhobene Zelle rendert "n/a", nie eine Zahl.
+    EXPECT_EQ(m::sample_status_token(frisch.status), "n/a");
+    EXPECT_NE(m::sample_status_token(frisch.status), m::sample_status_token(m::SampleStatus::Ok));
+}
+
+// FK-2: die benannten Helfer setzen Wert UND Status gemeinsam -- kein Zustand "value gesetzt, Status
+// vergessen". mark_ok ist der EINZIGE Weg zu valid().
+TEST(MSystemAxisWurzel, BenannteHelferSetzenWertUndStatusGemeinsam) {
+    m::SystemAxisSample sample{.category = m::MeasurementCategory::CLU};
+
+    sample.mark_ok(42);
+    EXPECT_TRUE(sample.valid());
+    EXPECT_EQ(sample.status, m::SampleStatus::Ok);
+    EXPECT_EQ(sample.value, 42u);
+
+    sample.mark_not_applicable();
+    EXPECT_FALSE(sample.valid());
+    EXPECT_EQ(sample.status, m::SampleStatus::NotApplicable);
+    EXPECT_EQ(sample.value, 0u); // der alte Wert darf nicht stehenbleiben
+
+    sample.mark_ok(7);
+    sample.mark_source_unavailable();
+    EXPECT_FALSE(sample.valid());
+    EXPECT_EQ(sample.status, m::SampleStatus::SourceUnavailable);
+    EXPECT_EQ(sample.value, 0u);
+
+    sample.mark_ok(7);
+    sample.mark_failed();
+    EXPECT_FALSE(sample.valid());
+    EXPECT_EQ(sample.status, m::SampleStatus::Failed);
+    EXPECT_EQ(sample.value, 0u);
+    EXPECT_EQ(m::sample_status_token(sample.status), "failed"); // NIE eine stille Null
+}
+
+// FK-2/K6: die vier honest-0-Stellen tragen jetzt EINZELN ihre Klassifikation statt eines gemeinsamen
+// "invalid". Das ist der eigentliche Zugewinn des Pakets: "die Quelle fehlt" und "die Kategorie ist
+// hier sinnlos" sind ab jetzt unterscheidbar -- beide bleiben ehrliches n/a, keines wird zum Fehler.
+TEST(MSystemAxisWurzel, HonestNullStellenTragenIhreEinzelklassifikation) {
+    m::WallClockSystemAxis const wall{2'000, 4};
+    for (auto const category : std::array{m::MeasurementCategory::LATENCY_P50, m::MeasurementCategory::LATENCY_P95,
+                                          m::MeasurementCategory::LATENCY_P99, m::MeasurementCategory::LATENCY_P999}) {
+        auto const sample = collect(wall, category);
+        EXPECT_EQ(sample.status, m::SampleStatus::NotApplicable) << "Mittelwert ist kein Perzentil (Kategorie sinnlos)";
+    }
+
+    an::ComdareTierObserverSnapshot snapshot{};
+    snapshot.axis_stats[5][2] = 2048;
+    snapshot.axis_stats[5][3] = 64;
+    m::ObserverSnapshotSystemAxis const observer{snapshot};
+
+    // MEMORY_FOOTPRINT: die Kategorie ist sinnvoll, es fehlt die peak-SPALTE -> SourceUnavailable.
+    EXPECT_EQ(collect(observer, m::MeasurementCategory::MEMORY_FOOTPRINT).status, m::SampleStatus::SourceUnavailable);
+    // FILL_BUFFER_OCCUPANCY: Software-Puffer vs. Hardware-LFB, physisch unverwandt -> NotApplicable.
+    EXPECT_EQ(collect(observer, m::MeasurementCategory::FILL_BUFFER_OCCUPANCY).status, m::SampleStatus::NotApplicable);
+
+    m::PmcCounters counters{};
+    counters.available = true;
+    m::PmcSystemAxis const pmc{counters};
+    // IPC_CPI: echte PMC-Kategorie dieser Achse, aber ohne instructions/cycles-Spalten -> SourceUnavailable.
+    EXPECT_EQ(collect(pmc, m::MeasurementCategory::IPC_CPI).status, m::SampleStatus::SourceUnavailable);
+
+    // PMC unprivilegiert/ohne Zugang: der ZUGANG fehlt, kein Urteil ueber die Kategorie.
+    m::NullPmcSource source;
+    source.begin();
+    m::PmcCounters const   leer = source.end();
+    m::PmcSystemAxis const gesperrt{leer};
+    for (auto const category : m::kPmcCounterCategories) {
+        EXPECT_EQ(collect(gesperrt, category).status, m::SampleStatus::SourceUnavailable);
+    }
+}
+
+// FK-2: die alte Sammel-Bedingung der WallClock-Achse hat "unplausibler Rohwert" und "Quelle lieferte
+// nichts" zu einem einzigen invalid gefaltet. Beides ist jetzt getrennt -- ein negativer Zeitwert ist
+// ein FEHLER (Zelle "failed"), eine leere Erhebung nicht.
+TEST(MSystemAxisWurzel, DegenerierteRohwerteTrennenFehlerVonFehlenderQuelle) {
+    m::WallClockSystemAxis const negativ{-1, 4};
+    EXPECT_EQ(collect(negativ, m::MeasurementCategory::LATENCY_MEAN).status, m::SampleStatus::Failed);
+    EXPECT_EQ(collect(negativ, m::MeasurementCategory::THROUGHPUT).status, m::SampleStatus::Failed);
+
+    m::WallClockSystemAxis const ohne_ops{2'000, 0};
+    EXPECT_EQ(collect(ohne_ops, m::MeasurementCategory::LATENCY_MEAN).status, m::SampleStatus::SourceUnavailable);
+
+    m::WallClockSystemAxis const ohne_zeit{0, 4};
+    EXPECT_EQ(collect(ohne_zeit, m::MeasurementCategory::THROUGHPUT).status, m::SampleStatus::SourceUnavailable);
+
+    an::ComdareTierObserverSnapshot leer_snapshot{};
+    leer_snapshot.axis_stats[5][2] = 2048;
+    leer_snapshot.axis_stats[5][3] = 0; // kein Nenner: die Quelle hat nichts geliefert
+    m::ObserverSnapshotSystemAxis const observer{leer_snapshot};
+    EXPECT_EQ(collect(observer, m::MeasurementCategory::CLU).status, m::SampleStatus::SourceUnavailable);
+}
+
+// Fixture-UNABHAENGIGER Ableitungsweg (Auflage aus der Risiko-Liste): statt handgepflegter Erwartungen
+// je Kategorie laeuft dieser Test ueber die KATEGORIE-Aufzaehlung und prueft nur die Invarianten, die
+// fuer jede Achse und jede Kategorie gelten muessen. Eine dritte, hier vergessene Ableitung faellt
+// damit auf, ohne dass jemand den Test nachpflegt.
+TEST(MSystemAxisWurzel, StatusInvarianteGiltUeberAlleKategorienUndAchsen) {
+    an::ComdareTierObserverSnapshot snapshot{};
+    snapshot.axis_stats[5][2] = 2048;
+    snapshot.axis_stats[5][3] = 64;
+    m::PmcCounters counters{};
+    counters.available = true;
+
+    m::WallClockSystemAxis const        wall{2'000, 4};
+    m::ObserverSnapshotSystemAxis const observer{snapshot};
+    m::PmcSystemAxis const              pmc{counters};
+
+    auto pruefe = [](m::SystemAxisSample const& sample) {
+        // (1) valid() ist NICHTS anderes als status==Ok -- kein zweiter, abweichender Gueltigkeitsbegriff.
+        EXPECT_EQ(sample.valid(), sample.status == m::SampleStatus::Ok);
+        // (2) Ein nicht gueltiger Zustand traegt NIE einen Restwert (sonst wanderte eine Zahl in eine n/a-Zelle).
+        if (!sample.valid()) EXPECT_EQ(sample.value, 0u);
+        // (3) Der Status liegt immer im deklarierten Wertebereich der Taxonomie (kein Cast-Loch).
+        EXPECT_LT(static_cast<std::size_t>(sample.status), m::kSampleStatusCount);
+        // (4) Das Zell-Token ist nie leer -- jede Zelle sagt etwas.
+        EXPECT_FALSE(m::sample_status_token(sample.status).empty());
+    };
+
+    for (auto const category : m::kAllMeasurementCategories) {
+        pruefe(collect(wall, category));
+        pruefe(collect(observer, category));
+        pruefe(collect(pmc, category));
     }
 }
 
