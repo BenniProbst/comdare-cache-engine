@@ -650,6 +650,48 @@ TEST(G3CacheEbenenPraedikate, NurEbeneBErfuelltDieGateBedingung) {
     EXPECT_FALSE(cache.inert());
 }
 
+// TP1FK1-B2 (NEGATIVTEST, CX-W3): eine vorhandene perm.dll OHNE lokale Vollstaendigkeits-Marke
+// perm.dll.version darf NICHT still als vollstaendiger Push durchgehen. VOR dem Fix uebersprang
+// push_tier_binary Schritt (3) (kein else-Zweig) und kehrte normal zurueck -- fuer die void-CachePushFn
+// ununterscheidbar von einem Erfolg; der Pull verlangt aber genau diese Marke und liefert sonst MISS.
+// Jetzt wirft die Naht VOR jedem Upload (keine halbe Nutzlast, kein Phantom-Bestand).
+TEST(G3ArtifactCacheTransport, PushWirftWennLokaleVersionMarkeFehlt) {
+    EnvGuard const guard;
+    EnvGuard::setze("COMDARE_MINIO_ENDPOINT", "fakealias");
+    EnvGuard::setze("COMDARE_MINIO_BUCKET", "fakebucket");
+    // COMDARE_MC_BIN auf einen nicht existierenden Pfad: WUERDE der Pfad (ohne den Fix) bis zum
+    // mc-Aufruf laufen, scheitert posix_spawn sofort -- kein Netz, kein Haenger. Fuer den gefixten
+    // Pfad irrelevant (der Wurf faellt VOR jedem mc-Aufruf). Sauber gespeichert/wiederhergestellt.
+    char const* const          alt_mc   = std::getenv("COMDARE_MC_BIN");
+    std::optional<std::string> alt_mc_s = alt_mc != nullptr ? std::optional<std::string>{alt_mc} : std::nullopt;
+    ::setenv("COMDARE_MC_BIN", "/nonexistent-mc-xyz", 1);
+
+    auto const cache = at::ArtifactCache::from_env();
+    ASSERT_TRUE(cache.minio_enabled());
+
+    TempDir const dir{"pushset_ohne_version"};
+    { std::ofstream{dir.binary(), std::ios::binary | std::ios::trunc} << "MZ-payload"; } // perm.dll DA ...
+    ASSERT_TRUE(std::filesystem::exists(dir.binary()));
+    ASSERT_FALSE(std::filesystem::exists(dir.pfad() / "perm.dll.version")); // ... aber KEINE Marke
+
+    bool        warf = false;
+    std::string was;
+    try {
+        cache.push_tier_binary(dir.pfad(), "v1.0.0c");
+    } catch (at::ArtefaktPushFehler const& e) {
+        warf = true;
+        was  = e.what();
+    }
+    EXPECT_TRUE(warf) << "VOR dem Fix: stiller Erfolg (kein Wurf) -- der Satz laege ohne Marke im Store.";
+    EXPECT_NE(was.find("perm.dll.version fehlt lokal"), std::string::npos)
+        << "der Wurf benennt genau die fehlende Vollstaendigkeits-Marke (nicht den mc-Push-Fehler).";
+
+    if (alt_mc_s)
+        ::setenv("COMDARE_MC_BIN", alt_mc_s->c_str(), 1);
+    else
+        ::unsetenv("COMDARE_MC_BIN");
+}
+
 // Endpoint ODER Bucket allein genuegt NICHT -- minio_enabled() verlangt beide (artifact_cache.hpp:221).
 TEST(G3CacheEbenenPraedikate, HalbeMinioKonfigurationErfuelltDasGateNicht) {
     {

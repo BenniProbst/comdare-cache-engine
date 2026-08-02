@@ -274,10 +274,27 @@ inline constexpr std::size_t     kStemMax = 120;
     }
     return true;
 }
+// TP1FK1-B2 (Codex-Befund CX-W3): der Schreibfehler wird NICHT mehr verschluckt. Frueher hiess
+// 'if (f) f << version;' -- misslang das Anlegen oder Schreiben, entstand STILL keine .version, und
+// der spaetere Push haette einen Satz OHNE Vollstaendigkeits-Marke abgelegt (kein Pull findet ihn).
+// Die .version ist die EINE Marke, deren Abwesenheit push_tier_binary (artifact_cache.hpp) jetzt
+// scharf faengt; die Abwesenheit selbst darf aber nicht stumm entstehen. Deshalb hier eine
+// klassifizierte Zeile (ArtefaktIo), wenn das Schreiben scheitert -- byte-neutral fuer den Erfolgspfad.
 inline void write_version_sidecar(std::filesystem::path const& output, std::string const& version) {
     if (version.empty()) return;
-    std::ofstream f{version_sidecar_path(output), std::ios::binary | std::ios::trunc};
-    if (f) f << version;
+    auto const    p = version_sidecar_path(output);
+    std::ofstream f{p, std::ios::binary | std::ios::trunc};
+    bool          geschrieben = false;
+    if (f) {
+        f << version;
+        f.flush();
+        geschrieben = f.good();
+    }
+    if (!geschrieben)
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                  << "] perm.dll.version NICHT geschrieben: " << p.string()
+                  << " -- der Satz bliebe ohne Vollstaendigkeits-Marke (kein Pull faende ihn)\n"
+                  << std::flush;
 }
 /// Schreibt das Organ-Provenienz-Sidecar (`.algos`). Leer = no-op (kein AlgoSigFn injiziert -> byte-neutral). Nur bei
 /// erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Organ-Sidecar.
