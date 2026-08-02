@@ -25,6 +25,11 @@
 // Bau-Versuch uebersprungen, LEDGER:3397); dll_is_current bleibt die zweite, lokale
 // Verteidigungslinie fuer alles, was gebaut wird -- der konservative Miss traegt genau deshalb: er
 // kann nie eine fehlende Binary unterschlagen, nur einen Skip verschenken.
+// PRAEZISIERUNG (TP1-N2/B-1): "present == vorhanden" stuetzt sich auf die SCHREIB-DISZIPLIN der
+// Registrierungs-Seite -- ein Bestands-Eintrag entsteht erst NACH dem Push-Drain und unter
+// Ausschluss gescheiterter Pushes (Iterator: bestandslog_flush nach push_pump->close(),
+// discard_fresh_with_pfad_prefix). Nur weil dort nichts Unbestaetigtes ins Dokument gelangt, darf
+// der Filter hier einem Eintrag glauben, ohne den Store selbst zu befragen.
 //
 // DEFAULT-NEUTRAL: ohne BinaryIdKeyFn liefert make_index_key_fn immer nullopt, damit meldet die
 // PresenceFn durchweg "fehlt", damit ist missing_count == Fenstergroesse -- exakt das Verhalten des

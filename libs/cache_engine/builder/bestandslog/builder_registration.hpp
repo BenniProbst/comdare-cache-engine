@@ -503,6 +503,23 @@ public:
         return fresh_.size();
     }
 
+    // TP1-N2 (B-1): vorgemerkte FRISCH-Eintraege verwerfen, deren pfad mit einem der Praefixe
+    // beginnt -- der Ausschluss-Weg fuer Binaries, deren Push nachweislich scheiterte. Ein Eintrag
+    // ohne Store-Objekt waere unter dem Bau-Filter ein stiller Verlustpfad (der Folgelauf skippte
+    // eine nirgends existierende Binary); die lokale Kopie bleibt, dll_is_current deckt sie weiter.
+    // Gibt die Zahl der verworfenen Eintraege zurueck (Testat-Pflicht beim Aufrufer).
+    [[nodiscard]] std::size_t discard_fresh_with_pfad_prefix(std::vector<std::string> const& prefixes) {
+        if (prefixes.empty()) return 0;
+        std::lock_guard<std::mutex> lk(mtx_);
+        std::size_t const           vorher = fresh_.size();
+        std::erase_if(fresh_, [&prefixes](BestandEintrag const& e) {
+            for (auto const& p : prefixes)
+                if (!p.empty() && e.pfad.starts_with(p)) return true;
+            return false;
+        });
+        return vorher - fresh_.size();
+    }
+
 private:
     mutable std::mutex          mtx_;
     LagerIndex                  lager_; // vorbestehender Lager-Bestand (Dedup-Basis, alle Zellen)

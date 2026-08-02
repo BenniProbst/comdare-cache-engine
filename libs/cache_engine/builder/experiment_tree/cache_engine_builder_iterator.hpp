@@ -1046,7 +1046,15 @@ struct LazyRunResult {
                 std::uint64_t const bytes = std::filesystem::exists(b.output, ec)
                                                 ? static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec))
                                                 : 0;
-                lager.observe(key.value_or(std::string{}), cfg.bestand_zelle, b.output.string(), bytes, b.algo_sig,
+                // TP1-N2 (B-1): der Eintrags-Pfad ist STORE-RELATIV (relativ zum output_dir, generic
+                // '/'-Trenner) -- der Push spiegelt exakt diese Struktur in den Objekt-Store, und ein
+                // maschinen-LOKALER Absolutpfad im GETEILTEN Dokument waere fuer die andere Maschine
+                // eine Falschangabe. Unrelativierbar (fremde Wurzel) -> voller Pfad als ehrlicher
+                // Fallback (nie leer, nie geraten).
+                std::error_code rel_ec;
+                auto const      rel  = std::filesystem::relative(b.output, cfg.output_dir, rel_ec);
+                std::string     pfad = (rel_ec || rel.empty()) ? b.output.string() : rel.generic_string();
+                lager.observe(key.value_or(std::string{}), cfg.bestand_zelle, std::move(pfad), bytes, b.algo_sig,
                               bestandslog::now_utc_iso());
             }
         });
@@ -1092,13 +1100,22 @@ struct LazyRunResult {
     // => byte-neutral, wenn inaktiv. Bleibt der Schreibvorgang aus (nullopt), bleiben die Eintraege vorgemerkt
     // (Re-Queue) und die Zeile sagt es -- die Details stehen in der Testat-Zeile des Zyklus darueber.
     // Die cerr-Diagnose ist golden-/CSV-neutral (kein Mess-Datum, kein binary_id-Byte -- Muster wie die pruef-Zeilen).
-    if (bestandslog_active) {
+    //
+    // TP1-N2 (B-1): NUR NOCH ALS HELFER DEFINIERT -- gerufen wird er in JEDEM Ausgangs-Zweig NACH dem
+    // jeweiligen Push-Abschluss (provision_only: nach push_pump->close() + Fehl-Push-Ausschluss;
+    // pruef_only/Mess-Pfad: an deren Ende -- dort pushen die Pfade synchron bzw. gar nicht). Ein flush
+    // VOR dem Push-Drain registrierte Eintraege, deren Store-Objekt noch gar nicht existiert -- unter
+    // dem Bau-Filter der stille Verlustpfad (der Folgelauf skippte eine nirgends existierende Binary).
+    // EHRLICHE GRENZE: ohne Push-Kanal (cache_push leer) beschreibt ein Eintrag nur den LOKALEN
+    // Bestand dieser Maschine -- der Betriebs-Kontrakt koppelt COMDARE_BESTANDSLOG an den Storage-Push.
+    auto const bestandslog_flush = [&]() {
+        if (!bestandslog_active) return;
         auto const reg = lager.flush(cfg.bestand_transport, cfg.bestand_doc_key, bestandslog::now_utc_iso(),
                                      bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine));
         std::cerr << "[bestandslog] lager=" << lager.lager_size() << " hits=" << lager.lager_hits()
                   << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (nicht persistiert)") << "\n"
                   << std::flush;
-    }
+    };
 
     // ── Welle 5 (E-W5-2, §38-Fortschritts-Rueck-Kanal): Zustand + Feuerungs-Helfer. Der Kanal reist SYNCHRON aus
     //    dem 1-Thread-Loop (nie aus den Build-Workern) und in StaticBinaryView-Ordnung (builds[j] entspricht
@@ -1134,7 +1151,35 @@ struct LazyRunResult {
         // Ist kein Pump aktiv (cache_push leer / kein per_binary_subdirs), war auch nichts zu pushen => byte-neutral.
         // Der frueherer Batch-Push-Loop (perm.dll+.version je ok()-Binary NACH provision_all) ist damit ersetzt: die
         // Push-MENGE ist identisch (jede ok()-Binary genau einmal), nur zeitlich mit dem Bau ueberlappt.
-        if (push_pump) push_pump->close();
+        if (push_pump) {
+            push_pump->close();
+            // TP1-N2 (B-1): Push-Fehler von der Registrierung AUSSCHLIESSEN. failed_dirs() sind die
+            // Verzeichnisse, deren Push warf (die einzige Fehler-Sicht der void-CachePushFn); ihre
+            // vorgemerkten Eintraege fliegen aus fresh_, BEVOR geflusht wird -- sonst stuende im
+            // geteilten Dokument ein Bestand, den der Store nie erhielt, und der Bau-Filter des
+            // Folgelaufs skippte eine nirgends existierende Binary. Die lokale Kopie bleibt;
+            // dll_is_current deckt sie auf DIESER Maschine weiter.
+            if (bestandslog_active) {
+                auto const fehl = push_pump->failed_dirs();
+                if (!fehl.empty()) {
+                    std::vector<std::string> praefixe;
+                    praefixe.reserve(fehl.size());
+                    for (auto const& d : fehl) {
+                        std::error_code rel_ec;
+                        auto const      rel = std::filesystem::relative(d, cfg.output_dir, rel_ec);
+                        praefixe.push_back(((rel_ec || rel.empty()) ? d : rel).generic_string());
+                    }
+                    auto const verworfen = lager.discard_fresh_with_pfad_prefix(praefixe);
+                    std::cerr << "[bestandslog] warn: " << verworfen << " Eintraege wegen " << fehl.size()
+                              << " Push-Fehler(n) NICHT registriert -- lokale Kopie bleibt, der Store ist "
+                                 "unbestaetigt (kein Skip-Anspruch im Folgelauf)\n"
+                              << std::flush;
+                }
+            }
+        }
+        // TP1-N2 (B-1): der flush laeuft NACH dem Push-Drain -- registriert wird nur, was den Store
+        // real erreichen konnte.
+        bestandslog_flush();
         // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je bereitgestellte Binary EIN
         // Delta (in StaticBinaryView-Ordnung), danach genau EIN done-Delta am Fensterende. No-Op ohne progress_sink.
         for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
@@ -1150,7 +1195,8 @@ struct LazyRunResult {
     // pruef_ok/pruef_failed -> der Entry (run_profile) setzt daraus den Exit-Code (!=0 bei Gate-Fail).
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     if (cfg.pruef_only) {
-        if (push_pump) push_pump->close();
+        if (push_pump) push_pump->close(); // toter Schutz: der Pump entsteht nur im provision_only-Zweig
+        bestandslog_flush();               // TP1-N2 (B-1): auch dieser Ausgang registriert erst am Ende
         ProgressHeartbeat pruef_hb{"pruef-zelle", builds.size()};
         for (BuildResult const& b : builds) {
             if (!b.ok()) {
@@ -1402,6 +1448,11 @@ struct LazyRunResult {
 
     // Welle 5 (E-W5-2): §38.b-Fertig-Signal -- done genau EINMAL am Fensterende (nach dem GANZEN Merge).
     fire_progress_done(builds.size());
+
+    // TP1-N2 (B-1): der Mess-Pfad-flush -- hier sind die per-Binary-Pushes laengst geschehen (der
+    // Mess-Loop pusht STRIKT SYNCHRON je Binary, W11-Doktrin), es gibt keinen Pump und nichts
+    // Ausstehendes; registriert wird am Ende, wie in den beiden anderen Ausgaengen.
+    bestandslog_flush();
 
     return result;
 }

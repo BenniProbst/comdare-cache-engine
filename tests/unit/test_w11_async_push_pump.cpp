@@ -20,6 +20,7 @@
 #include <iostream>
 #include <mutex>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -368,6 +369,39 @@ int main() {
         ::unsetenv("COMDARE_MINIO_BUCKET");
         ::unsetenv("COMDARE_MC_BIN");
         ::unsetenv("COMDARE_MEASUREMENT_COMBO");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════════
+    // Teil 7 (TP1-N2/B-1): Push-Fehler sind SICHTBAR -- werfende Pushes landen in failed_dirs(),
+    // zaehlen NICHT als pushed und feuern keinen Teil-Marker; der Pump-Thread ueberlebt den Wurf.
+    // ════════════════════════════════════════════════════════════════════════════════════════════════
+    {
+        std::mutex               m;
+        std::vector<std::string> ok_pushes;
+        auto                     push = [&](std::filesystem::path const& bin_dir, std::string const&) {
+            if (bin_dir.string().find("kaputt") != std::string::npos) throw std::runtime_error{"push-fehler"};
+            std::lock_guard<std::mutex> lk(m);
+            ok_pushes.push_back(bin_dir.string());
+        };
+        std::vector<std::size_t> parts;
+        auto                     marker = [&](std::string const&, std::size_t part) { parts.push_back(part); };
+        at::AsyncPushPump        pump{push, "bv", marker, /*part_size*/ 2};
+        pump.enqueue(std::filesystem::path{"gut_0"});
+        pump.enqueue(std::filesystem::path{"kaputt_1"});
+        pump.enqueue(std::filesystem::path{"gut_2"});
+        pump.enqueue(std::filesystem::path{"kaputt_3"});
+        pump.enqueue(std::filesystem::path{"gut_4"});
+        pump.close();
+        check_eq("Teil7: pushed_count zaehlt NUR Erfolge", pump.pushed_count(), std::size_t{3});
+        check_eq("Teil7: 3 erfolgreiche Pushes angekommen", ok_pushes.size(), std::size_t{3});
+        auto const failed = pump.failed_dirs();
+        check_eq("Teil7: 2 geworfene Pushes in failed_dirs", failed.size(), std::size_t{2});
+        bool nur_kaputte = failed.size() == 2;
+        for (auto const& f : failed)
+            if (f.string().find("kaputt") == std::string::npos) nur_kaputte = false;
+        check_true("Teil7: failed_dirs enthaelt GENAU die kaputten Verzeichnisse", nur_kaputte);
+        // Teil-Marker basiert auf ERFOLGEN: 3 Erfolge / part_size 2 -> genau ein Marker (bei 2).
+        check_eq("Teil7: Teil-Marker zaehlt nur Erfolge (1 Marker)", parts.size(), std::size_t{1});
     }
 
     std::cout << "\n==== W11 async Push-Pump + Teil-Marker (§43.c): "

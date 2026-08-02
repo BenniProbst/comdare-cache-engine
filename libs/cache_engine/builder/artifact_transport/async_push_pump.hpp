@@ -28,6 +28,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 namespace comdare::cache_engine::builder::artifact_transport {
 
@@ -73,9 +74,23 @@ public:
     }
 
     /// Zahl bislang erfolgreich abgearbeiteter Pushes (Test-/Diagnose-Sicht). Thread-safe.
+    /// TP1-N2: zaehlt seit der B-1-Nachbesserung NUR nicht-werfende Pushes -- ein geworfener Push ist
+    /// kein "erfolgreich abgearbeitet" (der Kommentar versprach das schon immer; jetzt stimmt er).
     [[nodiscard]] std::size_t pushed_count() const {
         std::lock_guard<std::mutex> lk(mtx_);
         return pushed_;
+    }
+
+    /// TP1-N2 (B-1): die bin_dirs, deren Push GEWORFEN hat -- die einzige Fehler-Sicht, die die
+    /// void-CachePushFn hergibt. Stabil NACH close(); der Registrierungs-Pfad des Iterators schliesst
+    /// genau diese Verzeichnisse aus dem Bestandslog aus (ein Eintrag ohne Store-Objekt waere unter
+    /// dem Bau-Filter ein stiller Verlustpfad: der Folgelauf skippte eine nirgends existierende
+    /// Binary). GRENZE, ehrlich benannt: ein Push, der intern scheitert OHNE zu werfen, bleibt hier
+    /// unsichtbar -- solange CachePushFn void ist, ist die Exception das einzige Signal (Befund an
+    /// die Transport-Schicht, nicht hier heilbar).
+    [[nodiscard]] std::vector<std::filesystem::path> failed_dirs() const {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return failed_;
     }
 
 private:
@@ -91,17 +106,23 @@ private:
             }
             // (1) Push OHNE Lock (mc-Shellout, Sekunden) -> Build-Worker + enqueue blockieren nicht. Ein throwender
             //     push_ darf den Thread NIE terminieren (Bau laeuft weiter, artifact_cache loggt selbst) -> catch(...).
+            //     TP1-N2 (B-1): gefangen heisst nicht mehr VERSCHLUCKT -- das Verzeichnis wird als failed
+            //     registriert, damit der Bestandslog-Registrierungs-Pfad es ausschliessen kann (s. failed_dirs()).
+            bool push_ok = true;
             try {
                 if (push_) push_(bin_dir, build_version_);
             } catch (...) {
-                // Bewusst geschluckt: der Transport-Client loggt ArtefaktIo selbst; der Bau darf nie an einem
-                // Push-Fehler sterben (Fehler-Sichtbarkeits-Doktrin: lokale Kopie bleibt, weiter).
+                push_ok = false; // der Transport-Client loggt ArtefaktIo selbst; der Bau laeuft weiter
             }
             std::size_t part_to_mark = 0;
             {
                 std::lock_guard<std::mutex> lk(mtx_);
-                ++pushed_;
-                if (part_size_ != 0 && pushed_ % part_size_ == 0) part_to_mark = pushed_ / part_size_;
+                if (push_ok) {
+                    ++pushed_;
+                    if (part_size_ != 0 && pushed_ % part_size_ == 0) part_to_mark = pushed_ / part_size_;
+                } else {
+                    failed_.push_back(bin_dir);
+                }
             }
             // (2) Teil-Marker (falls faellig) ebenfalls ohne Lock; auch hier nie den Thread terminieren.
             if (part_to_mark != 0 && partial_marker_) {
@@ -117,12 +138,13 @@ private:
     PartialMarkerFn partial_marker_;
     std::size_t     part_size_ = 0;
 
-    mutable std::mutex                mtx_;
-    std::condition_variable           cv_;
-    std::deque<std::filesystem::path> queue_;
-    std::size_t                       pushed_ = 0;
-    bool                              closed_ = false;
-    std::thread                       worker_;
+    mutable std::mutex                 mtx_;
+    std::condition_variable            cv_;
+    std::deque<std::filesystem::path>  queue_;
+    std::size_t                        pushed_ = 0;
+    std::vector<std::filesystem::path> failed_; // TP1-N2 (B-1): geworfene Pushes, s. failed_dirs()
+    bool                               closed_ = false;
+    std::thread                        worker_;
 };
 
 } // namespace comdare::cache_engine::builder::artifact_transport
