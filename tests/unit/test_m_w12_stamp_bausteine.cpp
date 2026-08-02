@@ -528,10 +528,14 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
 }
 
 TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {
-    EXPECT_EQ(pl::kPlannerVersion, std::string_view{"1.0.0"}); // X.Y.Z initial
+    // CX-W5 (Codex-Doppelreview 02.08.2026): das ROH-Literal traegt jetzt das 'v' (Owner-Q10) -- frueher stand
+    // hier "1.0.0" und ZEMENTIERTE die alte, Q10-widrige Form. Die GERENDERTE Zeile bleibt praefixfrei
+    // "planner@1.0.0" (render-neutral, unten weiter geprueft) -> kein Stempel-Byte-Shift.
+    EXPECT_EQ(pl::kPlannerVersion, std::string_view{"v1.0.0"}); // Roh-Literal mit 'v' (Owner-Q10)
     EXPECT_EQ(pl::planner_target_isa(), std::string_view{"x86_64"});
     std::string const stamp = pl::planner_version_stamp();
-    EXPECT_NE(stamp.find("planner@1.0.0"), std::string::npos) << "stamp='" << stamp << "'";
+    EXPECT_NE(stamp.find("planner@1.0.0"), std::string::npos) << "stamp='" << stamp << "'"; // render byte-identisch
+    EXPECT_EQ(stamp.find("planner@v"), std::string::npos) << "gerenderte Form traegt KEIN 'v' (Owner-Q10)";
     EXPECT_NE(stamp.find("isa=x86_64"), std::string::npos) << "stamp='" << stamp << "'";
     EXPECT_NE(stamp.find("os="), std::string::npos) << "stamp='" << stamp << "'";
 }

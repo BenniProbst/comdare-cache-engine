@@ -4053,6 +4053,23 @@ target_compile_definitions(test_reflect_versions_all17 PRIVATE
 set_tests_properties(test_reflect_versions_all17 PROPERTIES LABELS "striktheit;algo_version;stale_skip" TIMEOUT 120)
 
 # ---------------------------------------------------------------------------
+# CX-W5 (Codex-Doppelreview 02.08.2026): der Planer-Selbst-Stempel (kPlannerVersion) faellt unter dieselbe
+# Owner-Q10/Q3-Grammatik wie jede Achsen-Version. Leichte TU (profile_facade/planner/planner_version.hpp +
+# measurement/algo_semver.hpp, header-only). Negativ-Probe: ce_owned_version_is_wellformed(kPlannerVersion) ist
+# nach dem Fix ("v1.0.0") GREEN, vor dem Fix ("1.0.0") RED; die gerenderte Zeile bleibt byte-identisch.
+# ---------------------------------------------------------------------------
+comdare_add_test(test_planner_version_flag_grammatik
+    SOURCES test_planner_version_flag_grammatik.cpp)
+target_include_directories(test_planner_version_flag_grammatik PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_planner_version_flag_grammatik PRIVATE Boost::mp11)
+set_tests_properties(test_planner_version_flag_grammatik PROPERTIES LABELS "striktheit;algo_version" TIMEOUT 60)
+
+# ---------------------------------------------------------------------------
 # G3 / #46b Lagerhaltung (Bestandslog-Kern, §62-B / §66 Lager-Gate). Header-only Module unter
 # libs/cache_engine/builder/bestandslog/ + builder/artifact_transport/. Unit-Tests OHNE minio
 # (Fake-Transport, deterministisch). B1 = Serialisierungs-Schicht (Dokument+XML-Emitter/Parser),
