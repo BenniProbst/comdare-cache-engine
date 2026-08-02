@@ -56,6 +56,7 @@
 
 #pragma once
 
+#include <cache_engine/measurement/algo_semver.hpp> // A13-M2: CT-Wache der axis_code_version (A10-Disziplin)
 #include <cache_engine/measurement/ceb_system_axis.hpp>
 
 #include <concepts>
@@ -108,11 +109,35 @@ inline constexpr bool is_system_meta_meta_axis_v = is_system_meta_meta_axis<A>::
 /// Achsen-Concept PLUS die beiden Eigenschaften aus Auftrag 1.4 -- Haupt-Achsen-Etikett und eine EIGENE
 /// RT-Unter-Achse). Wer keine eigene Unter-Achse spannt, ist keine Meta-Meta, sondern eine gewoehnliche
 /// Konfig-Achse.
+///
+/// A13-M2 (Owner-Entscheid E2 vom 02.08.2026, verbatim): "Die Meta-Meta-Achsen und deren Stempel-Eintraege
+/// sind wie alle Hauptachsen PFLICHT, das gilt fuer ALLE Hauptachsen." Eine Meta-Meta traegt deshalb ab
+/// jetzt eine EIGENE bump-bare Code-Version `axis_code_version` -- dieselbe A10-X.Y.Z-Disziplin wie
+/// kSystemAxisCodeVersions und die Registry-Varianten. Ohne sie koennte eine Meta-Meta driften, ohne dass
+/// der Stempel es zeigt; genau diese Blindstelle schliesst der Owner-Entscheid.
 template <class A>
 concept SystemMetaMetaAxisConcept = CebSystemAxisConcept<A> && is_system_meta_meta_axis_v<A> && requires {
     { A::axis_label() } -> std::same_as<std::string_view>;
     { A::sub_axis_label() } -> std::same_as<std::string_view>;
+    { A::axis_code_version } -> std::convertible_to<std::string_view>;
 };
+
+/// A13-M2: die CT-Wache je Meta-Meta-Code-Version -- exakt die Disziplin von
+/// axis_variant_version_table.hpp:58-68 (parsbar, kein Sentinel) plus die Owner-Q3-Flag-Grammatik
+/// (kein FALSCHES Hardware-Flag; die CPU-Pflicht selbst schaltet der Migrations-Commit ueber
+/// COMDARE_VERSION_HW_FLAG_ENFORCE scharf -- Migrations-Naht-Liste in algo_semver.hpp).
+template <class A>
+[[nodiscard]] consteval bool meta_meta_version_wohlgeformt() {
+    std::string_view const raw = A::axis_code_version;
+    if (parse_algo_semver(raw).is_sentinel()) return false;
+    if (parse_algo_semver(raw).has_hardware_flag() && !version_satisfies_cpu_only_policy(raw)) return false;
+    return true;
+}
+
+template <class A>
+[[nodiscard]] consteval bool meta_meta_version_cpu_pflicht() {
+    return version_satisfies_cpu_only_policy(A::axis_code_version);
+}
 
 // =================================================================================================
 // 2. WIE EIN HUB SEINE GLIEDER TRAEGT (realm-freier Rekursions-Mechanismus, Owner Q-F)
@@ -218,6 +243,13 @@ struct hub_depth_of_members<MetaMetaMembers<Ms...>> {
 };
 
 } // namespace detail
+
+/// Die DIREKTEN Glieder eines Typs in der GESCHACHTELTEN Form -- leer, wenn er kein Hub ist. Das ist die
+/// STEMPEL-taugliche Form (Klammer-ANZAHL kodiert die Ebene, Owner Q-A): der A13-M2-Klammer-Renderer
+/// (abi/meta_meta_stamp_suffix.hpp) rekursiert ueber genau diesen Alias und ebnet dadurch NIE ein.
+/// Oeffentlich, damit der Renderer nicht in detail:: greifen muss; die Erkennung selbst bleibt dort.
+template <class A>
+using meta_meta_members_of_t = typename detail::hub_members_of<A>::type;
 
 /// Die FLACHE Huelle eines Hubs: alle Glieder, transitiv ueber beliebig viele Ebenen.
 /// NUR fuer die Mengen-Relation (Halbordnung). NIE fuer den Stempel -- siehe Klammerungs-Auflage im

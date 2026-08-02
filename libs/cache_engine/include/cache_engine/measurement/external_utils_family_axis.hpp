@@ -95,6 +95,14 @@ concept ExternalUtilsFamilyAxisConcept =
 /// Ihre Auspraegungen {no_extension, avx2, avx512} leben in der SimdSubAxis-Familie (simd_sub_axis.hpp).
 struct SimdExternalUtilsFamily final : ExternalUtilsFamilyAxis<SimdExternalUtilsFamily> {
     [[nodiscard]] static constexpr std::string_view do_family_id() noexcept { return "simd"; }
+
+    /// A13-M2 (Owner-E2 02.08.2026: Meta-Meta-Stempel sind PFLICHT wie alle Hauptachsen): die EIGENE
+    /// bump-bare Code-Version dieser Meta-Meta. Sie stempelt im KLAMMER-ANHANG der System-Zeile
+    /// ("...;[simd=code@1.0.0]") und ist ab jetzt einzeln bump-bar -- dieselbe A10-X.Y.Z-Disziplin wie
+    /// kSystemAxisCodeVersions. FLAGLOS (Owner-Q3-Uebergangs-Toleranz): der gesamte Bestand steht
+    /// dreistellig ohne Hardware-Flag da und migriert GESCHLOSSEN im A13-M3-Fenster auf "v1.0.0c"
+    /// (ein Byte-Ereignis, kein zweiter Neuanker -- Migrations-Naht-Liste in algo_semver.hpp).
+    static constexpr std::string_view axis_code_version = "v1.0.0";
 };
 
 /// CEB-Default-Familie -- simd (die einzige angebundene). Beweglicher Startwert, KEIN Pin.
@@ -111,6 +119,16 @@ static_assert(ExternalUtilsFamilyAxisConcept<SimdExternalUtilsFamily>);
 static_assert(SimdExternalUtilsFamily::axis_kind() == topics::AxisKind::system_config);
 static_assert(SimdExternalUtilsFamily::axis_label() == std::string_view{"external_utils"});
 static_assert(SimdExternalUtilsFamily::family_id() == std::string_view{"simd"});
+// A13-M2 (Owner-E2): die Meta-Meta-Code-Version ist wohlgeformt (parsbar, kein Sentinel, kein falsches
+// Hardware-Flag) -- dieselbe Wachen-Doppelung wie an den System-/Tooling-/Framework-Registries.
+static_assert(meta_meta_version_wohlgeformt<SimdExternalUtilsFamily>(),
+              "external_utils.simd: axis_code_version muss dreistellig parsbar sein (kein Sentinel) und im "
+              "CPU-only-Scope GENAU 'c'/'ce' tragen, wenn sie ueberhaupt ein Hardware-Flag traegt (Owner-Q3).");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+static_assert(meta_meta_version_cpu_pflicht<SimdExternalUtilsFamily>(),
+              "external_utils.simd: axis_code_version ohne CPU-Hardware-Flag -- im CPU-only-Scope MUSS sie auf "
+              "'c' oder 'ce' enden (Owner-Q3 02.08.2026); COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
+#endif
 
 // -- GN-1-AUFLOESUNG ("SimdSubAxis dranhaengen"): parent_axis_label() der Unter-Achse zeigt jetzt auf DIESEN
 //    aktiven Knoten (nicht mehr auf den verwaisten String der DEPRECATED-Insel). Drift bricht hier. --
