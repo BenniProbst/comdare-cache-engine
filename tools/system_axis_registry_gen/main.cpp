@@ -40,6 +40,7 @@
 #include <cache_engine/measurement/load_framework_measurement_axis.hpp>
 #include <cache_engine/measurement/machine_simd_signature.hpp> // Section 40.a: deklarierte Maschinen-Signaturen
 #include <cache_engine/measurement/operating_system_axis.hpp>
+#include <cache_engine/measurement/operating_system_sub_axes.hpp> // A14/OS-U2: os_version + kernel + build
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
@@ -398,9 +399,30 @@ void emit_system_axis_target_isa(std::ofstream& f) {
     f << "  </axis>\n";
 }
 
+/// A14/OS-U2 (Owner-Entscheid E3, 02.08.2026): die DREI Unter-Achsen der Haupt-Achse operating_system
+/// OHNE compile-statischen Options-Katalog (os_version, kernel, build). Ihre zulaessige Werte-Menge
+/// haengt an der konkreten OS-INSTANZ und wird zur Laufzeit erhoben (Paket OS-U3) -- hier steht das
+/// ANGEBOT, nicht die Aufloesung. Emissions-Muster identisch zu numa_node/page am target_isa-Komplex.
+/// Die Liste kommt aus kOperatingSystemSubAxisLabels-Typen, nie aus Literalen: driftet ein Label,
+/// driftet die XML mit, und die FINAL-DREI-Wache im Header schlaegt zuerst an.
+void emit_operating_system_open_sub_axes(std::ofstream& f) {
+    auto emit_open = [&f]<class Sub>(std::type_identity<Sub>) {
+        note_name(Sub::axis_label());
+        f << "    <sub_axis id=\"" << xml_escape(Sub::axis_label()) << "\" parent=\""
+          << xml_escape(Sub::parent_axis_label()) << "\" stage=\"runtime\" value_type=\"token\" option_source=\""
+          << xml_escape(Sub::option_source()) << "\"/>\n";
+    };
+    emit_open(std::type_identity<meas::OsVersionSubAxis>{});
+    emit_open(std::type_identity<meas::KernelSubAxis>{});
+    emit_open(std::type_identity<meas::BuildSubAxis>{});
+}
+
 /// A3 (O-8 Schritt 4): Emissions-Koerper der NEUEN Haupt-Achse "operating_system". Aufbau nach dem
 /// target_isa-Muster (fixed_enum_tuple, OP-10): drei feste Klassen-Identitaeten als Bausteine.
-/// Distribution/Version sind AUSDRUECKLICH keine Bausteine, sondern Stempel-Variablen aus <machines>.
+/// A14/OS-U2: dazu treten die DREI Unter-Achsen os_version/kernel/build. Distribution und Version
+/// bleiben AUSDRUECKLICH keine Bausteine (die Achse traegt die Familie, also die Klasse) -- sie sind
+/// jetzt Unter-Achsen mit option_source="machine_resolved"; <machines> bleibt der Deklarations-Kanal,
+/// aber als ERWARTUNG, nicht als Werte-Quelle.
 void emit_system_axis_operating_system(std::ofstream& f) {
     emit_axis_open(f, meas::LinuxOperatingSystem::axis_label(), "ct", 3);
     {
@@ -415,6 +437,7 @@ void emit_system_axis_operating_system(std::ofstream& f) {
         extra = std::string{" posix=\""} + (meas::MacosOperatingSystem::is_posix_family() ? "true" : "false") + "\"";
         emit_baustein<meas::MacosOperatingSystem>(f, meas::MacosOperatingSystem::os_family_id(), extra);
     }
+    emit_operating_system_open_sub_axes(f);
     f << "  </axis>\n";
 }
 
@@ -505,9 +528,19 @@ inline constexpr std::array<SystemAxisEmitter, cabi::kSystemAxisOrderCount> kSys
 // NETZ 4 (T-c): je System-HAUPT-Achse eine bewusste Suffix-Entscheidung.
 //
 // Die Tabelle ordnet jeder Achse aus kSystemAxisOrder ihr Suffix-Segment zu -- oder ausdruecklich
-// KEINES. "Kein Segment" ist eine gueltige, aber BENANNTE Antwort: operating_system erscheint heute
-// nicht im build_version, weil die Flotte je Runner ohnehin genau ein OS faehrt und die Distro eine
-// Stempel-Variable ist (OP-10). Wer das aendert, aendert es hier sichtbar.
+// KEINES. "Kein Segment" ist eine gueltige, aber BENANNTE Antwort: operating_system erscheint nicht
+// im build_version, weil die Flotte je Runner ohnehin genau ein OS faehrt und die Achse nur die
+// FAMILIE traegt (OP-10). Wer das aendert, aendert es hier sichtbar.
+//
+// A14/OS-U2 (Owner-Entscheid E3, 02.08.2026): daran aendern die drei neuen operating_system-Unter-
+// Achsen os_version/kernel/build NICHTS -- der Eintrag bleibt "KEIN Segment". Zwei Gruende, beide
+// bindend: (1) A-15 -- RT-Unter-Achsen stehen NIE im Binary-Stempel und damit auch nie im Suffix,
+// der die Stempel-Variable-Version der System-Achsen ist (Ledger 70.6). (2) Ein neues Segment waere
+// ein BYTE-EREIGNIS auf JEDER bestehenden build_version, jedem .version-Sidecar und jedem Cache-Key
+// -- es entwertete den gesamten Binary-Bestand und erzwaenge genau den Neubau, den Owner-E3
+// ausschliesst ("ansonsten muessen alle Binaries bei Einfuehrung neu gebaut werden").
+// Die Instanz-Zuordnung einer Messung laeuft deshalb ueber Mess-Spalten/Dateinamen (OS-U4), NICHT
+// ueber den Suffix.
 // =====================================================================================================
 struct SuffixSegmentBinding {
     std::string_view axis;    ///< aus kSystemAxisOrder, nie handgeschrieben
@@ -515,8 +548,8 @@ struct SuffixSegmentBinding {
 };
 
 inline constexpr std::array<SuffixSegmentBinding, cabi::kSystemAxisOrderCount> kSuffixSegmentBindings{{
-    {meas::X86_64TargetIsa::axis_label(), cpf::kSuffixSegmentOrder[4]},         // "+target=" (nur bei Cross)
-    {meas::LinuxOperatingSystem::axis_label(), std::string_view{}},             // bewusst KEIN Segment (OP-10)
+    {meas::X86_64TargetIsa::axis_label(), cpf::kSuffixSegmentOrder[4]}, // "+target=" (nur bei Cross)
+    {meas::LinuxOperatingSystem::axis_label(), std::string_view{}},     // bewusst KEIN Segment (OP-10 + A14/OS-U2)
     {meas::SimdExternalUtilsFamily::axis_label(), cpf::kSuffixSegmentOrder[2]}, // "+ext=" (Hub-Auspraegung)
 }};
 

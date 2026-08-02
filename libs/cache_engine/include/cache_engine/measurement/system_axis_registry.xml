@@ -42,6 +42,9 @@
     <baustein name="linux" wrapper="LinuxOperatingSystem" type="::comdare::cache_engine::measurement::LinuxOperatingSystem" enabled="true" posix="true"/>
     <baustein name="windows" wrapper="WindowsOperatingSystem" type="::comdare::cache_engine::measurement::WindowsOperatingSystem" enabled="true" posix="false"/>
     <baustein name="macos" wrapper="MacosOperatingSystem" type="::comdare::cache_engine::measurement::MacosOperatingSystem" enabled="true" posix="true"/>
+    <sub_axis id="os_version" parent="operating_system" stage="runtime" value_type="token" option_source="machine_resolved"/>
+    <sub_axis id="kernel" parent="operating_system" stage="runtime" value_type="token" option_source="machine_resolved"/>
+    <sub_axis id="build" parent="operating_system" stage="runtime" value_type="token" option_source="machine_resolved"/>
   </axis>
   <axis id="external_utils" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="1">
     <baustein name="simd" wrapper="SimdExternalUtilsFamily" type="::comdare::cache_engine::measurement::SimdExternalUtilsFamily" enabled="true" family_id="simd"/>
