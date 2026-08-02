@@ -84,6 +84,43 @@ namespace comdare::cache_engine::builder::bestandslog {
 
 [[nodiscard]] inline std::string now_utc_iso() { return utc_iso_from_epoch(system_now_epoch_s()); }
 
+// Die INVERSE zu utc_iso_from_epoch: Epoch-Sekunden aus EXAKT dem Format dieser Datei
+// ("YYYY-MM-DDTHH:MM:SSZ", 20 Zeichen). Alles andere -> nullopt, nie geraten: die Zeit-Anker der
+// Takeover-Entscheidung (unten) duerfen auf einem kaputten Feld keine Uebernahme begruenden.
+//
+// Rein arithmetisch (days-from-civil), ohne timegm/_mkgmtime: dieselbe Antwort auf jeder Plattform
+// und in jedem Prozess-Zeitzonen-Zustand -- eine Frist, die je nach TZ-Env anders laege, waere im
+// Zwei-Maschinen-Betrieb genau die stille Divergenz, die das Bestandslog ausschliessen soll.
+[[nodiscard]] inline std::optional<std::int64_t> epoch_from_utc_iso(std::string_view s) noexcept {
+    if (s.size() != 20 || s[4] != '-' || s[7] != '-' || s[10] != 'T' || s[13] != ':' || s[16] != ':' || s[19] != 'Z')
+        return std::nullopt;
+    auto const zahl = [&s](std::size_t pos, std::size_t len) -> std::optional<std::int64_t> {
+        std::int64_t v = 0;
+        for (std::size_t i = pos; i < pos + len; ++i) {
+            char const c = s[i];
+            if (c < '0' || c > '9') return std::nullopt;
+            v = v * 10 + (c - '0');
+        }
+        return v;
+    };
+    auto const y  = zahl(0, 4);
+    auto const mo = zahl(5, 2);
+    auto const d  = zahl(8, 2);
+    auto const h  = zahl(11, 2);
+    auto const mi = zahl(14, 2);
+    auto const se = zahl(17, 2);
+    if (!y || !mo || !d || !h || !mi || !se) return std::nullopt;
+    if (*mo < 1 || *mo > 12 || *d < 1 || *d > 31 || *h > 23 || *mi > 59 || *se > 60) return std::nullopt;
+    // days-from-civil (proleptischer Gregorianischer Kalender; Standard-Herleitung, era-basiert).
+    std::int64_t        yy   = *y - (*mo <= 2 ? 1 : 0);
+    std::int64_t const  era  = (yy >= 0 ? yy : yy - 399) / 400;
+    std::uint64_t const yoe  = static_cast<std::uint64_t>(yy - era * 400);
+    std::uint64_t const doy  = static_cast<std::uint64_t>((153 * (*mo + (*mo > 2 ? -3 : 9)) + 2) / 5 + *d - 1);
+    std::uint64_t const doe  = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    std::int64_t const  days = era * 146097 + static_cast<std::int64_t>(doe) - 719468;
+    return days * 86400 + *h * 3600 + *mi * 60 + *se;
+}
+
 // ---------------------------------------------------------------------------
 // Aufrufer-Seite des gelockten Schreib-Zyklus (N7-D1).
 // ---------------------------------------------------------------------------
@@ -211,6 +248,110 @@ template <class Fn>
     return with_document_lock_retry(t, doc_key, me, ttl_s, now_fn, was, [&]() {
                return store_document_merged(t, doc_key, doc).has_value();
            }) == LockOutcome::ok;
+}
+
+// ---------------------------------------------------------------------------
+// G-E1 (ABNAHME-6-PFLICHT): der TAKEOVER-KONSUMENT -- der erste Produktions-Aufrufer der
+// Takeover-Praedikate aus reservation_lifecycle.hpp. Beim Lauf-Start werden fremde OFFENE
+// Reservierungen geprueft; verfallene (pro-forma-Ablauf bzw. 1,5xETA ohne Update = "Maschine
+// GESTORBEN", LEDGER:3291) werden UEBERNOMMEN: ihr Claim wird released, und die nicht als Bestand
+// verzeichnete Arbeit nimmt DIESER Lauf auf (der per-Binary-Miss-Filter baut alles, was nicht im
+// Bestand steht -- eine released-Reservierung haelt nichts mehr zurueck).
+//
+// TAKEOVER-UHR-ANKER (bewusste Wire-neutrale Entscheidung, kein neues Feld / kein syntax-Bump):
+// "seit letztem Update" wird an reserviert_utc gemessen. Das ist HEUTE exakt richtig, weil eine
+// Reservierung genau zweimal geschrieben wird -- bei der Anlage (pro forma) und bei Done/Release
+// (dann ist sie nicht mehr offen). Wenn das F5-ETA-Paket periodische Reservierungs-Updates baut,
+// stellt JEDES Update die Uhr -- dann muss der Anker mit dem Update-Schreiber mitziehen (Befund in
+// der Paketmeldung, nicht hier improvisiert).
+//
+// KONSERVATIV IN JEDER UNKLARHEIT: eigene Reservierungen nie; done/released nie; Records ohne
+// parsbaren Zeit-Anker nie (lieber eine tote Reservierung stehen lassen als eine lebende stehlen);
+// ein nicht parsbares oder syntax-fremdes Dokument stoppt den Sweep komplett.
+// ---------------------------------------------------------------------------
+
+// Der Owner-Anteil einer Reservierungs-id. Beide gebauten id-Formen sind owner_uuid + "/" + Suffix
+// (make_slice_reservation bzw. planer_block_value) -- der Anteil vor dem ERSTEN '/' ist der Owner.
+[[nodiscard]] inline std::string_view reservation_owner_of(std::string_view id) noexcept {
+    return id.substr(0, id.find('/'));
+}
+
+// Fremd == anderer Owner. Der Vergleich laeuft ueber den Owner-ANTEIL, nicht ueber ein Praefix --
+// "uuid-a" darf nie als Owner von "uuid-ab/3" gelten.
+[[nodiscard]] inline bool is_foreign_reservation(BatchReservierung const& r, std::string_view own_owner_uuid) noexcept {
+    return reservation_owner_of(r.id) != own_owner_uuid;
+}
+
+// Die uebernehmbaren Reservierungen eines Dokuments (pure, zeit-parametrisiert -> literal testbar).
+// Das URTEIL faellt is_reservation_takeable (B4) -- diese Funktion liefert ihm nur die geparsten
+// Zeit-Anker und haelt die konservativen Ausschluesse davor.
+[[nodiscard]] inline std::vector<BatchReservierung> collect_takeable_reservations(BestandslogDocument const& doc,
+                                                                                  std::string_view own_owner_uuid,
+                                                                                  std::int64_t     now_epoch_s) {
+    std::vector<BatchReservierung> out;
+    for (auto const& r : doc.reservierungen) {
+        if (r.status != BatchStatus::offen) continue;               // done/released sind nie uebernehmbar
+        if (!is_foreign_reservation(r, own_owner_uuid)) continue;   // die eigene Arbeit uebernimmt man nicht
+        auto const frist = epoch_from_utc_iso(r.pro_forma_bis_utc); // Anker des pro-forma-Falls
+        auto const anker = epoch_from_utc_iso(r.reserviert_utc);    // Anker des ETA-Falls (s. Kopf)
+        if (r.eta_s.empty() && !frist) continue;                    // kaputter Anker -> konservativ stehen lassen
+        if (!r.eta_s.empty() && !anker) continue;
+        if (!is_reservation_takeable(r, anker.value_or(0), frist.value_or(0), now_epoch_s)) continue;
+        out.push_back(r);
+    }
+    return out;
+}
+
+// Ergebnis des Lauf-Start-Sweeps (Zahlen fuer Testat + Tests; ids der uebernommenen Claims).
+struct TakeoverSweepErgebnis {
+    std::size_t              offene_fremde = 0;     // gesehene fremde OFFENE Reservierungen
+    std::size_t              uebernommen   = 0;     // davon released geschrieben (== ids.size() bei Erfolg)
+    bool                     geschrieben   = false; // der gelockte Schreib-Zyklus war ok
+    std::vector<std::string> ids;                   // die uebernommenen Reservierungs-ids
+};
+
+// Der Sweep: fetch -> klassifizieren -> verfallene als released in EINEM gelockten Zyklus mergen.
+//
+// WETTLAUF-AUFLOESUNG OHNE ZWEIT-FETCH: die Klassifikation laeuft auf dem Vor-Lock-Stand; sollte die
+// "gestorbene" Maschine zwischen fetch und store doch noch Done schreiben, loest der Record-Union-
+// Merge das deterministisch auf (status_rank: done schlaegt released -- Fortschritt geht nie
+// verloren). Ein zweiter Taker schreibt released auf released (idempotent).
+[[nodiscard]] inline TakeoverSweepErgebnis takeover_expired_reservations(BestandTransport const& t,
+                                                                         std::string const&      doc_key,
+                                                                         LockOwner const& me, int ttl_s,
+                                                                         NowFn const& now_fn) {
+    TakeoverSweepErgebnis erg;
+    // Fail-closed wie der Lock selbst: ohne Owner-Token wird nicht geurteilt (der Schreib-Zyklus
+    // wuerde ohnehin ablehnen, und ein Urteil ohne Schreiber waere folgenlose Behauptung).
+    if (me.owner_uuid.empty() || !t.fetch || !t.store) return erg;
+    auto const raw = t.fetch(doc_key);
+    if (!raw) return erg; // kein Dokument -> nichts zu uebernehmen (Erst-Lauf)
+    auto const doc = parse_bestandslog(*raw);
+    if (!doc || !document_syntax_supported(*doc)) return erg; // kaputtes/fremdes Doc -> Haende weg
+    for (auto const& r : doc->reservierungen)
+        if (r.status == BatchStatus::offen && is_foreign_reservation(r, me.owner_uuid)) ++erg.offene_fremde;
+    auto kandidaten = collect_takeable_reservations(*doc, me.owner_uuid, now_fn());
+    if (kandidaten.empty()) return erg; // 0-Fall schweigt (kein Rauschen im Normalbetrieb)
+    BestandslogDocument local;
+    local.genus       = doc->genus;
+    local.created_utc = utc_iso_from_epoch(now_fn());
+    for (auto& r : kandidaten) {
+        mark_released(r);
+        erg.ids.push_back(r.id);
+        local.reservierungen.push_back(std::move(r));
+    }
+    erg.geschrieben = with_document_lock_retry(t, doc_key, me, ttl_s, now_fn, "Takeover-Release", [&]() {
+                          return store_document_merged(t, doc_key, local).has_value();
+                      }) == LockOutcome::ok;
+    erg.uebernommen = erg.geschrieben ? erg.ids.size() : 0;
+    if (erg.geschrieben) {
+        // Testat (Nie-stumm-Doktrin): eine Uebernahme ist ein sichtbares Ereignis mit Namen.
+        std::cerr << "[bestandslog] takeover: " << erg.uebernommen
+                  << " verfallene fremde Reservierung(en) uebernommen (";
+        for (std::size_t i = 0; i < erg.ids.size(); ++i) std::cerr << (i == 0 ? "" : ", ") << erg.ids[i];
+        std::cerr << ") -- die nicht als Bestand verzeichnete Arbeit nimmt dieser Lauf auf\n";
+    }
+    return erg;
 }
 
 // Ausgang der per-Binary-Dedup-Klassifikation.

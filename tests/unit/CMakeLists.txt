@@ -4055,6 +4055,18 @@ target_include_directories(test_g3_builder_registration PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_builder_registration PRIVATE Threads::Threads)
 
+# Lager-TP1 (A) / G-E1 (ABNAHME-6): der Takeover-Konsument (builder_registration.hpp: epoch_from_
+# utc_iso, collect_takeable_reservations, takeover_expired_reservations) mit FakeStore + Skript-Uhr.
+# Include-/Link-Satz wie test_g3_builder_registration (ctsha512 via Index; Threads fuer den
+# Retry-Jitter-Sleep im gelockten Zyklus).
+comdare_add_test(test_g3_takeover_sweep
+    SOURCES test_g3_takeover_sweep.cpp)
+target_include_directories(test_g3_takeover_sweep PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_g3_takeover_sweep PRIVATE Threads::Threads)
+
 # G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
 comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)
