@@ -29,8 +29,10 @@ namespace bl = comdare::cache_engine::builder::bestandslog;
 namespace {
 
 // In-Memory-Objekt-Store (Fake-Transport; Teilmenge des test_g3_builder_registration-Musters).
+// fail_store_key laesst genau EINEN Schluessel scheitern -- der echte Schreibfehler-Pfad.
 struct FakeStore {
     std::map<std::string, std::string> objs;
+    std::string                        fail_store_key;
 
     bl::BestandTransport transport() {
         bl::BestandTransport t;
@@ -40,6 +42,7 @@ struct FakeStore {
             return it->second;
         };
         t.store = [this](std::string const& k, std::string const& c) -> bool {
+            if (!fail_store_key.empty() && k == fail_store_key) return false;
             objs[k] = c;
             return true;
         };
@@ -319,4 +322,71 @@ TEST(G3TakeoverSweep, PromiseGuardAbbruchpfadHinterlaesstReleased) {
     EXPECT_EQ(erg.offene_fremde, 0U);
     EXPECT_EQ(erg.uebernommen, 0U);
     EXPECT_EQ(status_von(s, res.id), bl::BatchStatus::released);
+}
+
+// =================================================================================================
+// 6. NACHBESSERUNGS-HAERTUNG (Truth-Check A-1/A-2/A-3 + Schreibfehler-Pfad)
+// =================================================================================================
+TEST(G3TakeoverSweep, A1KaputteOderNullEtaFaelltAufDenProFormaZweig) {
+    // parse_seconds("murks") == 0.0 -- ohne die A-1-Wache waere is_takeable_by_eta(0, ...) SOFORT
+    // frei und eine lebende Maschine enteignet. Mit Wache urteilt der pro-forma-Zweig.
+    FakeStore s;
+    auto      murks = fremde_pro_forma(kT0, 0);
+    murks.eta_s     = "murks"; // nicht parsbar
+    auto null_eta   = fremde_pro_forma(kT0, 1);
+    null_eta.eta_s  = "0.000"; // nicht positiv
+    lege_dokument(s, {murks, null_eta});
+    auto const frist = bl::epoch_from_utc_iso(murks.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+    auto const t = s.transport();
+
+    // VOR der pro-forma-Frist: NICHTS wird uebernommen (die kaputte eta macht nicht sofort-frei).
+    auto const frueh = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 60));
+    EXPECT_EQ(frueh.uebernommen, 0U) << "Eine kaputte eta_s darf NIE als 'sofort uebernehmbar' wirken.";
+    EXPECT_EQ(status_von(s, murks.id), bl::BatchStatus::offen);
+
+    // NACH der pro-forma-Frist greift der Frist-Zweig fuer beide.
+    auto const spaet = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1));
+    EXPECT_EQ(spaet.uebernommen, 2U);
+    EXPECT_EQ(status_von(s, murks.id), bl::BatchStatus::released);
+    EXPECT_EQ(status_von(s, null_eta.id), bl::BatchStatus::released);
+}
+
+TEST(G3TakeoverSweep, A2IdOhneSchraegstrichWirdNieUebernommen) {
+    FakeStore s;
+    auto      fremdform = fremde_pro_forma(kT0);
+    fremdform.id        = "ganz-ohne-schraegstrich"; // keine der beiden gebauten id-Formen
+    lege_dokument(s, {fremdform});
+    std::string const vorher = s.objs[kDocKey];
+
+    auto const t   = s.transport();
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 100 * 3600));
+    EXPECT_EQ(erg.uebernommen, 0U) << "Unbekanntes id-Format -> konservativ stehen lassen (Befund, kein Freibrief).";
+    EXPECT_EQ(s.objs[kDocKey], vorher);
+}
+
+TEST(G3TakeoverSweep, A3StoreFehlerNenntKeineIdsUndLaesstAllesUnveraendert) {
+    FakeStore  s;
+    auto const fremde = fremde_pro_forma(kT0);
+    lege_dokument(s, {fremde});
+    s.fail_store_key         = kDocKey; // der echte Schreibfehler-Pfad
+    std::string const vorher = s.objs[kDocKey];
+    auto const        frist  = bl::epoch_from_utc_iso(fremde.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+
+    CerrCapture cerr_fang;
+    auto const  t   = s.transport();
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1));
+
+    EXPECT_FALSE(erg.geschrieben);
+    EXPECT_EQ(erg.uebernommen, 0U);
+    EXPECT_TRUE(erg.ids.empty()) << "A-3: ein gescheiterter Store hat nichts uebernommen, also nennt er nichts.";
+    EXPECT_EQ(erg.offene_fremde, 1U);
+    EXPECT_EQ(s.objs[kDocKey], vorher) << "Das Dokument bleibt beim Schreibfehler byte-unveraendert.";
+    EXPECT_EQ(status_von(s, fremde.id), bl::BatchStatus::offen);
+    EXPECT_NE(cerr_fang.text().find("nicht persistiert"), std::string::npos)
+        << "Der Fehlschlag ist eine benannte Testat-Zeile, kein Schweigen. Ausgabe war:\n"
+        << cerr_fang.text();
+    EXPECT_EQ(cerr_fang.text().find("takeover:"), std::string::npos)
+        << "KEINE Erfolgs-Testat-Zeile bei gescheitertem Store.";
 }

@@ -265,6 +265,12 @@ template <class Fn>
 // stellt JEDES Update die Uhr -- dann muss der Anker mit dem Update-Schreiber mitziehen (Befund in
 // der Paketmeldung, nicht hier improvisiert).
 //
+// ETA-ZWEIG = VORHALTUNG, KEIN LIVE-PFAD (A-4): eine OFFENE Reservierung mit gefuellter eta_s hat
+// heute keinen Produzenten -- apply_calibration wird produktiv nur unmittelbar vor mark_done
+// geschrieben (Post-hoc-Kalibrierung, s. F5-Spez), der Record ist dann done und nie uebernehmbar.
+// Der Zweig ist fuer das F5-Paket vorgebaut und ueber Tests belegt, im Feld urteilt bis dahin
+// faktisch nur der pro-forma-Zweig.
+//
 // KONSERVATIV IN JEDER UNKLARHEIT: eigene Reservierungen nie; done/released nie; Records ohne
 // parsbaren Zeit-Anker nie (lieber eine tote Reservierung stehen lassen als eine lebende stehlen);
 // ein nicht parsbares oder syntax-fremdes Dokument stoppt den Sweep komplett.
@@ -290,24 +296,36 @@ template <class Fn>
                                                                                   std::int64_t     now_epoch_s) {
     std::vector<BatchReservierung> out;
     for (auto const& r : doc.reservierungen) {
-        if (r.status != BatchStatus::offen) continue;               // done/released sind nie uebernehmbar
-        if (!is_foreign_reservation(r, own_owner_uuid)) continue;   // die eigene Arbeit uebernimmt man nicht
+        if (r.status != BatchStatus::offen) continue; // done/released sind nie uebernehmbar
+        // A-2: eine id ohne '/' folgt keiner der beiden gebauten Formen (owner_uuid/suffix) -- ihr
+        // Owner-Anteil waere die GANZE id, der Fremd-Vergleich damit Raterei. Konservativ stehen
+        // lassen (ein solcher Record ist ein Befund, kein Freibrief).
+        if (r.id.find('/') == std::string::npos) continue;
+        if (!is_foreign_reservation(r, own_owner_uuid)) continue; // die eigene Arbeit uebernimmt man nicht
+        // A-1: eine nicht parsbare oder nicht positive eta_s ist KEINE Kalibrierung. Ohne diese Wache
+        // ergaebe parse_seconds("murks") == 0.0 ein is_takeable_by_eta(0, ...) == sofort frei -- ein
+        // kaputtes Feld wuerde eine LEBENDE Maschine enteignen. Der Record wird stattdessen wie
+        // unkalibriert geurteilt (pro-forma-Zweig); das deckt zugleich die F5-Zukunft, in der
+        // periodische Updates die eta_s fortschreiben.
+        BatchReservierung urteil = r;
+        if (!urteil.eta_s.empty() && !(parse_seconds(urteil.eta_s) > 0.0)) urteil.eta_s.clear();
         auto const frist = epoch_from_utc_iso(r.pro_forma_bis_utc); // Anker des pro-forma-Falls
         auto const anker = epoch_from_utc_iso(r.reserviert_utc);    // Anker des ETA-Falls (s. Kopf)
-        if (r.eta_s.empty() && !frist) continue;                    // kaputter Anker -> konservativ stehen lassen
-        if (!r.eta_s.empty() && !anker) continue;
-        if (!is_reservation_takeable(r, anker.value_or(0), frist.value_or(0), now_epoch_s)) continue;
+        if (urteil.eta_s.empty() && !frist) continue;               // kaputter Anker -> konservativ stehen lassen
+        if (!urteil.eta_s.empty() && !anker) continue;
+        if (!is_reservation_takeable(urteil, anker.value_or(0), frist.value_or(0), now_epoch_s)) continue;
         out.push_back(r);
     }
     return out;
 }
 
-// Ergebnis des Lauf-Start-Sweeps (Zahlen fuer Testat + Tests; ids der uebernommenen Claims).
+// Ergebnis des Lauf-Start-Sweeps (Zahlen fuer Testat + Tests).
 struct TakeoverSweepErgebnis {
     std::size_t              offene_fremde = 0;     // gesehene fremde OFFENE Reservierungen
-    std::size_t              uebernommen   = 0;     // davon released geschrieben (== ids.size() bei Erfolg)
+    std::size_t              uebernommen   = 0;     // davon released geschrieben (== ids.size())
     bool                     geschrieben   = false; // der gelockte Schreib-Zyklus war ok
-    std::vector<std::string> ids;                   // die uebernommenen Reservierungs-ids
+    std::vector<std::string> ids;                   // die UEBERNOMMENEN ids -- nur bei geschrieben gefuellt (A-3): ein
+                                                    // gescheiterter Store hat nichts uebernommen, also nennt er nichts
 };
 
 // Der Sweep: fetch -> klassifizieren -> verfallene als released in EINEM gelockten Zyklus mergen.
@@ -335,16 +353,18 @@ struct TakeoverSweepErgebnis {
     BestandslogDocument local;
     local.genus       = doc->genus;
     local.created_utc = utc_iso_from_epoch(now_fn());
+    std::vector<std::string> kandidaten_ids; // erst nach gelungenem Store sind sie "uebernommen" (A-3)
     for (auto& r : kandidaten) {
         mark_released(r);
-        erg.ids.push_back(r.id);
+        kandidaten_ids.push_back(r.id);
         local.reservierungen.push_back(std::move(r));
     }
     erg.geschrieben = with_document_lock_retry(t, doc_key, me, ttl_s, now_fn, "Takeover-Release", [&]() {
                           return store_document_merged(t, doc_key, local).has_value();
                       }) == LockOutcome::ok;
-    erg.uebernommen = erg.geschrieben ? erg.ids.size() : 0;
     if (erg.geschrieben) {
+        erg.ids         = std::move(kandidaten_ids);
+        erg.uebernommen = erg.ids.size();
         // Testat (Nie-stumm-Doktrin): eine Uebernahme ist ein sichtbares Ereignis mit Namen.
         std::cerr << "[bestandslog] takeover: " << erg.uebernommen
                   << " verfallene fremde Reservierung(en) uebernommen (";
