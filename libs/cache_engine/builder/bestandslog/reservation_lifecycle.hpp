@@ -21,6 +21,7 @@
 
 #include <array>
 #include <charconv>
+#include <cmath> // TP1FK1-B3 (CX-W8): std::isfinite -- inf/infinity ist KEINE brauchbare ETA
 #include <cstdint>
 #include <functional>
 #include <optional> // TP1FK1-B3: parse_seconds meldet "nicht deutbar" als nullopt (fail-closed)
@@ -60,11 +61,20 @@ inline constexpr double kTakeoverFactor  = 1.5;
 }
 
 // Die EINE Auslegung "traegt dieser Record eine BRAUCHBARE Kalibrierung?" -- strikt parsbar UND
-// positiv. Sie steht hier, weil sowohl das Praedikat unten als auch der Sweep-Konsument
+// positiv UND endlich. Sie steht hier, weil sowohl das Praedikat unten als auch der Sweep-Konsument
 // (collect_takeable_reservations) dieselbe Frage stellen; zwei Formulierungen waeren zwei Wahrheiten.
+//
+// TP1FK1-B3 (CX-W8): std::from_chars deutet fuer double die strtod-Formen -- also auch "inf"/
+// "infinity" VOLLSTAENDIG (Endzeiger am Stringende, ec == errc{}). Ohne die isfinite-Wache lieferte
+// has_usable_eta("inf") == true (inf > 0.0), die Reservierung galt als kalibriert, und
+// is_takeable_by_eta rechnete "elapsed > 1.5 * inf" == IMMER false: der Claim erreichte nie den
+// pro-forma-Fallback und war NIE uebernehmbar (permanente Verklemmung -- die Gegenrichtung der von
+// B1 beseitigten Falsch-Enteignung). "nan" war schon vorher unkritisch (nan > 0.0 == false); "inf"
+// faellt jetzt DERSELBEN Regel folgend auf den pro-forma-Zweig. Eine plausible Obergrenze bleibt
+// bewusst offen -- eine echte ETA darf gross sein; nur das Nicht-Endliche ist keine Kalibrierung.
 [[nodiscard]] inline bool has_usable_eta(std::string_view eta_s) noexcept {
     auto const v = parse_seconds(eta_s);
-    return v.has_value() && *v > 0.0;
+    return v.has_value() && *v > 0.0 && std::isfinite(*v);
 }
 
 // ---------------------------------------------------------------------------

@@ -87,6 +87,30 @@ TEST(G3ReservationLifecycle, B3KaputteEtaFaelltAufProFormaZweig) {
     EXPECT_TRUE(bl::is_reservation_takeable(r, 1000, 2800, 2801)) << "Erst die pro-forma-Frist gibt sie frei.";
 }
 
+// TP1FK1-B3 (NEGATIVTEST, CX-W8): std::from_chars deutet "inf"/"infinity" fuer double VOLLSTAENDIG
+// (Endzeiger am Ende, ec == errc{}). VOR der isfinite-Wache lieferte has_usable_eta("inf") == true,
+// die Reservierung galt als kalibriert, und is_takeable_by_eta rechnete "elapsed > 1.5 * inf" ==
+// IMMER false: der Claim war NIE uebernehmbar (permanente Verklemmung). Mit der Wache faellt "inf"
+// auf den pro-forma-Zweig -- exakt wie "nan", das schon immer korrekt fiel (nan > 0.0 == false).
+TEST(G3ReservationLifecycle, B3InfIstKeineBrauchbareEta) {
+    // (1) parse_seconds deutet inf/infinity WEITERHIN (das ist die strtod-Wahrheit) ...
+    EXPECT_TRUE(bl::parse_seconds("inf").has_value());
+    EXPECT_TRUE(bl::parse_seconds("infinity").has_value());
+    // (2) ... aber has_usable_eta verwirft sie: nicht endlich == keine Kalibrierung.
+    EXPECT_FALSE(bl::has_usable_eta("inf")) << "inf war vor dem Fix >0 und damit faelschlich 'usable'.";
+    EXPECT_FALSE(bl::has_usable_eta("infinity"));
+    EXPECT_FALSE(bl::has_usable_eta("nan")) << "nan war schon immer korrekt (nan > 0.0 == false).";
+    EXPECT_TRUE(bl::has_usable_eta("100.000")) << "eine echte, endliche ETA bleibt brauchbar.";
+    // (3) die Wirkung am Praedikat: ein "inf"-Record faellt auf pro-forma -> nach der Frist uebernehmbar
+    //     (statt nie). VOR dem Fix waehlte er den ETA-Zweig und war fuer JEDES now nicht uebernehmbar.
+    bl::BatchReservierung r;
+    r.status = bl::BatchStatus::offen;
+    r.eta_s  = "inf";
+    EXPECT_TRUE(bl::is_reservation_takeable(r, 1000, 2800, 2801))
+        << "Nach der pro-forma-Frist ist der inf-Claim uebernehmbar -- keine permanente Verklemmung.";
+    EXPECT_FALSE(bl::is_reservation_takeable(r, 1000, 2800, 2500)) << "Vor der Frist bleibt er stehen (konservativ).";
+}
+
 TEST(G3ReservationLifecycle, MarkDoneAndReleased) {
     bl::BatchReservierung r;
     r.status = bl::BatchStatus::offen;
