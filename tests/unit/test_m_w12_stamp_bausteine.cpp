@@ -473,6 +473,22 @@ TEST(MW12StampBausteine, MergeStampLineCarriesMergeCombinationOrEmptyForCeOnly) 
 // bildet ctsha512 ueber DIESELBEN vier Zeilen in DERSELBEN Reihenfolge (organ+system+measurement+merge) und MUSS exakt
 // kFrozenFingerprintV1 erhalten -- EIN Testvektor, zwei Module (keine Separator-/Whitespace-Drift). Die vier Zeilen und
 // der Hex sind EINGEFROREN: NIE aendern (bricht die B3-Sync), nur bei bewusstem Fingerprint-Bruch unter Absprache.
+//
+// A13-M2 (Owner-E2/Q1 vom 02.08.2026) -- WARUM HIER TROTZ FINGERPRINT-GLOBAL-SHIFT NICHTS NEU EINGEFROREN WURDE,
+// literal geprueft und bewusst dokumentiert, damit der naechste Leser es nicht fuer einen VERGESSENEN Anker haelt:
+// dieser Vektor rechnet ueber VIER FESTE LITERALE (kOrgan/kSystem/kMeasure/kMerge unten), NICHT ueber die LIVE
+// gerenderten Stempel-Zeilen. A13-M2 aendert die LIVE-Zeilen (System-Zeile +Klammer-Anhang, Mess-Zeile
+// load_framework ans Ende) und damit den Fingerprint JEDER kuenftigen Binary -- dieses Literal-Quartett ruehrt es
+// nicht an. Der Testlauf belegt es: der Hex unten ist unveraendert und BEIDE Module (hier + test_g3_sha512_index)
+// sind gruen geblieben.
+// WAS DEN VEKTOR SEHR WOHL BRECHEN WIRD: A13-M3 entfernt die merge-ZEILE ersatzlos (Owner-E2: "Merge Zeile kann
+// daher nicht existieren"). Damit faellt kMerge aus dem Preimage, der Hex aendert sich zwangslaeufig, und DANN
+// ist hier UND in test_g3_sha512_index IM SELBEN COMMIT neu einzufrieren (Lane-B-Drift-Verbot). Das ist der EINE
+// faellige Neuanker; ihn nach vorn in M2 zu ziehen haette einen zweiten erzeugt, ohne etwas zu beweisen.
+// BEI DIESEM M3-NEUANKER MIT ZU ERLEDIGEN (Fixture-Zementierungs-Lehre): die Literale sind inhaltlich VERALTET --
+// kSystem traegt "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte System-Haupt-Achse, und kMeasure
+// traegt "wallclock@1.0.0" ohne Achsen-Praefix. Als Hash-Konsistenz-Anker (ein Vektor, zwei Module) tut das
+// nichts zur Sache, als Referenz-Beispiel liest es sich aber falsch.
 TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     namespace abi                       = ::comdare::cache_engine::abi;
     constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0;path_compression=path_compression_none@1.0.0";
