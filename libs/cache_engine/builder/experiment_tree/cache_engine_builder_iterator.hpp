@@ -1063,8 +1063,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 // eine Falschangabe. Unrelativierbar (fremde Wurzel) -> voller Pfad als ehrlicher
                 // Fallback (nie leer, nie geraten).
                 std::error_code rel_ec;
-                auto const      rel  = std::filesystem::relative(b.output, cfg.output_dir, rel_ec);
-                std::string     pfad = (rel_ec || rel.empty()) ? b.output.string() : rel.generic_string();
+                auto const      rel = std::filesystem::relative(b.output, cfg.output_dir, rel_ec);
+                // TP1-F2: auch der Fallback in generic-Form -- der Praefix-Verwurf (Fehl-Push-
+                // Ausschluss) vergleicht generic_string()-Formen; string() wuerde auf Windows nie
+                // matchen und einen unbestaetigten Eintrag doch registrieren.
+                std::string pfad = (rel_ec || rel.empty()) ? b.output.generic_string() : rel.generic_string();
                 lager.observe(key.value_or(std::string{}), cfg.bestand_zelle, std::move(pfad), bytes, b.algo_sig,
                               bestandslog::now_utc_iso());
             }

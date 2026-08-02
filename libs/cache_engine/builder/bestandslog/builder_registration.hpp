@@ -299,8 +299,9 @@ template <class Fn>
         if (r.status != BatchStatus::offen) continue; // done/released sind nie uebernehmbar
         // A-2: eine id ohne '/' folgt keiner der beiden gebauten Formen (owner_uuid/suffix) -- ihr
         // Owner-Anteil waere die GANZE id, der Fremd-Vergleich damit Raterei. Konservativ stehen
-        // lassen (ein solcher Record ist ein Befund, kein Freibrief).
-        if (r.id.find('/') == std::string::npos) continue;
+        // lassen (ein solcher Record ist ein Befund, kein Freibrief). TP1-F-A2: dasselbe gilt fuer
+        // einen FUEHRENDEN '/' (leerer Owner-Anteil) -- sonst gaelte "/3" stets als fremd.
+        if (auto const slash = r.id.find('/'); slash == std::string::npos || slash == 0) continue;
         if (!is_foreign_reservation(r, own_owner_uuid)) continue; // die eigene Arbeit uebernimmt man nicht
         // A-1: eine nicht parsbare oder nicht positive eta_s ist KEINE Kalibrierung. Ohne diese Wache
         // ergaebe parse_seconds("murks") == 0.0 ein is_takeable_by_eta(0, ...) == sofort frei -- ein
@@ -513,8 +514,11 @@ public:
         std::lock_guard<std::mutex> lk(mtx_);
         std::size_t const           vorher = fresh_.size();
         std::erase_if(fresh_, [&prefixes](BestandEintrag const& e) {
+            // TP1-F1: Vergleich MIT Trenner -- der Eintragspfad ist stets "<stem>/perm.dll"; ein
+            // nacktes starts_with(p) liesse den Stem "...=1" auch "...=16" verwerfen (Stem-Praefix-
+            // Kollision bei numerischen Achsenwerten).
             for (auto const& p : prefixes)
-                if (!p.empty() && e.pfad.starts_with(p)) return true;
+                if (!p.empty() && e.pfad.starts_with(p + "/")) return true;
             return false;
         });
         return vorher - fresh_.size();
