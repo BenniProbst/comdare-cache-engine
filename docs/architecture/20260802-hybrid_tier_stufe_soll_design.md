@@ -346,17 +346,18 @@ Siehe Abschnitt 3.4: das Substrat ist `decision_lambda_trees` PLUS
 `measurement/axis_error.hpp`. `selection_filter_chain.hpp` ist als Wiederverwendungs-Kandidat fuer
 den HY-B2-Router zu pruefen, bevor eine neue Kette entsteht.
 
-### K4 (offen, Owner-Frage): Verhaeltnis zum Framing "Heuristik-Optimierung als eigene Systemachse"
+### K4 (ENTSCHIEDEN, Owner-GO Q6 vom 02.08.2026 ~17:4x): Verhaeltnis zum Framing "Heuristik-Optimierung als eigene Systemachse"
 
 LEDGER:187(e) beschreibt das CEB-Ziel als 4 Modi und nennt den Hybrid-Modus dort
 "Heuristik-Optimierungs-Achse als **eigene Systemachse**". Owner-E1 definiert die Hybrid-Natur nun
 als **eigene STUFE hinter der CEB**. Unter V7.2 (genau drei System-Glieder) ist beides nicht
-gleichzeitig ohne Klaerung haltbar. **Design-Lesart dieses Dokuments:** Owner-E1 ist die juengere und
-speziellere Aussage; die Hybrid-Natur ist eine STUFE, keine Systemachse; das Systemachsen-Framing aus
-LEDGER:187(e) gilt als eingeordnet/superseded, solange der Owner nicht widerspricht. Diese Lesart
-steht als Owner-Frage (Q6-Anteil) offen und ist parallel im HY-D1-Vermerk zu fuehren -- sie darf
-nicht stillschweigend uebergangen werden, sonst entsteht derselbe schlafende Regelkonflikt-Typ wie
-E-11.
+gleichzeitig ohne Klaerung haltbar. **ENTSCHIEDEN:** Der Owner hat am 02.08.2026 ~17:4x den
+Q6-Empfehlungs-Default verbatim freigegeben ("Q6 Ein-Gattung-Hybrid + MaxN=8 + LEDGER:187(e)
+superseded", persistiert in `docs/sessions/20260802-OWNER-entscheide-hybrid-tier-stempel-regression-os-unterachsen.md`).
+Damit gilt: Owner-E1 ist die juengere und speziellere Aussage; die Hybrid-Natur ist eine STUFE, keine
+Systemachse; das Systemachsen-Framing aus LEDGER:187(e) ist **superseded** (kein offener Regelkonflikt
+mehr; Codex-B8/CX-W7-Schliessung 02.08. abends). Der Ledger-Supersede-Vermerk zu 187(e) folgt im
+gebuendelten Nachzugs-Paket.
 
 ### K5 (offen, benannter Entscheid in HY-B4): Semantik der Snapshot-Aggregation
 
@@ -419,15 +420,18 @@ Pruefung -> CI gruen.
 
 ---
 
-## 10. Offene Owner-Fragen
+## 10. Owner-Fragen
 
-1. **Gattungs-Kardinalitaet:** EIN Hybrid-Binary je Gattung (Empfehlung, gestuetzt auf die
-   Doktrin "uebernimmt per Metaprogrammierung DIE Gattung ihrer Tier-Binaries") -- oder darf ein
-   Hybrid-Binary Docks GEMISCHTER Gattungen tragen?
-2. **CT-Kapazitaet der statischen Dock-Array-Policy:** Default-MaxN (Vorschlag 8, per XML
-   `max_docks` als Compile-Define beim delegierten Hybrid-Bau) -- Owner-Wert oder frei?
-3. **Stempel-Detail:** bekommt die Hybrid-Binary im System-Stempel-Array ein eigenes Kennzeichen
-   (hybrid-Flag/Version) oder bleibt die Hybrid-Natur ausschliesslich im Sidecar-Manifest?
+**Owner-GO Q6 (02.08.2026 ~17:4x, verbatim) hat Punkte 1 und 2 ENTSCHIEDEN** (siehe K4):
+
+1. **Gattungs-Kardinalitaet -- ENTSCHIEDEN: EIN Hybrid-Binary je Gattung** ("Ein-Gattung-Hybrid",
+   gestuetzt auf die Doktrin "uebernimmt per Metaprogrammierung DIE Gattung ihrer Tier-Binaries").
+   Gemischte Gattungen in einer Huelle sind damit ausgeschlossen; je Gattung eine eigene Huelle.
+2. **CT-Kapazitaet der statischen Dock-Array-Policy -- ENTSCHIEDEN: Default-MaxN = 8** (per XML
+   `max_docks` als Compile-Define beim delegierten Hybrid-Bau ueberschreibbar).
+3. **Stempel-Detail (OFFEN, Owner-Vorlage V4):** bekommt die Hybrid-Binary im System-Stempel-Array ein
+   eigenes Kennzeichen (hybrid-Flag/Version) oder bleibt die Hybrid-Natur ausschliesslich im
+   Sidecar-Manifest? -- NICHT Teil von Q6, weiterhin offen; im gebuendelten Owner-Vorlagen-Block (V4).
    (klein, nach A13 entscheidbar; haengt an K1)
 4. **Verdraengungs-Heuristik-Shortlist:** die §49-beauftragte Web-Recherche der Speicher-Heuristiken
    (LRU/LFU/ARC/GDSF/cost-aware) ist offen -- Zeitpunkt Auswertungsphase (HY-B2) bestaetigen oder
