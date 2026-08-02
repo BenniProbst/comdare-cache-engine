@@ -15,9 +15,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <limits> // TP1FK1-B1: Ueberlauf-Kante des Deckungs-Praedikats
 #include <map>
 #include <optional>
 #include <sstream>
@@ -33,13 +35,20 @@ namespace {
 struct FakeStore {
     std::map<std::string, std::string> objs;
     std::string                        fail_store_key;
+    // TP1FK1-B4 (Interleaving-Naht): laeuft NACH jedem fetch DES DOKUMENT-Keys und darf den Store
+    // veraendern. Damit ist der Wettlauf "der totgeglaubte Owner schreibt zwischen Klassifikation
+    // und Store doch noch Done" deterministisch skriptbar -- ohne Threads, ohne Wall-Clock.
+    std::string           doc_key_hook; // welcher Key den Hook ausloest (leer = keiner)
+    std::function<void()> nach_doc_fetch;
 
     bl::BestandTransport transport() {
         bl::BestandTransport t;
         t.fetch = [this](std::string const& k) -> std::optional<std::string> {
-            auto it = objs.find(k);
-            if (it == objs.end()) return std::nullopt;
-            return it->second;
+            auto                       it = objs.find(k);
+            std::optional<std::string> out;
+            if (it != objs.end()) out = it->second;
+            if (nach_doc_fetch && !doc_key_hook.empty() && k == doc_key_hook) nach_doc_fetch();
+            return out;
         };
         t.store = [this](std::string const& k, std::string const& c) -> bool {
             if (!fail_store_key.empty() && k == fail_store_key) return false;
@@ -117,6 +126,21 @@ std::optional<bl::BatchStatus> status_von(FakeStore& s, std::string const& id) {
 
 std::string hexkey(char c) { return std::string(128, c); }
 
+// TP1FK1-B1: der Sweep braucht den Scope dieses Laufs (Batch-Typ + Selektions-Menge). Die
+// Bestandsfaelle dieses Tests bauen alle auf fremde_pro_forma(...) mit slice_begin=0/slice_count=4096
+// und typ=tier -> `voll_scope()` ist der Scope eines Laufs, der GENAU dieses Fenster baut. Die Menge
+// wird ABGELEITET (0..4095), nicht als Literal-Liste gepflegt.
+std::vector<std::size_t> fenster_indices(std::size_t begin, std::size_t count) {
+    std::vector<std::size_t> v;
+    v.reserve(count);
+    for (std::size_t i = 0; i < count; ++i) v.push_back(begin + i);
+    return v;
+}
+bl::SweepScope voll_scope() {
+    static std::vector<std::size_t> const alle = fenster_indices(0, 4096);
+    return bl::make_sweep_scope(bl::BatchTyp::tier, alle);
+}
+
 } // namespace
 
 // =================================================================================================
@@ -137,6 +161,40 @@ TEST(G3TakeoverSweep, EpochIsoRoundtripUndStrengeAblehnung) {
     EXPECT_FALSE(bl::epoch_from_utc_iso("2026-08-02 07:00:00Z").has_value()); // Leerzeichen statt T
     EXPECT_FALSE(bl::epoch_from_utc_iso("2026-08-02T07:00:00").has_value());  // Z fehlt
     EXPECT_FALSE(bl::epoch_from_utc_iso("2026-13-02T07:00:00Z").has_value()); // Monat 13
+}
+
+// =================================================================================================
+// 1b. TP1FK1-B3 (NEGATIVTEST, Codex-Befund): unmoegliche ZIVILDATEN werden abgelehnt, nicht
+//     normalisiert. Vor der Haertung rechnete die days-from-civil-Formel den 31.04. still auf den
+//     01.05. um -- ein erfundener Zeit-Anker unter einer Enteignungs-Entscheidung.
+// =================================================================================================
+TEST(G3TakeoverSweep, B3EpochIsoLehntUnmoeglicheZivildatenAb) {
+    // Tage je Monat (die frueher pauschale Wache d<=31 liess alle vier durch).
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-04-31T07:00:00Z").has_value()) << "April hat 30 Tage.";
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-06-31T07:00:00Z").has_value());
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-09-31T07:00:00Z").has_value());
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-11-31T07:00:00Z").has_value());
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-02-30T07:00:00Z").has_value());
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-01-00T07:00:00Z").has_value()) << "Tag 0 existiert nicht.";
+    // Schaltjahr-Regel (durch 4, aber nicht durch 100, ausser durch 400).
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2027-02-29T07:00:00Z").has_value()) << "2027 ist kein Schaltjahr.";
+    EXPECT_TRUE(bl::epoch_from_utc_iso("2028-02-29T07:00:00Z").has_value()) << "2028 ist ein Schaltjahr.";
+    EXPECT_FALSE(bl::epoch_from_utc_iso("1900-02-29T07:00:00Z").has_value()) << "1900: durch 100, nicht durch 400.";
+    EXPECT_TRUE(bl::epoch_from_utc_iso("2000-02-29T07:00:00Z").has_value()) << "2000: durch 400.";
+    // Sekunde: unser Formatter erzeugt nie 60 -- eine 60 kommt aus einer fremden Quelle.
+    EXPECT_FALSE(bl::epoch_from_utc_iso("2026-08-02T07:00:60Z").has_value());
+    EXPECT_TRUE(bl::epoch_from_utc_iso("2026-08-02T07:00:59Z").has_value());
+    // Und die Wirkung im Sweep: ein Record mit unmoeglichem Anker wird NIE uebernommen.
+    FakeStore s;
+    auto      krumm         = fremde_pro_forma(kT0);
+    krumm.pro_forma_bis_utc = "2026-04-31T07:00:00Z"; // unmoegliches Datum
+    lege_dokument(s, {krumm});
+    std::string const vorher = s.objs[kDocKey];
+    auto const        t      = s.transport();
+    auto const        erg =
+        bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 100 * 3600), voll_scope());
+    EXPECT_EQ(erg.uebernommen, 0U) << "Ein unmoegliches Zivildatum ist ein kaputter Anker, kein Freibrief.";
+    EXPECT_EQ(s.objs[kDocKey], vorher);
 }
 
 // =================================================================================================
@@ -167,7 +225,7 @@ TEST(G3TakeoverSweep, VerfalleneProFormaWirdUebernommen) {
     ASSERT_TRUE(frist.has_value());
     CerrCapture cerr_fang;
     auto const  t   = s.transport();
-    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1));
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
 
     EXPECT_EQ(erg.offene_fremde, 1U);
     EXPECT_EQ(erg.uebernommen, 1U);
@@ -192,7 +250,7 @@ TEST(G3TakeoverSweep, FrischeFremdeBleibtUnangetastet) {
     ASSERT_TRUE(frist.has_value());
     CerrCapture cerr_fang;
     auto const  t   = s.transport();
-    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist - 1));
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist - 1), voll_scope());
 
     EXPECT_EQ(erg.offene_fremde, 1U);
     EXPECT_EQ(erg.uebernommen, 0U);
@@ -210,7 +268,7 @@ TEST(G3TakeoverSweep, EigeneWirdNieUebernommen) {
     // WEIT nach der Frist -- und trotzdem tabu: die eigene offene Reservierung ist der eigene
     // (Wieder-)Anlauf, kein toter Fremd-Claim.
     auto const t   = s.transport();
-    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 10 * 3600));
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 10 * 3600), voll_scope());
 
     EXPECT_EQ(erg.offene_fremde, 0U);
     EXPECT_EQ(erg.uebernommen, 0U);
@@ -228,12 +286,12 @@ TEST(G3TakeoverSweep, EtaFallMaschineGestorbenUndGegenprobe) {
     auto const t = s.transport();
 
     // Gegenprobe zuerst: 149s nach der Reservierung ist die Maschine nicht tot.
-    auto const frueh = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 149));
+    auto const frueh = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 149), voll_scope());
     EXPECT_EQ(frueh.uebernommen, 0U);
     EXPECT_EQ(status_von(s, fremde.id), bl::BatchStatus::offen);
 
     // 151s ohne Update: ETA um 50% ueberschritten -> "Maschine GESTORBEN", Arbeit uebernehmen.
-    auto const spaet = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 151));
+    auto const spaet = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 151), voll_scope());
     EXPECT_EQ(spaet.uebernommen, 1U);
     EXPECT_EQ(status_von(s, fremde.id), bl::BatchStatus::released);
 }
@@ -248,8 +306,9 @@ TEST(G3TakeoverSweep, KaputteZeitankerWerdenNieUebernommen) {
     lege_dokument(s, {kaputt, kaputt_eta});
     std::string const vorher = s.objs[kDocKey];
 
-    auto const t   = s.transport();
-    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 100 * 3600));
+    auto const t = s.transport();
+    auto const erg =
+        bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 100 * 3600), voll_scope());
 
     EXPECT_EQ(erg.offene_fremde, 2U);
     EXPECT_EQ(erg.uebernommen, 0U) << "Ohne parsbaren Zeit-Anker wird NIE uebernommen -- lieber eine "
@@ -270,7 +329,7 @@ TEST(G3TakeoverSweep, UebernommeneArbeitLandetAlsBestand) {
     auto const t = s.transport();
 
     // Schritt 1 (Lauf-Start): Sweep uebernimmt den toten Claim.
-    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1));
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
     ASSERT_EQ(erg.uebernommen, 1U);
 
     // Schritt 2 (der Lauf baut die unverzeichnete Arbeit und registriert sie -- der normale
@@ -318,7 +377,7 @@ TEST(G3TakeoverSweep, PromiseGuardAbbruchpfadHinterlaesstReleased) {
     EXPECT_EQ(status_von(s, res.id), bl::BatchStatus::released);
 
     // Und der Sweep laesst die sauber freigegebene Reservierung in Ruhe -- selbst Stunden spaeter.
-    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 24 * 3600));
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 24 * 3600), voll_scope());
     EXPECT_EQ(erg.offene_fremde, 0U);
     EXPECT_EQ(erg.uebernommen, 0U);
     EXPECT_EQ(status_von(s, res.id), bl::BatchStatus::released);
@@ -341,12 +400,12 @@ TEST(G3TakeoverSweep, A1KaputteOderNullEtaFaelltAufDenProFormaZweig) {
     auto const t = s.transport();
 
     // VOR der pro-forma-Frist: NICHTS wird uebernommen (die kaputte eta macht nicht sofort-frei).
-    auto const frueh = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 60));
+    auto const frueh = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 60), voll_scope());
     EXPECT_EQ(frueh.uebernommen, 0U) << "Eine kaputte eta_s darf NIE als 'sofort uebernehmbar' wirken.";
     EXPECT_EQ(status_von(s, murks.id), bl::BatchStatus::offen);
 
     // NACH der pro-forma-Frist greift der Frist-Zweig fuer beide.
-    auto const spaet = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1));
+    auto const spaet = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
     EXPECT_EQ(spaet.uebernommen, 2U);
     EXPECT_EQ(status_von(s, murks.id), bl::BatchStatus::released);
     EXPECT_EQ(status_von(s, null_eta.id), bl::BatchStatus::released);
@@ -359,8 +418,9 @@ TEST(G3TakeoverSweep, A2IdOhneSchraegstrichWirdNieUebernommen) {
     lege_dokument(s, {fremdform});
     std::string const vorher = s.objs[kDocKey];
 
-    auto const t   = s.transport();
-    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 100 * 3600));
+    auto const t = s.transport();
+    auto const erg =
+        bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(kT0 + 100 * 3600), voll_scope());
     EXPECT_EQ(erg.uebernommen, 0U) << "Unbekanntes id-Format -> konservativ stehen lassen (Befund, kein Freibrief).";
     EXPECT_EQ(s.objs[kDocKey], vorher);
 }
@@ -376,7 +436,7 @@ TEST(G3TakeoverSweep, A3StoreFehlerNenntKeineIdsUndLaesstAllesUnveraendert) {
 
     CerrCapture cerr_fang;
     auto const  t   = s.transport();
-    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1));
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
 
     EXPECT_FALSE(erg.geschrieben);
     EXPECT_EQ(erg.uebernommen, 0U);
@@ -389,4 +449,190 @@ TEST(G3TakeoverSweep, A3StoreFehlerNenntKeineIdsUndLaesstAllesUnveraendert) {
         << cerr_fang.text();
     EXPECT_EQ(cerr_fang.text().find("takeover:"), std::string::npos)
         << "KEINE Erfolgs-Testat-Zeile bei gescheitertem Store.";
+}
+
+// =================================================================================================
+// 7. TP1FK1-B1 (Codex-Befund): der Sweep ist an DIESEN Lauf gekoppelt -- Batch-Typ + Selektion.
+//    Ohne die Kopplung released der Sweep Claims, deren Arbeit dieser Lauf gar nicht aufnehmen kann;
+//    die Arbeit bleibt dann liegen (Claim weg, niemand baut).
+// =================================================================================================
+TEST(G3TakeoverSweep, B1FremderBatchTypWirdNieUebernommen) {
+    // Ein verfallener FREMDER planer_block (CEB-Vorreservierung). Der TIER-Sweep kann seine Arbeit
+    // weder erkennen (sie ist keine Tier-Binary) noch bauen -> Haende weg, obwohl die Frist um ist.
+    FakeStore s;
+    auto      block = fremde_pro_forma(kT0);
+    block.typ       = bl::BatchTyp::planer_block;
+    lege_dokument(s, {block});
+    std::string const vorher = s.objs[kDocKey];
+    auto const        frist  = bl::epoch_from_utc_iso(block.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+
+    CerrCapture cerr_fang;
+    auto const  t   = s.transport();
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
+
+    EXPECT_EQ(erg.offene_fremde, 1U);
+    EXPECT_EQ(erg.uebernommen, 0U) << "Ein planer_block ist nicht die Arbeit des Tier-Sweeps.";
+    EXPECT_EQ(erg.typ_fremd, 1U);
+    EXPECT_EQ(erg.nicht_gedeckt, 0U);
+    EXPECT_FALSE(erg.geschrieben);
+    EXPECT_EQ(s.objs[kDocKey], vorher) << "Kein Schreibvorgang -- der fremde Claim bleibt byte-identisch stehen.";
+    EXPECT_EQ(status_von(s, block.id), bl::BatchStatus::offen);
+    EXPECT_NE(cerr_fang.text().find("takeover-scope:"), std::string::npos)
+        << "Das bewusste Nicht-Handeln ist benannt (Nie-stumm). Ausgabe war:\n"
+        << cerr_fang.text();
+}
+
+TEST(G3TakeoverSweep, B1EigenerTypBleibtUebernehmbar) {
+    // Gegenprobe zur Typ-Wache: derselbe Fall mit typ=tier wird sehr wohl uebernommen -- die Wache
+    // darf den Normalfall nicht mit-abschalten.
+    FakeStore  s;
+    auto const fremde = fremde_pro_forma(kT0); // make_slice_reservation -> BatchTyp::tier
+    ASSERT_EQ(fremde.typ, bl::BatchTyp::tier);
+    lege_dokument(s, {fremde});
+    auto const frist = bl::epoch_from_utc_iso(fremde.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+    auto const t   = s.transport();
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
+    EXPECT_EQ(erg.uebernommen, 1U);
+    EXPECT_EQ(erg.typ_fremd, 0U);
+    EXPECT_EQ(status_von(s, fremde.id), bl::BatchStatus::released);
+}
+
+TEST(G3TakeoverSweep, B1NichtGedeckteFensterBleibenStehen) {
+    // Drei verfallene fremde tier-Claims, dieselbe Frist -- unterschiedliche Fenster:
+    //   (a) [0,4096)      voll in der Selektion dieses Laufs        -> uebernehmbar
+    //   (b) [8192,12288)  komplett ausserhalb                       -> stehen lassen
+    //   (c) [4000,4196)   nur TEILWEISE gedeckt (der Rest > 4095)   -> stehen lassen
+    // (c) ist der eigentliche Kern: eine Teil-Deckung hiesse, dass ein Rest der freigegebenen
+    // Arbeit von niemandem gebaut wird. Volle Deckung oder gar nichts.
+    FakeStore s;
+    auto      innen = bl::make_slice_reservation("uuid-prod2-77", 0, "prod2", 24, 0, 4096, kT0);
+    auto      weit  = bl::make_slice_reservation("uuid-prod2-77", 1, "prod2", 24, 8192, 4096, kT0);
+    auto      halb  = bl::make_slice_reservation("uuid-prod2-77", 2, "prod2", 24, 4000, 196, kT0);
+    lege_dokument(s, {innen, weit, halb});
+    auto const frist = bl::epoch_from_utc_iso(innen.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+
+    CerrCapture cerr_fang;
+    auto const  t   = s.transport();
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
+
+    EXPECT_EQ(erg.offene_fremde, 3U);
+    EXPECT_EQ(erg.uebernommen, 1U) << "NUR das voll gedeckte Fenster.";
+    EXPECT_EQ(erg.nicht_gedeckt, 2U);
+    ASSERT_EQ(erg.ids.size(), 1U);
+    EXPECT_EQ(erg.ids[0], innen.id);
+    EXPECT_EQ(status_von(s, innen.id), bl::BatchStatus::released);
+    EXPECT_EQ(status_von(s, weit.id), bl::BatchStatus::offen)
+        << "Wer die Arbeit nicht uebernehmen kann, enteignet nicht.";
+    EXPECT_EQ(status_von(s, halb.id), bl::BatchStatus::offen) << "Teil-Deckung ist keine Deckung.";
+    EXPECT_NE(cerr_fang.text().find("takeover-scope:"), std::string::npos) << cerr_fang.text();
+}
+
+TEST(G3TakeoverSweep, B1LeereSelektionUebernimmtNichts) {
+    // Ein Lauf ohne Selektion baut nichts -> er kann nichts uebernehmen (fail-closed by construction).
+    FakeStore  s;
+    auto const fremde = fremde_pro_forma(kT0);
+    lege_dokument(s, {fremde});
+    std::string const vorher = s.objs[kDocKey];
+    auto const        frist  = bl::epoch_from_utc_iso(fremde.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+    auto const                     t = s.transport();
+    std::vector<std::size_t> const leer;
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1),
+                                                       bl::make_sweep_scope(bl::BatchTyp::tier, leer));
+    EXPECT_EQ(erg.uebernommen, 0U);
+    EXPECT_EQ(erg.nicht_gedeckt, 1U);
+    EXPECT_EQ(s.objs[kDocKey], vorher);
+}
+
+TEST(G3TakeoverSweep, B1ScopeDeckungsPraedikatLiteral) {
+    // Das Deckungs-Praedikat selbst, literal (die Bausteine-Ebene unter den Sweep-Faellen oben).
+    auto const sc = bl::make_sweep_scope(bl::BatchTyp::tier, fenster_indices(10, 5)); // {10,11,12,13,14}
+    EXPECT_TRUE(bl::scope_covers_slice(sc, 10, 5));
+    EXPECT_TRUE(bl::scope_covers_slice(sc, 11, 3));
+    EXPECT_FALSE(bl::scope_covers_slice(sc, 9, 5)) << "9 fehlt in der Selektion.";
+    EXPECT_FALSE(bl::scope_covers_slice(sc, 13, 5)) << "15/16/17 fehlen.";
+    EXPECT_FALSE(bl::scope_covers_slice(sc, 10, 0)) << "Ein leeres Fenster ist nichts zum Uebernehmen.";
+    EXPECT_FALSE(bl::scope_covers_slice(sc, 100, 1));
+    // Ueberlauf-Wache: ein krummes Feld darf nie in ein wahres Urteil kippen.
+    EXPECT_FALSE(bl::scope_covers_slice(sc, (std::numeric_limits<std::uint64_t>::max)(), 2));
+    // Luecke MITTEN in der Selektion -> keine volle Deckung.
+    std::vector<std::size_t> const loechrig{10, 11, 13, 14};
+    auto const                     sc2 = bl::make_sweep_scope(bl::BatchTyp::tier, loechrig);
+    EXPECT_FALSE(bl::scope_covers_slice(sc2, 10, 5));
+    EXPECT_TRUE(bl::scope_covers_slice(sc2, 10, 2));
+}
+
+// =================================================================================================
+// 8. TP1FK1-B4 (Codex-Befund): 'uebernommen' wird AM STORE-RESULTAT revalidiert. Der Merge kann eine
+//    Uebernahme richtigerweise verhindern (done schlaegt released) -- dann hat dieser Lauf NICHTS
+//    uebernommen und darf es auch nicht behaupten.
+// =================================================================================================
+TEST(G3TakeoverSweep, B4InterleavingDoneGewinntZaehltNichtAlsUebernahme) {
+    FakeStore  s;
+    auto const fremde = fremde_pro_forma(kT0);
+    lege_dokument(s, {fremde});
+    auto const frist = bl::epoch_from_utc_iso(fremde.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+
+    // Der Wettlauf: NACH dem Klassifikations-fetch (erster fetch des Dokument-Keys) schreibt der
+    // totgeglaubte Owner sein Done. Der Store-interne Merge sieht es dann und laesst done gewinnen.
+    int fetches      = 0;
+    s.doc_key_hook   = kDocKey;
+    s.nach_doc_fetch = [&] {
+        if (++fetches != 1) return; // genau EINMAL, direkt nach der Klassifikation
+        auto fertig = fremde;
+        bl::mark_done(fertig);
+        lege_dokument(s, {fertig});
+    };
+
+    CerrCapture cerr_fang;
+    auto const  t   = s.transport();
+    auto const  erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
+
+    EXPECT_TRUE(erg.geschrieben) << "Der gelockte Schreib-Zyklus lief -- das ist nicht die Frage.";
+    EXPECT_TRUE(erg.revalidiert);
+    EXPECT_EQ(erg.uebernommen, 0U) << "done gewinnt im Merge -> dieser Lauf hat NICHTS uebernommen.";
+    EXPECT_TRUE(erg.ids.empty()) << "Und er nennt auch keine id als uebernommen.";
+    EXPECT_EQ(erg.vom_owner_beendet, 1U);
+    EXPECT_EQ(erg.nicht_bestaetigt, 0U);
+    EXPECT_EQ(status_von(s, fremde.id), bl::BatchStatus::done) << "Fortschritt geht nie verloren (status_rank).";
+    EXPECT_NE(cerr_fang.text().find("VOM OWNER BEENDET"), std::string::npos)
+        << "Der Fall ist benannt, nicht als Uebernahme verbucht. Ausgabe war:\n"
+        << cerr_fang.text();
+    EXPECT_EQ(cerr_fang.text().find("uebernommen ("), std::string::npos)
+        << "KEINE Uebernahme-Erfolgszeile. Ausgabe war:\n"
+        << cerr_fang.text();
+}
+
+TEST(G3TakeoverSweep, B4GemischtNurBestaetigteZaehlen) {
+    // Zwei Kandidaten, einer wird zwischendurch fertig -> genau EINER ist uebernommen.
+    FakeStore s;
+    auto      a = bl::make_slice_reservation("uuid-prod2-77", 0, "prod2", 24, 0, 2048, kT0);
+    auto      b = bl::make_slice_reservation("uuid-prod2-77", 1, "prod2", 24, 2048, 2048, kT0);
+    lege_dokument(s, {a, b});
+    auto const frist = bl::epoch_from_utc_iso(a.pro_forma_bis_utc);
+    ASSERT_TRUE(frist.has_value());
+
+    int fetches      = 0;
+    s.doc_key_hook   = kDocKey;
+    s.nach_doc_fetch = [&] {
+        if (++fetches != 1) return;
+        auto b_fertig = b;
+        bl::mark_done(b_fertig);
+        lege_dokument(s, {a, b_fertig});
+    };
+
+    auto const t   = s.transport();
+    auto const erg = bl::takeover_expired_reservations(t, kDocKey, ich(), 90, feste_uhr(*frist + 1), voll_scope());
+
+    EXPECT_TRUE(erg.revalidiert);
+    EXPECT_EQ(erg.uebernommen, 1U);
+    ASSERT_EQ(erg.ids.size(), 1U);
+    EXPECT_EQ(erg.ids[0], a.id);
+    EXPECT_EQ(erg.vom_owner_beendet, 1U);
+    EXPECT_EQ(status_von(s, a.id), bl::BatchStatus::released);
+    EXPECT_EQ(status_von(s, b.id), bl::BatchStatus::done);
 }

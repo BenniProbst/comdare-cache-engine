@@ -1040,11 +1040,19 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // (planer_driven_active): Reservierungen sind ein Bau-Batch-Konzern, und im Mess-Lauf haette der
     // Roundtrip in der 1-Thread-Exklusivitaet nichts verloren. Ein Fehlschlag ist NIE ein Bau-Fehler
     // (Buchhaltung; Testat-Zeilen schreibt der Sweep selbst).
+    //
+    // TP1FK1-B1: der Sweep ist an DIESEN Lauf GEKOPPELT. Er urteilt nur ueber Reservierungen vom Typ
+    // `tier` -- denselben Typ, den run_planer_driven_provision hier schreibt (make_slice_reservation)
+    // -- und nur ueber Fenster, die die Selektion `indices` dieses Laufs voll abdeckt. Beides folgt
+    // aus derselben Ueberlegung: ein Release ist nur dann korrekt, wenn dieser Lauf die freigegebene
+    // Arbeit ueber den per-Binary-Miss-Weg auch wirklich aufnimmt. Ein planer_block (CEB-Compile) und
+    // ein Fenster ausserhalb von `indices` erfuellen das nicht -> stehen lassen.
     if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
         (void)bestandslog::takeover_expired_reservations(
             cfg.bestand_transport, cfg.bestand_doc_key,
             bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine),
-            bestandslog::default_lock_ttl_s(), bestandslog::NowFn{&bestandslog::system_now_epoch_s});
+            bestandslog::default_lock_ttl_s(), bestandslog::NowFn{&bestandslog::system_now_epoch_s},
+            bestandslog::make_sweep_scope(bestandslog::BatchTyp::tier, std::span<std::size_t const>{indices}));
 
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
