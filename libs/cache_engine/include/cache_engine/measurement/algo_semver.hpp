@@ -4,26 +4,49 @@
 // Feature-Stand -- fuer jeden Achsen-Algorithmus (alle Typen) einzeln + den Planer statisch.
 //
 // KRITISCH (Byte-Wache, Section43): Dieser Helfer PARST nur den bereits existierenden algo_version-String
-// (`W::algo_version`, heute ueberall "v1") in ein X.Y.Z-Tripel. Er wird AUSSCHLIESSLICH von den NEUEN
+// (`W::algo_version`, heute ueberall "v1.0.0") in ein X.Y.Z-Tripel. Er wird AUSSCHLIESSLICH von den NEUEN
 // Stempel-Zeilen / dem Planer-Stempel / der neuen Registry-Emission genutzt -- NIE vom bestehenden
-// compose_algo_signature-/.algos-Serialisierungspfad (der bleibt byte-identisch: "v1" serialisiert weiter
-// als "v1", nie "1.0.0"). Kein gemeinsamer Formatter mit der Alt-Welt.
+// compose_algo_signature-/.algos-Serialisierungspfad (der bleibt byte-identisch: die rohe Version
+// serialisiert weiter roh, nie als "1.0.0"). Kein gemeinsamer Formatter mit der Alt-Welt.
 //
-// Format (Architekt-Entscheid W12-A-2): NUR "vN" (== N.0.0) oder "vN.N.N". Kurzformen wie "v1.2" sind
-// VERBOTEN (Mehrdeutigkeit). Unparsbar/Sentinel "v0" -> {0,0,0} (deckungsgleich zum @v0-Sentinel des
-// compose-Pfads; der Aufrufer raet nie).
+// Format (Architekt-Entscheid W12-A-2, ABGELOEST durch Owner-Q3 -- s. A13-M1b unten): frueher "vN" (== N.0.0)
+// ODER "vN.N.N". Kurzformen wie "v1.2" sind VERBOTEN (Mehrdeutigkeit). Unparsbar/Sentinel -> {0,0,0}
+// (deckungsgleich zum @v0-Sentinel des compose-Pfads; der Aufrufer raet nie).
 //
 // A13-M1 (Owner-Entscheid E2 vom 02.08.2026, verbatim): "Die Markierung experimenteller Achsen-Algorithmen aus
 // einem Pruefling wird in der Versionsbezifferung eines jeden Achsen-Algorithmus mit einem angehaengten 'e' fuer
-// 'experimental' markiert." -> optionales TRAILING-'e' (klein, direkt angehaengt, kein Separator) an der rohen Form
-// ("v1e", "v2.3.4e") UND an der gerenderten Voll-Form ("2.3.4e"). Das Flag reist im AlgoSemVer mit und geht in
-// operator== ein -> ein experimenteller Stand traegt ein anderes Stempel-Segment und damit einen eigenen
-// SHA-512-Fingerprint/Lager-Key.
+// 'experimental' markiert."
 //
-// SENTINEL-WACHE (A13-Review-Auflage K-5): das NULL-TRIPEL IST der Sentinel -- auch mit 'e'. "v0e"/"0.0.0e" parsen
-// exakt auf AlgoSemVer{} (experimental FALSE), damit die bestehenden CT-Wachen (parse != Sentinel) nicht ueber die
-// neue Form ausgehebelt werden koennen. is_sentinel() prueft zusaetzlich NUR das x/y/z-Tripel (nicht den ganzen
-// Struct) -- die Wachen bleiben auch dann dicht, wenn eine spaetere Aenderung das Flag doch durchreicht.
+// A13-M1b (Owner-Antwort Q3 vom 02.08.2026, verbatim): "Die Kurzform ist verboten, Versionierungen sind
+// einheitlich und immer 3-Stellig und beginnen mit 'v'. Das 'e' ist eine Flag und kann spaeter gegen andere
+// Falgs wie 'g' fuer GPU, 'c' fuer CPU, 'f' fuer FPGA und 'n' fuer NPU code erweitert werden. Wir produzieren
+// nur CPU code, daher muessen alle Versionen mit 'c' oder 'ce' enden."
+//
+// DARAUS DIE GRAMMATIK (ersetzt die A13-M1-Form):
+//   version := 'v' UINT '.' UINT '.' UINT [ HWFLAG [ 'e' ] ]     (rohe Form,      parse_algo_semver)
+//   dotted  :=     UINT '.' UINT '.' UINT [ HWFLAG [ 'e' ] ]     (gerenderte Form, parse_dotted_semver)
+//   HWFLAG  := 'c' (CPU) | 'g' (GPU) | 'f' (FPGA) | 'n' (NPU)    -- GENAU EINES, klein, direkt angehaengt
+// Reihenfolge FIX: erst das Hardware-Flag, dann optional 'e'. Ein 'e' OHNE Hardware-Flag ist ungueltig
+// (Sentinel) -- "vNe" gab es nur in der A13-M1-Zwischenform und ist mit dem Kurzform-Rueckbau erledigt.
+//
+// KURZFORM-RUECKBAU (A13-M1b, bindend): "vN" und "vNe" sind SENTINEL. Belegt vor dem Umbau per grep: der
+// Bestand traegt KEIN vN-Literal als echte Version -- alle 122 W::algo_version, die 3 System-Achsen-Code-
+// Versionen, die 3 Mess-Tooling- und die 1 Mess-Framework-Version stehen bereits als "v1.0.0" da. Die
+// einzigen "v0"-Kurzformen waren SENTINEL-Literale (Render "0.0.0" vor wie nach dem Rueckbau); sie sind in
+// diesem Paket auf die dreistellige Sentinel-Form "v0.0.0" gezogen. Ausnahme mit Absicht: die ROHE
+// .algos-Signatur (compose_algo_signature) ist eine SEPARATE, byte-eingefrorene Welt und behaelt ihr "@v0".
+//
+// UEBERGANGS-TOLERANZ (A13-M1b, bewusst befristet): das FLAGLOSE dreistellige "vX.Y.Z" bleibt VORERST
+// parsbar, weil der 122x-Bestand erst im A13-M2/M3-Neuanker-Fenster auf "v1.0.0c" migriert (ein einziges
+// Stempel-/SHA512-Byte-Ereignis, kein zweiter Neuanker). Die Owner-PFLICHT "alle Versionen enden auf 'c'
+// oder 'ce'" ist als version_satisfies_cpu_only_policy() GEBAUT und in axis_variant_version_table.hpp
+// verdrahtet, aber hinter COMDARE_VERSION_HW_FLAG_ENFORCE (Default OFF) scharfgeschaltet.
+//
+// SENTINEL-WACHE (A13-Review-Auflage K-5): das NULL-TRIPEL IST der Sentinel -- auch mit Flags. "v0.0.0c"/
+// "v0.0.0ce"/"0.0.0ce" parsen exakt auf AlgoSemVer{} (hardware none, experimental FALSE), damit die
+// bestehenden CT-Wachen (parse != Sentinel) nicht ueber die Flag-Formen ausgehebelt werden koennen.
+// is_sentinel() prueft zusaetzlich NUR das x/y/z-Tripel (nicht den ganzen Struct) -- die Wachen bleiben auch
+// dann dicht, wenn eine spaetere Aenderung ein Flag doch durch den Sentinel-Pfad durchreicht.
 //
 // Metaprog: reines constexpr, kein std::variant, keine vtable, keine schweren Includes.
 
@@ -34,24 +57,75 @@
 #include <string_view>
 #include <utility>
 
+/// A13-M1b SCHARFSCHALTUNG der Owner-Q3-PFLICHT ("alle Versionen muessen mit 'c' oder 'ce' enden").
+/// DEFAULT OFF: solange der Bestand flaglos ist ("v1.0.0", 122x), wuerde die Wache jede Registry-Variante
+/// compile-brechen. IM MIGRATIONS-COMMIT DES A13-M2/M3-NEUANKER-FENSTERS GEHT DIESES DEFINE AUF ON -- im
+/// SELBEN Commit, der die Bestands-Strings auf "v1.0.0c" zieht (ein Byte-Ereignis, ein Neuanker). Wer das
+/// Define frueher scharf schaltet, bricht den Bau; wer die Migration ohne das Define landet, laesst die
+/// Pflicht undurchgesetzt.
+#ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
+#define COMDARE_VERSION_HW_FLAG_ENFORCE 0
+#endif
+
 namespace comdare::cache_engine::measurement {
 
-/// X.Y.Z-Tripel (X.Y = Feature, Z = Debug-Revision) + A13-M1-Experimental-Flag (Owner-E2 'e'-Suffix).
+/// A13-M1b (Owner-Q3): die FLAG-FAMILIE der Hardware-Zielrichtung eines Achsen-Algorithmus. Erweiterbar
+/// gehalten (der Owner nennt g/c/f/n explizit als Familie); `none` == KEIN Flag und existiert NUR fuer die
+/// befristete Uebergangs-Toleranz des flaglosen Bestands, nie als Zielzustand.
+enum class HardwareFlag : std::uint8_t { none = 0, cpu = 1, gpu = 2, fpga = 3, npu = 4 };
+
+/// Das Flag-ZEICHEN der rohen/gerenderten Form. `none` -> '\0' (rendert nichts). EINZIGE Wahrheit der
+/// Zeichen-Zuordnung; der Parser liest ueber hardware_flag_from_char() dieselbe Tabelle rueckwaerts.
+[[nodiscard]] constexpr char hardware_flag_char(HardwareFlag f) noexcept {
+    switch (f) {
+        case HardwareFlag::cpu: return 'c';
+        case HardwareFlag::gpu: return 'g';
+        case HardwareFlag::fpga: return 'f';
+        case HardwareFlag::npu: return 'n';
+        case HardwareFlag::none: break;
+    }
+    return '\0';
+}
+
+/// Umkehrung von hardware_flag_char(): unbekanntes/grosses Zeichen -> none (der Aufrufer prueft danach auf
+/// Zeilen-Ende und faellt so auf den Sentinel).
+[[nodiscard]] constexpr HardwareFlag hardware_flag_from_char(char c) noexcept {
+    switch (c) {
+        case 'c': return HardwareFlag::cpu;
+        case 'g': return HardwareFlag::gpu;
+        case 'f': return HardwareFlag::fpga;
+        case 'n': return HardwareFlag::npu;
+        default: break;
+    }
+    return HardwareFlag::none;
+}
+
+/// X.Y.Z-Tripel (X.Y = Feature, Z = Debug-Revision) + die A13-M1b-Flag-Position: GENAU EIN Hardware-Flag
+/// (Owner-Q3) und optional das A13-M1-Experimental-Flag (Owner-E2). Feld-Reihenfolge == Grammatik-Reihenfolge
+/// (erst Hardware, dann 'e') -- eine Alt-Aggregat-Initialisierung `AlgoSemVer{x,y,z,true}` bricht dadurch
+/// compile-time statt still an das Hardware-Feld zu binden (Lehre "Gruene Tests zementieren alte Ordnung").
 struct AlgoSemVer {
     std::uint32_t x = 0;
     std::uint32_t y = 0;
     std::uint32_t z = 0;
+    /// A13-M1b: die Hardware-Zielrichtung aus der Flag-Position ('c'/'g'/'f'/'n'). `none` == flagloser
+    /// Uebergangs-Bestand (Owner-Q3-widrig, aber bis zum M2/M3-Migrations-Commit toleriert).
+    HardwareFlag hardware = HardwareFlag::none;
     /// true == der Algorithmus-Stand ist EXPERIMENTELL (Trailing-'e' aus einem Pruefling, Owner-E2 02.08.2026).
     /// ce-EIGENE Registry-Varianten duerfen das NIE tragen (CT-Wache in axis_variant_version_table.hpp).
     bool experimental = false;
 
-    /// K-5-Sentinel-Praedikat: der Sentinel ist das NULL-TRIPEL -- unabhaengig vom Flag. CT-Wachen pruefen HIERMIT,
-    /// nicht per Struct-Vergleich gegen AlgoSemVer{}, damit eine experimentelle Fehlform sie nie umgeht.
+    /// K-5-Sentinel-Praedikat: der Sentinel ist das NULL-TRIPEL -- unabhaengig von den Flags. CT-Wachen pruefen
+    /// HIERMIT, nicht per Struct-Vergleich gegen AlgoSemVer{}, damit eine Flag-Fehlform sie nie umgeht.
     [[nodiscard]] constexpr bool is_sentinel() const noexcept { return x == 0u && y == 0u && z == 0u; }
+
+    /// A13-M1b: traegt die Version ueberhaupt ein Hardware-Flag? (Die Owner-PFLICHT verlangt zusaetzlich, dass
+    /// es im CPU-Scope 'c' IST -- dafuer version_satisfies_cpu_only_policy().)
+    [[nodiscard]] constexpr bool has_hardware_flag() const noexcept { return hardware != HardwareFlag::none; }
 };
 
 [[nodiscard]] constexpr bool operator==(AlgoSemVer const& a, AlgoSemVer const& b) noexcept {
-    return a.x == b.x && a.y == b.y && a.z == b.z && a.experimental == b.experimental;
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.hardware == b.hardware && a.experimental == b.experimental;
 }
 
 namespace detail {
@@ -74,56 +148,89 @@ namespace detail {
     return true;
 }
 
+/// Konsumiert ein optionales Hardware-Flag (A13-M1b). Genau EIN Zeichen aus {c,g,f,n}; alles andere laesst s
+/// unberuehrt und meldet none (der Aufrufer faellt dann ueber die Rest-Pruefung auf den Sentinel).
+[[nodiscard]] constexpr HardwareFlag take_hardware_flag(std::string_view& s) noexcept {
+    if (s.empty()) return HardwareFlag::none;
+    HardwareFlag const f = hardware_flag_from_char(s.front());
+    if (f != HardwareFlag::none) s.remove_prefix(1);
+    return f;
+}
+
 /// K-5: baut das Ergebnis-Tripel und faltet JEDES Null-Tripel auf den reinen Sentinel AlgoSemVer{} zurueck --
-/// "v0e"/"0.0.0e" sind der Sentinel, nicht ein "experimenteller Sentinel".
-[[nodiscard]] constexpr AlgoSemVer make_semver(std::uint32_t x, std::uint32_t y, std::uint32_t z,
+/// "v0.0.0c"/"0.0.0ce" sind der Sentinel, nicht ein "experimenteller CPU-Sentinel".
+[[nodiscard]] constexpr AlgoSemVer make_semver(std::uint32_t x, std::uint32_t y, std::uint32_t z, HardwareFlag hw,
                                                bool experimental) noexcept {
     if (x == 0u && y == 0u && z == 0u) return AlgoSemVer{};
-    return AlgoSemVer{x, y, z, experimental};
+    return AlgoSemVer{x, y, z, hw, experimental};
+}
+
+/// A13-M1b: der FLAG-SCHWANZ hinter dem X.Y.Z-Tripel -- die EINE Stelle, an der die Owner-Q3-Reihenfolge
+/// durchgesetzt wird (erst GENAU EIN Hardware-Flag, dann optional 'e'). Beide Parser (rohe und gerenderte Form)
+/// teilen sie sich, damit die Grammatik nicht zweimal existiert und nicht driften kann.
+/// Sentinel-Faelle: zweites Hardware-Flag ("...cc"/"...cg"), 'e' vor dem Hardware-Flag ("...ec"), 'e' OHNE
+/// Hardware-Flag ("...e"), Gross-Buchstaben ("...C"/"...E"), jeder sonstige Rest.
+[[nodiscard]] constexpr AlgoSemVer take_flag_tail(std::string_view& s, std::uint32_t x, std::uint32_t y,
+                                                  std::uint32_t z) noexcept {
+    HardwareFlag const hw  = take_hardware_flag(s);
+    bool               exp = false;
+    if (hw != HardwareFlag::none) exp = take_experimental(s);
+    if (!s.empty()) return {};
+    return make_semver(x, y, z, hw, exp);
 }
 } // namespace detail
 
-/// Parst "vN" (-> {N,0,0}), "vN.N.N" (-> {N,N,N}) und die A13-M1-Experimental-Formen "vNe"/"vN.N.Ne"
-/// (-> zusaetzlich experimental=true). Alles andere (leer, ohne 'v', "vN.N", "vN.Ne", Zusatz-Rest, Gross-'E',
-/// nicht-numerisch) -> {0,0,0}. Das Null-Tripel bleibt IMMER der reine Sentinel (K-5). Rein constexpr.
+/// Parst die ROHE Form "vX.Y.Z" (Uebergangs-Toleranz, flaglos) sowie die A13-M1b-Flag-Formen "vX.Y.Zc",
+/// "vX.Y.Zce", "vX.Y.Zg"/"f"/"n"[e]. Alles andere -> {0,0,0}-Sentinel: leer, ohne 'v', die
+/// RUECKGEBAUTE Kurzform "vN"/"vNe"/"vNc", "vX.Y", Gross-'E'/'C', zwei Hardware-Flags, 'e' ohne
+/// Hardware-Flag, Zusatz-Rest, nicht-numerisch. Das Null-Tripel bleibt IMMER der reine Sentinel (K-5).
+/// Rein constexpr.
 [[nodiscard]] constexpr AlgoSemVer parse_algo_semver(std::string_view v) noexcept {
     if (v.empty() || v.front() != 'v') return {};
     v.remove_prefix(1);
     auto const [x, okx] = detail::take_uint(v);
     if (!okx) return {};
-    if (v.empty()) return detail::make_semver(x, 0u, 0u, false); // "vN" == N.0.0
-    if (v.front() == 'e') {                                      // "vNe" == N.0.0 experimentell
-        v.remove_prefix(1);
-        if (!v.empty()) return {}; // Rest nach dem 'e' -> Sentinel ("vNee", "vNe5")
-        return detail::make_semver(x, 0u, 0u, true);
-    }
-    if (v.front() != '.') return {}; // Rest muss exakt ".N.N[e]" sein
+    // A13-M1b KURZFORM-RUECKBAU (Owner-Q3 "Die Kurzform ist verboten ... immer 3-Stellig"): nach der ersten
+    // Zahl MUSS ein '.' folgen. "v1"/"v1e"/"v1c" enden damit im Sentinel statt in {1,0,0}.
+    if (v.empty() || v.front() != '.') return {};
     v.remove_prefix(1);
     auto const [y, oky] = detail::take_uint(v);
-    if (!oky || v.empty() || v.front() != '.') return {}; // Kurzform "vN.N" verboten (auch "vN.Ne")
+    if (!oky || v.empty() || v.front() != '.') return {}; // Kurzform "vX.Y" verboten (auch "vX.Yc")
     v.remove_prefix(1);
     auto const [z, okz] = detail::take_uint(v);
     if (!okz) return {};
-    bool const experimental = detail::take_experimental(v);
-    if (!v.empty()) return {}; // Rest muss leer sein (kein "vN.N.N.extra", kein "vN.N.Ne5")
-    return detail::make_semver(x, y, z, experimental);
+    return detail::take_flag_tail(v, x, y, z);
 }
 
 /// Die X.Y.Z-VOLL-Form als String -- NUR fuer neue Stempel-Zeilen/Planer/Registry (NIE die .algos-Sig).
-/// A13-M1: ein experimenteller Stand rendert mit angehaengtem 'e' ("2.3.4e"); der Sentinel rendert immer "0.0.0".
-/// GOLDEN-NEUTRAL: kein Bestands-algo_version traegt heute ein 'e' -> jede reale Zeile bleibt byte-identisch.
+/// A13-M1b: hinter das Tripel wandert erst das Hardware-Flag, dann das 'e' ("2.3.4c", "2.3.4ce") -- dieselbe
+/// Reihenfolge wie in der rohen Form. Der Sentinel rendert immer nackt "0.0.0" (er traegt nie Flags, K-5).
+/// GOLDEN-NEUTRAL bis zur M2/M3-Migration: der flaglose Bestand ("v1.0.0") rendert unveraendert "1.0.0".
 [[nodiscard]] inline std::string algo_semver_string(std::string_view algo_version) {
     AlgoSemVer const v   = parse_algo_semver(algo_version);
     std::string      out = std::to_string(v.x) + '.' + std::to_string(v.y) + '.' + std::to_string(v.z);
+    if (char const hw = hardware_flag_char(v.hardware); hw != '\0') out += hw;
     if (v.experimental) out += 'e';
     return out;
+}
+
+/// A13-M1b PFLICHT-WACHE (Owner-Q3: "Wir produzieren nur CPU code, daher muessen alle Versionen mit 'c' oder
+/// 'ce' enden"). Praedikat GETRENNT vom Parser: der Parser toleriert die flaglose Uebergangs-Form weiter
+/// (sonst waeren die static_assert-Batterien dieses Headers define-abhaengig und ein Header haette zwei
+/// Bedeutungen); die POLITIK lebt hier und wird in axis_variant_version_table.hpp hinter
+/// COMDARE_VERSION_HW_FLAG_ENFORCE scharf geschaltet. IMMER kompiliert und CT-bewiesen (Batterie unten) --
+/// das Define schaltet nur die ANWENDUNG auf jede Registry-Variante, nie die Existenz der Wache.
+[[nodiscard]] constexpr bool version_satisfies_cpu_only_policy(std::string_view raw) noexcept {
+    AlgoSemVer const v = parse_algo_semver(raw);
+    return !v.is_sentinel() && v.hardware == HardwareFlag::cpu;
 }
 
 /// parse_dotted_semver (G2-1a / A3): parst die bereits GERENDERTE Voll-Form "X.Y.Z" (dotted, OHNE 'v') zurueck in
 /// ein Tripel -- die Umkehrung von algo_semver_string. Getrennt von parse_algo_semver (das die ROHE "vN"-Form parst):
 /// der consteval-Stempel-Parser (anatomy_stamp_entries.hpp) liest die "achse=algo@X.Y.Z"-Zeilen, deren Versions-Teil
-/// bereits die gerenderte Form traegt. STRENG: exakt drei dotted uints + optionales Trailing-'e' (A13-M1); alles
-/// andere (leer, mit 'v', Kurzform "X.Y", Zusatz-Rest, nicht-numerisch) -> {0,0,0}-Sentinel. Rein constexpr.
+/// bereits die gerenderte Form traegt. STRENG: exakt drei dotted uints + der A13-M1b-Flag-Schwanz (optional
+/// GENAU EIN Hardware-Flag, danach optional 'e'); alles andere (leer, mit 'v', Kurzform "X.Y", Zusatz-Rest,
+/// nicht-numerisch) -> {0,0,0}-Sentinel. Rein constexpr.
 /// Der PUNKT ist damit ausschliesslich TRENNER der drei Zahlen -- hierarchische Namen (Owner-Q2-Muster
 /// "prt-art.memory.abc@1.0.0") leben im NAMENS-Anteil VOR dem '@' und beruehren diesen Parser nie.
 [[nodiscard]] constexpr AlgoSemVer parse_dotted_semver(std::string_view v) noexcept {
@@ -135,14 +242,12 @@ namespace detail {
     v.remove_prefix(1);
     auto const [z, okz] = detail::take_uint(v);
     if (!okz) return {};
-    bool const experimental = detail::take_experimental(v);
-    if (!v.empty()) return {}; // Rest muss leer sein (kein "X.Y.Z.extra", kein "X.Y.Ze5")
-    return detail::make_semver(x, y, z, experimental);
+    return detail::take_flag_tail(v, x, y, z);
 }
 
 // -- Wohlgeformtheit (alles compile-time) --------------------------------------------------------
-static_assert(parse_algo_semver("v1") == AlgoSemVer{1, 0, 0}); // heutiger Stand ALLER Algos
-static_assert(parse_algo_semver("v0") == AlgoSemVer{0, 0, 0}); // Sentinel
+static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{1, 0, 0}); // heutiger Stand ALLER Algos (flaglos, tolerant)
+static_assert(parse_algo_semver("v0.0.0") == AlgoSemVer{0, 0, 0}); // Sentinel
 static_assert(parse_algo_semver("v2.3.4") == AlgoSemVer{2, 3, 4});
 static_assert(parse_algo_semver("v10.0.1") == AlgoSemVer{10, 0, 1});
 static_assert(parse_algo_semver("v1.2") == AlgoSemVer{0, 0, 0});     // Kurzform verboten -> Sentinel
@@ -160,51 +265,101 @@ static_assert(parse_dotted_semver("1.0") == AlgoSemVer{0, 0, 0});     // Kurzfor
 static_assert(parse_dotted_semver("1.0.0.1") == AlgoSemVer{0, 0, 0}); // Zusatz-Rest -> Sentinel
 static_assert(parse_dotted_semver("") == AlgoSemVer{0, 0, 0});        // leer -> Sentinel
 static_assert(parse_dotted_semver("x.y.z") == AlgoSemVer{0, 0, 0});   // nicht-numerisch -> Sentinel
-// Round-Trip: algo_semver_string rendert "vN" -> "N.0.0", parse_dotted_semver liest es exakt zurueck.
-static_assert(parse_dotted_semver("1.0.0") == parse_algo_semver("v1"));
+// Round-Trip: algo_semver_string rendert "vX.Y.Z" -> "X.Y.Z", parse_dotted_semver liest es exakt zurueck.
+static_assert(parse_dotted_semver("1.0.0") == parse_algo_semver("v1.0.0"));
 
-// -- A13-M1: 'e'-Suffix (Owner-E2 02.08.2026) -- vollstaendige CT-Batterie -------------------------
-// (a) Bestand bleibt nicht-experimentell (Golden-Neutralitaet: kein Bestands-String traegt ein 'e').
-static_assert(!parse_algo_semver("v1").experimental);
+// -- A13-M1b: KURZFORM-RUECKBAU (Owner-Q3 "Die Kurzform ist verboten ... immer 3-Stellig") -----------
+// Die A13-M1-Zwischenform "vN"/"vNe" ist ZURUECKGEBAUT: beide sind ab jetzt Sentinel. Der Bestand ist davon
+// nicht betroffen (grep-belegt: alle echten Versions-Literale stehen dreistellig als "v1.0.0" da).
+static_assert(parse_algo_semver("v1") == AlgoSemVer{});  // frueher {1,0,0} -- jetzt Sentinel
+static_assert(parse_algo_semver("v0") == AlgoSemVer{});  // frueher Sentinel -- bleibt Sentinel
+static_assert(parse_algo_semver("v1e") == AlgoSemVer{}); // A13-M1-Kurzform mit 'e' -- zurueckgebaut
+static_assert(parse_algo_semver("v1c") == AlgoSemVer{}); // auch mit Hardware-Flag bleibt die Kurzform verboten
+static_assert(parse_algo_semver("v1ce") == AlgoSemVer{});
+static_assert(parse_algo_semver("v12") == AlgoSemVer{}); // mehrstellige Kurzform ebenso
+
+// -- A13-M1b: FLAG-GRAMMATIK (Owner-Q3 02.08.2026) -- vollstaendige CT-Batterie ---------------------
+// (a) Uebergangs-Toleranz: der flaglose dreistellige Bestand parst weiter und traegt KEINE Flags.
+static_assert(!parse_algo_semver("v1.0.0").has_hardware_flag());
+static_assert(!parse_algo_semver("v1.0.0").experimental);
 static_assert(!parse_algo_semver("v2.3.4").experimental);
+static_assert(!parse_dotted_semver("1.0.0").has_hardware_flag());
 static_assert(!parse_dotted_semver("1.0.0").experimental);
-// (b) Rohe Form MIT 'e': Kurzform "vNe" und Voll-Form "vN.N.Ne".
-static_assert(parse_algo_semver("v1e") == AlgoSemVer{1, 0, 0, true});
-static_assert(parse_algo_semver("v2.3.4e") == AlgoSemVer{2, 3, 4, true});
-static_assert(parse_algo_semver("v10.0.1e") == AlgoSemVer{10, 0, 1, true});
-static_assert(parse_algo_semver("v1e").experimental);
-// (c) Gerenderte Form MIT 'e' (die Stempel-Zeilen-Ruecklesung).
-static_assert(parse_dotted_semver("2.3.4e") == AlgoSemVer{2, 3, 4, true});
-static_assert(parse_dotted_semver("1.0.0e") == AlgoSemVer{1, 0, 0, true});
-// (d) K-5-SENTINEL-WACHE: "v0e"/"v0.0.0e"/"0.0.0e" sind der REINE Sentinel (Flag faellt weg) -- die bestehenden
-//     CT-Wachen (parse != AlgoSemVer{}) bleiben damit auch gegen die neue Form dicht.
-static_assert(parse_algo_semver("v0e") == AlgoSemVer{});
-static_assert(parse_algo_semver("v0.0.0e") == AlgoSemVer{});
-static_assert(parse_dotted_semver("0.0.0e") == AlgoSemVer{});
-static_assert(!parse_algo_semver("v0e").experimental); // KEIN "experimenteller Sentinel"
-static_assert(!parse_dotted_semver("0.0.0e").experimental);
-static_assert(parse_algo_semver("v0e").is_sentinel()); // x/y/z-Praedikat (statt Struct-Vergleich)
-static_assert(parse_algo_semver("v0").is_sentinel());
-static_assert(parse_dotted_semver("0.0.0e").is_sentinel());
-static_assert(!parse_algo_semver("v1e").is_sentinel()); // ein echter experimenteller Stand ist KEIN Sentinel
-static_assert(!parse_algo_semver("v2.3.4e").is_sentinel());
-// (e) Fehlformen mit 'e' -> Sentinel (nur klein-'e', nur genau eines, nur ganz am Ende, nie an der Kurzform "vN.N").
-static_assert(parse_algo_semver("v1.2e") == AlgoSemVer{}); // Kurzform bleibt verboten
-static_assert(parse_algo_semver("v1E") == AlgoSemVer{});   // Gross-'E' ist kein Marker
-static_assert(parse_algo_semver("v1ee") == AlgoSemVer{});  // doppeltes 'e'
-static_assert(parse_algo_semver("v1e5") == AlgoSemVer{});  // Rest nach dem 'e'
-static_assert(parse_algo_semver("v2.3.4e5") == AlgoSemVer{});
-static_assert(parse_algo_semver("ve") == AlgoSemVer{});        // ohne Zahl
-static_assert(parse_algo_semver("1.0.0e") == AlgoSemVer{});    // gerenderte Form in der rohen Wache -> Sentinel
-static_assert(parse_dotted_semver("1.0e") == AlgoSemVer{});    // Kurzform
-static_assert(parse_dotted_semver("v2.3.4e") == AlgoSemVer{}); // rohe Form in der gerenderten Wache
+// (b) Die volle Flag-Familie c/g/f/n an der ROHEN Form.
+static_assert(parse_algo_semver("v1.0.0c") == AlgoSemVer{1, 0, 0, HardwareFlag::cpu});
+static_assert(parse_algo_semver("v1.0.0g") == AlgoSemVer{1, 0, 0, HardwareFlag::gpu});
+static_assert(parse_algo_semver("v1.0.0f") == AlgoSemVer{1, 0, 0, HardwareFlag::fpga});
+static_assert(parse_algo_semver("v1.0.0n") == AlgoSemVer{1, 0, 0, HardwareFlag::npu});
+static_assert(parse_algo_semver("v10.0.1c").has_hardware_flag());
+// (c) Reihenfolge FIX: Hardware-Flag, dann optional 'e' ("v2.3.4ce").
+static_assert(parse_algo_semver("v2.3.4ce") == AlgoSemVer{2, 3, 4, HardwareFlag::cpu, true});
+static_assert(parse_algo_semver("v2.3.4ge") == AlgoSemVer{2, 3, 4, HardwareFlag::gpu, true});
+static_assert(parse_algo_semver("v2.3.4ce").experimental);
+// (d) Gerenderte Form MIT Flags (die Stempel-Zeilen-Ruecklesung).
+static_assert(parse_dotted_semver("1.0.0c") == AlgoSemVer{1, 0, 0, HardwareFlag::cpu});
+static_assert(parse_dotted_semver("2.3.4ce") == AlgoSemVer{2, 3, 4, HardwareFlag::cpu, true});
+static_assert(parse_dotted_semver("2.3.4n") == AlgoSemVer{2, 3, 4, HardwareFlag::npu});
+// (e) GENAU EIN Hardware-Flag; 'e' NUR NACH einem Hardware-Flag; nur Kleinbuchstaben; kein Rest.
+static_assert(parse_algo_semver("v1.0.0cc") == AlgoSemVer{});   // zweites Flag
+static_assert(parse_algo_semver("v1.0.0cg") == AlgoSemVer{});   // zwei verschiedene Flags
+static_assert(parse_algo_semver("v1.0.0ec") == AlgoSemVer{});   // Reihenfolge verdreht
+static_assert(parse_algo_semver("v1.0.0e") == AlgoSemVer{});    // 'e' OHNE Hardware-Flag
+static_assert(parse_algo_semver("v2.3.4e") == AlgoSemVer{});    // dito (die A13-M1-Form ohne HW-Flag)
+static_assert(parse_algo_semver("v1.0.0C") == AlgoSemVer{});    // Gross-'C'
+static_assert(parse_algo_semver("v1.0.0cE") == AlgoSemVer{});   // Gross-'E'
+static_assert(parse_algo_semver("v1.0.0cee") == AlgoSemVer{});  // doppeltes 'e'
+static_assert(parse_algo_semver("v1.0.0ce5") == AlgoSemVer{});  // Rest nach dem 'e'
+static_assert(parse_algo_semver("v1.0.0x") == AlgoSemVer{});    // unbekanntes Flag-Zeichen
+static_assert(parse_algo_semver("v1.2ce") == AlgoSemVer{});     // Kurzform bleibt verboten
+static_assert(parse_algo_semver("1.0.0c") == AlgoSemVer{});     // gerenderte Form in der rohen Wache
+static_assert(parse_dotted_semver("1.0c") == AlgoSemVer{});     // Kurzform
+static_assert(parse_dotted_semver("v2.3.4ce") == AlgoSemVer{}); // rohe Form in der gerenderten Wache
 static_assert(parse_dotted_semver("2.3.4E") == AlgoSemVer{});
-static_assert(parse_dotted_semver("2.3.4ee") == AlgoSemVer{});
-// (f) UNTERSCHEIDBARKEIT (Fingerprint-/Lager-Wirkung): experimentell != stabil bei sonst gleichem Tripel.
-static_assert(!(parse_algo_semver("v1e") == parse_algo_semver("v1")));
-static_assert(!(parse_dotted_semver("2.3.4e") == parse_dotted_semver("2.3.4")));
-// (g) Round-Trip rohe <-> gerenderte Form INKLUSIVE Flag.
-static_assert(parse_dotted_semver("1.0.0e") == parse_algo_semver("v1e"));
-static_assert(parse_dotted_semver("2.3.4e") == parse_algo_semver("v2.3.4e"));
+static_assert(parse_dotted_semver("2.3.4e") == AlgoSemVer{}); // 'e' ohne Hardware-Flag
+static_assert(parse_dotted_semver("2.3.4cc") == AlgoSemVer{});
+// (f) K-5-SENTINEL-BATTERIE: das Null-Tripel ist der REINE Sentinel -- auch mit Flags. Die bestehenden
+//     CT-Wachen (parse != AlgoSemVer{} bzw. !is_sentinel()) bleiben damit gegen jede Flag-Form dicht.
+static_assert(parse_algo_semver("v0c") == AlgoSemVer{}); // Kurzform UND Null-Tripel
+static_assert(parse_algo_semver("v0.0.0c") == AlgoSemVer{});
+static_assert(parse_algo_semver("v0.0.0ce") == AlgoSemVer{});
+static_assert(parse_dotted_semver("0.0.0c") == AlgoSemVer{});
+static_assert(parse_dotted_semver("0.0.0ce") == AlgoSemVer{});
+static_assert(!parse_algo_semver("v0.0.0ce").experimental);        // KEIN "experimenteller Sentinel"
+static_assert(!parse_algo_semver("v0.0.0ce").has_hardware_flag()); // und KEIN "CPU-Sentinel"
+static_assert(!parse_dotted_semver("0.0.0ce").experimental);
+static_assert(parse_algo_semver("v0.0.0c").is_sentinel()); // x/y/z-Praedikat (statt Struct-Vergleich)
+static_assert(parse_dotted_semver("0.0.0ce").is_sentinel());
+static_assert(!parse_algo_semver("v1.0.0c").is_sentinel()); // ein echter Stand ist KEIN Sentinel
+static_assert(!parse_algo_semver("v2.3.4ce").is_sentinel());
+// (g) UNTERSCHEIDBARKEIT (Fingerprint-/Lager-Wirkung): jedes Flag erzeugt ein anderes Stempel-Segment.
+static_assert(!(parse_algo_semver("v1.0.0c") == parse_algo_semver("v1.0.0")));
+static_assert(!(parse_algo_semver("v1.0.0c") == parse_algo_semver("v1.0.0g")));
+static_assert(!(parse_algo_semver("v1.0.0c") == parse_algo_semver("v1.0.0ce")));
+static_assert(!(parse_dotted_semver("2.3.4ce") == parse_dotted_semver("2.3.4c")));
+// (h) Round-Trip rohe <-> gerenderte Form INKLUSIVE beider Flags.
+static_assert(parse_dotted_semver("1.0.0") == parse_algo_semver("v1.0.0"));
+static_assert(parse_dotted_semver("1.0.0c") == parse_algo_semver("v1.0.0c"));
+static_assert(parse_dotted_semver("2.3.4ce") == parse_algo_semver("v2.3.4ce"));
+// (i) Zeichen-Tabelle als Einheit (hardware_flag_char <-> hardware_flag_from_char).
+static_assert(hardware_flag_char(HardwareFlag::cpu) == 'c');
+static_assert(hardware_flag_char(HardwareFlag::gpu) == 'g');
+static_assert(hardware_flag_char(HardwareFlag::fpga) == 'f');
+static_assert(hardware_flag_char(HardwareFlag::npu) == 'n');
+static_assert(hardware_flag_char(HardwareFlag::none) == '\0');
+static_assert(hardware_flag_from_char(hardware_flag_char(HardwareFlag::cpu)) == HardwareFlag::cpu);
+static_assert(hardware_flag_from_char(hardware_flag_char(HardwareFlag::npu)) == HardwareFlag::npu);
+static_assert(hardware_flag_from_char('C') == HardwareFlag::none);
+static_assert(hardware_flag_from_char('e') == HardwareFlag::none); // 'e' ist KEIN Hardware-Flag
+// (j) Die Owner-PFLICHT-Wache selbst (immer gebaut, unabhaengig von COMDARE_VERSION_HW_FLAG_ENFORCE):
+//     nur "...c"/"...ce" erfuellen den CPU-only-Scope.
+static_assert(version_satisfies_cpu_only_policy("v1.0.0c"));
+static_assert(version_satisfies_cpu_only_policy("v2.3.4ce"));
+static_assert(!version_satisfies_cpu_only_policy("v1.0.0"));  // flagloser Uebergangs-Bestand (M2/M3-Migration)
+static_assert(!version_satisfies_cpu_only_policy("v1.0.0g")); // GPU ist im CPU-only-Scope unzulaessig
+static_assert(!version_satisfies_cpu_only_policy("v1.0.0f"));
+static_assert(!version_satisfies_cpu_only_policy("v1.0.0n"));
+static_assert(!version_satisfies_cpu_only_policy("v0.0.0c")); // Sentinel erfuellt nie eine Politik
+static_assert(!version_satisfies_cpu_only_policy("v1c"));     // Kurzform erfuellt nie eine Politik
+static_assert(!version_satisfies_cpu_only_policy(""));
 
 } // namespace comdare::cache_engine::measurement
