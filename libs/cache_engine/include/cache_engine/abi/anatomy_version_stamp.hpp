@@ -149,7 +149,8 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
-    // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0"-Sentinel (@0.0.0, nur ungueltige ids).
+    // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur ungueltige
+    // ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
     // O-8 Schritt 9 (OP-3): load_framework steht als ERSTES Segment VOR measurement_tooling.
     std::array<AxisVersionEntry, 2> const entries{{
         load_framework_stamp_entry(),
@@ -174,8 +175,8 @@ template <class Comp>
     // der Eintrag wird deshalb erst NACH der Filterung vorangestellt.
     for (std::string_view const t : toolings)
         if (!t.empty())
-            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0" fuer
-            // unbekannte ids (render-neutral fuer die gueltigen wallclock/macro/micro).
+            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
+            // fuer unbekannte ids (render-neutral fuer die gueltigen wallclock/macro/micro).
             entries.push_back(
                 {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
     if (entries.empty()) return {};

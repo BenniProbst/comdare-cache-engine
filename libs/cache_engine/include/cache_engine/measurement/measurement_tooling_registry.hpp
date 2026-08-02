@@ -67,13 +67,18 @@ static_assert(detail::tooling_registry_is_complete(),
 }
 
 /// A2 (G2-4 Schritt 4): die bump-bare Code-Version zu einer Tooling-`id` (Stempel-Token). Bekannte id -> ihre
-/// Registry-Version ("v1.0.0"); UNBEKANNTE id -> "v0"-Sentinel (dokumentierter Render-Wechsel @0.0.0 NUR fuer
+/// Registry-Version ("v1.0.0"); UNBEKANNTE id -> Sentinel (dokumentierter Render-Wechsel @0.0.0 NUR fuer
 /// ungueltige ids; gueltige golden-ids bleiben render-neutral bei "v1.0.0" -> "1.0.0"). measurement_stamp_line
 /// (abi/anatomy_version_stamp.hpp) liest hierueber statt der frueheren "v1"-Hartkodierung.
+///
+/// A13-M1b (Owner-Q3 02.08.2026 "Versionierungen sind ... immer 3-Stellig"): der Sentinel-Rueckgabewert war
+/// die Kurzform "v0", die mit dem Kurzform-Rueckbau nur noch ZUFAELLIG (weil unparsbar) auf den Sentinel
+/// fiele. Er steht deshalb jetzt dreistellig als "v0.0.0" da -- ABSICHTLICH statt zufaellig, byte-neutral:
+/// beide Formen rendern ueber algo_semver_string identisch "0.0.0".
 [[nodiscard]] constexpr std::string_view tooling_version_for_id(std::string_view id) noexcept {
     for (std::size_t i = 0; i < kMeasurementToolingCount; ++i)
         if (kMeasurementToolingRegistry[i].id == id) return kMeasurementToolingRegistry[i].version;
-    return "v0"; // unbekannte id -> Sentinel
+    return "v0.0.0"; // unbekannte id -> Sentinel (dreistellig, Owner-Q3)
 }
 
 /// Compile-time-Iteration ueber die Mess-Tooling-HAUPT-Achse (Metaprogrammierungs-Interface fuer den Fan-out).
