@@ -115,6 +115,13 @@ struct RamProbeContext {
 // FRISCHE-WACHE: die boot_id wechselt bei jedem Neustart. Stimmt die in der Datei nicht mit der
 // laufenden ueberein, beschreibt die Datei einen FRUEHEREN Boot -- moeglicherweise mit anderem
 // BIOS-Profil. Sie faellt dann durch, statt einen alten Wert als aktuellen auszugeben.
+//
+// LIVE-VERIFIZIERTE FORMAT-PRAEZISIERUNG (P3, 02.08.2026; Infra-Kanal v1 auf beiden Hosts): der
+// Schreiber emittiert die drei WERTE-Schluessel (configured_speed_mts/speed_mts/memory_type) JE
+// BESTUECKTEM DIMM erneut -- zwei Slots ergeben zwei Bloecke; boot_id und slots_populated stehen
+// einmal. key_value_lookup liest die ERSTE Treffer-Zeile; auf der homogen bestueckten Flotte sind
+// die Bloecke identisch. Heterogene Bestueckung: die erste Zeile gewinnt (Befund-Notiz P3, keine
+// Verhaltens-Aenderung -- eine Aggregations-Regel waere eine Kontrakt-Erweiterung, kein Leser-Patch).
 
 /// Der vorgeschlagene Ablage-Ort. /run ist ein tmpfs: der Inhalt verschwindet beim Neustart von
 /// selbst, was zur Frische-Wache passt (eine stale Datei kann es dort gar nicht erst geben, solange
@@ -236,11 +243,12 @@ read_whole_file(std::filesystem::path const& p) {
 
 /// Stufe 1: der konfigurierte Ist-Takt aus der gefilterten Boot-Cache-Datei.
 ///
-/// HEUTIGER ZUSTAND: die Datei existiert nirgends -- der privilegierte Schreiber ist P6 (Infra-
-/// Kontrakt). Diese Stufe faellt deshalb heute IMMER mit QuelleFehlt durch, und das ist kein Mangel,
-/// sondern die ehrliche Auskunft: der Ist-Takt ist ohne Infra-Kanal strukturell unbeweisbar. Die
-/// Stufe jetzt zu bauen kostet nichts und macht den Tag, an dem der Schreiber kommt, zu einem
-/// Konfigurations- statt einem Code-Ereignis.
+/// ZUSTAND (P3-Nachtrag, 02.08.2026): der privilegierte Infra-Schreiber ist seit 01.08.2026 LIVE auf
+/// beiden Hosts (v1-Kontrakt exakt wie oben, 0444, gefiltert, boot_id-frisch) -- die Stufe ist real
+/// lieferfaehig (prod1 configured 5600 bei aktivem XMP, prod2 4800; test_p3_boot_cache_dmi traegt
+/// den Live-Beweis). Der Satz "die Datei existiert nirgends" beschrieb den Stand VOR dem
+/// Infra-Vollzug; in Umgebungen ohne Schreiber (CI-Docker) faellt die Stufe weiterhin ehrlich mit
+/// QuelleFehlt durch -- genau der Konfigurations- statt Code-Uebergang, fuer den sie gebaut wurde.
 struct BootCacheDmiProbe {
     [[nodiscard]] static constexpr RamFrequencyProvenance stage() noexcept {
         return RamFrequencyProvenance::ConfiguredMeasured;

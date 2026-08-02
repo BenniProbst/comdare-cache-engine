@@ -3526,6 +3526,28 @@ foreach(_p2_test test_p2_ram_probe_chain test_p2_ram_identity_verdict)
     set_tests_properties(${_p2_test} PROPERTIES LABELS "hwprobe;measurement")
 endforeach()
 
+# Task #7 P3: der Stufe-1-REAL-Beweis (F13 "erst prod1 testen"). Fixture-Teil: v1-Kontrakt-Dateien in
+# der ECHTEN Schreiber-Form (Werte-Schluessel je DIMM wiederholt -- vom live verifizierten Format
+# abgeleitet, A9); Live-Teil: liest den echten Boot-Cache dieses Hosts mit benanntem Skip-Guard
+# (CI-Docker hat keinen Infra-Schreiber). Die Live-Erwartung wird aus der Datei selbst unabhaengig
+# zweitgelesen, nie als Zahl gepinnt (Owner-KERN: Hardware-Werte nie statisch). Include-Menge wie P2.
+foreach(_p3_test test_p3_boot_cache_dmi)
+    add_executable(${_p3_test} "${_p3_test}.cpp")
+    target_compile_features(${_p3_test} PRIVATE cxx_std_23)
+    target_include_directories(${_p3_test} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated")
+    target_link_libraries(${_p3_test} PRIVATE gtest gtest_main)
+    comdare_set_platform_defines(${_p3_test})
+    target_compile_definitions(${_p3_test} PRIVATE
+        COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_p3_test} COMMAND ${_p3_test})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_p3_test})
+    set_tests_properties(${_p3_test} PROPERTIES LABELS "hwprobe;measurement")
+endforeach()
+
 # O-4 / C-3a: die zwei IDENTITAETS-Tests. Sie liefen bis V-4 nur per Hand-Bau -- der einzige in den
 # Dateikoepfen genannte Grund war Paket-Disziplin ("tests/unit/CMakeLists.txt bleibt unangetastet"),
 # kein inhaltlicher. Ein Identitaets-Test ohne Gate ist ein unsichtbarer Test: er faengt eine
