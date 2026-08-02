@@ -56,7 +56,7 @@
 #include <cstddef>
 #include <map> // #165-B: Gruppen-Buckets (binary_id|profile_name) im annotate_quality_flags
 #include <cstdint>
-#include <cstdio>    // (C-1) std::snprintf für ns_per_op-Formatierung
+#include <cstdio>    // (C-1) std::snprintf fuer ns_per_op-Formatierung
 #include <exception> // TP1FK1-B2: std::exception -- der werfende Transport wird im Mess-Pfad klassifiziert gefangen
 #include <filesystem>
 #include <fstream>    // (E) per-Binary-Ergebnis-CSV schreiben

@@ -37,7 +37,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <iostream>  // std::cerr (klassifizierte Infra-Fehlerzeile) — include-what-you-use, nicht transitiv verlassen
+#include <iostream>  // std::cerr (klassifizierte Infra-Fehlerzeile) -- include-what-you-use, nicht transitiv verlassen
 #include <optional>  // G5 (P-B): prune_verdict-Remote-Werte (std::optional)
 #include <stdexcept> // TP1FK1-B2: ArtefaktPushFehler (sichtbarer Transport-Fehler des Tier-Push)
 #include <string>
