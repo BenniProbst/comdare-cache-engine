@@ -81,6 +81,40 @@ using T25_hash_probe_shape = ce::nodes::axis_hash_probe_shape::EnabledShapes;
 using T26_persistence_target = ce::io::axis_persistence_target::EnabledTargets;
 } // namespace axes26
 
+// -- CX-W6 (Codex-Doppelreview 02.08.2026): die ROH-REGISTRIERTEN (All*) Listen der 18 ORGAN-Haupt-Achsen --
+// Die axes26::T*-Aliase oben tragen die per is_enabled GEFILTERTEN Enabled*-Listen -- also nur, was per
+// CMake-Option gebaut/gemessen wird. Ein deaktiviert-aber-registrierter Algorithmus (Bestandsfall:
+// Array256SearchAlgo, COMDARE_AXIS_03A_ENABLE_ARRAY256=OFF) traegt aber ebenfalls ein algo_version-Literal, das
+// KEINE Enabled-getriebene Wache je sieht -- ein 'e'/falsches Flag bliebe bis zur spaeteren Aktivierung
+// unentdeckt, und der A13-M2/M3-ENFORCE-Commit schluege daran nicht an. Die Flag-Grammatik-Wachen
+// (axis_variant_version_table.hpp, guard_all_registered_organ_versions) laufen daher ueber DIESE VOLLEN All*-
+// Listen. Es sind exakt die 18 kCompositionAxisNames-Achsen (die System-/Shape-Achsen tragen KEIN algo_version,
+// s. axis_variant_version_table.hpp-Kopf). Sub-Namespace + All*-Name spiegeln EINS-ZU-EINS die Enabled*-Quelle
+// jeder T*-Achse (All* steht in derselben Registry-Namespace-Ebene wie ihr Enabled*-Geschwister). ROH statt
+// gewrappt (kein Observable): die Wache liest NUR W::algo_version, das die Observable-Huellen forwarden -> die
+// rohe All*-Liste deckt byte-genau dieselben Literale. Reine CT-Reflexion.
+namespace axes26_registered {
+namespace ce                 = ::comdare::cache_engine;
+using R00_search_algo        = ce::traversal::axis_03a_search_algo::AllStrategies;
+using R01_cache_traversal    = ce::traversal::axis_03b_cache_traversal::AllStrategies;
+using R02_mapping            = ce::traversal::axis_03m_mapping::AllStrategies;
+using R03_path_compression   = ce::nodes::axis_02_path_compression::AllCompressions;
+using R04_node_type          = ce::nodes::axis_04_node_type::AllNodeTypes;
+using R05_memory_layout      = ce::memory_layout::axis_05_memory_layout::AllLayouts;
+using R06_allocator          = ce::allocator::axis_06_allocator::AllVendors;
+using R07_prefetch           = ce::prefetch::axis_07_prefetch::AllPrefetchers;
+using R08_concurrency        = ce::concurrency::axis_08_concurrency::AllStrategies;
+using R09_serialization      = ce::serialization::axis_10_serialization::AllSerializers;
+using R11_value_handle       = ce::value_handle::axis_14_value_handle::AllHandles;
+using R13_index_organization = ce::search_engine::axis_01_index_organization::AllOrganizations;
+using R14_io_dispatch        = ce::io::axis_io::AllIos;
+using R15_migration_policy   = ce::migration::axis_migration::AllMigrations;
+using R16_filter             = ce::filter::axis_filter::AllFilters;
+using R20_queuing_q1         = ce::queuing::axis_q1_queuing::AllStrategies;
+using R21_queuing_q2         = ce::queuing::axis_q2_queuing::AllPolicies;
+using R26_persistence_target = ce::io::axis_persistence_target::AllTargets;
+} // namespace axes26_registered
+
 /// Bau-INC-1b (Schichtung, System ⊃ Tier): die 26 Achsen zerfallen in drei benannte Schicht-Bausteine.
 /// Die Organ-/Kompositions-Seite permutiert die binary_id; die System-Schicht (build-only) ist
 /// binary_id-orthogonal und wird kuenftig von der CEB-System-Achsen-Schicht getrieben (Q2-Ruling:

@@ -4053,6 +4053,28 @@ target_compile_definitions(test_reflect_versions_all17 PRIVATE
 set_tests_properties(test_reflect_versions_all17 PROPERTIES LABELS "striktheit;algo_version;stale_skip" TIMEOUT 120)
 
 # ---------------------------------------------------------------------------
+# CX-W6 (Codex-Doppelreview 02.08.2026): die Flag-Grammatik-Wache ueber die VOLLE registrierte Organ-Population
+# (auch deaktivierte Varianten), nicht nur die Enabled*-Emit-Liste. Schwere TU wie test_reflect_versions_all17
+# (registry_to_axis_levels -> alle topic_config_sets); der BAU instanziiert guard_all_registered_organ_versions
+# und IST die Wache. KEIN contract-/pmc-Label: MUSS im Default-Sweep test:unit laufen.
+# ---------------------------------------------------------------------------
+comdare_add_test(test_reflect_versions_all_registered
+    SOURCES test_reflect_versions_all_registered.cpp)
+target_include_directories(test_reflect_versions_all_registered PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_reflect_versions_all_registered PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_reflect_versions_all_registered PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_reflect_versions_all_registered PROPERTIES
+    LABELS "striktheit;algo_version;stale_skip" TIMEOUT 120)
+
+# ---------------------------------------------------------------------------
 # CX-W5 (Codex-Doppelreview 02.08.2026): der Planer-Selbst-Stempel (kPlannerVersion) faellt unter dieselbe
 # Owner-Q10/Q3-Grammatik wie jede Achsen-Version. Leichte TU (profile_facade/planner/planner_version.hpp +
 # measurement/algo_semver.hpp, header-only). Negativ-Probe: ce_owned_version_is_wellformed(kPlannerVersion) ist
