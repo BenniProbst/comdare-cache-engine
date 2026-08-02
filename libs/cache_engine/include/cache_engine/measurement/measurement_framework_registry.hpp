@@ -46,26 +46,30 @@ inline constexpr std::array<MeasurementFrameworkInfo, kMeasurementFrameworkCount
 }};
 
 namespace detail {
-// A13-M1b-Fixup (Review-BEFUND-1): Wachen-Doppelung wie an Organ-/Tooling-Registry (Owner-Q3).
-[[nodiscard]] consteval bool framework_versionen_flag_konform() {
+// A13-M1b-Fixup (Review-BEFUND-1) + B12 (Codex-Review 02.08.2026): Wachen-Batterie wie an Organ-/Tooling-
+// Registry, ueber die EINE Politik aus algo_semver.hpp (parsbar + nie 'e' + Flag-konform). Vorher fehlten
+// hier die Parsbarkeits- und die 'e'-Pflicht -- junk waere still als @0.0.0 gestempelt worden.
+[[nodiscard]] consteval bool framework_versionen_wohlgeformt() {
     for (auto const& e : kMeasurementFrameworkRegistry)
-        if (parse_algo_semver(e.version).has_hardware_flag() && !version_satisfies_cpu_only_policy(e.version))
-            return false;
+        if (!ce_owned_version_is_wellformed(e.version)) return false;
     return true;
 }
 [[nodiscard]] consteval bool framework_versionen_cpu_pflicht() {
     for (auto const& e : kMeasurementFrameworkRegistry)
-        if (!version_satisfies_cpu_only_policy(e.version)) return false;
+        if (!ce_owned_version_satisfies_cpu_enforce(e.version)) return false;
     return true;
 }
 } // namespace detail
-static_assert(detail::framework_versionen_flag_konform(),
-              "Mess-Framework-Version mit FALSCHEM Hardware-Flag: im CPU-only-Scope ist GENAU 'c' (bzw. 'ce') "
-              "zulaessig (Owner-Q3 02.08.2026)");
+static_assert(detail::framework_versionen_wohlgeformt(),
+              "Mess-Framework-Version verletzt die ce-Registry-Politik: (a) UNPARSBAR (und nicht der "
+              "dokumentierte Sentinel \"v0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
+              "(b) experimentelles 'e' (AUSSCHLIESSLICH die Pruefling-Markierung, Owner-E2 02.08.2026); oder "
+              "(c) FALSCHES Hardware-Flag (im CPU-only-Scope GENAU 'c' bzw. 'ce', Owner-Q3 02.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::framework_versionen_cpu_pflicht(),
-              "Mess-Framework-Version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' oder "
-              "'ce' enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+              "Mess-Framework-Version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version "
+              "auf 'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
+              "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
 #endif
 
 namespace detail {

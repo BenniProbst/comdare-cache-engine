@@ -50,27 +50,33 @@ inline constexpr std::array<MeasurementToolingInfo, kMeasurementToolingCount> kM
 }};
 
 namespace detail {
-// A13-M1b-Fixup (Review-BEFUND-1): dieselbe Wachen-Doppelung wie an der Organ-Registry
-// (axis_variant_version_table.hpp) auch HIER -- die Mess-Tooling-Versionen stempeln in die Mess-Zeile.
-[[nodiscard]] consteval bool tooling_versionen_flag_konform() {
+// A13-M1b-Fixup (Review-BEFUND-1) + B12 (Codex-Review 02.08.2026): dieselbe Wachen-Batterie wie an der
+// Organ-Registry (axis_variant_version_table.hpp) auch HIER -- die Mess-Tooling-Versionen stempeln in die
+// Mess-Zeile. Die Politik selbst lebt EINMAL (algo_semver.hpp), damit die vier Registry-Wachen nicht
+// luecken-verschieden auseinanderlaufen: vorher prueften diese drei WEDER auf Parsbarkeit (junk fiel
+// still auf @0.0.0) NOCH auf '!experimental' ("v1.0.0ce" passierte sogar den ENFORCE-Zweig).
+[[nodiscard]] consteval bool tooling_versionen_wohlgeformt() {
     for (auto const& e : kMeasurementToolingRegistry)
-        if (parse_algo_semver(e.version).has_hardware_flag() && !version_satisfies_cpu_only_policy(e.version))
-            return false;
+        if (!ce_owned_version_is_wellformed(e.version)) return false;
     return true;
 }
 [[nodiscard]] consteval bool tooling_versionen_cpu_pflicht() {
     for (auto const& e : kMeasurementToolingRegistry)
-        if (!version_satisfies_cpu_only_policy(e.version)) return false;
+        if (!ce_owned_version_satisfies_cpu_enforce(e.version)) return false;
     return true;
 }
 } // namespace detail
-static_assert(detail::tooling_versionen_flag_konform(),
-              "Mess-Tooling-Version mit FALSCHEM Hardware-Flag: im CPU-only-Scope ist GENAU 'c' (bzw. 'ce') "
-              "zulaessig (Owner-Q3 02.08.2026)");
+static_assert(detail::tooling_versionen_wohlgeformt(),
+              "Mess-Tooling-Version verletzt die ce-Registry-Politik: (a) sie ist UNPARSBAR (und nicht der "
+              "dokumentierte Sentinel \"v0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
+              "(b) sie traegt das experimentelle 'e' (das ist AUSSCHLIESSLICH die Pruefling-Markierung, "
+              "Owner-E2 02.08.2026); oder (c) sie traegt ein FALSCHES Hardware-Flag (im CPU-only-Scope ist "
+              "GENAU 'c' bzw. 'ce' zulaessig, Owner-Q3 02.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::tooling_versionen_cpu_pflicht(),
-              "Mess-Tooling-Version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' oder "
-              "'ce' enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+              "Mess-Tooling-Version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version "
+              "auf 'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
+              "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
 #endif
 
 namespace detail {
@@ -101,10 +107,12 @@ static_assert(detail::tooling_registry_is_complete(),
 /// die Kurzform "v0", die mit dem Kurzform-Rueckbau nur noch ZUFAELLIG (weil unparsbar) auf den Sentinel
 /// fiele. Er steht deshalb jetzt dreistellig als "v0.0.0" da -- ABSICHTLICH statt zufaellig, byte-neutral:
 /// beide Formen rendern ueber algo_semver_string identisch "0.0.0".
+/// B12: das Literal kommt aus kAlgoSemVerSentinelLiteral (Single-Source) -- GENAU dieser Wortlaut ist der
+/// eine, den die Registry-Parsbarkeits-Wache als ABSICHT durchlaesst. Zwei Literale gaebe es sonst wieder.
 [[nodiscard]] constexpr std::string_view tooling_version_for_id(std::string_view id) noexcept {
     for (std::size_t i = 0; i < kMeasurementToolingCount; ++i)
         if (kMeasurementToolingRegistry[i].id == id) return kMeasurementToolingRegistry[i].version;
-    return "v0.0.0"; // unbekannte id -> Sentinel (dreistellig, Owner-Q3)
+    return kAlgoSemVerSentinelLiteral; // unbekannte id -> Sentinel (dreistellig "v0.0.0", Owner-Q3)
 }
 
 /// Compile-time-Iteration ueber die Mess-Tooling-HAUPT-Achse (Metaprogrammierungs-Interface fuer den Fan-out).

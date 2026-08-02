@@ -93,28 +93,32 @@ static_assert(kSystemAxisCodeVersions[2].axis == std::string_view{"external_util
               "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
 
 namespace detail {
-// A13-M1b-Fixup (Review-BEFUND-1): Wachen-Doppelung wie an Organ-/Mess-Registries -- die System-Achsen-
-// Code-Versionen stempeln in system_stamp_line und muessen der Owner-Q3-Flag-Grammatik folgen.
-[[nodiscard]] consteval bool system_versionen_flag_konform() {
+// A13-M1b-Fixup (Review-BEFUND-1) + B12 (Codex-Review 02.08.2026): Wachen-Batterie wie an Organ-/Mess-
+// Registries -- die System-Achsen-Code-Versionen stempeln in system_stamp_line. Die Politik lebt EINMAL
+// (measurement/algo_semver.hpp): parsbar (oder exakt der dokumentierte Sentinel) + nie experimentell +
+// Flag-konform. Vorher prueften diese Wachen WEDER Parsbarkeit (junk fiel still auf @0.0.0) NOCH das 'e'.
+[[nodiscard]] consteval bool system_versionen_wohlgeformt() {
     for (auto const& e : kSystemAxisCodeVersions)
-        if (::comdare::cache_engine::measurement::parse_algo_semver(e.version).has_hardware_flag() &&
-            !::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(e.version))
-            return false;
+        if (!::comdare::cache_engine::measurement::ce_owned_version_is_wellformed(e.version)) return false;
     return true;
 }
 [[nodiscard]] consteval bool system_versionen_cpu_pflicht() {
     for (auto const& e : kSystemAxisCodeVersions)
-        if (!::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(e.version)) return false;
+        if (!::comdare::cache_engine::measurement::ce_owned_version_satisfies_cpu_enforce(e.version)) return false;
     return true;
 }
 } // namespace detail
-static_assert(detail::system_versionen_flag_konform(),
-              "System-Achsen-Code-Version mit FALSCHEM Hardware-Flag: im CPU-only-Scope ist GENAU 'c' (bzw. "
-              "'ce') zulaessig (Owner-Q3 02.08.2026)");
+static_assert(detail::system_versionen_wohlgeformt(),
+              "System-Achsen-Code-Version verletzt die ce-Registry-Politik: (a) UNPARSBAR (und nicht der "
+              "dokumentierte Sentinel \"v0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 in "
+              "system_stamp_line stempeln; oder (b) experimentelles 'e' (AUSSCHLIESSLICH die Pruefling-"
+              "Markierung, Owner-E2 02.08.2026); oder (c) FALSCHES Hardware-Flag (im CPU-only-Scope GENAU "
+              "'c' bzw. 'ce', Owner-Q3 02.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::system_versionen_cpu_pflicht(),
-              "System-Achsen-Code-Version ohne CPU-Hardware-Flag: im CPU-only-Scope MUSS jede Version auf 'c' "
-              "oder 'ce' enden (Owner-Q3 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+              "System-Achsen-Code-Version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede "
+              "Version auf 'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
+              "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
 #endif
 
 namespace detail {
