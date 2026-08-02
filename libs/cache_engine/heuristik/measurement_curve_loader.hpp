@@ -54,7 +54,14 @@ struct LoaderSpec {
     // anderes: "failed" heisst gemessen-und-gescheitert, "gesperrt" heisst gar-nicht-erst-gemessen. Fuer
     // die Kurve ist beides gleich zu behandeln (kein Phantom-Punkt); wer die beiden Faelle TRENNEN will,
     // liest die Marker-Zeile ueber ihr eigenes Token, nicht ueber diese Liste.
-    std::vector<std::string> na_tokens = {"n/a", "failed", "gesperrt", "-", ""};
+    // A15/FK-1 (Owner-Q4 per Volles-GO 02.08.): "nicht_gebaut" ist das D1-BAU-Token (axis_error.hpp ::
+    // build_cell_status_token) und gehoert aus demselben Grund hierher wie "failed" und "gesperrt" -- es
+    // ist keine Zahl. Fehlte es in dieser Liste, wuerde jede nicht gebaute Binary als Phantom-Punkt in die
+    // Kurve wandern (der Grund, warum die Marker-Zeile ueberhaupt ein eigenes Vokabular bekommt).
+    // Semantisch sind es DREI verschiedene Aussagen: failed = gemessen und gescheitert, gesperrt =
+    // nicht zugelassen, nicht_gebaut = es gibt gar keine Binary. Fuer die KURVE ist alles drei gleich zu
+    // behandeln (kein Punkt); wer sie TRENNEN will, liest die Marker-Zeile ueber ihr eigenes Token.
+    std::vector<std::string> na_tokens = {"n/a", "failed", "gesperrt", "nicht_gebaut", "-", ""};
 };
 
 /// Default-Spezifikationen fuer die zwei realen CSV-Dialekte des ce.
