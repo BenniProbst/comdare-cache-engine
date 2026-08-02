@@ -107,19 +107,19 @@ TEST(MSystemAxisWurzel, WallClockCollectsLatencyAndThroughputFromHostValues) {
     EXPECT_TRUE(axis.available());
 
     auto const mean = collect(axis, m::MeasurementCategory::LATENCY_MEAN);
-    EXPECT_TRUE(mean.valid);
+    EXPECT_TRUE(mean.valid());
     EXPECT_EQ(mean.value, 500u);
 
     // honest-0: der Mittelwert darf NICHT als Perzentil etikettiert werden (echte Perzentile = HdrHistogramm).
     for (auto const category : std::array{m::MeasurementCategory::LATENCY_P50, m::MeasurementCategory::LATENCY_P95,
                                           m::MeasurementCategory::LATENCY_P99, m::MeasurementCategory::LATENCY_P999}) {
         auto const sample = collect(axis, category);
-        EXPECT_FALSE(sample.valid);
+        EXPECT_FALSE(sample.valid());
         EXPECT_EQ(sample.value, 0u);
     }
 
     auto const throughput = collect(axis, m::MeasurementCategory::THROUGHPUT);
-    EXPECT_TRUE(throughput.valid);
+    EXPECT_TRUE(throughput.valid());
     EXPECT_EQ(throughput.value, 2'000'000u);
 }
 
@@ -137,17 +137,17 @@ TEST(MSystemAxisWurzel, ObserverSnapshotCollectsReadOnlyHostPodValues) {
 
     // CLU = Auslastung field_bytes/(cache_lines*64) in Prozent (Thesis 03:383) — NICHT der rohe Zaehler.
     auto const clu = collect(axis, m::MeasurementCategory::CLU);
-    EXPECT_TRUE(clu.valid);
+    EXPECT_TRUE(clu.valid());
     EXPECT_EQ(clu.value, 50u); // 2048 Nutzbytes auf 64 Lines a 64 B = 50 %
 
     // honest-0: bytes_in_use ist nicht der Thesis-Kanon bytes_in_use_peak; peak_size ist Software-Queue,
     // kein Hardware-Line-Fill-Buffer — beide Kategorien bleiben invalid statt falsch etikettiert.
     auto const footprint = collect(axis, m::MeasurementCategory::MEMORY_FOOTPRINT);
-    EXPECT_FALSE(footprint.valid);
+    EXPECT_FALSE(footprint.valid());
     EXPECT_EQ(footprint.value, 0u);
 
     auto const fill = collect(axis, m::MeasurementCategory::FILL_BUFFER_OCCUPANCY);
-    EXPECT_FALSE(fill.valid);
+    EXPECT_FALSE(fill.valid());
     EXPECT_EQ(fill.value, 0u);
     EXPECT_EQ(snapshot.tier_fill_level, 123456u);
 }
@@ -174,7 +174,7 @@ TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
     EXPECT_EQ(collect(axis, m::MeasurementCategory::ENERGY_J).value, 99000u);
 
     auto const ipc_cpi = collect(axis, m::MeasurementCategory::IPC_CPI);
-    EXPECT_FALSE(ipc_cpi.valid);
+    EXPECT_FALSE(ipc_cpi.valid());
     EXPECT_EQ(ipc_cpi.value, 0u);
 }
 
@@ -188,7 +188,7 @@ TEST(MSystemAxisWurzel, PmcHonestZeroWhenUnavailable) {
 
     for (auto const category : m::kPmcCounterCategories) {
         auto const sample = collect(axis, category);
-        EXPECT_FALSE(sample.valid);
+        EXPECT_FALSE(sample.valid());
         EXPECT_EQ(sample.value, 0u);
     }
 }

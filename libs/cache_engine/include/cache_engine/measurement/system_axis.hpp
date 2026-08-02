@@ -4,6 +4,7 @@
 // Keine ABI-Erweiterung: diese Header-only-Wurzel dockt nur lesend an die bestehenden
 // Host-PODs (ComdareTierObserverSnapshot, PmcCounters) an.
 
+#include <cache_engine/measurement/axis_error.hpp>
 #include <cache_engine/measurement/measurement_category.hpp>
 
 #include "../../../anatomy/observable_tier.hpp"
@@ -132,10 +133,45 @@ static_assert(kAllMeasurementCategories.size() == 16);
 static_assert(detail::regime_mapping_is_complete(),
               "Jede MeasurementCategory muss genau einem MeasurementRegime zugeordnet sein");
 
+/// FK-2: der Zell-Traeger der host-seitigen System-Achsen. Das fruehere `bool valid` konnte nur
+/// "Zahl" von "keine Zahl" unterscheiden und hat damit drei grundverschiedene Aussagen in einen
+/// Wert gefaltet: "diese Kategorie ist hier sinnlos" (n/a, kein Fehler), "die Mess-Quelle war nicht
+/// da" (n/a) und "die Messung ist gescheitert" (failed). SampleStatus traegt genau diese Trennung
+/// (axis_error.hpp, D2) und ist mit 1 Byte groessen-neutral zum abgeloesten bool (Layout-Pin unten).
 struct SystemAxisSample {
     MeasurementCategory category = MeasurementCategory::CLU;
     std::uint64_t       value    = 0;
-    bool                valid    = false;
+    // FK-2/K1 -- FAIL-SAFE-Default: eine default-konstruierte, nie collectete Sample ist NIE gueltig.
+    // Der Default ist BEWUSST nicht Ok; die Ok==0-Zusicherung in axis_error.hpp gilt ausschliesslich
+    // fuer den PermResult-Wire-POD. Waere er hier Ok, laese ein vergessener collect()-Aufruf als
+    // "gueltige Messung mit dem Wert 0" -- exakt die Blindstelle "Messung nie als Nullen".
+    // SourceUnavailable ist die ehrliche Aussage VOR jeder Erhebung: die Quelle wurde nie gefragt.
+    SampleStatus status = SampleStatus::SourceUnavailable;
+
+    /// Gueltig heisst AUSSCHLIESSLICH Ok. n/a, fehlende Quelle und failed sind alle drei nicht
+    /// gueltig -- aber untereinander unterscheidbar (genau das konnte das bool nicht).
+    [[nodiscard]] constexpr bool valid() const noexcept { return status == SampleStatus::Ok; }
+
+    /// Erfolgspfad, EXPLIZIT: Wert und Status wandern nur gemeinsam. Kein "value gesetzt, Status vergessen".
+    constexpr void mark_ok(std::uint64_t measured) noexcept {
+        value  = measured;
+        status = SampleStatus::Ok;
+    }
+    /// Die Kategorie ist fuer diese Achse/Binary sinnlos -> ehrliches "n/a", KEIN Fehler.
+    constexpr void mark_not_applicable() noexcept {
+        value  = 0;
+        status = SampleStatus::NotApplicable;
+    }
+    /// Die Mess-QUELLE (PMC-Zugang, Snapshot, Schema-Spalte) ist nicht da oder nicht befragbar -> "n/a".
+    constexpr void mark_source_unavailable() noexcept {
+        value  = 0;
+        status = SampleStatus::SourceUnavailable;
+    }
+    /// Echter Mess-Fehler (unplausibler Rohwert, Gate-Fail) -> Zelle "failed" + Log, NIE eine Null.
+    constexpr void mark_failed() noexcept {
+        value  = 0;
+        status = SampleStatus::Failed;
+    }
 };
 
 static_assert(std::is_standard_layout_v<SystemAxisSample>);
@@ -173,7 +209,9 @@ struct SystemAxis : topics::Axis<Derived> {
 
     constexpr void collect(SystemAxisSample& sample) const noexcept {
         if (!available()) {
-            invalidate(sample);
+            // Die Achse meldet ihre eigene Quelle als nicht verfuegbar (z.B. PmcCounters ohne Zugang):
+            // ehrliches "n/a", kein Mess-Fehler und keine stille Null.
+            sample.mark_source_unavailable();
             return;
         }
         derived().do_collect(sample);
@@ -182,9 +220,14 @@ struct SystemAxis : topics::Axis<Derived> {
 protected:
     constexpr SystemAxis() noexcept = default;
 
+    /// DEPRECATED (FK-2): konflatierte "nicht anwendbar", "Quelle nicht da" und "Messung gescheitert"
+    /// zu einem einzigen "nicht gueltig". Bleibt ERHALTEN (Kanon: deprecaten statt loeschen) und
+    /// delegiert auf die konservativste der drei Aussagen. Neuer Code benutzt die benannten Helfer
+    /// SystemAxisSample::mark_not_applicable/mark_source_unavailable/mark_failed direkt.
+    [[deprecated("FK-2: konflatiert n/a vs. fehlende Quelle vs. Mess-Fehler -- "
+                 "SystemAxisSample::mark_not_applicable()/mark_source_unavailable()/mark_failed() benutzen")]]
     static constexpr void invalidate(SystemAxisSample& sample) noexcept {
-        sample.value = 0;
-        sample.valid = false;
+        sample.mark_source_unavailable();
     }
 
 private:
@@ -215,34 +258,49 @@ struct WallClockSystemAxis final : SystemAxis<WallClockSystemAxis> {
     constexpr void do_collect(SystemAxisSample& sample) const noexcept {
         switch (sample.category) {
             case MeasurementCategory::LATENCY_MEAN:
-                if (op_count == 0 || total_ns < 0) {
-                    invalidate(sample);
+                // FK-2: die alte Sammel-Bedingung (op_count==0 || total_ns<0) hat zwei verschiedene
+                // Zustaende zu einem "invalid" gefaltet -- hier einzeln eingeordnet.
+                if (total_ns < 0) {
+                    // Eine NEGATIVE Dauer ist kein "nicht anwendbar", sondern ein unplausibler Rohwert
+                    // der Zeitquelle: echter Mess-Fehler, Zelle "failed", nie eine Null.
+                    sample.mark_failed();
                     return;
                 }
-                sample.value = static_cast<std::uint64_t>(total_ns) / op_count;
-                sample.valid = true;
+                if (op_count == 0) {
+                    // Kein einziger Operations-Zaehler: die Quelle hat nichts geliefert, ein Mittelwert
+                    // ist nicht bildbar. Ehrliches "n/a", kein Fehler des Algorithmus.
+                    sample.mark_source_unavailable();
+                    return;
+                }
+                sample.mark_ok(static_cast<std::uint64_t>(total_ns) / op_count);
                 return;
 
             case MeasurementCategory::THROUGHPUT:
-                if (total_ns <= 0) {
-                    invalidate(sample);
+                if (total_ns < 0) {
+                    sample.mark_failed(); // s.o.: negative Dauer = unplausibler Rohwert, kein n/a
                     return;
                 }
-                sample.value = static_cast<std::uint64_t>((static_cast<long double>(op_count) * 1'000'000'000.0L) /
-                                                          static_cast<long double>(total_ns));
-                sample.valid = true;
+                if (total_ns == 0) {
+                    sample.mark_source_unavailable(); // keine gemessene Zeitspanne -> keine Rate bildbar
+                    return;
+                }
+                sample.mark_ok(static_cast<std::uint64_t>((static_cast<long double>(op_count) * 1'000'000'000.0L) /
+                                                          static_cast<long double>(total_ns)));
                 return;
 
             case MeasurementCategory::LATENCY_P50:
             case MeasurementCategory::LATENCY_P95:
             case MeasurementCategory::LATENCY_P99:
             case MeasurementCategory::LATENCY_P999:
-                // honest-0: total_ns/op_count ist ein MITTELWERT — ihn als Perzentil zu etikettieren
-                // waere ein Phantomwert. Echte Perzentile liefert das HdrHistogramm (AP-8/#242).
-                invalidate(sample);
+                // honest-0, FK-2-Einordnung NotApplicable: total_ns/op_count ist ein MITTELWERT -- ihn als
+                // Perzentil zu etikettieren waere ein Phantomwert. Es fehlt keine Quelle (die Zeitwerte
+                // liegen vor), die KATEGORIE ist fuer diese Achse schlicht sinnlos. Echte Perzentile
+                // liefert das HdrHistogramm (AP-8/#242).
+                sample.mark_not_applicable();
                 return;
 
-            default: invalidate(sample); return;
+            // Kategorie gehoert nicht zum Vertrag dieser Achse (do_categories) -> n/a, kein Fehler.
+            default: sample.mark_not_applicable(); return;
         }
     }
 };
@@ -258,7 +316,8 @@ struct ObserverSnapshotSystemAxis final : SystemAxis<ObserverSnapshotSystemAxis>
 
     constexpr void do_collect(SystemAxisSample& sample) const noexcept {
         if (snapshot == nullptr) {
-            invalidate(sample);
+            // Kein Snapshot angeheftet -> die Mess-Quelle selbst fehlt (nicht: Kategorie sinnlos).
+            sample.mark_source_unavailable();
             return;
         }
 
@@ -269,21 +328,31 @@ struct ObserverSnapshotSystemAxis final : SystemAxis<ObserverSnapshotSystemAxis>
                 std::uint64_t const field_bytes = snapshot->axis_stats[5][2];
                 std::uint64_t const cache_lines = snapshot->axis_stats[5][3];
                 if (cache_lines == 0) {
-                    invalidate(sample);
+                    // Der Snapshot liegt vor, traegt aber keinen Nenner: die QUELLE hat nichts geliefert.
+                    // Kein Fehler des Algorithmus, aber auch keine bildbare Auslastung -> n/a.
+                    sample.mark_source_unavailable();
                     return;
                 }
-                sample.value = (field_bytes * 100u) / (cache_lines * 64u);
-                sample.valid = true;
+                sample.mark_ok((field_bytes * 100u) / (cache_lines * 64u));
                 return;
             }
             case MeasurementCategory::MEMORY_FOOTPRINT:
-                // honest-0: der Thesis-Kanon verlangt bytes_in_use_peak (05_evaluation.tex:94-95); das T6-Schema
-                // traegt nur den Momentanwert bytes_in_use — als Footprint etikettiert verzerrte er CoW-lastige
-                // Layouts (Peak >> Endstand). Bis eine peak-Spalte (golden-neutraler END-Append) existiert: invalid.
+                // honest-0, FK-2/K6-Einordnung SourceUnavailable: der Thesis-Kanon verlangt bytes_in_use_peak
+                // (05_evaluation.tex:94-95); das T6-Schema traegt nur den Momentanwert bytes_in_use -- als
+                // Footprint etikettiert verzerrte er CoW-lastige Layouts (Peak >> Endstand). Die Kategorie ist
+                // fuer diese Achse SINNVOLL, es fehlt die QUELLE (die peak-Spalte). Sobald ein golden-neutraler
+                // END-Append die Spalte liefert, wird hier gemessen -- deshalb NICHT NotApplicable.
+                sample.mark_source_unavailable();
+                return;
             case MeasurementCategory::FILL_BUFFER_OCCUPANCY:
-                // honest-0: T17 queuing_q1.peak_size ist ein SOFTWARE-Operations-Puffer; die Thesis-Kategorie meint
-                // Hardware-Line-Fill-Buffer (P25 Mahling, 03_state_of_the_art:543) — physisch unverwandt, kein Proxy.
-            default: invalidate(sample); return;
+                // honest-0, FK-2/K6-Einordnung NotApplicable: T17 queuing_q1.peak_size ist ein SOFTWARE-
+                // Operations-Puffer; die Thesis-Kategorie meint den Hardware-Line-Fill-Buffer (P25 Mahling,
+                // 03_state_of_the_art:543) -- physisch unverwandt, kein Proxy. Hier fehlt keine Spalte, die
+                // Kategorie ist ueber diese Achse grundsaetzlich nicht erhebbar.
+                sample.mark_not_applicable();
+                return;
+            // Kategorie gehoert nicht zum Vertrag dieser Achse (do_categories) -> n/a, kein Fehler.
+            default: sample.mark_not_applicable(); return;
         }
     }
 };
@@ -305,40 +374,27 @@ struct PmcSystemAxis final : SystemAxis<PmcSystemAxis> {
 
     constexpr void do_collect(SystemAxisSample& sample) const noexcept {
         if (!do_available()) {
-            invalidate(sample);
+            // FK-2/K6: PMC nicht angeheftet ODER unprivilegiert (counters->available==false) -> der ZUGANG
+            // zur Mess-Quelle fehlt. Das ist kein Urteil ueber die Kategorie und kein Mess-Fehler -> n/a.
+            sample.mark_source_unavailable();
             return;
         }
 
         switch (sample.category) {
-            case MeasurementCategory::CACHE_MISS_L1:
-                sample.value = counters->cache_misses_l1;
-                sample.valid = true;
-                return;
-            case MeasurementCategory::CACHE_MISS_L2:
-                sample.value = counters->cache_misses_l2;
-                sample.valid = true;
-                return;
-            case MeasurementCategory::CACHE_MISS_L3:
-                sample.value = counters->cache_misses_l3;
-                sample.valid = true;
-                return;
-            case MeasurementCategory::DTLB_MISS:
-                sample.value = counters->dtlb_misses;
-                sample.valid = true;
-                return;
-            case MeasurementCategory::BRANCH_MISS:
-                sample.value = counters->branch_misses;
-                sample.valid = true;
-                return;
-            case MeasurementCategory::ENERGY_J:
-                sample.value = counters->energy_micro_joules;
-                sample.valid = true;
-                return;
+            case MeasurementCategory::CACHE_MISS_L1: sample.mark_ok(counters->cache_misses_l1); return;
+            case MeasurementCategory::CACHE_MISS_L2: sample.mark_ok(counters->cache_misses_l2); return;
+            case MeasurementCategory::CACHE_MISS_L3: sample.mark_ok(counters->cache_misses_l3); return;
+            case MeasurementCategory::DTLB_MISS: sample.mark_ok(counters->dtlb_misses); return;
+            case MeasurementCategory::BRANCH_MISS: sample.mark_ok(counters->branch_misses); return;
+            case MeasurementCategory::ENERGY_J: sample.mark_ok(counters->energy_micro_joules); return;
             case MeasurementCategory::IPC_CPI:
-            default:
-                // Das aktuelle PmcCounters-POD enthaelt keine instructions/cycles-Spalten. Kein Phantomwert.
-                invalidate(sample);
+                // honest-0, FK-2/K6-Einordnung SourceUnavailable: das aktuelle PmcCounters-POD enthaelt keine
+                // instructions/cycles-Spalten. IPC/CPI ist eine ECHTE PMC-Kategorie dieser Achse (sie steht in
+                // kPmcCounterCategories) -- es fehlen die Zaehler-QUELLEN, nicht der Sinn. Kein Phantomwert.
+                sample.mark_source_unavailable();
                 return;
+            // Kategorie gehoert nicht zum Vertrag dieser Achse (kPmcCounterCategories) -> n/a, kein Fehler.
+            default: sample.mark_not_applicable(); return;
         }
     }
 };
