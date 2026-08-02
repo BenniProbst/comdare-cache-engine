@@ -43,6 +43,7 @@
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
+#include "slice_marker.hpp"       // E-04-P1: Marker-Familie v2 (die EINE Renderer-Quelle des Live-Fortschritts-Kanals)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
 #include "../pruef_dock/pruef_only.hpp" // S3 (§62-B COMDARE_PRUEF_ONLY): run_so_conformance_gate (Load+Gate, kein Bau/Mess)
@@ -245,6 +246,13 @@ struct LazyRunConfig {
     // weiter; der Orchestrator vergleicht sie beim Skip-Check gegen das `.variant`-Sidecar und schreibt sie bei Erfolg.
     // Leer (Default) = Variant-Gate AUS (byte-neutral: exakt der bisherige Versions-/Organ-Skip).
     std::string build_variant_sig;
+    // E-04-P1 (Marker-Familie v2): die PFLICHT-Koordinaten des Live-Fortschritts-Kanals. Der Host
+    // (Facade) belegt sie aus DERSELBEN Env, aus der die CI-Emission ihre Testat-Zelle bildet
+    // (COMDARE_LANE / COMDARE_GN_OPT+COMDARE_GN_SIMD / COMDARE_MEASUREMENT_COMBO) und rendert die
+    // zelle= ueber die EINE Legenden-Quelle des Planers -- keine zweite Ableitung, kein Raten.
+    // Ungesetzt (Default) => die Marker-Zeilen tragen den ehrlichen Sentinel "unbelegt"; die Zeile
+    // selbst entfaellt NIE (der Kanal darf nie stumm sein). Rein beobachtend: nur std::cerr.
+    MarkerKontext marker_kontext;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -927,11 +935,28 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         auto const gefiltert = bestandslog::filter_window_for_build(plan->view_indices, present);
         bestand_skips_gesamt += gefiltert.bestand_uebersprungen;
 
+        // E-04-P1 (Marker-Familie v2, Teil 1a): der Fenster-Token dieses Slices. Die Werte sind GLOBALE
+        // StaticBinaryView-Indizes (die Selektion des Prozesses ist bereits das COMDARE_GOLDEN_N_RANGE-
+        // Fenster) -- byte-gleich zur emittierten Shell-Koordinate "${START}:${COUNT}". Damit keyt der
+        // Aggregator (zelle, fenster) ueber BEIDE Sichten hinweg auf denselben Schluessel.
+        std::string const fenster = marker_fenster(
+            plan->view_indices.empty() ? std::size_t{0} : plan->view_indices.front(), plan->view_indices.size());
+        // VOR dem Bau: das SOLL des Fensters. Beantwortet den Owner-KERN "wie viele davon noch offen"
+        // woertlich -- zu_bauen ist die Zahl der real fehlenden Binaries dieses Fensters.
+        std::cerr << marker_kopf(kMarkePlanTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", fenster)
+                  << " gesamt=" << indices.size() << " lager=" << gefiltert.bestand_uebersprungen
+                  << " zu_bauen=" << gefiltert.zu_bauen.size() << "\n"
+                  << std::flush;
+
         auto const               t0 = std::chrono::steady_clock::now();
         BuildStats               slice_stats;
         std::vector<BuildResult> part =
             orch.provision_all(view, std::span<const std::size_t>{gefiltert.zu_bauen}, &slice_stats);
         auto const t1 = std::chrono::steady_clock::now();
+        // Die Wall-Clock des Fensters wird jetzt UNABHAENGIG vom Reservierungs-Zweig gebraucht (die
+        // Bilanz-Zeile traegt sie auch ohne aktives Bestandslog) -- dieselbe Zahl, die apply_calibration
+        // unten als eta_s in die Reservierung schreibt (deshalb KEIN zweites, redundantes eta_s-Feld).
+        double const wall_s = std::chrono::duration<double>(t1 - t0).count();
 
         // BuildStats aggregieren (jede Binary genau einmal -> Summe == EINE-provision_all-Statistik).
         // Bestands-Skips buchen wie dll_is_current-Hits (ok + skipped + gezaehlter Job): built_skip
@@ -945,13 +970,21 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         agg.built += slice_stats.built;
         agg.min_free_ram_bytes = (std::min)(agg.min_free_ram_bytes, slice_stats.min_free_ram_bytes);
 
+        // NACH dem Bau: das IST des Fensters (E-04-P1, Teil 1a). Quelle sind AUSSCHLIESSLICH die
+        // slice_stats dieses Fensters + die Filter-Zahl -- der Treiber ist die einzige Zaehler-Quelle
+        // des Kanals (Single-Source; die Shell zaehlt nichts nach).
+        std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", fenster)
+                  << " gebaut_neu=" << slice_stats.built << " sidecar_skip=" << slice_stats.skipped
+                  << " lager_skip=" << gefiltert.bestand_uebersprungen << " fehl=" << slice_stats.failed
+                  << " dauer_s=" << bestandslog::format_seconds(wall_s) << "\n"
+                  << std::flush;
+
         if (reserve) {
             std::vector<std::uint64_t> sizes; // avg_size ueber die FRISCH gebauten Binaries dieses Blocks
             std::error_code            ec;
             for (auto const& b : part)
                 if (b.ok() && !b.skipped && std::filesystem::exists(b.output, ec))
                     sizes.push_back(static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec)));
-            double const wall_s = std::chrono::duration<double>(t1 - t0).count();
             bestandslog::apply_calibration(res, bestandslog::EtaResult{wall_s, bestandslog::average_size_bytes(sizes)});
             bestandslog::mark_done(res);
             if (!store_reservation(res, "Done-Reservierung")) ++res_fehler;
@@ -1124,16 +1157,42 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             bestandslog::make_lager_presence(lager, bestandslog::make_index_key_fn(view, by_id), cfg.bestand_zelle);
     }
     std::vector<BuildResult> builds;
-    if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
+    // E-04-P1 (Marker-Familie v2, Teil 1a-ii): der Fenster-Token DIESER Invocation. Die Selektion ist
+    // bereits das COMDARE_GOLDEN_N_RANGE-Fenster, front() also der globale Fenster-Anfang -- dieselbe
+    // Koordinate, die der planer-getriebene Pfad je Slice fuehrt.
+    std::string const lauf_fenster = marker_fenster(indices.empty() ? std::size_t{0} : indices.front(), indices.size());
+    bool const        planer_getrieben = bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only);
+    if (planer_getrieben)
         builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats, bestand_present,
                                              &result.bestand_lager_skips);
-    else
+    else {
+        // FALLBACK-KANAL: ohne aktives Bestandslog gibt es keinen Slice-Loop -- die Invocation IST das
+        // eine Fenster. Ohne diese beiden Zeilen waere der Live-Kanal in genau den Laeufen stumm, in
+        // denen der Maschinen-Kanal (Bestandslog-Done-Records) ebenfalls schweigt (storage-INERT).
+        // Die Plan-Zeile steht VOR dem Bau: lager=0/zu_bauen==gesamt, weil ohne Praedikat nicht
+        // gefiltert wird (keine erfundene Lager-Zahl).
+        std::cerr << marker_kopf(kMarkePlanTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", lauf_fenster)
+                  << " gesamt=" << indices.size() << " lager=0"
+                  << " zu_bauen=" << indices.size() << "\n"
+                  << std::flush;
         builds = orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
+    }
 
     result.built              = result.build_stats.succeeded;
     result.built_new          = result.build_stats.built;
     result.built_skip         = result.build_stats.skipped;
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
+    // E-04-P1: die Fallback-Bilanz macht built_new/built_skip zu KONSUMENTEN (Aufraeumpass-Kandidat (1)
+    // der 75er-Liste entschaerft: built_new hatte bereits den SOTA-Bruecken-Leser, built_skip war
+    // leserlos). lager_skip bleibt 0, weil dieser Pfad keinen Bau-Filter faehrt -- 0 ist hier die
+    // WAHRHEIT, keine Ersatzzahl. dauer_s fuehrt nur der Slice-Pfad (dort wird die Wall-Clock je
+    // Fenster fuer die ETA ohnehin gemessen); hier gaebe es keine ehrliche Fenster-Zeit.
+    if (!planer_getrieben)
+        std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau",
+                                 lauf_fenster)
+                  << " gebaut_neu=" << result.built_new << " sidecar_skip=" << result.built_skip
+                  << " lager_skip=" << result.bestand_lager_skips << " fehl=" << result.build_stats.failed << "\n"
+                  << std::flush;
 
     // #46b I1 (opt-in): die frisch gebauten Binaries EINMAL ins Binary-Bestandslog mergen (single-threaded,
     // deterministisch, store_document_merged = Union statt blinder Ersetzung, GELOCKT ueber den einen Zyklus). No-Op
@@ -1273,6 +1332,15 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             pruef_hb.tick();
         }
         pruef_hb.done();
+        // E-04-P1 (Marker-Familie v2): die Gate-Bilanz DIESER Invocation -- dieselbe Grammatik, dieselben
+        // Pflichtfelder, derselbe Aggregator-Key (zelle, fenster) wie im Bau-Kanal. Heute faehrt der
+        // Pruef-Aufruf genau EIN Fenster je Invocation (die Emission setzt COMDARE_GOLDEN_N_RANGE); E-04-P2
+        // verschiebt spaeter nur die GRANULARITAET dieses Fensters, nicht die Zeilen-Form.
+        std::cerr << marker_kopf(kMarkePruefBilanz, cfg.marker_kontext, bestandslog::now_utc_iso(), "pruef",
+                                 lauf_fenster)
+                  << " ok=" << result.pruef_ok << " fehl=" << result.pruef_failed
+                  << " faelle=" << (result.pruef_ok + result.pruef_failed) << "/" << builds.size() << "\n"
+                  << std::flush;
         for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
         fire_progress_done(builds.size());
         return result;

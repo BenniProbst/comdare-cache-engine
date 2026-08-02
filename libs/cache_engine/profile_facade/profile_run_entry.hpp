@@ -32,6 +32,7 @@
 #include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
 #include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
 #include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed / gn_walk_cells (Single-Source)
+#include "planner/plan_legend.hpp" // E-04-P1: die EINE Legenden-Quelle -- Treiber-Marker und Shell-Testate byte-gleich
 
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
 #include <builder/experiment_tree/coverage_selection.hpp> // select_explicit
@@ -67,6 +68,9 @@ namespace comdare::cache_engine::thesis_lazy {
 
 namespace ex = ::comdare::cache_engine::builder::experiment;
 namespace wd = ::comdare::cache_engine::builder::workload_driver;
+// E-04-P1: die EINE Legenden-Quelle des dreistufigen Namensschemas (plan_legend) -- der Treiber rendert seine
+// Marker-Zelle damit BYTE-GLEICH zur emittierten Shell-Testat-Zelle (gemeinsamer Aggregator-Key).
+namespace pl = ::comdare::cache_engine::planner::legend;
 
 // ── Eingabe der EINEN CEB-Eintritts-API. ALLES, was NICHT aus dem Profil kommt (Pfade/Toolchain/Output) ──
 //    Die WHAT-Konfiguration (Lebewesen/Achsen/Sweeps/SOTA/Working-Set/run_options) liest run_profile selbst
@@ -392,6 +396,30 @@ struct RunProfileResult {
         z.simd  = env_or_empty("COMDARE_GN_SIMD");
         return z;
     }();
+    // E-04-P1 (Marker-Familie v2): die PFLICHT-Koordinaten des Live-Fortschritts-Kanals. Sie kommen aus GENAU
+    // denselben Quellen wie die Zell-Koordinaten darueber -- KEINE zweite Ableitung. Gerendert wird ueber die EINE
+    // Legenden-Quelle des Planers (plan_legend), damit die Treiber-Marker und die Shell-Testate desselben Fensters
+    // BYTE-GLEICHE zelle=-Werte tragen: nur dann treffen beide Sichten auf denselben Aggregator-Key (zelle, fenster).
+    // Layer-Trennung wie in der Shell-Grammatik (§62-B-NACHTRAG): zelle = [d,e,f][g,h,i] (System-Perm + Organ-
+    // Referenz), die CEB-Ebene [a,b,c] steht im EIGENEN ceb-Feld. lane = COMDARE_LANE (die emittierende Stufe-2-
+    // Bau-/Mess-Batch-Lane setzt sie); ungesetzt => der Renderer schreibt den ehrlichen Sentinel "unbelegt".
+    // Die opt/simd-Defaults (O3 / no_extension) spiegeln die Emissions-Seite (experiment_plan_director), damit ein
+    // Lauf ohne gesetzte Perm-Env dieselbe Zelle benennt wie der emittierte Job.
+    ex::MarkerKontext const marker_kontext = [&bestand_zelle] {
+        auto const env_or_empty = [](char const* name) {
+            char const* const v = std::getenv(name);
+            return (v != nullptr) ? std::string{v} : std::string{};
+        };
+        ex::MarkerKontext k;
+        k.lane                 = env_or_empty("COMDARE_LANE");
+        std::string const opt  = bestand_zelle.opt.empty() ? std::string{"O3"} : bestand_zelle.opt;
+        std::string const simd = bestand_zelle.simd.empty() ? std::string{"no_extension"} : bestand_zelle.simd;
+        k.zelle                = pl::system_perm(opt, simd) + pl::organ_reference();
+        // COMDARE_MEASUREMENT_COMBO traegt bereits die fertige [a,b,c]-Legende der emittierenden CEB-Strecke
+        // (der Director exportiert combo_legend_ woertlich); ungesetzt == der Sentinel des vollen Angebots.
+        k.ceb = bestand_zelle.combo.empty() ? std::string{"[all]"} : bestand_zelle.combo;
+        return k;
+    }();
     ex::SourceGenFn const union_gen = [base = std::move(base_union),
                                        lazy = lazy_gen](std::string const& binary_id) -> std::string {
         std::string src = base ? base(binary_id) : std::string{};
@@ -504,6 +532,7 @@ struct RunProfileResult {
         cfg.bestand_fingerprint_fn    = lazy_fingerprint; // I2: opt-in .fingerprint-Sidecar (leer = byte-neutral)
         cfg.build_variant_sig         = variant_gate_sig; // A7-B: opt-in Build-Varianten-Gate (leer = byte-neutral)
         cfg.bestand_zelle             = bestand_zelle;    // G4a(3)/§62-N4: [d,e,f] des Lager-Schluessel-Tupels
+        cfg.marker_kontext            = marker_kontext;   // E-04-P1: Pflicht-Koordinaten der Marker-Familie v2
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
         cfg.pruef_only                = a.pruef_only;     // S3: nur Gate je gebauter .so (byte-identisch bei false)
