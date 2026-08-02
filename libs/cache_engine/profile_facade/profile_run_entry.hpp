@@ -514,8 +514,10 @@ struct RunProfileResult {
         // bestandslog_active (:927-929) entscheidet: alle vier Traeger belegt UND doc_key nicht leer. bestand_
         // fingerprint_fn (oben, das SCHREIBEN des Sidecars) und bestand_key_of (hier, das LESEN) sind die beiden
         // Haelften desselben Vorgangs und muessen zusammen belegt sein, damit das Lager etwas sieht -- beide haengen
-        // host-seitig am gleichen COMDARE_BESTANDSLOG-Opt-in. bestand_present bleibt UNBELEGT (Default absent =>
-        // "alles fehlt" => der Planer filtert den Bau nicht, er informiert nur die Reservierung).
+        // host-seitig am gleichen COMDARE_BESTANDSLOG-Opt-in. bestand_present bleibt hier BEWUSST unbelegt: seit
+        // Lager-TP1(B)/G-E2 bindet der ITERATOR sie selbst (lager_contains + bestand_fingerprint_fn + bestand_zelle)
+        // und nutzt sie als per-Binary-BAU-FILTER (LEDGER:3397); eine Host-Injektion an dieser Stelle bleibt die
+        // Test-Naht mit Vorrang.
         cfg.bestand_transport   = a.bestand_transport;
         cfg.bestand_key_of      = a.bestand_key_of;
         cfg.bestand_doc_key     = a.bestand_doc_key;

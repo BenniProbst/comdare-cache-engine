@@ -186,3 +186,82 @@ TEST(G3LagerPresence, ResultIsAPlannerPresenceFn) {
     EXPECT_EQ(plan->view_indices, (std::vector<std::size_t>{0, 1}));
     EXPECT_EQ(plan->missing_count, 1u); // nur bin-1 fehlt
 }
+
+// ---------------------------------------------------------------------------
+// Lager-TP1(B) / G-A2+G-E2: die PresenceFn ist jetzt BAU-FILTER -- die drei Pflicht-Abnahmen des
+// Teilpakets gegen einen ECHTEN LagerRunState (Dokument-Interface, baum-agnostisch).
+// ---------------------------------------------------------------------------
+TEST(G3LagerPresence, TeilbestandErgibtMissingKleinerFenster) {
+    // Lager traegt 2 von 5 Binaries dieser Zelle -> der Planer erkennt PER BINARY genau 3 Fehlende
+    // (LEDGER:3397), nie den Gesamt-Batch.
+    std::map<std::string, std::string> objs;
+    bl::LagerRunState                  st;
+    load_state(st, objs, {eintrag(hexkey('a'), kZelle), eintrag(hexkey('c'), kZelle)});
+    ASSERT_EQ(st.lager_size(), 2u);
+
+    MiniView const          view{{"bin-a", "bin-b", "bin-c", "bin-d", "bin-e"}};
+    bl::BinaryIdKeyFn const by_id = [](std::string const& id) -> std::optional<std::string> {
+        return hexkey(id.back()); // bin-a -> 'a'... (abgeleitet, nicht je Fall getippt)
+    };
+    bl::PresenceFn const present = bl::make_lager_presence(st, bl::make_index_key_fn(view, by_id), kZelle);
+
+    bl::SlicePlanQueue queue;
+    {
+        bl::SlicePlanner planner(queue, {0, 1, 2, 3, 4}, 8, present);
+        planner.join();
+    }
+    auto const plan = queue.pop();
+    ASSERT_TRUE(plan.has_value());
+    EXPECT_EQ(plan->missing_count, 3u);
+    EXPECT_LT(plan->missing_count, plan->view_indices.size()) << "Teilbestand: missing < Fenstergroesse.";
+
+    // Und der BAU-FILTER baut exakt diese drei -- in Fenster-Reihenfolge (b, d, e).
+    auto const gefiltert = bl::filter_window_for_build(plan->view_indices, present);
+    EXPECT_EQ(gefiltert.zu_bauen, (std::vector<std::size_t>{1, 3, 4}));
+    EXPECT_EQ(gefiltert.bestand_uebersprungen, 2u);
+}
+
+TEST(G3LagerPresence, LeeresLogErgibtVollesFenster) {
+    // Leerer Bestand -> konservativ fehlt alles -> volles Fenster wird gebaut, nichts uebersprungen.
+    std::map<std::string, std::string> objs;
+    bl::LagerRunState                  st;
+    load_state(st, objs, {});
+    ASSERT_EQ(st.lager_size(), 0u);
+
+    MiniView const          view{{"bin-a", "bin-b", "bin-c"}};
+    bl::BinaryIdKeyFn const by_id = [](std::string const& id) -> std::optional<std::string> {
+        return hexkey(id.back());
+    };
+    bl::PresenceFn const present = bl::make_lager_presence(st, bl::make_index_key_fn(view, by_id), kZelle);
+
+    auto const gefiltert = bl::filter_window_for_build({0, 1, 2}, present);
+    EXPECT_EQ(gefiltert.zu_bauen, (std::vector<std::size_t>{0, 1, 2}));
+    EXPECT_EQ(gefiltert.bestand_uebersprungen, 0u);
+}
+
+TEST(G3LagerPresence, SkipZaehlerArithmetikStimmt) {
+    // Die Buchungs-Invariante des Iterators: zu_bauen + uebersprungen == Fenster, und missing_count
+    // des Planers == zu_bauen des Filters (EINE Miss-Wahrheit, zwei Aufrufer).
+    std::map<std::string, std::string> objs;
+    bl::LagerRunState                  st;
+    load_state(st, objs, {eintrag(hexkey('b'), kZelle)});
+
+    MiniView const          view{{"bin-a", "bin-b", "bin-c", "bin-d"}};
+    bl::BinaryIdKeyFn const by_id = [](std::string const& id) -> std::optional<std::string> {
+        return hexkey(id.back());
+    };
+    bl::PresenceFn const present = bl::make_lager_presence(st, bl::make_index_key_fn(view, by_id), kZelle);
+
+    std::vector<std::size_t> const fenster{0, 1, 2, 3};
+    auto const                     gefiltert = bl::filter_window_for_build(fenster, present);
+    EXPECT_EQ(gefiltert.zu_bauen.size() + gefiltert.bestand_uebersprungen, fenster.size());
+
+    bl::SlicePlanQueue queue;
+    {
+        bl::SlicePlanner planner(queue, fenster, 8, present);
+        planner.join();
+    }
+    auto const plan = queue.pop();
+    ASSERT_TRUE(plan.has_value());
+    EXPECT_EQ(plan->missing_count, gefiltert.zu_bauen.size());
+}

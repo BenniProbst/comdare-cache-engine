@@ -38,6 +38,7 @@
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
 #include "../bestandslog/builder_registration.hpp"      // #46b I1: Bestandslog-Registrierung/Dedup (opt-in, No-Op-Naht)
+#include "../bestandslog/lager_presence.hpp" // Lager-TP1(B)/G-E2: PresenceFn aus lager_contains + Fingerprint binden
 #include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
@@ -217,11 +218,14 @@ struct LazyRunConfig {
     std::string                                                             bestand_doc_key;
     // #46b I1b (Planer-getriebener Slice-Bau, opt-in unter bestandslog_active UND provision_only -- s.
     // planer_driven_active): der Producer slict die SELEKTIERTEN
-    // indices in 4096er-Fenster (Determinismus A) und baut Fenster fuer Fenster; je Slice ein Reservierungs-Lifecycle
-    // (pro-forma -> Kalibrierung eta_s+avg_size -> Done, PromiseGuard). bestand_present ist der Host-injizierte Miss-
-    // Scan (Default absent => "alles fehlt" => baut alles; INFORMIERT nur die Reservierung/ETA, filtert den Bau NICHT;
-    // real selektiv mit I2/.fingerprint-Sidecar). owner_uuid/maschine identifizieren die Reservierungen; threads =
-    // build_parallelism. Alle leer/absent (Default) -> die Reservierungs-Schreibung ist inert; der Bau bleibt determin.
+    // indices in 4096er-Fenster und baut Fenster fuer Fenster; je Slice ein Reservierungs-Lifecycle
+    // (pro-forma -> Kalibrierung eta_s+avg_size -> Done, PromiseGuard). bestand_present ist der Miss-Scan und seit
+    // Lager-TP1(B)/G-A2 der BAU-FILTER (LEDGER:3397: per-Binary erkannt, Bestands-Treffer VOR dem Bau-Versuch
+    // uebersprungen; dll_is_current bleibt zweite Verteidigungslinie). Host-Injektion hat Vorrang (Test-Naht);
+    // absent bindet der Iterator sie selbst aus lager_contains + bestand_fingerprint_fn + bestand_zelle -- ohne
+    // Provider bleibt sie leer => "alles fehlt" => volles Fenster (byte-identisch). owner_uuid/maschine
+    // identifizieren die Reservierungen; threads = build_parallelism. Alle leer/absent (Default) -> die
+    // Reservierungs-Schreibung ist inert; der Bau bleibt determin.
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
@@ -825,10 +829,14 @@ struct LazyRunResult {
 }
 
 // #46b I1b (opt-in): den Planer-getriebenen provision-Bau ausfuehren. Ein async Producer (SlicePlanner) slict die
-// SELBEN indices in 4096er-Fenster (Determinismus A); der Consumer baut Fenster fuer Fenster via provision_all,
-// akkumuliert den builds-Vektor + aggregiert die BuildStats -> IDENTISCH zu EINEM provision_all(alle indices)
-// (dll_is_current bleibt der Skip-Arbiter). Je Slice ein Reservierungs-Lifecycle (pro-forma -> Kalibrierung
-// eta_s+avg_size -> Done) mit PromiseGuard-Release bei Abbruch -- nur wenn Transport+Doc-Key gesetzt (sonst inert).
+// SELBEN indices in 4096er-Fenster; der Consumer baut je Fenster NUR DIE FEHLENDEN Binaries (Lager-TP1(B)/G-A2:
+// filter_window_for_build ueber die PresenceFn -- LEDGER:3397 "jedes fehlende Binary EINZELN erkannt") und
+// akkumuliert den builds-Vektor + die BuildStats; Bestands-Treffer zaehlen als Skips (succeeded+skipped+total_jobs,
+// dieselbe Buchung wie ein dll_is_current-Hit -- built_skip bleibt "Anzahl der Vorhandenen"). OHNE Praedikat ist
+// das Fenster voll -> IDENTISCH zu EINEM provision_all(alle indices); dll_is_current bleibt fuer alles Gebaute
+// die zweite Verteidigungslinie. Je Slice ein Reservierungs-Lifecycle (pro-forma -> Kalibrierung eta_s+avg_size
+// -> Done) mit PromiseGuard-Release bei Abbruch -- nur wenn Transport+Doc-Key gesetzt (sonst inert); die
+// Reservierung beansprucht weiterhin das GANZE Fenster (der Claim dokumentiert das Fenster, nicht seine Luecken).
 //
 // Ertuechtigung 26.07.: alle drei Reservierungs-Schreibvorgaenge (pro-forma / Done / Release) laufen durch den EINEN
 // gelockten Zyklus store_reservation_locked (N7-D1) und ihr Ergebnis wird AUSGEWERTET (B13: der frueher verworfene
@@ -838,10 +846,11 @@ struct LazyRunResult {
 [[nodiscard]] inline std::vector<BuildResult> run_planer_driven_provision(BuildOrchestrator&              orch,
                                                                           StaticBinaryView const&         view,
                                                                           std::vector<std::size_t> const& indices,
-                                                                          LazyRunConfig const& cfg, BuildStats& agg) {
+                                                                          LazyRunConfig const& cfg, BuildStats& agg,
+                                                                          bestandslog::PresenceFn const& present) {
     std::vector<BuildResult>    builds;
     bestandslog::SlicePlanQueue queue;
-    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, cfg.bestand_present);
+    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, present);
 
     bool const reserve = static_cast<bool>(cfg.bestand_transport.store) &&
                          static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
@@ -857,7 +866,8 @@ struct LazyRunResult {
         return bestandslog::store_reservation_locked(cfg.bestand_transport, cfg.bestand_doc_key, me, ttl_s, now_fn, r,
                                                      was);
     };
-    std::size_t res_fehler = 0; // nicht persistierte Reservierungs-Schreibvorgaenge (Testat am Ende)
+    std::size_t res_fehler           = 0; // nicht persistierte Reservierungs-Schreibvorgaenge (Testat am Ende)
+    std::size_t bestand_skips_gesamt = 0; // G-A2: als Bestand uebersprungene Binaries (Testat am Ende)
 
     std::size_t slice_seq = 0;
     while (auto plan = queue.pop()) {
@@ -878,18 +888,27 @@ struct LazyRunResult {
             });
         }
 
+        // G-A2 (Lager-TP1(B)): der BAU-FILTER -- gebaut werden NUR die im Bestand fehlenden Indizes
+        // des Fensters (per-Binary einzeln erkannt); ohne Praedikat ist zu_bauen == das volle Fenster
+        // (byte-identisch zum Ist-Pfad).
+        auto const gefiltert = bestandslog::filter_window_for_build(plan->view_indices, present);
+        bestand_skips_gesamt += gefiltert.bestand_uebersprungen;
+
         auto const               t0 = std::chrono::steady_clock::now();
         BuildStats               slice_stats;
         std::vector<BuildResult> part =
-            orch.provision_all(view, std::span<const std::size_t>{plan->view_indices}, &slice_stats);
+            orch.provision_all(view, std::span<const std::size_t>{gefiltert.zu_bauen}, &slice_stats);
         auto const t1 = std::chrono::steady_clock::now();
 
         // BuildStats aggregieren (jede Binary genau einmal -> Summe == EINE-provision_all-Statistik).
-        agg.total_jobs += slice_stats.total_jobs;
+        // Bestands-Skips buchen wie dll_is_current-Hits (ok + skipped + gezaehlter Job): built_skip
+        // bleibt damit "Anzahl der Vorhandenen", built_new "Anzahl der Fehlenden" -- nur die QUELLE
+        // des Skips ist eine andere (Lager statt lokales Sidecar).
+        agg.total_jobs += slice_stats.total_jobs + gefiltert.bestand_uebersprungen;
         agg.peak_concurrency = (std::max)(agg.peak_concurrency, slice_stats.peak_concurrency);
-        agg.succeeded += slice_stats.succeeded;
+        agg.succeeded += slice_stats.succeeded + gefiltert.bestand_uebersprungen;
         agg.failed += slice_stats.failed;
-        agg.skipped += slice_stats.skipped;
+        agg.skipped += slice_stats.skipped + gefiltert.bestand_uebersprungen;
         agg.built += slice_stats.built;
         agg.min_free_ram_bytes = (std::min)(agg.min_free_ram_bytes, slice_stats.min_free_ram_bytes);
 
@@ -913,6 +932,13 @@ struct LazyRunResult {
     if (res_fehler > 0)
         std::cerr << "[bestandslog] warn: " << res_fehler << " von " << (2 * slice_seq)
                   << " Reservierungs-Schreibvorgaengen nicht persistiert (Zeilen oben) -- der Bau ist unberuehrt\n"
+                  << std::flush;
+    // G-A2-Testat (Nie-stumm): der Bau-Filter weist seine Skips EINMAL beziffert aus. 0-Fall schweigt
+    // (Normalbetrieb ohne Bestand bzw. ohne Praedikat bleibt zeilen-identisch zum Ist).
+    if (bestand_skips_gesamt > 0)
+        std::cerr << "[bestandslog] bau-filter: " << bestand_skips_gesamt
+                  << " Binaries als Bestand uebersprungen (per-Binary-Miss, LEDGER:3397) -- dll_is_current bleibt "
+                     "zweite Verteidigungslinie\n"
                   << std::flush;
     return builds; // Producer-Thread joined im SlicePlanner-dtor (RAII)
 }
@@ -1026,14 +1052,33 @@ struct LazyRunResult {
         });
     }
 
-    // #46b I1b (opt-in): im BEREITSTELLUNGS-Lauf mit aktivem Bestandslog treibt der Planer den Bau slice-weise
-    // (Determinismus A -- DERSELBE builds-Vektor + dieselben aggregierten BuildStats wie der EINE provision_all; je
-    // Slice Reservierung + avg_size). Das Gate ist DOPPELT (planer_driven_active, B5): im MESS-Lauf wuerden die
-    // Reservierungen je Fenster zwei Dokument-Roundtrips mit je mehreren mc-Spawns in die 1-Thread-Messung legen --
-    // verboten (Batch-Typen nie mischen, Mess-Exklusivitaet). Inaktiv => der EINE provision_all => byte-identisch.
+    // #46b I1b (opt-in): im BEREITSTELLUNGS-Lauf mit aktivem Bestandslog treibt der Planer den Bau slice-weise (je
+    // Slice Reservierung + avg_size; seit Lager-TP1(B) mit per-Binary-BAU-FILTER, s.u.). Das Gate ist DOPPELT
+    // (planer_driven_active, B5): im MESS-Lauf wuerden die Reservierungen je Fenster zwei Dokument-Roundtrips mit je
+    // mehreren mc-Spawns in die 1-Thread-Messung legen -- verboten (Batch-Typen nie mischen, Mess-Exklusivitaet).
+    // Inaktiv => der EINE provision_all => byte-identisch.
+    //
+    // G-E2 (Lager-TP1(B)): die PresenceFn wird HIER real belegt -- lager_contains (der beim Start geladene
+    // Bestandslog-Index) gebunden ueber den Fingerprint-Provider (dieselbe I2-Quelle, aus der das .fingerprint-
+    // Sidecar entsteht: binary_id -> 128-hex, VOR dem Bau berechenbar) und die Zell-Koordinaten dieses Laufs.
+    // Host-Injektion (cfg.bestand_present) behaelt Vorrang (Test-Naht). Ohne Fingerprint-Provider bleibt die
+    // Praedikat-Funktion leer -> konservativer Miss ueberall -> volles Fenster (byte-identisch, wie bisher).
+    // Baum-agnostisch: die Bindung haengt am Dokument-Interface (LagerRunState/lager_contains) -- der kuenftige
+    // Baum-Vollausbau tauscht die Traeger-Schicht darunter, nicht diese Naht.
+    bestandslog::PresenceFn bestand_present = cfg.bestand_present;
+    if (!bestand_present && bestandslog_active && cfg.bestand_fingerprint_fn) {
+        bestandslog::BinaryIdKeyFn const by_id =
+            [fp = cfg.bestand_fingerprint_fn](std::string const& binary_id) -> std::optional<std::string> {
+            std::string hex = fp(binary_id);
+            if (hex.empty()) return std::nullopt; // kein Fingerprint bekannt -> konservativer Miss
+            return hex;
+        };
+        bestand_present =
+            bestandslog::make_lager_presence(lager, bestandslog::make_index_key_fn(view, by_id), cfg.bestand_zelle);
+    }
     std::vector<BuildResult> builds;
     if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
-        builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats);
+        builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats, bestand_present);
     else
         builds = orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
 

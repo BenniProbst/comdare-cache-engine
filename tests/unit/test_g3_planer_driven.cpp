@@ -2,7 +2,9 @@
 //
 // Der testbare Kern des Planer-getriebenen Baus: slice_view_indices (Fensterung), die DETERMINISMUS-
 // Basis (Konkatenation der Fenster == Eingabe -> aktiv==inaktiv gleiche Bau-Menge in Reihenfolge), der
-// async SlicePlanner + SlicePlanQueue (Producer-Consumer) und die PresenceFn-Miss-Zahl (nur informativ).
+// async SlicePlanner + SlicePlanQueue (Producer-Consumer) und die PresenceFn-Miss-Zahl.
+// Lager-TP1(B)/G-A2: die Miss-Erkennung ist seither BAU-FILTER (filter_window_for_build, unten) --
+// die "nur informativ"-Doktrin ist damit abgeloest; ohne Praedikat bleibt das Verhalten byte-identisch.
 
 #include "bestandslog/planer_driven_build.hpp"
 
@@ -112,4 +114,53 @@ TEST(G3PlanerDriven, EmptyIndicesProducesNoPlans) {
     bl::SlicePlanQueue q;
     { bl::SlicePlanner planner(q, std::vector<std::size_t>{}, 4, {}); }
     EXPECT_TRUE(drain(q).empty());
+}
+
+// ---------------------------------------------------------------------------
+// Lager-TP1(B) / G-A2: filter_window_for_build -- der BAU-FILTER (LEDGER:3397, per-Binary).
+// ---------------------------------------------------------------------------
+TEST(G3PlanerDriven, FilterBautNurDieFehlendenInFensterReihenfolge) {
+    std::vector<std::size_t> const fenster{10, 11, 12, 13, 14, 15};
+    bl::PresenceFn const           gerade_im_bestand = [](std::size_t i) { return i % 2 == 0; };
+
+    auto const erg = bl::filter_window_for_build(fenster, gerade_im_bestand);
+    EXPECT_EQ(erg.zu_bauen, (std::vector<std::size_t>{11, 13, 15}))
+        << "Jedes fehlende Binary EINZELN erkannt, Reihenfolge des Fensters erhalten.";
+    EXPECT_EQ(erg.bestand_uebersprungen, 3u);
+    EXPECT_EQ(erg.zu_bauen.size() + erg.bestand_uebersprungen, fenster.size()) << "Buchungs-Invariante.";
+}
+
+TEST(G3PlanerDriven, OhnePraedikatBleibtDasVolleFenster) {
+    // Der byte-identische Anker des Ist-Pfades: kein Praedikat -> alles fehlt -> volles Fenster,
+    // 0 uebersprungen. Genau daran haengt die Golden-Neutralitaet des inaktiven Bestandslogs.
+    std::vector<std::size_t> const fenster{3, 1, 4, 1, 5};
+    auto const                     erg = bl::filter_window_for_build(fenster, bl::PresenceFn{});
+    EXPECT_EQ(erg.zu_bauen, fenster);
+    EXPECT_EQ(erg.bestand_uebersprungen, 0u);
+}
+
+TEST(G3PlanerDriven, FilterRandfaelleVollUndLeer) {
+    bl::PresenceFn const alles_da = [](std::size_t) { return true; };
+    auto const           voll     = bl::filter_window_for_build({7, 8, 9}, alles_da);
+    EXPECT_TRUE(voll.zu_bauen.empty()) << "Ganz im Bestand -> nichts zu bauen (der Slice wird trotzdem "
+                                          "reserviert und Done -- der Claim dokumentiert das Fenster).";
+    EXPECT_EQ(voll.bestand_uebersprungen, 3u);
+    auto const leer = bl::filter_window_for_build({}, alles_da);
+    EXPECT_TRUE(leer.zu_bauen.empty());
+    EXPECT_EQ(leer.bestand_uebersprungen, 0u);
+}
+
+TEST(G3PlanerDriven, PlannerMissingCountIstDieFilterWahrheit) {
+    // EINE Miss-Wahrheit: der missing_count des async Planers ist per Konstruktion die zu_bauen-Zahl
+    // des Consumers (beide laufen ueber detect_missing_in_window).
+    bl::PresenceFn const praedikat = [](std::size_t i) { return i < 2; };
+    bl::SlicePlanQueue   q;
+    {
+        bl::SlicePlanner planner(q, {0, 1, 2, 3}, 8, praedikat);
+        planner.join();
+    }
+    auto const plan = q.pop();
+    ASSERT_TRUE(plan.has_value());
+    EXPECT_EQ(plan->missing_count, bl::filter_window_for_build(plan->view_indices, praedikat).zu_bauen.size());
+    EXPECT_EQ(plan->missing_count, 2u);
 }

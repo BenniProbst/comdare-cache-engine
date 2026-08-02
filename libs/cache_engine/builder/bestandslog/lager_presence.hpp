@@ -20,9 +20,11 @@
 // KONSERVATIVER MISS (die tragende Regel): jede Unaufloesbarkeit -- kein Host-Provider gesetzt, der
 // Provider liefert nullopt (kein .fingerprint-Sidecar), das Hex ist ungueltig -- ergibt present==false,
 // also "fehlt". Das ist die sichere Seite: ein falsches "fehlt" kostet einen ueberfluessigen Bau, ein
-// falsches "vorhanden" wuerde eine Binary unterschlagen. Zusaetzlich gilt (I1b): die PresenceFn
-// INFORMIERT nur Reservierung/ETA, sie filtert den Bau NICHT -- der eine Skip-Arbiter bleibt
-// dll_is_current.
+// falsches "vorhanden" wuerde eine Binary unterschlagen. Seit Lager-TP1(B)/G-A2 ist die PresenceFn
+// der BAU-FILTER des Planer-getriebenen Slice-Baus (bekannte Bestands-Treffer werden VOR dem
+// Bau-Versuch uebersprungen, LEDGER:3397); dll_is_current bleibt die zweite, lokale
+// Verteidigungslinie fuer alles, was gebaut wird -- der konservative Miss traegt genau deshalb: er
+// kann nie eine fehlende Binary unterschlagen, nur einen Skip verschenken.
 //
 // DEFAULT-NEUTRAL: ohne BinaryIdKeyFn liefert make_index_key_fn immer nullopt, damit meldet die
 // PresenceFn durchweg "fehlt", damit ist missing_count == Fenstergroesse -- exakt das Verhalten des
