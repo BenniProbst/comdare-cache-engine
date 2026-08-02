@@ -29,7 +29,7 @@ namespace comdare::cache_engine::measurement {
 struct AxisVersionEntry {
     std::string_view axis;         // Haupt-Achsen-Name (z.B. "search_algo")
     std::string_view algorithm;    // gewaehlter Algorithmus == W::name() (z.B. "bst")
-    std::string_view algo_version; // roher W::algo_version ("v1"); WIRD zu X.Y.Z geparst
+    std::string_view algo_version; // roher W::algo_version ("v1.0.0"); WIRD zu X.Y.Z[Flags] geparst
 };
 
 /// Baut die Stempel-Zeile "achse=algorithmus@X.Y.Z;..." (Voll-Form via algo_semver_string). Leere Eingabe -> "".
