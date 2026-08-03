@@ -1,0 +1,292 @@
+// tests/unit/test_w10_system_cell_values.cpp -- W10-C1-ORAKEL (Bauplan-Dossier 20260803, Sektion 2).
+//
+// Was diese TU beweist -- und zwar literal, nicht behauptend:
+//   (1) POSITIV (CT): die vervollstaendigte System-Zeile ist byte-genau die Ziel-Zeile des Dossiers.
+//   (2) NEGATIV (CT): jede Fehlform der Define-Wertform hat ihre EIGENE, benannte Diagnose -- unbekannter
+//       Schluessel, Grossbuchstabe, leerer Token, RT-Unter-Achsen-Schluessel (A-15), doppelter Schluessel,
+//       Teil-Belegung. Sie sind static_asserts, also compile-hart bewiesen statt zur Laufzeit gehofft.
+//   (3) IDENTITAET: ein LEERES Werte-Set laesst jede Zeile BYTE-IDENTISCH -- das ist der golden-neutrale
+//       Grundpfad, an dem W10a haengt. Geprueft an der LEBENDEN cea::system_stamp_line(), nicht an einem
+//       eingefrorenen Literal (Lehre "gruene Tests zementieren alte Ordnung": ein gepinnter Vor-W10-
+//       Stempel-String waere genau die Fixture-Zementierung, die die W10-Auflage verbietet).
+//   (4) GRAMMATIK-HAERTUNG: die vervollstaendigte Zeile besteht den vollen consteval-Weg
+//       (stamp_line_is_parsable, F1-F6 + Z-09), traegt DIESELBE Eintrags-Zahl, DIESELBEN Ebenen und einen
+//       BYTE-UNBERUEHRTEN Versionsteil. Der Meta-Meta-Anhang bleibt am Realm-Zeilen-ENDE (Stempel-KERN).
+//   (5) DRIFT-WACHE gegen den Meta-Meta-Hub: der dritte Zellwert-Schluessel IST der Stempel-Name des
+//       einzigen Glieds von ExternalUtilsHub::meta_metas. Diese Haelfte der Wache sitzt HIER und nicht im
+//       Header, weil der Header von JEDER emittierten Modul-Quelle inkludiert wird und deshalb keine
+//       measurement-Achsen-Typen ziehen darf (Hermetik); die Achsen-Ordnungs-Haelfte steht im Header.
+//
+// A-15 (tragend): die TU prueft zusaetzlich am LEBENDEN Ist, dass kein erhobener RT-Wert in der Zeile
+// steht -- dieselbe Beweisform wie test_os_u3_probe/test_od10_numa_page_probe.
+
+#include <cache_engine/abi/anatomy_stamp_entries.hpp>
+#include <cache_engine/abi/anatomy_version_stamp.hpp>
+#include <cache_engine/abi/system_axis_order.hpp>
+#include <cache_engine/abi/system_cell_values.hpp>
+#include <cache_engine/measurement/external_utils_family_axis.hpp>
+#include <cache_engine/measurement/operating_system_sub_axes.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <string>
+#include <string_view>
+
+namespace cea = ::comdare::cache_engine::abi;
+namespace cem = ::comdare::cache_engine::measurement;
+
+using cea::SystemCellValues;
+using cea::SystemCellValuesDiagnose;
+
+namespace {
+
+// Die REALE System-Zeilen-Form (A13-M3-Ist): drei Haupt-Achsen + der Meta-Meta-Klammer-Anhang am ENDE.
+// Sie steht hier als Literal, weil der consteval-Weg ein Literal braucht; ihre UEBEREINSTIMMUNG mit dem
+// lebenden cea::system_stamp_line() wird unten zur Laufzeit geprueft -- kein blinder Pin.
+constexpr std::string_view kSystemZeileRoh =
+    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+
+// Das Beispiel-Werte-Set (prod1-Zelle) in der Define-Wertform.
+constexpr SystemCellValues kWerteProd1{"target_isa=x86_64;operating_system=linux;simd=avx512"};
+
+// Die ZIEL-ZEILE des Dossiers (E-1-Default (a)): der Zellwert als hierarchische Namens-Erweiterung des
+// Algorithmus-Markers "code" -> "code.<token>". Achsen-Namen und Versionsteil unangetastet.
+constexpr std::string_view kSystemZeileZiel = "target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;"
+                                              "external_utils=code@1.0.0c;[simd=code.avx512@1.0.0c]";
+
+constexpr auto kFertig =
+    cea::complete_system_stamp_line_array<cea::complete_system_stamp_line_size(kSystemZeileRoh, kWerteProd1)>(
+        kSystemZeileRoh, kWerteProd1);
+
+} // namespace
+
+// =================================================================================================
+// (1) POSITIV -- die Vervollstaendigung trifft die Ziel-Zeile byte-genau (CT UND als ctest-Aussage)
+// =================================================================================================
+TEST(W10SystemCellValues, VervollstaendigteZeileIstDieZielZeile) {
+    static_assert(kFertig.view() == kSystemZeileZiel,
+                  "W10-C1: die vervollstaendigte System-Zeile weicht von der Ziel-Form des Bauplans ab "
+                  "(target_isa=code.<isa>@X.Y.Zc;operating_system=code.<fam>@X.Y.Zc;external_utils=code@X.Y.Zc;"
+                  "[simd=code.<simd>@X.Y.Zc]).");
+    EXPECT_EQ(std::string{kFertig.view()}, std::string{kSystemZeileZiel});
+
+    // Die LAUFZEIT-Form ist der Zwilling der consteval-Form -- eine Ordnung, zwei Senken.
+    EXPECT_EQ(cea::complete_system_stamp_line(kSystemZeileRoh, kWerteProd1), std::string{kSystemZeileZiel});
+
+    // external_utils bleibt WERTFREI (E-2-Default (a)): der Hub hat keine eigene Zelle.
+    EXPECT_NE(std::string{kFertig.view()}.find("external_utils=code@"), std::string::npos);
+    EXPECT_EQ(std::string{kFertig.view()}.find("external_utils=code."), std::string::npos);
+}
+
+// =================================================================================================
+// (2) NEGATIV -- je Fehlform eine EIGENE benannte Diagnose, compile-hart bewiesen
+// =================================================================================================
+TEST(W10SystemCellValues, JedeFehlformHatIhreEigeneBenannteDiagnose) {
+    // Der Bestand: leer == Identitaet (kein Fehler), das volle Set == ok.
+    static_assert(cea::diagnose_system_cell_values("") == SystemCellValuesDiagnose::leer,
+                  "ein leeres Werte-Set ist KEIN Fehler, sondern der golden-neutrale Identitaets-Pfad.");
+    static_assert(cea::diagnose_system_cell_values(kWerteProd1.value) == SystemCellValuesDiagnose::ok);
+
+    // Unbekannter Schluessel -- die Liste ist ABSCHLIESSEND.
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86_64;operating_system=linux;simd=avx512;"
+                                                   "compiler=gcc") == SystemCellValuesDiagnose::unbekannter_schluessel,
+                  "ein Schluessel ausserhalb kSystemCellValueKeys darf nie still mitreisen.");
+    static_assert(cea::diagnose_system_cell_values("external_utils=simd;target_isa=x86_64;operating_system=linux;"
+                                                   "simd=avx512") == SystemCellValuesDiagnose::unbekannter_schluessel,
+                  "external_utils ist der WERTFREIE Hub (E-2-Default (a)) -- ein Kunstwert dort waere eine "
+                  "zweite Identitaets-Quelle neben der Glieder-Menge.");
+
+    // A-15: RT-Unter-Achsen bekommen ihre EIGENE Diagnose, nicht bloss 'unbekannt'.
+    static_assert(cea::diagnose_system_cell_values("os_version=ubuntu_24_04") ==
+                      SystemCellValuesDiagnose::verbotener_rt_schluessel,
+                  "A-15: os_version ist eine RT-Unter-Achse (A14/OS-U1) und steht NIE im Binary-Stempel.");
+    static_assert(cea::diagnose_system_cell_values("kernel=6_17_0") ==
+                  SystemCellValuesDiagnose::verbotener_rt_schluessel);
+    static_assert(cea::diagnose_system_cell_values("build=35") == SystemCellValuesDiagnose::verbotener_rt_schluessel);
+    static_assert(cea::diagnose_system_cell_values("os_family=linux") ==
+                      SystemCellValuesDiagnose::verbotener_rt_schluessel,
+                  "die Familie heisst im Stempel operating_system -- ein zweiter Name waere eine zweite "
+                  "Wahrheit derselben Zelle.");
+    static_assert(cea::diagnose_system_cell_values("numa_node=0") ==
+                  SystemCellValuesDiagnose::verbotener_rt_schluessel);
+    static_assert(cea::diagnose_system_cell_values("page=4k") == SystemCellValuesDiagnose::verbotener_rt_schluessel);
+    static_assert(cea::diagnose_system_cell_values("scheduling=cfs") ==
+                  SystemCellValuesDiagnose::verbotener_rt_schluessel);
+
+    // Grossbuchstabe -- zwei Schreibweisen derselben Zelle waeren zwei SHA512 fuer denselben Bau.
+    static_assert(cea::diagnose_system_cell_values("target_isa=X86_64;operating_system=linux;simd=avx512") ==
+                      SystemCellValuesDiagnose::ungueltiges_token_zeichen,
+                  "Kleinschreibung ist Pflicht.");
+    // '.' und '@' koennen die Zeilen-Grammatik verlassen bzw. wie eine Version aussehen.
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86.64;operating_system=linux;simd=avx512") ==
+                  SystemCellValuesDiagnose::ungueltiges_token_zeichen);
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86_64;operating_system=linux;simd=avx512@1") ==
+                  SystemCellValuesDiagnose::ungueltiges_token_zeichen);
+
+    // Leerer Token -- n/a reist als 'na', nie als Leere und nie als 0.
+    static_assert(cea::diagnose_system_cell_values("target_isa=;operating_system=linux;simd=avx512") ==
+                      SystemCellValuesDiagnose::leerer_token,
+                  "n/a-statt-NULL: ein nicht bestimmbarer Wert ist 'na', kein leeres Feld.");
+
+    // Doppelter Schluessel -- zwei Werte fuer eine Achse.
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86_64;target_isa=arm64;operating_system=linux;"
+                                                   "simd=avx512") == SystemCellValuesDiagnose::doppelter_schluessel);
+
+    // Teil-Belegung -- eine Stempel-BLINDSTELLE waere unsichtbar.
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86_64") == SystemCellValuesDiagnose::unvollstaendig,
+                  "ein gesetztes Werte-Set MUSS alle drei Achsen nennen.");
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86_64;operating_system=linux") ==
+                  SystemCellValuesDiagnose::unvollstaendig);
+
+    // Segment ohne '='.
+    static_assert(cea::diagnose_system_cell_values("target_isa") == SystemCellValuesDiagnose::segment_ohne_gleich);
+    static_assert(cea::diagnose_system_cell_values("target_isa=x86_64;;operating_system=linux;simd=avx512") ==
+                  SystemCellValuesDiagnose::segment_ohne_gleich);
+
+    // Nur die beiden gutartigen Diagnosen duerfen durch das Renderer-Gate.
+    static_assert(cea::system_cell_values_are_usable(""));
+    static_assert(cea::system_cell_values_are_usable(kWerteProd1.value));
+    static_assert(!cea::system_cell_values_are_usable("os_version=ubuntu_24_04"));
+    EXPECT_FALSE(cea::system_cell_values_are_usable("target_isa=X86_64;operating_system=linux;simd=avx512"));
+}
+
+// =================================================================================================
+// (3) IDENTITAET -- leeres Werte-Set laesst JEDE Zeile byte-identisch (der golden-neutrale Grundpfad)
+// =================================================================================================
+TEST(W10SystemCellValues, LeeresWerteSetIstDieIdentitaet) {
+    static_assert(cea::complete_system_stamp_line_size(kSystemZeileRoh, SystemCellValues{}) ==
+                      kSystemZeileRoh.size() + 1,
+                  "ohne Werte darf sich die Laenge um kein Byte bewegen.");
+    constexpr auto ident = cea::complete_system_stamp_line_array<cea::complete_system_stamp_line_size(
+        kSystemZeileRoh, SystemCellValues{})>(kSystemZeileRoh, SystemCellValues{});
+    static_assert(ident.view() == kSystemZeileRoh, "Identitaet: leeres Werte-Set == byte-identische Zeile.");
+
+    // Am LEBENDEN Ist, nicht an einem eingefrorenen Literal: der Vervollstaendiger laesst die reale
+    // System-Zeile unveraendert. Gleichzeitig ist das die Wache, dass das Literal oben dem Ist entspricht.
+    std::string const live = cea::system_stamp_line();
+    EXPECT_EQ(live, std::string{kSystemZeileRoh})
+        << "das Zeilen-Literal dieser TU ist gegen die lebende system_stamp_line() gelaufen";
+    EXPECT_EQ(cea::complete_system_stamp_line(live, SystemCellValues{}), live);
+
+    // Auch die Organ-/Mess-Zeilen-FORM bleibt unberuehrt (der Vervollstaendiger kennt nur System-Achsen).
+    std::string const mess = cea::measurement_stamp_line("wallclock");
+    EXPECT_EQ(cea::complete_system_stamp_line(mess, SystemCellValues{}), mess);
+    EXPECT_EQ(cea::complete_system_stamp_line("", SystemCellValues{}), std::string{});
+}
+
+// =================================================================================================
+// (4) GRAMMATIK-HAERTUNG + Stempel-KERN: Ebenen, Eintrags-Zahl, Anhang-Position, Versionsteil
+// =================================================================================================
+TEST(W10SystemCellValues, VervollstaendigteZeileBleibtGrammatikKonform) {
+    // Der volle consteval-Weg (Scanner F1-F6 + Entry-Strenge Z-09) traegt die vervollstaendigte Zeile.
+    static_assert(cea::stamp_line_is_parsable<"target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;"
+                                              "external_utils=code@1.0.0c;[simd=code.avx512@1.0.0c]">,
+                  "die vervollstaendigte Zeile MUSS die A13-M2-Klammer-Grammatik erfuellen.");
+    // ... und der Owner-Q2-Namensraum traegt sie ohne jede Grammatik-Aenderung: '.' VOR dem '@' ist
+    // transparenter Namens-Bestandteil, '.' NACH dem '@' bleibt reiner Zahlen-Trenner.
+    static_assert(cea::stamp_line_is_parsable<"target_isa=code.na@1.0.0c;operating_system=code.na@1.0.0c;"
+                                              "external_utils=code@1.0.0c;[simd=code.na@1.0.0c]">,
+                  "auch die na-Sentinel-Form ist parser-legal.");
+
+    static constexpr char kZiel[] = "target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;"
+                                    "external_utils=code@1.0.0c;[simd=code.avx512@1.0.0c]";
+    constexpr auto        se      = cea::parse_stamp_entries<cea::count_stamp_entries(std::string_view{kZiel})>(kZiel);
+    static constexpr char kRoh[]  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
+                                    "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+    constexpr auto        sr      = cea::parse_stamp_entries<cea::count_stamp_entries(std::string_view{kRoh})>(kRoh);
+
+    // EINTRAGS-ZAHL unveraendert -- der Zellwert reist IN einem Eintrag, nie als zusaetzliches Segment.
+    static_assert(se.size() == sr.size() && se.size() == 4);
+    EXPECT_EQ(se.size(), sr.size());
+
+    // ACHSEN-NAMEN kanonisch unangetastet (kSystemAxisOrder-Konsumenten, A14-Guards).
+    static_assert(std::string_view(se[0].axis, se[0].axis_len) == cea::kSystemAxisOrder[0]);
+    static_assert(std::string_view(se[1].axis, se[1].axis_len) == cea::kSystemAxisOrder[1]);
+    static_assert(std::string_view(se[2].axis, se[2].axis_len) == cea::kSystemAxisOrder[2]);
+    static_assert(std::string_view(se[3].axis, se[3].axis_len) == cea::kSystemCellValueKeys[2]);
+
+    // Der ZELLWERT sitzt im ALGORITHMUS-Namen, nicht im Achsen-Namen.
+    static_assert(std::string_view(se[0].algorithm, se[0].algo_len) == "code.x86_64");
+    static_assert(std::string_view(se[1].algorithm, se[1].algo_len) == "code.linux");
+    static_assert(std::string_view(se[2].algorithm, se[2].algo_len) == "code");
+    static_assert(std::string_view(se[3].algorithm, se[3].algo_len) == "code.avx512");
+
+    // VERSIONSTEIL BYTE-UNBERUEHRT (ENFORCE-Wache: W10 fuehrt keine neue Version ein).
+    for (std::size_t i = 0; i < se.size(); ++i) {
+        EXPECT_EQ(se[i].x, sr[i].x);
+        EXPECT_EQ(se[i].y, sr[i].y);
+        EXPECT_EQ(se[i].z, sr[i].z);
+        EXPECT_EQ(se[i].reserved, sr[i].reserved) << "Flag-/Ebenen-Bits duerfen sich nicht bewegen (Index " << i << ")";
+    }
+    static_assert(se[0].x == 1u && se[0].y == 0u && se[0].z == 0u);
+    static_assert(cea::stamp_entry_hardware_flag(se[0]) == cea::StampEntryHardwareFlag::cpu);
+    static_assert(!cea::stamp_entry_is_experimental(se[0]), "'e' bleibt die Pruefling-Markierung, W10 setzt keins.");
+
+    // STEMPEL-KERN: der Meta-Meta-Anhang bleibt am Realm-Zeilen-ENDE und behaelt seine Ebene.
+    static_assert(cea::stamp_entry_meta_level(se[0]) == 0u);
+    static_assert(cea::stamp_entry_meta_level(se[1]) == 0u);
+    static_assert(cea::stamp_entry_meta_level(se[2]) == 0u);
+    static_assert(cea::stamp_entry_meta_level(se[3]) == 1u, "der simd-Anhang bleibt Ebene 1 am Zeilen-ENDE.");
+    static_assert(cea::stamp_entry_meta_level(se[3]) == cea::stamp_entry_meta_level(sr[3]));
+    // KEINE merge-Zeile (Owner-E2 / Stempel-KERN): der Vervollstaendiger baut nichts an die Zeile an.
+    EXPECT_EQ(std::string{kFertig.view()}.find("merge"), std::string::npos);
+    EXPECT_EQ(std::string{kFertig.view()}.back(), ']') << "der Klammer-Anhang bleibt das LETZTE Zeichen der Zeile";
+}
+
+// =================================================================================================
+// (5) DRIFT-WACHE gegen den System-Meta-Meta-Hub + na-Sentinel
+// =================================================================================================
+TEST(W10SystemCellValues, SchluesselMengeIstGegenAchsenOrdnungUndHubGewacht) {
+    // Achsen-Ordnungs-Haelfte (die zweite Haelfte steht als static_assert im Header selbst).
+    static_assert(cea::kSystemCellValueKeys[0] == cea::kSystemAxisOrder[0]);
+    static_assert(cea::kSystemCellValueKeys[1] == cea::kSystemAxisOrder[1]);
+    static_assert(!cea::is_system_cell_value_key(cea::kSystemAxisOrder[2]),
+                  "external_utils ist der wertfreie Hub -- er hat keine eigene Zelle.");
+
+    // HUB-Haelfte: der dritte Schluessel IST der Stempel-Name des einzigen Meta-Meta-Glieds. Wer ein
+    // zweites Glied (gpu/fpga/npu) einhaengt, muss HIER entscheiden, ob es einen Zellwert traegt.
+    static_assert(cem::ExternalUtilsHub::meta_metas::size == 1,
+                  "W10-C1: der System-Meta-Meta-Hub hat ein zweites Glied bekommen -- kSystemCellValueKeys "
+                  "deckt dann nicht mehr alle Meta-Meta-Zellen ab (E-2 neu entscheiden).");
+    static_assert(cea::kSystemCellValueKeys[2] == cem::SimdExternalUtilsFamily::sub_axis_label(),
+                  "W10-C1: der simd-Zellwert-Schluessel ist aus dem Stempel-Namen des Hub-Glieds gelaufen.");
+    static_assert(cea::kSystemCellValueKeys[2] == cem::SimdExternalUtilsFamily::family_id());
+
+    // na-Sentinel: grammatisch zulaessig, als AUSSAGE erkennbar (Fail-Closed-Bedingung fuer C4).
+    static_assert(cea::system_cell_value_is_na(cea::kSystemCellValueNa));
+    static_assert(cea::system_cell_values_contain_na("target_isa=na;operating_system=linux;simd=avx512"));
+    static_assert(!cea::system_cell_values_contain_na(kWerteProd1.value));
+    static_assert(cea::diagnose_system_cell_values("target_isa=na;operating_system=na;simd=na") ==
+                      SystemCellValuesDiagnose::ok,
+                  "'na' ist eine AUSSAGE (nicht bestimmbar), kein Formfehler -- die Fail-Closed-Folge "
+                  "(kein Lager-Rueckschrieb) haengt am eigenen Praedikat, nicht an der Grammatik.");
+    EXPECT_EQ(
+        cea::complete_system_stamp_line(kSystemZeileRoh, SystemCellValues{"target_isa=na;operating_system=na;simd=na"}),
+        std::string{"target_isa=code.na@1.0.0c;operating_system=code.na@1.0.0c;external_utils=code@1.0.0c;"
+                    "[simd=code.na@1.0.0c]"});
+
+    // Der Wert-Lookup ist die EINE Nachschlage-Stelle (keine zweite Ableitung im Renderer).
+    static_assert(cea::system_cell_value_for(kWerteProd1.value, "target_isa") == "x86_64");
+    static_assert(cea::system_cell_value_for(kWerteProd1.value, "operating_system") == "linux");
+    static_assert(cea::system_cell_value_for(kWerteProd1.value, "simd") == "avx512");
+    static_assert(cea::system_cell_value_for(kWerteProd1.value, "external_utils").empty());
+}
+
+// =================================================================================================
+// (6) A-15 am LEBENDEN Ist -- kein erhobener RT-Wert steht in der Zeile
+// =================================================================================================
+TEST(W10SystemCellValues, KeineRtUnterAchsenInDerVervollstaendigtenZeile) {
+    std::string const fertig{kFertig.view()};
+    for (std::string_view const verboten :
+         {"os_version", "kernel", "build", "os_family", "numa_node", "page", "scheduling"})
+        EXPECT_EQ(fertig.find(verboten), std::string::npos)
+            << "A-15: '" << verboten << "' darf in keiner Stempel-Zeile auftauchen";
+
+    // Und die drei OS-Unter-Achsen-Labels ihrerseits sind keine zulaessigen Zellwert-Schluessel.
+    for (auto const& label : cem::kOperatingSystemSubAxisLabels) {
+        EXPECT_FALSE(cea::is_system_cell_value_key(label));
+        EXPECT_EQ(cea::diagnose_system_cell_values(std::string{label} + "=x"),
+                  SystemCellValuesDiagnose::verbotener_rt_schluessel);
+    }
+}

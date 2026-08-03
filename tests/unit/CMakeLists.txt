@@ -3732,6 +3732,30 @@ add_test(NAME test_m_w12_stamp_bausteine COMMAND test_m_w12_stamp_bausteine)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_w12_stamp_bausteine)
 set_tests_properties(test_m_w12_stamp_bausteine PROPERTIES LABELS "m;blut")
 
+# W10-C1 (Bauplan-Dossier 20260803): die Single-Source der System-ZELLWERTE (abi/system_cell_values.hpp).
+# Orakel: Ziel-Zeilen-Form, je Fehlform eine benannte CT-Diagnose, Identitaet bei leerem Werte-Set,
+# Grammatik-Haertung der vervollstaendigten Zeile und die Drift-Wachen gegen kSystemAxisOrder UND
+# ExternalUtilsHub::meta_metas. Include-/Link-Menge == test_m_w12_stamp_bausteine (dieselbe Stempel-
+# Bausteine-Familie): Boost::mp11, weil die TU die Meta-Meta-Hub-Typen fuer die Drift-Wache zieht, und
+# der builder-/src-Pfad, weil der C3-Zwillings-Beweis derselben TU ueber bestandslog/ctsha512 laeuft.
+add_executable(test_w10_system_cell_values "test_w10_system_cell_values.cpp")
+target_compile_features(test_w10_system_cell_values PRIVATE cxx_std_23)
+target_include_directories(test_w10_system_cell_values PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_w10_system_cell_values PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_w10_system_cell_values)
+target_compile_definitions(test_w10_system_cell_values PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_w10_system_cell_values COMMAND test_w10_system_cell_values)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w10_system_cell_values)
+set_tests_properties(test_w10_system_cell_values PROPERTIES LABELS "w10;stempel;blut")
+
 # K7b-4 (§62-B, G1/B6-Auflage): G1-Je-Binary-Selbst-Stempel-Header (Format-Pin + non-empty je Feld; leichte TU).
 add_executable(test_g1_binary_version_stamp "test_g1_binary_version_stamp.cpp")
 target_compile_features(test_g1_binary_version_stamp PRIVATE cxx_std_23)
