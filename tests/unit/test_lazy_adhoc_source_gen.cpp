@@ -20,6 +20,7 @@
 #include "source_catalog.hpp"        // catalog_static_levels<FullSourceCatalog> / kNewGolden131072Crc64
 
 #include <builder/experiment_tree/experiment_tree.hpp> // ExperimentTree / StaticBinaryView / ExperimentNodeFactory
+#include <cache_engine/abi/anatomy_fingerprint.hpp>    // A13-M3: anatomy_fingerprint_glieder/-preimage
 #include <cache_engine/abi/anatomy_version_stamp.hpp>  // S6-P1b: abi::measurement_stamp_line (Mess-Tooling-Stempel)
 #include <cache_engine/fingerprint/crc64.hpp>          // crc64_ecma182_update
 #include <sha512/ctsha512.hpp>                         // I2: Runtime-SHA-512 fuer den Fingerprint-Drift-Beweis
@@ -408,8 +409,15 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     std::vector<std::string> const args          = quoted_args(stamp_line(lazy(id)));
     check_true("(a3) 2-arg-Stempel traegt organ+system", args.size() >= 2);
     if (args.size() < 2) return;
-    std::string const preimage = args[0] + args[1]; // organ+system (measurement="" merge="" im 2-arg-Default)
-    auto const        digest   = ::comdare::cache_engine::sha512::sha512(
+    // A13-M3: das Referenz-Preimage wird aus DERSELBEN Glied-Quelle gebaut wie der Provider
+    // (abi::anatomy_fingerprint_glieder + '\n'-Separator). Vorher stand hier "args[0] + args[1]" -- eine
+    // ZWEITE, separatorlose Konkatenations-Regel, die die alte Ordnung zementierte. Die Glieder selbst
+    // kommen weiter aus dem EMITTIERTEN Quelltext (args), nicht aus dem Provider: nur so bleibt es ein
+    // Drift-Beweis und keine Selbst-Bestaetigung.
+    auto const        glieder  = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(args[0], args[1], "");
+    std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
+        std::span<std::string_view const>{glieder.data(), glieder.size()});
+    auto const digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const        hex = ::comdare::cache_engine::sha512::to_hex(digest);
     std::string const emitted_fp(hex.data(), hex.size());

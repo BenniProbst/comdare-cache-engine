@@ -98,6 +98,16 @@ TEST(ReflectVersionsAll17, W12AByteGuardComposeSerializationRawVersionUnchanged)
     EXPECT_EQ(sig, expected);
 }
 
+// A13-M3/C3: dasselbe Sub-Achsen-Werteset-Segment ist seit A13-M3 AUCH ein Preimage-Glied des
+// Anatomie-Fingerprints (F7-VERIFY, "schwerster Befund": unter dem SHA512-only-Skip-Gate faellt die
+// .algos-Signatur als Faenger eines Werteset-Bumps weg). Es MUSS dieselbe Zeichenfolge sein -- zwei
+// getrennte Renderer waeren der uebersehene dritte Ableitungsweg (O-8 Schritt 12). Die Laufzeit-Funktion
+// reicht die consteval-Single-Source seit C3 nur noch durch; diese Wache haelt das fest.
+TEST(ReflectVersionsAll17, SubAxisValuesetSegmentIsOneSourceForAlgosAndFingerprint) {
+    EXPECT_EQ(ex::sub_axis_valueset_segment(), std::string{::comdare::cache_engine::abi::kSubAxisValuesetSegment});
+    EXPECT_NE(ex::sub_axis_valueset_segment().find("sub=cacheline@v"), std::string::npos);
+}
+
 // W12-A geteilter Emitter-Helfer: die kOrganAxisVersionLine aus der Version-TABELLE (loest den Metadaten-Blocker
 // -- die Composition-Strategie-Typen tragen kein name()/algo_version). SEPARATE Welt zur .algos-Sig.
 TEST(ReflectVersionsAll17, W12AOrganStampLineUsesXYZFromTableSeparateFromAlgosSig) {

@@ -114,27 +114,30 @@
         delete ptr;                                                                                                    \
     }
 
-/// COMDARE_ANATOMY_VERSION_STAMP_MERGE(organ_lit, system_lit, measurement_lit, merge_lit) -- K7a (Section 59,
-/// 2026-07-20): der VOLLE 4-String-Materialisierer. Materialisiert das OPTIONALE extern-"C"-Probe-Symbol
-/// comdare_anatomy_version_lines() aus VIER String-Literalen (Organ-, System-, Mess-Tooling-HAUPT- und dem DRITTEN
-/// Merge-Kombinations-Stempel; kMergeAxisVersionLine traegt die Merge-Art + Namen/Versionen der beteiligten Achsen-
-/// Algorithmen, ce-only/self -> ""). Die Literale werden im Modul als static constexpr char[] hinterlegt (KEIN
-/// std::string im Modul); der zurueckgegebene POD traegt nur Zeiger + Laengen. KEIN Loader-Pflicht-Symbol -> KEIN
-/// ABI-Bruch. Stempel-Strings sind C-literal-sicher (nur =@;.+_ [] und alnum, keine Quotes/Backslashes) --
+/// COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit) -- A13-M3 (Owner-E2 02.08.2026):
+/// die VOLLFORM. Materialisiert das OPTIONALE extern-"C"-Probe-Symbol comdare_anatomy_version_lines() aus DREI
+/// String-Literalen (Organ-, System- und Mess-Tooling-HAUPT-Stempel). Die frueher hier stehende 4-arg-Form
+/// _MERGE ist ERSATZLOS ENTFALLEN -- "Merge Zeile kann daher nicht existieren"; stehender toter Stempel-Code
+/// waere ein dritter Ableitungsweg in Wartestellung (O-8-Schritt-12-Lehre). Die Merge-DURCHFUEHRUNG bleibt
+/// unberuehrt (profile_facade/merge_plan.hpp, Owner-Q2).
+///
+/// Die Literale werden im Modul als static constexpr char[] hinterlegt (KEIN std::string im Modul); der
+/// zurueckgegebene POD traegt nur Zeiger + Laengen. KEIN Loader-Pflicht-Symbol -> KEIN ABI-Bruch.
+/// Stempel-Strings sind C-literal-sicher (nur =@;.+_ [] und alnum, keine Quotes/Backslashes) --
 /// A13-M2 (Owner-Q1): '[' und ']' kamen mit dem Meta-Meta-Klammer-Anhang dazu und brauchen kein Escaping.
-/// K7b-3 (Section 62-B, 2026-07-22): INNEN wird zusaetzlich der SHA-512-Fingerprint von concat(organ+system+
-/// measurement+merge) materialisiert (anatomy_fingerprint_hex, consteval) und als 5. POD-Feld sha512_line/sha512_len
-/// abgelegt. Die EINGABE bleibt 4 String-Literale -> der emittierte Makro-Call ist byte-identisch (golden-neutral);
-/// der Fingerprint entsteht rein in der Makro-Expansion, nicht im emittierten Quelltext.
-#define COMDARE_ANATOMY_VERSION_STAMP_MERGE(organ_lit, system_lit, measurement_lit, merge_lit)                         \
+/// K7b-3 (Section 62-B, 2026-07-22): INNEN wird zusaetzlich der SHA-512-Fingerprint materialisiert
+/// (anatomy_fingerprint_hex, consteval, ueber die Glied-Folge anatomy_fingerprint_glieder) und als POD-Feld
+/// sha512_line/sha512_len abgelegt. Die EINGABE bleibt reine String-Literale -> der emittierte Makro-Call ist
+/// byte-identisch (golden-neutral); der Fingerprint entsteht rein in der Makro-Expansion, nicht im emittierten
+/// Quelltext.
+#define COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit)                                        \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::abi::AnatomyVersionLines const*                     \
     comdare_anatomy_version_lines() noexcept {                                                                         \
         static constexpr char kO[] = organ_lit;                                                                        \
         static constexpr char kS[] = system_lit;                                                                       \
         static constexpr char kM[] = measurement_lit;                                                                  \
-        static constexpr char kG[] = merge_lit;                                                                        \
         static constexpr auto kFP =                                                                                    \
-            ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, system_lit, measurement_lit, merge_lit);  \
+            ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, system_lit, measurement_lit);             \
         static constexpr auto kOE =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kO)>(  \
                 kO);                                                                                                   \
@@ -153,8 +156,6 @@
             sizeof(kS) - 1,                                                                                            \
             kM,                                                                                                        \
             sizeof(kM) - 1,                                                                                            \
-            kG,                                                                                                        \
-            sizeof(kG) - 1,                                                                                            \
             kFP.data(),                                                                                                \
             kFP.size() - 1,                                                                                            \
             ::comdare::cache_engine::abi::stamp_entries_ptr(kOE),                                                      \
@@ -166,17 +167,11 @@
         return &kL;                                                                                                    \
     }
 
-/// COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit) -- W12-A3 (Section 43) 3-arg-Form:
-/// leitet an die 4-arg _MERGE-Form mit LEEREM Merge-Stempel weiter (merge_line -> "", merge_len -> 0). Traegt
-/// die gewaehlte Mess-Tooling-HAUPT-Wahl {wallclock/macro/micro} (kMeasurementAxisVersionLine, NUR die Haupt-Achse).
-#define COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit)                                        \
-    COMDARE_ANATOMY_VERSION_STAMP_MERGE(organ_lit, system_lit, measurement_lit, "")
-
 /// COMDARE_ANATOMY_VERSION_STAMP(organ_lit, system_lit) -- W12-A2 Rueckwaerts-kompatible 2-arg-Form: leitet an
-/// die 3-arg _M-Form mit LEEREM Mess-Tooling-Stempel weiter (measurement_line -> "", measurement_len -> 0). Der
-/// Emitter (adhoc_emitter.hpp) haengt diese Makro-Zeile NACH COMDARE_DEFINE_ANATOMY_MODULE_ADHOC an; bis die
+/// die 3-arg _M-Vollform mit LEEREM Mess-Tooling-Stempel weiter (measurement_line -> "", measurement_len -> 0).
+/// Der Emitter (adhoc_emitter.hpp) haengt diese Makro-Zeile NACH COMDARE_DEFINE_ANATOMY_MODULE_ADHOC an; bis die
 /// Mess-Tooling-HAUPT-Auffaecherung (S4/P-MESSTOOL) den gewaehlten Tooling-Stempel durchreicht, bleibt das
 /// Mess-Feld leer (ehrlich: kein Tooling einkompiliert), waehrend das POD-Layout bereits final ist. Der ce-only-/
 /// Katalog-Pfad emittiert weiterhin GENAU diese 2-arg-Form -> der emittierte Quelltext bleibt byte-identisch
-/// (merge_line -> "" via _M/_MERGE-Weiterleitung; golden-CRC unberuehrt).
+/// (golden-CRC unberuehrt).
 #define COMDARE_ANATOMY_VERSION_STAMP(organ_lit, system_lit) COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, "")

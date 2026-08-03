@@ -149,18 +149,17 @@ struct SotaStampLines {
 /// IDENTISCH zum CMake-Codegen-Modul (comdare_codegen_anatomy_module): ABI-Header + Composition-Header +
 /// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt für alle 6 SOTA + PRT-ART + Stufe3/B).
 ///
-/// K5/K7a (Section 59, 2026-07-20): APPEND-ONLY 3. Argument merge_line = der dritte Tier-Binary-Stempel
-/// (Merge-Kombination, anatomy_version_stamp.hpp::merge_stamp_line). LEER (ce-only/Identitaets-/Katalog-Fall)
-/// -> KEINE zusaetzliche Zeile -> der emittierte .cpp-Quelltext bleibt BYTE-IDENTISCH zum heutigen Stand.
+/// A13-M3/C1 (K-3): APPEND-ONLY 3. Argument `stamp` = die VOLLEN organ/system/measurement-Zeilen. LEERER
+/// Default -> exakt die heutige Emission (2-arg-Modul-Makro ohne Stempel-Zeile) -> der Katalog-Quelltext
+/// bleibt byte-identisch; der CRC-Anker rechnet ohnehin ueber die binary_ids, nicht ueber den Quelltext.
+/// NICHT-LEER (der Produktions-Pfad ab C1) -> EINE _M-Zeile mit den realen Zeilen.
 ///
-/// A13-M3/C1 (K-3): APPEND-ONLY 4. Argument `stamp` = die VOLLEN organ/system/measurement-Zeilen. Sie reisen
-/// ueber die BESTEHENDE 4-arg-_MERGE-Form (merge unveraendert im 4. Makro-Slot) -- es kommt KEINE neue
-/// Makro-Form dazu. LEERER Default -> exakt die heutige Emission (2-arg-Modul-Makro ohne Stempel-Zeile) ->
-/// der Katalog-Quelltext bleibt byte-identisch; der CRC-Anker rechnet ohnehin ueber die binary_ids, nicht
-/// ueber den Quelltext. NICHT-LEER (der Produktions-Pfad ab C1) -> EINE _MERGE-Zeile mit den realen Zeilen.
+/// A13-M3/C3 (Owner-E2): der frueher hier stehende merge_line-Parameter ist ERSATZLOS ENTFERNT -- die
+/// merge-ZEILE existiert nicht mehr, und mit ihr die 4-arg-_MERGE-Form. Die Merge-DURCHFUEHRUNG bleibt
+/// (merge_plan.hpp / render_directive_merge_module_source unten emittieren die MergeAxis<>-Instanziierungen
+/// weiterhin; nur ihr STEMPEL-Bezug faellt weg, Owner-Q2).
 [[nodiscard]] inline std::string render_sota_module_source(std::string const& fq_type, std::string const& header,
-                                                           std::string const&    merge_line = {},
-                                                           SotaStampLines const& stamp      = {}) {
+                                                           SotaStampLines const& stamp = {}) {
     std::string src = "// AUTO-GENERATED (STRANG-A Inc5 / S6) SOTA/PRT-ART Modul — DO NOT EDIT\n"
                       "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
                       "#include <cache_engine/abi/anatomy_module_abi_v1.hpp>\n"
@@ -169,9 +168,9 @@ struct SotaStampLines {
                       ">\n"
                       "COMDARE_DEFINE_ANATOMY_MODULE(" +
                       fq_type + ")\n";
-    if (!merge_line.empty() || !stamp.empty())
-        src += "COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
-               stamp.measurement + "\", \"" + merge_line + "\")\n";
+    if (!stamp.empty())
+        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
+               stamp.measurement + "\")\n";
     return src;
 }
 
@@ -210,16 +209,16 @@ struct DirectiveSlotTypes {
 /// (host_fq_type/host_header) mit per-Achse MergeAxis<Strategy, HostDefault, PrueflingSlot>-Instanziierungen aus
 /// den Direktiven (statt der hart aufgelisteten <Host>PrtStufeN-Typen). Je real slot-hinterlegter Direktive
 /// (directive_slot_types != nullopt) ein reales `using DirectiveMerged_<axis> = pf::MergeAxis<...>;`; je
-/// (heute) nicht hinterlegter Direktive eine annotierte Naht-Zeile (Emitter-Paket/S5). merge_line = der dritte
-/// Tier-Binary-Stempel (K6a merge_stamp_line), APPEND-ONLY ans POD-Ende. LEERE Direktiven-Liste -> der Aufrufer
-/// nutzt stattdessen den Katalog-Pfad (render_sota_module_source; byte-identisch).
-/// A13-M3/C1 (K-3): APPEND-ONLY `stamp` wie beim Katalog-Pfad -- dieselbe 4-arg-_MERGE-Form, dieselben
+/// (heute) nicht hinterlegter Direktive eine annotierte Naht-Zeile (Emitter-Paket/S5). LEERE Direktiven-Liste
+/// -> der Aufrufer nutzt stattdessen den Katalog-Pfad (render_sota_module_source; byte-identisch).
+/// A13-M3/C1 (K-3): APPEND-ONLY `stamp` wie beim Katalog-Pfad -- dieselbe Makro-Form, dieselben
 /// Kompositions-Quellen (sota_stamp_lines), damit die BEIDEN SOTA-Emitter-Pfade nicht auseinanderlaufen.
+/// A13-M3/C3 (Owner-E2): der merge_line-Parameter ist ERSATZLOS ENTFERNT -- die Merge-DURCHFUEHRUNG (die
+/// MergeAxis<>-Instanziierungen unten) bleibt, ihr STEMPEL-Bezug faellt weg (Owner-Q2).
 [[nodiscard]] inline std::string render_directive_merge_module_source(std::string const& host_fq_type,
                                                                       std::string const& host_header,
                                                                       std::vector<AxisMergeDirective> const& directives,
-                                                                      std::string const&    merge_line = {},
-                                                                      SotaStampLines const& stamp      = {}) {
+                                                                      SotaStampLines const& stamp = {}) {
     std::string src =
         "// AUTO-GENERATED (KERN-B K5 / direktiven-getriebener Merge-Emitter, Section 59) -- DO NOT EDIT\n"
         "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
@@ -245,9 +244,9 @@ struct DirectiveSlotTypes {
     src += "} // namespace comdare::cache_engine::thesis_lazy::directive_merge\n"
            "COMDARE_DEFINE_ANATOMY_MODULE(" +
            host_fq_type + ")\n";
-    if (!merge_line.empty() || !stamp.empty())
-        src += "COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
-               stamp.measurement + "\", \"" + merge_line + "\")\n";
+    if (!stamp.empty())
+        src += "COMDARE_ANATOMY_VERSION_STAMP_M(\"" + stamp.organ + "\", \"" + stamp.system + "\", \"" +
+               stamp.measurement + "\")\n";
     return src;
 }
 
@@ -394,7 +393,7 @@ build_sota_source_map(cx::ThesisProfile const& tp, std::string const& measuremen
     for (auto const& s : tp.sota_series) {
         if (auto m = sota_module_for(s.merge, s.lebewesen)) // #178: dispatch auf die Stufe (merge), nicht den id
             by_id.emplace(m->binary_id,
-                          render_sota_module_source(m->composition_type, m->header, /*merge_line=*/{},
+                          render_sota_module_source(m->composition_type, m->header,
                                                     sota_stamp_lines(m->binary_id, version_table, measurement_stamp)));
     }
     return by_id;
@@ -543,7 +542,7 @@ build_sota_view_source_map(cx::ThesisProfile const& tp, std::string const& measu
             // Treiber diese Quelle abfragt, und damit dieselbe Identitaet, die der Fingerprint-Provider sieht.
             std::string const view_id = sota_view_binary_id(m->binary_id);
             by_id.emplace(view_id,
-                          render_sota_module_source(m->composition_type, m->header, /*merge_line=*/{},
+                          render_sota_module_source(m->composition_type, m->header,
                                                     sota_stamp_lines(view_id, version_table, measurement_stamp)));
         }
     }
@@ -600,7 +599,7 @@ build_sota_view_source_map(std::vector<SotaMergeLebewesen> const& pairs, std::st
         if (auto m = sota_module_for(pr.merge, pr.lebewesen)) {
             std::string const view_id = sota_view_binary_id(m->binary_id);
             by_id.emplace(view_id,
-                          render_sota_module_source(m->composition_type, m->header, /*merge_line=*/{},
+                          render_sota_module_source(m->composition_type, m->header,
                                                     sota_stamp_lines(view_id, version_table, measurement_stamp)));
         }
     return by_id;

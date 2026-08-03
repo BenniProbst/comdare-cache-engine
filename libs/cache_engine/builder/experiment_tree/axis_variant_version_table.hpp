@@ -28,9 +28,9 @@
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
 #include <cache_engine/measurement/algo_semver.hpp>    // W12-A: algo_semver_string (X.Y.Z-Voll-Form, NUR fuer Stempel)
 
-#include <axes/alloc/alloc_hw_config.hpp>       // kAllocHwSubaxisVersion (Sub-Achsen-Werteset, Bauplan §2)
-#include <axes/cacheline/cacheline_config.hpp>  // kCacheLineSubaxisVersion
-#include <axes/cacheline/node_width_config.hpp> // kNodeWidthSubaxisVersion
+// A13-M3/C3: das Sub-Achsen-Werteset-Segment (Bauplan Section 2) wird nicht mehr HIER gerendert, sondern consteval
+// in abi/subaxis_valueset_segment.hpp -- dieselbe Zeichenfolge speist .algos-Sidecar UND Fingerprint-Preimage.
+#include <cache_engine/abi/subaxis_valueset_segment.hpp> // abi::kSubAxisValuesetSegment (Single-Source)
 
 #include <boost/mp11.hpp>
 
@@ -206,10 +206,14 @@ inline void guard_all_registered_organ_versions() {
 /// sonst wuerde eine layout-geaenderte Binary STILL reused. Sie sind BUILD-global (nicht per-Variante) -> als fester
 /// Schwanz an jede algo_sig gehaengt; ein Bump invalidiert konsequenterweise ALLE Binaries (grobkoernig, aber korrekt
 /// und selten). Deterministisch, plattform-stabil.
+///
+/// A13-M3/C3: das Rendering ist auf die consteval-Single-Source abi::kSubAxisValuesetSegment gezogen. Grund:
+/// dasselbe Segment ist seit A13-M3 auch ein Preimage-Glied des Anatomie-Fingerprints (F7-VERIFY, "schwerster
+/// Befund": unter dem SHA512-only-Skip-Gate faellt die .algos-Signatur als Faenger weg). Zwei getrennte
+/// Renderer -- hier zur Laufzeit, dort consteval -- waeren genau der uebersehene dritte Ableitungsweg. Die
+/// .algos-Sidecar-BYTES bleiben unveraendert (gleiche Zeichenfolge), es ist kein Sidecar-Ereignis.
 [[nodiscard]] inline std::string sub_axis_valueset_segment() {
-    return "sub=cacheline@v" + std::to_string(::comdare::cache_engine::cacheline::kCacheLineSubaxisVersion) +
-           ",node_width@v" + std::to_string(::comdare::cache_engine::cacheline::kNodeWidthSubaxisVersion) +
-           ",alloc_hw@v" + std::to_string(::comdare::cache_engine::alloc::kAllocHwSubaxisVersion);
+    return std::string{::comdare::cache_engine::abi::kSubAxisValuesetSegment};
 }
 
 /// compose_algo_signature(axes, table) — die deterministische Organ-Algorithmus-Signatur EINER Binary. Iteriert die

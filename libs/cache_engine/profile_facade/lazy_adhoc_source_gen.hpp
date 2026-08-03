@@ -81,7 +81,7 @@
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // ex::compose_organ_stamp_line / build_axis_variant_version_table (W12-A2)
 #include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn
 
-#include <cache_engine/abi/anatomy_fingerprint.hpp>   // A8.3: kOverlaySourceHash (5. Preimage-Glied)
+#include <cache_engine/abi/anatomy_fingerprint.hpp>   // A13-M3: anatomy_fingerprint_glieder/-preimage (EINE Ordnung)
 #include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
 #include <sha512/ctsha512.hpp>                        // I2: Runtime-SHA-512 fuer den drift-freien Fingerprint-Provider
 
@@ -205,7 +205,7 @@ template <class List>
     // (abi::measurement_stamp_line, K7b-2 auch als MENGE). No-Arg-Default "" => render_adhoc_module_source emittiert
     // EXAKT die 2-arg-Makro-Zeile -> byte-identisch zur heutigen Quelle (die 320-Round-Trip-/Byte-Wache bleibt STRIKT).
     // Nicht-leer (explizite Combo bzw. [all]/UNGESETZT-Vollmenge ueber die from_env-Naht) => 3-arg _M-Form.
-    return cg::render_adhoc_module_source(0, macro_args, organ, system, /*merge_stamp=*/{}, measurement_stamp);
+    return cg::render_adhoc_module_source(0, macro_args, organ, system, measurement_stamp);
 }
 
 /// make_lazy_adhoc_source_gen() -- die Naht: eine SourceGenFn (binary_id -> reale Modul-Quelle), die run_profile
@@ -260,10 +260,15 @@ template <class List>
 }
 
 /// I2 (Lager-Gate): der drift-freie Fingerprint fuer binary_id -- 128-hex K7b-Fingerprint, IDENTISCH zu dem, den die
-/// DLL via comdare_anatomy_version_lines()->sha512_line traegt. Komponiert EXAKT dieselben vier Stempel-Zeilen wie
+/// DLL via comdare_anatomy_version_lines()->sha512_line traegt. Komponiert EXAKT dieselben Stempel-Zeilen wie
 /// lazy_adhoc_source_for (organ via compose_organ_stamp_line, system via system_stamp_line, measurement = dieselbe
-/// Combo, merge = "" im Lazy-/ce-only-Pfad) und hasht sie mit derselben Primitive (sha512 + to_hex) wie
-/// anatomy_fingerprint_hex (Preimage = concat(organ+system+measurement+merge), D3). Nicht materialisierbar -> "".
+/// Combo) und hasht sie mit derselben Primitive (sha512 + to_hex) wie anatomy_fingerprint_hex.
+///
+/// A13-M3: die Preimage-ORDNUNG steht NICHT mehr hier -- sie kommt aus abi::anatomy_fingerprint_glieder(), der
+/// EINEN Quelle, aus der auch der consteval-Zwilling zieht. Vorher stand die Glied-Folge zweimal wortgleich da
+/// und konnte auseinanderlaufen (Risiko R6: Lager-Key-Drift gegen das einkompilierte sha512_line). Der Trenner
+/// zwischen den Gliedern ('\n', OF-M3-1 Option A) steckt in abi::anatomy_fingerprint_preimage.
+/// Nicht materialisierbar -> "".
 [[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
                                                             std::vector<ex::AxisVariantVersion> const& version_table,
                                                             std::string const& measurement_stamp = {}) {
@@ -271,20 +276,9 @@ template <class List>
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
-    // Preimage = concat(organ + system + measurement + merge) in DIESER fixen Reihenfolge (anatomy_fingerprint.hpp D3);
-    // merge = "" (Lazy-/ce-only-Pfad, identisch zu lazy_adhoc_source_for -> merge_stamp={}).
-    // A8.3 (O-8 Schritt 8): das 5. Glied -- der Overlay-Source-Hash -- steht am ENDE, exakt wie im
-    // consteval-Zwilling anatomy_fingerprint_hex. Heute leer (Pre-Build-Codegen setzt das Define noch
-    // nicht), traegt also nichts bei; die beiden Wege bleiben aber auch dann deckungsgleich, wenn er
-    // gefuellt wird. Wer die Reihenfolge hier aendert, muss sie DORT mitaendern -- sonst driftet der
-    // Lager-Index-Anker vom einkompilierten sha512_line weg.
-    auto const  overlay = ::comdare::cache_engine::abi::kOverlaySourceHash;
-    std::string preimage;
-    preimage.reserve(organ.size() + system.size() + measurement_stamp.size() + overlay.size());
-    preimage += organ;
-    preimage += system;
-    preimage += measurement_stamp;
-    preimage += overlay;
+    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp);
+    std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
+        std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const hex = ::comdare::cache_engine::sha512::to_hex(digest); // array<char, 128>

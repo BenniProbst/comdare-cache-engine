@@ -6,8 +6,8 @@
 // ersetzt eine vtable (CRTP+Concept-Doktrin, statischer Dispatch, kein Runtime-Switch, kein Bloat).
 //
 // Die ZWEI Genera (Section 62-B, Nachtrag-4 Schluessel-Trennung):
-//   * BinaryKeyPolicy   -- Digest == sha512(concat(organ+system+measurement+merge)) == anatomy_fingerprint
-//                          (Tier-Binary-Replay; die EINE SHA512-Wahrheit).
+//   * BinaryKeyPolicy   -- Digest == sha512 ueber die '\n'-getrennte Glied-Folge (abi::anatomy_fingerprint_
+//                          glieder) == anatomy_fingerprint (Tier-Binary-Replay; die EINE SHA512-Wahrheit).
 //   * MesswertKeyPolicy -- Digest ueber die voll-permutativen Mess-Achsen-Zeilen + Hardware-Identitaet
 //                          ([d,e,f]+[g,h,i]+HW gemeinsam; getrennter Schluesselteil, keine Fusion).
 //

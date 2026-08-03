@@ -427,111 +427,143 @@ TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
     EXPECT_EQ(abi::measurement_stamp_line_full_set().find("@v1"), std::string::npos);
 }
 
-TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt136) {
-    // K7a/K7b-3: merge_line/sha512_line append-only (Layout bis 4). G2-1b (A4, Section 58-V/Section 66): die drei
-    // {ptr,count}-Array-Paare (organ_/system_/measurement_entries) ans POD-Ende angehaengt = die Array-Form der
-    // Stempel-Zeilen. Layout-Bump 4 -> 5, sizeof 88 -> 136 (der EINE intendierte Pin-Nachzug im A4-Fenster). Die
-    // Offsets ALLER bisherigen Felder (bis sha512_len @80) bleiben stabil (append-only). Der sizeof-static_assert lebt
-    // in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
-    // binary_id/CRC UNBERUEHRT (POD-Layout != binary_id); die Byte-Wache bleibt gruen (emittierte Quelle unveraendert).
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt120) {
+    // A13-M3 (Owner-E2 02.08.2026): merge_line/merge_len sind ERSATZLOS ENTFERNT -- der ERSTE Feld-ENTFALL
+    // dieses POD (bis Layout 5 war alles append-only). Layout-Bump 5 -> 6, sizeof 136 -> 120 (-16 = 1 Zeiger +
+    // 1 uint64). Die Offsets von sha512_line und den drei {ptr,count}-Paaren verschieben sich damit um -16 --
+    // genau darum ist stamp_pod_has_entries auf die GLEICHHEITS-Wache (== 6) gezogen (K-4). Der
+    // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
+    // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 136, "POD-Layout-Wache: 18 Felder, 8-aligned -> 136 Byte (x86_64).");
+    static_assert(sizeof(AnatomyVersionLines) == 120, "POD-Layout-Wache: 16 Felder, 8-aligned -> 120 Byte (x86_64).");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 136u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 120u);
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
-    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 5u);
-    // Offset-Stabilitaet der 12 Alt-Felder (append-only): bis sha512_len unveraendert.
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 6u);
+    // Die drei Zeilen-Paare bis measurement_len liegen unveraendert (der Entfall sitzt DAHINTER).
     EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 48u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, merge_line), 56u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, merge_len), 64u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 72u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 80u);
-    // A4: die drei neuen {ptr,count}-Paare folgen dahinter (@88..@128).
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 88u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 96u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entries), 104u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entry_count), 112u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 120u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 128u);
+    // Ab hier hat der merge-Entfall alles um -16 gezogen (vorher sha512_line @72, organ_entries @88 ...).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 56u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 64u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 72u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 80u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entries), 88u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entry_count), 96u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 104u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 112u);
 }
 
-TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfConcat) {
-    // K7b-3 (Section 62-B): der 5. POD-Stempel == SHA-512(concat organ+system+measurement+merge) als 128-hex,
-    // nullterminiert (D3-Reihenfolge). Selbst-konsistent gegen die K7b-1-Primitive geprueft (kein externer Vektor).
+TEST(MW12StampBausteine, K4StampPodHasEntriesIsEqualityNotOrder) {
+    // A13-M3/K-4: der Feld-ENTFALL verschiebt die Offsets -- ein `>= 5`-Praedikat wuerde ein v6-POD mit
+    // v5-Offsets lesen (und umgekehrt) und stillen Zeiger-Muell liefern. Die CT-Negativ-Probe steht im
+    // Header selbst (static_assert); hier ist sie als literaler ctest-Beweis gespiegelt.
+    namespace abi = ::comdare::cache_engine::abi;
+    EXPECT_TRUE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(6u)));
+    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(5u)));
+    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(7u)));
+}
+
+TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
+    // K7b-3 (Section 62-B) + A13-M3 (OF-M3-1 = Option A, F7): der POD-Stempel == SHA-512 ueber die
+    // '\n'-GETRENNTE Glied-Folge als 128-hex, nullterminiert. Selbst-konsistent gegen die K7b-1-Primitive
+    // geprueft (kein externer Vektor): das Referenz-Preimage wird hier von Hand zusammengesetzt, damit der
+    // Test die Ordnung UND den Trenner beweist und nicht bloss die Funktion gegen sich selbst.
     namespace abi     = ::comdare::cache_engine::abi;
     namespace s5      = ::comdare::cache_engine::sha512;
-    constexpr auto fp = abi::anatomy_fingerprint_hex("a", "b", "c", "d");
+    constexpr auto fp = abi::anatomy_fingerprint_hex("a", "b", "c");
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
-    constexpr auto ref = s5::to_hex(s5::sha512("abcd"));
+    std::string ref_pre;
+    ref_pre += abi::kAnatomyFingerprintFormat;
+    ref_pre += "\na\nb\nc\n";
+    ref_pre += abi::kSubAxisValuesetSegment;
+    ref_pre += '\n';
+    ref_pre += abi::kOverlaySourceHash;
+    auto const ref = s5::to_hex(s5::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(ref_pre.data()), ref_pre.size()}));
     for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp[i], ref[i]) << "hex-Stelle " << i;
-    // ce-only-/Katalog-Pfad: measurement == merge == "" -> Fingerprint von concat(organ+system) allein.
-    constexpr auto fp_ceonly  = abi::anatomy_fingerprint_hex("org", "sys", "", "");
-    constexpr auto ref_ceonly = s5::to_hex(s5::sha512("orgsys"));
-    for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp_ceonly[i], ref_ceonly[i]);
+
+    // Die Format-Kennung ist das ERSTE Glied (F7: Layout-Evolution mismatcht deterministisch statt still
+    // zu kollidieren) und das Werteset-Segment ein EIGENES Glied (F7-VERIFY, "schwerster Befund": sonst
+    // wuerde ein Werteset-Bump unter dem SHA512-only-Skip-Gate STILL reused).
+    constexpr auto glieder = abi::anatomy_fingerprint_glieder("a", "b", "c");
+    static_assert(glieder.size() == 6u);
+    static_assert(glieder[0] == abi::kAnatomyFingerprintFormat);
+    static_assert(glieder[4] == abi::kSubAxisValuesetSegment);
+    // Dass diese consteval-Quelle byte-gleich zur .algos-Laufzeit-Quelle ist, prueft die schwere TU
+    // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
 
-TEST(MW12StampBausteine, MergeStampLineCarriesMergeCombinationOrEmptyForCeOnly) {
-    // K6a (Section 59, 2026-07-20): der DRITTE Tier-Binary-Stempel = die Merge-Kombination. Format
-    // "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]" -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt
-    // zur .algos-Sig; NUR Haupt-Achsen. ce-only-/Identitaets-Fall -> LEERE Zeile (golden-Konsequenz Section 59-C).
-    namespace abi = ::comdare::cache_engine::abi;
-    // ce-only (Stufe1 / leere Strategie) -> leer (byte-identischer golden-Pfad).
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe1_CeOnly", "prt_art").empty());
-    EXPECT_TRUE(abi::merge_stamp_line("", "prt_art").empty());
-    // Identitaets-/self-Pruefling ("CacheEngine"/"self" / kein Pruefling) -> leer (Fork 3: identity=self ist ce).
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "CacheEngine").empty());
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "self").empty());
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "").empty());
-    // Merge-Fall OHNE Achsen-Versionen -> nur Merge-Art + Pruefling.
-    EXPECT_EQ(abi::merge_stamp_line("Stufe2_PrueflingReplace", "prt_art"),
-              std::string{"merge=Stufe2_PrueflingReplace;pruefling=prt_art"});
-    // Merge-Fall MIT Achsen-Versionen (Voll-Form via algo_semver; SEPARATE Welt zur .algos-Sig).
-    std::array<m::AxisVersionEntry, 1> const merged{{{"path_compression", "prt_patricia", "v2.3.4"}}};
-    std::string const                        line = abi::merge_stamp_line("Stufe3_FullJoin", "prt_art", merged);
-    EXPECT_EQ(line, std::string{"merge=Stufe3_FullJoin;pruefling=prt_art;path_compression=prt_patricia@2.3.4"});
-    EXPECT_EQ(line.find("@v2.3.4"), std::string::npos); // X.Y.Z, nicht die rohe Version
+TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
+    // A13-M3 / OF-M3-1 = Option A (Owner-Entscheid 03.08.2026) -- die NEUE Pflicht-Probe zu Befund GA-01
+    // [BLOCK]. VOR M3 entstand das Preimage als reine Byte-Konkatenation OHNE Trenner; die drei folgenden
+    // Aufrufe lieferten damit BEWEISBAR DENSELBEN Fingerprint, obwohl die Zeilen-SAETZE verschieden sind.
+    // Genau darauf ruht aber das SHA512-only-Skip-Gate (F7: "der deckt die anderen Stempel allein").
+    // Es gab im ganzen Baum keine einzige Injektivitaets-Probe -- nur Positiv-Belege.
+    namespace abi                 = ::comdare::cache_engine::abi;
+    constexpr std::string_view kX = "search_algo=k_ary@1.0.0c";
+
+    // (1) Die drei Feldgrenzen-Verschiebungen der GA-01-Demo: gleiches Zeichenmaterial, andere Zuordnung.
+    constexpr auto a = abi::anatomy_fingerprint_hex("", "", kX);
+    constexpr auto b = abi::anatomy_fingerprint_hex(kX, "", "");
+    constexpr auto c = abi::anatomy_fingerprint_hex("", kX, "");
+    static_assert(a != b, "GA-01: Mess-Zeile X vs. Organ-Zeile X muessen verschiedene Fingerprints ergeben.");
+    static_assert(a != c, "GA-01: Mess-Zeile X vs. System-Zeile X muessen verschiedene Fingerprints ergeben.");
+    static_assert(b != c, "GA-01: Organ-Zeile X vs. System-Zeile X muessen verschiedene Fingerprints ergeben.");
+    EXPECT_NE(std::string_view{a.data()}, std::string_view{b.data()});
+    EXPECT_NE(std::string_view{a.data()}, std::string_view{c.data()});
+    EXPECT_NE(std::string_view{b.data()}, std::string_view{c.data()});
+
+    // (2) Die EIN-ZEICHEN-Grenzverschiebung zwischen Organ- und System-Zeile (das ';' wandert ueber die
+    //     Feldgrenze). Ohne Trenner ist das Preimage identisch -- mit Trenner nicht.
+    constexpr auto d = abi::anatomy_fingerprint_hex("achse=algo@1.0.0c;", "target_isa=code@1.0.0c", "");
+    constexpr auto e = abi::anatomy_fingerprint_hex("achse=algo@1.0.0c", ";target_isa=code@1.0.0c", "");
+    static_assert(d != e, "GA-01: die Ein-Zeichen-Grenzverschiebung darf nicht kollabieren.");
+    EXPECT_NE(std::string_view{d.data()}, std::string_view{e.data()});
+
+    // (3) Der Trenner liegt BEWEISBAR ausserhalb des Stempel-Zeichenvorrats -- kein Glied kann ihn tragen,
+    //     also ist die Zerlegung bei fester Glied-Anzahl eindeutig.
+    static_assert(abi::kAnatomyFingerprintSeparator == '\n');
+    EXPECT_EQ(abi::kAnatomyFingerprintFormat.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
+    EXPECT_EQ(abi::kSubAxisValuesetSegment.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
 }
 
-// A1 (G2-4a, 2026-07-23) EINGEFRORENER FINGERPRINT-TESTVEKTOR (Lager-Gate §66, Sync-Kante B3). Vier FESTE Stempel-
-// Zeilen -> EIN fester 128-hex SHA-512. ZWEI Zwecke: (1) Neutralitaets-Testat der W12-Literal-Migration ("v1"->"v1.0.0")
-// -- der Fingerprint FESTER Zeilen ist von der Migration unabhaengig (die Zeilen sind Literale, nicht die migrierten
-// Wrapper), also identisch vor/nach A1. (2) Konsistenz-Anker fuer Lane B (G3-BinaryKeyPolicy, Scheibe B3): Impl-G3-P2
-// bildet ctsha512 ueber DIESELBEN vier Zeilen in DERSELBEN Reihenfolge (organ+system+measurement+merge) und MUSS exakt
-// kFrozenFingerprintV1 erhalten -- EIN Testvektor, zwei Module (keine Separator-/Whitespace-Drift). Die vier Zeilen und
-// der Hex sind EINGEFROREN: NIE aendern (bricht die B3-Sync), nur bei bewusstem Fingerprint-Bruch unter Absprache.
+// A1 (G2-4a, 2026-07-23) EINGEFRORENER FINGERPRINT-TESTVEKTOR (Lager-Gate Section 66, Sync-Kante B3). FESTE Stempel-
+// Zeilen -> EIN fester 128-hex SHA-512. Zweck: Konsistenz-Anker fuer Lane B (G3-BinaryKeyPolicy, Scheibe B3) --
+// Impl-G3-P2 bildet ctsha512 ueber DIESELBE Glied-Folge mit DEMSELBEN Separator und MUSS exakt
+// kFrozenFingerprintV1 erhalten. EIN Testvektor, zwei Module. Die Zeilen und der Hex sind EINGEFROREN: NIE
+// aendern (bricht die B3-Sync), nur bei bewusstem Fingerprint-Bruch unter Absprache.
 //
-// A13-M2 (Owner-E2/Q1 vom 02.08.2026) -- WARUM HIER TROTZ FINGERPRINT-GLOBAL-SHIFT NICHTS NEU EINGEFROREN WURDE,
-// literal geprueft und bewusst dokumentiert, damit der naechste Leser es nicht fuer einen VERGESSENEN Anker haelt:
-// dieser Vektor rechnet ueber VIER FESTE LITERALE (kOrgan/kSystem/kMeasure/kMerge unten), NICHT ueber die LIVE
-// gerenderten Stempel-Zeilen. A13-M2 aendert die LIVE-Zeilen (System-Zeile +Klammer-Anhang, Mess-Zeile
-// load_framework ans Ende) und damit den Fingerprint JEDER kuenftigen Binary -- dieses Literal-Quartett ruehrt es
-// nicht an. Der Testlauf belegt es: der Hex unten ist unveraendert und BEIDE Module (hier + test_g3_sha512_index)
-// sind gruen geblieben.
-// WAS DEN VEKTOR SEHR WOHL BRECHEN WIRD: A13-M3 entfernt die merge-ZEILE ersatzlos (Owner-E2: "Merge Zeile kann
-// daher nicht existieren"). Damit faellt kMerge aus dem Preimage, der Hex aendert sich zwangslaeufig, und DANN
-// ist hier UND in test_g3_sha512_index IM SELBEN COMMIT neu einzufrieren (Lane-B-Drift-Verbot). Das ist der EINE
-// faellige Neuanker; ihn nach vorn in M2 zu ziehen haette einen zweiten erzeugt, ohne etwas zu beweisen.
-// BEI DIESEM M3-NEUANKER MIT ZU ERLEDIGEN (Fixture-Zementierungs-Lehre): die Literale sind inhaltlich VERALTET --
-// kSystem traegt "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte System-Haupt-Achse, und kMeasure
-// traegt "wallclock@1.0.0" ohne Achsen-Praefix. Als Hash-Konsistenz-Anker (ein Vektor, zwei Module) tut das
-// nichts zur Sache, als Referenz-Beispiel liest es sich aber falsch.
+// A13-M3 (Owner-E2/OF-M3-1, 02./03.08.2026) -- DER EINE NEUANKER DIESES FENSTERS, und zwar bewusst genau EINER.
+// Der Vorgaenger-Hex 0f0c0eb4...c31b93 (A1, 23.07.) ist damit historisch; er steht in der git-Historie.
+// DREI Ursachen fallen in DIESEN einen Commit, weil jede fuer sich einen eigenen Neuanker gekostet haette:
+//   (1) OWNER-E2: die merge-ZEILE entfaellt ersatzlos ("Merge Zeile kann daher nicht existieren") -> das
+//       frueher hier stehende kMerge-Literal faellt aus dem Preimage;
+//   (2) OF-M3-1 = OPTION A (Befund GA-01 [BLOCK]): die Glieder sind ab jetzt '\n'-GETRENNT, tragen die
+//       fingerprint_format-Kennung als erstes Glied und das Sub-Achsen-Werteset-Segment als eigenes Glied;
+//   (3) FIXTURE-END-FORM (Fixture-Zementierungs-Lehre): die Literale waren inhaltlich VERALTET -- kSystem trug
+//       "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte System-Haupt-Achse, kMeasure trug
+//       "wallclock@1.0.0" ohne Achsen-Praefix, und beide standen in der flaglosen Vor-Q3-Form. Als reiner
+//       Hash-Konsistenz-Anker war das gleichgueltig; als REFERENZ-BEISPIEL las es sich falsch. Sie sind hier
+//       gleich in der END-Form eingefroren (heutige Achsen + Owner-Q3-Flag "@1.0.0c"), damit die
+//       Literal-Migration in C4 KEINEN zweiten Neuanker im selben Fenster erzeugt.
+// Der neue Hex wurde NICHT vorausberechnet, sondern aus dem literalen Compiler-/Testlauf uebernommen.
 TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     namespace abi                       = ::comdare::cache_engine::abi;
-    constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0;path_compression=path_compression_none@1.0.0";
-    constexpr std::string_view kSystem  = "compiler=code@1.0.0;isa=amd64";
-    constexpr std::string_view kMeasure = "wallclock@1.0.0";
-    constexpr std::string_view kMerge   = "merge=Stufe1_CeOnly;pruefling=self";
-    // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 von concat(kOrgan+kSystem+kMeasure+kMerge). NIE aendern.
+    constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
+    constexpr std::string_view kSystem  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
+                                          "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+    constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+    // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 ueber die '\n'-getrennte Glied-Folge. NIE aendern.
     constexpr std::string_view kFrozenFingerprintV1 =
-        "0f0c0eb44d4308c3a9d05f92abcb10a8fa68063634a5bd669ae38f8ac2272285"
-        "fb594f0bbdc4547f1bb73f57a5a17d32bee21d3781be27da9577505ad5c31b93";
-    constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure, kMerge);
+        "0fe275bddc7af1af9474cea655ff28280b93cfb3acc299c00d76d3489822993b"
+        "f043b4cee58b97d7ed2e42b0fc5bb0e3e300d15b1c50c31dd1aba7a23cc9fe36";
+    constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure);
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     static_assert(std::string_view{fp.data()} == kFrozenFingerprintV1,
-                  "EINGEFRORENER Fingerprint (B3-Sync): die 4 Zeilen ODER der Hash haben sich geaendert -- unter "
+                  "EINGEFRORENER Fingerprint (B3-Sync): die Zeilen ODER der Hash haben sich geaendert -- unter "
                   "Absprache neu einfrieren, sonst bricht die Lane-B-Konsistenz");
     EXPECT_EQ(std::string_view{fp.data()}, kFrozenFingerprintV1)
         << "eingefrorener Fingerprint-Testvektor (Lager-Gate §66, Sync mit Lane-B Scheibe B3)";
@@ -716,7 +748,7 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
 }
 
 // A4 (G2-1b): die Array-Form reist durch das AnatomyVersionLines-POD. Der POD wird hier MANUELL exakt wie im
-// COMDARE_ANATOMY_VERSION_STAMP_MERGE-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist positions-
+// COMDARE_ANATOMY_VERSION_STAMP_M-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist positions-
 // UND typgeprueft -> eine Feld-Vertauschung Zeiger<->uint64 waere ein Compile-Fehler). Der REALE Makro-POD wird
 // zusaetzlich vom Struktur-Smoke ueber echte DLL-Builds kompiliert. Beweis: entry_counts {18,3,4} + join(entries)==Zeile.
 //
@@ -745,27 +777,15 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
     static constexpr auto kME =
         abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kMeasure})>(kMeasure);
 
-    abi::AnatomyVersionLines const v{abi::kAnatomyVersionLinesLayout,
-                                     0u,
-                                     kOrgan,
-                                     sizeof(kOrgan) - 1,
-                                     kSystem,
-                                     sizeof(kSystem) - 1,
-                                     kMeasure,
-                                     sizeof(kMeasure) - 1,
-                                     "",
-                                     0u,
-                                     "deadbeef",
-                                     8u,
-                                     abi::stamp_entries_ptr(kOE),
-                                     kOE.size(),
-                                     abi::stamp_entries_ptr(kSE),
-                                     kSE.size(),
-                                     abi::stamp_entries_ptr(kME),
-                                     kME.size()};
+    abi::AnatomyVersionLines const v{abi::kAnatomyVersionLinesLayout, 0u, kOrgan, sizeof(kOrgan) - 1, kSystem,
+                                     sizeof(kSystem) - 1, kMeasure, sizeof(kMeasure) - 1,
+                                     // A13-M3: die merge-Slots ("" / 0u) sind hier ERSATZLOS entfallen (18 -> 16
+                                     // Initialisierer) -- sha512_line folgt jetzt unmittelbar auf measurement_len.
+                                     "deadbeef", 8u, abi::stamp_entries_ptr(kOE), kOE.size(),
+                                     abi::stamp_entries_ptr(kSE), kSE.size(), abi::stamp_entries_ptr(kME), kME.size()};
 
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
-    EXPECT_EQ(v.stamp_layout_version, 5u);
+    EXPECT_EQ(v.stamp_layout_version, 6u);
     EXPECT_EQ(v.organ_entry_count, 18u);
     EXPECT_EQ(v.system_entry_count, 4u); // A13-M2: 3 Haupt-Achsen + 1 geklammerte Meta-Meta
     EXPECT_EQ(v.measurement_entry_count, 4u);
@@ -832,10 +852,13 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
     // keine Parallel-Ableitung (Section-64-Vollmengen-Provenienz teilt sich die Quelle).
     EXPECT_EQ(std::string{ceb::kCebMeasurementStamp}, abi::measurement_stamp_line_full_set());
-    // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess,"").
+    // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess).
+    // A13-M3/K-1: hier stand die 4-arg-Form mit dem merge-"" -- genau der Alt-Aufruf, den die Sperre faengt.
+    // Sie hat literal gefeuert ("die merge-ZEILE existiert nicht mehr ... das 4. Argument ist der
+    // OverlayHash-TYP"); der Aufruf ist auf die 3-arg-Form gezogen.
     static_assert(ceb::kCebFingerprint.size() == 128);
     EXPECT_EQ(ceb::kCebFingerprint.size(), std::size_t{128});
-    constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp, "");
+    constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp);
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
     std::string const stamp = ceb::ceb_version_stamp();

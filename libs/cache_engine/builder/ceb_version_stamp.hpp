@@ -160,10 +160,18 @@ inline constexpr auto             kCebMeasurementStampArray = ceb_measurement_st
 inline constexpr std::string_view kCebMeasurementStamp{kCebMeasurementStampArray.data(),
                                                        kCebMeasurementStampArray.size() - 1};
 
-/// consteval SHA-512-Provenienz der CEB (A8): anatomy_fingerprint_hex ueber ("", "", Mess-Array-Zeile, "") -- die EINE
-/// K7b-Primitive wiederverwendet (leere organ/system/merge). 128-hex, nullterminiert.
+/// consteval SHA-512-Provenienz der CEB (A8): anatomy_fingerprint_hex ueber ("", "", Mess-Array-Zeile) -- die EINE
+/// K7b-Primitive wiederverwendet (leere organ/system). 128-hex, nullterminiert.
+///
+/// A13-M3/K-1: dieser Aufruf IST die im Bauplan benannte "ceb_version_stamp.hpp-Falle". Bis M2 stand hier ein
+/// VIERTES Argument "" -- der merge-Slot. Waere die Signatur beim merge-Entfall naiv auf
+/// (organ, system, measurement, overlay) verkuerzt worden, waere dieser Aufruf GUELTIG GEBLIEBEN und das ""
+/// still vom merge- auf den Overlay-Slot gerutscht: kompiliert, Semantik verschoben, niemand merkt es. Der
+/// benannte OverlayHash-Typ + die Sperr-Ueberladung machen genau das unmoeglich; der Aufruf ist auf die
+/// 3-arg-Form gezogen. Der Wert kCebFingerprint SHIFTET dabei (erwartetes Byte-Ereignis, sichtbar nur im
+/// CEB-Log-Kopf und --version -- er stempelt keine Tier-Binary).
 inline constexpr auto kCebFingerprintArray =
-    ::comdare::cache_engine::abi::anatomy_fingerprint_hex("", "", kCebMeasurementStamp, "");
+    ::comdare::cache_engine::abi::anatomy_fingerprint_hex("", "", kCebMeasurementStamp);
 inline constexpr std::string_view kCebFingerprint{kCebFingerprintArray.data(), 128};
 
 /// ceb_version_stamp() -- der CEB-Selbst-Stempel fuer den Log-Kopf/--version: die Mess-Array-Zeile + ihre SHA-512-

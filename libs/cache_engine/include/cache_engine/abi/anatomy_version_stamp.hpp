@@ -284,42 +284,12 @@ template <class Comp>
     return measurement_stamp_line(std::span<std::string_view const>{toks});
 }
 
-/// merge_stamp_line(strategy, pruefling, merged_axes) -- die kMergeAxisVersionLine (Section 59, K6a): der DRITTE
-/// Tier-Binary-Stempel = die MERGE-KOMBINATION. Zusaetzlich zu den zwei Section-58-Arrays (System + Organ) traegt
-/// die Tier-Binary damit die Merge-Art (die MergeStrategy: Stufe1/Stufe2/Stufe3) + die Pruefling-Identitaet + die
-/// Namen/Versionen der beteiligten Achsen-Algorithmen (Section 59-C: "Namen + Versionen JEDER Achsen-Algorithmen
-/// IMMER im Stempel; PLUS ein dritter Tier-Binary-Stempel = die Merge-Kombination"). Format:
-///   "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]"
-/// R6 (§59-A(2)/A(3), Nacht-Audit 2026-07-22): der Stempel traegt die Strategie VERBATIM -- Stufe2_Hybrid (merge-
-/// Modus, CE+Pruefling-Hybrid je Pruefling) erzeugt damit einen ANDEREN Stempel als Stufe3_FullJoin (fulljoin-Modus,
-/// kombinierte Union); die beiden Merge-Kategorien bleiben am 3. Tier-Stempel getrennt (ihre Vermischung war die
-/// Regression, merge_plan.hpp::merge_mode_to_strategy).
-/// -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt zur .algos-Sig wie organ/system/measurement (build_axis_version_
-/// stamp_line fuer den Achsen-Teil). NUR HAUPT-Achsen (Section 58-V; Unter-Achsen fliessen dynamisch zur Laufzeit
-/// durch).
-///
-/// ce-only-/IDENTITAETS-Fall -> LEERE Zeile (Section 59-C-golden-Konsequenz): leere/Stufe1_CeOnly-Strategie ODER
-/// leere/"CacheEngine"/"self"-Pruefling-Identitaet -> "" (kein Merge einkompiliert). So bleibt der ce-only-/
-/// Katalog-Pfad byte-identisch (die Makro-Materialisierung legt merge_line auf "" mit merge_len==0), der
-/// golden-CRC 0xF1C1F26A1232073B unberuehrt -- die Merges sind ein additiver id-Satz.
-[[nodiscard]] inline std::string
-merge_stamp_line(std::string_view strategy, std::string_view pruefling,
-                 std::span<::comdare::cache_engine::measurement::AxisVersionEntry const> merged_axes = {}) {
-    using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
-    // ce-only (Stufe1 / keine Merge-Art) -> leer (byte-identischer golden-Pfad).
-    if (strategy.empty() || strategy == "Stufe1_CeOnly") return {};
-    // Identitaets-/self-Pruefling ("CacheEngine"/self / kein Pruefling) -> leer (Fork 3: identity=self ist ce).
-    if (pruefling.empty() || pruefling == "CacheEngine" || pruefling == "self") return {};
-    std::string out = "merge=";
-    out += strategy;
-    out += ";pruefling=";
-    out += pruefling;
-    std::string const axes = build_axis_version_stamp_line(merged_axes);
-    if (!axes.empty()) {
-        out += ';';
-        out += axes;
-    }
-    return out;
-}
+// A13-M3 (Owner-E2 02.08.2026, "Merge Zeile kann daher nicht existieren"): der frueher hier stehende
+// merge_stamp_line-Renderer (K6a/Section 59, "der DRITTE Tier-Binary-Stempel") ist ERSATZLOS ENTFERNT --
+// kein Deprecation-Stub (DV-1 = (a)). Begruendung: "darf nicht existieren" ist eine Existenz-Aussage; ein
+// stehen gelassener, toter Stempel-Renderer waere genau der dritte Ableitungsweg in Wartestellung, den die
+// O-8-Schritt-12-Lehre meint. Die Merge-DURCHFUEHRUNG bleibt vollstaendig erhalten
+// (profile_facade/merge_plan.hpp -- Owner-Q2: die Merge-Strategie WIRD durchgefuehrt); sie lebt im Stempel
+// ab jetzt ueber das 'e'-Experimentalflag und die erweiterten hierarchischen Namen.
 
 } // namespace comdare::cache_engine::abi

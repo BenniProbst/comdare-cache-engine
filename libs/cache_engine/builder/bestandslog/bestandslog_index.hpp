@@ -5,11 +5,11 @@
 // zwei getrennten Teilen (Section 62-NACHTRAG-4):
 //   (1) Sha512Key       -- der 64-Byte-Anatomie-Digest ueber die Stempel-Zeilen.
 //   (2) ZellKoordinaten -- die drei Runtime-Strings combo/opt/simd, die der Digest NICHT traegt.
-// Die Key-Ableitung von (1) ruft ctsha512 ueber die Stempel-Zeilen in DIREKTER Konkatenation (kein
-// Separator, keine Whitespace) -- exakt dieselbe Digest wie abi::anatomy_fingerprint_hex (append organ;
-// system; measurement; merge). Das bleibt die EINE SHA512-Wahrheit: der Digest-Teil des Lager-Keys ==
-// der Binary-Stempel-SHA, kein zweiter Preimage. Verifiziert gegen den eingefrorenen A1-Testvektor
-// (Section 66 Lager-Gate).
+// Die Key-Ableitung von (1) ruft ctsha512 ueber die '\n'-getrennte Glied-Folge (A13-M3/OF-M3-1) -- exakt
+// dieselbe Digest wie abi::anatomy_fingerprint_hex, dessen Glied-Liste (Format-Kennung, organ, system,
+// measurement, Sub-Achsen-Werteset, overlay) in abi::anatomy_fingerprint_glieder() wohnt. Das bleibt die
+// EINE SHA512-Wahrheit: der Digest-Teil des Lager-Keys == der Binary-Stempel-SHA, kein zweiter Preimage.
+// Verifiziert gegen den eingefrorenen A1-Testvektor (Section 66 Lager-Gate).
 //
 // Teil (2) wird NICHT in den Digest eingerechnet und auch NICHT an ihn angehaengt: waere die Zelle Teil
 // des Preimage, driftete der Lager-Key vom einkompilierten Fingerprint weg und der .fingerprint-Sidecar
@@ -23,6 +23,7 @@
 
 #include "bestandslog_document.hpp" // BestandEintrag + ZellKoordinaten
 
+#include <cache_engine/abi/anatomy_fingerprint.hpp> // A13-M3: anatomy_fingerprint_preimage (EIN Separator)
 #include <sha512/ctsha512.hpp>
 
 #include <array>
@@ -44,17 +45,21 @@ struct Sha512Key {
     friend bool operator==(Sha512Key const&, Sha512Key const&)  = default;
 };
 
-// Key aus den Stempel-Zeilen: sha512(concat(lines...)) OHNE Separator. Fuer die Binary-Genus sind das
-// die vier Anatomy-Zeilen in Reihenfolge organ + system + measurement + merge -> identisch zu
-// abi::anatomy_fingerprint_hex. Kein zweiter Delimiter, sonst driftet der Lager-Key vom Stempel weg.
-// A8.3 (O-8 Schritt 8): das Preimage hat dort ein FUENFTES Glied bekommen -- den Overlay-Source-Hash,
-// als Anhang ans Ende. Diese Funktion bleibt bewusst generisch (sie konkateniert, was der Aufrufer
-// gibt); wer die Binary-Genus-Zeilen zusammenstellt, haengt das Glied als letzte Zeile an. Solange der
-// Pre-Build-Codegen das Define nicht setzt, ist es leer und der Key bleibt unveraendert.
+// Key aus den Preimage-Gliedern: sha512 ueber die '\n'-getrennte Glied-Folge -- identisch zu
+// abi::anatomy_fingerprint_hex, weil BEIDE denselben Separator und (fuer die Binary-Genus) dieselbe
+// Glied-Liste abi::anatomy_fingerprint_glieder() benutzen. Diese Funktion bleibt bewusst generisch (sie
+// verkettet, was der Aufrufer gibt) -- die ORDNUNG der Binary-Glieder wohnt in anatomy_fingerprint.hpp,
+// nicht hier.
+//
+// A13-M3 / OF-M3-1 = Option A (Owner-Entscheid 03.08.2026, Befund GA-01): der frueher hier stehende Satz
+// "Kein zweiter Delimiter, sonst driftet der Lager-Key vom Stempel weg" hat sich UMGEDREHT. Er war richtig,
+// solange der Stempel-Fingerprint separatorlos konkatenierte -- und genau das war der Fehler: ohne Trenner
+// ist die Abbildung Glieder -> Preimage nicht injektiv (verschiebbare Feldgrenzen liefern denselben Digest).
+// Ab jetzt gilt: DERSELBE Delimiter wie dort, sonst driftet der Lager-Key. Der Separator '\n' liegt
+// beweisbar ausserhalb des Stempel-Zeichenvorrats (abi::kAnatomyFingerprintSeparator).
 [[nodiscard]] inline Sha512Key derive_key_from_lines(std::span<std::string_view const> lines) {
-    std::string pre;
-    for (std::string_view l : lines) pre.append(l);
-    auto const digest = ::comdare::cache_engine::sha512::sha512(
+    std::string const pre    = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(lines);
+    auto const        digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(pre.data()), pre.size()});
     Sha512Key k;
     for (std::size_t i = 0; i < 64; ++i) k.b[i] = digest[i];
