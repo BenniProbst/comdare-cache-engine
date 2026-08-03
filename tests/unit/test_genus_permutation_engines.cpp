@@ -6,10 +6,24 @@
 //   3. Cartesian-count() == ∏ mp_size(StaticAxisVariants) + for_each_composition_type besucht ALLE Punkte.
 //   4. Jede materialisierte Composition erfüllt IsGenusComposition.
 // Build: cl /I libs/cache_engine + libs/cache_engine/src + Boost::mp11 (PermutationEngine nutzt mp11).
+//
+// FORTSCHREIBUNG E-24 C2 (2026-08-04, Auflage 13 "Bestands-Tests FORTSCHREIBEN statt umgehen" + Memory-Lehre
+// "gruene Tests zementieren alte Ordnung"): diese TU deckte bis heute DREI der vier Container-Engines ab und
+// haette damit den Zustand "Adapter hat als einzige Gattung keine eigene Engine" still gruen zementiert. Mit
+// dem OP-3-Entscheid (Bauplan-Dossier 20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 1.3) existiert
+// anatomy/adapter_permutation_engine.hpp -- sie ist hier NACHGEZOGEN, auf derselben TYP-Ebene und mit
+// denselben Fragen wie ihre drei Geschwister.
+// Zusaetzlich traegt die TU jetzt eine STRUKTUR-Wache: die Zahl der hier geprueften Container-Engines wird
+// gegen comdare::container::type_count gekreuzt. Kommt je ein weiterer Container-TYP dazu, bricht diese TU,
+// bis er eine eigene per-Gattung-Engine UND eine Zeile hier hat -- statt still unvollstaendig gruen zu sein.
+// Die ABI-Materialisierung (for_each_abi_adapter) gehoert bewusst NICHT hierher: sie braucht echte Organe am
+// getriebenen Slot und liegt je Engine in einer eigenen TU (tests/unit/test_e24_c2_*_permutation_engine.cpp).
 
 #include "anatomy/set_permutation_engine.hpp"
 #include "anatomy/sequence_permutation_engine.hpp"
 #include "anatomy/view_permutation_engine.hpp"
+#include "anatomy/adapter_permutation_engine.hpp" // E-24 C2 (OP-3): die vierte Container-Engine
+#include "anatomy/container_framework.hpp"        // E-24 C2: comdare::container::type_count (Struktur-Wache)
 #include "anatomy/anatomy_base.hpp"
 
 #include <src/permutations/permutation_engine.hpp>
@@ -22,6 +36,7 @@
 #include <type_traits>
 
 namespace ana = comdare::cache_engine::anatomy;
+namespace cco = comdare::container; // E-24 C2: Gattungs-Slot-Pins (Struktur-Wache)
 namespace pe  = comdare::cache_engine::permutations;
 namespace mp  = boost::mp11;
 
@@ -68,17 +83,34 @@ using SetEngine =
 using SeqEngine = ana::SequencePermutationEngine<Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
 // ── View-Engine: 5 Slots, Slot0=3 × 1^4 = 3 (INC-2d) ──
 using ViewEngine = ana::ViewPermutationEngine<Cfg3, Cfg1, Cfg1, Cfg1, Cfg1>;
+// -- Adapter-Engine (E-24 C2 / OP-3, nachgezogen): 11 Slots, Slot0=3 x Slot1=2 x 1^9 = 6 --
+using AdapterEngine = ana::AdapterPermutationEngine<Cfg3, Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
 
 // Compile-Time-Marker + Arität
 static_assert(SetEngine::genus == ana::AnatomyGenus::Set);
 static_assert(SeqEngine::genus == ana::AnatomyGenus::Sequence);
 static_assert(ViewEngine::genus == ana::AnatomyGenus::View);
+static_assert(AdapterEngine::genus == ana::AnatomyGenus::Adapter);
 static_assert(SetEngine::arity() == 13);
 static_assert(SeqEngine::arity() == 9);
 static_assert(ViewEngine::arity() == 5);
+static_assert(AdapterEngine::arity() == 11);
 static_assert(SetEngine::count() == 6, "3 × 2 × 1^11 = 6");
 static_assert(SeqEngine::count() == 2, "2 × 1^8 = 2");
 static_assert(ViewEngine::count() == 3, "3 × 1^4 = 3");
+static_assert(AdapterEngine::count() == 6, "3 x 2 x 1^9 = 6");
+
+// -- E-24 C2 STRUKTUR-WACHE: so viele per-Gattung-Engines wie Container-TYPEN (4/4, kein stiller Rest) --
+// Die vier Aritaeten muessen den vier Bau-Bindungen folgen (container_framework.hpp:93-96); waere eine
+// Engine an eine falsche Slot-Zahl gebunden, faellt es hier auf und nicht erst im Voll-Bau.
+inline constexpr std::size_t kContainerEnginesUnderTest = 4;
+static_assert(cco::type_count == kContainerEnginesUnderTest,
+              "E-24 C2 / OP-3-Kanon: JEDER Container-TYP traegt eine eigene per-Gattung-PermutationEngine. "
+              "Kommt ein Typ dazu, braucht er eine Engine UND eine Zeile in dieser TU.");
+static_assert(SetEngine::arity() == cco::type_traits<ana::AnatomyGenus::Set>::slot_count);
+static_assert(SeqEngine::arity() == cco::type_traits<ana::AnatomyGenus::Sequence>::slot_count);
+static_assert(ViewEngine::arity() == cco::type_traits<ana::AnatomyGenus::View>::slot_count);
+static_assert(AdapterEngine::arity() == cco::type_traits<ana::AnatomyGenus::Adapter>::slot_count);
 
 // Factory-Materialisierung direkt (synthetisches PermTuple → korrekte Slots)
 using SetPerm = pe::PermTuple<V_a1, V_b1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x>;
@@ -102,6 +134,15 @@ static_assert(ana::IsViewComposition<ViewComp>);
 static_assert(std::is_same_v<ViewComp::memory_layout, V_a2>);   // Slot 0
 static_assert(std::is_same_v<ViewComp::accessor_policy, V_b1>); // Slot 4 (axis_accessor, überschreibt Default; INC-2d)
 static_assert(ViewComp::slot_count == 5);
+
+// E-24 C2 (OP-3): dieselbe Factory-Frage an die vierte Engine.
+using AdapterPerm = pe::PermTuple<V_a1, V_b1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_b2>;
+using AdapterComp = ana::AdapterCompositionFromPermTuple<AdapterPerm>;
+static_assert(ana::IsAdapterComposition<AdapterComp>);
+static_assert(std::is_same_v<AdapterComp::search_algo, V_a1>);     // Slot 0 (geteilt/delegiert)
+static_assert(std::is_same_v<AdapterComp::cache_traversal, V_b1>); // Slot 1 (geteilt/delegiert)
+static_assert(std::is_same_v<AdapterComp::inner_container, V_b2>); // Slot 10 (die spezifische Achse)
+static_assert(AdapterComp::slot_count == 11);
 
 int main() {
     std::cout << "==== L-76 per-Gattung PermutationEngines (Doku 14 §29.2): Set / Sequence / View ====\n";
@@ -153,6 +194,32 @@ int main() {
         eq("for_each_composition_type besucht 3", visited, std::size_t{3});
         tr("jede Composition erfüllt IsViewComposition", all_conform);
     }
+
+    // -- Adapter (E-24 C2 / OP-3, nachgezogen) --
+    std::cout << "\n-- AdapterPermutationEngine (Wirbelloses; E-24 C2 / OP-3 nachgezogen) --\n";
+    tr("genus == Adapter", AdapterEngine::genus == ana::AnatomyGenus::Adapter);
+    tr("gattung == Container (Ebene-1-Aussen-Interface)", AdapterEngine::gattung == ana::AnatomyGattung::Container);
+    eq("arity() == 11", AdapterEngine::arity(), std::size_t{11});
+    eq("count() == 6 (3x2x1^9)", AdapterEngine::count(), std::size_t{6});
+    {
+        std::size_t visited     = 0;
+        bool        all_conform = true;
+        AdapterEngine::for_each_composition_type([&]<class C>() {
+            ++visited;
+            if (!ana::IsAdapterComposition<C>) all_conform = false;
+        });
+        eq("for_each_composition_type besucht 6", visited, std::size_t{6});
+        tr("jede Composition erfuellt IsAdapterComposition", all_conform);
+    }
+
+    // -- Struktur-Wache: 4 Container-TYPEN, 4 per-Gattung-Engines (kein stiller Rest) --
+    std::cout << "\n-- Struktur-Wache (E-24 C2): Container-TYPEN vs. per-Gattung-Engines --\n";
+    eq("comdare::container::type_count", cco::type_count, kContainerEnginesUnderTest);
+    tr("alle vier Engine-Aritaeten folgen ihrer Bau-Bindung (13/9/5/11)",
+       SetEngine::arity() == cco::type_traits<ana::AnatomyGenus::Set>::slot_count &&
+           SeqEngine::arity() == cco::type_traits<ana::AnatomyGenus::Sequence>::slot_count &&
+           ViewEngine::arity() == cco::type_traits<ana::AnatomyGenus::View>::slot_count &&
+           AdapterEngine::arity() == cco::type_traits<ana::AnatomyGenus::Adapter>::slot_count);
 
     std::cout << "\n==== L-76 per-Gattung PermutationEngines: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
