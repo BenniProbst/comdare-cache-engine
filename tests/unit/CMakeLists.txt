@@ -2554,6 +2554,33 @@ add_test(NAME test_tp1_planer_filter_iterator COMMAND test_tp1_planer_filter_ite
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_tp1_planer_filter_iterator)
 set_tests_properties(test_tp1_planer_filter_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# F3-Testschuld (Ledger D-04, :3720-3721) -- der ITERATOR-LAUF mit dem EINEN REALEN
+# bestand_key_of-Provider (bestandslog::make_fingerprint_key_fn ueber das real geschriebene
+# .fingerprint-Sidecar) und einem WERFENDEN CachePushFn (at::ArtefaktPushFehler, der Kontrakt-Typ
+# seit TP1FK1-B2). Deckt die Kette Sidecar -> Provider -> observe -> Wurf -> AsyncPushPump::
+# failed_dirs -> bestand_eintragspfad -> discard_fresh_with_pfad_prefix -> flush, die weder
+# test_g3_artifact_cache_transport (Provider isoliert) noch test_tp1_planer_filter_iterator
+# (Verwurf an der Funktions-Naht, synthetische Keys) im LAUF belegt hat. Gleicher Include-/Define-/
+# Link-Satz wie test_tp1_planer_filter_iterator (derselbe Host-Treiber-Header, echter run_lazy-Aufruf).
+add_executable(test_f3_lager_key_provider_iterator "test_f3_lager_key_provider_iterator.cpp")
+target_compile_features(test_f3_lager_key_provider_iterator PRIVATE cxx_std_23)
+target_include_directories(test_f3_lager_key_provider_iterator PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_f3_lager_key_provider_iterator PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver)
+comdare_set_platform_defines(test_f3_lager_key_provider_iterator)
+target_compile_definitions(test_f3_lager_key_provider_iterator PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_f3_lager_key_provider_iterator COMMAND test_f3_lager_key_provider_iterator)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_f3_lager_key_provider_iterator)
+set_tests_properties(test_f3_lager_key_provider_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
