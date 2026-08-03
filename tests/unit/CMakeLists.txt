@@ -4256,6 +4256,21 @@ target_include_directories(test_g3_takeover_sweep PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_takeover_sweep PRIVATE Threads::Threads)
 
+# A1-Lager-Rest LB-0/LB-2/LB-3 (F9-Paketschnitt): die Pfad-Grammatik-Single-Source
+# (bestandslog/lager_pfad_grammatik.hpp -- Ownership-Entscheid L5) und der Baum-Writer beider
+# Realm-Wurzeln (bestandslog/lager_baum_writer.hpp). Der Writer zieht als EINZIGER die Layer-Kante zu
+# experiment_tree/axis_path_serialization.hpp (18 Organ-Achsen) und zu abi/system_axis_order.hpp
+# (bindende System-Ordnung, L22) -> Boost::mp11 gehoert deshalb zum Ziel, die Grammatik selbst bleibt
+# dep-frei. ctsha512 kommt aus libs/cache_engine/src (deterministischer Kurzname bei Namens-Ueberlauf).
+comdare_add_test(test_lb0_lager_pfad_grammatik
+    SOURCES test_lb0_lager_pfad_grammatik.cpp)
+target_include_directories(test_lb0_lager_pfad_grammatik PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_lb0_lager_pfad_grammatik PRIVATE Boost::mp11)
+
 # G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
 comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)
