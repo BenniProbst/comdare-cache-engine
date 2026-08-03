@@ -105,6 +105,14 @@
 ///           grep -rn 'meta_meta_version_cpu_pflicht' libs tests
 ///       Wer eine Meta-Meta hinzufuegt, ohne den gated Zwilling danebenzustellen, legt eine neue
 ///       UNGESICHERTE Naht -- deshalb ist der erste grep der Migrations-Einstieg, nicht diese Liste.
+///   (e) CX-W5 (Codex-Doppelreview 02.08.2026): die PLANER-SELBST-Version. profile_facade/planner/
+///       planner_version.hpp traegt kPlannerVersion als EIGENEN ce-Versionspfad (Section43.b "den Planer
+///       statisch") -- frueher "1.0.0" OHNE 'v' und von KEINER Wache erfasst. Seit dem CX-W5-Fix mit
+///       'v'-Roh-Literal (Owner-Q10), gated ENFORCE-Wache (ce_owned_version_satisfies_cpu_enforce) und
+///       render-neutralem "planner@1.0.0"; der Migrations-Commit zieht ihn wie die Nicht-Organ-Literale (a)
+///       auf "v1.0.0c" mit. MECHANISCH GESICHERT: die gated static_assert in planner_version.hpp bricht beim
+///       Scharfschalten von selbst mit.
+///       Erhebung: grep -rn 'kPlannerVersion *=' --include=*.hpp profile_facade/planner
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 0
 #endif

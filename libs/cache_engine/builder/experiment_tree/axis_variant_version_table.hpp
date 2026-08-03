@@ -50,62 +50,112 @@ struct AxisVariantVersion {
     std::string      version; ///< W::algo_version (z.B. "v1.0.0"; A13-M1b: kuenftig "v1.0.0c")
 };
 
+/// assert_version_grammar<W>() -- die GEMEINSAME Flag-Grammatik-Wache EINER registrierten Variante (Owner-Q3/E2
+/// 02.08.2026). Der EINE Ort der vier CT-Pflichten, damit reflect_versions (Enabled-Emit) und
+/// guard_all_registered_organ_versions (die VOLLE registrierte Population, CX-W6) nicht zweimal -- und
+/// luecken-verschieden -- dasselbe pruefen. Liest AUSSCHLIESSLICH W::algo_version (das die Observable-Huellen
+/// forwarden) und emittiert NICHTS -> reine CT-Wache, byte-neutral.
+template <class W>
+constexpr void assert_version_grammar() {
+    // A1 (G2-4a, W12-A, 2026-07-23): Concept-Guard der X.Y.Z-Disziplin -- JEDE registrierte Organ-Variante MUSS eine
+    // PARSBARE algo_version tragen. Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v') parst zum Sentinel und
+    // bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden requires-Existenz-Guard (Datei-Kopf) um
+    // die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab jetzt nicht mehr unbemerkt in eine Registry gelangen.
+    // A13-M1-Auflage K-5: die Wache prueft das x/y/z-TRIPEL (is_sentinel), NICHT den Struct-Vergleich gegen
+    // AlgoSemVer{} -- sonst koennte eine Flag-Sentinel-Form die Wache umgehen.
+    // A13-M1b (Owner-Q3 02.08.2026): die zulaessige Form ist "vX.Y.Z[HWFLAG[e]]" -- die Kurzform "vN" faellt seit
+    // dem Rueckbau ebenfalls in diese Wache (sie ist jetzt Sentinel).
+    static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).is_sentinel(),
+                  "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vX.Y.Z\" mit optional GENAU EINEM "
+                  "Hardware-Flag (c/g/f/n) und danach optional 'e' -- die Kurzform \"vN\" ist verboten "
+                  "(Owner-Q3 02.08.2026), A10-X.Y.Z-Disziplin");
+    // A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix markiert experimentelle Achsen-Algorithmen
+    // AUS EINEM PRUEFLING. Die ce-EIGENEN Registry-Varianten sind der stabile Bestand und duerfen es nie tragen
+    // -- sonst waeren die ce-Stempel/Fingerprints/Lager-Keys nicht mehr beweisbar golden-neutral. Ein 'e' in
+    // einer ce-Registry bricht hier compile-time MIT dem Typ-Namen.
+    static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).experimental,
+                  "algo_version experimentell ('e'-Suffix): das 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung "
+                  "(Owner-E2 02.08.2026) -- ce-eigene Registry-Varianten tragen es NIE");
+    // A13-M1b, WACHE "wenn Flag vorhanden, dann GENAU EIN -- und im CPU-Scope 'c'" (Owner-Q3 02.08.2026).
+    // Die Zweiteilung ist Absicht und deckt die Uebergangs-Phase sauber ab:
+    //   * MEHRFACH-/Fremd-/Gross-Flags ("v1.0.0cg", "v1.0.0ec", "v1.0.0C", "v1.0.0x") sind schon grammatisch
+    //     unparsbar und laufen in die Sentinel-Wache oben -- "genau EIN Flag" ist damit durchgesetzt.
+    //   * Diese Wache HIER faengt den verbleibenden Fall: ein WOHLGEFORMTES, aber im CPU-only-Scope falsches
+    //     Flag ("v1.0.0g"/"v1.0.0f"/"v1.0.0n"). Sie ist NICHT tautologisch -- eine ce-Registry-Variante mit
+    //     "v1.0.0g" bricht hier compile-time MIT dem Typ-Namen, waehrend der flaglose Bestand ("v1.0.0")
+    //     bewusst durchgeht (Uebergangs-Toleranz bis zum M2/M3-Migrations-Commit).
+    //   * Die restliche Owner-Pflicht -- dass ueberhaupt ein Flag DA sein MUSS -- ist der ENFORCE-Block unten.
+    static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).has_hardware_flag() ||
+                      ::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
+                  "algo_version mit FALSCHEM Hardware-Flag: zulaessig ist im CPU-only-Scope GENAU 'c' (bzw. 'ce') "
+                  "-- g/f/n sind reserviert und werden hier nicht produziert (Owner-Q3 02.08.2026)");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+    // A13-M1b SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code, daher muessen alle Versionen mit 'c'
+    // oder 'ce' enden"). GEBAUT, aber per Define ausgeschaltet, solange der Bestand flaglos ist: das Define geht
+    // im MIGRATIONS-COMMIT des A13-M2/M3-Neuanker-Fensters auf ON -- im selben Commit, der die 122
+    // W::algo_version-Literale von "v1.0.0" auf "v1.0.0c" zieht. Die Wachen-LOGIK selbst
+    // (ce_owned_version_satisfies_cpu_enforce) ist immer kompiliert und in algo_semver.hpp CT-bewiesen; das
+    // Define schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
+    // B12 (Codex-Review 02.08.2026): der ENFORCE-Zweig prueft cpu UND !experimental ueber DIESELBE
+    // Politik-Funktion wie die drei Nicht-Organ-Registries. version_satisfies_cpu_only_policy allein liesse
+    // "v1.0.0ce" durch ('ce' erfuellt die CPU-Politik) -- hier faengt es heute schon die ungated 'e'-Wache
+    // oben ab, aber die Politik darf nicht davon ABHAENGEN, dass die zweite Wache daneben steht.
+    static_assert(::comdare::cache_engine::measurement::ce_owned_version_satisfies_cpu_enforce(W::algo_version),
+                  "algo_version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version auf "
+                  "'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
+                  "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+#endif
+}
+
 /// mp_for_each ueber eine Registry-Enabled-Liste -> {axis, W::name(), W::algo_version} je Variante. mp_identity
 /// vermeidet das Default-Konstruieren der Wrapper (nur der Typ wird benoetigt — analog reflect_names, axis_reflect.hpp).
-/// Der W::algo_version-Zugriff ist die harte Compile-Zeit-Durchsetzung (siehe Datei-Kopf).
+/// Der W::algo_version-Zugriff ist die harte Compile-Zeit-Durchsetzung (siehe Datei-Kopf); die Grammatik-Wache
+/// steht seit CX-W6 in assert_version_grammar<W>() (geteilt mit der Voll-Registry-Wache).
 template <class List>
 inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersion>& out) {
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, List>>([&](auto id) {
         using W = typename decltype(id)::type;
-        // A1 (G2-4a, W12-A, 2026-07-23): Concept-Guard der X.Y.Z-Disziplin -- JEDE registrierte Organ-Variante MUSS eine
-        // PARSBARE algo_version tragen. Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v') parst zum Sentinel und
-        // bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden requires-Existenz-Guard (Datei-Kopf) um
-        // die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab jetzt nicht mehr unbemerkt in eine Registry gelangen.
-        // A13-M1-Auflage K-5: die Wache prueft das x/y/z-TRIPEL (is_sentinel), NICHT den Struct-Vergleich gegen
-        // AlgoSemVer{} -- sonst koennte eine Flag-Sentinel-Form die Wache umgehen.
-        // A13-M1b (Owner-Q3 02.08.2026): die zulaessige Form ist "vX.Y.Z[HWFLAG[e]]" -- die Kurzform "vN" faellt seit
-        // dem Rueckbau ebenfalls in diese Wache (sie ist jetzt Sentinel).
-        static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).is_sentinel(),
-                      "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vX.Y.Z\" mit optional GENAU EINEM "
-                      "Hardware-Flag (c/g/f/n) und danach optional 'e' -- die Kurzform \"vN\" ist verboten "
-                      "(Owner-Q3 02.08.2026), A10-X.Y.Z-Disziplin");
-        // A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix markiert experimentelle Achsen-Algorithmen
-        // AUS EINEM PRUEFLING. Die ce-EIGENEN Registry-Varianten sind der stabile Bestand und duerfen es nie tragen
-        // -- sonst waeren die ce-Stempel/Fingerprints/Lager-Keys nicht mehr beweisbar golden-neutral. Ein 'e' in
-        // einer ce-Registry bricht hier compile-time MIT dem Typ-Namen.
-        static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).experimental,
-                      "algo_version experimentell ('e'-Suffix): das 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung "
-                      "(Owner-E2 02.08.2026) -- ce-eigene Registry-Varianten tragen es NIE");
-        // A13-M1b, WACHE "wenn Flag vorhanden, dann GENAU EIN -- und im CPU-Scope 'c'" (Owner-Q3 02.08.2026).
-        // Die Zweiteilung ist Absicht und deckt die Uebergangs-Phase sauber ab:
-        //   * MEHRFACH-/Fremd-/Gross-Flags ("v1.0.0cg", "v1.0.0ec", "v1.0.0C", "v1.0.0x") sind schon grammatisch
-        //     unparsbar und laufen in die Sentinel-Wache oben -- "genau EIN Flag" ist damit durchgesetzt.
-        //   * Diese Wache HIER faengt den verbleibenden Fall: ein WOHLGEFORMTES, aber im CPU-only-Scope falsches
-        //     Flag ("v1.0.0g"/"v1.0.0f"/"v1.0.0n"). Sie ist NICHT tautologisch -- eine ce-Registry-Variante mit
-        //     "v1.0.0g" bricht hier compile-time MIT dem Typ-Namen, waehrend der flaglose Bestand ("v1.0.0")
-        //     bewusst durchgeht (Uebergangs-Toleranz bis zum M2/M3-Migrations-Commit).
-        //   * Die restliche Owner-Pflicht -- dass ueberhaupt ein Flag DA sein MUSS -- ist der ENFORCE-Block unten.
-        static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).has_hardware_flag() ||
-                          ::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
-                      "algo_version mit FALSCHEM Hardware-Flag: zulaessig ist im CPU-only-Scope GENAU 'c' (bzw. 'ce') "
-                      "-- g/f/n sind reserviert und werden hier nicht produziert (Owner-Q3 02.08.2026)");
-#if COMDARE_VERSION_HW_FLAG_ENFORCE
-        // A13-M1b SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code, daher muessen alle Versionen mit 'c'
-        // oder 'ce' enden"). GEBAUT, aber per Define ausgeschaltet, solange der Bestand flaglos ist: das Define geht
-        // im MIGRATIONS-COMMIT des A13-M2/M3-Neuanker-Fensters auf ON -- im selben Commit, der die 122
-        // W::algo_version-Literale von "v1.0.0" auf "v1.0.0c" zieht. Die Wachen-LOGIK selbst
-        // (ce_owned_version_satisfies_cpu_enforce) ist immer kompiliert und in algo_semver.hpp CT-bewiesen; das
-        // Define schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
-        // B12 (Codex-Review 02.08.2026): der ENFORCE-Zweig prueft cpu UND !experimental ueber DIESELBE
-        // Politik-Funktion wie die drei Nicht-Organ-Registries. version_satisfies_cpu_only_policy allein liesse
-        // "v1.0.0ce" durch ('ce' erfuellt die CPU-Politik) -- hier faengt es heute schon die ungated 'e'-Wache
-        // oben ab, aber die Politik darf nicht davon ABHAENGEN, dass die zweite Wache daneben steht.
-        static_assert(::comdare::cache_engine::measurement::ce_owned_version_satisfies_cpu_enforce(W::algo_version),
-                      "algo_version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version auf "
-                      "'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
-                      "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
-#endif
+        assert_version_grammar<W>();
         out.push_back(AxisVariantVersion{axis, std::string{W::name()}, std::string{W::algo_version}});
+    });
+}
+
+/// CX-W6 (Codex-Doppelreview 02.08.2026): die 18 ORGAN-Haupt-Achsen als ROH-REGISTRIERTE (All*) Typ-Listen --
+/// die VOLLE Population VOR dem is_enabled-Filter (registry_to_axis_levels.hpp, axes26_registered). reflect_versions
+/// oben laeuft ueber die GEFILTERTEN Enabled*-Listen (die Tabelle traegt nur, was gebaut/gemessen wird -- die
+/// compose_*-Bytes bleiben unberuehrt); die Flag-Grammatik-Wache aber gilt fuer JEDE registrierte Variante,
+/// unabhaengig vom Enable-Schalter. Ein 'e'/falsches Flag an einer deaktivierten Variante (Bestandsfall:
+/// Array256SearchAlgo, Default OFF) bliebe sonst bis zur spaeteren Aktivierung unentdeckt und die M2/M3-ENFORCE-
+/// Migration liesse es still aus. mp_size dieser Liste == 18 (kCompositionAxisNames) -- der static_assert unten
+/// bindet die Vollstaendigkeit an die Enabled-Seite.
+using AllRegisteredOrganAxisLists = mp::mp_list<
+    axes26_registered::R00_search_algo, axes26_registered::R01_cache_traversal, axes26_registered::R02_mapping,
+    axes26_registered::R03_path_compression, axes26_registered::R04_node_type, axes26_registered::R05_memory_layout,
+    axes26_registered::R06_allocator, axes26_registered::R07_prefetch, axes26_registered::R08_concurrency,
+    axes26_registered::R09_serialization, axes26_registered::R11_value_handle,
+    axes26_registered::R13_index_organization, axes26_registered::R14_io_dispatch,
+    axes26_registered::R15_migration_policy, axes26_registered::R16_filter, axes26_registered::R20_queuing_q1,
+    axes26_registered::R21_queuing_q2, axes26_registered::R26_persistence_target>;
+static_assert(mp::mp_size<AllRegisteredOrganAxisLists>::value == 18,
+              "CX-W6: die Voll-Registry-Wache muss GENAU die 18 kCompositionAxisNames-Organ-Achsen tragen "
+              "(Drift-Wache gegen build_axis_variant_version_table)");
+
+/// Die 18 All*-Listen zu EINER flachen Typ-Liste ALLER registrierten Organ-Varianten gefaltet (Enabled + NICHT
+/// enabled). Traegt die Voll-Registry-Wache und die Zaehl-Konstante.
+using AllRegisteredOrganVariantsFlat = mp::mp_apply<mp::mp_append, AllRegisteredOrganAxisLists>;
+
+/// Anzahl ALLER registrierten Organ-Varianten (unabhaengig vom Enable-Schalter). Der Testlauf belegt damit, dass
+/// die Voll-Registry-Wache echt MEHR faengt als die Enabled-Tabelle (build_axis_variant_version_table().size()).
+inline constexpr std::size_t kAllRegisteredOrganVariantCount = mp::mp_size<AllRegisteredOrganVariantsFlat>::value;
+
+/// CX-W6: die Flag-Grammatik-Wache ueber die VOLLE registrierte Organ-Population. REINE CT-Wache -- der BAU
+/// dieser Instanziierung IST die Durchsetzung (mp_for_each ruft assert_version_grammar<W>() je registrierter
+/// Variante). Emittiert NICHTS -> kein Stempel, kein Codegen-Byte, golden-/CRC-/binary_id-neutral. Wird in
+/// build_axis_variant_version_table() (Produktions-/Facade-Pfad) UND in der dedizierten Test-TU instanziiert.
+inline void guard_all_registered_organ_versions() {
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, AllRegisteredOrganVariantsFlat>>([](auto id) {
+        using W = typename decltype(id)::type;
+        assert_version_grammar<W>();
     });
 }
 
@@ -114,6 +164,11 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
 /// append_organ_core_axis_levels() + append_composition_tail_axis_levels() (die q1/q2-Slots) — OHNE die build-only-/
 /// System-Achsen und OHNE die Shape-Achsen (die tragen keine algo_sig).
 [[nodiscard]] inline std::vector<AxisVariantVersion> build_axis_variant_version_table() {
+    // CX-W6: die Flag-Grammatik-Wache greift ueber die VOLLE registrierte Organ-Population (auch deaktivierte
+    // Varianten), nicht nur die Enabled*-Emit-Liste unten. REINE CT-Instanziierung (no-op zur Laufzeit) --
+    // so feuert die Voll-Registry-Wache ueberall, wo die Tabelle gebaut wird (Facade + Test), byte-neutral.
+    guard_all_registered_organ_versions();
+
     std::vector<AxisVariantVersion> t;
     reflect_versions<axes26::T00_search_algo>("search_algo", t);
     reflect_versions<axes26::T01_cache_traversal>("cache_traversal", t);
