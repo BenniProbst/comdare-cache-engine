@@ -647,6 +647,89 @@ int main() {
                                                   ::comdare::cache_engine::measurement::BuildCellStatus::NichtGebaut);
     }
 
+    // -- Fall (10): Review-Befund Z-01/GA-02 -- ein fehlgeschlagenes SICHERN der Alt-result.csv nach
+    //    result.csv.stale darf die Alt-Mess-CSV nicht dem trunc des Marker-Writes ausliefern.
+    //    LAGE: result.csv.stale ist ein NICHT-LEERES VERZEICHNIS, damit fs::rename deterministisch
+    //    scheitert (ENOTEMPTY/EEXIST -- auch als root, kein chmod/ro-Mount noetig). Der Stamp ist eine
+    //    normale Datei und faellt sauber: der Bau-Fehler-Zweig erreicht also GENAU den else-Zweig mit
+    //    dem rename (Fall (9) prueft den anderen, davorliegenden Zweig).
+    //    VOR dem Fix lief das rename mit einem error_code, den danach niemand mehr ansah, und der
+    //    unmittelbar folgende std::ofstream{result.csv, trunc} LOESCHTE den Alt-Stand, den es gerade
+    //    nicht sichern konnte -- "Messdaten nie loeschen", gebrochen vom Sicherungs-Versuch selbst.
+    {
+        constexpr char const* kAltMarke = "ALTER-ERFOLGS-STAND-Z01";
+        auto const            dims      = tree.dynamic_filter();
+        ex::BinarySpec const  spec0     = view[0];
+        std::string const     stem0     = ex::orch_make_stem(spec0.binary_id, spec0.index);
+
+        FakeStore         dummy;
+        ex::LazyRunConfig cfg10 = make_cfg(dummy, base / "z01");
+        cfg10.provision_only    = false; // MESS-Modus: dort lebt der Bau-Fehler-Zweig mit der Sicherung
+        cfg10.bestand_transport = {};    // Bestandslog inaktiv -> reiner Bau-/Resume-Pfad
+        cfg10.bestand_doc_key.clear();
+        cfg10.resume_completed_binaries = true;
+        cfg10.max_binaries              = 1;
+
+        fs::path const bin_dir = cfg10.output_dir / stem0;
+        fs::create_directories(bin_dir, ec);
+        { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
+        { // Stamp als normale Datei -> sein Entfernen GELINGT, der Lauf erreicht das rename
+            std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc} << ex::lazy_resume_stamp_prefix(cfg10, dims)
+                                                                         << "|rows=1\n";
+        }
+        fs::create_directories(bin_dir / "result.csv.stale" / "belegt", ec); // .stale ALS Verzeichnis ...
+        {
+            std::ofstream{bin_dir / "result.csv.stale" / "belegt" / "blocker", std::ios::trunc} << "x\n";
+        } // ... nicht leer
+
+        auto const datei_text = [](fs::path const& p) {
+            std::ifstream     f{p};
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str();
+        };
+        std::string const alt_vorher = datei_text(bin_dir / "result.csv");
+
+        ex::BuildSelection sel10;
+        sel10.indices           = {0};
+        sel10.provenance        = "explicit";
+        auto const compile_fail = [](ex::BuildJob const&) -> int { return 1; }; // Compiler lehnt ab -> Fehler-Zweig
+        auto const ram_stub     = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+        std::string       log;
+        ex::LazyRunResult r10;
+        {
+            CerrCapture fang;
+            r10 = ex::run_lazy_static_then_dynamic(tree, sel10, compile_fail, gen_stub, ram_stub, cfg10);
+            log = fang.text();
+        }
+        // (a) DER KERN: die Alt-Mess-CSV ist BYTE-IDENTISCH erhalten (kein trunc auf einen ungesicherten Stand).
+        check_true("(10) Z-01: die Alt-result.csv ist byte-identisch erhalten (Messdaten nie loeschen)",
+                   datei_text(bin_dir / "result.csv") == alt_vorher);
+        // (b) und sie ist NICHT von der Marker-Zeile ersetzt worden.
+        check_true("(10) keine Marker-Zeile in der per-Binary-Ablage",
+                   datei_text(bin_dir / "result.csv").find("nicht_gebaut") == std::string::npos);
+        // (c) der Fehlschlag ist klassifiziert sichtbar (Nie-stumm) -- und behauptet nichts Unbelegtes.
+        check_true("(10) der Sicherungs-Fehler ist klassifiziert sichtbar",
+                   log.find("result.csv NICHT nach result.csv.stale gesichert") != std::string::npos);
+        check_true("(10) klassifiziert als Compiler-Compiler-Fehler des Bau-Zweigs",
+                   log.find("Compiler-Compiler-Fehler") != std::string::npos);
+        check_true("(10) keine unbelegte 'der Alt-Stand liegt als result.csv.stale'-Aussage",
+                   log.find("der Alt-Stand liegt als result.csv.stale") == std::string::npos);
+        // (d) sichtbar bleibt der Bau-Fehler trotzdem: die globale CSV traegt die Marker-Zeile.
+        check_eq("(10) der Bau-Fehler reist als Marker-Zeile in die globale CSV", r10.csv_rows.size(), std::size_t{1});
+        check_true("(10) und traegt den Bau-Status nicht_gebaut",
+                   r10.csv_rows.size() == 1 && r10.csv_rows[0].build_status ==
+                                                   ::comdare::cache_engine::measurement::BuildCellStatus::NichtGebaut);
+        // Der Resume-Anspruch ist trotzdem weg (der Stamp fiel VOR dem Sicherungs-Versuch): ein Folgelauf
+        // uebernimmt den Alt-Stand nicht, er misst neu -- erhalten bleibt er als Rohdatum.
+        check_true("(10) der Stamp ist gefallen -> kein Resume-Anspruch auf den Alt-Stand",
+                   !fs::exists(bin_dir / "result.csv.stamp", ec));
+        check_true("(10) das blockierende result.csv.stale-Verzeichnis blieb unangetastet",
+                   fs::is_directory(bin_dir / "result.csv.stale", ec) &&
+                       fs::exists(bin_dir / "result.csv.stale" / "belegt" / "blocker", ec));
+    }
+
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");
     return g_fail == 0 ? 0 : 1;
 }

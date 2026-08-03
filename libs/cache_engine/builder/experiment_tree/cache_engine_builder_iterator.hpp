@@ -1591,27 +1591,65 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                                      "MUSS von Hand geraeumt werden\n"
                                   << std::flush;
                     } else {
-                        // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, ist rename ein
-                        // No-Op ueber den error_code -- kein throw, der Marker wird trotzdem geschrieben.
-                        std::error_code rec;
-                        if (std::filesystem::exists(fehl_dir / "result.csv", rec))
-                            std::filesystem::rename(fehl_dir / "result.csv", fehl_dir / "result.csv.stale", rec);
-                        bool marker_geschrieben = false;
-                        {
-                            std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
-                            if (mf) {
-                                mf << lazy_csv_header() << format_csv_row(marker);
-                                mf.flush();
-                                marker_geschrieben = mf.good();
-                            }
-                        }
-                        if (!marker_geschrieben)
+                        // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, gibt es nichts zu
+                        // sichern -- der Marker wird dann direkt geschrieben.
+                        //
+                        // TP1FK1-B10 (Review-Befund Z-01/GA-02): das Sichern wird GEPRUEFT, nach demselben
+                        // Muster wie die stamp_bleibt-Wache darueber. Frueher lief das rename mit einem
+                        // error_code, den danach niemand mehr ansah, und unmittelbar darauf oeffnete der
+                        // Marker-Write DIESELBE Datei mit std::ios::trunc: scheiterte das rename (ein
+                        // result.csv.stale als Verzeichnis, Rechte, ro-Mount, gesperrte Datei), LOESCHTE
+                        // der trunc genau die Alt-Mess-CSV, die er gerade nicht sichern konnte -- der
+                        // Bruch der Doktrin "Messdaten nie loeschen", ausgeloest vom Sicherungs-Versuch
+                        // selbst. Geurteilt wird deshalb ueber den EIGENEN error_code UND das Ist: ein
+                        // gelungenes rename laesst die Quelle NICHT liegen, also ist eine danach noch
+                        // vorhandene result.csv der Beleg des Fehlschlags (und deckt auch den Fall ab, in
+                        // dem eine Implementierung stillschweigend nichts tut). Im Zweifel wird fail-closed
+                        // NICHTS ersetzt: kein trunc, kein Marker-Write.
+                        std::filesystem::path const alt_csv = fehl_dir / "result.csv";
+                        std::error_code             alt_ist_ec;
+                        bool const                  alt_stand_da = std::filesystem::exists(alt_csv, alt_ist_ec);
+                        std::error_code             rec;
+                        if (alt_stand_da) std::filesystem::rename(alt_csv, fehl_dir / "result.csv.stale", rec);
+                        std::error_code alt_nach_ec;
+                        bool const      alt_stand_bleibt =
+                            alt_stand_da && (static_cast<bool>(rec) || std::filesystem::exists(alt_csv, alt_nach_ec));
+                        if (alt_stand_bleibt) {
+                            // Die SICHERUNG ist gescheitert. Dann wird die Ablage auch NICHT ersetzt: der
+                            // Alt-Mess-Stand bleibt unangetastet an seinem Platz (Rohdatum, nicht ersetzbar),
+                            // der Resume-Anspruch ist mit dem gefallenen Stamp bereits weg (ein Folgelauf
+                            // misst also neu, statt den Alt-Stand zu uebernehmen), der Befund reist als
+                            // Marker-Zeile in die globale CSV, und die Bereinigung ist eine benannte
+                            // Hand-Arbeit statt eines stillen Datenverlusts.
                             std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
-                                      << b.binary_id << "' nicht_gebaut-Marker NICHT in "
-                                      << (fehl_dir / "result.csv").string()
-                                      << " geschrieben -- der Stamp ist entfernt und der Alt-Stand liegt als "
-                                         "result.csv.stale, ein Folgelauf misst also neu\n"
+                                      << b.binary_id << "' result.csv NICHT nach result.csv.stale gesichert ("
+                                      << (rec ? rec.message() : std::string{"liegt nach dem Umbenennen noch"})
+                                      << ") in " << fehl_dir.string()
+                                      << " -- die per-Binary-Ablage bleibt daher UNVERAENDERT (ein nicht "
+                                         "gesicherter Alt-Mess-Stand wird nicht ueberschrieben: Messdaten nie "
+                                         "loeschen); der Ordner MUSS von Hand geraeumt werden\n"
                                       << std::flush;
+                        } else {
+                            bool marker_geschrieben = false;
+                            {
+                                std::ofstream mf{alt_csv, std::ios::trunc};
+                                if (mf) {
+                                    mf << lazy_csv_header() << format_csv_row(marker);
+                                    mf.flush();
+                                    marker_geschrieben = mf.good();
+                                }
+                            }
+                            // Auch die Diagnose sagt nur, was BELEGT ist: eine result.csv.stale gibt es hier
+                            // genau dann, wenn ueberhaupt ein Alt-Stand zu sichern war.
+                            if (!marker_geschrieben)
+                                std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                          << b.binary_id << "' nicht_gebaut-Marker NICHT in " << alt_csv.string()
+                                          << " geschrieben -- der Stamp ist entfernt"
+                                          << (alt_stand_da ? " und der Alt-Stand liegt als result.csv.stale"
+                                                           : " (ein Alt-Stand war nicht vorhanden)")
+                                          << ", ein Folgelauf misst also neu\n"
+                                          << std::flush;
+                        }
                     }
                 }
             }
@@ -1752,7 +1790,35 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
                 if (sf) { sf << binary_resume_stamp << "|rows=" << per_binary_rows << "\n"; }
             } else {
-                std::filesystem::remove(bin_dir / "result.csv.stamp", ec);
+                // Der frische Stand ist NICHT zertifizierbar (Write gescheitert, Zeilen unvollstaendig oder
+                // eine Zwei-Phasen-Zeile ungueltig) -- also faellt der Resume-Anspruch. Die Mess-Zeilen selbst
+                // sind davon unberuehrt: sie reisen in oc.rows in die globale CSV, und die per-Binary-CSV
+                // dieses Laufs steht bereits geschrieben (nichts wird geloescht).
+                //
+                // Review-Befund Z-01/GA-02 (Geschwister-Stelle von TP1FK1-B10/CX-W4): das Entfernen wird
+                // GEPRUEFT, mit EIGENEM error_code statt des wiederverwendeten ec und gegen das Ist. Frueher
+                // sah niemand Rueckgabewert oder Fehler an: blieb der ALTE Stamp liegen (Rechte, ro-Mount,
+                // Verzeichnis statt Datei), zertifizierte er im Folgelauf den frischen, gerade als nicht
+                // zertifizierbar erkannten Stand als gueltigen Messstand -- lautlos. Der Resume-Leser faengt
+                // das nur ab, solange Konfig-Praefix oder Zeilenzahl abweichen; stimmen beide zufaellig
+                // ueberein (gleiche Konfiguration, gleiche Zeilenzahl, nur eine Zeile ungueltig), greift
+                // keine seiner Wachen. Deshalb ist der Fehlschlag hier selbst ein Befund: beziffert,
+                // geflusht, mit benannter Hand-Arbeit -- nie stumm.
+                std::error_code stamp_ec;
+                std::filesystem::remove(bin_dir / "result.csv.stamp", stamp_ec);
+                std::error_code stamp_ist_ec;
+                bool const      stamp_bleibt =
+                    static_cast<bool>(stamp_ec) || std::filesystem::exists(bin_dir / "result.csv.stamp", stamp_ist_ec);
+                if (stamp_bleibt)
+                    std::cerr << "[" << measurement::LogAndContinueInfraPolicy::log_prefix() << ": "
+                              << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                              << "] binary_id='" << binary_id << "' result.csv.stamp NICHT entfernt ("
+                              << (stamp_ec ? stamp_ec.message() : std::string{"liegt nach dem Entfernen noch"})
+                              << ") in " << bin_dir.string()
+                              << " -- der Resume-Anspruch dieser Ablage ist damit NICHT zurueckgezogen (ein "
+                                 "Alt-Stamp darf keinen unvollstaendigen/ungueltigen Stand als Messstand "
+                                 "zertifizieren); der Ordner MUSS von Hand geraeumt werden\n"
+                              << std::flush;
             }
         }
 
