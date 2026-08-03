@@ -548,6 +548,7 @@ int main() {
                        bl::DedupOutcome::fresh_register);
 
         ex::CachePushFn const werfen = [](fs::path const&, std::string const&) {
+            // cppcheck-suppress throwInEntryPoint // FP: Negativprobe (8) -- der Wurf IST der Testfall, mess_pfad_synchron_push faengt ihn
             throw std::runtime_error("Store-Push simuliert fehlgeschlagen");
         };
         bool                  gepusht = false;
