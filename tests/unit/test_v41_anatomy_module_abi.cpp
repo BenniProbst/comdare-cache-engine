@@ -66,6 +66,39 @@ TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
 // §2 — AnatomyAbiVersion pack/unpack Roundtrip
 // ─────────────────────────────────────────────────────────────────────────────
 
+// -----------------------------------------------------------------------------
+// 1b -- CEB-Contract-Version: der LITERALE Pin des hand-gebumpten codegen-Minor (A13-M4)
+// -----------------------------------------------------------------------------
+
+TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
+    // WARUM hier und WARUM literal: der CEB-Contract-Major IST der ABI-Major (automatisch), der codegen-Minor
+    // wird von HAND gebumpt. Die drei Konsumenten-Tests (test_g1_binary_version_stamp,
+    // test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den Wert bewusst aus derselben
+    // Konstante ab wie die Produktions-Naht -- das ist gegen den AUTOMATISCHEN Major richtig (ein ABI-Bump
+    // soll sie nicht spurios brechen), macht sie aber gegenueber dem hand-gebumpten Minor blind: bis A13-M4
+    // fuehrte KEIN Test den Minor literal, ein vergessener oder falscher Bump waere still durchgelaufen.
+    // Dieser eine Pin ist die Gegenprobe und steht bewusst neben den beiden anderen literalen Konstanten-Pins
+    // dieser Datei (ABI-Major/Minor), weil Major und Minor zusammen die ceb_contract_version bilden.
+    static_assert(ce_abi::kCebContractCodegenMinor == 1,
+                  "A13-M4: der CEB-Contract-codegen-Minor steht auf 1 (Bump 0 -> 1 traegt das A13-Stempel-"
+                  "Fenster M1/M1b/M2/M3 als rueckwaerts-kompatible Vertrags-Erweiterung). Wer diesen Wert "
+                  "aendert, aendert +ceb= in JEDER build_version -> jede perm.dll.version mismatcht -> ALLE "
+                  "Tier-Binaries werden neu gebaut und der Objekt-Store-Bucket wechselt.");
+    // Der Major-Anteil bleibt abgeleitet (nicht literal): er wandert automatisch mit COMDARE_ANATOMY_ABI_MAJOR.
+    static_assert(ce_abi::kCebContractVersion.major == COMDARE_ANATOMY_ABI_MAJOR);
+    static_assert(ce_abi::kCebContractVersion.minor == ce_abi::kCebContractCodegenMinor);
+    // TRIPWIRE-KOPPLUNG (Teil-Deckung, ehrlich benannt): das POD-Stempel-Layout ist die EINE universelle
+    // Codegen-Quelle, deren Bewegung sich hier mechanisch fangen laesst. Bumpt jemand kuenftig
+    // kAnatomyVersionLinesLayout, bricht dieser Pin und zwingt zur Entscheidung ueber den Minor. Die uebrigen
+    // universellen Quellen (all_axes_umbrella / adhoc_emitter / Observer-Basis-Emission) sind damit NICHT
+    // gedeckt -- fuer sie bleibt der Bump eine Disziplin-Frage, bis ein Content-Digest-Gate sie erfasst.
+    static_assert(ce_abi::kAnatomyVersionLinesLayout == 6,
+                  "A13-M4: das Stempel-POD-Layout ist an den CEB-Contract-Minor gekoppelt -- wer das Layout "
+                  "bumpt, entscheidet im SELBEN Commit ueber kCebContractCodegenMinor.");
+    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 1u);
+    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 1ULL);
+}
+
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {
     constexpr ce_abi::AnatomyAbiVersion v{2, 7};
     constexpr auto                      packed   = v.pack();

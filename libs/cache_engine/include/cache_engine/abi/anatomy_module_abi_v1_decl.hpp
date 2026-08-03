@@ -293,7 +293,38 @@ inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MA
 /// +ceb=<major>.<minor> in die build_version (system_axes_version_suffix) eingefaltet — NIE in perm.algos (Organ)
 /// und NIE in die binary_id. Jeder Bump laesst jede perm.dll.version mismatchen -> ALLE Binaries neu ("CEB-
 /// Aenderung betrifft alle"). CI-Tripwire-gated (Bauplan §5): ein universeller Codegen-Diff ohne Minor-Bump = rot.
-inline constexpr std::uint32_t kCebContractCodegenMinor = 0;
+///
+/// A13-M4 VOLLZUG (03.08.2026) -- Minor 0 -> 1. Der Schritt transportiert das GESAMTE A13-Stempel-Fenster
+/// (M1/M1b/M2/M3) als EINE rueckwaerts-kompatible Vertrags-Erweiterung. Minor und NICHT Major, weil keines der
+/// VIER Loader-Pflicht-Symbole und keine vtable sich bewegt hat: der einzige POD, der wanderte
+/// (AnatomyVersionLines), haengt am OPTIONALEN Probe-Symbol comdare_anatomy_version_lines und traegt seine
+/// eigene Layout-Zahl (kAnatomyVersionLinesLayout, s. dort) -- ein Alt-Modul laedt weiterhin. Je Punkt EIN Satz:
+///   (M1)  Die Versions-Grammatik fuehrt das Pruefling-Merkmal als eigenes Glied: ein Trailing-'e' hinter dem
+///         Hardware-Flag markiert einen experimentellen Algorithmus-Stand und reist als Flag-Bit im
+///         AnatomyStampEntryV1 mit, statt als Namens-Konvention im Text zu stehen.
+///   (M1b) Die Kurzform ist zurueckgebaut: jede Version steht dreistellig als "vX.Y.Z" mit GENAU EINEM
+///         Hardware-Flag und optionalem 'e' da, und "vN"/"vNe"/"vNc" parsen ab jetzt auf den Sentinel.
+///   (M2)  Die Meta-Meta-Achsen haengen GEKLAMMERT ans ENDE ihrer Realm-Zeile (System- und Mess-Zeile), statt
+///         als weiteres Haupt-Achsen-Glied mitzulaufen -- damit wandern die gerenderten Stempel-Zeilen.
+///   (M3a) Der AnatomyVersionLines-POD steht auf Layout 6: merge_line/merge_len sind ERSATZLOS entfallen
+///         (sizeof 136 -> 120) und das Leser-Gate ist auf die Gleichheits-Wache stamp_pod_has_entries == 6 gezogen.
+///   (M3b) anatomy_fingerprint_hex nimmt den Overlay-Hash als benannten Typ OverlayHash entgegen, weshalb jeder
+///         Alt-Aufruf der vierstelligen string_view-Form compile-hart bricht statt still ein Feld zu verrutschen.
+///   (M3c) Das Fingerprint-Preimage ist INJEKTIV: '\n'-Domain-Separator zwischen allen Gliedern, die Kennung
+///         "fingerprint_format=2" als Erstglied und das Sub-Achsen-Werteset als eigenes Glied.
+///   (M3d) Alle ce-EIGENEN Versions-Literale sind auf die CPU-Flag-Form "v1.0.0c" migriert und
+///         COMDARE_VERSION_HW_FLAG_ENFORCE steht auf 1, womit eine flaglose ce-eigene Version compile-hart bricht.
+///   (M3e) Die SOTA-Modul-Emission traegt die VOLLEN Organ-/System-/Mess-Stempel-Zeilen statt der Kurzform, und
+///         der rohe .algos-Sentinel steht dreistellig als "v0.0.0" statt als Kurzform "v0".
+/// WIRKUNG DES BUMPS: "+ceb=7.0" -> "+ceb=7.1" in jeder build_version -> jede perm.dll.version mismatcht in
+/// dll_is_current -> ALLE Tier-Binaries werden neu gebaut, und cache_key_prefix zeigt auf einen NEUEN
+/// Objekt-Store-Bucket. binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320
+/// und der CRC-Anker kNewGolden131072Crc64 sind deshalb byte-neutral.
+/// LITERALER PIN: tests/unit/test_v41_anatomy_module_abi.cpp (R5D_CebContract). Die drei Konsumenten-Tests
+/// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den Wert
+/// bewusst aus DIESER Konstante ab (Anti-Drift gegen den automatischen Major) und wuerden einen vergessenen
+/// oder falschen Minor-Bump deshalb NICHT sehen; der eine literale Pin dort ist die Gegenprobe.
+inline constexpr std::uint32_t kCebContractCodegenMinor = 1;
 
 /// ceb_contract_version als Tupel (Major = ABI-Major, Minor = codegen-Minor). host_compatible_with-Backstop des
 /// Loaders (host_compatible_with, decl:124-127) lehnt Major-Mismatch-DLLs ohnehin ab -> +ceb= macht Bau-Skip +
