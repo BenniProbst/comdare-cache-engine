@@ -354,9 +354,19 @@ TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
     static_assert(!abi::stamp_line_is_parsable<"[a=b@1.0.0][c=d@1.0.0]">, "Gruppen ohne ';' bricht hart.");
     static_assert(!abi::stamp_line_is_parsable<"[a=b@1.0.0]c=d@1.0.0">, "Entry hinter ']' bricht hart.");
     static_assert(!abi::stamp_line_is_parsable<"[]">, "leere Gruppe bricht hart.");
+    // A13-M3/C2b (Befund Z-02): dieselbe Zusage an der GRUPPEN-GRENZE. "[c];[e]" trug bis C2b exakt dasselbe
+    // (Text, Ebene)-Entry-Array wie die kanonische Ein-Gruppen-Form "[c;e]" -- wieder zwei byte-verschiedene
+    // Zeilen mit einem POD. Der Renderer erzeugt ohnehin genau EINE Gruppe je Anhang-Position.
+    static_assert(abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]">, "kanonische EINE Gruppe.");
+    static_assert(!abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">,
+                  "zwei DIREKT aufeinander folgende Geschwister-Gruppen brechen hart (F6).");
+    static_assert(abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];x=y@1.0.0;[e=f@1.0.0]">,
+                  "... mit entry dazwischen bleiben sie zulaessig: die Reihenfolge macht sie eindeutig.");
     EXPECT_TRUE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0]">));
     EXPECT_FALSE((abi::stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">));
     EXPECT_FALSE((abi::stamp_line_is_parsable<"[]">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">));
+    EXPECT_TRUE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]">));
     // Und die REALEN Zeilen bleiben selbstverstaendlich parsbar -- die Haertung darf den Bestand nie treffen.
     EXPECT_TRUE((abi::stamp_line_is_parsable<
                  "target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0;[simd=code@1.0.0]">));
@@ -674,11 +684,19 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
     EXPECT_NE(h[0].reserved, e[1].reserved); // g != flagloser Bestand
     static_assert(abi::stamp_entry_hardware_flag(h[1]) == abi::StampEntryHardwareFlag::fpga);
 
-    // (c3) Fehlform: ein ZWEITES Hardware-Flag ist grammatisch Sentinel -> KEIN Bit wandert ins reserved-Feld.
-    static constexpr char kTwoFlags[] = "a=x@1.0.0cg";
-    constexpr auto tf = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kTwoFlags})>(kTwoFlags);
-    EXPECT_EQ(tf[0].x, 0u);
-    EXPECT_EQ(tf[0].reserved, std::uint32_t{0});
+    // (c3) A13-M3/C2b (Befund Z-09) -- GEDREHT. Bis C2b hielt hier fest, dass ein ZWEITES Hardware-Flag
+    //      "grammatisch Sentinel" sei und still auf @0.0.0/reserved==0 falle. Genau das war das fail-open:
+    //      zwei byte-VERSCHIEDENE Defekt-Formen ergaben denselben POD, obwohl der Stempel die Lager-
+    //      Identitaet ist. Ab C2b bricht die Form im consteval-Pfad HART -- die Aussage steht deshalb als
+    //      Negativ-Beweis (das Praedikat dreht die Nicht-Parsbarkeit in eine positive, beweisbare Aussage).
+    static_assert(!abi::stamp_line_is_parsable<"a=x@1.0.0cg">, "zweites Hardware-Flag bricht hart (Z-09).");
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"a=x@1.0.0cg">));
+    // ... und die POSITIVE Restaussage bleibt: der Parser raet NIE ein Flag herbei -- das dokumentierte
+    //     Sentinel-Rendering "@0.0.0" ist zulaessig UND flaglos.
+    static constexpr char kSentinel[] = "a=x@0.0.0";
+    constexpr auto sen = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSentinel})>(kSentinel);
+    EXPECT_EQ(sen[0].x, 0u);
+    EXPECT_EQ(sen[0].reserved, std::uint32_t{0});
 
     // (d) GOLDEN-NEUTRALITAET: eine Bestands-Zeile ohne Flags setzt in KEINEM Eintrag ein Bit.
     static constexpr char kPlain[] =
@@ -686,13 +704,15 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
     constexpr auto p = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kPlain})>(kPlain);
     for (auto const& x : p) EXPECT_EQ(x.reserved, std::uint32_t{0});
 
-    // (e) Ein 'e' im VERSIONS-Anteil an falscher Stelle bleibt Sentinel (Parser raet nie).
-    static constexpr char kBad[] = "achse=algo@1.0e";
-    constexpr auto        b      = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kBad})>(kBad);
-    EXPECT_EQ(b[0].x, 0u);
-    EXPECT_EQ(b[0].y, 0u);
-    EXPECT_EQ(b[0].z, 0u);
-    EXPECT_EQ(b[0].reserved, std::uint32_t{0}); // Sentinel traegt weder Experimental- noch Hardware-Bit (K-5)
+    // (e) A13-M3/C2b (Z-09) -- ebenfalls GEDREHT: ein 'e' im VERSIONS-Anteil an falscher Stelle ("1.0e",
+    //     Kurzform mit Flag-Schwanz) fiel bis C2b still auf den Sentinel. Ab jetzt bricht er benannt; ebenso
+    //     die beiden Struktur-Fehlformen ohne '=' bzw. ohne '@'.
+    static_assert(!abi::stamp_line_is_parsable<"achse=algo@1.0e">, "Kurzform mit Flag-Schwanz bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"achse=algo">, "Segment ohne '@' bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"nur_ein_name">, "Segment ohne '=' bricht hart.");
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"achse=algo@1.0e">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"achse=algo">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"nur_ein_name">));
 }
 
 // A4 (G2-1b): die Array-Form reist durch das AnatomyVersionLines-POD. Der POD wird hier MANUELL exakt wie im

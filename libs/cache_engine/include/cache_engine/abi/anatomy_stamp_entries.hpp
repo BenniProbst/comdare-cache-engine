@@ -67,9 +67,28 @@
 //     Wache ergaeben zwei byte-VERSCHIEDENE Zeilen dasselbe Entry-Array und die Zusage "Zeile aus dem
 //     Entry-Array VERLUSTFREI rekonstruierbar" gaelte nur noch fuer kanonische Zeilen,
 //   * die LEERE Gruppe "[]" (und "[;]") -- der Renderer liefert fuer ein Blatt einen LEEREN Anhang, nie
-//     einen leeren Rahmen (meta_meta_stamp_suffix); die Grammatik zementiert diese Zusage.
+//     einen leeren Rahmen (meta_meta_stamp_suffix); die Grammatik zementiert diese Zusage,
+//   * (A13-M3/C2b, Befund Z-02) die DIREKT AUFEINANDER FOLGENDEN GESCHWISTER-GRUPPEN
+//     "a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]" -- sie tragen dieselben Glieder auf derselben Ebene wie die
+//     kanonische EIN-Gruppen-Form "a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]" und lieferten bis C2b dasselbe
+//     (Text, Ebene)-Entry-Array. Damit galt die Verlustfreiheits-Zusage wieder nur fuer kanonische Zeilen.
+//     Die Verschaerfung erzwingt die EIN-Gruppen-Form je Anhang-Position, und genau die erzeugt der
+//     Renderer ohnehin: append_meta_meta_suffix haengt genau EINE Gruppe ans Realm-Zeilen-Ende, und
+//     innerhalb einer Gruppe stehen zwischen zwei Untergruppen immer die entries ihrer Eltern-Glieder.
+//     ABGEGRENZT: verboten ist NUR die unmittelbare Folge (Gruppe, Gruppe) auf einer Ebene. Zwei Gruppen
+//     mit einem entry dazwischen ("a;[b];x;[c]") bleiben zulaessig -- sie sind NICHT mehrdeutig, weil die
+//     Entry-REIHENFOLGE sie von jeder Zusammenfassung unterscheidet.
 // Die Fehlformen sind unten als CT-NEGATIVPROBEN (stamp_line_is_parsable) festgenagelt -- die Wachen sind
 // damit nicht bloss behauptet, sondern bewiesen.
+//
+// == A13-M3/C2b: STRENGE AUCH INNERHALB EINES SEGMENTS (Befund Z-09) ==============================
+// Bis C2b war der Zeilen-Scanner streng und der ENTRY-Parser fail-open: ein Segment ohne '=' oder ohne
+// '@' und ein ungueltiger Flag-Schwanz ("a=x@1.0.0cg") fielen still auf leere Felder bzw. den
+// @0.0.0-Sentinel. Zwei byte-VERSCHIEDENE Defekt-Formen kollabierten damit im POD in denselben Wert --
+// dieselbe Identitaets-Kollision wie F4/F6, nur eine Grammatik-Ebene tiefer. Ab C2b bricht auch das
+// entry-seitig hart. Byte-neutral: jede kanonisch gerenderte Zeile ist wohlgeformt (flaglos wie mit 'c'),
+// und das dokumentierte Sentinel-Rendering "@0.0.0" (axis_variant_version_table: versionslose Eintraege)
+// bleibt ausdruecklich zulaessig -- verboten ist der UNPARSBARE Rest, nicht die Null-Version.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1
 #include <cache_engine/measurement/algo_semver.hpp>        // parse_dotted_semver (X.Y.Z-Ruecklesung)
@@ -179,6 +198,11 @@ struct StampSegment {
 ///        ("[a=b@1.0.0]c=d@1.0.0"). Nach einem ']' darf NUR ';', ']' oder das Zeilenende folgen.
 ///   (F5) A13-M2/B2-HAERTUNG: die LEERE Gruppe "[]" (auch "[;]" und jede Gruppe ohne ein einziges
 ///        Segment -- eine Gruppe, die nichts traegt, ist keine Ebene).
+///   (F6) A13-M3/C2b-HAERTUNG (Befund Z-02): zwei DIREKT aufeinander folgende Geschwister-GRUPPEN auf
+///        derselben Ebene ("a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]"). Sie sind byte-verschieden zur
+///        kanonischen EIN-Gruppen-Form "a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]", lieferten aber bis C2b
+///        dasselbe (Text, Ebene)-Entry-Array -- dieselbe Verlust-Stelle wie F4/F4b, nur an der
+///        Gruppen-GRENZE statt an der Klebe-Naht.
 ///
 /// WARUM F4/F5 hart brechen muessen (Owner-Q1-Ledger-Satz, bindend): "Ein group ist IMMER ein regulaeres
 /// ';'-Geschwister-Segment (nie ans vorige entry geklebt) -- dadurch ist die Zeile aus dem Entry-Array samt
@@ -193,8 +217,21 @@ struct StampSegment {
 /// oder nach einem Namens-/Versions-Zeichen bricht. Und spiegelbildlich (F4b): auf ein ']' darf nur ';',
 /// ']' oder das Zeilenende folgen -- sonst waeren "[a=b@1.0.0]c=d@1.0.0" und "[a=b@1.0.0];c=d@1.0.0" wieder
 /// zwei byte-verschiedene Zeilen mit identischem Entry-Array (dieselbe Verlust-Stelle, nur andersherum).
+/// F6 schliesst die verbleibende Grenz-Mehrdeutigkeit: das VORHERGEHENDE Geschwister-Segment einer Gruppe
+/// darf keine Gruppe sein. Der Renderer erzeugt genau diese Form -- append_meta_meta_suffix haengt EINE
+/// Gruppe ans Realm-Zeilen-Ende, und innerhalb einer Gruppe trennt immer ein entry zwei Untergruppen
+/// (render_meta_meta_entry haengt die Untergruppe an SEIN eigenes entry). Zwei Gruppen mit einem entry
+/// dazwischen ("a;[b];x;[c]") bleiben zulaessig: die Entry-REIHENFOLGE unterscheidet sie eindeutig von
+/// jeder Zusammenfassung, es gibt dort also nichts zu verlieren.
+///
+/// GA-06 (A13-M3/C2b): CONSTEVAL, nicht constexpr. Der Scanner meldet seine Fehlformen als nackten
+/// `throw "..."` (char const*) -- das ist im consteval-Pfad ein sauberer Compile-Fehler mit lesbarem
+/// Text, an einem LAUFZEIT-Aufrufer aber ein Wurf, der durch jedes `catch (std::exception const&)`
+/// hindurchfiele. Beide Aufrufer (count_stamp_entries/parse_stamp_entries) sind heute consteval, die
+/// Aenderung hat also null Byte-Wirkung -- sie schliesst die Tuer, bevor die POD-Konsumenten des
+/// SHA512-Gates kommen.
 template <class Visitor>
-constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
+consteval void scan_stamp_segments(std::string_view line, Visitor&& visit) {
     std::uint32_t depth = 0;
     std::size_t   start = 0;
     // Der zuletzt gesehene Trenner; '\0' == Zeilenanfang. Er allein entscheidet ueber F4 -- "pos == start"
@@ -205,7 +242,11 @@ constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
     // -- deshalb ist "[[a=b@1.0.0]]" wohlgeformt, "[]" und "[;]" dagegen nicht. Index 0 == Zeilen-Ebene
     // (nie geprueft, eine leere ZEILE ist zulaessig).
     std::array<std::size_t, kStampEntryMaxMetaLevel + 1> seen{};
-    auto const                                           flush = [&](std::size_t end) {
+    // (F6) War das ZULETZT abgeschlossene Geschwister-Segment dieser Ebene eine GRUPPE? Nur dann ist eine
+    // unmittelbar folgende Gruppe die mehrdeutige Form. Ein dazwischenliegendes entry setzt das Flag
+    // zurueck -- "a;[b];x;[c]" bleibt damit zulaessig, "a;[b];[c]" nicht.
+    std::array<bool, kStampEntryMaxMetaLevel + 1> voriges_geschwister_war_gruppe{};
+    auto const                                    flush = [&](std::size_t end) {
         if (end > start) {
             // (F4b) Ein Segment darf nie direkt hinter einem ']' beginnen -- das waere die geklebte Form
             // spiegelverkehrt ("[a=b@1.0.0]c=d@1.0.0" statt "[a=b@1.0.0];c=d@1.0.0").
@@ -214,6 +255,7 @@ constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
                       "';', eine weitere schliessende Klammer oder das Zeilenende";
             visit(StampSegment{start, end, depth});
             ++seen[depth];
+            voriges_geschwister_war_gruppe[depth] = false;
         }
     };
     for (std::size_t pos = 0; pos < line.size(); ++pos) {
@@ -227,13 +269,20 @@ constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
             if (pos != start || (last_delim != '\0' && last_delim != ';' && last_delim != '['))
                 throw "A13-M2 Klammer-Grammatik: '[' steht nicht am Segment-Anfang -- ein group ist IMMER ein "
                       "regulaeres ';'-Geschwister-Segment (nie ans vorige entry oder an ein ']' geklebt)";
+            // (F6) ... und nie DIREKT hinter einem Geschwister-group derselben Ebene: "[c];[e]" traegt
+            // exakt dieselben Glieder auf derselben Ebene wie die kanonische Form "[c;e]".
+            if (voriges_geschwister_war_gruppe[depth])
+                throw "A13-M3 Klammer-Grammatik: zwei aufeinander folgende Geschwister-Gruppen auf derselben "
+                      "Ebene -- die kanonische Form ist EINE Gruppe je Anhang-Position ('[c;e]' statt "
+                      "'[c];[e]'); beide Formen ergaeben sonst dasselbe Entry-Array";
             flush(pos);
             ++depth;
             if (depth > kStampEntryMaxMetaLevel)
                 throw "A13-M2 Klammer-Grammatik: Meta-Meta-Ebene > 7 passt nicht in die reserved-Bits 3-5";
-            seen[depth] = 0;
-            start       = pos + 1;
-            last_delim  = '[';
+            seen[depth]                           = 0;
+            voriges_geschwister_war_gruppe[depth] = false; // die neue Ebene beginnt ohne Geschwister
+            start                                 = pos + 1;
+            last_delim                            = '[';
         } else if (c == ']') {
             flush(pos);
             if (depth == 0) throw "A13-M2 Klammer-Grammatik: schliessende Klammer ohne oeffnende";
@@ -243,49 +292,91 @@ constexpr void scan_stamp_segments(std::string_view line, Visitor&& visit) {
                       "LEEREN Anhang, nie einen leeren Rahmen";
             --depth;
             ++seen[depth]; // das gerade geschlossene group ist ein Segment SEINER Eltern-Ebene.
-            start      = pos + 1;
-            last_delim = ']';
+            voriges_geschwister_war_gruppe[depth] = true; // ... und ist damit das vorige Geschwister (F6).
+            start                                 = pos + 1;
+            last_delim                            = ']';
         }
     }
     if (depth != 0) throw "A13-M2 Klammer-Grammatik: offene Klammer am Zeilenende";
     flush(line.size());
 }
 
+/// Das GERENDERTE Sentinel-Literal der Versions-Bezifferung ("0.0.0", NIE mit 'v' und NIE mit Flags --
+/// algo_semver_string rendert den Sentinel immer nackt, K-5). Es ist die EINZIGE Zeichenfolge, die auf den
+/// {0,0,0}-Sentinel parsen DARF; jede andere, die dort landet, ist unparsbarer Rest.
+inline constexpr std::string_view kStampEntryRenderedSentinel = "0.0.0";
+
+/// A13-M3/C2b (Befund Z-09): der Versions-Teil ist wohlgeformt, wenn er entweder auf einen echten Wert
+/// parst ODER exakt das dokumentierte Sentinel-Rendering ist. Das ist wortgleich die B12-Doktrin
+/// version_is_parsable_or_documented_sentinel, nur auf der GERENDERTEN Seite der Grammatik -- ohne diese
+/// Unterscheidung koennte man den Sentinel nicht von "1.0.0cg" trennen, denn beide parsen auf {0,0,0}.
+[[nodiscard]] constexpr bool dotted_version_is_wellformed(std::string_view ver) noexcept {
+    return !::comdare::cache_engine::measurement::parse_dotted_semver(ver).is_sentinel() ||
+           ver == kStampEntryRenderedSentinel;
+}
+
 /// Materialisiert EIN Segment [begin, end) des Literals in einen Entry-POD: axis = vor '=', algorithm =
 /// zwischen '=' und '@', Version = nach '@' (via parse_dotted_semver). axis/algorithm sind {ptr,len}-Sichten
-/// INS Literal (das im Aufrufer static constexpr liegt -> Zeiger ueberleben; K7b-3-Praezedenz). Fehlt '='/'@',
-/// bleiben die jeweiligen Laengen/Version 0 (defensiv; die gerenderten Zeilen sind stets wohlgeformt).
-[[nodiscard]] constexpr AnatomyStampEntryV1 parse_one_stamp_segment(char const* lit, std::size_t seg_start,
-                                                                    std::size_t seg_end) noexcept {
+/// INS Literal (das im Aufrufer static constexpr liegt -> Zeiger ueberleben; K7b-3-Praezedenz).
+///
+/// A13-M3/C2b (Befund Z-09): HART statt fail-open. Bis C2b fielen ein fehlendes '=', ein fehlendes '@' und
+/// ein unparsbarer Versions-Rest still auf leere Laengen bzw. den @0.0.0-Sentinel -- zwei byte-VERSCHIEDENE
+/// Defekt-Formen ergaben denselben POD. Das ist exakt die Kollision, die der Scanner eine Ebene hoeher (F4/
+/// F4b/F5/F6) verbietet, und sie wiegt hier schwerer: der Entry-POD IST ab A13-M3 die Lager-Identitaet. Der
+/// Header sagt seine Strenge seit A13-M2/B2 selbst zu ("der Stempel ist Identitaet -- er darf nie still
+/// falsch reisen"); C2b macht sie entry-seitig wahr. BYTE-NEUTRAL: jede kanonisch gerenderte Zeile traegt
+/// '='/'@' und eine parsbare Version (flaglos wie mit 'c'), und "@0.0.0" bleibt als dokumentiertes
+/// Sentinel-Rendering ausdruecklich zulaessig. CONSTEVAL wie der Scanner (GA-06): der Wurf ist ein
+/// Compile-Fehler mit Text, kein Laufzeit-Wurf am catch(std::exception const&) vorbei.
+[[nodiscard]] consteval AnatomyStampEntryV1 parse_one_stamp_segment(char const* lit, std::size_t seg_start,
+                                                                    std::size_t seg_end) {
     std::size_t eq = seg_start;
     while (eq < seg_end && lit[eq] != '=') ++eq;
-    std::size_t at = (eq < seg_end) ? eq + 1 : seg_end;
+    if (eq >= seg_end)
+        throw "A13-M3 Stempel-Eintrag: Segment ohne '=' -- die Form ist 'achse=algorithmus@X.Y.Z'; ein "
+              "Eintrag ohne Achsen-Trenner darf nicht still als namenloser Eintrag reisen";
+    std::size_t at = eq + 1;
     while (at < seg_end && lit[at] != '@') ++at;
+    if (at >= seg_end)
+        throw "A13-M3 Stempel-Eintrag: Segment ohne '@' -- die Versions-Bezifferung ist Pflicht; ein Eintrag "
+              "ohne sie darf nicht still auf @0.0.0 kollabieren";
+    std::string_view const ver{lit + at + 1, seg_end - (at + 1)};
+    if (!dotted_version_is_wellformed(ver))
+        throw "A13-M3 Stempel-Eintrag: unparsbarer Versions-Teil (Kurzform, 'v'-Praefix, zweites "
+              "Hardware-Flag oder Rest hinter dem Flag-Schwanz) -- er faellt nicht mehr still auf @0.0.0; "
+              "zulaessig ist nur ein echtes X.Y.Z[HWFLAG][e] oder exakt das Sentinel-Rendering '0.0.0'";
     AnatomyStampEntryV1 e{};
-    e.axis     = lit + seg_start;
-    e.axis_len = (eq < seg_end) ? (eq - seg_start) : (seg_end - seg_start);
-    if (eq < seg_end) {
-        e.algorithm = lit + eq + 1;
-        e.algo_len  = at - (eq + 1);
-    } else {
-        e.algorithm = lit + seg_end; // kein '=' -> leerer Algorithmus
-        e.algo_len  = 0;
-    }
-    if (at < seg_end) { // '@X.Y.Z' vorhanden
-        std::string_view const                                 ver{lit + at + 1, seg_end - (at + 1)};
-        ::comdare::cache_engine::measurement::AlgoSemVer const sv =
-            ::comdare::cache_engine::measurement::parse_dotted_semver(ver);
-        e.x = sv.x;
-        e.y = sv.y;
-        e.z = sv.z;
-        // A13-M1: das 'e'-Suffix wandert als Bit 0 ins reserved-Feld (ohne 'e' bleibt das Bit 0).
-        if (sv.experimental) e.reserved |= kStampEntryFlagExperimental;
-        // A13-M1b: das Hardware-Flag wandert als Bits 1-2 daneben. Ohne Flag (und bei 'c') ist der Code 0
-        // -> reserved bleibt fuer den gesamten flaglosen Bestand exakt 0 (Byte-Gleichheit). Der Sentinel-Zweig
-        // (kein '@'-Teil) laeuft hier gar nicht durch und bleibt damit ebenfalls bei reserved == 0.
-        e.reserved |= (stamp_entry_hw_code(sv.hardware) << kStampEntryHwFlagShift);
-    }
+    e.axis      = lit + seg_start;
+    e.axis_len  = eq - seg_start;
+    e.algorithm = lit + eq + 1;
+    e.algo_len  = at - (eq + 1);
+    ::comdare::cache_engine::measurement::AlgoSemVer const sv =
+        ::comdare::cache_engine::measurement::parse_dotted_semver(ver);
+    e.x = sv.x;
+    e.y = sv.y;
+    e.z = sv.z;
+    // A13-M1: das 'e'-Suffix wandert als Bit 0 ins reserved-Feld (ohne 'e' bleibt das Bit 0).
+    if (sv.experimental) e.reserved |= kStampEntryFlagExperimental;
+    // A13-M1b: das Hardware-Flag wandert als Bits 1-2 daneben. Ohne Flag (und bei 'c') ist der Code 0
+    // -> reserved bleibt fuer den gesamten flaglosen Bestand exakt 0 (Byte-Gleichheit). Das dokumentierte
+    // Sentinel-Rendering "0.0.0" traegt nie Flags und bleibt damit ebenfalls bei reserved == 0.
+    e.reserved |= (stamp_entry_hw_code(sv.hardware) << kStampEntryHwFlagShift);
     return e;
+}
+
+/// A13-M3/C2b: der VOLLE Wohlgeformtheits-Weg einer Zeile -- Scanner UND Entry-Parser. Er ist die Grundlage
+/// der CT-Negativproben unten und muss aus zwei Gruenden GENAU SO aussehen:
+///   (1) Er darf nicht bloss count_stamp_entries rufen. Das ruft nur scan_stamp_segments; die entry-seitigen
+///       Fehlformen (Z-09: fehlendes '='/'@', unparsbarer Versions-Rest) entstehen erst in
+///       parse_one_stamp_segment -- jede Z-09-Negativprobe waere sonst blind gruen.
+///   (2) Er ist eine NICHT-Template-Funktion (nimmt die Zeile als Argument statt als NTTP). Nur dann faellt
+///       ein Fehlform-Wurf in das UNMITTELBARE Substitutions-Umfeld des Default-Template-Arguments unten und
+///       wird zur Substitutions-Ablehnung. In einem Funktions-TEMPLATE laege der Wurf im Rumpf einer
+///       Instanziierung -- ein harter Fehler, und die '...'-Ueberladung kaeme nie zum Zug.
+[[nodiscard]] consteval bool stamp_line_is_wellformed(std::string_view line) {
+    scan_stamp_segments(
+        line, [line](StampSegment const& seg) { (void)parse_one_stamp_segment(line.data(), seg.begin, seg.end); });
+    return true;
 }
 
 } // namespace detail
@@ -322,7 +413,7 @@ struct StampLineLiteral {
 template <std::size_t N>
 StampLineLiteral(char const (&)[N]) -> StampLineLiteral<N>;
 
-template <StampLineLiteral L, std::size_t = count_stamp_entries(L.view())>
+template <StampLineLiteral L, bool = stamp_line_is_wellformed(L.view())>
 consteval bool stamp_line_is_parsable_impl(int) {
     return true;
 }
@@ -333,7 +424,8 @@ consteval bool stamp_line_is_parsable_impl(...) {
 
 } // namespace detail
 
-/// true genau dann, wenn die Zeile die A13-M2-Klammer-Grammatik erfuellt (also consteval durchlaeuft).
+/// true genau dann, wenn die Zeile die A13-M2-Klammer-Grammatik UND (seit A13-M3/C2b) die entry-seitige
+/// Strenge erfuellt -- also der volle consteval-Weg count -> scan -> parse_one_stamp_segment durchlaeuft.
 /// Nutzung: `static_assert(!stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">);`
 template <detail::StampLineLiteral L>
 inline constexpr bool stamp_line_is_parsable = detail::stamp_line_is_parsable_impl<L>(0);
@@ -346,7 +438,21 @@ static_assert(stamp_line_is_parsable<"[load_framework=ycsb@1.0.0]">, "Anhang als
 static_assert(stamp_line_is_parsable<"external_utils=code@1.0.0;[gpu=code@2.0.0;[nvlink=code@3.0.0]]">,
               "offene Rekursion: ein group als Geschwister INNERHALB eines group.");
 static_assert(stamp_line_is_parsable<"[[a=b@1.0.0]]">, "ein group als ERSTES Segment eines group ('[' nach '[').");
-static_assert(stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">, "zwei Anhaenge, sauber durch ';' getrennt.");
+static_assert(stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]">,
+              "die KANONISCHE Form zweier Glieder an derselben Anhang-Position: EINE Gruppe (A13-M3/C2b).");
+static_assert(stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];x=y@1.0.0;[e=f@1.0.0]">,
+              "zwei Gruppen MIT entry dazwischen bleiben zulaessig -- die Entry-Reihenfolge macht sie "
+              "eindeutig (F6 verbietet nur die UNMITTELBARE Folge).");
+static_assert(stamp_line_is_parsable<"a=b@0.0.0">,
+              "das dokumentierte Sentinel-Rendering '@0.0.0' (versionslose Registry-Eintraege, "
+              "axis_variant_version_table) bleibt entry-seitig ausdruecklich zulaessig (A13-M3/C2b).");
+
+// -- NEGATIV (F6, A13-M3/C2b): zwei DIREKT aufeinander folgende Geschwister-Gruppen --
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">,
+              "Gruppen-GRENZEN-Kollision (Z-02): diese Zeile trug bis A13-M3/C2b dasselbe (Text, Ebene)-"
+              "Entry-Array wie 'a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]' -- zwei byte-verschiedene Zeilen, ein POD. "
+              "Kanonisch ist EINE Gruppe je Anhang-Position; genau die erzeugt der Renderer.");
+static_assert(!stamp_line_is_parsable<"[[a=b@1.0.0];[c=d@1.0.0]]">, "dieselbe Fehlform eine Ebene tiefer.");
 
 // -- NEGATIV (F4): '[' ausserhalb eines Segment-Anfangs --
 static_assert(!stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">,
@@ -371,6 +477,20 @@ static_assert(!stamp_line_is_parsable<"a=b@1.0.0]">, "schliessende Klammer ohne 
 static_assert(!stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0">, "offene Klammer am Zeilenende.");
 static_assert(!stamp_line_is_parsable<"[[[[[[[[a=b@1.0.0]]]]]]]]">, "Tiefe 8 > kStampEntryMaxMetaLevel (7).");
 static_assert(stamp_line_is_parsable<"[[[[[[[a=b@1.0.0]]]]]]]">, "Tiefe 7 ist die letzte zulaessige Ebene.");
+
+// -- NEGATIV (Z-09, A13-M3/C2b): die ENTRY-seitigen Fehlformen. Sie kollabierten bis C2b still auf leere
+//    Felder bzw. @0.0.0 -- byte-verschiedene Defekte mit identischem POD, eine Grammatik-Ebene unter F4/F6.
+static_assert(!stamp_line_is_parsable<"nur_ein_name">, "Segment ohne '=' faellt nicht mehr auf einen leeren "
+                                                       "Algorithmus + @0.0.0 durch.");
+static_assert(!stamp_line_is_parsable<"achse=algo">, "Segment ohne '@' faellt nicht mehr auf @0.0.0 durch.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0cg">, "zweites Hardware-Flag: unparsbarer Rest, kein stiller "
+                                                      "Sentinel-Kollaps.");
+static_assert(!stamp_line_is_parsable<"achse=algo@1.0e">, "Kurzform 'X.Y' mit Flag-Schwanz ist unparsbar.");
+static_assert(!stamp_line_is_parsable<"achse=algo@v1.0.0">, "die GERENDERTE Form traegt nie ein 'v'-Praefix "
+                                                            "(Owner-Q10: 'v' lebt nur im Roh-Literal).");
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0;achse=algo">, "auch als ZWEITES Segment einer sonst "
+                                                               "wohlgeformten Zeile bricht die Fehlform.");
+static_assert(!stamp_line_is_parsable<"a=b@1.0.0;[c=d]">, "und ebenso im Klammer-Anhang.");
 
 /// Parst die Stempel-Zeile aus dem Literal `lit` (nullterminiert, effektive Laenge M-1) in genau N Eintraege
 /// (N == count_stamp_entries(lit)), in TEXT-Reihenfolge -- die Klammer-Anhaenge stehen also hinter den
@@ -455,14 +575,20 @@ static_assert(kStampEntryHwProbe[1].reserved != kStampEntryHwProbe[2].reserved);
 static_assert(kStampEntryHwProbe[2].reserved != kStampEntryHwProbe[3].reserved);
 static_assert(kStampEntryHwProbe[0].reserved != kStampEntryProbe[1].reserved); // g != flagloser Bestand
 
-// Fehlform-Wache: ein zweites Hardware-Flag ist grammatisch Sentinel -> KEIN Bit wandert ins reserved-Feld
-// (der Parser raet nie ein Flag herbei).
-inline constexpr char kStampEntryBadFlagLine[] = "a=x@1.0.0cg";
-inline constexpr auto kStampEntryBadFlagProbe =
-    parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryBadFlagLine})>(kStampEntryBadFlagLine);
-static_assert(kStampEntryBadFlagProbe[0].x == 0u && kStampEntryBadFlagProbe[0].y == 0u &&
-              kStampEntryBadFlagProbe[0].z == 0u);
-static_assert(kStampEntryBadFlagProbe[0].reserved == 0u);
+// Fehlform-Wache (A13-M3/C2b, Befund Z-09 -- GEDREHT): ein zweites Hardware-Flag war bis C2b grammatisch
+// Sentinel und liess den Eintrag STILL auf @0.0.0 mit reserved == 0 kollabieren. Genau das schrieb die
+// alte Probe hier fest ("kein Bit wandert ins reserved-Feld") -- sie zementierte damit das fail-open,
+// statt es zu beanstanden. Ab C2b ist die Form ein HARTER consteval-Bruch; die Probe steht deshalb als
+// NEGATIV-Aussage oben bei den uebrigen Z-09-Fehlformen (stamp_line_is_parsable<"a=x@1.0.0cg"> == false).
+// Was hier bleibt, ist die POSITIVE Restaussage, die weiterhin wahr sein muss: der Parser raet NIE ein
+// Flag herbei -- eine flaglose Version traegt kein Flag-Bit (kStampEntryProbe[1], oben belegt), und das
+// dokumentierte Sentinel-Rendering bleibt zulaessig UND flaglos.
+inline constexpr char kStampEntrySentinelLine[] = "a=x@0.0.0";
+inline constexpr auto kStampEntrySentinelProbe =
+    parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntrySentinelLine})>(kStampEntrySentinelLine);
+static_assert(kStampEntrySentinelProbe[0].x == 0u && kStampEntrySentinelProbe[0].y == 0u &&
+              kStampEntrySentinelProbe[0].z == 0u);
+static_assert(kStampEntrySentinelProbe[0].reserved == 0u);
 
 // -- A13-M2: CT-Selbstbeweis der KLAMMER-Grammatik (Owner-Q1) -------------------------------------------
 // (1) Der klammerlose Bestand bleibt Ebene 0 und reserved == 0 -- die Erweiterung ist byte-neutral.
