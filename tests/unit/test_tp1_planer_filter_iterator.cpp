@@ -519,6 +519,63 @@ int main() {
         }
     }
 
+    // -- Fall (8): TP1FK1-B2 (Codex-Befund CX-W1) -- der SYNCHRONE Mess-Pfad-Faenger schliesst den ------
+    //    Bestandslog-Eintrag aus, wenn der Push warf. Der Eintrag ist (wie in der Bau-Phase) per observe()
+    //    vorgemerkt; wirft der synchrone Push, hat der Store den Satz NIE erhalten -- nach dem unbedingten
+    //    flush am Lauf-Ende darf er deshalb NICHT im geteilten Dokument stehen (sonst skippt der Bau-Filter
+    //    des Folgelaufs eine nirgends existierende Binary). VOR dem Fix loggte der Faenger nur.
+    //    Im SELBEN Dokument sitzt eine zweite Binary, deren Push GELANG: sie muss registriert werden --
+    //    der Ausschluss ist gezielt, keine Pauschal-Enteignung.
+    {
+        auto const                hexkey = [](char c) { return std::string(128, c); };
+        bl::ZellKoordinaten const zelle{.combo = "default", .opt = "O2", .simd = "avx2"};
+        fs::path const            out = base / "cxw1" / "dll";
+        fs::create_directories(out / "sX", ec);
+        fs::create_directories(out / "sY", ec);
+
+        bl::LagerRunState lager;
+        check_true("(8) observe merkt den Eintrag der werfenden Binary vor",
+                   lager.observe(hexkey('a'), zelle, "sX/perm.dll", 10, "[a,b,c]", "2026-08-03T10:00:00Z") ==
+                       bl::DedupOutcome::fresh_register);
+        check_true("(8) observe merkt den Eintrag der gelingenden Binary vor",
+                   lager.observe(hexkey('b'), zelle, "sY/perm.dll", 20, "[a,b,c]", "2026-08-03T10:00:01Z") ==
+                       bl::DedupOutcome::fresh_register);
+
+        ex::CachePushFn const werfen = [](fs::path const&, std::string const&) {
+            throw std::runtime_error("Store-Push simuliert fehlgeschlagen");
+        };
+        bool                  gepusht = false;
+        ex::CachePushFn const geht    = [&gepusht](fs::path const&, std::string const&) { gepusht = true; };
+
+        std::string log;
+        {
+            CerrCapture fang;
+            ex::mess_pfad_synchron_push(werfen, out / "sX", "v1.0.0c", "binid-X", out, &lager);
+            ex::mess_pfad_synchron_push(geht, out / "sY", "v1.0.0c", "binid-Y", out, &lager);
+            log = fang.text();
+        }
+        check_true("(8) der gelungene Push lief wirklich", gepusht);
+        check_true("(8) der Wurf ist klassifiziert geloggt und der Lauf MISST WEITER",
+                   log.find("MISST WEITER") != std::string::npos);
+        check_true("(8) der Ausschluss ist beziffert (Nie-stumm)", log.find("NICHT registriert") != std::string::npos);
+        check_eq("(8) genau EIN Eintrag bleibt vorgemerkt", lager.pending_fresh(), std::size_t{1});
+
+        FakeStore  store;
+        auto const reg =
+            lager.flush(store.transport(), kDocKey, "2026-08-03T10:05:00Z", bl::make_lock_owner("uuid-cxw1", "prodX"));
+        check_true("(8) der flush hat geschrieben", reg.has_value() && *reg == 1);
+        auto const doc = bl::parse_bestandslog(store.objs[kDocKey]);
+        check_true("(8) Dokument parsebar", doc.has_value());
+        if (doc) {
+            bool const drin_x = std::any_of(doc->bestand.begin(), doc->bestand.end(),
+                                            [](bl::BestandEintrag const& e) { return e.pfad == "sX/perm.dll"; });
+            bool const drin_y = std::any_of(doc->bestand.begin(), doc->bestand.end(),
+                                            [](bl::BestandEintrag const& e) { return e.pfad == "sY/perm.dll"; });
+            check_true("(8) CX-W1: die Binary mit geworfenem Push steht NICHT im geteilten Dokument", !drin_x);
+            check_true("(8) die Binary mit gelungenem Push steht sehr wohl drin (kein Fehl-Ausschluss)", drin_y);
+        }
+    }
+
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");
     return g_fail == 0 ? 0 : 1;
 }

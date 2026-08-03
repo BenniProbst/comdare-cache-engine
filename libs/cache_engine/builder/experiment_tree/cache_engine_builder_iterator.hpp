@@ -871,6 +871,71 @@ struct LazyRunResult {
     return true;
 }
 
+// TP1-N2 (B-1) / TP1FK1-B2 (Codex-Befund CX-W1): die EINE Form des Bestandslog-Eintragspfades.
+// Er ist STORE-RELATIV (relativ zum output_dir, generic '/'-Trenner) -- der Push spiegelt exakt diese
+// Struktur in den Objekt-Store, und ein maschinen-LOKALER Absolutpfad im GETEILTEN Dokument waere fuer
+// die andere Maschine eine Falschangabe. Unrelativierbar (fremde Wurzel) -> voller Pfad als ehrlicher
+// Fallback (nie leer, nie geraten; TP1-F2: auch der Fallback in generic-Form, sonst matcht der
+// Praefix-Verwurf auf Windows nie).
+//
+// EINE Quelle, drei Leser: die Vormerkung (observe, ueber die perm.dll), der Pump-Ausschluss und der
+// Mess-Pfad-Ausschluss (beide ueber das bin_dir) bilden den String jetzt mit DERSELBEN Funktion.
+// discard_fresh_with_pfad_prefix vergleicht MIT Trenner -- weichen Vormerkung und Verwurf in der Form
+// auch nur um ein Byte ab, bleibt ein unbestaetigter Eintrag stehen. Die Kopien waren genau dieses
+// Risiko.
+[[nodiscard]] inline std::string bestand_eintragspfad(std::filesystem::path const& p,
+                                                      std::filesystem::path const& output_dir) {
+    std::error_code rel_ec;
+    auto const      rel = std::filesystem::relative(p, output_dir, rel_ec);
+    return (rel_ec || rel.empty()) ? p.generic_string() : rel.generic_string();
+}
+
+// TP1FK1-B2 (Codex-Befund CX-W1): der SYNCHRONE Mess-Pfad-Push MIT Bestandslog-Ausschluss bei Wurf.
+//
+// Der reale Transport WIRFT bei Push-Fehler (ArtefaktPushFehler). Im MESS-Pfad darf das den Lauf nie
+// abreissen -- eine Zelle ist gemessen, die CSV liegt lokal, die naechste Zelle wartet -> klassifiziert
+// loggen und WEITERMESSEN. Der Faenger war aber FOLGENLOS: das unbedingte bestandslog_flush() am Ende
+// des Mess-Laufs registrierte den vorgemerkten Eintrag trotzdem, obwohl der Store den Satz nie erhielt.
+// Unter dem Bau-Filter des Folgelaufs ist das der stille Verlustpfad (er skippt eine nirgends
+// existierende Binary) -- exakt der Zustand, den B-1 im Pump-Zweig (failed_dirs ->
+// discard_fresh_with_pfad_prefix) bereits ausschliesst. Dieser Zweig ist das fehlende Gegenstueck:
+// MESSEN WEITER bleibt, der unbestaetigte Bestand nicht.
+//
+// lager == nullptr (Bestandslog inaktiv) -> es gibt nichts vorzumerken und nichts auszuschliessen; der
+// Zweig loggt dann nur, byte-identisch zum reinen Push-Pfad. Der Verwurf ist thread-sicher (eigener
+// Mutex in LagerRunState), darf also auch aus dem Debug-Mess-Pool laufen; die Vormerkung geschah in der
+// Bau-Phase davor, der Eintrag ist beim Push also da und kann verworfen werden.
+inline void mess_pfad_synchron_push(CachePushFn const& cache_push, std::filesystem::path const& bin_dir,
+                                    std::string const& build_version, std::string const& binary_id,
+                                    std::filesystem::path const& output_dir, bestandslog::LagerRunState* lager) {
+    if (!cache_push) return; // No-Op-Naht: ohne Push-Kanal ist nichts zu tun (byte-identisch zum Ist)
+    auto const ausschliessen = [&](std::string_view grund) {
+        if (lager == nullptr) return; // kein Bestandslog -> kein Eintrag -> nur die Log-Zeile oben
+        std::size_t const verworfen =
+            lager->discard_fresh_with_pfad_prefix({bestand_eintragspfad(bin_dir, output_dir)});
+        std::cerr << "[bestandslog] warn: " << verworfen << " Eintrag/Eintraege fuer binary_id='" << binary_id
+                  << "' NICHT registriert (" << grund
+                  << ") -- lokale Kopie bleibt, der Store ist unbestaetigt (kein Skip-Anspruch im Folgelauf)\n"
+                  << std::flush;
+    };
+    try {
+        cache_push(bin_dir, build_version); // Ebene B: perm.dll(+Sidecars,+.version) -> Store
+    } catch (std::exception const& e) {
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                  << binary_id << "' Push in den Objekt-Store fehlgeschlagen: " << e.what()
+                  << " -- lokale Kopie bleibt, der Lauf MISST WEITER\n"
+                  << std::flush;
+        ausschliessen("Push-Fehler");
+    } catch (...) {
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                  << binary_id
+                  << "' Push in den Objekt-Store mit unbekanntem Fehler abgebrochen -- lokale Kopie bleibt, der "
+                     "Lauf MISST WEITER\n"
+                  << std::flush;
+        ausschliessen("unbekannter Push-Fehler");
+    }
+}
+
 // #46b I1b (opt-in): den Planer-getriebenen provision-Bau ausfuehren. Ein async Producer (SlicePlanner) slict die
 // SELBEN indices in 4096er-Fenster; der Consumer baut je Fenster NUR DIE FEHLENDEN Binaries (Lager-TP1(B)/G-A2:
 // filter_window_for_build ueber die PresenceFn -- LEDGER:3397 "jedes fehlende Binary EINZELN erkannt") und
@@ -1136,17 +1201,10 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 std::uint64_t const bytes = std::filesystem::exists(b.output, ec)
                                                 ? static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec))
                                                 : 0;
-                // TP1-N2 (B-1): der Eintrags-Pfad ist STORE-RELATIV (relativ zum output_dir, generic
-                // '/'-Trenner) -- der Push spiegelt exakt diese Struktur in den Objekt-Store, und ein
-                // maschinen-LOKALER Absolutpfad im GETEILTEN Dokument waere fuer die andere Maschine
-                // eine Falschangabe. Unrelativierbar (fremde Wurzel) -> voller Pfad als ehrlicher
-                // Fallback (nie leer, nie geraten).
-                std::error_code rel_ec;
-                auto const      rel = std::filesystem::relative(b.output, cfg.output_dir, rel_ec);
-                // TP1-F2: auch der Fallback in generic-Form -- der Praefix-Verwurf (Fehl-Push-
-                // Ausschluss) vergleicht generic_string()-Formen; string() wuerde auf Windows nie
-                // matchen und einen unbestaetigten Eintrag doch registrieren.
-                std::string pfad = (rel_ec || rel.empty()) ? b.output.generic_string() : rel.generic_string();
+                // TP1-N2 (B-1) / TP1-F2: der Eintrags-Pfad kommt aus der EINEN Form-Quelle
+                // (bestand_eintragspfad) -- store-relativ, generic, mit ehrlichem Fallback. Dieselbe
+                // Funktion bildet die Praefixe der beiden Verwurf-Wege; nur so treffen sie diesen Eintrag.
+                std::string pfad = bestand_eintragspfad(b.output, cfg.output_dir);
                 lager.observe(key.value_or(std::string{}), cfg.bestand_zelle, std::move(pfad), bytes, b.algo_sig,
                               bestandslog::now_utc_iso());
             }
@@ -1314,11 +1372,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 if (!fehl.empty()) {
                     std::vector<std::string> praefixe;
                     praefixe.reserve(fehl.size());
-                    for (auto const& d : fehl) {
-                        std::error_code rel_ec;
-                        auto const      rel = std::filesystem::relative(d, cfg.output_dir, rel_ec);
-                        praefixe.push_back(((rel_ec || rel.empty()) ? d : rel).generic_string());
-                    }
+                    // DIESELBE Form-Quelle wie die Vormerkung (bestand_eintragspfad) -- ein abweichend
+                    // gebildeter Praefix liesse den unbestaetigten Eintrag stehen.
+                    for (auto const& d : fehl) praefixe.push_back(bestand_eintragspfad(d, cfg.output_dir));
                     auto const verworfen = lager.discard_fresh_with_pfad_prefix(praefixe);
                     std::cerr << "[bestandslog] warn: " << verworfen << " Eintraege wegen " << fehl.size()
                               << " Push-Fehler(n) NICHT registriert -- lokale Kopie bleibt, der Store ist "
@@ -1672,28 +1728,14 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
         // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
-            if (cfg.cache_push) {
-                // TP1FK1-B2: der reale Transport WIRFT jetzt bei Push-Fehler (ArtefaktPushFehler) -- vorher war
-                // ein fehlgeschlagener Push von einem gelungenen nicht zu unterscheiden. Im MESS-Pfad darf das
-                // den Lauf NIE abreissen (eine Zelle ist gemessen, die CSV liegt lokal, die naechste Zelle wartet)
-                // -> klassifiziert loggen und WEITERMESSEN. Das ist dieselbe Politik wie zuvor, aber jetzt eine
-                // sichtbare Entscheidung dieses Faengers statt einer stillen Eigenschaft des Transports.
-                try {
-                    cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+Sidecars,+.version) -> Store
-                } catch (std::exception const& e) {
-                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
-                              << "] binary_id='" << binary_id
-                              << "' Push in den Objekt-Store fehlgeschlagen: " << e.what()
-                              << " -- lokale Kopie bleibt, der Lauf MISST WEITER\n"
-                              << std::flush;
-                } catch (...) {
-                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
-                              << "] binary_id='" << binary_id
-                              << "' Push in den Objekt-Store mit unbekanntem Fehler abgebrochen -- lokale Kopie "
-                                 "bleibt, der Lauf MISST WEITER\n"
-                              << std::flush;
-                }
-            }
+            // TP1FK1-B2 (Codex-Befund CX-W1): synchron pushen; wirft der Push, klassifiziert loggen (MESSEN
+            // WEITER) UND den vorgemerkten Bestandslog-Eintrag dieser Binary verwerfen. Der Store hat den Satz
+            // nie erhalten -- ein Eintrag im geteilten Dokument waere unter dem Bau-Filter des Folgelaufs ein
+            // stiller Verlustpfad. Vorher fing dieser Zweig den Wurf NUR mit std::cerr, und das unbedingte
+            // bestandslog_flush() am Lauf-Ende registrierte den unbestaetigten Bestand doch (der sichtbare,
+            // aber folgenlose Faenger). Ohne aktives Bestandslog wird nullptr gereicht -> reines Loggen.
+            mess_pfad_synchron_push(cfg.cache_push, bin_dir, cfg.build_version, binary_id, cfg.output_dir,
+                                    bestandslog_active ? &lager : nullptr);
             if (cfg.measurement_sink) {
                 std::error_code             sec;
                 std::filesystem::path const rcsv = bin_dir / "result.csv";
