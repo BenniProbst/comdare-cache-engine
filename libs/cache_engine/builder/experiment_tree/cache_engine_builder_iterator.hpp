@@ -1559,28 +1559,60 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                     std::filesystem::create_directories(fehl_dir, fec);
                     // Stamp ZUERST weg (write-ZULETZT-Disziplin): ein Abbruch mitten drin darf nie eine
                     // Marke zuruecklassen, die auf eine halb geschriebene CSV zeigt.
-                    std::filesystem::remove(fehl_dir / "result.csv.stamp", fec);
-                    // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, ist rename ein
-                    // No-Op ueber den error_code -- kein throw, der Marker wird trotzdem geschrieben.
-                    std::error_code rec;
-                    if (std::filesystem::exists(fehl_dir / "result.csv", rec))
-                        std::filesystem::rename(fehl_dir / "result.csv", fehl_dir / "result.csv.stale", rec);
-                    bool marker_geschrieben = false;
-                    {
-                        std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
-                        if (mf) {
-                            mf << lazy_csv_header() << format_csv_row(marker);
-                            mf.flush();
-                            marker_geschrieben = mf.good();
-                        }
-                    }
-                    if (!marker_geschrieben)
+                    //
+                    // TP1FK1-B10 (Codex-Befund CX-W4): das Entfernen wird GEPRUEFT. Frueher lief remove()
+                    // mit dem wiederverwendeten fec, und weder der error_code noch der bool-Rueckgabewert
+                    // wurden angesehen -- schlug es fehl (Rechte, gesperrte Datei, ro-Mount, Verzeichnis
+                    // statt Datei), blieb der ALTE Erfolgs-Stamp liegen, waehrend die Diagnose woertlich
+                    // "der Stamp ist entfernt" behauptete. Genau daraus entsteht die Wiedereinstiegs-Luege:
+                    // ein Alt-Stamp, der die frisch geschriebene nicht_gebaut-Marker-Zeile als gueltigen
+                    // Messstand zertifiziert. Geurteilt wird ueber den EIGENEN error_code UND das Ist --
+                    // remove() setzt bei blosser Nicht-Existenz keinen Fehler (dann ist nichts zu entfernen,
+                    // und exists() sagt genau das), und scheitert exists() selbst, entscheidet der
+                    // remove-Fehler. Eine unbelegte Entfernungs-Behauptung gibt es damit nicht mehr.
+                    std::error_code stamp_ec;
+                    std::filesystem::remove(fehl_dir / "result.csv.stamp", stamp_ec);
+                    std::error_code stamp_ist_ec;
+                    bool const      stamp_bleibt = static_cast<bool>(stamp_ec) ||
+                                                   std::filesystem::exists(fehl_dir / "result.csv.stamp", stamp_ist_ec);
+                    if (stamp_bleibt) {
+                        // Die INVALIDIERUNG ist gescheitert. Dann wird die Ablage auch NICHT ersetzt: mit
+                        // liegendem Alt-Stamp waere jede frisch geschriebene result.csv (Marker-Zeile oder
+                        // halber Stand) fuer den Resume-Check des Folgelaufs ein zertifizierter Messstand.
+                        // Der Alt-Stand bleibt unangetastet zu seinem Stamp (in sich stimmig, wenn auch
+                        // ueberholt), der Befund reist als Marker-Zeile in die globale CSV, und die
+                        // Bereinigung ist eine benannte Hand-Arbeit statt einer stillen Annahme.
                         std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
-                                  << b.binary_id << "' nicht_gebaut-Marker NICHT in "
-                                  << (fehl_dir / "result.csv").string()
-                                  << " geschrieben -- der Stamp ist entfernt und der Alt-Stand liegt als "
-                                     "result.csv.stale, ein Folgelauf misst also neu\n"
+                                  << b.binary_id << "' result.csv.stamp NICHT entfernt ("
+                                  << (stamp_ec ? stamp_ec.message() : std::string{"liegt nach dem Entfernen noch"})
+                                  << ") in " << fehl_dir.string()
+                                  << " -- die per-Binary-Ablage bleibt daher UNVERAENDERT (ein Alt-Stamp darf "
+                                     "keine nicht_gebaut-Marker-Zeile als Messstand zertifizieren); der Ordner "
+                                     "MUSS von Hand geraeumt werden\n"
                                   << std::flush;
+                    } else {
+                        // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, ist rename ein
+                        // No-Op ueber den error_code -- kein throw, der Marker wird trotzdem geschrieben.
+                        std::error_code rec;
+                        if (std::filesystem::exists(fehl_dir / "result.csv", rec))
+                            std::filesystem::rename(fehl_dir / "result.csv", fehl_dir / "result.csv.stale", rec);
+                        bool marker_geschrieben = false;
+                        {
+                            std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
+                            if (mf) {
+                                mf << lazy_csv_header() << format_csv_row(marker);
+                                mf.flush();
+                                marker_geschrieben = mf.good();
+                            }
+                        }
+                        if (!marker_geschrieben)
+                            std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                      << b.binary_id << "' nicht_gebaut-Marker NICHT in "
+                                      << (fehl_dir / "result.csv").string()
+                                      << " geschrieben -- der Stamp ist entfernt und der Alt-Stand liegt als "
+                                         "result.csv.stale, ein Folgelauf misst also neu\n"
+                                      << std::flush;
+                    }
                 }
             }
             oc.rows.push_back(std::move(marker));

@@ -576,6 +576,71 @@ int main() {
         }
     }
 
+    // -- Fall (9): TP1FK1-B10 (Codex-Befund CX-W4) -- ein fehlgeschlagenes Entfernen von result.csv.stamp
+    //    wird nicht mehr verschluckt. LAGE: result.csv.stamp ist ein NICHT-LEERES VERZEICHNIS, damit
+    //    std::filesystem::remove deterministisch scheitert (ENOTEMPTY -- auch als root, kein chmod noetig).
+    //    VOR dem Fix lief remove() ohne jede Pruefung: der Alt-Stamp blieb liegen, die Marker-Zeile wurde
+    //    trotzdem als neue result.csv geschrieben (der Alt-Stamp haette sie im Folgelauf als gueltigen
+    //    Messstand ZERTIFIZIERT) und die Diagnose behauptete "der Stamp ist entfernt".
+    {
+        constexpr char const* kAltMarke = "ALTER-ERFOLGS-STAND";
+        ex::BinarySpec const  spec0     = view[0];
+        std::string const     stem0     = ex::orch_make_stem(spec0.binary_id, spec0.index);
+
+        FakeStore         dummy;
+        ex::LazyRunConfig cfg9 = make_cfg(dummy, base / "cxw4");
+        cfg9.provision_only    = false; // MESS-Modus: dort lebt der Bau-Fehler-Zweig mit der Invalidierung
+        cfg9.bestand_transport = {};    // Bestandslog inaktiv -> reiner Bau-/Resume-Pfad
+        cfg9.bestand_doc_key.clear();
+        cfg9.resume_completed_binaries = true;
+        cfg9.max_binaries              = 1;
+
+        fs::path const bin_dir = cfg9.output_dir / stem0;
+        fs::create_directories(bin_dir, ec);
+        { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
+        fs::create_directories(bin_dir / "result.csv.stamp", ec); // Stamp ALS Verzeichnis ...
+        { std::ofstream{bin_dir / "result.csv.stamp" / "blocker", std::ios::trunc} << "x\n"; } // ... nicht leer
+
+        ex::BuildSelection sel9;
+        sel9.indices            = {0};
+        sel9.provenance         = "explicit";
+        auto const compile_fail = [](ex::BuildJob const&) -> int { return 1; }; // Compiler lehnt ab -> Fehler-Zweig
+        auto const ram_stub     = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+        std::string       log;
+        ex::LazyRunResult r9;
+        {
+            CerrCapture fang;
+            r9  = ex::run_lazy_static_then_dynamic(tree, sel9, compile_fail, gen_stub, ram_stub, cfg9);
+            log = fang.text();
+        }
+        auto const datei_text = [](fs::path const& p) {
+            std::ifstream     f{p};
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str();
+        };
+        check_true("(9) CX-W4: der Entfern-Fehler ist klassifiziert sichtbar",
+                   log.find("result.csv.stamp NICHT entfernt") != std::string::npos);
+        check_true("(9) keine unbelegte 'der Stamp ist entfernt'-Aussage",
+                   log.find("der Stamp ist entfernt") == std::string::npos);
+        check_true("(9) der blockierte Alt-Stamp liegt noch (remove scheiterte wirklich)",
+                   fs::exists(bin_dir / "result.csv.stamp", ec));
+        // Der KERN: mit liegendem Alt-Stamp darf keine Marker-Zeile als Messstand zertifiziert werden.
+        std::string const csv = datei_text(bin_dir / "result.csv");
+        check_true("(9) die Marker-Zeile wurde NICHT unter den Alt-Stamp geschrieben",
+                   csv.find("nicht_gebaut") == std::string::npos);
+        check_true("(9) der Alt-Stand blieb unangetastet (Messdaten nie loeschen)",
+                   csv.find(kAltMarke) != std::string::npos);
+        check_true("(9) kein result.csv.stale -- die Ablage wurde gar nicht erst angefasst",
+                   !fs::exists(bin_dir / "result.csv.stale", ec));
+        // Sichtbar bleibt der Befund trotzdem: die globale CSV traegt die nicht_gebaut-Zeile.
+        check_eq("(9) der Bau-Fehler reist als Marker-Zeile in die globale CSV", r9.csv_rows.size(), std::size_t{1});
+        check_true("(9) und traegt den Bau-Status nicht_gebaut",
+                   r9.csv_rows.size() == 1 && r9.csv_rows[0].build_status ==
+                                                  ::comdare::cache_engine::measurement::BuildCellStatus::NichtGebaut);
+    }
+
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");
     return g_fail == 0 ? 0 : 1;
 }
