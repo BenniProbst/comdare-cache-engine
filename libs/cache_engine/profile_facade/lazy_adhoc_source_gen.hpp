@@ -229,6 +229,21 @@ template <class List>
     };
 }
 
+/// measurement_stamp_from_env() -- die EINE Stelle, an der die Env-Bruecke COMDARE_MEASUREMENT_COMBO in die
+/// Mess-Tooling-Stempel-Zeile uebersetzt wird. Sie stand bis A13-M3/C1 ZWEIMAL wortgleich da
+/// (make_lazy_adhoc_source_gen_from_env + make_lazy_adhoc_fingerprint_fn_from_env) und war damit genau die
+/// Sorte Doppel-Ableitung, die der O-8-Schritt-12-Befund ("uebersehener dritter Ableitungsweg") meint: waere
+/// eine der beiden Kopien gewandert, haette die DLL eine andere Mess-Zeile getragen als ihr Fingerprint-
+/// Sidecar. Seit C1 speist sie zusaetzlich den SOTA-Emitter (sota_catalog.hpp) -- dieselbe Combo in ALLEN
+/// Quellen EINES Laufs, per Konstruktion und nicht per Absprache.
+/// SEMANTIK unveraendert (K7b-2): gesetzt -> die gewaehlte Combo-Legende als MENGE; UNGESETZT/leer == [all]
+/// == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz).
+[[nodiscard]] inline std::string measurement_stamp_from_env() {
+    char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
+    return (e != nullptr && *e != '\0') ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
+                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+}
+
 /// make_lazy_adhoc_source_gen_from_env() -- die LIVE-Naht der S6-P1b Env-Bruecke (d)-(f): die vom Planer gewaehlte
 /// Mess-Combo reist ueber die Umgebungsvariable COMDARE_MEASUREMENT_COMBO (die Director-Tier-Kommandos exportieren die
 /// [a,b,c]-Legende ab N>1; der CLI-Parser --measurement-combo im messung_driver waehlt die Combo im gefilterten Walk).
@@ -240,10 +255,7 @@ template <class List>
 /// wechselt bewusst auf die 3-arg-_M-Form; der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> die
 /// 320er-Byte-Identitaets-Wachen + der binary_id/CRC-Anker (kNewGolden131072Crc64, ueber die view-ids) unberuehrt.
 [[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen_from_env() {
-    char const* const e           = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    std::string measurement_stamp = (e != nullptr && *e != '\0')
-                                        ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
-                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+    std::string measurement_stamp = measurement_stamp_from_env();
     return make_lazy_adhoc_source_gen(std::move(measurement_stamp));
 }
 
@@ -287,10 +299,7 @@ template <class List>
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
-    char const* const e           = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    std::string measurement_stamp = (e != nullptr && *e != '\0')
-                                        ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
-                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+    std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp)](std::string const& binary_id) {
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp);
     };

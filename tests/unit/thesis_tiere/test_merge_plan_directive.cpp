@@ -12,10 +12,15 @@
 //       Generalisierung der hart aufgelisteten <Host>PrtStufeN-Typen) + den dritten Merge-Stempel.
 //   (c) Byte-Additivitaet: render_sota_module_source OHNE merge_line ist byte-identisch zum heutigen Katalog-
 //       Quelltext (Default-Argument); mit merge_line haengt es NUR den Merge-Stempel an (append-only).
+//   (d) A13-M3/C1 (K-3): der SOTA-Emitter reicht die VOLLEN organ/system/measurement-Zeilen ueber die
+//       BESTEHENDE 4-arg-_MERGE-Form durch (merge unveraendert im 4. Makro-Slot) -- inklusive der EHRLICHEN
+//       Feststellung, dass die Organ-Zeile fuer SOTA-binary_ids leer BLEIBT (kein 17-Achsen-Pfad).
 
 #include "sota_catalog.hpp" // render_sota_module_source / render_directive_merge_module_source / directive_slot_types
 #include "merge_plan.hpp"   // AxisMergeDirective / merge_plan_from_profile / merge_mode_to_strategy
 #include "xml_config_parser/xml_config_parser.hpp" // ExperimentProfile / ExperimentAxisDefault / ExperimentPhase
+
+#include <cache_engine/abi/anatomy_version_stamp.hpp> // A13-M3/C1: abi::system_stamp_line (die REALE System-Zeile)
 
 #include <gtest/gtest.h>
 
@@ -26,6 +31,7 @@ namespace {
 
 namespace cx  = comdare::builder::xml;
 namespace tlz = comdare::cache_engine::thesis_lazy;
+namespace cea = comdare::cache_engine::abi;
 
 // (a1) Leeres / heutiges Profil (KEINE per-Achse-Direktive) => LEERE Direktiven => Katalog-Pfad.
 TEST(MergePlanDirective, EmptyProfileYieldsNoDirectivesFallsBackToCatalog) {
@@ -145,6 +151,55 @@ TEST(MergePlanDirective, SotaSourceMergeLineIsAppendOnly) {
     // Append-only: der Katalog-Quelltext ist ein exaktes Praefix des Merge-Quelltexts.
     EXPECT_EQ(with_merge.rfind(catalog, 0), 0u) << "merge_line ist NICHT append-only (Katalog-Praefix gebrochen)";
     EXPECT_NE(with_merge.find("COMDARE_ANATOMY_VERSION_STAMP_MERGE("), std::string::npos);
+}
+
+// (d) A13-M3/C1 (K-3): die VOLLEN Stempel-Zeilen reisen ueber die BESTEHENDE 4-arg-_MERGE-Form. Vor C1 emittierte
+//     der SOTA-Pfad GAR KEINEN Stempel -- jede SOTA-Binary trug damit denselben Leer-Fingerprint und war fuer das
+//     SHA512-Skip-Gate identitaetslos.
+TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
+    std::string const fq     = "::comdare::cache_engine::compositions::HotComposition";
+    std::string const header = "compositions/hot_reference.hpp";
+
+    // (d1) Der stempel-lose Default bleibt exakt die heutige Emission (Byte-Additivitaet der neuen Naht).
+    EXPECT_EQ(tlz::render_sota_module_source(fq, header).find("COMDARE_ANATOMY_VERSION_STAMP_MERGE"), std::string::npos)
+        << "der Default-Aufruf darf KEINE Stempel-Zeile emittieren (byte-identisch zum Katalog-Stand)";
+
+    // (d2) Die Makro-SLOT-Ordnung ist organ, system, measurement, merge -- sie weicht bewusst von der
+    //      Parameter-Ordnung der Renderer ab (merge steht dort vorn, weil er APPEND-ONLY aelter ist). Genau
+    //      diese Abweichung pinnt der Test literal, damit kein Slot still verrutscht.
+    tlz::SotaStampLines const stamp{"search_algo=k_ary@1.0.0", "target_isa=code@1.0.0",
+                                    "measurement_tooling=wallclock@1.0.0"};
+    std::string const         with_stamp = tlz::render_sota_module_source(fq, header, /*merge_line=*/"", stamp);
+    EXPECT_NE(with_stamp.find("COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"search_algo=k_ary@1.0.0\", "
+                              "\"target_isa=code@1.0.0\", \"measurement_tooling=wallclock@1.0.0\", \"\")"),
+              std::string::npos)
+        << with_stamp;
+
+    // (d3) Auch der direktiven-getriebene Zwilling reicht dieselben Zeilen durch (KEIN zweiter Emitter-Stand).
+    std::vector<tlz::AxisMergeDirective> const directives{
+        tlz::AxisMergeDirective{"path_compression", "Stufe2_PrueflingReplace", "prt_art", {"prt_patricia"}}};
+    std::string const directive_src =
+        tlz::render_directive_merge_module_source(fq, header, directives, /*merge_line=*/"m=x", stamp);
+    EXPECT_NE(directive_src.find("COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"search_algo=k_ary@1.0.0\", "
+                                 "\"target_isa=code@1.0.0\", \"measurement_tooling=wallclock@1.0.0\", \"m=x\")"),
+              std::string::npos)
+        << directive_src;
+
+    // (d4) Der PRODUKTIONS-Pfad: die reale System-Zeile + die gereichte Mess-Zeile stehen im emittierten
+    //      Quelltext. Die ORGAN-Zeile bleibt EHRLICH LEER -- der SOTA-binary_id ("sota_tier=sota::A::...") ist
+    //      kein 17-Achsen-Pfad, ceb_parse_path liefert keine Achsen-Paare, und die SOTA-Kompositions-Slots
+    //      tragen kein name()/algo_version (Metadaten-BLOCKER, abi/anatomy_version_stamp.hpp-Kopf). Das ist der
+    //      BENANNTE K-3-Rest; er wird hier festgeschrieben, damit er nicht als stiller Ausfall durchgeht.
+    std::string const meas = "measurement_tooling=wallclock@1.0.0";
+    auto const        by_id =
+        tlz::build_sota_view_source_map(std::vector<tlz::SotaMergeLebewesen>{{"Stufe1_CeOnly", "hot"}}, meas);
+    ASSERT_EQ(by_id.size(), 1u);
+    std::string const& src = by_id.begin()->second;
+    EXPECT_FALSE(cea::system_stamp_line().empty()) << "die System-Zeile ist die reale Identitaets-Quelle von C1";
+    EXPECT_NE(src.find("COMDARE_ANATOMY_VERSION_STAMP_MERGE(\"\", \"" + cea::system_stamp_line() + "\", \"" + meas +
+                       "\", \"\")"),
+              std::string::npos)
+        << src;
 }
 
 } // namespace

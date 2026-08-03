@@ -342,7 +342,12 @@ struct RunProfileResult {
     //    Basis-320 zuerst). SOTA liegt im disjunkten "sota_tier=…"-Raum.
     std::map<std::string, std::string> fused =
         make_all_axis_sweeps_source_map(); // alle 17 Achsen-Sweeps (#26/GO-5, INC-2d; Eintragszahl USE-Enable-abhaengig)
-    for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
+    // A13-M3/C1 (K-3): die SOTA-Quellen tragen ab jetzt die VOLLEN Stempel-Zeilen. Die Mess-Combo kommt aus
+    // DERSELBEN Env-Bruecke (measurement_stamp_from_env), die zehn Zeilen tiefer den lazy Source-Gen speist --
+    // die SOTA-DLLs eines Laufs stempeln damit dieselbe Tooling-Wahl wie die adhoc-DLLs desselben Laufs.
+    std::string const sota_measurement_stamp = measurement_stamp_from_env();
+    for (auto& [k, v] : build_sota_view_source_map(tp, sota_measurement_stamp))
+        fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn base_union = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
     // INC-G6 (33/34): der lazy Per-Index-Emitter als ZUSAETZLICHE Fallback-Quelle HINTER den bestehenden
     // (Basis-320 / Sweeps / SOTA). Die Reihenfolge ist byte-kritisch: fuer die 320er/Sweep/SOTA-ids liefert
