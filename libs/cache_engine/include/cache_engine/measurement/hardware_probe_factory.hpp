@@ -30,6 +30,19 @@
 // eine Zellen-Entscheidung nach (K5: Compile-Bruch statt stiller Luecke). Die Totalitaets-Wache unten
 // prueft die VOLLE Matrix, nicht nur die heute benutzte Zelle.
 //
+// -- OD-10-RT: DIE ZWEITE ERHEBUNG AN DERSELBEN ZELLE --------------------------------------------
+// Seit OD-10-RT haengt neben der RAM-Kette eine zweite Erhebung an dieser Factory: die numa/page-Probe
+// (numa_page_probe.hpp). Sie waehlt ihre Familie ueber DIESELBE Zell-Koordinate und bezieht ihre
+// Zugriffs-Wurzeln als Zell-Handles (numa_node_root/hugepage_root). WARUM HIER UND NICHT DANEBEN: die
+// Aussage "auf dieser Plattform liegt der Zugang so" gehoert genau einmal in den Bestand. Ein zweiter,
+// paralleler Zell-Raum haette dieselbe Plattform-Zuordnung ein zweites Mal behauptet -- und zwei
+// Behauptungen ueber dieselbe Sache driften.
+// ABGRENZUNG, die man nicht verwischen darf: has_native_probe() dieser Zelle ist eine Aussage ueber die
+// RAM-KETTE (windows/macos sind dort declared-only, A8). Die numa/page-Probe hat ihr EIGENES
+// has_native_probe() je Familie -- sie ist auf allen drei Familien eine echte Zelle. Ein leeres
+// numa_node_root() heisst deshalb NICHT "keine Erhebung", sondern "der Zugang laeuft dort nicht ueber
+// Pfade".
+//
 // -- EHRLICHE NICHT-IMPLEMENTIERUNG (A8) ---------------------------------------------------------
 // Windows und macOS bekommen KEIN ungetestetes Backend. Windows-WMI waere ein Versprechen ohne
 // Maschine dahinter; macOS system_profiler waere ein Prozess-Aufruf und damit Doktrin-verboten. Beide
@@ -38,6 +51,7 @@
 // "uebersprungen, weil etwas Besseres da war".
 
 #include <cache_engine/measurement/machine_identity.hpp>
+#include <cache_engine/measurement/numa_page_probe.hpp>
 #include <cache_engine/measurement/operating_system_axis.hpp>
 #include <cache_engine/measurement/ram_frequency_reading.hpp>
 #include <cache_engine/measurement/ram_probe_chain.hpp>
@@ -46,6 +60,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -59,9 +74,15 @@ namespace comdare::cache_engine::measurement {
 // 1. DAS ERKENNUNGS-GERAET EINER ZELLE
 // =================================================================================================
 
-/// Was jede Zelle liefern muss. Die drei Pfad-Funktionen sind die OS-HANDLES (K4): OS-gebundene
+/// Was jede Zelle liefern muss. Die Pfad-Funktionen sind die OS-HANDLES (K4): OS-gebundene
 /// Zugriffs-Bausteine als CT-Bestandteil der Zelle. Die Kette selbst kennt sie nicht -- sie bekommt
 /// sie im Kontext gereicht und bleibt dadurch OS-neutral und testbar.
+///
+/// OD-10-RT: numa_node_root/hugepage_root treten additiv hinzu. Sie gehoeren NICHT zur RAM-Kette,
+/// sondern zur NumaPageProbe -- aber sie sind Handles derselben ISA-x-OS-ZELLE, und genau das ist die
+/// Aussage dieses Concepts: eine Zelle fuehrt ALLE OS-gebundenen Zugriffs-Bausteine ihrer Plattform an
+/// EINER Stelle. Ein zweiter, paralleler Zell-Raum nur fuer die numa/page-Handles waere eine zweite
+/// Wissensquelle darueber, welche Zelle welche Plattform ist.
 template <class D>
 concept HardwareProbeDeviceConcept = requires {
     typename D::isa_axis;
@@ -72,6 +93,8 @@ concept HardwareProbeDeviceConcept = requires {
     { D::boot_cache_path() } -> std::same_as<std::string_view>;
     { D::boot_id_path() } -> std::same_as<std::string_view>;
     { D::spd_device_root() } -> std::same_as<std::string_view>;
+    { D::numa_node_root() } -> std::same_as<std::string_view>;
+    { D::hugepage_root() } -> std::same_as<std::string_view>;
 };
 
 /// Das Geraet der Zelle (IsaComplexAxis x OsAxis).
@@ -102,6 +125,13 @@ struct HardwareProbeDevice<IsaComplexAxis, LinuxOperatingSystem> {
     [[nodiscard]] static constexpr std::string_view boot_cache_path() noexcept { return kDefaultBootCachePath; }
     [[nodiscard]] static constexpr std::string_view boot_id_path() noexcept { return kDefaultBootIdPath; }
     [[nodiscard]] static constexpr std::string_view spd_device_root() noexcept { return kDefaultSpdDeviceRoot; }
+
+    // -- OS-Handles der numa/page-Erhebung (OD-10-RT). Beide sysfs-Baeume sind unprivilegiert lesbar
+    //    (gemessen auf prod1: online 0444, hugepages-<KiB>kB/nr_hugepages 0644) -- deshalb gibt es hier
+    //    keine Boot-Cache-Stufe wie bei der RAM-Kette. Die Literale kommen aus numa_page_probe.hpp und
+    //    stehen nicht ein zweites Mal da.
+    [[nodiscard]] static constexpr std::string_view numa_node_root() noexcept { return kDefaultNumaNodeRoot; }
+    [[nodiscard]] static constexpr std::string_view hugepage_root() noexcept { return kDefaultHugepageRoot; }
 };
 
 /// windows -- declared-only. GRUND (A8, benannt statt verschwiegen): der Ist-Takt stuende unter
@@ -125,6 +155,14 @@ struct HardwareProbeDevice<IsaComplexAxis, WindowsOperatingSystem> {
     [[nodiscard]] static constexpr std::string_view boot_cache_path() noexcept { return {}; }
     [[nodiscard]] static constexpr std::string_view boot_id_path() noexcept { return {}; }
     [[nodiscard]] static constexpr std::string_view spd_device_root() noexcept { return {}; }
+
+    // OD-10-RT: leer aus einem ANDEREN Grund als oben, und der Unterschied ist wichtig. Die
+    // numa/page-Erhebung EXISTIERT auf Windows (NumaPageProbe<WindowsOperatingSystem> ist eine echte
+    // Zelle), sie bezieht ihre Werte dort aber ueber GetLogicalProcessorInformationEx/GetSystemInfo --
+    // also gar nicht ueber Pfade. Ein gesetzter Pfad waere hier keine fehlende Faehigkeit, sondern eine
+    // FALSCHE Zugriffs-Aussage.
+    [[nodiscard]] static constexpr std::string_view numa_node_root() noexcept { return {}; }
+    [[nodiscard]] static constexpr std::string_view hugepage_root() noexcept { return {}; }
 };
 
 /// macos -- declared-only, und das ist eine bewusste Dauer-Entscheidung, kein Rueckstand. GRUND:
@@ -146,6 +184,12 @@ struct HardwareProbeDevice<IsaComplexAxis, MacosOperatingSystem> {
     [[nodiscard]] static constexpr std::string_view boot_cache_path() noexcept { return {}; }
     [[nodiscard]] static constexpr std::string_view boot_id_path() noexcept { return {}; }
     [[nodiscard]] static constexpr std::string_view spd_device_root() noexcept { return {}; }
+
+    // OD-10-RT: leer, weil Darwin die Werte ueber sysctlbyname anbietet und fuer NUMA gar keine
+    // prozessfreie Schnittstelle fuehrt (siehe numa_page_probe_macos.hpp). Wieder eine Aussage ueber
+    // den ZUGRIFFSWEG, nicht ueber eine fehlende Erhebungs-Zelle.
+    [[nodiscard]] static constexpr std::string_view numa_node_root() noexcept { return {}; }
+    [[nodiscard]] static constexpr std::string_view hugepage_root() noexcept { return {}; }
 };
 
 // =================================================================================================
@@ -253,6 +297,31 @@ static_assert(!HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::sp
               !HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::boot_cache_path().empty() &&
               !HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::boot_id_path().empty());
 
+// -- OD-10-RT: dieselben beiden Richtungen fuer die numa/page-Handles ------------------------------
+// (a) Die Linux-Zelle MUSS beide Wurzeln fuehren -- ein leeres Handle wuerde die Erhebung dort als
+//     QuelleFehlt beantworten, obwohl die Baeume da sind.
+static_assert(!HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::numa_node_root().empty() &&
+              !HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::hugepage_root().empty());
+// (b) Die beiden Pfad-losen Zellen duerfen KEINE Wurzel behaupten: dort kommen die Werte ueber
+//     Familien-Schnittstellen, nicht ueber das Dateisystem. Ein gesetzter Pfad waere eine falsche
+//     Zugriffs-Aussage -- und zwar eine ANDERE Aussage als die declared-only-Leere der RAM-Kette.
+static_assert(HardwareProbeDevice<Prod1Zen5TargetIsa, WindowsOperatingSystem>::numa_node_root().empty() &&
+              HardwareProbeDevice<Prod1Zen5TargetIsa, WindowsOperatingSystem>::hugepage_root().empty() &&
+              HardwareProbeDevice<Prod1Zen5TargetIsa, MacosOperatingSystem>::numa_node_root().empty() &&
+              HardwareProbeDevice<Prod1Zen5TargetIsa, MacosOperatingSystem>::hugepage_root().empty());
+// (c) Die Zell-Handles sind AUS numa_page_probe.hpp gezogen, nicht ein zweites Mal hingeschrieben.
+//     Faellt das je auseinander, laesen Prober und Zelle verschiedene Baeume.
+static_assert(HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::numa_node_root() == kDefaultNumaNodeRoot &&
+              HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::hugepage_root() == kDefaultHugepageRoot);
+// (d) Die beiden Wurzeln sind verschieden und keine ist Praefix der anderen -- sonst koennte eine
+//     Verwechslung im Kontext unbemerkt bleiben.
+static_assert(kDefaultNumaNodeRoot != kDefaultHugepageRoot && !kDefaultNumaNodeRoot.starts_with(kDefaultHugepageRoot) &&
+              !kDefaultHugepageRoot.starts_with(kDefaultNumaNodeRoot));
+// (e) Und sie kollidieren mit KEINEM Handle der RAM-Kette: zwei Erhebungen, zwei Quellen-Raeume.
+static_assert(kDefaultNumaNodeRoot != kDefaultSpdDeviceRoot && kDefaultNumaNodeRoot != kDefaultBootCachePath &&
+              kDefaultNumaNodeRoot != kDefaultBootIdPath && kDefaultHugepageRoot != kDefaultSpdDeviceRoot &&
+              kDefaultHugepageRoot != kDefaultBootCachePath && kDefaultHugepageRoot != kDefaultBootIdPath);
+
 // =================================================================================================
 // 3. DIE ZELLE DIESES BAUS
 // =================================================================================================
@@ -290,6 +359,29 @@ template <class Device>
 [[nodiscard]] inline RamFrequencyReading probe_ram_frequency(RamProbeContext const& ctx) {
     typename Device::chain_type const chain{};
     return run_ram_probe_chain(chain, ctx);
+}
+
+/// OD-10-RT: der numa/page-Kontext AUS DER ZELLE. Das ist die Einhaengung des neuen Probers in die
+/// bestehende ISA-x-OS-Factory: die Zelle sagt, welche Wurzeln auf ihrer Plattform gelten, und der
+/// Prober liest sie -- er kennt selbst keine Pfad-Konstante. Ein leeres Handle reist unveraendert
+/// durch und wird vom Prober als QuelleFehlt klassifiziert; es wird NICHT still durch einen Default
+/// ersetzt, weil genau das eine Zell-Aussage ueberschreiben wuerde.
+template <class Device>
+    requires HardwareProbeDeviceConcept<Device>
+[[nodiscard]] inline NumaPageProbeContext make_numa_page_context() {
+    NumaPageProbeContext ctx{};
+    ctx.numa_node_root = std::filesystem::path{Device::numa_node_root()};
+    ctx.hugepage_root  = std::filesystem::path{Device::hugepage_root()};
+    return ctx;
+}
+
+/// Die numa/page-Erhebung der Zelle EINMAL durchlaufen. Wie probe_ram_frequency: kein Zustand, keine
+/// Memoisierung -- der nackte Erhebungs-Vorgang. Die FAMILIEN-Wahl kommt aus der Zell-Koordinate
+/// Device::os_axis, nicht aus einem Runtime-Schalter.
+template <class Device = CebHardwareProbeDevice>
+    requires HardwareProbeDeviceConcept<Device>
+[[nodiscard]] inline NumaPageTopology probe_numa_page_topology(NumaPageProbeContext const& ctx) {
+    return NumaPageProbe<typename Device::os_axis>::collect(ctx);
 }
 
 // =================================================================================================
@@ -408,5 +500,16 @@ static_assert(OperatingSystemAxisConcept<CebHardwareProbeDevice::os_axis>,
 // selbst. Waere hier ein abgeleiteter Typ eingesetzt, waere das der Anbau, den N4 ausschliesst.
 static_assert(std::is_same_v<CebHardwareProbeDevice::isa_axis, DefaultTargetIsaComplex> &&
               std::is_same_v<CebHardwareProbeDevice::os_axis, DefaultOperatingSystem>);
+// OD-10-RT: die numa/page-Erhebung der CEB-Zelle ist die Probe IHRER OS-Familie -- die Familien-Wahl
+// laeuft ueber denselben Zell-Typ wie die RAM-Kette, nicht ueber einen zweiten Kanal.
+static_assert(std::is_same_v<
+              decltype(probe_numa_page_topology<CebHardwareProbeDevice>(std::declval<NumaPageProbeContext const&>())),
+              NumaPageTopology>);
+static_assert(NumaPageProbeConcept<NumaPageProbe<CebHardwareProbeDevice::os_axis>>);
+// A-15/A10 STRUKTURELL, wie bei RamFrequencyReading: es gibt in diesem Header keine Funktion, die eine
+// NumaPageTopology an eine Stempel-, Achsen- oder binary_id-API reicht, und keine Achse nimmt den Typ
+// an. Die Erhebung LIEST die System-Achsen als Zell-Koordinaten und fuegt ihnen nichts hinzu.
+static_assert(TargetIsaSubAxisConcept<NumaPageProbe<CebHardwareProbeDevice::os_axis>::numa_axis> &&
+              TargetIsaSubAxisConcept<NumaPageProbe<CebHardwareProbeDevice::os_axis>::page_axis>);
 
 } // namespace comdare::cache_engine::measurement

@@ -20,6 +20,7 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/system_axis_code_versions.hpp>
 #include <cache_engine/measurement/algo_semver.hpp>
+#include <cache_engine/measurement/hardware_probe_factory.hpp>
 #include <cache_engine/measurement/numa_page_probe.hpp>
 #include <cache_engine/measurement/operating_system_axis.hpp>
 #include <cache_engine/measurement/target_isa_sub_axes.hpp>
@@ -424,6 +425,47 @@ TEST(Od10NumaPageProbe, JedeFremdeFamilieErzeugtDenBenanntenL6Befund) {
     verify_native_or_l6_producer<cem::WindowsOperatingSystem>(context, native_count);
     verify_native_or_l6_producer<cem::MacosOperatingSystem>(context, native_count);
     EXPECT_EQ(native_count, 1U) << "Die Familien-Gegenprobe muss genau eine native und zwei fremde Zellen sehen.";
+}
+
+// -- Block C2 (runtime): die Einhaengung in die ISA-x-OS-Zelle ------------------------------------
+
+TEST(Od10NumaPageProbe, DieZelleLiefertDenKontextUndReichtLeereHandlesUnveraendertDurch) {
+    using LinuxZelle   = cem::HardwareProbeDevice<cem::Prod1Zen5TargetIsa, cem::LinuxOperatingSystem>;
+    using WindowsZelle = cem::HardwareProbeDevice<cem::Prod1Zen5TargetIsa, cem::WindowsOperatingSystem>;
+
+    auto const linux_ctx = cem::make_numa_page_context<LinuxZelle>();
+    EXPECT_EQ(linux_ctx.numa_node_root, fs::path{cem::kDefaultNumaNodeRoot});
+    EXPECT_EQ(linux_ctx.hugepage_root, fs::path{cem::kDefaultHugepageRoot});
+    // Die Zelle ist die EINZIGE Quelle der Wurzeln -- sie deckt sich mit dem Prober-Default.
+    auto const default_ctx = cem::default_numa_page_probe_context();
+    EXPECT_EQ(linux_ctx.numa_node_root, default_ctx.numa_node_root);
+    EXPECT_EQ(linux_ctx.hugepage_root, default_ctx.hugepage_root);
+
+    // Eine pfad-lose Zelle behauptet KEINE Wurzel, und der Kontext-Bau erfindet auch keine: das leere
+    // Handle reist unveraendert durch und wird vom Prober als QuelleFehlt klassifiziert.
+    auto const windows_ctx = cem::make_numa_page_context<WindowsZelle>();
+    EXPECT_TRUE(windows_ctx.numa_node_root.empty());
+    EXPECT_TRUE(windows_ctx.hugepage_root.empty());
+    auto const leer = cem::detail::numa_page_collect_nodes(windows_ctx);
+    expect_hardware_error(leer, cem::HardwareProbeErrorClass::QuelleFehlt, "quelle_fehlt");
+}
+
+TEST(Od10NumaPageProbe, DieZellenErhebungLaeuftUeberDieselbeFamilienKoordinateWieDieRamKette) {
+    // Die Familien-Wahl der numa/page-Erhebung ist die os_axis DERSELBEN Zelle -- kein zweiter Kanal.
+    static_assert(std::same_as<cem::CebHardwareProbeDevice::os_axis, LinuxProbe::os_axis> ||
+                      !std::same_as<cem::CebHardwareProbeDevice::os_axis, cem::LinuxOperatingSystem>,
+                  "Die CEB-Zelle und die Linux-Probe muessen dieselbe Familien-Koordinate benutzen.");
+    auto const topology = cem::probe_numa_page_topology<cem::CebHardwareProbeDevice>(
+        cem::make_numa_page_context<cem::CebHardwareProbeDevice>());
+    if constexpr (LinuxProbe::has_native_probe()) {
+        EXPECT_TRUE(topology.page_sizes.has_value()) << "Die native Zell-Erhebung muss die Seiten-Achse liefern: "
+                                                     << cem::numa_page_probe_error_label(topology.page_sizes.error());
+    } else {
+        // Fremde Bau-Plattform: der L6-Befund, nicht ein Ersatzwert.
+        ASSERT_FALSE(topology.page_sizes.has_value());
+        EXPECT_EQ(cem::numa_page_probe_error_label(topology.page_sizes.error()),
+                  std::string_view{"betriebssystem_feature_fehlt"});
+    }
 }
 
 // -- Block D (runtime): die Live-Maschine, mit benanntem Skip-Guard --------------------------------
