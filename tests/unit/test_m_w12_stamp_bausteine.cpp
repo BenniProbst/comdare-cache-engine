@@ -96,10 +96,11 @@ TEST(MW12StampBausteine, AlgoSemVerFullFormForStampsOnly) {
 // einheitlich und immer 3-Stellig und beginnen mit 'v'. Das 'e' ist eine Flag und kann spaeter gegen andere
 // Falgs wie 'g' fuer GPU, 'c' fuer CPU, 'f' fuer FPGA und 'n' fuer NPU code erweitert werden. Wir produzieren
 // nur CPU code, daher muessen alle Versionen mit 'c' oder 'ce' enden."
-// Ersetzt die A13-M1-Erwartungen ("vNe"-Kurzform). Hier: Uebergangs-Toleranz, volle Flag-Familie, die
+// Ersetzt die A13-M1-Erwartungen ("vNe"-Kurzform). Hier: PARSER-Semantik der flaglosen Form, volle Flag-Familie, die
 // FIXE Reihenfolge (HW-Flag, dann 'e') und die Review-Auflage K-5 (Sentinel-Batterie mit Flags).
 TEST(MW12StampBausteine, A13M1bFlagGrammarParsesInRawAndDottedForm) {
-    // (a) UEBERGANGS-TOLERANZ: der flaglose dreistellige Bestand parst weiter und traegt KEIN Flag.
+    // (a) PARSER-Semantik: die flaglose dreistellige Form parst weiter und traegt KEIN Flag. Bis A13-M3/C4
+    //     war das die Uebergangs-Toleranz des BESTANDS; seither ist der Bestand flagbehaftet ("v1.0.0c").
     EXPECT_FALSE(m::parse_algo_semver("v1.0.0").has_hardware_flag());
     EXPECT_FALSE(m::parse_algo_semver("v1.0.0").experimental);
     EXPECT_FALSE(m::parse_algo_semver("v2.3.4").experimental);
@@ -172,8 +173,8 @@ TEST(MW12StampBausteine, A13M1bFlagGrammarParsesInRawAndDottedForm) {
     EXPECT_EQ(m::parse_dotted_semver("2.3.4ce"), m::parse_algo_semver("v2.3.4ce"));
 
     // (i) Die Owner-PFLICHT-Wache selbst (immer gebaut, unabhaengig von COMDARE_VERSION_HW_FLAG_ENFORCE):
-    //     nur "...c"/"...ce" erfuellen den CPU-only-Scope. Der HEUTIGE Bestand erfuellt sie bewusst NICHT --
-    //     genau deshalb steht das Define auf OFF, bis der M2/M3-Migrations-Commit die Literale zieht.
+    //     nur "...c"/"...ce" erfuellen den CPU-only-Scope. Bis A13-M3/C4 erfuellte der Bestand sie bewusst
+    //     NICHT und das Define stand auf OFF; seit C4 erfuellt er sie, und das Define ist scharf (s. unten).
     EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v1.0.0c"));
     EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v2.3.4ce"));
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0")); // flaglos: seit C4 kein Bestand mehr
@@ -199,7 +200,8 @@ TEST(MW12StampBausteine, A13M1bFlagsRenderAndStayGoldenNeutral) {
     EXPECT_EQ(m::algo_semver_string("v2.3.4ne"), std::string{"2.3.4ne"});
     EXPECT_EQ(m::algo_semver_string("v0.0.0c"), std::string{"0.0.0"});
     EXPECT_EQ(m::algo_semver_string("v0.0.0ce"), std::string{"0.0.0"});
-    // GOLDEN-NEUTRALITAET: der flaglose Bestand ("v1.0.0"/"v2.3.4") rendert byte-identisch wie vor A13-M1b.
+    // GOLDEN-NEUTRALITAET der FLAGLOSEN Form ("v1.0.0"/"v2.3.4"): sie rendert byte-identisch wie vor A13-M1b.
+    // Sie beschreibt seit A13-M3/C4 keinen Bestands-Fall mehr, bleibt aber Parser-/Renderer-Semantik.
     EXPECT_EQ(m::algo_semver_string("v1.0.0"), std::string{"1.0.0"});
     EXPECT_EQ(m::algo_semver_string("v2.3.4"), std::string{"2.3.4"});
     EXPECT_EQ(m::algo_semver_string("v0.0.0"), std::string{"0.0.0"});
@@ -585,7 +587,8 @@ TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {
 }
 
 // A2 (G2-4 Schritt 3+4): System-Achsen-Code-Versionen + Mess-Tooling-Version aus Single-Sources statt Hartkodierung.
-// Render-neutral fuer die gueltigen ids/Achsen; "v0.0.0"-Sentinel nur fuer ungueltige Tooling-ids (A13-M1b).
+// Bei Anlage render-neutral; seit A13-M3/C4 tragen die gueltigen ids/Achsen das CPU-Flag ("1.0.0c",
+// deklariertes Byte-Ereignis). "v0.0.0"-Sentinel weiterhin nur fuer ungueltige Tooling-ids (A13-M1b).
 TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     namespace abi = ::comdare::cache_engine::abi;
     // (a) System-Achsen-Single-Source: DREI Achsen (O-8 Schritt 4, A3-Kern). A13-M3/C4: alle drei tragen
@@ -717,7 +720,7 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
     EXPECT_NE(h[0].reserved, h[1].reserved);
     EXPECT_NE(h[1].reserved, h[2].reserved);
     EXPECT_NE(h[2].reserved, h[3].reserved);
-    EXPECT_NE(h[0].reserved, e[1].reserved); // g != flagloser Bestand
+    EXPECT_NE(h[0].reserved, e[1].reserved); // g != flaglose Form
     static_assert(abi::stamp_entry_hardware_flag(h[1]) == abi::StampEntryHardwareFlag::fpga);
 
     // (c3) A13-M3/C2b (Befund Z-09) -- GEDREHT. Bis C2b hielt hier fest, dass ein ZWEITES Hardware-Flag
@@ -734,9 +737,11 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
     EXPECT_EQ(sen[0].x, 0u);
     EXPECT_EQ(sen[0].reserved, std::uint32_t{0});
 
-    // (d) GOLDEN-NEUTRALITAET: eine Bestands-Zeile ohne Flags setzt in KEINEM Eintrag ein Bit.
+    // (d) GOLDEN-NEUTRALITAET: eine Zeile OHNE Flags setzt in KEINEM Eintrag ein Bit. Das Literal ist
+    //     bewusst flaglos -- genau das ist die Aussage; die reale Bestands-Zeile traegt seit A13-M3/C4
+    //     ueberall 'c' und faellt (c == Code 0) auf dasselbe reserved == 0.
     static constexpr char kPlain[] =
-        "search_algo=k_ary@1.0.0;filter=bloom@2.3.4;target_isa=code@1.0.0"; // heutige Bestands-Form
+        "search_algo=k_ary@1.0.0;filter=bloom@2.3.4;target_isa=code@1.0.0"; // FLAGLOSE Probe, kein Bestand
     constexpr auto p = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kPlain})>(kPlain);
     for (auto const& x : p) EXPECT_EQ(x.reserved, std::uint32_t{0});
 

@@ -34,8 +34,8 @@ struct MeasurementFrameworkInfo {
     MeasurementFramework framework;
     std::string_view     id;      ///< kanonischer XML-/Legenden-Token ("ycsb")
     std::string_view     name;    ///< exakt der Enum-Name (Doku/Reporting)
-    std::string_view     version; ///< O-8 Schritt 0A: bump-bare Code-Version der Mess-Framework-Achse ("v1.0.0",
-                                  ///< render-neutral zu "v1"; Muster MeasurementToolingInfo.version). INERT angelegt --
+    std::string_view     version; ///< O-8 Schritt 0A: bump-bare Code-Version der Mess-Framework-Achse (seit
+                                  ///< A13-M3/C4 "v1.0.0c"; Muster MeasurementToolingInfo.version). INERT angelegt --
     ///< der Emissions-Konsument (Segment der kMeasurementAxisVersionLine) entsteht erst mit
     ///< der Scharfschaltung in O-8 Schritt 9. Bis dahin liest sie NIEMAND: byte-neutral.
 };

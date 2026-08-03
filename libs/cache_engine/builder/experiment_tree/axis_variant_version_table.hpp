@@ -47,7 +47,7 @@ namespace mp = boost::mp11;
 struct AxisVariantVersion {
     std::string_view axis;    ///< kCompositionAxisNames-Slot (z.B. "search_algo")
     std::string      variant; ///< W::name() (z.B. "bst")
-    std::string      version; ///< W::algo_version (z.B. "v1.0.0"; A13-M1b: kuenftig "v1.0.0c")
+    std::string      version; ///< W::algo_version (seit A13-M3/C4 durchgehend "v1.0.0c", Owner-Q3-Flag-Grammatik)
 };
 
 /// assert_version_grammar<W>() -- die GEMEINSAME Flag-Grammatik-Wache EINER registrierten Variante (Owner-Q3/E2
@@ -82,8 +82,11 @@ constexpr void assert_version_grammar() {
     //     unparsbar und laufen in die Sentinel-Wache oben -- "genau EIN Flag" ist damit durchgesetzt.
     //   * Diese Wache HIER faengt den verbleibenden Fall: ein WOHLGEFORMTES, aber im CPU-only-Scope falsches
     //     Flag ("v1.0.0g"/"v1.0.0f"/"v1.0.0n"). Sie ist NICHT tautologisch -- eine ce-Registry-Variante mit
-    //     "v1.0.0g" bricht hier compile-time MIT dem Typ-Namen, waehrend der flaglose Bestand ("v1.0.0")
-    //     bewusst durchgeht (Uebergangs-Toleranz bis zum M2/M3-Migrations-Commit).
+    //     "v1.0.0g" bricht hier compile-time MIT dem Typ-Namen, waehrend die FLAGLOSE Form ("v1.0.0") durch
+    //     GENAU DIESE Wache geht (sie prueft nur ein VORHANDENES Flag). Bis A13-M3/C4 war das die
+    //     Uebergangs-Toleranz des flaglosen Bestands; seit C4 weist den flaglosen Fall der ENFORCE-Zweig
+    //     unten hart zurueck -- diese Wache bleibt trotzdem noetig (sie faengt g/f/n, ENFORCE faengt "kein
+    //     Flag"), und sie bleibt die einzige, die auch ohne das Define greift.
     //   * Die restliche Owner-Pflicht -- dass ueberhaupt ein Flag DA sein MUSS -- ist der ENFORCE-Block unten.
     static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).has_hardware_flag() ||
                       ::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
@@ -91,11 +94,11 @@ constexpr void assert_version_grammar() {
                   "-- g/f/n sind reserviert und werden hier nicht produziert (Owner-Q3 02.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
     // A13-M1b SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code, daher muessen alle Versionen mit 'c'
-    // oder 'ce' enden"). GEBAUT, aber per Define ausgeschaltet, solange der Bestand flaglos ist: das Define geht
-    // im MIGRATIONS-COMMIT des A13-M2/M3-Neuanker-Fensters auf ON -- im selben Commit, der die 122
-    // W::algo_version-Literale von "v1.0.0" auf "v1.0.0c" zieht. Die Wachen-LOGIK selbst
-    // (ce_owned_version_satisfies_cpu_enforce) ist immer kompiliert und in algo_semver.hpp CT-bewiesen; das
-    // Define schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
+    // oder 'ce' enden"). SCHARF seit A13-M3/C4: der Migrations-Commit hat die 122 W::algo_version-Literale von
+    // "v1.0.0" auf "v1.0.0c" gezogen UND das Define im SELBEN Commit auf 1 gesetzt (ein Byte-Ereignis, ein
+    // Neuanker). Vorher stand es auf 0, weil die Wache jede noch flaglose Registry-Variante compile-gebrochen
+    // haette. Die Wachen-LOGIK selbst (ce_owned_version_satisfies_cpu_enforce) ist immer kompiliert und in
+    // algo_semver.hpp CT-bewiesen; das Define schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
     // B12 (Codex-Review 02.08.2026): der ENFORCE-Zweig prueft cpu UND !experimental ueber DIESELBE
     // Politik-Funktion wie die drei Nicht-Organ-Registries. version_satisfies_cpu_only_policy allein liesse
     // "v1.0.0ce" durch ('ce' erfuellt die CPU-Politik) -- hier faengt es heute schon die ungated 'e'-Wache
@@ -125,8 +128,8 @@ inline void reflect_versions(std::string_view axis, std::vector<AxisVariantVersi
 /// oben laeuft ueber die GEFILTERTEN Enabled*-Listen (die Tabelle traegt nur, was gebaut/gemessen wird -- die
 /// compose_*-Bytes bleiben unberuehrt); die Flag-Grammatik-Wache aber gilt fuer JEDE registrierte Variante,
 /// unabhaengig vom Enable-Schalter. Ein 'e'/falsches Flag an einer deaktivierten Variante (Bestandsfall:
-/// Array256SearchAlgo, Default OFF) bliebe sonst bis zur spaeteren Aktivierung unentdeckt und die M2/M3-ENFORCE-
-/// Migration liesse es still aus. mp_size dieser Liste == 18 (kCompositionAxisNames) -- der static_assert unten
+/// Array256SearchAlgo, Default OFF) bliebe sonst bis zur spaeteren Aktivierung unentdeckt, und die A13-M3/C4-
+/// ENFORCE-Migration haette es still ausgelassen. mp_size dieser Liste == 18 (kCompositionAxisNames) -- der Assert
 /// bindet die Vollstaendigkeit an die Enabled-Seite.
 using AllRegisteredOrganAxisLists = mp::mp_list<
     axes26_registered::R00_search_algo, axes26_registered::R01_cache_traversal, axes26_registered::R02_mapping,
@@ -193,7 +196,8 @@ inline void guard_all_registered_organ_versions() {
 }
 
 /// Nachschlag der algo_version einer (axis, variant)-Kombination. Nicht gefunden -> leerer view (der Aufrufer
-/// compose_algo_signature emittiert dann den Sentinel @v0 statt zu raten). Lineare Suche ueber die kleine Tabelle.
+/// compose_algo_signature emittiert dann den Sentinel "@v0.0.0" statt zu raten -- dreistellig seit A13-M3/C4,
+/// s. dort). Lineare Suche ueber die kleine Tabelle.
 [[nodiscard]] inline std::string_view lookup_algo_version(std::vector<AxisVariantVersion> const& table,
                                                           std::string_view axis, std::string_view variant) {
     for (AxisVariantVersion const& e : table)
@@ -221,7 +225,7 @@ inline void guard_all_registered_organ_versions() {
 /// sucht je Slot den (axis,value) in spec.axes und schlaegt dessen algo_version in der Tabelle nach. Format je Slot
 /// "<axis>=<variant>@<version>", per ';' gejoint (Vorbild perm.algos-Sidecar, Bauplan §1), abgeschlossen vom
 /// Sub-Achsen-Werteset-Schwanz. Nicht-Kompositions-Achsen (Shapes) und in spec.axes fehlende Slots werden
-/// uebersprungen; eine unbekannte (axis,value)-Kombination -> @v0-Sentinel (statt zu raten). Der Rebuild-/Neu-Mess-
+/// uebersprungen; unbekannte (axis,value) -> "@v0.0.0"-Sentinel (statt zu raten; A13-M3/C4). Der Rebuild-/Neu-Mess-
 /// Selektor vergleicht diese Signatur String-gleich gegen den .algos-Sidecar -> nur Binaries mit geaenderter Signatur
 /// (= eine gebumpte Variante im 18-Tupel ODER ein Werteset-Bump) werden neu gebaut/gemessen; die binary_id bleibt
 /// unberuehrt (die Version lebt ausschliesslich im Sidecar).
@@ -261,7 +265,7 @@ inline void guard_all_registered_organ_versions() {
 /// aus den Composition-Strategie-Typen (die tragen kein name()/algo_version). SEPARATE Welt zur .algos-Sig
 /// (compose_algo_signature bleibt byte-identisch): hier X.Y.Z-Voll-Form (algo_semver_string), NUR Haupt-Achsen
 /// (Section 42.b: kein Sub-Achsen-Schwanz), kanonische kCompositionAxisNames-Ordnung (Entscheid W12-A-5).
-/// Unbekannte (axis,value) -> "@0.0.0" (== der @v0-Sentinel des .algos-Pfads, in X.Y.Z). Determiniert.
+/// Unbekannte (axis,value) -> "@0.0.0" (== der "@v0.0.0"-Sentinel des .algos-Pfads, in X.Y.Z). Determiniert.
 [[nodiscard]] inline std::string compose_organ_stamp_line(std::vector<std::pair<std::string, std::string>> const& axes,
                                                           std::vector<AxisVariantVersion> const& table) {
     std::string out;
@@ -276,6 +280,8 @@ inline void guard_all_registered_organ_versions() {
             out += '@';
             // A13-M1b: dreistelliger Sentinel (Owner-Q3). Byte-neutral -- "v0" und "v0.0.0" rendern beide
             // "0.0.0"; nach dem Kurzform-Rueckbau ist "v0.0.0" aber der ABSICHTLICHE statt der zufaellige Weg.
+            // A13-M3/C4 hat den .algos-Zwilling oben (compose_algo_signature) auf dieselbe Form gezogen --
+            // seither ist der Sentinel in BEIDEN Pfaden dreistellig, ohne stille Ausnahme.
             out += ::comdare::cache_engine::measurement::algo_semver_string(ver.empty() ? std::string_view{"v0.0.0"}
                                                                                         : ver);
             break;

@@ -13,8 +13,9 @@
 // damit unter dieselbe Owner-Grammatik wie jede Achsen-Algorithmus-Version. Zwei Owner-Direktiven greifen HIER:
 //   * Owner-Q10 ("v gilt NUR fuer die Roh-Literale im Code"): das ROH-Literal kPlannerVersion traegt jetzt das
 //     'v' ("v1.0.0c"). Die GERENDERTE Form (planner_version_stamp) bleibt praefixfrei "planner@1.0.0c" -- der
-//     Renderer algo_semver_string schneidet das 'v' render-neutral weg (wie "v1" -> "1.0.0"), die
-//     --dump-plan-Zeile ist byte-identisch zum vorigen Stand.
+//     Renderer algo_semver_string schneidet das 'v' weg (wie "v1" -> "1.0.0"). Der CX-W5-Schritt selbst war
+//     byte-identisch zum vorigen Stand; das 'c' hat A13-M3/C4 nachgezogen -- das ist ein DEKLARIERTES
+//     Byte-Ereignis der --dump-plan-Zeile ("planner@1.0.0" -> "planner@1.0.0c"), kein Q10-Verstoss.
 //   * Owner-Q3 (Flag-Grammatik "alle Versionen enden auf 'c'/'ce'"): die ce-Politik-Wachen aus algo_semver.hpp
 //     (ce_owned_version_is_wellformed ungated + ce_owned_version_satisfies_cpu_enforce gated) sind unten genau
 //     wie an jeder Registry-Variante angelegt; der Planer ist damit Teil der A13-M2/M3-Migrations-Naht
@@ -31,7 +32,7 @@
 namespace comdare::cache_engine::planner {
 
 /// Selbst-Version des Experiment-Planers, X.Y.Z (initial 1.0.0; X.Y = Feature, Z = Debug-Revision). CX-W5: das
-/// ROH-Literal traegt das 'v' (Owner-Q10) und wandert im M2/M3-Fenster auf "v1.0.0c" (Owner-Q3-Flag-Grammatik).
+/// ROH-Literal traegt das 'v' (Owner-Q10); A13-M3/C4 hat es auf "v1.0.0c" gezogen (Owner-Q3-Flag-Grammatik).
 inline constexpr std::string_view kPlannerVersion = "v1.0.0c";
 
 /// Ziel-ISA, unter der der Planer ausfuehrbar ist (aus der Section40.a-Signatur-Domaene; heute x86_64).
@@ -75,15 +76,17 @@ static_assert(::comdare::cache_engine::measurement::parse_algo_semver(kPlannerVe
               ::comdare::cache_engine::measurement::AlgoSemVer{
                   1, 0, 0, ::comdare::cache_engine::measurement::HardwareFlag::cpu, false});
 // B12-Politik (ungated, immer gebaut): der Planer-Stempel ist wohlgeformt und traegt NIE 'e' (die
-// Pruefling-Markierung, Owner-E2) -- der flaglose Uebergangs-Bestand "v1.0.0" ist bis zur M2/M3-Migration
-// toleriert (deckungsgleich zu den 122 Registry-Literalen).
+// Pruefling-Markierung, Owner-E2). Die flaglose Form bliebe hier GRAMMATISCH wohlgeformt -- den flaglosen
+// Fall weist erst der gated Zwilling unten ab; seit A13-M3/C4 steht kPlannerVersion ohnehin auf "v1.0.0c"
+// (deckungsgleich zu den 122 Registry-Literalen).
 static_assert(::comdare::cache_engine::measurement::ce_owned_version_is_wellformed(kPlannerVersion),
               "kPlannerVersion nicht wohlgeformt: erlaubt ist \"vX.Y.Z\" mit optional 'c' (CPU-Flag), NIE 'e' "
               "(Owner-Q3/E2 02.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
-// A13-M2/M3-SCHARFSCHALTUNG (Migrations-Naht, algo_semver.hpp Klasse (e)): im Neuanker-Fenster geht das Define
-// auf ON und der Planer-Stempel MUSS -- wie jede ce-Version -- auf 'c' enden (dann kPlannerVersion == "v1.0.0c")
-// und darf nie experimentell sein. Ohne diese Wache haette der Planer die Migration planmaessig umgangen.
+// A13-M3/C4-SCHARFSCHALTUNG (Migrations-Naht, algo_semver.hpp Klasse (e)): das Define steht seit dem
+// Neuanker-Commit auf ON, und der Planer-Stempel MUSS -- wie jede ce-Version -- auf 'c' enden
+// (kPlannerVersion == "v1.0.0c") und darf nie experimentell sein. Ohne diese Wache haette der Planer die
+// Migration planmaessig umgangen.
 static_assert(::comdare::cache_engine::measurement::ce_owned_version_satisfies_cpu_enforce(kPlannerVersion),
               "kPlannerVersion ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version auf "
               "'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "

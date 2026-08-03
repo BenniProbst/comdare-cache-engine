@@ -60,7 +60,7 @@ TEST(ReflectVersionsAll17, LookupHitsRegisteredAndMissesUnknown) {
     ASSERT_FALSE(table.empty());
     // Treffer: der allererste Tabellen-Eintrag ist per Definition nachschlagbar.
     EXPECT_EQ(ex::lookup_algo_version(table, table.front().axis, table.front().variant), table.front().version);
-    // Fehlschlag ist EHRLICH leer (der Aufrufer emittiert @v0-Sentinel, raet nie).
+    // Fehlschlag ist EHRLICH leer (der Aufrufer emittiert den "@v0.0.0"-Sentinel, raet nie).
     EXPECT_TRUE(ex::lookup_algo_version(table, "search_algo", "gibt_es_nicht").empty());
     EXPECT_TRUE(ex::lookup_algo_version(table, "keine_achse", table.front().variant).empty());
 }
@@ -69,7 +69,8 @@ TEST(ReflectVersionsAll17, ComposeSignatureUsesTableAndValuesetTail) {
     std::vector<ex::AxisVariantVersion> const table = ex::build_axis_variant_version_table();
     ASSERT_FALSE(table.empty());
     // Eine minimale Spec aus dem ERSTEN registrierten Eintrag: die Signatur muss dessen echte Version tragen
-    // (kein @v0-Sentinel) und mit dem Sub-Achsen-Werteset-Schwanz enden (Bauplan §2).
+    // (kein Sentinel; der lautet seit A13-M3/C4 dreistellig "@v0.0.0")
+    // und mit dem Sub-Achsen-Werteset-Schwanz enden (Bauplan Abschnitt 2).
     std::vector<std::pair<std::string, std::string>> const axes = {
         {std::string{table.front().axis}, table.front().variant}};
     std::string const sig = ex::compose_algo_signature(axes, table);

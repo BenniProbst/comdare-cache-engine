@@ -57,8 +57,9 @@ namespace {
 /// SystemMetaMetaAxisConcept (hardware_meta_meta_axis.hpp, Owner-Entscheid E2 "Meta-Meta-Stempel sind
 /// PFLICHT wie alle Hauptachsen") ein PFLICHT-Member. Ohne sie schlagen die
 /// static_assert(SystemMetaMetaAxisConcept<...>)-Zeilen im Abschnitt C-1' hart fehl.
-/// FLAGLOS wie der Bestand (Owner-Q3-Uebergangs-Toleranz) -- diese drei Test-Typen stehen deshalb auf der
-/// Migrations-Naht-Liste in algo_semver.hpp, Klasse (d) (grep-Anweisung dort).
+/// FLAGBEHAFTET wie der Bestand ("v1.0.0c", Owner-Q3) -- diese drei Test-Typen standen auf der
+/// Migrations-Naht-Liste in algo_semver.hpp, Klasse (d), und sind mit A13-M3/C4 mitgezogen worden
+/// (grep-Anweisung dort; sie tragen KEINE gated Wache und mussten deshalb aktiv gefunden werden).
 struct Avx512MetaMeta final : meas::SystemMetaMetaAxis<Avx512MetaMeta> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "test_avx512"; }
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "test_avx512_level"; }

@@ -11,7 +11,8 @@
 // **Negativ-Probe (RED vor Fix / GREEN nach Fix):** PlannerVersionIsWellformedCeVersion prueft
 // ce_owned_version_is_wellformed(kPlannerVersion). Vor dem Fix (kPlannerVersion=="1.0.0", ohne 'v') parst das
 // Literal auf den Sentinel und ist NICHT wohlgeformt -> EXPECT_TRUE schlaegt fehl (RED). Nach dem Fix
-// (kPlannerVersion=="v1.0.0") ist es wohlgeformt -> GREEN. Die Render-Neutralitaet ist die Byte-Gegenwache.
+// (kPlannerVersion=="v1.0.0", seit A13-M3/C4 "v1.0.0c") ist es wohlgeformt -> GREEN. Die Render-Neutralitaet
+// war beim CX-W5-Schritt die Byte-Gegenwache; das 'c' hat C4 als deklariertes Byte-Ereignis nachgezogen.
 //
 // ADDITIV & golden/binary_id-neutral: reine Lese-Reflexion ueber den Planer-Stempel; kein Achsen-/Registry-/
 // golden-/ABI-Byte beruehrt.
@@ -62,8 +63,8 @@ TEST(PlannerVersionFlagGrammatik, PolicyRejectsExperimentalAndFlaglessUnderEnfor
     // 'v1.0.0e' braeche den Bau von planner_version.hpp.
     EXPECT_FALSE(meas::ce_owned_version_is_wellformed("v1.0.0e"));
     EXPECT_FALSE(meas::ce_owned_version_is_wellformed("v1.0.0ce"));
-    // flaglos erfuellt die ENFORCE-Pflicht NICHT (im M2/M3-Fenster braeche der gated static_assert), waehrend
-    // die Ziel-Form 'v1.0.0c' sie erfuellt.
+    // flaglos erfuellt die ENFORCE-Pflicht NICHT (seit A13-M3/C4 braeche der gated static_assert in
+    // planner_version.hpp daran), waehrend die heutige Bestands-Form 'v1.0.0c' sie erfuellt.
     EXPECT_FALSE(meas::ce_owned_version_satisfies_cpu_enforce("v1.0.0"));
     EXPECT_TRUE(meas::ce_owned_version_satisfies_cpu_enforce("v1.0.0c"));
 }

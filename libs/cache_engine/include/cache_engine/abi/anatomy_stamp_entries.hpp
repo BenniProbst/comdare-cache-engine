@@ -26,8 +26,9 @@
 // ("achse=algo@X.Y.Zc", "achse=algo@X.Y.Zce"). Im Entry-POD belegt es die BITS 1-2 des reserved-Feldes --
 // direkt neben dem A13-M1-Experimental-Bit 0, weiterhin ohne sizeof-/Layout-Bruch am 48-Byte-Entry-POD.
 // KODIERUNG 00=c, 01=g, 10=f, 11=n. Der POD kennt bewusst KEIN "kein Flag": wir produzieren nur CPU-Code,
-// 'c' IST der Default -- eine flaglose Uebergangs-Zeile ("@X.Y.Z", der heutige Bestand) landet damit auf 00
-// und laesst reserved bei 0 (Bestands-Byte-Gleichheit bleibt erhalten).
+// 'c' IST der Default -- eine flaglose Zeile ("@X.Y.Z") landet damit auf 00 und laesst reserved bei 0.
+// Der BESTAND traegt seit A13-M3/C4 "@X.Y.Zc" und landet auf demselben Code 00: die POD-Byte-Gleichheit
+// ueberlebt die Q3-Migration, die Stempel-ZEILE selbst ist dabei ein deklariertes Byte-Ereignis.
 //
 // == A13-M2: DIE KLAMMER-GRAMMATIK (Owner-Antwort Q1 vom 02.08.2026) ==============================
 // Owner-Q1 verbatim: "Q1 - Wie empfohlen nach Klammern (derzeit auch so geplant, bitte nachlesen)."
@@ -55,8 +56,9 @@
 // ZWEI NAMENSRAEUME, keine Kollision (Owner-Nachtrag ~12:1x): die EBENE lebt in den KLAMMERN (hier), die
 // hierarchischen ALGORITHMUS-/Achsen-Namen ("prt-art.memory.abc", Owner-Q2) leben in den PUNKTEN VOR
 // dem '@'. Der Tokenizer unten fasst beides nie an derselben Stelle an.
-// Im Entry-POD reist die Ebene in den reserved-BITS 3-5. Ebene 0 == Bit-Muster 0 -> der flaglose,
-// klammerlose Bestand bleibt exakt bei reserved == 0 (Byte-Gleichheit unveraendert).
+// Im Entry-POD reist die Ebene in den reserved-BITS 3-5. Ebene 0 == Bit-Muster 0 -> der klammerlose
+// Bestand bleibt exakt bei reserved == 0 (Byte-Gleichheit unveraendert; das 'c' des Bestands seit
+// A13-M3/C4 kodiert ebenfalls auf 0, s. Bits 1-2 unten).
 // STRENGE (A13-M2/B2 vervollstaendigt): KEINE dieser Fehlformen wird toleriert -- jede bricht die
 // consteval-Auswertung hart (der Stempel ist Identitaet -- er darf nie still falsch reisen):
 //   * unbalancierte Klammern ( ']' ohne '[' / '[' ohne ']' ),
@@ -110,14 +112,17 @@ inline constexpr std::uint32_t kStampEntryHwFlagShift = 1u;
 inline constexpr std::uint32_t kStampEntryHwFlagMask  = 0x3u << kStampEntryHwFlagShift;
 
 /// A13-M2 (Owner-Q1): BITS 3-5 == die META-META-EBENE == die KLAMMER-TIEFE des Eintrags. 0 == Haupt-Achse
-/// (klammerlos, der gesamte heutige Bestand), 1 == Meta-Meta, 2 == Meta-Meta-Meta, ... Shift + Maske sind die
+/// (klammerlos); System- und Mess-Zeile tragen seit A13-M2 je EINE Ebene-1-Gruppe ("[simd=code@1.0.0c]" bzw.
+/// "[load_framework=ycsb@1.0.0c]"), die Organ-Zeile bleibt klammerlos (OrganMetaMetas ist leer).
+/// 1 == Meta-Meta, 2 == Meta-Meta-Meta, ... Shift + Maske sind die
 /// EINZIGE Wahrheit der Lage, kStampEntryMaxMetaLevel die der Kapazitaet (tiefer bricht der Parser hart).
 inline constexpr std::uint32_t kStampEntryMetaLevelShift = 3u;
 inline constexpr std::uint32_t kStampEntryMetaLevelMask  = 0x7u << kStampEntryMetaLevelShift;
 inline constexpr std::uint32_t kStampEntryMaxMetaLevel   = 7u;
 
 /// Die Code-Punkte der Bits 1-2. c == 0 ist der DEFAULT (Owner-Q3: "Wir produzieren nur CPU code") -- deshalb
-/// bleibt reserved fuer den gesamten flaglosen Bestand exakt 0 und der Bestand byte-identisch.
+/// bleibt reserved sowohl fuer die flaglose Form als auch fuer den heutigen 'c'-Bestand exakt 0 (die
+/// A13-M3/C4-Migration hat den POD damit NICHT bewegt).
 inline constexpr std::uint32_t kStampEntryHwCodeCpu  = 0u;
 inline constexpr std::uint32_t kStampEntryHwCodeGpu  = 1u;
 inline constexpr std::uint32_t kStampEntryHwCodeFpga = 2u;
@@ -127,7 +132,7 @@ inline constexpr std::uint32_t kStampEntryHwCodeNpu  = 3u;
 /// measurement/algo_semver.hpp bleibt die Single-Source).
 using StampEntryHardwareFlag = ::comdare::cache_engine::measurement::HardwareFlag;
 
-/// Grammatik-Flag -> Bit-Code. `none` (flaglose Uebergangs-Form) UND `cpu` fallen beide auf den c-Default 0 --
+/// Grammatik-Flag -> Bit-Code. `none` (flaglose Form) UND `cpu` (der Bestand seit C4) fallen beide auf 0 --
 /// genau so ist "c == Default" gemeint; der POD unterscheidet "kein Flag" nicht von "CPU".
 [[nodiscard]] constexpr std::uint32_t stamp_entry_hw_code(StampEntryHardwareFlag f) noexcept {
     switch (f) {
@@ -358,7 +363,8 @@ inline constexpr std::string_view kStampEntryRenderedSentinel = "0.0.0";
     // A13-M1: das 'e'-Suffix wandert als Bit 0 ins reserved-Feld (ohne 'e' bleibt das Bit 0).
     if (sv.experimental) e.reserved |= kStampEntryFlagExperimental;
     // A13-M1b: das Hardware-Flag wandert als Bits 1-2 daneben. Ohne Flag (und bei 'c') ist der Code 0
-    // -> reserved bleibt fuer den gesamten flaglosen Bestand exakt 0 (Byte-Gleichheit). Das dokumentierte
+    // -> reserved bleibt fuer den gesamten Bestand exakt 0, vor wie nach der C4-Migration (Byte-Gleichheit
+    // des PODs; die Stempel-ZEILE selbst ist das deklarierte Byte-Ereignis). Das dokumentierte
     // Sentinel-Rendering "0.0.0" traegt nie Flags und bleibt damit ebenfalls bei reserved == 0.
     e.reserved |= (stamp_entry_hw_code(sv.hardware) << kStampEntryHwFlagShift);
     return e;
@@ -530,7 +536,9 @@ stamp_entries_ptr(std::array<AnatomyStampEntryV1, N> const& arr) noexcept {
 // Der Probe-Literal liegt bewusst NAMESPACE-SCOPE constexpr: nur so ueberleben die {ptr,len}-Sichten des
 // consteval-Ergebnisses als Konstant-Ausdruck (dieselbe K7b-3-Praezedenz wie im Makro-Aufrufer).
 namespace detail {
-// Segment 0: Owner-Q2-Namens-Toleranz + Owner-Q3-Voll-Form "ce". Segment 1: der heutige flaglose Bestand.
+// Segment 0: Owner-Q2-Namens-Toleranz + Owner-Q3-Voll-Form "ce". Segment 1: die FLAGLOSE Form (bis A13-M3/C4
+// der Bestand, seither eine reine Parser-Probe fuer Alt-/Fremd-Zeilen -- die Probe BLEIBT, weil der Parser
+// sie weiter lesen koennen muss).
 inline constexpr char kStampEntryProbeLine[] = "prt-art.memory.abc=prt_patricia@2.3.4ce;filter=bloom@1.0.0";
 inline constexpr auto kStampEntryProbe =
     parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryProbeLine})>(kStampEntryProbeLine);
@@ -544,7 +552,7 @@ static_assert(kStampEntryProbe[0].x == 2u && kStampEntryProbe[0].y == 3u && kSta
 static_assert(stamp_entry_is_experimental(kStampEntryProbe[0]));
 static_assert(stamp_entry_hardware_flag(kStampEntryProbe[0]) == StampEntryHardwareFlag::cpu);
 static_assert(kStampEntryProbe[0].reserved == kStampEntryFlagExperimental);
-// Der flaglose Bestand: KEIN Flag-Bit gesetzt, und er liest sich per Default als CPU-Stand.
+// Die flaglose Form: KEIN Flag-Bit gesetzt, und sie liest sich per Default als CPU-Stand.
 static_assert(!stamp_entry_is_experimental(kStampEntryProbe[1]));
 static_assert(stamp_entry_hardware_flag(kStampEntryProbe[1]) == StampEntryHardwareFlag::cpu);
 static_assert(kStampEntryProbe[1].reserved == 0u);
@@ -573,7 +581,7 @@ static_assert(!stamp_entry_is_experimental(kStampEntryHwProbe[2]));
 static_assert(kStampEntryHwProbe[0].reserved != kStampEntryHwProbe[1].reserved);
 static_assert(kStampEntryHwProbe[1].reserved != kStampEntryHwProbe[2].reserved);
 static_assert(kStampEntryHwProbe[2].reserved != kStampEntryHwProbe[3].reserved);
-static_assert(kStampEntryHwProbe[0].reserved != kStampEntryProbe[1].reserved); // g != flagloser Bestand
+static_assert(kStampEntryHwProbe[0].reserved != kStampEntryProbe[1].reserved); // g != flaglose Form
 
 // Fehlform-Wache (A13-M3/C2b, Befund Z-09 -- GEDREHT): ein zweites Hardware-Flag war bis C2b grammatisch
 // Sentinel und liess den Eintrag STILL auf @0.0.0 mit reserved == 0 kollabieren. Genau das schrieb die

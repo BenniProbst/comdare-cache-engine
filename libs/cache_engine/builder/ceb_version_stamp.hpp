@@ -50,10 +50,10 @@ namespace detail {
 }
 /// consteval: Laenge des fuehrenden load_framework-Segments "load_framework=<id>@X.Y.Z" (ohne Trenner).
 /// O-8 Schritt 12: dieselbe Quelle und dieselbe Form wie in abi::measurement_stamp_line (Schritt 9).
-// A13-M1b-Fixup (Review-BEFUND-2): der konsteval-Zwilling rendert den Owner-Q3-Flag-Schwanz MIT --
-// heute no-op (Bestand flaglos), nach der M2/M3-Migration auf "v1.0.0c" automatisch korrekt. Laenge
-// und Renderer sind symmetrisch aus denselben Registry-Werten berechnet; der Zwillingstest
-// (test_m_w12, CEB-Zeile == abi::measurement_stamp_line) bleibt damit ueber die Migration gruen.
+// A13-M1b-Fixup (Review-BEFUND-2): der konsteval-Zwilling rendert den Owner-Q3-Flag-Schwanz MIT -- bei
+// Anlage no-op (Bestand noch flaglos), seit der A13-M3/C4-Migration auf "v1.0.0c" traegt er das 'c'
+// automatisch. Laenge und Renderer sind symmetrisch aus denselben Registry-Werten berechnet; der
+// Zwillingstest (test_m_w12, CEB-Zeile == abi::measurement_stamp_line) blieb ueber die Migration gruen.
 [[nodiscard]] consteval std::size_t ceb_flag_len(::comdare::cache_engine::measurement::AlgoSemVer const& v) noexcept {
     return (::comdare::cache_engine::measurement::hardware_flag_char(v.hardware) != '\0' ? 1U : 0U) +
            (v.experimental ? 1U : 0U);

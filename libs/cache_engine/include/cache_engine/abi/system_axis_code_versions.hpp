@@ -4,8 +4,10 @@
 // 5x {"<achse>","code","v1"}. Jetzt: EINE Tabelle -> die Stempel-Funktion iteriert sie; ab jetzt ist jede System-
 // Achsen-Code-Version einzeln BUMP-BAR (A10-X.Y.Z-Disziplin), ohne die Stempel-Funktion anzufassen.
 //
-// RENDER-NEUTRAL (A11): "v1.0.0" rendert ueber algo_semver_string identisch zu "1.0.0" wie zuvor "v1" -> der
-// emittierte Quelltext + der gerenderte System-Stempel bleiben byte-identisch (Byte-Wache/CRC-Wache unberuehrt).
+// RENDER-NEUTRAL (A11, Stand bis A13-M3/C4): "v1.0.0" rendert ueber algo_semver_string identisch zu "1.0.0" wie
+// zuvor "v1" -> der emittierte Quelltext + der gerenderte System-Stempel blieben byte-identisch. SEIT A13-M3/C4
+// steht die Tabelle auf "v1.0.0c" und rendert "1.0.0c" -- das ist das DEKLARIERTE Stempel-/SHA512-Byte-Ereignis
+// der Owner-Q3-Flag-Migration (EIN Neuanker im M3-Fenster), keine stille Verschiebung.
 // "code" (der Algorithmus-Marker der System-Achse) lebt weiter in system_stamp_line, NICHT hier: diese Tabelle
 // traegt NUR die pro-Achse bump-bare Code-Version, die Achse-zu-Marker-Zuordnung ist Sache der Stempel-Funktion.
 //
@@ -23,7 +25,7 @@ namespace comdare::cache_engine::abi {
 struct SystemAxisCodeVersion {
     std::string_view axis; ///< System-Haupt-Achsen-Name ("compiler"/"external_utils"/...)
     std::string_view
-        version; ///< rohe Code-Version ("v1.0.0"); wird von build_axis_version_stamp_line zu X.Y.Z gerendert
+        version; ///< rohe Code-Version (seit A13-M3/C4 "v1.0.0c"); build_axis_version_stamp_line rendert X.Y.Z[c]
 };
 
 // Single-Source: Drift einer 4. System-Haupt-Achse bricht hier compile-time (statt still 3 zu bleiben).
@@ -36,7 +38,8 @@ struct SystemAxisCodeVersion {
 inline constexpr std::size_t kSystemAxisCodeCount = 3;
 
 /// Die EINE Tabelle der System-Achsen-Code-Versionen -- Reihenfolge == kanonische System-Stempel-Ordnung (Section 43,
-/// W12-A-1). Init "v1.0.0" (render-neutral zum frueheren "v1"); je Eintrag ab jetzt einzeln bump-bar.
+/// W12-A-1). Init war "v1.0.0" (render-neutral zum frueheren "v1"); seit A13-M3/C4 "v1.0.0c" (Owner-Q3).
+/// Je Eintrag einzeln bump-bar.
 ///
 /// BUMP-WACHE operating_system (A14 / Bump-Verbots-Wache (Design-3/RISIKEN; K5 selbst = probe_id-Versionierung, OS-U3), Owner-Entscheid E3 vom 02.08.2026) -- seit B6
 /// (Codex-Review 02.08.2026) HART als static_assert je Eintrag unter der Tabelle, nicht mehr nur als
@@ -72,8 +75,8 @@ inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystem
 // System-Stempel-Ordnung (Section 43 / W12-A-1). Eine reine Umsortierung waere sonst ein Byte-Ereignis,
 // das keine der Wachen sieht.
 //
-// MIGRATIONS-NAHT: im A13-M2/M3-Neuanker-Fenster ziehen die drei Literale auf "v1.0.0c" (Owner-Q3) --
-// DIESE DREI ASSERTS GEHEN IM SELBEN COMMIT MIT. Das ist Absicht: die Migration ist ein deklariertes
+// MIGRATIONS-NAHT (VOLLZOGEN in A13-M3/C4): die drei Literale stehen auf "v1.0.0c" (Owner-Q3) -- DIESE DREI
+// ASSERTS SIND IM SELBEN COMMIT MITGEGANGEN. Das war Absicht: die Migration ist ein deklariertes
 // Byte-Ereignis, kein stiller Nachzug (Naht-Liste (a) in measurement/algo_semver.hpp).
 static_assert(kSystemAxisCodeVersions[0].axis == std::string_view{"target_isa"} &&
                   kSystemAxisCodeVersions[0].version == std::string_view{"v1.0.0c"},

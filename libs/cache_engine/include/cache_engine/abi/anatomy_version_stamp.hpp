@@ -139,7 +139,7 @@ template <class Comp>
     // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt GENAU DREI HAUPT-Achsen-Segmente statt fuenf -- die
     // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
     // wurde die Hartkodierung damals aufgeloest.
-    // Render-neutral: "v1.0.0" -> "1.0.0" wie zuvor "v1" -> "1.0.0".
+    // Render: "v1.0.0c" -> "1.0.0c" (seit A13-M3/C4; bis dahin render-neutral "v1.0.0" -> "1.0.0" wie "v1").
     std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
     for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
         entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
@@ -208,8 +208,8 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
-    // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur ungueltige
-    // ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
+    // bekannte id -> "v1.0.0c" (Render "1.0.0c", seit A13-M3/C4), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur
+    // ungueltige ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
     // A13-M2 (OP-3-Rueckbau, Owner-E2): load_framework steht NICHT mehr vorne, sondern als KLAMMER-Anhang
     // ANS ENDE.
     std::array<AxisVersionEntry, 1> const entries{{
@@ -237,7 +237,8 @@ template <class Comp>
     for (std::string_view const t : toolings)
         if (!t.empty())
             // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
-            // fuer unbekannte ids (render-neutral fuer die gueltigen wallclock/macro/micro).
+            // fuer unbekannte ids. Die gueltigen ids (wallclock/macro/micro) rendern seit A13-M3/C4 "1.0.0c"
+            // -- deklariertes Byte-Ereignis der Q3-Migration, nicht mehr render-neutral.
             entries.push_back(
                 {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
     if (entries.empty()) return {};

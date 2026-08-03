@@ -4,14 +4,14 @@
 // Feature-Stand -- fuer jeden Achsen-Algorithmus (alle Typen) einzeln + den Planer statisch.
 //
 // KRITISCH (Byte-Wache, Section43): Dieser Helfer PARST nur den bereits existierenden algo_version-String
-// (`W::algo_version`, heute ueberall "v1.0.0") in ein X.Y.Z-Tripel. Er wird AUSSCHLIESSLICH von den NEUEN
-// Stempel-Zeilen / dem Planer-Stempel / der neuen Registry-Emission genutzt -- NIE vom bestehenden
+// (`W::algo_version`, seit A13-M3/C4 ueberall "v1.0.0c") in ein X.Y.Z-Tripel. Er wird AUSSCHLIESSLICH von den
+// NEUEN Stempel-Zeilen / dem Planer-Stempel / der neuen Registry-Emission genutzt -- NIE vom bestehenden
 // compose_algo_signature-/.algos-Serialisierungspfad (der bleibt byte-identisch: die rohe Version
 // serialisiert weiter roh, nie als "1.0.0"). Kein gemeinsamer Formatter mit der Alt-Welt.
 //
 // Format (Architekt-Entscheid W12-A-2, ABGELOEST durch Owner-Q3 -- s. A13-M1b unten): frueher "vN" (== N.0.0)
 // ODER "vN.N.N". Kurzformen wie "v1.2" sind VERBOTEN (Mehrdeutigkeit). Unparsbar/Sentinel -> {0,0,0}
-// (deckungsgleich zum @v0-Sentinel des compose-Pfads; der Aufrufer raet nie).
+// (deckungsgleich zum "@v0.0.0"-Sentinel des compose-Pfads seit A13-M3/C4; der Aufrufer raet nie).
 //
 // A13-M1 (Owner-Entscheid E2 vom 02.08.2026, verbatim): "Die Markierung experimenteller Achsen-Algorithmen aus
 // einem Pruefling wird in der Versionsbezifferung eines jeden Achsen-Algorithmus mit einem angehaengten 'e' fuer
@@ -35,18 +35,24 @@
 //              die rohen Literale VERBATIM serialisiert -- ein Lager-Key-Zusammenfall bei roh
 //              verschiedenen Binaries. Beide Formen sind jetzt Sentinel.
 //
-// KURZFORM-RUECKBAU (A13-M1b, bindend): "vN" und "vNe" sind SENTINEL. Belegt vor dem Umbau per grep: der
-// Bestand traegt KEIN vN-Literal als echte Version -- alle 122 W::algo_version, die 3 System-Achsen-Code-
-// Versionen, die 3 Mess-Tooling- und die 1 Mess-Framework-Version stehen bereits als "v1.0.0" da. Die
-// einzigen "v0"-Kurzformen waren SENTINEL-Literale (Render "0.0.0" vor wie nach dem Rueckbau); sie sind in
-// diesem Paket auf die dreistellige Sentinel-Form "v0.0.0" gezogen. Ausnahme mit Absicht: die ROHE
-// .algos-Signatur (compose_algo_signature) ist eine SEPARATE, byte-eingefrorene Welt und behaelt ihr "@v0".
+// KURZFORM-RUECKBAU (A13-M1b, bindend): "vN" und "vNe" sind SENTINEL. Belegt vor dem Umbau per grep (Stand
+// A13-M1b): der Bestand trug KEIN vN-Literal als echte Version -- alle 122 W::algo_version, die 3 System-
+// Achsen-Code-Versionen, die 3 Mess-Tooling- und die 1 Mess-Framework-Version standen dreistellig als
+// "v1.0.0" da (seit A13-M3/C4 als "v1.0.0c", s. VOLLZUG unten). Die einzigen "v0"-Kurzformen waren
+// SENTINEL-Literale (Render "0.0.0" vor wie nach dem Rueckbau); sie sind in diesem Paket auf die
+// dreistellige Sentinel-Form "v0.0.0" gezogen. A13-M1b hatte die ROHE .algos-Signatur
+// (compose_algo_signature) als Ausnahme bei der Kurzform "@v0" stehen lassen; A13-M3/C4 (DV-3 = RUECKBAU)
+// hat auch diesen Sentinel dreistellig gezogen -- der .algos-Pfad emittiert seither "@v0.0.0"
+// (axis_variant_version_table.hpp), im SELBEN .algos-Byte-Ereignis wie die Literal-Migration.
 //
-// UEBERGANGS-TOLERANZ (A13-M1b, bewusst befristet): das FLAGLOSE dreistellige "vX.Y.Z" bleibt VORERST
-// parsbar, weil der 122x-Bestand erst im A13-M2/M3-Neuanker-Fenster auf "v1.0.0c" migriert (ein einziges
-// Stempel-/SHA512-Byte-Ereignis, kein zweiter Neuanker). Die Owner-PFLICHT "alle Versionen enden auf 'c'
-// oder 'ce'" ist als version_satisfies_cpu_only_policy() GEBAUT und in axis_variant_version_table.hpp
-// verdrahtet, aber hinter COMDARE_VERSION_HW_FLAG_ENFORCE (Default OFF) scharfgeschaltet.
+// UEBERGANGS-TOLERANZ VOLLZOGEN (A13-M3/C4, 03.08.2026): die Toleranz war bewusst befristet und ist
+// ABGELAUFEN. Der Bestand (122 W::algo_version + die 3+3+1 Nicht-Organ-Literale + Planer- und
+// OS-Probe-Version) steht seit C4 auf "v1.0.0c" -- EIN Stempel-/SHA512-/.algos-Byte-Ereignis, kein zweiter
+// Neuanker. Die Owner-PFLICHT "alle Versionen enden auf 'c' oder 'ce'" ist als
+// version_satisfies_cpu_only_policy() gebaut, in axis_variant_version_table.hpp verdrahtet und hinter
+// COMDARE_VERSION_HW_FLAG_ENFORCE == 1 SCHARF (Default ON, s. unten). Das FLAGLOSE dreistellige "vX.Y.Z"
+// bleibt PARSBAR -- das ist reine PARSER-Semantik (Alt-Zeilen und Fremd-Literale lesen sich weiter), KEIN
+// Bestand mehr: an jeder ce-EIGENEN Quelle weisen die ENFORCE-Wachen es compile-time zurueck.
 //
 // SENTINEL-WACHE (A13-Review-Auflage K-5): das NULL-TRIPEL IST der Sentinel -- auch mit Flags. "v0.0.0c"/
 // "v0.0.0ce"/"0.0.0ce" parsen exakt auf AlgoSemVer{} (hardware none, experimental FALSE), damit die
@@ -66,13 +72,17 @@
 #include <utility>
 
 /// A13-M1b SCHARFSCHALTUNG der Owner-Q3-PFLICHT ("alle Versionen muessen mit 'c' oder 'ce' enden").
-/// DEFAULT OFF: solange der Bestand flaglos ist ("v1.0.0", 122x), wuerde die Wache jede Registry-Variante
-/// compile-brechen. IM MIGRATIONS-COMMIT DES A13-M2/M3-NEUANKER-FENSTERS GEHT DIESES DEFINE AUF ON -- im
-/// SELBEN Commit, der die Bestands-Strings auf "v1.0.0c" zieht (ein Byte-Ereignis, ein Neuanker). Wer das
-/// Define frueher scharf schaltet, bricht den Bau; wer die Migration ohne das Define landet, laesst die
-/// Pflicht undurchgesetzt.
+/// DEFAULT ON seit A13-M3/C4 (03.08.2026): der Migrations-Commit hat die Bestands-Strings auf "v1.0.0c"
+/// gezogen UND dieses Define im SELBEN Commit auf 1 gesetzt (ein Byte-Ereignis, ein Neuanker) -- genau die
+/// Doppel-Absicht, die A13-M1b vorgeschrieben hatte. Bis dahin stand es auf 0, weil die Wache sonst jede
+/// noch flaglose Registry-Variante compile-gebrochen haette. Wer es heute auf 0 zuruecksetzt, laesst die
+/// Owner-Pflicht undurchgesetzt; die Bestands-Literale bleiben davon unberuehrt.
 /// MIGRATIONS-NAHT-LISTE (A13-M1b-Fixup Review-BEFUND-2; Klasse (d) aus A13-M2 Review-BEFUND-3 -- der
-/// Migrations-Commit zieht ALLE Quellen, nicht nur die 122 W::algo_version-Literale).
+/// Migrations-Commit zog ALLE Quellen, nicht nur die 122 W::algo_version-Literale).
+/// VOLLZUG (A13-M3/C4): die Q3-Migration IST GELAUFEN -- alle unten gefuehrten Klassen (a)-(f) stehen auf
+/// "v1.0.0c", ENFORCE ist scharf. Die Liste bleibt trotzdem stehen: sie sagt, WELCHE Quellen-KLASSEN es
+/// gibt und woran eine neue erkannt wird. Jede KUENFTIGE ce-Versions-Quelle gehoert hier hinein und traegt
+/// die beiden B12-Wachen -- sonst entsteht wieder eine Luecke wie bei (e)/(f).
 /// DOKTRIN VORWEG: diese Liste ist AUS DEM DIFF/GREP ABZULEITEN, NIE HANDGEPFLEGT. Genau das Fortschreiben
 /// von Hand ist beim M2-Bau unterblieben (BEFUND-3). Ueberall dort, wo die Fundstellen ZAEHLBAR sind und
 /// mit dem Bestand WACHSEN, steht deshalb unten das KOMMANDO, mit dem der Migrations-Commit seine
@@ -99,7 +109,8 @@
 ///       symmetrisch mit (ceb_flag_len) -- der Zwillingstest bleibt ueber die Migration gruen.
 ///   (c) compose_algo_signature (axis_variant_version_table.hpp) serialisiert W::algo_version VERBATIM:
 ///       die 122er-Migration ist damit AUCH ein .algos-Sidecar-Byte-Ereignis (Skip-/Rebuild-Kaskade der
-///       Sidecar-Welt) und ist im EINEN M2/M3-Byte-Ereignis-Fenster mit zu budgetieren.
+///       Sidecar-Welt) und war im EINEN M2/M3-Byte-Ereignis-Fenster mit budgetiert. A13-M3/C4 hat es dort
+///       vollzogen -- zusammen mit dem DV-3-Rueckbau des Signatur-Sentinels "@v0" -> "@v0.0.0".
 ///   (d) A13-M2 (Review-BEFUND-3): die META-META-Code-Versionen. Seit dem Owner-Entscheid E2
 ///       ("Die Meta-Meta-Achsen und deren Stempel-Eintraege sind wie alle Hauptachsen PFLICHT") traegt
 ///       JEDE Meta-Meta ein eigenes `axis_code_version`-Literal -- eine VIERTE Quelle neben (a)-(c),
@@ -123,16 +134,16 @@
 ///       planner_version.hpp traegt kPlannerVersion als EIGENEN ce-Versionspfad (Section43.b "den Planer
 ///       statisch") -- frueher "1.0.0" OHNE 'v' und von KEINER Wache erfasst. Seit dem CX-W5-Fix mit
 ///       'v'-Roh-Literal (Owner-Q10), gated ENFORCE-Wache (ce_owned_version_satisfies_cpu_enforce) und
-///       praefixfreiem "planner@1.0.0c"; der Migrations-Commit zieht ihn wie die Nicht-Organ-Literale (a)
-///       auf "v1.0.0c" mit. MECHANISCH GESICHERT: die gated static_assert in planner_version.hpp bricht beim
-///       Scharfschalten von selbst mit.
+///       praefixfreiem "planner@1.0.0c"; der Migrations-Commit A13-M3/C4 hat ihn wie die Nicht-Organ-
+///       Literale (a) auf "v1.0.0c" mitgezogen. MECHANISCH GESICHERT: die gated static_assert in
+///       planner_version.hpp haette beim Scharfschalten von selbst mitgebrochen.
 ///       Erhebung: grep -rn 'kPlannerVersion *=' --include=*.hpp profile_facade/planner
 ///   (f) OS-U3 (Commit d115e4cc; Befund GA-05/Z-10 vom 03.08.2026, in A13-M3/C2 nachgetragen): die
 ///       OS-PROBE-VERFAHRENS-Version. measurement/operating_system_probe.hpp fuehrt kOsProbeVersion als
-///       EIGENES ce-Literal -- EIN Literal, aber DREI probe_ids ("os_probe.<familie>@v1.0.0", je Familie
-///       eine); der Migrations-Commit zieht es wie die Nicht-Organ-Literale (a) auf "v1.0.0c" mit.
-///       MECHANISCH GESICHERT: die gated ENFORCE-Wache in operating_system_probe.hpp bricht beim
-///       Scharfschalten von selbst mit. WARUM DIE KLASSE HIER FEHLTE (die eigentliche Lehre): das Literal
+///       EIGENES ce-Literal -- EIN Literal, aber DREI probe_ids ("os_probe.<familie>@v1.0.0c", je Familie
+///       eine); der Migrations-Commit A13-M3/C4 hat es wie die Nicht-Organ-Literale (a) auf "v1.0.0c"
+///       mitgezogen. MECHANISCH GESICHERT: die gated ENFORCE-Wache in operating_system_probe.hpp haette
+///       beim Scharfschalten von selbst mitgebrochen. WARUM DIE KLASSE HIER FEHLTE (die Lehre): das Literal
 ///       heisst weder algo_version noch axis_code_version und liegt in keiner der drei namentlich
 ///       genannten Registry-Dateien -- es fiel damit durch jedes einzelne der frueheren Kommandos. Genau
 ///       deshalb steht der generische Wachen-grep jetzt VORNE.
@@ -148,8 +159,9 @@
 namespace comdare::cache_engine::measurement {
 
 /// A13-M1b (Owner-Q3): die FLAG-FAMILIE der Hardware-Zielrichtung eines Achsen-Algorithmus. Erweiterbar
-/// gehalten (der Owner nennt g/c/f/n explizit als Familie); `none` == KEIN Flag und existiert NUR fuer die
-/// befristete Uebergangs-Toleranz des flaglosen Bestands, nie als Zielzustand.
+/// gehalten (der Owner nennt g/c/f/n explizit als Familie); `none` == KEIN Flag und existierte NUR fuer die
+/// befristete Uebergangs-Toleranz des damals flaglosen Bestands, nie als Zielzustand. Seit A13-M3/C4 gibt es
+/// keinen flaglosen ce-Bestand mehr -- `none` ist nur noch PARSER-Semantik fuer Alt-/Fremd-Literale.
 enum class HardwareFlag : std::uint8_t { none = 0, cpu = 1, gpu = 2, fpga = 3, npu = 4 };
 
 /// Das Flag-ZEICHEN der rohen/gerenderten Form. `none` -> '\0' (rendert nichts). EINZIGE Wahrheit der
@@ -319,7 +331,9 @@ inline constexpr std::string_view kAlgoSemVerSentinelLiteral = "v0.0.0";
 /// Die X.Y.Z-VOLL-Form als String -- NUR fuer neue Stempel-Zeilen/Planer/Registry (NIE die .algos-Sig).
 /// A13-M1b: hinter das Tripel wandert erst das Hardware-Flag, dann das 'e' ("2.3.4c", "2.3.4ce") -- dieselbe
 /// Reihenfolge wie in der rohen Form. Der Sentinel rendert immer nackt "0.0.0" (er traegt nie Flags, K-5).
-/// GOLDEN-NEUTRAL bis zur M2/M3-Migration: der flaglose Bestand ("v1.0.0") rendert unveraendert "1.0.0".
+/// A13-M3/C4: der Bestand steht auf "v1.0.0c" und rendert "1.0.0c" (deklariertes Byte-Ereignis). Die frueher
+/// zugesicherte Golden-Neutralitaet der flaglosen Form ("v1.0.0" -> "1.0.0") gilt fuer diese Form weiter,
+/// beschreibt aber keinen Bestands-Fall mehr.
 [[nodiscard]] inline std::string algo_semver_string(std::string_view algo_version) {
     AlgoSemVer const v   = parse_algo_semver(algo_version);
     std::string      out = std::to_string(v.x) + '.' + std::to_string(v.y) + '.' + std::to_string(v.z);
@@ -354,8 +368,9 @@ inline constexpr std::string_view kAlgoSemVerSentinelLiteral = "v0.0.0";
 ///   (a) PARSBAR (oder exakt der dokumentierte Sentinel)      -- kein stiller @0.0.0-Fall,
 ///   (b) NIE experimentell ('e' ist AUSSCHLIESSLICH die Pruefling-Markierung, Owner-E2 02.08.2026),
 ///   (c) wenn ein Hardware-Flag da ist, dann 'c' (Owner-Q3; g/f/n sind reserviert, nicht produziert).
-/// Die Owner-PFLICHT "ein Flag MUSS da sein" ist bewusst NICHT hier, sondern im gated Zwilling unten --
-/// bis zur M2/M3-Migration ist der flaglose Bestand toleriert.
+/// Die Owner-PFLICHT "ein Flag MUSS da sein" ist bewusst NICHT hier, sondern im gated Zwilling unten -- so
+/// bleibt dieser ungated Teil auch fuer Alt-/Fremd-Literale nutzbar. (Bis A13-M3/C4 deckte die Trennung
+/// zusaetzlich den flaglosen Uebergangs-Bestand ab; den gibt es seither nicht mehr.)
 [[nodiscard]] constexpr bool ce_owned_version_is_wellformed(std::string_view raw) noexcept {
     if (!version_is_parsable_or_documented_sentinel(raw)) return false;
     AlgoSemVer const v = parse_algo_semver(raw);
@@ -418,7 +433,8 @@ static_assert(parse_dotted_semver("1.0.0") == parse_algo_semver("v1.0.0"));
 
 // -- A13-M1b: KURZFORM-RUECKBAU (Owner-Q3 "Die Kurzform ist verboten ... immer 3-Stellig") -----------
 // Die A13-M1-Zwischenform "vN"/"vNe" ist ZURUECKGEBAUT: beide sind ab jetzt Sentinel. Der Bestand ist davon
-// nicht betroffen (grep-belegt: alle echten Versions-Literale stehen dreistellig als "v1.0.0" da).
+// nicht betroffen (grep-belegt: alle echten Versions-Literale stehen dreistellig da -- seit A13-M3/C4 als
+// "v1.0.0c", zum Zeitpunkt des Rueckbaus als "v1.0.0").
 static_assert(parse_algo_semver("v1") == AlgoSemVer{});  // frueher {1,0,0} -- jetzt Sentinel
 static_assert(parse_algo_semver("v0") == AlgoSemVer{});  // frueher Sentinel -- bleibt Sentinel
 static_assert(parse_algo_semver("v1e") == AlgoSemVer{}); // A13-M1-Kurzform mit 'e' -- zurueckgebaut
@@ -456,7 +472,8 @@ static_assert(parse_dotted_semver("0.0.1") == AlgoSemVer{0, 0, 1});
 static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{1, 0, 0});
 
 // -- A13-M1b: FLAG-GRAMMATIK (Owner-Q3 02.08.2026) -- vollstaendige CT-Batterie ---------------------
-// (a) Uebergangs-Toleranz: der flaglose dreistellige Bestand parst weiter und traegt KEINE Flags.
+// (a) PARSER-Semantik der flaglosen dreistelligen Form: sie parst weiter und traegt KEINE Flags. Bis
+//     A13-M3/C4 war das die Uebergangs-Toleranz des BESTANDS; heute ist der Bestand flagbehaftet.
 static_assert(!parse_algo_semver("v1.0.0").has_hardware_flag());
 static_assert(!parse_algo_semver("v1.0.0").experimental);
 static_assert(!parse_algo_semver("v2.3.4").experimental);
@@ -553,7 +570,7 @@ static_assert(!version_is_parsable_or_documented_sentinel(""));
 // (b) ce-EIGENE Versionen tragen NIE 'e' -- weder flaglos-experimentell (grammatisch schon Sentinel)
 //     noch als wohlgeformtes "ce".
 static_assert(ce_owned_version_is_wellformed("v1.0.0"));  // flaglos bleibt GRAMMATISCH wohlgeformt ...
-static_assert(ce_owned_version_is_wellformed("v1.0.0c")); // Ziel-Form nach der M2/M3-Migration
+static_assert(ce_owned_version_is_wellformed("v1.0.0c")); // Ziel-Form; seit A13-M3/C4 die Bestands-Form
 static_assert(ce_owned_version_is_wellformed(kAlgoSemVerSentinelLiteral));
 static_assert(!ce_owned_version_is_wellformed("v1.0.0ce")); // 'e' == Pruefling-Markierung
 static_assert(!ce_owned_version_is_wellformed("v2.3.4ce"));
@@ -568,7 +585,7 @@ static_assert(!ce_owned_version_is_wellformed(""));
 // (c) GATED: das CPU-Flag ist Pflicht UND das 'e' bleibt verboten (die Luecke, die
 //     version_satisfies_cpu_only_policy allein offen liess).
 static_assert(ce_owned_version_satisfies_cpu_enforce("v1.0.0c"));
-static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0"));   // flaglos -> nach der Migration hart
+static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0"));   // flaglos -> seit A13-M3/C4 hart
 static_assert(!ce_owned_version_satisfies_cpu_enforce("v1.0.0ce")); // HIER lag die Luecke
 static_assert(version_satisfies_cpu_only_policy("v1.0.0ce"));       // ... und so sah sie aus
 static_assert(!ce_owned_version_satisfies_cpu_enforce("v2.3.4ce"));

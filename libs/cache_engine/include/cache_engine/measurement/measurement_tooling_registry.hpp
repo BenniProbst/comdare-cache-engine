@@ -37,8 +37,8 @@ struct MeasurementToolingInfo {
     MeasurementTooling tooling;
     std::string_view   id;      ///< kanonischer Legenden-/XML-/Stempel-Token ("wallclock"/"macro"/"micro")
     std::string_view   name;    ///< exakt der Enum-Name (Doku/Reporting)
-    std::string_view   version; ///< A2 (G2-4 Schritt 4): bump-bare Code-Version der Mess-Tooling-Achse ("v1.0.0",
-                                ///< render-neutral zu "v1"); measurement_stamp_line liest sie statt der Hartkodierung.
+    std::string_view   version; ///< A2 (G2-4 Schritt 4): bump-bare Code-Version der Mess-Tooling-Achse (seit
+                                ///< A13-M3/C4 "v1.0.0c"); measurement_stamp_line liest sie statt der Hartkodierung.
 };
 
 /// Die EINE Registry der Mess-Tooling-HAUPT-Achse -- Index == Tooling-Wert (static_assert-gesichert). Die `id`-Token
@@ -99,14 +99,16 @@ static_assert(detail::tooling_registry_is_complete(),
 }
 
 /// A2 (G2-4 Schritt 4): die bump-bare Code-Version zu einer Tooling-`id` (Stempel-Token). Bekannte id -> ihre
-/// Registry-Version ("v1.0.0"); UNBEKANNTE id -> Sentinel (dokumentierter Render-Wechsel @0.0.0 NUR fuer
-/// ungueltige ids; gueltige golden-ids bleiben render-neutral bei "v1.0.0" -> "1.0.0"). measurement_stamp_line
-/// (abi/anatomy_version_stamp.hpp) liest hierueber statt der frueheren "v1"-Hartkodierung.
+/// Registry-Version (seit A13-M3/C4 "v1.0.0c" -> Render "1.0.0c"); UNBEKANNTE id -> Sentinel (@0.0.0, NUR fuer
+/// ungueltige ids). Die frueher hier zugesicherte RENDER-NEUTRALITAET gueltiger golden-ids ("v1.0.0" -> "1.0.0")
+/// gilt seit C4 NICHT mehr: die Mess-Zeile traegt das CPU-Flag -- deklariertes Byte-Ereignis der Q3-Migration.
+/// measurement_stamp_line (abi/anatomy_version_stamp.hpp) liest hierueber statt der frueheren "v1"-Hartkodierung.
 ///
 /// A13-M1b (Owner-Q3 02.08.2026 "Versionierungen sind ... immer 3-Stellig"): der Sentinel-Rueckgabewert war
 /// die Kurzform "v0", die mit dem Kurzform-Rueckbau nur noch ZUFAELLIG (weil unparsbar) auf den Sentinel
 /// fiele. Er steht deshalb jetzt dreistellig als "v0.0.0" da -- ABSICHTLICH statt zufaellig, byte-neutral:
 /// beide Formen rendern ueber algo_semver_string identisch "0.0.0".
+/// A13-M3/C4 (DV-3) hat denselben Rueckbau am .algos-Signatur-Pfad nachgezogen -- "@v0" existiert nirgends mehr.
 /// B12: das Literal kommt aus kAlgoSemVerSentinelLiteral (Single-Source) -- GENAU dieser Wortlaut ist der
 /// eine, den die Registry-Parsbarkeits-Wache als ABSICHT durchlaesst. Zwei Literale gaebe es sonst wieder.
 [[nodiscard]] constexpr std::string_view tooling_version_for_id(std::string_view id) noexcept {

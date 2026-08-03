@@ -124,8 +124,8 @@ concept SystemMetaMetaAxisConcept = CebSystemAxisConcept<A> && is_system_meta_me
 
 /// A13-M2: die CT-Wache je Meta-Meta-Code-Version -- exakt die Disziplin von
 /// axis_variant_version_table.hpp:58-68 (parsbar, kein Sentinel) plus die Owner-Q3-Flag-Grammatik
-/// (kein FALSCHES Hardware-Flag; die CPU-Pflicht selbst schaltet der Migrations-Commit ueber
-/// COMDARE_VERSION_HW_FLAG_ENFORCE scharf -- Migrations-Naht-Liste in algo_semver.hpp).
+/// (kein FALSCHES Hardware-Flag; die CPU-Pflicht selbst hat der Migrations-Commit A13-M3/C4 ueber
+/// COMDARE_VERSION_HW_FLAG_ENFORCE scharf geschaltet -- Migrations-Naht-Liste in algo_semver.hpp).
 ///
 /// A13-M3/C2 (Befund Z-03, Wellen-Zweitpass 03.08.2026): die beiden Zwillinge bauten die ce-Politik
 /// SELBST nach, statt die B12-Single-Source zu rufen -- und zwar LUECKENHAFT. `wohlgeformt` fragte das
