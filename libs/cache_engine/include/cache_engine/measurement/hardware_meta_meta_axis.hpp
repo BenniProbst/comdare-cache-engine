@@ -163,7 +163,7 @@ struct MetaMetaVersionProbe {
 };
 inline constexpr std::string_view kProbeVersionCe       = "v1.0.0ce"; // Pruefling-Markierung an ce-Achse
 inline constexpr std::string_view kProbeVersionC        = "v1.0.0c";  // die Ziel-Form nach A13-M3/C4
-inline constexpr std::string_view kProbeVersionFlaglos  = "v1.0.0";   // der heutige Uebergangs-Bestand
+inline constexpr std::string_view kProbeVersionFlaglos  = "v1.0.0";   // Negativ-Probe (seit C4 kein Bestand)
 inline constexpr std::string_view kProbeVersionGpu      = "v1.0.0g";  // falsches Hardware-Flag (Owner-Q3)
 inline constexpr std::string_view kProbeVersionSentinel = "v0.0.0";   // dokumentierter Sentinel
 inline constexpr std::string_view kProbeVersionKaputt   = "v1.0";     // unparsbar
@@ -178,7 +178,7 @@ static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail
               "Z-03: der gated Zwilling darf 'ce' ebenfalls nie passieren lassen.");
 // -- Die uebrigen Klassen, damit die Umstellung nicht nur die Luecke, sondern die ganze Politik belegt --
 static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionFlaglos>>(),
-              "der flaglose Uebergangs-Bestand bleibt bis zur C4-Migration wohlgeformt (byte-neutral).");
+              "die flaglose Form bleibt GRAMMATISCH wohlgeformt -- die CPU-PFLICHT setzt die gated Wache durch.");
 static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionFlaglos>>(),
               "... und bricht genau dann, wenn C4 COMDARE_VERSION_HW_FLAG_ENFORCE scharf schaltet.");
 static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionC>>());

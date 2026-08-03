@@ -2,8 +2,8 @@
 // Leichte TU (keine Registries): verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
-#include <cache_engine/abi/anatomy_fingerprint.hpp>   // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
-#include <cache_engine/abi/anatomy_stamp_entries.hpp> // A3: count/parse_stamp_entries + AnatomyStampEntryV1
+#include <cache_engine/abi/anatomy_fingerprint.hpp>        // K7b-3: anatomy_fingerprint_hex (A13-M3: 3 Stempel-Zeilen)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp>      // A3: count/parse_stamp_entries + AnatomyStampEntryV1
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp>               // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
 #include <cache_engine/measurement/external_utils_family_axis.hpp>   // A13-M2: ExternalUtilsHub (System-Realm)
@@ -176,7 +176,7 @@ TEST(MW12StampBausteine, A13M1bFlagGrammarParsesInRawAndDottedForm) {
     //     genau deshalb steht das Define auf OFF, bis der M2/M3-Migrations-Commit die Literale zieht.
     EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v1.0.0c"));
     EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v2.3.4ce"));
-    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0")); // der heutige 122x-Bestand
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0")); // flaglos: seit C4 kein Bestand mehr
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0g"));
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0f"));
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0n"));

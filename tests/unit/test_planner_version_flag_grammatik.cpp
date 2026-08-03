@@ -5,7 +5,8 @@
 // ce-Politik-Wache erfasst war und (d) in der A13-M2/M3-Migrations-Naht fehlte. Der Fix bringt kPlannerVersion
 // auf das Roh-Literal "v1.0.0" (Q10), legt die ce-Politik-Wachen (ce_owned_version_is_wellformed + gated
 // ce_owned_version_satisfies_cpu_enforce) an und nimmt den Planer in die Migrations-Naht (algo_semver.hpp
-// Klasse (e)) auf -- die GERENDERTE Zeile "planner@1.0.0" bleibt BYTE-IDENTISCH (render-neutral wie "v1"->"1.0.0").
+// Klasse (e)) auf. A13-M3/C4: die GERENDERTE Zeile lautet "planner@1.0.0c" -- das 'v'-Praefix faellt weiter
+// weg (Owner-Q10), das HARDWARE-FLAG gehoert zur Version und bleibt stehen.
 //
 // **Negativ-Probe (RED vor Fix / GREEN nach Fix):** PlannerVersionIsWellformedCeVersion prueft
 // ce_owned_version_is_wellformed(kPlannerVersion). Vor dem Fix (kPlannerVersion=="1.0.0", ohne 'v') parst das

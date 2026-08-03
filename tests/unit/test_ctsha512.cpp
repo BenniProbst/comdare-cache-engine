@@ -4,8 +4,10 @@
 //   Fox / kanonischer 112-Byte-Zwei-Block-Vektor). Zusaetzlich RT-Pfad-Deckung (span-Ueberladung + hex-Roundtrip),
 //   damit auch der Nicht-constexpr-Zweig gemessen wird.
 //
-// Der SHA-512-Fingerprint wird in K7b-3 zur 6. AnatomyVersionLines-Stempel-Zeile (concat(organ+system+
-//   measurement+merge)); dieser Test friert das Primitiv separat ein, bevor es die POD-Naht beruehrt.
+// Der SHA-512-Fingerprint ist die sha512_line des AnatomyVersionLines-POD. A13-M3: er rechnet ueber die
+//   '\n'-getrennte Glied-Folge (abi::anatomy_fingerprint_glieder) -- die merge-Zeile ist entfallen
+//   (Owner-E2), Format-Kennung und Sub-Achsen-Werteset sind dazugekommen. Dieser Test friert das PRIMITIV
+//   separat ein, unabhaengig von der Glied-Ordnung, bevor es die POD-Naht beruehrt.
 
 #include <gtest/gtest.h>
 

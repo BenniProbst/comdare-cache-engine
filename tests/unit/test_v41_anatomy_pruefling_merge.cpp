@@ -17,6 +17,8 @@
 #include <anatomy/pruefling_merge.hpp>
 
 #include <boost/mp11.hpp>
+
+#include <string_view> // A13-M3/C5: Q2-Wachen-Proben (name()/algo_version der Stempel-Identitaet)
 #include <type_traits>
 
 namespace prf = ::comdare::cache_engine::anatomy::pruefling;
@@ -169,6 +171,58 @@ TEST(R5C_MergeDispatch, Stufe2PrueflingReplace) {
 TEST(R5C_MergeDispatch, Stufe3FullJoin) {
     using S = prf::MergeAxis<prf::MergeStrategy::Stufe3_FullJoin, CeDefaults, PrtArtSlot, OtherPrueflingSlot>;
     static_assert(mp::mp_size<S>::value == 6);
+    SUCCEED();
+}
+
+// -----------------------------------------------------------------------------
+// Abschnitt 5a -- A13-M3/C5: die Q2-CT-Wache an der Merge-Namens-Naht BEISST
+// -----------------------------------------------------------------------------
+//
+// Seit Owner-E2 (02.08.2026) gibt es keine merge-ZEILE mehr; seit Owner-Q2 lebt die Merge-Art im Stempel nur
+// noch ueber erweiterte hierarchische Namen und das 'e'-Flag. Damit ist der NAME die einzige Trennung zweier
+// byte-verschiedener Merge-Binaries -- und das muss eine Wache sein. Diese Proben belegen, dass sie
+// TRENNSCHARF ist (nicht bloss vorhanden): sie schlaegt bei Namensgleichheit an und schweigt bei
+// Unterscheidbarkeit. Die static_asserts an MergeImpl selbst sind damit keine leere Zusage.
+
+namespace {
+struct StampCeVariant {
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "gleicher_name"; }
+    static constexpr std::string_view               algo_version = "v1.0.0c";
+};
+// Ein ANDERER Typ mit demselben Namen UND derselben Version -> byte-gleiches Organ-Segment.
+struct StampPrueflingKollision {
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "gleicher_name"; }
+    static constexpr std::string_view               algo_version = "v1.0.0c";
+};
+// Owner-Q2-konform: erweiterter hierarchischer Name (seit A13-M1 parser-gedeckt).
+struct StampPrueflingHierarchisch {
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "prt-art.gleicher_name"; }
+    static constexpr std::string_view               algo_version = "v1.0.0c";
+};
+// Owner-Q2-konform: gleicher Name, aber als PRUEFLING-Stand mit 'e' markiert.
+struct StampPrueflingExperimentell {
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "gleicher_name"; }
+    static constexpr std::string_view               algo_version = "v1.0.0ce";
+};
+} // namespace
+
+TEST(A13M3C5MergeNamensNaht, Q2WacheTrenntByteVerschiedeneMergeBinaries) {
+    using CeList = mp::mp_list<StampCeVariant>;
+    // (1) NEGATIV: gleicher Name + gleiche Version -> die Wache schlaegt an. Genau diese Instanziierung
+    //     braeche als MergeAxis<Stufe2_PrueflingReplace, CeList, Slot> den Bau mit benanntem Text.
+    static_assert(!prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingKollision>>(),
+                  "Q2-Wache: eine namens- UND versionsgleiche Pruefling-Variante MUSS als Kollision gelten.");
+    static_assert(prf::merge_segments_collide<StampCeVariant, StampPrueflingKollision>());
+    // (2) POSITIV, Weg A (erweiterter hierarchischer Name, Owner-Q2-Muster "prt-art.memory.abc").
+    static_assert(prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingHierarchisch>>());
+    // (3) POSITIV, Weg B (das 'e'-Experimentalflag -- ce-eigene Versionen tragen es nie, also trennt es sicher).
+    static_assert(prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingExperimentell>>());
+    // (4) ABGRENZUNG: derselbe TYP ist keine Kollision (er ist dieselbe Variante, nicht zwei).
+    static_assert(!prf::merge_segments_collide<StampCeVariant, StampCeVariant>());
+    // (5) ABGRENZUNG: nicht-stempelbare Dummy-Typen rendern kein Segment und koennen keines duplizieren --
+    //     deshalb bleiben die Mechanik-Tests oben baubar, ohne dass die Wache je aussetzt, wo sie zaehlt.
+    static_assert(!prf::merge_segments_collide<CeArray256, CeVectorU8>());
+    static_assert(prf::merge_lists_render_distinct_segments<CeDefaults, CeDefaults>());
     SUCCEED();
 }
 

@@ -22,7 +22,7 @@
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
 
 #include "anatomy_module_abi_v1_decl.hpp" // leichte ABI-Schnittstelle (Version/Magic/Factory-Decls/Helper)
-#include "anatomy_fingerprint.hpp" // K7b-3: consteval SHA-512-Fingerprint der 4 Stempel-Zeilen (anatomy_fingerprint_hex)
+#include "anatomy_fingerprint.hpp"        // K7b-3: consteval SHA-512-Fingerprint der Stempel-Glieder (A13-M3: 3 Zeilen)
 #include "anatomy_stamp_entries.hpp" // G2-1b/A4: consteval count/parse_stamp_entries + stamp_entries_ptr (Array-Form)
 #include "../../../anatomy/abi_adapter.hpp" // SearchAlgorithmAbiAdapter (Makro-Materialisierung)
 #include "../../../anatomy/search_algorithm_anatomy.hpp"

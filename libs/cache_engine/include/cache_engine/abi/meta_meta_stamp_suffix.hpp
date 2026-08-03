@@ -175,6 +175,18 @@ meta_meta_stamp_suffix_from(std::span<::comdare::cache_engine::measurement::Axis
 ///   * leere Zeile -> bleibt leer. Eine sonst leere Mess-Zeile heisst "kein Mess-Tooling einkompiliert"; ein
 ///     einsames Rahmen-Segment machte daraus ein "etwas gemessen" (die Makro-Materialisierung verlaesst sich
 ///     auf measurement_line == "" mit measurement_len == 0).
+///
+/// A13-M3/C5 (Befund Z-11, K-6-Sweep) -- AUSLEGUNG, NICHT OWNER-WORTLAUT. Die zweite Leer-Regel verwirft den
+/// Meta-Meta-Anhang STILL, wenn die Realm-Zeile leer ist. Owner-E2 erklaert Meta-Meta-Stempeleintraege zur
+/// PFLICHT "wie alle Hauptachsen"; dass diese Pflicht bei einer LEEREN Realm-Zeile entfaellt, ist NIRGENDS
+/// owner-dokumentiert -- es ist eine Implementierungs-Entscheidung, und sie steht hier als solche benannt,
+/// damit der naechste Leser sie nicht fuer eine Owner-Regel haelt.
+/// AM HEUTIGEN IST KONSEQUENZLOS, literal geprueft: der einzige reale Leer-Fall ist die Mess-Zeile ohne
+/// einkompiliertes Tooling, und dort entsteht der load_framework-Anhang im ZWEITEN Ableitungsweg
+/// (builder/ceb_version_stamp.hpp) konsistent ebenfalls nicht -- beide Wege verhalten sich gleich, es gibt
+/// keine Drift.
+/// SOBALD je eine Meta-Meta an einer real LEEREN Realm-Zeile haengen soll (z.B. eine Mess-Meta-Meta ohne
+/// Tooling-Wahl), ist das eine OWNER-FRAGE und KEIN stiller Default.
 inline void append_meta_meta_suffix(std::string& line, std::string_view suffix) {
     if (line.empty() || suffix.empty()) return;
     line += ';';

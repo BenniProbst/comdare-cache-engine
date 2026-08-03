@@ -186,8 +186,9 @@ struct AlgoSemVer {
     std::uint32_t x = 0;
     std::uint32_t y = 0;
     std::uint32_t z = 0;
-    /// A13-M1b: die Hardware-Zielrichtung aus der Flag-Position ('c'/'g'/'f'/'n'). `none` == flagloser
-    /// Uebergangs-Bestand (Owner-Q3-widrig, aber bis zum M2/M3-Migrations-Commit toleriert).
+    /// A13-M1b: die Hardware-Zielrichtung aus der Flag-Position ('c'/'g'/'f'/'n'). `none` == flaglose Form.
+    /// Sie war bis A13-M3/C4 der tolerierte Uebergangs-BESTAND; seit C4 ist sie nur noch eine
+    /// PARSER-Semantik (jede ce-eigene Version traegt 'c'), und die ENFORCE-Wachen weisen sie zurueck.
     HardwareFlag hardware = HardwareFlag::none;
     /// true == der Algorithmus-Stand ist EXPERIMENTELL (Trailing-'e' aus einem Pruefling, Owner-E2 02.08.2026).
     /// ce-EIGENE Registry-Varianten duerfen das NIE tragen (CT-Wache in axis_variant_version_table.hpp).
@@ -392,7 +393,8 @@ inline constexpr std::string_view kAlgoSemVerSentinelLiteral = "v0.0.0";
 }
 
 // -- Wohlgeformtheit (alles compile-time) --------------------------------------------------------
-static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{1, 0, 0}); // heutiger Stand ALLER Algos (flaglos, tolerant)
+static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{1, 0, 0}); // flaglose Form: PARSER-Semantik, seit
+                                                                   // A13-M3/C4 KEIN Bestands-Stand mehr
 static_assert(parse_algo_semver("v0.0.0") == AlgoSemVer{0, 0, 0}); // Sentinel
 static_assert(parse_algo_semver("v2.3.4") == AlgoSemVer{2, 3, 4});
 static_assert(parse_algo_semver("v10.0.1") == AlgoSemVer{10, 0, 1});
@@ -529,7 +531,7 @@ static_assert(hardware_flag_from_char('e') == HardwareFlag::none); // 'e' ist KE
 //     nur "...c"/"...ce" erfuellen den CPU-only-Scope.
 static_assert(version_satisfies_cpu_only_policy("v1.0.0c"));
 static_assert(version_satisfies_cpu_only_policy("v2.3.4ce"));
-static_assert(!version_satisfies_cpu_only_policy("v1.0.0"));  // flagloser Uebergangs-Bestand (M2/M3-Migration)
+static_assert(!version_satisfies_cpu_only_policy("v1.0.0"));  // flaglos: seit C4 kein Bestand mehr, aber
 static_assert(!version_satisfies_cpu_only_policy("v1.0.0g")); // GPU ist im CPU-only-Scope unzulaessig
 static_assert(!version_satisfies_cpu_only_policy("v1.0.0f"));
 static_assert(!version_satisfies_cpu_only_policy("v1.0.0n"));
@@ -550,7 +552,7 @@ static_assert(!version_is_parsable_or_documented_sentinel("vX"));
 static_assert(!version_is_parsable_or_documented_sentinel(""));
 // (b) ce-EIGENE Versionen tragen NIE 'e' -- weder flaglos-experimentell (grammatisch schon Sentinel)
 //     noch als wohlgeformtes "ce".
-static_assert(ce_owned_version_is_wellformed("v1.0.0"));  // flagloser Uebergangs-Bestand
+static_assert(ce_owned_version_is_wellformed("v1.0.0"));  // flaglos bleibt GRAMMATISCH wohlgeformt ...
 static_assert(ce_owned_version_is_wellformed("v1.0.0c")); // Ziel-Form nach der M2/M3-Migration
 static_assert(ce_owned_version_is_wellformed(kAlgoSemVerSentinelLiteral));
 static_assert(!ce_owned_version_is_wellformed("v1.0.0ce")); // 'e' == Pruefling-Markierung
