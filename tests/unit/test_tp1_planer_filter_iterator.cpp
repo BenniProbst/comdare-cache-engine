@@ -220,6 +220,12 @@ int main() {
         check_true("(1m) IST: gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0",
                    spur.find(" gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0") != std::string::npos);
         check_true("(1m) die Bilanz-Zeile traegt die Fenster-Wall-Clock", spur.find(" dauer_s=") != std::string::npos);
+        // TP1FK1-B1 (Codex-Befund CX-W2), GEGENPROBE zu Fall (7): ein ZUSAMMENHAENGENDES Fenster loest die
+        // konservative Weitung NICHT aus. Diese Zeile ist der Beleg, dass die Spannen-Form im Regelfall
+        // (dichte Selektion) byte-identisch zur frueheren (front(), size())-Form bleibt -- daran haengt die
+        // Golden-Neutralitaet des Fixes, nicht nur seine Korrektheit im Sonderfall.
+        check_true("(3) dichtes Fenster: KEINE Weitungs-Warnung (byte-identisch zur (front,size)-Form)",
+                   spur.find("Slice-Fenster ist NICHT zusammenhaengend") == std::string::npos);
 
         auto const raw = store.objs.find(kDocKey);
         check_true("(3) Reservierung im Store", raw != store.objs.end());

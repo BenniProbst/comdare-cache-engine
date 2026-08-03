@@ -325,7 +325,7 @@ public:
             log_artefakt_io(log, "perm.dll fehlt lokal, nichts zu pushen: " + dll.string());
             return;
         }
-        // TP1FK1-B2 (Codex-Befund CX-W2/CX-W3): die perm.dll IST da, aber die lokale Vollstaendigkeits-
+        // TP1FK1-B2 (Codex-Befund CX-W3): die perm.dll IST da, aber die lokale Vollstaendigkeits-
         // Marke perm.dll.version FEHLT. Frueher fiel Schritt (3) dann still aus (kein else) und
         // push_tier_binary kehrte normal zurueck -- fuer die void-CachePushFn ununterscheidbar von einem
         // vollstaendigen Push. Der Pull verlangt aber genau diese Remote-Marke (s.u. (0)) und liefert
