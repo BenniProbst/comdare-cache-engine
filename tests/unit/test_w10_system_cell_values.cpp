@@ -1,5 +1,17 @@
-// tests/unit/test_w10_system_cell_values.cpp -- W10-C1-ORAKEL (Bauplan-Dossier 20260803, Sektion 2).
+// tests/unit/test_w10_system_cell_values.cpp -- W10-C1/C2-ORAKEL (Bauplan-Dossier 20260803, Sektion 2).
 //
+// == W10-C2: DER TEST-DEFINE STEHT BEWUSST GANZ OBEN ==============================================
+// Die Zellwert-Naht ist eine #ifndef-PRAEZEDENZ (Muster COMDARE_OVERLAY_SOURCE_HASH,
+// anatomy_fingerprint.hpp): eine Vor-Definition gewinnt gegen den Default "". Diese TU setzt sie
+// deshalb VOR jedem Include und uebersetzt damit die Makro-Naht COMDARE_ANATOMY_VERSION_STAMP_M
+// SCHARF -- das ist das C2-Orakel (iv), und zwar am ECHTEN Makro statt an einem nachgebauten POD.
+// (Der Weg ueber target_compile_definitions waere derselbe Beweis, braeuchte aber ein
+// Semikolon-Listen-Escaping in CMake; die Praezedenz im Header ist dafuer ausdruecklich gebaut.)
+// WICHTIG: alle IDENTITAETS-Aussagen dieser TU laufen deshalb ueber ein EXPLIZIT leeres
+// SystemCellValues{} und nie ueber den Define -- sonst behauptete die TU Identitaet, waehrend sie
+// mit gesetzten Werten uebersetzt.
+#define COMDARE_SYSTEM_CELL_VALUES "target_isa=x86_64;operating_system=linux;simd=avx512"
+
 // Was diese TU beweist -- und zwar literal, nicht behauptend:
 //   (1) POSITIV (CT): die vervollstaendigte System-Zeile ist byte-genau die Ziel-Zeile des Dossiers.
 //   (2) NEGATIV (CT): jede Fehlform der Define-Wertform hat ihre EIGENE, benannte Diagnose -- unbekannter
@@ -20,6 +32,7 @@
 // A-15 (tragend): die TU prueft zusaetzlich am LEBENDEN Ist, dass kein erhobener RT-Wert in der Zeile
 // steht -- dieselbe Beweisform wie test_os_u3_probe/test_od10_numa_page_probe.
 
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp> // W10-C2: die MAKRO-NAHT selbst (kS/kFP/kSE)
 #include <cache_engine/abi/anatomy_stamp_entries.hpp>
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/system_axis_order.hpp>
@@ -59,7 +72,24 @@ constexpr auto kFertig =
     cea::complete_system_stamp_line_array<cea::complete_system_stamp_line_size(kSystemZeileRoh, kWerteProd1)>(
         kSystemZeileRoh, kWerteProd1);
 
+// -- W10-C2: die Literale, mit denen die MAKRO-Naht unten instanziiert wird -----------------------
+// Bewusst KURZE, synthetische Organ-/Mess-Zeilen (Praezedenz test_m_w12 A4-POD-Test): geprueft wird
+// die Naht, nicht die Welt. Die SYSTEM-Zeile ist dagegen die reale Form -- sie IST der Prueflings-
+// gegenstand und wird oben gegen das lebende cea::system_stamp_line() abgeglichen.
+#define COMDARE_W10_TEST_ORGAN_LIT "search_algo=k_ary@1.0.0c;filter=bloom@2.3.4c"
+#define COMDARE_W10_TEST_SYSTEM_LIT                                                                                    \
+    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]"
+#define COMDARE_W10_TEST_MEASURE_LIT "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"
+
+constexpr std::string_view kOrganLit   = COMDARE_W10_TEST_ORGAN_LIT;
+constexpr std::string_view kMeasureLit = COMDARE_W10_TEST_MEASURE_LIT;
+
 } // namespace
+
+// W10-C2-ORAKEL (iv): die ECHTE Makro-Expansion. Sie materialisiert das optionale Probe-Symbol
+// comdare_anatomy_version_lines() -- genau so, wie es jede emittierte Modul-Quelle tut -- und zwar in
+// dieser TU MIT gesetztem Zellwert-Define. Was hier gruen ist, ist an der realen Naht gruen.
+COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_W10_TEST_ORGAN_LIT, COMDARE_W10_TEST_SYSTEM_LIT, COMDARE_W10_TEST_MEASURE_LIT)
 
 // =================================================================================================
 // (1) POSITIV -- die Vervollstaendigung trifft die Ziel-Zeile byte-genau (CT UND als ctest-Aussage)
@@ -232,6 +262,67 @@ TEST(W10SystemCellValues, VervollstaendigteZeileBleibtGrammatikKonform) {
     // KEINE merge-Zeile (Owner-E2 / Stempel-KERN): der Vervollstaendiger baut nichts an die Zeile an.
     EXPECT_EQ(std::string{kFertig.view()}.find("merge"), std::string::npos);
     EXPECT_EQ(std::string{kFertig.view()}.back(), ']') << "der Klammer-Anhang bleibt das LETZTE Zeichen der Zeile";
+}
+
+// =================================================================================================
+// W10-C2 (Orakel iv) -- DIE MAKRO-NAHT: vervollstaendigte kS-Zeile + DISKRIMINIERENDER kFP
+// =================================================================================================
+TEST(W10SystemCellValues, MakroNahtVervollstaendigtDieSystemZeileUndDenFingerprint) {
+    auto const* const v = comdare_anatomy_version_lines();
+    ASSERT_NE(v, nullptr);
+
+    // (1) Die einkompilierte SYSTEM-Zeile ist die vervollstaendigte Zeile -- nicht das Literal, mit dem
+    //     das Makro gerufen wurde. Genau das ist die C2-Aussage.
+    EXPECT_EQ(std::string(v->system_line, v->system_len), std::string{kSystemZeileZiel});
+    EXPECT_NE(std::string(v->system_line, v->system_len), std::string{kSystemZeileRoh});
+
+    // (2) FINGERPRINT-DISKRIMINIERUNG, literal: kFP rechnet ueber die VERVOLLSTAENDIGTE Zeile. Der
+    //     Digest OHNE Zellwerte ist damit ein ANDERER -- das ist der Kern der W10-Zusage (zwei Baue
+    //     derselben Permutation auf verschiedenen OS-Familien/ISAs kollidieren nicht mehr).
+    constexpr auto kFpOhne = cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileRoh, kMeasureLit);
+    constexpr auto kFpMit  = cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileZiel, kMeasureLit);
+    static_assert(std::string_view{kFpOhne.data()} != std::string_view{kFpMit.data()},
+                  "W10-C2: die Zellwerte MUESSEN den Fingerprint verschieben -- taeten sie es nicht, waere "
+                  "die ganze W10-Zusage (Zuordbarkeit/Wiederverwendbarkeit, Owner-E3) leer.");
+    EXPECT_EQ(std::string(v->sha512_line, v->sha512_len), std::string{kFpMit.data()});
+    EXPECT_NE(std::string(v->sha512_line, v->sha512_len), std::string{kFpOhne.data()});
+
+    // (3) NEGATIV-PROBE (gleiches Werte-Set => gleicher kFP): der Digest haengt an den WERTEN, nicht am
+    //     Zeitpunkt oder an einer Adresse -- zwei Baue derselben Zelle bleiben identisch.
+    constexpr auto kFpMitNochmal = cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileZiel, kMeasureLit);
+    static_assert(std::string_view{kFpMit.data()} == std::string_view{kFpMitNochmal.data()});
+    // ... und ein FREMD-Familien-Werte-Set liefert einen ANDEREN Digest (die B1-Kollision linux==macos).
+    constexpr auto kZeileMacos = cea::complete_system_stamp_line_array<cea::complete_system_stamp_line_size(
+        kSystemZeileRoh, SystemCellValues{"target_isa=x86_64;operating_system=macos;simd=avx512"})>(
+        kSystemZeileRoh, SystemCellValues{"target_isa=x86_64;operating_system=macos;simd=avx512"});
+    constexpr auto kFpMacos = cea::anatomy_fingerprint_hex(kOrganLit, kZeileMacos.view(), kMeasureLit);
+    static_assert(std::string_view{kFpMacos.data()} != std::string_view{kFpMit.data()},
+                  "linux und macos MUESSEN verschiedene Fingerprints tragen -- das ist der W10-Abnahme-Kern.");
+    EXPECT_NE(std::string{kFpMacos.data()}, std::string{kFpMit.data()});
+
+    // (4) KEIN POD-/LAYOUT-ANFASSEN: die Naht bewegt Zeilen-INHALT, nie Struktur.
+    EXPECT_EQ(v->stamp_layout_version, 6u);
+    EXPECT_EQ(sizeof(cea::AnatomyVersionLines), 120u);
+    EXPECT_TRUE(cea::stamp_pod_has_entries(*v));
+    EXPECT_EQ(v->system_entry_count, 4u) << "3 Haupt-Achsen + 1 geklammerte Meta-Meta -- unveraendert";
+    EXPECT_EQ(v->organ_entry_count, 2u);
+    EXPECT_EQ(v->measurement_entry_count, 2u);
+
+    // (5) Das ARRAY (kSE) parst die VERVOLLSTAENDIGTE Zeile -- Achsen-Namen kanonisch, Zellwert im
+    //     Algorithmus-Namen, Ebene des Meta-Meta-Anhangs unveraendert.
+    ASSERT_EQ(v->system_entry_count, 4u);
+    EXPECT_EQ(std::string_view(v->system_entries[0].axis, v->system_entries[0].axis_len), cea::kSystemAxisOrder[0]);
+    EXPECT_EQ(std::string_view(v->system_entries[0].algorithm, v->system_entries[0].algo_len),
+              std::string_view{"code.x86_64"});
+    EXPECT_EQ(std::string_view(v->system_entries[2].algorithm, v->system_entries[2].algo_len), std::string_view{"code"})
+        << "external_utils bleibt der wertfreie Hub";
+    EXPECT_EQ(cea::stamp_entry_meta_level(v->system_entries[3]), 1u);
+    EXPECT_EQ(std::string_view(v->system_entries[3].algorithm, v->system_entries[3].algo_len),
+              std::string_view{"code.avx512"});
+
+    // (6) Die ORGAN- und MESS-Zeilen sind vom Vervollstaendiger UNBERUEHRT (er kennt nur System-Achsen).
+    EXPECT_EQ(std::string(v->organ_line, v->organ_len), std::string{kOrganLit});
+    EXPECT_EQ(std::string(v->measurement_line, v->measurement_len), std::string{kMeasureLit});
 }
 
 // =================================================================================================

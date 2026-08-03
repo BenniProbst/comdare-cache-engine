@@ -24,6 +24,7 @@
 #include "anatomy_module_abi_v1_decl.hpp" // leichte ABI-Schnittstelle (Version/Magic/Factory-Decls/Helper)
 #include "anatomy_fingerprint.hpp"        // K7b-3: consteval SHA-512-Fingerprint der Stempel-Glieder (A13-M3: 3 Zeilen)
 #include "anatomy_stamp_entries.hpp" // G2-1b/A4: consteval count/parse_stamp_entries + stamp_entries_ptr (Array-Form)
+#include "system_cell_values.hpp"    // W10-C1: Zellwert-Define-Naht + consteval-Vervollstaendiger der System-Zeile
 #include "../../../anatomy/abi_adapter.hpp" // SearchAlgorithmAbiAdapter (Makro-Materialisierung)
 #include "../../../anatomy/search_algorithm_anatomy.hpp"
 #include "../../../anatomy/composition_factory.hpp" // R5.G: AdHocComposition für Auto-Permutations-Codegen
@@ -130,20 +131,39 @@
 /// sha512_line/sha512_len abgelegt. Die EINGABE bleibt reine String-Literale -> der emittierte Makro-Call ist
 /// byte-identisch (golden-neutral); der Fingerprint entsteht rein in der Makro-Expansion, nicht im emittierten
 /// Quelltext.
+///
+/// W10-C2 (Bauplan-Dossier 20260803, Sektion 2) -- DIE ZELLWERT-NAHT. Das System-Literal wird nicht mehr
+/// direkt hinterlegt, sondern INNEN per consteval um die System-ZELLWERTE der gebauten Zelle
+/// VERVOLLSTAENDIGT (kSC, abi/system_cell_values.hpp): "code" -> "code.<token>". kFP rechnet ueber die
+/// VERVOLLSTAENDIGTE Zeile, kSE parst sie, und das POD traegt sie. Damit diskriminiert der SHA512 ab
+/// W10-C4 OS-Familie, ISA und SIMD-Zelle SELBST -- die B1-Kollision linux==macos ist mechanisch tot.
+///
+/// WARUM HIER UND NICHT IM EMITTER: der Tier-Emitter bleibt SYSTEM-BLIND (W4-B-Invariante). Die Zellwerte
+/// kommen ueber das Compile-Define COMDARE_SYSTEM_CELL_VALUES herein, das die CEB-Bau-Naht je Zelle setzt
+/// (perm_compile) -- exakt die sanktionierte Pre-Build-Define-Klasse (Muster COMDARE_OVERLAY_SOURCE_HASH /
+/// COMDARE_GN_ALGO_SIG). Der emittierte Makro-CALL bleibt byte-identisch; die Round-Trip-Byte-Wache und der
+/// golden-CRC-Anker sind unberuehrt.
+///
+/// OHNE DEFINE IST ALLES BYTE-IDENTISCH (Identitaet aus C1e): kSC.view() == system_lit, also derselbe kFP,
+/// dasselbe kSE, dasselbe POD. KEIN POD-/Layout-Anfassen -- kSC.chars ist ein nullterminiertes char-Array
+/// mit statischer Lebensdauer, genau wie das frueher hier stehende kS[].
 #define COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit)                                        \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::abi::AnatomyVersionLines const*                     \
     comdare_anatomy_version_lines() noexcept {                                                                         \
         static constexpr char kO[] = organ_lit;                                                                        \
-        static constexpr char kS[] = system_lit;                                                                       \
+        static constexpr auto kSC  = ::comdare::cache_engine::abi::complete_system_stamp_line_array<                   \
+            ::comdare::cache_engine::abi::complete_system_stamp_line_size(                                             \
+                system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine)>(                               \
+            system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine);                                    \
         static constexpr char kM[] = measurement_lit;                                                                  \
         static constexpr auto kFP =                                                                                    \
-            ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, system_lit, measurement_lit);             \
+            ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, kSC.view(), measurement_lit);             \
         static constexpr auto kOE =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kO)>(  \
                 kO);                                                                                                   \
         static constexpr auto kSE =                                                                                    \
-            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kS)>(  \
-                kS);                                                                                                   \
+            ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(       \
+                kSC.view())>(kSC.chars);                                                                               \
         static constexpr auto kME =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kM)>(  \
                 kM);                                                                                                   \
@@ -152,8 +172,8 @@
             0u,                                                                                                        \
             kO,                                                                                                        \
             sizeof(kO) - 1,                                                                                            \
-            kS,                                                                                                        \
-            sizeof(kS) - 1,                                                                                            \
+            kSC.chars,                                                                                                 \
+            kSC.size(),                                                                                                \
             kM,                                                                                                        \
             sizeof(kM) - 1,                                                                                            \
             kFP.data(),                                                                                                \
