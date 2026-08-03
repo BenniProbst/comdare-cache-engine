@@ -40,9 +40,14 @@
 #include <cache_engine/measurement/external_utils_family_axis.hpp>
 #include <cache_engine/measurement/operating_system_sub_axes.hpp>
 
+#include "bestandslog/bestandslog_factory.hpp" // W10-C3: der Laufzeit-Zwilling am Lager-Key
+
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstddef>
+#include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -380,4 +385,68 @@ TEST(W10SystemCellValues, KeineRtUnterAchsenInDerVervollstaendigtenZeile) {
         EXPECT_EQ(cea::diagnose_system_cell_values(std::string{label} + "=x"),
                   SystemCellValuesDiagnose::verbotener_rt_schluessel);
     }
+}
+
+// =================================================================================================
+// W10-C3 -- DAS ZWILLINGS-GLEICHHEITS-ORAKEL: consteval-Makro-kFP == Laufzeit-Lager-Key
+// =================================================================================================
+// Die EINE-WAHRHEIT-Doktrin (Drift-Guard-Praezedenz A5CebVersionStamp): der einkompilierte Fingerprint
+// und der Lager-Key MUESSEN fuer dasselbe Werte-Set denselben 128-hex liefern. Vor W10 galt das, weil
+// beide dieselbe Glied-Folge hashten; nach W10 gilt es nur weiter, wenn BEIDE ueber DIESELBE
+// vervollstaendigte System-Zeile rechnen. Genau das wird hier literal geprueft -- nicht behauptet.
+TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey) {
+    namespace bl = ::comdare::cache_engine::builder::bestandslog;
+
+    // Die kanonische Glied-Folge mit der ROHEN System-Zeile -- exakt so, wie der Lager-Weg sie baut.
+    auto const glieder_roh = cea::anatomy_fingerprint_glieder(kOrganLit, kSystemZeileRoh, kMeasureLit);
+    std::span<std::string_view const> const roh{glieder_roh.data(), glieder_roh.size()};
+
+    // (1) MIT Zellwerten: der Laufzeit-Lager-Key == der consteval-Fingerprint der Makro-Naht (die TU
+    //     uebersetzt mit gesetztem Define, comdare_anatomy_version_lines() traegt also die Zellwerte).
+    auto const* const v = comdare_anatomy_version_lines();
+    ASSERT_NE(v, nullptr);
+    std::string const lager_key_mit = bl::to_hex(bl::BinaryKeyPolicy::derive_key(roh, kWerteProd1));
+    EXPECT_EQ(lager_key_mit, std::string(v->sha512_line, v->sha512_len))
+        << "Lager-Key und einkompilierter Fingerprint MUESSEN fuer dieselbe Zelle identisch sein "
+           "(EINE-Wahrheit-Doktrin) -- sonst findet das Skip-Gate seine eigenen Binaries nicht wieder";
+
+    // (2) LEERES Werte-Set => byte-identisch zum Vor-W10-Weg. Zeuge ist der eingefrorene A1-Testvektor:
+    //     dieselben drei Zeilen wie in test_m_w12/test_g3 ergeben unveraendert kFrozenFingerprintV1.
+    constexpr std::string_view kFrozenOrgan = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
+    constexpr std::string_view kFrozenMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+    constexpr std::string_view kFrozenFingerprintV1 =
+        "0fe275bddc7af1af9474cea655ff28280b93cfb3acc299c00d76d3489822993b"
+        "f043b4cee58b97d7ed2e42b0fc5bb0e3e300d15b1c50c31dd1aba7a23cc9fe36";
+    auto const frozen_glieder = cea::anatomy_fingerprint_glieder(kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure);
+    std::span<std::string_view const> const frozen{frozen_glieder.data(), frozen_glieder.size()};
+    EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(frozen)), std::string{kFrozenFingerprintV1})
+        << "der Default-Pfad (leeres Werte-Set) MUSS byte-identisch zum Vor-W10-Stand bleiben";
+    EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(frozen, SystemCellValues{})),
+              std::string{kFrozenFingerprintV1})
+        << "explizit leere Zellwerte sind dieselbe Identitaet wie der Default";
+
+    // (3) DISKRIMINIERUNG am Lager-Key: ein anderes Werte-Set => anderer Key; dasselbe => derselbe Key.
+    std::string const lager_key_macos = bl::to_hex(
+        bl::BinaryKeyPolicy::derive_key(roh, SystemCellValues{"target_isa=x86_64;operating_system=macos;simd=avx512"}));
+    EXPECT_NE(lager_key_macos, lager_key_mit);
+    EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(roh, kWerteProd1)), lager_key_mit);
+    EXPECT_NE(bl::to_hex(bl::BinaryKeyPolicy::derive_key(roh)), lager_key_mit)
+        << "ohne Zellwerte MUSS ein anderer Key entstehen -- sonst waere die Naht wirkungslos";
+
+    // (4) Die ZELL-Klammer des LagerKey bleibt DREI-feldig (Manager-Entscheid W10-M1): die Zellwerte
+    //     wandern in den SHA512, NICHT in die ZellKoordinaten.
+    bl::ZellKoordinaten const zelle{.combo = "default", .opt = "O2", .simd = "avx512"};
+    bl::LagerKey const        lk = bl::BinaryKeyPolicy::derive_lager_key(roh, zelle, kWerteProd1);
+    EXPECT_EQ(bl::to_hex(lk.sha), lager_key_mit);
+    EXPECT_EQ(lk.zelle.combo, std::string{"default"});
+    EXPECT_EQ(lk.zelle.opt, std::string{"O2"});
+    EXPECT_EQ(lk.zelle.simd, std::string{"avx512"});
+
+    // (5) FAIL-CLOSED-Wache statt stiller Fehl-Ableitung: eine FREMDE Komponenten-Liste (ohne
+    //     System-Glied) mit gesetzten Zellwerten ist ein Fehler, kein still an Index 2 vervollstaendigtes
+    //     Fremd-Glied.
+    std::array<std::string_view, 2> const fremd{{"mess_a", "mess_b"}};
+    EXPECT_THROW((void)bl::BinaryKeyPolicy::derive_key(std::span<std::string_view const>{fremd}, kWerteProd1),
+                 std::invalid_argument);
+    EXPECT_NO_THROW((void)bl::BinaryKeyPolicy::derive_key(std::span<std::string_view const>{fremd}));
 }

@@ -23,9 +23,14 @@
 #include "bestandslog_document.hpp"
 #include "bestandslog_index.hpp"
 
+#include <cache_engine/abi/system_cell_values.hpp> // W10-C3: Zellwerte am Lager-Key (Laufzeit-Zwilling)
+
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -41,14 +46,47 @@ concept BestandKeyPolicy = requires(std::span<std::string_view const> comps, Zel
 };
 
 // Binary-Genus: die EINE SHA512-Wahrheit (identisch zu abi::anatomy_fingerprint_hex) + die Zell-Klammer.
+//
+// W10-C3 (Bauplan-Dossier 20260803, Sektion 2): die System-ZELLWERTE reisen als EXPLIZITER Parameter
+// herein -- als BENANNTER Typ nach dem K-1-Muster (abi::SystemCellValues, Praezedenz OverlayHash), NICHT
+// als weiterer nackter string_view. Das ist hier keine Stil-Frage: derive_key nimmt bereits eine span von
+// string_view; ein zusaetzlicher string_view koennte an jedem Aufruf still in den falschen Slot rutschen.
+// SystemCellValues konvertiert nicht implizit -> ein Fehl-Aufruf bricht compile-hart.
+//
+// DEFAULT == LEER == IDENTITAET: jeder Bestands-Aufruf ohne Zellwerte rechnet BYTE-IDENTISCH weiter
+// (der eingefrorene A1-Testvektor kFrozenFingerprintV1 ist der Zeuge, test_g3_sha512_index). Erst
+// W10-C4 reicht die Werte der gebauten Zelle durch; ab dann ist der Lager-Key konstruktiv gleich dem
+// einkompilierten Fingerprint, weil BEIDE ueber dieselbe vervollstaendigte System-Zeile rechnen.
 struct BinaryKeyPolicy {
     [[nodiscard]] static constexpr Genus genus() noexcept { return Genus::binary; }
-    [[nodiscard]] static Sha512Key       derive_key(std::span<std::string_view const> stamp_lines) {
-        return derive_key_from_lines(stamp_lines);
+    [[nodiscard]] static Sha512Key       derive_key(std::span<std::string_view const>              stamp_lines,
+                                                    ::comdare::cache_engine::abi::SystemCellValues zellwerte = {}) {
+        if (zellwerte.value.empty()) return derive_key_from_lines(stamp_lines); // Identitaet, byte-genau
+        std::string const system = completed_system_line(stamp_lines, zellwerte);
+        std::array<std::string_view, ::comdare::cache_engine::abi::kAnatomyFingerprintGliedCount> glieder{};
+        for (std::size_t i = 0; i < glieder.size(); ++i) glieder[i] = stamp_lines[i];
+        glieder[::comdare::cache_engine::abi::kAnatomyFingerprintSystemGlied] = system;
+        return derive_key_from_lines(std::span<std::string_view const>{glieder});
     }
-    [[nodiscard]] static LagerKey derive_lager_key(std::span<std::string_view const> stamp_lines,
-                                                   ZellKoordinaten const&            zelle) {
-        return LagerKey{derive_key_from_lines(stamp_lines), zelle};
+    [[nodiscard]] static LagerKey derive_lager_key(std::span<std::string_view const>              stamp_lines,
+                                                   ZellKoordinaten const&                         zelle,
+                                                   ::comdare::cache_engine::abi::SystemCellValues zellwerte = {}) {
+        return LagerKey{derive_key(stamp_lines, zellwerte), zelle};
+    }
+
+private:
+    /// Die vervollstaendigte System-Zeile aus der Glied-Folge. Sie wirft mit benanntem Text, wenn der
+    /// Aufrufer mit gesetzten Zellwerten etwas anderes als die kanonische Glied-Folge reicht -- eine
+    /// Mess-Komponenten-Liste hat kein System-Glied, und ein still an Index 2 vervollstaendigtes
+    /// Fremd-Glied waere ein falscher Lager-Key statt eines Fehlers.
+    [[nodiscard]] static std::string completed_system_line(std::span<std::string_view const>              stamp_lines,
+                                                           ::comdare::cache_engine::abi::SystemCellValues zellwerte) {
+        if (stamp_lines.size() != ::comdare::cache_engine::abi::kAnatomyFingerprintGliedCount)
+            throw std::invalid_argument{"W10-C3 BinaryKeyPolicy: Zellwerte verlangen die kanonische "
+                                        "Glied-Folge aus abi::anatomy_fingerprint_glieder (6 Glieder) -- "
+                                        "eine fremde Komponenten-Liste hat kein System-Glied"};
+        return ::comdare::cache_engine::abi::complete_system_stamp_line(
+            stamp_lines[::comdare::cache_engine::abi::kAnatomyFingerprintSystemGlied], zellwerte);
     }
 };
 
