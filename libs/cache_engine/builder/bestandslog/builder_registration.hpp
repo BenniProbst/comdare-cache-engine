@@ -315,12 +315,20 @@ template <class Fn>
 //       weg, die Arbeit macht niemand. Konservative Regel -- WER DIE ARBEIT NICHT UEBERNEHMEN KANN,
 //       ENTEIGNET NICHT.
 //
-// LESART des Fensters, ehrlich benannt: die Reservierung traegt (slice_begin, slice_count) --
-// gesetzt aus plan->view_indices.front() und .size() (run_planer_driven_provision). Fuer die
-// zusammenhaengenden 4096er-Slices, die dieses System schneidet, ist das exakt der halboffene
-// Bereich; bei einer LUECKENHAFTEN Selektion beschreibt das Paar mehr Indizes als das Fenster
-// wirklich enthielt -> die Deckungs-Frage faellt dann STRENGER aus (weniger Uebernahmen), nie
-// laxer. Die konservative Richtung ist die sichere.
+// LESART des Fensters, ehrlich benannt: die Reservierung traegt (slice_begin, slice_count) -- gesetzt
+// aus slice_window_bounds(plan->view_indices) = (min, SPANNE max-min+1) (run_planer_driven_provision).
+// Fuer die zusammenhaengenden 4096er-Slices, die dieses System schneidet, ist das exakt der halboffene
+// Bereich [front, front+size); bei einer LUECKENHAFTEN Selektion UMFASST die Spanne die reale Menge, es
+// wird also erst freigegeben, wenn die uebernehmende Selektion auch die Luecken baut -> die
+// Deckungs-Frage faellt STRENGER aus (weniger Uebernahmen), nie laxer.
+//
+// KORREKTUR TP1FK1-B1 (Codex-Befund CX-W2): die frueher hier behauptete Strenge galt NICHT fuer den
+// damaligen Schreibweg (front(), size()). Der war fuer gappy Mengen VERLUSTBEHAFTET: {0,2} wurde als
+// (0,2) = das Intervall {0,1} abgelegt, und eine fremde Selektion {0,1} bestand die Deckungspruefung
+// und enteignete den Claim -- Index 2 baute danach niemand mehr (exakt die B1-Fehlermode, die dieser
+// Scope beseitigen soll). Erst die Spannen-Form macht die Aussage wahr. Eine MENGEN-genaue Speicherung
+// (die auch den eigenen gappy Claim wieder reapbar machte) waere ein syntax_version-Bump des Dokuments
+// = Owner-Entscheid; bis dahin gilt: WER DIE ARBEIT NICHT UEBERNEHMEN KANN, ENTEIGNET NICHT.
 // ---------------------------------------------------------------------------
 struct SweepScope {
     BatchTyp typ = BatchTyp::tier; // NUR Reservierungen dieses Typs urteilt der Sweep

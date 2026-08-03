@@ -32,13 +32,16 @@
 
 #include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
+#include <algorithm> // CX-W1: std::any_of ueber die Dokument-Eintraege
 #include <cstddef>
 #include <filesystem>
+#include <fstream> // Alt-Staende der Faelle (6)/(9) legen und zurueckliegen
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept> // CX-W1: std::runtime_error als simulierter Push-Wurf
 #include <string>
 #include <vector>
 
@@ -452,6 +455,68 @@ int main() {
                                      " sidecar_skip=" + std::to_string(r.built_skip) + " lager_skip=0 fehl=0";
         check_true("(6m) Fallback-Bilanz konsumiert built_new/built_skip", spur.find(erwartet) != std::string::npos);
         check_eq("(6m) Fallback: 8 frisch gebaut (kein Bestand, kein Sidecar)", r.built_new, std::size_t{8});
+    }
+
+    // -- Fall (7): TP1FK1-B1 (Codex-Befund CX-W2) -- die Slice-Identitaet wird als SPANNE gespeichert --
+    //    LAGE: eine LUECKENHAFTE Fenster-Menge {0,2}. Die frueher geschriebene (front(), size())-Form legte
+    //    (0,2) ab, also das Intervall {0,1}: eine FREMDE Selektion {0,1} bestand damit die Deckungspruefung
+    //    und enteignete den Claim -- Index 2 baute danach niemand (die B1-Fehlermode). slice_window_bounds
+    //    legt die SPANNE (0,3) ab, die die reale Menge UMFASST; freigegeben wird erst, wenn die
+    //    uebernehmende Selektion das ganze Intervall baut. Konservativ, ohne jede Draht-Aenderung.
+    {
+        // (7a) die Bounds-Funktion selbst: Spanne statt Kardinalitaet -- und unveraendert bei Lueckenfreiheit.
+        check_eq("(7a) gappy {0,2}: begin == min == 0", bl::slice_window_bounds({0, 2}).begin, std::uint64_t{0});
+        check_eq("(7a) gappy {0,2}: count == SPANNE 3 (nicht size 2)", bl::slice_window_bounds({0, 2}).count,
+                 std::uint64_t{3});
+        check_eq("(7a) zusammenhaengend {0,1,2,3}: count == 4 (== size, unveraendert)",
+                 bl::slice_window_bounds({0, 1, 2, 3}).count, std::uint64_t{4});
+        check_eq("(7a) leeres Fenster: count 0 (nichts zu beanspruchen)", bl::slice_window_bounds({}).count,
+                 std::uint64_t{0});
+
+        // (7b) die WIRKUNG am Sweep -- die eigentliche Negativ-Probe: niemand wird faelschlich enteignet.
+        std::vector<std::size_t> const teil{0, 1};
+        std::vector<std::size_t> const voll{0, 1, 2};
+        auto const                     bounds = bl::slice_window_bounds({0, 2});
+        check_true("(7b) fremde Selektion {0,1} released das gappy Fenster {0,2} NICHT",
+                   !bl::scope_covers_slice(bl::make_sweep_scope(bl::BatchTyp::tier, teil), bounds.begin, bounds.count));
+        check_true("(7b) wer {0,1,2} baut, deckt {0,2} voll ab -> Uebernahme erlaubt",
+                   bl::scope_covers_slice(bl::make_sweep_scope(bl::BatchTyp::tier, voll), bounds.begin, bounds.count));
+        // Der VERLUST literal: mit der alten (begin=0, count=size=2)-Form haette {0,1} gedeckt.
+        check_true("(7b) Beleg des Schreib-Verlusts: (0, size=2) HAETTE {0,1} faelschlich freigegeben",
+                   bl::scope_covers_slice(bl::make_sweep_scope(bl::BatchTyp::tier, teil), 0, 2));
+
+        // (7c) END-TO-END am REALEN Schreibweg: run_planer_driven_provision mit gappy {0,2} legt die
+        //      Reservierung mit slice_count == SPANNE 3 ab (VOR dem Fix stand dort die 2).
+        FakeStore         store;
+        ex::LazyRunConfig cfg = make_cfg(store, base / "cxw2_gappy");
+        ex::BuildConfig   bcfg;
+        bcfg.cores_per_build    = 1;
+        bcfg.source_dir         = cfg.source_dir;
+        bcfg.output_dir         = cfg.output_dir;
+        bcfg.per_binary_subdirs = true;
+        bcfg.build_parallelism  = 1;
+        ex::BuildOrchestrator          orch{bcfg, compile_stub, gen_stub};
+        ex::BuildStats                 agg;
+        std::size_t                    skips = 0;
+        CerrCapture                    fang;
+        std::vector<std::size_t> const gappy{0, 2};
+        auto const builds      = ex::run_planer_driven_provision(orch, view, gappy, cfg, agg, bl::PresenceFn{}, &skips);
+        std::string const spur = fang.text();
+        check_eq("(7c) beide Indizes des gappy Fensters gebaut", builds.size(), std::size_t{2});
+        check_true("(7c) die konservative Weitung ist NICHT stumm",
+                   spur.find("Slice-Fenster ist NICHT zusammenhaengend") != std::string::npos);
+        auto const raw = store.objs.find(kDocKey);
+        check_true("(7c) Reservierung im Store", raw != store.objs.end());
+        if (raw != store.objs.end()) {
+            auto const doc = bl::parse_bestandslog(raw->second);
+            check_true("(7c) Dokument parsebar", doc.has_value());
+            check_true("(7c) genau EINE Slice-Reservierung", doc && doc->reservierungen.size() == 1);
+            if (doc && doc->reservierungen.size() == 1) {
+                check_eq("(7c) slice_begin == min == 0", doc->reservierungen[0].slice_begin, std::uint64_t{0});
+                check_eq("(7c) slice_count == SPANNE 3 (nicht size 2) -- kein Schreib-Verlust",
+                         doc->reservierungen[0].slice_count, std::uint64_t{3});
+            }
+        }
     }
 
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");

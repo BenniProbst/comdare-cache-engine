@@ -916,10 +916,22 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         bestandslog::BatchReservierung           res;
         std::optional<bestandslog::PromiseGuard> guard;
         if (reserve) {
-            res = bestandslog::make_slice_reservation(
-                cfg.bestand_owner_uuid, slice_seq, cfg.bestand_maschine, static_cast<unsigned>(cfg.build_parallelism),
-                plan->view_indices.empty() ? 0 : static_cast<std::uint64_t>(plan->view_indices.front()),
-                static_cast<std::uint64_t>(plan->view_indices.size()), now_fn());
+            // TP1FK1-B1 (Codex-Befund CX-W2): das Fenster als INTERVALL, das die (evtl. luecken-behaftete)
+            // Index-MENGE dieses Slices VOLL enthaelt -- begin=min, count=Spanne (slice_window_bounds). Fuer
+            // zusammenhaengende Fenster ist das byte-identisch zum frueheren (front(), size()); eine gappy
+            // Menge wird KONSERVATIV weiter gefasst, damit scope_covers_slice sie nie faelschlich freigibt.
+            auto const fenster_bounds = bestandslog::slice_window_bounds(plan->view_indices);
+            if (fenster_bounds.count != plan->view_indices.size())
+                // Nie-stumm: die konservative Weitung ist eine ENTSCHEIDUNG und keine stille Eigenschaft.
+                // Im Betrieb (dichte Selektion) feuert die Zeile nie.
+                std::cerr << "[bestandslog] warn: Slice-Fenster ist NICHT zusammenhaengend (indizes="
+                          << plan->view_indices.size() << " spanne=" << fenster_bounds.count << " ab "
+                          << fenster_bounds.begin
+                          << ") -- die Reservierung beansprucht konservativ die ganze Spanne (kein Draht-Bump)\n"
+                          << std::flush;
+            res = bestandslog::make_slice_reservation(cfg.bestand_owner_uuid, slice_seq, cfg.bestand_maschine,
+                                                      static_cast<unsigned>(cfg.build_parallelism),
+                                                      fenster_bounds.begin, fenster_bounds.count, now_fn());
             if (!store_reservation(res, "pro-forma-Reservierung")) ++res_fehler;
             // PromiseGuard: bei Abbruch (Exception/early-return) wird die Reservierung released -> Takeover moeglich.
             // Best-effort im Abbau-Pfad: das Ergebnis ist hier nicht mehr zaehlbar (der Zaehler lebt kuerzer als der
