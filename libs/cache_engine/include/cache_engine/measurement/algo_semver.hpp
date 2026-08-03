@@ -76,7 +76,21 @@
 /// DOKTRIN VORWEG: diese Liste ist AUS DEM DIFF/GREP ABZULEITEN, NIE HANDGEPFLEGT. Genau das Fortschreiben
 /// von Hand ist beim M2-Bau unterblieben (BEFUND-3). Ueberall dort, wo die Fundstellen ZAEHLBAR sind und
 /// mit dem Bestand WACHSEN, steht deshalb unten das KOMMANDO, mit dem der Migrations-Commit seine
-/// Fundstellen selbst erhebt -- die genannten Zahlen sind Momentaufnahmen und altern, die Kommandos nicht:
+/// Fundstellen selbst erhebt -- die genannten Zahlen sind Momentaufnahmen und altern, die Kommandos nicht.
+///
+/// DAS ERSTE, BINDENDE KOMMANDO IST DER GENERISCHE WACHEN-GREP (A13-M3/C2, Befund GA-05/Z-10 vom
+/// 03.08.2026). Er steht VOR den klassen-spezifischen Kommandos, weil er die Klassen VOLLSTAENDIG liefert,
+/// statt sie an Datei-NAMEN zu erraten:
+///     grep -rn 'ce_owned_version_satisfies_cpu_enforce\|ce_owned_version_is_wellformed' \
+///          --include=*.hpp --include=*.cpp libs tests tools apps
+/// Begruendung (das ist keine Stil-Frage): jede ce-EIGENE Versions-Quelle traegt per B12-Doktrin genau
+/// diese beiden Wachen -- wer eine neue Quelle ohne sie anlegt, hat keine Naht angelegt, sondern eine
+/// Luecke. BELEG, warum dieser grep noetig wurde: die Klassen (e) kPlannerVersion und (f) kOsProbeVersion
+/// fielen durch ALLE DREI frueher als bindend deklarierten Kommandos hindurch -- (a) greppt drei namentlich
+/// genannte Dateien, (d) greppt 'axis_code_version *=', der Absicherungs-grep greppt
+/// 'meta_meta_version_cpu_pflicht'. Die Selbst-Erhebung war damit nachweislich unvollstaendig, obwohl sie
+/// als "nie handgepflegt" deklariert war. Die klassen-spezifischen Kommandos unten bleiben stehen: sie
+/// sagen, WAS an der jeweiligen Fundstelle zu tun ist; der generische grep sagt, WELCHE es gibt.
 ///   (a) 7 Nicht-Organ-Literale: abi/system_axis_code_versions.hpp (3x), measurement/
 ///       measurement_tooling_registry.hpp (3x), measurement/measurement_framework_registry.hpp (1x) --
 ///       alle tragen seit dem Fixup dieselbe gated ENFORCE-Wache und brechen beim Scharfschalten mit.
@@ -113,6 +127,20 @@
 ///       auf "v1.0.0c" mit. MECHANISCH GESICHERT: die gated static_assert in planner_version.hpp bricht beim
 ///       Scharfschalten von selbst mit.
 ///       Erhebung: grep -rn 'kPlannerVersion *=' --include=*.hpp profile_facade/planner
+///   (f) OS-U3 (Commit d115e4cc; Befund GA-05/Z-10 vom 03.08.2026, in A13-M3/C2 nachgetragen): die
+///       OS-PROBE-VERFAHRENS-Version. measurement/operating_system_probe.hpp fuehrt kOsProbeVersion als
+///       EIGENES ce-Literal -- EIN Literal, aber DREI probe_ids ("os_probe.<familie>@v1.0.0", je Familie
+///       eine); der Migrations-Commit zieht es wie die Nicht-Organ-Literale (a) auf "v1.0.0c" mit.
+///       MECHANISCH GESICHERT: die gated ENFORCE-Wache in operating_system_probe.hpp bricht beim
+///       Scharfschalten von selbst mit. WARUM DIE KLASSE HIER FEHLTE (die eigentliche Lehre): das Literal
+///       heisst weder algo_version noch axis_code_version und liegt in keiner der drei namentlich
+///       genannten Registry-Dateien -- es fiel damit durch jedes einzelne der frueheren Kommandos. Genau
+///       deshalb steht der generische Wachen-grep jetzt VORNE.
+///       ABGRENZUNG: die Migration ist ein probe_id-BYTE-Ereignis (die Provenienz-Kette des
+///       OS-U4-Token-Tripels sieht "os_probe.<fam>@v1.0.0c"), aber KEIN Stempel-Ereignis -- die
+///       A-15-Neutralitaet der Probe (kein erhobener Wert und keine probe_id reist in den Binary-Stempel)
+///       bleibt unangetastet.
+///       Erhebung: der generische Wachen-grep oben faengt sie (operating_system_probe.hpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 0
 #endif

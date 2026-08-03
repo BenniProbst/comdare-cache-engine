@@ -81,9 +81,28 @@ template <class Members>
 [[nodiscard]] inline std::string render_meta_meta_members(Members);
 
 /// EIN Glied: "<name>=code@X.Y.Z" plus -- falls es SELBST Hub ist -- seine eigene Klammer eine Ebene tiefer.
+///
+/// A13-M3/C2 (Befund Z-07, nachhaltige Klassen-Schliessung): HIER, am RENDERER-ENGPASS, laufen die beiden
+/// Versions-Wachen -- nicht nur opt-in am Definitionsort der jeweiligen Meta-Meta. Der Unterschied ist der
+/// ganze Punkt: eine Wache am Definitionsort muss jemand HINSCHREIBEN (heute steht sie an genau EINER Achse,
+/// external_utils_family_axis.hpp; die vier test-lokalen Meta-Metas haben sie nicht), eine Wache am Engpass
+/// KANN NIEMAND VERGESSEN -- jedes Glied, das je in eine Stempel-Zeile gerendert wird, kommt durch diese
+/// Funktion. Eine neue Meta-Meta ohne Wachen-Zwilling kann damit nicht mehr still am Engpass vorbeistempeln.
+/// Die Wachen selbst bleiben die B12-Single-Source (Z-03, hardware_meta_meta_axis.hpp) -- hier steht KEINE
+/// zweite Politik, nur ihr Anwendungsort. Byte-neutral: der gesamte heutige Bestand besteht beide.
 template <class M>
 [[nodiscard]] inline std::string render_meta_meta_entry() {
     using ::comdare::cache_engine::measurement::algo_semver_string;
+    static_assert(::comdare::cache_engine::measurement::meta_meta_version_wohlgeformt<M>(),
+                  "A13-M3/C2 (Z-07): diese Meta-Meta wird gestempelt, ihre axis_code_version ist aber nicht "
+                  "wohlgeformt -- sie muss dreistellig parsbar sein, darf nicht auf dem Sentinel stehen, kein "
+                  "'e' (Pruefling-Markierung, Owner-E2) und kein falsches Hardware-Flag tragen (Owner-Q3).");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+    static_assert(::comdare::cache_engine::measurement::meta_meta_version_cpu_pflicht<M>(),
+                  "A13-M3/C2 (Z-07): diese Meta-Meta wird gestempelt, ihre axis_code_version traegt aber kein "
+                  "CPU-Hardware-Flag -- im CPU-only-Scope MUSS sie auf 'c' enden (Owner-Q3); "
+                  "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
+#endif
     std::string out{meta_meta_stamp_name<M>()};
     out += '=';
     out += kMetaMetaAlgorithmMarker;

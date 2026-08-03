@@ -126,18 +126,67 @@ concept SystemMetaMetaAxisConcept = CebSystemAxisConcept<A> && is_system_meta_me
 /// axis_variant_version_table.hpp:58-68 (parsbar, kein Sentinel) plus die Owner-Q3-Flag-Grammatik
 /// (kein FALSCHES Hardware-Flag; die CPU-Pflicht selbst schaltet der Migrations-Commit ueber
 /// COMDARE_VERSION_HW_FLAG_ENFORCE scharf -- Migrations-Naht-Liste in algo_semver.hpp).
+///
+/// A13-M3/C2 (Befund Z-03, Wellen-Zweitpass 03.08.2026): die beiden Zwillinge bauten die ce-Politik
+/// SELBST nach, statt die B12-Single-Source zu rufen -- und zwar LUECKENHAFT. `wohlgeformt` fragte das
+/// 'e' gar nicht ab, `cpu_pflicht` rief version_satisfies_cpu_only_policy, das "v1.0.0ce" erfuellt (die
+/// CPU-Politik ist erfuellt, nur die PRUEFLING-Markierung ist an einer ce-EIGENEN Achse nie zulaessig).
+/// Folge am Ist: `axis_code_version = "v1.0.0ce"` passierte BEIDE Wachen und waere als
+/// Pruefling-Experiment durch Lager und SHA512-Gate gereist. Seit C2 rufen beide die EINE Politik
+/// (ce_owned_version_is_wellformed / ce_owned_version_satisfies_cpu_enforce, algo_semver.hpp B12) --
+/// dieselbe Quelle wie die Organ-Registry und die drei Nicht-Organ-Registries. Wer die Politik aendert,
+/// aendert sie damit an genau EINER Stelle, nie wieder je Registry verschieden.
+///
+/// Die M2-Zusatz-Strenge "kein Sentinel" BLEIBT ausdruecklich stehen: B12 laesst das dokumentierte
+/// Sentinel-Literal ungated durch (es ist ein zulaessiger REGISTRY-Eintrag "Version unbekannt"), eine
+/// Meta-Meta ist aber seit Owner-E2 PFLICHT und muss deshalb eine ECHTE Version tragen. Die Wache ist
+/// damit strikt staerker als vorher, nicht bloss anders.
 template <class A>
 [[nodiscard]] consteval bool meta_meta_version_wohlgeformt() {
     std::string_view const raw = A::axis_code_version;
-    if (parse_algo_semver(raw).is_sentinel()) return false;
-    if (parse_algo_semver(raw).has_hardware_flag() && !version_satisfies_cpu_only_policy(raw)) return false;
-    return true;
+    if (!ce_owned_version_is_wellformed(raw)) return false;
+    return !parse_algo_semver(raw).is_sentinel();
 }
 
 template <class A>
 [[nodiscard]] consteval bool meta_meta_version_cpu_pflicht() {
-    return version_satisfies_cpu_only_policy(A::axis_code_version);
+    return ce_owned_version_satisfies_cpu_enforce(A::axis_code_version);
 }
+
+namespace detail {
+/// Z-03-PROBEN-TRAEGER: minimale Meta-Meta-Attrappen, die NUR das axis_code_version-Literal tragen (mehr
+/// braucht keine der beiden Wachen). Sie stehen hier und nicht im Test, weil die Wachen consteval sind --
+/// der Beweis gehoert damit in dieselbe Uebersetzungseinheit wie die Wache.
+template <auto& Lit>
+struct MetaMetaVersionProbe {
+    static constexpr std::string_view axis_code_version = Lit;
+};
+inline constexpr std::string_view kProbeVersionCe       = "v1.0.0ce"; // Pruefling-Markierung an ce-Achse
+inline constexpr std::string_view kProbeVersionC        = "v1.0.0c";  // die Ziel-Form nach A13-M3/C4
+inline constexpr std::string_view kProbeVersionFlaglos  = "v1.0.0";   // der heutige Uebergangs-Bestand
+inline constexpr std::string_view kProbeVersionGpu      = "v1.0.0g";  // falsches Hardware-Flag (Owner-Q3)
+inline constexpr std::string_view kProbeVersionSentinel = "v0.0.0";   // dokumentierter Sentinel
+inline constexpr std::string_view kProbeVersionKaputt   = "v1.0";     // unparsbar
+} // namespace detail
+
+// -- Z-03-NEGATIV-PROBE (die Luecke, die C2 schliesst): 'ce' an einer ce-EIGENEN Meta-Meta bricht ab jetzt
+//    BEIDE Wachen. Vor C2 passierte dieses Literal beide (Compile-Beweis im Audit + eigene Rotprobe).
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionCe>>(),
+              "Z-03: 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung (Owner-E2) und an einer ce-eigenen "
+              "Meta-Meta nie zulaessig -- auch nicht zusammen mit dem CPU-Flag.");
+static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionCe>>(),
+              "Z-03: der gated Zwilling darf 'ce' ebenfalls nie passieren lassen.");
+// -- Die uebrigen Klassen, damit die Umstellung nicht nur die Luecke, sondern die ganze Politik belegt --
+static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionFlaglos>>(),
+              "der flaglose Uebergangs-Bestand bleibt bis zur C4-Migration wohlgeformt (byte-neutral).");
+static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionFlaglos>>(),
+              "... und bricht genau dann, wenn C4 COMDARE_VERSION_HW_FLAG_ENFORCE scharf schaltet.");
+static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionC>>());
+static_assert(meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionC>>());
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionGpu>>());
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionSentinel>>(),
+              "eine Meta-Meta ist PFLICHT (Owner-E2) und darf nie auf dem Sentinel stehen.");
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionKaputt>>());
 
 // =================================================================================================
 // 2. WIE EIN HUB SEINE GLIEDER TRAEGT (realm-freier Rekursions-Mechanismus, Owner Q-F)
