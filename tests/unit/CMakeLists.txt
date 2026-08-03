@@ -1595,7 +1595,12 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_axis_growth_policies                 # L-76b axis_growth Mehr-Policy-Achse (Doubling/GoldenRatio/FixedChunk/Exact + Registry)
     test_axis_view_policies                   # L-76c View-Achsen extent/layout/accessor (mdspan-Policies + Registries)
     test_e24_c0_organ_concept                 # E-24 C0 (M0-Vorstufe): OrganConcept gegen alle 5 Gattungs-Anatomien
-    test_e24_c1_organ_concept)                # E-24 C1: Op-Familie (Gate-G2-Matrix) + ObservableAxis-Forwarding
+    test_e24_c1_organ_concept                 # E-24 C1: Op-Familie (Gate-G2-Matrix) + ObservableAxis-Forwarding
+    # E-24 C2 (Bauplan Paragraf 3.1-C2): je Engine EINE Test-TU fuer for_each_abi_adapter. Gate Paragraf 4.2:
+    # Materialisierungs-Zaehlung == Slot-Permutations-Soll des Genus (Soll fixture-unabhaengig hergeleitet).
+    test_e24_c2_set_permutation_engine        # E-24 C2: SetPermutationEngine::for_each_abi_adapter (13 Slots)
+    test_e24_c2_sequence_permutation_engine   # E-24 C2: SequencePermutationEngine::for_each_abi_adapter (9 Slots)
+    test_e24_c2_view_permutation_engine)      # E-24 C2: ViewPermutationEngine::for_each_abi_adapter (5 Slots)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
