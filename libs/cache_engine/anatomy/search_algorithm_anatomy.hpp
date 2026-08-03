@@ -12,6 +12,7 @@
 #include "anatomy_base.hpp"
 #include "composition_concept.hpp"
 #include "observer_aggregate.hpp"
+#include "organ_concept.hpp" // E-24 C1: OrganGuard (CRTP-Wache)
 
 #include <cstddef>
 #include <cstdint>
@@ -28,8 +29,10 @@ namespace comdare::cache_engine::anatomy {
 /// Phase R3 (Pilot): interner std::map<uint64_t,uint64_t> als Container.
 /// Phase R4+: Container wird durch Composition::node_type + Composition::allocator
 /// + Composition::concurrency-getriebene Implementation ersetzt.
+/// E-24 C1 (Luecke L5): erbt die CRTP-Wache OrganGuard (Goldstandard axis_io_strategy_base.hpp:15-21) --
+/// die erste Konstruktion prueft compile-hart gegen OrganConcept. Zero-cost, kein ABI-Ereignis.
 template <IsComposition Composition>
-class SearchAlgorithmAnatomy {
+class SearchAlgorithmAnatomy : public OrganGuard<SearchAlgorithmAnatomy<Composition>> {
 public:
     using composition_t        = Composition;
     using key_type             = std::uint64_t;

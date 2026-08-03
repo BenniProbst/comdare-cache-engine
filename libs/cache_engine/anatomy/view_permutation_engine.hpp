@@ -8,12 +8,20 @@
 //   (2) ViewPermutationEngine<TopicConfigSets...> — Genus-Marker + Slot-Genus-Validierung + for_each_view
 //       (materialisiert ViewAnatomy<ViewComp> pro Permutation).
 //
+// E-24 C2 (2026-08-04, Bauplan-Dossier 20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 3.1-C2): DRITTER
+// Baustein for_each_abi_adapter nach dem SA-Muster (search_algorithm_permutation_engine.hpp:174-185). Bis
+// heute war die SA-Engine der EINZIGE Traeger dieser Materialisierung; die vier Container-Engines konnten je
+// Permutation nur die Anatomie bzw. den Kompositions-TYP liefern, nicht die ABI-Flaeche (IAnatomyBase), an der
+// der gattungs-agnostische Modul-Loader/Dock-Pfad ansetzt. ABI-NEUTRAL: kein Byte an abi_adapter.hpp, an den
+// Wire-PODs (view_tier.hpp) oder an abi/*_decl.hpp -- diese Datei RUFT die bestehende Bruecke nur auf.
+//
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §29.2 + §32.3
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]]
 
-#include "anatomy_base.hpp"     // AnatomyGenus
+#include "anatomy_base.hpp"     // AnatomyGenus / IAnatomyBase
 #include "view_composition.hpp" // ViewComposition / IsViewComposition / Layout/Accessor/Extent-Policies
 #include "view_anatomy.hpp"     // ViewAnatomy
+#include "view_abi_adapter.hpp" // E-24 C2: ViewAbiAdapter (ABI-Materialisierung je Permutation)
 #include "pruefling_merge.hpp"  // PrueflingSlotConcept / IsSlotOfGenus_v
 
 #include <src/permutations/permutation_engine.hpp>
@@ -86,6 +94,27 @@ public:
         Engine::for_each_permutation([&]<class P>() {
             using ViewComp = ViewCompositionFromPermTuple<P>;
             std::forward<Visitor>(v).template operator()<ViewComp>();
+        });
+    }
+
+    /// for_each_abi_adapter -- E-24 C2: materialisiert je Permutation einen ViewAbiAdapter<ViewAnatomy<ViewComp>>
+    /// und ruft den Visitor mit dessen ABI-Basis.
+    ///
+    /// Visitor-Signatur: `void operator()(IAnatomyBase& base, std::string_view composition_name)` -- BYTE-GLEICH
+    /// zur SearchAlgorithm-Gattung (search_algorithm_permutation_engine.hpp:177-178). Der gattungs-agnostische
+    /// Loader liefert IAnatomyBase*, der View-Dock fragt daran IViewTier per dynamic_cast ab. Die non-owning-
+    /// Asymmetrie der View-Gattung (bind/read statt insert/erase/clear) bleibt unangetastet.
+    ///
+    /// ABWEICHUNG im RUMPF (deklariert, gleicher Vertrag): die SA-Engine delegiert an for_each_search_algorithm
+    /// und verwirft die dort gebaute Anatomie ungenutzt. Hier laeuft die Materialisierung direkt ueber
+    /// Engine::for_each_permutation -- lokales Idiom dieser Datei, kein doppelter Anatomie-Aufbau je Permutation.
+    template <class Visitor>
+    static constexpr void for_each_abi_adapter(Visitor&& v) {
+        Engine::for_each_permutation([&]<class P>() {
+            using ViewComp = ViewCompositionFromPermTuple<P>;
+            ViewAbiAdapter<ViewAnatomy<ViewComp>> adapter;
+            IAnatomyBase&                         base = adapter;
+            std::forward<Visitor>(v)(base, ViewComp::name);
         });
     }
 };

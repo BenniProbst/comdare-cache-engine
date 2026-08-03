@@ -11,12 +11,20 @@
 //   (2) SetPermutationEngine<TopicConfigSets...> — Genus-Marker + Pflicht-Slot-Genus-Validierung + technisch
 //       benannte Iteration (for_each_set materialisiert SetAnatomy<SetComp> pro Permutation).
 //
+// E-24 C2 (2026-08-04, Bauplan-Dossier 20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 3.1-C2): DRITTER
+// Baustein for_each_abi_adapter nach dem SA-Muster (search_algorithm_permutation_engine.hpp:174-185). Bis
+// heute war die SA-Engine der EINZIGE Traeger dieser Materialisierung; die vier Container-Engines konnten je
+// Permutation nur die Anatomie bzw. den Kompositions-TYP liefern, nicht die ABI-Flaeche (IAnatomyBase), an der
+// der gattungs-agnostische Modul-Loader/Dock-Pfad ansetzt. ABI-NEUTRAL: kein Byte an abi_adapter.hpp, an den
+// Wire-PODs (set_tier.hpp) oder an abi/*_decl.hpp -- diese Datei RUFT die bestehende Bruecke nur auf.
+//
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §29.2 + §32.3
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]] [[technical-identifiers-over-metaphor]]
 
-#include "anatomy_base.hpp"    // AnatomyGenus
+#include "anatomy_base.hpp"    // AnatomyGenus / IAnatomyBase
 #include "set_composition.hpp" // SetComposition / IsSetComposition
 #include "set_anatomy.hpp"     // SetAnatomy
+#include "set_abi_adapter.hpp" // E-24 C2: SetAbiAdapter (ABI-Materialisierung je Permutation)
 #include "pruefling_merge.hpp" // PrueflingSlotConcept / IsSlotOfGenus_v
 
 #include <src/permutations/permutation_engine.hpp>
@@ -89,6 +97,31 @@ public:
         Engine::for_each_permutation([&]<class P>() {
             using SetComp = SetCompositionFromPermTuple<P>;
             std::forward<Visitor>(v).template operator()<SetComp>();
+        });
+    }
+
+    /// for_each_abi_adapter -- E-24 C2: materialisiert je Permutation einen SetAbiAdapter<SetAnatomy<SetComp>>
+    /// und ruft den Visitor mit dessen ABI-Basis.
+    ///
+    /// Visitor-Signatur: `void operator()(IAnatomyBase& base, std::string_view composition_name)` -- BYTE-GLEICH
+    /// zur SearchAlgorithm-Gattung (search_algorithm_permutation_engine.hpp:177-178). Genau darauf setzt der
+    /// gattungs-agnostische Loader-/Dock-Pfad auf: eine Set-Permutations-.dll exportiert via
+    /// comdare_create_anatomy() einen IAnatomyBase*, und der Set-Dock fragt daran ISetTier per dynamic_cast ab
+    /// (set_abi_adapter.hpp:2-5). Die Antriebs-Flaeche ISetTier ist deshalb am uebergebenen Objekt erreichbar,
+    /// ohne dass diese Engine sie in ihre Signatur zieht.
+    ///
+    /// ABWEICHUNG im RUMPF (deklariert, gleicher Vertrag): die SA-Engine delegiert an for_each_search_algorithm
+    /// und verwirft die dort gebaute Anatomie ungenutzt (`(void)algo;`). Hier laeuft die Materialisierung direkt
+    /// ueber Engine::for_each_permutation -- das ist das lokale Idiom dieser Datei (for_each_set /
+    /// for_each_composition_type) und vermeidet je Permutation den zweiten, sofort verworfenen Anatomie-Aufbau.
+    /// Bei SetAnatomy ist das kein Schoenheitsfehler: sie haelt das ECHTE search_algo-Kern-Organ.
+    template <class Visitor>
+    static constexpr void for_each_abi_adapter(Visitor&& v) {
+        Engine::for_each_permutation([&]<class P>() {
+            using SetComp = SetCompositionFromPermTuple<P>;
+            SetAbiAdapter<SetAnatomy<SetComp>> adapter;
+            IAnatomyBase&                      base = adapter;
+            std::forward<Visitor>(v)(base, SetComp::name);
         });
     }
 };

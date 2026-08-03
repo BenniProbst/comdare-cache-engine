@@ -1594,7 +1594,14 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_genus_permutation_engines            # L-76a-c per-Gattung PermutationEngines (Set/Sequence/View Factory+Engine)
     test_axis_growth_policies                 # L-76b axis_growth Mehr-Policy-Achse (Doubling/GoldenRatio/FixedChunk/Exact + Registry)
     test_axis_view_policies                   # L-76c View-Achsen extent/layout/accessor (mdspan-Policies + Registries)
-    test_e24_c0_organ_concept)                # E-24 C0 (M0-Vorstufe): OrganConcept gegen alle 5 Gattungs-Anatomien
+    test_e24_c0_organ_concept                 # E-24 C0 (M0-Vorstufe): OrganConcept gegen alle 5 Gattungs-Anatomien
+    test_e24_c1_organ_concept                 # E-24 C1: Op-Familie (Gate-G2-Matrix) + ObservableAxis-Forwarding
+    # E-24 C2 (Bauplan Paragraf 3.1-C2): je Engine EINE Test-TU fuer for_each_abi_adapter. Gate Paragraf 4.2:
+    # Materialisierungs-Zaehlung == Slot-Permutations-Soll des Genus (Soll fixture-unabhaengig hergeleitet).
+    test_e24_c2_set_permutation_engine        # E-24 C2: SetPermutationEngine::for_each_abi_adapter (13 Slots)
+    test_e24_c2_sequence_permutation_engine   # E-24 C2: SequencePermutationEngine::for_each_abi_adapter (9 Slots)
+    test_e24_c2_view_permutation_engine       # E-24 C2: ViewPermutationEngine::for_each_abi_adapter (5 Slots)
+    test_e24_c2_adapter_permutation_engine)   # E-24 C2 (OP-3): NEUE AdapterPermutationEngine, 11 Slots
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1614,6 +1621,41 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
+
+# -----------------------------------------------------------------------------
+# E-24 C1 (Luecke L6) -- NEGATIV-COMPILE-FIXTURE: eine TU, die BRECHEN MUSS.
+#
+# Das Repo kannte am Ist KEIN Muster fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer
+# fuer try_compile / WILL_FAIL unter tests/ und cmake/). Dieses Muster wird deshalb hier NEU eingefuehrt --
+# auf dem offiziellen CMake/ctest-Weg und ausdruecklich benannt, damit Geschwister-Fixtures (C2/C3) es
+# uebernehmen koennen statt es erneut zu erfinden:
+#   (a) Das Ziel ist EXCLUDE_FROM_ALL und steht bewusst NICHT in COMDARE_TEST_TARGETS. Der Sammel-Bau
+#       comdare_tests -- und damit die CI -- darf es NIE bauen; es muss ja fehlschlagen.
+#   (b) Der ctest-Test RUFT den Bau ("cmake --build --target") und prueft die erwartete Diagnose ueber
+#       PASS_REGULAR_EXPRESSION. Baut die TU versehentlich DURCH, fehlt der Marker -> Test ROT.
+#   (c) Bewusst NICHT WILL_FAIL: das wuerde JEDEN Fehlschlag akzeptieren -- auch einen Tippfehler oder
+#       einen fehlenden Include. Gefordert ist der BESTIMMTE Bruch, nicht irgendeiner.
+#   (d) RESOURCE_LOCK serialisiert den geschachtelten Bau gegen kuenftige Geschwister-Fixtures (ein
+#       zweiter gleichzeitiger Ninja-Aufruf auf demselben Bau-Verzeichnis wuerde blockieren).
+set(_comdare_negativ_compile_tu test_e24_c1_organ_concept_negativ)
+add_executable(${_comdare_negativ_compile_tu} EXCLUDE_FROM_ALL "${_comdare_negativ_compile_tu}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu})
+add_test(NAME ${_comdare_negativ_compile_tu}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target ${_comdare_negativ_compile_tu})
+set_tests_properties(${_comdare_negativ_compile_tu} PROPERTIES
+    PASS_REGULAR_EXPRESSION "E24-C1-NEGATIV-PROBE"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
