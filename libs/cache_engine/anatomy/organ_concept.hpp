@@ -199,9 +199,9 @@ concept OrganOpSurface = OrganConcept<A> && (organ_op_family_count<A>() == 1);
 /// OrganGuard<Derived> -- CRTP-Wache: wer sie erbt, wird bei der ERSTEN Konstruktion compile-hart
 /// gegen OrganConcept geprueft. Zero-cost (leere Basis, protected Ctor, keine virtuelle Funktion).
 ///
-/// C0-Stand: die fuenf Gattungs-Anatomien erben sie NOCH NICHT -- das Anheften ist eine Aenderung AN
-/// den Anatomien und gehoert damit nicht in diesen ABI-neutralen Schritt. Bewiesen wird die Wache in
-/// der Test-TU an einem eigenen Traeger-Typ.
+/// C1-Stand: ALLE FUENF Gattungs-Anatomien erben sie (SearchAlgorithm/Set/Sequence/Adapter/View) --
+/// jede prueft sich damit bei ihrer ersten Konstruktion selbst. Kein ABI-Ereignis: leere Basis, EBO,
+/// keine Layout-Aenderung (in der Test-TU per sizeof gepinnt).
 template <class Derived>
 class OrganGuard {
 protected:
@@ -487,8 +487,12 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     AdapterObserverSnapshot / ViewObserverSnapshot). organ_snapshot_t benennt ihn nur. Eine
 //     Vereinheitlichung waere ein Wire-POD-Ereignis und gehoert damit in den b-Teil (C6), nicht hierher.
 //
-// L5  [OFFEN in diesem Commit] DIE FUENF ANATOMIEN ERBEN OrganGuard NOCH NICHT. Das Anheften aendert die
-//     Anatomien; es ist im C1-Schnitt zulaessig und folgt als eigener Commit derselben Scheibe.
+// L5  [C1 GESCHLOSSEN] DIE FUENF ANATOMIEN ERBEN OrganGuard. Angeheftet nach dem Repo-Goldstandard
+//     axes/io_dispatch/axis_io_strategy_base.hpp:15-21 (protected CRTP-Ctor traegt die static_asserts):
+//     search_algorithm_anatomy.hpp / set_anatomy.hpp / sequence_anatomy.hpp / adapter_anatomy.hpp /
+//     view_anatomy.hpp. Wirkung: jede Anatomie prueft sich bei ihrer ERSTEN Konstruktion selbst gegen
+//     OrganConcept -- der Vertrag kann nicht mehr still auseinanderlaufen. Kein ABI-Ereignis (leere
+//     Basis, EBO, keine Layout-Aenderung; sizeof in der Test-TU gepinnt).
 //
 // L6  [OFFEN in diesem Commit] KEINE NEGATIV-COMPILE-FIXTURE. Das Repo kennt am Ist KEIN Muster fuer
 //     erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer fuer try_compile / WILL_FAIL in tests/

@@ -259,6 +259,26 @@ static_assert(SaOrganSub::observable_axis_count() == 1,
 static_assert(SaOrgan::observable_axis_count() == 0, "Gegenprobe ohne Huelle: stumm (das war L2)");
 static_assert(std::is_same_v<decltype(cea::ObserverAggregate<SaCompSub>::node_type), cea::SequenceObserverSnapshot>);
 
+// =============================================================================================
+// (E) DIE WACHE HAENGT (Luecke L5): alle fuenf Anatomien erben OrganGuard nach dem Repo-Goldstandard
+//     axis_io_strategy_base.hpp:15-21. Die static_asserts der Wache feuern bei der ERSTEN Konstruktion
+//     -- die im main() unten real stattfindet. Hier zusaetzlich die Struktur-Wache, damit ein stilles
+//     Abhaengen der Vererbung auffliegt.
+// =============================================================================================
+static_assert(std::is_base_of_v<cea::OrganGuard<SaOrgan>, SaOrgan>);
+static_assert(std::is_base_of_v<cea::OrganGuard<SetOrgan>, SetOrgan>);
+static_assert(std::is_base_of_v<cea::OrganGuard<SeqOrgan>, SeqOrgan>);
+static_assert(std::is_base_of_v<cea::OrganGuard<AdaOrgan>, AdaOrgan>);
+static_assert(std::is_base_of_v<cea::OrganGuard<ViewOrgan>, ViewOrgan>);
+// Zero-cost: die Wache ist eine leere Basis (EBO) -- kein Byte, keine vtable, kein Layout-Ereignis.
+static_assert(std::is_empty_v<cea::OrganGuard<SaOrgan>> && std::is_empty_v<cea::OrganGuard<SetOrgan>> &&
+              std::is_empty_v<cea::OrganGuard<SeqOrgan>> && std::is_empty_v<cea::OrganGuard<AdaOrgan>> &&
+              std::is_empty_v<cea::OrganGuard<ViewOrgan>>);
+static_assert(!std::is_polymorphic_v<SaOrgan> && !std::is_polymorphic_v<SetOrgan> && !std::is_polymorphic_v<SeqOrgan> &&
+              !std::is_polymorphic_v<AdaOrgan> && !std::is_polymorphic_v<ViewOrgan>);
+// Die Wache ist NICHT von aussen konstruierbar (protected Ctor) -- sie ist eine Wache, kein Bauteil.
+static_assert(!std::is_default_constructible_v<cea::OrganGuard<SetOrgan>>);
+
 int main() {
     std::cout << "E-24 C1: OrganConcept-Vollausbau (Op-Familie + ObservableAxis-Forwarding):\n";
 

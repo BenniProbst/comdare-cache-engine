@@ -14,7 +14,8 @@
 // NAMEN (#90-Sweep abgeschlossen): Datei adapter_anatomy.hpp + Typen AdapterComposition/AdapterAnatomy
 // (konsistent mit set_/sequence_/view_; historisch container_anatomy.hpp / Container*). C++23, header-only.
 
-#include "anatomy_base.hpp" // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
+#include "anatomy_base.hpp"  // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
+#include "organ_concept.hpp" // E-24 C1: OrganGuard (CRTP-Wache)
 
 #include <algorithm> // std::push_heap / std::pop_heap (HeapInner = priority_queue-Disziplin)
 #include <cstddef>
@@ -154,8 +155,10 @@ inline constexpr std::size_t kAdapterCompositionSlotCount = 13; // frozen legacy
 /// (genus()==Adapter, gattung_of→Container). Treibt die spezifische Achse inner_container REAL über die
 /// §26.4-Adapter-API (push/pop/top/front/back); die 12 geteilten/delegierten Achsen werden getragen (im
 /// Komposition-Typ; analog SequenceAnatomy, die growth real treibt + die 10 geteilten trägt).
+/// E-24 C1 (Luecke L5): erbt die CRTP-Wache OrganGuard (Goldstandard axis_io_strategy_base.hpp:15-21) --
+/// die erste Konstruktion prueft compile-hart gegen OrganConcept. Zero-cost, kein ABI-Ereignis.
 template <class Composition>
-class AdapterAnatomy {
+class AdapterAnatomy : public OrganGuard<AdapterAnatomy<Composition>> {
 public:
     using composition_t = Composition;
     using inner_t       = typename Composition::inner_container;

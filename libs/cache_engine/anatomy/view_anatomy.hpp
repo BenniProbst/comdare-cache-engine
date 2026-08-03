@@ -4,6 +4,7 @@
 // bind(data,size)/read(index)→value/size. KEIN insert/erase/clear (non-owning + immutabel). Doku 14 §27.2/§28/§32.
 
 #include "anatomy_base.hpp"     // AnatomyGenus
+#include "organ_concept.hpp"    // E-24 C1: OrganGuard (CRTP-Wache)
 #include "view_composition.hpp" // ViewComposition / Layout/Accessor-Policies
 
 #include <cstddef>
@@ -22,8 +23,10 @@ struct ViewObserverSnapshot {
 };
 
 /// ViewAnatomy<Composition> — genus()==View; non-owning V-indexed read-only über die axis_layout/accessor-Policy.
+/// E-24 C1 (Luecke L5): erbt die CRTP-Wache OrganGuard (Goldstandard axis_io_strategy_base.hpp:15-21) --
+/// die erste Konstruktion prueft compile-hart gegen OrganConcept. Zero-cost, kein ABI-Ereignis.
 template <class Composition>
-class ViewAnatomy {
+class ViewAnatomy : public OrganGuard<ViewAnatomy<Composition>> {
 public:
     using composition_t = Composition;
     using layout_t      = typename Composition::layout_policy;
