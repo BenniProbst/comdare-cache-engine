@@ -1617,6 +1617,41 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
 endforeach()
 
 # ─────────────────────────────────────────────────────────────────────────────
+# E-24 C1 (Luecke L6) -- NEGATIV-COMPILE-FIXTURE: eine TU, die BRECHEN MUSS.
+#
+# Das Repo kannte am Ist KEIN Muster fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer
+# fuer try_compile / WILL_FAIL unter tests/ und cmake/). Dieses Muster wird deshalb hier NEU eingefuehrt --
+# auf dem offiziellen CMake/ctest-Weg und ausdruecklich benannt, damit Geschwister-Fixtures (C2/C3) es
+# uebernehmen koennen statt es erneut zu erfinden:
+#   (a) Das Ziel ist EXCLUDE_FROM_ALL und steht bewusst NICHT in COMDARE_TEST_TARGETS. Der Sammel-Bau
+#       comdare_tests -- und damit die CI -- darf es NIE bauen; es muss ja fehlschlagen.
+#   (b) Der ctest-Test RUFT den Bau ("cmake --build --target") und prueft die erwartete Diagnose ueber
+#       PASS_REGULAR_EXPRESSION. Baut die TU versehentlich DURCH, fehlt der Marker -> Test ROT.
+#   (c) Bewusst NICHT WILL_FAIL: das wuerde JEDEN Fehlschlag akzeptieren -- auch einen Tippfehler oder
+#       einen fehlenden Include. Gefordert ist der BESTIMMTE Bruch, nicht irgendeiner.
+#   (d) RESOURCE_LOCK serialisiert den geschachtelten Bau gegen kuenftige Geschwister-Fixtures (ein
+#       zweiter gleichzeitiger Ninja-Aufruf auf demselben Bau-Verzeichnis wuerde blockieren).
+set(_comdare_negativ_compile_tu test_e24_c1_organ_concept_negativ)
+add_executable(${_comdare_negativ_compile_tu} EXCLUDE_FROM_ALL "${_comdare_negativ_compile_tu}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu})
+add_test(NAME ${_comdare_negativ_compile_tu}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target ${_comdare_negativ_compile_tu})
+set_tests_properties(${_comdare_negativ_compile_tu} PROPERTIES
+    PASS_REGULAR_EXPRESSION "E24-C1-NEGATIV-PROBE"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
 # Identisches Muster wie die GoalV6-D-Tests darueber: plain `int main()`-Standalone (KEIN gtest, daher add_test
 # direkt, NICHT comdare_add_test), Return 0/1. KEIN DLL-/ADHOC-Bau — sie nutzen die normale cache-engine-Anatomie-

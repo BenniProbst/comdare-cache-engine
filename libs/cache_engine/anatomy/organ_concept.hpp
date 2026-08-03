@@ -494,11 +494,16 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     OrganConcept -- der Vertrag kann nicht mehr still auseinanderlaufen. Kein ABI-Ereignis (leere
 //     Basis, EBO, keine Layout-Aenderung; sizeof in der Test-TU gepinnt).
 //
-// L6  [OFFEN in diesem Commit] KEINE NEGATIV-COMPILE-FIXTURE. Das Repo kennt am Ist KEIN Muster fuer
-//     erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer fuer try_compile / WILL_FAIL in tests/
-//     und cmake/). Die Negativ-Richtung ist bisher ueber ERFUELLBARE Negativ-Asserts gefuehrt
-//     (Abschnitte a/c/e/f/g oben). Die echte Compile-Fehler-Probe folgt als eigener Commit derselben
-//     Scheibe -- inklusive des dafuer noetigen, im Repo neuen ctest-Musters.
+// L6  [C1 GESCHLOSSEN -- neues Repo-Muster] NEGATIV-COMPILE-FIXTURE. Das Repo kannte am Ist KEIN Muster
+//     fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer fuer try_compile / WILL_FAIL unter
+//     tests/ und cmake/). Es ist jetzt eingefuehrt und benannt: tests/unit/
+//     test_e24_c1_organ_concept_negativ.cpp ist EXCLUDE_FROM_ALL (der Sammel-Bau baut sie NIE) und wird
+//     allein vom gleichnamigen ctest-Test gebaut, der die erwartete Diagnose ueber
+//     PASS_REGULAR_EXPRESSION prueft (bewusst nicht WILL_FAIL -- das akzeptierte auch einen Tippfehler).
+//     Die Fixture belegt drei Brueche: Nicht-Organ am OrganConcept, fehlende Beobachtungs-Flaeche und
+//     das BEISSEN der CRTP-Wache bei der Konstruktion eines nicht-konformen Traegers.
+//     Die ERFUELLBAREN Negativ-Asserts oben (Abschnitte a/c/e/f/g) bleiben bestehen -- sie pruefen die
+//     Concept-Auswertung, die Fixture prueft die Wirkung an der Verwendungsstelle. Zwei Fragen, zwei Proben.
 //
 // L7  [C1 TEILWEISE -- Mechanismus gebaut, produktive Kompositionen offen] CROSS-GENUS-KOMPOSITION-ALS-
 //     SUB-ORGAN. Mit ObservableOrgan kann ein Kompositions-Slot ein FREMDES Genus-Organ aufnehmen und
