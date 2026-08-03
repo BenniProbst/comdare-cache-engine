@@ -14,7 +14,7 @@
 //
 // A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): der ZWILLING wird SYMMETRISCH nachgezogen --
 // load_framework steht nicht mehr vorne, sondern als KLAMMER-ANHANG ANS ENDE der Mess-Zeile
-// ("measurement_tooling=...;[load_framework=ycsb@1.0.0]"). Genau dieser Header ist der von O-8 Schritt 12
+// ("measurement_tooling=...;[load_framework=ycsb@1.0.0c]"). Genau dieser Header ist der von O-8 Schritt 12
 // dokumentierte DRITTE Ableitungsweg; wer ihn beim Umbau der Mess-Ordnung vergisst, bekommt exakt dieselbe
 // Drift zurueck. Die Klammer-Zeichen kommen aus abi::kMetaMetaGroupOpen/Close (EINE Wahrheit ihrer
 // Schreibweise), die Ordnung aus diesem Kommentar -- und der Drift-Guard beweist beides.

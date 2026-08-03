@@ -36,19 +36,21 @@ TEST(PlannerVersionFlagGrammatik, PlannerVersionIsWellformedCeVersion) {
 }
 
 // Owner-Q10: das ROH-Literal traegt das 'v' (nur im Code, nie in der gerenderten Ausgabe).
+// A13-M3/C4: zusaetzlich das CPU-Flag (Owner-Q3) -- das 'v' faellt beim Rendern weg, das 'c' NICHT.
 TEST(PlannerVersionFlagGrammatik, RawLiteralCarriesVPrefix) {
-    EXPECT_EQ(planner::kPlannerVersion, std::string_view{"v1.0.0"});
+    EXPECT_EQ(planner::kPlannerVersion, std::string_view{"v1.0.0c"});
     EXPECT_FALSE(meas::parse_algo_semver(planner::kPlannerVersion).is_sentinel())
         << "das Roh-Literal muss parsbar sein (kein Sentinel).";
 }
 
-// BYTE-WACHE (render-neutral): die --dump-plan-Zeile bleibt praefixfrei "planner@1.0.0 ...". algo_semver_string
-// schneidet das 'v' render-neutral weg -- exakt wie vor dem Fix, kein Stempel-Byte-Shift.
-TEST(PlannerVersionFlagGrammatik, RenderedStampIsPrefixFreeAndByteIdentical) {
-    EXPECT_EQ(meas::algo_semver_string(planner::kPlannerVersion), std::string{"1.0.0"});
+// BYTE-WACHE (Owner-Q10): die --dump-plan-Zeile bleibt PRAEFIXFREI. A13-M3/C4: sie traegt jetzt
+// "planner@1.0.0c ..." -- das 'v' schneidet algo_semver_string weg, das HARDWARE-FLAG gehoert zur Version
+// selbst und bleibt stehen (deklariertes Byte-Ereignis des Migrations-Commits, KEIN Q10-Verstoss).
+TEST(PlannerVersionFlagGrammatik, RenderedStampIsPrefixFreeAndCarriesHwFlag) {
+    EXPECT_EQ(meas::algo_semver_string(planner::kPlannerVersion), std::string{"1.0.0c"});
     std::string const stamp = planner::planner_version_stamp();
-    EXPECT_EQ(stamp.rfind("planner@1.0.0 isa=", 0), 0u)
-        << "gerenderte Zeile nicht byte-identisch praefixfrei: '" << stamp << "'";
+    EXPECT_EQ(stamp.rfind("planner@1.0.0c isa=", 0), 0u)
+        << "gerenderte Zeile nicht wie erwartet praefixfrei+flagbehaftet: '" << stamp << "'";
     EXPECT_EQ(stamp.find("planner@v"), std::string::npos) << "die gerenderte Form darf KEIN 'v' tragen (Owner-Q10).";
 }
 

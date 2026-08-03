@@ -44,9 +44,9 @@ struct MeasurementToolingInfo {
 /// Die EINE Registry der Mess-Tooling-HAUPT-Achse -- Index == Tooling-Wert (static_assert-gesichert). Die `id`-Token
 /// stimmen mit measurement_stamp_line (abi/anatomy_version_stamp.hpp) ueberein: measurement_tooling=<id>@X.Y.Z.
 inline constexpr std::array<MeasurementToolingInfo, kMeasurementToolingCount> kMeasurementToolingRegistry{{
-    {MeasurementTooling::WallClock, "wallclock", "WallClock", "v1.0.0"},
-    {MeasurementTooling::Macro, "macro", "Macro", "v1.0.0"},
-    {MeasurementTooling::Micro, "micro", "Micro", "v1.0.0"},
+    {MeasurementTooling::WallClock, "wallclock", "WallClock", "v1.0.0c"},
+    {MeasurementTooling::Macro, "macro", "Macro", "v1.0.0c"},
+    {MeasurementTooling::Micro, "micro", "Micro", "v1.0.0c"},
 }};
 
 namespace detail {

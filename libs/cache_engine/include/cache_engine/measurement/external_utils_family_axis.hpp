@@ -98,11 +98,11 @@ struct SimdExternalUtilsFamily final : ExternalUtilsFamilyAxis<SimdExternalUtils
 
     /// A13-M2 (Owner-E2 02.08.2026: Meta-Meta-Stempel sind PFLICHT wie alle Hauptachsen): die EIGENE
     /// bump-bare Code-Version dieser Meta-Meta. Sie stempelt im KLAMMER-ANHANG der System-Zeile
-    /// ("...;[simd=code@1.0.0]") und ist ab jetzt einzeln bump-bar -- dieselbe A10-X.Y.Z-Disziplin wie
+    /// ("...;[simd=code@1.0.0c]") und ist ab jetzt einzeln bump-bar -- dieselbe A10-X.Y.Z-Disziplin wie
     /// kSystemAxisCodeVersions. FLAGLOS (Owner-Q3-Uebergangs-Toleranz): der gesamte Bestand steht
     /// dreistellig ohne Hardware-Flag da und migriert GESCHLOSSEN im A13-M3-Fenster auf "v1.0.0c"
     /// (ein Byte-Ereignis, kein zweiter Neuanker -- Migrations-Naht-Liste in algo_semver.hpp).
-    static constexpr std::string_view axis_code_version = "v1.0.0";
+    static constexpr std::string_view axis_code_version = "v1.0.0c";
 };
 
 /// CEB-Default-Familie -- simd (die einzige angebundene). Beweglicher Startwert, KEIN Pin.

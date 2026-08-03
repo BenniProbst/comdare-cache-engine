@@ -91,9 +91,9 @@ static_assert(!CompleteType<cem::OperatingSystemProbe<FantasieAchse>>,
 static_assert(probe_id_contract<cem::LinuxOperatingSystem>());
 static_assert(probe_id_contract<cem::WindowsOperatingSystem>());
 static_assert(probe_id_contract<cem::MacosOperatingSystem>());
-static_assert(LinuxProbe::probe_id() == std::string_view{"os_probe.linux@v1.0.0"});
-static_assert(WindowsProbe::probe_id() == std::string_view{"os_probe.windows@v1.0.0"});
-static_assert(MacosProbe::probe_id() == std::string_view{"os_probe.macos@v1.0.0"});
+static_assert(LinuxProbe::probe_id() == std::string_view{"os_probe.linux@v1.0.0c"});
+static_assert(WindowsProbe::probe_id() == std::string_view{"os_probe.windows@v1.0.0c"});
+static_assert(MacosProbe::probe_id() == std::string_view{"os_probe.macos@v1.0.0c"});
 static_assert(LinuxProbe::probe_id() != WindowsProbe::probe_id() && LinuxProbe::probe_id() != MacosProbe::probe_id() &&
               WindowsProbe::probe_id() != MacosProbe::probe_id());
 
@@ -328,7 +328,8 @@ TEST(OsU3Probe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStandBleibtV1) 
     for (auto const& entry : cabi::kSystemAxisCodeVersions) {
         if (entry.axis != cem::LinuxOperatingSystem::axis_label()) continue;
         code_version_found = true;
-        EXPECT_EQ(entry.version, std::string_view{"v1.0.0"})
+        // A13-M3/C4: die Migration zieht das HW-Flag an, sie BUMPT den Stand nicht (1.0.0 bleibt 1.0.0).
+        EXPECT_EQ(entry.version, std::string_view{"v1.0.0c"})
             << "A-15: RT-Unter-Achsen duerfen den operating_system-Code-Stand nicht bumpen.";
     }
     ASSERT_TRUE(code_version_found);

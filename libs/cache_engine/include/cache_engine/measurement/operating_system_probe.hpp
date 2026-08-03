@@ -114,7 +114,7 @@ struct OperatingSystemProbeContext {
 namespace detail {
 
 inline constexpr std::string_view kOsProbeIdPrefix = "os_probe.";
-inline constexpr std::string_view kOsProbeVersion  = "v1.0.0";
+inline constexpr std::string_view kOsProbeVersion  = "v1.0.0c";
 
 /// Ein fester constexpr-Puffer statt std::string: probe_id() muss auch compile-time aus dem von der
 /// Achse gelieferten string_view komponierbar sein. 64 Bytes lassen bewusst Platz fuer kuenftige echte

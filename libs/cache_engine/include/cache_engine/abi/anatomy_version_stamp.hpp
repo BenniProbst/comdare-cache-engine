@@ -124,7 +124,7 @@ template <class Comp>
 /// "code" = die statische Code-Identitaet der System-Achse.
 ///
 /// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
-/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0]", also VIER Eintraege statt
+/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0c]", also VIER Eintraege statt
 /// drei. Die Glieder kommen aus der EINEN Typliste ExternalUtilsHub::meta_metas (keine zweite Liste); die
 /// EBENE steckt in der Klammer-Tiefe, nicht im Namen. Owner-E2 woertlich: Meta-Metas werden "einfach dynamisch
 /// ans Ende der Kette in den bestehenden Zeilen angehaengt" -- keine Sonderzeile, kein Sonderfeld.
@@ -222,7 +222,7 @@ template <class Comp>
 
 /// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
 /// kMeasurementAxisVersionLine. Statt EINER Tooling-Wahl traegt die Zeile die MENGE der gewaehlten Mess-Tools als N
-/// Eintraege "measurement_tooling=<t>@1.0.0" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
+/// Eintraege "measurement_tooling=<t>@1.0.0c" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
 /// Leere Tokens werden uebersprungen; leere/leer-gefilterte Menge -> leere Zeile. Dieselbe X.Y.Z-Voll-Form / SEPARATE
 /// Welt zur .algos-Sig wie die Einzel-Form (build_axis_version_stamp_line). binary_id-NEUTRAL (Mess-Achse
 /// binary_id="never" -> der Stempel lebt nur im Version-Line/Binary, nie in der binary_id/CRC).

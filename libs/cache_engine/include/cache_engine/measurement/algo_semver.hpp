@@ -123,7 +123,7 @@
 ///       planner_version.hpp traegt kPlannerVersion als EIGENEN ce-Versionspfad (Section43.b "den Planer
 ///       statisch") -- frueher "1.0.0" OHNE 'v' und von KEINER Wache erfasst. Seit dem CX-W5-Fix mit
 ///       'v'-Roh-Literal (Owner-Q10), gated ENFORCE-Wache (ce_owned_version_satisfies_cpu_enforce) und
-///       render-neutralem "planner@1.0.0"; der Migrations-Commit zieht ihn wie die Nicht-Organ-Literale (a)
+///       praefixfreiem "planner@1.0.0c"; der Migrations-Commit zieht ihn wie die Nicht-Organ-Literale (a)
 ///       auf "v1.0.0c" mit. MECHANISCH GESICHERT: die gated static_assert in planner_version.hpp bricht beim
 ///       Scharfschalten von selbst mit.
 ///       Erhebung: grep -rn 'kPlannerVersion *=' --include=*.hpp profile_facade/planner
@@ -142,7 +142,7 @@
 ///       bleibt unangetastet.
 ///       Erhebung: der generische Wachen-grep oben faengt sie (operating_system_probe.hpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
-#define COMDARE_VERSION_HW_FLAG_ENFORCE 0
+#define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif
 
 namespace comdare::cache_engine::measurement {

@@ -237,11 +237,14 @@ inline void guard_all_registered_organ_versions() {
             out += '=';
             out += val;
             out += '@';
-            // A13-M1b: HIER bleibt die Kurzform "v0" stehen. Dieser Zweig ist die ROHE .algos-Signatur --
-            // eine SEPARATE, byte-eingefrorene Welt (der Sidecar-Vergleich ist String-gleich). Der
-            // Owner-Q3-Dreistelligkeits-Rueckbau betrifft die VERSIONS-Grammatik (algo_semver), nicht diesen
-            // Signatur-Token; ein Wechsel auf "v0.0.0" waere hier ein Byte-Bruch ohne Nutzen.
-            out += ver.empty() ? std::string_view{"v0"} : ver;
+            // A13-M3/C4 (DV-3 = Rueckbau): die Kurzform "v0" ist hier auf die dreistellige Sentinel-Form
+            // gezogen. A13-M1b hatte sie stehen lassen mit dem Argument "der Sidecar-Vergleich ist
+            // String-gleich, ein Wechsel waere ein Byte-Bruch ohne Nutzen" -- das war richtig, SOLANGE der
+            // Slot sonst unveraendert blieb. C4 zieht in EXAKT DIESEM Slot die algo_versions auf "v1.0.0c";
+            // ein zurueckgelassenes "v0" ergaebe eine GEMISCHTE Signatur (v1.0.0c neben v0) und damit einen
+            // Verstoss gegen Owner-Q3 ("einheitlich und immer 3-stellig"). Der Byte-Bruch faellt so im selben
+            // .algos-Ereignis an wie die Migration; nach dem Fenster kostete er eine eigene Sidecar-Kaskade.
+            out += ver.empty() ? std::string_view{"v0.0.0"} : ver;
             break;
         }
     }

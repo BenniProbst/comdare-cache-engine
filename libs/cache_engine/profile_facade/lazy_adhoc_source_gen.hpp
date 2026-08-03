@@ -250,7 +250,7 @@ template <class List>
 /// run_profile ruft DIESE Naht: die Legende wird zur Mess-Tooling-Stempel-Zeile (abi::measurement_stamp_line_from_
 /// combo_legend) und in den lazy Source-Gen gespeist -> die je-Combo-Bauten stempeln ihre DLLs REAL.
 /// K7b-2 (Section 64-D1-B, 2026-07-22): COMDARE_MEASUREMENT_COMBO gesetzt -> die gewaehlte Combo-Legende stempelt als
-/// MENGE (N x measurement_tooling=<t>@1.0.0). UNGESETZT == [all] == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz;
+/// MENGE (N x measurement_tooling=<t>@1.0.0c). UNGESETZT == [all] == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz;
 /// die [all]-Lane misst mit dem vollen Tooling-Angebot -> ihre DLL-Provenienz traegt ALLE Tools). NUR dieser LIVE-Pfad
 /// wechselt bewusst auf die 3-arg-_M-Form; der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> die
 /// 320er-Byte-Identitaets-Wachen + der binary_id/CRC-Anker (kNewGolden131072Crc64, ueber die view-ids) unberuehrt.

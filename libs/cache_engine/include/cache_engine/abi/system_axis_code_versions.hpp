@@ -50,9 +50,9 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 /// Einfuehrung neu gebaut werden"). Wer hier dennoch bumpt, tut das aus einem ANDEREN Grund und muss
 /// ihn benennen.
 inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystemAxisCodeVersions{{
-    {"target_isa", "v1.0.0"},
-    {"operating_system", "v1.0.0"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
-    {"external_utils", "v1.0.0"},
+    {"target_isa", "v1.0.0c"},
+    {"operating_system", "v1.0.0c"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
+    {"external_utils", "v1.0.0c"},
 }};
 
 // -- B6 (Codex-Review 02.08.2026): die BUMP-WACHE ist ab hier MASCHINELL -------------------------------
@@ -76,19 +76,19 @@ inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystem
 // DIESE DREI ASSERTS GEHEN IM SELBEN COMMIT MIT. Das ist Absicht: die Migration ist ein deklariertes
 // Byte-Ereignis, kein stiller Nachzug (Naht-Liste (a) in measurement/algo_semver.hpp).
 static_assert(kSystemAxisCodeVersions[0].axis == std::string_view{"target_isa"} &&
-                  kSystemAxisCodeVersions[0].version == std::string_view{"v1.0.0"},
-              "System-Achsen-Code-Version [0] target_isa != \"v1.0.0\": ein Bump ist ein STEMPEL-/SHA512-"
+                  kSystemAxisCodeVersions[0].version == std::string_view{"v1.0.0c"},
+              "System-Achsen-Code-Version [0] target_isa != \"v1.0.0c\": ein Bump ist ein STEMPEL-/SHA512-"
               "BYTE-EREIGNIS (system_stamp_line -> Lager-/Skip-Identitaet). Wenn er GEWOLLT ist, diese Zeile "
               "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
 static_assert(kSystemAxisCodeVersions[1].axis == std::string_view{"operating_system"} &&
-                  kSystemAxisCodeVersions[1].version == std::string_view{"v1.0.0"},
-              "System-Achsen-Code-Version [1] operating_system != \"v1.0.0\": die drei OS-UNTER-Achsen "
+                  kSystemAxisCodeVersions[1].version == std::string_view{"v1.0.0c"},
+              "System-Achsen-Code-Version [1] operating_system != \"v1.0.0c\": die drei OS-UNTER-Achsen "
               "(os_version/kernel/build) sind RT-Unter-Achsen (A-15) und duerfen diesen Eintrag NICHT bumpen "
               "(Owner-E3 02.08.2026). Ein Bump aus einem ANDEREN Grund ist ein STEMPEL-/SHA512-BYTE-EREIGNIS: "
               "diese Zeile im selben Commit mit-aendern und den Grund benennen (Doppel-Absicht).");
 static_assert(kSystemAxisCodeVersions[2].axis == std::string_view{"external_utils"} &&
-                  kSystemAxisCodeVersions[2].version == std::string_view{"v1.0.0"},
-              "System-Achsen-Code-Version [2] external_utils != \"v1.0.0\": ein Bump ist ein STEMPEL-/SHA512-"
+                  kSystemAxisCodeVersions[2].version == std::string_view{"v1.0.0c"},
+              "System-Achsen-Code-Version [2] external_utils != \"v1.0.0c\": ein Bump ist ein STEMPEL-/SHA512-"
               "BYTE-EREIGNIS (system_stamp_line -> Lager-/Skip-Identitaet). Wenn er GEWOLLT ist, diese Zeile "
               "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
 

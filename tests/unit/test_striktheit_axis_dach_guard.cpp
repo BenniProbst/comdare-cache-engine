@@ -186,7 +186,7 @@ namespace {
 struct ProofOrganMetaMeta final : cet::OrganMetaMetaAxis<ProofOrganMetaMeta> {
     [[nodiscard]] static constexpr std::string_view do_axis_label() noexcept { return "proof_organ_meta_meta"; }
     [[nodiscard]] static constexpr std::string_view sub_axis_label() noexcept { return "proof_sub"; }
-    static constexpr std::string_view               axis_code_version = "v1.0.0";
+    static constexpr std::string_view               axis_code_version = "v1.0.0c";
 };
 } // namespace
 

@@ -42,7 +42,7 @@ struct MeasurementFrameworkInfo {
 
 /// Die EINE Registry der Mess-Framework-UNTER-Achse -- Index == MeasurementFramework-Wert (static_assert-gesichert).
 inline constexpr std::array<MeasurementFrameworkInfo, kMeasurementFrameworkCount> kMeasurementFrameworkRegistry{{
-    {MeasurementFramework::Ycsb, "ycsb", "Ycsb", "v1.0.0"},
+    {MeasurementFramework::Ycsb, "ycsb", "Ycsb", "v1.0.0c"},
 }};
 
 namespace detail {
