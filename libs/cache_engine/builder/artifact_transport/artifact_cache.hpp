@@ -325,6 +325,24 @@ public:
             log_artefakt_io(log, "perm.dll fehlt lokal, nichts zu pushen: " + dll.string());
             return;
         }
+        // TP1FK1-B2 (Codex-Befund CX-W3): die perm.dll IST da, aber die lokale Vollstaendigkeits-
+        // Marke perm.dll.version FEHLT. Frueher fiel Schritt (3) dann still aus (kein else) und
+        // push_tier_binary kehrte normal zurueck -- fuer die void-CachePushFn ununterscheidbar von einem
+        // vollstaendigen Push. Der Pull verlangt aber genau diese Remote-Marke (s.u. (0)) und liefert
+        // sonst MISS: ein Bestandslog-Anspruch auf einen Satz, den kein Pull findet -- dieselbe B2-Klasse,
+        // nur ueber die ABWESENHEIT der Marke statt ueber den Fehlschlag. Deshalb hier ein SICHTBARER
+        // Fehler VOR jedem Upload (keine halbe Nutzlast in den Store). Das ist NICHT der non-werfende Fall
+        // "perm.dll fehlt lokal" (da gab es nichts zu pushen) -- hier gaebe es etwas zu pushen, aber ohne
+        // Marke waere es ein Phantom. write_version_sidecar (build_orchestrator) schreibt die Marke nach
+        // JEDEM erfolgreichen Bau; fehlt sie hier, ist der lokale Satz selbst schon unvollstaendig.
+        if (!std::filesystem::exists(sidecar, ec)) {
+            log_artefakt_io(log, "perm.dll.version fehlt lokal (Vollstaendigkeits-Marke) -- der Satz kann nie "
+                                 "vollstaendig gepusht werden, kein Pull faende ihn: " +
+                                     sidecar.string());
+            throw ArtefaktPushFehler{"perm.dll.version fehlt lokal (Vollstaendigkeits-Marke, ohne die kein Pull den "
+                                     "Satz findet -- der Store bekaeme eine Phantom-Binary)",
+                                     sidecar, key_base + "/perm.dll.version", -1};
+        }
         int exit_code = -1;
         // (1) perm.dll ZUERST — die eigentliche Nutzlast.
         if (!mc_cp(dll, key_base + "/perm.dll", log, &exit_code)) {

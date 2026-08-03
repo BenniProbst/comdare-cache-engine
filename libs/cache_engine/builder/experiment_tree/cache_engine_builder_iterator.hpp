@@ -871,6 +871,71 @@ struct LazyRunResult {
     return true;
 }
 
+// TP1-N2 (B-1) / TP1FK1-B2 (Codex-Befund CX-W1): die EINE Form des Bestandslog-Eintragspfades.
+// Er ist STORE-RELATIV (relativ zum output_dir, generic '/'-Trenner) -- der Push spiegelt exakt diese
+// Struktur in den Objekt-Store, und ein maschinen-LOKALER Absolutpfad im GETEILTEN Dokument waere fuer
+// die andere Maschine eine Falschangabe. Unrelativierbar (fremde Wurzel) -> voller Pfad als ehrlicher
+// Fallback (nie leer, nie geraten; TP1-F2: auch der Fallback in generic-Form, sonst matcht der
+// Praefix-Verwurf auf Windows nie).
+//
+// EINE Quelle, drei Leser: die Vormerkung (observe, ueber die perm.dll), der Pump-Ausschluss und der
+// Mess-Pfad-Ausschluss (beide ueber das bin_dir) bilden den String jetzt mit DERSELBEN Funktion.
+// discard_fresh_with_pfad_prefix vergleicht MIT Trenner -- weichen Vormerkung und Verwurf in der Form
+// auch nur um ein Byte ab, bleibt ein unbestaetigter Eintrag stehen. Die Kopien waren genau dieses
+// Risiko.
+[[nodiscard]] inline std::string bestand_eintragspfad(std::filesystem::path const& p,
+                                                      std::filesystem::path const& output_dir) {
+    std::error_code rel_ec;
+    auto const      rel = std::filesystem::relative(p, output_dir, rel_ec);
+    return (rel_ec || rel.empty()) ? p.generic_string() : rel.generic_string();
+}
+
+// TP1FK1-B2 (Codex-Befund CX-W1): der SYNCHRONE Mess-Pfad-Push MIT Bestandslog-Ausschluss bei Wurf.
+//
+// Der reale Transport WIRFT bei Push-Fehler (ArtefaktPushFehler). Im MESS-Pfad darf das den Lauf nie
+// abreissen -- eine Zelle ist gemessen, die CSV liegt lokal, die naechste Zelle wartet -> klassifiziert
+// loggen und WEITERMESSEN. Der Faenger war aber FOLGENLOS: das unbedingte bestandslog_flush() am Ende
+// des Mess-Laufs registrierte den vorgemerkten Eintrag trotzdem, obwohl der Store den Satz nie erhielt.
+// Unter dem Bau-Filter des Folgelaufs ist das der stille Verlustpfad (er skippt eine nirgends
+// existierende Binary) -- exakt der Zustand, den B-1 im Pump-Zweig (failed_dirs ->
+// discard_fresh_with_pfad_prefix) bereits ausschliesst. Dieser Zweig ist das fehlende Gegenstueck:
+// MESSEN WEITER bleibt, der unbestaetigte Bestand nicht.
+//
+// lager == nullptr (Bestandslog inaktiv) -> es gibt nichts vorzumerken und nichts auszuschliessen; der
+// Zweig loggt dann nur, byte-identisch zum reinen Push-Pfad. Der Verwurf ist thread-sicher (eigener
+// Mutex in LagerRunState), darf also auch aus dem Debug-Mess-Pool laufen; die Vormerkung geschah in der
+// Bau-Phase davor, der Eintrag ist beim Push also da und kann verworfen werden.
+inline void mess_pfad_synchron_push(CachePushFn const& cache_push, std::filesystem::path const& bin_dir,
+                                    std::string const& build_version, std::string const& binary_id,
+                                    std::filesystem::path const& output_dir, bestandslog::LagerRunState* lager) {
+    if (!cache_push) return; // No-Op-Naht: ohne Push-Kanal ist nichts zu tun (byte-identisch zum Ist)
+    auto const ausschliessen = [&](std::string_view grund) {
+        if (lager == nullptr) return; // kein Bestandslog -> kein Eintrag -> nur die Log-Zeile oben
+        std::size_t const verworfen =
+            lager->discard_fresh_with_pfad_prefix({bestand_eintragspfad(bin_dir, output_dir)});
+        std::cerr << "[bestandslog] warn: " << verworfen << " Eintrag/Eintraege fuer binary_id='" << binary_id
+                  << "' NICHT registriert (" << grund
+                  << ") -- lokale Kopie bleibt, der Store ist unbestaetigt (kein Skip-Anspruch im Folgelauf)\n"
+                  << std::flush;
+    };
+    try {
+        cache_push(bin_dir, build_version); // Ebene B: perm.dll(+Sidecars,+.version) -> Store
+    } catch (std::exception const& e) {
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                  << binary_id << "' Push in den Objekt-Store fehlgeschlagen: " << e.what()
+                  << " -- lokale Kopie bleibt, der Lauf MISST WEITER\n"
+                  << std::flush;
+        ausschliessen("Push-Fehler");
+    } catch (...) {
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                  << binary_id
+                  << "' Push in den Objekt-Store mit unbekanntem Fehler abgebrochen -- lokale Kopie bleibt, der "
+                     "Lauf MISST WEITER\n"
+                  << std::flush;
+        ausschliessen("unbekannter Push-Fehler");
+    }
+}
+
 // #46b I1b (opt-in): den Planer-getriebenen provision-Bau ausfuehren. Ein async Producer (SlicePlanner) slict die
 // SELBEN indices in 4096er-Fenster; der Consumer baut je Fenster NUR DIE FEHLENDEN Binaries (Lager-TP1(B)/G-A2:
 // filter_window_for_build ueber die PresenceFn -- LEDGER:3397 "jedes fehlende Binary EINZELN erkannt") und
@@ -916,10 +981,22 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         bestandslog::BatchReservierung           res;
         std::optional<bestandslog::PromiseGuard> guard;
         if (reserve) {
-            res = bestandslog::make_slice_reservation(
-                cfg.bestand_owner_uuid, slice_seq, cfg.bestand_maschine, static_cast<unsigned>(cfg.build_parallelism),
-                plan->view_indices.empty() ? 0 : static_cast<std::uint64_t>(plan->view_indices.front()),
-                static_cast<std::uint64_t>(plan->view_indices.size()), now_fn());
+            // TP1FK1-B1 (Codex-Befund CX-W2): das Fenster als INTERVALL, das die (evtl. luecken-behaftete)
+            // Index-MENGE dieses Slices VOLL enthaelt -- begin=min, count=Spanne (slice_window_bounds). Fuer
+            // zusammenhaengende Fenster ist das byte-identisch zum frueheren (front(), size()); eine gappy
+            // Menge wird KONSERVATIV weiter gefasst, damit scope_covers_slice sie nie faelschlich freigibt.
+            auto const fenster_bounds = bestandslog::slice_window_bounds(plan->view_indices);
+            if (fenster_bounds.count != plan->view_indices.size())
+                // Nie-stumm: die konservative Weitung ist eine ENTSCHEIDUNG und keine stille Eigenschaft.
+                // Im Betrieb (dichte Selektion) feuert die Zeile nie.
+                std::cerr << "[bestandslog] warn: Slice-Fenster ist NICHT zusammenhaengend (indizes="
+                          << plan->view_indices.size() << " spanne=" << fenster_bounds.count << " ab "
+                          << fenster_bounds.begin
+                          << ") -- die Reservierung beansprucht konservativ die ganze Spanne (kein Draht-Bump)\n"
+                          << std::flush;
+            res = bestandslog::make_slice_reservation(cfg.bestand_owner_uuid, slice_seq, cfg.bestand_maschine,
+                                                      static_cast<unsigned>(cfg.build_parallelism),
+                                                      fenster_bounds.begin, fenster_bounds.count, now_fn());
             if (!store_reservation(res, "pro-forma-Reservierung")) ++res_fehler;
             // PromiseGuard: bei Abbruch (Exception/early-return) wird die Reservierung released -> Takeover moeglich.
             // Best-effort im Abbau-Pfad: das Ergebnis ist hier nicht mehr zaehlbar (der Zaehler lebt kuerzer als der
@@ -1124,17 +1201,10 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 std::uint64_t const bytes = std::filesystem::exists(b.output, ec)
                                                 ? static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec))
                                                 : 0;
-                // TP1-N2 (B-1): der Eintrags-Pfad ist STORE-RELATIV (relativ zum output_dir, generic
-                // '/'-Trenner) -- der Push spiegelt exakt diese Struktur in den Objekt-Store, und ein
-                // maschinen-LOKALER Absolutpfad im GETEILTEN Dokument waere fuer die andere Maschine
-                // eine Falschangabe. Unrelativierbar (fremde Wurzel) -> voller Pfad als ehrlicher
-                // Fallback (nie leer, nie geraten).
-                std::error_code rel_ec;
-                auto const      rel = std::filesystem::relative(b.output, cfg.output_dir, rel_ec);
-                // TP1-F2: auch der Fallback in generic-Form -- der Praefix-Verwurf (Fehl-Push-
-                // Ausschluss) vergleicht generic_string()-Formen; string() wuerde auf Windows nie
-                // matchen und einen unbestaetigten Eintrag doch registrieren.
-                std::string pfad = (rel_ec || rel.empty()) ? b.output.generic_string() : rel.generic_string();
+                // TP1-N2 (B-1) / TP1-F2: der Eintrags-Pfad kommt aus der EINEN Form-Quelle
+                // (bestand_eintragspfad) -- store-relativ, generic, mit ehrlichem Fallback. Dieselbe
+                // Funktion bildet die Praefixe der beiden Verwurf-Wege; nur so treffen sie diesen Eintrag.
+                std::string pfad = bestand_eintragspfad(b.output, cfg.output_dir);
                 lager.observe(key.value_or(std::string{}), cfg.bestand_zelle, std::move(pfad), bytes, b.algo_sig,
                               bestandslog::now_utc_iso());
             }
@@ -1302,11 +1372,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 if (!fehl.empty()) {
                     std::vector<std::string> praefixe;
                     praefixe.reserve(fehl.size());
-                    for (auto const& d : fehl) {
-                        std::error_code rel_ec;
-                        auto const      rel = std::filesystem::relative(d, cfg.output_dir, rel_ec);
-                        praefixe.push_back(((rel_ec || rel.empty()) ? d : rel).generic_string());
-                    }
+                    // DIESELBE Form-Quelle wie die Vormerkung (bestand_eintragspfad) -- ein abweichend
+                    // gebildeter Praefix liesse den unbestaetigten Eintrag stehen.
+                    for (auto const& d : fehl) praefixe.push_back(bestand_eintragspfad(d, cfg.output_dir));
                     auto const verworfen = lager.discard_fresh_with_pfad_prefix(praefixe);
                     std::cerr << "[bestandslog] warn: " << verworfen << " Eintraege wegen " << fehl.size()
                               << " Push-Fehler(n) NICHT registriert -- lokale Kopie bleibt, der Store ist "
@@ -1491,28 +1559,98 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                     std::filesystem::create_directories(fehl_dir, fec);
                     // Stamp ZUERST weg (write-ZULETZT-Disziplin): ein Abbruch mitten drin darf nie eine
                     // Marke zuruecklassen, die auf eine halb geschriebene CSV zeigt.
-                    std::filesystem::remove(fehl_dir / "result.csv.stamp", fec);
-                    // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, ist rename ein
-                    // No-Op ueber den error_code -- kein throw, der Marker wird trotzdem geschrieben.
-                    std::error_code rec;
-                    if (std::filesystem::exists(fehl_dir / "result.csv", rec))
-                        std::filesystem::rename(fehl_dir / "result.csv", fehl_dir / "result.csv.stale", rec);
-                    bool marker_geschrieben = false;
-                    {
-                        std::ofstream mf{fehl_dir / "result.csv", std::ios::trunc};
-                        if (mf) {
-                            mf << lazy_csv_header() << format_csv_row(marker);
-                            mf.flush();
-                            marker_geschrieben = mf.good();
+                    //
+                    // TP1FK1-B10 (Codex-Befund CX-W4): das Entfernen wird GEPRUEFT. Frueher lief remove()
+                    // mit dem wiederverwendeten fec, und weder der error_code noch der bool-Rueckgabewert
+                    // wurden angesehen -- schlug es fehl (Rechte, gesperrte Datei, ro-Mount, Verzeichnis
+                    // statt Datei), blieb der ALTE Erfolgs-Stamp liegen, waehrend die Diagnose woertlich
+                    // "der Stamp ist entfernt" behauptete. Genau daraus entsteht die Wiedereinstiegs-Luege:
+                    // ein Alt-Stamp, der die frisch geschriebene nicht_gebaut-Marker-Zeile als gueltigen
+                    // Messstand zertifiziert. Geurteilt wird ueber den EIGENEN error_code UND das Ist --
+                    // remove() setzt bei blosser Nicht-Existenz keinen Fehler (dann ist nichts zu entfernen,
+                    // und exists() sagt genau das), und scheitert exists() selbst, entscheidet der
+                    // remove-Fehler. Eine unbelegte Entfernungs-Behauptung gibt es damit nicht mehr.
+                    std::error_code stamp_ec;
+                    std::filesystem::remove(fehl_dir / "result.csv.stamp", stamp_ec);
+                    std::error_code stamp_ist_ec;
+                    bool const      stamp_bleibt = static_cast<bool>(stamp_ec) ||
+                                                   std::filesystem::exists(fehl_dir / "result.csv.stamp", stamp_ist_ec);
+                    if (stamp_bleibt) {
+                        // Die INVALIDIERUNG ist gescheitert. Dann wird die Ablage auch NICHT ersetzt: mit
+                        // liegendem Alt-Stamp waere jede frisch geschriebene result.csv (Marker-Zeile oder
+                        // halber Stand) fuer den Resume-Check des Folgelaufs ein zertifizierter Messstand.
+                        // Der Alt-Stand bleibt unangetastet zu seinem Stamp (in sich stimmig, wenn auch
+                        // ueberholt), der Befund reist als Marker-Zeile in die globale CSV, und die
+                        // Bereinigung ist eine benannte Hand-Arbeit statt einer stillen Annahme.
+                        std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                  << b.binary_id << "' result.csv.stamp NICHT entfernt ("
+                                  << (stamp_ec ? stamp_ec.message() : std::string{"liegt nach dem Entfernen noch"})
+                                  << ") in " << fehl_dir.string()
+                                  << " -- die per-Binary-Ablage bleibt daher UNVERAENDERT (ein Alt-Stamp darf "
+                                     "keine nicht_gebaut-Marker-Zeile als Messstand zertifizieren); der Ordner "
+                                     "MUSS von Hand geraeumt werden\n"
+                                  << std::flush;
+                    } else {
+                        // DANN der Alt-Stand zur Seite (nie loeschen): fehlt die Datei, gibt es nichts zu
+                        // sichern -- der Marker wird dann direkt geschrieben.
+                        //
+                        // TP1FK1-B10 (Review-Befund Z-01/GA-02): das Sichern wird GEPRUEFT, nach demselben
+                        // Muster wie die stamp_bleibt-Wache darueber. Frueher lief das rename mit einem
+                        // error_code, den danach niemand mehr ansah, und unmittelbar darauf oeffnete der
+                        // Marker-Write DIESELBE Datei mit std::ios::trunc: scheiterte das rename (ein
+                        // result.csv.stale als Verzeichnis, Rechte, ro-Mount, gesperrte Datei), LOESCHTE
+                        // der trunc genau die Alt-Mess-CSV, die er gerade nicht sichern konnte -- der
+                        // Bruch der Doktrin "Messdaten nie loeschen", ausgeloest vom Sicherungs-Versuch
+                        // selbst. Geurteilt wird deshalb ueber den EIGENEN error_code UND das Ist: ein
+                        // gelungenes rename laesst die Quelle NICHT liegen, also ist eine danach noch
+                        // vorhandene result.csv der Beleg des Fehlschlags (und deckt auch den Fall ab, in
+                        // dem eine Implementierung stillschweigend nichts tut). Im Zweifel wird fail-closed
+                        // NICHTS ersetzt: kein trunc, kein Marker-Write.
+                        std::filesystem::path const alt_csv = fehl_dir / "result.csv";
+                        std::error_code             alt_ist_ec;
+                        bool const                  alt_stand_da = std::filesystem::exists(alt_csv, alt_ist_ec);
+                        std::error_code             rec;
+                        if (alt_stand_da) std::filesystem::rename(alt_csv, fehl_dir / "result.csv.stale", rec);
+                        std::error_code alt_nach_ec;
+                        bool const      alt_stand_bleibt =
+                            alt_stand_da && (static_cast<bool>(rec) || std::filesystem::exists(alt_csv, alt_nach_ec));
+                        if (alt_stand_bleibt) {
+                            // Die SICHERUNG ist gescheitert. Dann wird die Ablage auch NICHT ersetzt: der
+                            // Alt-Mess-Stand bleibt unangetastet an seinem Platz (Rohdatum, nicht ersetzbar),
+                            // der Resume-Anspruch ist mit dem gefallenen Stamp bereits weg (ein Folgelauf
+                            // misst also neu, statt den Alt-Stand zu uebernehmen), der Befund reist als
+                            // Marker-Zeile in die globale CSV, und die Bereinigung ist eine benannte
+                            // Hand-Arbeit statt eines stillen Datenverlusts.
+                            std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                      << b.binary_id << "' result.csv NICHT nach result.csv.stale gesichert ("
+                                      << (rec ? rec.message() : std::string{"liegt nach dem Umbenennen noch"})
+                                      << ") in " << fehl_dir.string()
+                                      << " -- die per-Binary-Ablage bleibt daher UNVERAENDERT (ein nicht "
+                                         "gesicherter Alt-Mess-Stand wird nicht ueberschrieben: Messdaten nie "
+                                         "loeschen); der Ordner MUSS von Hand geraeumt werden\n"
+                                      << std::flush;
+                        } else {
+                            bool marker_geschrieben = false;
+                            {
+                                std::ofstream mf{alt_csv, std::ios::trunc};
+                                if (mf) {
+                                    mf << lazy_csv_header() << format_csv_row(marker);
+                                    mf.flush();
+                                    marker_geschrieben = mf.good();
+                                }
+                            }
+                            // Auch die Diagnose sagt nur, was BELEGT ist: eine result.csv.stale gibt es hier
+                            // genau dann, wenn ueberhaupt ein Alt-Stand zu sichern war.
+                            if (!marker_geschrieben)
+                                std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
+                                          << b.binary_id << "' nicht_gebaut-Marker NICHT in " << alt_csv.string()
+                                          << " geschrieben -- der Stamp ist entfernt"
+                                          << (alt_stand_da ? " und der Alt-Stand liegt als result.csv.stale"
+                                                           : " (ein Alt-Stand war nicht vorhanden)")
+                                          << ", ein Folgelauf misst also neu\n"
+                                          << std::flush;
                         }
                     }
-                    if (!marker_geschrieben)
-                        std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='"
-                                  << b.binary_id << "' nicht_gebaut-Marker NICHT in "
-                                  << (fehl_dir / "result.csv").string()
-                                  << " geschrieben -- der Stamp ist entfernt und der Alt-Stand liegt als "
-                                     "result.csv.stale, ein Folgelauf misst also neu\n"
-                                  << std::flush;
                 }
             }
             oc.rows.push_back(std::move(marker));
@@ -1652,7 +1790,35 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
                 if (sf) { sf << binary_resume_stamp << "|rows=" << per_binary_rows << "\n"; }
             } else {
-                std::filesystem::remove(bin_dir / "result.csv.stamp", ec);
+                // Der frische Stand ist NICHT zertifizierbar (Write gescheitert, Zeilen unvollstaendig oder
+                // eine Zwei-Phasen-Zeile ungueltig) -- also faellt der Resume-Anspruch. Die Mess-Zeilen selbst
+                // sind davon unberuehrt: sie reisen in oc.rows in die globale CSV, und die per-Binary-CSV
+                // dieses Laufs steht bereits geschrieben (nichts wird geloescht).
+                //
+                // Review-Befund Z-01/GA-02 (Geschwister-Stelle von TP1FK1-B10/CX-W4): das Entfernen wird
+                // GEPRUEFT, mit EIGENEM error_code statt des wiederverwendeten ec und gegen das Ist. Frueher
+                // sah niemand Rueckgabewert oder Fehler an: blieb der ALTE Stamp liegen (Rechte, ro-Mount,
+                // Verzeichnis statt Datei), zertifizierte er im Folgelauf den frischen, gerade als nicht
+                // zertifizierbar erkannten Stand als gueltigen Messstand -- lautlos. Der Resume-Leser faengt
+                // das nur ab, solange Konfig-Praefix oder Zeilenzahl abweichen; stimmen beide zufaellig
+                // ueberein (gleiche Konfiguration, gleiche Zeilenzahl, nur eine Zeile ungueltig), greift
+                // keine seiner Wachen. Deshalb ist der Fehlschlag hier selbst ein Befund: beziffert,
+                // geflusht, mit benannter Hand-Arbeit -- nie stumm.
+                std::error_code stamp_ec;
+                std::filesystem::remove(bin_dir / "result.csv.stamp", stamp_ec);
+                std::error_code stamp_ist_ec;
+                bool const      stamp_bleibt =
+                    static_cast<bool>(stamp_ec) || std::filesystem::exists(bin_dir / "result.csv.stamp", stamp_ist_ec);
+                if (stamp_bleibt)
+                    std::cerr << "[" << measurement::LogAndContinueInfraPolicy::log_prefix() << ": "
+                              << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                              << "] binary_id='" << binary_id << "' result.csv.stamp NICHT entfernt ("
+                              << (stamp_ec ? stamp_ec.message() : std::string{"liegt nach dem Entfernen noch"})
+                              << ") in " << bin_dir.string()
+                              << " -- der Resume-Anspruch dieser Ablage ist damit NICHT zurueckgezogen (ein "
+                                 "Alt-Stamp darf keinen unvollstaendigen/ungueltigen Stand als Messstand "
+                                 "zertifizieren); der Ordner MUSS von Hand geraeumt werden\n"
+                              << std::flush;
             }
         }
 
@@ -1660,28 +1826,14 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // unabhaengige Ziele). Der SYNCHRON-Kontrakt bleibt zellintern (kein async/detached); nur die ZELLEN ueberlappen
         // und NUR im Debug (keine Mess-Timing-Garantie, §61-MODI). Fehler behandelt der Client (MESSEN WEITER).
         if (cfg.per_binary_subdirs && !bin_dir.empty()) {
-            if (cfg.cache_push) {
-                // TP1FK1-B2: der reale Transport WIRFT jetzt bei Push-Fehler (ArtefaktPushFehler) -- vorher war
-                // ein fehlgeschlagener Push von einem gelungenen nicht zu unterscheiden. Im MESS-Pfad darf das
-                // den Lauf NIE abreissen (eine Zelle ist gemessen, die CSV liegt lokal, die naechste Zelle wartet)
-                // -> klassifiziert loggen und WEITERMESSEN. Das ist dieselbe Politik wie zuvor, aber jetzt eine
-                // sichtbare Entscheidung dieses Faengers statt einer stillen Eigenschaft des Transports.
-                try {
-                    cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+Sidecars,+.version) -> Store
-                } catch (std::exception const& e) {
-                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
-                              << "] binary_id='" << binary_id
-                              << "' Push in den Objekt-Store fehlgeschlagen: " << e.what()
-                              << " -- lokale Kopie bleibt, der Lauf MISST WEITER\n"
-                              << std::flush;
-                } catch (...) {
-                    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
-                              << "] binary_id='" << binary_id
-                              << "' Push in den Objekt-Store mit unbekanntem Fehler abgebrochen -- lokale Kopie "
-                                 "bleibt, der Lauf MISST WEITER\n"
-                              << std::flush;
-                }
-            }
+            // TP1FK1-B2 (Codex-Befund CX-W1): synchron pushen; wirft der Push, klassifiziert loggen (MESSEN
+            // WEITER) UND den vorgemerkten Bestandslog-Eintrag dieser Binary verwerfen. Der Store hat den Satz
+            // nie erhalten -- ein Eintrag im geteilten Dokument waere unter dem Bau-Filter des Folgelaufs ein
+            // stiller Verlustpfad. Vorher fing dieser Zweig den Wurf NUR mit std::cerr, und das unbedingte
+            // bestandslog_flush() am Lauf-Ende registrierte den unbestaetigten Bestand doch (der sichtbare,
+            // aber folgenlose Faenger). Ohne aktives Bestandslog wird nullptr gereicht -> reines Loggen.
+            mess_pfad_synchron_push(cfg.cache_push, bin_dir, cfg.build_version, binary_id, cfg.output_dir,
+                                    bestandslog_active ? &lager : nullptr);
             if (cfg.measurement_sink) {
                 std::error_code             sec;
                 std::filesystem::path const rcsv = bin_dir / "result.csv";

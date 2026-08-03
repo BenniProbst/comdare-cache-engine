@@ -32,13 +32,16 @@
 
 #include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
+#include <algorithm> // CX-W1: std::any_of ueber die Dokument-Eintraege
 #include <cstddef>
 #include <filesystem>
+#include <fstream> // Alt-Staende der Faelle (6)/(9) legen und zurueckliegen
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept> // CX-W1: std::runtime_error als simulierter Push-Wurf
 #include <string>
 #include <vector>
 
@@ -217,6 +220,12 @@ int main() {
         check_true("(1m) IST: gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0",
                    spur.find(" gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0") != std::string::npos);
         check_true("(1m) die Bilanz-Zeile traegt die Fenster-Wall-Clock", spur.find(" dauer_s=") != std::string::npos);
+        // TP1FK1-B1 (Codex-Befund CX-W2), GEGENPROBE zu Fall (7): ein ZUSAMMENHAENGENDES Fenster loest die
+        // konservative Weitung NICHT aus. Diese Zeile ist der Beleg, dass die Spannen-Form im Regelfall
+        // (dichte Selektion) byte-identisch zur frueheren (front(), size())-Form bleibt -- daran haengt die
+        // Golden-Neutralitaet des Fixes, nicht nur seine Korrektheit im Sonderfall.
+        check_true("(3) dichtes Fenster: KEINE Weitungs-Warnung (byte-identisch zur (front,size)-Form)",
+                   spur.find("Slice-Fenster ist NICHT zusammenhaengend") == std::string::npos);
 
         auto const raw = store.objs.find(kDocKey);
         check_true("(3) Reservierung im Store", raw != store.objs.end());
@@ -452,6 +461,273 @@ int main() {
                                      " sidecar_skip=" + std::to_string(r.built_skip) + " lager_skip=0 fehl=0";
         check_true("(6m) Fallback-Bilanz konsumiert built_new/built_skip", spur.find(erwartet) != std::string::npos);
         check_eq("(6m) Fallback: 8 frisch gebaut (kein Bestand, kein Sidecar)", r.built_new, std::size_t{8});
+    }
+
+    // -- Fall (7): TP1FK1-B1 (Codex-Befund CX-W2) -- die Slice-Identitaet wird als SPANNE gespeichert --
+    //    LAGE: eine LUECKENHAFTE Fenster-Menge {0,2}. Die frueher geschriebene (front(), size())-Form legte
+    //    (0,2) ab, also das Intervall {0,1}: eine FREMDE Selektion {0,1} bestand damit die Deckungspruefung
+    //    und enteignete den Claim -- Index 2 baute danach niemand (die B1-Fehlermode). slice_window_bounds
+    //    legt die SPANNE (0,3) ab, die die reale Menge UMFASST; freigegeben wird erst, wenn die
+    //    uebernehmende Selektion das ganze Intervall baut. Konservativ, ohne jede Draht-Aenderung.
+    {
+        // (7a) die Bounds-Funktion selbst: Spanne statt Kardinalitaet -- und unveraendert bei Lueckenfreiheit.
+        check_eq("(7a) gappy {0,2}: begin == min == 0", bl::slice_window_bounds({0, 2}).begin, std::uint64_t{0});
+        check_eq("(7a) gappy {0,2}: count == SPANNE 3 (nicht size 2)", bl::slice_window_bounds({0, 2}).count,
+                 std::uint64_t{3});
+        check_eq("(7a) zusammenhaengend {0,1,2,3}: count == 4 (== size, unveraendert)",
+                 bl::slice_window_bounds({0, 1, 2, 3}).count, std::uint64_t{4});
+        check_eq("(7a) leeres Fenster: count 0 (nichts zu beanspruchen)", bl::slice_window_bounds({}).count,
+                 std::uint64_t{0});
+
+        // (7b) die WIRKUNG am Sweep -- die eigentliche Negativ-Probe: niemand wird faelschlich enteignet.
+        std::vector<std::size_t> const teil{0, 1};
+        std::vector<std::size_t> const voll{0, 1, 2};
+        auto const                     bounds = bl::slice_window_bounds({0, 2});
+        check_true("(7b) fremde Selektion {0,1} released das gappy Fenster {0,2} NICHT",
+                   !bl::scope_covers_slice(bl::make_sweep_scope(bl::BatchTyp::tier, teil), bounds.begin, bounds.count));
+        check_true("(7b) wer {0,1,2} baut, deckt {0,2} voll ab -> Uebernahme erlaubt",
+                   bl::scope_covers_slice(bl::make_sweep_scope(bl::BatchTyp::tier, voll), bounds.begin, bounds.count));
+        // Der VERLUST literal: mit der alten (begin=0, count=size=2)-Form haette {0,1} gedeckt.
+        check_true("(7b) Beleg des Schreib-Verlusts: (0, size=2) HAETTE {0,1} faelschlich freigegeben",
+                   bl::scope_covers_slice(bl::make_sweep_scope(bl::BatchTyp::tier, teil), 0, 2));
+
+        // (7c) END-TO-END am REALEN Schreibweg: run_planer_driven_provision mit gappy {0,2} legt die
+        //      Reservierung mit slice_count == SPANNE 3 ab (VOR dem Fix stand dort die 2).
+        FakeStore         store;
+        ex::LazyRunConfig cfg = make_cfg(store, base / "cxw2_gappy");
+        ex::BuildConfig   bcfg;
+        bcfg.cores_per_build    = 1;
+        bcfg.source_dir         = cfg.source_dir;
+        bcfg.output_dir         = cfg.output_dir;
+        bcfg.per_binary_subdirs = true;
+        bcfg.build_parallelism  = 1;
+        ex::BuildOrchestrator          orch{bcfg, compile_stub, gen_stub};
+        ex::BuildStats                 agg;
+        std::size_t                    skips = 0;
+        CerrCapture                    fang;
+        std::vector<std::size_t> const gappy{0, 2};
+        auto const builds      = ex::run_planer_driven_provision(orch, view, gappy, cfg, agg, bl::PresenceFn{}, &skips);
+        std::string const spur = fang.text();
+        check_eq("(7c) beide Indizes des gappy Fensters gebaut", builds.size(), std::size_t{2});
+        check_true("(7c) die konservative Weitung ist NICHT stumm",
+                   spur.find("Slice-Fenster ist NICHT zusammenhaengend") != std::string::npos);
+        auto const raw = store.objs.find(kDocKey);
+        check_true("(7c) Reservierung im Store", raw != store.objs.end());
+        if (raw != store.objs.end()) {
+            auto const doc = bl::parse_bestandslog(raw->second);
+            check_true("(7c) Dokument parsebar", doc.has_value());
+            check_true("(7c) genau EINE Slice-Reservierung", doc && doc->reservierungen.size() == 1);
+            if (doc && doc->reservierungen.size() == 1) {
+                check_eq("(7c) slice_begin == min == 0", doc->reservierungen[0].slice_begin, std::uint64_t{0});
+                check_eq("(7c) slice_count == SPANNE 3 (nicht size 2) -- kein Schreib-Verlust",
+                         doc->reservierungen[0].slice_count, std::uint64_t{3});
+            }
+        }
+    }
+
+    // -- Fall (8): TP1FK1-B2 (Codex-Befund CX-W1) -- der SYNCHRONE Mess-Pfad-Faenger schliesst den ------
+    //    Bestandslog-Eintrag aus, wenn der Push warf. Der Eintrag ist (wie in der Bau-Phase) per observe()
+    //    vorgemerkt; wirft der synchrone Push, hat der Store den Satz NIE erhalten -- nach dem unbedingten
+    //    flush am Lauf-Ende darf er deshalb NICHT im geteilten Dokument stehen (sonst skippt der Bau-Filter
+    //    des Folgelaufs eine nirgends existierende Binary). VOR dem Fix loggte der Faenger nur.
+    //    Im SELBEN Dokument sitzt eine zweite Binary, deren Push GELANG: sie muss registriert werden --
+    //    der Ausschluss ist gezielt, keine Pauschal-Enteignung.
+    {
+        auto const                hexkey = [](char c) { return std::string(128, c); };
+        bl::ZellKoordinaten const zelle{.combo = "default", .opt = "O2", .simd = "avx2"};
+        fs::path const            out = base / "cxw1" / "dll";
+        fs::create_directories(out / "sX", ec);
+        fs::create_directories(out / "sY", ec);
+
+        bl::LagerRunState lager;
+        check_true("(8) observe merkt den Eintrag der werfenden Binary vor",
+                   lager.observe(hexkey('a'), zelle, "sX/perm.dll", 10, "[a,b,c]", "2026-08-03T10:00:00Z") ==
+                       bl::DedupOutcome::fresh_register);
+        check_true("(8) observe merkt den Eintrag der gelingenden Binary vor",
+                   lager.observe(hexkey('b'), zelle, "sY/perm.dll", 20, "[a,b,c]", "2026-08-03T10:00:01Z") ==
+                       bl::DedupOutcome::fresh_register);
+
+        ex::CachePushFn const werfen = [](fs::path const&, std::string const&) {
+            throw std::runtime_error("Store-Push simuliert fehlgeschlagen");
+        };
+        bool                  gepusht = false;
+        ex::CachePushFn const geht    = [&gepusht](fs::path const&, std::string const&) { gepusht = true; };
+
+        std::string log;
+        {
+            CerrCapture fang;
+            ex::mess_pfad_synchron_push(werfen, out / "sX", "v1.0.0c", "binid-X", out, &lager);
+            ex::mess_pfad_synchron_push(geht, out / "sY", "v1.0.0c", "binid-Y", out, &lager);
+            log = fang.text();
+        }
+        check_true("(8) der gelungene Push lief wirklich", gepusht);
+        check_true("(8) der Wurf ist klassifiziert geloggt und der Lauf MISST WEITER",
+                   log.find("MISST WEITER") != std::string::npos);
+        check_true("(8) der Ausschluss ist beziffert (Nie-stumm)", log.find("NICHT registriert") != std::string::npos);
+        check_eq("(8) genau EIN Eintrag bleibt vorgemerkt", lager.pending_fresh(), std::size_t{1});
+
+        FakeStore  store;
+        auto const reg =
+            lager.flush(store.transport(), kDocKey, "2026-08-03T10:05:00Z", bl::make_lock_owner("uuid-cxw1", "prodX"));
+        check_true("(8) der flush hat geschrieben", reg.has_value() && *reg == 1);
+        auto const doc = bl::parse_bestandslog(store.objs[kDocKey]);
+        check_true("(8) Dokument parsebar", doc.has_value());
+        if (doc) {
+            bool const drin_x = std::any_of(doc->bestand.begin(), doc->bestand.end(),
+                                            [](bl::BestandEintrag const& e) { return e.pfad == "sX/perm.dll"; });
+            bool const drin_y = std::any_of(doc->bestand.begin(), doc->bestand.end(),
+                                            [](bl::BestandEintrag const& e) { return e.pfad == "sY/perm.dll"; });
+            check_true("(8) CX-W1: die Binary mit geworfenem Push steht NICHT im geteilten Dokument", !drin_x);
+            check_true("(8) die Binary mit gelungenem Push steht sehr wohl drin (kein Fehl-Ausschluss)", drin_y);
+        }
+    }
+
+    // -- Fall (9): TP1FK1-B10 (Codex-Befund CX-W4) -- ein fehlgeschlagenes Entfernen von result.csv.stamp
+    //    wird nicht mehr verschluckt. LAGE: result.csv.stamp ist ein NICHT-LEERES VERZEICHNIS, damit
+    //    std::filesystem::remove deterministisch scheitert (ENOTEMPTY -- auch als root, kein chmod noetig).
+    //    VOR dem Fix lief remove() ohne jede Pruefung: der Alt-Stamp blieb liegen, die Marker-Zeile wurde
+    //    trotzdem als neue result.csv geschrieben (der Alt-Stamp haette sie im Folgelauf als gueltigen
+    //    Messstand ZERTIFIZIERT) und die Diagnose behauptete "der Stamp ist entfernt".
+    {
+        constexpr char const* kAltMarke = "ALTER-ERFOLGS-STAND";
+        ex::BinarySpec const  spec0     = view[0];
+        std::string const     stem0     = ex::orch_make_stem(spec0.binary_id, spec0.index);
+
+        FakeStore         dummy;
+        ex::LazyRunConfig cfg9 = make_cfg(dummy, base / "cxw4");
+        cfg9.provision_only    = false; // MESS-Modus: dort lebt der Bau-Fehler-Zweig mit der Invalidierung
+        cfg9.bestand_transport = {};    // Bestandslog inaktiv -> reiner Bau-/Resume-Pfad
+        cfg9.bestand_doc_key.clear();
+        cfg9.resume_completed_binaries = true;
+        cfg9.max_binaries              = 1;
+
+        fs::path const bin_dir = cfg9.output_dir / stem0;
+        fs::create_directories(bin_dir, ec);
+        { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
+        fs::create_directories(bin_dir / "result.csv.stamp", ec); // Stamp ALS Verzeichnis ...
+        { std::ofstream{bin_dir / "result.csv.stamp" / "blocker", std::ios::trunc} << "x\n"; } // ... nicht leer
+
+        ex::BuildSelection sel9;
+        sel9.indices            = {0};
+        sel9.provenance         = "explicit";
+        auto const compile_fail = [](ex::BuildJob const&) -> int { return 1; }; // Compiler lehnt ab -> Fehler-Zweig
+        auto const ram_stub     = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+        std::string       log;
+        ex::LazyRunResult r9;
+        {
+            CerrCapture fang;
+            r9  = ex::run_lazy_static_then_dynamic(tree, sel9, compile_fail, gen_stub, ram_stub, cfg9);
+            log = fang.text();
+        }
+        auto const datei_text = [](fs::path const& p) {
+            std::ifstream     f{p};
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str();
+        };
+        check_true("(9) CX-W4: der Entfern-Fehler ist klassifiziert sichtbar",
+                   log.find("result.csv.stamp NICHT entfernt") != std::string::npos);
+        check_true("(9) keine unbelegte 'der Stamp ist entfernt'-Aussage",
+                   log.find("der Stamp ist entfernt") == std::string::npos);
+        check_true("(9) der blockierte Alt-Stamp liegt noch (remove scheiterte wirklich)",
+                   fs::exists(bin_dir / "result.csv.stamp", ec));
+        // Der KERN: mit liegendem Alt-Stamp darf keine Marker-Zeile als Messstand zertifiziert werden.
+        std::string const csv = datei_text(bin_dir / "result.csv");
+        check_true("(9) die Marker-Zeile wurde NICHT unter den Alt-Stamp geschrieben",
+                   csv.find("nicht_gebaut") == std::string::npos);
+        check_true("(9) der Alt-Stand blieb unangetastet (Messdaten nie loeschen)",
+                   csv.find(kAltMarke) != std::string::npos);
+        check_true("(9) kein result.csv.stale -- die Ablage wurde gar nicht erst angefasst",
+                   !fs::exists(bin_dir / "result.csv.stale", ec));
+        // Sichtbar bleibt der Befund trotzdem: die globale CSV traegt die nicht_gebaut-Zeile.
+        check_eq("(9) der Bau-Fehler reist als Marker-Zeile in die globale CSV", r9.csv_rows.size(), std::size_t{1});
+        check_true("(9) und traegt den Bau-Status nicht_gebaut",
+                   r9.csv_rows.size() == 1 && r9.csv_rows[0].build_status ==
+                                                  ::comdare::cache_engine::measurement::BuildCellStatus::NichtGebaut);
+    }
+
+    // -- Fall (10): Review-Befund Z-01/GA-02 -- ein fehlgeschlagenes SICHERN der Alt-result.csv nach
+    //    result.csv.stale darf die Alt-Mess-CSV nicht dem trunc des Marker-Writes ausliefern.
+    //    LAGE: result.csv.stale ist ein NICHT-LEERES VERZEICHNIS, damit fs::rename deterministisch
+    //    scheitert (ENOTEMPTY/EEXIST -- auch als root, kein chmod/ro-Mount noetig). Der Stamp ist eine
+    //    normale Datei und faellt sauber: der Bau-Fehler-Zweig erreicht also GENAU den else-Zweig mit
+    //    dem rename (Fall (9) prueft den anderen, davorliegenden Zweig).
+    //    VOR dem Fix lief das rename mit einem error_code, den danach niemand mehr ansah, und der
+    //    unmittelbar folgende std::ofstream{result.csv, trunc} LOESCHTE den Alt-Stand, den es gerade
+    //    nicht sichern konnte -- "Messdaten nie loeschen", gebrochen vom Sicherungs-Versuch selbst.
+    {
+        constexpr char const* kAltMarke = "ALTER-ERFOLGS-STAND-Z01";
+        auto const            dims      = tree.dynamic_filter();
+        ex::BinarySpec const  spec0     = view[0];
+        std::string const     stem0     = ex::orch_make_stem(spec0.binary_id, spec0.index);
+
+        FakeStore         dummy;
+        ex::LazyRunConfig cfg10 = make_cfg(dummy, base / "z01");
+        cfg10.provision_only    = false; // MESS-Modus: dort lebt der Bau-Fehler-Zweig mit der Sicherung
+        cfg10.bestand_transport = {};    // Bestandslog inaktiv -> reiner Bau-/Resume-Pfad
+        cfg10.bestand_doc_key.clear();
+        cfg10.resume_completed_binaries = true;
+        cfg10.max_binaries              = 1;
+
+        fs::path const bin_dir = cfg10.output_dir / stem0;
+        fs::create_directories(bin_dir, ec);
+        { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
+        { // Stamp als normale Datei -> sein Entfernen GELINGT, der Lauf erreicht das rename
+            std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc} << ex::lazy_resume_stamp_prefix(cfg10, dims)
+                                                                         << "|rows=1\n";
+        }
+        fs::create_directories(bin_dir / "result.csv.stale" / "belegt", ec); // .stale ALS Verzeichnis ...
+        {
+            std::ofstream{bin_dir / "result.csv.stale" / "belegt" / "blocker", std::ios::trunc} << "x\n";
+        } // ... nicht leer
+
+        auto const datei_text = [](fs::path const& p) {
+            std::ifstream     f{p};
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str();
+        };
+        std::string const alt_vorher = datei_text(bin_dir / "result.csv");
+
+        ex::BuildSelection sel10;
+        sel10.indices           = {0};
+        sel10.provenance        = "explicit";
+        auto const compile_fail = [](ex::BuildJob const&) -> int { return 1; }; // Compiler lehnt ab -> Fehler-Zweig
+        auto const ram_stub     = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+        std::string       log;
+        ex::LazyRunResult r10;
+        {
+            CerrCapture fang;
+            r10 = ex::run_lazy_static_then_dynamic(tree, sel10, compile_fail, gen_stub, ram_stub, cfg10);
+            log = fang.text();
+        }
+        // (a) DER KERN: die Alt-Mess-CSV ist BYTE-IDENTISCH erhalten (kein trunc auf einen ungesicherten Stand).
+        check_true("(10) Z-01: die Alt-result.csv ist byte-identisch erhalten (Messdaten nie loeschen)",
+                   datei_text(bin_dir / "result.csv") == alt_vorher);
+        // (b) und sie ist NICHT von der Marker-Zeile ersetzt worden.
+        check_true("(10) keine Marker-Zeile in der per-Binary-Ablage",
+                   datei_text(bin_dir / "result.csv").find("nicht_gebaut") == std::string::npos);
+        // (c) der Fehlschlag ist klassifiziert sichtbar (Nie-stumm) -- und behauptet nichts Unbelegtes.
+        check_true("(10) der Sicherungs-Fehler ist klassifiziert sichtbar",
+                   log.find("result.csv NICHT nach result.csv.stale gesichert") != std::string::npos);
+        check_true("(10) klassifiziert als Compiler-Compiler-Fehler des Bau-Zweigs",
+                   log.find("Compiler-Compiler-Fehler") != std::string::npos);
+        check_true("(10) keine unbelegte 'der Alt-Stand liegt als result.csv.stale'-Aussage",
+                   log.find("der Alt-Stand liegt als result.csv.stale") == std::string::npos);
+        // (d) sichtbar bleibt der Bau-Fehler trotzdem: die globale CSV traegt die Marker-Zeile.
+        check_eq("(10) der Bau-Fehler reist als Marker-Zeile in die globale CSV", r10.csv_rows.size(), std::size_t{1});
+        check_true("(10) und traegt den Bau-Status nicht_gebaut",
+                   r10.csv_rows.size() == 1 && r10.csv_rows[0].build_status ==
+                                                   ::comdare::cache_engine::measurement::BuildCellStatus::NichtGebaut);
+        // Der Resume-Anspruch ist trotzdem weg (der Stamp fiel VOR dem Sicherungs-Versuch): ein Folgelauf
+        // uebernimmt den Alt-Stand nicht, er misst neu -- erhalten bleibt er als Rohdatum.
+        check_true("(10) der Stamp ist gefallen -> kein Resume-Anspruch auf den Alt-Stand",
+                   !fs::exists(bin_dir / "result.csv.stamp", ec));
+        check_true("(10) das blockierende result.csv.stale-Verzeichnis blieb unangetastet",
+                   fs::is_directory(bin_dir / "result.csv.stale", ec) &&
+                       fs::exists(bin_dir / "result.csv.stale" / "belegt" / "blocker", ec));
     }
 
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");

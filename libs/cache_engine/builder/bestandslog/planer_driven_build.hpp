@@ -59,6 +59,40 @@ inline constexpr std::size_t kBuildSliceGrain = 4096;
     return out;
 }
 
+// TP1FK1-B1 (Codex-Befund CX-W2): das Reservierungs-Fenster als INTERVALL [begin, begin+count), das die
+// (moeglicherweise luecken-behaftete) Index-MENGE des Slices VOLL ENTHAELT. Die Reservierung traegt auf
+// dem Draht nur dieses Paar (slice_begin/slice_count, bestandslog_document.hpp); scope_covers_slice
+// zaehlt darin die Selektions-Eintraege des uebernehmenden Laufs.
+//
+// begin = min(view_indices), count = die SPANNE max-min+1 -- NICHT die Kardinalitaet. Fuer die
+// zusammenhaengenden Fenster, die dieses System schneidet (slice_view_indices ueber eine dichte
+// Selektion), ist das EXAKT [front, front+size) und damit byte-identisch zur bisherigen Form. Bei einer
+// LUECKENHAFTEN Menge trennen sich die beiden:
+//   {0,2} als (front, size) = (0,2) beschreibt das Intervall {0,1} -- eine fremde Selektion {0,1}
+//         bestand die Deckungspruefung und gab den Claim frei, obwohl Index 2 von NIEMANDEM gebaut
+//         wird. Das war der VERLUSTBEHAFTETE Schreibweg (Arbeit bleibt liegen).
+//   {0,2} als Spanne = (0,3) UMFASST die reale Menge: freigegeben wird erst, wenn die uebernehmende
+//         Selektion das ganze Intervall {0,1,2} -- und damit jeden realen Index -- baut.
+// Die Deckungs-Frage faellt so KONSERVATIV aus: nie faelschlich released, hoechstens einmal zu selten
+// uebernommen (ein Claim aus luecken-behafteter Herkunft laeuft dann in seine pro-forma-Frist).
+//
+// GRENZE, ehrlich benannt: eine MENGEN-genaue Reservierung (die auch die Gegenrichtung -- der Lauf mit
+// der identischen gappy Menge reapt sein eigenes Fenster -- aufloesen wuerde) braucht ein weiteres
+// Draht-Feld und damit einen syntax_version-Bump des Bestandslog-Dokuments. Das ist ein Owner-Entscheid
+// und hier bewusst NICHT genommen; die Spannen-Form kommt ohne jede Draht-Aenderung aus.
+struct SliceWindowBounds {
+    std::uint64_t begin = 0; // min(view_indices)
+    std::uint64_t count = 0; // SPANNE max-min+1; == view_indices.size() genau bei Lueckenfreiheit
+};
+
+[[nodiscard]] inline SliceWindowBounds slice_window_bounds(std::vector<std::size_t> const& view_indices) noexcept {
+    if (view_indices.empty()) return SliceWindowBounds{0, 0}; // leeres Fenster: nichts zu beanspruchen
+    auto const [mn, mx] = std::minmax_element(view_indices.begin(), view_indices.end());
+    auto const lo       = static_cast<std::uint64_t>(*mn);
+    auto const hi       = static_cast<std::uint64_t>(*mx);
+    return SliceWindowBounds{lo, hi - lo + 1}; // hi >= lo -> Spanne >= 1, kein Unterlauf
+}
+
 // Ein Bau-Fenster-Plan: die (VOLLEN) view-Indizes des Fensters + die Miss-Zahl. Das Fenster bleibt
 // VOLL im Plan (die Reservierung beansprucht das FENSTER, nicht nur seine Luecken); welche Indizes
 // wirklich gebaut werden, entscheidet der Consumer ueber filter_window_for_build (G-A2).
