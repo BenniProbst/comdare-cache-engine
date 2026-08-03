@@ -14,8 +14,16 @@
 // Heute traegt KEIN committetes Profil per-Achse-Direktiven => alle emittierten .cpp-Quelltexte bleiben byte-gleich,
 // der golden-CRC 0xF1C1F26A1232073B unberuehrt (die Merges sind ein additiver id-Satz).
 //
-// @related sota_catalog.hpp (render_directive_merge_module_source) ; pruefling_merge.hpp (MergeStrategy/MergeAxis)
-//          ; anatomy_version_stamp.hpp (merge_stamp_line = der dritte Tier-Stempel aus diesen Direktiven)
+// @related sota_catalog.hpp (render_directive_merge_module_source) ; pruefling_merge.hpp (MergeStrategy/MergeAxis
+//          + die A13-M3/C5-Q2-Wache an der Merge-Namens-Naht)
+//
+// A13-M3/C5 (K-6-Sweep): der frueher hier verwiesene DRITTE Tier-Stempel (anatomy_version_stamp.hpp::
+// merge_stamp_line) EXISTIERT NICHT MEHR -- Owner-E2 vom 02.08.2026: "Merge Zeile kann daher nicht
+// existieren". DIESES Modul ist davon NICHT betroffen (Owner-Q2: die Merge-Strategie wird weiter
+// durchgefuehrt); es verliert nur seinen Stempel-Abnehmer. Die Merge-Art lebt im Stempel ab jetzt ueber das
+// 'e'-Experimentalflag und die erweiterten hierarchischen Namen -- dass zwei byte-verschiedene
+// Merge-Binaries dabei nie namensgleiche Organ-Segmente rendern, sichert die CT-Wache in
+// pruefling_merge.hpp (MergeImpl), nicht mehr eine eigene Stempel-Zeile.
 
 #include "xml_config_parser/xml_config_parser.hpp" // ExperimentProfile / ExperimentAxisDefault / ExperimentPhase
 
@@ -47,9 +55,11 @@ struct AxisMergeDirective {
 ///   "merge"    => Stufe2_Hybrid   (§59-A(2): CE + Pruefling HYBRID je Pruefling),
 ///   "fulljoin" => Stufe3_FullJoin (§59-A(3): kombinierte Union CE + Pruefling, non-redundant; validate erzwingt die
 ///                 Phase-3-Bindung, validate_profile.hpp).
-/// Die fruehere Projektion (beide -> Stufe3_FullJoin) war die Regression: sie kollabierte am DRITTEN Tier-Stempel
-/// (merge_stamp_line, §59-C) die Trennung der Merge-Kategorien. merge_stamp_line traegt die Strategie VERBATIM
-/// ("merge=<strategy>;..."), damit ist Hybrid ("merge=Stufe2_Hybrid") != FullJoin ("merge=Stufe3_FullJoin").
+/// Die fruehere Projektion (beide -> Stufe3_FullJoin) war die Regression: sie kollabierte die Trennung der
+/// Merge-KATEGORIEN. HISTORIE (Doku-Doktrin: supersedieren, nie loeschen): bis A13-M3 fiel dieser Kollaps am
+/// DRITTEN Tier-Stempel auf, weil merge_stamp_line die Strategie VERBATIM trug ("merge=Stufe2_Hybrid" !=
+/// "merge=Stufe3_FullJoin"). Diese Zeile gibt es seit Owner-E2 nicht mehr; die Trennung lebt hier -- in der
+/// Projektion selbst -- und in den erweiterten Namen/Flags der gemergten Varianten (Owner-Q2).
 /// MATERIALISIERUNG DEFERRED (Director-Konsum, post-S4): das MergeStrategy-Enum (pruefling_merge.hpp) traegt heute
 /// NUR Stufe1_CeOnly/Stufe2_PrueflingReplace/Stufe3_FullJoin -- KEIN Stufe2_Hybrid. Der direktiven-getriebene Emitter
 /// (sota_catalog.hpp: render_directive_merge_module_source) rendert die Strategie als pf::MergeStrategy::<strategy>-

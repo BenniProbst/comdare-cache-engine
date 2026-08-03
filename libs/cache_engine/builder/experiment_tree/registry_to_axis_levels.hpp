@@ -86,7 +86,7 @@ using T26_persistence_target = ce::io::axis_persistence_target::EnabledTargets;
 // CMake-Option gebaut/gemessen wird. Ein deaktiviert-aber-registrierter Algorithmus (Bestandsfall:
 // Array256SearchAlgo, COMDARE_AXIS_03A_ENABLE_ARRAY256=OFF) traegt aber ebenfalls ein algo_version-Literal, das
 // KEINE Enabled-getriebene Wache je sieht -- ein 'e'/falsches Flag bliebe bis zur spaeteren Aktivierung
-// unentdeckt, und der A13-M2/M3-ENFORCE-Commit schluege daran nicht an. Die Flag-Grammatik-Wachen
+// unentdeckt, und der A13-M3/C4-ENFORCE-Commit haette daran nicht angeschlagen. Die Flag-Grammatik-Wachen
 // (axis_variant_version_table.hpp, guard_all_registered_organ_versions) laufen daher ueber DIESE VOLLEN All*-
 // Listen. Es sind exakt die 18 kCompositionAxisNames-Achsen (die System-/Shape-Achsen tragen KEIN algo_version,
 // s. axis_variant_version_table.hpp-Kopf). Sub-Namespace + All*-Name spiegeln EINS-ZU-EINS die Enabled*-Quelle

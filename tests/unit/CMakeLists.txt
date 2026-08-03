@@ -4174,6 +4174,9 @@ comdare_add_test(test_g3_sha512_index
     SOURCES test_g3_sha512_index.cpp)
 target_include_directories(test_g3_sha512_index PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    # A13-M3/C3: bestandslog_index.hpp zieht abi/anatomy_fingerprint.hpp (EIN Preimage-Separator, keine
+    # zweite Konkatenations-Regel) -> die abi-Include-Wurzel gehoert ab jetzt zu diesem Ziel.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 
@@ -4183,6 +4186,9 @@ comdare_add_test(test_g3_builder_registration
     SOURCES test_g3_builder_registration.cpp)
 target_include_directories(test_g3_builder_registration PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    # A13-M3/C3: bestandslog_index.hpp zieht abi/anatomy_fingerprint.hpp (EIN Preimage-Separator, keine
+    # zweite Konkatenations-Regel) -> die abi-Include-Wurzel gehoert ab jetzt zu diesem Ziel.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_builder_registration PRIVATE Threads::Threads)
@@ -4195,6 +4201,9 @@ comdare_add_test(test_g3_takeover_sweep
     SOURCES test_g3_takeover_sweep.cpp)
 target_include_directories(test_g3_takeover_sweep PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    # A13-M3/C3: bestandslog_index.hpp zieht abi/anatomy_fingerprint.hpp (EIN Preimage-Separator, keine
+    # zweite Konkatenations-Regel) -> die abi-Include-Wurzel gehoert ab jetzt zu diesem Ziel.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_takeover_sweep PRIVATE Threads::Threads)
@@ -4236,6 +4245,9 @@ comdare_add_test(test_g3_lager_presence
     SOURCES test_g3_lager_presence.cpp)
 target_include_directories(test_g3_lager_presence PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    # A13-M3/C3: bestandslog_index.hpp zieht abi/anatomy_fingerprint.hpp (EIN Preimage-Separator, keine
+    # zweite Konkatenations-Regel) -> die abi-Include-Wurzel gehoert ab jetzt zu diesem Ziel.
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_lager_presence PRIVATE Threads::Threads)

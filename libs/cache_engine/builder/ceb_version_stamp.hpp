@@ -14,7 +14,7 @@
 //
 // A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): der ZWILLING wird SYMMETRISCH nachgezogen --
 // load_framework steht nicht mehr vorne, sondern als KLAMMER-ANHANG ANS ENDE der Mess-Zeile
-// ("measurement_tooling=...;[load_framework=ycsb@1.0.0]"). Genau dieser Header ist der von O-8 Schritt 12
+// ("measurement_tooling=...;[load_framework=ycsb@1.0.0c]"). Genau dieser Header ist der von O-8 Schritt 12
 // dokumentierte DRITTE Ableitungsweg; wer ihn beim Umbau der Mess-Ordnung vergisst, bekommt exakt dieselbe
 // Drift zurueck. Die Klammer-Zeichen kommen aus abi::kMetaMetaGroupOpen/Close (EINE Wahrheit ihrer
 // Schreibweise), die Ordnung aus diesem Kommentar -- und der Drift-Guard beweist beides.
@@ -50,10 +50,10 @@ namespace detail {
 }
 /// consteval: Laenge des fuehrenden load_framework-Segments "load_framework=<id>@X.Y.Z" (ohne Trenner).
 /// O-8 Schritt 12: dieselbe Quelle und dieselbe Form wie in abi::measurement_stamp_line (Schritt 9).
-// A13-M1b-Fixup (Review-BEFUND-2): der konsteval-Zwilling rendert den Owner-Q3-Flag-Schwanz MIT --
-// heute no-op (Bestand flaglos), nach der M2/M3-Migration auf "v1.0.0c" automatisch korrekt. Laenge
-// und Renderer sind symmetrisch aus denselben Registry-Werten berechnet; der Zwillingstest
-// (test_m_w12, CEB-Zeile == abi::measurement_stamp_line) bleibt damit ueber die Migration gruen.
+// A13-M1b-Fixup (Review-BEFUND-2): der konsteval-Zwilling rendert den Owner-Q3-Flag-Schwanz MIT -- bei
+// Anlage no-op (Bestand noch flaglos), seit der A13-M3/C4-Migration auf "v1.0.0c" traegt er das 'c'
+// automatisch. Laenge und Renderer sind symmetrisch aus denselben Registry-Werten berechnet; der
+// Zwillingstest (test_m_w12, CEB-Zeile == abi::measurement_stamp_line) blieb ueber die Migration gruen.
 [[nodiscard]] consteval std::size_t ceb_flag_len(::comdare::cache_engine::measurement::AlgoSemVer const& v) noexcept {
     return (::comdare::cache_engine::measurement::hardware_flag_char(v.hardware) != '\0' ? 1U : 0U) +
            (v.experimental ? 1U : 0U);
@@ -160,10 +160,18 @@ inline constexpr auto             kCebMeasurementStampArray = ceb_measurement_st
 inline constexpr std::string_view kCebMeasurementStamp{kCebMeasurementStampArray.data(),
                                                        kCebMeasurementStampArray.size() - 1};
 
-/// consteval SHA-512-Provenienz der CEB (A8): anatomy_fingerprint_hex ueber ("", "", Mess-Array-Zeile, "") -- die EINE
-/// K7b-Primitive wiederverwendet (leere organ/system/merge). 128-hex, nullterminiert.
+/// consteval SHA-512-Provenienz der CEB (A8): anatomy_fingerprint_hex ueber ("", "", Mess-Array-Zeile) -- die EINE
+/// K7b-Primitive wiederverwendet (leere organ/system). 128-hex, nullterminiert.
+///
+/// A13-M3/K-1: dieser Aufruf IST die im Bauplan benannte "ceb_version_stamp.hpp-Falle". Bis M2 stand hier ein
+/// VIERTES Argument "" -- der merge-Slot. Waere die Signatur beim merge-Entfall naiv auf
+/// (organ, system, measurement, overlay) verkuerzt worden, waere dieser Aufruf GUELTIG GEBLIEBEN und das ""
+/// still vom merge- auf den Overlay-Slot gerutscht: kompiliert, Semantik verschoben, niemand merkt es. Der
+/// benannte OverlayHash-Typ + die Sperr-Ueberladung machen genau das unmoeglich; der Aufruf ist auf die
+/// 3-arg-Form gezogen. Der Wert kCebFingerprint SHIFTET dabei (erwartetes Byte-Ereignis, sichtbar nur im
+/// CEB-Log-Kopf und --version -- er stempelt keine Tier-Binary).
 inline constexpr auto kCebFingerprintArray =
-    ::comdare::cache_engine::abi::anatomy_fingerprint_hex("", "", kCebMeasurementStamp, "");
+    ::comdare::cache_engine::abi::anatomy_fingerprint_hex("", "", kCebMeasurementStamp);
 inline constexpr std::string_view kCebFingerprint{kCebFingerprintArray.data(), 128};
 
 /// ceb_version_stamp() -- der CEB-Selbst-Stempel fuer den Log-Kopf/--version: die Mess-Array-Zeile + ihre SHA-512-

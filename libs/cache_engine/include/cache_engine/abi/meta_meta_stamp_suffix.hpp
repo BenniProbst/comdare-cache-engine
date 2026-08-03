@@ -81,9 +81,28 @@ template <class Members>
 [[nodiscard]] inline std::string render_meta_meta_members(Members);
 
 /// EIN Glied: "<name>=code@X.Y.Z" plus -- falls es SELBST Hub ist -- seine eigene Klammer eine Ebene tiefer.
+///
+/// A13-M3/C2 (Befund Z-07, nachhaltige Klassen-Schliessung): HIER, am RENDERER-ENGPASS, laufen die beiden
+/// Versions-Wachen -- nicht nur opt-in am Definitionsort der jeweiligen Meta-Meta. Der Unterschied ist der
+/// ganze Punkt: eine Wache am Definitionsort muss jemand HINSCHREIBEN (heute steht sie an genau EINER Achse,
+/// external_utils_family_axis.hpp; die vier test-lokalen Meta-Metas haben sie nicht), eine Wache am Engpass
+/// KANN NIEMAND VERGESSEN -- jedes Glied, das je in eine Stempel-Zeile gerendert wird, kommt durch diese
+/// Funktion. Eine neue Meta-Meta ohne Wachen-Zwilling kann damit nicht mehr still am Engpass vorbeistempeln.
+/// Die Wachen selbst bleiben die B12-Single-Source (Z-03, hardware_meta_meta_axis.hpp) -- hier steht KEINE
+/// zweite Politik, nur ihr Anwendungsort. Byte-neutral: der gesamte heutige Bestand besteht beide.
 template <class M>
 [[nodiscard]] inline std::string render_meta_meta_entry() {
     using ::comdare::cache_engine::measurement::algo_semver_string;
+    static_assert(::comdare::cache_engine::measurement::meta_meta_version_wohlgeformt<M>(),
+                  "A13-M3/C2 (Z-07): diese Meta-Meta wird gestempelt, ihre axis_code_version ist aber nicht "
+                  "wohlgeformt -- sie muss dreistellig parsbar sein, darf nicht auf dem Sentinel stehen, kein "
+                  "'e' (Pruefling-Markierung, Owner-E2) und kein falsches Hardware-Flag tragen (Owner-Q3).");
+#if COMDARE_VERSION_HW_FLAG_ENFORCE
+    static_assert(::comdare::cache_engine::measurement::meta_meta_version_cpu_pflicht<M>(),
+                  "A13-M3/C2 (Z-07): diese Meta-Meta wird gestempelt, ihre axis_code_version traegt aber kein "
+                  "CPU-Hardware-Flag -- im CPU-only-Scope MUSS sie auf 'c' enden (Owner-Q3); "
+                  "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
+#endif
     std::string out{meta_meta_stamp_name<M>()};
     out += '=';
     out += kMetaMetaAlgorithmMarker;
@@ -156,6 +175,18 @@ meta_meta_stamp_suffix_from(std::span<::comdare::cache_engine::measurement::Axis
 ///   * leere Zeile -> bleibt leer. Eine sonst leere Mess-Zeile heisst "kein Mess-Tooling einkompiliert"; ein
 ///     einsames Rahmen-Segment machte daraus ein "etwas gemessen" (die Makro-Materialisierung verlaesst sich
 ///     auf measurement_line == "" mit measurement_len == 0).
+///
+/// A13-M3/C5 (Befund Z-11, K-6-Sweep) -- AUSLEGUNG, NICHT OWNER-WORTLAUT. Die zweite Leer-Regel verwirft den
+/// Meta-Meta-Anhang STILL, wenn die Realm-Zeile leer ist. Owner-E2 erklaert Meta-Meta-Stempeleintraege zur
+/// PFLICHT "wie alle Hauptachsen"; dass diese Pflicht bei einer LEEREN Realm-Zeile entfaellt, ist NIRGENDS
+/// owner-dokumentiert -- es ist eine Implementierungs-Entscheidung, und sie steht hier als solche benannt,
+/// damit der naechste Leser sie nicht fuer eine Owner-Regel haelt.
+/// AM HEUTIGEN IST KONSEQUENZLOS, literal geprueft: der einzige reale Leer-Fall ist die Mess-Zeile ohne
+/// einkompiliertes Tooling, und dort entsteht der load_framework-Anhang im ZWEITEN Ableitungsweg
+/// (builder/ceb_version_stamp.hpp) konsistent ebenfalls nicht -- beide Wege verhalten sich gleich, es gibt
+/// keine Drift.
+/// SOBALD je eine Meta-Meta an einer real LEEREN Realm-Zeile haengen soll (z.B. eine Mess-Meta-Meta ohne
+/// Tooling-Wahl), ist das eine OWNER-FRAGE und KEIN stiller Default.
 inline void append_meta_meta_suffix(std::string& line, std::string_view suffix) {
     if (line.empty() || suffix.empty()) return;
     line += ';';

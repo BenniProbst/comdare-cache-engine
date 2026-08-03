@@ -32,9 +32,11 @@
 // Version steigen, damit Messungen aus verschiedenen Erhebungs-Verfahren unterscheidbar bleiben. Der
 // Familien-Teil wird aus OsAxis::os_family_id() in einen constexpr-Puffer komponiert und nirgendwo als
 // zweites Literal gepflegt. Das ist dieselbe Verfahrens-Identitaet wie device_id() der HW-Erhebung.
-// kOsProbeVersion ist eine weitere Migrations-Naht des A13-M2/M3-Fensters: sie wird dort zusammen
-// mit dem uebrigen Bestand auf "v1.0.0c" gezogen. Die gated ENFORCE-Wache bricht beim Scharfschalten
-// genau dafuer mit.
+// kOsProbeVersion war eine weitere Migrations-Naht des A13-M2/M3-Fensters: A13-M3/C4 hat sie zusammen
+// mit dem uebrigen Bestand auf "v1.0.0c" gezogen (deklariertes probe_id-Byte-Ereignis), und die gated
+// ENFORCE-Wache ist seither scharf. Seit A13-M3/C2 fuehrt die zentrale Naht-Liste sie als KLASSE (f)
+// (algo_semver.hpp) -- vorher stand die Naht nur hier und fiel durch jedes der dort als bindend
+// deklarierten Erhebungs-Kommandos (Befund GA-05/Z-10 vom 03.08.2026).
 //
 // A-15 STEMPEL-NEUTRALITAET: OperatingSystemInstance ist ein reines Runtime-Blatt. Dieser Header kennt
 // weder ABI-Stempel noch Registry, XML, Generator oder Binary-ID und bietet keine Naht dorthin. Kein
@@ -112,7 +114,7 @@ struct OperatingSystemProbeContext {
 namespace detail {
 
 inline constexpr std::string_view kOsProbeIdPrefix = "os_probe.";
-inline constexpr std::string_view kOsProbeVersion  = "v1.0.0";
+inline constexpr std::string_view kOsProbeVersion  = "v1.0.0c";
 
 /// Ein fester constexpr-Puffer statt std::string: probe_id() muss auch compile-time aus dem von der
 /// Achse gelieferten string_view komponierbar sein. 64 Bytes lassen bewusst Platz fuer kuenftige echte

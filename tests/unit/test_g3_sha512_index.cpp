@@ -1,15 +1,17 @@
 // test_g3_sha512_index -- G3 / #46b Lagerhaltung, Scheibe B3.
 //
 // Factory + SHA512-Index. Kern-Abnahme (Section 66 Lager-Gate, EINE SHA512-Wahrheit): die
-// BinaryKeyPolicy-Digest ueber die vier eingefrorenen A1-Stempel-Zeilen MUSS exakt den in A1
+// BinaryKeyPolicy-Digest ueber die eingefrorenen A1-Stempel-Zeilen MUSS exakt den in A1
 // eingefrorenen Fingerprint ergeben -- ein Testvektor, zwei Module. Der Vektor ist mit
 // tests/unit/test_m_w12_stamp_bausteine.cpp (MW12StampBausteine.FrozenFingerprintTestVectorForLagerGateB3)
-// gepinnt: gleiche 4 Zeilen, gleiche direkte Konkatenation, gleicher 128-hex. Weiter: Hit/Miss,
+// gepinnt: gleiche Zeilen, gleiche Glied-Folge, gleicher Separator, gleicher 128-hex. Weiter: Hit/Miss,
 // zwei Genera getrennt, Hex-Roundtrip, Index-Aufbau aus Dokument.
 
 #include "bestandslog/bestandslog_document.hpp"
 #include "bestandslog/bestandslog_factory.hpp"
 #include "bestandslog/bestandslog_index.hpp"
+
+#include <cache_engine/abi/anatomy_fingerprint.hpp> // A13-M3: anatomy_fingerprint_glieder (die EINE Ordnung)
 
 #include <gtest/gtest.h>
 
@@ -21,26 +23,34 @@ namespace bl = comdare::cache_engine::builder::bestandslog;
 
 namespace {
 
-// Die vier EINGEFRORENEN A1-Stempel-Zeilen (Quelle: test_m_w12_stamp_bausteine.cpp). NIE aendern
+// Die EINGEFRORENEN A1-Stempel-Zeilen (Quelle: test_m_w12_stamp_bausteine.cpp). NIE aendern
 // ohne A1-Neu-Einfrierung -- Drift hier ODER dort bricht die Lane-B-Konsistenz.
 //
-// A13-M2 (Owner-E2/Q1 vom 02.08.2026): der Fingerprint-Global-Shift von A13-M2 (System-Zeile +Klammer-Anhang,
-// Mess-Zeile load_framework ans Ende) beruehrt DIESEN Vektor NICHT -- er rechnet ueber die vier FESTEN Literale
-// unten, nicht ueber die live gerenderten Stempel-Zeilen. Literal geprueft: der Hex ist unveraendert, beide
-// Module sind gruen. NEU EINZUFRIEREN ist er mit A13-M3, wenn die merge-ZEILE ersatzlos entfaellt (Owner-E2:
-// "Merge Zeile kann daher nicht existieren") -- dann faellt kMerge aus dem Preimage. Der Neuanker gehoert dann
-// in EINEN Commit mit test_m_w12_stamp_bausteine.cpp (Lane-B-Drift-Verbot); die ausfuehrliche Begruendung steht
-// dort ueber MW12StampBausteine.FrozenFingerprintTestVectorForLagerGateB3.
-constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0;path_compression=path_compression_none@1.0.0";
-constexpr std::string_view kSystem  = "compiler=code@1.0.0;isa=amd64";
-constexpr std::string_view kMeasure = "wallclock@1.0.0";
-constexpr std::string_view kMerge   = "merge=Stufe1_CeOnly;pruefling=self";
+// A13-M3 (Owner-E2/OF-M3-1 vom 02./03.08.2026) -- DER EINE NEUANKER DIESES FENSTERS. Drei Ursachen fallen
+// zusammen und ergeben zusammen GENAU EINEN neuen Hex (statt drei aufeinanderfolgender):
+//   (1) die merge-ZEILE entfaellt ersatzlos (Owner-E2) -> kMerge faellt aus dem Preimage;
+//   (2) OF-M3-1 = Option A: die Glieder sind '\n'-getrennt, mit fingerprint_format-Kennung vorn und dem
+//       Sub-Achsen-Werteset-Segment als eigenem Glied (abi::anatomy_fingerprint_glieder);
+//   (3) die Fixtures sind in END-Form modernisiert (Owner-Q3-Flag-Grammatik "@1.0.0c" + die HEUTIGEN
+//       System-/Mess-Achsen) -- kSystem trug "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte
+//       System-Haupt-Achse, kMeasure trug "wallclock@1.0.0" ohne Achsen-Praefix. Als Hash-Konsistenz-Anker
+//       war das gleichgueltig, als REFERENZ-BEISPIEL las es sich falsch.
+// Der neue Hex wurde NICHT vorausberechnet, sondern aus dem literalen Testlauf uebernommen.
+constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
+constexpr std::string_view kSystem  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
+                                      "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
 
 // Der eingefrorene 128-hex (== kFrozenFingerprintV1 in A1).
-constexpr std::string_view kFrozenFingerprintV1 = "0f0c0eb44d4308c3a9d05f92abcb10a8fa68063634a5bd669ae38f8ac2272285"
-                                                  "fb594f0bbdc4547f1bb73f57a5a17d32bee21d3781be27da9577505ad5c31b93";
+constexpr std::string_view kFrozenFingerprintV1 = "0fe275bddc7af1af9474cea655ff28280b93cfb3acc299c00d76d3489822993b"
+                                                  "f043b4cee58b97d7ed2e42b0fc5bb0e3e300d15b1c50c31dd1aba7a23cc9fe36";
 
-std::array<std::string_view, 4> frozen_lines() { return {kOrgan, kSystem, kMeasure, kMerge}; }
+// Die Glied-Folge kommt aus der EINEN Quelle abi::anatomy_fingerprint_glieder -- der Test darf sie NICHT
+// selbst zusammenstellen, sonst pinnt er eine zweite Ordnung fest (Lehre "gruene Tests zementieren alte
+// Ordnung"). Format-Kennung, Werteset-Segment und Overlay-Glied kommen damit automatisch mit.
+std::array<std::string_view, comdare::cache_engine::abi::kAnatomyFingerprintGliedCount> frozen_lines() {
+    return comdare::cache_engine::abi::anatomy_fingerprint_glieder(kOrgan, kSystem, kMeasure);
+}
 
 // Zwei Zell-Koordinaten-Saetze DERSELBEN Permutation, die sich nur in der ISA unterscheiden
 // (Section 62-NACHTRAG-4). Genau der Fall, den der Fingerprint allein NICHT auseinanderhaelt.

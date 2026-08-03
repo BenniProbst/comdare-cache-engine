@@ -18,6 +18,7 @@
 #include <boost/mp11.hpp>
 
 #include <concepts>
+#include <string_view>
 #include <type_traits>
 
 namespace comdare::cache_engine::anatomy::pruefling {
@@ -133,6 +134,63 @@ enum class MergeStrategy {
     Stufe3_FullJoin          // Union non-redundant
 };
 
+// -----------------------------------------------------------------------------
+// (5a) A13-M3/C5 -- die Q2-CT-WACHE an der MERGE-NAMENS-NAHT
+// -----------------------------------------------------------------------------
+//
+// OWNER-Q2 (02.08.2026, Design-Invariante): die Merge-Strategie WIRD durchgefuehrt, aber sie hat seit
+// A13-M3 KEINE eigene Stempel-ZEILE mehr (Owner-E2). Sie lebt im Stempel nur noch ueber das
+// 'e'-Experimentalflag und ueber die erweiterten hierarchischen Namen ("prt-art.memory.abc@1.0.0c", seit
+// A13-M1 parser-gedeckt). GENAU DARAUS folgt eine Pflicht, die vorher die merge-Zeile getragen hat:
+//
+//   Zwei BYTE-VERSCHIEDENE Merge-Binaries duerfen NIE namensgleiche Organ-Segmente rendern.
+//
+// Warum das jetzt scharf sein muss: das Organ-Segment ist "<achse>=<name()>@<X.Y.Z[flag]>". Rendern eine
+// ce-only-Binary und ihre Stufe2-Ersetzung dasselbe Segment, sind ihre Organ-Zeilen identisch -- und damit
+// (bei gleicher System-/Mess-Zeile) ihr SHA512-Fingerprint. Unter dem SHA512-only-Skip-Gate (F7) wuerde die
+// eine fuer die andere wiederverwendet. Solange die merge-Zeile existierte, trennte sie die beiden; ohne sie
+// ist der NAME die einzige Trennung, und die muss eine Wache sein, keine Absprache.
+//
+// VOLLSTAENDIG, NICHT LUECKENHAFT (Z-07-Lehre "eine Wache am Engpass kann niemand vergessen"): sie haengt
+// an MergeImpl, dem EINEN Engpass, durch den jede MergeAxis<>-Instanziierung geht -- nicht opt-in an den
+// Slot-Definitionen. Wer einen neuen Pruefling-Slot anlegt, kann sie nicht umgehen.
+//
+// EHRLICHE ABGRENZUNG (kein Schlupfloch, sondern die Definition): geprueft werden Paare STEMPELBARER
+// Varianten (name() + algo_version). Ein Typ ohne beides kann gar kein Organ-Segment rendern -- er hat
+// nichts, womit er kollidieren koennte. Damit bleiben reine Mechanik-Tests mit Dummy-Typen baubar, ohne dass
+// die Wache an einer realen, stempelnden Achse je aussetzt.
+
+/// Ein Typ, der ein Organ-Stempel-Segment rendern kann: er traegt name() UND algo_version.
+template <class T>
+concept StampableAxisVariant = requires {
+    { T::name() } -> std::convertible_to<std::string_view>;
+    { std::string_view{T::algo_version} } -> std::same_as<std::string_view>;
+};
+
+/// Kollidieren die gerenderten Organ-SEGMENTE zweier VERSCHIEDENER Varianten? (gleicher Name UND gleiche
+/// Version -> byte-gleiches Segment trotz verschiedener Binary).
+template <class A, class B>
+[[nodiscard]] consteval bool merge_segments_collide() noexcept {
+    if constexpr (StampableAxisVariant<A> && StampableAxisVariant<B>) {
+        return !std::is_same_v<A, B> && std::string_view{A::name()} == std::string_view{B::name()} &&
+               std::string_view{A::algo_version} == std::string_view{B::algo_version};
+    } else {
+        return false; // nicht stempelbar -> rendert kein Segment -> kann keines duplizieren
+    }
+}
+
+/// Rendern alle Paare (a aus ListA, b aus ListB) UNTERSCHEIDBARE Organ-Segmente?
+template <class ListA, class ListB>
+[[nodiscard]] consteval bool merge_lists_render_distinct_segments() noexcept {
+    bool ok = true;
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, ListA>>([&](auto a) {
+        mp::mp_for_each<mp::mp_transform<mp::mp_identity, ListB>>([&](auto b) {
+            if (merge_segments_collide<typename decltype(a)::type, typename decltype(b)::type>()) ok = false;
+        });
+    });
+    return ok;
+}
+
 namespace detail {
 template <MergeStrategy S, class Default, class... Slots>
 struct MergeImpl;
@@ -140,16 +198,39 @@ struct MergeImpl;
 template <class Default, class... Slots>
 struct MergeImpl<MergeStrategy::Stufe1_CeOnly, Default, Slots...> {
     using type = StufeOneAxis<Default>;
+    // Stufe1 ist die ce-only-Referenz: schon INNERHALB der Default-Liste darf kein Paar dasselbe Segment
+    // rendern, sonst waeren zwei ce-Binaries untereinander ununterscheidbar.
+    static_assert(merge_lists_render_distinct_segments<type, type>(),
+                  "A13-M3/C5 (Owner-Q2): zwei VERSCHIEDENE Achsen-Varianten der ce-Default-Liste rendern "
+                  "dasselbe Organ-Segment <achse>=<name>@<version>. Byte-verschiedene Binaries waeren im "
+                  "Stempel -- und damit im SHA512-Skip-Gate -- nicht mehr unterscheidbar. Name ODER Version "
+                  "unterscheidbar machen.");
 };
 
 template <class Default, class Slot>
 struct MergeImpl<MergeStrategy::Stufe2_PrueflingReplace, Default, Slot> {
     using type = StufeTwoAxis<Default, Slot>;
+    // Der ERSETZUNGS-Fall ist der eigentliche Q2-Fall: die ce-only-Binary (Default) und die ersetzte
+    // Binary (type) existieren NEBENEINANDER, obwohl die ce-Variante aus DIESER Binary verschwunden ist.
+    // Ihre Segmente muessen sich unterscheiden -- KREUZWEISE, nicht nur je Liste fuer sich.
+    static_assert(merge_lists_render_distinct_segments<Default, type>(),
+                  "A13-M3/C5 (Owner-Q2): eine Pruefling-Variante rendert dasselbe Organ-Segment wie die "
+                  "ce-Variante, die sie ERSETZT. Seit dem Wegfall der merge-Zeile (Owner-E2) ist der Name die "
+                  "einzige Trennung der beiden byte-verschiedenen Binaries -- der Pruefling braucht einen "
+                  "erweiterten hierarchischen Namen oder das 'e'-Experimentalflag (Owner-Q2).");
+    static_assert(merge_lists_render_distinct_segments<type, type>(),
+                  "A13-M3/C5 (Owner-Q2): zwei Varianten der ERSETZTEN Liste rendern dasselbe Organ-Segment.");
 };
 
 template <class Default, class... Slots>
 struct MergeImpl<MergeStrategy::Stufe3_FullJoin, Default, Slots...> {
     using type = StufeThreeAxis<Default, Slots...>;
+    // Die Union dedupliziert per mp_unique nur gleiche TYPEN. Zwei verschiedene Typen mit gleichem Namen
+    // und gleicher Version ueberleben sie -- und ergaeben zwei Permutationen mit identischem Segment.
+    static_assert(merge_lists_render_distinct_segments<type, type>(),
+                  "A13-M3/C5 (Owner-Q2): die FullJoin-Union enthaelt zwei verschiedene Varianten, die "
+                  "dasselbe Organ-Segment <achse>=<name>@<version> rendern. mp_unique dedupliziert nur "
+                  "gleiche TYPEN -- die Stempel-Identitaet braucht unterschiedliche NAMEN oder Versionen.");
 };
 } // namespace detail
 

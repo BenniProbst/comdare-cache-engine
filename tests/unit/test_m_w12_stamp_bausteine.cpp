@@ -2,8 +2,8 @@
 // Leichte TU (keine Registries): verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
-#include <cache_engine/abi/anatomy_fingerprint.hpp>   // K7b-3: anatomy_fingerprint_hex (SHA-512 der 4 Stempel-Zeilen)
-#include <cache_engine/abi/anatomy_stamp_entries.hpp> // A3: count/parse_stamp_entries + AnatomyStampEntryV1
+#include <cache_engine/abi/anatomy_fingerprint.hpp>        // K7b-3: anatomy_fingerprint_hex (A13-M3: 3 Stempel-Zeilen)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp>      // A3: count/parse_stamp_entries + AnatomyStampEntryV1
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp>               // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
 #include <cache_engine/measurement/external_utils_family_axis.hpp>   // A13-M2: ExternalUtilsHub (System-Realm)
@@ -96,10 +96,11 @@ TEST(MW12StampBausteine, AlgoSemVerFullFormForStampsOnly) {
 // einheitlich und immer 3-Stellig und beginnen mit 'v'. Das 'e' ist eine Flag und kann spaeter gegen andere
 // Falgs wie 'g' fuer GPU, 'c' fuer CPU, 'f' fuer FPGA und 'n' fuer NPU code erweitert werden. Wir produzieren
 // nur CPU code, daher muessen alle Versionen mit 'c' oder 'ce' enden."
-// Ersetzt die A13-M1-Erwartungen ("vNe"-Kurzform). Hier: Uebergangs-Toleranz, volle Flag-Familie, die
+// Ersetzt die A13-M1-Erwartungen ("vNe"-Kurzform). Hier: PARSER-Semantik der flaglosen Form, volle Flag-Familie, die
 // FIXE Reihenfolge (HW-Flag, dann 'e') und die Review-Auflage K-5 (Sentinel-Batterie mit Flags).
 TEST(MW12StampBausteine, A13M1bFlagGrammarParsesInRawAndDottedForm) {
-    // (a) UEBERGANGS-TOLERANZ: der flaglose dreistellige Bestand parst weiter und traegt KEIN Flag.
+    // (a) PARSER-Semantik: die flaglose dreistellige Form parst weiter und traegt KEIN Flag. Bis A13-M3/C4
+    //     war das die Uebergangs-Toleranz des BESTANDS; seither ist der Bestand flagbehaftet ("v1.0.0c").
     EXPECT_FALSE(m::parse_algo_semver("v1.0.0").has_hardware_flag());
     EXPECT_FALSE(m::parse_algo_semver("v1.0.0").experimental);
     EXPECT_FALSE(m::parse_algo_semver("v2.3.4").experimental);
@@ -172,21 +173,23 @@ TEST(MW12StampBausteine, A13M1bFlagGrammarParsesInRawAndDottedForm) {
     EXPECT_EQ(m::parse_dotted_semver("2.3.4ce"), m::parse_algo_semver("v2.3.4ce"));
 
     // (i) Die Owner-PFLICHT-Wache selbst (immer gebaut, unabhaengig von COMDARE_VERSION_HW_FLAG_ENFORCE):
-    //     nur "...c"/"...ce" erfuellen den CPU-only-Scope. Der HEUTIGE Bestand erfuellt sie bewusst NICHT --
-    //     genau deshalb steht das Define auf OFF, bis der M2/M3-Migrations-Commit die Literale zieht.
+    //     nur "...c"/"...ce" erfuellen den CPU-only-Scope. Bis A13-M3/C4 erfuellte der Bestand sie bewusst
+    //     NICHT und das Define stand auf OFF; seit C4 erfuellt er sie, und das Define ist scharf (s. unten).
     EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v1.0.0c"));
     EXPECT_TRUE(m::version_satisfies_cpu_only_policy("v2.3.4ce"));
-    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0")); // der heutige 122x-Bestand
+    EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0")); // flaglos: seit C4 kein Bestand mehr
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0g"));
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0f"));
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1.0.0n"));
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v0.0.0c")); // Sentinel erfuellt nie eine Politik
     EXPECT_FALSE(m::version_satisfies_cpu_only_policy("v1c"));     // Kurzform erfuellt nie eine Politik
-    // Der Bestand ist heute (noch) flaglos -- das ist der dokumentierte, befristete Zustand:
+    // A13-M3/C4: der Pin DREHT. Bis zur Migration war der Bestand flaglos und dieser Test schrieb das fest
+    // ("gruene Tests zementieren alte Ordnung" -- seine eigene Fehlermeldung hat den Umschlag angekuendigt).
+    // Seit dem Migrations-Commit traegt JEDE ce-eigene Version das CPU-Flag, und ENFORCE ist scharf.
+    static_assert(COMDARE_VERSION_HW_FLAG_ENFORCE == 1, "A13-M3/C4: die Pflicht ist scharf geschaltet.");
     for (auto const& t : m::kMeasurementToolingRegistry)
-        EXPECT_FALSE(m::version_satisfies_cpu_only_policy(t.version))
-            << "Bestands-Version '" << t.version << "' traegt schon ein 'c'? Dann ist die M2/M3-Migration "
-            << "gelaufen und COMDARE_VERSION_HW_FLAG_ENFORCE gehoert auf ON.";
+        EXPECT_TRUE(m::version_satisfies_cpu_only_policy(t.version))
+            << "Bestands-Version '" << t.version << "' ohne CPU-Flag -- die C4-Migration hat sie ausgelassen.";
 }
 
 TEST(MW12StampBausteine, A13M1bFlagsRenderAndStayGoldenNeutral) {
@@ -197,7 +200,8 @@ TEST(MW12StampBausteine, A13M1bFlagsRenderAndStayGoldenNeutral) {
     EXPECT_EQ(m::algo_semver_string("v2.3.4ne"), std::string{"2.3.4ne"});
     EXPECT_EQ(m::algo_semver_string("v0.0.0c"), std::string{"0.0.0"});
     EXPECT_EQ(m::algo_semver_string("v0.0.0ce"), std::string{"0.0.0"});
-    // GOLDEN-NEUTRALITAET: der flaglose Bestand ("v1.0.0"/"v2.3.4") rendert byte-identisch wie vor A13-M1b.
+    // GOLDEN-NEUTRALITAET der FLAGLOSEN Form ("v1.0.0"/"v2.3.4"): sie rendert byte-identisch wie vor A13-M1b.
+    // Sie beschreibt seit A13-M3/C4 keinen Bestands-Fall mehr, bleibt aber Parser-/Renderer-Semantik.
     EXPECT_EQ(m::algo_semver_string("v1.0.0"), std::string{"1.0.0"});
     EXPECT_EQ(m::algo_semver_string("v2.3.4"), std::string{"2.3.4"});
     EXPECT_EQ(m::algo_semver_string("v0.0.0"), std::string{"0.0.0"});
@@ -253,14 +257,14 @@ TEST(MW12StampBausteine, SystemStampLineIsStaticSystemAxisAlgoVersions) {
     // A2 external_utils, und load_framework ist in den MESS-Realm umgezogen (K1) -- es steht deshalb nicht
     // mehr in dieser Zeile, sondern als erstes Segment der Mess-Zeile (siehe die Mess-Tests unten).
     // A13-M2 (Owner-E2 + Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen haengt jetzt der KLAMMER-ANHANG der
-    // System-Meta-Metas -- heute "[simd=code@1.0.0]". Der Trenner-Anker steigt deshalb BEWUSST von 2 auf 3
+    // System-Meta-Metas -- heute "[simd=code@1.0.0c]". Der Trenner-Anker steigt deshalb BEWUSST von 2 auf 3
     // (drei Haupt-Achsen + ein Klammer-Anhang == VIER Eintraege). Neu geankert aus dem Ist-Output des
     // A13-M2-Laufs, nicht aus der Zaehlung von Hand.
     std::string const line = ::comdare::cache_engine::abi::system_stamp_line();
     EXPECT_EQ(std::count(line.begin(), line.end(), ';'), 3); // 3 Haupt-Achsen + 1 Klammer-Anhang -> 3 Trenner
-    EXPECT_EQ(line.rfind("target_isa=code@1.0.0", 0), 0u);
-    EXPECT_NE(line.find(";operating_system=code@1.0.0"), std::string::npos);
-    EXPECT_NE(line.find(";external_utils=code@1.0.0"), std::string::npos);
+    EXPECT_EQ(line.rfind("target_isa=code@1.0.0c", 0), 0u);
+    EXPECT_NE(line.find(";operating_system=code@1.0.0c"), std::string::npos);
+    EXPECT_NE(line.find(";external_utils=code@1.0.0c"), std::string::npos);
     // Die drei abgewanderten Namen duerfen hier NICHT mehr auftauchen -- sonst waere der Umbau nur halb.
     EXPECT_EQ(line.find("compiler="), std::string::npos);
     EXPECT_EQ(line.find("scheduling="), std::string::npos);
@@ -269,7 +273,7 @@ TEST(MW12StampBausteine, SystemStampLineIsStaticSystemAxisAlgoVersions) {
     EXPECT_EQ(line.find("@v1"), std::string::npos); // separate Welt zur .algos-Sig
     // A13-M2: der Anhang steht ANS ENDE der Kette (Owner-E2) und ist geklammert (Owner-Q1) -- NICHT als
     // Punkt-Pfad "external_utils.simd=" (die verworfene Design-Empfehlung) und NICHT vor den Haupt-Achsen.
-    EXPECT_TRUE(line.ends_with(";[simd=code@1.0.0]")) << "line=" << line;
+    EXPECT_TRUE(line.ends_with(";[simd=code@1.0.0c]")) << "line=" << line;
     EXPECT_EQ(line.find("external_utils.simd"), std::string::npos)
         << "Punkt-Pfad-Form ist VERWORFEN (Owner-Q1 = Klammer-Form). line=" << line;
     EXPECT_EQ(std::count(line.begin(), line.end(), '['), 1);
@@ -282,15 +286,15 @@ TEST(MW12StampBausteine, SystemStampLineIsStaticSystemAxisAlgoVersions) {
 TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
     namespace abi = ::comdare::cache_engine::abi;
     // (a) Der Renderer: der System-Hub liefert genau seine Typlisten-Glieder, geklammert.
-    EXPECT_EQ(abi::meta_meta_stamp_suffix<m::ExternalUtilsHub>(), std::string{"[simd=code@1.0.0]"});
+    EXPECT_EQ(abi::meta_meta_stamp_suffix<m::ExternalUtilsHub>(), std::string{"[simd=code@1.0.0c]"});
     // Leerer Hub (ein Blatt ist kein Hub) -> LEERER Anhang, kein "[]": daran haengt die Byte-Neutralitaet
     // des heute leeren Organ-Realms.
     EXPECT_TRUE(abi::meta_meta_stamp_suffix<m::SimdExternalUtilsFamily>().empty());
     // Die ENTRY-getriebene Form (Mess-Realm: die Wahl kommt aus der Registry, nicht aus dem Typ) schreibt
     // dieselbe Klammer ueber dieselbe Stelle.
-    std::array<m::AxisVersionEntry, 1> const lf{{{"load_framework", "ycsb", "v1.0.0"}}};
+    std::array<m::AxisVersionEntry, 1> const lf{{{"load_framework", "ycsb", "v1.0.0c"}}};
     EXPECT_EQ(abi::meta_meta_stamp_suffix_from(std::span<m::AxisVersionEntry const>{lf}),
-              std::string{"[load_framework=ycsb@1.0.0]"});
+              std::string{"[load_framework=ycsb@1.0.0c]"});
     EXPECT_TRUE(abi::meta_meta_stamp_suffix_from(std::span<m::AxisVersionEntry const>{}).empty());
 
     // (b) append_meta_meta_suffix: ANS ENDE; leere Zeile bleibt leer; leerer Anhang laesst die Zeile gleich.
@@ -306,7 +310,7 @@ TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
 
     // (c) Der consteval-Parser liest die reale System-Zeile mit den EBENEN zurueck (Klammer-Tiefe == Ebene).
     static constexpr char kSys[] =
-        "target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0;[simd=code@1.0.0]";
+        "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]";
     constexpr auto se = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSys})>(kSys);
     static_assert(se.size() == 4, "3 Haupt-Achsen + 1 geklammerte Meta-Meta == 4 Eintraege.");
     EXPECT_EQ(se.size(), std::size_t{4});
@@ -354,13 +358,23 @@ TEST(MW12StampBausteine, A13M2MetaMetaKlammerAnhangRoundtripsThroughParser) {
     static_assert(!abi::stamp_line_is_parsable<"[a=b@1.0.0][c=d@1.0.0]">, "Gruppen ohne ';' bricht hart.");
     static_assert(!abi::stamp_line_is_parsable<"[a=b@1.0.0]c=d@1.0.0">, "Entry hinter ']' bricht hart.");
     static_assert(!abi::stamp_line_is_parsable<"[]">, "leere Gruppe bricht hart.");
+    // A13-M3/C2b (Befund Z-02): dieselbe Zusage an der GRUPPEN-GRENZE. "[c];[e]" trug bis C2b exakt dasselbe
+    // (Text, Ebene)-Entry-Array wie die kanonische Ein-Gruppen-Form "[c;e]" -- wieder zwei byte-verschiedene
+    // Zeilen mit einem POD. Der Renderer erzeugt ohnehin genau EINE Gruppe je Anhang-Position.
+    static_assert(abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]">, "kanonische EINE Gruppe.");
+    static_assert(!abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">,
+                  "zwei DIREKT aufeinander folgende Geschwister-Gruppen brechen hart (F6).");
+    static_assert(abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];x=y@1.0.0;[e=f@1.0.0]">,
+                  "... mit entry dazwischen bleiben sie zulaessig: die Reihenfolge macht sie eindeutig.");
     EXPECT_TRUE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0]">));
     EXPECT_FALSE((abi::stamp_line_is_parsable<"a=b@1.0.0[c=d@1.0.0]">));
     EXPECT_FALSE((abi::stamp_line_is_parsable<"[]">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0];[e=f@1.0.0]">));
+    EXPECT_TRUE((abi::stamp_line_is_parsable<"a=b@1.0.0;[c=d@1.0.0;e=f@1.0.0]">));
     // Und die REALEN Zeilen bleiben selbstverstaendlich parsbar -- die Haertung darf den Bestand nie treffen.
     EXPECT_TRUE((abi::stamp_line_is_parsable<
-                 "target_isa=code@1.0.0;operating_system=code@1.0.0;external_utils=code@1.0.0;[simd=code@1.0.0]">));
-    EXPECT_TRUE((abi::stamp_line_is_parsable<"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]">));
+                 "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]">));
+    EXPECT_TRUE((abi::stamp_line_is_parsable<"measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]">));
 }
 
 TEST(MW12StampBausteine, MeasurementStampLineCarriesToolingMainThenLoadFrameworkKlammer) {
@@ -372,18 +386,18 @@ TEST(MW12StampBausteine, MeasurementStampLineCarriesToolingMainThenLoadFramework
     // Klammer-Form (Owner-Q1). load_framework ist die Meta-Meta-HAUPT-Achse des Mess-Realms und steht deshalb
     // jetzt AM ENDE, geklammert. Neu geankert aus dem Ist-Output des A13-M2-Laufs.
     std::string const line = ::comdare::cache_engine::abi::measurement_stamp_line("wallclock");
-    EXPECT_EQ(line, std::string{"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]"});
+    EXPECT_EQ(line, std::string{"measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"});
     // EINE Tooling-Haupt-Achse + der Klammer-Anhang -> genau EIN ';'-Trenner (Ablaufmethodik/Workloads sind
     // UNTER-Achsen -> nie Bestandteil).
     EXPECT_EQ(std::count(line.begin(), line.end(), ';'), 1);
-    EXPECT_EQ(line.rfind("measurement_tooling=wallclock@1.0.0", 0), 0u); // ERSTES Segment ist jetzt das Tooling
-    EXPECT_TRUE(line.ends_with(";[load_framework=ycsb@1.0.0]")) << "line=" << line;
+    EXPECT_EQ(line.rfind("measurement_tooling=wallclock@1.0.0c", 0), 0u); // ERSTES Segment ist jetzt das Tooling
+    EXPECT_TRUE(line.ends_with(";[load_framework=ycsb@1.0.0c]")) << "line=" << line;
     EXPECT_EQ(line.find("@v1"), std::string::npos); // separate Welt zur .algos-Sig (X.Y.Z, nicht roh)
     // Andere Tooling-Haupt-Wahlen materialisieren analog -- der load_framework-Anhang bleibt konstant dahinter.
     EXPECT_EQ(::comdare::cache_engine::abi::measurement_stamp_line("macro"),
-              std::string{"measurement_tooling=macro@1.0.0;[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=macro@1.0.0c;[load_framework=ycsb@1.0.0c]"});
     EXPECT_EQ(::comdare::cache_engine::abi::measurement_stamp_line("micro"),
-              std::string{"measurement_tooling=micro@1.0.0;[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=micro@1.0.0c;[load_framework=ycsb@1.0.0c]"});
     // Leere Wahl -> leere Zeile (ehrlich: kein Mess-Tooling einkompiliert). AUCH der Klammer-Anhang entfaellt
     // dann: eine Mess-Zeile ohne jedes Tooling ist ehrlich leer und nie ein einsamer Rahmen-Anhang.
     EXPECT_TRUE(::comdare::cache_engine::abi::measurement_stamp_line("").empty());
@@ -391,7 +405,7 @@ TEST(MW12StampBausteine, MeasurementStampLineCarriesToolingMainThenLoadFramework
 
 TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
     // K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form -- N Tools -> N ';'-getrennte
-    // measurement_tooling=<t>@1.0.0-Eintraege (Eingabe-Reihenfolge, Section-64-Vollmengen-Provenienz). Additive
+    // measurement_tooling=<t>@1.0.0c-Eintraege (Eingabe-Reihenfolge, Section-64-Vollmengen-Provenienz). Additive
     // span-Ueberladung; die Einzel-Form oben bleibt unveraendert (der [all]/from_env-LIVE-Pfad routet ueber die Menge).
     // A13-M2 (OP-3-Rueckbau, Owner-E2/Q1): auch die MENGEN-Form fuehrt den load_framework-Anhang EINMAL --
     // aber jetzt geklammert AM ENDE (nicht je Tool und nicht vorne). Er ist eine Eigenschaft der Mess-ZEILE,
@@ -399,129 +413,161 @@ TEST(MW12StampBausteine, MeasurementStampLineSetFormCarriesToolingMenge) {
     namespace abi                            = ::comdare::cache_engine::abi;
     std::array<std::string_view, 2> const tw = {"wallclock", "macro"};
     EXPECT_EQ(abi::measurement_stamp_line(std::span<std::string_view const>{tw}),
-              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
-                          "[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"
+                          "[load_framework=ycsb@1.0.0c]"});
     // Leere Tokens werden uebersprungen (ehrlich: kein Tool an der Stelle).
     std::array<std::string_view, 3> const gappy = {"wallclock", "", "micro"};
     EXPECT_EQ(abi::measurement_stamp_line(std::span<std::string_view const>{gappy}),
-              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=micro@1.0.0;"
-                          "[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=wallclock@1.0.0c;measurement_tooling=micro@1.0.0c;"
+                          "[load_framework=ycsb@1.0.0c]"});
     // Leere Menge -> leere Zeile. AUCH der load_framework-Anhang entfaellt dann: eine Mess-Zeile ohne jedes
     // Tooling ist ehrlich leer und nicht ein einsamer Rahmen-Anhang.
     EXPECT_TRUE(abi::measurement_stamp_line(std::span<std::string_view const>{}).empty());
     // Die Vollmenge = das volle Registry-Angebot {wallclock,macro,micro} in Registry-Reihenfolge (Single-Source).
     EXPECT_EQ(abi::measurement_stamp_line_full_set(),
-              std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
-                          "measurement_tooling=micro@1.0.0;[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"
+                          "measurement_tooling=micro@1.0.0c;[load_framework=ycsb@1.0.0c]"});
     // SEPARATE Welt zur .algos-Sig: X.Y.Z-Voll-Form, NICHT die rohe "@v1".
     EXPECT_EQ(abi::measurement_stamp_line_full_set().find("@v1"), std::string::npos);
 }
 
-TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt136) {
-    // K7a/K7b-3: merge_line/sha512_line append-only (Layout bis 4). G2-1b (A4, Section 58-V/Section 66): die drei
-    // {ptr,count}-Array-Paare (organ_/system_/measurement_entries) ans POD-Ende angehaengt = die Array-Form der
-    // Stempel-Zeilen. Layout-Bump 4 -> 5, sizeof 88 -> 136 (der EINE intendierte Pin-Nachzug im A4-Fenster). Die
-    // Offsets ALLER bisherigen Felder (bis sha512_len @80) bleiben stabil (append-only). Der sizeof-static_assert lebt
-    // in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als literaler ctest-Beweis gespiegelt.
-    // binary_id/CRC UNBERUEHRT (POD-Layout != binary_id); die Byte-Wache bleibt gruen (emittierte Quelle unveraendert).
+TEST(MW12StampBausteine, AnatomyVersionLinesPodLayoutIsStableAt120) {
+    // A13-M3 (Owner-E2 02.08.2026): merge_line/merge_len sind ERSATZLOS ENTFERNT -- der ERSTE Feld-ENTFALL
+    // dieses POD (bis Layout 5 war alles append-only). Layout-Bump 5 -> 6, sizeof 136 -> 120 (-16 = 1 Zeiger +
+    // 1 uint64). Die Offsets von sha512_line und den drei {ptr,count}-Paaren verschieben sich damit um -16 --
+    // genau darum ist stamp_pod_has_entries auf die GLEICHHEITS-Wache (== 6) gezogen (K-4). Der
+    // sizeof-static_assert lebt in anatomy_module_abi_v1_decl.hpp und haelt build-weit -- hier zusaetzlich als
+    // literaler ctest-Beweis gespiegelt. binary_id/CRC UNBERUEHRT (POD-Layout != binary_id).
     using ::comdare::cache_engine::abi::AnatomyVersionLines;
-    static_assert(sizeof(AnatomyVersionLines) == 136, "POD-Layout-Wache: 18 Felder, 8-aligned -> 136 Byte (x86_64).");
+    static_assert(sizeof(AnatomyVersionLines) == 120, "POD-Layout-Wache: 16 Felder, 8-aligned -> 120 Byte (x86_64).");
     static_assert(alignof(AnatomyVersionLines) == 8);
-    EXPECT_EQ(sizeof(AnatomyVersionLines), 136u);
+    EXPECT_EQ(sizeof(AnatomyVersionLines), 120u);
     EXPECT_EQ(alignof(AnatomyVersionLines), 8u);
-    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 5u);
-    // Offset-Stabilitaet der 12 Alt-Felder (append-only): bis sha512_len unveraendert.
+    EXPECT_EQ(::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 6u);
+    // Die drei Zeilen-Paare bis measurement_len liegen unveraendert (der Entfall sitzt DAHINTER).
     EXPECT_EQ(offsetof(AnatomyVersionLines, organ_line), 8u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, system_line), 24u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_line), 40u);
     EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_len), 48u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, merge_line), 56u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, merge_len), 64u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 72u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 80u);
-    // A4: die drei neuen {ptr,count}-Paare folgen dahinter (@88..@128).
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 88u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 96u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entries), 104u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entry_count), 112u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 120u);
-    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 128u);
+    // Ab hier hat der merge-Entfall alles um -16 gezogen (vorher sha512_line @72, organ_entries @88 ...).
+    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_line), 56u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, sha512_len), 64u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entries), 72u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, organ_entry_count), 80u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entries), 88u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, system_entry_count), 96u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entries), 104u);
+    EXPECT_EQ(offsetof(AnatomyVersionLines, measurement_entry_count), 112u);
 }
 
-TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfConcat) {
-    // K7b-3 (Section 62-B): der 5. POD-Stempel == SHA-512(concat organ+system+measurement+merge) als 128-hex,
-    // nullterminiert (D3-Reihenfolge). Selbst-konsistent gegen die K7b-1-Primitive geprueft (kein externer Vektor).
+TEST(MW12StampBausteine, K4StampPodHasEntriesIsEqualityNotOrder) {
+    // A13-M3/K-4: der Feld-ENTFALL verschiebt die Offsets -- ein `>= 5`-Praedikat wuerde ein v6-POD mit
+    // v5-Offsets lesen (und umgekehrt) und stillen Zeiger-Muell liefern. Die CT-Negativ-Probe steht im
+    // Header selbst (static_assert); hier ist sie als literaler ctest-Beweis gespiegelt.
+    namespace abi = ::comdare::cache_engine::abi;
+    EXPECT_TRUE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(6u)));
+    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(5u)));
+    EXPECT_FALSE(abi::stamp_pod_has_entries(abi::detail::stamp_pod_layout_probe(7u)));
+}
+
+TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
+    // K7b-3 (Section 62-B) + A13-M3 (OF-M3-1 = Option A, F7): der POD-Stempel == SHA-512 ueber die
+    // '\n'-GETRENNTE Glied-Folge als 128-hex, nullterminiert. Selbst-konsistent gegen die K7b-1-Primitive
+    // geprueft (kein externer Vektor): das Referenz-Preimage wird hier von Hand zusammengesetzt, damit der
+    // Test die Ordnung UND den Trenner beweist und nicht bloss die Funktion gegen sich selbst.
     namespace abi     = ::comdare::cache_engine::abi;
     namespace s5      = ::comdare::cache_engine::sha512;
-    constexpr auto fp = abi::anatomy_fingerprint_hex("a", "b", "c", "d");
+    constexpr auto fp = abi::anatomy_fingerprint_hex("a", "b", "c");
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
-    constexpr auto ref = s5::to_hex(s5::sha512("abcd"));
+    std::string ref_pre;
+    ref_pre += abi::kAnatomyFingerprintFormat;
+    ref_pre += "\na\nb\nc\n";
+    ref_pre += abi::kSubAxisValuesetSegment;
+    ref_pre += '\n';
+    ref_pre += abi::kOverlaySourceHash;
+    auto const ref = s5::to_hex(s5::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(ref_pre.data()), ref_pre.size()}));
     for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp[i], ref[i]) << "hex-Stelle " << i;
-    // ce-only-/Katalog-Pfad: measurement == merge == "" -> Fingerprint von concat(organ+system) allein.
-    constexpr auto fp_ceonly  = abi::anatomy_fingerprint_hex("org", "sys", "", "");
-    constexpr auto ref_ceonly = s5::to_hex(s5::sha512("orgsys"));
-    for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp_ceonly[i], ref_ceonly[i]);
+
+    // Die Format-Kennung ist das ERSTE Glied (F7: Layout-Evolution mismatcht deterministisch statt still
+    // zu kollidieren) und das Werteset-Segment ein EIGENES Glied (F7-VERIFY, "schwerster Befund": sonst
+    // wuerde ein Werteset-Bump unter dem SHA512-only-Skip-Gate STILL reused).
+    constexpr auto glieder = abi::anatomy_fingerprint_glieder("a", "b", "c");
+    static_assert(glieder.size() == 6u);
+    static_assert(glieder[0] == abi::kAnatomyFingerprintFormat);
+    static_assert(glieder[4] == abi::kSubAxisValuesetSegment);
+    // Dass diese consteval-Quelle byte-gleich zur .algos-Laufzeit-Quelle ist, prueft die schwere TU
+    // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
 
-TEST(MW12StampBausteine, MergeStampLineCarriesMergeCombinationOrEmptyForCeOnly) {
-    // K6a (Section 59, 2026-07-20): der DRITTE Tier-Binary-Stempel = die Merge-Kombination. Format
-    // "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]" -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt
-    // zur .algos-Sig; NUR Haupt-Achsen. ce-only-/Identitaets-Fall -> LEERE Zeile (golden-Konsequenz Section 59-C).
-    namespace abi = ::comdare::cache_engine::abi;
-    // ce-only (Stufe1 / leere Strategie) -> leer (byte-identischer golden-Pfad).
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe1_CeOnly", "prt_art").empty());
-    EXPECT_TRUE(abi::merge_stamp_line("", "prt_art").empty());
-    // Identitaets-/self-Pruefling ("CacheEngine"/"self" / kein Pruefling) -> leer (Fork 3: identity=self ist ce).
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "CacheEngine").empty());
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "self").empty());
-    EXPECT_TRUE(abi::merge_stamp_line("Stufe2_PrueflingReplace", "").empty());
-    // Merge-Fall OHNE Achsen-Versionen -> nur Merge-Art + Pruefling.
-    EXPECT_EQ(abi::merge_stamp_line("Stufe2_PrueflingReplace", "prt_art"),
-              std::string{"merge=Stufe2_PrueflingReplace;pruefling=prt_art"});
-    // Merge-Fall MIT Achsen-Versionen (Voll-Form via algo_semver; SEPARATE Welt zur .algos-Sig).
-    std::array<m::AxisVersionEntry, 1> const merged{{{"path_compression", "prt_patricia", "v2.3.4"}}};
-    std::string const                        line = abi::merge_stamp_line("Stufe3_FullJoin", "prt_art", merged);
-    EXPECT_EQ(line, std::string{"merge=Stufe3_FullJoin;pruefling=prt_art;path_compression=prt_patricia@2.3.4"});
-    EXPECT_EQ(line.find("@v2.3.4"), std::string::npos); // X.Y.Z, nicht die rohe Version
+TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
+    // A13-M3 / OF-M3-1 = Option A (Owner-Entscheid 03.08.2026) -- die NEUE Pflicht-Probe zu Befund GA-01
+    // [BLOCK]. VOR M3 entstand das Preimage als reine Byte-Konkatenation OHNE Trenner; die drei folgenden
+    // Aufrufe lieferten damit BEWEISBAR DENSELBEN Fingerprint, obwohl die Zeilen-SAETZE verschieden sind.
+    // Genau darauf ruht aber das SHA512-only-Skip-Gate (F7: "der deckt die anderen Stempel allein").
+    // Es gab im ganzen Baum keine einzige Injektivitaets-Probe -- nur Positiv-Belege.
+    namespace abi                 = ::comdare::cache_engine::abi;
+    constexpr std::string_view kX = "search_algo=k_ary@1.0.0c";
+
+    // (1) Die drei Feldgrenzen-Verschiebungen der GA-01-Demo: gleiches Zeichenmaterial, andere Zuordnung.
+    constexpr auto a = abi::anatomy_fingerprint_hex("", "", kX);
+    constexpr auto b = abi::anatomy_fingerprint_hex(kX, "", "");
+    constexpr auto c = abi::anatomy_fingerprint_hex("", kX, "");
+    static_assert(a != b, "GA-01: Mess-Zeile X vs. Organ-Zeile X muessen verschiedene Fingerprints ergeben.");
+    static_assert(a != c, "GA-01: Mess-Zeile X vs. System-Zeile X muessen verschiedene Fingerprints ergeben.");
+    static_assert(b != c, "GA-01: Organ-Zeile X vs. System-Zeile X muessen verschiedene Fingerprints ergeben.");
+    EXPECT_NE(std::string_view{a.data()}, std::string_view{b.data()});
+    EXPECT_NE(std::string_view{a.data()}, std::string_view{c.data()});
+    EXPECT_NE(std::string_view{b.data()}, std::string_view{c.data()});
+
+    // (2) Die EIN-ZEICHEN-Grenzverschiebung zwischen Organ- und System-Zeile (das ';' wandert ueber die
+    //     Feldgrenze). Ohne Trenner ist das Preimage identisch -- mit Trenner nicht.
+    constexpr auto d = abi::anatomy_fingerprint_hex("achse=algo@1.0.0c;", "target_isa=code@1.0.0c", "");
+    constexpr auto e = abi::anatomy_fingerprint_hex("achse=algo@1.0.0c", ";target_isa=code@1.0.0c", "");
+    static_assert(d != e, "GA-01: die Ein-Zeichen-Grenzverschiebung darf nicht kollabieren.");
+    EXPECT_NE(std::string_view{d.data()}, std::string_view{e.data()});
+
+    // (3) Der Trenner liegt BEWEISBAR ausserhalb des Stempel-Zeichenvorrats -- kein Glied kann ihn tragen,
+    //     also ist die Zerlegung bei fester Glied-Anzahl eindeutig.
+    static_assert(abi::kAnatomyFingerprintSeparator == '\n');
+    EXPECT_EQ(abi::kAnatomyFingerprintFormat.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
+    EXPECT_EQ(abi::kSubAxisValuesetSegment.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
 }
 
-// A1 (G2-4a, 2026-07-23) EINGEFRORENER FINGERPRINT-TESTVEKTOR (Lager-Gate §66, Sync-Kante B3). Vier FESTE Stempel-
-// Zeilen -> EIN fester 128-hex SHA-512. ZWEI Zwecke: (1) Neutralitaets-Testat der W12-Literal-Migration ("v1"->"v1.0.0")
-// -- der Fingerprint FESTER Zeilen ist von der Migration unabhaengig (die Zeilen sind Literale, nicht die migrierten
-// Wrapper), also identisch vor/nach A1. (2) Konsistenz-Anker fuer Lane B (G3-BinaryKeyPolicy, Scheibe B3): Impl-G3-P2
-// bildet ctsha512 ueber DIESELBEN vier Zeilen in DERSELBEN Reihenfolge (organ+system+measurement+merge) und MUSS exakt
-// kFrozenFingerprintV1 erhalten -- EIN Testvektor, zwei Module (keine Separator-/Whitespace-Drift). Die vier Zeilen und
-// der Hex sind EINGEFROREN: NIE aendern (bricht die B3-Sync), nur bei bewusstem Fingerprint-Bruch unter Absprache.
+// A1 (G2-4a, 2026-07-23) EINGEFRORENER FINGERPRINT-TESTVEKTOR (Lager-Gate Section 66, Sync-Kante B3). FESTE Stempel-
+// Zeilen -> EIN fester 128-hex SHA-512. Zweck: Konsistenz-Anker fuer Lane B (G3-BinaryKeyPolicy, Scheibe B3) --
+// Impl-G3-P2 bildet ctsha512 ueber DIESELBE Glied-Folge mit DEMSELBEN Separator und MUSS exakt
+// kFrozenFingerprintV1 erhalten. EIN Testvektor, zwei Module. Die Zeilen und der Hex sind EINGEFROREN: NIE
+// aendern (bricht die B3-Sync), nur bei bewusstem Fingerprint-Bruch unter Absprache.
 //
-// A13-M2 (Owner-E2/Q1 vom 02.08.2026) -- WARUM HIER TROTZ FINGERPRINT-GLOBAL-SHIFT NICHTS NEU EINGEFROREN WURDE,
-// literal geprueft und bewusst dokumentiert, damit der naechste Leser es nicht fuer einen VERGESSENEN Anker haelt:
-// dieser Vektor rechnet ueber VIER FESTE LITERALE (kOrgan/kSystem/kMeasure/kMerge unten), NICHT ueber die LIVE
-// gerenderten Stempel-Zeilen. A13-M2 aendert die LIVE-Zeilen (System-Zeile +Klammer-Anhang, Mess-Zeile
-// load_framework ans Ende) und damit den Fingerprint JEDER kuenftigen Binary -- dieses Literal-Quartett ruehrt es
-// nicht an. Der Testlauf belegt es: der Hex unten ist unveraendert und BEIDE Module (hier + test_g3_sha512_index)
-// sind gruen geblieben.
-// WAS DEN VEKTOR SEHR WOHL BRECHEN WIRD: A13-M3 entfernt die merge-ZEILE ersatzlos (Owner-E2: "Merge Zeile kann
-// daher nicht existieren"). Damit faellt kMerge aus dem Preimage, der Hex aendert sich zwangslaeufig, und DANN
-// ist hier UND in test_g3_sha512_index IM SELBEN COMMIT neu einzufrieren (Lane-B-Drift-Verbot). Das ist der EINE
-// faellige Neuanker; ihn nach vorn in M2 zu ziehen haette einen zweiten erzeugt, ohne etwas zu beweisen.
-// BEI DIESEM M3-NEUANKER MIT ZU ERLEDIGEN (Fixture-Zementierungs-Lehre): die Literale sind inhaltlich VERALTET --
-// kSystem traegt "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte System-Haupt-Achse, und kMeasure
-// traegt "wallclock@1.0.0" ohne Achsen-Praefix. Als Hash-Konsistenz-Anker (ein Vektor, zwei Module) tut das
-// nichts zur Sache, als Referenz-Beispiel liest es sich aber falsch.
+// A13-M3 (Owner-E2/OF-M3-1, 02./03.08.2026) -- DER EINE NEUANKER DIESES FENSTERS, und zwar bewusst genau EINER.
+// Der Vorgaenger-Hex 0f0c0eb4...c31b93 (A1, 23.07.) ist damit historisch; er steht in der git-Historie.
+// DREI Ursachen fallen in DIESEN einen Commit, weil jede fuer sich einen eigenen Neuanker gekostet haette:
+//   (1) OWNER-E2: die merge-ZEILE entfaellt ersatzlos ("Merge Zeile kann daher nicht existieren") -> das
+//       frueher hier stehende kMerge-Literal faellt aus dem Preimage;
+//   (2) OF-M3-1 = OPTION A (Befund GA-01 [BLOCK]): die Glieder sind ab jetzt '\n'-GETRENNT, tragen die
+//       fingerprint_format-Kennung als erstes Glied und das Sub-Achsen-Werteset-Segment als eigenes Glied;
+//   (3) FIXTURE-END-FORM (Fixture-Zementierungs-Lehre): die Literale waren inhaltlich VERALTET -- kSystem trug
+//       "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte System-Haupt-Achse, kMeasure trug
+//       "wallclock@1.0.0" ohne Achsen-Praefix, und beide standen in der flaglosen Vor-Q3-Form. Als reiner
+//       Hash-Konsistenz-Anker war das gleichgueltig; als REFERENZ-BEISPIEL las es sich falsch. Sie sind hier
+//       gleich in der END-Form eingefroren (heutige Achsen + Owner-Q3-Flag "@1.0.0c"), damit die
+//       Literal-Migration in C4 KEINEN zweiten Neuanker im selben Fenster erzeugt.
+// Der neue Hex wurde NICHT vorausberechnet, sondern aus dem literalen Compiler-/Testlauf uebernommen.
 TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     namespace abi                       = ::comdare::cache_engine::abi;
-    constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0;path_compression=path_compression_none@1.0.0";
-    constexpr std::string_view kSystem  = "compiler=code@1.0.0;isa=amd64";
-    constexpr std::string_view kMeasure = "wallclock@1.0.0";
-    constexpr std::string_view kMerge   = "merge=Stufe1_CeOnly;pruefling=self";
-    // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 von concat(kOrgan+kSystem+kMeasure+kMerge). NIE aendern.
+    constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
+    constexpr std::string_view kSystem  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
+                                          "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+    constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+    // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 ueber die '\n'-getrennte Glied-Folge. NIE aendern.
     constexpr std::string_view kFrozenFingerprintV1 =
-        "0f0c0eb44d4308c3a9d05f92abcb10a8fa68063634a5bd669ae38f8ac2272285"
-        "fb594f0bbdc4547f1bb73f57a5a17d32bee21d3781be27da9577505ad5c31b93";
-    constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure, kMerge);
+        "0fe275bddc7af1af9474cea655ff28280b93cfb3acc299c00d76d3489822993b"
+        "f043b4cee58b97d7ed2e42b0fc5bb0e3e300d15b1c50c31dd1aba7a23cc9fe36";
+    constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure);
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     static_assert(std::string_view{fp.data()} == kFrozenFingerprintV1,
-                  "EINGEFRORENER Fingerprint (B3-Sync): die 4 Zeilen ODER der Hash haben sich geaendert -- unter "
+                  "EINGEFRORENER Fingerprint (B3-Sync): die Zeilen ODER der Hash haben sich geaendert -- unter "
                   "Absprache neu einfrieren, sonst bricht die Lane-B-Konsistenz");
     EXPECT_EQ(std::string_view{fp.data()}, kFrozenFingerprintV1)
         << "eingefrorener Fingerprint-Testvektor (Lager-Gate §66, Sync mit Lane-B Scheibe B3)";
@@ -530,51 +576,54 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
 TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {
     // CX-W5 (Codex-Doppelreview 02.08.2026): das ROH-Literal traegt jetzt das 'v' (Owner-Q10) -- frueher stand
     // hier "1.0.0" und ZEMENTIERTE die alte, Q10-widrige Form. Die GERENDERTE Zeile bleibt praefixfrei
-    // "planner@1.0.0" (render-neutral, unten weiter geprueft) -> kein Stempel-Byte-Shift.
-    EXPECT_EQ(pl::kPlannerVersion, std::string_view{"v1.0.0"}); // Roh-Literal mit 'v' (Owner-Q10)
+    // "planner@1.0.0c" (A13-M3/C4: das 'v' faellt beim Rendern weg, das HW-Flag bleibt).
+    EXPECT_EQ(pl::kPlannerVersion, std::string_view{"v1.0.0c"}); // Roh-Literal mit 'v' (Owner-Q10)
     EXPECT_EQ(pl::planner_target_isa(), std::string_view{"x86_64"});
     std::string const stamp = pl::planner_version_stamp();
-    EXPECT_NE(stamp.find("planner@1.0.0"), std::string::npos) << "stamp='" << stamp << "'"; // render byte-identisch
+    EXPECT_NE(stamp.find("planner@1.0.0c"), std::string::npos) << "stamp='" << stamp << "'"; // render byte-identisch
     EXPECT_EQ(stamp.find("planner@v"), std::string::npos) << "gerenderte Form traegt KEIN 'v' (Owner-Q10)";
     EXPECT_NE(stamp.find("isa=x86_64"), std::string::npos) << "stamp='" << stamp << "'";
     EXPECT_NE(stamp.find("os="), std::string::npos) << "stamp='" << stamp << "'";
 }
 
 // A2 (G2-4 Schritt 3+4): System-Achsen-Code-Versionen + Mess-Tooling-Version aus Single-Sources statt Hartkodierung.
-// Render-neutral fuer die gueltigen ids/Achsen; "v0.0.0"-Sentinel nur fuer ungueltige Tooling-ids (A13-M1b).
+// Bei Anlage render-neutral; seit A13-M3/C4 tragen die gueltigen ids/Achsen das CPU-Flag ("1.0.0c",
+// deklariertes Byte-Ereignis). "v0.0.0"-Sentinel weiterhin nur fuer ungueltige Tooling-ids (A13-M1b).
 TEST(MW12StampBausteine, A2SystemAndToolingCodeVersionsSingleSource) {
     namespace abi = ::comdare::cache_engine::abi;
-    // (a) System-Achsen-Single-Source: DREI Achsen (O-8 Schritt 4, A3-Kern), alle Init-Version "v1.0.0".
+    // (a) System-Achsen-Single-Source: DREI Achsen (O-8 Schritt 4, A3-Kern). A13-M3/C4: alle drei tragen
+    // seit dem Migrations-Commit das CPU-Flag ("v1.0.0c", Owner-Q3) -- die Version selbst ist NICHT gebumpt.
     EXPECT_EQ(abi::kSystemAxisCodeCount, std::size_t{3});
     for (auto const& e : abi::kSystemAxisCodeVersions) {
         EXPECT_FALSE(e.axis.empty());
-        EXPECT_EQ(e.version, std::string_view{"v1.0.0"});
+        EXPECT_EQ(e.version, std::string_view{"v1.0.0c"});
     }
     // Der frueher hier stehende "Neutralitaets-Anker" (byte-identisch zur alten v1-Hartkodierung) ist mit dem
     // A3-Rueckbau gegenstandslos: die Zeile SOLL sich geaendert haben. Sie ist aus dem Werkzeug-Output des
     // Fenster-Laufs neu geankert und bindet jetzt die Drei-Achsen-Ordnung.
     // A13-M2 (Owner-E2 + Q1): NEU GEANKERT -- hinter den drei Haupt-Achsen steht jetzt der Meta-Meta-
-    // KLAMMER-ANHANG "[simd=code@1.0.0]". Das ist der beabsichtigte Byte-Wechsel der System-Zeile (und damit
+    // KLAMMER-ANHANG "[simd=code@1.0.0c]". Das ist der beabsichtigte Byte-Wechsel der System-Zeile (und damit
     // des Fingerprints ALLER kuenftigen Binaries), nicht eine Drift: vor Voll-Bau-4 existiert kein
     // schuetzenswerter Bestand, das eine Neuanker-Fenster ist genau hier.
-    EXPECT_EQ(abi::system_stamp_line(), std::string{"target_isa=code@1.0.0;operating_system=code@1.0.0;"
-                                                    "external_utils=code@1.0.0;[simd=code@1.0.0]"});
+    EXPECT_EQ(abi::system_stamp_line(), std::string{"target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
+                                                    "external_utils=code@1.0.0c;[simd=code@1.0.0c]"});
 
     // (b) Mess-Tooling-Version-Feld + id-Lookup.
-    for (auto const& t : m::kMeasurementToolingRegistry) EXPECT_EQ(t.version, std::string_view{"v1.0.0"});
-    EXPECT_EQ(m::tooling_version_for_id("wallclock"), std::string_view{"v1.0.0"});
-    EXPECT_EQ(m::tooling_version_for_id("macro"), std::string_view{"v1.0.0"});
-    EXPECT_EQ(m::tooling_version_for_id("micro"), std::string_view{"v1.0.0"});
+    for (auto const& t : m::kMeasurementToolingRegistry) EXPECT_EQ(t.version, std::string_view{"v1.0.0c"});
+    EXPECT_EQ(m::tooling_version_for_id("wallclock"), std::string_view{"v1.0.0c"});
+    EXPECT_EQ(m::tooling_version_for_id("macro"), std::string_view{"v1.0.0c"});
+    EXPECT_EQ(m::tooling_version_for_id("micro"), std::string_view{"v1.0.0c"});
     // A13-M1b (Owner-Q3, dreistellig): der Sentinel-Rueckgabewert ist "v0.0.0" statt der Kurzform "v0" --
     // byte-neutral, beide rendern "0.0.0" (Beleg im Render-Block (c) unten: "@0.0.0" unveraendert).
     EXPECT_EQ(m::tooling_version_for_id("bogus"), std::string_view{"v0.0.0"}); // unbekannt -> Sentinel
 
-    // (c) Sentinel-Render: ungueltige Tooling-id -> @0.0.0; gueltige bleiben @1.0.0 (render-neutral).
+    // (c) Sentinel-Render: ungueltige Tooling-id -> @0.0.0 (flaglos, der Sentinel traegt nie ein Flag);
+    //     gueltige rendern seit C4 @1.0.0c.
     // A13-M2: der load_framework-Anhang steht geklammert AM ENDE -- der Sentinel betrifft nur das Tooling-Glied.
     EXPECT_EQ(abi::measurement_stamp_line("bogus"),
-              std::string{"measurement_tooling=bogus@0.0.0;[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=bogus@0.0.0;[load_framework=ycsb@1.0.0c]"});
     EXPECT_EQ(abi::measurement_stamp_line("wallclock"),
-              std::string{"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]"});
+              std::string{"measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"});
 }
 
 // A3 (G2-1a): Entry-POD AnatomyStampEntryV1 (48B-Pin) + consteval count/parse_stamp_entries + parse_dotted_semver.
@@ -671,32 +720,44 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
     EXPECT_NE(h[0].reserved, h[1].reserved);
     EXPECT_NE(h[1].reserved, h[2].reserved);
     EXPECT_NE(h[2].reserved, h[3].reserved);
-    EXPECT_NE(h[0].reserved, e[1].reserved); // g != flagloser Bestand
+    EXPECT_NE(h[0].reserved, e[1].reserved); // g != flaglose Form
     static_assert(abi::stamp_entry_hardware_flag(h[1]) == abi::StampEntryHardwareFlag::fpga);
 
-    // (c3) Fehlform: ein ZWEITES Hardware-Flag ist grammatisch Sentinel -> KEIN Bit wandert ins reserved-Feld.
-    static constexpr char kTwoFlags[] = "a=x@1.0.0cg";
-    constexpr auto tf = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kTwoFlags})>(kTwoFlags);
-    EXPECT_EQ(tf[0].x, 0u);
-    EXPECT_EQ(tf[0].reserved, std::uint32_t{0});
+    // (c3) A13-M3/C2b (Befund Z-09) -- GEDREHT. Bis C2b hielt hier fest, dass ein ZWEITES Hardware-Flag
+    //      "grammatisch Sentinel" sei und still auf @0.0.0/reserved==0 falle. Genau das war das fail-open:
+    //      zwei byte-VERSCHIEDENE Defekt-Formen ergaben denselben POD, obwohl der Stempel die Lager-
+    //      Identitaet ist. Ab C2b bricht die Form im consteval-Pfad HART -- die Aussage steht deshalb als
+    //      Negativ-Beweis (das Praedikat dreht die Nicht-Parsbarkeit in eine positive, beweisbare Aussage).
+    static_assert(!abi::stamp_line_is_parsable<"a=x@1.0.0cg">, "zweites Hardware-Flag bricht hart (Z-09).");
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"a=x@1.0.0cg">));
+    // ... und die POSITIVE Restaussage bleibt: der Parser raet NIE ein Flag herbei -- das dokumentierte
+    //     Sentinel-Rendering "@0.0.0" ist zulaessig UND flaglos.
+    static constexpr char kSentinel[] = "a=x@0.0.0";
+    constexpr auto sen = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSentinel})>(kSentinel);
+    EXPECT_EQ(sen[0].x, 0u);
+    EXPECT_EQ(sen[0].reserved, std::uint32_t{0});
 
-    // (d) GOLDEN-NEUTRALITAET: eine Bestands-Zeile ohne Flags setzt in KEINEM Eintrag ein Bit.
+    // (d) GOLDEN-NEUTRALITAET: eine Zeile OHNE Flags setzt in KEINEM Eintrag ein Bit. Das Literal ist
+    //     bewusst flaglos -- genau das ist die Aussage; die reale Bestands-Zeile traegt seit A13-M3/C4
+    //     ueberall 'c' und faellt (c == Code 0) auf dasselbe reserved == 0.
     static constexpr char kPlain[] =
-        "search_algo=k_ary@1.0.0;filter=bloom@2.3.4;target_isa=code@1.0.0"; // heutige Bestands-Form
+        "search_algo=k_ary@1.0.0;filter=bloom@2.3.4;target_isa=code@1.0.0"; // FLAGLOSE Probe, kein Bestand
     constexpr auto p = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kPlain})>(kPlain);
     for (auto const& x : p) EXPECT_EQ(x.reserved, std::uint32_t{0});
 
-    // (e) Ein 'e' im VERSIONS-Anteil an falscher Stelle bleibt Sentinel (Parser raet nie).
-    static constexpr char kBad[] = "achse=algo@1.0e";
-    constexpr auto        b      = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kBad})>(kBad);
-    EXPECT_EQ(b[0].x, 0u);
-    EXPECT_EQ(b[0].y, 0u);
-    EXPECT_EQ(b[0].z, 0u);
-    EXPECT_EQ(b[0].reserved, std::uint32_t{0}); // Sentinel traegt weder Experimental- noch Hardware-Bit (K-5)
+    // (e) A13-M3/C2b (Z-09) -- ebenfalls GEDREHT: ein 'e' im VERSIONS-Anteil an falscher Stelle ("1.0e",
+    //     Kurzform mit Flag-Schwanz) fiel bis C2b still auf den Sentinel. Ab jetzt bricht er benannt; ebenso
+    //     die beiden Struktur-Fehlformen ohne '=' bzw. ohne '@'.
+    static_assert(!abi::stamp_line_is_parsable<"achse=algo@1.0e">, "Kurzform mit Flag-Schwanz bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"achse=algo">, "Segment ohne '@' bricht hart.");
+    static_assert(!abi::stamp_line_is_parsable<"nur_ein_name">, "Segment ohne '=' bricht hart.");
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"achse=algo@1.0e">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"achse=algo">));
+    EXPECT_FALSE((abi::stamp_line_is_parsable<"nur_ein_name">));
 }
 
 // A4 (G2-1b): die Array-Form reist durch das AnatomyVersionLines-POD. Der POD wird hier MANUELL exakt wie im
-// COMDARE_ANATOMY_VERSION_STAMP_MERGE-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist positions-
+// COMDARE_ANATOMY_VERSION_STAMP_M-Makro konstruiert (dieselbe Feld-Reihenfolge; die Aggregat-Init ist positions-
 // UND typgeprueft -> eine Feld-Vertauschung Zeiger<->uint64 waere ein Compile-Fehler). Der REALE Makro-POD wird
 // zusaetzlich vom Struktur-Smoke ueber echte DLL-Builds kompiliert. Beweis: entry_counts {18,3,4} + join(entries)==Zeile.
 //
@@ -708,44 +769,33 @@ TEST(MW12StampBausteine, A13M1bStampEntryCarriesFlagBitsAndTolerantNames) {
 TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
     namespace abi = ::comdare::cache_engine::abi;
     static constexpr char kOrgan[] =
-        "search_algo=k_ary@1.0.0;cache_traversal=t@1.0.0;mapping=m@1.0.0;path_compression=p@2.3.4;node_type=n@1.0.0;"
-        "memory_layout=l@1.0.0;allocator=a@1.0.0;prefetch=pf@1.0.0;concurrency=c@1.0.0;serialization=s@1.0.0;"
-        "value_handle=v@1.0.0;index_organization=i@1.0.0;io_dispatch=io@1.0.0;migration_policy=mp@1.0.0;filter=f@1.0.0;"
-        "queuing_q1=q1@1.0.0;queuing_q2=q2@1.0.0;persistence_target=pt@1.0.0"; // 18 Haupt-Achsen (A8.2)
+        "search_algo=k_ary@1.0.0c;cache_traversal=t@1.0.0c;mapping=m@1.0.0c;path_compression=p@2.3.4c;"
+        "node_type=n@1.0.0c;memory_layout=l@1.0.0c;allocator=a@1.0.0c;prefetch=pf@1.0.0c;concurrency=c@1.0.0c;"
+        "serialization=s@1.0.0c;value_handle=v@1.0.0c;index_organization=i@1.0.0c;io_dispatch=io@1.0.0c;"
+        "migration_policy=mp@1.0.0c;filter=f@1.0.0c;queuing_q1=q1@1.0.0c;queuing_q2=q2@1.0.0c;"
+        "persistence_target=pt@1.0.0c"; // 18 Haupt-Achsen (A8.2), A13-M3/C4-Flag-Form
     // A13-M2: BEIDE Nicht-Organ-Fixtures sind auf die Klammer-Welt nachgezogen (Owner-E2/Q1) -- System-Zeile
     // 3 -> 4 Eintraege (Meta-Meta-Anhang), Mess-Zeile mit load_framework GEKLAMMERT AM ENDE statt vorne. Ein
     // Fixture, der die alte Ordnung stehen laesst, liest sich fuer den Naechsten wie eine gueltige Referenz.
-    static constexpr char kSystem[]  = "target_isa=code@1.0.0;operating_system=code@1.0.0;"
-                                       "external_utils=code@1.0.0;[simd=code@1.0.0]"; // 3 + 1 Meta-Meta (A13-M2)
-    static constexpr char kMeasure[] = "measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
-                                       "measurement_tooling=micro@1.0.0;[load_framework=ycsb@1.0.0]"; // 3 + 1
+    static constexpr char kSystem[]  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
+                                       "external_utils=code@1.0.0c;[simd=code@1.0.0c]"; // 3 + 1 Meta-Meta (A13-M2)
+    static constexpr char kMeasure[] = "measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"
+                                       "measurement_tooling=micro@1.0.0c;[load_framework=ycsb@1.0.0c]"; // 3 + 1
 
     static constexpr auto kOE = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kOrgan})>(kOrgan);
     static constexpr auto kSE = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kSystem})>(kSystem);
     static constexpr auto kME =
         abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kMeasure})>(kMeasure);
 
-    abi::AnatomyVersionLines const v{abi::kAnatomyVersionLinesLayout,
-                                     0u,
-                                     kOrgan,
-                                     sizeof(kOrgan) - 1,
-                                     kSystem,
-                                     sizeof(kSystem) - 1,
-                                     kMeasure,
-                                     sizeof(kMeasure) - 1,
-                                     "",
-                                     0u,
-                                     "deadbeef",
-                                     8u,
-                                     abi::stamp_entries_ptr(kOE),
-                                     kOE.size(),
-                                     abi::stamp_entries_ptr(kSE),
-                                     kSE.size(),
-                                     abi::stamp_entries_ptr(kME),
-                                     kME.size()};
+    abi::AnatomyVersionLines const v{abi::kAnatomyVersionLinesLayout, 0u, kOrgan, sizeof(kOrgan) - 1, kSystem,
+                                     sizeof(kSystem) - 1, kMeasure, sizeof(kMeasure) - 1,
+                                     // A13-M3: die merge-Slots ("" / 0u) sind hier ERSATZLOS entfallen (18 -> 16
+                                     // Initialisierer) -- sha512_line folgt jetzt unmittelbar auf measurement_len.
+                                     "deadbeef", 8u, abi::stamp_entries_ptr(kOE), kOE.size(),
+                                     abi::stamp_entries_ptr(kSE), kSE.size(), abi::stamp_entries_ptr(kME), kME.size()};
 
     EXPECT_TRUE(abi::stamp_pod_has_entries(v));
-    EXPECT_EQ(v.stamp_layout_version, 5u);
+    EXPECT_EQ(v.stamp_layout_version, 6u);
     EXPECT_EQ(v.organ_entry_count, 18u);
     EXPECT_EQ(v.system_entry_count, 4u); // A13-M2: 3 Haupt-Achsen + 1 geklammerte Meta-Meta
     EXPECT_EQ(v.measurement_entry_count, 4u);
@@ -780,6 +830,17 @@ TEST(MW12StampBausteine, A4AnatomyStampArraysRoundtripThroughPod) {
             out += std::string(e[i].algorithm, e[i].algo_len);
             out += '@';
             out += std::to_string(e[i].x) + '.' + std::to_string(e[i].y) + '.' + std::to_string(e[i].z);
+            // A13-M3/C4: der FLAG-SCHWANZ gehoert zur gerenderten Version und muss mit zurueckgeschrieben
+            // werden -- ohne ihn waere die Rekonstruktion seit der Migration verlustbehaftet. EHRLICHE
+            // GRENZE (Belegung kStampEntryHwCodeCpu == 0, Owner-Q3 "c ist Default"): der POD unterscheidet
+            // "kein Flag" NICHT von "c". Die Rekonstruktion einer FLAGLOSEN Zeile traegt daher ein 'c' --
+            // fuer den migrierten Bestand ist das exakt richtig, fuer eine Alt-Zeile waere es die bewusst
+            // in Kauf genommene Normalisierung.
+            if (char const hw =
+                    ::comdare::cache_engine::measurement::hardware_flag_char(abi::stamp_entry_hardware_flag(e[i]));
+                hw != '\0')
+                out += hw;
+            if (abi::stamp_entry_is_experimental(e[i])) out += 'e';
             prev = lvl;
         }
         for (std::uint32_t k = 0; k < prev; ++k) out += ']';
@@ -805,22 +866,25 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     // A13-M2 (OP-3-Rueckbau, Owner-E2/Q1): der ZWILLING ist symmetrisch nachgezogen -- load_framework steht
     // als geklammerter Meta-Meta-Anhang AM ENDE. Genau dieser Header war der von O-8 Schritt 12 dokumentierte
     // DRITTE Ableitungsweg; wer ihn beim Umbau vergisst, bekommt dieselbe Drift zurueck.
-    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"measurement_tooling=wallclock@1.0.0;"
-                                                          "measurement_tooling=macro@1.0.0;"
-                                                          "measurement_tooling=micro@1.0.0;"
-                                                          "[load_framework=ycsb@1.0.0]"});
+    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"measurement_tooling=wallclock@1.0.0c;"
+                                                          "measurement_tooling=macro@1.0.0c;"
+                                                          "measurement_tooling=micro@1.0.0c;"
+                                                          "[load_framework=ycsb@1.0.0c]"});
     // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
     // keine Parallel-Ableitung (Section-64-Vollmengen-Provenienz teilt sich die Quelle).
     EXPECT_EQ(std::string{ceb::kCebMeasurementStamp}, abi::measurement_stamp_line_full_set());
-    // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess,"").
+    // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess).
+    // A13-M3/K-1: hier stand die 4-arg-Form mit dem merge-"" -- genau der Alt-Aufruf, den die Sperre faengt.
+    // Sie hat literal gefeuert ("die merge-ZEILE existiert nicht mehr ... das 4. Argument ist der
+    // OverlayHash-TYP"); der Aufruf ist auf die 3-arg-Form gezogen.
     static_assert(ceb::kCebFingerprint.size() == 128);
     EXPECT_EQ(ceb::kCebFingerprint.size(), std::size_t{128});
-    constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp, "");
+    constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp);
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
     std::string const stamp = ceb::ceb_version_stamp();
-    EXPECT_NE(stamp.find("ceb-measurement=measurement_tooling=wallclock@1.0.0"), std::string::npos);
-    EXPECT_NE(stamp.find(";[load_framework=ycsb@1.0.0];sha512="), std::string::npos) << "stamp=" << stamp;
+    EXPECT_NE(stamp.find("ceb-measurement=measurement_tooling=wallclock@1.0.0c"), std::string::npos);
+    EXPECT_NE(stamp.find(";[load_framework=ycsb@1.0.0c];sha512="), std::string::npos) << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
 }

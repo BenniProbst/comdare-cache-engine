@@ -5,12 +5,14 @@
 // ce-Politik-Wache erfasst war und (d) in der A13-M2/M3-Migrations-Naht fehlte. Der Fix bringt kPlannerVersion
 // auf das Roh-Literal "v1.0.0" (Q10), legt die ce-Politik-Wachen (ce_owned_version_is_wellformed + gated
 // ce_owned_version_satisfies_cpu_enforce) an und nimmt den Planer in die Migrations-Naht (algo_semver.hpp
-// Klasse (e)) auf -- die GERENDERTE Zeile "planner@1.0.0" bleibt BYTE-IDENTISCH (render-neutral wie "v1"->"1.0.0").
+// Klasse (e)) auf. A13-M3/C4: die GERENDERTE Zeile lautet "planner@1.0.0c" -- das 'v'-Praefix faellt weiter
+// weg (Owner-Q10), das HARDWARE-FLAG gehoert zur Version und bleibt stehen.
 //
 // **Negativ-Probe (RED vor Fix / GREEN nach Fix):** PlannerVersionIsWellformedCeVersion prueft
 // ce_owned_version_is_wellformed(kPlannerVersion). Vor dem Fix (kPlannerVersion=="1.0.0", ohne 'v') parst das
 // Literal auf den Sentinel und ist NICHT wohlgeformt -> EXPECT_TRUE schlaegt fehl (RED). Nach dem Fix
-// (kPlannerVersion=="v1.0.0") ist es wohlgeformt -> GREEN. Die Render-Neutralitaet ist die Byte-Gegenwache.
+// (kPlannerVersion=="v1.0.0", seit A13-M3/C4 "v1.0.0c") ist es wohlgeformt -> GREEN. Die Render-Neutralitaet
+// war beim CX-W5-Schritt die Byte-Gegenwache; das 'c' hat C4 als deklariertes Byte-Ereignis nachgezogen.
 //
 // ADDITIV & golden/binary_id-neutral: reine Lese-Reflexion ueber den Planer-Stempel; kein Achsen-/Registry-/
 // golden-/ABI-Byte beruehrt.
@@ -36,19 +38,21 @@ TEST(PlannerVersionFlagGrammatik, PlannerVersionIsWellformedCeVersion) {
 }
 
 // Owner-Q10: das ROH-Literal traegt das 'v' (nur im Code, nie in der gerenderten Ausgabe).
+// A13-M3/C4: zusaetzlich das CPU-Flag (Owner-Q3) -- das 'v' faellt beim Rendern weg, das 'c' NICHT.
 TEST(PlannerVersionFlagGrammatik, RawLiteralCarriesVPrefix) {
-    EXPECT_EQ(planner::kPlannerVersion, std::string_view{"v1.0.0"});
+    EXPECT_EQ(planner::kPlannerVersion, std::string_view{"v1.0.0c"});
     EXPECT_FALSE(meas::parse_algo_semver(planner::kPlannerVersion).is_sentinel())
         << "das Roh-Literal muss parsbar sein (kein Sentinel).";
 }
 
-// BYTE-WACHE (render-neutral): die --dump-plan-Zeile bleibt praefixfrei "planner@1.0.0 ...". algo_semver_string
-// schneidet das 'v' render-neutral weg -- exakt wie vor dem Fix, kein Stempel-Byte-Shift.
-TEST(PlannerVersionFlagGrammatik, RenderedStampIsPrefixFreeAndByteIdentical) {
-    EXPECT_EQ(meas::algo_semver_string(planner::kPlannerVersion), std::string{"1.0.0"});
+// BYTE-WACHE (Owner-Q10): die --dump-plan-Zeile bleibt PRAEFIXFREI. A13-M3/C4: sie traegt jetzt
+// "planner@1.0.0c ..." -- das 'v' schneidet algo_semver_string weg, das HARDWARE-FLAG gehoert zur Version
+// selbst und bleibt stehen (deklariertes Byte-Ereignis des Migrations-Commits, KEIN Q10-Verstoss).
+TEST(PlannerVersionFlagGrammatik, RenderedStampIsPrefixFreeAndCarriesHwFlag) {
+    EXPECT_EQ(meas::algo_semver_string(planner::kPlannerVersion), std::string{"1.0.0c"});
     std::string const stamp = planner::planner_version_stamp();
-    EXPECT_EQ(stamp.rfind("planner@1.0.0 isa=", 0), 0u)
-        << "gerenderte Zeile nicht byte-identisch praefixfrei: '" << stamp << "'";
+    EXPECT_EQ(stamp.rfind("planner@1.0.0c isa=", 0), 0u)
+        << "gerenderte Zeile nicht wie erwartet praefixfrei+flagbehaftet: '" << stamp << "'";
     EXPECT_EQ(stamp.find("planner@v"), std::string::npos) << "die gerenderte Form darf KEIN 'v' tragen (Owner-Q10).";
 }
 
@@ -59,8 +63,8 @@ TEST(PlannerVersionFlagGrammatik, PolicyRejectsExperimentalAndFlaglessUnderEnfor
     // 'v1.0.0e' braeche den Bau von planner_version.hpp.
     EXPECT_FALSE(meas::ce_owned_version_is_wellformed("v1.0.0e"));
     EXPECT_FALSE(meas::ce_owned_version_is_wellformed("v1.0.0ce"));
-    // flaglos erfuellt die ENFORCE-Pflicht NICHT (im M2/M3-Fenster braeche der gated static_assert), waehrend
-    // die Ziel-Form 'v1.0.0c' sie erfuellt.
+    // flaglos erfuellt die ENFORCE-Pflicht NICHT (seit A13-M3/C4 braeche der gated static_assert in
+    // planner_version.hpp daran), waehrend die heutige Bestands-Form 'v1.0.0c' sie erfuellt.
     EXPECT_FALSE(meas::ce_owned_version_satisfies_cpu_enforce("v1.0.0"));
     EXPECT_TRUE(meas::ce_owned_version_satisfies_cpu_enforce("v1.0.0c"));
 }

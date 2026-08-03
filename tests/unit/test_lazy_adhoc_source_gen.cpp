@@ -20,6 +20,7 @@
 #include "source_catalog.hpp"        // catalog_static_levels<FullSourceCatalog> / kNewGolden131072Crc64
 
 #include <builder/experiment_tree/experiment_tree.hpp> // ExperimentTree / StaticBinaryView / ExperimentNodeFactory
+#include <cache_engine/abi/anatomy_fingerprint.hpp>    // A13-M3: anatomy_fingerprint_glieder/-preimage
 #include <cache_engine/abi/anatomy_version_stamp.hpp>  // S6-P1b: abi::measurement_stamp_line (Mess-Tooling-Stempel)
 #include <cache_engine/fingerprint/crc64.hpp>          // crc64_ecma182_update
 #include <sha512/ctsha512.hpp>                         // I2: Runtime-SHA-512 fuer den Fingerprint-Drift-Beweis
@@ -124,7 +125,7 @@ void check_stamp_injected(std::vector<std::string> const& g320_ids) {
     check_true("(a2) lazy-Quelle traegt COMDARE_ANATOMY_VERSION_STAMP(", !ls.empty());
     check_true("(a2) Katalog-Quelle traegt COMDARE_ANATOMY_VERSION_STAMP(", !cs.empty());
     check_true("(a2) Stempel-Zeile byte-gleich (lazy == Katalog)", ls == cs);
-    check_true("(a2) Organ-Stempel in X.Y.Z-Voll-Form (@1.0.0)", ls.find("@1.0.0") != std::string::npos);
+    check_true("(a2) Organ-Stempel in X.Y.Z-Voll-Form (@1.0.0c)", ls.find("@1.0.0c") != std::string::npos);
     // Der System-Stempel (system_stamp_line) traegt die statischen System-Achsen -- als 2. Makro-Argument.
     // O-8 Schritt 4 (A3-Kern): geankert auf target_isa statt auf compiler; compiler ist keine System-Haupt-Achse
     // mehr. Die Gegenprobe steht daneben, damit der Anker nicht bloss verschoben, sondern der Umbau belegt ist.
@@ -134,8 +135,8 @@ void check_stamp_injected(std::vector<std::string> const& g320_ids) {
     // A13-M2 (Owner-E2 + Q1 vom 02.08.2026): der Meta-Meta-KLAMMER-ANHANG reist bis in den emittierten
     // Modul-Quelltext. NEU GEANKERT: ohne diese Wache bliebe (a2) auch dann gruen, wenn der Anhang im
     // Emitter-Pfad verloren ginge -- der Stempel waere dann in der Binary blind fuer die Meta-Metas.
-    check_true("(a2) Meta-Meta-Klammer-Anhang [simd=code@1.0.0] im emittierten Quelltext",
-               ls.find(";[simd=code@1.0.0]") != std::string::npos);
+    check_true("(a2) Meta-Meta-Klammer-Anhang [simd=code@1.0.0c] im emittierten Quelltext",
+               ls.find(";[simd=code@1.0.0c]") != std::string::npos);
     check_true("(a2) Klammer-Form, NICHT die verworfene Punkt-Pfad-Form (Owner-Q1)",
                ls.find("external_utils.simd") == std::string::npos);
     // Die Klammern sind C-literal-sicher -- sie duerfen im emittierten .cpp NIE escaped auftauchen.
@@ -277,7 +278,7 @@ void check_simd_organ_system_blind(std::vector<std::string> const& full_ids) {
 // -- (e) S6-P1b: die Mess-Tooling-HAUPT-Stempel-Zeile (kMeasurementAxisVersionLine) wird in die Modul-Quelle
 //    einkompiliert, sobald die vom Planer gewaehlte Combo ein Tooling traegt. Default (LEERE/[all]-Combo, make_lazy_
 //    adhoc_source_gen() ohne Arg) => EXAKT die 2-arg-Makro-Zeile => byte-identisch (die Wachen (a)/(a2) bleiben gruen);
-//    explizite wallclock/macro-Combo => 3-arg _M-Form mit verschiedenen measurement_tooling=..@1.0.0-Zeilen. Der
+//    explizite wallclock/macro-Combo => 3-arg _M-Form mit verschiedenen measurement_tooling=..@1.0.0c-Zeilen. Der
 //    ADHOC-Block (Organ/System/Umbrella) bleibt unveraendert => binary_id/CRC UNBERUEHRT (der Stempel != binary_id).
 void check_measurement_stamp_wiring(std::vector<std::string> const& g320_ids) {
     std::cout << "\n---- (e) S6-P1b: Mess-Tooling-Stempel je Combo in die Modul-Quelle einkompiliert ----\n";
@@ -297,15 +298,15 @@ void check_measurement_stamp_wiring(std::vector<std::string> const& g320_ids) {
                src_def.find("COMDARE_ANATOMY_VERSION_STAMP_M(") == std::string::npos &&
                    src_def.find("measurement_tooling=") == std::string::npos);
 
-    // wallclock: 3-arg _M-Form mit measurement_tooling=wallclock@1.0.0.
+    // wallclock: 3-arg _M-Form mit measurement_tooling=wallclock@1.0.0c.
     check_true("(e) wallclock-Quelle traegt 3-arg COMDARE_ANATOMY_VERSION_STAMP_M(",
                src_wc.find("COMDARE_ANATOMY_VERSION_STAMP_M(") != std::string::npos);
-    check_true("(e) wallclock-Quelle traegt measurement_tooling=wallclock@1.0.0",
-               src_wc.find("measurement_tooling=wallclock@1.0.0") != std::string::npos);
+    check_true("(e) wallclock-Quelle traegt measurement_tooling=wallclock@1.0.0c",
+               src_wc.find("measurement_tooling=wallclock@1.0.0c") != std::string::npos);
 
     // macro: verschiedene measurement-Zeile => 2 Combos => 2 verschiedene DLL-Quellen.
-    check_true("(e) macro-Quelle traegt measurement_tooling=macro@1.0.0",
-               src_ma.find("measurement_tooling=macro@1.0.0") != std::string::npos);
+    check_true("(e) macro-Quelle traegt measurement_tooling=macro@1.0.0c",
+               src_ma.find("measurement_tooling=macro@1.0.0c") != std::string::npos);
     check_true("(e) wallclock- und macro-Quelle verschieden (je Combo verschiedene Bytes)", src_wc != src_ma);
     check_true("(e) wallclock-Quelle != Default-Quelle (Stempel additiv, nicht ersetzend)", src_wc != src_def);
 
@@ -334,12 +335,12 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
     // hier sind aus dem Ist-Output des A13-M2-Laufs neu geankert.
     // Einzel-Legende [wallclock] -> genau EIN Tooling-Eintrag + der Klammer-Anhang.
     check_eq("(f) legend [wallclock] -> Einzel-Stempel", abi::measurement_stamp_line_from_combo_legend("[wallclock]"),
-             std::string{"measurement_tooling=wallclock@1.0.0;[load_framework=ycsb@1.0.0]"});
+             std::string{"measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"});
     // Mehr-Token-Legende [wallclock,macro] -> MENGE (K7b-2): 2 Eintraege, ';'-getrennt (Eingabe-Reihenfolge).
     check_eq("(f) legend [wallclock,macro] -> Mengen-Stempel (2 Eintraege)",
              abi::measurement_stamp_line_from_combo_legend("[wallclock,macro]"),
-             std::string{"measurement_tooling=wallclock@1.0.0;measurement_tooling=macro@1.0.0;"
-                         "[load_framework=ycsb@1.0.0]"});
+             std::string{"measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"
+                         "[load_framework=ycsb@1.0.0c]"});
     // [all] -> die VOLLE Vollmenge (Section 64-D1-B): == measurement_stamp_line_full_set(), 3 Eintraege {wc,macro,micro}.
     std::string const full = abi::measurement_stamp_line_full_set();
     check_eq("(f) legend [all] -> Vollmenge (== full_set)", abi::measurement_stamp_line_from_combo_legend("[all]"),
@@ -348,10 +349,10 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
     // am Ende. Die Legenden-KLAMMERN der Eingabe ("[all]") und die STEMPEL-Klammern sind zwei verschiedene
     // Welten -- der Legenden-Parser sieht die Stempel-Klammer nie.
     check_true("(f) full_set traegt wallclock+macro+micro + [load_framework] am Ende (4 Eintraege, 3 Trenner)",
-               full.rfind("measurement_tooling=wallclock@1.0.0", 0) == 0 &&
-                   full.find("measurement_tooling=macro@1.0.0") != std::string::npos &&
-                   full.find("measurement_tooling=micro@1.0.0") != std::string::npos &&
-                   full.ends_with(";[load_framework=ycsb@1.0.0]") && std::count(full.begin(), full.end(), ';') == 3);
+               full.rfind("measurement_tooling=wallclock@1.0.0c", 0) == 0 &&
+                   full.find("measurement_tooling=macro@1.0.0c") != std::string::npos &&
+                   full.find("measurement_tooling=micro@1.0.0c") != std::string::npos &&
+                   full.ends_with(";[load_framework=ycsb@1.0.0c]") && std::count(full.begin(), full.end(), ';') == 3);
     // Leere Legende (== "keine Legende gereicht") -> leer; die Vollmengen-Default-Semantik entscheidet der from_env-Zweig.
     check_true("(f) leere legend -> leer", abi::measurement_stamp_line_from_combo_legend("").empty());
 
@@ -360,15 +361,15 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
     ::setenv("COMDARE_MEASUREMENT_COMBO", "[macro]", 1);
     std::string const src_env = tlz::make_lazy_adhoc_source_gen_from_env()(id);
     ::unsetenv("COMDARE_MEASUREMENT_COMBO");
-    check_true("(f) Env [macro] -> Quelle traegt measurement_tooling=macro@1.0.0",
-               src_env.find("measurement_tooling=macro@1.0.0") != std::string::npos);
+    check_true("(f) Env [macro] -> Quelle traegt measurement_tooling=macro@1.0.0c",
+               src_env.find("measurement_tooling=macro@1.0.0c") != std::string::npos);
     // Env UNGESETZT == [all] -> NEU die VOLLE Vollmenge (Section 64-D1-B); byte-gleich zu einem explizit full_set-
     // gestempelten Gen. Der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> UNGESETZT != No-Arg-Default.
     std::string const src_unset = tlz::make_lazy_adhoc_source_gen_from_env()(id);
     check_true("(f) Env ungesetzt -> traegt die volle 3-Tool-Vollmenge",
-               src_unset.find("measurement_tooling=wallclock@1.0.0") != std::string::npos &&
-                   src_unset.find("measurement_tooling=macro@1.0.0") != std::string::npos &&
-                   src_unset.find("measurement_tooling=micro@1.0.0") != std::string::npos);
+               src_unset.find("measurement_tooling=wallclock@1.0.0c") != std::string::npos &&
+                   src_unset.find("measurement_tooling=macro@1.0.0c") != std::string::npos &&
+                   src_unset.find("measurement_tooling=micro@1.0.0c") != std::string::npos);
     check_true("(f) Env ungesetzt == explizit full_set-gestempelte Quelle",
                src_unset == tlz::make_lazy_adhoc_source_gen(abi::measurement_stamp_line_full_set())(id));
     // Der No-Arg-Default bleibt 2-arg/leer (byte-stabil) -> BEWUSST verschieden vom [all]/UNGESETZT-Vollmengen-Pfad.
@@ -408,8 +409,15 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     std::vector<std::string> const args          = quoted_args(stamp_line(lazy(id)));
     check_true("(a3) 2-arg-Stempel traegt organ+system", args.size() >= 2);
     if (args.size() < 2) return;
-    std::string const preimage = args[0] + args[1]; // organ+system (measurement="" merge="" im 2-arg-Default)
-    auto const        digest   = ::comdare::cache_engine::sha512::sha512(
+    // A13-M3: das Referenz-Preimage wird aus DERSELBEN Glied-Quelle gebaut wie der Provider
+    // (abi::anatomy_fingerprint_glieder + '\n'-Separator). Vorher stand hier "args[0] + args[1]" -- eine
+    // ZWEITE, separatorlose Konkatenations-Regel, die die alte Ordnung zementierte. Die Glieder selbst
+    // kommen weiter aus dem EMITTIERTEN Quelltext (args), nicht aus dem Provider: nur so bleibt es ein
+    // Drift-Beweis und keine Selbst-Bestaetigung.
+    auto const        glieder  = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(args[0], args[1], "");
+    std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
+        std::span<std::string_view const>{glieder.data(), glieder.size()});
+    auto const digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const        hex = ::comdare::cache_engine::sha512::to_hex(digest);
     std::string const emitted_fp(hex.data(), hex.size());

@@ -124,7 +124,7 @@ template <class Comp>
 /// "code" = die statische Code-Identitaet der System-Achse.
 ///
 /// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
-/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0]", also VIER Eintraege statt
+/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0c]", also VIER Eintraege statt
 /// drei. Die Glieder kommen aus der EINEN Typliste ExternalUtilsHub::meta_metas (keine zweite Liste); die
 /// EBENE steckt in der Klammer-Tiefe, nicht im Namen. Owner-E2 woertlich: Meta-Metas werden "einfach dynamisch
 /// ans Ende der Kette in den bestehenden Zeilen angehaengt" -- keine Sonderzeile, kein Sonderfeld.
@@ -139,7 +139,7 @@ template <class Comp>
     // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt GENAU DREI HAUPT-Achsen-Segmente statt fuenf -- die
     // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
     // wurde die Hartkodierung damals aufgeloest.
-    // Render-neutral: "v1.0.0" -> "1.0.0" wie zuvor "v1" -> "1.0.0".
+    // Render: "v1.0.0c" -> "1.0.0c" (seit A13-M3/C4; bis dahin render-neutral "v1.0.0" -> "1.0.0" wie "v1").
     std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
     for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
         entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
@@ -208,8 +208,8 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
-    // bekannte id -> "v1.0.0" (render-neutral zu "1.0.0"), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur ungueltige
-    // ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
+    // bekannte id -> "v1.0.0c" (Render "1.0.0c", seit A13-M3/C4), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur
+    // ungueltige ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
     // A13-M2 (OP-3-Rueckbau, Owner-E2): load_framework steht NICHT mehr vorne, sondern als KLAMMER-Anhang
     // ANS ENDE.
     std::array<AxisVersionEntry, 1> const entries{{
@@ -222,7 +222,7 @@ template <class Comp>
 
 /// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
 /// kMeasurementAxisVersionLine. Statt EINER Tooling-Wahl traegt die Zeile die MENGE der gewaehlten Mess-Tools als N
-/// Eintraege "measurement_tooling=<t>@1.0.0" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
+/// Eintraege "measurement_tooling=<t>@1.0.0c" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
 /// Leere Tokens werden uebersprungen; leere/leer-gefilterte Menge -> leere Zeile. Dieselbe X.Y.Z-Voll-Form / SEPARATE
 /// Welt zur .algos-Sig wie die Einzel-Form (build_axis_version_stamp_line). binary_id-NEUTRAL (Mess-Achse
 /// binary_id="never" -> der Stempel lebt nur im Version-Line/Binary, nie in der binary_id/CRC).
@@ -237,7 +237,8 @@ template <class Comp>
     for (std::string_view const t : toolings)
         if (!t.empty())
             // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
-            // fuer unbekannte ids (render-neutral fuer die gueltigen wallclock/macro/micro).
+            // fuer unbekannte ids. Die gueltigen ids (wallclock/macro/micro) rendern seit A13-M3/C4 "1.0.0c"
+            // -- deklariertes Byte-Ereignis der Q3-Migration, nicht mehr render-neutral.
             entries.push_back(
                 {"measurement_tooling", t, ::comdare::cache_engine::measurement::tooling_version_for_id(t)});
     if (entries.empty()) return {};
@@ -284,42 +285,12 @@ template <class Comp>
     return measurement_stamp_line(std::span<std::string_view const>{toks});
 }
 
-/// merge_stamp_line(strategy, pruefling, merged_axes) -- die kMergeAxisVersionLine (Section 59, K6a): der DRITTE
-/// Tier-Binary-Stempel = die MERGE-KOMBINATION. Zusaetzlich zu den zwei Section-58-Arrays (System + Organ) traegt
-/// die Tier-Binary damit die Merge-Art (die MergeStrategy: Stufe1/Stufe2/Stufe3) + die Pruefling-Identitaet + die
-/// Namen/Versionen der beteiligten Achsen-Algorithmen (Section 59-C: "Namen + Versionen JEDER Achsen-Algorithmen
-/// IMMER im Stempel; PLUS ein dritter Tier-Binary-Stempel = die Merge-Kombination"). Format:
-///   "merge=<strategy>;pruefling=<pruefling>[;<axis>=<algo>@X.Y.Z;...]"
-/// R6 (§59-A(2)/A(3), Nacht-Audit 2026-07-22): der Stempel traegt die Strategie VERBATIM -- Stufe2_Hybrid (merge-
-/// Modus, CE+Pruefling-Hybrid je Pruefling) erzeugt damit einen ANDEREN Stempel als Stufe3_FullJoin (fulljoin-Modus,
-/// kombinierte Union); die beiden Merge-Kategorien bleiben am 3. Tier-Stempel getrennt (ihre Vermischung war die
-/// Regression, merge_plan.hpp::merge_mode_to_strategy).
-/// -- dieselbe X.Y.Z-Voll-Form / SEPARATE Welt zur .algos-Sig wie organ/system/measurement (build_axis_version_
-/// stamp_line fuer den Achsen-Teil). NUR HAUPT-Achsen (Section 58-V; Unter-Achsen fliessen dynamisch zur Laufzeit
-/// durch).
-///
-/// ce-only-/IDENTITAETS-Fall -> LEERE Zeile (Section 59-C-golden-Konsequenz): leere/Stufe1_CeOnly-Strategie ODER
-/// leere/"CacheEngine"/"self"-Pruefling-Identitaet -> "" (kein Merge einkompiliert). So bleibt der ce-only-/
-/// Katalog-Pfad byte-identisch (die Makro-Materialisierung legt merge_line auf "" mit merge_len==0), der
-/// golden-CRC 0xF1C1F26A1232073B unberuehrt -- die Merges sind ein additiver id-Satz.
-[[nodiscard]] inline std::string
-merge_stamp_line(std::string_view strategy, std::string_view pruefling,
-                 std::span<::comdare::cache_engine::measurement::AxisVersionEntry const> merged_axes = {}) {
-    using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
-    // ce-only (Stufe1 / keine Merge-Art) -> leer (byte-identischer golden-Pfad).
-    if (strategy.empty() || strategy == "Stufe1_CeOnly") return {};
-    // Identitaets-/self-Pruefling ("CacheEngine"/self / kein Pruefling) -> leer (Fork 3: identity=self ist ce).
-    if (pruefling.empty() || pruefling == "CacheEngine" || pruefling == "self") return {};
-    std::string out = "merge=";
-    out += strategy;
-    out += ";pruefling=";
-    out += pruefling;
-    std::string const axes = build_axis_version_stamp_line(merged_axes);
-    if (!axes.empty()) {
-        out += ';';
-        out += axes;
-    }
-    return out;
-}
+// A13-M3 (Owner-E2 02.08.2026, "Merge Zeile kann daher nicht existieren"): der frueher hier stehende
+// merge_stamp_line-Renderer (K6a/Section 59, "der DRITTE Tier-Binary-Stempel") ist ERSATZLOS ENTFERNT --
+// kein Deprecation-Stub (DV-1 = (a)). Begruendung: "darf nicht existieren" ist eine Existenz-Aussage; ein
+// stehen gelassener, toter Stempel-Renderer waere genau der dritte Ableitungsweg in Wartestellung, den die
+// O-8-Schritt-12-Lehre meint. Die Merge-DURCHFUEHRUNG bleibt vollstaendig erhalten
+// (profile_facade/merge_plan.hpp -- Owner-Q2: die Merge-Strategie WIRD durchgefuehrt); sie lebt im Stempel
+// ab jetzt ueber das 'e'-Experimentalflag und die erweiterten hierarchischen Namen.
 
 } // namespace comdare::cache_engine::abi

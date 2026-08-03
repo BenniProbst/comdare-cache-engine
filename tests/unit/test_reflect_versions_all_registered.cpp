@@ -4,7 +4,7 @@
 // ueber die GEFILTERTEN Enabled*-Listen. Deaktiviert-aber-registrierte Varianten (Bestandsfall:
 // Array256SearchAlgo, COMDARE_AXIS_03A_ENABLE_ARRAY256=OFF, algo_version "v1.0.0") trugen weiter ein
 // algo_version-Literal, das KEINE Wache sah -- ein 'e'/falsches Flag bliebe bis zur spaeteren Aktivierung
-// unentdeckt, und der A13-M2/M3-ENFORCE-Commit schluege daran nicht an. Der Fix zieht die Wache ueber die
+// unentdeckt, und der A13-M3/C4-ENFORCE-Commit haette daran nicht angeschlagen. Der Fix zieht die Wache ueber die
 // VOLLE registrierte Population (guard_all_registered_organ_versions ueber axes26_registered::R* = All*-Listen).
 //
 // **Negativ-Probe (RED vor Fix / GREEN nach Fix):** schon das BAUEN dieser TU instanziiert
@@ -53,7 +53,7 @@ TEST(ReflectVersionsAllRegistered, FullRegisteredIsStrictlyLargerThanEnabledTabl
     ASSERT_FALSE(enabled.empty());
     EXPECT_GT(ex::kAllRegisteredOrganVariantCount, enabled.size())
         << "kein deaktivierter Bestand? dann waere der Befund gegenstandslos -- erwartet: registriert > enabled.";
-    // gesunde Untergrenze (der Bestand traegt >100 registrierte Organ-Varianten; grep-Beleg 122x "v1.0.0").
+    // gesunde Untergrenze (der Bestand traegt >100 registrierte Organ-Varianten; grep-Beleg 122x "v1.0.0c").
     EXPECT_GE(ex::kAllRegisteredOrganVariantCount, 100u);
 }
 
@@ -62,7 +62,8 @@ TEST(ReflectVersionsAllRegistered, FullRegisteredIsStrictlyLargerThanEnabledTabl
 TEST(ReflectVersionsAllRegistered, DisabledArray256IsRegisteredAndNowUnderCePolicy) {
     EXPECT_FALSE(::comdare::cache_engine::lookup::Array256SearchAlgo::enabled)
         << "Vorbedingung des Befunds: Array256 ist Default OFF.";
-    // seine algo_version steht jetzt unter der ce-Politik (wohlgeformt, flagloser Uebergangs-Bestand toleriert).
+    // seine algo_version steht unter derselben ce-Politik wie jede aktive Variante -- seit A13-M3/C4 traegt
+    // auch sie das CPU-Flag ("v1.0.0c"), sonst haette die gated ENFORCE-Wache den Bau gebrochen.
     EXPECT_TRUE(
         meas::ce_owned_version_is_wellformed(::comdare::cache_engine::lookup::Array256SearchAlgo::algo_version));
 

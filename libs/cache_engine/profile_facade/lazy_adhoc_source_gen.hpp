@@ -81,7 +81,7 @@
 #include <builder/experiment_tree/axis_variant_version_table.hpp> // ex::compose_organ_stamp_line / build_axis_variant_version_table (W12-A2)
 #include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn
 
-#include <cache_engine/abi/anatomy_fingerprint.hpp>   // A8.3: kOverlaySourceHash (5. Preimage-Glied)
+#include <cache_engine/abi/anatomy_fingerprint.hpp>   // A13-M3: anatomy_fingerprint_glieder/-preimage (EINE Ordnung)
 #include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
 #include <sha512/ctsha512.hpp>                        // I2: Runtime-SHA-512 fuer den drift-freien Fingerprint-Provider
 
@@ -205,7 +205,7 @@ template <class List>
     // (abi::measurement_stamp_line, K7b-2 auch als MENGE). No-Arg-Default "" => render_adhoc_module_source emittiert
     // EXAKT die 2-arg-Makro-Zeile -> byte-identisch zur heutigen Quelle (die 320-Round-Trip-/Byte-Wache bleibt STRIKT).
     // Nicht-leer (explizite Combo bzw. [all]/UNGESETZT-Vollmenge ueber die from_env-Naht) => 3-arg _M-Form.
-    return cg::render_adhoc_module_source(0, macro_args, organ, system, /*merge_stamp=*/{}, measurement_stamp);
+    return cg::render_adhoc_module_source(0, macro_args, organ, system, measurement_stamp);
 }
 
 /// make_lazy_adhoc_source_gen() -- die Naht: eine SourceGenFn (binary_id -> reale Modul-Quelle), die run_profile
@@ -229,29 +229,46 @@ template <class List>
     };
 }
 
+/// measurement_stamp_from_env() -- die EINE Stelle, an der die Env-Bruecke COMDARE_MEASUREMENT_COMBO in die
+/// Mess-Tooling-Stempel-Zeile uebersetzt wird. Sie stand bis A13-M3/C1 ZWEIMAL wortgleich da
+/// (make_lazy_adhoc_source_gen_from_env + make_lazy_adhoc_fingerprint_fn_from_env) und war damit genau die
+/// Sorte Doppel-Ableitung, die der O-8-Schritt-12-Befund ("uebersehener dritter Ableitungsweg") meint: waere
+/// eine der beiden Kopien gewandert, haette die DLL eine andere Mess-Zeile getragen als ihr Fingerprint-
+/// Sidecar. Seit C1 speist sie zusaetzlich den SOTA-Emitter (sota_catalog.hpp) -- dieselbe Combo in ALLEN
+/// Quellen EINES Laufs, per Konstruktion und nicht per Absprache.
+/// SEMANTIK unveraendert (K7b-2): gesetzt -> die gewaehlte Combo-Legende als MENGE; UNGESETZT/leer == [all]
+/// == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz).
+[[nodiscard]] inline std::string measurement_stamp_from_env() {
+    char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
+    return (e != nullptr && *e != '\0') ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
+                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+}
+
 /// make_lazy_adhoc_source_gen_from_env() -- die LIVE-Naht der S6-P1b Env-Bruecke (d)-(f): die vom Planer gewaehlte
 /// Mess-Combo reist ueber die Umgebungsvariable COMDARE_MEASUREMENT_COMBO (die Director-Tier-Kommandos exportieren die
 /// [a,b,c]-Legende ab N>1; der CLI-Parser --measurement-combo im messung_driver waehlt die Combo im gefilterten Walk).
 /// run_profile ruft DIESE Naht: die Legende wird zur Mess-Tooling-Stempel-Zeile (abi::measurement_stamp_line_from_
 /// combo_legend) und in den lazy Source-Gen gespeist -> die je-Combo-Bauten stempeln ihre DLLs REAL.
 /// K7b-2 (Section 64-D1-B, 2026-07-22): COMDARE_MEASUREMENT_COMBO gesetzt -> die gewaehlte Combo-Legende stempelt als
-/// MENGE (N x measurement_tooling=<t>@1.0.0). UNGESETZT == [all] == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz;
+/// MENGE (N x measurement_tooling=<t>@1.0.0c). UNGESETZT == [all] == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz;
 /// die [all]-Lane misst mit dem vollen Tooling-Angebot -> ihre DLL-Provenienz traegt ALLE Tools). NUR dieser LIVE-Pfad
 /// wechselt bewusst auf die 3-arg-_M-Form; der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> die
 /// 320er-Byte-Identitaets-Wachen + der binary_id/CRC-Anker (kNewGolden131072Crc64, ueber die view-ids) unberuehrt.
 [[nodiscard]] inline ex::SourceGenFn make_lazy_adhoc_source_gen_from_env() {
-    char const* const e           = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    std::string measurement_stamp = (e != nullptr && *e != '\0')
-                                        ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
-                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+    std::string measurement_stamp = measurement_stamp_from_env();
     return make_lazy_adhoc_source_gen(std::move(measurement_stamp));
 }
 
 /// I2 (Lager-Gate): der drift-freie Fingerprint fuer binary_id -- 128-hex K7b-Fingerprint, IDENTISCH zu dem, den die
-/// DLL via comdare_anatomy_version_lines()->sha512_line traegt. Komponiert EXAKT dieselben vier Stempel-Zeilen wie
+/// DLL via comdare_anatomy_version_lines()->sha512_line traegt. Komponiert EXAKT dieselben Stempel-Zeilen wie
 /// lazy_adhoc_source_for (organ via compose_organ_stamp_line, system via system_stamp_line, measurement = dieselbe
-/// Combo, merge = "" im Lazy-/ce-only-Pfad) und hasht sie mit derselben Primitive (sha512 + to_hex) wie
-/// anatomy_fingerprint_hex (Preimage = concat(organ+system+measurement+merge), D3). Nicht materialisierbar -> "".
+/// Combo) und hasht sie mit derselben Primitive (sha512 + to_hex) wie anatomy_fingerprint_hex.
+///
+/// A13-M3: die Preimage-ORDNUNG steht NICHT mehr hier -- sie kommt aus abi::anatomy_fingerprint_glieder(), der
+/// EINEN Quelle, aus der auch der consteval-Zwilling zieht. Vorher stand die Glied-Folge zweimal wortgleich da
+/// und konnte auseinanderlaufen (Risiko R6: Lager-Key-Drift gegen das einkompilierte sha512_line). Der Trenner
+/// zwischen den Gliedern ('\n', OF-M3-1 Option A) steckt in abi::anatomy_fingerprint_preimage.
+/// Nicht materialisierbar -> "".
 [[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
                                                             std::vector<ex::AxisVariantVersion> const& version_table,
                                                             std::string const& measurement_stamp = {}) {
@@ -259,20 +276,9 @@ template <class List>
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
-    // Preimage = concat(organ + system + measurement + merge) in DIESER fixen Reihenfolge (anatomy_fingerprint.hpp D3);
-    // merge = "" (Lazy-/ce-only-Pfad, identisch zu lazy_adhoc_source_for -> merge_stamp={}).
-    // A8.3 (O-8 Schritt 8): das 5. Glied -- der Overlay-Source-Hash -- steht am ENDE, exakt wie im
-    // consteval-Zwilling anatomy_fingerprint_hex. Heute leer (Pre-Build-Codegen setzt das Define noch
-    // nicht), traegt also nichts bei; die beiden Wege bleiben aber auch dann deckungsgleich, wenn er
-    // gefuellt wird. Wer die Reihenfolge hier aendert, muss sie DORT mitaendern -- sonst driftet der
-    // Lager-Index-Anker vom einkompilierten sha512_line weg.
-    auto const  overlay = ::comdare::cache_engine::abi::kOverlaySourceHash;
-    std::string preimage;
-    preimage.reserve(organ.size() + system.size() + measurement_stamp.size() + overlay.size());
-    preimage += organ;
-    preimage += system;
-    preimage += measurement_stamp;
-    preimage += overlay;
+    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp);
+    std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
+        std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const hex = ::comdare::cache_engine::sha512::to_hex(digest); // array<char, 128>
@@ -287,10 +293,7 @@ template <class List>
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
-    char const* const e           = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    std::string measurement_stamp = (e != nullptr && *e != '\0')
-                                        ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
-                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+    std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp)](std::string const& binary_id) {
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp);
     };

@@ -165,29 +165,23 @@ struct AnatomyVersionLines {
     // (nie nullptr), measurement_len == 0.
     char const*   measurement_line; ///< kMeasurementAxisVersionLine (nullterminiert; "" wenn kein Tooling gewaehlt)
     std::uint64_t measurement_len;  ///< measurement_line-Laenge ohne '\0'
-    // K7a (Section 59, 2026-07-20; User-GO (1) "Anatomy = Stempel-Vorlage"): der DRITTE Tier-Binary-Stempel = die
-    // Merge-Kombination (kMergeAxisVersionLine, anatomy_version_stamp.hpp::merge_stamp_line). Zusaetzlich zu den zwei
-    // Section-58-Arrays (System + Organ) traegt die Tier-Binary damit die Merge-Art + Namen/Versionen der beteiligten
-    // Achsen-Algorithmen (Section 59-C). ce-only-/Identitaets-Fall (Stufe1_CeOnly / "CacheEngine"/self) -> Zeiger auf
-    // "" (nie nullptr), merge_len == 0 -> der ce-only-/Katalog-Pfad bleibt byte-identisch (golden-CRC unberuehrt; die
-    // Merges sind ein additiver id-Satz). APPEND-ONLY ans POD-Ende -> die Offsets von organ_/system_/measurement_
-    // bleiben stabil; nur kAnatomyVersionLinesLayout bumpt (2 -> 3). KEIN binary_id-/CRC-Bruch (POD-Layout != binary_id).
-    char const*   merge_line; ///< kMergeAxisVersionLine (nullterminiert; "" wenn ce-only/identity=self)
-    std::uint64_t merge_len;  ///< merge_line-Laenge ohne '\0'
-    // K7b-3 (Section 62-B / Section 64, 2026-07-22; User-GO D2={ptr,len}, D3=concat organ+system+measurement+merge):
-    // der SHA-512-Fingerprint der VIER Stempel-Zeilen als 128-hex-Zeile = kompakter Provenienz-Anker (Saat fuer den
+    // A13-M3 (Owner-E2 02.08.2026, "Merge Zeile kann daher nicht existieren"): die frueheren Felder
+    // merge_line/merge_len (K7a, der "dritte Tier-Binary-Stempel" = Merge-Kombination) sind HIER ERSATZLOS
+    // ENTFALLEN. Die Merge-DURCHFUEHRUNG bleibt (profile_facade/merge_plan.hpp, Owner-Q2) -- sie lebt im
+    // Stempel nur noch ueber das 'e'-Experimentalflag und die erweiterten hierarchischen Namen, nicht mehr
+    // als eigene Zeile. Es ist der ERSTE Feld-ENTFALL dieses POD (bis Layout 5 war alles append-only).
+    // K7b-3 (Section 62-B / Section 64, 2026-07-22; Manager-Entscheid D2={ptr,len}, D3=feste Preimage-Ordnung):
+    // der SHA-512-Fingerprint der Stempel-Zeilen als 128-hex-Zeile = kompakter Provenienz-Anker (Saat fuer den
     // #46b-std::map-Lookup). INNEN im Makro consteval aus der K7b-1-Primitive berechnet (anatomy_fingerprint.hpp) ->
-    // der emittierte Quelltext bleibt byte-identisch (2/3/4-arg-Call unveraendert), golden-CRC UNBERUEHRT. APPEND-ONLY
-    // ans POD-Ende -> Offsets von organ_/system_/measurement_/merge_ stabil; nur kAnatomyVersionLinesLayout bumpt (3 -> 4).
-    char const*   sha512_line; ///< SHA-512-Fingerprint concat(organ+system+measurement+merge), 128-hex (nullterminiert)
+    // der emittierte Quelltext bleibt byte-identisch (2/3-arg-Call unveraendert), golden-CRC UNBERUEHRT.
+    char const*   sha512_line; ///< SHA-512-Fingerprint ueber die Glied-Folge (anatomy_fingerprint_glieder), 128-hex
     std::uint64_t sha512_len;  ///< sha512_line-Laenge ohne '\0' (immer 128)
     // G2-1b (Lager-Gate A4, Section 58-V/Section 66): die ARRAY-Form der drei ersten Stempel-Zeilen als je ein
     // {Zeiger,Count}-Paar von AnatomyStampEntryV1 (aus DENSELBEN Literalen INNEN im Makro consteval parst, keine zweite
     // Wahrheit). Organ- und System-Array bleiben ZWEI getrennte Felder, NIE fusioniert (Layer-Doktrin). count==0 ->
-    // Zeiger auf kAnatomyStampNoEntries (nie nullptr, ""-Doktrin). APPEND-ONLY ans POD-Ende -> die Offsets aller
-    // bisherigen Felder (organ_/system_/measurement_/merge_/sha512_) bleiben stabil; nur kAnatomyVersionLinesLayout
-    // bumpt (4 -> 5). KEIN binary_id-/CRC-Bruch (POD-Layout != binary_id). Ein Konsument liest diese Felder NUR bei
-    // stamp_layout_version >= 5 (stamp_pod_has_entries) -- Alt-DLLs (Layout <= 4) tragen sie nicht.
+    // Zeiger auf kAnatomyStampNoEntries (nie nullptr, ""-Doktrin). KEIN binary_id-/CRC-Bruch (POD-Layout !=
+    // binary_id). Ein Konsument liest diese Felder NUR bei stamp_layout_version == 6 (stamp_pod_has_entries) --
+    // A13-M3 hat die Offsets um -16 verschoben, ein >=-Praedikat waere ab hier falsch (K-4, s.u.).
     AnatomyStampEntryV1 const* organ_entries;           ///< Organ-Array [g,h,i] (17 Haupt-Achsen)
     std::uint64_t              organ_entry_count;       ///< Anzahl organ_entries
     AnatomyStampEntryV1 const* system_entries;          ///< System-Array [d,e,f] (5 Achsen) -- NIE mit Organ fusioniert
@@ -203,24 +197,49 @@ struct AnatomyVersionLines {
 /// K7b-3 (Section 62-B, 2026-07-22): 3 -> 4 (sha512_line/sha512_len ans POD-Ende = SHA-512-Fingerprint der 4 Zeilen).
 /// G2-1b (Lager-Gate A4, Section 58-V/Section 66): 4 -> 5 (drei {ptr,count}-Array-Paare ans POD-Ende = die Array-Form
 /// der Organ-/System-/Mess-Stempel-Zeilen; INNEN consteval aus denselben Literalen parst -> emitter-/golden-neutral).
-inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 5;
+/// A13-M3 (Owner-E2 02.08.2026): 5 -> 6 (merge_line/merge_len ERSATZLOS ENTFERNT). Das ist der ERSTE Feld-ENTFALL
+/// dieses POD -- KEIN Append. Er verschiebt die Offsets von sha512_line/organ_entries/... um -16 Byte.
+inline constexpr std::uint32_t kAnatomyVersionLinesLayout = 6;
 
-/// POD-Layout-Wache: AnatomyVersionLines ist ein POD aus 18 Feldern (2x uint32 + 5x {char const*, uint64} +
-/// 3x {AnatomyStampEntryV1 const*, uint64}), 8-aligned -> 136 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist
+/// POD-Layout-Wache: AnatomyVersionLines ist ein POD aus 16 Feldern (2x uint32 + 4x {char const*, uint64} +
+/// 3x {AnatomyStampEntryV1 const*, uint64}), 8-aligned -> 120 Byte auf x86_64 (8-Byte-Zeiger). Bricht dieser Wert, ist
 /// das POD-Layout gewandert: dann kAnatomyVersionLinesLayout bumpen UND diesen erwarteten sizeof aktualisieren (die
 /// COMDARE_ANATOMY_VERSION_STAMP-Materialisierung + jeder Modul-Rebau haengen daran). KLEINES ABI-Gate, KEIN
 /// binary_id-/CRC-Bruch (das optionale Probe-Symbol ist nicht Loader-Pflicht, binary_id bleibt Organ-only).
-static_assert(sizeof(AnatomyVersionLines) == 136,
+static_assert(sizeof(AnatomyVersionLines) == 120,
               "AnatomyVersionLines-POD-Layout gewandert -- kAnatomyVersionLinesLayout bumpen + erwarteten "
-              "sizeof (136 auf x86_64) aktualisieren.");
+              "sizeof (120 auf x86_64) aktualisieren.");
 static_assert(alignof(AnatomyVersionLines) == 8, "AnatomyVersionLines: 8-Byte-Ausrichtung erwartet (Zeiger).");
 
-/// Loader-Gate (A4): true, wenn der POD die Array-Form (organ_/system_/measurement_entries) traegt (Layout >= 5).
-/// Alt-DLLs (Layout <= 4) haben die drei {ptr,count}-Paare NICHT -> ein Konsument MUSS das pruefen, bevor er
-/// organ_entries et al. liest (sonst Lesen ueber das Alt-POD-Ende hinaus). Die 12 Alt-Felder bleiben immer gueltig.
+/// Loader-Gate (A4) -- A13-M3/K-4: GLEICHHEITS-Wache statt `>= 5`.
+///
+/// TRAGENDE BEGRUENDUNG (nicht Stilfrage): bis Layout 5 wuchs der POD ausschliesslich am ENDE, deshalb war ein
+/// `>=`-Praedikat korrekt -- ein neueres POD trug die alten Felder an denselben Offsets. Der A13-M3-Feld-ENTFALL
+/// (merge_line/merge_len) bricht genau diese Voraussetzung: er verschiebt sha512_line/organ_entries/... um -16.
+/// Ein `>= 5`-Leser wuerde ein v6-POD mit v5-Offsets lesen (und ein v5-POD mit v6-Offsets) -- er laege um zwei
+/// Felder daneben und wuerde stille Zeiger-Muell liefern. Mit `== 6` faellt jedes fremde Layout hart durch.
 [[nodiscard]] constexpr bool stamp_pod_has_entries(AnatomyVersionLines const& v) noexcept {
-    return v.stamp_layout_version >= 5;
+    return v.stamp_layout_version == 6;
 }
+
+namespace detail {
+/// CT-Probe-POD mit frei waehlbarer Layout-Version. Die Zeiger sind nullptr und werden NIE dereferenziert --
+/// die Wache liest ausschliesslich stamp_layout_version.
+[[nodiscard]] constexpr AnatomyVersionLines stamp_pod_layout_probe(std::uint32_t layout) noexcept {
+    return AnatomyVersionLines{layout, 0u, "", 0u, "", 0u, "", 0u, "", 0u, nullptr, 0u, nullptr, 0u, nullptr, 0u};
+}
+} // namespace detail
+
+/// A13-M3/K-4 CT-NEGATIV-PROBE: der Alt-Wert 5 (und jede Zukunft) MUSS false liefern. Ohne diese Probe waere
+/// ein versehentliches Zurueckdrehen auf `>=` gruen -- die Offset-Verschiebung ist unsichtbar, bis ein
+/// Konsument Muell liest.
+static_assert(stamp_pod_has_entries(detail::stamp_pod_layout_probe(6u)),
+              "K-4: das EIGENE Layout 6 muss die Array-Form fuehren.");
+static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(5u)),
+              "K-4: Layout 5 traegt merge_line/merge_len und hat damit ANDERE Offsets -- es darf NIE als "
+              "Array-Form-faehig gelten (das war der Fehler, den Append-only bisher ausschloss).");
+static_assert(!stamp_pod_has_entries(detail::stamp_pod_layout_probe(7u)),
+              "K-4: ein kuenftiges Layout 7 ist ebenfalls unbekannt -- Gleichheit, nicht Ordnung.");
 
 } // namespace comdare::cache_engine::abi
 
