@@ -1593,7 +1593,8 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_d_v42_telemetry_registry_observable  # V42 L-74c telemetry-Registry-Pfad (StaticAxisVariants -> Huellen)
     test_genus_permutation_engines            # L-76a-c per-Gattung PermutationEngines (Set/Sequence/View Factory+Engine)
     test_axis_growth_policies                 # L-76b axis_growth Mehr-Policy-Achse (Doubling/GoldenRatio/FixedChunk/Exact + Registry)
-    test_axis_view_policies)                  # L-76c View-Achsen extent/layout/accessor (mdspan-Policies + Registries)
+    test_axis_view_policies                   # L-76c View-Achsen extent/layout/accessor (mdspan-Policies + Registries)
+    test_e24_c0_organ_concept)                # E-24 C0 (M0-Vorstufe): OrganConcept gegen alle 5 Gattungs-Anatomien
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
