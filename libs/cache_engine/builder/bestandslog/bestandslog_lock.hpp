@@ -62,6 +62,13 @@ struct BestandTransport {
     std::function<bool(std::string const& key)> remove;
     // stat: Metadaten (nullopt = fehlt). Fuer spaetere Index-/Listing-Scheiben; der Lock nutzt es nicht.
     std::function<std::optional<ObjectStat>(std::string const& key)> stat;
+    // list: alle Objekt-Schluessel unter einem Praefix (N8-Variante-B, per-Owner-Sidecars). OPTIONAL
+    // und bewusst als FUENFTES Verb hinten angehaengt -- eine bestehende Belegung der vier Verben
+    // bleibt gueltig, das Feld ist dann schlicht leer. DEKLARIERTE Luecke (L14): der reale Binder
+    // fehlt, weil ArtifactCache heute kein Listing-Verb hat (object_fetch/store/remove/stat, kein
+    // object_list -- verifiziert). Jeder Konsument MUSS den ungebundenen Fall als eigene
+    // Fehlerklasse melden (auflistung_nicht_verfuegbar), nie still nichts tun.
+    std::function<std::vector<std::string>(std::string const& praefix)> list;
 };
 
 // Zeitquelle (Epoch-Sekunden). Injizierbar -> deterministische ttl-/Interleaving-Tests.

@@ -125,6 +125,31 @@ struct LagerKey {
     return LagerKey{*k, zelle};
 }
 
+// ---------------------------------------------------------------------------
+// TP1-ARBEITS-INVENTUR -- DEKLARATION (A1-Lager-Rest-Welle S5; Testat, kein Bau).
+//
+// Drei Feststellungen, die an DIESER Naht stehen muessen, weil hier ueber "Bestand ja/nein"
+// entschieden wird:
+//
+// (a) VOR Voll-Bau-4 existiert KEIN schuetzenswerter Bestand (Ledger:3642 M2-[8], :3749). Ein
+//     Wire-Bruch am Bestandslog (zuletzt syntax_version 3 -> 4 fuer den Versions-Tag) und die
+//     N8-B-Sidecars treffen also auf einen Nicht-Bestand -- ausgewiesen, aber harmlos.
+//
+// (b) Die v5-AERA-TP1-PROBE-BESTAENDE sind gegen v6-Fingerprints INVALID. Der Fingerprint-Global-
+//     Shift von A13-M3 hat gleich vier Ursachen (merge-Zeile entfaellt, '\n'-Separator, Format-
+//     Kennung als erstes Glied, Sub-Achsen-Werteset als eigenes Glied) -- jeder Alt-Key zeigt
+//     damit auf nichts. Das Arbeits-Ist traegt das ohne Sonderweg: die Regel ist FAIL-CLOSED --
+//     kein `.fingerprint` in v6-Form => key_from_hex/lager_key_from_entry liefern nullopt bzw. der
+//     Lookup verfehlt => NEUBAU. Es gibt KEIN Grandfathering und keine Alt-Key-Uebersetzung
+//     (F7-Uebergangsregel); eine solche waere geraten und wuerde einen falschen Treffer erzeugen.
+//
+// (c) Die FINAL-Inventur kommt erst NACH W10 und E-24 (R15). W10 verschiebt die System-ZELLWERTE
+//     und E-24 den Major 7 -> 8; beide bewegen JEDEN kuenftigen v6-Key erneut. Deshalb eicht diese
+//     Welle NICHTS auf konkrete heutige Digest-WERTE -- geprueft wird ausschliesslich die FORM
+//     (128 Klein-Hex, s. ist_fingerprint_hex im Baum-Writer). Die A2-Eichung erfolgt EINMALIG
+//     ZULETZT (FAHRPLAN:18); alles andere waere ein Doppel-Neuanker.
+// ---------------------------------------------------------------------------
+
 // Der Lager-Index: (SHA512, Zelle) -> Eintrag.
 using LagerIndex = std::map<LagerKey, BestandEintrag>;
 

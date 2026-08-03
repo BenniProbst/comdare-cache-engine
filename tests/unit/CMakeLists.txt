@@ -4297,6 +4297,20 @@ target_include_directories(test_ge3_messwert_genus_und_ziel PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_ge3_messwert_genus_und_ziel PRIVATE Threads::Threads)
 
+# A1-Lager-Rest S5: der LAUF-START-Claim-Check (G-E1/2.4-(8)/ABNAHME-6) und N8-Variante-B
+# (per-Owner-Sidecar-Registrierung, bestandslog/registrierungs_sidecar.hpp). Include-/Link-Satz
+# wie test_g3_takeover_sweep (ctsha512 via Index; Threads fuer den Retry-Jitter-Sleep) --
+# registrierungs_sidecar.hpp zieht knoten_heuristik_log.hpp (EINE Zustands-/Nachweis-Doktrin) und
+# darueber den Baum-Writer, also Boost::mp11.
+comdare_add_test(test_ge1_claim_check_und_sidecar
+    SOURCES test_ge1_claim_check_und_sidecar.cpp)
+target_include_directories(test_ge1_claim_check_und_sidecar PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_ge1_claim_check_und_sidecar PRIVATE Threads::Threads Boost::mp11)
+
 # G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
 comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)

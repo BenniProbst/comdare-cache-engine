@@ -775,6 +775,12 @@ struct LazyRunResult {
     // Differenzierung: dll_is_current-Resumes == built_skip - bestand_lager_skips). 0 ausserhalb des
     // planer-getriebenen Pfads bzw. ohne Praesenz-Praedikat (byte-neutral).
     std::size_t bestand_lager_skips = 0;
+    // G-E1 / ABNAHME-6 (A1-Lager-Rest-Welle): die Zahl der beim LAUF-START uebernommenen fremden
+    // Reservierungen (bestaetigt released, TP1FK1-B4-Revalidierung). Sie ist der Beleg des
+    // Claim-Checks: die Fenster dieser Reservierungen liegen per scope_covers_slice VOLL in der
+    // Selektion dieses Laufs und werden deshalb ueber den per-Binary-Miss-Weg real NACHGEBAUT.
+    // 0 ausserhalb des planer-getriebenen Baus (dort findet kein Claim-Check statt).
+    std::size_t bestand_takeover_uebernommen = 0;
 };
 
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
@@ -1179,12 +1185,38 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // aus derselben Ueberlegung: ein Release ist nur dann korrekt, wenn dieser Lauf die freigegebene
     // Arbeit ueber den per-Binary-Miss-Weg auch wirklich aufnimmt. Ein planer_block (CEB-Compile) und
     // ein Fenster ausserhalb von `indices` erfuellen das nicht -> stehen lassen.
-    if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
-        (void)bestandslog::takeover_expired_reservations(
+    //
+    // G-E1 / 2.4-(8) (A1-Lager-Rest-Welle): der Sweep ist der CLAIM-CHECK. Sein Ergebnis wird nicht
+    // mehr verworfen, sondern (a) im Lauf-Ergebnis gefuehrt (bestand_takeover_uebernommen) und
+    // (b) mit einer eigenen Testat-Zeile belegt, die die zweite Haelfte der Uebernahme AUSSPRICHT:
+    // die uebernommenen Fenster liegen per scope_covers_slice VOLL in `indices` -- dieser Lauf baut
+    // sie also ueber den per-Binary-Miss-Weg real nach. Ohne diese Zeile war "uebernommen" eine
+    // Buchung ohne sichtbare Arbeitsaufnahme. 0-Fall schweigt (Normalbetrieb bleibt zeilen-identisch).
+    //
+    // Beifang Section 75-(23), NUR DOKUMENTIERT (Fix gehoert in den Aufraeumpass): der Aufruf steht
+    // ohne try/catch. takeover_expired_reservations wirft nach heutigem Stand nicht (alle Ausgaenge
+    // sind Rueckgabewerte), aber die Transport-Lambdas des Hosts koennen es -- ein Wurf hier risse
+    // den BAU ab, obwohl das Bestandslog Buchhaltung ist. Der Faenger ist bewusst nicht Teil dieser
+    // Scheibe (kein Scope-Creep), sondern benannt.
+    //
+    // planer_block-REAPER bleibt DEKLARIERT OFFEN (TP1FK1-B1-Folgebeobachtung): der Tier-Sweep laesst
+    // planer_block-Reservierungen ausdruecklich stehen (typ_fremd). Ein eigener Reaper wird erst
+    // sinnvoll, wenn der Zweit-Planer-Konsument (profile_run_facade.hpp:248) real wird -- vorher
+    // gaebe es niemanden, der die freigegebene CEB-Arbeit aufnimmt.
+    if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only)) {
+        auto const claim = bestandslog::takeover_expired_reservations(
             cfg.bestand_transport, cfg.bestand_doc_key,
             bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine),
             bestandslog::default_lock_ttl_s(), bestandslog::NowFn{&bestandslog::system_now_epoch_s},
             bestandslog::make_sweep_scope(bestandslog::BatchTyp::tier, std::span<std::size_t const>{indices}));
+        result.bestand_takeover_uebernommen = claim.uebernommen;
+        if (claim.offene_fremde > 0 || claim.uebernommen > 0)
+            std::cerr << "[bestandslog] claim-check: " << claim.offene_fremde
+                      << " fremde offene Reservierung(en) geprueft, " << claim.uebernommen
+                      << " uebernommen -- ihre Fenster liegen voll in der Selektion dieses Laufs (" << indices.size()
+                      << " Indizes) und werden ueber den per-Binary-Miss-Weg NACHGEBAUT\n"
+                      << std::flush;
+    }
 
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
