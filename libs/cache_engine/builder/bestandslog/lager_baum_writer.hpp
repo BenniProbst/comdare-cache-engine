@@ -467,6 +467,10 @@ struct BaumAblage {
     std::function<bool(std::string const& pfad, std::string const& inhalt)> datei_schreiben;
     std::function<std::optional<std::string>(std::string const& pfad)>      datei_lesen;
     std::function<bool(std::string const& pfad)>                            existiert;
+    // Loeschen (idempotent: fehlend == ok). Fuenftes Verb, weil der Knoten-Lock (LB-1) sein
+    // <doc>.lock-Nebenobjekt wieder abraeumen muss -- dieselbe Vier-Verben-Naht wie BestandTransport
+    // plus genau dieses eine. Ein Writer ohne Loeschen bliebe auf jedem Lock sitzen.
+    std::function<bool(std::string const& pfad)> datei_entfernen;
 };
 
 /// Die reale Bindung an std::filesystem. Fehler reisen als false (die Aufrufer klassifizieren sie als
@@ -495,6 +499,11 @@ struct BaumAblage {
     a.existiert = [](std::string const& pfad) -> bool {
         std::error_code ec;
         return std::filesystem::exists(std::filesystem::path{pfad}, ec);
+    };
+    a.datei_entfernen = [](std::string const& pfad) -> bool {
+        std::error_code ec;
+        std::filesystem::remove(std::filesystem::path{pfad}, ec);
+        return !ec; // idempotent: eine fehlende Datei ist kein Fehler (remove meldet dann nur false)
     };
     return a;
 }

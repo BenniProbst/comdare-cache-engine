@@ -4271,6 +4271,19 @@ target_include_directories(test_lb0_lager_pfad_grammatik PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_lb0_lager_pfad_grammatik PRIVATE Boost::mp11)
 
+# A1-Lager-Rest LB-1: complete-heuristik.log je Knoten + Alleinschreiber-Lock + die
+# Truncate-Zustandsmaschine (bestandslog/knoten_heuristik_log.hpp). Eigener Test wegen der
+# Owner-Auflage A-1 ("Truncate ist die Bug-Quelle" -> eigene Test-Klasse). Include-/Link-Satz wie
+# test_lb0_lager_pfad_grammatik (der Knoten-Log zieht den Baum-Writer und damit die 18 Organ-Achsen).
+comdare_add_test(test_lb1_knoten_heuristik_log
+    SOURCES test_lb1_knoten_heuristik_log.cpp)
+target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_lb1_knoten_heuristik_log PRIVATE Boost::mp11)
+
 # G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
 comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)
