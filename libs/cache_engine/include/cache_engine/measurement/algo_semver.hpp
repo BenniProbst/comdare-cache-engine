@@ -152,6 +152,23 @@
 ///       A-15-Neutralitaet der Probe (kein erhobener Wert und keine probe_id reist in den Binary-Stempel)
 ///       bleibt unangetastet.
 ///       Erhebung: der generische Wachen-grep oben faengt sie (operating_system_probe.hpp).
+///   (g) OD-10-RT (03.08.2026): die NUMA/PAGE-ERHEBUNGS-Verfahrens-Version.
+///       measurement/numa_page_probe.hpp fuehrt kNumaPageProbeVersion als EIGENES ce-Literal --
+///       wieder EIN Literal und DREI probe_ids ("numa_page_probe.<familie>@v1.0.0c", je Familie eine).
+///       Sie entsteht NACH dem A13-M3/C4-Vollzug und startet deshalb sofort dreistellig mit
+///       CPU-Flag; es gibt fuer sie keine Migration, nur die beiden Wachen ab Zeile eins.
+///       MECHANISCH GESICHERT: der Header traegt beide B12-Wachen (ungated
+///       ce_owned_version_is_wellformed im K5-Vertrag, gated ce_owned_version_satisfies_cpu_enforce
+///       hinter COMDARE_VERSION_HW_FLAG_ENFORCE); literal verifiziert -- ein flagloses "v1.0.0"
+///       laesst alle DREI gated Wachen feuern, ein "v1.0.0ce" zusaetzlich den K5-Vertrag.
+///       WARUM SIE HIER STEHT, OBWOHL DER GENERISCHE GREP SIE FINDET: die Liste sagt, WELCHE
+///       Quellen-KLASSEN es gibt und woran eine neue erkannt wird. (f) und (g) sind DIESELBE Klasse
+///       "Erhebungs-Verfahrens-Version" mit zwei Auspraegungen -- wer eine dritte Probe baut, sieht
+///       hier, dass sie dazugehoert, statt sie fuer einen Sonderfall zu halten.
+///       ABGRENZUNG wie bei (f): probe_id-Ereignis, KEIN Stempel-Ereignis -- die A-15-Neutralitaet
+///       der Probe bleibt unangetastet, und die System-Achsen-Code-Version "target_isa" wird nicht
+///       gebumpt.
+///       Erhebung: der generische Wachen-grep oben faengt sie (numa_page_probe.hpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif
