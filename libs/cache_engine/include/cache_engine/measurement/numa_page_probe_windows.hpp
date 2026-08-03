@@ -30,6 +30,7 @@
 #include <cache_engine/measurement/numa_page_probe.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <utility>
@@ -46,20 +47,34 @@ namespace comdare::cache_engine::measurement {
     static_cast<void>(ctx);
 
     // -- numa_node: erst die noetige Puffergroesse erfragen, dann den Puffer fuellen --------------
-    NumaNodeSetResult nodes  = std::unexpected(NumaPageProbeError{HardwareProbeErrorClass::QuelleKorrupt});
-    DWORD             length = 0;
-    if (::GetLogicalProcessorInformationEx(RelationNumaNode, nullptr, &length) == FALSE &&
-        ::GetLastError() == ERROR_INSUFFICIENT_BUFFER && length > 0) {
+    // JEDER Ausgang ist ausdruecklich belegt und keiner haengt an einem STALE GetLastError(): der
+    // Fehlercode wird nur DIREKT nach einem als FALSE gemeldeten Aufruf gelesen. Nach einem Erfolg
+    // ist er undefiniert -- ihn dort auszuwerten waere genau die Sorte stiller Fehlklassifikation,
+    // gegen die die K4-Trennung gebaut ist.
+    NumaNodeSetResult nodes =
+        std::unexpected(NumaPageProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+    DWORD length = 0;
+    if (::GetLogicalProcessorInformationEx(RelationNumaNode, nullptr, &length) != FALSE) {
+        // Dokumentiert unmoeglich (der nullptr-Aufruf MUSS mit ERROR_INSUFFICIENT_BUFFER scheitern).
+        // Trifft er doch ein, ist die Schnittstelle da, aber ihr Ergebnis unbrauchbar -> QuelleKorrupt.
+        nodes = std::unexpected(NumaPageProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+    } else if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+        // Die Schnittstelle traegt auf diesem Host nicht -> D1-Befund (Vorbelegung, hier nur benannt).
+    } else if (length == 0) {
+        nodes = std::unexpected(NumaPageProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+    } else {
         std::vector<unsigned char> buffer(static_cast<std::size_t>(length));
         auto* const                first = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data());
-        if (::GetLogicalProcessorInformationEx(RelationNumaNode, first, &length) != FALSE) {
+        if (::GetLogicalProcessorInformationEx(RelationNumaNode, first, &length) == FALSE) {
+            nodes = std::unexpected(NumaPageProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+        } else {
             NumaNodeSet ids;
             DWORD       offset = 0;
             bool        broken = false;
             while (offset < length) {
                 auto const* const entry =
                     reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX const*>(buffer.data() + offset);
-                if (entry->Size == 0 || offset + entry->Size > length) {
+                if (entry->Size == 0 || entry->Size > length - offset) {
                     broken = true;
                     break;
                 }
@@ -74,13 +89,14 @@ namespace comdare::cache_engine::measurement {
                 offset += entry->Size;
             }
             std::sort(ids.begin(), ids.end());
+            // Leere Menge, Ueberlauf-/Deckel-Bruch und Duplikate sind ALLE QuelleKorrupt: die
+            // Schnittstelle hat geantwortet, ihre Antwort traegt aber keine gueltige Werte-Menge.
+            // 'n/a statt Null': eine leere Liste wird NIE als Erfolg gemeldet.
             if (!broken && !ids.empty() && std::adjacent_find(ids.begin(), ids.end()) == ids.end())
                 nodes = std::move(ids);
-        } else {
-            nodes = std::unexpected(NumaPageProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+            else
+                nodes = std::unexpected(NumaPageProbeError{HardwareProbeErrorClass::QuelleKorrupt});
         }
-    } else if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-        nodes = std::unexpected(NumaPageProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
     }
 
     // -- page: Basis-Seite plus die EINE angebotene grosse Seite -----------------------------------
