@@ -264,28 +264,31 @@ TEST(G3BestandslogDocument, ReadsLegacyV1DocumentWithoutCellAttributes) {
 
 // Der Syntax-Bump ist gesetzt und schuetzt genau nach unten: ein aelterer LESER lehnt ein neueres
 // Dokument ab, waehrend der heutige Leser alle aelteren Grammatiken vertraegt.
-TEST(G3BestandslogDocument, SyntaxVersionBumpedToThree) {
-    EXPECT_EQ(bl::kSyntaxVersion, 3);
+// A1-Lager-Rest/G-E6: 3 -> 4 (das OPTIONALE versions-Attribut am <eintrag>). Der Fall wandert mit,
+// er wird nicht ersetzt -- die Zusage "nach unten treu" gilt jetzt fuer DREI Alt-Grammatiken.
+TEST(G3BestandslogDocument, SyntaxVersionBumpedToFour) {
+    EXPECT_EQ(bl::kSyntaxVersion, 4);
     EXPECT_EQ(bl::kSemanticsVersion, 1);
 
     bl::BestandslogDocument d;
-    EXPECT_EQ(d.syntax_version, 3); // frisch erzeugte Dokumente tragen die neue Grammatik
-    EXPECT_NE(bl::emit_document(d).find("syntax_version=\"3\""), std::string::npos);
+    EXPECT_EQ(d.syntax_version, 4); // frisch erzeugte Dokumente tragen die neue Grammatik
+    EXPECT_NE(bl::emit_document(d).find("syntax_version=\"4\""), std::string::npos);
 
-    // Nach unten vertraeglich: v1 (ohne Zell-Koordinaten) und v2 (ohne CEB-Bindung) bleiben lesbar.
-    for (int alt_version : {1, 2}) {
+    // Nach unten vertraeglich: v1 (ohne Zell-Koordinaten), v2 (ohne CEB-Bindung) und v3 (ohne
+    // Versions-Tag) bleiben lesbar.
+    for (int alt_version : {1, 2, 3}) {
         bl::BestandslogDocument alt;
         alt.syntax_version = alt_version;
         EXPECT_TRUE(bl::document_syntax_supported(alt)) << alt_version;
     }
     // Nach oben geschlossen: die naechste Grammatik ist fuer diesen Leser nicht sicher lesbar.
     bl::BestandslogDocument zukunft;
-    zukunft.syntax_version = 4;
+    zukunft.syntax_version = 5;
     EXPECT_FALSE(bl::document_syntax_supported(zukunft));
 
-    // Und der Sinn des Bumps: ein v2-Leser haette die zwei neuen batch-Attribute stillschweigend
-    // geschluckt und eine versions-FREMDE Reservierung fuer die eigene gehalten.
-    EXPECT_GT(d.syntax_version, 2);
+    // Und der Sinn des Bumps: ein v3-Leser haette das neue eintrag-Attribut stillschweigend
+    // geschluckt und einen versions-FREMDEN Bestand fuer den eigenen gehalten.
+    EXPECT_GT(d.syntax_version, 3);
 }
 
 // ---------------------------------------------------------------------------

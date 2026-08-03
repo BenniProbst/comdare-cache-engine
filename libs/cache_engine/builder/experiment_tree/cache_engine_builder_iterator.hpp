@@ -39,6 +39,7 @@
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
 #include "../bestandslog/builder_registration.hpp"      // #46b I1: Bestandslog-Registrierung/Dedup (opt-in, No-Op-Naht)
 #include "../bestandslog/lager_presence.hpp" // Lager-TP1(B)/G-E2: PresenceFn aus lager_contains + Fingerprint binden
+#include "../bestandslog/messwert_registrierung.hpp" // G-E3: der produktive Schreiber des measurement-Genus
 #include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
@@ -231,6 +232,19 @@ struct LazyRunConfig {
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
+    // G-E3 (A1-Lager-Rest-Welle): das ZWEITE Genus PRODUKTIV. Bis hierher schrieb der Iterator nur
+    // Binaries ins Lager; die MesswertKeyPolicy der B3-Factory hatte keinen Schreiber (Dossier-Befund
+    // G-E3). Diese drei Felder verdrahten ihn -- exakt im Muster der drei bestand_*-Felder darueber
+    // und mit derselben OPT-IN-Regel: alle leer/ungesetzt (Default) => KEINE Messwert-Registrierung
+    // => byte-/verhaltensneutral. Der Schluessel ist NICHT der Binary-Fingerprint, sondern der
+    // Messwert-Schluessel (messwert_key_hex ueber Mess-Zeilen + Hardware-Identitaet, keine Fusion);
+    // mess_bestand_key_of nimmt das bin_dir der gemessenen Zelle und liefert ihn.
+    // D-05: Bestandslog wird beim BAU **und** beim MESSEN fortgeschrieben, JE REALM (eigener doc_key).
+    std::string                                                             mess_bestand_doc_key;
+    std::function<std::optional<std::string>(std::filesystem::path const&)> mess_bestand_key_of;
+    // G-E6 (syntax_version 4): der optionale Versions-Tag der Haupt-Achsen ("achse@X.Y.Zc;..."), den
+    // jeder Messwert-Eintrag mitfuehrt. Leer = nicht gemeldet (v3-byte-gleiche Ausgabe).
+    std::string mess_bestand_versions;
     // Folge-A (§62-NACHTRAG-4): die drei Zell-Koordinaten [d,e,f] DIESES Laufs (combo/opt/simd). Der Lager-
     // Schluessel ist das TUPEL (Fingerprint, Zelle) -- der Fingerprint allein traegt die per-Zelle-ISA nicht,
     // zwei Bauten derselben Permutation unter avx2/avx512 wuerden sonst falsch dedupliziert. Je Lauf konstant
@@ -1144,6 +1158,13 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                                     static_cast<bool>(cfg.bestand_key_of) && !cfg.bestand_doc_key.empty();
     bestandslog::LagerRunState lager;
     if (bestandslog_active) lager.load(cfg.bestand_transport, cfg.bestand_doc_key);
+    // G-E3: der Messwert-Genus-Zustand. EIGENES Gate (eigener doc_key + eigener Key-Provider), damit
+    // ein Host das Binary-Lager fahren kann, ohne das Messwert-Lager zu fuehren -- und umgekehrt.
+    bool const mess_bestandslog_active =
+        static_cast<bool>(cfg.bestand_transport.fetch) && static_cast<bool>(cfg.bestand_transport.store) &&
+        static_cast<bool>(cfg.mess_bestand_key_of) && !cfg.mess_bestand_doc_key.empty();
+    bestandslog::MesswertRunState mess_lager;
+    if (mess_bestandslog_active) mess_lager.load(cfg.bestand_transport, cfg.mess_bestand_doc_key);
 
     // G-E1 (ABNAHME-6): der TAKEOVER-SWEEP am Lauf-Start -- fremde offene Reservierungen pruefen,
     // verfallene uebernehmen (released; die unverzeichnete Arbeit baut dieser Lauf ueber den
@@ -1299,6 +1320,18 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         auto const reg = lager.flush(cfg.bestand_transport, cfg.bestand_doc_key, bestandslog::now_utc_iso(),
                                      bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine));
         std::cerr << "[bestandslog] lager=" << lager.lager_size() << " hits=" << lager.lager_hits()
+                  << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (nicht persistiert)") << "\n"
+                  << std::flush;
+    };
+
+    // G-E3: derselbe Abschluss fuer das MESSWERT-Genus -- eigener Helfer, eigenes Dokument, eigene
+    // Testat-Zeile. Er laeuft NUR am Ende des Mess-Pfades (die Bau-Ausgaenge messen nichts, dort
+    // waere die Zeile ein Rauschen mit neu=0).
+    auto const messwert_flush = [&]() {
+        if (!mess_bestandslog_active) return;
+        auto const reg = mess_lager.flush(cfg.bestand_transport, cfg.mess_bestand_doc_key, bestandslog::now_utc_iso(),
+                                          bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine));
+        std::cerr << "[bestandslog] messwert-lager=" << mess_lager.lager_size() << " hits=" << mess_lager.lager_hits()
                   << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (nicht persistiert)") << "\n"
                   << std::flush;
     };
@@ -1840,6 +1873,24 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 if (std::filesystem::exists(rcsv, sec)) // Ebene C: result.csv -> measure-drop (Baum/<stem>/result.csv)
                     cfg.measurement_sink(rcsv, bin_dir.filename().string() + "/result.csv");
             }
+            // G-E3 (A1-Lager-Rest-Welle): die MESS-RUECKSCHRIEB-NAHT. Je GEMESSENER Zelle einen
+            // BestandEintrag ins measurement-Genus vormerken -- thread-sicher (MesswertRunState haelt
+            // einen Mutex; im Debug-Mess-Pool ueberlappen die Zellen). Registriert wird NUR, wenn die
+            // result.csv wirklich existiert: ein Messwert-Eintrag ohne Messdatum waere unter einem
+            // kuenftigen Mess-Filter derselbe stille Verlustpfad, den CX-W1 fuer Binaries schloss.
+            if (mess_bestandslog_active) {
+                std::error_code             mec;
+                std::filesystem::path const rcsv = bin_dir / "result.csv";
+                if (std::filesystem::exists(rcsv, mec)) {
+                    auto const      mkey = cfg.mess_bestand_key_of(bin_dir);
+                    std::error_code gec;
+                    auto const      bytes = std::filesystem::file_size(rcsv, gec);
+                    (void)mess_lager.observe(mkey.value_or(std::string{}), cfg.bestand_zelle,
+                                             bestand_eintragspfad(bin_dir, cfg.output_dir),
+                                             gec ? std::uint64_t{0} : static_cast<std::uint64_t>(bytes), binary_id,
+                                             bestandslog::now_utc_iso(), cfg.mess_bestand_versions);
+                }
+            }
         }
         return oc; // handle: RAII entlaedt die DLL beim Verlassen der Zelle
     };
@@ -1887,6 +1938,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // Mess-Loop pusht STRIKT SYNCHRON je Binary, W11-Doktrin), es gibt keinen Pump und nichts
     // Ausstehendes; registriert wird am Ende, wie in den beiden anderen Ausgaengen.
     bestandslog_flush();
+    // G-E3: derselbe Zeitpunkt fuer das MESSWERT-Genus -- alle Zellen sind gemessen und ihre
+    // result.csv-Rueckschriebe geschehen. Inert, wenn das Messwert-Lager nicht verdrahtet ist.
+    messwert_flush();
 
     return result;
 }

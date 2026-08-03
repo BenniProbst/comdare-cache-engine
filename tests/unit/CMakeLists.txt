@@ -4284,6 +4284,19 @@ target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_lb1_knoten_heuristik_log PRIVATE Boost::mp11)
 
+# A1-Lager-Rest S4: G-E3 (produktiver Messwert-Genus-Schreiber), G-E6 (Versions-Tag +
+# syntax_version 3->4) und G-E7 (Dual-ccache-Ziel-Strategy + mc-Alias-Preflight). Reine
+# Bestandslog-Schicht: Include-Satz wie test_g3_builder_registration (ctsha512 via Index,
+# Threads fuer den Retry-Jitter im gelockten Zyklus), KEIN Boost/experiment_tree.
+comdare_add_test(test_ge3_messwert_genus_und_ziel
+    SOURCES test_ge3_messwert_genus_und_ziel.cpp)
+target_include_directories(test_ge3_messwert_genus_und_ziel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_ge3_messwert_genus_und_ziel PRIVATE Threads::Threads)
+
 # G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
 comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)
