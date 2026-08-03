@@ -39,6 +39,7 @@
 #include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
 #include "../bestandslog/builder_registration.hpp"      // #46b I1: Bestandslog-Registrierung/Dedup (opt-in, No-Op-Naht)
 #include "../bestandslog/lager_presence.hpp" // Lager-TP1(B)/G-E2: PresenceFn aus lager_contains + Fingerprint binden
+#include "../bestandslog/messwert_registrierung.hpp" // G-E3: der produktive Schreiber des measurement-Genus
 #include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
@@ -231,6 +232,19 @@ struct LazyRunConfig {
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
+    // G-E3 (A1-Lager-Rest-Welle): das ZWEITE Genus PRODUKTIV. Bis hierher schrieb der Iterator nur
+    // Binaries ins Lager; die MesswertKeyPolicy der B3-Factory hatte keinen Schreiber (Dossier-Befund
+    // G-E3). Diese drei Felder verdrahten ihn -- exakt im Muster der drei bestand_*-Felder darueber
+    // und mit derselben OPT-IN-Regel: alle leer/ungesetzt (Default) => KEINE Messwert-Registrierung
+    // => byte-/verhaltensneutral. Der Schluessel ist NICHT der Binary-Fingerprint, sondern der
+    // Messwert-Schluessel (messwert_key_hex ueber Mess-Zeilen + Hardware-Identitaet, keine Fusion);
+    // mess_bestand_key_of nimmt das bin_dir der gemessenen Zelle und liefert ihn.
+    // D-05: Bestandslog wird beim BAU **und** beim MESSEN fortgeschrieben, JE REALM (eigener doc_key).
+    std::string                                                             mess_bestand_doc_key;
+    std::function<std::optional<std::string>(std::filesystem::path const&)> mess_bestand_key_of;
+    // G-E6 (syntax_version 4): der optionale Versions-Tag der Haupt-Achsen ("achse@X.Y.Zc;..."), den
+    // jeder Messwert-Eintrag mitfuehrt. Leer = nicht gemeldet (v3-byte-gleiche Ausgabe).
+    std::string mess_bestand_versions;
     // Folge-A (§62-NACHTRAG-4): die drei Zell-Koordinaten [d,e,f] DIESES Laufs (combo/opt/simd). Der Lager-
     // Schluessel ist das TUPEL (Fingerprint, Zelle) -- der Fingerprint allein traegt die per-Zelle-ISA nicht,
     // zwei Bauten derselben Permutation unter avx2/avx512 wuerden sonst falsch dedupliziert. Je Lauf konstant
@@ -761,6 +775,12 @@ struct LazyRunResult {
     // Differenzierung: dll_is_current-Resumes == built_skip - bestand_lager_skips). 0 ausserhalb des
     // planer-getriebenen Pfads bzw. ohne Praesenz-Praedikat (byte-neutral).
     std::size_t bestand_lager_skips = 0;
+    // G-E1 / ABNAHME-6 (A1-Lager-Rest-Welle): die Zahl der beim LAUF-START uebernommenen fremden
+    // Reservierungen (bestaetigt released, TP1FK1-B4-Revalidierung). Sie ist der Beleg des
+    // Claim-Checks: die Fenster dieser Reservierungen liegen per scope_covers_slice VOLL in der
+    // Selektion dieses Laufs und werden deshalb ueber den per-Binary-Miss-Weg real NACHGEBAUT.
+    // 0 ausserhalb des planer-getriebenen Baus (dort findet kein Claim-Check statt).
+    std::size_t bestand_takeover_uebernommen = 0;
 };
 
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
@@ -1144,6 +1164,13 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                                     static_cast<bool>(cfg.bestand_key_of) && !cfg.bestand_doc_key.empty();
     bestandslog::LagerRunState lager;
     if (bestandslog_active) lager.load(cfg.bestand_transport, cfg.bestand_doc_key);
+    // G-E3: der Messwert-Genus-Zustand. EIGENES Gate (eigener doc_key + eigener Key-Provider), damit
+    // ein Host das Binary-Lager fahren kann, ohne das Messwert-Lager zu fuehren -- und umgekehrt.
+    bool const mess_bestandslog_active =
+        static_cast<bool>(cfg.bestand_transport.fetch) && static_cast<bool>(cfg.bestand_transport.store) &&
+        static_cast<bool>(cfg.mess_bestand_key_of) && !cfg.mess_bestand_doc_key.empty();
+    bestandslog::MesswertRunState mess_lager;
+    if (mess_bestandslog_active) mess_lager.load(cfg.bestand_transport, cfg.mess_bestand_doc_key);
 
     // G-E1 (ABNAHME-6): der TAKEOVER-SWEEP am Lauf-Start -- fremde offene Reservierungen pruefen,
     // verfallene uebernehmen (released; die unverzeichnete Arbeit baut dieser Lauf ueber den
@@ -1158,12 +1185,38 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // aus derselben Ueberlegung: ein Release ist nur dann korrekt, wenn dieser Lauf die freigegebene
     // Arbeit ueber den per-Binary-Miss-Weg auch wirklich aufnimmt. Ein planer_block (CEB-Compile) und
     // ein Fenster ausserhalb von `indices` erfuellen das nicht -> stehen lassen.
-    if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only))
-        (void)bestandslog::takeover_expired_reservations(
+    //
+    // G-E1 / 2.4-(8) (A1-Lager-Rest-Welle): der Sweep ist der CLAIM-CHECK. Sein Ergebnis wird nicht
+    // mehr verworfen, sondern (a) im Lauf-Ergebnis gefuehrt (bestand_takeover_uebernommen) und
+    // (b) mit einer eigenen Testat-Zeile belegt, die die zweite Haelfte der Uebernahme AUSSPRICHT:
+    // die uebernommenen Fenster liegen per scope_covers_slice VOLL in `indices` -- dieser Lauf baut
+    // sie also ueber den per-Binary-Miss-Weg real nach. Ohne diese Zeile war "uebernommen" eine
+    // Buchung ohne sichtbare Arbeitsaufnahme. 0-Fall schweigt (Normalbetrieb bleibt zeilen-identisch).
+    //
+    // Beifang Section 75-(23), NUR DOKUMENTIERT (Fix gehoert in den Aufraeumpass): der Aufruf steht
+    // ohne try/catch. takeover_expired_reservations wirft nach heutigem Stand nicht (alle Ausgaenge
+    // sind Rueckgabewerte), aber die Transport-Lambdas des Hosts koennen es -- ein Wurf hier risse
+    // den BAU ab, obwohl das Bestandslog Buchhaltung ist. Der Faenger ist bewusst nicht Teil dieser
+    // Scheibe (kein Scope-Creep), sondern benannt.
+    //
+    // planer_block-REAPER bleibt DEKLARIERT OFFEN (TP1FK1-B1-Folgebeobachtung): der Tier-Sweep laesst
+    // planer_block-Reservierungen ausdruecklich stehen (typ_fremd). Ein eigener Reaper wird erst
+    // sinnvoll, wenn der Zweit-Planer-Konsument (profile_run_facade.hpp:248) real wird -- vorher
+    // gaebe es niemanden, der die freigegebene CEB-Arbeit aufnimmt.
+    if (bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only)) {
+        auto const claim = bestandslog::takeover_expired_reservations(
             cfg.bestand_transport, cfg.bestand_doc_key,
             bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine),
             bestandslog::default_lock_ttl_s(), bestandslog::NowFn{&bestandslog::system_now_epoch_s},
             bestandslog::make_sweep_scope(bestandslog::BatchTyp::tier, std::span<std::size_t const>{indices}));
+        result.bestand_takeover_uebernommen = claim.uebernommen;
+        if (claim.offene_fremde > 0 || claim.uebernommen > 0)
+            std::cerr << "[bestandslog] claim-check: " << claim.offene_fremde
+                      << " fremde offene Reservierung(en) geprueft, " << claim.uebernommen
+                      << " uebernommen -- ihre Fenster liegen voll in der Selektion dieses Laufs (" << indices.size()
+                      << " Indizes) und werden ueber den per-Binary-Miss-Weg NACHGEBAUT\n"
+                      << std::flush;
+    }
 
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
@@ -1299,6 +1352,18 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         auto const reg = lager.flush(cfg.bestand_transport, cfg.bestand_doc_key, bestandslog::now_utc_iso(),
                                      bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine));
         std::cerr << "[bestandslog] lager=" << lager.lager_size() << " hits=" << lager.lager_hits()
+                  << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (nicht persistiert)") << "\n"
+                  << std::flush;
+    };
+
+    // G-E3: derselbe Abschluss fuer das MESSWERT-Genus -- eigener Helfer, eigenes Dokument, eigene
+    // Testat-Zeile. Er laeuft NUR am Ende des Mess-Pfades (die Bau-Ausgaenge messen nichts, dort
+    // waere die Zeile ein Rauschen mit neu=0).
+    auto const messwert_flush = [&]() {
+        if (!mess_bestandslog_active) return;
+        auto const reg = mess_lager.flush(cfg.bestand_transport, cfg.mess_bestand_doc_key, bestandslog::now_utc_iso(),
+                                          bestandslog::make_lock_owner(cfg.bestand_owner_uuid, cfg.bestand_maschine));
+        std::cerr << "[bestandslog] messwert-lager=" << mess_lager.lager_size() << " hits=" << mess_lager.lager_hits()
                   << " neu=" << (reg ? *reg : std::size_t{0}) << (reg ? "" : " (nicht persistiert)") << "\n"
                   << std::flush;
     };
@@ -1840,6 +1905,24 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 if (std::filesystem::exists(rcsv, sec)) // Ebene C: result.csv -> measure-drop (Baum/<stem>/result.csv)
                     cfg.measurement_sink(rcsv, bin_dir.filename().string() + "/result.csv");
             }
+            // G-E3 (A1-Lager-Rest-Welle): die MESS-RUECKSCHRIEB-NAHT. Je GEMESSENER Zelle einen
+            // BestandEintrag ins measurement-Genus vormerken -- thread-sicher (MesswertRunState haelt
+            // einen Mutex; im Debug-Mess-Pool ueberlappen die Zellen). Registriert wird NUR, wenn die
+            // result.csv wirklich existiert: ein Messwert-Eintrag ohne Messdatum waere unter einem
+            // kuenftigen Mess-Filter derselbe stille Verlustpfad, den CX-W1 fuer Binaries schloss.
+            if (mess_bestandslog_active) {
+                std::error_code             mec;
+                std::filesystem::path const rcsv = bin_dir / "result.csv";
+                if (std::filesystem::exists(rcsv, mec)) {
+                    auto const      mkey = cfg.mess_bestand_key_of(bin_dir);
+                    std::error_code gec;
+                    auto const      bytes = std::filesystem::file_size(rcsv, gec);
+                    (void)mess_lager.observe(mkey.value_or(std::string{}), cfg.bestand_zelle,
+                                             bestand_eintragspfad(bin_dir, cfg.output_dir),
+                                             gec ? std::uint64_t{0} : static_cast<std::uint64_t>(bytes), binary_id,
+                                             bestandslog::now_utc_iso(), cfg.mess_bestand_versions);
+                }
+            }
         }
         return oc; // handle: RAII entlaedt die DLL beim Verlassen der Zelle
     };
@@ -1887,6 +1970,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // Mess-Loop pusht STRIKT SYNCHRON je Binary, W11-Doktrin), es gibt keinen Pump und nichts
     // Ausstehendes; registriert wird am Ende, wie in den beiden anderen Ausgaengen.
     bestandslog_flush();
+    // G-E3: derselbe Zeitpunkt fuer das MESSWERT-Genus -- alle Zellen sind gemessen und ihre
+    // result.csv-Rueckschriebe geschehen. Inert, wenn das Messwert-Lager nicht verdrahtet ist.
+    messwert_flush();
 
     return result;
 }

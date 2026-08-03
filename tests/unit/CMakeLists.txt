@@ -2555,6 +2555,33 @@ add_test(NAME test_tp1_planer_filter_iterator COMMAND test_tp1_planer_filter_ite
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_tp1_planer_filter_iterator)
 set_tests_properties(test_tp1_planer_filter_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# F3-Testschuld (Ledger D-04, :3720-3721) -- der ITERATOR-LAUF mit dem EINEN REALEN
+# bestand_key_of-Provider (bestandslog::make_fingerprint_key_fn ueber das real geschriebene
+# .fingerprint-Sidecar) und einem WERFENDEN CachePushFn (at::ArtefaktPushFehler, der Kontrakt-Typ
+# seit TP1FK1-B2). Deckt die Kette Sidecar -> Provider -> observe -> Wurf -> AsyncPushPump::
+# failed_dirs -> bestand_eintragspfad -> discard_fresh_with_pfad_prefix -> flush, die weder
+# test_g3_artifact_cache_transport (Provider isoliert) noch test_tp1_planer_filter_iterator
+# (Verwurf an der Funktions-Naht, synthetische Keys) im LAUF belegt hat. Gleicher Include-/Define-/
+# Link-Satz wie test_tp1_planer_filter_iterator (derselbe Host-Treiber-Header, echter run_lazy-Aufruf).
+add_executable(test_f3_lager_key_provider_iterator "test_f3_lager_key_provider_iterator.cpp")
+target_compile_features(test_f3_lager_key_provider_iterator PRIVATE cxx_std_23)
+target_include_directories(test_f3_lager_key_provider_iterator PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_f3_lager_key_provider_iterator PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver)
+comdare_set_platform_defines(test_f3_lager_key_provider_iterator)
+target_compile_definitions(test_f3_lager_key_provider_iterator PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_f3_lager_key_provider_iterator COMMAND test_f3_lager_key_provider_iterator)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_f3_lager_key_provider_iterator)
+set_tests_properties(test_f3_lager_key_provider_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
@@ -4229,6 +4256,61 @@ target_include_directories(test_g3_takeover_sweep PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_takeover_sweep PRIVATE Threads::Threads)
+
+# A1-Lager-Rest LB-0/LB-2/LB-3 (F9-Paketschnitt): die Pfad-Grammatik-Single-Source
+# (bestandslog/lager_pfad_grammatik.hpp -- Ownership-Entscheid L5) und der Baum-Writer beider
+# Realm-Wurzeln (bestandslog/lager_baum_writer.hpp). Der Writer zieht als EINZIGER die Layer-Kante zu
+# experiment_tree/axis_path_serialization.hpp (18 Organ-Achsen) und zu abi/system_axis_order.hpp
+# (bindende System-Ordnung, L22) -> Boost::mp11 gehoert deshalb zum Ziel, die Grammatik selbst bleibt
+# dep-frei. ctsha512 kommt aus libs/cache_engine/src (deterministischer Kurzname bei Namens-Ueberlauf).
+comdare_add_test(test_lb0_lager_pfad_grammatik
+    SOURCES test_lb0_lager_pfad_grammatik.cpp)
+target_include_directories(test_lb0_lager_pfad_grammatik PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_lb0_lager_pfad_grammatik PRIVATE Boost::mp11)
+
+# A1-Lager-Rest LB-1: complete-heuristik.log je Knoten + Alleinschreiber-Lock + die
+# Truncate-Zustandsmaschine (bestandslog/knoten_heuristik_log.hpp). Eigener Test wegen der
+# Owner-Auflage A-1 ("Truncate ist die Bug-Quelle" -> eigene Test-Klasse). Include-/Link-Satz wie
+# test_lb0_lager_pfad_grammatik (der Knoten-Log zieht den Baum-Writer und damit die 18 Organ-Achsen).
+comdare_add_test(test_lb1_knoten_heuristik_log
+    SOURCES test_lb1_knoten_heuristik_log.cpp)
+target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_lb1_knoten_heuristik_log PRIVATE Boost::mp11)
+
+# A1-Lager-Rest S4: G-E3 (produktiver Messwert-Genus-Schreiber), G-E6 (Versions-Tag +
+# syntax_version 3->4) und G-E7 (Dual-ccache-Ziel-Strategy + mc-Alias-Preflight). Reine
+# Bestandslog-Schicht: Include-Satz wie test_g3_builder_registration (ctsha512 via Index,
+# Threads fuer den Retry-Jitter im gelockten Zyklus), KEIN Boost/experiment_tree.
+comdare_add_test(test_ge3_messwert_genus_und_ziel
+    SOURCES test_ge3_messwert_genus_und_ziel.cpp)
+target_include_directories(test_ge3_messwert_genus_und_ziel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_ge3_messwert_genus_und_ziel PRIVATE Threads::Threads)
+
+# A1-Lager-Rest S5: der LAUF-START-Claim-Check (G-E1/2.4-(8)/ABNAHME-6) und N8-Variante-B
+# (per-Owner-Sidecar-Registrierung, bestandslog/registrierungs_sidecar.hpp). Include-/Link-Satz
+# wie test_g3_takeover_sweep (ctsha512 via Index; Threads fuer den Retry-Jitter-Sleep) --
+# registrierungs_sidecar.hpp zieht knoten_heuristik_log.hpp (EINE Zustands-/Nachweis-Doktrin) und
+# darueber den Baum-Writer, also Boost::mp11.
+comdare_add_test(test_ge1_claim_check_und_sidecar
+    SOURCES test_ge1_claim_check_und_sidecar.cpp)
+target_include_directories(test_ge1_claim_check_und_sidecar PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_ge1_claim_check_und_sidecar PRIVATE Threads::Threads Boost::mp11)
 
 # G3-I1b (S9b-Planer): Planer-getriebener Slice-Bau-Kern (planer_driven_build.hpp). Nutzt std::thread.
 comdare_add_test(test_g3_planer_driven

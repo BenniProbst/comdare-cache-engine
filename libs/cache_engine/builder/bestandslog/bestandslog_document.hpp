@@ -30,12 +30,12 @@
 // filterbar und ohne Trennzeichen-Mehrdeutigkeit bleibt. Leere Zell-Felder sind zulaessig und bedeuten
 // "keine Zell-Koordinate gemeldet" (Default-neutral: ein Host, der sie nicht setzt, deduped wie zuvor).
 //
-// Grammatik (syntax_version 3):
-//   <bestandslog syntax_version="3" semantics_version="1" genus="binary|measurement"
+// Grammatik (syntax_version 4):
+//   <bestandslog syntax_version="4" semantics_version="1" genus="binary|measurement"
 //                doc_revision="N" created_utc="...">
 //     <bestand>
 //       <eintrag key_sha512="hex128" combo="..." opt="O2" simd="avx2" pfad="..." bytes="N"
-//                stempel="[d,e,f][g,h,i]+bt=Release" done_utc="..."/>
+//                stempel="[d,e,f][g,h,i]+bt=Release" done_utc="..." [versions="achse@X.Y.Zc;..."]/>
 //     </bestand>
 //     <reservierungen>
 //       <batch id="owner_uuid/seq" typ="tier|ceb|planer_block" slice_begin="0" slice_count="4096"
@@ -88,7 +88,26 @@ namespace comdare::cache_engine::builder::bestandslog {
 // Emittiert werden die zwei Attribute NUR gefuellt -> eine Reservierung ohne CEB-Bindung ist in der
 // Ausgabe byte-identisch zur v2-Form; nur der Header-Stempel unterscheidet die Dokumente.
 // ---------------------------------------------------------------------------
-inline constexpr int kSyntaxVersion    = 3;
+// 3 -> 4 (G-E6, A1-Lager-Rest-Welle): EIN OPTIONALES Attribut am <eintrag> -- versions, der
+// Versions-Tag der Haupt-Achsen dieses Bestands (Form "<achse>@X.Y.Zc;<achse>@X.Y.Zc", Owner-Q3/Q10-
+// Flag-Grammatik). Seit A13-M3/C4 (67e4965f, ENFORCE=1) sind die Quelldaten REAL vX.Y.Zc; OE-C
+// verlangt, dass ein Versions-Bump EINER Haupt-Achse alle Bestaende selektiv invalidieren kann, die
+// sie enthalten. Genau dafuer muss die Version LESBAR am Eintrag stehen.
+//
+// KEINE SCHLUESSEL-FUSION (Section 66-N3): das Tag ist ein EIGENES Feld NEBEN key_sha512 und den
+// Zell-Koordinaten. Die Dedup-IDENTITAET bleibt unveraendert (key_sha512, zelle) -- die Version
+// steckt ohnehin INJEKTIV im v6-Preimage (Organ-Zeile traegt achse=algo@X.Y.Zc), das Tag macht sie
+// nur ohne Preimage-Zweitrechnung filterbar. Ein in den Schluessel gequetschtes Tag waere die
+// verbotene Fusion und wuerde zwei Bauten derselben Version auseinanderreissen.
+//
+// Nach OBEN ist auch das ein Wire-Bruch: ein v3-Leser schluckte das Attribut stillschweigend und
+// haette einen versions-FREMDEN Bestand fuer den eigenen gehalten -- also genau die selektive
+// Invalidierung verfehlt, fuer die das Feld existiert. Deshalb lehnt document_syntax_supported beim
+// v3-Leser ein v4-Dokument ab. Nach unten liest ein v4-Leser v1/v2/v3 treu (fehlendes Attribut =
+// leeres Tag, kein Fehler). semantics_version bleibt 1.
+// Emittiert wird das Attribut NUR gefuellt -> ein Eintrag ohne Versions-Tag ist in der Ausgabe
+// byte-identisch zur v3-Form; nur der Header-Stempel unterscheidet die Dokumente.
+inline constexpr int kSyntaxVersion    = 4;
 inline constexpr int kSemanticsVersion = 1;
 
 // Genus des Bestandslogs -- die zwei Bestands-Gattungen (§62-B, B3-Factory instanziiert je Genus).
@@ -184,6 +203,13 @@ struct BestandEintrag {
     std::uint64_t   bytes = 0;  // Groesse des Artefakts
     std::string     stempel;    // "[d,e,f][g,h,i]+bt=Release" (Varianten-Identitaet, §62-B)
     std::string     done_utc;   // Fertigstellungs-Zeitstempel (ISO-8601 UTC)
+    // G-E6 (syntax_version 4, OPTIONAL -- leer = nicht gemeldet): der Versions-Tag der Haupt-Achsen
+    // in Owner-Q3/Q10-Flag-Grammatik, z.B. "search_algo@1.0.0c;target_isa@1.0.0c". Er steht am ENDE
+    // der Feld-Folge, weil die Attribut-Reihenfolge des Emitters Teil der Byte-Stabilitaet ist --
+    // neue Felder kommen hinten dazu, nie zwischen die bestehenden. Er ist NICHT Teil der
+    // Identitaet (s. same_eintrag_identity unten): zwei Eintraege mit gleichem (key, zelle) sind
+    // derselbe Bestand, auch wenn ein Schreiber das Tag fuehrt und der andere nicht.
+    std::string versions;
 
     friend bool operator==(BestandEintrag const&, BestandEintrag const&) = default;
 };
@@ -192,6 +218,9 @@ struct BestandEintrag {
 // IDENTITAET eines Bestands-Eintrags -- die EINE Definition, gegen die Index (B3), Merge (B2) und
 // Registrierung (I1) arbeiten. Wer sie umgeht, riskiert genau den Dedup-Drift, den NACHTRAG-4 schliesst.
 // ---------------------------------------------------------------------------
+// G-E6: das versions-Tag ist BEWUSST NICHT Teil dieser Definition (Section 66-N3, keine Fusion).
+// Waere es es, ergaebe derselbe Bestand mit und ohne Tag zwei Eintraege -- ein Dedup-Drift, der genau
+// die Doppel-Bauten erzeugte, die das Lager verhindern soll.
 [[nodiscard]] inline bool same_eintrag_identity(BestandEintrag const& a, BestandEintrag const& b) noexcept {
     return a.key_sha512 == b.key_sha512 && a.zelle == b.zelle;
 }
@@ -327,6 +356,12 @@ namespace detail {
         out += detail::xml_encode(e.stempel);
         out += "\" done_utc=\"";
         out += detail::xml_encode(e.done_utc);
+        // syntax_version 4: der Versions-Tag nur, wenn er gefuellt ist -> ein Eintrag ohne Tag
+        // emittiert exakt die v3-Bytes (der Grund, weshalb das Feld ANS ENDE gehoert).
+        if (!e.versions.empty()) {
+            out += "\" versions=\"";
+            out += detail::xml_encode(e.versions);
+        }
         out += "\"/>\n";
     }
     out += "  </bestand>\n";
@@ -404,6 +439,9 @@ namespace detail {
             be.bytes       = detail::parse_u64(e->attr("bytes"));
             be.stempel     = e->attr("stempel");
             be.done_utc    = e->attr("done_utc");
+            // G-E6 (syntax_version 4): OPTIONAL -- ein fehlendes Attribut ergibt ein leeres Tag
+            // ("nicht gemeldet"), kein Fehler. Damit bleibt jedes v1-/v2-/v3-Dokument treu lesbar.
+            be.versions = e->attr("versions");
             d.bestand.push_back(std::move(be));
         }
     }
