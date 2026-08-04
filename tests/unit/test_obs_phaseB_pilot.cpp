@@ -91,8 +91,11 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
     row.unified_real  = pr.unified_real;
     csv_out += ex::format_csv_row(row);
 
-    std::cout << "  " << name << ": filled_axis_count=" << pr.unified.filled_axis_count << "  T0..T16 row_sum=";
-    for (int t = 0; t < 17; ++t) std::cout << row_sum(pr.unified, t) << (t < 16 ? "," : "");
+    std::cout << "  " << name << ": filled_axis_count=" << pr.unified.filled_axis_count << "  T0..T"
+              << (an::kV3AxisCount - 1) << " row_sum=";
+    // A8-S1: Schleifen-Grenze aus der tragenden Konstante -- `< 17` liess die letzte Achse blind.
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t)
+        std::cout << row_sum(pr.unified, static_cast<int>(t)) << (t + 1 < an::kV3AxisCount ? "," : "");
     std::cout << "\n";
     return pr.unified;
 }

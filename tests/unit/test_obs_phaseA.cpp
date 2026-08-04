@@ -76,8 +76,11 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
        pr.unified_real);
 
     std::cout << "  " << name << ": unified_real=" << (pr.unified_real ? 1 : 0)
-              << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T16 row_sum=";
-    for (int t = 0; t < 17; ++t) std::cout << row_sum(pr.unified, t) << (t < 16 ? "," : "");
+              << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T" << (an::kV3AxisCount - 1)
+              << " row_sum=";
+    // A8-S1: Schleifen-Grenze aus der tragenden Konstante -- `< 17` liess die letzte Achse blind.
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t)
+        std::cout << row_sum(pr.unified, static_cast<int>(t)) << (t + 1 < an::kV3AxisCount ? "," : "");
     std::cout << "\n";
     return pr.unified;
 }
@@ -89,8 +92,9 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
     // prefetch mit NonePrefetch = ehrliche 0-Baseline, KEIN enqueue-Pfad; T8 pattern_id=0 bei NoneConcurrency).
     // Daher KEINE pauschale „filled > 0"-Annahme — das wäre für Baseline-Strategien falsch.
     bool phaseb_zero = true;
-    for (int t = 0; t < 17; ++t) {
-        if (!is_filled(t) && row_sum(s, t) != 0) phaseb_zero = false;
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t) {
+        int const ti = static_cast<int>(t);
+        if (!is_filled(ti) && row_sum(s, ti) != 0) phaseb_zero = false;
     }
     tr((std::string{name} + ": alle Schema-leeren (noch nicht implementierten) Achsen == 0").c_str(), phaseb_zero);
     // #188-4c-i: Referenz-Hülle hat kein store_type → honest-0 (Re-Kopplung #234). Die store-abhängigen Achsen
