@@ -25,9 +25,9 @@
 #include <topics/prefetch/concepts/topic_prefetch_concept.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <span> // A8-S5: Sicht auf die inline gehaltene Pfad-Trajektorie (loest die vector-Referenz ab)
 #include <string_view>
 #include <type_traits>
-#include <vector>
 
 #include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::prefetch_axis {
@@ -68,9 +68,14 @@ public:
     [[nodiscard]] std::uint64_t suggest_next() const noexcept { return tracker_.suggest_next(); }
     [[nodiscard]] std::uint64_t total_enqueued() const noexcept { return tracker_.total_enqueued(); }
     [[nodiscard]] std::size_t   queue_depth() const noexcept { return tracker_.queue_depth(); }
-    [[nodiscard]] std::vector<std::uint64_t> const& path() const noexcept { return tracker_.path(); }
-    void                                            reset() noexcept { tracker_.reset(); }
+    /// A8-S5 (Familie 04_execution): die Trajektorie liegt inline im Tracker (CT-Kappe kMaxTrackedSlots,
+    /// kein Heap, kein Default-Allokator) -- nach aussen als nicht-besitzende const-Sicht statt als
+    /// vector-Referenz. size()/back()/Index-Zugriff bleiben unveraendert nutzbar.
+    [[nodiscard]] std::span<std::uint64_t const> path() const noexcept { return tracker_.path(); }
+    void                                         reset() noexcept { tracker_.reset(); }
     /// V11.1 Hot-Path-Hint aus rohen Schluessel-Bytes (z.B. binary_key_t aus SearchEngine-ABI).
+    /// noexcept ist seit dem A8-S5-Scrub ECHT: der Tracker alloziert nicht mehr (vorher latenter
+    /// std::terminate-Pfad, weil enqueue() werfen konnte).
     void note_hot_path_bytes(std::byte const* data, std::size_t bytes) noexcept {
         tracker_.note_hot_path_bytes(data, bytes);
     }
