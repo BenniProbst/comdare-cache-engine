@@ -370,6 +370,30 @@ struct LazyMeasuredRow {
 // fill_observer_v3 idempotent (reset()+scan je Observe) → Zustand zum Observe-Zeitpunkt; T0/T6 tragen die
 // Container-/Allocator-Zähler seit dem letzten Reset. Damit ist der stat_*-Block pro Zeile konsistent: kein doppeltes
 // Zählen über Wiederholungen oder Load+Run hinweg.
+//
+// A8-S3 (2026-08-04) -- CSV-LEGENDE der stat_*-Achsen-Semantik (Katalog Klasse C, "CSV-Legenden-Semantik").
+// Ohne diese Legende liest eine 0 in den folgenden Spalten wie ein Messwert; sie ist aber in jedem der
+// Faelle eine DEKLARIERTE Eigenschaft der Achse oder des Mess-Kanons. Wer die Spalten auswertet, braucht
+// diese fuenf Saetze:
+//   * stat_io_dispatch_*   -- IN-MEMORY-SIMULATION, kein Platten-IO (Entscheid: der Dispatch laeuft ueber das
+//                             reale Slot-Backing, nicht ueber ein Geraet). bytes/rounds beschreiben die
+//                             Dispatch-ARBEIT, nicht Datentraeger-Durchsatz; align_adjusts bleibt bei
+//                             InMemoryOnly ehrlich 0.
+//   * stat_migration_policy_* -- DECIDE-ONLY: gemessen wird die ENTSCHEIDUNG, nicht der Umzug. tier_moves ist
+//                             genau dann > 0, wenn der echte 2-Ebenen-Schritt (IMigratableTier) gerufen wurde;
+//                             bei NoMigration bleibt die ganze Zeile ehrlich 0 (Vergleichs-Nullpunkt).
+//   * stat_persistence_target_* -- STAGING, nicht Platte: bytes_staged/records_staged zaehlen die
+//                             Rueckschreib-VORBEREITUNG. MemoryOnlyTarget hat keinen Rueckschreib-Pfad ->
+//                             bytes_staged ehrlich 0 bei positiven rounds; device_flushes bleibt 0, solange
+//                             has_device_writeback_path() false meldet. (Seit A8-S3 traegt die Zeile ueberhaupt
+//                             Werte -- vorher war sie strukturell 0, s. fill_observer_pathb_driven_v3.)
+//   * stat_concurrency_*   -- MESS-KANON EIN THREAD (Debug=parallel / Messung=1-Thread): contention und
+//                             validation_fail sind deshalb 0 BY DESIGN, nicht mangels Instrumentierung.
+//                             acquire/release zaehlen die realen Primitiv-Paare.
+//   * stat_allocator_*     -- SKALIERUNGS-MODUS: bytes_in_use ist der Wert ZUM OBSERVE-ZEITPUNKT (End-Stand),
+//                             kein Peak; budget_reject zaehlt nur bei Pool-Budget-Strategien. Peak und
+//                             Fragmentierung sind am Ist NICHT ERHOBEN und stehen als "n/a" in den
+//                             Klasse-C-Spalten am Zeilen-Ende (alloc_bytes_in_use_peak / alloc_*_frag_milli).
 [[nodiscard]] inline std::string lazy_csv_header() {
     std::string h = "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;";
     // GOAL-L1 (2026-06-12): per-Interface-Funktions-Spalten op_<art>_{n,p50_ns,p99_ns} (Reihenfolge
@@ -443,7 +467,39 @@ struct LazyMeasuredRow {
     // BERECHNETEN H2-Score der SOTA-Reihe (Akte sota_h2_scores.xml, Thesis-Hypothese H2) bzw. "n/a"
     // (Reihe ohne Akten-Eintrag — honest, kein 0-Phantom) bzw. "-" (Basis/Sweep). Alte CSVs hatten
     // die Spalte NICHT → header-getriebene Auswertung liest sie dort leer/n-a (Datenerhaltung).
-    h += ";h2_code_quality_score\n";
+    h += ";h2_code_quality_score";
+    // A8-S3 / Qualitaets-Katalog KLASSE C (2026-08-04) -- HOST-SEITIGE Spalten-Ereignisse, KEIN Wire-Ereignis.
+    // Alle vier Bloecke sind END-Appends nach exakt dem Muster von series/PMC/fairness_mode: keine bestehende
+    // Spalte wird umbenannt oder verschoben, alte CSVs lesen sie header-getrieben leer/n-a (Datenerhaltung).
+    //
+    // (C1) pmc_branch_misses (Katalog P11, Befund B8): PmcCounters ERHEBT branch_misses real
+    //      (pmc_source.hpp), der 7er-pmc-Block emittierte es als einziges Feld NICHT -- ein "geschrieben,
+    //      aber stumm"-Fall wie die T7-Schema-Luecke. Die Thesis sagt die Schema-Erweiterung woertlich zu
+    //      (05_evaluation). Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist
+    //      positionsstabil fuer Bestands-Leser.
+    h += ";pmc_branch_misses";
+    // (C2) Tail-Perzentile p999 je Op-Art (Katalog Abschnitt 5 "TAIL-PERZENTILE"): aus DENSELBEN IST-Vektoren
+    //      wie p50/p99, Reihenfolge kOpKindNames (single-source, identisch zum op_*-Block oben). Kern-Groesse
+    //      fuer T6-Alloc-Tail und T16-eager/lazy-Pareto, fuer die p99 zu grob ist.
+    for (char const* k : kOpKindNames) {
+        h += ";op_";
+        h += k;
+        h += "_p999_ns";
+    }
+    // (C3) Die T6-Speicher-EHRLICHKEIT (Katalog Entscheide E2/E9, Befund B7). Drei Groessen, die der
+    //      Thesis-Kanon verlangt, fuer die es am Ist aber KEINE erhobene Quelle gibt:
+    //        * alloc_bytes_in_use_peak -- das SA-Wire-Schema traegt nur den Momentanwert bytes_in_use
+    //          (axis_stats[6][1]); ein Host-Peak braeuchte periodische tier_observe-Zuege, die der Mess-Pfad
+    //          heute nicht faehrt (Katalog "ZEITREIHEN-LUECKE"). Ein Momentanwert unter Peak-Etikett verzerrt
+    //          CoW-lastige Layouts -- genau die Fehl-Etikettierung B7 in measurement_snapshot.hpp:106-107.
+    //        * alloc_external_frag_milli / alloc_internal_frag_milli -- die Fragmentierungs-Felder existieren
+    //          in den GATTUNGS-Wire-Formen (Set/Sequence axis_stats[5][5]/[5][6]), NICHT im SA-T6-Schema.
+    //      Sie werden deshalb ehrlich als NICHT ERHOBEN gerendert (G3-Regel: n/a statt stiller 0) -- ueber die
+    //      EINE D2-Taxonomie sample_status_token(SourceUnavailable) == "n/a", nicht ueber ein neues Vokabular.
+    //      Die Spalten existieren, damit die Luecke MASCHINENLESBAR ist statt unsichtbar: sobald eine echte
+    //      Quelle da ist (Wire-Slot oder Zeitreihen-Zug), fuellt sie genau hier -- ohne Schema-Bruch.
+    h += ";alloc_bytes_in_use_peak;alloc_external_frag_milli;alloc_internal_frag_milli";
+    h += "\n";
     return h;
 }
 
@@ -690,6 +746,35 @@ struct LazyMeasuredRow {
     // Header). Tool-berechneter H2-Score der Reihe / "n/a" (kein Akten-Eintrag) / "-" (Basis/Sweep).
     out += ';';
     out += (row.h2_score.empty() ? std::string{"-"} : row.h2_score);
+    // A8-S3 / KLASSE C (2026-08-04) -- die vier END-Append-Bloecke, Reihenfolge IDENTISCH zum Header.
+    // (C1) pmc_branch_misses: real erhoben (PmcCounters), bisher nur nicht emittiert. Mit NullPmcSource
+    //      (COMDARE_ENABLE_PMC=OFF) ist der Wert 0 und pmc_available==0 sagt es -- exakt wie die 7 Nachbarn.
+    out += ';';
+    zelle(std::to_string(row.pmc.branch_misses));
+    // (C2) p999 je Op-Art: DIESELBE Ersatz-Kaskade wie der op_*-Block oben (nicht_gebaut > gesperrt > failed >
+    //      Zahl) -- eine Tail-Spalte darf nicht als einzige eine stille Null zeigen, wenn die Zeile gar keine
+    //      Messung ist.
+    for (auto const& ol : row.op_lat) {
+        out += ';';
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else if (cell_gesperrt) {
+            out += gesperrt_zelle;
+        } else if (cell_failed) {
+            out += "failed";
+        } else {
+            out += std::to_string(ol.p999_ns);
+        }
+    }
+    // (C3) T6-Speicher-Ehrlichkeit: KEINE erhobene Quelle am Ist -> ehrlich n/a (G3-Regel), nie eine 0 und nie
+    //      der Momentanwert unter Peak-Etikett (Befund B7). Der Token kommt aus der EINEN D2-Taxonomie.
+    {
+        std::string_view const nicht_erhoben = cem::sample_status_token(cem::SampleStatus::SourceUnavailable);
+        for (int i = 0; i < 3; ++i) {
+            out += ';';
+            out += (zell_ersatz.empty() ? nicht_erhoben : zell_ersatz);
+        }
+    }
     out += '\n';
     return out;
 }

@@ -102,6 +102,40 @@ std::size_t count_char(std::string const& s, char c) {
     return static_cast<std::size_t>(std::count(s.begin(), s.end(), c));
 }
 
+// A8-S3 (2026-08-04) FIXTURE-NACHZUG: SPALTEN NACH NAMEN statt "letzte Spalte". Die frueheren
+// substr(size()-N)-Pins zementierten, dass fairness_mode/h2_code_quality_score die letzten Spalten sind --
+// genau die Ordnung, die das dokumentierte END-Append-Muster jederzeit fortschreiben darf (A8-S3 haengte den
+// Klasse-C-Block an). Der Nachzug prueft weiter DASSELBE (Existenz, relative Nachbarschaft, Zellwert,
+// Header==Row), aber positions-robust: ein weiterer additiver Anhang bricht die Wache nicht mehr, ein
+// VERSCHOBENES oder umbenanntes Feld sehr wohl.
+std::vector<std::string> split_semicolon_cells(std::string const& line) {
+    std::string_view v{line};
+    while (!v.empty() && (v.back() == '\n' || v.back() == '\r')) v.remove_suffix(1);
+    std::vector<std::string> out;
+    std::size_t              begin = 0;
+    for (std::size_t i = 0; i <= v.size(); ++i) {
+        if (i == v.size() || v[i] == ';') {
+            out.emplace_back(v.substr(begin, i - begin));
+            begin = i + 1;
+        }
+    }
+    return out;
+}
+
+std::size_t csv_column_index(std::vector<std::string> const& header, std::string_view name) {
+    for (std::size_t i = 0; i < header.size(); ++i)
+        if (header[i] == name) return i;
+    return header.size();
+}
+
+std::string csv_cell_by_name(std::string const& header_line, std::string const& row_line, std::string_view name) {
+    auto const        h = split_semicolon_cells(header_line);
+    auto const        r = split_semicolon_cells(row_line);
+    std::size_t const i = csv_column_index(h, name);
+    if (i >= h.size() || i >= r.size()) return {};
+    return r[i];
+}
+
 bool any_contains(std::vector<std::string> const& msgs, std::string const& needle) {
     for (auto const& m : msgs)
         if (m.find(needle) != std::string::npos) return true;
@@ -257,17 +291,27 @@ TEST(WdkDatasetsFairness, FairnessAndDatasetsAreExportedInCsvAndResumeStamp) {
     // unberuehrt). GO-5 Fork 7 haengte h2_code_quality_score als NEUE letzte Spalte an (gleiches
     // END-Append-Muster) — das End-Pinning zieht additiv nach (Position von fairness_mode bleibt).
     std::string const header = ex::lazy_csv_header();
-    ASSERT_GE(header.size(), 37u);
-    EXPECT_EQ(header.substr(header.size() - 37), ";fairness_mode;h2_code_quality_score\n");
+    // A8-S3-NACHZUG: Spalten NACH NAMEN + relative NACHBARSCHAFT (frueher: substr(size()-37) == die beiden
+    // letzten Spalten). Geprueft wird weiter dasselbe -- beide Spalten existieren, h2_code_quality_score
+    // folgt unmittelbar auf fairness_mode, und die Zellwerte stimmen --, nur nicht mehr die Behauptung, dass
+    // dahinter nichts mehr kommen darf. Der Klasse-C-Block von A8-S3 haengt additiv dahinter.
+    auto const        hdr_cells = split_semicolon_cells(header);
+    std::size_t const i_fair    = csv_column_index(hdr_cells, "fairness_mode");
+    std::size_t const i_h2      = csv_column_index(hdr_cells, "h2_code_quality_score");
+    ASSERT_LT(i_fair, hdr_cells.size()) << "Spalte fairness_mode fehlt im Header";
+    ASSERT_LT(i_h2, hdr_cells.size()) << "Spalte h2_code_quality_score fehlt im Header";
+    EXPECT_EQ(i_h2, i_fair + 1u) << "h2_code_quality_score folgt unmittelbar auf fairness_mode";
 
     // Row-Export: Default "-" und gesetzter Modus, Spaltenzahl == Header-Spaltenzahl (Schema-Identitaet).
     ex::LazyMeasuredRow row;
     row.binary_id         = "sota_tier=smoke";
     std::string const def = ex::format_csv_row(row);
-    EXPECT_EQ(def.substr(def.size() - 5), ";-;-\n");
+    EXPECT_EQ(csv_cell_by_name(header, def, "fairness_mode"), "-");
+    EXPECT_EQ(csv_cell_by_name(header, def, "h2_code_quality_score"), "-");
     row.fairness_mode        = "native";
     std::string const native = ex::format_csv_row(row);
-    EXPECT_EQ(native.substr(native.size() - 10), ";native;-\n");
+    EXPECT_EQ(csv_cell_by_name(header, native, "fairness_mode"), "native");
+    EXPECT_EQ(csv_cell_by_name(header, native, "h2_code_quality_score"), "-");
     EXPECT_EQ(count_char(def, ';'), count_char(header, ';'));
     EXPECT_EQ(count_char(native, ';'), count_char(header, ';'));
 

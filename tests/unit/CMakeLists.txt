@@ -1614,7 +1614,12 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_e24_c4_genus_conformance_gates       # E-24 C4: Orakel je Genus (std::set/deque/queue+stack/span)
     # E-24 C5 (Bauplan Paragraf 6.2, FK-8): die Gattungs-Baupfad-D1-Meldung. Gate Paragraf 4.2 (Klasse II):
     # Count-Wachen im SELBEN Commit wie die Enum-Erweiterung + Token-Disjunktheits-Wache.
-    test_e24_c5_fk8_genus_baupfad_d1)         # E-24 C5: D1-Gate je Gattungs-Baupfad (Bindung + Aritaet)
+    test_e24_c5_fk8_genus_baupfad_d1          # E-24 C5: D1-Gate je Gattungs-Baupfad (Bindung + Aritaet)
+    # A8-S3 (2026-08-04, Katalog-Arbeitsliste P1): die SearchAlgorithm-Anatomie haelt seit dieser Scheibe
+    # ALLE 18 Achsen als Organ-Member (vorher 9 -- die uebrigen blieben eine stille 0). Die Wache zaehlt die
+    # Accessoren und prueft gegen kV3AxisCount (nie gegen ein Literal) und belegt beide Ausgaenge: ehrlich
+    # EmptyAxisSnapshot bei nackter Registry-Strategie, ECHTE Werte bei einem Cross-Genus-Sub-Organ.
+    test_a8s3_sa_organ_member_vollstaendigkeit) # A8-S3: 18/18 SA-Organ-Member + Cross-Genus-SA-Naht
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1843,6 +1848,10 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # Mess-Kette (Pfad-A-POD, Pfad-B-POD, CSV-Naht, Knoten-Projektion) IMMER gegen kV3AxisCount, nie gegen ein
     # Literal -> bricht bei kuenftigem Achsen-Zuwachs, statt den neuen Slot still zu verlieren.
     test_a8s1_t17_vollzaehligkeit     # A8-S1 -- T17-Vollzaehligkeit der Mess-Kette gegen kV3AxisCount
+    # A8-S3 (2026-08-04): DAUERHAFTE Wache gegen den strukturell-0-Befund der T17-OBSERVER-Zeile. A8-S1 heilte
+    # die Kopier-GRENZE (seg_ns), diese TU den LESE-ZEITPUNKT (axis_stats): sie verlangt Zaehler UND Zeit
+    # derselben Op-Schleife zugleich und trennt strukturell-0 von ehrlich-0 (Disk- vs. MemoryOnlyTarget).
+    test_a8s3_t17_stats_lesezeitpunkt # A8-S3 -- T17-Observer-Lesezeitpunkt (axis_stats nach dem Treiben)
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
@@ -4676,6 +4685,29 @@ target_compile_definitions(test_fk1_nicht_gebaut_marker PRIVATE
 add_test(NAME test_fk1_nicht_gebaut_marker COMMAND test_fk1_nicht_gebaut_marker)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_fk1_nicht_gebaut_marker)
 set_tests_properties(test_fk1_nicht_gebaut_marker PROPERTIES LABELS "fehlerklassen;standalone;measured")
+
+# A8-S3 (2026-08-04, Qualitaets-Katalog KLASSE C): Wache der HOST-seitigen CSV-Spalten-Ereignisse
+# (pmc_branch_misses = real erhoben aber bisher stumm; op_<art>_p999_ns = Tail-Perzentile aus den
+# IST-Vektoren; die drei nicht erhobenen T6-Groessen ehrlich als "n/a" statt stiller 0). Tragende
+# Aussage: Header- und Zeilen-Zellenzahl sind GLEICH -- ein halb nachgezogener END-Append verschoebe
+# jede Auswertungs-Spalte. Reiner Host-Pfad, kein Tier.
+add_executable(test_a8s3_csv_klasse_c "test_a8s3_csv_klasse_c.cpp")
+target_compile_features(test_a8s3_csv_klasse_c PRIVATE cxx_std_23)
+target_include_directories(test_a8s3_csv_klasse_c PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_a8s3_csv_klasse_c PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_a8s3_csv_klasse_c)
+target_compile_definitions(test_a8s3_csv_klasse_c PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_a8s3_csv_klasse_c COMMAND test_a8s3_csv_klasse_c)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a8s3_csv_klasse_c)
+set_tests_properties(test_a8s3_csv_klasse_c PROPERTIES LABELS "a8;csv;standalone;measured")
 
 # E-04-P1 (Slice-Kanal, Marker-Familie v2, Owner-KERN "live sehen ... exakt WELCHE ... noch offen"):
 # Guard der Zeilen-Grammatik des Live-Fortschritts-Kanals. Tragende Aussage: lane=/zelle=/fenster=

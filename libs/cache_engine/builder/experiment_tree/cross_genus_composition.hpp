@@ -55,19 +55,30 @@ using SetBinding = GenusBindingTraits<cea::AnatomyGenus::Set>;
 // genau diese neun in observe_all() ein (eigener grep 04.08. ueber search_algorithm_anatomy.hpp:
 //   agg.search_algo, agg.cache_traversal, agg.mapping, agg.node_type, agg.memory_layout, agg.serialization,
 //   agg.queuing_q1, agg.queuing_q2, agg.persistence_target).
-// `index_organization` ist NICHT darunter. Ein Cross-Genus-Sub-Organ im SA-index_organization-Slot waere
-// deshalb STUMM -- weder ueber einen Organ-Accessor treibbar noch von observe_all() eingesammelt, also
-// genau der Zustand, den dieses Fenster beseitigt. Es gibt hier folglich BEWUSST KEIN
-// SaCompositionWithIndexOrganizationOrgan: die Verdrahtung `index_organization <- Set` wird in der
-// SET-Gattung produktiv gemacht (Abschnitt 2), wo C3 den Organ-Member samt Accessor gerade geschaffen hat.
-// Die SA-Seite nachzuruesten hiesse, SearchAlgorithmAnatomy um Organ-Member zu erweitern -- das ist eine
-// Aenderung am gemessenen SA-Pfad und liegt ausserhalb des C3-Schnitts (offener Punkt fuer den Lead).
+// `index_organization` war NICHT darunter. Ein Cross-Genus-Sub-Organ im SA-index_organization-Slot war
+// deshalb STUMM -- weder ueber einen Organ-Accessor treibbar noch von observe_all() eingesammelt.
+//
+// AUFGELOEST DURCH A8-S3 (2026-08-04): der oben als "offener Punkt fuer den Lead" notierte Rest ist
+// eingeloest. SearchAlgorithmAnatomy haelt seit A8-S3 ALLE 18 Achsen als reale Organ-Member und sammelt
+// sie in observe_all() ein (Katalog-Arbeitsliste P1). Damit ist die Verdrahtung
+// `index_organization <- Set` AUCH auf der SA-Seite messbar -- sie steht direkt unten als
+// SaCompositionWithIndexOrganizationOrgan. Die Set-seitige Variante (Abschnitt 2) bleibt unveraendert
+// bestehen: die beiden sind zwei Gattungs-Sichten derselben Verdrahtung, keine Doppelung.
 
 /// SaCompositionWithNodeTypeOrgan<Organ> -- node_type (T4) traegt ein fremdes Genus-Organ.
 template <class Organ>
 using SaCompositionWithNodeTypeOrgan = SaBinding::CompositionFor<pe::PermTuple<
     cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, Organ, cea::CarriedAxis, cea::CarriedAxis,
     cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis,
+    cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis>>;
+
+/// SaCompositionWithIndexOrganizationOrgan<Organ> -- index_organization (T11) traegt ein fremdes
+/// Genus-Organ. A8-S3: erst mit dem nachgeruesteten SA-Organ-Member ist dieser Slot treibbar UND von
+/// observe_all() einsammelbar; vorher waere die Komposition eine stumme Deko gewesen.
+template <class Organ>
+using SaCompositionWithIndexOrganizationOrgan = SaBinding::CompositionFor<pe::PermTuple<
+    cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis,
+    cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, Organ, cea::CarriedAxis,
     cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis, cea::CarriedAxis>>;
 
 /// SaCompositionWithQueuingOrgan<Q1, Q2> -- queuing_q1 (T15) + queuing_q2 (T16) tragen fremde Organe.

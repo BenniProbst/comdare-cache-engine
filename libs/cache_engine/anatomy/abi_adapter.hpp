@@ -1090,7 +1090,8 @@ public:
 #if COMDARE_MEASUREMENT_ON // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
                            // ─────────────────────────────────────────────────────────────────────
     // IObservableTier / Observer (MESSUNG-AN) — liegt physisch im IDriveableTier-Block: fill_observer_v3 +
-    // fill_segment_timing_v3 + tier_observe (Q1-Sequenz: Observer-READ → Pfad-B-Timing → per-op-Organ-Reset).
+    // fill_segment_timing_v3 + fill_observer_pathb_driven_v3 + tier_observe (Q1-Sequenz seit A8-S3 vierstufig:
+    // Observer-READ -> Pfad-B-Timing -> SPAETER Observer-READ der nur dort getriebenen Achsen -> Organ-Reset).
     // ─────────────────────────────────────────────────────────────────────
     struct t1_segment_shape_t {
         std::uint64_t batch_size   = 256;
@@ -1415,25 +1416,70 @@ public:
             r[4]         = q.flush_complete_count;
             ++filled;
         }
-        // -- T17 persistence_target (STRUKT-R ORG-18, Pfad-B Zustand-Scan ueber die REAL gespeicherten Keys) --
-        //    pt_organ_ (ObservablePersistenceTarget-Huelle) treibt persistence_writeback_scan. EHRLICHKEIT:
-        //    bytes_staged ist 0 fuer MemoryOnlyTarget (kein Rueckschreib-Pfad, writes_back_to_disk()==false) und
-        //    device_flushes ist IMMER 0, solange has_device_writeback_path() false meldet -- eine Zahl dort waere
-        //    eine Messwert-Luege. reset()+scan idempotent wie idx/io/mig/flt.
+        // -- T17 persistence_target: NICHT HIER. --------------------------------------------------------
+        //    A8-S3 (2026-08-04): die Achse ist die EINZIGE, deren Mess-Organ AUSSCHLIESSLICH im Pfad-B-
+        //    Segment-Lauf getrieben wird (fill_segment_timing_v3 ruft pt_organ_.observe_writeback je Batch).
+        //    Ein Lesen an DIESER Stelle -- vor dem Treiben -- lieferte strukturell 0, bei jedem Lauf und
+        //    fuer jede Strategie (Beleg: seg_ns[T17] > 0 bei axis_stats[T17][*] == 0). Ihre Zeile schreibt
+        //    daher fill_observer_pathb_driven_v3 NACH dem Segment-Lauf (SCHRITT 3 von tier_observe) --
+        //    EIN Schreiber, spaeterer Lese-Zeitpunkt, unveraendertes Wire-Layout.
+#endif // COMDARE_CE_ENABLE_STATISTICS
+        s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
+        s.tier_fill_level       = tier_size();
+        s.filled_axis_count     = filled;
+    }
+
+    // A8-S3: Slot-Identitaet der NUR-Pfad-B-getriebenen Achse. Die Zahl ist die Achsen-IDENTITAET (T17),
+    // keine Grenze -- die Bindung an die Single-Source leistet der static_assert im Schreiber unten: wandert
+    // der Slot, bricht der Bau, statt still die falsche Zeile zu fuellen.
+    static constexpr std::size_t kPathBDrivenAxisPersistenceTarget = 17;
+
+    // A8-S3 (2026-08-04): der SPAETE Observer-READ. Hier stehen ausschliesslich die Achsen, deren EINZIGER
+    // Treiber der Pfad-B-Segment-Lauf ist -- ihre Zaehler ENTSTEHEN erst in SCHRITT 2 von tier_observe und
+    // sind vorher nicht bloss klein, sondern strukturell nicht vorhanden. Aufruf-Vertrag (tier_observe):
+    //   SCHRITT 1 fill_observer_v3          -- per-op-getriebene Achsen VOR dem Timing lesen
+    //   SCHRITT 2 fill_segment_timing_v3    -- treibt die Pfad-B-Ops (u.a. pt_organ_.observe_writeback)
+    //   SCHRITT 3 fill_observer_pathb_driven_v3 (HIER) -- die dabei entstandenen Zaehler lesen
+    //   SCHRITT 4 reset_pathb_driven_organs_ -- erst DANACH nullen (Fenster == genau dieser Segment-Lauf)
+    // Damit sind axis_stats[T17][*] und seg_ns[T17] KOMMENSURABEL: beide beschreiben dieselbe Op-Schleife.
+    // *out muss von SCHRITT 1 kommen (filled_axis_count ist dort gesetzt und wird hier fortgeschrieben).
+    void fill_observer_pathb_driven_v3(ComdareTierObserverSnapshot* out) const noexcept {
+        if (out == nullptr) return;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        auto& s = *out;
+        // -- T17 persistence_target (STRUKT-R ORG-18, Pfad-B-Rueckschreib-Strom ueber die REAL gespeicherten
+        //    Keys). pt_organ_ (ObservablePersistenceTarget-Huelle) treibt persistence_writeback_scan.
+        //    EHRLICHKEIT (unveraendert): bytes_staged bleibt 0 fuer MemoryOnlyTarget (kein Rueckschreib-Pfad,
+        //    writes_back_to_disk()==false) und device_flushes bleibt IMMER 0, solange
+        //    has_device_writeback_path() false meldet -- eine Zahl dort waere eine Messwert-Luege. Der Fix
+        //    verschiebt NUR den Lese-Zeitpunkt; er erfindet keinen Wert und bewegt kein Byte.
+        static_assert(std::string_view{kV3AxisSchema[kPathBDrivenAxisPersistenceTarget].names[0]} ==
+                          std::string_view{"rounds"},
+                      "A8-S3: der T17-Slot der Single-Source kV3AxisSchema traegt nicht mehr die "
+                      "persistence_target-Spalten -- der spaete Observer-READ zeigt auf die falsche Zeile.");
         if constexpr (requires { pt_organ_.statistics(); }) {
             auto const pt = pt_organ_.statistics();
-            auto*      r  = s.axis_stats[17];
+            auto*      r  = s.axis_stats[kPathBDrivenAxisPersistenceTarget];
             r[0]          = pt.writeback_rounds;
             r[1]          = pt.bytes_staged;
             r[2]          = pt.records_staged;
             r[3]          = pt.device_flushes;
             r[4]          = pt.last_checksum;
-            ++filled;
+            ++s.filled_axis_count; // die Zeile IST befuellt -- fortgeschrieben, nicht neu gezaehlt
         }
+#else
+        (void)out;
 #endif // COMDARE_CE_ENABLE_STATISTICS
-        s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
-        s.tier_fill_level       = tier_size();
-        s.filled_axis_count     = filled;
+    }
+
+    // A8-S3 (2026-08-04): SCHRITT 4 -- Reset der NUR-Pfad-B-getriebenen Organe. Frueher lag er am Ende von
+    // fill_segment_timing_v3 und nullte pt_organ_, BEVOR irgendein Leser die Zaehler sehen konnte (genau der
+    // strukturell-0-Defekt). Er steht jetzt HINTER dem spaeten Observer-READ, damit das Mess-Fenster der
+    // T17-Zeile exakt EIN Segment-Lauf ist -- dieselbe Fenster-Semantik wie seg_ns[T17].
+    void reset_pathb_driven_organs_() const noexcept {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        if constexpr (requires { pt_organ_.reset(); }) pt_organ_.reset(); // T17 (STRUKT-R ORG-18)
+#endif
     }
 
     // I1: die früheren V2/V3/V4-Observer-Override-Methoden (eigene Sub-Interfaces) sind ENTFERNT — die EINE
@@ -1714,25 +1760,42 @@ public:
             if constexpr (requires { queuing_q1_organ_.clear(); }) queuing_q1_organ_.clear();
             if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset();
             if constexpr (requires { queuing_q2_organ_.reset(); }) queuing_q2_organ_.reset();
-            if constexpr (requires { pt_organ_.reset(); }) pt_organ_.reset(); // T17 (STRUKT-R ORG-18)
+            // A8-S3 (2026-08-04): pt_organ_.reset() ist HIER ENTFERNT und nach tier_observe SCHRITT 4
+            // (reset_pathb_driven_organs_) gewandert. Grund: T17 ist die einzige Achse, deren Zaehler
+            // AUSSCHLIESSLICH in dieser Funktion entstehen -- ein Reset an dieser Stelle loeschte sie, bevor
+            // der Observer sie lesen konnte (strukturell-0). Die uebrigen Organe oben bleiben unveraendert:
+            // sie werden in tier_insert/lookup auto-gekoppelt getrieben und in SCHRITT 1 bereits gelesen.
         } catch (...) { *out = ComdareSegmentLatencyV2{}; }
 #endif // COMDARE_CE_ENABLE_STATISTICS
     }
 
     // KONSOLIDIERUNG (I1, 2026-06-05): die EINZIGE Observer-Methode über den konsolidierten POD. Vereint Observer-
-    // Stats (axis_stats[17][8]+Meta) UND Pfad-B-Timing (seg_ns[17]) in EINEN Snapshot. FIXE Q1-SEQUENZ (Preflight
-    // wkqt7a0il): (1) axis_stats VOR dem Timing lesen (fill_observer_v3 schreibt sie DIREKT in *out), (2) DANN seg_ns
-    // timen (fill_segment_timing_v3 treibt die per-op-Organe + resettet sie an seinem Ende = SCHRITT 3) → die in (1)
-    // gelesenen Stats bleiben unverfälscht. Rationale-Historie: docs/architecture/31_observer_interface_konsolidierung_i1.md.
+    // Stats (axis_stats[kV3AxisCount][8]+Meta) UND Pfad-B-Timing (seg_ns[kV3AxisCount]) in EINEN Snapshot.
+    // Q1-SEQUENZ (Preflight wkqt7a0il), A8-S3 (2026-08-04) um den SPAETEN READ ergaenzt -- vier Schritte:
+    //   (1) axis_stats der AUTO-gekoppelten Achsen VOR dem Timing lesen (fill_observer_v3, direkt in *out):
+    //       ihre Zaehler stammen aus tier_insert/lookup und wuerden vom Timing ueberschrieben/zurueckgesetzt.
+    //   (2) seg_ns timen (fill_segment_timing_v3): treibt die Pfad-B-Ops, resettet die AUTO-gekoppelten Organe.
+    //   (3) axis_stats der NUR-Pfad-B-getriebenen Achsen NACH dem Timing lesen (fill_observer_pathb_driven_v3):
+    //       sie ENTSTEHEN erst in (2); in (1) gelesen waeren sie strukturell 0 (A8-S3-Defekt, belegt).
+    //   (4) deren Organe erst jetzt nullen (reset_pathb_driven_organs_) -- Mess-Fenster = genau dieser Lauf.
+    // Beide Lese-Zeitpunkte schreiben in DENSELBEN POD; das Wire-Layout ist unberuehrt (sizeof 1344, Version 8).
+    // Rationale-Historie: docs/architecture/31_observer_interface_konsolidierung_i1.md.
     void tier_observe(ComdareTierObserverSnapshot* out) const noexcept override {
         if (out == nullptr) return;
         *out = ComdareTierObserverSnapshot{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // SCHRITT 1 — Observer-READ (fill_observer_v3 schreibt axis_stats + Meta direkt in *out, vor dem Timing).
         fill_observer_v3(out);
-        // SCHRITT 2 — Pfad-B-Timing (nach dem Observer-READ; resettet die per-op-Organe an seinem Ende = SCHRITT 3).
+        // SCHRITT 2 -- Pfad-B-Timing (nach dem Observer-READ; resettet die AUTO-gekoppelten per-op-Organe an
+        // seinem Ende). Es TREIBT zugleich die nur hier getriebenen Achsen (T17 pt_organ_.observe_writeback).
         ComdareSegmentLatencyV2 seg{};
         fill_segment_timing_v3(&seg);
+        // SCHRITT 3 -- A8-S3: SPAETER Observer-READ der NUR-Pfad-B-getriebenen Achsen. Ihre Zaehler entstehen
+        // erst in SCHRITT 2; in SCHRITT 1 gelesen waeren sie strukturell 0 (Beleg: seg_ns[T17] > 0 bei
+        // axis_stats[T17][*] == 0). Reihenfolge-Aenderung, KEINE Layout-Aenderung.
+        fill_observer_pathb_driven_v3(out);
+        // SCHRITT 4 -- erst JETZT nullen: das Mess-Fenster der T17-Zeile ist exakt dieser eine Segment-Lauf.
+        reset_pathb_driven_organs_();
         for (std::size_t t = 0; t < kV3AxisCount; ++t) out->seg_ns[t] = seg.seg_ns[t];
         out->batches_measured = seg.batches_measured;
         // P-MD3: kommensurabler Coverage-Nenner + benannter Rest des Pfad-B-Segment-Laufs in den EINEN POD übertragen.

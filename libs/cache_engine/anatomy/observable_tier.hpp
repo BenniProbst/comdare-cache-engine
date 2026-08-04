@@ -186,10 +186,12 @@ class IObservableTier : public IDriveableTier {
 public:
     ~IObservableTier() override = default;
 
-    /// Die EINE Observer-Methode (I1): schreibt den konsolidierten Snapshot (axis_stats[17][8] + seg_ns[17] +
-    /// Meta) nach *out. out != nullptr. noexcept (reines Auslesen + lesendes Pfad-B-Timing). Der Host stempelt
-    /// das Resultat mit Wall-Clock + persistiert. Der ABI-Adapter implementiert die feste Sequenz Observer-READ
-    /// → Pfad-B-Timing → per-op-Reset (gegen Doppelzählung).
+    /// Die EINE Observer-Methode (I1): schreibt den konsolidierten Snapshot (axis_stats[kV3AxisCount][8] +
+    /// seg_ns[kV3AxisCount] + Meta) nach *out. out != nullptr. noexcept (reines Auslesen + lesendes
+    /// Pfad-B-Timing). Der Host stempelt das Resultat mit Wall-Clock + persistiert. Der ABI-Adapter
+    /// implementiert die feste Sequenz Observer-READ der auto-gekoppelten Achsen -> Pfad-B-Timing -> SPAETER
+    /// Observer-READ der NUR dort getriebenen Achsen (A8-S3) -> Organ-Reset (gegen Doppelzaehlung UND gegen
+    /// strukturell nicht gelesene Zaehler).
     virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept = 0;
 
     /// Daten-erhaltender Statistik-Reset für Messphasen-Grenzen: nullt ausschließlich die kumulativen
