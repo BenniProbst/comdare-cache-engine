@@ -32,6 +32,10 @@
 #include <type_traits>
 #include <vector>
 
+// TU-lokale Test-Fixtures: anonymer Namespace verhindert ODR-Kollisionen der
+// gleichnamigen Fixture-Typen ueber die e24-Test-TUs (cppcheck ctuOneDefinitionRuleViolation).
+namespace {
+
 namespace ana = comdare::cache_engine::anatomy;
 namespace ag  = comdare::cache_engine::sequence::axis_growth;
 namespace cco = comdare::container;
@@ -94,6 +98,8 @@ static_assert(Fx::soll_arity == cco::type_traits<ana::AnatomyGenus::Sequence>::s
               "Slot-Belegung dieser TU muss der Sequence-Slot-Zahl entsprechen (container_framework.hpp:95)");
 static_assert(Engine::arity() == Fx::soll_arity, "Engine-Aritaet == Slot-Zahl des Genus");
 static_assert(Engine::count() == Fx::soll_count, "Permutations-Zahl == kartesisches Produkt der Achsen-Listen");
+
+} // namespace
 
 int main() {
     std::cout

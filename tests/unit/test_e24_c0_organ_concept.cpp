@@ -29,6 +29,10 @@
 #include <string>
 #include <type_traits>
 
+// TU-lokale Test-Fixtures: anonymer Namespace verhindert ODR-Kollisionen der
+// gleichnamigen Fixture-Typen ueber die e24-Test-TUs (cppcheck ctuOneDefinitionRuleViolation).
+namespace {
+
 namespace cea = comdare::cache_engine::anatomy;
 namespace ex  = comdare::cache_engine::builder::experiment;
 namespace ctr = comdare::container;
@@ -177,6 +181,8 @@ template <cea::OrganConcept Organ>
     static_assert(std::is_same_v<decltype(snapshot), cea::organ_snapshot_t<Organ> const>);
     return Organ::genus();
 }
+
+} // namespace
 
 int main() {
     std::cout << "E-24 C0 (M0-Vorstufe): OrganConcept gegen alle 5 Gattungs-Anatomien:\n";

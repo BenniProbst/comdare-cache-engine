@@ -23,6 +23,10 @@
 #include <cstddef>
 #include <string_view>
 
+// TU-lokale Test-Fixtures: anonymer Namespace verhindert ODR-Kollisionen der
+// gleichnamigen Fixture-Typen ueber die e24-Test-TUs (cppcheck ctuOneDefinitionRuleViolation).
+namespace {
+
 namespace cea = comdare::cache_engine::anatomy;
 
 /// (1) Ein beliebiger Typ -- keine Identitaet, keine Beobachtung.
@@ -53,6 +57,8 @@ static_assert(cea::OrganConcept<NichtOrgan>,
 static_assert(cea::OrganObservable<OrganOhneBeobachtung>,
               "E24-C1-NEGATIV-PROBE-2: ohne const-noexcept observe_all() gibt es keine "
               "Beobachtungs-Flaeche -- erwarteter Bruch");
+
+} // namespace
 
 int main() {
     // Erst die KONSTRUKTION instanziiert den Ctor-Rumpf der CRTP-Wache und damit ihre static_asserts.

@@ -37,6 +37,10 @@
 #include <unordered_set>
 #include <vector>
 
+// TU-lokale Test-Fixtures: anonymer Namespace verhindert ODR-Kollisionen der
+// gleichnamigen Fixture-Typen ueber die e24-Test-TUs (cppcheck ctuOneDefinitionRuleViolation).
+namespace {
+
 namespace ana = comdare::cache_engine::anatomy;
 namespace cco = comdare::container;
 namespace mp  = boost::mp11;
@@ -130,6 +134,8 @@ static_assert(Fx::soll_arity == cco::type_traits<ana::AnatomyGenus::Set>::slot_c
               "Slot-Belegung dieser TU muss der Set-Gattungs-Slot-Zahl entsprechen (container_framework.hpp:94)");
 static_assert(Engine::arity() == Fx::soll_arity, "Engine-Aritaet == Slot-Zahl des Genus");
 static_assert(Engine::count() == Fx::soll_count, "Permutations-Zahl == kartesisches Produkt der Achsen-Listen");
+
+} // namespace
 
 int main() {
     std::cout << "==== E-24 C2: SetPermutationEngine::for_each_abi_adapter (Gate: Materialisierung == Soll) ====\n";

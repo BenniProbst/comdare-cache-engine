@@ -33,6 +33,10 @@
 #include <string>
 #include <type_traits>
 
+// TU-lokale Test-Fixtures: anonymer Namespace verhindert ODR-Kollisionen der
+// gleichnamigen Fixture-Typen ueber die e24-Test-TUs (cppcheck ctuOneDefinitionRuleViolation).
+namespace {
+
 namespace cea = comdare::cache_engine::anatomy;
 namespace ex  = comdare::cache_engine::builder::experiment;
 
@@ -278,6 +282,8 @@ static_assert(!std::is_polymorphic_v<SaOrgan> && !std::is_polymorphic_v<SetOrgan
               !std::is_polymorphic_v<AdaOrgan> && !std::is_polymorphic_v<ViewOrgan>);
 // Die Wache ist NICHT von aussen konstruierbar (protected Ctor) -- sie ist eine Wache, kein Bauteil.
 static_assert(!std::is_default_constructible_v<cea::OrganGuard<SetOrgan>>);
+
+} // namespace
 
 int main() {
     std::cout << "E-24 C1: OrganConcept-Vollausbau (Op-Familie + ObservableAxis-Forwarding):\n";

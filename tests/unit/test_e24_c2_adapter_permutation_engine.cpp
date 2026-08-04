@@ -35,6 +35,10 @@
 #include <type_traits>
 #include <vector>
 
+// TU-lokale Test-Fixtures: anonymer Namespace verhindert ODR-Kollisionen der
+// gleichnamigen Fixture-Typen ueber die e24-Test-TUs (cppcheck ctuOneDefinitionRuleViolation).
+namespace {
+
 namespace ana = comdare::cache_engine::anatomy;
 namespace cco = comdare::container;
 namespace mp  = boost::mp11;
@@ -123,6 +127,8 @@ static_assert(ana::IsAdapterComposition<SampleComp>);
 static_assert(std::is_same_v<SampleComp::search_algo, AxisBeta>);             // Slot 0
 static_assert(std::is_same_v<SampleComp::inner_container, ana::HeapInner<>>); // Slot 10 (spezifische Achse)
 static_assert(SampleComp::slot_count == 11);
+
+} // namespace
 
 int main() {
     std::cout << "==== E-24 C2: AdapterPermutationEngine::for_each_abi_adapter (Gate: Materialisierung == Soll) ====\n";
