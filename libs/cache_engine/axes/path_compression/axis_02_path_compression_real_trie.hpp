@@ -21,9 +21,14 @@
 //  (2) static-/Observer-Signaturen (path_descend_scan / compress / store_observe_path_compression) NICHT gebrochen —
 //      diese Datei fuegt NUR Instanz-Methoden hinzu; die static path_descend_scan + die compress()-Mess-Mechanik
 //      bleiben bit-identisch (der seg19-Timer + fill_observer_v3 unberuehrt).
-//  (3) R1-Memento: der materialisierte Trie ist `std::vector`-basiert (copy-constructible + copy-assignable +
+//  (3) R1-Memento: der materialisierte Trie ist vektor-basiert (copy-constructible + copy-assignable +
 //      operator==) → ueber den ObservablePathCompression-Wrapper bit-exakt snapshot-/restore-faehig (saved_pc_ in
 //      tier_save_all/tier_rollback_all, geleert in tier_clear) — analog saved_vh_/vh_organ_ + saved_flt_/flt_organ_.
+//      A8-S5-02a (2026-08-04): der Knoten-Pool laeuft seit dem Schnitt ueber das Allokator-ACHSEN-Interface
+//      (path_compression_trie_allocator_t + StdAllocatorAdapter). Die Leitplanke wird dadurch SCHAERFER, nicht
+//      schwaecher: die Kopie rebindet auf ihr EIGENES allocator_ und ist damit ein vollstaendig eigenstaendiges
+//      Backing statt eines Adapters, der auf den Memento-Partner zeigt (das waere ein dangling Adapter, sobald
+//      einer der beiden stirbt). Muster: btree_node_pool_store.hpp:19/:84-105.
 //  (4) Zwei-Phasen-Warmup bleibt exakt (der Memento sichert/restauriert den Trie symmetrisch in beiden Pfaden).
 //  (5) Lehrbuch-Pattern, zero-cost: die per-Strategie-Auswahl (Patricia-Trie vs leer) ist eine reine `if constexpr`-
 //      Compile-Zeit-Selektion ueber das Vorhandensein von Strategy::key_split_bit (Strategy-Pattern,
@@ -33,6 +38,7 @@
 // @topic path_compression @achse 02 @saeule 2 @task §4.3-PATRICIA-REAL @related axis_14_value_handle_real_slot (Vorlage)
 
 #include "concepts/axis_02_path_compression_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp> // A8-S5-02a: Versorger-Achse des Knoten-Pools (s.u.)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -40,6 +46,29 @@
 #include <vector>
 
 namespace comdare::cache_engine::path_compression {
+
+/// A8-S5 Familie 02a (Dossier 20260803-a8_f2 Abschn. 3.4, Schnitt-Regel): der Knoten-Pool des
+/// materialisierten Patricia-Tries bezieht seinen Speicher NICHT mehr ueber den Default-Allokator,
+/// sondern ueber das Allokator-ACHSEN-Interface (axis_06). DIESE Zeile ist die EINE Stelle, die den
+/// Versorger benennt -- der Trie selbst und der Form-B-Ausweis der S5-Gate-Wache lesen sie, damit kein
+/// zweiter Name driften kann.
+///
+/// WARUM ExgenAllocator: derselbe Achsen-Default, den die bereits konformen Pool-Stores des Repos fuehren
+/// (btree_node_pool_store.hpp:56, tree_node_pool_store.hpp, surf_fst_map_pool_store.hpp) und den die
+/// S5-Scheiben 03/01d fuer ihre Nicht-Template-Organe gewaehlt haben. Das Organ ist single-threaded
+/// getrieben (insert_key haengt am tier_insert-Build-Hook) -- die Sub-Achse AA4 des Exgen
+/// (Single-Threaded Specialized) passt. Bei abgeschaltetem Vendor-Flag faellt die Strategie intern auf
+/// portable_aligned_alloc zurueck: derselbe libc-Heap wie vorher, aber ueber das Achsen-Interface.
+///
+/// WARUM HIER KEIN Kompositions-Allokator (Abgrenzung zum HERZ-Fall der node-Achse): PatriciaTrie ist
+/// KEIN Template ueber A -- er wird ueber real_trie_t<Strategy> aus der path_compression-STRATEGIE
+/// selektiert, die den Allokator der Komposition nicht kennt. Der benannte Achsen-Default ist deshalb hier
+/// der richtige Schnitt; die Kompositions-Durchbindung ist der Gegenstand des 01c-Design-Vorlaufs
+/// (LEDGER-Nachtrag 04.08. abend-11, T6 = Option B strikt).
+///
+/// ABHAENGIGKEITSRICHTUNG (Dossier 3.3): path_compression -> alloc. Der Allokator ist die UNTERSTE
+/// Versorger-Achse; axes/alloc/ zieht keinen path_compression-Header -> kein Zyklus.
+using path_compression_trie_allocator_t = ::comdare::cache_engine::alloc::ExgenAllocator;
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // EmptyPatriciaTrie — fuer `none` (und ByteWise, das sein eigenes echtes Byte-Prefix-Organ traegt). Traegt KEINE
@@ -63,8 +92,9 @@ struct EmptyPatriciaTrie {
 //   Trie-Hoehe ist durch die ZAHL DER GESPEICHERTEN SCHLUESSEL beschraenkt, nicht durch 64). Blaetter halten den
 //   vollstaendigen Schluessel; bei Descent wird am Blatt der volle Schluessel verglichen (Patricia-Standard).
 //
-//   Knoten sind in EINEM std::vector gepoolt (index-basierte Kinder, kNil = leer) → trivially copyable Slots,
-//   bit-exakt vergleichbar (R1-Memento). Wurzel-Index = root_ (kNil bei leerem Trie).
+//   Knoten sind in EINEM Vektor gepoolt (index-basierte Kinder, kNil = leer) -> trivially copyable Slots,
+//   bit-exakt vergleichbar (R1-Memento). Wurzel-Index = root_ (kNil bei leerem Trie). Der Pool-Speicher kommt
+//   seit A8-S5-02a REAL ueber die Allokator-Achse (path_compression_trie_allocator_t, s.o.).
 //
 //   insert_key(key)  — inkrementeller Aufbau (1 Schluessel je tier_insert):
 //     leerer Trie → erstes Blatt = Wurzel. Sonst: descend bis Blatt → bestimme das HOECHSTWERTIGE differierende
@@ -91,9 +121,63 @@ struct PatriciaTrie {
         [[nodiscard]] bool operator==(Node const&) const noexcept = default;
     };
 
-    std::vector<Node> nodes_{}; ///< Knoten-Pool (index-basiert) — innere Knoten + Blaetter.
-    std::uint32_t     root_ = kNil;
-    std::uint64_t     keys_ = 0; ///< Anzahl GESPEICHERTER (distinct) Schluessel = Anzahl Blaetter.
+    /// A8-S5-02a Form-B-Ausweis: der Speicher dieses Organs laeuft ueber die Allokator-Achse -- nicht
+    /// deklarativ, sondern real (nodes_ traegt den StdAllocatorAdapter dieses allocator_, s. Member unten
+    /// + trie_allocator_statistics()).
+    using allocator_type = path_compression_trie_allocator_t;
+    using node_alloc     = typename allocator_type::template StdAllocatorAdapter<Node>;
+
+    // -- A8-S5-02a Lebensdauer-Vertrag der Achsen-Verdrahtung (Muster btree_node_pool_store.hpp:19/:84-105) --
+    // Der StdAllocatorAdapter haelt einen Zeiger auf allocator_. Daraus folgt:
+    //   (a) allocator_ MUSS vor nodes_ deklariert sein (Member-Reihenfolge unten),
+    //   (b) nodes_ wird IMMER mit allocator_.as_std_allocator<Node>() konstruiert (der Adapter ist nicht
+    //       default-konstruierbar -> es gibt kein stilles Zurueckfallen auf einen Default-Allokator),
+    //   (c) die R1-MEMENTO-Kopie REBINDET auf das EIGENE allocator_ -- genau das verlangt Leitplanke 3:
+    //       saved_pc_.emplace(pc_organ_) (abi_adapter.hpp:1951) und pc_organ_ = *saved_pc_ muessen ZWEI
+    //       eigenstaendige Tries erzeugen; ein mitgeschleppter Fremd-Adapter waere ein dangling Zeiger,
+    //       sobald einer der beiden stirbt,
+    //   (d) Move wird BEWUSST nicht deklariert: die benutzerdeklarierte Kopie unterdrueckt den impliziten
+    //       Move, ein std::move degradiert zur (korrekt rebindenden) Kopie statt den Fremd-Adapter zu stehlen.
+    // Die transiente Kopier-Allokation der Vollkopie ist kein Mess-Ereignis der Achse -> restore_statistics
+    // setzt die Statistik auf den Quell-Stand zurueck (Memento-Symmetrie, btree_node_pool_store.hpp:91).
+    PatriciaTrie() : nodes_(allocator_.template as_std_allocator<Node>()) {}
+    PatriciaTrie(PatriciaTrie const& o)
+        : allocator_(o.allocator_), nodes_(o.nodes_, allocator_.template as_std_allocator<Node>()), root_(o.root_),
+          keys_(o.keys_), last_depth_(o.last_depth_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    PatriciaTrie& operator=(PatriciaTrie const& o) {
+        if (this != &o) {
+            nodes_      = o.nodes_; // Allokator propagiert NICHT (POCCA=false) -> dieses Objekt behaelt seinen Adapter
+            root_       = o.root_;
+            keys_       = o.keys_;
+            last_depth_ = o.last_depth_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~PatriciaTrie() = default;
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    /// A8-S5-02a VERDRAHTUNGS-BELEG (Nicht-Vertrags-Methode, analog btree_node_pool_store.hpp:128): die
+    /// Statistik der Versorger-Strategie DIESES Organs. Damit ist die Form-B-Aussage der S5-Gate-Wache am
+    /// Objekt pruefbar -- ein deklarierter allocator_type ohne reale Verdrahtung bliebe hier auf 0 stehen.
+    /// NICHT im T3-Mess-Pfad (T3 misst compress/descend) und NICHT im T6-Pfad (T6 misst den Allokator DER
+    /// KOMPOSITION, nicht diesen privaten Versorger) -- keine Doppelzaehlung.
+    [[nodiscard]] typename allocator_type::snapshot_t trie_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
+#endif
+
+    // A8-S5-02a: allocator_ VOR nodes_ (Lebensdauer des Zeigers im StdAllocatorAdapter, s. Ctor-Kommentar).
+    allocator_type                allocator_{};
+    std::vector<Node, node_alloc> nodes_; ///< Knoten-Pool (index-basiert) -- innere Knoten + Blaetter.
+    std::uint32_t                 root_ = kNil;
+    std::uint64_t                 keys_ = 0; ///< Anzahl GESPEICHERTER (distinct) Schluessel = Anzahl Blaetter.
     // mutable: rein DIAGNOSTISCHER Nebeneffekt des const-Descent (kein persistenter Struktur-Zustand; aus operator==
     // ausgeklammert) — erlaubt descend() als const-Methode (analog ObservableValueHandle::deref_value const).
     mutable std::uint64_t last_depth_ = 0; ///< Tiefe (durchquerte innere Knoten) des letzten descend (Diagnose).

@@ -8,6 +8,15 @@
 // erbt/konsumiert diese Primitive (Richtung prt-art -> cache-engine).
 //
 // Layout pro Eintrag: [signal_bit:1 Byte] [serialized_length:1-9 varlen] [payload:length].
+//
+// A8-S5 Familie 02a (2026-08-04) -- SCHNITT-REGEL (Dossier 20260803-a8_f2 Abschn. 3.4: "Speicher NUR ueber
+// das Allokator-Achsen-Interface"): der Byte-Puffer des SignalingStream lief bis hierher ueber den
+// Default-Allokator. Er ist der EINZIGE besitzende Container der serialization-Achse (Familien-grep) und
+// laeuft seit dem Schnitt ueber das Achsen-Interface. Das WIRE-FORMAT ist davon nicht beruehrt: Signal-Byte,
+// varlen-Laenge und Payload-Bytes sind unveraendert, raw()/decode_one liefern dieselben Bytes -- der Schnitt
+// wechselt die Speicher-QUELLE, nicht die Kodierung (G8: kein ABI, kein Wire, kein Fingerprint).
+
+#include <axes/alloc/axis_06_allocator_exgen.hpp> // A8-S5-02a: Versorger-Achse des Stream-Puffers (s.u.)
 
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +24,17 @@
 #include <vector>
 
 namespace comdare::cache_engine::serialization_axis {
+
+/// A8-S5 Familie 02a: die EINE Stelle, die den Versorger des Stream-Puffers benennt (kein zweiter Name kann
+/// driften). Begruendung der Wahl identisch zur path_compression-Seite dieser Scheibe und zu den Scheiben
+/// 03/01d: derselbe Achsen-Default, den die bereits konformen Pool-Stores fuehren
+/// (btree_node_pool_store.hpp:56); der Stream ist single-threaded append-only, die Exgen-Sub-Achse AA4
+/// (Single-Threaded Specialized) passt; bei abgeschaltetem Vendor-Flag derselbe libc-Heap wie vorher, aber
+/// ueber das Achsen-Interface. Kein Kompositions-Allokator: SignalingStream ist kein Template ueber A und
+/// kennt die Komposition nicht (Abgrenzung zum HERZ-Fall der node-Achse, wo der Store Template ueber A IST).
+/// ABHAENGIGKEITSRICHTUNG (Dossier 3.3): serialization -> alloc, die unterste Versorger-Achse; axes/alloc/
+/// zieht keinen serialization-Header -> kein Zyklus.
+using serialization_stream_allocator_t = ::comdare::cache_engine::alloc::ExgenAllocator;
 
 enum class SignalKind : std::uint8_t {
     Normal  = 0, // signal = 0
@@ -61,6 +81,48 @@ public:
 /// SignalingStream — Append-only Stream aus (Signal, Payload)-Eintraegen mit varlen-Length.
 class SignalingStream {
 public:
+    /// A8-S5-02a Form-B-Ausweis: der Speicher dieses Organs laeuft ueber die Allokator-Achse -- real
+    /// verdrahtet (buffer_ traegt den StdAllocatorAdapter dieses allocator_, s. Member unten +
+    /// stream_allocator_statistics()).
+    using allocator_type = serialization_stream_allocator_t;
+
+private:
+    using byte_alloc = typename allocator_type::template StdAllocatorAdapter<std::byte>;
+
+public:
+    // -- A8-S5-02a Lebensdauer-Vertrag der Achsen-Verdrahtung (Muster btree_node_pool_store.hpp:19/:84-105) --
+    //   (a) allocator_ MUSS vor buffer_ deklariert sein (Member-Reihenfolge unten),
+    //   (b) buffer_ wird IMMER mit allocator_.as_std_allocator<std::byte>() konstruiert (der Adapter ist
+    //       nicht default-konstruierbar -> kein stilles Zurueckfallen auf einen Default-Allokator),
+    //   (c) die Kopie REBINDET auf das EIGENE allocator_ (sonst zeigte der Adapter der Kopie auf die Quelle;
+    //       raw() gibt eine span AUF diesen Puffer heraus -- eine geteilte Speicherquelle waere hier
+    //       besonders heimtueckisch) + verwirft die transiente Kopier-Pollution per restore_statistics,
+    //   (d) Move bewusst nicht deklariert -> degradiert zur korrekt rebindenden Kopie.
+    SignalingStream() : buffer_(allocator_.template as_std_allocator<std::byte>()) {}
+    SignalingStream(SignalingStream const& o)
+        : allocator_(o.allocator_), buffer_(o.buffer_, allocator_.template as_std_allocator<std::byte>()),
+          entry_count_(o.entry_count_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    SignalingStream& operator=(SignalingStream const& o) {
+        if (this != &o) {
+            buffer_      = o.buffer_; // Allokator propagiert NICHT (POCCA=false) -> eigener Adapter bleibt
+            entry_count_ = o.entry_count_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~SignalingStream() = default;
+
+    /// SONDERFALL [[allocation-failure-exception]] (A8-S5-02a, Auflage 11 -- Fehlerklassen): das Puffer-
+    /// Wachstum laeuft seit dem Schnitt ueber die Allokator-ACHSE statt ueber operator new. Die Strategie
+    /// meldet OOM per nullptr; der StdAllocatorAdapter uebersetzt das seit Posten 64 an EINER Stelle in
+    /// std::bad_alloc (axis_06_allocator_strategy_base.hpp) -- der Wurf bleibt, nur der Traeger wechselt.
+    /// Fehlerklasse unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor).
     void append(SignalKind signal, std::span<std::byte const> payload) {
         std::byte   length_buf[9];
         std::size_t length_bytes =
@@ -102,9 +164,21 @@ public:
         return e;
     }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    /// A8-S5-02a VERDRAHTUNGS-BELEG (Nicht-Vertrags-Methode, analog btree_node_pool_store.hpp:128): die
+    /// Statistik der Versorger-Strategie DIESES Organs -- macht die Form-B-Aussage der S5-Gate-Wache am
+    /// Objekt pruefbar (ein bloss deklarierter allocator_type bliebe hier auf 0 stehen). NICHT im T9-Mess-
+    /// Pfad (T9 misst serialize/deserialize) und NICHT im T6-Pfad -- keine Doppelzaehlung.
+    [[nodiscard]] typename allocator_type::snapshot_t stream_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
+#endif
+
 private:
-    std::vector<std::byte> buffer_{};
-    std::size_t            entry_count_ = 0;
+    // A8-S5-02a: allocator_ VOR buffer_ (Lebensdauer des Zeigers im StdAllocatorAdapter, s. Ctor-Kommentar).
+    allocator_type                     allocator_{};
+    std::vector<std::byte, byte_alloc> buffer_;
+    std::size_t                        entry_count_ = 0;
 };
 
 } // namespace comdare::cache_engine::serialization_axis
