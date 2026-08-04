@@ -1867,6 +1867,10 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # weil register_entry/rehash unbeschraenkt wachsen -- deshalb belegt sie den von Form B geforderten
     # realen Verdrahtungs-Anker zusaetzlich compile-hart (Konformitaets-TU) UND zur Laufzeit (Perf-Sanity).
     test_s5_01d_traversal_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 01d cache_traversal
+    # Perf-Sanity derselben Familie: Zeit UND Zaehler derselben Op-Schleife (kV3AxisSchema[T1]: [3] register
+    # als allozierende, [0] resolve als lesende Op) + ehrlicher Nullpunkt OHNE None-Strategie (unregister
+    # bleibt 0; hit+miss == resolve mit beiden Seiten real) + Rehash-Pfad ueber die Achse.
+    test_s5_01d_traversal_perf_sanity # A8-S5 -- Perf-Sanity Familie 01d (keine 0-/Phantom-Zeiten)
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
