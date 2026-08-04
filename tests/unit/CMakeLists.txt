@@ -1679,7 +1679,8 @@ endforeach()
 set(COMDARE_E24_C6_TESTS
     test_e24_c6_genus_observer_aggregate # C6 (a): das gemeinsame Wire-Layout GenusObserverAggregate<G, N>
     test_e24_c6_axis_row_writer          # C6 (b): write_genus_axis_row + E1-Milli-Fixpunkt
-    test_e24_c6_set_wire_aggregate)      # C6 (c): SetObserverAggregate<13> + ISetTierV2
+    test_e24_c6_set_wire_aggregate       # C6 (c): SetObserverAggregate<13> + ISetTierV2
+    test_e24_c6_sequence_wire_aggregate) # C6 (d): SequenceObserverAggregate<9> + E1-Detail growth_factor_milli
 foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     add_executable(${_c6} "${_c6}.cpp")
     target_compile_features(${_c6} PRIVATE cxx_std_23)

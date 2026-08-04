@@ -2,9 +2,14 @@
 // D10 / L-76b (2026-06-02) — SequenceAbiAdapter: Runtime-ABI-Adapter der SEQUENCE-Gattung (Reptil), analog
 // Set/Container. Bridge SequenceAnatomy<Composition> → IAnatomyBase + ISequenceTier. static_assert genus()==Sequence.
 
+// E-24 C6 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE): der Adapter erbt ZUSAETZLICH ISequenceTierV2 und
+// liefert darueber die per-Achsen-Wire-Form SequenceObserverAggregate<9>. APPEND-ONLY: ISequenceTier und
+// SequenceObserverSnapshotV1 bleiben unveraendert (die neue Basis kommt HINTEN); Host-Abfrage 1x kalt.
+
 #include "anatomy_base.hpp"
 #include "sequence_anatomy.hpp"
 #include "sequence_tier.hpp"
+#include "sequence_tier_v2.hpp" // E-24 C6: ISequenceTierV2 + SequenceObserverAggregate<9>
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -13,7 +18,7 @@
 namespace comdare::cache_engine::anatomy {
 
 template <AnatomyConcept A>
-class SequenceAbiAdapter final : public IAnatomyBase, public ISequenceTier {
+class SequenceAbiAdapter final : public IAnatomyBase, public ISequenceTier, public ISequenceTierV2 {
     static_assert(A::genus() == AnatomyGenus::Sequence,
                   "SequenceAbiAdapter erwartet eine Sequence-Gattung-Anatomie (AnatomyGenus::Sequence). "
                   "Cross-Genus-Adapter sind type-system-mathematisch unmoeglich — Doku 14 §32.");
@@ -69,6 +74,16 @@ public:
         v.observable_axis_count = 2; // R5.B ehrlich: V-Speicher-Organ + axis_growth real getrieben
         v.organ_count           = A::organ_count();
         *out                    = v;
+    }
+
+    // -- ISequenceTierV2 (E-24 C6: die PER-ACHSEN-Wire-Form) ------------------------------------
+    /// Projiziert observe_axes() + den E1-Detail-Wert growth_factor_milli in den flachen Gattungs-
+    /// Wire-POD. Die Projektion laeuft IM Modul-Binary; ueber die Grenze geht nur der POD.
+    void tier_observe_sequence_axes(SequenceObserverAggregateWire* out) const noexcept override {
+        if (out == nullptr) return;
+        SequenceObserverAggregateWire w{};
+        fill_sequence_observer_aggregate(anatomy_, w);
+        *out = w;
     }
 
 private:
