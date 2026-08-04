@@ -1940,6 +1940,19 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # gelesene Achsen-Statistik (die T6-Zeile muss aus DIESEM Store stammen) und den ehrlichen Nullpunkt
     # des ungetriebenen Organs. Achsen-Indizes aus kCompositionAxisNames abgeleitet, nie Literal.
     test_s5_01a_pool_stores_perf_sanity # A8-S5 -- Perf-Sanity Familie 01a (keine 0-/Phantom-Zeiten)
+    # A8-S5 Sub-Scheibe 01b (composable-REST): nicht die Substrate, sondern die Organe darueber, ihre
+    # Huellen und die Schalen-Puffer (Memento, Scan-Zwischenablage, Pilot-Store RawSlotStore<>). Die TU
+    # pinnt BEIDE Schnitt-Formen JE ORGAN: Form A heap-frei mit typ-abgeleiteter CT-Kappe fuer die drei
+    # Trie-Familien (Tiefe strukturell durch die Schluesselbreite beschraenkt), Form B ueber die Achse
+    # fuer BST/B-Baum (Tiefe datenabhaengig -- eine CT-Kappe waere dort keine staerkere Aussage, sondern
+    # eine falsche). Ebenen 2/3 waren in 01a noch reiner AUSWEIS; hier werden sie zur Aussage und deshalb
+    # auch belegt (Walk-Delta VOR jedem Restore, Memento-/Scratch-Zaehler, ehrliche Nullpunkte).
+    test_s5_01b_composable_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 01b
+    # Perf-Sanity derselben Familie. Schaerfer als 01a, weil 01b den WALK-ALGORITHMUS dreier Trie-Familien
+    # umgestellt hat: ein still verstummender Walk wuerde die DEG-1-Key-Ernte des Mess-Pfads leeren, ohne
+    # dass ein Test rot wird. Zeit UND Zaehler derselben Schleife, plus die Form-Unterscheidung (Form B
+    # MUSS beim Walk ueber die Achse allozieren, Form A darf es NICHT) und zwei ehrliche Nullpunkte.
+    test_s5_01b_composable_perf_sanity # A8-S5 -- Perf-Sanity Familie 01b (keine 0-/Phantom-Zeiten)
     # HAERTUNG Posten 64 (2026-08-04): der FEHLSCHLAG-VERTRAG des StdAllocatorAdapter, negativ belegt.
     # Nach dem A8-S5-Schnitt fuehren mapping/value_handle/cache_traversal + die vier Pool-Stores ihren
     # Speicher ueber die Allokator-Achse; die meldet OOM per nullptr. Der Adapter uebersetzt das jetzt an
