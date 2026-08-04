@@ -341,6 +341,13 @@ Median-of-7 in dieser Tabelle.
 ## 9. Abgrenzung, Auflagen-Bilanz, offene Uebergaben
 
 **Was diese Scheibe NICHT tut** (bewusst, Dossier-Scheiben-Schnitt):
+- **Geltungsbereich: die Gattung MAP (Genus SearchAlgorithm).** Die Matrix erhebt den `IDriveableTier`-Kern
+  von `SearchAlgorithmAbiAdapter` (abi_adapter.hpp) ueber die 18 Organ-Haupt-Achsen. Die vier Genera der
+  Gattung CONTAINER (Set/Sequence/Adapter/View, seit E-24 C6/C7) haben EIGENE ABI-Adapter
+  (`set_abi_adapter.hpp`, `sequence_abi_adapter.hpp`, `adapter_abi_adapter.hpp`, `view_abi_adapter.hpp`)
+  mit eigener Achsen-Zahl (13/9/11/5) -- fuer sie ist HIER keine Konstitutiv-Matrix erhoben. Der Auftrag
+  dieser Scheibe nennt T0..T17 und `tier_insert`, also die Map-Seite. Die Container-Matrix ist ein
+  eigener, noch nicht beauftragter Posten; die Rollen-DEFINITION aus Par. 1 traegt sie unveraendert.
 - Sie heilt die Misch-Vertragsarten B-3 (i/ii/iii) NICHT -- das ist S3 (E1-Neuschnitt), insbesondere der
   T6-Stats-READ statt echter `allocate`/`deallocate`-Messung in Ebene 1.
 - Sie fasst die 70 `axes/`-Header mit std-Containern NICHT an -- das ist S5.
