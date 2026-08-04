@@ -72,9 +72,12 @@ namespace comdare::cache_engine::builder::experiment {
         out += ';';
         out += std::to_string(v);
     };
-    for (std::size_t t = 0; t < 18; ++t) // STRUKT-R ORG-18: 18 Achsen (persistence_target als T17)
-        for (std::size_t f = 0; f < 8; ++f) addu(s.axis_stats[t][f]);
-    for (std::size_t t = 0; t < 18; ++t) addi(s.seg_ns[t]);
+    // A8-S1 (2026-08-04, Nachzug zu Befund B-6): die Wire-Breite folgt der tragenden Konstante, nie einem
+    // Literal. Der Wert ist heute identisch (18/8) -- byte-identisches Wire-Format --, aber ein kuenftiger
+    // Achsen-Zuwachs zieht Schreiber und POD gemeinsam nach, statt den neuen Slot still abzuschneiden.
+    for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) // STRUKT-R ORG-18: persistence_target als T17
+        for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) addu(s.axis_stats[t][f]);
+    for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) addi(s.seg_ns[t]);
     addu(s.observable_axis_count);
     addu(s.tier_fill_level);
     addu(s.filled_axis_count);

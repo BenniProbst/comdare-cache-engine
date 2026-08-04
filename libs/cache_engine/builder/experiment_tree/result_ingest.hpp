@@ -96,10 +96,17 @@ parse_result_line_to_node_value(std::string_view line) {
     // KEINE erfundene Null, sondern der korrekte Wert: MemoryOnlyTarget hat keinen Rueckschreib-Pfad, seine
     // Mess-Op liefert echte 0 und die Huelle stagt 0 Bytes/0 device_flushes. Alt- und Neu-Zeile sind an dieser
     // Stelle also inhaltsgleich, nicht bloss laengen-kompatibel.
-    constexpr std::size_t kAxesCurrent = 18; // == anatomy::kV3AxisCount
-    constexpr std::size_t kAxesLegacy  = 17; // vor STRUKT-R ORG-18
-    auto const            fields_for   = [](std::size_t n) { return 1u + n * 8u + n + 4u + 2u; };
-    std::size_t           axis_count   = 0;
+    // A8-S1 (2026-08-04, Nachzug zu Befund B-6): kAxesCurrent aus dem ZIEL-Array abgeleitet, nicht als Literal.
+    // result_ingest bleibt bewusst anatomy-unabhaengig (experiment_tree.hpp ist der einzige Include), deshalb
+    // ist die tragende Konstante hier die Slot-Zahl von NodeObserverSnapshot::seg_ns -- die test_a8s1_t17_-
+    // vollzaehligkeit per static_assert gegen anatomy::kV3AxisCount bindet. Waechst die Achsen-Zahl, waechst
+    // die akzeptierte Aktuell-Laenge automatisch mit, statt jede neue Zeile still als "unerwartete Feldzahl"
+    // zu verwerfen. kAxesLegacy bleibt Literal: 17 ist ein eingefrorenes HISTORISCHES Format, keine Variable.
+    constexpr std::size_t kAxesCurrent   = sizeof(NodeObserverSnapshot{}.seg_ns) / sizeof(std::int64_t);
+    constexpr std::size_t kAxesLegacy    = 17; // vor STRUKT-R ORG-18 (eingefrorene Alt-Laenge, nie ableiten)
+    constexpr std::size_t kFieldsPerAxis = sizeof(NodeObserverSnapshot{}.axis_stats[0]) / sizeof(std::uint64_t);
+    auto const            fields_for     = [](std::size_t n) { return 1u + n * kFieldsPerAxis + n + 4u + 2u; };
+    std::size_t           axis_count     = 0;
     if (f.size() == fields_for(kAxesCurrent))
         axis_count = kAxesCurrent;
     else if (f.size() == fields_for(kAxesLegacy))
@@ -129,7 +136,7 @@ parse_result_line_to_node_value(std::string_view line) {
     // Q-9: axis_count ist 18 (aktuell) oder 17 (Alt-CSV). Die Ziel-Arrays sind IMMER [18] -- bei einer
     // Alt-Zeile bleibt Slot 17 auf seiner Null-Initialisierung, was genau memory_only entspricht (s. oben).
     for (std::size_t t = 0; t < axis_count; ++t)
-        for (std::size_t fi = 0; fi < 8; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
+        for (std::size_t fi = 0; fi < kFieldsPerAxis; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
     for (std::size_t t = 0; t < axis_count; ++t) o.seg_ns[t] = i64(f[idx++]);
     o.observable_axis_count = u64(f[idx++]);
     o.tier_fill_level       = u64(f[idx++]);
