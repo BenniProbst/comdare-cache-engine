@@ -320,11 +320,38 @@ inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MA
 /// dll_is_current -> ALLE Tier-Binaries werden neu gebaut, und cache_key_prefix zeigt auf einen NEUEN
 /// Objekt-Store-Bucket. binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320
 /// und der CRC-Anker kNewGolden131072Crc64 sind deshalb byte-neutral.
+///
+/// W10-M2 VOLLZUG (04.08.2026) -- Minor 1 -> 2. Manager-Entscheid W10-M2 des W10-Bauplan-Dossiers
+/// (Review-Befund B2, CONFIRMED am Mechanismus), gefaellt nach der M4-Praezedenz. WAS DIE BUMP-KLASSE HIER
+/// TRIFFT: W10-C4 schaltet die Zellwert-Naht an perm_compile scharf und injiziert damit
+/// -DCOMDARE_SYSTEM_CELL_VALUES in JEDEN Tier-Bau -- eine CEB-UNIVERSELLE Codegen-Quelle, die ALLE
+/// Tier-Binaries betrifft, OHNE POD-/vtable-ABI zu brechen (Bump-Klasse s.o., woertlich). Die System-Zeile
+/// im Tier-POD traegt ab jetzt die Bau-ZELLE (ISA + OS-Familie + simd) als Namens-Erweiterung des
+/// Algorithmus-Markers ("code" -> "code.<token>"), womit sich kS/kFP/kSE und jeder Lager-Key eines
+/// definierten Baus verschieben.
+/// DAS PROBLEM, DAS DER BUMP LOEST: ohne einen Sidecar-sichtbaren Marker bliebe die lokale zweite
+/// Verteidigungslinie dll_is_current (Dreifach-String-Gleichheit .version/.algos/.variant) W10-BLIND --
+/// keines der drei Sidecars bewegt sich durch C4. Stale prae-W10-Binaries (runner-persistente gn_out)
+/// wuerden still geskippt und truegen kS/kFP OHNE Zellwerte; "beendet Skip-nur-gleiche-OS-Familie" gaelte
+/// fuer den Lokal-Bestand dann NICHT. Ein einmaliger gn_out-Purge ist VERWORFEN, weil nicht mechanisch
+/// (runner-persistente Verzeichnisse + vier lokale Klone: ein Ereignis kann verpasst werden, ein Marker nicht).
+/// PFAD-DIFFERENZIERTE WIRKUNG: am EINZEL-Pfad traegt die build_version das '+ceb='-Glied bereits --
+/// dort wirkt der Bump direkt ('+ceb=7.1' -> '+ceb=7.2'). Am PERM-Pfad existierte das Glied bis W10 GAR
+/// NICHT (beide Perm-Schleifen fuellten SystemVersionSuffixParts ohne .ceb) -- der Bump waere genau am
+/// Scharfschalt-Pfad unsichtbar geblieben. C4 verdrahtet es deshalb im SELBEN Commit in beide
+/// Perm-Schleifen aus DIESER Konstante und stellt cache_key_prefix von 'anhaengen' auf
+/// 'konsumieren/dedupe' um (sonst Doppel-+ceb im Objekt-Store-Key). KEIN neues Suffix-SEGMENT: die
+/// Glied-Klasse ist Bestand, am Perm-Pfad wird sie NEU VERDRAHTET.
+/// WIRKUNG DES BUMPS: "+ceb=7.1" -> "+ceb=7.2" in jeder build_version -> jede perm.dll.version mismatcht in
+/// dll_is_current -> ALLE Tier-Binaries werden neu gebaut statt still geskippt, und cache_key_prefix zeigt
+/// auf einen NEUEN Objekt-Store-Bucket (deklarierte EINMALIGE Bucket-Invalidierung, M4-Praezedenz).
+/// binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320 und der CRC-Anker
+/// kNewGolden131072Crc64 sind deshalb byte-neutral.
 /// LITERALER PIN: tests/unit/test_v41_anatomy_module_abi.cpp (R5D_CebContract). Die drei Konsumenten-Tests
 /// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den Wert
 /// bewusst aus DIESER Konstante ab (Anti-Drift gegen den automatischen Major) und wuerden einen vergessenen
 /// oder falschen Minor-Bump deshalb NICHT sehen; der eine literale Pin dort ist die Gegenprobe.
-inline constexpr std::uint32_t kCebContractCodegenMinor = 1;
+inline constexpr std::uint32_t kCebContractCodegenMinor = 2;
 
 /// ceb_contract_version als Tupel (Major = ABI-Major, Minor = codegen-Minor). host_compatible_with-Backstop des
 /// Loaders (host_compatible_with, decl:124-127) lehnt Major-Mismatch-DLLs ohnehin ab -> +ceb= macht Bau-Skip +

@@ -1737,6 +1737,8 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_45_parallel_measure_loop   # #45 (§16.2-M1/§61-MODI): collect_ordered + resolve_measure_parallelism + parse-Naht
     test_cache_mc_timeout           # Cache-Resthygiene: mc-Timeout-Wrapper (build_mc_argv literal + End-to-End-Hang-Cap)
     test_r2_suffix_wachen           # Lane F R2 (O-8 Schritt 11): T-a/T-b/T-c auf der Suffix-Single-Source
+    test_w10_c4_zellwert_naht       # W10-C4: Zellwert-Wertform/Define-Argument, Diskriminierung, na-fail-closed,
+                                    #         W10-M2 (Contract-Minor 2, +ceb= am Perm-Pfad, Store-Key-Dedupe)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")

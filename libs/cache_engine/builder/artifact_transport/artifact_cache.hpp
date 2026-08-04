@@ -92,6 +92,14 @@ struct PruneVerdict {
 inline constexpr std::array<char const*, 3> kOptionalTierSidecars{"perm.dll.algos", "perm.dll.fingerprint",
                                                                   "perm.dll.variant"};
 
+// W10-C4: der Segment-SCHLUESSEL des CEB-Contract-Glieds. Er steht hier als Literal, weil dieser Transport
+// bewusst NICHT auf profile_facade zeigt (dieselbe Richtungs-Regel wie bei den drei Sidecar-Literalen
+// darueber) -- die kanonische Ordnung lebt in profile_facade/system_version_suffix.hpp
+// (kSuffixSegmentOrder[3]). Die Gleichheit beider Schreibweisen ist NICHT der Disziplin ueberlassen: der
+// W10-C4-Test prueft sie literal gegen die Ordnungs-Quelle (er darf beide Seiten inkludieren, dieser Header
+// nicht). Der Schluessel wird zum SUCHEN gebraucht (Dedupe in cache_key_prefix), nicht nur zum Schreiben.
+inline constexpr std::string_view kCebSegmentKey = "+ceb=";
+
 // G5 (P-B): die EINZIGEN Dateien, die geprunt werden duerfen -- die Tier-Binary, ihre Vollstaendigkeits-Marke und
 // ihre optionalen Sidecars. NIEMALS result.csv / measure_out / Logs (Messdaten-nie-loeschen-Doktrin, HART --
 // prune.log ueberlebt, weil es hier NICHT aufgelistet ist). Single-Source der Prune-Menge (Test +
@@ -281,10 +289,27 @@ public:
     /// mehr nach, sie konsumiert ihn. Was sie ANHAENGT, sind ausschliesslich CACHE-scoped Segmente
     /// (+ceb/+mtool/+mrg): sie beschreiben den Objekt-Bucket, nicht die System-Achsen-Belegung, und
     /// gehoeren deshalb bewusst NICHT in kSuffixSegmentOrder.
+    ///
+    /// W10-C4 (Manager-Entscheid W10-M2): das +ceb=-Glied wird KONSUMIERT statt blind angehaengt. Bis W10
+    /// fehlte es der Perm-build_version, und die Klammer-Bemerkung oben ("kein Doppel-+ceb, da
+    /// push_tier_binary/push_chunk_partial_marker NUR die Perm-build_version einspeisen") war die einzige
+    /// Absicherung -- eine Aussage ueber Aufrufer, nicht ueber diese Funktion. C4 verdrahtet das Glied in
+    /// BEIDE Perm-Schleifen (die Zellwert-Scharfschaltung braucht den Marker genau dort, sonst ist der
+    /// Minor-Bump am Bau-Skip unsichtbar); ohne diese Umstellung stuenden ab jetzt ZWEI +ceb=-Segmente im
+    /// Objekt-Store-Key. Traegt die hereingereichte build_version das Glied bereits, ist sie die Wahrheit
+    /// (sie hat es in der bindenden kSuffixSegmentOrder-Position, nicht angehaengt); fehlt es, faltet diese
+    /// Funktion es unveraendert ein (Einzel-Pfad-/Fremd-Aufrufer bleiben byte-identisch).
     [[nodiscard]] std::string cache_key_prefix(std::string const& build_version) const {
-        return build_version + "+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
-               std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor) + "+mtool=" + measurement_combo_ +
-               "+mrg=none";
+        std::string out = build_version;
+        if (build_version.find(kCebSegmentKey) == std::string::npos) {
+            out += kCebSegmentKey;
+            out += std::to_string(COMDARE_ANATOMY_ABI_MAJOR);
+            out += ".";
+            out += std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+        }
+        out += "+mtool=" + measurement_combo_;
+        out += "+mrg=none";
+        return out;
     }
 
     /// Ebene B: schiebt die Bau-Artefakte EINES Tier-Binary-Ordners in den Objekt-Store. HARTE Reihenfolge perm.dll

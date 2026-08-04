@@ -54,7 +54,16 @@ struct RunExperimentArgs {
     // opt-g: per-Permutation-CompileFn-Fabrik (System-Achsen opt_level × simd). Der Facade-Planer liefert sie
     // (kennt include_dirs/defines/cxx/link_libs/fno_gnu_unique); run_experiment_profile permutiert opt×simd aus der
     // geparsten XML SELBST und ruft die Fabrik je Perm mit den aufgelösten Flags. Leer ⇒ Fallback auf `compile`.
-    std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
+    ///
+    /// W10-C4: SPIEGEL der RunProfileArgs-Naht -- die Fabrik nimmt zusaetzlich die System-ZELLWERTE dieser Zelle
+    /// entgegen (benannter Typ abi::SystemCellValues nach K-1-Muster, kein dritter nackter string). Leer == Identitaet.
+    std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
+                                ::comdare::cache_engine::abi::SystemCellValues cell_values)>
+        compile_for_perm;
+    // W10-C4: die beiden lauf-konstanten System-Zellen dieses Baus (SPIEGEL zu RunProfileArgs). Die Facade loest
+    // sie auf, die Perm-Schleife ergaenzt simd_id. Beide leer (Default) => kein Define => byte-identischer Bau.
+    std::string           system_cell_target_isa;       // Ziel-ISA-Zelle: "x86_64"/"aarch64"/"na"
+    std::string           system_cell_operating_system; // OS-FAMILIEN-Zelle: "linux"/"windows"/"macos"/"na"
     ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
     ex::CachePullFn       cache_pull;       // S2 (#46a): BATCH-Warm-Cache-Hydrierung VOR dem Bau; leer = No-Op
@@ -287,9 +296,16 @@ struct RunExperimentResult {
                           << "] simd='" << simd_id << "' auf dieser ISA nicht verfügbar — Permutation übersprungen.\n";
                 continue;
             }
-            std::string const   march_flag = system_axis_march_of(simd_id);
-            ex::CompileFn const perm_compile =
-                a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
+            std::string const march_flag = system_axis_march_of(simd_id);
+            // W10-C4 (SPIEGEL der run_profile-Schleife): dieselben drei Quellen, dieselbe Wertform, derselbe
+            // Vervollstaendiger. Dieser Pfad schreibt KEIN Lager zurueck (er belegt bestand_fingerprint_fn
+            // nicht), deshalb steht hier nur die Bau-Haelfte der Naht -- die FAIL-CLOSED-Regel greift auf dem
+            // Profil-Pfad, wo der Rueckschrieb ueberhaupt stattfindet.
+            std::string const perm_cell_values = ::comdare::cache_engine::profile_facade::compose_system_cell_values(
+                a.system_cell_target_isa, a.system_cell_operating_system, simd_id);
+            ::comdare::cache_engine::abi::SystemCellValues const perm_zellwerte{perm_cell_values};
+            ex::CompileFn const                                  perm_compile =
+                a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte) : a.compile;
             // Lane F R3 (O-8 Schritt 10): der Zwilling der Perm-Schleife aus profile_run_entry.hpp -- er
             // buchstabierte dieselbe Ordnung ein zweites Mal. Jetzt liest auch er die EINE Suffix-Quelle,
             // damit die beiden Lauf-Pfade nicht auseinanderlaufen koennen.
@@ -297,8 +313,12 @@ struct RunExperimentResult {
             perm_parts.cxx = a.compiler_tag;
             perm_parts.opt = opt_id;
             if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) perm_parts.simd = simd_id;
-            std::string const perm_bt = build_type_version_value();
-            perm_parts.build_type     = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
+            // W10-M2 (REV2-B2-Rest, SPIEGEL): auch dieser Perm-Pfad fuellte das +ceb=-Glied nicht -- der
+            // Contract-Minor-Bump waere hier ebenso unsichtbar geblieben. Wert aus der EINEN Zusammensetzung.
+            std::string const perm_ceb = ::comdare::cache_engine::profile_facade::ceb_contract_version_text();
+            perm_parts.ceb             = perm_ceb;
+            std::string const perm_bt  = build_type_version_value();
+            perm_parts.build_type      = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
             std::string const perm_gate =
                 cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
             perm_parts.gate_contribution = perm_gate; // OP-7: am ENDE, leer => kein Segment
@@ -308,7 +328,7 @@ struct RunExperimentResult {
             std::string const perm_tag_build_version = tag_build_version + perm_suffix;
             std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
                       << (march_flag.empty() ? std::string{} : (" " + march_flag))
-                      << "' build_version=" << perm_build_version << "\n";
+                      << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values << "'\n";
             std::set<std::string> sota_seen_bids; // per-Perm-Reset: jede opt×simd-Stufe ist ein eigenes SOTA-Rennen
             for (auto const& proj : projections) {
                 std::cout << "  [PHASE] name=" << proj.phase_name << " merge=" << proj.merge

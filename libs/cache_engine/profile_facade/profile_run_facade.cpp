@@ -19,7 +19,8 @@
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
 
-#include "system_version_suffix.hpp"                 // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include "system_version_suffix.hpp"   // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include "system_cell_values_naht.hpp" // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -394,8 +395,9 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // build_version -> jeder Bump (ABI-Major AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell/
     // CI-Tripwire) laesst jede perm.dll.version mismatchen -> ALLE Tier-Binaries neu ("CEB-Aenderung betrifft alle").
     // Konsistent zum Loader-host_compatible_with-Major-Backstop. Organ-Provenienz bleibt STRIKT getrennt (perm.algos).
-    std::string const ceb_version = std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
-                                    std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+    // W10-C4: der Wert kommt aus der EINEN Zusammensetzung neben der Segment-Ordnung (ceb_contract_version_text);
+    // vorher stand dieselbe Konkatenation hier, im --version-Block und in der Cache-Key-Naht getrennt.
+    std::string const ceb_version = pf::ceb_contract_version_text();
     parts.ceb                     = ceb_version;
     // INC-2d: Cross-Compile-Provenienz NUR wenn Ziel != Host (native x86_64 = kein Suffix -> build_version
     // byte-identisch, golden-neutral). Ziel-ISA ist system_config -> .version-Sidecar, NIE binary_id.
@@ -430,6 +432,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 } // namespace
 
 ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
+    namespace pf = ::comdare::cache_engine::profile_facade; // W10-C4: Zellwert-Naht + Suffix-Single-Source
     ProfileRunResult out;
 
     // -- (R5) Pre-Flight-Validat (exactly-one-Gate) SYMMETRISCH zum ep-Pfad (run_experiment_profile_facade oben):
@@ -537,31 +540,46 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         // system_axes_version_suffix() (Spiegel run_experiment_profile_facade). compile_for_perm montiert je Perm
         // die CompileFn aus den aufgeloesten Flags (WAS/WIE-Trennung: run_profile permutiert, die Facade montiert;
         // include_dirs/defines/cxx/link_libs/fno_gnu_unique bleiben Facade-Wissen).
-        a.build_version    = args.build_version;
-        a.compiler_tag     = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
-        a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(),
-                              libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
-                              dbg = facade_build_type_is_debug()](std::string const& opt_flag,
-                                                                  std::string const& march_flag) {
-            // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
-            // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
-            // byte-identisch zum Ist-Compile-Kanal.
-            std::string flags =
-                dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile (opt + -march)
-            if (!march_flag.empty()) {
-                flags += ' ';
-                flags += march_flag;
-            }
-            // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein
-            // Organ required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable ->
-            // KEINE Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
-            for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
-                     ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
-                flags += ' ';
-                flags += mf;
-            }
-            return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
-        };
+        a.build_version = args.build_version;
+        a.compiler_tag  = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+        // W10-C4 (Dossier Sektion 1): die beiden LAUF-KONSTANTEN System-Zellen. Die Ziel-ISA kommt aus der
+        // Profil-Deklaration, falls es eine gibt (Cross-Bau), sonst aus der CT-Zelle der Bau-Plattform
+        // (nativer Bau); die OS-FAMILIE ist rein CT (es gibt keinen Werte-Kanal fuer sie -- die
+        // <machine>-os-Attribute sind ERWARTUNG, nicht Quelle). Die Perm-Schleife ergaenzt nur simd_id.
+        a.system_cell_target_isa       = std::string{pf::resolve_system_cell_target_isa(
+            tp_ptr != nullptr && tp_ptr->target_isa.isa.size() == 1 ? std::string_view{tp_ptr->target_isa.isa.front()}
+                                                                    : std::string_view{})};
+        a.system_cell_operating_system = std::string{pf::kSystemCellBuildOsFamily};
+        a.compile_for_perm =
+            [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
+             fno = facade_supports_fno_gnu_unique(),
+             dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
+                                                 ::comdare::cache_engine::abi::SystemCellValues cell_values) {
+                // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
+                // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
+                // byte-identisch zum Ist-Compile-Kanal.
+                std::string flags =
+                    dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile (opt + -march)
+                if (!march_flag.empty()) {
+                    flags += ' ';
+                    flags += march_flag;
+                }
+                // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein
+                // Organ required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable ->
+                // KEINE Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
+                for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
+                         ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
+                    flags += ' ';
+                    flags += mf;
+                }
+                // W10-C4: das Zellwert-Define reist als EIGENES Argument im defines-Kanal (eine rsp-Zeile), nicht
+                // in der opt/-march-Zeile -- es ist eine Praeprozessor-Definition, keine Codegen-Flag. Leere
+                // Wertform => leeres Argument => gar kein Define => byte-identischer Bau.
+                std::vector<std::string> perm_defines = def;
+                if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                    perm_defines.push_back(std::move(arg));
+                return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
+            };
     } else {
         a.build_version = args.build_version + system_axes_version_suffix(tp_ptr); // Einzel-Pfad byte-identisch
     }
@@ -972,6 +990,7 @@ int emit_tier_cmake_facade(std::filesystem::path const& profile_path, std::ostre
 }
 
 ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args) {
+    namespace pf = ::comdare::cache_engine::profile_facade; // W10-C4: Zellwert-Naht + Suffix-Single-Source
     ExperimentRunResult out;
 
     // ── (1) Pre-Flight-Validat (I1/I2-Gate) MIT registry_dir + known_workload_ids. Schliesst die Lücke des
@@ -1037,29 +1056,38 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   permutiert opt_level×simd aus der XML (ep.opt_levels/simd_extensions) und ruft die Fabrik je Perm mit den
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
-    a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(),
-                          libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
-                          dbg = facade_build_type_is_debug()](std::string const& opt_flag,
-                                                              std::string const& march_flag) {
-        // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
-        // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
-        std::string flags =
-            dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march
-        if (!march_flag.empty()) {
-            flags += ' ';
-            flags += march_flag;
-        }
-        // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein Organ
-        // required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable -> KEINE
-        // Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
-        for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
-                 ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
-            flags += ' ';
-            flags += mf;
-        }
-        return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
-    };
+    a.compile_for_perm =
+        [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
+         fno = facade_supports_fno_gnu_unique(),
+         dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
+                                             ::comdare::cache_engine::abi::SystemCellValues cell_values) {
+            // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
+            // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
+            std::string flags =
+                dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march
+            if (!march_flag.empty()) {
+                flags += ' ';
+                flags += march_flag;
+            }
+            // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein Organ
+            // required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable -> KEINE
+            // Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
+            for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
+                     ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
+                flags += ' ';
+                flags += mf;
+            }
+            // W10-C4 (SPIEGEL der Profil-Naht): das Zellwert-Define als eigenes Argument im defines-Kanal.
+            std::vector<std::string> perm_defines = def;
+            if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                perm_defines.push_back(std::move(arg));
+            return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
+        };
     a.compiler_tag = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+    // W10-C4: die beiden lauf-konstanten System-Zellen (SPIEGEL der Profil-Naht). Dieser Pfad kennt keine
+    // Ziel-ISA-Deklaration -- die Aufloesung faellt damit auf die CT-Zelle der Bau-Plattform.
+    a.system_cell_target_isa       = std::string{pf::resolve_system_cell_target_isa(std::string_view{})};
+    a.system_cell_operating_system = std::string{pf::kSystemCellBuildOsFamily};
     // Bauplan §5/§7: dieselbe AlgoSigFn wie der Profile-Pfad -> auch der XML-Experiment-Lauf cached organ-genau.
     {
         auto algo_table = std::make_shared<std::vector<ex::AxisVariantVersion>>(ex::build_axis_variant_version_table());
@@ -1144,6 +1172,12 @@ int print_cache_key_facade(std::string const& base_build_version, std::ostream& 
     parts.cxx                            = cxx_tag;
     parts.opt                            = opt;
     if (simd != std::string{cm::SimdNoExtOption::simd_id()}) parts.simd = simd; // no_extension => KEIN +ext
+    // W10-M2: seit C4 traegt die Perm-build_version das +ceb=-Glied SELBST (in der bindenden
+    // kSuffixSegmentOrder-Position). Dieser CI-Key-Druck bildet die Perm-Reihenfolge nach und MUSS es deshalb
+    // ebenfalls setzen -- sonst faltete cache_key_prefix es hier ans ENDE und die CI zeigte auf einen Bucket,
+    // den kein Push je befuellt (Key-Drift genau der Klasse, gegen die dieser Druck ueberhaupt gebaut wurde).
+    std::string const ceb   = pf::ceb_contract_version_text();
+    parts.ceb               = ceb;
     std::string const bt    = tlz::build_type_version_value(); // (i) +bt=Debug nur bei COMDARE_BUILD_TYPE=Debug
     parts.build_type        = bt;
     std::string const gate  = cm::gate_contribution_identity_text(cm::route_of_simd_id(simd), cm::SimdDialect::Gpp);

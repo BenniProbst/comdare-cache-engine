@@ -306,13 +306,21 @@ lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& bina
 /// Mess-Combo (COMDARE_MEASUREMENT_COMBO) einfaengt wie make_lazy_adhoc_source_gen_from_env -> die Fingerprint-Zeilen
 /// decken sich byte-genau mit den emittierten Stempel-Zeilen der DLL (drift-frei). Fuer den Lager-Index-Anker
 /// (bestand_fingerprint_fn): der Orchestrator schreibt je Binary das .fingerprint-Sidecar.
-[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env() {
+///
+/// W10-C4: die System-ZELLWERTE dieser Zelle kommen als Parameter herein und werden per WERT gehalten. Das ist
+/// kein Stil-Detail: der Traeger-Typ abi::SystemCellValues haelt nur eine SICHT, und dieser Provider ueberlebt
+/// den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht -- eine gefangene string_view zeigte spaeter
+/// ins Leere. Der Default (leerer String) ist die IDENTITAET: jeder Bestands-Aufrufer rechnet byte-identisch
+/// weiter, weil ein leeres Werte-Set die System-Zeile unveraendert laesst.
+[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {}) {
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
-    return [tables, version_table, measurement_stamp = std::move(measurement_stamp)](std::string const& binary_id) {
-        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp);
+    return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
+            cell_values = std::move(system_cell_values)](std::string const& binary_id) {
+        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values});
     };
 }
 

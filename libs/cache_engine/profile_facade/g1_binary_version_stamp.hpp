@@ -12,9 +12,9 @@
 // HEREINGEREICHT, damit dieser Header .cpp-frei + leicht unit-testbar bleibt (kein Link gegen die schwere Facade-Lib).
 // Rein additiv, golden-/binary_id-neutral (ein reiner --version-Ausgabe-Stempel, kein Cache-Key, kein Bau-Input).
 
-#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // COMDARE_ANATOMY_ABI_MAJOR + kCebContractCodegenMinor
-#include <profile_facade/build_type_stamp.hpp>             // build_type_version_suffix()
-#include <profile_facade/planner/planner_version.hpp>      // planner_version_stamp()
+#include <profile_facade/build_type_stamp.hpp>        // build_type_version_suffix()
+#include <profile_facade/planner/planner_version.hpp> // planner_version_stamp()
+#include <profile_facade/system_version_suffix.hpp>   // W10-C4: ceb_contract_version_text() (die EINE Zusammensetzung)
 
 #include <string>
 #include <string_view>
@@ -23,9 +23,12 @@ namespace comdare::cache_engine::builder::profile_facade {
 
 /// g1_ceb_contract_version() -- "MAJOR.minor" der CEB-Contract-Ebene (ABI-Major automatisch ueber
 /// COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell ueber kCebContractCodegenMinor). Immer non-empty (enthaelt '.').
+///
+/// W10-C4: die Zusammensetzung stand hier als eigene Konkatenation und ist auf die EINE Quelle
+/// profile_facade::ceb_contract_version_text() gefallen -- derselbe Text, der auch das +ceb=-Glied jeder
+/// build_version fuellt. Der --version-Block und der Bau-Skip koennen damit nicht auseinanderlaufen.
 [[nodiscard]] inline std::string g1_ceb_contract_version() {
-    return std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
-           std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+    return ::comdare::cache_engine::profile_facade::ceb_contract_version_text();
 }
 
 /// g1_build_type_label() -- "Debug" bei COMDARE_BUILD_TYPE == "Debug", sonst "Release". Immer non-empty (macht das
