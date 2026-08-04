@@ -23,10 +23,10 @@ namespace ce_alloc  = ::comdare::cache_engine::allocator::axis_06_allocator;
 namespace ts        = ::comdare::cache_engine::test_support;
 
 // Such-Achsen-Varianten ueber GEMEINSAMEM uint64-Key (alle teilen denselben Op-Stream).
-using LinearFlat = ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>;
-using SortedFlat = ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>;
-using InterpFlat = ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>;
-using GallopFlat = ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>;
+using LinearFlat = ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore<>>;
+using SortedFlat = ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore<>>;
+using InterpFlat = ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore<>>;
+using GallopFlat = ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore<>>;
 using BstTree    = ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore<>>;
 
 // --- (1) VERTIKAL: jede Flat-Variante einzeln == std::map -------------------------------------------------

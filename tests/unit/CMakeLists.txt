@@ -2202,9 +2202,13 @@ set_tests_properties(test_winsorized_mean PROPERTIES LABELS "phase_e;standalone;
 # std). CI-erzwungen ueber die contract-Stage (contract:conformance, .gitlab-ci.yml) auf Linux-g++.
 add_executable(test_conformance_gate "test_conformance_gate.cpp")
 target_compile_features(test_conformance_gate PRIVATE cxx_std_23)
+# A8-S5-01b: composable_search.hpp bindet den Slot-Speicher an die Allokator-Achse (axis_06) und zieht damit
+# denselben Include-Satz wie jeder andere organ-komponierende Test (src/measurement fuer MeasurableObserver) --
+# Praezedenz test_188_4bb0/test_v41_topic_traversal. Der Test bleibt standalone (kein gtest, kein Codegen).
 target_include_directories(test_conformance_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")
 comdare_set_platform_defines(test_conformance_gate)
 add_test(NAME test_conformance_gate COMMAND test_conformance_gate)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_conformance_gate)

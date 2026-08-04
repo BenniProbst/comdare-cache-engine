@@ -38,9 +38,9 @@
 namespace comdare::cache_engine::lookup::composable {
 
 // --- Organ-Pendants (Stufe-1-Gegenstuecke, uint64-Key) — die Bausteine der Gattungs-Konfiguratoren -------
-using LinearScanOrgan    = ComposedSearch<LinearScanTraversal, RawSlotStore>;
-using SortedBinaryOrgan  = ComposedSearch<SortedBinaryTraversal, RawSlotStore>;
-using InterpolationOrgan = ComposedSearch<InterpolationTraversalOrgan, RawSlotStore>;
+using LinearScanOrgan    = ComposedSearch<LinearScanTraversal, RawSlotStore<>>;
+using SortedBinaryOrgan  = ComposedSearch<SortedBinaryTraversal, RawSlotStore<>>;
+using InterpolationOrgan = ComposedSearch<InterpolationTraversalOrgan, RawSlotStore<>>;
 template <class Shape>
 using BstTreeOrganShaped = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<Shape>>;
 using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<>>;

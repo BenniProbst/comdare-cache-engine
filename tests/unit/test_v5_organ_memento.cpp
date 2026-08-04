@@ -13,8 +13,8 @@
 namespace cs = ::comdare::cache_engine::lookup::composable;
 namespace an = ::comdare::cache_engine::anatomy;
 
-using Organ    = cs::ComposedSearch<cs::SortedBinaryTraversal, cs::RawSlotStore>;
-using ObsOrgan = cs::ObservableComposedSearch<cs::SortedBinaryTraversal, cs::RawSlotStore>;
+using Organ    = cs::ComposedSearch<cs::SortedBinaryTraversal, cs::RawSlotStore<>>;
+using ObsOrgan = cs::ObservableComposedSearch<cs::SortedBinaryTraversal, cs::RawSlotStore<>>;
 
 // Das nackte Such-Organ ist eine MementoAxis + rollt seinen Daten-Zustand exakt zurück (via Traversal).
 TEST(V5OrganMemento, ComposedSearchIsMementoAxisAndRoundTrips) {

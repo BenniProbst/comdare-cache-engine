@@ -25,33 +25,57 @@
 #include <cstdint>
 #include <concepts>
 #include <optional>
+#include <type_traits>
 #include <utility>
-#include <vector>
 
+#include "axis_bound_scratch.hpp"    // A8-S5-01b: composition_allocator_t + AxisBoundBuffer (Allokator-Achse)
 #include "storage_organ_concept.hpp" // Saeule-1: Storage-Organ-Vertrag (aus RawSlotStore extrahiert)
 
 namespace comdare::cache_engine::lookup::composable {
 
 /// STORAGE-Organ (Pilot): rohe, indizierte Slots (key,value) ueber aktueller Default-Breite uint64. Vertritt
 /// das node_type/layout/allocator-getriebene Speicher-Substrat; Traversal-Organe operieren darauf.
+///
+/// A8-S5-01b (2026-08-04): Der Slot-Speicher kommt REAL aus der Allokator-Achse (axis_06) -- vorher hing er
+/// als `std::vector<std::pair<...>>` am Default-Allokator und damit am Achsen-Interface VORBEI (B-5-Bestand,
+/// Dossier Abschn. 3.4). Der Template-Kopf ist derselbe Schnitt wie bei den Pool-Stores der Scheibe 01a
+/// (TreeNodePoolStore/BTreeNodePoolStore): Alloc als letzter, DEFAULTETER Parameter -> `RawSlotStore<>` ist
+/// verhaltens- und byte-gleich zum Bestand, und die T6-Wahl ist von aussen setzbar, statt hartkodiert zu sein.
+/// Die Registry-XML bleibt unberuehrt: dort steht der ACHSEN-WRAPPER (LinearScanSearchAlgo & Co.), nicht der
+/// Store -- die 01d-Lehre (Template-Kopf dreht die Registry) trifft hier deshalb nicht zu (Roundtrip-Beweis
+/// je Commit).
+template <class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class RawSlotStore {
 public:
-    using key_type   = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
-    using value_type = std::uint64_t;
+    using key_type       = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
+    using value_type     = std::uint64_t;
+    using allocator_type = Alloc;
+    using slot_type      = std::pair<key_type, value_type>;
+    using slot_buffer_t  = AxisBoundBuffer<Alloc, slot_type>;
 
     [[nodiscard]] std::size_t slot_count() const noexcept { return slots_.size(); }
     [[nodiscard]] key_type    key_at(std::size_t i) const noexcept { return slots_[i].first; }
     [[nodiscard]] value_type  value_at(std::size_t i) const noexcept { return slots_[i].second; }
     void                      set_value_at(std::size_t i, value_type v) noexcept { slots_[i].second = v; }
     void                      append_slot(key_type k, value_type v) { slots_.emplace_back(k, v); }
-    void                      insert_slot_at(std::size_t i, key_type k, value_type v) {
-        slots_.emplace(slots_.begin() + static_cast<std::ptrdiff_t>(i), k, v);
-    }
-    void erase_slot_at(std::size_t i) { slots_.erase(slots_.begin() + static_cast<std::ptrdiff_t>(i)); }
+    void insert_slot_at(std::size_t i, key_type k, value_type v) { slots_.insert_at(i, slot_type{k, v}); }
+    void erase_slot_at(std::size_t i) { slots_.erase_at(i); }
     void clear() noexcept { slots_.clear(); }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (wie bei den Pool-Stores der Scheibe 01a): die ECHTE Statistik der gewaehlten axis_06-Strategie.
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept {
+        return slots_.allocator_statistics();
+    }
+#endif
+
 private:
-    std::vector<std::pair<key_type, value_type>> slots_;
+    // Der Puffer besitzt seine Achsen-Strategie selbst (AxisBoundBuffer) -- damit sind Copy/Assign des Stores
+    // implizit korrekt (Rebind + Memento-Restore stecken im Puffer), ohne dass der Store eigene COW-Regeln
+    // buchstabieren muss. Move bleibt ueber den Puffer unterdrueckt (faellt sicher auf Copy).
+    slot_buffer_t slots_{};
 };
 
 /// TRAVERSAL-Organ-Concept: statische insert_into/lookup_in/erase_from auf einem Storage-Organ.
@@ -106,12 +130,22 @@ struct LinearScanTraversal {
     /// (Meta-Lehre #3: LinearScan durchlaeuft einen anderen Organ-Pfad als die sortierten Organe). Sammelt die
     /// qualifizierenden (key>=start_key), ordnet die kleinsten max_count nach Key (partial_sort) und gibt sie der
     /// Senke (aufrufbar mit (key,value)) IN KEY-REIHENFOLGE. Rueckgabe = Anzahl besuchter Records. KEIN save_state.
+    /// A8-S5-01b: die Zwischenablage `hits` ist UNBOUNDED (sie sammelt alle qualifizierenden Slots, und
+    /// max_count ist ein LAUFZEIT-Argument) -- eine CT-Kappe gibt es hier also nicht, Form A scheidet
+    /// ehrlich aus. Sie laeuft deshalb ueber die Allokator-ACHSE der Komposition (Form B). Der Puffer
+    /// besitzt seine Strategie selbst; die statische Signatur des Traversal-Organs bleibt unberuehrt.
+    /// Die Komplexitaet bleibt exakt: EIN Durchlauf + partial_sort auf out (kein O(out*n)-Ersatz, der die
+    /// Messkurve dieses Organs verfaelschen wuerde).
+    template <class Store>
+    using scan_scratch_t = AxisBoundBuffer<composition_allocator_t<Store>,
+                                           std::pair<typename Store::key_type, typename Store::value_type>>;
+
     template <class Store, class Sink>
     static std::size_t scan_into(Store const& s, typename Store::key_type start_key, std::size_t max_count,
                                  Sink&& sink) {
         if (max_count == 0) return 0;
-        std::vector<std::pair<typename Store::key_type, typename Store::value_type>> hits;
-        std::size_t const                                                            n = s.slot_count();
+        scan_scratch_t<Store> hits{};
+        std::size_t const     n = s.slot_count();
         for (std::size_t i = 0; i < n; ++i) {
             typename Store::key_type const k = s.key_at(i);
             if (k >= start_key) hits.emplace_back(k, s.value_at(i));
@@ -187,6 +221,11 @@ class ComposedSearch {
 public:
     using key_type   = typename Store::key_type;
     using value_type = typename Store::value_type;
+    /// A8-S5-01b (Form-B-Ausweis MIT realer Verdrahtung): die Allokator-Achsen-Strategie DIESER Komposition.
+    /// Sie kommt aus dem Store (dessen T6-Wahl regiert), nicht aus einer eigenen Wahl der Schale -- und sie
+    /// ist keine blosse using-Zeile: memento_t und die Scan-Zwischenablage des Traversal-Organs allozieren
+    /// real darueber (s. s5_family_alloc_conformance.hpp:31, Form-B-Grenze).
+    using allocator_type = composition_allocator_t<Store>;
 
     void insert(key_type k, value_type v) { Traversal::template insert_into<Store>(store_, k, v); }
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
@@ -219,7 +258,16 @@ public:
     //   save_state()     = kapselt den Zustand (Warmup-Vor-Zustand)
     //   restore_state(m) = rekonstruiert via Traversal::insert_into → erhaelt die Traversal-Invariante
     //                      (z.B. SortedBinary haelt sortiert), nicht nur einen rohen Speicher-Klon.
-    using memento_t = std::vector<std::pair<key_type, value_type>>;
+    //
+    // A8-S5-01b: Der Memento-Puffer laeuft ueber die Allokator-ACHSE der Komposition. Er MUSS dafuer seinen
+    // Allokator SELBST besitzen (AxisBoundBuffer): der abi_adapter haelt einen Memento als eigenen MEMBER
+    // (saved_container_algorithm_m_), also potenziell laenger als das Organ, aus dem er stammt -- ein blosser
+    // Adapter-Zeiger auf die Strategie des Organs waere genau dort eine Lebensdauer-Falle. Zusaetzlich
+    // fordert der Adapter Default-Konstruierbarkeit und Zuweisbarkeit, die ein nackter
+    // `std::vector<T, StdAllocatorAdapter<T>>` nicht hat (der Adapter ist bewusst nicht
+    // default-konstruierbar -- Posten 64). Die Element-Sicht (Bereichs-Iteration ueber (first,second),
+    // size(), reserve(), emplace_back()) bleibt exakt die alte -- der abi_adapter bleibt unberuehrt.
+    using memento_t = AxisBoundBuffer<allocator_type, std::pair<key_type, value_type>>;
 
     [[nodiscard]] memento_t save_state() const {
         memento_t m;
@@ -239,11 +287,16 @@ private:
 // Selbstbeweis: die Pilot-Klasse RawSlotStore erfuellt das neu extrahierte StorageOrgan-Concept exakt
 // (Vertrag == Ist-Implementierung, keine erfundene Abstraktion). Bricht dieser static_assert, ist das
 // Concept falsch (z.B. faelschlich gefordertes noexcept), NICHT die Implementierung.
-static_assert(StorageOrgan<RawSlotStore>);
+static_assert(StorageOrgan<RawSlotStore<>>);
+
+// A8-S5-01b Selbstbeweis der Speicher-Naht: der Pilot-Store haengt an der Allokator-ACHSE, nicht am Default.
+static_assert(std::is_same_v<RawSlotStore<>::allocator_type, ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "RawSlotStore<> haengt nicht mehr am benannten Achsen-Default -- der Default ist der deklarierte "
+              "Zwischenstand dieser Scheibe (LEDGER 04.08. abend-11), er faellt nicht weg, er wandert.");
 
 // #214: Selbstbeweis, dass die beiden Kern-Traversal-Organe den additiven Scan-Vertrag erfuellen (GoF-Iterator).
 // Interpolation/Galloping delegieren ihr scan_into an SortedBinary → ihr Selbstbeweis steht in ihren Organ-Dateien.
-static_assert(ScannableTraversalOrgan<LinearScanTraversal, RawSlotStore>);
-static_assert(ScannableTraversalOrgan<SortedBinaryTraversal, RawSlotStore>);
+static_assert(ScannableTraversalOrgan<LinearScanTraversal, RawSlotStore<>>);
+static_assert(ScannableTraversalOrgan<SortedBinaryTraversal, RawSlotStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

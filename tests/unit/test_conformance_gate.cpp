@@ -9,7 +9,7 @@
 #include <anatomy/idriveable_tier.hpp>
 #include <anatomy/scannable_tier.hpp>
 #include <builder/pruef_dock/conformance_gate.hpp>
-// #188-4a: das reale KAryTraversal-Organ ueber den Pilot-Store (RawSlotStore) — reine lib-Header (CI-tauglich, kein
+// #188-4a: das reale KAryTraversal-Organ ueber den Pilot-Store (RawSlotStore<>) — reine lib-Header (CI-tauglich, kein
 // cl/anatomy/boost/generated, exakt der #223-Standalone-Stil) → beweist KAryTraversal == std::map-konform (Weg-A).
 #include <axes/lookup/composable/composable_search.hpp>
 #include <axes/lookup/composable/k_ary_traversal_organ.hpp>
@@ -161,7 +161,7 @@ private:
 };
 
 // ── #188-4a / #188-4a-C: KAryTraversal<Arity> ueber den realen Pilot-Store (ComposedSearch<KAryTraversal<Arity>,
-//    RawSlotStore>). K = COMPILE-TIME-Permutation. Treibt das ECHTE k-Wege-Organ durch das std::map-Orakel. ──
+//    RawSlotStore<>>). K = COMPILE-TIME-Permutation. Treibt das ECHTE k-Wege-Organ durch das std::map-Orakel. ──
 template <unsigned Arity>
 class KAryComposedTier final : public anat::IDriveableTier {
 public:
@@ -181,7 +181,7 @@ public:
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return s_.occupied_count(); }
 
 private:
-    cmp::ComposedSearch<cmp::KAryTraversal<Arity>, cmp::RawSlotStore> s_;
+    cmp::ComposedSearch<cmp::KAryTraversal<Arity>, cmp::RawSlotStore<>> s_;
 };
 
 // Compile-time per-Arity-Gate: jede Arity ist ein eigener Organ-Typ (StaticAxisNode) -> eigener Konformitaets-Lauf.
@@ -192,7 +192,7 @@ void run_kary_arity_gate() {
     if constexpr (Arity == 2u) { report = stdout; }
     auto const r = dock::run_conformance_gate(t, 42u, 2000u, false, report);
     char       lbl[96];
-    std::snprintf(lbl, sizeof(lbl), "k_ary<Arity=%u> (compile-time KAryTraversal<%u>/RawSlotStore): passed()==true",
+    std::snprintf(lbl, sizeof(lbl), "k_ary<Arity=%u> (compile-time KAryTraversal<%u>/RawSlotStore<>): passed()==true",
                   Arity, Arity);
     check(lbl, r.passed());
     std::snprintf(lbl, sizeof(lbl), "k_ary<Arity=%u>: cases_total > 0 (Gate lief wirklich)", Arity);

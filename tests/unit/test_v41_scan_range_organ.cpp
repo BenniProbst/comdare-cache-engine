@@ -42,10 +42,10 @@ KvList oracle_scan(std::map<std::uint64_t, std::uint64_t> const& ref, std::uint6
     return out;
 }
 
-// Baut eine ComposedSearch<Traversal,RawSlotStore> aus `data` und sammelt das scan_range-Ergebnis.
+// Baut eine ComposedSearch<Traversal,RawSlotStore<>> aus `data` und sammelt das scan_range-Ergebnis.
 template <class Traversal>
 KvList collect_scan(std::map<std::uint64_t, std::uint64_t> const& data, std::uint64_t start, std::size_t max) {
-    cmp::ComposedSearch<Traversal, cmp::RawSlotStore> s;
+    cmp::ComposedSearch<Traversal, cmp::RawSlotStore<>> s;
     for (auto const& kv : data) s.insert(kv.first, kv.second);
     KvList            got;
     std::size_t const n =
@@ -115,7 +115,7 @@ TEST(V41ScanRangeOrgan, EmptyStoreYieldsNothing) {
 
 // Die ObservableComposedSearch-Hülle reicht scan_range durch UND verändert die Statistik nicht (reines Lesen).
 TEST(V41ScanRangeOrgan, ObservableWrapperScanCorrectAndStatNeutral) {
-    cmp::ObservableComposedSearch<cmp::SortedBinaryTraversal, cmp::RawSlotStore> s;
+    cmp::ObservableComposedSearch<cmp::SortedBinaryTraversal, cmp::RawSlotStore<>> s;
     for (std::uint64_t k = 1; k <= 20; ++k) s.insert(k, k * 3u);
     std::size_t const occ_before = s.occupied_count();
 #ifdef COMDARE_CE_ENABLE_STATISTICS

@@ -49,7 +49,7 @@ struct SortedVectorTraversal {
 };
 
 // Selbstbeweis: TraversalOrgan + additiver Scan-Vertrag ueber dem Pilot-Storage-Organ.
-static_assert(TraversalOrgan<SortedVectorTraversal, RawSlotStore>);
-static_assert(ScannableTraversalOrgan<SortedVectorTraversal, RawSlotStore>);
+static_assert(TraversalOrgan<SortedVectorTraversal, RawSlotStore<>>);
+static_assert(ScannableTraversalOrgan<SortedVectorTraversal, RawSlotStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

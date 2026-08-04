@@ -93,11 +93,11 @@ static_assert(std::is_same_v<lkc::traversal_for_search_algo_t<sa::VectorU16U16Se
 } // namespace
 
 // #188-4c-ii Review-F5 (2026-07-02): Der lokale Korrektur-Pfad der Direktadress-SCHAETZUNG wird explizit ueber
-// einen SPARSE Store (Luecken im Keyraum) belegt — organ-scharf ueber RawSlotStore, OHNE Adapter (laeuft daher
+// einen SPARSE Store (Luecken im Keyraum) belegt — organ-scharf ueber RawSlotStore<>, OHNE Adapter (laeuft daher
 // auch im Measurement-OFF-Build). Nach aufsteigenden Inserts landet die geklemmte Schaetzung fuer alle drei
 // Keys rechts (offset >= n) und MUSS links auf den exakten Slot korrigieren; Misses decken Luecken + Raender.
 TEST(DirectAddressTraversal1884cii, SparseCorrectionOnGappyStore) {
-    lkc::RawSlotStore                      s{};
+    lkc::RawSlotStore<>                    s{};
     constexpr std::array<std::uint64_t, 3> gappy{10u, 100u, 200u};
     for (std::uint64_t const k : gappy) lkc::DirectAddressTraversal::insert_into(s, k, value_for(k));
     for (std::uint64_t const k : gappy) {

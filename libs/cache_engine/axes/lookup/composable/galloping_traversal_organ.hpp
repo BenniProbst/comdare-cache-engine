@@ -63,7 +63,7 @@ struct GallopingTraversalOrgan {
 };
 
 // Selbstbeweis: erfuellt das TraversalOrgan-Concept + den additiven Scan-Vertrag (#214) ueber dem Pilot-Storage-Organ.
-static_assert(TraversalOrgan<GallopingTraversalOrgan, RawSlotStore>);
-static_assert(ScannableTraversalOrgan<GallopingTraversalOrgan, RawSlotStore>);
+static_assert(TraversalOrgan<GallopingTraversalOrgan, RawSlotStore<>>);
+static_assert(ScannableTraversalOrgan<GallopingTraversalOrgan, RawSlotStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
