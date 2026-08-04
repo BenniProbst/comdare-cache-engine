@@ -13,8 +13,18 @@
 // an fester Position; das 64-Bit-Permutationswort `perm` traegt die SORTIERTE Reihenfolge. Insert schiebt nur
 // Nibbles im Permutationswort (insert_from_back), KEIN memmove der Slot-Daten — die Store-API-Distinktion ggue.
 // BTreeNodePoolStore (physischer Array-Shift).
+//
+// A8-S5 Familie 01a (2026-08-04): Leaf-, Internode- und Free-List-Speicher kommen REAL aus der Allocator-Achse
+// (axis_06), Muster BTreeNodePoolStore. Dieser Store war die einzige Pool-Familie ganz OHNE Allokator-Naht
+// (vier nackte std::vector am Default-Allokator) und hat deshalb einen Template-Kopf BEKOMMEN -- Masstree ist
+// DEFERRED (kein Wrapper in AllStrategies, kein Registry-Organ), die Typ-Namens-Kante der Registry entfaellt
+// hier also; die wenigen Nenn-Stellen schreiben jetzt `MasstreeLayerNodePoolStore<>`. COW-Kopie rebindet alle
+// vier Vektoren an das eigene allocator_ und verwirft die Kopier-Pollution per restore_statistics-Memento;
+// Move ist nicht deklariert -> degradiert sicher zu Copy.
 
 #include "masstree_layer_pool_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp>            // axis_06-Default-Strategie + StdAllocatorAdapter
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 
 #include <array>
 #include <cstddef>
@@ -24,10 +34,20 @@
 
 namespace comdare::cache_engine::lookup::composable {
 
+template <class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class MasstreeLayerNodePoolStore {
+private:
+    struct Leaf;
+    struct Internode;
+
 public:
     using key_type                    = std::uint64_t;
     using value_type                  = std::uint64_t;
+    using allocator_type              = Alloc;
+    using leaf_allocator_type         = typename Alloc::template StdAllocatorAdapter<Leaf>;
+    using inode_allocator_type        = typename Alloc::template StdAllocatorAdapter<Internode>;
+    using index_allocator_type        = typename Alloc::template StdAllocatorAdapter<std::size_t>;
     static constexpr std::size_t kNil = std::numeric_limits<std::size_t>::max();
 
     static constexpr int          kWidth         = 15;  // leaf_width == internode_width (masstree_struct.hh)
@@ -78,6 +98,49 @@ public:
             }
         }
     };
+
+    // Default: die vier Vektoren an das eigene allocator_ binden (Adapter nicht default-konstruierbar).
+    MasstreeLayerNodePoolStore()
+        : leaves_(allocator_.template as_std_allocator<Leaf>()),
+          inodes_(allocator_.template as_std_allocator<Internode>()),
+          fl_leaf_(allocator_.template as_std_allocator<std::size_t>()),
+          fl_inode_(allocator_.template as_std_allocator<std::size_t>()) {}
+    // COW-Pflicht (Memento): allocator_ mitkopieren, alle vier Vektoren an DAS EIGENE allocator_ rebinden,
+    // dann die Kopier-Pollution per restore_statistics verwerfen. Move NICHT deklariert -> degradiert zu Copy.
+    MasstreeLayerNodePoolStore(MasstreeLayerNodePoolStore const& o)
+        : allocator_(o.allocator_), leaves_(o.leaves_, allocator_.template as_std_allocator<Leaf>()),
+          inodes_(o.inodes_, allocator_.template as_std_allocator<Internode>()),
+          fl_leaf_(o.fl_leaf_, allocator_.template as_std_allocator<std::size_t>()),
+          fl_inode_(o.fl_inode_, allocator_.template as_std_allocator<std::size_t>()), root_(o.root_), size_(o.size_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    MasstreeLayerNodePoolStore& operator=(MasstreeLayerNodePoolStore const& o) {
+        if (this != &o) {
+            // POCCA=false (der Adapter setzt keine propagate_-Typedefs) -> die Vektoren behalten ihr an
+            // this-allocator_ gebundenes Adapter; die Assigns re-allozieren transient ueber this-allocator_.
+            leaves_   = o.leaves_;
+            inodes_   = o.inodes_;
+            fl_leaf_  = o.fl_leaf_;
+            fl_inode_ = o.fl_inode_;
+            root_     = o.root_;
+            size_     = o.size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~MasstreeLayerNodePoolStore() = default;
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (A8-S5): die ECHTE Allocator-Achsen-Statistik (rich AllocationStatistics, 5 Felder). Vor dem
+    /// Schnitt hatte dieser Store ueberhaupt keine Allokator-Sicht -- T6 war fuer die Masstree-Komposition
+    /// strukturell blind (ehrlich-0 waere es nur mit Naht gewesen).
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept { return allocator_.statistics(); }
+#endif
 
     // ── Wurzel + Groesse ──
     [[nodiscard]] std::size_t root() const noexcept { return root_; }
@@ -190,6 +253,7 @@ public:
     void inode_set_child_at(std::size_t r, int slot, std::size_t c) noexcept { inodes_[ref_idx(r)].child[slot] = c; }
 
 private:
+    // (Vorwaerts-deklariert am Klassenanfang, damit die Adapter-Aliase sie benennen koennen.)
     struct Leaf {
         std::uint64_t                     perm = 0;
         std::array<std::uint64_t, kWidth> slice{};
@@ -204,14 +268,17 @@ private:
         std::array<std::size_t, kWidth + 1> child{}; // bis zu 16 Kinder
     };
 
-    std::vector<Leaf>        leaves_{};
-    std::vector<Internode>   inodes_{};
-    std::vector<std::size_t> fl_leaf_{}, fl_inode_{};
-    std::size_t              root_ = kNil;
-    std::size_t              size_ = 0;
+    // allocator_ VOR den Vektoren (der Adapter haelt &allocator_ -- Init-/Destruktions-Reihenfolge).
+    Alloc                                          allocator_{};
+    std::vector<Leaf, leaf_allocator_type>         leaves_;
+    std::vector<Internode, inode_allocator_type>   inodes_;
+    std::vector<std::size_t, index_allocator_type> fl_leaf_;
+    std::vector<std::size_t, index_allocator_type> fl_inode_;
+    std::size_t                                    root_ = kNil;
+    std::size_t                                    size_ = 0;
 };
 
 // Selbstbeweis: das Substrat erfuellt das MasstreeLayerNodePool-Concept.
-static_assert(MasstreeLayerNodePool<MasstreeLayerNodePoolStore>);
+static_assert(MasstreeLayerNodePool<MasstreeLayerNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

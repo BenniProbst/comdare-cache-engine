@@ -4,15 +4,24 @@
 // @topic traversal @achse 03a @schicht composable (Organ-statt-Tier)
 //
 // Reines Substrat OHNE Such-Logik — 1:1-Port des Slot-Arrays aus axis_03a_search_algo_hash_search.hpp
-// (Slot{key,val,state}; std::vector<Slot> buckets_; mask_; size_; tombstones_; kInitialCapacity=16;
+// (Slot{key,val,state}; ein Slot-Vektor buckets_ -- dort noch am DEFAULT-Allokator, hier an der Achse,
+// s. A8-S5-Absatz unten; mask_; size_; tombstones_; kInitialCapacity=16;
 // rehash() verbatim Z.175-194), aber generisch ueber uint64-Key und mit getrennter Verantwortung: die
 // Hash-/Probe-Navigation lebt im HashProbeTraversalOrgan, NICHT hier (genetisches Experiment, Doku 14 §1.2).
 //
 // place_occupied() ist selbst-buchend (Tombstone->Occupied dekrementiert tombstones_, ++size_), sodass das
 // Organ nur die Probe-Position waehlt; mark_deleted() setzt Tombstone (Probe-Kette intakt); rehash() entfernt
 // Tombstones beim Resize. hash_index() bleibt im Store (kennt mask_+kFibonacciMul) fuer die Re-Distribution.
+//
+// A8-S5 Familie 01a (2026-08-04): der Slot-/Ketten-Speicher kommt REAL aus der Allocator-Achse (axis_06),
+// Muster BTreeNodePoolStore. Der Store trug den Allokator-Template-Kopf schon vorher -- geflippt wurde die
+// BINDUNG: Default und Rebind gehen jetzt ueber den StdAllocatorAdapter der Achse statt ueber std::allocator.
+// Beide Shape-Zweige (OA-Slots und Chaining-Heads/Nodes/Free) haengen an DEMSELBEN allocator_; COW-Kopie
+// rebindet und verwirft die Kopier-Pollution per restore_statistics-Memento (Move -> degradiert zu Copy).
 
 #include "hash_bucket_pool_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp>            // axis_06-Default-Strategie + StdAllocatorAdapter
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 #include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_oa_lf70.hpp>
 #include <topics/nodes/axis_hash_probe_shape/concepts/axis_hash_probe_shape_concept.hpp>
 
@@ -47,8 +56,8 @@ struct HashChainSlot {
 /// Open-Addressing-Bucket-Pool: Slots behalten ihre Position (KEINE Index-Shifts); Tombstones erhalten die
 /// Probe-Kette. Kapazitaet stets Power-of-2 (mask_ = cap-1), Start 16, Verdopplung bei Shape-Load-Grenze.
 template <typename Shape = ::comdare::cache_engine::nodes::axis_hash_probe_shape::HashOaLf70,
-          class A =
-              std::allocator<std::conditional_t<Shape::kOpenAddressing, detail::HashOaSlot, detail::HashChainSlot>>>
+          class Alloc    = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class HashBucketPoolStore {
     static_assert(::comdare::cache_engine::nodes::axis_hash_probe_shape::concepts::HashProbeShape<Shape>);
 
@@ -57,10 +66,10 @@ public:
     using value_type          = std::uint64_t;
     using mapped_type         = value_type;
     using node_type           = std::conditional_t<Shape::kOpenAddressing, detail::HashOaSlot, detail::HashChainSlot>;
-    using allocator_type      = A;
-    using slot_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<detail::HashOaSlot>;
-    using chain_slot_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<detail::HashChainSlot>;
-    using index_allocator_type      = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    using allocator_type      = Alloc;
+    using slot_allocator_type = typename Alloc::template StdAllocatorAdapter<detail::HashOaSlot>;
+    using chain_slot_allocator_type               = typename Alloc::template StdAllocatorAdapter<detail::HashChainSlot>;
+    using index_allocator_type                    = typename Alloc::template StdAllocatorAdapter<std::size_t>;
     static constexpr std::size_t kInitialCapacity = 16; // Power-of-2
     static constexpr bool        kOpenAddressing  = Shape::kOpenAddressing;
     static constexpr int         kLoadNumerator   = Shape::kLoadNumerator;
@@ -81,13 +90,31 @@ private:
 public:
     static constexpr std::size_t kNil = std::numeric_limits<std::size_t>::max();
 
-    HashBucketPoolStore() : st_(make_initial_storage()), mask_(kInitialCapacity - 1) {
-        if constexpr (kOpenAddressing) {
-            record_capacity_growth_(0, st_.buckets.capacity(), sizeof(detail::HashOaSlot));
-        } else {
-            record_capacity_growth_(0, st_.heads.capacity(), sizeof(std::size_t));
-        }
+    HashBucketPoolStore() : st_(make_initial_storage()), mask_(kInitialCapacity - 1) {}
+    // COW-Pflicht (Memento): allocator_ mitkopieren, die Vektoren an DAS EIGENE allocator_ rebinden
+    // (copy_storage_from_ statt Aggregat-Kopie -- der Adapter haelt &allocator_) und die durch die
+    // Vollkopie entstandene transiente Re-Allokations-Pollution per restore_statistics verwerfen.
+    // Move NICHT deklariert -> degradiert sicher zu Copy (kein dangling &allocator_).
+    HashBucketPoolStore(HashBucketPoolStore const& o)
+        : allocator_(o.allocator_), st_(copy_storage_from_(o.st_)), mask_(o.mask_), size_(o.size_),
+          tombstones_(o.tombstones_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
     }
+    HashBucketPoolStore& operator=(HashBucketPoolStore const& o) {
+        if (this != &o) {
+            st_         = copy_storage_from_(o.st_);
+            mask_       = o.mask_;
+            size_       = o.size_;
+            tombstones_ = o.tombstones_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~HashBucketPoolStore() = default;
 
     [[nodiscard]] std::size_t bucket_count() const noexcept {
         if constexpr (kOpenAddressing) {
@@ -188,10 +215,8 @@ public:
             st_.free.pop_back();
             st_.nodes[node] = detail::HashChainSlot{k, v, detail::HashSlotState::Occupied, st_.heads[bucket]};
         } else {
-            node                           = st_.nodes.size();
-            std::size_t const old_capacity = st_.nodes.capacity();
+            node = st_.nodes.size();
             st_.nodes.push_back(detail::HashChainSlot{k, v, detail::HashSlotState::Occupied, st_.heads[bucket]});
-            record_capacity_growth_(old_capacity, st_.nodes.capacity(), sizeof(detail::HashChainSlot));
         }
         st_.heads[bucket] = node;
         ++size_;
@@ -205,11 +230,9 @@ public:
         } else {
             st_.nodes[prev].next = next;
         }
-        st_.nodes[node].state          = detail::HashSlotState::Empty;
-        st_.nodes[node].next           = kNil;
-        std::size_t const old_capacity = st_.free.capacity();
+        st_.nodes[node].state = detail::HashSlotState::Empty;
+        st_.nodes[node].next  = kNil;
         st_.free.push_back(node);
-        record_capacity_growth_(old_capacity, st_.free.capacity(), sizeof(std::size_t));
         --size_;
     }
 
@@ -221,11 +244,12 @@ public:
     /// dieser Zeile ist damit wieder wahr; die Fehlerklasse bleibt der FK-5-Boden der Allokator-Achse.
     void rehash(std::size_t new_capacity) {
         if constexpr (kOpenAddressing) {
-            std::vector<detail::HashOaSlot, slot_allocator_type> old;
+            // Der Zwischenpuffer haengt ebenfalls an der Achse (Adapter ist nicht default-konstruierbar) --
+            // sonst waere ausgerechnet die groesste Umschaufel-Allokation des Rehash an ihr vorbeigelaufen.
+            std::vector<detail::HashOaSlot, slot_allocator_type> old(
+                allocator_.template as_std_allocator<detail::HashOaSlot>());
             old.swap(st_.buckets);
-            std::size_t const old_capacity = st_.buckets.capacity();
             st_.buckets.assign(new_capacity, detail::HashOaSlot{});
-            record_capacity_growth_(old_capacity, st_.buckets.capacity(), sizeof(detail::HashOaSlot));
             mask_       = new_capacity - 1;
             size_       = 0;
             tombstones_ = 0;
@@ -242,10 +266,8 @@ public:
                 }
             }
         } else {
-            std::size_t const new_mask     = new_capacity - 1;
-            std::size_t const old_capacity = st_.heads.capacity();
+            std::size_t const new_mask = new_capacity - 1;
             st_.heads.assign(new_capacity, kNil);
-            record_capacity_growth_(old_capacity, st_.heads.capacity(), sizeof(std::size_t));
             mask_ = new_mask;
             for (std::size_t node = 0; node < st_.nodes.size(); ++node) {
                 if (st_.nodes[node].state != detail::HashSlotState::Occupied) continue;
@@ -271,29 +293,46 @@ public:
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    struct allocator_statistics_snapshot {
-        std::uint64_t alloc_calls     = 0;
-        std::uint64_t bytes_allocated = 0;
-        std::uint64_t live_nodes      = 0;
-    };
-
-    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
-        return allocator_statistics_snapshot{
-            alloc_calls_,
-            bytes_allocated_,
-            size_,
-        };
-    }
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (A8-S5): die ECHTE Allocator-Achsen-Statistik (rich AllocationStatistics, 5 Felder) statt der
+    /// frueheren Store-eigenen Capacity-Delta-Schaetzung. Die alten Zaehler waren allocator-UNABHAENGIG und
+    /// haetten neben der Achsen-Statistik eine zweite, driftende Wahrheit gefuehrt; live_nodes speist der
+    /// ABI-Adapter im Rich-Zweig aus occupied_count() des Organs (abi_adapter.hpp, T6-Route).
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
     static constexpr std::uint64_t kFibonacciMul = 11400714819323198485ULL;
 
-    [[nodiscard]] static storage_t make_initial_storage() {
+    /// Erst-Belegung des Shape-Zweigs -- JEDER Vektor wird explizit an das eigene allocator_ gebunden
+    /// (kein `{}`-Default: der Achsen-Adapter ist bestimmungsgemaess nicht default-konstruierbar).
+    [[nodiscard]] storage_t make_initial_storage() {
         if constexpr (kOpenAddressing) {
-            return OaData{std::vector<detail::HashOaSlot, slot_allocator_type>(kInitialCapacity)};
+            return OaData{std::vector<detail::HashOaSlot, slot_allocator_type>(
+                kInitialCapacity, detail::HashOaSlot{}, allocator_.template as_std_allocator<detail::HashOaSlot>())};
         } else {
-            return ChainData{std::vector<std::size_t, index_allocator_type>(kInitialCapacity, kNil), {}, {}};
+            return ChainData{
+                std::vector<std::size_t, index_allocator_type>(kInitialCapacity, kNil,
+                                                               allocator_.template as_std_allocator<std::size_t>()),
+                std::vector<detail::HashChainSlot, chain_slot_allocator_type>(
+                    allocator_.template as_std_allocator<detail::HashChainSlot>()),
+                std::vector<std::size_t, index_allocator_type>(allocator_.template as_std_allocator<std::size_t>())};
+        }
+    }
+
+    /// COW-Uebernahme: Inhalt aus der Quelle, Bindung an das EIGENE allocator_ (Vektor-Copy-Ctor mit
+    /// explizitem Allokator -- sonst uebernaehme die Kopie den Adapter der Quelle und allozierte fremd).
+    [[nodiscard]] storage_t copy_storage_from_(storage_t const& src) {
+        if constexpr (kOpenAddressing) {
+            return OaData{std::vector<detail::HashOaSlot, slot_allocator_type>(
+                src.buckets, allocator_.template as_std_allocator<detail::HashOaSlot>())};
+        } else {
+            return ChainData{std::vector<std::size_t, index_allocator_type>(
+                                 src.heads, allocator_.template as_std_allocator<std::size_t>()),
+                             std::vector<detail::HashChainSlot, chain_slot_allocator_type>(
+                                 src.nodes, allocator_.template as_std_allocator<detail::HashChainSlot>()),
+                             std::vector<std::size_t, index_allocator_type>(
+                                 src.free, allocator_.template as_std_allocator<std::size_t>())};
         }
     }
 
@@ -301,27 +340,12 @@ private:
         return static_cast<std::size_t>(k * kFibonacciMul) & mask_;
     }
 
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
-    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
-    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
-        if (new_capacity <= old_capacity) return;
-        ++alloc_calls_;
-        bytes_allocated_ +=
-            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
-    }
-#else
-    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
-#endif
-
+    // allocator_ VOR dem Storage (der Adapter haelt &allocator_ -- Init-/Destruktions-Reihenfolge).
+    Alloc       allocator_{};
     storage_t   st_;
     std::size_t mask_;
     std::size_t size_       = 0;
     std::size_t tombstones_ = 0;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    std::uint64_t alloc_calls_     = 0;
-    std::uint64_t bytes_allocated_ = 0;
-#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das HashBucketPool-Concept.

@@ -3,7 +3,7 @@
 //
 // @topic traversal @achse 03a @schicht composable (Organ-statt-Tier)
 //
-// Such-Algorithmus = Eytzinger-Traversal-Organ plus EytzingerLayoutStore. Die sortierte Basis ist authoritativ;
+// Such-Algorithmus = Eytzinger-Traversal-Organ plus EytzingerLayoutStore<>. Die sortierte Basis ist authoritativ;
 // das BFS-Layout ist abgeleiteter Zustand im selben Store und wird lazy durch lookup aufgebaut.
 
 #include "eytzinger_layout_pool_concept.hpp"
@@ -47,6 +47,6 @@ private:
     Pool pool_{};
 };
 
-static_assert(EytzingerTraversalOrganConcept<EytzingerTraversalOrgan, EytzingerLayoutStore>);
+static_assert(EytzingerTraversalOrganConcept<EytzingerTraversalOrgan, EytzingerLayoutStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

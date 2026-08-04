@@ -6,15 +6,25 @@
 // Reines Substrat OHNE Such-Logik — die Wormhole-Korrektheits-Essenz (Wu/Ni/Jiang EuroSys 2019), is_original=
 // false ([[pseudocode-papers-fallback]]; wh.c=GPL-3.0, KEIN Code-Copy/Linking — reine Re-Impl aus dem Verstaendnis):
 // (1) sortierte DOPPELT-VERKETTETE Leaf-Liste (jeder Leaf = anchor=Minimum-Key + sortierter KV-Block + prev/next),
-// (2) geordneter Anchor->Leaf-Index (std::map ersetzt das wh.c-2-Wege-Cuckoo + wormmeta-Meta-Trie semantisch:
+// (2) geordneter Anchor->Leaf-Index (ein geordneter Baum-Index ersetzt das wh.c-2-Wege-Cuckoo + wormmeta-Meta-Trie
+// semantisch; er haengt seit dem A8-S5-Schnitt an der Allokator-Achse, s. unten:
 // index_lookup_le = groesster Anchor<=key = geordnete Hash-Jump-Semantik). Der Jump-Descent + Leaf-Split/Merge
 // lebt im WormholeJumpTraversalOrgan, NICHT hier. NodeRef = Leaf-Index direkt (nur EIN Kind-Typ), kNil-Sentinel.
 //
 // Performance/Concurrency (Cuckoo+bswap+SIMD, crc32c-Praefix-Hashing, entry13-Tagged-Pointer, wormmeta-Bitmap,
 // Wormref/QSBR, slab-Allocator) ist DRAUSSEN (aendert die Map-Semantik nicht). kWhKpn klein (8) -> erzwingt
 // Splits/Merges schon bei wenigen Keys (analog B-Baum kT=4); die echte 128er-Kapazitaet ist Performance-Tuning.
+//
+// A8-S5 Familie 01a (2026-08-04): Leaf-Vektor, Free-Liste UND der geordnete Anchor-Index beziehen ihren
+// Speicher REAL aus der Allocator-Achse (axis_06), Muster BTreeNodePoolStore. Der Anchor-Index ist die
+// EINZIGE Knoten-basierte Struktur der Familie: sein Allokator wird intern auf den Baum-Knoten rebindet --
+// damit laeuft auch jede einzelne Index-Knoten-Allokation ueber die Achse, nicht nur der Leaf-Block.
+// COW-Kopie rebindet alle drei an das eigene allocator_ und verwirft die Kopier-Pollution per
+// restore_statistics-Memento; Move ist nicht deklariert -> degradiert sicher zu Copy.
 
 #include "wormhole_leaf_list_pool_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp>            // axis_06-Default-Strategie + StdAllocatorAdapter
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 
 #include <array>
 #include <cstddef>
@@ -51,17 +61,18 @@ struct WormholeLeaf {
 
 } // namespace detail
 
-template <class A = std::allocator<detail::WormholeLeaf>>
+template <class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class WormholeLeafListPoolStore {
 public:
     using node_type                     = detail::WormholeLeaf;
     using key_type                      = typename node_type::key_type;
     using value_type                    = typename node_type::value_type;
-    using allocator_type                = A;
-    using leaf_allocator_type           = typename std::allocator_traits<A>::template rebind_alloc<node_type>;
-    using index_allocator_type          = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    using allocator_type                = Alloc;
+    using leaf_allocator_type           = typename Alloc::template StdAllocatorAdapter<node_type>;
+    using index_allocator_type          = typename Alloc::template StdAllocatorAdapter<std::size_t>;
     using map_value_type                = std::pair<const key_type, std::size_t>;
-    using map_allocator_type            = typename std::allocator_traits<A>::template rebind_alloc<map_value_type>;
+    using map_allocator_type            = typename Alloc::template StdAllocatorAdapter<map_value_type>;
     static constexpr std::size_t kNil   = detail::kWormholeNil;
     static constexpr int         kWhKpn = detail::kWormholeKpn;
     static constexpr int         kWhMid = detail::kWormholeMid;
@@ -70,6 +81,39 @@ public:
     static_assert(kWhMid >= 1 && kWhMid < kWhKpn, "kWhMid muss in [1, kWhKpn) liegen (split_leaf-Korrektheit)");
     static_assert(kWhMrg >= kWhMid && kWhMrg <= kWhKpn,
                   "kWhMrg muss in [kWhMid, kWhKpn] liegen (borrow/merge-Korrektheit)");
+
+    // Default: die drei Container an das eigene allocator_ binden (Adapter nicht default-konstruierbar).
+    WormholeLeafListPoolStore()
+        : leaves_(allocator_.template as_std_allocator<node_type>()),
+          fl_leaf_(allocator_.template as_std_allocator<std::size_t>()),
+          anchor_index_(std::less<key_type>{}, allocator_.template as_std_allocator<map_value_type>()) {}
+    // COW-Pflicht (Memento): allocator_ mitkopieren, alle drei Container an DAS EIGENE allocator_ rebinden,
+    // dann die Kopier-Pollution per restore_statistics verwerfen. Move NICHT deklariert -> degradiert zu Copy.
+    WormholeLeafListPoolStore(WormholeLeafListPoolStore const& o)
+        : allocator_(o.allocator_), leaves_(o.leaves_, allocator_.template as_std_allocator<node_type>()),
+          fl_leaf_(o.fl_leaf_, allocator_.template as_std_allocator<std::size_t>()),
+          anchor_index_(o.anchor_index_, allocator_.template as_std_allocator<map_value_type>()), root_(o.root_),
+          size_(o.size_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    WormholeLeafListPoolStore& operator=(WormholeLeafListPoolStore const& o) {
+        if (this != &o) {
+            // POCCA=false (der Adapter setzt keine propagate_-Typedefs) -> die Container behalten ihr an
+            // this-allocator_ gebundenes Adapter; die Assigns re-allozieren transient ueber this-allocator_.
+            leaves_       = o.leaves_;
+            fl_leaf_      = o.fl_leaf_;
+            anchor_index_ = o.anchor_index_;
+            root_         = o.root_;
+            size_         = o.size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~WormholeLeafListPoolStore() = default;
 
     // ── Wurzel (= Listenkopf) + Groesse ──
     [[nodiscard]] std::size_t root() const noexcept { return root_; }
@@ -111,29 +155,21 @@ public:
             fl_leaf_.pop_back();
             leaves_[idx] = Leaf{};
         } else {
-            idx                            = leaves_.size();
-            std::size_t const old_capacity = leaves_.capacity();
+            idx = leaves_.size();
             leaves_.push_back(node_type{});
-            record_capacity_growth_(old_capacity, leaves_.capacity(), sizeof(node_type));
         }
         return idx;
     }
     // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
     // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
-    void free_node(std::size_t i) {
-        std::size_t const old_capacity = fl_leaf_.capacity();
-        fl_leaf_.push_back(i);
-        record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
-    }
+    // KAUSALITAET (Posten 64/70): der Wurf kommt seit dem A8-S5-Schnitt vom StdAllocatorAdapter der
+    // Allokator-ACHSE (Strategie meldet OOM per nullptr -> Adapter wirft std::bad_alloc), nicht vom Default.
+    void free_node(std::size_t i) { fl_leaf_.push_back(i); }
 
     // ── Anchor-Index (geordnet) ──
     void index_insert(key_type anchor, std::size_t leaf) {
         auto [it, inserted] = anchor_index_.try_emplace(anchor, leaf);
-        if (!inserted) {
-            it->second = leaf;
-            return;
-        }
-        record_map_insert_();
+        if (!inserted) it->second = leaf;
     }
     void index_erase(key_type anchor) { anchor_index_.erase(anchor); }
     /// Groesster Anchor <= key -> sein Leaf; kNil falls key < allen Ankern (Linear-Fallback im Organ).
@@ -146,54 +182,25 @@ public:
     void index_clear() noexcept { anchor_index_.clear(); }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    struct allocator_statistics_snapshot {
-        std::uint64_t alloc_calls     = 0;
-        std::uint64_t bytes_allocated = 0;
-        std::uint64_t live_nodes      = 0;
-    };
-
-    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
-        return allocator_statistics_snapshot{
-            alloc_calls_,
-            bytes_allocated_,
-            static_cast<std::uint64_t>(leaves_.size() - fl_leaf_.size()),
-        };
-    }
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (A8-S5): die ECHTE Allocator-Achsen-Statistik (rich AllocationStatistics, 5 Felder) -- sie
+    /// zaehlt jetzt JEDEN Index-Knoten mit, statt ihn wie frueher mit sizeof(map_value_type) zu schaetzen
+    /// (der alte Zaehler war allocator-UNABHAENGIG und nannte den RB-Knoten-Overhead selbst "konservative
+    /// Untergrenze"). live_nodes speist der ABI-Adapter im Rich-Zweig aus occupied_count() des Organs.
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
     using Leaf     = node_type;
     using MapIndex = std::map<key_type, std::size_t, std::less<key_type>, map_allocator_type>;
 
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse (als Capacity-Delta
-    // mal Elementgroesse) sowie NEU eingefuegte Map-Werte. Reuse/clear ohne Wachstum erzeugt bewusst keine
-    // kuenstlichen Werte.
-    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
-        if (new_capacity <= old_capacity) return;
-        ++alloc_calls_;
-        bytes_allocated_ +=
-            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
-    }
-    void record_map_insert_() noexcept {
-        ++alloc_calls_;
-        // konservative Untergrenze (RB-Node-Overhead bewusst nicht fabriziert).
-        bytes_allocated_ += static_cast<std::uint64_t>(sizeof(map_value_type));
-    }
-#else
-    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
-    static void record_map_insert_() noexcept {}
-#endif
-
-    std::vector<Leaf, leaf_allocator_type>         leaves_{};
-    std::vector<std::size_t, index_allocator_type> fl_leaf_{};
-    MapIndex                                       anchor_index_{};
+    // allocator_ VOR den Containern (der Adapter haelt &allocator_ -- Init-/Destruktions-Reihenfolge).
+    Alloc                                          allocator_{};
+    std::vector<Leaf, leaf_allocator_type>         leaves_;
+    std::vector<std::size_t, index_allocator_type> fl_leaf_;
+    MapIndex                                       anchor_index_;
     std::size_t                                    root_ = kNil;
     std::size_t                                    size_ = 0;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    std::uint64_t alloc_calls_     = 0;
-    std::uint64_t bytes_allocated_ = 0;
-#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das WormholeLeafListPool-Concept.

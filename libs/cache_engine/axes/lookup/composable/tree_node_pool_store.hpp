@@ -4,7 +4,8 @@
 // @topic traversal @achse 03a @schicht composable (Organ-statt-Tier)
 //
 // Reines Substrat OHNE Such-Logik (1:1-Struktur nach dem bewaehrten axis_03a_search_algo_bst.hpp:
-// std::vector<Node> + Free-List + root_), aber generisch ueber uint64-Key und mit getrennter
+// EIN Knoten-Vektor + Free-List + root_ -- dort noch am DEFAULT-Allokator, hier an der Allokator-ACHSE,
+// s. Phase-0.3-Absatz unten), aber generisch ueber uint64-Key und mit getrennter
 // Verantwortung: die Baum-NAVIGATION lebt im Tree-Traversal-Organ, NICHT hier (genetisches Experiment).
 //
 // Phase 0.3 (Hebel B, Doc 21 §F): der Knoten-/Free-List-Speicher kommt REAL aus der Allocator-Achse (axis_06)

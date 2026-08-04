@@ -63,6 +63,6 @@ struct EytzingerTraversalOrgan {
     }
 };
 
-static_assert(EytzingerTraversalOrganConcept<EytzingerTraversalOrgan, EytzingerLayoutStore>);
+static_assert(EytzingerTraversalOrganConcept<EytzingerTraversalOrgan, EytzingerLayoutStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

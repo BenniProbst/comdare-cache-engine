@@ -5,12 +5,14 @@
 //
 // Reines Substrat OHNE Such-Logik — die SuRF-Map-Schale (S1 correctness-base, is_original=false): zwei
 // parallele Vektoren (aufsteigend sortierte Keys + exakte Werte). AUTORITATIVES exaktes K->V, sodass das
-// SuRF-Tier am std::map-Interface vergleichbar ist (das echte LOUDS-Filter-Organ in axis_filter liefert nur
+// SuRF-Tier am std::map-INTERFACE (der Semantik-Vergleichsmassstab, kein Container-Member) vergleichbar ist
+// (das echte LOUDS-Filter-Organ in axis_filter liefert nur
 // approximatives may-contain). insert/lookup/erase lebt im SurfMapTraversalOrgan, NICHT hier.
 //
 // S2-Pfad: dieser Store wird durch die echte LOUDS-FST (LoudsDense 256-Bitmaps + LoudsSparse rank/select +
 // Suffix + value-Slot je Leaf) ersetzt; die hier exponierte Pflicht-API (sortierter Index-Zugriff) bleibt
-// stabil, der Filter wird ein zweiter statischer View. Heute sortierter std::vector (Phase-5-Succinct spaeter).
+// stabil, der Filter wird ein zweiter statischer View. Heute ein sortierter Vektor AN DER ALLOKATOR-ACHSE
+// (Phase-5-Succinct spaeter; die Achsen-Bindung reist beim Ersatz mit, s. Phase-0.3a-Absatz unten).
 //
 // Phase 0.3a (Hebel B, Doc 21 §F): der Vektor-Speicher kommt REAL aus der Allocator-Achse (axis_06), analog
 // TreeNodePoolStore (BST). store_allocator_statistics() liefert die Strategie-Statistik -> T6 reflektiert den

@@ -338,7 +338,7 @@ public:
 };
 
 // Selbstbeweis: das Organ erfuellt das Concept fuer SliceBytes=2 (Mehr-Layer-Default) und SliceBytes=8 (Anker).
-static_assert(MasstreeLayerTraversal<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore>);
-static_assert(MasstreeLayerTraversal<MasstreeLayerTraversalOrgan<8>, MasstreeLayerNodePoolStore>);
+static_assert(MasstreeLayerTraversal<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore<>>);
+static_assert(MasstreeLayerTraversal<MasstreeLayerTraversalOrgan<8>, MasstreeLayerNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

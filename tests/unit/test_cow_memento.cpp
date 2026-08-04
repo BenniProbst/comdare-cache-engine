@@ -121,8 +121,20 @@ static void check_composition(char const* name) {
     // der CoW-Restore ersetzt das Organ durch seine Kopie, deren kumulative Allocator-HISTORIE die Kopier-
     // Historie ist -> elementweise Gleichheit ueber Zwei-Phasen-Laeufe ist prinzipiell nicht mehr definiert.
     // Der ehrliche counter-clean-Kontrakt fuer ein kumulatives Organ ist KEINE DOPPELZAEHLUNG (die Probe-Phase
-    // darf nicht zusaetzlich in den Zaehlern kleben: 2-phasig <= 1-phasig) + Echtheit (beide Laeufe > 0) +
-    // Adapter-Spiegel-Konvention (bytes_alloc == bytes_in_use, f0==f1) + fail==0.
+    // darf nicht zusaetzlich in den Zaehlern kleben: 2-phasig <= 1-phasig) + Echtheit (beide Laeufe > 0) + fail==0.
+    //
+    // FIXTURE-NACHZUG A8-S5 Familie 01a (2026-08-04) -- BEWUSST, mit Begruendung:
+    // Hier stand bis heute die "Adapter-Spiegel-Konvention (bytes_alloc == bytes_in_use)". Diese Gleichheit war
+    // KEIN Vertrag, sondern ein ARTEFAKT des Legacy-Zweigs der T6-Route: ein Store mit dem schmalen
+    // {alloc_calls, bytes_allocated}-Snapshot hatte gar kein in_use-Feld, also SPIEGELTE der ABI-Adapter
+    // bytes_allocated in beide Spalten (abi_adapter.hpp, T6-Route, else-Zweig). Seit dem 01a-Scrub liefern die
+    // Pool-Stores die ECHTE Strategie-Statistik (rich AllocationStatistics), und der Adapter nimmt den
+    // Rich-Zweig: bytes_alloc ist KUMULATIV, bytes_in_use ist GEHALTEN -- zwei verschiedene Groessen, deren
+    // Gleichheit nur noch zufaellig eintraete. Die Zeile wird deshalb durch den Vertrag ersetzt, der in BEIDEN
+    // Zweigen gilt (kumulativ >= gehalten; im Legacy-Zweig ist der Spiegel dessen Sonderfall) -- und um zwei
+    // Bisse ERGAENZT, damit der Nachzug die Wache nicht schwaecht: der gehaltene Betrag muss real sein
+    // (kein stilles 0 an der Stelle, wo vorher der Spiegel stand) und das Zaehler-Paar muss in sich
+    // schluessig sein (alloc_cnt >= dealloc_cnt).
     std::uint64_t const b1 = s1.axis_stats[6][0], b2 = s2.axis_stats[6][0]; // bytes_alloc
     std::uint64_t const c1 = s1.axis_stats[6][2], c2 = s2.axis_stats[6][2]; // alloc_cnt
     // Huellen OHNE T6-Stats-Quelle (z.B. Masstree) tragen ehrlich 0 — Echtheit wird nur gefordert, sobald
@@ -132,8 +144,13 @@ static void check_composition(char const* name) {
                                       : ": T6 honest-0 (Huelle ohne T6-Stats-Quelle, konsistent 0)"),
        !t6_source || (b1 > 0 && b2 > 0 && c1 > 0 && c2 > 0));
     tr(std::string(name) + ": T6 counter-clean (keine Doppelzaehlung: 2-phasig <= 1-phasig)", b2 <= b1 && c2 <= c1);
-    tr(std::string(name) + ": T6 Adapter-Spiegel (bytes_alloc == bytes_in_use, beide Laeufe)",
-       s1.axis_stats[6][0] == s1.axis_stats[6][1] && s2.axis_stats[6][0] == s2.axis_stats[6][1]);
+    tr(std::string(name) + ": T6 kumulativ >= gehalten (bytes_alloc >= bytes_in_use, beide Laeufe)",
+       s1.axis_stats[6][0] >= s1.axis_stats[6][1] && s2.axis_stats[6][0] >= s2.axis_stats[6][1]);
+    tr(std::string(name) + (t6_source ? ": T6 gehaltener Betrag REAL (bytes_in_use > 0, beide Laeufe)"
+                                      : ": T6 gehaltener Betrag honest-0 (keine Quelle, konsistent)"),
+       !t6_source || (s1.axis_stats[6][1] > 0 && s2.axis_stats[6][1] > 0));
+    tr(std::string(name) + ": T6 Zaehler-Paar schluessig (alloc_cnt >= dealloc_cnt, beide Laeufe)",
+       s1.axis_stats[6][2] >= s1.axis_stats[6][3] && s2.axis_stats[6][2] >= s2.axis_stats[6][3]);
     tr(std::string(name) + ": T6 fail == 0 (beide Laeufe)", s1.axis_stats[6][4] == 0 && s2.axis_stats[6][4] == 0);
     if (!t0_eq) {
         for (std::size_t f = 0; f < an::kV3FieldCount; ++f)
