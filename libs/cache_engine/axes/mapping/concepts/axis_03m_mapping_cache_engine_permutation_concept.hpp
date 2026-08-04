@@ -22,7 +22,7 @@ struct MappingStatistics {
     std::uint64_t total_reverse_lookup_count = 0;
     std::uint64_t peak_mapped                = 0;
     std::uint64_t total_indirection_steps =
-        0; // T2 Mess-Objective (Indirektions-CM): kumulierte Adress-Aufloesungs-Tiefe je resolve. DirectPlacement(MP01)=1 (Offset absolut gespeichert), PoolRelative(MP02)=2 (Lookup + pool_base-Rebase). Filter-lokal, NICHT Teil des eingefrorenen 1272-POD.
+        0; // T2 Mess-Objective (Indirektions-CM): kumulierte Adress-Aufloesungs-Tiefe je resolve. DirectPlacement(MP01)=1 (Offset absolut gespeichert), PoolRelative(MP02)=2 (Lookup + pool_base-Rebase). NACHZUG 04.08. (C6-V, Katalog Sektion 2 Punkt 7): der Satz "nicht Teil des eingefrorenen 1272-POD" war UEBERHOLT -- das Feld ist als indirect_steps benannt (observable_tier.hpp:75-76) und wird geschrieben (abi_adapter.hpp:1189); der POD ist am Ist 1344 (ABI-7, Version 8), nicht 1272.
 };
 
 /**

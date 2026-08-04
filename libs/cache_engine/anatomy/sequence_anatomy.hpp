@@ -89,7 +89,7 @@ public:
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Sequence; }        // Reptil
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 11
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 9
 
     // ── Sequence-Gattungs-API (V-indexed) — treibt das V-Organ + die axis_growth-Policy ──
     void push_back(element_type v) {

@@ -78,7 +78,7 @@ public:
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::View; }            // Pflanze
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 7
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 5
 
     // ── View-Gattungs-API (non-owning) — bind externer Puffer + read über layout/accessor ──
     void bind(element_type const* data, std::size_t size) noexcept {

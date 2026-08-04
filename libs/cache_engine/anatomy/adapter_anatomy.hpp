@@ -259,7 +259,7 @@ public:
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Adapter; }         // Tier-Unterklasse
     static constexpr AnatomyGattung   gattung() noexcept { return AnatomyGattung::Container; }   // Außen-Interface
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 12
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 11
 
     AdapterAnatomy() = default;
     /// capacity wird für ABI-ctor-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).

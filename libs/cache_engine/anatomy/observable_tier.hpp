@@ -73,7 +73,7 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
       "batch_visited"}},
     /*T2  mapping*/
     {{"register", "resolve", "resolve_hit", "resolve_miss", "reverse_lookup", "peak_mapped", "indirect_steps",
-      nullptr}}, // slot[6] war reserviert (nullptr) -> layout-neutral benannt; sizeof-neutral (aktuell 1272, INC-2d)
+      nullptr}}, // slot[6] war reserviert (nullptr) -> layout-neutral benannt; sizeof-neutral (Ist 1344, ABI-7/STRUKT-R ORG-18, Version 8)
     /*T3  path_compression*/
     {{"compress", "prefix_len", "bytes_saved", "cuts", "checksum", nullptr, nullptr, nullptr}}, // Phase B (T3)
     /*T4  node_type*/ {{"find", "keys_stored", "queries", "checksum", nullptr, nullptr, nullptr, nullptr}},
