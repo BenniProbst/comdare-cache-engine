@@ -21,12 +21,19 @@
 // (axis_06, StdAllocatorAdapter) statt ueber den Default-Allokator -- Schnitt-Regel A8/F2-Dossier 3.4.
 // DAS GILT AUCH FUER DEN REHASH-PFAD: der Neuaufbau (rehash) allokiert ueber DIESELBE Achsen-Instanz,
 // nicht ueber einen lokalen Default-Allokator-Vektor.
-// [[allocation-failure-exception]] ENTFAELLT an DIESER Achse: die axis_06-Strategie meldet einen
-// Fehlschlag als nullptr (ExgenAllocator::allocate) und wirft kein std::bad_alloc mehr. Der OOM-Fall
-// gehoert damit dem Fehlerraum der ALLOKATOR-Achse (FK-5-Boden, axis_06_allocator_strategy_base.hpp
-// error_classes) und nicht mehr dem der Traversal-Achse -- KEINE neue Fehlerklasse (Auflage 11,
-// Pilot-Praezedenz A8-S5/04). [[zero-size-allocation-exception]] BLEIBT: die Power-of-2-/cap>0-Wache
-// ist Traversal-Semantik (Mask-Modulo) und hat mit der Allokation nichts zu tun.
+// [[allocation-failure-exception]] ENTFAELLT an DIESER Achse: der OOM-Fall gehoert dem Fehlerraum der
+// ALLOKATOR-Achse (FK-5-Boden, axis_06_allocator_strategy_base.hpp error_classes) und nicht mehr dem der
+// Traversal-Achse -- KEINE neue Fehlerklasse (Auflage 11, Pilot-Praezedenz A8-S5/04).
+// [[zero-size-allocation-exception]] BLEIBT: die Power-of-2-/cap>0-Wache ist Traversal-Semantik
+// (Mask-Modulo) und hat mit der Allokation nichts zu tun -- Posten 64 nimmt n == 0 im Adapter
+// ausdruecklich vom Wurf aus, diese Wache bleibt also unberuehrt.
+// NACHGEFUEHRT (Posten 70, 2026-08-04): die Strategie meldet den Fehlschlag weiterhin als nullptr
+// (ExgenAllocator::allocate) -- ABER der StdAllocatorAdapter reicht diesen nullptr seit Posten 64 NICHT
+// mehr durch, sondern uebersetzt ihn in std::bad_alloc (axis_06_allocator_strategy_base.hpp,
+// StdAllocatorAdapter::allocate). register_entry UND der Rehash-Pfad sind deshalb weiter NICHT noexcept
+// und koennen werfen; der Wurf traegt die Fehlerklasse der VERSORGER-Achse, nicht die dieser Achse. Die
+// frueher hier notierte Aussage "wirft kein std::bad_alloc mehr" galt nur fuer den Zwischenstand vor
+// Posten 64.
 
 #include "axis_03b_cache_traversal_base.hpp"
 #include "axis_03b_cache_traversal_subaxes_ct1_to_ct2.hpp"
@@ -146,8 +153,9 @@ public:
 
     [[nodiscard]] bool operator==(HashLookup const& other) const noexcept { return size_ == other.size_; }
 
-    /// Wachstum/Rehash allokieren ueber die Allokator-Achse (kein Default-Allokator, kein bad_alloc-Pfad --
-    /// s. Kopf-Doku ALLOCATION).
+    /// Wachstum/Rehash allokieren ueber die Allokator-Achse (kein Default-Allokator). Der Fehlschlag-Pfad
+    /// ist NICHT verschwunden, sondern verlagert: der Adapter der Versorger-Achse wirft std::bad_alloc
+    /// (Posten 64/70) -- deshalb weiter kein noexcept. Fehlerklasse: s. Kopf-Doku ALLOCATION.
     void register_entry(key_type k, value_type v) {
         if ((size_ * 10) >= (capacity_mask_ + 1) * 7) { rehash((capacity_mask_ + 1) * 2); }
         std::size_t idx = hash_index(k);

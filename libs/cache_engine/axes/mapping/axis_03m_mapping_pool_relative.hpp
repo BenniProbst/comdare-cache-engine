@@ -18,7 +18,8 @@
 //
 // Allocation (A8-S5-03, 2026-08-04): der Tabellen-Speicher kommt REAL ueber das Allokator-ACHSEN-Interface
 // (mapping_slot_allocator_t + StdAllocatorAdapter, s. axis_03m_mapping_base.hpp) statt ueber den
-// Default-Allokator -- Schnitt-Regel Dossier 20260803-a8_f2 Abschn. 3.4. Fehlerklasse: s. register_slot.
+// Default-Allokator -- Schnitt-Regel Dossier 20260803-a8_f2 Abschn. 3.4. Fehlerklasse: s. register_slot
+// (seit Posten 64, 2026-08-04, wieder ein echter std::bad_alloc-Wurf ueber den StdAllocatorAdapter).
 
 #include "axis_03m_mapping_base.hpp"
 #include "axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
@@ -115,12 +116,14 @@ public:
         return mappings_.size() == other.mappings_.size() && pool_base_ == other.pool_base_;
     }
 
-    /// SONDERFALL [[allocation-failure-exception]] -- A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen):
-    /// Der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die Allokator-ACHSE. Die Strategie meldet OOM
-    /// per nullptr (axis_06_allocator_exgen.hpp:76ff), der StdAllocatorAdapter reicht ihn unveraendert weiter
-    /// (axis_06_allocator_strategy_base.hpp:162-164) -- KEIN std::bad_alloc mehr. Fehlerklasse der Achse
-    /// unveraendert kOrganAxisErrorFloor (MappingBase::error_classes, FK-5); die Konversion
-    /// nullptr -> Fehlerklassen-Wurf gehoert ins Adapter-ZIEL-Interface (fuer diese Scheibe TABU, offener Punkt).
+    /// SONDERFALL [[allocation-failure-exception]] -- A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen),
+    /// Posten 70 NACHGEFUEHRT (2026-08-04): Der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die
+    /// Allokator-ACHSE. Die Strategie meldet OOM per nullptr (axis_06_allocator_exgen.hpp); der
+    /// StdAllocatorAdapter reicht ihn seit POSTEN 64 NICHT mehr durch, sondern uebersetzt ihn an genau
+    /// EINER Stelle in std::bad_alloc (axis_06_allocator_strategy_base.hpp, StdAllocatorAdapter::allocate)
+    /// -- register_slot ist damit wieder ein echter werfender Pfad statt eines UB-Pfads. Fehlerklasse der
+    /// Achse unveraendert kOrganAxisErrorFloor (MappingBase::error_classes, FK-5); der frueher hier
+    /// notierte offene Punkt zur nullptr-Konversion ist damit ERLEDIGT.
     /// Stored: offset relativ zu pool_base_ (positiv). Negativ-Offsets sind verboten.
     void register_slot(slot_index_type s, offset_type absolute_offset) {
         offset_type relative = (absolute_offset >= pool_base_) ? (absolute_offset - pool_base_) : 0;
