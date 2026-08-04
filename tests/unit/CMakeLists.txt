@@ -1907,6 +1907,18 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # als allozierende, [0] resolve als lesende Op) + ehrlicher Nullpunkt OHNE None-Strategie (unregister
     # bleibt 0; hit+miss == resolve mit beiden Seiten real) + Rehash-Pfad ueber die Achse.
     test_s5_01d_traversal_perf_sanity # A8-S5 -- Perf-Sanity Familie 01d (keine 0-/Phantom-Zeiten)
+    # A8-S5 (2026-08-04) Familie 01a Pool-/Layout-Stores = die dichteste Form-B-Flaeche des Scrubs. Ihre
+    # Typ-Liste wird NICHT gepflegt, sondern ABGELEITET (AllStrategies -> organ_for_search_algo_t -> das
+    # zweite Template-Argument des Organs = der Store); die einzige Handnennung ist das DEFERRED Masstree-
+    # Substrat, das keinen Registry-Wrapper hat. Zwei Mitglieder tragen einen Container IM Element
+    # (Skip-Listen-Forward-Turm, START-disc/kids) -- der COW-Block ist der Detektor gegen die stille
+    # Cross-Strategy-Allokation, die eine gewoehnliche Vektor-Kopie dort erzeugt haette.
+    test_s5_01a_pool_stores_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 01a
+    # Perf-Sanity derselben Familie: Zeit UND Zaehler derselben Op-Schleife ueber DREI verschiedene
+    # Substrat-Anatomien (ART / SkipList / SwissTable), plus KOHAERENZ-Probe gegen die direkt am Organ
+    # gelesene Achsen-Statistik (die T6-Zeile muss aus DIESEM Store stammen) und den ehrlichen Nullpunkt
+    # des ungetriebenen Organs. Achsen-Indizes aus kCompositionAxisNames abgeleitet, nie Literal.
+    test_s5_01a_pool_stores_perf_sanity # A8-S5 -- Perf-Sanity Familie 01a (keine 0-/Phantom-Zeiten)
     # HAERTUNG Posten 64 (2026-08-04): der FEHLSCHLAG-VERTRAG des StdAllocatorAdapter, negativ belegt.
     # Nach dem A8-S5-Schnitt fuehren mapping/value_handle/cache_traversal + die vier Pool-Stores ihren
     # Speicher ueber die Allokator-Achse; die meldet OOM per nullptr. Der Adapter uebersetzt das jetzt an
