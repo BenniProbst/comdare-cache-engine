@@ -1127,9 +1127,9 @@ public:
     //   KONSTITUTIV: T0 search_algo (container_algorithm_.clear + container_algorithm_tier1_.clear,
     //                beide unkonditional) -> T6 allocator REAL (Store::clear -> free_chunks_ ->
     //                A::deallocate je Chunk); T4/T5 als Typ-Glieder der geleerten Store-Geometrie.
-    //   BEOBACHTEND (NUR COMDARE_MEASUREMENT_ON): T1 ct_organ_.clear | T2 map_organ_.clear |
-    //                T3 pc_organ_.clear_trie | T10 vh_organ_.clear_slots | T14 flt_organ_.clear_filter |
-    //                T15 queuing_q1_organ_.clear + reset_axis_statistics_ ueber alle Mess-Organe.
+    //   BEOBACHTEND (NUR COMDARE_MEASUREMENT_ON): DATEN-Leerung T1 ct | T2 map | T3 pc | T10 vh | T14 flt |
+    //                T15 q1; STATISTIK-Reset via reset_axis_statistics_ fuer GENAU NEUN Organe (T0-stats,
+    //                T1,T2,T3,T7,T8,T15,T16,T17). NICHT BETEILIGT: T4 | T5 | T9 | T11 | T12 | T13.
     void tier_clear() noexcept override {
 #if COMDARE_MEASUREMENT_ON
         // CoW (#133 Rev. 2): clear ist eine Mutation → Vollkopie VOR dem Leeren materialisieren. Greift nur in

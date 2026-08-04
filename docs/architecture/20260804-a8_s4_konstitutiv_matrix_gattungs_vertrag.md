@@ -49,24 +49,32 @@ Alle Zeilen-Anker ohne Datei-Praefix meinen `libs/cache_engine/anatomy/abi_adapt
 
 | Achse | tier_insert | tier_lookup | tier_erase | tier_clear | tier_size |
 |---|---|---|---|---|---|
-| **T0 search_algo** | K-RT :971 | K-RT :1067 | K-RT :1123 | K-RT :1139 + :1142 | K-RT :1178 |
-| **T1 cache_traversal** | B :992 | B :1075 | -- | B :1163 | -- |
-| **T2 mapping** | B :1006 | B :1083 | -- | B :1164 | -- |
-| **T3 path_compression** | B :1038, :1052 | B :1107 | -- | B :1160 | -- |
+| **T0 search_algo** | K-RT :971 | K-RT :1067 | K-RT :1123 | K-RT :1139 + :1142 (+ RS) | K-RT :1178 |
+| **T1 cache_traversal** | B :992 | B :1075 | -- | B :1163 (+ RS) | -- |
+| **T2 mapping** | B :1006 | B :1083 | -- | B :1164 (+ RS) | -- |
+| **T3 path_compression** | B :1038, :1052 | B :1107 | -- | B :1160 (+ RS) | -- |
 | **T4 node_type** | K-CT :2228 | K-CT :2228 | K-CT :2228 | K-CT :2228 | K-CT :2228 |
 | **T5 memory_layout** | K-CT :2228 | K-CT :2228 | K-CT :2228 | K-CT :2228 | K-CT :2228 |
 | **T6 allocator** | K-RT :2228 (Store) | K-CT :2228 | K-RT :2228 (Store) | K-RT :2228 (Store) | K-CT :2228 |
-| **T7 prefetch** | B :1033 | B :1096, :1101 | -- | -- | -- |
-| **T8 concurrency** | B :1025 | B :1088 | -- | -- | -- |
-| **T9 serialization** | -- | -- | -- | B :1167 (Stats-Reset) | -- |
+| **T7 prefetch** | B :1033 | B :1096, :1101 | -- | B RS | -- |
+| **T8 concurrency** | B :1025 | B :1088 | -- | B RS | -- |
+| **T9 serialization** | -- | -- | -- | -- | -- |
 | **T10 value_handle** | B :1047 | -- | -- | B :1156 | -- |
-| **T11 index_organization** | -- | -- | -- | B :1167 (Stats-Reset) | -- |
-| **T12 io_dispatch** | -- | -- | -- | B :1167 (Stats-Reset) | -- |
-| **T13 migration_policy** | -- | -- | -- | B :1167 (Stats-Reset) | -- |
+| **T11 index_organization** | -- | -- | -- | -- | -- |
+| **T12 io_dispatch** | -- | -- | -- | -- | -- |
+| **T13 migration_policy** | -- | -- | -- | -- | -- |
 | **T14 filter** | B :1042 | -- | -- | B :1152 | -- |
-| **T15 queuing_q1** | B :1011 | B :1086 | -- | B :1165 | -- |
-| **T16 queuing_q2** | B :1017, :1019 | -- | -- | B :1167 (Stats-Reset) | -- |
-| **T17 persistence_target** | -- | -- | -- | B :1167 (Stats-Reset) | -- |
+| **T15 queuing_q1** | B :1011 | B :1086 | -- | B :1165 (+ RS) | -- |
+| **T16 queuing_q2** | B :1017, :1019 | -- | -- | B RS | -- |
+| **T17 persistence_target** | -- | -- | -- | B RS | -- |
+
+**RS** = `reset_axis_statistics_()`, aus `tier_clear` gerufen (:1167, Definition :2154). ACHTUNG, hier
+liegt eine leicht zu uebersehende Praezision: RS resettet **GENAU NEUN** Organe, nicht "alle" --
+T0-stats (:2159), T1 (:2165), T2 (:2166), T15 (:2167), T16 (:2168), T7 (:2172), T8 (:2173), T3 (:2174),
+T17 (:2175). Die Mess-Organe von **T4, T5, T9, T11, T12, T13** werden von `tier_clear` **gar nicht**
+beruehrt -- sie werden im Observer-Fill idempotent `reset()`+gescannt. Genau deshalb stehen sie in der
+`tier_clear`-Spalte auf `--` und nicht auf `B`. (Diese Zeile korrigiert eine erste, zu grobe Lesart der
+eigenen Matrix; der Kopf-Kommentar an `tier_clear` traegt dieselbe Praezisierung.)
 
 `:2228` ist die Zeile, auf der `Composition::node_type`, `Composition::memory_layout` und
 `Composition::allocator` GEMEINSAM als Template-Argumente des Stores stehen (die vollstaendige
@@ -168,17 +176,17 @@ REALEN Komposition, auch wenn sie im Gattungs-Kern nichts beitraegt.
 | T4 node_type (Mess-Organ) | -- (die Achse selbst ist K-CT) | :1666-1673 `store_observe_node_type` -> `acc[4]` | Mess-Huellen-Scan UEBER den Store, nicht das nackte Achsen-Interface (Dossier B-3 ii) |
 | T5 memory_layout (Mess-Organ) | -- (die Achse selbst ist K-CT) | :1675-1682 `store_observe_layout` -> `acc[5]` | Mess-Huellen-Scan (B-3 ii) |
 | T6 allocator (Mess-Route) | -- (die Achse selbst ist K-RT) | :1684-1694 `store_allocator_statistics` -> `acc[6]` | **reiner Stats-READ statt Achsen-Op** (Dossier B-3 iii) -- der bekannte Schnitt-Fehler, S3-Scope |
-| T7 prefetch | insert/lookup (per-op) | :1698-1710 `observe_prefetch_descent` -> `acc[7]` | `NonePrefetch`/`Hardware` = deklarierter 0-Nullpunkt, nicht "nichts" |
-| T8 concurrency | insert/lookup (per-op) | :1712-1720 `observe_critical_section` -> `acc[8]` | Mess-Kanon EIN Thread: contention 0 BY DESIGN |
-| T9 serialization | nur Stats-Reset im clear | :1722-1729 `store_observe_serialization` -> `acc[9]` | Mess-Huellen-Scan (B-3 ii) |
+| T7 prefetch | insert/lookup (per-op) + clear (RS) | :1698-1710 `observe_prefetch_descent` -> `acc[7]` | `NonePrefetch`/`Hardware` = deklarierter 0-Nullpunkt, nicht "nichts" |
+| T8 concurrency | insert/lookup (per-op) + clear (RS) | :1712-1720 `observe_critical_section` -> `acc[8]` | Mess-Kanon EIN Thread: contention 0 BY DESIGN |
+| T9 serialization | KEINE (nur Observer-Fill) | :1722-1729 `store_observe_serialization` -> `acc[9]` | Mess-Huellen-Scan (B-3 ii) |
 | T10 value_handle | insert/clear (Build-Phase) | :1732-1738 `store_observe_value_handle` -> `acc[10]` | Inline-Strategien tragen `store_value` NICHT -> honest-0 |
-| T11 index_organization | nur Stats-Reset im clear | :1742-1748 `store_observe_index_org` -> `acc[11]` | Mess-Huellen-Scan (B-3 ii) |
-| T12 io_dispatch | nur Stats-Reset im clear | :1750-1756 `store_observe_io_dispatch` -> `acc[12]` | In-Memory-Simulation, keine Platte |
-| T13 migration_policy | nur Stats-Reset im clear | :1758-1764 `store_observe_migration` -> `acc[13]` | decide-only; der echte Move liegt in `tier_migrate_step` (:2127, MESSUNG-AN) |
+| T11 index_organization | KEINE (nur Observer-Fill) | :1742-1748 `store_observe_index_org` -> `acc[11]` | Mess-Huellen-Scan (B-3 ii) |
+| T12 io_dispatch | KEINE (nur Observer-Fill) | :1750-1756 `store_observe_io_dispatch` -> `acc[12]` | In-Memory-Simulation, keine Platte |
+| T13 migration_policy | KEINE (nur Observer-Fill) | :1758-1764 `store_observe_migration` -> `acc[13]` | decide-only; der echte Move liegt in `tier_migrate_step` (:2127, MESSUNG-AN) |
 | T14 filter | insert/clear (Build-Phase) | :1766-1772 -> `acc[14]` | None-artige ohne `insert_key` -> honest-0 |
-| T15 queuing_q1 | insert/lookup/clear (per-op) | :1774-1786 `put`/`get` -> `acc[15]` | echte Achsen-Op |
-| T16 queuing_q2 | insert (per-op) | :1788-1800 `should_flush`/`on_flush_complete` -> `acc[16]` | echte Achsen-Op |
-| T17 persistence_target | nur Stats-Reset im clear | :1804-1810 `pt_organ_.observe_writeback` -> `acc[17]` | `MemoryOnlyTarget` = deklarierter Nullpunkt; `DiskWritebackTarget` misst STAGING, nicht die Platte |
+| T15 queuing_q1 | insert/lookup/clear (per-op) + RS | :1774-1786 `put`/`get` -> `acc[15]` | echte Achsen-Op |
+| T16 queuing_q2 | insert (per-op) + clear (RS) | :1788-1800 `should_flush`/`on_flush_complete` -> `acc[16]` | echte Achsen-Op |
+| T17 persistence_target | nur clear (RS) | :1804-1810 `pt_organ_.observe_writeback` -> `acc[17]` | `MemoryOnlyTarget` = deklarierter Nullpunkt; `DiskWritebackTarget` misst STAGING, nicht die Platte |
 
 Diese Spalte "Ehrlichkeits-Vermerk" ist zugleich die Uebergabe an A8-S3/S5: die drei mit (B-3 ii/iii)
 markierten Zeilen sind die im Dossier benannten Misch-Vertragsarten und werden dort geheilt, NICHT hier.
