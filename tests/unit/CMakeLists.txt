@@ -4810,3 +4810,26 @@ target_include_directories(test_e04_slice_marker PRIVATE
 add_test(NAME test_e04_slice_marker COMMAND test_e04_slice_marker)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e04_slice_marker)
 set_tests_properties(test_e04_slice_marker PROPERTIES LABELS "e04;slice_kanal;standalone")
+
+# P-CACHELINE-LITERAL (2026-08-04, Vor-Anker-Pflichtposten der generalisierten Schnitt-Regel):
+# Wache dafuer, dass die Cache-Line-Groesse des LayoutAwareChunkedStore die der cacheline-Unterachse
+# IST und nicht wieder auseinanderlaeuft. Tragende Aussage: dieselben Daten, nur die Unterachse
+# permutiert -> Record-Stride, Chunk-Bytes, Chunk-Alignment, FF2-Knotenbreite UND die CLU-Linienzahl
+# folgen ihr. Am Alt-Stand (hartkodierte 64) BEISST die TU compile-hart und zur Laufzeit -- Lehre
+# "gruene Tests zementieren alte Ordnung". Include-Satz wie test_ff2_node_width_subaxis (derselbe
+# Achsen-/Store-Zug), aber ohne XML-Parser: die TU liest kein Profil.
+add_executable(test_p_cacheline_store_line_source "test_p_cacheline_store_line_source.cpp")
+target_compile_features(test_p_cacheline_store_line_source PRIVATE cxx_std_23)
+target_include_directories(test_p_cacheline_store_line_source PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_p_cacheline_store_line_source PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_p_cacheline_store_line_source)
+add_test(NAME test_p_cacheline_store_line_source COMMAND test_p_cacheline_store_line_source)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_p_cacheline_store_line_source)
+set_tests_properties(test_p_cacheline_store_line_source PROPERTIES
+    LABELS "axes;cacheline;p_cacheline;standalone" TIMEOUT 60)
