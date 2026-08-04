@@ -14,7 +14,8 @@
 //
 // **Die 5 REALEN Repraesentationen (Strategy je Layout, store_record/load_key/load_value):**
 //   • aos_interleaved_packed (aos_strict):        [key|value] adjazent, 16-B-Stride, dicht.
-//   • aos_interleaved_padded (cache_line_aligned): [key|value|48 B pad], 64-B-Cache-Line-Stride.
+//   * aos_interleaved_padded (cache_line_aligned): [key|value|pad] auf Cache-Line-Stride der cacheline-
+//     Unterachse (am Achsen-Default 64 B: [key|value|48 B pad]).
 //   • soa_split_columns (soa):                     keys[]-Spalte gefolgt von values[]-Spalte (ZWEI Arrays je Chunk).
 //   • aosoa_blocked_columns (aosoa):               pro Block B keys dann B values, Bloecke als Array (SIMD-tiled).
 //   • succinct_hot_cold_split (packed_bitmap):     2-B-Hot-Key-Spalte + 6-B-Cold-Residue + values; VERLUSTFREI.
@@ -106,7 +107,8 @@ public:
     static constexpr std::size_t nat_cap_ = (N::max_capacity() == 0 ? std::size_t{1} : N::max_capacity());
     /// C2/FF2 „Knoten-Breite in Cache-Lines" (1..16): deklariert das Node-Organ eine nicht-native Breite W
     /// (NodeWidthAware, profil-aktivierte Unterachse), wird der Chunk (= Knoten-Backing) W Cache-Lines breit —
-    /// die Kapazitaet folgt aus dem physischen Record-Layout: floor(W*64 / record_bytes), min. 1. Native
+    /// die Kapazitaet folgt aus dem physischen Record-Layout: floor(W * kLineBytes / record_bytes), min. 1.
+    /// kLineBytes ist die Line-Groesse der cacheline-Unterachse (P-CACHELINE-LITERAL, am Default 64). Native
     /// (Default aller bestehenden Node-Blaetter) → nat_cap_, byte-identisch zum Ist-Stand (golden-/ABI-neutral).
     /// Thesis FF2 (01_einleitung.tex:94-99): CSS/CSB+ = 1 Cache-Line vs. Hankins/Patel = 16 Cache-Lines.
     static constexpr std::size_t cap_ = (node_width_lines_ == 0)
@@ -116,17 +118,19 @@ public:
                                                    : (node_width_lines_ * kLineBytes) / record_bytes_());
     /// AoSoA PHYSISCHE Store-Blockbreite (B keys dann B values, Bloecke als Array). Bewusst KEINE Line-teilende
     /// Lane-Zahl (waere lane-aligned identisch zum SoA-Key-Footprint), sondern eine Tile-Breite, deren Key-Lane
-    /// die 64-B-Linien STRADDLET → der Key-Scan-Footprint liegt ECHT zwischen SoA (dicht) und AoS (strided),
+    /// die Cache-Linien der Unterachse STRADDLET -> der Key-Scan-Footprint liegt ECHT zwischen SoA (dicht)
+    /// und AoS (strided),
     /// byte-distinkt von beiden (Node-kapazitaets-gedeckelt; „B = node-Kapazitaet o.ae.", Aufgabe #167). Distinkt
     /// von der SIMD-`block_width()` (=8) der Strategie, die NUR den scan_field_sum-Vergleich steuert (unveraendert).
     static constexpr std::size_t kStoreBlock = 10;
     static constexpr std::size_t kBlockW     = (kStoreBlock < cap_) ? kStoreBlock : cap_;
 
     /// record_phys_bytes: die PHYSISCH pro Record im Chunk verbrauchten Bytes (Single-Record-Stride bzw.
-    /// amortisierter Spaltenanteil). AoS-padded = 64, sonst 16 (alle uebrigen Reps speichern Key+Value
+    /// amortisierter Spaltenanteil). AoS-padded = round_up(16, kLineBytes) (am Achsen-Default 64), sonst 16
+    /// (alle uebrigen Reps speichern Key+Value
     /// verlustfrei in 16 B, nur ANDERS angeordnet). Bestimmt die Chunk-Allokationsgroesse.
     static constexpr std::size_t record_phys_bytes() noexcept {
-        return record_bytes_(); // C2/FF2: delegiert an die private constexpr-Quelle (wert-identisch: 64 bzw. 16)
+        return record_bytes_(); // C2/FF2: delegiert an die private constexpr-Quelle (wert-identisch)
     }
     static constexpr std::size_t eff_stride = record_phys_bytes(); // Rueckwaerts-Kompat-Name (AoS-Stride)
 
@@ -293,7 +297,7 @@ public:
 
     // V2-Auto-Kopplung layout (CLU-Treiber, P-MD1-ERDUNG): treibt den REALEN, representation-spezifischen
     // Key-Scan-Footprint je Chunk in den Observer. Der Footprint (field_bytes = real beruehrte Key-Nutzbytes,
-    // cache_lines = real beruehrte 64-B-Linien) wird byte-genau aus der echten Repraesentation berechnet
+    // cache_lines = real beruehrte Cache-Linien der Unterachse) wird byte-genau aus der echten Repraesentation berechnet
     // (key_scan_footprint_), die Checksumme aus dem echten Key-Scan (Korrektheits-Anker). KEIN entkoppelter
     // Deskriptor mehr.
     template <class LayoutOrgan>
@@ -416,7 +420,7 @@ private:
         if constexpr (kRep == RK::aos_interleaved_packed)
             return base + j * kKvBytes; // [k|v] @ 16
         else if constexpr (kRep == RK::aos_interleaved_padded)
-            return base + j * record_phys_bytes(); // [k|v|pad] @ 64
+            return base + j * record_phys_bytes(); // [k|v|pad] @ Cache-Line-Stride
         else if constexpr (kRep == RK::soa_split_columns)
             return base + j * kKeyBytes; // keys[] Spalte
         else if constexpr (kRep == RK::aosoa_blocked_columns) {
@@ -507,14 +511,16 @@ private:
 
     // ── REALER Key-only-Scan-Footprint (P-MD1-ERDUNG, CLU-Quelle) ─────────────────────────────────────────
     // Liest ALLE Keys EINES Chunks aus der ECHTEN Repraesentation (Checksumme = Korrektheits-Anker) und zaehlt
-    // dabei (a) die NUTZbaren Key-Bytes (`key_bytes`) und (b) die DISTINKTEN 64-B-Cache-Linien (`lines`), die
+    // dabei (a) die NUTZbaren Key-Bytes (`key_bytes`) und (b) die DISTINKTEN Cache-Linien (`lines`) in der
+    // Groesse der cacheline-Unterachse (kLineBytes, am Default 64), die
     // die realen Key-Adressen beruehren. Die Lines werden aus den realen Byte-Offsets des Chunk-Backings
-    // bestimmt (Offset_div_64-Markierung) — kein Modell, sondern der echte Speicher-Footprint des Zugriffs.
+    // bestimmt (Offset_div_kLineBytes-Markierung) -- kein Modell, sondern der echte Speicher-Footprint
+    // des Zugriffs.
     void key_scan_footprint_(Chunk const& c, std::uint64_t& checksum, std::uint64_t& key_bytes,
                              std::uint64_t& lines) const noexcept {
         checksum  = 0;
         key_bytes = 0;
-        // Bitset der beruehrten 64-B-Linien innerhalb des Chunks (chunk_bytes()/64 + 2 Linien-Indizes).
+        // Bitset der beruehrten Cache-Linien im Chunk (chunk_bytes()/kLineBytes + 2 Linien-Indizes).
         constexpr std::size_t kMaxLines          = (chunk_bytes() / kLineBytes) + 2u;
         bool                  touched[kMaxLines] = {};
         auto                  mark               = [&](std::size_t off, std::size_t w) noexcept {
