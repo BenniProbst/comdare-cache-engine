@@ -77,6 +77,12 @@ using SaNodeSeqOrgan = SaBinding::AnatomyFor<SaNodeSeqComp>;
 using SaNodeAdaOrgan = SaBinding::AnatomyFor<SaNodeAdaComp>;
 using SaQueuingOrgan = SaBinding::AnatomyFor<SaQueuingComp>;
 
+// A8-S3 (2026-08-04) FIXTURE-NACHZUG: die SA-Seite der Verdrahtung index_organization <- Set. Sie existiert
+// erst, seit SearchAlgorithmAnatomy alle 18 Achsen als Organ-Member haelt (Katalog-P1) -- vorher war sie
+// bewusst nicht gebaut (s. Kopf von cross_genus_composition.hpp, dort ebenfalls nachgezogen).
+using SaIndexSetComp  = ex::SaCompositionWithIndexOrganizationOrgan<cea::IndexOrganizationFromSet>;
+using SaIndexSetOrgan = SaBinding::AnatomyFor<SaIndexSetComp>;
+
 // Die Container-Seite derselben Verdrahtung (erst durch C3 messbar).
 using SetIndexSetComp  = ex::SetCompositionWithIndexOrganizationOrgan<cea::IndexOrganizationFromSet>;
 using SetIndexSetOrgan = SetBinding::AnatomyFor<SetIndexSetComp>;
@@ -125,10 +131,15 @@ static_assert(std::is_constructible_v<cea::SetAbiAdapter<SetIndexSetOrgan>>,
 static_assert(cea::NodeTypeFromSequence::genus() == cea::AnatomyGenus::Sequence,
               "das Sub-Organ behaelt seine eigene Gattungs-Identitaet im fremden Slot");
 
-// (C.2) IST-PIN der SA-Organ-Reichweite (der Grund, warum index_organization<-Set ueber die Set-Gattung
-//       laeuft, s. Kopf): die SearchAlgorithm-Anatomie hat KEINEN index_organization-Organ-Accessor, wohl
-//       aber node_type und queuing. Waechst die SA-Anatomie spaeter um diesen Member, bricht diese Zeile --
-//       und genau dann gehoert die SA-Variante der Verdrahtung nachgezogen. Kein stiller Rest.
+// (C.2) IST-PIN der SA-Organ-Reichweite -- A8-S3-NACHZUG (2026-08-04, BEWUSST, nicht gruen gebuegelt):
+//       Der urspruengliche Pin lautete `!HasIndexOrganizationOrgan<SaNodeSeqOrgan>` mit dem Vermerk
+//       "Waechst die SA-Anatomie spaeter um diesen Member, bricht diese Zeile -- und genau dann gehoert
+//       die SA-Variante der Verdrahtung nachgezogen. Kein stiller Rest." Genau das ist eingetreten: die
+//       Zeile brach am Bau (literal: "static assertion failed: IST 04.08.: SA haelt 9 von 18 Achsen als
+//       Organ-Member -- index_organization nicht"), weil A8-S3 die neun fehlenden Organ-Member nachgeruestet
+//       hat. Der Pin wird deshalb UMGEDREHT und um die nun existierende SA-Variante der Verdrahtung
+//       ergaenzt (Abschnitt (4c) unten) -- der Vorsatz des Original-Kommentars wird eingeloest, nicht
+//       umgangen.
 //       (Die Proben laufen ueber Concepts statt ueber ein direktes requires-Literal: eine
 //       requires-Expression mit NICHT-abhaengigem Ausdruck diagnostiziert GCC hart, statt sie zu false
 //       auszuwerten -- am Bau literal gesehen.)
@@ -142,12 +153,17 @@ concept HasQueuingOrgans = requires(A& a) {
     a.queuing_q2_organ();
 };
 
-static_assert(!HasIndexOrganizationOrgan<SaNodeSeqOrgan>,
-              "IST 04.08.: SA haelt 9 von 18 Achsen als Organ-Member -- index_organization nicht");
+static_assert(HasIndexOrganizationOrgan<SaNodeSeqOrgan>,
+              "IST seit A8-S3: SA haelt ALLE 18 Achsen als Organ-Member -- index_organization eingeschlossen");
 static_assert(HasNodeTypeOrgan<SaNodeSeqOrgan>);
 static_assert(HasQueuingOrgans<SaQueuingOrgan>);
 static_assert(HasIndexOrganizationOrgan<SetIndexSetOrgan>,
-              "die SET-Gattung hat den Member seit C3 -- deshalb laeuft die Verdrahtung dort");
+              "die SET-Gattung hat den Member seit C3 -- die SA-Gattung seit A8-S3");
+// Der Slot traegt in der SA-Komposition WIRKLICH das Set-Organ (und nicht versehentlich einen Nachbar-Slot).
+static_assert(std::is_same_v<typename SaIndexSetComp::index_organization, cea::IndexOrganizationFromSet>);
+static_assert(
+    std::is_same_v<decltype(cea::ObserverAggregate<SaIndexSetComp>::index_organization), cea::SetObserverSnapshot>);
+static_assert(SaIndexSetOrgan::observable_axis_count() == 1);
 
 // =============================================================================================
 // (D) SLOT-SATZ UNVERAENDERT (Gate-Klasse IV): Cross-Genus fuegt keiner Gattung einen Slot hinzu
@@ -227,6 +243,22 @@ int main() {
              node_axes.node_type.push_count, std::uint64_t{1});
     check_true("(4b) das Sequence-Sub-Organ behaelt seine Gattung im Set-Slot",
                SetNodeSeqComp::node_type::genus() == cea::AnatomyGenus::Sequence);
+
+    // -- (4c) A8-S3: DIESELBE Verdrahtung, jetzt auch auf der SEARCHALGORITHM-Seite --------------
+    //         Bis A8-S3 war dieser Abschnitt unmoeglich: der SA-index_organization-Slot hatte weder
+    //         Organ-Accessor noch observe_all()-Einsammlung (der umgedrehte Pin in (C.2) hielt genau das
+    //         fest). Mit den nachgeruesteten Organ-Membern ist die Naht auf BEIDEN Gattungs-Seiten messbar.
+    std::cout << "\ndie SearchAlgorithm-Seite derselben Verdrahtung (A8-S3):\n";
+    SaIndexSetOrgan sa_index{};
+    sa_index.index_organization_organ().organ().insert(511);
+    sa_index.index_organization_organ().organ().insert(512);
+    cea::ObserverAggregate<SaIndexSetComp> const agg_index = sa_index.observe_all();
+    check_eq("(4c) index_organization<-Set: insert_count im SA-Aggregat", agg_index.index_organization.insert_count,
+             std::uint64_t{2});
+    check_true("(4c) das Set-Sub-Organ behaelt seine Gattung im SA-Slot",
+               SaIndexSetComp::index_organization::genus() == cea::AnatomyGenus::Set);
+    check_eq("(4c) SA-Komposition mit EINEM Sub-Organ: genau 1 beobachtbarer Slot",
+             SaIndexSetOrgan::observable_axis_count(), std::size_t{1});
 
     // -- (5) Die getragenen Slots bleiben stumm -- kein erfundener Wert -------------------------
     std::cout << "\nGegenprobe (getragene Slots):\n";

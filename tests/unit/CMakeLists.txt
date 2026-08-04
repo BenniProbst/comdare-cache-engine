@@ -1614,7 +1614,12 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_e24_c4_genus_conformance_gates       # E-24 C4: Orakel je Genus (std::set/deque/queue+stack/span)
     # E-24 C5 (Bauplan Paragraf 6.2, FK-8): die Gattungs-Baupfad-D1-Meldung. Gate Paragraf 4.2 (Klasse II):
     # Count-Wachen im SELBEN Commit wie die Enum-Erweiterung + Token-Disjunktheits-Wache.
-    test_e24_c5_fk8_genus_baupfad_d1)         # E-24 C5: D1-Gate je Gattungs-Baupfad (Bindung + Aritaet)
+    test_e24_c5_fk8_genus_baupfad_d1          # E-24 C5: D1-Gate je Gattungs-Baupfad (Bindung + Aritaet)
+    # A8-S3 (2026-08-04, Katalog-Arbeitsliste P1): die SearchAlgorithm-Anatomie haelt seit dieser Scheibe
+    # ALLE 18 Achsen als Organ-Member (vorher 9 -- die uebrigen blieben eine stille 0). Die Wache zaehlt die
+    # Accessoren und prueft gegen kV3AxisCount (nie gegen ein Literal) und belegt beide Ausgaenge: ehrlich
+    # EmptyAxisSnapshot bei nackter Registry-Strategie, ECHTE Werte bei einem Cross-Genus-Sub-Organ.
+    test_a8s3_sa_organ_member_vollstaendigkeit) # A8-S3: 18/18 SA-Organ-Member + Cross-Genus-SA-Naht
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)

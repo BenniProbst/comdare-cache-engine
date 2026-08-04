@@ -53,15 +53,18 @@ public:
     // (User-Direktive 2026-05-26 spaet, Doku 14 Teil 3 §17.2+§20)
     // ─────────────────────────────────────────────────────────────────────
 
-    /// observe_all() — sammelt Snapshots aller 17 Achsen zu einem POD-Struct.
+    /// observe_all() -- sammelt Snapshots ALLER 18 Achsen (kV3AxisCount) zu einem POD-Struct.
     /// Achsen ohne statistics() liefern EmptyAxisSnapshot.
     /// Pflicht-API fuer CacheEngineBuilder Mess-Treiber + ABI-Loader.
     ///
     /// **R5.A Pilot:** Default-Aggregate (alle Achsen Empty-Snapshot).
     /// **R5.B+ Ziel:** echte Achsen-Members + statistics()-Aufrufe.
-    /// Aktueller Block: Achsen-Wrappers haben protected CRTP-Constructor —
-    /// direktes Halten als Anatomie-Member blockiert. Wird durch
-    /// public-Constructor-Fix oder Tuple-basierte Komposition spaeter geloest.
+    /// **A8-S3 (2026-08-04): ERREICHT.** Alle 18 Slots werden als reale Member gehalten und hier
+    /// eingesammelt (vorher 9 -- die uebrigen 9 blieben default-konstruiert, also eine stille 0).
+    /// Der frueher hier notierte Block ("Achsen-Wrappers haben protected CRTP-Constructor") gilt nicht
+    /// mehr: die Bestands-Slots sind default-konstruierbar, was die Bau-Kadenz dieser Scheibe belegt.
+    /// Die EHRLICHKEITS-Grenze bleibt und ist gewollt: ein Slot, dessen Registry-Variante kein
+    /// statistics() traegt, liefert EmptyAxisSnapshot -- keine erfundene Zahl.
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
         observer_aggregate_t agg{};
         // Saeule-2-Korrektur (Doku 24 §2.2/§3): ECHTE Per-Achsen-statistics() statt EmptyAxisSnapshot-
@@ -110,6 +113,37 @@ public:
         // Slot EmptyAxisSnapshot -- korrekt, kein Sonderfall.
         if constexpr (ObservableAxis<typename Composition::persistence_target>) {
             agg.persistence_target = axis_persistence_target_.statistics();
+        }
+        // A8-S3 (2026-08-04) -- DIE NEUN NACHGERUESTETEN SLOTS. Bis hierher sammelte observe_all() nur 9 der
+        // 18 Achsen ein; die uebrigen 9 blieben default-konstruierte Aggregat-Felder, also eine STILLE 0 statt
+        // einer Aussage (Katalog-Arbeitsliste P1, LEDGER:3812 Punkt 1). Der Guard ist derselbe wie oben:
+        // ObservableAxis<Slot-Typ>. Traegt die Registry-Variante des Slots KEIN statistics() (die nackten
+        // Strategien der Bestands-Achsen), bleibt der Slot EmptyAxisSnapshot -- das ist die EHRLICHE Antwort
+        // "diese Auspraegung hat nichts zu berichten", keine erfundene Zahl. Traegt der Slot dagegen eine
+        // observable Huelle oder ein Cross-Genus-Sub-Organ (ObservableOrgan, E-24 C1/C3), liefert er ab jetzt
+        // ECHTE Werte -- ohne Wire-Aenderung, denn ObserverAggregate hat alle 18 Slots seit jeher.
+        // index_organization steht bewusst zuerst: an ihm haengt die Cross-Genus-SA-Naht (Set-Organ als
+        // Index-Organisation, cross_genus_organ.hpp), die ohne diesen Member stumm blieb.
+        if constexpr (ObservableAxis<typename Composition::index_organization>) {
+            agg.index_organization = axis_index_organization_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::value_handle>) {
+            agg.value_handle = axis_value_handle_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::filter>) { agg.filter = axis_filter_.statistics(); }
+        if constexpr (ObservableAxis<typename Composition::allocator>) { agg.allocator = axis_allocator_.statistics(); }
+        if constexpr (ObservableAxis<typename Composition::path_compression>) {
+            agg.path_compression = axis_path_compression_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::prefetch>) { agg.prefetch = axis_prefetch_.statistics(); }
+        if constexpr (ObservableAxis<typename Composition::concurrency>) {
+            agg.concurrency = axis_concurrency_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::io_dispatch>) {
+            agg.io_dispatch = axis_io_dispatch_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::migration_policy>) {
+            agg.migration_policy = axis_migration_policy_.statistics();
         }
         return agg;
     }
@@ -169,6 +203,47 @@ public:
         return axis_persistence_target_;
     }
 
+    /// A8-S3: die Accessoren der neun nachgeruesteten Slots. Sie halten die Anatomie-Oberflaeche
+    /// VOLLSTAENDIG (Owner-KERN "observe_axes ueber ALLE Achsen"): jeder der 18 Achsen-Slots ist jetzt als
+    /// realer Member greifbar und wird von observe_all() eingesammelt. Treiben tut sie, wer den Slot besetzt
+    /// -- ein Cross-Genus-Sub-Organ treibt sich selbst, eine nackte Bestands-Strategie bleibt ehrlich stumm.
+    [[nodiscard]] typename Composition::index_organization& index_organization_organ() noexcept {
+        return axis_index_organization_;
+    }
+    [[nodiscard]] typename Composition::index_organization const& index_organization_organ() const noexcept {
+        return axis_index_organization_;
+    }
+    [[nodiscard]] typename Composition::value_handle&       value_handle_organ() noexcept { return axis_value_handle_; }
+    [[nodiscard]] typename Composition::value_handle const& value_handle_organ() const noexcept {
+        return axis_value_handle_;
+    }
+    [[nodiscard]] typename Composition::filter&           filter_organ() noexcept { return axis_filter_; }
+    [[nodiscard]] typename Composition::filter const&     filter_organ() const noexcept { return axis_filter_; }
+    [[nodiscard]] typename Composition::allocator&        allocator_organ() noexcept { return axis_allocator_; }
+    [[nodiscard]] typename Composition::allocator const&  allocator_organ() const noexcept { return axis_allocator_; }
+    [[nodiscard]] typename Composition::path_compression& path_compression_organ() noexcept {
+        return axis_path_compression_;
+    }
+    [[nodiscard]] typename Composition::path_compression const& path_compression_organ() const noexcept {
+        return axis_path_compression_;
+    }
+    [[nodiscard]] typename Composition::prefetch&          prefetch_organ() noexcept { return axis_prefetch_; }
+    [[nodiscard]] typename Composition::prefetch const&    prefetch_organ() const noexcept { return axis_prefetch_; }
+    [[nodiscard]] typename Composition::concurrency&       concurrency_organ() noexcept { return axis_concurrency_; }
+    [[nodiscard]] typename Composition::concurrency const& concurrency_organ() const noexcept {
+        return axis_concurrency_;
+    }
+    [[nodiscard]] typename Composition::io_dispatch&       io_dispatch_organ() noexcept { return axis_io_dispatch_; }
+    [[nodiscard]] typename Composition::io_dispatch const& io_dispatch_organ() const noexcept {
+        return axis_io_dispatch_;
+    }
+    [[nodiscard]] typename Composition::migration_policy& migration_policy_organ() noexcept {
+        return axis_migration_policy_;
+    }
+    [[nodiscard]] typename Composition::migration_policy const& migration_policy_organ() const noexcept {
+        return axis_migration_policy_;
+    }
+
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
         return observer_aggregate_t::observable_count();
@@ -219,6 +294,22 @@ private:
     // STRUKT-R ORG-18: persistence_target als 18. Organ-Slot. KEIN `{}` (wie die vier oben): der Slot kann eine
     // nackte Aggregat-Strategie sein, fuer die Aggregat + `{}` ill-formed waere (test_d_v42_probe2).
     typename Composition::persistence_target axis_persistence_target_;
+
+    // A8-S3 (2026-08-04): die NEUN nachgeruesteten Organ-Slots -- damit haelt die Anatomie ALLE 18 Achsen als
+    // reale Member (vorher 9). Reihenfolge wie in observe_all(): index_organization zuerst (Cross-Genus-Naht),
+    // dann nach Katalog-Prioritaet. KEIN `{}` -- exakt aus demselben Grund wie oben: ein Slot kann eine nackte
+    // Aggregat-Strategie sein, fuer die Aggregat + `{}` ill-formed waere (test_d_v42_probe2).
+    // KEIN Wire-Ereignis: ObserverAggregate<Composition> traegt diese Slots seit STRUKT-R ORG-18; hier entsteht
+    // nur der HALTER, der sie fuellen kann. Wer den Slot treibt, entscheidet die Slot-Belegung.
+    typename Composition::index_organization axis_index_organization_;
+    typename Composition::value_handle       axis_value_handle_;
+    typename Composition::filter             axis_filter_;
+    typename Composition::allocator          axis_allocator_;
+    typename Composition::path_compression   axis_path_compression_;
+    typename Composition::prefetch           axis_prefetch_;
+    typename Composition::concurrency        axis_concurrency_;
+    typename Composition::io_dispatch        axis_io_dispatch_;
+    typename Composition::migration_policy   axis_migration_policy_;
 };
 
 } // namespace comdare::cache_engine::anatomy
