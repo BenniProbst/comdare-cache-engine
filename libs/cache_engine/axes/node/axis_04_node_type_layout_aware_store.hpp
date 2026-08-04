@@ -27,7 +27,8 @@
 
 #include "axis_04_node_type_node4.hpp" // Pilot-NodeType (Selbstbeweis)
 #include "concepts/axis_04_node_type_concept.hpp"
-#include <axes/cacheline/node_width_config.hpp> // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse (Konsum hier)
+#include <axes/cacheline/cacheline_line_bytes.hpp> // P-CACHELINE-LITERAL: Line-Groesse NUR aus der cacheline-Achse
+#include <axes/cacheline/node_width_config.hpp>    // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse (Konsum hier)
 #include <topics/memory_layout/axis_05_memory_layout/concepts/axis_05_memory_layout_concept.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_strategy_base.hpp> // RepresentationKind
@@ -59,10 +60,18 @@ private:
     using RK                 = ::comdare::cache_engine::layout::RepresentationKind;
     static constexpr RK kRep = L::representation_kind();
 
-    static constexpr std::size_t kKeyBytes  = sizeof(std::uint64_t); // 8
-    static constexpr std::size_t kValBytes  = sizeof(std::uint64_t); // 8
-    static constexpr std::size_t kKvBytes   = kKeyBytes + kValBytes; // 16 logische Nutzlast
-    static constexpr std::size_t kLineBytes = 64;                    // Cache-Line (CLU-Bezugsgroesse)
+    static constexpr std::size_t kKeyBytes = sizeof(std::uint64_t); // 8
+    static constexpr std::size_t kValBytes = sizeof(std::uint64_t); // 8
+    static constexpr std::size_t kKvBytes  = kKeyBytes + kValBytes; // 16 logische Nutzlast
+    // P-CACHELINE-LITERAL (2026-08-04, generalisierte Schnitt-Regel): die Cache-Line-Groesse (CLU-Bezugs-
+    // groesse, AoS-Padding-Granularitaet, FF2-Knotenbreiten-Faktor, Chunk-Alignment) ist Eigentum der
+    // cacheline-Unterachse und wird hier BEZOGEN statt hartkodiert. Quelle = das Layout-Organ L, dessen
+    // MemoryLayoutStrategyBase die Unterachse als NTTP traegt (cacheline_subaxis_line_bytes()); traegt ein
+    // L die Naht nicht, greift der Achsen-Default (kDefaultLineBytes == 64) -- NIE ein eigenes Literal.
+    // Am heutigen Default ist der Bezug wertgleich zur frueheren 64 (static_assert am Dateiende).
+    // NICHT L::cache_line_size(): das ist der intrinsische Design-Deskriptor der Layout-Strategie
+    // (aos_strict = 1, packed_bitmap = 8) und waere der Duplikat-Bug aus axis_05_..._cache_line_aligned:54.
+    static constexpr std::size_t kLineBytes = ::comdare::cache_engine::cacheline::line_bytes_of<L>();
     static constexpr std::size_t kHotBytes  = 2;                     // succinct: low16-Hot-Key-Spalte
     static constexpr std::size_t kColdBytes = kKeyBytes - kHotBytes; // succinct: high48-Cold-Residue (6)
 
@@ -137,6 +146,11 @@ public:
     }
 
     [[nodiscard]] static constexpr std::size_t node_capacity() noexcept { return cap_; }
+    /// P-CACHELINE-LITERAL: die wirksame Cache-Line-Groesse dieses Stores -- ausschliesslich aus der
+    /// cacheline-Unterachse des Layout-Organs bezogen (Wache test_p_cacheline_store_line_source pinnt das).
+    [[nodiscard]] static constexpr std::size_t cacheline_line_bytes() noexcept { return kLineBytes; }
+    /// P-CACHELINE-LITERAL: Alignment der ueber A allozierten Chunks (== Cache-Line-Groesse der Achse).
+    [[nodiscard]] static constexpr std::size_t chunk_align() noexcept { return kChunkAlign; }
     /// C2/FF2: die wirksame Knoten-Breite in Cache-Lines (0 = Native, Knoten-Backing unveraendert).
     [[nodiscard]] static constexpr std::size_t      node_width_in_lines() noexcept { return node_width_lines_; }
     [[nodiscard]] static constexpr std::size_t      record_stride() noexcept { return record_phys_bytes(); }
@@ -384,7 +398,11 @@ public:
 private:
     using slot_t = std::pair<std::uint64_t, std::uint64_t>;
 
-    static constexpr std::size_t kChunkAlign = 64;
+    // P-CACHELINE-LITERAL: das Chunk-Alignment ist eine Cache-Line-Groesse, kein eigener Wert -> es folgt
+    // derselben Achsen-Quelle wie kLineBytes (am Default 64, also unveraendert). BEWUSST NICHT
+    // cacheline::alignment_bytes(cfg): das ist die alignment-DIMENSION (None -> alignof(max_align_t)) und
+    // wuerde am Default von 64 auf 16 fallen -- eine Verhaltensaenderung, die dieser Schnitt nicht macht.
+    static constexpr std::size_t kChunkAlign = kLineBytes;
     struct Chunk {
         unsigned char* data     = nullptr;
         std::size_t    count    = 0; // belegte Records (<= cap_)
@@ -575,5 +593,17 @@ static_assert(PilotLayoutAwareStore::record_phys_bytes() == 64); // CLA → 64-B
 // damit Chunk-Layout byte-identisch zum Ist-Stand (der Wide-Pfad wird in test_ff2_node_width_subaxis bewiesen).
 static_assert(PilotLayoutAwareStore::node_width_in_lines() == 0);
 static_assert(PilotLayoutAwareStore::node_capacity() == Node4NodeType::max_capacity());
+
+// P-CACHELINE-LITERAL-Verhaltensneutralitaets-Beweis (2026-08-04): der Bezug aus der cacheline-Unterachse
+// liefert am Achsen-Default EXAKT die frueher hartkodierte 64 -- an der Quelle, an ihrem Konsum im Store
+// und an jeder davon abgeleiteten Geometrie. Bricht einer dieser Saetze, ist die Substitution NICHT mehr
+// neutral und der Bruch faellt compile-hart auf, nicht erst in den Messwerten.
+static_assert(::comdare::cache_engine::cacheline::kDefaultLineBytes == 64);
+static_assert(PilotLayoutAwareStore::cacheline_line_bytes() == 64);
+static_assert(PilotLayoutAwareStore::chunk_align() == 64);
+static_assert(PilotLayoutAwareStore::record_phys_bytes() == 64);                            // round_up(16, 64)
+static_assert(PilotLayoutAwareStore::chunk_bytes() == Node4NodeType::max_capacity() * 64u); // 4 * 64
+static_assert(PilotLayoutAwareStore::cacheline_line_bytes() ==
+              _ml_la::CacheLineAlignedMemoryLayout::cacheline_subaxis_line_bytes()); // Achse == Store
 
 } // namespace comdare::cache_engine::node
