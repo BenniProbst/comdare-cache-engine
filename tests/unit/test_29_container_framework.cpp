@@ -63,6 +63,6 @@ TEST(V29ContainerFramework, NeutralityGuardsStayIntact) {
     // ist KEIN Container-Typ (eigene Gattung). Namen konstant (golden-relevante Strings unangetastet).
     static_assert(!cc::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
     EXPECT_EQ(cea::gattung_name(cea::AnatomyGattung::Container), std::string_view{"Container"});
-    EXPECT_EQ(cea::gattung_name(cea::AnatomyGattung::SearchAlgorithm), std::string_view{"SearchAlgorithm"});
-    EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm), cea::AnatomyGattung::SearchAlgorithm);
+    EXPECT_EQ(cea::gattung_name(cea::AnatomyGattung::Map), std::string_view{"Map"});
+    EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm), cea::AnatomyGattung::Map);
 }

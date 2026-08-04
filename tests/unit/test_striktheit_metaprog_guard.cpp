@@ -34,13 +34,13 @@ namespace comp = ::comdare::cache_engine::compositions;
 namespace mp   = ::boost::mp11;
 
 // ── Block A: 3-Ebenen-Anatomie-Totalitaet (Ebene 2 Genus -> Ebene 1 Gattung, gattung_of konsistent) ──────
-static_assert(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm) == cea::AnatomyGattung::SearchAlgorithm);
+static_assert(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm) == cea::AnatomyGattung::Map);
 static_assert(cea::gattung_of(cea::AnatomyGenus::Set) == cea::AnatomyGattung::Container);
 static_assert(cea::gattung_of(cea::AnatomyGenus::Sequence) == cea::AnatomyGattung::Container);
 static_assert(cea::gattung_of(cea::AnatomyGenus::Adapter) == cea::AnatomyGattung::Container);
 static_assert(cea::gattung_of(cea::AnatomyGenus::View) == cea::AnatomyGattung::Container);
 // golden-relevante Ebene-1-Namen konstant (Aussen-Interface-Strings).
-static_assert(cea::gattung_name(cea::AnatomyGattung::SearchAlgorithm) == std::string_view{"SearchAlgorithm"});
+static_assert(cea::gattung_name(cea::AnatomyGattung::Map) == std::string_view{"Map"});
 static_assert(cea::gattung_name(cea::AnatomyGattung::Container) == std::string_view{"Container"});
 static_assert(cea::gattung_name(cea::AnatomyGattung::Graph) == std::string_view{"Graph"});
 
@@ -113,7 +113,7 @@ TEST(MetaprogStriktheitGuard, ElevenReferenceAnatomiesAreNonPolymorphicHotPath) 
 
 TEST(MetaprogStriktheitGuard, ThreeLevelAnatomyIsTotalAndConsistent) {
     // Ebene 2 -> Ebene 1: alle 5 Tier-Unterklassen auf genau eine der 3 Gattungen abgebildet.
-    EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm), cea::AnatomyGattung::SearchAlgorithm);
+    EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm), cea::AnatomyGattung::Map);
     EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::Set), cea::AnatomyGattung::Container);
     EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::Sequence), cea::AnatomyGattung::Container);
     EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::Adapter), cea::AnatomyGattung::Container);

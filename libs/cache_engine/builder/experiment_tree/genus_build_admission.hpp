@@ -186,9 +186,10 @@ static_assert(GenusBound<cea::AnatomyGenus::SearchAlgorithm> && GenusBound<cea::
 static_assert(!admit_genus_build_path(cea::AnatomyGenus::Set).has_value());
 static_assert(!admit_genus_build_path(cea::AnatomyGenus::View).has_value());
 
-// Die beiden Ebene-1-Aussagen: Container und SearchAlgorithm sind baubar, Graph ist es NICHT.
+// Die beiden Ebene-1-Aussagen: Container und Map sind baubar, Graph ist es NICHT (E-24 C7-1:
+// die Map-Gattung hiess bis hier nach ihrem einzigen Genus SearchAlgorithm).
 static_assert(!admit_gattung_build_path(cea::AnatomyGattung::Container).has_value());
-static_assert(!admit_gattung_build_path(cea::AnatomyGattung::SearchAlgorithm).has_value());
+static_assert(!admit_gattung_build_path(cea::AnatomyGattung::Map).has_value());
 static_assert(admit_gattung_build_path(cea::AnatomyGattung::Graph) ==
                   cem::CompilerCompilerErrorClass::GattungsBindungFehlt,
               "Graph hat am Ist keine Tier-Unterklasse (Q5, nach Abgabe) -- ein Bau-Wunsch darauf ist ein "

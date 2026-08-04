@@ -159,8 +159,7 @@ int main() {
         tr("Graph ist NICHT baubar", graph.has_value());
         eq("Graph -> Klasse", cem::error_class_label(*graph), std::string_view{"gattungs_bindung_fehlt"});
         tr("Container ist baubar", !cex::admit_gattung_build_path(cea::AnatomyGattung::Container).has_value());
-        tr("SearchAlgorithm ist baubar",
-           !cex::admit_gattung_build_path(cea::AnatomyGattung::SearchAlgorithm).has_value());
+        tr("SearchAlgorithm ist baubar", !cex::admit_gattung_build_path(cea::AnatomyGattung::Map).has_value());
         // Der Enumerator selbst bleibt unangetastet (TABU: Anatomie-Enum-Reihenfolge, Graph bleibt = 2).
         eq("AnatomyGattung::Graph steht still", static_cast<int>(cea::AnatomyGattung::Graph), 2);
     }

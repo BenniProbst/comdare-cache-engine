@@ -29,24 +29,33 @@ namespace comdare::cache_engine::anatomy {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3-EBENEN-MODELL (Doc 30 §8.0/§8.1, korr. 2026-06-03 — vorher fälschlich „5 Gattungen"):
-//   Ebene 1  AnatomyGattung    = Außen-Interface/Prüf-Dock: SearchAlgorithm | Container | Graph  (NUR 3)
+//   Ebene 1  AnatomyGattung    = Aussen-Interface/Pruef-Dock: Map | Container | Graph  (NUR 3)
 //   Ebene 2  AnatomyGenus      = TIER-UNTERKLASSE unter einem Gattungs-Interface (fester Achsen-Satz)
 //   Ebene 3  Achsen            = Organe der Tier-Unterklasse (permutieren; KEINE optional)
 // Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER der Container-Gattung (Doc 24 Z.564 / Doc 27 §0),
-// NICHT je eine eigene Gattung. SearchAlgorithm ist eine Gattung MIT einer Tier-Unterklasse (std::map-artig, 17 Achsen; INC-2c/2d: telemetry+isa sind System-Achsen).
+// NICHT je eine eigene Gattung. SEARCHALGORITHM IST DAS GENUS, NICHT DIE GATTUNG -- die Ebene-1-Kategorie
+// heisst MAP (Owner-KERN NACHTRAG 4, LEDGER:3836: "SearchAlgorithm ist ein Genus unter der Gattung 'Map'").
+// Die Map-Gattung hat am Ist GENAU EIN Genus (SearchAlgorithm, std::map-artig, 17 Achsen; INC-2c/2d:
+// telemetry+isa sind System-Achsen); eine Schnittmenge ueber ein Element IST das Element -- deshalb braucht
+// Map kein eigenes Kopf-Framework (C7-4, Manager-Entscheid LEDGER:3844).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// AnatomyGattung — Ebene 1: das Außen-Interface zur Welt (Prüf-Dock je Gattung, Doc 24 §8.8). NUR 3.
 enum class AnatomyGattung : std::uint8_t {
-    SearchAlgorithm = 0, ///< K → V Schlüssel-Wert-Interface (std::map-artig); 1 Tier-Unterklasse gebaut
-    Container       = 1, ///< Container-Interface; Tier-Unterklassen: Set/Sequence/Adapter/View
-    Graph           = 2  ///< Graph-Interface (Tier-Unterklassen TBD)
+    // E-24 C7-1 (2026-08-04): UMBENANNT SearchAlgorithm -> Map. Der Enumerator etikettierte die Ebene-1-
+    // Kategorie nach ihrem EINZIGEN Genus (Owner-Befund mittags-3 "Terminologie Fehler der Zuordnung",
+    // LEDGER:3834; finales Modell NACHTRAG 4, LEDGER:3836). Der ZAHLENWERT 0 bleibt unangetastet -- die
+    // Enum-Reihenfolge ist TABU (E24-DOSSIER:168), umbenannt wird ausschliesslich der NAME.
+    // Ebene 2 bleibt korrekt: AnatomyGenus::SearchAlgorithm heisst weiterhin so (das GENUS heisst so).
+    Map       = 0, ///< K -> V Schluessel-Wert-Interface (std::map-artig); Genus: SearchAlgorithm
+    Container = 1, ///< Container-Interface; Genera: Set/Sequence/Adapter/View
+    Graph     = 2  ///< Graph-Interface (Stub -- noch kein Genus implementiert, Q5 nach Abgabe)
 };
 
 /// gattung_name() — Compile-Time-String pro Gattung (Ebene 1).
 [[nodiscard]] constexpr std::string_view gattung_name(AnatomyGattung g) noexcept {
     switch (g) {
-        case AnatomyGattung::SearchAlgorithm: return "SearchAlgorithm";
+        case AnatomyGattung::Map: return "Map";
         case AnatomyGattung::Container: return "Container";
         case AnatomyGattung::Graph: return "Graph";
     }
@@ -65,16 +74,18 @@ enum class AnatomyGattung : std::uint8_t {
 /// | Wirbelloses   | Adapter                          | Container         | stack, queue, priority_queue |
 /// | Pflanze       | View                             | Container         | span, mdspan, string_view |
 ///
-/// **Vokabular-Brücke (F1a, User-GO 2026-07-16 — golden-neutral, REIN DOKU):** Der User-Begriff
-/// *„Gattung"* bezeichnet umgangssprachlich GENAU diese Tier-Unterklasse hier (Ebene 2, `AnatomyGenus`),
-/// NICHT das gleichnamige Ebene-1-Außen-Interface `AnatomyGattung`. Diese Zwei-Namen-Realität
-/// (Ebene-1 `AnatomyGattung` vs. Ebene-2 `AnatomyGenus`) wird bewusst benannt, damit „Gattung" im
-/// User-Sprech und „Genus" im Code nicht verwechselt werden. *Set* ist dabei BEREITS ein eigenes
-/// Genus (`Set = 1`) mit eigener Komposition/Anatomie/Observer und eigener ABI
-/// (`ISetTier` / `SetObserverSnapshotV1`) samt eigenen `GenusBindingTraits<Set>` — also schon heute
-/// eine vollwertige, native Tier-Unterklasse, kein bloßer Alias. Die ECHTE Ebene-1-Promotion (Set als
-/// eigenständige `AnatomyGattung`) ist der SEPARATE, koordinierte ABI-Schritt F1b (NICHT hier;
-/// s. container_framework.hpp #29-Vermerk + docs/architecture/37).
+/// **Vokabular-Bruecke -- FORTGESCHRIEBEN durch E-24 C7-1 (Owner-KERN NACHTRAG 4, LEDGER:3836):**
+/// Die alte Bruecke (F1a, 2026-07-16) hielt fest, der User-Begriff "Gattung" meine die Ebene-2-
+/// Tier-Unterklasse. Das FINALE Owner-Modell vergibt "Gattung" nun eindeutig an EBENE 1 und benennt
+/// deren drei Kategorien: **Map** (Huelle <Key,Value>, map-Gleichnis) / **Container** (Huelle <T>,
+/// vector-Gleichnis) / **Graph** (Stub). Ebene 2 sind die GENERA: SearchAlgorithm IN Map;
+/// Set/Sequence/Adapter/View IN Container. "Das Genus erbt von der gemeinsamen Gattung" (verbatim) --
+/// der Gattungs-Kern ist die mathematische Schnittmenge der Genus-Interfaces, das Genus erweitert sie.
+/// Die alte Bruecken-Aussage ist damit SUPERSEDED, nicht geloescht: wer sie in aelteren Dokumenten
+/// findet, liest sie in dieser Richtung. *Set* bleibt ein vollwertiges, natives Genus (`Set = 1`) mit
+/// eigener Komposition/Anatomie/Observer und eigener ABI (`ISetTier` / `SetObserverSnapshotV1`) samt
+/// eigenen `GenusBindingTraits<Set>` -- eine Ebene-1-Promotion von Set ist damit gegenstandslos
+/// geworden (Set gehoert zur Gattung Container, nicht daneben; Diskrepanz-Dossier Abschnitt 2.2).
 enum class AnatomyGenus : std::uint8_t {
     SearchAlgorithm = 0, ///< Tier-Unterklasse der SearchAlgorithm-Gattung (vollst. 17-Achsen-Anatomie, INC-2d)
     Set             = 1, ///< Tier-Unterklasse der Container-Gattung (K only, Bird)
@@ -96,10 +107,12 @@ enum class AnatomyGenus : std::uint8_t {
 }
 
 /// gattung_of() — Ebene 2 → Ebene 1: die Gattung (Außen-Interface), zu der eine Tier-Unterklasse gehört.
-/// SearchAlgorithm → eigene Gattung; Set/Sequence/Adapter/View → Container-Gattung (Doc 30 §8.1).
+/// E-24 C7-1: SearchAlgorithm -> Gattung MAP; Set/Sequence/Adapter/View -> Container-Gattung
+/// (Owner-KERN NACHTRAG 4, LEDGER:3836). Das Genus ERBT das Gattungs-Interface -- diese Funktion ist die
+/// constexpr-Form dieser Vererbungs-Zuordnung und zugleich der host-seitige Weg von genus() zur Gattung.
 [[nodiscard]] constexpr AnatomyGattung gattung_of(AnatomyGenus tier_subclass) noexcept {
     switch (tier_subclass) {
-        case AnatomyGenus::SearchAlgorithm: return AnatomyGattung::SearchAlgorithm;
+        case AnatomyGenus::SearchAlgorithm: return AnatomyGattung::Map;
         case AnatomyGenus::Set:
         case AnatomyGenus::Sequence:
         case AnatomyGenus::Adapter:
@@ -163,7 +176,10 @@ public:
     /// Paper-Referenz (z.B. "P01 Leis ICDE 2013")
     [[nodiscard]] virtual std::string_view paper_id() const noexcept = 0;
 
-    /// Anatomie-Gattung (Saeugetier/Vogel/Reptil/Wirbelloses/Pflanze)
+    /// Das GENUS (Ebene 2; Tier-Metapher Saeugetier/Vogel/Reptil/Wirbelloses/Pflanze). E-24 C7-1: der
+    /// frueher hier stehende Begriff "Anatomie-Gattung" war Ebene-2-Sprache und ist nach dem finalen
+    /// Owner-Modell (LEDGER:3836) falsch -- die GATTUNG ist Ebene 1 (Map/Container/Graph) und wird
+    /// host-seitig constexpr aus diesem Wert abgeleitet (gattung_of), NICHT ueber den Draht getragen.
     [[nodiscard]] virtual AnatomyGenus genus() const noexcept = 0;
 
     /// Anzahl Achsen (Pflicht 17 fuer Mammal = 15 Such-Achsen + queuing q1/q2, INC-2d; weniger fuer andere Gattungen)

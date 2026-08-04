@@ -1671,7 +1671,7 @@ foreach(_c6v IN LISTS COMDARE_E24_C6V_TESTS)
 endforeach()
 
 # -----------------------------------------------------------------------------
-# E-24 C6 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE) -- die per-Achsen-WIRE-Formen der vier Container-
+# E-24 C6/C7 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE) -- die per-Achsen-WIRE-Formen der vier Container-
 # Gattungs-Ebenen (XxxObserverAggregate<N>) + ihre eigenen Abfrage-Sub-Interfaces. Eigene Liste (nicht
 # COMDARE_E24_C6V_TESTS), weil C6-V der ABI-NEUTRALE Vor-Baustein war und C6 die deklarierte ABI-Serie
 # ist -- die Label-Trennung haelt beide im ctest getrennt filterbar (`ctest -L c6` vs. `-L c6v`).
@@ -1683,7 +1683,8 @@ set(COMDARE_E24_C6_TESTS
     test_e24_c6_sequence_wire_aggregate  # C6 (d): SequenceObserverAggregate<9> + E1-Detail growth_factor_milli
     test_e24_c6_adapter_wire_aggregate   # C6 (e): AdapterObserverAggregate<11> + Adapter-Symmetrie
     test_e24_c6_view_wire_aggregate      # C6 (f): ViewObserverAggregate<5> + Elisions-/Layout-Beweis
-    test_e24_c6_set_algebra_abi)         # C6 (g) / F2: ISetAlgebraTier gegen das std::set-Orakel
+    test_e24_c6_set_algebra_abi          # C6 (g) / F2: ISetAlgebraTier gegen das std::set-Orakel
+    test_e24_c7_gattung_map_umbenennung) # C7-1: Ebene-1-Umbenennung SearchAlgorithm -> Map
 foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     add_executable(${_c6} "${_c6}.cpp")
     target_compile_features(${_c6} PRIVATE cxx_std_23)
@@ -1699,7 +1700,7 @@ foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     target_compile_definitions(${_c6} PRIVATE COMDARE_CE_ENABLE_STATISTICS=1)
     add_test(NAME ${_c6} COMMAND ${_c6})
     set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c6})
-    set_tests_properties(${_c6} PROPERTIES LABELS "goal_v6;phase_d;e24;c6")
+    set_tests_properties(${_c6} PROPERTIES LABELS "goal_v6;phase_d;e24;c6;c7")
 endforeach()
 
 # -----------------------------------------------------------------------------
