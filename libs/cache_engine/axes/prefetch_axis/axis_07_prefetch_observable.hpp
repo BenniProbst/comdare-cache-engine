@@ -128,8 +128,11 @@ public:
     /// Bei einer Tracking-Strategie (PathOriented) wird der echte Tracker getrieben (enqueue + suggest_next),
     /// und die realen Zähler werden gespiegelt. Bei None/Hardware (kein Tracker) ist es bewusst ein no-op →
     /// PrefetchStatistics bleiben 0 (ehrliche Baseline). raw_bytes != nullptr ⇒ zusätzlich Hot-Path-Hint.
-    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — treibt tracker_.enqueue (push_back, kann
-    // allozieren/werfen) + note_hot_path_bytes ([[allocation-failure-exception]]).
+    // A8-S5 (Familie 04, Review-F1): der F57/Muster-B-Grund von WP-5 (2026-07-16) ist entfallen --
+    // der PathOriented-Tracker ist seit dem Scrub heap-frei (inline-Array, CT-Kappe), enqueue und
+    // note_hot_path_bytes sind noexcept und allokationsfrei. Die Huelle bleibt BEWUSST ohne
+    // pauschales noexcept: sie ist strategie-generisch, ein noexcept hier waere eine Zusage ueber
+    // ALLE (auch kuenftige) Tracker-Strategien; konditionale Haertung = Aufraeumpass-Kandidat.
     void observe_prefetch(std::uint64_t addr, std::byte const* raw_bytes = nullptr, std::size_t n = 0) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if constexpr (detail::HasPrefetchTracker<Strategy>) {

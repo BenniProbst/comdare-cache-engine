@@ -14,13 +14,28 @@
 // 8 Byte eines Schluessels (z.B. binary_key_t aus dem SearchEngine-ABI) als
 // uint64-Adresse und speist sie in die Pfad-Trajektorie ein.
 //
-// Allocation: std::vector waechst dynamisch (bounded auf kMaxTrackedSlots) —
-// [[allocation-failure-exception]] (push_back kann std::bad_alloc werfen).
+// SPEICHER (A8-S5, Familie 04_execution, 2026-08-04 -- F2-Schnitt-Regel, Dossier Abschn. 3.4):
+// Die Pfad-Trajektorie ist ein rein LOKAL-BOUNDED Arbeitspuffer mit COMPILE-TIME-Kappe
+// (kMaxTrackedSlots). Sie liegt deshalb als INLINE-Array im Organ selbst -- KEIN Heap, kein
+// Default-Allokator, damit auch kein generischer OS-/libc-Allokations-Call am
+// Allokator-Achsen-Interface vorbei. Der frueher noetige Weg ueber die Allokator-Achse
+// (StdAllocatorAdapter, vgl. btree_node_pool_store.hpp) entfaellt hier ersatzlos: wo die
+// Kappe zur Compile-Zeit feststeht, ist die staerkere Aussage "gar keine Allokation".
+// FOLGE (Fehlerklassen-Auflage 11): der bisherige Fehlerpfad [[allocation-failure-exception]]
+// (push_back -> std::bad_alloc) EXISTIERT NICHT MEHR. Es entsteht KEIN neuer Mess-Fehlerpfad,
+// also auch keine neue A15-Fehlerklasse -- ein Pfad faellt weg, keiner kommt hinzu.
+// FOLGE (Vertrag): enqueue()/note_hot_path_bytes() sind jetzt ECHT noexcept. Der Wrapper
+// axis_07_prefetch_path_oriented.hpp deklarierte note_hot_path_bytes() schon bisher noexcept
+// und rief damit eine potenziell werfende Operation -- das war ein latenter std::terminate-Pfad,
+// der mit dem Heap verschwindet (F57/Muster B ist fuer dieses Organ damit gegenstandslos).
+// SEMANTIK UNVERAENDERT: FIFO, bounded, aeltestes Element faellt bei Ueberlauf heraus -- exakt
+// das Verhalten des vorherigen push_back + erase(begin)-Standes.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <vector>
+#include <span>
 
 namespace comdare::cache_engine::prefetch_axis::impl {
 
@@ -32,36 +47,45 @@ public:
     PathOrientedImpl() = default;
 
     /// Reiht die naechste erwartete Adresse in die Pfad-Trajektorie ein (FIFO, bounded).
-    void enqueue(std::uint64_t addr) {
-        recent_path_.push_back(addr);
-        if (recent_path_.size() > kMaxTrackedSlots) {
-            recent_path_.erase(recent_path_.begin(), recent_path_.begin() + (recent_path_.size() - kMaxTrackedSlots));
+    /// Bei voller Spur wandert das aelteste Element heraus (Schiebe-Schritt ueber die CT-Kappe,
+    /// kMaxTrackedSlots-1 Kopien) -- identische Semantik zum frueheren erase(begin), ohne Heap.
+    void enqueue(std::uint64_t addr) noexcept {
+        if (size_ == kMaxTrackedSlots) {
+            for (std::size_t i = 1; i < kMaxTrackedSlots; ++i) recent_path_[i - 1] = recent_path_[i];
+            recent_path_[kMaxTrackedSlots - 1] = addr;
+        } else {
+            recent_path_[size_] = addr;
+            ++size_;
         }
         ++total_enqueued_;
     }
 
-    [[nodiscard]] std::uint64_t                     total_enqueued() const noexcept { return total_enqueued_; }
-    [[nodiscard]] std::size_t                       queue_depth() const noexcept { return recent_path_.size(); }
-    [[nodiscard]] std::vector<std::uint64_t> const& path() const noexcept { return recent_path_; }
+    [[nodiscard]] std::uint64_t total_enqueued() const noexcept { return total_enqueued_; }
+    [[nodiscard]] std::size_t   queue_depth() const noexcept { return size_; }
+    /// Sicht auf die belegte Trajektorie (aeltestes zuerst). std::span statt vector-Referenz:
+    /// der Puffer ist inline, es gibt keinen Container-Typ mehr, den man nach aussen reichen koennte;
+    /// die Sicht bleibt eine nicht-besitzende const-Sequenz mit size()/back()/Index wie zuvor.
+    [[nodiscard]] std::span<std::uint64_t const> path() const noexcept {
+        return std::span<std::uint64_t const>{recent_path_.data(), size_};
+    }
 
     /// Empfehlung fuer die naechste Prefetch-Adresse via linearer Schritt-Extrapolation.
     [[nodiscard]] std::uint64_t suggest_next() const noexcept {
-        if (recent_path_.size() < 2) return recent_path_.empty() ? 0u : recent_path_.back();
-        std::uint64_t a    = recent_path_[recent_path_.size() - 2];
-        std::uint64_t b    = recent_path_.back();
+        if (size_ < 2) return size_ == 0 ? 0u : recent_path_[size_ - 1];
+        std::uint64_t a    = recent_path_[size_ - 2];
+        std::uint64_t b    = recent_path_[size_ - 1];
         std::uint64_t step = (b > a) ? (b - a) : 0u;
         return b + step;
     }
 
     void reset() noexcept {
-        recent_path_.clear();
+        size_           = 0;
         total_enqueued_ = 0;
     }
 
     /// V11.1 Hot-Path-Hint: erste min(8, bytes) Byte als uint64 interpretieren + einreihen.
-    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — enqueue() -> recent_path_.push_back kann
-    // allozieren/werfen (enqueue ist konsistent ebenfalls nicht noexcept).
-    void note_hot_path_bytes(std::byte const* data, std::size_t bytes) {
+    /// noexcept ist seit dem A8-S5-Scrub ECHT (enqueue alloziert nicht mehr).
+    void note_hot_path_bytes(std::byte const* data, std::size_t bytes) noexcept {
         if (data == nullptr || bytes == 0) return;
         std::uint64_t addr = 0;
         std::size_t   copy = bytes < sizeof(addr) ? bytes : sizeof(addr);
@@ -72,9 +96,11 @@ public:
     [[nodiscard]] std::uint64_t total_hot_path_hints() const noexcept { return total_hot_path_hints_; }
 
 private:
-    std::vector<std::uint64_t> recent_path_{};
-    std::uint64_t              total_enqueued_       = 0;
-    std::uint64_t              total_hot_path_hints_ = 0; // V11.1
+    // Inline-Puffer mit CT-Kappe: kein Heap, kein Default-Allokator (A8-S5 Schnitt-Regel).
+    std::array<std::uint64_t, kMaxTrackedSlots> recent_path_{};
+    std::size_t                                 size_                 = 0;
+    std::uint64_t                               total_enqueued_       = 0;
+    std::uint64_t                               total_hot_path_hints_ = 0; // V11.1
 };
 
 } // namespace comdare::cache_engine::prefetch_axis::impl

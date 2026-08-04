@@ -1852,6 +1852,15 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # die Kopier-GRENZE (seg_ns), diese TU den LESE-ZEITPUNKT (axis_stats): sie verlangt Zaehler UND Zeit
     # derselben Op-Schleife zugleich und trennt strukturell-0 von ehrlich-0 (Disk- vs. MemoryOnlyTarget).
     test_a8s3_t17_stats_lesezeitpunkt # A8-S3 -- T17-Observer-Lesezeitpunkt (axis_stats nach dem Treiben)
+    # A8-S5 (2026-08-04) Familie 04_execution = PILOT des GATE-MUSTERS fuer alle S5-Familien. Die
+    # Konformitaets-Wache pinnt auf TYP-EBENE gegen die Achsen-REGISTRIES (nie gegen Literale/Dateilisten),
+    # dass kein Familien-Organ Speicher an der Allokator-Achse vorbei fuehrt; das wiederverwendbare
+    # Praedikat liegt in s5_family_alloc_conformance.hpp (Folge-Familien tauschen NUR die Typ-Liste).
+    test_s5_04_execution_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 04_execution
+    # Zweite Haelfte desselben Gate-Musters: LAUFZEIT-Beleg, dass der Scrub die Familie nicht stumm
+    # geschaltet hat. Verlangt Zeit UND Zaehler derselben Op-Schleife zugleich (Anti-Phantom) plus den
+    # ehrlichen Nullpunkt der None-Strategie; Achsen-Indizes aus kCompositionAxisNames abgeleitet.
+    test_s5_04_execution_perf_sanity  # A8-S5 -- Perf-Sanity Familie 04_execution (keine 0-/Phantom-Zeiten)
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
