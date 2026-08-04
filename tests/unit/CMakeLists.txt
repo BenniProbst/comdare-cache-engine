@@ -1843,6 +1843,10 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # Mess-Kette (Pfad-A-POD, Pfad-B-POD, CSV-Naht, Knoten-Projektion) IMMER gegen kV3AxisCount, nie gegen ein
     # Literal -> bricht bei kuenftigem Achsen-Zuwachs, statt den neuen Slot still zu verlieren.
     test_a8s1_t17_vollzaehligkeit     # A8-S1 -- T17-Vollzaehligkeit der Mess-Kette gegen kV3AxisCount
+    # A8-S3 (2026-08-04): DAUERHAFTE Wache gegen den strukturell-0-Befund der T17-OBSERVER-Zeile. A8-S1 heilte
+    # die Kopier-GRENZE (seg_ns), diese TU den LESE-ZEITPUNKT (axis_stats): sie verlangt Zaehler UND Zeit
+    # derselben Op-Schleife zugleich und trennt strukturell-0 von ehrlich-0 (Disk- vs. MemoryOnlyTarget).
+    test_a8s3_t17_stats_lesezeitpunkt # A8-S3 -- T17-Observer-Lesezeitpunkt (axis_stats nach dem Treiben)
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
