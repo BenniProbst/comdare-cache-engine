@@ -502,6 +502,14 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     REST (nicht C1): die VIER Container-Anatomien haben noch kein per-Achsen-Aggregat, das einsammeln
 //     KOENNTE -- ihr observe_all() liefert je einen flachen Hand-POD. Das ist der Gegenstand von
 //     Bauplan-C3 (reale Organ-Member + observe-Verdrahtung) und C6 (XxxObserverAggregate<N>).
+//     [C3 GESCHLOSSEN 04.08.] Alle VIER Container-Anatomien halten ihre Slots jetzt als REALE Organ-Member
+//     (Set 13 / Sequence 9 / Adapter 11 / View 5) mit je einem <slot>_organ()-Accessor-Paar und sammeln die
+//     Sub-Organ-Beobachtung ueber XxxAxisObservation<Composition> + observe_axes() nach dem SA-Muster ein.
+//     Ein als Sub-Organ gehaltenes fremdes Genus-Organ ist damit auch in einer Container-Gattung nicht mehr
+//     stumm (Beleg mit echten Werten: tests/unit/test_e24_c3_cross_genus.cpp, Abschnitt (4)).
+//     BEWUSST OFFEN BIS C6: observe_all() liefert weiterhin den flachen Hand-POD -- die per-Achsen-Sicht
+//     steht ADDITIV daneben und ist IN-PROCESS. Ihre Promotion in die Wire-Ebene (XxxObserverAggregate<N>
+//     STATT des flachen PODs) ist das ABI-Ereignis C6 und gehoert in den b-Teil, nicht in den a-Teil.
 //
 // L3  [OFFEN -- bewusst] KEIN GEMEINSAMER WERT-TYP. Am Ist: SearchAlgorithmAnatomy traegt
 //     key_type/value_type, SequenceAnatomy/AdapterAnatomy/ViewAnatomy tragen element_type, SetAnatomy
@@ -540,5 +548,28 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     OFFEN bleibt der produktive Einbau in die realen Kompositionen/Registries (node_type <- Sequence/
 //     Adapter, index_organization <- Set, queuing <- Adapter) -- Bauplan-C3. Die Cross-Genus-JOIN-
 //     Unmoeglichkeit der ABI-Adapter (set_abi_adapter.hpp:18-21) bleibt davon unberuehrt und bestehen.
+//     [C3 GESCHLOSSEN 04.08. -- MIT EINER DEKLARIERTEN VERSCHIEBUNG] Die vier Verdrahtungen sind produktiv
+//     benannt (anatomy/cross_genus_organ.hpp) und als OPT-IN-Registries verfuegbar
+//     (builder/experiment_tree/cross_genus_composition.hpp); alle vier sind mit ECHTEN getriebenen Werten
+//     belegt (tests/unit/test_e24_c3_cross_genus.cpp). VERSCHIEBUNG: `index_organization <- Set` laeuft
+//     ueber die SET-Gattung statt ueber SearchAlgorithm -- die SA-Anatomie haelt am Ist nur NEUN ihrer 18
+//     Achsen als Organ-Member und sammelt genau diese ein; index_organization ist NICHT darunter, ein
+//     Sub-Organ dort waere stumm. Die SA-Seite nachzuruesten hiesse, den gemessenen SA-Pfad zu erweitern --
+//     ausserhalb des C3-Schnitts, als offener Punkt an den Lead gemeldet. Golden-Neutralitaet: die
+//     Bauformen haengen in KEINER Bestands-Achsen-Registry (sonst waechst das kartesische Produkt und die
+//     golden-320-Wache braeche) -- die Registries sind bewusst opt-in.
+//     EINBAU-TIEFE (der Punkt, an dem "produktiv" einloest): die Opt-in-Registries sind nicht nur benannt,
+//     sondern laufen durch die REALEN per-Genus-Engines aus C2 -- CrossGenusSetEngine (13 Slots) und
+//     CrossGenusSaEngine (18 Slots) in cross_genus_composition.hpp, mit Aritaets-Pin gegen
+//     GenusBindingTraits::slot_count und getriebenen Werten je materialisierter Permutation. Der generische
+//     Antrieb laeuft dabei ueber die C1-Op-FAMILIE (`if constexpr` auf IndexedOrganOps/AdaptedOrganOps) --
+//     kein vereinheitlichtes Verb, kein Runtime-Switch.
+//     ASYMMETRIE-BEFUND (am Bau erzwungen, C6-Vorlage): bis an die ABI-Flaeche laeuft Cross-Genus NUR in der
+//     SET-Gattung (SetAbiAdapter ist per-Slot unconstrained, set_abi_adapter.hpp:18 -- for_each_abi_adapter
+//     liefert dort echte IAnatomyBase-Materialisierungen). Der SA-ABI-Pfad lehnt es compile-hart ab:
+//     SearchAlgorithmAbiAdapter baut LayoutAwareChunkedStore (abi_adapter.hpp:2064-2068) mit
+//     `requires NodeTypeStrategy<...>`, und NodeTypeStrategy fordert ein `topic_tag`, das weder CarriedAxis
+//     noch ein Cross-Genus-Organ traegt. In der SA-Gattung ist Cross-Genus damit eine ANATOMIE-Ebenen-
+//     Faehigkeit. Das ABI-seitig zu oeffnen hiesse abi_adapter.hpp anzufassen -- im a-Teil untersagt.
 
 } // namespace comdare::cache_engine::anatomy
