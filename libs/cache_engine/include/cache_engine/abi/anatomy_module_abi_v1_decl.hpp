@@ -182,9 +182,14 @@ struct AnatomyVersionLines {
     // Zeiger auf kAnatomyStampNoEntries (nie nullptr, ""-Doktrin). KEIN binary_id-/CRC-Bruch (POD-Layout !=
     // binary_id). Ein Konsument liest diese Felder NUR bei stamp_layout_version == 6 (stamp_pod_has_entries) --
     // A13-M3 hat die Offsets um -16 verschoben, ein >=-Praedikat waere ab hier falsch (K-4, s.u.).
-    AnatomyStampEntryV1 const* organ_entries;           ///< Organ-Array [g,h,i] (17 Haupt-Achsen)
-    std::uint64_t              organ_entry_count;       ///< Anzahl organ_entries
-    AnatomyStampEntryV1 const* system_entries;          ///< System-Array [d,e,f] (5 Achsen) -- NIE mit Organ fusioniert
+    AnatomyStampEntryV1 const* organ_entries;     ///< Organ-Array [g,h,i] (17 Haupt-Achsen)
+    std::uint64_t              organ_entry_count; ///< Anzahl organ_entries
+    // K-6 (W10-C5): hier stand "(5 Achsen)" -- falsch seit der Achsen-Neuordnung und doppelt falsch seit
+    // A13-M2. IST: DREI System-Haupt-Achsen (kSystemAxisOrder: target_isa, operating_system, external_utils)
+    // + EIN geklammerter Meta-Meta-Anhang am Zeilen-ENDE ([simd=...]) = 4 Eintraege. Seit W10-C4 tragen die
+    // drei Haupt-Namen zusaetzlich den ZELLWERT als Namens-Anteil ("code" -> "code.<token>"); die Zahl der
+    // Eintraege aendert das nicht -- der Zellwert steht IN einem Eintrag, nie als eigenes Segment.
+    AnatomyStampEntryV1 const* system_entries;          ///< System-Array [d,e,f] -- NIE mit Organ fusioniert
     std::uint64_t              system_entry_count;      ///< Anzahl system_entries
     AnatomyStampEntryV1 const* measurement_entries;     ///< Mess-Array {wallclock,macro,micro}; count==0 -> Sentinel
     std::uint64_t              measurement_entry_count; ///< Anzahl measurement_entries
@@ -320,11 +325,38 @@ inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MA
 /// dll_is_current -> ALLE Tier-Binaries werden neu gebaut, und cache_key_prefix zeigt auf einen NEUEN
 /// Objekt-Store-Bucket. binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320
 /// und der CRC-Anker kNewGolden131072Crc64 sind deshalb byte-neutral.
+///
+/// W10-M2 VOLLZUG (04.08.2026) -- Minor 1 -> 2. Manager-Entscheid W10-M2 des W10-Bauplan-Dossiers
+/// (Review-Befund B2, CONFIRMED am Mechanismus), gefaellt nach der M4-Praezedenz. WAS DIE BUMP-KLASSE HIER
+/// TRIFFT: W10-C4 schaltet die Zellwert-Naht an perm_compile scharf und injiziert damit
+/// -DCOMDARE_SYSTEM_CELL_VALUES in JEDEN Tier-Bau -- eine CEB-UNIVERSELLE Codegen-Quelle, die ALLE
+/// Tier-Binaries betrifft, OHNE POD-/vtable-ABI zu brechen (Bump-Klasse s.o., woertlich). Die System-Zeile
+/// im Tier-POD traegt ab jetzt die Bau-ZELLE (ISA + OS-Familie + simd) als Namens-Erweiterung des
+/// Algorithmus-Markers ("code" -> "code.<token>"), womit sich kS/kFP/kSE und jeder Lager-Key eines
+/// definierten Baus verschieben.
+/// DAS PROBLEM, DAS DER BUMP LOEST: ohne einen Sidecar-sichtbaren Marker bliebe die lokale zweite
+/// Verteidigungslinie dll_is_current (Dreifach-String-Gleichheit .version/.algos/.variant) W10-BLIND --
+/// keines der drei Sidecars bewegt sich durch C4. Stale prae-W10-Binaries (runner-persistente gn_out)
+/// wuerden still geskippt und truegen kS/kFP OHNE Zellwerte; "beendet Skip-nur-gleiche-OS-Familie" gaelte
+/// fuer den Lokal-Bestand dann NICHT. Ein einmaliger gn_out-Purge ist VERWORFEN, weil nicht mechanisch
+/// (runner-persistente Verzeichnisse + vier lokale Klone: ein Ereignis kann verpasst werden, ein Marker nicht).
+/// PFAD-DIFFERENZIERTE WIRKUNG: am EINZEL-Pfad traegt die build_version das '+ceb='-Glied bereits --
+/// dort wirkt der Bump direkt ('+ceb=7.1' -> '+ceb=7.2'). Am PERM-Pfad existierte das Glied bis W10 GAR
+/// NICHT (beide Perm-Schleifen fuellten SystemVersionSuffixParts ohne .ceb) -- der Bump waere genau am
+/// Scharfschalt-Pfad unsichtbar geblieben. C4 verdrahtet es deshalb im SELBEN Commit in beide
+/// Perm-Schleifen aus DIESER Konstante und stellt cache_key_prefix von 'anhaengen' auf
+/// 'konsumieren/dedupe' um (sonst Doppel-+ceb im Objekt-Store-Key). KEIN neues Suffix-SEGMENT: die
+/// Glied-Klasse ist Bestand, am Perm-Pfad wird sie NEU VERDRAHTET.
+/// WIRKUNG DES BUMPS: "+ceb=7.1" -> "+ceb=7.2" in jeder build_version -> jede perm.dll.version mismatcht in
+/// dll_is_current -> ALLE Tier-Binaries werden neu gebaut statt still geskippt, und cache_key_prefix zeigt
+/// auf einen NEUEN Objekt-Store-Bucket (deklarierte EINMALIGE Bucket-Invalidierung, M4-Praezedenz).
+/// binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320 und der CRC-Anker
+/// kNewGolden131072Crc64 sind deshalb byte-neutral.
 /// LITERALER PIN: tests/unit/test_v41_anatomy_module_abi.cpp (R5D_CebContract). Die drei Konsumenten-Tests
 /// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den Wert
 /// bewusst aus DIESER Konstante ab (Anti-Drift gegen den automatischen Major) und wuerden einen vergessenen
 /// oder falschen Minor-Bump deshalb NICHT sehen; der eine literale Pin dort ist die Gegenprobe.
-inline constexpr std::uint32_t kCebContractCodegenMinor = 1;
+inline constexpr std::uint32_t kCebContractCodegenMinor = 2;
 
 /// ceb_contract_version als Tupel (Major = ABI-Major, Minor = codegen-Minor). host_compatible_with-Backstop des
 /// Loaders (host_compatible_with, decl:124-127) lehnt Major-Mismatch-DLLs ohnehin ab -> +ceb= macht Bau-Skip +

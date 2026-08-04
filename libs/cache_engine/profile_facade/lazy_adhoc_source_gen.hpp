@@ -83,6 +83,7 @@
 
 #include <cache_engine/abi/anatomy_fingerprint.hpp>   // A13-M3: anatomy_fingerprint_glieder/-preimage (EINE Ordnung)
 #include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
+#include <cache_engine/abi/system_cell_values.hpp>    // W10-C3: Zellwerte + Vervollstaendiger (Laufzeit-Zwilling)
 #include <sha512/ctsha512.hpp>                        // I2: Runtime-SHA-512 fuer den drift-freien Fingerprint-Provider
 
 #include <boost/mp11.hpp>
@@ -269,13 +270,29 @@ template <class List>
 /// und konnte auseinanderlaufen (Risiko R6: Lager-Key-Drift gegen das einkompilierte sha512_line). Der Trenner
 /// zwischen den Gliedern ('\n', OF-M3-1 Option A) steckt in abi::anatomy_fingerprint_preimage.
 /// Nicht materialisierbar -> "".
-[[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
-                                                            std::vector<ex::AxisVariantVersion> const& version_table,
-                                                            std::string const& measurement_stamp = {}) {
+///
+/// W10-C3 (Bauplan-Dossier 20260803, Sektion 2) -- DER LAUFZEIT-ZWILLING DER ZELLWERT-NAHT. Die System-Zeile
+/// wird hier mit DENSELBEN Zellwerten vervollstaendigt, die W10-C4 als
+/// -DCOMDARE_SYSTEM_CELL_VALUES an perm_compile haengt. Damit bleibt die drift-freie Zusage dieser Funktion
+/// ("IDENTISCH zu dem, den die DLL via comdare_anatomy_version_lines()->sha512_line traegt") auch nach W10
+/// wahr: consteval-Makro und Laufzeit-Zwilling rechnen ueber DIESELBE vervollstaendigte Zeile, weil beide
+/// denselben Vervollstaendiger aus abi/system_cell_values.hpp rufen -- keine zweite Ableitung.
+///
+/// K-1-MUSTER: die Werte reisen als BENANNTER Typ (abi::SystemCellValues, Praezedenz OverlayHash) und nicht
+/// als weiterer nackter string_view -- die Signatur traegt bereits drei std::string-Parameter, ein vierter
+/// String koennte an einem Alt-Aufruf still in den falschen Slot rutschen. Der Default ist LEER == die
+/// IDENTITAET: jeder Bestands-Aufruf rechnet byte-identisch weiter (Bestands-Beweis: der Zwillings-Test in
+/// test_lazy_adhoc_source_gen bleibt ohne Edit gruen).
+[[nodiscard]] inline std::string
+lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
+                           std::vector<ex::AxisVariantVersion> const&     version_table,
+                           std::string const&                             measurement_stamp  = {},
+                           ::comdare::cache_engine::abi::SystemCellValues system_cell_values = {}) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
-    std::string const system = ::comdare::cache_engine::abi::system_stamp_line();
+    std::string const system = ::comdare::cache_engine::abi::complete_system_stamp_line(
+        ::comdare::cache_engine::abi::system_stamp_line(), system_cell_values);
     auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
@@ -289,13 +306,21 @@ template <class List>
 /// Mess-Combo (COMDARE_MEASUREMENT_COMBO) einfaengt wie make_lazy_adhoc_source_gen_from_env -> die Fingerprint-Zeilen
 /// decken sich byte-genau mit den emittierten Stempel-Zeilen der DLL (drift-frei). Fuer den Lager-Index-Anker
 /// (bestand_fingerprint_fn): der Orchestrator schreibt je Binary das .fingerprint-Sidecar.
-[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env() {
+///
+/// W10-C4: die System-ZELLWERTE dieser Zelle kommen als Parameter herein und werden per WERT gehalten. Das ist
+/// kein Stil-Detail: der Traeger-Typ abi::SystemCellValues haelt nur eine SICHT, und dieser Provider ueberlebt
+/// den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht -- eine gefangene string_view zeigte spaeter
+/// ins Leere. Der Default (leerer String) ist die IDENTITAET: jeder Bestands-Aufrufer rechnet byte-identisch
+/// weiter, weil ein leeres Werte-Set die System-Zeile unveraendert laesst.
+[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {}) {
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
-    return [tables, version_table, measurement_stamp = std::move(measurement_stamp)](std::string const& binary_id) {
-        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp);
+    return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
+            cell_values = std::move(system_cell_values)](std::string const& binary_id) {
+        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values});
     };
 }
 

@@ -79,11 +79,12 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     // fuehrte KEIN Test den Minor literal, ein vergessener oder falscher Bump waere still durchgelaufen.
     // Dieser eine Pin ist die Gegenprobe und steht bewusst neben den beiden anderen literalen Konstanten-Pins
     // dieser Datei (ABI-Major/Minor), weil Major und Minor zusammen die ceb_contract_version bilden.
-    static_assert(ce_abi::kCebContractCodegenMinor == 1,
-                  "A13-M4: der CEB-Contract-codegen-Minor steht auf 1 (Bump 0 -> 1 traegt das A13-Stempel-"
-                  "Fenster M1/M1b/M2/M3 als rueckwaerts-kompatible Vertrags-Erweiterung). Wer diesen Wert "
-                  "aendert, aendert +ceb= in JEDER build_version -> jede perm.dll.version mismatcht -> ALLE "
-                  "Tier-Binaries werden neu gebaut und der Objekt-Store-Bucket wechselt.");
+    static_assert(ce_abi::kCebContractCodegenMinor == 2,
+                  "W10-M2: der CEB-Contract-codegen-Minor steht auf 2 (Bump 1 -> 2 traegt die W10-C4-"
+                  "Scharfschaltung der System-Zellwert-Naht an perm_compile -- eine CEB-universelle "
+                  "Codegen-Quelle, die ALLE Tier-Binaries betrifft, ohne das POD-/vtable-ABI zu brechen). "
+                  "Wer diesen Wert aendert, aendert +ceb= in JEDER build_version -> jede perm.dll.version "
+                  "mismatcht -> ALLE Tier-Binaries werden neu gebaut und der Objekt-Store-Bucket wechselt.");
     // Der Major-Anteil bleibt abgeleitet (nicht literal): er wandert automatisch mit COMDARE_ANATOMY_ABI_MAJOR.
     static_assert(ce_abi::kCebContractVersion.major == COMDARE_ANATOMY_ABI_MAJOR);
     static_assert(ce_abi::kCebContractVersion.minor == ce_abi::kCebContractCodegenMinor);
@@ -95,8 +96,8 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     static_assert(ce_abi::kAnatomyVersionLinesLayout == 6,
                   "A13-M4: das Stempel-POD-Layout ist an den CEB-Contract-Minor gekoppelt -- wer das Layout "
                   "bumpt, entscheidet im SELBEN Commit ueber kCebContractCodegenMinor.");
-    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 1u);
-    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 1ULL);
+    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 2u);
+    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 2ULL);
 }
 
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {

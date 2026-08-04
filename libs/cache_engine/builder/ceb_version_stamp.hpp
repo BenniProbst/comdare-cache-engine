@@ -163,6 +163,20 @@ inline constexpr std::string_view kCebMeasurementStamp{kCebMeasurementStampArray
 /// consteval SHA-512-Provenienz der CEB (A8): anatomy_fingerprint_hex ueber ("", "", Mess-Array-Zeile) -- die EINE
 /// K7b-Primitive wiederverwendet (leere organ/system). 128-hex, nullterminiert.
 ///
+/// W10-C3 -- KOMMENTAR-WACHE, DER CEB-SELBST-STEMPEL BLEIBT ZELLWERTFREI (Manager-Entscheid, Bauplan-Dossier
+/// 20260803 Sektion 2/5.8): W10 vervollstaendigt die System-Zeile der TIER-Binaries um ihre System-Zellwerte
+/// (OS-Familie / ISA / SIMD-Zelle). DIESER Aufruf bekommt sie AUSDRUECKLICH NICHT -- und zwar nicht aus
+/// Vergesslichkeit, sondern aus der Sache heraus: die CEB ist KEIN Tier-Binary. Sie baut Tier-Binaries fuer
+/// beliebige Zellen; ihre Identitaet ist ihre CODE-Identitaet (das Mess-ANGEBOT), nicht die Zelle eines
+/// einzelnen Bauauftrags. Ein Zellwert hier waere schlicht falsch -- er wuerde behaupten, die CEB selbst sei
+/// fuer avx512 gebaut worden.
+/// MECHANISCH GEDECKT: der system-Parameter dieses Aufrufs ist "" -- der Vervollstaendiger wird hier gar nicht
+/// gerufen, es gibt also keinen Pfad, ueber den ein Zellwert versehentlich hereinkaeme. WER DAS AENDERN WILL,
+/// aendert damit kCebFingerprint und den CEB-Log-Kopf und muss es als eigenes, deklariertes Byte-Ereignis
+/// begruenden. Diese Datei ist der von O-8 Schritt 12 dokumentierte DRITTE Ableitungsweg; der Drift-Guard
+/// A5CebVersionStamp in test_m_w12_stamp_bausteine haelt ihre Mess-Zeile symmetrisch zu
+/// abi::measurement_stamp_line -- die System-Zeile ist hier gar nicht erst im Spiel.
+///
 /// A13-M3/K-1: dieser Aufruf IST die im Bauplan benannte "ceb_version_stamp.hpp-Falle". Bis M2 stand hier ein
 /// VIERTES Argument "" -- der merge-Slot. Waere die Signatur beim merge-Entfall naiv auf
 /// (organ, system, measurement, overlay) verkuerzt worden, waere dieser Aufruf GUELTIG GEBLIEBEN und das ""

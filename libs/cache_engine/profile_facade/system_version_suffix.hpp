@@ -27,11 +27,29 @@
 
 #pragma once
 
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W10-C4: COMDARE_ANATOMY_ABI_MAJOR + kCebContractCodegenMinor
+
 #include <array>
 #include <string>
 #include <string_view>
 
 namespace comdare::cache_engine::profile_facade {
+
+/// ceb_contract_version_text() -- der WERT des +ceb=-Glieds: "<ABI-Major>.<codegen-Minor>".
+///
+/// W10-C4 (Bauplan-Dossier 20260803, Sektion 1/2; Manager-Entscheid W10-M2): dieser Text wurde an VIER
+/// Orten getrennt zusammengesetzt (Einzel-Pfad-Suffix, --version-Block, Cache-Key-Naht, CI-Key-Druck) --
+/// und ab C4 braucht ihn zusaetzlich JEDE der beiden Perm-Schleifen. Vier Kopien einer Konkatenation sind
+/// exakt der Zustand, aus dem die W-6/W-13-Divergenz dieses Headers entstanden ist. Deshalb steht die
+/// Zusammensetzung ab hier EINMAL, direkt neben der Ordnung, in die ihr Glied gehoert.
+///
+/// Die WERTE bleiben unveraendert Single-Source: der Major kommt AUTOMATISCH aus COMDARE_ANATOMY_ABI_MAJOR
+/// (jeder echte ABI-Bruch bumpt ihn), der Minor von Hand aus abi::kCebContractCodegenMinor (die EINE
+/// decl-Quelle). Immer non-empty, enthaelt immer genau einen '.'.
+[[nodiscard]] inline std::string ceb_contract_version_text() {
+    return std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
+           std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
+}
 
 /// Die DEKLARATIVE Segment-Ordnung. Sie ist die Wahrheit, gegen die Wachen vergleichen duerfen
 /// (T-c/Schritt 11); compose_system_version_suffix unten folgt ihr Zeile fuer Zeile.

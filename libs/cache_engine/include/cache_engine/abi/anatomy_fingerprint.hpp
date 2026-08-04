@@ -103,6 +103,15 @@ struct OverlayHash {
 /// Anzahl der Preimage-Glieder. FEST -- die Injektivitaet der '\n'-Zerlegung haengt an der festen Anzahl.
 inline constexpr std::size_t kAnatomyFingerprintGliedCount = 6;
 
+/// W10-C3: die POSITION der System-Zeile in der Glied-Folge, benannt statt als nackte 2.
+///
+/// WOZU: der Laufzeit-Zwilling des Lager-Keys (BinaryKeyPolicy, bestandslog_factory.hpp) bekommt die
+/// fertigen Glieder als span und muss GENAU EIN Glied -- die System-Zeile -- um die Zellwerte
+/// vervollstaendigen. Ohne benannte Konstante stuende dort eine nackte 2, die bei jeder kuenftigen
+/// Umsortierung der Glied-Folge STILL auf das falsche Glied zeigte. Die Konstante wohnt hier, weil hier
+/// auch die Ordnung wohnt (dieselbe Begruendung wie fuer anatomy_fingerprint_glieder selbst).
+inline constexpr std::size_t kAnatomyFingerprintSystemGlied = 2;
+
 /// anatomy_fingerprint_glieder(...) -- DIE EINE QUELLE der Preimage-Ordnung. Jede Rechen-Stelle (der
 /// consteval-Hex unten, der Laufzeit-Zwilling lazy_adhoc_fingerprint_for, der Lager-Key-Ableiter
 /// derive_key_from_lines ueber seinen Aufrufer) zieht ihre Glieder HIER heraus. Wer die Ordnung aendert,
@@ -121,6 +130,12 @@ anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std
                             OverlayHash overlay = OverlayHash{kOverlaySourceHash}) noexcept {
     return {kAnatomyFingerprintFormat, organ, system, measurement, kSubAxisValuesetSegment, overlay.value};
 }
+
+/// W10-C3: die Positions-Konstante ist BEWIESEN, nicht behauptet -- wer die Glied-Ordnung oben umbaut,
+/// bricht hier compile-time, statt den Zellwert still ins Organ-Glied zu schreiben.
+static_assert(anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS")[kAnatomyFingerprintSystemGlied] == "SYSTEM",
+              "kAnatomyFingerprintSystemGlied zeigt nicht mehr auf die System-Zeile der Glied-Folge.");
+static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintGliedCount);
 
 /// anatomy_fingerprint_preimage(glieder) -- der LAUFZEIT-Zwilling der Preimage-Bildung: dieselbe Glied-Liste,
 /// derselbe Separator. Er steht bewusst UNMITTELBAR neben der consteval-Schleife unten: der consteval-Weg
