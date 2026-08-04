@@ -32,6 +32,10 @@ concept AccessorPolicy = requires(P p, std::uint64_t const* d, std::size_t i) {
 };
 
 struct DynamicExtent { // Default-axis_extent: Ausdehnung erst zur Laufzeit (bind) bekannt.
+    // E-24 C6-V: COMPILE-TIME-Marke der Ausdehnungs-Klasse. is_static() ist eine Laufzeit-Op und taugt nicht
+    // fuer ein `if constexpr`; die Marke macht die Elision des dynamischen Grenz-Checks compile-time
+    // entscheidbar (ObservableExtent, view_policies_observable.hpp). Rein additiv, layout-neutral.
+    static constexpr bool     is_static_extent = false;
     [[nodiscard]] bool        is_static() const noexcept { return false; }
     [[nodiscard]] std::size_t static_extent() const noexcept { return ~std::size_t{0}; } // dynamic_extent
 };

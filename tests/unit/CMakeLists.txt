@@ -1642,7 +1642,8 @@ endforeach()
 # (Praezedenz axis_01_index_organization_observable.hpp:126-133), und der Sammel-foreach oben setzt
 # das Define nicht. Bau sonst identisch (plain int main(), Boost::mp11 + generated-Achsen-Includes).
 set(COMDARE_E24_C6V_TESTS
-    test_e24_c6v_growth_statistics)      # C6-V (a): GrowthStatistics + ObservableGrowth (Sequence-Achse)
+    test_e24_c6v_growth_statistics       # C6-V (a): GrowthStatistics + ObservableGrowth (Sequence-Achse)
+    test_e24_c6v_view_statistics)        # C6-V (b): Extent/Layout/AccessorStatistics + Huellen (View-Achsen)
 foreach(_c6v IN LISTS COMDARE_E24_C6V_TESTS)
     add_executable(${_c6v} "${_c6v}.cpp")
     target_compile_features(${_c6v} PRIVATE cxx_std_23)
