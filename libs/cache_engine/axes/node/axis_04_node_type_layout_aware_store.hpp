@@ -25,6 +25,22 @@
 // Erfuellt das StorageOrgan-Concept (aktuelle Default-Key-Breite uint64, 8 Methoden, byte-codiert) → Drop-in fuer ComposedSearch,
 // parallel zu NodeChunkedStore (das Bestehende bleibt unangetastet). Memento ist LOGISCH (copy_from_ kopiert die
 // Chunk-Buffer byte-genau → deckt ALLE Reps ab, weil die Bytes selbst die Repraesentation sind).
+//
+// A8-S5 Familie 02a (2026-08-04) -- HERZ-SCHNITT der Scheibe (Dossier 20260803-a8_f2 Abschn. 3.4,
+// "Speicher NUR ueber das Allokator-Achsen-Interface"): die RECORD-BYTES liefen hier von Anfang an ueber den
+// Kompositions-Allokator A (append_slot/copy_from_ -> alloc_.allocate, free_chunks_ -> alloc_.deallocate) --
+// der CHUNK-INDEX aber nicht. `std::vector<Chunk> chunks_` hing am Default-Allokator: die Verwaltung der
+// ueber die Achse besorgten Bloecke wurde an der Achse VORBEI besorgt. Das war der letzte Fremdgang dieses
+// Stores und zugleich der einzige, bei dem die ECHTE Kompositions-Bindung moeglich ist (der Store ist Template
+// ueber A) -- ein benannter Achsen-Default waere hier eine zweite, stille Speicherquelle gewesen.
+// WIRKUNG AUF DIE MESSUNG (Auflage 6, ehrlich ausgewiesen statt stillschweigend): allocator_statistics() ist
+// die T6-Route dieses Stores und meldet alloc_.statistics(). Seit dem Schnitt zaehlt sie ZUSAETZLICH die
+// (wenigen, geometrisch wachsenden) Index-Allokationen mit -- vorher waren sie unsichtbar, obwohl sie real
+// stattfanden. Die Zahl steigt also, sie wird dabei WAHRER: T6 sieht jetzt alle Speicher-Ereignisse des
+// Organs (Owner-KERN 04.08. abend-11: T6 = Option B strikt). Groessenordnung: chunk_alloc_count() Record-
+// Allokationen (linear in der Slot-Zahl) gegen O(log chunk_count) Index-Allokationen. Vor dem Schnitt galt
+// allocation_count == chunk_alloc_count() exakt; danach gilt allocation_count > chunk_alloc_count(), sobald
+// mehr als ein Chunk existiert -- genau daran beisst die Familien-Wache.
 
 #include "axis_04_node_type_node4.hpp" // Pilot-NodeType (Selbstbeweis)
 #include "concepts/axis_04_node_type_concept.hpp"
@@ -42,6 +58,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -174,46 +191,43 @@ public:
     [[nodiscard]] std::size_t chunk_count() const noexcept { return chunks_.size(); }
     [[nodiscard]] std::size_t chunk_alloc_count() const noexcept { return chunk_allocs_; }
 
-    LayoutAwareChunkedStore() = default;
+    // -- A8-S5-02a Lebensdauer-Vertrag der Achsen-Verdrahtung (HERZ-SCHNITT, s. Kopf) -------------------
+    // Seit dem Schnitt haengt AUCH der Chunk-INDEX am Adapter von alloc_. Der StdAllocatorAdapter haelt
+    // einen Zeiger auf alloc_ -> dieselbe Regel wie im Referenz-Muster btree_node_pool_store.hpp:19/:84-105:
+    //   (a) alloc_ ist VOR chunks_ deklariert (Member-Reihenfolge unten -- war schon so, gilt jetzt hart),
+    //   (b) chunks_ wird IMMER mit alloc_.as_std_allocator<Chunk>() konstruiert (der Adapter traegt keinen
+    //       Default-Ctor -> ein stilles Zurueckfallen auf einen Default-Allokator ist compile-hart
+    //       ausgeschlossen; das war GENAU der Fremdgang, den diese Scheibe schliesst),
+    //   (c) die Kopie legt ihr eigenes alloc_ an und materialisiert ueber copy_from_ ein VOLLSTAENDIG
+    //       eigenes Backing (Index UND Record-Bytes) -- unveraendertes Verhalten, jetzt nur beide Ebenen
+    //       an derselben Achse. KEIN restore_statistics (Abweichung zum btree-Muster, bewusst): es gibt
+    //       keine geteilte Struktur und damit keine COW-Pollution zu verwerfen; die Zaehler der Kopie
+    //       beschreiben ehrlich IHR eigenes Backing. Das ist zugleich das VOR-Schnitt-Verhalten.
+    //   (d) Move ist BEWUSST ENTFALLEN (vorher: noexcept-Move, der chunks_ samt Fremd-Adapter stahl). Mit
+    //       dem Index an der Achse waere ein Move entweder falsch (der Adapter der Kopie zeigte auf die
+    //       Quelle) oder allokator-erweitert -- und der allokator-erweiterte Move ALLOZIERT (die Adapter
+    //       zweier Stores sind nie gleich), duerfte also nicht noexcept heissen. Ein noexcept-Versprechen,
+    //       das bei OOM terminiert, waere eine stille Verschlechterung. Die benutzerdeklarierte Kopie
+    //       unterdrueckt den impliziten Move; ein std::move/`return s;` degradiert zur korrekt rebindenden
+    //       Kopie (semantisch identisch, copy_from_ dupliziert die Bytes ohnehin byte-genau).
+    LayoutAwareChunkedStore() : chunks_(alloc_.template as_std_allocator<Chunk>()) {}
     ~LayoutAwareChunkedStore() { free_chunks_(); }
-    LayoutAwareChunkedStore(LayoutAwareChunkedStore const& o) { copy_from_(o); }
+    LayoutAwareChunkedStore(LayoutAwareChunkedStore const& o) : chunks_(alloc_.template as_std_allocator<Chunk>()) {
+        copy_from_(o);
+    }
     LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore const& o) {
         if (this != &o) {
             free_chunks_();
-            chunks_.clear();
+            // A8-S5-02a: der Index-PUFFER selbst haengt jetzt an alloc_ -> er muss NOCH ueber die aktuelle
+            // Strategie-Instanz freigegeben werden. Ein blosses clear() liesse ihn stehen; seine spaetere
+            // Freigabe liefe dann gegen das frisch zurueckgesetzte alloc_ (Zaehler-Asymmetrie).
+            release_index_();
             size_                           = 0;
             chunk_allocs_                   = 0;
             runtime_pool_budget_bytes_      = 0;
             runtime_pool_budget_rejections_ = 0;
             alloc_                          = A{};
             copy_from_(o);
-        }
-        return *this;
-    }
-    LayoutAwareChunkedStore(LayoutAwareChunkedStore&& o) noexcept
-        : alloc_(std::move(o.alloc_)), chunks_(std::move(o.chunks_)), size_(o.size_), chunk_allocs_(o.chunk_allocs_),
-          runtime_pool_budget_bytes_(o.runtime_pool_budget_bytes_),
-          runtime_pool_budget_rejections_(o.runtime_pool_budget_rejections_) {
-        o.chunks_.clear();
-        o.size_                           = 0;
-        o.chunk_allocs_                   = 0;
-        o.runtime_pool_budget_bytes_      = 0;
-        o.runtime_pool_budget_rejections_ = 0;
-    }
-    LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore&& o) noexcept {
-        if (this != &o) {
-            free_chunks_();
-            alloc_                          = std::move(o.alloc_);
-            chunks_                         = std::move(o.chunks_);
-            size_                           = o.size_;
-            chunk_allocs_                   = o.chunk_allocs_;
-            runtime_pool_budget_bytes_      = o.runtime_pool_budget_bytes_;
-            runtime_pool_budget_rejections_ = o.runtime_pool_budget_rejections_;
-            o.chunks_.clear();
-            o.size_                           = 0;
-            o.chunk_allocs_                   = 0;
-            o.runtime_pool_budget_bytes_      = 0;
-            o.runtime_pool_budget_rejections_ = 0;
         }
         return *this;
     }
@@ -240,6 +254,14 @@ public:
         return chunks_.empty() ? 0u : chunks_.front().capacity;
     }
 
+    /// SONDERFALL [[allocation-failure-exception]] (A8-S5-02a, Auflage 11 -- Fehlerklassen): ZWEI
+    /// Speicher-Ereignisse, seit dem HERZ-Schnitt beide an DERSELBEN Achse. (1) die Record-Bytes ueber
+    /// alloc_.allocate -- die Strategie meldet OOM per nullptr, den der Store hier UNGEPRUEFT weiterreicht
+    /// (memset auf nullptr = der vorbestehende UB-Pfad dieser Zeile; er gehoert dem alloc-/A15-Strang und
+    /// ist NICHT Gegenstand dieser Scheibe -- als offener Punkt gemeldet, nicht heimlich gedreht).
+    /// (2) das Wachstum des Chunk-INDEX ueber den StdAllocatorAdapter -- dort uebersetzt Posten 64 den
+    /// nullptr an EINER Stelle in std::bad_alloc (axis_06_allocator_strategy_base.hpp). Fehlerklasse
+    /// unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor).
     void append_slot(key_type k, value_type v) {
         if (chunks_.empty() || chunks_.back().count == cap_) {
             Chunk c;
@@ -291,6 +313,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using allocator_snapshot_t = typename A::snapshot_t;
     [[nodiscard]] allocator_snapshot_t allocator_statistics() const noexcept { return alloc_.statistics(); }
+    /// A8-S5-02a VERDRAHTUNGS-BELEG unter EINEM Namen fuer beide node-Chunk-Stores (NodeChunkedStore traegt
+    /// dieselbe Methode; dort ist allocator_statistics() die synthetische node-wirksame Groesse, hier die
+    /// echte). Die Familien-Wache fragt deshalb IMMER diese Zeile -- so ist der Beleg ueber beide Stores
+    /// derselbe Ausdruck und kann nicht am Namen vorbeidriften.
+    [[nodiscard]] allocator_snapshot_t node_store_allocator_statistics() const noexcept { return alloc_.statistics(); }
 #endif
 
     // V2-Auto-Kopplung node_type: low-Byte je gespeichertem Key → Format-divergenter Self-Lookup.
@@ -420,6 +447,22 @@ private:
         std::size_t    capacity = 0; // ueber A allozierte Bytes (== chunk_bytes())
     };
 
+    // A8-S5-02a HERZ-SCHNITT: der Chunk-INDEX ueber DERSELBEN Kompositions-Achse A, ueber die die
+    // Record-Bytes schon laufen (alloc_.allocate/:deallocate in append_slot/free_chunks_/copy_from_).
+    // Der Store IST ein Template ueber A -- hier ist die ECHTE Kompositions-Bindung moeglich, ein
+    // benannter Achsen-DEFAULT (wie in den Nicht-Template-Familien 03/01d) waere hier eine zweite,
+    // stille Speicherquelle neben der Komposition und damit ein neuer Fremdgang.
+    using chunk_alloc = typename A::template StdAllocatorAdapter<Chunk>;
+    using chunk_vec_t = std::vector<Chunk, chunk_alloc>;
+
+public:
+    /// A8-S5-02a HERZ-BELEG auf TYP-EBENE (oeffentlich fuer die Familien-Wache): der Allokator-Typ, an dem
+    /// der Chunk-INDEX haengt. Er ist per Konstruktion ein StdAllocatorAdapter DERSELBEN Achse A wie die
+    /// Record-Bytes -- ein Default-Allokator oder der Adapter einer FREMDEN Strategie waere in den Adapter
+    /// von A nicht konvertierbar. Genau das pinnt test_s5_02a_layout_alloc_conformance.
+    using chunk_index_allocator_type = chunk_alloc;
+
+private:
     // ── Representation-aware store/load (compile-time-dispatch, zero-cost) ─────────────────────────────────
     // Adress-Helfer pro Repraesentation. `base` = Chunk-Start, `j` = Slot-Index im Chunk (0..cap_-1).
 
@@ -505,6 +548,14 @@ private:
             for (std::size_t j = 0; j < c.count; ++j) f(load_key_(c.data, j), load_value_(c.data, j));
     }
 
+    // A8-S5-02a SCOPE-DEKLARATION (begruendet stehen gelassen, nicht vergessen): flatten_/rebuild_ und die
+    // organ_observe_*-Streu-Puffer (kb/ks/survivors) halten TRANSIENTE Umbau-/Beobachtungs-Puffer, keinen
+    // Organ-Zustand. Sie bleiben bewusst am Default-Allokator -- exakt wie die gleichartigen Puffer des
+    // bereits konformen ComposedStore (axis_04_node_type_composed_store.hpp:113). Sie ueber alloc_ zu
+    // fuehren waere hier KEIN Fremdgang-Fix, sondern eine MESSWERT-Aenderung mit Doppelzaehlungs-Charakter:
+    // allocator_statistics() ist die T6-Route dieses Stores, und die Beobachtungs-Puffer wuerden je
+    // observe-Aufruf mitzaehlen. Die Einsammel-Naht + Doppelzaehlungs-Regel gehoert in das Mess-Schnitt-
+    // Fenster (Owner-KERN 04.08. abend-11, T6 = Option B strikt), nicht in diese Scheibe.
     [[nodiscard]] std::vector<slot_t> flatten_() const {
         std::vector<slot_t> fl;
         fl.reserve(size_);
@@ -564,6 +615,14 @@ private:
                 c.data = nullptr;
             }
     }
+    /// A8-S5-02a: gibt den PUFFER des Chunk-INDEX frei -- noch ueber die aktuelle Strategie-Instanz.
+    /// (clear() leert nur die Elemente und laesst den Puffer stehen.) Beide Adapter zeigen auf DASSELBE
+    /// alloc_, sind also gleich -> der swap ist wohldefiniert (POCS==false verlangt genau das). Weder das
+    /// Anlegen des leeren Vektors noch der swap alloziert; die Freigabe passiert im Block-Ende.
+    void release_index_() noexcept {
+        chunk_vec_t empty(alloc_.template as_std_allocator<Chunk>());
+        chunks_.swap(empty);
+    }
     void copy_from_(LayoutAwareChunkedStore const& o) {
         chunks_.reserve(o.chunks_.size());
         for (auto const& oc : o.chunks_) {
@@ -586,12 +645,18 @@ private:
         return bytes;
     }
 
-    mutable A          alloc_{};
-    std::vector<Chunk> chunks_{};
-    std::size_t        size_                           = 0;
-    std::size_t        chunk_allocs_                   = 0;
-    std::uint64_t      runtime_pool_budget_bytes_      = 0;
-    std::uint64_t      runtime_pool_budget_rejections_ = 0;
+    // A8-S5-02a: alloc_ VOR chunks_ (Lebensdauer des Zeigers im StdAllocatorAdapter) -- war schon so,
+    // ist seit dem HERZ-Schnitt aber tragend und nicht mehr nur Kosmetik.
+    mutable A     alloc_{};
+    chunk_vec_t   chunks_;
+    std::size_t   size_                           = 0;
+    std::size_t   chunk_allocs_                   = 0;
+    std::uint64_t runtime_pool_budget_bytes_      = 0;
+    std::uint64_t runtime_pool_budget_rejections_ = 0;
+
+    // A8-S5-02a TYP-BEWEIS im Header (kein Byte, keine Laufzeit): der Index-Vektor traegt den Adapter DER
+    // Kompositions-Achse A. Faellt er auf einen Default-Allokator zurueck, bricht das compile-hart.
+    static_assert(std::is_same_v<typename chunk_vec_t::allocator_type, chunk_alloc>);
 };
 
 // Compile-Time-Selbstbeweis: layout-honorierendes Organ erfuellt StorageOrgan UND ist von beiden Traversal-Organen nutzbar.
