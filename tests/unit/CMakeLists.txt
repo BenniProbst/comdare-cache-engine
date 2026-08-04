@@ -1606,7 +1606,8 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     # Organ-Member-Praesenz-Asserts gegen axis_names() (Liste gegen Liste) + Slot-Pins bleiben gruen.
     test_e24_c3_set_anatomy                   # E-24 C3: SetAnatomy 13 Organ-Member + observe_axes + Ctx
     test_e24_c3_sequence_anatomy              # E-24 C3: SequenceAnatomy 9 Organ-Member + observe_axes + Ctx
-    test_e24_c3_view_anatomy)                 # E-24 C3: ViewAnatomy 5 Organ-Member + observe_axes + Ctx
+    test_e24_c3_view_anatomy                  # E-24 C3: ViewAnatomy 5 Organ-Member + observe_axes + Ctx
+    test_e24_c3_adapter_anatomy)              # E-24 C3: AdapterAnatomy 11 Organ-Member + observe_axes + Ctx
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
