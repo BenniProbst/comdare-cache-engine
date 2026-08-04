@@ -1671,6 +1671,32 @@ foreach(_c6v IN LISTS COMDARE_E24_C6V_TESTS)
 endforeach()
 
 # -----------------------------------------------------------------------------
+# E-24 C6 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE) -- die per-Achsen-WIRE-Formen der vier Container-
+# Gattungs-Ebenen (XxxObserverAggregate<N>) + ihre eigenen Abfrage-Sub-Interfaces. Eigene Liste (nicht
+# COMDARE_E24_C6V_TESTS), weil C6-V der ABI-NEUTRALE Vor-Baustein war und C6 die deklarierte ABI-Serie
+# ist -- die Label-Trennung haelt beide im ctest getrennt filterbar (`ctest -L c6` vs. `-L c6v`).
+# Bau identisch zum C6-V-Block (plain int main(), Boost::mp11 + generated, STATISTICS-ON-Pfad).
+set(COMDARE_E24_C6_TESTS
+    test_e24_c6_genus_observer_aggregate) # C6 (a): das gemeinsame Wire-Layout GenusObserverAggregate<G, N>
+foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
+    add_executable(${_c6} "${_c6}.cpp")
+    target_compile_features(${_c6} PRIVATE cxx_std_23)
+    target_include_directories(${_c6} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_c6} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_c6})
+    target_compile_definitions(${_c6} PRIVATE COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_c6} COMMAND ${_c6})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c6})
+    set_tests_properties(${_c6} PROPERTIES LABELS "goal_v6;phase_d;e24;c6")
+endforeach()
+
+# -----------------------------------------------------------------------------
 # E-24 C1 (Luecke L6) -- NEGATIV-COMPILE-FIXTURE: eine TU, die BRECHEN MUSS.
 #
 # Das Repo kannte am Ist KEIN Muster fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer
