@@ -1687,7 +1687,8 @@ set(COMDARE_E24_C6_TESTS
     test_e24_c7_gattung_map_umbenennung  # C7-1: Ebene-1-Umbenennung SearchAlgorithm -> Map
     test_e24_c7_container_gattungs_kern   # C7-2: der Container-Gattungs-Kern + gestufter clear-Block
     test_e24_c7_element_type_vertrag      # C7-3: der Gattungs-Typ-Vertrag element_type
-    test_e24_c7_gattung_abi_sichtbar)     # C7-6: Ebene-1-Sichtbarmachung ohne neuen Wire-String
+    test_e24_c7_gattung_abi_sichtbar      # C7-6: Ebene-1-Sichtbarmachung ohne neuen Wire-String
+    test_e24_c7_symmetrie_und_benennung)  # C7-4/5/7: Map-Kern benannt, Set K=V, gattung-Symmetrie
 foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     add_executable(${_c6} "${_c6}.cpp")
     target_compile_features(${_c6} PRIVATE cxx_std_23)

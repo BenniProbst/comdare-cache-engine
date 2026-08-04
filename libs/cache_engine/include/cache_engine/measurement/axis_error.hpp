@@ -48,9 +48,16 @@ enum class CompilerCompilerErrorClass : std::uint8_t {
     // unter macOS/Windows, PowerShell-Executor-Semantik der Windows-Runner. Ein solcher Zustand ist eine
     // DEKLARIERTE Klasse, kein Absturz -- das Experiment misst die uebrigen Permutationen weiter.
     BetriebssystemFeatureFehlt = 4, // OS-Feature auf dem Host nicht verfuegbar/konfiguriert
-    // E-24 C5 / FK-8 (2026-08-04, Bauplan Paragraf 6.2): die GATTUNGS-BAUPFAD-Zustaende. Mit dem
-    // E-24-Fenster werden die vier Container-Gattungen (Set/Sequence/Adapter/View) neben SearchAlgorithm
-    // baubar -- und damit entsteht eine Bau-Entscheidung, die es vorher nicht gab: WELCHE Gattung wird
+    // E-24 C5 / FK-8 (2026-08-04, Bauplan Paragraf 6.2): die GATTUNGS-BAUPFAD-Zustaende.
+    // E-24 C7-7 (Kommentar-Heilung, Manager-Entscheid LEDGER:3844): die Klassen-NAMEN und die
+    // CSV-Etiketten (gattungs_bindung_fehlt / gattungs_slot_aritaet) BLEIBEN UNVERAENDERT -- sie reisen
+    // in Experiment-Logs (RF-3), und eine Umbenennung waere ein deklariertes Log-Ereignis ohne
+    // Erkenntnis-Gewinn. Geheilt wird nur die SPRACHE dieses Kommentars: nach dem finalen
+    // Zwei-Ebenen-Modell (Owner-KERN NACHTRAG 4, LEDGER:3836) sind Set/Sequence/Adapter/View GENERA der
+    // Gattung Container -- KEINE vier Gattungen. Die Namen tragen also einen Genus-Sachverhalt unter
+    // einem Gattungs-Etikett; das ist bewusst BELASSEN (Bestandslog-Kontinuitaet), nicht uebersehen.
+    // Mit dem E-24-Fenster werden die vier Container-GENERA (Set/Sequence/Adapter/View) neben dem
+    // Map-Genus SearchAlgorithm baubar -- und damit entsteht eine Bau-Entscheidung, die es vorher nicht gab: WELCHE Gattung wird
     // ueberhaupt gebaut, und passt die gelieferte Permutation zu ihrem Slot-Satz? Beides sind Planer-/
     // Compile-Zeit-Urteile (D1): erkennbar, klassifizierbar, KEIN Absturz -- das Experiment baut und misst
     // die uebrigen Permutationen weiter. Beide Klassen werden ANGEHAENGT (5/6); die Nummern 0..4 stehen

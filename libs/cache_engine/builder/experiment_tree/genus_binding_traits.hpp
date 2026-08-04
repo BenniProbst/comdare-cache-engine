@@ -41,6 +41,9 @@ struct GenusBindingTraits;
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
     static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::SearchAlgorithm;
+    // E-24 C7-7 (Symmetrie-Heilung, C7-Auflage C7-7): die Ebene-1-Zuordnung -- bis hier trug sie
+    // als EINZIGE die Adapter-Spezialisierung. ABGELEITET aus genus(), keine zweite Wahrheit.
+    static constexpr cea::AnatomyGattung gattung = cea::gattung_of(genus); // Aussen-Interface (Ebene 1)
     // STRUKT-R ORG-18: 18 (war 17 nach INC-2d/isa-raus, 18 nach INC-2c/telemetry-raus, 19 davor).
     static constexpr std::size_t      slot_count = 18;
     static constexpr std::string_view name       = "SearchAlgorithm";
@@ -65,8 +68,9 @@ struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
 /// (cea::gattung_of(Adapter)). Cross-Genus type-unmöglich → getrennte Komposition/Anatomie/Observer.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
-    static constexpr cea::AnatomyGenus   genus      = cea::AnatomyGenus::Adapter;     // Tier-Unterklasse (Ebene 2)
-    static constexpr cea::AnatomyGattung gattung    = cea::AnatomyGattung::Container; // Außen-Interface (Ebene 1)
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Adapter; // Tier-Unterklasse (Ebene 2)
+    // E-24 C7-7: von einem Literal auf die ABLEITUNG umgestellt -- eine Quelle fuer alle fuenf.
+    static constexpr cea::AnatomyGattung gattung    = cea::gattung_of(genus); // Aussen-Interface (Ebene 1)
     static constexpr std::size_t         slot_count = 11; // 10 geteilt/delegiert + inner_container (INC-2d: isa raus)
     static constexpr std::string_view    name       = "Adapter";
 
@@ -91,9 +95,12 @@ struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
 /// eigener Set-Observer (Cross-Genus type-unmöglich → getrennt). Belegt: der EINE Baum bindet auch die Set-Gattung.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Set> {
-    static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::Set;
-    static constexpr std::size_t       slot_count = 13; // INC-2d: isa raus (war 14 nach INC-2c-telemetry, 15 davor)
-    static constexpr std::string_view  name       = "Set";
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Set;
+    // E-24 C7-7 (Symmetrie-Heilung, C7-Auflage C7-7): die Ebene-1-Zuordnung -- bis hier trug sie
+    // als EINZIGE die Adapter-Spezialisierung. ABGELEITET aus genus(), keine zweite Wahrheit.
+    static constexpr cea::AnatomyGattung gattung    = cea::gattung_of(genus); // Aussen-Interface (Ebene 1)
+    static constexpr std::size_t         slot_count = 13; // INC-2d: isa raus (war 14 nach INC-2c-telemetry, 15 davor)
+    static constexpr std::string_view    name       = "Set";
 
     /// 13-Slot-Komposition (Reihenfolge = §28 Bird-Spalte; INC-2c: telemetry / INC-2d: isa sind System-Achsen).
     /// Blatt-PermTuple<13> → SetComposition → SetAnatomy.
@@ -118,9 +125,12 @@ struct GenusBindingTraits<cea::AnatomyGenus::Set> {
 /// Policy) + eigener Sequence-Observer (Cross-Genus getrennt). Belegt: der EINE Baum bindet auch die Sequence-Gattung.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Sequence> {
-    static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::Sequence;
-    static constexpr std::size_t       slot_count = 9; // 8 geteilte + axis_growth (INC-2d: isa raus)
-    static constexpr std::string_view  name       = "Sequence";
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Sequence;
+    // E-24 C7-7 (Symmetrie-Heilung, C7-Auflage C7-7): die Ebene-1-Zuordnung -- bis hier trug sie
+    // als EINZIGE die Adapter-Spezialisierung. ABGELEITET aus genus(), keine zweite Wahrheit.
+    static constexpr cea::AnatomyGattung gattung    = cea::gattung_of(genus); // Aussen-Interface (Ebene 1)
+    static constexpr std::size_t         slot_count = 9; // 8 geteilte + axis_growth (INC-2d: isa raus)
+    static constexpr std::string_view    name       = "Sequence";
 
     /// 8-geteilte + Growth-Slot (INC-2c: telemetry / INC-2d: isa sind System-Achsen; Growth defaultet auf
     /// DoublingGrowth → 8-arg-Aufrufe bleiben gültig).
@@ -143,9 +153,12 @@ struct GenusBindingTraits<cea::AnatomyGenus::Sequence> {
 /// (ViewAnatomy referenziert externen Puffer non-owning, liest über layout/accessor) + eigener View-Observer.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::View> {
-    static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::View;
-    static constexpr std::size_t       slot_count = 5; // 2 geteilt + extent/layout/accessor (INC-2d: isa raus)
-    static constexpr std::string_view  name       = "View";
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::View;
+    // E-24 C7-7 (Symmetrie-Heilung, C7-Auflage C7-7): die Ebene-1-Zuordnung -- bis hier trug sie
+    // als EINZIGE die Adapter-Spezialisierung. ABGELEITET aus genus(), keine zweite Wahrheit.
+    static constexpr cea::AnatomyGattung gattung    = cea::gattung_of(genus); // Aussen-Interface (Ebene 1)
+    static constexpr std::size_t         slot_count = 5; // 2 geteilt + extent/layout/accessor (INC-2d: isa raus)
+    static constexpr std::string_view    name       = "View";
 
     /// 2-geteilte + extent/layout/accessor (INC-2c: telemetry / INC-2d: isa sind System-Achsen; alle drei
     /// defaulten → 2-arg-Aufrufe bleiben gültig).

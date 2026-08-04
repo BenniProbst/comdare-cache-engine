@@ -17,12 +17,20 @@
 // er baut sie NICHT um. Eine echte Genus->Typ-UMSTRUKTURIERUNG (Set/Sequence als bloede Typen statt
 // eigener Genus) waere ABI/golden-beruehrend und bleibt ein SEPARATER User-GO (Ledger #29-GEPARKT).
 //
-// **#29-ENTPARKT (F1a-Vokabular-Versoehnung, User-GO 2026-07-16):** Der obige „Ledger #29-GEPARKT"-Vermerk
-// ist hiermit ENTPARKT — die Genus->Ebene-1-Umstrukturierung (Set/Sequence als eigene AnatomyGattung) ist
-// per User-GO 2026-07-16 (Increment F1b) FREIGEGEBEN. Dieser additive Re-Export BLEIBT als Kompatibilitaets-
-// Sicht bestehen. Die Umsetzung ist ein KOORDINIERTER ABI-Schritt (Version 4->5, gemeinsam mit #37 nach
-// F12iii) und laeuft mit eigener Kadenz. HIER (F1a) passiert NUR die Vokabular-Klarstellung: KEINE
-// Aenderung an AnatomyGattung/AnatomyGenus-Enum, GenusBindingTraits, golden_fullpilot_320 oder permutation_axes.
+// **#29-ENTPARKT (F1a-Vokabular-Versoehnung, User-GO 2026-07-16):** Der obige "Ledger #29-GEPARKT"-Vermerk
+// ist hiermit ENTPARKT -- die Ebene-1-Frage ist per User-GO 2026-07-16 (Increment F1b) FREIGEGEBEN.
+// Dieser additive Re-Export BLEIBT als Kompatibilitaets-Sicht bestehen.
+//
+// **E-24 C7-7 -- HISTORIEN-NACHZUG (Kommentar-Heilung, C7-Auflage C7-7):** Zwei Angaben dieses Kopfes
+// waren stale und werden hier auf den Ist gezogen, ohne die Historie zu loeschen:
+//   (a) "Version 4->5": das war der Stand von F1a (Juli). Der koordinierte ABI-Schritt ist heute 7->8
+//       (LEDGER:3731) und wird im E-24-Fenster als C8 vollzogen -- NICHT in diesem Header.
+//   (b) "Set/Sequence als eigene AnatomyGattung": diese Zielform ist durch den Owner-KERN NACHTRAG 4
+//       (LEDGER:3836) GEGENSTANDSLOS geworden. Set/Sequence/Adapter/View sind GENERA der Gattung
+//       Container -- eine Promotion NEBEN Container gibt es nicht. Was das E-24-Fenster stattdessen tut
+//       (S12.3 Option A): die GATTUNG wird ABI-sichtbar, die Genera bleiben, wo sie sind (C7-6).
+// Unveraendert gilt: KEINE Aenderung an der AnatomyGattung/AnatomyGenus-ENUM-REIHENFOLGE (TABU), an
+// golden_fullpilot_320 oder an permutation_axes.
 
 #include <anatomy/anatomy_base.hpp>                         // AnatomyGattung/AnatomyGenus + gattung_of (constexpr)
 #include <anatomy/organ_concept.hpp>                        // E-24 C7-2: OrganSized/OrganClearable (ERHOBEN, C1)
@@ -47,7 +55,12 @@ template <cea::AnatomyGenus G>
 concept ContainerType = (cea::gattung_of(G) == cea::AnatomyGattung::Container) && cexp::GenusBound<G>;
 
 /// type_list -- die Container-TYPEN als compile-time-Liste (Adapter/Set/Sequence/View). Jeder Eintrag ist
-/// die AnatomyGenus-Tier-Unterklasse als integral_constant (mp11-iterierbar). Reihenfolge = Enum-Reihenfolge.
+/// die AnatomyGenus-Tier-Unterklasse als integral_constant (mp11-iterierbar).
+/// E-24 C7-7 (Kommentar-Heilung, C7-Auflage C7-7): hier stand "Reihenfolge = Enum-Reihenfolge" -- das war
+/// FAKTISCH FALSCH. Die Liste beginnt mit Adapter (Enum-Wert 3) vor Set (1), Sequence (2) und View (4);
+/// sie folgt der BAU-Reihenfolge der Genus-Instanzen (Adapter war die erste gebaute Container-Tier-
+/// Unterklasse, D4b/L-75), nicht dem Enum. Die Reihenfolge ist fuer die Semantik unerheblich -- type_list
+/// wird ausschliesslich compile-time iteriert -- aber sie darf nicht falsch BEHAUPTET werden.
 using type_list = mp::mp_list<std::integral_constant<cea::AnatomyGenus, cea::AnatomyGenus::Adapter>,
                               std::integral_constant<cea::AnatomyGenus, cea::AnatomyGenus::Set>,
                               std::integral_constant<cea::AnatomyGenus, cea::AnatomyGenus::Sequence>,

@@ -20,7 +20,20 @@
 
 namespace comdare::cache_engine::anatomy {
 
-/// IDriveableTier — der funktionale Gattungs-Antrieb einer geladenen Tier-Anatomie (Pfad B, immer vorhanden).
+/// IDriveableTier -- DER DE-FACTO KERN DER MAP-GATTUNG (E-24 C7-4, benannt statt nur beschrieben).
+///
+/// EINORDNUNG NACH DEM FINALEN ZWEI-EBENEN-MODELL (Owner-KERN NACHTRAG 4, LEDGER:3836; C7-Auflage C7-4,
+/// LEDGER:3843): Ebene 1 sind die GATTUNGEN Map / Container / Graph, Ebene 2 die GENERA. Die Map-Gattung
+/// hat GENAU EIN Genus (SearchAlgorithm). Eine Schnittmenge ueber ein Element IST das Element -- deshalb
+/// braucht die Map-Gattung KEIN eigenes Kopf-Framework (Manager-Entscheid, LEDGER:3844), sondern eine
+/// BENENNUNG: dieses Interface, mit tier_insert(k,v)/tier_lookup/tier_erase/tier_clear/tier_size, IST der
+/// Map-Gattungs-Kern. Seine <Key,Value>-Instanz ist das Typ-Paar key_type/value_type der SA-Anatomie
+/// (das Gegenstueck zum Container-Gattungs-Typ-Vertrag element_type, C7-3).
+/// ABGRENZUNG (deklariert, nicht still): ob die MESS-Flaeche (IObservableTier + die SA-Zusatz-
+/// Subinterfaces) zum Map-Gattungs-Kern gehoert, ist NICHT kartiert -- offener Entscheid des
+/// Diskrepanz-Dossiers (Abschnitt 7 Punkt 2), NICHT in diesem Fenster beantwortet.
+///
+/// Der funktionale Gattungs-Antrieb einer geladenen Tier-Anatomie (Pfad B, immer vorhanden).
 ///
 /// Gemeinsamer uint64-Key/Value-Raum nach Umstufung-B (alle sezierten Such-Organe einheitlich uint64). Der Host
 /// (CacheEngineBuilder/Prüfdock) treibt darüber generisch jede geladene Binary — für das Konformitäts-Gate gegen
