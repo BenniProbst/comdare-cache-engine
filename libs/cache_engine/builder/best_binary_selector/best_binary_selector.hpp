@@ -49,9 +49,14 @@ namespace comdare::cache_engine::best_binary {
 // STRUKT-R ORG-18 (2026-07-26): Spiegel-Drift 6/".A6." -> 7/".A7." gesynct (18. Organ-Achse
 // persistence_target, ABI-7). Ohne diesen Nachzug schrieb der Spiegel FALSCHE Manifest-Provenienz
 // und der Selector haette jede neu gebaute Major-7-Binary verworfen.
-inline constexpr std::uint32_t kAbiMajor = 7; // STRUKT-R ORG-18 6->7 (vorher INC-2d 5->6, INC-2b 4->5, #216-H2: 4)
+// E-24 C8 (2026-08-04, GATE 4): Spiegel-Drift 7/".A7." -> 8/".A8." gesynct (Ebene-1-Gattung wird ABI-Flaeche,
+// Major 7->8). Das K-5-Paritaets-Gate hat den Nachzug erzwungen -- es brach compile-hart in BEIDEN Konsumenten
+// (test_best_binary_selector_parse_rank.cpp:28/:32, test_hybrid_spline_selector_scaffold.cpp:31/:35), noch bevor
+// eine falsche Manifest-Provenienz geschrieben werden konnte. kAbiMinor bewegt sich NICHT (0 -> 0, der Major-Bump
+// setzt den ABI-Minor ohnehin auf 0) und brach folgerichtig auch nicht.
+inline constexpr std::uint32_t kAbiMajor = 8; // E-24 C8 7->8 (vorher ORG-18 6->7, INC-2d 5->6, INC-2b 4->5)
 inline constexpr std::uint32_t kAbiMinor = 0;
-inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141372EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A7."
+inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141382EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A8."
 
 // ── orch_make_stem-Round-Trip (identisch BuildOrchestrator: sanitize + FNV-1a + kStemMax=120) ─────
 // Diese drei Funktionen sind eine 1:1-Spiegelung von build_orchestrator.hpp:114/122/138 — sie MÜSSEN

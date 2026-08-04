@@ -139,7 +139,7 @@ TEST(S710SwissPoolAllocatorDeg, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 7);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 8); // E-24 C8: 7 -> 8 (Ebene-1-Gattung ABI-sichtbar)
     EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
     EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 8u);
 

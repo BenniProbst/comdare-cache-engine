@@ -25,7 +25,10 @@
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anatomy-Module ABI Version. Major: 6 (#216-H2 tier_reset_statistics). Minor: 0.
+/// Anatomy-Module ABI Version. Lebender Stand: Major 8 (E-24 C8, Ebene-1-Gattung als ABI-Flaeche), Minor 0.
+/// (Diese Kopfzeile nannte bis E-24 C8 stale "Major: 6 (#216-H2 tier_reset_statistics)" -- eine Zahl aus der
+/// 6er-Aera mit der Begruendung des 4er-Bumps. Sie steht bewusst als EIN Satz da; die Begruendungen je Major
+/// stehen darunter in der Historien-Kette, und der verbindliche Wert ist ausschliesslich das #define unten.)
 /// V5-I2.2 ABI-Bruch (Major 1→2): IObservableTier→IDriveableTier-Split + konditionale Adapter-Vererbung
 /// (observer_all nur bei MESSUNG-AN compile-time einkompiliert).
 /// I1 Observer-Konsolidierung (Major 2→3, Minor→0, User-Direktive 2026-06-04 „EINE konsistente Observer-
@@ -59,11 +62,35 @@
 /// Permutations-DLLs werden neu gebaut). Magic kodiert den Major -> von .A6. auf .A7. bewegt.
 /// ACHTUNG: sizeof 1344 gab es schon bei INC-2c (18 Achsen INKLUSIVE isa) -- gleiche Groesse, anderer
 /// Achsen-Satz; die Unterscheidung leistet ausschliesslich der Major.
-#define COMDARE_ANATOMY_ABI_MAJOR 7
+/// E-24 C8 (2026-08-04, GATE 4; Manager-Entscheid LEDGER:3731, Owner-F1b LEDGER:1576-1581 "MAJOR,
+/// UNVERHANDELBAR") ABI-Bruch Major 7->8, Minor->0: die Ebene-1-GATTUNG wird ABI-Flaeche. Der Bruch
+/// transportiert das GESAMTE E-24-Container-Gattungs-Fenster als EIN Ereignis, je Stueck ein Satz:
+///   (C6a-f) Die vier Genus-Wire-Formen stehen als GenusObserverAggregate<G, N> PER ACHSE (Set 13 /
+///           Sequence 9 / Adapter 11 / View 5) statt als flache Hand-PODs, womit die gattungs-eigenen
+///           Achsen-Themen erstmals einen benannten Slot auf dem Draht haben statt einer stillen Luecke.
+///   (C6)    Die neuen Sub-Interfaces ISetTierV2 und ISetAlgebraTier treten als EIGENE Interfaces hinzu
+///           (nie als vtable-Anhang eines bestehenden), weshalb die Vererbungsreihenfolge eingefroren bleibt
+///           und ein kalter dynamic_cast die einzige Erweiterungs-Naht ist.
+///   (C6b/d) Der Gattungs-Draht fuehrt den E1-Milli-Fixpunkt (double -> uint64 x1000, Suffix _milli)
+///           einschliesslich growth_factor_milli, statt den SA-double-Drop zu wiederholen.
+///   (C7-1)  Die Ebene-1-Kategorie heisst Map statt SearchAlgorithm -- die Umbenennung MUSSTE vor die
+///           Sichtbarmachung, weil sie danach selbst ein ABI-Bruch waere.
+///   (C7-2/3/6) Der Container-Gattungs-Kern ist im Kopf-Framework benannt (Identitaet + observe_axes + size,
+///           clear als gestufter optionaler Block), element_type ist Gattungs-Typ-Vertrag, und die Gattung
+///           ist ABI-sichtbar OHNE einen neuen Wire-String einzufrieren (Ableitung aus genus()).
+/// Loader lehnt Major-7-DLLs ab (host_compatible_with, Schritt 5 der 7-Schritt-Validierung) -> alle
+/// Permutations-DLLs werden neu gebaut. Magic kodiert den Major -> von .A7. auf .A8. bewegt.
+/// GOLDEN-BILANZ (AUSGEWIESEN, nicht behauptet): die binary_id-permutierende Komposition ist UNBERUEHRT --
+/// keine neue Organ-Haupt-Achse, organ_count() bleibt 18, der Observer-POD bleibt axis_stats[18][8] +
+/// seg_ns[18] (sizeof 1344). golden_fullpilot_320 und der CRC-Anker kNewGolden131072Crc64 sind deshalb
+/// byte-neutral, und es entsteht KEINE golden_fullpilot_320_binary_ids_abi7.txt: der Alt-golden-Freeze der
+/// Majors 4/5/6 (decl:47/:53) hing jeweils an einer BEWEGTEN binary_id -- hier bewegt sich keine. Was dieser
+/// Major bewegt, ist die Lade-Akzeptanz und (ueber den Minor-Reset unten) der Objekt-Store-Bucket.
+#define COMDARE_ANATOMY_ABI_MAJOR 8
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA*A7*" als big-endian uint64_t (STRUKT-R ORG-18 Major 7).
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141372EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA*A8*" als big-endian uint64_t (E-24 C8 Major 8).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141382EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)
@@ -287,6 +314,17 @@ struct AnatomyAbiVersion {
 /// Compile-Time Host-Version (zur Build-Zeit der cache-engine eingebrannt).
 inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MAJOR, COMDARE_ANATOMY_ABI_MINOR};
 
+/// HISTORIEN-FREEZE Major 7 (E-24 C8, ADDITIV nach dem _abi4/_abi5/_abi6-Muster der Alt-golden-Dateien,
+/// decl:47/:53). Der Freeze der frueheren Majors lief ueber Alt-golden-DATEIEN, weil dort jeweils die
+/// binary_id wanderte; hier wandert sie NICHT (Golden-Bilanz oben), also friert dieser Major seine Werte
+/// als BENANNTE KONSTANTEN neben den lebenden ein statt als Datei. WOFUER: die G5-Ablehnungs-Probe (ein
+/// Major-7-Referenzmodul MUSS vom Loader per Major-Mismatch verworfen werden) und die Bucket-Diff-Beweise
+/// zitieren damit den Vorgaenger-Wert benannt, statt ein nacktes Zahlen-/Magic-Literal zu wiederholen --
+/// genau der Drift-Weg, den der best_binary_selector-Spiegel schon einmal gegangen ist (K-5).
+/// Diese drei Konstanten sind reine BEWEISMITTEL: kein Produktions-Pfad liest sie, sie bewegen nichts.
+inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersionAbi7{7, 0};
+inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL; // "COMDA.A7." (STRUKT-R ORG-18)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CEB-Contract-Version (inkrementeller Tier-Binary-Cache, Bauplan §4)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -352,14 +390,41 @@ inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MA
 /// auf einen NEUEN Objekt-Store-Bucket (deklarierte EINMALIGE Bucket-Invalidierung, M4-Praezedenz).
 /// binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320 und der CRC-Anker
 /// kNewGolden131072Crc64 sind deshalb byte-neutral.
+///
+/// E-24 C8 VOLLZUG (04.08.2026) -- Minor 2 -> 0, RESET. Bauplan-Entscheid Paragraf 5.1 des
+/// E-24-Fenster-Bauplans (docs/sessions/20260803-DOSSIER-e24-fenster-bauplan.md), gefaellt nach der
+/// M4-/W10-M2-Praezedenz und hier vollzogen.
+/// WARUM RESET UND NICHT FORTSCHREIBUNG: der codegen-Minor zaehlt Vertrags-Erweiterungen INNERHALB eines
+/// Majors. Die 1 (A13-M4) und die 2 (W10-M2) sind beide ausschliesslich unter Major 7 begruendet -- ihre
+/// Vollzugs-Absaetze oben nennen keinen anderen Grund. Ein "8.1" ohne je existierende 8.0-Basis waere
+/// deshalb eine Versions-Luege. Einen automatischen Reset gibt es NICHT (diese Konstante ist handgepflegt,
+/// nur der Major wandert von selbst mit COMDARE_ANATOMY_ABI_MAJOR), also ist der Reset ein bewusster Edit
+/// im SELBEN Commit wie der Major -- und der literale Pin unten bricht bei jeder Drehung, genau dafuer
+/// wurde er gebaut.
+/// WIRKUNG: "+ceb=7.2" -> "+ceb=8.0" in jeder build_version -> jede perm.dll.version mismatcht in
+/// dll_is_current -> ALLE Tier-Binaries werden neu gebaut, und cache_key_prefix zeigt auf einen NEUEN
+/// Objekt-Store-Bucket = DEKLARIERTE EINMALIGE BUCKET-INVALIDIERUNG vor Voll-Bau-4 (M4-/W10-M2-Praezedenz).
+/// Der Shift ist an BEIDEN Pfaden sichtbar: der Einzel-Pfad trug das Glied schon immer, der Perm-Pfad seit
+/// der W10-C4-Verdrahtung -- der Bump ist also nicht am Scharfschalt-Pfad blind. AKZEPTIERT: vor Voll-Bau-4
+/// existiert kein schuetzenswerter Voll-Bestand; betroffen sind nur die TP1-Proben, deren Neu-Inventur
+/// ohnehin am Fenster-Ende steht (GATE 5).
+/// binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320 und der CRC-Anker
+/// kNewGolden131072Crc64 sind deshalb byte-neutral.
 /// LITERALER PIN: tests/unit/test_v41_anatomy_module_abi.cpp (R5D_CebContract). Die drei Konsumenten-Tests
 /// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den Wert
 /// bewusst aus DIESER Konstante ab (Anti-Drift gegen den automatischen Major) und wuerden einen vergessenen
-/// oder falschen Minor-Bump deshalb NICHT sehen; der eine literale Pin dort ist die Gegenprobe.
-inline constexpr std::uint32_t kCebContractCodegenMinor = 2;
+/// oder falschen Minor-Bump deshalb NICHT sehen; der eine literale Pin dort ist die Gegenprobe. BEFUND E-24
+/// C8 (grep-Doktrin, gegen den Wortlaut "der EINE literale Pin"): tests/unit/test_w10_c4_zellwert_naht.cpp
+/// fuehrte einen ZWEITEN literalen Wert-Pin (drei ".2"-Stellen). Er ist mit diesem Commit auf die Konstante
+/// umgestellt -- die TU bezeugt die C4-VERDRAHTUNG (Glied vorhanden, Ordnung, Dedupe), nicht den Zahlenwert.
+inline constexpr std::uint32_t kCebContractCodegenMinor = 0;
+
+/// HISTORIEN-FREEZE des Vorgaenger-Minors (E-24 C8, additiv -- s. kHostAnatomyAbiVersionAbi7). Der Wert 2
+/// ist der W10-M2-Stand unter Major 7; er wird von den Bucket-Diff-Beweisen als "Vorgaenger-Bucket" zitiert.
+inline constexpr std::uint32_t kCebContractCodegenMinorAbi7 = 2;
 
 /// ceb_contract_version als Tupel (Major = ABI-Major, Minor = codegen-Minor). host_compatible_with-Backstop des
-/// Loaders (host_compatible_with, decl:124-127) lehnt Major-Mismatch-DLLs ohnehin ab -> +ceb= macht Bau-Skip +
+/// Loaders (host_compatible_with, decl:305-308) lehnt Major-Mismatch-DLLs ohnehin ab -> +ceb= macht Bau-Skip +
 /// Lade-Akzeptanz konsistent.
 inline constexpr AnatomyAbiVersion kCebContractVersion{COMDARE_ANATOMY_ABI_MAJOR, kCebContractCodegenMinor};
 

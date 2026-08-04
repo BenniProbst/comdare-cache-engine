@@ -49,16 +49,24 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
     static_assert(COMDARE_ANATOMY_ABI_MAJOR ==
-                  7); // STRUKT-R ORG-18 (Owner-GO): 6→7-Bump (persistence_target in die binary_id; vorher 2d 5→6)
+                  8); // E-24 C8 (GATE 4): 7->8-Bump (Ebene-1-Gattung wird ABI-Flaeche; vorher ORG-18 6->7)
     static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // Minor auf 0 zurückgesetzt beim Major-Bump
     static_assert(COMDARE_ANATOMY_ABI_MAGIC ==
-                  0x434F4D444141372EULL); // "COMDA·A7·" (Magic kodiert Major, Minor-Bump ändert es nicht)
+                  0x434F4D444141382EULL); // "COMDA.A8." (Magic kodiert Major, Minor-Bump aendert es nicht)
+    // HISTORIEN-FREEZE-Gegenprobe (E-24 C8, additiv): der eingefrorene Vorgaenger-Wert ist NICHT der lebende.
+    // Ohne diese Zeile stuende der Freeze nur als Zusage im Kommentar des Decl-Headers.
+    static_assert(ce_abi::kAnatomyAbiMagicAbi7 == 0x434F4D444141372EULL);
+    static_assert(ce_abi::kAnatomyAbiMagicAbi7 != COMDARE_ANATOMY_ABI_MAGIC);
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 7); // STRUKT-R ORG-18 (vorher 2d: 6)
+    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 8); // E-24 C8 (vorher ORG-18: 7)
     static_assert(ce_abi::kHostAnatomyAbiVersion.minor == 0);
+    // G5-VORBEREITUNG: der eingefrorene Major-7-Host ist am lebenden Host NICHT ladefaehig. Das ist die
+    // compile-time-Haelfte des G5-Beweises (die Laufzeit-Haelfte -- ein reales Major-7-Modul am Loader --
+    // liegt in C10). Sie steht hier, weil sie bei jedem kuenftigen Major automatisch mitwandert.
+    static_assert(!ce_abi::kHostAnatomyAbiVersion.host_compatible_with(ce_abi::kHostAnatomyAbiVersionAbi7));
     SUCCEED();
 }
 
@@ -79,12 +87,20 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     // fuehrte KEIN Test den Minor literal, ein vergessener oder falscher Bump waere still durchgelaufen.
     // Dieser eine Pin ist die Gegenprobe und steht bewusst neben den beiden anderen literalen Konstanten-Pins
     // dieser Datei (ABI-Major/Minor), weil Major und Minor zusammen die ceb_contract_version bilden.
-    static_assert(ce_abi::kCebContractCodegenMinor == 2,
-                  "W10-M2: der CEB-Contract-codegen-Minor steht auf 2 (Bump 1 -> 2 traegt die W10-C4-"
-                  "Scharfschaltung der System-Zellwert-Naht an perm_compile -- eine CEB-universelle "
-                  "Codegen-Quelle, die ALLE Tier-Binaries betrifft, ohne das POD-/vtable-ABI zu brechen). "
-                  "Wer diesen Wert aendert, aendert +ceb= in JEDER build_version -> jede perm.dll.version "
-                  "mismatcht -> ALLE Tier-Binaries werden neu gebaut und der Objekt-Store-Bucket wechselt.");
+    static_assert(ce_abi::kCebContractCodegenMinor == 0,
+                  "E-24 C8: der CEB-Contract-codegen-Minor steht auf 0 (RESET 2 -> 0 im SELBEN Commit wie der "
+                  "ABI-Major 7 -> 8). Der Minor zaehlt Vertrags-Erweiterungen INNERHALB eines Majors -- die 1 "
+                  "(A13-M4) und die 2 (W10-M2) waren beide unter Major 7 begruendet, ein '8.1' ohne je "
+                  "existierende 8.0-Basis waere eine Versions-Luege. Wer diesen Wert aendert, aendert +ceb= in "
+                  "JEDER build_version -> jede perm.dll.version mismatcht -> ALLE Tier-Binaries werden neu "
+                  "gebaut und der Objekt-Store-Bucket wechselt.");
+    // BUCKET-SHIFT-GEGENPROBE (E-24 C8): der lebende Vertragswert ist NICHT der eingefrorene Vorgaenger.
+    // Damit steht der Shift 7.2 -> 8.0 als Wache da und nicht bloss als Satz im Vollzugs-Absatz.
+    static_assert(ce_abi::kCebContractCodegenMinorAbi7 == 2);
+    static_assert(
+        ce_abi::kCebContractVersion.pack() !=
+        ce_abi::AnatomyAbiVersion{ce_abi::kHostAnatomyAbiVersionAbi7.major, ce_abi::kCebContractCodegenMinorAbi7}
+            .pack());
     // Der Major-Anteil bleibt abgeleitet (nicht literal): er wandert automatisch mit COMDARE_ANATOMY_ABI_MAJOR.
     static_assert(ce_abi::kCebContractVersion.major == COMDARE_ANATOMY_ABI_MAJOR);
     static_assert(ce_abi::kCebContractVersion.minor == ce_abi::kCebContractCodegenMinor);
@@ -96,8 +112,8 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     static_assert(ce_abi::kAnatomyVersionLinesLayout == 6,
                   "A13-M4: das Stempel-POD-Layout ist an den CEB-Contract-Minor gekoppelt -- wer das Layout "
                   "bumpt, entscheidet im SELBEN Commit ueber kCebContractCodegenMinor.");
-    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 2u);
-    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 2ULL);
+    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 0u);
+    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 0ULL);
 }
 
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {
@@ -128,8 +144,9 @@ TEST(R5D_AnatomyAbiVersion, CompatibilityRules) {
     static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{2, 0}));
     static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{0, 5}));
 
-    // Bau-INC-2b (Loader-Ablehnungs-Checkpoint): der REALE Host (ABI-6) verwirft alt-gebaute
-    // Major-4-Module — alle Permutations-DLLs der ABI-4-Aera werden nicht mehr geladen.
+    // Loader-Ablehnungs-Checkpoint: der REALE Host (ABI-8 seit E-24 C8; der Kommentar nannte hier bis dahin
+    // stale "ABI-6") verwirft alt-gebaute Major-4-Module -- alle Permutations-DLLs der ABI-4-Aera werden nicht
+    // mehr geladen.
     static_assert(!ce_abi::kHostAnatomyAbiVersion.host_compatible_with(ce_abi::AnatomyAbiVersion{4, 0}));
     static_assert(ce_abi::kHostAnatomyAbiVersion.host_compatible_with(
         ce_abi::AnatomyAbiVersion{COMDARE_ANATOMY_ABI_MAJOR, COMDARE_ANATOMY_ABI_MINOR}));

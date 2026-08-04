@@ -133,7 +133,7 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
     }
 
     // Version-Check ueber den EINEN benannten Vertrag (V6/P3, K-6 2026-07-19): das Gate ist
-    // AnatomyAbiVersion::host_compatible_with (anatomy_module_abi_v1_decl.hpp:124-127, Major identisch +
+    // AnatomyAbiVersion::host_compatible_with (anatomy_module_abi_v1_decl.hpp:305-308, Major identisch +
     // Modul-Minor <= Host-Minor) statt einer Inline-Reimplementation. Die beiden differenzierten
     // Status-Codes bleiben als reine DIAGNOSE des abgelehnten Falls erhalten (Verhalten byte-identisch).
     auto const module_version = abi::AnatomyAbiVersion::unpack(pfn_version());

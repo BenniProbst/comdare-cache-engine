@@ -14,8 +14,15 @@
 //       W10-Abnahme-Beweis: die Kollision "linux-Bau == macos-Bau" ist mechanisch tot.
 //   (C) FAIL-CLOSED -- eine Zelle ohne Achsen-Glied (riscv64) faellt auf den `na`-Sentinel, und `na` ist am
 //       Praedikat erkennbar. Der Rueckschrieb-Stopp haengt an DIESEM Praedikat (profile_run_entry).
-//   (D) W10-M2 -- der Contract-Minor steht auf 2, das +ceb=-Glied steht in der Perm-build_version (vorher gar
-//       nicht) UND der Objekt-Store-Key traegt es GENAU EINMAL (Dedupe statt Doppel-Provenienz).
+//   (D) W10-M2 -- das +ceb=-Glied steht in der Perm-build_version (vorher gar nicht) UND der Objekt-Store-Key
+//       traegt es GENAU EINMAL (Dedupe statt Doppel-Provenienz).
+//       PIN-BEWEGUNG E-24 C8 (deklariert, nicht still): dieser Block fuehrte den Contract-Minor an DREI Stellen
+//       als Literal ".2". Das war ein ZWEITER literaler Wert-Pin neben dem einen designierten
+//       (test_v41_anatomy_module_abi.cpp, R5D_CebContract) -- der Decl-Header sagt ausdruecklich "der EINE
+//       literale Pin dort ist die Gegenprobe". Mit dem Major-Bump 7->8 und dem Minor-RESET 2->0 waeren die drei
+//       Stellen rot geworden, ohne dass diese TU je etwas ueber den ZAHLENWERT beweisen wollte: ihr Gegenstand
+//       ist die C4-VERDRAHTUNG (Glied vorhanden, in bindender Ordnung, im Store-Key genau einmal). Sie ziehen
+//       den Wert deshalb ab jetzt aus der Konstante; der Wert-Pin bleibt an seiner einen designierten Stelle.
 //
 // Alles laeuft gegen die REALEN Funktionen der Produktions-Naht, nie gegen eine Nachbildung.
 //
@@ -23,14 +30,15 @@
 // unbeschadet passieren, ist eine Eigenschaft der TOOLCHAIN und wird am realen Probe-Bau belegt (Commit-Text),
 // nicht in einer Unit-TU nachgestellt -- eine TU, die g++ aufruft, prueft den Compiler, nicht diesen Code.
 
-#include <builder/artifact_transport/artifact_cache.hpp> // W10-M2: cache_key_prefix-Dedupe (die Store-Key-Naht)
-#include <cache_engine/abi/anatomy_fingerprint.hpp>      // Preimage-Ordnung + System-Glied-Index
-#include <cache_engine/abi/anatomy_version_stamp.hpp>    // system_stamp_line(): das Ist der System-Zeile
-#include <cache_engine/abi/system_cell_values.hpp>       // C1: Vervollstaendiger + na-Praedikat
-#include <cache_engine/measurement/simd_sub_axis.hpp>    // die simd-Ids der drei Routen (nie als Literal)
-#include <profile_facade/system_cell_values_naht.hpp>    // C4: die Wertform-/Define-Naht selbst
-#include <profile_facade/system_version_suffix.hpp>      // Segment-Ordnung + ceb_contract_version_text
-#include <sha512/ctsha512.hpp>                           // der Digest-Beweis (dieselbe Primitive wie die Naht)
+#include <builder/artifact_transport/artifact_cache.hpp>   // W10-M2: cache_key_prefix-Dedupe (die Store-Key-Naht)
+#include <cache_engine/abi/anatomy_fingerprint.hpp>        // Preimage-Ordnung + System-Glied-Index
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // E-24 C8: Contract-Minor + Historien-Freezes DIREKT
+#include <cache_engine/abi/anatomy_version_stamp.hpp>      // system_stamp_line(): das Ist der System-Zeile
+#include <cache_engine/abi/system_cell_values.hpp>         // C1: Vervollstaendiger + na-Praedikat
+#include <cache_engine/measurement/simd_sub_axis.hpp>      // die simd-Ids der drei Routen (nie als Literal)
+#include <profile_facade/system_cell_values_naht.hpp>      // C4: die Wertform-/Define-Naht selbst
+#include <profile_facade/system_version_suffix.hpp>        // Segment-Ordnung + ceb_contract_version_text
+#include <sha512/ctsha512.hpp>                             // der Digest-Beweis (dieselbe Primitive wie die Naht)
 
 #include <cstddef>
 #include <cstdint>
@@ -190,8 +198,9 @@ int main() {
 
     std::cout << "== (D) W10-M2: Contract-Minor, Perm-Glied, Store-Key-Dedupe ==\n";
     {
-        check_eq("ceb_contract_version_text traegt den gebumpten Minor", pf::ceb_contract_version_text(),
-                 std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + ".2");
+        check_eq("ceb_contract_version_text setzt sich aus ABI-Major und Contract-Minor zusammen",
+                 pf::ceb_contract_version_text(),
+                 std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." + std::to_string(cea::kCebContractCodegenMinor));
         // Die Perm-build_version, wie beide Perm-Schleifen sie ab C4 bauen.
         pf::SystemVersionSuffixParts perm;
         perm.cxx                      = "g++-16";
@@ -221,10 +230,17 @@ int main() {
         check("ohne vorhandenes Glied wird es EINGEFALTET (Bestand byte-identisch)",
               count_occurrences(key_ohne, "+ceb=") == 1u && key_ohne.find("+ceb=" + ceb) != std::string::npos);
         // NEUER BUCKET, zwei unabhaengige Gruende -- beide werden einzeln belegt statt pauschal behauptet:
-        //   (1) der WERT wanderte (Minor 1 -> 2), also zeigt jeder Key auf einen anderen Bucket als vor W10-M2;
-        check("NEUER BUCKET (Wert): der Key traegt den gebumpten Minor und NICHT mehr den alten",
-              key_perm.find("+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + ".2") != std::string::npos &&
-                  key_perm.find("+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + ".1") == std::string::npos);
+        //   (1) der WERT wanderte, also zeigt jeder Key auf einen anderen Bucket als vor dem jeweiligen Shift.
+        //       Geprueft wird gegen die HISTORIEN-FREEZES (E-24 C8): keiner der drei Vorgaenger-Buckets der
+        //       C'-Kette -- 7.0 (vor A13-M4), 7.1 (A13-M4), 7.2 (W10-M2) -- darf im lebenden Key stehen.
+        check("NEUER BUCKET (Wert): der Key traegt den lebenden Contract-Wert und KEINEN der Vorgaenger",
+              key_perm.find("+ceb=" + ceb) != std::string::npos &&
+                  key_perm.find("+ceb=" + std::to_string(cea::kHostAnatomyAbiVersionAbi7.major) + ".0") ==
+                      std::string::npos &&
+                  key_perm.find("+ceb=" + std::to_string(cea::kHostAnatomyAbiVersionAbi7.major) + ".1") ==
+                      std::string::npos &&
+                  key_perm.find("+ceb=" + std::to_string(cea::kHostAnatomyAbiVersionAbi7.major) + "." +
+                                std::to_string(cea::kCebContractCodegenMinorAbi7)) == std::string::npos);
         //   (2) die POSITION wanderte: das Glied steht jetzt in der bindenden Suffix-Ordnung (vor +bt=/+gate=)
         //       statt hinten angehaengt. Sichtbar wird das erst, sobald ein spaeteres Segment belegt ist --
         //       ohne +bt= faellt die angehaengte Form zufaellig mit der eingeordneten zusammen.
