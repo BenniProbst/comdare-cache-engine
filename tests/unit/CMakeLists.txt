@@ -1636,6 +1636,32 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
 endforeach()
 
 # -----------------------------------------------------------------------------
+# E-24 C6-V (2026-08-04, Entscheid E5 LEDGER:3828) -- die Statistics-Huellen der GATTUNGS-EIGENEN
+# Achsen-Themen. EIGENE Liste statt COMDARE_GOALV6_BOOST_DTESTS, weil diese TUs die Huellen im
+# EINGESCHALTETEN Zustand pruefen muessen: die Huellen sind COMDARE_CE_ENABLE_STATISTICS-gegated
+# (Praezedenz axis_01_index_organization_observable.hpp:126-133), und der Sammel-foreach oben setzt
+# das Define nicht. Bau sonst identisch (plain int main(), Boost::mp11 + generated-Achsen-Includes).
+set(COMDARE_E24_C6V_TESTS
+    test_e24_c6v_growth_statistics)      # C6-V (a): GrowthStatistics + ObservableGrowth (Sequence-Achse)
+foreach(_c6v IN LISTS COMDARE_E24_C6V_TESTS)
+    add_executable(${_c6v} "${_c6v}.cpp")
+    target_compile_features(${_c6v} PRIVATE cxx_std_23)
+    target_include_directories(${_c6v} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_c6v} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_c6v})
+    target_compile_definitions(${_c6v} PRIVATE COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_c6v} COMMAND ${_c6v})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c6v})
+    set_tests_properties(${_c6v} PROPERTIES LABELS "goal_v6;phase_d;e24;c6v")
+endforeach()
+
+# -----------------------------------------------------------------------------
 # E-24 C1 (Luecke L6) -- NEGATIV-COMPILE-FIXTURE: eine TU, die BRECHEN MUSS.
 #
 # Das Repo kannte am Ist KEIN Muster fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer
