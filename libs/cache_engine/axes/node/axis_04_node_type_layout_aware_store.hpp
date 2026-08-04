@@ -72,6 +72,13 @@ private:
     // Am heutigen Default ist der Bezug wertgleich zur frueheren 64 (static_assert am Dateiende).
     // NICHT L::cache_line_size(): das ist der intrinsische Design-Deskriptor der Layout-Strategie
     // (aos_strict = 1, packed_bitmap = 8) und waere der Duplikat-Bug aus axis_05_..._cache_line_aligned:54.
+    // OFFENER PUNKT FUER KF-6 (Posten 62), hier sichtbar gemacht statt still entschieden: die
+    // cacheline-Unterachse ist PER ORGAN, dieser Store ist aber ein 3-Achsen-Verbund (N, L, A) und alle
+    // drei koennen unter KF-6 eine eigene Config tragen. Heute stehen alle am selben Default, die Frage ist
+    // also unsichtbar. Sie wird es NICHT bleiben: cacheline_study.profile.xml fuehrt als per_organ-Traeger
+    // "page_type node_type cache_traversal allocator" -- memory_layout ist dort NICHT gelistet. Wer die
+    // Durchbindung baut, muss also zuerst entscheiden, WELCHES Organ die Chunk-Geometrie regiert (bzw. eine
+    // Vorrang-/Konflikt-Regel deklarieren); erst danach ist diese Zeile die richtige oder die falsche.
     static constexpr std::size_t kLineBytes = ::comdare::cache_engine::cacheline::line_bytes_of<L>();
     static constexpr std::size_t kHotBytes  = 2;                     // succinct: low16-Hot-Key-Spalte
     static constexpr std::size_t kColdBytes = kKeyBytes - kHotBytes; // succinct: high48-Cold-Residue (6)
