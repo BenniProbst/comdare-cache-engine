@@ -58,6 +58,13 @@ public:
     using key_type       = typename Container::key_type; // aktuell std::uint64_t in Organen; native Breite = #217-2b
     using value_type     = typename Container::value_type;
     using container_type = Container;
+    /// A8-S5-01b -- WEITERLEITUNG des Achsen-Members (Memory-Regel "Observable-Huellen muessen ALLE
+    /// Concept-erzwungenen Member forwarden", reference_observable_wrapper_must_forward_concept_members):
+    /// die Huelle fuehrt KEINEN eigenen Speicher (ihr container_type IST das Organ, siehe die
+    /// hull_wraps_exactly-Wache in test_s5_01a_pool_stores_alloc_conformance). Ihr Speicher-Ausweis ist
+    /// deshalb exakt der des Organs -- eine Huelle, die ihn verschweigt, liesse die Konformitaets-Wache auf
+    /// der Huellen-Ebene ins Leere laufen, obwohl darunter alles gebunden ist.
+    using allocator_type = typename Container::allocator_type;
 
     /// insert mit rekonstruiertem inserted-Flag (Container::insert ist void) — insert_or_assign-Semantik.
     bool insert(key_type k, value_type v) {
@@ -126,6 +133,16 @@ public:
         requires requires(C const& c) { c.pool_node_count(); }
     {
         return container_.pool_node_count();
+    }
+
+    /// A8-S5-01b: der WALK-Zaehler der Form-B-Organe (BST/B-Baum) durch die Huelle -- getrennt vom
+    /// T6-Store-Zaehler oben (Doppelzaehlungs-Regel, Posten 68). requires-detektiert, weil die Form-A-Organe
+    /// (ART/HOT/START) gar keinen Walk-Speicher mehr haben und ihn folglich auch nicht melden.
+    template <class C = Container>
+    [[nodiscard]] auto walk_allocator_statistics() const noexcept
+        requires requires(C const& c) { c.walk_allocator_statistics(); }
+    {
+        return container_.walk_allocator_statistics();
     }
 
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
