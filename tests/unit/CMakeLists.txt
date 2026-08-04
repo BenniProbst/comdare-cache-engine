@@ -3291,8 +3291,16 @@ set(_src_perm_buildvariant_avx2    genus_buildvariant_avx2.cpp)
 #   perm_set_defekt_d13    das Negativ-Beweismittel des Konformitaets-Gates (dock_status 4).
 set(_src_perm_adapter_d12          genus_module_adapter.cpp)
 set(_src_perm_set_defekt_d13       genus_module_set_defekt.cpp)
+# E-24 C10 (b) / G5 -- die beiden ALT-MODULE der Lade-Wache. Der Loader traegt ZWEI Schloesser (Magic,
+# dann Major) und prueft sie in fester Reihenfolge; ein echtes Alt-Modul bewegt beide und erreicht das
+# zweite nie. Deshalb zwei Quellen, damit jedes Schloss EINZELN beobachtbar ist.
+#   perm_alt_major7        Magic ".A7." + Version 7.0 -- herkunfts-treue Quelle der gesicherten
+#                          Fixture major7-referenz-44bcda99.so (Schloss 1).
+#   perm_major7_neue_magic HEUTIGE Magic + Version (Host-Major - 1) -- Isolierungs-Probe (Schloss 2).
+set(_src_perm_alt_major7           genus_module_alt_major7.cpp)
+set(_src_perm_major7_neue_magic    genus_module_major7_neue_magic.cpp)
 foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
-                      perm_adapter_d12 perm_set_defekt_d13)
+                      perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
@@ -3335,8 +3343,10 @@ set_tests_properties(test_dgenus_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roun
 # statt der schlanken Loader-Zeilen oben.
 #   (a) test_e24_c10_genus_dll_roundtrip -- V5-Vertrag ueber vier ECHT geladene Container-DLLs + die
 #       beiden Negativ-Proben (dock_status 2/4) + measure_genus_sequential-Mischlauf.
+#   (b) test_e24_c10_g5_lade_wache -- der Major-Wechsel als Lade-Wache (beide Schloesser einzeln,
+#       Major-8-Roundtrip gruen) + der ceb-contract-Beleg des --version-Blocks.
 # -----------------------------------------------------------------------------
-foreach(_c10 IN ITEMS test_e24_c10_genus_dll_roundtrip)
+foreach(_c10 IN ITEMS test_e24_c10_genus_dll_roundtrip test_e24_c10_g5_lade_wache)
     add_executable(${_c10} "${_c10}.cpp")
     target_compile_features(${_c10} PRIVATE cxx_std_23)
     target_include_directories(${_c10} PRIVATE
@@ -3348,7 +3358,8 @@ foreach(_c10 IN ITEMS test_e24_c10_genus_dll_roundtrip)
         ${COMDARE_ALL_AXIS_GENERATED_DIRS})
     target_link_libraries(${_c10} PRIVATE Boost::mp11 comdare::anatomy_module_loader)
     comdare_set_platform_defines(${_c10})
-    add_dependencies(${_c10} perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_set_defekt_d13)
+    add_dependencies(${_c10} perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_set_defekt_d13
+                             perm_alt_major7 perm_major7_neue_magic)
     set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c10})
 endforeach()
 
@@ -3357,6 +3368,15 @@ add_test(NAME test_e24_c10_genus_dll_roundtrip COMMAND test_e24_c10_genus_dll_ro
     "--gut=$<TARGET_FILE:perm_adapter_d12>" "--gut=$<TARGET_FILE:perm_view_d11>"
     "--defekt-set=$<TARGET_FILE:perm_set_defekt_d13>")
 set_tests_properties(test_e24_c10_genus_dll_roundtrip PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip;e24")
+
+# G5: die gesicherte Original-Fixture (/home/comdare/e24-g5-fixture/major7-referenz-44bcda99.so) wird
+# BEWUSST NICHT als ctest-Argument verdrahtet -- sie liegt ausserhalb des Repos und waere eine
+# Host-Abhaengigkeit im CI. ctest faehrt die committete Nachbildung perm_alt_major7; der Lauf gegen das
+# Original steht als literaler Beleg im Fenster-Report (optionales --gesicherte-fixture=<pfad>).
+add_test(NAME test_e24_c10_g5_lade_wache COMMAND test_e24_c10_g5_lade_wache
+    "--alt=$<TARGET_FILE:perm_alt_major7>" "--alt-neue-magic=$<TARGET_FILE:perm_major7_neue_magic>"
+    "--neu=$<TARGET_FILE:perm_set_d9>")
+set_tests_properties(test_e24_c10_g5_lade_wache PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip;e24")
 
 # Build-Varianten-DLL-Loader-Test (L-74a, win32 LoadLibrary/GetProcAddress — Avx512 vs Avx2 über die .dll-Grenze).
 add_executable(test_buildvariant_dll test_buildvariant_dll.cpp)
