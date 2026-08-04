@@ -3284,7 +3284,15 @@ set(_src_perm_sequence_d10         genus_module_sequence.cpp)
 set(_src_perm_view_d11             genus_module_view.cpp)
 set(_src_perm_buildvariant_avx512  genus_buildvariant_avx512.cpp)
 set(_src_perm_buildvariant_avx2    genus_buildvariant_avx2.cpp)
-foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2)
+# E-24 C10 (a) -- die beiden NEUEN Modul-Quellen des Roundtrip-Beweises. Sie haengen sich BEWUSST an
+# dieselbe boost-freie Schleife wie perm_set_d9/d10/d11: eine Sonder-Registrierung waere ein zweiter
+# Bau-Weg fuer dieselbe Sache.
+#   perm_adapter_d12       das bis hier FEHLENDE vierte Container-Genus als DLL.
+#   perm_set_defekt_d13    das Negativ-Beweismittel des Konformitaets-Gates (dock_status 4).
+set(_src_perm_adapter_d12          genus_module_adapter.cpp)
+set(_src_perm_set_defekt_d13       genus_module_set_defekt.cpp)
+foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
+                      perm_adapter_d12 perm_set_defekt_d13)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
@@ -3319,6 +3327,36 @@ add_test(NAME test_dgenus_dll COMMAND test_dgenus_dll
 
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_dgenus_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_dgenus_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
+# -----------------------------------------------------------------------------
+# E-24 C10 (Bauplan-Dossier docs/sessions/20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 3.2-C10) --
+# die Roundtrip-Beweise. DLL-getriebene TUs; sie brauchen ueber test_dgenus_dll hinaus die
+# Achsen-Registries (Docks/Engines -> Boost::mp11 + generated-Flags), deshalb eine eigene Registrierung
+# statt der schlanken Loader-Zeilen oben.
+#   (a) test_e24_c10_genus_dll_roundtrip -- V5-Vertrag ueber vier ECHT geladene Container-DLLs + die
+#       beiden Negativ-Proben (dock_status 2/4) + measure_genus_sequential-Mischlauf.
+# -----------------------------------------------------------------------------
+foreach(_c10 IN ITEMS test_e24_c10_genus_dll_roundtrip)
+    add_executable(${_c10} "${_c10}.cpp")
+    target_compile_features(${_c10} PRIVATE cxx_std_23)
+    target_include_directories(${_c10} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_c10} PRIVATE Boost::mp11 comdare::anatomy_module_loader)
+    comdare_set_platform_defines(${_c10})
+    add_dependencies(${_c10} perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_set_defekt_d13)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c10})
+endforeach()
+
+add_test(NAME test_e24_c10_genus_dll_roundtrip COMMAND test_e24_c10_genus_dll_roundtrip
+    "--gut=$<TARGET_FILE:perm_set_d9>" "--gut=$<TARGET_FILE:perm_sequence_d10>"
+    "--gut=$<TARGET_FILE:perm_adapter_d12>" "--gut=$<TARGET_FILE:perm_view_d11>"
+    "--defekt-set=$<TARGET_FILE:perm_set_defekt_d13>")
+set_tests_properties(test_e24_c10_genus_dll_roundtrip PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip;e24")
 
 # Build-Varianten-DLL-Loader-Test (L-74a, win32 LoadLibrary/GetProcAddress — Avx512 vs Avx2 über die .dll-Grenze).
 add_executable(test_buildvariant_dll test_buildvariant_dll.cpp)
