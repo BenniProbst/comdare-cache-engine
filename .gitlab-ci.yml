@@ -32,13 +32,20 @@ stages:
   - chaos          # Stufe 6 (#197, EPIC #186): Mess-Drift-Detektor + Rerun-Gate (Selbstheilung)
 
 # #277/#21 (User 06.07.): ccache-Bestand auf dev-MinIO via runners.cache; projektlokales CCACHE_DIR fuer cache:-Sync.
+# CI-REGRESSION 04.08. (Owner-Auftrag): restore_cache 4s (27.07.) -> 150s (04.08.), weil EIN Misch-Key
+# vier Objektklassen (gcc-Release/asan/tsan/clang) trug, permanent am 5G-Deckel lief (Major-8-Leichen
+# bleiben im LRU) und JEDER Compile-Job pull-push fuhr (bis zu 2 konkurrierende cache-archiver je Key).
+# HEILUNG nach dem bewaehrten super-#53-Muster: (a) Klassen-Keys mit je GENAU EINEM Writer
+# (gcc-Release=test:unit, asan/tsan/clang=je ihr Job), Konsumenten pull-only via .ccache-pull;
+# (b) Key-Rotation '-a8' wirft die toten Major-7-Objekte nach dem ABI-Major-8 weg (einmalige
+# Cold-Kosten deklariert); (c) MAXSIZE 5G -> 3G (Zip-Transfer je Job klein halten, super-Vorbild).
 cache:
-  key: "ccache-$CI_PROJECT_NAME"
+  key: "ccache-$CI_PROJECT_NAME-a8"
   paths: [".ccache"]
 
 variables:
   CCACHE_DIR: "$CI_PROJECT_DIR/.ccache"
-  CCACHE_MAXSIZE: "5G"
+  CCACHE_MAXSIZE: "3G"
   # PMC-Doktrin (User 23.07.): deklarierte Vendor-Lane-Menge dieses Clusters. Jede deklarierte Lane
   # MUSS ihren pmc-Job gruen bestehen (AND ueber die Deklaration); Fremd-Cluster ueberschreiben per
   # Projekt-/Pipeline-Variable (z.B. "intel" auf intel-only-Clustern) -> verschiffbare Pipeline.
@@ -50,6 +57,14 @@ variables:
   # ist der schwerere anatomy-MODULE-Test (eigener Linux-Build) -> gehoert in den vollen Test-Stage/#179-Sweep,
   # NICHT in den Contract-Smoke. (REV 11: vorher zog er den mimalloc-Kettel-Include-Bug rein, jetzt gefixt.)
   COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface && ctest --test-dir build-contract -R '^test_abi_interface$' --output-on-failure -V"
+
+# ccache-Hygiene (super-#53-Muster): Konsumenten ziehen den gcc-Release-ccache NUR (policy: pull);
+# der EINE Writer des Haupt-Keys ist test:unit (Voll-Suite = maximale Objekt-Abdeckung).
+.ccache-pull:
+  cache:
+    key: "ccache-$CI_PROJECT_NAME-a8"
+    paths: [".ccache"]
+    policy: pull
 
 # ── Stufe 1: Lint (aus ci-templates) ──
 lint:secrets:
@@ -64,6 +79,7 @@ lint:static:
 
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
+  extends: .ccache-pull   # ccache-Hygiene 04.08.: alle bare-metal-Erben sind Konsumenten (pull-only)
   before_script:
     - 'echo "== Host =="; uname -a; (lscpu | grep -E "Vendor ID|Model name") || true'
     - 'echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true'
@@ -77,6 +93,9 @@ build:clang:
   extends: .build-clang-latest
   stage: build
   tags: [baremetal]
+  cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (clang) = eigener Key, DIESER Job ist ihr Writer
+    key: "ccache-$CI_PROJECT_NAME-clang-a8"
+    paths: [".ccache"]
   variables:
     COMDARE_CMAKE_SOURCE_DIR: "."
     COMDARE_AUDIT_BUILD_TYPE: "Release"
@@ -153,6 +172,9 @@ sanitize:asan-ubsan:
   extends: .bare_metal
   stage: sanitize
   tags: [baremetal]
+  cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (asan/ubsan-Flags) = eigener Key, DIESER Job ist ihr Writer
+    key: "ccache-$CI_PROJECT_NAME-asan-a8"
+    paths: [".ccache"]
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
   script:
     - cmake -B build-san -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
@@ -162,7 +184,7 @@ sanitize:asan-ubsan:
 
 # ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig, kein großes Artefakt) ──
 contract:
-  extends: .contract
+  extends: [.contract, .ccache-pull]   # ccache-Hygiene 04.08.: Konsument des gcc-Release-Keys (pull-only)
   tags: [baremetal]
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
   artifacts:
@@ -463,6 +485,9 @@ sanitize:tsan:
   extends: .bare_metal
   stage: sanitize
   tags: [baremetal]
+  cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (tsan-Flags) = eigener Key, DIESER Job ist ihr Writer
+    key: "ccache-$CI_PROJECT_NAME-tsan-a8"
+    paths: [".ccache"]
   needs: ["lint:secrets"]
   script:
     - cmake -B build-tsan -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
