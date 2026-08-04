@@ -1601,7 +1601,10 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_e24_c2_set_permutation_engine        # E-24 C2: SetPermutationEngine::for_each_abi_adapter (13 Slots)
     test_e24_c2_sequence_permutation_engine   # E-24 C2: SequencePermutationEngine::for_each_abi_adapter (9 Slots)
     test_e24_c2_view_permutation_engine       # E-24 C2: ViewPermutationEngine::for_each_abi_adapter (5 Slots)
-    test_e24_c2_adapter_permutation_engine)   # E-24 C2 (OP-3): NEUE AdapterPermutationEngine, 11 Slots
+    test_e24_c2_adapter_permutation_engine    # E-24 C2 (OP-3): NEUE AdapterPermutationEngine, 11 Slots
+    # E-24 C3 (Bauplan Paragraf 3.1-C3): je Genus EINE Test-TU fuer Produktionstiefe. Gate Paragraf 4.2:
+    # Organ-Member-Praesenz-Asserts gegen axis_names() (Liste gegen Liste) + Slot-Pins bleiben gruen.
+    test_e24_c3_set_anatomy)                  # E-24 C3: SetAnatomy 13 Organ-Member + observe_axes + Ctx
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)

@@ -158,13 +158,36 @@ concept BoundViewOrganOps = requires(A& a, A const& ca, std::uint64_t i, std::si
 /// AxisOrganAccessOps<A> -- ACHSEN-ORGAN-Verben (SearchAlgorithm-Gattung). Ihre Op-Flaeche sind die
 /// Organ-Accessoren, ueber die der Builder/abi_adapter die real gehaltenen Achsen-Organe treibt; der
 /// Container-Zugriff selbst laeuft ueber den AnatomyExecutionContext (R5.B-Grenze).
+///
+/// C3-FORTSCHREIBUNG (2026-08-04, am Objekt erzwungen -- Befund literal): mit der Produktionstiefe C3
+/// bekommen auch die vier Container-Anatomien reale Organ-Member samt Accessoren nach demselben
+/// SA-Namensmuster (`<slot>_organ()`), und `observable_axis_count()` ebenso. Die C1-Fassung dieses Concepts
+/// nannte nur search_algo/node_type/memory_layout/serialization -- die trug nach C3 auch SetAnatomy, womit
+/// `organ_op_family_count<SetAnatomy<...>>() == 2` wurde und die C1-Diagonal-Matrix (jede Gattung in GENAU
+/// einer Teilmenge) gebrochen war. Der Bau-Fehler war real und wurde vom C3-Gate gefangen:
+///   "static_assert(cea::organ_op_family_count<StillOrgan>() == 1)  --  the comparison reduces to (2 == 1)".
+///
+/// DIE SCHAERFUNG IST KEIN NAMENS-TRICK, sondern ein Owner-verankerter Struktur-Schnitt: gefordert werden
+/// zusaetzlich die Accessoren der Slots, die es AUSSCHLIESSLICH in der SearchAlgorithm-Gattung gibt --
+/// mapping (Set ist K-only und traegt bewusst KEIN mapping, set_composition.hpp:17; Sequence/Adapter/View
+/// ebenso wenig), queuing_q1/queuing_q2 (regulaere SA-Achsen, Doc 30 Paragraf 8.0) und persistence_target
+/// (Owner-Entscheid Q-8 vom 26.07.2026, genus_binding_traits.hpp:36-40: "persistence_target ist NICHT auf
+/// sie ausgedehnt ... Wer das aendert, braucht einen neuen Owner-Entscheid"). Eine Container-Gattung KANN
+/// dieses Concept damit nicht erfuellen, ohne vorher Q-8 zu brechen -- die Disjunktheit haengt an einer
+/// Owner-Direktive, nicht an einer Namenskonvention. Die C1-Zusage "NICHTS vereinheitlichen / Matrix
+/// diagonal-wahr" bleibt damit erfuellt; sie WAERE ohne diese Schaerfung verletzt worden.
 template <class A>
 concept AxisOrganAccessOps = requires(A& a, A const& ca) {
     a.search_algo_organ();
     a.node_type_organ();
     a.memory_layout_organ();
     a.serialization_organ();
+    a.mapping_organ();            // SA-exklusiv: Set ist K-only, die uebrigen drei Genera kennen kein mapping
+    a.queuing_q1_organ();         // SA-exklusiv (Doc 30 Paragraf 8.0)
+    a.queuing_q2_organ();         // SA-exklusiv (Doc 30 Paragraf 8.0)
+    a.persistence_target_organ(); // SA-exklusiv per Owner-Entscheid Q-8 (genus_binding_traits.hpp:36-40)
     ca.search_algo_organ();
+    ca.persistence_target_organ();
     { A::observable_axis_count() } -> std::convertible_to<std::size_t>;
 };
 
@@ -465,6 +488,11 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     BoundViewOrganOps / AxisOrganAccessOps) + Disjunktheits-Beweis organ_op_family_count() == 1.
 //     ABWEICHUNG gegenueber dem Bauplan-Wortlaut "gemeinsame Op-Schnittstelle" ist im Op-Abschnitt oben
 //     literal deklariert (grep-Belege je Gattung). Gate-Form G2 ("5 Genera x Concept-TEILMENGEN") erfuellt.
+//     [C3-FORTSCHREIBUNG 04.08.] Die Produktionstiefe C3 gab den vier Container-Anatomien Organ-Accessoren
+//     im SA-Namensmuster -- damit erfuellte SetAnatomy AUCH AxisOrganAccessOps (family_count 2 statt 1) und
+//     die Diagonale war gebrochen. Behoben durch SCHAERFUNG von AxisOrganAccessOps auf die SA-exklusiven
+//     Slots (mapping/queuing_q1/queuing_q2/persistence_target); Begruendung + Owner-Anker Q-8 stehen am
+//     Concept selbst. Die Diagonale ist damit an eine Owner-Direktive geknuepft statt an eine Namenswahl.
 //
 // L2  [C1 GESCHLOSSEN] OBSERVABLEAXIS-/STATISTICS-FORWARDING. ObservableOrgan<Organ> uebersetzt die
 //     ORGAN-Ebene (observe_all()) in die ACHSEN-Ebene (snapshot_t + statistics()) und forwardet die
