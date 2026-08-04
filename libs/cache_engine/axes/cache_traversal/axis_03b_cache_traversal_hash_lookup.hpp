@@ -9,7 +9,7 @@
 // Konstante 11400714819323198485 ≈ 2^64 / golden_ratio. Linear Probing als
 // Kollisions-Strategie (Knuth analyzed L1-cache-effizient).
 //
-// Standalone-Implementation: std::vector<std::optional<pair>> Buckets +
+// Standalone-Implementation: offen adressierter Bucket-Vektor (std::optional-Belegung) +
 // power-of-2 mask + Fibonacci-Hash. Amortisiert O(1) bei load_factor < 0.7.
 // Resize verdoppelt Capacity bei load > 0.7 (Power-of-2 Pflicht fuer Mask).
 //
@@ -17,8 +17,16 @@
 // Laufzeit-Permutation (kIterableInitialCapacities). PermutationEngine
 // generiert 1 Binary mit Runtime-Loop ueber Capacity-Werte.
 //
-// Allocation: std::vector — [[allocation-failure-exception]]: register_entry
-// + Resize koennen std::bad_alloc werfen.
+// ALLOCATION (A8-S5, Familie 01d, 2026-08-04): der Bucket-Speicher laeuft ueber die ALLOKATOR-ACHSE
+// (axis_06, StdAllocatorAdapter) statt ueber den Default-Allokator -- Schnitt-Regel A8/F2-Dossier 3.4.
+// DAS GILT AUCH FUER DEN REHASH-PFAD: der Neuaufbau (rehash) allokiert ueber DIESELBE Achsen-Instanz,
+// nicht ueber einen lokalen Default-Allokator-Vektor.
+// [[allocation-failure-exception]] ENTFAELLT an DIESER Achse: die axis_06-Strategie meldet einen
+// Fehlschlag als nullptr (ExgenAllocator::allocate) und wirft kein std::bad_alloc mehr. Der OOM-Fall
+// gehoert damit dem Fehlerraum der ALLOKATOR-Achse (FK-5-Boden, axis_06_allocator_strategy_base.hpp
+// error_classes) und nicht mehr dem der Traversal-Achse -- KEINE neue Fehlerklasse (Auflage 11,
+// Pilot-Praezedenz A8-S5/04). [[zero-size-allocation-exception]] BLEIBT: die Power-of-2-/cap>0-Wache
+// ist Traversal-Semantik (Mask-Modulo) und hat mit der Allokation nichts zu tun.
 
 #include "axis_03b_cache_traversal_base.hpp"
 #include "axis_03b_cache_traversal_subaxes_ct1_to_ct2.hpp"
@@ -28,6 +36,8 @@
 #include "concepts/axis_03b_cache_traversal_iterable_aspect_strategy_concept.hpp"
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
+#include <axes/alloc/axis_06_allocator_exgen.hpp> // A8-S5: Speicher ueber die Allokator-ACHSE
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
 #include <axes/cache_traversal/axis_03b_cache_traversal_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <array>
@@ -54,6 +64,15 @@ public:
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::hash_access_tag;
     using family_id  = std::integral_constant<int, 2>; // CT02
+
+    /// A8-S5 SCHNITT-FORM (B) -- der Bucket-Speicher haengt an der Allokator-ACHSE. Diese Zeile IST der
+    /// Ausweis, den die Familien-Konformitaets-Wache liest (tests/unit/s5_family_alloc_conformance.hpp).
+    /// Warum FEST gebunden statt Template-Kopf + Namens-Alias: s. axis_03b_cache_traversal_linear_fanout.hpp
+    /// (Registry-Organ -> type_name<W>() reflektiert in die committete cache_engine_axis_registry.xml).
+    using allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+    static_assert(::comdare::cache_engine::alloc::concepts::AllocatorStrategy<allocator_type>,
+                  "A8-S5: der gebundene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- dann liefe "
+                  "der Bucket-Speicher wieder an der Allokator-Achse vorbei (Schnitt-Regel Dossier 3.4).");
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation):
     /// initial_capacity als Power-of-2. PermutationEngine erkennt via
@@ -90,11 +109,45 @@ public:
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
     /// (Mask-Modulo waere Division-By-Zero). cap MUSS Power-of-2 sein.
     explicit HashLookup(std::size_t initial_capacity)
-        : capacity_mask_(validate_capacity(initial_capacity) - 1), buckets_(initial_capacity), size_(0) {}
+        : capacity_mask_(validate_capacity(initial_capacity) - 1),
+          buckets_(initial_capacity, allocator_.as_std_allocator<bucket_type>()), size_(0) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:19/:86): der
+    /// StdAllocatorAdapter haelt einen Zeiger auf die Strategie-INSTANZ. Eine implizite Kopie zoege den
+    /// Adapter der QUELLE mit -- die Kopie allozierte/deallozierte dann ueber fremden, potentiell schon
+    /// zerstoerten Speicher. Copy-Ctor/Assign rebinden deshalb an das EIGENE allocator_ und verwerfen die
+    /// transiente Vollkopie-Pollution per restore_statistics. Move ist BEWUSST nicht deklariert
+    /// (degradiert zu Copy) -- ein Move zoege den Adapter mitsamt Fremd-Zeiger in das Ziel.
+    HashLookup(HashLookup const& o)
+        : capacity_mask_(o.capacity_mask_), buckets_(o.buckets_, allocator_.as_std_allocator<bucket_type>()),
+          size_(o.size_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    HashLookup& operator=(HashLookup const& o) {
+        if (this != &o) {
+            // propagate_on_container_copy_assignment ist false -> buckets_ BEHAELT seinen eigenen
+            // Adapter (auf unser allocator_); genau das ist hier gewollt.
+            capacity_mask_ = o.capacity_mask_;
+            buckets_       = o.buckets_;
+            size_          = o.size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~HashLookup() = default;
 
     [[nodiscard]] bool operator==(HashLookup const& other) const noexcept { return size_ == other.size_; }
 
-    /// SONDERFALL [[allocation-failure-exception]]: rehash kann std::bad_alloc werfen.
+    /// Wachstum/Rehash allokieren ueber die Allokator-Achse (kein Default-Allokator, kein bad_alloc-Pfad --
+    /// s. Kopf-Doku ALLOCATION).
     void register_entry(key_type k, value_type v) {
         if ((size_ * 10) >= (capacity_mask_ + 1) * 7) { rehash((capacity_mask_ + 1) * 2); }
         std::size_t idx = hash_index(k);
@@ -207,7 +260,7 @@ public:
     /// IterableAspectCacheTraversalStrategy [[iterable-aspect-strategy]]:
     /// Setter fuer Runtime-Capacity-Switch (vollstaendiger Rehash).
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 oder nicht-Power-of-2 wirft.
-    /// SONDERFALL [[allocation-failure-exception]]: rehash kann std::bad_alloc werfen.
+    /// Der Neuaufbau allokiert ueber die Allokator-Achse (s. Kopf-Doku ALLOCATION).
     void set_iterable_aspect(std::size_t new_capacity) {
         std::size_t validated = validate_capacity(new_capacity);
         rehash(validated);
@@ -244,7 +297,11 @@ private:
     }
 
     void rehash(std::size_t new_capacity) {
-        std::vector<std::optional<std::pair<key_type, value_type>>> old_buckets;
+        // A8-S5: der Neuaufbau MUSS ueber DIESELBE Achsen-Instanz laufen -- ein lokaler
+        // Default-Allokator-Vektor waere genau die Umgehung, die der Scrub abstellt. Der swap ist
+        // definiert, weil beide Adapter dieselbe Strategie-Instanz (&allocator_) tragen und damit
+        // operator== erfuellen (propagate_on_container_swap ist false; gleiche Allokatoren = zulaessig).
+        bucket_vector old_buckets(allocator_.as_std_allocator<bucket_type>());
         old_buckets.swap(buckets_);
         buckets_.assign(new_capacity, std::nullopt);
         capacity_mask_       = new_capacity - 1;
@@ -266,9 +323,16 @@ private:
         (void)old_size;
     }
 
-    std::size_t                                                 capacity_mask_;
-    std::vector<std::optional<std::pair<key_type, value_type>>> buckets_;
-    std::size_t                                                 size_;
+    using bucket_type   = std::optional<std::pair<key_type, value_type>>;
+    using bucket_alloc  = allocator_type::StdAllocatorAdapter<bucket_type>;
+    using bucket_vector = std::vector<bucket_type, bucket_alloc>;
+
+    // allocator_ MUSS VOR buckets_ stehen: der Adapter haelt &allocator_, und die Member-
+    // Initialisierungsreihenfolge ist die Deklarationsreihenfolge (Praezedenz btree/tree-Pool-Store).
+    allocator_type allocator_{};
+    std::size_t    capacity_mask_;
+    bucket_vector  buckets_;
+    std::size_t    size_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::CacheTraversalStatistics stats_{};
     mutable observer_t                         observer_{};
