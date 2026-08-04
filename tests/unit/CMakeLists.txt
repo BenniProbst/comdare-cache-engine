@@ -1677,7 +1677,8 @@ endforeach()
 # ist -- die Label-Trennung haelt beide im ctest getrennt filterbar (`ctest -L c6` vs. `-L c6v`).
 # Bau identisch zum C6-V-Block (plain int main(), Boost::mp11 + generated, STATISTICS-ON-Pfad).
 set(COMDARE_E24_C6_TESTS
-    test_e24_c6_genus_observer_aggregate) # C6 (a): das gemeinsame Wire-Layout GenusObserverAggregate<G, N>
+    test_e24_c6_genus_observer_aggregate # C6 (a): das gemeinsame Wire-Layout GenusObserverAggregate<G, N>
+    test_e24_c6_axis_row_writer)         # C6 (b): write_genus_axis_row + E1-Milli-Fixpunkt
 foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     add_executable(${_c6} "${_c6}.cpp")
     target_compile_features(${_c6} PRIVATE cxx_std_23)
