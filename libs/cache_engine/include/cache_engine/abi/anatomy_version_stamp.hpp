@@ -115,13 +115,23 @@ template <class Comp>
     return line;
 }
 
-/// system_stamp_line() -- die kSystemAxisVersionLine (Section 43, Entscheid W12-A-1). ZWEIPHASIG dokumentiert:
-/// HEUTE traegt sie die STATISCHEN System-Achsen-ALGORITHMUS-Versionen (Compiler-/SIMD-/Scheduling-Achsen-
-/// Code-Version), NICHT die gewaehlten System-Zellwerte -- der Tier-Emitter ist system-blind (W4-B-Invariante),
-/// und die Zellwerte existieren bereits als Provenienz im .version-Sidecar. W10-ANSCHLUSS: die CEB-Naht
-/// (perm_compile kennt die Zelle) ergaenzt die Zellwerte via Compile-Define -> DANN ist die Zeile komplett,
-/// ohne den Emitter zu entblinden. Format identisch zur Organ-Zeile ("achse=algo@X.Y.Z"); Algorithmus-Marker
-/// "code" = die statische Code-Identitaet der System-Achse.
+/// system_stamp_line() -- die kSystemAxisVersionLine (Section 43, Entscheid W12-A-1). Die frueher hier
+/// dokumentierte ZWEIPHASIGKEIT ist mit W10-C4 VOLLZOGEN:
+///   PHASE 1 (bis W10): diese Funktion liefert die STATISCHEN System-Achsen-ALGORITHMUS-Versionen -- die
+///     Code-Identitaet der Achsen, NICHT die gewaehlte Zelle. Das war eine bewusste Luecke, keine
+///     Vergesslichkeit: der Tier-Emitter ist system-blind (W4-B-Invariante).
+///   PHASE 2 (seit W10-C4, 04.08.2026): die CEB-Naht kennt die Zelle (perm_compile) und reicht sie als
+///     Compile-Define COMDARE_SYSTEM_CELL_VALUES herein; das Stempel-Makro vervollstaendigt die hier
+///     gerenderte Zeile consteval um die Zellwerte ("code" -> "code.<token>"). Der Emitter ist dabei NICHT
+///     entblindet worden -- er schreibt weiter dasselbe Literal.
+/// DIESE FUNKTION BLEIBT DESHALB DIE PHASE-1-FORM. Wer die VOLLE, gebaute Zeile braucht, ruft den
+/// Vervollstaendiger: abi/system_cell_values.hpp ist die Single-Source der Zellwert-Grammatik und traegt
+/// beide Formen (consteval complete_system_stamp_line_array fuer die Makro-Naht, complete_system_stamp_line
+/// fuer den Laufzeit-Zwilling der CEB). Die WERTE-Aufloesung selbst wohnt eine Schicht weiter aussen in
+/// profile_facade/system_cell_values_naht.hpp -- diese abi-Schicht kennt die Achsen-Zellen nicht und soll
+/// sie nicht kennen.
+/// Format identisch zur Organ-Zeile ("achse=algo@X.Y.Z"); Algorithmus-Marker "code" = die statische
+/// Code-Identitaet der System-Achse, der Zellwert haengt als NAMENS-Anteil davor am '@' (Owner-Q2).
 ///
 /// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
 /// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0c]", also VIER Eintraege statt

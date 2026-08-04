@@ -248,6 +248,17 @@ inline constexpr std::size_t     kStemMax = 120;
 /// byte-identisch zum Alt-Verhalten). Alle drei Prueflinge sind reine String-Gleichheit -> additiv, risikoarm; ein
 /// fehlendes `.algos`/`.variant` bei gesetzter Erwartung erzwingt Neubau (Alt-Binary vor der Cache-Einfuehrung ->
 /// einmal frisch, dann Sidecar vorhanden).
+///
+/// W10-C5 -- ENDE DER UEBERGANGSREGEL "Skip nur bei gleicher OS-Familie" (Vollzugs-Vermerk). Diese Regel war
+/// NIE Code: sie lebte deklarativ im Bauplan und war implizit nur ueber die Datei-Plattform-Suffixe der Loader
+/// und die faktisch linux-only-Flotte gedeckt. Seit W10-C4 traegt jeder DEFINIERT gebaute Tier-Stempel die
+/// Bau-ZELLE (OS-Familie + ISA + simd) IM Fingerprint -- linux-, macos- und aarch64-Baue derselben Permutation
+/// haben beweisbar verschiedene SHA512. Fuer NEUBAUTEN ist die Regel damit gegenstandslos; ein Code-Rueckbau
+/// entfaellt, weil nie Code existierte. Fuer den STALEN Bestand deckt der W10-M2-Marker: prae-W10-Binaries
+/// passieren dieses Gate nicht mehr (Einzel-Pfad '+ceb=7.1' vs '+ceb=7.2'; Perm-Pfad 'kein +ceb' vs '+ceb=7.2'
+/// nach der C4-Verdrahtung) -- das ist der Grund, warum der Contract-Minor im selben Commit gewandert ist.
+/// Der K1-Cross-Check (OS-Familie aus dem .version-Sidecar) bleibt als ZWEITE Verteidigungslinie bestehen, bis
+/// das A2-SHA512-only-Gate geeicht ist: er kostet nichts und faengt Define-Verkabelungsfehler.
 [[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version,
                                          std::string const& algo_sig    = std::string{},
                                          std::string const& variant_sig = std::string{}) {

@@ -182,9 +182,14 @@ struct AnatomyVersionLines {
     // Zeiger auf kAnatomyStampNoEntries (nie nullptr, ""-Doktrin). KEIN binary_id-/CRC-Bruch (POD-Layout !=
     // binary_id). Ein Konsument liest diese Felder NUR bei stamp_layout_version == 6 (stamp_pod_has_entries) --
     // A13-M3 hat die Offsets um -16 verschoben, ein >=-Praedikat waere ab hier falsch (K-4, s.u.).
-    AnatomyStampEntryV1 const* organ_entries;           ///< Organ-Array [g,h,i] (17 Haupt-Achsen)
-    std::uint64_t              organ_entry_count;       ///< Anzahl organ_entries
-    AnatomyStampEntryV1 const* system_entries;          ///< System-Array [d,e,f] (5 Achsen) -- NIE mit Organ fusioniert
+    AnatomyStampEntryV1 const* organ_entries;     ///< Organ-Array [g,h,i] (17 Haupt-Achsen)
+    std::uint64_t              organ_entry_count; ///< Anzahl organ_entries
+    // K-6 (W10-C5): hier stand "(5 Achsen)" -- falsch seit der Achsen-Neuordnung und doppelt falsch seit
+    // A13-M2. IST: DREI System-Haupt-Achsen (kSystemAxisOrder: target_isa, operating_system, external_utils)
+    // + EIN geklammerter Meta-Meta-Anhang am Zeilen-ENDE ([simd=...]) = 4 Eintraege. Seit W10-C4 tragen die
+    // drei Haupt-Namen zusaetzlich den ZELLWERT als Namens-Anteil ("code" -> "code.<token>"); die Zahl der
+    // Eintraege aendert das nicht -- der Zellwert steht IN einem Eintrag, nie als eigenes Segment.
+    AnatomyStampEntryV1 const* system_entries;          ///< System-Array [d,e,f] -- NIE mit Organ fusioniert
     std::uint64_t              system_entry_count;      ///< Anzahl system_entries
     AnatomyStampEntryV1 const* measurement_entries;     ///< Mess-Array {wallclock,macro,micro}; count==0 -> Sentinel
     std::uint64_t              measurement_entry_count; ///< Anzahl measurement_entries
