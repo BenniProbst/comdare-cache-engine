@@ -89,12 +89,14 @@ static an::ComdareSegmentLatencyV2 measure_patha(char const* name) {
     //     und damit 0 ns ablesen — das ist Timer-Granularitaet, NICHT „unberuehrt" verletzt; deshalb >= 0 (kein < 0).
     bool others_nonneg = true;
     int  neg_t         = -1;
-    for (int t = 0; t < 17; ++t)
+    // A8-S1: Schleifen-Grenze aus der tragenden Konstante -- `< 17` liess die letzte Achse blind.
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t)
         if (t != 7 && out.seg_ns[t] < 0) {
             others_nonneg = false;
-            if (neg_t < 0) neg_t = t;
+            if (neg_t < 0) neg_t = static_cast<int>(t);
         }
-    tr(std::string(name) + ": die anderen 17 Segmente unberuehrt (kein < 0 durch T7-Re-Grounding)" +
+    tr(std::string(name) + ": die anderen " + std::to_string(an::kV3AxisCount - 1) +
+           " Segmente unberuehrt (kein < 0 durch T7-Re-Grounding)" +
            (others_nonneg ? "" : (" (neg bei T" + std::to_string(neg_t) + ")")),
        others_nonneg);
 

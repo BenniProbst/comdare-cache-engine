@@ -93,12 +93,14 @@ int main() {
     drv->tier_observe(&u);
     bool all_pos = true;
     int  zero_t  = -1;
-    for (int t = 0; t < 17; ++t)
+    // A8-S1: Schleifen-Grenze aus der tragenden Konstante -- `< 17` liess die letzte Achse blind.
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t)
         if (u.seg_ns[t] <= 0) {
             all_pos = false;
-            if (zero_t < 0) zero_t = t;
+            if (zero_t < 0) zero_t = static_cast<int>(t);
         }
-    chk(std::string("alle 19 seg_ns > 0 (container_-Key-Ernte, KEINE nk=1-Degeneration)") +
+    chk(std::string("alle ") + std::to_string(an::kV3AxisCount) +
+            " seg_ns > 0 (container_-Key-Ernte, KEINE nk=1-Degeneration)" +
             (all_pos ? "" : (" (erste 0 bei T" + std::to_string(zero_t) + ")")),
         all_pos);
     chk("T0 search seg_ns > 0 (Such-Pfad store-geroutet)", u.seg_ns[0] > 0);

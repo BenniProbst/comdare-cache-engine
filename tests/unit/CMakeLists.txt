@@ -1678,6 +1678,10 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # #188-4c-iii Review-BLOCKER (2026-07-02): test_cow_memento war git-tracked aber NIE registriert — er ist
     # DIE Absicherung fuer tier_memento_is_copy_on_write()==true (CoW Rev. 2 + 4c-iii-Semantik-Delta: cow_capable_
     # haengt nur noch am echten container_t-Substrat). Gleiche anatomy/axes-Include-Kette wie die Tests darueber.
+    # A8-S1 (2026-08-04): DAUERHAFTE Wache gegen den stillen T17-Messwert-Verlust (Befund B-6). Prueft die
+    # Mess-Kette (Pfad-A-POD, Pfad-B-POD, CSV-Naht, Knoten-Projektion) IMMER gegen kV3AxisCount, nie gegen ein
+    # Literal -> bricht bei kuenftigem Achsen-Zuwachs, statt den neuen Slot still zu verlieren.
+    test_a8s1_t17_vollzaehligkeit     # A8-S1 -- T17-Vollzaehligkeit der Mess-Kette gegen kV3AxisCount
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")

@@ -857,8 +857,11 @@ public:
             clock::time_point const run_t1 = clock::now();
             alloc.deallocate(lbuf, kLbufBytes, 64);
 
+            // A8-S1 (2026-08-04, Befund B-6): Grenze ist kV3AxisCount, NIE ein Literal. Bis hierher stand `< 17`
+            // bei acc[18]/seg_ns[18] -> acc[17] (T17 persistence_target, oben gemessen) wurde weder kopiert noch
+            // in total summiert und floss still in seg_framework_ns = stiller Messwert-Verlust an der CSV-Naht.
             std::int64_t total = 0;
-            for (int i = 0; i < 17; ++i) {
+            for (std::size_t i = 0; i < kV3AxisCount; ++i) {
                 out->seg_ns[i] = acc[i];
                 total += acc[i];
             }
@@ -1683,8 +1686,11 @@ public:
             }
             clock::time_point const run_t1 = clock::now();
 
+            // A8-S1 (2026-08-04, Befund B-6): Grenze ist kV3AxisCount, NIE ein Literal -- identisches Muster wie
+            // Pfad A oben. `< 17` verlor acc[17] (T17 persistence_target) aus seg_ns UND aus total_ns; die Zeit
+            // floss still in seg_framework_ns, waehrend die CSV weiter 18 seg-Spalten schrieb.
             std::int64_t total = 0;
-            for (int i = 0; i < 17; ++i) {
+            for (std::size_t i = 0; i < kV3AxisCount; ++i) {
                 out->seg_ns[i] = acc[i];
                 total += acc[i];
             }
