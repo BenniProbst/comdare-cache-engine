@@ -1637,10 +1637,16 @@ endforeach()
 
 # -----------------------------------------------------------------------------
 # E-24 C6-V (2026-08-04, Entscheid E5 LEDGER:3828) -- die Statistics-Huellen der GATTUNGS-EIGENEN
-# Achsen-Themen. EIGENE Liste statt COMDARE_GOALV6_BOOST_DTESTS, weil diese TUs die Huellen im
-# EINGESCHALTETEN Zustand pruefen muessen: die Huellen sind COMDARE_CE_ENABLE_STATISTICS-gegated
-# (Praezedenz axis_01_index_organization_observable.hpp:126-133), und der Sammel-foreach oben setzt
-# das Define nicht. Bau sonst identisch (plain int main(), Boost::mp11 + generated-Achsen-Includes).
+# Achsen-Themen. Die Huellen sind COMDARE_CE_ENABLE_STATISTICS-gegated (Praezedenz
+# axis_01_index_organization_observable.hpp:126-133), und diese TUs pruefen den EINGESCHALTETEN Zustand.
+# EHRLICHE EINORDNUNG des Defines: es kommt am Ist ohnehin GLOBAL aus dem Root-CMakeLists
+# (option(COMDARE_CE_ENABLE_STATISTICS ... ON) + add_compile_definitions, CMakeLists.txt:156-161) --
+# die Zeile hier ist also REDUNDANT-ABSICHTLICH: sie haelt diese TUs auch dann auf dem ON-Pfad, wenn
+# jemand die globale Option ausschaltet (dann wuerden sie sonst still den OFF-Pfad testen und ihre
+# Aussage verlieren). Eigene Liste statt COMDARE_GOALV6_BOOST_DTESTS, weil dessen foreach keine
+# per-Target-Definitionen zulaesst. Bau sonst identisch (plain int main(), Boost::mp11 + generated).
+# OFFEN (kein C6-V-Gegenstand): der OFF-Pfad der Huellen wird in dieser Konfiguration von KEINER TU
+# uebersetzt -- dieselbe Lage wie bei allen bestehenden Observable-Huellen des Repos.
 set(COMDARE_E24_C6V_TESTS
     test_e24_c6v_growth_statistics       # C6-V (a): GrowthStatistics + ObservableGrowth (Sequence-Achse)
     test_e24_c6v_view_statistics         # C6-V (b): Extent/Layout/AccessorStatistics + Huellen (View-Achsen)
