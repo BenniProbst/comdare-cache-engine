@@ -109,6 +109,14 @@ public:
 
     using real_slot_type = real_slot_t<Strategy>;
 
+    /// A8-S5-03 Form-B-Ausweis der Huelle (S5-Gate-Wache, tests/unit/s5_family_alloc_conformance.hpp): der
+    /// Speicher des Slot-Backings laeuft ueber die Allokator-Achse. Es ist EXAKT der Typ, den PoolValueSlot/
+    /// ChainValueSlot real als Versorger halten (EINE Quelle, axis_14_value_handle_real_slot.hpp) -- die
+    /// Deklaration kann also nicht vom Ist abdriften. Fuer Inline (EmptyRealSlot) ist die Huelle ohnehin
+    /// heap-frei und erfuellt die staerkere Form (A); die Zeile benennt den Versorger nur einheitlich.
+    /// Realer Verdrahtungs-Beleg am Objekt: real_slot().slot_allocator_statistics() (Nicht-Inline).
+    using allocator_type = value_handle_slot_allocator_t;
+
     /// Build (Setup, NICHT gemessen): den (key,value) in die REALE Slot-Struktur legen (Pool-Indirektion / Chain-
     /// Knoten / versioniertem Pool-Eintrag). Existiert NUR fuer Nicht-Inline-Strategien (EmptyRealSlot ohne store_value).
     // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — delegiert an das allozierende real_slot-store_value.
@@ -233,9 +241,12 @@ private:
 private:
     // ── §4.3 — REALE Slot-Struktur-Instanz (IMMER vorhanden, auch ohne Statistics-Define) ──────────────────────
     // Traegt das echte Pool-/Versioned-Pool-/Chain-Slot-Backing (Nicht-Inline) bzw. EmptyRealSlot (Inline, 0
-    // Footprint). std::vector-basiert (Pool/Chain) bzw. leer → copy-constructible + copy-assignable + operator==
+    // Footprint). Dynamisch wachsend (Pool/Chain) bzw. leer -> copy-constructible + copy-assignable + operator==
     // → ObservableValueHandle kopierbar/vergleichbar → fuer den symmetrischen Memento (saved_vh_ in tier_save_all/
     // tier_rollback_all) snapshot-faehig (R1, Leitplanke 3). Default-konstruiert = leer (None-aequivalente Baseline).
+    // A8-S5-03 (2026-08-04): der Wachstums-Speicher kommt ueber die Allokator-ACHSE (allocator_type oben); die
+    // Kopie rebindet auf das eigene allocator_ des Ziels, der Memento bleibt damit ein VOLLSTAENDIG
+    // eigenstaendiges Backing (kein Adapter, der auf den Partner zeigt).
     real_slot_type real_slot_{};
     std::uint64_t  runtime_inline_threshold_bytes_ = 0;
 };

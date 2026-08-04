@@ -16,9 +16,14 @@
 //      keine neue Struktur und wird auch nicht angefasst. EXAKT wie filter: None-artige ohne insert_key bleiben heil.
 //  (2) static value_access_scan (seg19 Pfad-A) wird NICHT angefasst — diese Datei fuegt NUR Instanz-Methoden hinzu,
 //      die static-Signatur in den 5 Strategie-Headern bleibt bit-identisch.
-//  (3) R1-Memento: die Struktur ist `std::vector`-basiert (copy-constructible + copy-assignable + operator==) →
+//  (3) R1-Memento: die Struktur ist dynamisch wachsend (copy-constructible + copy-assignable + operator==) ->
 //      ueber den ObservableValueHandle-Wrapper bit-exakt snapshot-/restore-faehig (saved_vh_ in tier_save_all/
 //      tier_rollback_all, geleert in tier_clear) — analog saved_flt_/flt_organ_.
+//      A8-S5-03 (2026-08-04) PRAEZISIERT: der Wachstums-Speicher kommt seit dem Schnitt REAL ueber das
+//      Allokator-ACHSEN-Interface (value_handle_slot_allocator_t + StdAllocatorAdapter) statt ueber den
+//      Default-Allokator -- Dossier 20260803-a8_f2 Abschn. 3.4. Die Memento-Zusage bleibt WORTGLEICH gueltig
+//      und wird dabei SCHAERFER: die Kopie rebindet auf ihr EIGENES allocator_ (btree_node_pool_store.hpp:19),
+//      es entsteht also keine stille Default-Allokator-Kopie und kein Adapter, der auf die Quelle zeigt.
 //  (4) Lehrbuch-Pattern, zero-cost: die per-Strategie-Auswahl (Pool vs Versioned-Pool vs Chain) ist eine
 //      reine `if constexpr`-Compile-Zeit-Selektion ueber Strategy::is_inline() + Strategy::name() (Strategy-Pattern,
 //      [[no-runtime-switch]]). Inline-Strategien instanziieren `EmptyRealSlot` (leer, 0-Footprint).
@@ -26,6 +31,9 @@
 // @topic value_handle @achse 14 @saeule 2 @task §4.3-REAL @related [[per-service-vip]] (irrelevant) — vgl. axis_filter (P5 #124)
 
 #include "concepts/axis_14_value_handle_concept.hpp"
+
+#include <axes/alloc/axis_06_allocator_exgen.hpp> // A8-S5-03: Versorger-Achse des Slot-Backings (s.u.)
+
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -34,10 +42,29 @@
 
 namespace comdare::cache_engine::value_handle_axis {
 
+/// A8-S5 Familie 03_placement (Dossier 20260803-a8_f2 Abschn. 3.4, Schnitt-Regel): das reale Slot-Backing
+/// bezieht seinen Speicher ueber das Allokator-ACHSEN-Interface (axis_06) statt ueber den Default-Allokator.
+/// DIESE Zeile ist die EINE Stelle, die den Versorger benennt -- Pool-, Chain- und Leer-Backing sowie der
+/// Form-B-Ausweis der Observable-Huelle lesen sie, damit kein zweiter Name driften kann.
+///
+/// WARUM ExgenAllocator: derselbe Achsen-Default, den die bereits konformen Pool-Stores des Repos fuehren
+/// (btree_node_pool_store.hpp:56, tree_node_pool_store.hpp, surf_fst_map_pool_store.hpp). Das Backing ist
+/// single-threaded getrieben (Build-Hook in tier_insert), passend zur Exgen-Sub-Achse AA4. Bei abgeschaltetem
+/// Vendor-Flag faellt die Strategie intern auf portable_aligned_alloc zurueck: derselbe libc-Heap wie vorher,
+/// aber ueber das Achsen-Interface.
+///
+/// ABHAENGIGKEITSRICHTUNG (Dossier 3.3): value_handle -> alloc. Der Allokator ist die UNTERSTE Versorger-Achse;
+/// axes/alloc/ zieht keinen value_handle-Header -> kein Zyklus.
+///
+/// OFFEN (bewusst NICHT hier entschieden): Kompositions-Rebind statt Achsen-Default -- eigener Entscheid der
+/// S5-Scheibe 01c (S5-Planung, LEDGER-Nachtrag 04.08. abend-4).
+using value_handle_slot_allocator_t = ::comdare::cache_engine::alloc::ExgenAllocator;
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // EmptyRealSlot — fuer is_inline()-Strategien. Traegt KEINE store_value/deref_value-Methode → der Build-Hook im
 // abi_adapter (requires-detektiert) greift nicht → Inline bleibt EXAKT unveraendert + messneutral (Leitplanke 1).
-// std::vector-freie leere Struktur (0 Footprint). operator== = immer true (leere Inline-Struktur ist konstant).
+// Leere Struktur OHNE jeden Heap-Anteil (0 Footprint) -- sie erfuellt damit die STAERKERE Schnitt-Form (A)
+// der S5-Gate-Wache (heap-frei), nicht nur Form (B). operator== = immer true (leere Inline-Struktur ist konstant).
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 struct EmptyRealSlot {
     void                      clear() noexcept {}
@@ -67,13 +94,63 @@ struct PoolValueSlot {
         std::uint64_t version = 0;
     };
 
-    std::vector<Slot>      slots_{}; ///< Node-Slots: (key → Pool-Index). EINZIGE Slot-Struktur (kein Inline-Value).
-    std::vector<PoolEntry> pool_{};  ///< Externer Pool: der Value liegt HIER (+ MVCC-Version bei Versioned).
+    /// A8-S5-03 Form-B-Ausweis: der Speicher dieses Backings laeuft ueber die Allokator-Achse (real verdrahtet,
+    /// s. Member unten + slot_allocator_statistics()).
+    using allocator_type = value_handle_slot_allocator_t;
+
+private:
+    using slot_alloc = typename allocator_type::template StdAllocatorAdapter<Slot>;
+    using pool_alloc = typename allocator_type::template StdAllocatorAdapter<PoolEntry>;
+
+public:
+    // -- A8-S5-03 Lebensdauer-Vertrag der Achsen-Verdrahtung (Muster btree_node_pool_store.hpp:19/:84-105) --
+    // Der StdAllocatorAdapter haelt einen Zeiger auf allocator_. Daraus folgt:
+    //   (a) allocator_ MUSS vor slots_/pool_ deklariert sein (Member-Reihenfolge unten),
+    //   (b) beide Vektoren werden IMMER mit dem Adapter DIESES allocator_ konstruiert (der Adapter ist nicht
+    //       default-konstruierbar -- es gibt kein stilles Zurueckfallen auf einen Default-Allokator),
+    //   (c) die R1-Memento-Kopie REBINDET auf das EIGENE allocator_ -- genau das verlangt Leitplanke 3:
+    //       saved_vh_.emplace(vh_organ_) (abi_adapter.hpp:1857) und vh_organ_ = *saved_vh_ (:1896/:1918)
+    //       muessen ein VOLLSTAENDIG eigenstaendiges Backing erzeugen, nicht eines, das auf den Allokator
+    //       des Partners zeigt (das waere ein dangling Adapter, sobald einer der beiden stirbt),
+    //   (d) Move bewusst NICHT deklariert: die benutzerdeklarierte Kopie unterdrueckt den impliziten Move,
+    //       ein std::move degradiert zur rebindenden Kopie statt den Fremd-Adapter zu stehlen.
+    // std::vector propagiert den Allokator bei copy-assign nicht (POCCA=false ist der allocator_traits-Default)
+    // -- das Ziel behaelt in operator= seinen eigenen Adapter. Genau das ist gewollt.
+    PoolValueSlot()
+        : slots_(allocator_.template as_std_allocator<Slot>()),
+          pool_(allocator_.template as_std_allocator<PoolEntry>()) {}
+    PoolValueSlot(PoolValueSlot const& o)
+        : allocator_(o.allocator_), slots_(o.slots_, allocator_.template as_std_allocator<Slot>()),
+          pool_(o.pool_, allocator_.template as_std_allocator<PoolEntry>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        // Memento-Symmetrie (analog btree_node_pool_store.hpp:91): die transiente Kopier-Allokation der
+        // Vollkopie ist kein Mess-Ereignis der Achse -> Statistik auf den Quell-Stand zuruecksetzen.
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    PoolValueSlot& operator=(PoolValueSlot const& o) {
+        if (this != &o) {
+            slots_ = o.slots_; // Allokator propagiert NICHT -> dieses Objekt behaelt seinen Adapter
+            pool_  = o.pool_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~PoolValueSlot() = default;
 
     /// Build (Setup, NICHT gemessen): den Value extern in den Pool legen + den Slot auf den Pool-Index zeigen lassen.
     /// Vorhandener Key wird ueberschrieben (in-place Update); Versioned bumpt dabei die Version (neue Snapshot-Sicht).
-    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — pool_/slots_.push_back kann allozieren/werfen
-    // ([[allocation-failure-exception]]: werfen statt terminate).
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept -- pool_/slots_.push_back kann allozieren
+    // ([[allocation-failure-exception]]: melden statt terminate).
+    // A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen): der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber
+    // die Allokator-ACHSE. Die Strategie meldet OOM per nullptr (axis_06_allocator_exgen.hpp:76ff), der
+    // StdAllocatorAdapter reicht ihn unveraendert weiter (axis_06_allocator_strategy_base.hpp:162-164) -- der
+    // konkrete std::bad_alloc-Wurf des Default-Allokators ENTFAELLT damit an dieser Stelle. Die Fehlerklasse
+    // der Achse bleibt kOrganAxisErrorFloor (ValueHandleStrategyBase::error_classes, FK-5); die Konversion
+    // nullptr -> Fehlerklassen-Wurf gehoert ins Adapter-ZIEL-Interface und ist fuer diese Scheibe TABU
+    // (Auftrags-Scope) -- als offener Punkt an den A15-/alloc-Strang uebergeben.
     void store_value(std::uint64_t key, std::uint64_t value) {
         for (auto& sl : slots_) {
             if (sl.key == key) { // Update: Value im Pool ersetzen
@@ -122,6 +199,23 @@ struct PoolValueSlot {
             if (pool_[i].value != o.pool_[i].value || pool_[i].version != o.pool_[i].version) return false;
         return true;
     }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    /// A8-S5-03 VERDRAHTUNGS-BELEG (Nicht-Vertrags-Methode, analog btree_node_pool_store.hpp:128): die
+    /// Statistik der Versorger-Strategie DIESES Backings -- macht die Form-B-Aussage der S5-Gate-Wache am
+    /// Objekt pruefbar (ein bloss deklarierter allocator_type bliebe hier auf 0 stehen; das ist die in
+    /// tests/unit/s5_family_alloc_conformance.hpp:31 deklarierte Grenze der Form B).
+    /// NICHT im T10-Mess-Pfad: T10 misst access/indirect_deref der Huelle, nicht diesen privaten Versorger.
+    [[nodiscard]] typename allocator_type::snapshot_t slot_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
+#endif
+
+private:
+    // allocator_ VOR slots_/pool_ (Lebensdauer des Zeigers im StdAllocatorAdapter, s. Ctor-Kommentar oben).
+    allocator_type                     allocator_{};
+    std::vector<Slot, slot_alloc>      slots_; ///< Node-Slots: (key -> Pool-Index), EINZIGE Slot-Struktur.
+    std::vector<PoolEntry, pool_alloc> pool_;  ///< Externer Pool: der Value liegt HIER (+ MVCC-Version).
 };
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -143,12 +237,45 @@ struct ChainValueSlot {
         std::uint64_t next_index = kNil;
     };
 
-    std::vector<Slot>      slots_{}; ///< Node-Slots: (key → Chain-Head-Index).
-    std::vector<ChainNode> chain_{}; ///< Chain-Knoten-Pool: (value, next_index) — echte verkettete Liste.
+    /// A8-S5-03 Form-B-Ausweis: der Speicher dieses Backings laeuft ueber die Allokator-Achse (real verdrahtet,
+    /// s. Member unten + slot_allocator_statistics()).
+    using allocator_type = value_handle_slot_allocator_t;
+
+private:
+    using slot_alloc  = typename allocator_type::template StdAllocatorAdapter<Slot>;
+    using chain_alloc = typename allocator_type::template StdAllocatorAdapter<ChainNode>;
+
+public:
+    // -- A8-S5-03 Lebensdauer-Vertrag der Achsen-Verdrahtung -- identisch PoolValueSlot (dort ausfuehrlich
+    //    kommentiert): allocator_ vor den Vektoren; Vektoren IMMER ueber den Adapter dieses allocator_;
+    //    R1-Memento-Kopie rebindet auf das eigene allocator_; Move bewusst nicht deklariert.
+    ChainValueSlot()
+        : slots_(allocator_.template as_std_allocator<Slot>()),
+          chain_(allocator_.template as_std_allocator<ChainNode>()) {}
+    ChainValueSlot(ChainValueSlot const& o)
+        : allocator_(o.allocator_), slots_(o.slots_, allocator_.template as_std_allocator<Slot>()),
+          chain_(o.chain_, allocator_.template as_std_allocator<ChainNode>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    ChainValueSlot& operator=(ChainValueSlot const& o) {
+        if (this != &o) {
+            slots_ = o.slots_;
+            chain_ = o.chain_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~ChainValueSlot() = default;
 
     /// Build (Setup, NICHT gemessen): einen NEUEN Chain-Knoten an den Pool anhaengen + als neuen Head des Keys
     /// verketten (Multi-Value-Prepend). Existiert der Key noch nicht → neuer Slot mit diesem Knoten als Head.
-    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — chain_/slots_.push_back kann allozieren/werfen.
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept -- chain_/slots_.push_back kann allozieren.
+    // A8-S5-03 PRAEZISIERT (Auflage 11): Fehlerpfad jetzt ueber die Allokator-Achse (nullptr statt
+    // std::bad_alloc) -- Begruendung + offener Punkt identisch PoolValueSlot::store_value.
     void store_value(std::uint64_t key, std::uint64_t value) {
         std::uint64_t const node_idx = static_cast<std::uint64_t>(chain_.size());
         for (auto& sl : slots_) {
@@ -191,6 +318,19 @@ struct ChainValueSlot {
             if (chain_[i].value != o.chain_[i].value || chain_[i].next_index != o.chain_[i].next_index) return false;
         return true;
     }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    /// A8-S5-03 VERDRAHTUNGS-BELEG -- identisch PoolValueSlot::slot_allocator_statistics (dort begruendet).
+    [[nodiscard]] typename allocator_type::snapshot_t slot_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
+#endif
+
+private:
+    // allocator_ VOR slots_/chain_ (Lebensdauer des Zeigers im StdAllocatorAdapter).
+    allocator_type                      allocator_{};
+    std::vector<Slot, slot_alloc>       slots_; ///< Node-Slots: (key -> Chain-Head-Index).
+    std::vector<ChainNode, chain_alloc> chain_; ///< Chain-Knoten-Pool: (value, next_index) -- verkettete Liste.
 };
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────

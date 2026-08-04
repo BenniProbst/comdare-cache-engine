@@ -9,14 +9,16 @@
 // 38(1):86-124, 1989). Alle Offsets sind relativ zu einem pool_base_address
 // gespeichert.
 //
-// Standalone-Implementation: std::vector<pair<slot, relative_offset>>. Vorteil:
+// Standalone-Implementation: dynamische Slot-Tabelle aus pair<slot, relative_offset>. Vorteil:
 // Pool kann komplett umalloziert werden ohne Mapping-Tabelle anzufassen
 // — nur pool_base_ wird neu gesetzt (O(1) Rebase statt O(N) Translation).
 //
 // Constructor benoetigt pool_base_address (Pflicht-Sonderfall:
 // requires_pool_base()=true).
 //
-// Allocation: std::vector — [[allocation-failure-exception]].
+// Allocation (A8-S5-03, 2026-08-04): der Tabellen-Speicher kommt REAL ueber das Allokator-ACHSEN-Interface
+// (mapping_slot_allocator_t + StdAllocatorAdapter, s. axis_03m_mapping_base.hpp) statt ueber den
+// Default-Allokator -- Schnitt-Regel Dossier 20260803-a8_f2 Abschn. 3.4. Fehlerklasse: s. register_slot.
 
 #include "axis_03m_mapping_base.hpp"
 #include "axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
@@ -49,7 +51,15 @@ public:
     using topic_tag       = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag        = subaxes::pool_relative_access_tag;
     using family_id       = std::integral_constant<int, 2>; // MP02
+    /// A8-S5-03 Form-B-Ausweis: der Speicher dieses Organs laeuft ueber die Allokator-Achse (real verdrahtet,
+    /// s. Member unten + mapping_allocator_statistics()).
+    using allocator_type = mapping_slot_allocator_t;
 
+private:
+    using entry_type  = std::pair<slot_index_type, offset_type>;
+    using entry_alloc = typename allocator_type::template StdAllocatorAdapter<entry_type>;
+
+public:
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "pool_relative"; }
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::mapping::PoolRelative",
@@ -70,15 +80,47 @@ public:
     /// SONDERFALL: Constructor benoetigt pool_base_address.
     [[nodiscard]] static constexpr bool requires_pool_base() noexcept { return true; }
 
+    // -- A8-S5-03 Lebensdauer-Vertrag der Achsen-Verdrahtung (identisch DirectPlacement, Muster
+    //    btree_node_pool_store.hpp:19/:84-105): allocator_ vor mappings_; mappings_ IMMER mit dem Adapter
+    //    dieses allocator_ konstruiert; die Kopie REBINDET auf ihr eigenes allocator_; Move bewusst nicht
+    //    deklariert (degradiert zur rebindenden Kopie statt den Fremd-Adapter zu stehlen).
+    //    NICHT mehr noexcept: die Tabellen-Konstruktion laeuft jetzt ueber die Versorger-Achse.
     /// Default-Constructor (pool_base=0 fuer Test-Builds).
-    PoolRelative() noexcept : pool_base_(0) {}
-    explicit PoolRelative(offset_type pool_base) noexcept : pool_base_(pool_base) {}
+    PoolRelative() : pool_base_(0), mappings_(allocator_.template as_std_allocator<entry_type>()) {}
+    explicit PoolRelative(offset_type pool_base)
+        : pool_base_(pool_base), mappings_(allocator_.template as_std_allocator<entry_type>()) {}
+    PoolRelative(PoolRelative const& o)
+        : allocator_(o.allocator_), pool_base_(o.pool_base_),
+          mappings_(o.mappings_, allocator_.template as_std_allocator<entry_type>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = o.stats_;
+        // Memento-Symmetrie (analog btree_node_pool_store.hpp:91): transiente Kopier-Allokation verwerfen.
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    PoolRelative& operator=(PoolRelative const& o) {
+        if (this != &o) {
+            pool_base_ = o.pool_base_;
+            mappings_  = o.mappings_; // Allokator propagiert NICHT -> eigener Adapter bleibt
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_ = o.stats_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~PoolRelative() = default;
 
     [[nodiscard]] bool operator==(PoolRelative const& other) const noexcept {
         return mappings_.size() == other.mappings_.size() && pool_base_ == other.pool_base_;
     }
 
-    /// SONDERFALL [[allocation-failure-exception]]: emplace_back kann std::bad_alloc werfen.
+    /// SONDERFALL [[allocation-failure-exception]] -- A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen):
+    /// Der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die Allokator-ACHSE. Die Strategie meldet OOM
+    /// per nullptr (axis_06_allocator_exgen.hpp:76ff), der StdAllocatorAdapter reicht ihn unveraendert weiter
+    /// (axis_06_allocator_strategy_base.hpp:162-164) -- KEIN std::bad_alloc mehr. Fehlerklasse der Achse
+    /// unveraendert kOrganAxisErrorFloor (MappingBase::error_classes, FK-5); die Konversion
+    /// nullptr -> Fehlerklassen-Wurf gehoert ins Adapter-ZIEL-Interface (fuer diese Scheibe TABU, offener Punkt).
     /// Stored: offset relativ zu pool_base_ (positiv). Negativ-Offsets sind verboten.
     void register_slot(slot_index_type s, offset_type absolute_offset) {
         offset_type relative = (absolute_offset >= pool_base_) ? (absolute_offset - pool_base_) : 0;
@@ -147,11 +189,21 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// A8-S5-03 VERDRAHTUNGS-BELEG (Nicht-Vertrags-Methode, analog btree_node_pool_store.hpp:128): die
+    /// Statistik der Versorger-Strategie DIESES Organs -- macht die Form-B-Aussage der S5-Gate-Wache am
+    /// Objekt pruefbar (ein bloss deklarierter allocator_type bliebe hier auf 0 stehen).
+    /// NICHT im T6-Mess-Pfad: T6 misst den Allokator DER KOMPOSITION, nicht diesen privaten Versorger.
+    [[nodiscard]] typename allocator_type::snapshot_t mapping_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
 #endif
 
 private:
-    offset_type                                          pool_base_;
-    std::vector<std::pair<slot_index_type, offset_type>> mappings_;
+    // allocator_ VOR mappings_ (Lebensdauer des Zeigers im StdAllocatorAdapter, s. Ctor-Kommentar oben).
+    allocator_type                       allocator_{};
+    offset_type                          pool_base_;
+    std::vector<entry_type, entry_alloc> mappings_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::MappingStatistics stats_{};
     mutable observer_t                  observer_{};
