@@ -43,6 +43,16 @@ struct SetObserverSnapshot {
     std::uint64_t erase_count         = 0;
     std::uint64_t current_size        = 0;
     std::uint64_t peak_size           = 0;
+    // E-24 C6-V (Ehrlichkeits-Schliessung, Katalog Sektion 2 Punkt 4 / Zeile G-1): insert_count und
+    // erase_count zaehlen ausschliesslich die ERFOLGREICHEN Ops (neuer Key bzw. real entfernt). Ohne die
+    // VERSUCHS-Zahl sind Duplikat-Quote und Erase-Miss-Quote strukturell unbestimmbar -- genau die Groessen,
+    // die der Katalog vor dem C6-Freeze verlangt. Beide Quoten sind daraus host-ableitbar (ABL):
+    //   Duplikat-Quote   = (insert_attempt_count - insert_count) / insert_attempt_count
+    //   Erase-Miss-Quote = (erase_attempt_count  - erase_count)  / erase_attempt_count
+    // REIN ADDITIV am Ende (die bestehenden Felder bleiben an Ort und Stelle) und IN-PROCESS: der Wire-POD
+    // SetObserverSnapshotV1 (set_tier.hpp) bleibt unberuehrt -- seine Erweiterung ist der ABI-Schritt C6.
+    std::uint64_t insert_attempt_count = 0;
+    std::uint64_t erase_attempt_count  = 0;
 };
 
 /// SetAxisObservation<Composition> -- E-24 C3: die PER-ACHSEN-Sicht der Set-Gattung, gebaut nach dem
@@ -116,6 +126,7 @@ public:
 
     // ── Set-Gattungs-API (K-only) — treibt das ECHTE search_algo-Organ als Menge (K=V) ──
     bool insert(std::uint64_t key) {
+        ++obs_.insert_attempt_count; // E-24 C6-V: jeder Aufruf IST ein realer Versuch (honest-100%)
         auto const before = static_cast<std::uint64_t>(axis_search_algo_.occupied_count());
         axis_search_algo_.insert(static_cast<key_t>(key), static_cast<value_t>(key)); // K=V
         auto const after  = static_cast<std::uint64_t>(axis_search_algo_.occupied_count());
@@ -135,6 +146,7 @@ public:
         return hit;
     }
     bool erase(std::uint64_t key) {
+        ++obs_.erase_attempt_count; // E-24 C6-V: jeder Aufruf IST ein realer Versuch (honest-100%)
         auto const before = static_cast<std::uint64_t>(axis_search_algo_.occupied_count());
         axis_search_algo_.erase(static_cast<key_t>(key));
         auto const after   = static_cast<std::uint64_t>(axis_search_algo_.occupied_count());
