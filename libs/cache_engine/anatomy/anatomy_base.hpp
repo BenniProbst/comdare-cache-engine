@@ -35,9 +35,14 @@ namespace comdare::cache_engine::anatomy {
 // Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER der Container-Gattung (Doc 24 Z.564 / Doc 27 §0),
 // NICHT je eine eigene Gattung. SEARCHALGORITHM IST DAS GENUS, NICHT DIE GATTUNG -- die Ebene-1-Kategorie
 // heisst MAP (Owner-KERN NACHTRAG 4, LEDGER:3836: "SearchAlgorithm ist ein Genus unter der Gattung 'Map'").
-// Die Map-Gattung hat am Ist GENAU EIN Genus (SearchAlgorithm, std::map-artig, 17 Achsen; INC-2c/2d:
-// telemetry+isa sind System-Achsen); eine Schnittmenge ueber ein Element IST das Element -- deshalb braucht
+// Die Map-Gattung hat am Ist GENAU EIN Genus (SearchAlgorithm, std::map-artig, 18 Organ-Haupt-Achsen ==
+// abi::kOrganAxisCount; INC-2c/2d: telemetry+isa sind System-Achsen, STRUKT-R ORG-18 brachte
+// persistence_target als 18.); eine Schnittmenge ueber ein Element IST das Element -- deshalb braucht
 // Map kein eigenes Kopf-Framework (C7-4, Manager-Entscheid LEDGER:3844).
+// NACHZUG E-24 C11 (OP-9): hier stand "17 Achsen" -- eine Zahl aus der Zeit VOR STRUKT-R ORG-18
+// (Major 6->7, organ_count() 17->18). Sie ist NICHT mit der 17 aus dem golden-Kontext zu verwechseln
+// ("17 Achsen je 2 x persistence_target je 1 == 131072", source_catalog.hpp): dort werden 17 Achsen
+// VARIIERT und die 18. ist gepinnt -- das ist eine Aussage ueber den Sweep, nicht ueber die Anatomie.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// AnatomyGattung — Ebene 1: das Außen-Interface zur Welt (Prüf-Dock je Gattung, Doc 24 §8.8). NUR 3.
@@ -66,9 +71,13 @@ enum class AnatomyGattung : std::uint8_t {
 /// HISTORISCHER NAME „Genus" (Refactor zu AnatomyTierSubclass via #90); konzeptionell = Tier-Unterklasse.
 ///
 /// Tier-Metapher-Mapping (Doku 14 §27.2) + Gattungs-Zuordnung (Ebene 1):
+/// NACHZUG E-24 C11 (OP-9): die Gattungs-Spalte der Saeugetier-Zeile nannte bis hier "SearchAlgorithm"
+/// -- also den NAMEN DES GENUS in der GATTUNGS-Spalte, exakt der Owner-benannte Terminologie-Fehler.
+/// C7-1 hat den Enumerator umbenannt, diese Tabelle direkt darunter aber nicht mitgezogen; sie ist die
+/// meistgelesene Zuordnungs-Quelle des Repos und stand damit im Widerspruch zum Enum drei Zeilen ueber ihr.
 /// | Tier-Metapher | AnatomyGenus (=Tier-Unterklasse) | Gattung (Ebene 1) | std::-Beispiele |
 /// |---------------|----------------------------------|-------------------|-----------------|
-/// | Saeugetier    | SearchAlgorithm                  | SearchAlgorithm   | map, multimap, unordered_map |
+/// | Saeugetier    | SearchAlgorithm                  | Map               | map, multimap, unordered_map |
 /// | Vogel         | Set                              | Container         | set, multiset, unordered_set |
 /// | Reptil        | Sequence                         | Container         | vector, list, deque, array |
 /// | Wirbelloses   | Adapter                          | Container         | stack, queue, priority_queue |
@@ -87,7 +96,10 @@ enum class AnatomyGattung : std::uint8_t {
 /// eigenen `GenusBindingTraits<Set>` -- eine Ebene-1-Promotion von Set ist damit gegenstandslos
 /// geworden (Set gehoert zur Gattung Container, nicht daneben; Diskrepanz-Dossier Abschnitt 2.2).
 enum class AnatomyGenus : std::uint8_t {
-    SearchAlgorithm = 0, ///< Tier-Unterklasse der SearchAlgorithm-Gattung (vollst. 17-Achsen-Anatomie, INC-2d)
+    /// NACHZUG E-24 C11 (OP-9): diese Zeile trug ZWEI stale Angaben -- als Ebene-1-Etikett den Namen des
+    /// Genus (die Gattung heisst seit C7-1 Map) und die Achsen-Zahl 17 (die Anatomie fuehrt seit
+    /// STRUKT-R ORG-18 achtzehn Organ-Haupt-Achsen, abi::kOrganAxisCount).
+    SearchAlgorithm = 0, ///< Tier-Unterklasse der Gattung Map (volle 18-Organ-Achsen-Anatomie, INC-2d + ORG-18)
     Set             = 1, ///< Tier-Unterklasse der Container-Gattung (K only, Bird)
     Sequence        = 2, ///< Tier-Unterklasse der Container-Gattung (V indexed, Reptile)
     Adapter         = 3, ///< Tier-Unterklasse der Container-Gattung (Wrapper über Inner-Substrat, Invertebrate)

@@ -49,8 +49,12 @@ namespace cexp = ::comdare::cache_engine::builder::experiment;
 namespace mp   = boost::mp11;
 
 /// ContainerType<G> -- G ist ein Container-TYP gdw. (1) seine Gattung die Container-Gattung ist
-/// (Ebene-1-Aussen-Interface) UND (2) eine Bau-Bindung existiert (baubare Tier-Unterklasse). Die
-/// SearchAlgorithm-Gattung erfuellt (1) NICHT und ist damit kein Container-Typ (self-proving unten).
+/// (Ebene-1-Aussen-Interface) UND (2) eine Bau-Bindung existiert (baubare Tier-Unterklasse). Das Genus
+/// SearchAlgorithm gehoert zur Gattung MAP und erfuellt (1) deshalb NICHT -- es ist kein Container-Typ
+/// (self-proving unten).
+/// NACHZUG E-24 C11 (OP-9): dieser Satz fuehrte SearchAlgorithm als Ebene-1-Kategorie. C7-2 hat den
+/// static_assert-TEXT weiter unten korrekt auf "SearchAlgorithm ist ein GENUS der Gattung Map" gezogen,
+/// diesen Doku-Kommentar direkt ueber demselben Concept aber nicht -- die Datei widersprach sich selbst.
 template <cea::AnatomyGenus G>
 concept ContainerType = (cea::gattung_of(G) == cea::AnatomyGattung::Container) && cexp::GenusBound<G>;
 
