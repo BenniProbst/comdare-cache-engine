@@ -216,9 +216,11 @@ private:
 private:
     // ── §4.3 — MATERIALISIERTER Patricia-Trie-Instanz (IMMER vorhanden, auch ohne Statistics-Define) ─────────────
     // Traegt den echten Single-Bit-Split-Trie (Patricia) bzw. EmptyPatriciaTrie (none/ByteWise, leer, 0 Footprint).
-    // std::vector-basiert (Patricia) bzw. leer → copy-constructible + copy-assignable + operator== → Observable-
-    // PathCompression kopierbar/vergleichbar → fuer den symmetrischen Memento (saved_pc_ in tier_save_all/
-    // tier_rollback_all) snapshot-faehig (R1, Leitplanke 3). Default-konstruiert = leer (none-aequivalente Baseline).
+    // Knoten-Pool ueber die Allokator-ACHSE (Patricia, A8-S5-02a) bzw. leer -> copy-constructible +
+    // copy-assignable + operator== -> ObservablePathCompression kopierbar/vergleichbar -> fuer den symmetrischen
+    // Memento (saved_pc_ in tier_save_all/tier_rollback_all) snapshot-faehig (R1, Leitplanke 3).
+    // Default-konstruiert = leer (none-aequivalente Baseline). Die Kopie REBINDET dabei auf ihr eigenes
+    // allocator_ (axis_02_path_compression_real_trie.hpp) -- Quelle und Memento-Kopie teilen keinen Speicher.
     real_trie_type real_trie_{};
 };
 

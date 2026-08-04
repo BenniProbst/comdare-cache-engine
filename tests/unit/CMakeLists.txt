@@ -883,10 +883,20 @@ target_include_directories(test_v41_status_code PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
 # V41.F.6.1 F.6 Phase A: migrierte Serialisierungs-Primitive (signaling_bits prt-art -> cache-engine)
+# A8-S5-02a (2026-08-04): der Stream-Puffer laeuft seit dem Schnitt ueber die Allokator-ACHSE
+# (axis_06_allocator_exgen). Damit zieht diese TU die Achsen-Include-Kette (generierte Flags-Header,
+# measurement/measurable_concept.hpp aus libs/cache_engine/src, Boost.MP11) und braucht denselben
+# Include-Satz wie die uebrigen Achsen-TUs -- der Satz ist von den Phase-E-Tests uebernommen, nicht erfunden.
 comdare_add_test(test_v41_serialization_primitives
     SOURCES test_v41_serialization_primitives.cpp)
 target_include_directories(test_v41_serialization_primitives PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_v41_serialization_primitives PRIVATE Boost::mp11)
 
 # V41.F.6.1 F.6 NEUE Achse axis_01_page_type (6 Pflicht-Seitentypen)
 comdare_add_test(test_v41_axis_01_page_type
