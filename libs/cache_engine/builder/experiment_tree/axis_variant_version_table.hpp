@@ -27,6 +27,7 @@
 #include <cache_engine/abi/anatomy_version_stamp.hpp>  // A13-M2: abi::OrganMetaMetas (Organ-Meta-Meta-Single-Source)
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: Klammer-Anhang der Meta-Metas (Owner-Q1)
 #include <cache_engine/measurement/algo_semver.hpp>    // W12-A: algo_semver_string (X.Y.Z-Voll-Form, NUR fuer Stempel)
+#include <topics/organ_axis_error_classes.hpp>         // E-24 C9 / FK-5: der Fehlerraum-Zwilling der Versions-Wache
 
 // A13-M3/C3: das Sub-Achsen-Werteset-Segment (Bauplan Section 2) wird nicht mehr HIER gerendert, sondern consteval
 // in abi/subaxis_valueset_segment.hpp -- dieselbe Zeichenfolge speist .algos-Sidecar UND Fingerprint-Preimage.
@@ -162,6 +163,29 @@ inline void guard_all_registered_organ_versions() {
     });
 }
 
+/// E-24 C9 / FK-5 -- der FEHLERRAUM-ZWILLING der Wache darueber, auf DERSELBEN Population und nach
+/// DEMSELBEN Muster. Warum er hier steht und nicht nur an den 18 CRTP-Basen: der Basis-Guard sitzt im
+/// CRTP-Ctor und feuert erst, wenn eine Variante KONSTRUIERT wird. Diese Wache feuert am TYP, ueber die
+/// VOLLE registrierte Population (enabled UND deaktiviert) -- eine registrierte Organ-Variante, die an
+/// keiner der 18 Basen haengt oder deren Fehlerraum leer waere, kann so nicht unbemerkt in eine Registry
+/// gelangen. Exakt die Rolle, die der Datei-Kopf oben fuer den VERSIONSRAUM beschreibt ("das mp_for_each
+/// greift W::algo_version je registrierter Variante ab -- fehlt einer Variante das Member, ist der Zugriff
+/// ill-formed und die Kompilation bricht MIT DEM TYP-NAMEN"), jetzt fuer den FEHLERRAUM.
+///
+/// DOMAENEN-TRENNUNG (A15-DESIGN OF-2: "'e'=Versionsraum, Fehlerklassen=Fehlerraum, disjunkte Konzerne"):
+/// die beiden Wachen teilen die Population und die Bau-Stelle, aber KEINE Zeile Logik. assert_version_grammar
+/// liest ausschliesslich W::algo_version, assert_organ_axis_error_classes ausschliesslich W::error_classes().
+/// Sie stehen bewusst als ZWEI Funktionen nebeneinander statt als eine zusammengefasste -- eine gemeinsame
+/// Wache haette die Konzerne verschmolzen, und ein Fehlerraum-Bruch haette wie ein Versions-Bruch gemeldet.
+///
+/// REINE CT-Wache: emittiert NICHTS -> kein Stempel, kein Codegen-Byte, golden-/CRC-/binary_id-neutral.
+inline void guard_all_registered_organ_error_classes() {
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, AllRegisteredOrganVariantsFlat>>([](auto id) {
+        using W = typename decltype(id)::type;
+        ::comdare::cache_engine::topics::assert_organ_axis_error_classes<W>();
+    });
+}
+
 /// Baut die {axis,variant->version}-Tabelle ueber GENAU die 17 Kompositions-Achsen (kCompositionAxisNames-Reihenfolge
 /// = algo_sig-Slot-Reihenfolge). Registry-getrieben (axes26-Aliase). Der Alias-Fahrplan spiegelt exakt
 /// append_organ_core_axis_levels() + append_composition_tail_axis_levels() (die q1/q2-Slots) — OHNE die build-only-/
@@ -171,6 +195,9 @@ inline void guard_all_registered_organ_versions() {
     // Varianten), nicht nur die Enabled*-Emit-Liste unten. REINE CT-Instanziierung (no-op zur Laufzeit) --
     // so feuert die Voll-Registry-Wache ueberall, wo die Tabelle gebaut wird (Facade + Test), byte-neutral.
     guard_all_registered_organ_versions();
+    // E-24 C9 / FK-5: derselbe Griff fuer den FEHLERRAUM, unmittelbar daneben und als EIGENER Aufruf
+    // (disjunkte Konzerne, s. Funktions-Kommentar). Ebenfalls reine CT-Instanziierung, byte-neutral.
+    guard_all_registered_organ_error_classes();
 
     std::vector<AxisVariantVersion> t;
     reflect_versions<axes26::T00_search_algo>("search_algo", t);
