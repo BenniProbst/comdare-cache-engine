@@ -1636,6 +1636,41 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
 endforeach()
 
 # -----------------------------------------------------------------------------
+# E-24 C6-V (2026-08-04, Entscheid E5 LEDGER:3828) -- die Statistics-Huellen der GATTUNGS-EIGENEN
+# Achsen-Themen. Die Huellen sind COMDARE_CE_ENABLE_STATISTICS-gegated (Praezedenz
+# axis_01_index_organization_observable.hpp:126-133), und diese TUs pruefen den EINGESCHALTETEN Zustand.
+# EHRLICHE EINORDNUNG des Defines: es kommt am Ist ohnehin GLOBAL aus dem Root-CMakeLists
+# (option(COMDARE_CE_ENABLE_STATISTICS ... ON) + add_compile_definitions, CMakeLists.txt:156-161) --
+# die Zeile hier ist also REDUNDANT-ABSICHTLICH: sie haelt diese TUs auch dann auf dem ON-Pfad, wenn
+# jemand die globale Option ausschaltet (dann wuerden sie sonst still den OFF-Pfad testen und ihre
+# Aussage verlieren). Eigene Liste statt COMDARE_GOALV6_BOOST_DTESTS, weil dessen foreach keine
+# per-Target-Definitionen zulaesst. Bau sonst identisch (plain int main(), Boost::mp11 + generated).
+# OFFEN (kein C6-V-Gegenstand): der OFF-Pfad der Huellen wird in dieser Konfiguration von KEINER TU
+# uebersetzt -- dieselbe Lage wie bei allen bestehenden Observable-Huellen des Repos.
+set(COMDARE_E24_C6V_TESTS
+    test_e24_c6v_growth_statistics       # C6-V (a): GrowthStatistics + ObservableGrowth (Sequence-Achse)
+    test_e24_c6v_view_statistics         # C6-V (b): Extent/Layout/AccessorStatistics + Huellen (View-Achsen)
+    test_e24_c6v_inner_container_statistics # C6-V (c): InnerContainerStatistics + Huelle (Adapter-Achse)
+    test_e24_c6v_set_ehrlichkeit)        # C6-V (d): Set-Ehrlichkeits-Schliessung insert-/erase_attempt
+foreach(_c6v IN LISTS COMDARE_E24_C6V_TESTS)
+    add_executable(${_c6v} "${_c6v}.cpp")
+    target_compile_features(${_c6v} PRIVATE cxx_std_23)
+    target_include_directories(${_c6v} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_c6v} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_c6v})
+    target_compile_definitions(${_c6v} PRIVATE COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_c6v} COMMAND ${_c6v})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c6v})
+    set_tests_properties(${_c6v} PROPERTIES LABELS "goal_v6;phase_d;e24;c6v")
+endforeach()
+
+# -----------------------------------------------------------------------------
 # E-24 C1 (Luecke L6) -- NEGATIV-COMPILE-FIXTURE: eine TU, die BRECHEN MUSS.
 #
 # Das Repo kannte am Ist KEIN Muster fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer

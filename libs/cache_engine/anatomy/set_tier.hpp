@@ -22,8 +22,9 @@ struct SetObserverSnapshotV1 {
     std::uint64_t erase_count           = 0; // erfolgreiche Entfernungen
     std::uint64_t current_size          = 0; // aktuelle Kardinalität der Menge
     std::uint64_t peak_size             = 0; // maximale Kardinalität
-    std::uint64_t observable_axis_count = 0; // wie viele der 15 Set-Achsen real beobachtet (R5.B, ehrlich)
-    std::uint64_t organ_count           = 0; // == SetAnatomy::organ_count() (15)
+    std::uint64_t observable_axis_count = 0; // wie viele der 13 Set-Achsen real beobachtet (R5.B, ehrlich; 13 == live
+                                             // SetComposition::slot_count nach INC-2c/2d -- war 15)
+    std::uint64_t organ_count = 0;           // == SetAnatomy::organ_count() (13, live)
 
     [[nodiscard]] constexpr bool operator==(SetObserverSnapshotV1 const&) const noexcept = default;
 };

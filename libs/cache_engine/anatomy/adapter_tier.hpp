@@ -32,7 +32,8 @@ struct AdapterObserverSnapshotV1 {
     std::uint64_t current_occupancy = 0; // aktuelle inner_container-Größe
     std::uint64_t peak_occupancy    = 0; // maximale inner_container-Größe
     // ── Meta ──
-    std::uint64_t organ_count = 0; // == AdapterAnatomy::organ_count() (13: 12 geteilt/delegiert + inner_container)
+    std::uint64_t organ_count = 0; // == AdapterAnatomy::organ_count() (11: 10 geteilt/delegiert +
+    // inner_container, live -- war 13; kAdapterCompositionSlotCount bleibt frozen legacy)
 
     [[nodiscard]] constexpr bool operator==(AdapterObserverSnapshotV1 const&) const noexcept = default;
 };

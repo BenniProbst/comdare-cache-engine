@@ -15,7 +15,8 @@ struct ViewObserverSnapshotV1 {
     std::uint64_t bound_size            = 0; // Länge des aktuell gebundenen externen Puffers
     std::uint64_t bind_count            = 0; // Anzahl bind()-Aufrufe (Re-Binding)
     std::uint64_t observable_axis_count = 0; // real beobachtete Achsen (R5.B, ehrlich)
-    std::uint64_t organ_count           = 0; // == ViewAnatomy::organ_count() (7: 4 geteilt + extent/layout/accessor)
+    std::uint64_t organ_count           = 0; // == ViewAnatomy::organ_count() (5: 2 geteilt +
+                                             // extent/layout/accessor, live -- war 7)
 
     [[nodiscard]] constexpr bool operator==(ViewObserverSnapshotV1 const&) const noexcept = default;
 };

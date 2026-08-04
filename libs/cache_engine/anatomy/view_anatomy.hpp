@@ -78,7 +78,7 @@ public:
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::View; }            // Pflanze
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 7
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 5
 
     // ── View-Gattungs-API (non-owning) — bind externer Puffer + read über layout/accessor ──
     void bind(element_type const* data, std::size_t size) noexcept {
@@ -86,10 +86,25 @@ public:
         size_ = (data == nullptr) ? 0 : size;
         ++obs_.bind_count;
         obs_.bound_size = static_cast<std::uint64_t>(size_);
+        // E-24 C6-V: das Binden ist ein REALES Ereignis des Ausdehnungs-VERTRAGS -- die extent_policy-Achse
+        // bekommt es gemeldet, WENN ihr Slot eine beobachtende Huelle traegt (ObservableExtent,
+        // view_policies_observable.hpp). Eine nackte Policy hat den Member nicht: `if constexpr` blendet die
+        // Meldung dann restlos aus (zero-cost, kein Verhalten geaendert).
+        if constexpr (requires(typename Composition::extent_policy const& e, std::size_t n) { e.note_bind(n); }) {
+            axis_extent_policy_.note_bind(size_);
+        }
     }
     [[nodiscard]] std::optional<element_type> read(std::uint64_t index) const noexcept {
         ++obs_.read_count;
         std::size_t const off = axis_layout_policy_.index_of(static_cast<std::size_t>(index)); // axis_layout
+        // E-24 C6-V: die Grenz-Pruefung gegen die gebundene Ausdehnung ist das zweite reale Vertrags-Ereignis
+        // der extent_policy-Achse. Der Speicher-Sicherheits-Guard darunter bleibt unveraendert bestehen --
+        // die Achse beobachtet, sie ersetzt ihn nicht.
+        if constexpr (requires(typename Composition::extent_policy const& e, std::size_t o, std::size_t b) {
+                          e.note_bounds_check(o, b);
+                      }) {
+            axis_extent_policy_.note_bounds_check(off, size_);
+        }
         if (data_ == nullptr || off >= size_) {
             ++obs_.read_oob_count;
             return std::nullopt;

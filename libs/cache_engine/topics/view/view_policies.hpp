@@ -19,6 +19,10 @@ namespace comdare::cache_engine::view {
 /// StaticExtent<N> — compile-time bekannte Ausdehnung (mdspan static extents). is_static()==true, static_extent()==N.
 template <std::size_t N>
 struct StaticExtent {
+    // E-24 C6-V: COMPILE-TIME-Marke der Ausdehnungs-Klasse (Gegenstueck zu DynamicExtent::is_static_extent,
+    // anatomy/view_composition.hpp). Sie traegt den Elisions-Beweis der ObservableExtent-Huelle: bei statischer
+    // Ausdehnung fuehrt die Achse KEINEN dynamischen Grenz-Check, also bleibt bounds_checks_performed ehrlich 0.
+    static constexpr bool     is_static_extent = true;
     [[nodiscard]] bool        is_static() const noexcept { return true; }
     [[nodiscard]] std::size_t static_extent() const noexcept { return N; }
 };

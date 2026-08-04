@@ -6,7 +6,9 @@
 // index_organization/filter (Sequence ist V-indexed, kein K-Suchorgan).
 //
 // axis_growth (growth_policy): hier ein leichtgewichtiges Default-Organ (DoublingGrowth). Der Goldstandard-
-// Vollausbau der Achse (eigenes Topic + weitere Policies GoldenRatio/FixedChunk/Exact) ist ein Folgeschritt.
+// Vollausbau der Achse IST GEBAUT (NACHZUG 04.08./C6-V, am Ist verifiziert): topics/sequence/axis_growth/
+// mit GoldenRatioGrowth/FixedChunkGrowth/ExactGrowth + Registry (kGrowthPolicyCount == 4). Der Satz
+// "ist ein Folgeschritt" war ueberholt.
 
 #include <cstddef>
 #include <string_view>

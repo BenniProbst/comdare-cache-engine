@@ -17,7 +17,7 @@ struct SequenceObserverSnapshotV1 {
     std::uint64_t peak_size             = 0; // maximale Länge
     std::uint64_t growth_events         = 0; // Kapazitäts-Wachstums-Ereignisse (axis_growth getrieben)
     std::uint64_t observable_axis_count = 0; // real beobachtete Achsen (R5.B, ehrlich)
-    std::uint64_t organ_count           = 0; // == SequenceAnatomy::organ_count() (10 + axis_growth = 11)
+    std::uint64_t organ_count = 0; // == SequenceAnatomy::organ_count() (9: 8 geteilt + axis_growth, live -- war 11)
 
     [[nodiscard]] constexpr bool operator==(SequenceObserverSnapshotV1 const&) const noexcept = default;
 };

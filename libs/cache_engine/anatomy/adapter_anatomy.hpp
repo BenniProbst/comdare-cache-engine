@@ -77,6 +77,16 @@ struct VectorInner {
     void                              pop_back() { v_.pop_back(); }
     void                              clear() noexcept { v_.clear(); }
 
+    /// E-24 C6-V: die ZAEHLENDE Variante von pop_front (Muster Strategy::index_org_scan_counted,
+    /// axis_01_index_organization_observable.hpp:52-58). erase(begin) verschiebt REAL die uebrigen
+    /// size()-1 Elemente um eine Position -- das ist die O(n)-Kostenklasse dieses Substrats, und genau
+    /// diese real bewegte Element-Zahl wird dem Aufrufer zurueckgemeldet (honest-100%, #24 Option A).
+    /// Nur die Huelle ObservableInnerContainer ruft sie; das Verhalten ist identisch zu pop_front().
+    void pop_front_counted(std::uint64_t& elements_shifted) {
+        if (!v_.empty()) elements_shifted += static_cast<std::uint64_t>(v_.size() - 1);
+        v_.erase(v_.begin());
+    }
+
 private:
     std::vector<element_type> v_{};
 };
@@ -103,6 +113,31 @@ struct HeapInner {
     } // Extract-Max
     void pop_back() { v_.pop_back(); } // entfernt ein Blatt (Heap bleibt gültig)
     void clear() noexcept { v_.clear(); }
+
+    /// E-24 C6-V: die ZAEHLENDEN Varianten von push_back/pop_front. Die Sift-Arbeit von std::push_heap/
+    /// std::pop_heap wird ueber einen zaehlenden Komparator gemessen: JEDER gezaehlte Schritt ist ein vom
+    /// Heap-Algorithmus REAL ausgefuehrter Vergleich -- KEIN aus log2(n) geschaetzter Wert (#24 Option A).
+    /// Das Ergebnis der Ops ist identisch zu push_back()/pop_front() (der Komparator delegiert an comp_).
+    void push_back_counted(element_type v, std::uint64_t& sift_ops) {
+        v_.push_back(v);
+        std::uint64_t comparisons = 0;
+        auto          counting    = [&](element_type const& a, element_type const& b) {
+            ++comparisons;
+            return comp_(a, b);
+        };
+        std::push_heap(v_.begin(), v_.end(), counting);
+        sift_ops += comparisons;
+    }
+    void pop_front_counted(std::uint64_t& sift_ops) {
+        std::uint64_t comparisons = 0;
+        auto          counting    = [&](element_type const& a, element_type const& b) {
+            ++comparisons;
+            return comp_(a, b);
+        };
+        std::pop_heap(v_.begin(), v_.end(), counting);
+        v_.pop_back();
+        sift_ops += comparisons;
+    }
 
 private:
     std::vector<element_type> v_{};
@@ -224,7 +259,7 @@ public:
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Adapter; }         // Tier-Unterklasse
     static constexpr AnatomyGattung   gattung() noexcept { return AnatomyGattung::Container; }   // Außen-Interface
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 12
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 11
 
     AdapterAnatomy() = default;
     /// capacity wird für ABI-ctor-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).
@@ -240,7 +275,14 @@ public:
     }
     /// FIFO-Entnahme (queue): vorderstes Element.
     [[nodiscard]] std::optional<element_type> pop_front() {
-        if (axis_inner_container_.size() == 0) return std::nullopt;
+        if (axis_inner_container_.size() == 0) {
+            // E-24 C6-V (Ehrlichkeits-Schliessung, Katalog C-E): pop auf LEER ist ein REALES Ereignis der
+            // inner_container-Achse und war bisher unbeobachtet. Traegt der Slot eine beobachtende Huelle,
+            // bekommt sie es gemeldet; eine nackte Substrat-Belegung hat den Member nicht -> `if constexpr`
+            // blendet die Meldung restlos aus (zero-cost, Verhalten unveraendert).
+            if constexpr (requires(inner_t& i) { i.note_underflow(); }) { axis_inner_container_.note_underflow(); }
+            return std::nullopt;
+        }
         element_type const v = axis_inner_container_.front();
         ++obs_.front_reads;
         axis_inner_container_.pop_front();
@@ -250,7 +292,11 @@ public:
     }
     /// LIFO-Entnahme (stack): hinterstes Element.
     [[nodiscard]] std::optional<element_type> pop_back() {
-        if (axis_inner_container_.size() == 0) return std::nullopt;
+        if (axis_inner_container_.size() == 0) {
+            // E-24 C6-V: identische Ehrlichkeits-Schliessung wie in pop_front (s. dort).
+            if constexpr (requires(inner_t& i) { i.note_underflow(); }) { axis_inner_container_.note_underflow(); }
+            return std::nullopt;
+        }
         element_type const v = axis_inner_container_.back();
         ++obs_.back_reads;
         axis_inner_container_.pop_back();
