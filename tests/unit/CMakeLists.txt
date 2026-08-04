@@ -1667,6 +1667,33 @@ set_tests_properties(${_comdare_negativ_compile_tu} PROPERTIES
     TIMEOUT 300
     LABELS "goal_v6;phase_d;negativ_compile")
 
+# E-24 C4 (b/5) -- ZWEITE Negativ-Compile-Fixture, nach demselben, in C1 benannten Muster (a)-(d) oben.
+# Gegenstand: Bauplan Paragraf 4.1 (Klasse I), Zeile C4 -- eine Dock-Version OHNE HW-Flag muss an der
+# ENFORCE-Wache compile-hart brechen. Sie ist der Frueh-Warner fuer Risiko R5 ("ENFORCE-Bruch spaet
+# entdeckt"): ohne sie faellt ein flagloses Literal erst im Voll-Bau auf.
+# DER RESOURCE_LOCK IST HIER KEINE ZIERDE: er serialisiert diese Fixture gegen die C1-Geschwister --
+# zwei gleichzeitige Ninja-Aufrufe auf DEMSELBEN Bau-Verzeichnis wuerden einander blockieren. Genau
+# dafuer wurde der Lock in C1 eingefuehrt, und dies ist der erste Fall, der ihn wirklich braucht.
+set(_comdare_negativ_compile_tu_c4 test_e24_c4_dock_version_negativ)
+add_executable(${_comdare_negativ_compile_tu_c4} EXCLUDE_FROM_ALL "${_comdare_negativ_compile_tu_c4}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu_c4} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu_c4} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu_c4} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu_c4})
+add_test(NAME ${_comdare_negativ_compile_tu_c4}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target ${_comdare_negativ_compile_tu_c4})
+set_tests_properties(${_comdare_negativ_compile_tu_c4} PROPERTIES
+    PASS_REGULAR_EXPRESSION "E24-C4-DOCK-VERSION-NEGATIV"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
 # Identisches Muster wie die GoalV6-D-Tests darueber: plain `int main()`-Standalone (KEIN gtest, daher add_test

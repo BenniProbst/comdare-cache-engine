@@ -25,8 +25,13 @@
 #include <cache_engine/measurement/algo_semver.hpp>               // ce_owned_version_is_wellformed
 #include <axes/lookup/axis_03a_search_algo_array256.hpp>          // Array256SearchAlgo (Default OFF) -- Bestandsfall
 
+#include <builder/pruef_dock/pruef_dock_version.hpp> // E-24 C4: die ce-eigenen Dock-Versionen (Klasse III)
+
 #include <gtest/gtest.h>
 
+#include <array>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace ex   = ::comdare::cache_engine::builder::experiment;
@@ -73,4 +78,47 @@ TEST(ReflectVersionsAllRegistered, DisabledArray256IsRegisteredAndNowUnderCePoli
     for (ex::AxisVariantVersion const& e : enabled)
         if (e.axis == "search_algo" && e.variant == "array256") array256_in_enabled = true;
     EXPECT_FALSE(array256_in_enabled) << "Array256 sollte in der Enabled-Tabelle FEHLEN (Default OFF).";
+}
+
+// ------------------------------------------------------------------------------------------------
+// E-24 C4 (b/5) -- Bauplan Paragraf 4.3, Klasse III: "test_reflect_versions_all_registered.cpp MUSS
+// die neuen Genus-/Dock-Eintraege mitpruefen (Flag-Grammatik-Naht)".
+//
+// WARUM HIER UND NICHT IN EINER NEUEN TU (Auflage 13, Bestands-TU FORTSCHREIBEN statt umgehen): diese
+// TU ist die Stelle, an der die Flag-Grammatik ueber die VOLLE ce-eigene Versions-Population laeuft.
+// Die Dock-Versionen sind ce-eigene Versionen (Bauplan Paragraf 4.6 nennt sie ausdruecklich), aber
+// KEINE Organ-Achsen-Varianten -- sie stehen deshalb nicht in AllRegisteredOrganAxisLists und waeren
+// ohne diesen Block genau die Luecke, die CX-W6 an den deaktivierten Achsen gefunden hat: ein
+// Literal, das keine Wache sieht.
+//
+// Der Bau von pruef_dock_version.hpp traegt die static_asserts bereits; die Laufzeit-Checks hier sind
+// die zweite, fixture-unabhaengige Ableitung (Memory-Lehre "gruene Tests zementieren alte Ordnung"):
+// die Liste der geprueften Versionen kommt aus pruef_dock_version_for() ueber ALLE fuenf Gattungen,
+// nicht aus einer im Test gepflegten Aufzaehlung von Literalen.
+// ------------------------------------------------------------------------------------------------
+TEST(ReflectVersionsAllRegistered, PruefDockVersionsFollowCeFlagGrammar) {
+    namespace pd = ::comdare::cache_engine::builder::pruef_dock;
+    namespace an = ::comdare::cache_engine::anatomy;
+
+    constexpr std::array<an::AnatomyGenus, 5> kAllDockGenera{an::AnatomyGenus::SearchAlgorithm, an::AnatomyGenus::Set,
+                                                             an::AnatomyGenus::Sequence, an::AnatomyGenus::Adapter,
+                                                             an::AnatomyGenus::View};
+    for (an::AnatomyGenus const g : kAllDockGenera) {
+        std::string_view const raw = pd::pruef_dock_version_for(g);
+        SCOPED_TRACE(std::string{an::genus_name(g)});
+        // (a) jede Ebene-2-Gattung traegt eine bezifferte Dock-Version (kein stiller Leerstempel).
+        ASSERT_FALSE(raw.empty()) << "Gattung ohne Dock-Version -- die Mess-Provenienz waere unbeziffert.";
+        // (b) Owner-Q10: das 'v' gehoert ins ROH-Literal.
+        EXPECT_EQ(raw.front(), 'v');
+        // (c) ce-Politik ungated: wohlgeformt und NIE 'e' (Pruefling-Markierung, Owner-E2).
+        EXPECT_TRUE(meas::ce_owned_version_is_wellformed(raw));
+        // (d) ce-Politik gated: CPU-only-Flotte -> Flag 'c' (Owner-Q3). Dieselbe Wache, die
+        //     COMDARE_VERSION_HW_FLAG_ENFORCE compile-hart zieht -- hier zusaetzlich zur Laufzeit belegt.
+        EXPECT_TRUE(meas::ce_owned_version_satisfies_cpu_enforce(raw));
+        // (e) Render-Neutralitaet: die GERENDERTE Form ist praefixfrei, behaelt aber das Flag.
+        std::string const stamp = pd::pruef_dock_version_stamp(an::genus_name(g), raw);
+        EXPECT_EQ(stamp, std::string{an::genus_name(g)} + "@" + std::string{raw.substr(1)});
+        EXPECT_EQ(stamp.find("@v"), std::string::npos) << "Praefix 'v' darf NICHT in die gerenderte Form (Q10).";
+        EXPECT_EQ(stamp.back(), 'c') << "CPU-only: die gerenderte Version MUSS auf 'c' enden (Q3).";
+    }
 }
