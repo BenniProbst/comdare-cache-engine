@@ -123,6 +123,60 @@
 
 namespace comdare::cache_engine::anatomy {
 
+// -----------------------------------------------------------------------------
+// A8-S4 KONSTITUTIV-VERTRAG (Dossier docs/architecture/20260803-a8_f2_benchmarking_schnitt_soll_design.md
+// Abschn. 3.3 "Gattungs-Vertrag"): je (Gattungs-Funktion x Achse) eine DEKLARIERTE Rolle --
+//   KONSTITUTIV = die Gattungs-Funktion ruft/traegt das Achsen-Interface im Hot-Path (auch Messung-AUS);
+//   BEOBACHTEND = Mess-Organ, ausschliesslich unter COMDARE_MEASUREMENT_ON (K10-PMAJOR-04-Bloecke).
+// Fuer den Gattungs-Kern (tier_insert/tier_lookup/tier_erase/tier_clear/tier_size) ist die konstitutive
+// Menge {T0 search_algo, T4 node_type, T5 memory_layout, T6 allocator} = die Store-Kette; alle uebrigen
+// 14 Achsen sind BEOBACHTEND (Befund B-4 des Dossiers: "EIN Speicher, konstitutiv").
+// Die beiden folgenden Compile-Time-Wachen PINNEN genau diese Kette. Sie erzeugen KEIN Byte: reine
+// static_assert-Praedikate ohne Member, ohne vtable-Slot, ohne POD-Feld (G8-Wire-Flaeche unberuehrt).
+// Volle Matrix mit datei:zeile-Beleg je Zelle:
+//   docs/architecture/20260804-a8_s4_konstitutiv_matrix_gattungs_vertrag.md
+// -----------------------------------------------------------------------------
+
+/// A8S4GattungsKernAntrieb -- der T0-Vertragskern, den die FUENF Gattungs-Funktionen am
+/// container_algorithm_ konstitutiv aufrufen. AM OBJEKT aus den Aufrufstellen abgeleitet
+/// (tier_insert: insert | tier_lookup: lookup | tier_erase: erase | tier_clear: clear |
+/// tier_size: occupied_count) -- keine erfundene Abstraktion, kein zusaetzlicher Vertrag.
+/// Bricht dieser Assert, ist die konstitutive Kette gerissen (oder eine Gattungs-Funktion
+/// routet still an ihr vorbei) -- genau der Zustand, den die Matrix ausschliessen soll.
+template <class CA>
+concept A8S4GattungsKernAntrieb = requires(CA& c, CA const& cc, std::uint64_t k, std::uint64_t v) {
+    requires std::is_convertible_v<decltype(c.insert(k, v)), bool>;
+    cc.lookup(k).has_value();
+    requires std::is_convertible_v<decltype(*cc.lookup(k)), std::uint64_t>;
+    requires std::is_convertible_v<decltype(c.erase(k)), bool>;
+    c.clear();
+    requires std::is_convertible_v<decltype(cc.occupied_count()), std::uint64_t>;
+};
+
+/// a8s4_store_kette_kompositions_gebunden_v -- T4/T5/T6 sind KONSTITUTIV-CT: sie parametrisieren den
+/// flachen Store der Gattungs-Kette (LayoutAwareChunkedStore<N,L,A>) und bestimmen damit den Code, der
+/// im Release-Hot-Path laeuft (Chunk-Kapazitaet aus N, physische Repraesentation aus L,
+/// allocate/deallocate ueber A). Die Wache pinnt, dass der Store GENAU die Kompositions-Achsen traegt;
+/// eine stille Entkopplung (Store mit fremdem Allokator/Layout) waere sonst unbemerkt moeglich und
+/// wuerde die Achsen-Wirkung aus der Messung herausdrehen.
+/// Organ-gehuellte Familien OHNE flachen Store (Art/Hot/Masstree/Wormhole, #188-4b-b1a) tragen die
+/// Kette in ihrem eigenen Organ -- fuer sie ist die Wache ehrlich neutral (true), nicht falsch-gruen;
+/// die Matrix-Doku deklariert diesen Fall als eigene Zeile.
+template <class CA, class Comp>
+inline constexpr bool a8s4_store_kette_kompositions_gebunden_v = [] {
+    if constexpr (requires {
+                      typename CA::store_type::node_type;
+                      typename CA::store_type::layout_type;
+                      typename CA::store_type::allocator_type;
+                  }) {
+        return std::is_same_v<typename CA::store_type::node_type, typename Comp::node_type> &&
+               std::is_same_v<typename CA::store_type::layout_type, typename Comp::memory_layout> &&
+               std::is_same_v<typename CA::store_type::allocator_type, typename Comp::allocator>;
+    } else {
+        return true;
+    }
+}();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SearchAlgorithmAbiAdapter — bridge AnatomyConcept-konformer SearchAlgorithm-
 // Anatomie zu IAnatomyBase (Mammal-Gattung in Tier-Metapher, Doku 14 §27.2)
@@ -886,6 +940,17 @@ public:
     // vom Pfad-A-`run_workload` (Messung-AN-only); bei MESSUNG-AN zieht tier_observe zusaetzlich observer_all (Doku 24 §8.6).
     // ─────────────────────────────────────────────────────────────────────
 
+    // A8-S4 ROLLEN-DEKLARATION tier_insert (Konstitutiv-Matrix, Dossier 3.3):
+    //   KONSTITUTIV: T0 search_algo (container_algorithm_.insert, unten unkonditional) ->
+    //                T4 node_type / T5 memory_layout / T6 allocator als Store-Kette
+    //                (LayoutAwareChunkedStore<N,L,A>: Chunk-Kapazitaet aus N, Repraesentation aus L,
+    //                 A::allocate beim Chunk-Wachstum). T0 zusaetzlich CT ueber capacity_constraint_of.
+    //   BEOBACHTEND (NUR COMDARE_MEASUREMENT_ON, K10-PMAJOR-04-Block unten): T1 ct_organ_.register_entry |
+    //                T2 map_organ_.register_slot | T3 pc_organ_.compress/insert_key | T7 pf_organ_ |
+    //                T8 cc_organ_ | T10 vh_organ_.store_value | T14 flt_organ_.insert_key |
+    //                T15 queuing_q1_organ_.put | T16 queuing_q2_organ_.should_flush/on_flush_complete.
+    //   NICHT BETEILIGT: T9 serialization | T11 index_organization | T12 io_dispatch |
+    //                T13 migration_policy | T17 persistence_target (nur im Observer-Fill/Segment-Lauf).
     [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
         constexpr auto cap = ::comdare::cache_engine::lookup::composable::capacity_constraint_of<SearchAlgo>();
         if constexpr (cap.kind == ::comdare::cache_engine::lookup::composable::CapacityKind::Static &&
@@ -989,6 +1054,14 @@ public:
         return m8_new_flag;
     }
 
+    // A8-S4 ROLLEN-DEKLARATION tier_lookup (Konstitutiv-Matrix, Dossier 3.3):
+    //   KONSTITUTIV: T0 search_algo (container_algorithm_.lookup, unten unkonditional) ->
+    //                T4/T5 als Store-Kette (Slot-Geometrie aus N, Key-/Value-Dekodierung aus L);
+    //                T6 allocator ist im lookup NUR Typ-Glied des Stores (kein allocate im Lese-Pfad).
+    //   BEOBACHTEND (NUR COMDARE_MEASUREMENT_ON): T1 ct_organ_.resolve | T2 map_organ_.resolve_offset |
+    //                T3 pc_organ_.compress | T7 pf_organ_.observe_prefetch_descent |
+    //                T8 cc_organ_.observe_critical_section | T15 queuing_q1_organ_.get.
+    //   NICHT BETEILIGT: T9 | T10 | T11 | T12 | T13 | T14 | T16 | T17.
     [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
         // #188-4c-iii (2026-07-02): lookup liest immer aus dem einzigen konstitutiven container_algorithm_-Zustand.
         auto const cv     = container_algorithm_.lookup(key);
@@ -1036,6 +1109,12 @@ public:
         return m8_hit;
     }
 
+    // A8-S4 ROLLEN-DEKLARATION tier_erase (Konstitutiv-Matrix, Dossier 3.3):
+    //   KONSTITUTIV: T0 search_algo (container_algorithm_.erase) -> T4/T5/T6 als Store-Kette
+    //                (erase_slot_at rebaut die Chunks: Repraesentation aus L, Allokation ueber A).
+    //   BEOBACHTEND: KEINE -- tier_erase traegt als EINZIGE Gattungs-Funktion NULL Observer-Kopplungen;
+    //                der einzige Mess-Block ist die CoW-Memento-Materialisierung (kein Achsen-Interface).
+    //   Damit ist tier_erase der reinste Release-Pfad-Beleg der Matrix.
     [[nodiscard]] bool tier_erase(std::uint64_t key) noexcept override {
 #if COMDARE_MEASUREMENT_ON
         if (cow_armed_) cow_materialize_copy_(); // CoW (#133 Rev. 2): Vollkopie VOR der Mutation (s. tier_insert)
@@ -1044,6 +1123,13 @@ public:
         return container_algorithm_.erase(key);
     }
 
+    // A8-S4 ROLLEN-DEKLARATION tier_clear (Konstitutiv-Matrix, Dossier 3.3):
+    //   KONSTITUTIV: T0 search_algo (container_algorithm_.clear + container_algorithm_tier1_.clear,
+    //                beide unkonditional) -> T6 allocator REAL (Store::clear -> free_chunks_ ->
+    //                A::deallocate je Chunk); T4/T5 als Typ-Glieder der geleerten Store-Geometrie.
+    //   BEOBACHTEND (NUR COMDARE_MEASUREMENT_ON): DATEN-Leerung T1 ct | T2 map | T3 pc | T10 vh | T14 flt |
+    //                T15 q1; STATISTIK-Reset via reset_axis_statistics_ fuer GENAU NEUN Organe (T0-stats,
+    //                T1,T2,T3,T7,T8,T15,T16,T17). NICHT BETEILIGT: T4 | T5 | T9 | T11 | T12 | T13.
     void tier_clear() noexcept override {
 #if COMDARE_MEASUREMENT_ON
         // CoW (#133 Rev. 2): clear ist eine Mutation → Vollkopie VOR dem Leeren materialisieren. Greift nur in
@@ -1082,6 +1168,11 @@ public:
 #endif // COMDARE_MEASUREMENT_ON (#166 K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_clear)
     }
 
+    // A8-S4 ROLLEN-DEKLARATION tier_size (Konstitutiv-Matrix, Dossier 3.3):
+    //   KONSTITUTIV: T0 search_algo (container_algorithm_.occupied_count -> Store::slot_count).
+    //                T4/T5/T6 sind reine Typ-Glieder der Kette; tier_size ruft KEIN Achsen-Interface
+    //                unter T0 auf (Fuellstand ist ein Store-Zaehler) -- ehrlich so deklariert.
+    //   BEOBACHTEND: KEINE.
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {
         // #188-4c-iii (2026-07-02): EIN Speicher; container_algorithm_ haelt fuer alle Tiere jeden Insert und liefert den Fuellstand.
         return static_cast<std::uint64_t>(container_algorithm_.occupied_count());
@@ -2169,6 +2260,17 @@ private:
     // nur fuer Reference-/PaperBinding-Huellen ausserhalb der 320-Registry.
     static constexpr bool container_algorithm_is_store_backed_ =
         requires { typename container_algorithm_t::store_type; };
+
+    // A8-S4 KONSTITUTIV-KETTEN-PIN (Dossier 3.3). Zwei compile-time-Wachen, KEIN Byte, kein Member:
+    //  (1) der T0-Vertragskern, den ALLE FUENF Gattungs-Funktionen am container_algorithm_ aufrufen;
+    //  (2) T4/T5/T6 sind an die KOMPOSITION gebunden (der Store traegt genau deren Achsen-Typen).
+    // Sie stehen HIER, weil erst ab dieser Zeile container_algorithm_t vollstaendig deklariert ist.
+    static_assert(A8S4GattungsKernAntrieb<container_algorithm_t>,
+                  "A8-S4: der konstitutive T0-Vertragskern (insert/lookup/erase/clear/occupied_count) "
+                  "fehlt am container_algorithm_ -- die Gattungs-Kette waere gerissen.");
+    static_assert(a8s4_store_kette_kompositions_gebunden_v<container_algorithm_t, Composition>,
+                  "A8-S4: die konstitutive Store-Kette traegt NICHT die Kompositions-Achsen "
+                  "node_type/memory_layout/allocator -- T4/T5/T6 waeren aus der Messung herausgedreht.");
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
