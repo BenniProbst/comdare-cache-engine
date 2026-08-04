@@ -4,9 +4,15 @@
 // Eine Set-Permutations-.dll exportiert genau EINEN solchen via comdare_create_anatomy() (gibt IAnatomyBase*;
 // der gattungs-agnostische Loader, der Set-Dock fragt dynamic_cast<ISetTier*>). static_assert genus()==Set (Doku 14 §32).
 
+// E-24 C6 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE): der Adapter erbt ZUSAETZLICH ISetTierV2 und liefert
+// darueber die per-Achsen-Wire-Form SetObserverAggregate<13>. APPEND-ONLY: ISetTier und
+// SetObserverSnapshotV1 bleiben unveraendert (Vererbungs-REIHENFOLGE der bestehenden Basen eingefroren,
+// die neue Basis kommt HINTEN); der Host holt die neue Flaeche 1x kalt per dynamic_cast<ISetTierV2*>.
+
 #include "anatomy_base.hpp" // IAnatomyBase + AnatomyConcept
 #include "set_anatomy.hpp"  // SetAnatomy / SetObserverSnapshot
 #include "set_tier.hpp"     // ISetTier + SetObserverSnapshotV1
+#include "set_tier_v2.hpp"  // E-24 C6: ISetTierV2 + SetObserverAggregate<13> + fill_set_observer_aggregate
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -15,7 +21,7 @@
 namespace comdare::cache_engine::anatomy {
 
 template <AnatomyConcept A>
-class SetAbiAdapter final : public IAnatomyBase, public ISetTier {
+class SetAbiAdapter final : public IAnatomyBase, public ISetTier, public ISetTierV2 {
     static_assert(A::genus() == AnatomyGenus::Set,
                   "SetAbiAdapter erwartet eine Set-Gattung-Anatomie (AnatomyGenus::Set). "
                   "Cross-Genus-Adapter sind type-system-mathematisch unmoeglich — Doku 14 §32.");
@@ -77,6 +83,17 @@ public:
         v.observable_axis_count = 1; // R5.B ehrlich: real getrieben = search_algo-Kern-Organ
         v.organ_count           = A::organ_count();
         *out                    = v;
+    }
+
+    // -- ISetTierV2 (E-24 C6: die PER-ACHSEN-Wire-Form) -----------------------------------------
+    /// Projiziert die in-process-Sicht observe_axes() + die Ehrlichkeits-Zaehler in den flachen
+    /// Gattungs-Wire-POD. Die Projektion laeuft IM Modul-Binary (die Achsen-Typen sind composition-
+    /// abhaengig); ueber die Grenze geht nur der POD.
+    void tier_observe_set_axes(SetObserverAggregateWire* out) const noexcept override {
+        if (out == nullptr) return;
+        SetObserverAggregateWire w{};
+        fill_set_observer_aggregate(anatomy_, w);
+        *out = w;
     }
 
 private:
