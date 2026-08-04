@@ -73,8 +73,12 @@ static void check_coverage(char const* name, bool store_axes_backed) {
     an::ComdareTierObserverSnapshot const& s  = pr.unified;
     tr(std::string(name) + ": unified observer real", pr.unified_real);
 
+    // A8-S1 (2026-08-04, Befund B-6): ZWINGENDER Nachzug. Solange die Kopierschleife im abi_adapter `< 17` lief,
+    // war seg_ns[17] immer 0 und diese `< 17`-Summe zufaellig identisch mit der Summe ueber ALLE Slots -- die
+    // Identitaets-Abnahme unten war also gruen, OBWOHL T17 verloren ging. Jetzt gegen kV3AxisCount summiert:
+    // die Identitaet ist damit ein echter Waechter und bricht, wenn eine kuenftige Achse wieder haengen bleibt.
     std::int64_t seg_sum = 0;
-    for (int t = 0; t < 17; ++t) seg_sum += s.seg_ns[t];
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t) seg_sum += s.seg_ns[t];
 
     std::int64_t const run_total = s.seg_run_total_ns;
     std::int64_t const framework = s.seg_framework_ns;

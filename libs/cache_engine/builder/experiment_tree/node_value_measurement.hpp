@@ -69,8 +69,11 @@ template <class P>
     nv.observer.observable_axis_count    = pod.observable_axis_count;
     nv.observer.tier_fill_level          = pod.tier_fill_level;
     // I1: zusätzlich die volle Per-Achsen-Matrix + Pfad-B-seg_ns in den Knoten (NodeObserverSnapshot trägt sie).
-    for (std::size_t t = 0; t < 17; ++t) { // Bau-INC-2d: 17 Achsen (isa raus)
-        for (std::size_t f = 0; f < 8; ++f) nv.observer.axis_stats[t][f] = pod.axis_stats[t][f];
+    // A8-S1 (2026-08-04, Befund B-6): Grenze ist kV3AxisCount, NIE ein Literal. Der stehengebliebene INC-2d-Wert
+    // 17 (Quell- UND Ziel-Array sind seit STRUKT-R ORG-18 [18]) verlor in der Knoten-Projektion seg_ns[17] UND
+    // die komplette axis_stats[17][0..7]-Zeile der T17-Achse persistence_target.
+    for (std::size_t t = 0; t < an::kV3AxisCount; ++t) {
+        for (std::size_t f = 0; f < an::kV3FieldCount; ++f) nv.observer.axis_stats[t][f] = pod.axis_stats[t][f];
         nv.observer.seg_ns[t] = pod.seg_ns[t];
     }
     nv.observer.filled_axis_count = pod.filled_axis_count;

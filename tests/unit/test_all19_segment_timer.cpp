@@ -1,5 +1,5 @@
 // (X) BUILD-VERIFIKATION: der per-Achsen-Timer auf ALLE 18 SearchAlgorithm-Achsen (Bau-INC-2c: telemetry ist System-Achse) ausgeweitet
-// (IMeasurableWorkloadV3::run_workload_segmented_v2 → ComdareSegmentLatencyV2.seg_ns[17]) + Layout-Fix
+// (IMeasurableWorkloadV3::run_workload_segmented_v2 -> ComdareSegmentLatencyV2.seg_ns[kV3AxisCount]) + Layout-Fix
 // (aos_strict Stride 48 vs cache_line_aligned Stride 64). In-process Stand-in (identische vtable/POD-Layout
 // wie über die .dll-Grenze) — als „search_algo_grid o.ä." über mehrere reale SA-Kompositionen.
 //
@@ -84,22 +84,26 @@ static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_
     row.setting_label = "-";
     row.n_ops         = 4000;
     row.total_ns      = seg.total_ns;
-    for (int i = 0; i < 17; ++i)
-        row.unified.seg_ns[i] = seg.seg_ns[i]; // I1-Konsolidierung: seg-Struct -> unified.seg_ns[17]
+    // A8-S1 (2026-08-04): Grenze aus kV3AxisCount, nie Literal -- `< 17` liess T17 in der CSV-Zeile leer.
+    for (std::size_t i = 0; i < an::kV3AxisCount; ++i)
+        row.unified.seg_ns[i] = seg.seg_ns[i]; // I1-Konsolidierung: seg-Struct -> unified.seg_ns[kV3AxisCount]
     row.unified.seg_framework_ns = seg.seg_framework_ns;
     row.unified.seg_run_total_ns = seg.seg_run_total_ns;
     row.unified.batches_measured = seg.batches_measured;
     row.unified_real             = (n > 0);
     csv_out += ex::format_csv_row(row);
 
-    std::cout << "  " << name << ": batches=" << n << "  seg_ns[T0..T16]=";
-    for (int i = 0; i < 17; ++i) std::cout << seg.seg_ns[i] << (i < 16 ? "," : "");
+    std::cout << "  " << name << ": batches=" << n << "  seg_ns[T0..T" << (an::kV3AxisCount - 1) << "]=";
+    for (std::size_t i = 0; i < an::kV3AxisCount; ++i)
+        std::cout << seg.seg_ns[i] << (i + 1 < an::kV3AxisCount ? "," : "");
     std::cout << "  total=" << seg.total_ns << "\n";
     return seg;
 }
 
 int main() {
-    std::cout << "==== (X) per-Achsen-Timer auf ALLE 17 Achsen + Layout-Fix (in-process) ====\n";
+    // A8-S1: Banner aus der tragenden Konstante -- der Text sagte 17, geprueft werden kV3AxisCount Achsen.
+    std::cout << "==== (X) per-Achsen-Timer auf ALLE " << an::kV3AxisCount
+              << " Achsen + Layout-Fix (in-process) ====\n";
 
     std::string csv  = ex::lazy_csv_header();
     auto        art  = measure19<comp::ArtComposition>("ArtComposition", csv);
@@ -118,7 +122,8 @@ int main() {
     // (1) ALLE 18 seg_*_ns > 0 bei jeder Komposition (kein n/a, kein 0).
     auto all19_pos = [](an::ComdareSegmentLatencyV2 const& s) {
         if (s.batches_measured == 0) return false;
-        for (int i = 0; i < 17; ++i)
+        // A8-S1: die Zusicherung sagte "alle 18", pruefte aber nur 17 -- jetzt deckungsgleich mit kV3AxisCount.
+        for (std::size_t i = 0; i < an::kV3AxisCount; ++i)
             if (s.seg_ns[i] <= 0) return false;
         return true;
     };
@@ -129,7 +134,7 @@ int main() {
 
     // (2) plausible Variation: nicht alle 18 Segmente identisch (echte, achsen-spezifische Last).
     auto varies = [](an::ComdareSegmentLatencyV2 const& s) {
-        for (int i = 1; i < 17; ++i)
+        for (std::size_t i = 1; i < an::kV3AxisCount; ++i)
             if (s.seg_ns[i] != s.seg_ns[0]) return true;
         return false;
     };
@@ -167,7 +172,9 @@ int main() {
     // (4) total_ns == Σ der 18 Segmente (Konsistenz).
     auto consistent = [](an::ComdareSegmentLatencyV2 const& s) {
         std::int64_t sum = 0;
-        for (int i = 0; i < 17; ++i) sum += s.seg_ns[i];
+        // A8-S1 ZWINGEND: total_ns summiert seit dem Fix ALLE kV3AxisCount Segmente -- eine `< 17`-Gegensumme
+        // waere jetzt kleiner und dieser Konsistenz-Check braeche. Er ist damit ein echter Waechter geworden.
+        for (std::size_t i = 0; i < an::kV3AxisCount; ++i) sum += s.seg_ns[i];
         return s.total_ns == sum;
     };
     tr("Art: total_ns == Σ 18 Segmente", consistent(art));
