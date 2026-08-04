@@ -20,6 +20,11 @@
 // V41 OpenDone.2 — Pfad-B Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
 #include <builder/pruef_dock/pruef_dock.hpp>
 #include <builder/pruef_dock/search_algorithm_dock.hpp>
+// E-24 C4 (d/5): die Voll-Belegung der Dock-Registry ueber alle FUENF Gattungen. Ab hier misst
+// f15 --observe nicht mehr nur SearchAlgorithm-DLLs, sondern jede Gattung ueber ihr eigenes Dock.
+// Die Liste selbst steht bewusst NICHT hier, sondern in register_all_genus_docks() -- damit sie
+// von einer Test-TU geprueft werden kann und nicht als zweite, driftende Liste in einer main() lebt.
+#include <builder/pruef_dock/pruef_dock_registry_default.hpp>
 #include <builder/pruef_dock/pruef_dock_registry.hpp>
 #include <builder/pruef_dock/pruef_dock_sequencer.hpp>
 #include <builder/pruef_dock/conformance_gate.hpp> // V5: std::map-Konformitäts-Gate vor Messung
@@ -217,7 +222,11 @@ int main(int argc, char** argv) {
     if (observe) {
         namespace pd = ::comdare::cache_engine::builder::pruef_dock;
         pd::PruefDockRegistry reg;
-        reg.register_dock(std::make_unique<pd::SearchAlgorithmDock>());
+        // E-24 C4 (d/5) -- ALLE FUENF Gattungen. Bis hierher war dies die einzige produktive
+        // register_dock-Stelle im Baum (Bauplan Paragraf 1.0 / OP-4-Rest) und sie kannte genau EIN
+        // Dock: eine geladene Set-/Sequence-/Adapter-/View-DLL fiel deshalb in select_for() durch
+        // und wurde als "kein passendes Dock" gemeldet, statt gemessen zu werden.
+        pd::register_all_genus_docks(reg);
 
         // Checkpoints inkl. 1000 (> typischer Fixed-Capacity-Tier): der drive_tier_observe_trace_abi-
         // Stagnations-Guard (max_insert_stagnation) bricht die WRITE-Phase an der effektiven Tier-Kapazität

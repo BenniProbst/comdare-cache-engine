@@ -24,6 +24,7 @@
 
 #include "builder/pruef_dock/adapter_dock.hpp"
 #include "builder/pruef_dock/pruef_dock_registry.hpp"
+#include "builder/pruef_dock/pruef_dock_registry_default.hpp"
 #include "builder/pruef_dock/pruef_dock_sequencer.hpp"
 #include "builder/pruef_dock/sequence_dock.hpp"
 #include "builder/pruef_dock/set_dock.hpp"
@@ -38,6 +39,7 @@
 
 #include <boost/mp11.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -348,14 +350,26 @@ int main() {
     // ------------------------------------------------------------------------------------------
     // Registry: select_for waehlt per IM MODUL deklarierter Gattung
     // ------------------------------------------------------------------------------------------
-    std::cout << "\n-- Registry-Auswahl ueber vier Gattungen --\n";
+    std::cout << "\n-- Registry-Auswahl ueber alle fuenf Gattungen (dieselbe Belegung wie f15_compare) --\n";
     {
+        // E-24 C4 (d/5): DIESELBE Funktion, die apps/f15_compare/main.cpp aufruft -- es gibt keine
+        // zweite, im Test nachgebildete Liste, die driften koennte.
         pd::PruefDockRegistry reg;
-        reg.register_dock(std::make_unique<pd::SetPruefDock>());
-        reg.register_dock(std::make_unique<pd::SequencePruefDock>());
-        reg.register_dock(std::make_unique<pd::AdapterPruefDock>());
-        reg.register_dock(std::make_unique<pd::ViewPruefDock>());
-        eq("Registry-Groesse", reg.size(), std::size_t{4});
+        pd::register_all_genus_docks(reg);
+        eq("Registry-Groesse (alle fuenf Gattungen)", reg.size(), std::size_t{5});
+
+        // VOLLSTAENDIGKEITS-WACHE ueber die ENUM-Werte, nicht ueber eine Aufzaehlung im Test: kaeme
+        // eine sechste Ebene-2-Gattung dazu und register_all_genus_docks vergaesse sie, bricht das hier.
+        constexpr std::array<ana::AnatomyGenus, 5> kAllGenera{ana::AnatomyGenus::SearchAlgorithm,
+                                                              ana::AnatomyGenus::Set, ana::AnatomyGenus::Sequence,
+                                                              ana::AnatomyGenus::Adapter, ana::AnatomyGenus::View};
+        bool                                       all_genera_covered = true;
+        for (auto const g : kAllGenera) {
+            pd::IPruefDock const* d = reg.dock_for_genus(g);
+            if (d == nullptr || d->dock_genus() != g) all_genera_covered = false;
+        }
+        tr("dock_for_genus() liefert fuer JEDE der fuenf Ebene-2-Gattungen ein Dock", all_genera_covered);
+        eq("Registry-Groesse == Zahl der Ebene-2-Gattungen", reg.size(), kAllGenera.size());
 
         // LEBENSDAUER-FALLE, am Bau aufgelaufen und deshalb hier benannt: for_each_abi_adapter
         // materialisiert den ABI-Adapter je Permutation als LOKALE Variable im Callback
