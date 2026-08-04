@@ -1865,6 +1865,9 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # Achse) wirklich benutzt. Ihre Konformitaets-Wache traegt deshalb ZUSAETZLICH zum Typ-Pin den LAUFZEIT-
     # Beleg der realen Verdrahtung und des R1-Memento-Rebinds (Form-B-Grenze, s5_family_alloc_conformance.hpp:31).
     test_s5_03_placement_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 03_placement
+    # Zweite Haelfte desselben Gate-Musters fuer 03: Zeit UND Zaehler derselben Op-Schleife (Anti-Phantom)
+    # plus ehrliche Nullpunkte + Strategie-Kontrast; Achsen-Indizes aus der Namensliste abgeleitet, nie Literal.
+    test_s5_03_placement_perf_sanity  # A8-S5 -- Perf-Sanity Familie 03_placement (keine 0-/Phantom-Zeiten)
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
