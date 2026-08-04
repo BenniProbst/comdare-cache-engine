@@ -27,6 +27,9 @@
 #include <builder/pruef_dock/pruef_dock_registry_default.hpp>
 #include <builder/pruef_dock/pruef_dock_registry.hpp>
 #include <builder/pruef_dock/pruef_dock_sequencer.hpp>
+// E-24 C5 (FK-7): die CEB-seitige Klassifizierung der Dock-/Lade-Fehlerpfade. Ohne sie endete ein
+// status != ok hier in einer blossen Konsolen-Zeile -- ohne CSV-Datensatz und ohne stabiles Etikett.
+#include <builder/pruef_dock/dock_error_classification.hpp>
 #include <builder/pruef_dock/conformance_gate.hpp> // V5: std::map-Konformitäts-Gate vor Messung
 // V5-I9/I10: host-seitiger Lastprofil-Orchestrator (mehrere Lastprofile je Binary, Zwei-Phasen-Messung).
 #include <builder/workload_driver/workload_orchestrator.hpp>
@@ -208,7 +211,14 @@ int main(int argc, char** argv) {
     std::vector<loader::AnatomyModuleHandle> handles;
     int const                                st = loader::AnatomyModuleLoader::load_all(dll_dir, handles);
     if (st != loader::status_ok) {
+        // E-24 C5 / FK-7: auch der LADE-Fehler wird klassifiziert gemeldet (er ist der frueheste
+        // Mess-Eintritts-Fehlerpfad ueberhaupt) -- stabiles Etikett statt nur des rohen Transport-Namens.
+        // Die Zeile daneben bleibt woertlich stehen: sie ist der Bestands-Text, den Skripte greppen.
         std::cerr << "load_all fehlgeschlagen: " << loader::status_name(st) << " (dir=" << dll_dir << ")\n";
+        std::cerr << pd::dock_failure_log_line(
+                         pd::classify_loader_status(st).value_or(pd::cem::DockErrorClass::ModulLadeFehler),
+                         dll_dir.string(), loader::status_name(st))
+                  << "\n";
         return 2;
     }
 
@@ -259,6 +269,24 @@ int main(int argc, char** argv) {
                 } else {
                     std::cerr << "        Trace-Schreiben fehlgeschlagen (" << nm << ")\n";
                 }
+            } else {
+                // E-24 C5 / FK-7 (Bauplan Paragraf 6.2): DER FEHLERPFAD BEKOMMT EINEN DATENSATZ.
+                // Bis hierher endete ein status != ok genau in der Konsolen-Zeile darueber: keine CSV,
+                // keine klassifizierte Log-Zeile. Die Auswertung sah eine FEHLENDE Datei -- also ein
+                // Nichts -- statt eines Fehlschlags, und das ist der Fall, den die Mess-Fehler-Doktrin
+                // ausdruecklich verbietet ("failed"-Zelle + Log, NIE eine stille 0/null).
+                // Der Datensatz traegt dieselbe .observe.csv-Namensform wie der Erfolgsfall: eine
+                // Auswertung, die je Modul eine Datei erwartet, findet sie jetzt IMMER -- mit "failed"
+                // darin statt gar nicht. Exit-Code-Semantik unveraendert (ok zaehlt weiterhin nur Erfolge).
+                pd::cem::DockErrorClass const klasse =
+                    r.error_class.value_or(pd::cem::DockErrorClass::UnbekannterDockStatus);
+                std::cerr << "        " << pd::dock_failure_log_line(klasse, nm, pd::dock_status_name(r.status))
+                          << "\n";
+                std::filesystem::path const fail_p = out_dir / (nm + ".observe.csv");
+                if (!write_text_file(fail_p.string(), pd::dock_failure_csv(klasse, nm, pd::dock_status_name(r.status))))
+                    std::cerr << "        Fehler-Datensatz nicht schreibbar (" << nm << ")\n";
+                else
+                    std::cout << "        FAILED-CSV -> " << fail_p.string() << "\n";
             }
         }
         std::cout << "  " << ok << "/" << results.size() << " Modul(e) erfolgreich observiert (Pfad B).\n";

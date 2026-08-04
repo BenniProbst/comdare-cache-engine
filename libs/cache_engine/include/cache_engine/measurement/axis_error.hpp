@@ -225,6 +225,64 @@ inline constexpr std::size_t kHardwareProbeErrorClassCount = 4;
     return "hardware_probe_unbekannt";
 }
 
+// -- E-24 C5 / FK-7: DOCK-FEHLERPFAD-KLASSEN -- die Klassifizierung des MESS-EINTRITTS (D2-Seite). -----
+// Bauplan-Dossier docs/sessions/20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 6.2 (FK-7): "die rohen
+// dock_status_*-Ints (pruef_dock.hpp:36-48) bleiben ABI-nahe TRANSPORTFORM (kein V5-Freeze-Bruch); die
+// KLASSIFIZIERUNG geschieht CEB-seitig ... CSV-Zelle 'failed' + klassifiziertes Log mit stabilem Etikett,
+// NIE stille 0/null."
+//
+// WARUM EINE EIGENE TAXONOMIE NEBEN SampleStatus (W-4-Doktrin, wie bei AdmissionStatus/BuildCellStatus):
+// SampleStatus hat fuer den GESAMTEN Mess-Fehlerraum genau EINEN Wert (Failed) und genau EIN Log-Etikett
+// ("mess_fehler"). Der Dock-/Loader-Eintritt kennt aber sechs unterscheidbare Gruende, und sie verlangen
+// verschiedene Konsequenzen: eine FREMDE GATTUNG am Dock ist ein Registry-/Auswahl-Fehler, ein FEHLENDES
+// ANTRIEBS-SUB-INTERFACE ist eine zu alte DLL, ein GESCHEITERTES ORAKEL ist ein Befund am Pruefling selbst.
+// Alle drei als "mess_fehler" zu loggen hiesse, das Log klassifiziert nichts, sondern wiederholt die Zelle
+// (exakt die Begruendung, mit der A15/FK-1 sample_status_label neben den Zell-Token gestellt hat).
+//
+// DIE DOMAENE BLEIBT D2 (Sample): der Dock-Fehlerpfad endet in einer MESS-Zelle, nicht in einem Bau-Urteil.
+// error_domain(DockErrorClass) == ErrorDomain::Sample ist daher kein Zufall, sondern die Aussage "die Zelle
+// liest 'failed'". Die Bau-Seite (D1) ist FK-8 und liegt in einem eigenen, disjunkten Vokabular.
+//
+// KEIN INCLUDE VON pruef_dock.hpp (Layer-Schnitt): diese Datei ist die measurement-Taxonomie und darf die
+// builder-Seite nicht kennen. Die Abbildung Transport-Int -> Klasse steht am Dock-Aufrufer
+// (builder/pruef_dock/dock_error_classification.hpp) und pinnt die Int-Werte dort compile-hart.
+enum class DockErrorClass : std::uint8_t {
+    ModulOhneAnatomie       = 0, // geladenes Modul ohne IAnatomyBase (dock_status_no_anatomy, Modul-Seite)
+    KeinDockFuerGattung     = 1, // Registry-Seite: kein Dock fuer die im Modul deklarierte Gattung
+    FremdeGattung           = 2, // Modul-Gattung != Dock-Gattung (dock_status_wrong_genus)
+    AntriebsInterfaceFehlt  = 3, // gattungs-eigenes Sub-Interface fehlt -- zu alte DLL (subinterface_missing)
+    KonformitaetGescheitert = 4, // Gattungs-Orakel VOR der Messung gerissen (conformance_failed); NICHT gemessen
+    ModulLadeFehler         = 5, // der Loader kam gar nicht bis zum Dock (anatomy_module_loader status != ok)
+    UnbekannterDockStatus   = 6, // Transport-Int jenseits des bekannten Vokabulars -> sichtbar, nie still
+};
+/// Single-Source der Dock-Klassenzahl (beide Drift-Wachen unten).
+inline constexpr std::size_t kDockErrorClassCount = 7;
+
+/// Log-Etikett je Dock-Fehlerklasse (stabil; darf in Experiment-Logs zitiert werden). Der Fallback heisst
+/// bewusst NICHT "unbekannt" -- das Wort tragen error_class_label und infra_error_label bereits, und die
+/// Disjunktheits-Wachen unten sollen eine echte Aussage machen statt an einem Sammelbegriff zu scheitern.
+[[nodiscard]] constexpr std::string_view dock_error_label(DockErrorClass c) noexcept {
+    switch (c) {
+        case DockErrorClass::ModulOhneAnatomie: return "modul_ohne_anatomie";
+        case DockErrorClass::KeinDockFuerGattung: return "kein_dock_fuer_gattung";
+        case DockErrorClass::FremdeGattung: return "fremde_gattung";
+        case DockErrorClass::AntriebsInterfaceFehlt: return "antriebs_interface_fehlt";
+        case DockErrorClass::KonformitaetGescheitert: return "konformitaet_gescheitert";
+        case DockErrorClass::ModulLadeFehler: return "modul_lade_fehler";
+        case DockErrorClass::UnbekannterDockStatus: return "unbekannter_dock_status";
+    }
+    return "dock_fehler_unbekannt";
+}
+
+/// Die D2-ZELL-Wirkung einer Dock-Fehlerklasse. ALLE Klassen liefern Failed -- und das ist eine Entscheidung,
+/// keine Verlegenheit: ein Dock-Fehlerpfad heisst, dass eine Binary GEBAUT und ZUM MESSEN VORGELEGT wurde und
+/// die Messung dann nicht zustande kam. Das ist ein Defekt, kein planmaessiges "n/a" (NotApplicable heisst
+/// "die Achse ist fuer diese Binary sinnlos", SourceUnavailable "die Quelle existiert hier planmaessig nicht").
+/// Ein n/a wuerde den Defekt in der Auswertung unsichtbar machen -- genau die stille Luecke, die FK-7
+/// schliesst. Die Unterscheidung WARUM traegt das Log (dock_error_label), nicht die Zelle.
+/// Der Parameter bleibt bewusst stehen: sollte je eine Klasse anders abbilden, ist DIES die eine Stelle.
+[[nodiscard]] constexpr SampleStatus dock_error_sample_status(DockErrorClass) noexcept { return SampleStatus::Failed; }
+
 /// Ist ein Etikett gegen ALLE bestehenden Zell-/Fehler-Vokabeln disjunkt? Die Schleifen laufen ueber die
 /// Count-Single-Sources statt ueber handgepflegte Listen: waechst eine fremde Taxonomie, waechst diese
 /// Pruefung automatisch mit. Eine Liste haette genau beim naechsten Zuwachs geschwiegen -- dieselbe
@@ -246,6 +304,10 @@ inline constexpr std::size_t kHardwareProbeErrorClassCount = 4;
         if (t == build_cell_status_token(static_cast<BuildCellStatus>(i))) return false;
     for (std::size_t i = 0; i < kInfraErrorClassCount; ++i)
         if (t == infra_error_label(static_cast<InfraErrorClass>(i))) return false;
+    // E-24 C5 / FK-7: die Dock-Etiketten laufen aus demselben Grund mit wie die Bau-/Zulassungs-Tokens --
+    // sie reisen in DIESELBEN Experiment-Logs, und ein Log-Grep darf keine fremde Domaene mittreffen.
+    for (std::size_t i = 0; i < kDockErrorClassCount; ++i)
+        if (t == dock_error_label(static_cast<DockErrorClass>(i))) return false;
     return true;
 }
 
@@ -266,6 +328,10 @@ enum class ErrorDomain : std::uint8_t {
     return ErrorDomain::CompilerCompiler;
 }
 [[nodiscard]] constexpr ErrorDomain error_domain(SampleStatus) noexcept { return ErrorDomain::Sample; }
+/// E-24 C5 / FK-7: der Dock-Fehlerpfad endet in einer MESS-Zelle -- er ist deshalb D2 (Sample) und
+/// ausdruecklich KEINE eigene ErrorDomain. Die Domaenen-Liste bleibt damit unveraendert (kein Enum-Zuwachs
+/// an ErrorDomain), waehrend die Dock-KLASSE die Log-Aufloesung liefert, die SampleStatus allein nicht hat.
+[[nodiscard]] constexpr ErrorDomain error_domain(DockErrorClass) noexcept { return ErrorDomain::Sample; }
 
 /// Bau-Fehler-Traeger: EIN Wert, der ENTWEDER ein Infra- ODER ein Compiler-Compiler-Fehler ist (nie beides,
 /// nie fehletikettiert). std::variant = typisierte Summe (Expected/Result-Naht an BuildResult.outcome).
@@ -483,5 +549,58 @@ static_assert(!probe_label_ist_disjunkt(build_cell_status_token(BuildCellStatus:
 static_assert(!probe_label_ist_disjunkt(build_cell_status_token(BuildCellStatus::Gebaut)));
 static_assert(!probe_label_ist_disjunkt(sample_status_label(SampleStatus::SourceUnavailable)));
 static_assert(!probe_label_ist_disjunkt(sample_status_label(SampleStatus::Failed)));
+
+// -- E-24 C5 / FK-7: die Dock-Taxonomie -- POD-Form, BEIDE Drift-Richtungen, volle Disjunktheit ------
+static_assert(std::is_same_v<std::underlying_type_t<DockErrorClass>, std::uint8_t>);
+static_assert(std::is_trivially_copyable_v<DockErrorClass>);
+// (1) Namens-Pin und (2) Etikett-hinter-Count -- beide, weil (1) allein ein ANHAENGEN nicht faengt (RF-3).
+static_assert(kDockErrorClassCount == static_cast<std::size_t>(DockErrorClass::UnbekannterDockStatus) + 1);
+static_assert(dock_error_label(static_cast<DockErrorClass>(kDockErrorClassCount)) ==
+                  std::string_view{"dock_fehler_unbekannt"},
+              "Drift: hinter dem Count liegt eine etikettierte Dock-Fehlerklasse");
+// Die Domaenen-Zuordnung ist zementiert: ein Dock-Fehler ist eine MESS-Aussage (D2) und NIE ein Bau-Urteil
+// (D1), nie ein Prozess-/IO-Fehler (Infra), nie ein Hardware-Erhebungs-Befund. Wer das aufweicht, meldet
+// eine nicht messbare Binary als Bau- oder Maschinen-Problem.
+static_assert(error_domain(DockErrorClass::FremdeGattung) == ErrorDomain::Sample);
+static_assert(error_domain(DockErrorClass::FremdeGattung) != error_domain(InfraErrorClass::ArtefaktIo));
+static_assert(error_domain(DockErrorClass::FremdeGattung) !=
+              error_domain(CompilerCompilerErrorClass::CompileKombination));
+static_assert(error_domain(DockErrorClass::FremdeGattung) != error_domain(HardwareProbeErrorClass::QuelleFehlt));
+// DER KERN VON FK-7: jede Dock-Fehlerklasse rendert die Zelle als "failed" -- NIE als Null, NIE als "n/a".
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::ModulOhneAnatomie)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::KeinDockFuerGattung)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::FremdeGattung)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::AntriebsInterfaceFehlt)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::KonformitaetGescheitert)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::ModulLadeFehler)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::UnbekannterDockStatus)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::ModulOhneAnatomie)) !=
+                  sample_status_token(SampleStatus::NotApplicable),
+              "Ein Dock-Fehler darf NIE als 'n/a' lesen -- das wuerde einen Defekt als Planmaessigkeit tarnen.");
+// Das Log-Etikett ist NICHT der Zell-Token (ein Log-Grep darf keine Zelle treffen) und nicht das
+// D2-Sammel-Etikett: genau diese Aufloesung ist der Zweck der eigenen Taxonomie.
+static_assert(dock_error_label(DockErrorClass::FremdeGattung) != sample_status_token(SampleStatus::Failed));
+static_assert(dock_error_label(DockErrorClass::FremdeGattung) != sample_status_label(SampleStatus::Failed));
+static_assert(dock_error_label(DockErrorClass::AntriebsInterfaceFehlt) !=
+              dock_error_label(DockErrorClass::KonformitaetGescheitert));
+static_assert(dock_error_label(DockErrorClass::ModulOhneAnatomie) !=
+                  dock_error_label(DockErrorClass::KeinDockFuerGattung),
+              "Modul-Seite und Registry-Seite MUESSEN unterscheidbar bleiben -- der Transport-Int "
+              "konflatiert beide (pruef_dock_sequencer.hpp), und genau das repariert FK-7.");
+// Token-Disjunktheit gegen ALLE bestehenden Vokabeln, jede Klasse einzeln + der Fallback.
+static_assert(probe_label_ist_disjunkt(dock_error_label(DockErrorClass::ModulOhneAnatomie)) == false);
+static_assert(!probe_label_ist_disjunkt(dock_error_label(DockErrorClass::KeinDockFuerGattung)));
+static_assert(!probe_label_ist_disjunkt(dock_error_label(DockErrorClass::UnbekannterDockStatus)));
+// Der Fallback muss ebenfalls disjunkt SEIN (er liegt jenseits des Counts, die Schleife sieht ihn nicht --
+// deshalb hier positiv geprueft statt ueber die Gegenprobe).
+static_assert(probe_label_ist_disjunkt(dock_error_label(static_cast<DockErrorClass>(kDockErrorClassCount))),
+              "Auch der Dock-Fallback muss disjunkt sein -- 'unbekannt' ist bereits doppelt vergeben.");
 
 } // namespace comdare::cache_engine::measurement

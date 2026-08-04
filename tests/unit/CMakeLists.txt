@@ -1720,6 +1720,29 @@ add_test(NAME ${_comdare_e24_c4_dock_tu} COMMAND ${_comdare_e24_c4_dock_tu})
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_comdare_e24_c4_dock_tu})
 set_tests_properties(${_comdare_e24_c4_dock_tu} PROPERTIES LABELS "goal_v6;phase_d")
 
+# E-24 C5 (a/5) -- FK-7: die Dock-/Lade-Fehlerpfade werden D2-klassifiziert (Zelle "failed" + Log-Etikett).
+# DERSELBE eigene Block wie die C4-Dock-TU darueber und aus DEMSELBEN am Bau erzwungenen Grund: die TU
+# konstruiert AnatomyModuleHandle, dessen unload() im Loader-.cpp lebt -- der GoalV6-Sammelblock linkt nur
+# Boost::mp11 und braeche mit "undefined reference to ...AnatomyModuleHandle::unload()". Plain int main()
+# (kein gtest) -> add_test direkt, plus COMDARE_TEST_TARGETS (#278-Klasse-B-Fix: sonst "Not Run" in der CI).
+set(_comdare_e24_c5_fk7_tu test_e24_c5_fk7_dock_fehlerklassen)
+add_executable(${_comdare_e24_c5_fk7_tu} "${_comdare_e24_c5_fk7_tu}.cpp")
+target_compile_features(${_comdare_e24_c5_fk7_tu} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_e24_c5_fk7_tu} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_e24_c5_fk7_tu} PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+comdare_set_platform_defines(${_comdare_e24_c5_fk7_tu})
+add_test(NAME ${_comdare_e24_c5_fk7_tu} COMMAND ${_comdare_e24_c5_fk7_tu})
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_comdare_e24_c5_fk7_tu})
+set_tests_properties(${_comdare_e24_c5_fk7_tu} PROPERTIES LABELS "goal_v6;phase_d")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
 # Identisches Muster wie die GoalV6-D-Tests darueber: plain `int main()`-Standalone (KEIN gtest, daher add_test
