@@ -178,6 +178,21 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// A8-S5 VERDRAHTUNGS-ANKER (Form-B-Auflage des Gate-Musters, s. tests/unit/
+    /// s5_family_alloc_conformance.hpp "GRENZE DER FORM B"): allocator_type allein ist nur eine
+    /// DEKLARATION -- diese Route macht die REALE Verdrahtung messbar. Ein Organ mit blosser
+    /// using-Zeile und Default-Allokator-Container meldete hier dauerhaft 0 Allokationen.
+    ///
+    /// BEWUSST NICHT store_allocator_statistics() genannt (abweichend von der Pool-Store-Praezedenz
+    /// btree_node_pool_store.hpp:124): unter DIESEM Namen erkennt die T6-Route den KONSTITUTIVEN
+    /// Speicher (anatomy_execution_context.hpp:68-69, abi_adapter fill_observer_v3). Der Eintrags-
+    /// Speicher dieser Achse ist NICHT der T6-Speicher der Komposition -- gleicher Name wuerde einen
+    /// kuenftigen generischen Leser zur Doppelzaehlung in T6 einladen.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t traversal_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
 #endif
 
 private:

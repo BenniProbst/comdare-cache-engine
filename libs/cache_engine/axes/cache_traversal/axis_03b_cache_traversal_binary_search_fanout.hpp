@@ -176,6 +176,13 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// A8-S5 VERDRAHTUNGS-ANKER (Form-B-Auflage des Gate-Musters) -- Begruendung inkl. der bewussten
+    /// Namens-Abweichung von store_allocator_statistics(): s. axis_03b_cache_traversal_linear_fanout.hpp.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t traversal_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
 #endif
 
 private:
