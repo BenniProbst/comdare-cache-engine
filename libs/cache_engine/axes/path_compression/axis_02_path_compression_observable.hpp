@@ -124,6 +124,14 @@ public:
 
     using real_trie_type = real_trie_t<Strategy>;
 
+    /// A8-S5-02a Form-B-Ausweis der Huelle (S5-Gate-Wache, tests/unit/s5_family_alloc_conformance.hpp): der
+    /// Speicher des Trie-Backings laeuft ueber die Allokator-Achse. Es ist EXAKT der Typ, den PatriciaTrie
+    /// real als Versorger haelt (EINE Quelle, axis_02_path_compression_real_trie.hpp) -- die Deklaration kann
+    /// also nicht vom Ist abdriften. Fuer none/ByteWise (EmptyPatriciaTrie) ist die Huelle ohnehin heap-frei
+    /// und erfuellt die staerkere Form (A); die Zeile benennt den Versorger nur einheitlich.
+    /// Realer Verdrahtungs-Beleg am Objekt: real_trie().trie_allocator_statistics() (nur Patricia).
+    using allocator_type = path_compression_trie_allocator_t;
+
     /// Build (Setup, NICHT gemessen): den Schluessel inkrementell in den materialisierten Patricia-Trie einordnen
     /// (crit-bit-Trie-Insert, Set-Semantik). Existiert NUR fuer Patricia (EmptyPatriciaTrie ohne insert_key →
     /// `none`-Build-Hook greift nicht → M3-Pin bleibt EXAKT No-Op).

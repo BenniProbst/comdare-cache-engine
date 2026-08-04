@@ -1917,6 +1917,17 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # als allozierende, [0] resolve als lesende Op) + ehrlicher Nullpunkt OHNE None-Strategie (unregister
     # bleibt 0; hit+miss == resolve mit beiden Seiten real) + Rehash-Pfad ueber die Achse.
     test_s5_01d_traversal_perf_sanity # A8-S5 -- Perf-Sanity Familie 01d (keine 0-/Phantom-Zeiten)
+    # A8-S5 (2026-08-04) Familie 02_layout / Sub-Scheibe 02a (node_type + memory_layout + path_compression +
+    # serialization; filter/SuRF = 02b, bewusst NICHT hier). Diese Familie traegt den HERZ-Befund der Welle:
+    # die node-Chunk-Stores DEKLARIERTEN ihren allocator_type schon vor dem Scrub (A ist Template-Parameter),
+    # haetten den Form-B-Zweig also bereits bestanden -- und trotzdem lief der Chunk-INDEX am Default-Allokator.
+    # Die Konformitaets-Wache pinnt deshalb zusaetzlich zur Typ-Ebene die REALE Verdrahtung mit einer Aussage,
+    # die am Alt-Stand FAELLT (allocation_count ECHT > chunk_alloc_count), plus den R1-Memento-Rebind.
+    test_s5_02a_layout_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 02a (inkl. HERZ-Beleg)
+    # Zweite Haelfte desselben Gate-Musters fuer 02a: Zeit UND Zaehler derselben Op-Schleife (Anti-Phantom)
+    # plus ehrliche Nullpunkte (path_compression_none haelt weiterhin KEINEN Trie) und der direkte Blick in die
+    # geSCRUBbten Strukturen; Achsen-Indizes aus der Namensliste abgeleitet, nie Literal.
+    test_s5_02a_layout_perf_sanity    # A8-S5 -- Perf-Sanity Familie 02a (keine 0-/Phantom-Zeiten)
     # HAERTUNG Posten 64 (2026-08-04): der FEHLSCHLAG-VERTRAG des StdAllocatorAdapter, negativ belegt.
     # Nach dem A8-S5-Schnitt fuehren mapping/value_handle/cache_traversal + die vier Pool-Stores ihren
     # Speicher ueber die Allokator-Achse; die meldet OOM per nullptr. Der Adapter uebersetzt das jetzt an
