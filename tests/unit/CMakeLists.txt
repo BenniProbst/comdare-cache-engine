@@ -1861,6 +1861,12 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # geschaltet hat. Verlangt Zeit UND Zaehler derselben Op-Schleife zugleich (Anti-Phantom) plus den
     # ehrlichen Nullpunkt der None-Strategie; Achsen-Indizes aus kCompositionAxisNames abgeleitet.
     test_s5_04_execution_perf_sanity  # A8-S5 -- Perf-Sanity Familie 04_execution (keine 0-/Phantom-Zeiten)
+    # A8-S5 (2026-08-04) Familie 01d cache_traversal = ERSTE Folge-Familie nach dem Pilot und zugleich der
+    # Muster-Beweis der 01c-Mechanik im Kleinen: dieselbe Nicht-Template-Klassen-Form wie die 17 Top-Level-
+    # Algos der Familie 01c. Die Familie faehrt Schnitt-Form (B) (Allokator-Achse) statt (A) (heap-frei),
+    # weil register_entry/rehash unbeschraenkt wachsen -- deshalb belegt sie den von Form B geforderten
+    # realen Verdrahtungs-Anker zusaetzlich compile-hart (Konformitaets-TU) UND zur Laufzeit (Perf-Sanity).
+    test_s5_01d_traversal_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 01d cache_traversal
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
