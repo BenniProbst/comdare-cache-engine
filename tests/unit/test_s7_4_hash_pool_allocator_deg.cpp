@@ -6,6 +6,8 @@
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <axes/lookup/axis_03a_search_algo_hash_search.hpp>
+#include <axes/alloc/axis_06_allocator_exgen.hpp>
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
 #include <axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <builder/codegen/all_axes_umbrella.hpp>
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>
@@ -31,6 +33,7 @@ namespace comp = ::comdare::cache_engine::compositions;
 namespace hps  = ::comdare::cache_engine::nodes::axis_hash_probe_shape;
 namespace lk   = ::comdare::cache_engine::lookup;
 namespace lkc  = ::comdare::cache_engine::lookup::composable;
+namespace alc  = ::comdare::cache_engine::alloc;
 
 namespace {
 
@@ -42,7 +45,12 @@ using HashHull     = lkc::ObservableComposedContainer<DefaultOrgan>;
 
 static_assert(std::is_same_v<DefaultStore, lkc::HashBucketPoolStore<Shape>>);
 static_assert(lkc::HashBucketPool<DefaultStore>);
-static_assert(std::is_same_v<typename DefaultStore::allocator_type, std::allocator<typename DefaultStore::node_type>>);
+// FIXTURE-NACHZUG A8-S5 Familie 01a (2026-08-04): der Store fuehrt seinen Speicher jetzt ueber die
+// Allokator-ACHSE (axis_06, Default ExgenAllocator) statt ueber std::allocator. Die alte Zeile pinnte
+// GENAU den Zustand, den der Schnitt abbaut -- sie wird deshalb BEWUSST nachgezogen (Auflage 7) und
+// dabei GESCHAERFT: gepinnt wird nicht nur der Typ, sondern dass er das Achsen-Concept erfuellt.
+static_assert(alc::concepts::AllocatorStrategy<typename DefaultStore::allocator_type>);
+static_assert(std::is_same_v<typename DefaultStore::allocator_type, alc::ExgenAllocator>);
 static_assert(requires(DefaultOrgan const& organ) { organ.store_allocator_statistics(); });
 static_assert(requires(HashHull const& hull) { hull.store_allocator_statistics(); });
 
@@ -89,10 +97,15 @@ TEST(S74HashPoolAllocatorDeg, DirectPoolStatsAreReal) {
 
     for (U64 const key : keys) { EXPECT_TRUE(hull.insert(key, value_for(key))); }
 
+    // FIXTURE-NACHZUG A8-S5 Familie 01a (2026-08-04): store_allocator_statistics() liefert jetzt die
+    // axis_06-Strategie-Statistik (rich AllocationStatistics) statt der Store-eigenen Capacity-Delta-
+    // Schaetzung. live_nodes ist keine Allokator-, sondern eine Container-Groesse und wird deshalb am
+    // Organ selbst geprueft (occupied_count) -- genau die Trennung, die auch abi_adapter.hpp faehrt.
     auto const stats = hull.store_allocator_statistics();
-    EXPECT_GT(stats.alloc_calls, 0u);
-    EXPECT_GT(stats.bytes_allocated, 0u);
-    EXPECT_EQ(stats.live_nodes, keys.size());
+    EXPECT_GT(stats.allocation_count, 0u);
+    EXPECT_GT(stats.total_bytes_allocated, 0u);
+    EXPECT_GT(stats.total_bytes_in_use, 0u);
+    EXPECT_EQ(hull.occupied_count(), keys.size());
 }
 
 TEST(S74HashPoolAllocatorDeg, ChainingBranchCompilesAndMeters) {
@@ -100,7 +113,9 @@ TEST(S74HashPoolAllocatorDeg, ChainingBranchCompilesAndMeters) {
     using ChainStore = lkc::HashBucketPoolStore<ChainShape>;
 
     static_assert(lkc::HashBucketPool<ChainStore>);
-    static_assert(std::is_same_v<typename ChainStore::allocator_type, std::allocator<typename ChainStore::node_type>>);
+    // FIXTURE-NACHZUG A8-S5 (s.o.): auch der Chaining-Zweig haengt jetzt an der Allokator-Achse.
+    static_assert(alc::concepts::AllocatorStrategy<typename ChainStore::allocator_type>);
+    static_assert(std::is_same_v<typename ChainStore::allocator_type, alc::ExgenAllocator>);
     static_assert(requires(ChainStore const& store) { store.store_allocator_statistics(); });
 
     ChainStore             store;
@@ -112,10 +127,12 @@ TEST(S74HashPoolAllocatorDeg, ChainingBranchCompilesAndMeters) {
     lkc::HashProbeTraversalOrgan::insert_into<ChainStore>(store, keys.front(), value_for(keys.front()) + 1u);
     EXPECT_EQ(store.occupied(), keys.size());
 
+    // FIXTURE-NACHZUG A8-S5 (s.o.): rich AllocationStatistics; die Belegung prueft der Store selbst.
     auto const stats = store.store_allocator_statistics();
-    EXPECT_GT(stats.alloc_calls, 0u);
-    EXPECT_GT(stats.bytes_allocated, 0u);
-    EXPECT_EQ(stats.live_nodes, keys.size());
+    EXPECT_GT(stats.allocation_count, 0u);
+    EXPECT_GT(stats.total_bytes_allocated, 0u);
+    EXPECT_GT(stats.total_bytes_in_use, 0u);
+    EXPECT_EQ(store.occupied(), keys.size());
 }
 
 TEST(S74HashPoolAllocatorDeg, AbiObserverRoutesPoolAllocatorStatsToT6) {

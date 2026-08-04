@@ -24,7 +24,7 @@ namespace ts     = ::comdare::cache_engine::test_support;
 // --- Masstree-Fundament (S9): kpermuter-Bit-Arithmetik (fragilste Stelle) VOR dem Organ isoliert verifiziert.
 // Belegt Kperm15 gegen die dokumentierten kpermuter.hh-Invarianten (make_sorted/insert_from_back/remove).
 TEST(MasstreeKpermuter, Kperm15Invariants) {
-    using KP = ce_cmp::MasstreeLayerNodePoolStore::Kperm15;
+    using KP = ce_cmp::MasstreeLayerNodePoolStore<>::Kperm15;
     // make_sorted(n): size()==n und [i]==i fuer 0<=i<n.
     for (int n = 0; n <= 15; ++n) {
         KP p{KP::make_sorted(n)};
@@ -77,9 +77,9 @@ TEST(MasstreeKpermuter, Kperm15Invariants) {
 
 // --- Masstree-Organ standalone: Voll-Dekompositions-B+Baum-of-Tries gegen std::map (S3/S4 Verifikation) ---
 using MasstreeOrgan2 =
-    ce_cmp::ComposedMasstreeSearch<ce_cmp::MasstreeLayerTraversalOrgan<2>, ce_cmp::MasstreeLayerNodePoolStore>;
+    ce_cmp::ComposedMasstreeSearch<ce_cmp::MasstreeLayerTraversalOrgan<2>, ce_cmp::MasstreeLayerNodePoolStore<>>;
 using MasstreeOrgan8 =
-    ce_cmp::ComposedMasstreeSearch<ce_cmp::MasstreeLayerTraversalOrgan<8>, ce_cmp::MasstreeLayerNodePoolStore>;
+    ce_cmp::ComposedMasstreeSearch<ce_cmp::MasstreeLayerTraversalOrgan<8>, ce_cmp::MasstreeLayerNodePoolStore<>>;
 TEST(Axis03aTierOrgan, Uint64MasstreeMatchesStdMap) {
     ts::verify_matches_std_map<MasstreeOrgan2>(
         60000u, 60000u); // Mehr-Layer (SliceBytes=2) + Leaf/Internode-Split + neue Wurzel

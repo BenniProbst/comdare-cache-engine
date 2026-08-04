@@ -28,7 +28,7 @@ using U16 = std::uint16_t;
 
 static_assert(std::is_same_v<lkc::organ_for_search_algo_t<lk::EytzingerSearchAlgo>, lkc::EytzingerOrgan>);
 static_assert(std::is_same_v<lkc::traversal_for_search_algo_t<lk::EytzingerSearchAlgo>, void>);
-static_assert(lkc::EytzingerLayoutPool<lkc::EytzingerLayoutStore>);
+static_assert(lkc::EytzingerLayoutPool<lkc::EytzingerLayoutStore<>>);
 static_assert(!lkc::StoreTraversableSearchAlgo<lk::EytzingerSearchAlgo>);
 
 constexpr U64 kSeedT1       = 0x1884A001C0FFEEull;
@@ -133,7 +133,7 @@ TEST(Eytzinger_Organ_188_4a, T2_WrapperEquivalenceInU16Keyspace) {
 }
 
 TEST(Eytzinger_Organ_188_4a, T3_OptionBLazyDirtySemantics) {
-    lkc::EytzingerLayoutStore store;
+    lkc::EytzingerLayoutStore<> store;
 
     lkc::EytzingerTraversalOrgan::insert_into(store, 10u, 100u);
     EXPECT_TRUE(store.dirty()) << "insert invalidiert BFS-Puffer";

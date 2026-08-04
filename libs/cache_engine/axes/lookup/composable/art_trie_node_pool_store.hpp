@@ -14,8 +14,16 @@
 // **Skalar/Korrektheit-zuerst:** find_child ist skalar (kein SIMD); die SIMD-Verdrahtung (Node16 _mm_cmpeq_epi8
 // ueber 16 Bytes etc.) ist ein Folge-Increment hinter axis_09b-ISA-Guard. NodeRef = std::size_t (Kind in
 // Bits 56-63, Index in Bits 0-55); je Kind eigener Vektor + Free-List (Index-Stabilitaet via Recycling).
+//
+// A8-S5 Familie 01a (2026-08-04): ALLE zehn Vektoren (5 Knoten-Pools + 5 Free-Listen) beziehen ihren Speicher
+// REAL aus der Allocator-Achse (axis_06), Muster BTreeNodePoolStore. Der Allokator-Template-Kopf bestand schon;
+// geflippt wurde die BINDUNG (Default + Rebind ueber den StdAllocatorAdapter der Achse statt ueber
+// std::allocator). COW-Kopie rebindet alle zehn an das eigene allocator_ und verwirft die Kopier-Pollution per
+// restore_statistics-Memento; Move ist nicht deklariert -> degradiert sicher zu Copy.
 
 #include "art_trie_node_pool_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp>            // axis_06-Default-Strategie + StdAllocatorAdapter
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_byte_wise.hpp> // ByteWiseKeyPrefix
 
 #include <array>
@@ -74,21 +82,75 @@ struct ArtTrieNode256 {
 
 } // namespace detail
 
-template <class A = std::allocator<detail::ArtTrieLeaf>>
+template <class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class ArtTrieNodePoolStore {
 public:
-    using node_type            = detail::ArtTrieLeaf;
-    using key_type             = typename node_type::key_type;
-    using value_type           = typename node_type::value_type;
-    using prefix_type          = detail::ArtTriePrefix;
-    using allocator_type       = A;
-    using leaf_allocator_type  = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieLeaf>;
-    using n4_allocator_type    = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode4>;
-    using n16_allocator_type   = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode16>;
-    using n48_allocator_type   = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode48>;
-    using n256_allocator_type  = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode256>;
-    using index_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    using node_type                   = detail::ArtTrieLeaf;
+    using key_type                    = typename node_type::key_type;
+    using value_type                  = typename node_type::value_type;
+    using prefix_type                 = detail::ArtTriePrefix;
+    using allocator_type              = Alloc;
+    using leaf_allocator_type         = typename Alloc::template StdAllocatorAdapter<detail::ArtTrieLeaf>;
+    using n4_allocator_type           = typename Alloc::template StdAllocatorAdapter<detail::ArtTrieNode4>;
+    using n16_allocator_type          = typename Alloc::template StdAllocatorAdapter<detail::ArtTrieNode16>;
+    using n48_allocator_type          = typename Alloc::template StdAllocatorAdapter<detail::ArtTrieNode48>;
+    using n256_allocator_type         = typename Alloc::template StdAllocatorAdapter<detail::ArtTrieNode256>;
+    using index_allocator_type        = typename Alloc::template StdAllocatorAdapter<std::size_t>;
     static constexpr std::size_t kNil = detail::kArtTrieNil;
+
+    // Default: die zehn Vektoren an das eigene allocator_ binden (Adapter nicht default-konstruierbar).
+    ArtTrieNodePoolStore()
+        : leaves_(allocator_.template as_std_allocator<detail::ArtTrieLeaf>()),
+          n4_(allocator_.template as_std_allocator<detail::ArtTrieNode4>()),
+          n16_(allocator_.template as_std_allocator<detail::ArtTrieNode16>()),
+          n48_(allocator_.template as_std_allocator<detail::ArtTrieNode48>()),
+          n256_(allocator_.template as_std_allocator<detail::ArtTrieNode256>()),
+          fl_leaf_(allocator_.template as_std_allocator<std::size_t>()),
+          fl_n4_(allocator_.template as_std_allocator<std::size_t>()),
+          fl_n16_(allocator_.template as_std_allocator<std::size_t>()),
+          fl_n48_(allocator_.template as_std_allocator<std::size_t>()),
+          fl_n256_(allocator_.template as_std_allocator<std::size_t>()) {}
+    // COW-Pflicht (Memento): allocator_ mitkopieren, alle zehn Vektoren an DAS EIGENE allocator_ rebinden,
+    // dann die Kopier-Pollution per restore_statistics verwerfen. Move NICHT deklariert -> degradiert zu Copy.
+    ArtTrieNodePoolStore(ArtTrieNodePoolStore const& o)
+        : allocator_(o.allocator_), leaves_(o.leaves_, allocator_.template as_std_allocator<detail::ArtTrieLeaf>()),
+          n4_(o.n4_, allocator_.template as_std_allocator<detail::ArtTrieNode4>()),
+          n16_(o.n16_, allocator_.template as_std_allocator<detail::ArtTrieNode16>()),
+          n48_(o.n48_, allocator_.template as_std_allocator<detail::ArtTrieNode48>()),
+          n256_(o.n256_, allocator_.template as_std_allocator<detail::ArtTrieNode256>()),
+          fl_leaf_(o.fl_leaf_, allocator_.template as_std_allocator<std::size_t>()),
+          fl_n4_(o.fl_n4_, allocator_.template as_std_allocator<std::size_t>()),
+          fl_n16_(o.fl_n16_, allocator_.template as_std_allocator<std::size_t>()),
+          fl_n48_(o.fl_n48_, allocator_.template as_std_allocator<std::size_t>()),
+          fl_n256_(o.fl_n256_, allocator_.template as_std_allocator<std::size_t>()), root_(o.root_), size_(o.size_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    ArtTrieNodePoolStore& operator=(ArtTrieNodePoolStore const& o) {
+        if (this != &o) {
+            // POCCA=false (der Adapter setzt keine propagate_-Typedefs) -> die Vektoren behalten ihr an
+            // this-allocator_ gebundenes Adapter; die Assigns re-allozieren transient ueber this-allocator_.
+            leaves_  = o.leaves_;
+            n4_      = o.n4_;
+            n16_     = o.n16_;
+            n48_     = o.n48_;
+            n256_    = o.n256_;
+            fl_leaf_ = o.fl_leaf_;
+            fl_n4_   = o.fl_n4_;
+            fl_n16_  = o.fl_n16_;
+            fl_n48_  = o.fl_n48_;
+            fl_n256_ = o.fl_n256_;
+            root_    = o.root_;
+            size_    = o.size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~ArtTrieNodePoolStore() = default;
 
     // NodeRef-Kodierung: Kind in Bits 56-63, Index in Bits 0-55.
     enum Kind : std::uint8_t { kLeaf = 0, kN4 = 1, kN16 = 2, kN48 = 3, kN256 = 4 };
@@ -131,10 +193,8 @@ public:
             fl_leaf_.pop_back();
             leaves_[idx] = node_type{k, v};
         } else {
-            idx                            = leaves_.size();
-            std::size_t const old_capacity = leaves_.capacity();
+            idx = leaves_.size();
             leaves_.push_back(node_type{k, v});
-            record_capacity_growth_(old_capacity, leaves_.capacity(), sizeof(node_type));
         }
         return make_ref(kLeaf, idx);
     }
@@ -147,10 +207,8 @@ public:
             fl_n4_.pop_back();
             n4_[idx] = N4{};
         } else {
-            idx                            = n4_.size();
-            std::size_t const old_capacity = n4_.capacity();
+            idx = n4_.size();
             n4_.push_back(N4{});
-            record_capacity_growth_(old_capacity, n4_.capacity(), sizeof(N4));
         }
         return make_ref(kN4, idx);
     }
@@ -339,51 +397,40 @@ public:
 
     // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
     // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
+    // KAUSALITAET (Posten 64/70): der Wurf kommt seit dem A8-S5-Schnitt vom StdAllocatorAdapter der
+    // Allokator-ACHSE (Strategie meldet OOM per nullptr -> Adapter wirft std::bad_alloc), nicht vom Default.
     void free_node(std::size_t r) {
         switch (ref_kind(r)) {
             case kLeaf: {
-                std::size_t const old_capacity = fl_leaf_.capacity();
                 fl_leaf_.push_back(ref_idx(r));
-                record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
                 return;
             }
             case kN4: {
-                std::size_t const old_capacity = fl_n4_.capacity();
                 fl_n4_.push_back(ref_idx(r));
-                record_capacity_growth_(old_capacity, fl_n4_.capacity(), sizeof(std::size_t));
                 return;
             }
             case kN16: {
-                std::size_t const old_capacity = fl_n16_.capacity();
                 fl_n16_.push_back(ref_idx(r));
-                record_capacity_growth_(old_capacity, fl_n16_.capacity(), sizeof(std::size_t));
                 return;
             }
             case kN48: {
-                std::size_t const old_capacity = fl_n48_.capacity();
                 fl_n48_.push_back(ref_idx(r));
-                record_capacity_growth_(old_capacity, fl_n48_.capacity(), sizeof(std::size_t));
                 return;
             }
             case kN256: {
-                std::size_t const old_capacity = fl_n256_.capacity();
                 fl_n256_.push_back(ref_idx(r));
-                record_capacity_growth_(old_capacity, fl_n256_.capacity(), sizeof(std::size_t));
                 return;
             }
         }
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    struct allocator_statistics_snapshot {
-        std::uint64_t alloc_calls     = 0;
-        std::uint64_t bytes_allocated = 0;
-        std::uint64_t live_nodes      = 0;
-    };
-
-    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
-        return allocator_statistics_snapshot{alloc_calls_, bytes_allocated_, live_node_count_()};
-    }
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (A8-S5): die ECHTE Allocator-Achsen-Statistik (rich AllocationStatistics, 5 Felder) statt der
+    /// frueheren Store-eigenen Capacity-Delta-Schaetzung (allocator-UNABHAENGIG -> zweite, driftende Wahrheit).
+    /// live_nodes speist der ABI-Adapter im Rich-Zweig aus occupied_count() des Organs -- der frueher hier
+    /// gefuehrte live_node_count_()-Helfer ist damit ersatzlos entfallen.
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -400,26 +447,6 @@ private:
     static constexpr int kShrink256 = 36; // N256 -> N48
     static constexpr int kShrink48  = 12; // N48  -> N16
     static constexpr int kShrink16  = 3;  // N16  -> N4
-
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    [[nodiscard]] std::uint64_t live_node_count_() const noexcept {
-        std::size_t const node_count = leaves_.size() + n4_.size() + n16_.size() + n48_.size() + n256_.size();
-        std::size_t const free_count =
-            fl_leaf_.size() + fl_n4_.size() + fl_n16_.size() + fl_n48_.size() + fl_n256_.size();
-        return static_cast<std::uint64_t>(node_count - free_count);
-    }
-
-    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
-    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
-    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
-        if (new_capacity <= old_capacity) return;
-        ++alloc_calls_;
-        bytes_allocated_ +=
-            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
-    }
-#else
-    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
-#endif
 
     [[nodiscard]] prefix_type& mutable_prefix(std::size_t r) noexcept {
         switch (ref_kind(r)) {
@@ -480,9 +507,7 @@ private:
             d.keys[i] = s.keys[i];
             d.kids[i] = s.kids[i];
         }
-        std::size_t const old_capacity = fl_n4_.capacity();
         fl_n4_.push_back(idx);
-        record_capacity_growth_(old_capacity, fl_n4_.capacity(), sizeof(std::size_t));
         return r16;
     }
     [[nodiscard]] std::size_t grow_n16_to_n48(std::size_t idx) {
@@ -496,9 +521,7 @@ private:
             d.child_index[s.keys[i]]                 = static_cast<std::uint8_t>(i);
             d.slot_byte[static_cast<std::size_t>(i)] = s.keys[i];
         }
-        std::size_t const old_capacity = fl_n16_.capacity();
         fl_n16_.push_back(idx);
-        record_capacity_growth_(old_capacity, fl_n16_.capacity(), sizeof(std::size_t));
         return r48;
     }
     [[nodiscard]] std::size_t grow_n48_to_n256(std::size_t idx) {
@@ -511,9 +534,7 @@ private:
             std::uint8_t const slot = s.child_index[static_cast<std::size_t>(b)];
             if (slot != kEmpty48) d.kids[static_cast<std::size_t>(b)] = s.kids[slot];
         }
-        std::size_t const old_capacity = fl_n48_.capacity();
         fl_n48_.push_back(idx);
-        record_capacity_growth_(old_capacity, fl_n48_.capacity(), sizeof(std::size_t));
         return r256;
     }
 
@@ -534,9 +555,7 @@ private:
                 ++slot;
             }
         }
-        std::size_t const old_capacity = fl_n256_.capacity();
         fl_n256_.push_back(idx);
-        record_capacity_growth_(old_capacity, fl_n256_.capacity(), sizeof(std::size_t));
         return r48;
     }
     [[nodiscard]] std::size_t shrink_n48_to_n16(std::size_t idx) {
@@ -554,9 +573,7 @@ private:
                 ++i;
             }
         }
-        std::size_t const old_capacity = fl_n48_.capacity();
         fl_n48_.push_back(idx);
-        record_capacity_growth_(old_capacity, fl_n48_.capacity(), sizeof(std::size_t));
         return r16;
     }
     [[nodiscard]] std::size_t shrink_n16_to_n4(std::size_t idx) {
@@ -569,9 +586,7 @@ private:
             d.keys[i] = s.keys[i];
             d.kids[i] = s.kids[i];
         } // bereits sortiert
-        std::size_t const old_capacity = fl_n16_.capacity();
         fl_n16_.push_back(idx);
-        record_capacity_growth_(old_capacity, fl_n16_.capacity(), sizeof(std::size_t));
         return r4;
     }
     [[nodiscard]] std::size_t new_node16() {
@@ -581,10 +596,8 @@ private:
             fl_n16_.pop_back();
             n16_[idx] = N16{};
         } else {
-            idx                            = n16_.size();
-            std::size_t const old_capacity = n16_.capacity();
+            idx = n16_.size();
             n16_.push_back(N16{});
-            record_capacity_growth_(old_capacity, n16_.capacity(), sizeof(N16));
         }
         return make_ref(kN16, idx);
     }
@@ -595,10 +608,8 @@ private:
             fl_n48_.pop_back();
             n48_[idx] = N48{};
         } else {
-            idx                            = n48_.size();
-            std::size_t const old_capacity = n48_.capacity();
+            idx = n48_.size();
             n48_.push_back(N48{});
-            record_capacity_growth_(old_capacity, n48_.capacity(), sizeof(N48));
         }
         return make_ref(kN48, idx);
     }
@@ -609,30 +620,26 @@ private:
             fl_n256_.pop_back();
             n256_[idx] = N256{};
         } else {
-            idx                            = n256_.size();
-            std::size_t const old_capacity = n256_.capacity();
+            idx = n256_.size();
             n256_.push_back(N256{});
-            record_capacity_growth_(old_capacity, n256_.capacity(), sizeof(N256));
         }
         return make_ref(kN256, idx);
     }
 
-    std::vector<Leaf, leaf_allocator_type>         leaves_{};
-    std::vector<N4, n4_allocator_type>             n4_{};
-    std::vector<N16, n16_allocator_type>           n16_{};
-    std::vector<N48, n48_allocator_type>           n48_{};
-    std::vector<N256, n256_allocator_type>         n256_{};
-    std::vector<std::size_t, index_allocator_type> fl_leaf_{};
-    std::vector<std::size_t, index_allocator_type> fl_n4_{};
-    std::vector<std::size_t, index_allocator_type> fl_n16_{};
-    std::vector<std::size_t, index_allocator_type> fl_n48_{};
-    std::vector<std::size_t, index_allocator_type> fl_n256_{};
+    // allocator_ VOR den Vektoren (der Adapter haelt &allocator_ -- Init-/Destruktions-Reihenfolge).
+    Alloc                                          allocator_{};
+    std::vector<Leaf, leaf_allocator_type>         leaves_;
+    std::vector<N4, n4_allocator_type>             n4_;
+    std::vector<N16, n16_allocator_type>           n16_;
+    std::vector<N48, n48_allocator_type>           n48_;
+    std::vector<N256, n256_allocator_type>         n256_;
+    std::vector<std::size_t, index_allocator_type> fl_leaf_;
+    std::vector<std::size_t, index_allocator_type> fl_n4_;
+    std::vector<std::size_t, index_allocator_type> fl_n16_;
+    std::vector<std::size_t, index_allocator_type> fl_n48_;
+    std::vector<std::size_t, index_allocator_type> fl_n256_;
     std::size_t                                    root_ = kNil;
     std::size_t                                    size_ = 0;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    std::uint64_t alloc_calls_     = 0;
-    std::uint64_t bytes_allocated_ = 0;
-#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das ArtTrieNodePool-Concept.

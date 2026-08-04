@@ -7,8 +7,16 @@
 // slots_ + ctrl_ split storage, mask_, size_, tombstones_, 7/8 rehash threshold, and tombstone reuse.
 // This mirrors the HashBucketPoolStore responsibility split: the store manages slots/control bytes and
 // rehash; the scalar H1/H2 group-probe search logic lives in SwissGroupProbeTraversalOrgan.
+//
+// A8-S5 Familie 01a (2026-08-04): Slot- und Control-Byte-Speicher kommen REAL aus der Allocator-Achse
+// (axis_06), Muster BTreeNodePoolStore. Der Allokator-Template-Kopf bestand schon; geflippt wurde die
+// BINDUNG (Default + Rebind ueber den StdAllocatorAdapter der Achse statt ueber std::allocator).
+// COW-Kopie rebindet beide Vektoren an das eigene allocator_ und verwirft die Kopier-Pollution per
+// restore_statistics-Memento; Move ist nicht deklariert -> degradiert sicher zu Copy.
 
 #include "swiss_group_pool_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp>            // axis_06-Default-Strategie + StdAllocatorAdapter
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 
 #include <algorithm>
 #include <cstddef>
@@ -27,16 +35,17 @@ struct SwissSlot {
 
 } // namespace detail
 
-template <class A = std::allocator<detail::SwissSlot>>
+template <class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class SwissGroupPoolStore {
 public:
     using key_type            = std::uint64_t;
     using value_type          = std::uint64_t;
     using node_type           = detail::SwissSlot;
     using Slot                = detail::SwissSlot;
-    using allocator_type      = A;
-    using slot_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<Slot>;
-    using ctrl_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<std::uint8_t>;
+    using allocator_type      = Alloc;
+    using slot_allocator_type = typename Alloc::template StdAllocatorAdapter<Slot>;
+    using ctrl_allocator_type = typename Alloc::template StdAllocatorAdapter<std::uint8_t>;
 
     static constexpr std::uint64_t kFibonacciMul    = 11400714819323198485ULL;
     static constexpr std::size_t   kGroupWidth      = 16;
@@ -44,10 +53,36 @@ public:
     static constexpr std::uint8_t  kEmpty           = 0x80u;
     static constexpr std::uint8_t  kDeleted         = 0xFEu;
 
-    SwissGroupPoolStore() : slots_(kInitialCapacity), ctrl_(kInitialCapacity, kEmpty), mask_(kInitialCapacity - 1) {
-        record_capacity_growth_(0, slots_.capacity(), sizeof(Slot));
-        record_capacity_growth_(0, ctrl_.capacity(), sizeof(std::uint8_t));
+    SwissGroupPoolStore()
+        : slots_(kInitialCapacity, Slot{}, allocator_.template as_std_allocator<Slot>()),
+          ctrl_(kInitialCapacity, kEmpty, allocator_.template as_std_allocator<std::uint8_t>()),
+          mask_(kInitialCapacity - 1) {}
+    // COW-Pflicht (Memento): allocator_ mitkopieren, beide Vektoren an DAS EIGENE allocator_ rebinden,
+    // Kopier-Pollution per restore_statistics verwerfen. Move NICHT deklariert -> degradiert zu Copy.
+    SwissGroupPoolStore(SwissGroupPoolStore const& o)
+        : allocator_(o.allocator_), slots_(o.slots_, allocator_.template as_std_allocator<Slot>()),
+          ctrl_(o.ctrl_, allocator_.template as_std_allocator<std::uint8_t>()), mask_(o.mask_), size_(o.size_),
+          tombstones_(o.tombstones_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
     }
+    SwissGroupPoolStore& operator=(SwissGroupPoolStore const& o) {
+        if (this != &o) {
+            // POCCA=false (der Adapter setzt keine propagate_-Typedefs) -> slots_/ctrl_ behalten ihr an
+            // this-allocator_ gebundenes Adapter; die Assigns re-allozieren transient ueber this-allocator_.
+            slots_      = o.slots_;
+            ctrl_       = o.ctrl_;
+            mask_       = o.mask_;
+            size_       = o.size_;
+            tombstones_ = o.tombstones_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~SwissGroupPoolStore() = default;
 
     [[nodiscard]] std::size_t slot_count() const noexcept { return mask_ + 1u; }
     [[nodiscard]] std::size_t group_count() const noexcept { return slot_count() / kGroupWidth; }
@@ -85,17 +120,19 @@ public:
         ++tombstones_;
     }
 
+    /// [[allocation-failure-exception]]: rehash kann werfen. KAUSALITAET (Posten 64/70, 2026-08-04): der
+    /// Wurf kommt seit dem A8-S5-Schnitt vom StdAllocatorAdapter der Allokator-ACHSE -- die Strategie meldet
+    /// OOM per nullptr, der Adapter uebersetzt ihn an EINER Stelle in std::bad_alloc
+    /// (axis_06_allocator_strategy_base.hpp). Fehlerklasse bleibt der FK-5-Boden der Achse.
     void rehash(std::size_t new_capacity) {
-        std::vector<Slot, slot_allocator_type>         old_slots;
-        std::vector<std::uint8_t, ctrl_allocator_type> old_ctrl;
+        // Die Zwischenpuffer haengen ebenfalls an der Achse (der Adapter ist nicht default-konstruierbar) --
+        // sonst waere ausgerechnet die groesste Umschaufel-Allokation an der Achse vorbeigelaufen.
+        std::vector<Slot, slot_allocator_type>         old_slots(allocator_.template as_std_allocator<Slot>());
+        std::vector<std::uint8_t, ctrl_allocator_type> old_ctrl(allocator_.template as_std_allocator<std::uint8_t>());
         old_slots.swap(slots_);
         old_ctrl.swap(ctrl_);
-        std::size_t const old_slots_capacity = slots_.capacity();
-        std::size_t const old_ctrl_capacity  = ctrl_.capacity();
         slots_.assign(new_capacity, Slot{});
-        record_capacity_growth_(old_slots_capacity, slots_.capacity(), sizeof(Slot));
         ctrl_.assign(new_capacity, kEmpty);
-        record_capacity_growth_(old_ctrl_capacity, ctrl_.capacity(), sizeof(std::uint8_t));
         mask_       = new_capacity - 1u;
         size_       = 0;
         tombstones_ = 0;
@@ -113,19 +150,11 @@ public:
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    struct allocator_statistics_snapshot {
-        std::uint64_t alloc_calls     = 0;
-        std::uint64_t bytes_allocated = 0;
-        std::uint64_t live_nodes      = 0;
-    };
-
-    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
-        return allocator_statistics_snapshot{
-            alloc_calls_,
-            bytes_allocated_,
-            static_cast<std::uint64_t>(size_),
-        };
-    }
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (A8-S5): die ECHTE Allocator-Achsen-Statistik (rich AllocationStatistics, 5 Felder) statt der
+    /// frueheren Store-eigenen Capacity-Delta-Schaetzung (allocator-UNABHAENGIG -> zweite, driftende Wahrheit).
+    /// live_nodes speist der ABI-Adapter im Rich-Zweig aus occupied_count() des Organs.
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept { return allocator_.statistics(); }
 
     template <class IsaOrgan>
     std::uint64_t organ_observe_isa(IsaOrgan& org) const
@@ -198,28 +227,13 @@ private:
         insert_rehashed(k, v);
     }
 
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
-    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
-    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
-        if (new_capacity <= old_capacity) return;
-        ++alloc_calls_;
-        bytes_allocated_ +=
-            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
-    }
-#else
-    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
-#endif
-
+    // allocator_ VOR den Vektoren (der Adapter haelt &allocator_ -- Init-/Destruktions-Reihenfolge).
+    Alloc                                          allocator_{};
     std::vector<Slot, slot_allocator_type>         slots_;
     std::vector<std::uint8_t, ctrl_allocator_type> ctrl_;
     std::size_t                                    mask_;
     std::size_t                                    size_       = 0;
     std::size_t                                    tombstones_ = 0;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    std::uint64_t alloc_calls_     = 0;
-    std::uint64_t bytes_allocated_ = 0;
-#endif
 };
 
 static_assert(SwissGroupPool<SwissGroupPoolStore<>>);
