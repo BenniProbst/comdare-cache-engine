@@ -9,10 +9,11 @@
 // SetObserverSnapshotV1 bleiben unveraendert (Vererbungs-REIHENFOLGE der bestehenden Basen eingefroren,
 // die neue Basis kommt HINTEN); der Host holt die neue Flaeche 1x kalt per dynamic_cast<ISetTierV2*>.
 
-#include "anatomy_base.hpp" // IAnatomyBase + AnatomyConcept
-#include "set_anatomy.hpp"  // SetAnatomy / SetObserverSnapshot
-#include "set_tier.hpp"     // ISetTier + SetObserverSnapshotV1
-#include "set_tier_v2.hpp"  // E-24 C6: ISetTierV2 + SetObserverAggregate<13> + fill_set_observer_aggregate
+#include "anatomy_base.hpp"     // IAnatomyBase + AnatomyConcept
+#include "set_anatomy.hpp"      // SetAnatomy / SetObserverSnapshot
+#include "set_tier.hpp"         // ISetTier + SetObserverSnapshotV1
+#include "set_tier_algebra.hpp" // E-24 C6/F2: ISetAlgebraTier (native Mengen-Algebra, append-only)
+#include "set_tier_v2.hpp"      // E-24 C6: ISetTierV2 + SetObserverAggregate<13> + fill_set_observer_aggregate
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -21,7 +22,7 @@
 namespace comdare::cache_engine::anatomy {
 
 template <AnatomyConcept A>
-class SetAbiAdapter final : public IAnatomyBase, public ISetTier, public ISetTierV2 {
+class SetAbiAdapter final : public IAnatomyBase, public ISetTier, public ISetTierV2, public ISetAlgebraTier {
     static_assert(A::genus() == AnatomyGenus::Set,
                   "SetAbiAdapter erwartet eine Set-Gattung-Anatomie (AnatomyGenus::Set). "
                   "Cross-Genus-Adapter sind type-system-mathematisch unmoeglich — Doku 14 §32.");
@@ -94,6 +95,52 @@ public:
         SetObserverAggregateWire w{};
         fill_set_observer_aggregate(anatomy_, w);
         *out = w;
+    }
+
+    // -- ISetAlgebraTier (E-24 C6 / F2: die native Mengen-Algebra) -------------------------------
+    // ALLE vier Ops laufen ueber DIESELBEN Anatomie-Ops wie die Einzel-Ops der V1-Flaeche. Damit
+    // erscheinen sie im BESTEHENDEN Observer (insert/erase + die C6-Versuchs-Zaehler) und brauchen
+    // keine zweite Buchhaltung -- eine eigene Algebra-Statistik waere eine zweite Wahrheit.
+
+    [[nodiscard]] bool tier_set_extract(std::uint64_t key) noexcept override {
+        try {
+            return anatomy_.erase(key); // std::set::extract-Analogie: entfernen + melden, ob real da
+        } catch (...) { return false; }
+    }
+
+    [[nodiscard]] std::uint64_t tier_set_merge(std::uint64_t const* keys, std::uint64_t count) noexcept override {
+        if (keys == nullptr) return 0; // count > 0 mit nullptr ist ein Aufrufer-Fehler -> 0, kein UB
+        std::uint64_t neu = 0;
+        try {
+            for (std::uint64_t i = 0; i < count; ++i) {
+                if (anatomy_.insert(keys[i])) ++neu; // nur REAL neu entstandene zaehlen (std::set::merge)
+            }
+        } catch (...) {}
+        return neu;
+    }
+
+    [[nodiscard]] std::uint64_t tier_set_intersection_count(std::uint64_t const* keys,
+                                                            std::uint64_t        count) const noexcept override {
+        if (keys == nullptr) return 0;
+        std::uint64_t n = 0;
+        try {
+            for (std::uint64_t i = 0; i < count; ++i) {
+                if (anatomy_.contains(keys[i])) ++n;
+            }
+        } catch (...) {}
+        return n;
+    }
+
+    [[nodiscard]] std::uint64_t tier_set_difference_count(std::uint64_t const* keys,
+                                                          std::uint64_t        count) const noexcept override {
+        if (keys == nullptr) return 0;
+        std::uint64_t n = 0;
+        try {
+            for (std::uint64_t i = 0; i < count; ++i) {
+                if (!anatomy_.contains(keys[i])) ++n;
+            }
+        } catch (...) {}
+        return n;
     }
 
 private:

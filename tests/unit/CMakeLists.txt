@@ -1682,7 +1682,8 @@ set(COMDARE_E24_C6_TESTS
     test_e24_c6_set_wire_aggregate       # C6 (c): SetObserverAggregate<13> + ISetTierV2
     test_e24_c6_sequence_wire_aggregate  # C6 (d): SequenceObserverAggregate<9> + E1-Detail growth_factor_milli
     test_e24_c6_adapter_wire_aggregate   # C6 (e): AdapterObserverAggregate<11> + Adapter-Symmetrie
-    test_e24_c6_view_wire_aggregate)     # C6 (f): ViewObserverAggregate<5> + Elisions-/Layout-Beweis
+    test_e24_c6_view_wire_aggregate      # C6 (f): ViewObserverAggregate<5> + Elisions-/Layout-Beweis
+    test_e24_c6_set_algebra_abi)         # C6 (g) / F2: ISetAlgebraTier gegen das std::set-Orakel
 foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     add_executable(${_c6} "${_c6}.cpp")
     target_compile_features(${_c6} PRIVATE cxx_std_23)
