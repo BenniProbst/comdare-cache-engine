@@ -7,9 +7,15 @@
 // (gibt IAnatomyBase* — der Loader ist gattungs-agnostisch, der Container-Dock fragt dynamic_cast<IAdapterTier*>).
 // Cross-Genus-Adapter sind type-system-mathematisch unmöglich (Doku 14 §32) → static_assert genus()==Adapter.
 
+// E-24 C6 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE): der Adapter erbt ZUSAETZLICH IAdapterTierV2 und
+// liefert darueber die per-Achsen-Wire-Form AdapterObserverAggregate<11> -- inklusive der beiden
+// Symmetrie-Schliessungen observable_axis_count und underflow_count (Katalog Sektion 2 Punkt 5).
+// APPEND-ONLY: IAdapterTier und AdapterObserverSnapshotV1 bleiben unveraendert (neue Basis HINTEN).
+
 #include "anatomy_base.hpp"    // IAnatomyBase + AnatomyConcept
 #include "adapter_anatomy.hpp" // AdapterAnatomy / AdapterObserverSnapshot
 #include "adapter_tier.hpp"    // IAdapterTier + AdapterObserverSnapshotV1
+#include "adapter_tier_v2.hpp" // E-24 C6: IAdapterTierV2 + AdapterObserverAggregate<11>
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -24,7 +30,7 @@ namespace comdare::cache_engine::anatomy {
 /// inner_container), KEINE „ordering"-Achse. Der Adapter treibt put/get über die DLL-Grenze; get() == FIFO-
 /// Default (pop_front), die Disziplin FIFO/LIFO ist API-Nutzung (§26.4). Ein Adapter ist unbeschränkt.
 template <AnatomyConcept A>
-class AdapterAbiAdapter final : public IAnatomyBase, public IAdapterTier {
+class AdapterAbiAdapter final : public IAnatomyBase, public IAdapterTier, public IAdapterTierV2 {
     static_assert(A::genus() == AnatomyGenus::Adapter,
                   "AdapterAbiAdapter erwartet eine Container-Gattung-Anatomie (AnatomyGenus::Adapter). "
                   "Cross-Genus-Adapter sind type-system-mathematisch unmoeglich — Doku 14 §32.");
@@ -74,12 +80,29 @@ public:
         v.back_reads        = s.back_reads;
         v.current_occupancy = s.current_occupancy;
         v.peak_occupancy    = s.peak_occupancy;
-        v.organ_count       = A::organ_count(); // 13 (12 geteilt/delegiert + inner_container)
-        *out                = v;
+        // E-24 C6 (Katalog Sektion 2 Punkt 7, Kommentar-Nachzug auf das Ist): LIVE sind es 11 Slots
+        // (10 geteilt/delegiert + inner_container, INC-2d) -- die frozen Legacy-Konstante
+        // kAdapterCompositionSlotCount steht weiter bei 13 und ist NICHT die Quelle. Der Wert selbst
+        // kam schon immer aus A::organ_count(), also aus der LIVEN Komposition; nur der Kommentar war stale.
+        v.organ_count = A::organ_count(); // 11 (10 geteilt/delegiert + inner_container, live)
+        *out          = v;
+    }
+
+    // -- IAdapterTierV2 (E-24 C6: die PER-ACHSEN-Wire-Form + die beiden Symmetrie-Schliessungen) ----
+    /// Projiziert observe_axes() in den flachen Gattungs-Wire-POD. observable_axis_count quert damit
+    /// ERSTMALS die Adapter-Grenze (im V1-POD fehlte das Feld als einzigem der vier), und
+    /// underflow_count steht in der inner_container-Zeile.
+    void tier_observe_container_axes(AdapterObserverAggregateWire* out) const noexcept override {
+        if (out == nullptr) return;
+        AdapterObserverAggregateWire w{};
+        fill_adapter_observer_aggregate(anatomy_, w);
+        *out = w;
     }
 
 private:
-    A anatomy_{}; // unbeschränkter Container-Adapter (13 Achsen, inner_container real getrieben; kein Capacity/Flush)
+    // ASCII-Transliteration mitgezogen, weil die Zeile in diesem Commit ohnehin angefasst wird
+    // (13 -> 11 live); Inhalt unveraendert.
+    A anatomy_{}; // unbeschraenkter Container-Adapter (11 Achsen live, inner_container real getrieben)
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
 };
