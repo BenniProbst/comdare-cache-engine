@@ -1,0 +1,68 @@
+#pragma once
+// E-24 C3 (2026-08-04, Bauplan-Dossier docs/sessions/20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 3.1-C3,
+// Liefergegenstand (e)) -- SequenceExecutionContext<Composition>.
+//
+// Die builder-seitige TREIBER-Flaeche der Sequence-Gattung, Schnitt und Begruendung identisch zum
+// Set-Pendant set_execution_context.hpp: EIN Kontext-Objekt haelt die Anatomie, bietet die
+// Gattungs-Operationen an und nimmt BEIDE Beobachtungs-Ebenen ab (flache Gattungs-Sicht observe_all +
+// per-Achsen-Sicht observe_axes, C3). Der Kontext baut KEINEN zweiten Speicher neben dem der Anatomie --
+// die V-Sequenz und ihr Observer liegen dort zusammen (ein zweiter Zustand waere eine Messluege).
+//
+// ABI-NEUTRAL (a-Teil): reine Builder-Seite, header-only, keine Beruehrung von abi_adapter.hpp, den
+// Wire-PODs (sequence_tier.hpp), abi/*_decl.hpp oder den Stempel-/Fingerprint-Flaechen.
+//
+// @doku docs/architektur/14_achsen_komposition_organ_metapher.md Paragraf 17.3 + 24
+
+#include <anatomy/sequence_anatomy.hpp> // SequenceAnatomy / SequenceObserverSnapshot / SequenceAxisObservation
+
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string_view>
+
+namespace comdare::cache_engine::builder::anatomy_commands {
+
+namespace ana = ::comdare::cache_engine::anatomy;
+
+/// SequenceExecutionContext<Composition> -- Builder-seitiger Halter + Treiber der Sequence-Anatomie.
+template <class Composition>
+class SequenceExecutionContext {
+public:
+    using anatomy_t          = ana::SequenceAnatomy<Composition>;
+    using composition_t      = Composition;
+    using element_type       = typename anatomy_t::element_type;
+    using observer_t         = ana::SequenceObserverSnapshot;          ///< flache Gattungs-Sicht (Bestand)
+    using axis_observation_t = typename anatomy_t::axis_observation_t; ///< per-Achsen-Sicht (E-24 C3)
+
+    SequenceExecutionContext() = default;
+
+    // -- Sequence-Gattungs-Operationen (V-indexed). Durchgereicht an die Anatomie. --
+    void                                      push_back(element_type v) { anatomy_.push_back(v); }
+    [[nodiscard]] std::optional<element_type> at(std::uint64_t index) const { return anatomy_.at(index); }
+    void                                      clear() noexcept { anatomy_.clear(); }
+
+    [[nodiscard]] std::size_t size() const noexcept { return anatomy_.size(); }
+    [[nodiscard]] bool        empty() const noexcept { return anatomy_.size() == 0; }
+
+    // -- Beobachtung: beide Ebenen an EINER Stelle abnehmbar --
+    [[nodiscard]] observer_t                   observe_all() const noexcept { return anatomy_.observe_all(); }
+    [[nodiscard]] axis_observation_t           observe_axes() const noexcept { return anatomy_.observe_axes(); }
+    [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
+        return anatomy_t::observable_axis_count();
+    }
+
+    /// Zugriff auf die gehaltene Anatomie -- hier laufen die ORGAN-Accessoren (growth_policy_organ() usw.).
+    [[nodiscard]] anatomy_t&       anatomy() noexcept { return anatomy_; }
+    [[nodiscard]] anatomy_t const& anatomy() const noexcept { return anatomy_; }
+
+    // -- Composition-Inspection (durchgereicht) --
+    static constexpr std::string_view  composition_name() noexcept { return anatomy_t::composition_name(); }
+    static constexpr std::string_view  paper_id() noexcept { return anatomy_t::paper_id(); }
+    static constexpr std::size_t       organ_count() noexcept { return anatomy_t::organ_count(); }
+    static constexpr ana::AnatomyGenus genus() noexcept { return anatomy_t::genus(); }
+
+private:
+    anatomy_t anatomy_{};
+};
+
+} // namespace comdare::cache_engine::builder::anatomy_commands

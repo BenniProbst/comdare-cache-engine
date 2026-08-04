@@ -158,13 +158,36 @@ concept BoundViewOrganOps = requires(A& a, A const& ca, std::uint64_t i, std::si
 /// AxisOrganAccessOps<A> -- ACHSEN-ORGAN-Verben (SearchAlgorithm-Gattung). Ihre Op-Flaeche sind die
 /// Organ-Accessoren, ueber die der Builder/abi_adapter die real gehaltenen Achsen-Organe treibt; der
 /// Container-Zugriff selbst laeuft ueber den AnatomyExecutionContext (R5.B-Grenze).
+///
+/// C3-FORTSCHREIBUNG (2026-08-04, am Objekt erzwungen -- Befund literal): mit der Produktionstiefe C3
+/// bekommen auch die vier Container-Anatomien reale Organ-Member samt Accessoren nach demselben
+/// SA-Namensmuster (`<slot>_organ()`), und `observable_axis_count()` ebenso. Die C1-Fassung dieses Concepts
+/// nannte nur search_algo/node_type/memory_layout/serialization -- die trug nach C3 auch SetAnatomy, womit
+/// `organ_op_family_count<SetAnatomy<...>>() == 2` wurde und die C1-Diagonal-Matrix (jede Gattung in GENAU
+/// einer Teilmenge) gebrochen war. Der Bau-Fehler war real und wurde vom C3-Gate gefangen:
+///   "static_assert(cea::organ_op_family_count<StillOrgan>() == 1)  --  the comparison reduces to (2 == 1)".
+///
+/// DIE SCHAERFUNG IST KEIN NAMENS-TRICK, sondern ein Owner-verankerter Struktur-Schnitt: gefordert werden
+/// zusaetzlich die Accessoren der Slots, die es AUSSCHLIESSLICH in der SearchAlgorithm-Gattung gibt --
+/// mapping (Set ist K-only und traegt bewusst KEIN mapping, set_composition.hpp:17; Sequence/Adapter/View
+/// ebenso wenig), queuing_q1/queuing_q2 (regulaere SA-Achsen, Doc 30 Paragraf 8.0) und persistence_target
+/// (Owner-Entscheid Q-8 vom 26.07.2026, genus_binding_traits.hpp:36-40: "persistence_target ist NICHT auf
+/// sie ausgedehnt ... Wer das aendert, braucht einen neuen Owner-Entscheid"). Eine Container-Gattung KANN
+/// dieses Concept damit nicht erfuellen, ohne vorher Q-8 zu brechen -- die Disjunktheit haengt an einer
+/// Owner-Direktive, nicht an einer Namenskonvention. Die C1-Zusage "NICHTS vereinheitlichen / Matrix
+/// diagonal-wahr" bleibt damit erfuellt; sie WAERE ohne diese Schaerfung verletzt worden.
 template <class A>
 concept AxisOrganAccessOps = requires(A& a, A const& ca) {
     a.search_algo_organ();
     a.node_type_organ();
     a.memory_layout_organ();
     a.serialization_organ();
+    a.mapping_organ();            // SA-exklusiv: Set ist K-only, die uebrigen drei Genera kennen kein mapping
+    a.queuing_q1_organ();         // SA-exklusiv (Doc 30 Paragraf 8.0)
+    a.queuing_q2_organ();         // SA-exklusiv (Doc 30 Paragraf 8.0)
+    a.persistence_target_organ(); // SA-exklusiv per Owner-Entscheid Q-8 (genus_binding_traits.hpp:36-40)
     ca.search_algo_organ();
+    ca.persistence_target_organ();
     { A::observable_axis_count() } -> std::convertible_to<std::size_t>;
 };
 
@@ -465,6 +488,11 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     BoundViewOrganOps / AxisOrganAccessOps) + Disjunktheits-Beweis organ_op_family_count() == 1.
 //     ABWEICHUNG gegenueber dem Bauplan-Wortlaut "gemeinsame Op-Schnittstelle" ist im Op-Abschnitt oben
 //     literal deklariert (grep-Belege je Gattung). Gate-Form G2 ("5 Genera x Concept-TEILMENGEN") erfuellt.
+//     [C3-FORTSCHREIBUNG 04.08.] Die Produktionstiefe C3 gab den vier Container-Anatomien Organ-Accessoren
+//     im SA-Namensmuster -- damit erfuellte SetAnatomy AUCH AxisOrganAccessOps (family_count 2 statt 1) und
+//     die Diagonale war gebrochen. Behoben durch SCHAERFUNG von AxisOrganAccessOps auf die SA-exklusiven
+//     Slots (mapping/queuing_q1/queuing_q2/persistence_target); Begruendung + Owner-Anker Q-8 stehen am
+//     Concept selbst. Die Diagonale ist damit an eine Owner-Direktive geknuepft statt an eine Namenswahl.
 //
 // L2  [C1 GESCHLOSSEN] OBSERVABLEAXIS-/STATISTICS-FORWARDING. ObservableOrgan<Organ> uebersetzt die
 //     ORGAN-Ebene (observe_all()) in die ACHSEN-Ebene (snapshot_t + statistics()) und forwardet die
@@ -474,6 +502,14 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     REST (nicht C1): die VIER Container-Anatomien haben noch kein per-Achsen-Aggregat, das einsammeln
 //     KOENNTE -- ihr observe_all() liefert je einen flachen Hand-POD. Das ist der Gegenstand von
 //     Bauplan-C3 (reale Organ-Member + observe-Verdrahtung) und C6 (XxxObserverAggregate<N>).
+//     [C3 GESCHLOSSEN 04.08.] Alle VIER Container-Anatomien halten ihre Slots jetzt als REALE Organ-Member
+//     (Set 13 / Sequence 9 / Adapter 11 / View 5) mit je einem <slot>_organ()-Accessor-Paar und sammeln die
+//     Sub-Organ-Beobachtung ueber XxxAxisObservation<Composition> + observe_axes() nach dem SA-Muster ein.
+//     Ein als Sub-Organ gehaltenes fremdes Genus-Organ ist damit auch in einer Container-Gattung nicht mehr
+//     stumm (Beleg mit echten Werten: tests/unit/test_e24_c3_cross_genus.cpp, Abschnitt (4)).
+//     BEWUSST OFFEN BIS C6: observe_all() liefert weiterhin den flachen Hand-POD -- die per-Achsen-Sicht
+//     steht ADDITIV daneben und ist IN-PROCESS. Ihre Promotion in die Wire-Ebene (XxxObserverAggregate<N>
+//     STATT des flachen PODs) ist das ABI-Ereignis C6 und gehoert in den b-Teil, nicht in den a-Teil.
 //
 // L3  [OFFEN -- bewusst] KEIN GEMEINSAMER WERT-TYP. Am Ist: SearchAlgorithmAnatomy traegt
 //     key_type/value_type, SequenceAnatomy/AdapterAnatomy/ViewAnatomy tragen element_type, SetAnatomy
@@ -512,5 +548,28 @@ static_assert(sizeof(ObservableOrgan<organ_concept_detail::OrganArchetype>) ==
 //     OFFEN bleibt der produktive Einbau in die realen Kompositionen/Registries (node_type <- Sequence/
 //     Adapter, index_organization <- Set, queuing <- Adapter) -- Bauplan-C3. Die Cross-Genus-JOIN-
 //     Unmoeglichkeit der ABI-Adapter (set_abi_adapter.hpp:18-21) bleibt davon unberuehrt und bestehen.
+//     [C3 GESCHLOSSEN 04.08. -- MIT EINER DEKLARIERTEN VERSCHIEBUNG] Die vier Verdrahtungen sind produktiv
+//     benannt (anatomy/cross_genus_organ.hpp) und als OPT-IN-Registries verfuegbar
+//     (builder/experiment_tree/cross_genus_composition.hpp); alle vier sind mit ECHTEN getriebenen Werten
+//     belegt (tests/unit/test_e24_c3_cross_genus.cpp). VERSCHIEBUNG: `index_organization <- Set` laeuft
+//     ueber die SET-Gattung statt ueber SearchAlgorithm -- die SA-Anatomie haelt am Ist nur NEUN ihrer 18
+//     Achsen als Organ-Member und sammelt genau diese ein; index_organization ist NICHT darunter, ein
+//     Sub-Organ dort waere stumm. Die SA-Seite nachzuruesten hiesse, den gemessenen SA-Pfad zu erweitern --
+//     ausserhalb des C3-Schnitts, als offener Punkt an den Lead gemeldet. Golden-Neutralitaet: die
+//     Bauformen haengen in KEINER Bestands-Achsen-Registry (sonst waechst das kartesische Produkt und die
+//     golden-320-Wache braeche) -- die Registries sind bewusst opt-in.
+//     EINBAU-TIEFE (der Punkt, an dem "produktiv" einloest): die Opt-in-Registries sind nicht nur benannt,
+//     sondern laufen durch die REALEN per-Genus-Engines aus C2 -- CrossGenusSetEngine (13 Slots) und
+//     CrossGenusSaEngine (18 Slots) in cross_genus_composition.hpp, mit Aritaets-Pin gegen
+//     GenusBindingTraits::slot_count und getriebenen Werten je materialisierter Permutation. Der generische
+//     Antrieb laeuft dabei ueber die C1-Op-FAMILIE (`if constexpr` auf IndexedOrganOps/AdaptedOrganOps) --
+//     kein vereinheitlichtes Verb, kein Runtime-Switch.
+//     ASYMMETRIE-BEFUND (am Bau erzwungen, C6-Vorlage): bis an die ABI-Flaeche laeuft Cross-Genus NUR in der
+//     SET-Gattung (SetAbiAdapter ist per-Slot unconstrained, set_abi_adapter.hpp:18 -- for_each_abi_adapter
+//     liefert dort echte IAnatomyBase-Materialisierungen). Der SA-ABI-Pfad lehnt es compile-hart ab:
+//     SearchAlgorithmAbiAdapter baut LayoutAwareChunkedStore (abi_adapter.hpp:2064-2068) mit
+//     `requires NodeTypeStrategy<...>`, und NodeTypeStrategy fordert ein `topic_tag`, das weder CarriedAxis
+//     noch ein Cross-Genus-Organ traegt. In der SA-Gattung ist Cross-Genus damit eine ANATOMIE-Ebenen-
+//     Faehigkeit. Das ABI-seitig zu oeffnen hiesse abi_adapter.hpp anzufassen -- im a-Teil untersagt.
 
 } // namespace comdare::cache_engine::anatomy

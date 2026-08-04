@@ -14,10 +14,23 @@
 // NAMEN (#90-Sweep abgeschlossen): Datei adapter_anatomy.hpp + Typen AdapterComposition/AdapterAnatomy
 // (konsistent mit set_/sequence_/view_; historisch container_anatomy.hpp / Container*). C++23, header-only.
 
-#include "anatomy_base.hpp"  // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
-#include "organ_concept.hpp" // E-24 C1: OrganGuard (CRTP-Wache)
+// E-24 C3 (2026-08-04, Bauplan-Dossier docs/sessions/20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 3.1-C3):
+// PRODUKTIONSTIEFE, Schnitt identisch zu set_/sequence_/view_anatomy.hpp. Bis C2 hielt diese Anatomie genau
+// ein reales Achsen-Organ (inner_container); die uebrigen zehn Slots existierten nur als Kompositions-TYPEN.
+// C3 macht daraus reale Organ-Member mit Accessoren + die per-Achsen-Einsammlung nach dem SA-Muster
+// (search_algorithm_anatomy.hpp:65-115).
+//
+// ABI-NEUTRAL (a-Teil): observe_all() liefert UNVERAENDERT den flachen AdapterObserverSnapshot, den
+// adapter_abi_adapter.hpp in den Wire-POD spiegelt. Die per-Achsen-Sicht kommt ADDITIV als observe_axes()
+// hinzu; ihre Promotion in die Wire-Ebene ist der ABI-Schritt C6 des b-Teils. kAdapterCompositionSlotCount
+// (== 13, frozen legacy, vs. live slot_count == 11) bleibt BEWUSST unangetastet -- Aufraeumpass-Kandidat.
+
+#include "anatomy_base.hpp"       // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
+#include "observer_aggregate.hpp" // E-24 C3: ObservableAxis / snapshot_of_t (die ACHSEN-Ebene, SA-Muster)
+#include "organ_concept.hpp"      // E-24 C1: OrganGuard (CRTP-Wache)
 
 #include <algorithm> // std::push_heap / std::pop_heap (HeapInner = priority_queue-Disziplin)
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -151,6 +164,47 @@ concept IsAdapterComposition = requires {
 
 inline constexpr std::size_t kAdapterCompositionSlotCount = 13; // frozen legacy §28-Count (nicht live slot_count)
 
+/// AdapterAxisObservation<Composition> -- E-24 C3: die PER-ACHSEN-Sicht der Adapter-Tier-Unterklasse,
+/// gebaut nach dem SearchAlgorithm-Vorbild ObserverAggregate<Composition> (observer_aggregate.hpp:93-146).
+/// Reihenfolge der Member == GenusBindingTraits<Adapter>::axis_names() (Kreuz-Wache in der Test-TU
+/// tests/unit/test_e24_c3_adapter_anatomy.cpp; hier waere sie ein Include-Zyklus).
+/// ABGRENZUNG zu C6: in-process-Sicht, KEIN Wire-POD.
+template <class Composition>
+struct AdapterAxisObservation {
+    snapshot_of_t<typename Composition::search_algo>      search_algo;
+    snapshot_of_t<typename Composition::cache_traversal>  cache_traversal;
+    snapshot_of_t<typename Composition::memory_layout>    memory_layout;
+    snapshot_of_t<typename Composition::allocator>        allocator;
+    snapshot_of_t<typename Composition::prefetch>         prefetch;
+    snapshot_of_t<typename Composition::concurrency>      concurrency;
+    snapshot_of_t<typename Composition::serialization>    serialization;
+    snapshot_of_t<typename Composition::value_handle>     value_handle;
+    snapshot_of_t<typename Composition::io_dispatch>      io_dispatch;
+    snapshot_of_t<typename Composition::migration_policy> migration_policy;
+    snapshot_of_t<typename Composition::inner_container>  inner_container;
+
+    /// Wie viele Slots liefern echte Snapshots (Rest = EmptyAxisSnapshot)?
+    [[nodiscard]] static constexpr std::size_t observable_count() noexcept {
+        std::size_t n = 0;
+        if constexpr (ObservableAxis<typename Composition::search_algo>) ++n;
+        if constexpr (ObservableAxis<typename Composition::cache_traversal>) ++n;
+        if constexpr (ObservableAxis<typename Composition::memory_layout>) ++n;
+        if constexpr (ObservableAxis<typename Composition::allocator>) ++n;
+        if constexpr (ObservableAxis<typename Composition::prefetch>) ++n;
+        if constexpr (ObservableAxis<typename Composition::concurrency>) ++n;
+        if constexpr (ObservableAxis<typename Composition::serialization>) ++n;
+        if constexpr (ObservableAxis<typename Composition::value_handle>) ++n;
+        if constexpr (ObservableAxis<typename Composition::io_dispatch>) ++n;
+        if constexpr (ObservableAxis<typename Composition::migration_policy>) ++n;
+        if constexpr (ObservableAxis<typename Composition::inner_container>) ++n;
+        return n;
+    }
+
+    /// Slot-Zahl aus der LIVE-Komposition gerechnet (11), NICHT aus dem frozen legacy
+    /// kAdapterCompositionSlotCount (13) -- die beiden sind am Ist verschieden und bleiben es hier.
+    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return Composition::slot_count; }
+};
+
 /// AdapterAnatomy — die Container-Gattung, Adapter-Tier-Unterklasse
 /// (genus()==Adapter, gattung_of→Container). Treibt die spezifische Achse inner_container REAL über die
 /// §26.4-Adapter-API (push/pop/top/front/back); die 12 geteilten/delegierten Achsen werden getragen (im
@@ -163,6 +217,8 @@ public:
     using composition_t = Composition;
     using inner_t       = typename Composition::inner_container;
     using element_type  = typename inner_t::element_type;
+    /// E-24 C3: der per-Achsen-Beobachtungs-Typ dieser Tier-Unterklasse (in-process, kein Wire-POD -- C6).
+    using axis_observation_t = AdapterAxisObservation<Composition>;
 
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
@@ -177,53 +233,169 @@ public:
     // ── §26.4 Adapter-API (push/pop/top/front/back) — treibt das inner_container-Organ + Observer ──
     void put(element_type v) { push(v); } // Alias (Bestands-Aufrufe); push = die §26.4-Operation
     void push(element_type v) {
-        inner_.push_back(v);
+        axis_inner_container_.push_back(v);
         ++obs_.push_count;
-        obs_.current_occupancy = static_cast<std::uint64_t>(inner_.size());
+        obs_.current_occupancy = static_cast<std::uint64_t>(axis_inner_container_.size());
         if (obs_.current_occupancy > obs_.peak_occupancy) obs_.peak_occupancy = obs_.current_occupancy;
     }
     /// FIFO-Entnahme (queue): vorderstes Element.
     [[nodiscard]] std::optional<element_type> pop_front() {
-        if (inner_.size() == 0) return std::nullopt;
-        element_type const v = inner_.front();
+        if (axis_inner_container_.size() == 0) return std::nullopt;
+        element_type const v = axis_inner_container_.front();
         ++obs_.front_reads;
-        inner_.pop_front();
+        axis_inner_container_.pop_front();
         ++obs_.pop_count;
-        obs_.current_occupancy = static_cast<std::uint64_t>(inner_.size());
+        obs_.current_occupancy = static_cast<std::uint64_t>(axis_inner_container_.size());
         return v;
     }
     /// LIFO-Entnahme (stack): hinterstes Element.
     [[nodiscard]] std::optional<element_type> pop_back() {
-        if (inner_.size() == 0) return std::nullopt;
-        element_type const v = inner_.back();
+        if (axis_inner_container_.size() == 0) return std::nullopt;
+        element_type const v = axis_inner_container_.back();
         ++obs_.back_reads;
-        inner_.pop_back();
+        axis_inner_container_.pop_back();
         ++obs_.pop_count;
-        obs_.current_occupancy = static_cast<std::uint64_t>(inner_.size());
+        obs_.current_occupancy = static_cast<std::uint64_t>(axis_inner_container_.size());
         return v;
     }
     /// Bestands-Alias: get() == FIFO-Entnahme (queue-Default, §26.4 Default-Inner deque).
     [[nodiscard]] std::optional<element_type> get() { return pop_front(); }
     [[nodiscard]] std::optional<element_type> front() const {
-        if (inner_.size() == 0) return std::nullopt;
-        return inner_.front();
+        if (axis_inner_container_.size() == 0) return std::nullopt;
+        return axis_inner_container_.front();
     }
     [[nodiscard]] std::optional<element_type> back() const {
-        if (inner_.size() == 0) return std::nullopt;
-        return inner_.back();
+        if (axis_inner_container_.size() == 0) return std::nullopt;
+        return axis_inner_container_.back();
     }
     [[nodiscard]] std::optional<element_type> top() const { return back(); } // stack-top
-    [[nodiscard]] std::size_t                 size() const noexcept { return inner_.size(); }
+    [[nodiscard]] std::size_t                 size() const noexcept { return axis_inner_container_.size(); }
     void                                      clear() noexcept {
-        inner_.clear();
+        axis_inner_container_.clear();
         obs_.current_occupancy = 0;
     }
 
     /// observe_all() — EIGENER Adapter-Observer (NICHT der SearchAlgorithm-ObserverAggregate<17>).
+    /// UNVERAENDERT gegenueber C2 (Wire-Spiegelung im adapter_abi_adapter); die per-Achsen-Sicht steht
+    /// daneben in observe_axes().
     [[nodiscard]] AdapterObserverSnapshot observe_all() const noexcept { return obs_; }
 
+    // -- E-24 C3: ORGAN-ACCESSOREN (einer je Slot, Reihenfolge == axis_names()) --------------------
+    // Bewusst AUSGESCHRIEBEN statt makro-generiert (grep-Doktrin). Muster identisch zu set_anatomy.hpp.
+    [[nodiscard]] typename Composition::search_algo&       search_algo_organ() noexcept { return axis_search_algo_; }
+    [[nodiscard]] typename Composition::search_algo const& search_algo_organ() const noexcept {
+        return axis_search_algo_;
+    }
+    [[nodiscard]] typename Composition::cache_traversal& cache_traversal_organ() noexcept {
+        return axis_cache_traversal_;
+    }
+    [[nodiscard]] typename Composition::cache_traversal const& cache_traversal_organ() const noexcept {
+        return axis_cache_traversal_;
+    }
+    [[nodiscard]] typename Composition::memory_layout& memory_layout_organ() noexcept { return axis_memory_layout_; }
+    [[nodiscard]] typename Composition::memory_layout const& memory_layout_organ() const noexcept {
+        return axis_memory_layout_;
+    }
+    [[nodiscard]] typename Composition::allocator&         allocator_organ() noexcept { return axis_allocator_; }
+    [[nodiscard]] typename Composition::allocator const&   allocator_organ() const noexcept { return axis_allocator_; }
+    [[nodiscard]] typename Composition::prefetch&          prefetch_organ() noexcept { return axis_prefetch_; }
+    [[nodiscard]] typename Composition::prefetch const&    prefetch_organ() const noexcept { return axis_prefetch_; }
+    [[nodiscard]] typename Composition::concurrency&       concurrency_organ() noexcept { return axis_concurrency_; }
+    [[nodiscard]] typename Composition::concurrency const& concurrency_organ() const noexcept {
+        return axis_concurrency_;
+    }
+    [[nodiscard]] typename Composition::serialization& serialization_organ() noexcept { return axis_serialization_; }
+    [[nodiscard]] typename Composition::serialization const& serialization_organ() const noexcept {
+        return axis_serialization_;
+    }
+    [[nodiscard]] typename Composition::value_handle&       value_handle_organ() noexcept { return axis_value_handle_; }
+    [[nodiscard]] typename Composition::value_handle const& value_handle_organ() const noexcept {
+        return axis_value_handle_;
+    }
+    [[nodiscard]] typename Composition::io_dispatch&       io_dispatch_organ() noexcept { return axis_io_dispatch_; }
+    [[nodiscard]] typename Composition::io_dispatch const& io_dispatch_organ() const noexcept {
+        return axis_io_dispatch_;
+    }
+    [[nodiscard]] typename Composition::migration_policy& migration_policy_organ() noexcept {
+        return axis_migration_policy_;
+    }
+    [[nodiscard]] typename Composition::migration_policy const& migration_policy_organ() const noexcept {
+        return axis_migration_policy_;
+    }
+    [[nodiscard]] typename Composition::inner_container& inner_container_organ() noexcept {
+        return axis_inner_container_;
+    }
+    [[nodiscard]] typename Composition::inner_container const& inner_container_organ() const noexcept {
+        return axis_inner_container_;
+    }
+
+    /// axis_organ_names() -- Praesenz-DEKLARATION der real gehaltenen Organ-Member in Slot-Reihenfolge.
+    /// Die WACHE dagegen lebt in der Test-TU (Kreuz gegen GenusBindingTraits<Adapter>::axis_names()).
+    [[nodiscard]] static constexpr std::array<std::string_view, 11> const& axis_organ_names() noexcept {
+        static constexpr std::array<std::string_view, 11> kNames = {
+            "search_algo",   "cache_traversal", "memory_layout", "allocator",        "prefetch",       "concurrency",
+            "serialization", "value_handle",    "io_dispatch",   "migration_policy", "inner_container"};
+        return kNames;
+    }
+
+    /// observe_axes() -- E-24 C3 / Luecke-L2-Rest: sammelt die Sub-Organ-Beobachtung Slot fuer Slot ein,
+    /// exakt nach dem SA-Muster. Ein Slot ohne statistics() bleibt EmptyAxisSnapshot.
+    [[nodiscard]] axis_observation_t observe_axes() const noexcept {
+        axis_observation_t agg{};
+        if constexpr (ObservableAxis<typename Composition::search_algo>) {
+            agg.search_algo = axis_search_algo_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::cache_traversal>) {
+            agg.cache_traversal = axis_cache_traversal_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::memory_layout>) {
+            agg.memory_layout = axis_memory_layout_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::allocator>) { agg.allocator = axis_allocator_.statistics(); }
+        if constexpr (ObservableAxis<typename Composition::prefetch>) { agg.prefetch = axis_prefetch_.statistics(); }
+        if constexpr (ObservableAxis<typename Composition::concurrency>) {
+            agg.concurrency = axis_concurrency_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::serialization>) {
+            agg.serialization = axis_serialization_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::value_handle>) {
+            agg.value_handle = axis_value_handle_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::io_dispatch>) {
+            agg.io_dispatch = axis_io_dispatch_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::migration_policy>) {
+            agg.migration_policy = axis_migration_policy_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::inner_container>) {
+            agg.inner_container = axis_inner_container_.statistics();
+        }
+        return agg;
+    }
+
+    /// Diagnose: wie viele Slots liefern echte Snapshots? (Namensgleich zum SA-Vorbild.)
+    [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
+        return axis_observation_t::observable_count();
+    }
+
 private:
-    inner_t                 inner_{};
+    // E-24 C3: die 11 Slots als REALE Organ-Member. inner_container ist der getriebene Slot (war bis C2 als
+    // `inner_` das einzige Achsen-Member); die uebrigen zehn werden GETRAGEN und ueber ihre Accessoren
+    // getrieben -- R5.B-Grenze ehrlich. Init-Stil wie SearchAlgorithmAnatomy:194-221 (default-init OHNE
+    // `{}` fuer die getragenen; inner_container behaelt sein `{}`, weil es seit #87 so gebaut ist).
+    typename Composition::search_algo      axis_search_algo_;
+    typename Composition::cache_traversal  axis_cache_traversal_;
+    typename Composition::memory_layout    axis_memory_layout_;
+    typename Composition::allocator        axis_allocator_;
+    typename Composition::prefetch         axis_prefetch_;
+    typename Composition::concurrency      axis_concurrency_;
+    typename Composition::serialization    axis_serialization_;
+    typename Composition::value_handle     axis_value_handle_;
+    typename Composition::io_dispatch      axis_io_dispatch_;
+    typename Composition::migration_policy axis_migration_policy_;
+    inner_t                                axis_inner_container_{};
+
     AdapterObserverSnapshot obs_{};
 };
 

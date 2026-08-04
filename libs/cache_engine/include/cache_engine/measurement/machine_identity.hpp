@@ -525,9 +525,13 @@ static_assert(!error_class_of_verdict(MachineIdentityVerdict::NichtDeklariert).h
 // wer eine fuenfte einzieht, die RF-3-Kollision mit aufloesen muss -- genau das ist am 26.07. geschehen
 // (§70.3, BetriebssystemFeatureFehlt = 4, Count 4->5). Die Wache bleibt als Drift-Guard bestehen: O-4
 // selbst fuegt weiterhin KEINE Klasse hinzu, und ein weiterer Bump muss wieder hier vorbeikommen.
-static_assert(kCompilerCompilerErrorClassCount == 5,
-              "Fehlerklassen-Zahl driftet. Stand nach RF-3 (§70.3): 5. O-4 erweitert die Taxonomie NICHT "
-              "-- wer eine sechste einzieht, zieht diese Wache und die Etiketten-Wachen mit nach.");
+// FORTSCHREIBUNG E-24 C5 / FK-8 (2026-08-04): genau der angekuendigte Fall ist eingetreten -- das
+// E-24-Fenster zieht die Gattungs-Baupfad-Klassen ein (GattungsBindungFehlt=5, GattungsSlotAritaet=6,
+// Count 5->7), und diese Wache wird wie verlangt MITGEZOGEN. Ihre Aussage bleibt unveraendert: O-4
+// selbst erweitert die Taxonomie NICHT, und jeder weitere Bump muss wieder hier vorbeikommen.
+static_assert(kCompilerCompilerErrorClassCount == 7,
+              "Fehlerklassen-Zahl driftet. Stand nach E-24 C5/FK-8: 7 (RF-3 hatte 5). O-4 erweitert die "
+              "Taxonomie NICHT -- wer eine achte einzieht, zieht diese Wache und die Etiketten-Wachen mit nach.");
 // Verdict-Etiketten sind eindeutig und nicht leer.
 static_assert(machine_identity_verdict_label(MachineIdentityVerdict::Match) == std::string_view{"match"});
 static_assert(machine_identity_verdict_label(MachineIdentityVerdict::Abweichung) !=

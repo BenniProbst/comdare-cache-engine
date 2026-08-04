@@ -1601,7 +1601,20 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_e24_c2_set_permutation_engine        # E-24 C2: SetPermutationEngine::for_each_abi_adapter (13 Slots)
     test_e24_c2_sequence_permutation_engine   # E-24 C2: SequencePermutationEngine::for_each_abi_adapter (9 Slots)
     test_e24_c2_view_permutation_engine       # E-24 C2: ViewPermutationEngine::for_each_abi_adapter (5 Slots)
-    test_e24_c2_adapter_permutation_engine)   # E-24 C2 (OP-3): NEUE AdapterPermutationEngine, 11 Slots
+    test_e24_c2_adapter_permutation_engine    # E-24 C2 (OP-3): NEUE AdapterPermutationEngine, 11 Slots
+    # E-24 C3 (Bauplan Paragraf 3.1-C3): je Genus EINE Test-TU fuer Produktionstiefe. Gate Paragraf 4.2:
+    # Organ-Member-Praesenz-Asserts gegen axis_names() (Liste gegen Liste) + Slot-Pins bleiben gruen.
+    test_e24_c3_set_anatomy                   # E-24 C3: SetAnatomy 13 Organ-Member + observe_axes + Ctx
+    test_e24_c3_sequence_anatomy              # E-24 C3: SequenceAnatomy 9 Organ-Member + observe_axes + Ctx
+    test_e24_c3_view_anatomy                  # E-24 C3: ViewAnatomy 5 Organ-Member + observe_axes + Ctx
+    test_e24_c3_adapter_anatomy               # E-24 C3: AdapterAnatomy 11 Organ-Member + observe_axes + Ctx
+    test_e24_c3_cross_genus                   # E-24 C3 (L7-Rest): die 4 produktiven Cross-Genus-Verdrahtungen
+    # E-24 C4 (Bauplan Paragraf 3.1-C4): Docks in-process produktionsreif. Gate Paragraf 4.1 (Klasse I) +
+    # 4.2: die Orakel muessen in BEIDE Richtungen wirken -- reale Adapter bestehen, defekte Huellen fallen.
+    test_e24_c4_genus_conformance_gates       # E-24 C4: Orakel je Genus (std::set/deque/queue+stack/span)
+    # E-24 C5 (Bauplan Paragraf 6.2, FK-8): die Gattungs-Baupfad-D1-Meldung. Gate Paragraf 4.2 (Klasse II):
+    # Count-Wachen im SELBEN Commit wie die Enum-Erweiterung + Token-Disjunktheits-Wache.
+    test_e24_c5_fk8_genus_baupfad_d1)         # E-24 C5: D1-Gate je Gattungs-Baupfad (Bindung + Aritaet)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1656,6 +1669,82 @@ set_tests_properties(${_comdare_negativ_compile_tu} PROPERTIES
     RESOURCE_LOCK "comdare_nested_build"
     TIMEOUT 300
     LABELS "goal_v6;phase_d;negativ_compile")
+
+# E-24 C4 (b/5) -- ZWEITE Negativ-Compile-Fixture, nach demselben, in C1 benannten Muster (a)-(d) oben.
+# Gegenstand: Bauplan Paragraf 4.1 (Klasse I), Zeile C4 -- eine Dock-Version OHNE HW-Flag muss an der
+# ENFORCE-Wache compile-hart brechen. Sie ist der Frueh-Warner fuer Risiko R5 ("ENFORCE-Bruch spaet
+# entdeckt"): ohne sie faellt ein flagloses Literal erst im Voll-Bau auf.
+# DER RESOURCE_LOCK IST HIER KEINE ZIERDE: er serialisiert diese Fixture gegen die C1-Geschwister --
+# zwei gleichzeitige Ninja-Aufrufe auf DEMSELBEN Bau-Verzeichnis wuerden einander blockieren. Genau
+# dafuer wurde der Lock in C1 eingefuehrt, und dies ist der erste Fall, der ihn wirklich braucht.
+set(_comdare_negativ_compile_tu_c4 test_e24_c4_dock_version_negativ)
+add_executable(${_comdare_negativ_compile_tu_c4} EXCLUDE_FROM_ALL "${_comdare_negativ_compile_tu_c4}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu_c4} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu_c4} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu_c4} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu_c4})
+add_test(NAME ${_comdare_negativ_compile_tu_c4}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target ${_comdare_negativ_compile_tu_c4})
+set_tests_properties(${_comdare_negativ_compile_tu_c4} PROPERTIES
+    PASS_REGULAR_EXPRESSION "E24-C4-DOCK-VERSION-NEGATIV"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
+
+# E-24 C4 (c/5) -- die vier Container-Docks als IPruefDock-Impls, in-process gefahren.
+# EIGENER BLOCK statt COMDARE_GOALV6_BOOST_DTESTS (am Bau erzwungen, nicht aus Geschmack): diese TU
+# konstruiert/zerstoert AnatomyModuleHandle, und AnatomyModuleHandle::unload() lebt im Loader-.cpp
+# (libs/cache_engine/builder/anatomy_module_loader). Der GoalV6-Block linkt nur Boost::mp11 -> der Link
+# brach literal mit "undefined reference to ...AnatomyModuleHandle::unload()". Dieselbe Kante zieht schon
+# comdare_ce_pruef_dock (libs/.../pruef_dock/CMakeLists.txt) und der SA-Dock-Test oben (:1193-1195).
+# Sonst identisch zum GoalV6-Muster: plain int main() (kein gtest) -> add_test direkt, plus Eintrag in
+# COMDARE_TEST_TARGETS (#278-Klasse-B-Fix: sonst baut die CI die TU nie -> "Not Run").
+set(_comdare_e24_c4_dock_tu test_e24_c4_genus_pruef_docks)
+add_executable(${_comdare_e24_c4_dock_tu} "${_comdare_e24_c4_dock_tu}.cpp")
+target_compile_features(${_comdare_e24_c4_dock_tu} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_e24_c4_dock_tu} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_e24_c4_dock_tu} PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+comdare_set_platform_defines(${_comdare_e24_c4_dock_tu})
+add_test(NAME ${_comdare_e24_c4_dock_tu} COMMAND ${_comdare_e24_c4_dock_tu})
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_comdare_e24_c4_dock_tu})
+set_tests_properties(${_comdare_e24_c4_dock_tu} PROPERTIES LABELS "goal_v6;phase_d")
+
+# E-24 C5 (a/5) -- FK-7: die Dock-/Lade-Fehlerpfade werden D2-klassifiziert (Zelle "failed" + Log-Etikett).
+# DERSELBE eigene Block wie die C4-Dock-TU darueber und aus DEMSELBEN am Bau erzwungenen Grund: die TU
+# konstruiert AnatomyModuleHandle, dessen unload() im Loader-.cpp lebt -- der GoalV6-Sammelblock linkt nur
+# Boost::mp11 und braeche mit "undefined reference to ...AnatomyModuleHandle::unload()". Plain int main()
+# (kein gtest) -> add_test direkt, plus COMDARE_TEST_TARGETS (#278-Klasse-B-Fix: sonst "Not Run" in der CI).
+set(_comdare_e24_c5_fk7_tu test_e24_c5_fk7_dock_fehlerklassen)
+add_executable(${_comdare_e24_c5_fk7_tu} "${_comdare_e24_c5_fk7_tu}.cpp")
+target_compile_features(${_comdare_e24_c5_fk7_tu} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_e24_c5_fk7_tu} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_e24_c5_fk7_tu} PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+comdare_set_platform_defines(${_comdare_e24_c5_fk7_tu})
+add_test(NAME ${_comdare_e24_c5_fk7_tu} COMMAND ${_comdare_e24_c5_fk7_tu})
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_comdare_e24_c5_fk7_tu})
+set_tests_properties(${_comdare_e24_c5_fk7_tu} PROPERTIES LABELS "goal_v6;phase_d")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).

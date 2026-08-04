@@ -169,7 +169,9 @@ TEST(O4MachineIdentity, TaxonomieZahlIstDieDesEigenenPakets) {
     // (§70.3) sie eingezogen: BetriebssystemFeatureFehlt = 4, Count 4->5. Die Aussage des Tests bleibt
     // dieselbe und gilt unveraendert: O-4 selbst fuegt KEINE Fehlerklasse hinzu; die Zahl, die hier steht,
     // ist immer die des jeweils LETZTEN Taxonomie-Pakets.
-    EXPECT_EQ(meas::kCompilerCompilerErrorClassCount, 5u);
+    // E-24 C5/FK-8 (04.08.): das jeweils letzte Taxonomie-Paket ist jetzt FK-8 (Gattungs-Baupfade,
+    // 5 -> 7). Die Aussage des Tests ist unveraendert -- O-4 selbst fuegt weiterhin KEINE Klasse hinzu.
+    EXPECT_EQ(meas::kCompilerCompilerErrorClassCount, 7u);
 }
 
 // =================================================================================================

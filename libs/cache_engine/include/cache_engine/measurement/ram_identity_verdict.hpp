@@ -341,7 +341,10 @@ static_assert(!error_class_of_ram_verdict(RamIdentityVerdict::EtikettWiderspruch
               "wird ausgewiesen, hat aber keine Dispatch-Wirkung.");
 // Die D1-Taxonomie wird NICHT erweitert -- dieselbe Wache wie in machine_identity.hpp, damit ein
 // spaeterer Bump auch hier vorbeikommt.
-static_assert(kCompilerCompilerErrorClassCount == 5,
+// FORTSCHREIBUNG E-24 C5 / FK-8 (2026-08-04): 5 -> 7 (Gattungs-Baupfad-Klassen des E-24-Fensters).
+// Die Aussage dieser Wache bleibt woertlich dieselbe -- sie steht hier, damit ein spaeterer Bump auch an
+// der RAM-Seite vorbeikommt, und genau das hat er getan.
+static_assert(kCompilerCompilerErrorClassCount == 7,
               "Fehlerklassen-Zahl driftet. P2 erweitert die D1-Taxonomie NICHT: die RAM-Drift dehnt "
               "die bestehende Klasse (Owner-Entscheid E-4), sie fuegt keine hinzu.");
 

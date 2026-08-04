@@ -78,7 +78,11 @@ static void check_true(char const* what, bool cond) {
 // ---------------------------------------------------------------------------------------------------
 // compile-time-Teil: was der Header selbst garantieren MUSS, steht hier als zweite, unabhaengige Wache.
 // ---------------------------------------------------------------------------------------------------
-static_assert(cem::kCompilerCompilerErrorClassCount == 5, "RF-3 (§70.3): die D1-Taxonomie hat 5 Klassen.");
+// FORTSCHREIBUNG E-24 C5/FK-8 (04.08.): die D1-Taxonomie hat 7 Klassen (RF-3 brachte sie auf 5, FK-8
+// haengt GattungsBindungFehlt=5 + GattungsSlotAritaet=6 an). Der RF-3-Gegenstand dieser Datei --
+// BetriebssystemFeatureFehlt == 4, Bestands-Nummern still, Anhaenge-Wache -- bleibt unveraendert gueltig
+// und wird durch den Zuwachs sogar ein zweites Mal belegt: die Anhaenge-Wache unten hat FK-8 gefangen.
+static_assert(cem::kCompilerCompilerErrorClassCount == 7, "E-24 C5/FK-8: die D1-Taxonomie hat 7 Klassen.");
 static_assert(static_cast<std::uint8_t>(Klasse::BetriebssystemFeatureFehlt) == 4,
               "Die neue Klasse wird ANGEHAENGT (=4). Ein Einschieben wuerde Bestands-Nummern verschieben.");
 // Die vier Bestands-Nummern sind eingefroren -- Etiketten und Nummern reisen in Experiment-Logs.
@@ -87,8 +91,7 @@ static_assert(static_cast<std::uint8_t>(Klasse::ToolchainFehlt) == 1);
 static_assert(static_cast<std::uint8_t>(Klasse::HardwareErweiterungFehlt) == 2);
 static_assert(static_cast<std::uint8_t>(Klasse::CompileKombination) == 3);
 // Drift-Wache, gespiegelt: Count == letzter Wert + 1.
-static_assert(cem::kCompilerCompilerErrorClassCount ==
-              static_cast<std::size_t>(Klasse::BetriebssystemFeatureFehlt) + 1);
+static_assert(cem::kCompilerCompilerErrorClassCount == static_cast<std::size_t>(Klasse::GattungsSlotAritaet) + 1);
 // Das Etikett ist compile-time zementiert (es darf in Logs zitiert werden).
 static_assert(cem::error_class_label(Klasse::BetriebssystemFeatureFehlt) ==
               std::string_view{"betriebssystem_feature_fehlt"});
@@ -113,13 +116,13 @@ static_assert(cem::error_class_label(static_cast<Klasse>(cem::kCompilerCompilerE
 int main() {
     std::cout << "\n== Teil 1: die Nummer haengt hinten an, die Bestands-Nummern stehen still ==\n";
     check_eq("BetriebssystemFeatureFehlt", static_cast<int>(Klasse::BetriebssystemFeatureFehlt), 4);
-    check_eq("Klassen-Zahl (Single-Source)", cem::kCompilerCompilerErrorClassCount, std::size_t{5});
+    check_eq("Klassen-Zahl (Single-Source)", cem::kCompilerCompilerErrorClassCount, std::size_t{7});
     check_true("die vier Bestands-Nummern 0..3 sind unveraendert",
                static_cast<int>(Klasse::KonfigXmlParse) == 0 && static_cast<int>(Klasse::ToolchainFehlt) == 1 &&
                    static_cast<int>(Klasse::HardwareErweiterungFehlt) == 2 &&
                    static_cast<int>(Klasse::CompileKombination) == 3);
 
-    std::cout << "\n== Teil 2: Etikett-Roundtrip, alle fuenf paarweise verschieden ==\n";
+    std::cout << "\n== Teil 2: Etikett-Roundtrip, alle Klassen paarweise verschieden ==\n";
     check_eq("Etikett der neuen Klasse", std::string{cem::error_class_label(Klasse::BetriebssystemFeatureFehlt)},
              std::string{"betriebssystem_feature_fehlt"});
     check_eq("das OS-Analogon steht neben seinem HW-Vorbild",
@@ -132,7 +135,7 @@ int main() {
 
     bool alle_belegt = true;
     for (auto const& e : etikett) alle_belegt = alle_belegt && !e.empty() && e != std::string_view{"unbekannt"};
-    check_true("alle fuenf Etiketten sind belegt und keines faellt in den unbekannt-Default", alle_belegt);
+    check_true("alle Etiketten sind belegt und keines faellt in den unbekannt-Default", alle_belegt);
 
     // Die PAARWEISE Distinktheit -- genau die Luecke des registrierten Taxonomie-Tests.
     bool        paarweise_verschieden = true;
@@ -143,12 +146,15 @@ int main() {
                 paarweise_verschieden = false;
                 kollision = std::string{etikett[i]} + " (" + std::to_string(i) + "==" + std::to_string(j) + ")";
             }
-    check_true("alle fuenf Etiketten sind PAARWEISE verschieden", paarweise_verschieden);
+    check_true("alle Etiketten sind PAARWEISE verschieden", paarweise_verschieden);
     if (!kollision.empty()) std::cout << "        Kollision: " << kollision << "\n";
 
     std::cout << "\n== Teil 3: die Drift-Wachen sind scharf ==\n";
-    check_true("Count == letzter Enum-Wert + 1", cem::kCompilerCompilerErrorClassCount ==
-                                                     static_cast<std::size_t>(Klasse::BetriebssystemFeatureFehlt) + 1);
+    // FORTSCHREIBUNG E-24 C5/FK-8: der LETZTE Enumerator ist jetzt GattungsSlotAritaet (=6). Dieser
+    // Laufzeit-Teil war der DRITTE Ableitungsweg derselben Aussage (neben der Header-static_assert und
+    // dem compile-time-Teil oben) und ist beim FK-8-Bump literal gerissen -- genau dafuer steht er hier.
+    check_true("Count == letzter Enum-Wert + 1",
+               cem::kCompilerCompilerErrorClassCount == static_cast<std::size_t>(Klasse::GattungsSlotAritaet) + 1);
     // Ein Wert AUSSERHALB der Taxonomie muss sichtbar im Default landen -- kein stiller Skip, kein UB.
     check_eq("out-of-range-Cast faellt sichtbar in den Default",
              std::string{cem::error_class_label(static_cast<Klasse>(99))}, std::string{"unbekannt"});

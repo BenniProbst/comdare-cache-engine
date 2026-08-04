@@ -7,6 +7,16 @@
 // mehrere Gattungen QUER messen (jedes Handle zieht sein passendes Dock); der Default ist sequentiell-pro-
 // Gattung (die Sortierung der Handles nach Gattung erfolgt builder-seitig im Mess-Treiber, separater Increment).
 //
+// STAND-NACHZUG E-24 C4 (2026-08-04, Bauplan Paragraf 2.1 Punkt 8 "Kommentar-Driften mitziehen"):
+// die Klammer oben ("initial nur SearchAlgorithmDock; Set/Sequence/Adapter/View kommen mit V42") ist
+// UEBERHOLT und steht nur noch als Historie. Ist-Stand: alle FUENF Ebene-2-Gattungen haben ein Dock --
+// SearchAlgorithmDock (search_algorithm_dock.hpp) sowie SetPruefDock/SequencePruefDock/AdapterPruefDock/
+// ViewPruefDock (set_/sequence_/adapter_/view_dock.hpp). Die Voll-Belegung steht in
+// pruef_dock_registry_default.hpp (register_all_genus_docks); der produktive Registrierer
+// apps/f15_compare/main.cpp ruft seit C4 (d/5) genau diese Funktion. Der Satz wird bewusst ERSETZT
+// statt geloescht (Doku-Doktrin: deprecaten, nicht entfernen) -- er erklaert, warum die Registry so
+// gebaut ist, wie sie gebaut ist.
+//
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 
 #include "pruef_dock.hpp"

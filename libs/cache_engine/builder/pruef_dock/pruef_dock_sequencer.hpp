@@ -15,10 +15,12 @@
 //
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 
+#include "dock_error_classification.hpp" // E-24 C5/FK-7: Transport-Int -> D2-Fehlerklasse
 #include "pruef_dock_registry.hpp"
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +34,16 @@ struct PruefDockResult {
     int                   status = dock_status_no_anatomy;
     std::string           csv{};
     std::string           json{};
+
+    /// E-24 C5 / FK-7: die CEB-seitige D2-Klassifizierung dieses Ergebnisses. LEER genau dann, wenn
+    /// status == dock_status_ok. Sie steht NEBEN dem Transport-Int, nicht an seiner Stelle: der int bleibt
+    /// unveraendert die ABI-nahe Transportform (HY-D2-Freeze), die Klasse ist die Auswerte-/Log-Sicht.
+    ///
+    /// WARUM ALS FELD und nicht als reine Funktion von `status`: der Sequenzierer setzt fuer ZWEI
+    /// verschiedene Zustaende denselben Int (dock_status_no_anatomy) -- "Modul ohne Anatomie" und "kein
+    /// Dock fuer diese Gattung". Nur HIER, wo der Handle noch sichtbar ist, ist die Trennung ueberhaupt
+    /// moeglich; aus dem Ergebnis-Int allein waere sie fuer immer verloren.
+    std::optional<cem::DockErrorClass> error_class{};
 };
 
 namespace detail {
@@ -60,11 +72,15 @@ measure_genus_sequential(PruefDockRegistry const& registry, std::vector<anatomy_
         IPruefDock* dock = registry.select_for(h);
         if (dock == nullptr) {
             r.status = dock_status_no_anatomy; // kein passendes Dock (Gattung nicht unterstützt / kein Anatomie)
+            // E-24 C5 / FK-7: der Int oben bleibt byte-gleich (Bestands-Leser unberuehrt) -- die Klasse
+            // daneben trennt, was er zusammenwirft. Der Handle ist genau hier noch da, spaeter nie wieder.
+            r.error_class = classify_dock_selection(h.anatomy() != nullptr);
             results.push_back(std::move(r));
             continue;
         }
-        r.dock_name = dock->dock_name();
-        r.status    = dock->measure(h, opts, r.csv, r.json);
+        r.dock_name   = dock->dock_name();
+        r.status      = dock->measure(h, opts, r.csv, r.json);
+        r.error_class = classify_dock_status(r.status);
         results.push_back(std::move(r));
     }
     return results;
