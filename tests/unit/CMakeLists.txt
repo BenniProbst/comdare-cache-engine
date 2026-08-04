@@ -1861,6 +1861,10 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # geschaltet hat. Verlangt Zeit UND Zaehler derselben Op-Schleife zugleich (Anti-Phantom) plus den
     # ehrlichen Nullpunkt der None-Strategie; Achsen-Indizes aus kCompositionAxisNames abgeleitet.
     test_s5_04_execution_perf_sanity  # A8-S5 -- Perf-Sanity Familie 04_execution (keine 0-/Phantom-Zeiten)
+    # A8-S5 (2026-08-04) Familie 03_placement = die ERSTE Familie, die Form B (Speicher ueber die Allokator-
+    # Achse) wirklich benutzt. Ihre Konformitaets-Wache traegt deshalb ZUSAETZLICH zum Typ-Pin den LAUFZEIT-
+    # Beleg der realen Verdrahtung und des R1-Memento-Rebinds (Form-B-Grenze, s5_family_alloc_conformance.hpp:31).
+    test_s5_03_placement_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 03_placement
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
