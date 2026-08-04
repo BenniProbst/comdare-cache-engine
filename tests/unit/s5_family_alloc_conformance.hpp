@@ -28,6 +28,14 @@
 // trivial kopierbar). Fuer die Achsen-Organe der Familien ist genau der Container-Fall der reale
 // Bestand aus B-5, und den faengt die Form vollstaendig.
 //
+// GRENZE DER FORM B (Review-F2, deklariert): AxisAllocatorBoundOrgan prueft, dass ein DEKLARIERTER
+// allocator_type das AllocatorStrategy-Concept erfuellt -- NICHT, dass jede Member-Allokation real
+// darueber laeuft. Ein Organ mit Default-Allokator-Container UND einer blossen using-Zeile bestuende
+// via (B), fiele aber via (A) durch; weil FamilyAllocConform (A)||(B) ist, MUSS eine Folge-Familie,
+// die Form B nutzt, die reale Verdrahtung zusaetzlich belegen (Referenz-Anker: BTreeNodePoolStore --
+// allocator_type + StdAllocatorAdapter-Rebind + COW-restore am Objekt). Form B ist eine
+// Deklarations-Wache, Form A der harte Typ-Beweis.
+//
 // SELBSTBEWEIS: die Negativ-Probe am Ende dieser Datei MUSS durchfallen und die Positiv-Proben MUESSEN
 // halten -- sonst pinnt die Wache nichts (die Lehre "gruene Tests zementieren alte Ordnung": eine Wache,
 // die nie beissen kann, ist eine Erfolgs-Meldung ohne Aussage).

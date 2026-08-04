@@ -64,7 +64,7 @@ public:
     using impl_type                               = impl::PathOrientedImpl;
     static constexpr std::size_t kMaxTrackedSlots = impl_type::kMaxTrackedSlots;
 
-    void                        enqueue(std::uint64_t addr) { tracker_.enqueue(addr); }
+    void                        enqueue(std::uint64_t addr) noexcept { tracker_.enqueue(addr); }
     [[nodiscard]] std::uint64_t suggest_next() const noexcept { return tracker_.suggest_next(); }
     [[nodiscard]] std::uint64_t total_enqueued() const noexcept { return tracker_.total_enqueued(); }
     [[nodiscard]] std::size_t   queue_depth() const noexcept { return tracker_.queue_depth(); }
