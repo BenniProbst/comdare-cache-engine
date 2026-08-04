@@ -1993,7 +1993,11 @@ set(COMDARE_MCE24_MEASURED_TESTS
     test_obs_phaseA
     test_obs_phaseB_pilot
     test_obs_phaseB_t11_t12
-    test_d_v42_abi_telemetry_coupling)
+    test_d_v42_abi_telemetry_coupling
+    # A8-S4 (2026-08-04): Konstitutiv-Ketten-Wache zur Konstitutiv-Matrix (Gattungs-Vertrag, Dossier 3.3).
+    # MESSUNG-AN-Seite des Paares; die Release-Seite ist test_a8s4_release_pfad_neutralitaet (eigener Block
+    # weiter unten, weil sie die Mess-Defines per #undef ABSCHALTET und damit NICHT in diese Liste gehoert).
+    test_a8s4_konstitutiv_kette)
 foreach(_dt IN LISTS COMDARE_MCE24_MEASURED_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
