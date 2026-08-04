@@ -99,6 +99,12 @@ struct OpKindLatency {
     std::uint64_t n      = 0;
     std::int64_t  p50_ns = 0;
     std::int64_t  p99_ns = 0;
+    // A8-S3 / Katalog-Klasse C (Tail-Perzentile, Abschnitt 5): p999 aus DENSELBEN IST-Vektoren wie p50/p99
+    // (workload_orchestrator::WorkloadRunResult, Nearest-Rank). Reiner HOST-Wert -- kein Wire-Feld, keine
+    // POD-Aenderung, keine zweite Mess-Klammer. Er traegt den Alloc-/Flush-Tail (T6-Alloc-Tail,
+    // T16-eager/lazy-Pareto), fuer den p99 nachweislich zu grob ist. Bei kleinem n faellt Nearest-Rank
+    // ehrlich auf das Maximum zurueck -- das IST die beste Aussage dieser Stichprobe, kein Schaetzwert.
+    std::int64_t p999_ns = 0;
 };
 /// Single-Source der Op-Art-Reihenfolge (CSV-Spalten ↔ PermResult::op_lat ↔ WorkloadRunResult-Vektoren).
 inline constexpr std::array<char const*, 6> kOpKindNames{"insert", "lookup", "erase", "clear", "scan", "rmw"};
@@ -319,7 +325,7 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
             auto const& v = *per_kind[k];
             for (std::int64_t ns : v) total += ns;
             r.op_lat[k] = OpKindLatency{static_cast<std::uint64_t>(v.size()), acd::nearest_rank_p(v, 0.5),
-                                        acd::nearest_rank_p(v, 0.99)};
+                                        acd::nearest_rank_p(v, 0.99), acd::nearest_rank_p(v, 0.999)};
             r.timed_ops += static_cast<std::uint64_t>(v.size());
         }
 

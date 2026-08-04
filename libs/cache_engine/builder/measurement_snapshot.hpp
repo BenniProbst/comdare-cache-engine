@@ -49,10 +49,23 @@ struct ComdareMeasurementSnapshotV1 {
     std::uint64_t energy_micro_joules     = 0;
     std::uint8_t  pmc_available           = 0; // 0 = HW-Counter NICHT real gemessen (P4-gated, ehrlich)
     // ── Allocator (4 der 16) — real aus dem Observer ──────────────────────────
-    std::uint64_t bytes_allocated     = 0;
-    std::uint64_t bytes_in_use_peak   = 0;
-    std::uint64_t external_frag_milli = 0; // Fragmentierung in ‰ (Promille), 0 wenn unbekannt
-    std::uint64_t internal_frag_milli = 0;
+    std::uint64_t bytes_allocated = 0;
+    // A8-S3 / Befund B7 (2026-08-04) -- FEHL-ETIKETTIERUNG, hier DEKLARIERT statt still gelassen:
+    // dieses Feld traegt NICHT den Peak, sondern den END-Wert bytes_in_use aus axis_stats[6][1] (s. die
+    // Zuweisung unten). Ein Peak braeuchte periodische tier_observe-Zuege, die der Mess-Pfad heute nicht
+    // faehrt. Der NAME bleibt unveraendert -- A8-Auflage 3: CSV-Spalten-Namen sind stabil, Alt-Mess-CSV ist
+    // Archiv, und tools/latex_anhang liest die Spalte positions-frei nach Namen. Die EHRLICHE Aussage steht
+    // stattdessen im WIDE-Schema: alloc_bytes_in_use_peak == "n/a" (lazy_csv_header, Klasse-C-Block C3).
+    // Aufloesung = echte Peak-Quelle (Wire-Slot ODER Zeitreihen-Zug), dann fallen Etikett und Wert zusammen.
+    std::uint64_t bytes_in_use_peak = 0;
+    // A8-S3 / Katalog-Entscheid E9 -- NICHT ERHOBEN, nicht "unbekannt": das SA-T6-Wire-Schema hat gar keine
+    // Fragmentierungs-Felder (die GATTUNGS-Wire-Formen Set/Sequence haben sie, axis_stats[5][5]/[5][6]).
+    // Diese beiden Felder bleiben deshalb strukturell 0 -- sie sind KEIN Messwert. Die ehrliche Markierung
+    // traegt das WIDE-Schema (alloc_external_frag_milli / alloc_internal_frag_milli == "n/a"); hier bleibt
+    // das Zahlenformat, weil tools/latex_anhang beide Spalten als double parst (Reader-Bruch waere die
+    // schlechtere Ehrlichkeit). Wer diese Zellen auswertet, muss die WIDE-Spalten gegenlesen.
+    std::uint64_t external_frag_milli = 0; // Fragmentierung in Promille -- NICHT ERHOBEN (s.o.), strukturell 0
+    std::uint64_t internal_frag_milli = 0; // dito
     // ── 6 funktionale Observer-Spalten (die „+6") ─────────────────────────────
     std::uint64_t search_insert         = 0;
     std::uint64_t search_lookup         = 0;
@@ -103,8 +116,12 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
     m.throughput_ops_per_sec = detail::throughput_ops_per_sec(r.op_count, r.total_ns);
     m.pmc_available          = 0; // PMC nicht angebunden
     // I1: aus dem konsolidierten Observer-POD (search→axis_stats[0], alloc→axis_stats[6]).
-    m.bytes_allocated       = r.observer.axis_stats[6][0]; // ECHT aus Observer
-    m.bytes_in_use_peak     = r.observer.axis_stats[6][1]; // ECHT aus Observer
+    m.bytes_allocated = r.observer.axis_stats[6][0]; // ECHT aus Observer
+    // A8-S3 / B7: ECHT aus dem Observer -- aber der END-Wert bytes_in_use, NICHT der Peak. Das Feld-Etikett
+    // ist historisch (s. die Deklaration am Feld oben); die ehrliche Peak-Aussage steht als "n/a" im
+    // WIDE-Schema. Hier wird bewusst NICHTS umgerechnet: ein aus dem Momentanwert "gerechneter" Peak waere
+    // die schlimmere Luege.
+    m.bytes_in_use_peak     = r.observer.axis_stats[6][1]; // END-Wert (bytes_in_use), s. B7-Deklaration
     m.search_insert         = r.observer.axis_stats[0][3];
     m.search_lookup         = r.observer.axis_stats[0][0];
     m.search_hit            = r.observer.axis_stats[0][1];

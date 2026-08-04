@@ -4686,6 +4686,29 @@ add_test(NAME test_fk1_nicht_gebaut_marker COMMAND test_fk1_nicht_gebaut_marker)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_fk1_nicht_gebaut_marker)
 set_tests_properties(test_fk1_nicht_gebaut_marker PROPERTIES LABELS "fehlerklassen;standalone;measured")
 
+# A8-S3 (2026-08-04, Qualitaets-Katalog KLASSE C): Wache der HOST-seitigen CSV-Spalten-Ereignisse
+# (pmc_branch_misses = real erhoben aber bisher stumm; op_<art>_p999_ns = Tail-Perzentile aus den
+# IST-Vektoren; die drei nicht erhobenen T6-Groessen ehrlich als "n/a" statt stiller 0). Tragende
+# Aussage: Header- und Zeilen-Zellenzahl sind GLEICH -- ein halb nachgezogener END-Append verschoebe
+# jede Auswertungs-Spalte. Reiner Host-Pfad, kein Tier.
+add_executable(test_a8s3_csv_klasse_c "test_a8s3_csv_klasse_c.cpp")
+target_compile_features(test_a8s3_csv_klasse_c PRIVATE cxx_std_23)
+target_include_directories(test_a8s3_csv_klasse_c PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_a8s3_csv_klasse_c PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_a8s3_csv_klasse_c)
+target_compile_definitions(test_a8s3_csv_klasse_c PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_a8s3_csv_klasse_c COMMAND test_a8s3_csv_klasse_c)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a8s3_csv_klasse_c)
+set_tests_properties(test_a8s3_csv_klasse_c PROPERTIES LABELS "a8;csv;standalone;measured")
+
 # E-04-P1 (Slice-Kanal, Marker-Familie v2, Owner-KERN "live sehen ... exakt WELCHE ... noch offen"):
 # Guard der Zeilen-Grammatik des Live-Fortschritts-Kanals. Tragende Aussage: lane=/zelle=/fenster=
 # sind Pflichtfelder und der Aggregator-Schluessel ist das TUPEL (zelle, fenster) -- der Guard weist

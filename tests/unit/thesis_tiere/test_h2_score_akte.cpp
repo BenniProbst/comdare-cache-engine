@@ -77,6 +77,40 @@ std::size_t count_char(std::string const& s, char c) {
     return static_cast<std::size_t>(std::count(s.begin(), s.end(), c));
 }
 
+// A8-S3 (2026-08-04) FIXTURE-NACHZUG: SPALTEN NACH NAMEN statt "letzte Spalte". Die frueheren
+// substr(size()-N)-Pins zementierten, dass fairness_mode/h2_code_quality_score die letzten Spalten sind --
+// genau die Ordnung, die das dokumentierte END-Append-Muster jederzeit fortschreiben darf (A8-S3 haengte den
+// Klasse-C-Block an). Der Nachzug prueft weiter DASSELBE (Existenz, relative Nachbarschaft, Zellwert,
+// Header==Row), aber positions-robust: ein weiterer additiver Anhang bricht die Wache nicht mehr, ein
+// VERSCHOBENES oder umbenanntes Feld sehr wohl.
+std::vector<std::string> split_semicolon_cells(std::string const& line) {
+    std::string_view v{line};
+    while (!v.empty() && (v.back() == '\n' || v.back() == '\r')) v.remove_suffix(1);
+    std::vector<std::string> out;
+    std::size_t              begin = 0;
+    for (std::size_t i = 0; i <= v.size(); ++i) {
+        if (i == v.size() || v[i] == ';') {
+            out.emplace_back(v.substr(begin, i - begin));
+            begin = i + 1;
+        }
+    }
+    return out;
+}
+
+std::size_t csv_column_index(std::vector<std::string> const& header, std::string_view name) {
+    for (std::size_t i = 0; i < header.size(); ++i)
+        if (header[i] == name) return i;
+    return header.size();
+}
+
+std::string csv_cell_by_name(std::string const& header_line, std::string const& row_line, std::string_view name) {
+    auto const        h = split_semicolon_cells(header_line);
+    auto const        r = split_semicolon_cells(row_line);
+    std::size_t const i = csv_column_index(h, name);
+    if (i >= h.size() || i >= r.size()) return {};
+    return r[i];
+}
+
 } // namespace
 
 // (1) AKTE-PARSE + VOLLABDECKUNG — genau ein Eintrag je sota/*.profile.xml, Tool-Provenienz vorhanden.
@@ -170,19 +204,24 @@ TEST(H2ScoreAkte, ScoreFormulaMatchesDocumentedWeights) {
 // (5) CSV-EXPORT-SYMMETRIE + STAMP-INVARIANZ — letzte Spalte, Header==Row, honest n/a, resume-v5 ohne h2.
 TEST(H2ScoreAkte, CsvColumnSymmetryHonestNaAndStampInvariance) {
     std::string const header = ex::lazy_csv_header();
-    ASSERT_GE(header.size(), 23u);
-    EXPECT_EQ(header.substr(header.size() - 23), ";h2_code_quality_score\n");
+    // A8-S3-NACHZUG: Spalte NACH NAMEN (frueher: substr(size()-23) == letzte Spalte). Die Aussage bleibt --
+    // die Spalte existiert und traegt genau den Wert der Zeile -- sie haengt nur nicht mehr daran, dass
+    // h2_code_quality_score die LETZTE Spalte ist (additive END-Appends sind ausdruecklich erlaubt).
+    ASSERT_LT(csv_column_index(split_semicolon_cells(header), "h2_code_quality_score"),
+              split_semicolon_cells(header).size())
+        << "Spalte h2_code_quality_score fehlt im Header";
 
     ex::LazyMeasuredRow row;
     row.binary_id         = "sota_tier=h2smoke";
     std::string const def = ex::format_csv_row(row);
-    EXPECT_EQ(def.substr(def.size() - 3), ";-\n") << "Basis/Sweep-Default ist '-'";
+    EXPECT_EQ(csv_cell_by_name(header, def, "h2_code_quality_score"), "-") << "Basis/Sweep-Default ist '-'";
     row.h2_score         = "n/a";
     std::string const na = ex::format_csv_row(row);
-    EXPECT_EQ(na.substr(na.size() - 5), ";n/a\n") << "honest n/a wird 1:1 exportiert (kein 0-Phantom)";
+    EXPECT_EQ(csv_cell_by_name(header, na, "h2_code_quality_score"), "n/a")
+        << "honest n/a wird 1:1 exportiert (kein 0-Phantom)";
     row.h2_score          = "5.500";
     std::string const num = ex::format_csv_row(row);
-    EXPECT_EQ(num.substr(num.size() - 7), ";5.500\n");
+    EXPECT_EQ(csv_cell_by_name(header, num, "h2_code_quality_score"), "5.500");
     EXPECT_EQ(count_char(def, ';'), count_char(header, ';'));
     EXPECT_EQ(count_char(na, ';'), count_char(header, ';'));
     EXPECT_EQ(count_char(num, ';'), count_char(header, ';'));
