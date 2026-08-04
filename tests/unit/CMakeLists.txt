@@ -1878,6 +1878,14 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # als allozierende, [0] resolve als lesende Op) + ehrlicher Nullpunkt OHNE None-Strategie (unregister
     # bleibt 0; hit+miss == resolve mit beiden Seiten real) + Rehash-Pfad ueber die Achse.
     test_s5_01d_traversal_perf_sanity # A8-S5 -- Perf-Sanity Familie 01d (keine 0-/Phantom-Zeiten)
+    # HAERTUNG Posten 64 (2026-08-04): der FEHLSCHLAG-VERTRAG des StdAllocatorAdapter, negativ belegt.
+    # Nach dem A8-S5-Schnitt fuehren mapping/value_handle/cache_traversal + die vier Pool-Stores ihren
+    # Speicher ueber die Allokator-Achse; die meldet OOM per nullptr. Der Adapter uebersetzt das jetzt an
+    # EINER Stelle in std::bad_alloc -- sonst konstruiert der besitzende Container in Nullspeicher (UB).
+    # Die TU beweist den Wurf an einer Stub-Strategie, die IMMER erschoepft ist (echtes OOM ist nicht
+    # deterministisch erzeugbar), plus Zaehler-Ehrlichkeit, Zero-Size-Neutralitaet und die
+    # Positiv-Kontrolle an der realen Achsen-Default-Strategie.
+    test_h64_allocator_adapter_failure_contract # Posten 64 -- StdAllocatorAdapter: nullptr -> std::bad_alloc
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")

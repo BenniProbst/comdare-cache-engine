@@ -31,6 +31,7 @@
 #include <concepts>
 #include <cstddef>
 #include <memory_resource>
+#include <new> // Posten 64: std::bad_alloc -- der Standard-Allokator-Vertrag des StdAllocatorAdapter
 #include <type_traits>
 
 namespace comdare::cache_engine::alloc {
@@ -150,6 +151,25 @@ public:
      * @brief StdAllocatorAdapter<T> — erfuellt die std::allocator-Named-Requirements (C++23) und
      *        leitet allocate/deallocate an die zugrundeliegende Achsen-Strategie weiter.
      *        Nutzbar mit std::vector<T, StdAllocatorAdapter<T>>, std::allocator_traits, rebind.
+     *
+     * **FEHLSCHLAG-VERTRAG (Posten 64, 2026-08-04) -- die EINE Uebersetzungsstelle:**
+     * Die Achsen-Strategie meldet OOM per **nullptr** (Achsen-Semantik, z.B. ExgenAllocator::allocate
+     * -> portable_aligned_alloc). Die std::allocator-Named-Requirements verlangen dagegen, dass
+     * `allocate()` bei Fehlschlag **WIRFT** (C++23 [allocator.requirements]: "Throws: bad_alloc if the
+     * storage cannot be obtained"); ein besitzender Container wie std::vector prueft den Rueckgabewert
+     * NICHT und konstruiert bei nullptr in Nullspeicher -- UB. Genau hier, im Adapter, wird die
+     * Achsen-Semantik in die Standard-Semantik uebersetzt: EINE Stelle statt einer Pruefung je
+     * Konsument. Damit sind die `[[allocation-failure-exception]]`-Aussagen der besitzenden Organe
+     * (mapping/value_handle/cache_traversal + die vier Pool-Stores) wieder WAHR -- der Wurf kommt
+     * jetzt vom Adapter statt vom Default-Allokator, die Fehlerklasse bleibt der FK-5-Boden.
+     *
+     * **EHRLICHKEIT BLEIBT (Auflage):** der `failure_count` der Strategie ist zum Zeitpunkt des Wurfs
+     * BEREITS gezaehlt -- die Strategie zaehlt ihn VOR dem `return nullptr` (axis_06_allocator_exgen.hpp).
+     * Der Wurf verdeckt also keinen Messwert, er ersetzt nur den UB-Pfad dahinter.
+     *
+     * **ZERO-SIZE UNVERAENDERT:** fuer `n == 0` bleibt der Rueckgabewert der Strategie unangetastet
+     * durchgereicht (der Standard fordert dort keinen Nicht-Null-Zeiger, und kein Konsument
+     * dereferenziert ihn) -- die Zero-Size-Wachen der Organe bleiben damit gueltig.
      */
     template <typename T>
     class StdAllocatorAdapter {
@@ -160,7 +180,11 @@ public:
         StdAllocatorAdapter(StdAllocatorAdapter<U> const& other) noexcept : strat_(other.strat_) {}
 
         [[nodiscard]] T* allocate(std::size_t n) {
-            return static_cast<T*>(strat_->allocate(n * sizeof(T), alignof(T)));
+            void* const p = strat_->allocate(n * sizeof(T), alignof(T));
+            // Fehlschlag-Vertrag (s. Klassen-Doku): nullptr aus der Strategie -> std::bad_alloc.
+            // n == 0 bleibt bewusst ausgenommen (Zero-Size-Verhalten unveraendert).
+            if (p == nullptr && n != 0) throw std::bad_alloc{};
+            return static_cast<T*>(p);
         }
         void deallocate(T* p, std::size_t n) noexcept { strat_->deallocate(p, n * sizeof(T), alignof(T)); }
         template <typename U>
