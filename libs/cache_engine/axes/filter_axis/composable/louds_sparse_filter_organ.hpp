@@ -133,6 +133,12 @@ class ComposedSurfLoudsFilter {
 public:
     using key_type   = std::uint64_t;
     using store_type = LoudsSparseFilterStore<ST, HashLen, RealLen>;
+    /// A8-S5-02b Form-B-Ausweis des ORGANS: es fuehrt seinen gesamten Speicher ueber das
+    /// Allokator-Achsen-Interface -- und zwar ueber die EINE Strategie-Instanz seines Stores
+    /// (surf_axis_allocator.hpp, Owner-KERN 04.08. abend-11: EIN Achsen-Interface je Organ). Die Zeile ist
+    /// KEINE Selbstauskunft: der reale Verdrahtungs-Beleg liegt in store().filter_surf_allocator_statistics()
+    /// und wird von der Familien-Wache am Objekt geprueft (Form-B-Grenze, s5_family_alloc_conformance.hpp:31).
+    using allocator_type = typename store_type::allocator_type;
 
     void build_from_sorted_keys(std::span<key_type const> sorted) { store_.build_from_sorted_keys(sorted); }
     [[nodiscard]] bool contains(key_type k) const { return SurfLoudsQuery::contains_in(store_, k); }
