@@ -126,6 +126,9 @@ public:
 #endif
 
     /// Allokiert einen Knoten (Free-List-Recycling oder Anhang) — darf via vector werfen (kein noexcept).
+    /// KAUSALITAET (Posten 70, 2026-08-04): der Wurf kommt vom StdAllocatorAdapter der Allokator-ACHSE --
+    /// die Strategie meldet OOM per nullptr, der Adapter uebersetzt ihn in std::bad_alloc (Posten 64,
+    /// axis_06_allocator_strategy_base.hpp). Der std::length_error unten ist davon unabhaengig (#234-F3).
     std::size_t allocate_node(key_type k, value_type v) {
         std::size_t idx;
         if (!free_.empty()) {

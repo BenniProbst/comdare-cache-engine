@@ -14,11 +14,16 @@
 // ALLOCATION (A8-S5, Familie 01d, 2026-08-04): der Eintrags-Speicher laeuft ueber die ALLOKATOR-ACHSE
 // (axis_06, StdAllocatorAdapter) statt ueber den Default-Allokator -- Schnitt-Regel A8/F2-Dossier 3.4
 // ("in Achsen-Algorithmen keine generischen OS-Calls: Speicher NUR ueber das Allokator-Achsen-Interface").
-// [[allocation-failure-exception]] ENTFAELLT an DIESER Achse: die axis_06-Strategie meldet einen
-// Fehlschlag als nullptr (ExgenAllocator::allocate) und wirft kein std::bad_alloc mehr. Der OOM-Fall
-// gehoert damit dem Fehlerraum der ALLOKATOR-Achse (FK-5-Boden, axis_06_allocator_strategy_base.hpp
-// error_classes) und nicht mehr dem der Traversal-Achse -- KEINE neue Fehlerklasse (Auflage 11,
-// Pilot-Praezedenz A8-S5/04: ein entfallender bad_alloc-Pfad begruendet keine neue Klasse).
+// [[allocation-failure-exception]] ENTFAELLT an DIESER Achse: der OOM-Fall gehoert dem Fehlerraum der
+// ALLOKATOR-Achse (FK-5-Boden, axis_06_allocator_strategy_base.hpp error_classes) und nicht mehr dem der
+// Traversal-Achse -- KEINE neue Fehlerklasse (Auflage 11, Pilot-Praezedenz A8-S5/04: ein verlagerter
+// bad_alloc-Pfad begruendet keine neue Klasse).
+// NACHGEFUEHRT (Posten 70, 2026-08-04): die Strategie meldet den Fehlschlag weiterhin als nullptr
+// (ExgenAllocator::allocate) -- ABER der StdAllocatorAdapter reicht diesen nullptr seit Posten 64 NICHT
+// mehr durch, sondern uebersetzt ihn in std::bad_alloc (axis_06_allocator_strategy_base.hpp,
+// StdAllocatorAdapter::allocate). register_entry ist deshalb weiter NICHT noexcept und kann werfen; der
+// Wurf traegt aber die Fehlerklasse der VERSORGER-Achse, nicht die dieser Achse. Die frueher hier
+// notierte Aussage "wirft kein std::bad_alloc mehr" galt nur fuer den Zwischenstand vor Posten 64.
 
 #include "axis_03b_cache_traversal_base.hpp"
 #include "axis_03b_cache_traversal_subaxes_ct1_to_ct2.hpp"
@@ -123,8 +128,9 @@ public:
         return entries_.size() == other.entries_.size();
     }
 
-    /// Wachstum allokiert ueber die Allokator-Achse (kein Default-Allokator, kein bad_alloc-Pfad --
-    /// s. Kopf-Doku ALLOCATION).
+    /// Wachstum allokiert ueber die Allokator-Achse (kein Default-Allokator). Der Fehlschlag-Pfad ist
+    /// NICHT verschwunden, sondern verlagert: der Adapter der Versorger-Achse wirft std::bad_alloc
+    /// (Posten 64/70) -- deshalb weiter kein noexcept. Fehlerklasse: s. Kopf-Doku ALLOCATION.
     void register_entry(key_type k, value_type v) {
         auto it = std::find_if(entries_.begin(), entries_.end(), [k](auto const& e) { return e.first == k; });
         if (it != entries_.end()) {

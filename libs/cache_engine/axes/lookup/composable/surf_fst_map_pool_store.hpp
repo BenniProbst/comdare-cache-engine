@@ -74,6 +74,9 @@ public:
     [[nodiscard]] value_type value_at(std::size_t i) const noexcept { return vals_[i]; }
     void                     set_value_at(std::size_t i, value_type v) noexcept { vals_[i] = v; }
     /// Sortiert einfuegen an Index i (Aufrufer garantiert die Sortier-Position) — darf via vector werfen.
+    /// KAUSALITAET (Posten 70, 2026-08-04): der Wurf kommt vom StdAllocatorAdapter der Allokator-ACHSE --
+    /// die Strategie meldet OOM per nullptr, der Adapter uebersetzt ihn in std::bad_alloc (Posten 64,
+    /// axis_06_allocator_strategy_base.hpp).
     void insert_at(std::size_t i, key_type k, value_type v) {
         keys_.insert(keys_.begin() + static_cast<std::ptrdiff_t>(i), k);
         vals_.insert(vals_.begin() + static_cast<std::ptrdiff_t>(i), v);

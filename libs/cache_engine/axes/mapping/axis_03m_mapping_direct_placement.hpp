@@ -15,7 +15,8 @@
 // Allocation (A8-S5-03, 2026-08-04): der Tabellen-Speicher kommt REAL ueber das Allokator-ACHSEN-Interface
 // (mapping_slot_allocator_t + StdAllocatorAdapter, s. axis_03m_mapping_base.hpp) statt ueber den
 // Default-Allokator -- Schnitt-Regel Dossier 20260803-a8_f2 Abschn. 3.4. Fehlerklasse unveraendert:
-// [[allocation-failure-exception]] (die Achsen-Strategie wirft/liefert nullptr statt operator new).
+// [[allocation-failure-exception]] -- seit Posten 64 (2026-08-04) wieder als ECHTER Wurf: die
+// Achsen-Strategie meldet OOM per nullptr, der StdAllocatorAdapter uebersetzt ihn in std::bad_alloc.
 
 #include "axis_03m_mapping_base.hpp"
 #include "axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
@@ -112,15 +113,17 @@ public:
         return mappings_.size() == other.mappings_.size();
     }
 
-    /// SONDERFALL [[allocation-failure-exception]] -- A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen):
-    /// Der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die Allokator-ACHSE, nicht mehr ueber
-    /// operator new. Die Achsen-Strategie meldet OOM per nullptr (axis_06_allocator_exgen.hpp:76ff ->
-    /// portable_aligned_alloc), und der StdAllocatorAdapter reicht diesen nullptr unveraendert weiter
-    /// (axis_06_allocator_strategy_base.hpp:162-164) -- er wirft KEIN std::bad_alloc mehr.
-    /// Fehlerklasse der Achse bleibt kOrganAxisErrorFloor (MappingBase::error_classes, FK-5): OOM ist
-    /// weiter ein Failed-Fall, nur der Traeger ist jetzt die Versorger-Achse. Die Konversion
-    /// nullptr -> Fehlerklassen-Wurf gehoert ins Adapter-ZIEL-Interface und ist fuer diese Scheibe
-    /// TABU (Auftrags-Scope) -- als offener Punkt an den A15-/alloc-Strang uebergeben.
+    /// SONDERFALL [[allocation-failure-exception]] -- A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen),
+    /// Posten 70 NACHGEFUEHRT (2026-08-04): Der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die
+    /// Allokator-ACHSE, nicht mehr ueber operator new. Die Achsen-Strategie meldet OOM per nullptr
+    /// (axis_06_allocator_exgen.hpp -> portable_aligned_alloc); der StdAllocatorAdapter reicht diesen
+    /// nullptr seit POSTEN 64 NICHT mehr durch, sondern uebersetzt ihn an genau EINER Stelle in
+    /// std::bad_alloc (axis_06_allocator_strategy_base.hpp, StdAllocatorAdapter::allocate). Damit ist
+    /// register_slot wieder ein echter werfender Pfad -- KEIN UB-Pfad mehr, in dem der besitzende
+    /// Container in Nullspeicher konstruiert. Fehlerklasse der Achse bleibt kOrganAxisErrorFloor
+    /// (MappingBase::error_classes, FK-5): OOM ist weiter ein Failed-Fall, nur der Traeger ist die
+    /// Versorger-Achse. Der frueher hier notierte offene Punkt "Konversion nullptr -> Wurf gehoert ins
+    /// Adapter-ZIEL-Interface" ist damit ERLEDIGT (Posten 64).
     void register_slot(slot_index_type s, offset_type o) {
         auto it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
         if (it != mappings_.end()) {

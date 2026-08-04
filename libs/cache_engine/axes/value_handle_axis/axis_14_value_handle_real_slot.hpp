@@ -144,13 +144,15 @@ public:
     /// Vorhandener Key wird ueberschrieben (in-place Update); Versioned bumpt dabei die Version (neue Snapshot-Sicht).
     // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept -- pool_/slots_.push_back kann allozieren
     // ([[allocation-failure-exception]]: melden statt terminate).
-    // A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen): der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber
-    // die Allokator-ACHSE. Die Strategie meldet OOM per nullptr (axis_06_allocator_exgen.hpp:76ff), der
-    // StdAllocatorAdapter reicht ihn unveraendert weiter (axis_06_allocator_strategy_base.hpp:162-164) -- der
-    // konkrete std::bad_alloc-Wurf des Default-Allokators ENTFAELLT damit an dieser Stelle. Die Fehlerklasse
-    // der Achse bleibt kOrganAxisErrorFloor (ValueHandleStrategyBase::error_classes, FK-5); die Konversion
-    // nullptr -> Fehlerklassen-Wurf gehoert ins Adapter-ZIEL-Interface und ist fuer diese Scheibe TABU
-    // (Auftrags-Scope) -- als offener Punkt an den A15-/alloc-Strang uebergeben.
+    // A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen), Posten 70 NACHGEFUEHRT (2026-08-04): der
+    // Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die Allokator-ACHSE. Die Strategie meldet OOM per
+    // nullptr (axis_06_allocator_exgen.hpp); der StdAllocatorAdapter reicht ihn seit POSTEN 64 NICHT mehr
+    // durch, sondern uebersetzt ihn an genau EINER Stelle in std::bad_alloc
+    // (axis_06_allocator_strategy_base.hpp, StdAllocatorAdapter::allocate). Der konkrete std::bad_alloc-Wurf
+    // ist damit NICHT entfallen, sondern hat nur den Traeger gewechselt: Adapter statt Default-Allokator --
+    // und das F57/Muster-B-Versprechen "melden statt terminate" gilt hier wieder buchstaeblich. Die
+    // Fehlerklasse der Achse bleibt kOrganAxisErrorFloor (ValueHandleStrategyBase::error_classes, FK-5);
+    // der frueher hier notierte offene Punkt zur nullptr-Konversion ist ERLEDIGT (Posten 64).
     void store_value(std::uint64_t key, std::uint64_t value) {
         for (auto& sl : slots_) {
             if (sl.key == key) { // Update: Value im Pool ersetzen
@@ -274,8 +276,9 @@ public:
     /// Build (Setup, NICHT gemessen): einen NEUEN Chain-Knoten an den Pool anhaengen + als neuen Head des Keys
     /// verketten (Multi-Value-Prepend). Existiert der Key noch nicht → neuer Slot mit diesem Knoten als Head.
     // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept -- chain_/slots_.push_back kann allozieren.
-    // A8-S5-03 PRAEZISIERT (Auflage 11): Fehlerpfad jetzt ueber die Allokator-Achse (nullptr statt
-    // std::bad_alloc) -- Begruendung + offener Punkt identisch PoolValueSlot::store_value.
+    // A8-S5-03 PRAEZISIERT (Auflage 11), Posten 70 NACHGEFUEHRT (2026-08-04): Fehlerpfad jetzt ueber die
+    // Allokator-Achse -- deren nullptr wird seit Posten 64 im StdAllocatorAdapter in std::bad_alloc
+    // uebersetzt. Begruendung identisch PoolValueSlot::store_value (der dortige offene Punkt ist erledigt).
     void store_value(std::uint64_t key, std::uint64_t value) {
         std::uint64_t const node_idx = static_cast<std::uint64_t>(chain_.size());
         for (auto& sl : slots_) {

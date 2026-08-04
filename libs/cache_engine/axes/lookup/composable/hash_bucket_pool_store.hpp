@@ -214,6 +214,11 @@ public:
     }
 
     /// SONDERFALL [[allocation-failure-exception]]: rehash kann std::bad_alloc werfen.
+    /// KAUSALITAET PRAEZISIERT (Posten 70, 2026-08-04): der Wurf kommt seit dem A8-S5-Schnitt NICHT mehr
+    /// vom Default-Allokator, sondern vom StdAllocatorAdapter der Allokator-ACHSE. Die Strategie meldet
+    /// OOM per nullptr; der Adapter uebersetzt das an EINER Stelle in std::bad_alloc
+    /// (Posten 64, axis_06_allocator_strategy_base.hpp, StdAllocatorAdapter::allocate). Die Aussage
+    /// dieser Zeile ist damit wieder wahr; die Fehlerklasse bleibt der FK-5-Boden der Allokator-Achse.
     void rehash(std::size_t new_capacity) {
         if constexpr (kOpenAddressing) {
             std::vector<detail::HashOaSlot, slot_allocator_type> old;

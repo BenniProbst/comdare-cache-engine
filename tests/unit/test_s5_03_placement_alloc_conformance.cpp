@@ -33,7 +33,8 @@
 // pool_resource, axis_06_allocator_pool_resource.hpp:205). Ihr Konformitaets-Kriterium ist deshalb ein anderes
 // und wird hier als solches geprueft: JEDE Strategie der Achse erfuellt AllocatorStrategy, ist also ein
 // gueltiger Versorger (Block (0)). Der Familien-grep hatte in axes/alloc/ ohnehin nur EINEN Treffer, und der
-// ist die Adapter-DOKUMENTATION selbst (axis_06_allocator_strategy_base.hpp:152) -- kein Scrub-Objekt.
+// ist die Adapter-DOKUMENTATION selbst (axis_06_allocator_strategy_base.hpp, Doku-Block ueber
+// StdAllocatorAdapter -- Verweis bewusst per NAME statt per Zeilennummer, die driftet) -- kein Scrub-Objekt.
 //
 // Standalone (plain int main, KEIN gtest) -- konsistent mit den uebrigen Phase-E-Standalone-Wachen.
 

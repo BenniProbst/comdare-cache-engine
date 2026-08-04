@@ -29,7 +29,11 @@ concept IterableAspectCacheTraversalStrategy = CacheTraversalVariant<T> && requi
 } && (!std::is_void_v<typename T::iterable_aspect_t>) && requires {
     { T::iterable_values() } noexcept -> std::convertible_to<std::span<typename T::iterable_aspect_t const>>;
 } && requires(T t, typename T::iterable_aspect_t v) {
-    { t.set_iterable_aspect(v) }; // darf werfen (Rehash kann std::bad_alloc werfen)
+    // Darf werfen: der Rehash hinter set_iterable_aspect() allokiert. Posten 70 (2026-08-04) praezisiert
+    // die Quelle -- seit dem A8-S5-Schnitt laeuft diese Allokation ueber die Allokator-ACHSE, und der
+    // StdAllocatorAdapter uebersetzt deren nullptr-OOM in std::bad_alloc (Posten 64). Kein noexcept
+    // fordern ist also weiter richtig; nur der Traeger des Wurfs ist ein anderer als vor dem Schnitt.
+    { t.set_iterable_aspect(v) };
 };
 
 } // namespace comdare::cache_engine::cache_traversal::concepts
