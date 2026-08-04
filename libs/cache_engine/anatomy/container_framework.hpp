@@ -79,6 +79,24 @@ struct type_traits {
     [[nodiscard]] static constexpr auto const& axis_names() noexcept {
         return cexp::GenusBindingTraits<G>::axis_names();
     }
+
+    /// E-24 C7-3 -- DER GATTUNGS-TYP-VERTRAG (C7-Auflage C7-3).
+    /// ElementTypeFor<Comp> == der Element-Typ, den die Anatomie dieses Container-Typs fuehrt.
+    /// ABGELEITET aus der Anatomie, NICHT als Literal gepflegt: waere hier `uint64_t` hartkodiert,
+    /// liefe der Vertrag beim ersten abweichenden Genus still ins Leere.
+    ///
+    /// WAS DAMIT EINGELOEST IST (Owner-Huellen-Kriterium, LEDGER:3834/:3836): die Container-Gattung ist
+    /// das vector-Gleichnis mit EINEM Element-Parameter <T>, die Map-Gattung das map-Gleichnis mit
+    /// <Key,Value>. Am Ist tragen ALLE fuenf Anatomie-Huellen genau EINEN Template-Parameter -- die
+    /// Composition (das Achsen-Tupel), nicht T. Das Owner-Gleichnis lebt also in den Typ-MEMBERN, nicht
+    /// in der Signatur. C7-3 macht daraus einen ausdruecklichen VERTRAG auf der Gattungs-Ebene.
+    /// DEKLARIERTE LUECKE (K5, Manager-Entscheid LEDGER:3844): die ECHTE Template-Parametrisierung der
+    /// Huellen (<T> bzw. <Key,Value> als Signatur) ist ABI-/golden-relevant, Scope-Erweiterung und
+    /// NICHT in diesem Fenster -- eigener Owner-Entscheid nach Abgabe. Bis dahin ist der Fixpunkt die
+    /// INSTANZIIERTE Gattungs-Huelle (am Ist T == uint64_t ueber alle vier Container-Genera; die Wache
+    /// dafuer steht in der Test-TU, wo die vier Kompositionen instanziierbar sind).
+    template <class Comp>
+    using ElementTypeFor = typename AnatomyFor<Comp>::element_type;
 };
 
 // ── Self-proving (compile-time; kein Raten) ─────────────────────────────────────────────────────
@@ -162,6 +180,13 @@ concept ContainerGattungsKern = cean::AnatomyConcept<A> && ContainerObservesAxes
 /// ihn per `if constexpr` ab -- compile-time, zero-cost, ohne Runtime-Switch.
 template <class A>
 concept ContainerClearBlock = ContainerGattungsKern<A> && cean::OrganClearable<A>;
+
+/// ContainerElementTyped<A> -- E-24 C7-3: die Anatomie fuehrt den Gattungs-Element-Typ oeffentlich.
+/// Am Ist 4/4 (Set seit C7-3, Sequence/Adapter/View seit L-76). Er ist NICHT Teil des Kerns: der Kern
+/// ist die Interface-Schnittmenge, dies ist ein TYP-Vertrag -- beides getrennt zu halten ist genau die
+/// Staffelung, die NACHTRAG 5 verlangt.
+template <class A>
+concept ContainerElementTyped = requires { typename A::element_type; };
 
 /// container_gattungs_kern_stufen<A>() -- wie viele der gestuften Bloecke traegt A UEBER dem Kern?
 /// Diagnose-Form fuer Treiber und Tests; ABGELEITET, nicht gepflegt.

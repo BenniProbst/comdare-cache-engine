@@ -194,8 +194,18 @@ concept HasElementType = requires { typename A::element_type; };
 
 static_assert(HasKeyType<ObsSa> && HasValueType<ObsSa> && !HasElementType<ObsSa>,
               "SA-Form durchgereicht: key_type + value_type");
-static_assert(!HasKeyType<ObsSet> && !HasValueType<ObsSet> && !HasElementType<ObsSet>,
-              "Set hat am Ist KEINEN oeffentlichen Wert-Typ -- die Huelle erfindet keinen");
+// FORTGESCHRIEBEN durch E-24 C7-3 (Auflage 13: Fixtures fortschreiben statt umgehen; Lehre "gruene
+// Tests zementieren alte Ordnung"): bis C7-3 trug die Set-Anatomie ihren Element-Typ NUR privat
+// (key_t/value_t) und war damit die EINZIGE der vier Container-Genus-Anatomien ohne oeffentlichen
+// Typ-Member -- der alte Assert hielt genau diesen Ist fest ("die Huelle erfindet keinen"). C7-3 hat
+// den Ist BEWUSST geaendert (Gattungs-Typ-Vertrag element_type, 4/4). Die Aussage der Zeile bleibt
+// dieselbe und wird hier nur am neuen Ist nachgezogen: die Huelle ERFINDET weiterhin nichts -- sie
+// reicht genau das durch, was die Anatomie fuehrt. Neu ist, WAS die Anatomie fuehrt.
+static_assert(!HasKeyType<ObsSet> && !HasValueType<ObsSet> && HasElementType<ObsSet>,
+              "Set fuehrt seit C7-3 element_type (Gattungs-Typ-Vertrag) -- aber weiterhin KEIN "
+              "key_type/value_type-Paar: das ist die Map-Form, und die Huelle erfindet sie nicht");
+static_assert(std::is_same_v<ObsSet::element_type, SetOrgan::element_type>,
+              "durchgereicht, nicht erfunden: der Typ der Huelle IST der Typ der Anatomie");
 static_assert(!HasValueType<ObsSeq> && HasElementType<ObsSeq>);
 static_assert(!HasValueType<ObsAda> && HasElementType<ObsAda>);
 static_assert(!HasValueType<ObsView> && HasElementType<ObsView>);

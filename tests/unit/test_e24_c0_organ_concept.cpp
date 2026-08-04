@@ -164,8 +164,16 @@ template <class A>
 concept HasElementType = requires { typename A::element_type; };
 
 static_assert(HasValueType<SaOrgan> && !HasElementType<SaOrgan>, "SA traegt key_type/value_type");
-static_assert(!HasValueType<SetOrgan> && !HasElementType<SetOrgan>,
-              "Set traegt am Ist GAR KEINEN oeffentlichen Wert-Typ (key_t/value_t sind privat)");
+// GEDREHT durch E-24 C7-3 (2026-08-04) -- die Wache hat GETAN, WOFUER SIE GEBAUT WURDE: sie hat die
+// Erweiterung des Wert-Typ-Vertrags sichtbar gemacht, statt sie still passieren zu lassen. C7-3 fuehrt
+// den Gattungs-Typ-Vertrag element_type ein (C7-Auflage C7-3, Diskrepanz-Dossier 5); die Set-Anatomie
+// trug ihn bis dahin als EINZIGE der vier Container-Genus-Anatomien nur privat (key_t/value_t). Die
+// Zeile wird deshalb NACHGEZOGEN, nicht entfernt -- und die verbleibende Aussage ist die eigentliche:
+// Set traegt weiterhin KEIN value_type, denn das waere die Map-Form (K und V getrennt), und Set ist
+// K=V (std::set-konform: value_type == Key).
+static_assert(!HasValueType<SetOrgan> && HasElementType<SetOrgan>,
+              "Set traegt seit C7-3 element_type (Gattungs-Typ-Vertrag der Container-Gattung), aber "
+              "weiterhin KEIN value_type -- das getrennte K/V-Paar ist die Map-Form");
 static_assert(!HasValueType<SeqOrgan> && HasElementType<SeqOrgan>, "Sequence traegt element_type");
 static_assert(!HasValueType<AdaOrgan> && HasElementType<AdaOrgan>, "Adapter traegt element_type");
 static_assert(!HasValueType<ViewOrgan> && HasElementType<ViewOrgan>, "View traegt element_type");

@@ -115,6 +115,15 @@ class SetAnatomy : public OrganGuard<SetAnatomy<Composition>> {
 public:
     using composition_t = Composition;
     using set_organ_t   = typename Composition::search_algo;
+    /// E-24 C7-3 (Gattungs-Typ-Vertrag, C7-Auflage C7-3): der ELEMENT-Typ dieser Gattungs-Ebene.
+    /// Bis hier trug die Set-Anatomie ihn nur PRIVAT als key_t/value_t (:291-292) -- als einzige der
+    /// vier Container-Genus-Anatomien; Sequence/Adapter/View fuehren element_type seit L-76 oeffentlich.
+    /// Die Owner-Huellen-Signatur <T> (Container-Gattung == vector-Gleichnis, LEDGER:3834/:3836) wird
+    /// damit als TYP-VERTRAG der Gattung eingeloest, nicht als neuer Template-Parameter -- eine echte
+    /// Element-Typ-Parametrisierung der Huellen ist Scope-Erweiterung (K5) und ausdruecklich NICHT
+    /// gedeckt. Fuer die Set-Gattung gilt K=V: der Element-Typ IST der Schluessel-Typ (std::set-konform,
+    /// value_type == Key). REINE ADDITION: keine Signatur, kein Layout, kein Verhalten bewegt sich.
+    using element_type = typename set_organ_t::key_type;
     /// E-24 C3: der per-Achsen-Beobachtungs-Typ dieser Gattung (Namens-Analogie zu
     /// SearchAlgorithmAnatomy::observer_aggregate_t; ABGRENZUNG: in-process, kein Wire-POD -- s. C6).
     using axis_observation_t = SetAxisObservation<Composition>;
