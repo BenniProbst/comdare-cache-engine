@@ -9,10 +9,13 @@
 // (Bayer/McCreight 1972). Vorteil: O(N) Lookup, kein Pool-Indirection,
 // einfache Cache-Locality.
 //
-// Standalone-Implementation: std::vector<pair<slot, absolute_offset>> +
+// Standalone-Implementation: dynamische Slot-Tabelle aus pair<slot, absolute_offset> +
 // std::find_if linear-scan.
 //
-// Allocation: std::vector — [[allocation-failure-exception]].
+// Allocation (A8-S5-03, 2026-08-04): der Tabellen-Speicher kommt REAL ueber das Allokator-ACHSEN-Interface
+// (mapping_slot_allocator_t + StdAllocatorAdapter, s. axis_03m_mapping_base.hpp) statt ueber den
+// Default-Allokator -- Schnitt-Regel Dossier 20260803-a8_f2 Abschn. 3.4. Fehlerklasse unveraendert:
+// [[allocation-failure-exception]] (die Achsen-Strategie wirft/liefert nullptr statt operator new).
 
 #include "axis_03m_mapping_base.hpp"
 #include "axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
@@ -44,7 +47,15 @@ public:
     using topic_tag       = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag        = subaxes::direct_access_tag;
     using family_id       = std::integral_constant<int, 1>; // MP01
+    /// A8-S5-03 Form-B-Ausweis: der Speicher dieses Organs laeuft ueber die Allokator-Achse (nicht deklarativ,
+    /// sondern real -- mappings_ traegt den StdAllocatorAdapter dieses allocator_, s. Member unten).
+    using allocator_type = mapping_slot_allocator_t;
 
+private:
+    using entry_type  = std::pair<slot_index_type, offset_type>;
+    using entry_alloc = typename allocator_type::template StdAllocatorAdapter<entry_type>;
+
+public:
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "direct_placement"; }
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::mapping::DirectPlacement",
@@ -64,13 +75,52 @@ public:
     [[nodiscard]] static constexpr bool supports_reverse_lookup() noexcept { return true; } // linear-scan
     [[nodiscard]] static constexpr bool requires_pool_base() noexcept { return false; }
 
-    DirectPlacement() = default;
+    // -- A8-S5-03 Lebensdauer-Vertrag der Achsen-Verdrahtung --------------------------------------------
+    // Der StdAllocatorAdapter haelt einen Zeiger auf allocator_ (Wert-Adapter, EBO-freundlich). Daraus folgt
+    // GENAU dieselbe Regel wie im Referenz-Muster btree_node_pool_store.hpp:19/:84-105:
+    //   (a) allocator_ MUSS vor mappings_ deklariert sein (Member-Reihenfolge unten),
+    //   (b) mappings_ wird IMMER mit allocator_.as_std_allocator<entry_type>() konstruiert (der Adapter ist
+    //       nicht default-konstruierbar -- es gibt kein stilles Zurueckfallen auf einen Default-Allokator),
+    //   (c) die Kopie REBINDET auf das EIGENE allocator_ (sonst zeigte der Adapter der Kopie auf die Quelle),
+    //   (d) Move wird BEWUSST nicht deklariert: die benutzerdeklarierte Kopie unterdrueckt den impliziten Move,
+    //       ein std::move degradiert damit zur (korrekt rebindenden) Kopie statt den Fremd-Adapter zu stehlen.
+    // std::vector kopiert bei propagate_on_container_copy_assignment=false (Default fuer allocator_traits) den
+    // Allokator NICHT mit -- die Ziel-Tabelle behaelt in operator= ihren eigenen Adapter. Genau das ist gewollt.
+    DirectPlacement() : mappings_(allocator_.template as_std_allocator<entry_type>()) {}
+    DirectPlacement(DirectPlacement const& o)
+        : allocator_(o.allocator_), mappings_(o.mappings_, allocator_.template as_std_allocator<entry_type>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = o.stats_;
+        // Memento-Symmetrie (analog btree_node_pool_store.hpp:91): die transiente Kopier-Allokation der Vollkopie
+        // ist kein Mess-Ereignis der Achse -> Statistik auf den Quell-Stand zuruecksetzen.
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    DirectPlacement& operator=(DirectPlacement const& o) {
+        if (this != &o) {
+            mappings_ = o.mappings_; // Allokator propagiert NICHT -> dieses Objekt behaelt seinen Adapter
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_ = o.stats_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~DirectPlacement() = default;
 
     [[nodiscard]] bool operator==(DirectPlacement const& other) const noexcept {
         return mappings_.size() == other.mappings_.size();
     }
 
-    /// SONDERFALL [[allocation-failure-exception]]: emplace_back kann std::bad_alloc werfen.
+    /// SONDERFALL [[allocation-failure-exception]] -- A8-S5-03 PRAEZISIERT (Auflage 11, Fehlerklassen):
+    /// Der Wachstums-Fehlerpfad laeuft seit dem Schnitt ueber die Allokator-ACHSE, nicht mehr ueber
+    /// operator new. Die Achsen-Strategie meldet OOM per nullptr (axis_06_allocator_exgen.hpp:76ff ->
+    /// portable_aligned_alloc), und der StdAllocatorAdapter reicht diesen nullptr unveraendert weiter
+    /// (axis_06_allocator_strategy_base.hpp:162-164) -- er wirft KEIN std::bad_alloc mehr.
+    /// Fehlerklasse der Achse bleibt kOrganAxisErrorFloor (MappingBase::error_classes, FK-5): OOM ist
+    /// weiter ein Failed-Fall, nur der Traeger ist jetzt die Versorger-Achse. Die Konversion
+    /// nullptr -> Fehlerklassen-Wurf gehoert ins Adapter-ZIEL-Interface und ist fuer diese Scheibe
+    /// TABU (Auftrags-Scope) -- als offener Punkt an den A15-/alloc-Strang uebergeben.
     void register_slot(slot_index_type s, offset_type o) {
         auto it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
         if (it != mappings_.end()) {
@@ -124,10 +174,21 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// A8-S5-03 VERDRAHTUNGS-BELEG (Nicht-Vertrags-Methode, analog btree_node_pool_store.hpp:128
+    /// store_allocator_statistics): die Statistik der Versorger-Strategie DIESES Organs. Damit ist die
+    /// Form-B-Aussage der S5-Gate-Wache am Objekt pruefbar -- ein deklarierter allocator_type ohne reale
+    /// Verdrahtung bliebe hier auf 0 stehen (Form-B-Grenze, s. tests/unit/s5_family_alloc_conformance.hpp:31).
+    /// NICHT im T6-Mess-Pfad: T6 misst den Allokator DER KOMPOSITION, nicht diesen privaten Versorger.
+    [[nodiscard]] typename allocator_type::snapshot_t mapping_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
 #endif
 
 private:
-    std::vector<std::pair<slot_index_type, offset_type>> mappings_;
+    // allocator_ VOR mappings_ (Lebensdauer des Zeigers im StdAllocatorAdapter, s. Ctor-Kommentar oben).
+    allocator_type                       allocator_{};
+    std::vector<entry_type, entry_alloc> mappings_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::MappingStatistics stats_{};
     mutable observer_t                  observer_{};
