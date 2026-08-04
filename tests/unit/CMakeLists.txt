@@ -1694,6 +1694,32 @@ set_tests_properties(${_comdare_negativ_compile_tu_c4} PROPERTIES
     TIMEOUT 300
     LABELS "goal_v6;phase_d;negativ_compile")
 
+# E-24 C4 (c/5) -- die vier Container-Docks als IPruefDock-Impls, in-process gefahren.
+# EIGENER BLOCK statt COMDARE_GOALV6_BOOST_DTESTS (am Bau erzwungen, nicht aus Geschmack): diese TU
+# konstruiert/zerstoert AnatomyModuleHandle, und AnatomyModuleHandle::unload() lebt im Loader-.cpp
+# (libs/cache_engine/builder/anatomy_module_loader). Der GoalV6-Block linkt nur Boost::mp11 -> der Link
+# brach literal mit "undefined reference to ...AnatomyModuleHandle::unload()". Dieselbe Kante zieht schon
+# comdare_ce_pruef_dock (libs/.../pruef_dock/CMakeLists.txt) und der SA-Dock-Test oben (:1193-1195).
+# Sonst identisch zum GoalV6-Muster: plain int main() (kein gtest) -> add_test direkt, plus Eintrag in
+# COMDARE_TEST_TARGETS (#278-Klasse-B-Fix: sonst baut die CI die TU nie -> "Not Run").
+set(_comdare_e24_c4_dock_tu test_e24_c4_genus_pruef_docks)
+add_executable(${_comdare_e24_c4_dock_tu} "${_comdare_e24_c4_dock_tu}.cpp")
+target_compile_features(${_comdare_e24_c4_dock_tu} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_e24_c4_dock_tu} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_e24_c4_dock_tu} PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+comdare_set_platform_defines(${_comdare_e24_c4_dock_tu})
+add_test(NAME ${_comdare_e24_c4_dock_tu} COMMAND ${_comdare_e24_c4_dock_tu})
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_comdare_e24_c4_dock_tu})
+set_tests_properties(${_comdare_e24_c4_dock_tu} PROPERTIES LABELS "goal_v6;phase_d")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
 # Identisches Muster wie die GoalV6-D-Tests darueber: plain `int main()`-Standalone (KEIN gtest, daher add_test
