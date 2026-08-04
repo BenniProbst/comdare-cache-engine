@@ -115,14 +115,27 @@ class SetAnatomy : public OrganGuard<SetAnatomy<Composition>> {
 public:
     using composition_t = Composition;
     using set_organ_t   = typename Composition::search_algo;
+    /// E-24 C7-3 (Gattungs-Typ-Vertrag, C7-Auflage C7-3): der ELEMENT-Typ dieser Gattungs-Ebene.
+    /// Bis hier trug die Set-Anatomie ihn nur PRIVAT als key_t/value_t (:291-292) -- als einzige der
+    /// vier Container-Genus-Anatomien; Sequence/Adapter/View fuehren element_type seit L-76 oeffentlich.
+    /// Die Owner-Huellen-Signatur <T> (Container-Gattung == vector-Gleichnis, LEDGER:3834/:3836) wird
+    /// damit als TYP-VERTRAG der Gattung eingeloest, nicht als neuer Template-Parameter -- eine echte
+    /// Element-Typ-Parametrisierung der Huellen ist Scope-Erweiterung (K5) und ausdruecklich NICHT
+    /// gedeckt. Fuer die Set-Gattung gilt K=V: der Element-Typ IST der Schluessel-Typ (std::set-konform,
+    /// value_type == Key). REINE ADDITION: keine Signatur, kein Layout, kein Verhalten bewegt sich.
+    using element_type = typename set_organ_t::key_type;
     /// E-24 C3: der per-Achsen-Beobachtungs-Typ dieser Gattung (Namens-Analogie zu
     /// SearchAlgorithmAnatomy::observer_aggregate_t; ABGRENZUNG: in-process, kein Wire-POD -- s. C6).
     using axis_observation_t = SetAxisObservation<Composition>;
 
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
-    static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Set; }             // Vogel
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 13 (INC-2d)
+    static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Set; } // Vogel
+    /// E-24 C7-7 (Symmetrie-Heilung, C7-Auflage C7-7): die Ebene-1-Zuordnung. Bis hier trug sie als
+    /// EINZIGE die AdapterAnatomy (:261) -- eine Asymmetrie ohne Grund. ABGELEITET aus genus(), damit
+    /// es keine zweite Wahrheit gibt (dieselbe Regel wie bei C7-6 auf der ABI-Seite).
+    static constexpr AnatomyGattung gattung() noexcept { return gattung_of(genus()); }
+    static constexpr std::size_t    organ_count() noexcept { return Composition::slot_count; } // 13 (INC-2d)
 
     // ── Set-Gattungs-API (K-only) — treibt das ECHTE search_algo-Organ als Menge (K=V) ──
     bool insert(std::uint64_t key) {
@@ -288,8 +301,20 @@ public:
     }
 
 private:
+    // E-24 C7-5 (Klarstellung, KEIN Umbau -- C7-Auflage C7-5, LEDGER:3843): Set ist das GENUS Set der
+    // GATTUNG Container (Ebene 1 == <T>-Huelle, vector-Gleichnis). Die K=V-Bauform hier ist ein INTERNER
+    // Antriebs-Trick: die Anatomie treibt ein K->V-Organ als MENGE, indem sie insert(k,k) setzt. Sie ist
+    // ausdruecklich KEIN Gattungs-Verstoss und kein Terminologie-Fehler:
+    //   * AUSSEN ist die Set-Gattungs-Ebene <T>-foermig -- ISetTier fuehrt tier_set_insert/contains/erase
+    //     EIN-argumentig, es gibt kein mapped-Value an der ABI-Flaeche (set_tier.hpp:46-52).
+    //   * Das ist EXAKT std::set: dort gilt value_type == Key, und die Signatur traegt EINEN
+    //     Element-Parameter (Allocator = allocator<Key>, KEIN pair) -- am C++-Standard belegt.
+    //   * std-Praezedenz fuer "Genus ueber fremdem Substrat": stack/queue adaptieren deque.
+    // Die Gattungs-Zugehoerigkeit bemisst sich am AUSSEN-Interface und der Huellen-Signatur
+    // (Owner-Definition LEDGER:3834), nicht am inneren Substrat. Der Element-Typ-Vertrag der Gattung
+    // steht oben oeffentlich als element_type (C7-3); key_t/value_t bleiben die internen Antriebs-Namen.
     using key_t   = typename set_organ_t::key_type;
-    using value_t = typename set_organ_t::key_type; // Set: K=V (Value-Typ == Key-Typ)
+    using value_t = typename set_organ_t::key_type; // Set: K=V (Value-Typ == Key-Typ, std::set-konform)
 
     // E-24 C3: die 13 Slots als REALE Organ-Member. Der search_algo-Slot ist der getriebene Kern (war bis C2
     // als `organ_` das einzige Member); die uebrigen zwoelf werden GETRAGEN und ueber ihre Accessoren

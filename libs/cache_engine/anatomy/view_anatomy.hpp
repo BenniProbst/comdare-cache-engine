@@ -77,8 +77,10 @@ public:
 
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
-    static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::View; }            // Pflanze
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 5
+    static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::View; } // Pflanze
+    /// E-24 C7-7 (Symmetrie-Heilung): die Ebene-1-Zuordnung, ABGELEITET aus genus() (s. set_anatomy.hpp).
+    static constexpr AnatomyGattung gattung() noexcept { return gattung_of(genus()); }
+    static constexpr std::size_t    organ_count() noexcept { return Composition::slot_count; } // 5
 
     // ── View-Gattungs-API (non-owning) — bind externer Puffer + read über layout/accessor ──
     void bind(element_type const* data, std::size_t size) noexcept {

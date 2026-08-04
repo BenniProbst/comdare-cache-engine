@@ -3,9 +3,15 @@
 // Sequence/Set/Container. Bridge ViewAnatomy<Composition> → IAnatomyBase + IViewTier. static_assert genus()==View.
 // non-owning: tier_bind(externer Puffer) + tier_read — KEIN tier_insert/erase/clear (API-Asymmetrie absichtlich).
 
+// E-24 C6 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE): der Adapter erbt ZUSAETZLICH IViewTierV2 und
+// liefert darueber die per-Achsen-Wire-Form ViewObserverAggregate<5> -- die drei View-eigenen Achsen
+// (extent/layout/accessor) queren damit erstmals die Grenze. APPEND-ONLY: IViewTier und
+// ViewObserverSnapshotV1 bleiben unveraendert (neue Basis HINTEN); die API-Asymmetrie bleibt bestehen.
+
 #include "anatomy_base.hpp"
 #include "view_anatomy.hpp"
 #include "view_tier.hpp"
+#include "view_tier_v2.hpp" // E-24 C6: IViewTierV2 + ViewObserverAggregate<5>
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -14,7 +20,7 @@
 namespace comdare::cache_engine::anatomy {
 
 template <AnatomyConcept A>
-class ViewAbiAdapter final : public IAnatomyBase, public IViewTier {
+class ViewAbiAdapter final : public IAnatomyBase, public IViewTier, public IViewTierV2 {
     static_assert(A::genus() == AnatomyGenus::View,
                   "ViewAbiAdapter erwartet eine View-Gattung-Anatomie (AnatomyGenus::View). "
                   "Cross-Genus-Adapter sind type-system-mathematisch unmoeglich — Doku 14 §32.");
@@ -59,6 +65,16 @@ public:
         v.observable_axis_count = 2; // R5.B ehrlich: axis_layout + axis_accessor real getrieben
         v.organ_count           = A::organ_count();
         *out                    = v;
+    }
+
+    // -- IViewTierV2 (E-24 C6: die PER-ACHSEN-Wire-Form) ----------------------------------------
+    /// Projiziert observe_axes() in den flachen Gattungs-Wire-POD. Die View traegt als einzige
+    /// Gattungs-Ebene DREI eigene Achsen -- sie alle waren bis C6-V stumm.
+    void tier_observe_view_axes(ViewObserverAggregateWire* out) const noexcept override {
+        if (out == nullptr) return;
+        ViewObserverAggregateWire w{};
+        fill_view_observer_aggregate(anatomy_, w);
+        *out = w;
     }
 
 private:

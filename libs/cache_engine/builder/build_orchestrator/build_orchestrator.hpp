@@ -257,6 +257,11 @@ inline constexpr std::size_t     kStemMax = 120;
 /// entfaellt, weil nie Code existierte. Fuer den STALEN Bestand deckt der W10-M2-Marker: prae-W10-Binaries
 /// passieren dieses Gate nicht mehr (Einzel-Pfad '+ceb=7.1' vs '+ceb=7.2'; Perm-Pfad 'kein +ceb' vs '+ceb=7.2'
 /// nach der C4-Verdrahtung) -- das ist der Grund, warum der Contract-Minor im selben Commit gewandert ist.
+/// E-24-C8-NACHZUG (Werte-Stand, damit dieser Absatz nicht als LEBENDE Aussage falsch dasteht): die vier
+/// Zahlen oben sind der W10-Stand und bleiben als solcher stehen. Seit E-24 C8 lautet der lebende Wert
+/// '+ceb=8.0' (Major 7->8 mit Minor-RESET 2->0) -- der stale Bestand faellt damit ERST RECHT aus dem Gate,
+/// und zwar an beiden Pfaden. Der verbindliche Wert steht nirgends hier, sondern in
+/// anatomy_module_abi_v1_decl.hpp (COMDARE_ANATOMY_ABI_MAJOR + kCebContractCodegenMinor).
 /// Der K1-Cross-Check (OS-Familie aus dem .version-Sidecar) bleibt als ZWEITE Verteidigungslinie bestehen, bis
 /// das A2-SHA512-only-Gate geeicht ist: er kostet nichts und faengt Define-Verkabelungsfehler.
 [[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version,

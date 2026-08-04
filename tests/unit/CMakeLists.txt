@@ -1671,6 +1671,43 @@ foreach(_c6v IN LISTS COMDARE_E24_C6V_TESTS)
 endforeach()
 
 # -----------------------------------------------------------------------------
+# E-24 C6/C7 (2026-08-04, b-Teil / ABI-EREIGNIS-SERIE) -- die per-Achsen-WIRE-Formen der vier Container-
+# Gattungs-Ebenen (XxxObserverAggregate<N>) + ihre eigenen Abfrage-Sub-Interfaces. Eigene Liste (nicht
+# COMDARE_E24_C6V_TESTS), weil C6-V der ABI-NEUTRALE Vor-Baustein war und C6 die deklarierte ABI-Serie
+# ist -- die Label-Trennung haelt beide im ctest getrennt filterbar (`ctest -L c6` vs. `-L c6v`).
+# Bau identisch zum C6-V-Block (plain int main(), Boost::mp11 + generated, STATISTICS-ON-Pfad).
+set(COMDARE_E24_C6_TESTS
+    test_e24_c6_genus_observer_aggregate # C6 (a): das gemeinsame Wire-Layout GenusObserverAggregate<G, N>
+    test_e24_c6_axis_row_writer          # C6 (b): write_genus_axis_row + E1-Milli-Fixpunkt
+    test_e24_c6_set_wire_aggregate       # C6 (c): SetObserverAggregate<13> + ISetTierV2
+    test_e24_c6_sequence_wire_aggregate  # C6 (d): SequenceObserverAggregate<9> + E1-Detail growth_factor_milli
+    test_e24_c6_adapter_wire_aggregate   # C6 (e): AdapterObserverAggregate<11> + Adapter-Symmetrie
+    test_e24_c6_view_wire_aggregate      # C6 (f): ViewObserverAggregate<5> + Elisions-/Layout-Beweis
+    test_e24_c6_set_algebra_abi          # C6 (g) / F2: ISetAlgebraTier gegen das std::set-Orakel
+    test_e24_c7_gattung_map_umbenennung  # C7-1: Ebene-1-Umbenennung SearchAlgorithm -> Map
+    test_e24_c7_container_gattungs_kern   # C7-2: der Container-Gattungs-Kern + gestufter clear-Block
+    test_e24_c7_element_type_vertrag      # C7-3: der Gattungs-Typ-Vertrag element_type
+    test_e24_c7_gattung_abi_sichtbar      # C7-6: Ebene-1-Sichtbarmachung ohne neuen Wire-String
+    test_e24_c7_symmetrie_und_benennung)  # C7-4/5/7: Map-Kern benannt, Set K=V, gattung-Symmetrie
+foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
+    add_executable(${_c6} "${_c6}.cpp")
+    target_compile_features(${_c6} PRIVATE cxx_std_23)
+    target_include_directories(${_c6} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_c6} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_c6})
+    target_compile_definitions(${_c6} PRIVATE COMDARE_CE_ENABLE_STATISTICS=1)
+    add_test(NAME ${_c6} COMMAND ${_c6})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c6})
+    set_tests_properties(${_c6} PROPERTIES LABELS "goal_v6;phase_d;e24;c6;c7")
+endforeach()
+
+# -----------------------------------------------------------------------------
 # E-24 C1 (Luecke L6) -- NEGATIV-COMPILE-FIXTURE: eine TU, die BRECHEN MUSS.
 #
 # Das Repo kannte am Ist KEIN Muster fuer erwartete Uebersetzungs-Fehler (Erhebung 04.08.: 0 Treffer
@@ -1903,12 +1940,18 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_w11_async_push_pump        # W11 (§43.c): BAU-Modus async Push-Pump + ArtifactCache-Teil-Marker (Fake-mc)
     test_s5_artifact_cache_bounded  # S5-Rest: measure-drop-PUT (curl) BOUNDED gegen Blackhole (Timeout-Wache)
     test_s1_cache_key_prefix        # S1 (#46a): cache_key_prefix-Segment-Montage (+ceb/+mtool/+mrg), Push-Reihenfolge
+    # E-24 C10 (c) / G6: die Identitaets-Bilanz des Major-Bumps -- +ceb= BEWEGT, Stempel-Preimage und
+    # CRC64-Anker UNBEWEGT. Liegt hier, weil die TU dieselben drei Flaechen anfasst wie test_s1
+    # (artifact_cache-Key-Naht) und dieselbe Include-Menge braucht (source_catalog + generated-Flags).
+    test_e24_c10_g6_identitaets_bilanz
     test_s2_pull_tier_binary        # S2 (#46a): pull_tier_binary + pull_tier_prefix (Fake-mc: Hit/Miss/Halb/Prefix/inert)
     test_45_parallel_measure_loop   # #45 (§16.2-M1/§61-MODI): collect_ordered + resolve_measure_parallelism + parse-Naht
     test_cache_mc_timeout           # Cache-Resthygiene: mc-Timeout-Wrapper (build_mc_argv literal + End-to-End-Hang-Cap)
     test_r2_suffix_wachen           # Lane F R2 (O-8 Schritt 11): T-a/T-b/T-c auf der Suffix-Single-Source
     test_w10_c4_zellwert_naht       # W10-C4: Zellwert-Wertform/Define-Argument, Diskriminierung, na-fail-closed,
                                     #         W10-M2 (Contract-Minor 2, +ceb= am Perm-Pfad, Store-Key-Dedupe)
+    test_e24_c9_fk5_fehlerraum        # E-24 C9 / FK-5: Organ-Achsen-Fehlerraum (Cross-Layer-Wahrheitsquellen-Naht,
+                                       #         18-Achsen-Vollstaendigkeit, Negativ-Probe, D1/D2-Domaenen-Trennung)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
@@ -3245,7 +3288,23 @@ set(_src_perm_sequence_d10         genus_module_sequence.cpp)
 set(_src_perm_view_d11             genus_module_view.cpp)
 set(_src_perm_buildvariant_avx512  genus_buildvariant_avx512.cpp)
 set(_src_perm_buildvariant_avx2    genus_buildvariant_avx2.cpp)
-foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2)
+# E-24 C10 (a) -- die beiden NEUEN Modul-Quellen des Roundtrip-Beweises. Sie haengen sich BEWUSST an
+# dieselbe boost-freie Schleife wie perm_set_d9/d10/d11: eine Sonder-Registrierung waere ein zweiter
+# Bau-Weg fuer dieselbe Sache.
+#   perm_adapter_d12       das bis hier FEHLENDE vierte Container-Genus als DLL.
+#   perm_set_defekt_d13    das Negativ-Beweismittel des Konformitaets-Gates (dock_status 4).
+set(_src_perm_adapter_d12          genus_module_adapter.cpp)
+set(_src_perm_set_defekt_d13       genus_module_set_defekt.cpp)
+# E-24 C10 (b) / G5 -- die beiden ALT-MODULE der Lade-Wache. Der Loader traegt ZWEI Schloesser (Magic,
+# dann Major) und prueft sie in fester Reihenfolge; ein echtes Alt-Modul bewegt beide und erreicht das
+# zweite nie. Deshalb zwei Quellen, damit jedes Schloss EINZELN beobachtbar ist.
+#   perm_alt_major7        Magic ".A7." + Version 7.0 -- herkunfts-treue Quelle der gesicherten
+#                          Fixture major7-referenz-44bcda99.so (Schloss 1).
+#   perm_major7_neue_magic HEUTIGE Magic + Version (Host-Major - 1) -- Isolierungs-Probe (Schloss 2).
+set(_src_perm_alt_major7           genus_module_alt_major7.cpp)
+set(_src_perm_major7_neue_magic    genus_module_major7_neue_magic.cpp)
+foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2
+                      perm_adapter_d12 perm_set_defekt_d13 perm_alt_major7 perm_major7_neue_magic)
     add_library(${_dll} SHARED "${_src_${_dll}}")
     target_include_directories(${_dll} PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
@@ -3280,6 +3339,48 @@ add_test(NAME test_dgenus_dll COMMAND test_dgenus_dll
 
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_dgenus_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_dgenus_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
+# -----------------------------------------------------------------------------
+# E-24 C10 (Bauplan-Dossier docs/sessions/20260803-DOSSIER-e24-fenster-bauplan.md Paragraf 3.2-C10) --
+# die Roundtrip-Beweise. DLL-getriebene TUs; sie brauchen ueber test_dgenus_dll hinaus die
+# Achsen-Registries (Docks/Engines -> Boost::mp11 + generated-Flags), deshalb eine eigene Registrierung
+# statt der schlanken Loader-Zeilen oben.
+#   (a) test_e24_c10_genus_dll_roundtrip -- V5-Vertrag ueber vier ECHT geladene Container-DLLs + die
+#       beiden Negativ-Proben (dock_status 2/4) + measure_genus_sequential-Mischlauf.
+#   (b) test_e24_c10_g5_lade_wache -- der Major-Wechsel als Lade-Wache (beide Schloesser einzeln,
+#       Major-8-Roundtrip gruen) + der ceb-contract-Beleg des --version-Blocks.
+# -----------------------------------------------------------------------------
+foreach(_c10 IN ITEMS test_e24_c10_genus_dll_roundtrip test_e24_c10_g5_lade_wache)
+    add_executable(${_c10} "${_c10}.cpp")
+    target_compile_features(${_c10} PRIVATE cxx_std_23)
+    target_include_directories(${_c10} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_c10} PRIVATE Boost::mp11 comdare::anatomy_module_loader)
+    comdare_set_platform_defines(${_c10})
+    add_dependencies(${_c10} perm_set_d9 perm_sequence_d10 perm_view_d11 perm_adapter_d12 perm_set_defekt_d13
+                             perm_alt_major7 perm_major7_neue_magic)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_c10})
+endforeach()
+
+add_test(NAME test_e24_c10_genus_dll_roundtrip COMMAND test_e24_c10_genus_dll_roundtrip
+    "--gut=$<TARGET_FILE:perm_set_d9>" "--gut=$<TARGET_FILE:perm_sequence_d10>"
+    "--gut=$<TARGET_FILE:perm_adapter_d12>" "--gut=$<TARGET_FILE:perm_view_d11>"
+    "--defekt-set=$<TARGET_FILE:perm_set_defekt_d13>")
+set_tests_properties(test_e24_c10_genus_dll_roundtrip PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip;e24")
+
+# G5: die gesicherte Original-Fixture (/home/comdare/e24-g5-fixture/major7-referenz-44bcda99.so) wird
+# BEWUSST NICHT als ctest-Argument verdrahtet -- sie liegt ausserhalb des Repos und waere eine
+# Host-Abhaengigkeit im CI. ctest faehrt die committete Nachbildung perm_alt_major7; der Lauf gegen das
+# Original steht als literaler Beleg im Fenster-Report (optionales --gesicherte-fixture=<pfad>).
+add_test(NAME test_e24_c10_g5_lade_wache COMMAND test_e24_c10_g5_lade_wache
+    "--alt=$<TARGET_FILE:perm_alt_major7>" "--alt-neue-magic=$<TARGET_FILE:perm_major7_neue_magic>"
+    "--neu=$<TARGET_FILE:perm_set_d9>")
+set_tests_properties(test_e24_c10_g5_lade_wache PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip;e24")
 
 # Build-Varianten-DLL-Loader-Test (L-74a, win32 LoadLibrary/GetProcAddress — Avx512 vs Avx2 über die .dll-Grenze).
 add_executable(test_buildvariant_dll test_buildvariant_dll.cpp)

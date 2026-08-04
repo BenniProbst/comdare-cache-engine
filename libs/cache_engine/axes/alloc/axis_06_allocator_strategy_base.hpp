@@ -25,6 +25,7 @@
 #include "alloc_hw_config.hpp" // F-B: NUMA/Page->allocator-Unterachse (GO4/#8, 2026-07-12)
 #include <topics/axis_base.hpp>
 #include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived> = topics::Axis-Dach + AxisBase (axis_kind()==organ)
+#include <topics/organ_axis_error_classes.hpp> // FK-5: der Fehlerraum neben dem Versionsraum
 #include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <concepts>
@@ -78,6 +79,10 @@ public:
             requires { Derived::algo_version; },
             "Kompositions-Organ-Variante ohne 'static constexpr std::string_view algo_version' "
             "(Bauplan §2): Rebuild-Selektor kann nicht organ-genau invalidieren.");
+
+        // FK-5 (E-24 C9): der Fehlerraum-Zwilling der Versions-Wache darueber -- existiert die
+        // Deklaration, und ist sie nicht leer? Beides bricht compile-hart MIT dem Typ-Namen.
+        ::comdare::cache_engine::topics::assert_organ_axis_error_classes<Derived>();
         static_assert(concepts::AllocatorStrategy<Derived>, "Derived must satisfy AllocatorStrategy concept "
                                                             "(see concepts/axis_06_allocator_concept.hpp)");
         static_assert(concepts::CacheEnginePermutationStrategy<Derived>,
@@ -201,6 +206,15 @@ public:
     /// Liefert einen pmr-memory_resource-Adapter (Wert). Aufrufer haelt ihn am Leben und uebergibt
     /// dessen Adresse an pmr-Container (z.B. std::pmr::polymorphic_allocator).
     [[nodiscard]] PmrResourceAdapter as_pmr_resource() noexcept { return PmrResourceAdapter(&derived()); }
+
+public:
+    /// FK-5 (A15 EBENE 4, Fehlerraum) -- WELCHE D2-Fehlerklassen diese Organ-Achse ueberhaupt
+    /// hervorbringen kann. Deklariert an DERSELBEN Stelle, die schon algo_version erzwingt (K2-Muster):
+    /// eine Stelle je Achse statt einer Zeile je Varianten-Datei.
+    /// Boden: der Allokator kann real scheitern (OOM ist der Lehrbuch-Fall von Failed).
+    [[nodiscard]] static constexpr auto error_classes() noexcept {
+        return ::comdare::cache_engine::topics::kOrganAxisErrorFloor;
+    }
 
 protected:
     [[nodiscard]] Derived&       derived() noexcept { return static_cast<Derived&>(*this); }
