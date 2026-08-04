@@ -121,6 +121,33 @@ enum class AnatomyGenus : std::uint8_t {
     return AnatomyGattung::Container;
 }
 
+// ---------------------------------------------------------------------------------------------
+// E-24 C7-6 -- DIE GATTUNG WIRD ABI-SICHTBAR, OHNE EINEN NEUEN WIRE-STRING EINZUFRIEREN
+// ---------------------------------------------------------------------------------------------
+//
+// AUFTRAG (C7-Auflage C7-6, LEDGER:3843): "Wire OHNE neuen String (host-seitig constexpr gattung_of
+// aus genus(); falls Wire-Member je noetig: uint8 NACH C7-1)".
+//
+// DER ENTSCHEID, AUSDRUECKLICH: es kommt WEDER ein gattung()-vtable-Member NOCH ein gattung-Feld
+// NOCH ein Gattungs-String auf den Draht. Begruendung am Objekt:
+//   (1) genus() TRAEGT DIE INFORMATION BEREITS. gattung_of ist total und constexpr -- die Ebene-1-
+//       Zuordnung ist aus der Ebene-2-Identitaet VERLUSTFREI ableitbar. Ein zweites Feld waere eine
+//       zweite Wahrheit, die auseinanderlaufen kann (und irgendwann wird).
+//   (2) EIN gattung()-Member an IAnatomyBase waere ein VTABLE-ANHANG an der Wurzel-Flaeche -- genau
+//       das, was die append-only-Doktrin (Auflage 5) im ganzen Fenster verbietet. Alle C6-Formen sind
+//       eigenen Sub-Interfaces ausgewichen; die Wurzel darf nicht die Ausnahme sein.
+//   (3) EIN STRING waere zusaetzlich EINGEFROREN: Etiketten reisen in Experiment-Logs (RF-3-Auflage) --
+//       ein Gattungs-String waere ab dem ersten Lauf unveraenderlich. Genau diese Falle hat das
+//       Fenster bei FK-8 bereits benannt (Manager-Entscheid: Etiketten BELASSEN, LEDGER:3844).
+// DIE ORDNUNG IST DAMIT EINGEHALTEN: C7-1 hat das Etikett korrigiert, BEVOR hier ueberhaupt etwas
+// sichtbar wird -- und weil nichts eingefroren wird, bleibt die Korrektur auch nachtraeglich frei.
+
+/// module_gattung() -- Ebene-1-Zuordnung einer GELADENEN Anatomie, host-seitig abgeleitet.
+/// Das ist die C7-6-Sichtbarmachung: der Host beantwortet "welche Gattung ist dieses Modul?" ohne
+/// ein einziges neues Byte auf dem Draht. noexcept, allokationsfrei, ein virtueller Aufruf (genus())
+/// plus ein constexpr-Sprung -- der Dock ruft sie 1x kalt beim Andocken, nie im Hot-Loop.
+[[nodiscard]] inline AnatomyGattung module_gattung(class IAnatomyBase const& m) noexcept;
+
 /// kingdom_name() — wie in der Taxonomie: alle Gattungen/Tier-Unterklassen sind "Animalia" Lebewesen.
 [[nodiscard]] constexpr std::string_view kingdom_name() noexcept { return "Animalia"; }
 
@@ -184,6 +211,13 @@ public:
 
     /// Anzahl Achsen (Pflicht 17 fuer Mammal = 15 Such-Achsen + queuing q1/q2, INC-2d; weniger fuer andere Gattungen)
     [[nodiscard]] virtual std::size_t organ_count() const noexcept = 0;
+
+    // E-24 C7-6: HIER steht BEWUSST KEIN gattung()-Member. Die Ebene-1-Zuordnung wird host-seitig aus
+    // genus() abgeleitet (module_gattung, s. o.) -- ein Member hier waere ein vtable-Anhang an der
+    // Wurzel-Flaeche und braeche jede geladene Alt-DLL.
 };
+
+/// E-24 C7-6: die Ableitung, jetzt wo IAnatomyBase vollstaendig ist (Deklaration s. o.).
+[[nodiscard]] inline AnatomyGattung module_gattung(IAnatomyBase const& m) noexcept { return gattung_of(m.genus()); }
 
 } // namespace comdare::cache_engine::anatomy
