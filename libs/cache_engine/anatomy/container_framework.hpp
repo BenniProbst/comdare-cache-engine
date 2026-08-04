@@ -25,6 +25,7 @@
 // Aenderung an AnatomyGattung/AnatomyGenus-Enum, GenusBindingTraits, golden_fullpilot_320 oder permutation_axes.
 
 #include <anatomy/anatomy_base.hpp>                         // AnatomyGattung/AnatomyGenus + gattung_of (constexpr)
+#include <anatomy/organ_concept.hpp>                        // E-24 C7-2: OrganSized/OrganClearable (ERHOBEN, C1)
 #include <builder/experiment_tree/genus_binding_traits.hpp> // GenusBindingTraits<G> + GenusBound<G> (Bau-Bindung je Genus)
 
 #include <boost/mp11.hpp>
@@ -88,7 +89,9 @@ static_assert(ContainerType<cea::AnatomyGenus::Set>);
 static_assert(ContainerType<cea::AnatomyGenus::Sequence>);
 static_assert(ContainerType<cea::AnatomyGenus::View>);
 static_assert(!ContainerType<cea::AnatomyGenus::SearchAlgorithm>,
-              "#29: SearchAlgorithm ist eine EIGENE Gattung, kein Container-Typ");
+              "E-24 C7-2: SearchAlgorithm ist ein GENUS der Gattung Map, kein Container-Typ "
+              "(der Assert-INHALT bleibt; der frueher hier stehende Text 'eine EIGENE Gattung' war "
+              "die Ebene-Vermengung, die C7-1 aufgeloest hat).");
 // (b) "exakt die bisherigen Container-Achsen": jeder Typ behaelt seinen Slot-Satz (keine Vereinheitlichung).
 static_assert(type_traits<cea::AnatomyGenus::Adapter>::slot_count == 11); // INC-2d: isa raus (war 12 nach INC-2c)
 static_assert(type_traits<cea::AnatomyGenus::Set>::slot_count == 13);
@@ -97,5 +100,77 @@ static_assert(type_traits<cea::AnatomyGenus::View>::slot_count == 5);
 // (c) Gattungs-Konsistenz: alle Container-Typen tragen das Container-Aussen-Interface (Ebene 1).
 static_assert(type_traits<cea::AnatomyGenus::Adapter>::gattung == cea::AnatomyGattung::Container);
 static_assert(type_traits<cea::AnatomyGenus::View>::gattung == cea::AnatomyGattung::Container);
+
+// ================================================================================================
+// E-24 C7-2 -- DER CONTAINER-GATTUNGS-KERN (ERHOBEN, nicht erfunden)
+// ================================================================================================
+//
+// AUFTRAG (C7-Auflage C7-2, LEDGER:3843; Owner-KERN NACHTRAG 4 LEDGER:3836 "Das Genus erbt von der
+// gemeinsamen Gattung", NACHTRAG 5 LEDGER:3838 "gestaffelte Interface Definitionen"): das
+// Kopf-Framework formt den Gattungs-Kern der Ebene 1 -- die mathematische SCHNITTMENGE der
+// Genus-Interfaces -- und laesst die Genus-Erweiterungen daneben stehen.
+//
+// WAS DER KERN ENTHAELT (am Ist erhoben, 4/4 ueber Set/Sequence/Adapter/View):
+//   IDENTITAET    AnatomyConcept (composition_t / composition_name / paper_id / organ_count / genus)
+//   BEOBACHTUNG   observe_axes() + axis_observation_t + observable_axis_count()  [die C3-Flaeche]
+//   FUELLSTAND    size()
+// WAS ALS GESTUFTER OPTIONALER BLOCK DANEBEN STEHT (3/4 -- die View fehlt BEWUSST):
+//   LEERUNG       clear()
+//
+// WARUM GENAU DAS UND NICHTS MEHR -- die drei Gruende, jeder am Objekt belegt:
+//  (1) DER STANDARD SELBST gibt fuer eine so breite Gattung nicht mehr her: die Container-named-
+//      requirements werden von Adaptoren und Views NICHT erfuellt (stack hat kein begin/end, span kein
+//      ==/swap). Ueber vector+set+stack+span schrumpft der ehrliche std-Schnitt auf
+//      {size/empty/Lebenszyklus} -- und der Standard fuehrt den Rest als OPTIONALE Bloecke. Genau
+//      dieses Muster (kleiner Kern + gestufte Bloecke) ist hier nachgebaut.
+//  (2) DAS IST-SCHNITTMENGEN-VERBOT: ueber alle FUENF Genera ist die Op-Verb-Schnittmenge LEER
+//      (organ_concept.hpp:92-101 -- selbst size() fehlt der SA-Gattung). Ueber die VIER
+//      Container-Genera traegt size() 4/4 und clear() 3/4. Ein vereinheitlichtes Schreib-/Lese-Op-Verb
+//      waere ERFUNDEN, nicht erhoben -- und das ist untersagt.
+//  (3) DIE GENUS-ERWEITERUNGEN EXISTIEREN BEREITS und bleiben, wo sie sind: OrganOpSurface mit den
+//      fuenf DISJUNKTEN Op-Familien (KeyedOrganOps/IndexedOrganOps/AdaptedOrganOps/BoundViewOrganOps/
+//      AxisOrganAccessOps, C1). "Genus erbt von der Gattung, Genus erweitert" ist damit am Ist
+//      realisiert: Kern hier, Erweiterung dort, keine Vermengung.
+//
+// VIEW-AUSNAHME DEKLARIERT (D2-Doktrin: leere Spalte MIT Grund): die View ist non-owning und kennt
+// bewusst kein clear (view_tier.hpp:31-32, view_anatomy.hpp:4). Sie faellt deshalb aus dem
+// OPTIONALEN Block -- nicht aus dem Kern. Das ist kein Mangel, sondern die Semantik der Sicht.
+//
+// ABGRENZUNG: die 4x-Genus-Nachweis-MATRIX steht in der Test-TU
+// (tests/unit/test_e24_c7_container_gattungs_kern.cpp), nicht hier -- sie braucht instanziierte
+// Kompositionen (13/9/11/5 Achsen-Typen), und die gehoeren nicht in einen Kopf-Header.
+
+namespace cean = ::comdare::cache_engine::anatomy;
+
+/// ContainerObservesAxes<A> -- die BEOBACHTUNGS-Haelfte des Kerns: die per-Achsen-Abnahme, die C3
+/// an allen vier Container-Anatomien gebaut hat. noexcept ist Teil des Vertrags (eine Beobachtung
+/// darf einen Messlauf nie abbrechen -- dieselbe Begruendung wie bei OrganObservable).
+template <class A>
+concept ContainerObservesAxes = requires(A const& a) {
+    typename A::axis_observation_t;
+    { a.observe_axes() } noexcept -> std::same_as<typename A::axis_observation_t>;
+    { A::observable_axis_count() } -> std::convertible_to<std::size_t>;
+};
+
+/// ContainerGattungsKern<A> -- der Ebene-1-KERN der Container-Gattung: Identitaet + Beobachtung +
+/// Fuellstand. Das ist die vollstaendige, am Ist beweisbare Schnittmenge der vier Genus-Interfaces.
+template <class A>
+concept ContainerGattungsKern = cean::AnatomyConcept<A> && ContainerObservesAxes<A> && cean::OrganSized<A>;
+
+/// ContainerClearBlock<A> -- der GESTUFTE OPTIONALE Block ueber dem Kern (std-Muster "optional
+/// container requirements"). 3/4 am Ist; die View fehlt deklariert (s. o.). Generischer Code fragt
+/// ihn per `if constexpr` ab -- compile-time, zero-cost, ohne Runtime-Switch.
+template <class A>
+concept ContainerClearBlock = ContainerGattungsKern<A> && cean::OrganClearable<A>;
+
+/// container_gattungs_kern_stufen<A>() -- wie viele der gestuften Bloecke traegt A UEBER dem Kern?
+/// Diagnose-Form fuer Treiber und Tests; ABGELEITET, nicht gepflegt.
+template <class A>
+[[nodiscard]] consteval std::size_t container_gattungs_kern_stufen() noexcept {
+    std::size_t n = 0;
+    if constexpr (ContainerGattungsKern<A>) ++n; // Stufe 0: der Kern
+    if constexpr (ContainerClearBlock<A>) ++n;   // Stufe 1: der optionale Leerungs-Block
+    return n;
+}
 
 } // namespace comdare::container

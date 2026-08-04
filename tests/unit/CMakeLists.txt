@@ -1684,7 +1684,8 @@ set(COMDARE_E24_C6_TESTS
     test_e24_c6_adapter_wire_aggregate   # C6 (e): AdapterObserverAggregate<11> + Adapter-Symmetrie
     test_e24_c6_view_wire_aggregate      # C6 (f): ViewObserverAggregate<5> + Elisions-/Layout-Beweis
     test_e24_c6_set_algebra_abi          # C6 (g) / F2: ISetAlgebraTier gegen das std::set-Orakel
-    test_e24_c7_gattung_map_umbenennung) # C7-1: Ebene-1-Umbenennung SearchAlgorithm -> Map
+    test_e24_c7_gattung_map_umbenennung  # C7-1: Ebene-1-Umbenennung SearchAlgorithm -> Map
+    test_e24_c7_container_gattungs_kern)  # C7-2: der Container-Gattungs-Kern + gestufter clear-Block
 foreach(_c6 IN LISTS COMDARE_E24_C6_TESTS)
     add_executable(${_c6} "${_c6}.cpp")
     target_compile_features(${_c6} PRIVATE cxx_std_23)
