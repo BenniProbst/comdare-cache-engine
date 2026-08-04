@@ -1946,6 +1946,8 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_r2_suffix_wachen           # Lane F R2 (O-8 Schritt 11): T-a/T-b/T-c auf der Suffix-Single-Source
     test_w10_c4_zellwert_naht       # W10-C4: Zellwert-Wertform/Define-Argument, Diskriminierung, na-fail-closed,
                                     #         W10-M2 (Contract-Minor 2, +ceb= am Perm-Pfad, Store-Key-Dedupe)
+    test_e24_c9_fk5_fehlerraum        # E-24 C9 / FK-5: Organ-Achsen-Fehlerraum (Cross-Layer-Wahrheitsquellen-Naht,
+                                       #         18-Achsen-Vollstaendigkeit, Negativ-Probe, D1/D2-Domaenen-Trennung)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
