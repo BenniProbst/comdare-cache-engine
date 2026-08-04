@@ -48,9 +48,21 @@ enum class CompilerCompilerErrorClass : std::uint8_t {
     // unter macOS/Windows, PowerShell-Executor-Semantik der Windows-Runner. Ein solcher Zustand ist eine
     // DEKLARIERTE Klasse, kein Absturz -- das Experiment misst die uebrigen Permutationen weiter.
     BetriebssystemFeatureFehlt = 4, // OS-Feature auf dem Host nicht verfuegbar/konfiguriert
+    // E-24 C5 / FK-8 (2026-08-04, Bauplan Paragraf 6.2): die GATTUNGS-BAUPFAD-Zustaende. Mit dem
+    // E-24-Fenster werden die vier Container-Gattungen (Set/Sequence/Adapter/View) neben SearchAlgorithm
+    // baubar -- und damit entsteht eine Bau-Entscheidung, die es vorher nicht gab: WELCHE Gattung wird
+    // ueberhaupt gebaut, und passt die gelieferte Permutation zu ihrem Slot-Satz? Beides sind Planer-/
+    // Compile-Zeit-Urteile (D1): erkennbar, klassifizierbar, KEIN Absturz -- das Experiment baut und misst
+    // die uebrigen Permutationen weiter. Beide Klassen werden ANGEHAENGT (5/6); die Nummern 0..4 stehen
+    // still, weil Etiketten UND Nummern in Experiment-Logs reisen (RF-3-Auflage).
+    GattungsBindungFehlt = 5, // die verlangte Gattung hat in diesem Bau KEINE Bau-Bindung (Komposition/Anatomie)
+    GattungsSlotAritaet  = 6, // Gattung gebunden, aber die Permutations-Aritaet passt nicht zu ihrem Slot-Satz
 };
 /// Single-Source der Klassenzahl (bei JEDER neuen Klasse mit hochzaehlen; der Drift-Guard unten faengt Vergessen).
-inline constexpr std::size_t kCompilerCompilerErrorClassCount = 5;
+/// E-24 C5 / FK-8: 5 -> 7 (GattungsBindungFehlt + GattungsSlotAritaet). Die Wachen, die die 5 hielten,
+/// sind im SELBEN Commit mitgezogen -- sie verlangten das ausdruecklich ("wer eine sechste einzieht, zieht
+/// diese Wache und die Etiketten-Wachen mit nach", machine_identity.hpp).
+inline constexpr std::size_t kCompilerCompilerErrorClassCount = 7;
 
 // ── D2: Sample-Status je (binary_id x setting)-Zelle (Runtime/Harness) ────────────────────────────
 // Ersetzt (spaeter) den konflatierenden bool valid. Trennt die drei ehrlichen Zell-Bedeutungen sauber:
@@ -113,6 +125,8 @@ inline constexpr std::size_t kBuildCellStatusCount = 2;
         case CompilerCompilerErrorClass::HardwareErweiterungFehlt: return "hardware_erweiterung_fehlt";
         case CompilerCompilerErrorClass::CompileKombination: return "compile_kombination";
         case CompilerCompilerErrorClass::BetriebssystemFeatureFehlt: return "betriebssystem_feature_fehlt";
+        case CompilerCompilerErrorClass::GattungsBindungFehlt: return "gattungs_bindung_fehlt";
+        case CompilerCompilerErrorClass::GattungsSlotAritaet: return "gattungs_slot_aritaet";
     }
     return "unbekannt"; // out-of-range-Cast -> sicherer, sichtbarer Default (kein UB, kein stiller Skip)
 }
@@ -391,8 +405,36 @@ static_assert(static_cast<std::uint8_t>(SampleStatus::Ok) == 0,
               "Ok MUSS 0 sein (PermResult-Wire-POD: Default-Init = gueltig; gilt NICHT host-seitig).");
 static_assert(SampleStatus::Failed != SampleStatus::NotApplicable, "Failed und NotApplicable MUESSEN disjunkt sein.");
 // Drift-Guards: neue Enum-Werte erzwingen ein Hochzaehlen der Count-Single-Source.
+// E-24 C5 / FK-8: der Namens-Pin zeigt jetzt auf GattungsSlotAritaet (=6). HISTORIE: er zeigte bis RF-3 auf
+// CompileKombination, dann auf BetriebssystemFeatureFehlt -- die Wache wandert mit dem LETZTEN Enumerator,
+// die Aussage bleibt dieselbe.
 static_assert(kCompilerCompilerErrorClassCount ==
-              static_cast<std::size_t>(CompilerCompilerErrorClass::BetriebssystemFeatureFehlt) + 1);
+              static_cast<std::size_t>(CompilerCompilerErrorClass::GattungsSlotAritaet) + 1);
+// FK-8: die beiden Bestands-Nummern-Blocks stehen still (Nummern reisen in Logs, RF-3-Auflage).
+static_assert(static_cast<std::uint8_t>(CompilerCompilerErrorClass::KonfigXmlParse) == 0 &&
+                  static_cast<std::uint8_t>(CompilerCompilerErrorClass::BetriebssystemFeatureFehlt) == 4,
+              "FK-8 haengt an (5/6) und verschiebt KEINE Bestands-Nummer.");
+static_assert(static_cast<std::uint8_t>(CompilerCompilerErrorClass::GattungsBindungFehlt) == 5 &&
+              static_cast<std::uint8_t>(CompilerCompilerErrorClass::GattungsSlotAritaet) == 6);
+// Die neuen Etiketten sind zementiert (sie duerfen in Experiment-Logs zitiert werden) und gegen JEDES
+// andere Vokabular disjunkt -- die Gegenprobe unten belegt, dass die Wache sie auch wirklich sieht.
+static_assert(error_class_label(CompilerCompilerErrorClass::GattungsBindungFehlt) ==
+              std::string_view{"gattungs_bindung_fehlt"});
+static_assert(error_class_label(CompilerCompilerErrorClass::GattungsSlotAritaet) ==
+              std::string_view{"gattungs_slot_aritaet"});
+static_assert(error_class_label(CompilerCompilerErrorClass::GattungsBindungFehlt) !=
+              error_class_label(CompilerCompilerErrorClass::GattungsSlotAritaet));
+static_assert(!probe_label_ist_disjunkt(error_class_label(CompilerCompilerErrorClass::GattungsBindungFehlt)));
+static_assert(!probe_label_ist_disjunkt(error_class_label(CompilerCompilerErrorClass::GattungsSlotAritaet)));
+// Die Domaene ist D1 -- ein Gattungs-Baupfad-Urteil ist ein BAU-Urteil und NIE eine Mess-Aussage. Faellt
+// das um, wanderte "nicht gebaut" in die Mess-Spalte und waere von "gemessen und gescheitert" (FK-7,
+// DockErrorClass) nicht mehr zu unterscheiden -- die beiden C5-Haelften duerfen nie zusammenlaufen.
+static_assert(error_domain(CompilerCompilerErrorClass::GattungsBindungFehlt) == ErrorDomain::CompilerCompiler);
+static_assert(error_domain(CompilerCompilerErrorClass::GattungsSlotAritaet) !=
+              error_domain(DockErrorClass::FremdeGattung));
+// Der Bau-Fehler-Traeger nimmt die neuen Klassen ohne Sonderweg auf (Expected/Result-Naht an BuildResult).
+static_assert(build_error_label(BuildError{CompilerCompilerErrorClass::GattungsBindungFehlt}) ==
+              std::string_view{"gattungs_bindung_fehlt"});
 // Die Namens-Pin-Form oben faengt ANHAENGEN+Count-vergessen nicht (die Gleichung bleibt wahr, RF-3
 // literal bewiesen). Diese zweite Richtung tut es: liegt hinter dem Count eine ETIKETTIERTE Klasse,
 // ist der Count zu klein.

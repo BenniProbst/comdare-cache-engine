@@ -17,14 +17,15 @@ namespace cem = ::comdare::cache_engine::measurement;
 // ── compile-time: POD-/Trennungs-/Drift-Garantien (spiegeln die Header-static_asserts, hier als Test-Gate) ──
 static_assert(std::is_same_v<std::underlying_type_t<cem::CompilerCompilerErrorClass>, std::uint8_t>);
 static_assert(std::is_same_v<std::underlying_type_t<cem::SampleStatus>, std::uint8_t>);
-static_assert(cem::kCompilerCompilerErrorClassCount == 5); // RF-3 (§70.3): 4 -> 5, BetriebssystemFeatureFehlt
-static_assert(cem::kSampleStatusCount == 4);               // D2 unberuehrt (disjunkte Taxonomie)
+// E-24 C5/FK-8: 5 -> 7 (GattungsBindungFehlt=5, GattungsSlotAritaet=6). RF-3 (Paragraf 70.3) hatte 4 -> 5.
+static_assert(cem::kCompilerCompilerErrorClassCount == 7);
+static_assert(cem::kSampleStatusCount == 4); // D2 unberuehrt (disjunkte Taxonomie)
 static_assert(static_cast<std::uint8_t>(cem::SampleStatus::Ok) == 0);
 static_assert(cem::SampleStatus::Failed != cem::SampleStatus::NotApplicable);
 // Drift-Guard: ein neuer Enum-Wert ohne Count-Bump bricht HIER (nicht still).
 static_assert(cem::kSampleStatusCount == static_cast<std::size_t>(cem::SampleStatus::Failed) + 1);
 static_assert(cem::kCompilerCompilerErrorClassCount ==
-              static_cast<std::size_t>(cem::CompilerCompilerErrorClass::BetriebssystemFeatureFehlt) + 1);
+              static_cast<std::size_t>(cem::CompilerCompilerErrorClass::GattungsSlotAritaet) + 1);
 // D2/OD-1: die entscheidenden Zell-Vokabeln sind zementiert (compile-time).
 static_assert(cem::sample_status_token(cem::SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(cem::sample_status_token(cem::SampleStatus::NotApplicable) == std::string_view{"n/a"});

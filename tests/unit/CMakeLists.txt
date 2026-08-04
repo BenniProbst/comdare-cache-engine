@@ -1611,7 +1611,10 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_e24_c3_cross_genus                   # E-24 C3 (L7-Rest): die 4 produktiven Cross-Genus-Verdrahtungen
     # E-24 C4 (Bauplan Paragraf 3.1-C4): Docks in-process produktionsreif. Gate Paragraf 4.1 (Klasse I) +
     # 4.2: die Orakel muessen in BEIDE Richtungen wirken -- reale Adapter bestehen, defekte Huellen fallen.
-    test_e24_c4_genus_conformance_gates)      # E-24 C4: Orakel je Genus (std::set/deque/queue+stack/span)
+    test_e24_c4_genus_conformance_gates       # E-24 C4: Orakel je Genus (std::set/deque/queue+stack/span)
+    # E-24 C5 (Bauplan Paragraf 6.2, FK-8): die Gattungs-Baupfad-D1-Meldung. Gate Paragraf 4.2 (Klasse II):
+    # Count-Wachen im SELBEN Commit wie die Enum-Erweiterung + Token-Disjunktheits-Wache.
+    test_e24_c5_fk8_genus_baupfad_d1)         # E-24 C5: D1-Gate je Gattungs-Baupfad (Bindung + Aritaet)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
