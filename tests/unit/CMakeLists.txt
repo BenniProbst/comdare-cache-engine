@@ -1940,6 +1940,10 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_w11_async_push_pump        # W11 (§43.c): BAU-Modus async Push-Pump + ArtifactCache-Teil-Marker (Fake-mc)
     test_s5_artifact_cache_bounded  # S5-Rest: measure-drop-PUT (curl) BOUNDED gegen Blackhole (Timeout-Wache)
     test_s1_cache_key_prefix        # S1 (#46a): cache_key_prefix-Segment-Montage (+ceb/+mtool/+mrg), Push-Reihenfolge
+    # E-24 C10 (c) / G6: die Identitaets-Bilanz des Major-Bumps -- +ceb= BEWEGT, Stempel-Preimage und
+    # CRC64-Anker UNBEWEGT. Liegt hier, weil die TU dieselben drei Flaechen anfasst wie test_s1
+    # (artifact_cache-Key-Naht) und dieselbe Include-Menge braucht (source_catalog + generated-Flags).
+    test_e24_c10_g6_identitaets_bilanz
     test_s2_pull_tier_binary        # S2 (#46a): pull_tier_binary + pull_tier_prefix (Fake-mc: Hit/Miss/Halb/Prefix/inert)
     test_45_parallel_measure_loop   # #45 (§16.2-M1/§61-MODI): collect_ordered + resolve_measure_parallelism + parse-Naht
     test_cache_mc_timeout           # Cache-Resthygiene: mc-Timeout-Wrapper (build_mc_argv literal + End-to-End-Hang-Cap)
