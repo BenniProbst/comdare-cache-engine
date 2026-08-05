@@ -834,7 +834,10 @@ private:
         s += "    - 'echo \"== Toolchain ==\"; cmake --version; (g++ --version || c++ --version || echo \"KEIN "
              "C++-Compiler\")'\n";
         s += "    - cd Code\n";
-        // W2: die CEB wird MIT der einkompilierten Mess-Combo konfiguriert ([all] => kein Zusatz => byte-identisch).
+        // W2: die CEB wird MIT der einkompilierten Mess-Combo konfiguriert. F-B1 (05.08.2026): [all] emittiert
+        // nicht mehr NICHTS, sondern die EXPLIZITE Loeschung -UCOMDARE_MEASUREMENT_COMBO (sticky Cache-Var,
+        // s. F-B1-Block ueber ceb_combo_is_full_set); die Alt-Aussage "kein Zusatz => byte-identisch" galt
+        // NUR VOR F-B1.
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
              ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -868,7 +871,9 @@ private:
         emit_child_submodule_prolog(s, profile_basename); // W10-Nacharbeit 2: ceb:emit baut Treiber neu -> ce-Quellen
         s += "    - cd Code\n";
         // W2: derselbe CT-Einbau wie im ceb:build-Job -- die hier NEU gebaute CEB muss dieselbe Combo tragen,
-        // sonst emittierte eine [all]-CEB die Stufe-2 einer combo-gehaerteten Strecke ([all] => kein Zusatz).
+        // sonst emittierte eine [all]-CEB die Stufe-2 einer combo-gehaerteten Strecke. F-B1 (05.08.2026):
+        // [all] traegt auch hier die -U-Loeschung statt "kein Zusatz" (Alt-Aussage galt NUR VOR F-B1;
+        // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
              ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -1331,7 +1336,9 @@ private:
         emit_child_submodule_prolog(s, header_.profile_basename); // ce-Submodul-Klon, Spiegel des Bau-Jobs
         s += "    - cd Code\n";
         // W2: Spiegel des Build-Batch -- der Mess-Batch baut die CEB neu und muss dieselbe Combo einkompiliert
-        // tragen, sonst truege dieselbe Zelle je nach Job zwei verschiedene Mess-Zeilen ([all] => kein Zusatz).
+        // tragen, sonst truege dieselbe Zelle je nach Job zwei verschiedene Mess-Zeilen. F-B1 (05.08.2026):
+        // [all] traegt auch hier die -U-Loeschung statt "kein Zusatz" (Alt-Aussage galt NUR VOR F-B1;
+        // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
              header_.build_semantic.cmake_build_type + ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";

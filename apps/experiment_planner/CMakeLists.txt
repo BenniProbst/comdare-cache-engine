@@ -74,5 +74,14 @@ endif()
 # braeuchte es eine super-seitige Naht (eigene install()-Regel neben der des Treibers, oder die Aufhebung von
 # EXCLUDE_FROM_ALL fuer genau dieses Target). Das ist eine SUPER-Aenderung und liegt ausserhalb dieses
 # READ-ONLY-Auftrags -- als offener Punkt gemeldet statt stillschweigend als erledigt gefuehrt.
+#
+# NACHTRAG (05.08.2026 abend, w2fix-Nachbesserung): der offene Punkt IST super-seitig geschlossen --
+# super Code/CMakeLists.txt installiert die fertige Planer-Datei per
+#   install(PROGRAMS "$<TARGET_FILE:comdare_experiment_planner>" DESTINATION "${CMAKE_INSTALL_BINDIR}")
+# direkt hinter seinem add_subdirectory(... EXCLUDE_FROM_ALL) und holt das Target per Target-Property
+# EXCLUDE_FROM_ALL=FALSE ins super-ALL zurueck (Bau-vor-Install-Naht). Die install(TARGETS)-Regel HIER
+# bleibt im super-Sub-Build weiterhin INERT (die DIRECTORY-Ebene entscheidet ueber die Aufnahme der
+# install()-Regeln, die Target-Property aendert daran nichts -- live gegengeprueft: genau EINE
+# Install-Zeile im super-Install) und traegt allein den ce-STANDALONE-Weg.
 include(GNUInstallDirs)
 install(TARGETS comdare_experiment_planner RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
