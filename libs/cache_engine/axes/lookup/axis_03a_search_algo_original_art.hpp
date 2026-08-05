@@ -14,7 +14,45 @@
 // signalisiert die Wrapper-Klasse die Paper-Bindung via Mixin-Properties. Tatsaechliches
 // Linking gegen unodb::db erfolgt in s4 (Library-Build mit Original-Compiler via
 // cmake/compiler_cache.cmake + cmake/paper_binary.cmake).
-
+//
+// ===================================================================================================
+// A8-S5 Familie 01c, Scheibe 3 (2026-08-05) -- MINIMAL-FORM des Schnitts (KLASSEN-ENTSCHEID begruendet)
+// ===================================================================================================
+// KLASSEN-ENTSCHEID: **MINIMAL-FORM, NICHT das Voll-Rezept.** Und zwar nicht aus Bequemlichkeit,
+// sondern weil das Voll-Rezept hier eine Verschlechterung waere.
+//
+// DER BEFUND, DER DEN ENTSCHEID TRAEGT: dieses Organ hat GAR KEINEN dynamischen Speicher. Sein
+// Zustand ist ein INLINE std::array<std::optional<value_type>, 256> plus ein Zaehler -- die
+// 01b-Schlussbilanz fuehrt es ausdruecklich als ENTLASTET ("Form A heap-frei, nichts zu tun"), es
+// steht in KEINER der 39 Rest-Zeilen. Es gibt also keinen Container zu tauschen.
+//
+// WARUM DANN UEBERHAUPT ETWAS AENDERN: die Kompositions-Naht soll TOTAL sein. Ein Organ ohne
+// Migrations-Ausweis faellt aus der abgeleiteten Familien-Population heraus (sie filtert ueber genau
+// diesen Ausweis) -- und ein Organ, das aus der Wache herausfaellt, ist der stille Ausfall, gegen den
+// die Wache gebaut wurde. Der Ausweis macht die Achse LUECKENLOS pruefbar; ohne ihn koennte der
+// Vollstaendigkeits-Pin nie ueber ALLE 22 Organe laufen.
+//
+// WAS DIE MINIMAL-FORM WEGLAESST -- und warum jedes Weglassen eine Aussage ist:
+//   * KEINE allocator_-INSTANZ. Ein Strategie-Objekt im Organ waere hier reine Zeremonie: es haette
+//     nichts zu allozieren. Schlimmer noch, es wuerde die STAERKERE Aussage zerstoeren -- das Organ
+//     erfuellt Form (A) heap-frei (trivially destructible + trivially copyable, der harte TYP-Beweis
+//     der Familien-Wache), und ein Strategie-Member mit Statistik-Zustand koennte genau das kippen.
+//     Form A ist die staerkere der beiden zulaessigen Schnitt-Formen; sie hier gegen eine schwaechere
+//     Deklarations-Wache einzutauschen waere eine Regression im Gewand einer Migration.
+//   * KEINE search_allocator_statistics()-NAHT. Eine Naht, die per Konstruktion immer 0 meldet, waere
+//     eine API in der FORM einer Aussage ohne deren Inhalt -- genau die Sorte Zeile, die eine spaetere
+//     CSV-Lektuere in die Irre fuehrt. Es gibt hier nichts einzusammeln, also gibt es keine Naht.
+//   * KEIN Container-Tausch (es gibt keinen Container).
+//
+// WAS SIE BEHAELT: die Zwei-Ebenen-KONSTRUKTION. Die ist hier NICHT Zeremonie, sondern das Minimum:
+// Fassade und Rebound-Leaf muessen denselben Algorithmus tragen, ohne voneinander abzuleiten (der Leaf
+// darf die ORGAN_LOCATION der Fassade NICHT erben, sonst wuerde die Substanz-Ebene reflektierbar).
+// Zwei Typen mit gemeinsamer Implementierung und ohne Ableitungs-Beziehung heissen: EIN gemeinsamer
+// Core. Die Alternative waere ein zweiter, kopierter Algorithmus -- und der ist immer falsch.
+// Der Alloc-Parameter des Cores traegt hier folglich NUR den Typ-Ausweis, keine Speicher-Rolle; ein
+// static_assert unter der Fassade haelt genau das fest, damit die Absicht nicht als Versehen gelesen wird.
+//
+// ORGAN_LOCATION NEU (Default-OFF -> Byte-Effekt NULL, s. XML-ABWESENHEITS-Probe (8b) der Familien-Wache).
 #include "axis_03a_search_algo_base.hpp"
 #include "axis_03a_search_algo_subaxes_sa1_to_sa3.hpp"
 #include "concepts/axis_03a_search_algo_concept.hpp"
@@ -31,6 +69,9 @@
 #include <topics/traversal/axis_03a_search_algo/legacy_code/paper_p01_art_is_original.hpp>
 #endif
 
+#include <axes/alloc/axis_06_allocator_exgen.hpp>
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
+#include <axes/lookup/composable/search_algo_rebind.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <array>
 #include <cstddef>
@@ -39,12 +80,27 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+
 namespace comdare::cache_engine::lookup {
 
-class OriginalArtSearchAlgo : public SearchAlgoBase<OriginalArtSearchAlgo>
+// Vorwaerts-Deklaration: die Fassade nennt ihren eigenen Rebound-Leaf als Member-Alias, und der
+// Rebound-Leaf erbt vom selben Core -- beide brauchen den Namen, bevor der andere vollstaendig ist.
+template <class A2>
+class OriginalArtSearchAlgoRebound;
+
+namespace detail {
+
+/// DIE SUBSTANZ des S04-Organs (ART Paper-Bindung, Leis ICDE 2013) -- HEAP-FREI (Form A).
+///
+/// @tparam Alloc  Die Allokator-Achsen-Strategie (axis_06) -- hier NUR Typ-Ausweis, ohne Speicher-Rolle
+///                (MINIMAL-FORM, s. Datei-Kopf). Default-Bindung der Fassade: ExgenAllocator.
+/// @tparam Self   Der most-derived Typ -- PFLICHT wegen der CRTP-Guards der SearchAlgoBase.
+template <class Alloc, class Self>
+class OriginalArtSearchAlgoCore : public SearchAlgoBase<Self>
 #if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
     ,
-                              public generated::p01_art::OriginalCodeMixin // Habich-Compliance Mixin
+                                  public generated::p01_art::OriginalCodeMixin // Habich-Compliance Mixin
 #endif
 {
 public:
@@ -66,6 +122,15 @@ public:
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::dense_access_tag;
     using family_id  = std::integral_constant<int, 4>; // S04
+
+    /// A8-S5 MINIMAL-FORM: der ACHSEN-AUSWEIS -- und ausdruecklich NICHT die Speicher-Bindung.
+    /// Dieses Organ ist heap-frei (Form A, die staerkere Aussage); der Typ steht hier, damit die
+    /// Kompositions-Naht TOTAL ist und der Vollstaendigkeits-Pin der Familien-Wache ueber ALLE Organe
+    /// der Achse laufen kann. Er traegt keinen Puffer -- es gibt keinen.
+    using allocator_type = Alloc;
+    static_assert(::comdare::cache_engine::alloc::concepts::AllocatorStrategy<allocator_type>,
+                  "A8-S5: der ausgewiesene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- der "
+                  "Ausweis zeigte dann auf etwas, das gar keine Achsen-Strategie ist.");
 
     [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; } // unodb::db (NICHT olc_db)
     [[nodiscard]] static constexpr std::size_t max_fanout() noexcept { return 256; }
@@ -92,9 +157,11 @@ public:
     [[nodiscard]] static constexpr bool is_dense() noexcept { return true; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    OriginalArtSearchAlgo() noexcept : count_(0) {}
+    OriginalArtSearchAlgoCore() noexcept : count_(0) {}
 
-    [[nodiscard]] bool operator==(OriginalArtSearchAlgo const& other) const noexcept { return count_ == other.count_; }
+    [[nodiscard]] bool operator==(OriginalArtSearchAlgoCore const& other) const noexcept {
+        return count_ == other.count_;
+    }
 
     void insert(key_type k, value_type v) {
         if constexpr (enabled) {
@@ -188,6 +255,36 @@ private:
 #endif
 };
 
+} // namespace detail
+
+/// DIE IDENTITAET -- das Registry-Organ S04. Nicht-Template, exakt der historische Typ-Name.
+class OriginalArtSearchAlgo final
+    : public detail::OriginalArtSearchAlgoCore<::comdare::cache_engine::alloc::ExgenAllocator, OriginalArtSearchAlgo> {
+public:
+    /// Die Default-Bindung der Identitaets-Ebene: der BENANNTE Achsen-Default, nie std::allocator.
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::OriginalArtSearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_original_art.hpp");
+
+    /// Der Migrations-Ausweis (composable::AllocatorRebindableSearchAlgo).
+    template <class A2>
+    using rebind_allocator = OriginalArtSearchAlgoRebound<A2>;
+
+    using detail::OriginalArtSearchAlgoCore<default_allocator_type, OriginalArtSearchAlgo>::OriginalArtSearchAlgoCore;
+};
+
+/// DIE GEBUNDENE FORM -- traegt BEWUSST KEIN COMDARE_DEFINE_ORGAN_LOCATION.
+template <class A2>
+class OriginalArtSearchAlgoRebound final
+    : public detail::OriginalArtSearchAlgoCore<A2, OriginalArtSearchAlgoRebound<A2>> {
+public:
+    /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
+    using axis03a_rebound_tag = void;
+
+    using detail::OriginalArtSearchAlgoCore<A2, OriginalArtSearchAlgoRebound<A2>>::OriginalArtSearchAlgoCore;
+};
+
 } // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
@@ -203,4 +300,64 @@ static_assert(OriginalArtSearchAlgo::is_original_module(),
 static_assert(!OriginalArtSearchAlgo::is_original_module(),
               "OriginalArtSearchAlgo: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
 #endif
+
+// ---------------------------------------------------------------------------------------------
+// Der Zwei-Ebenen-Vertrag, self-proving an der Datei, die ihn eingeht (Pilot-Rezept, linear_scan:352).
+// ---------------------------------------------------------------------------------------------
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<OriginalArtSearchAlgo,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             OriginalArtSearchAlgo>,
+              "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
+              "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
+static_assert(
+    composable::AllocatorRebindableSearchAlgo<OriginalArtSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+    "01c: OriginalArtSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+static_assert(!composable::IsReboundSearchAlgoLeaf<OriginalArtSearchAlgo>,
+              "01c EBENEN-VERMISCHUNG: die Fassade traegt den Rebound-Tag -- Emitter-type_name-Reise und "
+              "Registry-Reflektion zeigten dann auf die Substanz-Ebene.");
+static_assert(
+    composable::IsReboundSearchAlgoLeaf<OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+    "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
+static_assert(composable::search_algo_name_is_allocator_invariant_v<OriginalArtSearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "01c name()-INVARIANZ (Level 0) verletzt.");
+static_assert(OriginalArtSearchAlgo::name() ==
+                  OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
+              "01c name()-INVARIANZ verletzt: der Rebound-Leaf traegt einen anderen Organ-Namen als die Fassade -- "
+              "die T6-Wahl leckte in den serialize-/binary_id-Schluessel.");
+
+/// DER MINIMAL-FORM-PIN -- die Zeile, die den Klassen-Entscheid dieser Datei self-proving macht.
+/// Beide Ebenen sind und bleiben HEAP-FREI: keine dynamische Allokation, kein Strategie-Member. Wer
+/// hier spaeter einen Puffer einbaut, faellt compile-hart auf und muss dann das VOLL-Rezept fahren
+/// (allocator_-Instanz + Container ueber die Achse + Einsammel-Naht) -- statt still ein Organ zu
+/// hinterlassen, das einen Achsen-Ausweis traegt und trotzdem am Default-Allokator alloziert.
+///
+/// WARUM DER PIN AM OPT-IN-PUSH-BUILD RUHT (am Objekt gefunden, nicht wegdefiniert): mit
+/// COMDARE_CE_ENABLE_OBSERVER_PUSH haelt MeasurableObserver einen std::function-Slot
+/// (measurement/measurable_concept.hpp:65-75), und der besitzt Heap. Das ist eine Eigenschaft des
+/// MESS-HOOKS, nicht dieses Organs -- die Aussage "das Organ hat keinen eigenen dynamischen Speicher"
+/// bleibt dort wahr, sie ist nur nicht mehr mit dem Trivialitaets-TYP-Beweis greifbar. Der Pin greift
+/// deshalb im Default-Build (dem Mess- und CI-Build); ihn im Push-Build zu erzwingen hiesse, eine
+/// wahre Aussage an einem Werkzeug scheitern zu lassen, das sie gar nicht betrifft.
+#ifndef COMDARE_CE_ENABLE_OBSERVER_PUSH
+static_assert(std::is_trivially_destructible_v<OriginalArtSearchAlgo> &&
+                  std::is_trivially_copyable_v<OriginalArtSearchAlgo>,
+              "01c MINIMAL-FORM VERLETZT: die Fassade ist nicht mehr heap-frei -- ab jetzt gilt hier das "
+              "VOLL-Rezept, sonst laeuft der neue Puffer am Allokator-Achsen-Interface vorbei.");
+static_assert(
+    std::is_trivially_destructible_v<OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>> &&
+        std::is_trivially_copyable_v<OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+    "01c MINIMAL-FORM VERLETZT: der Rebound-Leaf ist nicht mehr heap-frei.");
+#endif
+static_assert(sizeof(OriginalArtSearchAlgo) ==
+                  sizeof(OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>),
+              "01c MINIMAL-FORM: die beiden Ebenen haben verschiedene Groesse -- dann traegt eine von ihnen "
+              "einen Zustand, den die andere nicht hat, und der Ausweis waere keiner mehr.");
+
+static_assert(
+    concepts::SearchAlgoVariant<OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<
+              OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(
+    concepts::DensityClassifiedStrategy<OriginalArtSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
 } // namespace comdare::cache_engine::lookup

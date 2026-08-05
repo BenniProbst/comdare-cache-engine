@@ -92,7 +92,17 @@
 // Einsammlung + die Doppelzaehlungs-Regel (konstitutiver Store-Snapshot vs. Summe der disjunkten
 // Organ-Snapshots) sind der explizite Schritt des Mess-Schnitt-Fensters VOR Messbeginn (abend-11 (a)).
 //
-// ANTI-ZEMENTIERUNGS-BISS (gefahren, nicht behauptet): der Pilot-Stand dieser TU wurde gegen den
+// ANTI-ZEMENTIERUNGS-BISS DER SCHEIBE 3 (gefahren, nicht behauptet -- und der Befund ist genau der,
+// den man sehen will): diese TU wurde per Include-Overlay gegen den Stand b2e21a92 uebersetzt, an dem
+// die beiden containerfreien Organe (array256, original_art) den Ausweis noch NICHT trugen. Sie
+// schlaegt dort COMPILE-HART fehl -- an GENAU EINER Zeile, dem neuen 22/22-Pin:
+//   "error: static assertion failed: 01c VOLLSTAENDIGKEIT VERLETZT: mindestens EIN Organ der Achse
+//    03a traegt keinen Migrations-Ausweis (rebind_allocator)."
+// Der ALTE, engere enabled-Pin blieb bei derselben Uebersetzung STILL -- die beiden Organe sind
+// Default-OFF. Das ist der Beleg, dass die Hebung von 'enabled' auf 'alle' substanziell war und nicht
+// bloss eine umformulierte Tautologie: sie faengt exakt die Klasse, die der alte Pin nicht sehen konnte.
+//
+// ANTI-ZEMENTIERUNGS-BISS DER VORGAENGER-SCHEIBEN (gefahren, nicht behauptet): der Pilot-Stand dieser TU wurde gegen den
 // ALT-Stand des Organs (14a8cfbc) uebersetzt und schlug COMPILE-HART fehl, 21 Fehler, darunter
 // "'LinearScanSearchAlgoRebound' does not name a template type". Der GEHOBENE Stand wurde zusaetzlich
 // gegen den Pilot-Stand der ORGANE gefahren (8571ac01: nur linear_scan migriert, die drei anderen
@@ -217,10 +227,36 @@ static_assert(mp::mp_size<MigrierteOrgane>::value > 0,
               "01c-Gate TOT: kein einziges Organ der Achse 03a traegt einen Migrations-Ausweis -- die abgeleitete "
               "Population ist leer und alle Ebenen dieser Wache liefen vakuoos gruen.");
 
-/// DER VOLLSTAENDIGKEITS-PIN. Genau die ENABLED-Organe der Achse stehen in der committeten
-/// Registry-XML (der Generator reflektiert Enabled*, axis_registry_gen main.cpp:207) und liegen damit
-/// auf dem Mess-Pfad. Ein nicht migriertes Organ DARUNTER waere exakt die stille zweite Strategie, die
-/// 01c abstellt. Die Aussage ist derivations-symmetrisch -- sie nennt kein Organ und keine Zahl.
+/// DER VOLLSTAENDIGKEITS-PIN -- MIT SCHEIBE 3 VON 'enabled' AUF 'ALLE' GEHOBEN.
+///
+/// Bis Scheibe 2 lautete er `mp_size<MigriertUndEnabled> == mp_size<EnabledStrategies>`: genau die
+/// ENABLED-Organe stehen in der committeten Registry-XML (der Generator reflektiert Enabled*,
+/// axis_registry_gen main.cpp:207) und liegen damit auf dem Mess-Pfad. Das war fuer die enabled-Flaeche
+/// die richtige Aussage -- und fuer die Achse die zu schwache: ein Organ, das heute Default-OFF ist,
+/// wird beim naechsten Flag-Umlegen ohne jede Warnung Mess-Pfad, und ZU DIESEM ZEITPUNKT haette
+/// niemand mehr einen Anlass, seine Allokator-Bindung zu pruefen. Genau so entsteht die stille zweite
+/// Strategie, die 01c abstellt.
+///
+/// Ab Scheibe 3 ist die Population der Achse VOLLSTAENDIG migriert, und der Pin sagt das:
+///
+///     mp_size<MigrierteOrgane> == mp_size<AllStrategies>
+///
+/// Das ist die Zeile, die ab jetzt bei JEDEM neuen Organ der Achse 03a BEISST -- auch bei einem
+/// Default-OFF-Organ, auch bei einem, das nur "mal schnell registriert" wird. Wer eine Strategie in
+/// AllStrategies eintraegt, ohne ihr den Zwei-Ebenen-Schnitt zu geben, bekommt hier einen
+/// Compile-Fehler statt eines gruenen Laufs. Sie nennt weiterhin kein Organ und keine Zahl --
+/// derivations-symmetrisch, damit sie beim Wachsen der Achse nicht nachgezogen werden muss.
+///
+/// Der ALTE, engere Pin bleibt zusaetzlich stehen: er ist die schaerfere Diagnose, wenn ausgerechnet
+/// ein Organ auf dem Mess-Pfad ausfaellt, und kostet nichts.
+static_assert(mp::mp_size<MigrierteOrgane>::value == mp::mp_size<lk::AllStrategies>::value,
+              "01c VOLLSTAENDIGKEIT VERLETZT: mindestens EIN Organ der Achse 03a traegt keinen "
+              "Migrations-Ausweis (rebind_allocator). Es faellt damit aus dieser Wache HERAUS -- die "
+              "Population ist ueber den Ausweis gefiltert -- und wuerde beim Einschalten seines Flags mit "
+              "einer zweiten, stillen Allokator-Strategie im selben Tier laufen. Owner-KERN LEDGER "
+              "04.08. abend-11 'Option B strikt'. Neue Organe brauchen den Schnitt (Voll-Rezept mit "
+              "Core/Fassade/Rebound) oder, wenn sie heap-frei sind, die MINIMAL-Form (allocator_type-"
+              "Ausweis + rebind_allocator, kein Strategie-Member) -- s. axis_03a_search_algo_array256.hpp.");
 static_assert(mp::mp_size<MigriertUndEnabled>::value == mp::mp_size<lk::EnabledStrategies>::value,
               "01c VOLLSTAENDIGKEIT VERLETZT: mindestens ein ENABLED Organ der Achse 03a traegt keinen "
               "Migrations-Ausweis. Es faellt damit aus dieser Wache HERAUS (die Population ist ueber den "
@@ -639,6 +675,10 @@ int main() {
                 static_cast<std::size_t>(mp::mp_size<MigrierteOrgane>::value),
                 static_cast<std::size_t>(mp::mp_size<MigriertUndEnabled>::value),
                 static_cast<std::size_t>(mp::mp_size<lk::EnabledStrategies>::value));
+    std::printf("  VOLLSTAENDIGKEITS-PIN (compile-hart, seit Scheibe 3 ueber ALLE statt nur enabled):\n"
+                "    mp_size<Migriert> == mp_size<AllStrategies> == %zu -- die Achse 03a ist LUECKENLOS\n"
+                "    geschnitten; jedes kuenftige Organ ohne Migrations-Ausweis bricht diese TU compile-hart.\n",
+                static_cast<std::size_t>(mp::mp_size<lk::AllStrategies>::value));
 
     std::printf("\n(6)+(7) KONTRAST- UND VERHALTENS-BEWEIS je Organ der ERKLAERTEN STICHPROBE (%zu von %zu\n"
                 "        migrierten -- compile-hart gilt der Vertrag fuer ALLE, getrieben wird die Auswahl):\n",
