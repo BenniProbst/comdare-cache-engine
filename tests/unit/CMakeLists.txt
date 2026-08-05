@@ -2235,6 +2235,11 @@ target_include_directories(test_conformance_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")
+# A8-S5-01b-Hotfix (05.08.): die neue axis_06-Include-Kette zieht src/concepts/legacy_original_code_
+# strategy_concept.hpp (boost::mp11) -- ohne das vendored Target kompiliert die TU nur dort, wo ein
+# System-Boost existiert (falsches-Gruen-Klasse 'lokale Voll-Bau-Luecken'; CI-Job contract:conformance
+# mit frischem Configure fing es). Include-Pfad kommt ueber das Interface-Target, kein System-Boost.
+target_link_libraries(test_conformance_gate PRIVATE Boost::mp11)
 comdare_set_platform_defines(test_conformance_gate)
 add_test(NAME test_conformance_gate COMMAND test_conformance_gate)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_conformance_gate)
