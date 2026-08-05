@@ -1973,6 +1973,15 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # Die TU beweist den Wurf an einer Stub-Strategie, die IMMER erschoepft ist (echtes OOM ist nicht
     # deterministisch erzeugbar), plus Zaehler-Ehrlichkeit, Zero-Size-Neutralitaet und die
     # Positiv-Kontrolle an der realen Achsen-Default-Strategie.
+    # A8-S5 (2026-08-05) Familie 01c = die REGISTRY-ORGANE der Achse 03a, PILOT-Stand (linear_scan).
+    # Anders als 01a/01b/01d bindet diese Familie nicht an einen benannten Achsen-DEFAULT, sondern an die
+    # T6-Wahl der KOMPOSITION (Owner-KERN "Option B strikt"). Das geht nur ueber den Zwei-Ebenen-Schnitt:
+    # namens-stabile Fassade (Registry-Identitaet, type_name reist in die XML) ueber parametriertem
+    # CRTP-Core, plus Rebound-Leaf fuer die fremde Strategie. Die Wache pinnt deshalb BEIDE Ebenen UND
+    # ihre Nicht-Vermischung, den Level-0-is_same-Pin (der ganze golden-Beweis der Scheibe), die
+    # name()-Invarianz (T6-Wahl darf nie in den serialize-Schluessel lecken) und den Kontrast-Beweis nach
+    # 02a-HERZ-Vorbild (drei Groessen gegeneinander statt eines geschenkten ">0").
+    test_s5_01c_fassaden_conformance # A8-S5 -- Fassaden-/Durchbindungs-Konformitaet Familie 01c
     test_h64_allocator_adapter_failure_contract # Posten 64 -- StdAllocatorAdapter: nullptr -> std::bad_alloc
     # POSTEN 80 (2026-08-05, A8-S5 01c Vorlauf 0): der 01b-Vorbehalt "-O3/MimallocAllocator/'jmp .'" an
     # seiner ECHTEN Ursache gepinnt -- die drei Statistik-Weiterleiter der axis_06-CRTP-Basis rufen sich
@@ -2002,6 +2011,14 @@ foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
     set_tests_properties(${_dt} PROPERTIES LABELS "phase_e;standalone")
 endforeach()
+
+# A8-S5 01c: die Fassaden-Wache liest die COMMITTETE Registry-XML (Single-Source per Define, NICHT
+# kopiert -- Muster der uebrigen Registry-Wachen). Sie beweist die zweite Haelfte des Byte-Arguments:
+# der Roundtrip zeigt "XML == Reflektion des Codes", diese Zeile zeigt, dass die reflektierte Form die
+# ARGLOSE Fassaden-Form ist (ein Template-Kopf am Wrapper braechte Template-Argumente in type=).
+# Die XML wird NUR GELESEN (TABU-Wache).
+target_compile_definitions(test_s5_01c_fassaden_conformance PRIVATE
+    "COMDARE_CE_AXIS_REGISTRY_XML=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\"")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Goal-V4 G3 Batch-1 — Datenstruktur-Correctness-Pins (M-CE-01/03/04). Plain int main()-Standalone
