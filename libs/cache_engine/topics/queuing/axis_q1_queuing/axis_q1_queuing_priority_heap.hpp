@@ -13,9 +13,18 @@
 // PermutationEngine: nur Strategien mit dieser Property koennen in
 // Hot-Key/Eviction-Pfaden eingesetzt werden.
 //
-// Allocation: std::priority_queue baut auf std::vector — Heap-Wachstum kann
-// std::bad_alloc werfen ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Heap-Speicher haengt an der Allokator-ACHSE
+// (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- unbounded
+// (is_bounded()==false); ein inline-Heap fester Groesse waere ein anderes Organ.
+// MECHANIK, die diesen Fall von den Vektor-Organen unterscheidet: std::priority_queue nimmt KEINEN
+// Allokator-Parameter, sondern einen CONTAINER-Parameter. Der Achsen-Adapter wird deshalb eine Ebene
+// tiefer gesetzt (std::vector<element_type, Achsen-Adapter> als Traeger-Container) und der Heap mit
+// (Compare, Container) konstruiert -- der einzige Weg, ohne die Adapter-Zeile in den Heap selbst zu
+// erfinden. Die Max-Heap-Semantik und der O(1)-Min-Tracker (F57/Muster B) bleiben unberuehrt.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -46,6 +55,10 @@ public:
     using axis_tag     = subaxes::ordered_access_tag;
     using family_id    = std::integral_constant<int, 6>; // Q06
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
@@ -70,6 +83,40 @@ public:
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
+
+    /// Der Traeger-Container des Heaps wird an das EIGENE allocator_ gebunden und dem Heap als
+    /// (Compare, Container) uebergeben -- std::priority_queue selbst kennt keinen Allokator-Parameter.
+    PriorityHeapBuffer() : heap_(compare_type{}, make_bound_container()) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86) -- und der Grund,
+    /// warum der Copy-Ctor den Heap ERST leer und gebunden baut und die Elemente DANACH zuweist:
+    /// eine Heap-Copy-KONSTRUKTION haette den Traeger-Container copy-konstruiert, und dabei kopiert
+    /// std::vector seinen Allokator mit (select_on_container_copy_construction) -- der Adapter der
+    /// QUELLE landete in unserem Heap. Die ZUWEISUNG dagegen laesst den Adapter unangetastet
+    /// (propagate_on_container_copy_assignment ist false) und re-alloziert ueber UNSER allocator_.
+    /// MOVE bewusst NICHT deklariert (er zoege den Adapter mitsamt Fremd-Zeiger).
+    PriorityHeapBuffer(PriorityHeapBuffer const& o)
+        : allocator_(o.allocator_), heap_(compare_type{}, make_bound_container()), min_(o.min_) {
+        heap_ = o.heap_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    PriorityHeapBuffer& operator=(PriorityHeapBuffer const& o) {
+        if (this != &o) {
+            heap_ = o.heap_; // POCCA=false -> der Traeger-Container behaelt unseren Adapter
+            min_  = o.min_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~PriorityHeapBuffer() = default;
 
     [[nodiscard]] bool operator==(PriorityHeapBuffer const& other) const noexcept {
         return heap_.size() == other.heap_.size();
@@ -112,8 +159,13 @@ public:
 
     [[nodiscard]] size_type size() const noexcept { return heap_.size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return heap_.empty(); }
-    void                    clear() noexcept {
-        heap_ = decltype(heap_){};
+    /// Bleibt noexcept wie zuvor: der frisch gebundene Traeger-Container ist LEER und alloziert
+    /// deshalb nicht; die Move-Zuweisung zwischen zwei gleich vergleichenden Adaptern ist ein reiner
+    /// Zeiger-Transfer. Frueher stand hier `decltype(heap_){}` -- das geht seit dem Schnitt nicht
+    /// mehr, weil der Achsen-Adapter (bewusst) keinen Default-Konstruktor hat: ein default-gebauter
+    /// Heap haette gar keine Achse, an der er haengt.
+    void clear() noexcept {
+        heap_ = heap_type{compare_type{}, make_bound_container()};
         min_.reset();
     }
 
@@ -148,7 +200,18 @@ public:
 #endif
 
 private:
-    std::priority_queue<element_type> heap_;
+    using compare_type   = std::less<element_type>;
+    using container_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+    using heap_type      = std::priority_queue<element_type, container_type, compare_type>;
+
+    /// Ein LEERER Traeger-Container, gebunden an das EIGENE allocator_. Leer heisst: keine Allokation.
+    [[nodiscard]] container_type make_bound_container() {
+        return container_type(allocator_.template as_std_allocator<element_type>());
+    }
+
+    // allocator_ MUSS VOR heap_ stehen (der Traeger-Container haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
+    heap_type      heap_;
     // (F57/Muster B): exaktes Heap-Minimum fuer das allokationsfreie noexcept-peek_back() (s. dort).
     std::optional<element_type> min_{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
