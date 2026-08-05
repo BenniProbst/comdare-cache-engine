@@ -263,7 +263,8 @@ template <class List>
     char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
     if (e != nullptr && *e != '\0' && std::string_view{e} != std::string_view{COMDARE_MEASUREMENT_COMBO_CT})
         throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO ('" +
-                                 std::string{e} + "') != einkompilierte Combo ('" COMDARE_MEASUREMENT_COMBO_CT "')");
+                                 std::string{e} + "') != einkompilierte Combo ('" +
+                                 std::string{COMDARE_MEASUREMENT_COMBO_CT} + "')");
     return ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(COMDARE_MEASUREMENT_COMBO_CT);
 #else
     char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
