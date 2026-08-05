@@ -3,14 +3,17 @@
 //   (1) HIT: vollstaendiger Remote-Satz (dll+algos+fingerprint+variant+version) -> pull_tier_binary=true, alle lokal.
 //   (2) MISS: kein Remote-Objekt -> pull_tier_binary=false, lokal NICHTS hydriert.
 //   (3) HALB-PUSH (remote dll[+algos] aber KEINE .version) -> invertierte ZULETZT-Pruefung => MISS => false, kein Pull.
-//   (4) MISMATCH-.algos => Neubau: nach dem Pull entscheidet AUSSCHLIESSLICH lokal dll_is_current -- passende
-//       version+algos => HIT (skip), gebumpte algos => false (Neubau). (Korrektheits-Arbiter, Dossier-Risiko 1.)
+//   (4) MISMATCH => Neubau: nach dem Pull entscheidet AUSSCHLIESSLICH lokal dll_is_current. Seit der A2-Eichung
+//       (GATE 5, F7, 2026-08-05) ist das EIN Vergleich gegen den hydrierten `.fingerprint`: passender Anker =>
+//       HIT (skip), fremder/fehlender Anker => false (Neubau). (Korrektheits-Arbiter, Dossier-Risiko 1.)
+//       [HISTORIK bis 2026-08-05: geprueft wurde hier "passende version+algos => HIT, gebumpte algos => false".]
 //   (5) pull_tier_prefix (rekursiv): hydriert den ganzen Praefix -> dest/<stem>/perm.dll + JEDES Sidecar daneben; der
 //       _gn_chunk_markers-Namensraum wird ausgespart.
 //   (6) NEGATIV: unkonfiguriertes Env => inert() => pull_tier_binary/pull_tier_prefix=false, KEIN mc-Prozess-Spawn.
 //   (8) #13 (B25/L-d): die OPTIONALEN Sidecars .fingerprint/.variant reisen SPIEGELBILDLICH zum Push mit --
-//       (8a) voller Satz remote => lokal hydriert, und die Varianten-Provenienz traegt sich (dll_is_current mit
-//            gesetzter variant_sig sagt HIT statt Neubau);
+//       (8a) voller Satz remote => lokal hydriert, und der LAGER-ANKER traegt sich: dll_is_current sagt gegen
+//            den hydrierten `.fingerprint` HIT statt Neubau (A2-Eichung; das ist der Hydrations-Skip, ohne den
+//            das Lager wertlos waere -- vgl. test_a2_sha512_skip_gate.cpp);
 //       (8b) remote nur teilweise vorhanden => fehlende Sidecars werden uebersprungen, Pull bleibt ERFOLGREICH;
 //       (8c) ein STEHENGEBLIEBENES lokales Sidecar, das der Remote-Satz nicht deckt, ist nach dem Pull WEG (sonst
 //            taeuschte es dll_is_current eine Provenienz vor, die der Objekt-Store nie geliefert hat).
@@ -132,18 +135,18 @@ int main() {
         check_true("(8a) HIT: lokale perm.dll.variant da", std::filesystem::exists(bin_dir / "perm.dll.variant", ec));
         check_true("(8a) HIT: perm.dll.fingerprint byte-gleich zum Remote-Inhalt",
                    read_file(bin_dir / "perm.dll.fingerprint") == fpr_v1);
-        // Die Varianten-Provenienz traegt sich: mit gesetzter variant_sig sagt der Arbiter HIT statt Neubau.
-        check_true("(8a) dll_is_current HIT bei passender version+algos+variant (skip)",
-                   ex::dll_is_current(bin_dir / "perm.dll", bv, algo_v1, var_v1));
-        check_true("(8a) dll_is_current FALSE bei gewechselter variant => Neubau",
-                   !ex::dll_is_current(bin_dir / "perm.dll", bv, algo_v1, "bv=1;pt=huge_2mb;se=avx2;hw=generic"));
-        // (4) Mismatch-.algos => Neubau: der Korrektheits-Arbiter dll_is_current entscheidet nach dem Pull.
-        check_true("(4) dll_is_current HIT bei passender version+algos (skip)",
-                   ex::dll_is_current(bin_dir / "perm.dll", bv, algo_v1));
-        check_true("(4) dll_is_current FALSE bei gebumpter algos => Neubau",
-                   !ex::dll_is_current(bin_dir / "perm.dll", bv, "algo=sortA,hashC"));
-        check_true("(4) dll_is_current FALSE bei fremder version => Neubau",
-                   !ex::dll_is_current(bin_dir / "perm.dll", "m3v2+cxx=g++-16+opt=O3+ext=avx2", algo_v1));
+        // (4)/(8a) A2-EICHUNG (GATE 5, F7, 2026-08-05): der Korrektheits-Arbiter nach dem Pull ist unveraendert
+        // dll_is_current -- nur fuehrt er seither GENAU EINEN Vergleich gegen den hydrierten `.fingerprint`.
+        // Genau DAS ist der Hydrations-Skip: der Anker reist mit (kOptionalTierSidecars), also erkennt die
+        // gepullte Binary sich selbst als aktuell. (Frueher pruefte diese Stelle version/algos/variant.)
+        check_true("(8a) dll_is_current HIT bei hydriertem, passendem .fingerprint (skip)",
+                   ex::dll_is_current(bin_dir / "perm.dll", fpr_v1));
+        check_true("(4) dll_is_current FALSE bei fremdem Fingerprint => Neubau",
+                   !ex::dll_is_current(bin_dir / "perm.dll", std::string(128, 'c')));
+        // Und die Alt-Marken tragen NICHTS mehr zum Entscheid bei: die byte-genau passende `.version` bzw.
+        // `.algos` hydriert daneben, rettet aber keinen Skip, wenn der Anker nicht passt (F7 "NUR").
+        check_true("(4) dll_is_current FALSE trotz passender .version/.algos (F7: nur der Anker entscheidet)",
+                   !ex::dll_is_current(bin_dir / "perm.dll", bv));
     }
 
     // ── (2) MISS: kein Remote-Objekt fuer stemMiss. ──
@@ -204,8 +207,11 @@ int main() {
                    !std::filesystem::exists(bin_dir / "perm.dll.fingerprint", ec));
         check_true("(8c) STALE: altes lokales perm.dll.algos ENTFERNT",
                    !std::filesystem::exists(bin_dir / "perm.dll.algos", ec));
-        check_true("(8c) STALE: dll_is_current FALSE bei gesetzter variant_sig (kein Provenienz-Vortaeuschen)",
-                   !ex::dll_is_current(bin_dir / "perm.dll", bv, std::string{}, "bv=1;pt=STALE"));
+        // A2-EICHUNG: die Aussage bleibt, der Anker wechselt. Das Stale-Clearing hat auch das alte
+        // `.fingerprint` entfernt (Beleg drei Zeilen darueber) -- OHNE Anker skippt nichts mehr, und zwar
+        // fail-closed, statt eine Provenienz vorzutaeuschen, die der Objekt-Store nie geliefert hat.
+        check_true("(8c) STALE: dll_is_current FALSE ohne hydrierten Anker (fail-closed, kein Vortaeuschen)",
+                   !ex::dll_is_current(bin_dir / "perm.dll", std::string(128, 'f')));
     }
 
     // ── (5) pull_tier_prefix (rekursiv): ganzer Praefix -> dest/<stem>/...; _gn_chunk_markers ausgespart. ──

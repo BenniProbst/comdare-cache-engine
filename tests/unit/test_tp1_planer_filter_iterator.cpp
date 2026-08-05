@@ -125,8 +125,10 @@ private:
     std::streambuf*    alt_;
 };
 
-// Gemeinsame Lauf-Konfiguration (frisches Ausgabe-Verzeichnis je Fall; leere build_version =>
-// dll_is_current skippt nie => die EINZIGE Skip-Quelle ist der Bau-Filter -> saubere Zurechnung).
+// Gemeinsame Lauf-Konfiguration (frisches Ausgabe-Verzeichnis je Fall; dll_is_current skippt nie => die
+// EINZIGE Skip-Quelle ist der Bau-Filter -> saubere Zurechnung). A2-EICHUNG (GATE 5, F7, 2026-08-05): das
+// Nie-Skippen haengt jetzt daran, dass hier KEIN Fingerprint-Provider gesetzt ist (kein expected =>
+// fail-closed false); vorher trug es die leere build_version. Zurechnung und Erwartungswerte unveraendert.
 ex::LazyRunConfig make_cfg(FakeStore& store, fs::path const& out) {
     ex::LazyRunConfig cfg;
     cfg.source_dir         = out / "src";
@@ -199,7 +201,8 @@ int main() {
 
         check_eq("(2) Buchung: total_jobs == Fenster (8)", agg.total_jobs, std::size_t{8});
         check_eq("(2) Buchung: succeeded == 8 (gebaut + Bestand)", agg.succeeded, std::size_t{8});
-        check_eq("(2) Buchung: skipped == 3 (nur Bestand; dll_is_current war aus)", agg.skipped, std::size_t{3});
+        check_eq("(2) Buchung: skipped == 3 (nur Bestand; dll_is_current fail-closed ohne Provider)", agg.skipped,
+                 std::size_t{3});
         check_eq("(2) Buchung: built == 5 (die Fehlenden)", agg.built, std::size_t{5});
         check_true("(2) Testat-Zeile 'bau-filter: 3' vorhanden",
                    cerr_fang.text().find("bau-filter: 3") != std::string::npos);

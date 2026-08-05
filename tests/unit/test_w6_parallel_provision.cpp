@@ -134,8 +134,11 @@ int main() {
     std::error_code             ec;
     std::filesystem::remove_all(base, ec);
 
-    // Ein Lauf mit gegebener Worker-Zahl (bp) auf einem FRISCHEN Ausgabe-Verzeichnis. Leere build_version =>
-    // dll_is_current immer false => nie skippen => jeder Lauf baut alle 8 (deterministisch vergleichbar).
+    // Ein Lauf mit gegebener Worker-Zahl (bp) auf einem FRISCHEN Ausgabe-Verzeichnis. Es wird NIE geskippt =>
+    // jeder Lauf baut alle 8 (deterministisch vergleichbar). Seit der A2-Eichung (GATE 5, F7, 2026-08-05)
+    // haengt das am FEHLENDEN Fingerprint-Provider (kein expected => dll_is_current fail-closed false), nicht
+    // mehr an der leeren build_version; das cfg.build_version.clear() unten bleibt als Transport-Marken-Detail
+    // stehen und ist verhaltens-neutral. [HISTORIK: "Leere build_version => dll_is_current immer false".]
     auto run = [&](std::size_t bp, char const* tag) -> std::vector<ex::BuildResult> {
         std::filesystem::path const     out = base / tag;
         std::array<std::atomic<int>, 8> built{}; // je Index genau 1x?
@@ -156,7 +159,7 @@ int main() {
         cfg.source_dir         = out / "src";
         cfg.output_dir         = out / "dll";
         cfg.per_binary_subdirs = true; // wie der reale Treiber (disjunkte per-Binary-Ordner)
-        cfg.build_version.clear();     // nie skippen
+        cfg.build_version.clear();     // Transport-Marke aus (A2: das Nie-Skippen traegt der fehlende Provider)
         cfg.build_parallelism = bp;
 
         ex::BuildOrchestrator orch{cfg, compile_stub, gen_stub};
