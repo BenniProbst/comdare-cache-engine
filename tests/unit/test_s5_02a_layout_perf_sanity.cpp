@@ -99,7 +99,10 @@ void tr(char const* what, bool ok) {
 // -- Familien-Definition: DAS ist die Zeile, die Folge-Familien austauschen ------------------------
 // 02a = die Sub-Scheibe dieser Welle. "filter" gehoert zur Organ-Gruppe 02_layout, aber zur Sub-Scheibe
 // 02b (eigener Scrub) und steht deshalb bewusst NICHT hier -- sonst behauptete die Wache Gruen fuer eine
-// noch ungeschnittene Achse.
+// noch ungeschnittene Achse. NACHTRAG A8-S5-02b (2026-08-04): 02b ist geschnitten und prueft seine
+// T14-Spalten in test_s5_02b_filter_perf_sanity; "filter" bleibt hier trotzdem draussen, weil die
+// 02b-Wache zusaetzlich zwischen der T14-getragenen Registry-Achse und den composable-Organen trennt
+// (die NICHT im T14-Pfad liegen) -- diese Unterscheidung liesse sich hier nicht ausdruecken.
 constexpr std::string_view kFamilyAxes[] = {"node_type", "memory_layout", "path_compression", "serialization",
                                             "allocator"};
 

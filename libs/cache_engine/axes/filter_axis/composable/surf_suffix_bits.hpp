@@ -14,11 +14,19 @@
 // **Bit-Packing (selbst-konsistent):** append_bits/read_bits sind MSB-first und zueinander invers
 // (read(store(x))==x). Das genuegt fuer no-FN (stored==querying fuer echten Key); es wird NICHT die exakte
 // Cross-Word-Bitlage von suffix.hpp Z.198-200 reproduziert (dort ein subtiler, hier vermiedener Shift-Sonderfall).
+//
+// A8-S5 Familie 02b (2026-08-04) -- SCHNITT-REGEL (Dossier 20260803-a8_f2 Abschn. 3.4): der Suffix-Bit-Puffer
+// lief bis hierher ueber den Default-Allokator. Seit dem Schnitt haengt er an der Strategie-Instanz des
+// besitzenden Organs (LoudsSparseFilterStore), die im Konstruktor hereingereicht wird. Die Suffix-SEMANTIK
+// ist unberuehrt: construct_real/construct_hash/check_equality/compare sind reine uint-Arithmetik ohne
+// Speicherbezug (allesamt static bzw. nur lesend), die Zeilen-Anker in suffix.hpp/hash.hpp sitzen unveraendert
+// an ihren Rumpf-Zeilen. Das EINSEITIGE no-FN-Tor (check_equality) bleibt Bit fuer Bit dasselbe.
+
+#include "surf_axis_allocator.hpp"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 namespace comdare::cache_engine::filter_axis::composable {
 
@@ -65,6 +73,21 @@ public:
     static_assert(ST != SurfSuffixType::kNone || kSuffixLen == 0, "kNone => 0 Suffix-Bits");
 
     using key_bytes_t = std::array<std::uint8_t, 8>;
+
+    /// A8-S5-02b Form-B-Ausweis: der Bit-Puffer laeuft ueber die Allokator-Achse.
+    using allocator_type = filter_surf_allocator_t;
+
+    /// EINZIGER Weg, einen Suffix-Container anzulegen: mit der Strategie-Instanz des besitzenden Organs
+    /// (der Adapter ist nicht default-konstruierbar -> kein stilles Zurueckfallen auf einen Default-Allokator).
+    explicit SurfSuffixBits(allocator_type& strat) : bits_(strat.template as_std_allocator<std::uint64_t>()) {}
+    /// ALLOKATOR-ERWEITERTE Kopie: rebindet auf die Strategie-Instanz des ZIEL-Organs; die gewoehnliche
+    /// Kopie ist geloescht, weil sie den Adapter der QUELLE mitschleppte (dangling, sobald die Quelle stirbt).
+    SurfSuffixBits(SurfSuffixBits const& o, allocator_type& strat)
+        : bits_(o.bits_, strat.template as_std_allocator<std::uint64_t>()), num_bits_(o.num_bits_) {}
+    SurfSuffixBits(SurfSuffixBits const&) = delete;
+    /// Kopier-ZUWEISUNG bleibt zulaessig und sicher (POCCA am Adapter false -> das Ziel behaelt seinen eigenen).
+    SurfSuffixBits& operator=(SurfSuffixBits const&) = default;
+    ~SurfSuffixBits()                                = default;
 
     // constructRealSuffix (suffix.hpp Z.43-65): RealLen Bits ab Byte `level`; 0 wenn Key zu kurz.
     [[nodiscard]] static std::uint64_t construct_real(key_bytes_t const& kb, unsigned level) noexcept {
@@ -203,8 +226,9 @@ private:
         return result;
     }
 
-    std::vector<std::uint64_t> bits_{};
-    std::uint64_t              num_bits_ = 0;
+    // A8-S5-02b: der Bit-Puffer haengt an der Achse (surf_word_vec_t == std::vector<uint64,Achsen-Adapter>).
+    surf_vec_t<std::uint64_t> bits_;
+    std::uint64_t             num_bits_ = 0;
 };
 
 } // namespace comdare::cache_engine::filter_axis::composable

@@ -37,6 +37,10 @@ template <class Query, class Store>
 class ComposedExactSurfFilter {
 public:
     using key_type = std::uint64_t;
+    /// A8-S5-02b Form-B-Ausweis des ORGANS: sein Speicher laeuft ueber das Allokator-Achsen-Interface --
+    /// ueber die EINE Strategie-Instanz seines Stores (surf_axis_allocator.hpp). Der reale Verdrahtungs-Beleg
+    /// liegt in store().filter_surf_allocator_statistics() und wird von der Familien-Wache am Objekt geprueft.
+    using allocator_type = typename Store::allocator_type;
 
     void build_from_sorted_keys(std::span<key_type const> sorted) { store_.build_from_sorted_keys(sorted); }
     [[nodiscard]] bool contains(key_type k) const { return Query::template contains_in<Store>(store_, k); }

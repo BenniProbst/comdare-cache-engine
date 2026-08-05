@@ -1940,6 +1940,19 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # gelesene Achsen-Statistik (die T6-Zeile muss aus DIESEM Store stammen) und den ehrlichen Nullpunkt
     # des ungetriebenen Organs. Achsen-Indizes aus kCompositionAxisNames abgeleitet, nie Literal.
     test_s5_01a_pool_stores_perf_sanity # A8-S5 -- Perf-Sanity Familie 01a (keine 0-/Phantom-Zeiten)
+    # A8-S5 (2026-08-04) Familie 02_layout / Sub-Scheibe 02b (filter/SuRF) = die staerkste vendored-ext-Naehe
+    # der S5-Strecke: die composable-Organe sind eine original-getreue Portierung aus ext/traversal/P10-SuRF
+    # MIT Paper-Zeilen-Ankern. Deshalb traegt die Konformitaets-Wache hier eine DRITTE Aussage neben Typ-Pin
+    # und Verdrahtungs-Beleg: den PAPERTREUE-Beleg (no-false-negative + Kreuzbeleg gegen die exakte
+    # S1-Ground-Truth) -- Papertreue IST hier die Messaussage. Zusaetzlich der VERSCHACHTELUNGS-Beleg beider
+    # Ebenen des LOUDS-Level-Index (uses-allocator-Konstruktion greift ohne scoped_allocator_adaptor NICHT).
+    test_s5_02b_filter_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 02b (inkl. Papertreue)
+    # Zweite Haelfte desselben Gate-Musters fuer 02b. BESONDERHEIT (im TU-Kopf ausgeschrieben): die
+    # KOMPOSITIONS-filter-Achse (Bloom/Cuckoo/RangeSurf/Xor) liegt im T14-Pfad und wurde NICHT geSCRUBbt;
+    # die geSCRUBbten composable-Organe liegen NICHT im T14-Pfad. Die Wache prueft deshalb BEIDES getrennt:
+    # T14-Spalten (probe/pos/neg/hash_probes, Schema-Zeile gepinnt) fuer die Achsen-Messfaehigkeit UND das
+    # Anti-Phantom-Paar direkt am Scrub-Gegenstand (Zeit + Achsen-Allokations-Zaehler derselben Op-Schleife).
+    test_s5_02b_filter_perf_sanity    # A8-S5 -- Perf-Sanity Familie 02b (keine 0-/Phantom-Zeiten)
     # HAERTUNG Posten 64 (2026-08-04): der FEHLSCHLAG-VERTRAG des StdAllocatorAdapter, negativ belegt.
     # Nach dem A8-S5-Schnitt fuehren mapping/value_handle/cache_traversal + die vier Pool-Stores ihren
     # Speicher ueber die Allokator-Achse; die meldet OOM per nullptr. Der Adapter uebersetzt das jetzt an

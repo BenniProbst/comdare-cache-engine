@@ -11,7 +11,12 @@
 // 02_layout (lager_baum_writer.hpp kOrganGruppe02 = node_type, memory_layout, path_compression, filter,
 // serialization). Die filter-/SuRF-Seite ist Sub-Scheibe 02b (faithful-Portierung, eigene Scheibe) und wird
 // hier bewusst NICHT gepinnt -- eine Wache, die eine noch ungeschnittene Achse gruen meldet, waere eine
-// Vorab-Zementierung. memory_layout gehoert zu 02a und hatte 0 Code-Treffer im Familien-grep: NACHWEIS-Achse,
+// Vorab-Zementierung. NACHTRAG A8-S5-02b (2026-08-04): 02b IST inzwischen geschnitten und hat eine EIGENE
+// Wache (test_s5_02b_filter_alloc_conformance). Die Trennung BLEIBT trotzdem bestehen -- nicht wegen der
+// Reihenfolge, sondern weil 02b eine andere Registry, andere Schnitt-Formen (die Kompositions-filter-Achse
+// ist Form A, die composable-Organe Form B) und eine eigene PAPERTREUE-Aussage traegt; zwei Wachen ueber
+// demselben Gegenstand driften auseinander. Wer die filter-Achse sucht, findet sie dort, nicht hier.
+// memory_layout gehoert zu 02a und hatte 0 Code-Treffer im Familien-grep: NACHWEIS-Achse,
 // hier mitgepinnt, damit ein kuenftiger Container dort sofort auffaellt.
 //
 // WAS GEPINNT WIRD: kein Organ dieser Sub-Familie fuehrt Speicher an der Allokator-Achse vorbei. Die Pruefung
@@ -420,7 +425,8 @@ void probe_store_copy_rebind() {
 int main() {
     std::printf("== A8-S5 Familie 02_layout / Sub-Scheibe 02a -- Allokator-Achsen-Konformitaet ==\n");
     std::printf("   Achsen: node_type (T4) . memory_layout (T5) . path_compression (T3) . serialization (T9)\n");
-    std::printf("   (filter/SuRF = Sub-Scheibe 02b, bewusst NICHT hier gepinnt)\n");
+    std::printf("   (filter/SuRF = Sub-Scheibe 02b, bewusst NICHT hier gepinnt -- eigene Wache: "
+                "test_s5_02b_filter_alloc_conformance)\n");
 
     std::printf("-- (1) Strategie-Typen aus den Achsen-Registries --\n");
     report_list<Family02aStrategies>("STRAT");
