@@ -6,9 +6,13 @@
 // Feldquelle: exakt dieselben Literale, die build_variant_definition<PT,SE,HW>() aus den 3 Build-Achsen ableitet.
 //
 // EIN Serializer, mehrere Nutzer: die CEB komponiert damit die erwartete Zell-/ISA-Signatur (perm_compile kennt die
-// Zelle), speist sie in BuildConfig.build_variant_sig; der Orchestrator vergleicht sie beim Skip-Check (dll_is_current)
-// und schreibt sie bei Erfolg ins Sidecar. Der Lager-Index (Lane B / G3) verwendet DENSELBEN compose, keine Parallel-
-// Ableitung (Integrations-Doktrin: eine Feldquelle fuer Varianten-Identitaet).
+// Zelle), speist sie in BuildConfig.build_variant_sig und schreibt sie als `.variant` neben die Binary.
+// [NACHGEFUEHRT 2026-08-05, A2-Eichung (GATE 5, F7): HISTORIK war "der Orchestrator vergleicht sie beim
+// Skip-Check (dll_is_current)". Das tut er nicht mehr -- dll_is_current vergleicht NUR noch den
+// `.fingerprint`-Anker. `.variant` bleibt Provenienz-Legende; seine Wirkung auf den Bau laeuft ueber das
+// bvset-Glied IM Fingerprint-Preimage, nicht mehr ueber einen eigenen String-Vergleich.]
+// Der Lager-Index (Lane B / G3) verwendet DENSELBEN compose, keine Parallel-Ableitung
+// (Integrations-Doktrin: eine Feldquelle fuer Varianten-Identitaet).
 
 #include "anatomy/build_variant_definition.hpp" // BuildVariantDefinitionV1 + kBuildVariantDefinitionVersion
 
