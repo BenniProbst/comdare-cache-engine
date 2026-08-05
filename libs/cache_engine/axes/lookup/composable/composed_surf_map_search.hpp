@@ -23,6 +23,11 @@ class ComposedSurfMapSearch {
 public:
     using key_type   = typename Pool::key_type;
     using value_type = typename Pool::value_type;
+    /// A8-S5-01b -- Form-B-Ausweis des ORGANS: der Speicher dieses Organs IST der seines Substrats, und das
+    /// Substrat laeuft real ueber die Allokator-Achse (Scheibe 01a, am Objekt belegt). Das Organ selbst
+    /// haelt keinen eigenen Heap -- der Ausweis ist damit die Weitergabe der EINEN Speicher-Wahl dieser
+    /// Komposition, keine blosse using-Zeile neben einem Default-Allokator-Container.
+    using allocator_type = typename Pool::allocator_type;
 
     void insert(key_type k, value_type v) { Traversal::template insert_into<Pool>(pool_, k, v); }
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {

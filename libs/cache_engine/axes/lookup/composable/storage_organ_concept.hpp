@@ -47,7 +47,11 @@ concept StorageOrgan =
            { s.clear() } -> std::same_as<void>;
        };
 // Bewusst KEIN `noexcept` im Vertrag: append_slot/insert_slot_at/erase_slot_at duerfen allokieren
-// (RawSlotStore via std::vector) bzw. bei Kapazitaets-Ueberlauf werfen (NodeTypeSlotStore) — ein
+// (RawSlotStore ueber die Allokator-ACHSE -- A8-S5-01b: sein Slot-Puffer ist ein AxisBoundBuffer, KEIN
+// Default-Allokator-Container mehr; das Wurf-Verhalten ist damit das der gewaehlten axis_06-Strategie,
+// die der StdAllocatorAdapter seit Posten 64 als std::bad_alloc meldet statt nullptr durchzureichen)
+// bzw. bei Kapazitaets-Ueberlauf werfen (NodeTypeSlotStore) -- ein
 // noexcept-Constraint wuerde diese gueltigen Implementierungen faelschlich ausschliessen.
+// [[allocation-failure-exception]]
 
 } // namespace comdare::cache_engine::lookup::composable

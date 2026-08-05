@@ -1953,6 +1953,19 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # T14-Spalten (probe/pos/neg/hash_probes, Schema-Zeile gepinnt) fuer die Achsen-Messfaehigkeit UND das
     # Anti-Phantom-Paar direkt am Scrub-Gegenstand (Zeit + Achsen-Allokations-Zaehler derselben Op-Schleife).
     test_s5_02b_filter_perf_sanity    # A8-S5 -- Perf-Sanity Familie 02b (keine 0-/Phantom-Zeiten)
+    # A8-S5 Sub-Scheibe 01b (composable-REST): nicht die Substrate, sondern die Organe darueber, ihre
+    # Huellen und die Schalen-Puffer (Memento, Scan-Zwischenablage, Pilot-Store RawSlotStore<>). Die TU
+    # pinnt BEIDE Schnitt-Formen JE ORGAN: Form A heap-frei mit typ-abgeleiteter CT-Kappe fuer die drei
+    # Trie-Familien (Tiefe strukturell durch die Schluesselbreite beschraenkt), Form B ueber die Achse
+    # fuer BST/B-Baum (Tiefe datenabhaengig -- eine CT-Kappe waere dort keine staerkere Aussage, sondern
+    # eine falsche). Ebenen 2/3 waren in 01a noch reiner AUSWEIS; hier werden sie zur Aussage und deshalb
+    # auch belegt (Walk-Delta VOR jedem Restore, Memento-/Scratch-Zaehler, ehrliche Nullpunkte).
+    test_s5_01b_composable_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 01b
+    # Perf-Sanity derselben Familie. Schaerfer als 01a, weil 01b den WALK-ALGORITHMUS dreier Trie-Familien
+    # umgestellt hat: ein still verstummender Walk wuerde die DEG-1-Key-Ernte des Mess-Pfads leeren, ohne
+    # dass ein Test rot wird. Zeit UND Zaehler derselben Schleife, plus die Form-Unterscheidung (Form B
+    # MUSS beim Walk ueber die Achse allozieren, Form A darf es NICHT) und zwei ehrliche Nullpunkte.
+    test_s5_01b_composable_perf_sanity # A8-S5 -- Perf-Sanity Familie 01b (keine 0-/Phantom-Zeiten)
     # HAERTUNG Posten 64 (2026-08-04): der FEHLSCHLAG-VERTRAG des StdAllocatorAdapter, negativ belegt.
     # Nach dem A8-S5-Schnitt fuehren mapping/value_handle/cache_traversal + die vier Pool-Stores ihren
     # Speicher ueber die Allokator-Achse; die meldet OOM per nullptr. Der Adapter uebersetzt das jetzt an
@@ -2215,9 +2228,13 @@ set_tests_properties(test_winsorized_mean PROPERTIES LABELS "phase_e;standalone;
 # std). CI-erzwungen ueber die contract-Stage (contract:conformance, .gitlab-ci.yml) auf Linux-g++.
 add_executable(test_conformance_gate "test_conformance_gate.cpp")
 target_compile_features(test_conformance_gate PRIVATE cxx_std_23)
+# A8-S5-01b: composable_search.hpp bindet den Slot-Speicher an die Allokator-Achse (axis_06) und zieht damit
+# denselben Include-Satz wie jeder andere organ-komponierende Test (src/measurement fuer MeasurableObserver) --
+# Praezedenz test_188_4bb0/test_v41_topic_traversal. Der Test bleibt standalone (kein gtest, kein Codegen).
 target_include_directories(test_conformance_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")
 comdare_set_platform_defines(test_conformance_gate)
 add_test(NAME test_conformance_gate COMMAND test_conformance_gate)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_conformance_gate)

@@ -18,6 +18,7 @@
 // Split rebuildet via make_sorted — Masstree-Praezedenz); I4 (Erase ohne Leerknoten-Kollaps = Folge-Refinement,
 // wie ART/START); I5 (Free-List-Slot-Stabilitaet). Wert IMMER am tiefsten Layer (ksuf/Inline-Early-Out = Ink.2).
 
+#include "axis_bound_scratch.hpp" // A8-S5-01b: Pfad-Stack ueber die Allokator-Achse
 #include "masstree_layer_pool_concept.hpp"
 #include "masstree_layer_pool_store.hpp" // fuer den Selbstbeweis am Dateiende
 
@@ -27,7 +28,6 @@
 #include <cstdint>
 #include <optional>
 #include <utility>
-#include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
@@ -46,6 +46,13 @@ template <unsigned SliceBytes = 2>
 struct MasstreeLayerTraversalOrgan {
     static_assert(SliceBytes >= 1 && SliceBytes <= 8 && (8 % SliceBytes == 0), "SliceBytes in {1,2,4,8}");
     static constexpr unsigned MaxLayers = 8U / SliceBytes;
+
+    /// A8-S5-01b: der Abstiegs-Pfad-Stack des Layer-B+Baums. Seine Tiefe ist die BAUMHOEHE und damit
+    /// datenabhaengig -- eine Compile-Time-Kappe gibt es nicht, Form A scheidet hier ehrlich aus. Er laeuft
+    /// deshalb ueber das Allokator-Achsen-Interface (Form B). Der Puffer besitzt seine Strategie selbst und
+    /// lebt nur fuer die Dauer EINER Einfuege-Operation -- die Organ-Groesse bleibt unveraendert.
+    template <class Pool>
+    using path_stack_t = AxisBoundBuffer<composition_allocator_t<Pool>, std::pair<std::size_t, int>>;
 
     [[nodiscard]] static constexpr std::uint64_t slice_mask() noexcept {
         return (SliceBytes == 8U) ? ~std::uint64_t{0} : ((std::uint64_t{1} << (SliceBytes * 8U)) - 1);
@@ -89,8 +96,11 @@ struct MasstreeLayerTraversalOrgan {
     static void bplus_find_or_insert(Pool& p, std::size_t root, std::uint64_t slice, std::size_t& out_leaf,
                                      int& out_phys, bool& was_new, std::size_t& new_root) {
         new_root = root;
-        std::vector<std::pair<std::size_t, int>> stack; // (internode, child-index) auf dem Pfad
-        std::size_t                              node = root;
+        // A8-S5-01b: der Pfad-Stack ist UNBOUNDED (Hoehe des Layer-B+Baums, datenabhaengig) -> Form B
+        // ueber die Allokator-ACHSE. Er wird jetzt per REFERENZ durchgereicht statt per Wert + std::move:
+        // die Helfer verbrauchten ihn ohnehin, und der besitzende Puffer bleibt so an GENAU EINER Stelle.
+        path_stack_t<Pool> stack{}; // (internode, child-index) auf dem Pfad
+        std::size_t        node = root;
         while (!p.is_leaf(node)) {
             int const n = p.inode_n(node);
             int       i = 0;
@@ -116,7 +126,7 @@ struct MasstreeLayerTraversalOrgan {
             out_phys = ph;
             return;
         }
-        split_leaf_and_insert(p, lf, slice, std::move(stack), out_leaf, out_phys, new_root, root);
+        split_leaf_and_insert(p, lf, slice, stack, out_leaf, out_phys, new_root, root);
     }
 
 private:
@@ -140,9 +150,8 @@ private:
 
     // Voller Leaf (kWidth Eintraege) + neuer slice -> Split (mid = kWidth/2+1), neuer Eintrag landet links/rechts.
     template <class Pool>
-    static void split_leaf_and_insert(Pool& p, std::size_t lf, std::uint64_t slice,
-                                      std::vector<std::pair<std::size_t, int>> stack, std::size_t& out_leaf,
-                                      int& out_phys, std::size_t& new_root, std::size_t root) {
+    static void split_leaf_and_insert(Pool& p, std::size_t lf, std::uint64_t slice, path_stack_t<Pool>& stack,
+                                      std::size_t& out_leaf, int& out_phys, std::size_t& new_root, std::size_t root) {
         constexpr int             W = Pool::kWidth;
         std::array<LEntry, W + 1> tmp{};
         for (int i = 0; i < W; ++i) {
@@ -179,14 +188,13 @@ private:
             out_phys = ins - mid;
         }
 
-        propagate_split(p, std::move(stack), split_slice, lf, rt, new_root, root);
+        propagate_split(p, stack, split_slice, lf, rt, new_root, root);
     }
 
     // (up_slice, right_node) in den Eltern-Internode einfuegen; bei voll: Internode-Split (Median hoch).
     template <class Pool>
-    static void propagate_split(Pool& p, std::vector<std::pair<std::size_t, int>> stack, std::uint64_t up_slice,
-                                std::size_t left_node, std::size_t right_node, std::size_t& new_root,
-                                std::size_t root) {
+    static void propagate_split(Pool& p, path_stack_t<Pool>& stack, std::uint64_t up_slice, std::size_t left_node,
+                                std::size_t right_node, std::size_t& new_root, std::size_t root) {
         constexpr int W = Pool::kWidth;
         for (;;) {
             if (stack.empty()) { // Wurzel-Split -> neue Wurzel-Internode

@@ -79,7 +79,7 @@ struct DirectAddressTraversal {
 };
 
 // Selbstbeweis: TraversalOrgan + additiver Scan-Vertrag ueber dem Pilot-Storage-Organ.
-static_assert(TraversalOrgan<DirectAddressTraversal, RawSlotStore>);
-static_assert(ScannableTraversalOrgan<DirectAddressTraversal, RawSlotStore>);
+static_assert(TraversalOrgan<DirectAddressTraversal, RawSlotStore<>>);
+static_assert(ScannableTraversalOrgan<DirectAddressTraversal, RawSlotStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

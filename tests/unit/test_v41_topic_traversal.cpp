@@ -704,13 +704,14 @@ TEST(SearchAlgo_Interchangeability, AllUint8WrappersMatchStdMap) {
 namespace ce_cmp = comdare::cache_engine::traversal::axis_03a_search_algo::composable;
 
 TEST(Saeule1_ComposableOrgan, BothTraversalOrgansMatchStdMapOverWideKeys) {
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>);
-    static_assert(std::is_same_v<ce_cmp::RawSlotStore::key_type, std::uint64_t>); // gemeinsamer breiter Key
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore<>>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore<>>);
+    static_assert(std::is_same_v<ce_cmp::RawSlotStore<>::key_type, std::uint64_t>); // gemeinsamer breiter Key
 
     // key_mod = 100000 > 65535 → Keys ueberschreiten den uint16-Bereich der Tier-Wrapper.
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>>(100000u, 2000u);
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore<>>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore<>>>(100000u,
+                                                                                                          2000u);
     SUCCEED(); // Traversal-Organ ⊕ Storage-Organ, frei austauschbar, std::map-aequivalent, breiter Key
 }
 
@@ -774,13 +775,13 @@ TEST(Saeule1_ComposedStore, AllocatorBackedStoreDrivesBothTraversalOrgansAsStdMa
 // (SortedBinary/Interpolation/Galloping) ueber DEMSELBEN Storage-Organ sind alle std::map-aequivalent
 // — genau das "genetische Experiment" (ein Organ tauschen, Rest gleich).
 TEST(Saeule1_ComposableOrgan, InterpolationAndGallopingMatchStdMapOverWideKeys) {
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore<>>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore<>>);
     // key_mod=100000 (>65535) → breite uint64-Keys, query_max=2000.
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>>(100000u,
-                                                                                                              2000u);
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>>(100000u,
-                                                                                                          2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore<>>>(100000u,
+                                                                                                                2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore<>>>(100000u,
+                                                                                                            2000u);
     SUCCEED(); // Interpolation + Galloping, std::map-aequivalent, breiter Key
 }
 

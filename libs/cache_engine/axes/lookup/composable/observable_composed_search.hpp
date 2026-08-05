@@ -33,6 +33,10 @@ class ObservableComposedSearch {
 public:
     using key_type   = typename Store::key_type; // aktuell std::uint64_t per StorageOrgan; Lockerung = #217-2b
     using value_type = typename Store::value_type;
+    /// A8-S5-01b -- WEITERLEITUNG des Achsen-Members (Memory-Regel
+    /// reference_observable_wrapper_must_forward_concept_members): die Huelle fuehrt keinen eigenen
+    /// Speicher; ihr Ausweis ist der des inneren ComposedSearch (Memento-Puffer + Scan-Zwischenablage).
+    using allocator_type = typename ComposedSearch<Traversal, Store>::allocator_type;
 
     /// insert mit rekonstruiertem inserted-Flag (ComposedSearch::insert ist void) — insert_or_assign-Semantik.
     bool insert(key_type k, value_type v) {

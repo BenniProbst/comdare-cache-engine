@@ -71,7 +71,7 @@ struct InterpolationTraversalOrgan {
 };
 
 // Selbstbeweis: erfuellt das TraversalOrgan-Concept + den additiven Scan-Vertrag (#214) ueber dem Pilot-Storage-Organ.
-static_assert(TraversalOrgan<InterpolationTraversalOrgan, RawSlotStore>);
-static_assert(ScannableTraversalOrgan<InterpolationTraversalOrgan, RawSlotStore>);
+static_assert(TraversalOrgan<InterpolationTraversalOrgan, RawSlotStore<>>);
+static_assert(ScannableTraversalOrgan<InterpolationTraversalOrgan, RawSlotStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

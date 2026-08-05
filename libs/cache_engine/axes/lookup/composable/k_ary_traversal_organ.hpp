@@ -98,7 +98,7 @@ struct KAryTraversal {
 
 // Selbstbeweis: KAryTraversal<4> (Default-Arity) erfuellt TraversalOrgan + den additiven Scan-Vertrag (#214) ueber
 // dem Pilot-Storage-Organ. Je weitere compile-time Arity (2/8/16) wird im test_conformance_gate gegen std::map geprueft.
-static_assert(TraversalOrgan<KAryTraversal<4u>, RawSlotStore>);
-static_assert(ScannableTraversalOrgan<KAryTraversal<4u>, RawSlotStore>);
+static_assert(TraversalOrgan<KAryTraversal<4u>, RawSlotStore<>>);
+static_assert(ScannableTraversalOrgan<KAryTraversal<4u>, RawSlotStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
