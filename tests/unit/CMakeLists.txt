@@ -3811,6 +3811,62 @@ add_test(NAME test_d13_dll_runtime_measure COMMAND test_d13_dll_runtime_measure 
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d13_dll_runtime_measure)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_d13_dll_runtime_measure PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
+# -----------------------------------------------------------------------------
+# W3-KERN (2026-08-05, Owner-GO R3) -- POST-COMPILE-TESTATE der MESS-Interfaces am Pruef-Dock.
+#
+# (a) test_w3_mess_interface_testate_dock -- faehrt import -> GATE -> Testate gegen ZWEI ECHTE, per dlopen
+#     geladene Module. Traeger sind BESTEHENDE SHARED-Targets (KEIN neuer DLL-Bau):
+#     anatomy_codegen_pilot_wormhole_shared (die reale codegen-Komposition) + perm_adhoc_buildvariant
+#     (zweiter, andersartiger Vertreter). Beide Pfade reisen als ARGUMENTE ($<TARGET_FILE:...>, Muster
+#     test_d13_dll_runtime_measure) -- bewusst NICHT als -D-Pfad-Makros: die frisch belegte
+#     cppcheck-unknownMacro-Falle (Makro in String-Literal-Adjazenz; lint:static laeuft OHNE CMake-Defines)
+#     wird so strukturell umgangen statt nachtraeglich geheilt.
+#     Include-/Link-Rezeptur = test_v41_anatomy_f15_measurement (die TU pinnt via static_assert den REALEN
+#     SearchAlgorithmAbiAdapter<SearchAlgorithmAnatomy<WormholeComposition>> und braucht darum den
+#     Anatomie-Umbrella + Boost::mp11 + die generierten Achsen-Dirs).
+#
+# (b) test_w3_mess_interface_testate_biss -- der beidseitige Biss: jede Testat-Funktion einmal gegen eine
+#     korrekte und einmal gegen eine gezielt defekte Huelle. Standalone/leicht (nur ABI-Header + std),
+#     KEIN DLL-Bau noetig, weil die Testat-Funktionen Interface-Referenzen nehmen.
+#
+# MESSUNGS-GEGATET: beide TUs pruefen Sub-Interfaces, die der ABI-Adapter NUR unter COMDARE_MEASUREMENT_ON
+# erbt. In einem Release-/funktional-only-Baum waeren die dynamic_casts zu Recht nullptr -- dort duerfen die
+# TUs gar nicht erst registriert werden, sonst entstuende ein Fehlalarm statt einer Aussage.
+if(COMDARE_MEASUREMENT_MODE)
+    add_executable(test_w3_mess_interface_testate_dock test_w3_mess_interface_testate_dock.cpp)
+    target_include_directories(test_w3_mess_interface_testate_dock PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_compile_features(test_w3_mess_interface_testate_dock PRIVATE cxx_std_23)
+    target_link_libraries(test_w3_mess_interface_testate_dock PRIVATE Boost::mp11 comdare::anatomy_module_loader)
+    add_dependencies(test_w3_mess_interface_testate_dock
+        anatomy_codegen_pilot_wormhole_shared perm_adhoc_buildvariant)
+    add_test(NAME test_w3_mess_interface_testate_dock COMMAND test_w3_mess_interface_testate_dock
+        "$<TARGET_FILE:anatomy_codegen_pilot_wormhole_shared>" "$<TARGET_FILE:perm_adhoc_buildvariant>")
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w3_mess_interface_testate_dock)
+    set_tests_properties(test_w3_mess_interface_testate_dock
+        PROPERTIES LABELS "w3;pruef_dock;measured;dll_roundtrip" TIMEOUT 300)
+
+    add_executable(test_w3_mess_interface_testate_biss test_w3_mess_interface_testate_biss.cpp)
+    target_include_directories(test_w3_mess_interface_testate_biss PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    target_compile_features(test_w3_mess_interface_testate_biss PRIVATE cxx_std_23)
+    add_test(NAME test_w3_mess_interface_testate_biss COMMAND test_w3_mess_interface_testate_biss)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w3_mess_interface_testate_biss)
+    set_tests_properties(test_w3_mess_interface_testate_biss
+        PROPERTIES LABELS "w3;pruef_dock;measured;biss" TIMEOUT 120)
+
+    message(STATUS "W3-KERN: Mess-Interface-Testate REGISTRIERT (dock + biss)")
+else()
+    message(STATUS "W3-KERN: Mess-Interface-Testate NICHT registriert (COMDARE_MEASUREMENT_MODE=OFF -- die "
+        "messungs-gegateten Sub-Interfaces existieren in diesem Baum nicht)")
+endif()
+
 message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 28 add_test-D-Tests (16 leicht + 12 Boost) + 5 DLL-Round-Trip-Tests "
     "(test_dgenus_dll/test_buildvariant_dll{,_real}/test_adhoc_buildvariant_dll/test_d13_dll_runtime_measure) als OFFIZIELLE CMake-Targets (6 SHARED-DLLs via $<TARGET_FILE>). "
     "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
