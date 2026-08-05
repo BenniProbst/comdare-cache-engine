@@ -1974,6 +1974,14 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # deterministisch erzeugbar), plus Zaehler-Ehrlichkeit, Zero-Size-Neutralitaet und die
     # Positiv-Kontrolle an der realen Achsen-Default-Strategie.
     test_h64_allocator_adapter_failure_contract # Posten 64 -- StdAllocatorAdapter: nullptr -> std::bad_alloc
+    # POSTEN 80 (2026-08-05, A8-S5 01c Vorlauf 0): der 01b-Vorbehalt "-O3/MimallocAllocator/'jmp .'" an
+    # seiner ECHTEN Ursache gepinnt -- die drei Statistik-Weiterleiter der axis_06-CRTP-Basis rufen sich
+    # selbst auf, wenn die Strategie keinen eigenen Member deklariert (bis 05.08. nur ExgenAllocator).
+    # Kein Compiler-Bug, kein UB im Puffer: eine fehlende Deklaration, die -O3 als Endlosschleife und -O1
+    # als Selbstaufruf uebersetzt und die ASan/UBSan nicht sehen koennen. Die TU pinnt den Flaechen-Beweis
+    # ueber die ACHSEN-REGISTRY (nicht ueber eine Namensliste), den Laufzeit-Beweis am Original-Gegenstand
+    # (AxisBoundBuffer-Memento ueber mimalloc) und die GEGENPROBE (Stub ohne Member wird erkannt).
+    test_h81_allocator_statistics_forwarder_recursion # Posten 80 -- CRTP-Weiterleiter: Selbst-Rekursion
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")

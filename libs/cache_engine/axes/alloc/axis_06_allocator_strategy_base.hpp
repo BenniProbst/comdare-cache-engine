@@ -128,10 +128,39 @@ public:
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept { return derived_const().statistics(); }
+    // -- SELBST-REKURSIONS-WACHE der drei Statistik-Weiterleiter (A8-S5 01c Vorlauf 0, 2026-08-05) -------
+    //
+    // WAS HIER SCHIEFGEHEN KANN (und bis heute schiefging): jeder Weiterleiter unten ruft
+    // `derived().<name>(...)`. Deklariert die Strategie KEINEN eigenen Member dieses Namens, dann findet
+    // die Namenssuche in Derived nur den GEERBTEN Basis-Member wieder -- der Weiterleiter ruft SICH SELBST.
+    // Das ist keine Diagnose wert, die der Compiler von sich aus stellt: g++ 15.3 uebersetzt die
+    // unbeschraenkte Selbst-Rekursion unter -O3 als Endlosschleife ('jmp .', Tail-Call-Faltung) und unter
+    // -O1 als rekursiven Selbstaufruf bis zum Stack-Ueberlauf. ASan/UBSan melden NICHTS -- es ist kein
+    // Speicherfehler, sondern ein Programm, das nie zurueckkehrt. Genau dieser Befund wurde in Scheibe 01b
+    // an AxisBoundBuffer<MimallocAllocator,T> beobachtet und dort (mangels Ursache) als moeglicher
+    // Compiler-/UB-Verdacht notiert; er ist WEDER das eine NOCH das andere, sondern diese fehlende
+    // Deklaration: bis 2026-08-05 trug ausschliesslich ExgenAllocator ein eigenes restore_statistics.
+    //
+    // WARUM ALS static_assert IM RUMPF und nicht als Concept-Constraint: der Rumpf einer Member-Funktion
+    // eines Klassen-Templates wird erst bei BENUTZUNG instanziiert -- erst dann ist Derived vollstaendig
+    // (CRTP-Henne-Ei, dieselbe Begruendung wie bei den Ctor-Guards oben). Der Beweis ist self-proving statt
+    // geraten: ist der Klassen-Teil des Member-Zeigers die BASIS, hat Derived nichts Eigenes deklariert.
+    template <class MemPtr>
+    static constexpr bool kIsBaseForwarder = std::is_same_v<MemPtr, void (AllocatorStrategyBase::*)() noexcept>;
+
+    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept {
+        static_assert(!std::is_same_v<decltype(&Derived::statistics),
+                                      concepts::AllocationStatistics (AllocatorStrategyBase::*)() const noexcept>,
+                      "axis_06: die Strategie deklariert kein EIGENES statistics() -- der CRTP-Weiterleiter der "
+                      "Basis wuerde sich selbst aufrufen (unbeschraenkte Rekursion). Eigenen Member nachziehen.");
+        return derived_const().statistics();
+    }
 
     void reset() noexcept {
         // V41.F.6.1.A User-Klarstellung: reset() = Statistik-Reset, NICHT Pool-Reset!
+        static_assert(!kIsBaseForwarder<decltype(&Derived::reset)>,
+                      "axis_06: die Strategie deklariert kein EIGENES reset() -- der CRTP-Weiterleiter der Basis "
+                      "wuerde sich selbst aufrufen (unbeschraenkte Rekursion). Eigenen Member nachziehen.");
         derived().reset();
     }
 
@@ -139,7 +168,16 @@ public:
     // zuruecksetzen — spiegelbildlich zu reset(). Nutzung: ein strategie-besitzender Store (z.B. TreeNodePoolStore)
     // verwirft damit im Copy-Ctor/Assign die durch die COW-Vollkopie entstandene transiente Re-Allokations-
     // Pollution (die Zwei-Phasen-Mess-Doppelzaehlung), sodass T6 = save-Stand + measure-Delta bleibt.
-    void restore_statistics(concepts::AllocationStatistics const& s) noexcept { derived().restore_statistics(s); }
+    void restore_statistics(concepts::AllocationStatistics const& s) noexcept {
+        static_assert(
+            !std::is_same_v<decltype(&Derived::restore_statistics),
+                            void (AllocatorStrategyBase::*)(concepts::AllocationStatistics const&) noexcept>,
+            "axis_06: die Strategie deklariert kein EIGENES restore_statistics() -- der CRTP-Weiterleiter der "
+            "Basis wuerde sich selbst aufrufen (unbeschraenkte Rekursion; -O3 emittiert 'jmp .'). Das ist der "
+            "Memento-Pfad JEDES strategie-besitzenden Stores/Puffers: ohne den Member haengt der Copy-Ctor. "
+            "Eigenen Member nachziehen (Vorlage: axis_06_allocator_exgen.hpp).");
+        derived().restore_statistics(s);
+    }
 #endif
 
     // ───────────────────────────────────────────────────────────────────────
