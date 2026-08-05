@@ -28,10 +28,22 @@
 //   - **NICHT** SimdCapableStrategy (direkter O(1)-Index, kein SIMD-Vorteil;
 //     65536-Slot-Scan waere zudem zu breit fuer sinnvolle Vektorisierung)
 //
-// Allocation: zwei std::vector (Werte + Presence-Bits) heap-alloziert im
-// Konstruktor — [[allocation-failure-exception]] (std::bad_alloc moeglich).
-// Presence-Vektor statt Sentinel-Wert, damit jeder value_type (inkl. ~0ull)
-// als gueltiger Slot-Wert darstellbar bleibt (keine Sentinel-Kollision).
+// Allocation: NUR ueber das Allokator-Achsen-Interface (axis_06) -- s. den ZWEI-EBENEN-SCHNITT unten.
+// [[allocation-failure-exception]]: die zwei Konstruktor-Allokationen koennen std::bad_alloc werfen
+// (StdAllocatorAdapter, Posten 64). Presence-Vektor statt Sentinel-Wert, damit jeder value_type
+// (inkl. ~0ull) als gueltiger Slot-Wert darstellbar bleibt (keine Sentinel-Kollision).
+//
+// ===================================================================================================
+// A8-S5 Familie 01c, Scheibe 3 (2026-08-05) -- ZWEI-EBENEN-SCHNITT (Pilot-Rezept linear_scan)
+// ===================================================================================================
+// KLASSEN-ENTSCHEID: **VOLL-REZEPT** -- zwei Default-Allokator-Vektoren (data_/present_, 2 der 39
+// Rest-Zeilen der 01b-Schlussbilanz). BESONDERS TRAGEND HIER: dieses Organ alloziert seine beiden
+// 65536-Slot-Puffer BEREITS IM KONSTRUKTOR (data_ 512 KiB + present_ 64 KiB je Instanz). Am Alt-Stand
+// lief genau diese groesste Einzel-Allokation der Achse am Allokator-Achsen-Interface vorbei -- die
+// T6-Spalte haette sie nie gesehen. Konstruktion/Begruendung zeilengleich zum Pilot
+// (axis_03a_search_algo_linear_scan.hpp:22-58), hier referenziert statt wiederholt.
+//
+// ORGAN_LOCATION NEU (Default-OFF -> Byte-Effekt NULL, s. XML-ABWESENHEITS-Probe (8b) der Familien-Wache).
 
 #include "axis_03a_search_algo_base.hpp"
 #include "axis_03a_search_algo_subaxes_sa1_to_sa3.hpp"
@@ -40,8 +52,11 @@
 #include "concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp"
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
+#include <axes/alloc/axis_06_allocator_exgen.hpp>
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
 #include <axes/lookup/composable/capacity_constraint.hpp>
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
+#include <axes/lookup/composable/search_algo_rebind.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -49,11 +64,25 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::lookup {
 
-class Array65535SearchAlgo : public SearchAlgoBase<Array65535SearchAlgo> {
+// Vorwaerts-Deklaration: die Fassade nennt ihren eigenen Rebound-Leaf als Member-Alias, und der
+// Rebound-Leaf erbt vom selben Core -- beide brauchen den Namen, bevor der andere vollstaendig ist.
+template <class A2>
+class Array65535SearchAlgoRebound;
+
+namespace detail {
+
+/// DIE SUBSTANZ des S09-Organs: direkt-adressierte 65536-Slot-Puffer ueber die Allokator-ACHSE.
+///
+/// @tparam Alloc  Die Allokator-Achsen-Strategie (axis_06). Default-Bindung der Fassade: ExgenAllocator.
+/// @tparam Self   Der most-derived Typ -- PFLICHT wegen der CRTP-Guards der SearchAlgoBase.
+template <class Alloc, class Self>
+class Array65535SearchAlgoCore : public SearchAlgoBase<Self> {
 public:
     static constexpr bool enabled = flags::array65535_enabled;
     // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; #217-2b: Wrapper-key_type bleibt heute u16.
@@ -71,6 +100,13 @@ public:
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::direct_multibyte_access_tag;
     using family_id  = std::integral_constant<int, 9>; // S09
+
+    /// A8-S5 SCHNITT-FORM (B): BEIDE Konstruktor-Puffer haengen an der Allokator-ACHSE. Diese Zeile IST
+    /// der Ausweis, den die Familien-Konformitaets-Wache liest (tests/unit/s5_family_alloc_conformance.hpp).
+    using allocator_type = Alloc;
+    static_assert(::comdare::cache_engine::alloc::concepts::AllocatorStrategy<allocator_type>,
+                  "A8-S5: der gebundene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- dann liefen "
+                  "die 65536-Slot-Puffer wieder an der Allokator-Achse vorbei (Schnitt-Regel Dossier 3.4).");
 
     static_assert(static_cast<std::uint64_t>(std::numeric_limits<key_type>::max()) >=
                       static_cast<std::uint64_t>(kCapacity - 1u),
@@ -99,10 +135,54 @@ public:
     [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }           // Mid-Density
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    /// SONDERFALL [[allocation-failure-exception]]: zwei vector(kCapacity) koennen std::bad_alloc werfen.
-    Array65535SearchAlgo() : data_(kCapacity), present_(kCapacity, 0u), count_(0) {}
+private:
+    using value_alloc    = typename Alloc::template StdAllocatorAdapter<value_type>;
+    using present_alloc  = typename Alloc::template StdAllocatorAdapter<std::uint8_t>;
+    using value_vector   = std::vector<value_type, value_alloc>;
+    using present_vector = std::vector<std::uint8_t, present_alloc>;
 
-    [[nodiscard]] bool operator==(Array65535SearchAlgo const& other) const noexcept { return count_ == other.count_; }
+public:
+    /// SONDERFALL [[allocation-failure-exception]]: die zwei vector(kCapacity) koennen std::bad_alloc
+    /// werfen -- ab jetzt aus dem StdAllocatorAdapter (Posten 64), nicht mehr aus dem Default-Allokator.
+    Array65535SearchAlgoCore()
+        : data_(kCapacity, allocator_.template as_std_allocator<value_type>()),
+          present_(kCapacity, 0u, allocator_.template as_std_allocator<std::uint8_t>()), count_(0) {}
+
+    /// KF-6-NAHT (Posten 62, LEDGER 04.08. abend-12): eine vor-parametrierte Strategie-Instanz
+    /// uebernehmen, statt sie default zu konstruieren. Heute nirgends benutzt und bewusst `explicit`.
+    explicit Array65535SearchAlgoCore(allocator_type a)
+        : allocator_(std::move(a)), data_(kCapacity, allocator_.template as_std_allocator<value_type>()),
+          present_(kCapacity, 0u, allocator_.template as_std_allocator<std::uint8_t>()), count_(0) {}
+
+    /// Copy: Strategie mitkopieren, beide Puffer an das EIGENE allocator_ binden, dann die transiente
+    /// Kopier-Allokation aus der Statistik nehmen (Memento) -- 1:1 btree_node_pool_store.hpp:86.
+    Array65535SearchAlgoCore(Array65535SearchAlgoCore const& o)
+        : allocator_(o.allocator_), data_(o.data_, allocator_.template as_std_allocator<value_type>()),
+          present_(o.present_, allocator_.template as_std_allocator<std::uint8_t>()), count_(o.count_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = o.stats_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+
+    Array65535SearchAlgoCore& operator=(Array65535SearchAlgoCore const& o) {
+        if (this != &o) {
+            data_    = o.data_;
+            present_ = o.present_;
+            count_   = o.count_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_ = o.stats_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+
+    ~Array65535SearchAlgoCore() = default;
+
+    [[nodiscard]] bool operator==(Array65535SearchAlgoCore const& other) const noexcept {
+        return count_ == other.count_;
+    }
 
     void insert(key_type k, value_type v) {
         if (present_[k] == 0u) ++count_;
@@ -169,16 +249,53 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11, Pflicht (a)) -- NUR die Naht,
+    /// BEWUSST unter einem VIERTEN Namen (Doppelzaehlungs-Absicherung, Pilot-Begruendung).
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<value_type>   data_;
-    std::vector<std::uint8_t> present_;
-    std::size_t               count_;
+    // allocator_ MUSS VOR data_/present_ stehen: der Adapter haelt &allocator_, und die Member-
+    // Initialisierungs-/Zerstoerungsreihenfolge ist die Deklarationsreihenfolge.
+    allocator_type allocator_{};
+    value_vector   data_;
+    present_vector present_;
+    std::size_t    count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
     mutable observer_t                     observer_{};
 #endif
+};
+
+} // namespace detail
+
+/// DIE IDENTITAET -- das Registry-Organ S09. Nicht-Template, exakt der historische Typ-Name.
+class Array65535SearchAlgo final
+    : public detail::Array65535SearchAlgoCore<::comdare::cache_engine::alloc::ExgenAllocator, Array65535SearchAlgo> {
+public:
+    /// Die Default-Bindung der Identitaets-Ebene: der BENANNTE Achsen-Default, nie std::allocator.
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::Array65535SearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_array65535.hpp");
+
+    /// Der Migrations-Ausweis (composable::AllocatorRebindableSearchAlgo).
+    template <class A2>
+    using rebind_allocator = Array65535SearchAlgoRebound<A2>;
+
+    using detail::Array65535SearchAlgoCore<default_allocator_type, Array65535SearchAlgo>::Array65535SearchAlgoCore;
+};
+
+/// DIE GEBUNDENE FORM -- traegt BEWUSST KEIN COMDARE_DEFINE_ORGAN_LOCATION.
+template <class A2>
+class Array65535SearchAlgoRebound final : public detail::Array65535SearchAlgoCore<A2, Array65535SearchAlgoRebound<A2>> {
+public:
+    /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
+    using axis03a_rebound_tag = void;
+
+    using detail::Array65535SearchAlgoCore<A2, Array65535SearchAlgoRebound<A2>>::Array65535SearchAlgoCore;
 };
 
 } // namespace comdare::cache_engine::lookup
@@ -188,4 +305,34 @@ static_assert(concepts::SearchAlgoVariant<Array65535SearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<Array65535SearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<Array65535SearchAlgo>);
 // NICHT: SimdCapableStrategy (direkter O(1)-Index, kein SIMD-Vorteil)
+
+// ---------------------------------------------------------------------------------------------
+// Der Zwei-Ebenen-Vertrag, self-proving an der Datei, die ihn eingeht (Pilot-Rezept, linear_scan:352).
+// ---------------------------------------------------------------------------------------------
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<Array65535SearchAlgo,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             Array65535SearchAlgo>,
+              "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
+              "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
+static_assert(
+    composable::AllocatorRebindableSearchAlgo<Array65535SearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+    "01c: Array65535SearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+static_assert(!composable::IsReboundSearchAlgoLeaf<Array65535SearchAlgo>,
+              "01c EBENEN-VERMISCHUNG: die Fassade traegt den Rebound-Tag -- Emitter-type_name-Reise und "
+              "Registry-Reflektion zeigten dann auf die Substanz-Ebene.");
+static_assert(
+    composable::IsReboundSearchAlgoLeaf<Array65535SearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+    "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
+static_assert(composable::search_algo_name_is_allocator_invariant_v<Array65535SearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "01c name()-INVARIANZ (Level 0) verletzt.");
+static_assert(Array65535SearchAlgo::name() ==
+                  Array65535SearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
+              "01c name()-INVARIANZ verletzt: der Rebound-Leaf traegt einen anderen Organ-Namen als die Fassade -- "
+              "die T6-Wahl leckte in den serialize-/binary_id-Schluessel.");
+static_assert(concepts::SearchAlgoVariant<Array65535SearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<
+              Array65535SearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(
+    concepts::DensityClassifiedStrategy<Array65535SearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
 } // namespace comdare::cache_engine::lookup

@@ -56,9 +56,27 @@
 //   (9) F30-RELATION      -- "::" + type_name<S>() == ORGAN_LOCATION-Literal, am TYP statt am Artefakt:
 //                            genau die Relation, die der Generator-Guard prueft, hier auch fuer die
 //                            Default-OFF-Organe, deren Kante bis zur Hebung latent offen war
-// (1)-(5) und (9) laufen compile-hart ueber die GANZE abgeleitete Liste; (6)-(8) laufen zur Laufzeit ueber
-// dieselbe Liste (mp_for_each), (8) gefiltert auf die ENABLED-Teilmenge -- nur die steht ueberhaupt in der
-// committeten XML (der Generator reflektiert Enabled*, main.cpp:207) -- und (8b) auf ihr Komplement.
+// (1)-(5) und (9) laufen compile-hart ueber die GANZE abgeleitete Liste; (8)/(8b) laufen zur Laufzeit
+// ueber dieselbe Liste (mp_for_each), (8) gefiltert auf die ENABLED-Teilmenge -- nur die steht ueberhaupt
+// in der committeten XML (der Generator reflektiert Enabled*, main.cpp:207) -- und (8b) auf ihr Komplement.
+//
+// ===================================================================================================
+// SCHEIBE 3 (2026-08-05): (6)/(7) LAUFEN UEBER EINE ERKLAERTE STICHPROBE, NICHT UEBER DIE POPULATION.
+// ===================================================================================================
+// Bis Scheibe 2 war die Laufzeit-Population identisch mit der abgeleiteten -- bei 8 typ-verwandten
+// Array-Organen war das gratis. Scheibe 3 zieht die uebrigen 14 Organe der Achse herein, und die sind
+// NICHT typ-verwandt: u8- neben u16-Keyraum, lazy- neben konstruktor-allozierenden Puffern, Trie-
+// Staging-Wrapper neben Knoten-Pools. Ein generischer Treiber ueber ALLE 22 waere entweder falsch
+// (kN=512 kollabiert im u8-Keyraum auf 256 distinkte Keys -- die Disjunktheits-Probe verglichen zwei
+// gleich grosse Instanzen und meldete gruen, ohne etwas zu zeigen) oder er muesste die Aussage so weit
+// verwaessern, bis sie nichts mehr trennt.
+//
+// Die Wache faehrt (6)/(7) deshalb ueber eine ERKLAERTE STICHPROBE: die 8 Organe der Scheiben 1+2
+// (unveraendert, keine Deckung verloren) plus je EINEN Vertreter der neuen Klassen. Das ist eine
+// AUFWANDS-Entscheidung und wird als solche ausgewiesen, nicht als Vollstaendigkeit verkleidet:
+// compile-hart gilt der Vertrag fuer ALLE 22, real GETRIEBEN wird die Stichprobe. Der
+// Stichproben-Vertrag darunter (jedes Element traegt den Migrations-Ausweis) haelt sie an die
+// abgeleitete Population gekettet -- ein Tippfehler oder ein Organ ohne Ausweis bricht compile-hart.
 //
 // WARUM (6) NICHT ALS BLOSSES ">0" GEBAUT IST (02a-HERZ-Vorbild, LEDGER abend-13): ein ">0" waere auch
 // am ALT-Stand gruen gewesen, sobald IRGENDEIN Achsen-Zaehler lief. Die Aussage dieser Scheibe ist
@@ -145,6 +163,33 @@ using ist_disabled = mp::mp_bool<!S::enabled>;
 using MigrierteOrgane     = mp::mp_filter<traegt_migrations_ausweis, lk::AllStrategies>;
 using MigriertUndEnabled  = mp::mp_filter<lk::is_enabled, MigrierteOrgane>;
 using MigriertUndDisabled = mp::mp_filter<ist_disabled, MigrierteOrgane>;
+
+// =============================================================================================
+// DIE KONTRAST-STICHPROBE (Scheibe 3) -- welche Organe REAL getrieben werden.
+// Bewusst eine Liste und keine Ableitung: die Auswahl IST die Aussage (je ein Vertreter je
+// Speicher-Klasse), und eine Ableitung koennte sie nicht treffen. Sie steht unter zwei Vertraegen:
+//   - jedes Element traegt den Migrations-Ausweis (haelt sie an die abgeleitete Population gekettet),
+//   - die Stichprobe ist echt kleiner als die Population (sonst waere die Trennung Zeremonie).
+// LAZY-KLASSE (Puffer wachsen erst unter Last -> der "ehrliche Nullpunkt" der generischen Probe gilt):
+//   * Scheiben 1+2, unveraendert: k_ary, interpolation, eytzinger, linear_scan + die vier per-K.
+//   * NEU Scheibe 3: vector_u16u16 = die FLACHE Familie (zwei parallele Vektoren, u16-Keyraum).
+// Die KONSTRUKTOR-ALLOZIERENDE Klasse (array65535) hat eine EIGENE Probe weiter unten -- fuer sie ist
+// der Nullpunkt per Konstruktion nicht null, und genau das ist dort die Aussage.
+// =============================================================================================
+using KontrastStichprobe = mp::mp_list<lk::KArySearchAlgo, lk::InterpolationSearchAlgo, lk::EytzingerSearchAlgo,
+                                       lk::LinearScanSearchAlgo, lk::KArySearchAlgoK2, lk::KArySearchAlgoK4,
+                                       lk::KArySearchAlgoK8, lk::KArySearchAlgoK16, lk::VectorU16U16SearchAlgo>;
+
+static_assert(mp::mp_all_of<KontrastStichprobe, traegt_migrations_ausweis>::value,
+              "01c-Stichprobe ENTKOPPELT: ein Organ der Kontrast-Stichprobe traegt keinen Migrations-Ausweis, "
+              "steht also gar nicht in der abgeleiteten Population. Die Stichprobe triebe dann etwas, das der "
+              "compile-harte Vertrag oben nie gesehen hat.");
+static_assert(mp::mp_size<KontrastStichprobe>::value < mp::mp_size<MigrierteOrgane>::value,
+              "01c-Stichprobe NICHT ECHT KLEINER als die abgeleitete Population -- dann ist die Trennung zwischen "
+              "compile-hartem Vertrag (alle) und getriebener Stichprobe (Auswahl) Zeremonie, und die "
+              "Aufwands-Ehrlichkeit dieser Wache waere eine leere Behauptung.");
+static_assert(mp::mp_size<mp::mp_unique<KontrastStichprobe>>::value == mp::mp_size<KontrastStichprobe>::value,
+              "01c-Stichprobe traegt ein DUPLIKAT -- der Laufzeit-Ausweis zaehlte dasselbe Organ doppelt.");
 
 // =============================================================================================
 // (0) POPULATIONS-PIN -- die Anti-Vakuositaets-Wache der ABLEITUNG.
@@ -364,6 +409,68 @@ void pruefe_organ_zur_laufzeit() {
            "erase-Semantik identisch");
 }
 
+/// (6b) SONDER-PROBE der KONSTRUKTOR-ALLOZIERENDEN Klasse (Scheibe 3, Vertreter S09 Array65535).
+///
+/// Fuer dieses Organ gilt der "ehrliche Nullpunkt" der generischen Probe NICHT -- und das ist keine
+/// Ausnahme, die man wegdefiniert, sondern die schaerfste Aussage der ganzen Scheibe: das Organ legt
+/// seine beiden 65536-Slot-Puffer BEIM BAU an (data_ 512 KiB + present_ 64 KiB je Instanz). Genau diese
+/// groesste Einzel-Allokation der Achse lief am Alt-Stand am Allokator-Achsen-Interface vorbei; die
+/// T6-Spalte haette sie nie gesehen, auch nicht als der Store laengst konform war. Die Probe verlangt
+/// deshalb das Gegenteil des Nullpunkts: schon die UNGETRIEBENE Instanz muss Bytes ueber die T6-Wahl
+/// melden -- und beide Ebenen muessen dabei zahlengleich sein.
+template <class S>
+void pruefe_konstruktions_allozierer() {
+    using Rebound = comp::search_algo_for_composition_t<S, KompositionsAllokator>;
+
+    std::printf("  --- %s (KONSTRUKTOR-ALLOZIERER | Fassade %s | Rebound %s)\n", S::name().data(),
+                s5::family_alloc_form<S>(), s5::family_alloc_form<Rebound>());
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    Rebound frisch_komposition{};
+    S       frisch_default{};
+
+    auto const k_bau = frisch_komposition.search_allocator_statistics();
+    auto const d_bau = frisch_default.search_allocator_statistics();
+    std::printf("      Bau-Allokationen: Komposition=%llu (%llu B) | Achsen-Default=%llu (%llu B)\n",
+                static_cast<unsigned long long>(k_bau.allocation_count),
+                static_cast<unsigned long long>(k_bau.total_bytes_allocated),
+                static_cast<unsigned long long>(d_bau.allocation_count),
+                static_cast<unsigned long long>(d_bau.total_bytes_allocated));
+
+    pruefe(k_bau.allocation_count > 0,
+           "schon der BAU alloziert ueber die T6-Wahl der Komposition (am Alt-Stand lief genau diese "
+           "Allokation am Achsen-Interface vorbei)");
+    pruefe(k_bau.allocation_count == d_bau.allocation_count &&
+               k_bau.total_bytes_allocated == d_bau.total_bytes_allocated,
+           "Bau-Bilanz beider Ebenen zahlen- UND byte-gleich (der Rebind aendert die Strategie, nicht die Geometrie)");
+    // Gegenprobe gegen die generische Probe: hier waere ein "== 0"-Nullpunkt schlicht FALSCH.
+    pruefe(k_bau.total_bytes_allocated >= 65536u,
+           "die gemeldeten Bytes haben die Groessenordnung der deklarierten 65536-Slot-Puffer");
+
+    // Die Last aendert bei direkter Adressierung NICHTS an der Allokations-Bilanz -- auch das ist eine
+    // Aussage (kein verstecktes Nachwachsen), und sie muss auf beiden Ebenen gleich ausfallen.
+    treibe(frisch_komposition, kN);
+    treibe(frisch_default, kN);
+    pruefe(frisch_komposition.search_allocator_statistics().allocation_count == k_bau.allocation_count &&
+               frisch_default.search_allocator_statistics().allocation_count == d_bau.allocation_count,
+           "direkte Adressierung waechst unter Last NICHT nach -- auf beiden Ebenen gleich");
+#else
+    std::printf("      (Statistik-Pfad aus -- Bau-Bilanz uebersprungen, Verhaltens-Pin laeuft)\n");
+    Rebound frisch_komposition{};
+    S       frisch_default{};
+    treibe(frisch_komposition, kN);
+    treibe(frisch_default, kN);
+#endif
+
+    bool alle_gleich = true;
+    for (std::uint32_t i = 0; i < kN + 64u; ++i) {
+        auto const k = static_cast<typename S::key_type>(i);
+        if (frisch_komposition.lookup(k) != frisch_default.lookup(k)) alle_gleich = false;
+    }
+    pruefe(alle_gleich, "Antworten der beiden Ebenen ueber Treffer UND Fehlschlaege identisch");
+    pruefe(frisch_komposition.occupied_count() == frisch_default.occupied_count(), "Belegung identisch");
+}
+
 /// (8) REGISTRY-BYTE-BEWEIS am committeten Artefakt -- je ENABLED Organ der Population.
 /// Der Roundtrip-Test (test_axis_registry_roundtrip) beweist "XML == Reflektion des Codes". DIESE
 /// Probe beweist die andere Haelfte: dass die reflektierte Form die ARGLOSE Fassaden-Form ist. Ein
@@ -418,11 +525,17 @@ int main() {
                 static_cast<std::size_t>(mp::mp_size<MigriertUndEnabled>::value),
                 static_cast<std::size_t>(mp::mp_size<lk::EnabledStrategies>::value));
 
-    std::printf("\n(6)+(7) KONTRAST- UND VERHALTENS-BEWEIS je migriertem Organ:\n");
-    mp::mp_for_each<mp::mp_transform<mp::mp_identity, MigrierteOrgane>>([](auto id) {
+    std::printf("\n(6)+(7) KONTRAST- UND VERHALTENS-BEWEIS je Organ der ERKLAERTEN STICHPROBE (%zu von %zu\n"
+                "        migrierten -- compile-hart gilt der Vertrag fuer ALLE, getrieben wird die Auswahl):\n",
+                static_cast<std::size_t>(mp::mp_size<KontrastStichprobe>::value),
+                static_cast<std::size_t>(mp::mp_size<MigrierteOrgane>::value));
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, KontrastStichprobe>>([](auto id) {
         using S = typename decltype(id)::type;
         pruefe_organ_zur_laufzeit<S>();
     });
+
+    std::printf("\n(6b) SONDER-PROBE der KONSTRUKTOR-ALLOZIERENDEN Klasse:\n");
+    pruefe_konstruktions_allozierer<lk::Array65535SearchAlgo>();
 
     std::printf("\n(8) REGISTRY-BYTE-BEWEIS je ENABLED Organ (nur die stehen in der XML):\n");
     {
