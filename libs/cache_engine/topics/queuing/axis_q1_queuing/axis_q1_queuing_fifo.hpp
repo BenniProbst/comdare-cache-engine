@@ -6,7 +6,16 @@
 //
 // First-In-First-Out: klassische LSM-MemTable + Write-Coalescing-Pattern.
 // Unbounded — std::deque-basiert.
+//
+// A8-S5 SCHNITT-FORM (B), 2026-08-05: der Deque-Speicher haengt an der Allokator-ACHSE (axis_06).
+// FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- der Puffer ist ERKLAERT unbounded
+// (is_bounded()==false, default_capacity()==0), eine Compile-Time-Kappe waere keine staerkere
+// Aussage, sondern eine Verhaltens-Aenderung. Deque statt Vektor bleibt der Familien-Unterschied
+// zu AppendOnlyBuffer und wird NICHT eingeebnet; nur die Speicher-Quelle wandert an die Achse.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt NICHT mehr vom
+// Default-Allokator, sondern vom StdAllocatorAdapter der Achse (Posten 64) -- s. put().
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -35,6 +44,11 @@ public:
     using axis_tag     = subaxes::sequential_access_tag;
     using family_id    = std::integral_constant<int, 3>; // Q03
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Der Achsen-Default steht EINMAL in
+    /// axis_q1_queuing_axis_storage.hpp, nicht hier -- Umbinden der Achse ist eine Zeile, nicht 13.
+    using allocator_type = queuing_buffer_allocator_t;
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
@@ -59,10 +73,47 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
+    /// Der Deque wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    FIFOQueueBuffer() : data_(allocator_.template as_std_allocator<element_type>()) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86 / linear_scan:167):
+    /// der StdAllocatorAdapter haelt einen Zeiger auf die Strategie-INSTANZ. Eine implizite Kopie
+    /// zoege den Adapter der QUELLE mit -- die Kopie allozierte/deallozierte dann ueber fremden,
+    /// potentiell schon zerstoerten Speicher. Copy-Ctor/Assign rebinden deshalb an das EIGENE
+    /// allocator_ und verwerfen die durch die Vollkopie entstandene transiente Allokations-Pollution
+    /// per restore_statistics. MOVE ist BEWUSST NICHT deklariert (der user-definierte Copy
+    /// unterdrueckt ihn implizit): jede Bewegung faellt auf den REBINDENDEN Copy zurueck.
+    FIFOQueueBuffer(FIFOQueueBuffer const& o)
+        : allocator_(o.allocator_), data_(o.data_, allocator_.template as_std_allocator<element_type>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    FIFOQueueBuffer& operator=(FIFOQueueBuffer const& o) {
+        if (this != &o) {
+            // propagate_on_container_copy_assignment ist false -> data_ BEHAELT seinen eigenen
+            // Adapter (auf unser allocator_); genau das ist hier gewollt.
+            data_ = o.data_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~FIFOQueueBuffer() = default;
+
     [[nodiscard]] bool operator==(FIFOQueueBuffer const& other) const noexcept {
         return data_.size() == other.data_.size(); // gleicher Inhalt zu pruefen waere teuer
     }
 
+    /// SONDERFALL [[allocation-failure-exception]]: das Deque-Wachstum kann werfen. KAUSALITAET seit
+    /// dem A8-S5-Schnitt (Posten 64/70): der Wurf kommt vom StdAllocatorAdapter der Allokator-ACHSE
+    /// (Strategie meldet OOM per nullptr, der Adapter uebersetzt an EINER Stelle in std::bad_alloc),
+    /// nicht mehr vom Default-Allokator. Fehlerklasse bleibt der FK-5-Boden der Allokator-Achse.
     void put(element_type v) {
         data_.push_back(v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -115,10 +166,25 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN LEDGER 04.08.2026 abend-11, Pflicht (a)).
+    /// BEWUSST EIN EIGENER NAME neben store_/traversal_/search_allocator_statistics: jede Organ-Instanz
+    /// haelt ihre EIGENE Strategie-Instanz, die Snapshots sind also DISJUNKT zum konstitutiven
+    /// Store-Snapshot. Ob und wie sie in die T6-CSV-Spalte summiert werden (Doppelzaehlungs-Regel), ist
+    /// der EXPLIZITE Schritt des Mess-Schnitt-Fensters VOR Messbeginn -- nicht dieser Scheibe. Die
+    /// Namens-Trennung IST die Absicherung dagegen, dass ein generischer Leser still doppelt zaehlt.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::deque<element_type> data_;
+    using data_type = std::deque<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR data_ stehen: der Adapter haelt &allocator_, und die Member-
+    // Initialisierungs-/Zerstoerungsreihenfolge ist die Deklarationsreihenfolge (data_ muss VOR der
+    // Strategie sterben). Dieselbe Reihenfolge wie in den Pool-Stores (01a) und in 01c/01d.
+    allocator_type allocator_{};
+    data_type      data_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};
