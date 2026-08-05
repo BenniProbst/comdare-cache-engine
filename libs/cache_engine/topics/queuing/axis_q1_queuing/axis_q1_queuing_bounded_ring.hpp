@@ -11,7 +11,23 @@
 // hybride Laufzeit-Permutation (Doku §15.5). PermutationEngine erkennt
 // HasIterableAspect<BoundedRingBuffer> und generiert 1 Binary mit Runtime-Loop
 // ueber kIterableCapacities statt 5 separate Binaries.
+//
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Ring-Speicher haengt an der Allokator-ACHSE
+// (axis_06).
+//
+// FORM-ENTSCHEID am Objekt (dieses Organ ist der Kandidat, den der Auftrag als Form-A-Verdacht
+// ausdruecklich benennt -- und die ehrliche Antwort ist NEIN): "bounded" heisst hier nicht
+// "compile-time bounded". Die Kapazitaet ist ein LAUFZEIT-Wert (Ctor-Argument, default_capacity()==64
+// nur als Vorbelegung) und ausserdem der iterable Aspekt, den set_iterable_aspect zur Laufzeit
+// umsetzt -- genau darauf beruht die Ein-Binary-statt-fuenf-Ersparnis der hybriden Permutation. Eine
+// CT-Kappe muesste das Maximum von kIterableCapacities tragen: 65536 * 8 Byte inline in JEDER
+// Komposition mit diesem Organ. Das waere keine staerkere Aussage (Form-A-Argument des 04-Piloten),
+// sondern ein anderes, teureres Organ. Der 04-Pilot durfte Form A nehmen, weil dort die Kappe
+// (kMaxTrackedSlots=16) REAL zur Compile-Zeit feststand; hier steht sie es nicht.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -44,6 +60,10 @@ public:
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::cyclic_access_tag;
     using family_id    = std::integral_constant<int, 5>; // Q05
+
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation, [[no-runtime-switch]] Ausnahme)
     /// PermutationEngine erkennt via HasIterableAspect<V> und generiert
@@ -81,11 +101,44 @@ public:
     BoundedRingBuffer() : BoundedRingBuffer(default_capacity()) {}
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
     /// (UB-Vermeidung: head_=(head_+1)%capacity_ ist Division-By-Zero bei cap=0).
+    /// Der Ring wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_); die
+    /// cap==0-Wache bleibt an derselben Stelle im Initialisierer wie zuvor.
     explicit BoundedRingBuffer(std::size_t cap)
         : buffer_((cap == 0 ? throw std::invalid_argument(
                                   "BoundedRingBuffer: capacity must be > 0 (cap=0 division-by-zero in modulo)")
-                            : cap)),
+                            : cap),
+                  element_type{0}, allocator_.template as_std_allocator<element_type>()),
           capacity_(cap), head_(0), tail_(0), count_(0) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden an das EIGENE allocator_ und verwerfen die transiente Kopier-Pollution per
+    /// restore_statistics. MOVE bewusst NICHT deklariert (Fremd-Zeiger im Adapter). Kopiert wird der
+    /// GANZE Ring inklusive head_/tail_/count_ -- die Indizes sind nur ohne Umsortierung gueltig.
+    BoundedRingBuffer(BoundedRingBuffer const& o)
+        : allocator_(o.allocator_), buffer_(o.buffer_, allocator_.template as_std_allocator<element_type>()),
+          capacity_(o.capacity_), head_(o.head_), tail_(o.tail_), count_(o.count_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    BoundedRingBuffer& operator=(BoundedRingBuffer const& o) {
+        if (this != &o) {
+            buffer_   = o.buffer_; // POCCA=false -> eigener Adapter bleibt erhalten
+            capacity_ = o.capacity_;
+            head_     = o.head_;
+            tail_     = o.tail_;
+            count_    = o.count_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~BoundedRingBuffer() = default;
 
     [[nodiscard]] bool operator==(BoundedRingBuffer const& other) const noexcept {
         return capacity_ == other.capacity_;
@@ -170,14 +223,23 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<element_type> buffer_;
-    std::size_t               capacity_;
-    std::size_t               head_;
-    std::size_t               tail_;
-    std::size_t               count_;
+    using buffer_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR buffer_ stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
+    buffer_type    buffer_;
+    std::size_t    capacity_;
+    std::size_t    head_;
+    std::size_t    tail_;
+    std::size_t    count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

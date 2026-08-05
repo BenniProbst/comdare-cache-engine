@@ -15,9 +15,16 @@
 // **2. Strategie mit is_versioned()=true** (nach DeltaChainBuffer) — anders aber:
 // DeltaChainBuffer = Append-Versioning, TombstoneBuffer = Erase-Versioning.
 //
-// Allocation: std::vector<std::optional<...>> — wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Slot-Speicher haengt an der Allokator-ACHSE
+// (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- die Slot-Reihe waechst mit
+// jedem put() und schrumpft erst beim Inline-Compact; is_bounded()==false. BESONDERHEIT dieses
+// Organs: der Element-Typ des Containers ist std::optional<element_type> (der Tombstone IST das
+// leere optional), der Adapter wird also auf std::optional<element_type> gebunden, nicht auf
+// element_type -- die Tombstone-Semantik bleibt unberuehrt.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -47,6 +54,10 @@ public:
     using axis_tag     = subaxes::versioned_access_tag;
     using family_id    = std::integral_constant<int, 9>; // Q09
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
@@ -72,11 +83,43 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
+    /// Die Slot-Reihe wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    TombstoneBuffer() : slots_(allocator_.template as_std_allocator<slot_type>()) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden an das EIGENE allocator_ und verwerfen die transiente Kopier-Pollution per
+    /// restore_statistics. MOVE bewusst NICHT deklariert (Fremd-Zeiger im Adapter).
+    TombstoneBuffer(TombstoneBuffer const& o)
+        : allocator_(o.allocator_), slots_(o.slots_, allocator_.template as_std_allocator<slot_type>()),
+          drain_pos_(o.drain_pos_), live_count_(o.live_count_), version_counter_(o.version_counter_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    TombstoneBuffer& operator=(TombstoneBuffer const& o) {
+        if (this != &o) {
+            slots_           = o.slots_; // POCCA=false -> eigener Adapter bleibt erhalten
+            drain_pos_       = o.drain_pos_;
+            live_count_      = o.live_count_;
+            version_counter_ = o.version_counter_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~TombstoneBuffer() = default;
+
     [[nodiscard]] bool operator==(TombstoneBuffer const& other) const noexcept {
         return live_count_ == other.live_count_;
     }
 
-    /// SONDERFALL [[allocation-failure-exception]]: push_back kann std::bad_alloc werfen.
+    /// SONDERFALL [[allocation-failure-exception]]: push_back kann werfen -- seit dem A8-S5-Schnitt aus
+    /// dem StdAllocatorAdapter der Allokator-ACHSE (Posten 64), nicht mehr vom Default-Allokator.
     void put(element_type v) {
         slots_.push_back(std::optional<element_type>{v});
         ++live_count_;
@@ -159,13 +202,24 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<std::optional<element_type>> slots_;
-    std::size_t                              drain_pos_       = 0;
-    std::size_t                              live_count_      = 0;
-    std::uint64_t                            version_counter_ = 0;
+    /// Der Tombstone IST das leere optional -- deshalb bindet der Achsen-Adapter auf DIESEN Typ.
+    using slot_type  = std::optional<element_type>;
+    using slots_type = std::vector<slot_type, queuing_buffer_alloc_t<slot_type>>;
+
+    // allocator_ MUSS VOR slots_ stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
+    slots_type     slots_;
+    std::size_t    drain_pos_       = 0;
+    std::size_t    live_count_      = 0;
+    std::uint64_t  version_counter_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

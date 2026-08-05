@@ -1982,6 +1982,25 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # name()-Invarianz (T6-Wahl darf nie in den serialize-Schluessel lecken) und den Kontrast-Beweis nach
     # 02a-HERZ-Vorbild (drei Groessen gegeneinander statt eines geschenkten ">0").
     test_s5_01c_fassaden_conformance # A8-S5 -- Fassaden-/Durchbindungs-Konformitaet Familie 01c
+    # A8-S5 (2026-08-05) Familie 05_write_path_io / RESTSTRECKE queuing = die vom S5-Abschnitts-Truth-Check
+    # gefundene VOLLSTAENDIGKEITS-LUECKE (wf_94ca9f27 R1, Auflage 2+3). Der bisherige 05-Nachweis war ein
+    # grep ueber axes/io_dispatch/ + axes/persistence_target/ und meldete "leer" -- korrekt, aber gegen ein
+    # zu kleines UNIVERSUM: kOrganGruppe05 hat VIER Achsen, und queuing_q1/q2 haben ueberhaupt keinen
+    # axes/-Ordner (sie leben nur in der topics/-Doppelwurzel). Diese TU macht die stille Annahme
+    # unmoeglich: das Universum kommt aus der drift-bewachten EINZIGQUELLE (lager_baum_writer.hpp
+    # kOrganGruppe05), die Deckung wird BEIDSEITIG gepinnt (jede Achse gedeckt UND jede Deckung in der
+    # Familie), und die Quell-WURZEL wird nicht angenommen, sondern von den Organen selbst erfragt
+    # (COMDARE_DEFINE_ORGAN_LOCATION -> header_include). Dazu der Form-Ausweis je Organ, der
+    # Kontrast-Pin (Q1 darf NICHT heap-frei sein -- sonst traegt die Wache nichts ueber Form B), der
+    # LAUFZEIT-Verdrahtungs-Beleg je Q1-Puffer (Achsen-Zaehler > 0 nach echten put(); am Alt-Stand
+    # strukturell 0) und der COW-/Memento-Rebind-Beleg am kopierten Organ.
+    test_s5_05q_queuing_alloc_conformance # A8-S5 -- Allokator-Achsen-Konformitaet Familie 05 (4/4 Achsen)
+    # Zweite Haelfte des Gate-Musters: die Konformitaets-TU pinnt auf TYP-Ebene, diese hier zur LAUFZEIT,
+    # dass der Q1-Schnitt (kompletter Wechsel des Speicher-Unterbaus auf die Allokator-Achse) die Achse
+    # nicht still stumm geschaltet hat. Zeit UND Zaehler DERSELBEN Op-Schleife, Feld-Indizes gegen
+    # kV3AxisSchema gepinnt, plus der ehrliche Nullpunkt BEIDER Achsen (NoBuffer peak_size==0 bei
+    # laufendem Betrieb an anderer Spalte; LazyFlush/EagerFlush tauschen full_flush/no_flush).
+    test_s5_05q_queuing_perf_sanity # A8-S5 -- Perf-Sanity T15/T16 Familie 05
     test_h64_allocator_adapter_failure_contract # Posten 64 -- StdAllocatorAdapter: nullptr -> std::bad_alloc
     # POSTEN 80 (2026-08-05, A8-S5 01c Vorlauf 0): der 01b-Vorbehalt "-O3/MimallocAllocator/'jmp .'" an
     # seiner ECHTEN Ursache gepinnt -- die drei Statistik-Weiterleiter der axis_06-CRTP-Basis rufen sich

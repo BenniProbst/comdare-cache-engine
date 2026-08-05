@@ -28,9 +28,29 @@
 // Constructor wirft std::invalid_argument bei nicht-Power-of-2 oder cap=0
 // ([[zero-size-allocation-exception]]).
 //
-// Allocation: std::vector(cap) + atomics — wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- das Zell-Array haengt an der Allokator-ACHSE
+// (axis_06). DIESES ORGAN IST DER GEGENPROBE-FUND der Scheibe: sein Zustand war NIE ein
+// std-Container, sondern ein std::make_unique<Cell[]> -- ein direkter ::operator new[]. Der
+// Familien-grep der B-5-Klasse (std::vector|map|deque|set|...) haette es NIE gezeigt; gefunden hat es
+// erst die breite Gegenprobe (new/make_unique/make_shared) am Ende des Scrubs.
+//
+// FORM-ENTSCHEID am Objekt: Form A scheidet aus (Kapazitaet ist LAUFZEIT-Aspekt bis 65536, s.
+// bounded_ring); std::vector<Cell, Adapter> scheidet ebenfalls aus, weil Cell ein std::atomic haelt
+// und der Reconfigure-Pfad damit den elementweisen Move-Pfad des Vektors instanziieren wuerde
+// (std::atomic ist weder move-konstruierbar noch move-zuweisbar -> ill-formed). Gewaehlt ist der
+// achsgebundene Ein-Block-Halter detail::AxisCellArray (axis_q1_queuing_axis_storage.hpp), dessen
+// Form-Entscheid dort vollstaendig begruendet ist.
+//
+// LOCK-FREE-SORGFALT: die Vyukov-Semantik (per-Cell-sequence + CAS-Retry) ist UNBERUEHRT. Alloziert
+// wird ausschliesslich im Konstruktor und in set_iterable_aspect -- beide am Objekt bereits als
+// "nur sicher wenn keine Producer/Consumer aktiv" deklariert. Der CAS-Pfad sieht den Allokator nie.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom globalen operator new.
+//
+// (Der Kommentar an dieser Stelle sprach frueher von "std::vector(cap) + atomics" -- ein Vektor war
+// hier nie im Spiel; die Zeile ist mit dem Schnitt auf den Ist-Zustand gebracht.)
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -65,6 +85,10 @@ public:
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::lock_free_access_tag;
     using family_id    = std::integral_constant<int, 14>; // Q13b (interne ID 14)
+
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
 
     /// iterable_aspect_t — Power-of-2 Pflicht (Vyukov-Modulo via bitmask).
     using iterable_aspect_t = std::size_t;
@@ -104,7 +128,7 @@ public:
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 oder nicht-Power-of-2 wirft.
     explicit LockFreeMPMCBuffer(std::size_t cap)
         : capacity_(validate_capacity(cap)), mask_(cap - 1), enqueue_pos_(0), dequeue_pos_(0) {
-        cells_ = std::make_unique<Cell[]>(cap);
+        cells_.reset(&allocator_, cap);
         for (std::size_t i = 0; i < cap; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
     }
 
@@ -200,13 +224,15 @@ public:
     /// Setter fuer Runtime-Capacity-Switch ([[iterable-aspect-strategy]] Sub-Concept).
     /// MPMC erfordert vollstaendigen Cell-Array-Reallocate (sequence-initialisierung).
     /// **Nur sicher wenn keine Producer/Consumer aktiv** (Reconfigure-Time).
-    /// SONDERFALL [[allocation-failure-exception]]: make_unique kann std::bad_alloc werfen.
+    /// SONDERFALL [[allocation-failure-exception]]: die Neu-Belegung des Zell-Arrays kann werfen.
+    /// KAUSALITAET seit dem A8-S5-Schnitt (Posten 64/70): der Wurf kommt aus dem StdAllocatorAdapter
+    /// der Allokator-ACHSE (AxisCellArray::reset), nicht mehr aus make_unique/::operator new[].
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 ODER nicht-Power-of-2 wirft.
     void set_iterable_aspect(std::size_t new_cap) {
         std::size_t validated = validate_capacity(new_cap);
-        cells_                = std::make_unique<Cell[]>(validated);
-        capacity_             = validated;
-        mask_                 = validated - 1;
+        cells_.reset(&allocator_, validated);
+        capacity_ = validated;
+        mask_     = validated - 1;
         for (std::size_t i = 0; i < validated; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
         enqueue_pos_.store(0, std::memory_order_relaxed);
         dequeue_pos_.store(0, std::memory_order_relaxed);
@@ -242,6 +268,11 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -262,11 +293,14 @@ private:
         return cap;
     }
 
-    std::size_t              capacity_;
-    std::size_t              mask_;
-    std::unique_ptr<Cell[]>  cells_;
-    std::atomic<std::size_t> enqueue_pos_;
-    std::atomic<std::size_t> dequeue_pos_;
+    std::size_t capacity_;
+    std::size_t mask_;
+    // allocator_ MUSS VOR cells_ stehen (der Halter zeigt auf &allocator_ und gibt in seinem
+    // Destruktor darueber frei) -- Ordnung wie 01a/01c/01d.
+    allocator_type              allocator_{};
+    detail::AxisCellArray<Cell> cells_;
+    std::atomic<std::size_t>    enqueue_pos_;
+    std::atomic<std::size_t>    dequeue_pos_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

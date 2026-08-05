@@ -5,7 +5,14 @@
 // @subaxis QS1 sequential_access
 //
 // Last-In-First-Out (Stack): Hot-Path Reuse + Versions-Tombstones.
+//
+// A8-S5 SCHNITT-FORM (B), 2026-08-05: der Stack-Speicher haengt an der Allokator-ACHSE (axis_06).
+// FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- der Stack ist ERKLAERT unbounded
+// (is_bounded()==false, default_capacity()==0); eine CT-Kappe waere hier keine staerkere Aussage,
+// sondern ein anderes Organ. [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt
+// vom StdAllocatorAdapter der Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -34,6 +41,10 @@ public:
     using axis_tag     = subaxes::sequential_access_tag;
     using family_id    = std::integral_constant<int, 4>; // Q04
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; }
@@ -58,10 +69,39 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
+    /// Der Vektor wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    LIFOStackBuffer() : data_(allocator_.template as_std_allocator<element_type>()) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden an das EIGENE allocator_ und verwerfen die transiente Kopier-Pollution per
+    /// restore_statistics. MOVE bewusst NICHT deklariert -- es zoege den Adapter mitsamt Fremd-Zeiger.
+    LIFOStackBuffer(LIFOStackBuffer const& o)
+        : allocator_(o.allocator_), data_(o.data_, allocator_.template as_std_allocator<element_type>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    LIFOStackBuffer& operator=(LIFOStackBuffer const& o) {
+        if (this != &o) {
+            data_ = o.data_; // POCCA=false -> data_ behaelt seinen an unser allocator_ gebundenen Adapter
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~LIFOStackBuffer() = default;
+
     [[nodiscard]] bool operator==(LIFOStackBuffer const& other) const noexcept {
         return data_.size() == other.data_.size();
     }
 
+    /// SONDERFALL [[allocation-failure-exception]]: push_back kann werfen -- seit dem A8-S5-Schnitt aus
+    /// dem StdAllocatorAdapter der Allokator-ACHSE (Posten 64), nicht mehr vom Default-Allokator.
     void put(element_type v) {
         data_.push_back(v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -114,10 +154,20 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<element_type> data_;
+    using data_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR data_ stehen (der Adapter haelt &allocator_; Zerstoerung in umgekehrter
+    // Deklarationsreihenfolge) -- dieselbe Ordnung wie in den Pool-Stores (01a) und in 01c/01d.
+    allocator_type allocator_{};
+    data_type      data_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

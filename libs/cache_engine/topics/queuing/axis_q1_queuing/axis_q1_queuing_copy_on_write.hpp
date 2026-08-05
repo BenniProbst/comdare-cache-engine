@@ -17,9 +17,25 @@
 //   - TombstoneBuffer = Erase-Versioning (Marker bleiben bis Compact)
 //   - CopyOnWriteBuffer     = Snapshot-Versioning (gesamter State pro Version)
 //
-// Allocation: shared_ptr<vector> + Konstruktor — wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- BEIDE Allokationen dieses Organs haengen an der
+// Allokator-ACHSE (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- der Zustand
+// ist per Konstruktion ein geteilter Heap-Snapshot, das IST das Organ.
+//
+// ZWEI Allokationen, nicht eine -- das ist der Befund, den make_shared verdeckt hatte:
+//   (1) der SNAPSHOT-Block selbst (Kontrollblock + Vektor-Objekt) -> std::allocate_shared mit dem
+//       Achsen-Adapter auf den Snapshot-Typ statt std::make_shared (das nimmt IMMER ::operator new);
+//   (2) der ELEMENT-Puffer INNERHALB des Vektors -> der Vektor wird selbst mit dem Achsen-Adapter
+//       auf element_type konstruiert. Ohne (2) haette (1) allein nur die Huelle gebunden und der
+//       eigentliche Inhalt liefe weiter am T6-Zaehler vorbei.
+//
+// COW-KOPIE (die Falle dieses Organs): eine Organ-Kopie darf den Snapshot NICHT einfach TEILEN. Der
+// geteilte Block gehoert dem allocator_ der QUELLE; ueberlebte die Kopie die Quelle, deallozierte der
+// letzte shared_ptr ueber eine bereits zerstoerte Strategie. Der Copy-Ctor legt deshalb einen EIGENEN
+// Snapshot an -- die Snapshot-Semantik nach aussen (gleicher Inhalt, gleiche Version) ist identisch.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -50,6 +66,14 @@ public:
     using axis_tag     = subaxes::versioned_access_tag;
     using family_id    = std::integral_constant<int, 10>; // Q10
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
+    /// Der Snapshot-Typ ist Teil der oeffentlichen Flaeche (snapshot_ptr()) -- deshalb hier, nicht
+    /// unten: er traegt den Achsen-Adapter sichtbar, statt ihn im privaten Teil zu verstecken.
+    using snapshot_vector_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
@@ -78,7 +102,37 @@ public:
     // (F57/Muster B, WP-5 2026-07-16): der EINE unveraenderliche Leer-Snapshot wird HIER (nicht-noexcept)
     // vorab alloziert — clear() teilt ihn nur noch (shared_ptr-Copy-Assign, allokationsfrei). Teilen ist
     // CoW-korrekt: put()/get() mutieren *current_ NIE in place (immer make_shared-Neukopie).
-    CopyOnWriteBuffer() : empty_snapshot_(std::make_shared<std::vector<element_type>>()), current_(empty_snapshot_) {}
+    CopyOnWriteBuffer() : empty_snapshot_(make_snapshot()), current_(empty_snapshot_) {}
+
+    /// COW-SICHERHEIT -- hier woertlich (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86):
+    /// die Kopie bekommt EIGENE Snapshots aus dem EIGENEN allocator_ statt die der Quelle zu teilen.
+    /// Teilen waere die Falle: der geteilte Block gehoert der Quell-Strategie, und ueberlebte die
+    /// Kopie die Quelle, deallozierte der letzte shared_ptr ueber eine zerstoerte Strategie.
+    /// Nach aussen ist die Snapshot-Semantik unveraendert (gleicher Inhalt, gleiche Version).
+    /// MOVE bewusst NICHT deklariert (Fremd-Zeiger im Adapter).
+    CopyOnWriteBuffer(CopyOnWriteBuffer const& o)
+        : allocator_(o.allocator_), empty_snapshot_(make_snapshot()),
+          current_(o.current_->empty() ? empty_snapshot_ : make_snapshot(*o.current_)),
+          snapshot_version_(o.snapshot_version_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    CopyOnWriteBuffer& operator=(CopyOnWriteBuffer const& o) {
+        if (this != &o) {
+            current_          = o.current_->empty() ? empty_snapshot_ : make_snapshot(*o.current_);
+            snapshot_version_ = o.snapshot_version_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~CopyOnWriteBuffer() = default;
 
     [[nodiscard]] bool operator==(CopyOnWriteBuffer const& other) const noexcept {
         return current_->size() == other.current_->size();
@@ -88,7 +142,7 @@ public:
     /// vector-Kopie koennen std::bad_alloc werfen.
     /// CoW-Semantik: erstelle neuen Snapshot durch Vollkopie des aktuellen + Append.
     void put(element_type v) {
-        auto next = std::make_shared<std::vector<element_type>>(*current_);
+        auto next = make_snapshot(*current_);
         next->push_back(v);
         current_ = std::move(next);
         ++snapshot_version_;
@@ -109,7 +163,7 @@ public:
             return std::nullopt;
         }
         element_type v    = current_->front();
-        auto         next = std::make_shared<std::vector<element_type>>(current_->begin() + 1, current_->end());
+        auto         next = make_snapshot(current_->begin() + 1, current_->end());
         current_          = std::move(next);
         ++snapshot_version_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -147,7 +201,11 @@ public:
 
     /// CoW-spezifisch (nicht im Sub-Concept): aktueller Snapshot als shared_ptr
     /// fuer Reader-Snapshot-Isolation (RCU-Tries-Pattern).
-    [[nodiscard]] std::shared_ptr<std::vector<element_type> const> snapshot_ptr() const noexcept { return current_; }
+    /// A8-S5: der Rueckgabe-Typ traegt jetzt den Achsen-Adapter (snapshot_vector_type). Das ist die
+    /// EINE bewusste Aenderung an der oeffentlichen Flaeche dieses Organs -- sie ist unvermeidlich,
+    /// weil der Snapshot selbst der Achsen-Speicher IST. In-Tree gibt es genau NULL weitere
+    /// Konsumenten (grep 'snapshot_ptr' ueber das ganze Repo: nur diese Zeile).
+    [[nodiscard]] std::shared_ptr<snapshot_vector_type const> snapshot_ptr() const noexcept { return current_; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
@@ -162,12 +220,43 @@ public:
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    /// Der Alias liegt IM Statistik-Block, weil die Achsen-Strategie ihren snapshot_t auch nur dort
+    /// fuehrt -- ausserhalb gibt es schlicht keine Statistik, die man einsammeln koennte.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
+#endif
+
 private:
+    using snapshot_ptr_type = std::shared_ptr<snapshot_vector_type>;
+
+    /// BEIDE Allokationen ueber die Achse: allocate_shared bindet den Snapshot-BLOCK (Kontrollblock +
+    /// Vektor-Objekt), das durchgereichte as_std_allocator<element_type>() bindet den ELEMENT-Puffer
+    /// im Vektor. std::make_shared koennte nur das erste -- und auch das nur ueber ::operator new.
+    [[nodiscard]] snapshot_ptr_type make_snapshot() {
+        return std::allocate_shared<snapshot_vector_type>(allocator_.template as_std_allocator<snapshot_vector_type>(),
+                                                          allocator_.template as_std_allocator<element_type>());
+    }
+    [[nodiscard]] snapshot_ptr_type make_snapshot(snapshot_vector_type const& src) {
+        return make_snapshot(src.begin(), src.end());
+    }
+    template <class It>
+    [[nodiscard]] snapshot_ptr_type make_snapshot(It first, It last) {
+        return std::allocate_shared<snapshot_vector_type>(allocator_.template as_std_allocator<snapshot_vector_type>(),
+                                                          first, last,
+                                                          allocator_.template as_std_allocator<element_type>());
+    }
+
+    // allocator_ MUSS VOR den Snapshots stehen (die Adapter halten &allocator_, und die Bloecke
+    // muessen VOR der Strategie sterben) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
     // (F57/Muster B): unveraenderlicher, im ctor vorab allozierter Leer-Snapshot fuer das noexcept-clear().
     // VOR current_ deklariert (Initialisierungsreihenfolge: current_ startet als Alias des Leer-Snapshots).
-    std::shared_ptr<std::vector<element_type>> empty_snapshot_;
-    std::shared_ptr<std::vector<element_type>> current_;
-    std::uint64_t                              snapshot_version_ = 0;
+    snapshot_ptr_type empty_snapshot_;
+    snapshot_ptr_type current_;
+    std::uint64_t     snapshot_version_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

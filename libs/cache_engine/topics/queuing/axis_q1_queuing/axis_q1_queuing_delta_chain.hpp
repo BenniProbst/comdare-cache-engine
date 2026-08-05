@@ -13,9 +13,13 @@
 // nur versionierte Strategien koennen in Snapshot/MVCC-Pfaden eingesetzt werden
 // (z.B. fuer Q-EPOCH-Konsumenten, Snapshot-Isolation).
 //
-// Allocation: std::vector basiert — Heap-Wachstum wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Chain-Speicher haengt an der Allokator-ACHSE
+// (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- die Delta-Chain waechst
+// unbounded mit jedem put() (is_bounded()==false), eine CT-Kappe waere ein anderes Organ.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -45,6 +49,10 @@ public:
     using axis_tag     = subaxes::versioned_access_tag;
     using family_id    = std::integral_constant<int, 7>; // Q07
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
@@ -70,11 +78,41 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
+    /// Die Chain wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    DeltaChainBuffer() : chain_(allocator_.template as_std_allocator<element_type>()) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden an das EIGENE allocator_ und verwerfen die transiente Kopier-Pollution per
+    /// restore_statistics. MOVE bewusst NICHT deklariert (Fremd-Zeiger im Adapter).
+    DeltaChainBuffer(DeltaChainBuffer const& o)
+        : allocator_(o.allocator_), chain_(o.chain_, allocator_.template as_std_allocator<element_type>()),
+          next_version_id_(o.next_version_id_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    DeltaChainBuffer& operator=(DeltaChainBuffer const& o) {
+        if (this != &o) {
+            chain_           = o.chain_; // POCCA=false -> eigener Adapter bleibt erhalten
+            next_version_id_ = o.next_version_id_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~DeltaChainBuffer() = default;
+
     [[nodiscard]] bool operator==(DeltaChainBuffer const& other) const noexcept {
         return chain_.size() == other.chain_.size();
     }
 
-    /// SONDERFALL [[allocation-failure-exception]]: push_back kann std::bad_alloc werfen.
+    /// SONDERFALL [[allocation-failure-exception]]: push_back kann werfen -- seit dem A8-S5-Schnitt aus
+    /// dem StdAllocatorAdapter der Allokator-ACHSE (Posten 64), nicht mehr vom Default-Allokator.
     void put(element_type v) {
         chain_.push_back(v);
         ++next_version_id_;
@@ -133,11 +171,20 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<element_type> chain_;
-    std::uint64_t             next_version_id_ = 0;
+    using chain_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR chain_ stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
+    chain_type     chain_;
+    std::uint64_t  next_version_id_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

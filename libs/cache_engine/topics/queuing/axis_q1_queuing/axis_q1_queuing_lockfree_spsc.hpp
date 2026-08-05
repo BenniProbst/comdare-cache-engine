@@ -24,10 +24,25 @@
 // Pflicht-Vertrag: **Genau 1 Producer-Thread + genau 1 Consumer-Thread.**
 // Mehrere Threads auf einer Seite brechen das Lamport-Modell → UB.
 //
-// Allocation: std::vector(cap) im Constructor — wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]). cap=0 wirft std::invalid_argument
-// ([[zero-size-allocation-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- der Ring-Speicher haengt an der Allokator-ACHSE
+// (axis_06). cap=0 wirft weiterhin std::invalid_argument ([[zero-size-allocation-exception]]).
+//
+// FORM-ENTSCHEID am Objekt (der Auftrag verlangt hier ausdruecklich EHRLICHKEIT statt Schablone):
+// dieses Organ SIEHT nach Form A aus -- es ist bounded, es alloziert genau einmal, und die
+// Kapazitaeten stehen als kIterableCapacities im Header. Sie sind aber KEINE Compile-Time-Kappe: die
+// Kapazitaet ist ein LAUFZEIT-Aspekt (iterable_aspect_t; set_iterable_aspect setzt sie neu, und die
+// hybride Laufzeit-Permutation faehrt GENAU DESHALB eine Binary statt fuenf, Doku Par.15.5). Eine
+// CT-Kappe muesste das Maximum tragen -- 65536 * 8 Byte inline in JEDER Komposition, in der dieses
+// Organ steckt. Das waere keine staerkere Aussage, sondern eine falsche. Also Form B.
+//
+// LOCK-FREE-SORGFALT: der Schnitt beruehrt die Lamport-Semantik NICHT. Alloziert wird ausschliesslich
+// im Konstruktor und in set_iterable_aspect, und beide sind am Objekt bereits als Reconfigure-Time
+// ("nur sicher wenn weder Producer noch Consumer aktiv") deklariert. Der wait-freie put/get-Pfad
+// sieht den Allokator nie -- er indiziert nur in den bereits stehenden Block.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -61,6 +76,10 @@ public:
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::lock_free_access_tag;
     using family_id    = std::integral_constant<int, 13>; // Q13a
+
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation)
     using iterable_aspect_t = std::size_t;
@@ -98,13 +117,18 @@ public:
     LockFreeSPSCBuffer() : LockFreeSPSCBuffer(default_capacity()) {}
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
     /// (UB-Vermeidung: tail_=(tail_+1)%capacity_ ist Division-By-Zero bei cap=0).
+    /// Der Ring wird an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_); die
+    /// cap==0-Wache bleibt an derselben Stelle im Initialisierer wie zuvor.
     explicit LockFreeSPSCBuffer(std::size_t cap)
         : buffer_((cap == 0 ? throw std::invalid_argument(
                                   "LockFreeSPSCBuffer: capacity must be > 0 (cap=0 division-by-zero in modulo)")
-                            : cap)),
+                            : cap),
+                  element_type{0}, allocator_.template as_std_allocator<element_type>()),
           capacity_(cap), head_(0), tail_(0) {}
 
-    // SPSC ist nicht copy/move-fähig (atomics) — Vergleich nur ueber Capacity.
+    // SPSC ist nicht copy/move-faehig (atomics) -- Vergleich nur ueber Capacity. Das deckt zugleich die
+    // COW-Falle des Achsen-Adapters ab: ohne Kopie kann kein Fremd-Zeiger auf ein anderes allocator_
+    // entstehen (Praezedenz btree_node_pool_store.hpp:86 -- hier per delete statt per Rebind geloest).
     LockFreeSPSCBuffer(LockFreeSPSCBuffer const&)            = delete;
     LockFreeSPSCBuffer& operator=(LockFreeSPSCBuffer const&) = delete;
     LockFreeSPSCBuffer(LockFreeSPSCBuffer&&)                 = delete;
@@ -214,13 +238,22 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<element_type> buffer_;
-    std::size_t               capacity_;
-    std::atomic<std::size_t>  head_;
-    std::atomic<std::size_t>  tail_;
+    using buffer_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR buffer_ stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type           allocator_{};
+    buffer_type              buffer_;
+    std::size_t              capacity_;
+    std::atomic<std::size_t> head_;
+    std::atomic<std::size_t> tail_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

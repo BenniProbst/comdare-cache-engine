@@ -22,9 +22,17 @@
 //   - CopyOnWriteBuffer     = Snapshot-Versioning
 //   - EpochBuffer     = Reclamation-Window-Versioning (zeitlich begrenzt)
 //
-// Allocation: std::vector-basierte Epochen-Slots — wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- BEIDE Epochen-Slots haengen an der
+// Allokator-ACHSE (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- die
+// aktuelle Epoche waechst bis zum epoch_threshold_, und der ist ein LAUFZEIT-Aspekt
+// (iterable_aspect_t, per set_iterable_aspect frei setzbar); eine Compile-Time-Kappe gibt es hier
+// also nicht, sie waere eine Erfindung. [[allocation-failure-exception]]: der Wurf kommt seit
+// diesem Schnitt vom StdAllocatorAdapter der Achse (Posten 64), nicht mehr vom Default-Allokator.
+// BEIDE Epochen haengen am SELBEN allocator_ -- nur deshalb bleibt der Epoch-Advance
+// (retired_epoch_ = std::move(current_epoch_)) ein reiner Zeiger-Transfer: die Adapter beider
+// Vektoren vergleichen gleich, der Move stiehlt den Block statt elementweise zu kopieren.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -56,6 +64,10 @@ public:
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::versioned_access_tag;
     using family_id    = std::integral_constant<int, 11>; // Q11
+
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation, [[no-runtime-switch]] Ausnahme)
     /// PermutationEngine erkennt via HasIterableAspect<V> und generiert
@@ -91,8 +103,42 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    EpochBuffer() : epoch_threshold_(kIterableEpochThresholds[2]) {} // Default = 8
-    explicit EpochBuffer(std::size_t threshold) : epoch_threshold_(threshold == 0 ? 1u : threshold) {}
+    /// Beide Epochen-Vektoren werden an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    EpochBuffer() : EpochBuffer(kIterableEpochThresholds[2]) {} // Default = 8
+    explicit EpochBuffer(std::size_t threshold)
+        : current_epoch_(allocator_.template as_std_allocator<element_type>()),
+          retired_epoch_(allocator_.template as_std_allocator<element_type>()),
+          epoch_threshold_(threshold == 0 ? 1u : threshold) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden BEIDE Epochen an das EIGENE allocator_ und verwerfen die transiente Kopier-Pollution
+    /// per restore_statistics. MOVE bewusst NICHT deklariert (Fremd-Zeiger im Adapter).
+    EpochBuffer(EpochBuffer const& o)
+        : allocator_(o.allocator_),
+          current_epoch_(o.current_epoch_, allocator_.template as_std_allocator<element_type>()),
+          retired_epoch_(o.retired_epoch_, allocator_.template as_std_allocator<element_type>()),
+          epoch_threshold_(o.epoch_threshold_), epoch_id_(o.epoch_id_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    EpochBuffer& operator=(EpochBuffer const& o) {
+        if (this != &o) {
+            current_epoch_   = o.current_epoch_; // POCCA=false -> eigene Adapter bleiben erhalten
+            retired_epoch_   = o.retired_epoch_;
+            epoch_threshold_ = o.epoch_threshold_;
+            epoch_id_        = o.epoch_id_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~EpochBuffer() = default;
 
     [[nodiscard]] bool operator==(EpochBuffer const& other) const noexcept {
         return current_epoch_.size() == other.current_epoch_.size();
@@ -185,13 +231,22 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<element_type> current_epoch_;
-    std::vector<element_type> retired_epoch_;
-    std::size_t               epoch_threshold_;
-    std::uint64_t             epoch_id_ = 0;
+    using epoch_type = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+
+    // allocator_ MUSS VOR den Epochen stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type allocator_{};
+    epoch_type     current_epoch_;
+    epoch_type     retired_epoch_;
+    std::size_t    epoch_threshold_;
+    std::uint64_t  epoch_id_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

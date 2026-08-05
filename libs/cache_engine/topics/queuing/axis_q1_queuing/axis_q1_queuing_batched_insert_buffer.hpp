@@ -16,9 +16,23 @@
 //   bulk_insert(std::span<element_type const>) — append eines kompletten
 //   Sub-Batches in einem Schritt (effizienter als N×put()).
 //
-// Allocation: std::vector-basierte Batches — wirft std::bad_alloc bei OOM
-// ([[allocation-failure-exception]]).
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- BEIDE Ebenen der Batch-Struktur haengen an der
+// Allokator-ACHSE (axis_06). FORM-ENTSCHEID am Objekt: Form A (heap-frei) scheidet aus -- die Zahl
+// der fertigen Sub-Batches ist unbeschraenkt (is_bounded()==false), nur die Groesse EINES Batches
+// ist begrenzt, und auch die ist ein LAUFZEIT-Wert (batch_size_ aus dem Ctor).
+//
+// VERSCHACHTELUNGS-BEFUND (dieselbe Klasse wie der 02b-LOUDS-Level-Index): completed_batches_ ist ein
+// Vektor VON Vektoren. Der aeussere Vektor bindet den Adapter auf den INNEREN Vektortyp -- das deckt
+// nur die Zeiger-Reihe. Die INNEREN Puffer werden NICHT automatisch mitgebunden: ohne
+// scoped_allocator_adaptor greift die uses-allocator-Konstruktion nicht, ein `emplace_back()` ohne
+// Argument braechte einen Default-Allokator-Vektor ins Innere zurueck. Diese Datei bindet die innere
+// Ebene deshalb AUSDRUECKLICH -- jeder innere Batch wird mit as_std_allocator<element_type>()
+// konstruiert oder aus einem schon gebundenen Batch bewegt (Move zwischen gleichen Adaptern =
+// Zeiger-Transfer, kein Fremd-Zeiger).
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom Default-Allokator.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -49,6 +63,10 @@ public:
     using axis_tag     = subaxes::batched_access_tag;
     using family_id    = std::integral_constant<int, 12>; // Q12
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
     static constexpr std::size_t kDefaultBatchSize = 64; // Cache-Line-tauglich
 
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
@@ -75,9 +93,45 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    BatchedInsertBuffer() : batch_size_(kDefaultBatchSize) {}
+    /// BEIDE Ebenen werden an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_):
+    /// current_batch_ auf element_type, completed_batches_ auf den inneren Batch-Typ.
+    BatchedInsertBuffer() : BatchedInsertBuffer(kDefaultBatchSize) {}
     explicit BatchedInsertBuffer(std::size_t batch_size)
-        : batch_size_(batch_size == 0 ? kDefaultBatchSize : batch_size) {}
+        : current_batch_(allocator_.template as_std_allocator<element_type>()),
+          completed_batches_(allocator_.template as_std_allocator<batch_type>()),
+          batch_size_(batch_size == 0 ? kDefaultBatchSize : batch_size) {}
+
+    /// COW-SICHERHEIT (Memento-Muster, Praezedenz btree_node_pool_store.hpp:86): Copy-Ctor/Assign
+    /// rebinden die AEUSSERE Ebene an das EIGENE allocator_; die inneren Batches werden dabei EINZELN
+    /// neu gebunden (rebind_completed_from), weil die Vektor-Vollkopie sonst die Adapter der QUELLE
+    /// mitkopierte -- genau die Verschachtelungs-Falle aus dem Datei-Kopf. MOVE bewusst NICHT
+    /// deklariert (Fremd-Zeiger im Adapter).
+    BatchedInsertBuffer(BatchedInsertBuffer const& o)
+        : allocator_(o.allocator_),
+          current_batch_(o.current_batch_, allocator_.template as_std_allocator<element_type>()),
+          completed_batches_(allocator_.template as_std_allocator<batch_type>()), batch_size_(o.batch_size_) {
+        rebind_completed_from(o.completed_batches_);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_    = o.stats_;
+        observer_ = o.observer_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    BatchedInsertBuffer& operator=(BatchedInsertBuffer const& o) {
+        if (this != &o) {
+            current_batch_ = o.current_batch_; // POCCA=false -> eigener Adapter bleibt erhalten
+            completed_batches_.clear();
+            rebind_completed_from(o.completed_batches_);
+            batch_size_ = o.batch_size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_    = o.stats_;
+            observer_ = o.observer_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+    ~BatchedInsertBuffer() = default;
 
     [[nodiscard]] bool operator==(BatchedInsertBuffer const& other) const noexcept { return size() == other.size(); }
 
@@ -105,7 +159,10 @@ public:
         if (batch.empty()) return;
         current_batch_.insert(current_batch_.end(), batch.begin(), batch.end());
         while (current_batch_.size() >= batch_size_) {
-            std::vector<element_type> overflow{current_batch_.begin() + batch_size_, current_batch_.end()};
+            // Der Ueberlauf-Batch wird SOFORT an die Achse gebunden (nicht default-konstruiert) --
+            // er wird gleich zu current_batch_ und darf keinen Default-Allokator einschleppen.
+            batch_type overflow{current_batch_.begin() + static_cast<std::ptrdiff_t>(batch_size_), current_batch_.end(),
+                                allocator_.template as_std_allocator<element_type>()};
             current_batch_.resize(batch_size_);
             completed_batches_.emplace_back(std::move(current_batch_));
             current_batch_ = std::move(overflow);
@@ -193,12 +250,32 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    std::vector<element_type>              current_batch_;
-    std::vector<std::vector<element_type>> completed_batches_;
-    std::size_t                            batch_size_;
+    using batch_type      = std::vector<element_type, queuing_buffer_alloc_t<element_type>>;
+    using batch_list_type = std::vector<batch_type, queuing_buffer_alloc_t<batch_type>>;
+
+    /// Kopiert die fertigen Sub-Batches EINZELN und bindet dabei JEDEN inneren Puffer an das EIGENE
+    /// allocator_. Eine Vollkopie der aeusseren Reihe wuerde die inneren Adapter der QUELLE
+    /// mitkopieren (kein scoped_allocator_adaptor im Spiel) -- s. Verschachtelungs-Befund im Datei-Kopf.
+    void rebind_completed_from(batch_list_type const& src) {
+        completed_batches_.reserve(src.size());
+        for (auto const& b : src) {
+            completed_batches_.emplace_back(b.begin(), b.end(), allocator_.template as_std_allocator<element_type>());
+        }
+    }
+
+    // allocator_ MUSS VOR beiden Ebenen stehen (Adapter haelt &allocator_) -- Ordnung wie 01a/01c/01d.
+    allocator_type  allocator_{};
+    batch_type      current_batch_;
+    batch_list_type completed_batches_;
+    std::size_t     batch_size_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};
