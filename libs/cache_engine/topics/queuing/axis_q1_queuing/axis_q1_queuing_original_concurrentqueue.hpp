@@ -23,7 +23,23 @@
 // concurrentqueue ist header-only (BSD-2) — kein add_library noetig in s4.
 //
 // **Erste Q1-Strategie mit externer Submodule-Bindung (analog mimalloc bei Allocator).**
+//
+// Allocation: A8-S5 SCHNITT-FORM (B), 2026-08-05 -- das Zell-Array haengt an der Allokator-ACHSE
+// (axis_06), wie beim Zwilling LockFreeMPMCBuffer. Auch hier war der Zustand NIE ein std-Container,
+// sondern ein std::make_unique<Cell[]>; gefunden hat ihn erst die breite Gegenprobe des Scrubs.
+// Gewaehlt: der achsgebundene Ein-Block-Halter detail::AxisCellArray (Form-Entscheid vollstaendig in
+// axis_q1_queuing_axis_storage.hpp begruendet -- Form A scheidet an der Laufzeit-Kapazitaet aus,
+// std::vector<Cell, Adapter> an dem std::atomic in Cell).
+//
+// PAPERTREUE-GRENZE, ausdruecklich deklariert: der Schnitt beruehrt NUR den s2-Body (die
+// Standalone-Vyukov-Reimplementierung dieser Datei), nicht den s4-Pfad ueber die vendored
+// concurrentqueue.h. Die Luecken-Markierung (2/6 originall) bleibt damit unveraendert gueltig: der
+// Allokations-PFAD ist keine der sechs API-Zellen, und is_original_module() bleibt false aus dem
+// bisherigen Grund (4/6 Luecken), nicht aus einem neuen.
+// [[allocation-failure-exception]]: der Wurf kommt seit diesem Schnitt vom StdAllocatorAdapter der
+// Achse (Posten 64), nicht mehr vom globalen operator new.
 
+#include "axis_q1_queuing_axis_storage.hpp"
 #include "axis_q1_queuing_base.hpp"
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
@@ -82,6 +98,10 @@ public:
     using axis_tag     = subaxes::lock_free_access_tag;
     using family_id    = std::integral_constant<int, 15>; // Q15 (nach Q01-Q13b)
 
+    /// A8-S5 SCHNITT-FORM (B): DIESE Zeile ist der Ausweis, den die Familien-Konformitaets-Wache
+    /// liest (tests/unit/s5_family_alloc_conformance.hpp). Achsen-Default: axis_q1_queuing_axis_storage.hpp.
+    using allocator_type = queuing_buffer_allocator_t;
+
     /// iterable_aspect_t — Power-of-2 Pflicht (Vyukov-Modulo via bitmask, identisch zu LockFreeMPMCBuffer).
     using iterable_aspect_t = std::size_t;
     static constexpr std::array<std::size_t, 5>                 kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
@@ -125,7 +145,7 @@ public:
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 oder nicht-Power-of-2 wirft.
     explicit OriginalLockFreeMpmcConcurrentQueue(std::size_t cap)
         : capacity_(validate_capacity(cap)), mask_(cap - 1), enqueue_pos_(0), dequeue_pos_(0) {
-        cells_ = std::make_unique<Cell[]>(cap);
+        cells_.reset(&allocator_, cap);
         for (std::size_t i = 0; i < cap; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
     }
 
@@ -222,9 +242,9 @@ public:
     /// IterableAspectStrategy: Runtime-Capacity-Switch (Reconfigure-Time only).
     void set_iterable_aspect(std::size_t new_cap) {
         std::size_t validated = validate_capacity(new_cap);
-        cells_                = std::make_unique<Cell[]>(validated);
-        capacity_             = validated;
-        mask_                 = validated - 1;
+        cells_.reset(&allocator_, validated);
+        capacity_ = validated;
+        mask_     = validated - 1;
         for (std::size_t i = 0; i < validated; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
         enqueue_pos_.store(0, std::memory_order_relaxed);
         dequeue_pos_.store(0, std::memory_order_relaxed);
@@ -262,6 +282,11 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11) -- EIGENER Name, DISJUNKT zum
+    /// konstitutiven Store-Snapshot; die Summierungs-Frage gehoert ins Mess-Schnitt-Fenster.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t buffer_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -286,7 +311,10 @@ private:
     std::size_t              mask_;
     std::atomic<std::size_t> enqueue_pos_;
     std::atomic<std::size_t> dequeue_pos_;
-    std::unique_ptr<Cell[]>  cells_;
+    // allocator_ MUSS VOR cells_ stehen (der Halter zeigt auf &allocator_ und gibt in seinem
+    // Destruktor darueber frei) -- Ordnung wie 01a/01c/01d.
+    allocator_type              allocator_{};
+    detail::AxisCellArray<Cell> cells_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::BufferStatistics stats_{};
     mutable observer_t                 observer_{};
