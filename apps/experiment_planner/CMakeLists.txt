@@ -44,3 +44,35 @@ endif()
 if(COMMAND comdare_set_platform_defines)
     comdare_set_platform_defines(comdare_experiment_planner)
 endif()
+
+# F-B3 (Codex-Nachreview W1/W2, Ledger-Nachtrag 05.08.2026 nachmittag-7): INSTALL-NAHT.
+# Der W1-Rollen-Schnitt hat die Planer-Kommandos (validate | plan dump/ci/cmake | cache-key | fingerprint) AUS
+# dem installierten comdare-messung-driver ENTFERNT. Ohne eine eigene install()-Regel verliert jedes installierte
+# Deployment diese Kommandos ersatzlos -- der Rollen-Schnitt waere dort ein Funktionsverlust statt einer Teilung.
+#
+# ORTS-BEGRUENDUNG (die Vorlage steht NICHT in apps/): im ce-Repo installiert HEUTE keine einzige Bestands-App
+# (apps/*/CMakeLists.txt tragen kein install(); die einzigen install()-Regeln liegen in den beiden VENDORED
+# Paketen libs/common/platform/vendor/comdare-{simd,platform} und folgen deren eigener Export-Konvention --
+# kein Muster fuer eine Repo-App). Die passende Vorlage ist die TREIBER-INSTALL-NAHT im super, die dieselbe
+# Mess-Werkzeugkette traegt: super Code/02_messung_driver/CMakeLists.txt
+#   install(TARGETS messung_driver RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# ueber include(GNUInstallDirs) in super Code/CMakeLists.txt. Diese Form wird hier 1:1 uebernommen -- die
+# Planer-Binary landet damit im selben bin-Layout wie der Treiber, dessen Rolle sie sich teilt.
+#
+# include(GNUInstallDirs) steht bewusst HIER und nicht in der ce-Wurzel: im super-Sub-Build ist das Modul bereits
+# geladen (Cache-Variablen gesetzt, Re-Include folgenlos), im ce-STANDALONE ist es die einzige Stelle, an der
+# CMAKE_INSTALL_BINDIR ueberhaupt entsteht. Damit bleibt die Naht in BEIDEN Baumformen definiert und die ce-Wurzel
+# unangetastet (kein neues repo-weites Install-Layout unter Frist -- das waere eine eigene Entscheidung).
+#
+# REICHWEITE, EHRLICH VERMESSEN (nicht raten -- am Objekt geprueft): diese Regel wirkt im ce-STANDALONE-Install
+# (Beleg: `cmake --install <build>` legt bin/comdare-experiment-planner an). Im SUPER-SUB-BUILD ist sie INERT,
+# denn super zieht die ce per add_subdirectory(... EXCLUDE_FROM_ALL) (super Code/CMakeLists.txt:196/213/222), und
+# EXCLUDE_FROM_ALL nimmt einer Unterverzeichnis-Ebene NICHT NUR den Default-Bau, sondern AUCH ihre install()-Regeln
+# aus dem Install-Ziel des Elternprojekts (live gegengeprueft: dieselbe Regel installiert ohne EXCLUDE_FROM_ALL,
+# mit EXCLUDE_FROM_ALL installiert sie auch dann nicht, wenn das Target zuvor explizit gebaut wurde).
+# FOLGE: der Codex-Befund B3 ist fuer den ce-Install-Weg GESCHLOSSEN, fuer das SUPER-Deployment NICHT -- dort
+# braeuchte es eine super-seitige Naht (eigene install()-Regel neben der des Treibers, oder die Aufhebung von
+# EXCLUDE_FROM_ALL fuer genau dieses Target). Das ist eine SUPER-Aenderung und liegt ausserhalb dieses
+# READ-ONLY-Auftrags -- als offener Punkt gemeldet statt stillschweigend als erledigt gefuehrt.
+include(GNUInstallDirs)
+install(TARGETS comdare_experiment_planner RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
