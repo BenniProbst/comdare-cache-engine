@@ -309,22 +309,36 @@ struct PlanerBlockGate {
     if (pln::env_trimmed("COMDARE_BESTANDSLOG") != "true") return s; // aktiv=false -> "nicht aktiv"-Zeile
     s.aktiv = true;
 
-    auto const cache = atp::ArtifactCache::from_env().with_object_budget(/*tries=*/1, /*timeout_s=*/10);
-    if (!cache.minio_enabled()) {
-        s.grund = "Ebene B (minio) ist nicht konfiguriert";
-        return s;
+    // Der Transport ist die EINZIGE Quelle dieses Kommandos, die ueber ein Netz geht -- und die einzige, die
+    // WIRFT statt leer zu liefern (Env-Fehlform, Endpunkt weg, TLS/CA, Timeout). Faenge man sie nicht HIER,
+    // liefe sie in den run_status_guarded-Rahmen und machte aus dem Bericht rc 2 -- also genau die
+    // Konfig-Fehler-Klasse, die dem Anwender sagt "dein Aufruf war falsch", obwohl nur eine von vier Quellen
+    // stumm blieb. Die Zusage des Kommandos lautet: fehlende Quellen sind BERICHTS-Inhalt, rc 0.
+    try {
+        auto const cache = atp::ArtifactCache::from_env().with_object_budget(/*tries=*/1, /*timeout_s=*/10);
+        if (!cache.minio_enabled()) {
+            s.grund = "Ebene B (minio) ist nicht konfiguriert";
+            return s;
+        }
+        std::string const doc_key = pln::env_trimmed("COMDARE_BESTANDSLOG_DOC_KEY");
+        if (doc_key.empty()) {
+            s.grund = "COMDARE_BESTANDSLOG_DOC_KEY ist leer";
+            return s;
+        }
+        auto const xml = bl::make_bestand_transport(cache).fetch(doc_key);
+        if (!xml) {
+            s.grund = "Dokument '" + doc_key + "' im Objekt-Store nicht gefunden/nicht lesbar";
+            return s;
+        }
+        return pln::bestand_sicht_aus_xml(*xml);
+    } catch (std::exception const& e) {
+        s.fehler = true;
+        s.grund  = e.what(); // der WORTLAUT des Transports, nicht eine nachgebaute Vermutung
+    } catch (...) {
+        s.fehler = true;
+        s.grund  = "unbekannte Ausnahme im Bestandslog-Transport";
     }
-    std::string const doc_key = pln::env_trimmed("COMDARE_BESTANDSLOG_DOC_KEY");
-    if (doc_key.empty()) {
-        s.grund = "COMDARE_BESTANDSLOG_DOC_KEY ist leer";
-        return s;
-    }
-    auto const xml = bl::make_bestand_transport(cache).fetch(doc_key);
-    if (!xml) {
-        s.grund = "Dokument '" + doc_key + "' im Objekt-Store nicht gefunden/nicht lesbar";
-        return s;
-    }
-    return pln::bestand_sicht_aus_xml(*xml);
+    return s;
 }
 
 [[nodiscard]] int run_status_guarded(std::string const& prof, std::string const& root_arg) noexcept {
@@ -339,6 +353,7 @@ struct PlanerBlockGate {
         if (auto const r = pln::parse_golden_range_env()) {
             bericht.fenster         = std::to_string(r->start) + ":" + std::to_string(r->count);
             bericht.fenster_bekannt = r->count > 0; // count==0 deaktiviert das Fenster (syntaktisch gueltig)
+            bericht.fenster_start   = r->start;     // FILTERT die Erhebung (H1), nicht nur den Anzeigestring
             bericht.fenster_count   = r->count;
         }
 
@@ -369,7 +384,10 @@ void help_for(std::string const& topic) {
                   << "           .fingerprint-Sidecars (gebaute Binaries) | Bestandslog-XML (Aggregat).\n"
                   << "  --root=<dir>  Wurzel des Mess-Ausgabe-Baums. Default: Code/measure_out, sonst measure_out;\n"
                   << "                der aufgeloeste Wert steht IMMER in der Kopfzeile (kein stilles Raten).\n"
-                  << "  Fenster: COMDARE_GOLDEN_N_RANGE \"start:count\". Ohne Fenster gibt es kein Binary-SOLL --\n"
+                  << "  Fenster: COMDARE_GOLDEN_N_RANGE \"start:count\" -- start FILTERT: nur Perms in\n"
+                  << "           [start,start+count) zaehlen in die Bilanz; alles andere gehoert einem anderen\n"
+                  << "           Fenster und steht als eigene [status-fremdfenster]-Zeile. offen= ist die SUMME\n"
+                  << "           der Zell-Offenstaende. Ohne Fenster gibt es kein Binary-SOLL --\n"
                   << "           offen= traegt dann den Sentinel 'unbelegt' statt einer erfundenen Zahl.\n"
                   << "  Bestandslog: COMDARE_BESTANDSLOG=true + _DOC_KEY + minio; sonst EINE 'keine Daten'-Zeile.\n"
                   << "  Fehlende Quellen sind BERICHTS-Inhalt, kein Fehler. Exit: 0 Bericht; 2 Konfig-Fehler\n"

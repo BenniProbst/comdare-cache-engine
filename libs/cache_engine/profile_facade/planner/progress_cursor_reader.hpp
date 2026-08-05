@@ -18,9 +18,15 @@
 // Die beiden Formen, VERBATIM aus dem Schreiber:
 //   "[progress] perm=<N> axes_changed=<K> <achsen-idx>-><varianten-idx> ..."
 //   "[progress] done perm=<N> window-complete"
-// Das done kommt GENAU EINMAL, am Fensterende. Es ist damit das kuenftige FERTIG-SIGNAL der 38.b-Sequenz
-// ("naechste CEB erst nach Abschluss der vorigen") -- CursorStand::done_gesehen ist der Andockpunkt, an dem
-// die Planer-Takt-Hoheit (F6-Zielbild) spaeter einhaengt, OHNE dass dieser Leser sich aendern muss.
+// Das done kommt GENAU EINMAL JE FENSTER, an dessen Ende. Es ist damit das kuenftige FERTIG-SIGNAL der
+// 38.b-Sequenz ("naechste CEB erst nach Abschluss der vorigen") -- CursorStand::done_gesehen ist der
+// Andockpunkt, an dem die Planer-Takt-Hoheit (F6-Zielbild) spaeter einhaengt, OHNE dass dieser Leser sich
+// aendern muss.
+//
+// DIE DATEI IST ADDITIV UND UEBERLEBT DAS FENSTER: laeuft an derselben Perm ein FOLGE-Fenster, schreibt es
+// seine perm-Zeilen HINTER das done des vorigen. `done_gesehen` ist darum eine Aussage ueber die ZULETZT
+// gelesene Form, nicht ueber die Datei als Ganzes -- jede Nicht-done-Zeile nimmt es zurueck. Waere es sticky,
+// meldete der Bericht "fertig", waehrend das Folge-Fenster noch misst.
 //
 // ANSPRUCHSLOS: header-only C++23, nur stdlib, ASCII. Kein Wurf (Datei-/Formfehler sind BERICHTS-Inhalte,
 // keine Ausnahmen) -- eine fehlende progress.cursor ist ein normaler Zustand, kein Fehler.
@@ -48,17 +54,30 @@ inline constexpr char kProgressAxesSchluessel[] = " axes_changed=";
 
 /// Der gelesene Stand EINES Fensters.
 struct CursorStand {
-    bool          datei_vorhanden = false; ///< false = es gibt keine progress.cursor (ehrlich "keine Daten")
-    bool          done_gesehen    = false; ///< true = das Fenster hat sein Fertig-Signal geschrieben
-    std::uint64_t letzte_perm     = 0;     ///< der zuletzt gemeldete fenster-relative Perm-Cursor
-    std::uint64_t done_perm       = 0;     ///< der Cursor der done-Zeile (nur gueltig bei done_gesehen)
-    std::uint64_t zeilen_gesamt   = 0;     ///< alle Zeilen der Datei
-    std::uint64_t zeilen_perm     = 0;     ///< davon perm-Fortschritts-Zeilen
-    std::uint64_t zeilen_done     = 0;     ///< davon done-Zeilen (Vertrag: hoechstens 1 je Fenster)
-    std::uint64_t zeilen_fremd    = 0;     ///< davon keiner der beiden Formen zuordenbar (Drift-Anzeiger)
+    bool          datei_vorhanden    = false; ///< false = es gibt keine progress.cursor (ehrlich "keine Daten")
+    bool          done_gesehen       = false; ///< true = die ZULETZT gelesene Form war das Fertig-Signal
+    std::uint64_t letzte_perm        = 0;     ///< der zuletzt gemeldete fenster-relative Perm-Cursor
+    std::uint64_t done_perm          = 0;     ///< der Cursor der done-Zeile (nur gueltig bei done_gesehen)
+    std::uint64_t zeilen_gesamt      = 0;     ///< alle Zeilen der Datei
+    std::uint64_t zeilen_perm        = 0;     ///< davon vollstaendige perm-Fortschritts-Zeilen
+    std::uint64_t zeilen_done        = 0;     ///< davon done-Zeilen (Vertrag: eine je Fenster, mehrere je Datei)
+    std::uint64_t zeilen_fremd       = 0;     ///< davon keiner der beiden Formen zuordenbar (Drift-Anzeiger)
+    std::uint64_t zeilen_abgebrochen = 0;     ///< davon MITTEN in der perm-Form abgerissen (axes_changed ohne Wert)
 };
 
 namespace progress_cursor_detail {
+
+/// Das Fertig-Signal des VORIGEN Fensters zuruecknehmen.
+///
+/// Die progress.cursor ist ADDITIV und wird von FOLGE-Fenstern derselben Perm weitergeschrieben. `done`
+/// gilt darum nur bis zur naechsten Nicht-done-Zeile: steht hinter dem done wieder eine perm-Zeile, laeuft
+/// bereits das naechste Fenster. Ein sticky done_gesehen gaebe dem kuenftigen 38.b-Takt ("naechste CEB erst
+/// nach Abschluss der vorigen") ein Fertig-Signal, das nicht mehr gilt -- er zoege die Folge-CEB los, waehrend
+/// die laufende noch misst. done_perm faellt mit zurueck, weil es laut Vertrag NUR bei done_gesehen gilt.
+inline void fenster_laeuft_wieder(CursorStand& stand) noexcept {
+    stand.done_gesehen = false;
+    stand.done_perm    = 0;
+}
 
 /// Eine vorzeichenlose Dezimalzahl ab `pos` lesen. Liefert false, wenn dort keine Ziffer steht.
 [[nodiscard]] inline bool lies_u64(std::string_view s, std::size_t pos, std::uint64_t& out, std::size_t& ende) {
@@ -99,18 +118,38 @@ inline void verarbeite_cursor_zeile(std::string_view zeile, CursorStand& stand) 
             return;
         }
         ++stand.zeilen_fremd; // done-Praefix, aber nicht die vollstaendige Form -> Drift, ehrlich zaehlen
+        d::fenster_laeuft_wieder(stand);
         return;
     }
+
+    // Ab hier ist die Zeile KEINE gueltige done-Zeile -> das Fertig-Signal des vorigen Fensters gilt nicht mehr.
+    d::fenster_laeuft_wieder(stand);
+
     if (d::beginnt_mit(zeile, kProgressPermPraefix)) {
         std::uint64_t v = 0;
         std::size_t   e = 0;
-        if (d::lies_u64(zeile, std::string_view{kProgressPermPraefix}.size(), v, e) &&
-            d::beginnt_mit(zeile.substr(e), kProgressAxesSchluessel)) {
-            ++stand.zeilen_perm;
-            stand.letzte_perm = v; // additive Datei -> die letzte Zeile traegt den aktuellen Cursor
+        if (!d::lies_u64(zeile, std::string_view{kProgressPermPraefix}.size(), v, e)) {
+            ++stand.zeilen_fremd; // perm=<N> traegt keine Zahl -> keine Fortschritts-Aussage
             return;
         }
-        ++stand.zeilen_fremd;
+        std::string_view const rest = zeile.substr(e);
+        if (!d::beginnt_mit(rest, kProgressAxesSchluessel)) {
+            ++stand.zeilen_fremd; // der Schluessel fehlt ganz -> fremde Form, nicht bloss abgerissen
+            return;
+        }
+        // Der axes_changed-WERT muss da sein UND numerisch. Der Schreiber baut die Zeile in EINEM
+        // Rutsch, aber ein Abbruch (SIGKILL/Platte voll) hinterlaesst das Fragment
+        // "[progress] perm=7 axes_changed=" -- ein halb geschriebener Fortschritt ist KEIN Fortschritt.
+        // Er wandert darum in einen EIGENEN Zaehler statt still als volle perm-Zeile durchzugehen
+        // (das haette letzte_perm auf einen nie erreichten Cursor gezogen).
+        std::uint64_t k     = 0;
+        std::size_t   k_end = 0;
+        if (!d::lies_u64(rest, std::string_view{kProgressAxesSchluessel}.size(), k, k_end)) {
+            ++stand.zeilen_abgebrochen;
+            return;
+        }
+        ++stand.zeilen_perm;
+        stand.letzte_perm = v; // additive Datei -> die letzte VOLLSTAENDIGE Zeile traegt den aktuellen Cursor
         return;
     }
     ++stand.zeilen_fremd;

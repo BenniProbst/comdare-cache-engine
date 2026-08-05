@@ -91,6 +91,29 @@ void lege_gebautes_binary(fs::path const& bin, std::string const& sidecar_inhalt
 
 [[nodiscard]] std::string hex128(char fuellzeichen) { return std::string(128, fuellzeichen); }
 
+/// Die Bericht-Zeile, die mit <marker> beginnt UND <teil> enthaelt -- MIT abschliessendem "\n", damit ein
+/// Feld am Zeilenende exakt geprueft werden kann. Leer, wenn es sie nicht gibt.
+///
+/// WARUM ZEILENGENAU: die Bilanz-Befunde unterscheiden sich nur durch die ZEILE, in der eine Zahl steht.
+/// `offen=14` gehoert in die ZELL-Zeile (16 SOLL minus die 2 Messungen dieser Zelle) und ist dort richtig;
+/// in der GESAMT-Zeile ist genau dieselbe Zahl der Befund H2. Ein Volltext-find kann beides nicht trennen.
+[[nodiscard]] std::string zeile_mit(std::string const& bericht, std::string const& marker,
+                                    std::string const& teil = {}) {
+    std::size_t pos = 0;
+    while ((pos = bericht.find(marker, pos)) != std::string::npos) {
+        std::size_t const ende  = bericht.find('\n', pos);
+        std::string const zeile = bericht.substr(pos, (ende == std::string::npos ? bericht.size() : ende) - pos) + "\n";
+        if (teil.empty() || zeile.find(teil) != std::string::npos) return zeile;
+        if (ende == std::string::npos) break;
+        pos = ende + 1;
+    }
+    return {};
+}
+
+[[nodiscard]] bool enthaelt(std::string const& heu, std::string const& nadel) {
+    return heu.find(nadel) != std::string::npos;
+}
+
 /// Der SOLL-Anteil, den sonst der Director-Walk liefert -- hier direkt gesetzt, damit die TU den
 /// Katalog-Walk nicht braucht (der ist eigenstaendig gegated und in dieser Flaeche nicht der Prueflings-Gegenstand).
 [[nodiscard]] pl::PlanZelleSoll zelle(std::string const& ceb, std::string const& slug, std::size_t perm,
@@ -163,6 +186,60 @@ int main() {
         eq("Drift-Zeilen zaehlen als fremd", d.zeilen_fremd, std::uint64_t{3});
         eq("Drift-Zeilen bewegen letzte_perm NICHT", d.letzte_perm, std::uint64_t{0});
         check("Drift-Zeilen setzen done NICHT", !d.done_gesehen);
+    }
+
+    // ============================================================================================
+    // (1b) M1 -- done ist NICHT sticky: die Datei ueberlebt das Fenster
+    //
+    // BISS AM ALT-STAND: der Alt-Leser setzte done_gesehen einmal auf true und nahm es nie zurueck. An einer
+    // Perm, an der ein FOLGE-Fenster hinter das done weiterschreibt, meldete der Bericht darum "done=ja",
+    // waehrend das naechste Fenster noch misst -- der kuenftige 38.b-Takt haette die Folge-CEB losgezogen.
+    // ============================================================================================
+    std::cout << "\n-- (1b) M1: done faellt beim naechsten laufenden Fenster zurueck --\n";
+    {
+        pl::CursorStand s{};
+        pl::verarbeite_cursor_zeile("[progress] perm=0 axes_changed=1 2->1", s);
+        pl::verarbeite_cursor_zeile("[progress] done perm=3 window-complete", s);
+        check("nach der done-Zeile: done=ja", s.done_gesehen);
+        eq("nach der done-Zeile: done_perm", s.done_perm, std::uint64_t{3});
+
+        // Das FOLGE-Fenster schreibt hinter das done weiter -- ab hier laeuft wieder etwas.
+        pl::verarbeite_cursor_zeile("[progress] perm=0 axes_changed=2 0->1 4->2", s);
+        check("ALT-STAND-BISS: done faellt bei der spaeteren perm-Zeile zurueck (nicht sticky)", !s.done_gesehen);
+        eq("done_perm faellt mit zurueck (gilt laut Vertrag nur bei done_gesehen)", s.done_perm, std::uint64_t{0});
+        eq("letzte_perm folgt dem NEUEN Fenster", s.letzte_perm, std::uint64_t{0});
+        eq("zeilen_done bleibt die ehrliche Historie", s.zeilen_done, std::uint64_t{1});
+
+        // Und das zweite Fenster meldet seinerseits fertig.
+        pl::verarbeite_cursor_zeile("[progress] done perm=9 window-complete", s);
+        check("das zweite Fenster meldet wieder done", s.done_gesehen);
+        eq("done_perm des zweiten Fensters", s.done_perm, std::uint64_t{9});
+        eq("zwei Fenster in EINER Datei = zwei done-Zeilen", s.zeilen_done, std::uint64_t{2});
+    }
+
+    // ============================================================================================
+    // (1c) M2 -- das Abbruch-Fragment ist KEIN Fortschritt
+    //
+    // BISS AM ALT-STAND: der Alt-Leser pruefte nur, ob " axes_changed=" folgt, nicht ob dahinter ein WERT
+    // steht. Ein bei SIGKILL/Platte-voll halb geschriebenes "[progress] perm=7 axes_changed=" ging damit als
+    // volle Fortschritts-Zeile durch und zog letzte_perm auf einen nie erreichten Cursor 7.
+    // ============================================================================================
+    std::cout << "\n-- (1c) M2: Abbruch-Fragment zaehlt als abgebrochene Zeile, nicht als Fortschritt --\n";
+    {
+        pl::CursorStand s{};
+        pl::verarbeite_cursor_zeile("[progress] perm=2 axes_changed=1 3->1", s);
+        pl::verarbeite_cursor_zeile("[progress] perm=7 axes_changed=", s); // der Schreiber brach hier ab
+        eq("ALT-STAND-BISS: letzte_perm bleibt beim letzten VOLLSTAENDIGEN Fortschritt (2, nicht 7)", s.letzte_perm,
+           std::uint64_t{2});
+        eq("ALT-STAND-BISS: das Fragment zaehlt NICHT als perm-Zeile", s.zeilen_perm, std::uint64_t{1});
+        eq("das Fragment wird als abgebrochene Zeile ausgewiesen", s.zeilen_abgebrochen, std::uint64_t{1});
+        eq("das Fragment ist KEINE fremde Form (der Schluessel stand ja da)", s.zeilen_fremd, std::uint64_t{0});
+        eq("es wird trotzdem als Zeile gezaehlt (nichts verschwindet)", s.zeilen_gesamt, std::uint64_t{2});
+
+        // Nicht-numerischer Wert: dieselbe Klasse.
+        pl::verarbeite_cursor_zeile("[progress] perm=8 axes_changed=x", s);
+        eq("nicht-numerisches <K> ist dieselbe Klasse", s.zeilen_abgebrochen, std::uint64_t{2});
+        eq("und bewegt letzte_perm ebenfalls nicht", s.letzte_perm, std::uint64_t{2});
     }
 
     // ============================================================================================
@@ -313,6 +390,7 @@ int main() {
         b.root                         = root;
         b.fenster                      = "0:16";
         b.fenster_bekannt              = true;
+        b.fenster_start                = 0;
         b.fenster_count                = 16;
         b.soll.erhoben                 = true;
         b.soll.source_kind             = "thesis";
@@ -330,11 +408,24 @@ int main() {
         std::string const t = os.str();
         std::cout << "----- Bericht (Mini-Stand) -----\n" << t << "--------------------------------\n";
 
-        check("Gesamt-Zeile vorhanden", t.find("[status-gesamt]") != std::string::npos);
-        check("Gesamt: gebaut=3",
-              t.find("[status-gesamt]") != std::string::npos && t.find(" gebaut=3 ") != std::string::npos);
-        check("Gesamt: gemessen=2", t.find(" gemessen=2 ") != std::string::npos);
-        check("Gesamt: offen=14 (Fenster 16 minus 2 gemessen)", t.find(" offen=14\n") != std::string::npos);
+        std::string const gesamt = zeile_mit(t, "[status-gesamt]");
+        std::string const z_p0   = zeile_mit(t, "[status-zelle]", " perm=0 ");
+        std::string const z_p1   = zeile_mit(t, "[status-zelle]", " perm=1 ");
+        check("Gesamt-Zeile vorhanden", !gesamt.empty());
+        check("Zell-Zeilen beider Perms vorhanden", !z_p0.empty() && !z_p1.empty());
+        check("Gesamt: gebaut=3", enthaelt(gesamt, " gebaut=3 "));
+        check("Gesamt: gemessen=2", enthaelt(gesamt, " gemessen=2 "));
+        // H2: 14 = 16 SOLL minus die 2 Messungen DIESER Zelle -> gehoert in die ZELL-Zeile.
+        // 30 = 14 (perm0) + 16 (perm1, ohne Verzeichnis) -> die SUMME gehoert in die Gesamt-Zeile.
+        check("Zell-Zeile perm0: offen=14 (16 SOLL minus die 2 eigenen Messungen)", enthaelt(z_p0, " offen=14\n"));
+        check("Zell-Zeile perm1: offen=16 (dort ist noch nichts gemessen)", enthaelt(z_p1, " offen=16\n"));
+        check("Gesamt: offen=30 == 14+16 (SUMME der Zell-Offenstaende, H2)", enthaelt(gesamt, " offen=30\n"));
+        check("ALT-STAND-BISS: die Gesamt-Zeile traegt NICHT 14 (ein count minus ALLER Messungen)",
+              !enthaelt(gesamt, " offen=14\n"));
+        check("Gesamt: alle Zellen liegen im Fenster (fremdfenster=0)", enthaelt(gesamt, " fremdfenster=0 "));
+        check("Gesamt: keine Zelle wurde breiten-gekappt", enthaelt(gesamt, " scan_gekappt_zellen=0 "));
+        check("Zell-Zeile weist die Fenster-Zugehoerigkeit aus", enthaelt(z_p0, " im_fenster=ja "));
+        check("Cursor-Zeile weist abgebrochene Zeilen aus", enthaelt(t, " abgebrochene_zeile=0\n"));
         check("ceb= ist ein EIGENES Feld (Layer nie verschmolzen)", t.find("ceb=[all] zelle=[") != std::string::npos);
         check("zweite Perm ohne Verzeichnis meldet perm_dir=fehlt", t.find("perm_dir=fehlt") != std::string::npos);
         check("Cursor-Zeile der ersten Perm meldet done=ja", t.find("done=ja") != std::string::npos);
@@ -368,6 +459,148 @@ int main() {
         check("quelle=plan meldet 'keine Daten' MIT Grund",
               t.find("[status] quelle=plan keine Daten (Profil") != std::string::npos);
         check("keine Zell-Zeile ohne SOLL (nichts erfunden)", t.find("[status-zelle]") == std::string::npos);
+    }
+
+    // ============================================================================================
+    // (7) H2 -- 2-ZELLEN-BILANZ an einer Flaeche, in der BEIDE Zellen gleich weit sind
+    //
+    // BISS AM ALT-STAND: der Alt-Renderer bildete die Gesamt-Zeile als "EIN fenster_count minus die Summe
+    // ALLER Messungen". Bei 2 Zellen x 16 SOLL und je 1 Messung meldete er offen=14 -- eine Zahl, die
+    // KLEINER ist als der Offenstand EINER einzigen Zelle (15). Der Fehler waechst mit jeder weiteren Zelle
+    // und faellt am Ende auf 0, also genau dann, wenn noch fast alles offen ist.
+    // ============================================================================================
+    std::cout << "\n-- (7) H2: Gesamt-Bilanz == SUMME der Zell-Offenstaende (2-Zellen-Fall) --\n";
+    {
+        fs::path const b_root = wurzel / "bilanz";
+        lege_gemessenes_binary(b_root / "_all_" / "perm0" / "e4_xml" / "dll" / "stem_a", prefix, 3);
+        lege_gemessenes_binary(b_root / "_all_" / "perm1" / "e4_xml" / "dll" / "stem_a", prefix, 4);
+
+        pl::StatusBericht b{};
+        b.planer_stempel  = "planer-test";
+        b.root            = b_root;
+        b.fenster         = "0:16";
+        b.fenster_bekannt = true;
+        b.fenster_start   = 0;
+        b.fenster_count   = 16;
+        b.soll.erhoben    = true;
+        b.soll.zellen.push_back(zelle("[all]", "_all_", 0, "[O3,no_extension][search_algo,mapping,filter]", 2));
+        b.soll.zellen.push_back(zelle("[all]", "_all_", 1, "[O3,no_extension][search_algo,mapping,queuing]", 2));
+        pl::erhebe_zellen(b, fakten);
+        std::ostringstream os;
+        pl::render_status(b, os);
+        std::string const t      = os.str();
+        std::string const gesamt = zeile_mit(t, "[status-gesamt]");
+        std::cout << "----- Bericht (2-Zellen-Bilanz) -----\n" << t << "-------------------------------------\n";
+
+        eq("beide Zellen sind erhoben", b.zellen.size(), std::size_t{2});
+        check("Zell-Zeile perm0: offen=15", enthaelt(zeile_mit(t, "[status-zelle]", " perm=0 "), " offen=15\n"));
+        check("Zell-Zeile perm1: offen=15", enthaelt(zeile_mit(t, "[status-zelle]", " perm=1 "), " offen=15\n"));
+        check("Gesamt: gemessen=2 (je Zelle eine)", enthaelt(gesamt, " gemessen=2 "));
+        check("Gesamt: offen=30 == 15+15", enthaelt(gesamt, " offen=30\n"));
+        check("ALT-STAND-BISS: NICHT offen=14 (16 minus alle 2 Messungen)", !enthaelt(gesamt, " offen=14\n"));
+        check("ALT-STAND-BISS: die Gesamt-Zahl ist nie kleiner als der groesste Zell-Offenstand",
+              !enthaelt(gesamt, " offen=15\n"));
+    }
+
+    // ============================================================================================
+    // (8) H1 -- FREMD-FENSTER: der START aus START:COUNT filtert die Erhebung
+    //
+    // BISS AM ALT-STAND: der Alt-Aggregator erhob JEDES perm<idx>-Verzeichnis des Plans, gleich zu welchem
+    // Chunk es gehoerte. Ein Mess-Baum, in dem ein FRUEHERES Fenster (perm7) schon drei fertige Messungen
+    // liegen hat, meldete diese als Fortschritt des AKTUELLEN Fensters 0:2 -- gemessen=4 bei einem SOLL von
+    // 2, also offen=0 (auf 0 geklemmt), obwohl im aktuellen Fenster noch 3 Binaries offen sind.
+    // ============================================================================================
+    std::cout << "\n-- (8) H1: Fremd-Fenster zaehlen NICHT in die Fenster-Bilanz --\n";
+    {
+        fs::path const f_root = wurzel / "fensterfilter";
+        lege_gemessenes_binary(f_root / "_all_" / "perm0" / "e4_xml" / "dll" / "stem_a", prefix, 3);
+        // perm1 liegt im Fenster, hat aber noch nichts gemessen -- nur ein laufender Cursor.
+        schreibe(f_root / "_all_" / "perm1" / "progress.cursor", "[progress] perm=0 axes_changed=1 2->1\n");
+        // perm7 ist ein FREMDES Fenster: drei fertige Messungen eines frueheren Chunks.
+        lege_gemessenes_binary(f_root / "_all_" / "perm7" / "e4_xml" / "dll" / "stem_a", prefix, 3);
+        lege_gemessenes_binary(f_root / "_all_" / "perm7" / "e4_xml" / "dll" / "stem_b", prefix, 4);
+        lege_gemessenes_binary(f_root / "_all_" / "perm7" / "e4_xml" / "dll" / "stem_c", prefix, 5);
+
+        auto baue = [&](std::size_t start, std::size_t count) {
+            pl::StatusBericht b{};
+            b.planer_stempel  = "planer-test";
+            b.root            = f_root;
+            b.fenster         = std::to_string(start) + ":" + std::to_string(count);
+            b.fenster_bekannt = count > 0;
+            b.fenster_start   = start;
+            b.fenster_count   = count;
+            b.soll.erhoben    = true;
+            b.soll.zellen.push_back(zelle("[all]", "_all_", 0, "[O3,no_extension][a1,b1,c1]", 2));
+            b.soll.zellen.push_back(zelle("[all]", "_all_", 1, "[O3,no_extension][a2,b2,c2]", 2));
+            b.soll.zellen.push_back(zelle("[all]", "_all_", 7, "[O3,no_extension][a3,b3,c3]", 2));
+            pl::erhebe_zellen(b, fakten);
+            std::ostringstream os;
+            pl::render_status(b, os);
+            return os.str();
+        };
+
+        std::string const t      = baue(/*start=*/0, /*count=*/2);
+        std::string const gesamt = zeile_mit(t, "[status-gesamt]");
+        std::string const fremd  = zeile_mit(t, "[status-fremdfenster]");
+        std::cout << "----- Bericht (Fenster 0:2, Fremd-Fenster perm7) -----\n"
+                  << t << "-----------------------------------------------------\n";
+
+        check("perm7 wird als NICHT im Fenster ausgewiesen",
+              enthaelt(zeile_mit(t, "[status-zelle]", " perm=7 "), " im_fenster=nein "));
+        check("perm0 liegt im Fenster", enthaelt(zeile_mit(t, "[status-zelle]", " perm=0 "), " im_fenster=ja "));
+        check("die Fremd-Fenster-Zelle traegt KEINE erfundene offen-Zahl",
+              enthaelt(zeile_mit(t, "[status-zelle]", " perm=7 "), " offen=unbelegt\n"));
+        check("ALT-STAND-BISS: Gesamt gemessen=1 (nur das aktuelle Fenster), nicht 4",
+              enthaelt(gesamt, " gemessen=1 ") && !enthaelt(gesamt, " gemessen=4 "));
+        check("ALT-STAND-BISS: offen=3 == (2-1)+(2-0), nicht das geklemmte 0",
+              enthaelt(gesamt, " offen=3\n") && !enthaelt(gesamt, " offen=0\n"));
+        check("Gesamt weist die Fremd-Fenster-Zahl aus", enthaelt(gesamt, " fremdfenster=1 "));
+        check("Gesamt weist die Fenster-Zell-Zahl aus", enthaelt(gesamt, " fenster_zellen=2 "));
+        check("eigene [status-fremdfenster]-Zeile statt Verschmelzung", !fremd.empty());
+        check("die Fremd-Fenster-Zeile traegt deren 3 Messungen",
+              enthaelt(fremd, " zellen=1 ") && enthaelt(fremd, " gemessen=3 "));
+
+        // START != 0: das Fenster wandert, und mit ihm die Zugehoerigkeit -- perm0 wird selbst fremd.
+        std::string const t2      = baue(/*start=*/1, /*count=*/2);
+        std::string const gesamt2 = zeile_mit(t2, "[status-gesamt]");
+        check("Fenster 1:2 -> perm0 ist jetzt FREMD",
+              enthaelt(zeile_mit(t2, "[status-zelle]", " perm=0 "), " im_fenster=nein "));
+        check("Fenster 1:2 -> perm1 bleibt drin",
+              enthaelt(zeile_mit(t2, "[status-zelle]", " perm=1 "), " im_fenster=ja "));
+        check("Fenster 1:2 -> zwei Fremd-Fenster-Zellen (perm0 + perm7)", enthaelt(gesamt2, " fremdfenster=2 "));
+        check("Fenster 1:2 -> im Fenster ist NICHTS gemessen", enthaelt(gesamt2, " gemessen=0 "));
+        check("Fenster 1:2 -> offen=2 (die eine Fenster-Zelle mit SOLL 2)", enthaelt(gesamt2, " offen=2\n"));
+        check("Fenster 1:2 -> die 4 Fremd-Messungen stehen in der eigenen Zeile",
+              enthaelt(zeile_mit(t2, "[status-fremdfenster]"), " gemessen=4 "));
+
+        // count == 0 deaktiviert das Fenster: dann gibt es keinen Filter und kein Binary-SOLL.
+        std::string const t3 = baue(/*start=*/0, /*count=*/0);
+        check("Fenster deaktiviert -> keine Zelle ist fremd",
+              enthaelt(zeile_mit(t3, "[status-gesamt]"), " fremdfenster=0 "));
+        check("Fenster deaktiviert -> offen bleibt der Sentinel",
+              enthaelt(zeile_mit(t3, "[status-gesamt]"), " offen=unbelegt\n"));
+    }
+
+    // ============================================================================================
+    // (9) M4 -- eine Transport-AUSNAHME ist BERICHTS-Inhalt, keine Konfig-Fehler-Klasse
+    //     (der Wurf selbst liegt im App-Host; hier wird die Berichts-FORM festgenagelt -- kein Netz)
+    // ============================================================================================
+    std::cout << "\n-- (9) M4: Bestandslog-Transportfehler als eigene Berichts-Zeile --\n";
+    {
+        pl::StatusBericht b{};
+        b.root           = root;
+        b.soll.erhoben   = true;
+        b.bestand.aktiv  = true;
+        b.bestand.fehler = true;
+        b.bestand.grund  = "minio: connection refused";
+        pl::erhebe_zellen(b, fakten);
+        std::ostringstream os;
+        pl::render_status(b, os);
+        std::string const t = os.str();
+        check("die Fehler-Zeile steht literal im Bericht",
+              enthaelt(t, "[status-bestand] quelle=fehler (minio: connection refused)\n"));
+        check("der Transportfehler wird NICHT als blosses 'keine Daten' verschluckt",
+              !enthaelt(t, "[status] quelle=bestandslog keine Daten"));
     }
 
     fs::remove_all(wurzel, ec);

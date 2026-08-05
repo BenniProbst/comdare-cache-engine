@@ -96,11 +96,22 @@ build/apps/experiment_planner/comdare-experiment-planner status --root=Code/meas
 
 - `--root=<dir>` -- Wurzel des Mess-Ausgabe-Baums. Default: `Code/measure_out`, ersatzweise `measure_out`.
   Der **aufgeloeste** Wert steht immer in der Kopfzeile (`root=...`, `root_vorhanden=ja|nein`).
-- Fenster: `COMDARE_GOLDEN_N_RANGE="start:count"`. **Ohne** gepinntes Fenster gibt es kein Binary-SOLL --
-  `offen=` traegt dann den Sentinel `unbelegt` statt einer erfundenen Zahl.
+- Fenster: `COMDARE_GOLDEN_N_RANGE="start:count"`. Der `start` **filtert** die Erhebung: nur Perms in
+  `[start, start+count)` gehen in die Bilanz. Perm-Verzeichnisse ausserhalb gehoeren einem **anderen**
+  Fenster und erscheinen als eigene `[status-fremdfenster]`-Zeile (`im_fenster=nein` in der Zell-Zeile),
+  nie als Fortschritt des aktuellen Fensters. `offen=` der Gesamt-Zeile ist die **Summe** der
+  Zell-Offenstaende (je Zelle `count - gemessen`), nicht ein `count` minus aller Messungen.
+  **Ohne** gepinntes Fenster (`count=0` oder Env leer) gibt es kein Binary-SOLL -- `offen=` traegt dann
+  den Sentinel `unbelegt` statt einer erfundenen Zahl.
+- Fortschritts-Cursor: `done=` ist eine Aussage ueber die **zuletzt** gelesene Zeile. Schreibt ein
+  Folge-Fenster hinter das `done` weiter, faellt `done=nein` zurueck. Ein bei einem Abbruch halb
+  geschriebenes `[progress] perm=N axes_changed=` zaehlt als `abgebrochene_zeile=`, nicht als Fortschritt.
 - Bestandslog (Aggregat-Quelle): `COMDARE_BESTANDSLOG=true` + `COMDARE_BESTANDSLOG_DOC_KEY` + erreichbare
   Ebene B. Fehlt eines davon, erscheint **eine** ehrliche `keine Daten`-Zeile -- kein Abbruch, keine
-  Reservierung (`status` bindet **keinen** `planer_block`).
+  Reservierung (`status` bindet **keinen** `planer_block`). Wirft der Transport, ist auch das
+  Berichts-Inhalt: `[status-bestand] quelle=fehler (<what>)` mit rc `0`, nie rc `2`.
+- Scan-Kappen: der Perm-Baum wird tiefen- **und** breiten-begrenzt gelesen. Greift die Breiten-Kappe,
+  sagt die Zell-Zeile `scan_gekappt=ja` -- die Bilanz ist dann ausdruecklich unvollstaendig.
 - Fehlende Quellen sind Berichts-Inhalt, kein Fehler. Exit-Codes: `0` Bericht, `1` Usage,
   `2` Konfig-Fehler (z.B. kaputte `COMDARE_GOLDEN_N_RANGE`). Kein `watch`/`follow` -- jeder Aufruf ist ein
   Schnappschuss.

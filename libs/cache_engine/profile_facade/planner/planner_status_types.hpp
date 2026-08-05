@@ -32,6 +32,14 @@ inline constexpr char kResultStaleName[] = "result.csv.stale";
 /// zyklisch verlinktes Verzeichnis das Kommando festhaelt.
 inline constexpr std::size_t kMaxScanTiefe = 8;
 
+/// Maximale Zahl besuchter Verzeichnis-EINTRAEGE je Perm-Verzeichnis. Die Tiefen-Kappe allein macht den Lauf
+/// NICHT bounded: ein flacher Baum mit Millionen Geschwistern liegt vollstaendig unter kMaxScanTiefe und
+/// haelt das on-demand-Kommando trotzdem beliebig lange fest. Erst BEIDE Kappen zusammen loesen die
+/// "bounded"-Zusage ein. Der Deckel ist grosszuegig gegen den realen Ist (ein Mess-Fenster traegt Tausende,
+/// nicht Hunderttausende Eintraege) -- greift er dennoch, sagt der Bericht es LITERAL (scan_gekappt=ja)
+/// statt still eine zu kleine Bilanz zu melden.
+inline constexpr std::size_t kMaxScanEintraege = 200000;
+
 // ---------------------------------------------------------------------------------------------------------------
 // Die Format-Fakten der Mess-Dateien -- von der Fassade aus der Iterator-Substanz hereingereicht.
 // ---------------------------------------------------------------------------------------------------------------

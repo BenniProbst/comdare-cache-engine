@@ -38,6 +38,13 @@
 // (ceb, zelle, fenster), NIE die Zeilen-Reihenfolge; die Layer bleiben getrennt (ceb= ist ein EIGENES Feld,
 // wird NIE in zelle= verschmolzen); ein Pflichtfeld entfaellt nie, unbelegt = Sentinel "unbelegt".
 //
+// BILANZ-GESETZ (die beiden Wege, auf denen eine Fortschritts-Zahl luegen kann -- beide hier verriegelt):
+//   (1) FENSTER-TREUE: das gepinnte Fenster ist [start, start+count) ueber die Perm-Indizes. Was ausserhalb
+//       liegt, gehoert einem ANDEREN Fenster und geht NIE in diese Bilanz ein -- es bekommt seine eigene
+//       [status-fremdfenster]-Zeile (perm_im_fenster / ZellStand::im_fenster).
+//   (2) SUMMEN-TREUE: die Gesamt-Bilanz ist die SUMME der Zell-Offenstaende, nie ein einzelnes Fenster-SOLL
+//       minus aller Messungen -- sonst verschwindet die Zellen-Multiplizitaet (gesamt_offen_feld).
+//
 // DOKTRIN: header-only C++23, ASCII, LEICHT (nur stdlib + zwei bereits leichte ce-Header). Kein Umbrella,
 // kein Katalog, kein Netz -- damit bleibt der Leser TU-testbar ohne Binary und die Planer-App umbrella-frei.
 
@@ -57,6 +64,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::planner {
@@ -73,13 +81,16 @@ struct BinaerStand {
     std::size_t ohne_stempel      = 0;
     std::size_t kopf_drift        = 0;
     std::size_t zeilen_abweichung = 0;
-    std::size_t stale             = 0; ///< result.csv.stale -- gesicherter Alt-Stand ohne Resume-Anspruch
+    std::size_t stale             = 0;     ///< result.csv.stale -- gesicherter Alt-Stand ohne Resume-Anspruch
+    std::size_t scan_eintraege    = 0;     ///< besuchte Verzeichnis-Eintraege (die Breiten-Kappe misst hieran)
+    bool        scan_gekappt      = false; ///< true = kMaxScanEintraege erreicht -> die Bilanz ist UNVOLLSTAENDIG
 };
 
 struct ZellStand {
     PlanZelleSoll         soll{};
     std::filesystem::path perm_dir;
     bool                  perm_dir_vorhanden = false;
+    bool                  im_fenster         = true; ///< liegt perm_index in [fenster_start, +count)? (H1)
     BinaerStand           bin{};
     CursorStand           cursor{};
 };
@@ -87,6 +98,7 @@ struct ZellStand {
 struct BestandSicht {
     bool          aktiv   = false; ///< das Bestandslog-Gate ist an (COMDARE_BESTANDSLOG + Ebene B)
     bool          gelesen = false; ///< Dokument geholt UND geparst
+    bool          fehler  = false; ///< der Transport WARF (Netz/Store) -- eigene Klasse, nicht "keine Daten"
     std::string   grund;           ///< wenn !gelesen: warum -- ehrlich, nie geraten
     std::uint64_t doc_revision = 0;
     std::string   genus;
@@ -105,6 +117,7 @@ struct StatusBericht {
     bool                   root_vorhanden  = false;
     std::string            fenster         = kMarkerUnbelegt; ///< "START:COUNT" oder Sentinel
     bool                   fenster_bekannt = false;
+    std::size_t            fenster_start   = 0; ///< der START aus START:COUNT -- FILTERT, nicht nur Anzeige (H1)
     std::size_t            fenster_count   = 0;
     PlanSollSicht          soll{};
     std::vector<ZellStand> zellen;
@@ -160,6 +173,11 @@ namespace status_detail {
 // Emissions-Baumes (e4_xml/dll/<stem>) sind Wissen der SCHREIBER-Seite. Baute der Leser sie nach, gaebe es
 // zwei Wahrheiten -- und bei einer Layout-Aenderung meldete der Bericht still "0 gemessen" statt "Layout
 // unbekannt". Ein bounded rekursiver Lauf findet, was da ist, und kann nur unter- statt falsch berichten.
+//
+// BOUNDED HEISST ZWEI KAPPEN, NICHT EINE: kMaxScanTiefe deckelt die TIEFE, kMaxScanEintraege die BREITE.
+// Mit der Tiefen-Kappe allein bliebe ein flacher Baum mit Millionen Geschwistern unbegrenzt -- die Zusage
+// "bounded" waere dann nur behauptet. Greift die Breiten-Kappe, wird der Stand als UNVOLLSTAENDIG markiert
+// (scan_gekappt) und der Bericht sagt es literal, statt eine zu kleine Bilanz als volle auszugeben.
 [[nodiscard]] inline BinaerStand lies_binaer_stand(std::filesystem::path const& perm_dir,
                                                    MessFormatFakten const&      fakten) {
     namespace fs = std::filesystem;
@@ -173,6 +191,11 @@ namespace status_detail {
     fs::recursive_directory_iterator const ende{};
     for (; it != ende; it.increment(ec)) {
         if (ec) break;
+        if (st.scan_eintraege >= kMaxScanEintraege) {
+            st.scan_gekappt = true;
+            break;
+        }
+        ++st.scan_eintraege;
         if (static_cast<std::size_t>(it.depth()) >= kMaxScanTiefe) {
             it.disable_recursion_pending();
             continue;
@@ -283,6 +306,19 @@ namespace status_detail {
     return root / z.ceb_slug / ("perm" + std::to_string(z.perm_index));
 }
 
+/// Gehoert diese Perm in das gepinnte Fenster [start, start+count)?
+///
+/// H1: der START aus COMDARE_GOLDEN_N_RANGE ist ein FILTER, kein Anzeige-Schmuck. Ein Mess-Baum haelt die
+/// Perm-Verzeichnisse ALLER bisher gelaufenen Chunks nebeneinander; erhoebe der Leser sie alle in EINE
+/// Bilanz, zaehlten Fremd-Fenster-Ergebnisse als Fortschritt des aktuellen Fensters -- und `offen` fiele
+/// faelschlich gegen 0, genau wenn noch am meisten zu tun ist. Ohne gepinntes Fenster gehoert alles dazu.
+/// Gerechnet wird per Subtraktion statt per Addition: start+count kann bei grossem start ueberlaufen.
+[[nodiscard]] inline bool perm_im_fenster(bool fenster_bekannt, std::size_t fenster_start, std::size_t fenster_count,
+                                          std::size_t perm_index) noexcept {
+    if (!fenster_bekannt) return true;
+    return perm_index >= fenster_start && (perm_index - fenster_start) < fenster_count;
+}
+
 /// Den Ist je geplanter Zelle erheben. Fehlt ein Perm-Verzeichnis, ist das KEIN Fehler -- es heisst
 /// "hier ist noch nichts gelaufen" und wird als solches berichtet.
 inline void erhebe_zellen(StatusBericht& bericht, MessFormatFakten const& fakten) {
@@ -295,6 +331,8 @@ inline void erhebe_zellen(StatusBericht& bericht, MessFormatFakten const& fakten
         ZellStand st{};
         st.soll     = z;
         st.perm_dir = perm_verzeichnis(bericht.root, z);
+        st.im_fenster =
+            perm_im_fenster(bericht.fenster_bekannt, bericht.fenster_start, bericht.fenster_count, z.perm_index);
         std::error_code eec;
         st.perm_dir_vorhanden = fs::exists(st.perm_dir, eec) && !eec;
         if (st.perm_dir_vorhanden) {
@@ -311,11 +349,32 @@ inline void erhebe_zellen(StatusBericht& bericht, MessFormatFakten const& fakten
     });
 }
 
-/// offen = Fenster-SOLL minus gemessen. Ohne gepinntes Fenster gibt es kein ehrliches SOLL auf Binary-Ebene
-/// -> Sentinel statt Zahl (die Plan-Schritt-Zahl ist eine ANDERE Groesse und wird nie dafuer eingesetzt).
+/// offen EINER Zelle = ihr Fenster-SOLL minus ihre eigenen Messungen. Ohne gepinntes Fenster gibt es kein
+/// ehrliches SOLL auf Binary-Ebene -> Sentinel statt Zahl (die Plan-Schritt-Zahl ist eine ANDERE Groesse und
+/// wird nie dafuer eingesetzt).
+[[nodiscard]] inline std::size_t zell_offen(StatusBericht const& b, std::size_t gemessen) noexcept {
+    return b.fenster_count > gemessen ? b.fenster_count - gemessen : std::size_t{0};
+}
+
 [[nodiscard]] inline std::string offen_feld(StatusBericht const& b, std::size_t gemessen) {
     if (!b.fenster_bekannt) return kMarkerUnbelegt;
-    return std::to_string(b.fenster_count > gemessen ? b.fenster_count - gemessen : std::size_t{0});
+    return std::to_string(zell_offen(b, gemessen));
+}
+
+/// H2: die GESAMT-Bilanz ist die SUMME der Zell-Offenstaende, NIE "ein Fenster-count minus alle Messungen".
+/// Das Fenster-SOLL gilt JE ZELLE (jede Zelle misst ihre eigenen count Binaries); zieht man alle Messungen
+/// von EINEM count ab, verschwindet genau die Zellen-Multiplizitaet, nach der die E-04-Ur-Frage fragt:
+/// bei 2 Zellen x 16 Binaries und je 1 Messung meldete der Bericht "offen=14" statt "offen=30" -- er
+/// unterschlaegt eine ganze Zelle und wird umso falscher, je mehr Zellen laufen. Fremd-Fenster-Zellen
+/// gehen NICHT ein (H1); sie erscheinen als eigene [status-fremdfenster]-Zeile.
+[[nodiscard]] inline std::string gesamt_offen_feld(StatusBericht const& b) {
+    if (!b.fenster_bekannt) return kMarkerUnbelegt;
+    std::size_t summe = 0;
+    for (auto const& z : b.zellen) {
+        if (!z.im_fenster) continue;
+        summe += zell_offen(b, z.bin.gemessen);
+    }
+    return std::to_string(summe);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -339,26 +398,49 @@ inline void render_status(StatusBericht const& b, std::ostream& os) {
         os << "[status] quelle=messbaum keine Daten (root " << b.root.string() << " existiert nicht)\n";
     }
 
+    // ZWEI GETRENNTE SUMMEN, bewusst nicht eine: g_* ist die Bilanz DIESES Fensters (nur Zellen in
+    // [start, start+count)), f_* die der Fremd-Fenster. Verschmoelzen sie, ist die Fenster-Aussage
+    // unbrauchbar; verschwiegen die Fremd-Fenster, verschwaende der Bericht vorhandenes Wissen.
     std::size_t g_schritte = 0, g_gebaut = 0, g_gemessen = 0, g_stale = 0, g_teilweise = 0, g_ungueltig = 0, g_csv = 0,
-                g_ohne_dir = 0, g_ohne_cursor = 0;
+                g_ohne_dir = 0, g_gekappt = 0;
+    std::size_t f_zellen = 0, f_gebaut = 0, f_gemessen = 0, f_teilweise = 0, f_stale = 0, f_csv = 0;
+    // Die "keine Daten"-Aussagen gelten fuer die QUELLE, nicht fuer das Fenster -- sie zaehlen ueber ALLE
+    // Zellen. Sonst behauptete der Bericht "kein result.csv", waehrend welche in Fremd-Fenstern liegen.
+    std::size_t alle_csv = 0, alle_ohne_cursor = 0;
     for (auto const& z : b.zellen) {
-        g_schritte += z.soll.plan_schritte;
-        g_gebaut += z.bin.gebaut;
-        g_gemessen += z.bin.gemessen;
-        g_stale += z.bin.stale;
-        g_teilweise += z.bin.teilweise;
-        g_ungueltig += z.bin.sidecar_ungueltig;
-        g_csv += z.bin.csv_gesehen;
-        if (!z.perm_dir_vorhanden) ++g_ohne_dir;
-        if (!z.cursor.datei_vorhanden) ++g_ohne_cursor;
+        alle_csv += z.bin.csv_gesehen;
+        if (!z.cursor.datei_vorhanden) ++alle_ohne_cursor;
+        if (z.im_fenster) {
+            g_schritte += z.soll.plan_schritte;
+            g_gebaut += z.bin.gebaut;
+            g_gemessen += z.bin.gemessen;
+            g_stale += z.bin.stale;
+            g_teilweise += z.bin.teilweise;
+            g_ungueltig += z.bin.sidecar_ungueltig;
+            g_csv += z.bin.csv_gesehen;
+            if (!z.perm_dir_vorhanden) ++g_ohne_dir;
+            if (z.bin.scan_gekappt) ++g_gekappt;
+        } else {
+            ++f_zellen;
+            f_gebaut += z.bin.gebaut;
+            f_gemessen += z.bin.gemessen;
+            f_teilweise += z.bin.teilweise;
+            f_stale += z.bin.stale;
+            f_csv += z.bin.csv_gesehen;
+        }
 
         os << "[status-zelle] ceb=" << nz(z.soll.ceb) << " zelle=" << nz(z.soll.zelle) << " fenster=" << nz(b.fenster)
-           << " perm=" << z.soll.perm_index << " plan_schritte=" << z.soll.plan_schritte
+           << " perm=" << z.soll.perm_index << " im_fenster=" << (z.im_fenster ? "ja" : "nein")
+           << " plan_schritte=" << z.soll.plan_schritte
            << " perm_dir=" << (z.perm_dir_vorhanden ? "vorhanden" : "fehlt") << " gebaut=" << z.bin.gebaut
            << " gemessen=" << z.bin.gemessen << " teilweise=" << z.bin.teilweise << " stale=" << z.bin.stale
            << " csv_gesehen=" << z.bin.csv_gesehen << " sidecar_ungueltig=" << z.bin.sidecar_ungueltig
            << " ohne_stempel=" << z.bin.ohne_stempel << " kopf_drift=" << z.bin.kopf_drift
-           << " zeilen_abweichung=" << z.bin.zeilen_abweichung << " offen=" << offen_feld(b, z.bin.gemessen) << "\n";
+           << " zeilen_abweichung=" << z.bin.zeilen_abweichung << " scan_gekappt="
+           << (z.bin.scan_gekappt ? "ja" : "nein")
+           // Eine Fremd-Fenster-Zelle hat in DIESEM Fenster kein SOLL -- der Sentinel sagt das, statt eine
+           // Zahl zu erfinden, die sich auf ein anderes Fenster bezoege.
+           << " offen=" << (z.im_fenster ? offen_feld(b, z.bin.gemessen) : std::string{kMarkerUnbelegt}) << "\n";
 
         os << "[status-cursor] ceb=" << nz(z.soll.ceb) << " zelle=" << nz(z.soll.zelle) << " fenster=" << nz(b.fenster)
            << " perm=" << z.soll.perm_index << " cursor_datei=" << (z.cursor.datei_vorhanden ? "vorhanden" : "fehlt")
@@ -368,16 +450,29 @@ inline void render_status(StatusBericht const& b, std::ostream& os) {
            << (!z.cursor.datei_vorhanden ? std::string{kMarkerUnbelegt}
                                          : std::string{z.cursor.done_gesehen ? "ja" : "nein"})
            << " zeilen=" << z.cursor.zeilen_gesamt << " zeilen_perm=" << z.cursor.zeilen_perm
-           << " zeilen_done=" << z.cursor.zeilen_done << " zeilen_fremd=" << z.cursor.zeilen_fremd << "\n";
+           << " zeilen_done=" << z.cursor.zeilen_done << " zeilen_fremd=" << z.cursor.zeilen_fremd
+           << " abgebrochene_zeile=" << z.cursor.zeilen_abgebrochen << "\n";
     }
-    if (!b.zellen.empty() && g_ohne_cursor == b.zellen.size())
+    if (!b.zellen.empty() && alle_ohne_cursor == b.zellen.size())
         os << "[status] quelle=progress_cursor keine Daten (keine der " << b.zellen.size() << " Zellen hat eine "
            << kProgressCursorDateiname << ")\n";
-    if (!b.zellen.empty() && g_csv == 0)
+    if (!b.zellen.empty() && alle_csv == 0)
         os << "[status] quelle=result_csv keine Daten (kein " << kResultCsvName << " unter den Perm-Verzeichnissen)\n";
+
+    // H1: die Fremd-Fenster bekommen eine EIGENE Zeile. Sie sind weder Fortschritt dieses Fensters noch
+    // Nichts -- sie sind der Ist eines ANDEREN Fensters, und genau so wird er ausgewiesen.
+    if (f_zellen > 0)
+        os << "[status-fremdfenster] zellen=" << f_zellen << " fenster=" << nz(b.fenster) << " gebaut=" << f_gebaut
+           << " gemessen=" << f_gemessen << " teilweise=" << f_teilweise << " stale=" << f_stale
+           << " csv_gesehen=" << f_csv << "\n";
 
     if (!b.bestand.aktiv) {
         os << "[status] quelle=bestandslog keine Daten (COMDARE_BESTANDSLOG nicht aktiv / Ebene B fehlt)\n";
+    } else if (b.bestand.fehler) {
+        // M4: eine Transport-AUSNAHME ist BERICHTS-Inhalt wie jede andere fehlende Quelle. Sie als Wurf
+        // durchzulassen braeche die Zusage des Kommandos ("fehlende Quellen sind Berichts-Inhalt, rc 0")
+        // ausgerechnet im haeufigsten Ausfall: Objekt-Store nicht erreichbar.
+        os << "[status-bestand] quelle=fehler (" << nz(b.bestand.grund) << ")\n";
     } else if (!b.bestand.gelesen) {
         os << "[status] quelle=bestandslog keine Daten (" << nz(b.bestand.grund) << ")\n";
     } else {
@@ -387,10 +482,12 @@ inline void render_status(StatusBericht const& b, std::ostream& os) {
            << " res_released=" << b.bestand.res_released << " res_ohne_eta=" << b.bestand.res_ohne_eta << "\n";
     }
 
-    os << "[status-gesamt] zellen=" << b.zellen.size() << " fenster=" << nz(b.fenster)
-       << " plan_schritte=" << g_schritte << " perm_dirs_fehlen=" << g_ohne_dir << " gebaut=" << g_gebaut
-       << " gemessen=" << g_gemessen << " teilweise=" << g_teilweise << " stale=" << g_stale << " csv_gesehen=" << g_csv
-       << " sidecar_ungueltig=" << g_ungueltig << " offen=" << offen_feld(b, g_gemessen) << "\n";
+    os << "[status-gesamt] zellen=" << b.zellen.size() << " fenster_zellen=" << (b.zellen.size() - f_zellen)
+       << " fremdfenster=" << f_zellen << " fenster=" << nz(b.fenster) << " plan_schritte=" << g_schritte
+       << " perm_dirs_fehlen=" << g_ohne_dir << " gebaut=" << g_gebaut << " gemessen=" << g_gemessen
+       << " teilweise=" << g_teilweise << " stale=" << g_stale << " csv_gesehen=" << g_csv
+       << " sidecar_ungueltig=" << g_ungueltig << " scan_gekappt_zellen=" << g_gekappt
+       << " offen=" << gesamt_offen_feld(b) << "\n";
 }
 
 } // namespace comdare::cache_engine::planner
