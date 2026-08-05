@@ -56,9 +56,27 @@
 //   (9) F30-RELATION      -- "::" + type_name<S>() == ORGAN_LOCATION-Literal, am TYP statt am Artefakt:
 //                            genau die Relation, die der Generator-Guard prueft, hier auch fuer die
 //                            Default-OFF-Organe, deren Kante bis zur Hebung latent offen war
-// (1)-(5) und (9) laufen compile-hart ueber die GANZE abgeleitete Liste; (6)-(8) laufen zur Laufzeit ueber
-// dieselbe Liste (mp_for_each), (8) gefiltert auf die ENABLED-Teilmenge -- nur die steht ueberhaupt in der
-// committeten XML (der Generator reflektiert Enabled*, main.cpp:207) -- und (8b) auf ihr Komplement.
+// (1)-(5) und (9) laufen compile-hart ueber die GANZE abgeleitete Liste; (8)/(8b) laufen zur Laufzeit
+// ueber dieselbe Liste (mp_for_each), (8) gefiltert auf die ENABLED-Teilmenge -- nur die steht ueberhaupt
+// in der committeten XML (der Generator reflektiert Enabled*, main.cpp:207) -- und (8b) auf ihr Komplement.
+//
+// ===================================================================================================
+// SCHEIBE 3 (2026-08-05): (6)/(7) LAUFEN UEBER EINE ERKLAERTE STICHPROBE, NICHT UEBER DIE POPULATION.
+// ===================================================================================================
+// Bis Scheibe 2 war die Laufzeit-Population identisch mit der abgeleiteten -- bei 8 typ-verwandten
+// Array-Organen war das gratis. Scheibe 3 zieht die uebrigen 14 Organe der Achse herein, und die sind
+// NICHT typ-verwandt: u8- neben u16-Keyraum, lazy- neben konstruktor-allozierenden Puffern, Trie-
+// Staging-Wrapper neben Knoten-Pools. Ein generischer Treiber ueber ALLE 22 waere entweder falsch
+// (kN=512 kollabiert im u8-Keyraum auf 256 distinkte Keys -- die Disjunktheits-Probe verglichen zwei
+// gleich grosse Instanzen und meldete gruen, ohne etwas zu zeigen) oder er muesste die Aussage so weit
+// verwaessern, bis sie nichts mehr trennt.
+//
+// Die Wache faehrt (6)/(7) deshalb ueber eine ERKLAERTE STICHPROBE: die 8 Organe der Scheiben 1+2
+// (unveraendert, keine Deckung verloren) plus je EINEN Vertreter der neuen Klassen. Das ist eine
+// AUFWANDS-Entscheidung und wird als solche ausgewiesen, nicht als Vollstaendigkeit verkleidet:
+// compile-hart gilt der Vertrag fuer ALLE 22, real GETRIEBEN wird die Stichprobe. Der
+// Stichproben-Vertrag darunter (jedes Element traegt den Migrations-Ausweis) haelt sie an die
+// abgeleitete Population gekettet -- ein Tippfehler oder ein Organ ohne Ausweis bricht compile-hart.
 //
 // WARUM (6) NICHT ALS BLOSSES ">0" GEBAUT IST (02a-HERZ-Vorbild, LEDGER abend-13): ein ">0" waere auch
 // am ALT-Stand gruen gewesen, sobald IRGENDEIN Achsen-Zaehler lief. Die Aussage dieser Scheibe ist
@@ -74,7 +92,17 @@
 // Einsammlung + die Doppelzaehlungs-Regel (konstitutiver Store-Snapshot vs. Summe der disjunkten
 // Organ-Snapshots) sind der explizite Schritt des Mess-Schnitt-Fensters VOR Messbeginn (abend-11 (a)).
 //
-// ANTI-ZEMENTIERUNGS-BISS (gefahren, nicht behauptet): der Pilot-Stand dieser TU wurde gegen den
+// ANTI-ZEMENTIERUNGS-BISS DER SCHEIBE 3 (gefahren, nicht behauptet -- und der Befund ist genau der,
+// den man sehen will): diese TU wurde per Include-Overlay gegen den Stand b2e21a92 uebersetzt, an dem
+// die beiden containerfreien Organe (array256, original_art) den Ausweis noch NICHT trugen. Sie
+// schlaegt dort COMPILE-HART fehl -- an GENAU EINER Zeile, dem neuen 22/22-Pin:
+//   "error: static assertion failed: 01c VOLLSTAENDIGKEIT VERLETZT: mindestens EIN Organ der Achse
+//    03a traegt keinen Migrations-Ausweis (rebind_allocator)."
+// Der ALTE, engere enabled-Pin blieb bei derselben Uebersetzung STILL -- die beiden Organe sind
+// Default-OFF. Das ist der Beleg, dass die Hebung von 'enabled' auf 'alle' substanziell war und nicht
+// bloss eine umformulierte Tautologie: sie faengt exakt die Klasse, die der alte Pin nicht sehen konnte.
+//
+// ANTI-ZEMENTIERUNGS-BISS DER VORGAENGER-SCHEIBEN (gefahren, nicht behauptet): der Pilot-Stand dieser TU wurde gegen den
 // ALT-Stand des Organs (14a8cfbc) uebersetzt und schlug COMPILE-HART fehl, 21 Fehler, darunter
 // "'LinearScanSearchAlgoRebound' does not name a template type". Der GEHOBENE Stand wurde zusaetzlich
 // gegen den Pilot-Stand der ORGANE gefahren (8571ac01: nur linear_scan migriert, die drei anderen
@@ -147,6 +175,49 @@ using MigriertUndEnabled  = mp::mp_filter<lk::is_enabled, MigrierteOrgane>;
 using MigriertUndDisabled = mp::mp_filter<ist_disabled, MigrierteOrgane>;
 
 // =============================================================================================
+// DIE KONTRAST-STICHPROBE (Scheibe 3) -- welche Organe REAL getrieben werden.
+// Bewusst eine Liste und keine Ableitung: die Auswahl IST die Aussage (je ein Vertreter je
+// Speicher-Klasse), und eine Ableitung koennte sie nicht treffen. Sie steht unter zwei Vertraegen:
+//   - jedes Element traegt den Migrations-Ausweis (haelt sie an die abgeleitete Population gekettet),
+//   - die Stichprobe ist echt kleiner als die Population (sonst waere die Trennung Zeremonie).
+// LAZY-KLASSE (Puffer wachsen erst unter Last -> der "ehrliche Nullpunkt" der generischen Probe gilt):
+//   * Scheiben 1+2, unveraendert: k_ary, interpolation, eytzinger, linear_scan + die vier per-K.
+//   * NEU Scheibe 3: vector_u16u16 = die FLACHE Familie (zwei parallele Vektoren, u16-Keyraum)
+//                    bst          = der KNOTEN-POOL mit Free-List (leer konstruiert).
+// Die EV-4-STAGING-WRAPPER (original_*) haben eine eigene Probe -- aus einem Grund, den erst der Lauf
+// gezeigt hat: DREI von ihnen sind am Default-OFF INERT (insert-Rumpf unter `if constexpr (enabled)`),
+// der VIERTE (original_surf) ist es nicht. Ein pauschaler Kontrast-Beweis waere an dreien vakuoos
+// gruen gewesen; die eigene Probe leitet den Fall am Lauf ab und sagt in beiden Faellen die Wahrheit.
+// Die BAU-ALLOZIERENDEN Organe (array65535, skip_list, hash_search) haben eine EIGENE Probe weiter
+// unten -- fuer sie ist der Nullpunkt per Konstruktion nicht null, und genau diese Umkehrung ist dort
+// die Aussage. Sie stehen deshalb NICHT in dieser Liste (die generische Probe wuerde an ihnen
+// zu Recht scheitern).
+// =============================================================================================
+using KontrastStichprobe =
+    mp::mp_list<lk::KArySearchAlgo, lk::InterpolationSearchAlgo, lk::EytzingerSearchAlgo, lk::LinearScanSearchAlgo,
+                lk::KArySearchAlgoK2, lk::KArySearchAlgoK4, lk::KArySearchAlgoK8, lk::KArySearchAlgoK16,
+                lk::VectorU16U16SearchAlgo, lk::BinarySearchTreeSearchAlgo>;
+
+/// Die EV-4-STAGING-WRAPPER, ueber die die Inertheits-Probe laeuft (s.u.). Ableitbar waeren sie nicht:
+/// "traegt einen Paper-Mixin" ist keine Typ-Eigenschaft am Default-Build (das Codegen-Gate ist aus).
+using StagingWrapper = mp::mp_list<lk::OriginalHotSearchAlgo, lk::OriginalStartSearchAlgo,
+                                   lk::OriginalWormholeSearchAlgo, lk::OriginalSurfSearchAlgo>;
+
+static_assert(mp::mp_all_of<StagingWrapper, traegt_migrations_ausweis>::value,
+              "01c: ein EV-4-Staging-Wrapper traegt keinen Migrations-Ausweis mehr.");
+
+static_assert(mp::mp_all_of<KontrastStichprobe, traegt_migrations_ausweis>::value,
+              "01c-Stichprobe ENTKOPPELT: ein Organ der Kontrast-Stichprobe traegt keinen Migrations-Ausweis, "
+              "steht also gar nicht in der abgeleiteten Population. Die Stichprobe triebe dann etwas, das der "
+              "compile-harte Vertrag oben nie gesehen hat.");
+static_assert(mp::mp_size<KontrastStichprobe>::value < mp::mp_size<MigrierteOrgane>::value,
+              "01c-Stichprobe NICHT ECHT KLEINER als die abgeleitete Population -- dann ist die Trennung zwischen "
+              "compile-hartem Vertrag (alle) und getriebener Stichprobe (Auswahl) Zeremonie, und die "
+              "Aufwands-Ehrlichkeit dieser Wache waere eine leere Behauptung.");
+static_assert(mp::mp_size<mp::mp_unique<KontrastStichprobe>>::value == mp::mp_size<KontrastStichprobe>::value,
+              "01c-Stichprobe traegt ein DUPLIKAT -- der Laufzeit-Ausweis zaehlte dasselbe Organ doppelt.");
+
+// =============================================================================================
 // (0) POPULATIONS-PIN -- die Anti-Vakuositaets-Wache der ABLEITUNG.
 //     Ohne sie koennte diese TU bei einem stillen Familien-Ausfall (rebind_allocator verschwindet)
 //     ueber eine LEERE Liste laufen und "alles gruen" melden. Der Pin ist bewusst NICHT als feste
@@ -156,10 +227,36 @@ static_assert(mp::mp_size<MigrierteOrgane>::value > 0,
               "01c-Gate TOT: kein einziges Organ der Achse 03a traegt einen Migrations-Ausweis -- die abgeleitete "
               "Population ist leer und alle Ebenen dieser Wache liefen vakuoos gruen.");
 
-/// DER VOLLSTAENDIGKEITS-PIN. Genau die ENABLED-Organe der Achse stehen in der committeten
-/// Registry-XML (der Generator reflektiert Enabled*, axis_registry_gen main.cpp:207) und liegen damit
-/// auf dem Mess-Pfad. Ein nicht migriertes Organ DARUNTER waere exakt die stille zweite Strategie, die
-/// 01c abstellt. Die Aussage ist derivations-symmetrisch -- sie nennt kein Organ und keine Zahl.
+/// DER VOLLSTAENDIGKEITS-PIN -- MIT SCHEIBE 3 VON 'enabled' AUF 'ALLE' GEHOBEN.
+///
+/// Bis Scheibe 2 lautete er `mp_size<MigriertUndEnabled> == mp_size<EnabledStrategies>`: genau die
+/// ENABLED-Organe stehen in der committeten Registry-XML (der Generator reflektiert Enabled*,
+/// axis_registry_gen main.cpp:207) und liegen damit auf dem Mess-Pfad. Das war fuer die enabled-Flaeche
+/// die richtige Aussage -- und fuer die Achse die zu schwache: ein Organ, das heute Default-OFF ist,
+/// wird beim naechsten Flag-Umlegen ohne jede Warnung Mess-Pfad, und ZU DIESEM ZEITPUNKT haette
+/// niemand mehr einen Anlass, seine Allokator-Bindung zu pruefen. Genau so entsteht die stille zweite
+/// Strategie, die 01c abstellt.
+///
+/// Ab Scheibe 3 ist die Population der Achse VOLLSTAENDIG migriert, und der Pin sagt das:
+///
+///     mp_size<MigrierteOrgane> == mp_size<AllStrategies>
+///
+/// Das ist die Zeile, die ab jetzt bei JEDEM neuen Organ der Achse 03a BEISST -- auch bei einem
+/// Default-OFF-Organ, auch bei einem, das nur "mal schnell registriert" wird. Wer eine Strategie in
+/// AllStrategies eintraegt, ohne ihr den Zwei-Ebenen-Schnitt zu geben, bekommt hier einen
+/// Compile-Fehler statt eines gruenen Laufs. Sie nennt weiterhin kein Organ und keine Zahl --
+/// derivations-symmetrisch, damit sie beim Wachsen der Achse nicht nachgezogen werden muss.
+///
+/// Der ALTE, engere Pin bleibt zusaetzlich stehen: er ist die schaerfere Diagnose, wenn ausgerechnet
+/// ein Organ auf dem Mess-Pfad ausfaellt, und kostet nichts.
+static_assert(mp::mp_size<MigrierteOrgane>::value == mp::mp_size<lk::AllStrategies>::value,
+              "01c VOLLSTAENDIGKEIT VERLETZT: mindestens EIN Organ der Achse 03a traegt keinen "
+              "Migrations-Ausweis (rebind_allocator). Es faellt damit aus dieser Wache HERAUS -- die "
+              "Population ist ueber den Ausweis gefiltert -- und wuerde beim Einschalten seines Flags mit "
+              "einer zweiten, stillen Allokator-Strategie im selben Tier laufen. Owner-KERN LEDGER "
+              "04.08. abend-11 'Option B strikt'. Neue Organe brauchen den Schnitt (Voll-Rezept mit "
+              "Core/Fassade/Rebound) oder, wenn sie heap-frei sind, die MINIMAL-Form (allocator_type-"
+              "Ausweis + rebind_allocator, kein Strategie-Member) -- s. axis_03a_search_algo_array256.hpp.");
 static_assert(mp::mp_size<MigriertUndEnabled>::value == mp::mp_size<lk::EnabledStrategies>::value,
               "01c VOLLSTAENDIGKEIT VERLETZT: mindestens ein ENABLED Organ der Achse 03a traegt keinen "
               "Migrations-Ausweis. Es faellt damit aus dieser Wache HERAUS (die Population ist ueber den "
@@ -364,6 +461,167 @@ void pruefe_organ_zur_laufzeit() {
            "erase-Semantik identisch");
 }
 
+/// (6b) SONDER-PROBE der BAU-ALLOZIERENDEN Klasse (Scheibe 3).
+///
+/// Fuer diese Organe gilt der "ehrliche Nullpunkt" der generischen Probe NICHT -- und das ist keine
+/// Ausnahme, die man wegdefiniert, sondern die schaerfste Aussage der ganzen Scheibe: sie legen
+/// Speicher schon BEIM BAU an (array65535 zwei 65536-Slot-Puffer; skip_list den Head-Turm samt
+/// Knoten-Pool; hash_search die Initial-Bucket-Tabelle). Genau diese Allokationen liefen am Alt-Stand
+/// am Allokator-Achsen-Interface vorbei; die T6-Spalte haette sie nie gesehen, auch nicht als der
+/// Store laengst konform war. Die Probe verlangt deshalb das Gegenteil des Nullpunkts: schon die
+/// UNGETRIEBENE Instanz muss Bytes ueber die T6-Wahl melden -- und beide Ebenen muessen dabei
+/// zahlengleich sein.
+///
+/// @tparam kWaechstUnterLast  Ob das Organ unter Last WEITER alloziert. Das ist eine Aussage ueber den
+///        Algorithmus, kein Schalter: die direkte Adressierung (array65535) darf NICHT nachwachsen --
+///        wenn doch, hat jemand eine versteckte Nach-Allokation eingebaut; skip_list und hash_search
+///        MUESSEN nachwachsen -- wenn nicht, ist der Wachstums-Pfad gar nicht getroffen worden. Beide
+///        Richtungen beissen.
+template <class S, bool kWaechstUnterLast>
+void pruefe_bau_allozierer() {
+    using Rebound = comp::search_algo_for_composition_t<S, KompositionsAllokator>;
+
+    std::printf("  --- %s (BAU-ALLOZIERER, waechst unter Last: %s | Fassade %s | Rebound %s)\n", S::name().data(),
+                kWaechstUnterLast ? "ja" : "nein", s5::family_alloc_form<S>(), s5::family_alloc_form<Rebound>());
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    Rebound frisch_komposition{};
+    S       frisch_default{};
+
+    auto const k_bau = frisch_komposition.search_allocator_statistics();
+    auto const d_bau = frisch_default.search_allocator_statistics();
+    std::printf("      Bau-Allokationen: Komposition=%llu (%llu B) | Achsen-Default=%llu (%llu B)\n",
+                static_cast<unsigned long long>(k_bau.allocation_count),
+                static_cast<unsigned long long>(k_bau.total_bytes_allocated),
+                static_cast<unsigned long long>(d_bau.allocation_count),
+                static_cast<unsigned long long>(d_bau.total_bytes_allocated));
+
+    pruefe(k_bau.allocation_count > 0,
+           "schon der BAU alloziert ueber die T6-Wahl der Komposition (am Alt-Stand lief genau diese "
+           "Allokation am Achsen-Interface vorbei)");
+    pruefe(k_bau.allocation_count == d_bau.allocation_count &&
+               k_bau.total_bytes_allocated == d_bau.total_bytes_allocated,
+           "Bau-Bilanz beider Ebenen zahlen- UND byte-gleich (der Rebind aendert die Strategie, nicht die Geometrie)");
+    // Gegenprobe gegen die generische Probe: hier waere ein "== 0"-Nullpunkt schlicht FALSCH.
+    pruefe(k_bau.total_bytes_allocated > 0, "und es sind echte Bytes, nicht nur Zaehl-Ereignisse");
+
+    treibe(frisch_komposition, kN);
+    treibe(frisch_default, kN);
+    auto const k_last = frisch_komposition.search_allocator_statistics();
+    auto const d_last = frisch_default.search_allocator_statistics();
+    std::printf("      nach Last:        Komposition=%llu (%llu B) | Achsen-Default=%llu (%llu B)\n",
+                static_cast<unsigned long long>(k_last.allocation_count),
+                static_cast<unsigned long long>(k_last.total_bytes_allocated),
+                static_cast<unsigned long long>(d_last.allocation_count),
+                static_cast<unsigned long long>(d_last.total_bytes_allocated));
+
+    pruefe(k_last.allocation_count == d_last.allocation_count &&
+               k_last.total_bytes_allocated == d_last.total_bytes_allocated,
+           "auch NACH der Last zahlen- UND byte-gleich (der Rebind aendert die Strategie, nicht die Geometrie)");
+    if constexpr (kWaechstUnterLast) {
+        // Der Wachstums-Pfad MUSS getroffen worden sein -- sonst hat die Probe ihn nur behauptet.
+        pruefe(k_last.allocation_count > k_bau.allocation_count,
+               "der WACHSTUMS-Pfad laeuft ueber die T6-Wahl (Turm-Vektoren bzw. Rehash-Zwischenpuffer, nicht "
+               "nur die Bau-Tabelle)");
+    } else {
+        // Umgekehrt: direkte Adressierung darf NICHT nachwachsen -- eine versteckte Nach-Allokation
+        // waere ein echter Befund und keine Formalie.
+        pruefe(k_last.allocation_count == k_bau.allocation_count,
+               "direkte Adressierung waechst unter Last NICHT nach (keine versteckte Nach-Allokation)");
+    }
+#else
+    std::printf("      (Statistik-Pfad aus -- Bau-Bilanz uebersprungen, Verhaltens-Pin laeuft)\n");
+    Rebound frisch_komposition{};
+    S       frisch_default{};
+    treibe(frisch_komposition, kN);
+    treibe(frisch_default, kN);
+#endif
+
+    bool alle_gleich = true;
+    for (std::uint32_t i = 0; i < kN + 64u; ++i) {
+        auto const k = static_cast<typename S::key_type>(i);
+        if (frisch_komposition.lookup(k) != frisch_default.lookup(k)) alle_gleich = false;
+    }
+    pruefe(alle_gleich, "Antworten der beiden Ebenen ueber Treffer UND Fehlschlaege identisch");
+    pruefe(frisch_komposition.occupied_count() == frisch_default.occupied_count(), "Belegung identisch");
+}
+
+/// (6c) DIE EV-4-STAGING-WRAPPER (original_*) -- eine Probe, die ihre Aussage AM LAUF ableitet.
+///
+/// ZWEI BEFUNDE, DIE DIESE PROBE ERZWUNGEN HABEN (Scheibe 3, am Lauf gefunden statt angenommen):
+///
+///   (i) DREI der vier Wrapper sind am Default-OFF INERT: ihr insert-Rumpf steht unter
+///       `if constexpr (enabled)` und tut nichts (original_hot:129, original_start:124,
+///       original_wormhole:178). Die Staging-Vektoren bleiben leer, die Allokations-Zaehler beider
+///       Ebenen stehen auf 0. Der generische Kontrast-Beweis waere an ihnen nicht knapp
+///       durchgefallen -- er waere SINNLOS gewesen, und sein ">0" haette schlicht gelogen.
+///
+///   (ii) original_surf ist es NICHT: sein insert-Rumpf traegt diesen Gate NICHT (:181-189) und
+///       fuehrt seine Staging-Vektoren auch am Default-OFF real. Das ist eine VORBESTEHENDE
+///       Asymmetrie der vier Wrapper (nicht von dieser Scheibe erzeugt -- der Gate fehlte schon am
+///       Basis-Commit) und bleibt hier bewusst UNANGETASTET: sie zu vereinheitlichen waere eine
+///       Verhaltens-Aenderung an einem Registry-Organ und gehoert nicht in eine Allokator-Scheibe.
+///       Sie ist als offener Punkt gemeldet.
+///
+/// Die Probe leitet deshalb AM LAUF ab, welcher Fall vorliegt, statt ihn zu unterstellen:
+///   * nimmt der Wrapper Eintraege an -> voller Kontrast (Zahlen beider Ebenen gleich, echte Bytes);
+///   * nimmt er keine an -> die ehrliche Inertheits-Aussage (beide Ebenen 0 UND verhaltensgleich).
+/// Damit sagt sie heute die Wahrheit ueber alle vier UND schaltet automatisch um, sobald jemand ein
+/// Flag umlegt oder den fehlenden Gate nachzieht -- ohne dass hier eine Zeile faellt.
+///
+/// EV-4-GRENZE, hier wiederholt, weil eine spaetere CSV-Lektuere sie sonst nicht sieht: was diese
+/// Organe ueber die Achse melden, ist der wrapper-eigene STAGING-Anteil. Der Vendor-/Codegen-Pfad
+/// bleibt faithful und damit T6-blind (Design-Entscheid abend-14 (iv)).
+template <class S>
+void pruefe_staging_wrapper() {
+    using Rebound = comp::search_algo_for_composition_t<S, KompositionsAllokator>;
+
+    Rebound am_kompositions_zaehler{};
+    S       am_achsen_default{};
+    treibe(am_kompositions_zaehler, kN);
+    treibe(am_achsen_default, kN);
+
+    bool const nimmt_eintraege = (am_kompositions_zaehler.occupied_count() > 0);
+    std::printf("  --- %s (EV-4-Staging-Wrapper, %s | Fassade %s | Rebound %s)\n", S::name().data(),
+                nimmt_eintraege ? "AKTIV -> voller Kontrast" : "INERT -> Inertheits-Aussage",
+                s5::family_alloc_form<S>(), s5::family_alloc_form<Rebound>());
+
+    // Die Ebenen-Gleichheit gilt in BEIDEN Faellen und ist die eigentliche Aussage dieser Scheibe:
+    // ob ein Organ Eintraege annimmt, ist eine Eigenschaft des ORGANS -- nie der Allokator-Wahl.
+    pruefe(am_kompositions_zaehler.occupied_count() == am_achsen_default.occupied_count(),
+           "Belegung beider Ebenen identisch (Annahme-Verhalten haengt am Organ, nicht an der T6-Wahl)");
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    auto const k_stat = am_kompositions_zaehler.search_allocator_statistics();
+    auto const d_stat = am_achsen_default.search_allocator_statistics();
+    std::printf("      Allokationen: Komposition=%llu (%llu B) | Achsen-Default=%llu (%llu B)\n",
+                static_cast<unsigned long long>(k_stat.allocation_count),
+                static_cast<unsigned long long>(k_stat.total_bytes_allocated),
+                static_cast<unsigned long long>(d_stat.allocation_count),
+                static_cast<unsigned long long>(d_stat.total_bytes_allocated));
+    pruefe(k_stat.allocation_count == d_stat.allocation_count &&
+               k_stat.total_bytes_allocated == d_stat.total_bytes_allocated,
+           "Allokations-Bilanz beider Ebenen zahlen- UND byte-gleich");
+    if (nimmt_eintraege) {
+        pruefe(k_stat.allocation_count > 0,
+               "der aktive Staging-Anteil laeuft REAL ueber die T6-Wahl der Komposition (EV-4: Staging, "
+               "NICHT der Vendor-Anteil)");
+        pruefe(k_stat.total_bytes_allocated > 0, "und es sind echte Bytes, nicht nur Zaehl-Ereignisse");
+    } else {
+        pruefe(k_stat.allocation_count == 0,
+               "INERT: der Wrapper alloziert auf KEINER Ebene -- ein Kontrast-Beweis waere hier vakuoos, "
+               "deshalb steht diese Aussage statt eines geschenkten Gruens");
+    }
+#endif
+
+    bool alle_gleich = true;
+    for (std::uint32_t i = 0; i < kN; ++i) {
+        auto const k = static_cast<typename S::key_type>(i);
+        if (am_kompositions_zaehler.lookup(k) != am_achsen_default.lookup(k)) alle_gleich = false;
+    }
+    pruefe(alle_gleich, "Antworten der beiden Ebenen identisch (im aktiven wie im inerten Zustand)");
+}
+
 /// (8) REGISTRY-BYTE-BEWEIS am committeten Artefakt -- je ENABLED Organ der Population.
 /// Der Roundtrip-Test (test_axis_registry_roundtrip) beweist "XML == Reflektion des Codes". DIESE
 /// Probe beweist die andere Haelfte: dass die reflektierte Form die ARGLOSE Fassaden-Form ist. Ein
@@ -417,11 +675,29 @@ int main() {
                 static_cast<std::size_t>(mp::mp_size<MigrierteOrgane>::value),
                 static_cast<std::size_t>(mp::mp_size<MigriertUndEnabled>::value),
                 static_cast<std::size_t>(mp::mp_size<lk::EnabledStrategies>::value));
+    std::printf("  VOLLSTAENDIGKEITS-PIN (compile-hart, seit Scheibe 3 ueber ALLE statt nur enabled):\n"
+                "    mp_size<Migriert> == mp_size<AllStrategies> == %zu -- die Achse 03a ist LUECKENLOS\n"
+                "    geschnitten; jedes kuenftige Organ ohne Migrations-Ausweis bricht diese TU compile-hart.\n",
+                static_cast<std::size_t>(mp::mp_size<lk::AllStrategies>::value));
 
-    std::printf("\n(6)+(7) KONTRAST- UND VERHALTENS-BEWEIS je migriertem Organ:\n");
-    mp::mp_for_each<mp::mp_transform<mp::mp_identity, MigrierteOrgane>>([](auto id) {
+    std::printf("\n(6)+(7) KONTRAST- UND VERHALTENS-BEWEIS je Organ der ERKLAERTEN STICHPROBE (%zu von %zu\n"
+                "        migrierten -- compile-hart gilt der Vertrag fuer ALLE, getrieben wird die Auswahl):\n",
+                static_cast<std::size_t>(mp::mp_size<KontrastStichprobe>::value),
+                static_cast<std::size_t>(mp::mp_size<MigrierteOrgane>::value));
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, KontrastStichprobe>>([](auto id) {
         using S = typename decltype(id)::type;
         pruefe_organ_zur_laufzeit<S>();
+    });
+
+    std::printf("\n(6b) SONDER-PROBE der BAU-ALLOZIERENDEN Klasse (Nullpunkt per Konstruktion NICHT null):\n");
+    pruefe_bau_allozierer<lk::Array65535SearchAlgo, /*kWaechstUnterLast=*/false>();
+    pruefe_bau_allozierer<lk::SkipListSearchAlgo, /*kWaechstUnterLast=*/true>();
+    pruefe_bau_allozierer<lk::HashSearchAlgo, /*kWaechstUnterLast=*/true>();
+
+    std::printf("\n(6c) EV-4-STAGING-WRAPPER (Aussage AM LAUF abgeleitet -- inert oder aktiv, beides ehrlich):\n");
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, StagingWrapper>>([](auto id) {
+        using S = typename decltype(id)::type;
+        pruefe_staging_wrapper<S>();
     });
 
     std::printf("\n(8) REGISTRY-BYTE-BEWEIS je ENABLED Organ (nur die stehen in der XML):\n");
