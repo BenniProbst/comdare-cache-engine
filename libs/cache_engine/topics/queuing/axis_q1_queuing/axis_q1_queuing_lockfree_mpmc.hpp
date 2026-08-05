@@ -224,7 +224,9 @@ public:
     /// Setter fuer Runtime-Capacity-Switch ([[iterable-aspect-strategy]] Sub-Concept).
     /// MPMC erfordert vollstaendigen Cell-Array-Reallocate (sequence-initialisierung).
     /// **Nur sicher wenn keine Producer/Consumer aktiv** (Reconfigure-Time).
-    /// SONDERFALL [[allocation-failure-exception]]: make_unique kann std::bad_alloc werfen.
+    /// SONDERFALL [[allocation-failure-exception]]: die Neu-Belegung des Zell-Arrays kann werfen.
+    /// KAUSALITAET seit dem A8-S5-Schnitt (Posten 64/70): der Wurf kommt aus dem StdAllocatorAdapter
+    /// der Allokator-ACHSE (AxisCellArray::reset), nicht mehr aus make_unique/::operator new[].
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 ODER nicht-Power-of-2 wirft.
     void set_iterable_aspect(std::size_t new_cap) {
         std::size_t validated = validate_capacity(new_cap);
