@@ -53,15 +53,26 @@ namespace comdare::cache_engine::lookup::composable {
 ///     Gegenstand des 01c-DESIGN-VORLAUFS mit der Owner-Vorgabe "Option B strikt" (abend-11). Diese Zeile ist
 ///     der deklarierte ZWISCHENSTAND: sie faellt bei der Durchbindung nicht weg, sie WANDERT.
 ///
-/// (2) HARTER BEFUND AM OBJEKT (2026-08-04, diese Scheibe): Die Kompositions-Bindung war hier zuerst gebaut
-///     (`typename Store::allocator_type`) und LIEF NICHT. `AxisBoundBuffer<MimallocAllocator, T>` als
-///     RUECKGABEWERT (der Memento-Pfad) laesst g++ 15.3 unter -O3 im Rumpf von save_state() eine
-///     Endlosschleife emittieren (`jmp .`, EIN Vorkommen; -O1 = 0, ExgenAllocator = 0, ASan/UBSan melden
-///     NICHTS). Der Effekt ist am Minimal-Beispiel reproduziert: ein Puffer dieses Musters, per Wert aus
-///     einer Funktion gegeben, mit MimallocAllocator statt ExgenAllocator -- sonst identisch. Am Ist heisst
-///     das: der T6-Rebind der SCHALE ist heute nicht ueber alle Strategien tragfaehig. Das gehoert VOR die
-///     01c-Durchbindung geklaert (Report-Punkt), nicht still umschifft -- und es waere unter einer stillen
-///     Umgehung nie sichtbar geworden.
+/// (2) HARTER BEFUND AM OBJEKT (2026-08-04, Scheibe 01b) -- **AUFGEKLAERT UND BEHOBEN am 2026-08-05,
+///     Scheibe 01c Vorlauf (0); der Absatz bleibt als Lehre stehen, deprecated statt geloescht:**
+///     Die Kompositions-Bindung war hier zuerst gebaut (`typename Store::allocator_type`) und LIEF NICHT.
+///     `AxisBoundBuffer<MimallocAllocator, T>` als RUECKGABEWERT (der Memento-Pfad) liess g++ 15.3 unter
+///     -O3 eine Endlosschleife emittieren (`jmp .`; -O1 zeigte es nicht, ExgenAllocator zeigte es nicht,
+///     ASan/UBSan meldeten nichts). 01b konnte die Ursache nicht bestimmen und notierte den Verdacht auf
+///     Compiler-Bug oder UB im Puffer.
+///     URSACHE (01c, am Objekt): WEDER das eine NOCH das andere. `AllocatorStrategyBase::restore_statistics`
+///     ist ein CRTP-WEITERLEITER; deklariert die Strategie keinen EIGENEN Member dieses Namens, findet die
+///     Namenssuche in Derived nur den geerbten Basis-Member wieder -- unbeschraenkte Selbst-Rekursion, von
+///     -O3 zur Endlosschleife gefaltet, von -O1 als Selbstaufruf stehen gelassen (daher "-O1 = 0" fuer eine
+///     Textsuche nach 'jmp .'). Bis 05.08. trug ausschliesslich ExgenAllocator den Member -- daher exakt die
+///     beobachtete Asymmetrie. Der Puffer war nur der erste Konsument, der den Pfad ueberhaupt betrat.
+///     Behoben durch Nachziehen des Members in allen 25 betroffenen Strategien + self-proving static_assert
+///     in den drei Weiterleitern der Basis; gepinnt in tests/unit/test_h81_*.cpp (Flaechen-Beweis ueber die
+///     Achsen-Registry + Laufzeit-Beweis genau an DIESEM Puffer + Gegenprobe).
+///     LEHRE, die bleibt: der Befund waere unter einer stillen Umgehung nie sichtbar geworden.
+///     OFFEN (bewusst NICHT in 01c-1): die Zeile unten auf `typename Store::allocator_type` zu drehen ist
+///     jetzt technisch frei -- sie ist aber eine SCHALEN-Durchbindung mit eigenem Kontrast-Beweis und
+///     gehoert damit in die 01c-Folgescheiben, nicht in den Pilot.
 ///
 /// Wichtig: der Default ist der ACHSEN-Default, NIE std::allocator -- die Schnitt-Regel (Dossier 3.4) gilt
 /// hier vollstaendig; nur die Frage WELCHE Strategie bleibt bis 01c beim benannten Default.

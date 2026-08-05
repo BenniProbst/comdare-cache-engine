@@ -131,6 +131,19 @@ public:
         stats_ = {};
         observer_.notify(stats_);
     }
+    // Phase 0.3 (Memento, VERVOLLSTAENDIGUNG 2026-08-05 / A8-S5 01c Vorlauf 0): Statistik auf einen zuvor
+    // via statistics() gezogenen Snapshot zuruecksetzen -- spiegelbildlich zu reset(). Die Deklaration ist
+    // PFLICHT, kein Komfort: AllocatorStrategyBase::restore_statistics ist ein CRTP-WEITERLEITER
+    // (derived().restore_statistics(s)). Fehlt der eigene Member, findet der Weiterleiter nur sich SELBST
+    // wieder -- unbeschraenkte Selbst-Rekursion, die g++ 15.3 unter -O3 als Endlosschleife ('jmp .')
+    // emittiert und unter -O1 als rekursiven Selbstaufruf. Bis 2026-08-05 trug ausschliesslich
+    // ExgenAllocator diesen Member; jede andere Strategie haette den Memento-Pfad (Copy-Ctor der
+    // strategie-besitzenden Stores/Puffer) zum Haenger gemacht. Die Basis pinnt das jetzt zusaetzlich
+    // compile-hart (self-proving static_assert im Weiterleiter).
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
