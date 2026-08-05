@@ -258,14 +258,47 @@ template <class List>
 /// Kompilat ist ein Konfigurationswiderspruch -- fail-loud, nie still. Eine GLEICHE Env ist stumm zulaessig
 /// (die emittierten Jobs tragen weiterhin BEIDE Formen mit demselben Wert; der Env-Kanal speist +mtool und
 /// die Bestandslog-Zelle -- die W-11-Flaeche, hier bewusst UNANGETASTET).
+///
+/// F-B2 (CODEX-NACHREVIEW W1/W2, Ledger-Nachtrag 05.08.2026 nachmittag-7) -- DIE LEERE ENV IST KEIN SONDERFALL
+/// MEHR: bis hierher war eine leere/fehlende Env vom Abgleich AUSGENOMMEN und der CT-Wert galt stumm. Damit
+/// fuehrte der STEMPEL die CT-Welt, waehrend der Objekt-Cache-Key (+mtool, aus DERSELBEN Env) und die
+/// Bestandslog-Zelle z.combo die leere == [all]-Identitaet fuehrten -- ein SCHLUESSEL-WELT-SPLIT gegen die
+/// Anker-Doktrin "EINE Schluessel-Welt" (Ledger-Nachtrag nachmittag-2). Ab jetzt gilt: ist eine SPEZIFISCHE
+/// Combo einkompiliert, MUSS die Env sie tragen -- fehlt sie, ist das derselbe Konfigurationswiderspruch wie
+/// eine abweichende Env. Kein legaler Lauf wird davon getroffen: die emittierten Jobs exportieren Env UND
+/// Define gemeinsam je Combo, und die [all]-Emission traegt seit F-B1 gar kein Define mehr (sie LOESCHT die
+/// CMake-Cache-Variable explizit). Damit ist diese Wache zugleich das Sicherheitsnetz fuer jeden Weg, den F-B1
+/// nicht mechanisch erreicht (z.B. ein bare-metal-Bediener mit sticky konfiguriertem Build-Verzeichnis).
+///
+/// AUSNAHME [all]: ist der einkompilierte Wert selbst die Vollmenge ("[all]" bzw. leer), ist er KEINE
+/// spezifische Wahl -- dann ist die leere Env die SYNCHRONE Form (die Emission exportiert fuer [all] bewusst
+/// keine Env) und es wird nicht geworfen. Diese Kombination kann aus der Emission nicht entstehen (F-B1: [all]
+/// => -U => kein Define); der Zweig deckt nur einen von Hand gesetzten -DCOMDARE_MEASUREMENT_COMBO=[all] ab und
+/// rendert dort ueber denselben Renderer die Vollmengen-Zeile (measurement_stamp_line_from_combo_legend bildet
+/// "[all]" auf measurement_stamp_line_full_set ab) -- also byte-gleich zum #else-Zweig.
+///
+/// BYTE-BILANZ von F-B2: KEIN Stempel-Byte bewegt sich. Der Wurf ersetzt ausschliesslich ein Ergebnis, das der
+/// Alt-Stand still aus einem widerspruechlichen Zustand erzeugte; jeder LEGALE Lauf rendert unveraendert.
 [[nodiscard]] inline std::string measurement_stamp_from_env() {
 #ifdef COMDARE_MEASUREMENT_COMBO_CT
-    char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    if (e != nullptr && *e != '\0' && std::string_view{e} != std::string_view{COMDARE_MEASUREMENT_COMBO_CT})
+    // cppcheck-Adjazenz-Falle (Fallen-Kanon 05.08., lint:static 14673): das Makro darf NIE zwischen zwei
+    // String-Literalen stehen (unknownMacro/Configuration-required). Deshalb EINMAL in ein benanntes
+    // std::string-Objekt und danach nur noch ueber den Namen arbeiten.
+    std::string const ct_legend{COMDARE_MEASUREMENT_COMBO_CT};
+    char const* const e         = std::getenv("COMDARE_MEASUREMENT_COMBO");
+    bool const        env_fehlt = (e == nullptr || *e == '\0');
+    // [all]/leer als einkompilierter Wert ist die Vollmenge, also KEINE spezifische Wahl (s. AUSNAHME oben).
+    bool const ct_ist_vollmenge = ct_legend.empty() || ct_legend == "[all]";
+    if (env_fehlt && !ct_ist_vollmenge)
+        throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO fehlt/leer, "
+                                 "aber die Mess-Combo ist einkompiliert ('" +
+                                 ct_legend +
+                                 "') -- beide Kanaele muessen synchron sein (die Env speist +mtool und die "
+                                 "Bestandslog-Zelle, das Compile-Define den Stempel)");
+    if (!env_fehlt && std::string_view{e} != std::string_view{ct_legend})
         throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO ('" +
-                                 std::string{e} + "') != einkompilierte Combo ('" +
-                                 std::string{COMDARE_MEASUREMENT_COMBO_CT} + "')");
-    return ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(COMDARE_MEASUREMENT_COMBO_CT);
+                                 std::string{e} + "') != einkompilierte Combo ('" + ct_legend + "')");
+    return ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(ct_legend);
 #else
     char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
     return (e != nullptr && *e != '\0') ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
