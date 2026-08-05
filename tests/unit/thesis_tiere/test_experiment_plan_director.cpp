@@ -2039,6 +2039,59 @@ TEST(MeasurementComboEnvBridge, TierCommandsCarryComboEnvWhenFannedAndOmitForAll
     EXPECT_EQ(cm_all.text().find("COMDARE_MEASUREMENT_COMBO="), std::string::npos);
 }
 
+// (W2, 2026-08-05, Owner-GO mittag-6 R1) Der CT-EINBAU der Mess-Combo an den VIER CEB-Compile-Stellen der
+//       Emission: ceb:build + ceb:emit (Stufe 1, CiYamlBuilder) und tier-build-batch + measure-batch (Stufe 2,
+//       TierCiYamlBuilder). Das sind genau die Stellen, an denen der comdare-messung-driver=CEB kompiliert wird
+//       -- dort ENTSTEHEN die Mess-Stempel real. ADDITIV zu den S6-P1b-Env-Pins darueber: der Env-Export bleibt
+//       (er speist +mtool/Bestandslog, W-11-Flaeche), der -D-Zusatz kommt HINZU.
+//       [all] (die gesamte heutige Live-/golden-Strecke) => KEIN Zusatz => Emission BYTE-IDENTISCH.
+TEST(MeasurementComboCtDefine, CebCompileSitesCarryDefineWhenFannedAndOmitForAll) {
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
+    planner::ExperimentPlanDirector const director;
+
+    // Stufe 1 (plan ci): ceb:build UND ceb:emit konfigurieren die CEB mit der einkompilierten Combo.
+    planner::CiYamlBuilder cb;
+    director.construct(*tp, cb);
+    std::string const& s1 = cb.text();
+    EXPECT_NE(s1.find("-DCMAKE_BUILD_TYPE=Release \"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos)
+        << "ceb:build/ceb:emit tragen den CT-Define direkt hinter dem Build-Typ";
+    EXPECT_EQ(count_occurrences(s1, "\"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), 2u)
+        << "genau zwei CEB-Compile-Stellen je Combo in Stufe 1 (ceb:build + ceb:emit)";
+    EXPECT_NE(s1.find("\"-DCOMDARE_MEASUREMENT_COMBO=[macro]\""), std::string::npos);
+    EXPECT_NE(s1.find("\"-DCOMDARE_MEASUREMENT_COMBO=[micro]\""), std::string::npos);
+
+    // Stufe 2 (tier ci): der CEB-NEUBAU im Build-Batch UND im Mess-Batch traegt denselben Define.
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    std::string const& s2 = tb.text();
+    EXPECT_NE(s2.find("\"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos);
+    // Der Env-Export bleibt DANEBEN bestehen (W-11 unangetastet) -- beide Traeger, ein Wert.
+    EXPECT_NE(s2.find("COMDARE_MEASUREMENT_COMBO=\"[wallclock]\" COMDARE_GN_OPT="), std::string::npos);
+
+    // [all] => KEIN Define in KEINER Stufe (byte-identische Live-Emission).
+    auto const tp_all = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp_all.has_value());
+    planner::CiYamlBuilder cb_all;
+    director.construct(*tp_all, cb_all);
+    EXPECT_EQ(cb_all.text().find("-DCOMDARE_MEASUREMENT_COMBO="), std::string::npos)
+        << "[all] => kein CT-Define (Stufe 1 byte-identisch zum Vor-W2-Stand)";
+    planner::TierCiYamlBuilder tb_all;
+    director.construct(*tp_all, tb_all);
+    EXPECT_EQ(tb_all.text().find("-DCOMDARE_MEASUREMENT_COMBO="), std::string::npos)
+        << "[all] => kein CT-Define (Stufe 2 byte-identisch zum Vor-W2-Stand)";
+    // Bare-metal-Gegenpart (plan cmake): der aeussere Configure baut den Treiber -> nur ein Hinweis-Echo,
+    // und auch das NUR ausserhalb von [all].
+    planner::CMakeGraphBuilder gm;
+    director.construct(*tp, gm);
+    EXPECT_NE(gm.text().find("aeusserer Configure braucht -DCOMDARE_MEASUREMENT_COMBO=[wallclock]"), std::string::npos);
+    planner::CMakeGraphBuilder gm_all;
+    director.construct(*tp_all, gm_all);
+    EXPECT_EQ(gm_all.text().find("COMDARE_MEASUREMENT_COMBO"), std::string::npos)
+        << "[all] => kein Hinweis-Echo (Stufe-1-cmake byte-identisch)";
+}
+
 // (S6-P1 g/h) §61-MODI: der Mess-Job traegt (g) den smoke=Debug-Branch (parallel/schnell) + measure=Release (sonst),
 //       den §61-Regressions-Fix (DLL-Bau parallel statt =1) und (h) per-Host-Lanes (prod1/amd, prod2/intel; avx512
 //       nie intel). Paralleles MESSEN (debug-Ideal) bleibt UNGEBAUT (§16.2-M1) -- hier NICHT getestet (ehrliche Luecke).

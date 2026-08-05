@@ -28,3 +28,8 @@ add_subdirectory(perm_runner)
 
 # GO-5 Fork 7 — Generator der TOOL-BERECHNETEN H2-Code-Qualitaets-Akte (sota_h2_scores.xml)
 add_subdirectory(h2_score_akte_tool)
+
+# W1 (F1-HART, Owner-KERN 05.08.2026) -- der Experiment-Planer als EIGENE Binary
+# (comdare-experiment-planner): die PLANER-Rolle (Stufe 1) getrennt von der CEB-Rolle des
+# comdare-messung-driver. Zwei Module ueber DIESELBE Fassaden-Bibliothek, keine Vererbung.
+add_subdirectory(experiment_planner)
