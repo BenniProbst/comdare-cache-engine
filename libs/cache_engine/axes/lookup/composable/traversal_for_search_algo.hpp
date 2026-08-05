@@ -50,6 +50,29 @@ class KArySearchAlgoK16;
 // SortedBinaryTraversal zurueck (Risk#2) und maesse ein anderes K als die Fassade.
 template <unsigned K, class A2>
 class KArySearchAlgoKRebound;
+// A8-S5 PHASE B (2026-08-05), REBOUND-SYMMETRIE fuer die uebrigen store-traversierbaren Familien.
+// Bis hierher war NUR die per-K-Familie (oben) mit ihrem Rebound-Leaf erfasst -- die sieben anderen
+// non-void-Fassaden fielen mit ihrer kompositions-gebundenen Form auf den void-Primaerfall zurueck
+// (deklarierte Asymmetrie 01c-2-Review-B3). Das ist genau dann schaedlich, wenn es am wenigsten
+// auffaellt: der Genus-Erst-Instanziierungs-Punkt materialisiert bei fremder T6-Wahl den Rebound-Leaf,
+// und der saehe ohne diese Deklarationen ein ANDERES Traversal-Organ als seine eigene Fassade --
+// dieselbe Registry-Identitaet maesse je nach Allokator-Strategie ueber zwei verschiedene Such-Pfade.
+// Gemappt wird -- wie bei der Fassade -- die Identitaet, NICHT der Core (detail::XxxSearchAlgoCore
+// taucht hier bewusst nicht auf).
+template <class A2>
+class Array256SearchAlgoRebound;
+template <class A2>
+class Array65535SearchAlgoRebound;
+template <class A2>
+class VectorU8U8SearchAlgoRebound;
+template <class A2>
+class VectorU16U16SearchAlgoRebound;
+template <class A2>
+class LinearScanSearchAlgoRebound;
+template <class A2>
+class InterpolationSearchAlgoRebound;
+template <class A2>
+class KArySearchAlgoRebound;
 
 namespace composable {
 
@@ -113,6 +136,39 @@ template <unsigned K, class A2>
 struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoKRebound<K, A2>> {
     using type = KAryTraversal<K>;
 };
+// A8-S5 PHASE B: dieselbe Aussage fuer die sieben uebrigen non-void-Fassaden. Jede Zeile traegt exakt
+// das Traversal-Organ IHRER Fassade (oben) -- der Rebind aendert die Allokator-Strategie, nie den
+// Such-Pfad. Die Symmetrie ist ab dieser Scheibe nicht mehr per Hand nachzuziehen: die Familien-Wache
+// (tests/unit/test_s5_01c_fassaden_conformance.cpp) leitet sie ueber lk::AllStrategies ab und BEISST,
+// sobald eine Fassade und ihr Rebound-Leaf hier auseinanderlaufen.
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::Array256SearchAlgoRebound<A2>> {
+    using type = DirectAddressTraversal;
+};
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::Array65535SearchAlgoRebound<A2>> {
+    using type = DirectAddressTraversal;
+};
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::VectorU8U8SearchAlgoRebound<A2>> {
+    using type = SortedVectorTraversal;
+};
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::VectorU16U16SearchAlgoRebound<A2>> {
+    using type = SortedVectorTraversal;
+};
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::LinearScanSearchAlgoRebound<A2>> {
+    using type = LinearScanTraversal;
+};
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::InterpolationSearchAlgoRebound<A2>> {
+    using type = InterpolationTraversalOrgan;
+};
+template <class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoRebound<A2>> {
+    using type = KAryTraversal<4u>;
+};
 
 template <class S>
 using traversal_for_search_algo_t = typename traversal_for_search_algo<S>::type;
@@ -154,13 +210,62 @@ static_assert(
 static_assert(
     std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK16>, KAryTraversal<16u>>,
     "#188 per-K: KArySearchAlgoK16 -> KAryTraversal<16>");
-// A8-S5 01c: dass die GEBUNDENE Form dasselbe Traversal-Organ traegt wie ihre Fassade (sonst maesse
-// dieselbe Aritaet je nach T6-Wahl der Komposition ueber zwei verschiedene Organe -- der Rebind darf die
-// Strategie aendern, nie den Such-Pfad), wird BEWUSST NICHT hier gepinnt: dieser Header deklariert seine
-// Algo-Typen nur vorwaerts und kennt keine Allokator-Strategie. Ein Include von axis_06 waere eine neue
-// Kante in einem sehr breit gezogenen Header (Klasse des 05.08.-Hotfix cda964e0 "Include-Satz waechst ->
-// Link-Satz pruefen"). Der Pin steht deshalb in der Familien-Wache, die axis_06 ohnehin fuehrt:
+// A8-S5 01c/PHASE B: dass die GEBUNDENE Form dasselbe Traversal-Organ traegt wie ihre Fassade (sonst
+// maesse dieselbe Identitaet je nach T6-Wahl der Komposition ueber zwei verschiedene Organe -- der
+// Rebind darf die Strategie aendern, nie den Such-Pfad), wird hier OHNE Allokator-Wissen gepinnt:
+// dieser Header deklariert seine Algo-Typen nur vorwaerts, und ein Include von axis_06 waere eine neue
+// Kante in einem sehr breit gezogenen Header (Klasse des 05.08.-Hotfix cda964e0 "Include-Satz waechst
+// -> Link-Satz pruefen"). Der Trick, der beides erlaubt: der Strategie-Parameter der Rebound-Leaves
+// wird von diesem Mapping NUR durchgereicht, nie benutzt -- ein unvollstaendiger Sonden-Typ genuegt
+// als Argument. Damit ist die Symmetrie AM HEADER SELBST beweisbar, ohne eine Zeile Include-Wachstum.
+// Der VOLLE Beweis ueber die reale Registry-Population mit einer echten fremden Strategie bleibt
+// zusaetzlich in der Familien-Wache, die axis_06 ohnehin fuehrt (abgeleitet, nicht aufgezaehlt):
 // tests/unit/test_s5_01c_fassaden_conformance.cpp.
+namespace detail {
+/// NUR ein Namens-Platzhalter fuer die Symmetrie-Pins -- absichtlich unvollstaendig (nie definiert,
+/// nie instanziiert): so kann er unmoeglich als echte Allokator-Strategie missverstanden werden.
+struct TraversalSymmetrieSonde;
+} // namespace detail
+
+template <class S, class Rebound>
+inline constexpr bool traversal_symmetrisch_v =
+    std::is_same_v<traversal_for_search_algo_t<S>, traversal_for_search_algo_t<Rebound>> &&
+    !std::is_same_v<traversal_for_search_algo_t<S>, void>;
+
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::Array256SearchAlgo,
+                  ::comdare::cache_engine::lookup::Array256SearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+              "PHASE B: Array256 -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) Traversal-Organ.");
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::Array65535SearchAlgo,
+                  ::comdare::cache_engine::lookup::Array65535SearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+              "PHASE B: Array65535 -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) Traversal-Organ.");
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::VectorU8U8SearchAlgo,
+                  ::comdare::cache_engine::lookup::VectorU8U8SearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+              "PHASE B: VectorU8U8 -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) Traversal-Organ.");
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::VectorU16U16SearchAlgo,
+                  ::comdare::cache_engine::lookup::VectorU16U16SearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+              "PHASE B: VectorU16U16 -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) Traversal-Organ.");
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::LinearScanSearchAlgo,
+                  ::comdare::cache_engine::lookup::LinearScanSearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+              "PHASE B: LinearScan -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) Traversal-Organ.");
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::InterpolationSearchAlgo,
+                  ::comdare::cache_engine::lookup::InterpolationSearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+              "PHASE B: Interpolation -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) Traversal-Organ.");
+static_assert(
+    traversal_symmetrisch_v<::comdare::cache_engine::lookup::KArySearchAlgo,
+                            ::comdare::cache_engine::lookup::KArySearchAlgoRebound<detail::TraversalSymmetrieSonde>>,
+    "PHASE B: k_ary (HAUPT, K=4) -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) "
+    "Traversal-Organ.");
+static_assert(traversal_symmetrisch_v<
+                  ::comdare::cache_engine::lookup::KArySearchAlgoK8,
+                  ::comdare::cache_engine::lookup::KArySearchAlgoKRebound<8u, detail::TraversalSymmetrieSonde>>,
+              "PHASE B: per-K K=8 -- Rebound-Leaf und Fassade tragen nicht dasselbe (non-void) "
+              "Traversal-Organ (Bestands-Zeile, hier nur mitgepinnt).");
 
 } // namespace composable
 } // namespace comdare::cache_engine::lookup

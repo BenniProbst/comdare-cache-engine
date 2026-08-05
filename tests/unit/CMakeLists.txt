@@ -2330,6 +2330,32 @@ add_test(NAME test_188_4bbV_pool_adapter_flip_compile COMMAND test_188_4bbV_pool
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_188_4bbV_pool_adapter_flip_compile)
 set_tests_properties(test_188_4bbV_pool_adapter_flip_compile PROPERTIES LABELS "contract;standalone;pool_flip")
 
+# A8-S5 PHASE B (2026-08-05) -- KONTRAST-BEWEIS der Treiber-Durchbindung (EffectiveSearchAlgo).
+# Instanziiert SearchAlgorithmAbiAdapter mit einer Komposition, deren Allokator-Achse eine TYP-GLOBAL
+# zaehlende Test-Strategie traegt, und faehrt alle DREI Mess-Treiber. Die Aussage ist eine exakte
+# Gleichung (Treiber-Eigenanteil + gemessener Organ-Anteil) plus der Fassaden-Gegenpol (Bewegung 0) --
+# ein blosses ">0" waere schon am ALT-Stand gruen gewesen, weil der Treiber selbst ueber dieselbe
+# Strategie alloziert. COMDARE_MEASUREMENT_ON=1 ZWINGEND: die drei Treiber existieren nur bei
+# Messung-AN. Boost::mp11 explizit (die Registry reist ueber den Umbrella mit -- Lehre cda964e0:
+# lokal gruen beweist gegen fehlende vendored-Links NICHTS). Standalone (plain int main, kein gtest).
+add_executable(test_phase_b_effective_search_algo_contrast "test_phase_b_effective_search_algo_contrast.cpp")
+target_compile_features(test_phase_b_effective_search_algo_contrast PRIVATE cxx_std_23)
+target_include_directories(test_phase_b_effective_search_algo_contrast PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_phase_b_effective_search_algo_contrast PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_phase_b_effective_search_algo_contrast)
+target_compile_definitions(test_phase_b_effective_search_algo_contrast PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_phase_b_effective_search_algo_contrast COMMAND test_phase_b_effective_search_algo_contrast)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_phase_b_effective_search_algo_contrast)
+set_tests_properties(test_phase_b_effective_search_algo_contrast PROPERTIES LABELS "contract;standalone;a8;alloc")
+
 # S7-1 (#261/#234) -- BST-Pool: allocator-param default + T6 allocator DEG hook.
 comdare_add_test(test_s7_1_bst_pool_allocator_deg
     SOURCES test_s7_1_bst_pool_allocator_deg.cpp)

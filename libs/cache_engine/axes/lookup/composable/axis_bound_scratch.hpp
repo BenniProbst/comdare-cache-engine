@@ -81,8 +81,65 @@ using shell_allocator_t = ::comdare::cache_engine::alloc::ExgenAllocator;
 /// Die Allokator-Achsen-Strategie des Schalen-Speichers EINER Komposition. Die Store-abhaengige Form bleibt
 /// bewusst als EIN Ableitungspunkt stehen (nicht 5x ExgenAllocator hingeschrieben): wenn 01c die
 /// Durchbindung baut, dreht sich GENAU diese Zeile.
+///
+/// A8-S5 PHASE B (2026-08-05) -- DIE ZEILE IST GEDREHT. Sie liefert nicht mehr den Achsen-DEFAULT,
+/// sondern die Strategie, die der STORE dieser Komposition fuehrt. Das war die von 01c-1 hier
+/// schriftlich hinterlegte Restarbeit (s. Absatz oben), und Phase B ist ihr Anlass: seit dem
+/// Organ-Pfad-Faden traegt der Knoten-Pool eines Pool-Organs die T6-Wahl der Komposition real.
+/// Bliebe diese Zeile stehen, waere das Organ in sich WIDERSPRUECHLICH -- sein Pool allozierte ueber
+/// mimalloc, seine Schale (memento_t, Scan-Zwischenablage des Traversal-Organs) weiter ueber den
+/// Achsen-Default: exakt die stille zweite Strategie im selben Tier, die Owner-KERN abend-11
+/// abstellt. `allocator_type` des Composed*-Organs, das ueber diesen Alias gebildet wird, meldete
+/// ausserdem eine Strategie, die sein Speicher gar nicht benutzt.
+/// LEVEL-0-NEUTRALITAET: am Achsen-Default ist `Store::allocator_type` GENAU shell_allocator_t --
+/// unten compile-hart gepinnt. Der golden-Pfad bewegt sich um kein Byte.
+/// EHRLICHE GRENZE, die dabei sichtbar wurde: nicht jeder Store, ueber dem eine Schale gebildet
+/// wird, TRAEGT eine Achsen-Bindung -- die heap-freien Form-A-Stores (z.B. NodeTypeSlotStore) haben
+/// bewusst keinen `allocator_type`, weil sie keinen einzigen Byte dynamisch holen. Fuer sie bleibt
+/// der benannte Achsen-DEFAULT die richtige Antwort (die Schale ueber ihnen alloziert ja doch, und
+/// zwar ueber die Achse -- nur eben ohne eine Wahl, die es am Store zu erben gaebe). Das ist keine
+/// Umgehung, sondern die Fallunterscheidung, die die Form-A/Form-B-Trennung ohnehin macht.
+namespace detail {
+/// Traegt der Store eine Achsen-Bindung, von der die Schale erben kann? (Form B ja, Form A nein.)
 template <class Store>
-using composition_allocator_t = shell_allocator_t;
+concept StoreTraegtAchsenBindung = requires { typename Store::allocator_type; };
+
+template <class Store, bool kVomStore>
+struct composition_allocator {
+    using type = shell_allocator_t; // Form A (heap-freier Store): benannter Achsen-Default.
+};
+template <class Store>
+struct composition_allocator<Store, true> {
+    using type = typename Store::allocator_type; // Form B: die T6-Wahl DIESER Komposition.
+};
+} // namespace detail
+
+template <class Store>
+using composition_allocator_t =
+    typename detail::composition_allocator<Store, detail::StoreTraegtAchsenBindung<Store>>::type;
+
+/// PHASE B Level-0 + Gegenprobe, self-proving an zwei Sonden statt an einer Behauptung: ein Store am
+/// Achsen-Default liefert den Achsen-Default (golden-Pfad unbewegt), ein Store mit fremder Bindung
+/// liefert die FREMDE -- sonst waere die gedrehte Zeile eine teure Attrappe. Die fremde Sonde ist
+/// bewusst ein reiner Marker-Typ: dieser Header soll keine zweite Allokator-Strategie inkludieren.
+struct PhaseBSchalenSondeDefault {
+    using allocator_type = shell_allocator_t;
+};
+struct PhaseBSchalenSondeFremd {
+    struct FremdeStrategieMarke;
+    using allocator_type = FremdeStrategieMarke;
+};
+static_assert(std::is_same_v<composition_allocator_t<PhaseBSchalenSondeDefault>, shell_allocator_t>,
+              "PHASE B Level-0 (Schale): die gedrehte Zeile liefert am Achsen-Default nicht mehr den "
+              "Achsen-Default -- der golden-Pfad haette einen anderen Schalen-Allokator.");
+static_assert(
+    std::is_same_v<composition_allocator_t<PhaseBSchalenSondeFremd>, PhaseBSchalenSondeFremd::FremdeStrategieMarke>,
+    "PHASE B Level-1 (Schale) TOT: die Schale uebernimmt die Store-Bindung nicht -- dann laeuft "
+    "im selben Organ weiter eine zweite, stille Strategie.");
+struct PhaseBSchalenSondeFormA {}; // heap-frei, keine Achsen-Bindung am Store
+static_assert(std::is_same_v<composition_allocator_t<PhaseBSchalenSondeFormA>, shell_allocator_t>,
+              "PHASE B (Schale): ein Form-A-Store ohne Achsen-Bindung muss auf den benannten Achsen-Default "
+              "fallen, nicht auf einen Compile-Fehler.");
 
 /// Selbst-besitzender, an die Allokator-ACHSE gebundener dynamischer Puffer.
 ///

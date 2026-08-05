@@ -70,8 +70,9 @@
 #include <axes/lookup/composable/capacity_constraint.hpp>
 #include <axes/lookup/composable/store_traversable_search_algo.hpp>
 #include <axes/lookup/composable/traversal_for_search_algo.hpp>
-#include <axes/lookup/composable/organ_for_search_algo.hpp>         // #188-4b-b1b: organ_for_search_algo_t (Pool→Organ)
-#include <axes/lookup/composable/organ_for_search_algo_shaped.hpp>  // 234-V-a: 2-armige Shaped-Naht (ShapeCarrier)
+#include <axes/lookup/composable/organ_for_search_algo.hpp>        // #188-4b-b1b: organ_for_search_algo_t (Pool→Organ)
+#include <axes/lookup/composable/organ_for_search_algo_shaped.hpp> // 234-V-a: 2-armige Shaped-Naht (ShapeCarrier)
+#include <axes/lookup/composable/search_algo_rebind.hpp> // A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
 #include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-b1b: ObservableComposedContainer<Organ>
 #include "../axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
@@ -440,8 +441,8 @@ public:
             using Allocator  = typename A::composition_t::allocator;     // R5.B: 2. operative Achse
             using MemLayout  = typename A::composition_t::memory_layout; // R5.B: 3. operative Achse
             using Serializer = typename A::composition_t::serialization; // R5.B: 4. operative Achse (axis_10)
-            using K          = typename SearchAlgo::key_type;
-            SearchAlgo algo;
+            using K          = typename EffectiveSearchAlgo::key_type;
+            EffectiveSearchAlgo algo;
             for (int k = 0; k < 256; ++k) { algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u); }
             Allocator                 alloc;         // Komposition-Allocator (persistiert ueber Batches)
             constexpr std::size_t     kChurn = 2048; // moderate alloc/dealloc-Last je Batch
@@ -545,8 +546,8 @@ public:
             using Allocator  = typename A::composition_t::allocator;
             using MemLayout  = typename A::composition_t::memory_layout;
             using Serializer = typename A::composition_t::serialization;
-            using K          = typename SearchAlgo::key_type;
-            SearchAlgo algo;
+            using K          = typename EffectiveSearchAlgo::key_type;
+            EffectiveSearchAlgo algo;
             for (int k = 0; k < 256; ++k) { algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u); }
             Allocator                 alloc;
             constexpr std::size_t     kChurn = 2048;
@@ -660,10 +661,10 @@ public:
             using QueuingQ2  = typename A::composition_t::queuing_q2;
             // STRUKT-R ORG-18: T17 persistence_target (Seg-Timer-Traeger, static Op wie IoDispatch/Migration).
             using PersistenceTarget = typename A::composition_t::persistence_target;
-            using K                 = typename SearchAlgo::key_type;
+            using K                 = typename EffectiveSearchAlgo::key_type;
 
             // ── Setup (EINMAL, NICHT gemessen) ───────────────────────────────────────────────────────────
-            SearchAlgo algo;
+            EffectiveSearchAlgo algo;
             for (int k = 0; k < 256; ++k) algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
 
             CacheTraversal traversal; // T1: register K Einträge → resolve N-fach
@@ -2207,6 +2208,28 @@ private:
 
     using Composition = typename A::composition_t;
     using SearchAlgo  = typename Composition::search_algo;
+    // A8-S5 PHASE B (2026-08-05) -- DIE EINE NAHT, an der das Such-Organ die Allokator-Wahl SEINER
+    // KOMPOSITION uebernimmt. Sie steht HIER, weil dieser Adapter der GENUS-ERST-INSTANZIIERUNGS-PUNKT
+    // ist: die einzige erlaubte Ausnahme der generalisierten Schnitt-Regel (Owner-KERN 04.08. abend-6).
+    // Ueberall sonst reist die IDENTITAET (die namens-stabile Fassade aus der Registry-XML); erst hier,
+    // wo aus der Komposition ein konkretes Tier wird, wird die SUBSTANZ materialisiert.
+    //   LEVEL 0 (der golden-Pfad): will die Komposition genau die Strategie, an der das Organ ohnehin
+    //   haengt, ist EffectiveSearchAlgo die Fassade SELBST -- derselbe Typ, derselbe Symbolname, kein
+    //   Byte Bewegung (search_algo_rebind.hpp:68-78, is_same-Vorrang VOR dem Rebind).
+    //   LEVEL 1: will sie eine andere, liefert die Naht den Rebound-Leaf des Organs -- und die
+    //   organ-internen Allokationen des Mess-Workloads laufen ueber die T6-Wahl der Komposition
+    //   statt ueber den Achsen-Default.
+    using EffectiveSearchAlgo =
+        ::comdare::cache_engine::lookup::composable::search_algo_for_composition_t<SearchAlgo,
+                                                                                   typename Composition::allocator>;
+    // EBENEN-WACHE (D1-Design): Composition::search_algo darf NIE selbst ein Rebound-Leaf sein. Die
+    // Identitaets-Ebene ist das, was in der Registry-XML steht, was type_name auf die Reise schickt
+    // (adhoc_emitter.hpp:60) und was den serialize-Schluessel bildet. Rutschte ein Rebound-Typ dorthin,
+    // drehten Emitter-Typnamen und binary_id -- lautlos. Kein Byte, kein Member: nur diese Zeile.
+    static_assert(!::comdare::cache_engine::lookup::composable::IsReboundSearchAlgoLeaf<SearchAlgo>,
+                  "PHASE B EBENEN-VERMISCHUNG: Composition::search_algo ist ein Rebound-Leaf. Die "
+                  "Identitaets-Ebene der Achse 03a ist die namens-stabile Fassade -- der Rebound-Leaf ist "
+                  "SUBSTANZ und wird ausschliesslich HIER, am Genus-Erst-Instanziierungs-Punkt, gebildet.");
     // allocator-messender Container (spiegelt builder/AnatomyExecutionContext): ComposedStore<N,L,A> über
     // die Composition-Achsen → dessen Vector-Growth treibt die Allocator-Statistik real.
     // Plan v2 S1 (2026-06-04): layout-honorierender Store — speichert Records am layout-getriebenen eff_stride
@@ -2231,8 +2254,16 @@ private:
     // container_algorithm_t direkt SearchAlgo: kein flacher SortedBinary-Spiegel, kein Double-Wrap. Nur der Rest bleibt flach.
     // 234-V-a: 2-armige Shaped-Naht — mit ShapeCarrier=void typ-identisch zur einarmigen
     // organ_for_search_algo_t<SearchAlgo> (self-proving static_asserts im Shaped-Header).
-    static constexpr bool pool_family_ = !std::is_same_v<
-        ::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<SearchAlgo, ShapeCarrier>, void>;
+    // A8-S5 PHASE B: dritter Trait-Parameter = die T6-Wahl DIESER Komposition. Damit konsumiert auch
+    // der KONSTITUTIVE Pool-Pfad die Allokator-Strategie der Komposition, so wie der flache Pfad sie
+    // seit 02a konsumiert (LayoutAwareChunkedStore<node,layout,allocator>, unten). Am Achsen-Default
+    // ist der Parameter typ-neutral (Level-0-Pins je Familie im Shaped-Header) -- der golden-Pfad
+    // bewegt sich um kein Byte. Beide Konsum-Stellen MUESSEN dasselbe Argument fuehren, sonst driftete
+    // das Praedikat gegen die Typwahl.
+    static constexpr bool pool_family_ =
+        !std::is_same_v<::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<
+                            SearchAlgo, ShapeCarrier, typename Composition::allocator>,
+                        void>;
     static constexpr bool organ_hull_ =
         ::comdare::cache_engine::lookup::composable::is_observable_organ_hull_v<SearchAlgo>;
     // LAZY conditional via std::type_identity: der NICHT gewählte Zweig wird nur BENANNT, nicht instanziiert — sonst
@@ -2241,7 +2272,8 @@ private:
     using container_algorithm_t = typename std::conditional_t<
         pool_family_,
         std::type_identity<::comdare::cache_engine::lookup::composable::ObservableComposedContainer<
-            ::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<SearchAlgo, ShapeCarrier>>>,
+            ::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<
+                SearchAlgo, ShapeCarrier, typename Composition::allocator>>>,
         std::conditional_t<organ_hull_, std::type_identity<SearchAlgo>,
                            std::type_identity<flat_container_algorithm_t>>>::type;
     // #188-4c-iii: T0/lookup/insert/erase laufen fuer alle Kompositionen ueber container_algorithm_; pool_family_ und
