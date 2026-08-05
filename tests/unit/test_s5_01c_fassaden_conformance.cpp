@@ -51,9 +51,14 @@
 //   (6) KONTRAST/LAUFZEIT -- der Speicher des Organs kommt REAL aus der T6-Wahl der KOMPOSITION
 //   (7) VERHALTENS-PIN    -- der Rebind aendert die Strategie, NICHT den Algorithmus
 //   (8) REGISTRY-BYTE     -- die committete XML traegt den arglosen Typ-Namen unveraendert
-// (1)-(5) laufen compile-hart ueber die GANZE abgeleitete Liste; (6)-(8) laufen zur Laufzeit ueber
-// dieselbe Liste (mp_for_each), (8) zusaetzlich gefiltert auf die ENABLED-Teilmenge -- nur die steht
-// ueberhaupt in der committeten XML (der Generator reflektiert Enabled*, main.cpp:207).
+//   (8b) XML-ABWESENHEIT  -- die migrierten Default-OFF-Organe stehen NICHT drin (Byte-Neutralitaet der
+//                            per-K-Leaf-Hebung, am Artefakt statt behauptet)
+//   (9) F30-RELATION      -- "::" + type_name<S>() == ORGAN_LOCATION-Literal, am TYP statt am Artefakt:
+//                            genau die Relation, die der Generator-Guard prueft, hier auch fuer die
+//                            Default-OFF-Organe, deren Kante bis zur Hebung latent offen war
+// (1)-(5) und (9) laufen compile-hart ueber die GANZE abgeleitete Liste; (6)-(8) laufen zur Laufzeit ueber
+// dieselbe Liste (mp_for_each), (8) gefiltert auf die ENABLED-Teilmenge -- nur die steht ueberhaupt in der
+// committeten XML (der Generator reflektiert Enabled*, main.cpp:207) -- und (8b) auf ihr Komplement.
 //
 // WARUM (6) NICHT ALS BLOSSES ">0" GEBAUT IST (02a-HERZ-Vorbild, LEDGER abend-13): ein ">0" waere auch
 // am ALT-Stand gruen gewesen, sobald IRGENDEIN Achsen-Zaehler lief. Die Aussage dieser Scheibe ist
@@ -87,6 +92,8 @@
 #include <axes/alloc/axis_06_allocator_exgen.hpp>
 #include <axes/lookup/axis_03a_search_algo_registry.hpp>
 #include <axes/lookup/composable/search_algo_rebind.hpp>
+#include <axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <builder/codegen/type_name.hpp> // die F30-Relation am TYP pruefen (nur <string_view>, keine Link-Kante)
 #include <compositions/art_paper_binding_reference.hpp>
 
 #include <boost/mp11.hpp>
@@ -132,8 +139,12 @@ static_assert(!std::is_same_v<KompositionsAllokator, AchsenDefaultAllokator>,
 template <class S>
 using traegt_migrations_ausweis = mp::mp_bool<comp::AllocatorRebindableSearchAlgo<S, KompositionsAllokator>>;
 
-using MigrierteOrgane    = mp::mp_filter<traegt_migrations_ausweis, lk::AllStrategies>;
-using MigriertUndEnabled = mp::mp_filter<lk::is_enabled, MigrierteOrgane>;
+template <class S>
+using ist_disabled = mp::mp_bool<!S::enabled>;
+
+using MigrierteOrgane     = mp::mp_filter<traegt_migrations_ausweis, lk::AllStrategies>;
+using MigriertUndEnabled  = mp::mp_filter<lk::is_enabled, MigrierteOrgane>;
+using MigriertUndDisabled = mp::mp_filter<ist_disabled, MigrierteOrgane>;
 
 // =============================================================================================
 // (0) POPULATIONS-PIN -- die Anti-Vakuositaets-Wache der ABLEITUNG.
@@ -217,6 +228,29 @@ struct FassadenVertrag {
                   "01c: family_id driftet zwischen den Ebenen.");
     static_assert(S::algo_version == Rebound::algo_version, "01c: algo_version driftet zwischen den Ebenen.");
 
+    // ---- (9) DIE F30-RELATION -- exakt die, die der Generator prueft, hier am TYP statt am Artefakt. ----
+    //      axis_registry_gen bildet `type = "::" + type_name<W>()` und verlangt, dass dieses `type` mit dem
+    //      COMDARE_DEFINE_ORGAN_LOCATION-Literal BEGINNT (main.cpp:161-162/:255-263). Genau diese Relation
+    //      bricht, sobald die Identitaets-Ebene ein Template wird -- dann traegt type_name Argumente, die im
+    //      Literal nicht stehen koennen. Der Pin gilt fuer ALLE migrierten Organe, auch die Default-OFF
+    //      per-K-Familie: DEREN Kante war bis zur 01c-Hebung latent offen (Owner-Punkt (ii), abend-14), weil
+    //      sie Aliase auf eine Template-Id ohne jedes ORGAN_LOCATION waren. Hier wird sie zugehalten, BEVOR
+    //      irgendwer ein Flag anschaltet -- statt sie erst am XML-Byte-Ereignis zu bemerken.
+    static constexpr std::string_view kReflektiert = ::comdare::cache_engine::builder::codegen::type_name<S>();
+    static_assert(kReflektiert.find('<') == std::string_view::npos,
+                  "01c F30-KANTE OFFEN: der reflektierte Typ-Name der Identitaets-Ebene traegt "
+                  "Template-Argumente. Beim Einschalten dieses Organs braechte `type=` in der Registry-XML die "
+                  "Form -- und der F30-Guard koennte es nicht sehen, weil ein Makro-Literal nie Argumente "
+                  "traegt. Die Fassade muss eine NICHT-Template-Klasse sein.");
+    //      Und die Relation selbst: weil die Fassade nicht-Template ist, ist das Praefix sogar GLEICHHEIT --
+    //      "::" + type_name<S>() == cpp_type_name. Das ist schaerfer als der Guard und faengt jede Drift
+    //      zwischen Makro-Literal und realem Typ (Umbenennung, falscher Namensraum, Tippfehler).
+    static_assert(std::string_view{S::cpp_type_name}.size() == kReflektiert.size() + 2u &&
+                      std::string_view{S::cpp_type_name}.substr(2) == kReflektiert,
+                  "01c F30-DRIFT: das ORGAN_LOCATION-Literal ist nicht '::' + der real reflektierte Typ-Name. "
+                  "Der Generator schriebe dann ein `type=`, das nicht mit dem Literal beginnt -> F30-GUARD-BRUCH, "
+                  "und es waere KEINE Datei geschrieben worden (axis_registry_gen Rueckgabe 5).");
+
     static constexpr bool ok = true;
 };
 
@@ -226,6 +260,29 @@ using erfuellt_fassaden_vertrag = mp::mp_bool<FassadenVertrag<S>::ok>;
 static_assert(mp::mp_all_of<MigrierteOrgane, erfuellt_fassaden_vertrag>::value,
               "01c: mindestens ein migriertes Organ verletzt den Zwei-Ebenen-Vertrag (der konkrete "
               "static_assert oben nennt den Typ).");
+
+// =============================================================================================
+// PER-K-ZUSATZ: der Rebind darf die Strategie aendern, NIE den Such-Pfad.
+// Der Pin steht HIER und nicht in composable/traversal_for_search_algo.hpp, weil jener Header seine
+// Algo-Typen nur vorwaerts deklariert und keine Allokator-Strategie kennt -- ein axis_06-Include waere
+// dort eine neue Kante in einem sehr breit gezogenen Header (Hotfix-Lehre cda964e0). Diese TU fuehrt
+// axis_06 ohnehin. Rand-Aritaeten stellvertretend: alle vier laufen durch DENSELBEN Core.
+// =============================================================================================
+static_assert(std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK2>,
+                             comp::traversal_for_search_algo_t<
+                                 lk::KArySearchAlgoKRebound<2u, KompositionsAllokator>>>,
+              "01c per-K: die kompositions-gebundene Form K=2 traegt ein ANDERES Traversal-Organ als ihre "
+              "Fassade -- dieselbe Aritaet maesse dann je nach T6-Wahl ueber zwei verschiedene Such-Pfade.");
+static_assert(std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK16>,
+                             comp::traversal_for_search_algo_t<
+                                 lk::KArySearchAlgoKRebound<16u, KompositionsAllokator>>>,
+              "01c per-K: Traversal-Organ-Drift zwischen Fassade und Rebound-Leaf bei K=16.");
+// Und die Gegenprobe, damit der Vergleich nicht bloss "beide void" behauptet.
+static_assert(!std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK2>, void> &&
+                  !std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK2>,
+                                  comp::traversal_for_search_algo_t<lk::KArySearchAlgoK16>>,
+              "01c per-K-Gate TOT: das Traversal-Mapping liefert void oder fuer K=2 und K=16 dasselbe Organ -- "
+              "dann pinnt der Gleichheits-Vergleich oben nichts.");
 
 int fehler = 0;
 
@@ -339,6 +396,22 @@ void pruefe_registry_zeile(std::string const& xml) {
     pruefe(zeile.find(erwartet_wr) != std::string::npos, "wrapper= unveraendert (short_name der Fassade)");
 }
 
+/// (8b) DIE ANDERE HAELFTE DES XML-BEWEISES -- die ABWESENHEIT der Default-OFF-Organe.
+/// Die per-K-Leaf-Hebung (Owner-Punkt (ii)) hat vier Typen von Template-Id-Aliassen zu echten
+/// Registry-Organ-Klassen gemacht. Die Behauptung "das bewegt die committete XML um NULL Byte" haengt
+/// an genau EINER Bedingung: sie sind Default-OFF, und der Generator reflektiert nur Enabled*. Statt
+/// diese Bedingung zu behaupten, wird sie hier AM ARTEFAKT geprueft -- ihr name() darf in der
+/// committeten XML nicht vorkommen. Faellt die Probe, ist ein per-K-Flag angeschaltet worden und die
+/// XML muesste regeneriert werden (Owner-Sache, nacht-2: XML = Rueckfrage-Gate).
+template <class S>
+void pruefe_registry_abwesenheit(std::string const& xml) {
+    std::string const schluessel = std::string{"name=\""} + std::string{S::name()} + "\"";
+    pruefe(xml.find(schluessel) == std::string::npos,
+           "Default-OFF-Organ steht NICHT in der committeten XML (Hebung byte-neutral)");
+    pruefe(xml.find(std::string{S::cpp_type_name}) == std::string::npos,
+           "und auch sein Typ-Name taucht dort nirgends auf");
+}
+
 } // namespace
 
 int main() {
@@ -367,6 +440,15 @@ int main() {
             using S = typename decltype(id)::type;
             std::printf("  --- %s\n", S::name().data());
             pruefe_registry_zeile<S>(xml);
+        });
+
+        std::printf("\n(8b) XML-ABWESENHEITS-BEWEIS je migriertem Default-OFF-Organ (%zu Stueck --\n"
+                    "     das ist die Byte-Neutralitaet der per-K-Leaf-Hebung, am Artefakt statt behauptet):\n",
+                    static_cast<std::size_t>(mp::mp_size<MigriertUndDisabled>::value));
+        mp::mp_for_each<mp::mp_transform<mp::mp_identity, MigriertUndDisabled>>([&xml](auto id) {
+            using S = typename decltype(id)::type;
+            std::printf("  --- %s (%s)\n", S::name().data(), S::cpp_type_name.data());
+            pruefe_registry_abwesenheit<S>(xml);
         });
     }
 

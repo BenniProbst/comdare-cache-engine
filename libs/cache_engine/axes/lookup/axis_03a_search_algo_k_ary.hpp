@@ -443,26 +443,50 @@ namespace comdare::cache_engine::lookup {
 // =====================================================================================================
 // #188 per-K-Build Increment 1 (2026-07-01) — compile-time-K k-ary Wrapper-Familie (Weg-A).
 // =====================================================================================================
-// KArySearchAlgoT<K> = die per-K-Permutation der k-ary-Such-Achse als EIGENER, compile-time fixierter Typ
-// (StaticAxisNode-Kandidat). Es ERSETZT den verworfenen SE-13-Runtime-Kanal (iterable_aspect_t/arity_/
+// Die per-K-Permutation der k-ary-Such-Achse als EIGENER, compile-time fixierter Typ je K
+// (StaticAxisNode-Kandidat). Sie ERSETZT den verworfenen SE-13-Runtime-Kanal (iterable_aspect_t/arity_/
 // set_iterable_aspect): K ist hier ein NON-TYPE-TEMPLATE-PARAMETER, kein Laufzeit-Setter — reale k-ary-Impls
-// waehlen K ebenfalls statisch (SIMD-Breite, Paper §4). Jede Instanz ist ein DISTINKTER Typ mit DISTINKTEM
+// waehlen K ebenfalls statisch (SIMD-Breite, Paper Abschn. 4). Jede Variante ist ein DISTINKTER Typ mit DISTINKTEM
 // name() ("k_ary_k2".."k_ary_k16") -> in Increment 2 eine EIGENE Tier-Binary je K (kein binary_id-Kollaps/
 // Dedup, Risk#3). Marker axis_03a_store_traversable=true -> container_ (abi_adapter:1890 container_traversal_t)
 // fuehrt sie ueber KAryTraversal<K> (traversal_for_search_algo, Header 2), NICHT SortedBinary (Weg-A, Risk#2).
 //
-// Increment 1 (HIER) = rein ADDITIV, KEINE Registry-Aenderung: die Typen + das per-K-Organ-Mapping (Header 2)
-// + self-proving static_asserts (unten). Increment 2 (harness-gated #162) registriert sie in AllStrategies +
-// per-K enable-flags (dann 4 static search_algo-Werte -> 4 Binaries via profile_to_tree/adhoc_emitter). Die
-// Legacy KArySearchAlgo (Runtime, name "k_ary", S10) bleibt bis zur Increment-2-Registry-Umschaltung UNANGE-
-// TASTET (Profile/adhoc_emitter/Fixtures haengen am Literal "k_ary"; ihre Identitaet darf hier nicht brechen).
+// Increment 1 war rein ADDITIV, KEINE Registry-Aenderung; Increment 2 registrierte die vier in AllStrategies
+// mit je EIGENEM Enable-Flag (Default OFF). Die Legacy KArySearchAlgo (Runtime-Aritaet, name "k_ary", S10)
+// bleibt bis zur Increment-2-Registry-Umschaltung UNANGETASTET (Profile/adhoc_emitter/Fixtures haengen am
+// Literal "k_ary"; ihre Identitaet darf hier nicht brechen).
 //
 // lookup = bit-identisch zur Legacy KArySearchAlgo::lookup, nur K = kArity (compile-time-Konstante) statt des
 // Laufzeit-arity_. Die std::map-Konformitaet je K ist am treuen Organ KAryTraversal<K> bereits festgenagelt
 // (test_conformance_gate.cpp run_kary_arity_gate<2/4/8/16>); der Wrapper-lookup traegt denselben Separator-Pfad.
 // (Bewusste, TRANSIENTE Duplikation der Legacy-Schleife: die Legacy wird in Increment 2 mit der Registry-
-//  Umschaltung entfernt; ohne lokalen Compiler ist ein Refactoring des verifizierten Legacy-Hot-Pfads ein
-//  nicht verifizierbares Regressions-Risiko -> additiv + Legacy unberuehrt ist der sauberere, sichere Weg.)
+//  Umschaltung entfernt; ein Refactoring des verifizierten Legacy-Hot-Pfads waere ein nicht notwendiges
+//  Regressions-Risiko -> additiv + Legacy unberuehrt ist der sauberere, sichere Weg.)
+//
+// =====================================================================================================
+// A8-S5 01c, Scheibe 2 (2026-08-05) -- PER-K-LEAF-HEBUNG (Owner-Punkt (ii), LEDGER 04.08. abend-14).
+// =====================================================================================================
+// Bis hierher waren KArySearchAlgoK2..K16 ALIASE auf eine Template-Id (`using KArySearchAlgoK2 =
+// KArySearchAlgoT<2u>;`). Das trug eine LATENTE Registry-XML-Kante, die nur deshalb nie zuschlug, weil die
+// vier Default-OFF sind: der Generator reflektiert `type_name<W>()` (axis_registry_gen main.cpp:161-162);
+// bei einer Template-Id waere `type=` "...::KArySearchAlgoT<2>" und `wrapper=` entsprechend -- und der
+// F30-Guard (:255-263, `type=` muss mit dem ORGAN_LOCATION-Literal BEGINNEN) haette gar keine Eingabe
+// gehabt, weil KArySearchAlgoT nie ein COMDARE_DEFINE_ORGAN_LOCATION trug. Der Tag, an dem jemand ein
+// per-K-Flag anschaltet, waere der Tag des XML-Byte-Ereignisses gewesen -- ohne Vorwarnung.
+//
+// Diese Scheibe schliesst die Kante KONSTRUKTIV statt sie stehenzulassen: die Substanz wandert nach
+// detail::KAryPerKCore<K, Alloc, Self> (dieselbe Zwei-Ebenen-Konstruktion wie bei den vier enabled
+// Organen), und die vier per-K-Namen werden zu ECHTEN LEAF-KLASSEN -- nicht-Template, mit eigenem
+// COMDARE_DEFINE_ORGAN_LOCATION, damit der F30-Guard sie ab sofort ueberhaupt PRUEFEN kann. Ihr
+// type_name ist damit argument-frei, und ein spaeteres Einschalten ist ein reiner, vorhersagbarer
+// Registry-Zuwachs statt eines Formwechsels.
+// AM IST BEWEGT SICH NICHTS: alle vier bleiben Default-OFF, der Generator reflektiert nur Enabled*,
+// also traegt die committete cache_engine_axis_registry.xml sie weiterhin NICHT -- belegt per
+// git-status + Generator-cmp + der Abwesenheits-Probe in tests/unit/test_s5_01c_fassaden_conformance.
+//
+// KArySearchAlgoT<K> ist damit ERSETZT, nicht danebengelegt (Owner-KERN Aufraeumpass): der einzige
+// Konsument war das Traversal-Mapping, das jetzt auf die vier Leaf-Klassen + den Rebound-Leaf keyed
+// (composable/traversal_for_search_algo.hpp).
 namespace detail {
 /// #188 per-K Increment 2: compile-time K -> SEIN eigener Enable-Flag (Default OFF; opt-in wie OriginalXxx). Nicht-
 /// kanonisches K ist nie enabled (nur K in {2,4,8,16} werden registriert/gebaut). Saubere Trennung statt Familien-Flag.
@@ -479,10 +503,15 @@ template <unsigned K>
     else
         return false;
 }
-} // namespace detail
 
-template <unsigned K>
-class KArySearchAlgoT : public SearchAlgoBase<KArySearchAlgoT<K>> {
+/// DIE SUBSTANZ der per-K-Familie (S18-S21): k-ary-Suche mit COMPILE-TIME-Aritaet, Keys/Values ueber die
+/// Allokator-ACHSE. Drei Parameter statt zwei, weil zur Strategie/Self-Achse die Aritaet als NTTP tritt.
+///
+/// @tparam K      Die compile-time Aritaet (>= 2).
+/// @tparam Alloc  Die Allokator-Achsen-Strategie (axis_06). Default-Bindung der Leaf-Klassen: ExgenAllocator.
+/// @tparam Self   Der most-derived Typ (Leaf-Klasse oder Rebound-Leaf) -- PFLICHT wegen der CRTP-Guards.
+template <unsigned K, class Alloc, class Self>
+class KAryPerKCore : public SearchAlgoBase<Self> {
     static_assert(K >= 2u, "#188 per-K: Aritaet K muss >= 2 sein (K=2 = Binaersuch-Baseline; K<2 waere linearer Scan)");
 
 public:
@@ -502,6 +531,14 @@ public:
     using axis_tag   = subaxes::sparse_access_tag;
     using family_id  = std::integral_constant<int, 10>; // S10 (dieselbe k-ary-Familie wie Legacy)
 
+    /// A8-S5 SCHNITT-FORM (B): Keys UND Values haengen an der Allokator-ACHSE -- wie bei der Legacy-Fassade,
+    /// nur dass die Aritaet hier compile-time ist. Die per-K-Familie ist Default-OFF, aber der Schnitt gilt
+    /// ihr trotzdem: ein spaeter eingeschaltetes Organ soll nicht erst nachgezogen werden muessen.
+    using allocator_type = Alloc;
+    static_assert(::comdare::cache_engine::alloc::concepts::AllocatorStrategy<allocator_type>,
+                  "A8-S5: der gebundene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- dann liefen "
+                  "Keys/Values wieder an der Allokator-Achse vorbei (Schnitt-Regel Dossier 3.4).");
+
     [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t max_fanout() noexcept { return 65536; } // u16 Keyraum
     /// DISTINKTE name() je K (Risk#3: binary_id/Hash wird aus name() abgeleitet -> gleiche Namen kollidieren ->
@@ -519,7 +556,7 @@ public:
             return "k_ary_kN"; // Fallback (nicht-kanonisches K; nur die 4 Standard-Aritaeten werden registriert)
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "KArySearchAlgoT<K> (k-ary search compile-time per-K — Schlegel/Gemulla/Lehner DaMoN 2009)";
+        return "KArySearchAlgoK<K> (k-ary search compile-time per-K — Schlegel/Gemulla/Lehner DaMoN 2009)";
     }
     /// Distinkter flag_suffix je K (korrespondiert 1:1 mit COMDARE_AXIS_03A_ENABLE_K_ARY_K<N> — je eigenes Flag).
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept {
@@ -546,9 +583,50 @@ public:
     [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }           // sparse sortiert
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    KArySearchAlgoT() noexcept = default; // KEIN arity_-Ctor (K ist compile-time)
+private:
+    using key_alloc    = typename Alloc::template StdAllocatorAdapter<key_type>;
+    using value_alloc  = typename Alloc::template StdAllocatorAdapter<value_type>;
+    using key_vector   = std::vector<key_type, key_alloc>;
+    using value_vector = std::vector<value_type, value_alloc>;
 
-    [[nodiscard]] bool operator==(KArySearchAlgoT const& other) const noexcept {
+public:
+    /// KEIN arity_-Ctor (K ist compile-time). Beide Vektoren an das EIGENE allocator_ gebunden.
+    KAryPerKCore()
+        : keys_(allocator_.template as_std_allocator<key_type>()),
+          values_(allocator_.template as_std_allocator<value_type>()) {}
+
+    /// KF-6-NAHT (Posten 62): eine vor-parametrierte Strategie-Instanz uebernehmen, bewusst `explicit`.
+    explicit KAryPerKCore(allocator_type a)
+        : allocator_(std::move(a)), keys_(allocator_.template as_std_allocator<key_type>()),
+          values_(allocator_.template as_std_allocator<value_type>()) {}
+
+    /// Copy: Strategie mitkopieren, beide Vektoren an das EIGENE allocator_ binden, dann die transiente
+    /// Kopier-Allokation aus der Statistik nehmen (Memento). MOVE bewusst NICHT deklariert.
+    KAryPerKCore(KAryPerKCore const& o)
+        : allocator_(o.allocator_), keys_(o.keys_, allocator_.template as_std_allocator<key_type>()),
+          values_(o.values_, allocator_.template as_std_allocator<value_type>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = o.stats_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+
+    KAryPerKCore& operator=(KAryPerKCore const& o) {
+        if (this != &o) {
+            // POCCA=false -> die Vektoren behalten ihr an this-allocator_ gebundenes Adapter-Objekt.
+            keys_   = o.keys_;
+            values_ = o.values_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_ = o.stats_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+
+    ~KAryPerKCore() = default;
+
+    [[nodiscard]] bool operator==(KAryPerKCore const& other) const noexcept {
         return keys_.size() == other.keys_.size();
     }
 
@@ -670,22 +748,94 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11, Pflicht (a)) -- NUR die Naht.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
 #endif
 
 private:
-    std::vector<key_type>   keys_;
-    std::vector<value_type> values_;
+    // allocator_ MUSS VOR keys_/values_ stehen (der Adapter haelt &allocator_).
+    allocator_type allocator_{};
+    key_vector     keys_;
+    value_vector   values_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
     mutable observer_t                     observer_{};
 #endif
 };
 
-// Die 4 kanonischen per-K-Wrapper (K in {2,4,8,16}; K=2 = Binaersuch-Baseline, Paper-Mess-Set DaMoN 2009).
-using KArySearchAlgoK2  = KArySearchAlgoT<2u>;
-using KArySearchAlgoK4  = KArySearchAlgoT<4u>;
-using KArySearchAlgoK8  = KArySearchAlgoT<8u>;
-using KArySearchAlgoK16 = KArySearchAlgoT<16u>;
+} // namespace detail
+
+/// DIE GEBUNDENE FORM der per-K-Familie -- EIN Template fuer alle vier Aritaeten (der Rebound-Leaf ist
+/// kein Registry-Organ, seine Template-Id geht nirgends auf die Reise). Traegt BEWUSST KEIN
+/// COMDARE_DEFINE_ORGAN_LOCATION.
+template <unsigned K, class A2>
+class KArySearchAlgoKRebound final : public detail::KAryPerKCore<K, A2, KArySearchAlgoKRebound<K, A2>> {
+public:
+    /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
+    using axis03a_rebound_tag = void;
+
+    using detail::KAryPerKCore<K, A2, KArySearchAlgoKRebound<K, A2>>::KAryPerKCore;
+};
+
+// -------------------------------------------------------------------------------------------------
+// DIE VIER IDENTITAETEN (S18-S21) -- seit der 01c-Hebung ECHTE Leaf-KLASSEN statt Template-Id-Aliase
+// (K in {2,4,8,16}; K=2 = Binaersuch-Baseline, Paper-Mess-Set DaMoN 2009).
+//
+// BEWUSST VIERMAL AUSGESCHRIEBEN statt per Makro erzeugt: das ORGAN_LOCATION-Argument ist ein LITERAL,
+// und der F30-Guard des Generators lebt genau davon, dass dieses Literal im Quelltext STEHT und
+// auffindbar ist (er faengt die Drift zwischen Makro-Deklaration und realem Typ). Ein
+// stringifizierendes Erzeuger-Makro machte die Drift zwar unmoeglich, naehme dem Auditor aber die
+// Greppability -- und "der Wrapper-Name steht nirgends im Quelltext" ist genau die Sorte Unsichtbarkeit,
+// die diese Achse nicht will. Vier kurze Klassen sind der ehrlichere Preis.
+// -------------------------------------------------------------------------------------------------
+
+class KArySearchAlgoK2 final
+    : public detail::KAryPerKCore<2u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK2> {
+public:
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::KArySearchAlgoK2",
+                                  "axes/lookup/axis_03a_search_algo_k_ary.hpp");
+    template <class A2>
+    using rebind_allocator = KArySearchAlgoKRebound<2u, A2>;
+    using detail::KAryPerKCore<2u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK2>::KAryPerKCore;
+};
+
+class KArySearchAlgoK4 final
+    : public detail::KAryPerKCore<4u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK4> {
+public:
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::KArySearchAlgoK4",
+                                  "axes/lookup/axis_03a_search_algo_k_ary.hpp");
+    template <class A2>
+    using rebind_allocator = KArySearchAlgoKRebound<4u, A2>;
+    using detail::KAryPerKCore<4u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK4>::KAryPerKCore;
+};
+
+class KArySearchAlgoK8 final
+    : public detail::KAryPerKCore<8u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK8> {
+public:
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::KArySearchAlgoK8",
+                                  "axes/lookup/axis_03a_search_algo_k_ary.hpp");
+    template <class A2>
+    using rebind_allocator = KArySearchAlgoKRebound<8u, A2>;
+    using detail::KAryPerKCore<8u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK8>::KAryPerKCore;
+};
+
+class KArySearchAlgoK16 final
+    : public detail::KAryPerKCore<16u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK16> {
+public:
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::KArySearchAlgoK16",
+                                  "axes/lookup/axis_03a_search_algo_k_ary.hpp");
+    template <class A2>
+    using rebind_allocator = KArySearchAlgoKRebound<16u, A2>;
+    using detail::KAryPerKCore<16u, ::comdare::cache_engine::alloc::ExgenAllocator, KArySearchAlgoK16>::KAryPerKCore;
+};
 
 // ── Self-proving static_asserts (Increment-1-Verifikation, Codebase-Idiom — vgl. Registry/Organ-Selbstbeweis).
 // (a) Jeder per-K-Wrapper erfuellt die Pflicht-Concepts (in Increment 2 registrierbar; wie Legacy MINUS dem
@@ -715,5 +865,71 @@ static_assert(KArySearchAlgoK2::name() != KArySearchAlgo::name() &&
 // (e) compile-time-Aritaet korrekt propagiert (Grundlage der per-K-Organ-Wahl in Header 2).
 static_assert(KArySearchAlgoK2::kArity == 2u && KArySearchAlgoK4::kArity == 4u && KArySearchAlgoK8::kArity == 8u &&
               KArySearchAlgoK16::kArity == 16u);
+
+// ---------------------------------------------------------------------------------------------
+// A8-S5 01c: die HEBUNG, self-proving. Die vier per-K-Namen sind jetzt eigenstaendige Klassen und
+// keine Template-Ids mehr -- das ist die ganze Aussage des Owner-Punkts (ii).
+// ---------------------------------------------------------------------------------------------
+
+/// (f) DIE KANTE IST ZU: jede der vier ist ein eigener, PAARWEISE VERSCHIEDENER Typ und traegt ihre
+/// EIGENE Organ-Lokation. Vor der Hebung war KArySearchAlgoK2 nur ein anderer Name fuer eine
+/// Template-Id -- ihr type_name haette beim Einschalten Template-Argumente in `type=` gebracht, und der
+/// F30-Guard haette mangels Literal gar nicht gegriffen.
+static_assert(!std::is_same_v<KArySearchAlgoK2, KArySearchAlgoK4> &&
+                  !std::is_same_v<KArySearchAlgoK4, KArySearchAlgoK8> &&
+                  !std::is_same_v<KArySearchAlgoK8, KArySearchAlgoK16>,
+              "01c per-K-Hebung: die vier per-K-Organe sind nicht mehr paarweise distinkt.");
+static_assert(::comdare::cache_engine::anatomy::HasOrganLocation<KArySearchAlgoK2> &&
+                  ::comdare::cache_engine::anatomy::HasOrganLocation<KArySearchAlgoK4> &&
+                  ::comdare::cache_engine::anatomy::HasOrganLocation<KArySearchAlgoK8> &&
+                  ::comdare::cache_engine::anatomy::HasOrganLocation<KArySearchAlgoK16>,
+              "01c per-K-Hebung: eine der vier Leaf-Klassen traegt keine Organ-Lokation -- dann haette der "
+              "F30-Guard beim Einschalten wieder keine Eingabe und die Template-Id-Kante waere offen.");
+
+/// (g) DER XML-NEUTRALITAETS-GRUND, am Typ statt in Prosa: alle vier sind Default-OFF. Der Generator
+/// reflektiert ausschliesslich Enabled*-Listen -- deshalb bewegt die Hebung die committete Registry-XML
+/// um NULL Byte. Faellt diese Zeile (jemand schaltet ein Flag an), IST das ein Registry-Ereignis und
+/// gehoert vor den Owner, nicht in einen Bau-Commit.
+static_assert(!KArySearchAlgoK2::enabled && !KArySearchAlgoK4::enabled && !KArySearchAlgoK8::enabled &&
+                  !KArySearchAlgoK16::enabled,
+              "01c per-K-Hebung: ein per-K-Organ ist ENABLED. Dann waechst die committete "
+              "cache_engine_axis_registry.xml um einen Baustein -- ein XML-BYTE-EREIGNIS, das ein "
+              "Owner-Entscheid ist (nacht-2: XML-Aenderungen sind ein Rueckfrage-Gate) und eine "
+              "Registry-Regeneration braucht, nicht bloss einen gruenen Bau.");
+
+/// (h) DER ZWEI-EBENEN-VERTRAG je per-K-Organ, stellvertretend an den Rand-Aritaeten K=2 und K=16
+/// (die vier laufen durch DENSELBEN Core -- was fuer die Raender gilt, gilt fuer 4 und 8 mit).
+/// Die vollstaendige Pruefung ALLER vier laeuft ohnehin ueber die abgeleitete Population der
+/// Familien-Wache (tests/unit/test_s5_01c_fassaden_conformance.cpp).
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<
+                                 KArySearchAlgoK2, ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             KArySearchAlgoK2>,
+              "01c Level-0-IDENTITAET verletzt (per-K K=2).");
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<
+                                 KArySearchAlgoK16, ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             KArySearchAlgoK16>,
+              "01c Level-0-IDENTITAET verletzt (per-K K=16).");
+static_assert(!composable::IsReboundSearchAlgoLeaf<KArySearchAlgoK2> &&
+                  composable::IsReboundSearchAlgoLeaf<
+                      KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
+              "01c EBENEN-TRENNUNG (per-K): Identitaets- und Substanz-Ebene sind vermischt.");
+static_assert(!::comdare::cache_engine::anatomy::HasOrganLocation<
+                  KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
+              "01c: der per-K-Rebound-Leaf traegt eine Organ-Lokation -- die Substanz-Ebene wuerde "
+              "reflektierbar.");
+/// Die Aritaet ueberlebt den Rebind -- sonst maesse eine mimalloc-Komposition still ein anderes K.
+static_assert(KArySearchAlgoKRebound<8u, ::comdare::cache_engine::alloc::ExgenAllocator>::kArity == 8u &&
+                  KArySearchAlgoK8::name() ==
+                      KArySearchAlgoKRebound<8u, ::comdare::cache_engine::alloc::ExgenAllocator>::name(),
+              "01c per-K: der Rebound-Leaf verliert die Aritaet oder den Organ-Namen -- die T6-Wahl leckte "
+              "damit in die K-Identitaet.");
+/// Der per-K-Rebound-Leaf bleibt ein VOLLWERTIGES Organ (CRTP-Guard-Kette auf beiden Leaves) und
+/// behaelt die Risk#5-Eigenschaft: KEIN Laufzeit-Aritaets-Kanal.
+static_assert(concepts::SearchAlgoVariant<KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::SimdCapableStrategy<
+              KArySearchAlgoKRebound<16u, ::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(!concepts::IterableAspectSearchAlgoStrategy<
+                  KArySearchAlgoKRebound<4u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
+              "01c per-K: K bleibt COMPILE-TIME auch am Rebound-Leaf (Risk#5, sonst Phantom-Messung).");
 
 } // namespace comdare::cache_engine::lookup
