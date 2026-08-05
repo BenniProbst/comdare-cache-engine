@@ -1233,9 +1233,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
 
     // Storage #51 / S2 (#46a) — PULL-HOOK (AKTIV): die BATCH-Warm-Cache-Hydrierung (minio->local) laeuft GENAU HIER in
     // Phase A, VOR dem Bau. Sie zieht den ganzen Objekt-Store-Praefix DIESER Perm rekursiv ins output_dir (unter
-    // <stem>/perm.dll(+.algos,+.version)), sodass der Orchestrator sie je Binary via dll_is_current (build_orchestrator
-    // .hpp:332) als versions-aktuell erkennt und den Rebuild ueberspringt. Korrektheit entscheidet danach AUSSCHLIESSLICH
-    // lokal dll_is_current (ein False-/Teil-Pull => kein/kein passendes .version/.algos => Neubau). Gilt in BEIDEN Modi
+    // <stem>/perm.dll(+ die optionalen Sidecars +.version)), sodass der Orchestrator sie je Binary via dll_is_current
+    // als FINGERPRINT-aktuell erkennt und den Rebuild ueberspringt. Korrektheit entscheidet danach AUSSCHLIESSLICH lokal
+    // dll_is_current (ein False-/Teil-Pull => kein/kein passendes `.fingerprint` => Neubau). [NACHGEFUEHRT 2026-08-05,
+    // A2-Eichung, HISTORIK: "als versions-aktuell ... kein/kein passendes .version/.algos". Der Anker reist ueber
+    // kOptionalTierSidecars mit -- ohne ihn skippt hier nichts mehr, fail-closed.] Gilt in BEIDEN Modi
     // (BAU + MESS: die Perm muss ohnehin materialisiert sein). Leer (Default) => No-Op => golden/CI byte-identisch; scharf
     // nur, wenn der Host cfg.cache_pull belegt (Env/CI). Nur mit per_binary_subdirs (der <stem>/-Layout-Konvention, die
     // dll_is_current UND der Push teilen). EIN mc-Prozess (nicht x|Binaries| Spawns; Dossier Option (a)).
@@ -1326,7 +1328,7 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // gegated (bestandslog_active) -> ist NUR Push aktiv, bleibt das Verhalten des Push-Pfades byte-genau erhalten.
     if (push_pump || bestandslog_active) {
         orch.set_on_binary_done([&push_pump, &lager, &cfg, bestandslog_active](BuildResult const& b) {
-            // S1: b.skipped (dll_is_current-Hit) NICHT re-pushen -- eine versions-aktuelle Binary kam entweder aus dem
+            // S1: b.skipped (dll_is_current-Hit) NICHT re-pushen -- eine fingerprint-aktuelle Binary kam entweder aus dem
             // Warm-Cache-Pull (liegt bereits im Store) oder aus einem frueheren Lauf; ein erneuter mc-Push ist reine
             // Redundanz (last-writer-wins, identische Bytes). Nur FRISCH gebaute ok()-Binaries wandern in die Queue.
             if (push_pump && b.ok() && !b.skipped && !b.output.parent_path().empty())

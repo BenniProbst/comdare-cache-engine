@@ -35,9 +35,15 @@
 // Sie sind bewusst STILL (kein Log): der Provider laeuft je gebauter Binary in den Bau-Workern,
 // eine Zeile je Binary waere bei 2^17 Binaries ein Log-Bombardement. Sichtbar werden sie am
 // no_key-Zaehler des LagerRunState, nicht hier.
-//   sidecar_fehlt      -- Datei nicht vorhanden oder nicht oeffenbar (der Normalfall bei
-//                         hydrierten Binaries: push_tier_binary schiebt `.fingerprint` NICHT mit,
-//                         s. KNOWN GAP AUF-A5)
+//   sidecar_fehlt      -- Datei nicht vorhanden oder nicht oeffenbar. [ALT-WORTLAUT, HISTORIK bis
+//                         #13: "der Normalfall bei hydrierten Binaries: push_tier_binary schiebt
+//                         `.fingerprint` NICHT mit, s. KNOWN GAP AUF-A5".] NACHGEFUEHRT 2026-08-05
+//                         (A2-Eichung): der KNOWN GAP AUF-A5 ist seit #13 GESCHLOSSEN --
+//                         `perm.dll.fingerprint` steht in kOptionalTierSidecars
+//                         (artifact_transport/artifact_cache.hpp:92) und reist damit in BEIDEN
+//                         Richtungen mit (push_tier_binary, pull_tier_binary, prunable_artifacts
+//                         lesen dieselbe eine Liste). Hydrierte Binaries sind also der REGELFALL
+//                         MIT Anker; sidecar_fehlt bedeutet jetzt Alt-/Fremd-Bestand ohne Anker.
 //   sidecar_leer       -- Datei da, Inhalt nach dem Trim leer (abgebrochener Schreibvorgang)
 //   laenge_verstoss    -- getrimmt != 128 Zeichen
 //   zeichen_verstoss   -- 128 Zeichen, aber mindestens eines nicht hexadezimal
@@ -46,65 +52,31 @@
 // Kein Runtime-Switch, kein variant, keine Env-Abfrage (das Gate sitzt beim Host, AUF-B3).
 // -----------------------------------------------------------------------------
 
-#include "../build_orchestrator/fingerprint_sidecar.hpp" // fingerprint_sidecar_path -- die EINE Suffix-Wahrheit
+// fingerprint_sidecar_path -- die EINE Suffix-Wahrheit; seit der A2-Eichung (2026-08-05) zusaetzlich
+// read_fingerprint_sidecar -- die EINE Lese-Wahrheit (Trim + 128-hex-Formwache), die dieser Provider
+// und das Skip-Gate dll_is_current gemeinsam benutzen.
+#include "../build_orchestrator/fingerprint_sidecar.hpp"
 
 #include <filesystem>
-#include <fstream>
 #include <functional>
-#include <iterator>
 #include <optional>
 #include <string>
-#include <string_view>
-#include <system_error> // std::error_code fuer das exception-freie exists()
 
 namespace comdare::cache_engine::builder::bestandslog {
 
-namespace detail {
-
-// Whitespace nach POSIX-Sicht, ohne <cctype>/Locale (der Inhalt ist reiner ASCII-Hex).
-[[nodiscard]] inline bool is_trimmable(char c) noexcept {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
-}
-
-// Beidseitiger Trim (AUF-A3). Gibt eine Sicht in `s` zurueck -- der Aufrufer haelt `s` am Leben.
-[[nodiscard]] inline std::string_view trim_view(std::string const& s) noexcept {
-    std::size_t b = 0;
-    std::size_t e = s.size();
-    while (b < e && is_trimmable(s[b])) ++b;
-    while (e > b && is_trimmable(s[e - 1])) --e;
-    return std::string_view{s}.substr(b, e - b);
-}
-
-// Genau die Zeichenmenge, die key_from_hex (bestandslog_index.hpp:75-80) akzeptiert -- beide
-// Schreibweisen. Bewusst KEINE Normalisierung auf Kleinbuchstaben: der Wert reist unveraendert zum
-// Konsumenten (LagerRunState::observe), und diese Naht erfindet keinen Inhalt.
-[[nodiscard]] inline bool is_hex_128(std::string_view v) noexcept {
-    if (v.size() != 128) return false;
-    for (char const c : v) {
-        bool const hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-        if (!hex) return false;
-    }
-    return true;
-}
-
-} // namespace detail
-
 // Der Provider. `output` ist der Binary-Ausgabepfad, den der Orchestrator gebaut hat (BuildResult::
 // output) -- das Sidecar liegt daneben als `<output>.fingerprint`.
+//
+// A2-EICHUNG (GATE 5, 2026-08-05): der Rumpf (exception-freies exists, Trim AUF-A3, 128-hex-Wache,
+// die vier Fehlerklassen oben) ist seither KEINE zweite Implementierung mehr, sondern eine
+// DELEGATION an experiment::read_fingerprint_sidecar (build_orchestrator/fingerprint_sidecar.hpp).
+// Verhalten byte-identisch -- der Grund fuer den Umzug ist die F7-Schluessel-Welt: seit der Eichung
+// liest AUCH das Skip-Gate dll_is_current dieses Sidecar. Zwei Leser mit je eigenem Trim waeren
+// genau die Drift, die dieser Header seit AUF-A2 auf der PFAD-Seite verhindert -- jetzt gilt sie
+// auch fuer den INHALT. Die Typ-Unterscheidung aus AUF-A4 bleibt davon unberuehrt.
 [[nodiscard]] inline std::function<std::optional<std::string>(std::filesystem::path const&)> make_fingerprint_key_fn() {
     return [](std::filesystem::path const& output) -> std::optional<std::string> {
-        std::error_code ec;
-        auto const      sidecar = experiment::fingerprint_sidecar_path(output);
-        // exists() mit error_code: ein I/O-Fehler auf dem Pfad ist sidecar_fehlt, keine Exception
-        // (der Provider laeuft in den Bau-Workern).
-        if (!std::filesystem::exists(sidecar, ec) || ec) return std::nullopt; // sidecar_fehlt
-        std::ifstream f{sidecar, std::ios::binary};
-        if (!f) return std::nullopt; // sidecar_fehlt
-        std::string const raw{std::istreambuf_iterator<char>{f}, std::istreambuf_iterator<char>{}};
-        auto const        v = detail::trim_view(raw);
-        if (v.empty()) return std::nullopt;              // sidecar_leer
-        if (!detail::is_hex_128(v)) return std::nullopt; // laenge_verstoss / zeichen_verstoss
-        return std::string{v};
+        return experiment::read_fingerprint_sidecar(output);
     };
 }
 

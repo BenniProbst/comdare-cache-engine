@@ -241,13 +241,35 @@ inline constexpr std::size_t     kStemMax = 120;
 [[nodiscard]] inline std::filesystem::path variant_sidecar_path(std::filesystem::path const& output) {
     return std::filesystem::path{output.string() + ".variant"};
 }
-/// true, wenn die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn
-/// eine algo_sig gefordert ist) ihr `.algos`-Sidecar exakt der erwarteten Organ-Signatur entspricht UND (nur wenn eine
-/// variant_sig gefordert ist) ihr `.variant`-Sidecar exakt der erwarteten Build-Varianten-Signatur entspricht
-/// (-> ueberspringen). algo_sig/variant_sig LEER = das jeweilige Gate AUS (rueckwaerts-kompatibel: reiner Versions-Skip,
-/// byte-identisch zum Alt-Verhalten). Alle drei Prueflinge sind reine String-Gleichheit -> additiv, risikoarm; ein
-/// fehlendes `.algos`/`.variant` bei gesetzter Erwartung erzwingt Neubau (Alt-Binary vor der Cache-Einfuehrung ->
-/// einmal frisch, dann Sidecar vorhanden).
+/// A2-SHA512-ONLY-SKIP-GATE (F7, KONSOLIDIERT:72) -- GEEICHT am 2026-08-05 auf Basis 24e07219 (GATE 5, der EINE
+/// Anker-Vollzug, GENAU EINMAL). DER EINE VERGLEICH: die Binary ist genau dann aktuell, wenn ihr `.fingerprint`-
+/// Sidecar byte-gleich dem erwarteten CT-Fingerprint ihrer Bau-Identitaet ist. Owner-Wort: "Skip-Pruefung NUR gegen
+/// die komplex geplante SHA512-Validierung -- sie deckt ALLE Stempel allein ('das war der Sinn des SHA512')."
+///
+/// FAIL-CLOSED in allen vier Zweifelsfaellen (Uebergangsregel F7: "kein .fingerprint => nicht aktuell => Neubau";
+/// KEIN Grandfathering, KEINE Alt-Key-Uebersetzung):
+///   1. expected_fingerprint leer  -- ohne CT-Erwartung wird NIE uebersprungen (kein Provider = ehrlicher Neubau),
+///   2. DLL fehlt                  -- ein Sidecar ohne Binary skippt nie (Phantom-Schutz, vgl. prunable_artifacts),
+///   3. Sidecar fehlt/leer         -- Alt-/Fremd-Bestand ohne Anker,
+///   4. Sidecar nicht 128-hex      -- Formverstoss (dieselbe Wache wie bestand_key_of; read_fingerprint_sidecar).
+///
+/// EINE SCHLUESSEL-WELT (der eigentliche Zweck der Eichung): expected kommt aus DERSELBEN Quelle, die auch
+/// write_fingerprint_sidecar speist (FingerprintFn, provision_core berechnet ihn EINMAL je Job) und der Leser ist
+/// DERSELBE wie der des Lager-Binders (read_fingerprint_sidecar). Damit gilt im CODE, nicht per Disziplin:
+/// Skip-Gate == .fingerprint-Inhalt == minio-Objekt-Key == Bestandslog key_sha512 == Baum-Blatt-Identitaet.
+///
+/// L14 (deklarierte, NICHT stille Luecke): geeicht wurde MIT LEEREM Overlay-Glied -- das 6. Preimage-Glied
+/// (anatomy_fingerprint.hpp:83-86, COMDARE_OVERLAY_SOURCE_HASH) traegt heute nur Separator+Format. Der SHA512 deckt
+/// damit reine Quell-Code-Aenderungen (ABNAHME-3/4-Voll-Soll) NOCH NICHT; geheilt wird das im Overlay-Fenster
+/// (Phase 6), und zwar layout-bruch-frei. Der geeichte Referenz-Vektor ist kFrozenFingerprintV1
+/// (test_g3_sha512_index.cpp:45, identisch in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
+///
+/// HISTORIK (Stand bis zur Eichung, NICHT geloescht -- Doku-Doktrin): bis 2026-08-05 lautete die Regel "true, wenn
+/// die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn eine
+/// algo_sig gefordert ist) ihr `.algos`-Sidecar ... UND (nur wenn eine variant_sig gefordert ist) ihr `.variant`-
+/// Sidecar ... entspricht; algo_sig/variant_sig LEER = das jeweilige Gate AUS". Diese Dreifach-String-Gleichheit
+/// ist mit F7 ("NUR") ERSETZT, nicht ergaenzt: .version/.algos/.variant werden weiter GESCHRIEBEN (Provenienz-
+/// Legende bzw. Transport-Vollstaendigkeits-Marke von push_tier_binary), entscheiden aber ueber KEINEN Skip mehr.
 ///
 /// W10-C5 -- ENDE DER UEBERGANGSREGEL "Skip nur bei gleicher OS-Familie" (Vollzugs-Vermerk). Diese Regel war
 /// NIE Code: sie lebte deklarativ im Bauplan und war implizit nur ueber die Datei-Plattform-Suffixe der Loader
@@ -262,33 +284,19 @@ inline constexpr std::size_t     kStemMax = 120;
 /// '+ceb=8.0' (Major 7->8 mit Minor-RESET 2->0) -- der stale Bestand faellt damit ERST RECHT aus dem Gate,
 /// und zwar an beiden Pfaden. Der verbindliche Wert steht nirgends hier, sondern in
 /// anatomy_module_abi_v1_decl.hpp (COMDARE_ANATOMY_ABI_MAJOR + kCebContractCodegenMinor).
-/// Der K1-Cross-Check (OS-Familie aus dem .version-Sidecar) bleibt als ZWEITE Verteidigungslinie bestehen, bis
-/// das A2-SHA512-only-Gate geeicht ist: er kostet nichts und faengt Define-Verkabelungsfehler.
-[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version,
-                                         std::string const& algo_sig    = std::string{},
-                                         std::string const& variant_sig = std::string{}) {
-    if (version.empty()) return false; // ohne Versions-Anforderung nie überspringen
+/// K1-CROSS-CHECK -- VOLLZUGS-VERMERK (A2-Eichung 2026-08-05): der K1-Cross-Check (OS-Familie aus dem
+/// .version-Sidecar) war NIE eigener Code -- er WAR die .version-Gleichheit selbst und ist mit ihr ersatzlos
+/// entfallen. Er war ausdruecklich nur "ZWEITE Verteidigungslinie ..., bis das A2-SHA512-only-Gate geeicht ist";
+/// diese Bedingung ist mit dieser Zeile eingetreten. Sein Gegenstand (Define-Verkabelungsfehler) liegt seit
+/// W10-C4 im Fingerprint-Glied [2] selbst: die Bau-ZELLE (OS-Familie + ISA + simd) steht IM Preimage, ein
+/// verkabelungsfalscher Bau hat damit einen anderen SHA512 und faellt an genau diesem einen Vergleich durch.
+[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& expected_fingerprint) {
+    if (expected_fingerprint.empty()) return false; // (1) ohne CT-Erwartung nie ueberspringen (fail-closed)
     std::error_code ec;
-    if (!std::filesystem::exists(output, ec)) return false; // DLL fehlt → bauen
-    {
-        std::ifstream f{version_sidecar_path(output), std::ios::binary};
-        if (!f) return false;
-        std::string content((std::istreambuf_iterator<char>(f)), {});
-        if (content != version) return false; // System-Provenienz (ext/cxx/opt/target/ceb) veraltet → bauen
-    }
-    if (!algo_sig.empty()) { // Organ-Gate aktiv: die einkompilierten Algorithmus-Versionen muessen ebenfalls passen
-        std::ifstream af{algo_sidecar_path(output), std::ios::binary};
-        if (!af) return false; // kein Organ-Sidecar → als veraltet behandeln (Neubau schreibt es)
-        std::string acontent((std::istreambuf_iterator<char>(af)), {});
-        if (acontent != algo_sig) return false; // eine Variante im Tupel wurde gebumpt → GENAU diese Binary neu
-    }
-    if (!variant_sig.empty()) { // Build-Variant-Gate aktiv: die Zell-/ISA-Signatur der Binary muss ebenfalls passen
-        std::ifstream vf{variant_sidecar_path(output), std::ios::binary};
-        if (!vf) return false; // kein Variant-Sidecar -> als veraltet behandeln (Neubau schreibt es)
-        std::string vcontent((std::istreambuf_iterator<char>(vf)), {});
-        if (vcontent != variant_sig) return false; // Build-Variante gewechselt -> GENAU diese Binary neu
-    }
-    return true;
+    if (!std::filesystem::exists(output, ec) || ec) return false; // (2) DLL fehlt -> bauen
+    auto const vorhanden = read_fingerprint_sidecar(output);      // (3)+(4) fehlt/leer/nicht-128-hex -> nullopt
+    if (!vorhanden) return false;
+    return *vorhanden == expected_fingerprint; // DER EINE VERGLEICH
 }
 // TP1FK1-B2 (Codex-Befund CX-W3): der Schreibfehler wird NICHT mehr verschluckt. Frueher hiess
 // 'if (f) f << version;' -- misslang das Anlegen oder Schreiben, entstand STILL keine .version, und
@@ -326,9 +334,13 @@ inline void write_variant_sidecar(std::filesystem::path const& output, std::stri
     std::ofstream f{variant_sidecar_path(output), std::ios::binary | std::ios::trunc};
     if (f) f << variant_sig;
 }
-// I2: das VIERTE Sidecar `<output>.fingerprint` -- der 128-hex K7b-Fingerprint der Binary (Lager-Index-Schluessel,
-// bestand_key_of liest es). Bewusst SEPARAT von .version/.algos/.variant (das ist der kompakte Provenienz-Anker, kein
-// Skip-Kriterium). perm.dll.* bleiben byte-genau unveraendert.
+// I2 (HISTORIK, Stand bis 2026-08-05): das VIERTE Sidecar `<output>.fingerprint` -- der 128-hex K7b-Fingerprint der
+// Binary (Lager-Index-Schluessel, bestand_key_of liest es). Bewusst SEPARAT von .version/.algos/.variant (das ist der
+// kompakte Provenienz-Anker, kein Skip-Kriterium). perm.dll.* bleiben byte-genau unveraendert.
+// A2-EICHUNG (GATE 5, F7, 2026-08-05) -- LEBENDE WAHRHEIT: die DATEI-Trennung oben gilt weiter, die Klammer "kein
+// Skip-Kriterium" ist ueberholt. `.fingerprint` IST seit der Eichung das Skip-Kriterium von dll_is_current (und
+// bleibt zugleich der Lager-Index-Schluessel) -- deshalb schreibt provision_core hier denselben Wert, den (A) als
+// Skip-Erwartung gelesen hat.
 // G4b-1/AUF-A2 (2026-07-26): fingerprint_sidecar_path steht seit dieser Scheibe in fingerprint_sidecar.hpp (oben
 // inkludiert) -- unveraendert, gleicher Namespace. Grund: der Lager-Binder (bestandslog/fingerprint_key_source.hpp)
 // muss denselben Pfad bilden, ohne diesen schweren Header zu ziehen. Es gibt weiter nur EINE Wahrheit zum Suffix.
@@ -503,12 +515,21 @@ private:
                     }
                 }
 
-                // (A) INKREMENTELL: bestehende, versions- UND organ- UND build-varianten-aktuelle DLL ueberspringen
-                // (Resume nach Absturz). cfg_.build_variant_sig leer => Variant-Gate aus (byte-neutral).
-                if (dll_is_current(job.output, cfg_.build_version, algos, cfg_.build_variant_sig)) {
+                // A2-EICHUNG (GATE 5, F7): der erwartete CT-Fingerprint DIESER Bau-Identitaet -- EINMAL je Job
+                // berechnet und danach ZWEIMAL benutzt: als Skip-Erwartung in (A) und als Sidecar-Inhalt nach
+                // erfolgreichem Bau (unten). Genau diese Wiederverwendung macht die EINE Schluessel-Welt zur
+                // CODE-Konstruktion statt zur Disziplin: was das Gate vergleicht, ist byte-gleich dem, was als
+                // Lager-Index-Anker neben der Binary landet (== minio-Key == Bestandslog key_sha512).
+                // Leer, wenn kein Fingerprint-Provider injiziert ist -> (A) ist dann fail-closed (skippt NIE).
+                std::string const expected_fp = fingerprint_ ? fingerprint_(spec.binary_id) : std::string{};
+
+                // (A) INKREMENTELL: bestehende, fingerprint-aktuelle DLL ueberspringen (Resume nach Absturz).
+                // DER EINE VERGLEICH (F7 "NUR"): `.fingerprint`-Sidecar == expected_fp. .version/.algos/.variant
+                // werden weiter geschrieben (Provenienz-/Transport-Marken), entscheiden hier aber nichts mehr.
+                if (dll_is_current(job.output, expected_fp)) {
                     r.status  = 0;
                     r.skipped = true;
-                    r.message = "übersprungen (Version aktuell)";
+                    r.message = "uebersprungen (Fingerprint aktuell)";
                     finalize(j, std::move(r));
                     continue;
                 }
@@ -576,9 +597,10 @@ private:
                         write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
                         write_variant_sidecar(job.output,
                                               cfg_.build_variant_sig); // Build-Variante (G2-3/A7); leer=no-op
-                        write_fingerprint_sidecar(job.output, fingerprint_
-                                                                  ? fingerprint_(spec.binary_id)
-                                                                  : std::string{}); // I2 Lager-Anker; leer=no-op
+                        // I2 Lager-Anker; leer=no-op. A2-EICHUNG: DERSELBE Wert, den (A) als Skip-Erwartung
+                        // gelesen hat -- nicht neu berechnet. Damit ist "was das Gate erwartet" und "was neben
+                        // der Binary liegt" EINE Quelle, und der naechste Lauf skippt genau diese Binary.
+                        write_fingerprint_sidecar(job.output, expected_fp);
                     }
                 }
                 finalize(j, std::move(r));

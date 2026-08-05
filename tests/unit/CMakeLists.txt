@@ -4738,6 +4738,10 @@ target_link_libraries(test_g3_writer_backend_io_uring PRIVATE Threads::Threads c
 # A7 (G2-3): .variant-Sidecar-Serializer (build_variant_sidecar.hpp) + dll_is_current-4.-Param-Skip-Matrix
 # (build_orchestrator.hpp). Include-/Link-Satz wie die MCE24-Plain-Tests, da build_orchestrator experiment_tree
 # und den XML-Config-Parser transitiv zieht; gtest zusaetzlich fuer die benannten Faelle.
+# NACHGEFUEHRT 2026-08-05 (A2-Eichung, GATE 5): die "dll_is_current-4.-Param-Skip-Matrix" ist HISTORIK -- die
+# 4-Parameter-Form existiert nicht mehr (F7 "NUR"), die Matrix-Abschnitte sind aus dieser TU entfallen. Sie
+# prueft weiter den .variant-SERIALIZER und die A7-B-Mengen-Signatur; das Skip-Gate selbst beweist seither
+# test_a2_sha512_skip_gate (Block direkt darunter).
 add_executable(test_g2_variant_sidecar "test_g2_variant_sidecar.cpp")
 target_compile_features(test_g2_variant_sidecar PRIVATE cxx_std_23)
 target_include_directories(test_g2_variant_sidecar PRIVATE ${COMDARE_MCE24_INCLUDES})
@@ -4746,6 +4750,20 @@ comdare_set_platform_defines(test_g2_variant_sidecar)
 add_test(NAME test_g2_variant_sidecar COMMAND test_g2_variant_sidecar)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_g2_variant_sidecar)
 set_tests_properties(test_g2_variant_sidecar PROPERTIES LABELS "g2;blut")
+
+# A2 (GATE 5, F7 / Eich-Welle 2026-08-05): das SHA512-only-Skip-Gate. Beweist, dass dll_is_current genau EINEN
+# Vergleich fuehrt (erwarteter CT-Fingerprint == `.fingerprint`-Sidecar), fail-closed ohne Anker, inkl. des
+# Hydrations-Skips ueber pull_tier_binary und der Verdrahtung am echten Call-Site (provision_core).
+# Include-/Link-Satz identisch zum G2-Block (build_orchestrator zieht experiment_tree + XML-Config-Parser
+# transitiv; artifact_cache.hpp fuer den Hydrations-Beweis liegt unter derselben builder-Include-Wurzel).
+add_executable(test_a2_sha512_skip_gate "test_a2_sha512_skip_gate.cpp")
+target_compile_features(test_a2_sha512_skip_gate PRIVATE cxx_std_23)
+target_include_directories(test_a2_sha512_skip_gate PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_a2_sha512_skip_gate PRIVATE gtest gtest_main Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_a2_sha512_skip_gate)
+add_test(NAME test_a2_sha512_skip_gate COMMAND test_a2_sha512_skip_gate)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a2_sha512_skip_gate)
+set_tests_properties(test_a2_sha512_skip_gate PROPERTIES LABELS "a2;blut")
 
 # G3-B3 (S2): Factory + SHA512-Index (bestandslog_factory.hpp, bestandslog_index.hpp). Braucht
 # zusaetzlich libs/cache_engine/src fuer <sha512/ctsha512.hpp> (die EINE SHA512-Wahrheit gegen A1).

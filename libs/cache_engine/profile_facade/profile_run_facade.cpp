@@ -367,13 +367,17 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 
 // H-10 (Bau-INC-1g): die VARIABLEN System-Achsen-Belegungen (Erweiterungshardware-Politik,
 // Compiler, opt_level) werden in build_version kodiert — eine unter anderer Belegung gebaute DLL bekommt
-// ein eigenes .version-Sidecar (kein falsches Skip via dll_is_current) und die CSV-Spalte
+// ein eigenes .version-Sidecar und die CSV-Spalte
 // build_version traegt die Provenienz. Konstante Achsen (Scheduling/Last=Default) bleiben
 // weggelassen, bis die CEB-Laufzeit-Permutation sie variabel macht.
+// A2-EICHUNG (2026-08-05, GATE 5): der Schutz vor dem falschen Skip laeuft seither NICHT mehr ueber einen
+// .version-Stringvergleich in dll_is_current (der vergleicht nur noch den `.fingerprint`), sondern ueber das
+// build_version-Glied IM Fingerprint-Preimage. Wirkung identisch, Traeger anders: eine unter anderer Belegung
+// gebaute DLL hat einen anderen erwarteten Fingerprint und faellt am EINEN Vergleich durch.
 [[nodiscard]] std::string system_axes_version_suffix(cx::ThesisProfile const* tp = nullptr) {
     // A1/OF-2 (Ruling 2026-07-18): KEIN globaler Byte-Anker mehr. Die opt_level-Provenienz wird IMMER emittiert
     // (kein O2-Sonderfall) -> jedes Teil beweglich, keine bevorzugte Referenz-Stufe. Folge: alle Tier-Binaries
-    // tragen +opt=<level> (Default +opt=O3) -> dll_is_current sieht sie unter neuer Belegung als neu; die golden-
+    // tragen +opt=<level> (Default +opt=O3) -> sie gelten unter neuer Belegung als neu; die golden-
     // Reihe wird deterministisch unter O3 neu gebaut/gemessen (bewusster Neu-Mess-Lauf, alt-Reihen additiv erhalten).
     // Single-XML (9dim-G3, Sec.50): die vier active_*-Aufloeser ziehen die Einzelpfad-Wahl aus dem Profil (tp), nicht
     // mehr aus Env; kein Profil / keine Deklaration -> benannte Defaults -> Suffix byte-identisch (golden-neutral).

@@ -1,8 +1,9 @@
 // G2-3 (Lager-Gate, Stempel-Paket A7) -- Tests fuer das dritte per-Binary-Sidecar `.variant`:
 //   (1) compose_variant_signature: deterministisch + exakte Form (bv aus kBuildVariantDefinitionVersion, A6=2);
 //   (2) parse_variant_signature: Roundtrip + strenge Ablehnung malformierter Formen;
-//   (3) dll_is_current 3x3-Skip-Matrix: variant_sig {leer, gesetzt} x .variant {fehlt, mismatch, match};
-//   (4) Byte-Neutralitaet: variant_sig leer => Variant-Gate AUS (identisch zum Alt-Verhalten, .variant ignoriert);
+//   (3) [ENTFALLEN 2026-08-05, A2-Eichung] dll_is_current 3x3-Skip-Matrix: variant_sig {leer, gesetzt} x .variant
+//       {fehlt, mismatch, match};
+//   (4) [ENTFALLEN 2026-08-05, A2-Eichung] Byte-Neutralitaet: variant_sig leer => Variant-Gate AUS;
 //   (5) write_variant_sidecar: leer = no-op, sonst byte-exaktes Schreiben.
 //
 // G2 Folge-B (A7-B) ERGAENZT, ab Abschnitt (6): die MENGEN-Signatur ueber die Enabled-Typlisten
@@ -10,8 +11,15 @@
 //   (6) CT-Wachen: exakte Form ueber synthetischen Listen, je-Achse-Klammern, Determinismus, Reihenfolge-Sensitivitaet;
 //   (7) Gate-Wirkung: andere Enable-Menge => andere Signatur (das Cross-Maschinen-Gate);
 //   (8) Format-Disjunktheit zur A7-Einzel-POD-Form (parse_variant_signature lehnt die Mengen-Form ab);
-//   (9) 3x3-Skip-Matrix ERNEUT, diesmal mit der REALEN Treiber-Mengen-Signatur als variant_sig;
+//   (9) [ENTFALLEN 2026-08-05, A2-Eichung] 3x3-Skip-Matrix ERNEUT mit der REALEN Treiber-Mengen-Signatur;
 //   (10) EINE Feldquelle: die *_axis_fields-Leser und der POD build_variant_definition driften nicht auseinander.
+//
+// A2-EICHUNG (GATE 5, F7 KONSOLIDIERT:72, 2026-08-05): dll_is_current fuehrt seither GENAU EINEN Vergleich
+// (erwarteter CT-Fingerprint == `.fingerprint`-Sidecar, fail-closed ohne Anker). `.variant` bleibt als
+// Provenienz-Legende erhalten -- es wird komponiert, geschrieben und transportiert wie bisher --, entscheidet
+// aber ueber KEINEN Skip mehr. Deshalb sind (3)/(4)/(4b)/(9) hier entfallen: sie prueften ein Gate, das es
+// nicht mehr gibt. Der Skip-Entscheid wird jetzt in tests/unit/test_a2_sha512_skip_gate.cpp bewiesen; diese
+// TU bleibt die volle Wahrheit ueber den .variant-SERIALIZER und die A7-B-Mengen-Signatur.
 
 #include "anatomy/build_variant_definition.hpp" // BuildVariantDefinitionV1 + kBuildVariantDefinitionVersion
 #include "builder/build_orchestrator/build_orchestrator.hpp" // variant_sidecar_path / dll_is_current / write_*_sidecar
@@ -40,11 +48,9 @@ namespace mp = boost::mp11;
 
 namespace {
 
-void write_file(fs::path const& p, std::string const& content) {
-    std::ofstream f{p, std::ios::binary | std::ios::trunc};
-    f << content;
-}
-
+// A2-EICHUNG (2026-08-05): `write_file` ist mit den entfallenen Skip-Matrix-Abschnitten (3)/(4)/(4b)/(9)
+// weggefallen -- nur sie legten `.variant`-Sidecars von Hand an. Der Writer-Abschnitt (5) benutzt
+// ex::write_variant_sidecar (die Produktiv-Naht), der Leser bleibt. Toter Code wird entfernt, nicht geparkt.
 std::string read_file(fs::path const& p) {
     std::ifstream f{p, std::ios::binary};
     return std::string{std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>{}};
@@ -65,20 +71,9 @@ an::BuildVariantDefinitionV1 sample_def_avx10() {
     return v;
 }
 
-// Andere Zelle (DenseByte, 128-bit, kein AVX512/AVX10) -- fuer Mismatch-Faelle.
-an::BuildVariantDefinitionV1 sample_def_legacy() {
-    an::BuildVariantDefinitionV1 v;
-    v.page_kind          = 0; // DenseByte
-    v.page_is_branch     = 0;
-    v.page_is_leaf       = 1;
-    v.simd_width_bits    = 128;
-    v.simd_avx512        = 0;
-    v.hw_cache_line      = 64;
-    v.hw_numa_capable    = 0;
-    v.present_mask       = 7;
-    v.simd_avx10_version = 0;
-    return v;
-}
+// A2-EICHUNG (2026-08-05): `sample_def_legacy` (DenseByte, 128-bit, kein AVX512/AVX10) existierte
+// AUSSCHLIESSLICH als "andere Zelle" fuer die Mismatch-Zeilen der entfallenen Skip-Matrix -- ihre
+// Serializer-Form wurde nie behauptet. Mit der Matrix faellt sie ersatzlos (toter Code wird entfernt).
 
 // -- A7-B: synthetische Achsen-Wrapper. Sie erfuellen exakt die Property-API, die anatomy::*_axis_fields liest
 //    (dieselbe tolerante Erkennung wie die realen Registry-Wrapper), tragen aber FESTE Werte -> die erwartete
@@ -213,65 +208,16 @@ TEST(G2VariantSidecar, ParseRejectsMalformed) {
     EXPECT_FALSE(ex::parse_variant_signature("bv=2;page_kind=5;").has_value()); // leeres Trailing-Token
 }
 
-// (3)+(4) 3x3-Skip-Matrix: version/algo konstant gehalten, damit die Variant-Achse allein entscheidet.
-TEST(G2VariantSidecar, DllIsCurrentVariantMatrix) {
-    fs::path const  base = comdare::test::user_tmp_dir() / "g2_variant_matrix";
-    std::error_code ec;
-    fs::remove_all(base, ec);
-    fs::create_directories(base, ec);
-
-    fs::path const    out      = base / "perm_x.dll";
-    std::string const kVersion = "sysv1";
-    std::string const kSigA    = ex::compose_variant_signature(sample_def_avx10());
-    std::string const kSigB    = ex::compose_variant_signature(sample_def_legacy());
-    ASSERT_NE(kSigA, kSigB);
-
-    write_file(out, "DLL");                   // DLL existiert
-    ex::write_version_sidecar(out, kVersion); // .version passt (System-Provenienz aktuell)
-
-    auto set_variant = [&](std::optional<std::string> const& content) {
-        fs::remove(ex::variant_sidecar_path(out), ec);
-        if (content) write_file(ex::variant_sidecar_path(out), *content);
-    };
-
-    // variant_sig LEER => Variant-Gate AUS => IMMER current (byte-neutral), unabhaengig vom .variant-Zustand.
-    set_variant(std::nullopt);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", "")); // fehlt
-    set_variant(kSigB);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", "")); // stale sidecar ignoriert
-    set_variant(kSigA);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", "")); // match ebenfalls current
-
-    // variant_sig GESETZT (kSigA): fehlt/mismatch => Neubau, match => Skip.
-    set_variant(std::nullopt);
-    EXPECT_FALSE(ex::dll_is_current(out, kVersion, "", kSigA)); // .variant fehlt
-    set_variant(kSigB);
-    EXPECT_FALSE(ex::dll_is_current(out, kVersion, "", kSigA)); // .variant mismatch
-    set_variant(kSigA);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", kSigA)); // .variant match
-
-    fs::remove_all(base, ec);
-}
-
-// (4b) Byte-Neutralitaet auch fuer die 3-arg-Form: das neue Gate hat keinerlei Wirkung ohne variant_sig.
-TEST(G2VariantSidecar, ThreeArgFormUnaffectedByVariantSidecar) {
-    fs::path const  base = comdare::test::user_tmp_dir() / "g2_variant_3arg";
-    std::error_code ec;
-    fs::remove_all(base, ec);
-    fs::create_directories(base, ec);
-
-    fs::path const    out      = base / "perm_z.dll";
-    std::string const kVersion = "sysv1";
-    write_file(out, "DLL");
-    ex::write_version_sidecar(out, kVersion);
-    write_file(ex::variant_sidecar_path(out), "irgendein-stale-variant"); // stale .variant vorhanden
-
-    // 3-arg-Aufruf (kein variant_sig) verhaelt sich exakt wie vor A7: nur Version zaehlt -> current.
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, ""));
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion));
-
-    fs::remove_all(base, ec);
-}
+// (3)+(4)+(4b) ENTFALLEN mit der A2-EICHUNG (GATE 5, F7, 2026-08-05) -- HISTORIK, nicht Verlust:
+// Diese drei Abschnitte prueften die 3x3-Skip-Matrix (variant_sig {leer,gesetzt} x .variant {fehlt,mismatch,
+// match}) und die Byte-Neutralitaet der 3-arg-Form von dll_is_current. Beides setzte voraus, dass .variant
+// ein SKIP-Kriterium ist und dll_is_current mehr als zwei Parameter hat. Seit der Eichung fuehrt
+// dll_is_current GENAU EINEN Vergleich (erwarteter CT-Fingerprint == `.fingerprint`-Sidecar, F7 "NUR");
+// .variant wird weiter geschrieben und transportiert, entscheidet aber ueber keinen Skip mehr -- die
+// Matrix hatte damit keinen Gegenstand mehr. Der Skip-Entscheid wird seither vollstaendig in
+// tests/unit/test_a2_sha512_skip_gate.cpp bewiesen (inkl. der Gegenprobe, dass ein gefuelltes .variant
+// KEIN Skip mehr herbeifuehrt). Was diese TU beweist, ist unveraendert der .variant-SERIALIZER: (1)(2)(2b)
+// compose/parse, (5) Writer, (6)-(10) die A7-B-Mengen-Signatur.
 
 // (5) Writer: leer = no-op (kein Sidecar), sonst byte-exaktes Schreiben.
 TEST(G2VariantSidecar, WriteVariantSidecarEmptyIsNoOpElseExact) {
@@ -346,58 +292,13 @@ TEST(G2VariantSetSignature, SetFormIsDisjointFromA7PodForm) {
     EXPECT_FALSE(std::string_view{pod_sig}.starts_with("bvset="));
 }
 
-// (9) Die 3x3-Skip-Matrix ERNEUT -- diesmal mit der REALEN Treiber-Mengen-Signatur in variant_sig. Damit ist
-// bewiesen, dass das aktivierte Gate mit genau der Signatur arbeitet, die Folge-B in BuildConfig speisen wird.
-// {leer, gesetzt} x {.variant fehlt, mismatch, match}.
-TEST(G2VariantSetSignature, DllIsCurrentMatrixWithDriverSetSignature) {
-    fs::path const  base = comdare::test::user_tmp_dir() / "g2_variant_set_matrix";
-    std::error_code ec;
-    fs::remove_all(base, ec);
-    fs::create_directories(base, ec);
-
-    fs::path const    out      = base / "perm_set.dll";
-    std::string const kVersion = "sysv1";
-    std::string const kSigA    = ex::driver_build_variant_signature(); // dieser Treiber
-    std::string const kSigB    = std::string{kSetDriverWidened};       // anders konfigurierter Treiber
-    ASSERT_NE(kSigA, kSigB);
-
-    write_file(out, "DLL");
-    ex::write_version_sidecar(out, kVersion); // .version passt -> die Variant-Achse entscheidet allein
-
-    auto set_variant = [&](std::optional<std::string> const& content) {
-        fs::remove(ex::variant_sidecar_path(out), ec);
-        if (content) write_file(ex::variant_sidecar_path(out), *content);
-    };
-
-    // Zeile 1 -- variant_sig LEER => Gate AUS => immer current (byte-neutraler Default-Pfad).
-    set_variant(std::nullopt);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", ""));
-    set_variant(kSigB);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", ""));
-    set_variant(kSigA);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", ""));
-
-    // Zeile 2 -- variant_sig = Mengen-Signatur DIESES Treibers.
-    set_variant(std::nullopt);
-    EXPECT_FALSE(ex::dll_is_current(out, kVersion, "", kSigA)); // kein .variant -> Neubau
-    set_variant(kSigB);
-    EXPECT_FALSE(ex::dll_is_current(out, kVersion, "", kSigA)); // fremde Treiber-Config -> Neubau (das Gate)
-    set_variant(kSigA);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", kSigA)); // gleiche Treiber-Config -> Skip
-
-    // Zeile 3 -- Gegenprobe aus Sicht des ANDEREN Treibers: dieselbe DLL, gespiegelte Verdikte.
-    set_variant(kSigA);
-    EXPECT_FALSE(ex::dll_is_current(out, kVersion, "", kSigB));
-    set_variant(kSigB);
-    EXPECT_TRUE(ex::dll_is_current(out, kVersion, "", kSigB));
-
-    // Und das Sidecar wird byte-exakt geschrieben (der Wert, gegen den spaeter verglichen wird).
-    set_variant(std::nullopt);
-    ex::write_variant_sidecar(out, kSigA);
-    EXPECT_EQ(read_file(ex::variant_sidecar_path(out)), kSigA);
-
-    fs::remove_all(base, ec);
-}
+// (9) ENTFAELLT mit der A2-EICHUNG (GATE 5, F7, 2026-08-05) -- HISTORIK: dieser Abschnitt fuhr die 3x3-Skip-
+// Matrix ein zweites Mal, diesmal mit der REALEN Treiber-Mengen-Signatur in variant_sig. Sein Gegenstand
+// (das aktivierte .variant-Gate) existiert nicht mehr: dll_is_current vergleicht seither NUR den
+// `.fingerprint`-Anker. Die beiden Aussagen des Abschnitts, die KEIN Skip-Gate brauchen, sind bereits
+// anderswo bewiesen und bleiben damit lueckenlos gedeckt: "verschieden konfigurierte Treiber => verschiedene
+// Signatur" in (7b) DriverSignatureIsStableAndConfigSensitive, "das Sidecar wird byte-exakt geschrieben" in
+// (5) WriteVariantSidecarEmptyIsNoOpElseExact. Der Skip-Entscheid selbst: test_a2_sha512_skip_gate.cpp.
 
 // (10) EINE FELDQUELLE: die je-Achse-Leser, aus denen die Mengen-Signatur serialisiert, und der volle POD
 // build_variant_definition<PT,SE,HW>() liefern dieselben Werte. Driften sie auseinander, wuerde ein `.variant`

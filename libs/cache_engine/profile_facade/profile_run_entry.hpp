@@ -912,6 +912,12 @@ struct RunProfileResult {
                 // .variant, und keines der drei bewegt sich durch C4 -- ein stales prae-W10-Binary haette den
                 // Skip passiert und einen Stempel OHNE Zellwerte weitergetragen. Der Wert kommt aus der EINEN
                 // Zusammensetzung (ceb_contract_version_text -> abi::kCebContractCodegenMinor).
+                // A2-NACHZUG (2026-08-05, GATE 5): der W10-M2-Text darueber ist HISTORIK -- dll_is_current
+                // vergleicht seither NUR den `.fingerprint`. Die Verdrahtung bleibt trotzdem noetig und richtig:
+                // das +ceb-Glied wirkt jetzt ueber das PREIMAGE (es steht in der System-Zeile = Glied [2]), also
+                // aendert der Contract-Minor-Bump direkt den erwarteten Fingerprint. Der Schutz vor dem stalen
+                // prae-W10-Binary ist damit staerker als vorher, nicht schwaecher: er haengt nicht mehr daran,
+                // dass jemand das Glied in einen Vergleichs-String einbaut.
                 std::string const perm_ceb = ::comdare::cache_engine::profile_facade::ceb_contract_version_text();
                 perm_parts.ceb             = perm_ceb;
                 std::string const perm_bt  = build_type_version_value();

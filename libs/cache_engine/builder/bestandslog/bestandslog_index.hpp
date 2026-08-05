@@ -143,11 +143,28 @@ struct LagerKey {
 //     Lookup verfehlt => NEUBAU. Es gibt KEIN Grandfathering und keine Alt-Key-Uebersetzung
 //     (F7-Uebergangsregel); eine solche waere geraten und wuerde einen falschen Treffer erzeugen.
 //
-// (c) Die FINAL-Inventur kommt erst NACH W10 und E-24 (R15). W10 verschiebt die System-ZELLWERTE
-//     und E-24 den Major 7 -> 8; beide bewegen JEDEN kuenftigen v6-Key erneut. Deshalb eicht diese
-//     Welle NICHTS auf konkrete heutige Digest-WERTE -- geprueft wird ausschliesslich die FORM
-//     (128 Klein-Hex, s. ist_fingerprint_hex im Baum-Writer). Die A2-Eichung erfolgt EINMALIG
-//     ZULETZT (FAHRPLAN:18); alles andere waere ein Doppel-Neuanker.
+// (c) [STAND BIS 2026-08-05, HISTORIK] Die FINAL-Inventur kommt erst NACH W10 und E-24 (R15). W10
+//     verschiebt die System-ZELLWERTE und E-24 den Major 7 -> 8; beide bewegen JEDEN kuenftigen
+//     v6-Key erneut. Deshalb eicht diese Welle NICHTS auf konkrete heutige Digest-WERTE -- geprueft
+//     wird ausschliesslich die FORM (128 Klein-Hex, s. ist_fingerprint_hex im Baum-Writer). Die
+//     A2-Eichung erfolgt EINMALIG ZULETZT (FAHRPLAN:18); alles andere waere ein Doppel-Neuanker.
+//
+// (c-VOLLZUG) Die A2-EICHUNG IST VOLLZOGEN -- Welle `anker-a2-eichung`, 2026-08-05, auf Basis
+//     24e07219 (GATE 5, der EINE Anker-Vollzug, GENAU EINMAL). Die Bedingung aus (c) ist damit
+//     eingetreten: W10 und E-24 sind gelandet, danach hat sich kein Preimage mehr bewegt. Seither
+//     gilt:
+//       - dll_is_current (build_orchestrator.hpp) ist DER EINE VERGLEICH "erwarteter
+//         CT-Fingerprint == `.fingerprint`-Sidecar", fail-closed ohne Anker (F7 "NUR"). Der lokale
+//         Skip und dieser Lager-Index lesen dasselbe Sidecar ueber DIESELBE Funktion
+//         (read_fingerprint_sidecar) -- die EINE Schluessel-Welt ist damit eine Code-Konstruktion.
+//       - Der geeichte Referenz-Vektor ist kFrozenFingerprintV1 (test_g3_sha512_index.cpp:45;
+//         byte-gleich in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
+//         Dieser Header eicht weiterhin KEINE Digest-Werte, nur die FORM -- daran aendert der
+//         Vollzug nichts.
+//       - L14: geeicht wurde MIT LEEREM Overlay-Glied (5./6. Preimage-Glied traegt nur
+//         Separator+Format). Das ist eine DEKLARIERTE, nicht stille Luecke: der SHA512 deckt reine
+//         Quell-Code-Aenderungen noch nicht; Heilung im Overlay-Fenster (Phase 6), layout-bruch-frei.
+//       - Die TP1-FINAL-Inventur folgt im SELBEN Anker-Fenster (R15: einmal, nicht doppelt).
 // ---------------------------------------------------------------------------
 
 // Der Lager-Index: (SHA512, Zelle) -> Eintrag.

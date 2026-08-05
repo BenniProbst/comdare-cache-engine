@@ -1,7 +1,10 @@
 // test_kf16b_build_resilience — KF-16b (2026-06-02)
 // Belegt: (A) Default cores_per_build=4 + KEINE Oversubscription (parallel_jobs × cores ≤ Kerne, gekappt);
 // (B) RAM-Admission (freier RAM gemessen, weiterer Build nur wenn genug RAM, mind. 1 läuft immer); (C)
-// inkrementell-resumierbar (versions-aktuelle DLLs übersprungen). Stub-CompileFn/FreeRamFn → deterministisch.
+// inkrementell-resumierbar (aktuelle DLLs uebersprungen). Stub-CompileFn/FreeRamFn -> deterministisch.
+// A2-EICHUNG (GATE 5, F7, 2026-08-05): das Aktualitaets-KRITERIUM in (C) ist seither der `.fingerprint`-Anker
+// statt der build_version im `.version`-Sidecar. [HISTORIK bis 2026-08-05: "versions-aktuelle DLLs".]
+// Die Resilienz-Aussage selbst ist unveraendert; sie wird nur ueber den injizierten FingerprintFn gefahren.
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> test_kf16b_build_resilience.cpp
 
 #include "builder/build_orchestrator/build_orchestrator.hpp"
@@ -93,7 +96,13 @@ int main() {
                    st.min_free_ram_bytes <= 10 * GB && st.min_free_ram_bytes > 0);
     }
 
-    // ── (C) Inkrementell/resumierbar: versions-aktuelle DLLs überspringen ──
+    // -- (C) Inkrementell/resumierbar: fingerprint-aktuelle DLLs ueberspringen --
+    // A2-EICHUNG (GATE 5, F7, 2026-08-05): die Resume-Aussage dieses Abschnitts ist unveraendert -- "eine
+    // bestehende, aktuelle DLL wird uebersprungen, eine veraltete neu gebaut". Nur das Kriterium ist ein
+    // anderes: nicht mehr die build_version im `.version`-Sidecar, sondern der erwartete CT-Fingerprint
+    // gegen `.fingerprint`. Deshalb traegt hier ein Test-FingerprintFn die "Bau-Welt" (v1/v2) statt
+    // cfg.build_version. Die build_version bleibt gesetzt und KONSTANT -- sie beweist mit, dass sie den
+    // Skip weder herbeifuehrt noch verhindert.
     {
         ex::ExperimentTree tree = make_tree(factory, 5);
         auto               view = tree.static_binary_view();
@@ -104,30 +113,71 @@ int main() {
             return 0;
         };
         auto gen = [](std::string const&) { return std::string{"//\n"}; };
+        // Deterministischer Test-Fingerprint je (Welt, binary_id) -- 128 Hex-Zeichen, wie der echte K7b-Anker.
+        auto fp_of = [](char welt, std::string const& id) {
+            std::uint64_t h = 0xcbf29ce484222325ULL;
+            h ^= static_cast<std::uint64_t>(static_cast<unsigned char>(welt));
+            h *= 0x100000001b3ULL;
+            for (char const c : id) {
+                h ^= static_cast<std::uint64_t>(static_cast<unsigned char>(c));
+                h *= 0x100000001b3ULL;
+            }
+            static constexpr char hexd[] = "0123456789abcdef";
+            std::string           block(16, '0');
+            for (int i = 15; i >= 0; --i) {
+                block[static_cast<std::size_t>(i)] = hexd[h & 0xF];
+                h >>= 4;
+            }
+            std::string out;
+            out.reserve(128);
+            for (int k = 0; k < 8; ++k) out += block;
+            return out;
+        };
 
         ex::BuildConfig cfg{4, 8, base / "inc_src", base / "inc_dll"};
-        cfg.build_version = "v1";
+        cfg.build_version = "v-konstant"; // ueber ALLE drei Laeufe unveraendert
         ex::BuildOrchestrator orch1{cfg, compile_touch, gen};
-        ex::BuildStats        s1;
+        orch1.set_fingerprint_provider([&](std::string const& id) { return fp_of('1', id); });
+        ex::BuildStats s1;
         orch1.provision_all(view, &s1);
         check_eq("v1 Erstbau: 5 gebaut, 0 übersprungen", s1.built, std::size_t{5});
         check_eq("v1 Erstbau: skipped == 0", s1.skipped, std::size_t{0});
 
-        // Re-Provision mit gleicher Version → ALLE überspringen (Resume nach Absturz).
+        // Re-Provision in derselben Fingerprint-Welt -> ALLE ueberspringen (Resume nach Absturz).
         ex::BuildOrchestrator orch2{cfg, compile_touch, gen};
-        ex::BuildStats        s2;
+        orch2.set_fingerprint_provider([&](std::string const& id) { return fp_of('1', id); });
+        ex::BuildStats s2;
         orch2.provision_all(view, &s2);
-        check_eq("v1 Re-Run: 5 übersprungen (versions-aktuell)", s2.skipped, std::size_t{5});
+        check_eq("v1 Re-Run: 5 uebersprungen (fingerprint-aktuell)", s2.skipped, std::size_t{5});
         check_eq("v1 Re-Run: 0 neu gebaut", s2.built, std::size_t{0});
 
-        // Neue Version → ALLE neu bauen.
-        ex::BuildConfig cfg2 = cfg;
-        cfg2.build_version   = "v2";
-        ex::BuildOrchestrator orch3{cfg2, compile_touch, gen};
-        ex::BuildStats        s3;
+        // Andere Bau-Welt (anderer Fingerprint bei GLEICHER build_version) -> ALLE neu bauen.
+        ex::BuildOrchestrator orch3{cfg, compile_touch, gen};
+        orch3.set_fingerprint_provider([&](std::string const& id) { return fp_of('2', id); });
+        ex::BuildStats s3;
         orch3.provision_all(view, &s3);
-        check_eq("v2: 5 neu gebaut (Version geändert)", s3.built, std::size_t{5});
+        check_eq("v2: 5 neu gebaut (Fingerprint geaendert)", s3.built, std::size_t{5});
         check_eq("v2: 0 übersprungen", s3.skipped, std::size_t{0});
+
+        // Ein einzelner entfernter Anker -> GENAU diese eine Binary wird neu gebaut (der Resume-Kern:
+        // per-Binary, nicht pauschal). Frueher war der Beweis "rm .version"; die Marke ist jetzt der Anker.
+        {
+            // Flaches Layout (per_binary_subdirs=false): die Anker heissen `perm_<stem>.dll.fingerprint`.
+            std::size_t entfernt = 0;
+            for (auto const& e : std::filesystem::recursive_directory_iterator{base / "inc_dll"}) {
+                if (entfernt == 0 && e.is_regular_file() && e.path().extension() == ".fingerprint") {
+                    std::filesystem::remove(e.path(), ec);
+                    ++entfernt;
+                }
+            }
+            check_eq("Resume-Kern: genau 1 Anker entfernt", entfernt, std::size_t{1});
+            ex::BuildOrchestrator orch4{cfg, compile_touch, gen};
+            orch4.set_fingerprint_provider([&](std::string const& id) { return fp_of('2', id); });
+            ex::BuildStats s4;
+            orch4.provision_all(view, &s4);
+            check_eq("rm .fingerprint: GENAU 1 neu gebaut", s4.built, std::size_t{1});
+            check_eq("rm .fingerprint: die uebrigen 4 uebersprungen", s4.skipped, std::size_t{4});
+        }
     }
 
     std::cout << "\n==== KF-16b BuildOrchestrator-Härtung: "

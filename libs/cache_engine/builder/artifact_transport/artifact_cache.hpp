@@ -5,7 +5,11 @@
 //   B  CEB/Tier-Binary-Bau-Artefakte -> minio-Objekt-Store (mc-Shellout). Objekt-Key
 //      cache_key_prefix(build_version)/<stem>/perm.dll(+ kOptionalTierSidecars +.version); Vollstaendigkeits-Marke:
 //      perm.dll ZUERST, perm.dll.version ZULETZT (halb-gepusht = keine Marke = kein Pull). Der Key KOPPELT an dieselbe
-//      build_version-Signatur, die dll_is_current lokal prueft -> stale ABI (5->6) wird NIE reused.
+//      build_version-Signatur, die auch der lokale Bau traegt -> stale ABI (5->6) wird NIE reused. [NACHGEFUEHRT
+//      2026-08-05, A2-Eichung: geprueft wird lokal seither NICHT mehr die build_version, sondern der
+//      `.fingerprint`-Anker (dll_is_current = EIN Vergleich). Der Objekt-Key bleibt unveraendert an
+//      cache_key_prefix(build_version) gebunden -- Store-Partitionierung und Skip-Kriterium sind seit der
+//      Eichung zwei verschiedene Dinge, und die build_version steckt ohnehin im Fingerprint-Preimage.]
 //   C  Messergebnisse -> der bestehende write-only `measure-drop`-Pfad per HTTPS-PUT (curl-Shellout): PUT an
 //      <COMDARE_MEASUREMENT_DROP_URL>/<YYYYMMDD-HHMMSS>/<datei>. Write-only + additiv: Duplikat -> 409 (NIE
 //      ueberschreiben, still additiv-OK), unter einem EINEN datierten Lauf-Baum. Parallel zum bestehenden git-
@@ -83,10 +87,16 @@ struct PruneVerdict {
 // damit von den anderen abdriften (der Defekt, der `.fingerprint` ueberhaupt erst aus dem Push fallen liess).
 // perm.dll (Nutzlast, ZUERST) und perm.dll.version (Vollstaendigkeits-Marke, ZULETZT) stehen bewusst NICHT darin:
 // ihre Position IST das Protokoll und darf nicht in einer Schleife verschwinden.
-//   perm.dll.algos       Organ-Provenienz (build_orchestrator.hpp:234 algo_sidecar_path) -- Organ-Gate dll_is_current
+//   perm.dll.algos       Organ-Provenienz (build_orchestrator.hpp algo_sidecar_path) -- Provenienz-Legende; seit der
+//                        A2-Eichung (2026-08-05) GATE-LOS [HISTORIK: "Organ-Gate dll_is_current"]
 //   perm.dll.fingerprint 128-hex K7b-Lager-Anker (fingerprint_sidecar.hpp:34) -- ohne ihn liefert bestand_key_of
 //                        nullopt (DedupOutcome::no_key) und die hydrierte Binary ist fuer das Lager UNSICHTBAR
-//   perm.dll.variant     Build-Varianten-Signatur (build_orchestrator.hpp:242) -- Variant-Gate von dll_is_current
+//   perm.dll.variant     Build-Varianten-Signatur (build_orchestrator.hpp variant_sidecar_path) -- Provenienz-Legende;
+//                        seit der A2-Eichung GATE-LOS [HISTORIK: "Variant-Gate von dll_is_current"]
+// A2-EICHUNG (GATE 5, F7, 2026-08-05): von diesen dreien traegt nur noch `perm.dll.fingerprint` eine
+// ENTSCHEIDUNGS-Rolle -- er IST das Skip-Kriterium. Dass er in dieser Liste steht, ist deshalb kein Komfort
+// mehr, sondern die Bedingung dafuer, dass eine hydrierte Binary ueberhaupt uebersprungen werden kann
+// (Hydrations-Skip; TU-Beweis test_a2_sha512_skip_gate.cpp und test_s2_pull_tier_binary.cpp (8a)).
 // Die drei Suffixe stehen hier als Literale, wie schon "perm.dll"/"perm.dll.version" in dieser Datei: der Transport
 // haengt bewusst NICHT am build_orchestrator (die Abhaengigkeit zeigt nur in die andere Richtung).
 inline constexpr std::array<char const*, 3> kOptionalTierSidecars{"perm.dll.algos", "perm.dll.fingerprint",
@@ -112,8 +122,10 @@ inline constexpr std::string_view kCebSegmentKey = "+ceb=";
 // unschaedlich: verify_remote_then_prune loescht ueber std::filesystem::remove, das ein fehlendes Ziel ignoriert.
 // EHRLICHE Grenze: hat ein AELTERER Push das .fingerprint noch nicht mitgeschoben, nimmt der Prune es lokal
 // dennoch mit -- eine spaetere Hydrierung liefert dann keinen Lager-Anker. Das ist genau der Alt-Zustand vor #13
-// (Lager-Unsichtbarkeit, nicht-fatal, dll_is_current traegt sich weiter ueber .version) und bewusst dem
-// Phantom-Eintrag vorgezogen.
+// (Lager-Unsichtbarkeit) und bewusst dem Phantom-Eintrag vorgezogen. [NACHGEFUEHRT 2026-08-05, A2-Eichung: der
+// Zusatz "nicht-fatal, dll_is_current traegt sich weiter ueber .version" gilt NICHT mehr. Ohne `.fingerprint`
+// skippt dll_is_current fail-closed nicht -- die Binary wird ehrlich neu gebaut. Das ist teurer, aber nie
+// falsch; ein Grandfathering ueber die .version gibt es ausdruecklich nicht (F7-Uebergangsregel).]
 [[nodiscard]] inline std::vector<std::filesystem::path> prunable_artifacts(std::filesystem::path const& bin_dir) {
     std::vector<std::filesystem::path> out;
     out.reserve(2 + kOptionalTierSidecars.size());
@@ -196,7 +208,9 @@ using MeasurementSinkFn =
 using PartialMarkerFn = std::function<void(std::string const& build_version, std::size_t part_index)>;
 // S2 (#46a Pull): CachePullFn -- die BATCH-Warm-Cache-Hydrierung VOR dem Bau. Der Iterator ruft sie EINMAL in Phase A
 //   (VOR provision_all), sie zieht den ganzen Objekt-Store-Praefix EINER Perm rekursiv nach dest_root (=output_dir), so
-//   dass dll_is_current die gepullten DLLs als versions-aktuell erkennt und den Rebuild ueberspringt. Args (dest_root,
+//   dass dll_is_current die gepullten DLLs als fingerprint-aktuell erkennt und den Rebuild ueberspringt (A2-Eichung
+//   2026-08-05; das setzt voraus, dass `perm.dll.fingerprint` mithydriert -- es steht dafuer in
+//   kOptionalTierSidecars). [HISTORIK bis 2026-08-05: "als versions-aktuell erkennt".] Args (dest_root,
 //   build_version). Leer = No-Op (byte-neutral). Der Host belegt sie via ArtifactCache::pull_tier_prefix.
 using CachePullFn = std::function<void(std::filesystem::path const& dest_root, std::string const& build_version)>;
 
@@ -415,7 +429,9 @@ public:
     /// (invertierte ZULETZT-Pruefung: halb-gepusht ohne Marke => MISS => lokal bauen). HARTE Reihenfolge lokal: die
     /// lokale .version UND alle kOptionalTierSidecars ZUERST WEG (write-ZULETZT-Disziplin -> ein Teil-Pull hinterlaesst
     /// NIE eine irrefuehrende Marke, und ein STEHENGEBLIEBENES Sidecar eines fruheren Baus kann dll_is_current nie eine
-    /// Provenienz vortaeuschen, die der Remote-Satz nicht deckt), dann perm.dll, dann die optionalen Sidecars in
+    /// Provenienz vortaeuschen, die der Remote-Satz nicht deckt -- seit der A2-Eichung 2026-08-05 ist das die scharfe
+    /// Form dieser Aussage: ein stehengebliebenes `.fingerprint` waere ein falscher SKIP, nicht nur eine falsche
+    /// Legende), dann perm.dll, dann die optionalen Sidecars in
     /// Listen-Reihenfolge (je nur, wenn remote vorhanden), dann perm.dll.version ZULETZT. Eigenes knappes
     /// Timeout-Budget (pull_tries_, nicht die Push-Defaults). Fehler -> ArtefaktIo geloggt, kein throw, Rueckgabe
     /// false => der Aufrufer BAUT (dll_is_current arbitriert danach ohnehin lokal). true = vollstaendiger Satz hydriert.
@@ -453,7 +469,7 @@ public:
             if (!mc_remote_exists(key)) continue;
             if (!mc_pull(key, bin_dir / leaf, log)) {
                 log_artefakt_io(log, std::string{"Pull "} + leaf + " fehlgeschlagen -> lokal bauen: " + key);
-                return false; // .version bleibt weg -> dll_is_current baut neu
+                return false; // .version bleibt weg -> Satz unvollstaendig; ohne Anker baut dll_is_current ohnehin neu
             }
         }
         // (3) perm.dll.version ZULETZT — die lokale Vollstaendigkeits-Marke.
@@ -472,7 +488,8 @@ public:
     /// mc-Prozess (nicht
     /// x|Binaries| Spawns; vgl. Dossier Option (a) vs (b)). Der _gn_chunk_markers-Namensraum wird ausgespart (Marker sind
     /// keine Tier-Binaries; orch_make_stem erzeugt diesen Stem nie). Korrektheit entscheidet danach AUSSCHLIESSLICH lokal
-    /// dll_is_current (ein Teil-Pull/False-Pull => der betroffene Stem hat kein/kein passendes .version/.algos => Neubau).
+    /// dll_is_current (ein Teil-Pull/False-Pull => der betroffene Stem hat kein/kein passendes `.fingerprint` => Neubau;
+    /// A2-Eichung 2026-08-05, HISTORIK: ".version/.algos").
     /// Leerer/fehlender Praefix (erste Welle) => mc-Fehler => false => alles lokal bauen. Kein throw; No-Op wenn inert.
     bool pull_tier_prefix(std::string const& build_version, std::filesystem::path const& dest_root) const {
         if (!minio_enabled()) return false; // inert (byte-neutral)

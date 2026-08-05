@@ -5,7 +5,9 @@
 // trennen, traegt JEDE Nicht-Default-(Debug-)Binary ein +bt=Debug am build_version. Der Mess-/Provision-Job
 // exportiert COMDARE_BUILD_TYPE=Debug (Director, Emissions-Seite, NUR bei debug-Profilen); run_profile liest es hier
 // und haengt +bt=Debug an perm_suffix / system_axes_version_suffix. ENV UNGESETZT ODER != "Debug" (Release/measure =
-// Default) => "" => build_version BYTE-IDENTISCH (golden/Sidecar/Resume/dll_is_current unberuehrt). Der IMMER-
+// Default) => "" => build_version BYTE-IDENTISCH (golden/Sidecar/Resume/Fingerprint unberuehrt -- A2-Eichung
+// 2026-08-05: dll_is_current vergleicht nur den `.fingerprint`, und die build_version steht in dessen Preimage,
+// also traegt eine byte-identische build_version auch einen byte-identischen Anker). Der IMMER-
 // explizite Array-Stempel (jede Binary traegt ihre volle Compile-Einstellung) bleibt K7b/G1 (#38) -- hier NUR die
 // identitaets-stabile Minimalform (Nicht-Default). Winziger Header (nur <cstdlib>/<string>) -> isoliert testbar.
 
