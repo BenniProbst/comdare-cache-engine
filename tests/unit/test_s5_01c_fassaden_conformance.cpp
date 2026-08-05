@@ -56,7 +56,9 @@
 //   (9) F30-RELATION      -- "::" + type_name<S>() == ORGAN_LOCATION-Literal, am TYP statt am Artefakt:
 //                            genau die Relation, die der Generator-Guard prueft, hier auch fuer die
 //                            Default-OFF-Organe, deren Kante bis zur Hebung latent offen war
-// (1)-(5) und (9) laufen compile-hart ueber die GANZE abgeleitete Liste; (8)/(8b) laufen zur Laufzeit
+//   (10) TRAVERSAL-SYMMETRIE -- (PHASE B, 2026-08-05) Fassade und Rebound-Leaf tragen DASSELBE
+//                            Traversal-Organ: der Rebind aendert die Strategie, nie den Such-Pfad
+// (1)-(5), (9) und (10) laufen compile-hart ueber die GANZE abgeleitete Liste; (8)/(8b) laufen zur Laufzeit
 // ueber dieselbe Liste (mp_for_each), (8) gefiltert auf die ENABLED-Teilmenge -- nur die steht ueberhaupt
 // in der committeten XML (der Generator reflektiert Enabled*, main.cpp:207) -- und (8b) auf ihr Komplement.
 //
@@ -345,6 +347,26 @@ struct FassadenVertrag {
                   "01c F30-DRIFT: das ORGAN_LOCATION-Literal ist nicht '::' + der real reflektierte Typ-Name. "
                   "Der Generator schriebe dann ein `type=`, das nicht mit dem Literal beginnt -> F30-GUARD-BRUCH, "
                   "und es waere KEINE Datei geschrieben worden (axis_registry_gen Rueckgabe 5).");
+
+    // ---- (10) TRAVERSAL-SYMMETRIE (PHASE B) -- der Rebind aendert die Strategie, NIE den Such-Pfad. ----
+    //      Bis Phase B stand diese Aussage nur fuer die per-K-Familie und nur AUFGEZAEHLT (zwei Rand-
+    //      Aritaeten, unten). Das war exakt die Luecke, die der 01c-2-Review als B3 meldete: sieben
+    //      weitere Fassaden trugen ein non-void-Traversal-Organ, waehrend ihr Rebound-Leaf mangels
+    //      Mapping-Zeile auf den void-Primaerfall fiel. Der Schaden ist unsichtbar, solange niemand eine
+    //      fremde Strategie waehlt -- und genau dann real, wenn es der Genus-Erst-Instanziierungs-Punkt
+    //      tut: dieselbe Registry-Identitaet suchte je nach T6-Wahl ueber zwei verschiedene Organe.
+    //      Der Pin steht HIER und nicht im Mapping-Header, weil er die REALE Population und eine ECHTE
+    //      fremde Strategie braucht (der Header kennt bewusst keine; er pinnt die Symmetrie nur
+    //      strukturell ueber einen unvollstaendigen Sonden-Typ). Er ist ABGELEITET: wer der Achse ein
+    //      Organ hinzufuegt, faellt hier hinein, ohne dass eine Zeile nachgezogen wird.
+    //      BEISST BEIDSEITIG: non-void-Fassade mit void-Rebound (die Phase-B-Ausgangslage) UND
+    //      void-Fassade, deren Rebound ploetzlich ein Organ traegt (die umgekehrte Drift).
+    static_assert(std::is_same_v<comp::traversal_for_search_algo_t<Rebound>, comp::traversal_for_search_algo_t<S>>,
+                  "01c/PHASE B TRAVERSAL-ASYMMETRIE: die kompositions-gebundene Form dieses Organs traegt ein "
+                  "ANDERES Traversal-Organ als ihre Fassade. Eine fehlende Mapping-Zeile in "
+                  "axes/lookup/composable/traversal_for_search_algo.hpp laesst den Rebound-Leaf auf den "
+                  "void-Primaerfall fallen -- dann suchte dasselbe Registry-Organ je nach Allokator-Strategie "
+                  "der Komposition ueber einen anderen Pfad (und maesse etwas anderes).");
 
     static constexpr bool ok = true;
 };

@@ -275,12 +275,14 @@ option(COMDARE_AXIS_03A_ENABLE_HASH_SEARCH       "Search-Algo S14 HashSearchAlgo
 option(COMDARE_AXIS_03A_ENABLE_LINEAR_SCAN       "Search-Algo S15 LinearScanSearchAlgo (Leis ICDE 2013 — elementare Such-METHODE/Organ, ENABLED)" ON)
 option(COMDARE_AXIS_03A_ENABLE_BST               "Search-Algo S16 BinarySearchTreeSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
 option(COMDARE_AXIS_03A_ENABLE_BTREE             "Search-Algo S17 BTreeSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
-# #188 per-K Increment 2 (2026-07-01) — S18-S21 compile-time-K k-ary Wrapper (KArySearchAlgoT<K>): je K ein
+# #188 per-K Increment 2 (2026-07-01) -- S18-S21 compile-time-K k-ary Organe: je K ein
 # EIGENES Enable-Flag (Default OFF wie OriginalXxx -> opt-in fuer den dedizierten per-K-Mess-Lauf, Increment 2b).
-option(COMDARE_AXIS_03A_ENABLE_K_ARY_K2          "Search-Algo S18 KArySearchAlgoT<2> (k-ary K=2, compile-time per-K, opt-in)" OFF)
-option(COMDARE_AXIS_03A_ENABLE_K_ARY_K4          "Search-Algo S19 KArySearchAlgoT<4> (k-ary K=4, compile-time per-K, opt-in)" OFF)
-option(COMDARE_AXIS_03A_ENABLE_K_ARY_K8          "Search-Algo S20 KArySearchAlgoT<8> (k-ary K=8, compile-time per-K, opt-in)" OFF)
-option(COMDARE_AXIS_03A_ENABLE_K_ARY_K16         "Search-Algo S21 KArySearchAlgoT<16> (k-ary K=16, compile-time per-K, opt-in)" OFF)
+# A8-S5 01c-2 (2026-08-05), LEAF-HEBUNG: aus den Aliasen auf die Template-Id KArySearchAlgoT<K> sind
+# eigenstaendige Klassen KArySearchAlgoK2/K4/K8/K16 geworden. Die option-NAMEN bleiben byte-gleich.
+option(COMDARE_AXIS_03A_ENABLE_K_ARY_K2          "Search-Algo S18 KArySearchAlgoK2 (k-ary K=2, compile-time per-K, opt-in)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_K_ARY_K4          "Search-Algo S19 KArySearchAlgoK4 (k-ary K=4, compile-time per-K, opt-in)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_K_ARY_K8          "Search-Algo S20 KArySearchAlgoK8 (k-ary K=8, compile-time per-K, opt-in)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_K_ARY_K16         "Search-Algo S21 KArySearchAlgoK16 (k-ary K=16, compile-time per-K, opt-in)" OFF)
 option(COMDARE_AXIS_03A_ENABLE_SWISSTABLE       "Search-Algo S22 SwissTable (Scalar-Gruppen-Probe, opt-in, AP-7a)" OFF)
 # COMDARE_AXIS_03A_ENABLE_ORIGINAL_MASSTREE DEFERRED — masstree.hh hat keine Function-Bodies (Templates)
 # axis_03b Pilot Batch 1 (2 Strategien)

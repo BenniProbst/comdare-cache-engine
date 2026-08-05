@@ -30,8 +30,12 @@ namespace comdare::cache_engine::lookup::flags {
 // Such-METHODE auf sortierten u16-Keys; Aritaet K als iterable_aspect (K=2 ≙ Binärsuch-Baseline).
 #cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY
 
-// #188 per-K Increment 2 (2026-07-01) — S18-S21 per-K compile-time k-ary Wrapper (KArySearchAlgoT<K>): je K ein
-// EIGENER Enable-Flag (Default OFF wie OriginalXxx — opt-in fuer den dedizierten per-K-Mess-Lauf, Increment 2b).
+// #188 per-K Increment 2 (2026-07-01) -- S18-S21 per-K compile-time k-ary Organe: je K ein
+// EIGENER Enable-Flag (Default OFF wie OriginalXxx -- opt-in fuer den dedizierten per-K-Mess-Lauf, Increment 2b).
+// A8-S5 01c-2 (2026-08-05), LEAF-HEBUNG: die vier waren bis dahin Aliase auf die Template-Id
+// KArySearchAlgoT<K> und heissen seither KArySearchAlgoK2/K4/K8/K16 -- eigenstaendige, nicht-Template
+// Klassen mit je eigenem ORGAN_LOCATION (die latente Registry-Template-Id-Kante ist damit zu).
+// Die Flag-NAMEN bleiben unveraendert (Cache-/CI-Schnittstelle).
 #cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K2
 #cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K4
 #cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K8
