@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <utility> // std::move (KF-6-Naht: explicit EytzingerLayoutStore(Alloc))
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
@@ -46,6 +47,15 @@ public:
     // Default: die vier Vektoren an das eigene allocator_ binden (Adapter nicht default-konstruierbar).
     EytzingerLayoutStore()
         : keys_(allocator_.template as_std_allocator<key_type>()),
+          values_(allocator_.template as_std_allocator<value_type>()),
+          eyt_keys_(allocator_.template as_std_allocator<key_type>()),
+          eyt_vals_(allocator_.template as_std_allocator<value_type>()) {}
+    // A8-S5 01c (2026-08-05), ADDITIV: KF-6-NAHT (Posten 62) -- eine vor-parametrierte Strategie-Instanz
+    // uebernehmen statt sie default zu konstruieren. Der Eytzinger-CORE der Fassaden-Konstruktion
+    // (axis_03a_search_algo_eytzinger.hpp) reicht sein explicit Core(Alloc) genau hierher durch; ohne
+    // diesen Ctor haette der Core einen ZWEITEN Allokator-Versorger neben dem Store gebraucht.
+    explicit EytzingerLayoutStore(Alloc a)
+        : allocator_(std::move(a)), keys_(allocator_.template as_std_allocator<key_type>()),
           values_(allocator_.template as_std_allocator<value_type>()),
           eyt_keys_(allocator_.template as_std_allocator<key_type>()),
           eyt_vals_(allocator_.template as_std_allocator<value_type>()) {}

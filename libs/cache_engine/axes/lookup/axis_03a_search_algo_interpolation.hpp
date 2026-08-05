@@ -22,8 +22,28 @@
 //
 // Erfuellt: SearchAlgoVariant, CacheEngineSearchAlgoPermutationStrategy, DensityClassifiedStrategy.
 //
-// Allocation: std::vector dynamisch — [[allocation-failure-exception]]: insert kann
-// std::bad_alloc werfen.
+// Allocation: NUR ueber das Allokator-Achsen-Interface (axis_06) -- s. den ZWEI-EBENEN-SCHNITT unten.
+// [[allocation-failure-exception]]: insert kann std::bad_alloc werfen (StdAllocatorAdapter, Posten 64).
+//
+// ===================================================================================================
+// A8-S5 Familie 01c, Scheibe 2 (2026-08-05) -- ZWEI-EBENEN-SCHNITT (Pilot-Rezept linear_scan)
+// ===================================================================================================
+// Dossier: docs/architecture/20260803-a8_f2_benchmarking_schnitt_soll_design.md Abschn. 3.4.
+// Owner-KERN: LEDGER 04.08.2026 abend-11 ("Option B strikt"), Design-Entscheid abend-14 (D1),
+// Manager-Entscheid 05.08. nacht-2 (D1 bleibt fuer die Vor-Anker-Strecke).
+//
+// Die Konstruktion ist ZEILENGLEICH zum Pilot (axis_03a_search_algo_linear_scan.hpp:22-58); die dortige
+// Begruendung gilt hier unveraendert und wird NICHT wiederholt, sondern referenziert:
+//   (1) detail::InterpolationSearchAlgoCore<Alloc, Self>  -- DIE SUBSTANZ (CRTP mit Self, weil
+//       SearchAlgoBase CRTP ist und seine Ctor-Guards auf Derived laufen).
+//   (2) InterpolationSearchAlgo                           -- DIE IDENTITAET. Nicht-Template, EXAKT der
+//       alte Typ-Name: traegt COMDARE_DEFINE_ORGAN_LOCATION, steht in AllStrategies, ihr type_name
+//       reist in die committete cache_engine_axis_registry.xml (F30-Guard, axis_registry_gen
+//       main.cpp:161-162/:255-263). Ein Template-Kopf HIER wuerde `type=`/`wrapper=` drehen.
+//   (3) InterpolationSearchAlgoRebound<A2>                -- DIE GEBUNDENE FORM, materialisiert nur am
+//       Genus-Erst-Instanziierungs-Punkt (abend-6-Ausnahme).
+// Vorwaerts-Deklaration `class InterpolationSearchAlgo;` in composable/traversal_for_search_algo.hpp:36
+// -- auch hier haette eine Alias-Loesung sofort gebrochen; die Fassade haelt sie unveraendert.
 
 #include "axis_03a_search_algo_base.hpp"
 #include "axis_03a_search_algo_subaxes_sa1_to_sa3.hpp"
@@ -32,7 +52,10 @@
 #include "concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp"
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
+#include <axes/alloc/axis_06_allocator_exgen.hpp>
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
+#include <axes/lookup/composable/search_algo_rebind.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <algorithm>
 #include <cstddef>
@@ -40,12 +63,27 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::lookup {
 
-class InterpolationSearchAlgo : public SearchAlgoBase<InterpolationSearchAlgo> {
+// Vorwaerts-Deklaration: die Fassade nennt ihren eigenen Rebound-Leaf als Member-Alias, und der
+// Rebound-Leaf erbt vom selben Core -- beide brauchen den Namen, bevor der andere vollstaendig ist.
+template <class A2>
+class InterpolationSearchAlgoRebound;
+
+namespace detail {
+
+/// DIE SUBSTANZ des S11-Organs: Interpolationssuche ueber sortierte Keys, Speicher ueber die
+/// Allokator-ACHSE.
+///
+/// @tparam Alloc  Die Allokator-Achsen-Strategie (axis_06). Default-Bindung der Fassade: ExgenAllocator.
+/// @tparam Self   Der most-derived Typ (Fassade oder Rebound-Leaf) -- PFLICHT wegen der CRTP-Guards
+///                der SearchAlgoBase (axis_03a_search_algo_base.hpp:47-59).
+template <class Alloc, class Self>
+class InterpolationSearchAlgoCore : public SearchAlgoBase<Self> {
 public:
     static constexpr bool enabled = flags::interpolation_enabled;
     // (E-Welle-A2 / Befund-2 / A2.4-S1) Array-Familie (Interpolationssuche über sortiert-aufsteigenden flachen Slot-Store)
@@ -59,11 +97,22 @@ public:
     using axis_tag   = subaxes::sparse_access_tag;
     using family_id  = std::integral_constant<int, 11>; // S11
 
-    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
+    /// A8-S5 SCHNITT-FORM (B): Keys UND Values haengen an der Allokator-ACHSE. Diese Zeile IST der
+    /// Ausweis, den die Familien-Konformitaets-Wache liest (tests/unit/s5_family_alloc_conformance.hpp).
+    /// Anders als in 01a/01d ist sie NICHT fest, sondern der Kompositions-Parameter -- genau das ist der
+    /// Unterschied zwischen "an der Achse" (Zwischenstand) und "Option B strikt".
+    using allocator_type = Alloc;
+    static_assert(::comdare::cache_engine::alloc::concepts::AllocatorStrategy<allocator_type>,
+                  "A8-S5: der gebundene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- dann liefen "
+                  "Keys/Values wieder an der Allokator-Achse vorbei (Schnitt-Regel Dossier 3.4).");
+
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t max_fanout() noexcept { return 65536; } // u16 Keyraum
+    /// SERIALISIERUNGS-SCHLUESSEL -- bewusst OHNE jeden Allokator-Bezug. Die T6-Wahl darf hier NIE
+    /// hineinlecken: sonst truege eine mimalloc-gebundene Komposition einen anderen Organ-Namen als
+    /// dieselbe Komposition mit exgen, und binary_id-/serialize-Pfad drifteten gegen die Allokator-
+    /// Achse. Die Wache dazu steht als static_assert unter der Fassade (name()-Invarianz).
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "interpolation"; }
-    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::InterpolationSearchAlgo",
-                                  "axes/lookup/axis_03a_search_algo_interpolation.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "InterpolationSearchAlgo (interpolation search — Perl/Itai/Avni CACM 1978)";
     }
@@ -73,6 +122,10 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    ///
+    /// NICHT gebumpt in dieser Scheibe -- deklariert, nicht stillschweigend: der Allokations-PFAD aendert
+    /// sich, der Algorithmus nicht (Pilot-Praezedenz linear_scan; Bump-Entscheid fuer alle 16 Varianten
+    /// liegt im Mess-/A13-Fenster, S5-04-Praezedenz v1.0.0c).
     static constexpr std::string_view algo_version = "v1.0.0c";
 
     [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }      // datenabhaengiger Index
@@ -80,9 +133,57 @@ public:
     [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }           // sparse sortiert
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    InterpolationSearchAlgo() noexcept = default;
+private:
+    using key_alloc    = typename Alloc::template StdAllocatorAdapter<key_type>;
+    using value_alloc  = typename Alloc::template StdAllocatorAdapter<value_type>;
+    using key_vector   = std::vector<key_type, key_alloc>;
+    using value_vector = std::vector<value_type, value_alloc>;
 
-    [[nodiscard]] bool operator==(InterpolationSearchAlgo const& other) const noexcept {
+public:
+    /// Beide Vektoren werden an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    InterpolationSearchAlgoCore()
+        : keys_(allocator_.template as_std_allocator<key_type>()),
+          values_(allocator_.template as_std_allocator<value_type>()) {}
+
+    /// KF-6-NAHT (Posten 62, LEDGER 04.08. abend-12): eine vor-parametrierte Strategie-Instanz
+    /// uebernehmen, statt sie default zu konstruieren. Heute nirgends benutzt und bewusst `explicit` --
+    /// die Naht existiert, damit das KF-6-Fenster (CacheLineCfg-NTTP durch die Cores) sie nicht erst
+    /// nachtraeglich in 16 Dateien schneiden muss.
+    explicit InterpolationSearchAlgoCore(allocator_type a)
+        : allocator_(std::move(a)), keys_(allocator_.template as_std_allocator<key_type>()),
+          values_(allocator_.template as_std_allocator<value_type>()) {}
+
+    /// Copy: Strategie mitkopieren, beide Vektoren an das EIGENE allocator_ binden, dann die transiente
+    /// Kopier-Allokation aus der Statistik nehmen (Memento) -- 1:1 btree_node_pool_store.hpp:86.
+    /// MOVE ist bewusst NICHT deklariert (der user-definierte Copy unterdrueckt ihn implizit): jede
+    /// Bewegung faellt damit auf den REBINDENDEN Copy zurueck, statt Vektoren mitsamt fremdem
+    /// Adapter-Zeiger zu verschieben.
+    InterpolationSearchAlgoCore(InterpolationSearchAlgoCore const& o)
+        : allocator_(o.allocator_), keys_(o.keys_, allocator_.template as_std_allocator<key_type>()),
+          values_(o.values_, allocator_.template as_std_allocator<value_type>()) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = o.stats_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+
+    InterpolationSearchAlgoCore& operator=(InterpolationSearchAlgoCore const& o) {
+        if (this != &o) {
+            // POCCA=false (der Adapter fuehrt keine propagate_-Typedefs) -> die Vektoren behalten ihr an
+            // this-allocator_ gebundenes Adapter-Objekt; die Zuweisung re-alloziert ueber this-allocator_.
+            keys_   = o.keys_;
+            values_ = o.values_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_ = o.stats_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+
+    ~InterpolationSearchAlgoCore() = default;
+
+    [[nodiscard]] bool operator==(InterpolationSearchAlgoCore const& other) const noexcept {
         return keys_.size() == other.keys_.size();
     }
 
@@ -193,15 +294,67 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11, Pflicht (a)) -- NUR die Naht.
+    /// BEWUSST EIN VIERTER NAME neben store_/traversal_/mapping_/slot_allocator_statistics: jede
+    /// Organ-Instanz haelt ihre EIGENE Strategie-Instanz, die Snapshots sind also DISJUNKT zum
+    /// konstitutiven Store-Snapshot. Ob und wie sie in die T6-CSV-Spalte summiert werden
+    /// (Doppelzaehlungs-Regel), ist der EXPLIZITE Schritt des Mess-Schnitt-Fensters VOR Messbeginn.
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept {
+        return allocator_.statistics();
+    }
 #endif
 
 private:
-    std::vector<key_type>   keys_;
-    std::vector<value_type> values_;
+    // allocator_ MUSS VOR keys_/values_ stehen: der Adapter haelt &allocator_, und die Member-
+    // Initialisierungs-/Zerstoerungsreihenfolge ist die Deklarationsreihenfolge (die Vektoren muessen
+    // VOR der Strategie sterben). Dieselbe Reihenfolge wie in den Pool-Stores (01a), 01d und im Pilot.
+    allocator_type allocator_{};
+    key_vector     keys_;
+    value_vector   values_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
     mutable observer_t                     observer_{};
 #endif
+};
+
+} // namespace detail
+
+/// DIE IDENTITAET -- das Registry-Organ S11. Nicht-Template, exakt der historische Typ-Name.
+/// `final`: die Ebenen-Trennung ist Vertrag, nicht Vorschlag -- ein weiterer Ableitungs-Schritt
+/// unter der Fassade wuerde den CRTP-Self-Vertrag des Cores brechen.
+class InterpolationSearchAlgo final
+    : public detail::InterpolationSearchAlgoCore<::comdare::cache_engine::alloc::ExgenAllocator,
+                                                 InterpolationSearchAlgo> {
+public:
+    /// Die Default-Bindung der Identitaets-Ebene: der BENANNTE Achsen-Default, nie std::allocator.
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::InterpolationSearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_interpolation.hpp");
+
+    /// Der Migrations-Ausweis (composable::AllocatorRebindableSearchAlgo): auf WELCHEN Typ bindet die
+    /// Kompositions-Naht um, wenn die Komposition eine fremde Strategie fuehrt?
+    template <class A2>
+    using rebind_allocator = InterpolationSearchAlgoRebound<A2>;
+
+    using detail::InterpolationSearchAlgoCore<default_allocator_type,
+                                              InterpolationSearchAlgo>::InterpolationSearchAlgoCore;
+};
+
+/// DIE GEBUNDENE FORM -- materialisiert nur am Genus-Erst-Instanziierungs-Punkt. Erbt name(),
+/// family_id und algo_version unveraendert aus dem Core. Traegt BEWUSST KEIN
+/// COMDARE_DEFINE_ORGAN_LOCATION -- er ist kein Registry-Organ.
+template <class A2>
+class InterpolationSearchAlgoRebound final
+    : public detail::InterpolationSearchAlgoCore<A2, InterpolationSearchAlgoRebound<A2>> {
+public:
+    /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
+    using axis03a_rebound_tag = void;
+
+    using detail::InterpolationSearchAlgoCore<A2,
+                                              InterpolationSearchAlgoRebound<A2>>::InterpolationSearchAlgoCore;
 };
 
 } // namespace comdare::cache_engine::lookup
@@ -210,4 +363,47 @@ namespace comdare::cache_engine::lookup {
 static_assert(concepts::SearchAlgoVariant<InterpolationSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<InterpolationSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<InterpolationSearchAlgo>);
+
+// ---------------------------------------------------------------------------------------------
+// Der Zwei-Ebenen-Vertrag, self-proving an der Datei, die ihn eingeht (Pilot-Rezept, linear_scan:352).
+// ---------------------------------------------------------------------------------------------
+
+/// LEVEL 0 (der golden-Pfad): die Kompositions-Naht mit dem Achsen-Default liefert die FASSADE SELBST
+/// zurueck -- kein Rebound-Typ, kein Typ-Shift, kein neuer Symbolname.
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<
+                                 InterpolationSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             InterpolationSearchAlgo>,
+              "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
+              "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
+
+/// Der Migrations-Ausweis ist da (sonst faele das Organ still auf Level 2 = unveraendert zurueck).
+static_assert(composable::AllocatorRebindableSearchAlgo<InterpolationSearchAlgo,
+                                                        ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "01c: InterpolationSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+
+/// EBENEN-TRENNUNG: die Identitaets-Ebene traegt NIE den Rebound-Ausweis, der Leaf traegt ihn IMMER.
+static_assert(!composable::IsReboundSearchAlgoLeaf<InterpolationSearchAlgo>,
+              "01c EBENEN-VERMISCHUNG: die Fassade traegt den Rebound-Tag -- Emitter-type_name-Reise und "
+              "Registry-Reflektion zeigten dann auf die Substanz-Ebene.");
+static_assert(composable::IsReboundSearchAlgoLeaf<
+                  InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+              "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
+
+/// name()-ALLOKATOR-INVARIANZ: der serialize-Schluessel darf sich mit der T6-Wahl NICHT bewegen.
+static_assert(composable::search_algo_name_is_allocator_invariant_v<
+                  InterpolationSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "01c name()-INVARIANZ (Level 0) verletzt.");
+static_assert(InterpolationSearchAlgo::name() ==
+                  InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
+              "01c name()-INVARIANZ verletzt: der Rebound-Leaf traegt einen anderen Organ-Namen als die Fassade -- "
+              "die T6-Wahl leckte in den serialize-/binary_id-Schluessel.");
+
+/// Der Rebound-Leaf ist ein VOLLWERTIGES Organ, nicht nur eine Typ-Huelle (die CRTP-Guard-Kette laeuft
+/// auf beiden Leaves -- R2 des Design-Risikoblatts).
+static_assert(
+    concepts::SearchAlgoVariant<InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<
+              InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::DensityClassifiedStrategy<
+              InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
 } // namespace comdare::cache_engine::lookup
