@@ -116,8 +116,8 @@ public:
                   "A8-S5: der gebundene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- dann liefe "
                   "der Eintrags-Speicher wieder an der Allokator-Achse vorbei (Schnitt-Regel Dossier 3.4).");
 
-    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t max_fanout() noexcept { return 65536; }
     /// SERIALISIERUNGS-SCHLUESSEL -- bewusst OHNE jeden Allokator-Bezug. Die T6-Wahl darf hier NIE
     /// hineinlecken: sonst truege eine mimalloc-gebundene Komposition einen anderen Organ-Namen als
     /// dieselbe Komposition mit exgen, und binary_id-/serialize-Pfad drifteten gegen die Allokator-
@@ -167,7 +167,7 @@ public:
     LinearScanSearchAlgoCore(LinearScanSearchAlgoCore const& o)
         : allocator_(o.allocator_), entries_(o.entries_, allocator_.template as_std_allocator<entry_type>()) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        stats_    = o.stats_;
+        stats_ = o.stats_;
         allocator_.restore_statistics(o.allocator_.statistics());
 #endif
     }
@@ -279,9 +279,7 @@ public:
     /// nicht dieser Scheibe. Die Namens-Trennung IST die Absicherung dagegen, dass ein kuenftiger
     /// generischer Leser stillschweigend doppelt zaehlt.
     using allocator_snapshot_t = typename allocator_type::snapshot_t;
-    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept {
-        return allocator_.statistics();
-    }
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -364,23 +362,23 @@ static_assert(std::is_same_v<composable::search_algo_for_composition_t<LinearSca
 
 /// Der Migrations-Ausweis ist da (sonst faele das Organ still auf Level 2 = unveraendert zurueck und
 /// die Durchbindung waere eine Behauptung).
-static_assert(composable::AllocatorRebindableSearchAlgo<LinearScanSearchAlgo,
-                                                        ::comdare::cache_engine::alloc::ExgenAllocator>,
-              "01c: LinearScanSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+static_assert(
+    composable::AllocatorRebindableSearchAlgo<LinearScanSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+    "01c: LinearScanSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
 
 /// EBENEN-TRENNUNG: die Identitaets-Ebene traegt NIE den Rebound-Ausweis, der Leaf traegt ihn IMMER.
 static_assert(!composable::IsReboundSearchAlgoLeaf<LinearScanSearchAlgo>,
               "01c EBENEN-VERMISCHUNG: die Fassade traegt den Rebound-Tag -- Emitter-type_name-Reise und "
               "Registry-Reflektion zeigten dann auf die Substanz-Ebene.");
-static_assert(composable::IsReboundSearchAlgoLeaf<
-                  LinearScanSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
-              "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
+static_assert(
+    composable::IsReboundSearchAlgoLeaf<LinearScanSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+    "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
 
 /// name()-ALLOKATOR-INVARIANZ: der serialize-Schluessel darf sich mit der T6-Wahl NICHT bewegen.
 /// Ueber die Naht geprueft, nicht nur am Typ -- so faengt die Wache auch einen kuenftigen Rebound-Leaf,
 /// der name() ueberschriebe.
-static_assert(composable::search_algo_name_is_allocator_invariant_v<
-                  LinearScanSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(composable::search_algo_name_is_allocator_invariant_v<LinearScanSearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
               "01c name()-INVARIANZ (Level 0) verletzt.");
 static_assert(LinearScanSearchAlgo::name() ==
                   LinearScanSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),

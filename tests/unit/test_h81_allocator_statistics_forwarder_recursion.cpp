@@ -61,7 +61,7 @@ namespace {
 // ---------------------------------------------------------------------------------------------
 class WeiterleiterStubStrategie : public alloc::AllocatorStrategyBase<WeiterleiterStubStrategie> {
 public:
-    static constexpr bool             enabled = false;
+    static constexpr bool                           enabled = false;
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "weiterleiter_stub"; }
 
     [[nodiscard]] void* allocate(std::size_t, std::size_t = alignof(std::max_align_t)) { return nullptr; }
@@ -131,9 +131,7 @@ int main() {
         using MimBuf = comp::AxisBoundBuffer<alloc::MimallocAllocator, std::uint32_t>;
 
         MimBuf quelle;
-        for (std::uint32_t i = 0; i < 64u; ++i) {
-            quelle.push_back(i * 7u + 1u);
-        }
+        for (std::uint32_t i = 0; i < 64u; ++i) { quelle.push_back(i * 7u + 1u); }
         MimBuf const kopie(quelle); // <- der Pfad, der haengte (Copy-Ctor -> restore_statistics)
 
         pruefe(kopie.size() == quelle.size(),
@@ -158,9 +156,7 @@ int main() {
     {
         using ExgBuf = comp::AxisBoundBuffer<alloc::ExgenAllocator, std::uint32_t>;
         ExgBuf quelle;
-        for (std::uint32_t i = 0; i < 16u; ++i) {
-            quelle.push_back(i);
-        }
+        for (std::uint32_t i = 0; i < 16u; ++i) { quelle.push_back(i); }
         ExgBuf const kopie(quelle);
         pruefe(kopie.size() == 16u, "Kontroll-Pfad ExgenAllocator unveraendert lauffaehig");
     }

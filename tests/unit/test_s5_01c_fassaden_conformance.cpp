@@ -87,7 +87,7 @@ namespace {
 // "MimallocAllocator" als Literal: wechselt die Komposition ihre T6-Wahl, soll diese Wache die
 // NEUE Wahl pruefen, nicht eine historische.
 // ---------------------------------------------------------------------------------------------
-using KompositionsAllokator = ::comdare::cache_engine::compositions::ArtPaperBindingComposition::allocator;
+using KompositionsAllokator  = ::comdare::cache_engine::compositions::ArtPaperBindingComposition::allocator;
 using AchsenDefaultAllokator = ca::ExgenAllocator;
 
 // Die Probe ist nur dann eine Probe, wenn die Komposition ueberhaupt etwas ANDERES will als der
@@ -162,8 +162,7 @@ static_assert(comp::search_algo_name_is_allocator_invariant_v<Fassade, Kompositi
               "01c name()-INVARIANZ (Level 1) verletzt: das kompositions-gebundene Organ traegt einen anderen "
               "Namen -- eine mimalloc-Komposition serialisierte dann unter einem anderen Schluessel als "
               "dieselbe Komposition mit exgen.");
-static_assert(Fassade::family_id::value == ReboundK::family_id::value,
-              "01c: family_id driftet zwischen den Ebenen.");
+static_assert(Fassade::family_id::value == ReboundK::family_id::value, "01c: family_id driftet zwischen den Ebenen.");
 static_assert(Fassade::algo_version == ReboundK::algo_version, "01c: algo_version driftet zwischen den Ebenen.");
 
 int fehler = 0;
@@ -197,9 +196,9 @@ int main() {
     // (6) KONTRAST-BEWEIS -- der Speicher kommt REAL aus der T6-Wahl der Komposition.
     //     Drei Groessen gegeneinander: kompositions-gebunden / default-gebunden / Nullpunkt.
     // =========================================================================================
-    ReboundK      am_kompositions_zaehler{};
-    Fassade       am_achsen_default{};
-    ReboundK      ungetrieben{}; // ehrlicher Nullpunkt -- NICHT angefasst
+    ReboundK am_kompositions_zaehler{};
+    Fassade  am_achsen_default{};
+    ReboundK ungetrieben{}; // ehrlicher Nullpunkt -- NICHT angefasst
 
     treibe(am_kompositions_zaehler, kN);
     treibe(am_achsen_default, kN);
@@ -255,8 +254,7 @@ int main() {
             if (a != b) alle_gleich = false;
         }
         pruefe(alle_gleich, "Antworten der beiden Ebenen ueber Treffer UND Fehlschlaege identisch");
-        pruefe(am_kompositions_zaehler.occupied_count() == am_achsen_default.occupied_count(),
-               "Belegung identisch");
+        pruefe(am_kompositions_zaehler.occupied_count() == am_achsen_default.occupied_count(), "Belegung identisch");
         pruefe(am_kompositions_zaehler.erase(static_cast<Fassade::key_type>(7)) ==
                    am_achsen_default.erase(static_cast<Fassade::key_type>(7)),
                "erase-Semantik identisch");
@@ -280,8 +278,8 @@ int main() {
         auto const        pos          = xml.find("name=\"linear_scan\"");
         pruefe(pos != std::string::npos, "der linear_scan-Baustein steht in der committeten XML");
         if (pos != std::string::npos) {
-            auto const zeilen_ende = xml.find('\n', pos);
-            std::string const zeile = xml.substr(pos, zeilen_ende - pos);
+            auto const        zeilen_ende = xml.find('\n', pos);
+            std::string const zeile       = xml.substr(pos, zeilen_ende - pos);
             std::printf("  XML-Zeile: %s\n", zeile.c_str());
             pruefe(zeile.find(erwartet_typ) != std::string::npos,
                    "type= traegt exakt das ORGAN_LOCATION-Literal der Fassade (F30-Guard-Beziehung)");
