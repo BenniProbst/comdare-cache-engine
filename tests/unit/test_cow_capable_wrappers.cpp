@@ -63,7 +63,8 @@ K3_CHECK(EytzingerSearchAlgo)
 K3_CHECK(HashSearchAlgo)
 K3_CHECK(InterpolationSearchAlgo)
 K3_CHECK(KArySearchAlgo)
-// #188 per-K Increment 2: die 4 compile-time-K Wrapper (aus KArySearchAlgoT<K>) tragen restore_statistics ebenso.
+// #188 per-K Increment 2: die 4 compile-time-K Organe tragen restore_statistics ebenso. Seit der
+// A8-S5-01c-Leaf-Hebung erben sie es aus detail::KAryPerKCore<K, Alloc, Self> statt aus KArySearchAlgoT<K>.
 K3_CHECK(KArySearchAlgoK2)
 K3_CHECK(KArySearchAlgoK4)
 K3_CHECK(KArySearchAlgoK8)
