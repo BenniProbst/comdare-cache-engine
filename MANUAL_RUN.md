@@ -82,7 +82,32 @@ Ausführung, CSV) ist der getestete Pfad der `thesis_tiere`-Harness bzw. `messun
   `codegen`; die standalone-Codegen-Pfad-Auflösung wird zusammen mit dem 320-DLL-Neubau
   (#215) final abgeglichen — für den Schnell-Selbst-Test genügen `--help` + `--enumerate-only`.
 
-## 6. Plattform-Hinweise
+## 6. Stand abfragen: `comdare-experiment-planner status` (W5)
+
+Der **Experiment-Planer** ist eine eigene Binary (`apps/experiment_planner`, Target
+`comdare_experiment_planner`). Sein Subkommando `status` ist ein **reiner Rueck-Leser**: es baut nichts,
+misst nichts und reserviert nichts -- es berichtet den Stand von CEB-Bauten, Tier-Binaries und Messwerten
+und beendet mit `0`.
+
+```bash
+cmake --build build --target comdare_experiment_planner
+build/apps/experiment_planner/comdare-experiment-planner status --root=Code/measure_out
+```
+
+- `--root=<dir>` -- Wurzel des Mess-Ausgabe-Baums. Default: `Code/measure_out`, ersatzweise `measure_out`.
+  Der **aufgeloeste** Wert steht immer in der Kopfzeile (`root=...`, `root_vorhanden=ja|nein`).
+- Fenster: `COMDARE_GOLDEN_N_RANGE="start:count"`. **Ohne** gepinntes Fenster gibt es kein Binary-SOLL --
+  `offen=` traegt dann den Sentinel `unbelegt` statt einer erfundenen Zahl.
+- Bestandslog (Aggregat-Quelle): `COMDARE_BESTANDSLOG=true` + `COMDARE_BESTANDSLOG_DOC_KEY` + erreichbare
+  Ebene B. Fehlt eines davon, erscheint **eine** ehrliche `keine Daten`-Zeile -- kein Abbruch, keine
+  Reservierung (`status` bindet **keinen** `planer_block`).
+- Fehlende Quellen sind Berichts-Inhalt, kein Fehler. Exit-Codes: `0` Bericht, `1` Usage,
+  `2` Konfig-Fehler (z.B. kaputte `COMDARE_GOLDEN_N_RANGE`). Kein `watch`/`follow` -- jeder Aufruf ist ein
+  Schnappschuss.
+
+Detail-Hilfe: `comdare-experiment-planner help status`.
+
+## 7. Plattform-Hinweise
 
 - **Windows:** aus Git-Bash die `C:/…`-Schreibweise für Pfad-Argumente verwenden.
 - **Linux:** Standard-POSIX-Pfade; Exe ohne `.exe`-Endung.

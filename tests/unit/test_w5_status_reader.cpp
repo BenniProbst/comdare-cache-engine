@@ -123,6 +123,10 @@ int main() {
     fakten.rows_key   = ex::kLazyResumeRowsKey;
     check("Format-Fakten vollstaendig (csv_header + rows_key aus der Iterator-Substanz)", fakten.vollstaendig());
     eq("rows_key ist die gehobene EINE Konstante", std::string{ex::kLazyResumeRowsKey}, std::string{"|rows="});
+    // Die EINE Schema-Wahrheit literal ausgeben: so ist im ctest-Protokoll nachlesbar, GEGEN WAS der Leser die
+    // Kopf-Identitaet prueft -- und ein Rauchtest am echten Binary kann seine Fixture damit exakt bauen.
+    std::cout << "  (info) lazy_csv_header() = " << fakten.csv_header;
+    if (fakten.csv_header.empty() || fakten.csv_header.back() != '\n') std::cout << "\n";
 
     // ============================================================================================
     // (1) progress.cursor -- die BEIDEN Schreiber-Formen LITERAL gepinnt (cross-repo-Kopplung)
