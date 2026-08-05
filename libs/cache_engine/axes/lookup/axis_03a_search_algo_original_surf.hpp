@@ -178,14 +178,23 @@ public:
     }
 
     /// LUECKE: kein incremental Insert in SuRF (Bulk-Loaded) — Re-Impl als Sorted-Insert.
+    /// 01c-3-Review-Heilung (Posten 82): der DATEN-Pfad ist wie bei den drei Geschwister-Wrappern
+    /// per if constexpr (enabled) gegated (wormhole-Muster); der Statistik-/Observer-Block laeuft
+    /// BEWUSST ungegated weiter -- die Zaehler-Ehrlichkeit (ObserverNotifiedOnInsert) gilt auch fuer
+    /// den Default-OFF-Stub, exakt wie bei original_wormhole.
     void insert(key_type k, value_type v) {
-        auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
-        std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
-        if (it != keys_.end() && *it == k)
-            values_[idx] = v;
-        else {
-            keys_.insert(it, k);
-            values_.insert(values_.begin() + idx, v);
+        if constexpr (enabled) {
+            auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
+            std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
+            if (it != keys_.end() && *it == k)
+                values_[idx] = v;
+            else {
+                keys_.insert(it, k);
+                values_.insert(values_.begin() + idx, v);
+            }
+        } else {
+            (void)k;
+            (void)v;
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
