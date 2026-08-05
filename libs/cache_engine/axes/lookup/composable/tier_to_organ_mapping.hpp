@@ -37,31 +37,70 @@
 
 namespace comdare::cache_engine::lookup::composable {
 
+// A8-S5 PHASE B (2026-08-05) -- DER ORGAN-PFAD-FADEN. Bis hierher instanziierten ALLE Organ-Aliase
+// ihren Store mit `<>`: die Pool-Stores tragen den Alloc-Template-Parameter zwar seit 01a
+// durchgaengig (z.B. btree_node_pool_store.hpp:58-59 `class Alloc = ExgenAllocator`), aber er war
+// am Ist TOT -- es gab keinen einzigen Nicht-Default-Aufrufer. Die Folge war exakt die stille zweite
+// Strategie, die Owner-KERN abend-11 ("Option B strikt") abstellt: eine Komposition mit mimalloc
+// mass ihren Store an mimalloc und ihr Pool-Organ am Achsen-Default.
+//
+// Der Faden wird ADDITIV gelegt: jede Familie bekommt eine `...Bound<Alloc>`-Form (bzw. einen
+// zweiten, defaultierten Alloc-Parameter an der Shaped-Form). Die BESTEHENDEN Namen bleiben Zeile
+// fuer Zeile stehen und sind per Konstruktion TYP-IDENTISCH mit heute (Store-Default = Exgen) --
+// das ist die Level-0-Neutralitaet, die den golden-Pfad traegt, und sie ist unten je Familie
+// compile-hart gepinnt statt behauptet.
+namespace detail {
+/// Zieht die SHAPE-VORGABE aus der Vorgabe-Instanziierung des Stores selbst. Damit steht die
+/// Vorgabe-Shape genau EINMAL -- am Store -- und nicht ein zweites Mal hier als Literal, das
+/// beim naechsten Shape-Wechsel still auseinanderliefe (Klasse der ORGAN_LOCATION-Literal-
+/// Duplikation, Rueckfrage-Kandidat K3).
+template <class Store>
+struct store_shape_of;
+template <template <class, class> class Store, class Shape, class Alloc>
+struct store_shape_of<Store<Shape, Alloc>> {
+    using type = Shape;
+};
+template <class Store>
+using store_shape_of_t = typename store_shape_of<Store>::type;
+} // namespace detail
+
 // --- Organ-Pendants (Stufe-1-Gegenstuecke, uint64-Key) — die Bausteine der Gattungs-Konfiguratoren -------
 using LinearScanOrgan    = ComposedSearch<LinearScanTraversal, RawSlotStore<>>;
 using SortedBinaryOrgan  = ComposedSearch<SortedBinaryTraversal, RawSlotStore<>>;
 using InterpolationOrgan = ComposedSearch<InterpolationTraversalOrgan, RawSlotStore<>>;
-template <class Shape>
-using BstTreeOrganShaped = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<Shape>>;
+template <class Shape, class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+using BstTreeOrganShaped = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<Shape, Alloc>>;
 using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<>>;
+template <class Alloc>
+using BstTreeOrganBound = BstTreeOrganShaped<detail::store_shape_of_t<TreeNodePoolStore<>>, Alloc>;
 // V41 Umstufung-A (#41) — sezierte CE-native Such-Strukturen als Organ-Kompositionen (eigene Pool-Familien):
-template <class Shape>
-using HashSearchOrganShaped = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<Shape>>;
+template <class Shape, class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+using HashSearchOrganShaped = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<Shape, Alloc>>;
 using HashSearchOrgan       = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<>>; // HashSearchAlgo S14
-using SwissTableOrgan       = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<>>; // S22
+template <class Alloc>
+using HashSearchOrganBound = HashSearchOrganShaped<detail::store_shape_of_t<HashBucketPoolStore<>>, Alloc>;
+using SwissTableOrgan      = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<>>; // S22
+template <class Alloc>
+using SwissTableOrganBound = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<Alloc>>;
 template <class Isa>
 using SwissTableOrganSimd = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<>, Isa>;
-template <class Shape>
-using SkipListOrganShaped = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<Shape>>;
+template <class Shape, class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+using SkipListOrganShaped = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<Shape, Alloc>>;
 using SkipListOrgan = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<>>; // SkipListSearchAlgo S13
-template <class Shape>
-using BTreeSearchOrganShaped = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<Shape>>;
+template <class Alloc>
+using SkipListOrganBound = SkipListOrganShaped<detail::store_shape_of_t<SkipListNodePoolStore<>>, Alloc>;
+template <class Shape, class Alloc = ::comdare::cache_engine::alloc::ExgenAllocator>
+using BTreeSearchOrganShaped = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<Shape, Alloc>>;
 using BTreeSearchOrgan       = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<>>; // BTreeSearchAlgo S17
+template <class Alloc>
+using BTreeSearchOrganBound = BTreeSearchOrganShaped<detail::store_shape_of_t<BTreeNodePoolStore<>>, Alloc>;
 
 // #188-4a (2026-07-02): 10. organ_for-Familie, aber KEIN Pool: EytzingerLayoutStore<> haelt
 // sortierten Primaerzustand + abgeleiteten BFS-Puffer in EINEM Layout-Store (Option b, lazy rebuild).
 using EytzingerOrgan =
     ComposedEytzingerSearch<EytzingerTraversalOrgan, EytzingerLayoutStore<>>; // EytzingerSearchAlgo S12
+template <class Alloc>
+using EytzingerOrganBound = ComposedEytzingerSearch<EytzingerTraversalOrgan, EytzingerLayoutStore<Alloc>>;
 
 // V41 Umstufung-A (#41) — OriginalXxx-Tiere (S04-S08) auf bestehende flache Organe seziert.
 // **Befund (Planrunde 2026-05-29):** Die OriginalXxx-Wrapper-BODIES sind triviale C++23-Re-Impls (KEIN
@@ -74,10 +113,14 @@ using EytzingerOrgan =
 // (Loest den fruehen flachen LinearScanOrgan-Platzhalter ab: ART ist jetzt als echtes Organ rekonstruiert.)
 using ArtTrieOrgan     = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore<>>;
 using OriginalArtOrgan = ArtTrieOrgan;
+template <class Alloc>
+using ArtTrieOrganBound = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore<Alloc>>;
 // S05 HOT: ECHTE bit-level Patricia-Anatomie (#43 s4) — crit-bit (countl_zero MSB-first) + Single-Bit-Split +
 // Collapse-Erase. is_original=false ([[pseudocode-papers-fallback]]); Multi-Bit/SparsePartialKeys+SIMD = Folge.
 using HotPatriciaOrgan = ComposedHotPatriciaSearch<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore<>>;
 using OriginalHotOrgan = HotPatriciaOrgan; // S05 HOT (war flacher SortedBinaryOrgan-Platzhalter)
+template <class Alloc>
+using HotPatriciaOrganBound = ComposedHotPatriciaSearch<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore<Alloc>>;
 // S06 START: ECHTE Multibyte-Span-Anatomie (#43 s4) — Adaptive Radix Tree mit per-Node-Span (1/2/3-Byte-
 // Diskriminator, span-2 = Rewired64K-Distinktion ggue. ARTs fixem 1-Byte) + ByteWise-Path-Compression.
 // is_original=false ([[pseudocode-papers-fallback]]; volle Quelle fehlt). Cost-DP-Self-Tuning (adaptive
@@ -85,16 +128,22 @@ using OriginalHotOrgan = HotPatriciaOrgan; // S05 HOT (war flacher SortedBinaryO
 using StartTrieOrgan =
     ComposedStartTrieSearch<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore<>>; // span-2 Multibyte
 using OriginalStartOrgan = StartTrieOrgan; // S06 START (war letzter flacher SortedBinaryOrgan-Platzhalter)
+template <class Alloc>
+using StartTrieOrganBound = ComposedStartTrieSearch<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore<Alloc>>;
 // S07 Wormhole: ECHTE Hybrid-Anatomie (#43 s4) — sortierte doppelt-verkettete Leaf-Liste + Hash-Anchor-Jump
 // (groesster Anker<=key statt Wurzel-Abstieg) + Leaf-Split/Merge. is_original=false ([[pseudocode-papers-fallback]];
 // wh.c GPL-3.0, KEIN extern-C-Linking). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
 using WormholeOrgan         = ComposedWormholeSearch<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore<>>;
 using OriginalWormholeOrgan = WormholeOrgan; // S07 Wormhole (war flacher SortedBinaryOrgan-Platzhalter)
+template <class Alloc>
+using WormholeOrganBound = ComposedWormholeSearch<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore<Alloc>>;
 // S08 SuRF: exakte Map-Schale (#43 s4) — autoritatives exaktes K->V (sortiert), traegt std::map-Vergleichbarkeit.
 // Das echte LOUDS-Succinct-Range-Filter-Organ (may-contain, bool) lebt separat in axis_filter (Gattungs-Trennung).
 // is_original=false ([[pseudocode-papers-fallback]]). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
 using SurfMapOrgan      = ComposedSurfMapSearch<SurfMapTraversalOrgan, SurfFstMapPoolStore<>>;
 using OriginalSurfOrgan = SurfMapOrgan; // S08 SuRF (war flacher SortedBinaryOrgan-Platzhalter)
+template <class Alloc>
+using SurfMapOrganBound = ComposedSurfMapSearch<SurfMapTraversalOrgan, SurfFstMapPoolStore<Alloc>>;
 
 // --- Observable-Organ-Aliase (#42 Umstufung-B Phase 1) — die im search_algo-Slot der Gattungs-Konfiguratoren
 // (compositions/*_reference.hpp) gefuehrten OBSERVABLEN Organe. ObservableAxis-Pflicht (snapshot_t=
@@ -115,6 +164,44 @@ using ObservableStartTrieOrgan   = ObservableComposedContainer<StartTrieOrgan>;
 using MasstreeOrgan            = ComposedMasstreeSearch<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore<>>;
 using ObservableMasstreeOrgan  = ObservableComposedContainer<MasstreeOrgan>;
 using ObservableEytzingerOrgan = ObservableComposedContainer<EytzingerOrgan>;
+
+// --- A8-S5 PHASE B: LEVEL-0-NEUTRALITAET DES ORGAN-FADENS, self-proving je Familie. ------------------
+// Die Aussage, auf der die golden-Neutralitaet dieses Commits ruht, lautet fuer JEDE der elf
+// organ-backed Familien: die neue Alloc-gebundene Form ist am ACHSEN-DEFAULT typ-identisch mit dem
+// bestehenden, seit jeher benutzten Alias. Was typ-identisch ist, kann sich in binary_id, im
+// serialize-Pfad und in der Registry-XML nicht bewegen. Sie steht HIER und nicht in einer TU, weil
+// sie eine Eigenschaft dieser Datei ist -- wer eine Zeile oben aendert, bekommt den Fehler sofort.
+// (Kein Include-Wachstum: <type_traits> reist ueber die Store-Header ohnehin mit.)
+static_assert(std::is_same_v<BstTreeOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, BstTreeOrgan>,
+              "PHASE B Level-0: die gebundene BST-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<HashSearchOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, HashSearchOrgan>,
+              "PHASE B Level-0: die gebundene Hash-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<SwissTableOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, SwissTableOrgan>,
+              "PHASE B Level-0: die gebundene SwissTable-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<SkipListOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, SkipListOrgan>,
+              "PHASE B Level-0: die gebundene SkipList-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<BTreeSearchOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, BTreeSearchOrgan>,
+              "PHASE B Level-0: die gebundene BTree-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<EytzingerOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, EytzingerOrgan>,
+              "PHASE B Level-0: die gebundene Eytzinger-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<ArtTrieOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, ArtTrieOrgan>,
+              "PHASE B Level-0: die gebundene ART-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<HotPatriciaOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, HotPatriciaOrgan>,
+              "PHASE B Level-0: die gebundene HOT-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<StartTrieOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, StartTrieOrgan>,
+              "PHASE B Level-0: die gebundene START-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<WormholeOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, WormholeOrgan>,
+              "PHASE B Level-0: die gebundene Wormhole-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+static_assert(std::is_same_v<SurfMapOrganBound<::comdare::cache_engine::alloc::ExgenAllocator>, SurfMapOrgan>,
+              "PHASE B Level-0: die gebundene SuRF-Form ist am Achsen-Default NICHT der Bestands-Alias.");
+// Und die Shaped-Formen: der neue, defaultierte 2. Parameter darf die bestehende Ein-Argument-Form
+// nicht bewegt haben (die 234-V-Naht bleibt byte-gleich). Die Shape kommt aus dem Store selbst --
+// dieser Header kennt bewusst keine Shape-Registry (Include-Disziplin), und die Aussage ist
+// shape-unabhaengig ohnehin.
+static_assert(std::is_same_v<BTreeSearchOrganShaped<detail::store_shape_of_t<BTreeNodePoolStore<>>,
+                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             BTreeSearchOrganShaped<detail::store_shape_of_t<BTreeNodePoolStore<>>>>,
+              "PHASE B: der defaultierte Alloc-Parameter der Shaped-Form ist nicht neutral.");
 
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).

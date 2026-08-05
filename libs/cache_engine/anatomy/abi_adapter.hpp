@@ -2231,8 +2231,16 @@ private:
     // container_algorithm_t direkt SearchAlgo: kein flacher SortedBinary-Spiegel, kein Double-Wrap. Nur der Rest bleibt flach.
     // 234-V-a: 2-armige Shaped-Naht — mit ShapeCarrier=void typ-identisch zur einarmigen
     // organ_for_search_algo_t<SearchAlgo> (self-proving static_asserts im Shaped-Header).
-    static constexpr bool pool_family_ = !std::is_same_v<
-        ::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<SearchAlgo, ShapeCarrier>, void>;
+    // A8-S5 PHASE B: dritter Trait-Parameter = die T6-Wahl DIESER Komposition. Damit konsumiert auch
+    // der KONSTITUTIVE Pool-Pfad die Allokator-Strategie der Komposition, so wie der flache Pfad sie
+    // seit 02a konsumiert (LayoutAwareChunkedStore<node,layout,allocator>, unten). Am Achsen-Default
+    // ist der Parameter typ-neutral (Level-0-Pins je Familie im Shaped-Header) -- der golden-Pfad
+    // bewegt sich um kein Byte. Beide Konsum-Stellen MUESSEN dasselbe Argument fuehren, sonst driftete
+    // das Praedikat gegen die Typwahl.
+    static constexpr bool pool_family_ =
+        !std::is_same_v<::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<
+                            SearchAlgo, ShapeCarrier, typename Composition::allocator>,
+                        void>;
     static constexpr bool organ_hull_ =
         ::comdare::cache_engine::lookup::composable::is_observable_organ_hull_v<SearchAlgo>;
     // LAZY conditional via std::type_identity: der NICHT gewählte Zweig wird nur BENANNT, nicht instanziiert — sonst
@@ -2241,7 +2249,8 @@ private:
     using container_algorithm_t = typename std::conditional_t<
         pool_family_,
         std::type_identity<::comdare::cache_engine::lookup::composable::ObservableComposedContainer<
-            ::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<SearchAlgo, ShapeCarrier>>>,
+            ::comdare::cache_engine::lookup::composable::organ_for_search_algo_shaped_t<
+                SearchAlgo, ShapeCarrier, typename Composition::allocator>>>,
         std::conditional_t<organ_hull_, std::type_identity<SearchAlgo>,
                            std::type_identity<flat_container_algorithm_t>>>::type;
     // #188-4c-iii: T0/lookup/insert/erase laufen fuer alle Kompositionen ueber container_algorithm_; pool_family_ und
