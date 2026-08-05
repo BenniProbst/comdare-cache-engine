@@ -346,10 +346,67 @@ inline void write_variant_sidecar(std::filesystem::path const& output, std::stri
 // muss denselben Pfad bilden, ohne diesen schweren Header zu ziehen. Es gibt weiter nur EINE Wahrheit zum Suffix.
 /// Schreibt das Fingerprint-Sidecar (`.fingerprint`, I2). Leer = no-op (keine FingerprintFn injiziert -> byte-neutral).
 /// Nur bei erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Sidecar.
+///
+/// F3/C5 (A2-Eichungs-Nachreview, 2026-08-05) -- FAIL-LOUD im TP1FK1-B2-Muster (Vorbild write_version_sidecar
+/// oben). Bis hierher hiess es 'if (f) f << fingerprint;': misslang das Anlegen oder das Schreiben, entstand
+/// STILL kein `.fingerprint`. Das ist seit der A2-Eichung schwerer als beim `.version`-Sidecar, denn dieses
+/// Sidecar IST das Skip-Kriterium: seine stille Abwesenheit kostet keinen falschen Skip (dll_is_current ist
+/// fail-closed), aber sie kostet BEI JEDEM FOLGELAUF einen vollen Neubau derselben Binary -- eine Regression,
+/// die sich als "der Cache greift nie" zeigt und deren Ursache ohne diese Zeile nirgends steht. Byte-neutral
+/// fuer den Erfolgspfad (dieselbe klassifizierte ArtefaktIo-Zeile wie beim `.version`-Zwilling).
 inline void write_fingerprint_sidecar(std::filesystem::path const& output, std::string const& fingerprint) {
     if (fingerprint.empty()) return;
-    std::ofstream f{fingerprint_sidecar_path(output), std::ios::binary | std::ios::trunc};
-    if (f) f << fingerprint;
+    auto const    p = fingerprint_sidecar_path(output);
+    std::ofstream f{p, std::ios::binary | std::ios::trunc};
+    bool          geschrieben = false;
+    if (f) {
+        f << fingerprint;
+        f.flush();
+        geschrieben = f.good();
+    }
+    if (!geschrieben)
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                  << "] perm.dll.fingerprint NICHT geschrieben: " << p.string()
+                  << " -- der Lager-Anker fehlt, jeder Folgelauf baut diese Binary erneut\n"
+                  << std::flush;
+}
+
+/// F3/C5 -- STALE-SIDECAR-RAEUMUNG. Entfernt ein Sidecar, dessen NEUER Wert leer ist.
+///
+/// DIE LUECKE, DIE SIE SCHLIESST: alle vier Writer oben sind bei leerem Wert ein no-op (bewusst byte-neutral --
+/// "kein Provider injiziert" darf keine leere Marke erzeugen). Beim NEUBAU einer Binary bedeutet dasselbe
+/// no-op aber etwas ganz anderes: das Sidecar des VORGAENGER-Baus bleibt liegen und beschreibt ab sofort eine
+/// Binary, die es nie gesehen hat. Fuer `.fingerprint` ist das der scharfe Fall (C5): ein Lauf OHNE
+/// FingerprintFn baut fail-closed neu (expected leer -> nie Skip) und laesst den ALTEN 128-hex daneben liegen;
+/// ein spaeterer Lauf MIT Provider vergleicht dann gegen eine Marke, die eine fremde Bau-Identitaet bezeugt --
+/// und skippt im Treffer-Fall eine Binary, die er nie gebaut hat. Fuer `.version`/`.algos`/`.variant` ist die
+/// Folge milder (Provenienz-/Transport-Marken statt Skip-Kriterium), aber gleicher Art: eine Legende, die auf
+/// den Vorgaenger zeigt, ist schlechter als keine Legende.
+///
+/// KONSEQUENT UEBER ALLE VIER: der Fall "Wert nicht leer" braucht keine Raeumung -- der Writer oeffnet mit
+/// std::ios::trunc und ueberschreibt vollstaendig. Geraeumt wird also genau dort, wo sonst ein no-op ein
+/// Alt-Byte konservieren wuerde. Fail-loud im selben Muster: ein nicht entfernbares Sidecar ist ein
+/// ArtefaktIo-Zustand, kein stiller Zustand.
+inline void prune_stale_sidecar(std::filesystem::path const& p) {
+    std::error_code ec;
+    if (!std::filesystem::exists(p, ec) || ec) return; // nichts da (oder nicht befragbar) -> nichts zu raeumen
+    if (std::filesystem::remove(p, ec) && !ec) return;
+    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+              << "] stale Sidecar NICHT entfernt: " << p.string()
+              << " -- es beschreibt ab jetzt den VORGAENGER-Bau dieser Binary\n"
+              << std::flush;
+}
+
+/// Raeumt alle vier Sidecars, deren neuer Wert leer ist (s. prune_stale_sidecar). Aufruf-Ort ist der
+/// Erfolgszweig des NEUBAUS in provision_core, unmittelbar VOR den vier Writern -- Raeumen und Schreiben
+/// stehen damit an EINER Stelle und koennen nicht auseinanderlaufen.
+inline void prune_stale_sidecars(std::filesystem::path const& output, std::string const& version,
+                                 std::string const& algo_sig, std::string const& variant_sig,
+                                 std::string const& fingerprint) {
+    if (version.empty()) prune_stale_sidecar(version_sidecar_path(output));
+    if (algo_sig.empty()) prune_stale_sidecar(algo_sidecar_path(output));
+    if (variant_sig.empty()) prune_stale_sidecar(variant_sidecar_path(output));
+    if (fingerprint.empty()) prune_stale_sidecar(fingerprint_sidecar_path(output));
 }
 
 // G5 (W9.5): dedizierter Rueckgabe-Code des Compile-Wrappers fuer "Compiler-Binary nicht gefunden"
@@ -593,6 +650,11 @@ private:
                     else
                         r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
                     if (r.status == 0) {
+                        // F3/C5: DIESE Binary ist soeben NEU entstanden -- jedes Sidecar, das der folgende
+                        // Writer als no-op behandeln wuerde (leerer Wert), traegt sonst weiter die Legende des
+                        // VORGAENGER-Baus. Raeumen VOR dem Schreiben, damit beide Wege an einer Stelle stehen.
+                        prune_stale_sidecars(job.output, cfg_.build_version, algos, cfg_.build_variant_sig,
+                                             expected_fp);
                         write_version_sidecar(job.output, cfg_.build_version); // System-Provenienz-Resume-Marke
                         write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
                         write_variant_sidecar(job.output,
