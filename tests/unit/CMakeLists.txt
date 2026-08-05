@@ -3048,6 +3048,32 @@ add_test(NAME test_lazy_resume_binary COMMAND test_lazy_resume_binary)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_resume_binary)
 set_tests_properties(test_lazy_resume_binary PROPERTIES LABELS "contract;standalone;harness;resume")
 
+# W5-KERN (2026-08-05, Owner-R5) -- die Flaechen-TU des status-RUECK-LESERS
+# (profile_facade/planner/planner_status_reader.hpp + progress_cursor_reader.hpp).
+#
+# Include-/Define-Satz wie test_lazy_resume_binary, WEIL die Fixtures aus den ECHTEN Schreib-Formen entstehen:
+# der Resume-Stempel aus lazy_resume_stamp_prefix + kLazyResumeRowsKey, der CSV-Kopf aus lazy_csv_header --
+# beides lebt im (schweren) Iterator-Header. Der Status-LESER selbst ist leicht; nur die Fixture-Seite zieht
+# die Substanz herein, damit die TU keine Format-Kopie fuehrt.
+# KEIN Netz: das Bestandslog kommt als lokaler emit_document-String (parse-Roundtrip).
+add_executable(test_w5_status_reader "test_w5_status_reader.cpp")
+target_compile_features(test_w5_status_reader PRIVATE cxx_std_23)
+target_include_directories(test_w5_status_reader PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_w5_status_reader PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_w5_status_reader)
+target_compile_definitions(test_w5_status_reader PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_w5_status_reader COMMAND test_w5_status_reader)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w5_status_reader)
+set_tests_properties(test_w5_status_reader PROPERTIES LABELS "w5;planner;status;standalone")
+
 # Welle 5 (W5-C, §38-Dock-Protokoll, 2026-07-19) - zwei Gates nach der Layering-Verlagerung:
 #   test_experiment_dock_payload -> TEIL 1 (planner): ExperimentSubtreePayload <-> R5-XML Byte-Roundtrip + Negativ.
 #   test_progress_delta          -> TEIL 2 (builder-Leaf): der Fortschritts-Delta-Kanal gegen die REALE
