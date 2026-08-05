@@ -7,7 +7,17 @@
 // und haengt +bt=Debug an perm_suffix / system_axes_version_suffix. ENV UNGESETZT ODER != "Debug" (Release/measure =
 // Default) => "" => build_version BYTE-IDENTISCH (golden/Sidecar/Resume/Fingerprint unberuehrt -- A2-Eichung
 // 2026-08-05: dll_is_current vergleicht nur den `.fingerprint`, und die build_version steht in dessen Preimage,
-// also traegt eine byte-identische build_version auch einen byte-identischen Anker). Der IMMER-
+// also traegt eine byte-identische build_version auch einen byte-identischen Anker).
+// [NACHGEFUEHRT 2026-08-05, O-2/C-2 -- der Satz oben war am Objekt UNGEDECKT und wird hier datiert richtig
+// gestellt statt geloescht (Doku-Doktrin): bis Preimage-Format 2 trug KEIN Glied den build_version-Suffix
+// (A2-Nachreview, Befund C1 [HOCH, REAL]) -- zwei Baue derselben Permutation mit anderem +bt hatten denselben
+// Fingerprint und konnten sich im geteilten Ausgabe-Verzeichnis gegenseitig ueberspringen (Debug skippt auf
+// Release). SEIT FORMAT 3 EXISTIERT DER TRAEGER: das Toolchain-Glied [5] fuehrt bt=<build_type> als eigenes
+// Feld (abi/toolchain_stamp_glied.hpp), womit der Satz seinen Gegenstand bekommt. Die per-Perm-BEFUELLUNG des
+// Glieds ist die Folge-Scheibe C-3 des Neuanker-Buendels; bis sie landet, ist +bt=Debug weiterhin REINE
+// Provenienz und trennt Debug/Release NICHT am Skip-Gate. Wer sich vorher darauf verlaesst, verlaesst sich auf
+// eine Zusage, die erst mit C-3 gilt.]
+// Der IMMER-
 // explizite Array-Stempel (jede Binary traegt ihre volle Compile-Einstellung) bleibt K7b/G1 (#38) -- hier NUR die
 // identitaets-stabile Minimalform (Nicht-Default). Winziger Header (nur <cstdlib>/<string>) -> isoliert testbar.
 

@@ -258,11 +258,22 @@ inline constexpr std::size_t     kStemMax = 120;
 /// DERSELBE wie der des Lager-Binders (read_fingerprint_sidecar). Damit gilt im CODE, nicht per Disziplin:
 /// Skip-Gate == .fingerprint-Inhalt == minio-Objekt-Key == Bestandslog key_sha512 == Baum-Blatt-Identitaet.
 ///
-/// L14 (deklarierte, NICHT stille Luecke): geeicht wurde MIT LEEREM Overlay-Glied -- das 6. Preimage-Glied
-/// (anatomy_fingerprint.hpp:83-86, COMDARE_OVERLAY_SOURCE_HASH) traegt heute nur Separator+Format. Der SHA512 deckt
+/// L14 (deklarierte, NICHT stille Luecke): geeicht wurde MIT LEEREM Overlay-Glied -- das Overlay-Glied
+/// (COMDARE_OVERLAY_SOURCE_HASH) traegt heute nur Separator+Format. Der SHA512 deckt
 /// damit reine Quell-Code-Aenderungen (ABNAHME-3/4-Voll-Soll) NOCH NICHT; geheilt wird das im Overlay-Fenster
 /// (Phase 6), und zwar layout-bruch-frei. Der geeichte Referenz-Vektor ist kFrozenFingerprintV1
-/// (test_g3_sha512_index.cpp:45, identisch in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
+/// (test_g3_sha512_index.cpp, identisch in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
+///
+/// [NACHGEFUEHRT 2026-08-05, O-2/C-2 -- DER GLIED-SATZ, GEGEN DEN DIESES GATE VERGLEICHT:] das Preimage traegt
+/// seit fingerprint_format=3 ACHT Glieder (abi::anatomy_fingerprint_glieder ist unveraendert die EINE Quelle):
+///   [0] Format-Kennung  [1] Organ-Zeile  [2] System-Zeile  [3] Mess-Tooling-Zeile  [4] Sub-Achsen-Werteset
+///   [5] TOOLCHAIN-Glied (Compiler-Haupt-Achse inkl. Flags, opt_level, atomic128, ext/bt/gate/ceb -- heilt C1)
+///   [6] BVSET-Glied (Enabled-Mengen-Signatur der Build-Achsen -- heilt C6)
+///   [7] Overlay-Source-Hash (weiter LEER, s. L14 oben; ans Ende gewandert)
+/// Der Overlay-Absatz oben bleibt unveraendert gueltig -- nur seine Positions-Angabe ("das 6. Glied") war an
+/// die Format-2-Ordnung gebunden. Die per-Perm-BEFUELLUNG der beiden neuen Glieder ist die Folge-Scheibe C-3;
+/// bis dahin sind sie leer und dieses Gate verhaelt sich unveraendert, ausser dass der Format-Bump den
+/// gesamten Alt-Bestand EINMAL fail-closed neu bauen laesst (F7-Uebergangsregel, kein Grandfathering).
 ///
 /// HISTORIK (Stand bis zur Eichung, NICHT geloescht -- Doku-Doktrin): bis 2026-08-05 lautete die Regel "true, wenn
 /// die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn eine
