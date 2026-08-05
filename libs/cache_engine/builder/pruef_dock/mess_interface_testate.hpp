@@ -51,6 +51,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <type_traits>
 
 namespace comdare::cache_engine::builder::pruef_dock {
 
@@ -147,6 +149,37 @@ struct ZustandsAbzug {
     return sum;
 }
 
+/// Ein ABI-POD mit einem SENTINEL-Muster (0xAB) vorbelegen -- die Vorbedingung jeder Nullpunkt-Probe.
+///
+/// WARUM NICHT DER NULL-POD: die Vertrags-Randfaelle (batches == 0, ops_per_batch == 0) pruefen den Zustand
+/// des Ausgabe-PODs nach einem Lauf, der nichts gemessen hat. Legt man dafuer einen mit 0 vorbelegten POD
+/// hin und vergleicht ihn gegen den Default, ist die Aussage VAKUOS: sie ist auch dann wahr, wenn die
+/// Callee den Zeiger nie angefasst hat. Mit 0xAB wird der Unterschied sichtbar -- ueberlebt das Muster,
+/// hat niemand geschrieben; ist es weg, wurde AKTIV geschrieben, und erst dann sagt der Vergleich gegen den
+/// Default etwas.
+///
+/// IST-BEFUND, an dem sich die Erwartung ausrichtet (abi_adapter.hpp:541-542 / 641-642, die EINE
+/// Produktiv-Implementierung): der Adapter setzt `*out = ComdareSegmentLatency{}` VOR der 0-Pruefung.
+/// Der Vertrag lautet also "der 0-Lauf schreibt den NULLPUNKT", nicht "er laesst den POD unberuehrt" --
+/// und das ist die staerkere Zusage, denn ein unberuehrter POD truege Aufrufer-Altwerte als Phantom-Messung
+/// weiter. Ein Testat auf "unberuehrt" pruefte darum eine Unwahrheit (dieselbe Lesart wie beim
+/// Migrations-Testat unten). Geprueft wird beides scharf: dass GESCHRIEBEN wurde und dass der Nullpunkt
+/// dasteht.
+///
+/// memset/memcmp fassen das ganze Objekt inkl. PADDING; der Default-Vergleich laeuft bewusst ueber
+/// operator== (member-weise), weil eine member-weise Zuweisung Padding nicht zu schreiben braucht.
+template <class Pod>
+inline void setze_sentinel(Pod& p) noexcept {
+    static_assert(std::is_trivially_copyable_v<Pod>, "Sentinel-Probe setzt einen trivial kopierbaren ABI-POD voraus");
+    std::memset(static_cast<void*>(&p), 0xAB, sizeof(Pod));
+}
+
+template <class Pod>
+[[nodiscard]] inline bool byte_gleich(Pod const& a, Pod const& b) noexcept {
+    static_assert(std::is_trivially_copyable_v<Pod>, "Byte-Vergleich setzt einen trivial kopierbaren ABI-POD voraus");
+    return std::memcmp(static_cast<void const*>(&a), static_cast<void const*>(&b), sizeof(Pod)) == 0;
+}
+
 /// Zahl der Achsen mit mindestens EINEM belegten BENANNTEN Feld (schema-getrieben).
 [[nodiscard]] inline std::size_t belegte_achsen(anatomy::ComdareTierObserverSnapshot const& s) noexcept {
     std::size_t n = 0;
@@ -183,6 +216,14 @@ struct ZustandsAbzug {
     q.report = report;
     try {
         obs.tier_clear();
+        // DER NULLPUNKT VOR FENSTER 1. Dieses Testat laeuft NICHT an einem frischen Objekt: die bindende
+        // Dock-Reihenfolge (import -> GATE -> Testate) hat mit run_conformance_gate bereits Tausende Ops
+        // ueber dasselbe Modul gefahren, und im Pruefstand-Batch liegen die V2/V3-Workloads davor. Deren
+        // Zaehler stehen noch. tier_clear leert die DATEN, nicht die STATISTIK -- ohne den expliziten Reset
+        // traegt summe1 Alt-Last, und die Anti-Leerlauf-Aussage darunter ("3x Ops -> groessere Summe") kann
+        // dadurch REAL falsch werden: ein Fenster 1 mit Fremd-Vorlast kann summe2 uebersteigen, und ein
+        // fehlerfreies Modul faellt an einem Zustand durch, den nicht es, sondern der Vorlauf erzeugt hat.
+        obs.tier_reset_statistics();
         obs.tier_observe(nullptr); // Vertrags-Randfall: nullptr ist ein No-Op, kein Absturz
 
         constexpr std::uint64_t kFenster1 = 400;
@@ -259,8 +300,13 @@ struct ZustandsAbzug {
         // Vertrags-Randfaelle zuerst: sie duerfen nichts messen und nichts werfen.
         q.check(w.run_workload_segmented(kOps, kBatches, 1u, nullptr) == 0, "nullptr-out -> 0 Samples");
         anatomy::ComdareSegmentLatencyV1 leer{};
+        anatomy::ComdareSegmentLatencyV1 sentinel{};
+        d::setze_sentinel(leer);
+        d::setze_sentinel(sentinel);
         q.check(w.run_workload_segmented(kOps, 0, 1u, &leer) == 0, "batches == 0 -> 0 Samples");
-        q.check(leer == anatomy::ComdareSegmentLatencyV1{}, "0-Lauf laesst den POD unberuehrt (kein Phantom)");
+        q.check(!d::byte_gleich(leer, sentinel),
+                "0-Lauf SCHREIBT den Ausgabe-POD (Sentinel 0xAB ueberlebt nicht -- die Aussage ist nicht vakuos)");
+        q.check(leer == anatomy::ComdareSegmentLatencyV1{}, "und zwar EXAKT auf den Nullpunkt (kein Phantom-Wert)");
 
         anatomy::ComdareSegmentLatencyV1 out{};
         std::uint64_t const              ret = w.run_workload_segmented(kOps, kBatches, /*seed=*/4242, &out);
@@ -311,8 +357,13 @@ struct ZustandsAbzug {
 
         q.check(w.run_workload_segmented_v2(kOps, kBatches, 1u, nullptr) == 0, "nullptr-out -> 0 Samples");
         anatomy::ComdareSegmentLatencyV2 leer{};
+        anatomy::ComdareSegmentLatencyV2 sentinel{};
+        d::setze_sentinel(leer);
+        d::setze_sentinel(sentinel);
         q.check(w.run_workload_segmented_v2(0, kBatches, 1u, &leer) == 0, "ops_per_batch == 0 -> 0 Samples");
-        q.check(leer == anatomy::ComdareSegmentLatencyV2{}, "0-Lauf laesst den POD unberuehrt (kein Phantom)");
+        q.check(!d::byte_gleich(leer, sentinel),
+                "0-Lauf SCHREIBT den Ausgabe-POD (Sentinel 0xAB ueberlebt nicht -- die Aussage ist nicht vakuos)");
+        q.check(leer == anatomy::ComdareSegmentLatencyV2{}, "und zwar EXAKT auf den Nullpunkt (kein Phantom-Wert)");
 
         anatomy::ComdareSegmentLatencyV2 out{};
         std::uint64_t const              ret = w.run_workload_segmented_v2(kOps, kBatches, /*seed=*/4242, &out);
