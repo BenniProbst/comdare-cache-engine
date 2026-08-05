@@ -36,8 +36,20 @@ class LinearScanSearchAlgo;
 class InterpolationSearchAlgo;
 class KArySearchAlgo; // #188-4a: store-traversierbar via KAryTraversal
 // #188 per-K Increment 1 (2026-07-01): compile-time-K Wrapper-Familie -> je K sein eigenes KAryTraversal<K> (unten).
-template <unsigned K>
-class KArySearchAlgoT;
+// A8-S5 01c (2026-08-05), PER-K-LEAF-HEBUNG: die vier waren bis dahin Aliase auf die Template-Id
+// KArySearchAlgoT<K> und wurden hier per PARTIELLER Spezialisierung erfasst. Seit der Hebung sind es
+// eigenstaendige Klassen (die latente Registry-Template-Id-Kante ist damit konstruktiv zu), also stehen
+// hier vier Vorwaerts-Deklarationen und vier VOLLE Spezialisierungen. Die Substanz-Ebene
+// (detail::KAryPerKCore) taucht bewusst NICHT auf -- gemappt wird die Identitaet, nicht der Core.
+class KArySearchAlgoK2;
+class KArySearchAlgoK4;
+class KArySearchAlgoK8;
+class KArySearchAlgoK16;
+// Der Rebound-Leaf der per-K-Familie: EIN Template ueber (K, Strategie). Er ist kein Registry-Organ,
+// braucht aber dasselbe Traversal-Organ -- sonst faele die kompositions-gebundene Form auf
+// SortedBinaryTraversal zurueck (Risk#2) und maesse ein anderes K als die Fassade.
+template <unsigned K, class A2>
+class KArySearchAlgoKRebound;
 
 namespace composable {
 
@@ -74,12 +86,31 @@ template <>
 struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgo> {
     using type = KAryTraversal<4u>;
 };
-// #188 per-K Increment 1 (2026-07-01): jede compile-time-Aritaet K -> ihr eigenes KAryTraversal<K> (Weg-A). EINE
-// partielle Spezialisierung deckt K in {2,4,8,16} (und jedes weitere K) ab -> container_ (abi_adapter:1890
-// container_traversal_t) fuehrt den per-K-Wrapper ueber KAryTraversal<K>, NICHT SortedBinary. Das ist die per-K-
-// Verdrahtung, die Increment 2 (Registry + enable-flags) zu 4 distinkten Tier-Binaries macht (je anderer K-Pfad).
-template <unsigned K>
-struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoT<K>> {
+// #188 per-K Increment 1 (2026-07-01): jede compile-time-Aritaet K -> ihr eigenes KAryTraversal<K> (Weg-A) ->
+// container_ (abi_adapter:1890 container_traversal_t) fuehrt den per-K-Wrapper ueber KAryTraversal<K>, NICHT
+// SortedBinary. Das ist die per-K-Verdrahtung, die zu 4 distinkten Tier-Binaries fuehrt (je anderer K-Pfad).
+// A8-S5 01c: seit der Leaf-Hebung vier VOLLE Spezialisierungen statt einer partiellen ueber die Template-Id.
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoK2> {
+    using type = KAryTraversal<2u>;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoK4> {
+    using type = KAryTraversal<4u>;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoK8> {
+    using type = KAryTraversal<8u>;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoK16> {
+    using type = KAryTraversal<16u>;
+};
+// Und die GEBUNDENE Form derselben Aritaet -- eine partielle Spezialisierung ueber (K, Strategie). Ohne sie
+// fiele ausgerechnet die kompositions-gebundene per-K-Form auf den void-Primaerfall und damit im
+// Genus-Erst-Instanziierungs-Punkt auf ein anderes Traversal-Organ zurueck als ihre eigene Fassade.
+template <unsigned K, class A2>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgoKRebound<K, A2>> {
     using type = KAryTraversal<K>;
 };
 
@@ -111,18 +142,25 @@ static_assert(
     "harness-gated)");
 // #188 per-K Increment 1: jeder per-K-Wrapper mappt auf SEIN KAryTraversal<K> (nicht pauschal <4>) -> die
 // K-Variation ist ein compile-time-realer, ANDERER Separator-Pfad (Meta-Lehre #3). Fuer alle 4 Aritaeten geprueft.
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoT<2u>>,
-                             KAryTraversal<2u>>,
-              "#188 per-K: KArySearchAlgoT<2> -> KAryTraversal<2>");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoT<4u>>,
-                             KAryTraversal<4u>>,
-              "#188 per-K: KArySearchAlgoT<4> -> KAryTraversal<4>");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoT<8u>>,
-                             KAryTraversal<8u>>,
-              "#188 per-K: KArySearchAlgoT<8> -> KAryTraversal<8>");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoT<16u>>,
-                             KAryTraversal<16u>>,
-              "#188 per-K: KArySearchAlgoT<16> -> KAryTraversal<16>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK2>, KAryTraversal<2u>>,
+    "#188 per-K: KArySearchAlgoK2 -> KAryTraversal<2>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK4>, KAryTraversal<4u>>,
+    "#188 per-K: KArySearchAlgoK4 -> KAryTraversal<4>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK8>, KAryTraversal<8u>>,
+    "#188 per-K: KArySearchAlgoK8 -> KAryTraversal<8>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK16>, KAryTraversal<16u>>,
+    "#188 per-K: KArySearchAlgoK16 -> KAryTraversal<16>");
+// A8-S5 01c: dass die GEBUNDENE Form dasselbe Traversal-Organ traegt wie ihre Fassade (sonst maesse
+// dieselbe Aritaet je nach T6-Wahl der Komposition ueber zwei verschiedene Organe -- der Rebind darf die
+// Strategie aendern, nie den Such-Pfad), wird BEWUSST NICHT hier gepinnt: dieser Header deklariert seine
+// Algo-Typen nur vorwaerts und kennt keine Allokator-Strategie. Ein Include von axis_06 waere eine neue
+// Kante in einem sehr breit gezogenen Header (Klasse des 05.08.-Hotfix cda964e0 "Include-Satz waechst ->
+// Link-Satz pruefen"). Der Pin steht deshalb in der Familien-Wache, die axis_06 ohnehin fuehrt:
+// tests/unit/test_s5_01c_fassaden_conformance.cpp.
 
 } // namespace composable
 } // namespace comdare::cache_engine::lookup

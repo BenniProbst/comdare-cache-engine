@@ -73,7 +73,8 @@ using AllStrategies = mp::mp_list<
     BinarySearchTreeSearchAlgo, // S16, unbalancierter BST (Hibbard-Deletion, Knuth TAOCP 3 §6.2.2)
     BTreeSearchAlgo, // S17, balancierter Mehrwege-B-Baum (Bayer/McCreight Acta Inf. 1972, t=4, block-orientiert)
     // #188 per-K Increment 2 (2026-07-01) — compile-time-K k-ary Wrapper-Familie (Weg-A): je K eine EIGENE Tier-
-    // Binary (KArySearchAlgoT<K> -> KAryTraversal<K>, traversal_for_search_algo). ANS ENDE angehaengt, damit
+    // Binary (KArySearchAlgoK<N> -> KAryTraversal<K>, traversal_for_search_algo; seit der A8-S5-01c-Leaf-Hebung
+    // vier ECHTE Klassen mit je eigener Organ-Lokation statt Aliase auf eine Template-Id). ANS ENDE angehaengt, damit
     // mp_take_c<EnabledStrategies,4> (= golden-320-First-4 [k_ary, interpolation, eytzinger, linear_scan]) UNBERUEHRT
     // bleibt. Je EIGENES Enable-Flag (COMDARE_AXIS_03A_ENABLE_K_ARY_K2..K16, Default OFF wie der OriginalXxx-
     // Praezedenzfall) -> opt-in, nicht-disruptiv (EnabledStrategies waechst NICHT durch die Registrierung); distinkte
