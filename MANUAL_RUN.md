@@ -102,10 +102,17 @@ build/apps/experiment_planner/comdare-experiment-planner status --root=Code/meas
   nie als Fortschritt des aktuellen Fensters. `offen=` der Gesamt-Zeile ist die **Summe** der
   Zell-Offenstaende (je Zelle `count - gemessen`), nicht ein `count` minus aller Messungen.
   **Ohne** gepinntes Fenster (`count=0` oder Env leer) gibt es kein Binary-SOLL -- `offen=` traegt dann
-  den Sentinel `unbelegt` statt einer erfundenen Zahl.
+  den Sentinel `unbelegt` statt einer erfundenen Zahl. Dasselbe gilt, wenn es **nichts zu summieren** gibt
+  (Plan nicht erhoben, Walk ohne Zelle, oder alle Zellen fremd): eine leere Summe ist keine `0`. Sprengt die
+  Summe den Wertebereich, steht der eigene Sentinel `uebergelaufen` -- nie eine umgeklappte Zahl.
 - Fortschritts-Cursor: `done=` ist eine Aussage ueber die **zuletzt** gelesene Zeile. Schreibt ein
   Folge-Fenster hinter das `done` weiter, faellt `done=nein` zurueck. Ein bei einem Abbruch halb
-  geschriebenes `[progress] perm=N axes_changed=` zaehlt als `abgebrochene_zeile=`, nicht als Fortschritt.
+  geschriebenes `[progress] perm=N axes_changed=` zaehlt als `abgebrochene_zeile=`, nicht als Fortschritt;
+  dasselbe gilt fuer einen Wert mit angehaengtem Muell (`axes_changed=1x`). Die `[status-cursor]`-Zeile
+  traegt die Fenster-Zugehoerigkeit **selbst** (`im_fenster=ja|nein`): `done=` gilt nur fuer das eigene
+  Fenster, das Fertig-Signal einer fremden Perm steht als `done_fremd=` daneben. Hat sich eine vorhandene
+  `progress.cursor` **nie** vollstaendig gemeldet (nur Fragmente/fremde Zeilen), ist `letzte_perm=unbelegt` --
+  nicht `0`, denn `0` ist ein echter Cursor-Wert.
 - Bestandslog (Aggregat-Quelle): `COMDARE_BESTANDSLOG=true` + `COMDARE_BESTANDSLOG_DOC_KEY` + erreichbare
   Ebene B. Fehlt eines davon, erscheint **eine** ehrliche `keine Daten`-Zeile -- kein Abbruch, keine
   Reservierung (`status` bindet **keinen** `planer_block`). Wirft der Transport, ist auch das

@@ -28,6 +28,12 @@
 // gelesene Form, nicht ueber die Datei als Ganzes -- jede Nicht-done-Zeile nimmt es zurueck. Waere es sticky,
 // meldete der Bericht "fertig", waehrend das Folge-Fenster noch misst.
 //
+// DER CURSOR HAT EINEN "NOCH GAR NICHT"-ZUSTAND, UND DER IST NICHT DIE 0: eine Datei, die NUR abgerissene
+// oder fremde Zeilen traegt, hat NIE einen Cursor gemeldet. `letzte_perm` stuende dann auf seinem
+// Default 0 -- und 0 ist ein VOLLKOMMEN GUELTIGER Cursor-Wert (die erste Perm eines Fensters). Der Bericht
+// koennte beides nicht unterscheiden und meldete "steht bei Perm 0", wo "hat sich nie gemeldet" richtig
+// waere. `letzte_perm_belegt` traegt genau diese Unterscheidung; der Renderer setzt daraufhin den Sentinel.
+//
 // ANSPRUCHSLOS: header-only C++23, nur stdlib, ASCII. Kein Wurf (Datei-/Formfehler sind BERICHTS-Inhalte,
 // keine Ausnahmen) -- eine fehlende progress.cursor ist ein normaler Zustand, kein Fehler.
 
@@ -56,6 +62,7 @@ inline constexpr char kProgressAxesSchluessel[] = " axes_changed=";
 struct CursorStand {
     bool          datei_vorhanden    = false; ///< false = es gibt keine progress.cursor (ehrlich "keine Daten")
     bool          done_gesehen       = false; ///< true = die ZULETZT gelesene Form war das Fertig-Signal
+    bool          letzte_perm_belegt = false; ///< true = mindestens EINE vollstaendige Zeile setzte den Cursor
     std::uint64_t letzte_perm        = 0;     ///< der zuletzt gemeldete fenster-relative Perm-Cursor
     std::uint64_t done_perm          = 0;     ///< der Cursor der done-Zeile (nur gueltig bei done_gesehen)
     std::uint64_t zeilen_gesamt      = 0;     ///< alle Zeilen der Datei
@@ -112,9 +119,10 @@ inline void verarbeite_cursor_zeile(std::string_view zeile, CursorStand& stand) 
         if (d::lies_u64(zeile, std::string_view{kProgressDonePraefix}.size(), v, e) &&
             zeile.substr(e) == std::string_view{kProgressDoneSuffix}) {
             ++stand.zeilen_done;
-            stand.done_gesehen = true;
-            stand.done_perm    = v;
-            stand.letzte_perm  = v;
+            stand.done_gesehen       = true;
+            stand.done_perm          = v;
+            stand.letzte_perm        = v;
+            stand.letzte_perm_belegt = true;
             return;
         }
         ++stand.zeilen_fremd; // done-Praefix, aber nicht die vollstaendige Form -> Drift, ehrlich zaehlen
@@ -148,8 +156,19 @@ inline void verarbeite_cursor_zeile(std::string_view zeile, CursorStand& stand) 
             ++stand.zeilen_abgebrochen;
             return;
         }
+        // ... UND der Wert muss DORT ENDEN, wo die Schreiber-Form ihn enden laesst: am Zeilenende (K==0,
+        // dann folgt keine Achsen-Liste) oder vor dem Trenn-Leerzeichen zur Liste. Ohne diese Rest-Pruefung
+        // liest ein Praefix-Parser aus dem Abbruch-Fragment "axes_changed=1x" die 1 heraus und zaehlt die
+        // Zeile als vollen Fortschritt -- dieselbe Falle wie beim leeren Wert, nur eine Ziffer spaeter, und
+        // sie zieht letzte_perm genauso auf einen nie erreichten Cursor. Ein halb geschriebenes Zeichen ist
+        // kein anderer Fall als ein halb geschriebenes Feld: beide sind eine ABGEBROCHENE Zeile.
+        if (k_end != rest.size() && rest[k_end] != ' ' && rest[k_end] != '\t') {
+            ++stand.zeilen_abgebrochen;
+            return;
+        }
         ++stand.zeilen_perm;
-        stand.letzte_perm = v; // additive Datei -> die letzte VOLLSTAENDIGE Zeile traegt den aktuellen Cursor
+        stand.letzte_perm        = v; // additive Datei -> die letzte VOLLSTAENDIGE Zeile traegt den aktuellen Cursor
+        stand.letzte_perm_belegt = true;
         return;
     }
     ++stand.zeilen_fremd;

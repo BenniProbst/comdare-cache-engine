@@ -388,7 +388,11 @@ void help_for(std::string const& topic) {
                   << "           [start,start+count) zaehlen in die Bilanz; alles andere gehoert einem anderen\n"
                   << "           Fenster und steht als eigene [status-fremdfenster]-Zeile. offen= ist die SUMME\n"
                   << "           der Zell-Offenstaende. Ohne Fenster gibt es kein Binary-SOLL --\n"
-                  << "           offen= traegt dann den Sentinel 'unbelegt' statt einer erfundenen Zahl.\n"
+                  << "           offen= traegt dann den Sentinel 'unbelegt' statt einer erfundenen Zahl;\n"
+                  << "           ebenso, wenn es nichts zu summieren gibt (kein Plan / keine Zelle im Fenster).\n"
+                  << "           Sprengt die Summe den Wertebereich: 'uebergelaufen', nie eine kleine Zahl.\n"
+                  << "           Auch die [status-cursor]-Zeile traegt im_fenster=; done= gilt NUR fuer das\n"
+                  << "           eigene Fenster, ein fremdes Fertig-Signal steht als done_fremd= daneben.\n"
                   << "  Bestandslog: COMDARE_BESTANDSLOG=true + _DOC_KEY + minio; sonst EINE 'keine Daten'-Zeile.\n"
                   << "  Fehlende Quellen sind BERICHTS-Inhalt, kein Fehler. Exit: 0 Bericht; 2 Konfig-Fehler\n"
                   << "  (kaputte COMDARE_GOLDEN_N_RANGE). KEIN watch/follow -- jeder Aufruf ist ein Schnappschuss.\n";

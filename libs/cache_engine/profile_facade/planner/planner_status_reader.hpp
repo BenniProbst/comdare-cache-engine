@@ -38,12 +38,17 @@
 // (ceb, zelle, fenster), NIE die Zeilen-Reihenfolge; die Layer bleiben getrennt (ceb= ist ein EIGENES Feld,
 // wird NIE in zelle= verschmolzen); ein Pflichtfeld entfaellt nie, unbelegt = Sentinel "unbelegt".
 //
-// BILANZ-GESETZ (die beiden Wege, auf denen eine Fortschritts-Zahl luegen kann -- beide hier verriegelt):
+// BILANZ-GESETZ (die Wege, auf denen eine Fortschritts-Zahl luegen kann -- alle hier verriegelt; sie fallen
+// SAEMTLICH in dieselbe Richtung "zu wenig offen", also in die, die einen Takt zu frueh weiterziehen laesst):
 //   (1) FENSTER-TREUE: das gepinnte Fenster ist [start, start+count) ueber die Perm-Indizes. Was ausserhalb
 //       liegt, gehoert einem ANDEREN Fenster und geht NIE in diese Bilanz ein -- es bekommt seine eigene
-//       [status-fremdfenster]-Zeile (perm_im_fenster / ZellStand::im_fenster).
+//       [status-fremdfenster]-Zeile (perm_im_fenster / ZellStand::im_fenster). Die Zugehoerigkeit steht auf
+//       JEDER fenster-bezogenen Zeile, Zell- WIE Cursor-Zeile: eine ungekennzeichnete genuegt zum Luegen.
 //   (2) SUMMEN-TREUE: die Gesamt-Bilanz ist die SUMME der Zell-Offenstaende, nie ein einzelnes Fenster-SOLL
 //       minus aller Messungen -- sonst verschwindet die Zellen-Multiplizitaet (gesamt_offen_feld).
+//   (3) KEINE ZAHL OHNE GRUNDLAGE: eine leere Summe (kein SOLL erhoben / keine Zelle in diesem Fenster) ist
+//       KEINE 0, und eine ueberlaufende Summe ist keine kleine Zahl -- beide tragen ihren Sentinel
+//       (kMarkerUnbelegt / kMarkerUebergelaufen). Dasselbe gilt fuer den Cursor: nie gemeldet ist nicht Perm 0.
 //
 // DOKTRIN: header-only C++23, ASCII, LEICHT (nur stdlib + zwei bereits leichte ce-Header). Kein Umbrella,
 // kein Katalog, kein Netz -- damit bleibt der Leser TU-testbar ohne Binary und die Planer-App umbrella-frei.
@@ -60,6 +65,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -367,13 +373,30 @@ inline void erhebe_zellen(StatusBericht& bericht, MessFormatFakten const& fakten
 /// bei 2 Zellen x 16 Binaries und je 1 Messung meldete der Bericht "offen=14" statt "offen=30" -- er
 /// unterschlaegt eine ganze Zelle und wird umso falscher, je mehr Zellen laufen. Fremd-Fenster-Zellen
 /// gehen NICHT ein (H1); sie erscheinen als eigene [status-fremdfenster]-Zeile.
+///
+/// B2: EINE LEERE SUMME IST KEINE BILANZ. Lief der Director-Walk nicht (`plan=nicht_erhoben`, etwa weil das
+/// Profil unlesbar ist) oder liegt keine EINZIGE Zelle in diesem Fenster, dann laeuft die Schleife ueber
+/// nichts und liefert 0 -- und `offen=0` ist die Aussage "nichts ist mehr offen", also ausgerechnet die
+/// staerkste Fertig-Behauptung, die dieser Bericht kennt. Sie entstuende dort, wo der Leser NICHTS weiss,
+/// und faellt in die gefaehrliche Richtung: der kuenftige 38.b-Takt zoege daraufhin die naechste CEB los.
+/// Der Bericht sagt in beiden Faellen den Sentinel -- dieselbe Ehrlichkeit, die die Zell-Zeile schon traegt.
+///
+/// B3: DIE SUMME SAETTIGT. Sie addiert `std::size_t`-Zellwerte; ein umgeklappter Wert saehe wie eine gueltige
+/// Bilanz aus und ist bei Ueberlauf KLEIN -- wieder die Richtung "fast fertig". Statt einer Kappe (die eine
+/// Zahl behauptete, die nicht stimmt) traegt das Feld dann den eigenen Sentinel `uebergelaufen`.
 [[nodiscard]] inline std::string gesamt_offen_feld(StatusBericht const& b) {
     if (!b.fenster_bekannt) return kMarkerUnbelegt;
-    std::size_t summe = 0;
+    if (!b.soll.erhoben) return kMarkerUnbelegt; // kein SOLL erhoben -> keine Bilanz, auch keine leere
+    std::size_t summe          = 0;
+    std::size_t fenster_zellen = 0;
     for (auto const& z : b.zellen) {
         if (!z.im_fenster) continue;
-        summe += zell_offen(b, z.bin.gemessen);
+        ++fenster_zellen;
+        std::size_t const teil = zell_offen(b, z.bin.gemessen);
+        if (summe > (std::numeric_limits<std::size_t>::max)() - teil) return kMarkerUebergelaufen;
+        summe += teil;
     }
+    if (fenster_zellen == 0) return kMarkerUnbelegt; // keine Zelle in diesem Fenster -> nichts zu summieren
     return std::to_string(summe);
 }
 
@@ -442,16 +465,35 @@ inline void render_status(StatusBericht const& b, std::ostream& os) {
            // Zahl zu erfinden, die sich auf ein anderes Fenster bezoege.
            << " offen=" << (z.im_fenster ? offen_feld(b, z.bin.gemessen) : std::string{kMarkerUnbelegt}) << "\n";
 
+        // B1: DIE CURSOR-ZEILE TRUG DIE FENSTER-TREUE NICHT MIT. Sie druckt `fenster=` (das AKTUELLE Fenster)
+        // und `done=` nebeneinander -- an einer Fremd-Fenster-Zelle las sich das als "Fenster <aktuelles>:
+        // done=ja", also als Fertig-Signal DIESES Fensters, obwohl das done aus einem ANDEREN stammt. Genau
+        // dieses Signal ist der 38.b-Andockpunkt; eine Zelle aus einem frueheren Chunk zoege damit die naechste
+        // CEB los, waehrend das aktuelle Fenster noch misst. Die Zell-Zeile war seit H1 gefiltert, die
+        // Cursor-Zeile nicht -- die Fenster-Treue muss auf BEIDEN Zeilen stehen, sonst genuegt eine, um zu luegen.
+        // Geprueft wird gegen dieselbe EINE Zugehoerigkeit (perm_im_fenster ueber [start, start+count),
+        // in ZellStand::im_fenster erhoben) -- es gibt bewusst kein zweites Keying.
+        // `done` gilt ab jetzt NUR fuer das eigene Fenster; das Wissen ueber das fremde geht nicht verloren,
+        // sondern steht als EIGENES Feld `done_fremd` daneben (Layer nie verschmelzen, Pflichtfeld nie entfallen).
+        std::string const cursor_done       = (!z.im_fenster || !z.cursor.datei_vorhanden)
+                                                  ? std::string{kMarkerUnbelegt}
+                                                  : std::string{z.cursor.done_gesehen ? "ja" : "nein"};
+        std::string const cursor_done_fremd = (z.im_fenster || !z.cursor.datei_vorhanden)
+                                                  ? std::string{kMarkerUnbelegt}
+                                                  : std::string{z.cursor.done_gesehen ? "ja" : "nein"};
         os << "[status-cursor] ceb=" << nz(z.soll.ceb) << " zelle=" << nz(z.soll.zelle) << " fenster=" << nz(b.fenster)
-           << " perm=" << z.soll.perm_index << " cursor_datei=" << (z.cursor.datei_vorhanden ? "vorhanden" : "fehlt")
+           << " perm=" << z.soll.perm_index << " im_fenster=" << (z.im_fenster ? "ja" : "nein") << " cursor_datei="
+           << (z.cursor.datei_vorhanden ? "vorhanden" : "fehlt")
+           // B5: eine Datei, die NUR Fragmente/fremde Zeilen traegt, hat nie einen Cursor gemeldet. Der
+           // Default 0 waere hier ein ECHTER Cursor-Wert (die erste Perm) -- der Sentinel trennt
+           // "steht bei Perm 0" von "hat sich nie gemeldet". letzte_perm_belegt schliesst die fehlende
+           // Datei mit ein (ohne gelesene Zeile wird es nie gesetzt), darum genuegt dieses eine Praedikat.
            << " letzte_perm="
-           << (z.cursor.datei_vorhanden ? std::to_string(z.cursor.letzte_perm) : std::string{kMarkerUnbelegt})
-           << " done="
-           << (!z.cursor.datei_vorhanden ? std::string{kMarkerUnbelegt}
-                                         : std::string{z.cursor.done_gesehen ? "ja" : "nein"})
-           << " zeilen=" << z.cursor.zeilen_gesamt << " zeilen_perm=" << z.cursor.zeilen_perm
-           << " zeilen_done=" << z.cursor.zeilen_done << " zeilen_fremd=" << z.cursor.zeilen_fremd
-           << " abgebrochene_zeile=" << z.cursor.zeilen_abgebrochen << "\n";
+           << (z.cursor.letzte_perm_belegt ? std::to_string(z.cursor.letzte_perm) : std::string{kMarkerUnbelegt})
+           << " done=" << cursor_done << " done_fremd=" << cursor_done_fremd << " zeilen=" << z.cursor.zeilen_gesamt
+           << " zeilen_perm=" << z.cursor.zeilen_perm << " zeilen_done=" << z.cursor.zeilen_done
+           << " zeilen_fremd=" << z.cursor.zeilen_fremd << " abgebrochene_zeile=" << z.cursor.zeilen_abgebrochen
+           << "\n";
     }
     if (!b.zellen.empty() && alle_ohne_cursor == b.zellen.size())
         os << "[status] quelle=progress_cursor keine Daten (keine der " << b.zellen.size() << " Zellen hat eine "

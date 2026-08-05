@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -240,6 +241,81 @@ int main() {
         pl::verarbeite_cursor_zeile("[progress] perm=8 axes_changed=x", s);
         eq("nicht-numerisches <K> ist dieselbe Klasse", s.zeilen_abgebrochen, std::uint64_t{2});
         eq("und bewegt letzte_perm ebenfalls nicht", s.letzte_perm, std::uint64_t{2});
+
+        // B4: der Abbruch kann auch MITTEN IM WERT liegen. "axes_changed=1x" traegt eine gueltige Ziffer und
+        // danach Muell -- ein Praefix-Parser liest die 1 und laesst die Zeile als vollen Fortschritt durch.
+        // Der Rest hinter <K> MUSS darum die Schreiber-Form treffen: Zeilenende oder Trenn-Leerzeichen.
+        pl::verarbeite_cursor_zeile("[progress] perm=9 axes_changed=1x", s);
+        eq("ALT-STAND-BISS: <K> mit angehaengtem Muell ist eine abgebrochene Zeile", s.zeilen_abgebrochen,
+           std::uint64_t{3});
+        eq("ALT-STAND-BISS: sie zaehlt NICHT als perm-Zeile", s.zeilen_perm, std::uint64_t{1});
+        eq("ALT-STAND-BISS: und zieht letzte_perm nicht auf 9", s.letzte_perm, std::uint64_t{2});
+
+        // GEGENPROBE: die BEIDEN gueltigen Schreiber-Enden hinter <K> bleiben Fortschritt -- die Rest-Pruefung
+        // darf die echte Form nicht miterschlagen.
+        pl::verarbeite_cursor_zeile("[progress] perm=10 axes_changed=0", s); // K==0 -> Zeilenende
+        eq("Gegenprobe: <K> am Zeilenende bleibt Fortschritt", s.zeilen_perm, std::uint64_t{2});
+        eq("Gegenprobe: und traegt den Cursor", s.letzte_perm, std::uint64_t{10});
+        pl::verarbeite_cursor_zeile("[progress] perm=11 axes_changed=2 3->1 5->2", s); // Leerzeichen zur Liste
+        eq("Gegenprobe: <K> vor der Achsen-Liste bleibt Fortschritt", s.zeilen_perm, std::uint64_t{3});
+        eq("Gegenprobe: und traegt den Cursor", s.letzte_perm, std::uint64_t{11});
+    }
+
+    // ============================================================================================
+    // (1d) B5 -- "nie gemeldet" ist NICHT "steht bei Perm 0"
+    //
+    // BISS AM ALT-STAND: letzte_perm ist mit 0 vorbelegt, und 0 ist ein ECHTER Cursor-Wert (die erste Perm
+    // eines Fensters). Eine progress.cursor, die NUR abgerissene oder fremde Zeilen traegt, meldete darum
+    // "letzte_perm=0" -- ununterscheidbar von einem Fenster, das seine erste Perm gerade fertig hat.
+    // ============================================================================================
+    std::cout << "\n-- (1d) B5: letzte_perm_belegt trennt 'nie gemeldet' von 'Perm 0' --\n";
+    {
+        pl::CursorStand leer{};
+        check("frischer Stand: der Cursor ist unbelegt", !leer.letzte_perm_belegt);
+
+        pl::CursorStand nur_fragmente{};
+        pl::verarbeite_cursor_zeile("[progress] perm=4 axes_changed=", nur_fragmente);
+        pl::verarbeite_cursor_zeile("irgendeine fremde Zeile", nur_fragmente);
+        eq("nur Fragmente/Fremdes gelesen -> zeilen_perm bleibt 0", nur_fragmente.zeilen_perm, std::uint64_t{0});
+        check("ALT-STAND-BISS: der Cursor ist NICHT belegt (die 0 waere eine Behauptung)",
+              !nur_fragmente.letzte_perm_belegt);
+
+        // Die ECHTE Perm 0 ist der Gegenfall: gleiche Zahl, andere Aussage.
+        pl::CursorStand echte_null{};
+        pl::verarbeite_cursor_zeile("[progress] perm=0 axes_changed=0", echte_null);
+        check("die ECHTE Perm 0 belegt den Cursor", echte_null.letzte_perm_belegt);
+        eq("und traegt den Wert 0", echte_null.letzte_perm, std::uint64_t{0});
+
+        // Auch die done-Zeile belegt den Cursor (sie meldet einen erreichten Stand).
+        pl::CursorStand nur_done{};
+        pl::verarbeite_cursor_zeile("[progress] done perm=0 window-complete", nur_done);
+        check("auch die done-Zeile belegt den Cursor", nur_done.letzte_perm_belegt);
+
+        // UND AM BERICHT: eine VORHANDENE progress.cursor, die nur ein Fragment traegt. Genau hier trennen
+        // sich Alt- und Neu-Stand -- der Alt-Renderer machte `letzte_perm` an `datei_vorhanden` fest und
+        // druckte darum die Default-0 als gemeldeten Cursor.
+        fs::path const f_root = wurzel / "nur_fragment";
+        schreibe(f_root / "_all_" / "perm0" / "progress.cursor", "[progress] perm=4 axes_changed=\n");
+
+        pl::StatusBericht fb{};
+        fb.planer_stempel  = "planer-test";
+        fb.root            = f_root;
+        fb.fenster         = "0:2";
+        fb.fenster_bekannt = true;
+        fb.fenster_start   = 0;
+        fb.fenster_count   = 2;
+        fb.soll.erhoben    = true;
+        fb.soll.zellen.push_back(zelle("[all]", "_all_", 0, "[O3,no_extension][a1,b1,c1]", 2));
+        pl::erhebe_zellen(fb, fakten);
+        std::ostringstream fos;
+        pl::render_status(fb, fos);
+        std::string const fc = zeile_mit(fos.str(), "[status-cursor]", " perm=0 ");
+        std::cout << "----- Cursor-Zeile (nur ein Fragment) -----\n"
+                  << fc << "-------------------------------------------\n";
+        check("die Datei IST da (die Quelle fehlt nicht)", enthaelt(fc, " cursor_datei=vorhanden "));
+        check("ALT-STAND-BISS: letzte_perm=unbelegt statt der Default-0", enthaelt(fc, " letzte_perm=unbelegt "));
+        check("ALT-STAND-BISS: die Zeile behauptet NICHT letzte_perm=0", !enthaelt(fc, " letzte_perm=0 "));
+        check("das Fragment bleibt sichtbar", enthaelt(fc, " abgebrochene_zeile=1\n"));
     }
 
     // ============================================================================================
@@ -430,6 +506,14 @@ int main() {
         check("zweite Perm ohne Verzeichnis meldet perm_dir=fehlt", t.find("perm_dir=fehlt") != std::string::npos);
         check("Cursor-Zeile der ersten Perm meldet done=ja", t.find("done=ja") != std::string::npos);
         check("Cursor-Zeile der zweiten Perm meldet den Sentinel", t.find("letzte_perm=unbelegt") != std::string::npos);
+        // B1: die Fenster-Treue steht auch auf der CURSOR-Zeile, und done_fremd bleibt hier leer.
+        std::string const c_p0 = zeile_mit(t, "[status-cursor]", " perm=0 ");
+        std::string const c_p1 = zeile_mit(t, "[status-cursor]", " perm=1 ");
+        check("Cursor-Zeile traegt die Fenster-Zugehoerigkeit", enthaelt(c_p0, " im_fenster=ja "));
+        check("eine Fenster-eigene Cursor-Zeile traegt done=ja UND done_fremd=unbelegt",
+              enthaelt(c_p0, " done=ja ") && enthaelt(c_p0, " done_fremd=unbelegt "));
+        check("die Cursor-Zeile ohne Datei traegt beide done-Felder als Sentinel",
+              enthaelt(c_p1, " done=unbelegt ") && enthaelt(c_p1, " done_fremd=unbelegt "));
         check("Bestandslog-Zeile vorhanden",
               t.find("[status-bestand] genus=binary doc_revision=17") != std::string::npos);
         check("sidecar_ungueltig sichtbar", t.find("sidecar_ungueltig=1") != std::string::npos);
@@ -601,6 +685,167 @@ int main() {
               enthaelt(t, "[status-bestand] quelle=fehler (minio: connection refused)\n"));
         check("der Transportfehler wird NICHT als blosses 'keine Daten' verschluckt",
               !enthaelt(t, "[status] quelle=bestandslog keine Daten"));
+    }
+
+    // ============================================================================================
+    // (10) B1 -- der FREMD-FENSTER-CURSOR darf kein Fertig-Signal DIESES Fensters vortaeuschen
+    //
+    // BISS AM ALT-STAND: die [status-cursor]-Zeile druckte `fenster=<aktuelles>` und `done=ja` nebeneinander,
+    // ohne zu sagen, zu welchem Fenster der Cursor gehoert. An einer Perm aus einem FRUEHEREN Chunk stand
+    // damit woertlich "fenster=0:2 ... done=ja", obwohl das done aus Fenster 7:x stammt -- genau das Signal,
+    // an dem der kuenftige 38.b-Takt die naechste CEB losziehen soll, waehrend 0:2 noch misst.
+    // ============================================================================================
+    std::cout << "\n-- (10) B1: Fremd-Fenster-Cursor traegt im_fenster=nein und KEIN done=ja --\n";
+    {
+        fs::path const c_root = wurzel / "fremdcursor";
+        // perm0 liegt im Fenster 0:2 und laeuft noch (kein done).
+        schreibe(c_root / "_all_" / "perm0" / "progress.cursor", "[progress] perm=0 axes_changed=1 2->1\n");
+        // perm7 gehoert einem FRUEHEREN Fenster und hat dort fertig gemeldet.
+        schreibe(c_root / "_all_" / "perm7" / "progress.cursor", "[progress] perm=1 axes_changed=1 0->1\n"
+                                                                 "[progress] done perm=3 window-complete\n");
+
+        pl::StatusBericht b{};
+        b.planer_stempel  = "planer-test";
+        b.root            = c_root;
+        b.fenster         = "0:2";
+        b.fenster_bekannt = true;
+        b.fenster_start   = 0;
+        b.fenster_count   = 2;
+        b.soll.erhoben    = true;
+        b.soll.zellen.push_back(zelle("[all]", "_all_", 0, "[O3,no_extension][a1,b1,c1]", 2));
+        b.soll.zellen.push_back(zelle("[all]", "_all_", 7, "[O3,no_extension][a3,b3,c3]", 2));
+        pl::erhebe_zellen(b, fakten);
+        std::ostringstream os;
+        pl::render_status(b, os);
+        std::string const t  = os.str();
+        std::string const c0 = zeile_mit(t, "[status-cursor]", " perm=0 ");
+        std::string const c7 = zeile_mit(t, "[status-cursor]", " perm=7 ");
+        std::cout << "----- Bericht (Fremd-Fenster-Cursor) -----\n"
+                  << t << "------------------------------------------\n";
+
+        check("beide Cursor-Zeilen vorhanden", !c0.empty() && !c7.empty());
+        check("ALT-STAND-BISS: die Fremd-Cursor-Zeile weist im_fenster=nein aus", enthaelt(c7, " im_fenster=nein "));
+        check("ALT-STAND-BISS: die Fremd-Cursor-Zeile traegt KEIN done=ja", !enthaelt(c7, " done=ja "));
+        check("die Fremd-Cursor-Zeile traegt done=unbelegt (kein Fertig-Signal DIESES Fensters)",
+              enthaelt(c7, " done=unbelegt "));
+        check("das fremde Fertig-Signal geht nicht verloren: done_fremd=ja", enthaelt(c7, " done_fremd=ja "));
+        check("die Fremd-Cursor-Zeile behaelt ihre ehrliche Historie (zeilen_done=1)", enthaelt(c7, " zeilen_done=1 "));
+        check("die eigene Cursor-Zeile weist im_fenster=ja aus", enthaelt(c0, " im_fenster=ja "));
+        check("die eigene Cursor-Zeile meldet done=nein (das Fenster laeuft)", enthaelt(c0, " done=nein "));
+        check("die eigene Cursor-Zeile traegt done_fremd=unbelegt", enthaelt(c0, " done_fremd=unbelegt "));
+        // Gegenprobe ueber den GANZEN Bericht: in diesem Stand darf nirgends ein done=ja stehen.
+        check("ALT-STAND-BISS: der ganze Bericht traegt kein done=ja (nichts ist in 0:2 fertig)",
+              !enthaelt(t, " done=ja "));
+
+        // Wandert das Fenster auf 7:2, dreht sich die Zugehoerigkeit -- und das done wird zum EIGENEN.
+        b.fenster       = "7:2";
+        b.fenster_start = 7;
+        pl::erhebe_zellen(b, fakten);
+        std::ostringstream os2;
+        pl::render_status(b, os2);
+        std::string const t2 = os2.str();
+        check("Fenster 7:2 -> perm7 ist jetzt das EIGENE Fenster und meldet done=ja",
+              enthaelt(zeile_mit(t2, "[status-cursor]", " perm=7 "), " done=ja "));
+        check("Fenster 7:2 -> perm0 ist jetzt fremd und meldet done_fremd=nein",
+              enthaelt(zeile_mit(t2, "[status-cursor]", " perm=0 "), " done_fremd=nein "));
+    }
+
+    // ============================================================================================
+    // (11) B2 -- eine LEERE Summe ist keine Bilanz
+    //
+    // BISS AM ALT-STAND: gesamt_offen_feld summierte ueber die Zell-Liste. Ist sie leer (Plan nicht erhoben,
+    // Walk ohne Zelle, oder ALLE Zellen fremd), lieferte die Schleife 0 -- und `offen=0` heisst "nichts mehr
+    // offen". Der Bericht behauptete damit Fertigkeit an genau der Stelle, an der er NICHTS weiss.
+    // ============================================================================================
+    std::cout << "\n-- (11) B2: ohne Grundlage traegt offen= den Sentinel, nicht 0 --\n";
+    {
+        auto mit_fenster = [&](bool erhoben, bool mit_zelle, std::size_t start) {
+            pl::StatusBericht b{};
+            b.planer_stempel  = "planer-test";
+            b.root            = wurzel / "gibt_es_nicht";
+            b.fenster         = std::to_string(start) + ":16";
+            b.fenster_bekannt = true;
+            b.fenster_start   = start;
+            b.fenster_count   = 16;
+            b.soll.erhoben    = erhoben;
+            if (!erhoben) b.soll.grund = "Profil 'x.xml' nicht als bekannte Wurzel lesbar (rc 5)";
+            if (mit_zelle) b.soll.zellen.push_back(zelle("[all]", "_all_", 0, "[O3,no_extension][a,b,c]", 2));
+            pl::erhebe_zellen(b, fakten);
+            std::ostringstream os;
+            pl::render_status(b, os);
+            return os.str();
+        };
+
+        std::string const t_nicht_erhoben = mit_fenster(/*erhoben=*/false, /*mit_zelle=*/false, /*start=*/0);
+        std::string const g1              = zeile_mit(t_nicht_erhoben, "[status-gesamt]");
+        std::cout << "----- Bericht (Plan nicht erhoben, Fenster 0:16) -----\n"
+                  << t_nicht_erhoben << "-----------------------------------------------------\n";
+        check("Plan nicht erhoben -> plan=nicht_erhoben steht literal",
+              enthaelt(t_nicht_erhoben, "plan=nicht_erhoben"));
+        check("ALT-STAND-BISS: offen=unbelegt statt offen=0", enthaelt(g1, " offen=unbelegt\n"));
+        check("ALT-STAND-BISS: die Gesamt-Zeile behauptet NICHT offen=0", !enthaelt(g1, " offen=0\n"));
+
+        std::string const t_leerer_walk = mit_fenster(/*erhoben=*/true, /*mit_zelle=*/false, /*start=*/0);
+        std::string const g2            = zeile_mit(t_leerer_walk, "[status-gesamt]");
+        check("erhobener Plan OHNE Zelle -> auch hier offen=unbelegt", enthaelt(g2, " offen=unbelegt\n"));
+        check("ALT-STAND-BISS: auch der leere Walk behauptet NICHT offen=0", !enthaelt(g2, " offen=0\n"));
+        check("die 'keine Zelle'-Aussage steht weiterhin literal da",
+              enthaelt(t_leerer_walk, "[status] quelle=plan keine Daten (der Walk lieferte keine Zelle)"));
+
+        // ALLE Zellen fremd: die Summe laeuft ueber nichts -- dieselbe Klasse, andere Ursache.
+        std::string const t_alle_fremd = mit_fenster(/*erhoben=*/true, /*mit_zelle=*/true, /*start=*/5);
+        std::string const g3           = zeile_mit(t_alle_fremd, "[status-gesamt]");
+        check("alle Zellen fremd -> fenster_zellen=0", enthaelt(g3, " fenster_zellen=0 "));
+        check("ALT-STAND-BISS: alle Zellen fremd -> offen=unbelegt statt offen=0", enthaelt(g3, " offen=unbelegt\n"));
+
+        // GEGENPROBE: sobald EINE Zelle im Fenster liegt, steht wieder eine Zahl da.
+        std::string const t_mit_zelle = mit_fenster(/*erhoben=*/true, /*mit_zelle=*/true, /*start=*/0);
+        check("Gegenprobe: eine Fenster-Zelle -> offen=16 (die Zahl kehrt zurueck)",
+              enthaelt(zeile_mit(t_mit_zelle, "[status-gesamt]"), " offen=16\n"));
+    }
+
+    // ============================================================================================
+    // (12) B3 -- die Summe der Zell-Offenstaende saettigt statt umzuklappen
+    //
+    // BISS AM ALT-STAND: `summe += zell_offen(...)` ueber std::size_t. Bei zwei Zellen mit je SIZE_MAX
+    // offenen Binaries klappte die Summe auf SIZE_MAX-1 um -- eine Zahl, die wie eine gueltige Bilanz aussieht
+    // und KLEINER ist als der Offenstand einer EINZIGEN Zelle. Die Fehlerrichtung ist wieder "zu wenig offen".
+    // ============================================================================================
+    std::cout << "\n-- (12) B3: Ueberlauf der Gesamt-Summe wird als solcher ausgewiesen --\n";
+    {
+        constexpr std::size_t kMax = (std::numeric_limits<std::size_t>::max)();
+
+        pl::StatusBericht b{};
+        b.planer_stempel  = "planer-test";
+        b.root            = wurzel / "gibt_es_nicht";
+        b.fenster         = "0:" + std::to_string(kMax);
+        b.fenster_bekannt = true;
+        b.fenster_start   = 0;
+        b.fenster_count   = kMax; // jede Zelle hat SIZE_MAX offene Binaries
+        b.soll.erhoben    = true;
+        b.soll.zellen.push_back(zelle("[all]", "_all_", 0, "[O3,no_extension][a1,b1,c1]", 2));
+        b.soll.zellen.push_back(zelle("[all]", "_all_", 1, "[O3,no_extension][a2,b2,c2]", 2));
+        pl::erhebe_zellen(b, fakten);
+        std::ostringstream os;
+        pl::render_status(b, os);
+        std::string const t      = os.str();
+        std::string const gesamt = zeile_mit(t, "[status-gesamt]");
+
+        eq("die Zell-Zeile traegt weiterhin den echten Einzel-Offenstand", pl::offen_feld(b, /*gemessen=*/0),
+           std::to_string(kMax));
+        check("ALT-STAND-BISS: die Gesamt-Zeile traegt offen=uebergelaufen",
+              enthaelt(gesamt, " offen=uebergelaufen\n"));
+        check("ALT-STAND-BISS: sie traegt NICHT die umgeklappte Summe SIZE_MAX-1",
+              !enthaelt(gesamt, " offen=" + std::to_string(kMax - 1) + "\n"));
+        check("der Ueberlauf-Sentinel ist NICHT derselbe wie 'unbelegt'", !enthaelt(gesamt, " offen=unbelegt\n"));
+
+        // GEGENPROBE: eine EINZELNE Zelle mit SIZE_MAX laeuft nicht ueber und meldet die echte Zahl.
+        b.soll.zellen.pop_back();
+        pl::erhebe_zellen(b, fakten);
+        std::ostringstream os2;
+        pl::render_status(b, os2);
+        check("Gegenprobe: eine Zelle mit SIZE_MAX ist kein Ueberlauf",
+              enthaelt(zeile_mit(os2.str(), "[status-gesamt]"), " offen=" + std::to_string(kMax) + "\n"));
     }
 
     fs::remove_all(wurzel, ec);

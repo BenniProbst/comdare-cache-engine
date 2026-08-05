@@ -19,6 +19,13 @@ namespace comdare::cache_engine::planner {
 /// Sentinel-Doktrin: ein Pflichtfeld entfaellt nie; was nicht belegt ist, sagt das mit DIESEM Wort.
 inline constexpr char kMarkerUnbelegt[] = "unbelegt";
 
+/// Der ZWEITE Sentinel: das Feld waere belegbar, die Rechnung dahinter traegt aber nicht mehr. Er steht
+/// ausschliesslich dort, wo eine Summe den Wertebereich verlaesst -- eine umgeklappte Zahl saehe wie eine
+/// gueltige Bilanz aus (und faellt bei Ueberlauf klein aus, also in die gefaehrliche Richtung "fast fertig").
+/// Getrennt von kMarkerUnbelegt, weil "ich habe keine Grundlage" und "die Grundlage sprengt den Typ" zwei
+/// verschiedene Aussagen sind und ein Anwender sie unterscheiden koennen muss.
+inline constexpr char kMarkerUebergelaufen[] = "uebergelaufen";
+
 /// Suffix des Fingerprint-Sidecars (write_fingerprint_sidecar legt <binary>.fingerprint an).
 inline constexpr char kFingerprintSidecarSuffix[] = ".fingerprint";
 
