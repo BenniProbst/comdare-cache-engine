@@ -4,6 +4,23 @@
 > (super `docs/sessions/backups/20260716-voll-audit-sessions-plaene-architektur/`). Der Titel-Anspruch
 > „Single-Source-of-Truth" gilt NICHT mehr. Niemals löschen — nur Banner/Nachträge.
 
+> **NACHTRAG 2026-08-05 (B1/E-18, Abgrenzung fuer das Vier-Ledger-Audit E-02):** Der LaTeX-Anhang-
+> VORWAERTS-Kanal je CI (Owner-Dekret "HAUPT-ZIEL des Gesamt-Systems", super-Ledger
+> `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` Sec-68c / Vor-Trigger-Checkliste B1) ist ein
+> **super+289-Paket: der ce-Beitrag am E-18-Kern ist NULL Code.** Der Kanal liegt super-seitig als
+> CI-Job `anhang:forward` (Stage `persist`, inert-by-default hinter `COMDARE_ANHANG_FORWARD`) plus
+> `ci/anhang_forward_core.sh`; er konsumiert die von der ce bereits emittierten `result.csv` (bzw. den
+> persistierten `measurement/<RUN_TS>/`-Korpus) und schreibt die regenerierten
+> `anhang/{de,en}/tabellen/*.tex` vorwaerts ins Thesis-Submodul (GitLab-Projekt 289). Die ce-seitige
+> Mess-Kette (`profile_facade/planner/experiment_plan_director.hpp`, Treiber-/Planer-Emission) ist fuer
+> E-18 **QUELLE, keine Baustelle**. Zwei benannte, bewusst NICHT in B1 enthaltene Folge-Punkte:
+> (1) **M-CE-18** -- `tools/latex_anhang/` ist toter Alt-Parser (nie aufgerufen; aktive Strecke ist super
+> `Code/08_appendix_generator`); Deprecation ist Owner-GO-pflichtig und steht auf der Kandidaten-Liste
+> des Abschluss-Aufraeumpasses. (2) **Grandchild-Vorwaerts-Verlaengerung** -- ein Anhang-Hook in der
+> Director-Emission lohnt erst, wenn die T6-Einsammel-Naht (Posten B5) die Stufe-2-Mess-CSV des
+> dynamischen `planer:delegate`-Pfades in den Parent-/persist-Fluss holt; bis dahin traegt der
+> `measurement/`-Korpus-Zweig des Kanals auch den dynamischen Pfad.
+
 # Architektur-Ziele- / Offene-Punkte-Ledger (Single-Source-of-Truth)
 
 > **Zweck (/goal V2, User 2026-05-30):** Die EINE autoritative, IST-verifizierte Liste aller Architektur-Ziele
