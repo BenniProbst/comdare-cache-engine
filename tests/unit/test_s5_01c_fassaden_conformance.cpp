@@ -172,13 +172,17 @@ using MigriertUndDisabled = mp::mp_filter<ist_disabled, MigrierteOrgane>;
 //   - die Stichprobe ist echt kleiner als die Population (sonst waere die Trennung Zeremonie).
 // LAZY-KLASSE (Puffer wachsen erst unter Last -> der "ehrliche Nullpunkt" der generischen Probe gilt):
 //   * Scheiben 1+2, unveraendert: k_ary, interpolation, eytzinger, linear_scan + die vier per-K.
-//   * NEU Scheibe 3: vector_u16u16 = die FLACHE Familie (zwei parallele Vektoren, u16-Keyraum).
-// Die KONSTRUKTOR-ALLOZIERENDE Klasse (array65535) hat eine EIGENE Probe weiter unten -- fuer sie ist
-// der Nullpunkt per Konstruktion nicht null, und genau das ist dort die Aussage.
+//   * NEU Scheibe 3: vector_u16u16 = die FLACHE Familie (zwei parallele Vektoren, u16-Keyraum)
+//                    bst          = der KNOTEN-POOL mit Free-List (leer konstruiert).
+// Die BAU-ALLOZIERENDEN Organe (array65535, skip_list, hash_search) haben eine EIGENE Probe weiter
+// unten -- fuer sie ist der Nullpunkt per Konstruktion nicht null, und genau diese Umkehrung ist dort
+// die Aussage. Sie stehen deshalb NICHT in dieser Liste (die generische Probe wuerde an ihnen
+// zu Recht scheitern).
 // =============================================================================================
-using KontrastStichprobe = mp::mp_list<lk::KArySearchAlgo, lk::InterpolationSearchAlgo, lk::EytzingerSearchAlgo,
-                                       lk::LinearScanSearchAlgo, lk::KArySearchAlgoK2, lk::KArySearchAlgoK4,
-                                       lk::KArySearchAlgoK8, lk::KArySearchAlgoK16, lk::VectorU16U16SearchAlgo>;
+using KontrastStichprobe =
+    mp::mp_list<lk::KArySearchAlgo, lk::InterpolationSearchAlgo, lk::EytzingerSearchAlgo, lk::LinearScanSearchAlgo,
+                lk::KArySearchAlgoK2, lk::KArySearchAlgoK4, lk::KArySearchAlgoK8, lk::KArySearchAlgoK16,
+                lk::VectorU16U16SearchAlgo, lk::BinarySearchTreeSearchAlgo>;
 
 static_assert(mp::mp_all_of<KontrastStichprobe, traegt_migrations_ausweis>::value,
               "01c-Stichprobe ENTKOPPELT: ein Organ der Kontrast-Stichprobe traegt keinen Migrations-Ausweis, "
@@ -409,21 +413,28 @@ void pruefe_organ_zur_laufzeit() {
            "erase-Semantik identisch");
 }
 
-/// (6b) SONDER-PROBE der KONSTRUKTOR-ALLOZIERENDEN Klasse (Scheibe 3, Vertreter S09 Array65535).
+/// (6b) SONDER-PROBE der BAU-ALLOZIERENDEN Klasse (Scheibe 3).
 ///
-/// Fuer dieses Organ gilt der "ehrliche Nullpunkt" der generischen Probe NICHT -- und das ist keine
-/// Ausnahme, die man wegdefiniert, sondern die schaerfste Aussage der ganzen Scheibe: das Organ legt
-/// seine beiden 65536-Slot-Puffer BEIM BAU an (data_ 512 KiB + present_ 64 KiB je Instanz). Genau diese
-/// groesste Einzel-Allokation der Achse lief am Alt-Stand am Allokator-Achsen-Interface vorbei; die
-/// T6-Spalte haette sie nie gesehen, auch nicht als der Store laengst konform war. Die Probe verlangt
-/// deshalb das Gegenteil des Nullpunkts: schon die UNGETRIEBENE Instanz muss Bytes ueber die T6-Wahl
-/// melden -- und beide Ebenen muessen dabei zahlengleich sein.
-template <class S>
-void pruefe_konstruktions_allozierer() {
+/// Fuer diese Organe gilt der "ehrliche Nullpunkt" der generischen Probe NICHT -- und das ist keine
+/// Ausnahme, die man wegdefiniert, sondern die schaerfste Aussage der ganzen Scheibe: sie legen
+/// Speicher schon BEIM BAU an (array65535 zwei 65536-Slot-Puffer; skip_list den Head-Turm samt
+/// Knoten-Pool; hash_search die Initial-Bucket-Tabelle). Genau diese Allokationen liefen am Alt-Stand
+/// am Allokator-Achsen-Interface vorbei; die T6-Spalte haette sie nie gesehen, auch nicht als der
+/// Store laengst konform war. Die Probe verlangt deshalb das Gegenteil des Nullpunkts: schon die
+/// UNGETRIEBENE Instanz muss Bytes ueber die T6-Wahl melden -- und beide Ebenen muessen dabei
+/// zahlengleich sein.
+///
+/// @tparam kWaechstUnterLast  Ob das Organ unter Last WEITER alloziert. Das ist eine Aussage ueber den
+///        Algorithmus, kein Schalter: die direkte Adressierung (array65535) darf NICHT nachwachsen --
+///        wenn doch, hat jemand eine versteckte Nach-Allokation eingebaut; skip_list und hash_search
+///        MUESSEN nachwachsen -- wenn nicht, ist der Wachstums-Pfad gar nicht getroffen worden. Beide
+///        Richtungen beissen.
+template <class S, bool kWaechstUnterLast>
+void pruefe_bau_allozierer() {
     using Rebound = comp::search_algo_for_composition_t<S, KompositionsAllokator>;
 
-    std::printf("  --- %s (KONSTRUKTOR-ALLOZIERER | Fassade %s | Rebound %s)\n", S::name().data(),
-                s5::family_alloc_form<S>(), s5::family_alloc_form<Rebound>());
+    std::printf("  --- %s (BAU-ALLOZIERER, waechst unter Last: %s | Fassade %s | Rebound %s)\n", S::name().data(),
+                kWaechstUnterLast ? "ja" : "nein", s5::family_alloc_form<S>(), s5::family_alloc_form<Rebound>());
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     Rebound frisch_komposition{};
@@ -444,16 +455,32 @@ void pruefe_konstruktions_allozierer() {
                k_bau.total_bytes_allocated == d_bau.total_bytes_allocated,
            "Bau-Bilanz beider Ebenen zahlen- UND byte-gleich (der Rebind aendert die Strategie, nicht die Geometrie)");
     // Gegenprobe gegen die generische Probe: hier waere ein "== 0"-Nullpunkt schlicht FALSCH.
-    pruefe(k_bau.total_bytes_allocated >= 65536u,
-           "die gemeldeten Bytes haben die Groessenordnung der deklarierten 65536-Slot-Puffer");
+    pruefe(k_bau.total_bytes_allocated > 0, "und es sind echte Bytes, nicht nur Zaehl-Ereignisse");
 
-    // Die Last aendert bei direkter Adressierung NICHTS an der Allokations-Bilanz -- auch das ist eine
-    // Aussage (kein verstecktes Nachwachsen), und sie muss auf beiden Ebenen gleich ausfallen.
     treibe(frisch_komposition, kN);
     treibe(frisch_default, kN);
-    pruefe(frisch_komposition.search_allocator_statistics().allocation_count == k_bau.allocation_count &&
-               frisch_default.search_allocator_statistics().allocation_count == d_bau.allocation_count,
-           "direkte Adressierung waechst unter Last NICHT nach -- auf beiden Ebenen gleich");
+    auto const k_last = frisch_komposition.search_allocator_statistics();
+    auto const d_last = frisch_default.search_allocator_statistics();
+    std::printf("      nach Last:        Komposition=%llu (%llu B) | Achsen-Default=%llu (%llu B)\n",
+                static_cast<unsigned long long>(k_last.allocation_count),
+                static_cast<unsigned long long>(k_last.total_bytes_allocated),
+                static_cast<unsigned long long>(d_last.allocation_count),
+                static_cast<unsigned long long>(d_last.total_bytes_allocated));
+
+    pruefe(k_last.allocation_count == d_last.allocation_count &&
+               k_last.total_bytes_allocated == d_last.total_bytes_allocated,
+           "auch NACH der Last zahlen- UND byte-gleich (der Rebind aendert die Strategie, nicht die Geometrie)");
+    if constexpr (kWaechstUnterLast) {
+        // Der Wachstums-Pfad MUSS getroffen worden sein -- sonst hat die Probe ihn nur behauptet.
+        pruefe(k_last.allocation_count > k_bau.allocation_count,
+               "der WACHSTUMS-Pfad laeuft ueber die T6-Wahl (Turm-Vektoren bzw. Rehash-Zwischenpuffer, nicht "
+               "nur die Bau-Tabelle)");
+    } else {
+        // Umgekehrt: direkte Adressierung darf NICHT nachwachsen -- eine versteckte Nach-Allokation
+        // waere ein echter Befund und keine Formalie.
+        pruefe(k_last.allocation_count == k_bau.allocation_count,
+               "direkte Adressierung waechst unter Last NICHT nach (keine versteckte Nach-Allokation)");
+    }
 #else
     std::printf("      (Statistik-Pfad aus -- Bau-Bilanz uebersprungen, Verhaltens-Pin laeuft)\n");
     Rebound frisch_komposition{};
@@ -534,8 +561,10 @@ int main() {
         pruefe_organ_zur_laufzeit<S>();
     });
 
-    std::printf("\n(6b) SONDER-PROBE der KONSTRUKTOR-ALLOZIERENDEN Klasse:\n");
-    pruefe_konstruktions_allozierer<lk::Array65535SearchAlgo>();
+    std::printf("\n(6b) SONDER-PROBE der BAU-ALLOZIERENDEN Klasse (Nullpunkt per Konstruktion NICHT null):\n");
+    pruefe_bau_allozierer<lk::Array65535SearchAlgo, /*kWaechstUnterLast=*/false>();
+    pruefe_bau_allozierer<lk::SkipListSearchAlgo, /*kWaechstUnterLast=*/true>();
+    pruefe_bau_allozierer<lk::HashSearchAlgo, /*kWaechstUnterLast=*/true>();
 
     std::printf("\n(8) REGISTRY-BYTE-BEWEIS je ENABLED Organ (nur die stehen in der XML):\n");
     {

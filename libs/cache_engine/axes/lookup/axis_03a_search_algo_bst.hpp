@@ -16,7 +16,23 @@
 // erase = Hibbard-Deletion (3 Faelle: Blatt / 1 Kind / 2 Kinder via In-Order-Nachfolger).
 //
 // **Provenienz / Lizenz ([[pseudocode-papers-fallback]]):** Lehrbuch-Algorithmus → C++23-Re-Impl,
-// is_original=false. Allocation: std::vector — [[allocation-failure-exception]]: insert → bad_alloc.
+// is_original=false.
+//
+// Allocation: NUR ueber das Allokator-Achsen-Interface (axis_06) -- s. den ZWEI-EBENEN-SCHNITT unten.
+// [[allocation-failure-exception]]: insert kann std::bad_alloc werfen (StdAllocatorAdapter, Posten 64).
+//
+// ===================================================================================================
+// A8-S5 Familie 01c, Scheibe 3 (2026-08-05) -- ZWEI-EBENEN-SCHNITT (Pilot-Rezept linear_scan)
+// ===================================================================================================
+// KLASSEN-ENTSCHEID: **VOLL-REZEPT** -- Knoten-Pool + Free-List (nodes_/free_, 2 der 39 Rest-Zeilen
+// der 01b-Schlussbilanz). Konstruktion/Begruendung zeilengleich zum Pilot
+// (axis_03a_search_algo_linear_scan.hpp:22-58), hier referenziert statt wiederholt.
+//
+// BEIDE Vektoren haengen an DERSELBEN Strategie-Instanz -- Owner-KERN 04.08. abend-11: "multiple
+// Allokatoren liegen HINTER dem EINEN Allokator-Achsen-Interface". Zwei Strategie-Instanzen in einem
+// Organ waeren zwei getrennte Allokations-Buecher und damit genau das, was der KERN ausschliesst.
+//
+// ORGAN_LOCATION NEU (Default-OFF -> Byte-Effekt NULL, s. XML-ABWESENHEITS-Probe (8b) der Familien-Wache).
 
 #include "axis_03a_search_algo_base.hpp"
 #include "axis_03a_search_algo_subaxes_sa1_to_sa3.hpp"
@@ -25,18 +41,35 @@
 #include "concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp"
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
+#include <axes/alloc/axis_06_allocator_exgen.hpp>
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp>
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
+#include <axes/lookup/composable/search_algo_rebind.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::lookup {
 
-class BinarySearchTreeSearchAlgo : public SearchAlgoBase<BinarySearchTreeSearchAlgo> {
+// Vorwaerts-Deklaration: die Fassade nennt ihren eigenen Rebound-Leaf als Member-Alias, und der
+// Rebound-Leaf erbt vom selben Core -- beide brauchen den Namen, bevor der andere vollstaendig ist.
+template <class A2>
+class BinarySearchTreeSearchAlgoRebound;
+
+namespace detail {
+
+/// DIE SUBSTANZ des S16-Organs: index-basierter Knoten-Pool + Free-List ueber die Allokator-ACHSE.
+///
+/// @tparam Alloc  Die Allokator-Achsen-Strategie (axis_06). Default-Bindung der Fassade: ExgenAllocator.
+/// @tparam Self   Der most-derived Typ -- PFLICHT wegen der CRTP-Guards der SearchAlgoBase.
+template <class Alloc, class Self>
+class BinarySearchTreeSearchAlgoCore : public SearchAlgoBase<Self> {
 public:
     static constexpr bool enabled = flags::bst_enabled;
 
@@ -47,8 +80,16 @@ public:
     using axis_tag   = subaxes::sparse_access_tag;
     using family_id  = std::integral_constant<int, 16>; // S16
 
-    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    /// A8-S5 SCHNITT-FORM (B): Knoten-Pool UND Free-List haengen an der Allokator-ACHSE -- an DERSELBEN
+    /// Strategie-Instanz. Diese Zeile IST der Ausweis der Familien-Konformitaets-Wache.
+    using allocator_type = Alloc;
+    static_assert(::comdare::cache_engine::alloc::concepts::AllocatorStrategy<allocator_type>,
+                  "A8-S5: der gebundene Allokator erfuellt das axis_06-Achsen-Concept nicht mehr -- dann liefe "
+                  "der Knoten-Pool wieder an der Allokator-Achse vorbei (Schnitt-Regel Dossier 3.4).");
+
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t max_fanout() noexcept { return 65536; }
+    /// SERIALISIERUNGS-SCHLUESSEL -- bewusst OHNE jeden Allokator-Bezug (name()-Invarianz, s. unten).
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "bst"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "BinarySearchTreeSearchAlgo (unbalanced BST, Hibbard-Deletion — Knuth TAOCP 3 §6.2.2)";
@@ -66,9 +107,62 @@ public:
     [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return false; }
 
-    BinarySearchTreeSearchAlgo() noexcept = default;
+private:
+    static constexpr std::uint32_t kNil = 0xFFFFFFFFu;
+    struct Node {
+        key_type      key{};
+        value_type    val{};
+        std::uint32_t left{kNil};
+        std::uint32_t right{kNil};
+    };
 
-    [[nodiscard]] bool operator==(BinarySearchTreeSearchAlgo const& other) const noexcept {
+    using node_alloc  = typename Alloc::template StdAllocatorAdapter<Node>;
+    using slot_alloc  = typename Alloc::template StdAllocatorAdapter<std::uint32_t>;
+    using node_vector = std::vector<Node, node_alloc>;
+    using slot_vector = std::vector<std::uint32_t, slot_alloc>;
+
+public:
+    /// Beide Vektoren werden an das EIGENE allocator_ gebunden (der Adapter haelt &allocator_).
+    /// NICHT MEHR noexcept: die Vektor-Konstruktion laeuft ueber die Strategie -- die Zusicherung waere
+    /// ab hier eine Behauptung. Der Konstruktor alloziert NICHT (leere Vektoren), er bindet nur.
+    BinarySearchTreeSearchAlgoCore()
+        : nodes_(allocator_.template as_std_allocator<Node>()),
+          free_(allocator_.template as_std_allocator<std::uint32_t>()) {}
+
+    /// KF-6-NAHT (Posten 62, LEDGER 04.08. abend-12): eine vor-parametrierte Strategie-Instanz
+    /// uebernehmen, statt sie default zu konstruieren. Heute nirgends benutzt und bewusst `explicit`.
+    explicit BinarySearchTreeSearchAlgoCore(allocator_type a)
+        : allocator_(std::move(a)), nodes_(allocator_.template as_std_allocator<Node>()),
+          free_(allocator_.template as_std_allocator<std::uint32_t>()) {}
+
+    /// Copy: Strategie mitkopieren, beide Vektoren an das EIGENE allocator_ binden, dann die transiente
+    /// Kopier-Allokation aus der Statistik nehmen (Memento) -- 1:1 btree_node_pool_store.hpp:86.
+    BinarySearchTreeSearchAlgoCore(BinarySearchTreeSearchAlgoCore const& o)
+        : allocator_(o.allocator_), nodes_(o.nodes_, allocator_.template as_std_allocator<Node>()),
+          free_(o.free_, allocator_.template as_std_allocator<std::uint32_t>()), root_(o.root_), size_(o.size_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = o.stats_;
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+
+    BinarySearchTreeSearchAlgoCore& operator=(BinarySearchTreeSearchAlgoCore const& o) {
+        if (this != &o) {
+            nodes_ = o.nodes_;
+            free_  = o.free_;
+            root_  = o.root_;
+            size_  = o.size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            stats_ = o.stats_;
+            allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+        }
+        return *this;
+    }
+
+    ~BinarySearchTreeSearchAlgoCore() = default;
+
+    [[nodiscard]] bool operator==(BinarySearchTreeSearchAlgoCore const& other) const noexcept {
         return size_ == other.size_;
     }
 
@@ -211,17 +305,14 @@ public:
     }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
+    /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11, Pflicht (a)) -- NUR die Naht,
+    /// BEWUSST unter einem VIERTEN Namen (Doppelzaehlungs-Absicherung, Pilot-Begruendung).
+    using allocator_snapshot_t = typename allocator_type::snapshot_t;
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
-    static constexpr std::uint32_t kNil = 0xFFFFFFFFu;
-    struct Node {
-        key_type      key{};
-        value_type    val{};
-        std::uint32_t left{kNil};
-        std::uint32_t right{kNil};
-    };
-
     [[nodiscard]] std::uint32_t new_node(key_type k, value_type v) {
         if (!free_.empty()) {
             std::uint32_t const idx = free_.back();
@@ -242,14 +333,50 @@ private:
 #endif
     }
 
-    std::vector<Node>          nodes_;
-    std::vector<std::uint32_t> free_;
-    std::uint32_t              root_ = kNil;
-    std::size_t                size_ = 0;
+    // allocator_ MUSS VOR nodes_/free_ stehen: der Adapter haelt &allocator_, und die Member-
+    // Initialisierungs-/Zerstoerungsreihenfolge ist die Deklarationsreihenfolge.
+    allocator_type allocator_{};
+    node_vector    nodes_;
+    slot_vector    free_;
+    std::uint32_t  root_ = kNil;
+    std::size_t    size_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
     mutable observer_t                     observer_{};
 #endif
+};
+
+} // namespace detail
+
+/// DIE IDENTITAET -- das Registry-Organ S16. Nicht-Template, exakt der historische Typ-Name.
+class BinarySearchTreeSearchAlgo final
+    : public detail::BinarySearchTreeSearchAlgoCore<::comdare::cache_engine::alloc::ExgenAllocator,
+                                                    BinarySearchTreeSearchAlgo> {
+public:
+    /// Die Default-Bindung der Identitaets-Ebene: der BENANNTE Achsen-Default, nie std::allocator.
+    using default_allocator_type = ::comdare::cache_engine::alloc::ExgenAllocator;
+
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_bst.hpp");
+
+    /// Der Migrations-Ausweis (composable::AllocatorRebindableSearchAlgo).
+    template <class A2>
+    using rebind_allocator = BinarySearchTreeSearchAlgoRebound<A2>;
+
+    using detail::BinarySearchTreeSearchAlgoCore<default_allocator_type,
+                                                 BinarySearchTreeSearchAlgo>::BinarySearchTreeSearchAlgoCore;
+};
+
+/// DIE GEBUNDENE FORM -- traegt BEWUSST KEIN COMDARE_DEFINE_ORGAN_LOCATION.
+template <class A2>
+class BinarySearchTreeSearchAlgoRebound final
+    : public detail::BinarySearchTreeSearchAlgoCore<A2, BinarySearchTreeSearchAlgoRebound<A2>> {
+public:
+    /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
+    using axis03a_rebound_tag = void;
+
+    using detail::BinarySearchTreeSearchAlgoCore<A2,
+                                                 BinarySearchTreeSearchAlgoRebound<A2>>::BinarySearchTreeSearchAlgoCore;
 };
 
 } // namespace comdare::cache_engine::lookup
@@ -258,4 +385,35 @@ namespace comdare::cache_engine::lookup {
 static_assert(concepts::SearchAlgoVariant<BinarySearchTreeSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<BinarySearchTreeSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<BinarySearchTreeSearchAlgo>);
+
+// ---------------------------------------------------------------------------------------------
+// Der Zwei-Ebenen-Vertrag, self-proving an der Datei, die ihn eingeht (Pilot-Rezept, linear_scan:352).
+// ---------------------------------------------------------------------------------------------
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<BinarySearchTreeSearchAlgo,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
+                             BinarySearchTreeSearchAlgo>,
+              "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
+              "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
+static_assert(composable::AllocatorRebindableSearchAlgo<BinarySearchTreeSearchAlgo,
+                                                        ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "01c: BinarySearchTreeSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+static_assert(!composable::IsReboundSearchAlgoLeaf<BinarySearchTreeSearchAlgo>,
+              "01c EBENEN-VERMISCHUNG: die Fassade traegt den Rebound-Tag -- Emitter-type_name-Reise und "
+              "Registry-Reflektion zeigten dann auf die Substanz-Ebene.");
+static_assert(composable::IsReboundSearchAlgoLeaf<
+                  BinarySearchTreeSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+              "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
+static_assert(composable::search_algo_name_is_allocator_invariant_v<BinarySearchTreeSearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
+              "01c name()-INVARIANZ (Level 0) verletzt.");
+static_assert(BinarySearchTreeSearchAlgo::name() ==
+                  BinarySearchTreeSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
+              "01c name()-INVARIANZ verletzt: der Rebound-Leaf traegt einen anderen Organ-Namen als die Fassade -- "
+              "die T6-Wahl leckte in den serialize-/binary_id-Schluessel.");
+static_assert(
+    concepts::SearchAlgoVariant<BinarySearchTreeSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<
+              BinarySearchTreeSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::DensityClassifiedStrategy<
+              BinarySearchTreeSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
 } // namespace comdare::cache_engine::lookup
