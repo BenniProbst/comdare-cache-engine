@@ -2044,7 +2044,9 @@ TEST(MeasurementComboEnvBridge, TierCommandsCarryComboEnvWhenFannedAndOmitForAll
 //       TierCiYamlBuilder). Das sind genau die Stellen, an denen der comdare-messung-driver=CEB kompiliert wird
 //       -- dort ENTSTEHEN die Mess-Stempel real. ADDITIV zu den S6-P1b-Env-Pins darueber: der Env-Export bleibt
 //       (er speist +mtool/Bestandslog, W-11-Flaeche), der -D-Zusatz kommt HINZU.
-//       [all] (die gesamte heutige Live-/golden-Strecke) => KEIN Zusatz => Emission BYTE-IDENTISCH.
+//       [all] (die gesamte heutige Live-/golden-Strecke) => KEINE Zuweisung, sondern seit F-B1 die EXPLIZITE
+//       LOESCHUNG der Cache-Variablen (-U). Die frueher hier zugesagte Byte-Identitaet der [all]-Emission ist
+//       damit BEWUSST aufgegeben -- Begruendung an der F-B1-Pin-Stelle unten.
 TEST(MeasurementComboCtDefine, CebCompileSitesCarryDefineWhenFannedAndOmitForAll) {
     auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
@@ -2070,17 +2072,38 @@ TEST(MeasurementComboCtDefine, CebCompileSitesCarryDefineWhenFannedAndOmitForAll
     // Der Env-Export bleibt DANEBEN bestehen (W-11 unangetastet) -- beide Traeger, ein Wert.
     EXPECT_NE(s2.find("COMDARE_MEASUREMENT_COMBO=\"[wallclock]\" COMDARE_GN_OPT="), std::string::npos);
 
-    // [all] => KEIN Define in KEINER Stufe (byte-identische Live-Emission).
+    // [all] => KEIN Define in KEINER Stufe.
     auto const tp_all = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
     ASSERT_TRUE(tp_all.has_value());
     planner::CiYamlBuilder cb_all;
     director.construct(*tp_all, cb_all);
     EXPECT_EQ(cb_all.text().find("-DCOMDARE_MEASUREMENT_COMBO="), std::string::npos)
-        << "[all] => kein CT-Define (Stufe 1 byte-identisch zum Vor-W2-Stand)";
+        << "[all] => kein CT-Define (Stufe 1)";
     planner::TierCiYamlBuilder tb_all;
     director.construct(*tp_all, tb_all);
     EXPECT_EQ(tb_all.text().find("-DCOMDARE_MEASUREMENT_COMBO="), std::string::npos)
-        << "[all] => kein CT-Define (Stufe 2 byte-identisch zum Vor-W2-Stand)";
+        << "[all] => kein CT-Define (Stufe 2)";
+
+    // F-B1 (Codex-Nachreview W1/W2, Ledger-Nachtrag 05.08.2026 nachmittag-7): [all] emittiert nicht mehr
+    // SCHWEIGEN, sondern die EXPLIZITE LOESCHUNG der CMake-Cache-Variablen. Grund: die Cache-Variable ist
+    // STICKY -- ein Build-Verzeichnis, das zuvor mit -DCOMDARE_MEASUREMENT_COMBO=<spezifisch> konfiguriert
+    // wurde (und die emittierten Jobs halten `build` per gn_out-Persistenz ueber den Checkout-Clean hinweg),
+    // behielte das CT-Define im [all]-Folgelauf. Damit ist die [all]-Emission BEWUSST NICHT MEHR byte-identisch
+    // zur Vor-F-B1-Form -- die W1-Byte-Identitaets-Aussage galt dem Stand VOR diesem Fix. Kein Tier-Fingerprint
+    // haengt daran (reine Job-Text-Flaeche).
+    EXPECT_NE(cb_all.text().find(" -UCOMDARE_MEASUREMENT_COMBO\n"), std::string::npos)
+        << "[all] => explizite Cache-Loeschung statt Schweigen (Stufe 1)";
+    EXPECT_EQ(count_occurrences(cb_all.text(), "-UCOMDARE_MEASUREMENT_COMBO"), 2u)
+        << "genau zwei CEB-Compile-Stellen in Stufe 1 (ceb:build + ceb:emit) tragen die Loeschung";
+    EXPECT_NE(tb_all.text().find(" -UCOMDARE_MEASUREMENT_COMBO\n"), std::string::npos)
+        << "[all] => explizite Cache-Loeschung statt Schweigen (Stufe 2)";
+    EXPECT_GE(count_occurrences(tb_all.text(), "-UCOMDARE_MEASUREMENT_COMBO"), 2u)
+        << "Stufe 2: Build-Batch UND Mess-Batch je Lane tragen die Loeschung";
+    // Die gefannte Strecke traegt die ZUWEISUNG, nie die Loeschung (die beiden Formen schliessen sich aus).
+    EXPECT_EQ(s1.find("-UCOMDARE_MEASUREMENT_COMBO"), std::string::npos)
+        << "spezifische Combo => -D-Zuweisung, KEIN -U (Stufe 1)";
+    EXPECT_EQ(s2.find("-UCOMDARE_MEASUREMENT_COMBO"), std::string::npos)
+        << "spezifische Combo => -D-Zuweisung, KEIN -U (Stufe 2)";
     // Bare-metal-Gegenpart (plan cmake): der aeussere Configure baut den Treiber -> nur ein Hinweis-Echo,
     // und auch das NUR ausserhalb von [all].
     planner::CMakeGraphBuilder gm;

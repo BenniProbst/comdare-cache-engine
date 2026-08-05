@@ -208,14 +208,54 @@ public:
 // sind genau die, an denen der comdare-messung-driver=CEB kompiliert wird und damit die DLL-Quellen samt
 // Mess-Stempel real ENTSTEHEN. Die TIER-DLL-Compile-Flags (make_gpp_compile_fn) bleiben UNANGETASTET.
 //
-// FORM (Spiegel des combo_env-Idioms): "[all]" => LEERER Zusatz => die Live-Emission bleibt BYTE-IDENTISCH
-// (die gesamte heutige golden-/CI-Strecke faehrt [all]). Sonst der doppelt gequotete -D-Zusatz, damit die
-// []-Klammern der Legende nicht der Shell-Glob-Expansion anheimfallen.
+// FORM: spezifische Combo => der doppelt gequotete -D-Zusatz, damit die []-Klammern der Legende nicht der
+// Shell-Glob-Expansion anheimfallen.
+//
+// F-B1 (CODEX-NACHREVIEW W1/W2, Ledger-Nachtrag 05.08.2026 nachmittag-7) -- WARUM [all] NICHT MEHR SCHWEIGT:
+// COMDARE_MEASUREMENT_COMBO ist eine CMAKE-CACHE-VARIABLE (profile_facade/CMakeLists.txt). Cache-Variablen sind
+// STICKY: ein Build-Verzeichnis, das zuvor mit -DCOMDARE_MEASUREMENT_COMBO=<spezifisch> konfiguriert wurde,
+// behaelt den Wert -- und damit das Compile-Define COMDARE_MEASUREMENT_COMBO_CT -- bei jedem Folge-Configure,
+// der die Variable nicht anfasst. Genau das ist die Lage der emittierten Jobs: sie konfigurieren stets
+// `cmake -B build` in EINEM wiederverwendeten Verzeichnis, und die Batch-Jobs halten `build`/`gn_out` per
+// emit_gn_out_persistence_variables sogar ueber den Checkout-Clean hinweg. Ein [all]-Folgelauf haette also
+// still die Combo des Vorgaengers weitergefahren. Ein SCHWEIGENDER Zusatz kann diesen Zustand nicht aufloesen;
+// nur eine EXPLIZITE Anweisung kann es.
+//
+// GEWAEHLTE FORM: -U (Cache-Eintrag ENTFERNEN), nicht die leere Zuweisung -D...= . Beide loeschen die Wirkung
+// (live geprueft: nach -DCOMDARE_MEASUREMENT_COMBO=[wallclock] liefert ein Folge-Configure ohne Zusatz weiterhin
+// das Define, mit -U bzw. mit leerer -D-Zuweisung nicht mehr). -U ist der praezisere Ausdruck, weil er die
+// ABSICHT nennt statt einen Wert zu setzen: [all] heisst "keine Combo gewaehlt", nicht "Combo == Leerstring".
+// Nach dem Entfernen legt der `set(... CACHE STRING)` des Projekts den Eintrag mit seinem eigenen Default neu
+// an -- der Cache steht danach exakt wie in einem jungfraeulichen Build-Verzeichnis. -U ist ausserdem auf einem
+// Verzeichnis OHNE den Eintrag ein folgenloser No-Op (Glob ohne Treffer, kein Fehler), taugt also an genau
+// derselben Stelle fuer beide Zustaende. Die angehaengte Schreibweise -UNAME (ohne Leerzeichen) und die
+// Stellung HINTER den -D-Argumenten sind live gegen cmake 4.3.4 verifiziert.
+//
+// KONSEQUENZ, BEWUSST UND DEKLARIERT: die [all]-Emission ist damit NICHT MEHR byte-identisch zur Vor-F-B1-Form
+// (die W1-Byte-Identitaets-Aussage bezog sich auf den Stand VOR diesem Fix). Betroffen ist AUSSCHLIESSLICH der
+// emittierte JOB-TEXT -- kein Tier-Fingerprint, kein Stempel-Byte, keine XML.
+//
+// Die zweite Verteidigungslinie liegt an der Stempel-Naht (F-B2, measurement_stamp_from_env): ein dennoch
+// einkompiliertes Define ohne synchrone Env wirft dort fail-loud. Deshalb braucht der bare-metal-Weg
+// (CMakeGraphBuilder, der den Treiber NICHT selbst konfiguriert, s.u.) keine eigene [all]-Hinweiszeile.
 //
 // Der Env-Export (combo_env / combo_line) BLEIBT daneben bestehen: er speist +mtool (Objekt-Cache-Key) und die
 // Bestandslog-Zelle z.combo -- das ist die W-11-Flaeche, die diese Welle bewusst NICHT entscheidet.
+
+/// Die EINE [all]/Vollmengen-Erkennung der Emissionsseite. Frueher war sie in ceb_combo_compile_define
+/// eingeschlossen und wurde von der Hinweis-Stelle indirekt ueber "Rueckgabe leer?" abgefragt -- seit F-B1
+/// liefert die Funktion auch fuer [all] Text, also braucht das Praedikat einen eigenen Namen (sonst haette die
+/// Hinweis-Stelle still ihre Bedingung invertiert).
+[[nodiscard]] inline bool ceb_combo_is_full_set(std::string const& combo_legend) {
+    return combo_legend.empty() || combo_legend == "[all]";
+}
+
+/// NAMENS-VERMERK (F-B1): die Funktion liefert seit dieser Welle BEIDE Richtungen des Defines -- die Zuweisung
+/// (-D) UND die Loeschung (-U). Der Name bleibt UNVERAENDERT, weil er die SACHE trifft ("das Argument, das ueber
+/// das Compile-Define entscheidet") und eine Umbenennung fuenf Aufrufstellen plus Pins ohne Substanzgewinn
+/// bewegte; ein praeziserer Name (ceb_combo_compile_define_arg) ist Kandidat fuer den Abschluss-Aufraeumpass.
 [[nodiscard]] inline std::string ceb_combo_compile_define(std::string const& combo_legend) {
-    if (combo_legend.empty() || combo_legend == "[all]") return {};
+    if (ceb_combo_is_full_set(combo_legend)) return " -UCOMDARE_MEASUREMENT_COMBO";
     return " \"-DCOMDARE_MEASUREMENT_COMBO=" + combo_legend + "\"";
 }
 
@@ -413,7 +453,11 @@ public:
         // W2 (bare-metal-Gegenpart): hier ist ceb:build nur Echo/Stamp -- den Treiber baut der AEUSSERE Configure.
         // Deshalb kann dieser Weg den Define nicht selbst setzen; er SAGT dem Bediener, welcher Zusatz an den
         // aeusseren Configure gehoert. [all] => kein Hinweis => Emission byte-identisch (Topologie unberuehrt).
-        if (!ceb_combo_compile_define(c.legend).empty())
+        // F-B1: die Bedingung fragt jetzt das PRAEDIKAT statt "Rueckgabe leer?" -- ceb_combo_compile_define
+        // liefert fuer [all] die -U-Loeschung und waere damit nie mehr leer. Diese Stelle bleibt bewusst
+        // [all]-STUMM: sie emittiert keinen Configure-Aufruf, sondern nur einen Hinweis an den Bediener, und der
+        // sticky-Fall des AEUSSEREN Configure faellt hier in die F-B2-Wache an der Stempel-Naht (fail-loud).
+        if (!ceb_combo_is_full_set(c.legend))
             out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"ceb:build " + c.legend +
                     " -- aeusserer Configure braucht -DCOMDARE_MEASUREMENT_COMBO=" + c.legend +
                     " (W2: CT-Einbau der Mess-Combo)\"\n";
@@ -790,7 +834,10 @@ private:
         s += "    - 'echo \"== Toolchain ==\"; cmake --version; (g++ --version || c++ --version || echo \"KEIN "
              "C++-Compiler\")'\n";
         s += "    - cd Code\n";
-        // W2: die CEB wird MIT der einkompilierten Mess-Combo konfiguriert ([all] => kein Zusatz => byte-identisch).
+        // W2: die CEB wird MIT der einkompilierten Mess-Combo konfiguriert. F-B1 (05.08.2026): [all] emittiert
+        // nicht mehr NICHTS, sondern die EXPLIZITE Loeschung -UCOMDARE_MEASUREMENT_COMBO (sticky Cache-Var,
+        // s. F-B1-Block ueber ceb_combo_is_full_set); die Alt-Aussage "kein Zusatz => byte-identisch" galt
+        // NUR VOR F-B1.
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
              ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -824,7 +871,9 @@ private:
         emit_child_submodule_prolog(s, profile_basename); // W10-Nacharbeit 2: ceb:emit baut Treiber neu -> ce-Quellen
         s += "    - cd Code\n";
         // W2: derselbe CT-Einbau wie im ceb:build-Job -- die hier NEU gebaute CEB muss dieselbe Combo tragen,
-        // sonst emittierte eine [all]-CEB die Stufe-2 einer combo-gehaerteten Strecke ([all] => kein Zusatz).
+        // sonst emittierte eine [all]-CEB die Stufe-2 einer combo-gehaerteten Strecke. F-B1 (05.08.2026):
+        // [all] traegt auch hier die -U-Loeschung statt "kein Zusatz" (Alt-Aussage galt NUR VOR F-B1;
+        // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
              ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -1287,7 +1336,9 @@ private:
         emit_child_submodule_prolog(s, header_.profile_basename); // ce-Submodul-Klon, Spiegel des Bau-Jobs
         s += "    - cd Code\n";
         // W2: Spiegel des Build-Batch -- der Mess-Batch baut die CEB neu und muss dieselbe Combo einkompiliert
-        // tragen, sonst truege dieselbe Zelle je nach Job zwei verschiedene Mess-Zeilen ([all] => kein Zusatz).
+        // tragen, sonst truege dieselbe Zelle je nach Job zwei verschiedene Mess-Zeilen. F-B1 (05.08.2026):
+        // [all] traegt auch hier die -U-Loeschung statt "kein Zusatz" (Alt-Aussage galt NUR VOR F-B1;
+        // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
              header_.build_semantic.cmake_build_type + ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
