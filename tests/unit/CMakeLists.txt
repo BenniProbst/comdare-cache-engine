@@ -4342,6 +4342,33 @@ add_test(NAME test_lazy_adhoc_source_gen COMMAND test_lazy_adhoc_source_gen)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_adhoc_source_gen)
 set_tests_properties(test_lazy_adhoc_source_gen PROPERTIES LABELS "e4;limits;inc-g6")
 
+# W2 (Owner-GO mittag-6 R1, 2026-08-05) -- Flaechen-Gate des CT-Stempel-VORRANGS an der EINEN Stempel-Naht
+# measurement_stamp_from_env. DIESE TU ist der einzige Ort im Baum, der MIT der einkompilierten Mess-Combo
+# uebersetzt wird (COMDARE_MEASUREMENT_COMBO_CT) -- alle anderen TUs (auch test_lazy_adhoc_source_gen direkt
+# darueber) kompilieren weiter den #else-Env-Zweig und belegen dessen unveraenderte Semantik. Eigene Binary =>
+# kein ODR-Konflikt zwischen den beiden Auspraegungen der inline-Funktion.
+# Include-Satz + Katalog-Anhang wie test_lazy_adhoc_source_gen (die Naht wohnt in lazy_adhoc_source_gen.hpp).
+add_executable(test_w2_combo_ct_stamp
+    "test_w2_combo_ct_stamp.cpp")
+target_compile_features(test_w2_combo_ct_stamp PRIVATE cxx_std_23)
+target_include_directories(test_w2_combo_ct_stamp PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_w2_combo_ct_stamp PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_w2_combo_ct_stamp)
+target_compile_definitions(test_w2_combo_ct_stamp PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_MEASUREMENT_COMBO_CT=\"[wallclock]\"")
+comdare_attach_generated_catalog(test_w2_combo_ct_stamp)
+add_test(NAME test_w2_combo_ct_stamp COMMAND test_w2_combo_ct_stamp)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w2_combo_ct_stamp)
+set_tests_properties(test_w2_combo_ct_stamp PROPERTIES LABELS "w2;stempel;fehlerklassen")
+
 # Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
 # load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
 add_executable(test_parser_konsolidierung "test_parser_konsolidierung.cpp")

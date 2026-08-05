@@ -202,6 +202,23 @@ public:
     virtual void end_measurement_combo(PlanMeasurementCombo const& /*combo*/) {}
 };
 
+// W2 (Owner-GO mittag-6 R1 "-D-Define wie empfohlen", Fork-A-Minimalhaerte): der CONFIGURE-ZUSATZ, der die
+// gewaehlte Mess-Combo COMPILE-hart in die CEB einbaut. EINE Ableitung fuer ALLE VIER CEB-Compile-Stellen der
+// Emission (ceb:build + ceb:emit der Stufe 1; tier-build-batch + measure-batch der Stufe 2) -- die vier Stellen
+// sind genau die, an denen der comdare-messung-driver=CEB kompiliert wird und damit die DLL-Quellen samt
+// Mess-Stempel real ENTSTEHEN. Die TIER-DLL-Compile-Flags (make_gpp_compile_fn) bleiben UNANGETASTET.
+//
+// FORM (Spiegel des combo_env-Idioms): "[all]" => LEERER Zusatz => die Live-Emission bleibt BYTE-IDENTISCH
+// (die gesamte heutige golden-/CI-Strecke faehrt [all]). Sonst der doppelt gequotete -D-Zusatz, damit die
+// []-Klammern der Legende nicht der Shell-Glob-Expansion anheimfallen.
+//
+// Der Env-Export (combo_env / combo_line) BLEIBT daneben bestehen: er speist +mtool (Objekt-Cache-Key) und die
+// Bestandslog-Zelle z.combo -- das ist die W-11-Flaeche, die diese Welle bewusst NICHT entscheidet.
+[[nodiscard]] inline std::string ceb_combo_compile_define(std::string const& combo_legend) {
+    if (combo_legend.empty() || combo_legend == "[all]") return {};
+    return " \"-DCOMDARE_MEASUREMENT_COMBO=" + combo_legend + "\"";
+}
+
 // ── PlanTextBuilder — ConcreteBuilder + der --dump-plan-Traeger. Deterministische Zeilen-Textform. ──────────
 //    Format (stabil, byte-reproduzierbar; keine host-abhaengigen Felder):
 //      # comdare-experiment-plan v1.1
@@ -393,6 +410,13 @@ public:
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"ceb:build " + c.legend +
                 " (CEB-Typ = comdare-messung-driver)\"\n";
+        // W2 (bare-metal-Gegenpart): hier ist ceb:build nur Echo/Stamp -- den Treiber baut der AEUSSERE Configure.
+        // Deshalb kann dieser Weg den Define nicht selbst setzen; er SAGT dem Bediener, welcher Zusatz an den
+        // aeusseren Configure gehoert. [all] => kein Hinweis => Emission byte-identisch (Topologie unberuehrt).
+        if (!ceb_combo_compile_define(c.legend).empty())
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"ceb:build " + c.legend +
+                    " -- aeusserer Configure braucht -DCOMDARE_MEASUREMENT_COMBO=" + c.legend +
+                    " (W2: CT-Einbau der Mess-Combo)\"\n";
         out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
         out_ += "        COMMENT \"ceb:build " + c.legend + "\"\n";
         out_ += "        VERBATIM)\n";
@@ -766,7 +790,9 @@ private:
         s += "    - 'echo \"== Toolchain ==\"; cmake --version; (g++ --version || c++ --version || echo \"KEIN "
              "C++-Compiler\")'\n";
         s += "    - cd Code\n";
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
+        // W2: die CEB wird MIT der einkompilierten Mess-Combo konfiguriert ([all] => kein Zusatz => byte-identisch).
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
+             ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -797,7 +823,10 @@ private:
         // unten liest GENAU diese Variable ($COMDARE_GOLDEN_N_PROFILE) -> der Grandchild-Katalog folgt dem Profil-Scope.
         emit_child_submodule_prolog(s, profile_basename); // W10-Nacharbeit 2: ceb:emit baut Treiber neu -> ce-Quellen
         s += "    - cd Code\n";
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
+        // W2: derselbe CT-Einbau wie im ceb:build-Job -- die hier NEU gebaute CEB muss dieselbe Combo tragen,
+        // sonst emittierte eine [all]-CEB die Stufe-2 einer combo-gehaerteten Strecke ([all] => kein Zusatz).
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
+             ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1111,8 +1140,10 @@ private:
         emit_child_submodule_prolog(s, header_.profile_basename); // W10-Nacharbeit 2: manueller ce-Submodul-Klon
         s += "    - cd Code\n";
         // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure => "Release"); Default byte-identisch zu HEAD.
+        // W2: der CEB-NEUBAU im Batch-Job-Kontext traegt die Combo COMPILE-hart -- HIER entstehen die Stempel real
+        // (die CEB generiert in diesem Job die DLL-Quellen); ohne den Define bliebe die Haertung Fiktion.
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
-             header_.build_semantic.cmake_build_type + "\n";
+             header_.build_semantic.cmake_build_type + ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1255,8 +1286,10 @@ private:
         // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
         emit_child_submodule_prolog(s, header_.profile_basename); // ce-Submodul-Klon, Spiegel des Bau-Jobs
         s += "    - cd Code\n";
+        // W2: Spiegel des Build-Batch -- der Mess-Batch baut die CEB neu und muss dieselbe Combo einkompiliert
+        // tragen, sonst truege dieselbe Zelle je nach Job zwei verschiedene Mess-Zeilen ([all] => kein Zusatz).
         s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
-             header_.build_semantic.cmake_build_type + "\n";
+             header_.build_semantic.cmake_build_type + ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";

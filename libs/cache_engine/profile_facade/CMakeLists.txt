@@ -128,6 +128,26 @@ target_compile_definitions(comdare_profile_run_facade PRIVATE
     COMDARE_CE_ENABLE_STATISTICS=1
     COMDARE_EXPERIMENT_MODE_ON=1)
 
+# W2 (Owner-GO mittag-6 R1 "-D-Define wie empfohlen", Fork-A-Minimalhaerte): die vom Planer gewaehlte
+# Mess-Combo wird COMPILE-hart in die CEB eingebaut, statt nur als Laufzeit-Env zu reisen -- der
+# Stufe-2-CT-EINBAU der Mess-Achsen (Stufen-Doktrin mittag-9/-10).
+#
+# BEWUSST DERSELBE NAME wie die Env (eine Vokabel, zwei Traeger-Welten): der emittierte ceb:build-Job traegt
+# kuenftig BEIDE Formen mit demselben Wert -- das Compile-Define haertet den Stempel, die Env speist weiterhin
+# +mtool (Cache-Key) und die Bestandslog-Zelle. Die Cache-Key-Einfaltung (W-11) ist damit NICHT mitentschieden,
+# sondern ausdruecklich OFFEN (Nach-Abgabe; die Codegen-Zielform BAUPLAN:243 loest den -D-Interim spaeter ab).
+#
+# ORT: das Fassaden-Target ist die EINZIGE TU der Stempel-Naht im Treiber-/Planer-Link
+# (measurement_stamp_from_env kompiliert in profile_run_facade.cpp; main.cpp der beiden Hosts ist umbrella-frei).
+# LEER (Default) => KEIN Define => der #else-Zweig laeuft wortgleich weiter => byte-identisch zum Vor-W2-Stand.
+set(COMDARE_MEASUREMENT_COMBO "" CACHE STRING
+    "W2: Mess-Combo-Legende [a,b,c] -- kompiliert die CEB messsystem-hart; leer = [all]-Vollmenge (Sect.-64-Default)")
+if(COMDARE_MEASUREMENT_COMBO)
+    target_compile_definitions(comdare_profile_run_facade PRIVATE
+        "COMDARE_MEASUREMENT_COMBO_CT=\"${COMDARE_MEASUREMENT_COMBO}\"")
+    message(STATUS "[profile_facade] W2: Mess-Combo COMPILE-hart eingebaut -- ${COMDARE_MEASUREMENT_COMBO}")
+endif()
+
 # S3 P-RESOLVER (A1 Produktions-Aktivierung, 2026-07-20): die DREI statischen ce-Registry-Pfade als Defines am
 # Facade-Target -- der CMake-Interface-Kanal, ueber den construct_plan_into() das RegistryTrio (Organ/System/Mess)
 # via read_axis_registry_trio liest. Muster wie der Contract-Test (test_experiment_plan_director, tests/unit/

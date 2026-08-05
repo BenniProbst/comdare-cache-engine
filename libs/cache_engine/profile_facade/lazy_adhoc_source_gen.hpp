@@ -93,7 +93,8 @@
 #include <cstdint> // I2: std::uint8_t fuer das SHA-512-Preimage
 #include <cstdlib> // S6-P1b Env-Bruecke: std::getenv (COMDARE_MEASUREMENT_COMBO)
 #include <memory>
-#include <span> // I2: std::span fuer die SHA-512-Primitive
+#include <span>      // I2: std::span fuer die SHA-512-Primitive
+#include <stdexcept> // W2: Widerspruchs-Wache der CT-Combo (fehlerklasse=konfiguration_widerspruch)
 #include <string>
 #include <string_view>
 #include <utility>
@@ -239,10 +240,36 @@ template <class List>
 /// Quellen EINES Laufs, per Konstruktion und nicht per Absprache.
 /// SEMANTIK unveraendert (K7b-2): gesetzt -> die gewaehlte Combo-Legende als MENGE; UNGESETZT/leer == [all]
 /// == die VOLLE 3-Tool-Vollmenge (Vollmengen-Provenienz).
+///
+/// W2 (Owner-GO mittag-6 R1 "-D-Define wie empfohlen", Fork-A-Minimalhaerte): ist die Mess-Combo COMPILE-hart
+/// einkompiliert (COMDARE_MEASUREMENT_COMBO_CT, gesetzt vom Emissions-Weg ueber die CMake-Cache-Variable
+/// COMDARE_MEASUREMENT_COMBO), dann ist SIE die Wahrheit -- das ist der Stufe-2-CT-EINBAU der Mess-Achsen
+/// (Stufen-Doktrin mittag-9/-10: die Stufe-1-RT-Freigabe lebt im PLANER, die Stufe-2-Haertung in der CEB).
+/// Weil DIESE Funktion seit A13-M3/C1 die EINE Uebersetzung fuer Source-Gen UND Fingerprint-Fn UND
+/// SOTA-Emitter ist, erreicht die CT-Wahl alle drei Konsumenten KONSTRUKTIONSBEDINGT gleich -- es gibt keinen
+/// vierten Weg, der die Env noch einmal selbst liest.
+///
+/// BYTE-NEUTRALITAET (DAUER-AUFLAGE): der Renderer bleibt DERSELBE
+/// (abi::measurement_stamp_line_from_combo_legend) und bekommt DENSELBEN Legenden-String -- die MESS-ZEILE der
+/// Tier-Fingerprints ist damit per Konstruktion byte-identisch zum Env-Weg, nicht per Zufall. OHNE Define
+/// (der gesamte golden-/CI-Bestand, [all]-Emission) laeuft der #else-Zweig WORTGLEICH weiter.
+///
+/// WIDERSPRUCHS-WACHE (Fehlerklassen-Doktrin): eine ABWEICHENDE Laufzeit-Env gegen ein einkompiliertes
+/// Kompilat ist ein Konfigurationswiderspruch -- fail-loud, nie still. Eine GLEICHE Env ist stumm zulaessig
+/// (die emittierten Jobs tragen weiterhin BEIDE Formen mit demselben Wert; der Env-Kanal speist +mtool und
+/// die Bestandslog-Zelle -- die W-11-Flaeche, hier bewusst UNANGETASTET).
 [[nodiscard]] inline std::string measurement_stamp_from_env() {
+#ifdef COMDARE_MEASUREMENT_COMBO_CT
+    char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
+    if (e != nullptr && *e != '\0' && std::string_view{e} != std::string_view{COMDARE_MEASUREMENT_COMBO_CT})
+        throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO ('" +
+                                 std::string{e} + "') != einkompilierte Combo ('" COMDARE_MEASUREMENT_COMBO_CT "')");
+    return ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(COMDARE_MEASUREMENT_COMBO_CT);
+#else
     char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
     return (e != nullptr && *e != '\0') ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
                                         : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
+#endif
 }
 
 /// make_lazy_adhoc_source_gen_from_env() -- die LIVE-Naht der S6-P1b Env-Bruecke (d)-(f): die vom Planer gewaehlte
