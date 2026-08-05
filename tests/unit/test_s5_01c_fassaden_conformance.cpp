@@ -174,6 +174,10 @@ using MigriertUndDisabled = mp::mp_filter<ist_disabled, MigrierteOrgane>;
 //   * Scheiben 1+2, unveraendert: k_ary, interpolation, eytzinger, linear_scan + die vier per-K.
 //   * NEU Scheibe 3: vector_u16u16 = die FLACHE Familie (zwei parallele Vektoren, u16-Keyraum)
 //                    bst          = der KNOTEN-POOL mit Free-List (leer konstruiert).
+// Die EV-4-STAGING-WRAPPER (original_*) haben eine eigene Probe -- aus einem Grund, den erst der Lauf
+// gezeigt hat: DREI von ihnen sind am Default-OFF INERT (insert-Rumpf unter `if constexpr (enabled)`),
+// der VIERTE (original_surf) ist es nicht. Ein pauschaler Kontrast-Beweis waere an dreien vakuoos
+// gruen gewesen; die eigene Probe leitet den Fall am Lauf ab und sagt in beiden Faellen die Wahrheit.
 // Die BAU-ALLOZIERENDEN Organe (array65535, skip_list, hash_search) haben eine EIGENE Probe weiter
 // unten -- fuer sie ist der Nullpunkt per Konstruktion nicht null, und genau diese Umkehrung ist dort
 // die Aussage. Sie stehen deshalb NICHT in dieser Liste (die generische Probe wuerde an ihnen
@@ -183,6 +187,14 @@ using KontrastStichprobe =
     mp::mp_list<lk::KArySearchAlgo, lk::InterpolationSearchAlgo, lk::EytzingerSearchAlgo, lk::LinearScanSearchAlgo,
                 lk::KArySearchAlgoK2, lk::KArySearchAlgoK4, lk::KArySearchAlgoK8, lk::KArySearchAlgoK16,
                 lk::VectorU16U16SearchAlgo, lk::BinarySearchTreeSearchAlgo>;
+
+/// Die EV-4-STAGING-WRAPPER, ueber die die Inertheits-Probe laeuft (s.u.). Ableitbar waeren sie nicht:
+/// "traegt einen Paper-Mixin" ist keine Typ-Eigenschaft am Default-Build (das Codegen-Gate ist aus).
+using StagingWrapper = mp::mp_list<lk::OriginalHotSearchAlgo, lk::OriginalStartSearchAlgo,
+                                   lk::OriginalWormholeSearchAlgo, lk::OriginalSurfSearchAlgo>;
+
+static_assert(mp::mp_all_of<StagingWrapper, traegt_migrations_ausweis>::value,
+              "01c: ein EV-4-Staging-Wrapper traegt keinen Migrations-Ausweis mehr.");
 
 static_assert(mp::mp_all_of<KontrastStichprobe, traegt_migrations_ausweis>::value,
               "01c-Stichprobe ENTKOPPELT: ein Organ der Kontrast-Stichprobe traegt keinen Migrations-Ausweis, "
@@ -498,6 +510,82 @@ void pruefe_bau_allozierer() {
     pruefe(frisch_komposition.occupied_count() == frisch_default.occupied_count(), "Belegung identisch");
 }
 
+/// (6c) DIE EV-4-STAGING-WRAPPER (original_*) -- eine Probe, die ihre Aussage AM LAUF ableitet.
+///
+/// ZWEI BEFUNDE, DIE DIESE PROBE ERZWUNGEN HABEN (Scheibe 3, am Lauf gefunden statt angenommen):
+///
+///   (i) DREI der vier Wrapper sind am Default-OFF INERT: ihr insert-Rumpf steht unter
+///       `if constexpr (enabled)` und tut nichts (original_hot:129, original_start:124,
+///       original_wormhole:178). Die Staging-Vektoren bleiben leer, die Allokations-Zaehler beider
+///       Ebenen stehen auf 0. Der generische Kontrast-Beweis waere an ihnen nicht knapp
+///       durchgefallen -- er waere SINNLOS gewesen, und sein ">0" haette schlicht gelogen.
+///
+///   (ii) original_surf ist es NICHT: sein insert-Rumpf traegt diesen Gate NICHT (:181-189) und
+///       fuehrt seine Staging-Vektoren auch am Default-OFF real. Das ist eine VORBESTEHENDE
+///       Asymmetrie der vier Wrapper (nicht von dieser Scheibe erzeugt -- der Gate fehlte schon am
+///       Basis-Commit) und bleibt hier bewusst UNANGETASTET: sie zu vereinheitlichen waere eine
+///       Verhaltens-Aenderung an einem Registry-Organ und gehoert nicht in eine Allokator-Scheibe.
+///       Sie ist als offener Punkt gemeldet.
+///
+/// Die Probe leitet deshalb AM LAUF ab, welcher Fall vorliegt, statt ihn zu unterstellen:
+///   * nimmt der Wrapper Eintraege an -> voller Kontrast (Zahlen beider Ebenen gleich, echte Bytes);
+///   * nimmt er keine an -> die ehrliche Inertheits-Aussage (beide Ebenen 0 UND verhaltensgleich).
+/// Damit sagt sie heute die Wahrheit ueber alle vier UND schaltet automatisch um, sobald jemand ein
+/// Flag umlegt oder den fehlenden Gate nachzieht -- ohne dass hier eine Zeile faellt.
+///
+/// EV-4-GRENZE, hier wiederholt, weil eine spaetere CSV-Lektuere sie sonst nicht sieht: was diese
+/// Organe ueber die Achse melden, ist der wrapper-eigene STAGING-Anteil. Der Vendor-/Codegen-Pfad
+/// bleibt faithful und damit T6-blind (Design-Entscheid abend-14 (iv)).
+template <class S>
+void pruefe_staging_wrapper() {
+    using Rebound = comp::search_algo_for_composition_t<S, KompositionsAllokator>;
+
+    Rebound am_kompositions_zaehler{};
+    S       am_achsen_default{};
+    treibe(am_kompositions_zaehler, kN);
+    treibe(am_achsen_default, kN);
+
+    bool const nimmt_eintraege = (am_kompositions_zaehler.occupied_count() > 0);
+    std::printf("  --- %s (EV-4-Staging-Wrapper, %s | Fassade %s | Rebound %s)\n", S::name().data(),
+                nimmt_eintraege ? "AKTIV -> voller Kontrast" : "INERT -> Inertheits-Aussage",
+                s5::family_alloc_form<S>(), s5::family_alloc_form<Rebound>());
+
+    // Die Ebenen-Gleichheit gilt in BEIDEN Faellen und ist die eigentliche Aussage dieser Scheibe:
+    // ob ein Organ Eintraege annimmt, ist eine Eigenschaft des ORGANS -- nie der Allokator-Wahl.
+    pruefe(am_kompositions_zaehler.occupied_count() == am_achsen_default.occupied_count(),
+           "Belegung beider Ebenen identisch (Annahme-Verhalten haengt am Organ, nicht an der T6-Wahl)");
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    auto const k_stat = am_kompositions_zaehler.search_allocator_statistics();
+    auto const d_stat = am_achsen_default.search_allocator_statistics();
+    std::printf("      Allokationen: Komposition=%llu (%llu B) | Achsen-Default=%llu (%llu B)\n",
+                static_cast<unsigned long long>(k_stat.allocation_count),
+                static_cast<unsigned long long>(k_stat.total_bytes_allocated),
+                static_cast<unsigned long long>(d_stat.allocation_count),
+                static_cast<unsigned long long>(d_stat.total_bytes_allocated));
+    pruefe(k_stat.allocation_count == d_stat.allocation_count &&
+               k_stat.total_bytes_allocated == d_stat.total_bytes_allocated,
+           "Allokations-Bilanz beider Ebenen zahlen- UND byte-gleich");
+    if (nimmt_eintraege) {
+        pruefe(k_stat.allocation_count > 0,
+               "der aktive Staging-Anteil laeuft REAL ueber die T6-Wahl der Komposition (EV-4: Staging, "
+               "NICHT der Vendor-Anteil)");
+        pruefe(k_stat.total_bytes_allocated > 0, "und es sind echte Bytes, nicht nur Zaehl-Ereignisse");
+    } else {
+        pruefe(k_stat.allocation_count == 0,
+               "INERT: der Wrapper alloziert auf KEINER Ebene -- ein Kontrast-Beweis waere hier vakuoos, "
+               "deshalb steht diese Aussage statt eines geschenkten Gruens");
+    }
+#endif
+
+    bool alle_gleich = true;
+    for (std::uint32_t i = 0; i < kN; ++i) {
+        auto const k = static_cast<typename S::key_type>(i);
+        if (am_kompositions_zaehler.lookup(k) != am_achsen_default.lookup(k)) alle_gleich = false;
+    }
+    pruefe(alle_gleich, "Antworten der beiden Ebenen identisch (im aktiven wie im inerten Zustand)");
+}
+
 /// (8) REGISTRY-BYTE-BEWEIS am committeten Artefakt -- je ENABLED Organ der Population.
 /// Der Roundtrip-Test (test_axis_registry_roundtrip) beweist "XML == Reflektion des Codes". DIESE
 /// Probe beweist die andere Haelfte: dass die reflektierte Form die ARGLOSE Fassaden-Form ist. Ein
@@ -565,6 +653,12 @@ int main() {
     pruefe_bau_allozierer<lk::Array65535SearchAlgo, /*kWaechstUnterLast=*/false>();
     pruefe_bau_allozierer<lk::SkipListSearchAlgo, /*kWaechstUnterLast=*/true>();
     pruefe_bau_allozierer<lk::HashSearchAlgo, /*kWaechstUnterLast=*/true>();
+
+    std::printf("\n(6c) EV-4-STAGING-WRAPPER (Aussage AM LAUF abgeleitet -- inert oder aktiv, beides ehrlich):\n");
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, StagingWrapper>>([](auto id) {
+        using S = typename decltype(id)::type;
+        pruefe_staging_wrapper<S>();
+    });
 
     std::printf("\n(8) REGISTRY-BYTE-BEWEIS je ENABLED Organ (nur die stehen in der XML):\n");
     {
