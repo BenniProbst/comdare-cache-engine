@@ -7,19 +7,46 @@
 > **NACHTRAG 2026-08-05 (B1/E-18, Abgrenzung fuer das Vier-Ledger-Audit E-02):** Der LaTeX-Anhang-
 > VORWAERTS-Kanal je CI (Owner-Dekret "HAUPT-ZIEL des Gesamt-Systems", super-Ledger
 > `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` Sec-68c / Vor-Trigger-Checkliste B1) ist ein
-> **super+289-Paket: der ce-Beitrag am E-18-Kern ist NULL Code.** Der Kanal liegt super-seitig als
-> CI-Job `anhang:forward` (Stage `persist`, inert-by-default hinter `COMDARE_ANHANG_FORWARD`) plus
-> `ci/anhang_forward_core.sh`; er konsumiert die von der ce bereits emittierten `result.csv` (bzw. den
-> persistierten `measurement/<RUN_TS>/`-Korpus) und schreibt die regenerierten
-> `anhang/{de,en}/tabellen/*.tex` vorwaerts ins Thesis-Submodul (GitLab-Projekt 289). Die ce-seitige
-> Mess-Kette (`profile_facade/planner/experiment_plan_director.hpp`, Treiber-/Planer-Emission) ist fuer
-> E-18 **QUELLE, keine Baustelle**. Zwei benannte, bewusst NICHT in B1 enthaltene Folge-Punkte:
-> (1) **M-CE-18** -- `tools/latex_anhang/` ist toter Alt-Parser (nie aufgerufen; aktive Strecke ist super
-> `Code/08_appendix_generator`); Deprecation ist Owner-GO-pflichtig und steht auf der Kandidaten-Liste
-> des Abschluss-Aufraeumpasses. (2) **Grandchild-Vorwaerts-Verlaengerung** -- ein Anhang-Hook in der
-> Director-Emission lohnt erst, wenn die T6-Einsammel-Naht (Posten B5) die Stufe-2-Mess-CSV des
-> dynamischen `planer:delegate`-Pfades in den Parent-/persist-Fluss holt; bis dahin traegt der
-> `measurement/`-Korpus-Zweig des Kanals auch den dynamischen Pfad.
+> **super+289-Paket: der ce-Beitrag am E-18-Kern ist NULL Code.**
+>
+> **IST-STAND 2026-08-05 -- E-18 ist ENTWORFEN, NICHT IMPLEMENTIERT (kein Ist-Anspruch ohne Beleg):**
+> Im super-Repo `probst-diplomarbeit-cache-engine` existiert WEDER ein CI-Job `anhang:forward` NOCH
+> eine Datei `ci/anhang_forward_core.sh` -- am 05.08.2026 ueber alle 12 refs (`refs/heads` +
+> `refs/remotes`) geprueft, Treffer 0. Real vorhanden ist ausschliesslich ein UNGELANDETER
+> Patch-VORSCHLAG: Bau-Stand unter super `docs/sessions/backups/20260805-b1-e18/super-anteil/`,
+> **massgeblich** der nachgebesserte Stand unter
+> `docs/sessions/backups/20260805-b1-e18-nachbesserung/super-anteil/` (ASCII-only, Zahlen berichtigt,
+> PDF-Gate-Grenzen deklariert).
+> Dessen SOLL: ein additiver Job `anhang:forward` in Stage `persist`, inert-by-default hinter
+> `COMDARE_ANHANG_FORWARD`, plus die neue Datei `ci/anhang_forward_core.sh`; er konsumiert die von der
+> ce bereits emittierten `result.csv` (bzw. den persistierten `measurement/<RUN_TS>/`-Korpus) und
+> schreibt die regenerierten `anhang/{de,en}/tabellen/*.tex` vorwaerts ins Thesis-Submodul
+> (GitLab-Projekt 289). **E-18 bleibt bis zu Landung + Lebend-Check OFFEN** -- ein Audit darf diesen
+> Nachtrag NICHT als "Kanal steht, nur inert" lesen.
+>
+> Die ce-seitige Mess-Kette (`libs/cache_engine/profile_facade/planner/experiment_plan_director.hpp`,
+> Treiber-/Planer-Emission) ist fuer E-18 **QUELLE, keine Baustelle**. Zwei benannte, bewusst NICHT in
+> B1 enthaltene Folge-Punkte:
+>
+> (1) **M-CE-18 -- `tools/latex_anhang/` ist NICHT tot.** Korrektur einer frueheren Formulierung
+> ("nie aufgerufen"): am Objekt widerlegt (Stand 05.08.2026). `tools/CMakeLists.txt:4`
+> (`add_subdirectory(latex_anhang)`) baut es im DEFAULT-Build, und `tests/unit/CMakeLists.txt:278-280`
+> haengt den AKTIVEN Unit-Test `test_latex_anhang` (ctest #28 von 405, Passed) an
+> `comdare::latex_anhang_lib`. Ersatzloses Entfernen bricht Default-Build UND Unit-CI. Belegbar ist
+> nur: es liegt NICHT im Produktions-/Forward-Pfad (aktive Strecke ist super
+> `Code/08_appendix_generator`) und wird vom E-18-Kanal nicht genutzt -- GENAU DAS ist der Grund, aus
+> dem es Deprecate-KANDIDAT auf der Liste des Abschluss-Aufraeumpasses bleibt (Owner-GO-pflichtig).
+>
+> (2) **Grandchild-Vorwaerts-Verlaengerung** -- ein Anhang-Hook in der Director-Emission lohnt erst,
+> wenn die T6-Einsammel-Naht (Posten B5) die Stufe-2-Mess-CSV des dynamischen `planer:delegate`-Pfades
+> in den Parent-/persist-Fluss holt. **KEIN Ersatz-Versprechen bis dahin:** der persistierte
+> `measurement/`-Korpus traegt den dynamischen Pfad heute NICHT. Belegter Ist 05.08.2026 -- der Korpus
+> enthaelt genau EINEN Laufordner (`measurement/20260726-164259-d03-strukt-r-erstbeleg/`) aus dem
+> statischen Pfad, und der super-Job `ergebnis:holen` (Job-Name-Anker in `.gitlab-ci.yml`) ist per
+> eigenem Kommentar "SKELETT" mit auskommentierter Sammel-Naht und DREIFACH inert
+> (`COMDARE_BUILD_GOLDEN_N`-Gate + `when: manual` + `_bot_`->never). Delegierte Stufe-2/3-Messwerte
+> erreichen den Korpus also nicht und wuerden von einem Korpus-Zweig STILL ausgelassen (stiller
+> Datenverlust) -- der dynamische Pfad ist erst hinter B5 vorwaerts-faehig.
 
 # Architektur-Ziele- / Offene-Punkte-Ledger (Single-Source-of-Truth)
 
