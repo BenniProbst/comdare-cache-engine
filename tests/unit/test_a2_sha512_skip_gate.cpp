@@ -28,9 +28,13 @@
 // EICH-DISZIPLIN (D7): diese TU verwendet SYNTHETISCHE 128-hex-Vektoren. Der geeichte Referenz-Vektor
 // kFrozenFingerprintV1 bleibt bewusst auf seine drei bestehenden Fundstellen gepinnt (test_g3_sha512_index.cpp,
 // test_w10_system_cell_values.cpp, test_m_w12_stamp_bausteine.cpp) -- das Gate selbst ist wert-agnostisch.
+// [NACHGEFUEHRT 2026-08-05, O-2/C-2: die drei Fundstellen sind mit dem Preimage-Format-Bump 2 -> 3 NEU
+// eingefroren worden, alle drei im SELBEN Commit. Diese TU war davon nicht betroffen und soll es nicht
+// sein -- genau dafuer ist der Pin da: das Skip-Gate prueft den VERGLEICH, nie einen Digest-WERT.]
 //
 // L14: geeicht wurde MIT LEEREM Overlay-Glied (deklarierte, nicht stille Luecke; Heilung im Overlay-Fenster
-// Phase 6). Das beruehrt diese TU nicht: sie prueft den VERGLEICH, nicht den Preimage-Inhalt.
+// Phase 6; seit O-2/C-2 ist es das ACHTE und letzte Glied). Das beruehrt diese TU nicht: sie prueft den
+// VERGLEICH, nicht den Preimage-Inhalt.
 
 #include "builder/artifact_transport/artifact_cache.hpp"      // (e): pull_tier_binary + kOptionalTierSidecars
 #include "builder/build_orchestrator/build_orchestrator.hpp"  // dll_is_current / write_*_sidecar / BuildOrchestrator

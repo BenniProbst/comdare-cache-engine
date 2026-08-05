@@ -16,7 +16,13 @@
 // ERHEBUNG DER VOR-WERTE (reproduzierbar, im C10-(c)-Commit literal protokolliert): dieselbe Sonde
 // gegen den Stand 19adba05 (VOR C8) und gegen HEAD uebersetzt; die Digests unten sind die Ausgabe des
 // VOR-Laufs. Der Nach-Lauf liefert sie byte-gleich -- das IST der Preimage-UNVERAENDERT-Beweis, und er
-// gilt, weil der ABI-Major in KEINEM der sechs Preimage-Glieder vorkommt.
+// gilt, weil der ABI-Major in KEINEM der Preimage-Glieder vorkommt.
+//
+// [NACHGEFUEHRT 2026-08-05, O-2/C-2 (Format 2 -> 3): die beiden Digest-Literale sind in DIESEM Commit NEU
+// eingefroren -- nicht weil die G6-Aussage falsch waere, sondern weil das Preimage zwei Glieder dazubekommen
+// hat (Toolchain [5], bvset [6]) und das Overlay ans Ende gewandert ist. Die Bilanz-AUSSAGE ist unberuehrt:
+// der C8-Major-Bump hat die Stempel-Ebene nicht bewegt, der O-2-Neuanker bewegt sie ABSICHTLICH und genau
+// einmal. Die Vor-Werte stehen unten bei den Konstanten und in der git-Historie.]
 //
 // ABWEICHUNG GEGEN DEN BAUPLAN (deklariert, nicht stillschweigend korrigiert): Paragraf 5.1 rechnet
 // den Shift als "7.1 -> 8.0". Am Objekt erhoben war der Stand VOR C8 aber "+ceb=7.2" -- zwischen dem
@@ -78,14 +84,19 @@ inline constexpr std::string_view kRefOrgan  = "search_algo=array256@1.0.0c;memo
 inline constexpr std::string_view kRefSystem = "compiler=gcc@16.0.0c;os=linux@1.0.0c;isa=x86_64@1.0.0c";
 inline constexpr std::string_view kRefMess   = "wallclock@1.0.0c+load_framework=intern@1.0.0c";
 
-/// Der VOR-C8 erhobene Digest des Referenz-Tripels (Sonde gegen 19adba05).
-inline constexpr std::string_view kRefDigestVorC8 = "f8da53ce9caef5f6faf2c65de0fba1a4246e8982fa8a5480f4edbe56b9574c66"
-                                                    "4c50578cddcce81107e44212e285086c1068dadeb0af3235c6ade983e3fdc5af";
+/// Der Digest des Referenz-Tripels. [NEU EINGEFROREN 2026-08-05, O-2/C-2: der Preimage-Format-Bump 2 -> 3
+/// (zwei zusaetzliche Glieder) verschiebt beide Digests dieser Bilanz -- deklariert und im SELBEN Commit
+/// nachgezogen. Die AUSSAGE der Bilanz bleibt: der ABI-MAJOR bewegt sie nicht. Die VOR-C8-Werte
+/// f8da53ce...c5af (Referenz) und fa10b791...23ae (leer) stehen in der git-Historie.]
+inline constexpr std::string_view kRefDigestVorC8 = "6667b5bf3ac5bfc8d5e258fc44c860331c7936d5d940b0b58719fdd88035180a"
+                                                    "9323a9cd6c38c0e2684bd1fc89421188dd3b1c7d537edcf7cd5bfc3291c6c493";
 
-/// Der VOR-C8 erhobene Digest des LEEREN Tripels -- der Zeuge der Glied-STRUKTUR (leere Glieder, aber
-/// Separatoren bleiben; das ist der GA-01-Fix, und er wuerde bei jeder Glied-Umsortierung brechen).
-inline constexpr std::string_view kLeerDigestVorC8 = "fa10b7919167bed197cdba9b340e96623bf812f1aeff82aa25e67b769ee04c37"
-                                                     "f2e397d5c1397859ce384d6b5705ff3c032f9368401834b948957ff2825323ae";
+/// Der Digest des LEEREN Tripels -- der Zeuge der Glied-STRUKTUR (leere Glieder, aber Separatoren bleiben;
+/// das ist der GA-01-Fix, und er wuerde bei jeder Glied-Umsortierung brechen). Genau deshalb ist er der
+/// empfindlichste Wert dieser Datei: er hat sich mit dem Format-3-Bump bewegt, WEIL zwei Glieder und damit
+/// zwei Separatoren dazugekommen sind -- das ist der Beweis, dass der Bump wirkt.
+inline constexpr std::string_view kLeerDigestVorC8 = "ec3a5ea9d8eb676c4254915276553c975fa047363f9c1f889ab23b2547779a2e"
+                                                     "9f3a1347e2287b8668f4365276e7fa231951d4dc887938c0292568888c8ee9cb";
 
 /// Der CRC64-Anker der 2^17-golden-Menge. TABU-Wert; er steht hier als Bilanz-Zeuge, nicht als zweite
 /// Wahrheit -- die RECHNENDE Wache bleibt test_limits_entkopplung_vorstufe, die die 131072 ids
@@ -140,25 +151,34 @@ int main() {
     // ----------------------------------------------------------------------------------------------
     std::cout << "\n-- Ebene 2 (UNBEWEGT): Stempel-Preimage / SHA512 --\n";
     {
-        eq("die Preimage-FORMAT-Kennung (TABU: bleibt 2)", std::string{abi::kAnatomyFingerprintFormat},
-           std::string{"fingerprint_format=2"});
-        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{6});
+        eq("die Preimage-FORMAT-Kennung", std::string{abi::kAnatomyFingerprintFormat},
+           std::string{"fingerprint_format=3"});
+        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{8});
         eq("die Position der System-Zeile in der Glied-Folge", abi::kAnatomyFingerprintSystemGlied, std::size_t{2});
 
         constexpr auto    kRefJetzt = abi::anatomy_fingerprint_hex(kRefOrgan, kRefSystem, kRefMess);
         std::string const ref_jetzt{kRefJetzt.data()};
         std::cout << "  Referenz-SA-Tripel:\n    organ  = " << kRefOrgan << "\n    system = " << kRefSystem
                   << "\n    mess   = " << kRefMess << "\n";
-        eq("der Stempel des Referenz-Tripels ist IDENTISCH zum VOR-C8-Wert", ref_jetzt, std::string{kRefDigestVorC8});
+        eq("der Stempel des Referenz-Tripels ist IDENTISCH zum eingefrorenen Wert", ref_jetzt,
+           std::string{kRefDigestVorC8});
 
         constexpr auto    kLeerJetzt = abi::anatomy_fingerprint_hex("", "", "");
         std::string const leer_jetzt{kLeerJetzt.data()};
-        eq("der Stempel des LEEREN Tripels ist IDENTISCH zum VOR-C8-Wert (Glied-Struktur unbewegt)", leer_jetzt,
+        eq("der Stempel des LEEREN Tripels ist IDENTISCH zum eingefrorenen Wert (Glied-Struktur)", leer_jetzt,
            std::string{kLeerDigestVorC8});
 
-        // Der STRUKTURELLE Grund, warum das so sein MUSS: der ABI-Major kommt in keinem der sechs
-        // Glieder vor. Diese Wache haelt die Begruendung fest -- ein kuenftiges Glied "abi_major=..."
-        // wuerde den Stempel an den Major koppeln und beide Ebenen fuer immer verheiraten.
+        // Der STRUKTURELLE Grund, warum der ABI-MAJOR diese Ebene nicht bewegt: er kommt in keinem der
+        // acht Glieder vor -- SOLANGE das Toolchain-Glied nicht befuellt ist.
+        //
+        // [NACHGEFUEHRT 2026-08-05, O-2/C-2 -- EHRLICHE EINSCHRAENKUNG statt stiller Fortschreibung:] das
+        // Toolchain-Glied [5] traegt per Bauplan ein ceb=<abi_major>.<codegen_minor>-Feld (F7-Spez (a),
+        // G-C2 "heilt Fall C"). Sobald die C-3-Scheibe es injiziert, KOPPELT der ABI-Major den
+        // Tier-Stempel -- und das ist gewollt: ein Contract-Bruch MUSS die Tier-Binaries invalidieren.
+        // Die G6-Bilanz behaelt ihre Aussage fuer den Stand, den sie beschreibt (der C8-Bump allein hat
+        // die Stempel-Ebene nicht bewegt), und diese Wache prueft ab jetzt die DEFAULT-Glied-Folge, also
+        // exakt den Zustand vor der Injektion. Wer sie nach C-3 gruen halten will, muss die Bilanz neu
+        // formulieren -- nicht die Wache entschaerfen.
         auto const glieder    = abi::anatomy_fingerprint_glieder(kRefOrgan, kRefSystem, kRefMess);
         auto const major_text = std::to_string(COMDARE_ANATOMY_ABI_MAJOR);
         bool       major_frei = true;
@@ -166,7 +186,9 @@ int main() {
             if (glied.find("abi_major") != std::string_view::npos) major_frei = false;
             if (glied.find("ceb=") != std::string_view::npos) major_frei = false;
         }
-        tr("kein Preimage-Glied traegt den ABI-Major oder das +ceb=-Glied (die Ebenen bleiben getrennt)", major_frei);
+        tr("kein Preimage-Glied der DEFAULT-Folge traegt den ABI-Major oder ein ceb=-Feld "
+           "(vor der C-3-Injektion bleiben die Ebenen getrennt)",
+           major_frei);
         (void)major_text;
     }
 

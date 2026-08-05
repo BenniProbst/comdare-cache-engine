@@ -12,8 +12,10 @@
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
-#include "builder/ceb_version_stamp.hpp" // A5: CEB-Selbst-Stempel (consteval Mess-Array + SHA-512)
+#include "builder/ceb_version_stamp.hpp"              // A5: CEB-Selbst-Stempel (consteval Mess-Array + SHA-512)
+#include <cache_engine/abi/toolchain_stamp_glied.hpp> // O-2/C-2: Renderer + kToolchainAxisVersions
 #include <profile_facade/planner/planner_version.hpp>
+#include <profile_facade/system_version_suffix.hpp> // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
 
 #include <gtest/gtest.h>
 
@@ -479,10 +481,18 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     namespace s5      = ::comdare::cache_engine::sha512;
     constexpr auto fp = abi::anatomy_fingerprint_hex("a", "b", "c");
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
+    // O-2/C-2 (Format 3): das Referenz-Preimage traegt jetzt ACHT Glieder -- Toolchain [5] und bvset [6]
+    // liegen zwischen Werteset und Overlay. Sie stehen hier BEWUSST als Konstanten und nicht als leere
+    // Literale: waeren sie hart als "" eingesetzt, wuerde dieser Test die Nicht-Injektion zementieren und
+    // ausgerechnet dann gruen bleiben, wenn die C-3-Verdrahtung sie fuellt.
     std::string ref_pre;
     ref_pre += abi::kAnatomyFingerprintFormat;
     ref_pre += "\na\nb\nc\n";
     ref_pre += abi::kSubAxisValuesetSegment;
+    ref_pre += '\n';
+    ref_pre += abi::kToolchainStampGlied;
+    ref_pre += '\n';
+    ref_pre += abi::kBuildVariantSetSignatureGlied;
     ref_pre += '\n';
     ref_pre += abi::kOverlaySourceHash;
     auto const ref = s5::to_hex(s5::sha512(
@@ -493,9 +503,17 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // zu kollidieren) und das Werteset-Segment ein EIGENES Glied (F7-VERIFY, "schwerster Befund": sonst
     // wuerde ein Werteset-Bump unter dem SHA512-only-Skip-Gate STILL reused).
     constexpr auto glieder = abi::anatomy_fingerprint_glieder("a", "b", "c");
-    static_assert(glieder.size() == 6u);
+    static_assert(glieder.size() == 8u); // O-2/C-2: 6 -> 8 (Toolchain + bvset)
     static_assert(glieder[0] == abi::kAnatomyFingerprintFormat);
     static_assert(glieder[4] == abi::kSubAxisValuesetSegment);
+    // O-2/C-2: die drei Schwanz-Glieder ueber ihre BENANNTEN Positionen adressiert -- nicht ueber nackte
+    // Zahlen. Eine Umsortierung ohne Nachzug der Konstanten bricht damit hier, statt still zu wandern.
+    static_assert(glieder[abi::kAnatomyFingerprintToolchainGlied] == abi::kToolchainStampGlied);
+    static_assert(glieder[abi::kAnatomyFingerprintBvsetGlied] == abi::kBuildVariantSetSignatureGlied);
+    static_assert(glieder[abi::kAnatomyFingerprintOverlayGlied] == abi::kOverlaySourceHash);
+    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=3"},
+                  "O-2/C-2: der Format-Bump 2 -> 3 ist der Anker dieses Fensters -- er trennt den "
+                  "Alt-Bestand deterministisch vom 8-Glieder-Layout.");
     // Dass diese consteval-Quelle byte-gleich zur .algos-Laufzeit-Quelle ist, prueft die schwere TU
     // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
@@ -532,6 +550,45 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
     static_assert(abi::kAnatomyFingerprintSeparator == '\n');
     EXPECT_EQ(abi::kAnatomyFingerprintFormat.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
     EXPECT_EQ(abi::kSubAxisValuesetSegment.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
+    // O-2/C-2: dieselbe Pflicht fuer die beiden NEUEN Glieder. Ohne sie waere die '\n'-Zerlegung
+    // ausgerechnet an den Gliedern mehrdeutig, die kuenftig von aussen befuellt werden.
+    EXPECT_EQ(abi::kToolchainStampGlied.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
+    EXPECT_EQ(abi::kBuildVariantSetSignatureGlied.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
+    EXPECT_EQ(abi::kOverlaySourceHash.find(abi::kAnatomyFingerprintSeparator), std::string_view::npos);
+
+    // (4) O-2/C-2 -- DIE INJEKTIVITAETS-PROBE UEBER DIE ACHT GLIEDER. Dieselbe Feldgrenzen-Verschiebung
+    //     wie in (1)/(2), aber jetzt an den drei injizierbaren Schwanz-Gliedern: dasselbe Zeichenmaterial
+    //     in Toolchain-, bvset- bzw. Overlay-Slot MUSS drei verschiedene Fingerprints ergeben. Ohne diese
+    //     Probe waere der teuerste Teil des Neuankers -- die Unterscheidbarkeit von Toolchain-Wahl und
+    //     Enable-Menge -- unbewiesen, und ein spaeterer Slot-Dreher faellt niemandem auf.
+    constexpr std::string_view kY = "opt=O3{-O3}@1.0.0c";
+    constexpr auto             t =
+        abi::anatomy_fingerprint_hex("", "", "", abi::ToolchainGlied{kY}, abi::BvsetGlied{""}, abi::OverlayHash{""});
+    constexpr auto v =
+        abi::anatomy_fingerprint_hex("", "", "", abi::ToolchainGlied{""}, abi::BvsetGlied{kY}, abi::OverlayHash{""});
+    constexpr auto o =
+        abi::anatomy_fingerprint_hex("", "", "", abi::ToolchainGlied{""}, abi::BvsetGlied{""}, abi::OverlayHash{kY});
+    static_assert(t != v, "O-2/C-2: Toolchain-Glied X vs. bvset-Glied X muessen sich unterscheiden.");
+    static_assert(t != o, "O-2/C-2: Toolchain-Glied X vs. Overlay-Glied X muessen sich unterscheiden.");
+    static_assert(v != o, "O-2/C-2: bvset-Glied X vs. Overlay-Glied X muessen sich unterscheiden.");
+    EXPECT_NE(std::string_view{t.data()}, std::string_view{v.data()});
+    EXPECT_NE(std::string_view{t.data()}, std::string_view{o.data()});
+    EXPECT_NE(std::string_view{v.data()}, std::string_view{o.data()});
+
+    // (5) WIRKSAMKEIT statt blosser Verschiedenheit: eine BELEGTE Toolchain bzw. bvset-Menge ergibt einen
+    //     anderen Fingerprint als der leere Default. Genau das war der C1-/C6-Befund -- vor Format 3
+    //     waren diese beiden Groessen im Preimage gar nicht vertreten, zwei Baue mit anderem opt/bt oder
+    //     anderer Enable-Menge hatten denselben Digest.
+    constexpr auto leer = abi::anatomy_fingerprint_hex("ORGAN", "SYSTEM", "MESS");
+    constexpr auto mit_tc =
+        abi::anatomy_fingerprint_hex("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{"tc=1;opt=O3{-O3}@1.0.0c"});
+    constexpr auto mit_bv = abi::anatomy_fingerprint_hex("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{""},
+                                                         abi::BvsetGlied{"bvset=1;bv=2;page_type[{bplus}]"});
+    static_assert(leer != mit_tc, "C1: eine belegte Toolchain MUSS den Fingerprint verschieben.");
+    static_assert(leer != mit_bv, "C6: eine belegte Enable-Mengen-Signatur MUSS den Fingerprint verschieben.");
+    static_assert(mit_tc != mit_bv);
+    EXPECT_NE(std::string_view{leer.data()}, std::string_view{mit_tc.data()});
+    EXPECT_NE(std::string_view{leer.data()}, std::string_view{mit_bv.data()});
 }
 
 // A1 (G2-4a, 2026-07-23) EINGEFRORENER FINGERPRINT-TESTVEKTOR (Lager-Gate Section 66, Sync-Kante B3). FESTE Stempel-
@@ -540,8 +597,20 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
 // kFrozenFingerprintV1 erhalten. EIN Testvektor, zwei Module. Die Zeilen und der Hex sind EINGEFROREN: NIE
 // aendern (bricht die B3-Sync), nur bei bewusstem Fingerprint-Bruch unter Absprache.
 //
-// A13-M3 (Owner-E2/OF-M3-1, 02./03.08.2026) -- DER EINE NEUANKER DIESES FENSTERS, und zwar bewusst genau EINER.
-// Der Vorgaenger-Hex 0f0c0eb4...c31b93 (A1, 23.07.) ist damit historisch; er steht in der git-Historie.
+// O-2/C-2 (05.08.2026, Owner-Entscheid abend-5 = OPTION A) -- DER NEUANKER DIESES FENSTERS: Preimage-Format
+// 2 -> 3. Der Vorgaenger-Hex 0fe275bd...9fe36 (A13-M3, 03.08.) ist damit historisch; er steht in der
+// git-Historie. URSACHE: zwei zusaetzliche Glieder (Toolchain [5], bvset [6]) und das Overlay-Glied ans Ende
+// [7]. Beide neuen Glieder sind HIER NOCH LEER -- die per-Perm-Injektion folgt in Scheibe C-3; den Hex
+// verschiebt allein der Format-Bump plus die zwei zusaetzlichen Separatoren. Der Anker faellt damit GENAU
+// EINMAL fuer das ganze Buendel, nicht zweimal.
+//
+// WARUM DIESER VEKTOR TROTZ INJIZIERBARER GLIEDER STABIL IST: er rechnet ueber die DEFAULTS, und die sind
+// per Compile-Define leer (COMDARE_TOOLCHAIN_STAMP_GLIED / COMDARE_BUILD_VARIANT_SET_SIGNATURE). Waeren die
+// Glieder stattdessen aus der Umgebung erhoben (z.B. __GNUC__), haette dieser Vektor je Compiler einen
+// anderen Wert -- ein eingefrorener Testvektor waere dann unmoeglich.
+//
+// HISTORIE A13-M3 (Owner-E2/OF-M3-1, 02./03.08.2026) -- der VORIGE Neuanker, bewusst genau EINER.
+// Sein Vorgaenger-Hex 0f0c0eb4...c31b93 (A1, 23.07.) steht ebenfalls in der git-Historie.
 // DREI Ursachen fallen in DIESEN einen Commit, weil jede fuer sich einen eigenen Neuanker gekostet haette:
 //   (1) OWNER-E2: die merge-ZEILE entfaellt ersatzlos ("Merge Zeile kann daher nicht existieren") -> das
 //       frueher hier stehende kMerge-Literal faellt aus dem Preimage;
@@ -562,8 +631,8 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
     // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 ueber die '\n'-getrennte Glied-Folge. NIE aendern.
     constexpr std::string_view kFrozenFingerprintV1 =
-        "0fe275bddc7af1af9474cea655ff28280b93cfb3acc299c00d76d3489822993b"
-        "f043b4cee58b97d7ed2e42b0fc5bb0e3e300d15b1c50c31dd1aba7a23cc9fe36";
+        "f8f811a941153f720a99aca5ce55779867db1750e5ea162d16b325d61236c9ba"
+        "c954aa3d3cd54876c52b5e709bd6e9957160342bdcf54b52b7bf98c89137fb0c";
     constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure);
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     static_assert(std::string_view{fp.data()} == kFrozenFingerprintV1,
@@ -571,6 +640,103 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
                   "Absprache neu einfrieren, sonst bricht die Lane-B-Konsistenz");
     EXPECT_EQ(std::string_view{fp.data()}, kFrozenFingerprintV1)
         << "eingefrorener Fingerprint-Testvektor (Lager-Gate §66, Sync mit Lane-B Scheibe B3)";
+}
+
+// -- O-2/C-2: DAS TOOLCHAIN-GLIED [5] -----------------------------------------------------------------
+// Owner-KERN abend-5 (verbatim): "die Flags des Compilers werden in der Tier-Binary statisch verbaut, sind
+// also in der Compiler Haupt-Achse ein Teil der Haupt-Achsen Definition selbst". Dieser Test prueft genau
+// die drei Zusagen, die daraus folgen: (a) die Flags stehen IM Glied, (b) jede Toolchain-Achse traegt ihre
+// VERSION in Q3-Grammatik, (c) das leere Parts-Set rendert die IDENTITAET (leeres Glied).
+TEST(MW12StampBausteine, O2ToolchainStampGliedRendersAxesWithFlagsAndVersions) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (c) zuerst: ALLES leer => "" (kein Byte im Preimage). Das ist die Zusage, auf der die
+    //     Nicht-Injektions-Identitaet dieses Commits ruht -- ohne sie waere der Frozen-Vektor unten
+    //     compiler-/umgebungsabhaengig.
+    EXPECT_EQ(abi::render_toolchain_stamp_glied(abi::ToolchainStampParts{}), std::string{});
+
+    abi::ToolchainStampParts p{};
+    p.cxx_dialect       = "gcc";
+    p.cxx_realversion   = "16.1.0"; // G-C4: die REAL erkannte Version, nicht der Treiber-Tag "g++-16"
+    p.opt               = "O3";
+    p.opt_flags         = "-O3";
+    p.simd              = "avx512";
+    p.ceb               = "8.0";
+    p.build_type        = "Debug";
+    p.gate_contribution = "avx512";
+    p.atomic128         = "cx16";
+    p.atomic128_flags   = "-mcx16";
+    std::string const g = abi::render_toolchain_stamp_glied(p);
+
+    // (a) Flags als Teil der Achsen-DEFINITION -- in der Klammer hinter der id.
+    EXPECT_NE(g.find("opt=O3{-O3}@1.0.0c"), std::string::npos) << "glied='" << g << "'";
+    EXPECT_NE(g.find("atomic128=cx16{-mcx16}@1.0.0c"), std::string::npos) << "glied='" << g << "'";
+    // (b) REAL erkannte Compiler-Version am Dialekt, mit Achsen-Version.
+    EXPECT_NE(g.find("cxx=gcc-16.1.0@1.0.0c"), std::string::npos) << "glied='" << g << "'";
+    EXPECT_EQ(g.find("g++-16"), std::string::npos) << "der Treiber-Tag gehoert NICHT ins Glied (G-C4)";
+    // Der Kopf traegt die Glied-Format-Version; die uebrigen Felder stehen als schlichte Paare.
+    EXPECT_TRUE(g.starts_with("tc=1;")) << "glied='" << g << "'";
+    EXPECT_NE(g.find(";ext=avx512"), std::string::npos);
+    EXPECT_NE(g.find(";ceb=8.0"), std::string::npos);
+    EXPECT_NE(g.find(";bt=Debug"), std::string::npos);
+    EXPECT_NE(g.find(";gate=avx512"), std::string::npos);
+    // Leeres Feld => KEIN Segment (dieselbe Regel wie im build_version-Suffix).
+    EXPECT_EQ(g.find("target="), std::string::npos);
+    EXPECT_EQ(g.find("tel="), std::string::npos);
+    // Injektivitaets-Pflicht des Preimage-Glieds.
+    EXPECT_EQ(g.find(abi::kAnatomyFingerprintSeparator), std::string::npos);
+    EXPECT_LE(g.size(), abi::kAnatomyFingerprintToolchainMax);
+
+    // Die Versions-Tabelle: DREI Toolchain-Achsen, alle in Q3-Grammatik (v + 3-stellig + CPU-Flag).
+    EXPECT_EQ(abi::kToolchainAxisCount, std::size_t{3});
+    for (auto const& e : abi::kToolchainAxisVersions) {
+        EXPECT_FALSE(e.axis.empty());
+        EXPECT_EQ(e.version, std::string_view{"v1.0.0c"});
+    }
+}
+
+// -- O-2/C-2: DIE DOPPEL-WAHRHEITS-WACHE (Suffix vs. Glied) --------------------------------------------
+// Der static_assert in system_version_suffix.hpp beweist die ORDNUNG. Dieser Test beweist die WERTE: aus
+// EINEM SystemVersionSuffixParts entstehen Suffix und Glied, und jedes Segment, das es in beiden Welten
+// gibt, traegt byte-gleich denselben Wert. Ohne diese Haelfte koennte die Ordnung stimmen und der Inhalt
+// trotzdem auseinanderlaufen -- eine Binary waere dann anders gestempelt als gekeyt.
+TEST(MW12StampBausteine, O2ToolchainGliedAndBuildVersionSuffixShareOneSource) {
+    namespace abi = ::comdare::cache_engine::abi;
+    namespace pf  = ::comdare::cache_engine::profile_facade;
+
+    pf::SystemVersionSuffixParts sp{};
+    sp.cxx               = "g++-16"; // Treiber-Tag: NUR Transport (bewusst asymmetrisch, s. Konverter-Doku)
+    sp.opt               = "O3";
+    sp.simd              = "avx512";
+    sp.ceb               = "8.0";
+    sp.target_isa        = "aarch64";
+    sp.telemetry         = "silent";
+    sp.build_type        = "Debug";
+    sp.gate_contribution = "avx512";
+
+    std::string const suffix = pf::compose_system_version_suffix(sp);
+    std::string const glied =
+        abi::render_toolchain_stamp_glied(pf::toolchain_stamp_parts_from_suffix_parts(sp, "gcc", "16.1.0", "-O3"));
+
+    // Die sieben geteilten Felder: was im Suffix als "+k=v" steht, steht im Glied als "k=v".
+    struct Paar {
+        char const* suffix_segment;
+        char const* glied_segment;
+    };
+    constexpr Paar kGeteilt[] = {{"+opt=O3", ";opt=O3"},          {"+ext=avx512", ";ext=avx512"},
+                                 {"+ceb=8.0", ";ceb=8.0"},        {"+target=aarch64", ";target=aarch64"},
+                                 {"+tel=silent", ";tel=silent"},  {"+bt=Debug", ";bt=Debug"},
+                                 {"+gate=avx512", ";gate=avx512"}};
+    for (auto const& [suf, gl] : kGeteilt) {
+        EXPECT_NE(suffix.find(suf), std::string::npos) << "suffix='" << suffix << "'";
+        EXPECT_NE(glied.find(gl), std::string::npos) << "glied='" << glied << "'";
+    }
+    // opt traegt im Glied ZUSAETZLICH seine Flags und seine Achsen-Version -- das ist der Mehrwert der
+    // Identitaets-Seite, kein Widerspruch: die id ist dieselbe.
+    EXPECT_NE(glied.find(";opt=O3{-O3}@1.0.0c"), std::string::npos) << "glied='" << glied << "'";
+    // Und die bewusste Asymmetrie: der Treiber-Tag bleibt im Suffix, die Realversion im Glied.
+    EXPECT_NE(suffix.find("+cxx=g++-16"), std::string::npos);
+    EXPECT_NE(glied.find("cxx=gcc-16.1.0@"), std::string::npos);
 }
 
 TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {

@@ -410,13 +410,16 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
         << "Lager-Key und einkompilierter Fingerprint MUESSEN fuer dieselbe Zelle identisch sein "
            "(EINE-Wahrheit-Doktrin) -- sonst findet das Skip-Gate seine eigenen Binaries nicht wieder";
 
-    // (2) LEERES Werte-Set => byte-identisch zum Vor-W10-Weg. Zeuge ist der eingefrorene A1-Testvektor:
-    //     dieselben drei Zeilen wie in test_m_w12/test_g3 ergeben unveraendert kFrozenFingerprintV1.
+    // (2) LEERES Werte-Set => byte-identisch zum Weg ohne Zellwerte. Zeuge ist der eingefrorene
+    //     Testvektor: dieselben drei Zeilen wie in test_m_w12/test_g3 ergeben denselben Hex.
+    //     O-2/C-2: im Format-3-Commit NEU eingefroren (Bump 2 -> 3, zwei zusaetzliche Glieder) -- die
+    //     AUSSAGE ist unveraendert, nur ihr Zeuge ist der heutige. Alle drei Fundstellen wurden im
+    //     SELBEN Commit gedreht (Lehre "gruene Tests zementieren alte Ordnung").
     constexpr std::string_view kFrozenOrgan = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
     constexpr std::string_view kFrozenMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
     constexpr std::string_view kFrozenFingerprintV1 =
-        "0fe275bddc7af1af9474cea655ff28280b93cfb3acc299c00d76d3489822993b"
-        "f043b4cee58b97d7ed2e42b0fc5bb0e3e300d15b1c50c31dd1aba7a23cc9fe36";
+        "f8f811a941153f720a99aca5ce55779867db1750e5ea162d16b325d61236c9ba"
+        "c954aa3d3cd54876c52b5e709bd6e9957160342bdcf54b52b7bf98c89137fb0c";
     auto const frozen_glieder = cea::anatomy_fingerprint_glieder(kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure);
     std::span<std::string_view const> const frozen{frozen_glieder.data(), frozen_glieder.size()};
     EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(frozen)), std::string{kFrozenFingerprintV1})

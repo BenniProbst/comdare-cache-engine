@@ -552,7 +552,15 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndHeuteLEER) {
     EXPECT_TRUE(comdare::cache_engine::abi::kOverlaySourceHash.empty())
         << "Sobald der Overlay-Codegen das Define setzt, ist das Voll-Soll der ABNAHME-3/4 erreichbar "
            "-- bis dahin ist die Luecke DEKLARIERT, nicht still.";
-    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 6u);
+    // O-2/C-2 (Format 2 -> 3): 6 -> 8 Glieder (Toolchain [5], bvset [6]); das Overlay-Glied ist ans ENDE
+    // gewandert und heisst jetzt [7]. Die AUSSAGE dieses Tests ist unveraendert -- das Overlay-Glied ist
+    // strukturell da und heute leer -- nur seine Position und die Glied-Zahl sind nachgezogen. Die
+    // POSITION wird ab hier ueber die BENANNTE Konstante geprueft, nicht ueber eine nackte Zahl: eine
+    // weitere Umsortierung soll diesen Test nicht erneut faelschlich rot faerben.
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 8u);
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintOverlayGlied,
+              comdare::cache_engine::abi::kAnatomyFingerprintGliedCount - 1u)
+        << "das Overlay-Glied ist per O-2/C-2 das Schwanz-Glied";
     // Und der Anker des Knoten-Logs ist genau die Form dieses Fingerprints -- keine Zweitrechnung.
     EXPECT_TRUE(bl::ist_fingerprint_hex(hex128('a')));
     EXPECT_FALSE(bl::ist_fingerprint_hex(std::string(127, 'a')));

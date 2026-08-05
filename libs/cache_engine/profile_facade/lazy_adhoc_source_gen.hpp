@@ -344,17 +344,30 @@ template <class List>
 /// String koennte an einem Alt-Aufruf still in den falschen Slot rutschen. Der Default ist LEER == die
 /// IDENTITAET: jeder Bestands-Aufruf rechnet byte-identisch weiter (Bestands-Beweis: der Zwillings-Test in
 /// test_lazy_adhoc_source_gen bleibt ohne Edit gruen).
-[[nodiscard]] inline std::string
-lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
-                           std::vector<ex::AxisVariantVersion> const&     version_table,
-                           std::string const&                             measurement_stamp  = {},
-                           ::comdare::cache_engine::abi::SystemCellValues system_cell_values = {}) {
+/// O-2/C-2 (Format 3) -- DIE TOOLCHAIN-/BVSET-NAHT DES LAUFZEIT-ZWILLINGS. Die beiden neuen Glieder reisen
+/// als BENANNTE Traeger (K-1), mit LEEREM Default == der Identitaet: jeder Bestands-Aufruf rechnet
+/// byte-identisch weiter. Die Werte selbst kennt diese Funktion nicht und darf sie nicht erraten -- sie
+/// entstehen an der Perm-Schleife (Toolchain-Wahl dieser Permutation) bzw. am Treiber (bvset). Wer sie
+/// hier injiziert, MUSS im selben Zug das passende Compile-Define an perm_compile haengen
+/// (COMDARE_TOOLCHAIN_STAMP_GLIED / COMDARE_BUILD_VARIANT_SET_SIGNATURE), sonst rechnet der
+/// consteval-Zwilling in der Tier-Binary ueber ANDERE Glieder als dieser Laufzeit-Weg -- und die
+/// drift-freie Zusage dieser Funktion waere gebrochen. Genau deshalb bleibt die Verdrahtung EIN Schritt
+/// (Buendel-Scheibe C-3) und wird hier nur vorbereitet.
+[[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(
+    LazySlotTables const& tables, std::string const& binary_id,
+    std::vector<ex::AxisVariantVersion> const& version_table, std::string const& measurement_stamp = {},
+    ::comdare::cache_engine::abi::SystemCellValues system_cell_values = {},
+    ::comdare::cache_engine::abi::ToolchainGlied   toolchain_glied =
+        ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
+    ::comdare::cache_engine::abi::BvsetGlied bvset_glied = ::comdare::cache_engine::abi::BvsetGlied{
+        ::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied}) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::complete_system_stamp_line(
         ::comdare::cache_engine::abi::system_stamp_line(), system_cell_values);
-    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp);
+    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp,
+                                                                                   toolchain_glied, bvset_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -373,15 +386,30 @@ lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& bina
 /// den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht -- eine gefangene string_view zeigte spaeter
 /// ins Leere. Der Default (leerer String) ist die IDENTITAET: jeder Bestands-Aufrufer rechnet byte-identisch
 /// weiter, weil ein leeres Werte-Set die System-Zeile unveraendert laesst.
-[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {}) {
+///
+/// O-2/C-2: die beiden neuen Glieder kommen ebenso per WERT herein und aus demselben Grund -- der Provider
+/// ueberlebt den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht. Default leer == Identitaet.
+[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {},
+                                                                               std::string toolchain_glied    = {},
+                                                                               std::string bvset_glied        = {}) {
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
-            cell_values = std::move(system_cell_values)](std::string const& binary_id) {
+            cell_values = std::move(system_cell_values), toolchain = std::move(toolchain_glied),
+            bvset = std::move(bvset_glied)](std::string const& binary_id) {
+        // Leer == der Default-Slot aus dem Compile-Define (die Identitaet); gefuellt == die per-Perm-Wahl.
+        auto const tc =
+            toolchain.empty()
+                ? ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied}
+                : ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
+        auto const bv =
+            bvset.empty()
+                ? ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied}
+                : ::comdare::cache_engine::abi::BvsetGlied{bvset};
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
-                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values});
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv);
     };
 }
 

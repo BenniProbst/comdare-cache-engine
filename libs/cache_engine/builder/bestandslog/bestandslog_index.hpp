@@ -7,7 +7,8 @@
 //   (2) ZellKoordinaten -- die drei Runtime-Strings combo/opt/simd, die der Digest NICHT traegt.
 // Die Key-Ableitung von (1) ruft ctsha512 ueber die '\n'-getrennte Glied-Folge (A13-M3/OF-M3-1) -- exakt
 // dieselbe Digest wie abi::anatomy_fingerprint_hex, dessen Glied-Liste (Format-Kennung, organ, system,
-// measurement, Sub-Achsen-Werteset, overlay) in abi::anatomy_fingerprint_glieder() wohnt. Das bleibt die
+// measurement, Sub-Achsen-Werteset, Toolchain, bvset, overlay -- O-2/C-2 Format 3, acht Glieder) in
+// abi::anatomy_fingerprint_glieder() wohnt. Das bleibt die
 // EINE SHA512-Wahrheit: der Digest-Teil des Lager-Keys == der Binary-Stempel-SHA, kein zweiter Preimage.
 // Verifiziert gegen den eingefrorenen A1-Testvektor (Section 66 Lager-Gate).
 //
@@ -161,9 +162,12 @@ struct LagerKey {
 //         byte-gleich in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
 //         Dieser Header eicht weiterhin KEINE Digest-Werte, nur die FORM -- daran aendert der
 //         Vollzug nichts.
-//       - L14: geeicht wurde MIT LEEREM Overlay-Glied (5./6. Preimage-Glied traegt nur
-//         Separator+Format). Das ist eine DEKLARIERTE, nicht stille Luecke: der SHA512 deckt reine
-//         Quell-Code-Aenderungen noch nicht; Heilung im Overlay-Fenster (Phase 6), layout-bruch-frei.
+//       - L14: geeicht wurde MIT LEEREM Overlay-Glied. Das ist eine DEKLARIERTE, nicht stille
+//         Luecke: der SHA512 deckt reine Quell-Code-Aenderungen noch nicht; Heilung im
+//         Overlay-Fenster (Phase 6), layout-bruch-frei. [NACHGEFUEHRT 2026-08-05, O-2/C-2: das
+//         Overlay ist seit Format 3 das ACHTE und letzte Glied (vorher das sechste) -- der Umzug
+//         ans Ende haelt die Positionen der gefuellten Glieder stabil, wenn es scharfgeschaltet wird.
+//         Der Referenz-Vektor oben ist im selben Commit NEU eingefroren worden (Format-Bump 2 -> 3).]
 //       - Die TP1-FINAL-Inventur folgt im SELBEN Anker-Fenster (R15: einmal, nicht doppelt).
 // ---------------------------------------------------------------------------
 
