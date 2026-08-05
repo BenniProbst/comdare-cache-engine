@@ -163,6 +163,10 @@ int main() {
         eq("Schreiber-Form done-Suffix", std::string{pl::kProgressDoneSuffix}, std::string{" window-complete"});
         eq("Schreiber-Form perm-Praefix", std::string{pl::kProgressPermPraefix}, std::string{"[progress] perm="});
         eq("Schreiber-Form axes-Schluessel", std::string{pl::kProgressAxesSchluessel}, std::string{" axes_changed="});
+        // B4-Nachbesserung: auch die ACHSEN-LISTE ist Schreiber-Form und damit Teil der Kopplung
+        // (`line << " " << c.axis_index << "->" << c.variant_index`).
+        eq("Schreiber-Form Paar-Trenner", std::string{pl::kProgressPaarTrenner}, std::string{" "});
+        eq("Schreiber-Form Paar-Pfeil", std::string{pl::kProgressPaarPfeil}, std::string{"->"});
 
         pl::CursorStand s{};
         pl::verarbeite_cursor_zeile("[progress] perm=0 axes_changed=0", s);
@@ -259,6 +263,63 @@ int main() {
         pl::verarbeite_cursor_zeile("[progress] perm=11 axes_changed=2 3->1 5->2", s); // Leerzeichen zur Liste
         eq("Gegenprobe: <K> vor der Achsen-Liste bleibt Fortschritt", s.zeilen_perm, std::uint64_t{3});
         eq("Gegenprobe: und traegt den Cursor", s.letzte_perm, std::uint64_t{11});
+    }
+
+    // ============================================================================================
+    // (1c2) B4-NACHBESSERUNG (Codex Zyklus 3) -- <K> ist eine ANKUENDIGUNG, und sie wird auf EINLOESUNG geprueft
+    //
+    // BISS AM ALT-STAND (Stand 8c4c84b0): die Rest-Pruefung hinter <K> las genau EIN Zeichen -- Zeilenende
+    // oder Trenn-Leerzeichen. Damit ging jede Zeile durch, die K ankuendigte, die K Paare aber gar nicht,
+    // nicht vollstaendig oder gar nicht in Schreiber-Form trug. GENAU SO reisst der Schreiber ab: er baut die
+    // Zeile links nach rechts (`line << " axes_changed=" << d.changed.size();` DANN die Schleife), also steht
+    // die Ankuendigung IMMER schon da, wenn die Liste fehlt. Jede dieser Formen zog letzte_perm auf einen nie
+    // erreichten Cursor -- dieselbe Luege wie in M2/B4, nur ein Feld weiter rechts.
+    // ============================================================================================
+    std::cout << "\n-- (1c2) B4-Nachbesserung: die angekuendigten K Achsen-Paare muessen VOLLSTAENDIG dastehen --\n";
+    {
+        pl::CursorStand s{};
+        pl::verarbeite_cursor_zeile("[progress] perm=2 axes_changed=1 3->1", s); // der letzte VOLLSTAENDIGE Stand
+        eq("Vorlauf: die vollstaendige Zeile traegt den Cursor", s.letzte_perm, std::uint64_t{2});
+        eq("Vorlauf: und zaehlt als perm-Zeile", s.zeilen_perm, std::uint64_t{1});
+
+        // (a) Codex-Form 1: K angekuendigt, KEIN Paar geschrieben.
+        pl::verarbeite_cursor_zeile("[progress] perm=5 axes_changed=1", s);
+        eq("ALT-STAND-BISS (a): 'axes_changed=1' OHNE Paar ist eine abgebrochene Zeile", s.zeilen_abgebrochen,
+           std::uint64_t{1});
+        eq("ALT-STAND-BISS (a): sie zaehlt NICHT als perm-Zeile", s.zeilen_perm, std::uint64_t{1});
+        eq("ALT-STAND-BISS (a): und zieht letzte_perm nicht auf 5", s.letzte_perm, std::uint64_t{2});
+
+        // (b) Codex-Form 2: 2 angekuendigt, nur 1 geschrieben -- der Abriss zwischen den Paaren.
+        pl::verarbeite_cursor_zeile("[progress] perm=6 axes_changed=2 3->1", s);
+        eq("ALT-STAND-BISS (b): 'axes_changed=2 3->1' traegt zu WENIGE Paare", s.zeilen_abgebrochen, std::uint64_t{2});
+        eq("ALT-STAND-BISS (b): sie zaehlt NICHT als perm-Zeile", s.zeilen_perm, std::uint64_t{1});
+        eq("ALT-STAND-BISS (b): und zieht letzte_perm nicht auf 6", s.letzte_perm, std::uint64_t{2});
+
+        // (c) Codex-Form 3: K angekuendigt, dahinter ein BELIEBIGER Anhang statt der Liste.
+        pl::verarbeite_cursor_zeile("[progress] perm=7 axes_changed=1 window-complete", s);
+        eq("ALT-STAND-BISS (c): '=1 <beliebiger Anhang>' ist keine Achsen-Liste", s.zeilen_abgebrochen,
+           std::uint64_t{3});
+        eq("ALT-STAND-BISS (c): sie zaehlt NICHT als perm-Zeile", s.zeilen_perm, std::uint64_t{1});
+        eq("ALT-STAND-BISS (c): und zieht letzte_perm nicht auf 7", s.letzte_perm, std::uint64_t{2});
+
+        // (c2) derselbe Befund eine Ebene tiefer: der Abriss liegt MITTEN IM Paar (Pfeil ohne Ziel).
+        pl::verarbeite_cursor_zeile("[progress] perm=13 axes_changed=1 3->", s);
+        eq("Abriss IM Paar (Pfeil ohne Varianten-Index) ist dieselbe Klasse", s.zeilen_abgebrochen, std::uint64_t{4});
+        eq("und bewegt letzte_perm ebenfalls nicht", s.letzte_perm, std::uint64_t{2});
+
+        // (c3) die Gegenrichtung: MEHR Paare als angekuendigt ist ebenfalls keine Schreiber-Form.
+        pl::verarbeite_cursor_zeile("[progress] perm=14 axes_changed=1 3->1 5->2", s);
+        eq("mehr Paare als angekuendigt ist ebenfalls keine Schreiber-Form", s.zeilen_abgebrochen, std::uint64_t{5});
+        eq("und bewegt letzte_perm ebenfalls nicht", s.letzte_perm, std::uint64_t{2});
+
+        // (d) GUT-FALL: K=2 mit GENAU 2 Paaren -- die neue Wache darf die echte Form nicht miterschlagen.
+        pl::verarbeite_cursor_zeile("[progress] perm=8 axes_changed=2 3->1 5->2", s);
+        eq("Gut-Fall: K=2 mit genau 2 Paaren bleibt voller Fortschritt", s.zeilen_perm, std::uint64_t{2});
+        eq("Gut-Fall: und traegt den Cursor auf 8", s.letzte_perm, std::uint64_t{8});
+        eq("Gut-Fall: er erhoeht die Abbruch-Zahl nicht", s.zeilen_abgebrochen, std::uint64_t{5});
+        check("Gut-Fall: er belegt den Cursor", s.letzte_perm_belegt);
+        eq("keine dieser Formen ist FREMD (der Schluessel stand ueberall da)", s.zeilen_fremd, std::uint64_t{0});
+        eq("alle Zeilen bleiben gezaehlt (nichts verschwindet)", s.zeilen_gesamt, std::uint64_t{7});
     }
 
     // ============================================================================================
