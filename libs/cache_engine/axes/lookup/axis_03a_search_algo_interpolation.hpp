@@ -301,9 +301,7 @@ public:
     /// konstitutiven Store-Snapshot. Ob und wie sie in die T6-CSV-Spalte summiert werden
     /// (Doppelzaehlungs-Regel), ist der EXPLIZITE Schritt des Mess-Schnitt-Fensters VOR Messbeginn.
     using allocator_snapshot_t = typename allocator_type::snapshot_t;
-    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept {
-        return allocator_.statistics();
-    }
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -353,8 +351,7 @@ public:
     /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
     using axis03a_rebound_tag = void;
 
-    using detail::InterpolationSearchAlgoCore<A2,
-                                              InterpolationSearchAlgoRebound<A2>>::InterpolationSearchAlgoCore;
+    using detail::InterpolationSearchAlgoCore<A2, InterpolationSearchAlgoRebound<A2>>::InterpolationSearchAlgoCore;
 };
 
 } // namespace comdare::cache_engine::lookup
@@ -370,28 +367,28 @@ static_assert(concepts::DensityClassifiedStrategy<InterpolationSearchAlgo>);
 
 /// LEVEL 0 (der golden-Pfad): die Kompositions-Naht mit dem Achsen-Default liefert die FASSADE SELBST
 /// zurueck -- kein Rebound-Typ, kein Typ-Shift, kein neuer Symbolname.
-static_assert(std::is_same_v<composable::search_algo_for_composition_t<
-                                 InterpolationSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<InterpolationSearchAlgo,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
                              InterpolationSearchAlgo>,
               "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
               "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
 
 /// Der Migrations-Ausweis ist da (sonst faele das Organ still auf Level 2 = unveraendert zurueck).
-static_assert(composable::AllocatorRebindableSearchAlgo<InterpolationSearchAlgo,
-                                                        ::comdare::cache_engine::alloc::ExgenAllocator>,
-              "01c: InterpolationSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+static_assert(
+    composable::AllocatorRebindableSearchAlgo<InterpolationSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+    "01c: InterpolationSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
 
 /// EBENEN-TRENNUNG: die Identitaets-Ebene traegt NIE den Rebound-Ausweis, der Leaf traegt ihn IMMER.
 static_assert(!composable::IsReboundSearchAlgoLeaf<InterpolationSearchAlgo>,
               "01c EBENEN-VERMISCHUNG: die Fassade traegt den Rebound-Tag -- Emitter-type_name-Reise und "
               "Registry-Reflektion zeigten dann auf die Substanz-Ebene.");
-static_assert(composable::IsReboundSearchAlgoLeaf<
-                  InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
-              "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
+static_assert(
+    composable::IsReboundSearchAlgoLeaf<InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>,
+    "01c: der Rebound-Leaf traegt seinen Ausweis nicht -- der Identitaets-Pin kann nicht mehr greifen.");
 
 /// name()-ALLOKATOR-INVARIANZ: der serialize-Schluessel darf sich mit der T6-Wahl NICHT bewegen.
-static_assert(composable::search_algo_name_is_allocator_invariant_v<
-                  InterpolationSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(composable::search_algo_name_is_allocator_invariant_v<InterpolationSearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
               "01c name()-INVARIANZ (Level 0) verletzt.");
 static_assert(InterpolationSearchAlgo::name() ==
                   InterpolationSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),

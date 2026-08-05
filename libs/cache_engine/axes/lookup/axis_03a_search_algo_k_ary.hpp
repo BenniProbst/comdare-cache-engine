@@ -167,16 +167,14 @@ public:
     /// KF-6-NAHT (Posten 62, LEDGER 04.08. abend-12): eine vor-parametrierte Strategie-Instanz
     /// uebernehmen, statt sie default zu konstruieren. Heute nirgends benutzt und bewusst `explicit`.
     explicit KArySearchAlgoCore(allocator_type a)
-        : allocator_(std::move(a)), arity_(kDefaultArity),
-          keys_(allocator_.template as_std_allocator<key_type>()),
+        : allocator_(std::move(a)), arity_(kDefaultArity), keys_(allocator_.template as_std_allocator<key_type>()),
           values_(allocator_.template as_std_allocator<value_type>()) {}
 
     /// Copy: Strategie mitkopieren, beide Vektoren an das EIGENE allocator_ binden, dann die transiente
     /// Kopier-Allokation aus der Statistik nehmen (Memento) -- 1:1 btree_node_pool_store.hpp:86.
     /// MOVE bewusst NICHT deklariert (der user-definierte Copy unterdrueckt ihn implizit).
     KArySearchAlgoCore(KArySearchAlgoCore const& o)
-        : allocator_(o.allocator_), arity_(o.arity_),
-          keys_(o.keys_, allocator_.template as_std_allocator<key_type>()),
+        : allocator_(o.allocator_), arity_(o.arity_), keys_(o.keys_, allocator_.template as_std_allocator<key_type>()),
           values_(o.values_, allocator_.template as_std_allocator<value_type>()) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         stats_ = o.stats_;
@@ -337,9 +335,7 @@ public:
     /// konstitutiven Store-Snapshot. Die Einsammlung + die Doppelzaehlungs-Regel sind der EXPLIZITE
     /// Schritt des Mess-Schnitt-Fensters VOR Messbeginn.
     using allocator_snapshot_t = typename allocator_type::snapshot_t;
-    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept {
-        return allocator_.statistics();
-    }
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -399,14 +395,13 @@ static_assert(concepts::IterableAspectSearchAlgoStrategy<KArySearchAlgo>);
 // ---------------------------------------------------------------------------------------------
 
 /// LEVEL 0 (der golden-Pfad): die Kompositions-Naht liefert am Achsen-Default die FASSADE SELBST.
-static_assert(std::is_same_v<composable::search_algo_for_composition_t<
-                                 KArySearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<KArySearchAlgo,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
                              KArySearchAlgo>,
               "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
               "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
 
-static_assert(composable::AllocatorRebindableSearchAlgo<KArySearchAlgo,
-                                                        ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(composable::AllocatorRebindableSearchAlgo<KArySearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
               "01c: KArySearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
 
 /// EBENEN-TRENNUNG.
@@ -417,11 +412,10 @@ static_assert(
     "01c: der Rebound-Leaf traegt seinen Ausweis nicht.");
 
 /// name()-ALLOKATOR-INVARIANZ.
-static_assert(composable::search_algo_name_is_allocator_invariant_v<
-                  KArySearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(composable::search_algo_name_is_allocator_invariant_v<KArySearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
               "01c name()-INVARIANZ (Level 0) verletzt.");
-static_assert(KArySearchAlgo::name() ==
-                  KArySearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
+static_assert(KArySearchAlgo::name() == KArySearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
               "01c name()-INVARIANZ verletzt: der Rebound-Leaf traegt einen anderen Organ-Namen als die Fassade.");
 
 /// Der Rebound-Leaf ist ein VOLLWERTIGES Organ -- inklusive der beiden ZUSATZ-Concepts dieser Familie
@@ -751,9 +745,7 @@ public:
 
     /// EINSAMMEL-NAHT der T6-Durchbindung (Owner-KERN abend-11, Pflicht (a)) -- NUR die Naht.
     using allocator_snapshot_t = typename allocator_type::snapshot_t;
-    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept {
-        return allocator_.statistics();
-    }
+    [[nodiscard]] allocator_snapshot_t search_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
 private:
@@ -901,18 +893,18 @@ static_assert(!KArySearchAlgoK2::enabled && !KArySearchAlgoK4::enabled && !KAryS
 /// (die vier laufen durch DENSELBEN Core -- was fuer die Raender gilt, gilt fuer 4 und 8 mit).
 /// Die vollstaendige Pruefung ALLER vier laeuft ohnehin ueber die abgeleitete Population der
 /// Familien-Wache (tests/unit/test_s5_01c_fassaden_conformance.cpp).
-static_assert(std::is_same_v<composable::search_algo_for_composition_t<
-                                 KArySearchAlgoK2, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<KArySearchAlgoK2,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
                              KArySearchAlgoK2>,
               "01c Level-0-IDENTITAET verletzt (per-K K=2).");
-static_assert(std::is_same_v<composable::search_algo_for_composition_t<
-                                 KArySearchAlgoK16, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<KArySearchAlgoK16,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
                              KArySearchAlgoK16>,
               "01c Level-0-IDENTITAET verletzt (per-K K=16).");
-static_assert(!composable::IsReboundSearchAlgoLeaf<KArySearchAlgoK2> &&
-                  composable::IsReboundSearchAlgoLeaf<
-                      KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
-              "01c EBENEN-TRENNUNG (per-K): Identitaets- und Substanz-Ebene sind vermischt.");
+static_assert(
+    !composable::IsReboundSearchAlgoLeaf<KArySearchAlgoK2> &&
+        composable::IsReboundSearchAlgoLeaf<KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
+    "01c EBENEN-TRENNUNG (per-K): Identitaets- und Substanz-Ebene sind vermischt.");
 static_assert(!::comdare::cache_engine::anatomy::HasOrganLocation<
                   KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
               "01c: der per-K-Rebound-Leaf traegt eine Organ-Lokation -- die Substanz-Ebene wuerde "
@@ -926,8 +918,8 @@ static_assert(KArySearchAlgoKRebound<8u, ::comdare::cache_engine::alloc::ExgenAl
 /// Der per-K-Rebound-Leaf bleibt ein VOLLWERTIGES Organ (CRTP-Guard-Kette auf beiden Leaves) und
 /// behaelt die Risk#5-Eigenschaft: KEIN Laufzeit-Aritaets-Kanal.
 static_assert(concepts::SearchAlgoVariant<KArySearchAlgoKRebound<2u, ::comdare::cache_engine::alloc::ExgenAllocator>>);
-static_assert(concepts::SimdCapableStrategy<
-              KArySearchAlgoKRebound<16u, ::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(
+    concepts::SimdCapableStrategy<KArySearchAlgoKRebound<16u, ::comdare::cache_engine::alloc::ExgenAllocator>>);
 static_assert(!concepts::IterableAspectSearchAlgoStrategy<
                   KArySearchAlgoKRebound<4u, ::comdare::cache_engine::alloc::ExgenAllocator>>,
               "01c per-K: K bleibt COMPILE-TIME auch am Rebound-Leaf (Risk#5, sonst Phantom-Messung).");

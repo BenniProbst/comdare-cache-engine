@@ -316,8 +316,7 @@ public:
 
 /// DIE GEBUNDENE FORM -- traegt BEWUSST KEIN COMDARE_DEFINE_ORGAN_LOCATION.
 template <class A2>
-class EytzingerSearchAlgoRebound final
-    : public detail::EytzingerSearchAlgoCore<A2, EytzingerSearchAlgoRebound<A2>> {
+class EytzingerSearchAlgoRebound final : public detail::EytzingerSearchAlgoCore<A2, EytzingerSearchAlgoRebound<A2>> {
 public:
     /// Der EBENEN-AUSWEIS (s. composable::IsReboundSearchAlgoLeaf).
     using axis03a_rebound_tag = void;
@@ -337,15 +336,15 @@ static_assert(concepts::DensityClassifiedStrategy<EytzingerSearchAlgo>);
 // ---------------------------------------------------------------------------------------------
 
 /// LEVEL 0 (der golden-Pfad): die Kompositions-Naht liefert am Achsen-Default die FASSADE SELBST.
-static_assert(std::is_same_v<composable::search_algo_for_composition_t<
-                                 EytzingerSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(std::is_same_v<composable::search_algo_for_composition_t<EytzingerSearchAlgo,
+                                                                       ::comdare::cache_engine::alloc::ExgenAllocator>,
                              EytzingerSearchAlgo>,
               "01c Level-0-IDENTITAET verletzt: die Kompositions-Naht liefert am ACHSEN-DEFAULT nicht mehr die "
               "Fassade selbst. Damit laege ein anderer Typ auf dem golden-Pfad -- Typ-Neutralitaet weg.");
 
-static_assert(composable::AllocatorRebindableSearchAlgo<EytzingerSearchAlgo,
-                                                        ::comdare::cache_engine::alloc::ExgenAllocator>,
-              "01c: EytzingerSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
+static_assert(
+    composable::AllocatorRebindableSearchAlgo<EytzingerSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+    "01c: EytzingerSearchAlgo traegt keinen rebind_allocator mehr -- nicht migriert.");
 
 /// EBENEN-TRENNUNG.
 static_assert(!composable::IsReboundSearchAlgoLeaf<EytzingerSearchAlgo>,
@@ -355,8 +354,8 @@ static_assert(
     "01c: der Rebound-Leaf traegt seinen Ausweis nicht.");
 
 /// name()-ALLOKATOR-INVARIANZ.
-static_assert(composable::search_algo_name_is_allocator_invariant_v<
-                  EytzingerSearchAlgo, ::comdare::cache_engine::alloc::ExgenAllocator>,
+static_assert(composable::search_algo_name_is_allocator_invariant_v<EytzingerSearchAlgo,
+                                                                    ::comdare::cache_engine::alloc::ExgenAllocator>,
               "01c name()-INVARIANZ (Level 0) verletzt.");
 static_assert(EytzingerSearchAlgo::name() ==
                   EytzingerSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>::name(),
@@ -379,8 +378,7 @@ static_assert(
     "01c Eytzinger-Sonderfall: der Rebound-Leaf reicht seine Strategie nicht an das Substrat durch.");
 
 /// Der Rebound-Leaf ist ein VOLLWERTIGES Organ.
-static_assert(
-    concepts::SearchAlgoVariant<EytzingerSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
+static_assert(concepts::SearchAlgoVariant<EytzingerSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<
               EytzingerSearchAlgoRebound<::comdare::cache_engine::alloc::ExgenAllocator>>);
 static_assert(

@@ -142,18 +142,18 @@ static_assert(
     "harness-gated)");
 // #188 per-K Increment 1: jeder per-K-Wrapper mappt auf SEIN KAryTraversal<K> (nicht pauschal <4>) -> die
 // K-Variation ist ein compile-time-realer, ANDERER Separator-Pfad (Meta-Lehre #3). Fuer alle 4 Aritaeten geprueft.
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK2>,
-                             KAryTraversal<2u>>,
-              "#188 per-K: KArySearchAlgoK2 -> KAryTraversal<2>");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK4>,
-                             KAryTraversal<4u>>,
-              "#188 per-K: KArySearchAlgoK4 -> KAryTraversal<4>");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK8>,
-                             KAryTraversal<8u>>,
-              "#188 per-K: KArySearchAlgoK8 -> KAryTraversal<8>");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK16>,
-                             KAryTraversal<16u>>,
-              "#188 per-K: KArySearchAlgoK16 -> KAryTraversal<16>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK2>, KAryTraversal<2u>>,
+    "#188 per-K: KArySearchAlgoK2 -> KAryTraversal<2>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK4>, KAryTraversal<4u>>,
+    "#188 per-K: KArySearchAlgoK4 -> KAryTraversal<4>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK8>, KAryTraversal<8u>>,
+    "#188 per-K: KArySearchAlgoK8 -> KAryTraversal<8>");
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgoK16>, KAryTraversal<16u>>,
+    "#188 per-K: KArySearchAlgoK16 -> KAryTraversal<16>");
 // A8-S5 01c: dass die GEBUNDENE Form dasselbe Traversal-Organ traegt wie ihre Fassade (sonst maesse
 // dieselbe Aritaet je nach T6-Wahl der Komposition ueber zwei verschiedene Organe -- der Rebind darf die
 // Strategie aendern, nie den Such-Pfad), wird BEWUSST NICHT hier gepinnt: dieser Header deklariert seine

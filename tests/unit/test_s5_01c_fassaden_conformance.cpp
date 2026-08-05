@@ -180,8 +180,7 @@ struct FassadenVertrag {
     static_assert(s5::FamilyAllocConform<S>, "01c: die Fassade ist nicht familien-konform.");
     static_assert(s5::FamilyAllocConform<Rebound>, "01c: der Rebound-Leaf ist nicht familien-konform.");
     static_assert(s5::AxisAllocatorBoundOrgan<S>, "01c: die Fassade traegt keine Achsen-Bindung (Form B).");
-    static_assert(s5::AxisAllocatorBoundOrgan<Rebound>,
-                  "01c: der Rebound-Leaf traegt keine Achsen-Bindung (Form B).");
+    static_assert(s5::AxisAllocatorBoundOrgan<Rebound>, "01c: der Rebound-Leaf traegt keine Achsen-Bindung (Form B).");
     // Die Bindung ist die RICHTIGE -- nicht irgendeine.
     static_assert(std::is_same_v<DefaultAllokator, AchsenDefaultAllokator>,
                   "01c: die Fassade haengt nicht mehr am benannten Achsen-Default.");
@@ -224,8 +223,7 @@ struct FassadenVertrag {
                   "01c name()-INVARIANZ (Level 1) verletzt: das kompositions-gebundene Organ traegt einen "
                   "anderen Namen -- eine mimalloc-Komposition serialisierte dann unter einem anderen "
                   "Schluessel als dieselbe Komposition mit exgen.");
-    static_assert(S::family_id::value == Rebound::family_id::value,
-                  "01c: family_id driftet zwischen den Ebenen.");
+    static_assert(S::family_id::value == Rebound::family_id::value, "01c: family_id driftet zwischen den Ebenen.");
     static_assert(S::algo_version == Rebound::algo_version, "01c: algo_version driftet zwischen den Ebenen.");
 
     // ---- (9) DIE F30-RELATION -- exakt die, die der Generator prueft, hier am TYP statt am Artefakt. ----
@@ -269,13 +267,11 @@ static_assert(mp::mp_all_of<MigrierteOrgane, erfuellt_fassaden_vertrag>::value,
 // axis_06 ohnehin. Rand-Aritaeten stellvertretend: alle vier laufen durch DENSELBEN Core.
 // =============================================================================================
 static_assert(std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK2>,
-                             comp::traversal_for_search_algo_t<
-                                 lk::KArySearchAlgoKRebound<2u, KompositionsAllokator>>>,
+                             comp::traversal_for_search_algo_t<lk::KArySearchAlgoKRebound<2u, KompositionsAllokator>>>,
               "01c per-K: die kompositions-gebundene Form K=2 traegt ein ANDERES Traversal-Organ als ihre "
               "Fassade -- dieselbe Aritaet maesse dann je nach T6-Wahl ueber zwei verschiedene Such-Pfade.");
 static_assert(std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK16>,
-                             comp::traversal_for_search_algo_t<
-                                 lk::KArySearchAlgoKRebound<16u, KompositionsAllokator>>>,
+                             comp::traversal_for_search_algo_t<lk::KArySearchAlgoKRebound<16u, KompositionsAllokator>>>,
               "01c per-K: Traversal-Organ-Drift zwischen Fassade und Rebound-Leaf bei K=16.");
 // Und die Gegenprobe, damit der Vergleich nicht bloss "beide void" behauptet.
 static_assert(!std::is_same_v<comp::traversal_for_search_algo_t<lk::KArySearchAlgoK2>, void> &&
