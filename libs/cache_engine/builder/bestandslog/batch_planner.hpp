@@ -138,7 +138,20 @@ using PresencePredicate = std::function<bool(std::uint64_t index)>;
 // schwaecheren Zusage erarbeitet); der Praefix-Vergleich in parse_batch_plan/parse_phasen_zaehler
 // invalidiert ihn EINMAL, und der Folgelauf baut ehrlich von vorn. Dasselbe Vorgehen wie beim
 // resume-v5->v6-Bump des Mess-Stempels, aus demselben Grund und mit demselben Preis.
-inline constexpr char kBatchPlanFormat[] = "batchplan-v2";
+//
+// v2 -> v3 (T2-A/F4-NB2, Codex-Voll-Scope Befunde 2+3, 2026-08-06): EIN Bump fuer ZWEI
+// Bedeutungs-Aenderungen derselben Ablage.
+//   (1) Der Stempel traegt ab jetzt ein Glied "|bau=" -- den Digest der ERWARTETEN FINGERPRINTS der
+//       Plan-Indizes (slice_plan_stamp/plan_bau_digest, planer_driven_build.hpp). v2 sagte "genau diese
+//       Indexfolge, dieses Korn"; v3 sagt zusaetzlich "genau dieser Bau-Stand". Ein v2-Zaehler wurde
+//       unter der schwaecheren Zusage erarbeitet und darf nicht weitergelten.
+//   (2) Das Feld `gemessen` ist ab jetzt ein PRAEFIX und keine Bilanz mehr (s. PhasenZaehler unten). Ein
+//       v2-Wert steht fuer eine ANDERE Groesse -- ihn als Praefix zu lesen waere genau die stille
+//       Fehldeutung, gegen die diese Ablage gebaut ist.
+// Beide Aenderungen wuerden je fuer sich einen Bump verlangen; sie kommen in DERSELBEN Welle und teilen
+// ihn deshalb. Der Praefix-Vergleich in parse_batch_plan/parse_phasen_zaehler invalidiert Alt-Ablagen
+// EINMAL, und der Folgelauf baut/misst ehrlich von vorn -- dasselbe Vorgehen wie bei v1->v2.
+inline constexpr char kBatchPlanFormat[] = "batchplan-v3";
 
 // EIN FACH des Plans: das Fenster [begin, begin+count) im Index-Raum des Planers + die Zahl der darin
 // beim Planen als FEHLEND erkannten Atome. `offen` ist bewusst nur eine Zahl: das Dokument haelt die
@@ -161,6 +174,15 @@ struct PlanFach {
 // BEIDE werden erst NACH dem Vollzug fortgeschrieben und NIE fuer einen Fehlversuch -- das ist der Kern
 // des Befunds K1 ("IDs vor Bau/Messung gezaehlt inkl. Fehlversuche"). Ein Zaehler, der vor der Arbeit
 // hochlaeuft, behauptet Arbeit, die es nicht gibt.
+//
+// T2-A/F4-NB2 (Codex-Voll-Scope Befund 2) -- BEIDE SIND PRAEFIXE, UND ZWAR IN DERSELBEN ORDNUNG:
+// jede der zwei Zahlen benennt die Zahl der FUEHRENDEN Plan-Atome, die ihre Phase abgeschlossen haben.
+// N heisst "die Atome 0..N-1 sind fertig" -- es heisst NICHT "irgendwo im Plan sind N Atome fertig".
+// Der Unterschied ist der ganze Sinn der Ablage: plan_resume_faecher (unten) liest genau diese Zahl als
+// Praefix, und eine Bilanz an derselben Stelle liesse einen Folgelauf ueber ein LUECKENHAFTES Vorfeld
+// hinwegspringen. `kompiliert` war seit T2-A/F4 praefix-treu, `gemessen` bis NB2 nicht -- fuer
+// [Fehler, Erfolg, Erfolg] stand dort 2, obwohl das gedeckte Praefix 0 ist. Deshalb der v2->v3-Bump:
+// ein Alt-Wert steht fuer eine ANDERE Groesse und darf nicht als Praefix weitergelesen werden.
 struct PhasenZaehler {
     std::uint64_t kompiliert = 0;
     std::uint64_t gemessen   = 0;

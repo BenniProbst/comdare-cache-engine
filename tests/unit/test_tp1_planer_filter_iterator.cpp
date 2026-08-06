@@ -34,6 +34,7 @@
 #include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <algorithm> // CX-W1: std::any_of ueber die Dokument-Eintraege
+#include <atomic>    // T2-A/F4-NB2 (11h): das deterministische Alt-Fenster der Push-Barriere
 #include <cstddef>
 #include <filesystem>
 #include <fstream> // Alt-Staende der Faelle (6)/(9) legen und zurueckliegen
@@ -44,6 +45,7 @@
 #include <sstream>
 #include <stdexcept> // CX-W1: std::runtime_error als simulierter Push-Wurf
 #include <string>
+#include <thread> // T2-A/F4-NB2 (11h): yield() statt sleep -- die Barriere wird beobachtet, nicht gehofft
 #include <vector>
 
 namespace ex = ::comdare::cache_engine::builder::experiment;
@@ -1037,13 +1039,16 @@ int main() {
             fs::path const    z_t    = fs::path{plan_t.string() + ".zaehler"};
             FakeStore         store_t;
             ex::LazyRunConfig cfg_t1 = mach_bau_cfg(store_t, base / "f4t" / "lauf1", plan_t);
+            // T2-A/F4-NB2: das Korn reist ab jetzt in der Konfiguration (cfg.batch_plan_korn) statt als
+            // Funktions-Parameter -- EINE Quelle fuer Bau-Weg und Mess-Weg (s. plan_slice_korn).
+            cfg_t1.batch_plan_korn = 4;
             // Lauf 1 mit Korn 4: er baut beide Faecher und hinterlaesst den Zaehler bei 8.
             {
                 ex::BuildOrchestrator orch = mach_orch(cfg_t1, compile_stub);
                 ex::BuildStats        agg;
                 CerrCapture           fang;
-                auto const            builds = ex::run_planer_driven_provision(orch, view, alle, cfg_t1, agg,
-                                                                               bl::PresenceFn{}, nullptr, nullptr, 4);
+                auto const            builds =
+                    ex::run_planer_driven_provision(orch, view, alle, cfg_t1, agg, bl::PresenceFn{}, nullptr, nullptr);
                 check_eq("(11c2) Vorlauf baut die volle Selektion in zwei Faechern", builds.size(), std::size_t{8});
             }
             std::string const stamp_t = bl::slice_plan_stamp(alle, 4);
@@ -1052,6 +1057,7 @@ int main() {
             { std::ofstream{z_t, std::ios::trunc} << stamp_t << "|kompiliert=4|gemessen=0|rows=2\n"; }
 
             ex::LazyRunConfig cfg_t2 = mach_bau_cfg(store_t, base / "f4t" / "lauf2", plan_t);
+            cfg_t2.batch_plan_korn   = 4;
             ex::BuildStats    agg2;
             std::string       log2;
             std::size_t       plan_skips2 = 99;
@@ -1059,9 +1065,10 @@ int main() {
             {
                 CerrCapture           fang;
                 ex::BuildOrchestrator orch = mach_orch(cfg_t2, compile_stub);
-                gebaut2 = ex::run_planer_driven_provision(orch, view, alle, cfg_t2, agg2, bl::PresenceFn{}, nullptr,
-                                                          &plan_skips2, 4)
-                              .size();
+                gebaut2 =
+                    ex::run_planer_driven_provision(orch, view, alle, cfg_t2, agg2, bl::PresenceFn{}, nullptr,
+                                                    &plan_skips2)
+                        .size();
                 log2 = fang.text();
             }
             check_eq("(11c2) genau das UNGEDECKTE Fach wird gebaut", gebaut2, std::size_t{4});
@@ -1136,10 +1143,19 @@ int main() {
             fs::path const                 plan_f = base / "f4f" / "batch_plan.txt";
             fs::path const                 z_f    = fs::path{plan_f.string() + ".zaehler"};
             std::vector<std::size_t> const eins{0};
-            std::string const              plan_f_stamp = bl::slice_plan_stamp(eins, bl::kBuildSliceGrain);
+            std::string const              kFpF = std::string(128, 'c');
 
             FakeStore         store_f;
             ex::LazyRunConfig cfg_bau = mach_bau_cfg(store_f, base / "f4f" / "bau", plan_f);
+            // T2-A/F4-NB2 (Befund 3): BEIDE Laeufe tragen DIESELBE Bau-Identitaet. Das ist keine
+            // Test-Bequemlichkeit, sondern der produktive Ist: profile_run_entry.hpp belegt
+            // bestand_fingerprint_fn UNBEDINGT in der EINEN make_cfg, die Bau- wie Mess-Pass baut. Seit
+            // NB2 traegt der Plan-Stempel diese Identitaet mit -- ein Bau-Lauf OHNE Anker und ein
+            // Mess-Lauf MIT Anker finden einander deshalb nicht mehr (fail-closed). Genau darauf beisst
+            // (11j); hier wird die REGULAERE Lage geprueft, in der beide Seiten denselben Anker fuehren.
+            cfg_bau.bestand_fingerprint_fn = [kFpF](std::string const&) { return kFpF; };
+            std::string const plan_f_stamp =
+                bl::slice_plan_stamp(eins, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_bau));
             {
                 ex::BuildOrchestrator orch = mach_orch(cfg_bau, compile_stub);
                 ex::BuildStats        agg;
@@ -1153,7 +1169,6 @@ int main() {
             auto const           dims_f = tree.dynamic_filter();
             ex::BinarySpec const spec_f = view[0];
             std::string const    stem_f = ex::orch_make_stem(spec_f.binary_id, spec_f.index);
-            std::string const    kFpF   = std::string(128, 'c');
             FakeStore            dummy_f;
             ex::LazyRunConfig    cfg_mess = make_cfg(dummy_f, base / "f4f" / "mess");
             cfg_mess.provision_only       = false;
@@ -1190,6 +1205,437 @@ int main() {
                      plan_f_stamp + "|kompiliert=1|gemessen=1|rows=1\n");
             check_true("(11f) der Plan selbst ist unberuehrt (der Mess-Lauf plant nicht)",
                        datei_text(plan_f) == plan_f_stamp + "|rows=1\n0;1;1\n");
+        }
+
+        // ==========================================================================================
+        // (11g) T2-A/F4-NB2, BEFUND 1 -- DER BAU-ZAEHLER LIEF VOR DEM PUSH-DRAIN HOCH.
+        //
+        // DIE LAGE: der asynchrone Push-Pump (W11) arbeitet NEBEN dem Bau und wurde erst HINTER der
+        // ganzen Slice-Schleife drainiert (push_pump->close()). Der Plan-Zaehler dagegen lief am ENDE
+        // JEDES FENSTERS hoch, mit der Bedingung `slice_stats.failed == 0`. Ein Fenster, dessen Pushes
+        // samt und sonders warfen, erfuellte diese Bedingung: gebaut war alles, angekommen nichts.
+        // Der Folgelauf uebersprang es dann als gedecktes Praefix -- ohne dass im Store je eine Binary
+        // lag. Das ist das GEGENTEIL dessen, was der Lager-Inventar-Cache leisten soll.
+        //
+        // DER BISS BRAUCHT KEINEN ALT-BINAERBAU: die ALT-Bedingung war WOERTLICH `slice_stats.failed == 0`.
+        // Der Lauf unten weist genau das literal aus ("gebaut_neu=8 ... fehl=0" in der [BILANZ-TESTAT]-
+        // Zeile) -- unter dem Alt-Stand WAERE der Zaehler damit hochgelaufen. NEU: er tut es nicht, und
+        // die Zeile sagt warum. Dazu die Gegenprobe mit EINEM einzigen geaenderten Bit (der Push wirft
+        // nicht mehr): derselbe Lauf, gegenteiliges Ergebnis.
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11g) Befund 1: der Bau-Zaehler wartet auf den Push-Vollzug --\n";
+            ex::BuildSelection sel_g;
+            sel_g.indices         = alle;
+            sel_g.provenance      = "explicit";
+            auto const ram_stub_g = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+            // Der planer-getriebene Zweig (und damit die Plan-Ablage) haengt an bestandslog_active UND
+            // provision_only. bestandslog_active verlangt zusaetzlich den Key-Provider -- nullopt heisst
+            // "kein Bestand-Rueckschrieb", das Gate selbst ist damit erfuellt (Muster Fall (5)).
+            auto const kein_key = [](fs::path const&) -> std::optional<std::string> { return std::nullopt; };
+
+            // (11g-1) DER FEHL-FALL: jeder Push wirft.
+            fs::path const plan_g = base / "f4g" / "wirft" / "batch_plan.txt";
+            fs::path const z_g    = fs::path{plan_g.string() + ".zaehler"};
+            FakeStore      store_g;
+            std::string    log_g;
+            {
+                ex::LazyRunConfig cfg_g = mach_bau_cfg(store_g, base / "f4g" / "wirft" / "out", plan_g);
+                cfg_g.bestand_key_of    = kein_key;
+                cfg_g.max_binaries      = 8;
+                cfg_g.cache_push        = [](fs::path const&, std::string const&) {
+                    // cppcheck-suppress throwInEntryPoint // FP: Negativprobe (11g) -- der Wurf IST der Testfall
+                    throw std::runtime_error("Store-Push simuliert fehlgeschlagen");
+                };
+                CerrCapture fang;
+                (void)ex::run_lazy_static_then_dynamic(tree, sel_g, compile_stub, gen_stub, ram_stub_g, cfg_g);
+                log_g = fang.text();
+            }
+            check_true("(11g) der Plan selbst liegt (er beschreibt das SOLL, nicht den Vollzug)",
+                       fs::exists(plan_g, ec));
+            check_true("(11g) ALT-BEDINGUNG literal erfuellt: der Bau war fehlerfrei (fehl=0)",
+                       log_g.find("gebaut_neu=8 sidecar_skip=0 lager_skip=0 plan_skip=0 fehl=0") != std::string::npos);
+            check_true("(11g) ALT-STAND-BISS: TROTZDEM kein Bau-Zaehler -- die Artefakte sind nicht im Store",
+                       !fs::exists(z_g, ec));
+            check_true("(11g) und der Halt ist beziffert sichtbar (nie stumm)",
+                       log_g.find("Push-Fehler bis hierher") != std::string::npos);
+            check_true("(11g) mit der EIGENEN Begruendung (Store-Transport, nicht Compiler)",
+                       log_g.find("Fenster fehlerfrei GEBAUT") != std::string::npos);
+
+            // (11g-2) DIE GEGENPROBE -- EIN Bit anders: der Push gelingt. Alles Uebrige ist identisch.
+            fs::path const plan_g2 = base / "f4g" / "geht" / "batch_plan.txt";
+            fs::path const z_g2    = fs::path{plan_g2.string() + ".zaehler"};
+            FakeStore      store_g2;
+            std::size_t    pushes  = 0;
+            {
+                ex::LazyRunConfig cfg_g2 = mach_bau_cfg(store_g2, base / "f4g" / "geht" / "out", plan_g2);
+                cfg_g2.bestand_key_of    = kein_key;
+                cfg_g2.max_binaries      = 8;
+                cfg_g2.cache_push        = [&pushes](fs::path const&, std::string const&) { ++pushes; };
+                CerrCapture fang;
+                (void)ex::run_lazy_static_then_dynamic(tree, sel_g, compile_stub, gen_stub, ram_stub_g, cfg_g2);
+            }
+            check_eq("(11g) Gegenprobe: alle 8 Pushes sind wirklich gelaufen", pushes, std::size_t{8});
+            check_true("(11g) Gegenprobe: JETZT steht der Bau-Zaehler da", fs::exists(z_g2, ec));
+            check_true("(11g) Gegenprobe: und er traegt die volle Fenster-Menge",
+                       datei_text(z_g2).find("|kompiliert=8|gemessen=0|") != std::string::npos);
+        }
+
+        // ==========================================================================================
+        // (11h) T2-A/F4-NB2, BEFUND 1 (die BARRIERE selbst) -- AsyncPushPump::drain().
+        //
+        // Die Zwischen-Barriere ist das Bauteil, das (11g) traegt: warten, bis alles bislang Eingereihte
+        // ABGEARBEITET ist, ohne den Pump zu schliessen. Der kritische Punkt ist der Zustand ZWISCHEN
+        // "aus der Queue gezogen" und "gebucht" -- ohne die in_flight_-Marke saehe drain() eine leere
+        // Queue und meldete "vollzogen", waehrend der Push noch laeuft. Genau dieses Fenster wird hier
+        // DETERMINISTISCH aufgespannt (der Push haelt an, bis der Test ihn freigibt) statt erhofft.
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11h) Befund 1: die Zwischen-Barriere haelt den in-flight-Push --\n";
+            std::atomic<bool> gestartet{false};
+            std::atomic<bool> freigeben{false};
+            ex::AsyncPushPump pump{[&gestartet, &freigeben](fs::path const&, std::string const&) {
+                                       gestartet.store(true);
+                                       while (!freigeben.load()) std::this_thread::yield();
+                                       // cppcheck-suppress throwInEntryPoint // FP: Negativprobe (11h)
+                                       throw std::runtime_error("Push wirft nach Freigabe");
+                                   },
+                                   "v-test", {}, 0};
+            pump.enqueue(fs::path{"/tmp/comdare-11h-eins"});
+            while (!gestartet.load()) std::this_thread::yield();
+            // DAS ALT-FENSTER, deterministisch: der Eintrag ist aus der Queue, aber noch nicht gebucht.
+            check_eq("(11h) ALT-FENSTER: der Push laeuft, gebucht ist noch NICHTS", pump.failed_count(),
+                     std::size_t{0});
+            check_eq("(11h) und auch kein Erfolg", pump.pushed_count(), std::size_t{0});
+            freigeben.store(true);
+            pump.drain(); // die Barriere: sie MUSS bis zur Buchung warten
+            check_eq("(11h) NACH der Barriere ist der Fehl-Push gebucht", pump.failed_count(), std::size_t{1});
+            check_eq("(11h) drain() schliesst den Pump NICHT -- er nimmt weiter an", pump.pushed_count(),
+                     std::size_t{0});
+            // Der Pump lebt weiter: ein zweiter Eintrag laeuft durch denselben Thread.
+            freigeben.store(false);
+            gestartet.store(false);
+            pump.enqueue(fs::path{"/tmp/comdare-11h-zwei"});
+            while (!gestartet.load()) std::this_thread::yield();
+            freigeben.store(true);
+            pump.drain();
+            check_eq("(11h) der zweite Eintrag ist ebenfalls gebucht (der Pump lief weiter)", pump.failed_count(),
+                     std::size_t{2});
+            pump.close();
+            check_eq("(11h) nach close() bleibt die Bilanz stehen", pump.failed_count(), std::size_t{2});
+            pump.drain(); // idempotent + kehrt nach close() sofort zurueck (kein Haenger)
+            check_eq("(11h) drain() nach close() haengt nicht und aendert nichts", pump.failed_count(),
+                     std::size_t{2});
+        }
+
+        // ==========================================================================================
+        // (11i) T2-A/F4-NB2, BEFUND 2 -- DIE MESS-FRONT WAR EINE BILANZ, KEIN PRAEFIX.
+        //
+        // DER BEFUND WOERTLICH: die Zahl lief bei JEDER irgendwo erfolgreichen oder resumierten Zelle
+        // hoch (`oc.measured > 0 || oc.resumed_binaries > 0`). Fuer [Fehler, Erfolg, Erfolg] stand dort
+        // `gemessen=2`, obwohl das gedeckte Praefix 0 ist. Wer diese Zahl als Front liest -- und genau
+        // dazu ist eine Ablage da, die "wo stand ich" beantwortet -- ueberspringt die kaputte Zelle.
+        //
+        // DIE LAGE HIER IST EXAKT [Fehler, Erfolg, Erfolg]: Index 0 laesst sich nicht mehr bauen
+        // (Compile-Stub gibt fuer ihn != 0 zurueck), die Indizes 1 und 2 tragen eine vollstaendige,
+        // konfigurations-aktuelle Ablage und resumieren. r.resumed_binaries == 2 IST die Alt-Zahl --
+        // sie steht literal im Protokoll neben der neuen Front 0.
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11i) Befund 2: die Mess-Front ist ein Praefix --\n";
+            auto const                     dims_i = tree.dynamic_filter();
+            std::vector<std::size_t> const drei{0, 1, 2};
+            std::string const              kFpI   = std::string(128, 'd');
+            auto const                     ram_i  = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+            // (a) Der BAU-Lauf legt Plan + Bau-Front an (kompiliert=3). Dieselbe Identitaet wie unten.
+            fs::path const plan_i = base / "f4i" / "batch_plan.txt";
+            fs::path const z_i    = fs::path{plan_i.string() + ".zaehler"};
+            FakeStore      store_i;
+            std::string    stamp_i;
+            {
+                ex::LazyRunConfig cfg_bau_i      = mach_bau_cfg(store_i, base / "f4i" / "bau", plan_i);
+                cfg_bau_i.bestand_fingerprint_fn = [kFpI](std::string const&) { return kFpI; };
+                stamp_i = bl::slice_plan_stamp(drei, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_bau_i));
+                ex::BuildOrchestrator orch = mach_orch(cfg_bau_i, compile_stub);
+                ex::BuildStats        agg;
+                CerrCapture           fang;
+                (void)ex::run_planer_driven_provision(orch, view, drei, cfg_bau_i, agg, bl::PresenceFn{});
+            }
+            check_eq("(11i) Vorbedingung: der Bau-Lauf hat die Bau-Front auf 3 gesetzt", datei_text(z_i),
+                     stamp_i + "|kompiliert=3|gemessen=0|rows=1\n");
+
+            // (b) Der MESS-Lauf. Die Zellen 1 und 2 bekommen ihre vollstaendige Ablage; Zelle 0 nicht --
+            //     und ihr Bau scheitert, damit sie die Front an Position 0 bricht.
+            FakeStore         dummy_i;
+            ex::LazyRunConfig cfg_mess_i         = make_cfg(dummy_i, base / "f4i" / "mess");
+            cfg_mess_i.provision_only            = false;
+            cfg_mess_i.bestand_transport         = {};
+            cfg_mess_i.bestand_doc_key.clear();
+            cfg_mess_i.resume_completed_binaries = true;
+            cfg_mess_i.max_binaries              = 3;
+            cfg_mess_i.batch_plan_datei          = plan_i;
+            cfg_mess_i.bestand_fingerprint_fn    = [kFpI](std::string const&) { return kFpI; };
+            std::string const stem_i0 =
+                ex::orch_make_stem(view[0].binary_id, view[0].index); // die Zelle, die brechen soll
+            for (std::size_t i : {std::size_t{1}, std::size_t{2}}) {
+                std::string const stem    = ex::orch_make_stem(view[i].binary_id, view[i].index);
+                fs::path const    bin_dir = cfg_mess_i.output_dir / stem;
+                fs::create_directories(bin_dir, ec);
+                { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+                { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << kFpI; }
+                {
+                    std::ofstream{bin_dir / "result.csv", std::ios::trunc}
+                        << ex::lazy_csv_header() << "ALTER-ERFOLGS-STAND-F4I\n";
+                }
+                {
+                    std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
+                        << ex::lazy_resume_stamp_prefix(cfg_mess_i, dims_i) << "|fpr=" << kFpI << "|rows=1\n";
+                }
+            }
+            // Der Compile-Stub, der GENAU die erste Zelle scheitern laesst -- die anderen beiden werden
+            // ohnehin nicht kompiliert (b.skipped ueber das Fingerprint-Sidecar).
+            auto const compile_bricht_null = [&stem_i0](ex::BuildJob const& j) -> int {
+                return j.output.parent_path().filename().string() == stem_i0 ? 7 : 0;
+            };
+            ex::BuildSelection sel_i;
+            sel_i.indices    = drei;
+            sel_i.provenance = "explicit";
+            ex::LazyRunResult r_i;
+            {
+                CerrCapture fang;
+                r_i = ex::run_lazy_static_then_dynamic(tree, sel_i, compile_bricht_null, gen_stub, ram_i, cfg_mess_i);
+            }
+            check_eq("(11i) Vorbedingung: die erste Zelle ist NICHT gebaut", r_i.build_stats.failed, std::size_t{1});
+            check_eq("(11i) ALT-ZAHL literal: zwei Zellen HABEN resumiert", r_i.resumed_binaries, std::size_t{2});
+            check_eq("(11i) ALT-STAND-BISS: die Mess-Front bleibt trotzdem 0 (das gedeckte Praefix ist leer)",
+                     datei_text(z_i), stamp_i + "|kompiliert=3|gemessen=0|rows=1\n");
+
+            // (c) DIE GEGENPROBE: dieselbe Ablage, aber die erste Zelle traegt ihren Stand ebenfalls --
+            //     jetzt ist das Praefix voll und die Front zaehlt alle drei. Die Wache TRENNT, sie SPERRT nicht.
+            {
+                fs::path const bin0 = cfg_mess_i.output_dir / stem_i0;
+                fs::create_directories(bin0, ec);
+                { std::ofstream{bin0 / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+                { std::ofstream{bin0 / "perm.dll.fingerprint", std::ios::trunc} << kFpI; }
+                {
+                    std::ofstream{bin0 / "result.csv", std::ios::trunc}
+                        << ex::lazy_csv_header() << "ALTER-ERFOLGS-STAND-F4I\n";
+                }
+                {
+                    std::ofstream{bin0 / "result.csv.stamp", std::ios::trunc}
+                        << ex::lazy_resume_stamp_prefix(cfg_mess_i, dims_i) << "|fpr=" << kFpI << "|rows=1\n";
+                }
+                ex::LazyRunResult r_i2;
+                {
+                    CerrCapture fang;
+                    r_i2 = ex::run_lazy_static_then_dynamic(tree, sel_i, compile_bricht_null, gen_stub, ram_i,
+                                                            cfg_mess_i);
+                }
+                check_eq("(11i) Gegenprobe: jetzt resumieren alle drei", r_i2.resumed_binaries, std::size_t{3});
+                check_eq("(11i) Gegenprobe: und die Front zaehlt sie auch alle drei", datei_text(z_i),
+                         stamp_i + "|kompiliert=3|gemessen=3|rows=1\n");
+            }
+        }
+
+        // ==========================================================================================
+        // (11j) T2-A/F4-NB2, BEFUND 3 -- DER ZAEHLER WAR EINE ZWEITE, VOM FINGERPRINT UNABHAENGIGE
+        //       RESUME-AUTORITAET.
+        //
+        // LEITSATZ (bindend): DER ZAEHLER-RESUME DARF NIE MEHR BEHAUPTEN, ALS DER FINGERPRINT DECKT.
+        // Der Plan-Zaehler entfernt ganze FAECHER aus dem Strom (SlicePlanner, Schritt (4)) -- also VOR
+        // dem Bau und damit VOR dll_is_current, dem EINEN Vergleich, der die Bau-Identitaet prueft. Ein
+        // Zaehler aus einem Lauf mit Bau-Identitaet A galt fuer einen Lauf mit Bau-Identitaet B weiter:
+        // Selektion, Groesse, Korn und Indexfolge sind identisch, wenn sich nur die Toolchain aendert.
+        // Die Fingerprint-Pruefung wurde nicht ueberstimmt -- sie wurde NIE GEFRAGT.
+        //
+        // Der ALT-Stempel wird hier NACHGEBAUT (die v2-Form ohne |bau=), damit der Defekt literal
+        // dasteht statt behauptet zu werden -- dasselbe Vorgehen wie bei der Indexfolge-Bindung.
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11j) Befund 3: die Bau-Identitaet bindet den Zaehler --\n";
+            std::string const kFpA = std::string(128, '1');
+            std::string const kFpB = std::string(128, '2');
+            bl::PlanIdentitaetFn const idA{[kFpA](std::size_t) { return kFpA; }};
+            bl::PlanIdentitaetFn const idB{[kFpB](std::size_t) { return kFpB; }};
+
+            // (a) DER DEFEKT LITERAL: die v2-Form (Format + start + indizes + korn + idx, KEIN |bau=).
+            auto const alt_v2 = [](std::vector<std::size_t> const& idx, std::size_t korn) {
+                return std::string{"batchplan-v2"} +
+                       "|art=bau-slice|start=" + std::to_string(idx.empty() ? std::size_t{0} : idx.front()) +
+                       "|indizes=" + std::to_string(idx.size()) + "|korn=" + std::to_string(korn) +
+                       "|idx=" + bl::slice_index_digest(idx);
+            };
+            check_true("(11j) ALT-STAND-BISS: ohne |bau= sind zwei VERSCHIEDENE Bau-Staende stempel-GLEICH",
+                       alt_v2(alle, bl::kBuildSliceGrain) == alt_v2(alle, bl::kBuildSliceGrain));
+            std::string const neu_a = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, idA);
+            std::string const neu_b = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, idB);
+            check_true("(11j) NEU: verschiedene Bau-Staende tragen verschiedene Stempel", neu_a != neu_b);
+            check_true("(11j) und der Unterschied sitzt AUSSCHLIESSLICH im |bau=-Glied",
+                       neu_a.substr(0, neu_a.rfind("|bau=")) == neu_b.substr(0, neu_b.rfind("|bau=")));
+            check_true("(11j) derselbe Bau-Stand ist reproduzierbar derselbe Stempel",
+                       bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, idA) == neu_a);
+            check_true("(11j) OHNE Anker sagt der Stempel das, statt eine Deckung zu behaupten",
+                       bl::slice_plan_stamp(alle, bl::kBuildSliceGrain).find("|bau=ohne-anker") != std::string::npos);
+            check_true("(11j) und 'ohne Anker' ist NICHT dasselbe wie 'mit Anker'", neu_a.find("ohne-anker") ==
+                                                                                        std::string::npos);
+
+            // (b) DIE WIRKUNG am ECHTEN Bau-Weg: derselbe Plan, andere Bau-Identitaet -> der Alt-Zaehler
+            //     greift NICHT und der Folgelauf baut ehrlich neu.
+            fs::path const plan_j = base / "f4j" / "batch_plan.txt";
+            FakeStore      store_j;
+            {
+                ex::LazyRunConfig cfg_a      = mach_bau_cfg(store_j, base / "f4j" / "lauf_a", plan_j);
+                cfg_a.bestand_fingerprint_fn = [kFpA](std::string const&) { return kFpA; };
+                ex::BuildOrchestrator orch   = mach_orch(cfg_a, compile_stub);
+                ex::BuildStats        agg;
+                CerrCapture           fang;
+                auto const builds = ex::run_planer_driven_provision(orch, view, alle, cfg_a, agg, bl::PresenceFn{});
+                check_eq("(11j) Lauf A baut die volle Selektion", builds.size(), std::size_t{8});
+            }
+            {
+                ex::LazyRunConfig cfg_b      = mach_bau_cfg(store_j, base / "f4j" / "lauf_b", plan_j);
+                cfg_b.bestand_fingerprint_fn = [kFpB](std::string const&) { return kFpB; };
+                ex::BuildOrchestrator orch   = mach_orch(cfg_b, compile_stub);
+                ex::BuildStats        agg;
+                std::size_t           plan_skips = 99;
+                CerrCapture           fang;
+                auto const            builds =
+                    ex::run_planer_driven_provision(orch, view, alle, cfg_b, agg, bl::PresenceFn{}, nullptr,
+                                                    &plan_skips);
+                check_eq("(11j) ALT-STAND-BISS: ein FREMDER Bau-Stand erbt den Zaehler NICHT", builds.size(),
+                         std::size_t{8});
+                check_eq("(11j) und beansprucht auch kein Plan-Resume", plan_skips, std::size_t{0});
+            }
+            {
+                // Gegenprobe: DERSELBE Bau-Stand wie Lauf A erbt sehr wohl -- die Bindung sperrt nicht,
+                // sie unterscheidet. (Lauf B hat die Ablage inzwischen auf seinen eigenen Stempel gesetzt,
+                // deshalb laeuft die Gegenprobe gegen eine EIGENE Ablage mit zwei A-Laeufen.)
+                fs::path const    plan_j2 = base / "f4j" / "gegenprobe" / "batch_plan.txt";
+                FakeStore         store_j2;
+                ex::LazyRunConfig cfg_a1      = mach_bau_cfg(store_j2, base / "f4j" / "gp_1", plan_j2);
+                cfg_a1.bestand_fingerprint_fn = [kFpA](std::string const&) { return kFpA; };
+                {
+                    ex::BuildOrchestrator orch = mach_orch(cfg_a1, compile_stub);
+                    ex::BuildStats        agg;
+                    CerrCapture           fang;
+                    (void)ex::run_planer_driven_provision(orch, view, alle, cfg_a1, agg, bl::PresenceFn{});
+                }
+                ex::LazyRunConfig cfg_a2      = mach_bau_cfg(store_j2, base / "f4j" / "gp_2", plan_j2);
+                cfg_a2.bestand_fingerprint_fn = [kFpA](std::string const&) { return kFpA; };
+                ex::BuildOrchestrator orch    = mach_orch(cfg_a2, compile_stub);
+                ex::BuildStats        agg;
+                std::size_t           plan_skips = 99;
+                CerrCapture           fang;
+                auto const            builds =
+                    ex::run_planer_driven_provision(orch, view, alle, cfg_a2, agg, bl::PresenceFn{}, nullptr,
+                                                    &plan_skips);
+                check_eq("(11j) Gegenprobe: DERSELBE Bau-Stand erbt den Zaehler (nichts wird neu gebaut)",
+                         builds.size(), std::size_t{0});
+                check_eq("(11j) Gegenprobe: und die geerbten Atome sind gebucht", plan_skips, std::size_t{8});
+            }
+        }
+
+        // ==========================================================================================
+        // (11k) T2-A/F4-NB2, KORN-DIVERGENZ (Vorwellen-Notiz mittag-20) -- EINE QUELLE FUER BEIDE WEGE.
+        //
+        // DER BEFUND: der BAU-Weg fuehrte das Korn als Funktions-Parameter, der MESS-Weg schrieb
+        // bestandslog::kBuildSliceGrain HART hin. Bei abweichendem Korn trugen die beiden Stempel
+        // verschiedene "|korn="-Glieder -- der Mess-Lauf fand den Plan seines EIGENEN Bau-Laufs nicht
+        // und schrieb die Mess-Front nicht fort. Fail-closed, aber still falsch: der Plan IST da.
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11k) Korn-Divergenz: eine Quelle fuer Bau- und Mess-Weg --\n";
+            ex::LazyRunConfig probe;
+            check_eq("(11k) 0 heisst 'die Konstante' -- der produktive Lauf ist unveraendert",
+                     ex::plan_slice_korn(probe), bl::kBuildSliceGrain);
+            probe.batch_plan_korn = 4;
+            check_eq("(11k) ein gesetztes Korn kommt durch", ex::plan_slice_korn(probe), std::size_t{4});
+
+            auto const                     dims_k = tree.dynamic_filter();
+            std::vector<std::size_t> const eins_k{0};
+            std::string const              kFpK = std::string(128, 'e');
+            fs::path const                 plan_k = base / "f4k" / "batch_plan.txt";
+            fs::path const                 z_k    = fs::path{plan_k.string() + ".zaehler"};
+
+            FakeStore         store_k;
+            ex::LazyRunConfig cfg_bau_k      = mach_bau_cfg(store_k, base / "f4k" / "bau", plan_k);
+            cfg_bau_k.batch_plan_korn        = 4;
+            cfg_bau_k.bestand_fingerprint_fn = [kFpK](std::string const&) { return kFpK; };
+            std::string const stamp_k = bl::slice_plan_stamp(eins_k, 4, ex::plan_identitaet_of(view, cfg_bau_k));
+            {
+                ex::BuildOrchestrator orch = mach_orch(cfg_bau_k, compile_stub);
+                ex::BuildStats        agg;
+                CerrCapture           fang;
+                (void)ex::run_planer_driven_provision(orch, view, eins_k, cfg_bau_k, agg, bl::PresenceFn{});
+            }
+            check_true("(11k) Vorbedingung: der Plan traegt das gesetzte Korn",
+                       datei_text(plan_k).find("|korn=4|") != std::string::npos);
+            check_eq("(11k) und die Bau-Front steht", datei_text(z_k), stamp_k + "|kompiliert=1|gemessen=0|rows=1\n");
+
+            // Die Mess-Fixture (identisch zu (11f), nur mit Korn).
+            std::string const stem_k  = ex::orch_make_stem(view[0].binary_id, view[0].index);
+            auto const        mach_mess_cfg = [&](fs::path const& out, std::size_t korn) {
+                FakeStore         dummy;
+                ex::LazyRunConfig c         = make_cfg(dummy, out);
+                c.provision_only            = false;
+                c.bestand_transport         = {};
+                c.bestand_doc_key.clear();
+                c.resume_completed_binaries = true;
+                c.max_binaries              = 1;
+                c.batch_plan_datei          = plan_k;
+                c.batch_plan_korn           = korn;
+                c.bestand_fingerprint_fn    = [kFpK](std::string const&) { return kFpK; };
+                return c;
+            };
+            auto const lege_mess_stand = [&](ex::LazyRunConfig const& c) {
+                fs::path const bin_dir = c.output_dir / stem_k;
+                fs::create_directories(bin_dir, ec);
+                { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+                { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << kFpK; }
+                {
+                    std::ofstream{bin_dir / "result.csv", std::ios::trunc}
+                        << ex::lazy_csv_header() << "ALTER-ERFOLGS-STAND-F4K\n";
+                }
+                {
+                    std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
+                        << ex::lazy_resume_stamp_prefix(c, dims_k) << "|fpr=" << kFpK << "|rows=1\n";
+                }
+            };
+            ex::BuildSelection sel_k;
+            sel_k.indices       = {0};
+            sel_k.provenance    = "explicit";
+            auto const ram_k    = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+
+            // (11k-1) ALT-STAND-BISS: der Mess-Weg mit dem HART verdrahteten Default (4096) findet den
+            //         Plan seines eigenen Bau-Laufs NICHT -- genau die Divergenz, die der Befund benennt.
+            {
+                ex::LazyRunConfig cfg_alt = mach_mess_cfg(base / "f4k" / "mess_4096", 0);
+                lege_mess_stand(cfg_alt);
+                std::string log;
+                {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_k, compile_stub, gen_stub, ram_k, cfg_alt);
+                    log = fang.text();
+                }
+                check_true("(11k) ALT-STAND-BISS: mit dem Default-Korn findet der Mess-Lauf den Plan NICHT",
+                           log.find("kein zu dieser Selektion passender Batch-Plan") != std::string::npos);
+                check_eq("(11k) ALT-STAND-BISS: und die Mess-Front bleibt liegen", datei_text(z_k),
+                         stamp_k + "|kompiliert=1|gemessen=0|rows=1\n");
+            }
+            // (11k-2) NEU: dasselbe Korn aus DERSELBEN Quelle -> der Mess-Lauf findet seinen Plan.
+            {
+                ex::LazyRunConfig cfg_neu = mach_mess_cfg(base / "f4k" / "mess_4", 4);
+                lege_mess_stand(cfg_neu);
+                ex::LazyRunResult r_k;
+                {
+                    CerrCapture fang;
+                    r_k = ex::run_lazy_static_then_dynamic(tree, sel_k, compile_stub, gen_stub, ram_k, cfg_neu);
+                }
+                check_eq("(11k) Vorbedingung: die Zelle hat resumiert", r_k.resumed_binaries, std::size_t{1});
+                check_eq("(11k) NEU: EIN Korn fuer beide Wege -> die Mess-Front wird fortgeschrieben",
+                         datei_text(z_k), stamp_k + "|kompiliert=1|gemessen=1|rows=1\n");
+            }
         }
     }
 

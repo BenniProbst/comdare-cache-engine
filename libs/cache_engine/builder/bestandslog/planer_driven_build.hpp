@@ -256,6 +256,61 @@ private:
     return std::string{hex.data(), hex.size()};
 }
 
+// T2-A/F4-NB2 (Codex-Voll-Scope, Befund 3) -- DIE BAU-IDENTITAET GEHOERT IN DEN STEMPEL.
+//
+// DER LEITSATZ, der diese Naht traegt: DER ZAEHLER-RESUME DARF NIE MEHR BEHAUPTEN, ALS DER FINGERPRINT
+// DECKT. Bis hierher war er die zweite, davon UNABHAENGIGE Resume-Autoritaet: er entfernt ganze FAECHER
+// aus dem Strom (SlicePlanner::run, Schritt (4)), also VOR dem Bau -- und damit vor dll_is_current, dem
+// EINEN Vergleich, der die Bau-Identitaet prueft. Ein Zaehler, der unter der Bau-Identitaet A erarbeitet
+// wurde, galt fuer einen Lauf mit der Bau-Identitaet B weiter, weil der Stempel von B nichts wusste:
+// Selektion, Groesse, Korn und Indexfolge sind identisch, wenn sich nur die TOOLCHAIN aendert. Der
+// Folgelauf uebersprang dann fuehrende Faecher, deren .so aus einem anderen Bau-Stand stammen -- die
+// Fingerprint-Pruefung wurde nicht ueberstimmt, sie wurde NIE GEFRAGT.
+//
+// DIE HEILUNG ist die exakte und nicht die naheliegende: gebunden wird nicht "eine Bau-Versions-Zeichenkette",
+// sondern GENAU DIE MENGE DER ERWARTETEN FINGERPRINTS, die dll_is_current je Index vergleichen wuerde --
+// als Digest ueber die '\n'-abgeschlossene Folge in PLAN-ORDNUNG. Damit gilt die Zusage buchstaeblich:
+// aendert sich irgendetwas, was einen einzigen dieser Fingerprints bewegt (Toolchain-Realversion,
+// opt/ext/gate/atomic128, bvset, Zellwerte, Organ-Achsen-Versionen -- oder die Abbildung Index -> Anatomie
+// selbst), traegt der Stempel einen anderen Digest und der Alt-Zaehler wird fail-closed abgelehnt.
+//
+// KOSTEN, ehrlich benannt: ein voller Durchlauf der FingerprintFn ueber die Selektion, EINMAL vor dem Bau.
+// Das ist dieselbe Groessenordnung, die der Plan ohnehin zweimal zahlt (der Miss-Scan des Planers und der
+// Bau-Filter des Consumers rufen die PresenceFn je Index, und die loest ueber denselben Provider auf).
+// Der Stempel selbst waechst um EIN Glied fester Laenge -- die Doktrin "der Stempel ist eine ZEILE" haelt.
+//
+// OHNE ANKER: liefert der Aufrufer keine Identitaets-Funktion, traegt das Glied das Wort `ohne-anker`.
+// Das ist keine Bequemlichkeit, sondern die zweite Haelfte des Leitsatzes: ohne Fingerprint-Provider
+// deckt dll_is_current NICHTS (es ist fail-closed und skippt nie), also darf ein Zaehler aus einem Lauf
+// MIT Ankern hier nicht gelten -- und umgekehrt. Die beiden Welten tragen verschiedene Stempel und
+// koennen sich nicht gegenseitig zertifizieren.
+//
+// SPEICHER, ehrlich beziffert: das Preimage ist EIN zusammenhaengender Puffer von rund 129 Byte je Index
+// (die sha512-Primitive dieses Hauses nimmt eine span, sie hat keine inkrementelle Form -- dieselbe Lage
+// wie bei slice_index_digest daneben). Fuer ein Pass-Fenster von 2^17 Binaries sind das ~17 MB, EINMAL,
+// waehrend der Plan gebildet wird -- neben dem results-Vektor O(K) desselben Fensters keine neue
+// Groessenordnung, aber auch keine Null; deshalb steht die Zahl hier und nicht nur im Kopf des Autors.
+// Die Klammer dagegen ist die Aufrufer-Seite: ohne Plan-Ablage wird diese Funktion nie mit einer
+// Identitaets-Funktion gerufen (plan_identitaet_of, cache_engine_builder_iterator.hpp).
+using PlanIdentitaetFn = std::function<std::string(std::size_t view_index)>;
+
+inline constexpr char kPlanOhneAnker[] = "ohne-anker";
+
+[[nodiscard]] inline std::string plan_bau_digest(std::vector<std::size_t> const& indices,
+                                                 PlanIdentitaetFn const&         identitaet) {
+    if (!identitaet) return std::string{kPlanOhneAnker};
+    std::string preimage;
+    preimage.reserve(indices.size() * 129);
+    for (std::size_t const i : indices) {
+        preimage += identitaet(i);
+        preimage += '\n'; // derselbe Trenner wie im Indexfolge-Preimage: ausserhalb des Hex-Alphabets
+    }
+    auto const digest = ::comdare::cache_engine::sha512::sha512(std::span<std::uint8_t const>{
+        reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
+    auto const hex = ::comdare::cache_engine::sha512::to_hex(digest);
+    return std::string{hex.data(), hex.size()};
+}
+
 // Der Stempel des Bau-Plans: GENAU die Groessen, die den Plan bestimmen. Die PresenceFn steht bewusst
 // NICHT darin -- sie ist Lager-ZUSTAND, kein Plan-Parameter; ein zwischenzeitlich gefuelltes Lager darf
 // einen Zaehler nicht entwerten, es aendert nur die Miss-Zahlen innerhalb derselben Faecher.
@@ -263,11 +318,16 @@ private:
 // T2-A/F4-NB: |idx= bindet die Indexfolge EINDEUTIG (s. slice_index_digest). start/indizes bleiben
 // stehen -- nicht als Wache (das ist jetzt |idx=), sondern als LESBARKEIT: wer die Ablage von Hand
 // ansieht, erkennt Fenster und Groesse, ohne einen Digest aufloesen zu koennen.
-[[nodiscard]] inline std::string slice_plan_stamp(std::vector<std::size_t> const& indices, std::size_t grain) {
+//
+// T2-A/F4-NB2: |bau= bindet die BAU-IDENTITAET (s. plan_bau_digest). |idx= sagt "genau diese Folge",
+// |bau= sagt "genau dieser Bau-Stand" -- erst zusammen decken sie, was der Zaehler behauptet.
+[[nodiscard]] inline std::string slice_plan_stamp(std::vector<std::size_t> const& indices, std::size_t grain,
+                                                  PlanIdentitaetFn const& identitaet = {}) {
     return std::string{kBatchPlanFormat} +
            "|art=bau-slice|start=" + std::to_string(indices.empty() ? std::size_t{0} : indices.front()) +
            "|indizes=" + std::to_string(indices.size()) +
-           "|korn=" + std::to_string(grain == 0 ? kBuildSliceGrain : grain) + "|idx=" + slice_index_digest(indices);
+           "|korn=" + std::to_string(grain == 0 ? kBuildSliceGrain : grain) + "|idx=" + slice_index_digest(indices) +
+           "|bau=" + plan_bau_digest(indices, identitaet);
 }
 
 // DIE PLAN-ABLAGE-NAHT (opt-in, Muster der uebrigen bestandslog-Injektionen): leerer Pfad => inert =>
@@ -295,7 +355,14 @@ struct PlanPersistenz {
 // ist per planer_driven_active an provision_only gebunden -- er ist der BAU-Lauf. Seine eigene Front ist
 // die Bau-Front. `gemessen` fuehrt der SEPARATE Mess-Lauf fort (Owner: "kompiliert/separat gemessen");
 // er liest denselben Plan, aber sein feinkoerniger Resume-Arbiter ist und bleibt die per-Binary
-// result.csv+stamp-Naht (T2-A/K2) -- der Plan-Zaehler ist dort die Bilanz, nicht die zweite Autoritaet.
+// result.csv+stamp-Naht (T2-A/K2) -- der Plan-Zaehler beantwortet dort die GROBE Frage des Planers und
+// ist nicht die zweite Autoritaet.
+//
+// T2-A/F4-NB2 (Befund 2): `gemessen` ist seit dem batchplan-v3-Bump ebenfalls ein PRAEFIX (s. PhasenZaehler,
+// batch_planner.hpp). Das aendert NICHTS an der Zustaendigkeit -- dieser Planer liest weiterhin allein
+// `kompiliert` als seinen Resume-Punkt und reicht `gemessen` unveraendert durch. Dass die Zahl jetzt eine
+// Front IST, macht sie nicht zur Front DIESES Weges: Bau-Arbeit auf Grundlage einer Mess-Zahl zu
+// ueberspringen bliebe die Vermischung zweier Phasen, die der Owner-KERN ausdruecklich trennt.
 class SlicePlanner {
 public:
     SlicePlanner(SlicePlanQueue& q, std::vector<std::size_t> indices, std::size_t grain, PresenceFn present,
@@ -321,17 +388,21 @@ public:
     [[nodiscard]] std::size_t plan_faecher_zahl() const noexcept { return plan_faecher_.load(); }
     /// Die Atome der uebersprungenen FUEHRENDEN Faecher == der Bau-Zaehlerstand, auf dem dieser Lauf aufsetzt.
     [[nodiscard]] std::uint64_t resume_atome() const noexcept { return resume_atome_.load(); }
-    /// Die vorgefundene MESS-BILANZ. Der Bau-Lauf schreibt sie unveraendert zurueck, statt sie auf 0 zu setzen:
+    /// Die vorgefundene MESS-FRONT. Der Bau-Lauf schreibt sie unveraendert zurueck, statt sie auf 0 zu setzen:
     /// er baut ausschliesslich HINTER seiner eigenen Bau-Front, ruehrt also keine bereits gemessene Binary an.
     ///
-    /// T2-A/F4-NB (Codex-Scope-F4 + Fable MITTEL-2, NAMENS-PIN): sie hiess `resume_gemessen()` und las sich
-    /// damit wie eine zweite RESUME-FRONT -- als duerfte ein Konsument hinter ihr aufsetzen. DAS DARF ER
-    /// NICHT. Der Resume-Punkt DIESES Planers ist und bleibt ALLEIN die Bau-Front (`kompiliert`, s. den
-    /// Klassen-Kopf); `gemessen` ist BILANZ: eine Zahl, die der SEPARATE Mess-Lauf fuehrt und die der
-    /// Bau-Lauf nur durchreicht, damit sie nicht verloren geht. Wer sie als Praefix-Front konsumiert,
-    /// ueberspringt BAU-Arbeit auf Grundlage einer MESS-Zahl -- zwei Phasen, die der Owner-KERN
-    /// ausdruecklich trennt ("kompiliert/separat gemessen"). Der Name sagt das jetzt selbst.
-    [[nodiscard]] std::uint64_t vorgefundene_mess_bilanz() const noexcept { return mess_bilanz_.load(); }
+    /// NAMENS-HISTORIE (zwei Wellen, zwei Bedeutungen -- der Name folgte beide Male der Sache):
+    ///   * `resume_gemessen()` (T2-A/F4) las sich wie eine zweite RESUME-FRONT dieses Planers. Das war sie nie.
+    ///   * `vorgefundene_mess_bilanz()` (T2-A/F4-NB) pinnte den damaligen Ist: eine BILANZ, weil der Mess-Weg
+    ///     die Zahl bei jeder irgendwo erfolgreichen Zelle hochzaehlte (Codex-Voll-Scope Befund 2).
+    ///   * `vorgefundene_mess_front()` (T2-A/F4-NB2) benennt den geheilten Ist: der Mess-Weg schreibt ab jetzt
+    ///     die Zahl der FUEHRENDEN zertifizierten Zellen -- dieselbe Praefix-Semantik wie beim Bau-Zaehler.
+    ///
+    /// UNVERAENDERT GILT: der Resume-Punkt DIESES Planers ist und bleibt ALLEIN die Bau-Front (`kompiliert`,
+    /// s. den Klassen-Kopf). Wer die Mess-Front hier als Bau-Praefix konsumiert, ueberspringt BAU-Arbeit auf
+    /// Grundlage einer MESS-Zahl -- zwei Phasen, die der Owner-KERN ausdruecklich trennt ("kompiliert/separat
+    /// gemessen"). Dass die Zahl jetzt eine Front IST, macht sie nicht zur Front DIESES Weges.
+    [[nodiscard]] std::uint64_t vorgefundene_mess_front() const noexcept { return mess_front_.load(); }
 
 private:
     void run() {
@@ -349,7 +420,7 @@ private:
             if (auto const z = read_phasen_zaehler(persistenz_.zaehler_datei(), persistenz_.stamp, faecher,
                                                    persistenz_.rows_key)) {
                 ab = plan_resume_faecher(faecher, z->kompiliert);
-                mess_bilanz_.store(z->gemessen);
+                mess_front_.store(z->gemessen);
             }
             if (!write_batch_plan(persistenz_.plan_datei, persistenz_.stamp, faecher, persistenz_.rows_key))
                 // Nie-stumm: eine nicht geschriebene Plan-Ablage ist KEIN Bau-Fehler (der Bau laeuft mit
@@ -382,7 +453,7 @@ private:
     PlanPersistenz             persistenz_;
     std::atomic<std::size_t>   plan_faecher_{0};
     std::atomic<std::uint64_t> resume_atome_{0};
-    std::atomic<std::uint64_t> mess_bilanz_{0};
+    std::atomic<std::uint64_t> mess_front_{0};
     std::thread                worker_;
 };
 
