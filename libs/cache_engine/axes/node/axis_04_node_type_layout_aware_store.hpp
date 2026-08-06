@@ -256,20 +256,38 @@ public:
 
     /// SONDERFALL [[allocation-failure-exception]] (A8-S5-02a, Auflage 11 -- Fehlerklassen): ZWEI
     /// Speicher-Ereignisse, seit dem HERZ-Schnitt beide an DERSELBEN Achse. (1) die Record-Bytes ueber
-    /// alloc_.allocate -- die Strategie meldet OOM per nullptr, den der Store hier UNGEPRUEFT weiterreicht
-    /// (memset auf nullptr = der vorbestehende UB-Pfad dieser Zeile; er gehoert dem alloc-/A15-Strang und
-    /// ist NICHT Gegenstand dieser Scheibe -- als offener Punkt gemeldet, nicht heimlich gedreht).
-    /// (2) das Wachstum des Chunk-INDEX ueber den StdAllocatorAdapter -- dort uebersetzt Posten 64 den
-    /// nullptr an EINER Stelle in std::bad_alloc (axis_06_allocator_strategy_base.hpp). Fehlerklasse
-    /// unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor).
+    /// die ROHE Strategie und (2) das Wachstum des Chunk-INDEX ueber den StdAllocatorAdapter. Beide
+    /// melden OOM jetzt als std::bad_alloc, und beide beziehen den Wurf aus DERSELBEN Uebersetzungs-
+    /// stelle in axis_06_allocator_strategy_base.hpp -- (2) seit Posten 64 ueber den StdAllocatorAdapter,
+    /// (1) seit dem A1-Wurf-Vertrag (Posten 74) ueber allocate_or_throw.
+    ///
+    /// GEHEILT (A1, 2026-08-06): (1) reichte den nullptr der Strategie zuvor UNGEPRUEFT weiter, und die
+    /// naechste Zeile memsetzte hinein -- `std::memset(nullptr, 0, capacity)` bei capacity > 0 ist
+    /// undefiniertes Verhalten, still, im Mess-Pfad. Der frueher hier stehende Vermerk "gehoert dem
+    /// alloc-/A15-Strang, als offener Punkt gemeldet" ist damit eingeloest; die Heilung liegt bewusst
+    /// NICHT hier, sondern an der Achsen-Wurzel (EINE Stelle statt einer Pruefung je Konsument).
+    /// Der Erfolgs-Pfad ist unveraendert; Fehlerklasse unveraendert der FK-5-Boden der Allokator-Achse
+    /// (kOrganAxisErrorFloor). Wirft die Vergabe, ist der Store UNVERAENDERT: der lokale Chunk ist noch
+    /// nicht in chunks_, size_/chunk_allocs_ sind noch nicht bewegt (starke Ausnahme-Garantie).
     void append_slot(key_type k, value_type v) {
         if (chunks_.empty() || chunks_.back().count == cap_) {
             Chunk c;
             c.capacity = chunk_bytes();
-            c.data     = static_cast<unsigned char*>(alloc_.allocate(c.capacity, kChunkAlign));
+            c.data     = static_cast<unsigned char*>(alloc_.allocate_or_throw(c.capacity, kChunkAlign));
             std::memset(c.data, 0, c.capacity);
             c.count = 0;
-            chunks_.push_back(c);
+            // Die ZWEITE Wurf-Quelle dieser Zeile-Gruppe: push_back laesst den Chunk-INDEX wachsen, und
+            // dessen Vergabe laeuft seit dem HERZ-Schnitt ebenfalls ueber die Achse -- seit Posten 64
+            // wirft sie. Zwischen der Record-Vergabe oben und dem Eintrag unten haelt NUR die lokale
+            // Variable c den frischen Block; ein Wurf hier verloere ihn (dieselbe Leck-Klasse wie in
+            // copy_from_, nur eine Zeile spaeter). Die Rueckgabe ist noexcept, der Wurf reist unveraendert
+            // weiter -- damit ist die oben zugesagte starke Ausnahme-Garantie fuer BEIDE Quellen wahr.
+            try {
+                chunks_.push_back(c);
+            } catch (...) {
+                alloc_.deallocate(c.data, c.capacity, kChunkAlign);
+                throw;
+            }
             ++chunk_allocs_;
         }
         Chunk& c = chunks_.back();
@@ -623,15 +641,35 @@ private:
         chunk_vec_t empty(alloc_.template as_std_allocator<Chunk>());
         chunks_.swap(empty);
     }
+    /// A1-Wurf-Vertrag (Posten 74, Kopier-Ctor-Leck): DIESELBE nullptr-Durchreichung wie in append_slot
+    /// (geheilt ueber allocate_or_throw), PLUS eine Leck-Nuance, die nur auf diesem Pfad existiert.
+    ///
+    /// WARUM DAS ROLLBACK NOETIG IST -- und warum der Destruktor es NICHT erledigt: wirft die Vergabe in
+    /// Iteration k, sind die Chunks 1..k-1 bereits alloziert UND in chunks_ eingetragen. Auf dem
+    /// KOPIER-KTOR-Pfad (:215) laeuft ~LayoutAwareChunkedStore() fuer *this dann NIE -- ein werfender
+    /// Konstruktor laesst das Objekt selbst nie als fertig konstruiert gelten, es werden nur die bereits
+    /// vollstaendig konstruierten MEMBER zerstoert. chunks_ ist so ein Member, aber sein vector-Destruktor
+    /// raeumt nur die POD-Chunk-Structs weg, nicht die von ihnen referenzierten alloc_-Puffer: ein echtes
+    /// Leck. free_chunks_() (via clear()) ist der EINZIGE Ort, der diese Puffer kennt.
+    /// clear() ist noexcept, laeuft korrekt ueber den Teil-Stand und stellt zugleich den konsistenten
+    /// Leer-Zustand her (chunks_.size() == 0 zu size_ == 0) -- damit ist auch der operator=-Pfad (:218,
+    /// wo das Objekt destruierbar bleibt, aber mit einem Teil-Stand zurueckbliebe) sauber abgeschlossen.
+    /// Der catch-all faengt bewusst ALLES statt nur bad_alloc: die Aufraeum-Pflicht haengt am Verlassen
+    /// der Schleife, nicht an der Fehlerart; die Ausnahme reist unveraendert weiter (`throw;`).
     void copy_from_(LayoutAwareChunkedStore const& o) {
         chunks_.reserve(o.chunks_.size());
-        for (auto const& oc : o.chunks_) {
-            Chunk c;
-            c.capacity = oc.capacity;
-            c.data     = static_cast<unsigned char*>(alloc_.allocate(c.capacity, kChunkAlign));
-            std::memcpy(c.data, oc.data, oc.capacity); // byte-genaue Kopie → deckt ALLE Reps ab (Memento)
-            c.count = oc.count;
-            chunks_.push_back(c);
+        try {
+            for (auto const& oc : o.chunks_) {
+                Chunk c;
+                c.capacity = oc.capacity;
+                c.data     = static_cast<unsigned char*>(alloc_.allocate_or_throw(c.capacity, kChunkAlign));
+                std::memcpy(c.data, oc.data, oc.capacity); // byte-genaue Kopie -> deckt ALLE Reps ab (Memento)
+                c.count = oc.count;
+                chunks_.push_back(c);
+            }
+        } catch (...) {
+            clear(); // noexcept -- gibt die bereits materialisierten Chunks ueber DIESELBE Achse zurueck
+            throw;
         }
         size_                           = o.size_;
         chunk_allocs_                   = o.chunk_allocs_;

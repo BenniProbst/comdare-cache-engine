@@ -2010,6 +2010,13 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # ueber die ACHSEN-REGISTRY (nicht ueber eine Namensliste), den Laufzeit-Beweis am Original-Gegenstand
     # (AxisBoundBuffer-Memento ueber mimalloc) und die GEGENPROBE (Stub ohne Member wird erkannt).
     test_h81_allocator_statistics_forwarder_recursion # Posten 80 -- CRTP-Weiterleiter: Selbst-Rekursion
+    # A1-SCHEIBE "Wurf-Vertrag" (2026-08-06, Owner-Posten 71/72/73/74 + Pool-Konventions-Ausreisser):
+    # die Fortsetzung von Posten 64 an den Stellen, die dessen EINE Uebersetzung nicht erreichte. Die TU
+    # belegt alle vier Zugriffswege der Achse gegen DENSELBEN Fehlschlag-Vertrag: pmr-Adapter (Posten 71),
+    # Ueberlauf-Wache des std-Adapters (Posten 72), roher Store-Konsum ueber allocate_or_throw (Posten 74)
+    # und den einen Strategie-Ausreisser (Pool warf, statt nullptr zu melden). Der Leck-Beweis des
+    # Kopier-Ktors laeuft als BILANZ ueber eine zaehlende Achsen-Variante, nicht als Behauptung.
+    test_a1_wurf_vertrag_allokator_store # A1 -- EIN Wurf-Vertrag ueber Allokator-/Store-Stellen
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")

@@ -30,6 +30,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <limits> // A1-Posten 72: SIZE_MAX-Schranke der n*sizeof(T)-Ueberlauf-Wache
 #include <memory_resource>
 #include <new> // Posten 64: std::bad_alloc -- der Standard-Allokator-Vertrag des StdAllocatorAdapter
 #include <type_traits>
@@ -127,6 +128,34 @@ public:
         derived().deallocate(p, bytes, alignment);
     }
 
+    /**
+     * @brief allocate_or_throw -- die EINE Uebersetzungsstelle fuer ROHE Achsen-Konsumenten.
+     *
+     * **WARUM SIE FEHLTE (A1-Wurf-Vertrag, Posten 74):** Posten 64 hat den Fehlschlag-Vertrag genau dort
+     * uebersetzt, wo ein STANDARD-Container die Achse konsumiert -- im StdAllocatorAdapter. Ein Konsument,
+     * der die Strategie ROH haelt (`A alloc_;` als Kompositions-Template-Parameter) und deren Rueckgabe
+     * direkt beschreibt, kommt an dieser Uebersetzung VORBEI: die Achse meldet OOM per nullptr, der
+     * Konsument memsetzt/memcpyt hinein -- undefiniertes Verhalten, still, im Mess-Pfad
+     * (Fundstelle: axis_04_node_type_layout_aware_store.hpp, append_slot/copy_from_).
+     *
+     * Die Heilung ist bewusst DIESELBE Form wie bei Posten 64 und liegt an DERSELBEN Stelle: EINE
+     * Uebersetzung in der CRTP-Wurzel statt einer Pruefung je Konsument. Damit gilt fuer die ganze Achse
+     * genau EIN Wurf-Vertrag, unabhaengig davon, ob der Konsument ueber den Standard-Adapter, ueber das
+     * pmr-Resource oder roh zugreift.
+     *
+     * **ZERO-SIZE UNVERAENDERT:** `bytes == 0` reicht den Strategie-Rueckgabewert unangetastet durch
+     * (dieselbe Ausnahme wie im StdAllocatorAdapter) -- die Zero-Size-Wachen der Organe bleiben gueltig.
+     * **ERFOLGS-PFAD UNVERAENDERT:** ein Nicht-Null-Zeiger laeuft ohne jede Zusatzarbeit durch; die
+     * Statistik-Ehrlichkeit bleibt gewahrt, weil die Strategie ihren failure_count VOR dem `return
+     * nullptr` zaehlt (Auflage aus Posten 64).
+     * Fehlerklasse: unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor).
+     */
+    [[nodiscard]] void* allocate_or_throw(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) {
+        void* const p = derived().allocate(bytes, alignment);
+        if (p == nullptr && bytes != 0) throw std::bad_alloc{};
+        return p;
+    }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // -- SELBST-REKURSIONS-WACHE der drei Statistik-Weiterleiter (A8-S5 01c Vorlauf 0, 2026-08-05) -------
     //
@@ -218,6 +247,15 @@ public:
         StdAllocatorAdapter(StdAllocatorAdapter<U> const& other) noexcept : strat_(other.strat_) {}
 
         [[nodiscard]] T* allocate(std::size_t n) {
+            // UEBERLAUF-WACHE (A1-Wurf-Vertrag, Posten 72): `n * sizeof(T)` war eine UNGEWACHTE
+            // size_t-Multiplikation. Der allocator_traits-Default fuer max_size() schuetzt nur Aufrufer,
+            // die ueber die Wachstums-Pfade eines Containers gehen (vector/deque reserve/push_back); ein
+            // DIREKTER allocate(n) mit n > SIZE_MAX/sizeof(T) laesst das Produkt umlaufen, die Strategie
+            // "gelingt" mit einem viel zu kleinen Puffer -- und der Fehler faellt erst beim SCHREIBEN auf,
+            // als Heap-Overflow statt als Fehlschlag. Der Standard-Praezedenzfall dafuer ist
+            // std::bad_array_new_length ([expr.new]/[allocator.requirements]); die Wache kostet einen
+            // Vergleich und feuert bei realen Workload-Groessen nie.
+            if (n > (std::numeric_limits<std::size_t>::max)() / sizeof(T)) throw std::bad_array_new_length{};
             void* const p = strat_->allocate(n * sizeof(T), alignof(T));
             // Fehlschlag-Vertrag (s. Klassen-Doku): nullptr aus der Strategie -> std::bad_alloc.
             // n == 0 bleibt bewusst ausgenommen (Zero-Size-Verhalten unveraendert).
@@ -240,6 +278,15 @@ public:
      * @brief PmrResourceAdapter — std::pmr::memory_resource ueber die Achsen-Strategie. Konkreter,
      *        kopierbarer Wert-Typ (haelt nur Derived*); der Aufrufer haelt ihn am Leben und
      *        uebergibt &resource an pmr-Container.
+     *
+     * **FEHLSCHLAG-VERTRAG (A1-Wurf-Vertrag, Posten 71) -- der ZWEITE Uebersetzungspunkt:** dieselbe
+     * Luecke wie in Posten 64, nur an der pmr-Naht. `std::pmr::memory_resource::allocate()` -- und damit
+     * das hier ueberschriebene `do_allocate` -- ist standardvertraglich WERFEND ("Throws: bad_alloc if
+     * storage cannot be obtained"); ein pmr-Container darf sich darauf verlassen und prueft den
+     * Rueckgabewert NICHT. Die Achsen-Strategie meldet OOM aber per nullptr. Bis zu dieser Haertung
+     * reichte der Adapter den nullptr ungeprueft an den pmr-Container durch -- dieselbe UB-Klasse wie
+     * vor Posten 64, mit realem Konsumenten (std::pmr::vector ueber as_pmr_resource()).
+     * Zero-Size (`bytes == 0`) bleibt wie beim StdAllocatorAdapter bewusst ausgenommen.
      */
     class PmrResourceAdapter final : public std::pmr::memory_resource {
     public:
@@ -247,7 +294,9 @@ public:
 
     private:
         void* do_allocate(std::size_t bytes, std::size_t alignment) override {
-            return strat_->allocate(bytes, alignment);
+            void* const p = strat_->allocate(bytes, alignment);
+            if (p == nullptr && bytes != 0) throw std::bad_alloc{};
+            return p;
         }
         void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) override {
             strat_->deallocate(p, bytes, alignment);

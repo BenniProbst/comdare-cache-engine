@@ -19,8 +19,20 @@
 //
 // **Provenienz / Lizenz:** Standardbibliothek (std::pmr), eigene C++23-Komposition → is_original=false.
 // Kopierbarkeit: pool_resource ist non-copyable/non-movable → via std::shared_ptr gehalten; Kopien
-// TEILEN den Pool (korrekte PMR-is_equal-Semantik). Allocation-Failure: allocate wirft std::bad_alloc
-// ([[allocation-failure-exception]]).
+// TEILEN den Pool (korrekte PMR-is_equal-Semantik).
+//
+// **Allocation-Failure (A1-Wurf-Vertrag, 2026-08-06) -- KORREKTUR EINER ABWEICHUNG:** bis zu diesem
+// Schnitt war dieser Wrapper die EINZIGE Strategie der Achse 6, die den achsen-uniformen Vertrag
+// "OOM == nullptr, failure_count VOR der Rueckgabe gezaehlt" nicht wahrte: `resource_->allocate` wirft
+// std::bad_alloc, und der Wurf lief ungefangen durch (die Kopfzeile schrieb das frueher sogar als
+// Absicht fest). Das Concept AllocatorStrategy erzwingt die Konvention nicht typsystemisch, die
+// Abweichung blieb also compile-clean unsichtbar -- mit der Folge, dass das Fehlersignal, das ein
+// Aufrufer von `alloc_.allocate(...)` sieht, vom gebundenen Strategie-Typ abhing. Genau das
+// widerspricht dem Ziel EINES Wurf-Vertrags. Der Wrapper faengt jetzt -- wie die strukturgleiche
+// Schwester-Strategie PmrResourceAllocator (axis_06_allocator_pmr_resource.hpp) es seit jeher tut --
+// und uebersetzt zurueck auf nullptr. Nach aussen aendert sich fuer besitzende Container NICHTS: der
+// StdAllocatorAdapter (Posten 64) bzw. allocate_or_throw (Posten 74) macht daraus wieder std::bad_alloc.
+// Der Unterschied ist, dass es jetzt EINE Uebersetzungsstelle gibt statt zweier Konventionen.
 //
 // F-B (GO4/#8, 2026-07-12): Page-Hint der NUMA/Page-Unterachse (alloc_hw_config.hpp) → der Koerper ist
 // jetzt das CRTP-Body-Template PoolResourceAllocatorBody<Derived, AllocHwConfig>: ein nicht-nativer
@@ -44,6 +56,7 @@
 #include <cstring>
 #include <memory>
 #include <memory_resource>
+#include <new> // A1-Wurf-Vertrag: std::bad_alloc -- der pmr-Wurf, den dieser Wrapper zurueckuebersetzt
 #include <string_view>
 #include <type_traits>
 
@@ -109,14 +122,24 @@ public:
         return resource_.get() == other.resource_.get();
     }
 
-    /// SONDERFALL [[allocation-failure-exception]]: pmr allocate wirft std::bad_alloc bei OOM.
+    /// A1-Wurf-Vertrag: der pmr-Wurf wird HIER gefangen und auf die Achsen-Semantik (OOM == nullptr)
+    /// zurueckuebersetzt -- identisches Idiom wie PmrResourceAllocator::allocate. Die Zaehlung steht
+    /// VOR der Rueckgabe (Ehrlichkeits-Auflage aus Posten 64): der failure_count ist gesetzt, bevor ein
+    /// Adapter daraus wieder std::bad_alloc macht. Erfolgs-Pfad byte-identisch zum Stand davor.
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
-        void* p = resource_->allocate(bytes, alignment);
+        void* p = nullptr;
+        try {
+            p = resource_->allocate(bytes, alignment);
+        } catch (std::bad_alloc const&) { p = nullptr; }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
-        ++stats_.allocation_count;
-        stats_.total_bytes_allocated += aligned_bytes;
-        stats_.total_bytes_in_use += aligned_bytes;
+        if (p != nullptr) {
+            ++stats_.allocation_count;
+            stats_.total_bytes_allocated += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
+        } else {
+            ++stats_.failure_count;
+        }
         observer_.notify(stats_);
 #endif
         return p;
@@ -174,7 +197,19 @@ public:
     // Sub-Concept: ReallocatingStrategy (alloc-new aus Pool + memcpy + dealloc-old in Pool;
     // der Test gibt das Ergebnis per m.deallocate frei → konsistent mit dem Pool).
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
-        void* np = resource_->allocate(new_bytes, alignment);
+        void* np = nullptr;
+        try {
+            np = resource_->allocate(new_bytes, alignment);
+        } catch (std::bad_alloc const&) { np = nullptr; }
+        // A1-Wurf-Vertrag: scheitert die NEUE Vergabe, bleibt der ALTE Block gueltig und unangetastet
+        // (realloc-Vertrag) -- der Aufrufer verliert seinen Speicher nicht. Muster: exgen reallocate.
+        if (np == nullptr) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            ++stats_.failure_count;
+            observer_.notify(stats_);
+#endif
+            return nullptr;
+        }
         if (p != nullptr) {
             std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
             std::memcpy(np, p, copy_bytes);
