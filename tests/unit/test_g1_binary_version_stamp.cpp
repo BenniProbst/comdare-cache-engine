@@ -3,6 +3,8 @@
 // beweist, dass JEDES Feld non-empty ist. Der system_build_version-Anteil wird HEREINGEREICHT (Single-Source
 // system_axes_version_suffix, TU-lokal in der Facade) -> hier via repraesentativem Test-Suffix simuliert.
 
+#include "support/oeb_stempel_zeilen.hpp" // split_lines + OE-B-Stempel-Fixture (EINE Quelle, LB-6)
+
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // COMDARE_ANATOMY_ABI_MAJOR + kCebContractCodegenMinor
 #include <profile_facade/build_type_stamp.hpp>             // build_type_version_suffix() (Referenz fuer build-type)
 #include <profile_facade/g1_binary_version_stamp.hpp>      // Pruefling: g1_binary_version_block + Helfer
@@ -12,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,24 +25,12 @@ namespace pf = ::comdare::cache_engine::builder::profile_facade;
 namespace svs = ::comdare::cache_engine::profile_facade;
 namespace pl  = ::comdare::cache_engine::planner;
 namespace tlz = ::comdare::cache_engine::thesis_lazy;
+namespace ct  = ::comdare::test;
 
-namespace {
-// Zerlegt den "\n"-terminierten Block in seine Zeilen (ohne die abschliessende Leer-Zeile nach dem letzten "\n").
-[[nodiscard]] std::vector<std::string> split_lines(std::string const& block) {
-    std::vector<std::string> lines;
-    std::string              cur;
-    for (char const c : block) {
-        if (c == '\n') {
-            lines.push_back(cur);
-            cur.clear();
-        } else {
-            cur += c;
-        }
-    }
-    if (!cur.empty()) lines.push_back(cur); // (defensiv: nicht-terminierter Rest)
-    return lines;
-}
-} // namespace
+// split_lines() stand bis 2026-08-06 HIER (Zeilen 28-40) im anonymen Namensraum. Seit LB-6 wird derselbe
+// Zerleger auch von den beiden Lager-TUs gebraucht (OE-B-Ruecklese) -- er ist deshalb nach
+// tests/unit/support/oeb_stempel_zeilen.hpp ausgelagert statt dort ein zweites Mal hingeschrieben.
+using ct::split_lines;
 
 TEST(G1BinaryVersionStamp, CebContractVersionIsAbiMajorDotCodegenMinor) {
     // ABI-Major AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell ueber kCebContractCodegenMinor.
@@ -116,4 +107,37 @@ TEST(G1BinaryVersionStamp, BuildVersionLineMirrorsExactlyThePassedSuffix) {
     EXPECT_NE(block.find("\nbuild-version=" + other + "\n"), std::string::npos) << "block=\n" << block;
     // Der Planer-/ceb-/build-type-Kopf bleibt vom hereingereichten Suffix unberuehrt (drei feste Kopf-Zeilen davor).
     EXPECT_EQ(block.rfind(pl::planner_version_stamp(), 0), 0u);
+}
+
+TEST(G1BinaryVersionStamp, OeBDummyStempelFixtureTraegtDieFormDesEchtenBlocks) {
+    // LB-6: die beiden Lager-TUs legen "Binaries" als TEXTDATEIEN mit Stempel-String ein und lesen sie
+    // ZEILENWEISE zurueck. Ihr Fixture (support/oeb_stempel_zeilen.hpp) ist literal und maschinen-
+    // UNABHAENGIG -- er MUSS es sein, weil ein byte-genau zurueckgelesenes Blatt sonst je Distro anders
+    // aussaehe. Ein literaler Fixture driftet aber, sobald der echte Block seine Form aendert, und ein
+    // gedrifteter Fixture ist genau der gruene Test, der eine abgeschaffte Ordnung zementiert.
+    // DIESER Test ist die Klammer: er laeuft in der EINZIGEN TU, die den echten Erzeuger sieht, und
+    // vergleicht FORM gegen FORM -- Zeilenzahl und Label je Position, nicht Werte.
+    std::string const sys =
+        svs::compose_system_version_suffix({.cxx = "gcc", .opt = "O2", .simd = "avx2", .ceb = "6.0"});
+    std::vector<std::string> const echt    = split_lines(pf::g1_binary_version_block(sys));
+    std::vector<std::string> const fixture = split_lines(ct::oeb_stempel_block());
+
+    ASSERT_EQ(echt.size(), ct::kOeBStempelZeilenZahl) << "Der echte Block hat seine Zeilenzahl geaendert -- der "
+                                                         "OE-B-Fixture muss mitgezogen werden (LB-6).";
+    ASSERT_EQ(fixture.size(), ct::kOeBStempelZeilenZahl);
+    EXPECT_EQ(ct::oeb_stempel_block().back(), '\n') << "wie der echte Block: '\\n'-terminiert";
+
+    for (std::size_t i = 0; i < ct::kOeBStempelZeilenZahl; ++i) {
+        auto const label = ct::kOeBStempelLabels[i];
+        EXPECT_TRUE(echt[i].starts_with(label))
+            << "echte Zeile " << i << " = '" << echt[i] << "', erwartetes Label '" << label << "'";
+        EXPECT_TRUE(fixture[i].starts_with(label)) << "Fixture-Zeile " << i << " = '" << fixture[i] << "'";
+        EXPECT_GT(fixture[i].size(), label.size()) << "Ein Label ohne Wert waere kein Stempel";
+    }
+    // Und die vier Fixture-Zeilen sind die vier EINZELN benannten Konstanten -- kein fuenfter,
+    // unbenannter Anhang, der beim zeilenweisen Vergleich unbemerkt mitliefe.
+    EXPECT_EQ(fixture[0], ct::kOeBStempelZeile0);
+    EXPECT_EQ(fixture[1], ct::kOeBStempelZeile1);
+    EXPECT_EQ(fixture[2], ct::kOeBStempelZeile2);
+    EXPECT_EQ(fixture[3], ct::kOeBStempelZeile3);
 }
