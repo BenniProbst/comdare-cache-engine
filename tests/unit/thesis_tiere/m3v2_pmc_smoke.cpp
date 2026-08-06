@@ -8,15 +8,27 @@
 //   (3) format_csv_row() emittiert die PMC-Werte als LETZTE Spalten in identischer Reihenfolge → mit NullPmcSource
 //       erscheinen sie als 0/…/0/0 (pmc_available=0). Mit Intel-PCM=ON (Montag Linux+PMC) wären sie real.
 //
-// Der Pilot stellt EINE LazyMeasuredRow händisch zusammen (wie der Iterator es aus PermResult täte: row.pmc = pr.pmc)
-// und befüllt row.pmc EXAKT über die EINE PMC-Quelle (begin()→[leerer Batch]→end()), genau wie run_observable_perm.
-// Damit ist die Spalten-Existenz + die Default-0/available=0-Belegung literal nachweisbar.
+// Der Pilot stellt EINE LazyMeasuredRow haendisch zusammen (wie der Iterator es aus PermResult taete: row.pmc = pr.pmc)
+// und befuellt row.pmc EXAKT ueber die EINE PMC-Quelle (begin()->[ECHTES Messfenster]->end()), genau wie
+// run_observable_perm. Damit ist die Spalten-Existenz + die Default-0/available=0-Belegung literal nachweisbar.
+//
+// MESSFENSTER-KORREKTUR (2026-08-06, Owner-Auflage nach pmc:intel-Rotfund): begin()/end() klammerten bis hierher
+// einen LEEREN Batch -- auf Intel bedeutet t_running==0 zwischen begin/end zwingend delta.available=false (die
+// LinuxPerfPmcSource verwirft ein Delta ohne Laufzeit als ungueltig, s. PerfCounter::read_scaled), der Smoke fiel
+// also nicht wegen fehlendem PMC-Zugriff, sondern weil es NICHTS zu messen gab. Auf AMD "bestand" derselbe Test
+// nur zufaellig ueber den Syscall-Overhead selbst (2-stellige Zaehlwerte, Rauschgrenze). Das Fenster klammert
+// jetzt DASSELBE speicherruehrende Pointer-Chasing wie linux_perf_pmc_smoke.cpp (32 MiB, kN=1u<<22) -- exakt der
+// Workload, der im selben rotgewordenen Job auf BEIDEN Vendoren bereits Millionen-Bereich-Zaehler lieferte
+// (prod1 cache_misses_l1~4.19M/dtlb~2.1M; prod2 cache_misses_l1=6701028/l3=4048837/dtlb=3314004) -- also weit
+// oberhalb jeder Rauschgrenze auf beiden Herstellern, nicht nur zufaellig auf einem.
 
 #include "experiment_tree/cache_engine_builder_iterator.hpp" // lazy_csv_header / format_csv_row / LazyMeasuredRow
 #include "pmc_source_factory.hpp"                            // make_pmc_source / IPmcSource / PmcCounters
 
+#include <cstdint>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace ex  = comdare::cache_engine::builder::experiment;
 namespace bld = comdare::cache_engine::builder;
@@ -38,9 +50,27 @@ int main() {
     std::cout << "pmc_source.name      = " << pmc->name() << "\n";
     std::cout << "pmc_source.available = " << (pmc->available() ? "1" : "0") << "\n";
 
-    // (1) begin()/end() um den (hier leeren) Mess-Batch — genau das Muster aus run_observable_perm. Delta = 0/false.
+    // (1) begin()/end() um ein ECHTES Messfenster -- genau das Muster aus run_observable_perm, jetzt mit realer
+    // Arbeit dazwischen statt eines leeren Batches (s. Kopf-Kommentar: Messfenster-Korrektur 2026-08-06).
+    // Speicherruehrende Last, identisch zu linux_perf_pmc_smoke.cpp: Pointer-Chasing ueber einen Puffer >>
+    // LLC-Groesse, damit echte Cache-Misses entstehen. Der Index-Sprung (grossschrittig, prim-teilerfremd)
+    // verhindert Hardware-Prefetch.
+    constexpr std::size_t      kN = 1u << 22; // 4M * 8B = 32 MiB (> typ. LLC) -> garantierte LL-Misses.
+    std::vector<std::uint64_t> buf(kN);
+    for (std::size_t i = 0; i < kN; ++i) buf[i] = (i * 2654435761u + 1u) & (kN - 1); // Permutations-Verkettung.
+
     pmc->begin();
+    std::uint64_t idx = 0;
+    std::uint64_t acc = 0;
+    for (std::size_t step = 0; step < kN; ++step) { // kN Spruenge durch den Puffer (zeiger-verkettet).
+        idx = buf[idx];
+        acc += idx;
+    }
     ::comdare::cache_engine::measurement::PmcCounters const delta = pmc->end();
+    // Compiler-Eliminierung des Loops verhindern (acc muss beobachtbar bleiben) -- derselbe Zweck wie
+    // workload_acc in linux_perf_pmc_smoke.cpp, hier zusaetzlich als spaeter genutzter Beleg fuer die Zeile
+    // unten (n_ops/total_ns bleiben bewusst die alten synthetischen CSV-Platzhalterwerte, s.u.).
+    std::cout << "workload_acc(checksum)=" << acc << "\n";
 
     // EINE Mess-Zeile (wie der Iterator sie aus PermResult zusammensetzt): row.pmc = pr.pmc (= delta).
     ex::LazyMeasuredRow row;
