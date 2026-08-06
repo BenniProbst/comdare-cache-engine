@@ -172,6 +172,21 @@ public:
             if (static_cast<std::uint64_t>(idx) * kSuffixLen >= num_bits_) return false;
             std::uint64_t const stored = read(idx);
             if constexpr (ST == SurfSuffixType::kReal) {
+                // POSTEN 77 / OWNER-ENTSCHEID A2 (Ledger-Nachtrag 05.08.2026 abend-10, Owner-Antwort A2
+                // VERBATIM: "Freigabe wie empfohlen."; Befund gepinnt im S5-02b-Scrub, siehe
+                // tests/unit/test_s5_02b_filter_perf_sanity.cpp Block (4) sowie
+                // tests/unit/test_v41_axis_filter_surf_louds_organ.cpp, dort konkret als S2R16 =
+                // ComposedSurfLoudsFilter<kReal, HashLen=0, RealLen=16> gefuehrt): fuer KURZE Keys (Key
+                // traegt weniger als RealLen Bit ab `level`) liefert construct_real() oben 0 zurueck, und die
+                // naechste Zeile behandelt stored==0 als "Key zu kurz fuer Suffix-Info" -> check_equality()
+                // liefert dann unbedingt true. Auf solchen kurzen Keys KOLLABIERT der Suffix-Typ kReal --
+                // gleich welcher RealLen (8, 16, ...) -- faktisch auf das Verhalten von kNone (das ebenfalls
+                // immer true liefert, s.o.). Die S5-02b-Papertreue-Probe hat ALT==NEU bit-identisch
+                // nachgewiesen (272.961 Antworten) -- KEIN Regress, reiner Bestandsbefund. PIN (keine
+                // Verhaltensaenderung ohne neue Owner-Entscheidung), aber MESS-INTERPRETATIONS-HINWEIS
+                // PFLICHT: bits_per_key-/FP-Raten-Messungen mit hoeherem RealLen (z.B. 16) auf kurzen Keys
+                // unterschaetzen die tatsaechliche Diskriminierungs-Wirkung eines laengeren Suffixes, weil ein
+                // Teil der Keys unbemerkt auf diesen Null-Suffix-Pfad faellt.
                 if (stored == 0) return true;                                // Key zu kurz fuer Suffix-Info
                 if (level > 8U || (8U - level) * 8U < RealLen) return false; // Query kuerzer als gespeicherter Key
             }
