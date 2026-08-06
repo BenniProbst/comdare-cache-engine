@@ -76,6 +76,11 @@
 //   (6) F5 KEIN LECK              -- der Kopier-Ktor wirft mitten in copy_from_ und gibt JEDEN bereits
 //                                    materialisierten Chunk zurueck: die Live-Block-Bilanz der Achse
 //                                    kehrt exakt auf den Stand VOR dem Kopierversuch zurueck.
+//   (6b) ZUWEISUNGS-VERTRAG       -- der Wurf mitten in der Kopier-Zuweisung laesst das Ziel LEER,
+//                                    GUELTIG und weiterverwendbar zurueck, die Quelle unversehrt, die
+//                                    Live-Bilanz der Achse auf 0. Zugleich negativ belegt, dass die
+//                                    Garantie BASIC ist und nicht STRONG (der Vorzustand kehrt NICHT
+//                                    zurueck) -- genau so steht es am operator= (A1-Nachbesserung).
 //   (7) F3 NEUTRALITAET           -- der Literal-Bezug ist wertgleich zum frueheren Default-Argument.
 //
 // WARUM ZWEI ORAKEL: (2)/(3)/(5) brauchen eine IMMER erschoepfte Quelle (Muster
@@ -884,6 +889,67 @@ int main() {
             check("Kopie ist inhaltsgleich (Slot 7 -> 70)", kopie.value_at(7) == 70u);
         }
         check("nach Ablauf beider Stores bleibt kein Block offen", BudgetStubStrategie::live() == live_vorher);
+    }
+
+    std::printf("== (6b) Kopier-ZUWEISUNG: Basic Guarantee mit definiertem Ergebnis, kein Leck ==\n");
+    {
+        // A1-Nachbesserung 2026-08-06 (Review-Befund "operator= hat KEINE starke Ausnahme-Garantie").
+        // Der Befund ist RICHTIG, und die Antwort ist bewusst der dokumentierte Vertrag statt eines
+        // copy-and-swap: der Tausch mit einem Temporary liesse den Chunk-INDEX mit einem
+        // StdAllocatorAdapter auf ein sterbendes alloc_ zurueck (dieselbe Begruendung, aus der der Move
+        // gestrichen wurde), und die tausch-freie Variante mit Vor-Materialisierung muesste
+        // `alloc_ = A{}` aufgeben -- MESSWIRKSAM auf der T6-Route dieses Organs. Volle Begruendung am
+        // operator= in axis_04_node_type_layout_aware_store.hpp.
+        //
+        // WAS DIESER BLOCK PINNT (damit der Vertrag gepruefte Aussage bleibt und nicht Kommentar): der
+        // Wurf mitten in der Zuweisung laesst das Ziel LEER, GUELTIG und WEITERVERWENDBAR zurueck, die
+        // Quelle unversehrt -- und die Live-Bilanz der Achse geht nach Ablauf beider Stores exakt auf
+        // NULL (kein Leck). Zugleich ist damit negativ belegt, dass die Garantie NICHT stark ist: der
+        // Vorzustand des Ziels (8 Slots) ist NICHT wiederhergestellt.
+        BudgetStubStrategie::unbeschraenkt();
+        BudgetStubStrategie::s_live = 0;
+
+        bool geworfen      = false;
+        bool ziel_leer     = false;
+        bool ziel_nutzbar  = false;
+        bool quelle_intakt = false;
+        {
+            BudgetStore quelle{};
+            for (std::uint64_t i = 0; i < 12; ++i) quelle.append_slot(i, i * 10u);
+            BudgetStore ziel{};
+            for (std::uint64_t i = 0; i < 8; ++i) ziel.append_slot(100u + i, 900u + i);
+            check("Vorbedingung: Ziel traegt einen eigenen Vorzustand (8 Slots)", ziel.slot_count() == 8u);
+
+            // Budget 2: die Zuweisung gibt zuerst das alte Backing zurueck (Freigaben kosten kein
+            // Budget), dann reserviert copy_from_ den Index (1) und materialisiert Chunk 1 (2) -- Chunk 2
+            // scheitert. So steht beim Wurf wirklich etwas Materialisiertes im Weg.
+            BudgetStubStrategie::budget_setzen(2);
+            try {
+                ziel = quelle;
+                std::printf("  [INFO] Zuweisung gelang OHNE Wurf -- Budget zu gross gewaehlt\n");
+            } catch (std::bad_alloc const& e) {
+                geworfen = true;
+                std::printf("  [INFO] gefangen: std::bad_alloc -- what()='%s'\n", e.what());
+            }
+            BudgetStubStrategie::unbeschraenkt();
+
+            ziel_leer = (ziel.slot_count() == 0u) && (ziel.chunk_count() == 0u);
+            // GUELTIG, nicht nur leer: das Ziel nimmt sofort wieder Slots an.
+            ziel.append_slot(7u, 77u);
+            ziel_nutzbar  = (ziel.slot_count() == 1u) && (ziel.value_at(0) == 77u);
+            quelle_intakt = (quelle.slot_count() == 12u) && (quelle.value_at(11) == 110u);
+        }
+
+        std::printf("  [INFO] Live-Bloecke der Achse nach Ablauf beider Stores: %lld\n",
+                    BudgetStubStrategie::live());
+        check("die Kopier-Zuweisung wirft std::bad_alloc", geworfen);
+        check("BASIC + definiertes Ergebnis: das Ziel ist LEER (NICHT auf dem Vorzustand -- keine starke "
+              "Garantie, und genau das steht im Vertrag)",
+              ziel_leer);
+        check("das Ziel ist GUELTIG: append_slot nach dem Wurf gelingt und liest korrekt zurueck", ziel_nutzbar);
+        check("die Quelle ist unversehrt (12 Slots, Slot 11 -> 110)", quelle_intakt);
+        check("KEIN LECK: die Live-Bilanz der Achse ist nach Ablauf beider Stores exakt 0",
+              BudgetStubStrategie::live() == 0);
     }
 
     std::printf("== (7) F3/Posten 73: der Literal-Bezug ist wertgleich (compile-hart, s. static_asserts) ==\n");

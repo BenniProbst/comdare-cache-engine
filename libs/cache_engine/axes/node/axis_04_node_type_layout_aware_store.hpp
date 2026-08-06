@@ -254,6 +254,32 @@ public:
     LayoutAwareChunkedStore(LayoutAwareChunkedStore const& o) : chunks_(alloc_.template as_std_allocator<Chunk>()) {
         copy_from_(o);
     }
+    /// AUSNAHME-GARANTIE DER KOPIER-ZUWEISUNG -- BASIC, mit definiertem Ergebnis (A1-Nachbesserung
+    /// 2026-08-06, Review-Befund "keine starke Garantie"). Ehrliche Vertrags-Aussage statt Schweigen:
+    ///
+    /// WAS GILT: wirft die Zuweisung (OOM in copy_from_), ist das Ziel LEER und GUELTIG -- kein Leck,
+    /// keine halbe Kopie, sofort weiterverwendbar (Beleg: test_a1_wurf_vertrag_allokator_store (6b),
+    /// inklusive append_slot NACH dem Wurf). Es ist NICHT auf seinem Vorzustand: der wurde zu Beginn
+    /// planmaessig verworfen (free_chunks_/release_index_). Das ist die Basic Guarantee mit einem
+    /// zugesagten Ergebnis-Zustand, nicht die Strong Guarantee.
+    ///
+    /// WARUM NICHT COPY-AND-SWAP (Entscheid am Objekt, nicht Bequemlichkeit): copy-and-swap taeuschte
+    /// hier eine Garantie vor und braeche die 02a-Invariante. Der Chunk-INDEX ist seit dem HERZ-Schnitt
+    /// ein std::vector, dessen StdAllocatorAdapter einen Zeiger auf DIESES alloc_ haelt (s. (a)-(d)
+    /// oben). Ein Tausch mit einem Temporary liesse chunks_ mit einem Adapter zurueck, der auf das
+    /// alloc_ des sterbenden Temporary zeigt -- exakt die Begruendung, aus der (d) den Move gestrichen
+    /// hat. Ein Tausch ist an diesem Store nur zwischen Vektoren MIT DEMSELBEN alloc_ wohldefiniert
+    /// (release_index_ nutzt genau das).
+    ///
+    /// UND WARUM AUCH DIE VARIANTE OHNE TEMPORARY-STORE NICHT GENOMMEN WURDE: man KOENNTE die Kopie
+    /// vorab in einen lokalen chunk_vec_t am EIGENEN alloc_ materialisieren und erst danach tauschen --
+    /// das gaebe die starke Garantie. Es zwaenge aber, `alloc_ = A{}` aufzugeben (die Vor-Vergabe laeuft
+    /// ueber das ALTE alloc_, ihre Bloecke muessen ueber dasselbe zurueck). Damit truege das Ziel nach
+    /// der Zuweisung die aufgelaufenen Zaehler seines VORIGEN Inhalts weiter -- allocator_statistics()
+    /// ist die T6-Mess-Route dieses Organs (Owner-KERN 04.08. abend-11: T6 = Option B strikt), die
+    /// Aenderung waere also MESSWIRKSAM und gehoerte in ein eigenes, versioniertes Fenster, nicht in
+    /// eine Vertrags-Nachbesserung. Der heutige Reset ist zudem genau das, was (c) fuer den Kopier-Ktor
+    /// zusagt: die Kopie beschreibt ehrlich IHR eigenes Backing.
     LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore const& o) {
         if (this != &o) {
             free_chunks_();
