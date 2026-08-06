@@ -234,6 +234,24 @@ template <class L>
 /// IDENTISCHEN (bytes, alignment) wie bei der Allokation -- die pmr-Achsen verlangen das.
 /// Byte-neutral: auf dem Erfolgspfad passiert exakt dieselbe eine deallocate wie bisher, nur am
 /// Block-Ende statt eine Zeile davor (dazwischen liegt keine Messung).
+///
+/// WAS DIESER WAECHTER NICHT ABDECKT -- OFFENER POSTEN, ehrlich beziffert (B14-NB4, Lead-Entscheid nach
+/// Codex/Opus-Divergenz). Die kChurn=2048 Bloecke des Segment-2-Churn (`blocks`) lecken weiterhin, wenn
+/// `alloc.allocate` MITTEN in der Churn-Schleife wirft: die Dealloc-Schleife darunter wird dann nie
+/// erreicht. Groessenordnung max. 2048 * 256 B = 512 KiB je Fehlschlag, gegen die 1--4 MiB des oben
+/// geheilten Scan-Puffers.
+/// FRUEHERE BEGRUENDUNG, HIERMIT ZURUECKGENOMMEN: "liegt im gemessenen T6-Fenster, also nicht ohne
+/// Mess-Eingriff heilbar". Das traegt nur zur Haelfte. RICHTIG daran ist, dass die Dealloc-Schleife VOR
+/// `s2b` liegt und Segment 2 GENAU die Allokator-Achse misst -- ein naiver Guard-Destruktor schoebe die
+/// Freigabe hinter den Zeitnehmer und veraenderte damit, was gemessen wird. FALSCH daran ist das
+/// "nicht moeglich": beim Wurf wird der Endmarker ohnehin nie erreicht, der ganze Aufruf liefert 0, es
+/// existiert also gar kein Messwert, den ein Cleanup verfaelschen koennte. Und eine leckfreie Fassung
+/// OHNE jeden Eingriff ins Mess-Fenster ist konstruierbar: Guard VOR `s1a` anlegen, nach der bestehenden
+/// Dealloc-Schleife ein `released`-Flag setzen, Destruktor auf dem Erfolgspfad No-op. Kosten: EIN
+/// bool-Store je Batch, nach 2048 Allokations-/Freigabe-Paaren -- im Rauschen.
+/// STATUS: BEWUSST ZURUECKGESTELLT (Kosten-Nutzen: kleinerer Block, eigenes Exception-Safety-Gate,
+/// gleiche Klasse aber eigener Schnitt ueber alle drei Mess-Pfade), NICHT "nicht machbar". Der Posten
+/// bleibt OFFEN und ist als solcher gefuehrt; diese Zeilen sind die Zusage, die der Code auch haelt.
 template <class Alloc>
 class ScanBufferGuard {
 public:
@@ -1475,6 +1493,15 @@ public:
             r[2]          = ml.field_bytes_read;
             r[3]          = ml.cache_lines_touched;
             r[4]          = ml.last_checksum;
+            // B14-NB4: die EINHEIT von r[3] wandert MIT ueber die ABI. r[3] zaehlt seit B14-NB3 in Linien
+            // DER cacheline-Unterachse; der Host-Verbraucher (measurement/system_axis.hpp) bildet
+            // CLU = field_bytes/(cache_lines*line_bytes) und kann die Line-Groesse aus dem POD sonst nicht
+            // rekonstruieren -- sie ist eine Compile-Zeit-Eigenschaft DIESER DLL. Der Slot war reserviert
+            // (nullptr), sizeof(ComdareTierObserverSnapshot) bleibt 1344 -> kein ABI-Major-Bump.
+            static_assert(std::string_view{kV3AxisSchema[5].names[5]} == std::string_view{"line_bytes"},
+                          "B14-NB4: der T5-Slot [5][5] traegt nicht mehr line_bytes -- die CLU-Kette "
+                          "Observer -> POD -> ObserverSnapshotSystemAxis ist am Schema gerissen.");
+            r[5] = ml.line_bytes;
             ++filled;
         }
         // ── T6 allocator (dasselbe getriebene container_algorithm_-Allocator-Organ wie der frühere V2-Pfad) ───────────

@@ -35,6 +35,18 @@ struct MemoryLayoutSnapshot {
                                            ///< LAYOUT-ABHAENGIG). B14-NB3: `line` ist die Groesse der
                                            ///< cacheline-Unterachse (Default 64), kein Literal mehr.
     std::uint64_t last_checksum = 0; ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
+    /// B14-NB4 (2026-08-06) -- die EINHEIT von cache_lines_touched, mitgefuehrt statt vorausgesetzt.
+    /// BEFUND, der dieses Feld erzwingt (Codex + Opus unabhaengig, Lead-Entscheid Weg (ii)): seit B14-NB3
+    /// zaehlt cache_lines_touched in Linien DER ACHSE, nicht mehr in 64-B-Linien. Der einzige aktive
+    /// Verbraucher (ObserverSnapshotSystemAxis, measurement/system_axis.hpp) bildet daraus die CLU als
+    /// field_bytes/(cache_lines*line) -- und hatte dort das Literal 64 stehen. Unter KF-6 haette das
+    /// 8/16/33/66 % statt durchgaengig ~16 % ergeben, obwohl die WAHREN beruehrten Bytes konstant sind.
+    /// Der Verbraucher sitzt HINTER der Modul-ABI (er liest einen POD aus einer geladenen .so) und kann
+    /// die Line-Groesse dort NICHT rekonstruieren -- sie ist eine Compile-Zeit-Eigenschaft der DLL.
+    /// Deshalb reist sie ab jetzt NEBEN dem Zaehler: wer den Zaehler liest, bekommt seine Einheit mit.
+    /// 0 = KEINE eindeutige Einheit (nichts gemessen ODER zwei Produzenten mit verschiedenen Linien) ->
+    /// der Verbraucher meldet ehrlich source-unavailable statt eine Zahl zu erfinden (fail-closed).
+    std::uint64_t line_bytes = 0;
 
     [[nodiscard]] bool operator==(MemoryLayoutSnapshot const&) const noexcept = default;
 };
@@ -138,6 +150,18 @@ public:
         // BYTE-NEUTRAL: alle fuenf Strategien stehen am Default-NTTP CacheLineConfig{} == B64.
         // (Der REALE, representation-genaue Footprint kommt weiterhin aus observe_real_footprint(); der
         // Store speist ihn seit P-CACHELINE-LITERAL bereits achsen-treu.)
+        // B14-NB4 (Codex-Befund "die Scan-Seite ist fail-closed, die OBSERVER-Seite nicht"): dieselbe
+        // Disziplin wie detail::layout_scan_stride_bytes im abi_adapter. Ohne den Zwang faellt eine
+        // Strategie/Huelle, die cacheline_subaxis_line_bytes() nicht beantwortet, in line_bytes_of<>
+        // STILL auf den Achsen-Default 64 zurueck -- und zaehlt dann eine MESSGROESSE in einer Einheit,
+        // die mit ihrem eigenen Scan-Stride nichts zu tun hat. Genau dieses stille Auseinanderlaufen ist
+        // die Klasse, die B14 heilt; sie darf auf der Mess-Seite nicht durch die Hintertuer bleiben.
+        static_assert(::comdare::cache_engine::cacheline::CacheLineLineBytesAware<Strategy>,
+                      "ObservableMemoryLayout<Strategy>: die gewrappte Strategie beantwortet "
+                      "cacheline_subaxis_line_bytes() nicht. line_bytes_of<> faellt damit STILL auf den "
+                      "Achsen-Default 64 zurueck und cache_lines_touched zaehlte in einer Einheit, die "
+                      "der Scan gar nicht benutzt. Strategie von MemoryLayoutStrategyBase ableiten oder "
+                      "den Zugriff forwarden (reference_observable_wrapper_must_forward_concept_members).");
         constexpr std::size_t kKeyBytes  = sizeof(std::uint64_t);
         constexpr std::size_t kLineBytes = ::comdare::cache_engine::cacheline::line_bytes_of<Strategy>();
         static_assert(kLineBytes > 0u, "cacheline-Unterachse liefert Line-Groesse 0 -- Linienzaehlung unmoeglich");
@@ -145,6 +169,7 @@ public:
         std::uint64_t const   touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
         stats_.field_bytes_read += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(kKeyBytes);
         stats_.cache_lines_touched += (touched_bytes + (kLineBytes - 1u)) / kLineBytes;
+        note_line_unit_(static_cast<std::uint64_t>(kLineBytes)); // B14-NB4: Einheit reist mit dem Zaehler
         stats_.last_checksum = checksum;
 #endif
         return checksum;
@@ -152,21 +177,38 @@ public:
 
     /// observe_real_footprint (P-MD1-ERDUNG #167): der REALE, vom LayoutAwareChunkedStore representation-genau
     /// vermessene Key-Scan-Footprint EINES Chunks. `field_bytes` = real beruehrte NUTZ-Key-Bytes, `cache_lines` =
-    /// real beruehrte DISTINKTE 64-B-Linien aus dem echten Byte-Layout der Repraesentation. CLU =
-    /// field_bytes/(cache_lines*64) folgt damit aus dem ECHTEN Store-Footprint, nicht aus einem Modell. Der
-    /// Store ruft dies pro Chunk; die Werte werden akkumuliert (`records` = Chunk-Record-Zahl als Anker).
+    /// real beruehrte DISTINKTE Linien aus dem echten Byte-Layout der Repraesentation, `line_bytes` = die
+    /// Groesse GENAU DIESER Linien (die cacheline-Unterachse des Stores). CLU = field_bytes/(cache_lines*
+    /// line_bytes) folgt damit aus dem ECHTEN Store-Footprint, nicht aus einem Modell. Der Store ruft dies
+    /// pro Chunk; die Werte werden akkumuliert (`records` = Chunk-Record-Zahl als Anker).
+    ///
+    /// B14-NB4 -- WARUM line_bytes ein PARAMETER ist und nicht line_bytes_of<Strategy>(): der Zaehler
+    /// `cache_lines` entsteht im STORE (LayoutAwareChunkedStore<N,L,A>::key_scan_footprint_), nicht hier.
+    /// Wer den Zaehler bildet, muss auch seine Einheit nennen -- sonst ist die Gleichheit "Store-L ==
+    /// Organ-Strategy" eine ANNAHME, und die Einheit im Snapshot waere ein Selbstbeleg der Huelle statt
+    /// eine Aussage ueber die Zahlen, die wirklich hereinkamen (der tautologische Selbstbeleg, den der
+    /// Codex-Review an der NB3-Fassung geruegt hat: "ein Wrapper, der 32 meldet, waehrend seine innere
+    /// Strategie mit 256 scannt, besteht den Audit").
+    /// EHRLICHE REICHWEITE (nicht mehr behaupten, als der Code haelt): note_line_unit_ vergleicht die
+    /// Store-Quelle und die Organ-Quelle NUR DANN gegeneinander, wenn BEIDE Pfade in DENSELBEN Snapshot
+    /// schreiben. Auf dem produktiven ABI-Pfad laeuft je Organ genau EIN Pfad -- dort ist der Effekt nicht
+    /// "Divergenz-Erkennung", sondern "die Einheit stammt von dem, der gezaehlt hat". Das ist die
+    /// eigentliche Zusage; die Divergenz-Erkennung ist der Zusatznutzen im Misch-Fall (Wache unten).
     [[nodiscard]] std::uint64_t observe_real_footprint(std::uint64_t checksum, std::size_t records,
-                                                       std::uint64_t field_bytes, std::uint64_t cache_lines) noexcept {
+                                                       std::uint64_t field_bytes, std::uint64_t cache_lines,
+                                                       std::uint64_t line_bytes) noexcept {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.scan_count;
         stats_.records_scanned += static_cast<std::uint64_t>(records);
         stats_.field_bytes_read += field_bytes;
         stats_.cache_lines_touched += cache_lines;
+        note_line_unit_(line_bytes);
         stats_.last_checksum = checksum;
 #else
         (void)records;
         (void)field_bytes;
         (void)cache_lines;
+        (void)line_bytes;
 #endif
         return checksum;
     }
@@ -174,10 +216,37 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = MemoryLayoutSnapshot;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void                     reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept {
+        stats_            = {};
+        einheit_gemischt_ = false; // die Vergiftung gehoert zum Zaehler -- sie endet mit ihm, nicht frueher
+    }
 
 private:
+    /// B14-NB4 -- die EINE Stelle, an der die Einheit des Linien-Zaehlers gebucht wird.
+    /// REGEL (fail-closed, bewusst ohne Ausnahme): solange alle Beitraege eines Snapshots in DERSELBEN
+    /// Linien-Groesse zaehlen, traegt der Snapshot diese Groesse. Melden zwei Beitraege verschiedene
+    /// Groessen (Store-Achse != Organ-Achse, oder ein 0-Wert), ist die Einheit des akkumulierten
+    /// Zaehlers nicht mehr definiert -- dann wird sie auf 0 vergiftet, und der Verbraucher meldet
+    /// ehrlich source-unavailable statt eine Prozentzahl aus zwei Einheiten zu mischen.
+    ///
+    /// DIE VERGIFTUNG IST KLEBRIG, und das ist der Kern dieser Funktion (Befund am uebernommenen WIP,
+    /// B14-NB4): `cache_lines_touched` AKKUMULIERT ueber alle Beitraege. Ist einmal in zwei Einheiten
+    /// addiert worden, ist die SUMME dauerhaft einheitenlos -- auch dann noch, wenn danach wieder nur
+    /// Beitraege der ersten Einheit kommen. Ohne das Flag haette die Folge (64, 128, 64) am Ende wieder
+    /// "64" gemeldet und die Mischung in der Summe unsichtbar gemacht; das waere exakt die Klasse
+    /// "Zaehler behauptet mehr als gedeckt", nur eine Ebene tiefer als der Befund, der B14 blockiert hat.
+    /// Zurueckgesetzt wird die Vergiftung deshalb NUR von reset() -- dort, wo auch der Zaehler faellt.
+    void note_line_unit_(std::uint64_t line_bytes) noexcept {
+        if (line_bytes == 0u || (stats_.line_bytes != 0u && stats_.line_bytes != line_bytes))
+            einheit_gemischt_ = true;
+        stats_.line_bytes = einheit_gemischt_ ? 0u : line_bytes;
+    }
+
     snapshot_t stats_{};
+    /// true, sobald mindestens ZWEI verschiedene Linien-Groessen (oder eine 0) in denselben Zaehler
+    /// geflossen sind. Kein Snapshot-Feld: er beschreibt die HISTORIE der Akkumulation, nicht ihren
+    /// Endstand -- und MemoryLayoutSnapshot bleibt so der reine uint64-POD, den die ABI-Naht braucht.
+    bool einheit_gemischt_ = false;
 #endif
 };
 

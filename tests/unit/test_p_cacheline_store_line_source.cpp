@@ -169,11 +169,18 @@ struct FootprintProbe {
     std::uint64_t key_bytes = 0;
     std::uint64_t lines     = 0;
     std::size_t   count     = 0;
-    std::uint64_t observe_real_footprint(std::uint64_t cs, std::size_t n, std::uint64_t kb, std::uint64_t ln) {
-        checksum  = cs;
-        count     = n;
-        key_bytes = kb;
-        lines     = ln;
+    // B14-NB4: die Sonde nimmt die EINHEIT der Linienzahl entgegen -- genau das neue fuenfte Argument, mit
+    // dem der Store seine Zaehl-Einheit benennt. Ohne es faende diese Sonde ab jetzt den observe_scan-
+    // Fallback (anderer Zaehler) statt den Real-Footprint-Pfad; die Vier-Argument-Form ist deshalb im
+    // Store compile-hart gesperrt (static_assert dort).
+    std::uint64_t line_bytes = 0;
+    std::uint64_t observe_real_footprint(std::uint64_t cs, std::size_t n, std::uint64_t kb, std::uint64_t ln,
+                                         std::uint64_t lb) {
+        checksum   = cs;
+        count      = n;
+        key_bytes  = kb;
+        lines      = ln;
+        line_bytes = lb;
         return ln;
     }
 };
@@ -195,6 +202,13 @@ template <class Store>
 static std::uint64_t clu_lines(Store const& s) {
     FootprintProbe p;
     return s.organ_observe_layout(p);
+}
+// B14-NB4: dieselbe Fahrt, aber gefragt wird die EINHEIT, die der Store zur Linienzahl mitgeliefert hat.
+template <class Store>
+static std::uint64_t clu_unit(Store const& s) {
+    FootprintProbe p;
+    (void)s.organ_observe_layout(p);
+    return p.line_bytes;
 }
 
 int main() {
@@ -247,6 +261,29 @@ int main() {
     check_true("CLU ist ueber die Unterachse ECHT diskriminierend (4 distinkte Werte)",
                clu_lines(b32) != clu_lines(b64) && clu_lines(b64) != clu_lines(b128) &&
                    clu_lines(b128) != clu_lines(b256));
+
+    // -- (C-2) B14-NB4: die EINHEIT reist mit. Der Zaehler oben ist ohne sie mehrdeutig -- vier Stores
+    // melden 8/4/2/1 Linien fuer DIESELBEN 256 Key-Bytes; erst die mitgelieferte Linien-Groesse macht die
+    // vier Zahlen wieder vergleichbar. Sie muss DIE DES STORES sein, nicht der Achsen-Default.
+    check_eq("Einheit B32  == cacheline_line_bytes des Stores", clu_unit(b32),
+             static_cast<std::uint64_t>(SoaStore32<cl::CacheLineSize::B32>::cacheline_line_bytes()));
+    check_eq("Einheit B64  == cacheline_line_bytes des Stores", clu_unit(b64),
+             static_cast<std::uint64_t>(SoaStore32<cl::CacheLineSize::B64>::cacheline_line_bytes()));
+    check_eq("Einheit B128 == cacheline_line_bytes des Stores", clu_unit(b128),
+             static_cast<std::uint64_t>(SoaStore32<cl::CacheLineSize::B128>::cacheline_line_bytes()));
+    check_eq("Einheit B256 == cacheline_line_bytes des Stores", clu_unit(b256),
+             static_cast<std::uint64_t>(SoaStore32<cl::CacheLineSize::B256>::cacheline_line_bytes()));
+    // DER BISS auf der Verbraucher-Seite, in Bytes statt in Linien: Linienzahl * Einheit ist die Byte-
+    // Menge, ueber die der Key-Scan lief -- und die ist von der Unterachse UNABHAENGIG (dieselben 32 Keys).
+    // Am Alt-Stand (Einheit implizit 64) haette dieses Produkt 512/256/128/64 ergeben, also vier
+    // verschiedene "beruehrte Byte-Mengen" fuer ein und denselben Scan.
+    check_eq("beruehrte Bytes B32  = Linien * Einheit", clu_lines(b32) * clu_unit(b32), std::uint64_t{256});
+    check_eq("beruehrte Bytes B64  = Linien * Einheit", clu_lines(b64) * clu_unit(b64), std::uint64_t{256});
+    check_eq("beruehrte Bytes B128 = Linien * Einheit", clu_lines(b128) * clu_unit(b128), std::uint64_t{256});
+    check_eq("beruehrte Bytes B256 = Linien * Einheit", clu_lines(b256) * clu_unit(b256), std::uint64_t{256});
+    check_true("Alt-Nenner (Literal 64) haette VIER verschiedene Byte-Mengen gemeldet",
+               clu_lines(b32) * 64u != clu_lines(b64) * 64u && clu_lines(b64) * 64u != clu_lines(b128) * 64u &&
+                   clu_lines(b128) * 64u != clu_lines(b256) * 64u);
 
     auto const p64  = fill<PaddedStore32<cl::CacheLineSize::B64>>(8);
     auto const p128 = fill<PaddedStore32<cl::CacheLineSize::B128>>(8);

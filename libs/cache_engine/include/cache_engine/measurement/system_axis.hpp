@@ -323,17 +323,39 @@ struct ObserverSnapshotSystemAxis final : SystemAxis<ObserverSnapshotSystemAxis>
 
         switch (sample.category) {
             case MeasurementCategory::CLU: {
-                // Cache-Line-AUSLASTUNG (Thesis 03:383) = field_bytes / (cache_lines * 64), hier als Prozent.
+                // Cache-Line-AUSLASTUNG (Thesis 03:383) = field_bytes / (cache_lines * line_bytes), als Prozent.
                 // Der rohe cache_lines-Zaehler waere die INVERSE Metrik (Review wf_f1604ba3, CONFIRMED-major).
+                //
+                // B14-NB4 (2026-08-06) -- HIER STAND DAS LITERAL 64, und es war der Landeblocker von B14.
+                // B14-NB3 hat die EINHEIT von cache_lines geaendert: der Zaehler laeuft seitdem in Linien
+                // DER cacheline-Unterachse (32/64/128/256), nicht mehr in 64-B-Linien. Der Nenner blieb
+                // stehen -- mit dem Ergebnis, dass dieselbe, physisch UNVERAENDERTE Messung je Line-Groesse
+                // eine andere Auslastung gemeldet haette. Nachgerechnet (Codex und Opus unabhaengig, mit
+                // n=1024, record_size=48, field_bytes=8192, wahre beruehrte Bytes konstant 49152):
+                // B32 -> 8 %, B64 -> 16 %, B128 -> 33 %, B256 -> 66 %, wo durchgaengig ~16 % richtig ist.
+                // Eine Messgroesse zu korrigieren, ohne ihren Verbraucher mitzuziehen, ist schlimmer als
+                // der Ausgangszustand: der Fehler wandert von der Einheit in den WERT.
+                //
+                // WARUM DER NENNER JETZT AUS DEM SNAPSHOT KOMMT und nicht "ueber dieselbe Achse" gezogen
+                // wird: diese Achse liest einen POD ueber die Modul-ABI-Grenze (eine geladene Tier-.so).
+                // Die Line-Groesse ist eine COMPILE-ZEIT-Eigenschaft der DLL; im Host existiert der
+                // Layout-Typ nicht einmal. Ein Achsen-Zugriff hier waere entweder ein zweites Literal oder
+                // eine Annahme ueber fremden Code. Der Produzent legt sie deshalb NEBEN den Zaehler
+                // (axis_stats[5][5], reservierter Slot, sizeof unveraendert).
                 std::uint64_t const field_bytes = snapshot->axis_stats[5][2];
                 std::uint64_t const cache_lines = snapshot->axis_stats[5][3];
-                if (cache_lines == 0) {
-                    // Der Snapshot liegt vor, traegt aber keinen Nenner: die QUELLE hat nichts geliefert.
+                std::uint64_t const line_bytes  = snapshot->axis_stats[5][5];
+                if (cache_lines == 0 || line_bytes == 0) {
+                    // Der Snapshot liegt vor, traegt aber keinen brauchbaren Nenner: entweder hat die
+                    // QUELLE nichts geliefert (cache_lines == 0) oder sie nennt die Einheit ihres Zaehlers
+                    // nicht eindeutig (line_bytes == 0; der Observer vergiftet den Wert, wenn zwei
+                    // Produzenten mit verschiedenen Linien in denselben Zaehler geschrieben haben).
                     // Kein Fehler des Algorithmus, aber auch keine bildbare Auslastung -> n/a.
+                    // FAIL-CLOSED und mit Absicht: eine Prozentzahl aus zwei Einheiten waere ein Phantom.
                     sample.mark_source_unavailable();
                     return;
                 }
-                sample.mark_ok((field_bytes * 100u) / (cache_lines * 64u));
+                sample.mark_ok((field_bytes * 100u) / (cache_lines * line_bytes));
                 return;
             }
             case MeasurementCategory::MEMORY_FOOTPRINT:
@@ -360,6 +382,9 @@ struct ObserverSnapshotSystemAxis final : SystemAxis<ObserverSnapshotSystemAxis>
 // Compile-time-Bindung an den Schema-Vertrag (kV3AxisSchema IST der Vertrag — keine stille Index-Drift).
 static_assert(std::string_view{::comdare::cache_engine::anatomy::kV3AxisSchema[5].names[2]} == "field_bytes");
 static_assert(std::string_view{::comdare::cache_engine::anatomy::kV3AxisSchema[5].names[3]} == "cache_lines");
+// B14-NB4: der Nenner-Slot. Er ist Teil DESSELBEN Vertrags -- faellt er weg oder wandert er, muss der
+// Build brechen und nicht die CLU stillschweigend wieder auf eine Fremd-Einheit rechnen.
+static_assert(std::string_view{::comdare::cache_engine::anatomy::kV3AxisSchema[5].names[5]} == "line_bytes");
 
 struct PmcSystemAxis final : SystemAxis<PmcSystemAxis> {
     using counters_t = ::comdare::cache_engine::measurement::PmcCounters;
