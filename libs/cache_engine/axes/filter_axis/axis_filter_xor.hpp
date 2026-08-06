@@ -45,6 +45,21 @@ public:
     // h2-Kollisionen ueberschreibt ein spaeterer Key den geloesten Slot eines frueheren (mogliche FN; bewusste
     // Apparat-Vereinfachung. Der rigorose Membership-Beleg laeuft ueber Bloom/Cuckoo). kBytes=12288 → 3×4096
     // Slots, L1-resident (messneutral). Voll-uint64-Key-Domain.
+    //
+    // -- POSTEN 78 / OWNER-ENTSCHEID A3 (Ledger-Nachtrag 05.08.2026 abend-10, Owner-Antwort A3 VERBATIM:
+    // "Wie empfohlen. Aber bitte die Einschraenkung dokumentieren."): der S5-02b-Scrub hat GEMESSEN, dass
+    // dieser vereinfachte XOR-Konstruktions-Pfad (s.o.: bei h2-Kollisionen ueberschreibt ein spaeterer Key
+    // den geloesten Slot eines frueheren) ECHTE FALSE NEGATIVES erzeugt -- 30 von 256 gespeicherten Keys
+    // werden als "definitiv nicht enthalten" gemeldet (gepinnter Befund in
+    // tests/unit/test_s5_02b_filter_perf_sanity.cpp, Block (2) T14, Zeile "T14 BEFUND GEPINNT"). Das
+    // verletzt die sonst strukturelle no-FN-Zusage der Filter-Achse (die composable/-Organe schliessen FN
+    // strukturell aus). OWNER-AUFLAGE (PFLICHT, nicht nur hier): diese Einschraenkung ist bei JEDER
+    // Verwendung eines XorFilter-Messwerts auszuweisen -- auch in der Thesis-Doku und in
+    // Messbild-/Diagramm-Beschriftungen. Eine XorFilter-Zelle (Trefferquote/FP-Rate/bits_per_key) darf NICHT
+    // als Nicht-Membership-Beleg zitiert werden (also als Beleg dafuer, dass ein Key sicher NICHT enthalten
+    // ist), ohne diese FN-Eigenschaft mit anzugeben. Owner-GO lautet "78 behalten" -- der vereinfachte Pfad
+    // bleibt bestehen, die Doku-Pflicht ist die Gegenleistung. Faellt die oben genannte GEPINNT-Zeile in der
+    // Wache (neg==0), ist der Befund geheilt und dieser Absatz ist nachzuziehen.
     static constexpr std::size_t kThird = 4096;        // Slots je Drittel (Zweierpotenz)
     static constexpr std::size_t kSlots = 3u * kThird; // 12 KiB Gesamt-Tabelle
 
