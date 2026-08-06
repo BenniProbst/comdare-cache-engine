@@ -195,11 +195,16 @@ int main(int argc, char** argv) {
     // ----------------------------------------------------------------------------------------------
     std::cout << "\n-- ceb-contract (der --version-Block, K7b-4/G1) --\n";
     {
-        // LITERAL gepinnt: "8.0" ist die ABSICHT des C8-Commits (Major 8 + Minor-RESET auf 0,
-        // Bauplan Paragraf 5.1). Ein Pin, der nur den abgeleiteten Wert mit sich selbst vergleicht,
-        // koennte jede Drehung stillschweigend mitmachen -- deshalb steht hier die Zahl.
+        // LITERAL gepinnt: "8.1" ist die ABSICHT des B14-NB4-Commits (Major 8 + codegen-Minor 1,
+        // Vertrags-Erweiterung kV3AxisSchema[5][5]=line_bytes INNERHALB des Majors). Ein Pin, der nur
+        // den abgeleiteten Wert mit sich selbst vergleicht, koennte jede Drehung stillschweigend
+        // mitmachen -- deshalb steht hier die Zahl.
+        // B14-NB4, AM OBJEKT GEFUNDEN: dieser Pin und der in (4) unten waren beim Bump 8.0 -> 8.1
+        // UEBERSEHEN worden; der ctest-Doppellauf hat sie gefangen. Die Zusage im Decl-Header
+        // ("der EINE literale Pin" in test_v41_anatomy_module_abi) war damit zum ZWEITEN Mal falsch --
+        // sie ist dort jetzt durch die vollstaendige Fundstellen-Liste ersetzt.
         std::string const text = pf::ceb_contract_version_text();
-        eq("ceb_contract_version_text()", text, std::string{"8.0"});
+        eq("ceb_contract_version_text()", text, std::string{"8.1"});
         // ... und ZUSAETZLICH die Ableitungs-Wache: der Text kommt aus derselben Quelle wie die
         // Lade-Wache oben. Beide zusammen schliessen aus, dass Pin und Wirkung auseinanderlaufen.
         eq("... und er ist aus dem Host-Major abgeleitet",
@@ -216,8 +221,8 @@ int main(int argc, char** argv) {
             if (nl == std::string::npos) break;
             std::cout << "    " << block.substr(pos, nl - pos) << "\n";
         }
-        tr("der --version-Block traegt die Zeile \"ceb-contract=8.0\"",
-           block.find("\nceb-contract=8.0\n") != std::string::npos);
+        tr("der --version-Block traegt die Zeile \"ceb-contract=8.1\"",
+           block.find("\nceb-contract=8.1\n") != std::string::npos);
     }
 
     // ----------------------------------------------------------------------------------------------

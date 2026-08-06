@@ -443,6 +443,19 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 /// ist -- die Alternative waere, den Bestand bewusst mit leerer CLU-Spalte weiterzufuehren.
 /// binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320 und der
 /// CRC-Anker kNewGolden131072Crc64 sind byte-neutral.
+///
+/// DIE FUNDSTELLEN-LISTE (B14-NB4) -- und warum sie diesen Absatz ersetzt hat. Der Text oben sprach
+/// zweimal von "dem EINEN literalen Pin"; beide Male war das falsch. E-24 C8 fand einen ZWEITEN
+/// (test_w10_c4_zellwert_naht) und stellte ihn auf die Konstante um -- der Wortlaut blieb aber stehen.
+/// Beim Bump 8.0 -> 8.1 sind daraufhin VIER weitere literale Stellen uebersehen worden; gefangen hat
+/// sie nicht dieser Header, sondern der ctest-Doppellauf. Statt die Zusage ein drittes Mal zu
+/// wiederholen, steht hier ab jetzt, WO die Zahl wirklich literal steht:
+///   tests/unit/test_v41_anatomy_module_abi.cpp      -- static_assert + 2x EXPECT_EQ (der Kontroll-Pin)
+///   tests/unit/test_e24_c10_g5_lade_wache.cpp       -- ceb_contract_version_text() + --version-Block
+///   tests/unit/test_e24_c10_g6_identitaets_bilanz.cpp -- +ceb=-Wert, Minor-Anteil, Objekt-Store-Key
+/// WER DIESE KONSTANTE DREHT, DREHT DIESE DREI DATEIEN MIT. Die drei Konsumenten-Tests
+/// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den
+/// Wert weiterhin bewusst AB und wandern von selbst mit -- sie sind hier bewusst NICHT gelistet.
 inline constexpr std::uint32_t kCebContractCodegenMinor = 1;
 
 /// HISTORIEN-FREEZE des Vorgaenger-Minors (E-24 C8, additiv -- s. kHostAnatomyAbiVersionAbi7). Der Wert 2
