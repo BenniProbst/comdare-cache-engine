@@ -274,6 +274,19 @@ inline constexpr std::size_t     kStemMax = 120;
 /// die Format-2-Ordnung gebunden. Die per-Perm-BEFUELLUNG der beiden neuen Glieder ist die Folge-Scheibe C-3;
 /// bis dahin sind sie leer und dieses Gate verhaelt sich unveraendert, ausser dass der Format-Bump den
 /// gesamten Alt-Bestand EINMAL fail-closed neu bauen laesst (F7-Uebergangsregel, kein Grandfathering).
+/// [NACHGEFUEHRT 2026-08-06, T2-B/T2-C (C-4-Rest) -- DER SATZ "bis dahin sind sie leer" IST HISTORIK. Beide
+/// Glieder tragen jetzt Werte, und zwar mit zwei Zusagen, die dieses Gate direkt betreffen:
+///   [5] wird PER PERMUTATION gebildet (opt inkl. der aufgeloesten Flags, ext, gate, atomic128, dazu die am
+///       Tier-Treiber ERHOBENE Realversion, T2-C) und gleichzeitig in den Bau-Kanal und den CEB-Laufzeit-
+///       Zwilling gereicht -- aus EINEM Aufruf, damit beide Seiten nicht driften koennen. Zwei
+///       Permutationen derselben Zelle mit anderem opt/ext haben ab hier verschiedene Fingerprints; der
+///       Fall "O3 skippt auf die O2-DLL" aus dem Kopf dieses Absatzes ist damit geschlossen.
+///   [6] ist RUN-KONSTANT (Enabled-Menge des Treibers, keine Perm-Eigenschaft) und war mit NB/CX-4 bereits
+///       vollstaendig.
+/// EINE NEUE, HIER RELEVANTE REGEL kommt mit T2-C dazu: ist die REALVERSION des Tier-Treibers nicht
+/// erhebbar, wird KEIN Fingerprint-Provider gestellt -- dann ist expected_fingerprint leer, und dieses Gate
+/// gibt per Punkt (1) seiner eigenen Regel IMMER false zurueck. Eine unbestimmte Identitaet traegt keinen
+/// Skip; der Lauf baut ehrlich neu, statt zu raten.]
 ///
 /// HISTORIK (Stand bis zur Eichung, NICHT geloescht -- Doku-Doktrin): bis 2026-08-05 lautete die Regel "true, wenn
 /// die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn eine

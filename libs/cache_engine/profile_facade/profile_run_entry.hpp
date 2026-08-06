@@ -971,6 +971,14 @@ struct RunProfileResult {
                 // aendert der Contract-Minor-Bump direkt den erwarteten Fingerprint. Der Schutz vor dem stalen
                 // prae-W10-Binary ist damit staerker als vorher, nicht schwaecher: er haengt nicht mehr daran,
                 // dass jemand das Glied in einen Vergleichs-String einbaut.
+                // T2-B-NACHZUG (2026-08-06, C-4-Rest) -- DIE VERORTUNG WIRD RICHTIG GESTELLT: der Satz oben
+                // sagt, das +ceb-Glied wirke "ueber das PREIMAGE (es steht in der System-Zeile = Glied [2])".
+                // Das war schon zum Zeitpunkt des A2-Nachzugs ungenau und ist seit Format 3 falsch: ceb ist
+                // ein eigenes FELD des TOOLCHAIN-Glieds [5] (abi/toolchain_stamp_glied.hpp,
+                // kToolchainGliedKeys), nicht Teil der System-Zeile [2]. Die WIRKUNG bleibt exakt dieselbe
+                // (ein Contract-Minor-Bump aendert den erwarteten Fingerprint), nur der Ort ist ein anderer
+                // -- und seit T2-B wird genau dieses Glied per Permutation befuellt und live einkompiliert,
+                // womit die Aussage nicht mehr nur richtig, sondern auch wirksam ist.
                 std::string const perm_ceb = ::comdare::cache_engine::profile_facade::ceb_contract_version_text();
                 perm_parts.ceb             = perm_ceb;
                 std::string const perm_bt  = build_type_version_value();
