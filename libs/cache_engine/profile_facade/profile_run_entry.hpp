@@ -25,7 +25,7 @@
 //    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
 #include "build_type_stamp.hpp"         // (i) §61-STUFEN: build_type_version_suffix (+bt=Debug bei COMDARE_BUILD_TYPE)
-#include "toolchain_stamp_naht.hpp"    // T2-B: PermToolchainAchsen/-GliedWert + der EINE Glied-[5]-Renderer
+#include "toolchain_stamp_naht.hpp"     // T2-B: PermToolchainAchsen/-GliedWert + der EINE Glied-[5]-Renderer
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
 #include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
 #include "lazy_adhoc_source_gen.hpp"    // INC-G6 (33/34): make_lazy_adhoc_source_gen (lazy golden-N-Fallback-Quelle)
@@ -102,9 +102,8 @@ struct RunProfileArgs {
     /// BENANNTER Traeger (K-1), diesmal mit eigenem Speicher, weil die Fabrik ihn ueber die gesamte
     /// Permutation haelt. LEER == kein Define == byte-identisch zum Vor-T2-B-Bau.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
-                                ::comdare::cache_engine::abi::SystemCellValues cell_values,
-                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const&
-                                    toolchain_glied)>
+                                ::comdare::cache_engine::abi::SystemCellValues                         cell_values,
+                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const& toolchain_glied)>
                 compile_for_perm;
     std::string compiler_tag; // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     // W10-C4 (Bauplan-Dossier 20260803, Sektion 1): die beiden LAUF-KONSTANTEN System-Zellen dieses Baus. Die
@@ -647,11 +646,11 @@ struct RunProfileResult {
         // Lager-TP1(B)/G-E2 bindet der ITERATOR sie selbst (lager_contains + bestand_fingerprint_fn + bestand_zelle)
         // und nutzt sie als per-Binary-BAU-FILTER (LEDGER:3397); eine Host-Injektion an dieser Stelle bleibt die
         // Test-Naht mit Vorrang.
-        cfg.bestand_transport   = a.bestand_transport;
-        cfg.bestand_key_of      = a.bestand_key_of;
-        cfg.bestand_doc_key     = a.bestand_doc_key;
-        cfg.bestand_owner_uuid  = a.bestand_owner_uuid;
-        cfg.bestand_maschine    = a.bestand_maschine;
+        cfg.bestand_transport  = a.bestand_transport;
+        cfg.bestand_key_of     = a.bestand_key_of;
+        cfg.bestand_doc_key    = a.bestand_doc_key;
+        cfg.bestand_owner_uuid = a.bestand_owner_uuid;
+        cfg.bestand_maschine   = a.bestand_maschine;
         // T2-A/F4: die Plan-Ablage -- das letzte Glied der Kette ProfileRunArgs -> RunProfileArgs -> hier.
         // Ohne diese Zeile war die gesamte F4-Mechanik im produktiven Lauf unerreichbar (der Host baut keine
         // LazyRunConfig selbst). Leer (Default) => PlanPersistenz::aktiv()==false => keine Ablage => byte-
@@ -985,9 +984,9 @@ struct RunProfileResult {
                 // lauf-konstante Binary, gestempelt wird die lauf-konstante Identitaet. Die Mess-Matrix
                 // waechst weiterhin (die Zelle wird gemessen) -- nur luegt sie nicht mehr ueber ihren Bau.
                 bool const perm_bau_je_zelle = static_cast<bool>(a.compile_for_perm);
-                perm_compile                 = perm_bau_je_zelle
-                                                   ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
-                                                   : a.compile;
+                perm_compile = perm_bau_je_zelle
+                                   ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
+                                   : a.compile;
                 if (!perm_bau_je_zelle)
                     std::cerr << "[Compiler-Compiler-Fehler: "
                               << cm::error_class_label(cm::CompilerCompilerErrorClass::ToolchainFehlt)
@@ -1042,8 +1041,8 @@ struct RunProfileResult {
                 // bleiben identisch (dieselbe Ordnung, dieselbe no_extension-Regel), aber es gibt nur noch
                 // eine Stelle, die die Ordnung kennt -- und damit erstmals etwas, wogegen eine Wache prueft.
                 ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
-                perm_parts.cxx = a.compiler_tag;
-                perm_parts.opt = opt_id;
+                perm_parts.cxx  = a.compiler_tag;
+                perm_parts.opt  = opt_id;
                 perm_parts.simd = perm_simd_segment; // T2-B: dieselbe no_extension-Regel wie im Glied [5]
                 // W10-M2 (REV2-B2-Rest): das +ceb=-Glied fehlte der Perm-build_version -- der Perm-Pfad ist aber
                 // GENAU der Pfad, an dem C4 die Zellwerte scharfschaltet. Ohne diese Verdrahtung waere der
@@ -1077,8 +1076,9 @@ struct RunProfileResult {
                 // Zusammensetzung selbst bleibt die EINE Suffix-Quelle (perm_parts unveraendert gefuellt);
                 // es entscheidet nur noch, OB dieser Bau ein eigenes Suffix verdient hat.
                 std::string const perm_suffix =
-                    perm_bau_je_zelle ? ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts)
-                                      : std::string{};
+                    perm_bau_je_zelle
+                        ? ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts)
+                        : std::string{};
                 perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
                 perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
                 // F1 / C1-Interim: DER ZELL-PFAD dieser Zelle -- aus DENSELBEN perm_parts wie der Suffix

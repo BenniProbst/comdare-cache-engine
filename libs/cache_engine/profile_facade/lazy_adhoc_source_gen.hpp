@@ -72,7 +72,7 @@
 // Umbrella-schwer (source_catalog.hpp zieht die 17 Topic-ConfigSets) -> gehoert NEBEN source_catalog.hpp in die
 // Materialisierungs-Domaene, NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 
-#include "source_catalog.hpp"       // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
+#include "source_catalog.hpp" // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
 #include "toolchain_stamp_naht.hpp" // NB/CX-4: die LIVE-Werte der Glieder [5]/[6] -- DIESELBEN wie im Bau-Kanal
 
 #include <builder/codegen/adhoc_emitter.hpp>                   // render_adhoc_module_source / strip_all_elaborated
@@ -414,9 +414,9 @@ template <class List>
 /// bedeutet, was er sagt: "diese Binary traegt das Glied nicht". Kein Zweig rechnet mehr etwas anderes,
 /// als der Aufrufer verlangt hat.
 [[nodiscard]] inline ex::FingerprintFn
-make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {},
-                                        std::optional<std::string> toolchain_glied = std::nullopt,
-                                        std::optional<std::string> bvset_glied     = std::nullopt) {
+make_lazy_adhoc_fingerprint_fn_from_env(std::string                system_cell_values = {},
+                                        std::optional<std::string> toolchain_glied    = std::nullopt,
+                                        std::optional<std::string> bvset_glied        = std::nullopt) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     std::string tc_wert =
         toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();

@@ -88,12 +88,11 @@ inline constexpr std::string_view kVariantSetSignatureStrukturZeichen = ";={}[]@
 /// genau das soll auffallen.
 template <class L>
 [[nodiscard]] constexpr bool variant_set_signature_namen_paarweise_eindeutig() noexcept {
-    constexpr std::size_t                                  n = mp::mp_size<L>::value;
-    std::array<std::string_view, (n == 0 ? 1 : n)>          namen{};
-    std::size_t                                            i = 0;
-    mp::mp_for_each<mp::mp_transform<mp::mp_identity, L>>([&namen, &i](auto id) {
-        namen[i++] = std::string_view{decltype(id)::type::name()};
-    });
+    constexpr std::size_t                          n = mp::mp_size<L>::value;
+    std::array<std::string_view, (n == 0 ? 1 : n)> namen{};
+    std::size_t                                    i = 0;
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, L>>(
+        [&namen, &i](auto id) { namen[i++] = std::string_view{decltype(id)::type::name()}; });
     for (std::size_t a = 0; a + 1 < n; ++a) {
         for (std::size_t b = a + 1; b < n; ++b) {
             if (namen[a] == namen[b]) return false;
@@ -106,10 +105,10 @@ template <class L>
 /// "irgendwo im bvset stehen zwei gleiche Namen" waere im 3-Achsen-Fall eine Suche statt eines Befundes.
 #define COMDARE_BVSET_PAAR_WACHE(L, ACHSE)                                                                             \
     static_assert(                                                                                                     \
-        ::comdare::cache_engine::builder::experiment::variant_set_signature_namen_paarweise_eindeutig<L>(),             \
-        "NB-3/T2-D: zwei Registry-Wrapper der Achse " ACHSE " tragen denselben name(). Der Name ist der "               \
-        "Diskriminator, der Wrapper mit zufaellig gleichen Properties unterscheidet -- bei gleichem Namen UND "         \
-        "gleichen Feldern rendern zwei VERSCHIEDENE Enable-Mengen dieselbe bvset-Signatur, also seit Format 3 "         \
+        ::comdare::cache_engine::builder::experiment::variant_set_signature_namen_paarweise_eindeutig<L>(),            \
+        "NB-3/T2-D: zwei Registry-Wrapper der Achse " ACHSE " tragen denselben name(). Der Name ist der "              \
+        "Diskriminator, der Wrapper mit zufaellig gleichen Properties unterscheidet -- bei gleichem Namen UND "        \
+        "gleichen Feldern rendern zwei VERSCHIEDENE Enable-Mengen dieselbe bvset-Signatur, also seit Format 3 "        \
         "denselben Fingerprint (falscher Skip). Den NAMEN eindeutig machen, nicht die Wache.")
 
 namespace detail {

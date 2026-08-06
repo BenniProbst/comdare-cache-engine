@@ -36,7 +36,7 @@
 // keine Laufzeit-Probe, sondern die Praeprozessor-Wahrheit der uebersetzenden Toolchain -- exakt der Weg, den
 // G-C4 fuer den CT-Stempel verlangt. Alle uebrigen WERTE kommen weiter von aussen herein.]
 
-#include <cache_engine/measurement/algo_semver.hpp>         // algo_semver_string (X.Y.Z[Flag]-Voll-Form, Owner-Q10)
+#include <cache_engine/measurement/algo_semver.hpp>          // algo_semver_string (X.Y.Z[Flag]-Voll-Form, Owner-Q10)
 #include <cache_engine/measurement/compiler_system_axis.hpp> // NB/CX-3: die Dialekt-Ids als Single-Source
 
 #include <array>
@@ -116,7 +116,7 @@ template <std::size_t N>
 [[nodiscard]] consteval std::array<char, N> ct_realversion_zeichen() noexcept {
     std::array<char, N> out{};
     if (kCtCompilerMajorRaw < 0) return out;
-    std::size_t n       = 0;
+    std::size_t n        = 0;
     auto const  put_uint = [&out, &n](unsigned v) {
         std::size_t const stellen = ct_dezimal_stellen(v);
         for (std::size_t i = 0; i < stellen; ++i) {
@@ -169,7 +169,7 @@ static_assert(kDetectedCompilerRealVersion.empty() || kDetectedCompilerRealVersi
 static_assert(
     [] {
         if (kDetectedCompilerRealVersion.empty()) return true;
-        std::size_t punkte = 0;
+        std::size_t punkte           = 0;
         std::size_t ziffern_im_glied = 0;
         for (char const c : kDetectedCompilerRealVersion) {
             if (c == '.') {
@@ -301,9 +301,8 @@ static_assert(
     [] {
         ToolchainStampParts const p{"d", "r", "o", "of", "s", "c", "t", "tel", "bt", "g", "a", "af", "drv"};
         return p.cxx_dialect == "d" && p.cxx_realversion == "r" && p.opt == "o" && p.opt_flags == "of" &&
-               p.simd == "s" && p.ceb == "c" && p.target_isa == "t" && p.telemetry == "tel" &&
-               p.build_type == "bt" && p.gate_contribution == "g" && p.atomic128 == "a" &&
-               p.atomic128_flags == "af" && p.cxx_driver == "drv";
+               p.simd == "s" && p.ceb == "c" && p.target_isa == "t" && p.telemetry == "tel" && p.build_type == "bt" &&
+               p.gate_contribution == "g" && p.atomic128 == "a" && p.atomic128_flags == "af" && p.cxx_driver == "drv";
     }(),
     "NB-3/T2-D: die Feld-Ordnung von ToolchainStampParts hat sich verschoben. Das Aggregat ist positionell "
     "initialisierbar -- eine Verschiebung belegt bei jedem Bestands-Aufrufer STILL die falschen Felder und "
@@ -517,8 +516,10 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 
 /// render_toolchain_stamp_glied(parts) -- DER EINE Renderer des Preimage-Glieds [5].
 ///
-/// Form (Beispiel, voll belegt):
-///   tc=1;cxx=gcc:g++-16@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;bt=Debug;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c
+/// Form (Beispiel, voll belegt). Der Stempel ist EINE Zeile -- er steht hier nur des 120-Spalten-Limits
+/// wegen auf zwei Zeilen; die beiden Haelften gehoeren OHNE Trenner und OHNE Leerzeichen aneinander:
+///   tc=1;cxx=gcc:g++-16@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;bt=Debug;
+///   gate=avx512;atomic128=cx16{-mcx16}@1.0.0c
 ///
 /// ALLE Felder leer => "" (die Identitaet). Das ist kein Sonderfall, sondern dieselbe Zusage wie beim
 /// Overlay-Glied und beim Zellwert-Set: ein nicht injizierter Wert veraendert das Preimage NICHT.

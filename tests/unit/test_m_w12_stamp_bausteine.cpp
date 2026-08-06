@@ -20,9 +20,9 @@
 #include <cache_engine/abi/toolchain_stamp_glied.hpp> // O-2/C-2: Renderer + kToolchainAxisVersions
 #include <profile_facade/planner/planner_version.hpp>
 #include <profile_facade/system_version_suffix.hpp> // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
-#include <profile_facade/toolchain_stamp_naht.hpp> // NB/CX-4: die LIVE-Naht der Glieder [5]/[6]
+#include <profile_facade/toolchain_stamp_naht.hpp>  // NB/CX-4: die LIVE-Naht der Glieder [5]/[6]
 
-#include "builder/build_variant_set_signature.hpp"  // NB-3/T2-D: die Paar-Wache (Praedikat-Haelfte)
+#include "builder/build_variant_set_signature.hpp"    // NB-3/T2-D: die Paar-Wache (Praedikat-Haelfte)
 #include "builder/driver_build_variant_signature.hpp" // NB-3/T2-D: die realen Registry-Listen (All*)
 
 #include <gtest/gtest.h>
@@ -1142,8 +1142,8 @@ TEST(MW12StampBausteine, NbCx3CompilerRealVersionIsDetectedAtCompileTime) {
     p.cxx_realversion = abi::kDetectedCompilerRealVersion;
     // NB2-1: der Tag ist Pflicht, sobald der Dialekt gesetzt ist -- hier ein bewusst FREMDER Tag, damit
     // sichtbar bleibt, dass die Realversion NICHT aus ihm abgeleitet wird (G-C4).
-    p.cxx_driver        = "hausgemachter-treiber";
-    std::string const g = abi::render_toolchain_stamp_glied(p);
+    p.cxx_driver               = "hausgemachter-treiber";
+    std::string const g        = abi::render_toolchain_stamp_glied(p);
     std::string const erwartet = "cxx=" + std::string{abi::kDetectedCompilerDialect} + "-" +
                                  std::string{abi::kDetectedCompilerRealVersion} + ":hausgemachter-treiber@1.0.0c";
     EXPECT_NE(g.find(erwartet), std::string::npos) << "glied='" << g << "' erwartet-Segment='" << erwartet << "'";
@@ -1327,8 +1327,7 @@ TEST(MW12StampBausteine, Nb23BvsetNamensWacheFaengtStrukturzeichen) {
         EXPECT_TRUE(bx::variant_set_signature_name_ist_wohlgeformt(gut)) << "name='" << gut << "'";
     // (5) Und die LEBENDE Signatur dieses Treibers ist ein gueltiger Preimage-Glied-Wert -- der Beweis,
     //     dass die Bestands-Namen die Wache real bestehen (sonst haette der Bau schon gebrochen).
-    EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(
-        bx::kDriverBuildVariantSignature));
+    EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(bx::kDriverBuildVariantSignature));
 }
 
 namespace {
@@ -1425,8 +1424,7 @@ TEST(MW12StampBausteine, Nb3T2dDefineNahtIstFailLoud) {
 
     // (2) Ein Wert mit Whitespace wird ABGELEHNT statt still zerlegt zu werden -- beide Nahtstellen.
     EXPECT_THROW((void)pfn::toolchain_stamp_glied_define_arg("tc=1;opt=O3{-O3 -x}"), std::invalid_argument);
-    EXPECT_THROW((void)pfn::build_variant_set_signature_define_arg("bvset=1;page_type[{a b}]"),
-                 std::invalid_argument);
+    EXPECT_THROW((void)pfn::build_variant_set_signature_define_arg("bvset=1;page_type[{a b}]"), std::invalid_argument);
 
     // (3) Die LEBENDEN Werte passieren -- die Naht ist digest-neutral fuer den realen Bau.
     EXPECT_NO_THROW((void)pfn::toolchain_stamp_glied_define_arg(pfn::compose_live_toolchain_stamp_glied()));
@@ -1450,7 +1448,7 @@ TEST(MW12StampBausteine, Nb3T2dTraegerLebensdauerUndVollWache) {
     // (b) SPAETE MUTATION: der Puffer HINTER der Sicht aendert sich nach der Pruefung. Die Voll-Wache in
     //     anatomy_fingerprint_glieder() steht unmittelbar vor dem Preimage -- zwischen ihr und dem Hash
     //     liegt kein Aufrufer mehr.
-    std::string wert = "tc=1";
+    std::string               wert = "tc=1";
     abi::ToolchainGlied const tc{wert}; // Konstruktor-Wache: wohlgeformt
     EXPECT_NO_THROW((void)abi::anatomy_fingerprint_glieder("O", "S", "M", tc));
     wert[2] = '\n'; // der Domain-Separator, nachtraeglich eingeschleust
@@ -1589,8 +1587,8 @@ TEST(MW12StampBausteine, T2cUnbekanntHeisstNichtSkipFaehig) {
     // (2) DIE STEMPEL-FORM. Ist die Version erhoben, steht sie als <dialekt>-<realversion>:<tag> im Glied;
     //     ist sie es nicht, steht dort <dialekt>:<tag> -- der Treiber bleibt in BEIDEN Faellen drin
     //     (NB2-1 Regel R1), es faellt nur die Versions-Behauptung weg.
-    std::string const tag  = pfn::active_cxx_driver_tag();
-    std::string const real = pfn::active_tier_realversion();
+    std::string const tag   = pfn::active_cxx_driver_tag();
+    std::string const real  = pfn::active_tier_realversion();
     std::string const glied = pfn::compose_live_toolchain_stamp_glied();
     std::string const dialekt{pfn::cxx_driver_dialect(tag)};
     std::string const erwartet =
@@ -1681,9 +1679,9 @@ TEST(MW12StampBausteine, NbCx1RtInjektivitaetsWacheIstFailLoud) {
     //     durch einen Traeger-Typ laufen. Ohne diesen Zweig bliebe genau dort eine Luecke.
     std::array<std::string_view, abi::kAnatomyFingerprintGliedCount> const kaputt{
         abi::kAnatomyFingerprintFormat, "organ\nzeile", "", "", "", "", "", ""};
-    EXPECT_THROW((void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{kaputt.data(),
-                                                                                           kaputt.size()}),
-                 std::invalid_argument);
+    EXPECT_THROW(
+        (void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{kaputt.data(), kaputt.size()}),
+        std::invalid_argument);
     auto const heil = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS");
     EXPECT_NO_THROW(
         (void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{heil.data(), heil.size()}));
@@ -1712,8 +1710,8 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
     EXPECT_EQ(bv, std::string{::comdare::cache_engine::builder::experiment::kDriverBuildVariantSignature});
 
     // (3) BEIDE stehen LITERAL im Preimage, an ihren benannten Positionen.
-    auto const glieder = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{tc},
-                                                          abi::BvsetGlied{bv});
+    auto const glieder =
+        abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{tc}, abi::BvsetGlied{bv});
     EXPECT_EQ(glieder[abi::kAnatomyFingerprintToolchainGlied], tc);
     EXPECT_EQ(glieder[abi::kAnatomyFingerprintBvsetGlied], bv);
     std::string const preimage =
@@ -1724,8 +1722,7 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
     // (4) WIRKSAMKEIT: mit den Live-Gliedern ergibt sich ein ANDERER Digest als mit den leeren Defaults.
     //     Das ist die eigentliche Aussage -- vorher waren beide Wege byte-gleich.
     auto const leer = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS");
-    EXPECT_NE(abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{leer.data(), leer.size()}),
-              preimage);
+    EXPECT_NE(abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{leer.data(), leer.size()}), preimage);
 
     // (5) DIE DRIFT-FREIHEIT DER NAHT: derselbe argumentlose Aufruf liefert denselben String. Genau darauf
     //     ruht, dass Bau-Kanal (-D an perm_compile) und Laufzeit-Zwilling ueber DASSELBE Glied rechnen.
@@ -1748,7 +1745,8 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
     EXPECT_FALSE(pf::ct_realversion_deckt_treiber("/usr/bin/c++")) << "ein Tag ohne Endziffern nennt keine Version";
     EXPECT_FALSE(pf::ct_realversion_deckt_treiber("g++")) << "dito";
     std::string const ct_voll{abi::kDetectedCompilerRealVersion};
-    std::string const ct_major{abi::kDetectedCompilerRealVersion.substr(0, abi::kDetectedCompilerRealVersion.find('.'))};
+    std::string const ct_major{
+        abi::kDetectedCompilerRealVersion.substr(0, abi::kDetectedCompilerRealVersion.find('.'))};
     std::string const praefix = (abi::kDetectedCompilerDialect == std::string_view{"clang"} ? "clang++-" : "g++-");
     EXPECT_TRUE(pf::ct_realversion_deckt_treiber(praefix + ct_voll)) << "treiber='" << praefix + ct_voll << "'";
     // DER CODEX-FALL, jetzt Negativ-Probe: "g++-16" deckt 16.1.0 und 16.3.0 gleichermassen -- also keines.
