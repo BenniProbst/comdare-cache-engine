@@ -114,10 +114,10 @@ struct ProbeClaLayout : ml::MemoryLayoutStrategyBase<ProbeClaLayout<S>, cl::Cach
     static constexpr bool             enabled      = true;
     static constexpr std::string_view algo_version = "probe";
 
-    [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 64; }
-    [[nodiscard]] static constexpr std::string_view name() noexcept { return "memory_layout_probe_cla_line"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "ProbeClaLayout"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PROBE_CLA_LINE"; }
+    [[nodiscard]] static constexpr std::size_t            cache_line_size() noexcept { return 64; }
+    [[nodiscard]] static constexpr std::string_view       name() noexcept { return "memory_layout_probe_cla_line"; }
+    [[nodiscard]] static constexpr std::string_view       family_name() noexcept { return "ProbeClaLayout"; }
+    [[nodiscard]] static constexpr std::string_view       flag_suffix() noexcept { return "PROBE_CLA_LINE"; }
     [[nodiscard]] static constexpr ml::RepresentationKind representation_kind() noexcept {
         return ml::RepresentationKind::aos_interleaved_padded;
     }
@@ -170,8 +170,8 @@ static_assert(erwarteter_stride<cl::CacheLineSize::B32>() == 64);
 static_assert(erwarteter_stride<cl::CacheLineSize::B64>() == 64);
 static_assert(erwarteter_stride<cl::CacheLineSize::B128>() == 128);
 static_assert(erwarteter_stride<cl::CacheLineSize::B256>() == 256);
-static_assert(erwartete_puffer_bytes<cl::CacheLineSize::B64>() == 1048576);   // der Bestandswert
-static_assert(erwartete_puffer_bytes<cl::CacheLineSize::B256>() == 4194304);  // 4x -- die Ableitung ist scharf
+static_assert(erwartete_puffer_bytes<cl::CacheLineSize::B64>() == 1048576);  // der Bestandswert
+static_assert(erwartete_puffer_bytes<cl::CacheLineSize::B256>() == 4194304); // 4x -- die Ableitung ist scharf
 // Die Puffer-Untergrenze, die jeder Pfad als static_assert traegt, hier explizit fuer alle vier Belegungen:
 static_assert(erwartete_puffer_bytes<cl::CacheLineSize::B32>() >=
               (kRecords - 1u) * erwarteter_stride<cl::CacheLineSize::B32>() + sizeof(std::uint64_t));
@@ -226,8 +226,9 @@ void leck_wache(char const* pfad, Aufruf&& aufruf) {
     SondenAllokator::wirf_nach_groesse = 0;
 
     ASSERT_EQ(SondenAllokator::wuerfe, 1)
-        << pfad << ": der Ausloeser hat nicht gefeuert -- die Wache haette nichts geprueft (line="
-        << erwartete_line<S>() << ")";
+        << pfad
+        << ": der Ausloeser hat nicht gefeuert -- die Wache haette nichts geprueft (line=" << erwartete_line<S>()
+        << ")";
     EXPECT_EQ(n, 0u) << pfad << ": nach der Exception muss der Pfad ehrlich 0 Samples melden";
     EXPECT_EQ(SondenAllokator::bilanz(erwartete_puffer_bytes<S>(), erwartete_line<S>()), 0)
         << pfad << ": LECK -- der Layout-Scan-Puffer (" << erwartete_puffer_bytes<S>()

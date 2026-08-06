@@ -250,8 +250,8 @@ private:
         preimage += std::to_string(i);
         preimage += '\n';
     }
-    auto const digest = ::comdare::cache_engine::sha512::sha512(std::span<std::uint8_t const>{
-        reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
+    auto const digest = ::comdare::cache_engine::sha512::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const hex = ::comdare::cache_engine::sha512::to_hex(digest);
     return std::string{hex.data(), hex.size()};
 }
@@ -305,8 +305,8 @@ inline constexpr char kPlanOhneAnker[] = "ohne-anker";
         preimage += identitaet(i);
         preimage += '\n'; // derselbe Trenner wie im Indexfolge-Preimage: ausserhalb des Hex-Alphabets
     }
-    auto const digest = ::comdare::cache_engine::sha512::sha512(std::span<std::uint8_t const>{
-        reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
+    auto const digest = ::comdare::cache_engine::sha512::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
     auto const hex = ::comdare::cache_engine::sha512::to_hex(digest);
     return std::string{hex.data(), hex.size()};
 }

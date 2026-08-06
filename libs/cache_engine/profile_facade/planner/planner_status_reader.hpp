@@ -87,7 +87,7 @@ struct BinaerStand {
     std::size_t ohne_stempel      = 0;
     std::size_t kopf_drift        = 0;
     std::size_t zeilen_abweichung = 0;
-    std::size_t format_drift      = 0; ///< T2-A/F4-NB2: Stempel aus einer ANDEREN Format-Generation (resume-vN)
+    std::size_t format_drift      = 0;     ///< T2-A/F4-NB2: Stempel aus einer ANDEREN Format-Generation (resume-vN)
     std::size_t stale             = 0;     ///< result.csv.stale -- gesicherter Alt-Stand ohne Resume-Anspruch
     std::size_t scan_eintraege    = 0;     ///< besuchte Verzeichnis-Eintraege (die Breiten-Kappe misst hieran)
     bool        scan_gekappt      = false; ///< true = kMaxScanEintraege erreicht -> die Bilanz ist UNVOLLSTAENDIG

@@ -217,8 +217,7 @@ struct Atomic128Wahl {
 #if defined(COMDARE_AXIS_06_USE_SNMALLOC) && COMDARE_AXIS_06_USE_SNMALLOC && defined(COMDARE_ARCH_X86_64)
     return Atomic128Wahl{cm::Cx16Option::atomic128_id(), cm::Cx16Option::gcc_flag()};
 #else
-    return Atomic128Wahl{cm::DefaultCompilerAtomicOption::atomic128_id(),
-                         cm::DefaultCompilerAtomicOption::gcc_flag()};
+    return Atomic128Wahl{cm::DefaultCompilerAtomicOption::atomic128_id(), cm::DefaultCompilerAtomicOption::gcc_flag()};
 #endif
 }
 
@@ -316,9 +315,9 @@ namespace detail {
 /// Einmal je Tag; das Ergebnis (auch das negative) wird gecacht, damit ein fehlender Treiber nicht je
 /// Permutation erneut einen Prozessstart kostet.
 [[nodiscard]] inline std::optional<std::string> tier_realversion_von(std::string const& driver_tag) {
-    static std::mutex                                          schloss;
-    static std::map<std::string, std::optional<std::string>>   cache;
-    std::lock_guard<std::mutex> const                          sperre{schloss};
+    static std::mutex                                        schloss;
+    static std::map<std::string, std::optional<std::string>> cache;
+    std::lock_guard<std::mutex> const                        sperre{schloss};
     if (auto const it = cache.find(driver_tag); it != cache.end()) return it->second;
 
     std::optional<std::string> ergebnis = std::nullopt;
@@ -326,10 +325,10 @@ namespace detail {
         namespace cm = ::comdare::cache_engine::measurement;
         // Die Frage je Dialekt: gcc kennt -dumpfullversion (volle X.Y.Z), clang antwortet auf
         // -dumpversion mit derselben Form. Beide geben EIN Token -- deshalb reicht die erste Zeile.
-        std::string_view const frage =
-            cxx_driver_dialect(driver_tag) == cm::ClangCompilerAxis::compiler_id() ? "-dumpversion"
-                                                                                   : "-dumpfullversion";
-        std::string const cmd = driver_tag + " " + std::string{frage} + " 2>/dev/null";
+        std::string_view const frage = cxx_driver_dialect(driver_tag) == cm::ClangCompilerAxis::compiler_id()
+                                           ? "-dumpversion"
+                                           : "-dumpfullversion";
+        std::string const      cmd   = driver_tag + " " + std::string{frage} + " 2>/dev/null";
         if (auto const zeile = detail::erste_ausgabe_zeile(cmd); zeile.has_value()) {
             if (sonden_antwort_ist_version(*zeile)) ergebnis = *zeile;
         }
@@ -373,8 +372,8 @@ namespace detail {
 
     SystemVersionSuffixParts p{};
     p.cxx        = driver_tag; // NB2-1 (R1): der Tier-Treiber-Tag ist der Identitaets-Diskriminator
-    p.ceb        = ceb; // Perm-Pfad-Wert, G-C2 "heilt Fall C" -- der Contract-Bump wirkt ab hier im Preimage
-    p.build_type = bt;  // (i): "Debug" nur im Debug-Bau, sonst leer => kein Segment
+    p.ceb        = ceb;        // Perm-Pfad-Wert, G-C2 "heilt Fall C" -- der Contract-Bump wirkt ab hier im Preimage
+    p.build_type = bt;         // (i): "Debug" nur im Debug-Bau, sonst leer => kein Segment
     // T2-B: die per-Perm-Achsen. LEER (Default) => kein Segment => der run-konstante Vor-T2-B-Wert.
     p.opt               = achsen.opt;
     p.simd              = achsen.simd;
@@ -388,10 +387,10 @@ namespace detail {
     // als Diagnose-Werkzeug stehen (sie beantwortet eine ANDERE Frage: "ist die CEB mit demselben
     // Compiler gebaut wie die Tier-Binaries?"), aber sie entscheidet nicht mehr ueber den Stempel --
     // eine geerbte Version war immer eine Aussage ueber den falschen Compiler.
-    std::string const       realversion = active_tier_realversion(); // leer == unbekannt (fail-closed)
-    Atomic128Wahl const     a128        = active_atomic128_wahl();
-    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(toolchain_stamp_parts_from_suffix_parts(
-        p, dialekt, realversion, achsen.opt_flags, a128.id, a128.flags));
+    std::string const   realversion = active_tier_realversion(); // leer == unbekannt (fail-closed)
+    Atomic128Wahl const a128        = active_atomic128_wahl();
+    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(
+        toolchain_stamp_parts_from_suffix_parts(p, dialekt, realversion, achsen.opt_flags, a128.id, a128.flags));
 }
 
 /// compose_live_toolchain_stamp_glied() -- der RUN-KONSTANTE Wert des Glieds [5] (keine System-Achsen).

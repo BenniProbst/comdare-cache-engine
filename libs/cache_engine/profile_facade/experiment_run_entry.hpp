@@ -62,9 +62,8 @@ struct RunExperimentArgs {
     /// Preimage-Glieds [5] als benannter Traeger. Ohne ihn haetten O2 und O3 derselben Zelle denselben
     /// Fingerprint -- ein falscher Skip. LEER == kein Define == byte-identisch zum Vor-T2-B-Bau.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
-                                ::comdare::cache_engine::abi::SystemCellValues cell_values,
-                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const&
-                                    toolchain_glied)>
+                                ::comdare::cache_engine::abi::SystemCellValues                         cell_values,
+                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const& toolchain_glied)>
         compile_for_perm;
     // W10-C4: die beiden lauf-konstanten System-Zellen dieses Baus (SPIEGEL zu RunProfileArgs). Die Facade loest
     // sie auf, die Perm-Schleife ergaenzt simd_id. Beide leer (Default) => kein Define => byte-identischer Bau.
@@ -345,8 +344,8 @@ struct RunExperimentResult {
             // buchstabierte dieselbe Ordnung ein zweites Mal. Jetzt liest auch er die EINE Suffix-Quelle,
             // damit die beiden Lauf-Pfade nicht auseinanderlaufen koennen.
             ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
-            perm_parts.cxx = a.compiler_tag;
-            perm_parts.opt = opt_id;
+            perm_parts.cxx  = a.compiler_tag;
+            perm_parts.opt  = opt_id;
             perm_parts.simd = perm_simd_segment; // T2-B: dieselbe no_extension-Regel wie im Glied [5]
             // W10-M2 (REV2-B2-Rest, SPIEGEL): auch dieser Perm-Pfad fuellte das +ceb=-Glied nicht -- der
             // Contract-Minor-Bump waere hier ebenso unsichtbar geblieben. Wert aus der EINEN Zusammensetzung.

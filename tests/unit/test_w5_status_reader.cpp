@@ -496,7 +496,7 @@ int main() {
         eq("Vorbedingung: der v5-Praefix unterscheidet sich NUR im Versions-Wort", prefix_v5.substr(marke_v5.size()),
            prefix.substr(marke_v6.size()));
 
-        lege_gemessenes_binary(dll_v / "stem_v6", prefix, 3);                 // der Gut-Fall
+        lege_gemessenes_binary(dll_v / "stem_v6", prefix, 3); // der Gut-Fall
         schreibe(dll_v / "stem_v5" / "result.csv", ex::lazy_csv_header() + "z1\nz2\nz3\n");
         schreibe(dll_v / "stem_v5" / "result.csv.stamp", prefix_v5 + ex::kLazyResumeRowsKey + "3\n");
 
@@ -504,8 +504,7 @@ int main() {
         eq("beide Ablagen werden gesehen (die Quelle fehlt nicht)", st.csv_gesehen, std::size_t{2});
         eq("NEU: nur der v6-Stand gilt als gemessen", st.gemessen, std::size_t{1});
         eq("ALT-STAND-BISS: der v5-Stand faellt in teilweise statt in gemessen", st.teilweise, std::size_t{1});
-        eq("und er wird BENANNT (format_drift), nicht in einen Sammel-Eimer geworfen", st.format_drift,
-           std::size_t{1});
+        eq("und er wird BENANNT (format_drift), nicht in einen Sammel-Eimer geworfen", st.format_drift, std::size_t{1});
         // Die Gegenprobe zu jeder dieser Zahlen: es lag NICHT an einer der anderen Wachen.
         eq("Gegenprobe: es war KEINE Kopf-Drift (der CSV-Kopf ist identisch)", st.kopf_drift, std::size_t{0});
         eq("Gegenprobe: es war KEINE Zeilen-Abweichung (3 Zeilen, |rows=3)", st.zeilen_abweichung, std::size_t{0});

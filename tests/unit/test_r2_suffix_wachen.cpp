@@ -175,7 +175,7 @@ int main() {
         pf::SystemVersionSuffixParts b;
         b.cxx = "g--16";
         pf::SystemVersionSuffixParts c;
-        c.cxx = "g__-16";
+        c.cxx                = "g__-16";
         std::string const za = pf::compose_system_zell_pfad(a);
         std::string const zb = pf::compose_system_zell_pfad(b);
         std::string const zc = pf::compose_system_zell_pfad(c);

@@ -27,8 +27,8 @@
 #include "slice_queue.hpp"
 
 #include <algorithm>
-#include <atomic>  // T2-A/F4-NB: der prozess-lokale Zaehler des tmp-Namens
-#include <chrono>  // T2-A/F4-NB: die Nanosekunden-Marke des tmp-Namens
+#include <atomic> // T2-A/F4-NB: der prozess-lokale Zaehler des tmp-Namens
+#include <chrono> // T2-A/F4-NB: die Nanosekunden-Marke des tmp-Namens
 #include <cstddef>
 #include <cstdint>
 #include <filesystem> // T2-A/F4: die Plan-/Zaehler-Ablage (Koordinations-Ebene, kein Hot-Path)
@@ -380,7 +380,7 @@ namespace detail {
 // Datei-globaler Zustand) und atomar, weil mehrere Bau-Threads desselben Prozesses schreiben duerfen.
 [[nodiscard]] inline std::string tmp_marke() {
     static std::atomic<std::uint64_t> lauf{0};
-    auto const ns = static_cast<std::uint64_t>(
+    auto const                        ns = static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
             .count());
     return std::to_string(current_pid()) + "-" + std::to_string(ns) + "-" + std::to_string(lauf.fetch_add(1));

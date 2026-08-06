@@ -138,8 +138,8 @@ inline constexpr std::string_view kOverlaySourceHash = COMDARE_OVERLAY_SOURCE_HA
 /// (Pfad-freie Ids mit Doppelpunkt-Namensraum). Bewusst NICHT enthalten: Whitespace jeder Art.
 [[nodiscard]] constexpr bool anatomy_glied_zeichen_erlaubt(char c) noexcept {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '=' || c == '@' ||
-           c == ';' || c == '.' || c == ',' || c == '+' || c == '-' || c == '_' || c == ':' || c == '/' ||
-           c == '[' || c == ']' || c == '{' || c == '}';
+           c == ';' || c == '.' || c == ',' || c == '+' || c == '-' || c == '_' || c == ':' || c == '/' || c == '[' ||
+           c == ']' || c == '{' || c == '}';
 }
 
 /// Die Format-Wache fuer einen injizierten Glied-Wert. LEER ist immer wohlgeformt (== die Identitaet).
@@ -467,8 +467,8 @@ anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std
     require_injizierter_glied_wert("toolchain", toolchain.wert());
     require_injizierter_glied_wert("bvset", bvset.wert());
     require_injizierter_glied_wert("overlay", overlay.wert());
-    return {kAnatomyFingerprintFormat, organ,            system,       measurement,
-            kSubAxisValuesetSegment,   toolchain.wert(), bvset.wert(), overlay.wert()};
+    return {kAnatomyFingerprintFormat, organ,        system,        measurement, kSubAxisValuesetSegment,
+            toolchain.wert(),          bvset.wert(), overlay.wert()};
 }
 
 /// W10-C3: die Positions-Konstante ist BEWIESEN, nicht behauptet -- wer die Glied-Ordnung oben umbaut,

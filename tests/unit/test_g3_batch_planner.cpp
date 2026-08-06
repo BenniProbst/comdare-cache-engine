@@ -332,7 +332,7 @@ TEST(G3BatchPlan, ResumePunktUeberspringtNurGanzGedeckteFaecher) {
 // GRUENE Form -- ein zerrissener Inhalt bricht sie sofort.
 // ---------------------------------------------------------------------------
 TEST(G3BatchPlan, AblageIstMultiWriterSicher) {
-    auto const                  dir = plan_test_dir();
+    auto const                  dir  = plan_test_dir();
     std::filesystem::path const ziel = dir / "geteilt.txt";
 
     // Acht Schreiber, acht UNTERSCHEIDBARE Inhalte unterschiedlicher LAENGE (gleiche Laenge wuerde
@@ -367,10 +367,10 @@ TEST(G3BatchPlan, AblageIstMultiWriterSicher) {
 
 // (e2) Die tmp-Marke selbst: eindeutig ueber Aufrufe UND ueber Threads.
 TEST(G3BatchPlan, TmpMarkeIstProzessEindeutig) {
-    constexpr int                            kThreads = 8;
-    constexpr int                            kProThread = 500;
-    std::vector<std::vector<std::string>>    je_thread(kThreads);
-    std::vector<std::thread>                 pool;
+    constexpr int                         kThreads   = 8;
+    constexpr int                         kProThread = 500;
+    std::vector<std::vector<std::string>> je_thread(kThreads);
+    std::vector<std::thread>              pool;
     for (int t = 0; t < kThreads; ++t)
         pool.emplace_back([&, t] {
             auto& meine = je_thread[static_cast<std::size_t>(t)];
@@ -388,7 +388,7 @@ TEST(G3BatchPlan, TmpMarkeIstProzessEindeutig) {
 // (e3) FEHLERPFAD: laesst sich der Ordner nicht anlegen (eine DATEI steht an seiner Stelle), ist das
 // ein ehrliches false -- und es bleibt kein eigener Rest liegen.
 TEST(G3BatchPlan, FehlerpfadHinterlaesstKeinenRest) {
-    auto const                  dir = plan_test_dir();
+    auto const                  dir    = plan_test_dir();
     std::filesystem::path const sperre = dir / "keinordner";
     { std::ofstream{sperre, std::ios::trunc} << "ich bin eine Datei\n"; }
     EXPECT_FALSE(bl::schreibe_atomar(sperre / "plan.txt", "egal"));

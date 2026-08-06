@@ -368,7 +368,8 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
         } else {
             std::cerr << "[profile_facade] T2-C: Tier-Treiber '" << treiber << "' meldet Realversion '" << real
                       << "' (am Treiber erhoben, nicht von der CEB geerbt). Das Toolchain-Glied [5] traegt sie "
-                         "als cxx=<dialekt>-" << real << ":" << treiber << ". Zum Vergleich die CEB-Toolchain: '"
+                         "als cxx=<dialekt>-"
+                      << real << ":" << treiber << ". Zum Vergleich die CEB-Toolchain: '"
                       << ::comdare::cache_engine::abi::kDetectedCompilerDialect << " "
                       << ::comdare::cache_engine::abi::kDetectedCompilerRealVersion << "'"
                       << (pfn::ct_realversion_deckt_treiber(treiber) ? " (deckungsgleich)."
@@ -382,7 +383,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 
 // T2-B: `mit_toolchain_glied=false` liefert denselben Kanal OHNE das Glied [5] -- die Basis der
 // per-Perm-Fabriken, die ihren eigenen Glied-Wert anhaengen (s. perm_stamp_glied_defines oben).
-[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp                = nullptr,
+[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp                  = nullptr,
                                                           bool                     mit_toolchain_glied = true) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
@@ -398,9 +399,7 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // Treiber (Dialekt + Deckung der CT-Realversion). Stuende die Entscheidung an zwei Orten, koennte das Glied
 // ueber einen ANDEREN Treiber urteilen als den, der wirklich compiliert -- dieselbe Klasse Divergenz wie
 // W-6/W-13. INC-1h bleibt woertlich gueltig, nur sein Ort ist jetzt die Naht.
-[[nodiscard]] std::string cxx_compiler() {
-    return ::comdare::cache_engine::profile_facade::active_cxx_driver_tag();
-}
+[[nodiscard]] std::string cxx_compiler() { return ::comdare::cache_engine::profile_facade::active_cxx_driver_tag(); }
 
 // opt-d (A2-Hybrid Teil 2): die EINE String->Compiler-Achsen-Typ-Aufloesung sitzt GENAU HIER (Facade), nicht
 // im achsen-blinden Builder. Der Builder empfaengt supports_fno_gnu_unique als vom Facade gesteuerten bool-WERT
@@ -651,7 +650,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
              cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
              dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
                                                  ::comdare::cache_engine::abi::SystemCellValues cell_values,
-                                                 pf::PermToolchainGliedWert const& toolchain_glied) {
+                                                 pf::PermToolchainGliedWert const&              toolchain_glied) {
                 // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
                 // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
                 // byte-identisch zum Ist-Compile-Kanal.
@@ -1163,37 +1162,37 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
     // T2-B (SPIEGEL der Profil-Naht): Basis-Defines ohne Glied [5], der per-Perm-Wert kommt unten dazu.
-    a.compile_for_perm =
-        [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
-         cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
-         dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
-                                             ::comdare::cache_engine::abi::SystemCellValues cell_values,
-                                             pf::PermToolchainGliedWert const& toolchain_glied) {
-            // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
-            // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
-            std::string flags =
-                dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march
-            if (!march_flag.empty()) {
-                flags += ' ';
-                flags += march_flag;
-            }
-            // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein Organ
-            // required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable -> KEINE
-            // Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
-            for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
-                     ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
-                flags += ' ';
-                flags += mf;
-            }
-            // W10-C4 (SPIEGEL der Profil-Naht): das Zellwert-Define als eigenes Argument im defines-Kanal.
-            std::vector<std::string> perm_defines = def;
-            if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
-                perm_defines.push_back(std::move(arg));
-            // T2-B (SPIEGEL): das PER-PERM-Glied [5] aus derselben Schleifen-Iteration wie der Zwilling.
-            if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
-                perm_defines.push_back(std::move(arg));
-            return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
-        };
+    a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
+                          cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
+                          dbg =
+                              facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
+                                                            ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                                            pf::PermToolchainGliedWert const& toolchain_glied) {
+        // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
+        // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
+        std::string flags =
+            dbg ? ex::debug_flags_for_toolchain() : opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march
+        if (!march_flag.empty()) {
+            flags += ' ';
+            flags += march_flag;
+        }
+        // Section 40.a-E4: flag-genaues Bau-Gate an der CompileFn-Naht. Default-permissiv -- solange kein Organ
+        // required-Flags deklariert, ist die aktive Anforderung leer -> Pruef-Dock NotApplicable -> KEINE
+        // Zusatz-Flags (byte-identisch zum Ist). Aktiviert, sobald Organe required-Flags erklaeren.
+        for (auto const& mf : ::comdare::cache_engine::measurement::gate_extra_march_flags_for_build(
+                 ::comdare::cache_engine::measurement::route_of_march_flag(march_flag))) {
+            flags += ' ';
+            flags += mf;
+        }
+        // W10-C4 (SPIEGEL der Profil-Naht): das Zellwert-Define als eigenes Argument im defines-Kanal.
+        std::vector<std::string> perm_defines = def;
+        if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+            perm_defines.push_back(std::move(arg));
+        // T2-B (SPIEGEL): das PER-PERM-Glied [5] aus derselben Schleifen-Iteration wie der Zwilling.
+        if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
+            perm_defines.push_back(std::move(arg));
+        return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
+    };
     a.compiler_tag = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
     // W10-C4: die beiden lauf-konstanten System-Zellen (SPIEGEL der Profil-Naht). Dieser Pfad kennt keine
     // Ziel-ISA-Deklaration -- die Aufloesung faellt damit auf die CT-Zelle der Bau-Plattform.

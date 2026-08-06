@@ -248,8 +248,8 @@ TEST(G3PlanerDriven, IndexDigestBindetReihenfolgeUndInhalt) {
 
 // T2-A/F4-NB (MITTEL, Ueberlauf): ein Fach nahe 2^64 darf den Resume-Punkt nicht wickeln lassen.
 TEST(G3PlanerDriven, ResumePunktUndAtomsummeWickelnNicht) {
-    constexpr std::uint64_t             kFast = ~std::uint64_t{0} - 1; // 2^64-2
-    std::vector<bl::PlanFach> const     riesig{{0, kFast, 0}, {0, 4, 0}};
+    constexpr std::uint64_t         kFast = ~std::uint64_t{0} - 1; // 2^64-2
+    std::vector<bl::PlanFach> const riesig{{0, kFast, 0}, {0, 4, 0}};
     EXPECT_EQ(bl::plan_atome(riesig), bl::kPlanAtomeSaettigung) << "nicht darstellbar -> saettigen, nie wickeln";
     // Zaehler 3: das erste Fach ist NICHT gedeckt -> 0 Faecher. Die wickelnde Form haette
     // (0 + (2^64-2)) > 3 als FALSCH gelesen und das Fach uebersprungen.
