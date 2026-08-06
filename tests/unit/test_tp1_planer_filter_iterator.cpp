@@ -341,14 +341,17 @@ int main() {
         ex::BinarySpec const  spec0         = view[0];
         std::string const     stem0         = ex::orch_make_stem(spec0.binary_id, spec0.index);
         constexpr char const* kAltMarke     = "ALTER-ERFOLGS-STAND";
-        auto const            lege_altstand = [&](ex::LazyRunConfig const& c) {
+        // T2-A/K2: `extra` traegt die per-Binary-Felder, die der Lauf an den Config-Praefix haengt
+        // (heute "|fpr=<128hex>"). Der Stamp wird weiterhin ueber DIESELBEN Funktionen erzeugt, die der
+        // Resume-Check liest -- kein handkopierter Stempel-String.
+        auto const            lege_altstand = [&](ex::LazyRunConfig const& c, std::string const& extra = {}) {
             fs::path const  bin_dir = c.output_dir / stem0;
             std::error_code lec;
             fs::create_directories(bin_dir, lec);
             { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
             {
-                std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc} << ex::lazy_resume_stamp_prefix(c, dims)
-                                                                             << "|rows=1\n";
+                std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
+                    << ex::lazy_resume_stamp_prefix(c, dims) << extra << "|rows=1\n";
             }
             return bin_dir;
         };
@@ -372,21 +375,70 @@ int main() {
         sel1.provenance     = "explicit";
         auto const ram_stub = []() -> std::uint64_t { return ~std::uint64_t{0}; };
 
-        // (6a) GEGENPROBE ZUERST: baut die Binary (Stub-Compile exit 0), dann MUSS der alte Stand
-        //      unveraendert resumiert werden -- die Umstellung der Reihenfolge darf den Resume nicht kippen.
+        // (6a) T2-A/F4 -- DIE ZUSAGE DIESES FALLS IST GEDREHT, UND ZWAR ABSICHTLICH. Bis hierher stand
+        //      hier die Gegenprobe "auch eine frisch GEBAUTE Binary resumiert ihren alten Stand"; sie hat
+        //      die TP1FK1-B10-Umstellung abgesichert und war unter der damaligen Regel richtig. Genau diese
+        //      Regel ist der Codex-Befund K2: eine in DIESEM Lauf real kompilierte .so ist ein ANDERES
+        //      Artefakt als das, welches die alten Zeilen erzeugt hat -- alte Messwerte auf sie zu buchen
+        //      ist der "neue DLL / alte Messwerte"-Bug. Der Resume-Anspruch haengt seither an b.skipped.
+        //      LAGE: kein Fingerprint-Provider => dll_is_current ist fail-closed false => die Binary wird
+        //      gebaut => b.skipped ist falsch => KEIN Resume.
         {
             ex::LazyRunConfig cfg6a   = mach_cfg(base / "b10_gruen");
             fs::path const    bin_dir = lege_altstand(cfg6a);
             CerrCapture       fang;
             auto const        r = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6a);
-            check_eq("(6a) baubare Binary: resumed_binaries == 1", r.resumed_binaries, std::size_t{1});
-            check_true("(6a) die alten Zeilen reisen unveraendert weiter",
-                       r.resumed_csv_rows.find(kAltMarke) != std::string::npos);
+            check_eq("(6a) frisch GEBAUTE Binary: KEIN Resume (K2/F4)", r.resumed_binaries, std::size_t{0});
+            check_true("(6a) die alten Zeilen reisen NICHT in die globale CSV",
+                       r.resumed_csv_rows.find(kAltMarke) == std::string::npos);
             check_true("(6a) result.csv.stamp bleibt stehen", fs::exists(bin_dir / "result.csv.stamp", ec));
-            check_true("(6a) result.csv bleibt der alte Stand",
+            check_true("(6a) der Alt-Stand bleibt liegen (ent-wertet wird NUR im Bau-Fehler-Zweig)",
                        datei_text(bin_dir / "result.csv").find(kAltMarke) != std::string::npos);
             check_true("(6a) kein result.csv.stale -- ent-wertet wird NUR im Bau-Fehler-Zweig",
                        !fs::exists(bin_dir / "result.csv.stale", ec));
+        }
+
+        // (6a-2) DIE GEGENPROBE ZUR DREHUNG: der Resume ist nicht abgeschafft, er haengt an der richtigen
+        //        Bedingung. LAGE: perm.dll existiert, ihr .fingerprint-Sidecar deckt sich mit der Erwartung
+        //        des Providers => dll_is_current true => b.skipped => der alte Stand gilt weiter. Der Stamp
+        //        traegt dabei das neue "|fpr="-Feld -- geschrieben ueber dieselbe Quelle, die der Lauf liest.
+        std::string const kFpAlt = std::string(128, 'a');
+        std::string const kFpNeu = std::string(128, 'b');
+        ex::LazyRunConfig cfg6n  = mach_cfg(base / "b10_skip");
+        cfg6n.bestand_fingerprint_fn = [kFpAlt](std::string const&) { return kFpAlt; };
+        fs::path const bin_dir_skip = lege_altstand(cfg6n, "|fpr=" + kFpAlt);
+        {
+            { std::ofstream{bin_dir_skip / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+            { std::ofstream{bin_dir_skip / "perm.dll.fingerprint", std::ios::trunc} << kFpAlt; }
+            CerrCapture fang;
+            auto const  r = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6n);
+            check_eq("(6a-2) versions-AKTUELLE Binary (b.skipped): resumed_binaries == 1", r.resumed_binaries,
+                     std::size_t{1});
+            check_true("(6a-2) die alten Zeilen reisen unveraendert weiter",
+                       r.resumed_csv_rows.find(kAltMarke) != std::string::npos);
+        }
+
+        // (6d) K2 AM OBJEKT -- DER "NEUE DLL / ALTE MESSWERTE"-FALL. Dieselbe Ablage, dieselbe Config, nur
+        //      die Toolchain hat sich geaendert: der Provider liefert einen ANDEREN Fingerprint (das ist
+        //      genau das Szenario g++-16 16.0.1 -> 16.3 aus dem Befund). Unter resume-v5 kannte der Stamp
+        //      nur die algo_sig -- die Organ-Achsen sind unveraendert, also passte er weiter, und die alten
+        //      Messwerte wurden auf die neu gebaute DLL gebucht. Ab resume-v6 trennt der Stamp die beiden
+        //      Staende SELBST, unabhaengig von der b.skipped-Wache.
+        {
+            ex::LazyRunConfig cfg6d      = cfg6n;
+            cfg6d.bestand_fingerprint_fn = [kFpNeu](std::string const&) { return kFpNeu; };
+            std::string const stamp_alt  = ex::lazy_resume_stamp_prefix(cfg6n, dims) + "|fpr=" + kFpAlt;
+            std::string const stamp_neu  = ex::lazy_resume_stamp_prefix(cfg6d, dims) + "|fpr=" + kFpNeu;
+            check_true("(6d) der Stamp-Vergleich ALLEIN trennt alten und neuen Fingerprint",
+                       ex::lazy_try_resume_binary(bin_dir_skip, stamp_alt, nullptr) &&
+                           !ex::lazy_try_resume_binary(bin_dir_skip, stamp_neu, nullptr));
+            check_true("(6d) die Config-Praefixe sind identisch -- es trennt WIRKLICH nur der Fingerprint",
+                       ex::lazy_resume_stamp_prefix(cfg6n, dims) == ex::lazy_resume_stamp_prefix(cfg6d, dims));
+            CerrCapture fang;
+            auto const  r = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6d);
+            check_eq("(6d) neuer Fingerprint -> Neubau -> KEIN Resume", r.resumed_binaries, std::size_t{0});
+            check_true("(6d) die alten Messwerte werden NICHT auf die neue DLL gebucht",
+                       r.resumed_csv_rows.find(kAltMarke) == std::string::npos);
         }
 
         // (6b) DER BEFUND: derselbe alte Stand, aber der Compile scheitert -> KEIN Resume, sondern der

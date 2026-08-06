@@ -16,7 +16,7 @@
 //   (4) KONSUM-ANKUNFT (kein totes Feld): fairness kommt in der Runner-Spec an
 //       (build_sota_passes → SotaPass.fairness_mode) und wird exportiert (lazy_csv_header-Endspalte
 //       fairness_mode + format_csv_row); datasets kommen als deterministische Signatur
-//       (profile_datasets_signature) im Resume-Stamp an (resume-v5) — verschiedene fairness-/
+//       (profile_datasets_signature) im Resume-Stamp an (resume-v6) -- verschiedene fairness-/
 //       datasets-Deklarationen ergeben VERSCHIEDENE Stamps (kein stales Cross-Resume).
 //       Der Loader-MESS-Konsum der datasets ist lauf-gated (dokumentiert; Loader-Slot #184).
 //
@@ -284,7 +284,7 @@ TEST(WdkDatasetsFairness, FairnessArrivesInSotaPassSpec) {
     EXPECT_EQ(passes[1].view_binary_id, passes[2].view_binary_id);
 }
 
-// (4b) EXPORT: CSV-Endspalte fairness_mode + Resume-Stamp (resume-v5) konsumieren beide Felder —
+// (4b) EXPORT: CSV-Endspalte fairness_mode + Resume-Stamp (resume-v6) konsumieren beide Felder --
 // verschiedene Deklarationen ⇒ verschiedene Stamps (kein stales Cross-Resume), Default bleibt "-"/leer.
 TEST(WdkDatasetsFairness, FairnessAndDatasetsAreExportedInCsvAndResumeStamp) {
     // CSV-Header: fairness_mode ist die vorletzte Spalte (additiv; alte Leser header-getrieben
@@ -315,14 +315,16 @@ TEST(WdkDatasetsFairness, FairnessAndDatasetsAreExportedInCsvAndResumeStamp) {
     EXPECT_EQ(count_char(def, ';'), count_char(header, ';'));
     EXPECT_EQ(count_char(native, ';'), count_char(header, ';'));
 
-    // Resume-Stamp: v5 + fair=/datasets=-Segmente; Aenderung eines der beiden Felder aendert den Stamp.
+    // Resume-Stamp: v6 + fair=/datasets=-Segmente; Aenderung eines der beiden Felder aendert den Stamp.
+    // (T2-A/F4 2026-08-06: Format-Bump v5 -> v6 wegen |fpr=-Kopplung; die beiden Segmente selbst
+    // stehen unveraendert an ihrem Platz.)
     auto const tp = tlz::load_thesis_profile(example_profile_path());
     ASSERT_TRUE(tp.has_value());
     ex::LazyRunConfig cfg;
     cfg.row_fairness_mode      = "common_denominator";
     cfg.profile_datasets       = tlz::profile_datasets_signature(*tp);
     std::string const stamp_cd = ex::lazy_resume_stamp_prefix(cfg, {});
-    EXPECT_EQ(stamp_cd.rfind("resume-v5|", 0), 0u) << stamp_cd;
+    EXPECT_EQ(stamp_cd.rfind("resume-v6|", 0), 0u) << stamp_cd;
     EXPECT_NE(stamp_cd.find("|fair=common_denominator|"), std::string::npos) << stamp_cd;
     EXPECT_NE(stamp_cd.find("|datasets=url:test_data_xml/url.test_data.xml:string_corpus;"), std::string::npos)
         << stamp_cd;

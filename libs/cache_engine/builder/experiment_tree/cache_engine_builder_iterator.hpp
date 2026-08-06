@@ -901,7 +901,17 @@ inline constexpr char kLazyResumeRowsKey[] = "|rows=";
     // Loader-Mess-Konsum ist lauf-gated; bis dahin ehrliche Neu-Messung statt semantisch stalem Resume).
     // Format-Bump v4→v5 invalidiert Alt-Stamps via Prefix-Mismatch (zusätzlich bricht ohnehin die
     // Header-Identität durch die neue fairness_mode-Spalte) → ehrliche Neu-Messung.
-    std::string s = "resume-v5|build=" + cfg.build_version + "|series=" + cfg.row_series +
+    // resume-v6 (T2-A/F4+K2, 2026-08-06): FORMAT-Bump der Resume-Zeile. Er begleitet die Kopplung des
+    // Stamps an den VOLLEN Fingerprint (das "|fpr="-Feld, das der per-Binary-Teil unten anhaengt) und die
+    // Kopplung des Resume-Anspruchs an b.skipped. Beides aendert die BEDEUTUNG eines Alt-Stamps: er wurde
+    // unter einer schwaecheren Zusage geschrieben ("Config gleich" statt "Config UND Identitaet der DLL
+    // gleich"). Ein Alt-Stamp darf deshalb nicht weitergelten -- der Praefix-Mismatch invalidiert ihn
+    // EINMAL, und der naechste Lauf misst ehrlich neu. Vor Voll-Bau-4 existiert kein schuetzenswerter
+    // Mess-Bestand, das ist der guenstigste Moment fuer genau diesen Bump.
+    // ABGRENZUNG (Semantik-Leitplanke, bindend): v5->v6 bewegt AUSSCHLIESSLICH die Stempel-ZEILE der
+    // Resume-Ablage. Das 8-Glieder-Fingerprint-PREIMAGE bleibt Byte fuer Byte, wie es ist -- der Resume-
+    // Stamp KONSUMIERT den Fingerprint, er geht nicht in ihn ein (der Frozen-Vektor ist unbewegt).
+    std::string s = "resume-v6|build=" + cfg.build_version + "|series=" + cfg.row_series +
                     "|ptype=" + cfg.row_pruefling_type + "|fair=" + cfg.row_fairness_mode +
                     "|sweep=" + cfg.row_sweep_axis + "|plat=" + cfg.row_platform + "|bv=" + cfg.row_build_version +
                     "|n_ops=" + std::to_string(cfg.n_ops) + "|seed=" + std::to_string(cfg.workload_seed) +
@@ -1666,8 +1676,32 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     auto measure_one_binary = [&](BuildResult const& b, measurement::IPmcSource* cell_pmc) -> CellOutcome {
         CellOutcome oc;
         // Bauplan §8: der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur (leer => == Prefix, Ist).
-        std::string const binary_resume_stamp =
-            b.algo_sig.empty() ? resume_stamp_prefix : (resume_stamp_prefix + "|algos=" + b.algo_sig);
+        //
+        // T2-A/K2 (Codex-Befund, SCHWER) -- DER STAMP TRAEGT AB HIER DEN VOLLEN FINGERPRINT, NICHT NUR DIE
+        // ALGO-SIGNATUR. Der Befund woertlich: "Mess-Resume nicht an den neuen Fingerprint gekoppelt --
+        // Stamp bleibt resume-v5, prueft nur algo_sig -> g++-16 16.0.1->16.3 baut die DLL neu, uebernimmt
+        // aber ALTE Messwerte aus result.csv". Das ist GENAU der 'neue DLL / alte Messwerte'-Bug, den der
+        // Neuanker heilen soll -- und er ueberlebte den Neuanker, weil der Resume-Stamp die einzige Stelle
+        // war, die von der neuen Identitaet nichts wusste: algo_sig deckt die ORGAN-Achsen, kein einziges
+        // Toolchain-, System- oder bvset-Glied. Zwei Baue, die sich in Compiler-Realversion, opt-Flags,
+        // Zellwerten oder Enable-Menge unterscheiden, hatten denselben Stamp.
+        //
+        // DIE QUELLE IST DIESELBE WIE FUER DAS SKIP-GATE: bestand_fingerprint_fn -- der Provider, aus dem
+        // auch das .fingerprint-Sidecar und der Lager-Schluessel entstehen. KEINE Zweit-Ableitung; was das
+        // Bau-Gate als "diese Binary" versteht, versteht die Mess-Ablage ab jetzt genauso.
+        // Feld-Ordnung: der Stamp behaelt seine kLazyResumeRowsKey-Ordnung -- das neue "|fpr="-Feld wird an
+        // den PRAEFIX angehaengt, "|rows=" bleibt der Schwanz (Leser und Schreiber teilen den Praefix, die
+        // Ordnung bleibt damit strukturell gedeckt).
+        // OHNE PROVIDER (byte-neutraler Default, oder T2-C fail-closed bei unbekannter Tier-Realversion)
+        // gibt es kein Feld -- und dann traegt kein Lauf einen Skip-Anspruch, weil dll_is_current ohne
+        // Erwartung IMMER false liefert: die Binary wird neu gebaut und faellt unten an der b.skipped-Wache
+        // ohnehin aus dem Resume. Die beiden Wachen greifen also ineinander, nicht nebeneinander.
+        std::string binary_resume_stamp = resume_stamp_prefix;
+        if (!b.algo_sig.empty()) binary_resume_stamp += "|algos=" + b.algo_sig;
+        if (cfg.bestand_fingerprint_fn) {
+            std::string const erwarteter_fingerprint = cfg.bestand_fingerprint_fn(b.binary_id);
+            if (!erwarteter_fingerprint.empty()) binary_resume_stamp += "|fpr=" + erwarteter_fingerprint;
+        }
         // TP1FK1-B10 (Codex-Befund, BLOCK): der BAU-FEHLER-ZWEIG STEHT VOR DEM RESUME-KURZSCHLUSS.
         //
         // Frueher lief der Resume-Check zuerst -- ausdruecklich "auch bei Build-Fehler, sonst stille
@@ -1819,7 +1853,23 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // uebernommen. Stale => Neu-Messung. TP1FK1-B10: erreicht wird der Zweig nur noch fuer b.ok()-Binaries
         // (gebaut ODER versions-aktuell uebersprungen) -- fuer eine EXISTIERENDE Binary ist der resumierte
         // Stand die Wahrheit, fuer eine nicht herstellbare war er es nie.
-        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
+        // [NACHGEFUEHRT 2026-08-06, T2-A/F4: die Klammer "(gebaut ODER versions-aktuell uebersprungen)" ist
+        //  HISTORIK -- der GEBAUTE Fall faellt ab jetzt heraus, s. die b.skipped-Kopplung direkt darunter.
+        //  Der Satz davor bleibt richtig und bleibt deshalb stehen: der Bau-FEHLER-Fall war und ist vorher
+        //  abgefangen; die Verschaerfung betrifft ausschliesslich die erfolgreich NEU gebaute Binary.]
+        //
+        // T2-A/F4 (Owner-KERN Zaehler-Resume, abend-10) -- DER RESUME-ANSPRUCH IST AN b.skipped GEKOPPELT.
+        // Ein Resume ist die Aussage "an dieser Binary hat sich nichts geaendert, ihre Messwerte gelten
+        // weiter". Diese Aussage darf nur treffen, wer die Binary NICHT ANGEFASST hat. b.skipped ist genau
+        // dieses Praedikat: der Orchestrator meldet es fuer eine DLL, die er ueber dll_is_current als
+        // fingerprint-aktuell vorgefunden hat -- sie ist Byte fuer Byte die, die die alten Zeilen erzeugt
+        // hat. Ist b.skipped FALSCH, wurde in DIESEM Lauf real kompiliert; die entstandene .so ist ein
+        // anderes Artefakt als das gemessene, und alte Messwerte auf sie zu buchen ist die Luege, gegen die
+        // der ganze Neuanker gebaut ist. Der Stamp-Vergleich allein reichte dafuer nicht: er faengt den
+        // Fall erst, wenn der Fingerprint sich AENDERT -- ein Neubau aus anderem Grund (fehlende DLL,
+        // geraeumter Ordner, fehlgeschlagener Vorlauf) traegt denselben Fingerprint und waere durchgerutscht.
+        // Zwei unabhaengige Wachen, die dieselbe Frage aus verschiedenen Richtungen stellen.
+        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs && b.skipped) {
             std::string resumed_rows;
             if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
                 oc.resumed_csv_rows = std::move(resumed_rows);

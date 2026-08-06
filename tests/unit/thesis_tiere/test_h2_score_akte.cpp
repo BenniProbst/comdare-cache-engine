@@ -15,7 +15,7 @@
 //       die weights-Signatur der committeten Akte matcht die Code-Konstanten (kein Drift).
 //   (5) CSV-EXPORT-SYMMETRIE: h2_code_quality_score ist die LETZTE Header-Spalte, Header==Row-
 //       Spaltenzahl, Default "-", honest "n/a" wird durchgereicht; der Resume-Stamp bleibt
-//       resume-v5 OHNE h2-Segment (Score = abgeleitete Lebewesen-Eigenschaft, KEIN
+//       resume-v6 OHNE h2-Segment (Score = abgeleitete Lebewesen-Eigenschaft, KEIN
 //       Lauf-Konfigurations-Freiheitsgrad — dokumentierte Entscheidung, kein Versehen).
 //
 // TABU-Wache: bestehende sota/*.profile.xml werden NUR GELESEN (byte-unberuehrt; die Akte ist
@@ -201,7 +201,7 @@ TEST(H2ScoreAkte, ScoreFormulaMatchesDocumentedWeights) {
     EXPECT_EQ(tlz::h2_weights_signature(), "error=3;warning=2;performance=1;portability=1;style=0.5");
 }
 
-// (5) CSV-EXPORT-SYMMETRIE + STAMP-INVARIANZ — letzte Spalte, Header==Row, honest n/a, resume-v5 ohne h2.
+// (5) CSV-EXPORT-SYMMETRIE + STAMP-INVARIANZ -- letzte Spalte, Header==Row, honest n/a, resume-v6 ohne h2.
 TEST(H2ScoreAkte, CsvColumnSymmetryHonestNaAndStampInvariance) {
     std::string const header = ex::lazy_csv_header();
     // A8-S3-NACHZUG: Spalte NACH NAMEN (frueher: substr(size()-23) == letzte Spalte). Die Aussage bleibt --
@@ -226,13 +226,15 @@ TEST(H2ScoreAkte, CsvColumnSymmetryHonestNaAndStampInvariance) {
     EXPECT_EQ(count_char(na, ';'), count_char(header, ';'));
     EXPECT_EQ(count_char(num, ';'), count_char(header, ';'));
 
-    // Resume-Stamp bleibt resume-v5 OHNE h2-Segment: der Score ist abgeleitete Lebewesen-Metadaten
+    // Resume-Stamp bleibt OHNE h2-Segment: der Score ist abgeleitete Lebewesen-Metadaten
     // (dieselbe binary_id kann nie mit zwei Scores kollidieren); Schema-Drift faengt der Header-
     // Identitaets-Vergleich der per-Binary-CSV — alte Staende werden ehrlich neu gemessen.
     ex::LazyRunConfig cfg;
     cfg.row_h2_score        = "5.500";
     std::string const stamp = ex::lazy_resume_stamp_prefix(cfg, {});
-    EXPECT_EQ(stamp.rfind("resume-v5|", 0), 0u) << stamp;
+    // T2-A/F4 (2026-08-06): Format-Bump v5 -> v6 (|fpr=-Kopplung + b.skipped). Die Zusage dieses
+    // Falls ist unveraendert -- der h2-Score darf im Stamp NICHT vorkommen, egal in welcher Version.
+    EXPECT_EQ(stamp.rfind("resume-v6|", 0), 0u) << stamp;
     EXPECT_EQ(stamp.find("h2="), std::string::npos) << stamp;
     ex::LazyRunConfig const cfg_default;
     EXPECT_EQ(stamp, ex::lazy_resume_stamp_prefix(cfg_default, {}))
