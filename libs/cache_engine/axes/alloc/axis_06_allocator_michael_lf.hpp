@@ -58,7 +58,11 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view               algo_version = "v1.0.0c";
+    /// A1-WURF-VERTRAG (2026-08-06), 1. Bump: v1.0.0c -> v1.0.1c, weil der FEHLSCHLAG-Vertrag der Achse sich
+    /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
+    /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
+    /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
+    static constexpr std::string_view               algo_version = "v1.0.1c";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MICHAEL_LF"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])

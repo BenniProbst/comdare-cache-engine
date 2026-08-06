@@ -22,6 +22,10 @@
 //
 // cache-engine-spezifische Pflicht-API (axis_tag/family_id/name/...):
 //   - axis_06_allocator_cache_engine_permutation_concept.hpp (parallel zu AllocatorStrategy)
+//
+// A1-Wurf-Vertrag (2026-08-06): die achsen-eigene Wurf-Uebersetzung `allocate_or_throw` steht als
+// ThrowTranslatingStrategy UNTEN in DIESER Datei -- bewusst NICHT in AllocatorStrategy hineingezogen
+// (Begruendung dort).
 
 #include <topics/allocator/concepts/topic_allocator_concept.hpp>
 
@@ -84,5 +88,36 @@ concept AllocatorStrategy = ::comdare::cache_engine::allocator::concepts::Alloca
     // (3) Identitaet
     { a == b } -> std::convertible_to<bool>;
 } && std::copy_constructible<A> && std::is_nothrow_destructible_v<A>;
+
+/**
+ * @brief ThrowTranslatingStrategy - Sub-Concept: die Strategie traegt die Wurf-Uebersetzung der Achse.
+ * @topic allocator
+ * @achse 6
+ *
+ * **WOZU (A1-Wurf-Vertrag, Nachbesserung 2026-08-06):** achsen-INNEN gilt "OOM == nullptr"; ein
+ * Konsument, der die Strategie ROH haelt (`A alloc_;` als Kompositions-Template-Parameter) und die
+ * Rueckgabe direkt beschreibt, braucht die Uebersetzung nach AUSSEN. Sie steht als
+ * `AllocatorStrategyBase::allocate_or_throw` an der CRTP-Wurzel -- jede Strategie der Achse traegt sie
+ * also geerbt, ohne eine einzige registrierte Variante anzufassen. Was FEHLTE, war der Ausdruck dieser
+ * Anforderung im Typsystem: der Store-Kopf (axis_04_node_type_layout_aware_store.hpp) verlangte nur
+ * `AllocatorStrategy<A>`, rief aber `allocate_or_throw` -- eine Strategie ohne diesen Member haette den
+ * Kopf-Constraint erfuellt und waere erst tief im Rumpf als Instanziierungs-Fehler aufgefallen.
+ *
+ * **WARUM NICHT IN `AllocatorStrategy` HINEIN (Entscheid, nicht Bequemlichkeit):** AllocatorStrategy ist
+ * per Datei-Doktrin die SCHNITTMENGE der Standard-Allokator-Familien (ISO C11/C17, C++17 PMR, C++23) --
+ * `allocate_or_throw` ist dagegen cache-engine-eigen und in keinem dieser Standards vorgesehen. Es dort
+ * einzutragen wuerde die dokumentierte Trennung "Standard-Pflicht vs. cache-engine-Pflicht" aufweichen
+ * und jede kuenftige, standardnah gedachte Fremd-Strategie am falschen Concept scheitern lassen. Die
+ * Achse fuehrt ihre Zusatz-Faehigkeiten deshalb seit jeher als Sub-Concepts (Zeroing/Reallocating/
+ * Introspectable/Reclaimable/Resettable/Overallocating) -- dies ist das siebte, und es liegt in der
+ * Allokator-Achse, weil es eine Allokator-Eigenschaft ist (generalisierte Schnitt-Regel).
+ *
+ * **DIAGNOSE-WIRKUNG:** als Kopf-Constraint des Konsumenten ist die Anforderung SFINAE-freundlich und
+ * benennt beim Bruch das Concept (statt eines Fehlers im Rumpf ohne Bezug zur Ursache).
+ */
+template <typename A>
+concept ThrowTranslatingStrategy = AllocatorStrategy<A> && requires(A a, std::size_t bytes, std::size_t align) {
+    { a.allocate_or_throw(bytes, align) } -> std::same_as<void*>;
+};
 
 } // namespace comdare::cache_engine::alloc::concepts

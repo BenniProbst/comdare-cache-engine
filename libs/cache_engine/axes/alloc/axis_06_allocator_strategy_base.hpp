@@ -18,6 +18,38 @@
 //
 // Vendor-spezifische Sub-Refinements (calloc/realloc/usable_size/...) sind als
 // separate Concepts vorhanden (siehe concepts/axis_06_allocator_*_strategy_concept.hpp).
+//
+// ==================================================================================================
+// A1-VERSIONS-BUMP (2026-08-06) -- WARUM ALLE 26 STRATEGIEN DER ACHSE 6 AUF v1.0.1c GEHEN
+// ==================================================================================================
+// Der A1-Wurf-Vertrag hat den FEHLSCHLAG-Vertrag der Achse geaendert: der PmrResourceAdapter uebersetzt
+// den OOM-nullptr jetzt nach std::bad_alloc (und laesst bei bytes == 0 keinen nullptr mehr durch), der
+// StdAllocatorAdapter wacht die n*sizeof(T)-Multiplikation, allocate_or_throw ist neu, und
+// PoolResourceAllocator meldet OOM nicht mehr als Wurf, sondern als nullptr + failure_count.
+//
+// DAS PROBLEM, DAS DIESER BUMP LOEST: keine dieser Aenderungen bewegt eine Registry-, XML- oder
+// Fingerprint-Flaeche. Der inkrementelle Tier-Binary-Cache waehlt aber ueber die algo_sig, die je Achse
+// aus W::algo_version zusammengesetzt wird (builder/experiment_tree/axis_variant_version_table.hpp ->
+// compose_algo_signature). OHNE Bump waere die Vertrags-Aenderung fuer den Cache UNSICHTBAR: er wuerde
+// vor diesem Commit gebaute Binaries als aktuell erkennen und weiterverwenden -- gemessen wuerde dann
+// der ALTE Wurf-Vertrag unter dem NEUEN Quellstand. Genau das ist die Stale-Green-Wurzel (#50).
+//
+// WARUM AUSGERECHNET DIE ALLOKATOR-ACHSE UND WARUM SIE ALLEIN GENUEGT: die beiden Adapter und
+// allocate_or_throw liegen in DIESER CRTP-Wurzel, jede der 26 Strategien traegt sie geerbt -- betroffen
+// sind also alle 26, nicht eine Auswahl. Und weil jede Permutation GENAU EINEN Allokator-Slot fuehrt,
+// aendert der Bump dieser einen Achse die algo_sig JEDER Permutation. Der Store-Konsum (axis_04
+// LayoutAwareChunkedStore) ist damit mit abgedeckt, ohne die Knoten-Achse mitzubumpen: es gibt keine
+// Permutation ohne Allokator. MINIMAL und VOLLSTAENDIG zugleich.
+//
+// GRAMMATIK: PATCH-Stelle, Owner-Q3-Flag bleibt 'c' (CPU-only-Flotte) -> "v1.0.0c" -> "v1.0.1c".
+// Wohlgeformt nach assert_version_grammar/ce_owned_version_satisfies_cpu_enforce (ENFORCE ist scharf).
+// FROZEN-NEUTRAL: die drei eingefrorenen Fingerprint-Fixtures (test_g3_sha512_index,
+// test_w10_system_cell_values, test_m_w12_stamp_bausteine) bilden ihre Organ-Zeile aus LITERALEN
+// ("search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c") ohne Allokator-Slot --
+// sie koennen sich durch diesen Bump nicht bewegen und tun es nachweislich nicht.
+// PATCH statt MINOR: der Erfolgs-Pfad ist verhaltens-gleich, geaendert hat sich ausschliesslich das
+// Fehlschlag-Signal; die Achsen-API waechst nur um allocate_or_throw an der Wurzel (rueckwaerts-
+// vertraeglich fuer jeden bestehenden Konsumenten).
 
 #include "concepts/axis_06_allocator_concept.hpp"
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
@@ -143,11 +175,27 @@ public:
      * genau EIN Wurf-Vertrag, unabhaengig davon, ob der Konsument ueber den Standard-Adapter, ueber das
      * pmr-Resource oder roh zugreift.
      *
-     * **ZERO-SIZE UNVERAENDERT:** `bytes == 0` reicht den Strategie-Rueckgabewert unangetastet durch
-     * (dieselbe Ausnahme wie im StdAllocatorAdapter) -- die Zero-Size-Wachen der Organe bleiben gueltig.
-     * **ERFOLGS-PFAD UNVERAENDERT:** ein Nicht-Null-Zeiger laeuft ohne jede Zusatzarbeit durch; die
-     * Statistik-Ehrlichkeit bleibt gewahrt, weil die Strategie ihren failure_count VOR dem `return
-     * nullptr` zaehlt (Auflage aus Posten 64).
+     * **ZERO-SIZE AUSGENOMMEN -- wie StdAllocatorAdapter, ANDERS als PmrResourceAdapter:** `bytes == 0`
+     * reicht den Strategie-Rueckgabewert unangetastet durch, die Zero-Size-Wachen der Organe bleiben
+     * gueltig. Der pmr-Weg kann diese Ausnahme NICHT teilen -- dort verbietet der Standard den nullptr
+     * auch bei `bytes == 0` (Begruendung an PmrResourceAdapter::do_allocate). Die Abweichung ist also
+     * standard-getrieben und keine Inkonsistenz dieser Achse.
+     *
+     * **TIMING-VERMERK (A1-Nachbesserung 2026-08-06, ehrlicher als die Erst-Fassung):** der Erfolgs-Pfad
+     * ist NICHT kostenfrei. Er kostet GENAU EINEN vorhersagbaren Vergleich (`p == nullptr`, im
+     * Messbetrieb immer nicht-genommen) und stellt die Aufrufstelle unter EH-Pflicht: der Aufruf ist ab
+     * jetzt potenziell werfend, der Konsument braucht also Landing-Pads/Unwind-Flaeche, wo vorher ein
+     * nicht-werfender Aufruf stand (Code-Groesse, keine Laufzeit auf dem genommenen Pfad). Beides liegt
+     * Groessenordnungen unter einer Allokation und faellt in keiner Achsen-Messreihe auf -- aber "ohne
+     * jede Zusatzarbeit" waere falsch, und in einem MESS-Projekt darf das nicht behauptet werden. Die
+     * Statistik-Ehrlichkeit bleibt gewahrt, weil die Strategie ihren failure_count VOR dem
+     * `return nullptr` zaehlt (Auflage aus Posten 64).
+     *
+     * **ANFORDERUNG AN ROHE KONSUMENTEN (A1-Nachbesserung):** wer diese Uebersetzung roh konsumiert,
+     * bindet seine Strategie an `concepts::ThrowTranslatingStrategy` (axis_06_allocator_concept.hpp)
+     * und NICHT nur an `AllocatorStrategy` -- letzteres fordert `allocate_or_throw` nicht, eine Strategie
+     * ohne diesen Member faellt sonst erst als Instanziierungs-Fehler tief im Konsumenten auf.
+     * Fundstelle des Konsums: axis_04_node_type_layout_aware_store.hpp (Kopf-Constraint).
      * Fehlerklasse: unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor).
      */
     [[nodiscard]] void* allocate_or_throw(std::size_t bytes, std::size_t alignment = alignof(std::max_align_t)) {
@@ -286,7 +334,18 @@ public:
      * Rueckgabewert NICHT. Die Achsen-Strategie meldet OOM aber per nullptr. Bis zu dieser Haertung
      * reichte der Adapter den nullptr ungeprueft an den pmr-Container durch -- dieselbe UB-Klasse wie
      * vor Posten 64, mit realem Konsumenten (std::pmr::vector ueber as_pmr_resource()).
-     * Zero-Size (`bytes == 0`) bleibt wie beim StdAllocatorAdapter bewusst ausgenommen.
+     *
+     * **ZERO-SIZE IST HIER KEINE AUSNAHME (A1-Nachbesserung 2026-08-06) -- und der Unterschied zum
+     * StdAllocatorAdapter ist standard-getrieben, nicht Geschmack:** [mem.res.public] verlangt von
+     * `memory_resource::allocate` einen Zeiger auf Speicher "of at least bytes bytes" und kennt als
+     * Fehlerausgang AUSSCHLIESSLICH den Wurf. Ein nullptr ist an dieser Naht in KEINEM Fall ein
+     * gueltiger Rueckgabewert -- auch nicht bei `bytes == 0`: der pmr-Container prueft nicht nach,
+     * er speichert den Zeiger und rechnet mit ihm weiter. Die Erst-Fassung dieser Wache trug hier ein
+     * `&& bytes != 0` und liess damit genau den einen nullptr stehen, den der Standard verbietet.
+     * Der Vorbehalt ist entfernt: eine Strategie, die fuer 0 Bytes nullptr meldet, laeuft an dieser
+     * Naht in std::bad_alloc statt in UB beim Konsumenten. Die beiden anderen Wege
+     * (StdAllocatorAdapter::allocate, allocate_or_throw) BEHALTEN ihre Zero-Size-Ausnahme -- dort ist
+     * der nullptr vertraglich zulaessig und die Zero-Size-Wachen der Organe bauen darauf.
      */
     class PmrResourceAdapter final : public std::pmr::memory_resource {
     public:
@@ -295,7 +354,9 @@ public:
     private:
         void* do_allocate(std::size_t bytes, std::size_t alignment) override {
             void* const p = strat_->allocate(bytes, alignment);
-            if (p == nullptr && bytes != 0) throw std::bad_alloc{};
+            // BEWUSST OHNE `&& bytes != 0` (s. Klassen-Doku): [mem.res.public] laesst den nullptr an
+            // dieser Naht in KEINEM Fall zu, der Zero-Size-Vorbehalt der anderen zwei Wege gilt hier nicht.
+            if (p == nullptr) throw std::bad_alloc{};
             return p;
         }
         void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) override {

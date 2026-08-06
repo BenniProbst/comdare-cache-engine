@@ -70,9 +70,21 @@ namespace _al_la = ::comdare::cache_engine::allocator::axis_06_allocator;
 /// layout-honorierendes, node-gechunktes 3-Achsen-Storage-Organ: Slots liegen in node-grossen Chunks der
 /// Kapazitaet N::max_capacity(). Das PHYSISCHE Byte-Layout je Chunk ist compile-time-dispatched ueber
 /// L::representation_kind() (zero-cost `if constexpr`) — 5 REALE distinkte Repraesentationen (#167).
+///
+/// KOPF-ANFORDERUNG AN DIE ALLOKATOR-ACHSE (A1-Wurf-Vertrag, Nachbesserung 2026-08-06): dieser Store
+/// haelt die Strategie ROH und konsumiert seit Posten 74 `A::allocate_or_throw` (append_slot,
+/// copy_from_). `AllocatorStrategy<A>` fordert diesen Member NICHT -- der Kopf hat damit weniger
+/// verlangt, als der Rumpf braucht, und eine Strategie ohne die Wurf-Uebersetzung waere erst tief im
+/// Rumpf als Instanziierungs-Fehler aufgefallen. Der Zusatz-Term macht die Anforderung SFINAE-freundlich
+/// und benennt beim Bruch das Concept. Er steht in der ALLOKATOR-Achse (ThrowTranslatingStrategy,
+/// axis_06_allocator_concept.hpp), nicht hier -- eine Allokator-Eigenschaft gehoert ihrer Achse
+/// (generalisierte Schnitt-Regel). REGISTRIERTE VARIANTEN UNBERUEHRT: allocate_or_throw sitzt an der
+/// CRTP-Wurzel AllocatorStrategyBase, jede der 26 Achsen-Strategien erbt sie.
+/// AllocatorStrategy<A> bleibt trotz Subsumption ausgeschrieben: der Kopf soll die Basis-Anforderung
+/// weiterhin selbst nennen und nicht nur implizit ueber das Sub-Concept fuehren.
 template <class N, class L, class A>
     requires concepts::NodeTypeStrategy<N> && _ml_la::concepts::MemoryLayoutStrategy<L> &&
-             _al_la::concepts::AllocatorStrategy<A>
+             _al_la::concepts::AllocatorStrategy<A> && _al_la::concepts::ThrowTranslatingStrategy<A>
 class LayoutAwareChunkedStore {
 private:
     using RK                 = ::comdare::cache_engine::layout::RepresentationKind;
@@ -266,9 +278,18 @@ public:
     /// undefiniertes Verhalten, still, im Mess-Pfad. Der frueher hier stehende Vermerk "gehoert dem
     /// alloc-/A15-Strang, als offener Punkt gemeldet" ist damit eingeloest; die Heilung liegt bewusst
     /// NICHT hier, sondern an der Achsen-Wurzel (EINE Stelle statt einer Pruefung je Konsument).
-    /// Der Erfolgs-Pfad ist unveraendert; Fehlerklasse unveraendert der FK-5-Boden der Allokator-Achse
-    /// (kOrganAxisErrorFloor). Wirft die Vergabe, ist der Store UNVERAENDERT: der lokale Chunk ist noch
-    /// nicht in chunks_, size_/chunk_allocs_ sind noch nicht bewegt (starke Ausnahme-Garantie).
+    /// Fehlerklasse unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor). Wirft die
+    /// Vergabe, ist der Store UNVERAENDERT: der lokale Chunk ist noch nicht in chunks_, size_/
+    /// chunk_allocs_ sind noch nicht bewegt (starke Ausnahme-Garantie).
+    ///
+    /// TIMING-VERMERK (A1-Nachbesserung 2026-08-06, Korrektur der Erst-Fassung "Erfolgs-Pfad
+    /// unveraendert"): der Erfolgs-Pfad ist VERHALTENS-gleich, aber nicht kostenlos. Er kostet je
+    /// Chunk-Vergabe EINEN vorhersagbaren, im Messbetrieb nie genommenen Vergleich (in
+    /// allocate_or_throw) und stellt append_slot unter EH-Pflicht (Landing-Pad fuer das push_back-
+    /// Rollback: Unwind-Flaeche/Code-Groesse, keine Laufzeit auf dem genommenen Pfad). Der Vergleich
+    /// faellt je CHUNK an, nicht je Slot -- bei Node4 also einmal pro 4 Slots, um Groessenordnungen
+    /// unter der Allokation selbst. Er ist damit in keiner Achsen-Messreihe sichtbar; benannt wird er
+    /// trotzdem, weil "unveraendert" in einem Mess-Projekt eine pruefbare Aussage sein muss.
     void append_slot(key_type k, value_type v) {
         if (chunks_.empty() || chunks_.back().count == cap_) {
             Chunk c;

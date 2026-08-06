@@ -28,11 +28,31 @@
 // achsen-AUSSEN wirft genau eine Uebersetzungsstelle je Zugriffsweg (StdAllocatorAdapter,
 // PmrResourceAdapter, allocate_or_throw) -- alle drei in axis_06_allocator_strategy_base.hpp.
 //
+// NACHBESSERUNG 2026-08-06 (drei Review-Befunde, in DIESER TU sichtbar):
+//   (N1) VERSIONS-SICHTBARKEIT -- die Vertrags-Aenderung bewegte keine Registry-/XML-Flaeche und war
+//        damit fuer den inkrementellen Tier-Binary-Cache UNSICHTBAR. Alle 26 Strategien der Achse 6
+//        tragen jetzt den PATCH-Bump v1.0.0c -> v1.0.1c (Begruendung + Frozen-Neutralitaets-Beweis:
+//        axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP").
+//   (N2) PMR-ZERO-SIZE -- do_allocate trug ein `&& bytes != 0` und liess damit genau den einen nullptr
+//        stehen, den [mem.res.public] verbietet. Der Vorbehalt ist weg; das Orakel in (2) unten heisst
+//        jetzt "NIE nullptr" statt "wirft nicht" und rief vorher deallocate(nullptr, 0) -- das ist
+//        entfernt. Std-Adapter und allocate_or_throw BEHALTEN ihre Zero-Size-Ausnahme (dort zulaessig),
+//        und genau diese Trennung wird in (2) mitgeprueft.
+//   (N3) CONCEPT-REGRESS -- der Store-Kopf verlangte nur AllocatorStrategy, konsumierte aber
+//        allocate_or_throw. Die Anforderung heisst jetzt ThrowTranslatingStrategy, liegt in der
+//        ALLOKATOR-Achse (Schnitt-Regel) und steht im Kopf-Constraint des Stores; (1b) belegt sie
+//        positiv UND negativ. Registrierte Varianten unberuehrt: der Member sitzt an der CRTP-Wurzel.
+//
 // WAS DIESE TU BEWEIST (literal, nicht behauptet):
 //   (1) KONFORMITAET DER ORAKEL   -- beide Stub-Strategien sind vollwertige Achsen-Varianten an
 //                                    AllocatorStrategyBase, kein Fremdkoerper neben der Achse.
+//   (1b) CONCEPT-NAHT             -- ThrowTranslatingStrategy ist ECHT staerker als AllocatorStrategy
+//                                    (Gegenprobe-Typ OhneWurfUebersetzung) und von jeder Achsen-
+//                                    Strategie erfuellt.
 //   (2) F1 NEGATIV + POSITIV      -- pmr::vector ueber as_pmr_resource() wirft bad_alloc statt in
-//                                    Nullspeicher zu bauen; Zero-Size unveraendert; reale Strategie laeuft.
+//                                    Nullspeicher zu bauen; die PMR-Naht liefert NIE nullptr (auch nicht
+//                                    bei bytes == 0), Std/roh behalten ihre Zero-Size-Ausnahme; reale
+//                                    Strategie laeuft.
 //   (3) F2 NEGATIV + POSITIV      -- allocate(n) mit umlaufendem n*sizeof(T) wirft bad_array_new_length;
 //                                    realistische n laufen unveraendert durch.
 //   (4) F6 KONVENTIONS-ANGLEICH   -- PoolResourceAllocator liefert bei OOM nullptr (kein Wurf) und zaehlt;
@@ -274,6 +294,23 @@ private:
 #endif
 };
 
+// -- GEGENPROBE-TYP der Concept-Naht (A1-Nachbesserung 2026-08-06) ---------------------------------
+// Absichtlich NICHT an AllocatorStrategyBase gehaengt: dieser Typ erfuellt die Standard-Schnittmenge
+// AllocatorStrategy VOLLSTAENDIG, traegt aber die achsen-eigene Wurf-Uebersetzung allocate_or_throw
+// NICHT. Genau er war vor der Nachbesserung ein gueltiges A fuer LayoutAwareChunkedStore: der Kopf
+// haette ihn angenommen, der Rumpf ihn tief drinnen zerbrochen. Er ist KEINE Achsen-Variante, steht in
+// keiner Registry und wird nie instanziiert -- er existiert einzig, damit "das Sub-Concept ist ECHT
+// staerker als AllocatorStrategy" eine gepruefte Aussage ist und keine Behauptung.
+struct OhneWurfUebersetzung {
+    using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
+    using value_type = std::byte;
+    using size_type  = std::size_t;
+
+    [[nodiscard]] void* allocate(std::size_t, std::size_t) { return nullptr; }
+    void                deallocate(void*, std::size_t, std::size_t) noexcept {}
+    [[nodiscard]] bool  operator==(OhneWurfUebersetzung const&) const noexcept { return true; }
+};
+
 // Die Stores der Wache: Node4 (Kapazitaet 4 -> mehrere Chunks bei kleiner Slot-Zahl) x CacheLineAligned.
 using ErschoepfterStore =
     nd::LayoutAwareChunkedStore<nd::Node4NodeType, ml::CacheLineAlignedMemoryLayout, ErschoepfteStubStrategie>;
@@ -310,6 +347,27 @@ int main() {
         check("BudgetStubStrategie erfuellt AllocatorStrategy", acpts::AllocatorStrategy<BudgetStubStrategie>);
         check("beide erfuellen OrganAxisConcept",
               topics::OrganAxisConcept<ErschoepfteStubStrategie> && topics::OrganAxisConcept<BudgetStubStrategie>);
+
+        // (1b) CONCEPT-REGRESS GESCHLOSSEN (A1-Nachbesserung 2026-08-06): der Store-Kopf verlangte nur
+        // AllocatorStrategy, konsumierte aber allocate_or_throw. Die Anforderung heisst jetzt
+        // ThrowTranslatingStrategy und liegt in der ALLOKATOR-Achse. Beide Saetze zusammen sind die
+        // Aussage: das Sub-Concept ist ECHT staerker (NEGATIV am registrierungs-fremden Typ belegt) und
+        // trotzdem von jeder Achsen-Strategie erfuellt, ohne eine registrierte Variante anzufassen.
+        static_assert(acpts::ThrowTranslatingStrategy<ErschoepfteStubStrategie>);
+        static_assert(acpts::ThrowTranslatingStrategy<BudgetStubStrategie>);
+        static_assert(acpts::ThrowTranslatingStrategy<alloc::ExgenAllocator>);
+        static_assert(acpts::ThrowTranslatingStrategy<alloc::PoolResourceAllocator>);
+        static_assert(!acpts::ThrowTranslatingStrategy<OhneWurfUebersetzung>,
+                      "GEGENPROBE: ein Typ ohne allocate_or_throw darf das Sub-Concept NICHT erfuellen -- "
+                      "sonst waere der Kopf-Constraint des Stores wieder zahnlos.");
+        static_assert(acpts::AllocatorStrategy<OhneWurfUebersetzung>,
+                      "und er MUSS AllocatorStrategy erfuellen -- nur dann belegt die Gegenprobe, dass das "
+                      "Sub-Concept ECHT staerker ist und nicht bloss dieselbe Menge anders schreibt.");
+        check("registrierte Varianten erfuellen ThrowTranslatingStrategy (Erbe der CRTP-Wurzel)",
+              acpts::ThrowTranslatingStrategy<alloc::ExgenAllocator> &&
+                  acpts::ThrowTranslatingStrategy<alloc::PoolResourceAllocator>);
+        check("GEGENPROBE: ohne allocate_or_throw NICHT erfuellt, AllocatorStrategy aber schon",
+              !acpts::ThrowTranslatingStrategy<OhneWurfUebersetzung> && acpts::AllocatorStrategy<OhneWurfUebersetzung>);
     }
 
     std::printf("== (2) F1/Posten 71: PmrResourceAdapter uebersetzt nullptr -> std::bad_alloc ==\n");
@@ -329,14 +387,42 @@ int main() {
         }
         check("pmr::vector::push_back auf erschoepfter Strategie wirft std::bad_alloc", geworfen);
 
-        // Zero-Size bleibt unangetastet (die Zero-Size-Wachen der Organe bleiben gueltig).
-        bool geworfen_0 = false;
+        // ZERO-SIZE AM PMR-WEG -- KORRIGIERTES ORAKEL (A1-Nachbesserung 2026-08-06). Die Erst-Fassung
+        // dieser Wache pruefte hier "wirft NICHT" und rief anschliessend deallocate(nullptr, 0): sie
+        // ZEMENTIERTE damit genau den Vertragsbruch, den sie haette fangen muessen. [mem.res.public]
+        // kennt an dieser Naht keinen nullptr -- in KEINEM Fall, auch nicht bei bytes == 0 (der
+        // pmr-Container prueft nicht nach, er speichert den Zeiger und rechnet mit ihm weiter). Das
+        // richtige Orakel ist deshalb "NIE nullptr" = Zeiger ODER Wurf; eine erschoepfte Strategie kann
+        // fuer 0 Bytes nichts liefern und MUSS hier folglich werfen.
+        bool  geworfen_0 = false;
+        void* p0         = reinterpret_cast<void*>(~std::uintptr_t{0});
         try {
-            void* p = resource.allocate(0, alignof(std::max_align_t));
-            std::printf("  [INFO] do_allocate(0) lieferte %s\n", p == nullptr ? "nullptr" : "einen Zeiger");
-            resource.deallocate(p, 0, alignof(std::max_align_t));
+            p0 = resource.allocate(0, alignof(std::max_align_t));
+            std::printf("  [INFO] do_allocate(0) lieferte %s\n", p0 == nullptr ? "nullptr" : "einen Zeiger");
+            if (p0 != nullptr) resource.deallocate(p0, 0, alignof(std::max_align_t));
         } catch (std::bad_alloc const&) { geworfen_0 = true; }
-        check("bytes == 0 wirft NICHT (Zero-Size-Verhalten unveraendert)", !geworfen_0);
+        check("PMR-Naht liefert NIE nullptr -- auch nicht bei bytes == 0", geworfen_0 || p0 != nullptr);
+        check("erschoepfte Strategie bei bytes == 0 -> Wurf statt nullptr an den pmr-Container", geworfen_0);
+
+        // GEGENSTUECK: die zwei ANDEREN Wege BEHALTEN ihre Zero-Size-Ausnahme -- dieselbe erschoepfte
+        // Strategie, derselbe nullptr, dort aber vertraglich zulaessig. Ohne diese beiden Saetze waere
+        // die Aenderung oben nicht von einem globalen Zero-Size-Umbau zu unterscheiden.
+        bool           geworfen_std0 = false;
+        std::uint64_t* p_std0        = reinterpret_cast<std::uint64_t*>(~std::uintptr_t{0});
+        try {
+            auto std_adapter = strategie.as_std_allocator<std::uint64_t>();
+            p_std0           = std_adapter.allocate(0);
+        } catch (std::bad_alloc const&) { geworfen_std0 = true; }
+        check("StdAllocatorAdapter behaelt die Zero-Size-Ausnahme (n == 0 wirft NICHT)", !geworfen_std0);
+        check("StdAllocatorAdapter reicht den nullptr bei n == 0 durch", !geworfen_std0 && p_std0 == nullptr);
+
+        bool  geworfen_roh0 = false;
+        void* p_roh0        = reinterpret_cast<void*>(~std::uintptr_t{0});
+        try {
+            p_roh0 = strategie.allocate_or_throw(0, alignof(std::max_align_t));
+        } catch (std::bad_alloc const&) { geworfen_roh0 = true; }
+        check("allocate_or_throw behaelt die Zero-Size-Ausnahme (bytes == 0 wirft NICHT)", !geworfen_roh0);
+        check("allocate_or_throw reicht den nullptr bei bytes == 0 durch", !geworfen_roh0 && p_roh0 == nullptr);
 
         // POSITIV-KONTROLLE: sonst waere ein Adapter, der IMMER wirft, ebenfalls gruen.
         alloc::ExgenAllocator echt{};
@@ -351,6 +437,19 @@ int main() {
         } catch (std::bad_alloc const&) { geworfen_echt = true; }
         check("64x push_back ueber die reale Strategie wirft NICHT", !geworfen_echt);
         check("Groesse korrekt (64)", groesse == 64u);
+
+        // dieselbe "NIE nullptr"-Aussage an der REALEN Strategie: hier erfuellt sie der Zeiger, nicht der
+        // Wurf -- der Vertrag ist also nicht dadurch erfuellt, dass die Naht immer wirft.
+        bool  geworfen_echt0 = false;
+        void* p_echt0        = reinterpret_cast<void*>(~std::uintptr_t{0});
+        try {
+            p_echt0 = echt_resource.allocate(0, alignof(std::max_align_t));
+            if (p_echt0 != nullptr) echt_resource.deallocate(p_echt0, 0, alignof(std::max_align_t));
+        } catch (std::bad_alloc const&) { geworfen_echt0 = true; }
+        std::printf("  [INFO] reale Strategie, do_allocate(0): %s\n",
+                    geworfen_echt0 ? "Wurf" : (p_echt0 == nullptr ? "nullptr" : "Zeiger"));
+        check("reale Strategie an der PMR-Naht: bytes == 0 liefert NIE nullptr", geworfen_echt0 || p_echt0 != nullptr);
+        check("und zwar per Zeiger, nicht per Wurf (die Naht wirft nicht pauschal)", !geworfen_echt0);
     }
 
     std::printf("== (3) F2/Posten 72: n*sizeof(T)-Ueberlauf -> std::bad_array_new_length ==\n");

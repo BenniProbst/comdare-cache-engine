@@ -77,7 +77,11 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view algo_version = "v1.0.0c";
+    /// A1-WURF-VERTRAG (2026-08-06), 1. Bump: v1.0.0c -> v1.0.1c, weil der FEHLSCHLAG-Vertrag der Achse sich
+    /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
+    /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
+    /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
+    static constexpr std::string_view algo_version = "v1.0.1c";
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::alloc::StdMalloc",
                                   "axes/alloc/axis_06_allocator_std_malloc.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
