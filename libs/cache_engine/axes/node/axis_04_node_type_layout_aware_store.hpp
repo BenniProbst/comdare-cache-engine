@@ -730,6 +730,15 @@ private:
     /// wo das Objekt destruierbar bleibt, aber mit einem Teil-Stand zurueckbliebe) sauber abgeschlossen.
     /// Der catch-all faengt bewusst ALLES statt nur bad_alloc: die Aufraeum-Pflicht haengt am Verlassen
     /// der Schleife, nicht an der Fehlerart; die Ausnahme reist unveraendert weiter (`throw;`).
+    ///
+    /// ASYMMETRIE ZU append_slot, EHRLICH BENANNT (Lens-Pass 06.08.2026): append_slot sichert push_back
+    /// zusaetzlich per EIGENEM try/catch (der Chunk-INDEX kann dort wachsen und wirft seit Posten 64).
+    /// Hier fehlt dieses zweite try/catch bewusst: `chunks_.reserve(o.chunks_.size())` reserviert VOR
+    /// der Schleife die volle Ziel-Kapazitaet, jedes push_back darunter reallokiert also nicht mehr, und
+    /// Chunk ist ein triviales POD (kein werfender Kopier-/Konstruktions-Pfad) -- unter dieser
+    /// Kombination bleibt push_back praktisch wurf-frei (libstdc++/libc++). Das ist eine PRAKTISCHE,
+    /// keine absolute Sprachgarantie (ein Adapter mit werfendem construct-Hook koennte sie brechen);
+    /// die Asymmetrie in der Verteidigungstiefe ist deshalb bewusst in Kauf genommen, nicht uebersehen.
     void copy_from_(LayoutAwareChunkedStore const& o) {
         chunks_.reserve(o.chunks_.size());
         try {

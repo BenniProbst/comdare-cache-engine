@@ -31,8 +31,10 @@
 // NACHBESSERUNG 2026-08-06 (drei Review-Befunde, in DIESER TU sichtbar):
 //   (N1) VERSIONS-SICHTBARKEIT -- die Vertrags-Aenderung bewegte keine Registry-/XML-Flaeche und war
 //        damit fuer den inkrementellen Tier-Binary-Cache UNSICHTBAR. Alle 26 Strategien der Achse 6
-//        tragen jetzt den PATCH-Bump v1.0.0c -> v1.0.1c (Begruendung + Frozen-Neutralitaets-Beweis:
-//        axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP").
+//        trugen daraufhin den PATCH-Bump v1.0.0c -> v1.0.1c (Begruendung + Frozen-Neutralitaets-Beweis:
+//        axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP"). NACHTRAG (2. Bump, Lens-
+//        Pass 06.08.2026): die 24 Strategien mit eigener reallocate()-Implementierung stehen inzwischen
+//        auf v1.0.2c, s. Abschnitt "A1-VERSIONS-BUMP, 2. BUMP" dort.
 //   (N2) PMR-ZERO-SIZE -- do_allocate trug ein `&& bytes != 0` und liess damit genau den einen nullptr
 //        stehen, den [mem.res.public] verbietet. Der Vorbehalt ist weg; das Orakel in (2) unten heisst
 //        jetzt "NIE nullptr" statt "wirft nicht" und rief vorher deallocate(nullptr, 0) -- das ist

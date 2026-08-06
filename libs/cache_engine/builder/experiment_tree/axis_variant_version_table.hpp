@@ -50,7 +50,10 @@ struct AxisVariantVersion {
     std::string      variant; ///< W::name() (z.B. "bst")
     /// W::algo_version. Owner-Q3-Flag-Grammatik ("vX.Y.Z" + GENAU EIN Hardware-Flag, ce-eigen immer 'c').
     /// A13-M3/C4 hat den Bestand auf "v1.0.0c" vereinheitlicht; seit dem A1-Wurf-Vertrag (06.08.2026) ist
-    /// er NICHT mehr durchgehend gleich: die 26 Strategien der Allokator-Achse stehen auf "v1.0.1c"
+    /// er NICHT mehr durchgehend gleich: alle 26 Strategien der Allokator-Achse gingen zunaechst auf
+    /// "v1.0.1c" (1. Bump), 24 davon -- die mit eigener reallocate()-Implementierung -- danach auf
+    /// "v1.0.2c" (2. Bump, reallocate-Statistik-Korrektur); PmrResourceAllocator und VampirNfpAllocator
+    /// implementieren kein reallocate() und blieben auf "v1.0.1c" stehen
     /// (axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP"; gepinnt in
     /// test_a1_algo_version_pin_alloc_axis), der uebrige Bestand auf "v1.0.0c".
     std::string      version;
