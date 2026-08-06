@@ -21,6 +21,8 @@
 
 #include "bestandslog/lager_baum_writer.hpp"
 #include "bestandslog/lager_pfad_grammatik.hpp"
+#include "comdare_test_tmp.hpp"           // #278/#24 + Posten 69: per-User-/per-Build-Temp-Wurzel
+#include "support/oeb_stempel_zeilen.hpp" // OE-B-Stempel-Fixture + split_lines + Ruecklese (LB-6)
 
 #include <cache_engine/abi/system_axis_order.hpp>
 
@@ -38,6 +40,7 @@
 #include <vector>
 
 namespace bl = comdare::cache_engine::builder::bestandslog;
+namespace ct = comdare::test;
 namespace fs = std::filesystem;
 
 namespace {
@@ -115,10 +118,18 @@ std::vector<bl::AchsenWert> system_drei() {
 std::string hex128(char c) { return std::string(128, c); }
 
 // Ein Temp-Verzeichnis je Test (OE-B-Dummy-Lager).
+//
+// POSTEN 69 / #278/#24 (nachgezogen 2026-08-06): die Wurzel kommt aus comdare::test::user_tmp_dir(),
+// nicht direkt aus temp_directory_path(). Ein fester Name direkt unter /tmp ist fuer JEDEN User und
+// JEDEN Worktree dieselbe Adresse; der Konstruktor raeumt sie per remove_all leer, also loeschten
+// zwei gleichzeitig laufende ctest-Laeufe desselben Users einander mitten im Test die Dateien
+// (genau die Flake-Klasse, wegen der comdare_test_tmp.hpp ueberhaupt existiert -- diese TU hatte die
+// Haus-Regel bisher nicht befolgt). user_tmp_dir() liegt weiterhin UNTER temp_directory_path(): die
+// Repo-/Golden-Neutralitaet der TU aendert sich dadurch nicht.
 class TempLager {
 public:
     TempLager() {
-        auto const basis = fs::temp_directory_path() / "comdare_lb0_lager";
+        auto const basis = ::comdare::test::user_tmp_dir() / "comdare_lb0_lager";
         fs::remove_all(basis);
         fs::create_directories(basis);
         pfad_ = basis.string();
@@ -544,8 +555,11 @@ TEST(Lb3Einlagerung, OeBDummyLagerBeideRealmsAufEchtemDateisystem) {
     auto const bin  = bl::make_binaries_baum_writer(bl::make_filesystem_ablage(), temp.pfad() + "/binaries");
     auto const mess = bl::make_messdaten_baum_writer(bl::make_filesystem_ablage(), temp.pfad() + "/messdaten");
 
-    // "Binary" = Textdatei mit Stempel-String (OE-B).
-    std::string const stempel = "[vereint,O2,avx2][a,b,c]+bt=Release";
+    // "Binary" = Textdatei mit Stempel-String (OE-B). Der Stempel ist seit LB-6 MEHRZEILIG (die
+    // Form des echten g1_binary_version_block, support/oeb_stempel_zeilen.hpp) -- der frueher hier
+    // stehende einzeilige String "[vereint,O2,avx2][a,b,c]+bt=Release" konnte die Owner-Forderung
+    // "jede Zeile verbatim" nicht tragen. Die ZEILENWEISE Ruecklese steht im Test darunter.
+    std::string const stempel = ct::oeb_stempel_block();
     auto const        b       = bin.einlagern(binaries_spec(), "perm.dll", stempel);
     ASSERT_TRUE(b.ok()) << bl::to_string(b.fehler);
     EXPECT_TRUE(fs::exists(fs::path{b.blatt_pfad}));
@@ -566,6 +580,56 @@ TEST(Lb3Einlagerung, OeBDummyLagerBeideRealmsAufEchtemDateisystem) {
     auto const b2 = bin.einlagern(binaries_spec(), "perm.dll", stempel);
     ASSERT_TRUE(b2.ok());
     EXPECT_EQ(b2.knoten_pfad, b.knoten_pfad);
+}
+
+TEST(Lb3Einlagerung, OeBStempelWirdVomDateisystemZeilenweiseVerbatimZurueckgelesen) {
+    // LB-6 / Owner-Verschaerfung 06.08.2026: "aus simulierten Textdokumenten die Stempel auszulesen
+    // und JEDE ZEILE VERBATIM auszuwerten". Der Test darueber belegte bisher nur fs::exists -- dass
+    // eine Datei DA ist, ist keine Aussage ueber ihren INHALT. Hier wird das Blatt geoeffnet,
+    // gelesen, zerlegt und Zeile fuer Zeile einzeln geprueft.
+    TempLager  temp;
+    auto const bin = bl::make_binaries_baum_writer(bl::make_filesystem_ablage(), temp.pfad() + "/binaries");
+
+    std::string const stempel = ct::oeb_stempel_block();
+    auto const        b       = bin.einlagern(binaries_spec(), "perm.dll", stempel);
+    ASSERT_TRUE(b.ok()) << bl::to_string(b.fehler);
+    ASSERT_TRUE(fs::exists(fs::path{b.blatt_pfad}));
+
+    // RUECKLESE ueber einen ZWEITEN, vom Schreib-Weg unabhaengigen Pfad (std::ifstream statt
+    // BaumAblage::datei_lesen): kaemen Schreiben und Lesen aus demselben Baustein, hoebe sich ein
+    // symmetrischer Fehler darin im Vergleich selbst auf.
+    auto const roh = ct::lies_blatt_datei(fs::path{b.blatt_pfad});
+    ASSERT_TRUE(roh.has_value()) << "Blatt nicht oeffenbar: " << b.blatt_pfad;
+    EXPECT_EQ(*roh, stempel) << "Der Blattinhalt ist byte-identisch zum eingelagerten Stempel";
+
+    // ZEILENZAHL ZUERST: ohne sie faellt eine VERLORENE Zeile nicht auf -- die verbleibenden Zeilen
+    // passen dann einzeln alle, und der Test bliebe gruen.
+    EXPECT_EQ(std::count(roh->begin(), roh->end(), '\n'), static_cast<std::ptrdiff_t>(ct::kOeBStempelZeilenZahl));
+    auto const zeilen = ct::split_lines(*roh);
+    ASSERT_EQ(zeilen.size(), ct::kOeBStempelZeilenZahl);
+
+    // JEDE Zeile EINZELN und VERBATIM -- vier benannte Erwartungen, keine Sammel-Behauptung.
+    EXPECT_EQ(zeilen[0], ct::kOeBStempelZeile0);
+    EXPECT_EQ(zeilen[1], ct::kOeBStempelZeile1);
+    EXPECT_EQ(zeilen[2], ct::kOeBStempelZeile2);
+    EXPECT_EQ(zeilen[3], ct::kOeBStempelZeile3);
+    // ... und jede traegt ihr Label an Position 0: eine VERTAUSCHTE Reihenfolge faellt damit auch
+    // dann auf, wenn alle vier Zeilen einzeln vorhanden sind.
+    for (std::size_t i = 0; i < zeilen.size(); ++i)
+        EXPECT_TRUE(zeilen[i].starts_with(ct::kOeBStempelLabels[i])) << "Zeile " << i << " = '" << zeilen[i] << "'";
+
+    // LED-68b: das Test-Log NEBEN der Binary ist ebenfalls Text und wird ebenfalls zurueckgelesen.
+    auto const log = bin.einlagern(binaries_spec(), bl::test_log_neben("perm.dll"), "ctest: 0 failed\n");
+    ASSERT_TRUE(log.ok()) << bl::to_string(log.fehler);
+    auto const log_roh = ct::lies_blatt_datei(fs::path{log.blatt_pfad});
+    ASSERT_TRUE(log_roh.has_value());
+    auto const log_zeilen = ct::split_lines(*log_roh);
+    ASSERT_EQ(log_zeilen.size(), 1u);
+    EXPECT_EQ(log_zeilen[0], "ctest: 0 failed");
+    // Und das Log hat den Stempel NICHT ueberschrieben (zwei Blaetter, ein Knoten).
+    auto const stempel_nochmal = ct::lies_blatt_datei(fs::path{b.blatt_pfad});
+    ASSERT_TRUE(stempel_nochmal.has_value());
+    EXPECT_EQ(*stempel_nochmal, stempel);
 }
 
 TEST(Lb2Einlagerung, GekuerzteEbenenReisenMitVollKetteZumAufrufer) {
