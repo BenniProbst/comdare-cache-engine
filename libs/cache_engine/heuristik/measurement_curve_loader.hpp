@@ -1,5 +1,13 @@
 #pragma once
-// AXIS_ALGO_VERSION: 1
+// AXIS_ALGO_VERSION: 2
+// v1 -> v2 (2026-08-06, Lead-Entscheid): die Verwerf-Liste na_tokens hat sich seit dem letzten
+// Lock-Regen (e016eccc, 19.07.) zweimal SEMANTISCH erweitert -- 150b0ede (26.07.) um das
+// D1-Zulassungs-Token "gesperrt", 0fdeccff (02.08.) um das D1-Bau-Token "nicht_gebaut". Beide
+// aendern, WELCHE CSV-Zeilen zu Kurvenpunkten werden, also das Verhalten des Laders. Der Bump
+// wurde damals nicht gesetzt, weil der Tripwire-Job contract:axis-version-lock durch einen
+// doppelten YAML-Schluessel seit dem 19.07. faktisch abgeschaltet war (siehe .gitlab-ci.yml,
+// Block contract:axis-version-lock) -- die Drift kam also nicht durch, weil sie erlaubt war,
+// sondern weil niemand hinsah. Hier nachgezogen, damit das Lock die Wahrheit sagt.
 // heuristik/measurement_curve_loader.hpp -- laedt (x,y)-Reihen je (achse,variante,workload)-Gruppe aus
 // einer realen Messungs-/Result-CSV. PAKET W3-C (Ledger Sec.32-F8). Header-only, kein Python.
 //
