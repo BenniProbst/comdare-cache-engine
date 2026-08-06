@@ -1316,10 +1316,14 @@ int print_version_facade(std::ostream& os) {
 // Die Mess-Datei-Format-Fakten AUS DER SUBSTANZ, nicht nachgebaut: lazy_csv_header ist die EINE Schema-Wahrheit
 // der per-Binary-CSV, kLazyResumeRowsKey der EINE Feld-Schluessel des Resume-Stempel-Schwanzes. Der Status-Leser
 // bekommt sie hier durchgereicht, statt sie zu kopieren -- eine Schema-Aenderung zieht damit automatisch mit.
+// T2-A/F4-NB2 (Befund 4): dazu kommt kLazyResumeStampFormat -- die FORMAT-MARKE am Kopf der Resume-Zeile,
+// aus derselben Substanz und aus demselben Grund. Ohne sie las der Status-Leser einen Alt-Format-Stamp als
+// gueltigen Messstand, waehrend der Runner ihn verwirft.
 planner::MessFormatFakten mess_format_fakten_facade() {
     planner::MessFormatFakten f{};
-    f.csv_header = ex::lazy_csv_header();
-    f.rows_key   = ex::kLazyResumeRowsKey;
+    f.csv_header   = ex::lazy_csv_header();
+    f.rows_key     = ex::kLazyResumeRowsKey;
+    f.stamp_format = ex::kLazyResumeStampFormat;
     return f;
 }
 

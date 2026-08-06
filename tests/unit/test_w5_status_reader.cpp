@@ -145,8 +145,17 @@ int main() {
     pl::MessFormatFakten              fakten{};
     fakten.csv_header = ex::lazy_csv_header();
     fakten.rows_key   = ex::kLazyResumeRowsKey;
-    check("Format-Fakten vollstaendig (csv_header + rows_key aus der Iterator-Substanz)", fakten.vollstaendig());
+    // T2-A/F4-NB2 (Befund 4): das DRITTE Format-Faktum -- die Generations-Marke am Kopf der Resume-Zeile.
+    fakten.stamp_format = ex::kLazyResumeStampFormat;
+    check("Format-Fakten vollstaendig (csv_header + rows_key + stamp_format aus der Iterator-Substanz)",
+          fakten.vollstaendig());
     eq("rows_key ist die gehobene EINE Konstante", std::string{ex::kLazyResumeRowsKey}, std::string{"|rows="});
+    eq("stamp_format ist die gehobene EINE Konstante", std::string{ex::kLazyResumeStampFormat},
+       std::string{"resume-v6"});
+    // Die Hebung muss den SCHREIBER treffen, nicht nur danebenstehen: der reale Stempel-Praefix beginnt mit
+    // genau diesem Wort. Ohne diese Zeile waere die Konstante eine zweite Wahrheit statt der einen.
+    check("und der REALE Schreiber beginnt mit genau dieser Marke",
+          prefix.compare(0, std::string{ex::kLazyResumeStampFormat}.size(), ex::kLazyResumeStampFormat) == 0);
     // Die EINE Schema-Wahrheit literal ausgeben: so ist im ctest-Protokoll nachlesbar, GEGEN WAS der Leser die
     // Kopf-Identitaet prueft -- und ein Rauchtest am echten Binary kann seine Fixture damit exakt bauen.
     std::cout << "  (info) lazy_csv_header() = " << fakten.csv_header;
@@ -457,6 +466,77 @@ int main() {
         check("Cursor-Datei gefunden", c.datei_vorhanden);
         eq("Cursor letzte_perm", c.letzte_perm, std::uint64_t{7});
         check("Cursor done gesehen", c.done_gesehen);
+    }
+
+    // ============================================================================================
+    // (3b) T2-A/F4-NB2, BEFUND 4 -- ZWEI FORTSCHRITTS-WAHRHEITEN UEBER DIESELBE DATEI.
+    //
+    // DER BEFUND: dieser Leser prueft den Konfigurations-Praefix des Resume-Stempels bewusst NICHT (er
+    // kennt die Lauf-Konfiguration nicht). Damit galt ihm ein Stempel aus einer AELTEREN Format-Generation
+    // (resume-v5) als gueltiger Messstand, waehrend der echte Runner ihn ueber den Praefix-Vergleich
+    // korrekt verwirft. Zwei Bilanzen ueber DIESELBE Datei -- und die des Lesers fiel in die gefaehrliche
+    // Richtung ("fertiger als es ist"), also in die, die einen 38.b-Takt zu frueh weiterzoege.
+    //
+    // DER BISS IST LITERAL UND SCHARF: der v5-Stand ist mit dem v6-Stand BYTE-GLEICH bis auf das eine
+    // Versions-Wort. Gleicher CSV-Kopf, gleiche Zeilenzahl, gleiche rows-Zahl im Stempel -- JEDE andere
+    // Wache des Lesers geht durch. Genau deshalb hatte der Alt-Stand nichts mehr, was ihn haette fangen
+    // koennen; die Zelle zaehlte als gemessen. NEU: sie zaehlt als teilweise UND wird als format_drift
+    // BENANNT (nicht in einen Sammel-Eimer geworfen).
+    // ============================================================================================
+    std::cout << "\n-- (3b) Befund 4: ein Alt-Format-Stempel gilt dem Leser NICHT mehr als gemessen --\n";
+    {
+        fs::path const perm_v = wurzel / "format_drift" / "_all_" / "perm0";
+        fs::path const dll_v  = perm_v / "e4_xml" / "dll";
+
+        // Der v5-Praefix entsteht aus dem ECHTEN v6-Praefix durch Ersetzen NUR des Versions-Wortes --
+        // so ist bewiesen, dass sich sonst kein Byte unterscheidet (kein von Hand gebauter Fremd-Stempel).
+        std::string const marke_v6  = ex::kLazyResumeStampFormat;
+        std::string const marke_v5  = "resume-v5";
+        std::string const prefix_v5 = marke_v5 + prefix.substr(marke_v6.size());
+        eq("Vorbedingung: der v5-Praefix unterscheidet sich NUR im Versions-Wort", prefix_v5.substr(marke_v5.size()),
+           prefix.substr(marke_v6.size()));
+
+        lege_gemessenes_binary(dll_v / "stem_v6", prefix, 3);                 // der Gut-Fall
+        schreibe(dll_v / "stem_v5" / "result.csv", ex::lazy_csv_header() + "z1\nz2\nz3\n");
+        schreibe(dll_v / "stem_v5" / "result.csv.stamp", prefix_v5 + ex::kLazyResumeRowsKey + "3\n");
+
+        pl::BinaerStand const st = pl::lies_binaer_stand(perm_v, fakten);
+        eq("beide Ablagen werden gesehen (die Quelle fehlt nicht)", st.csv_gesehen, std::size_t{2});
+        eq("NEU: nur der v6-Stand gilt als gemessen", st.gemessen, std::size_t{1});
+        eq("ALT-STAND-BISS: der v5-Stand faellt in teilweise statt in gemessen", st.teilweise, std::size_t{1});
+        eq("und er wird BENANNT (format_drift), nicht in einen Sammel-Eimer geworfen", st.format_drift,
+           std::size_t{1});
+        // Die Gegenprobe zu jeder dieser Zahlen: es lag NICHT an einer der anderen Wachen.
+        eq("Gegenprobe: es war KEINE Kopf-Drift (der CSV-Kopf ist identisch)", st.kopf_drift, std::size_t{0});
+        eq("Gegenprobe: es war KEINE Zeilen-Abweichung (3 Zeilen, |rows=3)", st.zeilen_abweichung, std::size_t{0});
+        eq("Gegenprobe: der Stempel FEHLT nicht (er ist nur alt)", st.ohne_stempel, std::size_t{0});
+
+        // Die Wache TRENNT, sie SPERRT nicht: derselbe Stand mit der aktuellen Marke zaehlt sehr wohl.
+        schreibe(dll_v / "stem_v5" / "result.csv.stamp", prefix + ex::kLazyResumeRowsKey + "3\n");
+        pl::BinaerStand const st2 = pl::lies_binaer_stand(perm_v, fakten);
+        eq("Gegenprobe: mit der AKTUELLEN Marke zaehlt derselbe Stand (die Wache trennt, sie sperrt nicht)",
+           st2.gemessen, std::size_t{2});
+        eq("und die Drift-Zahl faellt auf 0 zurueck", st2.format_drift, std::size_t{0});
+
+        // DIE GLIED-GRENZE: ein reiner Praefix-Vergleich haette "resume-v60" als "resume-v6" durchgelassen.
+        // Die Marke endet am Feld-Trenner, und der Leser prueft das -- sonst waere die Wache bei der naechsten
+        // zweistelligen Generation still falsch. (Heute unerreichbar; genau deshalb steht der Biss hier.)
+        {
+            std::string const prefix_v60 = "resume-v60" + prefix.substr(marke_v6.size());
+            schreibe(dll_v / "stem_v5" / "result.csv.stamp", prefix_v60 + ex::kLazyResumeRowsKey + "3\n");
+            pl::BinaerStand const st_g = pl::lies_binaer_stand(perm_v, fakten);
+            eq("GLIED-GRENZE: 'resume-v60' gilt NICHT als 'resume-v6'", st_g.format_drift, std::size_t{1});
+            eq("und zaehlt folglich nicht als gemessen", st_g.gemessen, std::size_t{1});
+            schreibe(dll_v / "stem_v5" / "result.csv.stamp", prefix + ex::kLazyResumeRowsKey + "3\n"); // zurueck
+        }
+
+        // FAIL-CLOSED der Fakten selbst: wer die Marke nicht mitgibt, bekommt kein "gemessen" geschenkt.
+        pl::MessFormatFakten unvollstaendig = fakten;
+        unvollstaendig.stamp_format.clear();
+        check("unvollstaendige Fakten sagen es selbst", !unvollstaendig.vollstaendig());
+        pl::BinaerStand const st3 = pl::lies_binaer_stand(perm_v, unvollstaendig);
+        eq("FAIL-CLOSED: ohne Marke urteilt der Leser NICHT 'gemessen'", st3.gemessen, std::size_t{0});
+        eq("sondern meldet beide Zellen als teilweise/format_drift", st3.format_drift, std::size_t{2});
     }
 
     // ============================================================================================

@@ -918,6 +918,20 @@ struct LazyRunResult {
 // ist STRING-IDENTISCH (kein Byte der Emission bewegt sich); der Wert selbst bleibt "|rows=".
 inline constexpr char kLazyResumeRowsKey[] = "|rows=";
 
+// T2-A/F4-NB2 (Codex-Voll-Scope, Befund 4) -- DIE FORMAT-MARKE DER RESUME-ZEILE, GEHOBEN.
+//
+// Dieselbe Hebung und dieselbe Begruendung wie bei kLazyResumeRowsKey darueber, nur fuer den KOPF statt
+// den Schwanz: das Literal stand im Schreiber (lazy_resume_stamp_prefix) und wurde vom Runner ueber den
+// Praefix-Vergleich als Ganzes mitgeprueft -- der STATUS-LESER des Planers dagegen prueft den Praefix
+// bewusst nicht (er kennt die Lauf-Konfiguration nicht) und nahm deshalb einen ALTEN resume-v5-Stamp als
+// gueltigen Messstand an, waehrend der echte Runner ihn korrekt verwirft. Zwei Fortschritts-Wahrheiten
+// ueber dieselbe Datei.
+//
+// Die Marke ist KEINE Lauf-Konfiguration, sondern ein FORMAT-Faktum -- genau die Sorte Wissen, die
+// MessFormatFakten von der Fassade zum Leser traegt (csv_header, rows_key, und ab jetzt stamp_format).
+// Der Leser bleibt damit konfigurations-blind und wird trotzdem versions-scharf.
+inline constexpr char kLazyResumeStampFormat[] = "resume-v6";
+
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
 // Der Stempel kodiert ALLES, was die Mess-Matrix einer Binary bestimmt: BuildVersion (Memento-/Code-Stand der
 // DLL — copymem-v1-Ergebnisse sind mit undolog-v1 NICHT mischbar), n_ops/seed/records (Workload-Skala) und
@@ -954,7 +968,9 @@ inline constexpr char kLazyResumeRowsKey[] = "|rows=";
     // ABGRENZUNG (Semantik-Leitplanke, bindend): v5->v6 bewegt AUSSCHLIESSLICH die Stempel-ZEILE der
     // Resume-Ablage. Das 8-Glieder-Fingerprint-PREIMAGE bleibt Byte fuer Byte, wie es ist -- der Resume-
     // Stamp KONSUMIERT den Fingerprint, er geht nicht in ihn ein (der Frozen-Vektor ist unbewegt).
-    std::string s = "resume-v6|build=" + cfg.build_version + "|series=" + cfg.row_series +
+    // T2-A/F4-NB2: die Marke kommt aus der EINEN gehobenen Konstante (kLazyResumeStampFormat) -- der
+    // Status-Leser prueft gegen genau dieses Byte-Wort, ein zweites Literal hier waere die Drift.
+    std::string s = std::string{kLazyResumeStampFormat} + "|build=" + cfg.build_version + "|series=" + cfg.row_series +
                     "|ptype=" + cfg.row_pruefling_type + "|fair=" + cfg.row_fairness_mode +
                     "|sweep=" + cfg.row_sweep_axis + "|plat=" + cfg.row_platform + "|bv=" + cfg.row_build_version +
                     "|n_ops=" + std::to_string(cfg.n_ops) + "|seed=" + std::to_string(cfg.workload_seed) +
