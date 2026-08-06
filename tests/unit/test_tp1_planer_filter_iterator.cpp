@@ -337,21 +337,21 @@ int main() {
     //    Der "alte Stand" wird ueber DIESELBEN Funktionen erzeugt, die der Resume-Check liest
     //    (lazy_csv_header + lazy_resume_stamp_prefix) -- kein handkopierter Stempel-String.
     {
-        auto const            dims          = tree.dynamic_filter();
-        ex::BinarySpec const  spec0         = view[0];
-        std::string const     stem0         = ex::orch_make_stem(spec0.binary_id, spec0.index);
-        constexpr char const* kAltMarke     = "ALTER-ERFOLGS-STAND";
+        auto const            dims      = tree.dynamic_filter();
+        ex::BinarySpec const  spec0     = view[0];
+        std::string const     stem0     = ex::orch_make_stem(spec0.binary_id, spec0.index);
+        constexpr char const* kAltMarke = "ALTER-ERFOLGS-STAND";
         // T2-A/K2: `extra` traegt die per-Binary-Felder, die der Lauf an den Config-Praefix haengt
         // (heute "|fpr=<128hex>"). Der Stamp wird weiterhin ueber DIESELBEN Funktionen erzeugt, die der
         // Resume-Check liest -- kein handkopierter Stempel-String.
-        auto const            lege_altstand = [&](ex::LazyRunConfig const& c, std::string const& extra = {}) {
+        auto const lege_altstand = [&](ex::LazyRunConfig const& c, std::string const& extra = {}) {
             fs::path const  bin_dir = c.output_dir / stem0;
             std::error_code lec;
             fs::create_directories(bin_dir, lec);
             { std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header() << kAltMarke << "\n"; }
             {
-                std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
-                    << ex::lazy_resume_stamp_prefix(c, dims) << extra << "|rows=1\n";
+                std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc} << ex::lazy_resume_stamp_prefix(c, dims)
+                                                                             << extra << "|rows=1\n";
             }
             return bin_dir;
         };
@@ -402,11 +402,11 @@ int main() {
         //        Bedingung. LAGE: perm.dll existiert, ihr .fingerprint-Sidecar deckt sich mit der Erwartung
         //        des Providers => dll_is_current true => b.skipped => der alte Stand gilt weiter. Der Stamp
         //        traegt dabei das neue "|fpr="-Feld -- geschrieben ueber dieselbe Quelle, die der Lauf liest.
-        std::string const kFpAlt = std::string(128, 'a');
-        std::string const kFpNeu = std::string(128, 'b');
-        ex::LazyRunConfig cfg6n  = mach_cfg(base / "b10_skip");
+        std::string const kFpAlt     = std::string(128, 'a');
+        std::string const kFpNeu     = std::string(128, 'b');
+        ex::LazyRunConfig cfg6n      = mach_cfg(base / "b10_skip");
         cfg6n.bestand_fingerprint_fn = [kFpAlt](std::string const&) { return kFpAlt; };
-        fs::path const bin_dir_skip = lege_altstand(cfg6n, "|fpr=" + kFpAlt);
+        fs::path const bin_dir_skip  = lege_altstand(cfg6n, "|fpr=" + kFpAlt);
         {
             { std::ofstream{bin_dir_skip / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
             { std::ofstream{bin_dir_skip / "perm.dll.fingerprint", std::ios::trunc} << kFpAlt; }
@@ -784,6 +784,190 @@ int main() {
         check_true("(10) das blockierende result.csv.stale-Verzeichnis blieb unangetastet",
                    fs::is_directory(bin_dir / "result.csv.stale", ec) &&
                        fs::exists(bin_dir / "result.csv.stale" / "belegt" / "blocker", ec));
+    }
+
+    // -- Fall (11): T2-A/F4 -- DER BATCH-PLAN LIEGT VOR DEM LAUF, UND DER ZAEHLER STEHT GEGEN IHN.
+    //    Owner-KERN (Ledger abend-10): "Batch-Plan [Reihenfolge+Faecher] PERSISTENT VOR dem Lauf,
+    //    Resume = Zaehler je Phase [kompiliert/separat gemessen] gegen den Plan". Codex-K1 hielt dagegen
+    //    fest, dass der Planer bis dahin SOFORT streamte und die einzige Ordnungs-Zahl vor Bau und
+    //    Messung hochlief -- Fehlversuche eingeschlossen. Hier am ECHTEN run_planer_driven_provision:
+    //      (a) nach dem Lauf liegt der Plan als Dokument auf der Platte -- in der Ordnung des
+    //          Resume-Stempels (Kopf-Glieder, dann "|rows=" mit der Fach-Zahl),
+    //      (b) der Bau-Zaehler traegt die ATOME des vollzogenen Fensters (und die Mess-Front 0 -- dieser
+    //          Lauf hat nicht gemessen und behauptet es auch nicht),
+    //      (c) ein ZWEITER Lauf gegen dieselbe Ablage setzt hinter dem gedeckten Fach auf: er baut nichts
+    //          mehr und sagt das literal,
+    //      (d) ein Zaehler, der gegen eine ANDERE Selektion geschrieben wurde, traegt keinen Anspruch,
+    //      (e) und ein Fenster MIT Bau-Fehler laesst den Zaehler stehen (kein Ueberspringen des Lochs).
+    {
+        auto const mach_bau_cfg = [&](FakeStore& store, fs::path const& out, fs::path const& plan) {
+            ex::LazyRunConfig c = make_cfg(store, out);
+            c.batch_plan_datei  = plan;
+            return c;
+        };
+        auto const datei_text = [](fs::path const& p) {
+            std::ifstream     f{p};
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str();
+        };
+        auto const mach_orch = [&](ex::LazyRunConfig const& c, ex::CompileFn const& compile) {
+            ex::BuildConfig bcfg;
+            bcfg.cores_per_build    = 1;
+            bcfg.source_dir         = c.source_dir;
+            bcfg.output_dir         = c.output_dir;
+            bcfg.per_binary_subdirs = true;
+            bcfg.build_parallelism  = 1;
+            return ex::BuildOrchestrator{bcfg, compile, gen_stub};
+        };
+
+        fs::path const    plan_datei = base / "f4" / "batch_plan.txt";
+        fs::path const    z_datei    = fs::path{plan_datei.string() + ".zaehler"};
+        FakeStore         store11;
+        ex::LazyRunConfig cfg11 = mach_bau_cfg(store11, base / "f4" / "lauf1", plan_datei);
+
+        // (a)+(b) ERSTER LAUF: alles fehlt (kein Praedikat) -> ein Fach mit 8 Atomen, alle gebaut.
+        {
+            ex::BuildOrchestrator orch = mach_orch(cfg11, compile_stub);
+            ex::BuildStats        agg;
+            CerrCapture           fang;
+            auto const builds = ex::run_planer_driven_provision(orch, view, alle, cfg11, agg, bl::PresenceFn{});
+            check_eq("(11a) Lauf 1 baut die volle Selektion", builds.size(), std::size_t{8});
+        }
+        std::string const plan_stamp = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain);
+        check_true("(11a) der Plan liegt als Dokument auf der Platte", fs::exists(plan_datei, ec));
+        check_eq("(11a) und traegt Kopf-Glieder + den Schwanz-Schluessel + die Fach-Zeile", datei_text(plan_datei),
+                 plan_stamp + "|rows=1\n0;8;8\n");
+        check_eq("(11b) der Bau-Zaehler traegt die Atome des Fensters, die Mess-Front bleibt 0", datei_text(z_datei),
+                 plan_stamp + "|kompiliert=8|gemessen=0|rows=1\n");
+        // Gegenprobe zur Grammatik: der Leser nimmt genau dieses Dokument an.
+        auto const faecher11 = bl::read_batch_plan(plan_datei, plan_stamp, ex::kLazyResumeRowsKey);
+        check_true("(11b) der Plan-Leser nimmt das geschriebene Dokument an", faecher11.has_value());
+        check_true("(11b) und der Zaehler weist sich gegen GENAU diesen Plan aus",
+                   faecher11.has_value() &&
+                       bl::read_phasen_zaehler(z_datei, plan_stamp, *faecher11, ex::kLazyResumeRowsKey)
+                               .value_or(bl::PhasenZaehler{99, 99}) == bl::PhasenZaehler{8, 0});
+
+        // (c) ZWEITER LAUF gegen dieselbe Ablage -- frisches Ausgabe-Verzeichnis, damit ein etwaiger Bau
+        //     SICHTBAR waere. Der Plan-Zaehler deckt das einzige Fach -> es wird uebersprungen.
+        {
+            ex::LazyRunConfig            cfg11b = mach_bau_cfg(store11, base / "f4" / "lauf2", plan_datei);
+            ex::BuildOrchestrator        orch   = mach_orch(cfg11b, compile_stub);
+            ex::BuildStats               agg;
+            std::string                  log;
+            std::vector<ex::BuildResult> builds;
+            {
+                CerrCapture fang;
+                builds = ex::run_planer_driven_provision(orch, view, alle, cfg11b, agg, bl::PresenceFn{});
+                log    = fang.text();
+            }
+            check_eq("(11c) Lauf 2 setzt hinter dem gedeckten Fach auf -- nichts mehr zu bauen", builds.size(),
+                     std::size_t{0});
+            check_true("(11c) und sagt das literal (nie stumm)",
+                       log.find("plan-resume: 1 von 1 Faechern bereits kompiliert") != std::string::npos);
+        }
+
+        // (d) EIN ZAEHLER GEGEN EINE ANDERE SELEKTION TRAEGT KEINEN ANSPRUCH: derselbe Ablage-Pfad, aber
+        //     der Lauf selektiert 4 statt 8 Indizes -> anderer Stempel -> voller Bau.
+        {
+            std::vector<std::size_t> const vier{0, 1, 2, 3};
+            ex::LazyRunConfig              cfg11c = mach_bau_cfg(store11, base / "f4" / "lauf3", plan_datei);
+            ex::BuildOrchestrator          orch   = mach_orch(cfg11c, compile_stub);
+            ex::BuildStats                 agg;
+            CerrCapture                    fang;
+            auto const builds = ex::run_planer_driven_provision(orch, view, vier, cfg11c, agg, bl::PresenceFn{});
+            check_eq("(11d) fremder Stempel -> kein Resume-Anspruch -> voller Bau", builds.size(), std::size_t{4});
+            check_eq("(11d) und der Plan wird auf die neue Selektion umgeschrieben", datei_text(plan_datei),
+                     bl::slice_plan_stamp(vier, bl::kBuildSliceGrain) + "|rows=1\n0;4;4\n");
+        }
+
+        // (e) EIN FENSTER MIT BAU-FEHLER LAESST DEN ZAEHLER STEHEN. Frische Ablage, damit (d) nicht
+        //     hineinspielt; der Compiler lehnt ab -> 8 Fehlschlaege -> der Zaehler bleibt bei 0 und der
+        //     Folgelauf faengt genau dort wieder an (Praefix-Resume, kein Ueberspringen des Lochs).
+        {
+            fs::path const        plan_e = base / "f4e" / "batch_plan.txt";
+            FakeStore             store_e;
+            ex::LazyRunConfig     cfg11e         = mach_bau_cfg(store_e, base / "f4e" / "lauf", plan_e);
+            auto const            compile_fail_e = [](ex::BuildJob const&) -> int { return 1; };
+            ex::BuildOrchestrator orch           = mach_orch(cfg11e, compile_fail_e);
+            ex::BuildStats        agg;
+            std::string           log;
+            {
+                CerrCapture fang;
+                (void)ex::run_planer_driven_provision(orch, view, alle, cfg11e, agg, bl::PresenceFn{});
+                log = fang.text();
+            }
+            check_true("(11e) der Plan liegt trotzdem (er beschreibt das SOLL, nicht den Erfolg)",
+                       fs::exists(plan_e, ec));
+            check_true("(11e) aber KEIN Bau-Zaehler -- ein Fehl-Fenster behauptet keine Arbeit",
+                       !fs::exists(fs::path{plan_e.string() + ".zaehler"}, ec));
+            check_true("(11e) und der Halt ist beziffert sichtbar",
+                       log.find("Bau-Fehlern -- der Zaehler bleibt bei 0 Atomen stehen") != std::string::npos);
+        }
+
+        // (f) DIE ZWEITE HAELFTE DES KERN: "kompiliert/SEPARAT gemessen". Der Bau-Lauf schreibt die
+        //     Bau-Front, der MESS-Lauf schreibt die Mess-Front in DIESELBE Ablage -- und laesst das
+        //     Bau-Feld unangetastet stehen. Die gemessene Zelle ist hier eine RESUMIERTE (b.skipped +
+        //     passender Stamp, s. Fall (6a-2)); genau so zaehlt die Front: "diese Binary hat ihre Zeilen".
+        {
+            fs::path const                 plan_f = base / "f4f" / "batch_plan.txt";
+            fs::path const                 z_f    = fs::path{plan_f.string() + ".zaehler"};
+            std::vector<std::size_t> const eins{0};
+            std::string const              plan_f_stamp = bl::slice_plan_stamp(eins, bl::kBuildSliceGrain);
+
+            FakeStore         store_f;
+            ex::LazyRunConfig cfg_bau = mach_bau_cfg(store_f, base / "f4f" / "bau", plan_f);
+            {
+                ex::BuildOrchestrator orch = mach_orch(cfg_bau, compile_stub);
+                ex::BuildStats        agg;
+                CerrCapture           fang;
+                (void)ex::run_planer_driven_provision(orch, view, eins, cfg_bau, agg, bl::PresenceFn{});
+            }
+            check_eq("(11f) der BAU-Lauf schreibt allein die Bau-Front", datei_text(z_f),
+                     plan_f_stamp + "|kompiliert=1|gemessen=0|rows=1\n");
+
+            // Der MESS-Lauf: eigene Ablage, vorbereiteter Resume-Stand, derselbe Plan.
+            auto const           dims_f = tree.dynamic_filter();
+            ex::BinarySpec const spec_f = view[0];
+            std::string const    stem_f = ex::orch_make_stem(spec_f.binary_id, spec_f.index);
+            std::string const    kFpF   = std::string(128, 'c');
+            FakeStore            dummy_f;
+            ex::LazyRunConfig    cfg_mess = make_cfg(dummy_f, base / "f4f" / "mess");
+            cfg_mess.provision_only       = false;
+            cfg_mess.bestand_transport    = {};
+            cfg_mess.bestand_doc_key.clear();
+            cfg_mess.resume_completed_binaries = true;
+            cfg_mess.max_binaries              = 1;
+            cfg_mess.batch_plan_datei          = plan_f;
+            cfg_mess.bestand_fingerprint_fn    = [kFpF](std::string const&) { return kFpF; };
+            fs::path const bin_dir_f           = cfg_mess.output_dir / stem_f;
+            fs::create_directories(bin_dir_f, ec);
+            { std::ofstream{bin_dir_f / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+            { std::ofstream{bin_dir_f / "perm.dll.fingerprint", std::ios::trunc} << kFpF; }
+            {
+                std::ofstream{bin_dir_f / "result.csv", std::ios::trunc} << ex::lazy_csv_header()
+                                                                         << "ALTER-ERFOLGS-STAND-F4F\n";
+            }
+            {
+                std::ofstream{bin_dir_f / "result.csv.stamp", std::ios::trunc}
+                    << ex::lazy_resume_stamp_prefix(cfg_mess, dims_f) << "|fpr=" << kFpF << "|rows=1\n";
+            }
+            ex::BuildSelection sel_f;
+            sel_f.indices                = {0};
+            sel_f.provenance             = "explicit";
+            auto const        ram_stub_f = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+            ex::LazyRunResult r_f;
+            {
+                CerrCapture fang;
+                r_f = ex::run_lazy_static_then_dynamic(tree, sel_f, compile_stub, gen_stub, ram_stub_f, cfg_mess);
+            }
+            check_eq("(11f) Vorbedingung: die Zelle wurde resumiert (also gemessen im Sinn der Front)",
+                     r_f.resumed_binaries, std::size_t{1});
+            check_eq("(11f) der MESS-Lauf setzt die Mess-Front und laesst die Bau-Front stehen", datei_text(z_f),
+                     plan_f_stamp + "|kompiliert=1|gemessen=1|rows=1\n");
+            check_true("(11f) der Plan selbst ist unberuehrt (der Mess-Lauf plant nicht)",
+                       datei_text(plan_f) == plan_f_stamp + "|rows=1\n0;1;1\n");
+        }
     }
 
     std::cout << (g_fail == 0 ? "TP1_ANKER_OK\n" : "TP1_ANKER_FAIL\n");

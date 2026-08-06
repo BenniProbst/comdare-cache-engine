@@ -232,6 +232,15 @@ struct LazyRunConfig {
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
+    // T2-A/F4 (Owner-KERN Zaehler-Resume, Ledger abend-10: "Batch-Plan [Reihenfolge+Faecher] PERSISTENT VOR dem
+    // Lauf, Resume = Zaehler je Phase [kompiliert/separat gemessen] gegen den Plan"): die Ablage dieses Plans.
+    // Der planer-getriebene Bau schreibt den vollen Fenster-Plan hierhin, BEVOR das erste Fenster gebaut wird,
+    // und fuehrt daneben (<datei>.zaehler) den Bau-Zaehler fort -- immer NACH dem Vollzug eines Fensters und nie
+    // fuer ein fehlgeschlagenes (Codex-K1: "IDs vor Bau/Messung gezaehlt inkl. Fehlversuche"). Der SEPARATE
+    // Mess-Lauf schreibt in dieselbe Datei die Mess-Front; sein feinkoerniger Resume-Arbiter bleibt die
+    // per-Binary result.csv+stamp-Naht (T2-A/K2). LEER (Default) => keine Ablage, kein Plan-Resume =>
+    // byte-/verhaltensidentisch zum Ist (golden/CI unberuehrt).
+    std::filesystem::path batch_plan_datei;
     // G-E3 (A1-Lager-Rest-Welle): das ZWEITE Genus PRODUKTIV. Bis hierher schrieb der Iterator nur
     // Binaries ins Lager; die MesswertKeyPolicy der B3-Factory hatte keinen Schreiber (Dossier-Befund
     // G-E3). Diese drei Felder verdrahten ihn -- exakt im Muster der drei bestand_*-Felder darueber
@@ -1077,9 +1086,15 @@ inline void mess_pfad_synchron_push(CachePushFn const& cache_push, std::filesyst
 run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& view,
                             std::vector<std::size_t> const& indices, LazyRunConfig const& cfg, BuildStats& agg,
                             bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr) {
-    std::vector<BuildResult>    builds;
+    std::vector<BuildResult> builds;
+    // T2-A/F4: die Plan-Ablage dieses Bau-Laufs. Der rows_key wird HEREINGEREICHT -- kLazyResumeRowsKey ist
+    // hier zu Hause, das Bestandslog darf ihn nicht kennen (Abhaengigkeits-Richtung) und soll ihn erst recht
+    // nicht ein zweites Mal als Literal fuehren (W5-Hebung). Leere Datei => aktiv()==false => inert.
+    bestandslog::PlanPersistenz plan_persistenz{cfg.batch_plan_datei,
+                                                bestandslog::slice_plan_stamp(indices, bestandslog::kBuildSliceGrain),
+                                                std::string{kLazyResumeRowsKey}};
     bestandslog::SlicePlanQueue queue;
-    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, present);
+    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, present, plan_persistenz);
 
     bool const reserve = static_cast<bool>(cfg.bestand_transport.store) &&
                          static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
@@ -1099,7 +1114,21 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     std::size_t bestand_skips_gesamt = 0; // G-A2: als Bestand uebersprungene Binaries (Testat am Ende)
 
     std::size_t slice_seq = 0;
+    // T2-A/F4: der Bau-Zaehler DIESES Laufs gegen den persistierten Plan. plan_praefix_intakt haelt fest, dass
+    // der Zaehler ein PRAEFIX beschreibt: sobald ein Fenster mit Bau-Fehlern durchlaeuft, darf keine spaetere
+    // Zahl mehr hochlaufen -- sonst wuerde der Folgelauf ueber das kaputte Fenster hinweg aufsetzen.
+    std::uint64_t plan_kompiliert     = 0;
+    std::uint64_t plan_gemessen       = 0;
+    std::size_t   plan_faecher        = 0;
+    bool          plan_praefix_intakt = true;
     while (auto plan = queue.pop()) {
+        if (slice_seq == 0 && plan_persistenz.aktiv()) {
+            // Erst HIER, nach dem ersten Pop: der Planer setzt die drei Werte VOR seinem ersten Push (s.
+            // SlicePlanner::plan_faecher_zahl) -- ein gezogenes Fach ist der Beleg, dass sie stehen.
+            plan_kompiliert = planner.resume_atome();
+            plan_gemessen   = planner.resume_gemessen();
+            plan_faecher    = planner.plan_faecher_zahl();
+        }
         bestandslog::BatchReservierung           res;
         std::optional<bestandslog::PromiseGuard> guard;
         if (reserve) {
@@ -1189,6 +1218,29 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             bestandslog::mark_done(res);
             if (!store_reservation(res, "Done-Reservierung")) ++res_fehler;
             if (guard) guard->commit(); // erfolgreicher Slice -> kein Release
+        }
+        // T2-A/F4: DER ZAEHLER LAEUFT NACH DEM VOLLZUG HOCH, NICHT DAVOR. Gezaehlt werden die ATOME des
+        // Fensters (seine view_indices) -- Lager-Treffer eingeschlossen, denn auch fuer sie gilt die Aussage
+        // "hier ist nichts mehr zu bauen". Ein Fenster mit auch nur EINEM Bau-Fehler bricht das Praefix: die
+        // Zahl bleibt stehen, und der Folgelauf faengt genau dort wieder an. Ein misslungener Zaehler-Schrieb
+        // ist -- wie die Reservierungs-Buchhaltung -- KEIN Bau-Fehler, aber er ist nie stumm.
+        if (plan_persistenz.aktiv() && plan_praefix_intakt) {
+            if (slice_stats.failed == 0) {
+                plan_kompiliert += static_cast<std::uint64_t>(plan->view_indices.size());
+                if (!bestandslog::write_phasen_zaehler(plan_persistenz.zaehler_datei(), plan_persistenz.stamp,
+                                                       bestandslog::PhasenZaehler{plan_kompiliert, plan_gemessen},
+                                                       plan_faecher, plan_persistenz.rows_key))
+                    std::cerr << "[bestandslog] warn: Bau-Zaehler des Batch-Plans nicht persistiert ("
+                              << plan_persistenz.zaehler_datei().string()
+                              << ") -- der Bau ist unberuehrt, der Folgelauf setzt frueher auf\n"
+                              << std::flush;
+            } else {
+                plan_praefix_intakt = false;
+                std::cerr << "[bestandslog] plan-zaehler: Fenster mit " << slice_stats.failed
+                          << " Bau-Fehlern -- der Zaehler bleibt bei " << plan_kompiliert
+                          << " Atomen stehen (Praefix-Resume, kein Ueberspringen des Fehl-Fensters)\n"
+                          << std::flush;
+            }
         }
         for (auto& b : part) builds.push_back(std::move(b));
         ++slice_seq;
@@ -2094,8 +2146,13 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // #45: MERGE in KANONISCHER builds-Reihenfolge -> deterministische CSV (kein interleaved Append; Sortierung wie der
     // sequentielle Loop). Progress an der Per-Binary-Naht SEQUENTIELL im Merge (progress_prev ist reihenfolge-abhaengig
     // -> genau EIN Sequenzierungs-Thread). this_progress_cursor == j (die fenster-relative Perm-Position, wie im Ist).
+    std::uint64_t plan_gemessene_atome = 0; // T2-A/F4: die Mess-Front dieses Laufs (Zellen, nicht Zeilen)
     for (std::size_t j = 0; j < outcomes.size(); ++j) {
         CellOutcome& oc = outcomes[j];
+        // T2-A/F4: eine Zelle zaehlt als GEMESSEN, wenn sie real gemessen ODER als unveraendert resumiert
+        // wurde -- beides beantwortet "diese Binary hat ihre Zeilen". Eine Zelle, die nicht geladen werden
+        // konnte, zaehlt NICHT (der Zaehler darf keine Arbeit behaupten, die es nicht gibt).
+        if (oc.measured > 0 || oc.resumed_binaries > 0) ++plan_gemessene_atome;
         result.resumed_csv_rows += oc.resumed_csv_rows;
         result.resumed_binaries += oc.resumed_binaries;
         result.load_failed += oc.load_failed;
@@ -2105,6 +2162,45 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         for (auto& row : oc.rows) result.csv_rows.push_back(std::move(row));
         if (oc.progress_eligible)
             fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
+    }
+
+    // T2-A/F4 -- DIE MESS-FRONT DES PLANS (die zweite Haelfte des Owner-KERN "kompiliert/SEPARAT gemessen").
+    //
+    // Dieser Lauf ist der MESS-Lauf; der planer-getriebene Bau-Pfad haengt an provision_only und ist hier
+    // gar nicht gelaufen. Er schreibt deshalb ausschliesslich das Feld, das ihm gehoert, und laesst das
+    // Bau-Feld unangetastet stehen (`kompiliert` kommt aus dem gelesenen Stand).
+    //
+    // ER IST BILANZ, NICHT ZWEITE AUTORITAET: der feinkoernige Mess-Resume ist und bleibt die per-Binary
+    // result.csv+stamp-Naht aus T2-A/K2 -- sie arbeitet je Binary und kennt den vollen Fingerprint. Der
+    // Plan-Zaehler beantwortet die GROBE Frage des Planers ("wie weit ist dieser Plan gemessen") und wird
+    // deshalb EINMAL am deterministischen Ende der Mess-Phase geschrieben, nicht je Zelle im Pool.
+    //
+    // FAIL-CLOSED: passt der Plan nicht (anderer Stempel, andere Selektion, kein Plan da), wird NICHTS
+    // geschrieben -- lieber keine Zahl als eine, die gegen einen fremden Plan zaehlt. Der Fall sagt es
+    // literal, damit niemand eine stumme Ablage fuer eine leere haelt.
+    if (!cfg.batch_plan_datei.empty()) {
+        std::string const plan_stamp    = bestandslog::slice_plan_stamp(indices, bestandslog::kBuildSliceGrain);
+        std::string const plan_rows_key = kLazyResumeRowsKey;
+        auto const        faecher       = bestandslog::read_batch_plan(cfg.batch_plan_datei, plan_stamp, plan_rows_key);
+        if (!faecher.has_value()) {
+            std::cerr << "[bestandslog] plan-zaehler: kein zu dieser Selektion passender Batch-Plan unter "
+                      << cfg.batch_plan_datei.string() << " -- die Mess-Front wird NICHT fortgeschrieben\n"
+                      << std::flush;
+        } else {
+            std::filesystem::path const z_datei{cfg.batch_plan_datei.string() + ".zaehler"};
+            auto const          alt = bestandslog::read_phasen_zaehler(z_datei, plan_stamp, *faecher, plan_rows_key);
+            std::uint64_t const kompiliert = alt.has_value() ? alt->kompiliert : 0;
+            // Die Front waechst nur, und sie ueberholt die Bau-Front nie: gemessen werden kann nur, was
+            // gebaut ist. Beide Klammern halten die Invariante, die der Leser spaeter erzwingt.
+            std::uint64_t gemessen = (std::max)(alt.has_value() ? alt->gemessen : 0, plan_gemessene_atome);
+            if (gemessen > kompiliert) gemessen = kompiliert;
+            if (!bestandslog::write_phasen_zaehler(z_datei, plan_stamp,
+                                                   bestandslog::PhasenZaehler{kompiliert, gemessen}, faecher->size(),
+                                                   plan_rows_key))
+                std::cerr << "[bestandslog] warn: Mess-Front des Batch-Plans nicht persistiert (" << z_datei.string()
+                          << ") -- die Messwerte selbst sind unberuehrt\n"
+                          << std::flush;
+        }
     }
 
     // Welle 5 (E-W5-2): §38.b-Fertig-Signal -- done genau EINMAL am Fensterende (nach dem GANZEN Merge).

@@ -18,18 +18,28 @@
 // slict den GLOBALEN [0,total)-Indexraum mit Paritaet; I1b slict die SELEKTIERTE indices-Liste --
 // beide erkennen Misses ueber DIESELBE Funktion (detect_missing_in_window, batch_planner.hpp).
 //
+// T2-A/F4 (2026-08-06, Owner-KERN Zaehler-Resume): der Producer STREAMT NICHT MEHR WAEHREND ER PLANT. Er
+// konsolidiert den vollen Fenster-Plan, legt ihn (opt-in, PlanPersistenz) VOR dem Lauf ab und setzt beim
+// Wiederanlauf hinter den Faechern auf, die der Bau-Zaehler bereits vollstaendig deckt. Ohne benannte
+// Ablage aendert sich nur der ZEITPUNKT der Miss-Erkennung (alles vor dem ersten Push statt fensterweise)
+// -- Reihenfolge, Fenster-Schnitt und gebaute Menge bleiben identisch.
+//
 // DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib. pop()/push() thread-sicher.
 
 #include "batch_planner.hpp" // detect_missing_in_window (die EINE per-Binary-Miss-Erkennung, B5)
 
 #include <algorithm>
+#include <atomic> // T2-A/F4: die zwei Berichts-Werte des Planers (Plan-Groesse, Resume-Front)
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <filesystem> // T2-A/F4: der Ablage-Pfad des Bau-Plans
 #include <functional>
+#include <iostream> // T2-A/F4: die Nie-stumm-Zeilen der Plan-Ablage (nur std::cerr, golden-/CSV-neutral)
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -173,13 +183,80 @@ private:
     bool                       closed_ = false;
 };
 
-// Async Producer: slict indices, scannt je Fenster die Miss-Zahl (PresenceFn), schiebt die Plaene IN
-// REIHENFOLGE in die Queue, schliesst am Ende. RAII: der Thread joined im dtor (auch im Fehlerfall).
+// ---------------------------------------------------------------------------------------------------
+// T2-A/F4 -- DIE PLAN-KONSOLIDIERUNG DES PRODUKTIVEN ZWILLINGS.
+//
+// plan_alle_faecher ist der PURE Plan: alle Fenster der Selektion, in Index-Reihenfolge, je mit der
+// Miss-Zahl, die filter_window_for_build spaeter zum Bau freigibt (DIESELBE Erkennung -- EINE Wahrheit).
+// Sie ist aus SlicePlanner::run herausgeloest, damit der Plan als GANZES existiert, bevor irgendetwas
+// gebaut wird, und ohne Thread und Queue testbar ist.
+// ---------------------------------------------------------------------------------------------------
+[[nodiscard]] inline std::vector<BuildSlicePlan> plan_alle_faecher(std::vector<std::size_t> const& indices,
+                                                                   std::size_t grain, PresenceFn const& present) {
+    std::vector<BuildSlicePlan> plan;
+    for (auto& window : slice_view_indices(indices, grain)) {
+        std::size_t const missing = filter_window_for_build(window, present).zu_bauen.size();
+        plan.push_back(BuildSlicePlan{std::move(window), missing});
+    }
+    return plan;
+}
+
+// Die Dokument-Sicht des Bau-Plans: Fenster-Anfang + Fenster-Groesse + Miss-Zahl. begin ist der ERSTE
+// Index des Fensters (nicht slice_window_bounds::begin -- das ist die Reservierungs-SPANNE einer evtl.
+// luecken-behafteten Menge und beantwortet eine andere Frage). Der Plan haelt die Ordnung fest, in der
+// die Fenster gebaut werden; die Reservierung haelt fest, was ein Fenster beansprucht.
+[[nodiscard]] inline std::vector<PlanFach> slice_plan_faecher(std::vector<BuildSlicePlan> const& plan) {
+    std::vector<PlanFach> aus;
+    aus.reserve(plan.size());
+    for (auto const& p : plan)
+        aus.push_back(PlanFach{p.view_indices.empty() ? 0 : static_cast<std::uint64_t>(p.view_indices.front()),
+                               static_cast<std::uint64_t>(p.view_indices.size()),
+                               static_cast<std::uint64_t>(p.missing_count)});
+    return aus;
+}
+
+// Der Stempel des Bau-Plans: GENAU die Groessen, die den Plan bestimmen. Die PresenceFn steht bewusst
+// NICHT darin -- sie ist Lager-ZUSTAND, kein Plan-Parameter; ein zwischenzeitlich gefuelltes Lager darf
+// einen Zaehler nicht entwerten, es aendert nur die Miss-Zahlen innerhalb derselben Faecher.
+[[nodiscard]] inline std::string slice_plan_stamp(std::vector<std::size_t> const& indices, std::size_t grain) {
+    return std::string{kBatchPlanFormat} +
+           "|art=bau-slice|start=" + std::to_string(indices.empty() ? std::size_t{0} : indices.front()) +
+           "|indizes=" + std::to_string(indices.size()) +
+           "|korn=" + std::to_string(grain == 0 ? kBuildSliceGrain : grain);
+}
+
+// DIE PLAN-ABLAGE-NAHT (opt-in, Muster der uebrigen bestandslog-Injektionen): leerer Pfad => inert =>
+// der Bau bleibt byte-/verhaltensidentisch zum Ist. rows_key wird vom Iterator hereingereicht
+// (kLazyResumeRowsKey) -- die Abhaengigkeits-Richtung erlaubt hier keinen Zugriff darauf, und ein
+// zweites Literal waere genau die Format-Drift, gegen die die W5-Hebung gebaut wurde.
+struct PlanPersistenz {
+    std::filesystem::path plan_datei; ///< leer => keine Ablage, kein Resume
+    std::string           stamp;      ///< slice_plan_stamp(...) dieses Laufs
+    std::string           rows_key;   ///< == ex::kLazyResumeRowsKey
+
+    [[nodiscard]] bool aktiv() const noexcept { return !plan_datei.empty() && !stamp.empty() && !rows_key.empty(); }
+    /// Der Zaehler-Stand liegt NEBEN dem Plan (abgeleiteter Name, eine Quelle): <plan>.zaehler
+    [[nodiscard]] std::filesystem::path zaehler_datei() const {
+        return std::filesystem::path{plan_datei.string() + ".zaehler"};
+    }
+};
+
+// Async Producer: KONSOLIDIERT ZUERST den vollen Plan (plan_alle_faecher), legt ihn -- wo eine Ablage
+// benannt ist -- VOR dem ersten Push auf die Platte, ueberspringt die vom Bau-Zaehler bereits
+// vollstaendig gedeckten FUEHRENDEN Faecher und schiebt den Rest IN REIHENFOLGE in die Queue; schliesst
+// am Ende. RAII: der Thread joined im dtor (auch im Fehlerfall).
+//
+// WARUM DER ZAEHLER `kompiliert` UND NICHT `gemessen` DIE RESUME-FRONT DIESES PLANERS IST: dieser Pfad
+// ist per planer_driven_active an provision_only gebunden -- er ist der BAU-Lauf. Seine eigene Front ist
+// die Bau-Front. `gemessen` fuehrt der SEPARATE Mess-Lauf fort (Owner: "kompiliert/separat gemessen");
+// er liest denselben Plan, aber sein feinkoerniger Resume-Arbiter ist und bleibt die per-Binary
+// result.csv+stamp-Naht (T2-A/K2) -- der Plan-Zaehler ist dort die Bilanz, nicht die zweite Autoritaet.
 class SlicePlanner {
 public:
-    SlicePlanner(SlicePlanQueue& q, std::vector<std::size_t> indices, std::size_t grain, PresenceFn present)
+    SlicePlanner(SlicePlanQueue& q, std::vector<std::size_t> indices, std::size_t grain, PresenceFn present,
+                 PlanPersistenz persistenz = {})
         : q_{q}, indices_{std::move(indices)}, grain_{grain == 0 ? kBuildSliceGrain : grain},
-          present_{std::move(present)} {
+          present_{std::move(present)}, persistenz_{std::move(persistenz)} {
         worker_ = std::thread([this] { run(); });
     }
 
@@ -192,22 +269,68 @@ public:
         if (worker_.joinable()) worker_.join();
     }
 
+    /// Die Zahl der Faecher des GESAMTEN Plans (inkl. der uebersprungenen). Beide Werte werden gesetzt,
+    /// BEVOR das erste Fach in die Queue geht -- ein Konsument, der bereits ein Fach gezogen hat (oder die
+    /// geschlossene Queue gesehen hat), liest sie deshalb fertig. atomar, damit diese Zusage nicht an einer
+    /// Speicher-Ordnungs-Ueberlegung haengt, sondern am Typ.
+    [[nodiscard]] std::size_t plan_faecher_zahl() const noexcept { return plan_faecher_.load(); }
+    /// Die Atome der uebersprungenen FUEHRENDEN Faecher == der Bau-Zaehlerstand, auf dem dieser Lauf aufsetzt.
+    [[nodiscard]] std::uint64_t resume_atome() const noexcept { return resume_atome_.load(); }
+    /// Die vorgefundene MESS-Front. Der Bau-Lauf schreibt sie unveraendert zurueck, statt sie auf 0 zu setzen:
+    /// er baut ausschliesslich HINTER seiner eigenen Bau-Front, ruehrt also keine bereits gemessene Binary an.
+    [[nodiscard]] std::uint64_t resume_gemessen() const noexcept { return resume_gemessen_.load(); }
+
 private:
     void run() {
-        for (auto& window : slice_view_indices(indices_, grain_)) {
-            // DIESELBE Miss-Erkennung wie der Consumer-Bau-Filter (EINE Wahrheit): missing_count ist
-            // exakt die Zahl der Indizes, die filter_window_for_build spaeter zum Bau freigibt.
-            std::size_t const missing = filter_window_for_build(window, present_).zu_bauen.size();
-            q_.push(BuildSlicePlan{std::move(window), missing});
+        // (1) ERST DER PLAN -- vollstaendig, bevor ein Fach die Queue erreicht.
+        auto plan = plan_alle_faecher(indices_, grain_, present_);
+
+        // (2) DANN DIE ABLAGE + DER RESUME-PUNKT (nur mit benannter Ablage; sonst byte-identisch zum Ist).
+        std::size_t ab = 0;
+        if (persistenz_.aktiv()) {
+            auto const faecher = slice_plan_faecher(plan);
+            // Der Zaehler-Stand wird gelesen, BEVOR der Plan geschrieben wird: ein Alt-Zaehler gilt gegen
+            // den GERADE geplanten Stand (Faecher-Zahl + Atom-Summe), und die Pruefung dafuer steckt in
+            // read_phasen_zaehler. Nach dem Schreiben waere die Reihenfolge dieselbe -- die Trennung haelt
+            // aber sichtbar, dass der Zaehler den Plan NICHT mitbringt, sondern sich an ihm ausweist.
+            if (auto const z = read_phasen_zaehler(persistenz_.zaehler_datei(), persistenz_.stamp, faecher,
+                                                   persistenz_.rows_key)) {
+                ab = plan_resume_faecher(faecher, z->kompiliert);
+                resume_gemessen_.store(z->gemessen);
+            }
+            if (!write_batch_plan(persistenz_.plan_datei, persistenz_.stamp, faecher, persistenz_.rows_key))
+                // Nie-stumm: eine nicht geschriebene Plan-Ablage ist KEIN Bau-Fehler (der Bau laeuft mit
+                // dem Plan im Speicher weiter), aber sie ist auch keine Nebensache -- der naechste Lauf
+                // haette sonst still keinen Resume-Anspruch und niemand wuesste warum.
+                std::cerr << "[bestandslog] warn: Batch-Plan nicht persistiert (" << persistenz_.plan_datei.string()
+                          << ") -- der Lauf baut weiter, ein Folgelauf hat aber keinen Plan-Resume-Anspruch\n"
+                          << std::flush;
+            if (ab > 0)
+                std::cerr << "[bestandslog] plan-resume: " << ab << " von " << faecher.size()
+                          << " Faechern bereits kompiliert (Zaehler gegen den Plan) -- uebersprungen\n"
+                          << std::flush;
         }
+
+        // (3) DIE BERICHTS-WERTE VOR DEM ERSTEN PUSH -- s. plan_faecher_zahl()/resume_atome().
+        plan_faecher_.store(plan.size());
+        std::uint64_t atome = 0;
+        for (std::size_t i = 0; i < ab; ++i) atome += static_cast<std::uint64_t>(plan[i].view_indices.size());
+        resume_atome_.store(atome);
+
+        // (4) DANN DER STROM.
+        for (std::size_t i = ab; i < plan.size(); ++i) q_.push(std::move(plan[i]));
         q_.close();
     }
 
-    SlicePlanQueue&          q_;
-    std::vector<std::size_t> indices_;
-    std::size_t              grain_;
-    PresenceFn               present_;
-    std::thread              worker_;
+    SlicePlanQueue&            q_;
+    std::vector<std::size_t>   indices_;
+    std::size_t                grain_;
+    PresenceFn                 present_;
+    PlanPersistenz             persistenz_;
+    std::atomic<std::size_t>   plan_faecher_{0};
+    std::atomic<std::uint64_t> resume_atome_{0};
+    std::atomic<std::uint64_t> resume_gemessen_{0};
+    std::thread                worker_;
 };
 
 } // namespace comdare::cache_engine::builder::bestandslog
