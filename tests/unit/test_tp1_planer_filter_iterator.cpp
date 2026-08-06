@@ -489,8 +489,10 @@ int main() {
             std::string const boeser_wert = kFpKurz + "|rows=1\nweiterer-muell";
             ex::LazyRunConfig cfg6f       = mach_cfg(base / "k2_form");
             fs::path const    bin_dir     = lege_altstand(cfg6f, "|fpr=" + kFpKurz);
-            { std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
-                  << ex::lazy_resume_stamp_prefix(cfg6f, dims) << "|fpr=" << boeser_wert << "|rows=99\n"; }
+            {
+                std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
+                    << ex::lazy_resume_stamp_prefix(cfg6f, dims) << "|fpr=" << boeser_wert << "|rows=99\n";
+            }
             std::string const stamp_kurz = ex::lazy_resume_stamp_prefix(cfg6f, dims) + "|fpr=" + kFpKurz;
             check_true("(6f) ROT: die aufgetrennte Ablage passt als Stamp fuer den KUERZEREN Fingerprint",
                        ex::lazy_try_resume_binary(bin_dir, stamp_kurz, nullptr));
@@ -499,7 +501,7 @@ int main() {
             cfg6f.bestand_fingerprint_fn = [boeser_wert](std::string const&) { return boeser_wert; };
             { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
             { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << boeser_wert; }
-            std::string log6f;
+            std::string       log6f;
             ex::LazyRunResult r6f;
             {
                 CerrCapture fang;
@@ -522,8 +524,8 @@ int main() {
         //      Dieser Test HAELT diese Erwartung fest -- schlaegt er eines Tages um, ist das ein
         //      DOKTRIN-Wechsel und muss als solcher entschieden werden (und nicht als Bugfix passieren).
         {
-            std::string const kFp8   = std::string(128, 'e');
-            ex::LazyRunConfig cfg6g  = mach_cfg(base / "f8_doktrin");
+            std::string const kFp8       = std::string(128, 'e');
+            ex::LazyRunConfig cfg6g      = mach_cfg(base / "f8_doktrin");
             cfg6g.bestand_fingerprint_fn = [kFp8](std::string const&) { return kFp8; };
             fs::path const bin_dir       = lege_altstand(cfg6g, "|fpr=" + kFp8);
             // Lauf 1: die DLL FEHLT (Ordner geraeumt) -> Neubau -> b.skipped falsch -> KEIN Resume.
@@ -563,10 +565,10 @@ int main() {
         //      NEU (ein Lesepunkt): b.fingerprint traegt kFpA in beide Konsumenten -> Resume greift,
         //      und der Zaehler steht literal auf 1 Aufruf.
         {
-            std::string const kFpA = std::string(128, '1');
-            std::string const kFpB = std::string(128, '2');
-            auto const        rufe = std::make_shared<int>(0);
-            ex::LazyRunConfig cfg6h = mach_cfg(base / "k2_einmal");
+            std::string const kFpA       = std::string(128, '1');
+            std::string const kFpB       = std::string(128, '2');
+            auto const        rufe       = std::make_shared<int>(0);
+            ex::LazyRunConfig cfg6h      = mach_cfg(base / "k2_einmal");
             cfg6h.bestand_fingerprint_fn = [rufe, kFpA, kFpB](std::string const&) {
                 return ((*rufe)++ == 0) ? kFpA : kFpB; // zustandsabhaengig -- genau der Fehlerfall
             };
@@ -579,8 +581,8 @@ int main() {
                 r6h = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6h);
             }
             check_eq("(6h) der Fingerprint-Provider wird GENAU EINMAL je Binary befragt", *rufe, 1);
-            check_eq("(6h) und Gate wie Stamp speisen sich aus demselben Wert -> Resume greift",
-                     r6h.resumed_binaries, std::size_t{1});
+            check_eq("(6h) und Gate wie Stamp speisen sich aus demselben Wert -> Resume greift", r6h.resumed_binaries,
+                     std::size_t{1});
             check_true("(6h) die alten Zeilen reisen unveraendert weiter",
                        r6h.resumed_csv_rows.find(kAltMarke) != std::string::npos);
         }
@@ -951,9 +953,9 @@ int main() {
         // 128-hex wie ein echter K7b-Fingerprint (read_fingerprint_sidecar verlangt die Form); wo ein Fall
         // die Bau-Identitaet selbst variiert, ueberschreibt er ihn (11j/11k).
         auto const mach_bau_cfg = [&](FakeStore& store, fs::path const& out, fs::path const& plan) {
-            ex::LazyRunConfig c        = make_cfg(store, out);
-            c.batch_plan_datei         = plan;
-            c.bestand_fingerprint_fn   = [](std::string const&) { return std::string(128, 'f'); };
+            ex::LazyRunConfig c      = make_cfg(store, out);
+            c.batch_plan_datei       = plan;
+            c.bestand_fingerprint_fn = [](std::string const&) { return std::string(128, 'f'); };
             return c;
         };
         auto const datei_text = [](fs::path const& p) {
@@ -988,8 +990,8 @@ int main() {
         // Der Vergleichs-Stempel kommt aus DERSELBEN Identitaets-Quelle wie der geschriebene
         // (plan_identitaet_of) -- ein von Hand ankerlos gebildeter Stempel wuerde ab T2-A/F4-NB3 gar nicht
         // mehr passen, weil die ankerlose Ablage inert bleibt (s. Fall 11l).
-        std::string const plan_stamp = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain,
-                                                            ex::plan_identitaet_of(view, cfg11));
+        std::string const plan_stamp =
+            bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg11));
         check_true("(11a) der Plan liegt als Dokument auf der Platte", fs::exists(plan_datei, ec));
         check_eq("(11a) und traegt Kopf-Glieder + den Schwanz-Schluessel + die Fach-Zeile", datei_text(plan_datei),
                  plan_stamp + "|rows=1\n0;8;8\n");
@@ -1077,18 +1079,17 @@ int main() {
 
             ex::LazyRunConfig cfg_t2 = mach_bau_cfg(store_t, base / "f4t" / "lauf2", plan_t);
             cfg_t2.batch_plan_korn   = 4;
-            ex::BuildStats    agg2;
-            std::string       log2;
-            std::size_t       plan_skips2 = 99;
-            std::size_t       gebaut2     = 0;
+            ex::BuildStats agg2;
+            std::string    log2;
+            std::size_t    plan_skips2 = 99;
+            std::size_t    gebaut2     = 0;
             {
                 CerrCapture           fang;
                 ex::BuildOrchestrator orch = mach_orch(cfg_t2, compile_stub);
-                gebaut2 =
-                    ex::run_planer_driven_provision(orch, view, alle, cfg_t2, agg2, bl::PresenceFn{}, nullptr,
-                                                    &plan_skips2)
-                        .size();
-                log2 = fang.text();
+                gebaut2 = ex::run_planer_driven_provision(orch, view, alle, cfg_t2, agg2, bl::PresenceFn{}, nullptr,
+                                                          &plan_skips2)
+                              .size();
+                log2    = fang.text();
             }
             check_eq("(11c2) genau das UNGEDECKTE Fach wird gebaut", gebaut2, std::size_t{4});
             check_eq("(11c2) und genau das gedeckte wird geerbt", plan_skips2, std::size_t{4});
@@ -1292,7 +1293,7 @@ int main() {
             fs::path const plan_g2 = base / "f4g" / "geht" / "batch_plan.txt";
             fs::path const z_g2    = fs::path{plan_g2.string() + ".zaehler"};
             FakeStore      store_g2;
-            std::size_t    pushes  = 0;
+            std::size_t    pushes = 0;
             {
                 ex::LazyRunConfig cfg_g2 = mach_bau_cfg(store_g2, base / "f4g" / "geht" / "out", plan_g2);
                 cfg_g2.bestand_key_of    = kein_key;
@@ -1326,7 +1327,9 @@ int main() {
                                        // cppcheck-suppress throwInEntryPoint // FP: Negativprobe (11h)
                                        throw std::runtime_error("Push wirft nach Freigabe");
                                    },
-                                   "v-test", {}, 0};
+                                   "v-test",
+                                   {},
+                                   0};
             pump.enqueue(fs::path{"/tmp/comdare-11h-eins"});
             while (!gestartet.load()) std::this_thread::yield();
             // DAS ALT-FENSTER, deterministisch: der Eintrag ist aus der Queue, aber noch nicht gebucht.
@@ -1350,8 +1353,7 @@ int main() {
             pump.close();
             check_eq("(11h) nach close() bleibt die Bilanz stehen", pump.failed_count(), std::size_t{2});
             pump.drain(); // idempotent + kehrt nach vollzogenem close() sofort zurueck (kein Haenger)
-            check_eq("(11h) drain() nach close() haengt nicht und aendert nichts", pump.failed_count(),
-                     std::size_t{2});
+            check_eq("(11h) drain() nach close() haengt nicht und aendert nichts", pump.failed_count(), std::size_t{2});
         }
 
         // ==========================================================================================
@@ -1377,7 +1379,9 @@ int main() {
                                        im_push.store(true);
                                        while (!freigeben.load()) std::this_thread::yield();
                                    },
-                                   "v-test", {}, 0};
+                                   "v-test",
+                                   {},
+                                   0};
             pump.enqueue(fs::path{"/tmp/comdare-11h2-eins"});
             while (!im_push.load()) std::this_thread::yield();
             // Der Schliesser laeuft aus einem EIGENEN Thread und bleibt im join() haengen, solange der
@@ -1394,8 +1398,7 @@ int main() {
             check_eq("(11h2) NACH der Barriere ist der Push gebucht (ALT: 0, weil abgekuerzt wurde)",
                      pump.pushed_count(), std::size_t{1});
             schliesser.join();
-            check_eq("(11h2) und der vollzogene close() aendert die Bilanz nicht", pump.pushed_count(),
-                     std::size_t{1});
+            check_eq("(11h2) und der vollzogene close() aendert die Bilanz nicht", pump.pushed_count(), std::size_t{1});
             pump.drain(); // Gegenprobe: OHNE die Abkuerzung haengt drain() nach vollzogenem close() NICHT
             check_eq("(11h2) Gegenprobe: drain() nach vollzogenem close() kehrt zurueck", pump.pushed_count(),
                      std::size_t{1});
@@ -1418,8 +1421,8 @@ int main() {
             std::cout << "\n-- (11i) Befund 2: die Mess-Front ist ein Praefix --\n";
             auto const                     dims_i = tree.dynamic_filter();
             std::vector<std::size_t> const drei{0, 1, 2};
-            std::string const              kFpI   = std::string(128, 'd');
-            auto const                     ram_i  = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+            std::string const              kFpI  = std::string(128, 'd');
+            auto const                     ram_i = []() -> std::uint64_t { return ~std::uint64_t{0}; };
 
             // (a) Der BAU-Lauf legt Plan + Bau-Front an (kompiliert=3). Dieselbe Identitaet wie unten.
             fs::path const plan_i = base / "f4i" / "batch_plan.txt";
@@ -1441,9 +1444,9 @@ int main() {
             // (b) Der MESS-Lauf. Die Zellen 1 und 2 bekommen ihre vollstaendige Ablage; Zelle 0 nicht --
             //     und ihr Bau scheitert, damit sie die Front an Position 0 bricht.
             FakeStore         dummy_i;
-            ex::LazyRunConfig cfg_mess_i         = make_cfg(dummy_i, base / "f4i" / "mess");
-            cfg_mess_i.provision_only            = false;
-            cfg_mess_i.bestand_transport         = {};
+            ex::LazyRunConfig cfg_mess_i = make_cfg(dummy_i, base / "f4i" / "mess");
+            cfg_mess_i.provision_only    = false;
+            cfg_mess_i.bestand_transport = {};
             cfg_mess_i.bestand_doc_key.clear();
             cfg_mess_i.resume_completed_binaries = true;
             cfg_mess_i.max_binaries              = 3;
@@ -1458,8 +1461,8 @@ int main() {
                 { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
                 { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << kFpI; }
                 {
-                    std::ofstream{bin_dir / "result.csv", std::ios::trunc}
-                        << ex::lazy_csv_header() << "ALTER-ERFOLGS-STAND-F4I\n";
+                    std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header()
+                                                                           << "ALTER-ERFOLGS-STAND-F4I\n";
                 }
                 {
                     std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
@@ -1492,8 +1495,8 @@ int main() {
                 { std::ofstream{bin0 / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
                 { std::ofstream{bin0 / "perm.dll.fingerprint", std::ios::trunc} << kFpI; }
                 {
-                    std::ofstream{bin0 / "result.csv", std::ios::trunc}
-                        << ex::lazy_csv_header() << "ALTER-ERFOLGS-STAND-F4I\n";
+                    std::ofstream{bin0 / "result.csv", std::ios::trunc} << ex::lazy_csv_header()
+                                                                        << "ALTER-ERFOLGS-STAND-F4I\n";
                 }
                 {
                     std::ofstream{bin0 / "result.csv.stamp", std::ios::trunc}
@@ -1502,8 +1505,8 @@ int main() {
                 ex::LazyRunResult r_i2;
                 {
                     CerrCapture fang;
-                    r_i2 = ex::run_lazy_static_then_dynamic(tree, sel_i, compile_bricht_null, gen_stub, ram_i,
-                                                            cfg_mess_i);
+                    r_i2 =
+                        ex::run_lazy_static_then_dynamic(tree, sel_i, compile_bricht_null, gen_stub, ram_i, cfg_mess_i);
                 }
                 check_eq("(11i) Gegenprobe: jetzt resumieren alle drei", r_i2.resumed_binaries, std::size_t{3});
                 check_eq("(11i) Gegenprobe: und die Front zaehlt sie auch alle drei", datei_text(z_i),
@@ -1527,8 +1530,8 @@ int main() {
         // ==========================================================================================
         {
             std::cout << "\n-- (11j) Befund 3: die Bau-Identitaet bindet den Zaehler --\n";
-            std::string const kFpA = std::string(128, '1');
-            std::string const kFpB = std::string(128, '2');
+            std::string const          kFpA = std::string(128, '1');
+            std::string const          kFpB = std::string(128, '2');
             bl::PlanIdentitaetFn const idA{[kFpA](std::size_t) { return kFpA; }};
             bl::PlanIdentitaetFn const idB{[kFpB](std::size_t) { return kFpB; }};
 
@@ -1554,8 +1557,8 @@ int main() {
             // ankerlos wird seit NB3 gar nichts mehr abgelegt (fail-closed, s. Fall 11l-c).
             check_true("(11j) OHNE Anker sagt der Stempel das, statt eine Deckung zu behaupten",
                        bl::slice_plan_stamp(alle, bl::kBuildSliceGrain).find("|bau=ohne-anker") != std::string::npos);
-            check_true("(11j) und 'ohne Anker' ist NICHT dasselbe wie 'mit Anker'", neu_a.find("ohne-anker") ==
-                                                                                        std::string::npos);
+            check_true("(11j) und 'ohne Anker' ist NICHT dasselbe wie 'mit Anker'",
+                       neu_a.find("ohne-anker") == std::string::npos);
 
             // (b) DIE WIRKUNG am ECHTEN Bau-Weg: derselbe Plan, andere Bau-Identitaet -> der Alt-Zaehler
             //     greift NICHT und der Folgelauf baut ehrlich neu.
@@ -1577,9 +1580,8 @@ int main() {
                 ex::BuildStats        agg;
                 std::size_t           plan_skips = 99;
                 CerrCapture           fang;
-                auto const            builds =
-                    ex::run_planer_driven_provision(orch, view, alle, cfg_b, agg, bl::PresenceFn{}, nullptr,
-                                                    &plan_skips);
+                auto const builds = ex::run_planer_driven_provision(orch, view, alle, cfg_b, agg, bl::PresenceFn{},
+                                                                    nullptr, &plan_skips);
                 check_eq("(11j) ALT-STAND-BISS: ein FREMDER Bau-Stand erbt den Zaehler NICHT", builds.size(),
                          std::size_t{8});
                 check_eq("(11j) und beansprucht auch kein Plan-Resume", plan_skips, std::size_t{0});
@@ -1604,9 +1606,8 @@ int main() {
                 ex::BuildStats        agg;
                 std::size_t           plan_skips = 99;
                 CerrCapture           fang;
-                auto const            builds =
-                    ex::run_planer_driven_provision(orch, view, alle, cfg_a2, agg, bl::PresenceFn{}, nullptr,
-                                                    &plan_skips);
+                auto const builds = ex::run_planer_driven_provision(orch, view, alle, cfg_a2, agg, bl::PresenceFn{},
+                                                                    nullptr, &plan_skips);
                 check_eq("(11j) Gegenprobe: DERSELBE Bau-Stand erbt den Zaehler (nichts wird neu gebaut)",
                          builds.size(), std::size_t{0});
                 check_eq("(11j) Gegenprobe: und die geerbten Atome sind gebucht", plan_skips, std::size_t{8});
@@ -1631,7 +1632,7 @@ int main() {
 
             auto const                     dims_k = tree.dynamic_filter();
             std::vector<std::size_t> const eins_k{0};
-            std::string const              kFpK = std::string(128, 'e');
+            std::string const              kFpK   = std::string(128, 'e');
             fs::path const                 plan_k = base / "f4k" / "batch_plan.txt";
             fs::path const                 z_k    = fs::path{plan_k.string() + ".zaehler"};
 
@@ -1639,7 +1640,7 @@ int main() {
             ex::LazyRunConfig cfg_bau_k      = mach_bau_cfg(store_k, base / "f4k" / "bau", plan_k);
             cfg_bau_k.batch_plan_korn        = 4;
             cfg_bau_k.bestand_fingerprint_fn = [kFpK](std::string const&) { return kFpK; };
-            std::string const stamp_k = bl::slice_plan_stamp(eins_k, 4, ex::plan_identitaet_of(view, cfg_bau_k));
+            std::string const stamp_k        = bl::slice_plan_stamp(eins_k, 4, ex::plan_identitaet_of(view, cfg_bau_k));
             {
                 ex::BuildOrchestrator orch = mach_orch(cfg_bau_k, compile_stub);
                 ex::BuildStats        agg;
@@ -1651,12 +1652,12 @@ int main() {
             check_eq("(11k) und die Bau-Front steht", datei_text(z_k), stamp_k + "|kompiliert=1|gemessen=0|rows=1\n");
 
             // Die Mess-Fixture (identisch zu (11f), nur mit Korn).
-            std::string const stem_k  = ex::orch_make_stem(view[0].binary_id, view[0].index);
+            std::string const stem_k        = ex::orch_make_stem(view[0].binary_id, view[0].index);
             auto const        mach_mess_cfg = [&](fs::path const& out, std::size_t korn) {
                 FakeStore         dummy;
-                ex::LazyRunConfig c         = make_cfg(dummy, out);
-                c.provision_only            = false;
-                c.bestand_transport         = {};
+                ex::LazyRunConfig c = make_cfg(dummy, out);
+                c.provision_only    = false;
+                c.bestand_transport = {};
                 c.bestand_doc_key.clear();
                 c.resume_completed_binaries = true;
                 c.max_binaries              = 1;
@@ -1671,8 +1672,8 @@ int main() {
                 { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
                 { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << kFpK; }
                 {
-                    std::ofstream{bin_dir / "result.csv", std::ios::trunc}
-                        << ex::lazy_csv_header() << "ALTER-ERFOLGS-STAND-F4K\n";
+                    std::ofstream{bin_dir / "result.csv", std::ios::trunc} << ex::lazy_csv_header()
+                                                                           << "ALTER-ERFOLGS-STAND-F4K\n";
                 }
                 {
                     std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
@@ -1680,9 +1681,9 @@ int main() {
                 }
             };
             ex::BuildSelection sel_k;
-            sel_k.indices       = {0};
-            sel_k.provenance    = "explicit";
-            auto const ram_k    = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+            sel_k.indices    = {0};
+            sel_k.provenance = "explicit";
+            auto const ram_k = []() -> std::uint64_t { return ~std::uint64_t{0}; };
 
             // (11k-1) ALT-STAND-BISS: der Mess-Weg mit dem HART verdrahteten Default (4096) findet den
             //         Plan seines eigenen Bau-Laufs NICHT -- genau die Divergenz, die der Befund benennt.
@@ -1710,8 +1711,8 @@ int main() {
                     r_k = ex::run_lazy_static_then_dynamic(tree, sel_k, compile_stub, gen_stub, ram_k, cfg_neu);
                 }
                 check_eq("(11k) Vorbedingung: die Zelle hat resumiert", r_k.resumed_binaries, std::size_t{1});
-                check_eq("(11k) NEU: EIN Korn fuer beide Wege -> die Mess-Front wird fortgeschrieben",
-                         datei_text(z_k), stamp_k + "|kompiliert=1|gemessen=1|rows=1\n");
+                check_eq("(11k) NEU: EIN Korn fuer beide Wege -> die Mess-Front wird fortgeschrieben", datei_text(z_k),
+                         stamp_k + "|kompiliert=1|gemessen=1|rows=1\n");
             }
         }
 
@@ -1757,17 +1758,17 @@ int main() {
             std::string const kFpL = std::string(128, 'b');
             // DER ZAEHLER. shared_ptr, weil die Fn in die LazyRunConfig kopiert wird und der Bau sie
             // aus mehreren Threads rufen DARF -- atomar, damit die Zahl nicht an einer Annahme haengt.
-            auto const rufe          = std::make_shared<std::atomic<std::size_t>>(0);
-            auto const zaehlende_fp  = [rufe, kFpL](std::string const&) {
+            auto const rufe         = std::make_shared<std::atomic<std::size_t>>(0);
+            auto const zaehlende_fp = [rufe, kFpL](std::string const&) {
                 rufe->fetch_add(1, std::memory_order_relaxed);
                 return kFpL;
             };
             bl::PresenceFn const alles_da = [](std::size_t) { return true; };
 
             ex::BuildSelection sel_l;
-            sel_l.indices    = alle;
-            sel_l.provenance = "explicit";
-            auto const ram_l = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+            sel_l.indices     = alle;
+            sel_l.provenance  = "explicit";
+            auto const ram_l  = []() -> std::uint64_t { return ~std::uint64_t{0}; };
             auto const mach_l = [&](FakeStore& store, fs::path const& out, fs::path const& plan) {
                 ex::LazyRunConfig c      = make_cfg(store, out);
                 c.batch_plan_datei       = plan;
@@ -1812,8 +1813,8 @@ int main() {
                     CerrCapture fang;
                     (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_b);
                 }
-                check_eq("(11l-b) SPIEGEL: mit Ablage kostet der Stempel DIESELBEN EINEN Durchlauf",
-                         rufe->load(), alle.size());
+                check_eq("(11l-b) SPIEGEL: mit Ablage kostet der Stempel DIESELBEN EINEN Durchlauf", rufe->load(),
+                         alle.size());
                 check_true("(11l-b) und der Plan liegt", fs::exists(plan_b, ec));
                 // Der Stempel der Platte traegt einen DIGEST, nicht das Wort. (Der Vergleichs-Stempel
                 // kostet selbst einen Durchlauf -- deshalb steht er NACH der Zaehl-Pruefung.)
@@ -1831,7 +1832,7 @@ int main() {
             {
                 fs::path const    plan_c = base / "f4l" / "ohne_anker" / "batch_plan.txt";
                 FakeStore         store_c;
-                ex::LazyRunConfig cfg_c   = mach_l(store_c, base / "f4l" / "ohne_anker", plan_c);
+                ex::LazyRunConfig cfg_c      = mach_l(store_c, base / "f4l" / "ohne_anker", plan_c);
                 cfg_c.bestand_fingerprint_fn = {}; // DER Unterschied zu (11l-b)
                 check_true("(11l-c) Vorbedingung: Ablage benannt, aber KEIN Anker",
                            !cfg_c.batch_plan_datei.empty() && !cfg_c.bestand_fingerprint_fn);
@@ -1902,8 +1903,7 @@ int main() {
                 check_true("(11l-d) die Wache erkennt den Form-Verstoss (Provider ist gesetzt!)",
                            !befund_d.traegt() && !befund_d.provider_fehlt);
                 check_eq("(11l-d) und beziffert ihn genau", befund_d.form_verstoesse, std::size_t{1});
-                check_eq("(11l-d) mit dem ERSTEN betroffenen view_index", befund_d.erster_verstoss,
-                         std::size_t{5});
+                check_eq("(11l-d) mit dem ERSTEN betroffenen view_index", befund_d.erster_verstoss, std::size_t{5});
                 check_true("(11l-d) ein nicht tragender Befund liefert keinen Stempel", befund_d.stamp.empty());
                 // ALT-STAND-BISS: die ALTE Naht (roher Digest ohne Formwache) haette hier sehr wohl
                 // einen Stempel gebildet -- und er sieht GUELTIG aus (128-hex, kein `ohne-anker`).
@@ -1919,10 +1919,8 @@ int main() {
                     (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_d);
                     log_d = fang.text();
                 }
-                check_true("(11l-d) NEU: KEIN Plan und KEIN Zaehler", !fs::exists(plan_d, ec) &&
-                                                                          !fs::exists(fs::path{plan_d.string() +
-                                                                                               ".zaehler"},
-                                                                                      ec));
+                check_true("(11l-d) NEU: KEIN Plan und KEIN Zaehler",
+                           !fs::exists(plan_d, ec) && !fs::exists(fs::path{plan_d.string() + ".zaehler"}, ec));
                 check_true("(11l-d) und die Zeile nennt Zahl UND ersten Index",
                            log_d.find("plan-ablage INERT (bau-weg)") != std::string::npos &&
                                log_d.find("1 von 8 Atomen liefern keine pruefbare Bau-Identitaet") !=
@@ -1952,8 +1950,7 @@ int main() {
                            ex::plan_anker_befund(view, cfg_e1, alle, bl::kBuildSliceGrain).stamp.empty() &&
                                ex::plan_anker_befund(view, cfg_e2, alle, bl::kBuildSliceGrain).stamp.empty());
                 check_eq("(11l-e) und die Zahl benennt ALLE ungedeckten Atome (kein Abbruch beim ersten)",
-                         ex::plan_anker_befund(view, cfg_e1, alle, bl::kBuildSliceGrain).form_verstoesse,
-                         alle.size());
+                         ex::plan_anker_befund(view, cfg_e1, alle, bl::kBuildSliceGrain).form_verstoesse, alle.size());
                 std::string log_e;
                 {
                     CerrCapture fang;
@@ -1962,8 +1959,7 @@ int main() {
                 }
                 check_true("(11l-e) NEU: also auch keine Ablage auf der Platte", !fs::exists(plan_e, ec));
                 check_true("(11l-e) und die Zeile beziffert alle acht",
-                           log_e.find("8 von 8 Atomen liefern keine pruefbare Bau-Identitaet") !=
-                               std::string::npos);
+                           log_e.find("8 von 8 Atomen liefern keine pruefbare Bau-Identitaet") != std::string::npos);
             }
 
             // -- (11l-f) GEGENPROBE: durchweg gueltige 128-hex -> die Wache trennt, sie sperrt nicht.
@@ -1971,8 +1967,8 @@ int main() {
             {
                 fs::path const    plan_f2 = base / "f4l" / "form_ok" / "batch_plan.txt";
                 FakeStore         store_f2;
-                ex::LazyRunConfig cfg_f2  = mach_l(store_f2, base / "f4l" / "form_ok", plan_f2);
-                auto const        befund  = ex::plan_anker_befund(view, cfg_f2, alle, bl::kBuildSliceGrain);
+                ex::LazyRunConfig cfg_f2 = mach_l(store_f2, base / "f4l" / "form_ok", plan_f2);
+                auto const        befund = ex::plan_anker_befund(view, cfg_f2, alle, bl::kBuildSliceGrain);
                 check_true("(11l-f) GEGENPROBE: durchweg 128-hex -> der Befund traegt", befund.traegt());
                 check_eq("(11l-f) und zaehlt keinen Verstoss", befund.form_verstoesse, std::size_t{0});
                 {

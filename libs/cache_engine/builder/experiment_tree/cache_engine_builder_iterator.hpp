@@ -1286,8 +1286,8 @@ struct PlanAnkerBefund {
 // Die EINE Ansage dazu (nie stumm, beziffert): beide Wege -- Bau und Mess -- melden denselben Sachverhalt
 // mit derselben Zeile, damit ein Betreiber ihn im Log nicht zweimal lernen muss. `weg` benennt die Seite,
 // der Befund den Grund -- mit Zahl und erstem Index, wo es einen gibt.
-inline void melde_plan_ablage_ohne_anker(LazyRunConfig const& cfg, std::size_t indizes,
-                                         PlanAnkerBefund const& befund, char const* weg) {
+inline void melde_plan_ablage_ohne_anker(LazyRunConfig const& cfg, std::size_t indizes, PlanAnkerBefund const& befund,
+                                         char const* weg) {
     std::cerr << "[bestandslog] plan-ablage INERT (" << weg << "): " << cfg.batch_plan_datei.string()
               << " ist benannt, aber ";
     if (befund.provider_fehlt)
@@ -1324,8 +1324,7 @@ inline void melde_plan_ablage_ohne_anker(LazyRunConfig const& cfg, std::size_t i
 run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& view,
                             std::vector<std::size_t> const& indices, LazyRunConfig const& cfg, BuildStats& agg,
                             bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr,
-                            std::size_t*         plan_resume_skips_out = nullptr,
-                            PushVollzugFn const& push_vollzug          = {}) {
+                            std::size_t* plan_resume_skips_out = nullptr, PushVollzugFn const& push_vollzug = {}) {
     std::vector<BuildResult> builds;
     // T2-A/F4-BILANZ: das KORN wird gefuehrt, nicht hart hingeschrieben -- slice_plan_stamp,
     // plan_alle_faecher und der SlicePlanner nehmen es alle drei laengst entgegen. Wer ein anderes Korn
@@ -1407,7 +1406,7 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // zurueckgeschrieben (s. unten) -- er darf NIE als Praefix-Front konsumiert werden; der
         // Resume-Punkt dieses Bau-Laufs ist allein plan_resume_atome (die Bau-Front).
         plan_gemessen = planner.vorgefundene_mess_front();
-        plan_faecher       = planner.plan_faecher_zahl();
+        plan_faecher  = planner.plan_faecher_zahl();
     };
     while (auto plan = queue.pop()) {
         lies_plan_werte(); // Beleg 1: ein gezogenes Fach
@@ -1485,8 +1484,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // slice_stats dieses Fensters + die Filter-Zahl -- der Treiber ist die einzige Zaehler-Quelle
         // des Kanals (Single-Source; die Shell zaehlt nichts nach).
         std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", fenster)
-                  << " gebaut_neu=" << slice_stats.built << " sidecar_skip=" << slice_stats.skipped
-                  << " lager_skip=" << gefiltert.bestand_uebersprungen
+                  << " gebaut_neu=" << slice_stats.built << " sidecar_skip=" << slice_stats.skipped << " lager_skip="
+                  << gefiltert.bestand_uebersprungen
                   // T2-A/F4-BILANZ: EINE Grammatik fuer die ganze Marke -- die dritte Skip-Quelle steht in
                   // JEDER [BILANZ-TESTAT]-Zeile, auch wo sie 0 ist. Ein Fenster, das den Loop erreicht hat,
                   // ist per Definition NICHT plan-resumiert; die 0 ist hier die Wahrheit, keine Ersatzzahl.
@@ -2295,9 +2294,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             } else {
                 fpr_form_verletzt = true;
                 std::cerr << "[" << measurement::LogAndContinueInfraPolicy::log_prefix() << ": "
-                          << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
-                          << "] binary_id='" << b.binary_id << "' Fingerprint ist nicht 128-hex (Laenge "
-                          << b.fingerprint.size()
+                          << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                          << b.binary_id << "' Fingerprint ist nicht 128-hex (Laenge " << b.fingerprint.size()
                           << ") -- der Mess-Resume dieser Binary ist DEAKTIVIERT und es wird kein Stamp "
                              "geschrieben (ein Wert ausserhalb des Hex-Alphabets kann die Ein-Zeilen-Ablage "
                              "auftrennen und einen fremden Stand zertifizieren)\n"
@@ -2489,8 +2487,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                     csv_write_ok = pf.good();
                 }
             }
-            if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 &&
-                per_binary_all_valid && !fpr_form_verletzt) {
+            if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 && per_binary_all_valid &&
+                !fpr_form_verletzt) {
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
                 if (sf) {
                     sf << binary_resume_stamp << kLazyResumeRowsKey << per_binary_rows << "\n";
@@ -2678,7 +2676,7 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         } else {
             std::string const plan_stamp    = mess_anker.stamp;
             std::string const plan_rows_key = kLazyResumeRowsKey;
-            auto const faecher = bestandslog::read_batch_plan(cfg.batch_plan_datei, plan_stamp, plan_rows_key);
+            auto const        faecher = bestandslog::read_batch_plan(cfg.batch_plan_datei, plan_stamp, plan_rows_key);
             if (!faecher.has_value()) {
                 std::cerr << "[bestandslog] plan-zaehler: kein zu dieser Selektion passender Batch-Plan unter "
                           << cfg.batch_plan_datei.string() << " -- die Mess-Front wird NICHT fortgeschrieben\n"

@@ -228,8 +228,8 @@ int main() {
     std::uint64_t  lauf1_bereitgestellt = 0;
     std::string    lauf1_log;
     {
-        tlz::RunProfileArgs const a = mach_args(store1, base / "lauf1", plan_datei);
-        CerrFang                  fang;
+        tlz::RunProfileArgs const   a = mach_args(store1, base / "lauf1", plan_datei);
+        CerrFang                    fang;
         tlz::RunProfileResult const r = tlz::run_profile(a);
         lauf1_log                     = fang.text();
         lauf1_bereitgestellt          = r.any_provisioned;
@@ -254,7 +254,7 @@ int main() {
     // (1d) ALT-STAND-BISS: genau DIESER Stempel waere frueher abgelegt worden -- ankerlos, und damit fuer
     //      JEDEN Bau-Stand derselbe. max_binaries=1 => Basis-Selektion {0}.
     std::vector<std::size_t> const eins{0};
-    std::string const             alt_stempel = bl::slice_plan_stamp(eins, bl::kBuildSliceGrain);
+    std::string const              alt_stempel = bl::slice_plan_stamp(eins, bl::kBuildSliceGrain);
     check_true("(1d) ALT-STAND-BISS: der frueher hier abgelegte Stempel traegt |bau=ohne-anker",
                alt_stempel.find(std::string{"|bau="} + bl::kPlanOhneAnker) != std::string::npos);
 
@@ -266,19 +266,17 @@ int main() {
         a.batch_plan_datei.clear(); // DER Unterschied zu (1)
         tlz::RunProfileResult const r = tlz::run_profile(a);
         check_eq("(2) auch dieser Lauf endet regulaer", r.exit_code, 0);
-        check_true("(2) KEIN Plan -- leerer Pfad heisst inert, nicht 'irgendwohin'",
-                   !fs::exists(plan_leer, ec));
+        check_true("(2) KEIN Plan -- leerer Pfad heisst inert, nicht 'irgendwohin'", !fs::exists(plan_leer, ec));
         check_true("(2) und kein Zaehler", !fs::exists(fs::path{plan_leer.string() + ".zaehler"}, ec));
-        check_true("(2) das Ablage-Verzeichnis wird gar nicht erst angelegt",
-                   !fs::exists(plan_leer.parent_path(), ec));
+        check_true("(2) das Ablage-Verzeichnis wird gar nicht erst angelegt", !fs::exists(plan_leer.parent_path(), ec));
     }
 
     // -- (3) DIE WIRKUNG DER FAIL-CLOSED-LINIE: der zweite Lauf ERBT NICHTS und baut ehrlich neu.
     //    Frisches Ausgabe-Verzeichnis, damit der Bau SICHTBAR ist.
     {
-        fs::path const              lauf3 = base / "lauf3";
-        std::string                 log3;
-        tlz::RunProfileResult       r{};
+        fs::path const        lauf3 = base / "lauf3";
+        std::string           log3;
+        tlz::RunProfileResult r{};
         {
             tlz::RunProfileArgs const a = mach_args(store1, lauf3, plan_datei);
             CerrFang                  fang;
@@ -292,8 +290,7 @@ int main() {
                    fs::exists(lauf3 / "dll", ec) && !fs::is_empty(lauf3 / "dll", ec));
         // (3b) UND ER IST EIN GUELTIGER LAUF: die Ablage-Ebene ist Buchhaltung, kein Bau-Fehler.
         check_eq("(3b) exit 0 -- die inerte Ablage bricht keinen Bau ab", r.exit_code, 0);
-        check_eq("(3c) und er stellt dieselbe eine Binary bereit wie Lauf 1", r.any_provisioned,
-                 lauf1_bereitgestellt);
+        check_eq("(3c) und er stellt dieselbe eine Binary bereit wie Lauf 1", r.any_provisioned, lauf1_bereitgestellt);
         // (3d) GEGENPROBE ZUR HERKUNFT: gemessen hat dieser Lauf nichts (provision-only).
         check_eq("(3d) nichts gemessen (provision-only)", r.any_measured, std::uint64_t{0});
         check_eq("(3d) und nichts mess-resumiert", r.any_resumed, std::uint64_t{0});
