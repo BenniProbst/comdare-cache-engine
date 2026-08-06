@@ -56,7 +56,10 @@ variables:
   # contract: ABI-Contract-Smoke = test_abi_interface (std::map/ABI-Interface-Kontrakt). test_v41_anatomy_module_abi
   # ist der schwerere anatomy-MODULE-Test (eigener Linux-Build) -> gehoert in den vollen Test-Stage/#179-Sweep,
   # NICHT in den Contract-Smoke. (REV 11: vorher zog er den mimalloc-Kettel-Include-Bug rein, jetzt gefixt.)
-  COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface && ctest --test-dir build-contract -R '^test_abi_interface$' --output-on-failure -V"
+  # R4 (2026-08-06): die ctest-Auswahl kommt aus dem Manifest (Kennung 'contract'), nicht mehr als
+  # Regex-Literal aus dieser Zeile. Das Template .contract fuehrt diesen String per eval in einer
+  # Shell aus -- das Laden des Manifests ist deshalb Teil des Kommandos (kein before_script moeglich).
+  COMDARE_CONTRACT_CMD: ". ./scripts/ci_test_coverage_manifest.sh && cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface && ce_ctest contract build-contract --output-on-failure -V"
 
 # ccache-Hygiene (super-#53-Muster): Konsumenten ziehen den gcc-Release-ccache NUR (policy: pull);
 # der EINE Writer des Haupt-Keys ist test:unit (Voll-Suite = maximale Objekt-Abdeckung).
@@ -81,6 +84,11 @@ lint:static:
 .bare_metal:
   extends: .ccache-pull   # ccache-Hygiene 04.08.: alle bare-metal-Erben sind Konsumenten (pull-only)
   before_script:
+    # R4 (2026-08-06): EIN Ladepunkt fuer die ctest-Auswahlen aller bare-metal-Erben. Die Auswahl
+    # eines Jobs steht ab hier NUR NOCH in scripts/ci_test_coverage_manifest.sh -- derselben Datei,
+    # aus der die Abdeckungs-Wache (Job test:coverage-guard) ihre Rechnung speist. Job und Wache
+    # koennen damit nicht auseinanderlaufen; im Job selbst steht kein Regex mehr.
+    - . ./scripts/ci_test_coverage_manifest.sh
     - 'echo "== Host =="; uname -a; (lscpu | grep -E "Vendor ID|Model name") || true'
     - 'echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true'
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
@@ -115,7 +123,13 @@ build:clang:
     # gehoert damit in den PMC-Gate. Mit COMDARE_ENABLE_PMC=ON (echte Quelle, available=1) ist der Naht-Beweis
     # scharf (Inversion-Fix: live-PMC = SMOKE_OK). Lokal gruen bewiesen.
     - cmake --build build --target linux_perf_pmc_smoke m3v2_pmc_smoke
-    - ctest --test-dir build -R '^(linux_perf_pmc_smoke|m3v2_pmc_smoke)$' --output-on-failure -V
+    # R4 (2026-08-06): der Lauf-Selektor ist jetzt die KLASSE (Label 'pmc'), nicht mehr eine
+    # Namensliste -- Auswahl aus dem Manifest, Kennung 'pmc'. Damit ist die Hardware-Klasse als
+    # solche gedeckt: ein neuer pmc-Test faellt nicht mehr zwischen test:unit (-LE pmc) und einer
+    # von Hand gepflegten Liste hindurch, sondern wird hier automatisch mitgefahren. Die
+    # --target-Liste bleibt bewusst explizit (15m-Timeout, kein Vollbau); fehlt dort ein neuer
+    # pmc-Test, meldet ctest die fehlende Binary namentlich -> Job ROT statt stiller Luecke.
+    - ce_ctest pmc build --output-on-failure -V
   # KEINE Artefakte: das build/-Tree-Artefakt scheiterte am Object-Storage-500 (post-swap). Beleg = ctest-Log.
 
 # PMC-DOKTRIN (User 2026-07-23, 2 Stufen — Verschiffbarkeit): je Vendor-Maschine ihr eigener
@@ -161,7 +175,11 @@ build:arm64-smoke:
     - _CC=cc; _CXX=c++; command -v g++-13 >/dev/null 2>&1 && { _CC=gcc-13; _CXX=g++-13; }
     - cmake -B build-arm64 -G Ninja -DCMAKE_C_COMPILER="$_CC" -DCMAKE_CXX_COMPILER="$_CXX" -DCOMDARE_BUILD_TESTS=ON
     - cmake --build build-arm64 --target test_cpuid_probe test_conformance_gate
-    - ctest --test-dir build-arm64 -R "^(test_cpuid_probe|test_conformance_gate)$" --output-on-failure
+    # R4: Auswahl aus dem Manifest (Kennung 'arm64_smoke'). Dieser Job hat kein .bare_metal-Erbe,
+    # laedt das Manifest also selbst. Im Manifest ist er als opt-in deklariert -- die Wache
+    # verbucht seine Auswahl NICHT als Abdeckung, solange COMDARE_ISA_MATRIX nicht gesetzt ist.
+    - . ./scripts/ci_test_coverage_manifest.sh
+    - ce_ctest arm64_smoke build-arm64 --output-on-failure
   artifacts:
     paths: []
 
@@ -180,7 +198,7 @@ sanitize:asan-ubsan:
     - cmake -B build-san -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
     # #204/264-b: Target-Liste um die 5 schnellen, contract-gruen-bewiesenen Gates erweitert (advisory).
     - cmake --build build-san --target test_abi_interface test_config_durability test_conformance_gate test_experiment_driver_v13 test_chaos_drift_gate
-    - 'ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-san -R "^(test_abi_interface|test_config_durability|test_conformance_gate|test_experiment_driver_v13|test_chaos_drift_gate)$" --output-on-failure -V'
+    - 'ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ce_ctest sanitize_asan build-san --output-on-failure -V'   # R4: Auswahl aus dem Manifest
 
 # ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig, kein großes Artefakt) ──
 contract:
@@ -189,6 +207,75 @@ contract:
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
   artifacts:
     paths: []     # Override: kein build/Testing/-Artefakt (Storage-500 + Pfad-Mismatch zu build-contract)
+
+# -- Stufe 4a: ABDECKUNGS-INVARIANTE (R4, 2026-08-06) -- das Gate ueber die Gates --
+# BEFUND, DER DIESEN JOB ERZWINGT: die Jobs dieser Datei waehlen ihre Tests seit jeher ueber
+# eigene -R-/-LE-Listen aus. Niemand hat je geprueft, ob die VEREINIGUNG dieser Listen die Menge
+# der registrierten Tests trifft. Live gemessen am 2026-08-06 (406 Tests): 9 Tests liefen in
+# keinem einzigen Job -- sie wurden in jedem Lauf gebaut, aber nie ausgefuehrt. Es war der zweite
+# Durchgang derselben Fehlerklasse (M-CE-25 am 2026-07-13 hatte 21 solcher Tests von Hand
+# einsortiert; in drei Wochen waren 9 neue nachgewachsen), weil "Test anlegen" und "Test in einen
+# Job eintragen" zwei getrennte Schritte sind und der zweite nirgends erzwungen wurde.
+# WAS DIESER JOB TUT: er stellt die Inventur live her (ctest -N auf einem Bau-Baum, der genauso
+# konfiguriert ist wie der von test:unit -- inkl. 2-Pass-Codegen-Configure, ohne den zwei Tests
+# unregistriert blieben: live 404 statt 406) und haelt sie gegen die Vereinigung aller Auswahlen
+# aus scripts/ci_test_coverage_manifest.sh. Bleibt ein Test uebrig, ist der Job ROT und nennt ihn
+# beim Namen. Er kann nicht selbst durchs Raster fallen: seine Eingabe ist die Gesamtmenge (ein
+# neuer Test ist ohne Zutun Teil der Pruefung), er hat kein rules-Gate und kein allow_failure.
+# KEIN Bau der Test-Suite noetig (nur Configure + das Codegen-Tool) -> billig.
+# ZUSATZ 2026-08-06: derselbe Job traegt vorgelagert die SCHLUESSEL-WACHE
+# (scripts/ci_yaml_key_guard.sh) -- dieselbe Fehlerklasse eine Stufe frueher: nicht "Test ohne
+# Job", sondern "Job, den das Parsen kommentarlos verschluckt hat". Kein eigener Job, weil die
+# Pruefung kein Bau-Budget braucht und in denselben Runner-Slot passt.
+test:coverage-guard:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # Konvention der contract-Familie
+  script:
+    # (0) SCHLUESSEL-WACHE ZUERST -- billig (kein Bau, kein Configure) und eine Stufe FRUEHER als
+    # die Abdeckungs-Rechnung: ein doppelt vergebener Top-Level-Schluessel loescht kommentarlos
+    # eine Job-Definition (YAML: letzte gewinnt), ohne dass irgendetwas rot wird. Die
+    # Abdeckungs-Wache darunter wuerde dann eine Pipeline nachrechnen, die es so gar nicht gibt.
+    # Erst der BESTAND der Jobs, dann ihre ABDECKUNG. Befund, der das erzwang (2026-08-06):
+    # contract:axis-version-lock stand zweimal in dieser Datei -- die zweite, INERT-gegatete
+    # Fassung ueberschrieb das unbedingte Gate und legte den Tripwire drei Wochen lang still.
+    - sh scripts/ci_yaml_key_guard.sh .gitlab-ci.yml
+    # (0.5) DIFF-HYGIENE-WACHE (2026-08-06, Bestandsaufnahme "ugrep-Gate-Falle"): dieselbe
+    # Fehlerklasse eine Stufe hoeher am Objekt -- nicht "Job verschluckt" oder "Test ungedeckt",
+    # sondern "der Selbstcheck selbst hat nie gemessen". Das bisherige ASCII/Breite-Verfahren war
+    # keine Datei, sondern eine von Hand getippte grep-Kette vor jeder Paketmeldung
+    # (`grep -v '^\+\+\+' | grep -P '[^\x00-\x7F]'`) -- sie bricht unter ugrep mit Syntaxfehler ab
+    # UND unter echtem GNU grep 3.11 (BRE: \+ ist die "ein-oder-mehr"-Erweiterung, kein Literal;
+    # `^\+\+\+` matcht jede Zeile mit fuehrendem '+' und wirft ALLE Zusatzzeilen weg) -- beide Wege
+    # enden in einer stillen 0. Hier bewusst NACH der Schluessel-Wache (die prueft, ob diese Datei
+    # ueberhaupt intakt geparst wird) und VOR dem Bau (kein Bau-Budget noetig, faellt sofort auf,
+    # GitLab stoppt das Script beim ersten Fehl-Exit -- dieselbe Fail-Fast-Eigenschaft wie ein
+    # eigener lint-Job, ohne einen zu brauchen). Bereich: CI_MERGE_REQUEST_DIFF_BASE_SHA in
+    # MR-Pipelines, sonst CI_COMMIT_BEFORE_SHA (All-Null-Fallback auf HEAD~1 -- neuer Branch/
+    # Force-Push). GRENZE, ehrlich benannt: die Skript-LOGIK ist bissgetestet (vier praeparierte
+    # Faelle, s. scripts/ci_diff_ascii_width_guard.bissbeweis.txt), die CI-Variablen-Verdrahtung
+    # selbst konnte nur syntaktisch (pyyaml, read-only) und nicht in einer echten Pipeline
+    # bestaetigt werden -- der erste echte Lauf ist der Beweis dieser einen Stelle.
+    - |
+      set -eu
+      _ce_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
+      [ -n "$_ce_base" ] || _ce_base="${CI_COMMIT_BEFORE_SHA:-}"
+      case "$_ce_base" in
+        ""|0000000000000000000000000000000000000000) _ce_base="HEAD~1" ;;
+      esac
+      echo "DIFF-HYGIENE-WACHE: Bereich ${_ce_base}..HEAD"
+      sh scripts/ci_diff_ascii_width_guard.sh "${_ce_base}..HEAD"
+    # Ground Truth = Bau-Baum-Konfiguration von test:unit (COMDARE_TEST_CONFIGURE_FLAGS) inklusive
+    # des 2-Pass-Codegen-Configures aus dem .test-Template: erst konfigurieren, dann das
+    # Codegen-Tool bauen, dann RECONFIGURE -- sonst registriert CMake die codegen-abhaengigen
+    # Tests nicht und die Wache haette einen zu kleinen Wahrheitsbegriff.
+    - cmake -B build-covguard -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-covguard --target comdare_anatomy_codegen_cli
+    - cmake -B build-covguard -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - sh scripts/ci_test_coverage_guard.sh build-covguard
+  artifacts:
+    paths: []     # Storage-500-Konvention der contract-Familie
 
 # ── Stufe 4b: Contract config-durability-Gate (#195, Pipeline P0 / EPIC #186) ──
 # Müll-/kaputte Config-XMLs duerfen die Parser (cx::parse_document + wd::parse_load_profile) NICHT
@@ -205,7 +292,7 @@ contract:durability:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-dur -G Ninja -DCOMDARE_BUILD_TESTS=ON
     - cmake --build build-dur --target test_config_durability
-    - ctest --test-dir build-dur -R '^test_config_durability$' --output-on-failure -V
+    - ce_ctest contract_durability build-dur --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -245,7 +332,7 @@ contract:conformance:
     # Gesamt-Fassade (get_cache_engine() ueber die EINE Tuer). Sichert die geschlossene Linker-Falle + die
     # ehrliche DEFERRED-#274-Meldung als CI-Gate. Lokal 7/7 PASSED. Baut in demselben build-conf-Tree.
     - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal test_216h2_stat_reset_after_load test_v41_anatomy_module_abi test_cmd1_a_axis_command_base test_ap15_2_get_allocator_proxy test_ap15_3_driveable_map_contract test_29_container_framework test_v41_cache_engine_facade
-    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal|test_216h2_stat_reset_after_load|test_v41_anatomy_module_abi|test_cmd1_a_axis_command_base|test_ap15_2_get_allocator_proxy|test_ap15_3_driveable_map_contract|test_29_container_framework|test_v41_cache_engine_facade)$' --output-on-failure -V
+    - ce_ctest contract_conformance build-conf --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -278,7 +365,7 @@ contract:pool_flip:
     # Lokal alle 10 gruen bewiesen.
     - cmake --build build-poolflip --target test_188_4bbV_pool_adapter_flip_compile test_188_4a_eytzinger_organ test_s7_1_bst_pool_allocator_deg test_s7_2_btree_pool_allocator_deg test_s7_3_skip_list_pool_allocator_deg test_s7_4_hash_pool_allocator_deg test_s7_5_art_pool_allocator_deg test_s7_6_hot_pool_allocator_deg test_s7_7_start_pool_allocator_deg test_s7_8_wormhole_pool_allocator_deg test_s7_9_surf_pool_allocator_deg test_s7_10_swiss_pool_allocator_deg
     # Exakter Match (Review-Fix): '^test_188_4' matchte auch test_188_4bb0_… (hier nicht gebaut). test_s7_ exakt.
-    - ctest --test-dir build-poolflip -R '^(test_188_4bbV_pool_adapter_flip_compile|test_188_4a_eytzinger_organ|test_s7_([1-9]|10)_)' --output-on-failure -V
+    - ce_ctest contract_pool_flip build-poolflip --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -300,7 +387,7 @@ contract:harness:
     # F18/WP-0 (Voll-Audit 2026-07-16): +test_lazy_resume_binary (M-CE-05, Labels contract;standalone;harness;
     # resume — von test:unit -LE contract ausgeschlossen, lief in KEINEM -R-Job). Heimat = der Harness-Gate.
     - cmake --build build-harness --target test_harness_compile test_lazy_resume_binary
-    - ctest --test-dir build-harness -R '^(test_harness_compile|test_lazy_resume_binary)$' --output-on-failure -V
+    - ce_ctest contract_harness build-harness --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -332,14 +419,31 @@ contract:profile_coverage:
     # --target-Liste (2-Pass, wie die anderen EXCLUDE_FROM_ALL-Gates), Test im -R-Regex. Default-Standalone-
     # Konfiguration dieses Jobs == Referenz-Konfiguration der committeten XML (tests/unit/registry_roundtrip.cmake).
     - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte test_profile_roundtrip test_experiment_parser test_measurement_categories comdare_axis_registry_gen
-    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip|test_experiment_parser|test_measurement_categories|test_axis_registry_roundtrip)$' --output-on-failure -V
+    - ce_ctest contract_profile_coverage build-cov --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
-# -- contract:axis-version-lock (GN-8/O-4, Ledger Sec.32-F4): der Heuristik-Header-Tripwire als HARTES CI-Gate. --
-# Digest-Drift an axis_spline/break_even/measurement_curve_loader OHNE algo_version-Bump -> Exit 1 -> Job ROT.
-# Tool ist EXCLUDE_FROM_ALL (Anti-Phantom) und wird hier explizit gebaut+gerufen. Nach bewusstem Header-Edit:
-# lokal --write + Lockfile-Regen-Commit (siehe tools/axis_version_lock/axis_version_lock.cpp Kopf).
+# -- contract:axis-version-lock (GN-8/O-4 + PAKET W3-C, Ledger Sec.32-F4): Heuristik-Header-Tripwire, HARTES Gate --
+# WAS: baut das EXCLUDE_FROM_ALL-Tool comdare_axis_version_lock (2-Pass wie die anderen Tool-Gates, Anti-Phantom)
+# und prueft den SHA-256-Content-Digest der 3 Heuristik-Strategie-Header (axis_spline / break_even /
+# measurement_curve_loader) gegen das committete tools/axis_version_lock/axis_version.lock. Digest-Drift OHNE
+# algo_version-Bump (F4) -> Exit 1 -> Job ROT. Die Header werden NUR GELESEN; golden/TABU bleiben unberuehrt.
+# Nach bewusstem Header-Edit: lokal --write + Lockfile-Regen-Commit (siehe axis_version_lock.cpp Kopf).
+#
+# ZUSAMMENFUEHRUNG 2026-08-06 (Fehlerklasse "Bestandsfehler unter gruener CI"):
+# Dieser Schluessel stand ZWEIMAL in dieser Datei -- hier (GN-8/O-4, 76b6ef01 vom 19.07., bewusst OHNE rules als
+# hartes Dauergate) und ein zweites Mal am Dateiende (PAKET W3-C, 7492b2ea, INERT-by-default mit
+# 'rules: - if: $COMDARE_AXIS_LOCK_CHECK == "true"'). YAML-Mappings verwerfen bei doppeltem Schluessel
+# kommentarlos alles ausser der LETZTEN Definition: die W3-C-Fassung gewann, die Verschaerfung hier war ab
+# ihrem ersten Tag wirkungslos. Da COMDARE_AXIS_LOCK_CHECK NIRGENDS gesetzt ist (weder in variables noch in
+# der Projekt-/Pipeline-Konfiguration), lief der Tripwire in KEINEM Lauf -- drei Wochen lang, bei gruener
+# Pipeline und ohne jedes Signal. Beide Fassungen pruefen dieselbe Invariante mit demselben Werkzeug, es sind
+# also NICHT zwei Gates: sie sind hier zu EINER Definition vereinigt, und zwar auf der STRENGEREN der beiden
+# Wirkungen -- ohne rules, also unbedingt. Ein opt-in-Gate waere die schwaechere Fassung und ist damit
+# bewusst NICHT uebernommen. Gegen die Rueckkehr der Klasse: scripts/ci_yaml_key_guard.sh (Job
+# test:coverage-guard) laesst einen doppelten Top-Level-Schluessel nicht mehr unbemerkt durch.
+# Configure ohne -DCOMDARE_BUILD_TESTS=ON: add_subdirectory(tools) ist in CMakeLists.txt unbedingt, das
+# Tool-Target existiert also auch ohne die Test-Suite (lokal belegt) -- das spart den Test-Configure.
 contract:axis-version-lock:
   extends: .bare_metal
   stage: contract
@@ -349,7 +453,12 @@ contract:axis-version-lock:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-axislock -G Ninja
     - cmake --build build-axislock --target comdare_axis_version_lock
-    - ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check tools/axis_version_lock/axis_version.lock libs/cache_engine/heuristik/axis_spline.hpp libs/cache_engine/heuristik/break_even.hpp libs/cache_engine/heuristik/measurement_curve_loader.hpp
+    - >
+      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check
+      tools/axis_version_lock/axis_version.lock
+      libs/cache_engine/heuristik/axis_spline.hpp
+      libs/cache_engine/heuristik/break_even.hpp
+      libs/cache_engine/heuristik/measurement_curve_loader.hpp
   artifacts:
     paths: []     # Storage-500-Konvention
 
@@ -368,7 +477,7 @@ contract:experiment_driver:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-expdrv -G Ninja -DCOMDARE_BUILD_TESTS=ON
     - cmake --build build-expdrv --target test_experiment_driver_v13
-    - ctest --test-dir build-expdrv -R '^test_experiment_driver_v13$' --output-on-failure -V
+    - ce_ctest contract_experiment_driver build-expdrv --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -390,7 +499,7 @@ contract:node_shape:
     # contract;pool_flip;shaped, aber von KEINEM -R-Job gefahren (test:unit -LE contract). Gehoeren in den
     # Node-Shape-Gate (shaped-Adapter-Familie). Lokal gruen bewiesen. -R auf '^test_234_' erweitert (f + va/vb).
     - cmake --build build-nodeshape --target test_234_f1_btree_order_shape test_234_f2_skip_list_shape test_234_f3_bst_shape test_234_f4_hash_probe_shape test_234_va_shaped_adapter test_234_vb_rest_families_shaped
-    - ctest --test-dir build-nodeshape -R '^test_234_' --output-on-failure
+    - ce_ctest contract_node_shape build-nodeshape --output-on-failure   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -449,7 +558,7 @@ chaos:drift:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-chaos -G Ninja -DCOMDARE_BUILD_TESTS=ON
     - cmake --build build-chaos --target test_chaos_drift_gate
-    - ctest --test-dir build-chaos -R '^test_chaos_drift_gate$' --output-on-failure -V
+    - ce_ctest chaos_drift build-chaos --output-on-failure -V   # R4: Auswahl aus dem Manifest
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen Smoke-Jobs)
 
@@ -464,6 +573,26 @@ test:unit:
   extends: .test
   tags: [baremetal]
   needs: ["lint:secrets"]
+  # R4 (2026-08-06) -- DER WURZELSCHNITT. Bis hierher stand hier die Zeile
+  #   COMDARE_TEST_CTEST_ARGS: "-LE contract|pmc"
+  # und mit ihr die Behauptung von #278 (2026-07-06), jeder ausgeschlossene contract-Test habe
+  # seinen eigenen Job. Die Behauptung hat sich still zersetzt: am 2026-08-06 liefen 9 Tests in
+  # KEINEM Job (test_experiment_kern_seam, test_experiment_projection, test_merge_plan_directive,
+  # test_experiment_plan_director, test_experiment_dock_payload, test_progress_delta,
+  # test_gn_cell_filter, test_org18_persistence_target, test_phase_b_effective_search_algo_contrast).
+  # Der contract-Ausschluss faellt damit weg -- er war organisatorisch, nicht technisch (alle
+  # contract:*-Jobs konfigurieren mit derselben Flag-Zeile wie dieser Job). Es bleibt der
+  # pmc-Ausschluss: Performance-Counter-Hardware, gedeckt von pmc:amd/pmc:intel ueber die KLASSE.
+  # Beleg fuer die Unbedenklichkeit (lokal, Bau-Stand dieses Jobs = comdare_tests + Prebuild):
+  # "100% tests passed, 0 tests failed out of 39" fuer -L contract, danach 406-Test-Vollauf.
+  # Die Auswahl selbst kommt aus dem Manifest; .test baut seine ctest-Zeile aus
+  # COMDARE_TEST_CTEST_ARGS, deshalb wird die Variable hier im before_script belegt (das Template
+  # laeuft in derselben Shell) statt als YAML-Literal.
+  before_script:
+    - . ./scripts/ci_test_coverage_manifest.sh
+    - 'COMDARE_TEST_CTEST_ARGS="$(ce_ctest_args test_unit)" || exit 3'
+    - 'export COMDARE_TEST_CTEST_ARGS'
+    - 'echo "ctest-Auswahl aus scripts/ci_test_coverage_manifest.sh (Kennung test_unit): ${COMDARE_TEST_CTEST_ARGS}"'
   variables:
     COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
     COMDARE_TEST_BUILD_TARGET: "comdare_tests"
@@ -473,10 +602,12 @@ test:unit:
     # eine Regression dort waere erst im Voll-Bau-4 aufgefallen. Prebuild statt Test-Target, weil es eine Bibliothek
     # ohne eigene Tests ist -- der 2-Pass baut sie mit, der Compiler ist hier die Wache.
     COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli comdare_profile_run_facade"  # V-4 (27.07.): comdare_permutation_codegen_cli entfaellt mit dem Permutations-Retire (Target existiert nicht mehr)
-    # #278 Job-Scope (2026-07-06, Job 214641): contract-/pmc-Tests laufen bereits HART in ihren eigenen
-    # Jobs (contract:* / pmc:amd) — im unit-Sammel-Lauf zaehlten sie als "Not Run" (5x). KEIN Auslassen:
-    # der Ausschluss verweist auf die dedizierten Gates; unit-Scope = alles andere.
-    COMDARE_TEST_CTEST_ARGS: "-LE contract|pmc"
+    # [HISTORIE #278 (2026-07-06, Job 214641), von R4 abgeloest: "contract-/pmc-Tests laufen bereits
+    #  HART in ihren eigenen Jobs (contract:* / pmc:amd) -- im unit-Sammel-Lauf zaehlten sie als
+    #  'Not Run' (5x). KEIN Auslassen: der Ausschluss verweist auf die dedizierten Gates."
+    #  Genau dieser Verweis war die Sollbruchstelle: er galt fuer die 5 Tests von damals und wurde
+    #  nie wieder nachgerechnet. COMDARE_TEST_CTEST_ARGS wird jetzt im before_script aus dem
+    #  Manifest belegt und von der Abdeckungs-Wache gegengerechnet.]
 
 # ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
 # Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).
@@ -492,28 +623,13 @@ sanitize:tsan:
   script:
     - cmake -B build-tsan -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
     - cmake --build build-tsan --target test_concurrency_disciplines test_rcu test_v41_axis_08_concurrency
-    - 'TSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-tsan -R "^(test_concurrency_disciplines|test_rcu|test_v41_axis_08_concurrency)$" --output-on-failure -V'
+    - 'TSAN_OPTIONS=halt_on_error=1 ce_ctest sanitize_tsan build-tsan --output-on-failure -V'   # R4: Auswahl aus dem Manifest
 
 # -- PAKET W3-C (Ledger Sec.32-F4/GN-8/O-4): axis-version-lock Content-Digest-Tripwire --
-# Baut das EXCLUDE_FROM_ALL-Tool comdare_axis_version_lock (2-Pass wie die anderen Tool-Gates) und prueft den
-# SHA-256-Content-Digest der 3 Heuristik-Strategie-Header gegen das committete axis_version.lock. ROT (Exit 1),
-# wenn ein Header-Digest geaendert wurde OHNE algo_version-Bump (F4). Header werden NUR GELESEN; golden/TABU
-# unberuehrt. INERT-by-default: rules-gated auf COMDARE_AXIS_LOCK_CHECK=="true"; zum Dauergate: rules-Zeile weg.
-contract:axis-version-lock:
-  extends: .bare_metal
-  stage: contract
-  tags: [baremetal]
-  needs: ["lint:secrets"]
-  rules:
-    - if: '$COMDARE_AXIS_LOCK_CHECK == "true"'
-  script:
-    - cmake -B build-axislock -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-axislock --target comdare_axis_version_lock
-    - >
-      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check
-      tools/axis_version_lock/axis_version.lock
-      libs/cache_engine/heuristik/axis_spline.hpp
-      libs/cache_engine/heuristik/break_even.hpp
-      libs/cache_engine/heuristik/measurement_curve_loader.hpp
-  artifacts:
-    paths: []     # kein build/Testing-Artefakt (Storage-500-Konvention der contract-Jobs)
+# HIER STAND die zweite, INERT-by-default-Fassung von contract:axis-version-lock (rules-gated auf
+# COMDARE_AXIS_LOCK_CHECK=="true"). Sie ist am 2026-08-06 in die EINE Definition in der contract-Familie
+# weiter oben aufgegangen -- dort steht auch die vollstaendige Begruendung. Kurz: derselbe Schluessel war
+# zweimal vergeben, YAML liess nur diese letzte Fassung gelten und machte damit das weiter oben bewusst
+# als Dauergate gesetzte Gate (GN-8/O-4) wirkungslos, ohne dass irgendetwas rot wurde. Vereinigt wurde auf
+# die strengere Wirkung: unbedingt, ohne rules. Die Kennung bleibt hier als Wegweiser stehen, damit die
+# W3-C-Herkunft an ihrem angestammten Platz auffindbar bleibt.

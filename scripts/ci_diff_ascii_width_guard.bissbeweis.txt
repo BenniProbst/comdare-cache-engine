@@ -1,0 +1,236 @@
+DIFF-HYGIENE-WACHE -- BISS-BEWEIS (scripts/ci_diff_ascii_width_guard.sh)
+Erhoben 2026-08-06 im Worktree wt-b-r4-ci (Branch b-r4-ci-abdeckung).
+Vier geforderte Faelle (i)-(iv) plus ergaenzende Proben, alle woertlich.
+================================================================================
+
+################################################################################
+### FALL: i_nonascii  (praeparierter Diff)
+################################################################################
+
+--- Eingabe-Diff ---
+diff --git a/tests/fixture_i.cpp b/tests/fixture_i.cpp
+index 1111111..2222222 100644
+--- a/tests/fixture_i.cpp
++++ b/tests/fixture_i.cpp
+@@ -1,0 +2,1 @@
++// Umlaut-Test: ausloßen
+
+--- Ausgabe ---
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+VERSTOESSE (falls vorhanden):
+  NICHT-ASCII   tests/fixture_i.cpp:2
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  1 Zusatzzeilen in selbst verfasstem Code geprueft, davon 1 Nicht-ASCII,
+  davon 0 ueber 120 Spalten.
+  1 Zusatzzeilen insgesamt im Diff; 0 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: ROT.
+
+>>> EXIT-CODE: 1
+
+################################################################################
+### FALL: ii_width  (praeparierter Diff)
+################################################################################
+
+--- Eingabe-Diff ---
+diff --git a/tests/fixture_ii.cpp b/tests/fixture_ii.cpp
+index 1111111..2222222 100644
+--- a/tests/fixture_ii.cpp
++++ b/tests/fixture_ii.cpp
+@@ -1,0 +2,1 @@
++// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+--- Ausgabe ---
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+VERSTOESSE (falls vorhanden):
+  >120-SPALTEN  tests/fixture_ii.cpp:2 (133 Byte)
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  1 Zusatzzeilen in selbst verfasstem Code geprueft, davon 0 Nicht-ASCII,
+  davon 1 ueber 120 Spalten.
+  1 Zusatzzeilen insgesamt im Diff; 0 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: ROT.
+
+>>> EXIT-CODE: 1
+
+################################################################################
+### FALL: iii_plus_swallow  (praeparierter Diff)
+################################################################################
+
+--- Eingabe-Diff ---
+diff --git a/tests/fixture_iii.cpp b/tests/fixture_iii.cpp
+index 1111111..2222222 100644
+--- a/tests/fixture_iii.cpp
++++ b/tests/fixture_iii.cpp
+@@ -1,0 +2,1 @@
+++++ das ist KEIN Diff-Kopf, sondern Code-Text mit Umlaut: ausloesen -> grün
+
+--- Ausgabe ---
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+VERSTOESSE (falls vorhanden):
+  NICHT-ASCII   tests/fixture_iii.cpp:2
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  1 Zusatzzeilen in selbst verfasstem Code geprueft, davon 1 Nicht-ASCII,
+  davon 0 ueber 120 Spalten.
+  1 Zusatzzeilen insgesamt im Diff; 0 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: ROT.
+
+>>> EXIT-CODE: 1
+
+################################################################################
+### FALL: iv_clean  (praeparierter Diff)
+################################################################################
+
+--- Eingabe-Diff ---
+diff --git a/tests/fixture_iv.cpp b/tests/fixture_iv.cpp
+index 1111111..2222222 100644
+--- a/tests/fixture_iv.cpp
++++ b/tests/fixture_iv.cpp
+@@ -1,0 +2,2 @@
++// sauberer Kommentar, reines ASCII, unter 120 Spalten
++int f() { return 42; }
+
+--- Ausgabe ---
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+VERSTOESSE (falls vorhanden):
+  (keine)
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  2 Zusatzzeilen in selbst verfasstem Code geprueft, davon 0 Nicht-ASCII,
+  davon 0 ueber 120 Spalten.
+  2 Zusatzzeilen insgesamt im Diff; 0 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: GRUEN.
+
+>>> EXIT-CODE: 0
+
+
+################################################################################
+### ERGAENZUNG: FATAL statt stiller Null (kaputter Hunk-Kopf)
+################################################################################
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+>>> EXIT: 2
+
+################################################################################
+### ERGAENZUNG: SS-Ausnahme inkl. RF-2-Regression (SS+Box-Zeichen auf derselben Zeile)
+################################################################################
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+VERSTOESSE (falls vorhanden):
+  NICHT-ASCII   tests/fixture_sigma.cpp:3
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  2 Zusatzzeilen in selbst verfasstem Code geprueft, davon 1 Nicht-ASCII,
+  davon 0 ueber 120 Spalten.
+  2 Zusatzzeilen insgesamt im Diff; 0 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: ROT.
+>>> EXIT: 1
+
+################################################################################
+### ERGAENZUNG: Scope-Transparenz (.md-Datei wird gezaehlt+namentlich gemeldet)
+################################################################################
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: --stdin (fertiger Diff wird gelesen; der Aufrufer traegt die
+Verantwortung fuer den Exit-Code seiner EIGENEN vorgelagerten Stufe).
+
+VERSTOESSE (falls vorhanden):
+  (keine)
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  0 Zusatzzeilen in selbst verfasstem Code geprueft, davon 0 Nicht-ASCII,
+  davon 0 ueber 120 Spalten.
+  1 Zusatzzeilen insgesamt im Diff; 1 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+  Uebersprungene Dateien (namentlich, keine zweite stille Null):
+    - docs/MANUAL_RUN.md
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: GRUEN.
+>>> EXIT: 0
+
+################################################################################
+### ECHTLAUF (read-only) gegen die tatsaechliche Historie dieses Branches
+################################################################################
+=============================================================================
+ DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)
+=============================================================================
+
+MODUS: git diff selbst ausgefuehrt (Repo: /home/comdare/wt-b-r4-ci)
+ARGUMENTE: git diff -U0 --no-color --no-ext-diff HEAD~2..HEAD
+
+VERSTOESSE (falls vorhanden):
+  (keine)
+
+-----------------------------------------------------------------------------
+NENNER (nie eine nackte Null):
+  9 Zusatzzeilen in selbst verfasstem Code geprueft, davon 0 Nicht-ASCII,
+  davon 0 ueber 120 Spalten.
+  249 Zusatzzeilen insgesamt im Diff; 240 davon ausserhalb des Scopes
+  (Doku-Prosa/Sonstiges) uebersprungen.
+  Uebersprungene Dateien (namentlich, keine zweite stille Null):
+    - tools/axis_version_lock/axis_version.lock
+    - .gitlab-ci.yml
+    - scripts/ci_yaml_key_guard.sh
+-----------------------------------------------------------------------------
+
+DIFF-HYGIENE-WACHE: GRUEN.
+>>> EXIT: 0
