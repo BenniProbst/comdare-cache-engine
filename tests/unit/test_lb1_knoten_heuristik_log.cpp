@@ -17,6 +17,7 @@
 
 #include "bestandslog/knoten_heuristik_log.hpp"
 #include "bestandslog/lager_baum_writer.hpp"
+#include "support/oeb_stempel_zeilen.hpp" // OE-B-Stempel-Fixture + split_lines + Ruecklese (LB-6)
 
 #include <cache_engine/abi/anatomy_fingerprint.hpp> // OF-M3-2: das Overlay-Glied, heute ehrlich leer
 
@@ -35,6 +36,7 @@
 #include <vector>
 
 namespace bl = comdare::cache_engine::builder::bestandslog;
+namespace ct = comdare::test;
 namespace fs = std::filesystem;
 
 namespace {
@@ -525,8 +527,10 @@ TEST(Lb1DummyLager, KnotenLogLebtImRealenBaumNebenDenBlaettern) {
     SkriptUhr         uhr;
     std::string const knoten = temp.pfad() + "/" + std::string{kKnoten};
     ASSERT_TRUE(ablage.verzeichnis_anlegen(knoten));
-    // "Binary" = Textdatei mit Stempel-String (OE-B) -- das Log liegt daneben.
-    ASSERT_TRUE(ablage.datei_schreiben(knoten + "/perm.dll", "[vereint,O2,avx2][a,b,c]+bt=Release"));
+    // "Binary" = Textdatei mit Stempel-String (OE-B) -- das Log liegt daneben. Der Stempel ist seit
+    // LB-6 MEHRZEILIG (Form des echten g1_binary_version_block, support/oeb_stempel_zeilen.hpp);
+    // die zeilenweise Ruecklese steht im Test darunter.
+    ASSERT_TRUE(ablage.datei_schreiben(knoten + "/perm.dll", ct::oeb_stempel_block()));
 
     auto const o =
         bl::mit_knoten_lock(ablage, knoten, owner("uuid-a"), uhr.fn(), [&](bl::AlleinschreiberNachweis const& n) {
@@ -547,6 +551,62 @@ TEST(Lb1DummyLager, KnotenLogLebtImRealenBaumNebenDenBlaettern) {
     ASSERT_TRUE(ladung.ok()) << bl::to_string(ladung.fehler);
     EXPECT_TRUE(ladung.log.ast_vollstaendig());
     EXPECT_EQ(ladung.log.binaries, 1u);
+}
+
+TEST(Lb1DummyLager, StempelBlattWirdNebenDemKnotenLogZeilenweiseVerbatimZurueckgelesen) {
+    // LB-6 / Owner-Verschaerfung 06.08.2026: "jede Zeile verbatim". Der Test darueber belegt, dass
+    // das Knoten-Log NEBEN der Dummy-Binary lebt -- er sagt aber nichts darueber, ob die Binary
+    // ihren Stempel unbeschadet behaelt, waehrend der gelockte Zyklus im selben Verzeichnis
+    // schreibt und truncatet. Genau das prueft dieser Test, und zwar zeilenweise.
+    TempKnoten        temp;
+    auto const        ablage = bl::make_filesystem_ablage();
+    SkriptUhr         uhr;
+    std::string const knoten     = temp.pfad() + "/" + std::string{kKnoten};
+    std::string const blatt_pfad = knoten + "/perm.dll";
+    std::string const stempel    = ct::oeb_stempel_block();
+    ASSERT_TRUE(ablage.verzeichnis_anlegen(knoten));
+    ASSERT_TRUE(ablage.datei_schreiben(blatt_pfad, stempel));
+
+    // Der volle gelockte Zyklus inklusive Truncate laeuft NEBEN dem Blatt.
+    auto const o =
+        bl::mit_knoten_lock(ablage, knoten, owner("uuid-a"), uhr.fn(), [&](bl::AlleinschreiberNachweis const& n) {
+            bl::KnotenLog l;
+            l.knoten    = knoten;
+            l.stand_utc = "2026-08-03T12:00:00Z";
+            l.erwartet  = 1;
+            bl::KnotenLogOffen offen{std::move(l)};
+            EXPECT_TRUE(offen.beobachte(blatt('a')).neu);
+            auto s = std::move(offen).schluss_build_ende(n);
+            if (!s) return false;
+            return s->truncate_und_inventarisiere(ablage, n, "2026-08-03T13:00:00Z").ok();
+        });
+    EXPECT_EQ(o, bl::LockOutcome::ok);
+    ASSERT_TRUE(fs::exists(fs::path{bl::knoten_log_pfad(knoten)}));
+
+    // RUECKLESE des Stempel-Blattes ueber std::ifstream -- ein ZWEITER Weg, nicht derselbe
+    // BaumAblage-Baustein, mit dem geschrieben wurde (ein symmetrischer Fehler hoebe sich sonst auf).
+    auto const roh = ct::lies_blatt_datei(fs::path{blatt_pfad});
+    ASSERT_TRUE(roh.has_value()) << "Blatt nicht oeffenbar: " << blatt_pfad;
+    EXPECT_EQ(*roh, stempel);
+
+    // Zeilenzahl zuerst (sonst faellt eine verlorene Zeile nicht auf), dann jede Zeile einzeln.
+    EXPECT_EQ(std::count(roh->begin(), roh->end(), '\n'), static_cast<std::ptrdiff_t>(ct::kOeBStempelZeilenZahl));
+    auto const zeilen = ct::split_lines(*roh);
+    ASSERT_EQ(zeilen.size(), ct::kOeBStempelZeilenZahl);
+    EXPECT_EQ(zeilen[0], ct::kOeBStempelZeile0);
+    EXPECT_EQ(zeilen[1], ct::kOeBStempelZeile1);
+    EXPECT_EQ(zeilen[2], ct::kOeBStempelZeile2);
+    EXPECT_EQ(zeilen[3], ct::kOeBStempelZeile3);
+    for (std::size_t i = 0; i < zeilen.size(); ++i)
+        EXPECT_TRUE(zeilen[i].starts_with(ct::kOeBStempelLabels[i])) << "Zeile " << i << " = '" << zeilen[i] << "'";
+
+    // Und das Knoten-Log daneben ist ein EIGENES Blatt: sein Kopf ist nicht der Stempel.
+    auto const log_roh = ct::lies_blatt_datei(fs::path{bl::knoten_log_pfad(knoten)});
+    ASSERT_TRUE(log_roh.has_value());
+    auto const log_zeilen = ct::split_lines(*log_roh);
+    ASSERT_FALSE(log_zeilen.empty());
+    EXPECT_EQ(log_zeilen[0], "complete-heuristik v1");
+    EXPECT_NE(*log_roh, *roh) << "Stempel und Knoten-Log duerfen sich nie zu EINER Datei verschmelzen";
 }
 
 // ===========================================================================
