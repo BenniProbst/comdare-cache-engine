@@ -14,17 +14,21 @@
 // KORN: kGnBatchSlice=4096 spiegelt experiment_plan_director.hpp:439 (die Slice-Grenzen uebernimmt
 // das Bestandslog 1:1 vom Planner-Takt). B13: Batch-Typ-Sequenz-Wache (planer_block->ceb->tier).
 //
-// DOKTRIN: header-only C++23, ASCII-Kommentare (§ erlaubt), nur stdlib + slice_queue.hpp. Der
-// Planer-Thread ist I/O-/Koordinations-Ebene (kein Hot-Path) -> std::function-Praedikat zulaessig.
+// DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib + slice_queue.hpp +
+// prozess_identitaet.hpp (die EINE pid-Weiche des Hauses, T2-A/F4-NB). Der Planer-Thread ist
+// I/O-/Koordinations-Ebene (kein Hot-Path) -> std::function-Praedikat zulaessig.
 //
 // T2-A/F4 (2026-08-06, Owner-KERN Zaehler-Resume): dazu kommt die PLAN-ABLAGE -- <filesystem>/<fstream>
 // stehen ab hier in der Include-Liste. Das bleibt innerhalb der Doktrin (reine stdlib) und innerhalb der
 // Ebene (der Planer ist die I/O-/Koordinations-Ebene); ein Hot-Path wird nicht beruehrt.
 
 #include "bestandslog_document.hpp" // BatchTyp
+#include "prozess_identitaet.hpp"   // T2-A/F4-NB: current_pid fuer den prozess-eindeutigen tmp-Namen
 #include "slice_queue.hpp"
 
 #include <algorithm>
+#include <atomic>  // T2-A/F4-NB: der prozess-lokale Zaehler des tmp-Namens
+#include <chrono>  // T2-A/F4-NB: die Nanosekunden-Marke des tmp-Namens
 #include <cstddef>
 #include <cstdint>
 #include <filesystem> // T2-A/F4: die Plan-/Zaehler-Ablage (Koordinations-Ebene, kein Hot-Path)
@@ -323,21 +327,69 @@ parse_batch_plan(std::string const& text, std::string const& stamp, std::string 
 // Die Ablage. ATOMAR (schreiben nach .tmp, dann rename): ein abgebrochener Schreibvorgang darf keinen
 // halben Plan hinterlassen, den der Folgelauf fuer einen ganzen haelt. rename ist auf einem Dateisystem
 // die einzige Operation, die diese Zusage gibt.
+//
+// T2-A/F4-NB (Codex-Scope-F4, ECHT) -- DER tmp-NAME IST PROZESS-EINDEUTIG.
+//
+// DER BEFUND: der Name war fest ("<ziel>.tmp"). Die Ein-CEB-Exklusivitaet, die man dagegenhalten
+// koennte, gilt NUR fuers MESSEN -- der Section-35/36-BAU-POOL laeuft PARALLEL, also koennen mehrere
+// Bau-Laeufe gleichzeitig schreiben. Zwei Prozesse oeffneten dann DIESELBE tmp-Datei mit trunc,
+// schrieben ineinander, und der erste rename publizierte den verwobenen Inhalt als "atomar
+// geschriebenen" Plan. Die Atomaritaet des rename war intakt -- geschuetzt hat sie nichts, weil die
+// Quelle des rename bereits geteilt war.
+//
+// DIE HEILUNG: pid + Nanosekunden-Marke + prozess-lokaler Zaehler. Die pid trennt die Prozesse EINER
+// Maschine (der belegte Fall), die Zeitmarke die Prozesse verschiedener Maschinen, die ueber einen
+// geteilten Mount auf denselben Pfad schreiben (pids kollidieren dort), der Zaehler die Aufrufe
+// desselben Prozesses. KEIN std::random_device -- dieselbe Begruendung wie bei retry_jitter
+// (builder_registration.hpp): Entropie im Bau-Pfad waere Aufwand ohne Gewinn.
+// Das Suffix ".tmp" bleibt am ENDE, damit jedes Aufraeum-Muster ueber "*.tmp" weiter greift.
+//
+// GRENZE, ehrlich benannt: zwei Prozesse, die auf DERSELBEN Nanosekunde mit DERSELBEN pid starten,
+// bekaemen denselben Namen. Das ist kein Zustand, den diese Maschinerie herstellen kann.
+//
+// UND DER STREAMSTATUS WIRD NACH DEM EXPLIZITEN close() GEPRUEFT (zweite Haelfte des Befunds): vorher
+// urteilte "if (!os)" VOR dem impliziten close des Blockendes. Ein Fehler beim LETZTEN Flush (voller
+// Datentraeger, Quota, I/O-Fehler) faellt aber erst dort an -- er blieb unbemerkt, und der rename
+// publizierte einen unvollstaendigen Inhalt als ganzen Plan. Genau die Luege, gegen die die atomare
+// Ablage gebaut ist. Eigene Reste werden auf JEDEM Fehlerpfad geraeumt, nicht nur beim rename.
 // ---------------------------------------------------------------------------
+namespace detail {
+// Der prozess-eindeutige Teil des tmp-Namens. Der Zaehler ist funktions-lokal (eine Wahrheit, kein
+// Datei-globaler Zustand) und atomar, weil mehrere Bau-Threads desselben Prozesses schreiben duerfen.
+[[nodiscard]] inline std::string tmp_marke() {
+    static std::atomic<std::uint64_t> lauf{0};
+    auto const ns = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count());
+    return std::to_string(current_pid()) + "-" + std::to_string(ns) + "-" + std::to_string(lauf.fetch_add(1));
+}
+} // namespace detail
+
 [[nodiscard]] inline bool schreibe_atomar(std::filesystem::path const& ziel, std::string const& inhalt) {
     std::error_code ec;
     if (ziel.has_parent_path()) std::filesystem::create_directories(ziel.parent_path(), ec);
-    std::filesystem::path const tmp = std::filesystem::path{ziel.string() + ".tmp"};
+    std::filesystem::path const tmp = std::filesystem::path{ziel.string() + "." + detail::tmp_marke() + ".tmp"};
+    auto                        weg = [&tmp] {
+        std::error_code fort;
+        std::filesystem::remove(tmp, fort); // eigener Rest, eigene Raeumung -- auf JEDEM Fehlerpfad
+    };
     {
         std::ofstream os{tmp, std::ios::trunc | std::ios::binary};
-        if (!os) return false;
+        if (!os) {
+            weg();
+            return false;
+        }
         os << inhalt;
-        if (!os) return false;
+        os.flush();
+        os.close(); // EXPLIZIT -- erst danach ist der Streamstatus die ganze Wahrheit
+        if (!os) {
+            weg();
+            return false;
+        }
     }
     std::filesystem::rename(tmp, ziel, ec);
     if (ec) {
-        std::error_code weg;
-        std::filesystem::remove(tmp, weg);
+        weg();
         return false;
     }
     return true;

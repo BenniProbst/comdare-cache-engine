@@ -19,11 +19,15 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm> // T2-A/F4-NB: std::find ueber die Schreiber-Inhalte
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator> // T2-A/F4-NB: istreambuf_iterator (den publizierten Inhalt am Stueck lesen)
 #include <string>
+#include <system_error>
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -225,9 +229,13 @@ TEST(G3BatchPlan, GrammatikUndDateiRundlauf) {
     auto const            dir = plan_test_dir();
     std::filesystem::path p   = dir / "plan.txt";
     ASSERT_TRUE(bl::write_batch_plan(p, stamp, faecher, kRowsKey));
+    // T2-A/F4-NB: der tmp-Name ist prozess-eindeutig, ein fester Name waere hier nicht mehr
+    // aussagekraeftig. Geprueft wird deshalb das ORDNER-IST: nach dem Schreiben liegt GENAU die
+    // Zieldatei da und kein einziger .tmp-Rest -- egal wie er heisst.
     std::error_code ec;
-    EXPECT_FALSE(std::filesystem::exists(std::filesystem::path{p.string() + ".tmp"}, ec))
-        << "die atomare Ablage darf keine .tmp-Leiche hinterlassen";
+    for (auto const& e : std::filesystem::directory_iterator{dir, ec})
+        EXPECT_EQ(e.path().extension().string() == ".tmp", false)
+            << "die atomare Ablage darf keine .tmp-Leiche hinterlassen: " << e.path().string();
     auto const gelesen = bl::read_batch_plan(p, stamp, kRowsKey);
     ASSERT_TRUE(gelesen.has_value());
     EXPECT_EQ(*gelesen, faecher);
@@ -310,4 +318,81 @@ TEST(G3BatchPlan, ResumePunktUeberspringtNurGanzGedeckteFaecher) {
     EXPECT_EQ(bl::plan_resume_faecher(faecher, 8), 2u);
     EXPECT_EQ(bl::plan_resume_faecher(faecher, 10), 3u);
     EXPECT_EQ(bl::plan_resume_faecher(faecher, 99), 3u) << "nie mehr als es Faecher gibt";
+}
+
+// ---------------------------------------------------------------------------
+// (e) T2-A/F4-NB (Codex-Scope-F4, ECHT) -- DIE ABLAGE IST MULTI-WRITER-SICHER.
+//
+// Der Bau-Pool laeuft PARALLEL (die Ein-CEB-Exklusivitaet gilt nur fuers MESSEN). Mit einem FESTEN
+// tmp-Namen oeffnen zwei gleichzeitige Schreiber DIESELBE Datei mit trunc, schreiben ineinander, und
+// der erste rename publiziert den verwobenen Inhalt als "atomar geschriebenen" Plan.
+//
+// ROT VORGEFUEHRT (nicht committet, literal im Bericht): mit dem festen Namen "<ziel>.tmp" liefert
+// genau dieser Test zerrissene Inhalte (Praefix des einen + Rest des anderen). Committet ist die
+// GRUENE Form -- ein zerrissener Inhalt bricht sie sofort.
+// ---------------------------------------------------------------------------
+TEST(G3BatchPlan, AblageIstMultiWriterSicher) {
+    auto const                  dir = plan_test_dir();
+    std::filesystem::path const ziel = dir / "geteilt.txt";
+
+    // Acht Schreiber, acht UNTERSCHEIDBARE Inhalte unterschiedlicher LAENGE (gleiche Laenge wuerde
+    // ein Zerreissen verschleiern) -- gross genug, dass der Schreibvorgang nicht in einem Rutsch
+    // durchlaeuft.
+    constexpr int            kSchreiber = 8;
+    std::vector<std::string> inhalte;
+    for (int i = 0; i < kSchreiber; ++i)
+        inhalte.push_back(std::string(static_cast<std::size_t>(200000 + i * 40000), static_cast<char>('a' + i)));
+
+    std::atomic<int>         fehlschlaege{0};
+    std::vector<std::thread> pool;
+    for (int i = 0; i < kSchreiber; ++i)
+        pool.emplace_back([&, i] {
+            for (int runde = 0; runde < 8; ++runde)
+                if (!bl::schreibe_atomar(ziel, inhalte[static_cast<std::size_t>(i)])) ++fehlschlaege;
+        });
+    for (auto& t : pool) t.join();
+    EXPECT_EQ(fehlschlaege.load(), 0);
+
+    // Der publizierte Inhalt ist IMMER genau einer der ganzen Inhalte -- nie eine Mischung.
+    std::ifstream     is{ziel, std::ios::binary};
+    std::string const gelesen{std::istreambuf_iterator<char>{is}, std::istreambuf_iterator<char>{}};
+    EXPECT_NE(std::find(inhalte.begin(), inhalte.end(), gelesen), inhalte.end())
+        << "publiziert wurde ein Inhalt der Laenge " << gelesen.size() << " -- kein ganzer Schreibvorgang";
+
+    // Und kein einziger tmp-Rest bleibt liegen (Raeumung auf allen Wegen).
+    std::error_code ec;
+    for (auto const& e : std::filesystem::directory_iterator{dir, ec})
+        EXPECT_NE(e.path().extension().string(), ".tmp") << e.path().string();
+}
+
+// (e2) Die tmp-Marke selbst: eindeutig ueber Aufrufe UND ueber Threads.
+TEST(G3BatchPlan, TmpMarkeIstProzessEindeutig) {
+    constexpr int                            kThreads = 8;
+    constexpr int                            kProThread = 500;
+    std::vector<std::vector<std::string>>    je_thread(kThreads);
+    std::vector<std::thread>                 pool;
+    for (int t = 0; t < kThreads; ++t)
+        pool.emplace_back([&, t] {
+            auto& meine = je_thread[static_cast<std::size_t>(t)];
+            for (int i = 0; i < kProThread; ++i) meine.push_back(bl::detail::tmp_marke());
+        });
+    for (auto& th : pool) th.join();
+
+    std::unordered_set<std::string> alle;
+    for (auto const& v : je_thread)
+        for (auto const& m : v) alle.insert(m);
+    EXPECT_EQ(alle.size(), static_cast<std::size_t>(kThreads * kProThread))
+        << "zwei gleiche Marken heissen zwei Schreiber auf derselben tmp-Datei";
+}
+
+// (e3) FEHLERPFAD: laesst sich der Ordner nicht anlegen (eine DATEI steht an seiner Stelle), ist das
+// ein ehrliches false -- und es bleibt kein eigener Rest liegen.
+TEST(G3BatchPlan, FehlerpfadHinterlaesstKeinenRest) {
+    auto const                  dir = plan_test_dir();
+    std::filesystem::path const sperre = dir / "keinordner";
+    { std::ofstream{sperre, std::ios::trunc} << "ich bin eine Datei\n"; }
+    EXPECT_FALSE(bl::schreibe_atomar(sperre / "plan.txt", "egal"));
+    std::error_code ec;
+    for (auto const& e : std::filesystem::directory_iterator{dir, ec})
+        EXPECT_NE(e.path().extension().string(), ".tmp") << e.path().string();
 }

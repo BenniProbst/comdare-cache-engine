@@ -36,6 +36,7 @@
 #include "bestandslog_factory.hpp"
 #include "bestandslog_index.hpp"
 #include "bestandslog_lock.hpp"
+#include "prozess_identitaet.hpp"    // T2-A/F4-NB: current_pid (hierher extrahiert, Single Source)
 #include "reservation_lifecycle.hpp" // pro_forma_deadline_epoch_s/make_pro_forma_reservation (B4, nur lesend genutzt)
 
 #include <algorithm> // TP1FK1-B1: sort/unique/lower_bound der Selektions-Deckung (SweepScope)
@@ -56,12 +57,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#if defined(_WIN32)
-#include <process.h> // ::_getpid (Muster test_parser_konsolidierung.cpp:16)
-#else
-#include <unistd.h> // ::getpid (Muster artifact_cache.hpp:662)
-#endif
 
 namespace comdare::cache_engine::builder::bestandslog {
 
@@ -150,16 +145,10 @@ namespace comdare::cache_engine::builder::bestandslog {
 // Aufrufer-Seite des gelockten Schreib-Zyklus (N7-D1).
 // ---------------------------------------------------------------------------
 
-// Prozess-Id fuer das Lock-Objekt. REIN DIAGNOSTISCH: der Lock vergleicht ausschliesslich owner_uuid
-// (bestandslog_lock.hpp) -- die pid steht im Objekt, damit eine haengende Maschine im Log auffindbar
-// bleibt. Plattform-Weiche wie im Haus ueblich.
-[[nodiscard]] inline long current_pid() noexcept {
-#if defined(_WIN32)
-    return static_cast<long>(::_getpid());
-#else
-    return static_cast<long>(::getpid());
-#endif
-}
+// T2-A/F4-NB: current_pid() steht seit diesem Paket in prozess_identitaet.hpp (oben inkludiert) --
+// unveraendert, gleicher Namespace, gleiche Semantik. Grund: die atomare Plan-Ablage
+// (batch_planner.hpp::schreibe_atomar) braucht denselben Wert fuer ihren prozess-eindeutigen
+// tmp-Namen und darf diesen schweren Header nicht ziehen. Es gibt weiter nur EINE Plattform-Weiche.
 
 // Der Lock-Owner DIESES Prozesses aus den Host-Feldern. Ein leerer owner_uuid bleibt leer -- die
 // Fail-closed-Wache in with_document_lock/parse_lock (N7-D5) muss ihn sehen und ablehnen; diese Naht
