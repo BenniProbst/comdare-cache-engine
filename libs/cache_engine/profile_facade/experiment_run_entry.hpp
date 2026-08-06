@@ -39,6 +39,7 @@
 #include <builder/experiment_tree/selection_filter_chain.hpp> // A6/§50-CoR: resolve_selection (direkt genutzt, IWYU)
 
 #include <ctime>
+#include <filesystem> // T2-A/F1-NB: der per-Perm-Zell-Ordner (IWYU -- bisher nur transitiv ueber profile_run_entry)
 
 namespace comdare::cache_engine::thesis_lazy {
 
@@ -361,9 +362,36 @@ struct RunExperimentResult {
                                   : std::string{};
             std::string const perm_build_version     = a.build_version + perm_suffix;
             std::string const perm_tag_build_version = tag_build_version + perm_suffix;
+            // T2-A/F1-NB (SPIEGEL der run_profile-Schleife; Codex-Scope-PERM, HOCH, Ledger 06.08.
+            // mittag-11): DER ZELL-PFAD FEHLTE HIER. Die Diff-Kommentare dieses Zwillings beanspruchen
+            // fuer H1/H2 ausdruecklich "Spiegel" -- fuer F1 galt das nicht: perm_compile und perm_suffix
+            // wechselten je Zelle, cfg.output_dir blieb IMMER a.dll_dir. Weil der per-Binary-Ordnerstamm
+            // allein an der binary_id haengt (die per Doktrin NIE Toolchain-Glieder traegt), schrieben
+            // ALLE Zellen auf DIESELBE perm.dll, dasselbe .fingerprint-Sidecar und dieselbe per-Binary
+            // result.csv. Seit dem Neuanker unterscheiden sich die Fingerprints der Zellen -> jede Zelle
+            // verwirft den Bau der vorigen (Dauer-Neubau ueber die ganze Matrix), und die Mess-Ablage der
+            // zuerst gelaufenen ist ueberschrieben.
+            //
+            // DASS DIESER PFAD PRODUKTIV IST, ist am Objekt belegt: super Code/02_messung_driver/main.cpp
+            // ruft run_experiment_profile_facade (:1200) und benennt den "opt x simd-Walk in
+            // run_experiment_profile" (:1247). Er traegt die V32-Messreihen-Bruecke.
+            //
+            // GESPIEGELT WIRD DER WEG, NICHT DER WORTLAUT: derselbe compose_system_zell_pfad aus
+            // DENSELBEN perm_parts, die schon den Suffix bilden (EINE Quelle, EINE Ordnung -- die
+            // static_assert-Wache in system_version_suffix.hpp haelt beide zusammen), und dieselbe
+            // Bedingung wie die Identitaet (perm_bau_je_zelle): ohne per-Zelle-Bau entsteht ueberall
+            // dasselbe Binary, getrennte Ordner waeren dann nur |opt x simd| identische Nachbauten.
+            // IDENTITAETS-DEFAULT: kein <system_axes> => die Schleife laeuft nie => perm_output_dir
+            // bleibt a.dll_dir => byte-identisch zum Vor-F1-Verhalten.
+            std::string const perm_zellordner =
+                perm_bau_je_zelle ? ::comdare::cache_engine::profile_facade::compose_system_zell_pfad(perm_parts)
+                                  : std::string{};
+            std::filesystem::path const perm_output_dir =
+                perm_zellordner.empty() ? a.dll_dir : (a.dll_dir / perm_zellordner);
             std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
                       << (march_flag.empty() ? std::string{} : (" " + march_flag))
-                      << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values << "'\n";
+                      << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values
+                      << "' zell_pfad='" << perm_output_dir.string() << "'\n";
             std::set<std::string> sota_seen_bids; // per-Perm-Reset: jede opt×simd-Stufe ist ein eigenes SOTA-Rennen
             for (auto const& proj : projections) {
                 std::cout << "  [PHASE] name=" << proj.phase_name << " merge=" << proj.merge
@@ -411,7 +439,7 @@ struct RunExperimentResult {
                         cfg.row_platform      = tag_platform;
                         cfg.row_build_version = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
                         cfg.source_dir        = a.src_dir;
-                        cfg.output_dir        = a.dll_dir;
+                        cfg.output_dir        = perm_output_dir; // T2-A/F1-NB: per-Perm-Zell-Ordner, sonst == a.dll_dir
                         cfg.cores_per_build   = a.cores_per_build;
                         cfg.build_parallelism =
                             a.build_parallelism; // W6 (§32-F7): Bau-Pool-Override (0 = byte-neutral)
