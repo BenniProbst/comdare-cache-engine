@@ -5008,6 +5008,10 @@ comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)
 target_include_directories(test_g3_planer_driven PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    # T2-A/F4-NB: slice_plan_stamp bindet die Indexfolge ueber einen sha512-Digest (slice_index_digest,
+    # planer_driven_build.hpp) -- dieselbe Primitive, aus der der Fingerprint entsteht. Deshalb gehoert
+    # die ctsha512-Wurzel ab jetzt zu diesem Ziel (Muster test_g3_lager_presence).
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_planer_driven PRIVATE Threads::Threads)
 

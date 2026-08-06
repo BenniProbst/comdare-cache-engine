@@ -9,7 +9,9 @@
 #include "bestandslog/planer_driven_build.hpp"
 
 #include <cstddef>
+#include <cstdint> // T2-A/F4-NB: die Ueberlauf-Randfaelle des Resume-Punkts
 #include <optional>
+#include <string> // T2-A/F4-NB: die Stempel-Formen (alt literal, neu aus der Naht)
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -163,4 +165,93 @@ TEST(G3PlanerDriven, PlannerMissingCountIstDieFilterWahrheit) {
     ASSERT_TRUE(plan.has_value());
     EXPECT_EQ(plan->missing_count, bl::filter_window_for_build(plan->view_indices, praedikat).zu_bauen.size());
     EXPECT_EQ(plan->missing_count, 2u);
+}
+
+// ===========================================================================================
+// T2-A/F4-NB (Codex-Scope-F4, KRITISCH) -- DER ZAEHLER BINDET AN DIE INDEXFOLGE.
+//
+// DER BISS. Zwei Selektionen mit IDENTISCHER front(), IDENTISCHER size() und IDENTISCHEM Korn, aber
+// VERSCHIEDENER Indexfolge:  A = {0,1,2,3}   B = {0,5,7,9}.
+// ALT band der Stempel nur die drei Zahlen -- beide Selektionen bekamen denselben Stempel; der
+// Zaehler-Leser prueft zusaetzlich nur Fachzahl und Atomsumme, und die stimmen bei gleicher Groesse
+// und gleichem Korn ebenfalls ueberein. Ein Zaehler, der fuer A erarbeitet wurde, wurde also fuer B
+// AKZEPTIERT: B haette fuehrende Faecher uebersprungen, deren Binaries nie gebaut wurden.
+// NEU traegt der Stempel einen Digest ueber die Folge -> B lehnt A's Zaehler ab (fail-closed).
+// ===========================================================================================
+namespace {
+
+// Die ALTE Stempel-Form, LITERAL nachgebaut (der Code kennt sie nicht mehr). Ohne sie waere der rote
+// Teil des Bisses nicht vorfuehrbar, sondern nur behauptet.
+[[nodiscard]] std::string alt_slice_plan_stamp_v1(std::vector<std::size_t> const& indices, std::size_t grain) {
+    return std::string{"batchplan-v1"} +
+           "|art=bau-slice|start=" + std::to_string(indices.empty() ? std::size_t{0} : indices.front()) +
+           "|indizes=" + std::to_string(indices.size()) + "|korn=" + std::to_string(grain);
+}
+
+} // namespace
+
+TEST(G3PlanerDriven, IndexfolgeIstImStempelGebunden) {
+    std::vector<std::size_t> const a{0, 1, 2, 3};
+    std::vector<std::size_t> const b{0, 5, 7, 9};
+    constexpr std::size_t          kKorn = 4;
+
+    // Die Voraussetzung des Bisses: front, size und Korn sind IDENTISCH.
+    ASSERT_EQ(a.front(), b.front());
+    ASSERT_EQ(a.size(), b.size());
+
+    // Beide Selektionen ergeben Plaene mit derselben Fachzahl und derselben Atomsumme -- die zwei
+    // Groessen, die parse_phasen_zaehler prueft. Genau deshalb reichte der Stempel nicht.
+    auto const faecher_a = bl::slice_plan_faecher(bl::plan_alle_faecher(a, kKorn, {}));
+    auto const faecher_b = bl::slice_plan_faecher(bl::plan_alle_faecher(b, kKorn, {}));
+    ASSERT_EQ(faecher_a.size(), faecher_b.size());
+    ASSERT_EQ(bl::plan_atome(faecher_a), bl::plan_atome(faecher_b));
+
+    // -- ROT (der Ist-Zustand VOR der Heilung) -------------------------------------------------
+    std::string const alt_a = alt_slice_plan_stamp_v1(a, kKorn);
+    std::string const alt_b = alt_slice_plan_stamp_v1(b, kKorn);
+    EXPECT_EQ(alt_a, alt_b) << "ALT: zwei verschiedene Selektionen, EIN Stempel";
+    std::string const alt_zaehler_von_a =
+        bl::render_phasen_zaehler(alt_a, bl::PhasenZaehler{4, 0}, faecher_a.size(), "|rows=");
+    auto const alt_gelesen_als_b = bl::parse_phasen_zaehler(alt_zaehler_von_a, alt_b, faecher_b, "|rows=");
+    ASSERT_TRUE(alt_gelesen_als_b.has_value()) << "ALT: der FREMDE Zaehler wird akzeptiert -- das ist der Defekt";
+    EXPECT_EQ(alt_gelesen_als_b->kompiliert, 4u);
+    EXPECT_EQ(bl::plan_resume_faecher(faecher_b, alt_gelesen_als_b->kompiliert), 1u)
+        << "ALT: B haette sein einziges Fach uebersprungen -- 4 Binaries, die NIEMAND gebaut hat";
+
+    // -- GRUEN (nach der Heilung) ---------------------------------------------------------------
+    std::string const neu_a = bl::slice_plan_stamp(a, kKorn);
+    std::string const neu_b = bl::slice_plan_stamp(b, kKorn);
+    EXPECT_NE(neu_a, neu_b) << "NEU: die Indexfolge steht im Stempel";
+    std::string const neu_zaehler_von_a =
+        bl::render_phasen_zaehler(neu_a, bl::PhasenZaehler{4, 0}, faecher_a.size(), "|rows=");
+    EXPECT_FALSE(bl::parse_phasen_zaehler(neu_zaehler_von_a, neu_b, faecher_b, "|rows=").has_value())
+        << "NEU: der fremde Zaehler wird abgelehnt -- B baut ehrlich von vorn";
+    // Der eigene Zaehler gilt weiter (die Wache trennt, sie sperrt nicht).
+    EXPECT_TRUE(bl::parse_phasen_zaehler(neu_zaehler_von_a, neu_a, faecher_a, "|rows=").has_value());
+}
+
+TEST(G3PlanerDriven, IndexDigestBindetReihenfolgeUndInhalt) {
+    // REIHENFOLGE: dieselbe MENGE, andere Folge -> anderer Digest (der Plan baut in Index-Reihenfolge,
+    // ein umsortierter Plan ist ein anderer Plan).
+    EXPECT_NE(bl::slice_index_digest({1, 2, 3}), bl::slice_index_digest({3, 2, 1}));
+    // INJEKTIVITAET des Preimages: die Ziffernfolge allein wuerde {1,23} und {12,3} verschmelzen --
+    // der '\n'-Abschluss je Index trennt sie.
+    EXPECT_NE(bl::slice_index_digest({1, 23}), bl::slice_index_digest({12, 3}));
+    // Determinismus + Form: 128 Hex-Zeichen, gleicher Eingang -> gleicher Digest.
+    auto const d = bl::slice_index_digest({0, 5, 7, 9});
+    EXPECT_EQ(d.size(), 128u);
+    EXPECT_EQ(d, bl::slice_index_digest({0, 5, 7, 9}));
+    EXPECT_EQ(d.find_first_not_of("0123456789abcdef"), std::string::npos);
+    // Der leere Plan hat einen definierten Digest (kein Sonderfall, keine leere Zeichenkette).
+    EXPECT_EQ(bl::slice_index_digest({}).size(), 128u);
+}
+
+// T2-A/F4-NB (MITTEL, Ueberlauf): ein Fach nahe 2^64 darf den Resume-Punkt nicht wickeln lassen.
+TEST(G3PlanerDriven, ResumePunktUndAtomsummeWickelnNicht) {
+    constexpr std::uint64_t             kFast = ~std::uint64_t{0} - 1; // 2^64-2
+    std::vector<bl::PlanFach> const     riesig{{0, kFast, 0}, {0, 4, 0}};
+    EXPECT_EQ(bl::plan_atome(riesig), bl::kPlanAtomeSaettigung) << "nicht darstellbar -> saettigen, nie wickeln";
+    // Zaehler 3: das erste Fach ist NICHT gedeckt -> 0 Faecher. Die wickelnde Form haette
+    // (0 + (2^64-2)) > 3 als FALSCH gelesen und das Fach uebersprungen.
+    EXPECT_EQ(bl::plan_resume_faecher(riesig, 3), 0u);
 }

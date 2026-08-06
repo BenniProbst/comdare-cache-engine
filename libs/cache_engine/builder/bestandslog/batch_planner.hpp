@@ -125,7 +125,16 @@ using PresencePredicate = std::function<bool(std::uint64_t index)>;
 
 // Die Format-Marke der Plan-Ablage. v1 = Erst-Einfuehrung (T2-A/F4). Ein Bump invalidiert Alt-Plaene
 // ueber den Praefix-Vergleich -- wie beim Resume-Stempel, aus demselben Grund.
-inline constexpr char kBatchPlanFormat[] = "batchplan-v1";
+//
+// v1 -> v2 (T2-A/F4-NB, Codex-Scope-F4 KRITISCH, 2026-08-06): der Stempel des Bau-Plans traegt ab
+// jetzt einen DIGEST DER INDEXFOLGE (slice_plan_stamp, planer_driven_build.hpp). Das aendert die
+// BEDEUTUNG eines Alt-Stempels: v1 sagte "diese Selektion faengt bei X an, ist N gross und hat Korn
+// K" -- eine Aussage, die auf VERSCHIEDENE Selektionen zutrifft, sobald sie Luecken haben. v2 sagt
+// "GENAU DIESE Folge". Ein v1-Zaehler darf deshalb nicht weitergelten (er wurde unter der
+// schwaecheren Zusage erarbeitet); der Praefix-Vergleich in parse_batch_plan/parse_phasen_zaehler
+// invalidiert ihn EINMAL, und der Folgelauf baut ehrlich von vorn. Dasselbe Vorgehen wie beim
+// resume-v5->v6-Bump des Mess-Stempels, aus demselben Grund und mit demselben Preis.
+inline constexpr char kBatchPlanFormat[] = "batchplan-v2";
 
 // EIN FACH des Plans: das Fenster [begin, begin+count) im Index-Raum des Planers + die Zahl der darin
 // beim Planen als FEHLEND erkannten Atome. `offen` ist bewusst nur eine Zahl: das Dokument haelt die
@@ -156,9 +165,21 @@ struct PhasenZaehler {
 };
 
 // Summe der Plan-Atome (die Bezugsgroesse beider Zaehler).
+//
+// T2-A/F4-NB (Codex-Scope-F4, MITTEL): SAETTIGEND statt wickelnd. Die Faecher kommen im Lese-Pfad aus
+// einem DOKUMENT, dessen Zahlen jeder schreiben kann, der Schreibrechte auf die Ablage hat -- zwei
+// Faecher mit je 2^63 Atomen ergaeben in der wickelnden Form die Summe 0, und der Zaehler-Leser
+// verglich dann JEDEN Zaehlerstand gegen 0 (also: "mehr getan als geplant" -> nullopt, hier zufaellig
+// fail-closed) bzw. der Resume-Punkt raet. kSaettigung ist die ehrliche Antwort "nicht darstellbar";
+// parse_batch_plan verwirft ein solches Dokument deshalb gleich ganz (s. dort).
+inline constexpr std::uint64_t kPlanAtomeSaettigung = ~std::uint64_t{0};
+
 [[nodiscard]] inline std::uint64_t plan_atome(std::vector<PlanFach> const& faecher) noexcept {
     std::uint64_t n = 0;
-    for (auto const& f : faecher) n += f.count;
+    for (auto const& f : faecher) {
+        if (f.count > kPlanAtomeSaettigung - n) return kPlanAtomeSaettigung;
+        n += f.count;
+    }
     return n;
 }
 
@@ -172,7 +193,12 @@ struct PhasenZaehler {
     std::uint64_t kumuliert = 0;
     std::size_t   n         = 0;
     for (auto const& f : faecher) {
-        if (kumuliert + f.count > zaehler) break;
+        // T2-A/F4-NB (MITTEL): ueberlauf-frei formuliert. "kumuliert + f.count > zaehler" wickelt bei
+        // einem Fach nahe 2^64 und liefert dann FALSCH "passt noch" -- ein Fach waere uebersprungen,
+        // das kein Zaehler deckt. Die Umstellung ist wertgleich, solange nichts wickelt: die
+        // Schleifen-Invariante kumuliert <= zaehler haelt vor jedem Durchlauf, also ist
+        // (zaehler - kumuliert) nie negativ und der Vergleich beantwortet dieselbe Frage.
+        if (f.count > zaehler - kumuliert) break;
         kumuliert += f.count;
         ++n;
     }
@@ -254,6 +280,11 @@ parse_batch_plan(std::string const& text, std::string const& stamp, std::string 
         faecher.push_back(PlanFach{*b, *c, *o});
     }
     if (faecher.size() != static_cast<std::size_t>(*soll)) return std::nullopt; // abgeschnitten/angehaengt
+    // T2-A/F4-NB (MITTEL, Ueberlauf): ein Dokument, dessen Atomsumme nicht darstellbar ist, ist kein
+    // Plan -- es gaebe keine Bezugsgroesse, gegen die ein Zaehler stehen koennte. Fail-closed wie
+    // ueberall an dieser Naht. (Die Klammer verwirft auch die exakte Summe 2^64-1; sie ist mit
+    // Fenstern realer Groesse nicht erreichbar und waere ihrerseits nur ein ehrlicher Voll-Lauf.)
+    if (plan_atome(faecher) == kPlanAtomeSaettigung) return std::nullopt;
     return faecher;
 }
 

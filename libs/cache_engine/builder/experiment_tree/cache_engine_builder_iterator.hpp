@@ -1166,7 +1166,10 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         plan_werte_gelesen = true;
         plan_resume_atome  = planner.resume_atome();
         plan_kompiliert    = plan_resume_atome;
-        plan_gemessen      = planner.resume_gemessen();
+        // T2-A/F4-NB (NAMENS-PIN): BILANZ, nicht Front. Dieser Wert wird ausschliesslich UNVERAENDERT
+        // zurueckgeschrieben (s. unten) -- er darf NIE als Praefix-Front konsumiert werden; der
+        // Resume-Punkt dieses Bau-Laufs ist allein plan_resume_atome (die Bau-Front).
+        plan_gemessen = planner.vorgefundene_mess_bilanz();
         plan_faecher       = planner.plan_faecher_zahl();
     };
     while (auto plan = queue.pop()) {

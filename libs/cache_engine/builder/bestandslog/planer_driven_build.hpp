@@ -24,9 +24,12 @@
 // Ablage aendert sich nur der ZEITPUNKT der Miss-Erkennung (alles vor dem ersten Push statt fensterweise)
 // -- Reihenfolge, Fenster-Schnitt und gebaute Menge bleiben identisch.
 //
-// DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib. pop()/push() thread-sicher.
+// DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib + ctsha512 (die EINE
+// Hash-Primitive des Hauses -- s. slice_index_digest). pop()/push() thread-sicher.
 
 #include "batch_planner.hpp" // detect_missing_in_window (die EINE per-Binary-Miss-Erkennung, B5)
+
+#include <sha512/ctsha512.hpp> // T2-A/F4-NB: der Digest der Indexfolge im Plan-Stempel
 
 #include <algorithm>
 #include <atomic> // T2-A/F4: die zwei Berichts-Werte des Planers (Plan-Groesse, Resume-Front)
@@ -39,6 +42,7 @@
 #include <iostream> // T2-A/F4: die Nie-stumm-Zeilen der Plan-Ablage (nur std::cerr, golden-/CSV-neutral)
 #include <mutex>
 #include <optional>
+#include <span> // T2-A/F4-NB: die Byte-Sicht auf das Digest-Preimage
 #include <string>
 #include <thread>
 #include <utility>
@@ -215,14 +219,55 @@ private:
     return aus;
 }
 
+// T2-A/F4-NB (Codex-Scope-F4, KRITISCH) -- DIE INDEXFOLGE SELBST GEHT IN DEN STEMPEL.
+//
+// DER BEFUND AM OBJEKT: bis hierher band der Stempel die Selektion ueber DREI Zahlen -- front(),
+// size() und das Korn. Fuer eine DICHTE Selektion beschreiben die drei sie vollstaendig; fuer eine
+// LUECKENBEHAFTETE tun sie es nicht. {0,1,2,3} und {0,5,7,9} teilen Anfang, Groesse und Korn -- und
+// hatten damit denselben Stempel. Der Zaehler-Leser prueft zusaetzlich NUR die Fachzahl und die
+// Atomsumme (parse_phasen_zaehler), und auch die stimmen bei gleicher Groesse und gleichem Korn
+// ueberein. Ein Zaehlerstand, der fuer die EINE Selektion erarbeitet wurde, galt deshalb fuer die
+// ANDERE: der Folgelauf uebersprang FUEHRENDE FAECHER, deren Binaries nie gebaut wurden. Das ist ein
+// Loch in der Matrix, und zwar ein stilles -- der Plan-Resume behauptete Arbeit, die es nicht gab.
+//
+// DIE HEILUNG: ein Digest ueber die Indexfolge als eigenes Stempel-Glied. Er bindet REIHENFOLGE und
+// INHALT, nicht nur die Ecken. Gebildet mit DERSELBEN Primitive, aus der auch der Fingerprint
+// entsteht (sha512::sha512, ctsha512.hpp) -- diese Naht bringt keine zweite Hash-Wahrheit ins Haus.
+//
+// DAS PREIMAGE ist die Dezimalfolge der Indizes, je Index ein '\n' als Abschluss. Der Trenner liegt
+// beweisbar ausserhalb des Zeichenvorrats der Glieder (Ziffern), die Abbildung Folge -> Preimage ist
+// damit injektiv: es gibt keine zweite Folge, die dasselbe Preimage erzeugt (dieselbe Ueberlegung wie
+// beim Delimiter des Anatomie-Preimages, A13-M3).
+//
+// EHRLICH BENANNT: ein Digest ist keine Identitaet, sondern ihre 512-Bit-Verdichtung -- zwei
+// verschiedene Folgen KOENNTEN denselben tragen. Die Alternative waere, die Liste selbst in den
+// Stempel zu legen; bei 2^17 Indizes ist das ein Megabyte, und der Stempel ist eine ZEILE. Gewaehlt
+// ist der Digest, weil die Kollisionsfrage hier keine Angreifer-, sondern eine Zufallsfrage ist.
+[[nodiscard]] inline std::string slice_index_digest(std::vector<std::size_t> const& indices) {
+    std::string preimage;
+    preimage.reserve(indices.size() * 8);
+    for (std::size_t const i : indices) {
+        preimage += std::to_string(i);
+        preimage += '\n';
+    }
+    auto const digest = ::comdare::cache_engine::sha512::sha512(std::span<std::uint8_t const>{
+        reinterpret_cast<std::uint8_t const*>(preimage.data()), preimage.size()});
+    auto const hex = ::comdare::cache_engine::sha512::to_hex(digest);
+    return std::string{hex.data(), hex.size()};
+}
+
 // Der Stempel des Bau-Plans: GENAU die Groessen, die den Plan bestimmen. Die PresenceFn steht bewusst
 // NICHT darin -- sie ist Lager-ZUSTAND, kein Plan-Parameter; ein zwischenzeitlich gefuelltes Lager darf
 // einen Zaehler nicht entwerten, es aendert nur die Miss-Zahlen innerhalb derselben Faecher.
+//
+// T2-A/F4-NB: |idx= bindet die Indexfolge EINDEUTIG (s. slice_index_digest). start/indizes bleiben
+// stehen -- nicht als Wache (das ist jetzt |idx=), sondern als LESBARKEIT: wer die Ablage von Hand
+// ansieht, erkennt Fenster und Groesse, ohne einen Digest aufloesen zu koennen.
 [[nodiscard]] inline std::string slice_plan_stamp(std::vector<std::size_t> const& indices, std::size_t grain) {
     return std::string{kBatchPlanFormat} +
            "|art=bau-slice|start=" + std::to_string(indices.empty() ? std::size_t{0} : indices.front()) +
            "|indizes=" + std::to_string(indices.size()) +
-           "|korn=" + std::to_string(grain == 0 ? kBuildSliceGrain : grain);
+           "|korn=" + std::to_string(grain == 0 ? kBuildSliceGrain : grain) + "|idx=" + slice_index_digest(indices);
 }
 
 // DIE PLAN-ABLAGE-NAHT (opt-in, Muster der uebrigen bestandslog-Injektionen): leerer Pfad => inert =>
@@ -276,9 +321,17 @@ public:
     [[nodiscard]] std::size_t plan_faecher_zahl() const noexcept { return plan_faecher_.load(); }
     /// Die Atome der uebersprungenen FUEHRENDEN Faecher == der Bau-Zaehlerstand, auf dem dieser Lauf aufsetzt.
     [[nodiscard]] std::uint64_t resume_atome() const noexcept { return resume_atome_.load(); }
-    /// Die vorgefundene MESS-Front. Der Bau-Lauf schreibt sie unveraendert zurueck, statt sie auf 0 zu setzen:
+    /// Die vorgefundene MESS-BILANZ. Der Bau-Lauf schreibt sie unveraendert zurueck, statt sie auf 0 zu setzen:
     /// er baut ausschliesslich HINTER seiner eigenen Bau-Front, ruehrt also keine bereits gemessene Binary an.
-    [[nodiscard]] std::uint64_t resume_gemessen() const noexcept { return resume_gemessen_.load(); }
+    ///
+    /// T2-A/F4-NB (Codex-Scope-F4 + Fable MITTEL-2, NAMENS-PIN): sie hiess `resume_gemessen()` und las sich
+    /// damit wie eine zweite RESUME-FRONT -- als duerfte ein Konsument hinter ihr aufsetzen. DAS DARF ER
+    /// NICHT. Der Resume-Punkt DIESES Planers ist und bleibt ALLEIN die Bau-Front (`kompiliert`, s. den
+    /// Klassen-Kopf); `gemessen` ist BILANZ: eine Zahl, die der SEPARATE Mess-Lauf fuehrt und die der
+    /// Bau-Lauf nur durchreicht, damit sie nicht verloren geht. Wer sie als Praefix-Front konsumiert,
+    /// ueberspringt BAU-Arbeit auf Grundlage einer MESS-Zahl -- zwei Phasen, die der Owner-KERN
+    /// ausdruecklich trennt ("kompiliert/separat gemessen"). Der Name sagt das jetzt selbst.
+    [[nodiscard]] std::uint64_t vorgefundene_mess_bilanz() const noexcept { return mess_bilanz_.load(); }
 
 private:
     void run() {
@@ -296,7 +349,7 @@ private:
             if (auto const z = read_phasen_zaehler(persistenz_.zaehler_datei(), persistenz_.stamp, faecher,
                                                    persistenz_.rows_key)) {
                 ab = plan_resume_faecher(faecher, z->kompiliert);
-                resume_gemessen_.store(z->gemessen);
+                mess_bilanz_.store(z->gemessen);
             }
             if (!write_batch_plan(persistenz_.plan_datei, persistenz_.stamp, faecher, persistenz_.rows_key))
                 // Nie-stumm: eine nicht geschriebene Plan-Ablage ist KEIN Bau-Fehler (der Bau laeuft mit
@@ -329,7 +382,7 @@ private:
     PlanPersistenz             persistenz_;
     std::atomic<std::size_t>   plan_faecher_{0};
     std::atomic<std::uint64_t> resume_atome_{0};
-    std::atomic<std::uint64_t> resume_gemessen_{0};
+    std::atomic<std::uint64_t> mess_bilanz_{0};
     std::thread                worker_;
 };
 
