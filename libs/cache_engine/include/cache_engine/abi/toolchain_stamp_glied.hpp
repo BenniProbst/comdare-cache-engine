@@ -41,6 +41,7 @@
 
 #include <array>
 #include <cstddef>
+#include <algorithm> // T2-E: std::count -- die GENAU-EIN-':'-Wache des cxx-Feldes
 #include <stdexcept> // NB/CX-2: die Injektivitaets-Wache des Renderers ist FAIL-LOUD, nicht still
 #include <string>
 #include <string_view>
@@ -556,6 +557,36 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 /// Neuanker-Dreh im selben Buendel waere teurer als der Erkenntnisgewinn. Dass die REALE Renderer-Form
 /// den Tag traegt, beweist stattdessen Nb21CxxFeldIstInjektivJeTreiberTag am lebenden Renderer.
 ///
+/// -- T2-E: DER tc=1-ALT/NEU-KOLLISIONS-NACHWEIS (verifiziert, nicht vermutet) -------------------------
+///
+/// DIE FRAGE (Codex-Zweitreview [MITTEL], als AUFLAGE weitergereicht: "tc=1-Format-Alt/Neu-Kollision ERST
+/// VERIFIZIEREN"): NB2-1 hat die FORM des cxx-Feldes geaendert, ohne die Format-Kennung zu bumpen -- tc=1
+/// bezeichnet seither zwei verschiedene Formen. ALT: `cxx=<dialekt>[-<realversion>]` (kein Treiber-Tag).
+/// NEU: `cxx=<dialekt>[-<realversion>]:<treiber-tag>`. Wenn beide Formen dasselbe Feld ergeben KOENNTEN,
+/// waere tc=1 mehrdeutig und der Bump unvermeidlich -- und ein Bump ist teuer (Frozen-Vektor in END-Form).
+///
+/// DIE VERIFIKATION, am Objekt gefuehrt statt geglaubt -- ZWEI SAETZE:
+///
+///   (V1) DIE ALTE FORM IST NICHT MEHR HERSTELLBAR. Ein cxx-Segment entsteht nur, wenn cxx_dialect belegt
+///        ist; und ein belegter Dialekt OHNE Treiber-Tag wird von der Abhaengigkeits-Diagnose (NB2-4,
+///        erweitert um NB2-1) FAIL-LOUD abgelehnt, nicht still verworfen. Es gibt also keinen Eingabe-
+///        Vektor mehr, aus dem dieser Renderer ein tagloses cxx-Feld baut. Die Alt-Form kann nur noch als
+///        HISTORISCHES Literal existieren (genau dort steht sie auch: in den Frozen-Vektoren, absichtlich).
+///
+///   (V2) SELBST WENN SIE ES WAERE, KOLLIDIERT SIE NICHT. Die neue Form traegt IMMER genau ein ':' (Wache
+///        im Renderer unten); die alte Form kann keines tragen, weil Dialekt und Realversion ':' beide
+///        sperren. Eine Zeichenkette mit ':' und eine ohne sind nie gleich. Die beiden Formen sind damit
+///        disjunkt -- und zwar an einem EINZELNEN Zeichen, das an genau einer Stelle erzeugt wird.
+///
+/// SCHLUSS: tc=1 bleibt. KEIN Format-Bump (der Frozen-Vektor ist in END-Form und wird nicht ein drittes
+/// Mal gedreht). Was frueher als "vermutlich unbaubar" im Ledger stand, ist ab hier BEWIESEN (V1) UND
+/// DURCHGESETZT (V2, die Wache im Renderer) -- die zwei Saetze stuetzen sich nicht gegenseitig, jeder
+/// allein wuerde reichen.
+///
+/// EHRLICHE RESTAUSSAGE: ein Bestands-Artefakt, das die Alt-Form noch TRAEGT (eine vor NB2-1 gebaute
+/// Binary mit eingebautem Define), hasht schlicht anders und mismatcht beim Skip-Gate -- also ein Neubau,
+/// die fail-closed Richtung. Es gibt keinen Weg, auf dem es faelschlich als aktuell gilt.
+///
 /// NB/CX-2: FAIL-LOUD statt still. Ein Feld mit Struktur-Zeichen wuerde ein Glied erzeugen, das zwei
 /// verschiedene Belegungen gleich rendert -- der Renderer wirft dann eine BENANNTE Fehlerklasse, statt eine
 /// Kollision in den Fingerprint zu schreiben. Der Wurf ist der einzige richtige Ausgang: ein degradierter
@@ -596,6 +627,18 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
         }
         cxx += ':';
         cxx += p.cxx_driver;
+        // T2-E: DIE GENAU-EIN-':'-WACHE. Sie ist die durchgesetzte Form des Kollisions-Nachweises unten:
+        // die Zerlegung <kopf>:<tag> ist nur eindeutig, solange GENAU EIN ':' im Feld steht. Die drei
+        // Feld-Wachen garantieren das bereits (Dialekt, Realversion und Tag sperren ':' je einzeln), aber
+        // sie stehen an drei Orten -- diese Zeile prueft das ERGEBNIS, also das, worauf es ankommt. Sie ist
+        // billig, sie kann nicht auslaufen, und sie faellt auf, wenn jemand die Zusammensetzung aendert.
+        if (std::count(cxx.begin(), cxx.end(), ':') != 1)
+            throw std::invalid_argument(
+                "fehlerklasse=stempel_injektivitaet: das cxx-Feld des Toolchain-Glieds [5] traegt nicht "
+                "GENAU EIN ':'. Der Doppelpunkt ist der Klebepunkt zwischen Kopf (<dialekt>[-<realversion>]) "
+                "und Treiber-Tag; ohne ihn -- oder mit mehreren -- ist die Zerlegung mehrdeutig und zwei "
+                "verschiedene Toolchains koennten dasselbe Feld ergeben. Den WERT korrigieren, nicht die "
+                "Wache.");
         detail::toolchain_append_axis(felder, kToolchainGliedKeys[0], cxx, {}, kToolchainAxisVersions[0].version);
     }
     detail::toolchain_append_axis(felder, kToolchainGliedKeys[1], p.opt, p.opt_flags,

@@ -1601,6 +1601,51 @@ TEST(MW12StampBausteine, T2cUnbekanntHeisstNichtSkipFaehig) {
     EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(glied)) << glied;
 }
 
+// -- T2-E: DER tc=1-ALT/NEU-KOLLISIONS-NACHWEIS, AM OBJEKT ------------------------------------------
+// Die Auflage lautete: ERST VERIFIZIEREN, ob die Alt-Form (cxx ohne Treiber-Tag) und die Neu-Form
+// kollidieren koennen -- und NUR falls ja, ein Format-Bump (den der Frozen-Vektor in END-Form teuer
+// macht). Dieser Test fuehrt die Verifikation, statt sie zu behaupten.
+TEST(MW12StampBausteine, T2eTc1AltNeuKollidiertNicht) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (V1) DIE ALTE FORM IST NICHT MEHR HERSTELLBAR: ein Dialekt ohne Treiber-Tag wird FAIL-LOUD
+    //      abgelehnt, nicht still verworfen. Es gibt keinen Eingabe-Vektor, aus dem der Renderer noch
+    //      ein tagloses cxx-Feld baut.
+    abi::ToolchainStampParts alt{};
+    alt.cxx_dialect     = "gcc";
+    alt.cxx_realversion = "16.2.0"; // exakt die Alt-Form aus den Frozen-Literalen
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(alt), std::string_view{"cxx_dialect"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(alt), std::invalid_argument);
+
+    // (V2) SELBST WENN SIE ES WAERE, KOLLIDIERT SIE NICHT: jede herstellbare Neu-Form traegt GENAU EIN
+    //      ':', jede denkbare Alt-Form keines. Zeichenketten mit und ohne ':' sind nie gleich.
+    abi::ToolchainStampParts neu = alt;
+    neu.cxx_driver               = "g++-16";
+    std::string const g          = abi::render_toolchain_stamp_glied(neu);
+    EXPECT_NE(g.find("cxx=gcc-16.2.0:g++-16"), std::string::npos) << g;
+    EXPECT_EQ(std::count(g.begin(), g.end(), ':'), 1) << g;
+
+    // (V2b) Auch OHNE Realversion (der haeufige Fall auf einer Maschine ohne Sonden-Antwort) bleibt es
+    //       bei genau einem ':' -- der Tag ist Pflicht, nicht Kuer.
+    abi::ToolchainStampParts ohne_version{};
+    ohne_version.cxx_dialect = "gcc";
+    ohne_version.cxx_driver  = "g++-16";
+    std::string const g2     = abi::render_toolchain_stamp_glied(ohne_version);
+    EXPECT_NE(g2.find("cxx=gcc:g++-16"), std::string::npos) << g2;
+    EXPECT_EQ(std::count(g2.begin(), g2.end(), ':'), 1) << g2;
+
+    // (V3) Ein zweites ':' kann nicht hineinkommen: alle drei Bestandteile sperren es einzeln, und die
+    //      Ergebnis-Wache im Renderer prueft zusaetzlich das Zusammengesetzte.
+    abi::ToolchainStampParts boese = neu;
+    boese.cxx_driver               = "g++:16";
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(boese), std::string_view{"cxx_driver"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(boese), std::invalid_argument);
+
+    // (V4) SCHLUSS: tc=1 bleibt -- die Format-Kennung wurde NICHT gebumpt.
+    EXPECT_EQ(abi::kToolchainStampGliedFormat, std::string_view{"1"});
+    EXPECT_TRUE(g.starts_with("tc=1;"));
+}
+
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------
 // Der Codex-Blocker war konkret: A={Toolchain="TC\nX", bvset="BV"} und B={Toolchain="TC", bvset="X\nBV"}
 // erzeugen BYTE-IDENTISCHE Preimages. Der Test beweist, dass beide Belegungen jetzt gar nicht mehr
