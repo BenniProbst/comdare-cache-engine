@@ -48,8 +48,31 @@
 // ("search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c") ohne Allokator-Slot --
 // sie koennen sich durch diesen Bump nicht bewegen und tun es nachweislich nicht.
 // PATCH statt MINOR: der Erfolgs-Pfad ist verhaltens-gleich, geaendert hat sich ausschliesslich das
-// Fehlschlag-Signal; die Achsen-API waechst nur um allocate_or_throw an der Wurzel (rueckwaerts-
-// vertraeglich fuer jeden bestehenden Konsumenten).
+// Fehlschlag-Signal; die Achsen-API waechst nur um allocate_or_throw an der Wurzel.
+//
+// PRAEZISIERUNG DER RUECKWAERTSVERTRAEGLICHKEIT (A1-Nachbesserung 06.08.2026, Review-Befund
+// "Source-Breaking fuer Fremdallokatoren ausserhalb der CRTP-Basis"): die Erst-Fassung schrieb hier
+// "rueckwaertsvertraeglich fuer jeden bestehenden Konsumenten". Das war zu weit. Genau gilt:
+//   * Fuer die REGISTRIERTE CRTP-Population (die 26 Strategien an AllocatorStrategyBase) ist die
+//     Aenderung vollstaendig rueckwaertsvertraeglich -- allocate_or_throw und die Standard-Container-
+//     Naht sitzen an DIESER Wurzel, jede Strategie erbt sie, keine Varianten-Datei wurde angefasst.
+//   * Ein FREMD-Allokator ausserhalb dieser Wurzel, der als A in einen roh haltenden Konsumenten
+//     gebunden wird, muss die vom Konsumenten geforderten Nahten tragen (fuer
+//     LayoutAwareChunkedStore: allocate_or_throw, StdAllocatorAdapter<T>/as_std_allocator<T>,
+//     Wert-Semantik, snapshot_t/statistics). Er musste sie auch VORHER schon tragen -- der Rumpf hat
+//     sie immer benutzt; neu ist nur, dass der Bruch jetzt am KOPF auffaellt statt tief im Rumpf.
+//     Das ist eine Diagnose-Verbesserung, keine zusaetzliche Anforderung. Belegt wird das positiv:
+//     test_a1_wurf_vertrag_allokator_store bindet VollstaendigeFremdStrategie -- einen Typ OHNE
+//     CRTP-Abstammung, aber MIT allen vier Nahten -- erfolgreich an den Store-Kopf.
+//   * IST-BEFUND zum Stand 06.08.2026: es gibt KEINEN solchen Fremd-Konsumenten.
+//       grep -rn "LayoutAwareChunkedStore<" libs/ tests/ ext/            -> 39 Fundstellen
+//         davon 2 in der Definitions-Datei selbst, 1 in dieser Kopf-Doku, 10 Kommentar-Erwaehnungen
+//         -> 26 ECHTE Typ-Bindungen.
+//       grep -rn "LayoutAwareChunkedStore"  ext/                         -> 0
+//     Das dritte Template-Argument dieser 26 ist ausnahmslos: MimallocAllocator (bzw. das Alias
+//     PilotAlloc), Composition::allocator (eine Registry-Variante) oder eine an AllocatorStrategyBase
+//     haengende Test-Variante. Die Aenderung kann heute also keinen Uebersetzungs-Fehler ausloesen,
+//     den es nicht schon vorher gab.
 
 #include "concepts/axis_06_allocator_concept.hpp"
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
