@@ -59,10 +59,13 @@ TEST(ReflectVersionsAllRegistered, FullRegisteredIsStrictlyLargerThanEnabledTabl
     EXPECT_GT(ex::kAllRegisteredOrganVariantCount, enabled.size())
         << "kein deaktivierter Bestand? dann waere der Befund gegenstandslos -- erwartet: registriert > enabled.";
     // gesunde Untergrenze (der Bestand traegt >100 registrierte Organ-Varianten). Grep-Beleg zum Stand
-    // 06.08.2026: 96x "v1.0.0c" + 26x "v1.0.1c" == 122 -- der A1-Wurf-Vertrag hat die 26 Strategien der
-    // Allokator-Achse auf die PATCH-Stelle gehoben (axis_06_allocator_strategy_base.hpp, Abschnitt
-    // "A1-VERSIONS-BUMP"; gepinnt in test_a1_algo_version_pin_alloc_axis). Die frueher hier notierte
-    // Zahl "122x v1.0.0c" beschrieb den Stand VOR diesem Bump.
+    // 06.08.2026 (nach dem 2. Bump): 96x "v1.0.0c" + 2x "v1.0.1c" + 24x "v1.0.2c" == 122 -- der
+    // A1-Wurf-Vertrag hat zunaechst alle 26 Strategien der Allokator-Achse auf "v1.0.1c" gehoben
+    // (1. Bump), danach die 24 Strategien mit eigener reallocate()-Implementierung auf "v1.0.2c"
+    // (2. Bump, Owner-Entscheid nach Lens-Pass); PmrResourceAllocator/VampirNfpAllocator (kein eigenes
+    // reallocate()) blieben auf "v1.0.1c" stehen (axis_06_allocator_strategy_base.hpp, Abschnitt
+    // "A1-VERSIONS-BUMP" / "A1-VERSIONS-BUMP, 2. BUMP"; gepinnt in test_a1_algo_version_pin_alloc_axis).
+    // Die frueher hier notierte Zahl "122x v1.0.0c" beschrieb den Stand VOR dem 1. Bump.
     EXPECT_GE(ex::kAllRegisteredOrganVariantCount, 100u);
 }
 
