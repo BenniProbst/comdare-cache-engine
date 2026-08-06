@@ -46,6 +46,16 @@
 //        Stores; (1b) belegt JEDEN Term positiv UND negativ -- und zwar AM STORE-KOPF, nicht nur am
 //        Concept (Sonde StoreKopfBindetAllokator). Registrierte Varianten unberuehrt: die Member
 //        sitzen an der CRTP-Wurzel bzw. sind dort seit Posten 80 Pflicht.
+//   (N4) ORAKEL-HAERTUNG (Review-Befund 06.08.2026, zwei Stellen): (a) die Zusatz-Forderung "und zwar
+//        per Zeiger, nicht per Wurf" an der REALEN Strategie bei bytes == 0 ist ENTFALLEN -- sie war
+//        ueberscharf (C11 7.22.3/1 laesst fuer size == 0 auch NULL zu, der daraus folgende Wurf ist
+//        vertragskonform) und ueberfluessig (der Nicht-pauschal-Satz steht eine Zeile hoeher). Das
+//        Orakel heisst dort jetzt nur noch "Wurf ODER Nichtnull". (b) der Fehlschlag-Pfad der
+//        pmr-tragenden Strategien wird ZUSAETZLICH deterministisch und sanitizer-fest belegt --
+//        WerfendeResource (immer werfendes memory_resource) ueber PmrResourceAllocator, die einzige
+//        Strategie der Achse mit injizierbarem Resource. Die absurd grosse Anfrage bleibt NUR dort,
+//        wo es keine Injektions-Naht gibt (PoolResourceAllocator, Resource ist Owned) -- mit
+//        benannter Sanitizer-Grenze statt stillem Vorbehalt.
 //
 // WAS DIESE TU BEWEIST (literal, nicht behauptet):
 //   (1) KONFORMITAET DER ORAKEL   -- beide Stub-Strategien sind vollwertige Achsen-Varianten an
@@ -78,6 +88,7 @@
 // ASCII-only.
 
 #include <axes/alloc/axis_06_allocator_exgen.hpp> // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
+#include <axes/alloc/axis_06_allocator_pmr_resource.hpp> // injizierbare Resource -> deterministisches Wurf-Orakel
 #include <axes/alloc/axis_06_allocator_pool_resource.hpp>
 #include <axes/alloc/axis_06_allocator_strategy_base.hpp>
 #include <axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
@@ -297,6 +308,34 @@ private:
     snapshot_t stats_{};
     observer_t observer_{};
 #endif
+};
+
+// -- ORAKEL C: eine memory_resource, die IMMER wirft (A1-Nachbesserung 2026-08-06) -----------------
+// WOZU (Review-Befund "OOM-Orakel 1<<60"): der Fehlschlag-Pfad der pmr-tragenden Strategien wurde
+// bisher AUSSCHLIESSLICH ueber eine absurd grosse Anfrage an die ECHTE Resource erzwungen. Das ist ein
+// UMWELT-Orakel, kein Vertrags-Orakel: unter ASan bricht eine Anfrage jenseits kMaxAllowedMallocSize
+// als harter Sanitizer-Fehler ab (allocator_may_return_null=0 ist Default), statt std::bad_alloc zu
+// werfen -- die Wache stuerbe, statt zu pruefen. Und kleiner darf die Zahl nicht werden: unter
+// Linux-Overcommit GELINGEN Anfragen unterhalb dieser Schwelle oft.
+// Diese Resource loest das an der Stelle, an der die Achse eine INJEKTION zulaesst: PmrResourceAllocator
+// nimmt ein fremdes memory_resource (axis_06_allocator_pmr_resource.hpp:96) und traegt das IDENTISCHE
+// Uebersetzungs-Idiom wie PoolResourceAllocator (try/catch -> nullptr + failure_count VOR der Rueckgabe;
+// die Pool-Kopfzeile nennt die Schwester ausdruecklich als Muster). Der Wurf ist damit deterministisch,
+// ohne jede Allokation, sanitizer-neutral und plattform-unabhaengig.
+class WerfendeResource final : public std::pmr::memory_resource {
+public:
+    [[nodiscard]] unsigned long long wuerfe() const noexcept { return wuerfe_; }
+
+private:
+    void* do_allocate(std::size_t, std::size_t) override {
+        ++wuerfe_;
+        throw std::bad_alloc{};
+    }
+    void do_deallocate(void*, std::size_t, std::size_t) override {}
+    [[nodiscard]] bool do_is_equal(std::pmr::memory_resource const& other) const noexcept override {
+        return this == &other;
+    }
+    unsigned long long wuerfe_ = 0;
 };
 
 // -- GEGENPROBE-BAUKASTEN der Kopf-Constraint-Naht (A1-Nachbesserung 2026-08-06) -------------------
@@ -620,18 +659,30 @@ int main() {
         check("64x push_back ueber die reale Strategie wirft NICHT", !geworfen_echt);
         check("Groesse korrekt (64)", groesse == 64u);
 
-        // dieselbe "NIE nullptr"-Aussage an der REALEN Strategie: hier erfuellt sie der Zeiger, nicht der
-        // Wurf -- der Vertrag ist also nicht dadurch erfuellt, dass die Naht immer wirft.
+        // dieselbe "NIE nullptr"-Aussage an der REALEN Strategie. Das Orakel ist "Wurf ODER Nichtnull" --
+        // und NUR das (Review-Befund 06.08.2026, Korrektur der Erst-Fassung):
+        //
+        // Die Erst-Fassung pruefte hier ZUSAETZLICH "und zwar per Zeiger, nicht per Wurf". Dieser Zusatz
+        // war UEBERSCHARF und haette an einer anderen Plattform grundlos gebissen: ExgenAllocator::allocate
+        // fuehrt auf portable_aligned_alloc, und C11 laesst fuer size == 0 ausdruecklich BEIDES zu -- einen
+        // eindeutigen Zeiger ODER NULL (7.22.3/1, "either a null pointer or a pointer to the allocated
+        // space"). Meldet die Plattform dort NULL, uebersetzt PmrResourceAdapter::do_allocate das
+        // VERTRAGSKONFORM in std::bad_alloc ([mem.res.public] kennt an dieser Naht keinen nullptr) -- der
+        // Wurf waere dann das RICHTIGE Verhalten und die Wache trotzdem rot. Ein Test, der konformes
+        // Verhalten rot faerbt, misst die Plattform statt den Vertrag.
+        //
+        // Der Zusatz war ausserdem UEBERFLUESSIG: "die Naht wirft nicht pauschal" ist eine Zeile hoeher
+        // bereits belegt (64x push_back ueber dieselbe reale Strategie, ohne Wurf). Der beobachtete Ausgang
+        // wird nur noch BERICHTET, nicht mehr gefordert.
         bool  geworfen_echt0 = false;
         void* p_echt0        = reinterpret_cast<void*>(~std::uintptr_t{0});
         try {
             p_echt0 = echt_resource.allocate(0, alignof(std::max_align_t));
             if (p_echt0 != nullptr) echt_resource.deallocate(p_echt0, 0, alignof(std::max_align_t));
         } catch (std::bad_alloc const&) { geworfen_echt0 = true; }
-        std::printf("  [INFO] reale Strategie, do_allocate(0): %s\n",
+        std::printf("  [INFO] reale Strategie, do_allocate(0): %s (beide Ausgaenge sind vertragskonform)\n",
                     geworfen_echt0 ? "Wurf" : (p_echt0 == nullptr ? "nullptr" : "Zeiger"));
         check("reale Strategie an der PMR-Naht: bytes == 0 liefert NIE nullptr", geworfen_echt0 || p_echt0 != nullptr);
-        check("und zwar per Zeiger, nicht per Wurf (die Naht wirft nicht pauschal)", !geworfen_echt0);
     }
 
     std::printf("== (3) F2/Posten 72: n*sizeof(T)-Ueberlauf -> std::bad_array_new_length ==\n");
@@ -669,6 +720,35 @@ int main() {
 
     std::printf("== (4) F6: PoolResourceAllocator haelt jetzt den achsen-uniformen nullptr-Vertrag ==\n");
     {
+        // (4a) DETERMINISTISCHES ORAKEL des Uebersetzungs-Idioms (A1-Nachbesserung 2026-08-06, s.
+        // WerfendeResource): pmr-Wurf -> nullptr + failure_count VOR der Rueckgabe. Kein Byte alloziert,
+        // kein Umwelt-Verhalten befragt, sanitizer-neutral. Gegenstand ist die Schwester-Strategie
+        // PmrResourceAllocator, weil sie als EINZIGE der Achse ihr memory_resource von aussen nimmt --
+        // das Idiom ist Zeile fuer Zeile dasselbe, das (4b) am Pool bestaetigt.
+        WerfendeResource            werfend{};
+        alloc::PmrResourceAllocator ueber_werfend{&werfend};
+        bool                        pmr_geworfen = false;
+        void*                       p_pmr        = reinterpret_cast<void*>(~std::uintptr_t{0});
+        try {
+            p_pmr = ueber_werfend.allocate(64, 16);
+        } catch (std::bad_alloc const&) { pmr_geworfen = true; }
+        check("Uebersetzung deterministisch: pmr-Wurf dringt NICHT nach aussen", !pmr_geworfen);
+        check("Uebersetzung deterministisch: pmr-Wurf wird zu nullptr", !pmr_geworfen && p_pmr == nullptr);
+        check("die Fake-Resource hat wirklich geworfen (Orakel selbst geprueft)", werfend.wuerfe() == 1u);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        check("failure_count VOR der Rueckgabe gezaehlt (Ehrlichkeits-Auflage)",
+              ueber_werfend.statistics().failure_count == 1u);
+#endif
+
+        // (4b) DER EIGENTLICHE GEGENSTAND: PoolResourceAllocator selbst. Seine Resource ist BESITZEND
+        // (ResourceOwnership::Owned) und nicht von aussen setzbar -- hier gibt es keine Injektions-Naht,
+        // der Fehlschlag muss ueber eine reale, garantiert scheiternde Anfrage kommen. Die Zahl bleibt
+        // deshalb absurd gross (kleiner waere sie unter Overcommit nicht mehr garantiert). GRENZE, ehrlich
+        // benannt statt still gelassen: unter ASan ist dieser eine Aufruf ein harter Sanitizer-Abbruch
+        // statt eines Wurfs. Er ist heute unkritisch -- der sanitize:asan-ubsan-Job baut und laeuft GENAU
+        // fuenf Targets (.gitlab-ci.yml:182-183), diese TU ist keines davon. Wer sie dort aufnimmt, muss
+        // vorher eine Upstream-Naht an PoolResourceAllocatorBody schaffen; bis dahin traegt (4a) den
+        // sanitizer-festen Teil der Aussage.
         alloc::PoolResourceAllocator pool{};
 
         // Erfolgs-Pfad zuerst -- er MUSS unangetastet sein.
