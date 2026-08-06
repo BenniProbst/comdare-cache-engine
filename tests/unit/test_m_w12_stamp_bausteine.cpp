@@ -678,6 +678,7 @@ TEST(MW12StampBausteine, O2ToolchainStampGliedRendersAxesWithFlagsAndVersions) {
     abi::ToolchainStampParts p{};
     p.cxx_dialect       = "gcc";
     p.cxx_realversion   = "16.1.0"; // G-C4: die REAL erkannte Version, nicht der Treiber-Tag "g++-16"
+    p.cxx_driver        = "g++-16"; // NB2-1 (R1): der Tier-Treiber-Tag, Pflicht neben dem Dialekt
     p.opt               = "O3";
     p.opt_flags         = "-O3";
     p.simd              = "avx512";
@@ -691,9 +692,13 @@ TEST(MW12StampBausteine, O2ToolchainStampGliedRendersAxesWithFlagsAndVersions) {
     // (a) Flags als Teil der Achsen-DEFINITION -- in der Klammer hinter der id.
     EXPECT_NE(g.find("opt=O3{-O3}@1.0.0c"), std::string::npos) << "glied='" << g << "'";
     EXPECT_NE(g.find("atomic128=cx16{-mcx16}@1.0.0c"), std::string::npos) << "glied='" << g << "'";
-    // (b) REAL erkannte Compiler-Version am Dialekt, mit Achsen-Version.
-    EXPECT_NE(g.find("cxx=gcc-16.1.0@1.0.0c"), std::string::npos) << "glied='" << g << "'";
-    EXPECT_EQ(g.find("g++-16"), std::string::npos) << "der Treiber-Tag gehoert NICHT ins Glied (G-C4)";
+    // (b) REAL erkannte Compiler-Version am Dialekt, mit Achsen-Version -- und NB2-1: dahinter, durch ':'
+    //     getrennt, der TIER-TREIBER-TAG. Er ERSETZT die Version nicht (das war G-C4s Punkt), er tritt
+    //     NEBEN sie: ohne ihn kollabierten g++-17 und g++-18 auf dasselbe Glied.
+    EXPECT_NE(g.find("cxx=gcc-16.1.0:g++-16@1.0.0c"), std::string::npos) << "glied='" << g << "'";
+    // Der Tag ist NICHT der Versions-Traeger: zwischen Dialekt und Version steht weiter die Realversion,
+    // nie der Tag. Genau ein ':' im Feld -- daran haengt die Zerlegbarkeit (NB2-1-Klebepunkt-Regel).
+    EXPECT_EQ(std::count(g.begin(), g.end(), ':'), 1) << "glied='" << g << "'";
     // Der Kopf traegt die Glied-Format-Version; die uebrigen Felder stehen als schlichte Paare.
     EXPECT_TRUE(g.starts_with("tc=1;")) << "glied='" << g << "'";
     EXPECT_NE(g.find(";ext=avx512"), std::string::npos);
@@ -754,9 +759,11 @@ TEST(MW12StampBausteine, O2ToolchainGliedAndBuildVersionSuffixShareOneSource) {
     // opt traegt im Glied ZUSAETZLICH seine Flags und seine Achsen-Version -- das ist der Mehrwert der
     // Identitaets-Seite, kein Widerspruch: die id ist dieselbe.
     EXPECT_NE(glied.find(";opt=O3{-O3}@1.0.0c"), std::string::npos) << "glied='" << glied << "'";
-    // Und die bewusste Asymmetrie: der Treiber-Tag bleibt im Suffix, die Realversion im Glied.
+    // NB2-1: der TREIBER-TAG steht jetzt in BEIDEN Welten und kommt aus DERSELBEN Quelle (sp.cxx) -- das
+    // Glied kann also gar keinen anderen Treiber nennen als den, unter dem gebaut wird. Die verbleibende
+    // Asymmetrie ist nur noch die Realversion: sie steht im Glied und hat im Suffix kein Gegenstueck.
     EXPECT_NE(suffix.find("+cxx=g++-16"), std::string::npos);
-    EXPECT_NE(glied.find("cxx=gcc-16.1.0@"), std::string::npos);
+    EXPECT_NE(glied.find("cxx=gcc-16.1.0:g++-16@"), std::string::npos) << "glied='" << glied << "'";
 }
 
 TEST(MW12StampBausteine, PlannerVersionStampCarriesSelfVersionAndIsaOs) {
@@ -1121,14 +1128,17 @@ TEST(MW12StampBausteine, NbCx3CompilerRealVersionIsDetectedAtCompileTime) {
     // (e) WIRKSAMKEIT: die Erhebung laesst sich in ein Glied rendern, und dort steht der DIALEKT-VERSION-
     //     Verbund -- nie der Treiber-Tag.
     abi::ToolchainStampParts p{};
-    p.cxx_dialect       = abi::kDetectedCompilerDialect;
-    p.cxx_realversion   = abi::kDetectedCompilerRealVersion;
+    p.cxx_dialect     = abi::kDetectedCompilerDialect;
+    p.cxx_realversion = abi::kDetectedCompilerRealVersion;
+    // NB2-1: der Tag ist Pflicht, sobald der Dialekt gesetzt ist -- hier ein bewusst FREMDER Tag, damit
+    // sichtbar bleibt, dass die Realversion NICHT aus ihm abgeleitet wird (G-C4).
+    p.cxx_driver        = "hausgemachter-treiber";
     std::string const g = abi::render_toolchain_stamp_glied(p);
-    std::string const erwartet =
-        "cxx=" + std::string{abi::kDetectedCompilerDialect} + "-" + std::string{abi::kDetectedCompilerRealVersion} +
-        "@1.0.0c";
+    std::string const erwartet = "cxx=" + std::string{abi::kDetectedCompilerDialect} + "-" +
+                                 std::string{abi::kDetectedCompilerRealVersion} + ":hausgemachter-treiber@1.0.0c";
     EXPECT_NE(g.find(erwartet), std::string::npos) << "glied='" << g << "' erwartet-Segment='" << erwartet << "'";
-    EXPECT_EQ(g.find("g++-"), std::string::npos) << "der Treiber-Tag gehoert NICHT ins Glied (G-C4)";
+    // Die Realversion bleibt der Versions-Traeger; der Tag steht hinter dem ':' und wird nie zur Version.
+    EXPECT_NE(g.find("-" + std::string{abi::kDetectedCompilerRealVersion} + ":"), std::string::npos) << g;
 }
 
 // -- NB/CX-2: DER RENDERER IST INTERN INJEKTIV ---------------------------------------------------------
@@ -1162,12 +1172,14 @@ TEST(MW12StampBausteine, NbCx2ToolchainRendererIstInjektiv) {
     //     "cxx=gcc-13.2.0@1.0.0c". Deshalb traegt der Dialekt zusaetzlich kein '-'.
     abi::ToolchainStampParts e{};
     e.cxx_dialect = "gcc-13.2.0";
+    e.cxx_driver  = "g++-13";
     abi::ToolchainStampParts f{};
     f.cxx_dialect     = "gcc";
     f.cxx_realversion = "13.2.0";
+    f.cxx_driver      = "g++-13";
     EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(e), std::string_view{"cxx_dialect"});
     EXPECT_THROW((void)abi::render_toolchain_stamp_glied(e), std::invalid_argument);
-    EXPECT_EQ(abi::render_toolchain_stamp_glied(f), std::string{"tc=1;cxx=gcc-13.2.0@1.0.0c"});
+    EXPECT_EQ(abi::render_toolchain_stamp_glied(f), std::string{"tc=1;cxx=gcc-13.2.0:g++-13@1.0.0c"});
 
     // (4) '@' und '\n' sind ebenso STRUKTUR bzw. Domain-Separator.
     abi::ToolchainStampParts g{};
@@ -1180,6 +1192,133 @@ TEST(MW12StampBausteine, NbCx2ToolchainRendererIstInjektiv) {
     // (5) Der gutartige Fall bleibt unberuehrt: alles leer => die IDENTITAET, kein Wurf.
     EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(abi::ToolchainStampParts{}), std::string_view{});
     EXPECT_EQ(abi::render_toolchain_stamp_glied(abi::ToolchainStampParts{}), std::string{});
+}
+
+// -- NB2-1: DAS cxx-FELD IST INJEKTIV JE TREIBER-TAG ---------------------------------------------------
+// Codex-Zweitreview [KRITISCH], verbatim: "Tag ohne Endziffern oder Major-Mismatch laesst die Version ganz
+// weg -> g++-17 und g++-18 kollabieren auf cxx=gcc ohne Version." Der Test friert die Heilung als
+// POSITIV- UND NEGATIV-Probe ein: verschiedene Tags MUESSEN verschiedene Glieder ergeben, und zwar auch
+// (gerade) dann, wenn ueber die Version nichts bekannt ist.
+TEST(MW12StampBausteine, Nb21CxxFeldIstInjektivJeTreiberTag) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    auto glied_fuer = [](std::string_view treiber, std::string_view realversion) {
+        abi::ToolchainStampParts p{};
+        p.cxx_dialect     = "gcc";
+        p.cxx_realversion = realversion;
+        p.cxx_driver      = treiber;
+        return abi::render_toolchain_stamp_glied(p);
+    };
+
+    // (1) DER BEFUND SELBST: zwei Treiber, ueber deren Version nichts gedeckt ist. Am Vor-Stand ergaben
+    //     beide "tc=1;cxx=gcc@1.0.0c" -- also denselben Fingerprint fuer zwei verschiedene Compiler.
+    std::string const g17 = glied_fuer("g++-17", {});
+    std::string const g18 = glied_fuer("g++-18", {});
+    EXPECT_NE(g17, g18) << "g17='" << g17 << "' g18='" << g18 << "'";
+    EXPECT_EQ(g17, std::string{"tc=1;cxx=gcc:g++-17@1.0.0c"});
+    EXPECT_EQ(g18, std::string{"tc=1;cxx=gcc:g++-18@1.0.0c"});
+
+    // (2) Ein Tag OHNE Endziffern nennt keine Version -- er ist trotzdem unterscheidbar.
+    EXPECT_NE(glied_fuer("/usr/bin/c++", {}), glied_fuer("g++", {}));
+    EXPECT_NE(glied_fuer("/usr/bin/c++", {}), g17);
+
+    // (3) Zwei Tags mit GLEICHEM Major kollabieren nicht mehr, obwohl beide dieselbe (gedeckte) Version
+    //     tragen -- das war der zweite Ast des Befunds.
+    EXPECT_NE(glied_fuer("g++-16", "16.2.0"), glied_fuer("x86_64-linux-gnu-g++-16", "16.2.0"));
+
+    // (4) Die Klebepunkt-Regel ist FAIL-LOUD, nicht Konvention: ein ':' im Tag machte die Zerlegung
+    //     mehrdeutig ("gcc-1:2" liesse sich als (gcc,1,2) oder (gcc,,1:2) lesen).
+    abi::ToolchainStampParts k{};
+    k.cxx_dialect = "gcc";
+    k.cxx_driver  = "weird:tag";
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(k), std::string_view{"cxx_driver"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(k), std::invalid_argument);
+    // Whitespace/Backslash/Anfuehrungszeichen wuerden das Define in der @rsp-Datei zerlegen.
+    for (std::string_view const boese : {"g++ -16", "g++\\16", "g++\"16"}) {
+        abi::ToolchainStampParts b{};
+        b.cxx_dialect = "gcc";
+        b.cxx_driver  = boese;
+        EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(b), std::string_view{"cxx_driver"}) << boese;
+        EXPECT_THROW((void)abi::render_toolchain_stamp_glied(b), std::invalid_argument) << boese;
+    }
+    // Und die realen Tag-Formen passieren -- die Wache ist scharf, aber nicht im Weg.
+    EXPECT_NO_THROW((void)glied_fuer("/usr/bin/c++", {}));
+    EXPECT_NO_THROW((void)glied_fuer("clang++-22", {}));
+
+    // (5) Das Glied bleibt ein gueltiger Preimage-Glied-Wert (aeussere Wache aus anatomy_fingerprint.hpp).
+    EXPECT_TRUE(abi::injizierter_glied_wert_ist_wohlgeformt(glied_fuer("/usr/bin/c++", {})));
+    EXPECT_TRUE(abi::injizierter_glied_wert_ist_wohlgeformt(glied_fuer("g++-16", "16.2.0")));
+}
+
+// -- NB2-4: ABHAENGIGE FELDER WERDEN NICHT MEHR STILL VERWORFEN ----------------------------------------
+// Codex-Zweitreview [MITTEL], verbatim: "abhaengige Felder still verworfen -- cxx_realversion ohne Dialekt,
+// opt_flags ohne opt, atomic128_flags ohne atomic128 passieren die Diagnose, erscheinen aber nicht im
+// Ergebnis." Der Test friert alle drei plus die NB2-1-Paarung als Negativ-Probe ein.
+TEST(MW12StampBausteine, Nb24AbhaengigeFelderSindFailLoud) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (1) Realversion ohne Dialekt: am Vor-Stand lief der cxx-Zweig gar nicht erst an.
+    abi::ToolchainStampParts a{};
+    a.cxx_realversion = "16.2.0";
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(a), std::string_view{"cxx_realversion"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(a), std::invalid_argument);
+
+    // (2) opt_flags ohne opt: toolchain_append_axis kehrte bei leerer id sofort um.
+    abi::ToolchainStampParts b{};
+    b.opt_flags = "-O3";
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(b), std::string_view{"opt_flags"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(b), std::invalid_argument);
+
+    // (3) atomic128_flags ohne atomic128: derselbe Weg.
+    abi::ToolchainStampParts c{};
+    c.atomic128_flags = "-mcx16";
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(c), std::string_view{"atomic128_flags"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(c), std::invalid_argument);
+
+    // (4) NB2-1: Dialekt und Treiber-Tag gehoeren zusammen -- in BEIDE Richtungen.
+    abi::ToolchainStampParts d{};
+    d.cxx_dialect = "gcc";
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(d), std::string_view{"cxx_dialect"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(d), std::invalid_argument);
+    abi::ToolchainStampParts e{};
+    e.cxx_driver = "g++-16";
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(e), std::string_view{"cxx_driver"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(e), std::invalid_argument);
+
+    // (5) Die gutartigen Belegungen bleiben unberuehrt: LEER+LEER ist die IDENTITAET, und eine id OHNE
+    //     Flags ist zulaessig (die Flags sind der optionale Teil, nicht die id).
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(abi::ToolchainStampParts{}), std::string_view{});
+    abi::ToolchainStampParts f{};
+    f.opt       = "O3";
+    f.atomic128 = "cx16";
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(f), std::string_view{});
+    EXPECT_NO_THROW((void)abi::render_toolchain_stamp_glied(f));
+}
+
+// -- NB2-3: DER bvset-NAMENS-ZEICHENVORRAT -------------------------------------------------------------
+// Codex-Zweitreview [MITTEL], verbatim: "PT::name() wird unescaped zwischen Strukturzeichen eingesetzt,
+// die Aussenwache erlaubt genau diese Zeichen -> ein Typ name='a;page_kind=1}{b' rendert identisch zu zwei
+// Typen (a,1)+(b,2)." Die WACHE selbst ist compile-hart (static_assert je emittiertem Wrapper-Typ, s.
+// build_variant_set_signature.hpp) -- ein Verstoss kann deshalb gar nicht bis in einen Testlauf kommen.
+// Hier steht die Praedikat-Haelfte: dass die Wache genau die Kollisions-Zeichen faengt und die realen
+// Registry-Namen passieren laesst (Digest-Neutralitaet).
+TEST(MW12StampBausteine, Nb23BvsetNamensWacheFaengtStrukturzeichen) {
+    namespace bx = ::comdare::cache_engine::builder::experiment;
+
+    // (1) Der Codex-Name selbst -- die Kollision, um die es geht.
+    EXPECT_FALSE(bx::variant_set_signature_name_ist_wohlgeformt("a;page_kind=1}{b"));
+    // (2) Jedes Struktur-Zeichen einzeln.
+    for (std::string_view const boese : {"a;b", "a=b", "a{b", "a}b", "a[b", "a]b", "a@b", "a\nb", "a\rb"})
+        EXPECT_FALSE(bx::variant_set_signature_name_ist_wohlgeformt(boese)) << "name='" << boese << "'";
+    // (3) LEER: `{;page_kind=1}` liesse die Grenze zwischen Name und erstem Feld offen.
+    EXPECT_FALSE(bx::variant_set_signature_name_ist_wohlgeformt(""));
+    // (4) Die realen Namensformen der drei Build-Achsen passieren -- die Wache ist DIGEST-NEUTRAL.
+    for (std::string_view const gut : {"bplus", "avx512", "x86_64", "no_extension", "general_x86_64"})
+        EXPECT_TRUE(bx::variant_set_signature_name_ist_wohlgeformt(gut)) << "name='" << gut << "'";
+    // (5) Und die LEBENDE Signatur dieses Treibers ist ein gueltiger Preimage-Glied-Wert -- der Beweis,
+    //     dass die Bestands-Namen die Wache real bestehen (sonst haette der Bau schon gebrochen).
+    EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(
+        bx::kDriverBuildVariantSignature));
 }
 
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------
@@ -1278,21 +1417,83 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
     EXPECT_EQ(arg_bv.find(' '), std::string::npos) << arg_bv;
     EXPECT_EQ(pf::toolchain_stamp_glied_define_arg(""), std::string{}) << "leer => kein Define => Identitaet";
 
-    // (7) DIE EHRLICHKEITS-WACHE der Realversion: sie wird NUR behauptet, wenn Dialekt UND Major des
-    //     Tier-Treibers zur CT-Erhebung passen. Beide Aeste werden geprueft, damit keiner vakuum-gruen ist.
+    // (7) DIE EHRLICHKEITS-WACHE der Realversion. NB2-1 hat sie von fail-open auf fail-closed gezogen:
+    //     gedeckt ist die CEB-Realversion nur, wenn der Treiber-Tag sie VOLLSTAENDIG selbst nennt --
+    //     ein Tag, der nur den MAJOR nennt, ist mit jeder x.y vertraeglich und pinnt gar nichts.
     EXPECT_FALSE(pf::ct_realversion_deckt_treiber("/usr/bin/c++")) << "ein Tag ohne Endziffern nennt keine Version";
     EXPECT_FALSE(pf::ct_realversion_deckt_treiber("g++")) << "dito";
+    std::string const ct_voll{abi::kDetectedCompilerRealVersion};
     std::string const ct_major{abi::kDetectedCompilerRealVersion.substr(0, abi::kDetectedCompilerRealVersion.find('.'))};
-    std::string const passend =
-        (abi::kDetectedCompilerDialect == std::string_view{"clang"} ? "clang++-" : "g++-") + ct_major;
-    EXPECT_TRUE(pf::ct_realversion_deckt_treiber(passend)) << "treiber='" << passend << "'";
-    EXPECT_FALSE(pf::ct_realversion_deckt_treiber(passend + "0")) << "anderer Major => KEINE Deckung";
+    std::string const praefix = (abi::kDetectedCompilerDialect == std::string_view{"clang"} ? "clang++-" : "g++-");
+    EXPECT_TRUE(pf::ct_realversion_deckt_treiber(praefix + ct_voll)) << "treiber='" << praefix + ct_voll << "'";
+    // DER CODEX-FALL, jetzt Negativ-Probe: "g++-16" deckt 16.1.0 und 16.3.0 gleichermassen -- also keines.
+    EXPECT_FALSE(pf::ct_realversion_deckt_treiber(praefix + ct_major))
+        << "ein Tag, der nur den MAJOR nennt, darf die CEB-Version NICHT decken: " << praefix + ct_major;
+    EXPECT_FALSE(pf::ct_realversion_deckt_treiber(praefix + ct_voll + "0")) << "andere Version => KEINE Deckung";
+    // Die VOLLE Kennung wird gelesen, nicht bloss die letzte Ziffernfolge (sonst waere "g++-16.1" == "1").
+    EXPECT_EQ(pf::cxx_driver_version_kennung("g++-16.1"), std::string_view{"16.1"});
+    EXPECT_EQ(pf::cxx_driver_version_kennung("g++-16"), std::string_view{"16"});
+    EXPECT_EQ(pf::cxx_driver_version_kennung("/usr/bin/c++"), std::string_view{});
     // Ist die Deckung da, steht die Realversion im Glied; ist sie es nicht, steht sie NICHT drin.
     if (pf::ct_realversion_deckt_treiber(pf::active_cxx_driver_tag()))
-        EXPECT_NE(tc.find(std::string{abi::kDetectedCompilerRealVersion}), std::string::npos) << tc;
+        EXPECT_NE(tc.find("-" + ct_voll + ":"), std::string::npos) << tc;
     else
-        EXPECT_EQ(tc.find(std::string{abi::kDetectedCompilerRealVersion}), std::string::npos)
+        EXPECT_EQ(tc.find("-" + ct_voll + ":"), std::string::npos)
             << "eine UNGEDECKTE Realversion darf nicht im Glied stehen: " << tc;
-    // Der Treiber-Tag selbst gehoert NIE ins Glied (G-C4).
-    EXPECT_EQ(tc.find("++"), std::string::npos) << tc;
+
+    // (8) NB2-1 (R1): der TIER-TREIBER-TAG steht IMMER im Glied -- er ist der Diskriminator, der
+    //     verhindert, dass zwei verschiedene Treiber dasselbe Glied ergeben. Er ist KEINE Ableitung: es
+    //     ist byte-genau derselbe Tag, den active_cxx_driver_tag() liefert und unter dem gebaut wird.
+    std::string const treiber = pf::active_cxx_driver_tag();
+    ASSERT_FALSE(treiber.empty());
+    EXPECT_NE(tc.find(":" + treiber + "@"), std::string::npos)
+        << "das cxx-Feld muss den Tier-Treiber-Tag tragen: tc='" << tc << "' treiber='" << treiber << "'";
+}
+
+// -- NB2-2: EINE PREIMAGE-QUELLE FUER BEIDE WEGE -------------------------------------------------------
+// Codex-Zweitreview [KRITISCH], verbatim: "consteval anatomy_fingerprint_hex baut das Preimage in eigener
+// ungeprueft er Schleife (nicht ueber anatomy_fingerprint_preimage) -> organ='A\nB',system='C' kollidiert
+// byte-identisch mit organ='A',system='B\nC'". Beide Belegungen sind ab jetzt UNBAUBAR (der consteval-Weg
+// laeuft durch dieselbe Wache wie der Laufzeit-Weg; ein Wurf ist kein konstanter Ausdruck) -- ein
+// Positiv-Test dafuer kann es per Konstruktion nicht geben. Was hier steht, ist die andere Haelfte: der
+// BEWEIS, dass beide Wege dasselbe Preimage bilden, und die Laufzeit-Haelfte der Wache.
+TEST(MW12StampBausteine, Nb22ConstevalUndLaufzeitTeilenEinePreimageQuelle) {
+    namespace abi = ::comdare::cache_engine::abi;
+    namespace s5  = ::comdare::cache_engine::sha512;
+
+    constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0c";
+    constexpr std::string_view kSystem  = "target_isa=code@1.0.0c";
+    constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c";
+
+    // (1) consteval-Hex == SHA-512 ueber das LAUFZEIT-gebildete Preimage derselben Glieder. Vor NB2-2
+    //     waren das zwei getrennte Schleifen, die nur per Sichtnaehe uebereinstimmten.
+    constexpr auto    fp      = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure);
+    auto const        glieder = abi::anatomy_fingerprint_glieder(kOrgan, kSystem, kMeasure);
+    std::string const pre =
+        abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
+    auto const rt = s5::to_hex(
+        s5::sha512(std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(pre.data()), pre.size()}));
+    EXPECT_EQ(std::string_view(fp.data(), 128), std::string_view(rt.data(), rt.size()));
+
+    // (2) DIE KOLLISION, um die es geht: das GLEICHE Zeichenmaterial, eine verschobene Feldgrenze. Beide
+    //     Belegungen tragen den Separator und werden jetzt auf BEIDEN Wegen abgelehnt -- hier literal auf
+    //     dem Laufzeit-Weg (der consteval-Weg lehnt sie compile-hart ab, s. Kopf).
+    std::array<std::string_view, abi::kAnatomyFingerprintGliedCount> const a{
+        abi::kAnatomyFingerprintFormat, "A\nB", "C", "", "", "", "", ""};
+    std::array<std::string_view, abi::kAnatomyFingerprintGliedCount> const b{
+        abi::kAnatomyFingerprintFormat, "A", "B\nC", "", "", "", "", ""};
+    EXPECT_THROW((void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{a.data(), a.size()}),
+                 std::invalid_argument);
+    EXPECT_THROW((void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{b.data(), b.size()}),
+                 std::invalid_argument);
+
+    // (3) DIE KAPSELUNG der Traeger: der geprueffte Wert kann nach der Konstruktion nicht mehr ersetzt
+    //     werden. Das ist keine Stil-Frage -- am Vor-Stand war `.value` ein public Feld und die
+    //     Konstruktor-Wache damit umgehbar (`ToolchainGlied t{"ok"}; t.value = "TC\nX";`). Den BEWEIS
+    //     traegt der Compiler: die Zeile oben ist heute schlicht nicht mehr uebersetzbar, es gibt kein
+    //     zuweisbares Feld. Hier steht die Lese-Haelfte -- der Wert kommt unveraendert wieder heraus.
+    constexpr std::string_view kTc = "tc=1;cxx=gcc:g++-16@1.0.0c";
+    EXPECT_EQ(abi::ToolchainGlied{kTc}.wert(), kTc);
+    EXPECT_EQ(abi::BvsetGlied{std::string_view{"bvset=1"}}.wert(), std::string_view{"bvset=1"});
+    EXPECT_EQ(abi::OverlayHash{std::string_view{}}.wert(), std::string_view{});
 }

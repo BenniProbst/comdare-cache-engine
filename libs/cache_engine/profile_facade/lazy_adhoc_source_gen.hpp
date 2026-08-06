@@ -94,6 +94,7 @@
 #include <cstdint> // I2: std::uint8_t fuer das SHA-512-Preimage
 #include <cstdlib> // S6-P1b Env-Bruecke: std::getenv (COMDARE_MEASUREMENT_COMBO)
 #include <memory>
+#include <optional>  // NB2-5: "nicht uebergeben" vs. "leer uebergeben" -- die Unterscheidung wohnt im Typ
 #include <span>      // I2: std::span fuer die SHA-512-Primitive
 #include <stdexcept> // W2: Widerspruchs-Wache der CT-Combo (fehlerklasse=konfiguration_widerspruch)
 #include <string>
@@ -397,26 +398,42 @@ template <class List>
 /// (profile_run_facade perm_compile_flags -> -DCOMDARE_TOOLCHAIN_STAMP_GLIED /
 /// -DCOMDARE_BUILD_VARIANT_SET_SIGNATURE) in die Tier-Uebersetzung haengt. Beide Seiten rufen DIESELBEN
 /// argumentlosen, reinen Funktionen der Toolchain-Naht; damit ist die drift-freie Zusage dieser Funktion
-/// nicht mehr eine Bitte an den Aufrufer, sondern Mechanik. Ein EXPLIZIT uebergebener Wert gewinnt weiter
-/// (das ist der per-Perm-Weg der Folge-Scheibe C-3) -- der frueher hier stehende Zweig verwechselte
-/// dagegen "nicht injiziert" mit "leer injiziert" und konnte still auf den CEB-eigenen Define zurueckfallen.
-[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {},
-                                                                               std::string toolchain_glied    = {},
-                                                                               std::string bvset_glied        = {}) {
+/// nicht mehr eine Bitte an den Aufrufer, sondern Mechanik.
+///
+/// NB2-5 (Codex-Zweitreview [MITTEL], am Code bestaetigt) -- KOMMENTAR UND VERHALTEN DECKEN SICH WIEDER.
+/// Der Satz "ein EXPLIZIT uebergebener Wert gewinnt" stand hier, WAEHREND die Implementierung auf
+/// `if (toolchain_glied.empty())` pruefte -- ein bewusst LEER uebergebener Wert wurde also gerade nicht
+/// respektiert, sondern durch den Live-Wert ersetzt. Damit war fuer eine absichtlich OHNE die beiden
+/// Defines gebaute Binary (Frozen-Vektor-Nachbau, Fallback-/Bestands-Binary aus der Zeit vor der Live-Naht)
+/// KEIN passender Laufzeit-Fingerprint bildbar: der Zwilling rechnete zwangsweise mit Gliedern, die in
+/// jener Binary gar nicht einkompiliert sind.
+///
+/// DIE UNTERSCHEIDUNG, DIE GEFEHLT HAT, IST JETZT IM TYP: std::optional trennt "NICHT UEBERGEBEN" von
+/// "LEER UEBERGEBEN". std::nullopt (der Default, also jeder Bestands-Aufruf) == die LIVE-Werte, unveraendert
+/// zur CX-4-Absicht. Ein uebergebener Wert gewinnt IMMER -- auch der leere String, der dann genau das
+/// bedeutet, was er sagt: "diese Binary traegt das Glied nicht". Kein Zweig rechnet mehr etwas anderes,
+/// als der Aufrufer verlangt hat.
+[[nodiscard]] inline ex::FingerprintFn
+make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {},
+                                        std::optional<std::string> toolchain_glied = std::nullopt,
+                                        std::optional<std::string> bvset_glied     = std::nullopt) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
-    if (toolchain_glied.empty()) toolchain_glied = pfn::compose_live_toolchain_stamp_glied();
-    if (bvset_glied.empty()) bvset_glied = pfn::live_build_variant_set_signature_glied();
+    std::string tc_wert =
+        toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
+    std::string bv_wert =
+        bvset_glied.has_value() ? std::move(*bvset_glied) : pfn::live_build_variant_set_signature_glied();
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
-            cell_values = std::move(system_cell_values), toolchain = std::move(toolchain_glied),
-            bvset = std::move(bvset_glied)](std::string const& binary_id) {
+            cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert),
+            bvset = std::move(bv_wert)](std::string const& binary_id) {
         // NB/CX-4: die Werte stehen zu diesem Zeitpunkt FEST (oben aufgeloest -- explizit uebergeben oder
         // live komponiert). Der frueher hier stehende empty()-Zweig ist ersatzlos entfallen: er war genau
         // die Konflation "nicht injiziert" == "leer injiziert", die den Zwilling still auf den CEB-eigenen
         // Compile-Define zurueckfallen liess, waehrend die Tier-Binary einen anderen Wert eingebaut bekam.
+        // NB2-5: die Aufloesung oben unterscheidet jetzt auch "leer UEBERGEBEN" von "nicht uebergeben".
         auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
         auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset};
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,

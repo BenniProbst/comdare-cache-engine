@@ -184,10 +184,21 @@ constexpr void require_injizierter_glied_wert(std::string_view glied, std::strin
 /// NB/CX-1: der Traeger ist zugleich die WACHE. Die Pruefung im Konstruktor ist kein Zusatz, sondern der
 /// einzige Ort, an dem sie NICHT umgangen werden kann -- jeder Weg ins Preimage fuehrt durch ihn. Er ist
 /// deshalb nicht mehr `noexcept`: ein ungueltiger Wert MUSS heraus, statt zu terminieren.
-struct OverlayHash {
-    std::string_view value;
+///
+/// NB2-2 (Codex-Zweitreview [KRITISCH], am Code bestaetigt): "der einzige Ort, an dem sie nicht umgangen
+/// werden kann" war zum Vor-Stand schlicht UNWAHR -- das Feld hiess `value`, war public und frei
+/// mutierbar. `OverlayHash h{"ok"}; h.value = "a\nb";` fuehrte an der Konstruktor-Wache VORBEI und trug
+/// den Domain-Separator ins Preimage; damit war die ganze NB/CX-1-Zusage eine Absichtserklaerung. Der
+/// Wert wohnt ab hier PRIVAT und wird nur lesend herausgegeben. Der Traeger ist damit das, was er
+/// behauptet zu sein: ein Beweis-Tragender Typ, dessen Invariante ab Konstruktion gilt.
+class OverlayHash {
+public:
+    constexpr explicit OverlayHash(std::string_view v) : wert_{v} { require_injizierter_glied_wert("overlay", v); }
 
-    constexpr explicit OverlayHash(std::string_view v) : value{v} { require_injizierter_glied_wert("overlay", v); }
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
 };
 
 /// O-2/C-2 -- DIE TOOLCHAIN-NAHT (Glied [5]). Owner-KERN abend-5: "ALLE Laufzeit Hauptachsen wie Compiler
@@ -240,16 +251,27 @@ inline constexpr std::string_view kBuildVariantSetSignatureGlied = COMDARE_BUILD
 /// Injektivitaets-Pflicht der zur CEB-LAUFZEIT gereichten Werte kein Kommentar mehr, sondern Mechanik:
 /// lazy_adhoc_fingerprint_for baut die Traeger aus Laufzeit-Strings, also laeuft jeder Laufzeit-Wert durch
 /// dieselbe Wache wie die Compile-Defines.
-struct ToolchainGlied {
-    std::string_view value;
+///
+/// NB2-2: beide Traeger sind ab hier GEKAPSELT (Begruendung ausfuehrlich bei OverlayHash) -- ein public
+/// mutierbares `.value` machte die Konstruktor-Wache zu einer blossen Empfehlung.
+class ToolchainGlied {
+public:
+    constexpr explicit ToolchainGlied(std::string_view v) : wert_{v} { require_injizierter_glied_wert("toolchain", v); }
 
-    constexpr explicit ToolchainGlied(std::string_view v) : value{v} { require_injizierter_glied_wert("toolchain", v); }
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
 };
 
-struct BvsetGlied {
-    std::string_view value;
+class BvsetGlied {
+public:
+    constexpr explicit BvsetGlied(std::string_view v) : wert_{v} { require_injizierter_glied_wert("bvset", v); }
 
-    constexpr explicit BvsetGlied(std::string_view v) : value{v} { require_injizierter_glied_wert("bvset", v); }
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
 };
 
 /// Anzahl der Preimage-Glieder. FEST -- die Injektivitaet der '\n'-Zerlegung haengt an der festen Anzahl.
@@ -361,8 +383,8 @@ anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std
                             ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
                             BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
                             OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) noexcept {
-    return {kAnatomyFingerprintFormat, organ,           system,      measurement,
-            kSubAxisValuesetSegment,   toolchain.value, bvset.value, overlay.value};
+    return {kAnatomyFingerprintFormat, organ,            system,       measurement,
+            kSubAxisValuesetSegment,   toolchain.wert(), bvset.wert(), overlay.wert()};
 }
 
 /// W10-C3: die Positions-Konstante ist BEWIESEN, nicht behauptet -- wer die Glied-Ordnung oben umbaut,
@@ -390,51 +412,102 @@ static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintToolchainGlied
                   kAnatomyFingerprintBvsetGlied < kAnatomyFingerprintOverlayGlied,
               "Die benannten Positionen muessen aufsteigend und paarweise verschieden sein.");
 
-/// anatomy_fingerprint_preimage(glieder) -- der LAUFZEIT-Zwilling der Preimage-Bildung: dieselbe Glied-Liste,
-/// derselbe Separator. Er steht bewusst UNMITTELBAR neben der consteval-Schleife unten: der consteval-Weg
-/// braucht einen uint8-Puffer (ein reinterpret_cast auf std::string::data() waere in einem konstanten
-/// Ausdruck verboten), der Laufzeit-Weg einen std::string -- zwei Schleifen, EINE Ordnung, EIN Separator,
-/// im selben Sichtfeld.
-///
-/// NB/CX-1: dieser Weg ist die EINZIGE Laufzeit-Bildung des Preimage (der Lager-Key-Ableiter
-/// derive_key_from_lines zieht ebenfalls hier durch). Deshalb steht hier die Separator-Wache fuer JEDES
-/// Glied -- auch fuer die drei Stempel-ZEILEN, deren Werte aus Achsen-Namen und Mess-Combos entstehen und
-/// damit von aussen beeinflussbar sind. Nur der Separator wird geprueft, nicht der Zeichenvorrat: die
-/// Achsen-Namen gehoeren den Achsen, nicht diesem Header (die schaerfere Wache tragen die injizierten
-/// Glieder in ihren Traeger-Typen).
-[[nodiscard]] inline std::string anatomy_fingerprint_preimage(std::span<std::string_view const> glieder) {
-    std::string pre;
-    for (std::size_t i = 0; i < glieder.size(); ++i) {
-        if (glieder[i].find(kAnatomyFingerprintSeparator) != std::string_view::npos)
-            throw std::invalid_argument(
-                std::string{"fehlerklasse=stempel_injektivitaet: das Preimage-Glied an Position "} +
-                std::to_string(i) +
-                " traegt den Domain-Separator '\\n'. Die Zerlegung des Preimage waere damit mehrdeutig, zwei "
-                "verschiedene Glied-Saetze koennten denselben Fingerprint ergeben (falscher Skip).");
-        if (i != 0) pre += kAnatomyFingerprintSeparator;
-        pre.append(glieder[i]);
-    }
-    return pre;
+// -- NB2-2: DIE EINE PREIMAGE-KONSTRUKTION -------------------------------------------------------------
+//
+// DER BEFUND, DEN SIE HEILT (Codex-Zweitreview [KRITISCH], am Code bestaetigt): es gab ZWEI Preimage-
+// Bildungen. Die Laufzeit-Form (anatomy_fingerprint_preimage) trug seit NB/CX-1 die Separator-Wache; die
+// consteval-Form in anatomy_fingerprint_hex baute ihren Puffer in einer EIGENEN, UNGEPRUEFTEN Schleife.
+// Damit galt die Injektivitaets-Zusage genau auf dem Weg NICHT, der die einkompilierten Stempel-Literale
+// hasht -- also auf dem produktiven. Die Kollision braucht keinen SHA-Bruch:
+//     A = {organ="A\nB", system="C"}   und   B = {organ="A", system="B\nC"}
+// ergeben BYTE-IDENTISCHE Preimages, also denselben Fingerprint fuer zwei verschiedene Tier-Binaries.
+// "Zwei Schleifen, EINE Ordnung" war als Kommentar wahr und als Mechanik falsch: die Ordnung war geteilt,
+// die WACHE nicht.
+//
+// DIE AUFLOESUNG: EINE constexpr-Kernfunktion, die beide Wege benutzen. Sie unterscheiden sich nur noch in
+// der SENKE -- der consteval-Weg braucht einen uint8-Puffer (ein reinterpret_cast auf std::string::data()
+// waere in einem konstanten Ausdruck verboten), der Laufzeit-Weg einen std::string. Die Ordnung, der
+// Separator UND die Wache stehen ab hier physisch nur noch EINMAL da; eine der beiden Seiten kann gar
+// nicht mehr laxer sein als die andere.
+
+namespace detail {
+
+/// Die Separator-Wache EINES Glieds -- fail-loud auf beiden Wegen. Zur LAUFZEIT wirft sie mit benannter
+/// Fehlerklasse; in einem konstanten Ausdruck ist ein Wurf per Definition kein konstanter Ausdruck mehr,
+/// die consteval-Auswertung bricht also COMPILE-HART mit Verweis auf genau diese Stelle.
+/// Die Positions-Ziffer wird von Hand gesetzt statt via std::to_string: letzteres ist nicht constexpr und
+/// wuerde den Kern fuer den consteval-Weg unbrauchbar machen.
+constexpr void require_glied_ohne_separator(std::size_t position, std::string_view glied) {
+    if (glied.find(kAnatomyFingerprintSeparator) == std::string_view::npos) return;
+    std::string wo{"?"};
+    if (position < 10) wo[0] = static_cast<char>('0' + static_cast<int>(position));
+    throw std::invalid_argument(
+        std::string{"fehlerklasse=stempel_injektivitaet: das Preimage-Glied an Position "} + wo +
+        " traegt den Domain-Separator '\\n'. Die Zerlegung des Preimage waere damit mehrdeutig, zwei "
+        "verschiedene Glied-Saetze koennten denselben Fingerprint ergeben (falscher Skip).");
 }
 
-/// anatomy_fingerprint_hex(organ, system, measurement[, OverlayHash]) -- 128-hex SHA-512 (nullterminiert,
+/// Die Laufzeit-Senke: ein wachsender std::string.
+struct PreimageStringSenke {
+    std::string    aus;
+    constexpr void put(char c) { aus.push_back(c); }
+};
+
+/// Die consteval-Senke: ein exakt budgetierter Byte-Puffer (die Budget-static_asserts oben decken ihn).
+template <std::size_t N>
+struct PreimageBytesSenke {
+    std::array<std::uint8_t, N> aus{};
+    std::size_t                 n = 0;
+    constexpr void              put(char c) { aus[n++] = static_cast<std::uint8_t>(c); }
+};
+
+} // namespace detail
+
+/// anatomy_fingerprint_preimage_emit(glieder, senke) -- DIE EINE Preimage-Konstruktion.
+///
+/// NB/CX-1 (unveraendert gueltig, jetzt auf BEIDEN Wegen): die Separator-Wache gilt fuer JEDES Glied --
+/// auch fuer die drei Stempel-ZEILEN, deren Werte aus Achsen-Namen und Mess-Combos entstehen und damit von
+/// aussen beeinflussbar sind. Nur der Separator wird geprueft, nicht der Zeichenvorrat: die Achsen-Namen
+/// gehoeren den Achsen, nicht diesem Header (die schaerfere Wache tragen die injizierten Glieder in ihren
+/// Traeger-Typen).
+template <class Senke>
+constexpr void anatomy_fingerprint_preimage_emit(std::span<std::string_view const> glieder, Senke& senke) {
+    for (std::size_t i = 0; i < glieder.size(); ++i) {
+        detail::require_glied_ohne_separator(i, glieder[i]);
+        if (i != 0) senke.put(kAnatomyFingerprintSeparator);
+        for (char const c : glieder[i]) senke.put(c);
+    }
+}
+
+/// anatomy_fingerprint_preimage(glieder) -- der LAUFZEIT-Weg. Er ist ab NB2-2 nur noch die STRING-SENKE
+/// ueber dem gemeinsamen Kern; er haelt keine eigene Ordnung und keine eigene Wache mehr. Er bleibt die
+/// EINZIGE Laufzeit-Bildung des Preimage (der Lager-Key-Ableiter derive_key_from_lines zieht hier durch).
+[[nodiscard]] inline std::string anatomy_fingerprint_preimage(std::span<std::string_view const> glieder) {
+    detail::PreimageStringSenke senke;
+    anatomy_fingerprint_preimage_emit(glieder, senke);
+    return std::move(senke.aus);
+}
+
+/// anatomy_fingerprint_hex(organ, system, measurement[, Traeger...]) -- 128-hex SHA-512 (nullterminiert,
 /// array<char, 129>) ueber die '\n'-getrennte Glied-Folge aus anatomy_fingerprint_glieder(). consteval:
 /// reine Compile-Zeit-Ableitung der einkompilierten Stempel-Literale (leere Zeilen -> leeres Glied, aber
 /// der Separator bleibt -> die Feldgrenze ist erhalten; genau das ist der GA-01-Fix).
+///
+/// NB2-2: der Puffer wird ueber DENSELBEN Kern gefuellt wie der Laufzeit-Weg -- inklusive Wache. Die
+/// Funktion ist deshalb NICHT mehr `noexcept`: ein Glied mit Domain-Separator MUSS die consteval-Auswertung
+/// abbrechen (kein konstanter Ausdruck), statt still ueber std::terminate zu laufen oder -- schlimmer -- ein
+/// mehrdeutiges Preimage zu hashen.
 [[nodiscard]] consteval std::array<char, 129>
 anatomy_fingerprint_hex(std::string_view organ, std::string_view system, std::string_view measurement,
                         ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
                         BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
-                        OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) noexcept {
+                        OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
     auto const glieder = anatomy_fingerprint_glieder(organ, system, measurement, toolchain, bvset, overlay);
-    std::array<std::uint8_t, kAnatomyFingerprintPreimageMax> preimage{};
-    std::size_t                                              n = 0;
-    for (std::size_t i = 0; i < glieder.size(); ++i) {
-        if (i != 0) preimage[n++] = static_cast<std::uint8_t>(kAnatomyFingerprintSeparator);
-        for (char c : glieder[i]) preimage[n++] = static_cast<std::uint8_t>(c);
-    }
-    auto const digest = ::comdare::cache_engine::sha512::sha512(std::span<const std::uint8_t>{preimage.data(), n});
-    auto const hex    = ::comdare::cache_engine::sha512::to_hex(digest); // array<char, 128>
+    detail::PreimageBytesSenke<kAnatomyFingerprintPreimageMax> senke{};
+    anatomy_fingerprint_preimage_emit(std::span<std::string_view const>{glieder.data(), glieder.size()}, senke);
+    auto const digest =
+        ::comdare::cache_engine::sha512::sha512(std::span<const std::uint8_t>{senke.aus.data(), senke.n});
+    auto const            hex = ::comdare::cache_engine::sha512::to_hex(digest); // array<char, 128>
     std::array<char, 129> out{};
     for (std::size_t i = 0; i < 128; ++i) out[i] = hex[i];
     out[128] = '\0';

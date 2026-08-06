@@ -97,10 +97,17 @@ struct SystemVersionSuffixParts {
 ///
 /// DER cxx-FALL IST BEWUSST NICHT SYMMETRISCH und darf es nicht sein: der Suffix traegt seit jeher den
 /// TREIBER-Tag ("g++-16") -- er ist Transport-/Cache-Pfad-Bestandteil und muss byte-stabil bleiben. Das
-/// Glied verlangt per G-C4/OE-C die REAL ERKANNTE Compiler-Version, weil "g++-16" nicht zwischen 16.1.0 und
-/// 16.2.0 unterscheidet und zwei so gebaute Binaries verschieden sind. Deshalb kommen Dialekt und
-/// Realversion als eigene Argumente herein; sie sind KEINE Ableitung aus dem Treiber-Tag (das waere die
-/// verbotene Zweitwahrheit), sondern die Erhebung der bauenden Stufe.
+/// Glied verlangt per G-C4/OE-C zusaetzlich die REAL ERKANNTE Compiler-Version, weil "g++-16" nicht
+/// zwischen 16.1.0 und 16.2.0 unterscheidet und zwei so gebaute Binaries verschieden sind. Deshalb kommen
+/// Dialekt und Realversion als eigene Argumente herein; sie sind KEINE Ableitung aus dem Treiber-Tag (das
+/// waere die verbotene Zweitwahrheit), sondern die Erhebung der bauenden Stufe.
+///
+/// NB2-1: der TREIBER-TAG steht ab jetzt in BEIDEN Welten -- im Suffix als Transport, im Glied als
+/// Identitaets-Diskriminator (abi/toolchain_stamp_glied.hpp, Regel R1). Er wird hier VERBATIM aus p.cxx
+/// durchgereicht, also aus derselben EINEN Quelle wie das Suffix-Segment "+cxx=" -- damit kann das Glied
+/// gar keinen anderen Treiber nennen als der Pfad, unter dem gebaut wird. Die Asymmetrie schrumpft damit
+/// auf das, was sie inhaltlich ist: das Glied traegt ZUSAETZLICH die (nur wenn gedeckt behauptete)
+/// Realversion, der Suffix nicht.
 ///
 /// Die glied-eigenen Felder (opt_flags, atomic128 + dessen Flags) haben im Suffix kein Gegenstueck: die
 /// Flags sind per Owner-KERN abend-5 Teil der Haupt-Achsen-DEFINITION und gehoeren damit in die
@@ -112,6 +119,7 @@ toolchain_stamp_parts_from_suffix_parts(SystemVersionSuffixParts const& p, std::
     ::comdare::cache_engine::abi::ToolchainStampParts t{};
     t.cxx_dialect       = cxx_dialect;
     t.cxx_realversion   = cxx_realversion;
+    t.cxx_driver        = p.cxx;               // NB2-1: VERBATIM -- dieselbe Quelle wie das "+cxx="-Segment
     t.opt               = p.opt;               // VERBATIM aus der Suffix-Quelle
     t.opt_flags         = opt_flags;           // glied-eigen (Teil der Achsen-DEFINITION)
     t.simd              = p.simd;              // VERBATIM

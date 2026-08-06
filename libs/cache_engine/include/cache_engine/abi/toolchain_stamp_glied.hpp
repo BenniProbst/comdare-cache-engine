@@ -251,13 +251,19 @@ inline constexpr std::array<std::string_view, kToolchainGliedKeyCount> kToolchai
 /// sind ALLE Felder leer, ist das gerenderte Glied leer (die IDENTITAET, byte-neutral zum Vor-Neuanker-Stand
 /// dieses Glieds).
 ///
-/// cxx ist ZWEIGETEILT und nicht ein fertiger String: G-C4/OE-C verlangt die REAL ERKANNTE Compiler-Version
+/// cxx ist DREIGETEILT und nicht ein fertiger String: G-C4/OE-C verlangt die REAL ERKANNTE Compiler-Version
 /// statt des Treiber-NAMENS ("g++-16" sagt nichts ueber die tatsaechlich benutzte 16.1.0 vs 16.2.0). Ein
-/// zusammengesetztes Feld liesse offen, ob der Aufrufer das getan hat; zwei Felder machen es zur Pflicht,
-/// die der Renderer an EINER Stelle zusammensetzt.
+/// zusammengesetztes Feld liesse offen, ob der Aufrufer das getan hat; getrennte Felder machen es zur
+/// Pflicht, die der Renderer an EINER Stelle zusammensetzt.
+///
+/// NB2-1: cxx_driver ist das DRITTE Feld und die eigentliche IDENTITAET des Tier-Treibers -- s. die
+/// ausfuehrliche Regel unten bei render_toolchain_stamp_glied. Kurz: die Realversion ist eine Eigenschaft
+/// der CEB-UEBERSETZUNG und deckt den Tier-Treiber nur in Ausnahmefaellen; der Treiber-TAG ist das einzige
+/// Datum, das den Tier-Treiber vollstaendig und gelesen (nicht geraten) benennt.
 struct ToolchainStampParts {
     std::string_view cxx_dialect{};       ///< Compiler-Haupt-Achsen-Option-id ("gcc"/"clang")
     std::string_view cxx_realversion{};   ///< REAL erkannte Version ("16.1.0"), NIE der Treiber-Name (G-C4)
+    std::string_view cxx_driver{};        ///< NB2-1: der TIER-Treiber-Tag ("g++-16"), Pflicht wenn Dialekt gesetzt
     std::string_view opt{};               ///< opt_level-id ("O3")
     std::string_view opt_flags{};         ///< die konkreten Flags dieses Dialekts ("-O3") -- Teil der Definition
     std::string_view simd{};              ///< simd-id (+ext=); no_extension wird vom Aufrufer als leer gereicht
@@ -300,17 +306,48 @@ inline constexpr std::string_view kToolchainGliedStrukturZeichen = ";={}@";
     return true;
 }
 
-/// Der DIALEKT traegt zusaetzlich kein '-': der Renderer klebt ihn mit '-' an die Realversion. Ohne diese
-/// Zusatz-Regel blieben {"gcc-13.2.0", ""} und {"gcc", "13.2.0"} ununterscheidbar (dritte Kollision oben).
+/// NB2-1: DIE ZWEI KLEBEPUNKTE DES cxx-FELDES. Der Renderer setzt es als
+///     <dialekt>[-<realversion>]:<treiber-tag>
+/// zusammen. Damit diese Zerlegung EINDEUTIG bleibt (und die drei Bestandteile nicht ineinander
+/// verschoben werden koennen), gilt:
+///   - der DIALEKT traegt weder '-' noch ':'  -> der erste '-' trennt Dialekt von Realversion
+///     (ohne diese Regel blieben {"gcc-13.2.0", ""} und {"gcc", "13.2.0"} ununterscheidbar);
+///   - die REALVERSION traegt weder '-' noch ':';
+///   - der TREIBER-TAG traegt kein ':'        -> das EINE ':' trennt Kopf von Tag.
+/// Aus (kein ':' in Dialekt/Realversion/Tag) folgt: das Feld enthaelt genau ein ':', der Tag steht rechts
+/// davon, der Kopf links -- und der Kopf enthaelt hoechstens ein '-'. Die Abbildung
+/// (dialekt, realversion|keine, tag) -> Feldtext ist damit INJEKTIV, nicht bloss "praktisch eindeutig".
 [[nodiscard]] constexpr bool toolchain_dialekt_ist_wohlgeformt(std::string_view v) noexcept {
-    return toolchain_wert_ist_wohlgeformt(v) && v.find('-') == std::string_view::npos;
+    return toolchain_wert_ist_wohlgeformt(v) && v.find('-') == std::string_view::npos &&
+           v.find(':') == std::string_view::npos;
+}
+
+/// Spiegel fuer die Realversion (s. Klebepunkt-Regel oben). Die CT-Erhebung liefert ohnehin nur Ziffern und
+/// Punkte; die Wache gilt dem HAND gefuellten Feld, das jeder Aufrufer setzen kann.
+[[nodiscard]] constexpr bool toolchain_realversion_ist_wohlgeformt(std::string_view v) noexcept {
+    return toolchain_wert_ist_wohlgeformt(v) && v.find('-') == std::string_view::npos &&
+           v.find(':') == std::string_view::npos;
+}
+
+/// NB2-1: der TREIBER-TAG reist VERBATIM ins Glied und muss deshalb selbst transportfaehig sein.
+/// Zusaetzlich zum Struktur-Zeichenvorrat verboten: ':' (der Klebepunkt, s. oben), Whitespace, Backslash
+/// und Anfuehrungszeichen -- die drei letzten wuerden das Argument in der gcc-Response-Datei (@rsp,
+/// build_orchestrator make_gpp_compile_fn) in mehrere Optionen zerlegen bzw. das C-String-Literal brechen.
+/// EHRLICHE GRENZE, benannt statt verschwiegen: ein Windows-Pfad-Treiber ("C:\\...") faellt damit fail-loud
+/// heraus. Das ist gewollt -- er koennte auf diesem Weg ohnehin nicht als Define reisen.
+[[nodiscard]] constexpr bool toolchain_treiber_tag_ist_wohlgeformt(std::string_view v) noexcept {
+    for (char const c : v) {
+        if (c == ':' || c == ' ' || c == '\t' || c == '\\' || c == '"') return false;
+    }
+    return toolchain_wert_ist_wohlgeformt(v);
 }
 
 /// Nennt das ERSTE verletzende Feld beim Namen (leer == alles wohlgeformt). Ein benannter Befund ist der
 /// Unterschied zwischen einer brauchbaren Fehlerzeile und "irgendwas am Stempel ist kaputt".
 [[nodiscard]] constexpr std::string_view toolchain_stamp_parts_diagnose(ToolchainStampParts const& p) noexcept {
     if (!toolchain_dialekt_ist_wohlgeformt(p.cxx_dialect)) return "cxx_dialect";
-    if (!toolchain_wert_ist_wohlgeformt(p.cxx_realversion)) return "cxx_realversion";
+    if (!toolchain_realversion_ist_wohlgeformt(p.cxx_realversion)) return "cxx_realversion";
+    if (!toolchain_treiber_tag_ist_wohlgeformt(p.cxx_driver)) return "cxx_driver";
     if (!toolchain_wert_ist_wohlgeformt(p.opt)) return "opt";
     if (!toolchain_wert_ist_wohlgeformt(p.opt_flags)) return "opt_flags";
     if (!toolchain_wert_ist_wohlgeformt(p.simd)) return "simd";
@@ -324,10 +361,39 @@ inline constexpr std::string_view kToolchainGliedStrukturZeichen = ";={}@";
     return {};
 }
 
+// -- NB2-4: KEINE STILL VERWORFENEN FELDER -------------------------------------------------------------
+//
+// DER BEFUND (Codex-Zweitreview [MITTEL], am Code bestaetigt): drei Felder sind von einem ANDEREN Feld
+// abhaengig, und der Renderer verwarf sie am Vor-Stand STILL, wenn dieses fehlte:
+//   cxx_realversion ohne cxx_dialect  -- der cxx-Zweig lief nur unter `if (!p.cxx_dialect.empty())`;
+//   opt_flags       ohne opt          -- toolchain_append_axis kehrt bei leerer id sofort um;
+//   atomic128_flags ohne atomic128    -- dito.
+// Die Struktur-Diagnose oben liess diese Belegungen anstandslos passieren. Ergebnis: ein Aufrufer, der die
+// Flags kennt, aber die id vergisst, bekommt ein Glied OHNE seine Flags -- und das Glied behauptet damit
+// eine ANDERE Toolchain als die gebaute, ohne dass irgendwo etwas auffaellt. Genau die Klasse Fehler, die
+// das Glied [5] beseitigen soll: eine stille, falsche Identitaets-Aussage.
+//
+// NB2-1 ergaenzt eine VIERTE Abhaengigkeit in beide Richtungen: Dialekt und Treiber-Tag gehoeren zusammen.
+// Ohne Tag waere das cxx-Feld nicht mehr injektiv je Treiber (der ganze Punkt von NB2-1); ohne Dialekt
+// haette der Tag kein Bezugssystem.
+//
+// LEER + LEER bleibt selbstverstaendlich zulaessig -- das ist die IDENTITAET (kein Segment).
+
+/// Nennt das ERSTE abhaengige Feld, das ohne sein Bezugsfeld belegt ist (leer == keine Verletzung).
+[[nodiscard]] constexpr std::string_view
+toolchain_stamp_parts_abhaengigkeits_diagnose(ToolchainStampParts const& p) noexcept {
+    if (!p.cxx_realversion.empty() && p.cxx_dialect.empty()) return "cxx_realversion";
+    if (!p.cxx_driver.empty() && p.cxx_dialect.empty()) return "cxx_driver";
+    if (!p.cxx_dialect.empty() && p.cxx_driver.empty()) return "cxx_dialect";
+    if (!p.opt_flags.empty() && p.opt.empty()) return "opt_flags";
+    if (!p.atomic128_flags.empty() && p.atomic128.empty()) return "atomic128_flags";
+    return {};
+}
+
 // Die CT-Erhebung selbst muss den Zeichenvorrat einhalten -- sonst koennte ausgerechnet der einzige Wert,
 // den dieser Header SELBST beisteuert, das Glied unzerlegbar machen.
 static_assert(toolchain_dialekt_ist_wohlgeformt(kDetectedCompilerDialect));
-static_assert(toolchain_wert_ist_wohlgeformt(kDetectedCompilerRealVersion));
+static_assert(toolchain_realversion_ist_wohlgeformt(kDetectedCompilerRealVersion));
 
 namespace detail {
 
@@ -364,33 +430,82 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 /// render_toolchain_stamp_glied(parts) -- DER EINE Renderer des Preimage-Glieds [5].
 ///
 /// Form (Beispiel, voll belegt):
-///   tc=1;cxx=gcc-16.1.0@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;bt=Debug;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c
+///   tc=1;cxx=gcc:g++-16@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;bt=Debug;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c
 ///
 /// ALLE Felder leer => "" (die Identitaet). Das ist kein Sonderfall, sondern dieselbe Zusage wie beim
 /// Overlay-Glied und beim Zellwert-Set: ein nicht injizierter Wert veraendert das Preimage NICHT.
+///
+/// -- NB2-1: DIE cxx-REGEL, VERBINDLICH -----------------------------------------------------------------
+///
+/// DER BEFUND (Codex-Zweitreview [KRITISCH], am Code bestaetigt): das cxx-Feld trug am Vor-Stand
+/// `<dialekt>[-<realversion>]`, wobei die Realversion die der CEB-UEBERSETZUNG ist (siehe
+/// kDetectedCompilerRealVersion oben) und nur ueber Dialekt + MAJOR des Treiber-Tags gegen den Tier-Treiber
+/// abgeglichen wurde. Daraus folgten ZWEI Fail-open-Faelle, beide real:
+///   (i)  g++-16 = 16.1.0 und g++-16 = 16.3.0 wurden BEIDE als die CEB-Version (z.B. 16.2.0) gestempelt --
+///        eine Versions-Behauptung ueber einen Compiler, den die CEB nie gesehen hat;
+///   (ii) ein Tag ohne Endziffern oder mit anderem Major liess die Version GANZ weg -- g++-17 und g++-18
+///        kollabierten damit auf dasselbe `cxx=gcc`, also auf dasselbe Glied, also auf denselben
+///        Fingerprint. Zwei verschieden gebaute Tier-Binaries, ein Digest: falscher Skip.
+///
+/// DIE REGEL, DIE DAS HEILT -- zwei Saetze, beide fail-closed:
+///   (R1) DER TREIBER-TAG IST PFLICHT UND STEHT IMMER IM FELD. Er ist das einzige Datum, das den
+///        TIER-Treiber vollstaendig und GELESEN benennt. Damit koennen zwei verschiedene Treiber-Tags per
+///        Konstruktion nie dasselbe Glied ergeben -- unabhaengig davon, was ueber Versionen bekannt ist.
+///        Das ist die kleinste Loesung, die Injektivitaet JE TREIBER-TAG garantiert.
+///   (R2) DIE REALVERSION IST OPTIONAL UND WIRD NUR BEHAUPTET, WENN SIE GEDECKT IST. Die Deckungs-Wache
+///        wohnt eine Schicht hoeher (profile_facade/toolchain_stamp_naht.hpp,
+///        ct_realversion_deckt_treiber) -- nur dort sind CEB-Erhebung und Tier-Treiber-Tag gleichzeitig
+///        sichtbar. Dieser Renderer setzt, was er bekommt, und garantiert nur die Zerlegbarkeit.
+///
+/// WAS AUS G-C4 BLEIBT: der Treiber-Tag ersetzt die Version NICHT (das war G-C4s Punkt) -- er tritt NEBEN
+/// sie. Ein Glied ohne Realversion sagt jetzt ehrlich "dieser Treiber, Version nicht beweisbar" statt
+/// entweder eine fremde Version zu behaupten oder den Treiber zu verschweigen.
+///
+/// EINE ABWEICHUNG, DIE HIER STEHEN MUSS STATT UNBEMERKT ZU BLEIBEN: die EINGEFROREREN Testvektoren
+/// (test_g3_sha512_index / test_m_w12_stamp_bausteine / test_w10_system_cell_values) tragen als Glied [5]
+/// ein LITERAL in der VOR-NB2-1-Form ("tc=1;cxx=gcc-16.2.0@1.0.0c;..."), also ohne Treiber-Tag. Das ist
+/// ABSICHT und kein Versehen: ein Frozen-Vektor ist ein reiner Hash-Konsistenz-Anker (Lane-B-Sync B3),
+/// sein Glied-Literal muss maschinen-unabhaengig sein und wird NICHT nachgezogen -- ein dritter
+/// Neuanker-Dreh im selben Buendel waere teurer als der Erkenntnisgewinn. Dass die REALE Renderer-Form
+/// den Tag traegt, beweist stattdessen Nb21CxxFeldIstInjektivJeTreiberTag am lebenden Renderer.
 ///
 /// NB/CX-2: FAIL-LOUD statt still. Ein Feld mit Struktur-Zeichen wuerde ein Glied erzeugen, das zwei
 /// verschiedene Belegungen gleich rendert -- der Renderer wirft dann eine BENANNTE Fehlerklasse, statt eine
 /// Kollision in den Fingerprint zu schreiben. Der Wurf ist der einzige richtige Ausgang: ein degradierter
 /// Ersatzwert waere wieder eine stille Identitaets-Aussage.
+/// NB2-4: dasselbe gilt fuer ein abhaengiges Feld ohne sein Bezugsfeld -- es wird nicht mehr verworfen.
 [[nodiscard]] inline std::string render_toolchain_stamp_glied(ToolchainStampParts const& p) {
     if (std::string_view const feld = toolchain_stamp_parts_diagnose(p); !feld.empty())
         throw std::invalid_argument(
             std::string{"fehlerklasse=stempel_injektivitaet: das Toolchain-Glied [5] kann nicht injektiv "
                         "gerendert werden -- das Feld '"} +
             std::string{feld} +
-            "' traegt ein STRUKTUR-Zeichen (';', '=', '{', '}', '@'), '-' im Dialekt oder einen "
+            "' traegt ein STRUKTUR-Zeichen (';', '=', '{', '}', '@'), '-' bzw. ':' im Dialekt oder in der "
+            "Realversion, ':'/Whitespace/Backslash/Anfuehrungszeichen im Treiber-Tag oder einen "
             "Zeilenumbruch. Zwei verschiedene Toolchain-Belegungen wuerden dann dasselbe Glied ergeben, "
             "also denselben Fingerprint -- und damit einen falschen Skip. Den WERT korrigieren, nicht die "
             "Wache.");
+    if (std::string_view const feld = toolchain_stamp_parts_abhaengigkeits_diagnose(p); !feld.empty())
+        throw std::invalid_argument(
+            std::string{"fehlerklasse=stempel_unvollstaendig: das Toolchain-Glied [5] kann nicht gerendert "
+                        "werden -- das Feld '"} +
+            std::string{feld} +
+            "' ist belegt, aber sein Bezugsfeld fehlt (cxx_realversion/cxx_driver brauchen cxx_dialect und "
+            "umgekehrt, opt_flags braucht opt, atomic128_flags braucht atomic128). Frueher wurde es hier "
+            "STILL verworfen -- das Glied behauptete dann eine andere Toolchain als die gebaute. Entweder "
+            "das Bezugsfeld nachreichen oder das abhaengige Feld weglassen.");
     std::string felder;
     // Reihenfolge == kToolchainGliedKeys == kSuffixSegmentOrder (+ atomic128 am Ende).
     if (!p.cxx_dialect.empty()) {
+        // NB2-1 (R1)/(R2): <dialekt>[-<realversion>]:<treiber-tag>. cxx_driver ist an dieser Stelle
+        // garantiert nicht leer -- die Abhaengigkeits-Diagnose oben hat das schon fail-loud gesichert.
         std::string cxx{p.cxx_dialect};
         if (!p.cxx_realversion.empty()) {
             cxx += '-';
             cxx += p.cxx_realversion;
         }
+        cxx += ':';
+        cxx += p.cxx_driver;
         detail::toolchain_append_axis(felder, kToolchainGliedKeys[0], cxx, {}, kToolchainAxisVersions[0].version);
     }
     detail::toolchain_append_axis(felder, kToolchainGliedKeys[1], p.opt, p.opt_flags,

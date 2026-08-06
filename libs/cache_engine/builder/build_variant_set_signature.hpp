@@ -46,6 +46,22 @@ namespace mp = boost::mp11;
 // ein Bump ist per Konstruktion ein Signatur-Bruch und erzwingt damit Neubau statt stiller Fehl-Vergleiche.
 inline constexpr std::uint64_t kBuildVariantSetSignatureVersion = 1;
 
+/// NB2-3: die Zeichen, die in der Mengen-Signatur STRUKTUR sind -- Segment-Trenner, Zuweisung, Element- und
+/// Achsen-Klammern. '@' kommt in der heutigen Form nicht vor, ist aber im Nachbar-Glied [5] Struktur und wird
+/// deshalb gleich mitgesperrt: ein Name, der ihn traegt, waere dort sofort ein Problem.
+inline constexpr std::string_view kVariantSetSignatureStrukturZeichen = ";={}[]@";
+
+/// NB2-3: ein Element-NAME ist wohlgeformt, wenn er nicht leer ist und weder Struktur- noch Steuerzeichen traegt.
+/// LEER waere ebenfalls unzulaessig -- `{;page_kind=1}` liesse die Grenze zwischen Name und erstem Feld offen.
+[[nodiscard]] constexpr bool variant_set_signature_name_ist_wohlgeformt(std::string_view n) noexcept {
+    if (n.empty()) return false;
+    for (char const c : n) {
+        if (c == '\n' || c == '\r') return false;
+        if (kVariantSetSignatureStrukturZeichen.find(c) != std::string_view::npos) return false;
+    }
+    return true;
+}
+
 namespace detail {
 
 // -- Zwei-Pass-Senken: erst zaehlen (Laenge), dann fuellen (exakt dimensioniertes std::array). Beide Paesse laufen
@@ -82,9 +98,35 @@ constexpr void ct_put_uint(Sink& s, std::uint64_t v) noexcept {
 // -- Je-Element-Form: `{<typ-name>;<achsen-felder>}`. Der Typ-Name (static constexpr name() jedes Registry-Wrappers)
 //    macht die Signatur lesbar UND unterscheidet Wrapper, deren Properties zufaellig gleich sind (z.B. zwei 256-bit-
 //    Erweiterungen ohne AVX-512) -- ohne ihn waere das Gate an genau dieser Stelle blind.
+//
+// -- NB2-3: DIE NAMENS-WACHE (Codex-Zweitreview [MITTEL], am Code bestaetigt) -------------------------------------
+//
+// DER BEFUND: der Typ-Name wurde UNESCAPED zwischen die Strukturzeichen gesetzt, und die AEUSSERE Wache des
+// Preimage-Glieds (abi::anatomy_glied_zeichen_erlaubt) erlaubt genau diese Zeichen. Ein Wrapper mit
+// name() == "a;page_kind=1}{b" rendert deshalb byte-identisch zu ZWEI Wrappern (a,1) und (b,2) -- zwei
+// verschiedene Enable-Mengen, eine Signatur, also derselbe Fingerprint und ein falscher Skip. Seit Format 3 ist
+// diese Signatur IDENTITAET (Glied [6]), nicht mehr blosse Provenienz; die Luecke ist damit dieselbe Klasse wie
+// die NB/CX-2-Kollisionen des Toolchain-Glieds.
+//
+// WARUM ZEICHENVORRAT STATT ESCAPING (wortgleiche Begruendung wie in abi/toolchain_stamp_glied.hpp): Escaping
+// braucht einen Unescaper, den niemand hat -- die Signatur wird nirgends zerlegt, sondern nur verglichen. Der
+// Zeichenvorrat ist die schaerfere und billigere Zusage. Er ist hier zusaetzlich COMPILE-HART durchsetzbar, weil
+// der Name eine Compile-Zeit-Konstante des Wrapper-Typs ist: ein Verstoss bricht den Bau mit Namen, statt eine
+// Kollision in die Identitaet zu schreiben. Die Bestands-Namen der drei Registries sind sauber (reine
+// Bezeichner) -> die Wache ist DIGEST-NEUTRAL und beisst nur bei kuenftigen Fehlgriffen.
+
+/// Die Wache je Wrapper-Typ. Sie steht als static_assert IM Emitter, damit sie genau die Typen trifft, die
+/// wirklich in eine Signatur wandern -- eine Registry-Liste, die niemand emittiert, muss auch nichts beweisen.
+#define COMDARE_BVSET_NAME_WACHE(W)                                                                                    \
+    static_assert(::comdare::cache_engine::builder::experiment::variant_set_signature_name_ist_wohlgeformt(W::name()), \
+                  "NB2-3: der Registry-Wrapper-Name traegt ein STRUKTUR-Zeichen (';', '=', '{', '}', '[', ']', "       \
+                  "'@') oder einen Zeilenumbruch. Er wird UNESCAPED in die bvset-Mengen-Signatur gesetzt -- zwei "     \
+                  "verschiedene Enable-Mengen koennten damit dieselbe Signatur ergeben, also denselben "               \
+                  "Fingerprint (falscher Skip). Den NAMEN korrigieren, nicht die Wache.")
 
 template <class Sink, class PT>
 constexpr void ct_put_page_element(Sink& s) noexcept {
+    COMDARE_BVSET_NAME_WACHE(PT);
     anatomy::PageAxisFields const f = anatomy::page_axis_fields<PT>();
     s.put('{');
     ct_put_text(s, PT::name());
@@ -95,6 +137,7 @@ constexpr void ct_put_page_element(Sink& s) noexcept {
 
 template <class Sink, class SE>
 constexpr void ct_put_simd_element(Sink& s) noexcept {
+    COMDARE_BVSET_NAME_WACHE(SE);
     anatomy::SimdAxisFields const f = anatomy::simd_axis_fields<SE>();
     s.put('{');
     ct_put_text(s, SE::name());
@@ -109,6 +152,7 @@ constexpr void ct_put_simd_element(Sink& s) noexcept {
 
 template <class Sink, class HW>
 constexpr void ct_put_hw_element(Sink& s) noexcept {
+    COMDARE_BVSET_NAME_WACHE(HW);
     anatomy::HwAxisFields const f = anatomy::hw_axis_fields<HW>();
     s.put('{');
     ct_put_text(s, HW::name());

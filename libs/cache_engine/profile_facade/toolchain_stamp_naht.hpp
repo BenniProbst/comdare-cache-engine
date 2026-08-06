@@ -63,17 +63,30 @@ namespace comdare::cache_engine::profile_facade {
                                                               : cm::GccCompilerAxis::compiler_id();
 }
 
-/// Die MAJOR-Zahl, die der Treiber-Tag SELBST nennt ("g++-16" -> "16", "clang++-22" -> "22").
+/// Die VOLLE Versions-Kennung, die der Treiber-Tag SELBST nennt: der abschliessende Lauf aus Ziffern UND
+/// Punkten ("g++-16" -> "16", "clang++-22" -> "22", "g++-16.2.0" -> "16.2.0").
 ///
-/// STRENG UND FAIL-CLOSED: nur eine Ziffernfolge am ENDE des Tags zaehlt. Ein Tag ohne Endziffern
-/// ("g++", "/usr/bin/c++") nennt seine Version nicht -- dann wird auch nichts behauptet. Ein Rueckschluss
-/// aus einem Pfad-Bestandteil (etwa "llvm-22" mitten im Pfad) waere geraten, nicht gelesen.
-[[nodiscard]] inline std::string_view cxx_driver_major(std::string_view driver_tag) noexcept {
+/// STRENG UND FAIL-CLOSED: nur der Lauf am ENDE des Tags zaehlt. Ein Tag ohne Endziffern ("g++",
+/// "/usr/bin/c++") nennt seine Version nicht -- dann wird auch nichts behauptet. Ein Rueckschluss aus einem
+/// Pfad-Bestandteil (etwa "llvm-22" mitten im Pfad) waere geraten, nicht gelesen.
+///
+/// NB2-1 -- WARUM "VOLL" UND NICHT NUR DIE LETZTE ZIFFERNFOLGE: der Vorgaenger las ausschliesslich die
+/// TRAILING DIGITS. Fuer "g++-16.1" ergab das "1" und wurde dann gegen den CEB-MAJOR verglichen -- ein Tag,
+/// der seine Minor-Version nennt, wurde also mit einer Zahl abgeglichen, die gar nicht sein Major ist. Der
+/// Punkt gehoert deshalb in den Lauf.
+[[nodiscard]] inline std::string_view cxx_driver_version_kennung(std::string_view driver_tag) noexcept {
     if (driver_tag.empty()) return {};
-    std::size_t ende = driver_tag.size();
+    std::size_t const ende = driver_tag.size();
     if (driver_tag[ende - 1] < '0' || driver_tag[ende - 1] > '9') return {};
     std::size_t start = ende;
-    while (start > 0 && driver_tag[start - 1] >= '0' && driver_tag[start - 1] <= '9') --start;
+    while (start > 0) {
+        char const c = driver_tag[start - 1];
+        if ((c >= '0' && c <= '9') || c == '.') {
+            --start;
+            continue;
+        }
+        break;
+    }
     return driver_tag.substr(start, ende - start);
 }
 
@@ -82,22 +95,43 @@ namespace comdare::cache_engine::profile_facade {
 /// WARUM SIE NOETIG IST (am Objekt gemessen, nicht theoretisch): abi::kDetectedCompilerRealVersion ist die
 /// Version DERJENIGEN Uebersetzung, in der sie ausgewertet wird -- hier also die der CEB. Die Tier-Binaries
 /// baut aber der Treiber aus active_cxx_driver_tag(). Auf dieser Maschine sind das VERSCHIEDENE Compiler
-/// (CMAKE_CXX_COMPILER=/usr/bin/c++ = GCC 15.3.0 gegen den Achsen-Default g++-16 = GCC 16.0.1). Die
-/// CEB-Version als "die Version der Tier-Uebersetzung" zu stempeln waere damit schlicht falsch.
+/// (CMAKE_CXX_COMPILER=/usr/bin/c++ gegen den Achsen-Default g++-16). Die CEB-Version als "die Version der
+/// Tier-Uebersetzung" zu stempeln waere damit schlicht falsch.
 ///
-/// DECKUNG heisst deshalb: gleicher DIALEKT UND gleicher MAJOR, und beides GELESEN (Praeprozessor bzw.
-/// Treiber-Tag), nicht geraten. Ist die Deckung nicht beweisbar, wird die Realversion WEGGELASSEN -- das
-/// Glied traegt dann nur den Dialekt (cxx=gcc@...). Das ist die n/a-statt-NULL-Regel der Nachbar-Naht:
-/// lieber eine schwaechere, wahre Aussage als eine starke, ungedeckte.
+/// -- NB2-1: DIE WACHE WAR FAIL-OPEN, JETZT IST SIE FAIL-CLOSED ----------------------------------------
+///
+/// DER BEFUND (Codex-Zweitreview [KRITISCH], verbatim): "Realversions-Deckung prueft nur Dialekt+Major des
+/// Treiber-Tags und uebernimmt dann minor.patch der CEB-Toolchain -> g++-16=16.1 und g++-16=16.3 werden
+/// beide als CEB-Version (z.B. 16.2.0) gestempelt". Der Grund ist strukturell: ein Tag, der NUR den Major
+/// nennt, PINNT die Version nicht. Er ist mit jeder 16.x vertraeglich. Aus "beide sind 16" folgt eben
+/// nicht "es ist derselbe Compiler" -- und nur dann duerfte die CEB-Version als Tier-Version gelten.
+///
+/// DIE NEUE DECKUNGS-BEDINGUNG, alle drei Teile GELESEN und keiner geraten:
+///   (1) die CEB-Erhebung ist ueberhaupt bekannt (Dialekt + Realversion),
+///   (2) der DIALEKT des Tags stimmt mit dem der CEB-Uebersetzung ueberein,
+///   (3) die VOLLE Versions-Kennung des Tags ist BYTE-GLEICH der CEB-Realversion -- also alle drei Zahlen,
+///       nicht bloss der Major. Erst damit sagt der Tag SELBST dieselbe Version, die die CEB gemessen hat;
+///       die Behauptung "CEB-Compiler == Tier-Treiber" ruht dann auf zwei unabhaengigen Lesungen desselben
+///       Werts statt auf einer Vermutung.
+///
+/// WAS DAS IN DER PRAXIS HEISST -- ehrlich benannt, nicht schoengeredet: uebliche Treiber-Tags ("g++-16")
+/// nennen nur den Major und decken die Realversion damit NICHT mehr. Das Glied traegt dann keine
+/// Versions-Behauptung. Das ist KEIN Informationsverlust gegenueber dem Vor-Stand, denn die dort
+/// gestempelte Version war nicht gedeckt; und es ist auch kein Injektivitaets-Verlust, weil das cxx-Feld
+/// seit NB2-1 (R1) IMMER den Treiber-Tag traegt -- g++-17 und g++-18 sind ab jetzt strukturell
+/// unterscheidbar, gerade OHNE Versions-Behauptung. Die n/a-statt-NULL-Regel der Nachbar-Naht gilt
+/// unveraendert: lieber eine schwaechere, wahre Aussage als eine starke, ungedeckte.
+///
+/// DER WEG ZU MEHR (deklariert, nicht geraten): eine wirklich per-Treiber erhobene Realversion braucht eine
+/// EIGENE Erhebung an der bauenden Stufe (der Tier-Treiber stempelt seine eigene __GNUC__-Wahrheit). Das
+/// ist ein Fingerprint-Ereignis mit eigenem Anker und gehoert nicht in dieses Nachbesserungs-Fenster.
 [[nodiscard]] inline bool ct_realversion_deckt_treiber(std::string_view driver_tag) noexcept {
     namespace cea = ::comdare::cache_engine::abi;
     if (!cea::kDetectedCompilerIsKnown) return false;
     if (cxx_driver_dialect(driver_tag) != cea::kDetectedCompilerDialect) return false;
-    std::string_view const tag_major = cxx_driver_major(driver_tag);
-    if (tag_major.empty()) return false;
-    std::size_t const punkt = cea::kDetectedCompilerRealVersion.find('.');
-    if (punkt == std::string_view::npos) return false;
-    return cea::kDetectedCompilerRealVersion.substr(0, punkt) == tag_major;
+    std::string_view const tag_version = cxx_driver_version_kennung(driver_tag);
+    if (tag_version.empty()) return false;
+    return tag_version == cea::kDetectedCompilerRealVersion;
 }
 
 /// compose_live_toolchain_stamp_glied() -- der LIVE-Wert des Preimage-Glieds [5]. ARGUMENTLOS und REIN
@@ -106,12 +140,18 @@ namespace comdare::cache_engine::profile_facade {
 /// Die Felder kommen aus der EINEN Suffix-Quelle (SystemVersionSuffixParts + der Konverter
 /// toolchain_stamp_parts_from_suffix_parts), damit Glied und build_version-Suffix nicht getrennt driften
 /// koennen -- die Ordnungs-Deckung beider ist zusaetzlich per static_assert bewiesen.
+///
+/// NB2-1: das cxx-Feld traegt ab hier IMMER den Tier-Treiber-Tag und NUR BEI BEWIESENER DECKUNG die
+/// CEB-Realversion (Regel R1/R2 in abi/toolchain_stamp_glied.hpp, Deckungs-Wache
+/// ct_realversion_deckt_treiber oben). Damit ergeben verschiedene Treiber-Tags strukturell verschiedene
+/// Glieder -- der Fail-open-Fall "g++-17 und g++-18 kollabieren auf cxx=gcc" kann nicht mehr entstehen.
 [[nodiscard]] inline std::string compose_live_toolchain_stamp_glied() {
     std::string const driver_tag = active_cxx_driver_tag();
     std::string const ceb        = ceb_contract_version_text();
     std::string const bt         = ::comdare::cache_engine::thesis_lazy::build_type_version_value();
 
     SystemVersionSuffixParts p{};
+    p.cxx        = driver_tag; // NB2-1 (R1): der Tier-Treiber-Tag ist der Identitaets-Diskriminator
     p.ceb        = ceb; // Perm-Pfad-Wert, G-C2 "heilt Fall C" -- der Contract-Bump wirkt ab hier im Preimage
     p.build_type = bt;  // (i): "Debug" nur im Debug-Bau, sonst leer => kein Segment
     // opt/simd/target/tel/gate bleiben LEER -- per-Perm bzw. profil-abhaengig, s. Kopf (Scheibe C-3).
