@@ -9,6 +9,7 @@
 
 #include <builder/artifact_transport/artifact_cache.hpp> // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include <builder/experiment_tree/progress_delta.hpp> // Welle 5 (E-W5-2): ProgressSinkFn / ProgressDelta (§38-Naht, No-Op)
+#include <profile_facade/planner/planner_status_types.hpp> // W5: MessFormatFakten / PlanSollSicht (NUR PODs, std-only)
 
 #include <cstddef>
 #include <cstdint>
@@ -336,5 +337,25 @@ struct PlanerBlockContext {
 // CEB-Rolle) nach os: vier gelabelte non-empty Zeilen (planner-Selbst-Stempel / ceb-contract / build-type /
 // build-version = system_axes_version_suffix). Rein-lesend, baut KEINE DLL. Rueckgabe 0.
 [[nodiscard]] int print_version_facade(std::ostream& os);
+
+// ---------------------------------------------------------------------------------------------------------------
+// W5 (2026-08-05, Owner-R5): die beiden Naehte des status-RUECK-LESERS.
+//
+// Der Status-Leser (planner/planner_status_reader.hpp) ist bewusst LEICHT -- nur stdlib plus zwei ohnehin
+// leichte ce-Header. Zwei Dinge kann er darum nicht selbst holen, ohne den Umbrella in die Planer-App zu
+// ziehen (dieser Header ist laut Kopf von dump_experiment_plan_facade umbrella-FREI zu halten): die
+// Mess-Datei-Format-Fakten und den Director-Walk. Beide kommen deshalb als FLACHE PODs hier durch --
+// die katalog-schweren Header bleiben in der Fassaden-.cpp.
+//
+// KEIN Format-Duplikat: mess_format_fakten_facade zieht csv_header/rows_key aus der Iterator-Substanz
+// (lazy_csv_header + kLazyResumeRowsKey) -- dieselben Werte, die der Schreiber benutzt.
+[[nodiscard]] planner::MessFormatFakten mess_format_fakten_facade();
+
+// Der SOLL-Sammler: DERSELBE deterministische Director-Walk wie plan dump/ci/cmake (construct_plan_into),
+// nur mit einem sammelnden ConcreteBuilder statt eines emittierenden. Baut KEINE DLL, misst NICHT, schreibt
+// nichts (Anti-Phantom, golden-neutral) und beruehrt den Registry-Kanon nicht -- status LIEST nur.
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out,
+                                           std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade

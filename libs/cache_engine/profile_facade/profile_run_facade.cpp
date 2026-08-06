@@ -1202,4 +1202,81 @@ int print_version_facade(std::ostream& os) {
     return 0;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// W5 (2026-08-05, Owner-R5): die beiden Naehte des status-Rueck-Lesers.
+// ---------------------------------------------------------------------------------------------------------------
+
+// Die Mess-Datei-Format-Fakten AUS DER SUBSTANZ, nicht nachgebaut: lazy_csv_header ist die EINE Schema-Wahrheit
+// der per-Binary-CSV, kLazyResumeRowsKey der EINE Feld-Schluessel des Resume-Stempel-Schwanzes. Der Status-Leser
+// bekommt sie hier durchgereicht, statt sie zu kopieren -- eine Schema-Aenderung zieht damit automatisch mit.
+planner::MessFormatFakten mess_format_fakten_facade() {
+    planner::MessFormatFakten f{};
+    f.csv_header = ex::lazy_csv_header();
+    f.rows_key   = ex::kLazyResumeRowsKey;
+    return f;
+}
+
+namespace {
+
+// W5: der SAMMELNDE ConcreteBuilder des status-Kommandos. Er emittiert nichts -- er traegt den Walk in die
+// flache SOLL-Sicht (GoF Builder: derselbe Director, andere Syntax). Der Zell-Schluessel entsteht aus DENSELBEN
+// Legenden-Funktionen wie die Emission (plan_legend.hpp): ceb = [a,b,c] als EIGENES Feld, zelle =
+// [d,e,f][g,h,i] -- die Layer werden NIE verschmolzen (Marker-v2-Gesetz). ceb_slug == cmake_slug(legend) ist
+// genau das Verzeichnis, unter das der Mess-Batch nach <root>/<slug>/perm<idx> emittiert.
+class StatusSollBuilder final : public planner::IPlanBuilder {
+public:
+    explicit StatusSollBuilder(planner::PlanSollSicht& out) noexcept : out_(out) {}
+
+    void begin_plan(planner::PlanHeader const& h) override {
+        out_.source_kind             = h.source_kind;
+        out_.profile_id              = h.profile_id;
+        out_.profile_basename        = h.profile_basename;
+        out_.perm_count              = h.perm_count;
+        out_.measurement_combo_count = h.measurement_combo_count;
+    }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override {
+        ceb_      = c.legend;
+        ceb_slug_ = planner::legend::cmake_slug(c.legend);
+    }
+    void end_measurement_combo(planner::PlanMeasurementCombo const&) override {
+        ceb_.clear();
+        ceb_slug_.clear();
+    }
+    void begin_perm(planner::PlanPerm const& p) override {
+        planner::PlanZelleSoll z{};
+        z.ceb        = ceb_.empty() ? std::string{planner::kMarkerUnbelegt} : ceb_;
+        z.ceb_slug   = ceb_slug_;
+        z.perm_index = p.index;
+        z.zelle      = planner::legend::system_perm(p.opt_id, p.simd_id) + planner::legend::organ_reference();
+        out_.zellen.push_back(std::move(z));
+    }
+    void on_step(planner::PlanStep const&) override {
+        if (!out_.zellen.empty()) ++out_.zellen.back().plan_schritte;
+    }
+    void end_perm(planner::PlanPerm const&) override {}
+    void end_plan(planner::PlanHeader const&) override {}
+
+private:
+    planner::PlanSollSicht& out_;
+    std::string             ceb_;
+    std::string             ceb_slug_;
+};
+
+} // namespace
+
+int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out, std::ostream& os) {
+    out = planner::PlanSollSicht{};
+    StatusSollBuilder builder{out};
+    // DERSELBE Walk wie plan dump/ci/cmake -- ein Kanal, eine Wahrheit. KEIN Bau, KEINE Messung, KEINE Emission.
+    int const rc = construct_plan_into(profile_path, builder, os, "status");
+    if (rc != 0) {
+        out.erhoben = false;
+        out.grund =
+            "Profil '" + profile_path.string() + "' nicht als bekannte Wurzel lesbar (rc " + std::to_string(rc) + ")";
+        return rc;
+    }
+    out.erhoben = true;
+    return 0;
+}
+
 } // namespace comdare::cache_engine::builder::profile_facade
