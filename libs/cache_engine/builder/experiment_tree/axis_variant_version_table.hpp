@@ -56,7 +56,7 @@ struct AxisVariantVersion {
     /// implementieren kein reallocate() und blieben auf "v1.0.1c" stehen
     /// (axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP"; gepinnt in
     /// test_a1_algo_version_pin_alloc_axis), der uebrige Bestand auf "v1.0.0c".
-    std::string      version;
+    std::string version;
 };
 
 /// assert_version_grammar<W>() -- die GEMEINSAME Flag-Grammatik-Wache EINER registrierten Variante (Owner-Q3/E2

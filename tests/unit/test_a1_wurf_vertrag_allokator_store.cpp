@@ -94,7 +94,7 @@
 // Standalone (plain int main, KEIN gtest) -- konsistent mit den uebrigen Phase-E-Standalone-Wachen.
 // ASCII-only.
 
-#include <axes/alloc/axis_06_allocator_exgen.hpp> // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
+#include <axes/alloc/axis_06_allocator_exgen.hpp>        // die reale Achsen-Default-Strategie (Positiv-Kontrolle)
 #include <axes/alloc/axis_06_allocator_pmr_resource.hpp> // injizierbare Resource -> deterministisches Wurf-Orakel
 #include <axes/alloc/axis_06_allocator_pool_resource.hpp>
 #include <axes/alloc/axis_06_allocator_strategy_base.hpp>
@@ -338,7 +338,7 @@ private:
         ++wuerfe_;
         throw std::bad_alloc{};
     }
-    void do_deallocate(void*, std::size_t, std::size_t) override {}
+    void               do_deallocate(void*, std::size_t, std::size_t) override {}
     [[nodiscard]] bool do_is_equal(std::pmr::memory_resource const& other) const noexcept override {
         return this == &other;
     }
@@ -529,8 +529,7 @@ int main() {
         static_assert(StoreKopfBindetAllokator<alloc::ExgenAllocator>);
         static_assert(StoreKopfBindetAllokator<alloc::PoolResourceAllocator>);
         check("POSITIV: vollstaendiger Fremd-Allokator (ohne CRTP-Abstammung) bindet am Store-Kopf",
-              StoreKopfBindetAllokator<VollstaendigeFremdStrategie> &&
-                  StoreKopfBindetAllokator<alloc::ExgenAllocator>);
+              StoreKopfBindetAllokator<VollstaendigeFremdStrategie> && StoreKopfBindetAllokator<alloc::ExgenAllocator>);
 
         // TERM 1 -- Wurf-Uebersetzung.
         static_assert(acpts::AllocatorStrategy<OhneWurfUebersetzung>,
@@ -577,9 +576,9 @@ int main() {
         static_assert(!StoreKopfBindetAllokator<OhneWertsemantik>,
                       "REGRESS-WACHE: faellt `&& ValueSemanticStrategy<A>` aus dem Store-Kopf, wird "
                       "dieser Satz rot.");
-        check("TERM 3 (A{} / alloc_ = A{}): Store-Kopf weist ab",
-              acpts::AllocatorStrategy<OhneWertsemantik> && !acpts::ValueSemanticStrategy<OhneWertsemantik> &&
-                  !StoreKopfBindetAllokator<OhneWertsemantik>);
+        check("TERM 3 (A{} / alloc_ = A{}): Store-Kopf weist ab", acpts::AllocatorStrategy<OhneWertsemantik> &&
+                                                                      !acpts::ValueSemanticStrategy<OhneWertsemantik> &&
+                                                                      !StoreKopfBindetAllokator<OhneWertsemantik>);
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // TERM 4 -- T6-Mess-Route. Nur im Statistik-Bau eine Gegenprobe (s. Typ-Kommentar).
@@ -831,8 +830,8 @@ int main() {
               pool.statistics().total_bytes_in_use == 144u);
         check("total_bytes_allocated kumuliert ALIGNED (80 + 144 == 224)",
               pool.statistics().total_bytes_allocated == 224u);
-        check("Zaehler-Paarigkeit: 2 Vergaben, 1 Rueckgabe", pool.statistics().allocation_count == 2u &&
-                                                                 pool.statistics().deallocation_count == 1u);
+        check("Zaehler-Paarigkeit: 2 Vergaben, 1 Rueckgabe",
+              pool.statistics().allocation_count == 2u && pool.statistics().deallocation_count == 1u);
 
         // DIE EIGENTLICHE AUSSAGE: nach der Rueckgabe des letzten Blocks ist die Bilanz EXAKT 0. Genau
         // das war vorher unmoeglich -- jede reallocate-Kette liess einen Rest stehen.
@@ -995,8 +994,7 @@ int main() {
             quelle_intakt = (quelle.slot_count() == 12u) && (quelle.value_at(11) == 110u);
         }
 
-        std::printf("  [INFO] Live-Bloecke der Achse nach Ablauf beider Stores: %lld\n",
-                    BudgetStubStrategie::live());
+        std::printf("  [INFO] Live-Bloecke der Achse nach Ablauf beider Stores: %lld\n", BudgetStubStrategie::live());
         check("die Kopier-Zuweisung wirft std::bad_alloc", geworfen);
         check("BASIC + definiertes Ergebnis: das Ziel ist LEER (NICHT auf dem Vorzustand -- keine starke "
               "Garantie, und genau das steht im Vertrag)",

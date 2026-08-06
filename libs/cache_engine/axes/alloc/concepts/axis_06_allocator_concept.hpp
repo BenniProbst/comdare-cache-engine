@@ -171,8 +171,9 @@ concept ThrowTranslatingStrategy = AllocatorStrategy<A> && requires(A a, std::si
 template <typename A>
 concept StdAllocatorAdaptingStrategy = AllocatorStrategy<A> && requires(A a) {
     typename A::template StdAllocatorAdapter<std::byte>;
-    { a.template as_std_allocator<std::byte>() } noexcept
-        -> std::same_as<typename A::template StdAllocatorAdapter<std::byte>>;
+    {
+        a.template as_std_allocator<std::byte>()
+    } noexcept -> std::same_as<typename A::template StdAllocatorAdapter<std::byte>>;
 } && std::same_as<typename A::template StdAllocatorAdapter<std::byte>::value_type, std::byte>;
 
 /**
