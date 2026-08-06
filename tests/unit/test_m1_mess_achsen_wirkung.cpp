@@ -43,7 +43,7 @@ namespace {
 
 int g_fail = 0;
 
-void check_true(char const* what, bool ok) {
+void check_true(std::string const& what, bool ok) {
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << "\n";
     if (!ok) ++g_fail;
 }
@@ -108,20 +108,25 @@ void fall_a_nenner() {
 // ---------------------------------------------------------------------------------------------
 void fall_b_paarweise_verschieden() {
     std::cout << "\n---- (b) BISS: paarweise VERSCHIEDENE Define-Vektoren je Mess-Achsen-Wahl ----\n";
+    // M-1/H-1: die zulaessigen Combos NENNEN wallclock. "[macro]" allein ist ab H-1 ein Wurf, weil G1
+    // (das wallclock-Instrument) auch dort einkompiliert wird -- die Gate-Aussagen unten sind deshalb an
+    // "[wallclock,macro]" bzw. "[wallclock,micro]" gefuehrt. Die Aussage von (b)/(c) ist unveraendert:
+    // sie vergleicht Mengen MIT und OHNE das Observer-Gate.
     Lauf const wc  = ruf("[wallclock]");
-    Lauf const ma  = ruf("[macro]");
-    Lauf const mi  = ruf("[micro]");
+    Lauf const ma  = ruf("[wallclock,macro]");
+    Lauf const mi  = ruf("[wallclock,micro]");
     Lauf const all = ruf("[all]");
-    zeig("[wallclock]", wc);
-    zeig("[macro]    ", ma);
-    zeig("[micro]    ", mi);
-    zeig("[all]      ", all);
-    check_true("(b) [wallclock] != [macro]", wc.defs != ma.defs);
-    check_true("(b) [wallclock] != [micro]", wc.defs != mi.defs);
-    check_true("(b) [macro]     != [micro]", ma.defs != mi.defs);
-    check_true("(b) [wallclock] != [all]", wc.defs != all.defs);
-    check_true("(b) [macro]     != [all]", ma.defs != all.defs);
-    check_true("(b) [micro]     != [all]", mi.defs != all.defs);
+    zeig("[wallclock]      ", wc);
+    zeig("[wallclock,macro]", ma);
+    zeig("[wallclock,micro]", mi);
+    zeig("[all]            ", all);
+    check_true("(b) keine der vier zulaessigen Combos wirft", !wc.warf && !ma.warf && !mi.warf && !all.warf);
+    check_true("(b) [wallclock]       != [wallclock,macro]", wc.defs != ma.defs);
+    check_true("(b) [wallclock]       != [wallclock,micro]", wc.defs != mi.defs);
+    check_true("(b) [wallclock,macro] != [wallclock,micro]", ma.defs != mi.defs);
+    check_true("(b) [wallclock]       != [all]", wc.defs != all.defs);
+    check_true("(b) [wallclock,macro] != [all]", ma.defs != all.defs);
+    check_true("(b) [wallclock,micro] != [all]", mi.defs != all.defs);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -134,26 +139,87 @@ void fall_b_paarweise_verschieden() {
 void fall_c_gate_wirkung() {
     std::cout << "\n---- (c) GATE-WIRKUNG: [wallclock] traegt das Observer-Gate NICHT ----\n";
     Lauf const wc  = ruf("[wallclock]");
-    Lauf const ma  = ruf("[macro]");
-    Lauf const mi  = ruf("[micro]");
+    Lauf const ma  = ruf("[wallclock,macro]");
+    Lauf const mi  = ruf("[wallclock,micro]");
     Lauf const all = ruf("[all]");
     check_true("(c) G1: MEASUREMENT_ON in [wallclock]", hat(wc.defs, "-DCOMDARE_MEASUREMENT_ON=1"));
-    check_true("(c) G1: MEASUREMENT_ON in [macro]", hat(ma.defs, "-DCOMDARE_MEASUREMENT_ON=1"));
-    check_true("(c) G1: MEASUREMENT_ON in [micro]", hat(mi.defs, "-DCOMDARE_MEASUREMENT_ON=1"));
+    check_true("(c) G1: MEASUREMENT_ON in [wallclock,macro]", hat(ma.defs, "-DCOMDARE_MEASUREMENT_ON=1"));
+    check_true("(c) G1: MEASUREMENT_ON in [wallclock,micro]", hat(mi.defs, "-DCOMDARE_MEASUREMENT_ON=1"));
     check_true("(c) G1: MEASUREMENT_ON in [all]", hat(all.defs, "-DCOMDARE_MEASUREMENT_ON=1"));
     check_true("(c) G2/G3: CE_ENABLE_STATISTICS FEHLT in [wallclock] -- DIE HEILUNG VON D-1",
                !hat(wc.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
-    check_true("(c) G2/G3: CE_ENABLE_STATISTICS in [macro]", hat(ma.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
-    check_true("(c) G2/G3: CE_ENABLE_STATISTICS in [micro]", hat(mi.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
+    check_true("(c) G2/G3: CE_ENABLE_STATISTICS in [wallclock,macro]",
+               hat(ma.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
+    check_true("(c) G2/G3: CE_ENABLE_STATISTICS in [wallclock,micro]",
+               hat(mi.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
     check_true("(c) G2/G3: CE_ENABLE_STATISTICS in [all]", hat(all.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
+    // M-1/H-B: DIESELBE Bedingung als benannte Funktion -- der CSV-Renderer zieht aus ihr sein n/a.
+    // Wenn diese vier Zeilen je auseinanderlaufen, ist die eine Quelle zu zweien geworden.
+    auto menge = [](std::string_view l) { return pf::mess_tooling_menge_from_legend(l); };
+    check_true("(c/H-B) Observer-Praedikat == Gate-Define, [wallclock]",
+               pf::mess_menge_hat_observer_gate(menge("[wallclock]")) ==
+                   hat(wc.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
+    check_true("(c/H-B) Observer-Praedikat == Gate-Define, [wallclock,macro]",
+               pf::mess_menge_hat_observer_gate(menge("[wallclock,macro]")) ==
+                   hat(ma.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
+    check_true("(c/H-B) Observer-Praedikat == Gate-Define, [wallclock,micro]",
+               pf::mess_menge_hat_observer_gate(menge("[wallclock,micro]")) ==
+                   hat(mi.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
+    check_true("(c/H-B) Observer-Praedikat == Gate-Define, [all]",
+               pf::mess_menge_hat_observer_gate(menge("[all]")) == hat(all.defs, "-DCOMDARE_CE_ENABLE_STATISTICS=1"));
 }
 
 // ---------------------------------------------------------------------------------------------
-// (d) INJEKTIVITAET (Owner-KERN F6) ueber ALLE 7 nicht-leeren Teilmengen der Registry. Das ist die
+// (h) M-1/H-1: DIE DEKLARATIONS-PFLICHT FUER G1. Eine Combo, die wallclock nicht nennt, es aber
+//     unvermeidlich einbaut (G1 == das wallclock-Instrument), wird abgewiesen. Ohne diese Wache
+//     bewegte ein Versions-Sprung der wallclock-Mess-Achse das [macro]-Objekt, aber NICHT dessen
+//     Fingerprint -- dll_is_current meldete "current" ueber eine Mess-Code-Versionsgrenze hinweg (F2).
+//     VOLLSTAENDIGKEIT: die 7 nicht-leeren Teilmengen zerfallen in 4 zulaessige (wallclock genannt)
+//     und 3 abgewiesene. Beide Zahlen werden AUSGEGEBEN, nicht behauptet -- ein Test, der nur die
+//     Wuerfe zaehlt, waere auch gruen, wenn die Wache ALLES abwiese.
+// ---------------------------------------------------------------------------------------------
+void fall_h_g1_deklarationspflicht() {
+    std::cout << "\n---- (h) H-1: eine Combo ohne 'wallclock' wird abgewiesen (G1 ist das wallclock-Instrument) ----\n";
+    std::size_t zulaessig = 0;
+    std::size_t abgewiesen = 0;
+    for (unsigned mask = 1; mask < (1u << cm::kMeasurementToolingCount); ++mask) {
+        std::string legend = "[";
+        bool        nennt_wc = false;
+        for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
+            if ((mask >> i) & 1u) {
+                if (legend.size() > 1) legend += ',';
+                legend += std::string{cm::kMeasurementToolingRegistry[i].id};
+                if (cm::kMeasurementToolingRegistry[i].tooling == cm::MeasurementTooling::WallClock) nennt_wc = true;
+            }
+        legend += "]";
+        Lauf const l = ruf(legend);
+        std::cout << "    " << legend << (nennt_wc ? "  (nennt wallclock)  " : "  (nennt wallclock NICHT)  ")
+                  << (l.warf ? std::string{"WURF"} : join(l.defs)) << "\n";
+        if (nennt_wc) {
+            ++zulaessig;
+            check_true(std::string{"(h) "} + legend + " ist zulaessig", !l.warf);
+        } else {
+            ++abgewiesen;
+            check_true(std::string{"(h) "} + legend + " wird abgewiesen", l.warf);
+            check_true(std::string{"(h) "} + legend + " meldet die Fehlerklasse",
+                       l.warf && l.was.find("fehlerklasse=konfiguration_widerspruch") != std::string::npos);
+        }
+    }
+    std::cout << "  zulaessig: " << zulaessig << " (erwartet 4), abgewiesen: " << abgewiesen << " (erwartet 3)\n";
+    check_true("(h) genau 4 Teilmengen sind zulaessig (die Wache weist nicht alles ab)", zulaessig == 4);
+    check_true("(h) genau 3 Teilmengen werden abgewiesen (die Wache laesst nicht alles durch)", abgewiesen == 3);
+    check_true("(h) BYTE-BILANZ: die Vollmenge [all] bleibt zulaessig -- der gesamte Bestand ist unberuehrt",
+               !ruf("[all]").warf);
+}
+
+// ---------------------------------------------------------------------------------------------
+// (d) INJEKTIVITAET (Owner-KERN F6) ueber alle BAUBAREN Teilmengen der Registry. Das ist die
 //     Aussage, die der Gate-Teil ALLEIN heute nicht tragen koennte: {macro} und {micro} teilen ein
 //     Gate. Der Deklarations-Teil (COMDARE_MEASUREMENT_TOOLING_<ID>) traegt sie.
-//     GEGENPROBE gegen ein trivial gruenes Ergebnis: es werden wirklich 7 Mengen gebildet und
-//     7*6/2 = 21 Paare verglichen -- die Zahl wird ausgegeben, nicht behauptet.
+//     M-1/H-1 hat den Definitionsbereich verkleinert: von den 7 nicht-leeren Teilmengen sind die 4
+//     wallclock-tragenden baubar, die 3 uebrigen werden abgewiesen (Buchhaltung in Fall (h)).
+//     GEGENPROBE gegen ein trivial gruenes Ergebnis: es werden wirklich 4 Mengen gebildet und
+//     4*3/2 = 6 Paare verglichen -- beide Zahlen werden ausgegeben, nicht behauptet.
 // ---------------------------------------------------------------------------------------------
 void fall_d_injektiv() {
     std::cout << "\n---- (d) INJEKTIVITAET (F6): alle 7 nicht-leeren Tooling-Mengen paarweise verschieden ----\n";
@@ -169,16 +235,18 @@ void fall_d_injektiv() {
         legend += "]";
         Lauf const l = ruf(legend);
         if (l.warf) {
-            std::cout << "  [ERR] " << legend << " warf: " << l.was << "\n";
-            ++g_fail;
+            // M-1/H-1: die 3 Teilmengen ohne 'wallclock' sind ab jetzt KEIN baubarer Zustand mehr (die
+            // Vollstaendigkeits-Buchhaltung dazu fuehrt Fall (h)). Injektivitaet ist die Aussage ueber die
+            // BAUBAREN Wahlen -- ueber die abgewiesenen etwas zu behaupten, waere Unsinn.
+            std::cout << "    " << legend << "  ->  ABGEWIESEN (H-1: nennt wallclock nicht)\n";
             continue;
         }
         std::cout << "    " << legend << "  ->  " << join(l.defs) << "\n";
         legenden.push_back(legend);
         vektoren.push_back(l.defs);
     }
-    std::cout << "  Mengen gebildet: " << vektoren.size() << " (erwartet 7)\n";
-    check_true("(d) alle 7 nicht-leeren Mengen aufgeloest", vektoren.size() == 7);
+    std::cout << "  baubare Mengen: " << vektoren.size() << " (erwartet 4 = die wallclock-tragenden)\n";
+    check_true("(d) alle 4 baubaren Mengen aufgeloest", vektoren.size() == 4);
     std::size_t paare = 0;
     std::size_t gleich = 0;
     for (std::size_t i = 0; i < vektoren.size(); ++i)
@@ -189,8 +257,8 @@ void fall_d_injektiv() {
                 ++gleich;
             }
         }
-    std::cout << "  Paare verglichen: " << paare << " (erwartet 21), Kollisionen: " << gleich << "\n";
-    check_true("(d) 21 Paare wirklich verglichen (der Test kann nicht leer gruen sein)", paare == 21);
+    std::cout << "  Paare verglichen: " << paare << " (erwartet 6), Kollisionen: " << gleich << "\n";
+    check_true("(d) 6 Paare wirklich verglichen (der Test kann nicht leer gruen sein)", paare == 6);
     check_true("(d) KEINE zwei Mess-Achsen-Wahlen kollidieren auf denselben Define-Vektor", gleich == 0);
 }
 
@@ -259,6 +327,7 @@ int main() {
     fall_a_nenner();
     fall_b_paarweise_verschieden();
     fall_c_gate_wirkung();
+    fall_h_g1_deklarationspflicht(); // M-1/H-1 -- steht vor (d), weil (d) seinen Definitionsbereich nutzt
     fall_d_injektiv();
     fall_e_byte_bilanz();
     fall_f_fehlerklassen();

@@ -411,8 +411,15 @@ struct RunProfileResult {
     // Objekt da und wird nicht dreimal gerufen: measurement_stamp_from_env() ist zwar deterministisch, aber ein
     // dritter Aufruf waere ein dritter Ableitungsweg in Wartestellung -- genau die O-8-Schritt-12-Falle, und
     // genau der Mechanismus, aus dem D-1 entstanden ist.
+    // M-1/H-2 (06.08.2026): die PMC-Ausstattung gehoert zur Mess-Achse. Der Wurf steht VOR der ersten
+    // gestempelten Quelle -- ein Lauf, dessen einkompilierte Mess-Achse und PMC-Ausstattung sich
+    // widersprechen, darf gar nicht erst Binaries erzeugen. Herleitung + Messwerte: mess_achsen_naht.hpp.
+    // Ohne einkompilierte Combo (der gesamte heutige Bestand) ist der Aufruf ein No-op.
+    ::comdare::cache_engine::profile_facade::pruefe_pmc_gegen_mess_achse();
     std::string const live_mess_zeile        = measurement_stamp_from_env();
     std::string const sota_measurement_stamp = live_mess_zeile;
+    // M-1/H-B (06.08.2026): traegt die Tier-Binary dieses Laufs den Observer? Aus DERSELBEN Aufloesung.
+    bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
     for (auto& [k, v] : build_sota_view_source_map(tp, sota_measurement_stamp))
         fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn base_union = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
@@ -632,6 +639,9 @@ struct RunProfileResult {
         // Source-Gen stempelt -- der Vertrag vergleicht damit die Binary gegen das, was DIESER Lauf in sie
         // hineingestempelt hat, nicht gegen eine zweite Ableitung.
         cfg.erwartete_mess_zeile      = live_mess_zeile;
+        // M-1/H-B: die Observer-Ausstattung derselben Aufloesung. false => die stat_*-, seg_*-,
+        // observable_axes-, fill_level- und filled_axes-Zellen sind ehrlich "n/a" statt 0.
+        cfg.mess_observer_ausstattung = live_observer_ausstattung;
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = perm_tag_build_version; // GN-3: per-Perm-CSV-Tag, sonst = tag_build_version
         cfg.source_dir                = a.src_dir;

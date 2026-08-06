@@ -199,13 +199,46 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 ///      einkompiliertes Kompilat ist ein Konfigurationswiderspruch -- fail-loud, nie still.
 ///      AUSNAHME [all]/leer: der einkompilierte Wert ist dann selbst die Vollmenge und damit KEINE
 ///      spezifische Wahl; die leere Env ist dort die SYNCHRONE Form.
-///   -- Ohne Define entscheidet die Env; UNGESETZT == "[all]" == die volle 3-Tool-Vollmenge.
+///   -- Ohne Define ist die einzige zulaessige Aussage die VOLLMENGE: UNGESETZT == "[all]" == die
+///      volle 3-Tool-Vollmenge. Eine SPEZIFISCHE Env-Combo ohne Define ist ab M-1/H-A ein Wurf
+///      (Begruendung im Block direkt darunter).
 ///
-/// WARUM DIE ENV IM CT-LOSEN ZWEIG KEIN "RUNTIME-KONFIGURIEREN" DES BAUS IST: sie ist der einzige
-/// Kanal, ueber den die STUFE-1-Freigabe des Planers eine CEB erreicht, die selbst ohne spezifische
-/// Mess-Achse gebaut wurde. Sobald eine Achse einkompiliert IST, gewinnt sie -- und die Wache oben
-/// erzwingt, dass die Env sie nur bestaetigen, nie ueberstimmen kann. Der Bau folgt also immer der
-/// einkompilierten Achse, wo es eine gibt.
+/// ------------------------------------------------------------------------------------------------
+/// M-1/H-A (06.08.2026) -- WARUM DER CT-LOSE ZWEIG EINE SPEZIFISCHE ENV-COMBO ABLEHNT
+/// ------------------------------------------------------------------------------------------------
+/// Der Kommentar an dieser Stelle behauptete bis hierher, die Env sei "kein Runtime-Konfigurieren des
+/// Baus", weil die Wache erzwinge, "dass die Env sie nur bestaetigen, nie ueberstimmen kann". Am Objekt
+/// gemessen war das nur fuer den #ifdef-Zweig wahr: BEIDE Wuerfe stehen INNERHALB von
+/// COMDARE_MEASUREMENT_COMBO_CT. Der #else-Zweig hatte KEINE Wache -- und genau er ist der
+/// Default-Bau, denn COMDARE_MEASUREMENT_COMBO ist per CACHE STRING "" leer
+/// (profile_facade/CMakeLists.txt), das Define entsteht nur im if().
+///
+/// GEMESSENE FOLGE (eine und dieselbe Default-CEB-Binary, nur die Env variiert):
+///     env=[all]        -> -DCOMDARE_MEASUREMENT_ON=1 -DCOMDARE_CE_ENABLE_STATISTICS=1 + 3 Deklarationen
+///     env=[wallclock]  -> -DCOMDARE_MEASUREMENT_ON=1 -DCOMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1
+///     env=[macro]      -> -DCOMDARE_MEASUREMENT_ON=1 -DCOMDARE_CE_ENABLE_STATISTICS=1 + 1 Deklaration
+/// -- vier verschiedene TIER-AUSSTATTUNGEN aus EINER CEB, die nie neu gebaut wurde, und mit EINEM
+/// ceb_key_sha512. Das ist die STUFEN-DOKTRIN gebrochen: MESS ist DREISTUFIG, Planer (RT-Freigabe) ->
+/// CEB (CT-EINBAU) -> Tier (CT-EINBAU). Hier lief die Achse Planer -> Env -> Tier-Compile-Kommando und
+/// uebersprang den CT-Einbau der Stufe 2. Woertlich Owner-KERN F2: "bei einem neuen Messsystem [muss]
+/// auch die CEB ... neu gebaut werden" -- und genau das geschah nicht.
+///
+/// DIE HEILUNG IST EIN WURF UND KEIN EINBAU: der Wurf ERZWINGT den CT-Einbau, er ersetzt ihn nicht.
+/// Wer eine spezifische Mess-Achse fahren will, muss die CEB dafuer konfigurieren
+/// (-DCOMDARE_MEASUREMENT_COMBO=<legend>); dann laeuft der #ifdef-Zweig oben mit seinen zwei Wachen.
+///
+/// WARUM [all]/UNGESETZT WEITER DURCHGEHT (und das ist keine Ausnahme, sondern dieselbe Regel):
+/// [all] ist KEINE spezifische Wahl, sondern die Vollmenge -- die Aussage "es wurde nichts
+/// eingeschraenkt". Sie ist der byte-stabile Default des gesamten heutigen Bestandes (Sidecar-Bestand
+/// 0, jede bestehende Zeile stammt aus einem [all]-Lauf). Die Wache beisst damit exakt am ersten
+/// NICHT-[all]-Batch -- also genau dort, wo die Luecke real wird, und nirgends vorher.
+[[nodiscard]] inline bool combo_legend_ist_vollmenge(std::string_view legend) noexcept {
+    if (legend.empty() || legend == "[all]" || legend == "all") return true;
+    std::string_view inner = legend;
+    if (inner.size() >= 2 && inner.front() == '[' && inner.back() == ']') inner = inner.substr(1, inner.size() - 2);
+    return inner.empty() || inner == "all";
+}
+
 [[nodiscard]] inline std::string resolve_live_measurement_combo_legend() {
     std::string const ct_legend = ct_measurement_combo_legend();
 #ifdef COMDARE_MEASUREMENT_COMBO_CT
@@ -227,7 +260,18 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
     // UNGESETZT == [all]: der Renderer bildet "[all]" auf measurement_stamp_line_full_set() ab, die
     // Vollmengen-Provenienz bleibt damit byte-identisch zum frueheren full_set()-Direktaufruf.
-    return (e != nullptr && *e != '\0') ? std::string{e} : std::string{"[all]"};
+    if (e == nullptr || *e == '\0') return std::string{"[all]"};
+    // M-1/H-A: die STUFEN-WACHE. Eine spezifische Env-Combo ohne einkompilierte Combo ist der
+    // uebersprungene Stufe-2-CT-Einbau (Herleitung im Kopf dieser Funktion) -- fail-loud, nie still.
+    if (!combo_legend_ist_vollmenge(e))
+        throw std::runtime_error(
+            "fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO ('" + std::string{e} +
+            "') verlangt eine spezifische Mess-Achse, aber DIESE CEB ist nicht dafuer gebaut "
+            "(COMDARE_MEASUREMENT_COMBO_CT fehlt) -- der CT-EINBAU der STUFE 2 fehlt. MESS ist "
+            "dreistufig: Planer (RT-Freigabe) -> CEB (CT-Einbau) -> Tier (CT-Einbau). Abhilfe: die CEB "
+            "mit -DCOMDARE_MEASUREMENT_COMBO=" +
+            std::string{e} + " konfigurieren und neu bauen (Owner-KERN F2)");
+    return std::string{e};
 #endif
 }
 
@@ -301,6 +345,25 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     return name;
 }
 
+/// mess_menge_hat_observer_gate(menge) -- traegt eine so gebaute Tier-Binary den OBSERVER (G2/G3)?
+///
+/// M-1/H-B (06.08.2026). Das ist DIESELBE Bedingung, aus der mess_achsen_defines() das Gate-Define
+/// -DCOMDARE_CE_ENABLE_STATISTICS=1 setzt -- als benannte Funktion herausgezogen, damit es EINE Quelle
+/// gibt statt zweier gleichlautender Ausdruecke. Ein zweiter, handgeschriebener Ausdruck an der
+/// CSV-Seite waere exakt die Divergenz-Klasse, gegen die diese ganze Datei gebaut ist.
+///
+/// WOZU DIE CSV-SEITE SIE BRAUCHT: tier_observe() hat seinen KOMPLETTEN Rumpf unter
+/// #ifdef COMDARE_CE_ENABLE_STATISTICS (anatomy/abi_adapter.hpp). Eine [wallclock]-Binary liefert
+/// daher einen LEEREN Snapshot -- inklusive tier_fill_level == 0 und observable_axis_count == 0,
+/// obwohl das Tier real gefuellt ist und obwohl diese beiden Felder ausdruecklich KEIN Mess-Zustand
+/// sind (axis_operability_classification.hpp: "passive Build-/Compile-Konstante"). Wer daraus Zahlen
+/// in die CSV schreibt, schreibt eine Luege, die von einer echten Messung nicht unterscheidbar ist.
+[[nodiscard]] inline bool mess_menge_hat_observer_gate(MessToolingMenge const& menge) noexcept {
+    namespace cm = ::comdare::cache_engine::measurement;
+    return menge[static_cast<std::size_t>(cm::MeasurementTooling::Macro)] ||
+           menge[static_cast<std::size_t>(cm::MeasurementTooling::Micro)];
+}
+
 /// mess_achsen_defines(menge) -- DIE ABBILDUNG: einkompilierte Mess-Achse -> Tier-Compile-Defines.
 ///
 /// Das ist die Funktion, die D-1 heilt. Sie ist REIN (Argument rein, Vektor raus, kein Env, kein
@@ -329,14 +392,55 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
             if (b) return true;
         return false;
     }();
+
+    // ------------------------------------------------------------------------------------------------
+    // M-1/H-1 (06.08.2026) -- DIE DEKLARATIONS-PFLICHT FUER G1. Fail-closed, kein Byte am Bestand.
+    // ------------------------------------------------------------------------------------------------
+    // BEFUND, am Objekt gemessen: G1 (COMDARE_MEASUREMENT_ON) IST das wallclock-Instrument -- der
+    // aeussere steady_clock je Batch in run_workload (abi_adapter.hpp). Die Zuordnung oben in diesem
+    // Header sagt es woertlich: "auch [wallclock] misst ueber run_workload". Weil JEDE nicht-leere
+    // Menge G1 zieht, traegt auch eine [macro]-Tier-Binary den wallclock-Messcode -- ihr Glied [3]
+    // nannte ihn aber NICHT. Das ist D-1 in klein, eine Ebene tiefer:
+    //     Wallclock-Messcode auf high_resolution_clock geaendert + Registry wallclock 1.0.0c -> 2.0.0c
+    //     [macro]-TIER-OBJEKT   329e45a0... -> 87bbbce6...   GEAENDERT
+    //     [macro]-Glied [3]     measurement_tooling=macro@1.0.0c;[...]   BYTE-GLEICH
+    //     [macro]-tier_fp       ab530b58... -> ab530b58...   UNVERAENDERT
+    // NENNER + GEGENPROBE (eine nackte Null ist kein Befund): dasselbe Verfahren trennt [macro] von
+    // [wallclock] am Objekt (329e45a0 vs c3384d4b), und derselbe Versions-Bump BEWEGT den Fingerprint
+    // sehr wohl, sobald wallclock in der Legende steht. Das Verfahren ist sehend -- der Stempel sah weg.
+    // Folge: dll_is_current meldet "current" ueber eine Mess-Code-VERSIONSGRENZE hinweg. Owner-KERN F2.
+    //
+    // WARUM WURF UND NICHT STILLE ERGAENZUNG DER MENGE: die Menge still um wallclock zu erweitern
+    // hiesse, die Bestellung des Bedieners umzuschreiben -- und die Stempel-Zeile entsteht in einem
+    // ANDEREN Renderer (abi::measurement_stamp_line_from_combo_legend), der die Legende nimmt, nicht
+    // die Menge. Eine hier korrigierte Menge wuerde den Stempel also gar nicht erreichen; SIE waere die
+    // zweite Wahrheit. Der Wurf dagegen ist an EINER Stelle wahr und verlangt vom Bediener genau das,
+    // was der Bau ohnehin tut: wallclock mitzuschreiben. "[macro]" -> "[wallclock,macro]".
+    //
+    // BYTE-BILANZ: [all] enthaelt wallclock -> unberuehrt. Der gesamte heutige Bestand ist [all]
+    // (Sidecar-Bestand 0). Diese Wache kann kein einziges bestehendes Byte bewegen.
+    if (braucht_g1 && !menge[static_cast<std::size_t>(cm::MeasurementTooling::WallClock)]) {
+        std::string genannt;
+        for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
+            if (menge[i]) {
+                if (!genannt.empty()) genannt += ",";
+                genannt += std::string{cm::kMeasurementToolingRegistry[i].id};
+            }
+        throw std::runtime_error(
+            "fehlerklasse=konfiguration_widerspruch: die Mess-Combo '[" + genannt +
+            "]' nennt 'wallclock' NICHT, baut es aber unvermeidlich ein -- das Gate G1 "
+            "(COMDARE_MEASUREMENT_ON) IST das wallclock-Instrument (steady_clock je Batch in "
+            "run_workload) und wird von JEDEM Tooling gezogen. Ein Stempel, der es verschweigt, sieht "
+            "einen Versions-Sprung der wallclock-Mess-Achse nicht (Owner-KERN F2). Abhilfe: die Combo "
+            "als '[wallclock," +
+            genannt + "]' schreiben");
+    }
     if (braucht_g1) d.emplace_back("-DCOMDARE_MEASUREMENT_ON=1");
 
     // G2 OBSERVER (+ G3 FEINKORN, solange beide dasselbe Gate teilen) -- fill_observer_v3 /
     // fill_segment_timing_v3. [wallclock] allein braucht sie nicht und bekommt sie ab hier auch nicht
     // mehr: DAS ist die erste reale Wirkung, die die Mess-Achse auf das Tier-Kompilat hat.
-    bool const braucht_g2 = menge[static_cast<std::size_t>(cm::MeasurementTooling::Macro)] ||
-                            menge[static_cast<std::size_t>(cm::MeasurementTooling::Micro)];
-    if (braucht_g2) d.emplace_back("-DCOMDARE_CE_ENABLE_STATISTICS=1");
+    if (mess_menge_hat_observer_gate(menge)) d.emplace_back("-DCOMDARE_CE_ENABLE_STATISTICS=1");
 
     // DEKLARATION -- ein Define je EINKOMPILIERTEM Tooling, Registry-Reihenfolge. Traegt die
     // Injektivitaet auch dort, wo der Gate-Teil (noch) nicht unterscheidet (macro vs micro).
@@ -359,6 +463,85 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 /// dieselbe Aufloesung benutzen -- nicht, weil jemand sie synchron haelt.
 [[nodiscard]] inline std::vector<std::string> live_mess_achsen_defines() {
     return mess_achsen_defines_for_legend(resolve_live_measurement_combo_legend());
+}
+
+/// live_mess_observer_ausstattung() -- traegt die Tier-Binary DIESES Laufs den Observer (G2/G3)?
+/// Dieselbe Aufloesung, dieselbe Abbildung wie live_mess_achsen_defines() -- ein dritter Ableitungsweg
+/// waere die Drift-Klasse aus D-1. Die CSV-Seite (cache_engine_builder_iterator) entscheidet damit
+/// zwischen echten Observer-Zahlen und ehrlichem "n/a".
+[[nodiscard]] inline bool live_mess_observer_ausstattung() {
+    return mess_menge_hat_observer_gate(mess_tooling_menge_from_legend(resolve_live_measurement_combo_legend()));
+}
+
+// ----------------------------------------------------------------------------------------------------
+// M-1/H-2 (06.08.2026) -- DIE PMC-AUSSTATTUNG GEHOERT ZUR MESS-ACHSE. Fail-closed, kein Byte am Bestand.
+// ----------------------------------------------------------------------------------------------------
+// BEFUND, am Objekt gemessen und AUSGEFUEHRT (Legende [micro], gleiche Maschine, gleicher Lauf):
+//     COMDARE_ENABLE_PMC=OFF                    COMDARE_ENABLE_PMC=ON
+//     pmc_quelle    = NullPmcSource             pmc_quelle    = LinuxPerfPmcSource
+//     cache_misses_l1 = 0                       cache_misses_l1 = 1898596
+//     glied3  = measurement_tooling=micro@...   glied3  = measurement_tooling=micro@...   <- identisch
+//     ceb_key = a66710856b4e7071...             ceb_key = a66710856b4e7071...             <- identisch
+// Dieselbe deklarierte Mess-Achse, derselbe Schluessel, andere Zahlen. Das ist Owner-KERN F6 woertlich
+// verletzt ("die gleiche binary auf der selben Maschine mit den selben Messachsen liefert identische
+// Ergebnisse uneingeschraenkt"). GEGENPROBE auf Vollstaendigkeit: ENABLE_PMC|pmc in
+// ceb_version_stamp.hpp, anatomy_fingerprint.hpp und toolchain_stamp_glied.hpp = 0 Treffer -- PMC steht
+// in KEINEM Identitaets-Glied.
+//
+// WARUM DIE HEILUNG EINE WACHE IST UND KEIN NEUES IDENTITAETS-GLIED: PMC in den Fingerprint oder in den
+// CEB-Schluessel aufzunehmen bewegt Identitaets-BYTES (Preimage-Format bzw. der gepinnte Default-Schluessel
+// 004251f4...). Das ist ein deklariertes Byte-Ereignis mit Owner-Entscheid und ausdruecklich NICHT das,
+// was eine Heilungs-Scheibe nebenbei tut. Die Wache erreicht dasselbe Ziel -- keine zwei ununterscheidbaren
+// Laeufe mehr -- und bewegt kein Byte: sie macht den mehrdeutigen Zustand UNERREICHBAR statt ihn zu
+// benennen. micro ist die Achse, die die PMC-Instrumentierung DEKLARIERT (Registry: "feinkoernige
+// PMC/Counter-Instrumentierung"), also muss micro <-> COMDARE_ENABLE_PMC gelten.
+//
+// WARUM NUR BEI EINKOMPILIERTER COMBO: ohne COMDARE_MEASUREMENT_COMBO_CT hat NIEMAND eine spezifische
+// Mess-Achse bestellt -- H-A laesst dort ausschliesslich die Vollmenge [all] zu, und [all] ist die Aussage
+// "nicht eingeschraenkt", keine PMC-Zusage. Der gesamte heutige Bestand (Sidecar 0, Default-Bau,
+// COMDARE_ENABLE_PMC=OFF per CMakeLists.txt:67) faellt in diesen Zweig und bleibt unberuehrt. Die Wache
+// beisst exakt am ersten CT-hart gebauten Batch -- also genau dort, wo die Mehrdeutigkeit real wird.
+[[nodiscard]] inline bool pmc_ist_einkompiliert() noexcept {
+#ifdef COMDARE_ENABLE_PMC
+    return true;
+#else
+    return false;
+#endif
+}
+
+/// pruefe_pmc_gegen_mess_achse() -- wirft, wenn die einkompilierte Mess-Achse und die einkompilierte
+/// PMC-Ausstattung sich widersprechen. Beide Seiten sind COMPILE-Zustand DERSELBEN CEB-TU; der Vergleich
+/// stellt also Deklaration gegen Deklaration, nicht Deklaration gegen Laufzeit-Glueck. Die Laufzeit-Frage
+/// ("gelingt perf_event_open hier?") ist eine andere und steht bereits ehrlich in der Spalte pmc_available.
+/// pruefe_pmc_ausstattung(legend, micro, pmc) -- die REINE Entscheidung, damit der Biss sie ohne
+/// Praeprozessor-Akrobatik ueber alle vier Kombinationen fahren kann. Der Live-Aufrufer unten reicht nur
+/// die beiden Compile-Zustaende herein; hier steht kein Makro und kein Env.
+inline void pruefe_pmc_ausstattung(std::string_view legend, bool micro, bool pmc) {
+    if (micro == pmc) return;
+    if (micro)
+        throw std::runtime_error("fehlerklasse=mess_ausstattung_widerspruch: die einkompilierte Mess-Achse '" +
+                                 std::string{legend} +
+                                 "' nennt 'micro' (Registry: feinkoernige PMC/Counter-Instrumentierung), aber diese "
+                                 "CEB ist ohne COMDARE_ENABLE_PMC gebaut -- die PMC-Spalten waeren durchgehend 0, "
+                                 "ununterscheidbar von einer PMC-Messung mit dem Ergebnis 0 (Owner-KERN F6). "
+                                 "Abhilfe: -DCOMDARE_ENABLE_PMC=ON konfigurieren oder 'micro' aus der Combo nehmen");
+    throw std::runtime_error("fehlerklasse=mess_ausstattung_widerspruch: diese CEB ist mit COMDARE_ENABLE_PMC "
+                             "gebaut, aber die einkompilierte Mess-Achse '" +
+                             std::string{legend} +
+                             "' nennt 'micro' NICHT -- es wuerden PMC-Zahlen erhoben, die der Stempel nicht "
+                             "deklariert (Owner-KERN F6). Abhilfe: 'micro' in die Combo aufnehmen oder "
+                             "-DCOMDARE_ENABLE_PMC=OFF konfigurieren");
+}
+
+/// pruefe_pmc_gegen_mess_achse() -- der LIVE-Aufruf: die einkompilierte Mess-Achse gegen die
+/// einkompilierte PMC-Ausstattung DIESER CEB. Ohne einkompilierte Combo ein No-op (Begruendung oben).
+inline void pruefe_pmc_gegen_mess_achse() {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (ct_measurement_combo_legend().empty()) return; // keine spezifische Bestellung -> keine PMC-Zusage
+    std::string const      legend = resolve_live_measurement_combo_legend();
+    MessToolingMenge const menge  = mess_tooling_menge_from_legend(legend);
+    pruefe_pmc_ausstattung(legend, menge[static_cast<std::size_t>(cm::MeasurementTooling::Micro)],
+                           pmc_ist_einkompiliert());
 }
 
 } // namespace comdare::cache_engine::profile_facade

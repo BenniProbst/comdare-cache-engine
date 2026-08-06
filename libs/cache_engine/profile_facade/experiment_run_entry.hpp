@@ -170,7 +170,12 @@ struct RunExperimentResult {
     // BIS M-1 stempelte dieser Weg GAR NICHT (der Paar-Overload wurde ohne Stempel gerufen) -- seine
     // Tier-Binaries trugen measurement_line == "" und haetten am fail-closed-Gate als deklaration_leer
     // abgewiesen. Die Asymmetrie zum Thesis-Weg war real und ist hier geschlossen, nicht ausgenommen.
+    // M-1/H-2 (06.08.2026): PMC-Ausstattung gegen die einkompilierte Mess-Achse -- VOR der ersten
+    // gestempelten Quelle. Ohne einkompilierte Combo ein No-op. Herleitung: mess_achsen_naht.hpp.
+    ::comdare::cache_engine::profile_facade::pruefe_pmc_gegen_mess_achse();
     std::string const                            live_mess_zeile = measurement_stamp_from_env();
+    // M-1/H-B: die Observer-Ausstattung aus DERSELBEN Aufloesung (n/a statt 0 in den Observer-Zellen).
+    bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
     std::vector<ExperimentPhaseProjection> const projections = project_experiment_to_sota_passes(ep, live_mess_zeile);
     res.phases                                               = projections.size();
 
@@ -444,6 +449,8 @@ struct RunExperimentResult {
                         // M-1/D-2: die SOLL-Seite des Mess-Vertrags -- dieselbe Zeile, die oben die
                         // Experiment-Quellen stempelt (EINE Lesung, zwei Verbraucher).
                         cfg.erwartete_mess_zeile = live_mess_zeile;
+                        // M-1/H-B: Observer-Ausstattung derselben Aufloesung (n/a statt 0).
+                        cfg.mess_observer_ausstattung = live_observer_ausstattung;
                         cfg.row_platform      = tag_platform;
                         cfg.row_build_version = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
                         cfg.source_dir        = a.src_dir;

@@ -4578,6 +4578,24 @@ add_test(NAME test_m1_mess_achsen_wirkung COMMAND test_m1_mess_achsen_wirkung)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1_mess_achsen_wirkung)
 set_tests_properties(test_m1_mess_achsen_wirkung PROPERTIES LABELS "m1;messachse;stempel;fehlerklassen")
 
+# M-1/H-A + M-1/H-2 (06.08.2026): die STUFEN-Wache im CT-losen Zweig und die PMC-Ausstattungs-Invariante.
+# BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT -- und hier ist das nicht bloss Unabhaengigkeit vom Makro-
+# Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,
+# die comdare_measurement_combo_ct linkt, wuerde den geheilten Defekt gar nicht erreichen. Fall (a)
+# verifiziert diese Voraussetzung zur Laufzeit, damit die Zusage nicht bloss hier im CMake steht.
+add_executable(test_m1h_stufen_und_pmc_wache
+    "test_m1h_stufen_und_pmc_wache.cpp")
+target_compile_features(test_m1h_stufen_und_pmc_wache PRIVATE cxx_std_23)
+target_include_directories(test_m1h_stufen_und_pmc_wache PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_m1h_stufen_und_pmc_wache)
+add_test(NAME test_m1h_stufen_und_pmc_wache COMMAND test_m1h_stufen_und_pmc_wache)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1h_stufen_und_pmc_wache)
+set_tests_properties(test_m1h_stufen_und_pmc_wache PROPERTIES LABELS "m1;messachse;stufen;pmc;fehlerklassen")
+
 # Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
 # load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
 add_executable(test_parser_konsolidierung "test_parser_konsolidierung.cpp")
@@ -5224,6 +5242,28 @@ target_compile_definitions(test_a8s3_csv_klasse_c PRIVATE
 add_test(NAME test_a8s3_csv_klasse_c COMMAND test_a8s3_csv_klasse_c)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a8s3_csv_klasse_c)
 set_tests_properties(test_a8s3_csv_klasse_c PROPERTIES LABELS "a8;csv;standalone;measured")
+
+# M-1/H-B (06.08.2026): die Observer-Zellen der CSV sind "n/a" statt 0, wenn die Tier-Binary ohne
+# Observer-Gate gebaut ist. Gleicher Bau-Zuschnitt wie der Nachbar oben (reiner Host-Pfad ueber
+# format_csv_row/lazy_csv_header, kein Tier). Die Mess-Defines sind noetig, weil der Iterator-Header
+# den Mess-Pfad mitzieht -- sie beschreiben die uebersetzende TU, nicht die geprueften Zeilen.
+add_executable(test_m1hb_observer_zellen_ehrlich "test_m1hb_observer_zellen_ehrlich.cpp")
+target_compile_features(test_m1hb_observer_zellen_ehrlich PRIVATE cxx_std_23)
+target_include_directories(test_m1hb_observer_zellen_ehrlich PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_m1hb_observer_zellen_ehrlich PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_m1hb_observer_zellen_ehrlich)
+target_compile_definitions(test_m1hb_observer_zellen_ehrlich PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_m1hb_observer_zellen_ehrlich COMMAND test_m1hb_observer_zellen_ehrlich)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1hb_observer_zellen_ehrlich)
+set_tests_properties(test_m1hb_observer_zellen_ehrlich PROPERTIES LABELS "m1;csv;messachse;standalone")
 
 # E-04-P1 (Slice-Kanal, Marker-Familie v2, Owner-KERN "live sehen ... exakt WELCHE ... noch offen"):
 # Guard der Zeilen-Grammatik des Live-Fortschritts-Kanals. Tragende Aussage: lane=/zelle=/fenster=
