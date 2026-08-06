@@ -73,6 +73,49 @@ public:
         if (worker_.joinable()) worker_.join();
     }
 
+    /// T2-A/F4-NB2 (Codex-Voll-Scope, Befund 1) -- DIE ZWISCHEN-BARRIERE: warten, bis alles bislang
+    /// Eingereihte abgearbeitet ist, OHNE den Pump zu schliessen. Danach ist failed_count() eine
+    /// vollstaendige Aussage ueber genau diese Menge, und der Bau laeuft mit demselben Pump weiter.
+    ///
+    /// WOFUER: der Plan-Zaehler des Bau-Laufs darf ein Fenster erst fortschreiben, wenn dessen Artefakte
+    /// den Store WIRKLICH erreicht haben. close() taugt dafuer nicht -- es beendet den Push-Thread, und
+    /// der naechste Slice haette keinen mehr. Ohne diese Barriere blieb nur die Wahl zwischen "Zaehler
+    /// vor dem Vollzug" (die Luege) und "Zaehler erst ganz am Ende" (Verlust des inkrementellen Resume).
+    ///
+    /// PREIS, ehrlich benannt: an der Fenster-Grenze wartet der Bau auf den Push-SCHWANZ dieses Fensters.
+    /// Der Pump lief waehrend des ganzen Fensters mit, es bleibt also der Rest weniger Pushes -- die
+    /// W11-Zusage "Wall-Clock ~ max(Bau, Push)" gilt ab jetzt je Fenster statt ueber den ganzen Lauf.
+    /// Ohne Plan-Ablage wird die Barriere nie gerufen (der Aufrufer gated sie), der Ist-Pfad ist unberuehrt.
+    ///
+    /// T2-A/F4-NB3 (Gegenpruefer-Messung, AUFLAGE 1) -- DIE ABKUERZUNG `if (closed_) return;` IST GEFALLEN.
+    ///
+    /// Sie stand hier mit der Begruendung "nach close() ist der Drain ohnehin vollzogen" und einem KONTRAKT
+    /// an den Aufrufer ("laeuft aus demselben Thread wie close()"). Beides hielt nicht: close() setzt
+    /// closed_ UNTER dem Lock, gibt ihn frei und haengt dann im join(), waehrend der Worker die Restqueue
+    /// abarbeitet. Ein drain() in genau diesem Fenster nahm die Abkuerzung, obwohl queue_ und in_flight_
+    /// noch belegt sein konnten -- danach las push_vollzug() ein failed_count(), das nichts wusste, und der
+    /// Bau-Zaehler schrieb ein Fenster fort, dessen Pushes noch liefen. Das ist der von NB2 geheilte
+    /// Befund 1 durch die Hintertuer, und still. Gemessen: ALT kehrte drain() mit pushed_count()==0
+    /// zurueck, wo die Zusage 1 ist.
+    ///
+    /// OHNE die Abkuerzung stimmt die Zusage in JEDER Verschraenkung, und ein Haenger ist ausgeschlossen:
+    /// der Worker kehrt nur bei LEERER Queue zurueck und setzt in_flight_ vor jeder naechsten Runde
+    /// zurueck -- nach seinem Ende ist das Praedikat also per Konstruktion wahr, das wait() faellt sofort
+    /// durch. Damit traegt die Klasse ihre Zusage selbst, statt sie als Bitte an den Aufrufer zu
+    /// formulieren. (Am heutigen Pfad ist closed_ beim drain()-Aufruf ohnehin immer false -- EIN
+    /// Bau-Treiber-Thread, drain() waehrend des Baus, close() danach -- der Schnitt ist dort neutral.)
+    void drain() {
+        std::unique_lock<std::mutex> lk(mtx_);
+        drain_cv_.wait(lk, [this] { return queue_.empty() && !in_flight_; });
+    }
+
+    /// Zahl der bislang GEWORFENEN Pushes. Dieselbe Menge, die failed_dirs() als Pfade auflistet -- nur
+    /// ohne die Pfad-Kopie, weil der Zaehler-Pfad nur die Frage "war einer dabei" beantworten muss.
+    [[nodiscard]] std::size_t failed_count() const {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return failed_.size();
+    }
+
     /// Zahl bislang erfolgreich abgearbeiteter Pushes (Test-/Diagnose-Sicht). Thread-safe.
     /// TP1-N2: zaehlt seit der B-1-Nachbesserung NUR nicht-werfende Pushes -- ein geworfener Push ist
     /// kein "erfolgreich abgearbeitet" (der Kommentar versprach das schon immer; jetzt stimmt er).
@@ -103,6 +146,9 @@ private:
                 if (queue_.empty()) return; // closed_ && leer => fertig (Drain vollstaendig)
                 bin_dir = std::move(queue_.front());
                 queue_.pop_front();
+                // T2-A/F4-NB2: der Eintrag ist aus der Queue, aber NICHT fertig. Ohne diese Marke saehe
+                // drain() eine leere Queue und meldete "vollzogen", waehrend der Push noch laeuft.
+                in_flight_ = true;
             }
             // (1) Push OHNE Lock (mc-Shellout, Sekunden) -> Build-Worker + enqueue blockieren nicht. Ein throwender
             //     push_ darf den Thread NIE terminieren (Bau laeuft weiter, artifact_cache loggt selbst) -> catch(...).
@@ -123,7 +169,12 @@ private:
                 } else {
                     failed_.push_back(bin_dir);
                 }
+                // T2-A/F4-NB2: erst HIER ist der Eintrag vollzogen (Erfolg wie Fehlschlag sind gebucht)
+                // -- ein Warter auf der Barriere darf ab jetzt weiter. Der Teil-Marker unten steht
+                // bewusst DAHINTER: er ist eine Folge des Pushes, keine Bedingung fuer seine Buchung.
+                in_flight_ = false;
             }
+            drain_cv_.notify_all();
             // (2) Teil-Marker (falls faellig) ebenfalls ohne Lock; auch hier nie den Thread terminieren.
             if (part_to_mark != 0 && partial_marker_) {
                 try {
@@ -140,10 +191,12 @@ private:
 
     mutable std::mutex                 mtx_;
     std::condition_variable            cv_;
+    std::condition_variable            drain_cv_; // T2-A/F4-NB2: die Zwischen-Barriere, s. drain()
     std::deque<std::filesystem::path>  queue_;
     std::size_t                        pushed_ = 0;
     std::vector<std::filesystem::path> failed_; // TP1-N2 (B-1): geworfene Pushes, s. failed_dirs()
-    bool                               closed_ = false;
+    bool                               closed_    = false;
+    bool                               in_flight_ = false; // ein Eintrag ist gezogen, aber noch nicht gebucht
     std::thread                        worker_;
 };
 

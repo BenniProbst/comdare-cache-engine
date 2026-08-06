@@ -146,7 +146,20 @@ struct BuildResult {
     // Inhalt), waehrend des Baus aus spec.axes berechnet. Leer, wenn keine AlgoSigFn injiziert ist (rueckwaerts-
     // kompatibel). Der Mess-Resume-Pfad (cache_engine_builder_iterator) haengt sie additiv an den Resume-Stamp ->
     // eine Algo-Aenderung erzwingt die Neu-Messung GENAU der betroffenen Binaries (ehrlich, kein stilles Stale-Resume).
-    std::string        algo_sig;
+    std::string algo_sig;
+    // T2-A/K2-NB (Codex-Scope-K2, Haertung (d) "EINMAL lesen"): der 128-hex-Fingerprint, den provision_core
+    // fuer DIESE Binary EINMAL beim Provider geholt hat -- derselbe Wert, den (A) als Skip-Erwartung
+    // verglichen und den der Erfolgszweig als `.fingerprint`-Sidecar geschrieben hat.
+    //
+    // WARUM ER MITREIST (und der Mess-Pfad den Provider nicht ein zweites Mal fragt): das DLL-Gate und der
+    // Mess-Resume-Stamp riefen cfg.bestand_fingerprint_fn GETRENNT auf. Dieselbe std::function garantiert
+    // keinen identischen Rueckgabewert -- ein zustandsabhaengiger Provider koennte mit X pruefen und mit Y
+    // stempeln, und der Stamp bezeugte dann eine Identitaet, die das Gate nie gesehen hat. Muster identisch
+    // zu algo_sig darueber: waehrend des Baus EINMAL erhoben, im Ergebnis getragen, vom Mess-Pfad
+    // konsumiert. Leer, wenn kein Provider injiziert ist (byte-neutral) ODER wenn der Job vor dem
+    // Provider-Aufruf ausgeschieden ist (Gate-Ablehnung) -- dann ist r.ok() false und der Mess-Pfad
+    // erreicht den Stamp ohnehin nicht.
+    std::string        fingerprint;
     [[nodiscard]] bool ok() const noexcept { return status == 0; }
 };
 
@@ -258,11 +271,35 @@ inline constexpr std::size_t     kStemMax = 120;
 /// DERSELBE wie der des Lager-Binders (read_fingerprint_sidecar). Damit gilt im CODE, nicht per Disziplin:
 /// Skip-Gate == .fingerprint-Inhalt == minio-Objekt-Key == Bestandslog key_sha512 == Baum-Blatt-Identitaet.
 ///
-/// L14 (deklarierte, NICHT stille Luecke): geeicht wurde MIT LEEREM Overlay-Glied -- das 6. Preimage-Glied
-/// (anatomy_fingerprint.hpp:83-86, COMDARE_OVERLAY_SOURCE_HASH) traegt heute nur Separator+Format. Der SHA512 deckt
+/// L14 (deklarierte, NICHT stille Luecke): geeicht wurde MIT LEEREM Overlay-Glied -- das Overlay-Glied
+/// (COMDARE_OVERLAY_SOURCE_HASH) traegt heute nur Separator+Format. Der SHA512 deckt
 /// damit reine Quell-Code-Aenderungen (ABNAHME-3/4-Voll-Soll) NOCH NICHT; geheilt wird das im Overlay-Fenster
 /// (Phase 6), und zwar layout-bruch-frei. Der geeichte Referenz-Vektor ist kFrozenFingerprintV1
-/// (test_g3_sha512_index.cpp:45, identisch in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
+/// (test_g3_sha512_index.cpp, identisch in test_w10_system_cell_values.cpp und test_m_w12_stamp_bausteine.cpp).
+///
+/// [NACHGEFUEHRT 2026-08-05, O-2/C-2 -- DER GLIED-SATZ, GEGEN DEN DIESES GATE VERGLEICHT:] das Preimage traegt
+/// seit fingerprint_format=3 ACHT Glieder (abi::anatomy_fingerprint_glieder ist unveraendert die EINE Quelle):
+///   [0] Format-Kennung  [1] Organ-Zeile  [2] System-Zeile  [3] Mess-Tooling-Zeile  [4] Sub-Achsen-Werteset
+///   [5] TOOLCHAIN-Glied (Compiler-Haupt-Achse inkl. Flags, opt_level, atomic128, ext/bt/gate/ceb -- heilt C1)
+///   [6] BVSET-Glied (Enabled-Mengen-Signatur der Build-Achsen -- heilt C6)
+///   [7] Overlay-Source-Hash (weiter LEER, s. L14 oben; ans Ende gewandert)
+/// Der Overlay-Absatz oben bleibt unveraendert gueltig -- nur seine Positions-Angabe ("das 6. Glied") war an
+/// die Format-2-Ordnung gebunden. Die per-Perm-BEFUELLUNG der beiden neuen Glieder ist die Folge-Scheibe C-3;
+/// bis dahin sind sie leer und dieses Gate verhaelt sich unveraendert, ausser dass der Format-Bump den
+/// gesamten Alt-Bestand EINMAL fail-closed neu bauen laesst (F7-Uebergangsregel, kein Grandfathering).
+/// [NACHGEFUEHRT 2026-08-06, T2-B/T2-C (C-4-Rest) -- DER SATZ "bis dahin sind sie leer" IST HISTORIK. Beide
+/// Glieder tragen jetzt Werte, und zwar mit zwei Zusagen, die dieses Gate direkt betreffen:
+///   [5] wird PER PERMUTATION gebildet (opt inkl. der aufgeloesten Flags, ext, gate, atomic128, dazu die am
+///       Tier-Treiber ERHOBENE Realversion, T2-C) und gleichzeitig in den Bau-Kanal und den CEB-Laufzeit-
+///       Zwilling gereicht -- aus EINEM Aufruf, damit beide Seiten nicht driften koennen. Zwei
+///       Permutationen derselben Zelle mit anderem opt/ext haben ab hier verschiedene Fingerprints; der
+///       Fall "O3 skippt auf die O2-DLL" aus dem Kopf dieses Absatzes ist damit geschlossen.
+///   [6] ist RUN-KONSTANT (Enabled-Menge des Treibers, keine Perm-Eigenschaft) und war mit NB/CX-4 bereits
+///       vollstaendig.
+/// EINE NEUE, HIER RELEVANTE REGEL kommt mit T2-C dazu: ist die REALVERSION des Tier-Treibers nicht
+/// erhebbar, wird KEIN Fingerprint-Provider gestellt -- dann ist expected_fingerprint leer, und dieses Gate
+/// gibt per Punkt (1) seiner eigenen Regel IMMER false zurueck. Eine unbestimmte Identitaet traegt keinen
+/// Skip; der Lauf baut ehrlich neu, statt zu raten.]
 ///
 /// HISTORIK (Stand bis zur Eichung, NICHT geloescht -- Doku-Doktrin): bis 2026-08-05 lautete die Regel "true, wenn
 /// die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn eine
@@ -346,10 +383,67 @@ inline void write_variant_sidecar(std::filesystem::path const& output, std::stri
 // muss denselben Pfad bilden, ohne diesen schweren Header zu ziehen. Es gibt weiter nur EINE Wahrheit zum Suffix.
 /// Schreibt das Fingerprint-Sidecar (`.fingerprint`, I2). Leer = no-op (keine FingerprintFn injiziert -> byte-neutral).
 /// Nur bei erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Sidecar.
+///
+/// F3/C5 (A2-Eichungs-Nachreview, 2026-08-05) -- FAIL-LOUD im TP1FK1-B2-Muster (Vorbild write_version_sidecar
+/// oben). Bis hierher hiess es 'if (f) f << fingerprint;': misslang das Anlegen oder das Schreiben, entstand
+/// STILL kein `.fingerprint`. Das ist seit der A2-Eichung schwerer als beim `.version`-Sidecar, denn dieses
+/// Sidecar IST das Skip-Kriterium: seine stille Abwesenheit kostet keinen falschen Skip (dll_is_current ist
+/// fail-closed), aber sie kostet BEI JEDEM FOLGELAUF einen vollen Neubau derselben Binary -- eine Regression,
+/// die sich als "der Cache greift nie" zeigt und deren Ursache ohne diese Zeile nirgends steht. Byte-neutral
+/// fuer den Erfolgspfad (dieselbe klassifizierte ArtefaktIo-Zeile wie beim `.version`-Zwilling).
 inline void write_fingerprint_sidecar(std::filesystem::path const& output, std::string const& fingerprint) {
     if (fingerprint.empty()) return;
-    std::ofstream f{fingerprint_sidecar_path(output), std::ios::binary | std::ios::trunc};
-    if (f) f << fingerprint;
+    auto const    p = fingerprint_sidecar_path(output);
+    std::ofstream f{p, std::ios::binary | std::ios::trunc};
+    bool          geschrieben = false;
+    if (f) {
+        f << fingerprint;
+        f.flush();
+        geschrieben = f.good();
+    }
+    if (!geschrieben)
+        std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                  << "] perm.dll.fingerprint NICHT geschrieben: " << p.string()
+                  << " -- der Lager-Anker fehlt, jeder Folgelauf baut diese Binary erneut\n"
+                  << std::flush;
+}
+
+/// F3/C5 -- STALE-SIDECAR-RAEUMUNG. Entfernt ein Sidecar, dessen NEUER Wert leer ist.
+///
+/// DIE LUECKE, DIE SIE SCHLIESST: alle vier Writer oben sind bei leerem Wert ein no-op (bewusst byte-neutral --
+/// "kein Provider injiziert" darf keine leere Marke erzeugen). Beim NEUBAU einer Binary bedeutet dasselbe
+/// no-op aber etwas ganz anderes: das Sidecar des VORGAENGER-Baus bleibt liegen und beschreibt ab sofort eine
+/// Binary, die es nie gesehen hat. Fuer `.fingerprint` ist das der scharfe Fall (C5): ein Lauf OHNE
+/// FingerprintFn baut fail-closed neu (expected leer -> nie Skip) und laesst den ALTEN 128-hex daneben liegen;
+/// ein spaeterer Lauf MIT Provider vergleicht dann gegen eine Marke, die eine fremde Bau-Identitaet bezeugt --
+/// und skippt im Treffer-Fall eine Binary, die er nie gebaut hat. Fuer `.version`/`.algos`/`.variant` ist die
+/// Folge milder (Provenienz-/Transport-Marken statt Skip-Kriterium), aber gleicher Art: eine Legende, die auf
+/// den Vorgaenger zeigt, ist schlechter als keine Legende.
+///
+/// KONSEQUENT UEBER ALLE VIER: der Fall "Wert nicht leer" braucht keine Raeumung -- der Writer oeffnet mit
+/// std::ios::trunc und ueberschreibt vollstaendig. Geraeumt wird also genau dort, wo sonst ein no-op ein
+/// Alt-Byte konservieren wuerde. Fail-loud im selben Muster: ein nicht entfernbares Sidecar ist ein
+/// ArtefaktIo-Zustand, kein stiller Zustand.
+inline void prune_stale_sidecar(std::filesystem::path const& p) {
+    std::error_code ec;
+    if (!std::filesystem::exists(p, ec) || ec) return; // nichts da (oder nicht befragbar) -> nichts zu raeumen
+    if (std::filesystem::remove(p, ec) && !ec) return;
+    std::cerr << "[" << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+              << "] stale Sidecar NICHT entfernt: " << p.string()
+              << " -- es beschreibt ab jetzt den VORGAENGER-Bau dieser Binary\n"
+              << std::flush;
+}
+
+/// Raeumt alle vier Sidecars, deren neuer Wert leer ist (s. prune_stale_sidecar). Aufruf-Ort ist der
+/// Erfolgszweig des NEUBAUS in provision_core, unmittelbar VOR den vier Writern -- Raeumen und Schreiben
+/// stehen damit an EINER Stelle und koennen nicht auseinanderlaufen.
+inline void prune_stale_sidecars(std::filesystem::path const& output, std::string const& version,
+                                 std::string const& algo_sig, std::string const& variant_sig,
+                                 std::string const& fingerprint) {
+    if (version.empty()) prune_stale_sidecar(version_sidecar_path(output));
+    if (algo_sig.empty()) prune_stale_sidecar(algo_sidecar_path(output));
+    if (variant_sig.empty()) prune_stale_sidecar(variant_sidecar_path(output));
+    if (fingerprint.empty()) prune_stale_sidecar(fingerprint_sidecar_path(output));
 }
 
 // G5 (W9.5): dedizierter Rueckgabe-Code des Compile-Wrappers fuer "Compiler-Binary nicht gefunden"
@@ -522,6 +616,11 @@ private:
                 // Lager-Index-Anker neben der Binary landet (== minio-Key == Bestandslog key_sha512).
                 // Leer, wenn kein Fingerprint-Provider injiziert ist -> (A) ist dann fail-closed (skippt NIE).
                 std::string const expected_fp = fingerprint_ ? fingerprint_(spec.binary_id) : std::string{};
+                // T2-A/K2-NB: DERSELBE Wert reist im Ergebnis weiter -- der Mess-Resume-Stamp speist sich
+                // daraus, statt den Provider ein zweites Mal zu fragen (s. BuildResult::fingerprint).
+                // Damit ist "EINMAL je Job berechnet" nicht mehr nur fuer Gate und Sidecar wahr, sondern
+                // fuer ALLE drei Konsumenten dieser Zahl.
+                r.fingerprint = expected_fp;
 
                 // (A) INKREMENTELL: bestehende, fingerprint-aktuelle DLL ueberspringen (Resume nach Absturz).
                 // DER EINE VERGLEICH (F7 "NUR"): `.fingerprint`-Sidecar == expected_fp. .version/.algos/.variant
@@ -593,6 +692,11 @@ private:
                     else
                         r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
                     if (r.status == 0) {
+                        // F3/C5: DIESE Binary ist soeben NEU entstanden -- jedes Sidecar, das der folgende
+                        // Writer als no-op behandeln wuerde (leerer Wert), traegt sonst weiter die Legende des
+                        // VORGAENGER-Baus. Raeumen VOR dem Schreiben, damit beide Wege an einer Stelle stehen.
+                        prune_stale_sidecars(job.output, cfg_.build_version, algos, cfg_.build_variant_sig,
+                                             expected_fp);
                         write_version_sidecar(job.output, cfg_.build_version); // System-Provenienz-Resume-Marke
                         write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
                         write_variant_sidecar(job.output,

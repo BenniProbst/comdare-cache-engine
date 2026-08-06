@@ -28,6 +28,7 @@
 #pragma once
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W10-C4: COMDARE_ANATOMY_ABI_MAJOR + kCebContractCodegenMinor
+#include <cache_engine/abi/toolchain_stamp_glied.hpp>      // O-2/C-2: kToolchainGliedKeys (Doppel-Wahrheits-Wache)
 
 #include <array>
 #include <string>
@@ -88,6 +89,133 @@ struct SystemVersionSuffixParts {
     return out;
 }
 
+// -- F1 / C1-Interim (A2-Fix-Plan, T2-A 2026-08-06): DER ZELL-PFAD ------------------------------------
+//
+// WAS HIER GELOEST WIRD: die opt x simd-Schleife baut je Zelle eine EIGENE Tier-Binary, legte sie aber
+// bis hierher in EIN UND DASSELBEN output_dir ab -- der Ordner-Stamm haengt allein an der binary_id, und
+// die traegt per Doktrin NIE Toolchain-Glieder (golden-neutral, TABU). Zwei Zellen derselben
+// Permutation schrieben also auf dieselbe perm.dll, dasselbe .fingerprint-Sidecar und dieselbe
+// per-Binary result.csv. Seit dem Neuanker faellt das nicht mehr still aus: die Zellen haben
+// verschiedene Fingerprints, also verwirft dll_is_current jeweils den Bau der ANDEREN Zelle und baut
+// neu -- ein Ping-Pong, bei dem am Ende genau eine Zelle im Ordner steht und die per-Binary-Ablage der
+// anderen ueberschrieben ist. Der Pfad muss deshalb dieselbe Unterscheidung tragen wie die Identitaet.
+//
+// DIE QUELLE IST DIESELBE: der Ordner-Name entsteht aus den SystemVersionSuffixParts, aus denen auch
+// der build_version-Suffix entsteht -- keine zweite Ableitung, keine zweite Ordnung (die Wache unten
+// nagelt beide aneinander). Damit gilt: gleiche Zelle => gleicher Suffix => gleicher Ordner.
+//
+// WELCHE GLIEDER: cxx, opt, ext und bt -- genau die vier, die GLEICHZEITIG gueltig nebeneinander stehen
+// koennen. cxx/opt/ext permutiert diese Schleife bzw. der Treiber-Aufruf; bt trennt einen Debug- von
+// einem Release-Lauf im selben Ausgabe-Baum (die C1-Luecke "Combo-Wechsel im selben output_dir").
+// BEWUSST NICHT im Pfad: +ceb= (ein Contract-Bump ERSETZT den alten Stand, er steht nicht neben ihm --
+// dort ist ein Neubau im selben Ordner die richtige Wirkung), +target=/+tel= (von dieser Schleife nie
+// belegt) und +gate= (aus der simd-Wahl abgeleitet, also durch ext bereits getrennt).
+//
+// KODIERUNG STATT SANITISIERUNG: eine Ersetzung "verbotener" Zeichen durch '_' holte genau die
+// Kollision zurueck, die dieser Pfad beseitigen soll ("g++-16" und "g--16" waeren derselbe Ordner).
+// Deshalb passieren nur [A-Za-z0-9.-] unveraendert, jedes andere Byte wird als '%NN' geschrieben --
+// eine INJEKTIVE Abbildung. '_' steht bewusst NICHT im Vorrat: es ist der Segment-Trenner, und ein
+// Trennzeichen, das auch im Wert vorkommen darf, waere keine Trennung.
+[[nodiscard]] inline std::string zell_pfad_kodiere(std::string_view roh) {
+    constexpr char kHex[] = "0123456789ABCDEF";
+    std::string    out;
+    out.reserve(roh.size());
+    for (char const c : roh) {
+        auto const u    = static_cast<unsigned char>(c);
+        bool const klar = (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '.' ||
+                          u == '-';
+        if (klar) {
+            out += c;
+            continue;
+        }
+        out += '%';
+        out += kHex[(u >> 4) & 0x0FU];
+        out += kHex[u & 0x0FU];
+    }
+    return out;
+}
+
+/// Die DEKLARATIVE Ordnung des Zell-Pfades. Sie folgt der Suffix-Ordnung Glied fuer Glied (Wache unten).
+inline constexpr std::array<std::string_view, 4> kZellPfadSegmentOrder = {"cxx-", "opt-", "ext-", "bt-"};
+/// Der Praefix macht den Ordner auf einen Blick als System-Zelle kenntlich (Sprache der gn-Zellen).
+inline constexpr std::string_view kZellPfadPraefix = "gn_";
+inline constexpr char             kZellPfadTrenner = '_';
+
+/// Setzt den Zell-Ordner in der EINEN Ordnung zusammen. Reine Funktion; LEER heisst auch hier "kein
+/// Segment". Sind ALLE vier Glieder leer, gibt es keine Zelle zu trennen -> leerer String, und der
+/// Aufrufer bleibt bei seinem unveraenderten Ausgabe-Verzeichnis (Identitaet).
+[[nodiscard]] inline std::string compose_system_zell_pfad(SystemVersionSuffixParts const& p) {
+    std::string out;
+    auto const  append = [&out](std::string_view key, std::string_view value) {
+        if (value.empty()) return;
+        if (!out.empty()) out += kZellPfadTrenner;
+        out += key;
+        out += zell_pfad_kodiere(value);
+    };
+    append(kZellPfadSegmentOrder[0], p.cxx);
+    append(kZellPfadSegmentOrder[1], p.opt);
+    append(kZellPfadSegmentOrder[2], p.simd);
+    append(kZellPfadSegmentOrder[3], p.build_type);
+    if (out.empty()) return {};
+    return std::string{kZellPfadPraefix} + out;
+}
+
+// Ordnungs-Wache Zell-Pfad <-> Suffix: jeder Pfad-Schluessel ist der Rumpf seines Suffix-Segments (ohne
+// '+' und '='), mit '-' als Feld-Trenner. Wer eine der beiden Ordnungen umsortiert, bricht hier
+// compile-time -- Ablage und Provenienz koennen nicht getrennt driften.
+static_assert(kZellPfadSegmentOrder[0].substr(0, kZellPfadSegmentOrder[0].size() - 1) ==
+              kSuffixSegmentOrder[0].substr(1, kSuffixSegmentOrder[0].size() - 2));
+static_assert(kZellPfadSegmentOrder[1].substr(0, kZellPfadSegmentOrder[1].size() - 1) ==
+              kSuffixSegmentOrder[1].substr(1, kSuffixSegmentOrder[1].size() - 2));
+static_assert(kZellPfadSegmentOrder[2].substr(0, kZellPfadSegmentOrder[2].size() - 1) ==
+              kSuffixSegmentOrder[2].substr(1, kSuffixSegmentOrder[2].size() - 2));
+static_assert(kZellPfadSegmentOrder[3].substr(0, kZellPfadSegmentOrder[3].size() - 1) ==
+              kSuffixSegmentOrder[6].substr(1, kSuffixSegmentOrder[6].size() - 2));
+
+/// toolchain_stamp_parts_from_suffix_parts(...) -- die EINE Quelle fuer beide Wege (O-2/C-2).
+///
+/// Die sieben Felder, die es in BEIDEN Welten gibt (opt, ext, ceb, target, tel, bt, gate), werden hier
+/// VERBATIM durchgereicht -- nicht neu erhoben, nicht umformatiert. Damit kann das Preimage-Glied [5] gar
+/// nicht anderes behaupten als der build_version-Suffix; die Drift-Frage stellt sich strukturell nicht mehr.
+///
+/// DER cxx-FALL IST BEWUSST NICHT SYMMETRISCH und darf es nicht sein: der Suffix traegt seit jeher den
+/// TREIBER-Tag ("g++-16") -- er ist Transport-/Cache-Pfad-Bestandteil und muss byte-stabil bleiben. Das
+/// Glied verlangt per G-C4/OE-C zusaetzlich die REAL ERKANNTE Compiler-Version, weil "g++-16" nicht
+/// zwischen 16.1.0 und 16.2.0 unterscheidet und zwei so gebaute Binaries verschieden sind. Deshalb kommen
+/// Dialekt und Realversion als eigene Argumente herein; sie sind KEINE Ableitung aus dem Treiber-Tag (das
+/// waere die verbotene Zweitwahrheit), sondern die Erhebung der bauenden Stufe.
+///
+/// NB2-1: der TREIBER-TAG steht ab jetzt in BEIDEN Welten -- im Suffix als Transport, im Glied als
+/// Identitaets-Diskriminator (abi/toolchain_stamp_glied.hpp, Regel R1). Er wird hier VERBATIM aus p.cxx
+/// durchgereicht, also aus derselben EINEN Quelle wie das Suffix-Segment "+cxx=" -- damit kann das Glied
+/// gar keinen anderen Treiber nennen als der Pfad, unter dem gebaut wird. Die Asymmetrie schrumpft damit
+/// auf das, was sie inhaltlich ist: das Glied traegt ZUSAETZLICH die (nur wenn gedeckt behauptete)
+/// Realversion, der Suffix nicht.
+///
+/// Die glied-eigenen Felder (opt_flags, atomic128 + dessen Flags) haben im Suffix kein Gegenstueck: die
+/// Flags sind per Owner-KERN abend-5 Teil der Haupt-Achsen-DEFINITION und gehoeren damit in die
+/// IDENTITAET, waehrend der Suffix nur die id transportiert.
+[[nodiscard]] inline ::comdare::cache_engine::abi::ToolchainStampParts
+toolchain_stamp_parts_from_suffix_parts(SystemVersionSuffixParts const& p, std::string_view cxx_dialect,
+                                        std::string_view cxx_realversion, std::string_view opt_flags = {},
+                                        std::string_view atomic128 = {}, std::string_view atomic128_flags = {}) {
+    ::comdare::cache_engine::abi::ToolchainStampParts t{};
+    t.cxx_dialect       = cxx_dialect;
+    t.cxx_realversion   = cxx_realversion;
+    t.cxx_driver        = p.cxx;               // NB2-1: VERBATIM -- dieselbe Quelle wie das "+cxx="-Segment
+    t.opt               = p.opt;               // VERBATIM aus der Suffix-Quelle
+    t.opt_flags         = opt_flags;           // glied-eigen (Teil der Achsen-DEFINITION)
+    t.simd              = p.simd;              // VERBATIM
+    t.ceb               = p.ceb;               // VERBATIM (Perm-Pfad, G-C2 heilt Fall C)
+    t.target_isa        = p.target_isa;        // VERBATIM
+    t.telemetry         = p.telemetry;         // VERBATIM
+    t.build_type        = p.build_type;        // VERBATIM
+    t.gate_contribution = p.gate_contribution; // VERBATIM
+    t.atomic128         = atomic128;           // glied-eigen
+    t.atomic128_flags   = atomic128_flags;     // glied-eigen
+    return t;
+}
+
 // Ordnungs-Anker: die bindende Form beginnt mit cxx, opt, ext -- in dieser Folge. Wer sie umsortiert,
 // bricht hier compile-time und muss die Aenderung als das ausweisen, was sie ist: ein Byte-Ereignis
 // fuer jede build_version, jedes .version-Sidecar und jeden Cache-Key.
@@ -97,5 +225,40 @@ static_assert(kSuffixSegmentOrder[2] == std::string_view{"+ext="});
 // OP-7: gate steht am ENDE, nach +bt.
 static_assert(kSuffixSegmentOrder[kSuffixSegmentOrder.size() - 1] == std::string_view{"+gate="});
 static_assert(kSuffixSegmentOrder[kSuffixSegmentOrder.size() - 2] == std::string_view{"+bt="});
+
+// -- O-2/C-2: DIE DOPPEL-WAHRHEITS-WACHE (Suffix-Ordnung == Toolchain-Glied-Ordnung) -------------------
+//
+// Seit Format 3 stehen dieselben Toolchain-Glieder an ZWEI Orten: hier als build_version-SUFFIX (Transport
+// und Provenienz -- .version, CSV, Cache-Pfad) und im Fingerprint-Preimage als Glied [5] (IDENTITAET). Das
+// ist genau die Konstellation, aus der die W-6/W-13-Divergenz dieses Headers entstanden ist: zwei Ketten,
+// die dasselbe behaupten und getrennt driften koennen. Diesmal ist die Kopplung BEWIESEN statt beschrieben.
+//
+// WARUM DIE WACHE HIER STEHT UND NICHT IM abi-HEADER: die Schichtung laeuft nur in EINE Richtung --
+// profile_facade darf abi/ sehen, abi/ nie profile_facade/. Der einzige Ort, an dem beide Ordnungen
+// gleichzeitig sichtbar sind, ist deshalb dieser.
+//
+// WAS SIE PRUEFT: die ersten acht Glied-Schluessel sind byte-gleich den acht Suffix-Segmenten ohne ihr
+// fuehrendes '+' und ihr abschliessendes '='. Das neunte (atomic128) haengt im Glied HINTEN an und hat im
+// Suffix bewusst kein Gegenstueck -- deshalb Praefix-Deckung statt Gleichheit der Laengen.
+static_assert(kSuffixSegmentOrder.size() + 1 == ::comdare::cache_engine::abi::kToolchainGliedKeyCount,
+              "O-2/C-2: das Toolchain-Glied traegt genau die acht Suffix-Segmente plus atomic128. Wer hier "
+              "ein Segment ergaenzt oder streicht, muss kToolchainGliedKeys im selben Commit nachziehen -- "
+              "sonst behaupten Suffix und Preimage verschiedene Toolchain-Identitaeten.");
+static_assert(
+    [] {
+        for (std::size_t i = 0; i < kSuffixSegmentOrder.size(); ++i) {
+            std::string_view const seg = kSuffixSegmentOrder[i];
+            if (seg.size() < 3 || seg.front() != '+' || seg.back() != '=') return false;
+            if (seg.substr(1, seg.size() - 2) != ::comdare::cache_engine::abi::kToolchainGliedKeys[i]) return false;
+        }
+        return true;
+    }(),
+    "O-2/C-2 DOPPEL-WAHRHEIT: die Suffix-Segment-Ordnung und die Feld-Ordnung des Toolchain-Glieds "
+    "sind auseinandergelaufen. Beide beschreiben DIESELBE Toolchain-Wahl -- einmal als Transport, "
+    "einmal als Identitaet; eine Drift hiesse, dass eine Binary anders gestempelt als gekeyt ist.");
+static_assert(
+    ::comdare::cache_engine::abi::kToolchainGliedKeys[::comdare::cache_engine::abi::kToolchainGliedKeyCount - 1] ==
+        std::string_view{"atomic128"},
+    "atomic128 ist das GLIED-EIGENE Feld und steht am Ende (kein Suffix-Gegenstueck).");
 
 } // namespace comdare::cache_engine::profile_facade

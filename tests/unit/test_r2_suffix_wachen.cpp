@@ -143,6 +143,56 @@ int main() {
         check("Jedes Segment hat die Form +<name>=", shape_ok);
     }
 
+    std::cout << "== T-d: ZELL-PFAD (F1 / C1-Interim, T2-A) ==\n";
+    {
+        // Der Zell-Ordner entsteht aus DENSELBEN Gliedern wie der Suffix -- und traegt GENAU die vier,
+        // die gleichzeitig gueltig nebeneinander stehen koennen. ceb/target/tel/gate gehoeren bewusst
+        // nicht dazu (Begruendung am Kopf der Funktion); die Wache haelt diese Entscheidung fest.
+        std::string const z = pf::compose_system_zell_pfad(full_parts());
+        std::cout << "  [INFO] Vollbelegung = '" << z << "'\n";
+        check_eq("Vollbelegung -> vier Segmente in der Suffix-Ordnung", z,
+                 "gn_cxx-g%2B%2B-16_opt-O3_ext-avx2_bt-Debug");
+        check("kein +ceb im Pfad", z.find("ceb") == std::string::npos);
+        check("kein target im Pfad", z.find("aarch64") == std::string::npos);
+        check("kein tel im Pfad", z.find("silent") == std::string::npos);
+        check("kein gate im Pfad", z.find("mavx512f") == std::string::npos);
+    }
+    {
+        // Reinheit + Trennschaerfe: dieselbe Zelle immer derselbe Ordner, verschiedene Zellen NIE.
+        auto const p = full_parts();
+        check("Zwei Aufrufe mit denselben Gliedern sind identisch",
+              pf::compose_system_zell_pfad(p) == pf::compose_system_zell_pfad(p));
+        pf::SystemVersionSuffixParts o2 = full_parts();
+        o2.opt                          = "O2";
+        check("O2 und O3 bekommen verschiedene Ordner",
+              pf::compose_system_zell_pfad(o2) != pf::compose_system_zell_pfad(p));
+    }
+    {
+        // KODIERUNG STATT SANITISIERUNG: waeren '+' und '_' durch ein Ersatzzeichen abgebildet, fielen
+        // diese drei Tupel auf denselben Ordner -- genau die Kollision, die der Pfad beseitigen soll.
+        pf::SystemVersionSuffixParts a;
+        a.cxx = "g++-16";
+        pf::SystemVersionSuffixParts b;
+        b.cxx = "g--16";
+        pf::SystemVersionSuffixParts c;
+        c.cxx = "g__-16";
+        std::string const za = pf::compose_system_zell_pfad(a);
+        std::string const zb = pf::compose_system_zell_pfad(b);
+        std::string const zc = pf::compose_system_zell_pfad(c);
+        std::cout << "  [INFO] 'g++-16' -> '" << za << "' | 'g--16' -> '" << zb << "' | 'g__-16' -> '" << zc << "'\n";
+        check("drei verschiedene cxx-Tags, drei verschiedene Ordner", za != zb && zb != zc && za != zc);
+        check("'_' im Wert wird kodiert (kein falscher Segment-Trenner)", zc.find("%5F") != std::string::npos);
+    }
+    {
+        // Leere Glieder: kein Segment, und ohne jedes Glied auch kein Ordner (der Aufrufer bleibt dann
+        // bei seinem unveraenderten Ausgabe-Verzeichnis -- die Identitaets-Zusage von F1).
+        pf::SystemVersionSuffixParts p;
+        p.opt = "O3"; // no_extension => simd leer, Release => bt leer, Facade ohne Tag => cxx leer
+        check_eq("nur opt belegt", pf::compose_system_zell_pfad(p), "gn_opt-O3");
+        check("kein ext-Segment ohne simd", pf::compose_system_zell_pfad(p).find("ext-") == std::string::npos);
+        check("alles leer -> kein Ordner", pf::compose_system_zell_pfad(pf::SystemVersionSuffixParts{}).empty());
+    }
+
     std::cout << (g_fail == 0 ? "ALLE R2-WACHEN GRUEN\n" : "R2-WACHEN ROT\n");
     return g_fail == 0 ? 0 : 1;
 }

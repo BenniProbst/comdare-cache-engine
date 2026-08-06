@@ -87,6 +87,7 @@ struct BinaerStand {
     std::size_t ohne_stempel      = 0;
     std::size_t kopf_drift        = 0;
     std::size_t zeilen_abweichung = 0;
+    std::size_t format_drift      = 0; ///< T2-A/F4-NB2: Stempel aus einer ANDEREN Format-Generation (resume-vN)
     std::size_t stale             = 0;     ///< result.csv.stale -- gesicherter Alt-Stand ohne Resume-Anspruch
     std::size_t scan_eintraege    = 0;     ///< besuchte Verzeichnis-Eintraege (die Breiten-Kappe misst hieran)
     bool        scan_gekappt      = false; ///< true = kMaxScanEintraege erreicht -> die Bilanz ist UNVOLLSTAENDIG
@@ -249,6 +250,33 @@ namespace status_detail {
         if (!sf || !std::getline(sf, stempel)) {
             ++st.teilweise;
             ++st.ohne_stempel;
+            continue;
+        }
+        // T2-A/F4-NB2 (Codex-Voll-Scope, Befund 4) -- DIE FORMAT-GENERATION WIRD GEPRUEFT.
+        //
+        // Der Leser prueft weiterhin NICHT den Konfigurations-Praefix (er kennt die Lauf-Konfiguration
+        // nicht, s. Kopf-Abschnitt) -- aber die FORMAT-MARKE ist keine Konfiguration, sondern ein Faktum
+        // ueber die Datei-Form, und die reist als MessFormatFakten herein wie csv_header und rows_key.
+        // Ohne diese Wache galt ihm ein resume-v5-Stamp als gueltiger Messstand, waehrend der echte
+        // Runner ihn ueber den Praefix-Vergleich verwirft: zwei Bilanzen ueber DIESELBE Datei, und die
+        // des Lesers fiel in die Richtung "fertiger als es ist" -- also in die, die einen kuenftigen
+        // 38.b-Takt zu frueh weiterzieht (BILANZ-GESETZ, Kopf-Abschnitt).
+        //
+        // LEERE Fakten sind KEINE Freigabe: kann der Leser die Generation nicht beurteilen, urteilt er
+        // nicht "gemessen". Das ist dieselbe fail-closed-Richtung wie ueberall an dieser Naht -- und der
+        // Grund, warum stamp_format in vollstaendig() steht.
+        //
+        // DIE GLIED-GRENZE WIRD MITGEPRUEFT, und zwar OHNE ein viertes Literal: ein reiner Praefix-
+        // Vergleich auf "resume-v6" nimmt auch "resume-v60|..." an -- die Falle jeder Versions-Marke, die
+        // ihre eigene Grenze nicht kennt (heute unerreichbar, bei der naechsten zweistelligen Generation
+        // still falsch). Der Feld-Trenner der Grammatik reist bereits als erstes Byte des rows_key
+        // ("|rows=") in diese Datei; er wird von dort GELESEN und nicht ein zweites Mal hingeschrieben.
+        std::size_t const marke_len = fakten.stamp_format.size();
+        if (fakten.stamp_format.empty() || fakten.rows_key.empty() ||
+            stempel.compare(0, marke_len, fakten.stamp_format) != 0 || stempel.size() <= marke_len ||
+            stempel[marke_len] != fakten.rows_key.front()) {
+            ++st.teilweise;
+            ++st.format_drift;
             continue;
         }
         std::uint64_t erwartete_zeilen = 0;
@@ -459,7 +487,8 @@ inline void render_status(StatusBericht const& b, std::ostream& os) {
            << " gemessen=" << z.bin.gemessen << " teilweise=" << z.bin.teilweise << " stale=" << z.bin.stale
            << " csv_gesehen=" << z.bin.csv_gesehen << " sidecar_ungueltig=" << z.bin.sidecar_ungueltig
            << " ohne_stempel=" << z.bin.ohne_stempel << " kopf_drift=" << z.bin.kopf_drift
-           << " zeilen_abweichung=" << z.bin.zeilen_abweichung << " scan_gekappt="
+           << " format_drift=" << z.bin.format_drift << " zeilen_abweichung=" << z.bin.zeilen_abweichung
+           << " scan_gekappt="
            << (z.bin.scan_gekappt ? "ja" : "nein")
            // Eine Fremd-Fenster-Zelle hat in DIESEM Fenster kein SOLL -- der Sentinel sagt das, statt eine
            // Zahl zu erfinden, die sich auf ein anderes Fenster bezoege.

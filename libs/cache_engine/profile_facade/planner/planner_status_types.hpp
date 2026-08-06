@@ -53,8 +53,19 @@ inline constexpr std::size_t kMaxScanEintraege = 200000;
 struct MessFormatFakten {
     std::string csv_header; ///< == lazy_csv_header() ohne abschliessende Zeilenumbrueche
     std::string rows_key;   ///< == kLazyResumeRowsKey ("|rows=")
+    /// T2-A/F4-NB2 (Codex-Voll-Scope, Befund 4): == kLazyResumeStampFormat ("resume-v6") -- die FORMAT-MARKE
+    /// am KOPF der Resume-Zeile. Sie ist das dritte Format-Faktum dieser Naht und aus demselben Grund hier:
+    /// der Leser darf die Mess-Datei-Form nicht nachbauen, und er darf sie auch nicht IGNORIEREN. Ohne dieses
+    /// Feld galt ihm ein Stamp aus einer aelteren Format-Generation (resume-v5) als gueltiger Messstand,
+    /// waehrend der echte Runner ihn ueber den Praefix-Vergleich verwirft -- zwei Bilanzen ueber DIESELBE
+    /// Datei, und die des Lesers fiel in die gefaehrliche Richtung ("fertiger als es ist").
+    /// LEER heisst NICHT "Pruefung aus": der Leser kann dann nicht urteilen und meldet die Zelle als
+    /// `teilweise` (fail-closed). Wer die Fakten baut, fuellt alle drei -- vollstaendig() sagt es.
+    std::string stamp_format;
 
-    [[nodiscard]] bool vollstaendig() const noexcept { return !csv_header.empty() && !rows_key.empty(); }
+    [[nodiscard]] bool vollstaendig() const noexcept {
+        return !csv_header.empty() && !rows_key.empty() && !stamp_format.empty();
+    }
 };
 
 // ---------------------------------------------------------------------------------------------------------------

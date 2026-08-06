@@ -21,6 +21,7 @@
 
 #include "system_version_suffix.hpp"   // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include "system_cell_values_naht.hpp" // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
+#include "toolchain_stamp_naht.hpp"    // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -257,14 +258,16 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // INC-0: Compiler-SYSTEM-Kanal -- -mcx16 (atomic128-Unter-Achse, Cx16Option). Gate = USE_SNMALLOC && x86_64 (snmallocs
 // ds/aba.h verlangt CMPXCHG16B; -mcx16 ist x86_64-only). Freigabe-Prinzip: die Compiler-Achse GIBT -mcx16 frei, das
 // snmalloc-Organ SETZT es durch. Wert single-source aus der Achse (gcc/clang teilen -mcx16). In conf/go2 inert.
+//
+// T2-B: DIE ENTSCHEIDUNG WOHNT AB HIER IN DER NAHT, NICHT ZWEIMAL. Das #if stand wortgleich hier UND in
+// toolchain_stamp_naht.hpp, sobald das Glied [5] die atomic128-Achse traegt. Zwei Orte, EINE Entscheidung
+// -- also genau die Konstellation, aus der die W-6/W-13-Divergenz entstand: der Bau haengt -mcx16 an,
+// waehrend das Glied "no_cx16" behauptet (oder umgekehrt), und die Identitaets-Aussage ist falsch, ohne
+// dass irgendwo etwas bricht. Diese Funktion liest jetzt dieselbe Quelle wie der Stempel.
 [[nodiscard]] std::vector<std::string> perm_compiler_isa_cflags() {
-#if defined(COMDARE_AXIS_06_USE_SNMALLOC) && COMDARE_AXIS_06_USE_SNMALLOC && defined(COMDARE_ARCH_X86_64)
-    std::string_view const flag = ::comdare::cache_engine::measurement::Cx16Option::gcc_flag(); // == clang_flag()
+    std::string_view const flag = ::comdare::cache_engine::profile_facade::active_atomic128_wahl().flags;
     if (flag.empty()) return {};
     return {std::string{flag}};
-#else
-    return {};
-#endif
 }
 
 [[nodiscard]] std::vector<std::string> perm_mess_defines() {
@@ -296,20 +299,107 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // INC-0: der EINE Compile-Flag-Assembler fuer die Tier-Binary-Subprozesse -- macht die WAS/WIE-Schicht-Trennung
 // SICHTBAR statt eines flachen Misch-Vektors: (1) Mess-/OS-/Arch-Defines (perm_mess_defines), (2) Allokator-ORGAN-
 // Defs (snmalloc-Vertrag), (3) Compiler-SYSTEM-Flag -mcx16 (atomic128-Achse), (4) external_utils-SIMD -march.
-[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp = nullptr) {
+// NB/CX-4: DIE BAU-NAHT DER PREIMAGE-GLIEDER [5] UND [6].
+//
+// WARUM GENAU HIER UND NICHT AN DEN VIER CompileFn-BAUSTELLEN: perm_compile_flags() ist der EINE
+// Flag-Assembler, aus dem ALLE vier make_gpp_compile_fn-Aufrufe dieser TU ihren defines-Kanal ziehen
+// (Einzel-Pfad, Profil-Perm-Fabrik, Experiment-Perm-Fabrik, Experiment-Fallback). Vier Einhaengungen
+// waeren vier Orte, an denen eine vergessen werden kann -- und eine vergessene Stelle hiesse: eine
+// Tier-Binary mit ANDEREM einkompiliertem Fingerprint als der, den die CEB fuer sie erwartet.
+//
+// DIE ZWEITE HAELFTE DER NAHT liegt im Laufzeit-Zwilling (lazy_adhoc_source_gen.hpp,
+// make_lazy_adhoc_fingerprint_fn_from_env). Beide Seiten rufen DIESELBEN argumentlosen, reinen
+// Komposition-Funktionen der Toolchain-Naht -- deshalb koennen sie nicht auseinanderlaufen. Wer hier
+// etwas aendert, MUSS es dort mitaendern; die Naht ist genau deshalb EINE Funktion und kein Argument.
+//
+// T2-B: DIE ZWEI GLIEDER TRENNEN SICH HIER. Glied [6] (bvset) ist run-konstant -- es haengt an der
+// Enable-Menge des Treibers, nicht an der Permutation. Glied [5] ist es NICHT mehr: seit T2-B traegt es
+// opt/opt_flags/ext/gate dieser Permutation. Wuerde diese Funktion weiter BEIDE liefern, bekaeme der
+// Perm-Pfad ZWEI -DCOMDARE_TOOLCHAIN_STAMP_GLIED-Argumente (den run-konstanten aus dem Basis-Kanal und
+// den per-Perm-Wert), und welches gewinnt, entschiede die Argument-Reihenfolge in der Response-Datei --
+// eine Identitaets-Aussage per Zufall. Deshalb: der Parameter sagt, ob das Glied [5] mitkommt. Der
+// Einzel-Pfad (kein <system_axes>) nimmt es mit und ist damit byte-identisch zum Vor-T2-B-Stand; der
+// Perm-Pfad laesst es weg und haengt seinen eigenen Wert an EINER Stelle an (compile_for_perm).
+[[nodiscard]] std::vector<std::string> perm_stamp_glied_defines(bool mit_toolchain_glied = true) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    std::vector<std::string> d;
+    if (mit_toolchain_glied) {
+        if (std::string arg = pfn::toolchain_stamp_glied_define_arg(pfn::compose_live_toolchain_stamp_glied());
+            !arg.empty())
+            d.push_back(std::move(arg));
+    }
+    if (std::string arg = pfn::build_variant_set_signature_define_arg(pfn::live_build_variant_set_signature_glied());
+        !arg.empty())
+        d.push_back(std::move(arg));
+    // EINMALIGE Ehrlichkeits-Zeile, wenn die CT-Realversion den Tier-Treiber NICHT deckt (verschiedene
+    // Compiler fuer CEB und Tier-Bau). Dann faellt aus dem Glied genau EIN Bestandteil weg -- die
+    // Versions-Behauptung; Dialekt UND Treiber-Tag bleiben drin. Das soll im Trace stehen und nicht stumm
+    // passieren (Praezedenz der C-3a-Auflage: eine Identitaets-Entscheidung muss sichtbar sein). Der
+    // Hinweis haengt NICHT am Wert -- die Naht selbst bleibt rein.
+    //
+    // NB-3/T2-D: DIESER TEXT WAR NACH NB2-1 FALSCH GEWORDEN. Er stammt aus NB/CX-4, wo das cxx-Feld
+    // tatsaechlich nur `<dialekt>[-<realversion>]` trug -- ohne Deckung blieb also wirklich "nur der
+    // Dialekt" uebrig, und genau daraus entstand der Fail-open-Fall (ii) des Codex-Zweitreviews: g++-17
+    // und g++-18 kollabierten auf dasselbe `cxx=gcc`. NB2-1 (R1) hat das geheilt -- der Treiber-Tag steht
+    // seither IMMER im Feld (`<dialekt>[-<realversion>]:<treiber-tag>`, abi/toolchain_stamp_glied.hpp).
+    // Der alte Satz haette einen Leser also ausgerechnet zu der Sorge zurueckgefuehrt, die der Code
+    // bereits ausgeraeumt hat: er las sich wie ein Verlust der Treiber-Unterscheidbarkeit. Eine
+    // Diagnose-Zeile, die den Ist-Stand falsch beschreibt, ist schlimmer als keine -- sie ist die einzige
+    // Quelle, aus der jemand im Trace ueberhaupt erfaehrt, WAS das Glied gerade behauptet.
+    //
+    // T2-C: DIE ZEILE BERICHTET AB JETZT DIE SONDE, NICHT DIE DECKUNG. Die Frage "deckt die CEB-Version
+    // den Tier-Treiber?" war ein Ersatz fuer eine Messung, die es nicht gab. Seit T2-C gibt es sie: der
+    // Tier-Treiber nennt seine Version selbst. Damit hat die Zeile genau zwei Faelle zu melden -- erhoben
+    // (mit dem Wert, damit er im Trace steht und nicht nur im Binary) oder NICHT erhoben (dann ist der
+    // Lauf nicht skip-faehig, und das ist die wichtigste Zeile des ganzen Laufs).
+    static bool gemeldet = false;
+    if (!gemeldet) {
+        gemeldet                  = true;
+        std::string const treiber = pfn::active_cxx_driver_tag(); // dieselbe EINE Quelle wie cxx_compiler()
+        std::string const real    = pfn::active_tier_realversion();
+        if (real.empty()) {
+            std::cerr << "[profile_facade] T2-C: die REALVERSION des Tier-Treibers '" << treiber
+                      << "' konnte NICHT erhoben werden (Sonde ohne brauchbare Antwort oder Tag nicht "
+                         "sondierbar). Das Toolchain-Glied [5] traegt deshalb keine Versions-Behauptung -- es "
+                         "traegt weiterhin Dialekt UND Treiber-Tag (cxx=<dialekt>:<treiber-tag>, NB2-1 Regel "
+                         "R1), verschiedene Treiber bleiben also unterscheidbar. FOLGE: dieser Lauf ist NICHT "
+                         "skip-faehig (kein Fingerprint-Sidecar, kein Lager-Rueckschrieb) -- eine unbestimmte "
+                         "Identitaet darf keinen Skip tragen.\n";
+        } else {
+            std::cerr << "[profile_facade] T2-C: Tier-Treiber '" << treiber << "' meldet Realversion '" << real
+                      << "' (am Treiber erhoben, nicht von der CEB geerbt). Das Toolchain-Glied [5] traegt sie "
+                         "als cxx=<dialekt>-" << real << ":" << treiber << ". Zum Vergleich die CEB-Toolchain: '"
+                      << ::comdare::cache_engine::abi::kDetectedCompilerDialect << " "
+                      << ::comdare::cache_engine::abi::kDetectedCompilerRealVersion << "'"
+                      << (pfn::ct_realversion_deckt_treiber(treiber) ? " (deckungsgleich)."
+                                                                     : " (anderer Compiler -- unschaedlich, die "
+                                                                       "Version stammt ab T2-C vom Tier-Treiber).")
+                      << "\n";
+        }
+    }
+    return d;
+}
+
+// T2-B: `mit_toolchain_glied=false` liefert denselben Kanal OHNE das Glied [5] -- die Basis der
+// per-Perm-Fabriken, die ihren eigenen Glied-Wert anhaengen (s. perm_stamp_glied_defines oben).
+[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp                = nullptr,
+                                                          bool                     mit_toolchain_glied = true) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_external_utils_cflags(tp)) d.push_back(std::move(f));
     for (auto& f : perm_target_isa_cflags(tp)) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
+    for (auto& f : perm_stamp_glied_defines(mit_toolchain_glied)) d.push_back(std::move(f)); // Glieder [5]/[6]
     return d;
 }
 
+// NB/CX-4: die Entscheidung selbst (Env-Override, sonst der Achsen-Default) ist in die Toolchain-Naht
+// gewandert und wird hier nur noch DURCHGEREICHT. Grund: das Preimage-Glied [5] urteilt ueber genau diesen
+// Treiber (Dialekt + Deckung der CT-Realversion). Stuende die Entscheidung an zwei Orten, koennte das Glied
+// ueber einen ANDEREN Treiber urteilen als den, der wirklich compiliert -- dieselbe Klasse Divergenz wie
+// W-6/W-13. INC-1h bleibt woertlich gueltig, nur sein Ort ist jetzt die Naht.
 [[nodiscard]] std::string cxx_compiler() {
-    if (char const* e = std::getenv("COMDARE_CXX"); e != nullptr && *e != '\0') return e;
-    // INC-1h: der Default-Treiber kommt Single-Source aus der Compiler-System-Achse (gcc-Leg);
-    // das clang-Leg faehrt der Experiment-Planer ueber dieselbe Achse (Q3: beide Compiler).
-    return std::string{::comdare::cache_engine::measurement::GccCompilerAxis::driver_default()};
+    return ::comdare::cache_engine::profile_facade::active_cxx_driver_tag();
 }
 
 // opt-d (A2-Hybrid Teil 2): die EINE String->Compiler-Achsen-Typ-Aufloesung sitzt GENAU HIER (Facade), nicht
@@ -554,11 +644,14 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
             tp_ptr != nullptr && tp_ptr->target_isa.isa.size() == 1 ? std::string_view{tp_ptr->target_isa.isa.front()}
                                                                     : std::string_view{})};
         a.system_cell_operating_system = std::string{pf::kSystemCellBuildOsFamily};
+        // T2-B: die Basis-Defines kommen OHNE das Glied [5] herein -- der per-Perm-Wert wird unten an
+        // genau EINER Stelle angehaengt (sonst zwei konkurrierende Defines, s. perm_stamp_glied_defines).
         a.compile_for_perm =
-            [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
-             fno = facade_supports_fno_gnu_unique(),
+            [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
+             cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
              dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
-                                                 ::comdare::cache_engine::abi::SystemCellValues cell_values) {
+                                                 ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                                 pf::PermToolchainGliedWert const& toolchain_glied) {
                 // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
                 // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
                 // byte-identisch zum Ist-Compile-Kanal.
@@ -581,6 +674,11 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
                 // Wertform => leeres Argument => gar kein Define => byte-identischer Bau.
                 std::vector<std::string> perm_defines = def;
                 if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                    perm_defines.push_back(std::move(arg));
+                // T2-B: das PER-PERM-Glied [5]. Derselbe String, den der Laufzeit-Zwilling dieser Iteration
+                // bekommt (die Schleife bildet ihn EINMAL und reicht ihn zweimal weiter) -- deshalb kann die
+                // Tier-Binary keinen anderen Fingerprint einkompiliert bekommen als den, den die CEB erwartet.
+                if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
                     perm_defines.push_back(std::move(arg));
                 return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
             };
@@ -627,6 +725,10 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.bestand_doc_key    = args.bestand_doc_key;
     a.bestand_owner_uuid = args.bestand_owner_uuid;
     a.bestand_maschine   = args.bestand_maschine;
+    // T2-A/F4: die Plan-Ablage -- reines Durchreichen wie die vier Zeilen darueber, KEIN Gate hier (leerer
+    // Pfad => PlanPersistenz inert => byte-neutral). Sie braucht den Umbrella-Umweg nicht: ein Pfad ist ein
+    // Pfad, es gibt nichts aus einem ArtifactCache zu binden.
+    a.batch_plan_datei = args.batch_plan_datei;
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;
@@ -1060,11 +1162,13 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   permutiert opt_level×simd aus der XML (ep.opt_levels/simd_extensions) und ruft die Fabrik je Perm mit den
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
+    // T2-B (SPIEGEL der Profil-Naht): Basis-Defines ohne Glied [5], der per-Perm-Wert kommt unten dazu.
     a.compile_for_perm =
-        [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
-         fno = facade_supports_fno_gnu_unique(),
+        [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
+         cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
          dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
-                                             ::comdare::cache_engine::abi::SystemCellValues cell_values) {
+                                             ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                             pf::PermToolchainGliedWert const& toolchain_glied) {
             // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
             // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
             std::string flags =
@@ -1084,6 +1188,9 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
             // W10-C4 (SPIEGEL der Profil-Naht): das Zellwert-Define als eigenes Argument im defines-Kanal.
             std::vector<std::string> perm_defines = def;
             if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                perm_defines.push_back(std::move(arg));
+            // T2-B (SPIEGEL): das PER-PERM-Glied [5] aus derselben Schleifen-Iteration wie der Zwilling.
+            if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
                 perm_defines.push_back(std::move(arg));
             return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
         };
@@ -1209,10 +1316,14 @@ int print_version_facade(std::ostream& os) {
 // Die Mess-Datei-Format-Fakten AUS DER SUBSTANZ, nicht nachgebaut: lazy_csv_header ist die EINE Schema-Wahrheit
 // der per-Binary-CSV, kLazyResumeRowsKey der EINE Feld-Schluessel des Resume-Stempel-Schwanzes. Der Status-Leser
 // bekommt sie hier durchgereicht, statt sie zu kopieren -- eine Schema-Aenderung zieht damit automatisch mit.
+// T2-A/F4-NB2 (Befund 4): dazu kommt kLazyResumeStampFormat -- die FORMAT-MARKE am Kopf der Resume-Zeile,
+// aus derselben Substanz und aus demselben Grund. Ohne sie las der Status-Leser einen Alt-Format-Stamp als
+// gueltigen Messstand, waehrend der Runner ihn verwirft.
 planner::MessFormatFakten mess_format_fakten_facade() {
     planner::MessFormatFakten f{};
-    f.csv_header = ex::lazy_csv_header();
-    f.rows_key   = ex::kLazyResumeRowsKey;
+    f.csv_header   = ex::lazy_csv_header();
+    f.rows_key     = ex::kLazyResumeRowsKey;
+    f.stamp_format = ex::kLazyResumeStampFormat;
     return f;
 }
 

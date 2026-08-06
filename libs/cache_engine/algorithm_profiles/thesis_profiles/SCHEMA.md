@@ -52,6 +52,15 @@ Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 > + die Wiederholungs-Achse emittiert seit Increment 2 **ausschließlich** `build_axis_levels` (Einzelquelle;
 > die frühere Doppelquelle in `profile_runner.hpp` ist entfernt).
 
+> **NACHTRAG 2026-08-06 (T2-A/F4+K2), Resume-Stamp-Format `resume-v5` -> `resume-v6`:** die
+> Tabellen-Zeile zu `<sota_series ... fairness>` nennt `resume-v5` als konsumierende Stelle. Der Stamp
+> traegt seit T2-A zusaetzlich den VOLLEN erwarteten Fingerprint der Binary (`|fpr=<128hex>`, aus
+> derselben Quelle wie das Skip-Gate) und der Resume-Anspruch haengt an `b.skipped` -- eine neu
+> gebaute DLL uebernimmt keine alten Messwerte mehr. Am Konsum des `fairness`-Feldes aendert das
+> nichts; nur die Format-Marke lautet ab hier `resume-v6`. Alt-Stamps werden per Praefix-Mismatch
+> EINMAL invalidiert (ehrliche Neu-Messung), Quelle: `cache_engine_builder_iterator.hpp`
+> (`lazy_resume_stamp_prefix`).
+
 ## Compile-time vs. Runtime (Faustregel)
 
 - **Compile-time** (eigenes Binary): alle **Architektur-Achsen** inkl. per-Organ-`cacheline`, `workload`, `telemetry`-Modus.

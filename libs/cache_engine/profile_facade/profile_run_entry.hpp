@@ -25,6 +25,7 @@
 //    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
 #include "build_type_stamp.hpp"         // (i) §61-STUFEN: build_type_version_suffix (+bt=Debug bei COMDARE_BUILD_TYPE)
+#include "toolchain_stamp_naht.hpp"     // T2-B: PermToolchainAchsen/-GliedWert + der EINE Glied-[5]-Renderer
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
 #include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
 #include "lazy_adhoc_source_gen.hpp"    // INC-G6 (33/34): make_lazy_adhoc_source_gen (lazy golden-N-Fallback-Quelle)
@@ -93,8 +94,16 @@ struct RunProfileArgs {
     /// -DCOMDARE_SYSTEM_CELL_VALUES an die rsp-Zeile. Der Typ ist der BENANNTE abi::SystemCellValues (K-1-Muster,
     /// Praezedenz OverlayHash) und ausdruecklich kein dritter nackter string -- die Signatur truege sonst drei
     /// gleichartige Strings, und ein vertauschter Slot kompilierte klaglos. Leere Werte == Identitaet.
+    ///
+    /// T2-B (Codex [CX-B1], KRITISCH): die Fabrik nimmt ZUSAETZLICH den fertig gerenderten per-Perm-Wert
+    /// des Preimage-Glieds [5] entgegen. Er ist der Grund, warum diese Signatur ueberhaupt waechst: bis
+    /// dahin trug das Glied nur die run-konstanten Felder (cxx/ceb/bt), womit O2 und O3 DERSELBEN Zelle
+    /// denselben Fingerprint bekamen -- also einen falschen Skip im Skip-Gate. Der Typ ist wieder ein
+    /// BENANNTER Traeger (K-1), diesmal mit eigenem Speicher, weil die Fabrik ihn ueber die gesamte
+    /// Permutation haelt. LEER == kein Define == byte-identisch zum Vor-T2-B-Bau.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
-                                ::comdare::cache_engine::abi::SystemCellValues cell_values)>
+                                ::comdare::cache_engine::abi::SystemCellValues                         cell_values,
+                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const& toolchain_glied)>
                 compile_for_perm;
     std::string compiler_tag; // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     // W10-C4 (Bauplan-Dossier 20260803, Sektion 1): die beiden LAUF-KONSTANTEN System-Zellen dieses Baus. Die
@@ -134,6 +143,42 @@ struct RunProfileArgs {
     std::string                                                             bestand_doc_key;
     std::string                                                             bestand_owner_uuid;
     std::string                                                             bestand_maschine;
+    // T2-A/F4 (Owner-KERN Zaehler-Resume): die Plan-Ablage -- das SECHSTE Glied derselben dreischichtigen
+    // Naht, im Muster der fuenf Felder darueber. ProfileRunArgs::batch_plan_datei (Fassade) -> DIESES Feld ->
+    // LazyRunConfig::batch_plan_datei (cache_engine_builder_iterator.hpp:243). KEIN Gate auf dieser Ebene.
+    // Leer (Default) => PlanPersistenz::aktiv()==false => keine Ablage, kein Plan-Resume => byte-neutral.
+    //
+    // EINE ABLAGE JE LAUF, NICHT JE PASS -- und das ist eine GRENZE, keine Zusage: make_cfg legt denselben
+    // Pfad in JEDE Pass-cfg. Der Plan-Stempel (slice_plan_stamp: start/indizes/korn) haengt aber an der
+    // Selektion DES PASSES. Ein Lauf mit mehreren Selektions-Paessen schreibt die Ablage deshalb mehrfach
+    // hintereinander um; am Ende steht der Plan des LETZTEN Passes darin. Ein Folgelauf findet fuer seinen
+    // Basis-Pass einen fremden Stempel vor -> read_phasen_zaehler ist fail-closed -> KEIN Resume-Anspruch,
+    // voller Neubau. Verloren geht nur der Anspruch, nie ein Messwert und nie eine gebaute Binary;
+    // ueberschrieben wird nur die Plan-Datei, nie ein Lauf-Artefakt.
+    //
+    // WIE OFT DAS GESCHIEHT -- PRAEZISE, weil "je <axis_sweep> ein Pass" die Groesse UNTERSCHAETZT. Im
+    // BAU-Modus (provision_only, der einzige, in dem der Plan-Resume ueberhaupt greift: planer_driven_active)
+    // multiplizieren sich DREI Schleifen um make_cfg herum, nicht eine:
+    //   (1) die opt x simd-PERM-Schleife (GN-3) UM run_all_passes -- |opt_levels| x |simd_options|;
+    //   (2) die SELEKTIONS-Paesse (profile_sweep_passes): Basis-Pass + je deklariertem <axis_sweep> einer;
+    //   (3) die SOTA-REIHEN-Paesse (je <sota_series>-Eintrag einer), sofern run_sota_series.
+    // Die vierte denkbare Schleife -- der <working_set_sweep> je Pass -- multipliziert hier NICHT: Task #31
+    // kollabiert n_sweep im provision_only-Lauf auf genau EINEN Wert (die Tier-Binary ist N-unabhaengig).
+    // Am all_axes_golden.profile.xml sind das 2 opt x 2 simd = 4 Perms mal (1 Basis + 17 <axis_sweep> +
+    // 21 <sota_series>) = bis zu 156 Ueberschreibungen derselben Datei je Lauf (weniger, wo ein Pass wegen
+    // pass_seen_ids ohne Selektion bleibt und vor make_cfg zurueckkehrt).
+    //
+    // TRAGFAEHIG ist der Plan-Resume damit heute in Laeufen mit GENAU EINEM Selektions-Pass, und zwar in
+    // ALLEN DREI Dimensionen zugleich: ein Profil ohne <axis_sweeps> (oder explizites sweep_axis), mit
+    // COMDARE_RUN_SOTA=0, und mit genau einer opt x simd-Perm. Ob die Ablage je Pass aufgefaechert werden
+    // soll -- der Owner-KERN spricht von EINEM "Batch-Plan (Reihenfolge+Faecher)" je Lauf --, ist eine
+    // OFFENE OWNER-ENTSCHEIDUNG und bewusst NICHT hier vorweggenommen. Der Grund, sie nicht nebenbei zu
+    // treffen: ein eindeutiger Ablage-Name braucht als Quelle genau die Groesse, die auch den Plan-Stempel
+    // bestimmt (die Selektion DES PASSES) -- diese Groesse kennt aber erst der Iterator (er kappt die
+    // Indizes auf max_binaries). Sie hier ein zweites Mal abzuleiten waere die Format-Drift, gegen die die
+    // ganze F4-Mechanik gebaut ist; sie dort abzuleiten macht aus diesem Feld einen PRAEFIX statt eines
+    // Pfades -- eine Vertrags-Aenderung an genau dem Arg, das der Host (super-Facade/CEB) noch belegen muss.
+    std::filesystem::path batch_plan_datei;
     // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
     // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).
     ex::PartialMarkerFn partial_marker_sink;
@@ -378,11 +423,31 @@ struct RunProfileResult {
     // lazy_gen. Gated auf COMDARE_BESTANDSLOG (Default aus => leer => kein Sidecar => byte-neutral). Drift-frei: fasst
     // dieselbe Combo (COMDARE_MEASUREMENT_COMBO) + version_table wie lazy_gen -> der Fingerprint deckt sich byte-genau
     // mit dem sha512_line, den die DLL einkompiliert traegt (anatomy_fingerprint_hex ueber dieselben 4 Zeilen).
+    //
+    // T2-C -- DIE DRITTE STUFE DER FAIL-CLOSED-REGEL: UNBEKANNTE TIER-REALVERSION HEISST NICHT SKIP-FAEHIG.
+    // Die Sonde (toolchain_stamp_naht, einmal je Treiber-Tag) erhebt die Version am Tier-Treiber selbst.
+    // Antwortet er nicht -- Treiber fehlt, Tag nicht sondierbar, Ausgabe unbrauchbar --, dann ist die
+    // Identitaet der zu bauenden Binary nicht vollstaendig bestimmt. Eine unbestimmte Identitaet darf
+    // keinen Skip tragen: der Provider faellt weg, damit kein `.fingerprint` entsteht, und dll_is_current
+    // gibt bei leerer Erwartung IMMER false zurueck (build_orchestrator.hpp:305). Ehrlicher Neubau statt
+    // geratener Wiederverwendung -- dieselbe Mechanik und dieselbe Begruendung wie beim `na`-Zellwert.
     ex::FingerprintFn const lazy_fingerprint = [] {
         char const* const bl = std::getenv("COMDARE_BESTANDSLOG");
-        return (bl != nullptr && std::string_view{bl} == std::string_view{"true"})
-                   ? make_lazy_adhoc_fingerprint_fn_from_env()
-                   : ex::FingerprintFn{};
+        if (bl == nullptr || std::string_view{bl} != std::string_view{"true"}) return ex::FingerprintFn{};
+        if (!::comdare::cache_engine::profile_facade::tier_realversion_ist_bekannt()) {
+            std::cerr << "[Compiler-Compiler-Fehler: "
+                      << ::comdare::cache_engine::measurement::error_class_label(
+                             ::comdare::cache_engine::measurement::CompilerCompilerErrorClass::KonfigXmlParse)
+                      << "] T2-C: die REALVERSION des Tier-Treibers '"
+                      << ::comdare::cache_engine::profile_facade::active_cxx_driver_tag()
+                      << "' konnte nicht erhoben werden (Sonde ohne brauchbare Antwort). Die Identitaet der "
+                         "Binaries dieses Laufs ist damit nicht vollstaendig bestimmt -- es wird KEIN "
+                         "Fingerprint-Sidecar geschrieben, also NICHTS uebersprungen und NICHTS ins Lager "
+                         "zurueckgeschrieben (fail-closed: lieber ein ehrlicher Neubau als ein geratener "
+                         "Skip).\n";
+            return ex::FingerprintFn{};
+        }
+        return make_lazy_adhoc_fingerprint_fn_from_env();
     }();
     // A7-B (Lager-Gate, G2 Folge-B): das BUILD-VARIANTEN-Gate, gleiches opt-in-Muster wie COMDARE_BESTANDSLOG darueber.
     // Gated auf COMDARE_VARIANT_GATE=true; Default AUS => leerer String => Variant-Gate AUS => byte-neutral (exakt der
@@ -525,6 +590,14 @@ struct RunProfileResult {
     ex::CompileFn perm_compile           = a.compile;
     std::string   perm_build_version     = a.build_version;   // .version-Sidecar (Resume-Marke) je Perm
     std::string   perm_tag_build_version = tag_build_version; // CSV-Provenienz-Spalte build_version je Perm
+    // F1 / C1-Interim (A2-Fix-Plan, T2-A): das AUSGABE-VERZEICHNIS je Perm. Bis hierher schrieben ALLE
+    // System-Zellen in denselben Baum -- und weil der Ordner-Stamm an der binary_id haengt (die per Doktrin
+    // NIE Toolchain-Glieder traegt), auf DIESELBE perm.dll, dasselbe .fingerprint-Sidecar und dieselbe
+    // per-Binary result.csv. Seit dem Neuanker unterscheiden sich die Fingerprints der Zellen, also
+    // verwirft dll_is_current wechselseitig den Bau der jeweils anderen: Dauer-Neubau, und die Mess-Ablage
+    // der zuerst gelaufenen Zelle ist ueberschrieben. IDENTITAETS-DEFAULT = a.dll_dir (kein <system_axes>
+    // => die Schleife laeuft nie => byte-identisch zum Vor-F1-Verhalten, golden-320 unberuehrt).
+    std::filesystem::path perm_output_dir = a.dll_dir;
     // W10-C4: der Lager-Anker-Provider je Perm. Er MUSS per Perm beweglich sein, weil der Fingerprint ab jetzt
     // die ZELLE mitrechnet (die vervollstaendigte System-Zeile) -- ein lauf-konstanter Provider wuerde allen
     // Zellen denselben Lager-Key geben und damit exakt die Kollision zurueckholen, die W10 beseitigt. Er ist
@@ -551,7 +624,7 @@ struct RunProfileResult {
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = perm_tag_build_version; // GN-3: per-Perm-CSV-Tag, sonst = tag_build_version
         cfg.source_dir                = a.src_dir;
-        cfg.output_dir                = a.dll_dir;
+        cfg.output_dir                = perm_output_dir; // F1: per-Perm-Zell-Ordner, sonst == a.dll_dir
         cfg.cores_per_build           = a.cores_per_build;
         cfg.build_parallelism         = a.build_parallelism; // W6 (§32-F7): Bau-Pool-Worker-Override (0 = byte-neutral)
         cfg.per_binary_subdirs        = true;
@@ -573,11 +646,16 @@ struct RunProfileResult {
         // Lager-TP1(B)/G-E2 bindet der ITERATOR sie selbst (lager_contains + bestand_fingerprint_fn + bestand_zelle)
         // und nutzt sie als per-Binary-BAU-FILTER (LEDGER:3397); eine Host-Injektion an dieser Stelle bleibt die
         // Test-Naht mit Vorrang.
-        cfg.bestand_transport   = a.bestand_transport;
-        cfg.bestand_key_of      = a.bestand_key_of;
-        cfg.bestand_doc_key     = a.bestand_doc_key;
-        cfg.bestand_owner_uuid  = a.bestand_owner_uuid;
-        cfg.bestand_maschine    = a.bestand_maschine;
+        cfg.bestand_transport  = a.bestand_transport;
+        cfg.bestand_key_of     = a.bestand_key_of;
+        cfg.bestand_doc_key    = a.bestand_doc_key;
+        cfg.bestand_owner_uuid = a.bestand_owner_uuid;
+        cfg.bestand_maschine   = a.bestand_maschine;
+        // T2-A/F4: die Plan-Ablage -- das letzte Glied der Kette ProfileRunArgs -> RunProfileArgs -> hier.
+        // Ohne diese Zeile war die gesamte F4-Mechanik im produktiven Lauf unerreichbar (der Host baut keine
+        // LazyRunConfig selbst). Leer (Default) => PlanPersistenz::aktiv()==false => keine Ablage => byte-
+        // neutral. Wirksam wird sie erst unter planer_driven_active (bestandslog_active UND provision_only).
+        cfg.batch_plan_datei    = a.batch_plan_datei;
         cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
         cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)
@@ -875,8 +953,48 @@ struct RunProfileResult {
                     ::comdare::cache_engine::profile_facade::compose_system_cell_values(
                         a.system_cell_target_isa, a.system_cell_operating_system, simd_id);
                 ::comdare::cache_engine::abi::SystemCellValues const perm_zellwerte{perm_cell_values};
-                perm_compile =
-                    a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte) : a.compile;
+                // T2-B (Codex [CX-B1], KRITISCH) -- DIE PER-PERM-GLIED-[5]-BILDUNG, EINMAL FUER BEIDE SEITEN.
+                // Die Achsen kommen als das, was diese Schleife WIRKLICH permutiert: opt_id/simd_id und die
+                // daraus aufgeloesten Achsen-Flags. KEINE Zweit-Ableitung -- insbesondere kein Rueckschluss
+                // aus march_flag (wortgleiche Regel wie bei den Zellwerten oben). Der Gate-Beitrag wird HIER
+                // gebildet, weil ihn ab jetzt zwei Verbraucher teilen (Glied und Suffix); er stand vorher
+                // weiter unten und waere sonst ein zweites Mal berechnet worden.
+                std::string const perm_simd_segment =
+                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()}) ? std::string{} : simd_id;
+                std::string const perm_gate =
+                    cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                ::comdare::cache_engine::profile_facade::PermToolchainAchsen perm_achsen{};
+                perm_achsen.opt               = opt_id;
+                perm_achsen.opt_flags         = opt_flag;
+                perm_achsen.simd              = perm_simd_segment;
+                perm_achsen.gate_contribution = perm_gate;
+                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const perm_toolchain_glied{
+                    ::comdare::cache_engine::profile_facade::compose_toolchain_stamp_glied_for_perm(perm_achsen)};
+                // T2-A/H2 (Codex-Befund, 2026-08-06) -- DER FALLBACK STEMPELT AB HIER DEN BAU, DER WIRKLICH
+                // STATTFINDET. Ist `compile_for_perm` unbelegt, faellt der Bau dieser Zelle auf die
+                // LAUF-KONSTANTE CompileFn zurueck: keine per-Zelle montierten Flags, kein per-Perm-Define
+                // (weder Zellwerte noch Glied [5]) -- die entstehende .so ist BYTE-GLEICH der Identitaets-
+                // Binary. Gestempelt wurde sie trotzdem per Perm (eigener Fingerprint-Provider, eigenes
+                // +cxx=+opt=+ext=-Suffix in .version und CSV-Provenienz). Das ist die schlimmste Sorte
+                // Falschaussage, die dieser Pfad kennt: der Stempel behauptet eine Identitaet, die im
+                // Binary nicht steht -- das Lager kaeme mit dem Schluessel nie wieder an seine Binary, und
+                // die CSV wiese |opt x simd| verschieden getaggte Zeilen ueber EIN UND DENSELBEN Bau aus.
+                // Ab jetzt ist der Fallback-Fall in einer benannten Bedingung sichtbar und ALLE drei
+                // Stempel-Wege (Fingerprint, build_version, CSV-Tag) folgen ihr: gebaut wird das
+                // lauf-konstante Binary, gestempelt wird die lauf-konstante Identitaet. Die Mess-Matrix
+                // waechst weiterhin (die Zelle wird gemessen) -- nur luegt sie nicht mehr ueber ihren Bau.
+                bool const perm_bau_je_zelle = static_cast<bool>(a.compile_for_perm);
+                perm_compile = perm_bau_je_zelle
+                                   ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
+                                   : a.compile;
+                if (!perm_bau_je_zelle)
+                    std::cerr << "[Compiler-Compiler-Fehler: "
+                              << cm::error_class_label(cm::CompilerCompilerErrorClass::ToolchainFehlt)
+                              << "] keine per-Perm-CompileFn (compile_for_perm unbelegt) -- opt=" << opt_id
+                              << " simd=" << simd_id
+                              << " baut mit dem LAUF-KONSTANTEN Bau; Fingerprint, .version-Suffix und "
+                                 "CSV-Provenienz dieser Zelle tragen deshalb die lauf-konstante Identitaet "
+                                 "(gestempelt wird, was wirklich gebaut wurde).\n";
                 // W10-C4 FAIL-CLOSED (n/a-statt-NULL, bindend): ein `na` heisst "diese Zelle ist NICHT
                 // BESTIMMBAR" -- die Binary darf gebaut und gemessen werden, aber sie ist nicht zuordbar und
                 // geht deshalb NICHT ins Lager. Mechanisch: kein Fingerprint-Provider => kein
@@ -892,20 +1010,40 @@ struct RunProfileResult {
                                  "zurueckgeschrieben (kein Fingerprint-Anker: ein `na`-Stempel ist nicht "
                                  "zuordbar).\n";
                     perm_fingerprint = ex::FingerprintFn{};
-                } else if (lazy_fingerprint && !perm_cell_values.empty()) {
+                } else if (lazy_fingerprint && perm_bau_je_zelle) {
+                    // T2-A/H1 (Codex-Befund, 2026-08-06) -- DIE UMSCHALTUNG HAENGT NICHT MEHR AN `.empty()`.
+                    // Die fruehere Bedingung war `lazy_fingerprint && !perm_cell_values.empty()`. Leere
+                    // Zellwerte sind aber der API-DEFAULT dieses Einstiegs (compose_system_cell_values gibt
+                    // {} zurueck, sobald Ziel-ISA oder OS-Familie unbelegt sind -- jeder Aufrufer, der die
+                    // beiden Facade-Zellen nicht setzt, landet dort). Genau dann fiel der Zwilling auf den
+                    // LAUF-KONSTANTEN Provider zurueck und rechnete fuer JEDE Zelle denselben Digest: O2 und
+                    // O3 bekamen wieder EINEN Lager-Schluessel -- das Loch in T2-B, unter der Zeile
+                    // versteckt, die es zu schliessen vorgab. Das per-Perm-Glied [5] ist von den Zellwerten
+                    // UNABHAENGIG (es traegt opt/opt_flags/ext/gate), also darf ein leeres Zellwerte-Set die
+                    // Umschaltung nicht verhindern. Leer bleibt dabei ehrlich leer: die System-Zeile geht
+                    // unveraendert ins Preimage (dokumentierte Identitaet des Parameters), nur das Glied
+                    // kommt jetzt per Zelle. Die `na`-Wache oben bleibt VORGESCHALTET (fail-closed schlaegt
+                    // Differenzierung), und ohne per-Zelle-Bau (H2) waere ein per-Zelle-Digest eine Luege --
+                    // deshalb steht `perm_bau_je_zelle` in derselben Bedingung.
+                    //
                     // Der Zwilling rechnet ueber DIESELBE vervollstaendigte System-Zeile wie das consteval-Makro
                     // im Tier-Bau -- sonst zeigte der Lager-Key ab jetzt auf einen anderen Digest als das
                     // einkompilierte sha512_line, und das Lager fuende seine eigenen Binaries nicht wieder.
-                    perm_fingerprint = make_lazy_adhoc_fingerprint_fn_from_env(perm_cell_values);
+                    // T2-B: dasselbe gilt ab hier fuer das Glied [5] -- der Zwilling bekommt EXAKT den String,
+                    // der oben als Define an die Tier-Uebersetzung ging (derselbe Wert, nicht derselbe Weg
+                    // noch einmal gegangen). Ohne diese zweite Haelfte rechnete der Lager-Key ueber das
+                    // run-konstante Glied, waehrend die Binary das per-Perm-Glied traegt: garantierter Miss.
+                    perm_fingerprint =
+                        make_lazy_adhoc_fingerprint_fn_from_env(perm_cell_values, perm_toolchain_glied.value);
                 }
                 // Lane F R3 (O-8 Schritt 10): diese Kette WAR die bindende Form -- jetzt kommt sie aus der
                 // EINEN Suffix-Quelle, statt sie hier ein zweites Mal zu buchstabieren. Die erzeugten Bytes
                 // bleiben identisch (dieselbe Ordnung, dieselbe no_extension-Regel), aber es gibt nur noch
                 // eine Stelle, die die Ordnung kennt -- und damit erstmals etwas, wogegen eine Wache prueft.
                 ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
-                perm_parts.cxx = a.compiler_tag;
-                perm_parts.opt = opt_id;
-                if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) perm_parts.simd = simd_id;
+                perm_parts.cxx  = a.compiler_tag;
+                perm_parts.opt  = opt_id;
+                perm_parts.simd = perm_simd_segment; // T2-B: dieselbe no_extension-Regel wie im Glied [5]
                 // W10-M2 (REV2-B2-Rest): das +ceb=-Glied fehlte der Perm-build_version -- der Perm-Pfad ist aber
                 // GENAU der Pfad, an dem C4 die Zellwerte scharfschaltet. Ohne diese Verdrahtung waere der
                 // Contract-Minor-Bump dort UNSICHTBAR geblieben: dll_is_current vergleicht .version/.algos/
@@ -918,24 +1056,48 @@ struct RunProfileResult {
                 // aendert der Contract-Minor-Bump direkt den erwarteten Fingerprint. Der Schutz vor dem stalen
                 // prae-W10-Binary ist damit staerker als vorher, nicht schwaecher: er haengt nicht mehr daran,
                 // dass jemand das Glied in einen Vergleichs-String einbaut.
+                // T2-B-NACHZUG (2026-08-06, C-4-Rest) -- DIE VERORTUNG WIRD RICHTIG GESTELLT: der Satz oben
+                // sagt, das +ceb-Glied wirke "ueber das PREIMAGE (es steht in der System-Zeile = Glied [2])".
+                // Das war schon zum Zeitpunkt des A2-Nachzugs ungenau und ist seit Format 3 falsch: ceb ist
+                // ein eigenes FELD des TOOLCHAIN-Glieds [5] (abi/toolchain_stamp_glied.hpp,
+                // kToolchainGliedKeys), nicht Teil der System-Zeile [2]. Die WIRKUNG bleibt exakt dieselbe
+                // (ein Contract-Minor-Bump aendert den erwarteten Fingerprint), nur der Ort ist ein anderer
+                // -- und seit T2-B wird genau dieses Glied per Permutation befuellt und live einkompiliert,
+                // womit die Aussage nicht mehr nur richtig, sondern auch wirksam ist.
                 std::string const perm_ceb = ::comdare::cache_engine::profile_facade::ceb_contract_version_text();
                 perm_parts.ceb             = perm_ceb;
                 std::string const perm_bt  = build_type_version_value();
                 perm_parts.build_type      = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
                 // Ledger 70.9 / OP-7: Gate-Beitraege am ENDE, leer => kein Segment (heute leer).
-                std::string const perm_gate =
-                    cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                // T2-B: derselbe perm_gate, den auch das Glied [5] traegt -- oben EINMAL gebildet.
                 perm_parts.gate_contribution = perm_gate;
+                // T2-A/H2: OHNE per-Zelle-Bau ist der Suffix LEER -- .version-Sidecar und CSV-Provenienz
+                // nennen dann exakt die lauf-konstante Identitaet, die auch wirklich gebaut wurde. Die
+                // Zusammensetzung selbst bleibt die EINE Suffix-Quelle (perm_parts unveraendert gefuellt);
+                // es entscheidet nur noch, OB dieser Bau ein eigenes Suffix verdient hat.
                 std::string const perm_suffix =
-                    ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);
+                    perm_bau_je_zelle
+                        ? ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts)
+                        : std::string{};
                 perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
                 perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
+                // F1 / C1-Interim: DER ZELL-PFAD dieser Zelle -- aus DENSELBEN perm_parts wie der Suffix
+                // (EINE Quelle, EINE Ordnung; die Wache in system_version_suffix.hpp haelt beide zusammen).
+                // Er haengt an derselben Bedingung wie die Identitaet: ohne per-Zelle-Bau (H2) entsteht
+                // ueberall dasselbe Binary, und dann waeren getrennte Ordner nur |opt x simd| identische
+                // Nachbauten. EINE Identitaet, EIN Pfad.
+                std::string const perm_zellordner =
+                    perm_bau_je_zelle ? ::comdare::cache_engine::profile_facade::compose_system_zell_pfad(perm_parts)
+                                      : std::string{};
+                perm_output_dir = perm_zellordner.empty() ? a.dll_dir : (a.dll_dir / perm_zellordner);
                 // W10-C4: die Zellwerte stehen LITERAL in der Perm-Zeile -- der Bau-Log ist damit der Beleg,
                 // welches Define diese Zelle real getragen hat (Praezedenz der C-3a-Auflage: eine Identitaets-
-                // Aenderung muss im Trace sichtbar sein, nicht nur im Binary).
+                // Aenderung muss im Trace sichtbar sein, nicht nur im Binary). F1 zieht den Zell-Ordner in
+                // dieselbe Zeile: wo die Zelle gebaut hat, ist ab jetzt aus dem Trace belegbar.
                 std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
                           << (march_flag.empty() ? std::string{} : (" " + march_flag))
-                          << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values << "'\n";
+                          << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values
+                          << "' zell_pfad='" << perm_output_dir.string() << "'\n";
                 run_all_passes();
             }
         }

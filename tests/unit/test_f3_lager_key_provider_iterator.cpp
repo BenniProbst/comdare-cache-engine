@@ -1,6 +1,13 @@
 // test_f3_lager_key_provider_iterator.cpp -- F3-Testschuld (Ledger D-04, :3720-3721; Zusage
 // "vor dem naechsten Lager-Increment"): der ITERATOR-LAUF mit dem EINEN REALEN bestand_key_of.
 //
+// STEMPEL-HOMONYMIE (T2-A/F4-NB3, 2026-08-06): dieser Lauf faehrt BEWUSST OHNE cfg.batch_plan_datei --
+// der Plan-Stempel `batchplan-v3|...|bau=` aus slice_plan_stamp ist hier inert und wird NICHT geprueft.
+// Geprueft wird der LAGER-/SIDECAR-Stempel: `.fingerprint`-Blattinhalt -> make_fingerprint_key_fn ->
+// Lager-Eintrag. Zwei verschiedene Dinge mit demselben Wort; die Verwechslung der beiden hat den
+// F4-NB2-Fehlschluss ausgeloest ("den Stempel liest ohnehin niemand" -- gemeint war der eine, gelesen
+// wurde der andere).
+//
 // DIE LUECKE, die diese TU schliesst (am Ist erhoben, 2026-08-03):
 //   * test_g3_artifact_cache_transport.cpp deckt make_fingerprint_key_fn ISOLIERT ab (Sidecar da /
 //     fehlt / leer / '\n' / CRLF / 127 / 129 / nicht-hex) -- aber nie im Lauf.

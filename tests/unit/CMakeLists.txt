@@ -3003,6 +3003,40 @@ add_test(NAME test_tp1_planer_filter_iterator COMMAND test_tp1_planer_filter_ite
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_tp1_planer_filter_iterator)
 set_tests_properties(test_tp1_planer_filter_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# T2-A/F4 (Fable-Review MITTEL-1, 2026-08-06) -- die DURCHREICHUNG der Plan-Ablage durch die
+# run_profile-Fassade. test_tp1_planer_filter_iterator (Fall 11) belegt die MECHANIK auf Iterator-Ebene,
+# setzt cfg.batch_plan_datei dabei aber selbst -- und sprang damit ueber genau das Glied hinweg, das im
+# produktiven Weg fehlte. Dieses Ziel ruft das ECHTE run_profile (Stub-Compile, FakeTransport, kein minio)
+# und prueft die Kette RunProfileArgs -> make_cfg -> LazyRunConfig an ihrer Wirkung (Plan/Zaehler auf der
+# Platte, Resume im Folgelauf, Abwesenheit bei leerem Pfad).
+# Include-/Link-Satz = test_tp1_planer_filter_iterator (echter run_lazy-Aufruf) PLUS der katalog-schwere
+# Satz von test_axis_sweep_coverage (profile_run_entry.hpp zieht source_catalog/sota_catalog) und der
+# XML-Parser fuer load_thesis_profile.
+add_executable(test_t2a_f4_facade_plan_durchreichung "test_t2a_f4_facade_plan_durchreichung.cpp")
+target_compile_features(test_t2a_f4_facade_plan_durchreichung PRIVATE cxx_std_23)
+target_include_directories(test_t2a_f4_facade_plan_durchreichung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_t2a_f4_facade_plan_durchreichung PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t2a_f4_facade_plan_durchreichung)
+target_compile_definitions(test_t2a_f4_facade_plan_durchreichung PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_F4_THESIS_MIN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/planner_thesis_min.profile.xml\"")
+comdare_attach_generated_catalog(test_t2a_f4_facade_plan_durchreichung)
+add_test(NAME test_t2a_f4_facade_plan_durchreichung COMMAND test_t2a_f4_facade_plan_durchreichung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t2a_f4_facade_plan_durchreichung)
+set_tests_properties(test_t2a_f4_facade_plan_durchreichung PROPERTIES
+    LABELS "bestandslog;bau_filter;facade;standalone")
+
 # F3-Testschuld (Ledger D-04, :3720-3721) -- der ITERATOR-LAUF mit dem EINEN REALEN
 # bestand_key_of-Provider (bestandslog::make_fingerprint_key_fn ueber das real geschriebene
 # .fingerprint-Sidecar) und einem WERFENDEN CachePushFn (at::ArtefaktPushFehler, der Kontrakt-Typ
@@ -4974,6 +5008,10 @@ comdare_add_test(test_g3_planer_driven
     SOURCES test_g3_planer_driven.cpp)
 target_include_directories(test_g3_planer_driven PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    # T2-A/F4-NB: slice_plan_stamp bindet die Indexfolge ueber einen sha512-Digest (slice_index_digest,
+    # planer_driven_build.hpp) -- dieselbe Primitive, aus der der Fingerprint entsteht. Deshalb gehoert
+    # die ctsha512-Wurzel ab jetzt zu diesem Ziel (Muster test_g3_lager_presence).
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
 target_link_libraries(test_g3_planer_driven PRIVATE Threads::Threads)
 

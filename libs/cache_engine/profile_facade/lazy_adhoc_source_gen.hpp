@@ -73,6 +73,7 @@
 // Materialisierungs-Domaene, NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 
 #include "source_catalog.hpp" // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
+#include "toolchain_stamp_naht.hpp" // NB/CX-4: die LIVE-Werte der Glieder [5]/[6] -- DIESELBEN wie im Bau-Kanal
 
 #include <builder/codegen/adhoc_emitter.hpp>                   // render_adhoc_module_source / strip_all_elaborated
 #include <builder/codegen/type_name.hpp>                       // type_name<W>
@@ -93,6 +94,7 @@
 #include <cstdint> // I2: std::uint8_t fuer das SHA-512-Preimage
 #include <cstdlib> // S6-P1b Env-Bruecke: std::getenv (COMDARE_MEASUREMENT_COMBO)
 #include <memory>
+#include <optional>  // NB2-5: "nicht uebergeben" vs. "leer uebergeben" -- die Unterscheidung wohnt im Typ
 #include <span>      // I2: std::span fuer die SHA-512-Primitive
 #include <stdexcept> // W2: Widerspruchs-Wache der CT-Combo (fehlerklasse=konfiguration_widerspruch)
 #include <string>
@@ -344,17 +346,30 @@ template <class List>
 /// String koennte an einem Alt-Aufruf still in den falschen Slot rutschen. Der Default ist LEER == die
 /// IDENTITAET: jeder Bestands-Aufruf rechnet byte-identisch weiter (Bestands-Beweis: der Zwillings-Test in
 /// test_lazy_adhoc_source_gen bleibt ohne Edit gruen).
-[[nodiscard]] inline std::string
-lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& binary_id,
-                           std::vector<ex::AxisVariantVersion> const&     version_table,
-                           std::string const&                             measurement_stamp  = {},
-                           ::comdare::cache_engine::abi::SystemCellValues system_cell_values = {}) {
+/// O-2/C-2 (Format 3) -- DIE TOOLCHAIN-/BVSET-NAHT DES LAUFZEIT-ZWILLINGS. Die beiden neuen Glieder reisen
+/// als BENANNTE Traeger (K-1), mit LEEREM Default == der Identitaet: jeder Bestands-Aufruf rechnet
+/// byte-identisch weiter. Die Werte selbst kennt diese Funktion nicht und darf sie nicht erraten -- sie
+/// entstehen an der Perm-Schleife (Toolchain-Wahl dieser Permutation) bzw. am Treiber (bvset). Wer sie
+/// hier injiziert, MUSS im selben Zug das passende Compile-Define an perm_compile haengen
+/// (COMDARE_TOOLCHAIN_STAMP_GLIED / COMDARE_BUILD_VARIANT_SET_SIGNATURE), sonst rechnet der
+/// consteval-Zwilling in der Tier-Binary ueber ANDERE Glieder als dieser Laufzeit-Weg -- und die
+/// drift-freie Zusage dieser Funktion waere gebrochen. Genau deshalb bleibt die Verdrahtung EIN Schritt
+/// (Buendel-Scheibe C-3) und wird hier nur vorbereitet.
+[[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(
+    LazySlotTables const& tables, std::string const& binary_id,
+    std::vector<ex::AxisVariantVersion> const& version_table, std::string const& measurement_stamp = {},
+    ::comdare::cache_engine::abi::SystemCellValues system_cell_values = {},
+    ::comdare::cache_engine::abi::ToolchainGlied   toolchain_glied =
+        ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
+    ::comdare::cache_engine::abi::BvsetGlied bvset_glied = ::comdare::cache_engine::abi::BvsetGlied{
+        ::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied}) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::complete_system_stamp_line(
         ::comdare::cache_engine::abi::system_stamp_line(), system_cell_values);
-    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp);
+    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp,
+                                                                                   toolchain_glied, bvset_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -373,15 +388,56 @@ lazy_adhoc_fingerprint_for(LazySlotTables const& tables, std::string const& bina
 /// den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht -- eine gefangene string_view zeigte spaeter
 /// ins Leere. Der Default (leerer String) ist die IDENTITAET: jeder Bestands-Aufrufer rechnet byte-identisch
 /// weiter, weil ein leeres Werte-Set die System-Zeile unveraendert laesst.
-[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {}) {
+///
+/// O-2/C-2: die beiden neuen Glieder kommen ebenso per WERT herein und aus demselben Grund -- der Provider
+/// ueberlebt den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht.
+///
+/// NB/CX-4 -- DIE ZWEITE HAELFTE DER LIVE-NAHT. Bis zur Nachbesserung hiess "kein Argument" hier "leerer
+/// Default aus dem Compile-Define", also: der produktive Fingerprint trug die zwei neuen Glieder GAR NICHT.
+/// Ab jetzt heisst "kein Argument": DIE LIVE-WERTE -- exakt die, die der Bau-Kanal
+/// (profile_run_facade perm_compile_flags -> -DCOMDARE_TOOLCHAIN_STAMP_GLIED /
+/// -DCOMDARE_BUILD_VARIANT_SET_SIGNATURE) in die Tier-Uebersetzung haengt. Beide Seiten rufen DIESELBEN
+/// argumentlosen, reinen Funktionen der Toolchain-Naht; damit ist die drift-freie Zusage dieser Funktion
+/// nicht mehr eine Bitte an den Aufrufer, sondern Mechanik.
+///
+/// NB2-5 (Codex-Zweitreview [MITTEL], am Code bestaetigt) -- KOMMENTAR UND VERHALTEN DECKEN SICH WIEDER.
+/// Der Satz "ein EXPLIZIT uebergebener Wert gewinnt" stand hier, WAEHREND die Implementierung auf
+/// `if (toolchain_glied.empty())` pruefte -- ein bewusst LEER uebergebener Wert wurde also gerade nicht
+/// respektiert, sondern durch den Live-Wert ersetzt. Damit war fuer eine absichtlich OHNE die beiden
+/// Defines gebaute Binary (Frozen-Vektor-Nachbau, Fallback-/Bestands-Binary aus der Zeit vor der Live-Naht)
+/// KEIN passender Laufzeit-Fingerprint bildbar: der Zwilling rechnete zwangsweise mit Gliedern, die in
+/// jener Binary gar nicht einkompiliert sind.
+///
+/// DIE UNTERSCHEIDUNG, DIE GEFEHLT HAT, IST JETZT IM TYP: std::optional trennt "NICHT UEBERGEBEN" von
+/// "LEER UEBERGEBEN". std::nullopt (der Default, also jeder Bestands-Aufruf) == die LIVE-Werte, unveraendert
+/// zur CX-4-Absicht. Ein uebergebener Wert gewinnt IMMER -- auch der leere String, der dann genau das
+/// bedeutet, was er sagt: "diese Binary traegt das Glied nicht". Kein Zweig rechnet mehr etwas anderes,
+/// als der Aufrufer verlangt hat.
+[[nodiscard]] inline ex::FingerprintFn
+make_lazy_adhoc_fingerprint_fn_from_env(std::string                system_cell_values = {},
+                                        std::optional<std::string> toolchain_glied    = std::nullopt,
+                                        std::optional<std::string> bvset_glied        = std::nullopt) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    std::string tc_wert =
+        toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
+    std::string bv_wert =
+        bvset_glied.has_value() ? std::move(*bvset_glied) : pfn::live_build_variant_set_signature_glied();
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
-            cell_values = std::move(system_cell_values)](std::string const& binary_id) {
+            cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert),
+            bvset = std::move(bv_wert)](std::string const& binary_id) {
+        // NB/CX-4: die Werte stehen zu diesem Zeitpunkt FEST (oben aufgeloest -- explizit uebergeben oder
+        // live komponiert). Der frueher hier stehende empty()-Zweig ist ersatzlos entfallen: er war genau
+        // die Konflation "nicht injiziert" == "leer injiziert", die den Zwilling still auf den CEB-eigenen
+        // Compile-Define zurueckfallen liess, waehrend die Tier-Binary einen anderen Wert eingebaut bekam.
+        // NB2-5: die Aufloesung oben unterscheidet jetzt auch "leer UEBERGEBEN" von "nicht uebergeben".
+        auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
+        auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset};
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
-                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values});
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv);
     };
 }
 

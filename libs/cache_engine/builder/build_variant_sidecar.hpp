@@ -11,6 +11,26 @@
 // Skip-Check (dll_is_current)". Das tut er nicht mehr -- dll_is_current vergleicht NUR noch den
 // `.fingerprint`-Anker. `.variant` bleibt Provenienz-Legende; seine Wirkung auf den Bau laeuft ueber das
 // bvset-Glied IM Fingerprint-Preimage, nicht mehr ueber einen eigenen String-Vergleich.]
+// [ZWEITER NACHTRAG 2026-08-05, O-2/C-2 -- EHRLICHE DATIERUNG des Satzes oben: als er geschrieben wurde,
+// EXISTIERTE das bvset-Glied nicht (A2-Nachreview, Befund C6 [MITTEL, REAL]: "kein bvset-Preimage-Glied");
+// zwischen dem Wegfall des `.variant`-Vergleichs und dem Nachtrag des Glieds war COMDARE_VARIANT_GATE
+// faktisch write-only. SEIT PREIMAGE-FORMAT 3 gibt es das Glied wirklich: [6], gespeist aus der
+// Mengen-Signatur ueber die REALEN Enabled-Listen (build_variant_set_signature.hpp /
+// driver_build_variant_signature.hpp), injiziert per Define COMDARE_BUILD_VARIANT_SET_SIGNATURE. Die
+// per-Perm-BEFUELLUNG folgt in Scheibe C-3; erst danach ist die Zusage oben vollstaendig eingeloest und die
+// B10-Variant-Gate-E2E-Probe wieder beweisfaehig (sie ankert dann auf Fingerprint-Mismatch statt auf einem
+// Sidecar-Stringvergleich).]
+// [DRITTER NACHTRAG 2026-08-06, T2-B (C-4-Rest) -- EINGELOEST, mit einer PRAEZISIERUNG des Vorgaengersatzes:
+// das bvset-Glied [6] ist seit NB/CX-4 live verdrahtet und wird seit T2-B in BEIDEN Bau-Pfaden gesetzt
+// (Einzel-Pfad ueber perm_compile_flags, Perm-Pfad ueber die per-Perm-Fabrik). Der Vorgaengersatz sprach von
+// "per-Perm-BEFUELLUNG" -- das war fuer dieses Glied nie die richtige Kategorie: die Enabled-MENGE der
+// Build-Achsen ist eine Eigenschaft des TREIBERS, nicht der Permutation, und aendert sich innerhalb eines
+// Laufs nicht. Glied [6] ist deshalb RUN-KONSTANT und war mit NB/CX-4 bereits vollstaendig; T2-B hat nur
+// sichergestellt, dass es den Perm-Pfad nicht verliert. COMDARE_VARIANT_GATE ist damit funktional obsolet
+// (F7-(b)), und die B10-Variant-Gate-E2E-Probe ist wieder beweisfaehig: sie ankert auf
+// Fingerprint-Mismatch. Zusaetzlich seit T2-D compile-hart abgesichert: die Wrapper-Namen der drei
+// Registries sind paarweise eindeutig (build_variant_set_signature.hpp / driver_build_variant_signature.hpp)
+// -- ohne diese Wache konnten zwei verschieden konfigurierte Treiber dieselbe Signatur rendern.]
 // Der Lager-Index (Lane B / G3) verwendet DENSELBEN compose, keine Parallel-Ableitung
 // (Integrations-Doktrin: eine Feldquelle fuer Varianten-Identitaet).
 

@@ -232,6 +232,30 @@ struct LazyRunConfig {
     bestandslog::PresenceFn bestand_present;
     std::string             bestand_owner_uuid;
     std::string             bestand_maschine;
+    // T2-A/F4 (Owner-KERN Zaehler-Resume, Ledger abend-10: "Batch-Plan [Reihenfolge+Faecher] PERSISTENT VOR dem
+    // Lauf, Resume = Zaehler je Phase [kompiliert/separat gemessen] gegen den Plan"): die Ablage dieses Plans.
+    // Der planer-getriebene Bau schreibt den vollen Fenster-Plan hierhin, BEVOR das erste Fenster gebaut wird,
+    // und fuehrt daneben (<datei>.zaehler) den Bau-Zaehler fort -- immer NACH dem Vollzug eines Fensters und nie
+    // fuer ein fehlgeschlagenes (Codex-K1: "IDs vor Bau/Messung gezaehlt inkl. Fehlversuche"). Der SEPARATE
+    // Mess-Lauf schreibt in dieselbe Datei die Mess-Front; sein feinkoerniger Resume-Arbiter bleibt die
+    // per-Binary result.csv+stamp-Naht (T2-A/K2). LEER (Default) => keine Ablage, kein Plan-Resume =>
+    // byte-/verhaltensidentisch zum Ist (golden/CI unberuehrt).
+    std::filesystem::path batch_plan_datei;
+    // T2-A/F4-NB2 (Korn-Divergenz, Vorwellen-Notiz mittag-20) -- DAS KORN DES PLANS, EINE QUELLE FUER BEIDE
+    // WEGE. Es lag bis hierher zweimal im Code: der BAU-Weg fuehrte es als Funktions-Parameter von
+    // run_planer_driven_provision, der MESS-Weg schrieb bestandslog::kBuildSliceGrain HART hin. Bei
+    // abweichendem Korn tragen die beiden Stempel verschiedene "|korn="-Glieder -- der Mess-Lauf findet den
+    // Plan seines eigenen Bau-Laufs dann NICHT und schreibt die Mess-Front nicht fort (fail-closed, aber
+    // still falsch: der Plan IST da). Ab hier lesen BEIDE Wege diese eine Zahl. 0 (Default) == die Konstante
+    // kBuildSliceGrain -> der produktive Lauf ist byte-identisch.
+    //
+    // WIE WEIT DIE KETTE REICHT, ehrlich: sie endet HIER. Es gibt kein RunProfileArgs-/XML-Feld, das dieses
+    // Korn belegt -- so wie der frueher an dieser Stelle stehende Funktions-Parameter ebenfalls nur seinen
+    // Default trug. Das ist KEIN Rueckschritt gegenueber dem Ist und auch keine tote Achse: das Korn ist erst
+    // dann eine Host-Frage, wenn die Plan-Ablage selbst eine ist (batch_plan_datei ist im produktiven Host
+    // heute unbelegt, Ledger mittag-16 Delta (3)). Wer die Ablage belegt, belegt beides in EINEM Zug -- und
+    // findet die Naht dann an EINER Stelle statt an zweien.
+    std::size_t batch_plan_korn = 0;
     // G-E3 (A1-Lager-Rest-Welle): das ZWEITE Genus PRODUKTIV. Bis hierher schrieb der Iterator nur
     // Binaries ins Lager; die MesswertKeyPolicy der B3-Factory hatte keinen Schreiber (Dossier-Befund
     // G-E3). Diese drei Felder verdrahten ihn -- exakt im Muster der drei bestand_*-Felder darueber
@@ -830,13 +854,25 @@ inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
 // ── Ergebnis des Lazy-E2E-Laufs (rein zählend + die Mess-Zeilen; kein ∏-Vektor) ──
 struct LazyRunResult {
     std::size_t selected = 0; // selektierte statische Blaetter (== min(max_binaries, view))
-    // FESTGEZOGEN (TP1-N3/B-2): built = BEREITGESTELLT im Batch-Sinn -- gebaut ODER lokal resumiert
-    // ODER (im planer-getriebenen Bau) als Lager-Bestand belegt uebersprungen. built_skip ist die
-    // SUMME beider Skip-Quellen (dll_is_current-Resume + Lager-Bestand); die Lager-Quelle steht
-    // zusaetzlich einzeln in bestand_lager_skips (unten), damit die Auswertung differenzieren kann.
+    // FESTGEZOGEN (TP1-N3/B-2, NACHGEZOGEN T2-A/F4-BILANZ 2026-08-06): built = BEREITGESTELLT im
+    // Batch-Sinn -- gebaut ODER lokal resumiert ODER (im planer-getriebenen Bau) als Lager-Bestand
+    // belegt uebersprungen ODER (ebendort) vom PLAN-ZAEHLER als bereits kompiliert gedeckt. built_skip
+    // ist die SUMME aller DREI Skip-Quellen (dll_is_current-Resume + Lager-Bestand + Plan-Resume); die
+    // beiden planer-getriebenen Quellen stehen zusaetzlich einzeln in bestand_lager_skips und
+    // plan_resume_skips (unten), damit die Auswertung differenzieren kann.
+    //
+    // WARUM DER PLAN-RESUME HIERHER GEHOERT (die geheilte Asymmetrie): die vom Plan-Resume
+    // uebersprungenen FUEHRENDEN Faecher erreichen den Slice-Loop nie. Bis zur Heilung buchte sie
+    // deshalb NIEMAND -- waehrend die Lager-Skips an derselben Stelle sehr wohl gebucht werden --, und
+    // ein VOLLSTAENDIG plan-resumierter provision-only-Lauf endete mit built==0 => provision_ok==false
+    // => exit 1, obwohl er genau das getan hatte, was der Plan-Resume verspricht. Die Buchung ruht auf
+    // demselben Rang von Beleg wie die Lager-Buchung: dort der Lager-Index, hier der Phasen-Zaehler,
+    // der ausschliesslich NACH dem Vollzug eines fehlerfreien Fensters fortgeschrieben wird. Keine der
+    // beiden Quellen ist eine Platten-Pruefung; dll_is_current bleibt fuer alles, was doch gebaut wird,
+    // die zweite Verteidigungslinie.
     std::size_t                  built       = 0; // erfolgreich bereitgestellte DLLs (s. FESTGEZOGEN oben)
     std::size_t                  built_new   = 0; // davon tatsächlich (neu) kompiliert
-    std::size_t                  built_skip  = 0; // davon uebersprungen (dll_is_current-Resume + Lager-Bestand)
+    std::size_t                  built_skip  = 0; // davon uebersprungen (die drei Quellen aus FESTGEZOGEN)
     std::size_t                  loaded      = 0; // DLLs, die geladen + als IObservableTier nutzbar waren
     std::size_t                  load_failed = 0; // gebaut, aber nicht ladbar / kein Mess-Interface
     std::size_t                  measured    = 0; // gemessene (Binary × dyn-Setting)-Zeilen, in den Baum ge-ingestet
@@ -860,6 +896,13 @@ struct LazyRunResult {
     // Differenzierung: dll_is_current-Resumes == built_skip - bestand_lager_skips). 0 ausserhalb des
     // planer-getriebenen Pfads bzw. ohne Praesenz-Praedikat (byte-neutral).
     std::size_t bestand_lager_skips = 0;
+    // T2-A/F4-BILANZ (additiv, Muster von bestand_lager_skips): die Atome der vom PLAN-ZAEHLER
+    // vollstaendig gedeckten FUEHRENDEN Faecher -- die DRITTE Skip-Quelle. Sie einzeln zu fuehren ist
+    // dieselbe Notwendigkeit wie bei der zweiten: ohne sie waere in built_skip nicht mehr trennbar,
+    // was ein lokales Sidecar, was der Lager-Index und was der Plan-Zaehler gedeckt hat
+    // (dll_is_current-Resumes == built_skip - bestand_lager_skips - plan_resume_skips). 0 ohne
+    // benannte Plan-Ablage und 0 ausserhalb des planer-getriebenen Pfads (byte-neutral).
+    std::size_t plan_resume_skips = 0;
     // G-E1 / ABNAHME-6 (A1-Lager-Rest-Welle): die Zahl der beim LAUF-START uebernommenen fremden
     // Reservierungen (bestaetigt released, TP1FK1-B4-Revalidierung). Sie ist der Beleg des
     // Claim-Checks: die Fenster dieser Reservierungen liegen per scope_covers_slice VOLL in der
@@ -874,6 +917,20 @@ struct LazyRunResult {
 // Stand derselben Datei berichtet; ab drei Kopien ist Format-Drift nur noch eine Frage der Zeit. Die Hebung
 // ist STRING-IDENTISCH (kein Byte der Emission bewegt sich); der Wert selbst bleibt "|rows=".
 inline constexpr char kLazyResumeRowsKey[] = "|rows=";
+
+// T2-A/F4-NB2 (Codex-Voll-Scope, Befund 4) -- DIE FORMAT-MARKE DER RESUME-ZEILE, GEHOBEN.
+//
+// Dieselbe Hebung und dieselbe Begruendung wie bei kLazyResumeRowsKey darueber, nur fuer den KOPF statt
+// den Schwanz: das Literal stand im Schreiber (lazy_resume_stamp_prefix) und wurde vom Runner ueber den
+// Praefix-Vergleich als Ganzes mitgeprueft -- der STATUS-LESER des Planers dagegen prueft den Praefix
+// bewusst nicht (er kennt die Lauf-Konfiguration nicht) und nahm deshalb einen ALTEN resume-v5-Stamp als
+// gueltigen Messstand an, waehrend der echte Runner ihn korrekt verwirft. Zwei Fortschritts-Wahrheiten
+// ueber dieselbe Datei.
+//
+// Die Marke ist KEINE Lauf-Konfiguration, sondern ein FORMAT-Faktum -- genau die Sorte Wissen, die
+// MessFormatFakten von der Fassade zum Leser traegt (csv_header, rows_key, und ab jetzt stamp_format).
+// Der Leser bleibt damit konfigurations-blind und wird trotzdem versions-scharf.
+inline constexpr char kLazyResumeStampFormat[] = "resume-v6";
 
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
 // Der Stempel kodiert ALLES, was die Mess-Matrix einer Binary bestimmt: BuildVersion (Memento-/Code-Stand der
@@ -901,7 +958,19 @@ inline constexpr char kLazyResumeRowsKey[] = "|rows=";
     // Loader-Mess-Konsum ist lauf-gated; bis dahin ehrliche Neu-Messung statt semantisch stalem Resume).
     // Format-Bump v4→v5 invalidiert Alt-Stamps via Prefix-Mismatch (zusätzlich bricht ohnehin die
     // Header-Identität durch die neue fairness_mode-Spalte) → ehrliche Neu-Messung.
-    std::string s = "resume-v5|build=" + cfg.build_version + "|series=" + cfg.row_series +
+    // resume-v6 (T2-A/F4+K2, 2026-08-06): FORMAT-Bump der Resume-Zeile. Er begleitet die Kopplung des
+    // Stamps an den VOLLEN Fingerprint (das "|fpr="-Feld, das der per-Binary-Teil unten anhaengt) und die
+    // Kopplung des Resume-Anspruchs an b.skipped. Beides aendert die BEDEUTUNG eines Alt-Stamps: er wurde
+    // unter einer schwaecheren Zusage geschrieben ("Config gleich" statt "Config UND Identitaet der DLL
+    // gleich"). Ein Alt-Stamp darf deshalb nicht weitergelten -- der Praefix-Mismatch invalidiert ihn
+    // EINMAL, und der naechste Lauf misst ehrlich neu. Vor Voll-Bau-4 existiert kein schuetzenswerter
+    // Mess-Bestand, das ist der guenstigste Moment fuer genau diesen Bump.
+    // ABGRENZUNG (Semantik-Leitplanke, bindend): v5->v6 bewegt AUSSCHLIESSLICH die Stempel-ZEILE der
+    // Resume-Ablage. Das 8-Glieder-Fingerprint-PREIMAGE bleibt Byte fuer Byte, wie es ist -- der Resume-
+    // Stamp KONSUMIERT den Fingerprint, er geht nicht in ihn ein (der Frozen-Vektor ist unbewegt).
+    // T2-A/F4-NB2: die Marke kommt aus der EINEN gehobenen Konstante (kLazyResumeStampFormat) -- der
+    // Status-Leser prueft gegen genau dieses Byte-Wort, ein zweites Literal hier waere die Drift.
+    std::string s = std::string{kLazyResumeStampFormat} + "|build=" + cfg.build_version + "|series=" + cfg.row_series +
                     "|ptype=" + cfg.row_pruefling_type + "|fair=" + cfg.row_fairness_mode +
                     "|sweep=" + cfg.row_sweep_axis + "|plat=" + cfg.row_platform + "|bv=" + cfg.row_build_version +
                     "|n_ops=" + std::to_string(cfg.n_ops) + "|seed=" + std::to_string(cfg.workload_seed) +
@@ -1048,6 +1117,194 @@ inline void mess_pfad_synchron_push(CachePushFn const& cache_push, std::filesyst
     }
 }
 
+// T2-A/F4-NB2 -- DIE EINE KORN-QUELLE DER PLAN-KETTE. Beide Wege, die einen Plan-Stempel bilden (der
+// BAU-Weg in run_planer_driven_provision und die MESS-FRONT am Ende von run_lazy_static_then_dynamic),
+// holen ihr Korn hier ab. Vorher fuehrte der Bau-Weg es als Funktions-Parameter und der Mess-Weg schrieb
+// die Konstante hart hin: zwei Quellen fuer eine Zahl, die im Stempel steht -- und ein Stempel-Glied, das
+// auseinanderlaeuft, macht den Plan fuer seinen eigenen zweiten Lauf unsichtbar.
+[[nodiscard]] inline std::size_t plan_slice_korn(LazyRunConfig const& cfg) noexcept {
+    return (cfg.batch_plan_korn == 0) ? bestandslog::kBuildSliceGrain : cfg.batch_plan_korn;
+}
+
+// T2-A/F4-NB2 (Codex-Voll-Scope, Befund 1) -- DIE VOLLZUGS-PRUEFUNG DES ASYNCHRONEN PUSHES.
+//
+// Sie drainiert den Push-Kanal bis zum Ende des gerade gebauten Fensters und liefert die Zahl der bis
+// dahin FEHLGESCHLAGENEN Pushes. Der Bau-Zaehler fragt sie, BEVOR er ein Fenster fortschreibt.
+//
+// DER BEFUND, den sie schliesst: der Zaehler lief am Fenster-Ende hoch, der Push-Drain lag hinter der
+// GANZEN Schleife (push_pump->close()). Ein Fenster, dessen Artefakte der Store nie erhielt, war damit
+// im Zaehler als vollzogen gebucht -- und der Folgelauf uebersprang es als Praefix, OHNE die Binaries je
+// gesehen zu haben. Die Registrierung im Bestandslog war gegen genau diesen Fall bereits geschuetzt
+// (discard_fresh_with_pfad_prefix nach dem Drain, TP1-N2/B-1); der Zaehler war die zweite Buchhaltung,
+// die es nicht war -- eine, die dem Lager-Inventar-Cache das GEGENTEIL seiner Aufgabe beibringt.
+//
+// LEER (kein Push-Kanal) => nichts zu bestaetigen => 0. Ohne Push beschreibt der Zaehler ohnehin nur den
+// LOKALEN Bestand dieser Maschine (dieselbe ehrliche Grenze, die bereits ueber bestandslog_flush steht).
+using PushVollzugFn = std::function<std::size_t()>;
+
+// T2-A/F4-NB2 (Befund 3) -- DIE EINE QUELLE DER BAU-IDENTITAET FUER DEN PLAN-STEMPEL. Sie hebt die
+// FingerprintFn (binary_id -> 128-hex, die Erwartung, gegen die dll_is_current vergleicht) auf die
+// view_index-Ebene, die der Plan spricht -- dieselbe Hebung, die make_index_key_fn fuer die PresenceFn
+// vornimmt, nur ohne den Umweg ueber das optional (ein unbekannter Fingerprint ist hier der leere String,
+// und ein leerer String ist im Preimage genauso bindend wie jeder andere Wert: er sagt "an dieser
+// Position war nichts bekannt").
+//
+// OHNE PROVIDER liefert sie eine LEERE Funktion -- und damit traegt der Stempel `|bau=ohne-anker`. Das
+// ist die ehrliche Aussage: ohne Fingerprint deckt dll_is_current nichts, also darf der Zaehler eines
+// Laufs MIT Ankern hier nicht gelten (und umgekehrt).
+//
+// T2-A/F4-NB3 (Befund 1) NACHGEFUEHRT: dieser ankerlose Stempel wird seit dieser Welle NICHT MEHR ABGELEGT.
+// Er war fuer JEDEN ankerlosen Bau-Stand derselbe, und der Zaehler-Leser nahm ihn an -- die beiden Welten
+// trugen zwar verschiedene Stempel, INNERHALB der ankerlosen Welt aber alle denselben. Die Aufrufer-Seite
+// haelt jetzt fail-closed dagegen (plan_anker_befund, unten): benannte Ablage ohne Anker => inert.
+//
+// WAS DER STEMPEL BINDET UND WER IHN LIEST: die Identitaets-Funktion liefert je view_index GENAU DEN
+// Fingerprint, den dll_is_current an dieser Position als Erwartung vergleichen wuerde; plan_bau_digest
+// verdichtet die Folge zum Glied `|bau=` des Plan-Stempels. Gelesen wird dieses Glied von zwei Stellen --
+// dem Bau-Weg (read_phasen_zaehler entscheidet daran den Plan-Resume, run_planer_driven_provision) und
+// dem Mess-Weg (read_batch_plan entscheidet daran, ob die Mess-Front fortgeschrieben wird). Beide fragen
+// dieselbe Frage: "stammt dieser Zaehlerstand aus DEMSELBEN Bau-Stand wie dieser Lauf?".
+//
+// T2-A/F4-NB3, OWNER-DOKTRIN 2026-08-06 (bindend): KEINE KOSTENKLAMMERN. Hier stand bis zu dieser Welle
+// ein zweites Glied `cfg.batch_plan_datei.empty()`, begruendet damit, dass der Stempel ohne Plan-Ablage
+// "von keiner Stelle gelesen" werde. Diese Begruendungsform gilt nicht mehr: das System ist gross, und
+// eine Naht, die heute niemand liest, wird uebermorgen weiterverwertet -- eine Bedingung, die allein
+// Rechenzeit spart, kauft diese Ersparnis mit einer Fallunterscheidung, die jeder spaetere Leser erst
+// widerlegen muss. Die Funktion ist ab jetzt bedingungsaermer: sie liefert die Identitaet, SOBALD ein
+// Provider da ist -- unabhaengig davon, ob eine Ablage benannt ist. EHRLICH BEZIFFERT, was das kostet:
+// ein FingerprintFn-Durchlauf ueber die Selektion, EINMAL je Lauf, auch im heutigen Voll-Bau ohne
+// Plan-Ablage. Das ist bewusst in Kauf genommen (Groessenordnung: derselbe Durchlauf, den der Miss-Scan
+// des Planers und der Bau-Filter des Consumers ohnehin je einmal zahlen).
+//
+// LEBENSDAUER: view und cfg werden per Referenz gehalten. Beide Aufruf-Stellen bilden den Stempel
+// SOFORT -- die Funktion ueberlebt den Ausdruck nicht, in dem sie entsteht.
+[[nodiscard]] inline bestandslog::PlanIdentitaetFn plan_identitaet_of(StaticBinaryView const& view,
+                                                                      LazyRunConfig const&    cfg) {
+    // DIESE EINE BEDINGUNG IST SICHERHEIT, NICHT SPARSAMKEIT -- sie faellt NICHT unter die
+    // Kostenklammer-Doktrin und darf nicht mit dem eben entfernten Pfad-Glied verwechselt werden:
+    //
+    // FingerprintFn ist ein std::function (build_orchestrator.hpp:188) -- ein LEERES std::function ist
+    // ansprechbar, aber nicht aufrufbar. Faellt diese Zeile, entsteht hier eine NICHT-leere
+    // PlanIdentitaetFn, deren Rumpf ein leeres std::function ruft; plan_bau_digest
+    // (planer_driven_build.hpp:301) haelt sie fuer einen gueltigen Anker, betritt die Schleife, und der
+    // ERSTE Index wirft std::bad_function_call -- mitten im Bau, aus einer Buchhaltungs-Naht heraus.
+    //
+    // PRODUKTIV ERREICHBAR, nicht theoretisch: profile_run_entry.hpp LEERT den Provider ohne das
+    // COMDARE_BESTANDSLOG-Opt-in (:436), bei unbekannter Tier-Realversion (:438, T2-C) und beim
+    // `na`-Zellwert (:1013, W10-C4) -- waehrend bestandslog_active an keinem der drei haengt. Wer diese
+    // Bedingung als "doppelt gemoppelt" streicht, baut genau diesen Wurf ein. Der Biss dagegen steht in
+    // test_tp1_planer_filter_iterator, Fall (11l-c).
+    //
+    // Die AUFRUFER-Seite zieht daraus zusaetzlich die fail-closed-Konsequenz: eine benannte Plan-Ablage
+    // OHNE Anker bleibt inert, statt einen ankerlosen Stempel abzulegen (s. plan_anker_befund).
+    if (!cfg.bestand_fingerprint_fn) return {};
+    return [&view, &cfg](std::size_t i) -> std::string { return cfg.bestand_fingerprint_fn(view[i].binary_id); };
+}
+
+// T2-A/F4-NB3 (Opus-Zweit-Review 2026-08-06, BEFUND 1 [HOCH]) -- EINE PLAN-ABLAGE OHNE BAU-ANKER IST
+// KEINE PLAN-ABLAGE.
+//
+// DER BEFUND AM OBJEKT: fehlt der Fingerprint-Provider, liefert plan_identitaet_of die leere Funktion und
+// plan_bau_digest stempelt das WORT `ohne-anker` statt eines Digests. Damit tragen ZWEI VERSCHIEDENE
+// Bau-Staende denselben Stempel -- und der Zaehler-Leser (read_phasen_zaehler) nimmt ihn an. Der Folgelauf
+// ueberspringt dann die vom Alt-Zaehler gedeckten FUEHRENDEN Faecher; ihre .so stammen aus einem anderen
+// Bau-Stand, und dll_is_current wird nie gefragt, weil diese Faecher gar nicht erst in den Strom gehen
+// (SlicePlanner::run, Schritt (4)). Das ist derselbe Leitsatz-Bruch wie Befund 3 -- "der Zaehler-Resume
+// darf nie mehr behaupten, als der Fingerprint deckt" --, nur eben ueber den ANKERLOSEN Weg, und er
+// geschieht STILL: keine Zeile sagt es an.
+//
+// PRODUKTIV ERREICHBAR, nicht theoretisch: cfg.bestand_fingerprint_fn wird an zwei Stellen GELEERT --
+// beim `na`-Zellwert (profile_run_entry.hpp, W10-C4) und bei unbekannter Tier-Realversion (ebenda, T2-C).
+// Beide Male ist das Leeren richtig ("eine unbestimmte Identitaet traegt keinen Skip"); falsch war allein,
+// dass die PLAN-Ebene diese Entscheidung nicht mitvollzogen hat: bestandslog_active haengt nicht am
+// Provider, also lief die Ablage weiter und zertifizierte ankerlos.
+//
+// DERSELBE DEFEKT EINE EBENE TIEFER -- PRO ATOM STATT PRO LAUF (Gegenpruefer-Messung, AUFLAGE 2):
+// der produktive Provider liefert fuer eine NICHT MATERIALISIERBARE binary_id absichtlich den LEEREN
+// String (lazy_adhoc_source_gen.hpp:367 -- "keine DLL, also kein Fingerprint"). Fuer so ein Atom ist
+// dll_is_current per Konstruktion blind (expected_fingerprint leer => return false, es skippt NIE, deckt
+// also NICHTS). plan_bau_digest hasht den leeren Wert trotzdem mit, und der Zaehler fuehrt das Atom als
+// gedeckt. Sind ALLE Atome so, sind zwei verschiedene Bau-Staende wieder stempel-GLEICH -- und der
+// Stempel sieht dabei GUELTIG aus (kein `ohne-anker`), der Leser nimmt den fremden Stand also an. Die
+// Anker-Wache allein greift dagegen nicht: der Provider IST ja gesetzt.
+//
+// DIE HEILUNG IST EIN GATE, NICHT ZWEI: dieselbe fail-closed-Klammer traegt beide Ausfallgruende, und
+// beide melden ueber DIESELBE beziffernde Zeile. Ist eine Plan-Ablage benannt, aber (a) kein Provider da
+// ODER (b) auch nur EIN Atom ohne pruefbare Identitaet, wird KEIN Plan und KEIN Zaehler geschrieben und
+// KEINER gelesen -- die Ebene bleibt inert wie bei leerem Pfad, und der Lauf arbeitet ehrlich. Lieber
+// keine Ablage als eine, die ein Atom deckt, das dll_is_current nie sieht.
+//
+// DIE FORM-WAHRHEIT KOMMT AUS IHRER EINEN HEIMAT: detail::fp_is_hex_128 (fingerprint_sidecar.hpp) --
+// dieselbe Wache, die der Mess-Resume seit T2-A/K2-NB benutzt (s.u., `|fpr=`-Glied). KEINE zweite
+// Formwache; das war der K2-NB-Entscheid, und er gilt hier genauso.
+//
+// slice_plan_stamp/plan_bau_digest bleiben UNVERAENDERT: das `ohne-anker`-Glied ist dort die ehrliche
+// Selbstauskunft einer Zeichenkette, die niemand zum Zertifizieren benutzen darf -- und genau dieses
+// "niemand" wird hier durchgesetzt. Nebenbei stimmt damit erstmals die Injektivitaets-Zusage im Kopf von
+// plan_bau_digest ("der Trenner liegt ausserhalb des Hex-Alphabets"): eine Eigenschaft, die bis hierher
+// behauptet und nirgends geprueft war.
+struct PlanAnkerBefund {
+    /// Der Plan-Stempel dieses Laufs. BELEGT NUR, wenn traegt() -- ein nicht tragender Befund hat keinen
+    /// Stempel, damit ein Aufrufer ihn nicht versehentlich doch ablegen kann.
+    std::string stamp;
+    bool        provider_fehlt  = false; ///< cfg.bestand_fingerprint_fn ist leer (Ausfallgrund a)
+    std::size_t form_verstoesse = 0;     ///< Atome ohne pruefbare 128-hex-Identitaet (Ausfallgrund b)
+    std::size_t erster_verstoss = 0;     ///< view_index des ERSTEN davon (nur mit form_verstoesse > 0)
+
+    [[nodiscard]] bool traegt() const noexcept { return !provider_fehlt && form_verstoesse == 0; }
+};
+
+// DIE EINE STELLE, DIE ENTSCHEIDET, OB DIESER LAUF EINE PLAN-ABLAGE BEKOMMT -- und die den Stempel
+// gleich mitliefert, damit Entscheidung und Ergebnis nicht auseinanderlaufen koennen.
+//
+// KOSTEN, ehrlich benannt: die Form-Pruefung sitzt IN der Digest-Schleife, in der jeder Wert ohnehin
+// GENAU EINMAL geholt wird -- sie kostet also keinen zusaetzlichen Provider-Aufruf. Bewusst wird NICHT
+// beim ersten Verstoss abgebrochen: der Durchlauf ist bereits bezahlt, und ein Abbruch machte die
+// gemeldete Zahl zur Halbwahrheit ("mindestens einer"). Eine Ersparnis, die eine Diagnose verstuemmelt,
+// ist genau die Sorte Klammer, die die Owner-Doktrin vom 2026-08-06 gefaellt hat.
+[[nodiscard]] inline PlanAnkerBefund plan_anker_befund(StaticBinaryView const& view, LazyRunConfig const& cfg,
+                                                       std::vector<std::size_t> const& indices, std::size_t grain) {
+    PlanAnkerBefund                     befund;
+    bestandslog::PlanIdentitaetFn const roh = plan_identitaet_of(view, cfg);
+    if (!roh) {
+        befund.provider_fehlt = true;
+        return befund;
+    }
+    std::string const stamp =
+        bestandslog::slice_plan_stamp(indices, grain, [&roh, &befund](std::size_t i) -> std::string {
+            std::string wert = roh(i);
+            if (!detail::fp_is_hex_128(wert)) {
+                if (befund.form_verstoesse == 0) befund.erster_verstoss = i;
+                ++befund.form_verstoesse;
+            }
+            return wert;
+        });
+    if (befund.form_verstoesse == 0) befund.stamp = stamp;
+    return befund;
+}
+
+// Die EINE Ansage dazu (nie stumm, beziffert): beide Wege -- Bau und Mess -- melden denselben Sachverhalt
+// mit derselben Zeile, damit ein Betreiber ihn im Log nicht zweimal lernen muss. `weg` benennt die Seite,
+// der Befund den Grund -- mit Zahl und erstem Index, wo es einen gibt.
+inline void melde_plan_ablage_ohne_anker(LazyRunConfig const& cfg, std::size_t indizes, PlanAnkerBefund const& befund,
+                                         char const* weg) {
+    std::cerr << "[bestandslog] plan-ablage INERT (" << weg << "): " << cfg.batch_plan_datei.string()
+              << " ist benannt, aber ";
+    if (befund.provider_fehlt)
+        std::cerr << "dieser Lauf fuehrt KEINEN Fingerprint-Anker (bestand_fingerprint_fn leer) -- ein Plan-Stempel "
+                     "mit dem Glied |bau="
+                  << bestandslog::kPlanOhneAnker << " waere fuer JEDEN Bau-Stand derselbe";
+    else
+        std::cerr << befund.form_verstoesse << " von " << indizes
+                  << " Atomen liefern keine pruefbare Bau-Identitaet (nicht 128-hex; erstes: view_index "
+                  << befund.erster_verstoss
+                  << ") -- ein Stempel, der sie mitrechnet, deckt Atome, die dll_is_current nie sieht";
+    std::cerr << " und wuerde einem Folgelauf ein Praefix zertifizieren, das nie geprueft wurde. Es wird kein Plan "
+                 "und kein Zaehler geschrieben und keiner gelesen; die "
+              << indizes << " Indizes dieses Laufs werden ehrlich bearbeitet\n"
+              << std::flush;
+}
+
 // #46b I1b (opt-in): den Planer-getriebenen provision-Bau ausfuehren. Ein async Producer (SlicePlanner) slict die
 // SELBEN indices in 4096er-Fenster; der Consumer baut je Fenster NUR DIE FEHLENDEN Binaries (Lager-TP1(B)/G-A2:
 // filter_window_for_build ueber die PresenceFn -- LEDGER:3397 "jedes fehlende Binary EINZELN erkannt") und
@@ -1066,10 +1323,42 @@ inline void mess_pfad_synchron_push(CachePushFn const& cache_push, std::filesyst
 [[nodiscard]] inline std::vector<BuildResult>
 run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& view,
                             std::vector<std::size_t> const& indices, LazyRunConfig const& cfg, BuildStats& agg,
-                            bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr) {
-    std::vector<BuildResult>    builds;
+                            bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr,
+                            std::size_t* plan_resume_skips_out = nullptr, PushVollzugFn const& push_vollzug = {}) {
+    std::vector<BuildResult> builds;
+    // T2-A/F4-BILANZ: das KORN wird gefuehrt, nicht hart hingeschrieben -- slice_plan_stamp,
+    // plan_alle_faecher und der SlicePlanner nehmen es alle drei laengst entgegen. Wer ein anderes Korn
+    // setzt, bekommt es KONSISTENT (Stempel UND Schnitt aus derselben Zahl -- ein zweites Korn waere ein
+    // Plan, den sein eigener Leser ablehnt). Gebraucht wird die Naht fuer den TEILWEISEN Plan-Resume: er
+    // ist ein Fach-Phaenomen und bei Korn 4096 nur mit >4096 Binaries auszuloesen -- eine Groesse, die
+    // kein Modultest ehrlich bauen kann.
+    //
+    // T2-A/F4-NB2: die Zahl kommt ab jetzt aus cfg.batch_plan_korn und NICHT mehr aus einem eigenen
+    // Funktions-Parameter. Der Parameter war die zweite Quelle desselben Wertes: der Mess-Weg
+    // (run_lazy_static_then_dynamic, Mess-Front) hat keinen Zugriff darauf und schrieb deshalb
+    // kBuildSliceGrain hart hin -- bei abweichendem Korn divergierten die beiden Stempel. Eine Quelle
+    // kann nicht divergieren.
+    std::size_t const grain = plan_slice_korn(cfg);
+    // T2-A/F4: die Plan-Ablage dieses Bau-Laufs. Der rows_key wird HEREINGEREICHT -- kLazyResumeRowsKey ist
+    // hier zu Hause, das Bestandslog darf ihn nicht kennen (Abhaengigkeits-Richtung) und soll ihn erst recht
+    // nicht ein zweites Mal als Literal fuehren (W5-Hebung). Leere Datei => aktiv()==false => inert.
+    // T2-A/F4-NB2 (Befund 3): der Stempel traegt die BAU-IDENTITAET dieses Laufs mit. Ohne sie war der
+    // Zaehler eine von dll_is_current unabhaengige zweite Resume-Autoritaet (s. slice_plan_stamp).
+    // T2-A/F4-NB3 (Befund 1 + Auflage 2): die FAIL-CLOSED-Klammer. Der Befund wird UNBEDINGT erhoben --
+    // keine Pfad-Klammer davor (Owner-Doktrin "keine Kostenklammern"). Traegt er, bekommt die Ablage ihren
+    // Stempel; ein leerer Pfad macht sie ohnehin inert (aktiv()==false), das ist ihr eigenes Gate. Traegt
+    // er nicht, gibt es KEINE PlanPersistenz -- weder Schreib- noch Lese-Weg. Die Meldung haengt allein
+    // daran, dass ueberhaupt eine Ablage BENANNT ist: ohne Namen gibt es nichts, was inert geworden waere
+    // (Aussage-Richtigkeit, keine Ersparnis).
+    PlanAnkerBefund const       plan_anker = plan_anker_befund(view, cfg, indices, grain);
+    bestandslog::PlanPersistenz plan_persistenz;
+    if (plan_anker.traegt())
+        plan_persistenz =
+            bestandslog::PlanPersistenz{cfg.batch_plan_datei, plan_anker.stamp, std::string{kLazyResumeRowsKey}};
+    else if (!cfg.batch_plan_datei.empty())
+        melde_plan_ablage_ohne_anker(cfg, indices.size(), plan_anker, "bau-weg");
     bestandslog::SlicePlanQueue queue;
-    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, present);
+    bestandslog::SlicePlanner   planner(queue, indices, grain, present, plan_persistenz);
 
     bool const reserve = static_cast<bool>(cfg.bestand_transport.store) &&
                          static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
@@ -1089,7 +1378,38 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     std::size_t bestand_skips_gesamt = 0; // G-A2: als Bestand uebersprungene Binaries (Testat am Ende)
 
     std::size_t slice_seq = 0;
+    // T2-A/F4: der Bau-Zaehler DIESES Laufs gegen den persistierten Plan. plan_praefix_intakt haelt fest, dass
+    // der Zaehler ein PRAEFIX beschreibt: sobald ein Fenster mit Bau-Fehlern durchlaeuft, darf keine spaetere
+    // Zahl mehr hochlaufen -- sonst wuerde der Folgelauf ueber das kaputte Fenster hinweg aufsetzen.
+    std::uint64_t plan_kompiliert     = 0;
+    std::uint64_t plan_gemessen       = 0;
+    std::size_t   plan_faecher        = 0;
+    bool          plan_praefix_intakt = true;
+    // T2-A/F4-BILANZ: der VORGEFUNDENE Zaehlerstand, getrennt von plan_kompiliert festgehalten -- letzterer
+    // laeuft im Fenster-Takt hoch, dieser bleibt die Zahl der Atome, die dieser Lauf GEERBT hat. Genau sie
+    // ist die Bilanz-Groesse (plan_resume_skips) und genau sie fehlte bis hierher in den BuildStats.
+    std::uint64_t plan_resume_atome = 0;
+    // DIE PLAN-WERTE WERDEN GENAU EINMAL GELESEN -- aber an ZWEI Stellen abgeholt, weil es ZWEI gleichwertige
+    // Belege dafuer gibt, dass der Planer sie gesetzt hat (s. SlicePlanner::plan_faecher_zahl: "ein Konsument,
+    // der bereits ein Fach gezogen hat ODER die geschlossene Queue gesehen hat, liest sie fertig"): das erste
+    // gezogene Fach -- und das Ende der Schleife, das nichts anderes bedeutet als eine geschlossene Queue.
+    // DER ZWEITE BELEG IST DER GRUND DIESER HEBUNG: ein VOLLSTAENDIG plan-resumierter Lauf zieht kein Fach
+    // mehr, betritt den Schleifenrumpf also nie -- und liess bis hierher alle drei Werte auf 0 stehen, samt
+    // der geerbten Atome, die er zu Recht als bereitgestellt fuehrt.
+    bool plan_werte_gelesen = false;
+    auto lies_plan_werte    = [&] {
+        if (plan_werte_gelesen || !plan_persistenz.aktiv()) return;
+        plan_werte_gelesen = true;
+        plan_resume_atome  = planner.resume_atome();
+        plan_kompiliert    = plan_resume_atome;
+        // T2-A/F4-NB (NAMENS-PIN): BILANZ, nicht Front. Dieser Wert wird ausschliesslich UNVERAENDERT
+        // zurueckgeschrieben (s. unten) -- er darf NIE als Praefix-Front konsumiert werden; der
+        // Resume-Punkt dieses Bau-Laufs ist allein plan_resume_atome (die Bau-Front).
+        plan_gemessen = planner.vorgefundene_mess_front();
+        plan_faecher  = planner.plan_faecher_zahl();
+    };
     while (auto plan = queue.pop()) {
+        lies_plan_werte(); // Beleg 1: ein gezogenes Fach
         bestandslog::BatchReservierung           res;
         std::optional<bestandslog::PromiseGuard> guard;
         if (reserve) {
@@ -1164,9 +1484,13 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // slice_stats dieses Fensters + die Filter-Zahl -- der Treiber ist die einzige Zaehler-Quelle
         // des Kanals (Single-Source; die Shell zaehlt nichts nach).
         std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", fenster)
-                  << " gebaut_neu=" << slice_stats.built << " sidecar_skip=" << slice_stats.skipped
-                  << " lager_skip=" << gefiltert.bestand_uebersprungen << " fehl=" << slice_stats.failed
-                  << " dauer_s=" << bestandslog::format_seconds(wall_s) << "\n"
+                  << " gebaut_neu=" << slice_stats.built << " sidecar_skip=" << slice_stats.skipped << " lager_skip="
+                  << gefiltert.bestand_uebersprungen
+                  // T2-A/F4-BILANZ: EINE Grammatik fuer die ganze Marke -- die dritte Skip-Quelle steht in
+                  // JEDER [BILANZ-TESTAT]-Zeile, auch wo sie 0 ist. Ein Fenster, das den Loop erreicht hat,
+                  // ist per Definition NICHT plan-resumiert; die 0 ist hier die Wahrheit, keine Ersatzzahl.
+                  << " plan_skip=0"
+                  << " fehl=" << slice_stats.failed << " dauer_s=" << bestandslog::format_seconds(wall_s) << "\n"
                   << std::flush;
 
         if (reserve) {
@@ -1180,8 +1504,83 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             if (!store_reservation(res, "Done-Reservierung")) ++res_fehler;
             if (guard) guard->commit(); // erfolgreicher Slice -> kein Release
         }
+        // T2-A/F4: DER ZAEHLER LAEUFT NACH DEM VOLLZUG HOCH, NICHT DAVOR. Gezaehlt werden die ATOME des
+        // Fensters (seine view_indices) -- Lager-Treffer eingeschlossen, denn auch fuer sie gilt die Aussage
+        // "hier ist nichts mehr zu bauen". Ein Fenster mit auch nur EINEM Bau-Fehler bricht das Praefix: die
+        // Zahl bleibt stehen, und der Folgelauf faengt genau dort wieder an. Ein misslungener Zaehler-Schrieb
+        // ist -- wie die Reservierungs-Buchhaltung -- KEIN Bau-Fehler, aber er ist nie stumm.
+        //
+        // T2-A/F4-NB2 (Befund 1) -- "VOLLZUG" HEISST AB JETZT AUCH: DIE ARTEFAKTE SIND IM STORE. Der
+        // asynchrone Push lief bis hierher NEBEN dem Zaehler her und wurde erst hinter der GANZEN Schleife
+        // drainiert (push_pump->close()); ein Fenster, dessen Pushes samt und sonders warfen, stand
+        // trotzdem als vollzogen im Zaehler -- und der Folgelauf uebersprang es, ohne dass irgendwo eine
+        // Binary lag. push_vollzug() drainiert den Kanal bis zum Fenster-Ende und meldet die Fehl-Pushes;
+        // ein einziger bricht das Praefix wie ein Bau-Fehler. Die Zahl ist KUMULATIV (der Pump zaehlt ueber
+        // den Lauf) -- das ist bewusst konservativ: nach dem ersten Fehl-Push wandert kein Fenster mehr in
+        // den Zaehler, auch wenn ein spaeteres fuer sich gelungen waere. Fail-closed in die richtige
+        // Richtung: zu wenig Resume kostet einen Nachbau, zu viel kostet ein Loch in der Matrix.
+        if (plan_persistenz.aktiv() && plan_praefix_intakt) {
+            std::size_t const push_fehl = push_vollzug ? push_vollzug() : std::size_t{0};
+            if (slice_stats.failed == 0 && push_fehl == 0) {
+                plan_kompiliert += static_cast<std::uint64_t>(plan->view_indices.size());
+                if (!bestandslog::write_phasen_zaehler(plan_persistenz.zaehler_datei(), plan_persistenz.stamp,
+                                                       bestandslog::PhasenZaehler{plan_kompiliert, plan_gemessen},
+                                                       plan_faecher, plan_persistenz.rows_key))
+                    std::cerr << "[bestandslog] warn: Bau-Zaehler des Batch-Plans nicht persistiert ("
+                              << plan_persistenz.zaehler_datei().string()
+                              << ") -- der Bau ist unberuehrt, der Folgelauf setzt frueher auf\n"
+                              << std::flush;
+            } else if (slice_stats.failed != 0) {
+                plan_praefix_intakt = false;
+                std::cerr << "[bestandslog] plan-zaehler: Fenster mit " << slice_stats.failed
+                          << " Bau-Fehlern -- der Zaehler bleibt bei " << plan_kompiliert
+                          << " Atomen stehen (Praefix-Resume, kein Ueberspringen des Fehl-Fensters)\n"
+                          << std::flush;
+            } else {
+                // Nie-stumm, und mit der EIGENEN Begruendung: gebaut wurde alles, nur angekommen ist es
+                // nicht. Wer diese Zeile sieht, sucht am Store-Transport und nicht am Compiler.
+                plan_praefix_intakt = false;
+                std::cerr << "[bestandslog] plan-zaehler: Fenster fehlerfrei GEBAUT, aber " << push_fehl
+                          << " Push-Fehler bis hierher -- der Zaehler bleibt bei " << plan_kompiliert
+                          << " Atomen stehen (die Artefakte sind NICHT im Store; ein Zaehler-Schritt haette "
+                             "dem Folgelauf Binaries versprochen, die es dort nicht gibt)\n"
+                          << std::flush;
+            }
+        }
         for (auto& b : part) builds.push_back(std::move(b));
         ++slice_seq;
+    }
+    lies_plan_werte(); // Beleg 2: die Schleife ist zu Ende == die Queue ist geschlossen (s. oben)
+
+    // ---------------------------------------------------------------------------------------------
+    // T2-A/F4-BILANZ: DIE GEERBTEN ATOME BUCHEN.
+    // Die vom Plan-Zaehler gedeckten FUEHRENDEN Faecher haben den Slice-Loop nie erreicht, also hat oben
+    // niemand ihre Atome gebucht. Hier geschieht das -- mit EXAKT der Buchung, die die Lager-Skips im
+    // Loop erhalten (succeeded + skipped + total_jobs, `built` unberuehrt, weil nichts NEU kompiliert
+    // wurde). Damit haelt die Definition von LazyRunResult::built wieder ueber alle drei Skip-Quellen,
+    // und ein vollstaendig plan-resumierter provision-only-Lauf ist das, was er ist: ein gueltiger Lauf.
+    agg.total_jobs += static_cast<std::size_t>(plan_resume_atome);
+    agg.succeeded += static_cast<std::size_t>(plan_resume_atome);
+    agg.skipped += static_cast<std::size_t>(plan_resume_atome);
+
+    // DAS ZUGEHOERIGE TESTAT (Nie-stumm; 0-Fall schweigt, wie das G-A2-Testat darunter). Ohne diese Zeile
+    // wuerde eine Bilanz aufgehen, die niemand nachrechnen kann -- und der VOLL resumierte Lauf haette im
+    // planer-getriebenen Pfad ueberhaupt KEINE [BILANZ-TESTAT]-Zeile, waehrend er zugleich exit 0 meldet.
+    // Das Fenster ist exakt bestimmbar: der Plan schneidet `indices` in Reihenfolge, die gedeckten Faecher
+    // sind sein PRAEFIX -- also die ersten plan_resume_atome Indizes ab indices.front(). dauer_s fehlt aus
+    // demselben Grund wie in der Fallback-Zeile: dieser Lauf hat an diesen Atomen keine Zeit verbracht,
+    // und eine erfundene waere schlimmer als keine.
+    if (plan_resume_atome > 0) {
+        std::string const resume_fenster = marker_fenster(indices.empty() ? std::size_t{0} : indices.front(),
+                                                          static_cast<std::size_t>(plan_resume_atome));
+        std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau",
+                                 resume_fenster)
+                  << " gebaut_neu=0 sidecar_skip=0 lager_skip=0 plan_skip=" << plan_resume_atome << " fehl=0\n"
+                  << std::flush;
+        std::cerr << "[bestandslog] plan-bilanz: " << plan_resume_atome << " Atome aus " << plan_faecher
+                  << " geplanten Faechern vom Phasen-Zaehler gedeckt -- als bereitgestellt gebucht (dieselbe "
+                     "Buchung wie ein Lager-Skip; der Beleg ist der Zaehler, nicht die Platte)\n"
+                  << std::flush;
     }
     // B13-Testat: die Fehlschlaege der Buchhaltung EINMAL beziffert (je Slice zwei planmaessige Schreibvorgaenge).
     // Kein Erfolgs-Haken ohne Ausgabe -- und kein Bau-Abbruch: die Binaries dieses Laufs sind davon unberuehrt.
@@ -1199,6 +1598,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // TP1-N3 (B-3): die Lager-Skip-Zahl reist zum Aufrufer (LazyRunResult.bestand_lager_skips) --
     // builds traegt nur die GEBAUTEN, die Skips waeren sonst im Ergebnis unsichtbar.
     if (bestand_skips_out != nullptr) *bestand_skips_out = bestand_skips_gesamt;
+    // T2-A/F4-BILANZ: dieselbe Reise fuer die dritte Skip-Quelle (LazyRunResult.plan_resume_skips) --
+    // aus demselben Grund: builds traegt sie nicht, und in built_skip allein waere sie nicht trennbar.
+    if (plan_resume_skips_out != nullptr) *plan_resume_skips_out = static_cast<std::size_t>(plan_resume_atome);
     return builds; // Producer-Thread joined im SlicePlanner-dtor (RAII)
 }
 
@@ -1388,9 +1790,19 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // Koordinate, die der planer-getriebene Pfad je Slice fuehrt.
     std::string const lauf_fenster = marker_fenster(indices.empty() ? std::size_t{0} : indices.front(), indices.size());
     bool const        planer_getrieben = bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only);
+    // T2-A/F4-NB2 (Befund 1): die Vollzugs-Pruefung des Push-Kanals. Sie existiert NUR, wenn es einen Pump
+    // gibt; ohne ihn bleibt sie leer und der Zaehler-Pfad ist zeilen- wie verhaltensidentisch zum Ist. Die
+    // Lambda haelt den Pump per Referenz -- sie lebt ausschliesslich innerhalb des Aufrufs darunter, also
+    // kuerzer als der unique_ptr.
+    PushVollzugFn push_vollzug;
+    if (push_pump)
+        push_vollzug = [&push_pump]() -> std::size_t {
+            push_pump->drain(); // Barriere: alles bis hierher Eingereihte ist abgearbeitet
+            return push_pump->failed_count();
+        };
     if (planer_getrieben)
         builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats, bestand_present,
-                                             &result.bestand_lager_skips);
+                                             &result.bestand_lager_skips, &result.plan_resume_skips, push_vollzug);
     else {
         // FALLBACK-KANAL: ohne aktives Bestandslog gibt es keinen Slice-Loop -- die Invocation IST das
         // eine Fenster. Ohne diese beiden Zeilen waere der Live-Kanal in genau den Laeufen stumm, in
@@ -1418,14 +1830,15 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
     // E-04-P1: die Fallback-Bilanz macht built_new/built_skip zu KONSUMENTEN (Aufraeumpass-Kandidat (1)
     // der 75er-Liste entschaerft: built_new hatte bereits den SOTA-Bruecken-Leser, built_skip war
-    // leserlos). lager_skip bleibt 0, weil dieser Pfad keinen Bau-Filter faehrt -- 0 ist hier die
-    // WAHRHEIT, keine Ersatzzahl. dauer_s fuehrt nur der Slice-Pfad (dort wird die Wall-Clock je
-    // Fenster fuer die ETA ohnehin gemessen); hier gaebe es keine ehrliche Fenster-Zeit.
+    // leserlos). lager_skip UND plan_skip bleiben 0, weil dieser Pfad weder einen Bau-Filter noch einen
+    // Plan fuehrt -- 0 ist hier die WAHRHEIT, keine Ersatzzahl. dauer_s fuehrt nur der Slice-Pfad (dort
+    // wird die Wall-Clock je Fenster fuer die ETA ohnehin gemessen); hier gaebe es keine ehrliche Zeit.
     if (!planer_getrieben)
         std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau",
                                  lauf_fenster)
                   << " gebaut_neu=" << result.built_new << " sidecar_skip=" << result.built_skip
-                  << " lager_skip=" << result.bestand_lager_skips << " fehl=" << result.build_stats.failed << "\n"
+                  << " lager_skip=" << result.bestand_lager_skips << " plan_skip=" << result.plan_resume_skips
+                  << " fehl=" << result.build_stats.failed << "\n"
                   << std::flush;
 
     // #46b I1 (opt-in): die frisch gebauten Binaries EINMAL ins Binary-Bestandslog mergen (single-threaded,
@@ -1549,9 +1962,12 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // Delta (in StaticBinaryView-Ordnung; Lager-Treffer haben keine Konfigurations-Aenderung zu melden).
         // TP1-N3 (B-2b): das done-Delta traegt die VOLLE bereitgestellte Menge (gebaut + Lager-Bestand) --
         // builds.size() allein unterzaehlte seit dem Bau-Filter die Bereitstellung dieses Fensters.
+        // T2-A/F4-BILANZ: derselbe Satz gilt fuer die dritte Quelle -- die plan-resumierten Atome sind
+        // bereitgestellt, also gehoeren sie in dieselbe Summe. Sonst meldete ein plan-resumierter Lauf
+        // dem Paragraf-38-Kanal weniger fertig, als er im selben Atemzug als `built` fuehrt.
         for (std::size_t j = 0; j < builds.size(); ++j)
             fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
-        fire_progress_done(builds.size() + result.bestand_lager_skips);
+        fire_progress_done(builds.size() + result.bestand_lager_skips + result.plan_resume_skips);
         return result;
     }
 
@@ -1637,6 +2053,22 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         std::vector<LazyMeasuredRow> rows;
         bool                         progress_eligible =
             false; // fire_progress NUR fuer geladene/gemessene Zellen (wie das Ist; Skips feuern nie)
+        // T2-A/F4-NB2 (Codex-Voll-Scope, Befund 2) -- "DIESE ZELLE IST ZERTIFIZIERT GEMESSEN".
+        //
+        // Das Praedikat der MESS-FRONT, und zwar EXAKT das des per-Binary-Resume-Stempels: gesetzt wird es
+        // an genau den zwei Stellen, an denen diese Ablage einen Resume-ANSPRUCH traegt -- beim geglueckten
+        // Schreiben von result.csv.stamp und beim geglueckten Resume aus einem vorgefundenen Stamp. Es ist
+        // NICHT `measured > 0`: gemessene Zeilen entstehen auch dort, wo der Stamp bewusst ausbleibt
+        // (unvollstaendige Settings, eine ungueltige Zwei-Phasen-Zeile, |fpr=-Formverstoss, gescheiterter
+        // CSV-Write) -- eine solche Zelle HAT Zeilen, aber sie hat keinen Stand, auf den ein Folgelauf
+        // aufsetzen darf. Genau diese Verwechslung war der Befund.
+        //
+        // EHRLICHE GRENZE, die aus der Kopplung an den Stamp folgt: OHNE per_binary_subdirs gibt es keine
+        // per-Binary-Ablage und damit kein Zertifikat -- das Praedikat bleibt dann fuer JEDE Zelle false
+        // und die Mess-Front dieses Laufs ist 0. Das ist die fail-closed-Richtung und keine Luecke: ohne
+        // per-Binary-Ablage kann ein Folgelauf ohnehin nichts resumieren, eine Front waere dort eine Zahl
+        // ohne Deckung. Der produktive Pfad setzt per_binary_subdirs unbedingt (profile_run_entry.hpp).
+        bool mess_front_faehig = false;
     };
 
     // A15/FK-1 (Auflage K3): die Identitaets-/Lauf-Tags einer MARKER-Zeile stammen ausschliesslich aus der
@@ -1665,9 +2097,6 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // je Binary isoliert (eigener Unterordner). Wird sequentiell ODER aus dem Worker-Pool aufgerufen.
     auto measure_one_binary = [&](BuildResult const& b, measurement::IPmcSource* cell_pmc) -> CellOutcome {
         CellOutcome oc;
-        // Bauplan §8: der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur (leer => == Prefix, Ist).
-        std::string const binary_resume_stamp =
-            b.algo_sig.empty() ? resume_stamp_prefix : (resume_stamp_prefix + "|algos=" + b.algo_sig);
         // TP1FK1-B10 (Codex-Befund, BLOCK): der BAU-FEHLER-ZWEIG STEHT VOR DEM RESUME-KURZSCHLUSS.
         //
         // Frueher lief der Resume-Check zuerst -- ausdruecklich "auch bei Build-Fehler, sonst stille
@@ -1815,15 +2244,128 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             oc.rows.push_back(std::move(marker));
             return oc; // Build-Fehler -> KEINE Messung, aber ein sichtbarer Datensatz (Zeile + Ablage)
         }
+
+        // Bauplan Section 8: der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur
+        // (leer => == Prefix, Ist).
+        //
+        // T2-A/K2 (Codex-Befund, SCHWER) -- DER STAMP TRAEGT AB HIER DEN VOLLEN FINGERPRINT, NICHT NUR DIE
+        // ALGO-SIGNATUR. Der Befund woertlich: "Mess-Resume nicht an den neuen Fingerprint gekoppelt --
+        // Stamp bleibt resume-v5, prueft nur algo_sig -> g++-16 16.0.1->16.3 baut die DLL neu, uebernimmt
+        // aber ALTE Messwerte aus result.csv". Das ist GENAU der 'neue DLL / alte Messwerte'-Bug, den der
+        // Neuanker heilen soll -- und er ueberlebte den Neuanker, weil der Resume-Stamp die einzige Stelle
+        // war, die von der neuen Identitaet nichts wusste: algo_sig deckt die ORGAN-Achsen, kein einziges
+        // Toolchain-, System- oder bvset-Glied. Zwei Baue, die sich in Compiler-Realversion, opt-Flags,
+        // Zellwerten oder Enable-Menge unterscheiden, hatten denselben Stamp.
+        //
+        // DIE QUELLE IST DIESELBE WIE FUER DAS SKIP-GATE -- und ab T2-A/K2-NB ist das nicht mehr nur
+        // DIESELBE FUNKTION, sondern DERSELBE GELESENE WERT: b.fingerprint traegt genau die Zahl, die
+        // provision_core EINMAL je Job beim Provider geholt, als Skip-Erwartung verglichen und als
+        // `.fingerprint`-Sidecar geschrieben hat (Muster b.algo_sig). Vorher rief diese Stelle
+        // cfg.bestand_fingerprint_fn ein ZWEITES Mal -- dieselbe std::function garantiert keinen
+        // identischen Rueckgabewert; ein zustandsabhaengiger Provider konnte mit X pruefen und mit Y
+        // stempeln. Es gibt jetzt EINEN Lese-Punkt, nicht mehr zwei, die man gleich HALTEN muss.
+        //
+        // DIE FORM WIRD GEPRUEFT (T2-A/K2-NB, Codex-Haertung (b)): 128 Hex-Zeichen, ueber die EINE
+        // Lese-Wahrheit des Sidecars (detail::fp_is_hex_128, fingerprint_sidecar.hpp -- dieselbe
+        // Zeichenmenge, die auch key_from_hex akzeptiert). OHNE diese Wache reiste der Wert ROH in eine
+        // Ein-Zeilen-Datei: ein '\n' darin haette sie aufgetrennt, und die erste Zeile waere fuer einen
+        // KUERZEREN Fingerprint ein gueltiger Stamp gewesen (belegt am Objekt im Biss, s. Test (6f)).
+        // FAIL-CLOSED bei Verstoss: kein Resume-Anspruch fuer diese Binary UND kein frischer Stamp -- der
+        // Alt-Stamp wird stattdessen entfernt. Nie stumm: die Zeile benennt Binary und Form-Verstoss.
+        //
+        // Feld-Ordnung: der Stamp behaelt seine kLazyResumeRowsKey-Ordnung -- das "|fpr="-Feld haengt am
+        // PRAEFIX, "|rows=" bleibt der Schwanz (Leser und Schreiber teilen den Praefix, die Ordnung bleibt
+        // damit strukturell gedeckt).
+        // OHNE PROVIDER (byte-neutraler Default, oder T2-C fail-closed bei unbekannter Tier-Realversion)
+        // gibt es kein Feld -- und dann traegt kein Lauf einen Skip-Anspruch, weil dll_is_current ohne
+        // Erwartung IMMER false liefert: die Binary wird neu gebaut und faellt unten an der b.skipped-Wache
+        // ohnehin aus dem Resume. Die beiden Wachen greifen also ineinander, nicht nebeneinander.
+        //
+        // WARUM ERST HIER (nach dem Bau-Fehler-Zweig): ein Stamp ist die Zusage "dieser Messstand gilt fuer
+        // GENAU diese Binary". Fuer eine Binary, die es nicht gibt, gibt es die Zusage nicht -- der
+        // Fehler-Zweig oben ENTFERNT den Stamp, er bildet keinen. Die Stelle steht damit dort, wo ihr Wert
+        // gebraucht wird, und die Form-Wache meldet nur ueber Binaries, die real gebaut wurden.
+        std::string binary_resume_stamp = resume_stamp_prefix;
+        if (!b.algo_sig.empty()) binary_resume_stamp += "|algos=" + b.algo_sig;
+        bool fpr_form_verletzt = false;
+        if (!b.fingerprint.empty()) {
+            if (detail::fp_is_hex_128(b.fingerprint)) {
+                binary_resume_stamp += "|fpr=" + b.fingerprint;
+            } else {
+                fpr_form_verletzt = true;
+                std::cerr << "[" << measurement::LogAndContinueInfraPolicy::log_prefix() << ": "
+                          << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo) << "] binary_id='"
+                          << b.binary_id << "' Fingerprint ist nicht 128-hex (Laenge " << b.fingerprint.size()
+                          << ") -- der Mess-Resume dieser Binary ist DEAKTIVIERT und es wird kein Stamp "
+                             "geschrieben (ein Wert ausserhalb des Hex-Alphabets kann die Ein-Zeilen-Ablage "
+                             "auftrennen und einen fremden Stand zertifizieren)\n"
+                          << std::flush;
+                // UND DER ALT-STAMP FAELLT SOFORT, nicht erst im Schreib-Block unten: dieser Aufruf kann
+                // vorher aussteigen (nicht ladbare .so, kein Mess-Interface -> return), und dann bliebe
+                // eine Marke liegen, die ein Lauf mit einem KUERZEREN Fingerprint als gueltig liest --
+                // genau die Luecke, die diese Wache schliesst. Muster und Begruendung wie im
+                // Bau-Fehler-Zweig (TP1FK1-B10/CX-W4): geurteilt wird ueber den EIGENEN error_code UND
+                // das Ist, eine unbelegte Entfernungs-Behauptung gibt es nicht.
+                if (cfg.per_binary_subdirs && !b.output.parent_path().empty()) {
+                    std::filesystem::path const alt_stamp = b.output.parent_path() / "result.csv.stamp";
+                    std::error_code             fpr_ec;
+                    std::filesystem::remove(alt_stamp, fpr_ec);
+                    std::error_code fpr_ist_ec;
+                    if (static_cast<bool>(fpr_ec) || std::filesystem::exists(alt_stamp, fpr_ist_ec))
+                        std::cerr << "[" << measurement::LogAndContinueInfraPolicy::log_prefix() << ": "
+                                  << measurement::infra_error_label(measurement::InfraErrorClass::ArtefaktIo)
+                                  << "] binary_id='" << b.binary_id << "' result.csv.stamp NICHT entfernt ("
+                                  << (fpr_ec ? fpr_ec.message() : std::string{"liegt nach dem Entfernen noch"})
+                                  << ") in " << alt_stamp.parent_path().string()
+                                  << " -- der Resume-Anspruch dieser Ablage ist damit NICHT zurueckgezogen; "
+                                     "der Ordner MUSS von Hand geraeumt werden\n"
+                                  << std::flush;
+                }
+            }
+        }
         // Mess-RESUME (#139 + Audit K8): Vollstaendig+aktuell => Binary uebersprungen, ihre Zeilen unveraendert
         // uebernommen. Stale => Neu-Messung. TP1FK1-B10: erreicht wird der Zweig nur noch fuer b.ok()-Binaries
         // (gebaut ODER versions-aktuell uebersprungen) -- fuer eine EXISTIERENDE Binary ist der resumierte
         // Stand die Wahrheit, fuer eine nicht herstellbare war er es nie.
-        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
+        // [NACHGEFUEHRT 2026-08-06, T2-A/F4: die Klammer "(gebaut ODER versions-aktuell uebersprungen)" ist
+        //  HISTORIK -- der GEBAUTE Fall faellt ab jetzt heraus, s. die b.skipped-Kopplung direkt darunter.
+        //  Der Satz davor bleibt richtig und bleibt deshalb stehen: der Bau-FEHLER-Fall war und ist vorher
+        //  abgefangen; die Verschaerfung betrifft ausschliesslich die erfolgreich NEU gebaute Binary.]
+        //
+        // T2-A/F4 (Owner-KERN Zaehler-Resume, abend-10) -- DER RESUME-ANSPRUCH IST AN b.skipped GEKOPPELT.
+        // Ein Resume ist die Aussage "an dieser Binary hat sich nichts geaendert, ihre Messwerte gelten
+        // weiter". Diese Aussage darf nur treffen, wer die Binary NICHT ANGEFASST hat. b.skipped ist genau
+        // dieses Praedikat: der Orchestrator meldet es fuer eine DLL, die er ueber dll_is_current als
+        // fingerprint-aktuell vorgefunden hat -- sie ist Byte fuer Byte die, die die alten Zeilen erzeugt
+        // hat. Ist b.skipped FALSCH, wurde in DIESEM Lauf real kompiliert; die entstandene .so ist ein
+        // anderes Artefakt als das gemessene, und alte Messwerte auf sie zu buchen ist die Luege, gegen die
+        // der ganze Neuanker gebaut ist. Der Stamp-Vergleich allein reichte dafuer nicht: er faengt den
+        // Fall erst, wenn der Fingerprint sich AENDERT -- ein Neubau aus anderem Grund (fehlende DLL,
+        // geraeumter Ordner, fehlgeschlagener Vorlauf) traegt denselben Fingerprint und waere durchgerutscht.
+        // Zwei unabhaengige Wachen, die dieselbe Frage aus verschiedenen Richtungen stellen.
+        //
+        // T2-A/K2-NB, DRITTE Klammer: ein Fingerprint, der die Form verletzt, entzieht den Anspruch. Der
+        // Stamp, gegen den hier verglichen wuerde, traegt dann NICHT das |fpr=-Feld -- er waere der Stamp
+        // einer SCHWAECHEREN Zusage und koennte auf einen fremden Stand passen. Fail-closed: neu messen.
+        //
+        // F8 (OFFENE OWNER-FRAGE, Ledger 06.08. mittag-12) -- DIE ERWARTUNG, DIE HIER FESTGESCHRIEBEN IST:
+        // "gleicher Fingerprint => Messwerte uebertragbar, AUCH nach einem Neubau". Der Fingerprint IST die
+        // Bau-Identitaet (Organ-Achsen-Versionen + Toolchain-Realversion + opt/ext/gate/atomic128 + bvset +
+        // Zellwerte). Ist er unveraendert, ist die neu gebaute DLL aequivalent zur alten, und die alten
+        // Zeilen gelten weiter -- das ist die DOKTRIN, nicht ein Leck. Konkret: faellt die DLL weg und wird
+        // mit UNVERAENDERTEM Fingerprint neu gebaut, misst DIESER Lauf neu (b.skipped==false, korrekt); ein
+        // SPAETERER Lauf findet DLL + Sidecar + Stamp vor und resumiert -- gewollt. Waere das falsch, waere
+        // nicht b.skipped zu haerten, sondern der Fingerprint unvollstaendig (und dann traefe der ganze
+        // Neuanker nicht). Der einzige Fall, in dem es weh taete, ist ein NICHT-deterministischer Bau --
+        // das waere ein Determinismus-Posten, kein Resume-Posten. Test (6g) schreibt die Erwartung fest.
+        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs && b.skipped && !fpr_form_verletzt) {
             std::string resumed_rows;
             if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
                 oc.resumed_csv_rows = std::move(resumed_rows);
                 oc.resumed_binaries = 1;
+                // T2-A/F4-NB2 (Befund 2): ein geglueckter Resume IST der Zertifikats-Fall -- der Stamp
+                // dieser Ablage hat gerade gegen den vollen Praefix (inkl. |fpr=) bestanden.
+                oc.mess_front_faehig = true;
                 return oc; // Resume-Skip: kein Progress (wie das frueherer continue-vor-fire_progress)
             }
         }
@@ -1945,14 +2487,26 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                     csv_write_ok = pf.good();
                 }
             }
-            if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 && per_binary_all_valid) {
+            if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 && per_binary_all_valid &&
+                !fpr_form_verletzt) {
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
-                if (sf) { sf << binary_resume_stamp << kLazyResumeRowsKey << per_binary_rows << "\n"; }
+                if (sf) {
+                    sf << binary_resume_stamp << kLazyResumeRowsKey << per_binary_rows << "\n";
+                    // T2-A/F4-NB2 (Befund 2): die MESS-FRONT haengt an DIESEM Schreibvorgang, nicht an der
+                    // Absicht dazu. Geprueft wird nach dem expliziten close() -- ein Fehler beim letzten
+                    // Flush (voller Datentraeger, Quota, I/O) faellt erst dort an, und ohne die Pruefung
+                    // zaehlte die Front eine Zelle, deren Zertifikat nie auf der Platte ankam. Dieselbe
+                    // Ueberlegung wie bei schreibe_atomar (batch_planner.hpp), nur eine Ebene hoeher.
+                    sf.flush();
+                    sf.close();
+                    oc.mess_front_faehig = sf.good();
+                }
             } else {
-                // Der frische Stand ist NICHT zertifizierbar (Write gescheitert, Zeilen unvollstaendig oder
-                // eine Zwei-Phasen-Zeile ungueltig) -- also faellt der Resume-Anspruch. Die Mess-Zeilen selbst
-                // sind davon unberuehrt: sie reisen in oc.rows in die globale CSV, und die per-Binary-CSV
-                // dieses Laufs steht bereits geschrieben (nichts wird geloescht).
+                // Der frische Stand ist NICHT zertifizierbar (Write gescheitert, Zeilen unvollstaendig, eine
+                // Zwei-Phasen-Zeile ungueltig ODER -- T2-A/K2-NB -- der Fingerprint verletzt die 128-hex-Form
+                // und darf deshalb in keine Ein-Zeilen-Ablage) -- also faellt der Resume-Anspruch. Die
+                // Mess-Zeilen selbst sind davon unberuehrt: sie reisen in oc.rows in die globale CSV, und
+                // die per-Binary-CSV dieses Laufs steht bereits geschrieben (nichts wird geloescht).
                 //
                 // Review-Befund Z-01/GA-02 (Geschwister-Stelle von TP1FK1-B10/CX-W4): das Entfernen wird
                 // GEPRUEFT, mit EIGENEM error_code statt des wiederverwendeten ec und gegen das Ist. Frueher
@@ -2044,8 +2598,28 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // #45: MERGE in KANONISCHER builds-Reihenfolge -> deterministische CSV (kein interleaved Append; Sortierung wie der
     // sequentielle Loop). Progress an der Per-Binary-Naht SEQUENTIELL im Merge (progress_prev ist reihenfolge-abhaengig
     // -> genau EIN Sequenzierungs-Thread). this_progress_cursor == j (die fenster-relative Perm-Position, wie im Ist).
+    std::uint64_t plan_gemessene_atome = 0; // T2-A/F4: die Mess-Front dieses Laufs (Zellen, nicht Zeilen)
+    // T2-A/F4-NB2 (Codex-Voll-Scope, Befund 2) -- DIE MESS-FRONT IST EIN PRAEFIX, KEINE BILANZ.
+    //
+    // DER BEFUND WOERTLICH: die Zahl lief bei JEDER irgendwo erfolgreichen Zelle hoch. Fuer [Fehler,
+    // Erfolg, Erfolg] stand `gemessen=2`, obwohl das gedeckte Praefix 0 ist -- die erste Zelle hat keine
+    // Zeilen. Wer diese Zahl als Front liest (und genau dazu ist eine Ablage da, die "wo stand ich"
+    // beantworten soll), ueberspringt die kaputte Zelle. Der BAU-Zaehler nebenan war seit T2-A/F4
+    // praefix-treu; zwei Felder derselben Zeile mit zwei Semantiken sind genau die Sorte zweiter Wahrheit,
+    // gegen die diese Ablage gebaut ist.
+    //
+    // DIE ORDNUNG TRAEGT: outcomes ist die builds-Ordnung, builds ist im Mess-Pfad positions-treu zu
+    // `indices` (der Bau-Filter laeuft nur im planer-getriebenen provision-Zweig, den dieser Lauf nicht
+    // betritt) -- ein Praefix ueber outcomes IST damit ein Praefix ueber die Plan-Atome.
+    bool mess_praefix_intakt = true;
     for (std::size_t j = 0; j < outcomes.size(); ++j) {
         CellOutcome& oc = outcomes[j];
+        if (mess_praefix_intakt) {
+            if (oc.mess_front_faehig)
+                ++plan_gemessene_atome;
+            else
+                mess_praefix_intakt = false; // ab hier deckt die Front nichts mehr -- wie beim Bau-Zaehler
+        }
         result.resumed_csv_rows += oc.resumed_csv_rows;
         result.resumed_binaries += oc.resumed_binaries;
         result.load_failed += oc.load_failed;
@@ -2055,6 +2629,76 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         for (auto& row : oc.rows) result.csv_rows.push_back(std::move(row));
         if (oc.progress_eligible)
             fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
+    }
+
+    // T2-A/F4 -- DIE MESS-FRONT DES PLANS (die zweite Haelfte des Owner-KERN "kompiliert/SEPARAT gemessen").
+    //
+    // Dieser Lauf ist der MESS-Lauf; der planer-getriebene Bau-Pfad haengt an provision_only und ist hier
+    // gar nicht gelaufen. Er schreibt deshalb ausschliesslich das Feld, das ihm gehoert, und laesst das
+    // Bau-Feld unangetastet stehen (`kompiliert` kommt aus dem gelesenen Stand).
+    //
+    // ER IST GROB, NICHT ZWEITE AUTORITAET: der feinkoernige Mess-Resume ist und bleibt die per-Binary
+    // result.csv+stamp-Naht aus T2-A/K2 -- sie arbeitet je Binary und kennt den vollen Fingerprint. Der
+    // Plan-Zaehler beantwortet die GROBE Frage des Planers ("wie weit ist dieser Plan gemessen") und wird
+    // deshalb EINMAL am deterministischen Ende der Mess-Phase geschrieben, nicht je Zelle im Pool.
+    //
+    // T2-A/F4-NB2 (Befund 2): und er ist ein PRAEFIX. Geschrieben wird die Zahl der FUEHRENDEN
+    // zertifizierten Zellen dieses Laufs -- OHNE max() gegen den Alt-Stand. Das ist die Umkehr einer
+    // frueheren Bequemlichkeit und bewusst so: waechst die Front nur noch, behauptet sie nach einem
+    // Rueckschlag (Zertifikat einer fuehrenden Zelle weg, Neu-Messung misslungen) eine Deckung, die es
+    // nicht mehr gibt. Sinkt sie, kostet das im schlimmsten Fall einen erneuten Blick auf Zellen, die
+    // ihren per-Binary-Stamp ohnehin noch haben und dort in Sekunden resumieren. Die teure Richtung ist
+    // die andere.
+    // EHRLICHE GRENZE: die Zahl beschreibt DIESEN Lauf ueber DIESE Selektion. Zwei Prozesse, die
+    // gleichzeitig verschiedene Teile derselben Selektion messen, wuerden einander ueberschreiben -- das
+    // ist heute ausgeschlossen (Mess-Exklusivitaet, EIN CEB je Zelle) und waere sonst ein eigener Posten.
+    //
+    // FAIL-CLOSED: passt der Plan nicht (anderer Stempel, andere Selektion, kein Plan da), wird NICHTS
+    // geschrieben -- lieber keine Zahl als eine, die gegen einen fremden Plan zaehlt. Der Fall sagt es
+    // literal, damit niemand eine stumme Ablage fuer eine leere haelt.
+    // Die aeussere Klammer ist die ABWESENHEIT DES GEGENSTANDS, keine Ersparnis: ohne benannte Ablage gibt
+    // es kein Dokument, an das eine Mess-Front geschrieben werden koennte -- also auch keine Frage.
+    if (!cfg.batch_plan_datei.empty()) {
+        // T2-A/F4-NB3 (Befund 1 + Auflage 2): dieselbe FAIL-CLOSED-Klammer wie im Bau-Weg, und zwar VOR
+        // dem Lesen. Ohne Anker traegt der Stempel das Wort `ohne-anker` und wuerde JEDEN ankerlosen Plan
+        // annehmen, egal aus welchem Bau-Stand; mit formlosen Atomen sieht er gueltig aus und deckt
+        // trotzdem Atome, die dll_is_current nie sieht. Beides heisst hier: kein Plan-Zaehler.
+        //
+        // T2-A/F4-NB2 (Korn-Divergenz): das Korn kommt aus DERSELBEN Quelle wie im Bau-Weg
+        // (plan_slice_korn). Hier stand bis hierher bestandslog::kBuildSliceGrain als Literal -- der
+        // Mess-Lauf bildete damit bei abweichendem Korn einen ANDEREN Stempel als der Bau-Lauf, der den
+        // Plan geschrieben hat, und meldete "kein passender Batch-Plan" fuer einen Plan, der danebenlag.
+        // T2-A/F4-NB2 (Befund 3): dieselbe Bau-Identitaets-Bindung wie im Bau-Weg -- der Mess-Lauf findet
+        // den Plan seines Bau-Laufs nur, wenn er GEGEN DENSELBEN BAU-STAND misst. Genau das soll er.
+        PlanAnkerBefund const mess_anker = plan_anker_befund(view, cfg, indices, plan_slice_korn(cfg));
+        if (!mess_anker.traegt()) {
+            melde_plan_ablage_ohne_anker(cfg, indices.size(), mess_anker, "mess-weg");
+        } else {
+            std::string const plan_stamp    = mess_anker.stamp;
+            std::string const plan_rows_key = kLazyResumeRowsKey;
+            auto const        faecher = bestandslog::read_batch_plan(cfg.batch_plan_datei, plan_stamp, plan_rows_key);
+            if (!faecher.has_value()) {
+                std::cerr << "[bestandslog] plan-zaehler: kein zu dieser Selektion passender Batch-Plan unter "
+                          << cfg.batch_plan_datei.string() << " -- die Mess-Front wird NICHT fortgeschrieben\n"
+                          << std::flush;
+            } else {
+                std::filesystem::path const z_datei{cfg.batch_plan_datei.string() + ".zaehler"};
+                auto const alt = bestandslog::read_phasen_zaehler(z_datei, plan_stamp, *faecher, plan_rows_key);
+                std::uint64_t const kompiliert = alt.has_value() ? alt->kompiliert : 0;
+                // Die Front ueberholt die Bau-Front nie: gemessen werden kann nur, was gebaut ist. Diese
+                // eine Klammer haelt die Invariante, die der Leser spaeter erzwingt (parse_phasen_zaehler:
+                // g > k ist unglaubwuerdig). Die frueher hier stehende max()-Klammer ist mit der
+                // Praefix-Semantik gefallen -- s. den Absatz darueber.
+                std::uint64_t gemessen = plan_gemessene_atome;
+                if (gemessen > kompiliert) gemessen = kompiliert;
+                if (!bestandslog::write_phasen_zaehler(z_datei, plan_stamp,
+                                                       bestandslog::PhasenZaehler{kompiliert, gemessen},
+                                                       faecher->size(), plan_rows_key))
+                    std::cerr << "[bestandslog] warn: Mess-Front des Batch-Plans nicht persistiert ("
+                              << z_datei.string() << ") -- die Messwerte selbst sind unberuehrt\n"
+                              << std::flush;
+            }
+        }
     }
 
     // Welle 5 (E-W5-2): §38.b-Fertig-Signal -- done genau EINMAL am Fensterende (nach dem GANZEN Merge).

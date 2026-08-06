@@ -184,6 +184,18 @@ inline constexpr std::string_view kCebMeasurementStamp{kCebMeasurementStampArray
 /// benannte OverlayHash-Typ + die Sperr-Ueberladung machen genau das unmoeglich; der Aufruf ist auf die
 /// 3-arg-Form gezogen. Der Wert kCebFingerprint SHIFTET dabei (erwartetes Byte-Ereignis, sichtbar nur im
 /// CEB-Log-Kopf und --version -- er stempelt keine Tier-Binary).
+///
+/// O-2/C-2 (Format 2 -> 3, 05.08.2026) -- FORMAT-KONFORM UND BEWUSST LEER FUER DIE NEUEN GLIEDER. Der
+/// Aufruf bleibt die 3-arg-Form; Toolchain- und bvset-Glied kommen damit als DEFAULT (leer) herein, und
+/// zwar aus derselben Sache heraus wie die Zellwerte oben: die CEB ist KEIN Tier-Binary. Sie baut
+/// Tier-Binaries fuer beliebige Toolchain-Zellen und beliebige Enable-Mengen; ihre Identitaet ist ihre
+/// CODE-Identitaet (das Mess-ANGEBOT), nicht die Toolchain eines einzelnen Bauauftrags. Ein
+/// Toolchain-Glied hier wuerde behaupten, die CEB selbst sei mit -O3 fuer avx512 gebaut worden -- das ist
+/// die Aussage der TIER-Stufe, nicht der CEB-Stufe (OE-C: CEB und Planer je EIGENES Stempelsystem).
+/// MECHANISCH GEDECKT: die 3-arg-Form kann die neuen Slots gar nicht belegen; wer sie belegen will, muss
+/// die benannten Traeger-Typen explizit nennen und begruendet damit ein eigenes Byte-Ereignis. Der Wert
+/// kCebFingerprint shiftet mit dem Format-Bump ein weiteres Mal -- erwartet, wieder nur im Log-Kopf und
+/// in --version sichtbar.
 inline constexpr auto kCebFingerprintArray =
     ::comdare::cache_engine::abi::anatomy_fingerprint_hex("", "", kCebMeasurementStamp);
 inline constexpr std::string_view kCebFingerprint{kCebFingerprintArray.data(), 128};

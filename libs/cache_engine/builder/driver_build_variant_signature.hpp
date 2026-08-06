@@ -18,6 +18,8 @@
 
 #include "build_variant_set_signature.hpp" // variant_set_signature<PageList,SimdList,HwList>()
 
+#include <cache_engine/abi/anatomy_fingerprint.hpp> // O-2/C-2: kAnatomyFingerprintBvsetMax (Budget-Nachweis)
+
 #include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_registry.hpp>   // EnabledExtensions
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_registry.hpp> // EnabledPlatforms
 #include <topics/nodes/axis_01_page_type/axis_01_page_type_registry.hpp>                  // EnabledPageTypes
@@ -47,6 +49,42 @@ static_assert(kDriverBuildVariantSignature.find(";general_hardware[") != std::st
 static_assert(kDriverBuildVariantSignature.find("page_type[]") == std::string_view::npos);
 static_assert(kDriverBuildVariantSignature.find("simd_extension[]") == std::string_view::npos);
 static_assert(kDriverBuildVariantSignature.find("general_hardware[]") == std::string_view::npos);
+
+// -- O-2/C-2: DER LEBENDE BUDGET-NACHWEIS DES bvset-PREIMAGE-GLIEDS -----------------------------------
+// Seit Format 3 ist diese Signatur ein Preimage-Glied ([6], F7-Spez (b)). Sie ist das EINZIGE Glied, dessen
+// Laenge mit der Enable-Menge der Flotte WAECHST: je enabled Variante ein geklammertes Element mit Namen
+// und Feldern. Ein Prosa-Budget waere hier wertlos -- es wuerde erst brechen, wenn jemand Achsen-Varianten
+// hinzuschaltet, und dann als unerklaerlicher consteval-Fehler tief im Fingerprint. Deshalb misst diese
+// Zeile die WIRKLICHE Signatur DIESES Treibers gegen genau die Konstante, aus der das Gesamt-Budget in
+// anatomy_fingerprint.hpp gerechnet ist.
+static_assert(kDriverBuildVariantSignature.size() <= ::comdare::cache_engine::abi::kAnatomyFingerprintBvsetMax,
+              "O-2/C-2 BUDGET: die bvset-Signatur dieses Treibers ueberschreitet das fuer das Preimage-Glied "
+              "[6] gerechnete Teil-Budget (kAnatomyFingerprintBvsetMax). Entweder das Teil-Budget UND den "
+              "Gesamt-Nachweis in anatomy_fingerprint.hpp anheben oder die Enable-Menge begrenzen -- nicht "
+              "still den Puffer vergroessern.");
+// '\n'-FREIHEIT (OF-M3-1): die Signatur besteht aus Namen, Ziffern und den Trennern ;=[]{} -- kein
+// Zeilenumbruch. Als Preimage-Glied ist das ab jetzt eine Injektivitaets-Pflicht, kein Zufall.
+static_assert(kDriverBuildVariantSignature.find('\n') == std::string_view::npos,
+              "Das bvset-Glied darf den Domain-Separator '\\n' nicht enthalten.");
+
+// -- NB-3/T2-D: DIE PAAR-WACHE UEBER DIE VOLLEN REGISTRY-LISTEN ---------------------------------------
+//
+// build_variant_set_signature.hpp stellt die Namens-Eindeutigkeit fuer die Liste, die WIRKLICH emittiert
+// wird -- das ist die enabled Menge, und mehr kann ein registry-freier Header nicht sehen. Genau dort
+// bleibt aber eine Restluecke: zwei Wrapper mit demselben Namen, die sich per CMake-Flags gegenseitig
+// ausschliessen, stehen NIE zusammen in einer Enabled-Liste. Die enabled-Wache sieht dann je Bau nur
+// einen von beiden und schweigt -- waehrend die beiden Baue untereinander exakt kollidieren: gleiche
+// Namen, gleiche Felder, gleiche Signatur, seit Format 3 also gleicher Fingerprint und ein falscher Skip
+// GENAU ZWISCHEN DIESEN BEIDEN Konfigurationen. Der gefaehrlichste Fall ist damit der, den die untere
+// Ebene per Konstruktion nicht sehen kann.
+//
+// DIESER Header ist der erste Ort, an dem die VOLLEN Registry-Listen sichtbar sind (er zieht sie ohnehin
+// nach -- deshalb kostet die Wache keine neue Abhaengigkeit). Ueber All* geprueft, faellt ein Duplikat
+// auf, sobald es DEKLARIERT wird, unabhaengig von jeder Enable-Kombination. Das ist die Stelle, an der
+// die Zusage "der Name diskriminiert" wirklich gilt.
+COMDARE_BVSET_PAAR_WACHE(nodes::axis_01_page_type::AllPageTypes, "page_type (volle Registry)");
+COMDARE_BVSET_PAAR_WACHE(hardware::axis_09b_simd_extension::AllExtensions, "simd_extension (volle Registry)");
+COMDARE_BVSET_PAAR_WACHE(hardware::axis_12_general_hardware::AllPlatforms, "general_hardware (volle Registry)");
 
 /// Runtime-Naht fuer BuildConfig.build_variant_sig: liefert dieselbe CT-Konstante als std::string. Reine CT->RT-
 /// Materialisierung (erlaubte Richtung); es wird nichts abgeleitet, geparst oder geraten.

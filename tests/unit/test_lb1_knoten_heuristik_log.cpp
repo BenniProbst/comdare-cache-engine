@@ -8,6 +8,12 @@
 // OE-B-DUMMY-LAGER: FakeAblage (In-Memory, zaehlt die Verben) plus ein echtes Temp-Verzeichnis.
 // Kein minio, kein Netz, kein mc; die Zeit kommt ueber eine SKRIPT-Uhr (NowFn), damit Frist- und
 // Konfliktfaelle ohne Wall-Clock reproduzierbar sind.
+//
+// STEMPEL-HOMONYMIE (T2-A/F4-NB3, 2026-08-06): der SHA512-Anker dieses Logs sitzt auf dem v6-BLATT-Key,
+// also am LAGER-/SIDECAR-Stempel (Blattinhalt + .fingerprint/.version/.algos/.variant). Er ist NICHT
+// der Plan-Stempel `|bau=` aus bestandslog::slice_plan_stamp und nicht der Versionierungs-Stempel in
+// der Binary. Drei Dinge, ein Wort -- die unqualifizierte Rede von "dem Stempel" hat den
+// F4-NB2-Fehlschluss ausgeloest; hier steht deshalb, welcher gemeint ist.
 
 #include "bestandslog/knoten_heuristik_log.hpp"
 #include "bestandslog/lager_baum_writer.hpp"
@@ -552,7 +558,15 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndHeuteLEER) {
     EXPECT_TRUE(comdare::cache_engine::abi::kOverlaySourceHash.empty())
         << "Sobald der Overlay-Codegen das Define setzt, ist das Voll-Soll der ABNAHME-3/4 erreichbar "
            "-- bis dahin ist die Luecke DEKLARIERT, nicht still.";
-    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 6u);
+    // O-2/C-2 (Format 2 -> 3): 6 -> 8 Glieder (Toolchain [5], bvset [6]); das Overlay-Glied ist ans ENDE
+    // gewandert und heisst jetzt [7]. Die AUSSAGE dieses Tests ist unveraendert -- das Overlay-Glied ist
+    // strukturell da und heute leer -- nur seine Position und die Glied-Zahl sind nachgezogen. Die
+    // POSITION wird ab hier ueber die BENANNTE Konstante geprueft, nicht ueber eine nackte Zahl: eine
+    // weitere Umsortierung soll diesen Test nicht erneut faelschlich rot faerben.
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 8u);
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintOverlayGlied,
+              comdare::cache_engine::abi::kAnatomyFingerprintGliedCount - 1u)
+        << "das Overlay-Glied ist per O-2/C-2 das Schwanz-Glied";
     // Und der Anker des Knoten-Logs ist genau die Form dieses Fingerprints -- keine Zweitrechnung.
     EXPECT_TRUE(bl::ist_fingerprint_hex(hex128('a')));
     EXPECT_FALSE(bl::ist_fingerprint_hex(std::string(127, 'a')));

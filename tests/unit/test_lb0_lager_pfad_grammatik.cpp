@@ -11,6 +11,13 @@
 //
 // OE-B-DUMMY-LAGER: die Realm-Writer werden gegen ein echtes Temp-Verzeichnis gefahren; die
 // "Binaries" sind Textdateien mit Stempel-String. Kein minio, kein Netz, kein mc.
+//
+// STEMPEL-HOMONYMIE (T2-A/F4-NB3, 2026-08-06): "Stempel" heisst hier der LAGER-/SIDECAR-Stempel --
+// Blattinhalt plus .fingerprint/.version/.algos/.variant. Er ist NICHT der Plan-Stempel `|bau=` aus
+// bestandslog::slice_plan_stamp (der Bau-Identitaets-Anker des Batch-Plans) und auch nicht der
+// Versionierungs-Stempel, den eine Tier-Binary einkompiliert traegt. Drei Dinge, ein Wort: die
+// unqualifizierte Rede von "dem Stempel" hat den F4-NB2-Fehlschluss ausgeloest, deshalb steht die
+// Unterscheidung hier im Kopf und nicht im Gedaechtnis des Lesers.
 
 #include "bestandslog/lager_baum_writer.hpp"
 #include "bestandslog/lager_pfad_grammatik.hpp"
