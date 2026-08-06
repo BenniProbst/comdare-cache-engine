@@ -679,6 +679,22 @@ struct RegistryContents {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// KANON-EINORDNUNG (Registry-Partitionierung, 2 nebeneinander bestehende Modelle -- KEIN Widerspruch):
+// Dies hier ist die ART-Partition ("3er"): dieselbe Registry-NAHT, aufgeteilt nach der ROLLE der Achsen-Art
+//   Organ (Tier-Stufe, bildet binary_id) / System (CEB-Stufe) / Mess (Planer-Stufe). Sie ist ce-INTERN: alle
+//   drei Dateien liegen im ce-Repo, der Host reicht ihre Pfade per CMake-Interface herein.
+// Das ZWEITE Modell ist die ENGINE-Partition ("2er") bei validate_experiment_profile (s. Kopf-Doku dort,
+//   engine_registry_paths): sie teilt NICHT nach Achsen-Rolle, sondern nach DATEI-LOKALISIERUNG je Engine
+//   (ee_ce -> ce-Registry, ee_prt -> prt-art-Registry in einem FREMDEN Repo). Die beiden Modelle schneiden
+//   sich in genau EINER Datei: cache_engine_axis_registry.xml (= 2er "ee_ce" = 3er "organ").
+// WARUM prt im Trio FEHLT (bewusst, kein Versehen): prt_art fuehrt KEINE eigenen Organ-Positions-Achsen ein
+//   -- die Achsen-Registry traegt nur die CE-Achsen. prt tritt ausschliesslich als "pruefling" ueber die
+//   Phasen ein, nicht als Anbieter von Achsen-Bausteinen. Ein prt-Eintrag im Trio haette daher NICHTS zu
+//   resolven; sein Fehlen erzeugt KEINE falschen V-UNREG-AXIS-Rejects (der Resolver sieht nie prt-Refs).
+// DOKUMENTIERTE OPTION B (bewusst NICHT gebaut, Frist): RegistryTrio um ein OPTIONALES prt-Feld erweitern und
+//   read_axis_registry_trio einen 4. (optionalen) Pfad geben -- erst noetig, wenn prt_art je eigene
+//   Organ-Positions-Achsen anbietet. Bis dahin waere es totes Gewicht auf einer produktiven Naht.
+//
 // PAKET W3-B / Planer-I1 (2026-07-19) — RegistryTrio: die DREI Achsen-Art-Angebots-Registries als EIN POD
 // (Ledger §28/§30, STUFE §3.C KONSOLIDIERUNG). GENERALISIERUNG von read_axis_registry OHNE zweiten Parser:
 //   * Organ-Registry       engine="cache_engine"             (Angebot der Tier-Stufe, bildet binary_id)
@@ -869,6 +885,15 @@ struct ResolverReport {
     return declared;
 }
 
+/// KANON-EINORDNUNG: der `engine_registry_paths`-Modus unten ist die ENGINE-Partition ("2er") des
+/// Registry-Kanons -- er partitioniert nach DATEI-LOKALISIERUNG je Engine (ee_ce -> ce-Registry im ce-Repo,
+/// ee_prt -> prt_art-Registry im FREMDEN prt-art-Repo), NICHT nach der Rolle der Achsen-Art. Aufrufer ist der
+/// Host (super 02_messung_driver + apps/experiment_planner), der beide statischen Pfade hereinreicht.
+/// Daneben steht die ART-Partition ("3er") RegistryTrio / read_axis_registry_trio weiter oben in DIESER Datei:
+/// Organ/System/Mess, ce-intern, ohne prt (Begruendung dort im Kopf-Kommentar). Die beiden Modelle sind
+/// UNABHAENGIG und schneiden sich in genau einer Datei: cache_engine_axis_registry.xml (2er "ee_ce" = 3er
+/// "organ"). Wer hier etwas an der Aufloesung aendert, muss die 3er-Naht NICHT mitziehen -- und umgekehrt.
+///
 /// validate_experiment_profile — DIE reine Pruef-Logik (read-only). Zwei Registry-Aufloesungs-Modi:
 ///   • `engine_registry_paths` NICHT leer (Bruecke-I2, 2-Registry-Kanon): je Engine wird ihre Registry aus
 ///     DIESER Map (Schluessel = engine-id ee_ce/ee_prt, Wert = voller STATISCHER Registry-Pfad) aufgeloest — die

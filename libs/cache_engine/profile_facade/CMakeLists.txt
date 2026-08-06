@@ -148,6 +148,14 @@ if(COMDARE_MEASUREMENT_COMBO)
     message(STATUS "[profile_facade] W2: Mess-Combo COMPILE-hart eingebaut -- ${COMDARE_MEASUREMENT_COMBO}")
 endif()
 
+# SINGLE-SOURCE-HINWEIS (Registry-Kanon): COMDARE_CE_AXIS_REGISTRY (hier, ART-Partition "3er") und
+# COMDARE_CE_AXIS_REGISTRY_PATH (super-seitig 02_messung_driver/CMakeLists.txt + apps/experiment_planner,
+# ENGINE-Partition "2er") zeigen auf DIESELBE Datei cache_engine_axis_registry.xml, sind aber UNABHAENGIG
+# definiert -- es gibt keine gemeinsame CMake-Variable. Wird die Datei je verschoben/umbenannt, muessen BEIDE
+# Defines nachgezogen werden; sonst faellt genau eines der beiden Modelle still aus. Einordnung der beiden
+# Partitionierungs-Modelle: s. Kopf-Kommentare in profile_facade/validate_profile.hpp (RegistryTrio bzw.
+# validate_experiment_profile).
+#
 # S3 P-RESOLVER (A1 Produktions-Aktivierung, 2026-07-20): die DREI statischen ce-Registry-Pfade als Defines am
 # Facade-Target -- der CMake-Interface-Kanal, ueber den construct_plan_into() das RegistryTrio (Organ/System/Mess)
 # via read_axis_registry_trio liest. Muster wie der Contract-Test (test_experiment_plan_director, tests/unit/
