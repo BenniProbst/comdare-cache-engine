@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <stdexcept> // NB/CX-1: die RT-Injektivitaets-Wache der injizierten Glieder ist FAIL-LOUD
 #include <string>
 #include <string_view>
 
@@ -108,6 +109,68 @@ inline constexpr std::string_view kAnatomyFingerprintFormat = "fingerprint_forma
 #endif
 inline constexpr std::string_view kOverlaySourceHash = COMDARE_OVERLAY_SOURCE_HASH;
 
+// -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIED-WERTE ----------------------------------
+//
+// DER BEFUND, DEN SIE HEILT (Codex-Nachreview [BLOCKER], am Code bestaetigt): die '\n'-Freiheit war NUR
+// fuer die per #define injizierten Compile-Zeit-Konstanten bewiesen (die static_asserts unten). Die
+// LAUFZEIT-Naht nahm beliebige std::string_view entgegen und validierte NICHTS. Die Kollision ist konkret
+// und braucht keinen SHA-Bruch:
+//     A = {Toolchain="TC\nX", bvset="BV"}   und   B = {Toolchain="TC", bvset="X\nBV"}
+// erzeugen BYTE-IDENTISCHE Preimages, also denselben Fingerprint fuer zwei verschiedene Baue. Die feste
+// Glied-ANZAHL rettet die Zerlegung nur, solange KEIN Glied den Separator traegt -- diese Voraussetzung war
+// fuer die Laufzeit-Werte unbewiesen. Sie ist ab hier eine Pflicht mit Wache, kein Zufall mehr.
+//
+// DREI REGELN, alle drei aus der Injektivitaet abgeleitet (nicht aus Geschmack):
+//   (1) KEIN '\n' (und kein '\r')  -- der Domain-Separator darf in keinem Glied vorkommen (OF-M3-1).
+//   (2) ZEICHENVORRAT              -- nur Zeichen, die real vorkommen (alnum + die Trenn-/Klammer-Zeichen
+//                                     der Stempel-Grammatik). Alles andere ist ein Hinweis darauf, dass ein
+//                                     fremder String in den Slot geraten ist (Pfad, Fehlertext, Rohdaten).
+//   (3) KEIN LEERER SCHLUESSEL     -- ein Segment "=wert" bzw. ";=wert" waere kein Paar mehr; die Grenze
+//                                     zwischen Schluessel und Wert liesse sich verschieben.
+// Die Regeln gelten fuer die INJIZIERTEN Glieder (Toolchain, bvset, Overlay). Die einkompilierten
+// Stempel-ZEILEN [1]-[3] werden bewusst NUR auf (1) geprueft: ihr Zeichenvorrat gehoert den Achsen-Namen
+// und darf nicht von diesem Header eingeengt werden.
+
+/// Der Zeichenvorrat der INJIZIERTEN Glied-Werte. Er ist die Vereinigung dessen, was die realen Glieder
+/// wirklich tragen: Achsen-Ids und Versionen (alnum, '_', '.', '@'), die Segment-Trenner (';', '='), die
+/// Flag-/Mengen-Klammern ('{', '}', '[', ']'), Compiler-Flags ('-', '+') sowie ',' (Werteset) und ':'/'/'
+/// (Pfad-freie Ids mit Doppelpunkt-Namensraum). Bewusst NICHT enthalten: Whitespace jeder Art.
+[[nodiscard]] constexpr bool anatomy_glied_zeichen_erlaubt(char c) noexcept {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '=' || c == '@' ||
+           c == ';' || c == '.' || c == ',' || c == '+' || c == '-' || c == '_' || c == ':' || c == '/' ||
+           c == '[' || c == ']' || c == '{' || c == '}';
+}
+
+/// Die Format-Wache fuer einen injizierten Glied-Wert. LEER ist immer wohlgeformt (== die Identitaet).
+[[nodiscard]] constexpr bool injizierter_glied_wert_ist_wohlgeformt(std::string_view v) noexcept {
+    if (v.empty()) return true;
+    if (v.front() == '=') return false; // (3) leerer Schluessel am Anfang
+    for (std::size_t i = 0; i < v.size(); ++i) {
+        char const c = v[i];
+        if (c == kAnatomyFingerprintSeparator || c == '\r') return false; // (1)
+        if (!anatomy_glied_zeichen_erlaubt(c)) return false;              // (2)
+        if (c == '=') {
+            char const vor = v[i - 1]; // i > 0 ist durch die front()-Pruefung oben sichergestellt
+            if (vor == ';' || vor == '[' || vor == '{') return false; // (3) leerer Schluessel im Segment
+        }
+    }
+    return true;
+}
+
+/// FAIL-LOUD: ein nicht wohlgeformter Wert bricht -- compile-hart, wenn er eine Compile-Zeit-Konstante ist
+/// (der Wurf macht den Ausdruck zu keinem konstanten Ausdruck mehr), sonst zur Laufzeit mit benannter
+/// Fehlerklasse. Ein stiller Ersatzwert waere hier das Schlimmste: er wuerde eine FALSCHE Identitaet
+/// zementieren, und zwar genau an der Stelle, an der niemand mehr nachsieht.
+constexpr void require_injizierter_glied_wert(std::string_view glied, std::string_view wert) {
+    if (injizierter_glied_wert_ist_wohlgeformt(wert)) return;
+    throw std::invalid_argument(
+        std::string{"fehlerklasse=stempel_injektivitaet: das injizierte Preimage-Glied '"} + std::string{glied} +
+        "' verletzt die Format-Wache (kein '\\n'/'\\r', kein leerer Schluessel, nur der Stempel-Zeichenvorrat). "
+        "Die Injektivitaet der Glied-Zerlegung haengt daran -- zwei verschiedene Baue koennten sonst dasselbe "
+        "Preimage und damit denselben Fingerprint bekommen (falscher Skip). Wert: '" +
+        std::string{wert} + "'");
+}
+
 /// K-1 (Bauplan A13, "ceb_version_stamp.hpp-Falle"): der Overlay-Hash reist als BENANNTER TYP, nicht als
 /// vierter string_view.
 ///
@@ -117,10 +180,14 @@ inline constexpr std::string_view kOverlaySourceHash = COMDARE_OVERLAY_SOURCE_HA
 /// anatomy_fingerprint_hex("", "", kCebMeasurementStamp, "") WEITER GUELTIG -- das vierte "" rutschte still
 /// von merge auf overlay. Es kompiliert, die Semantik ist verschoben, niemand merkt es. Ein string_view
 /// konvertiert NICHT implizit nach OverlayHash (explicit) -> jeder Alt-Aufruf bricht compile-hart.
+///
+/// NB/CX-1: der Traeger ist zugleich die WACHE. Die Pruefung im Konstruktor ist kein Zusatz, sondern der
+/// einzige Ort, an dem sie NICHT umgangen werden kann -- jeder Weg ins Preimage fuehrt durch ihn. Er ist
+/// deshalb nicht mehr `noexcept`: ein ungueltiger Wert MUSS heraus, statt zu terminieren.
 struct OverlayHash {
     std::string_view value;
 
-    constexpr explicit OverlayHash(std::string_view v) noexcept : value{v} {}
+    constexpr explicit OverlayHash(std::string_view v) : value{v} { require_injizierter_glied_wert("overlay", v); }
 };
 
 /// O-2/C-2 -- DIE TOOLCHAIN-NAHT (Glied [5]). Owner-KERN abend-5: "ALLE Laufzeit Hauptachsen wie Compiler
@@ -168,16 +235,21 @@ inline constexpr std::string_view kBuildVariantSetSignatureGlied = COMDARE_BUILD
 /// koennte jeder Aufrufer sie in beliebiger Reihenfolge reichen -- es kompiliert, der Digest ist falsch,
 /// und der Fehler zeigt sich erst als "der Cache greift nie" bzw. als falscher Skip. Drei disjunkte Typen
 /// machen jede Verwechslung compile-hart.
+///
+/// NB/CX-1: beide Traeger pruefen ihren Wert im Konstruktor (s. OverlayHash). Damit ist die
+/// Injektivitaets-Pflicht der zur CEB-LAUFZEIT gereichten Werte kein Kommentar mehr, sondern Mechanik:
+/// lazy_adhoc_fingerprint_for baut die Traeger aus Laufzeit-Strings, also laeuft jeder Laufzeit-Wert durch
+/// dieselbe Wache wie die Compile-Defines.
 struct ToolchainGlied {
     std::string_view value;
 
-    constexpr explicit ToolchainGlied(std::string_view v) noexcept : value{v} {}
+    constexpr explicit ToolchainGlied(std::string_view v) : value{v} { require_injizierter_glied_wert("toolchain", v); }
 };
 
 struct BvsetGlied {
     std::string_view value;
 
-    constexpr explicit BvsetGlied(std::string_view v) noexcept : value{v} {}
+    constexpr explicit BvsetGlied(std::string_view v) : value{v} { require_injizierter_glied_wert("bvset", v); }
 };
 
 /// Anzahl der Preimage-Glieder. FEST -- die Injektivitaet der '\n'-Zerlegung haengt an der festen Anzahl.
@@ -253,6 +325,16 @@ static_assert(kBuildVariantSetSignatureGlied.find(kAnatomyFingerprintSeparator) 
 static_assert(kOverlaySourceHash.find(kAnatomyFingerprintSeparator) == std::string_view::npos,
               "Das Overlay-Glied darf den Domain-Separator '\\n' nicht enthalten.");
 
+// NB/CX-1: dieselbe VOLLE Format-Wache, die ab jetzt jeder LAUFZEIT-Wert durchlaeuft, gilt auch fuer die
+// per Define injizierten Konstanten -- sonst waere ausgerechnet der produktive Weg (Compile-Define) laxer
+// gegatet als der Ausnahme-Weg (Laufzeit-Injektion). Ein Verstoss bricht hier compile-hart mit Namen.
+static_assert(injizierter_glied_wert_ist_wohlgeformt(kToolchainStampGlied),
+              "NB/CX-1: COMDARE_TOOLCHAIN_STAMP_GLIED verletzt die Injektivitaets-Format-Wache.");
+static_assert(injizierter_glied_wert_ist_wohlgeformt(kBuildVariantSetSignatureGlied),
+              "NB/CX-1: COMDARE_BUILD_VARIANT_SET_SIGNATURE verletzt die Injektivitaets-Format-Wache.");
+static_assert(injizierter_glied_wert_ist_wohlgeformt(kOverlaySourceHash),
+              "NB/CX-1: COMDARE_OVERLAY_SOURCE_HASH verletzt die Injektivitaets-Format-Wache.");
+
 /// anatomy_fingerprint_glieder(...) -- DIE EINE QUELLE der Preimage-Ordnung. Jede Rechen-Stelle (der
 /// consteval-Hex unten, der Laufzeit-Zwilling lazy_adhoc_fingerprint_for, der Lager-Key-Ableiter
 /// derive_key_from_lines ueber seinen Aufrufer) zieht ihre Glieder HIER heraus. Wer die Ordnung aendert,
@@ -313,9 +395,22 @@ static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintToolchainGlied
 /// braucht einen uint8-Puffer (ein reinterpret_cast auf std::string::data() waere in einem konstanten
 /// Ausdruck verboten), der Laufzeit-Weg einen std::string -- zwei Schleifen, EINE Ordnung, EIN Separator,
 /// im selben Sichtfeld.
+///
+/// NB/CX-1: dieser Weg ist die EINZIGE Laufzeit-Bildung des Preimage (der Lager-Key-Ableiter
+/// derive_key_from_lines zieht ebenfalls hier durch). Deshalb steht hier die Separator-Wache fuer JEDES
+/// Glied -- auch fuer die drei Stempel-ZEILEN, deren Werte aus Achsen-Namen und Mess-Combos entstehen und
+/// damit von aussen beeinflussbar sind. Nur der Separator wird geprueft, nicht der Zeichenvorrat: die
+/// Achsen-Namen gehoeren den Achsen, nicht diesem Header (die schaerfere Wache tragen die injizierten
+/// Glieder in ihren Traeger-Typen).
 [[nodiscard]] inline std::string anatomy_fingerprint_preimage(std::span<std::string_view const> glieder) {
     std::string pre;
     for (std::size_t i = 0; i < glieder.size(); ++i) {
+        if (glieder[i].find(kAnatomyFingerprintSeparator) != std::string_view::npos)
+            throw std::invalid_argument(
+                std::string{"fehlerklasse=stempel_injektivitaet: das Preimage-Glied an Position "} +
+                std::to_string(i) +
+                " traegt den Domain-Separator '\\n'. Die Zerlegung des Preimage waere damit mehrdeutig, zwei "
+                "verschiedene Glied-Saetze koennten denselben Fingerprint ergeben (falscher Skip).");
         if (i != 0) pre += kAnatomyFingerprintSeparator;
         pre.append(glieder[i]);
     }

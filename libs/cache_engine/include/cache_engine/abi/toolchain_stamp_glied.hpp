@@ -31,11 +31,17 @@
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare, keine Laufzeit-Erhebung (die WERTE kommen von der CEB
 // herein; dieser Header rendert nur).
+// [NACHGEFUEHRT 2026-08-06, NB/CX-3 -- der Satz "keine Laufzeit-Erhebung" bleibt wahr und wird PRAEZISIERT:
+// die COMPILER-REAL-VERSION wird ab hier COMPILE-TIME erhoben (kDetectedCompilerRealVersion, unten). Das ist
+// keine Laufzeit-Probe, sondern die Praeprozessor-Wahrheit der uebersetzenden Toolchain -- exakt der Weg, den
+// G-C4 fuer den CT-Stempel verlangt. Alle uebrigen WERTE kommen weiter von aussen herein.]
 
-#include <cache_engine/measurement/algo_semver.hpp> // algo_semver_string (X.Y.Z[Flag]-Voll-Form, Owner-Q10)
+#include <cache_engine/measurement/algo_semver.hpp>         // algo_semver_string (X.Y.Z[Flag]-Voll-Form, Owner-Q10)
+#include <cache_engine/measurement/compiler_system_axis.hpp> // NB/CX-3: die Dialekt-Ids als Single-Source
 
 #include <array>
 #include <cstddef>
+#include <stdexcept> // NB/CX-2: die Injektivitaets-Wache des Renderers ist FAIL-LOUD, nicht still
 #include <string>
 #include <string_view>
 
@@ -45,6 +51,140 @@ namespace comdare::cache_engine::abi {
 /// Trennzeichen, Feldauswahl oder Feld-Reihenfolge aendern. Ein Bump ist per Konstruktion ein
 /// Fingerprint-Bruch (das Glied steht im Preimage) und erzwingt damit Neubau statt stiller Fehl-Vergleiche.
 inline constexpr std::string_view kToolchainStampGliedFormat = "1";
+
+// -- NB/CX-3: DIE COMPILER-REAL-VERSIONS-ERHEBUNG, COMPILE-TIME ----------------------------------------
+//
+// WAS G-C4/OE-C VERLANGT: nicht den TREIBER-NAMEN ("g++-16" sagt nichts darueber, ob 16.0.1 oder 16.2.0
+// wirklich uebersetzt hat), sondern die REAL erkannte Version. Bis zum NB-Fenster war das ein reines
+// Datenfeld (ToolchainStampParts.cxx_realversion) OHNE Erhebung -- ein Slot, den niemand fuellen konnte.
+//
+// WARUM COMPILE-TIME UND NICHT ALS LAUFZEIT-PROBE: der Wert, der den TIER-CT-STEMPEL traegt, ist die
+// Version DERJENIGEN Uebersetzung, in der das Stempel-Makro expandiert. Genau diese Version steht dem
+// Praeprozessor als __GNUC__/__clang_major__ zur Verfuegung -- eine externe Probe (`--version` starten und
+// parsen) waere eine zweite, schwaechere Wahrheit mit eigener Fehlerflaeche (Dialekt-Parser je Distro) und
+// koennte die uebersetzende Toolchain gar nicht beweisen, nur behaupten.
+//
+// EHRLICHE GRENZE (nicht verschwiegen): dieser Wert beschreibt IMMER die Toolchain DERJENIGEN TU, in der er
+// ausgewertet wird. Wird das Glied von der CEB komponiert und per Compile-Define in die Tier-Uebersetzung
+// gereicht, dann ist es die CEB-Toolchain -- und die ist nur dann auch die Tier-Toolchain, wenn beide
+// dieselbe ist. Die Naht, die das Glied komponiert, MUSS diese Deckung deshalb pruefen und fail-closed
+// degradieren, statt eine ungedeckte Version zu behaupten (profile_facade/toolchain_stamp_naht.hpp).
+//
+// DIALEKT-VORRANG __clang__: clang definiert __GNUC__ MIT (GCC-Kompatibilitaets-Emulation) und meldet dort
+// die emulierte GCC-Version, nicht seine eigene. Die Reihenfolge der Praeprozessor-Zweige ist deshalb kein
+// Stil, sondern die Korrektheitsbedingung: __clang__ zuerst, sonst wuerde ein clang-Bau als "gcc-4.2.1"
+// gestempelt.
+
+namespace detail {
+
+/// Die drei Roh-Zahlen der uebersetzenden Toolchain. -1 == UNBEKANNT (weder clang noch GCC-kompatibel).
+#if defined(__clang__)
+inline constexpr int kCtCompilerMajorRaw = __clang_major__;
+inline constexpr int kCtCompilerMinorRaw = __clang_minor__;
+inline constexpr int kCtCompilerPatchRaw = __clang_patchlevel__;
+#elif defined(__GNUC__)
+inline constexpr int kCtCompilerMajorRaw = __GNUC__;
+inline constexpr int kCtCompilerMinorRaw = __GNUC_MINOR__;
+inline constexpr int kCtCompilerPatchRaw = __GNUC_PATCHLEVEL__;
+#else
+inline constexpr int kCtCompilerMajorRaw = -1;
+inline constexpr int kCtCompilerMinorRaw = -1;
+inline constexpr int kCtCompilerPatchRaw = -1;
+#endif
+
+[[nodiscard]] consteval std::size_t ct_dezimal_stellen(unsigned v) noexcept {
+    std::size_t n = 1;
+    while (v >= 10) {
+        v /= 10;
+        ++n;
+    }
+    return n;
+}
+
+/// Laenge der Form "<major>.<minor>.<patch>"; 0, wenn die Toolchain unbekannt ist.
+[[nodiscard]] consteval std::size_t ct_realversion_laenge() noexcept {
+    if (kCtCompilerMajorRaw < 0) return 0;
+    return ct_dezimal_stellen(static_cast<unsigned>(kCtCompilerMajorRaw)) + 1 +
+           ct_dezimal_stellen(static_cast<unsigned>(kCtCompilerMinorRaw)) + 1 +
+           ct_dezimal_stellen(static_cast<unsigned>(kCtCompilerPatchRaw));
+}
+
+/// Der Zeichen-Speicher. N ist bewusst um EINS groesser als die Laenge: eine std::array<char,0> haette kein
+/// gueltiges data(), und ein string_view auf nullptr waere in einem konstanten Ausdruck nicht bildbar.
+template <std::size_t N>
+[[nodiscard]] consteval std::array<char, N> ct_realversion_zeichen() noexcept {
+    std::array<char, N> out{};
+    if (kCtCompilerMajorRaw < 0) return out;
+    std::size_t n       = 0;
+    auto const  put_uint = [&out, &n](unsigned v) {
+        std::size_t const stellen = ct_dezimal_stellen(v);
+        for (std::size_t i = 0; i < stellen; ++i) {
+            std::size_t teiler = 1;
+            for (std::size_t k = 1; k + i < stellen; ++k) teiler *= 10;
+            out[n++] = static_cast<char>('0' + ((v / teiler) % 10));
+        }
+    };
+    put_uint(static_cast<unsigned>(kCtCompilerMajorRaw));
+    out[n++] = '.';
+    put_uint(static_cast<unsigned>(kCtCompilerMinorRaw));
+    out[n++] = '.';
+    put_uint(static_cast<unsigned>(kCtCompilerPatchRaw));
+    return out;
+}
+
+inline constexpr auto kCtRealversionZeichen = ct_realversion_zeichen<ct_realversion_laenge() + 1>();
+
+} // namespace detail
+
+/// Die REAL erkannte Version der uebersetzenden Toolchain, gerendert als "<major>.<minor>.<patch>"
+/// (z.B. "16.2.0"). LEER == unbekannte Toolchain (weder clang noch GCC-kompatibel) -- dann wird auch
+/// NICHTS behauptet (fail-closed statt geraten).
+inline constexpr std::string_view kDetectedCompilerRealVersion{detail::kCtRealversionZeichen.data(),
+                                                               detail::ct_realversion_laenge()};
+
+/// Der DIALEKT der uebersetzenden Toolchain, Single-Source aus der Compiler-System-Achse (nie ein Literal).
+/// LEER == unbekannt.
+inline constexpr std::string_view kDetectedCompilerDialect =
+#if defined(__clang__)
+    ::comdare::cache_engine::measurement::ClangCompilerAxis::compiler_id();
+#elif defined(__GNUC__)
+    ::comdare::cache_engine::measurement::GccCompilerAxis::compiler_id();
+#else
+    std::string_view{};
+#endif
+
+/// TRUE, wenn Dialekt UND Realversion erhoben werden konnten.
+inline constexpr bool kDetectedCompilerIsKnown =
+    !kDetectedCompilerDialect.empty() && !kDetectedCompilerRealVersion.empty();
+
+// Erhebungs-Wachen. Sie beissen genau dann, wenn die Erhebung strukturell kaputt waere -- eine leere oder
+// ungrammatische Version darf NIE in ein Preimage-Glied wandern (sie waere dort nicht mehr korrigierbar).
+static_assert(kDetectedCompilerDialect.empty() ||
+                  kDetectedCompilerDialect == ::comdare::cache_engine::measurement::GccCompilerAxis::compiler_id() ||
+                  kDetectedCompilerDialect == ::comdare::cache_engine::measurement::ClangCompilerAxis::compiler_id(),
+              "NB/CX-3: der erhobene Compiler-Dialekt ist keine Option der Compiler-System-Achse.");
+static_assert(kDetectedCompilerRealVersion.empty() || kDetectedCompilerRealVersion.size() >= 5,
+              "NB/CX-3: die Realversion traegt drei Zahlen und zwei Punkte, ist also mindestens 5 Zeichen lang.");
+static_assert(
+    [] {
+        if (kDetectedCompilerRealVersion.empty()) return true;
+        std::size_t punkte = 0;
+        std::size_t ziffern_im_glied = 0;
+        for (char const c : kDetectedCompilerRealVersion) {
+            if (c == '.') {
+                if (ziffern_im_glied == 0) return false; // leeres Zahlen-Glied
+                ++punkte;
+                ziffern_im_glied = 0;
+                continue;
+            }
+            if (c < '0' || c > '9') return false; // NUR Ziffern und Punkte
+            ++ziffern_im_glied;
+        }
+        return punkte == 2 && ziffern_im_glied > 0;
+    }(),
+    "NB/CX-3: die erhobene Compiler-Realversion ist nicht die Form <major>.<minor>.<patch>. Ein anderer "
+    "Zeichenvorrat wuerde die Injektivitaet des Glieds [5] gefaehrden (';', '=', '{', '}', '@' sind dort "
+    "STRUKTUR) -- deshalb bricht die Erhebung hier, statt still ein unzerlegbares Glied zu bauen.");
 
 /// Ein Versions-Anker je TOOLCHAIN-Achse. Owner-KERN abend-5: "ALLE Achsen ... auch im Fingerprint MIT IHRER
 /// VERSIONIERUNG verankert". Bis heute hatte die compiler-Gruppe KEINE Version: system_axis_code_versions.hpp
@@ -130,6 +270,65 @@ struct ToolchainStampParts {
     std::string_view atomic128_flags{};   ///< die konkreten Flags dieser Option ("-mcx16")
 };
 
+// -- NB/CX-2: DIE INTERNE INJEKTIVITAET DES RENDERERS --------------------------------------------------
+//
+// DER BEFUND, DEN DAS HEILT (Codex-Nachreview [MAJOR]): der Renderer klebte key/value roh mit ';', '=',
+// '{', '}' und '@' aneinander -- ohne Escaping, ohne Laengenpraefix, ohne Zeichenvorrats-Pruefung. Damit war
+// er NICHT injektiv, und zwar nicht theoretisch, sondern mit drei konkreten Kollisionen:
+//     {simd="avx2;ceb=8.0", ceb=""}            und {simd="avx2", ceb="8.0"}       -> beide "..;ext=avx2;ceb=8.0"
+//     {opt="O3{-funroll}", opt_flags=""}       und {opt="O3", opt_flags="-funroll"}
+//     {cxx_dialect="gcc-13.2.0", realversion=""} und {cxx_dialect="gcc", realversion="13.2.0"}
+// Zwei VERSCHIEDENE Toolchain-Belegungen mit demselben Glied heissen: derselbe Fingerprint, also ein
+// falscher Skip -- exakt die Klasse Fehler, die das Glied [5] gerade beseitigen soll.
+//
+// WARUM ZEICHENVORRAT STATT ESCAPING: Escaping macht das Glied laenger, braucht einen Unescaper (den es
+// nirgends gibt, weil niemand das Glied zerlegt) und verschiebt das Problem auf das Escape-Zeichen. Der
+// Zeichenvorrat ist die schaerfere und billigere Zusage: die fuenf STRUKTUR-Zeichen kommen in keinem WERT
+// vor, also ist die Zerlegung des Glieds eindeutig -- und ein Verstoss ist FAIL-LOUD, nicht still.
+// Der reale Zeichenvorrat der Werte (Achsen-Ids, Compiler-Flags, Versionen) enthaelt keines der fuenf.
+
+/// Die Zeichen, die im Toolchain-Glied STRUKTUR sind und deshalb in keinem WERT vorkommen duerfen.
+/// '\n' ist zusaetzlich verboten -- es ist der Domain-Separator der Glied-Folge (OF-M3-1).
+inline constexpr std::string_view kToolchainGliedStrukturZeichen = ";={}@";
+
+/// Ein WERT des Glieds ist wohlgeformt, wenn er kein Struktur- und kein Steuerzeichen traegt.
+[[nodiscard]] constexpr bool toolchain_wert_ist_wohlgeformt(std::string_view v) noexcept {
+    for (char const c : v) {
+        if (c == '\n' || c == '\r') return false;
+        if (kToolchainGliedStrukturZeichen.find(c) != std::string_view::npos) return false;
+    }
+    return true;
+}
+
+/// Der DIALEKT traegt zusaetzlich kein '-': der Renderer klebt ihn mit '-' an die Realversion. Ohne diese
+/// Zusatz-Regel blieben {"gcc-13.2.0", ""} und {"gcc", "13.2.0"} ununterscheidbar (dritte Kollision oben).
+[[nodiscard]] constexpr bool toolchain_dialekt_ist_wohlgeformt(std::string_view v) noexcept {
+    return toolchain_wert_ist_wohlgeformt(v) && v.find('-') == std::string_view::npos;
+}
+
+/// Nennt das ERSTE verletzende Feld beim Namen (leer == alles wohlgeformt). Ein benannter Befund ist der
+/// Unterschied zwischen einer brauchbaren Fehlerzeile und "irgendwas am Stempel ist kaputt".
+[[nodiscard]] constexpr std::string_view toolchain_stamp_parts_diagnose(ToolchainStampParts const& p) noexcept {
+    if (!toolchain_dialekt_ist_wohlgeformt(p.cxx_dialect)) return "cxx_dialect";
+    if (!toolchain_wert_ist_wohlgeformt(p.cxx_realversion)) return "cxx_realversion";
+    if (!toolchain_wert_ist_wohlgeformt(p.opt)) return "opt";
+    if (!toolchain_wert_ist_wohlgeformt(p.opt_flags)) return "opt_flags";
+    if (!toolchain_wert_ist_wohlgeformt(p.simd)) return "simd";
+    if (!toolchain_wert_ist_wohlgeformt(p.ceb)) return "ceb";
+    if (!toolchain_wert_ist_wohlgeformt(p.target_isa)) return "target_isa";
+    if (!toolchain_wert_ist_wohlgeformt(p.telemetry)) return "telemetry";
+    if (!toolchain_wert_ist_wohlgeformt(p.build_type)) return "build_type";
+    if (!toolchain_wert_ist_wohlgeformt(p.gate_contribution)) return "gate_contribution";
+    if (!toolchain_wert_ist_wohlgeformt(p.atomic128)) return "atomic128";
+    if (!toolchain_wert_ist_wohlgeformt(p.atomic128_flags)) return "atomic128_flags";
+    return {};
+}
+
+// Die CT-Erhebung selbst muss den Zeichenvorrat einhalten -- sonst koennte ausgerechnet der einzige Wert,
+// den dieser Header SELBST beisteuert, das Glied unzerlegbar machen.
+static_assert(toolchain_dialekt_ist_wohlgeformt(kDetectedCompilerDialect));
+static_assert(toolchain_wert_ist_wohlgeformt(kDetectedCompilerRealVersion));
+
 namespace detail {
 
 /// Ein Segment `key=value` (leerer Wert => KEIN Segment, Regel wie im Suffix).
@@ -169,7 +368,21 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 ///
 /// ALLE Felder leer => "" (die Identitaet). Das ist kein Sonderfall, sondern dieselbe Zusage wie beim
 /// Overlay-Glied und beim Zellwert-Set: ein nicht injizierter Wert veraendert das Preimage NICHT.
+///
+/// NB/CX-2: FAIL-LOUD statt still. Ein Feld mit Struktur-Zeichen wuerde ein Glied erzeugen, das zwei
+/// verschiedene Belegungen gleich rendert -- der Renderer wirft dann eine BENANNTE Fehlerklasse, statt eine
+/// Kollision in den Fingerprint zu schreiben. Der Wurf ist der einzige richtige Ausgang: ein degradierter
+/// Ersatzwert waere wieder eine stille Identitaets-Aussage.
 [[nodiscard]] inline std::string render_toolchain_stamp_glied(ToolchainStampParts const& p) {
+    if (std::string_view const feld = toolchain_stamp_parts_diagnose(p); !feld.empty())
+        throw std::invalid_argument(
+            std::string{"fehlerklasse=stempel_injektivitaet: das Toolchain-Glied [5] kann nicht injektiv "
+                        "gerendert werden -- das Feld '"} +
+            std::string{feld} +
+            "' traegt ein STRUKTUR-Zeichen (';', '=', '{', '}', '@'), '-' im Dialekt oder einen "
+            "Zeilenumbruch. Zwei verschiedene Toolchain-Belegungen wuerden dann dasselbe Glied ergeben, "
+            "also denselben Fingerprint -- und damit einen falschen Skip. Den WERT korrigieren, nicht die "
+            "Wache.");
     std::string felder;
     // Reihenfolge == kToolchainGliedKeys == kSuffixSegmentOrder (+ atomic128 am Ende).
     if (!p.cxx_dialect.empty()) {

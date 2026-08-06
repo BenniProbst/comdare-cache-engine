@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint> // A13-M1: uint32_t/uint64_t explizit (reserved-Flag-Wachen)
 #include <span>
+#include <stdexcept> // NB/CX-1/CX-2: die Injektivitaets-Wachen sind FAIL-LOUD (std::invalid_argument)
 #include <string>
 #include <string_view>
 #include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
@@ -1053,4 +1054,154 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     EXPECT_NE(stamp.find(";[load_framework=ycsb@1.0.0c];sha512="), std::string::npos) << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
+}
+
+// -- NB/CX-3: DIE COMPILER-REAL-VERSIONS-ERHEBUNG (compile-time) ---------------------------------------
+// G-C4/OE-C verlangt die REAL ERKANNTE Version statt des Treiber-Namens. Bis zum NB-Fenster war
+// ToolchainStampParts.cxx_realversion ein Slot OHNE Erhebung -- dieser Test prueft, dass er jetzt gefuellt
+// werden KANN und dass die Erhebung die Form haelt, an der die Injektivitaet des Glieds haengt.
+TEST(MW12StampBausteine, NbCx3CompilerRealVersionIsDetectedAtCompileTime) {
+    namespace abi = ::comdare::cache_engine::abi;
+    namespace cm  = ::comdare::cache_engine::measurement;
+
+    // (a) Auf jeder Toolchain, mit der dieses Projekt uebersetzt wird (gcc oder clang), ist die Erhebung
+    //     ERFOLGREICH. Ein leeres Ergebnis waere kein Stil-Mangel, sondern der fail-closed-Fall.
+    static_assert(abi::kDetectedCompilerIsKnown,
+                  "NB/CX-3: weder __clang__ noch __GNUC__ -- diese Toolchain kann keine Realversion stempeln.");
+    EXPECT_TRUE(abi::kDetectedCompilerIsKnown);
+
+    // (b) Der DIALEKT kommt aus der Compiler-System-Achse, nicht aus einem Literal.
+    EXPECT_TRUE(abi::kDetectedCompilerDialect == cm::GccCompilerAxis::compiler_id() ||
+                abi::kDetectedCompilerDialect == cm::ClangCompilerAxis::compiler_id())
+        << "dialekt='" << abi::kDetectedCompilerDialect << "'";
+
+    // (c) Die FORM ist <major>.<minor>.<patch> -- drei Zahlen, zwei Punkte, sonst nichts. Genau daran haengt,
+    //     dass der Wert kein Struktur-Zeichen des Glieds traegt.
+    std::size_t punkte = 0;
+    for (char const c : abi::kDetectedCompilerRealVersion) {
+        if (c == '.') {
+            ++punkte;
+            continue;
+        }
+        EXPECT_TRUE(c >= '0' && c <= '9') << "unerwartetes Zeichen in der Realversion: '" << c << "'";
+    }
+    EXPECT_EQ(punkte, std::size_t{2}) << "realversion='" << abi::kDetectedCompilerRealVersion << "'";
+    EXPECT_TRUE(abi::toolchain_wert_ist_wohlgeformt(abi::kDetectedCompilerRealVersion));
+    EXPECT_TRUE(abi::toolchain_dialekt_ist_wohlgeformt(abi::kDetectedCompilerDialect));
+
+    // (d) __clang__-VORRANG: clang definiert __GNUC__ MIT und meldet dort die emulierte GCC-Version. Wird
+    //     der Vorrang je gedreht, stempelt ein clang-Bau als "gcc-4.2.1". Die Zusicherung ist deshalb
+    //     mechanisch und nicht nur ein Kommentar im Header.
+#if defined(__clang__)
+    EXPECT_EQ(abi::kDetectedCompilerDialect, cm::ClangCompilerAxis::compiler_id())
+        << "__clang__ ist gesetzt -- der Dialekt MUSS clang sein, nicht die emulierte GCC-Identitaet";
+#elif defined(__GNUC__)
+    EXPECT_EQ(abi::kDetectedCompilerDialect, cm::GccCompilerAxis::compiler_id());
+#endif
+
+    // (e) WIRKSAMKEIT: die Erhebung laesst sich in ein Glied rendern, und dort steht der DIALEKT-VERSION-
+    //     Verbund -- nie der Treiber-Tag.
+    abi::ToolchainStampParts p{};
+    p.cxx_dialect       = abi::kDetectedCompilerDialect;
+    p.cxx_realversion   = abi::kDetectedCompilerRealVersion;
+    std::string const g = abi::render_toolchain_stamp_glied(p);
+    std::string const erwartet =
+        "cxx=" + std::string{abi::kDetectedCompilerDialect} + "-" + std::string{abi::kDetectedCompilerRealVersion} +
+        "@1.0.0c";
+    EXPECT_NE(g.find(erwartet), std::string::npos) << "glied='" << g << "' erwartet-Segment='" << erwartet << "'";
+    EXPECT_EQ(g.find("g++-"), std::string::npos) << "der Treiber-Tag gehoert NICHT ins Glied (G-C4)";
+}
+
+// -- NB/CX-2: DER RENDERER IST INTERN INJEKTIV ---------------------------------------------------------
+// Die drei Kollisionen sind KEINE Erfindung dieses Tests: sie stehen so im Codex-Nachreview [MAJOR] und
+// waren am Vor-Stand real. Der Test friert sie als NEGATIV-Probe ein -- wer die Wache entschaerft, bekommt
+// sie zurueck und sieht es hier sofort.
+TEST(MW12StampBausteine, NbCx2ToolchainRendererIstInjektiv) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (1) ';'/'=' im Wert: {simd="avx2;ceb=8.0", ceb=""} rendert am Vor-Stand wie {simd="avx2", ceb="8.0"}.
+    abi::ToolchainStampParts a{};
+    a.simd = "avx2;ceb=8.0";
+    abi::ToolchainStampParts b{};
+    b.simd = "avx2";
+    b.ceb  = "8.0";
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(a), std::string_view{"simd"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(a), std::invalid_argument);
+    EXPECT_NO_THROW((void)abi::render_toolchain_stamp_glied(b));
+
+    // (2) Die Flag-KLAMMER im Wert: {opt="O3{-funroll}"} vs. {opt="O3", opt_flags="-funroll"}.
+    abi::ToolchainStampParts c{};
+    c.opt = "O3{-funroll}";
+    abi::ToolchainStampParts d{};
+    d.opt       = "O3";
+    d.opt_flags = "-funroll";
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(c), std::string_view{"opt"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(c), std::invalid_argument);
+    EXPECT_NO_THROW((void)abi::render_toolchain_stamp_glied(d));
+
+    // (3) Der DIALEKT-VERSION-Klebepunkt: {"gcc-13.2.0", ""} vs. {"gcc", "13.2.0"} -- beide ergaeben
+    //     "cxx=gcc-13.2.0@1.0.0c". Deshalb traegt der Dialekt zusaetzlich kein '-'.
+    abi::ToolchainStampParts e{};
+    e.cxx_dialect = "gcc-13.2.0";
+    abi::ToolchainStampParts f{};
+    f.cxx_dialect     = "gcc";
+    f.cxx_realversion = "13.2.0";
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(e), std::string_view{"cxx_dialect"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(e), std::invalid_argument);
+    EXPECT_EQ(abi::render_toolchain_stamp_glied(f), std::string{"tc=1;cxx=gcc-13.2.0@1.0.0c"});
+
+    // (4) '@' und '\n' sind ebenso STRUKTUR bzw. Domain-Separator.
+    abi::ToolchainStampParts g{};
+    g.build_type = "Debug@2";
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(g), std::invalid_argument);
+    abi::ToolchainStampParts h{};
+    h.gate_contribution = "avx512\nfoo";
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(h), std::invalid_argument);
+
+    // (5) Der gutartige Fall bleibt unberuehrt: alles leer => die IDENTITAET, kein Wurf.
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(abi::ToolchainStampParts{}), std::string_view{});
+    EXPECT_EQ(abi::render_toolchain_stamp_glied(abi::ToolchainStampParts{}), std::string{});
+}
+
+// -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------
+// Der Codex-Blocker war konkret: A={Toolchain="TC\nX", bvset="BV"} und B={Toolchain="TC", bvset="X\nBV"}
+// erzeugen BYTE-IDENTISCHE Preimages. Der Test beweist, dass beide Belegungen jetzt gar nicht mehr
+// entstehen koennen -- die Wache sitzt im Traeger-Typ, also auf JEDEM Weg ins Preimage.
+TEST(MW12StampBausteine, NbCx1RtInjektivitaetsWacheIstFailLoud) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (1) Der Domain-Separator in einem injizierten Wert -- beide Haelften der Codex-Kollision.
+    EXPECT_THROW((void)abi::ToolchainGlied{std::string_view{"TC\nX"}}, std::invalid_argument);
+    EXPECT_THROW((void)abi::BvsetGlied{std::string_view{"X\nBV"}}, std::invalid_argument);
+    EXPECT_THROW((void)abi::OverlayHash{std::string_view{"a\nb"}}, std::invalid_argument);
+
+    // (2) Leerer SCHLUESSEL -- am Anfang und im Segment. Ohne diese Regel liesse sich die Grenze zwischen
+    //     Schluessel und Wert verschieben, ohne dass sich ein Byte aendert.
+    EXPECT_THROW((void)abi::ToolchainGlied{std::string_view{"=1;cxx=gcc"}}, std::invalid_argument);
+    EXPECT_THROW((void)abi::BvsetGlied{std::string_view{"bvset=1;=x"}}, std::invalid_argument);
+    EXPECT_THROW((void)abi::BvsetGlied{std::string_view{"bvset=1;page_type[=x]"}}, std::invalid_argument);
+
+    // (3) ZEICHENVORRAT -- Whitespace und Anfuehrungszeichen sind das typische Zeichen dafuer, dass ein
+    //     fremder String (Pfad, Fehlertext) in den Slot geraten ist.
+    EXPECT_THROW((void)abi::ToolchainGlied{std::string_view{"tc=1; cxx=gcc"}}, std::invalid_argument);
+    EXPECT_THROW((void)abi::ToolchainGlied{std::string_view{"tc=\"1\""}}, std::invalid_argument);
+
+    // (4) Die REALEN Werte passieren -- die Wache ist scharf, aber nicht im Weg.
+    EXPECT_NO_THROW((void)abi::ToolchainGlied{std::string_view{"tc=1;cxx=gcc-16.0.1@1.0.0c;opt=O3{-O3}@1.0.0c"}});
+    EXPECT_NO_THROW(
+        (void)abi::BvsetGlied{std::string_view{"bvset=1;bv=2;page_type[{bplus;hw_cache_line=64}];simd_extension[]"}});
+    EXPECT_NO_THROW((void)abi::ToolchainGlied{std::string_view{}});
+    EXPECT_TRUE(abi::injizierter_glied_wert_ist_wohlgeformt(abi::kToolchainStampGlied));
+    EXPECT_TRUE(abi::injizierter_glied_wert_ist_wohlgeformt(abi::kBuildVariantSetSignatureGlied));
+
+    // (5) Die LAUFZEIT-Preimage-Bildung faengt den Separator auch in den Stempel-ZEILEN [1]-[3], die nicht
+    //     durch einen Traeger-Typ laufen. Ohne diesen Zweig bliebe genau dort eine Luecke.
+    std::array<std::string_view, abi::kAnatomyFingerprintGliedCount> const kaputt{
+        abi::kAnatomyFingerprintFormat, "organ\nzeile", "", "", "", "", "", ""};
+    EXPECT_THROW((void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{kaputt.data(),
+                                                                                           kaputt.size()}),
+                 std::invalid_argument);
+    auto const heil = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS");
+    EXPECT_NO_THROW(
+        (void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{heil.data(), heil.size()}));
 }
