@@ -75,6 +75,7 @@
 #include <axes/lookup/composable/search_algo_rebind.hpp> // A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
 #include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-b1b: ObservableComposedContainer<Organ>
 #include "../axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
+#include "../axes/cacheline/cacheline_line_bytes.hpp" // B14-NB2 / KF-6-Auflage (D): Line-Groesse NUR ueber die Achse (line_bytes_of<L>())
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
 // PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
 #include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
@@ -123,6 +124,51 @@
 #include <vector>      // keys-Ernte (Per-Achsen-Seg-Timing) + Memento-Snapshot-Listen (save_state)
 
 namespace comdare::cache_engine::anatomy {
+
+// -----------------------------------------------------------------------------
+// B14-NB2 / KF-6-AUFLAGE (D) (2026-08-06) -- Layout-Scan-Puffer: STRIDE ABLEITEN statt Literal pflegen.
+//
+// BEFUND: die drei Mess-Pfade (run_workload, run_workload_segmented, run_workload_segmented_v2)
+// dimensionierten ihren Layout-Scan-Puffer mit dem LITERAL 64 -- je Pfad an drei Stellen
+// (Dimensionierung, allocate-Alignment, deallocate-Alignment), also neun Literale insgesamt. Das war
+// korrekt, SOLANGE die Cache-Line-Unterachse faktisch auf ihrem Default B64 stand. Mit dem KF-6-
+// Vollausbau (experiment_golden_kern.xml deklariert line_size {32,64,128,256}) wird ein heute
+// schlafender Ueberlauf scharf: CacheLineAlignedMemoryLayout::scan_field_sum liest bei
+// aligned_stride = round_up(kRecordSize, line) und Index (kRecords-1) bis
+//   (16384-1) * 256 + 4 = 4194052 Byte,
+// waehrend der Puffer 16384 * 64 = 1048576 Byte gross war -- Faktor 4 zu klein, Heap-OOB.
+//
+// GEGENMITTEL (Owner-KERN "ALLE Achsen-Eigenschaften NUR ueber die Achsen", generalisierte
+// Schnitt-Regel 04.08.): die Line-Groesse ist Eigentum der cacheline-Unterachse. Sie wird deshalb nicht
+// mehr hier hartkodiert, sondern ueber die Konsum-Bruecke line_bytes_of<Layout>() bezogen
+// (axes/cacheline/cacheline_line_bytes.hpp) und der Stride daraus abgeleitet. Zusaetzlich pinnt je Pfad
+// ein static_assert die Puffer-Untergrenze gegen den groessten moeglichen Zugriff -- die Wache bricht den
+// BUILD, nicht die Messung, falls die Formel je wieder auseinanderlaeuft.
+//
+// DEFAULT-NEUTRALITAET (Byte-Beweis): heute liefert line_bytes_of<Layout>() den Achsen-Default 64
+// (kDefaultLineBytes), also kMaxStride = round_up(48,64) = 64 und kLbufBytes = 16384*64 = 1048576 --
+// exakt der bisherige Wert, und auch das Alignment bleibt 64. Kein Byte, keine Messung, kein
+// Fingerprint bewegt sich; die Ableitung wird erst mit der KF-6-NTTP-Belegung wirksam.
+//
+// UNTERGRENZE, WARUM sizeof(std::uint64_t) UND NICHT uint32_t: die Layout-/Serialisierungs-Scans lesen
+// 4 Byte je Record, der path_descend_scan des dritten Pfades aber 8 Byte. Die Wache nimmt deshalb
+// einheitlich den GROESSTEN Einzel-Read; sie ist damit strikter als noetig und fuer alle drei Pfade
+// dieselbe Aussage.
+// -----------------------------------------------------------------------------
+namespace detail {
+
+/// Der groesstmoegliche Scan-Stride des Layout-Puffers fuer Layout `L` in Bytes.
+/// = round_up(record_size, line_bytes_of<L>()); deckt damit JEDE Layout-Strategie ab, die auf diesem
+/// Puffer scannt: aos_strict (record_size), cache_line_aligned (round_up auf die Line), soa (4),
+/// packed_bitmap (2), aosoa (Block-Stride <= n*record_size) und alle Serializer (record_size).
+template <class L>
+[[nodiscard]] constexpr std::size_t layout_scan_stride_bytes(std::size_t record_size) noexcept {
+    constexpr std::size_t line = ::comdare::cache_engine::cacheline::line_bytes_of<L>();
+    static_assert(line > 0, "line_bytes_of<L>() == 0 -- die cacheline-Unterachse liefert keine Groesse");
+    return ((record_size + line - 1u) / line) * line;
+}
+
+} // namespace detail
 
 // -----------------------------------------------------------------------------
 // A8-S4 KONSTITUTIV-VERTRAG (Dossier docs/architecture/20260803-a8_f2_benchmarking_schnitt_soll_design.md
@@ -455,13 +501,20 @@ public:
             // (NICHT 64) — sonst fiele cache_line_aligned (aligned_stride=round_up(48,64)=64) mit aos_strict
             // (Stride 48) zusammen und die Layout-Achse differenzierte nicht. Damit liest aos_strict bei Stride 48,
             // cache_line_aligned bei Stride 64. PFLICHT-OOB-SCHUTZ: der Puffer wird nach dem GRÖSSTMÖGLICHEN Stride
-            // (64) dimensioniert (kLbufBytes = kRecords*64 >= jeder Layout-Stride), sonst läse der CLA-Scan bei
-            // (kRecords-1)*64+4 über das Ende hinaus. EINMAL via Komposition-Allocator alloziert (Setup, NICHT gemessen).
+            // dimensioniert, sonst laese der CLA-Scan bei (kRecords-1)*Stride+4 ueber das Ende hinaus.
+            // B14-NB2 / KF-6-Auflage (D): der Stride wird ABGELEITET (line_bytes_of<MemLayout>()), nicht mehr als
+            // Literal 64 gepflegt -- s. den Block bei detail::layout_scan_stride_bytes. Am Achsen-Default ergibt
+            // das unveraendert 64 bzw. 16384*64 = 1048576 Byte (Byte-Neutralitaet).
+            // EINMAL via Komposition-Allocator alloziert (Setup, NICHT gemessen).
             constexpr std::size_t kRecords    = 16384;
             constexpr std::size_t kRecordSize = 48;
-            constexpr std::size_t kLbufBytes =
-                kRecords * 64; // OOB-Schutz: größtmöglicher Layout-Stride (64), nicht kRecordSize
-            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            constexpr std::size_t kLineBytes  = ::comdare::cache_engine::cacheline::line_bytes_of<MemLayout>();
+            constexpr std::size_t kMaxStride  = detail::layout_scan_stride_bytes<MemLayout>(kRecordSize);
+            constexpr std::size_t kLbufBytes  = kRecords * kMaxStride;
+            static_assert(kLbufBytes >= (kRecords - 1u) * kMaxStride + sizeof(std::uint64_t),
+                          "run_workload: Layout-Scan-Puffer zu klein fuer den groesstmoeglichen Zugriff "
+                          "(kRecords-1)*kMaxStride + 8 -- KF-6-Line-Groesse und Puffer-Formel laufen auseinander");
+            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, kLineBytes));
             // G3 Batch-2: Alloc-Achsen (z.B. numalloc) liefern bei OOM nullptr OHNE throw — der folgende Fill-Write
             // wäre UB/SIGSEGV und würde vom catch(...) NICHT gefangen (bräche den noexcept-Vertrag). Ehrlicher
             // 0-Return (= 0 Samples) statt Write ins Nichts.
@@ -525,7 +578,7 @@ public:
             do_batch(nullptr); // Warmup (verworfen)
             std::uint64_t const n = (batches < out_capacity) ? batches : out_capacity;
             for (std::uint64_t b = 0; b < n; ++b) out_latencies_ns[b] = do_batch(nullptr);
-            alloc.deallocate(lbuf, kLbufBytes, 64); // Layout-Puffer freigeben
+            alloc.deallocate(lbuf, kLbufBytes, kLineBytes); // Layout-Puffer freigeben (Alignment == Alloc-Alignment)
             return n;
         } catch (...) {
             return 0; // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples
@@ -554,13 +607,20 @@ public:
             constexpr std::size_t     kAlign = 16;
             std::array<void*, kChurn> blocks{};
             auto const churn_size = [](std::size_t j) noexcept { return std::size_t{16} + ((j * 16u) & 0xF0u); };
-            // LAYOUT-FIX (X-§4): kRecordSize=48 + kLbufBytes nach größtmöglichem Layout-Stride (64) dimensioniert
+            // LAYOUT-FIX (X-Abschn.4): kRecordSize=48 + kLbufBytes nach groesstmoeglichem Layout-Stride dimensioniert
             // (OOB-Schutz), identisch zu run_workload. So differenziert die memory_layout-Achse aos_strict(48) vs
-            // cache_line_aligned(64).
+            // cache_line_aligned(Line-Groesse).
+            // B14-NB2 / KF-6-Auflage (D): Stride ABGELEITET statt Literal 64 -- dieser Pfad trug dieselbe Formel
+            // und dieselbe Falle wie run_workload; er wird deshalb identisch geheilt (Byte-neutral am Default).
             constexpr std::size_t kRecords    = 16384;
             constexpr std::size_t kRecordSize = 48;
-            constexpr std::size_t kLbufBytes  = kRecords * 64; // OOB-Schutz: größtmöglicher Layout-Stride (64)
-            unsigned char*        lbuf        = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            constexpr std::size_t kLineBytes  = ::comdare::cache_engine::cacheline::line_bytes_of<MemLayout>();
+            constexpr std::size_t kMaxStride  = detail::layout_scan_stride_bytes<MemLayout>(kRecordSize);
+            constexpr std::size_t kLbufBytes  = kRecords * kMaxStride;
+            static_assert(kLbufBytes >= (kRecords - 1u) * kMaxStride + sizeof(std::uint64_t),
+                          "run_workload_segmented: Layout-Scan-Puffer zu klein fuer den groesstmoeglichen "
+                          "Zugriff (kRecords-1)*kMaxStride + 8");
+            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, kLineBytes));
             // G3 Batch-2: OOM-nullptr der Alloc-Achse ehrlich abweisen (0 Samples) statt UB-Fill (s. run_workload).
             if (lbuf == nullptr) return 0;
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
@@ -603,7 +663,7 @@ public:
             do_seg_batch(); // Warmup (verworfen) — acc zurücksetzen
             acc = SegmentAccumulator{};
             for (std::uint64_t b = 0; b < batches; ++b) do_seg_batch();
-            alloc.deallocate(lbuf, kLbufBytes, 64);
+            alloc.deallocate(lbuf, kLbufBytes, kLineBytes); // Alignment == Alloc-Alignment (B14-NB2)
             out->seg_search_algo_ns   = (sink == ~0ull) ? (acc.s1 ^ 1) : acc.s1; // sink-Nutzung gegen Wegoptimierung
             out->seg_allocator_ns     = acc.s2;
             out->seg_memory_layout_ns = acc.s3;
@@ -686,12 +746,21 @@ public:
             std::array<void*, kChurn> blocks{};
             auto const churn_size = [](std::size_t j) noexcept { return std::size_t{16} + ((j * 16u) & 0xF0u); };
 
-            // LAYOUT-FIX (X-§4): kRecordSize=48; Lbuf nach größtmöglichem Stride (64) dimensioniert (OOB-Schutz).
+            // LAYOUT-FIX (X-Abschn.4): kRecordSize=48; Lbuf nach groesstmoeglichem Stride dimensioniert (OOB-Schutz).
             // path_descend_scan (T3 Patricia) liest 8 B/Record → record_size>=8 sicher (letzter Read (kRecords-1)*48+8).
+            // B14-NB2 / KF-6-Auflage (D): Stride ABGELEITET statt Literal 64. DIESER Pfad war in der urspruenglichen
+            // Auflage gar nicht aufgefuehrt (erst beim Nachzaehlen am Ist gefunden) -- er traegt dieselbe Formel,
+            // also dieselbe Falle, und wird identisch geheilt. Die 8-Byte-Untergrenze der Wache ist genau der
+            // path_descend_scan-Read oben.
             constexpr std::size_t kRecords    = 16384;
             constexpr std::size_t kRecordSize = 48;
-            constexpr std::size_t kLbufBytes  = kRecords * 64;
-            unsigned char*        lbuf        = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            constexpr std::size_t kLineBytes  = ::comdare::cache_engine::cacheline::line_bytes_of<MemLayout>();
+            constexpr std::size_t kMaxStride  = detail::layout_scan_stride_bytes<MemLayout>(kRecordSize);
+            constexpr std::size_t kLbufBytes  = kRecords * kMaxStride;
+            static_assert(kLbufBytes >= (kRecords - 1u) * kMaxStride + sizeof(std::uint64_t),
+                          "run_workload_segmented_v2: Layout-Scan-Puffer zu klein fuer den groesstmoeglichen "
+                          "Zugriff (kRecords-1)*kMaxStride + 8");
+            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, kLineBytes));
             // G3 Batch-2: OOM-nullptr der Alloc-Achse ehrlich abweisen (0 Samples) statt UB-Fill (s. run_workload).
             if (lbuf == nullptr) return 0;
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
@@ -910,7 +979,7 @@ public:
             clock::time_point const run_t0 = clock::now();
             for (std::uint64_t b = 0; b < batches; ++b) do_seg19();
             clock::time_point const run_t1 = clock::now();
-            alloc.deallocate(lbuf, kLbufBytes, 64);
+            alloc.deallocate(lbuf, kLbufBytes, kLineBytes); // Alignment == Alloc-Alignment (B14-NB2)
 
             // A8-S1 (2026-08-04, Befund B-6): Grenze ist kV3AxisCount, NIE ein Literal. Bis hierher stand `< 17`
             // bei acc[18]/seg_ns[18] -> acc[17] (T17 persistence_target, oben gemessen) wurde weder kopiert noch

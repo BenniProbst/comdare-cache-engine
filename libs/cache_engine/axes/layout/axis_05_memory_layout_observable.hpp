@@ -51,6 +51,23 @@ public:
     // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht (composition_registry/axis_path_serialization
     // rufen C::memory_layout::name()).
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
+    // B14-NB2 (2026-08-06) -- FEHLENDE WEITERLEITUNG, gefunden beim Heilen der KF-6-Auflage (D):
+    // MemoryLayoutStrategyBase bietet cacheline_subaxis_line_bytes() (die PERMUTIERBARE Line-Groesse der
+    // cacheline-Unterachse), diese Huelle reichte sie aber NICHT durch. Der Registry-Eintrag der Achse ist
+    // ObservableMemoryLayout<Strategy> -- line_bytes_of<> sah also nie die Strategie, sondern fiel auf den
+    // Achsen-Default kDefaultLineBytes (64) zurueck. Heute ist das folgenlos (die Strategien tragen den
+    // Default), mit der KF-6-NTTP-Belegung waere es ein STILLER Fehler gewesen: die abgeleitete Puffer-
+    // Dimensionierung in abi_adapter.hpp haette weiter 64 gerechnet, waehrend der Scan bei 256 laeuft --
+    // also genau der OOB, den die Ableitung verhindern soll, nur unsichtbar. Muster + Begruendung:
+    // reference_observable_wrapper_must_forward_concept_members (Observable-Wrapper muessen Concept-Member
+    // forwarden). Byte-neutral: Strategy liefert heute denselben Wert wie der Fallback.
+    // NICHT VERWECHSELN mit cache_line_size() darueber -- das ist der INTRINSISCHE Design-Deskriptor der
+    // Layout-Strategie (aos_strict=1, cache_line_aligned=64), nicht die permutierbare Hardware-Line.
+    [[nodiscard]] static constexpr std::size_t cacheline_subaxis_line_bytes() noexcept
+        requires requires { Strategy::cacheline_subaxis_line_bytes(); }
+    {
+        return Strategy::cacheline_subaxis_line_bytes();
+    }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     static constexpr std::string_view               algo_version =
         Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
