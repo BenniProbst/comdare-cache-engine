@@ -555,6 +555,14 @@ struct RunProfileResult {
     ex::CompileFn perm_compile           = a.compile;
     std::string   perm_build_version     = a.build_version;   // .version-Sidecar (Resume-Marke) je Perm
     std::string   perm_tag_build_version = tag_build_version; // CSV-Provenienz-Spalte build_version je Perm
+    // F1 / C1-Interim (A2-Fix-Plan, T2-A): das AUSGABE-VERZEICHNIS je Perm. Bis hierher schrieben ALLE
+    // System-Zellen in denselben Baum -- und weil der Ordner-Stamm an der binary_id haengt (die per Doktrin
+    // NIE Toolchain-Glieder traegt), auf DIESELBE perm.dll, dasselbe .fingerprint-Sidecar und dieselbe
+    // per-Binary result.csv. Seit dem Neuanker unterscheiden sich die Fingerprints der Zellen, also
+    // verwirft dll_is_current wechselseitig den Bau der jeweils anderen: Dauer-Neubau, und die Mess-Ablage
+    // der zuerst gelaufenen Zelle ist ueberschrieben. IDENTITAETS-DEFAULT = a.dll_dir (kein <system_axes>
+    // => die Schleife laeuft nie => byte-identisch zum Vor-F1-Verhalten, golden-320 unberuehrt).
+    std::filesystem::path perm_output_dir = a.dll_dir;
     // W10-C4: der Lager-Anker-Provider je Perm. Er MUSS per Perm beweglich sein, weil der Fingerprint ab jetzt
     // die ZELLE mitrechnet (die vervollstaendigte System-Zeile) -- ein lauf-konstanter Provider wuerde allen
     // Zellen denselben Lager-Key geben und damit exakt die Kollision zurueckholen, die W10 beseitigt. Er ist
@@ -581,7 +589,7 @@ struct RunProfileResult {
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = perm_tag_build_version; // GN-3: per-Perm-CSV-Tag, sonst = tag_build_version
         cfg.source_dir                = a.src_dir;
-        cfg.output_dir                = a.dll_dir;
+        cfg.output_dir                = perm_output_dir; // F1: per-Perm-Zell-Ordner, sonst == a.dll_dir
         cfg.cores_per_build           = a.cores_per_build;
         cfg.build_parallelism         = a.build_parallelism; // W6 (§32-F7): Bau-Pool-Worker-Override (0 = byte-neutral)
         cfg.per_binary_subdirs        = true;
@@ -1032,12 +1040,23 @@ struct RunProfileResult {
                                       : std::string{};
                 perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
                 perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
+                // F1 / C1-Interim: DER ZELL-PFAD dieser Zelle -- aus DENSELBEN perm_parts wie der Suffix
+                // (EINE Quelle, EINE Ordnung; die Wache in system_version_suffix.hpp haelt beide zusammen).
+                // Er haengt an derselben Bedingung wie die Identitaet: ohne per-Zelle-Bau (H2) entsteht
+                // ueberall dasselbe Binary, und dann waeren getrennte Ordner nur |opt x simd| identische
+                // Nachbauten. EINE Identitaet, EIN Pfad.
+                std::string const perm_zellordner =
+                    perm_bau_je_zelle ? ::comdare::cache_engine::profile_facade::compose_system_zell_pfad(perm_parts)
+                                      : std::string{};
+                perm_output_dir = perm_zellordner.empty() ? a.dll_dir : (a.dll_dir / perm_zellordner);
                 // W10-C4: die Zellwerte stehen LITERAL in der Perm-Zeile -- der Bau-Log ist damit der Beleg,
                 // welches Define diese Zelle real getragen hat (Praezedenz der C-3a-Auflage: eine Identitaets-
-                // Aenderung muss im Trace sichtbar sein, nicht nur im Binary).
+                // Aenderung muss im Trace sichtbar sein, nicht nur im Binary). F1 zieht den Zell-Ordner in
+                // dieselbe Zeile: wo die Zelle gebaut hat, ist ab jetzt aus dem Trace belegbar.
                 std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
                           << (march_flag.empty() ? std::string{} : (" " + march_flag))
-                          << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values << "'\n";
+                          << "' build_version=" << perm_build_version << " zellwerte='" << perm_cell_values
+                          << "' zell_pfad='" << perm_output_dir.string() << "'\n";
                 run_all_passes();
             }
         }

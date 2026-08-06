@@ -89,6 +89,89 @@ struct SystemVersionSuffixParts {
     return out;
 }
 
+// -- F1 / C1-Interim (A2-Fix-Plan, T2-A 2026-08-06): DER ZELL-PFAD ------------------------------------
+//
+// WAS HIER GELOEST WIRD: die opt x simd-Schleife baut je Zelle eine EIGENE Tier-Binary, legte sie aber
+// bis hierher in EIN UND DASSELBEN output_dir ab -- der Ordner-Stamm haengt allein an der binary_id, und
+// die traegt per Doktrin NIE Toolchain-Glieder (golden-neutral, TABU). Zwei Zellen derselben
+// Permutation schrieben also auf dieselbe perm.dll, dasselbe .fingerprint-Sidecar und dieselbe
+// per-Binary result.csv. Seit dem Neuanker faellt das nicht mehr still aus: die Zellen haben
+// verschiedene Fingerprints, also verwirft dll_is_current jeweils den Bau der ANDEREN Zelle und baut
+// neu -- ein Ping-Pong, bei dem am Ende genau eine Zelle im Ordner steht und die per-Binary-Ablage der
+// anderen ueberschrieben ist. Der Pfad muss deshalb dieselbe Unterscheidung tragen wie die Identitaet.
+//
+// DIE QUELLE IST DIESELBE: der Ordner-Name entsteht aus den SystemVersionSuffixParts, aus denen auch
+// der build_version-Suffix entsteht -- keine zweite Ableitung, keine zweite Ordnung (die Wache unten
+// nagelt beide aneinander). Damit gilt: gleiche Zelle => gleicher Suffix => gleicher Ordner.
+//
+// WELCHE GLIEDER: cxx, opt, ext und bt -- genau die vier, die GLEICHZEITIG gueltig nebeneinander stehen
+// koennen. cxx/opt/ext permutiert diese Schleife bzw. der Treiber-Aufruf; bt trennt einen Debug- von
+// einem Release-Lauf im selben Ausgabe-Baum (die C1-Luecke "Combo-Wechsel im selben output_dir").
+// BEWUSST NICHT im Pfad: +ceb= (ein Contract-Bump ERSETZT den alten Stand, er steht nicht neben ihm --
+// dort ist ein Neubau im selben Ordner die richtige Wirkung), +target=/+tel= (von dieser Schleife nie
+// belegt) und +gate= (aus der simd-Wahl abgeleitet, also durch ext bereits getrennt).
+//
+// KODIERUNG STATT SANITISIERUNG: eine Ersetzung "verbotener" Zeichen durch '_' holte genau die
+// Kollision zurueck, die dieser Pfad beseitigen soll ("g++-16" und "g--16" waeren derselbe Ordner).
+// Deshalb passieren nur [A-Za-z0-9.-] unveraendert, jedes andere Byte wird als '%NN' geschrieben --
+// eine INJEKTIVE Abbildung. '_' steht bewusst NICHT im Vorrat: es ist der Segment-Trenner, und ein
+// Trennzeichen, das auch im Wert vorkommen darf, waere keine Trennung.
+[[nodiscard]] inline std::string zell_pfad_kodiere(std::string_view roh) {
+    constexpr char kHex[] = "0123456789ABCDEF";
+    std::string    out;
+    out.reserve(roh.size());
+    for (char const c : roh) {
+        auto const u    = static_cast<unsigned char>(c);
+        bool const klar = (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '.' ||
+                          u == '-';
+        if (klar) {
+            out += c;
+            continue;
+        }
+        out += '%';
+        out += kHex[(u >> 4) & 0x0FU];
+        out += kHex[u & 0x0FU];
+    }
+    return out;
+}
+
+/// Die DEKLARATIVE Ordnung des Zell-Pfades. Sie folgt der Suffix-Ordnung Glied fuer Glied (Wache unten).
+inline constexpr std::array<std::string_view, 4> kZellPfadSegmentOrder = {"cxx-", "opt-", "ext-", "bt-"};
+/// Der Praefix macht den Ordner auf einen Blick als System-Zelle kenntlich (Sprache der gn-Zellen).
+inline constexpr std::string_view kZellPfadPraefix = "gn_";
+inline constexpr char             kZellPfadTrenner = '_';
+
+/// Setzt den Zell-Ordner in der EINEN Ordnung zusammen. Reine Funktion; LEER heisst auch hier "kein
+/// Segment". Sind ALLE vier Glieder leer, gibt es keine Zelle zu trennen -> leerer String, und der
+/// Aufrufer bleibt bei seinem unveraenderten Ausgabe-Verzeichnis (Identitaet).
+[[nodiscard]] inline std::string compose_system_zell_pfad(SystemVersionSuffixParts const& p) {
+    std::string out;
+    auto const  append = [&out](std::string_view key, std::string_view value) {
+        if (value.empty()) return;
+        if (!out.empty()) out += kZellPfadTrenner;
+        out += key;
+        out += zell_pfad_kodiere(value);
+    };
+    append(kZellPfadSegmentOrder[0], p.cxx);
+    append(kZellPfadSegmentOrder[1], p.opt);
+    append(kZellPfadSegmentOrder[2], p.simd);
+    append(kZellPfadSegmentOrder[3], p.build_type);
+    if (out.empty()) return {};
+    return std::string{kZellPfadPraefix} + out;
+}
+
+// Ordnungs-Wache Zell-Pfad <-> Suffix: jeder Pfad-Schluessel ist der Rumpf seines Suffix-Segments (ohne
+// '+' und '='), mit '-' als Feld-Trenner. Wer eine der beiden Ordnungen umsortiert, bricht hier
+// compile-time -- Ablage und Provenienz koennen nicht getrennt driften.
+static_assert(kZellPfadSegmentOrder[0].substr(0, kZellPfadSegmentOrder[0].size() - 1) ==
+              kSuffixSegmentOrder[0].substr(1, kSuffixSegmentOrder[0].size() - 2));
+static_assert(kZellPfadSegmentOrder[1].substr(0, kZellPfadSegmentOrder[1].size() - 1) ==
+              kSuffixSegmentOrder[1].substr(1, kSuffixSegmentOrder[1].size() - 2));
+static_assert(kZellPfadSegmentOrder[2].substr(0, kZellPfadSegmentOrder[2].size() - 1) ==
+              kSuffixSegmentOrder[2].substr(1, kSuffixSegmentOrder[2].size() - 2));
+static_assert(kZellPfadSegmentOrder[3].substr(0, kZellPfadSegmentOrder[3].size() - 1) ==
+              kSuffixSegmentOrder[6].substr(1, kSuffixSegmentOrder[6].size() - 2));
+
 /// toolchain_stamp_parts_from_suffix_parts(...) -- die EINE Quelle fuer beide Wege (O-2/C-2).
 ///
 /// Die sieben Felder, die es in BEIDEN Welten gibt (opt, ext, ceb, target, tel, bt, gate), werden hier
