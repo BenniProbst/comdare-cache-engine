@@ -144,6 +144,24 @@ struct RunProfileArgs {
     std::string                                                             bestand_doc_key;
     std::string                                                             bestand_owner_uuid;
     std::string                                                             bestand_maschine;
+    // T2-A/F4 (Owner-KERN Zaehler-Resume): die Plan-Ablage -- das SECHSTE Glied derselben dreischichtigen
+    // Naht, im Muster der fuenf Felder darueber. ProfileRunArgs::batch_plan_datei (Fassade) -> DIESES Feld ->
+    // LazyRunConfig::batch_plan_datei (cache_engine_builder_iterator.hpp:243). KEIN Gate auf dieser Ebene.
+    // Leer (Default) => PlanPersistenz::aktiv()==false => keine Ablage, kein Plan-Resume => byte-neutral.
+    //
+    // EINE ABLAGE JE LAUF, NICHT JE PASS -- und das ist eine GRENZE, keine Zusage: make_cfg legt denselben
+    // Pfad in JEDE Pass-cfg. Der Plan-Stempel (slice_plan_stamp: start/indizes/korn) haengt aber an der
+    // Selektion DES PASSES. Ein Lauf mit mehreren Selektions-Paessen (Basis-Pass + je deklariertem
+    // <axis_sweep> ein Pass, profile_sweep_passes) schreibt die Ablage deshalb mehrfach hintereinander um;
+    // am Ende steht der Plan des LETZTEN Passes darin. Ein Folgelauf findet fuer seinen Basis-Pass einen
+    // fremden Stempel vor -> read_phasen_zaehler ist fail-closed -> KEIN Resume-Anspruch, voller Neubau.
+    // Verloren geht nur der Anspruch, nie ein Messwert und nie eine gebaute Binary; ueberschrieben wird nur
+    // die Plan-Datei, nie ein Lauf-Artefakt. TRAGFAEHIG ist der Plan-Resume damit heute in Laeufen mit
+    // GENAU EINEM Selektions-Pass (Profil ohne <axis_sweeps>, oder explizites sweep_axis, jeweils mit
+    // COMDARE_RUN_SOTA=0). Ob die Ablage je Pass aufgefaechert werden soll -- der Owner-KERN spricht von
+    // EINEM "Batch-Plan (Reihenfolge+Faecher)" je Lauf --, ist eine offene Entscheidung und bewusst NICHT
+    // hier vorweggenommen.
+    std::filesystem::path batch_plan_datei;
     // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
     // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).
     ex::PartialMarkerFn partial_marker_sink;
@@ -616,6 +634,11 @@ struct RunProfileResult {
         cfg.bestand_doc_key     = a.bestand_doc_key;
         cfg.bestand_owner_uuid  = a.bestand_owner_uuid;
         cfg.bestand_maschine    = a.bestand_maschine;
+        // T2-A/F4: die Plan-Ablage -- das letzte Glied der Kette ProfileRunArgs -> RunProfileArgs -> hier.
+        // Ohne diese Zeile war die gesamte F4-Mechanik im produktiven Lauf unerreichbar (der Host baut keine
+        // LazyRunConfig selbst). Leer (Default) => PlanPersistenz::aktiv()==false => keine Ablage => byte-
+        // neutral. Wirksam wird sie erst unter planer_driven_active (bestandslog_active UND provision_only).
+        cfg.batch_plan_datei    = a.batch_plan_datei;
         cfg.partial_marker_sink = a.partial_marker_sink; // W11 (§43.c): BAU-Modus Teil-Marker (No-Op-Default)
         cfg.chunk_part_size     = a.chunk_part_size;     // W11 (§43.c): Teil-Marker-Intervall N (0 = keine)
         cfg.progress_sink       = a.progress_sink; // Welle 5 (E-W5-2): §38-Rueck-Kanal (No-Op-Default => byte-neutral)

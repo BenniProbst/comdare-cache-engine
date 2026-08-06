@@ -112,6 +112,20 @@ struct ProfileRunArgs {
     std::string                                                             bestand_doc_key;
     std::string                                                             bestand_owner_uuid;
     std::string                                                             bestand_maschine;
+    // T2-A/F4 (Owner-KERN Zaehler-Resume): die Ablage des Batch-Plans. SECHSTES Glied derselben
+    // Bestandslog-Naht und nach demselben Muster wie die fuenf darueber -- der Host belegt es, die Fassade
+    // reicht es durch (a.batch_plan_datei), make_cfg legt es auf LazyRunConfig::batch_plan_datei
+    // (cache_engine_builder_iterator.hpp:243) und erst dort entscheidet PlanPersistenz::aktiv() darueber.
+    //
+    // WARUM ES HIER STEHEN MUSS: der produktive Weg laeuft ausschliesslich ueber diese Fassade -- kein Host
+    // baut eine LazyRunConfig selbst. Ohne dieses Glied war die gesamte F4-Mechanik im Produktions-Lauf
+    // unerreichbar (nur Tests, die den Iterator direkt rufen, kamen an sie heran).
+    //
+    // LEER (Default) => PlanPersistenz::aktiv()==false => keine Ablage, kein Plan-Resume => byte-/
+    // verhaltensidentisch zum Ist (golden/CI unberuehrt). Es haengt NICHT am bestandslog-Doppel-Gate des
+    // Hosts: die Ablage ist eine Datei neben dem Lauf, kein Objekt-Store-Verb. Wirksam wird sie ohnehin erst
+    // im planer-getriebenen Bau (planer_driven_active = bestandslog_active UND provision_only).
+    std::filesystem::path batch_plan_datei;
     // W11 (Ledger §43.c): BAU-Modus async Push -- der Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N.
     // Der Host konstruiert den Sink via ArtifactCache::push_chunk_partial_marker (range gekapselt) + liest N aus
     // COMDARE_GN_PART_SIZE (Default 1024). Leer/0 = keine Teil-Marker (byte-neutral). Der Pump selbst (Ueberlappen)

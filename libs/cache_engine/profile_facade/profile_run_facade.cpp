@@ -725,6 +725,10 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.bestand_doc_key    = args.bestand_doc_key;
     a.bestand_owner_uuid = args.bestand_owner_uuid;
     a.bestand_maschine   = args.bestand_maschine;
+    // T2-A/F4: die Plan-Ablage -- reines Durchreichen wie die vier Zeilen darueber, KEIN Gate hier (leerer
+    // Pfad => PlanPersistenz inert => byte-neutral). Sie braucht den Umbrella-Umweg nicht: ein Pfad ist ein
+    // Pfad, es gibt nichts aus einem ArtifactCache zu binden.
+    a.batch_plan_datei = args.batch_plan_datei;
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;
