@@ -38,10 +38,14 @@
 //        jetzt "NIE nullptr" statt "wirft nicht" und rief vorher deallocate(nullptr, 0) -- das ist
 //        entfernt. Std-Adapter und allocate_or_throw BEHALTEN ihre Zero-Size-Ausnahme (dort zulaessig),
 //        und genau diese Trennung wird in (2) mitgeprueft.
-//   (N3) CONCEPT-REGRESS -- der Store-Kopf verlangte nur AllocatorStrategy, konsumierte aber
-//        allocate_or_throw. Die Anforderung heisst jetzt ThrowTranslatingStrategy, liegt in der
-//        ALLOKATOR-Achse (Schnitt-Regel) und steht im Kopf-Constraint des Stores; (1b) belegt sie
-//        positiv UND negativ. Registrierte Varianten unberuehrt: der Member sitzt an der CRTP-Wurzel.
+//   (N3) CONCEPT-REGRESS -- der Store-Kopf verlangte nur AllocatorStrategy, konsumierte aber VIER
+//        Achsen-Faehigkeiten: allocate_or_throw, die Std-Container-Naht des Chunk-INDEX
+//        (StdAllocatorAdapter/as_std_allocator), die Wert-Semantik der roh gehaltenen Strategie
+//        (A{} / alloc_ = A{}) und die T6-Route (snapshot_t/statistics). Alle vier stehen jetzt als
+//        Sub-Concepts in der ALLOKATOR-Achse (Schnitt-Regel) und einzeln im Kopf-Constraint des
+//        Stores; (1b) belegt JEDEN Term positiv UND negativ -- und zwar AM STORE-KOPF, nicht nur am
+//        Concept (Sonde StoreKopfBindetAllokator). Registrierte Varianten unberuehrt: die Member
+//        sitzen an der CRTP-Wurzel bzw. sind dort seit Posten 80 Pflicht.
 //
 // WAS DIESE TU BEWEIST (literal, nicht behauptet):
 //   (1) KONFORMITAET DER ORAKEL   -- beide Stub-Strategien sind vollwertige Achsen-Varianten an
@@ -89,6 +93,7 @@
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
 
+#include <concepts> // A1-Nachbesserung: std::default_initializable/std::assignable_from in den Isolations-Saetzen
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -294,28 +299,115 @@ private:
 #endif
 };
 
-// -- GEGENPROBE-TYP der Concept-Naht (A1-Nachbesserung 2026-08-06) ---------------------------------
-// Absichtlich NICHT an AllocatorStrategyBase gehaengt: dieser Typ erfuellt die Standard-Schnittmenge
-// AllocatorStrategy VOLLSTAENDIG, traegt aber die achsen-eigene Wurf-Uebersetzung allocate_or_throw
-// NICHT. Genau er war vor der Nachbesserung ein gueltiges A fuer LayoutAwareChunkedStore: der Kopf
-// haette ihn angenommen, der Rumpf ihn tief drinnen zerbrochen. Er ist KEINE Achsen-Variante, steht in
-// keiner Registry und wird nie instanziiert -- er existiert einzig, damit "das Sub-Concept ist ECHT
-// staerker als AllocatorStrategy" eine gepruefte Aussage ist und keine Behauptung.
-struct OhneWurfUebersetzung {
+// -- GEGENPROBE-BAUKASTEN der Kopf-Constraint-Naht (A1-Nachbesserung 2026-08-06) -------------------
+//
+// WAS DIE ERST-FASSUNG NICHT BEWIES (Review-Befund 06.08.2026): sie hatte EINEN Gegenprobe-Typ ohne
+// allocate_or_throw und zeigte damit "ThrowTranslatingStrategy ist echt staerker als AllocatorStrategy".
+// Das ist eine Aussage ueber das CONCEPT -- nicht ueber den STORE-KOPF. Wer den Term
+// `&& ThrowTranslatingStrategy<A>` aus dem Kopf wieder herausnaehme, liesse jeden dieser static_asserts
+// gruen: die Regression waere unsichtbar. Und drei WEITERE Rumpf-Anforderungen (Std-Container-Naht,
+// Wert-Semantik, T6-Route) standen ueberhaupt nicht im Kopf.
+//
+// WAS DIESER BAUKASTEN BEWEIST: fuer JEDEN der vier Allokator-Terme gibt es einen Typ, der die anderen
+// drei erfuellt und GENAU an diesem einen scheitert -- und der STORE-KOPF SELBST weist ihn ab (Sonde
+// StoreKopfBindetAllokator unten, ein requires-Ausdruck ueber die Bildung des Store-Template-Ids).
+// Faellt ein Term aus dem Kopf, wird der zugehoerige Negativ-Satz ROT. Die Positiv-Kontrolle
+// VollstaendigeFremdStrategie schliesst die Gegenrichtung: ein Typ MIT allen vier Nahten wird
+// angenommen -- die Negativ-Saetze scheitern also am genannten Term und nicht an etwas anderem.
+//
+// KEINE dieser Klassen haengt an AllocatorStrategyBase, keine steht in einer Registry, keine wird je
+// instanziiert. Sie sind reine Typ-Sonden. Der Baukasten ist bewusst additiv (Basis + Mixins): so ist
+// je Negativ-Typ an EINER Zeile ablesbar, welcher Baustein fehlt.
+
+/// Die Standard-Schnittmenge AllocatorStrategy, vollstaendig und ohne jede Achsen-Zusatz-Faehigkeit.
+struct FremdBasis {
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
     using value_type = std::byte;
     using size_type  = std::size_t;
 
     [[nodiscard]] void* allocate(std::size_t, std::size_t) { return nullptr; }
     void                deallocate(void*, std::size_t, std::size_t) noexcept {}
-    [[nodiscard]] bool  operator==(OhneWurfUebersetzung const&) const noexcept { return true; }
+    [[nodiscard]] bool  operator==(FremdBasis const&) const noexcept { return true; }
 };
+
+/// Mixin 1 -- die achsen-eigene Wurf-Uebersetzung (ThrowTranslatingStrategy).
+struct WurfNahtMixin {
+    [[nodiscard]] void* allocate_or_throw(std::size_t, std::size_t) { return nullptr; }
+};
+
+/// Mixin 2 -- die Standard-Container-Naht (StdAllocatorAdaptingStrategy). Formtreu zur CRTP-Wurzel:
+/// Adapter-Typ OHNE Default-Ktor + noexcept-Fabrik.
+struct StdNahtMixin {
+    template <typename T>
+    class StdAllocatorAdapter {
+    public:
+        using value_type = T;
+        explicit StdAllocatorAdapter(StdNahtMixin*) noexcept {}
+        template <typename U>
+        StdAllocatorAdapter(StdAllocatorAdapter<U> const&) noexcept {}
+        [[nodiscard]] T* allocate(std::size_t) { return nullptr; }
+        void             deallocate(T*, std::size_t) noexcept {}
+        template <typename U>
+        [[nodiscard]] bool operator==(StdAllocatorAdapter<U> const&) const noexcept {
+            return true;
+        }
+    };
+    template <typename T>
+    [[nodiscard]] StdAllocatorAdapter<T> as_std_allocator() noexcept {
+        return StdAllocatorAdapter<T>(this);
+    }
+};
+
+/// Mixin 3 -- die T6-Mess-Route (StatisticsReportingStrategy). Steht wie an den echten Strategien
+/// unter demselben Schalter wie ihr Konsum.
+struct StatistikRouteMixin {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using snapshot_t = acpts::AllocationStatistics;
+    [[nodiscard]] snapshot_t statistics() const noexcept { return {}; }
+#endif
+};
+
+/// POSITIV-KONTROLLE: alle vier Nahten vorhanden -> der Store-Kopf nimmt den Typ, obwohl er NICHT an
+/// der CRTP-Wurzel haengt. Das ist zugleich die praezise Form der Rueckwaertsvertraeglichkeits-Aussage:
+/// der Kopf verlangt FAEHIGKEITEN, keine Abstammung.
+struct VollstaendigeFremdStrategie : FremdBasis, WurfNahtMixin, StdNahtMixin, StatistikRouteMixin {};
+
+/// NEGATIV 1 -- alles ausser der Wurf-Uebersetzung (der Typ der Erst-Fassung, jetzt aus dem Baukasten).
+struct OhneWurfUebersetzung : FremdBasis, StdNahtMixin, StatistikRouteMixin {};
+
+/// NEGATIV 2 -- alles ausser der Standard-Container-Naht (kein StdAllocatorAdapter/as_std_allocator).
+struct OhneStdContainerNaht : FremdBasis, WurfNahtMixin, StatistikRouteMixin {};
+
+/// NEGATIV 3 -- alles ausser der Wert-Semantik: kein Default-Ktor. Kopier-Konstruierbarkeit und
+/// Zuweisbarkeit bleiben ERHALTEN, sonst scheiterte der Typ schon an AllocatorStrategy und der Satz
+/// waere nicht mehr trennscharf.
+struct OhneWertsemantik : FremdBasis, WurfNahtMixin, StdNahtMixin, StatistikRouteMixin {
+    OhneWertsemantik()                                   = delete;
+    OhneWertsemantik(OhneWertsemantik const&)            = default;
+    OhneWertsemantik& operator=(OhneWertsemantik const&) = default;
+};
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+/// NEGATIV 4 -- alles ausser der T6-Route (kein snapshot_t/statistics()). Nur im Statistik-Bau eine
+/// Gegenprobe: ohne COMDARE_CE_ENABLE_STATISTICS fordert das Sub-Concept die Route nicht (und der
+/// Store konsumiert sie nicht) -- dann WAERE dieser Typ zulaessig, und der Satz waere falsch.
+struct OhneStatistikRoute : FremdBasis, WurfNahtMixin, StdNahtMixin {};
+#endif
 
 // Die Stores der Wache: Node4 (Kapazitaet 4 -> mehrere Chunks bei kleiner Slot-Zahl) x CacheLineAligned.
 using ErschoepfterStore =
     nd::LayoutAwareChunkedStore<nd::Node4NodeType, ml::CacheLineAlignedMemoryLayout, ErschoepfteStubStrategie>;
 using BudgetStore =
     nd::LayoutAwareChunkedStore<nd::Node4NodeType, ml::CacheLineAlignedMemoryLayout, BudgetStubStrategie>;
+
+/// DIE SONDE AUF DEN STORE-KOPF SELBST (A1-Nachbesserung 2026-08-06). Die Bildung des Template-Ids
+/// prueft die requires-Klausel des Klassen-Templates; sind ihre Terme nicht erfuellt, ist der Ausdruck
+/// im unmittelbaren Kontext ungueltig und das requires liefert false -- OHNE dass der Store-Rumpf
+/// instanziiert wird. Damit misst dieser Praedikats-Ausdruck GENAU das, was ein
+/// `static_assert(Concept<A>)` NICHT misst: ob der Term am KOPF DES KONSUMENTEN wirklich steht.
+template <class A>
+concept StoreKopfBindetAllokator =
+    requires { typename nd::LayoutAwareChunkedStore<nd::Node4NodeType, ml::CacheLineAlignedMemoryLayout, A>; };
 
 // (7) F3 -- Posten 73, compile-hart: der Bezug aus der Line-Groessen-Einzelquelle ist wertgleich zum
 // frueher hartkodierten Default-Argument 64. Die Aussage steht hier ZUSAETZLICH zum Selbstbeweis in
@@ -349,25 +441,115 @@ int main() {
               topics::OrganAxisConcept<ErschoepfteStubStrategie> && topics::OrganAxisConcept<BudgetStubStrategie>);
 
         // (1b) CONCEPT-REGRESS GESCHLOSSEN (A1-Nachbesserung 2026-08-06): der Store-Kopf verlangte nur
-        // AllocatorStrategy, konsumierte aber allocate_or_throw. Die Anforderung heisst jetzt
-        // ThrowTranslatingStrategy und liegt in der ALLOKATOR-Achse. Beide Saetze zusammen sind die
-        // Aussage: das Sub-Concept ist ECHT staerker (NEGATIV am registrierungs-fremden Typ belegt) und
-        // trotzdem von jeder Achsen-Strategie erfuellt, ohne eine registrierte Variante anzufassen.
+        // AllocatorStrategy, konsumierte aber VIER Achsen-Faehigkeiten. Sie heissen jetzt
+        // ThrowTranslatingStrategy / StdAllocatorAdaptingStrategy / ValueSemanticStrategy /
+        // StatisticsReportingStrategy und liegen samt Begruendung in der ALLOKATOR-Achse
+        // (generalisierte Schnitt-Regel). Drei Saetze je Term: das Sub-Concept ist ECHT staerker als
+        // AllocatorStrategy, jede Achsen-Strategie erfuellt es geerbt, und der STORE-KOPF weist den
+        // Gegenprobe-Typ tatsaechlich ab.
         static_assert(acpts::ThrowTranslatingStrategy<ErschoepfteStubStrategie>);
         static_assert(acpts::ThrowTranslatingStrategy<BudgetStubStrategie>);
         static_assert(acpts::ThrowTranslatingStrategy<alloc::ExgenAllocator>);
         static_assert(acpts::ThrowTranslatingStrategy<alloc::PoolResourceAllocator>);
-        static_assert(!acpts::ThrowTranslatingStrategy<OhneWurfUebersetzung>,
-                      "GEGENPROBE: ein Typ ohne allocate_or_throw darf das Sub-Concept NICHT erfuellen -- "
-                      "sonst waere der Kopf-Constraint des Stores wieder zahnlos.");
-        static_assert(acpts::AllocatorStrategy<OhneWurfUebersetzung>,
-                      "und er MUSS AllocatorStrategy erfuellen -- nur dann belegt die Gegenprobe, dass das "
-                      "Sub-Concept ECHT staerker ist und nicht bloss dieselbe Menge anders schreibt.");
-        check("registrierte Varianten erfuellen ThrowTranslatingStrategy (Erbe der CRTP-Wurzel)",
+        static_assert(acpts::StdAllocatorAdaptingStrategy<alloc::ExgenAllocator>);
+        static_assert(acpts::StdAllocatorAdaptingStrategy<alloc::PoolResourceAllocator>);
+        static_assert(acpts::ValueSemanticStrategy<alloc::ExgenAllocator>);
+        static_assert(acpts::ValueSemanticStrategy<alloc::PoolResourceAllocator>);
+        static_assert(acpts::StatisticsReportingStrategy<alloc::ExgenAllocator>);
+        static_assert(acpts::StatisticsReportingStrategy<alloc::PoolResourceAllocator>);
+        check("registrierte Varianten erfuellen ALLE VIER Allokator-Terme des Store-Kopfes (Erbe der "
+              "CRTP-Wurzel)",
               acpts::ThrowTranslatingStrategy<alloc::ExgenAllocator> &&
-                  acpts::ThrowTranslatingStrategy<alloc::PoolResourceAllocator>);
-        check("GEGENPROBE: ohne allocate_or_throw NICHT erfuellt, AllocatorStrategy aber schon",
-              !acpts::ThrowTranslatingStrategy<OhneWurfUebersetzung> && acpts::AllocatorStrategy<OhneWurfUebersetzung>);
+                  acpts::StdAllocatorAdaptingStrategy<alloc::ExgenAllocator> &&
+                  acpts::ValueSemanticStrategy<alloc::ExgenAllocator> &&
+                  acpts::StatisticsReportingStrategy<alloc::ExgenAllocator> &&
+                  acpts::ThrowTranslatingStrategy<alloc::PoolResourceAllocator> &&
+                  acpts::StdAllocatorAdaptingStrategy<alloc::PoolResourceAllocator> &&
+                  acpts::ValueSemanticStrategy<alloc::PoolResourceAllocator> &&
+                  acpts::StatisticsReportingStrategy<alloc::PoolResourceAllocator>);
+
+        // POSITIV-KONTROLLE ZUERST -- ohne sie waeren die Negativ-Saetze wertlos: ein Typ MIT allen vier
+        // Nahten, aber OHNE Abstammung von AllocatorStrategyBase, wird vom Store-Kopf ANGENOMMEN. Die
+        // Negativ-Typen unterscheiden sich von ihm in GENAU EINEM Baustein -- ihre Ablehnung kann also
+        // keine andere Ursache haben.
+        static_assert(acpts::AllocatorStrategy<VollstaendigeFremdStrategie>);
+        static_assert(acpts::ThrowTranslatingStrategy<VollstaendigeFremdStrategie>);
+        static_assert(acpts::StdAllocatorAdaptingStrategy<VollstaendigeFremdStrategie>);
+        static_assert(acpts::ValueSemanticStrategy<VollstaendigeFremdStrategie>);
+        static_assert(acpts::StatisticsReportingStrategy<VollstaendigeFremdStrategie>);
+        static_assert(StoreKopfBindetAllokator<VollstaendigeFremdStrategie>,
+                      "der Store-Kopf verlangt FAEHIGKEITEN, keine Abstammung -- ein vollstaendiger "
+                      "Fremd-Allokator MUSS bindbar bleiben (Rueckwaertsvertraeglichkeits-Aussage).");
+        static_assert(StoreKopfBindetAllokator<alloc::ExgenAllocator>);
+        static_assert(StoreKopfBindetAllokator<alloc::PoolResourceAllocator>);
+        check("POSITIV: vollstaendiger Fremd-Allokator (ohne CRTP-Abstammung) bindet am Store-Kopf",
+              StoreKopfBindetAllokator<VollstaendigeFremdStrategie> &&
+                  StoreKopfBindetAllokator<alloc::ExgenAllocator>);
+
+        // TERM 1 -- Wurf-Uebersetzung.
+        static_assert(acpts::AllocatorStrategy<OhneWurfUebersetzung>,
+                      "der Gegenprobe-Typ MUSS AllocatorStrategy erfuellen -- nur dann belegt er, dass das "
+                      "Sub-Concept ECHT staerker ist und nicht bloss dieselbe Menge anders schreibt.");
+        static_assert(!acpts::ThrowTranslatingStrategy<OhneWurfUebersetzung>);
+        static_assert(acpts::StdAllocatorAdaptingStrategy<OhneWurfUebersetzung> &&
+                          acpts::ValueSemanticStrategy<OhneWurfUebersetzung> &&
+                          acpts::StatisticsReportingStrategy<OhneWurfUebersetzung>,
+                      "ISOLATION: er darf NUR an der Wurf-Uebersetzung scheitern.");
+        static_assert(!StoreKopfBindetAllokator<OhneWurfUebersetzung>,
+                      "REGRESS-WACHE: faellt `&& ThrowTranslatingStrategy<A>` aus dem Store-Kopf, wird "
+                      "dieser Satz rot -- die Concept-Saetze darueber wuerden es NICHT.");
+        check("TERM 1 (allocate_or_throw): Sub-Concept echt staerker, Store-Kopf weist ab",
+              acpts::AllocatorStrategy<OhneWurfUebersetzung> &&
+                  !acpts::ThrowTranslatingStrategy<OhneWurfUebersetzung> &&
+                  !StoreKopfBindetAllokator<OhneWurfUebersetzung>);
+
+        // TERM 2 -- Standard-Container-Naht (daran haengt der Chunk-INDEX seit A8-S5-02a).
+        static_assert(acpts::AllocatorStrategy<OhneStdContainerNaht>);
+        static_assert(!acpts::StdAllocatorAdaptingStrategy<OhneStdContainerNaht>);
+        static_assert(acpts::ThrowTranslatingStrategy<OhneStdContainerNaht> &&
+                          acpts::ValueSemanticStrategy<OhneStdContainerNaht> &&
+                          acpts::StatisticsReportingStrategy<OhneStdContainerNaht>,
+                      "ISOLATION: er darf NUR an der Std-Container-Naht scheitern.");
+        static_assert(!StoreKopfBindetAllokator<OhneStdContainerNaht>,
+                      "REGRESS-WACHE: faellt `&& StdAllocatorAdaptingStrategy<A>` aus dem Store-Kopf, "
+                      "wird dieser Satz rot.");
+        check("TERM 2 (StdAllocatorAdapter/as_std_allocator): Store-Kopf weist ab",
+              acpts::AllocatorStrategy<OhneStdContainerNaht> &&
+                  !acpts::StdAllocatorAdaptingStrategy<OhneStdContainerNaht> &&
+                  !StoreKopfBindetAllokator<OhneStdContainerNaht>);
+
+        // TERM 3 -- Wert-Semantik (`mutable A alloc_{}` + `alloc_ = A{}` im operator=).
+        static_assert(acpts::AllocatorStrategy<OhneWertsemantik>);
+        static_assert(!acpts::ValueSemanticStrategy<OhneWertsemantik>);
+        static_assert(acpts::ThrowTranslatingStrategy<OhneWertsemantik> &&
+                          acpts::StdAllocatorAdaptingStrategy<OhneWertsemantik> &&
+                          acpts::StatisticsReportingStrategy<OhneWertsemantik>,
+                      "ISOLATION: er darf NUR an der Wert-Semantik scheitern.");
+        static_assert(std::assignable_from<OhneWertsemantik&, OhneWertsemantik> &&
+                          !std::default_initializable<OhneWertsemantik>,
+                      "und zwar GENAU am Default-Ktor, nicht an der Zuweisbarkeit.");
+        static_assert(!StoreKopfBindetAllokator<OhneWertsemantik>,
+                      "REGRESS-WACHE: faellt `&& ValueSemanticStrategy<A>` aus dem Store-Kopf, wird "
+                      "dieser Satz rot.");
+        check("TERM 3 (A{} / alloc_ = A{}): Store-Kopf weist ab",
+              acpts::AllocatorStrategy<OhneWertsemantik> && !acpts::ValueSemanticStrategy<OhneWertsemantik> &&
+                  !StoreKopfBindetAllokator<OhneWertsemantik>);
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        // TERM 4 -- T6-Mess-Route. Nur im Statistik-Bau eine Gegenprobe (s. Typ-Kommentar).
+        static_assert(acpts::AllocatorStrategy<OhneStatistikRoute>);
+        static_assert(!acpts::StatisticsReportingStrategy<OhneStatistikRoute>);
+        static_assert(acpts::ThrowTranslatingStrategy<OhneStatistikRoute> &&
+                          acpts::StdAllocatorAdaptingStrategy<OhneStatistikRoute> &&
+                          acpts::ValueSemanticStrategy<OhneStatistikRoute>,
+                      "ISOLATION: er darf NUR an der T6-Route scheitern.");
+        static_assert(!StoreKopfBindetAllokator<OhneStatistikRoute>,
+                      "REGRESS-WACHE: faellt `&& StatisticsReportingStrategy<A>` aus dem Store-Kopf, "
+                      "wird dieser Satz rot.");
+        check("TERM 4 (snapshot_t/statistics): Store-Kopf weist ab",
+              acpts::AllocatorStrategy<OhneStatistikRoute> && !acpts::StatisticsReportingStrategy<OhneStatistikRoute> &&
+                  !StoreKopfBindetAllokator<OhneStatistikRoute>);
+#endif
     }
 
     std::printf("== (2) F1/Posten 71: PmrResourceAdapter uebersetzt nullptr -> std::bad_alloc ==\n");

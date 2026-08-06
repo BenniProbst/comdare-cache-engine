@@ -82,9 +82,36 @@ namespace _al_la = ::comdare::cache_engine::allocator::axis_06_allocator;
 /// CRTP-Wurzel AllocatorStrategyBase, jede der 26 Achsen-Strategien erbt sie.
 /// AllocatorStrategy<A> bleibt trotz Subsumption ausgeschrieben: der Kopf soll die Basis-Anforderung
 /// weiterhin selbst nennen und nicht nur implizit ueber das Sub-Concept fuehren.
+///
+/// VERVOLLSTAENDIGUNG (Review-Befund 06.08.2026): allocate_or_throw war NICHT die einzige Luecke
+/// zwischen Kopf und Rumpf. Der Rumpf konsumiert DREI weitere Achsen-Faehigkeiten, die
+/// AllocatorStrategy ebenfalls nicht fordert -- jede mit exakt derselben Fehlerwirkung (Bruch tief im
+/// Rumpf statt am Kopf, ohne Bezug zur Ursache):
+///   * StdAllocatorAdaptingStrategy -- `A::StdAllocatorAdapter<Chunk>` (:494) und
+///     `alloc_.as_std_allocator<Chunk>()` (:225/:227/:662): daran haengt seit dem A8-S5-02a-HERZ-Schnitt
+///     der Chunk-INDEX. Fehlte die Naht, braeche erst die Member-Deklaration von chunks_.
+///   * ValueSemanticStrategy -- `mutable A alloc_{}` (:709) und `alloc_ = A{}` (:241): der Store haelt
+///     die Strategie als WERT und setzt sie in der Kopier-Zuweisung auf einen frischen Stand zurueck.
+///   * StatisticsReportingStrategy -- `A::snapshot_t` + `alloc_.statistics()` (:353/:354/:359): die
+///     T6-Mess-Route dieses Organs. Nur unter COMDARE_CE_ENABLE_STATISTICS fordernd, weil GENAU dort
+///     auch der Konsum steht (die Bedingung liegt im Sub-Concept, nicht in diesem Constraint).
+/// Alle drei liegen wie ThrowTranslatingStrategy in der ALLOKATOR-Achse, nicht hier. Sie sind einzeln
+/// ausgeschrieben statt zu einem Sammel-Term gefaltet: so benennt der Compiler beim Bruch den EINEN
+/// fehlenden Baustein, und so ist jeder Term am STORE-KOPF einzeln negativ pinnbar
+/// (test_a1_wurf_vertrag_allokator_store, Abschnitt (1b) -- je ein Gegenprobe-Typ, der GENAU an einem
+/// Term scheitert und die anderen drei erfuellt).
+/// RUECKWAERTSVERTRAEGLICHKEIT, PRAEZISE: fuer die REGISTRIERTE CRTP-Population (26 Strategien an
+/// AllocatorStrategyBase) aendert sich nichts -- alle vier Faehigkeiten sitzen an der Wurzel bzw. sind
+/// dort seit Posten 80 Pflicht. Ein FREMD-Allokator ausserhalb dieser Basis muss die vier Nahten
+/// tragen; er musste es auch vorher schon, nur fiel es ihm erst im Rumpf auf. Grep-Beleg zum Stand
+/// 06.08.2026 (libs/ + tests/ + ext/): es gibt KEINEN Store-Konsumenten mit einem A ausserhalb der
+/// CRTP-Population -- alle Instanziierungen fuehren MimallocAllocator, Composition::allocator oder eine
+/// an AllocatorStrategyBase haengende Test-Variante.
 template <class N, class L, class A>
     requires concepts::NodeTypeStrategy<N> && _ml_la::concepts::MemoryLayoutStrategy<L> &&
-             _al_la::concepts::AllocatorStrategy<A> && _al_la::concepts::ThrowTranslatingStrategy<A>
+             _al_la::concepts::AllocatorStrategy<A> && _al_la::concepts::ThrowTranslatingStrategy<A> &&
+             _al_la::concepts::StdAllocatorAdaptingStrategy<A> && _al_la::concepts::ValueSemanticStrategy<A> &&
+             _al_la::concepts::StatisticsReportingStrategy<A>
 class LayoutAwareChunkedStore {
 private:
     using RK                 = ::comdare::cache_engine::layout::RepresentationKind;
