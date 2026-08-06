@@ -121,9 +121,9 @@ struct SystemVersionSuffixParts {
     std::string    out;
     out.reserve(roh.size());
     for (char const c : roh) {
-        auto const u    = static_cast<unsigned char>(c);
-        bool const klar = (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '.' ||
-                          u == '-';
+        auto const u = static_cast<unsigned char>(c);
+        bool const klar =
+            (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '.' || u == '-';
         if (klar) {
             out += c;
             continue;
@@ -246,6 +246,15 @@ static_assert(kSuffixSegmentOrder.size() + 1 == ::comdare::cache_engine::abi::kT
               "sonst behaupten Suffix und Preimage verschiedene Toolchain-Identitaeten.");
 static_assert(
     [] {
+        // cppcheck-suppress syntaxError  // WERKZEUG-LIMIT, kein Defekt: cppcheck 2.21.0 parst eine
+        // for-Schleife INNERHALB eines Lambdas im static_assert-Argument nicht. Am Objekt isoliert
+        // (Pipeline 15022, lint:static): dasselbe Lambda OHNE Schleife und dieselbe Schleife in einer
+        // BENANNTEN constexpr-Funktion passieren beide; nur die Kombination stolpert. Der Code ist
+        // gueltiges C++23 -- `g++-15 -std=c++23 -fsyntax-only` ueber genau diese Datei liefert RC 0.
+        // Die Wache selbst bleibt unveraendert: sie ist der Doppel-Wahrheits-Schutz zwischen
+        // Suffix-Ordnung und Toolchain-Glied-Feldern und darf NICHT umgebaut werden, um einen Parser
+        // zufriedenzustellen. Faellt das Limit in einer spaeteren cppcheck-Version weg, kann diese
+        // Zeile ersatzlos verschwinden (die Wache meldet ungenutzte Unterdrueckungen nicht).
         for (std::size_t i = 0; i < kSuffixSegmentOrder.size(); ++i) {
             std::string_view const seg = kSuffixSegmentOrder[i];
             if (seg.size() < 3 || seg.front() != '+' || seg.back() != '=') return false;
