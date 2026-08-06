@@ -4361,13 +4361,42 @@ target_include_directories(test_m_w12_stamp_bausteine PRIVATE
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 # Hermetik (CI-3): planner_version.hpp zieht transitiv topics/axis.hpp (boost::mp11) -- explizit linken.
-target_link_libraries(test_m_w12_stamp_bausteine PRIVATE gtest gtest_main Boost::mp11)
+# M-1/D-4: comdare_measurement_combo_ct ist die EINE Emissionsstelle der einkompilierten Mess-Combo. Diese
+# TU zieht builder/ceb_version_stamp.hpp; ohne den Link braeche sie mit dem benannten #error der
+# Verdrahtungs-Wache (und haette vorher, still, einen anderen kCebFingerprint gesehen als der Fassaden-Link).
+target_link_libraries(test_m_w12_stamp_bausteine PRIVATE gtest gtest_main Boost::mp11
+    comdare_measurement_combo_ct)
 comdare_set_platform_defines(test_m_w12_stamp_bausteine)
 target_compile_definitions(test_m_w12_stamp_bausteine PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
 add_test(NAME test_m_w12_stamp_bausteine COMMAND test_m_w12_stamp_bausteine)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_w12_stamp_bausteine)
 set_tests_properties(test_m_w12_stamp_bausteine PROPERTIES LABELS "m;blut")
+
+# -- M-1/D-4 (06.08.2026): DER BISS des CEB-Schluessels -----------------------------------------------
+# Weist beidseitig nach, dass kCebFingerprint an der EINKOMPILIERTEN Mess-Combo haengt: verschiedene Combo
+# => verschiedener Schluessel (21 Paare ueber alle 7 nicht-leeren Tooling-Teilmengen), gleiche Combo =>
+# derselbe Schluessel ueber einen ZWEITEN, unabhaengigen (Laufzeit-)Ableitungsweg. Dazu der Byte-Anker der
+# Vollmenge, der den Alt-Bestand an ceb_key_sha512 vor stiller Entwertung schuetzt.
+# Include-/Link-Menge == test_m_w12_stamp_bausteine (dieselbe Stempel-Flaeche).
+add_executable(test_d4_ceb_schluessel_wahl "test_d4_ceb_schluessel_wahl.cpp")
+target_compile_features(test_d4_ceb_schluessel_wahl PRIVATE cxx_std_23)
+target_include_directories(test_d4_ceb_schluessel_wahl PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_d4_ceb_schluessel_wahl PRIVATE gtest gtest_main Boost::mp11
+    comdare_measurement_combo_ct)
+comdare_set_platform_defines(test_d4_ceb_schluessel_wahl)
+target_compile_definitions(test_d4_ceb_schluessel_wahl PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_d4_ceb_schluessel_wahl COMMAND test_d4_ceb_schluessel_wahl)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d4_ceb_schluessel_wahl)
+set_tests_properties(test_d4_ceb_schluessel_wahl PROPERTIES LABELS "m;d4;stempel;fehlerklassen")
 
 # W10-C1 (Bauplan-Dossier 20260803): die Single-Source der System-ZELLWERTE (abi/system_cell_values.hpp).
 # Orakel: Ziel-Zeilen-Form, je Fehlform eine benannte CT-Diagnose, Identitaet bei leerem Werte-Set,

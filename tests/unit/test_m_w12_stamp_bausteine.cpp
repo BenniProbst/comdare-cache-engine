@@ -1069,13 +1069,29 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     // A13-M2 (OP-3-Rueckbau, Owner-E2/Q1): der ZWILLING ist symmetrisch nachgezogen -- load_framework steht
     // als geklammerter Meta-Meta-Anhang AM ENDE. Genau dieser Header war der von O-8 Schritt 12 dokumentierte
     // DRITTE Ableitungsweg; wer ihn beim Umbau vergisst, bekommt dieselbe Drift zurueck.
-    EXPECT_EQ(ceb::kCebMeasurementStamp, std::string_view{"measurement_tooling=wallclock@1.0.0c;"
-                                                          "measurement_tooling=macro@1.0.0c;"
-                                                          "measurement_tooling=micro@1.0.0c;"
-                                                          "[load_framework=ycsb@1.0.0c]"});
+    //
+    // M-1/D-4 (06.08.2026) -- DIESE ZWEI WACHEN SIND GESCHAERFT, NICHT ABGESCHWAECHT.
+    // Bis D-4 rendert der CEB-Stempel das ANGEBOT (die volle Registry) und war damit von der
+    // einkompilierten Combo UNABHAENGIG; beide Erwartungen unten durften deshalb die Vollmenge nennen.
+    // Seit D-4 rendert er die WAHL. Die Verbatim-Erwartung haengt sich daher an die AUSDRUECKLICHE
+    // [all]-Spezialisierung (unbedingt gueltig, egal wie dieses Build-Verzeichnis konfiguriert ist),
+    // und der Drift-Guard vergleicht gegen den Runtime-Renderer AN DER EINKOMPILIERTEN LEGENDE.
+    // Wuerde man die Erwartungen einfach an kCebMeasurementStamp haengen lassen, waeren sie in einem
+    // -DCOMDARE_MEASUREMENT_COMBO=<spezifisch> konfigurierten Verzeichnis rot -- und man haette die
+    // Wache dann vermutlich gelockert statt sie richtig zu stellen.
+    EXPECT_EQ((ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>),
+              std::string_view{"measurement_tooling=wallclock@1.0.0c;"
+                               "measurement_tooling=macro@1.0.0c;"
+                               "measurement_tooling=micro@1.0.0c;"
+                               "[load_framework=ycsb@1.0.0c]"});
     // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
-    // keine Parallel-Ableitung (Section-64-Vollmengen-Provenienz teilt sich die Quelle).
-    EXPECT_EQ(std::string{ceb::kCebMeasurementStamp}, abi::measurement_stamp_line_full_set());
+    // keine Parallel-Ableitung. [all] und die Vollmengen-Form sind derselbe Text (Section-64-Vollmengen-Provenienz).
+    EXPECT_EQ((std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}),
+              abi::measurement_stamp_line_full_set());
+    // DRIFT-GUARD AN DER EINKOMPILIERTEN LEGENDE: das ist die Form, die auch in einem combo-hart
+    // konfigurierten Verzeichnis gilt. Sie ist die eigentliche "EINE Wahrheit"-Zusage.
+    EXPECT_EQ(std::string{ceb::kCebMeasurementStamp},
+              abi::measurement_stamp_line_from_combo_legend(ceb::kCebCtComboLegend));
     // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess).
     // A13-M3/K-1: hier stand die 4-arg-Form mit dem merge-"" -- genau der Alt-Aufruf, den die Sperre faengt.
     // Sie hat literal gefeuert ("die merge-ZEILE existiert nicht mehr ... das 4. Argument ist der
@@ -1085,8 +1101,11 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp);
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
+    // D-4: die Vorspann-Erwartung nennt nicht mehr "wallclock" (das ist nur bei [all] das erste Tooling),
+    // sondern setzt die EINKOMPILIERTE Zeile ein -- dieselbe Aussage, aber combo-robust.
     std::string const stamp = ceb::ceb_version_stamp();
-    EXPECT_NE(stamp.find("ceb-measurement=measurement_tooling=wallclock@1.0.0c"), std::string::npos);
+    EXPECT_NE(stamp.find("ceb-measurement=" + std::string{ceb::kCebMeasurementStamp}), std::string::npos)
+        << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";[load_framework=ycsb@1.0.0c];sha512="), std::string::npos) << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
