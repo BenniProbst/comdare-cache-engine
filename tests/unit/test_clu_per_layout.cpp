@@ -113,16 +113,16 @@ static LayoutResult measure_layout(char const* name, std::uint64_t kN) {
     auto const snap = ml.statistics();
 
     LayoutResult r;
-    r.name        = name;
-    r.records     = snap.records_scanned;
-    r.field_bytes = snap.field_bytes_read;
+    r.name           = name;
+    r.records        = snap.records_scanned;
+    r.field_bytes    = snap.field_bytes_read;
     r.cache_lines    = snap.cache_lines_touched;
     r.line_bytes     = snap.line_bytes;
     r.achsen_einheit = static_cast<std::uint64_t>(::comdare::cache_engine::cacheline::line_bytes_of<L>());
-    r.clu_pct     = (r.cache_lines == 0 || r.line_bytes == 0)
-                        ? 0.0
-                        : (100.0 * static_cast<double>(r.field_bytes) /
-                       (static_cast<double>(r.cache_lines) * static_cast<double>(r.line_bytes)));
+    r.clu_pct        = (r.cache_lines == 0 || r.line_bytes == 0)
+                           ? 0.0
+                           : (100.0 * static_cast<double>(r.field_bytes) /
+                              (static_cast<double>(r.cache_lines) * static_cast<double>(r.line_bytes)));
     return r;
 }
 

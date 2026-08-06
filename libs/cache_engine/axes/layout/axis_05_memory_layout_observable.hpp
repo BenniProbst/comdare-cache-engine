@@ -19,7 +19,7 @@
 #include "axis_05_memory_layout_strategy_base.hpp" // RepresentationKind (2026-07-06: Job 214061 — TU-Reihenfolge-Glueck beendet)
 #include "concepts/axis_05_memory_layout_concept.hpp"
 #include <axes/cacheline/cacheline_line_bytes.hpp> // B14-NB3: Linienzaehlung NUR ueber die cacheline-Unterachse
-#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+#include <anatomy/organ_location.hpp>              // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -28,13 +28,13 @@ namespace comdare::cache_engine::layout {
 
 /// ABI-taugliches Memory-Layout-Snapshot (standard_layout + trivially_copyable).
 struct MemoryLayoutSnapshot {
-    std::uint64_t scan_count       = 0; ///< Anzahl scan_field_sum-Aufrufe
-    std::uint64_t records_scanned  = 0; ///< kumulierte Datensatz-Zahl ueber alle Scans
-    std::uint64_t field_bytes_read = 0; ///< P-MD1: REAL belegte Nutzbytes je Layout (n * useful, LAYOUT-ABHAENGIG)
+    std::uint64_t scan_count          = 0; ///< Anzahl scan_field_sum-Aufrufe
+    std::uint64_t records_scanned     = 0; ///< kumulierte Datensatz-Zahl ueber alle Scans
+    std::uint64_t field_bytes_read    = 0; ///< P-MD1: REAL belegte Nutzbytes je Layout (n * useful, LAYOUT-ABHAENGIG)
     std::uint64_t cache_lines_touched = 0; ///< P-MD1: REAL beruehrte Lines je Layout (ceil(n*span/line),
                                            ///< LAYOUT-ABHAENGIG). B14-NB3: `line` ist die Groesse der
                                            ///< cacheline-Unterachse (Default 64), kein Literal mehr.
-    std::uint64_t last_checksum = 0; ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
+    std::uint64_t last_checksum = 0;       ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
     /// B14-NB4 (2026-08-06) -- die EINHEIT von cache_lines_touched, mitgefuehrt statt vorausgesetzt.
     /// BEFUND, der dieses Feld erzwingt (Codex + Opus unabhaengig, Lead-Entscheid Weg (ii)): seit B14-NB3
     /// zaehlt cache_lines_touched in Linien DER ACHSE, nicht mehr in 64-B-Linien. Der einzige aktive
@@ -64,7 +64,7 @@ public:
 
     // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht (composition_registry/axis_path_serialization
     // rufen C::memory_layout::name()).
-    [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
+    [[nodiscard]] static constexpr std::size_t cache_line_size() noexcept { return Strategy::cache_line_size(); }
     // B14-NB2 (2026-08-06) -- FEHLENDE WEITERLEITUNG, gefunden beim Heilen der KF-6-Auflage (D):
     // MemoryLayoutStrategyBase bietet cacheline_subaxis_line_bytes() (die PERMUTIERBARE Line-Groesse der
     // cacheline-Unterachse), diese Huelle reichte sie aber NICHT durch. Der Registry-Eintrag der Achse ist
@@ -165,8 +165,8 @@ public:
         constexpr std::size_t kKeyBytes  = sizeof(std::uint64_t);
         constexpr std::size_t kLineBytes = ::comdare::cache_engine::cacheline::line_bytes_of<Strategy>();
         static_assert(kLineBytes > 0u, "cacheline-Unterachse liefert Line-Groesse 0 -- Linienzaehlung unmoeglich");
-        std::size_t const     rs            = (record_size == 0) ? (2u * kKeyBytes) : record_size;
-        std::uint64_t const   touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
+        std::size_t const   rs            = (record_size == 0) ? (2u * kKeyBytes) : record_size;
+        std::uint64_t const touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
         stats_.field_bytes_read += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(kKeyBytes);
         stats_.cache_lines_touched += (touched_bytes + (kLineBytes - 1u)) / kLineBytes;
         note_line_unit_(static_cast<std::uint64_t>(kLineBytes)); // B14-NB4: Einheit reist mit dem Zaehler
@@ -237,8 +237,7 @@ private:
     /// "Zaehler behauptet mehr als gedeckt", nur eine Ebene tiefer als der Befund, der B14 blockiert hat.
     /// Zurueckgesetzt wird die Vergiftung deshalb NUR von reset() -- dort, wo auch der Zaehler faellt.
     void note_line_unit_(std::uint64_t line_bytes) noexcept {
-        if (line_bytes == 0u || (stats_.line_bytes != 0u && stats_.line_bytes != line_bytes))
-            einheit_gemischt_ = true;
+        if (line_bytes == 0u || (stats_.line_bytes != 0u && stats_.line_bytes != line_bytes)) einheit_gemischt_ = true;
         stats_.line_bytes = einheit_gemischt_ ? 0u : line_bytes;
     }
 

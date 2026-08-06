@@ -353,17 +353,18 @@ public:
             // denselben Ausgang und maesse plotzlich ueber observe_scan (anderer Zaehler, anderer
             // Stride). Genau das ist die Klasse "stiller Fallback, gegen den man selbst argumentiert".
             // Deshalb: wer die Real-Footprint-API ueberhaupt anbietet, MUSS die Einheit mitfuehren.
-            static_assert(!requires {
-                              org.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{},
-                                                         std::uint64_t{});
-                          } || requires {
-                              org.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{},
-                                                         std::uint64_t{}, std::uint64_t{});
-                          },
-                          "B14-NB4: dieses Layout-Organ traegt die ALTE observe_real_footprint-Form ohne "
-                          "line_bytes. Es wuerde lautlos auf den observe_scan-Pfad zurueckfallen und eine "
-                          "ANDERE Groesse messen. Die Einheit der Linienzahl gehoert in die Signatur -- "
-                          "Organ auf die Fuenf-Argument-Form ziehen.");
+            static_assert(
+                !requires {
+                    org.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{});
+                } ||
+                    requires {
+                        org.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{},
+                                                   std::uint64_t{});
+                    },
+                "B14-NB4: dieses Layout-Organ traegt die ALTE observe_real_footprint-Form ohne "
+                "line_bytes. Es wuerde lautlos auf den observe_scan-Pfad zurueckfallen und eine "
+                "ANDERE Groesse messen. Die Einheit der Linienzahl gehoert in die Signatur -- "
+                "Organ auf die Fuenf-Argument-Form ziehen.");
             if constexpr (requires {
                               org.observe_real_footprint(checksum, std::size_t{}, std::uint64_t{}, std::uint64_t{},
                                                          std::uint64_t{});

@@ -101,10 +101,9 @@ static_assert(mp::mp_all_of<mp::mp_transform<Huelle, ml::EnabledLayouts>, ist_ac
               "WRAPPER-AUDIT: eine REGISTRIERTE Huelle (ObservableMemoryLayout<S>) reicht "
               "cacheline_subaxis_line_bytes() nicht durch -- line_bytes_of<> faellt still auf 64 zurueck.");
 // Und dieselbe Liste, wie sie der Permutations-Pfad wirklich baut (nicht von Hand nachgebaut):
-static_assert(
-    mp::mp_all_of<::comdare::cache_engine::memory_layout::TopicConfigSet::StaticAxisVariants_05,
-                  ist_achsen_bewusst>::value,
-    "WRAPPER-AUDIT: eine Variante aus TopicConfigSet::StaticAxisVariants_05 ist nicht achsen-bewusst.");
+static_assert(mp::mp_all_of<::comdare::cache_engine::memory_layout::TopicConfigSet::StaticAxisVariants_05,
+                            ist_achsen_bewusst>::value,
+              "WRAPPER-AUDIT: eine Variante aus TopicConfigSet::StaticAxisVariants_05 ist nicht achsen-bewusst.");
 
 // NEGATIV-PROBE: genau die Huelle, die B14-NB2 noch stillschweigend passiert haette (kein Forwarding).
 // Sie MUSS von der Bedingung abgelehnt werden, sonst waere der Audit zahnlos.
@@ -118,8 +117,7 @@ struct NichtForwardendeHuelle {
 static_assert(!cl::CacheLineLineBytesAware<NichtForwardendeHuelle<ml::CacheLineAlignedMemoryLayout>>,
               "Der Wrapper-Audit ist zahnlos: eine Huelle OHNE Forwarding gilt faelschlich als achsen-bewusst.");
 // Und sie faellt genau so, wie befuerchtet, auf den Default zurueck (der stille Fehler, in Zahlen):
-static_assert(cl::line_bytes_of<NichtForwardendeHuelle<ml::CacheLineAlignedMemoryLayout>>() ==
-              cl::kDefaultLineBytes);
+static_assert(cl::line_bytes_of<NichtForwardendeHuelle<ml::CacheLineAlignedMemoryLayout>>() == cl::kDefaultLineBytes);
 
 // -- (D-2) B14-NB4: die ALTE observe_real_footprint-Form darf nicht LAUTLOS durchrutschen ---------------
 // LayoutAwareChunkedStore::organ_observe_layout waehlt zwischen Real-Footprint-Pfad und observe_scan-
@@ -128,9 +126,8 @@ static_assert(cl::line_bytes_of<NichtForwardendeHuelle<ml::CacheLineAlignedMemor
 // dass irgendetwas rot wuerde. Der Store traegt deshalb einen static_assert; hier wird belegt, dass
 // dessen Bedingung wirklich greift (sonst waere sie eine Behauptung).
 template <class Organ>
-concept BietetAlteFootprintForm = requires(Organ& o) {
-    o.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{});
-};
+concept BietetAlteFootprintForm =
+    requires(Organ& o) { o.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{}); };
 template <class Organ>
 concept BietetNeueFootprintForm = requires(Organ& o) {
     o.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{}, std::uint64_t{});
@@ -208,8 +205,8 @@ static_assert(cl::line_bytes_of<Huelle<ProbeCla<cl::CacheLineSize::B256>>>() == 
 // der gesetzte Marker GELESEN wurde, also auf einem Record-Anfang liegt.
 template <class L>
 static std::size_t gemessener_stride(std::vector<unsigned char>& buf) {
-    constexpr std::size_t kN   = 64;
-    constexpr std::size_t kRs  = 48;
+    constexpr std::size_t kN    = 64;
+    constexpr std::size_t kRs   = 48;
     constexpr std::size_t kWipe = 64u * 256u + 64u;
     for (std::size_t off = 4; off <= 1024; off += 4) {
         std::memset(buf.data(), 0, kWipe);
@@ -305,8 +302,8 @@ int main() {
         (void)organ.observe_scan(buf.data(), n, rs);
         return organ.statistics().cache_lines_touched;
     };
-    constexpr std::size_t   kCluN = 1024;
-    std::uint64_t const     alt_formel = (static_cast<std::uint64_t>(kCluN) * kRecordSize + 63u) / 64u; // = 768
+    constexpr std::size_t kCluN      = 1024;
+    std::uint64_t const   alt_formel = (static_cast<std::uint64_t>(kCluN) * kRecordSize + 63u) / 64u; // = 768
     check_eq("CLU CLA am Default == Alt-Formel ceil(n*rs/64)",
              clu(Huelle<ml::CacheLineAlignedMemoryLayout>{}, kCluN, kRecordSize), alt_formel);
     check_eq("CLU Probe B32  (ceil(1024*48/32))", clu(Huelle<ProbeCla<cl::CacheLineSize::B32>>{}, kCluN, kRecordSize),
@@ -343,18 +340,18 @@ int main() {
         pod.axis_stats[5][3] = s.cache_lines_touched;
         pod.axis_stats[5][5] = s.line_bytes;
         ::comdare::cache_engine::measurement::ObserverSnapshotSystemAxis const achse{pod};
-        ::comdare::cache_engine::measurement::SystemAxisSample probe{
+        ::comdare::cache_engine::measurement::SystemAxisSample                 probe{
             .category = ::comdare::cache_engine::measurement::MeasurementCategory::CLU};
         achse.collect(probe);
         (void)f;
         return probe;
     };
-    constexpr KonsumFall kFaelle[] = {{"B32", 32, 1536, 8}, {"B64", 64, 768, 16}, {"B128", 128, 384, 33},
-                                      {"B256", 256, 192, 66}};
-    auto const           s_b32  = snap(Huelle<ProbeCla<cl::CacheLineSize::B32>>{}, kCluN, kRecordSize);
-    auto const           s_b64  = snap(Huelle<ProbeCla<cl::CacheLineSize::B64>>{}, kCluN, kRecordSize);
-    auto const           s_b128 = snap(Huelle<ProbeCla<cl::CacheLineSize::B128>>{}, kCluN, kRecordSize);
-    auto const           s_b256 = snap(Huelle<ProbeCla<cl::CacheLineSize::B256>>{}, kCluN, kRecordSize);
+    constexpr KonsumFall kFaelle[] = {
+        {"B32", 32, 1536, 8}, {"B64", 64, 768, 16}, {"B128", 128, 384, 33}, {"B256", 256, 192, 66}};
+    auto const                     s_b32    = snap(Huelle<ProbeCla<cl::CacheLineSize::B32>>{}, kCluN, kRecordSize);
+    auto const                     s_b64    = snap(Huelle<ProbeCla<cl::CacheLineSize::B64>>{}, kCluN, kRecordSize);
+    auto const                     s_b128   = snap(Huelle<ProbeCla<cl::CacheLineSize::B128>>{}, kCluN, kRecordSize);
+    auto const                     s_b256   = snap(Huelle<ProbeCla<cl::CacheLineSize::B256>>{}, kCluN, kRecordSize);
     ml::MemoryLayoutSnapshot const kSnaps[] = {s_b32, s_b64, s_b128, s_b256};
 
     for (std::size_t i = 0; i < 4; ++i) {
@@ -369,14 +366,12 @@ int main() {
                  s.cache_lines_touched * s.line_bytes, std::uint64_t{49152});
         // (F-3) DER BISS: der ECHTE Verbraucher liefert durchgaengig denselben Wert.
         auto const probe = konsum(s, f);
-        check_true((std::string{"Verbraucher "} + f.name + " liefert einen gueltigen CLU-Wert").c_str(),
-                   probe.valid());
+        check_true((std::string{"Verbraucher "} + f.name + " liefert einen gueltigen CLU-Wert").c_str(), probe.valid());
         check_eq((std::string{"Verbraucher "} + f.name + " CLU %").c_str(), probe.value, std::uint64_t{16});
         // (F-4) Und derselbe Snapshot durch den ALT-Nenner (Literal 64), VERBATIM nachgerechnet: vier
         // verschiedene Auslastungen fuer einen unveraenderten Scan. Das war der Landeblocker, in Zahlen.
         std::uint64_t const alt = (s.field_bytes_read * 100u) / (s.cache_lines_touched * 64u);
-        check_eq((std::string{"Alt-Nenner (Literal 64) "} + f.name + " haette gemeldet").c_str(), alt,
-                 f.alt_prozent);
+        check_eq((std::string{"Alt-Nenner (Literal 64) "} + f.name + " haette gemeldet").c_str(), alt, f.alt_prozent);
         if (f.line_bytes != 64)
             check_true((std::string{"Alt-Nenner "} + f.name + " weicht vom Verbraucher ab (der Biss)").c_str(),
                        alt != probe.value);
@@ -384,8 +379,8 @@ int main() {
     // (F-5) Fail-closed: ein Snapshot OHNE Einheit ergibt keine Prozentzahl, sondern n/a.
     {
         ml::MemoryLayoutSnapshot ohne = s_b128;
-        ohne.line_bytes              = 0;
-        auto const probe             = konsum(ohne, kFaelle[2]);
+        ohne.line_bytes               = 0;
+        auto const probe              = konsum(ohne, kFaelle[2]);
         check_true("Verbraucher ohne Einheit: source-unavailable statt erfundener Zahl", !probe.valid());
         check_eq("Verbraucher ohne Einheit: kein Restwert", probe.value, std::uint64_t{0});
     }
@@ -400,11 +395,9 @@ int main() {
         Huelle<ProbeCla<cl::CacheLineSize::B64>> organ{};
         organ.reset();
         (void)organ.observe_scan(buf.data(), kCluN, kRecordSize); // Beitrag 1: Einheit 64
-        check_eq("Vergiftung (1) erster Beitrag setzt die Einheit", organ.statistics().line_bytes,
-                 std::uint64_t{64});
+        check_eq("Vergiftung (1) erster Beitrag setzt die Einheit", organ.statistics().line_bytes, std::uint64_t{64});
         (void)organ.observe_real_footprint(0, 1, 8, 1, 128); // Beitrag 2: FREMDE Einheit 128
-        check_eq("Vergiftung (2) zwei Einheiten -> Einheit vergiftet", organ.statistics().line_bytes,
-                 std::uint64_t{0});
+        check_eq("Vergiftung (2) zwei Einheiten -> Einheit vergiftet", organ.statistics().line_bytes, std::uint64_t{0});
         (void)organ.observe_scan(buf.data(), kCluN, kRecordSize); // Beitrag 3: wieder 64
         check_eq("Vergiftung (3) BLEIBT vergiftet -- die Summe ist mischig, nicht der letzte Beitrag",
                  organ.statistics().line_bytes, std::uint64_t{0});
@@ -421,7 +414,7 @@ int main() {
     std::cout << "  [--]  CLU-Wache uebersprungen (COMDARE_CE_ENABLE_STATISTICS aus)\n";
 #endif
 
-    std::cout << "\n==== B14-NB3 Scan-/Wrapper-Wache: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
-              << " ====\n";
+    std::cout << "\n==== B14-NB3 Scan-/Wrapper-Wache: "
+              << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }
