@@ -22,6 +22,12 @@
 //                       memory_layout-Slot den benannten Unterachsen-Zugriff. Hier wird belegt, dass die
 //                       Bedingung eine nicht-forwardende Huelle wirklich erkennt (Negativ-Probe) und dass
 //                       alle heutigen Endinstanziierungen sie erfuellen.
+//   (F) VERBRAUCHER   -- B14-NB4. Die Ebenen (A)-(E) pinnen den PRODUZENTEN. Wer nur das tut, zementiert
+//                       eine geaenderte EINHEIT, ohne zu pruefen, was am Ende der Kette daraus wird --
+//                       und genau daran ist B14-NB3 im Review gescheitert (der aktive CLU-Verbraucher
+//                       rechnete weiter mit einem harten Nenner 64). (F) faehrt deshalb die vier
+//                       Linien-Zahlen durch den ECHTEN ObserverSnapshotSystemAxis und rechnet den
+//                       Alt-Nenner daneben mit.
 
 #include <axes/cacheline/cacheline_config.hpp>
 #include <axes/cacheline/cacheline_line_bytes.hpp>
@@ -34,6 +40,9 @@
 #include <axes/layout/axis_05_memory_layout_soa.hpp>
 #include <axes/layout/axis_05_memory_layout_strategy_base.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
+// B14-NB4: der ECHTE Verbraucher der Linienzahl gehoert in diese Wache. Ohne ihn zementiert sie nur die
+// neue Einheit -- genau der Vorwurf, an dem B14-NB3 im Review gescheitert ist.
+#include <cache_engine/measurement/system_axis.hpp>
 
 #include <boost/mp11.hpp>
 
@@ -111,6 +120,35 @@ static_assert(!cl::CacheLineLineBytesAware<NichtForwardendeHuelle<ml::CacheLineA
 // Und sie faellt genau so, wie befuerchtet, auf den Default zurueck (der stille Fehler, in Zahlen):
 static_assert(cl::line_bytes_of<NichtForwardendeHuelle<ml::CacheLineAlignedMemoryLayout>>() ==
               cl::kDefaultLineBytes);
+
+// -- (D-2) B14-NB4: die ALTE observe_real_footprint-Form darf nicht LAUTLOS durchrutschen ---------------
+// LayoutAwareChunkedStore::organ_observe_layout waehlt zwischen Real-Footprint-Pfad und observe_scan-
+// Fallback per `requires`. Mit dem neuen fuenften Argument (line_bytes) faende ein Organ, das nur die
+// ALTE Vier-Argument-Form traegt, ab sofort lautlos den Fallback -- und maesse eine ANDERE Groesse, ohne
+// dass irgendetwas rot wuerde. Der Store traegt deshalb einen static_assert; hier wird belegt, dass
+// dessen Bedingung wirklich greift (sonst waere sie eine Behauptung).
+template <class Organ>
+concept BietetAlteFootprintForm = requires(Organ& o) {
+    o.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{});
+};
+template <class Organ>
+concept BietetNeueFootprintForm = requires(Organ& o) {
+    o.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{}, std::uint64_t{});
+};
+struct AltesFootprintOrgan { // genau der Stand, der vor B14-NB4 ueberall stand
+    std::uint64_t observe_real_footprint(std::uint64_t cs, std::size_t, std::uint64_t, std::uint64_t) { return cs; }
+};
+static_assert(BietetAlteFootprintForm<AltesFootprintOrgan> && !BietetNeueFootprintForm<AltesFootprintOrgan>,
+              "Die Negativ-Probe trifft ihren eigenen Fall nicht mehr.");
+// Die Store-Bedingung LAUTET "!alt || neu". Fuer das Alt-Organ ist sie FALSCH -> der Bau bricht, statt
+// still in den observe_scan-Pfad zu fallen. Das ist die Aussage.
+static_assert(!(!BietetAlteFootprintForm<AltesFootprintOrgan> || BietetNeueFootprintForm<AltesFootprintOrgan>),
+              "Die Bau-Regel in axis_04_node_type_layout_aware_store ist zahnlos: ein Organ mit der ALTEN "
+              "Vier-Argument-Form wuerde lautlos auf den observe_scan-Fallback zurueckfallen.");
+// Und die echte Registry-Huelle erfuellt sie (sonst waere die Regel unerfuellbar statt scharf).
+static_assert(!BietetAlteFootprintForm<Huelle<ml::CacheLineAlignedMemoryLayout>> &&
+                  BietetNeueFootprintForm<Huelle<ml::CacheLineAlignedMemoryLayout>>,
+              "Die produktive Huelle traegt die Fuenf-Argument-Form nicht.");
 
 // -- (C) Testorgane, die sich NUR in der Unterachse unterscheiden ---------------------------------------
 // So (und nur so) emittiert KF-6 eine line-permutierte Layout-Variante: identischer CRTP-Kopf, identischer
@@ -279,6 +317,106 @@ int main() {
              std::uint64_t{384});
     check_eq("CLU Probe B256 (ceil(1024*48/256))", clu(Huelle<ProbeCla<cl::CacheLineSize::B256>>{}, kCluN, kRecordSize),
              std::uint64_t{192});
+
+    // -- (F) B14-NB4: DIE KONSUMENTEN-SEITE DERSELBEN VIER ZAHLEN ---------------------------------------
+    // Die vier Saetze darueber pinnen 1536/768/384/192 als SOLL. Fuer sich genommen zementieren sie nur die
+    // neue EINHEIT -- und genau daran ist B14 im Review gescheitert: der einzige aktive Verbraucher dieser
+    // Zahlen (ObserverSnapshotSystemAxis, measurement/system_axis.hpp) bildete die CLU mit einem harten
+    // Nenner 64 und haette aus ihnen 8/16/33/66 % gemacht, obwohl der physische Fussabdruck in allen vier
+    // Faellen DERSELBE ist (1536*32 == 768*64 == 384*128 == 192*256 == 49152 B).
+    // Deshalb steht der Verbraucher hier MIT im Bild: geprueft wird nicht der Zaehler, sondern die Zahl,
+    // die am Ende der Kette in der Mess-Zelle landet.
+    auto snap = [&buf](auto organ, std::size_t n, std::size_t rs) {
+        (void)organ.observe_scan(buf.data(), n, rs);
+        return organ.statistics();
+    };
+    struct KonsumFall {
+        char const*   name;
+        std::uint64_t line_bytes;
+        std::uint64_t erwartete_linien;
+        std::uint64_t alt_prozent; // was der Alt-Nenner (Literal 64) gemeldet haette
+    };
+    auto konsum = [](ml::MemoryLayoutSnapshot const& s, KonsumFall const& f) {
+        // Der Weg des Produzenten in den ABI-POD -- exakt die Zuweisungen aus abi_adapter::fill_observer_v3.
+        ::comdare::cache_engine::anatomy::ComdareTierObserverSnapshot pod{};
+        pod.axis_stats[5][2] = s.field_bytes_read;
+        pod.axis_stats[5][3] = s.cache_lines_touched;
+        pod.axis_stats[5][5] = s.line_bytes;
+        ::comdare::cache_engine::measurement::ObserverSnapshotSystemAxis const achse{pod};
+        ::comdare::cache_engine::measurement::SystemAxisSample probe{
+            .category = ::comdare::cache_engine::measurement::MeasurementCategory::CLU};
+        achse.collect(probe);
+        (void)f;
+        return probe;
+    };
+    constexpr KonsumFall kFaelle[] = {{"B32", 32, 1536, 8}, {"B64", 64, 768, 16}, {"B128", 128, 384, 33},
+                                      {"B256", 256, 192, 66}};
+    auto const           s_b32  = snap(Huelle<ProbeCla<cl::CacheLineSize::B32>>{}, kCluN, kRecordSize);
+    auto const           s_b64  = snap(Huelle<ProbeCla<cl::CacheLineSize::B64>>{}, kCluN, kRecordSize);
+    auto const           s_b128 = snap(Huelle<ProbeCla<cl::CacheLineSize::B128>>{}, kCluN, kRecordSize);
+    auto const           s_b256 = snap(Huelle<ProbeCla<cl::CacheLineSize::B256>>{}, kCluN, kRecordSize);
+    ml::MemoryLayoutSnapshot const kSnaps[] = {s_b32, s_b64, s_b128, s_b256};
+
+    for (std::size_t i = 0; i < 4; ++i) {
+        auto const& f = kFaelle[i];
+        auto const& s = kSnaps[i];
+        // (F-1) Der PRODUZENT nennt die Einheit seines Zaehlers -- ohne sie ist die Zahl nicht deutbar.
+        check_eq((std::string{"Produzent "} + f.name + " meldet line_bytes").c_str(), s.line_bytes, f.line_bytes);
+        check_eq((std::string{"Produzent "} + f.name + " meldet cache_lines").c_str(), s.cache_lines_touched,
+                 f.erwartete_linien);
+        // (F-2) Derselbe physische Fussabdruck in allen vier Faellen -- die Kontroll-Rechnung dazu.
+        check_eq((std::string{"beruehrte Bytes "} + f.name + " = Linien * Einheit").c_str(),
+                 s.cache_lines_touched * s.line_bytes, std::uint64_t{49152});
+        // (F-3) DER BISS: der ECHTE Verbraucher liefert durchgaengig denselben Wert.
+        auto const probe = konsum(s, f);
+        check_true((std::string{"Verbraucher "} + f.name + " liefert einen gueltigen CLU-Wert").c_str(),
+                   probe.valid());
+        check_eq((std::string{"Verbraucher "} + f.name + " CLU %").c_str(), probe.value, std::uint64_t{16});
+        // (F-4) Und derselbe Snapshot durch den ALT-Nenner (Literal 64), VERBATIM nachgerechnet: vier
+        // verschiedene Auslastungen fuer einen unveraenderten Scan. Das war der Landeblocker, in Zahlen.
+        std::uint64_t const alt = (s.field_bytes_read * 100u) / (s.cache_lines_touched * 64u);
+        check_eq((std::string{"Alt-Nenner (Literal 64) "} + f.name + " haette gemeldet").c_str(), alt,
+                 f.alt_prozent);
+        if (f.line_bytes != 64)
+            check_true((std::string{"Alt-Nenner "} + f.name + " weicht vom Verbraucher ab (der Biss)").c_str(),
+                       alt != probe.value);
+    }
+    // (F-5) Fail-closed: ein Snapshot OHNE Einheit ergibt keine Prozentzahl, sondern n/a.
+    {
+        ml::MemoryLayoutSnapshot ohne = s_b128;
+        ohne.line_bytes              = 0;
+        auto const probe             = konsum(ohne, kFaelle[2]);
+        check_true("Verbraucher ohne Einheit: source-unavailable statt erfundener Zahl", !probe.valid());
+        check_eq("Verbraucher ohne Einheit: kein Restwert", probe.value, std::uint64_t{0});
+    }
+
+    // -- (G) B14-NB4: DIE VERGIFTUNG DER EINHEIT IST KLEBRIG ---------------------------------------------
+    // cache_lines_touched AKKUMULIERT. Sind einmal zwei Linien-Groessen in dieselbe Summe geflossen, ist
+    // die SUMME dauerhaft einheitenlos -- auch wenn danach wieder nur Beitraege der ersten Groesse kommen.
+    // Eine Fassung, die die Einheit bei jedem Beitrag neu setzt, meldete am Ende der Folge (64, 128, 64)
+    // wieder "64" und machte die Mischung in der Summe unsichtbar: der Zaehler behauptete dann mehr, als
+    // gedeckt ist. Genau diese Reihenfolge wird hier gefahren.
+    {
+        Huelle<ProbeCla<cl::CacheLineSize::B64>> organ{};
+        organ.reset();
+        (void)organ.observe_scan(buf.data(), kCluN, kRecordSize); // Beitrag 1: Einheit 64
+        check_eq("Vergiftung (1) erster Beitrag setzt die Einheit", organ.statistics().line_bytes,
+                 std::uint64_t{64});
+        (void)organ.observe_real_footprint(0, 1, 8, 1, 128); // Beitrag 2: FREMDE Einheit 128
+        check_eq("Vergiftung (2) zwei Einheiten -> Einheit vergiftet", organ.statistics().line_bytes,
+                 std::uint64_t{0});
+        (void)organ.observe_scan(buf.data(), kCluN, kRecordSize); // Beitrag 3: wieder 64
+        check_eq("Vergiftung (3) BLEIBT vergiftet -- die Summe ist mischig, nicht der letzte Beitrag",
+                 organ.statistics().line_bytes, std::uint64_t{0});
+        // Und der Verbraucher zieht daraus die einzig ehrliche Folgerung.
+        check_true("Verbraucher meldet n/a auf dem vergifteten Snapshot",
+                   !konsum(organ.statistics(), kFaelle[1]).valid());
+        // reset() -- und NUR reset() -- hebt sie auf: die Vergiftung endet mit dem Zaehler, nicht frueher.
+        organ.reset();
+        (void)organ.observe_scan(buf.data(), kCluN, kRecordSize);
+        check_eq("Vergiftung (4) reset() setzt sie zurueck (Zaehler und Einheit fallen gemeinsam)",
+                 organ.statistics().line_bytes, std::uint64_t{64});
+    }
 #else
     std::cout << "  [--]  CLU-Wache uebersprungen (COMDARE_CE_ENABLE_STATISTICS aus)\n";
 #endif

@@ -5146,3 +5146,10 @@ target_include_directories(test_b14_abi_adapter_line_subaxis_paths PRIVATE
 target_link_libraries(test_b14_abi_adapter_line_subaxis_paths PRIVATE Boost::mp11)
 target_compile_definitions(test_b14_abi_adapter_line_subaxis_paths PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+# B14-NB4: LABELS nachgezogen. comdare_add_test (cmake/gtest_setup.cmake) setzt NUR TIMEOUT, keine Labels --
+# die Schwester-Wache oben traegt "b14", diese Bau-Variante blieb dadurch ohne. Wer `ctest -L b14` fahrt
+# (der Weg, auf dem das Paket lokal nachgeprueft wird), bekaeme sonst die HAELFTE der B14-Wachen und
+# haette trotzdem den Eindruck, das Paket geprueft zu haben. Der TIMEOUT der Helper-Zeile bleibt stehen
+# (set_tests_properties ist additiv je Property).
+set_tests_properties(test_b14_abi_adapter_line_subaxis_paths PROPERTIES
+    LABELS "anatomy;abi;memory_layout;cacheline;b14")
