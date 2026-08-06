@@ -241,6 +241,31 @@ test:coverage-guard:
     # contract:axis-version-lock stand zweimal in dieser Datei -- die zweite, INERT-gegatete
     # Fassung ueberschrieb das unbedingte Gate und legte den Tripwire drei Wochen lang still.
     - sh scripts/ci_yaml_key_guard.sh .gitlab-ci.yml
+    # (0.5) DIFF-HYGIENE-WACHE (2026-08-06, Bestandsaufnahme "ugrep-Gate-Falle"): dieselbe
+    # Fehlerklasse eine Stufe hoeher am Objekt -- nicht "Job verschluckt" oder "Test ungedeckt",
+    # sondern "der Selbstcheck selbst hat nie gemessen". Das bisherige ASCII/Breite-Verfahren war
+    # keine Datei, sondern eine von Hand getippte grep-Kette vor jeder Paketmeldung
+    # (`grep -v '^\+\+\+' | grep -P '[^\x00-\x7F]'`) -- sie bricht unter ugrep mit Syntaxfehler ab
+    # UND unter echtem GNU grep 3.11 (BRE: \+ ist die "ein-oder-mehr"-Erweiterung, kein Literal;
+    # `^\+\+\+` matcht jede Zeile mit fuehrendem '+' und wirft ALLE Zusatzzeilen weg) -- beide Wege
+    # enden in einer stillen 0. Hier bewusst NACH der Schluessel-Wache (die prueft, ob diese Datei
+    # ueberhaupt intakt geparst wird) und VOR dem Bau (kein Bau-Budget noetig, faellt sofort auf,
+    # GitLab stoppt das Script beim ersten Fehl-Exit -- dieselbe Fail-Fast-Eigenschaft wie ein
+    # eigener lint-Job, ohne einen zu brauchen). Bereich: CI_MERGE_REQUEST_DIFF_BASE_SHA in
+    # MR-Pipelines, sonst CI_COMMIT_BEFORE_SHA (All-Null-Fallback auf HEAD~1 -- neuer Branch/
+    # Force-Push). GRENZE, ehrlich benannt: die Skript-LOGIK ist bissgetestet (vier praeparierte
+    # Faelle, s. scripts/ci_diff_ascii_width_guard.bissbeweis.txt), die CI-Variablen-Verdrahtung
+    # selbst konnte nur syntaktisch (pyyaml, read-only) und nicht in einer echten Pipeline
+    # bestaetigt werden -- der erste echte Lauf ist der Beweis dieser einen Stelle.
+    - |
+      set -eu
+      _ce_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
+      [ -n "$_ce_base" ] || _ce_base="${CI_COMMIT_BEFORE_SHA:-}"
+      case "$_ce_base" in
+        ""|0000000000000000000000000000000000000000) _ce_base="HEAD~1" ;;
+      esac
+      echo "DIFF-HYGIENE-WACHE: Bereich ${_ce_base}..HEAD"
+      sh scripts/ci_diff_ascii_width_guard.sh "${_ce_base}..HEAD"
     # Ground Truth = Bau-Baum-Konfiguration von test:unit (COMDARE_TEST_CONFIGURE_FLAGS) inklusive
     # des 2-Pass-Codegen-Configures aus dem .test-Template: erst konfigurieren, dann das
     # Codegen-Tool bauen, dann RECONFIGURE -- sonst registriert CMake die codegen-abhaengigen
