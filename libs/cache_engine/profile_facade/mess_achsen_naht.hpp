@@ -494,13 +494,33 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 // was eine Heilungs-Scheibe nebenbei tut. Die Wache erreicht dasselbe Ziel -- keine zwei ununterscheidbaren
 // Laeufe mehr -- und bewegt kein Byte: sie macht den mehrdeutigen Zustand UNERREICHBAR statt ihn zu
 // benennen. micro ist die Achse, die die PMC-Instrumentierung DEKLARIERT (Registry: "feinkoernige
-// PMC/Counter-Instrumentierung"), also muss micro <-> COMDARE_ENABLE_PMC gelten.
+// PMC/Counter-Instrumentierung"), also muss micro ==> COMDARE_ENABLE_PMC gelten.
 //
 // WARUM NUR BEI EINKOMPILIERTER COMBO: ohne COMDARE_MEASUREMENT_COMBO_CT hat NIEMAND eine spezifische
 // Mess-Achse bestellt -- H-A laesst dort ausschliesslich die Vollmenge [all] zu, und [all] ist die Aussage
 // "nicht eingeschraenkt", keine PMC-Zusage. Der gesamte heutige Bestand (Sidecar 0, Default-Bau,
 // COMDARE_ENABLE_PMC=OFF per CMakeLists.txt:67) faellt in diesen Zweig und bleibt unberuehrt. Die Wache
 // beisst exakt am ersten CT-hart gebauten Batch -- also genau dort, wo die Mehrdeutigkeit real wird.
+//
+// ----------------------------------------------------------------------------------------------------
+// WARUM DIE WACHE NUR IN EINE RICHTUNG GEHT -- EINE VERWORFENE VERSCHAERFUNG, BENANNT STATT VERSCHWIEGEN
+// ----------------------------------------------------------------------------------------------------
+// Die symmetrische Form ("PMC an, aber micro nicht genannt => Wurf") stand hier zuerst und ist beim
+// Merge von development GEFALLEN -- nicht aus Bequemlichkeit, sondern weil sie am Objekt widerlegt ist.
+// M-2/P-PMC-1 (development 8894d983, Owner-KERN F9 "PMC ist PFLICHT fuer die Vollstaendigkeit aller
+// perf-Messwerte") emittiert -DCOMDARE_ENABLE_PMC=ON auf DERSELBEN Configure-Zeile wie das Combo-Define:
+//     experiment_plan_director.hpp:874-875
+//     s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+//          " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
+// Jede CT-hart gebaute CEB bekommt PMC=ON, unabhaengig von ihrer Combo. Die symmetrische Wache haette
+// damit JEDEN nicht-micro-Batch unbaubar gemacht -- also ausgerechnet die [wallclock]-Faehigkeit
+// erschlagen, die M-1/D-1 ueberhaupt erst gebaut hat, und einem Owner-KERN widersprochen.
+// WAS ALS BENANNTE GRENZE BLEIBT: eine [wallclock]-CEB mit PMC=ON erhebt PMC-Zahlen, die ihr Glied [3]
+// nicht nennt. Das ist KEIN F6-Bruch, solange PMC fuer jeden planer-emittierten Mess-Lauf denselben Wert
+// hat (M-2 macht genau das) -- zwei Laeufe derselben Achse koennen sich dann nicht unterscheiden. Es
+// bleibt eine Mehrdeutigkeit fuer HAND-konfigurierte CEBs, und sie ist erst dann sauber zu schliessen,
+// wenn die PMC-Wahl ein Identitaets-Glied wird. Das ist ein Byte-Ereignis mit Owner-Entscheid und
+// gehoert in eine eigene Scheibe, nicht hierher.
 [[nodiscard]] inline bool pmc_ist_einkompiliert() noexcept {
 #ifdef COMDARE_ENABLE_PMC
     return true;
@@ -509,28 +529,23 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 #endif
 }
 
-/// pruefe_pmc_gegen_mess_achse() -- wirft, wenn die einkompilierte Mess-Achse und die einkompilierte
-/// PMC-Ausstattung sich widersprechen. Beide Seiten sind COMPILE-Zustand DERSELBEN CEB-TU; der Vergleich
-/// stellt also Deklaration gegen Deklaration, nicht Deklaration gegen Laufzeit-Glueck. Die Laufzeit-Frage
-/// ("gelingt perf_event_open hier?") ist eine andere und steht bereits ehrlich in der Spalte pmc_available.
 /// pruefe_pmc_ausstattung(legend, micro, pmc) -- die REINE Entscheidung, damit der Biss sie ohne
-/// Praeprozessor-Akrobatik ueber alle vier Kombinationen fahren kann. Der Live-Aufrufer unten reicht nur
-/// die beiden Compile-Zustaende herein; hier steht kein Makro und kein Env.
+/// Praeprozessor-Akrobatik ueber ALLE VIER Kombinationen fahren kann (zwei davon muessen durchgehen --
+/// eine Wache, die immer wirft, waere keine). Der Live-Aufrufer unten reicht nur die beiden
+/// Compile-Zustaende herein; hier steht kein Makro und kein Env.
+///
+/// Beide Seiten sind COMPILE-Zustand DERSELBEN CEB-TU; der Vergleich stellt also Deklaration gegen
+/// Deklaration, nicht Deklaration gegen Laufzeit-Glueck. Die Laufzeit-Frage ("gelingt perf_event_open
+/// hier?") ist eine andere und steht bereits ehrlich in der Spalte pmc_available.
 inline void pruefe_pmc_ausstattung(std::string_view legend, bool micro, bool pmc) {
-    if (micro == pmc) return;
-    if (micro)
-        throw std::runtime_error("fehlerklasse=mess_ausstattung_widerspruch: die einkompilierte Mess-Achse '" +
-                                 std::string{legend} +
-                                 "' nennt 'micro' (Registry: feinkoernige PMC/Counter-Instrumentierung), aber diese "
-                                 "CEB ist ohne COMDARE_ENABLE_PMC gebaut -- die PMC-Spalten waeren durchgehend 0, "
-                                 "ununterscheidbar von einer PMC-Messung mit dem Ergebnis 0 (Owner-KERN F6). "
-                                 "Abhilfe: -DCOMDARE_ENABLE_PMC=ON konfigurieren oder 'micro' aus der Combo nehmen");
-    throw std::runtime_error("fehlerklasse=mess_ausstattung_widerspruch: diese CEB ist mit COMDARE_ENABLE_PMC "
-                             "gebaut, aber die einkompilierte Mess-Achse '" +
+    // NUR diese eine Richtung -- die Gegenrichtung ist am Objekt widerlegt (Block oben).
+    if (!micro || pmc) return;
+    throw std::runtime_error("fehlerklasse=mess_ausstattung_widerspruch: die einkompilierte Mess-Achse '" +
                              std::string{legend} +
-                             "' nennt 'micro' NICHT -- es wuerden PMC-Zahlen erhoben, die der Stempel nicht "
-                             "deklariert (Owner-KERN F6). Abhilfe: 'micro' in die Combo aufnehmen oder "
-                             "-DCOMDARE_ENABLE_PMC=OFF konfigurieren");
+                             "' nennt 'micro' (Registry: feinkoernige PMC/Counter-Instrumentierung), aber diese "
+                             "CEB ist ohne COMDARE_ENABLE_PMC gebaut -- die PMC-Spalten waeren durchgehend 0, "
+                             "ununterscheidbar von einer PMC-Messung mit dem Ergebnis 0 (Owner-KERN F6). "
+                             "Abhilfe: -DCOMDARE_ENABLE_PMC=ON konfigurieren oder 'micro' aus der Combo nehmen");
 }
 
 /// pruefe_pmc_gegen_mess_achse() -- der LIVE-Aufruf: die einkompilierte Mess-Achse gegen die

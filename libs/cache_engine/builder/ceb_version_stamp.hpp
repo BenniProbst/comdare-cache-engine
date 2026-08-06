@@ -155,7 +155,13 @@
 // eine ABWEICHENDE Definition derselben Entitaet erzeugen; der Verstoss waere still (IFNDR) und wuerde
 // sich erst als widerspruechlicher Log-Kopf vs. Bestandslog-Zelle zeigen. Deshalb bricht der Bau hier.
 #ifndef COMDARE_MEASUREMENT_COMBO_CT_WIRED
-#error "fehlerklasse=konfiguration_widerspruch: diese Uebersetzungseinheit zieht builder/ceb_version_stamp.hpp, ohne an die EINE Emissionsstelle der einkompilierten Mess-Combo verdrahtet zu sein. Das Ziel comdare_measurement_combo_ct (libs/cache_engine/profile_facade/CMakeLists.txt) traegt COMDARE_MEASUREMENT_COMBO_CT und diesen Marker; ohne es bekaeme kCebFingerprint in dieser TU einen ANDEREN Wert als in den uebrigen TUs desselben Programms (ODR-Verstoss, still). Abhilfe: target_link_libraries(<ziel> PRIVATE comdare_measurement_combo_ct)."
+#error "fehlerklasse=konfiguration_widerspruch: diese Uebersetzungseinheit zieht \
+builder/ceb_version_stamp.hpp, ohne an die EINE Emissionsstelle der einkompilierten Mess-Combo \
+verdrahtet zu sein. Das Ziel comdare_measurement_combo_ct \
+(libs/cache_engine/profile_facade/CMakeLists.txt) traegt COMDARE_MEASUREMENT_COMBO_CT und diesen \
+Marker; ohne es bekaeme kCebFingerprint in dieser TU einen ANDEREN Wert als in den uebrigen TUs \
+desselben Programms (ODR-Verstoss, still). Abhilfe: \
+target_link_libraries(<ziel> PRIVATE comdare_measurement_combo_ct)."
 #endif
 
 namespace comdare::cache_engine::builder {

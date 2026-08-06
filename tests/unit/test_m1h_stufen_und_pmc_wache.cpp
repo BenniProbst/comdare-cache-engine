@@ -3,8 +3,9 @@
 // ZWEI ZU BEWEISENDE AUSSAGEN:
 //   H-A  Eine SPEZIFISCHE Mess-Combo aus der Env, ohne dass diese CEB dafuer gebaut wurde, wird
 //        ABGEWIESEN. Sie ist der uebersprungene CT-EINBAU der STUFE 2 der Mess-Stufen-Doktrin.
-//   H-2  Die einkompilierte Mess-Achse und die einkompilierte PMC-Ausstattung muessen zusammenpassen.
-//        Sonst liefern zwei Laeufe mit demselben Stempel und demselben Schluessel andere Zahlen (F6).
+//   H-2  Nennt die einkompilierte Mess-Achse 'micro', MUSS PMC einkompiliert sein. Sonst liefern zwei
+//        Laeufe mit demselben Stempel und demselben Schluessel andere Zahlen (F6). Die Gegenrichtung
+//        ist BEWUSST offen -- Begruendung am Objekt in Fall (d) und in mess_achsen_naht.hpp.
 //
 // WARUM ES DIESE WACHEN BRAUCHT -- BEIDE BEFUNDE SIND AM OBJEKT GEMESSEN, NICHT VERMUTET:
 //
@@ -20,7 +21,7 @@
 //      und genau der ist der Default-Bau, denn COMDARE_MEASUREMENT_COMBO ist per CACHE STRING "" leer --
 //      hatte keine.
 //
-// H-2: Legende [micro], gleiche Maschine, beide Varianten gebaut UND ausgefuehrt:
+// H-2 (EINSEITIG, s. Fall (d)): Legende [micro], gleiche Maschine, beide Varianten gebaut UND ausgefuehrt:
 //        COMDARE_ENABLE_PMC=OFF  -> NullPmcSource       cache_misses_l1 = 0
 //        COMDARE_ENABLE_PMC=ON   -> LinuxPerfPmcSource  cache_misses_l1 = 1898596
 //        glied3 und ceb_key in BEIDEN Faellen IDENTISCH.
@@ -178,7 +179,12 @@ void fall_d_pmc_vier_kombinationen() {
         {false, false, false, "micro=NEIN pmc=AUS -> zulaessig (nichts versprochen, nichts erhoben)"},
         {true, true, false, "micro=JA   pmc=AN  -> zulaessig (versprochen und erhoben)"},
         {true, false, true, "micro=JA   pmc=AUS -> WURF (PMC-Spalten waeren durchgehend 0)"},
-        {false, true, true, "micro=NEIN pmc=AN  -> WURF (Zahlen, die der Stempel nicht deklariert)"},
+        // Die Gegenrichtung ist BEWUSST zulaessig und am Objekt begruendet: M-2/P-PMC-1
+        // (experiment_plan_director.hpp:874-875) emittiert -DCOMDARE_ENABLE_PMC=ON auf DERSELBEN
+        // Configure-Zeile wie das Combo-Define, fuer JEDE Combo. Ein Wurf hier haette jeden
+        // nicht-micro-Batch unbaubar gemacht -- also die [wallclock]-Faehigkeit erschlagen, die M-1/D-1
+        // gebaut hat, und Owner-KERN F9 widersprochen. Herleitung im Kopf von mess_achsen_naht.hpp.
+        {false, true, false, "micro=NEIN pmc=AN  -> zulaessig (M-2 setzt PMC=ON fuer JEDE Combo)"},
     };
     std::size_t wuerfe = 0;
     std::size_t durch  = 0;
@@ -201,10 +207,10 @@ void fall_d_pmc_vier_kombinationen() {
             check_true(std::string{"(d) Fehlerklasse gemeldet: "} + f.name,
                        warf && was.find("fehlerklasse=mess_ausstattung_widerspruch") != std::string::npos);
     }
-    std::cout << "  Kombinationen: 4, davon Wuerfe: " << wuerfe << " (erwartet 2), durch: " << durch
-              << " (erwartet 2)\n";
-    check_true("(d) genau 2 Wuerfe -- die Wache weist nicht alles ab", wuerfe == 2);
-    check_true("(d) genau 2 gehen durch -- die Wache laesst nicht alles durch", durch == 2);
+    std::cout << "  Kombinationen: 4, davon Wuerfe: " << wuerfe << " (erwartet 1), durch: " << durch
+              << " (erwartet 3)\n";
+    check_true("(d) genau 1 Wurf -- die Wache weist nicht alles ab", wuerfe == 1);
+    check_true("(d) genau 3 gehen durch -- die Wache laesst nicht alles durch", durch == 3);
 }
 
 // ---------------------------------------------------------------------------------------------
