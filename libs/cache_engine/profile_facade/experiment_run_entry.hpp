@@ -165,7 +165,13 @@ struct RunExperimentResult {
 
     // ── (1) I3-Projektion: je <phase> das Kreuzprodukt phase.merge × profile.lebewesen → Pässe + Quellen-Map.
     //    REINER Enumerations-/Render-Schritt (KEIN Bau) — sota_catalog.hpp::project_experiment_to_sota_passes. ──
-    std::vector<ExperimentPhaseProjection> const projections = project_experiment_to_sota_passes(ep);
+    // M-1/D-2: DIE EINE Lesung der Mess-Zeile dieses Laufs, exakt wie im Thesis-Weg (profile_run_entry). Sie
+    // stempelt die Experiment-Quellen UND ist die SOLL-Seite des Mess-Vertrags am Pruefdock (cfg unten).
+    // BIS M-1 stempelte dieser Weg GAR NICHT (der Paar-Overload wurde ohne Stempel gerufen) -- seine
+    // Tier-Binaries trugen measurement_line == "" und haetten am fail-closed-Gate als deklaration_leer
+    // abgewiesen. Die Asymmetrie zum Thesis-Weg war real und ist hier geschlossen, nicht ausgenommen.
+    std::string const                            live_mess_zeile = measurement_stamp_from_env();
+    std::vector<ExperimentPhaseProjection> const projections = project_experiment_to_sota_passes(ep, live_mess_zeile);
     res.phases                                               = projections.size();
 
     // ── (2) ${date}-Auflösung der <output>-Pfade als LAUF-PROVENIENZ (E8: die AUTORITATIVE CSV ist a.out_csv =
@@ -435,6 +441,9 @@ struct RunExperimentResult {
                         cfg.row_fairness_mode  = p.fairness_mode.empty() ? std::string{"-"} : p.fairness_mode;
                         cfg.row_h2_score = "-"; // H2-Akte ist Thesis-Profil-Provenienz — von der Brücke nicht getragen
                         cfg.profile_datasets  = datasets_signature;
+                        // M-1/D-2: die SOLL-Seite des Mess-Vertrags -- dieselbe Zeile, die oben die
+                        // Experiment-Quellen stempelt (EINE Lesung, zwei Verbraucher).
+                        cfg.erwartete_mess_zeile = live_mess_zeile;
                         cfg.row_platform      = tag_platform;
                         cfg.row_build_version = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
                         cfg.source_dir        = a.src_dir;

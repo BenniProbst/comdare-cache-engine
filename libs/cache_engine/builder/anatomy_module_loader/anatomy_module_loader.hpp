@@ -79,8 +79,10 @@ public:
 
     AnatomyModuleHandle(void* native_handle, ::comdare::cache_engine::anatomy::IAnatomyBase* anatomy_ptr,
                         void (*destroy_fn)(::comdare::cache_engine::anatomy::IAnatomyBase*),
-                        ::comdare::cache_engine::abi::AnatomyAbiVersion module_version) noexcept
-        : native_{native_handle}, anatomy_{anatomy_ptr}, destroy_{destroy_fn}, module_version_{module_version} {}
+                        ::comdare::cache_engine::abi::AnatomyAbiVersion module_version,
+                        ::comdare::cache_engine::abi::AnatomyVersionLines const* version_lines = nullptr) noexcept
+        : native_{native_handle}, anatomy_{anatomy_ptr}, destroy_{destroy_fn}, module_version_{module_version},
+          version_lines_{version_lines} {}
 
     // Move-only
     AnatomyModuleHandle(AnatomyModuleHandle const&)            = delete;
@@ -88,22 +90,25 @@ public:
 
     AnatomyModuleHandle(AnatomyModuleHandle&& other) noexcept
         : native_{other.native_}, anatomy_{other.anatomy_}, destroy_{other.destroy_},
-          module_version_{other.module_version_} {
-        other.native_  = nullptr;
-        other.anatomy_ = nullptr;
-        other.destroy_ = nullptr;
+          module_version_{other.module_version_}, version_lines_{other.version_lines_} {
+        other.native_        = nullptr;
+        other.anatomy_       = nullptr;
+        other.destroy_       = nullptr;
+        other.version_lines_ = nullptr;
     }
 
     AnatomyModuleHandle& operator=(AnatomyModuleHandle&& other) noexcept {
         if (this != &other) {
             unload();
-            native_         = other.native_;
-            anatomy_        = other.anatomy_;
-            destroy_        = other.destroy_;
-            module_version_ = other.module_version_;
-            other.native_   = nullptr;
-            other.anatomy_  = nullptr;
-            other.destroy_  = nullptr;
+            native_              = other.native_;
+            anatomy_             = other.anatomy_;
+            destroy_             = other.destroy_;
+            module_version_      = other.module_version_;
+            version_lines_       = other.version_lines_;
+            other.native_        = nullptr;
+            other.anatomy_       = nullptr;
+            other.destroy_       = nullptr;
+            other.version_lines_ = nullptr;
         }
         return *this;
     }
@@ -122,6 +127,27 @@ public:
         return module_version_;
     }
 
+    /// version_lines() -- M-1/D-2 (06.08.2026): die vom geladenen Modul DEKLARIERTEN Stempel-Zeilen
+    /// (Organ/System/Mess + Fingerprint + die drei Entry-Arrays), oder nullptr.
+    ///
+    /// nullptr heisst GENAU EINES von zwei Dingen, und beide sind aus Sicht des Mess-Konsistenz-Gates
+    /// derselbe Fall "die Binary deklariert nichts": (a) das Modul wurde ohne
+    /// COMDARE_ANATOMY_VERSION_STAMP(_M) gebaut und exportiert das OPTIONALE 5. Symbol gar nicht
+    /// (dlsym/GetProcAddress findet es nicht), oder (b) das Symbol ist da, liefert aber nullptr.
+    ///
+    /// WARUM DAS KEIN ABI-SCHRITT IST: gelesen wird ausschliesslich das bereits bestehende optionale
+    /// Probe-Symbol comdare_anatomy_version_lines (anatomy_module_abi_v1_decl.hpp) und das bereits
+    /// bestehende POD-Layout 6. Der Loader verlangt weiterhin NUR die VIER Pflicht-Symbole -- ein Modul
+    /// ohne Stempel laedt unveraendert, es traegt hier eben nullptr. COMDARE_ANATOMY_ABI_MAJOR und
+    /// kAnatomyVersionLinesLayout bleiben unberuehrt.
+    ///
+    /// LEBENSZEIT: der POD ist im MODUL ein `static constexpr` (Makro-Materialisierung) -- er lebt, solange
+    /// das dlopen-Handle lebt, also genau so lange wie diese Handle. Nach unload() ist der Zeiger tot;
+    /// deshalb wird er dort mit genullt.
+    [[nodiscard]] ::comdare::cache_engine::abi::AnatomyVersionLines const* version_lines() const noexcept {
+        return version_lines_;
+    }
+
     /// unload() — explizite Freigabe (Destruktor ruft das auch).
     void unload() noexcept;
 
@@ -130,6 +156,8 @@ private:
     ::comdare::cache_engine::anatomy::IAnatomyBase* anatomy_          = nullptr;
     void (*destroy_)(::comdare::cache_engine::anatomy::IAnatomyBase*) = nullptr;
     ::comdare::cache_engine::abi::AnatomyAbiVersion module_version_   = {0, 0};
+    // M-1/D-2: zeigt in den Adressraum des geladenen Moduls -> MUSS in unload() mit genullt werden.
+    ::comdare::cache_engine::abi::AnatomyVersionLines const* version_lines_ = nullptr;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

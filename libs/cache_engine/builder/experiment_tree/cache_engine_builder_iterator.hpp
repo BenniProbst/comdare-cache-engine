@@ -128,6 +128,25 @@ struct LazyRunConfig {
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
+    // M-1/D-2 (06.08.2026) -- DIE SOLL-SEITE DES MESS-VERTRAGS CEB <-> TIER-BINARY (LEDGER:3319).
+    //
+    // Die Mess-Stempel-Zeile, die DIESE CEB in die Tier-Quellen stempelt. Jede geladene Tier-Binary muss sie
+    // in ihrer eigenen Deklaration (comdare_anatomy_version_lines()->measurement_line) BYTE-GLEICH tragen,
+    // sonst wird sie NICHT gemessen (pruef_dock::pruefe_mess_konsistenz, fail-closed).
+    //
+    // BELEGT WIRD SIE AUS DERSELBEN FUNKTION, die die Quelle stempelt -- profile_facade
+    // measurement_stamp_from_env(), gespeist aus der EINEN Aufloesung resolve_live_measurement_combo_legend
+    // (M-1/D-1-Naht). Damit hat der Vertrag keine zweite Wahrheit: SOLL und die eingestempelte Zeile
+    // entstehen aus demselben Aufruf, nicht aus zwei Ableitungen, die jemand synchron halten muesste.
+    //
+    // WARUM SIE HIER STEHT UND NICHT IM BUILDER ABGELEITET WIRD: der Builder ist system- und mess-BLIND
+    // (W4-B-Invariante) und kennt COMDARE_MEASUREMENT_COMBO_CT nicht -- das Makro lebt am Fassaden-Rand
+    // (comdare_measurement_combo_ct). Die Erwartung muss also von dort HEREINGEREICHT werden.
+    //
+    // LEER == "die CEB benennt ihre einkompilierte Mess-Achse nicht". Das ist KEIN Freifahrtschein: das Gate
+    // klassifiziert es als erwartung_leer und weist ab. Der Produktions-Rand (profile_run_entry::make_cfg)
+    // belegt das Feld deshalb immer.
+    std::string erwartete_mess_zeile;
     // M3v2-SELEKTION (2026-06-18, Task #156): Lauf-weite Tags je Mess-Zeile, damit die Auswertung die drei
     // Mess-Klassen (Basis-320 / Per-Achsen-Sweep / SOTA-Reihen A/B/C) UND die Working-Set-N-Dimension UND die
     // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
@@ -1992,12 +2011,21 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 pruef_hb.tick();
                 continue;
             }
-            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output);
+            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output, cfg.erwartete_mess_zeile);
             if (!oc.loaded) {
                 ++result.load_failed;
                 ++result.pruef_failed;
                 std::cerr << "[pruef-fail] binary_id='" << b.binary_id
                           << "' .so nicht ladbar/kein Mess-Interface: " << b.output.string() << "\n"
+                          << std::flush;
+            } else if (!oc.mess.passed()) {
+                // M-1/D-2: die Binary laedt und ist funktional pruefbar -- aber sie ist NICHT DIE, die diese
+                // CEB gebaut hat (oder sie deklariert gar nichts). Eigener Zweig VOR dem Funktions-Gate,
+                // damit die Meldung den Identitaets-Bruch benennt statt ihn als Gate-Fail zu tarnen.
+                ++result.loaded;
+                ++result.pruef_failed;
+                std::cerr << "[pruef-fail] binary_id='" << b.binary_id << "' "
+                          << pruef_dock::mess_konsistenz_meldung(oc.mess) << " -> " << b.output.string() << "\n"
                           << std::flush;
             } else if (oc.gate.passed()) {
                 ++result.loaded;
@@ -2391,6 +2419,36 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             oc.rows.push_back(std::move(marker));
             return oc;
         }
+        // (2b) M-1/D-2 -- DER MESS-VERTRAG CEB <-> TIER-BINARY (LEDGER:3319, Owner-KERN F2/F6).
+        //      Die Binary hat geladen. Bevor irgendetwas an ihr gemessen wird, muss sie DIESELBE
+        //      Mess-Ausstattung DEKLARIEREN, die diese CEB einkompiliert hat. Bis M-1 las die Deklaration
+        //      (measurement_line/measurement_entries) NIEMAND -- das Tier durfte behaupten, was es wollte.
+        //
+        //      WARUM HIER UND NICHT IM LOADER: der Loader ist ein reiner dlopen-Wrapper (bewusst entkoppelt,
+        //      Doku 24 Paragraf 8.6) und kennt die CEB-Erwartung nicht. Der Vertrag gehoert ans PRUEFDOCK --
+        //      genau das sagt LEDGER:3319, und genau dort steht er jetzt.
+        //
+        //      WARUM VOR acquire_search_algorithm_drive: die Antriebs-Beschaffung ist bereits die erste
+        //      Beruehrung der Mess-Flaeche. Eine Binary, die den Identitaets-Vertrag bricht, wird gar nicht
+        //      erst angefasst.
+        //
+        //      FEHLERKLASSE: die Binary EXISTIERT und laedt -- was fehlt, ist ihre Zulassung als Mess-Quelle
+        //      dieses Laufs. Das ist dieselbe Lage wie "kein Mess-Interface am Dock" (SourceUnavailable,
+        //      ehrliche n/a-Zeile), NICHT "nicht gebaut" und NICHT ein stiller Skip. Fehlende Zeilen sind
+        //      der Ehrlichkeits-Doktrin nach als solche zu schreiben, nicht als 0.
+        if (auto const mk = pruef_dock::pruefe_mess_konsistenz(handle, cfg.erwartete_mess_zeile); !mk.passed()) {
+            oc.load_failed = 1;
+            std::cerr << "[" << measurement::FailedCellD2Policy::log_prefix() << ": "
+                      << measurement::sample_status_label(measurement::SampleStatus::SourceUnavailable)
+                      << "] binary_id='" << b.binary_id << "' " << pruef_dock::mess_konsistenz_meldung(mk) << " -> "
+                      << b.output.string() << "\n"
+                      << std::flush;
+            LazyMeasuredRow marker = make_marker_row(b.binary_id);
+            marker.sample_status   = measurement::SampleStatus::SourceUnavailable;
+            oc.rows.push_back(std::move(marker));
+            return oc;
+        }
+
         pruef_dock::SearchAlgorithmDrive drive;
         if (pruef_dock::acquire_search_algorithm_drive(handle, drive) != pruef_dock::dock_status_ok) {
             oc.load_failed = 1;

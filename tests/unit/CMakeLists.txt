@@ -4398,6 +4398,36 @@ add_test(NAME test_d4_ceb_schluessel_wahl COMMAND test_d4_ceb_schluessel_wahl)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d4_ceb_schluessel_wahl)
 set_tests_properties(test_d4_ceb_schluessel_wahl PROPERTIES LABELS "m;d4;stempel;fehlerklassen")
 
+# -- M-1/D-2 (06.08.2026): DER BISS des Mess-Vertrags CEB <-> Tier-Binary ------------------------------
+# Weist nach, dass eine Tier-Binary mit FALSCHER (oder fehlender) Mess-Deklaration am Pruefdock abgewiesen
+# wird. Drei Ebenen, und jede traegt etwas Eigenes: (A) die ECHTE Makro-Expansion in der TU selbst
+# (COMDARE_ANATOMY_VERSION_STAMP_M, wie in test_w10_system_cell_values), (B) eine REALE gebaute .so ueber
+# die dlopen-Grenze (r5g-adhoc-Fixture -- sie besteht das FUNKTIONS-Gate und faellt am MESS-Vertrag, weil
+# sie gar keinen Stempel traegt), (C) manipulierte PODs, deren Entry-Arrays aus DEMSELBEN consteval-Parser
+# stammen wie die des Makros.
+# LINK-MENGE: Stempel-Flaeche (wie test_m_w12) PLUS comdare::anatomy_module_loader fuer Ebene B (dieselbe
+# Menge wie test_pruef_only_gate, das dieselbe Fixture faehrt).
+add_executable(test_d2_mess_konsistenz_gate "test_d2_mess_konsistenz_gate.cpp")
+target_compile_features(test_d2_mess_konsistenz_gate PRIVATE cxx_std_23)
+target_include_directories(test_d2_mess_konsistenz_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_d2_mess_konsistenz_gate PRIVATE gtest gtest_main Boost::mp11
+    comdare::anatomy_module_loader)
+comdare_set_platform_defines(test_d2_mess_konsistenz_gate)
+target_compile_definitions(test_d2_mess_konsistenz_gate PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
+    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
+add_dependencies(test_d2_mess_konsistenz_gate comdare_r5g_adhoc_perm)
+add_test(NAME test_d2_mess_konsistenz_gate COMMAND test_d2_mess_konsistenz_gate)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d2_mess_konsistenz_gate)
+set_tests_properties(test_d2_mess_konsistenz_gate PROPERTIES LABELS "m;d2;stempel;pruefdock;fehlerklassen")
+
 # W10-C1 (Bauplan-Dossier 20260803): die Single-Source der System-ZELLWERTE (abi/system_cell_values.hpp).
 # Orakel: Ziel-Zeilen-Form, je Fehlform eine benannte CT-Diagnose, Identitaet bei leerem Werte-Set,
 # Grammatik-Haertung der vervollstaendigten Zeile und die Drift-Wachen gegen kSystemAxisOrder UND
