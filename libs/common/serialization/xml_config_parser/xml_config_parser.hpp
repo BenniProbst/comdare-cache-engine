@@ -237,6 +237,11 @@ struct TargetIsaAxisSel {
     std::vector<std::string> isa;       // Optionen der target_isa-Haupt-Achse <target_isa><option value=x86_64|aarch64>
     std::vector<std::string> numa_node; // Unter-Achse <target_isa><numa_node><option value=..>
     std::vector<std::string> page;      // Unter-Achse <target_isa><page><option value=..> (NICHT axis_01_page_type)
+    // OD-11-RT (Owner-KERN 06.08.2026): die dritte offene Unter-Achse. numa_node/page tragen die
+    // SPEICHER-Lokalitaet, core_class die AUSFUEHRUNGS-Lokalitaet. Wieder HINTEN angehaengt, aus
+    // demselben Grund wie die zwei darueber: jede bestehende Aggregat-Initialisierung bleibt gueltig.
+    // NICHT "scheduling": das ist die CT-Policy (fixed_enum_tuple), core_class das RT-Faktum.
+    std::vector<std::string> core_class; // Unter-Achse <target_isa><core_class><option value=..>
 };
 
 struct ThesisProfile {

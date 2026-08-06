@@ -37,6 +37,7 @@
     </sub_axis>
     <sub_axis id="numa_node" parent="target_isa" stage="runtime" value_type="token" option_source="machine_resolved"/>
     <sub_axis id="page" parent="target_isa" stage="runtime" value_type="token" option_source="machine_resolved"/>
+    <sub_axis id="core_class" parent="target_isa" stage="runtime" value_type="token" option_source="machine_resolved"/>
   </axis>
   <axis id="operating_system" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="3">
     <baustein name="linux" wrapper="LinuxOperatingSystem" type="::comdare::cache_engine::measurement::LinuxOperatingSystem" enabled="true" posix="true"/>

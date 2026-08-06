@@ -162,9 +162,16 @@ namespace detail {
 ///   os_family -- die Familie heisst im Stempel operating_system; ein zweiter Name waere eine zweite
 ///       Wahrheit derselben Zelle;
 ///   numa_node/page/scheduling -- die RT-Unter-Achsen am target_isa-Komplex (OD-10-RT bzw. A3-Umzug).
-///       Sie sind Instanz-Eigenschaften der Maschine, nicht Familien-Eigenschaften des Baus.
-inline constexpr std::array<std::string_view, 7> kSystemCellValueForbiddenKeys = {
-    "os_version", "kernel", "build", "os_family", "numa_node", "page", "scheduling"};
+///       Sie sind Instanz-Eigenschaften der Maschine, nicht Familien-Eigenschaften des Baus;
+///   core_class -- die dritte RT-Unter-Achse am target_isa-Komplex (OD-11-RT, Owner-KERN 06.08.2026):
+///       die AUSFUEHRUNGS-Lokalitaet (welche Kern-Klassen fuehrt DIESE Maschine). Sie steht hier aus
+///       demselben Grund wie numa_node und aus einem zweiten, der den Owner-KERN traegt: stuende sie im
+///       Stempel, waere die Kern-Klasse Teil der Binary-Identitaet -- und die CEB koennte NICHT
+///       "DIESELBE Tier-Binary einmal auf einen E-Core und einmal auf einen P-Core gepinnt" starten,
+///       weil die beiden Laeufe dann verschiedene Binaries braeuchten. Genau das schliesst der KERN aus
+///       ("reine Wiederverwendung, kein zweiter Bau").
+inline constexpr std::array<std::string_view, 8> kSystemCellValueForbiddenKeys = {
+    "os_version", "kernel", "build", "os_family", "numa_node", "page", "scheduling", "core_class"};
 
 [[nodiscard]] consteval bool system_cell_value_keys_avoid_traps() {
     for (auto const& k : kSystemCellValueKeys)
@@ -321,7 +328,7 @@ enum class SystemCellValuesDiagnose {
 // -- DIE DEFINE-NAHT SELBST STEHT UNTER DEN WACHEN (compile-hart, je Fehlform ein benannter Text) -----
 static_assert(diagnose_system_cell_values(kSystemCellValues) != SystemCellValuesDiagnose::verbotener_rt_schluessel,
               "W10/A-15: COMDARE_SYSTEM_CELL_VALUES nennt eine RT-UNTER-ACHSE (os_version/kernel/build/"
-              "os_family/numa_node/page/scheduling). RT-Unter-Achsen stehen NIE im Binary-Stempel -- sie "
+              "os_family/numa_node/page/scheduling/core_class). RT-Unter-Achsen stehen NIE im Binary-Stempel -- sie "
               "sind Instanz-, nicht Familien-Eigenschaften; ihre Zuordnung laeuft ueber Mess-Spalten/"
               "Dateinamen (OS-U4).");
 static_assert(diagnose_system_cell_values(kSystemCellValues) != SystemCellValuesDiagnose::unbekannter_schluessel,
@@ -425,7 +432,7 @@ constexpr void system_cell_values_gate(std::string_view werte) {
                   "operating_system und simd (external_utils ist der wertfreie Hub)";
         case SystemCellValuesDiagnose::verbotener_rt_schluessel:
             throw "W10/A-15 Zellwerte: eine RT-UNTER-ACHSE steht nie im Binary-Stempel (os_version/kernel/"
-                  "build/os_family/numa_node/page/scheduling) -- Instanz-Zuordnung laeuft ueber "
+                  "build/os_family/numa_node/page/scheduling/core_class) -- Instanz-Zuordnung laeuft ueber "
                   "Mess-Spalten/Dateinamen (OS-U4)";
         case SystemCellValuesDiagnose::leerer_token:
             throw "W10-C1 Zellwerte: leerer Zellwert -- ein nicht bestimmbarer Wert reist als Sentinel 'na', "

@@ -4305,6 +4305,29 @@ add_test(NAME test_od10_numa_page_probe COMMAND test_od10_numa_page_probe)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_od10_numa_page_probe)
 set_tests_properties(test_od10_numa_page_probe PROPERTIES LABELS "numapageprobe;measurement")
 
+# Paket OD-11-RT: prozessfreie RT-Erhebung der target_isa-Unter-Achse core_class (Ausfuehrungs-
+# Lokalitaet) plus der Zuordnungs-Faehigkeit, per CT-Familien-Spezialisierung -- das Pendant zu
+# OD-10-RT, das die Speicher-Lokalitaet traegt. Der Test faehrt die tragende Klassifikations-Logik
+# HARDWARE-FREI gegen eingespeiste Topologie-Fassungen (hybrid / uniform / L3-asymmetrisch), belegt
+# jede K4-Fehlerklasse einzeln, liest die Live-Maschine mit benannten Skip-Guards und prueft die
+# A-15-Stempel-Neutralitaet. Include-/Link-Menge identisch zu test_od10_numa_page_probe: auch diese TU
+# bindet abi/anatomy_version_stamp.hpp direkt ein und folgt damit dem A14-Stempel-Guard.
+add_executable(test_od11_numa_process_probe "test_od11_numa_process_probe.cpp")
+target_compile_features(test_od11_numa_process_probe PRIVATE cxx_std_23)
+target_include_directories(test_od11_numa_process_probe PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated")
+target_link_libraries(test_od11_numa_process_probe PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_od11_numa_process_probe)
+target_compile_definitions(test_od11_numa_process_probe PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_od11_numa_process_probe COMMAND test_od11_numa_process_probe)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_od11_numa_process_probe)
+set_tests_properties(test_od11_numa_process_probe PROPERTIES LABELS "numaprocessprobe;measurement")
+
 # Task #7 P3: der Stufe-1-REAL-Beweis (F13 "erst prod1 testen"). Fixture-Teil: v1-Kontrakt-Dateien in
 # der ECHTEN Schreiber-Form (Werte-Schluessel je DIMM wiederholt -- vom live verifizierten Format
 # abgeleitet, A9); Live-Teil: liest den echten Boot-Cache dieses Hosts mit benanntem Skip-Guard

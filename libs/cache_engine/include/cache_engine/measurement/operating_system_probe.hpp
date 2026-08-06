@@ -72,11 +72,12 @@ struct OperatingSystemInstance {
 
 /// K4: exakt die Form von BuildError -- eine typisierte Summe an der Expected/Result-Naht. Die erste
 /// Alternative klassifiziert den Quellen-ZUGANG, die zweite ausschliesslich die fehlende OS-Faehigkeit.
-using OsProbeError = std::variant<HardwareProbeErrorClass, CompilerCompilerErrorClass>;
-
-[[nodiscard]] constexpr ErrorDomain error_domain(OsProbeError const& error) noexcept {
-    return std::visit([](auto const value) noexcept { return error_domain(value); }, error);
-}
+/// Die Summe selbst steht seit OD-11-RT EINMAL in axis_error.hpp (ProbeErrorSum) -- der sprechende
+/// Name bleibt hier, weil er sagt, WELCHE Erhebung den Fehler traegt. Die frueher hier stehende
+/// error_domain-Ueberladung ist entfallen: sie hatte dieselbe Signatur wie die der Schwester-Proben
+/// (ein type alias erzeugt keinen neuen Typ) und verhinderte, dass zwei Proben je in derselben
+/// Uebersetzungseinheit ausgewertet werden konnten. Begruendung im Detail an ProbeErrorSum.
+using OsProbeError = ProbeErrorSum;
 
 /// Das bestehende stabile Etikett der jeweils getragenen #29-Domaene, ohne ein drittes Vokabular zu
 /// erfinden. Insbesondere bleibt QuelleFehlt "quelle_fehlt" und der L6-Produzent meldet das bereits

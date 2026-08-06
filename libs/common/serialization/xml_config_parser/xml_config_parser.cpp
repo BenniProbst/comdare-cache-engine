@@ -130,6 +130,12 @@ void parse_system_axes(comdare::common::xml::XmlNode const& sa, CompilerAxisSel&
             for (auto const* o : nn->children_named("option")) target_isa.numa_node.push_back(o->attr("value"));
         if (auto const* pg = ti->child("page"))
             for (auto const* o : pg->children_named("option")) target_isa.page.push_back(o->attr("value"));
+        // OD-11-RT (Owner-KERN 06.08.2026): die dritte offene Unter-Achse, deckungsgleiches Muster. Auch
+        // fuer sie gilt: rein ADDITIV (fehlt der Knoten, bleibt die Liste leer und das Verhalten ist
+        // byte-identisch zum Ist), und in DIESEM Paket gibt es KEINEN Konsumenten der Felder -- die
+        // Gueltigkeits-Pruefung gegen das Registry-Angebot folgt mit dem Resolver-Schritt (OD-11-RT-K).
+        if (auto const* cc = ti->child("core_class"))
+            for (auto const* o : cc->children_named("option")) target_isa.core_class.push_back(o->attr("value"));
     }
 }
 
