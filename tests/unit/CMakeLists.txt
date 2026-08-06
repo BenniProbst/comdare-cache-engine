@@ -4500,6 +4500,25 @@ add_test(NAME test_w2_combo_ct_stamp COMMAND test_w2_combo_ct_stamp)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w2_combo_ct_stamp)
 set_tests_properties(test_w2_combo_ct_stamp PROPERTIES LABELS "w2;stempel;fehlerklassen")
 
+# M-1/D-1 BISS (06.08.2026): die Mess-Achse WIRKT auf die Tier-Defines. Prueft die reine Abbildung
+# profile_facade/mess_achsen_naht.hpp mess_achsen_defines() -- die EINE Funktion, aus der
+# perm_mess_defines() (profile_run_facade.cpp) ihren Mess-Teil zieht.
+# BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT: der Biss beisst an der ABBILDUNG (Legende -> Defines),
+# nicht am Makro-Zustand dieser TU. Er muss unabhaengig davon rot werden, wie die CEB gerade
+# konfiguriert ist -- sonst prueft er die Umgebung statt die Aenderung.
+add_executable(test_m1_mess_achsen_wirkung
+    "test_m1_mess_achsen_wirkung.cpp")
+target_compile_features(test_m1_mess_achsen_wirkung PRIVATE cxx_std_23)
+target_include_directories(test_m1_mess_achsen_wirkung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_m1_mess_achsen_wirkung)
+add_test(NAME test_m1_mess_achsen_wirkung COMMAND test_m1_mess_achsen_wirkung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1_mess_achsen_wirkung)
+set_tests_properties(test_m1_mess_achsen_wirkung PROPERTIES LABELS "m1;messachse;stempel;fehlerklassen")
+
 # Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
 # load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
 add_executable(test_parser_konsolidierung "test_parser_konsolidierung.cpp")
