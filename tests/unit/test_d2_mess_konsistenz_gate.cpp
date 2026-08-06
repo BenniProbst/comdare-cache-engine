@@ -33,11 +33,11 @@
 //
 // ASCII-only.
 
-#include <cache_engine/abi/anatomy_module_abi_v1.hpp>  // COMDARE_ANATOMY_VERSION_STAMP_M (die ECHTE Makro-Naht)
-#include <cache_engine/abi/anatomy_stamp_entries.hpp>  // parse_stamp_entries / stamp_entries_ptr
-#include <cache_engine/abi/anatomy_version_stamp.hpp>  // measurement_stamp_line_full_set / _from_combo_legend
-#include <pruef_dock/mess_konsistenz_gate.hpp>         // PRUEFLING
-#include <pruef_dock/pruef_only.hpp>                   // run_so_conformance_gate (Ebene B)
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp> // COMDARE_ANATOMY_VERSION_STAMP_M (die ECHTE Makro-Naht)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp> // parse_stamp_entries / stamp_entries_ptr
+#include <cache_engine/abi/anatomy_version_stamp.hpp> // measurement_stamp_line_full_set / _from_combo_legend
+#include <pruef_dock/mess_konsistenz_gate.hpp>        // PRUEFLING
+#include <pruef_dock/pruef_only.hpp>                  // run_so_conformance_gate (Ebene B)
 
 #include <gtest/gtest.h>
 
@@ -54,13 +54,13 @@ namespace {
 // -- Die Literale der Makro-Naht (Ebene A). Organ-/System-Zeile bewusst kurz und synthetisch (Praezedenz
 //    test_w10/test_m_w12: geprueft wird die MESS-Naht, nicht die Welt). Die MESS-Zeile ist dagegen die
 //    reale Vollmengen-Form -- sie IST der Prueflings-Gegenstand.
-#define COMDARE_D2_ORGAN_LIT   "search_algo=k_ary@1.0.0c;filter=bloom@2.3.4c"
-#define COMDARE_D2_SYSTEM_LIT                                                                                  \
-    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;"                           \
+#define COMDARE_D2_ORGAN_LIT "search_algo=k_ary@1.0.0c;filter=bloom@2.3.4c"
+#define COMDARE_D2_SYSTEM_LIT                                                                                          \
+    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;"                                  \
     "[simd=code@1.0.0c]"
 #define COMDARE_D2_MESS_VOLL                                                                                           \
-    "measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"                                    \
-    "measurement_tooling=micro@1.0.0c;"                                                                         \
+    "measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"                                           \
+    "measurement_tooling=micro@1.0.0c;"                                                                                \
     "[load_framework=ycsb@1.0.0c]"
 // Die EINZEL-Wahl [wallclock] -- die Zeile, die eine wallclock-hart gebaute CEB stempelt.
 #define COMDARE_D2_MESS_WALLCLOCK "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"
@@ -79,9 +79,10 @@ constexpr auto kEntriesWallclock =
 /// Einen AnatomyVersionLines-POD von Hand bauen -- mit frei waehlbarer Layout-Version, Mess-Zeile und
 /// Mess-Entry-Array. Organ-/System-Felder sind hier belanglos (das Gate liest sie nicht) und stehen als
 /// ""-Sentinel da, exakt wie die ""-Doktrin des POD es verlangt (nie nullptr).
-[[nodiscard]] constexpr cea::AnatomyVersionLines
-mach_pod(std::uint32_t layout, char const* mess, std::uint64_t mess_len, cea::AnatomyStampEntryV1 const* eintraege,
-         std::uint64_t eintrag_count) noexcept {
+[[nodiscard]] constexpr cea::AnatomyVersionLines mach_pod(std::uint32_t layout, char const* mess,
+                                                          std::uint64_t                   mess_len,
+                                                          cea::AnatomyStampEntryV1 const* eintraege,
+                                                          std::uint64_t                   eintrag_count) noexcept {
     return cea::AnatomyVersionLines{layout,
                                     0u,
                                     "",
@@ -193,7 +194,7 @@ TEST(D2MessKonsistenz, FailClosedInAllenUnklarenZustaenden) {
 
     // (1) ERWARTUNG LEER -- die CEB benennt ihre einkompilierte Mess-Achse nicht.
     {
-        auto const* const           v = comdare_anatomy_version_lines();
+        auto const* const                v = comdare_anatomy_version_lines();
         pd::MessKonsistenzErgebnis const e = pd::pruefe_mess_konsistenz(v, "");
         EXPECT_FALSE(e.passed());
         EXPECT_EQ(e.status, pd::MessKonsistenzStatus::erwartung_leer)
@@ -208,8 +209,8 @@ TEST(D2MessKonsistenz, FailClosedInAllenUnklarenZustaenden) {
     // (3) FREMDES POD-LAYOUT. Layout 5 traegt merge_line/merge_len und hat damit ANDERE Offsets (A13-M3/K-4)
     //     -- es MUSS abgewiesen werden, BEVOR ein Feld gelesen wird.
     {
-        cea::AnatomyVersionLines const alt = mach_pod(5u, kMessVoll, sizeof(kMessVoll) - 1,
-                                                      cea::stamp_entries_ptr(kEntriesVoll), kEntriesVoll.size());
+        cea::AnatomyVersionLines const alt =
+            mach_pod(5u, kMessVoll, sizeof(kMessVoll) - 1, cea::stamp_entries_ptr(kEntriesVoll), kEntriesVoll.size());
         pd::MessKonsistenzErgebnis const e = pd::pruefe_mess_konsistenz(&alt, soll);
         EXPECT_FALSE(e.passed());
         EXPECT_EQ(e.status, pd::MessKonsistenzStatus::stempel_layout_fremd)
@@ -293,9 +294,9 @@ TEST(D2MessKonsistenz, RealeSoOhneDeklarationWirdAbgewiesenObwohlDasFunktionsGat
     ASSERT_FALSE(so.empty()) << "keine gebaute perm-.so im Fixture-Dir gefunden: " << dir;
 
     pd::PruefOutcome const oc = pd::run_so_conformance_gate(so, cea::measurement_stamp_line_full_set());
-    std::cout << "[d2] so=" << so.filename().string() << " loaded=" << (oc.loaded ? 1 : 0) << " funktions_gate="
-              << oc.gate.cases_passed << "/" << oc.gate.cases_total << " mess=" << pd::mess_konsistenz_meldung(oc.mess)
-              << "\n";
+    std::cout << "[d2] so=" << so.filename().string() << " loaded=" << (oc.loaded ? 1 : 0)
+              << " funktions_gate=" << oc.gate.cases_passed << "/" << oc.gate.cases_total
+              << " mess=" << pd::mess_konsistenz_meldung(oc.mess) << "\n";
 
     // Das FUNKTIONS-Gate besteht -- die Binary ist keine kaputte Huelle.
     EXPECT_TRUE(oc.loaded);
@@ -314,8 +315,8 @@ TEST(D2MessKonsistenz, RealeSoOhneDeklarationWirdAbgewiesenObwohlDasFunktionsGat
 // aendert daran nichts (er kommt erst NACH dem erfolgreichen Laden) -- festgehalten, damit ein spaeterer
 // Umbau der Reihenfolge auffaellt.
 TEST(D2MessKonsistenz, NichtLadbareSoBleibtNichtBestanden) {
-    pd::PruefOutcome const oc = pd::run_so_conformance_gate("/nonexistent/perm.dll",
-                                                            cea::measurement_stamp_line_full_set());
+    pd::PruefOutcome const oc =
+        pd::run_so_conformance_gate("/nonexistent/perm.dll", cea::measurement_stamp_line_full_set());
     EXPECT_FALSE(oc.loaded);
     EXPECT_FALSE(oc.passed());
 }

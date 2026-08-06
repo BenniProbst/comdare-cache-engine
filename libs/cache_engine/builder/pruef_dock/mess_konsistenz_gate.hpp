@@ -189,8 +189,8 @@ namespace mess_konsistenz_detail {
 /// Zahl der EBENE-0-Eintraege im Mess-Array eines geladenen Moduls. Liest die Ebene aus den reserved-Bits,
 /// die die consteval-Grammatik des Moduls dort hinterlegt hat -- KEINE erneute Tokenisierung der Zeile
 /// (genau dafuer ist stamp_entry_meta_level da, anatomy_stamp_entries.hpp).
-[[nodiscard]] inline std::uint64_t
-haupt_entry_count(::comdare::cache_engine::abi::AnatomyStampEntryV1 const* entries, std::uint64_t count) noexcept {
+[[nodiscard]] inline std::uint64_t haupt_entry_count(::comdare::cache_engine::abi::AnatomyStampEntryV1 const* entries,
+                                                     std::uint64_t count) noexcept {
     if (entries == nullptr) return 0;
     std::uint64_t n = 0;
     for (std::uint64_t i = 0; i < count; ++i)
@@ -277,8 +277,8 @@ pruefe_mess_konsistenz(::comdare::cache_engine::abi::AnatomyVersionLines const* 
 
 /// Bequemform am geladenen Modul. Zieht die Deklaration aus der Handle (die der Loader beim dlopen aus dem
 /// optionalen Probe-Symbol gezogen hat) und faehrt dasselbe Gate.
-[[nodiscard]] inline MessKonsistenzErgebnis
-pruefe_mess_konsistenz(anatomy_loader::AnatomyModuleHandle const& h, std::string_view soll) noexcept {
+[[nodiscard]] inline MessKonsistenzErgebnis pruefe_mess_konsistenz(anatomy_loader::AnatomyModuleHandle const& h,
+                                                                   std::string_view soll) noexcept {
     return pruefe_mess_konsistenz(h.version_lines(), soll);
 }
 
@@ -350,9 +350,9 @@ testat_mess_deklarations_konsistenz(::comdare::cache_engine::abi::AnatomyVersion
     return r;
 }
 
-[[nodiscard]] inline ConformanceResult
-testat_mess_deklarations_konsistenz(anatomy_loader::AnatomyModuleHandle const& h, std::string_view soll,
-                                    std::FILE* report = nullptr) noexcept {
+[[nodiscard]] inline ConformanceResult testat_mess_deklarations_konsistenz(anatomy_loader::AnatomyModuleHandle const& h,
+                                                                           std::string_view soll,
+                                                                           std::FILE*       report = nullptr) noexcept {
     return testat_mess_deklarations_konsistenz(h.version_lines(), soll, report);
 }
 

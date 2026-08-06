@@ -337,7 +337,7 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 /// Aus der id gebildet (Single-Source): "wallclock" -> COMDARE_MEASUREMENT_TOOLING_WALLCLOCK. Kein
 /// Literal je Tooling -- ein viertes Tooling in der Registry bekommt seinen Namen automatisch.
 [[nodiscard]] inline std::string mess_tooling_deklarations_define(std::size_t idx) {
-    namespace cm         = ::comdare::cache_engine::measurement;
+    namespace cm              = ::comdare::cache_engine::measurement;
     std::string_view const id = cm::kMeasurementToolingRegistry[idx].id;
     std::string            name{"-DCOMDARE_MEASUREMENT_TOOLING_"};
     for (char const c : id) name.push_back(c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c);

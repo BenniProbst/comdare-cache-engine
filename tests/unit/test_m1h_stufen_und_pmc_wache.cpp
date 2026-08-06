@@ -129,8 +129,9 @@ void fall_b_spezifische_env_wird_abgewiesen() {
         check_true("(b) env=" + legend + " wird abgewiesen", l.warf);
         check_true("(b) env=" + legend + " meldet die Fehlerklasse",
                    l.warf && l.was.find("fehlerklasse=konfiguration_widerspruch") != std::string::npos);
-        check_true("(b) env=" + legend + " nennt die fehlende STUFE 2 beim Namen (die Meldung muss den "
-                                         "Bediener zum CT-Einbau fuehren, nicht bloss meckern)",
+        check_true("(b) env=" + legend +
+                       " nennt die fehlende STUFE 2 beim Namen (die Meldung muss den "
+                       "Bediener zum CT-Einbau fuehren, nicht bloss meckern)",
                    l.warf && l.was.find("COMDARE_MEASUREMENT_COMBO_CT") != std::string::npos &&
                        l.was.find("-DCOMDARE_MEASUREMENT_COMBO=") != std::string::npos);
     }
@@ -225,9 +226,7 @@ void fall_e_bestandsbilanz() {
         bool              warf = false;
         try {
             pf::pruefe_pmc_gegen_mess_achse();
-        } catch (std::exception const&) {
-            warf = true;
-        }
+        } catch (std::exception const&) { warf = true; }
         std::cout << "    env=" << (v == nullptr ? "UNGESETZT" : v) << "  ->  " << (warf ? "WURF" : "no-op") << "\n";
         check_true(std::string{"(e) pruefe_pmc_gegen_mess_achse() ist No-op bei env="} +
                        (v == nullptr ? "UNGESETZT" : v),
@@ -245,10 +244,8 @@ void fall_f_observer_praedikat() {
         char const* legend;
         bool        erwartet;
     };
-    P const faelle[] = {{"[wallclock]", false},
-                        {"[wallclock,macro]", true},
-                        {"[wallclock,micro]", true},
-                        {"[all]", true}};
+    P const faelle[] = {
+        {"[wallclock]", false}, {"[wallclock,macro]", true}, {"[wallclock,micro]", true}, {"[all]", true}};
     for (auto const& f : faelle) {
         bool const ist = pf::mess_menge_hat_observer_gate(pf::mess_tooling_menge_from_legend(f.legend));
         std::cout << "    " << f.legend << "  ->  Observer " << (ist ? "JA" : "NEIN") << "\n";

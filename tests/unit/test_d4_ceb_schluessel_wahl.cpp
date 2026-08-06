@@ -20,8 +20,8 @@
 //
 // ASCII-only.
 
-#include "builder/ceb_version_stamp.hpp"                     // D-4: kCebFingerprintFor<L> / kCebMeasurementStampFor<L>
-#include <cache_engine/abi/anatomy_fingerprint.hpp>           // anatomy_fingerprint_hex (Zweitweg-Nachrechnung)
+#include "builder/ceb_version_stamp.hpp"            // D-4: kCebFingerprintFor<L> / kCebMeasurementStampFor<L>
+#include <cache_engine/abi/anatomy_fingerprint.hpp> // anatomy_fingerprint_hex (Zweitweg-Nachrechnung)
 // measurement_stamp_line_from_combo_legend -- der Runtime-Zwilling des consteval-Renderers
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>
@@ -39,9 +39,9 @@
 
 namespace {
 
-namespace ceb = ::comdare::cache_engine::builder;
+namespace ceb  = ::comdare::cache_engine::builder;
 namespace cabi = ::comdare::cache_engine::abi;
-namespace cm  = ::comdare::cache_engine::measurement;
+namespace cm   = ::comdare::cache_engine::measurement;
 
 /// Die SIEBEN nicht-leeren Teilmengen der drei Toolings, in Registry-Reihenfolge notiert -- plus die zwei
 /// Schreibweisen der Vollmenge. Handgeschrieben und NICHT aus der Registry generiert: der Legenden-Traeger
@@ -60,8 +60,8 @@ struct LegendeUndSchluessel {
 /// Kaemen beide Wege auseinander, waere der CEB-Schluessel im Log-Kopf ein anderer als im Lager.
 [[nodiscard]] std::string runtime_ceb_key(std::string const& mess) {
     auto const        glieder = cabi::anatomy_fingerprint_glieder("", "", mess);
-    std::string const pre     = cabi::anatomy_fingerprint_preimage(
-        std::span<std::string_view const>{glieder.data(), glieder.size()});
+    std::string const pre =
+        cabi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(pre.data()), pre.size()});
     auto const hex = ::comdare::cache_engine::sha512::to_hex(digest);
@@ -107,7 +107,7 @@ TEST(D4CebSchluesselWahl, VerschiedeneEinkompilierteComboLiefertVerschiedenenSch
         << " Eintraege -- diese Tabelle deckt nicht mehr alle nicht-leeren Teilmengen ab. Ein neues Tooling "
            "muss hier eingetragen werden, sonst prueft der Biss still weniger als er behauptet.";
 
-    std::size_t paare = 0;
+    std::size_t paare       = 0;
     std::size_t kollisionen = 0;
     for (std::size_t i = 0; i < tab.size(); ++i)
         for (std::size_t j = i + 1; j < tab.size(); ++j) {
@@ -187,8 +187,8 @@ TEST(D4CebSchluesselWahl, EinkompilierteKonstanteIstSpezialisierungDerVorlage) {
     EXPECT_EQ(ceb::kCebMeasurementStamp, (ceb::kCebMeasurementStampFor<ceb::kCebCtLegend>));
     // Und die Runtime-Ausgabe traegt genau diese beiden Teile -- keine dritte Ableitung.
     std::string const stamp = ceb::ceb_version_stamp();
-    EXPECT_EQ(stamp, "ceb-measurement=" + std::string{ceb::kCebMeasurementStamp} + ";sha512=" +
-                         std::string{ceb::kCebFingerprint});
+    EXPECT_EQ(stamp, "ceb-measurement=" + std::string{ceb::kCebMeasurementStamp} +
+                         ";sha512=" + std::string{ceb::kCebFingerprint});
     std::cout << "[D-4 BISS] einkompilierte Legende=" << ceb::kCebCtComboLegend
               << ", Schluessel=" << ceb::kCebFingerprint.substr(0, 24) << "...\n";
 }

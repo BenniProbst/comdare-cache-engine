@@ -79,7 +79,7 @@ public:
 
     AnatomyModuleHandle(void* native_handle, ::comdare::cache_engine::anatomy::IAnatomyBase* anatomy_ptr,
                         void (*destroy_fn)(::comdare::cache_engine::anatomy::IAnatomyBase*),
-                        ::comdare::cache_engine::abi::AnatomyAbiVersion module_version,
+                        ::comdare::cache_engine::abi::AnatomyAbiVersion          module_version,
                         ::comdare::cache_engine::abi::AnatomyVersionLines const* version_lines = nullptr) noexcept
         : native_{native_handle}, anatomy_{anatomy_ptr}, destroy_{destroy_fn}, module_version_{module_version},
           version_lines_{version_lines} {}

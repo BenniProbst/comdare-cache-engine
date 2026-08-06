@@ -173,7 +173,7 @@ struct RunExperimentResult {
     // M-1/H-2 (06.08.2026): PMC-Ausstattung gegen die einkompilierte Mess-Achse -- VOR der ersten
     // gestempelten Quelle. Ohne einkompilierte Combo ein No-op. Herleitung: mess_achsen_naht.hpp.
     ::comdare::cache_engine::profile_facade::pruefe_pmc_gegen_mess_achse();
-    std::string const                            live_mess_zeile = measurement_stamp_from_env();
+    std::string const live_mess_zeile = measurement_stamp_from_env();
     // M-1/H-B: die Observer-Ausstattung aus DERSELBEN Aufloesung (n/a statt 0 in den Observer-Zellen).
     bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
     std::vector<ExperimentPhaseProjection> const projections = project_experiment_to_sota_passes(ep, live_mess_zeile);

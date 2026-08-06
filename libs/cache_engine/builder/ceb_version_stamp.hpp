@@ -265,8 +265,7 @@ struct CebToolingList {
     // Section 64-D1-B: [all] / leer-innen == die VOLLE Vollmenge. Der no-define-Fall erreicht diesen Zweig
     // ueber kCebCtLegend == "[all]" -- deshalb ist der Bestand byte-stabil.
     if (inner.empty() || inner == "all") {
-        for (std::size_t i = 0; i < kMeasurementToolingCount; ++i)
-            l.ids[l.count++] = kMeasurementToolingRegistry[i].id;
+        for (std::size_t i = 0; i < kMeasurementToolingCount; ++i) l.ids[l.count++] = kMeasurementToolingRegistry[i].id;
         return l;
     }
     for (std::size_t start = 0; start <= inner.size();) {
@@ -457,7 +456,7 @@ inline constexpr std::string_view kCebFingerprintFor{kCebFingerprintArrayFor<L>.
 /// Die vier Namen unten sind die Spezialisierung der Vorlagen oben an der EINEN Legende, die in DIESE CEB
 /// einkompiliert ist. Sie sind Referenzen bzw. Kopien auf dieselben Entitaeten -- es gibt keinen zweiten
 /// Ableitungsweg, an dem der Log-Kopf und die Bestandslog-Zelle auseinanderlaufen koennten.
-inline constexpr std::string_view kCebCtComboLegend = kCebCtLegend.view();
+inline constexpr std::string_view kCebCtComboLegend         = kCebCtLegend.view();
 inline constexpr auto const&      kCebMeasurementStampArray = kCebMeasurementStampArrayFor<kCebCtLegend>;
 inline constexpr std::string_view kCebMeasurementStamp      = kCebMeasurementStampFor<kCebCtLegend>;
 inline constexpr auto const&      kCebFingerprintArray      = kCebFingerprintArrayFor<kCebCtLegend>;

@@ -180,10 +180,10 @@ void fall_c_gate_wirkung() {
 // ---------------------------------------------------------------------------------------------
 void fall_h_g1_deklarationspflicht() {
     std::cout << "\n---- (h) H-1: eine Combo ohne 'wallclock' wird abgewiesen (G1 ist das wallclock-Instrument) ----\n";
-    std::size_t zulaessig = 0;
+    std::size_t zulaessig  = 0;
     std::size_t abgewiesen = 0;
     for (unsigned mask = 1; mask < (1u << cm::kMeasurementToolingCount); ++mask) {
-        std::string legend = "[";
+        std::string legend   = "[";
         bool        nennt_wc = false;
         for (std::size_t i = 0; i < cm::kMeasurementToolingCount; ++i)
             if ((mask >> i) & 1u) {
@@ -247,7 +247,7 @@ void fall_d_injektiv() {
     }
     std::cout << "  baubare Mengen: " << vektoren.size() << " (erwartet 4 = die wallclock-tragenden)\n";
     check_true("(d) alle 4 baubaren Mengen aufgeloest", vektoren.size() == 4);
-    std::size_t paare = 0;
+    std::size_t paare  = 0;
     std::size_t gleich = 0;
     for (std::size_t i = 0; i < vektoren.size(); ++i)
         for (std::size_t j = i + 1; j < vektoren.size(); ++j) {
@@ -277,8 +277,7 @@ void fall_e_byte_bilanz() {
                all.defs.size() > 1 && all.defs[1] == "-DCOMDARE_CE_ENABLE_STATISTICS=1");
     // Die leere Legende ist der UNGESETZT-Fall der Stempel-Seite; die Bau-Seite loest ihn nach "[all]"
     // auf (resolve_live_measurement_combo_legend), NICHT hier -- hier ist er ein Wurf.
-    check_true("(e) [all] deklariert alle 3 Toolings",
-               all.defs.size() == 2 + cm::kMeasurementToolingCount);
+    check_true("(e) [all] deklariert alle 3 Toolings", all.defs.size() == 2 + cm::kMeasurementToolingCount);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -287,8 +286,8 @@ void fall_e_byte_bilanz() {
 // ---------------------------------------------------------------------------------------------
 void fall_f_fehlerklassen() {
     std::cout << "\n---- (f) FEHLERKLASSEN: leere Legende und Tippfehler werfen ----\n";
-    Lauf const leer = ruf("");
-    Lauf const tipp = ruf("[wallclok]");
+    Lauf const leer      = ruf("");
+    Lauf const tipp      = ruf("[wallclok]");
     Lauf const leerinnen = ruf("[]");
     zeig("''         ", leer);
     zeig("[wallclok] ", tipp);

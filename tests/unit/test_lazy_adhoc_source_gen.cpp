@@ -379,8 +379,7 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
         env_was  = e.what();
     }
     ::unsetenv("COMDARE_MEASUREMENT_COMBO");
-    check_true("(f) H-A: Env [macro] OHNE einkompilierte Combo wird abgewiesen (Stufe-2-CT-Einbau fehlt)",
-               env_warf);
+    check_true("(f) H-A: Env [macro] OHNE einkompilierte Combo wird abgewiesen (Stufe-2-CT-Einbau fehlt)", env_warf);
     check_true("(f) H-A: der Wurf meldet die Fehlerklasse konfiguration_widerspruch",
                env_warf && env_was.find("fehlerklasse=konfiguration_widerspruch") != std::string::npos);
     // Env UNGESETZT == [all] -> NEU die VOLLE Vollmenge (Section 64-D1-B); byte-gleich zu einem explizit full_set-

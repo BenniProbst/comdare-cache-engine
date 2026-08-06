@@ -81,10 +81,9 @@ void tr(std::string const& what, bool ok) {
 /// DIE 13 ZELLEN, die bis M-1/H-B ungeschuetzt Zahlen schrieben. Namentlich aufgezaehlt und nicht
 /// positional gesucht -- eine Spaltenverschiebung darf diesen Test nicht still an anderen Zellen
 /// vorbeifuehren.
-constexpr char const* kObserverSpalten[] = {"search_lookup", "hit",         "miss",        "insert",
-                                            "erase",         "peak",        "bytes_alloc", "bytes_in_use",
-                                            "alloc_cnt",     "dealloc_cnt", "fail",        "obs_axes",
-                                            "fill"};
+constexpr char const* kObserverSpalten[] = {"search_lookup", "hit",         "miss",         "insert",    "erase",
+                                            "peak",          "bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt",
+                                            "fail",          "obs_axes",    "fill"};
 
 /// Eine Mess-Zeile mit DURCHGEHEND NICHT-NULL Observer-Werten. Nicht-Null ist tragend: mit einem
 /// genullten Snapshot koennte dieser Test die Luege gar nicht sehen, die er sucht (0 vs "n/a").

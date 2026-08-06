@@ -74,7 +74,7 @@
 
 #include "source_catalog.hpp" // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
 #include "toolchain_stamp_naht.hpp" // NB/CX-4: die LIVE-Werte der Glieder [5]/[6] -- DIESELBEN wie im Bau-Kanal
-#include "mess_achsen_naht.hpp" // M-1/D-1: die EINE Aufloesung der Mess-Combo -- DIESELBE wie im Bau-Kanal
+#include "mess_achsen_naht.hpp"     // M-1/D-1: die EINE Aufloesung der Mess-Combo -- DIESELBE wie im Bau-Kanal
 
 #include <builder/codegen/adhoc_emitter.hpp>                   // render_adhoc_module_source / strip_all_elaborated
 #include <builder/codegen/type_name.hpp>                       // type_name<W>

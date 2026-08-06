@@ -638,7 +638,7 @@ struct RunProfileResult {
         // M-1/D-2: die SOLL-Seite des Mess-Vertrags. DIESELBE Zeile, die oben die SOTA-Quellen und den lazy
         // Source-Gen stempelt -- der Vertrag vergleicht damit die Binary gegen das, was DIESER Lauf in sie
         // hineingestempelt hat, nicht gegen eine zweite Ableitung.
-        cfg.erwartete_mess_zeile      = live_mess_zeile;
+        cfg.erwartete_mess_zeile = live_mess_zeile;
         // M-1/H-B: die Observer-Ausstattung derselben Aufloesung. false => die stat_*-, seg_*-,
         // observable_axes-, fill_level- und filled_axes-Zellen sind ehrlich "n/a" statt 0.
         cfg.mess_observer_ausstattung = live_observer_ausstattung;
