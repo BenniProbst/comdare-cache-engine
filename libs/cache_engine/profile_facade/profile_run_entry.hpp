@@ -151,16 +151,34 @@ struct RunProfileArgs {
     //
     // EINE ABLAGE JE LAUF, NICHT JE PASS -- und das ist eine GRENZE, keine Zusage: make_cfg legt denselben
     // Pfad in JEDE Pass-cfg. Der Plan-Stempel (slice_plan_stamp: start/indizes/korn) haengt aber an der
-    // Selektion DES PASSES. Ein Lauf mit mehreren Selektions-Paessen (Basis-Pass + je deklariertem
-    // <axis_sweep> ein Pass, profile_sweep_passes) schreibt die Ablage deshalb mehrfach hintereinander um;
-    // am Ende steht der Plan des LETZTEN Passes darin. Ein Folgelauf findet fuer seinen Basis-Pass einen
-    // fremden Stempel vor -> read_phasen_zaehler ist fail-closed -> KEIN Resume-Anspruch, voller Neubau.
-    // Verloren geht nur der Anspruch, nie ein Messwert und nie eine gebaute Binary; ueberschrieben wird nur
-    // die Plan-Datei, nie ein Lauf-Artefakt. TRAGFAEHIG ist der Plan-Resume damit heute in Laeufen mit
-    // GENAU EINEM Selektions-Pass (Profil ohne <axis_sweeps>, oder explizites sweep_axis, jeweils mit
-    // COMDARE_RUN_SOTA=0). Ob die Ablage je Pass aufgefaechert werden soll -- der Owner-KERN spricht von
-    // EINEM "Batch-Plan (Reihenfolge+Faecher)" je Lauf --, ist eine offene Entscheidung und bewusst NICHT
-    // hier vorweggenommen.
+    // Selektion DES PASSES. Ein Lauf mit mehreren Selektions-Paessen schreibt die Ablage deshalb mehrfach
+    // hintereinander um; am Ende steht der Plan des LETZTEN Passes darin. Ein Folgelauf findet fuer seinen
+    // Basis-Pass einen fremden Stempel vor -> read_phasen_zaehler ist fail-closed -> KEIN Resume-Anspruch,
+    // voller Neubau. Verloren geht nur der Anspruch, nie ein Messwert und nie eine gebaute Binary;
+    // ueberschrieben wird nur die Plan-Datei, nie ein Lauf-Artefakt.
+    //
+    // WIE OFT DAS GESCHIEHT -- PRAEZISE, weil "je <axis_sweep> ein Pass" die Groesse UNTERSCHAETZT. Im
+    // BAU-Modus (provision_only, der einzige, in dem der Plan-Resume ueberhaupt greift: planer_driven_active)
+    // multiplizieren sich DREI Schleifen um make_cfg herum, nicht eine:
+    //   (1) die opt x simd-PERM-Schleife (GN-3) UM run_all_passes -- |opt_levels| x |simd_options|;
+    //   (2) die SELEKTIONS-Paesse (profile_sweep_passes): Basis-Pass + je deklariertem <axis_sweep> einer;
+    //   (3) die SOTA-REIHEN-Paesse (je <sota_series>-Eintrag einer), sofern run_sota_series.
+    // Die vierte denkbare Schleife -- der <working_set_sweep> je Pass -- multipliziert hier NICHT: Task #31
+    // kollabiert n_sweep im provision_only-Lauf auf genau EINEN Wert (die Tier-Binary ist N-unabhaengig).
+    // Am all_axes_golden.profile.xml sind das 2 opt x 2 simd = 4 Perms mal (1 Basis + 17 <axis_sweep> +
+    // 21 <sota_series>) = bis zu 156 Ueberschreibungen derselben Datei je Lauf (weniger, wo ein Pass wegen
+    // pass_seen_ids ohne Selektion bleibt und vor make_cfg zurueckkehrt).
+    //
+    // TRAGFAEHIG ist der Plan-Resume damit heute in Laeufen mit GENAU EINEM Selektions-Pass, und zwar in
+    // ALLEN DREI Dimensionen zugleich: ein Profil ohne <axis_sweeps> (oder explizites sweep_axis), mit
+    // COMDARE_RUN_SOTA=0, und mit genau einer opt x simd-Perm. Ob die Ablage je Pass aufgefaechert werden
+    // soll -- der Owner-KERN spricht von EINEM "Batch-Plan (Reihenfolge+Faecher)" je Lauf --, ist eine
+    // OFFENE OWNER-ENTSCHEIDUNG und bewusst NICHT hier vorweggenommen. Der Grund, sie nicht nebenbei zu
+    // treffen: ein eindeutiger Ablage-Name braucht als Quelle genau die Groesse, die auch den Plan-Stempel
+    // bestimmt (die Selektion DES PASSES) -- diese Groesse kennt aber erst der Iterator (er kappt die
+    // Indizes auf max_binaries). Sie hier ein zweites Mal abzuleiten waere die Format-Drift, gegen die die
+    // ganze F4-Mechanik gebaut ist; sie dort abzuleiten macht aus diesem Feld einen PRAEFIX statt eines
+    // Pfades -- eine Vertrags-Aenderung an genau dem Arg, das der Host (super-Facade/CEB) noch belegen muss.
     std::filesystem::path batch_plan_datei;
     // W11 (§43.c): der BAU-Modus Teil-Marker-Sink (nach je chunk_part_size gepushten DLLs) + N. Leer/0 = keine
     // Teil-Marker (byte-neutral). Der Host belegt sie aus dem ArtifactCache + COMDARE_GN_PART_SIZE (Default 1024).

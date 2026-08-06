@@ -18,8 +18,9 @@
 //
 // ADDITIV E-04-P1 (Marker-Familie v2, Slice-Kanal):
 //   (1m) je Fenster genau EIN [PLAN-TESTAT] (Soll: gesamt/lager/zu_bauen) und EIN [BILANZ-TESTAT]
-//        (Ist: gebaut_neu/sidecar_skip/lager_skip/fehl) -- die Zahlen stammen aus DEMSELBEN
+//        (Ist: gebaut_neu/sidecar_skip/lager_skip/plan_skip/fehl) -- die Zahlen stammen aus DEMSELBEN
 //        slice_stats/Filter-Ergebnis wie die geprueften Aggregat-Zahlen (Single-Source-Beleg).
+//        plan_skip= kam mit T2-A/F4-BILANZ (2026-08-06) dazu und steht in JEDER Zeile der Marke.
 //   (6m) FALLBACK-KANAL ohne aktives Bestandslog: der Live-Kanal bleibt beziffert (nicht stumm), und
 //        die Bilanz macht built_new/built_skip zu Konsumenten. Die Pflichtfelder lane=/zelle=/fenster=
 //        reisen aus cfg.marker_kontext in JEDE Zeile -- das Substrat des (zelle, fenster)-Keys.
@@ -220,8 +221,11 @@ int main() {
         // Die Zaehler stammen aus DEMSELBEN Filter-/slice_stats-Ergebnis wie die Aggregat-Pruefungen oben.
         check_true("(1m) SOLL: gesamt=8 lager=3 zu_bauen=5",
                    spur.find(" gesamt=8 lager=3 zu_bauen=5") != std::string::npos);
-        check_true("(1m) IST: gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0",
-                   spur.find(" gebaut_neu=5 sidecar_skip=0 lager_skip=3 fehl=0") != std::string::npos);
+        // T2-A/F4-BILANZ (2026-08-06): plan_skip= ist neu und steht in JEDER Zeile der Marke (EINE
+        // Grammatik). Hier ist es 0 und das ist die Wahrheit -- dieses Fenster hat den Slice-Loop
+        // erreicht, ist also per Definition nicht plan-resumiert.
+        check_true("(1m) IST: gebaut_neu=5 sidecar_skip=0 lager_skip=3 plan_skip=0 fehl=0",
+                   spur.find(" gebaut_neu=5 sidecar_skip=0 lager_skip=3 plan_skip=0 fehl=0") != std::string::npos);
         check_true("(1m) die Bilanz-Zeile traegt die Fenster-Wall-Clock", spur.find(" dauer_s=") != std::string::npos);
         // TP1FK1-B1 (Codex-Befund CX-W2), GEGENPROBE zu Fall (7): ein ZUSAMMENHAENGENDES Fenster loest die
         // konservative Weitung NICHT aus. Diese Zeile ist der Beleg, dass die Spannen-Form im Regelfall
@@ -513,7 +517,8 @@ int main() {
         check_eq("(6m) Fallback: KEINE Reservierung geschrieben", store.objs.size(), std::size_t{0});
         // Die Bilanz-Zahlen sind exakt die LazyRunResult-Felder -> built_new/built_skip haben einen Leser.
         std::string const erwartet = " gebaut_neu=" + std::to_string(r.built_new) +
-                                     " sidecar_skip=" + std::to_string(r.built_skip) + " lager_skip=0 fehl=0";
+                                     " sidecar_skip=" + std::to_string(r.built_skip) +
+                                     " lager_skip=0 plan_skip=0 fehl=0";
         check_true("(6m) Fallback-Bilanz konsumiert built_new/built_skip", spur.find(erwartet) != std::string::npos);
         check_eq("(6m) Fallback: 8 frisch gebaut (kein Bestand, kein Sidecar)", r.built_new, std::size_t{8});
     }
@@ -856,15 +861,104 @@ int main() {
             ex::BuildStats               agg;
             std::string                  log;
             std::vector<ex::BuildResult> builds;
+            std::size_t                  plan_skips = 99; // Vorbelegung != 0: eine Nicht-Zuweisung faellt auf
             {
                 CerrCapture fang;
-                builds = ex::run_planer_driven_provision(orch, view, alle, cfg11b, agg, bl::PresenceFn{});
+                builds = ex::run_planer_driven_provision(orch, view, alle, cfg11b, agg, bl::PresenceFn{},
+                                                         /*bestand_skips_out=*/nullptr, &plan_skips);
                 log    = fang.text();
             }
             check_eq("(11c) Lauf 2 setzt hinter dem gedeckten Fach auf -- nichts mehr zu bauen", builds.size(),
                      std::size_t{0});
             check_true("(11c) und sagt das literal (nie stumm)",
                        log.find("plan-resume: 1 von 1 Faechern bereits kompiliert") != std::string::npos);
+            // T2-A/F4-BILANZ (2026-08-06): DIE GEERBTEN ATOME WERDEN GEBUCHT. Bis zur Heilung erreichten die
+            // uebersprungenen FUEHRENDEN Faecher den Slice-Loop nie, also buchte sie niemand -- agg blieb in
+            // JEDEM Feld 0, LazyRunResult::built damit ebenfalls, und ein voll plan-resumierter
+            // provision-only-Lauf fiel eine Ebene hoeher auf exit 1. Jetzt gilt fuer den Plan-Resume exakt
+            // die Buchung des Lager-Skips: succeeded + skipped + total_jobs, `built` unberuehrt.
+            check_eq("(11c) BILANZ: die 8 geerbten Atome zaehlen als bereitgestellt", agg.succeeded, std::size_t{8});
+            check_eq("(11c) BILANZ: und als uebersprungen", agg.skipped, std::size_t{8});
+            check_eq("(11c) BILANZ: und als gezaehlte Jobs", agg.total_jobs, std::size_t{8});
+            check_eq("(11c) BILANZ: NICHTS wurde neu kompiliert", agg.built, std::size_t{0});
+            check_eq("(11c) BILANZ: kein Fehlschlag", agg.failed, std::size_t{0});
+            check_eq("(11c) die dritte Skip-Quelle reist einzeln zum Aufrufer", plan_skips, std::size_t{8});
+            // DAS TESTAT: die Bilanz stimmt nicht stumm. Ohne diese Zeile haette der voll resumierte Lauf im
+            // planer-getriebenen Pfad UEBERHAUPT KEINE [BILANZ-TESTAT]-Zeile und meldete zugleich Erfolg.
+            check_eq("(11c) genau EIN [BILANZ-TESTAT] -- das des resumierten Praefixes",
+                     zaehle(log, "[BILANZ-TESTAT] "), std::size_t{1});
+            check_true("(11c) TESTAT: gebaut_neu=0 sidecar_skip=0 lager_skip=0 plan_skip=8 fehl=0",
+                       log.find(" gebaut_neu=0 sidecar_skip=0 lager_skip=0 plan_skip=8 fehl=0") != std::string::npos);
+            check_true("(11c) und das Fenster benennt das gedeckte Praefix von indices",
+                       log.find(" fenster=0:8 ") != std::string::npos);
+            check_true("(11c) das Testat nennt den Beleg (Zaehler, nicht Platte)",
+                       log.find("plan-bilanz: 8 Atome aus 1 geplanten Faechern") != std::string::npos);
+            // GEGENPROBE zur Ehrlichkeit von dauer_s: dieser Lauf hat an den geerbten Atomen KEINE Zeit
+            // verbracht, also traegt seine Bilanz-Zeile auch keine (Muster der Fallback-Zeile).
+            check_true("(11c) keine erfundene Fenster-Zeit an der Resume-Bilanz",
+                       log.find(" dauer_s=") == std::string::npos);
+        }
+
+        // (c2) TEILWEISES RESUME -- der Fall zwischen (11a) und (11c): der Zaehler deckt EINEN Teil der
+        //      Faecher, der Rest wird gebaut. Die Bilanz muss BEIDE Anteile tragen, sonst waere die
+        //      Heilung nur fuer den Voll-Fall richtig. Korn 4 ueber 8 Indizes => zwei Faecher; ein
+        //      vorgelegter Zaehlerstand von 4 Atomen deckt genau das erste.
+        {
+            fs::path const    plan_t = base / "f4t" / "batch_plan.txt";
+            fs::path const    z_t    = fs::path{plan_t.string() + ".zaehler"};
+            FakeStore         store_t;
+            ex::LazyRunConfig cfg_t1 = mach_bau_cfg(store_t, base / "f4t" / "lauf1", plan_t);
+            // Lauf 1 mit Korn 4: er baut beide Faecher und hinterlaesst den Zaehler bei 8.
+            {
+                ex::BuildOrchestrator orch = mach_orch(cfg_t1, compile_stub);
+                ex::BuildStats        agg;
+                CerrCapture           fang;
+                auto const            builds = ex::run_planer_driven_provision(orch, view, alle, cfg_t1, agg,
+                                                                               bl::PresenceFn{}, nullptr, nullptr, 4);
+                check_eq("(11c2) Vorlauf baut die volle Selektion in zwei Faechern", builds.size(), std::size_t{8});
+            }
+            std::string const stamp_t = bl::slice_plan_stamp(alle, 4);
+            check_eq("(11c2) der Plan traegt ZWEI Faecher", datei_text(plan_t), stamp_t + "|rows=2\n0;4;4\n4;4;4\n");
+            // Den Zaehler auf das ERSTE Fach zuruecksetzen -- der Zustand nach einem Abbruch mitten im Lauf.
+            { std::ofstream{z_t, std::ios::trunc} << stamp_t << "|kompiliert=4|gemessen=0|rows=2\n"; }
+
+            ex::LazyRunConfig cfg_t2 = mach_bau_cfg(store_t, base / "f4t" / "lauf2", plan_t);
+            ex::BuildStats    agg2;
+            std::string       log2;
+            std::size_t       plan_skips2 = 99;
+            std::size_t       gebaut2     = 0;
+            {
+                CerrCapture           fang;
+                ex::BuildOrchestrator orch = mach_orch(cfg_t2, compile_stub);
+                gebaut2 = ex::run_planer_driven_provision(orch, view, alle, cfg_t2, agg2, bl::PresenceFn{}, nullptr,
+                                                          &plan_skips2, 4)
+                              .size();
+                log2 = fang.text();
+            }
+            check_eq("(11c2) genau das UNGEDECKTE Fach wird gebaut", gebaut2, std::size_t{4});
+            check_eq("(11c2) und genau das gedeckte wird geerbt", plan_skips2, std::size_t{4});
+            // DIE BILANZ GEHT AUF: 4 geerbte + 4 gebaute == die 8 Atome der Selektion. Genau diese Summe
+            // ist es, an der eine Ebene hoeher der Erfolg des provision-only-Laufs haengt.
+            check_eq("(11c2) BILANZ: geerbt + gebaut == die volle Selektion", agg2.succeeded, std::size_t{8});
+            check_eq("(11c2) BILANZ: 4 neu kompiliert", agg2.built, std::size_t{4});
+            check_eq("(11c2) BILANZ: 4 uebersprungen (die geerbten)", agg2.skipped, std::size_t{4});
+            check_eq("(11c2) BILANZ: 8 gezaehlte Jobs", agg2.total_jobs, std::size_t{8});
+            check_eq("(11c2) BILANZ: kein Fehlschlag", agg2.failed, std::size_t{0});
+            // ZWEI Testat-Zeilen: eine fuer das geerbte Praefix, eine fuer das gebaute Fenster -- und die
+            // Zahlen der beiden addieren sich zur Selektion, ohne dass ein Atom doppelt erscheint.
+            check_eq("(11c2) ZWEI [BILANZ-TESTAT]: das gebaute Fenster und das geerbte Praefix",
+                     zaehle(log2, "[BILANZ-TESTAT] "), std::size_t{2});
+            check_true("(11c2) TESTAT gebautes Fenster: gebaut_neu=4 ... plan_skip=0",
+                       log2.find(" gebaut_neu=4 sidecar_skip=0 lager_skip=0 plan_skip=0 fehl=0") != std::string::npos);
+            check_true("(11c2) TESTAT geerbtes Praefix: gebaut_neu=0 ... plan_skip=4",
+                       log2.find(" gebaut_neu=0 sidecar_skip=0 lager_skip=0 plan_skip=4 fehl=0") != std::string::npos);
+            check_true("(11c2) das Praefix-Fenster benennt die ersten 4 Indizes",
+                       log2.find(" fenster=0:4 ") != std::string::npos);
+            check_true("(11c2) das gebaute Fenster benennt die zweiten 4",
+                       log2.find(" fenster=4:4 ") != std::string::npos);
+            // Und die Fortschreibung bleibt korrekt: der Zaehler steht danach wieder auf allen 8 Atomen.
+            check_eq("(11c2) der Zaehler ist wieder voll fortgeschrieben", datei_text(z_t),
+                     stamp_t + "|kompiliert=8|gemessen=0|rows=2\n");
         }
 
         // (d) EIN ZAEHLER GEGEN EINE ANDERE SELEKTION TRAEGT KEINEN ANSPRUCH: derselbe Ablage-Pfad, aber

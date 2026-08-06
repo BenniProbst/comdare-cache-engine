@@ -839,13 +839,25 @@ inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
 // ── Ergebnis des Lazy-E2E-Laufs (rein zählend + die Mess-Zeilen; kein ∏-Vektor) ──
 struct LazyRunResult {
     std::size_t selected = 0; // selektierte statische Blaetter (== min(max_binaries, view))
-    // FESTGEZOGEN (TP1-N3/B-2): built = BEREITGESTELLT im Batch-Sinn -- gebaut ODER lokal resumiert
-    // ODER (im planer-getriebenen Bau) als Lager-Bestand belegt uebersprungen. built_skip ist die
-    // SUMME beider Skip-Quellen (dll_is_current-Resume + Lager-Bestand); die Lager-Quelle steht
-    // zusaetzlich einzeln in bestand_lager_skips (unten), damit die Auswertung differenzieren kann.
+    // FESTGEZOGEN (TP1-N3/B-2, NACHGEZOGEN T2-A/F4-BILANZ 2026-08-06): built = BEREITGESTELLT im
+    // Batch-Sinn -- gebaut ODER lokal resumiert ODER (im planer-getriebenen Bau) als Lager-Bestand
+    // belegt uebersprungen ODER (ebendort) vom PLAN-ZAEHLER als bereits kompiliert gedeckt. built_skip
+    // ist die SUMME aller DREI Skip-Quellen (dll_is_current-Resume + Lager-Bestand + Plan-Resume); die
+    // beiden planer-getriebenen Quellen stehen zusaetzlich einzeln in bestand_lager_skips und
+    // plan_resume_skips (unten), damit die Auswertung differenzieren kann.
+    //
+    // WARUM DER PLAN-RESUME HIERHER GEHOERT (die geheilte Asymmetrie): die vom Plan-Resume
+    // uebersprungenen FUEHRENDEN Faecher erreichen den Slice-Loop nie. Bis zur Heilung buchte sie
+    // deshalb NIEMAND -- waehrend die Lager-Skips an derselben Stelle sehr wohl gebucht werden --, und
+    // ein VOLLSTAENDIG plan-resumierter provision-only-Lauf endete mit built==0 => provision_ok==false
+    // => exit 1, obwohl er genau das getan hatte, was der Plan-Resume verspricht. Die Buchung ruht auf
+    // demselben Rang von Beleg wie die Lager-Buchung: dort der Lager-Index, hier der Phasen-Zaehler,
+    // der ausschliesslich NACH dem Vollzug eines fehlerfreien Fensters fortgeschrieben wird. Keine der
+    // beiden Quellen ist eine Platten-Pruefung; dll_is_current bleibt fuer alles, was doch gebaut wird,
+    // die zweite Verteidigungslinie.
     std::size_t                  built       = 0; // erfolgreich bereitgestellte DLLs (s. FESTGEZOGEN oben)
     std::size_t                  built_new   = 0; // davon tatsächlich (neu) kompiliert
-    std::size_t                  built_skip  = 0; // davon uebersprungen (dll_is_current-Resume + Lager-Bestand)
+    std::size_t                  built_skip  = 0; // davon uebersprungen (die drei Quellen aus FESTGEZOGEN)
     std::size_t                  loaded      = 0; // DLLs, die geladen + als IObservableTier nutzbar waren
     std::size_t                  load_failed = 0; // gebaut, aber nicht ladbar / kein Mess-Interface
     std::size_t                  measured    = 0; // gemessene (Binary × dyn-Setting)-Zeilen, in den Baum ge-ingestet
@@ -869,6 +881,13 @@ struct LazyRunResult {
     // Differenzierung: dll_is_current-Resumes == built_skip - bestand_lager_skips). 0 ausserhalb des
     // planer-getriebenen Pfads bzw. ohne Praesenz-Praedikat (byte-neutral).
     std::size_t bestand_lager_skips = 0;
+    // T2-A/F4-BILANZ (additiv, Muster von bestand_lager_skips): die Atome der vom PLAN-ZAEHLER
+    // vollstaendig gedeckten FUEHRENDEN Faecher -- die DRITTE Skip-Quelle. Sie einzeln zu fuehren ist
+    // dieselbe Notwendigkeit wie bei der zweiten: ohne sie waere in built_skip nicht mehr trennbar,
+    // was ein lokales Sidecar, was der Lager-Index und was der Plan-Zaehler gedeckt hat
+    // (dll_is_current-Resumes == built_skip - bestand_lager_skips - plan_resume_skips). 0 ohne
+    // benannte Plan-Ablage und 0 ausserhalb des planer-getriebenen Pfads (byte-neutral).
+    std::size_t plan_resume_skips = 0;
     // G-E1 / ABNAHME-6 (A1-Lager-Rest-Welle): die Zahl der beim LAUF-START uebernommenen fremden
     // Reservierungen (bestaetigt released, TP1FK1-B4-Revalidierung). Sie ist der Beleg des
     // Claim-Checks: die Fenster dieser Reservierungen liegen per scope_covers_slice VOLL in der
@@ -1085,16 +1104,25 @@ inline void mess_pfad_synchron_push(CachePushFn const& cache_push, std::filesyst
 [[nodiscard]] inline std::vector<BuildResult>
 run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& view,
                             std::vector<std::size_t> const& indices, LazyRunConfig const& cfg, BuildStats& agg,
-                            bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr) {
+                            bestandslog::PresenceFn const& present, std::size_t* bestand_skips_out = nullptr,
+                            std::size_t* plan_resume_skips_out = nullptr,
+                            std::size_t  korn                  = bestandslog::kBuildSliceGrain) {
     std::vector<BuildResult> builds;
+    // T2-A/F4-BILANZ: das KORN als Parameter. Es war die einzige Stelle der Kette, die kBuildSliceGrain
+    // hart hinschrieb -- slice_plan_stamp, plan_alle_faecher und der SlicePlanner nehmen es alle drei
+    // laengst entgegen. Der Default ist genau die bisherige Konstante, der produktive Lauf ist damit
+    // byte-identisch; wer ein anderes Korn setzt, bekommt es KONSISTENT (Stempel UND Schnitt aus
+    // derselben Zahl -- ein zweites Korn waere ein Plan, den sein eigener Leser ablehnt). Gebraucht wird
+    // die Naht fuer den TEILWEISEN Plan-Resume: er ist ein Fach-Phaenomen und bei Korn 4096 nur mit
+    // >4096 Binaries auszuloesen -- eine Groesse, die kein Modultest ehrlich bauen kann.
+    std::size_t const grain = (korn == 0) ? bestandslog::kBuildSliceGrain : korn;
     // T2-A/F4: die Plan-Ablage dieses Bau-Laufs. Der rows_key wird HEREINGEREICHT -- kLazyResumeRowsKey ist
     // hier zu Hause, das Bestandslog darf ihn nicht kennen (Abhaengigkeits-Richtung) und soll ihn erst recht
     // nicht ein zweites Mal als Literal fuehren (W5-Hebung). Leere Datei => aktiv()==false => inert.
-    bestandslog::PlanPersistenz plan_persistenz{cfg.batch_plan_datei,
-                                                bestandslog::slice_plan_stamp(indices, bestandslog::kBuildSliceGrain),
+    bestandslog::PlanPersistenz plan_persistenz{cfg.batch_plan_datei, bestandslog::slice_plan_stamp(indices, grain),
                                                 std::string{kLazyResumeRowsKey}};
     bestandslog::SlicePlanQueue queue;
-    bestandslog::SlicePlanner   planner(queue, indices, bestandslog::kBuildSliceGrain, present, plan_persistenz);
+    bestandslog::SlicePlanner   planner(queue, indices, grain, present, plan_persistenz);
 
     bool const reserve = static_cast<bool>(cfg.bestand_transport.store) &&
                          static_cast<bool>(cfg.bestand_transport.fetch) && !cfg.bestand_doc_key.empty();
@@ -1121,14 +1149,28 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     std::uint64_t plan_gemessen       = 0;
     std::size_t   plan_faecher        = 0;
     bool          plan_praefix_intakt = true;
+    // T2-A/F4-BILANZ: der VORGEFUNDENE Zaehlerstand, getrennt von plan_kompiliert festgehalten -- letzterer
+    // laeuft im Fenster-Takt hoch, dieser bleibt die Zahl der Atome, die dieser Lauf GEERBT hat. Genau sie
+    // ist die Bilanz-Groesse (plan_resume_skips) und genau sie fehlte bis hierher in den BuildStats.
+    std::uint64_t plan_resume_atome = 0;
+    // DIE PLAN-WERTE WERDEN GENAU EINMAL GELESEN -- aber an ZWEI Stellen abgeholt, weil es ZWEI gleichwertige
+    // Belege dafuer gibt, dass der Planer sie gesetzt hat (s. SlicePlanner::plan_faecher_zahl: "ein Konsument,
+    // der bereits ein Fach gezogen hat ODER die geschlossene Queue gesehen hat, liest sie fertig"): das erste
+    // gezogene Fach -- und das Ende der Schleife, das nichts anderes bedeutet als eine geschlossene Queue.
+    // DER ZWEITE BELEG IST DER GRUND DIESER HEBUNG: ein VOLLSTAENDIG plan-resumierter Lauf zieht kein Fach
+    // mehr, betritt den Schleifenrumpf also nie -- und liess bis hierher alle drei Werte auf 0 stehen, samt
+    // der geerbten Atome, die er zu Recht als bereitgestellt fuehrt.
+    bool plan_werte_gelesen = false;
+    auto lies_plan_werte    = [&] {
+        if (plan_werte_gelesen || !plan_persistenz.aktiv()) return;
+        plan_werte_gelesen = true;
+        plan_resume_atome  = planner.resume_atome();
+        plan_kompiliert    = plan_resume_atome;
+        plan_gemessen      = planner.resume_gemessen();
+        plan_faecher       = planner.plan_faecher_zahl();
+    };
     while (auto plan = queue.pop()) {
-        if (slice_seq == 0 && plan_persistenz.aktiv()) {
-            // Erst HIER, nach dem ersten Pop: der Planer setzt die drei Werte VOR seinem ersten Push (s.
-            // SlicePlanner::plan_faecher_zahl) -- ein gezogenes Fach ist der Beleg, dass sie stehen.
-            plan_kompiliert = planner.resume_atome();
-            plan_gemessen   = planner.resume_gemessen();
-            plan_faecher    = planner.plan_faecher_zahl();
-        }
+        lies_plan_werte(); // Beleg 1: ein gezogenes Fach
         bestandslog::BatchReservierung           res;
         std::optional<bestandslog::PromiseGuard> guard;
         if (reserve) {
@@ -1204,8 +1246,12 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // des Kanals (Single-Source; die Shell zaehlt nichts nach).
         std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau", fenster)
                   << " gebaut_neu=" << slice_stats.built << " sidecar_skip=" << slice_stats.skipped
-                  << " lager_skip=" << gefiltert.bestand_uebersprungen << " fehl=" << slice_stats.failed
-                  << " dauer_s=" << bestandslog::format_seconds(wall_s) << "\n"
+                  << " lager_skip=" << gefiltert.bestand_uebersprungen
+                  // T2-A/F4-BILANZ: EINE Grammatik fuer die ganze Marke -- die dritte Skip-Quelle steht in
+                  // JEDER [BILANZ-TESTAT]-Zeile, auch wo sie 0 ist. Ein Fenster, das den Loop erreicht hat,
+                  // ist per Definition NICHT plan-resumiert; die 0 ist hier die Wahrheit, keine Ersatzzahl.
+                  << " plan_skip=0"
+                  << " fehl=" << slice_stats.failed << " dauer_s=" << bestandslog::format_seconds(wall_s) << "\n"
                   << std::flush;
 
         if (reserve) {
@@ -1245,6 +1291,38 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         for (auto& b : part) builds.push_back(std::move(b));
         ++slice_seq;
     }
+    lies_plan_werte(); // Beleg 2: die Schleife ist zu Ende == die Queue ist geschlossen (s. oben)
+
+    // ---------------------------------------------------------------------------------------------
+    // T2-A/F4-BILANZ: DIE GEERBTEN ATOME BUCHEN.
+    // Die vom Plan-Zaehler gedeckten FUEHRENDEN Faecher haben den Slice-Loop nie erreicht, also hat oben
+    // niemand ihre Atome gebucht. Hier geschieht das -- mit EXAKT der Buchung, die die Lager-Skips im
+    // Loop erhalten (succeeded + skipped + total_jobs, `built` unberuehrt, weil nichts NEU kompiliert
+    // wurde). Damit haelt die Definition von LazyRunResult::built wieder ueber alle drei Skip-Quellen,
+    // und ein vollstaendig plan-resumierter provision-only-Lauf ist das, was er ist: ein gueltiger Lauf.
+    agg.total_jobs += static_cast<std::size_t>(plan_resume_atome);
+    agg.succeeded += static_cast<std::size_t>(plan_resume_atome);
+    agg.skipped += static_cast<std::size_t>(plan_resume_atome);
+
+    // DAS ZUGEHOERIGE TESTAT (Nie-stumm; 0-Fall schweigt, wie das G-A2-Testat darunter). Ohne diese Zeile
+    // wuerde eine Bilanz aufgehen, die niemand nachrechnen kann -- und der VOLL resumierte Lauf haette im
+    // planer-getriebenen Pfad ueberhaupt KEINE [BILANZ-TESTAT]-Zeile, waehrend er zugleich exit 0 meldet.
+    // Das Fenster ist exakt bestimmbar: der Plan schneidet `indices` in Reihenfolge, die gedeckten Faecher
+    // sind sein PRAEFIX -- also die ersten plan_resume_atome Indizes ab indices.front(). dauer_s fehlt aus
+    // demselben Grund wie in der Fallback-Zeile: dieser Lauf hat an diesen Atomen keine Zeit verbracht,
+    // und eine erfundene waere schlimmer als keine.
+    if (plan_resume_atome > 0) {
+        std::string const resume_fenster = marker_fenster(indices.empty() ? std::size_t{0} : indices.front(),
+                                                          static_cast<std::size_t>(plan_resume_atome));
+        std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau",
+                                 resume_fenster)
+                  << " gebaut_neu=0 sidecar_skip=0 lager_skip=0 plan_skip=" << plan_resume_atome << " fehl=0\n"
+                  << std::flush;
+        std::cerr << "[bestandslog] plan-bilanz: " << plan_resume_atome << " Atome aus " << plan_faecher
+                  << " geplanten Faechern vom Phasen-Zaehler gedeckt -- als bereitgestellt gebucht (dieselbe "
+                     "Buchung wie ein Lager-Skip; der Beleg ist der Zaehler, nicht die Platte)\n"
+                  << std::flush;
+    }
     // B13-Testat: die Fehlschlaege der Buchhaltung EINMAL beziffert (je Slice zwei planmaessige Schreibvorgaenge).
     // Kein Erfolgs-Haken ohne Ausgabe -- und kein Bau-Abbruch: die Binaries dieses Laufs sind davon unberuehrt.
     if (res_fehler > 0)
@@ -1261,6 +1339,9 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // TP1-N3 (B-3): die Lager-Skip-Zahl reist zum Aufrufer (LazyRunResult.bestand_lager_skips) --
     // builds traegt nur die GEBAUTEN, die Skips waeren sonst im Ergebnis unsichtbar.
     if (bestand_skips_out != nullptr) *bestand_skips_out = bestand_skips_gesamt;
+    // T2-A/F4-BILANZ: dieselbe Reise fuer die dritte Skip-Quelle (LazyRunResult.plan_resume_skips) --
+    // aus demselben Grund: builds traegt sie nicht, und in built_skip allein waere sie nicht trennbar.
+    if (plan_resume_skips_out != nullptr) *plan_resume_skips_out = static_cast<std::size_t>(plan_resume_atome);
     return builds; // Producer-Thread joined im SlicePlanner-dtor (RAII)
 }
 
@@ -1452,7 +1533,7 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     bool const        planer_getrieben = bestandslog::planer_driven_active(bestandslog_active, cfg.provision_only);
     if (planer_getrieben)
         builds = run_planer_driven_provision(orch, view, indices, cfg, result.build_stats, bestand_present,
-                                             &result.bestand_lager_skips);
+                                             &result.bestand_lager_skips, &result.plan_resume_skips);
     else {
         // FALLBACK-KANAL: ohne aktives Bestandslog gibt es keinen Slice-Loop -- die Invocation IST das
         // eine Fenster. Ohne diese beiden Zeilen waere der Live-Kanal in genau den Laeufen stumm, in
@@ -1480,14 +1561,15 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
     // E-04-P1: die Fallback-Bilanz macht built_new/built_skip zu KONSUMENTEN (Aufraeumpass-Kandidat (1)
     // der 75er-Liste entschaerft: built_new hatte bereits den SOTA-Bruecken-Leser, built_skip war
-    // leserlos). lager_skip bleibt 0, weil dieser Pfad keinen Bau-Filter faehrt -- 0 ist hier die
-    // WAHRHEIT, keine Ersatzzahl. dauer_s fuehrt nur der Slice-Pfad (dort wird die Wall-Clock je
-    // Fenster fuer die ETA ohnehin gemessen); hier gaebe es keine ehrliche Fenster-Zeit.
+    // leserlos). lager_skip UND plan_skip bleiben 0, weil dieser Pfad weder einen Bau-Filter noch einen
+    // Plan fuehrt -- 0 ist hier die WAHRHEIT, keine Ersatzzahl. dauer_s fuehrt nur der Slice-Pfad (dort
+    // wird die Wall-Clock je Fenster fuer die ETA ohnehin gemessen); hier gaebe es keine ehrliche Zeit.
     if (!planer_getrieben)
         std::cerr << marker_kopf(kMarkeBilanzTestat, cfg.marker_kontext, bestandslog::now_utc_iso(), "bau",
                                  lauf_fenster)
                   << " gebaut_neu=" << result.built_new << " sidecar_skip=" << result.built_skip
-                  << " lager_skip=" << result.bestand_lager_skips << " fehl=" << result.build_stats.failed << "\n"
+                  << " lager_skip=" << result.bestand_lager_skips << " plan_skip=" << result.plan_resume_skips
+                  << " fehl=" << result.build_stats.failed << "\n"
                   << std::flush;
 
     // #46b I1 (opt-in): die frisch gebauten Binaries EINMAL ins Binary-Bestandslog mergen (single-threaded,
@@ -1611,9 +1693,12 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         // Delta (in StaticBinaryView-Ordnung; Lager-Treffer haben keine Konfigurations-Aenderung zu melden).
         // TP1-N3 (B-2b): das done-Delta traegt die VOLLE bereitgestellte Menge (gebaut + Lager-Bestand) --
         // builds.size() allein unterzaehlte seit dem Bau-Filter die Bereitstellung dieses Fensters.
+        // T2-A/F4-BILANZ: derselbe Satz gilt fuer die dritte Quelle -- die plan-resumierten Atome sind
+        // bereitgestellt, also gehoeren sie in dieselbe Summe. Sonst meldete ein plan-resumierter Lauf
+        // dem Paragraf-38-Kanal weniger fertig, als er im selben Atemzug als `built` fuehrt.
         for (std::size_t j = 0; j < builds.size(); ++j)
             fire_progress(builds[j].index, fenster_cursor_of(builds[j].index, j)); // TP1FK1-B5: Fenster-Index
-        fire_progress_done(builds.size() + result.bestand_lager_skips);
+        fire_progress_done(builds.size() + result.bestand_lager_skips + result.plan_resume_skips);
         return result;
     }
 

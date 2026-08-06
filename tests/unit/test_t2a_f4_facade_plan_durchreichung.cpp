@@ -17,9 +17,22 @@
 //   (2) ARG LEER -> NICHTS: derselbe Lauf ohne den Pfad legt weder Plan noch Zaehler an -- das
 //       Opt-in-Muster (PlanPersistenz::aktiv()==false => inert) bleibt erhalten.
 //   (3) DIE WIRKUNG IST DER RESUME, nicht nur eine Datei: ein zweiter Lauf gegen dieselbe Ablage mit
-//       FRISCHEM Ausgabe-Verzeichnis stellt nichts mehr bereit (any_provisioned==0). Ohne die
-//       Durchreichung baut er die volle Selektion erneut -- das ist der Unterschied, den der
-//       Owner-KERN meint.
+//       FRISCHEM Ausgabe-Verzeichnis KOMPILIERT nichts mehr (das Verzeichnis bleibt leer) und endet
+//       trotzdem REGULAER -- er fuehrt die geerbten Atome als bereitgestellt und weist sie in der
+//       Bilanz aus. Ohne die Durchreichung baut er die volle Selektion erneut -- das ist der
+//       Unterschied, den der Owner-KERN meint.
+//
+// WAS HIER GEHEILT WURDE (T2-A/F4-BILANZ, 2026-08-06). Fall (3) stand bis heute als STOLPERDRAHT im
+// Baum: ein VOLLSTAENDIG plan-resumierter provision-only-Lauf endete mit exit_code=1. Der Grund lag eine
+// Ebene tiefer -- die vom Plan-Resume uebersprungenen FUEHRENDEN Faecher erreichen den Slice-Loop nie,
+// also buchte niemand ihre Atome in die BuildStats, LazyRunResult::built blieb 0, und genau daran haengt
+// der Erfolgs-Test des provision-only-Modus ("mind. 1 DLL bereitgestellt"). Die LAGER-Skips wurden an
+// derselben Stelle sehr wohl gebucht: eine Asymmetrie gegen die eigene Definition von `built`. Sie ist
+// geheilt (Buchung + [BILANZ-TESTAT]-Zeile mit dem neuen Feld plan_skip=), und der Stolperdraht ist
+// hier zur ZUSAGE gedreht -- genau wie sein Kommentar es verlangt hat. Der TEILWEISE Resume (einige
+// Faecher gedeckt, einige nicht) ist ein FACH-Phaenomen und bei Korn 4096 nur mit >4096 Binaries
+// auszuloesen; er ist deshalb dort belegt, wo das Korn eine Naht hat: test_tp1_planer_filter_iterator
+// Fall (11c2), am echten run_planer_driven_provision.
 //
 // PROFIL: planner_thesis_min.profile.xml -- ohne <axis_sweeps> und ohne <sota_series>, also GENAU EIN
 // Selektions-Pass. Das ist Absicht: eine Ablage je Lauf traegt heute genau dort (s. die Grenze am
@@ -193,22 +206,40 @@ int main() {
     //    Frisches Ausgabe-Verzeichnis, damit ein etwaiger Bau SICHTBAR waere -- ohne die Durchreichung
     //    stuende hier wieder die volle Selektion.
     {
-        tlz::RunProfileArgs const   a = mach_args(store1, base / "lauf3", plan_datei);
-        tlz::RunProfileResult const r = tlz::run_profile(a);
-        check_eq("(3) der Folgelauf stellt nichts mehr bereit -- der Plan-Zaehler deckt das einzige Fach",
-                 r.any_provisioned, std::uint64_t{0});
-        // STOLPERDRAHT, KEINE BILLIGUNG (Befund dieser Welle, gemeldet): ein VOLLSTAENDIG plan-resumierter
-        // provision-only-Lauf endet heute mit exit_code=1. Der Grund liegt eine Ebene tiefer: die vom
-        // Plan-Resume uebersprungenen FUEHRENDEN Faecher erreichen den Slice-Loop nie, also bucht niemand
-        // ihre Atome in die BuildStats -- LazyRunResult::built bleibt 0 --, waehrend der Erfolgs-Test von
-        // run_profile im provision-only-Modus genau daran haengt ("mind. 1 DLL bereitgestellt"). Die
-        // LAGER-Skips werden an dieser Stelle sehr wohl gebucht (agg.succeeded += bestand_uebersprungen),
-        // der Plan-Resume nicht -- eine Asymmetrie gegen die eigene Definition von `built` ("bereitgestellt
-        // im Batch-Sinn -- gebaut ODER lokal resumiert ODER als Lager-Bestand uebersprungen").
-        // Die Zeile haelt den IST-Stand fest, damit er nicht still bleibt: wird die Asymmetrie geheilt,
-        // FAELLT dieser Test und zwingt zur bewussten Nachfuehrung -- statt dass eine gruene Suite die alte
-        // Ordnung zementiert.
-        check_eq("(3) TRIPWIRE: voll plan-resumiert == exit 1 (offener Befund, s. Kommentar)", r.exit_code, 1);
+        fs::path const              lauf3 = base / "lauf3";
+        tlz::RunProfileArgs const   a     = mach_args(store1, lauf3, plan_datei);
+        tlz::RunProfileResult const r     = tlz::run_profile(a);
+        // (3a) DER RESUME GREIFT: es wird NICHTS mehr kompiliert. Der Beleg ist die Platte und nicht eine
+        //      Zahl -- das Ausgabe-Verzeichnis dieses Laufs ist frisch, ein Bau haette es gefuellt.
+        check_true("(3a) der Folgelauf kompiliert nichts mehr -- sein Ausgabe-Verzeichnis bleibt leer",
+                   !fs::exists(lauf3 / "dll", ec) || fs::is_empty(lauf3 / "dll", ec));
+        // (3b) UND ER IST TROTZDEM EIN GUELTIGER LAUF. Das ist die geheilte Asymmetrie (s. Kopf): die vom
+        //      Plan-Zaehler gedeckten Atome sind BEREITGESTELLT und werden seit T2-A/F4-BILANZ genauso
+        //      gebucht wie ein Lager-Skip. Bis zur Heilung stand hier exit_code=1 als STOLPERDRAHT --
+        //      diese Zeile ist seine bewusste Nachfuehrung, nicht sein stilles Verschwinden.
+        check_eq("(3b) voll plan-resumiert == exit 0 (geheilt; frueher TRIPWIRE auf exit 1)", r.exit_code, 0);
+        // (3c) DIE BILANZ WEIST DIE RESUMIERTEN ATOME AUS -- und zwar genau die eine des einen Fachs.
+        //      Ohne diese Zahl waere (3b) nur ein anders begruendetes Gruen.
+        check_eq("(3c) die Bilanz fuehrt das geerbte Atom als bereitgestellt", r.any_provisioned,
+                 std::uint64_t{1});
+        check_eq("(3c) und es ist dasselbe eine Atom, das Lauf 1 gebaut hat", r.any_provisioned,
+                 lauf1_bereitgestellt);
+        // (3d) GEGENPROBE ZUR HERKUNFT: gemessen hat dieser Lauf nichts, resumiert im MESS-Sinn auch
+        //      nichts. Das Gruen kommt AUSSCHLIESSLICH aus provision_ok -- also aus der neuen Buchung.
+        check_eq("(3d) nichts gemessen (provision-only)", r.any_measured, std::uint64_t{0});
+        check_eq("(3d) und nichts mess-resumiert -- das Gruen traegt allein die Bereitstellung",
+                 r.any_resumed, std::uint64_t{0});
+        // (3e) DER ZAEHLER IST UNVERAENDERT GEBLIEBEN: ein Lauf, der nichts vollzieht, schreibt auch
+        //      nichts fort. Die Bau-Front steht weiter bei dem einen Atom, die Mess-Front weiter bei 0.
+        auto const faecher3 = bl::read_batch_plan(plan_datei, stamp, ex::kLazyResumeRowsKey);
+        auto const zaehler3 = faecher3.has_value()
+                                  ? bl::read_phasen_zaehler(z_datei, stamp, *faecher3, ex::kLazyResumeRowsKey)
+                                  : std::nullopt;
+        check_true("(3e) der Zaehler steht unveraendert gegen denselben Plan", zaehler3.has_value());
+        check_eq("(3e) Bau-Front unveraendert", zaehler3.has_value() ? zaehler3->kompiliert : std::uint64_t{99},
+                 std::uint64_t{1});
+        check_eq("(3e) Mess-Front unveraendert", zaehler3.has_value() ? zaehler3->gemessen : std::uint64_t{99},
+                 std::uint64_t{0});
     }
 
     fs::remove_all(base, ec);
