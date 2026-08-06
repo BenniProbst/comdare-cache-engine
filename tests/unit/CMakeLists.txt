@@ -3458,6 +3458,14 @@ target_compile_definitions(test_experiment_plan_director PRIVATE
     "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
     "COMDARE_SYSTEM_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml\""
     "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml\"")
+# Fehlende Bau-Graph-Kante (gefunden 2026-08-06 bei A1-NB2, reproduzierbar unter -j32):
+# thesis_tiere/test_experiment_plan_director.cpp zieht ueber profile_run_entry.hpp
+# generated_source_catalog.hpp (wie test_lazy_adhoc_source_gen/test_limits_entkopplung_vorstufe/
+# test_t2a_f4_facade_plan_durchreichung), hatte aber als einziges der 5 Ziele die Kante NICHT.
+# Ohne sie kann Ninja die P1689-Scan-Stufe dieses Targets parallel zum Generator-Custom-Command
+# einplanen -> "generated_source_catalog.hpp: No such file or directory" bei ungluecklicher
+# Bau-Reihenfolge. comdare_attach_generated_catalog(...) macht die Kante explizit.
+comdare_attach_generated_catalog(test_experiment_plan_director)
 set_tests_properties(test_experiment_plan_director PROPERTIES LABELS "contract;profiles;e4;planner")
 
 # M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffaecherung 2026-07-14) — ctest-Gate der
