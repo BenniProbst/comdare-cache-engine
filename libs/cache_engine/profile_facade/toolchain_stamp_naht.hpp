@@ -1,0 +1,176 @@
+#pragma once
+// profile_facade/toolchain_stamp_naht.hpp -- NB/CX-4 (Neuanker-Nachbesserung 06.08.2026): die EINE Stelle,
+// an der die LIVE-Werte der Preimage-Glieder [5] (Toolchain) und [6] (bvset) BESTIMMT und in die
+// Compile-Define-Wertform gebracht werden. Spiegel und Praezedenz: system_cell_values_naht.hpp (W10-C4).
+//
+// WAS HIER GELOEST WIRD: C-2 hat den SLOT gebaut (abi/toolchain_stamp_glied.hpp rendert, abi/
+// anatomy_fingerprint.hpp haelt die Positionen), aber beide Defines standen auf ihrem Default "" -- der
+// produktive Fingerprint trug die zwei neuen Glieder also NICHT. Damit war die C1-/C6-Luecke formal noch
+// offen: zwei Baue derselben Permutation mit anderer Toolchain bzw. anderer Enable-Menge hatten weiter
+// denselben Digest. Ab hier tragen sie die Glieder LIVE.
+//
+// DIE HARTE BEDINGUNG DIESER NAHT -- KEINE DRIFT (Auflage aus dem C-2-Uebergabe-Punkt, verbatim): "die
+// Toolchain-/bvset-Werte muessen GLEICHZEITIG (a) in den CEB-Laufzeit-Zwilling UND (b) als
+// -DCOMDARE_TOOLCHAIN_STAMP_GLIED / -DCOMDARE_BUILD_VARIANT_SET_SIGNATURE an perm_compile gehen. Wird nur
+// eine Seite verdrahtet, rechnet der consteval-Zwilling in der Tier-Binary ueber ANDERE Glieder als die
+// CEB." Genau deshalb sind die beiden Komposition-Funktionen unten ARGUMENTLOS und REIN: derselbe Aufruf
+// liefert im Bau-Kanal (perm_compile_flags -> Define) und im Laufzeit-Zwilling
+// (make_lazy_adhoc_fingerprint_fn_from_env) byte-identische Strings. Eine Signatur mit per-Perm-Argumenten
+// koennte diese Gleichheit nicht mehr strukturell garantieren, sondern nur behaupten.
+//
+// WAS BEWUSST (NOCH) NICHT IM LIVE-GLIED STEHT -- ehrlich benannt statt still weggelassen: die
+// PER-PERM-Felder opt/ext/gate. Sie entstehen in der optxsimd-Schleife (profile_run_entry.hpp /
+// experiment_run_entry.hpp) und erreichen diese Naht nur ueber die compile_for_perm-Signatur; der
+// Laufzeit-Zwilling bekommt sie an derselben Stelle NICHT. Sie hier aus opt_flag/march_flag
+// zurueckzurechnen waere eine ZWEIT-ABLEITUNG (genau das, was die Zellwert-Naht ausdruecklich verbietet:
+// "KEINE Zweit-Ableitung, insbesondere kein Rueckschluss aus dem -march-Flag"), und sie nur auf der
+// Bau-Seite zu setzen waere die oben zitierte Drift. Ihre Verdrahtung gehoert deshalb in EINEN Schnitt mit
+// der Perm-Schleife (Buendel-Scheibe C-3). Die run-KONSTANTEN Felder (cxx, ceb, bt) sind ab hier live --
+// sie schliessen den Compiler-/Contract-/Build-Typ-Teil der C1-Luecke.
+//
+// header-only, keine Bau-Abhaengigkeit ausser der Treiber-Signatur (die ist compile-time).
+
+#include "build_type_stamp.hpp"      // (i) build_type_version_value(): DIESELBE Env-Entscheidung wie der Suffix
+#include "system_version_suffix.hpp" // die EINE Suffix-Quelle + toolchain_stamp_parts_from_suffix_parts
+
+#include <builder/driver_build_variant_signature.hpp> // kDriverBuildVariantSignature (CT-Zwilling, Glied [6])
+
+#include <cache_engine/abi/toolchain_stamp_glied.hpp>        // Renderer + die CT-Compiler-Realversions-Erhebung
+#include <cache_engine/measurement/compiler_system_axis.hpp> // Dialekt-Ids + driver_default (Single-Source)
+
+#include <cstdlib>
+#include <string>
+#include <string_view>
+
+namespace comdare::cache_engine::profile_facade {
+
+/// active_cxx_driver_tag() -- der TREIBER, mit dem die Tier-Binaries dieses Laufs uebersetzt werden.
+/// EINE Quelle: der Env-Override, sonst der Default-Treiber der Compiler-System-Achse (INC-1h). Die Facade
+/// (profile_run_facade cxx_compiler) zieht ab NB/CX-4 hier durch, statt die Entscheidung ein zweites Mal
+/// zu buchstabieren -- sonst koennte der Treiber, ueber den das Glied urteilt, ein anderer sein als der,
+/// der wirklich compiliert.
+[[nodiscard]] inline std::string active_cxx_driver_tag() {
+    if (char const* e = std::getenv("COMDARE_CXX"); e != nullptr && *e != '\0') return e;
+    return std::string{::comdare::cache_engine::measurement::GccCompilerAxis::driver_default()};
+}
+
+/// Der DIALEKT des konfigurierten Treibers -- dieselbe eine Regel, nach der die Facade schon heute das
+/// -fno-gnu-unique-Gate stellt (Treiber-Tag enthaelt "clang" => clang-Leg, sonst gcc-Leg). Die Ids kommen
+/// aus der Achse, nie als Literal.
+[[nodiscard]] inline std::string_view cxx_driver_dialect(std::string_view driver_tag) noexcept {
+    namespace cm = ::comdare::cache_engine::measurement;
+    return driver_tag.find("clang") != std::string_view::npos ? cm::ClangCompilerAxis::compiler_id()
+                                                              : cm::GccCompilerAxis::compiler_id();
+}
+
+/// Die MAJOR-Zahl, die der Treiber-Tag SELBST nennt ("g++-16" -> "16", "clang++-22" -> "22").
+///
+/// STRENG UND FAIL-CLOSED: nur eine Ziffernfolge am ENDE des Tags zaehlt. Ein Tag ohne Endziffern
+/// ("g++", "/usr/bin/c++") nennt seine Version nicht -- dann wird auch nichts behauptet. Ein Rueckschluss
+/// aus einem Pfad-Bestandteil (etwa "llvm-22" mitten im Pfad) waere geraten, nicht gelesen.
+[[nodiscard]] inline std::string_view cxx_driver_major(std::string_view driver_tag) noexcept {
+    if (driver_tag.empty()) return {};
+    std::size_t ende = driver_tag.size();
+    if (driver_tag[ende - 1] < '0' || driver_tag[ende - 1] > '9') return {};
+    std::size_t start = ende;
+    while (start > 0 && driver_tag[start - 1] >= '0' && driver_tag[start - 1] <= '9') --start;
+    return driver_tag.substr(start, ende - start);
+}
+
+/// ct_realversion_deckt_treiber(tag) -- DIE EHRLICHKEITS-WACHE der Realversion.
+///
+/// WARUM SIE NOETIG IST (am Objekt gemessen, nicht theoretisch): abi::kDetectedCompilerRealVersion ist die
+/// Version DERJENIGEN Uebersetzung, in der sie ausgewertet wird -- hier also die der CEB. Die Tier-Binaries
+/// baut aber der Treiber aus active_cxx_driver_tag(). Auf dieser Maschine sind das VERSCHIEDENE Compiler
+/// (CMAKE_CXX_COMPILER=/usr/bin/c++ = GCC 15.3.0 gegen den Achsen-Default g++-16 = GCC 16.0.1). Die
+/// CEB-Version als "die Version der Tier-Uebersetzung" zu stempeln waere damit schlicht falsch.
+///
+/// DECKUNG heisst deshalb: gleicher DIALEKT UND gleicher MAJOR, und beides GELESEN (Praeprozessor bzw.
+/// Treiber-Tag), nicht geraten. Ist die Deckung nicht beweisbar, wird die Realversion WEGGELASSEN -- das
+/// Glied traegt dann nur den Dialekt (cxx=gcc@...). Das ist die n/a-statt-NULL-Regel der Nachbar-Naht:
+/// lieber eine schwaechere, wahre Aussage als eine starke, ungedeckte.
+[[nodiscard]] inline bool ct_realversion_deckt_treiber(std::string_view driver_tag) noexcept {
+    namespace cea = ::comdare::cache_engine::abi;
+    if (!cea::kDetectedCompilerIsKnown) return false;
+    if (cxx_driver_dialect(driver_tag) != cea::kDetectedCompilerDialect) return false;
+    std::string_view const tag_major = cxx_driver_major(driver_tag);
+    if (tag_major.empty()) return false;
+    std::size_t const punkt = cea::kDetectedCompilerRealVersion.find('.');
+    if (punkt == std::string_view::npos) return false;
+    return cea::kDetectedCompilerRealVersion.substr(0, punkt) == tag_major;
+}
+
+/// compose_live_toolchain_stamp_glied() -- der LIVE-Wert des Preimage-Glieds [5]. ARGUMENTLOS und REIN
+/// (s. Kopf): Bau-Kanal und Laufzeit-Zwilling rufen dieselbe Funktion und bekommen denselben String.
+///
+/// Die Felder kommen aus der EINEN Suffix-Quelle (SystemVersionSuffixParts + der Konverter
+/// toolchain_stamp_parts_from_suffix_parts), damit Glied und build_version-Suffix nicht getrennt driften
+/// koennen -- die Ordnungs-Deckung beider ist zusaetzlich per static_assert bewiesen.
+[[nodiscard]] inline std::string compose_live_toolchain_stamp_glied() {
+    std::string const driver_tag = active_cxx_driver_tag();
+    std::string const ceb        = ceb_contract_version_text();
+    std::string const bt         = ::comdare::cache_engine::thesis_lazy::build_type_version_value();
+
+    SystemVersionSuffixParts p{};
+    p.ceb        = ceb; // Perm-Pfad-Wert, G-C2 "heilt Fall C" -- der Contract-Bump wirkt ab hier im Preimage
+    p.build_type = bt;  // (i): "Debug" nur im Debug-Bau, sonst leer => kein Segment
+    // opt/simd/target/tel/gate bleiben LEER -- per-Perm bzw. profil-abhaengig, s. Kopf (Scheibe C-3).
+
+    std::string_view const dialekt = cxx_driver_dialect(driver_tag);
+    std::string_view const realver =
+        ct_realversion_deckt_treiber(driver_tag) ? ::comdare::cache_engine::abi::kDetectedCompilerRealVersion
+                                                 : std::string_view{};
+    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(
+        toolchain_stamp_parts_from_suffix_parts(p, dialekt, realver));
+}
+
+/// live_build_variant_set_signature_glied() -- der LIVE-Wert des Preimage-Glieds [6]. Reine CT->RT-
+/// Materialisierung der Treiber-Signatur (erlaubte Richtung); es wird nichts abgeleitet oder geraten.
+/// Derselbe Wert, den das `.variant`-Sidecar als Provenienz traegt -- ab Format 3 ist er zusaetzlich
+/// IDENTITAET (F7-(b): damit wird COMDARE_VARIANT_GATE funktional obsolet).
+[[nodiscard]] inline std::string live_build_variant_set_signature_glied() {
+    return std::string{::comdare::cache_engine::builder::experiment::kDriverBuildVariantSignature};
+}
+
+/// Das Compiler-Argument, das die Wertform als C-STRING-LITERAL in die Tier-Uebersetzung traegt.
+/// Escaping-Begruendung wortgleich zur Zellwert-Naht: die Argumente reisen ueber eine gcc-Response-Datei
+/// (@rsp, build_orchestrator make_gpp_compile_fn), dort trennt Whitespace die Optionen und ein Backslash
+/// schuetzt das naechste Zeichen. Beide Wertformen enthalten weder Whitespace noch Backslash (die
+/// Injektivitaets-Wachen in abi/ garantieren das compile- bzw. laufzeit-hart), also reicht das Escapen der
+/// beiden Anfuehrungszeichen. LEERE Wertform => LEERES Argument => kein Define => Identitaet.
+[[nodiscard]] inline std::string toolchain_stamp_glied_define_arg(std::string_view werte) {
+    if (werte.empty()) return {};
+    std::string out = "-DCOMDARE_TOOLCHAIN_STAMP_GLIED=\\\"";
+    out += werte;
+    out += "\\\"";
+    return out;
+}
+
+/// Spiegel fuer das bvset-Glied [6].
+[[nodiscard]] inline std::string build_variant_set_signature_define_arg(std::string_view werte) {
+    if (werte.empty()) return {};
+    std::string out = "-DCOMDARE_BUILD_VARIANT_SET_SIGNATURE=\\\"";
+    out += werte;
+    out += "\\\"";
+    return out;
+}
+
+// -- WACHEN --------------------------------------------------------------------------------------------
+// Die bvset-Signatur MUSS die Format-Wache der injizierten Glieder bestehen, bevor sie in ein Define geht:
+// sonst braeche der Tier-Bau erst tief im consteval-Fingerprint (oder, schlimmer, das Preimage waere
+// mehrdeutig). Der Toolchain-Wert wird vom Renderer selbst fail-loud gegatet (NB/CX-2).
+static_assert(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(
+                  ::comdare::cache_engine::builder::experiment::kDriverBuildVariantSignature),
+              "NB/CX-4: die bvset-Signatur dieses Treibers verletzt die Injektivitaets-Format-Wache des "
+              "Preimage-Glieds [6] -- sie darf so nicht als Compile-Define in eine Tier-Uebersetzung.");
+// Kein Whitespace und kein Backslash -- sonst zerfiele das Argument in der @rsp-Datei in mehrere Optionen.
+static_assert(
+    [] {
+        for (char const c : ::comdare::cache_engine::builder::experiment::kDriverBuildVariantSignature)
+            if (c == ' ' || c == '\t' || c == '\\' || c == '"') return false;
+        return true;
+    }(),
+    "NB/CX-4: die bvset-Signatur enthaelt Whitespace, Backslash oder Anfuehrungszeichen -- die @rsp-Naht "
+    "wuerde sie in mehrere Optionen zerlegen.");
+
+} // namespace comdare::cache_engine::profile_facade

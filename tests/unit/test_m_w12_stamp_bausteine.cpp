@@ -16,6 +16,7 @@
 #include <cache_engine/abi/toolchain_stamp_glied.hpp> // O-2/C-2: Renderer + kToolchainAxisVersions
 #include <profile_facade/planner/planner_version.hpp>
 #include <profile_facade/system_version_suffix.hpp> // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
+#include <profile_facade/toolchain_stamp_naht.hpp> // NB/CX-4: die LIVE-Naht der Glieder [5]/[6]
 
 #include <gtest/gtest.h>
 
@@ -605,10 +606,19 @@ TEST(MW12StampBausteine, GA01FingerprintPreimageIsInjective) {
 // verschiebt allein der Format-Bump plus die zwei zusaetzlichen Separatoren. Der Anker faellt damit GENAU
 // EINMAL fuer das ganze Buendel, nicht zweimal.
 //
-// WARUM DIESER VEKTOR TROTZ INJIZIERBARER GLIEDER STABIL IST: er rechnet ueber die DEFAULTS, und die sind
-// per Compile-Define leer (COMDARE_TOOLCHAIN_STAMP_GLIED / COMDARE_BUILD_VARIANT_SET_SIGNATURE). Waeren die
-// Glieder stattdessen aus der Umgebung erhoben (z.B. __GNUC__), haette dieser Vektor je Compiler einen
-// anderen Wert -- ein eingefrorener Testvektor waere dann unmoeglich.
+// [NEU EINGEFROREN 06.08.2026, NB/CX-4 -- DER ZWEITE UND LETZTE NEUANKER-DREH DIESES BUENDELS. Der
+// Vorgaenger-Hex f8f811a9...9137fb0c (O-2/C-2, 05.08.) ist damit historisch; er steht in der git-Historie.
+// URSACHE, EINZELN benannt: der Vektor rechnete ueber die LEEREN Default-Glieder [5]/[6] und war damit ein
+// Anker fuer einen Zustand, den es produktiv nicht mehr gibt -- seit der Live-Naht tragen beide Glieder in
+// jedem realen Bau Werte. Ein Anker, der genau den Teil des Preimage NICHT abdeckt, der neu ist, waere ein
+// gruener Test, der die alte Ordnung zementiert. Er ist deshalb in der END-FORM eingefroren: beide Glieder
+// mit realistischen, LITERALEN Werten belegt (Fixture-END-Form-Lehre, dieselbe Begruendung wie beim
+// A13-M3-Dreh (3)).
+// WARUM LITERALE UND NICHT DIE LIVE-WERTE: die Live-Werte haengen an der uebersetzenden Toolchain und an
+// der Enable-Menge der Maschine (kDetectedCompilerRealVersion, kDriverBuildVariantSignature). Ein Vektor
+// darueber haette in der 8er-Docker-Matrix je Distro einen anderen Wert -- ein EINGEFRORENER Testvektor
+// waere dann unmoeglich. Die Literale hier sind bewusst FREMD zur Maschine und damit stabil; die
+// WIRKSAMKEIT der Live-Werte beweist stattdessen NbCx4LiveGliederStehenImPreimage (unten).]
 //
 // HISTORIE A13-M3 (Owner-E2/OF-M3-1, 02./03.08.2026) -- der VORIGE Neuanker, bewusst genau EINER.
 // Sein Vorgaenger-Hex 0f0c0eb4...c31b93 (A1, 23.07.) steht ebenfalls in der git-Historie.
@@ -630,11 +640,20 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     constexpr std::string_view kSystem  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
                                           "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
     constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+    // NB/CX-4 END-FORM: die beiden injizierten Glieder sind BELEGT (Literale, s. Kopf). Die Werte sind in
+    // der realen Renderer-Form gehalten -- Toolchain-Glied wie render_toolchain_stamp_glied es baut,
+    // bvset-Glied wie variant_set_signature es baut -- damit der Anker den ECHTEN Preimage-Bau abdeckt.
+    constexpr std::string_view kFrozenToolchain =
+        "tc=1;cxx=gcc-16.2.0@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c";
+    constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
+                                              "simd_extension[{avx512}];"
+                                              "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
     // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 ueber die '\n'-getrennte Glied-Folge. NIE aendern.
     constexpr std::string_view kFrozenFingerprintV1 =
-        "f8f811a941153f720a99aca5ce55779867db1750e5ea162d16b325d61236c9ba"
-        "c954aa3d3cd54876c52b5e709bd6e9957160342bdcf54b52b7bf98c89137fb0c";
-    constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure);
+        "17148e5a4d0f4a2d96e1f5ad97dc4c727b99fce6e38bd6e337fb6dbf0e4461f9"
+        "b7fd37fbba76414be4718ad2180deecbb14387293935a8eff1469cef8ce89374";
+    constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure, abi::ToolchainGlied{kFrozenToolchain},
+                                                     abi::BvsetGlied{kFrozenBvset});
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     static_assert(std::string_view{fp.data()} == kFrozenFingerprintV1,
                   "EINGEFRORENER Fingerprint (B3-Sync): die Zeilen ODER der Hash haben sich geaendert -- unter "
@@ -1204,4 +1223,76 @@ TEST(MW12StampBausteine, NbCx1RtInjektivitaetsWacheIstFailLoud) {
     auto const heil = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS");
     EXPECT_NO_THROW(
         (void)abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{heil.data(), heil.size()}));
+}
+
+// -- NB/CX-4: DIE WIRKSAMKEITS-PROBE DER LIVE-NAHT -----------------------------------------------------
+// Die Frozen-Vektoren oben rechnen ueber LITERALE (sie muessen maschinen-unabhaengig bleiben). Diese Probe
+// prueft die andere Haelfte: dass die LIVE komponierten Glieder [5]/[6] wirklich Werte tragen und wirklich
+// im Preimage landen. Ohne sie waere die Zusage "der produktive Fingerprint traegt die Glieder LIVE" genau
+// die Sorte Behauptung, die das ganze Nachbesserungs-Fenster beseitigen soll.
+TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
+    namespace abi = ::comdare::cache_engine::abi;
+    namespace pf  = ::comdare::cache_engine::profile_facade;
+
+    // (1) Das LIVE-Toolchain-Glied ist NICHT leer und traegt den Kopf + das cxx-Feld.
+    std::string const tc = pf::compose_live_toolchain_stamp_glied();
+    ASSERT_FALSE(tc.empty()) << "das Toolchain-Glied [5] ist live LEER -- die Naht ist wirkungslos";
+    EXPECT_TRUE(tc.starts_with("tc=")) << "glied='" << tc << "'";
+    EXPECT_NE(tc.find("cxx="), std::string::npos) << "glied='" << tc << "'";
+    EXPECT_NE(tc.find(";ceb="), std::string::npos) << "der Contract-Wert gehoert ins Glied (G-C2, Fall C)";
+
+    // (2) Das LIVE-bvset-Glied ist die Treiber-Signatur -- unveraendert durchgereicht, nichts abgeleitet.
+    std::string const bv = pf::live_build_variant_set_signature_glied();
+    ASSERT_FALSE(bv.empty());
+    EXPECT_TRUE(bv.starts_with("bvset=")) << "glied='" << bv << "'";
+    EXPECT_EQ(bv, std::string{::comdare::cache_engine::builder::experiment::kDriverBuildVariantSignature});
+
+    // (3) BEIDE stehen LITERAL im Preimage, an ihren benannten Positionen.
+    auto const glieder = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{tc},
+                                                          abi::BvsetGlied{bv});
+    EXPECT_EQ(glieder[abi::kAnatomyFingerprintToolchainGlied], tc);
+    EXPECT_EQ(glieder[abi::kAnatomyFingerprintBvsetGlied], bv);
+    std::string const preimage =
+        abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
+    EXPECT_NE(preimage.find("cxx="), std::string::npos) << "preimage='" << preimage << "'";
+    EXPECT_NE(preimage.find("bvset="), std::string::npos) << "preimage='" << preimage << "'";
+
+    // (4) WIRKSAMKEIT: mit den Live-Gliedern ergibt sich ein ANDERER Digest als mit den leeren Defaults.
+    //     Das ist die eigentliche Aussage -- vorher waren beide Wege byte-gleich.
+    auto const leer = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS");
+    EXPECT_NE(abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{leer.data(), leer.size()}),
+              preimage);
+
+    // (5) DIE DRIFT-FREIHEIT DER NAHT: derselbe argumentlose Aufruf liefert denselben String. Genau darauf
+    //     ruht, dass Bau-Kanal (-D an perm_compile) und Laufzeit-Zwilling ueber DASSELBE Glied rechnen.
+    EXPECT_EQ(pf::compose_live_toolchain_stamp_glied(), tc);
+    EXPECT_EQ(pf::live_build_variant_set_signature_glied(), bv);
+
+    // (6) Die Define-ARGUMENTE tragen die Wertform als C-String-Literal (rsp-Escaping wie die Zellwert-Naht)
+    //     und enthalten keinen Whitespace -- sonst zerfielen sie in der Response-Datei in mehrere Optionen.
+    std::string const arg_tc = pf::toolchain_stamp_glied_define_arg(tc);
+    std::string const arg_bv = pf::build_variant_set_signature_define_arg(bv);
+    EXPECT_TRUE(arg_tc.starts_with("-DCOMDARE_TOOLCHAIN_STAMP_GLIED=")) << arg_tc;
+    EXPECT_TRUE(arg_bv.starts_with("-DCOMDARE_BUILD_VARIANT_SET_SIGNATURE=")) << arg_bv;
+    EXPECT_EQ(arg_tc.find(' '), std::string::npos) << arg_tc;
+    EXPECT_EQ(arg_bv.find(' '), std::string::npos) << arg_bv;
+    EXPECT_EQ(pf::toolchain_stamp_glied_define_arg(""), std::string{}) << "leer => kein Define => Identitaet";
+
+    // (7) DIE EHRLICHKEITS-WACHE der Realversion: sie wird NUR behauptet, wenn Dialekt UND Major des
+    //     Tier-Treibers zur CT-Erhebung passen. Beide Aeste werden geprueft, damit keiner vakuum-gruen ist.
+    EXPECT_FALSE(pf::ct_realversion_deckt_treiber("/usr/bin/c++")) << "ein Tag ohne Endziffern nennt keine Version";
+    EXPECT_FALSE(pf::ct_realversion_deckt_treiber("g++")) << "dito";
+    std::string const ct_major{abi::kDetectedCompilerRealVersion.substr(0, abi::kDetectedCompilerRealVersion.find('.'))};
+    std::string const passend =
+        (abi::kDetectedCompilerDialect == std::string_view{"clang"} ? "clang++-" : "g++-") + ct_major;
+    EXPECT_TRUE(pf::ct_realversion_deckt_treiber(passend)) << "treiber='" << passend << "'";
+    EXPECT_FALSE(pf::ct_realversion_deckt_treiber(passend + "0")) << "anderer Major => KEINE Deckung";
+    // Ist die Deckung da, steht die Realversion im Glied; ist sie es nicht, steht sie NICHT drin.
+    if (pf::ct_realversion_deckt_treiber(pf::active_cxx_driver_tag()))
+        EXPECT_NE(tc.find(std::string{abi::kDetectedCompilerRealVersion}), std::string::npos) << tc;
+    else
+        EXPECT_EQ(tc.find(std::string{abi::kDetectedCompilerRealVersion}), std::string::npos)
+            << "eine UNGEDECKTE Realversion darf nicht im Glied stehen: " << tc;
+    // Der Treiber-Tag selbst gehoert NIE ins Glied (G-C4).
+    EXPECT_EQ(tc.find("++"), std::string::npos) << tc;
 }

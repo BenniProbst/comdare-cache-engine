@@ -31,6 +31,10 @@
 // [NACHGEFUEHRT 2026-08-05, O-2/C-2: die drei Fundstellen sind mit dem Preimage-Format-Bump 2 -> 3 NEU
 // eingefroren worden, alle drei im SELBEN Commit. Diese TU war davon nicht betroffen und soll es nicht
 // sein -- genau dafuer ist der Pin da: das Skip-Gate prueft den VERGLEICH, nie einen Digest-WERT.]
+// [NACHGEFUEHRT 2026-08-06, NB/CX-4: die drei Fundstellen sind ein ZWEITES und LETZTES Mal neu eingefroren
+// worden -- diesmal in der END-FORM (die Preimage-Glieder [5]/[6] sind im Vektor BELEGT statt leer), weil
+// die Live-Naht sie produktiv befuellt. Wieder alle drei im SELBEN Commit, wieder OHNE diese TU: der Pin
+// haelt unveraendert, das Gate bleibt wert-agnostisch.]
 //
 // L14: geeicht wurde MIT LEEREM Overlay-Glied (deklarierte, nicht stille Luecke; Heilung im Overlay-Fenster
 // Phase 6; seit O-2/C-2 ist es das ACHTE und letzte Glied). Das beruehrt diese TU nicht: sie prueft den

@@ -44,22 +44,38 @@ namespace {
 //       System-/Mess-Achsen) -- kSystem trug "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte
 //       System-Haupt-Achse, kMeasure trug "wallclock@1.0.0" ohne Achsen-Praefix. Als Hash-Konsistenz-Anker
 //       war das gleichgueltig, als REFERENZ-BEISPIEL las es sich falsch.
+// [NEU EINGEFROREN 06.08.2026, NB/CX-4 -- DER ZWEITE UND LETZTE NEUANKER-DREH DIESES BUENDELS. Vorgaenger
+// f8f811a9...9137fb0c (O-2/C-2, 05.08.), in der git-Historie. URSACHE: der Vektor rechnete ueber die
+// LEEREN Default-Glieder [5]/[6]; seit der Live-Naht tragen beide in jedem realen Bau Werte, der Anker
+// deckte also genau den NEUEN Teil des Preimage nicht ab. Er ist in der END-FORM eingefroren -- beide
+// Glieder mit LITERALEN Werten belegt (nicht mit den Live-Werten: die haengen an Toolchain und
+// Enable-Menge der Maschine und waeren in der 8er-Docker-Matrix je Distro andere).]
 // Der neue Hex wurde NICHT vorausberechnet, sondern aus dem literalen Testlauf uebernommen.
 constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
 constexpr std::string_view kSystem  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
                                       "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
 constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
 
+// NB/CX-4 END-FORM: die beiden injizierten Glieder sind BELEGT -- byte-gleich zu den Literalen in
+// test_m_w12_stamp_bausteine.cpp und test_w10_system_cell_values.cpp (EIN Testvektor, drei Module).
+constexpr std::string_view kFrozenToolchain =
+    "tc=1;cxx=gcc-16.2.0@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c";
+constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
+                                          "simd_extension[{avx512}];"
+                                          "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
+
 // Der eingefrorene 128-hex (== kFrozenFingerprintV1 in A1).
-constexpr std::string_view kFrozenFingerprintV1 = "f8f811a941153f720a99aca5ce55779867db1750e5ea162d16b325d61236c9ba"
-                                                  "c954aa3d3cd54876c52b5e709bd6e9957160342bdcf54b52b7bf98c89137fb0c";
+constexpr std::string_view kFrozenFingerprintV1 = "17148e5a4d0f4a2d96e1f5ad97dc4c727b99fce6e38bd6e337fb6dbf0e4461f9"
+                                                  "b7fd37fbba76414be4718ad2180deecbb14387293935a8eff1469cef8ce89374";
 
 // Die Glied-Folge kommt aus der EINEN Quelle abi::anatomy_fingerprint_glieder -- der Test darf sie NICHT
 // selbst zusammenstellen, sonst pinnt er eine zweite Ordnung fest (Lehre "gruene Tests zementieren alte
 // Ordnung"). Format-Kennung, Werteset-Segment, Toolchain-, bvset- und Overlay-Glied kommen damit
 // automatisch mit -- auch der O-2/C-2-Nachtrag von zwei Gliedern hat diese Funktion nicht angefasst.
 std::array<std::string_view, comdare::cache_engine::abi::kAnatomyFingerprintGliedCount> frozen_lines() {
-    return comdare::cache_engine::abi::anatomy_fingerprint_glieder(kOrgan, kSystem, kMeasure);
+    return comdare::cache_engine::abi::anatomy_fingerprint_glieder(
+        kOrgan, kSystem, kMeasure, comdare::cache_engine::abi::ToolchainGlied{kFrozenToolchain},
+        comdare::cache_engine::abi::BvsetGlied{kFrozenBvset});
 }
 
 // Zwei Zell-Koordinaten-Saetze DERSELBEN Permutation, die sich nur in der ISA unterscheiden

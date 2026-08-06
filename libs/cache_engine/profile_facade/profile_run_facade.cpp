@@ -21,6 +21,7 @@
 
 #include "system_version_suffix.hpp"   // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include "system_cell_values_naht.hpp" // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
+#include "toolchain_stamp_naht.hpp"    // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -296,20 +297,63 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // INC-0: der EINE Compile-Flag-Assembler fuer die Tier-Binary-Subprozesse -- macht die WAS/WIE-Schicht-Trennung
 // SICHTBAR statt eines flachen Misch-Vektors: (1) Mess-/OS-/Arch-Defines (perm_mess_defines), (2) Allokator-ORGAN-
 // Defs (snmalloc-Vertrag), (3) Compiler-SYSTEM-Flag -mcx16 (atomic128-Achse), (4) external_utils-SIMD -march.
+// NB/CX-4: DIE BAU-NAHT DER PREIMAGE-GLIEDER [5] UND [6].
+//
+// WARUM GENAU HIER UND NICHT AN DEN VIER CompileFn-BAUSTELLEN: perm_compile_flags() ist der EINE
+// Flag-Assembler, aus dem ALLE vier make_gpp_compile_fn-Aufrufe dieser TU ihren defines-Kanal ziehen
+// (Einzel-Pfad, Profil-Perm-Fabrik, Experiment-Perm-Fabrik, Experiment-Fallback). Vier Einhaengungen
+// waeren vier Orte, an denen eine vergessen werden kann -- und eine vergessene Stelle hiesse: eine
+// Tier-Binary mit ANDEREM einkompiliertem Fingerprint als der, den die CEB fuer sie erwartet.
+//
+// DIE ZWEITE HAELFTE DER NAHT liegt im Laufzeit-Zwilling (lazy_adhoc_source_gen.hpp,
+// make_lazy_adhoc_fingerprint_fn_from_env). Beide Seiten rufen DIESELBEN argumentlosen, reinen
+// Komposition-Funktionen der Toolchain-Naht -- deshalb koennen sie nicht auseinanderlaufen. Wer hier
+// etwas aendert, MUSS es dort mitaendern; die Naht ist genau deshalb EINE Funktion und kein Argument.
+[[nodiscard]] std::vector<std::string> perm_stamp_glied_defines() {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    std::vector<std::string> d;
+    if (std::string arg = pfn::toolchain_stamp_glied_define_arg(pfn::compose_live_toolchain_stamp_glied());
+        !arg.empty())
+        d.push_back(std::move(arg));
+    if (std::string arg = pfn::build_variant_set_signature_define_arg(pfn::live_build_variant_set_signature_glied());
+        !arg.empty())
+        d.push_back(std::move(arg));
+    // EINMALIGE Ehrlichkeits-Zeile, wenn die CT-Realversion den Tier-Treiber NICHT deckt (verschiedene
+    // Compiler fuer CEB und Tier-Bau). Dann traegt das Glied nur den Dialekt -- das ist korrekt, aber es
+    // soll im Trace stehen und nicht stumm passieren (Praezedenz der C-3a-Auflage: eine Identitaets-
+    // Entscheidung muss sichtbar sein). Der Hinweis haengt NICHT am Wert -- die Naht selbst bleibt rein.
+    static bool gemeldet = false;
+    if (!gemeldet) {
+        gemeldet                  = true;
+        std::string const treiber = pfn::active_cxx_driver_tag(); // dieselbe EINE Quelle wie cxx_compiler()
+        if (!pfn::ct_realversion_deckt_treiber(treiber))
+            std::cerr << "[profile_facade] NB/CX-4: die compile-time erhobene Compiler-Realversion ('"
+                      << ::comdare::cache_engine::abi::kDetectedCompilerDialect << " "
+                      << ::comdare::cache_engine::abi::kDetectedCompilerRealVersion
+                      << "', die Toolchain DIESER CEB) deckt den Tier-Treiber '" << treiber
+                      << "' nicht beweisbar -- das Toolchain-Glied [5] traegt deshalb NUR den Dialekt, keine "
+                         "Realversion (fail-closed: lieber eine schwaechere wahre Aussage als eine ungedeckte).\n";
+    }
+    return d;
+}
+
 [[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp = nullptr) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_external_utils_cflags(tp)) d.push_back(std::move(f));
     for (auto& f : perm_target_isa_cflags(tp)) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
+    for (auto& f : perm_stamp_glied_defines()) d.push_back(std::move(f)); // NB/CX-4: Glieder [5]/[6] LIVE
     return d;
 }
 
+// NB/CX-4: die Entscheidung selbst (Env-Override, sonst der Achsen-Default) ist in die Toolchain-Naht
+// gewandert und wird hier nur noch DURCHGEREICHT. Grund: das Preimage-Glied [5] urteilt ueber genau diesen
+// Treiber (Dialekt + Deckung der CT-Realversion). Stuende die Entscheidung an zwei Orten, koennte das Glied
+// ueber einen ANDEREN Treiber urteilen als den, der wirklich compiliert -- dieselbe Klasse Divergenz wie
+// W-6/W-13. INC-1h bleibt woertlich gueltig, nur sein Ort ist jetzt die Naht.
 [[nodiscard]] std::string cxx_compiler() {
-    if (char const* e = std::getenv("COMDARE_CXX"); e != nullptr && *e != '\0') return e;
-    // INC-1h: der Default-Treiber kommt Single-Source aus der Compiler-System-Achse (gcc-Leg);
-    // das clang-Leg faehrt der Experiment-Planer ueber dieselbe Achse (Q3: beide Compiler).
-    return std::string{::comdare::cache_engine::measurement::GccCompilerAxis::driver_default()};
+    return ::comdare::cache_engine::profile_facade::active_cxx_driver_tag();
 }
 
 // opt-d (A2-Hybrid Teil 2): die EINE String->Compiler-Achsen-Typ-Aufloesung sitzt GENAU HIER (Facade), nicht

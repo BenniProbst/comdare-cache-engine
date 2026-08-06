@@ -72,7 +72,8 @@
 // Umbrella-schwer (source_catalog.hpp zieht die 17 Topic-ConfigSets) -> gehoert NEBEN source_catalog.hpp in die
 // Materialisierungs-Domaene, NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 
-#include "source_catalog.hpp" // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
+#include "source_catalog.hpp"       // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
+#include "toolchain_stamp_naht.hpp" // NB/CX-4: die LIVE-Werte der Glieder [5]/[6] -- DIESELBEN wie im Bau-Kanal
 
 #include <builder/codegen/adhoc_emitter.hpp>                   // render_adhoc_module_source / strip_all_elaborated
 #include <builder/codegen/type_name.hpp>                       // type_name<W>
@@ -388,10 +389,23 @@ template <class List>
 /// weiter, weil ein leeres Werte-Set die System-Zeile unveraendert laesst.
 ///
 /// O-2/C-2: die beiden neuen Glieder kommen ebenso per WERT herein und aus demselben Grund -- der Provider
-/// ueberlebt den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht. Default leer == Identitaet.
+/// ueberlebt den Perm-Schleifen-Durchlauf, in dem der Werte-String entsteht.
+///
+/// NB/CX-4 -- DIE ZWEITE HAELFTE DER LIVE-NAHT. Bis zur Nachbesserung hiess "kein Argument" hier "leerer
+/// Default aus dem Compile-Define", also: der produktive Fingerprint trug die zwei neuen Glieder GAR NICHT.
+/// Ab jetzt heisst "kein Argument": DIE LIVE-WERTE -- exakt die, die der Bau-Kanal
+/// (profile_run_facade perm_compile_flags -> -DCOMDARE_TOOLCHAIN_STAMP_GLIED /
+/// -DCOMDARE_BUILD_VARIANT_SET_SIGNATURE) in die Tier-Uebersetzung haengt. Beide Seiten rufen DIESELBEN
+/// argumentlosen, reinen Funktionen der Toolchain-Naht; damit ist die drift-freie Zusage dieser Funktion
+/// nicht mehr eine Bitte an den Aufrufer, sondern Mechanik. Ein EXPLIZIT uebergebener Wert gewinnt weiter
+/// (das ist der per-Perm-Weg der Folge-Scheibe C-3) -- der frueher hier stehende Zweig verwechselte
+/// dagegen "nicht injiziert" mit "leer injiziert" und konnte still auf den CEB-eigenen Define zurueckfallen.
 [[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(std::string system_cell_values = {},
                                                                                std::string toolchain_glied    = {},
                                                                                std::string bvset_glied        = {}) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    if (toolchain_glied.empty()) toolchain_glied = pfn::compose_live_toolchain_stamp_glied();
+    if (bvset_glied.empty()) bvset_glied = pfn::live_build_variant_set_signature_glied();
     auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
@@ -399,15 +413,12 @@ template <class List>
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
             cell_values = std::move(system_cell_values), toolchain = std::move(toolchain_glied),
             bvset = std::move(bvset_glied)](std::string const& binary_id) {
-        // Leer == der Default-Slot aus dem Compile-Define (die Identitaet); gefuellt == die per-Perm-Wahl.
-        auto const tc =
-            toolchain.empty()
-                ? ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied}
-                : ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
-        auto const bv =
-            bvset.empty()
-                ? ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied}
-                : ::comdare::cache_engine::abi::BvsetGlied{bvset};
+        // NB/CX-4: die Werte stehen zu diesem Zeitpunkt FEST (oben aufgeloest -- explizit uebergeben oder
+        // live komponiert). Der frueher hier stehende empty()-Zweig ist ersatzlos entfallen: er war genau
+        // die Konflation "nicht injiziert" == "leer injiziert", die den Zwilling still auf den CEB-eigenen
+        // Compile-Define zurueckfallen liess, waehrend die Tier-Binary einen anderen Wert eingebaut bekam.
+        auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
+        auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset};
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
                                           ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv);
     };

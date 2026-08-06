@@ -417,10 +417,23 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     //     SELBEN Commit gedreht (Lehre "gruene Tests zementieren alte Ordnung").
     constexpr std::string_view kFrozenOrgan = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
     constexpr std::string_view kFrozenMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+    // NB/CX-4 END-FORM (06.08.2026, der ZWEITE und LETZTE Neuanker-Dreh des Buendels): der Vektor rechnet
+    // ab hier ueber BELEGTE Glieder [5]/[6] -- Literale, byte-gleich zu test_g3_sha512_index.cpp und
+    // test_m_w12_stamp_bausteine.cpp. Vorgaenger f8f811a9...9137fb0c, in der git-Historie. Grund: mit der
+    // Live-Naht tragen beide Glieder produktiv Werte; ein Anker ueber die leeren Defaults deckte genau den
+    // neuen Teil des Preimage nicht ab. LITERALE statt Live-Werte, weil die Live-Werte an Toolchain und
+    // Enable-Menge der Maschine haengen (8er-Docker-Matrix).
+    constexpr std::string_view kFrozenToolchain =
+        "tc=1;cxx=gcc-16.2.0@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c";
+    constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
+                                              "simd_extension[{avx512}];"
+                                              "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
     constexpr std::string_view kFrozenFingerprintV1 =
-        "f8f811a941153f720a99aca5ce55779867db1750e5ea162d16b325d61236c9ba"
-        "c954aa3d3cd54876c52b5e709bd6e9957160342bdcf54b52b7bf98c89137fb0c";
-    auto const frozen_glieder = cea::anatomy_fingerprint_glieder(kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure);
+        "17148e5a4d0f4a2d96e1f5ad97dc4c727b99fce6e38bd6e337fb6dbf0e4461f9"
+        "b7fd37fbba76414be4718ad2180deecbb14387293935a8eff1469cef8ce89374";
+    auto const frozen_glieder =
+        cea::anatomy_fingerprint_glieder(kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure,
+                                         cea::ToolchainGlied{kFrozenToolchain}, cea::BvsetGlied{kFrozenBvset});
     std::span<std::string_view const> const frozen{frozen_glieder.data(), frozen_glieder.size()};
     EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(frozen)), std::string{kFrozenFingerprintV1})
         << "der Default-Pfad (leeres Werte-Set) MUSS byte-identisch zum Vor-W10-Stand bleiben";
