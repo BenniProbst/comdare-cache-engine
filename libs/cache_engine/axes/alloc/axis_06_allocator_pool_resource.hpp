@@ -19,8 +19,20 @@
 //
 // **Provenienz / Lizenz:** Standardbibliothek (std::pmr), eigene C++23-Komposition → is_original=false.
 // Kopierbarkeit: pool_resource ist non-copyable/non-movable → via std::shared_ptr gehalten; Kopien
-// TEILEN den Pool (korrekte PMR-is_equal-Semantik). Allocation-Failure: allocate wirft std::bad_alloc
-// ([[allocation-failure-exception]]).
+// TEILEN den Pool (korrekte PMR-is_equal-Semantik).
+//
+// **Allocation-Failure (A1-Wurf-Vertrag, 2026-08-06) -- KORREKTUR EINER ABWEICHUNG:** bis zu diesem
+// Schnitt war dieser Wrapper die EINZIGE Strategie der Achse 6, die den achsen-uniformen Vertrag
+// "OOM == nullptr, failure_count VOR der Rueckgabe gezaehlt" nicht wahrte: `resource_->allocate` wirft
+// std::bad_alloc, und der Wurf lief ungefangen durch (die Kopfzeile schrieb das frueher sogar als
+// Absicht fest). Das Concept AllocatorStrategy erzwingt die Konvention nicht typsystemisch, die
+// Abweichung blieb also compile-clean unsichtbar -- mit der Folge, dass das Fehlersignal, das ein
+// Aufrufer von `alloc_.allocate(...)` sieht, vom gebundenen Strategie-Typ abhing. Genau das
+// widerspricht dem Ziel EINES Wurf-Vertrags. Der Wrapper faengt jetzt -- wie die strukturgleiche
+// Schwester-Strategie PmrResourceAllocator (axis_06_allocator_pmr_resource.hpp) es seit jeher tut --
+// und uebersetzt zurueck auf nullptr. Nach aussen aendert sich fuer besitzende Container NICHTS: der
+// StdAllocatorAdapter (Posten 64) bzw. allocate_or_throw (Posten 74) macht daraus wieder std::bad_alloc.
+// Der Unterschied ist, dass es jetzt EINE Uebersetzungsstelle gibt statt zweier Konventionen.
 //
 // F-B (GO4/#8, 2026-07-12): Page-Hint der NUMA/Page-Unterachse (alloc_hw_config.hpp) → der Koerper ist
 // jetzt das CRTP-Body-Template PoolResourceAllocatorBody<Derived, AllocHwConfig>: ein nicht-nativer
@@ -44,6 +56,7 @@
 #include <cstring>
 #include <memory>
 #include <memory_resource>
+#include <new> // A1-Wurf-Vertrag: std::bad_alloc -- der pmr-Wurf, den dieser Wrapper zurueckuebersetzt
 #include <string_view>
 #include <type_traits>
 
@@ -81,7 +94,14 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view               algo_version = "v1.0.0c";
+    /// A1-WURF-VERTRAG (2026-08-06), 1. Bump: v1.0.0c -> v1.0.1c, weil der FEHLSCHLAG-Vertrag der Achse sich
+    /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
+    /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
+    /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
+    /// 2. Bump (2026-08-06): v1.0.1c -> v1.0.2c -- die reallocate()-Statistik-Korrektur unten bekam
+    /// nachtraeglich einen Bump (Owner-Entscheid: "heute unerreichbar" entlastet nicht, s. dort).
+    /// Volle Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    static constexpr std::string_view               algo_version = "v1.0.2c";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "POOL"; }
 
     // Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
@@ -109,14 +129,24 @@ public:
         return resource_.get() == other.resource_.get();
     }
 
-    /// SONDERFALL [[allocation-failure-exception]]: pmr allocate wirft std::bad_alloc bei OOM.
+    /// A1-Wurf-Vertrag: der pmr-Wurf wird HIER gefangen und auf die Achsen-Semantik (OOM == nullptr)
+    /// zurueckuebersetzt -- identisches Idiom wie PmrResourceAllocator::allocate. Die Zaehlung steht
+    /// VOR der Rueckgabe (Ehrlichkeits-Auflage aus Posten 64): der failure_count ist gesetzt, bevor ein
+    /// Adapter daraus wieder std::bad_alloc macht. Erfolgs-Pfad byte-identisch zum Stand davor.
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
-        void* p = resource_->allocate(bytes, alignment);
+        void* p = nullptr;
+        try {
+            p = resource_->allocate(bytes, alignment);
+        } catch (std::bad_alloc const&) { p = nullptr; }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
-        ++stats_.allocation_count;
-        stats_.total_bytes_allocated += aligned_bytes;
-        stats_.total_bytes_in_use += aligned_bytes;
+        if (p != nullptr) {
+            ++stats_.allocation_count;
+            stats_.total_bytes_allocated += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
+        } else {
+            ++stats_.failure_count;
+        }
         observer_.notify(stats_);
 #endif
         return p;
@@ -173,14 +203,68 @@ public:
 
     // Sub-Concept: ReallocatingStrategy (alloc-new aus Pool + memcpy + dealloc-old in Pool;
     // der Test gibt das Ergebnis per m.deallocate frei → konsistent mit dem Pool).
+    //
+    // STATISTIK-SYMMETRIE (A1-Nachbesserung 2026-08-06, Review-Befund "Phantom-Bytes") -- der
+    // KANONISCHE Ort der Begruendung fuer die ganze Achse (die 23 Schwester-Strategien tragen dieselbe
+    // Korrektur mit Verweis hierher):
+    //
+    // BEFUND: allocate() bucht ALIGNED (aligned_bytes = aufgerundet auf alignment), deallocate() bucht
+    // ALIGNED gegen -- reallocate() buchte den ALTEN Block aber ROH (old_bytes) gegen und den NEUEN
+    // wieder ALIGNED (aligned_new). Je reallocate blieben damit (aligned_old - old_bytes) Bytes in
+    // total_bytes_in_use stehen, die real nicht mehr gehalten werden. Bei alignment-teilbaren Groessen
+    // (der bisher einzige gepruefte Fall, 64/128 @ 16) ist die Differenz 0 -- der Fehler war deshalb
+    // unsichtbar und wird jetzt mit alignment-UNGLEICHEN Werten (65 @ 16 -> 80) gepinnt
+    // (test_a1_wurf_vertrag_allokator_store, Abschnitt (4c)).
+    //
+    // MESSWIRKUNG UNTER DEN HEUTIGEN AUFRUFERN -- ehrlich geprueft, nicht behauptet: KEINE.
+    // total_bytes_in_use ist eine T6-Groesse, die Korrektur waere also grundsaetzlich messwirksam. Kein
+    // aufgezeichneter Messwert kann sich HEUTE bewegen, weil reallocate() auf dem gesamten Mess-Pfad NIE
+    // gerufen wird: `grep -rn "\.reallocate(\|->reallocate(" libs/ apps/ modules/ benchmarks/ tools/
+    // adapters/ deploy/` liefert GENAU EINEN Treffer, und der ist die Concept-Deklaration selbst
+    // (axis_06_allocator_reallocating_strategy_concept.hpp:35). Alle Aufrufer sind Tests.
+    //
+    // TROTZDEM BUMP (2. Bump, 2026-08-06, Owner-Entscheid nach Lens-Pass -- Umkehr der Erst-Fassung
+    // dieses Abschnitts): "kein Aufrufer heute" wurde zuerst als Bump-Ausschluss gewertet. Der Owner hat
+    // das verworfen: "HEUTE UNERREICHBAR ENTLASTET NICHT" -- reallocate() ist eine offiziell im
+    // Typsystem gefuehrte Achsen-Faehigkeit (ReallocatingStrategy-Concept), kein totes Feature. Ein
+    // KUENFTIGER Konsument koennte sie in den Mess-Pfad ziehen und dabei ein VOR dieser Korrektur unter
+    // unveraendertem Versions-Stand gecachtes Binary mit dem Phantom-Byte-Fehler weiterverwenden --
+    // ein Cache-IDENTITAETS-Risiko, kein Kosmetikposten. Die 24 Strategien mit eigener
+    // reallocate()-Implementierung gehen deshalb auf v1.0.2c; PmrResourceAllocator und
+    // VampirNfpAllocator implementieren kein reallocate() und bleiben auf v1.0.1c stehen. Volle
+    // Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    //
+    // Der zusaetzliche else-Zweig (Klemmung auf 0) ist NICHT neu erfunden: er spiegelt exakt die Form
+    // in deallocate() darueber. Vorher fehlte er hier -- die Gegenbuchung war also auch in ihrer FORM
+    // die einzige, die aus der Reihe fiel.
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
-        void* np = resource_->allocate(new_bytes, alignment);
+        void* np = nullptr;
+        try {
+            np = resource_->allocate(new_bytes, alignment);
+        } catch (std::bad_alloc const&) { np = nullptr; }
+        // A1-Wurf-Vertrag: scheitert die NEUE Vergabe, bleibt der ALTE Block gueltig und unangetastet
+        // (realloc-Vertrag) -- der Aufrufer verliert seinen Speicher nicht. Muster: exgen reallocate.
+        if (np == nullptr) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            ++stats_.failure_count;
+            observer_.notify(stats_);
+#endif
+            return nullptr;
+        }
         if (p != nullptr) {
             std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
             std::memcpy(np, p, copy_bytes);
             resource_->deallocate(p, old_bytes, alignment);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-            if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
+            // A1-Nachbesserung 2026-08-06 (Statistik-Symmetrie der Achse): die Gegenbuchung des ALTEN
+            // Blocks rechnet ALIGNED -- genau wie seine Buchung in allocate() und wie die Gegenbuchung
+            // in deallocate(). Die rohe old_bytes liess je reallocate Phantom-Bytes stehen. Volle
+            // Begruendung: axis_06_allocator_pool_resource.hpp, Abschnitt reallocate.
+            std::size_t aligned_old = ((old_bytes + alignment - 1) / alignment) * alignment;
+            if (aligned_old <= stats_.total_bytes_in_use)
+                stats_.total_bytes_in_use -= aligned_old;
+            else
+                stats_.total_bytes_in_use = 0;
             ++stats_.deallocation_count;
 #endif
         }

@@ -58,7 +58,14 @@ TEST(ReflectVersionsAllRegistered, FullRegisteredIsStrictlyLargerThanEnabledTabl
     ASSERT_FALSE(enabled.empty());
     EXPECT_GT(ex::kAllRegisteredOrganVariantCount, enabled.size())
         << "kein deaktivierter Bestand? dann waere der Befund gegenstandslos -- erwartet: registriert > enabled.";
-    // gesunde Untergrenze (der Bestand traegt >100 registrierte Organ-Varianten; grep-Beleg 122x "v1.0.0c").
+    // gesunde Untergrenze (der Bestand traegt >100 registrierte Organ-Varianten). Grep-Beleg zum Stand
+    // 06.08.2026 (nach dem 2. Bump): 96x "v1.0.0c" + 2x "v1.0.1c" + 24x "v1.0.2c" == 122 -- der
+    // A1-Wurf-Vertrag hat zunaechst alle 26 Strategien der Allokator-Achse auf "v1.0.1c" gehoben
+    // (1. Bump), danach die 24 Strategien mit eigener reallocate()-Implementierung auf "v1.0.2c"
+    // (2. Bump, Owner-Entscheid nach Lens-Pass); PmrResourceAllocator/VampirNfpAllocator (kein eigenes
+    // reallocate()) blieben auf "v1.0.1c" stehen (axis_06_allocator_strategy_base.hpp, Abschnitt
+    // "A1-VERSIONS-BUMP" / "A1-VERSIONS-BUMP, 2. BUMP"; gepinnt in test_a1_algo_version_pin_alloc_axis).
+    // Die frueher hier notierte Zahl "122x v1.0.0c" beschrieb den Stand VOR dem 1. Bump.
     EXPECT_GE(ex::kAllRegisteredOrganVariantCount, 100u);
 }
 
@@ -68,7 +75,8 @@ TEST(ReflectVersionsAllRegistered, DisabledArray256IsRegisteredAndNowUnderCePoli
     EXPECT_FALSE(::comdare::cache_engine::lookup::Array256SearchAlgo::enabled)
         << "Vorbedingung des Befunds: Array256 ist Default OFF.";
     // seine algo_version steht unter derselben ce-Politik wie jede aktive Variante -- seit A13-M3/C4 traegt
-    // auch sie das CPU-Flag ("v1.0.0c"), sonst haette die gated ENFORCE-Wache den Bau gebrochen.
+    // auch sie das CPU-Flag ("v1.0.0c" fuer search_algo; die Allokator-Achse steht seit dem A1-Schnitt auf
+    // "v1.0.1c"), sonst haette die gated ENFORCE-Wache den Bau gebrochen.
     EXPECT_TRUE(
         meas::ce_owned_version_is_wellformed(::comdare::cache_engine::lookup::Array256SearchAlgo::algo_version));
 

@@ -2010,6 +2010,13 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     # ueber die ACHSEN-REGISTRY (nicht ueber eine Namensliste), den Laufzeit-Beweis am Original-Gegenstand
     # (AxisBoundBuffer-Memento ueber mimalloc) und die GEGENPROBE (Stub ohne Member wird erkannt).
     test_h81_allocator_statistics_forwarder_recursion # Posten 80 -- CRTP-Weiterleiter: Selbst-Rekursion
+    # A1-SCHEIBE "Wurf-Vertrag" (2026-08-06, Owner-Posten 71/72/73/74 + Pool-Konventions-Ausreisser):
+    # die Fortsetzung von Posten 64 an den Stellen, die dessen EINE Uebersetzung nicht erreichte. Die TU
+    # belegt alle vier Zugriffswege der Achse gegen DENSELBEN Fehlschlag-Vertrag: pmr-Adapter (Posten 71),
+    # Ueberlauf-Wache des std-Adapters (Posten 72), roher Store-Konsum ueber allocate_or_throw (Posten 74)
+    # und den einen Strategie-Ausreisser (Pool warf, statt nullptr zu melden). Der Leck-Beweis des
+    # Kopier-Ktors laeuft als BILANZ ueber eine zaehlende Achsen-Variante, nicht als Behauptung.
+    test_a1_wurf_vertrag_allokator_store # A1 -- EIN Wurf-Vertrag ueber Allokator-/Store-Stellen
     test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
@@ -4780,6 +4787,37 @@ set_tests_properties(test_reflect_versions_all17 PROPERTIES LABELS "striktheit;a
 # (registry_to_axis_levels -> alle topic_config_sets); der BAU instanziiert guard_all_registered_organ_versions
 # und IST die Wache. KEIN contract-/pmc-Label: MUSS im Default-Sweep test:unit laufen.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# A1-VERSIONS-PIN der Allokator-Achse (2026-08-06, Review-Befund "Bump ohne Regressionsorakel";
+# NACHTRAG: 2. Bump nach Lens-Pass/Owner-Entscheid -- 24 Strategien "v1.0.2c", 2 reallocate-lose
+# Strategien [PmrResourceAllocator/VampirNfpAllocator] bleiben "v1.0.1c").
+# Zwei Schichten: (A) 26x compile-harter Literal-Pin (je Strategie GENAU EINE der beiden Versionen,
+# namentlich zugeordnet) + Registry-Seite (GENAU 26 Vendor, jeder auf der fuer ihn erwarteten Version)
+# -- faengt den vergessenen, halben, zurueckgefallenen oder falsch zugeordneten Bump MIT dem Namen
+# der Strategie. (B) Alt/Neu-Kontrast auf der Flaeche, an der der Rebuild-/Neu-Mess-Selektor
+# entscheidet: compose_algo_signature (.algos-Sidecar, speist ueber kSubAxisValuesetSegment auch das
+# Fingerprint-Preimage von dll_is_current) UND compose_organ_stamp_line. Bewegt sich die Signatur
+# beim Zurueckdrehen (je Variante um GENAU EINEN Bump-Schritt) NICHT, waere der Bump wirkungslos.
+# Nur-Lesen, TABU-neutral (der Kontrast arbeitet auf einer lokalen Kopie der Versions-Tabelle).
+# Include-/Link-Satz wie der Geschwister-Test
+# test_reflect_versions_all_registered (beide ziehen alle Kompositions-Registries).
+# ---------------------------------------------------------------------------
+comdare_add_test(test_a1_algo_version_pin_alloc_axis
+    SOURCES test_a1_algo_version_pin_alloc_axis.cpp)
+target_include_directories(test_a1_algo_version_pin_alloc_axis PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_a1_algo_version_pin_alloc_axis PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_a1_algo_version_pin_alloc_axis PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_a1_algo_version_pin_alloc_axis PROPERTIES
+    LABELS "striktheit;algo_version;a1" TIMEOUT 120)
+
 comdare_add_test(test_reflect_versions_all_registered
     SOURCES test_reflect_versions_all_registered.cpp)
 target_include_directories(test_reflect_versions_all_registered PRIVATE

@@ -321,7 +321,9 @@ int main() {
     // Fuer die SET-Gattung laeuft die Cross-Genus-Belegung bis an die ABI-Flaeche durch (unten belegt).
     // Fuer die SEARCHALGORITHM-Gattung NICHT: SearchAlgorithmAbiAdapter baut als Member-Typ
     // LayoutAwareChunkedStore<node_type, memory_layout, allocator> (abi_adapter.hpp:2064-2068), und dieses
-    // Klassen-Template traegt `requires NodeTypeStrategy<N> && MemoryLayoutStrategy<L> && AllocatorStrategy<A>`.
+    // Klassen-Template traegt `requires NodeTypeStrategy<N> && MemoryLayoutStrategy<L> && AllocatorStrategy<A>
+    // && ThrowTranslatingStrategy<A>` (der vierte Term seit der A1-Nachbesserung 06.08.2026; er aendert an
+    // DIESEM Befund nichts -- die Grenze faellt schon am ersten Term, s.u.).
     // NodeTypeStrategy verlangt NodesComponent, also `typename T::topic_tag == NodesTopicTag`
     // (axes/node/concepts/axis_04_node_type_concept.hpp:17). Weder CarriedAxis noch ein Cross-Genus-Organ
     // traegt ein topic_tag -- der SA-ABI-Adapter lehnt beide compile-hart ab. Literaler Bau-Fehler:

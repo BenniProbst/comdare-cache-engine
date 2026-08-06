@@ -70,9 +70,48 @@ namespace _al_la = ::comdare::cache_engine::allocator::axis_06_allocator;
 /// layout-honorierendes, node-gechunktes 3-Achsen-Storage-Organ: Slots liegen in node-grossen Chunks der
 /// Kapazitaet N::max_capacity(). Das PHYSISCHE Byte-Layout je Chunk ist compile-time-dispatched ueber
 /// L::representation_kind() (zero-cost `if constexpr`) — 5 REALE distinkte Repraesentationen (#167).
+///
+/// KOPF-ANFORDERUNG AN DIE ALLOKATOR-ACHSE (A1-Wurf-Vertrag, Nachbesserung 2026-08-06): dieser Store
+/// haelt die Strategie ROH und konsumiert seit Posten 74 `A::allocate_or_throw` (append_slot,
+/// copy_from_). `AllocatorStrategy<A>` fordert diesen Member NICHT -- der Kopf hat damit weniger
+/// verlangt, als der Rumpf braucht, und eine Strategie ohne die Wurf-Uebersetzung waere erst tief im
+/// Rumpf als Instanziierungs-Fehler aufgefallen. Der Zusatz-Term macht die Anforderung SFINAE-freundlich
+/// und benennt beim Bruch das Concept. Er steht in der ALLOKATOR-Achse (ThrowTranslatingStrategy,
+/// axis_06_allocator_concept.hpp), nicht hier -- eine Allokator-Eigenschaft gehoert ihrer Achse
+/// (generalisierte Schnitt-Regel). REGISTRIERTE VARIANTEN UNBERUEHRT: allocate_or_throw sitzt an der
+/// CRTP-Wurzel AllocatorStrategyBase, jede der 26 Achsen-Strategien erbt sie.
+/// AllocatorStrategy<A> bleibt trotz Subsumption ausgeschrieben: der Kopf soll die Basis-Anforderung
+/// weiterhin selbst nennen und nicht nur implizit ueber das Sub-Concept fuehren.
+///
+/// VERVOLLSTAENDIGUNG (Review-Befund 06.08.2026): allocate_or_throw war NICHT die einzige Luecke
+/// zwischen Kopf und Rumpf. Der Rumpf konsumiert DREI weitere Achsen-Faehigkeiten, die
+/// AllocatorStrategy ebenfalls nicht fordert -- jede mit exakt derselben Fehlerwirkung (Bruch tief im
+/// Rumpf statt am Kopf, ohne Bezug zur Ursache):
+///   * StdAllocatorAdaptingStrategy -- `A::StdAllocatorAdapter<Chunk>` (:494) und
+///     `alloc_.as_std_allocator<Chunk>()` (:225/:227/:662): daran haengt seit dem A8-S5-02a-HERZ-Schnitt
+///     der Chunk-INDEX. Fehlte die Naht, braeche erst die Member-Deklaration von chunks_.
+///   * ValueSemanticStrategy -- `mutable A alloc_{}` (:709) und `alloc_ = A{}` (:241): der Store haelt
+///     die Strategie als WERT und setzt sie in der Kopier-Zuweisung auf einen frischen Stand zurueck.
+///   * StatisticsReportingStrategy -- `A::snapshot_t` + `alloc_.statistics()` (:353/:354/:359): die
+///     T6-Mess-Route dieses Organs. Nur unter COMDARE_CE_ENABLE_STATISTICS fordernd, weil GENAU dort
+///     auch der Konsum steht (die Bedingung liegt im Sub-Concept, nicht in diesem Constraint).
+/// Alle drei liegen wie ThrowTranslatingStrategy in der ALLOKATOR-Achse, nicht hier. Sie sind einzeln
+/// ausgeschrieben statt zu einem Sammel-Term gefaltet: so benennt der Compiler beim Bruch den EINEN
+/// fehlenden Baustein, und so ist jeder Term am STORE-KOPF einzeln negativ pinnbar
+/// (test_a1_wurf_vertrag_allokator_store, Abschnitt (1b) -- je ein Gegenprobe-Typ, der GENAU an einem
+/// Term scheitert und die anderen drei erfuellt).
+/// RUECKWAERTSVERTRAEGLICHKEIT, PRAEZISE: fuer die REGISTRIERTE CRTP-Population (26 Strategien an
+/// AllocatorStrategyBase) aendert sich nichts -- alle vier Faehigkeiten sitzen an der Wurzel bzw. sind
+/// dort seit Posten 80 Pflicht. Ein FREMD-Allokator ausserhalb dieser Basis muss die vier Nahten
+/// tragen; er musste es auch vorher schon, nur fiel es ihm erst im Rumpf auf. Grep-Beleg zum Stand
+/// 06.08.2026 (libs/ + tests/ + ext/): es gibt KEINEN Store-Konsumenten mit einem A ausserhalb der
+/// CRTP-Population -- alle Instanziierungen fuehren MimallocAllocator, Composition::allocator oder eine
+/// an AllocatorStrategyBase haengende Test-Variante.
 template <class N, class L, class A>
     requires concepts::NodeTypeStrategy<N> && _ml_la::concepts::MemoryLayoutStrategy<L> &&
-             _al_la::concepts::AllocatorStrategy<A>
+             _al_la::concepts::AllocatorStrategy<A> && _al_la::concepts::ThrowTranslatingStrategy<A> &&
+             _al_la::concepts::StdAllocatorAdaptingStrategy<A> && _al_la::concepts::ValueSemanticStrategy<A> &&
+             _al_la::concepts::StatisticsReportingStrategy<A>
 class LayoutAwareChunkedStore {
 private:
     using RK                 = ::comdare::cache_engine::layout::RepresentationKind;
@@ -215,6 +254,32 @@ public:
     LayoutAwareChunkedStore(LayoutAwareChunkedStore const& o) : chunks_(alloc_.template as_std_allocator<Chunk>()) {
         copy_from_(o);
     }
+    /// AUSNAHME-GARANTIE DER KOPIER-ZUWEISUNG -- BASIC, mit definiertem Ergebnis (A1-Nachbesserung
+    /// 2026-08-06, Review-Befund "keine starke Garantie"). Ehrliche Vertrags-Aussage statt Schweigen:
+    ///
+    /// WAS GILT: wirft die Zuweisung (OOM in copy_from_), ist das Ziel LEER und GUELTIG -- kein Leck,
+    /// keine halbe Kopie, sofort weiterverwendbar (Beleg: test_a1_wurf_vertrag_allokator_store (6b),
+    /// inklusive append_slot NACH dem Wurf). Es ist NICHT auf seinem Vorzustand: der wurde zu Beginn
+    /// planmaessig verworfen (free_chunks_/release_index_). Das ist die Basic Guarantee mit einem
+    /// zugesagten Ergebnis-Zustand, nicht die Strong Guarantee.
+    ///
+    /// WARUM NICHT COPY-AND-SWAP (Entscheid am Objekt, nicht Bequemlichkeit): copy-and-swap taeuschte
+    /// hier eine Garantie vor und braeche die 02a-Invariante. Der Chunk-INDEX ist seit dem HERZ-Schnitt
+    /// ein std::vector, dessen StdAllocatorAdapter einen Zeiger auf DIESES alloc_ haelt (s. (a)-(d)
+    /// oben). Ein Tausch mit einem Temporary liesse chunks_ mit einem Adapter zurueck, der auf das
+    /// alloc_ des sterbenden Temporary zeigt -- exakt die Begruendung, aus der (d) den Move gestrichen
+    /// hat. Ein Tausch ist an diesem Store nur zwischen Vektoren MIT DEMSELBEN alloc_ wohldefiniert
+    /// (release_index_ nutzt genau das).
+    ///
+    /// UND WARUM AUCH DIE VARIANTE OHNE TEMPORARY-STORE NICHT GENOMMEN WURDE: man KOENNTE die Kopie
+    /// vorab in einen lokalen chunk_vec_t am EIGENEN alloc_ materialisieren und erst danach tauschen --
+    /// das gaebe die starke Garantie. Es zwaenge aber, `alloc_ = A{}` aufzugeben (die Vor-Vergabe laeuft
+    /// ueber das ALTE alloc_, ihre Bloecke muessen ueber dasselbe zurueck). Damit truege das Ziel nach
+    /// der Zuweisung die aufgelaufenen Zaehler seines VORIGEN Inhalts weiter -- allocator_statistics()
+    /// ist die T6-Mess-Route dieses Organs (Owner-KERN 04.08. abend-11: T6 = Option B strikt), die
+    /// Aenderung waere also MESSWIRKSAM und gehoerte in ein eigenes, versioniertes Fenster, nicht in
+    /// eine Vertrags-Nachbesserung. Der heutige Reset ist zudem genau das, was (c) fuer den Kopier-Ktor
+    /// zusagt: die Kopie beschreibt ehrlich IHR eigenes Backing.
     LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore const& o) {
         if (this != &o) {
             free_chunks_();
@@ -256,20 +321,47 @@ public:
 
     /// SONDERFALL [[allocation-failure-exception]] (A8-S5-02a, Auflage 11 -- Fehlerklassen): ZWEI
     /// Speicher-Ereignisse, seit dem HERZ-Schnitt beide an DERSELBEN Achse. (1) die Record-Bytes ueber
-    /// alloc_.allocate -- die Strategie meldet OOM per nullptr, den der Store hier UNGEPRUEFT weiterreicht
-    /// (memset auf nullptr = der vorbestehende UB-Pfad dieser Zeile; er gehoert dem alloc-/A15-Strang und
-    /// ist NICHT Gegenstand dieser Scheibe -- als offener Punkt gemeldet, nicht heimlich gedreht).
-    /// (2) das Wachstum des Chunk-INDEX ueber den StdAllocatorAdapter -- dort uebersetzt Posten 64 den
-    /// nullptr an EINER Stelle in std::bad_alloc (axis_06_allocator_strategy_base.hpp). Fehlerklasse
-    /// unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor).
+    /// die ROHE Strategie und (2) das Wachstum des Chunk-INDEX ueber den StdAllocatorAdapter. Beide
+    /// melden OOM jetzt als std::bad_alloc, und beide beziehen den Wurf aus DERSELBEN Uebersetzungs-
+    /// stelle in axis_06_allocator_strategy_base.hpp -- (2) seit Posten 64 ueber den StdAllocatorAdapter,
+    /// (1) seit dem A1-Wurf-Vertrag (Posten 74) ueber allocate_or_throw.
+    ///
+    /// GEHEILT (A1, 2026-08-06): (1) reichte den nullptr der Strategie zuvor UNGEPRUEFT weiter, und die
+    /// naechste Zeile memsetzte hinein -- `std::memset(nullptr, 0, capacity)` bei capacity > 0 ist
+    /// undefiniertes Verhalten, still, im Mess-Pfad. Der frueher hier stehende Vermerk "gehoert dem
+    /// alloc-/A15-Strang, als offener Punkt gemeldet" ist damit eingeloest; die Heilung liegt bewusst
+    /// NICHT hier, sondern an der Achsen-Wurzel (EINE Stelle statt einer Pruefung je Konsument).
+    /// Fehlerklasse unveraendert der FK-5-Boden der Allokator-Achse (kOrganAxisErrorFloor). Wirft die
+    /// Vergabe, ist der Store UNVERAENDERT: der lokale Chunk ist noch nicht in chunks_, size_/
+    /// chunk_allocs_ sind noch nicht bewegt (starke Ausnahme-Garantie).
+    ///
+    /// TIMING-VERMERK (A1-Nachbesserung 2026-08-06, Korrektur der Erst-Fassung "Erfolgs-Pfad
+    /// unveraendert"): der Erfolgs-Pfad ist VERHALTENS-gleich, aber nicht kostenlos. Er kostet je
+    /// Chunk-Vergabe EINEN vorhersagbaren, im Messbetrieb nie genommenen Vergleich (in
+    /// allocate_or_throw) und stellt append_slot unter EH-Pflicht (Landing-Pad fuer das push_back-
+    /// Rollback: Unwind-Flaeche/Code-Groesse, keine Laufzeit auf dem genommenen Pfad). Der Vergleich
+    /// faellt je CHUNK an, nicht je Slot -- bei Node4 also einmal pro 4 Slots, um Groessenordnungen
+    /// unter der Allokation selbst. Er ist damit in keiner Achsen-Messreihe sichtbar; benannt wird er
+    /// trotzdem, weil "unveraendert" in einem Mess-Projekt eine pruefbare Aussage sein muss.
     void append_slot(key_type k, value_type v) {
         if (chunks_.empty() || chunks_.back().count == cap_) {
             Chunk c;
             c.capacity = chunk_bytes();
-            c.data     = static_cast<unsigned char*>(alloc_.allocate(c.capacity, kChunkAlign));
+            c.data     = static_cast<unsigned char*>(alloc_.allocate_or_throw(c.capacity, kChunkAlign));
             std::memset(c.data, 0, c.capacity);
             c.count = 0;
-            chunks_.push_back(c);
+            // Die ZWEITE Wurf-Quelle dieser Zeile-Gruppe: push_back laesst den Chunk-INDEX wachsen, und
+            // dessen Vergabe laeuft seit dem HERZ-Schnitt ebenfalls ueber die Achse -- seit Posten 64
+            // wirft sie. Zwischen der Record-Vergabe oben und dem Eintrag unten haelt NUR die lokale
+            // Variable c den frischen Block; ein Wurf hier verloere ihn (dieselbe Leck-Klasse wie in
+            // copy_from_, nur eine Zeile spaeter). Die Rueckgabe ist noexcept, der Wurf reist unveraendert
+            // weiter -- damit ist die oben zugesagte starke Ausnahme-Garantie fuer BEIDE Quellen wahr.
+            try {
+                chunks_.push_back(c);
+            } catch (...) {
+                alloc_.deallocate(c.data, c.capacity, kChunkAlign);
+                throw;
+            }
             ++chunk_allocs_;
         }
         Chunk& c = chunks_.back();
@@ -649,15 +741,44 @@ private:
         chunk_vec_t empty(alloc_.template as_std_allocator<Chunk>());
         chunks_.swap(empty);
     }
+    /// A1-Wurf-Vertrag (Posten 74, Kopier-Ctor-Leck): DIESELBE nullptr-Durchreichung wie in append_slot
+    /// (geheilt ueber allocate_or_throw), PLUS eine Leck-Nuance, die nur auf diesem Pfad existiert.
+    ///
+    /// WARUM DAS ROLLBACK NOETIG IST -- und warum der Destruktor es NICHT erledigt: wirft die Vergabe in
+    /// Iteration k, sind die Chunks 1..k-1 bereits alloziert UND in chunks_ eingetragen. Auf dem
+    /// KOPIER-KTOR-Pfad (:215) laeuft ~LayoutAwareChunkedStore() fuer *this dann NIE -- ein werfender
+    /// Konstruktor laesst das Objekt selbst nie als fertig konstruiert gelten, es werden nur die bereits
+    /// vollstaendig konstruierten MEMBER zerstoert. chunks_ ist so ein Member, aber sein vector-Destruktor
+    /// raeumt nur die POD-Chunk-Structs weg, nicht die von ihnen referenzierten alloc_-Puffer: ein echtes
+    /// Leck. free_chunks_() (via clear()) ist der EINZIGE Ort, der diese Puffer kennt.
+    /// clear() ist noexcept, laeuft korrekt ueber den Teil-Stand und stellt zugleich den konsistenten
+    /// Leer-Zustand her (chunks_.size() == 0 zu size_ == 0) -- damit ist auch der operator=-Pfad (:218,
+    /// wo das Objekt destruierbar bleibt, aber mit einem Teil-Stand zurueckbliebe) sauber abgeschlossen.
+    /// Der catch-all faengt bewusst ALLES statt nur bad_alloc: die Aufraeum-Pflicht haengt am Verlassen
+    /// der Schleife, nicht an der Fehlerart; die Ausnahme reist unveraendert weiter (`throw;`).
+    ///
+    /// ASYMMETRIE ZU append_slot, EHRLICH BENANNT (Lens-Pass 06.08.2026): append_slot sichert push_back
+    /// zusaetzlich per EIGENEM try/catch (der Chunk-INDEX kann dort wachsen und wirft seit Posten 64).
+    /// Hier fehlt dieses zweite try/catch bewusst: `chunks_.reserve(o.chunks_.size())` reserviert VOR
+    /// der Schleife die volle Ziel-Kapazitaet, jedes push_back darunter reallokiert also nicht mehr, und
+    /// Chunk ist ein triviales POD (kein werfender Kopier-/Konstruktions-Pfad) -- unter dieser
+    /// Kombination bleibt push_back praktisch wurf-frei (libstdc++/libc++). Das ist eine PRAKTISCHE,
+    /// keine absolute Sprachgarantie (ein Adapter mit werfendem construct-Hook koennte sie brechen);
+    /// die Asymmetrie in der Verteidigungstiefe ist deshalb bewusst in Kauf genommen, nicht uebersehen.
     void copy_from_(LayoutAwareChunkedStore const& o) {
         chunks_.reserve(o.chunks_.size());
-        for (auto const& oc : o.chunks_) {
-            Chunk c;
-            c.capacity = oc.capacity;
-            c.data     = static_cast<unsigned char*>(alloc_.allocate(c.capacity, kChunkAlign));
-            std::memcpy(c.data, oc.data, oc.capacity); // byte-genaue Kopie → deckt ALLE Reps ab (Memento)
-            c.count = oc.count;
-            chunks_.push_back(c);
+        try {
+            for (auto const& oc : o.chunks_) {
+                Chunk c;
+                c.capacity = oc.capacity;
+                c.data     = static_cast<unsigned char*>(alloc_.allocate_or_throw(c.capacity, kChunkAlign));
+                std::memcpy(c.data, oc.data, oc.capacity); // byte-genaue Kopie -> deckt ALLE Reps ab (Memento)
+                c.count = oc.count;
+                chunks_.push_back(c);
+            }
+        } catch (...) {
+            clear(); // noexcept -- gibt die bereits materialisierten Chunks ueber DIESELBE Achse zurueck
+            throw;
         }
         size_                           = o.size_;
         chunk_allocs_                   = o.chunk_allocs_;

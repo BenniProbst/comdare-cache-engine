@@ -62,7 +62,14 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view               algo_version = "v1.0.0c";
+    /// A1-WURF-VERTRAG (2026-08-06), 1. Bump: v1.0.0c -> v1.0.1c, weil der FEHLSCHLAG-Vertrag der Achse sich
+    /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
+    /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
+    /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
+    /// 2. Bump (2026-08-06): v1.0.1c -> v1.0.2c -- die reallocate()-Statistik-Korrektur bekam
+    /// nachtraeglich einen Bump (Owner-Entscheid: "heute unerreichbar" entlastet nicht, s. dort).
+    /// Volle Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    static constexpr std::string_view               algo_version = "v1.0.2c";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SCALLOC"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
@@ -214,7 +221,15 @@ public:
             return nullptr;
         }
         if (p != nullptr) {
-            if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
+            // A1-Nachbesserung 2026-08-06 (Statistik-Symmetrie der Achse): die Gegenbuchung des ALTEN
+            // Blocks rechnet ALIGNED -- genau wie seine Buchung in allocate() und wie die Gegenbuchung
+            // in deallocate(). Die rohe old_bytes liess je reallocate Phantom-Bytes stehen. Volle
+            // Begruendung: axis_06_allocator_pool_resource.hpp, Abschnitt reallocate.
+            std::size_t aligned_old = ((old_bytes + alignment - 1) / alignment) * alignment;
+            if (aligned_old <= stats_.total_bytes_in_use)
+                stats_.total_bytes_in_use -= aligned_old;
+            else
+                stats_.total_bytes_in_use = 0;
             ++stats_.deallocation_count;
         }
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;

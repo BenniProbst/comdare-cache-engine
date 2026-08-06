@@ -16,6 +16,8 @@
 //     LayoutAwareChunkedStore (Node-Layout-Pfad) macht das Chunk-/Knoten-Backing W Cache-Lines breit
 //     (Kapazitaet folgt aus dem physischen Record-Layout, axis_04_node_type_layout_aware_store.hpp).
 
+#include "cacheline_line_bytes.hpp" // P-CACHELINE-LITERAL: kDefaultLineBytes statt einer eigenen 64
+
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -50,8 +52,16 @@ struct NodeWidthAware {
     [[nodiscard]] static constexpr std::size_t node_width_in_lines() noexcept {
         return static_cast<std::size_t>(Cfg.width_in_lines);
     }
-    /// Knoten-Backing-Breite in Bytes bei gegebener Line-Groesse (Default 64 = CLU-Bezugsgroesse). Native → 0.
-    [[nodiscard]] static constexpr std::size_t node_width_bytes(std::size_t line_bytes = 64) noexcept {
+    /// Knoten-Backing-Breite in Bytes bei gegebener Line-Groesse. Native -> 0.
+    /// P-CACHELINE-LITERAL (A1-Scheibe, Posten 73, 2026-08-06): das Default-Argument war die hartkodierte
+    /// Zahl 64 -- ein Literal der Line-GROESSEN-Dimension mitten in der Knoten-BREITEN-Unterachse, also
+    /// genau die Doppelquelle, die die generalisierte Schnitt-Regel verbietet (Achsen-Eigenschaften nur
+    /// ueber ihre Achse). Es bezieht die Groesse jetzt aus der Einzelquelle cacheline_line_bytes.hpp --
+    /// derselben, aus der axis_04_node_type_layout_aware_store.hpp:99 sie schon zieht.
+    /// VERHALTENS-NEUTRAL: kDefaultLineBytes ist per static_assert in der Quelle auf 64 gepinnt, das
+    /// Default-Argument ist also wertgleich zum Literal davor (Selbstbeweis am Dateiende).
+    /// KEINE Wurf-Vertrags-Aenderung -- andere Entscheid-Klasse, s. Commit-Text.
+    [[nodiscard]] static constexpr std::size_t node_width_bytes(std::size_t line_bytes = kDefaultLineBytes) noexcept {
         return node_width_in_lines() * line_bytes;
     }
 };
@@ -77,5 +87,14 @@ struct NodeWidthAware {
 }
 
 inline constexpr std::uint32_t kNodeWidthSubaxisVersion = 1;
+
+// P-CACHELINE-LITERAL-Neutralitaets-Selbstbeweis (A1-Scheibe, Posten 73): der Bezug aus der
+// Line-Groessen-Einzelquelle liefert EXAKT das frueher hartkodierte Default-Argument 64 -- am Wert
+// selbst und an der davon abgeleiteten Knoten-Breite. Bricht einer der Saetze, ist die Substitution
+// NICHT mehr neutral und faellt compile-hart auf, statt erst in den Messwerten.
+static_assert(kDefaultLineBytes == 64);
+static_assert(NodeWidthAware<NodeWidthConfig{NodeWidthInLines::W16}>::node_width_bytes() == 16u * 64u);
+static_assert(NodeWidthAware<NodeWidthConfig{NodeWidthInLines::W1}>::node_width_bytes() == 64u);
+static_assert(NodeWidthAware<NodeWidthConfig{}>::node_width_bytes() == 0u); // Native bleibt Native
 
 } // namespace comdare::cache_engine::cacheline
