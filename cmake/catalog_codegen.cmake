@@ -18,7 +18,24 @@ get_filename_component(_comdare_catalog_codegen_ce_root
 # PROJECT_BINARY_DIR (nicht CMAKE_BINARY_DIR): im super-Sub-Build schreibt ce damit in sein
 # eigenes Build-Verzeichnis (_cache_engine_external) — dieselbe Konvention wie die Axis-Codegen-
 # Header des Root-CMakeLists (CMAKE_CURRENT_BINARY_DIR im Root-Scope).
-set(_comdare_limits_generated_dir "${PROJECT_BINARY_DIR}/generated")
+#
+# STRUKTUR-HAERTUNG (2026-08-06, Nachtrag zur Bau-Graph-Kanten-Reparatur test_experiment_plan_director):
+# eigenes Unterverzeichnis "generated/limits" statt der blossen "generated"-Wurzel. Grund, am Objekt
+# erhoben: die blosse Wurzel wird ausserhalb dieser Datei an mehreren Stellen legitim auf Ziel-Include-
+# Pfade gebracht (cmake/provenance.cmake:70 verzeichnisweit fuer generated/provenance/build_provenance.hpp;
+# profile_facade/CMakeLists.txt _facade_ce_roots; ~200 Einzel-Eintraege in tests/unit/CMakeLists.txt fuer
+# die Pfad-Form-Includes der generierten Achsen-Header unter generated/axes|topics/...) -- diese Zugriffe
+# sind ihrerseits legitim und werden hier NICHT angetastet. Solange generated_source_catalog.hpp aber IN
+# derselben Wurzel liegt, macht jeder dieser (fuer andere Zwecke noetigen) breiten Zugriffe den Katalog-
+# Header ZUFAELLIG mit-auffindbar, OHNE die Bau-Reihenfolgen-Kante von comdare_attach_generated_catalog(...)
+# zu tragen -- genau das war die Ursache der zuvor geheilten Race (test_experiment_plan_director). Der
+# eigene Unterordner entzieht den Header dieser Mitnahme vollstaendig: NUR comdare_attach_generated_catalog(...)
+# legt "generated/limits" auf den Include-Pfad, jede andere, breitere Route bleibt unveraendert, findet den
+# Header dort aber nicht mehr. Ein kuenftiges Ziel, das den Header inkludiert und das Attach vergisst,
+# bricht ab jetzt DETERMINISTISCH beim Compile ("file not found"), statt gelegentlich unter Parallel-Bau
+# zu racen. #include "generated_source_catalog.hpp" (bloss, ohne Pfad-Praefix) bleibt in JEDER TU
+# unveraendert gueltig -- nur das Verzeichnis, das die Datei traegt, ist enger.
+set(_comdare_limits_generated_dir "${PROJECT_BINARY_DIR}/generated/limits")
 set(_comdare_limits_generated_header
     "${_comdare_limits_generated_dir}/generated_source_catalog.hpp")
 set(_comdare_limits_profile_xml

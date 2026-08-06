@@ -57,14 +57,30 @@ option(COMDARE_PROVISION_VENDOR_ALLOCATORS
        ${COMDARE_BUILD_PERMUTATIONS})
 
 # ─────────────────────────────────────────────────────────────────────────────
-# V5-#26 / Task #153 — Intel-PCM Windows-Cache-Miss-Quelle (WindowsPcmPmcSource)
+# V5-#26 / Task #153 + CE-DL2 / Task #152 -- DIE REALE HW-PMC-QUELLE (Linux UND Windows)
 # ─────────────────────────────────────────────────────────────────────────────
+# B5/M-2-KORREKTUR (2026-08-06): dieser Block und die option()-Beschreibung nannten frueher NUR den
+# Windows-/Intel-PCM-Zweig. Das war seit CE-DL2 (Task #152, 25.06.) falsch und hat aktiv zu der
+# Fehldeutung eingeladen, das Flag sei auf Linux entbehrlich -- genau daran ist die F9-PFLICHT beim
+# Umbau auf die dynamische Mess-Kette verloren gegangen. Der Schalter gated BEIDE Zweige.
+#
 # Default OFF → der Build ist UNVERÄNDERT: es wird KEIN cpucounters.h gesucht, KEIN msr.sys gebraucht,
-# die Factory (pmc_source_factory.hpp) liefert NullPmcSource (available=false, HW-Spalten ehrlich 0).
-# ON → reale L2/L3-Cache-Miss-Messung über Intel PCM (BSD-3). Benötigt PCM-Header+Lib (COMDARE_PCM_DIR)
-#      sowie ein signiertes msr.sys + Admin zur Laufzeit (System-Schritt, NICHT im Build).
+# und AUF LINUX wird der perf_event_open-Zweig gar nicht erst uebersetzt (linux_perf_pmc_source.hpp ist
+# selbst auf das Makro geguardet). Die Factory (pmc_source_factory.hpp) liefert dann die NullPmcSource
+# (available=false, HW-Spalten strukturell 0). ES GIBT OHNE DAS FLAG AUF LINUX KEINE PMC-QUELLE.
+# ON auf LINUX -> reale Cache-Miss-/dTLB-Messung ueber perf_event_open(2) (LinuxPerfPmcSource, KEINE
+#      Vendor-Lib noetig). Laufzeit-Vorbedingung ist nur die Rechtelage (kernel.perf_event_paranoid /
+#      CAP_PERFMON); ohne sie meldet die Quelle ehrlich available=0 -- und die beiden PMC-Smokes fallen
+#      seit M-2/B3 dann HART (fail-closed), statt den Ausfall als Skip zu testieren.
+# ON auf WINDOWS -> reale L2/L3-Cache-Miss-Messung ueber Intel PCM (BSD-3). Benoetigt PCM-Header+Lib
+#      (COMDARE_PCM_DIR) sowie ein signiertes msr.sys + Admin zur Laufzeit (System-Schritt, NICHT im Build).
 #      Doku: docs/sessions/2026-06-18-windows-pcm-pmc-source-integration.md
-option(COMDARE_ENABLE_PMC "Intel PCM Windows cache-miss source (WindowsPcmPmcSource, BSD-3)" OFF)
+# PFLICHT-LAGE: F9 (Owner 2026-07-16) macht das Flag fuer JEDEN offiziellen Mess-Lauf verbindlich; die
+#      emittierten Mess-Jobs setzen es seit M-2/B1 an allen Treiber-Bau-Stellen (experiment_plan_director.hpp,
+#      ceb_pmc_compile_define()). Der Default bleibt OFF, weil test:unit ohne HW-Zugriff baut.
+option(COMDARE_ENABLE_PMC
+       "Reale HW-PMC-Quelle: Linux perf_event_open / Windows Intel PCM (BSD-3). OFF => NullPmcSource, HW-Spalten 0"
+       OFF)
 set(COMDARE_PCM_DIR "" CACHE PATH "Wurzel der Intel-PCM-Installation (enthält cpucounters.h + PCM-Lib)")
 if(COMDARE_ENABLE_PMC)
     if(UNIX AND NOT APPLE)
@@ -383,11 +399,14 @@ option(COMDARE_AXIS_14_ENABLE_IMMUTABLE_SHARED_REF "ValueHandle ImmutableSharedR
 option(COMDARE_AXIS_14_ENABLE_VERSIONED_POINTER    "ValueHandle VersionedPointer (MVCC, Masstree/SMART)" ON)
 option(COMDARE_AXIS_14_ENABLE_CHAIN_REF            "ValueHandle ChainRef (multi-value chained external, prt-art F.6)" ON)
 
-# V41.F.6.1.R7.5.e axis_filter (4 Strategien)
+# V41.F.6.1.R7.5.e axis_filter (5 Strategien)
 option(COMDARE_AXIS_FILTER_ENABLE_BLOOM      "Filter Bloom (Bloom 1970 point-query)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_CUCKOO     "Filter Cuckoo (Fan CoNEXT 2014, delete-capable)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_RANGE_SURF "Filter RangeSurf (Zhang SIGMOD 2018, range-query)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_XOR        "Filter Xor (Graf+Lemire 2020, smaller than Bloom)" ON)
+# E14 (Owner 2026-08-06, "die Eingabe ist einfach die Ausgabe"): Baseline ohne Filterung, END-APPEND,
+# Default OFF -- golden-320 nimmt mp_take_c<EnabledFilters,1> (Index 0 bleibt Bloom, s. axis_filter_registry.hpp).
+option(COMDARE_AXIS_FILTER_ENABLE_NONE       "Filter None (E14, kein Filter, Identitaets-Vergleichs-Nullpunkt)" OFF)
 
 # V41.F.6.1.R7.5.f axis_io (4 Strategien)
 option(COMDARE_AXIS_IO_ENABLE_IN_MEMORY_ONLY "IO InMemoryOnly (baseline, no persistence)" ON)
@@ -1190,7 +1209,7 @@ configure_file(
 message(STATUS "  axis_08 (9 concurrency): NONE=${COMDARE_AXIS_08_USE_NONE} BLOCKING=${COMDARE_AXIS_08_USE_BLOCKING} RW=${COMDARE_AXIS_08_USE_READER_WRITER} OLC=${COMDARE_AXIS_08_USE_OPTIMISTIC} LF=${COMDARE_AXIS_08_USE_LOCK_FREE} WF=${COMDARE_AXIS_08_USE_WAIT_FREE} RCU=${COMDARE_AXIS_08_USE_RCU} HP=${COMDARE_AXIS_08_USE_HAZARD_PTR} OLC_RB=${COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS}")
 
 # V41.F.6.1.R7.5.e axis_filter Flags (USE = ENABLE)
-foreach(_f BLOOM CUCKOO RANGE_SURF XOR)
+foreach(_f BLOOM CUCKOO RANGE_SURF XOR NONE)
     if(COMDARE_AXIS_FILTER_ENABLE_${_f})
         set(COMDARE_AXIS_FILTER_USE_${_f} 1)
     else()
@@ -1201,7 +1220,9 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/filter_axis/axis_filter_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/filter_axis/axis_filter_flags.hpp"
     @ONLY)
-message(STATUS "  axis_filter (4 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} XOR=${COMDARE_AXIS_FILTER_USE_XOR}")
+message(STATUS "  axis_filter (5 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} "
+    "CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} "
+    "XOR=${COMDARE_AXIS_FILTER_USE_XOR} NONE=${COMDARE_AXIS_FILTER_USE_NONE}")
 
 # V41.F.6.1.R7.5.f axis_io Flags (USE = ENABLE)
 foreach(_i IN_MEMORY_ONLY DIRECT BUFFERED MMAP)

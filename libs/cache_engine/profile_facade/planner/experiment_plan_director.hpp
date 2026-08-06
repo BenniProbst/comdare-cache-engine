@@ -259,6 +259,37 @@ public:
     return " \"-DCOMDARE_MEASUREMENT_COMBO=" + combo_legend + "\"";
 }
 
+// M-2 / B1 (P-PMC-1, 2026-08-06) -- DIE PMC-PFLICHT ALS INVARIANTE, NICHT ALS JOB-NAME.
+//
+// I-PMC-1 (F9, User 2026-07-16 "PFLICHT fuer Vollstaendigkeit aller perf-Messwerte"): -DCOMDARE_ENABLE_PMC=ON
+// aktiviert unter __linux__ die reale perf_event_open-Quelle (pmc_source_factory.hpp:19/32; prod1-Rechte
+// seit 25.06. bewiesen, Job 189916: pmc_available=1, cache_misses_l1=4190096). Ohne das Flag schrieb der
+// offizielle Mess-Lauf pmc_available=0/honest-0 trotz fertiger Infra.
+// (WORTLAUT-SINGLE-SOURCE: identisch zu super .gitlab-ci.yml Kommentar der Jobs measure:smoke / measure:golden-320
+// -- die Begruendung soll nicht in zwei Fassungen driften.)
+//
+// WARUM EINE FUNKTION UND KEIN LITERAL JE STELLE: die Pflicht ging am 16.07. verloren, weil sie an ZWEI
+// JOB-NAMEN hing (measure:smoke + measure:golden-320) statt an der Eigenschaft "dieser Job baut den
+// Mess-Treiber". Als die Arbeit in den Planer wanderte, wanderte die Pflicht nicht mit. Die Invariante,
+// die diese Funktion traegt und die der Test JedeTreiberKonfigurationTraegtDasPmcFlag pinnt, lautet:
+//
+//     Zu JEDER emittierten `cmake -B build`-Zeile, deren FOLGEZEILE den comdare-messung-driver baut,
+//     gehoert -DCOMDARE_ENABLE_PMC=ON.
+//
+// Sie ist nicht an die Zahl der Emissionsstellen gebunden (heute vier: ceb:build + ceb:emit in Stufe 1,
+// tier-build-batch + measure-batch in Stufe 2) und faengt eine kuenftige fuenfte automatisch. Umgekehrt
+// bleibt eine Emission OHNE Treiber-Bau bewusst flaglos -- dieser Fall ist im Haus vorgesehen (super
+// .gitlab-ci.yml: Auswertungswerkzeuge ohne Messung bleiben bewusst ohne COMDARE_ENABLE_PMC).
+//
+// TIER-NEUTRALITAET: add_compile_definitions(COMDARE_ENABLE_PMC) (ce CMakeLists.txt:77) wirkt auf den
+// CMAKE-Teilbaum, also auf den Treiber. Die Tier-.so entsteht ueber einen eigenen g++-Subprozess des
+// Treibers (build_orchestrator.hpp) und traegt das Makro NICHT -- Klasse CEB-ONLY, 0 Tier-Binaries.
+//
+// STELLUNG IM KOMMANDO: direkt hinter -DCOMDARE_V32_ENABLE=ON und VOR -DCMAKE_BUILD_TYPE -- exakt die
+// Reihenfolge der beiden super-Jobs, und sie laesst die Nachbarschaft (BUILD_TYPE + Combo-Define)
+// unangetastet, an der die W2-Pins haengen.
+[[nodiscard]] inline std::string ceb_pmc_compile_define() { return " -DCOMDARE_ENABLE_PMC=ON"; }
+
 // ── PlanTextBuilder — ConcreteBuilder + der --dump-plan-Traeger. Deterministische Zeilen-Textform. ──────────
 //    Format (stabil, byte-reproduzierbar; keine host-abhaengigen Felder):
 //      # comdare-experiment-plan v1.1
@@ -838,8 +869,10 @@ private:
         // nicht mehr NICHTS, sondern die EXPLIZITE Loeschung -UCOMDARE_MEASUREMENT_COMBO (sticky Cache-Var,
         // s. F-B1-Block ueber ceb_combo_is_full_set); die Alt-Aussage "kein Zusatz => byte-identisch" galt
         // NUR VOR F-B1.
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
-             ceb_combo_compile_define(c.legend) + "\n";
+        // M-2/B1: PMC-Pflicht (F9). Diese Zeile konfiguriert den Bau des comdare-messung-driver in der
+        // Folgezeile -- damit greift die Invariante aus ceb_pmc_compile_define().
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+             " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -874,8 +907,10 @@ private:
         // sonst emittierte eine [all]-CEB die Stufe-2 einer combo-gehaerteten Strecke. F-B1 (05.08.2026):
         // [all] traegt auch hier die -U-Loeschung statt "kein Zusatz" (Alt-Aussage galt NUR VOR F-B1;
         // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release" +
-             ceb_combo_compile_define(c.legend) + "\n";
+        // M-2/B1: PMC-Pflicht (F9) -- Spiegel des ceb:build-Jobs. Auch dieser Job baut den Mess-Treiber neu,
+        // also gilt hier dieselbe Invariante (ceb_pmc_compile_define()).
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+             " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1191,8 +1226,13 @@ private:
         // S5-P1: CMAKE_BUILD_TYPE aus der aufgeloesten Run-Methodik (measure => "Release"); Default byte-identisch zu HEAD.
         // W2: der CEB-NEUBAU im Batch-Job-Kontext traegt die Combo COMPILE-hart -- HIER entstehen die Stempel real
         // (die CEB generiert in diesem Job die DLL-Quellen); ohne den Define bliebe die Haertung Fiktion.
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
-             header_.build_semantic.cmake_build_type + ceb_combo_compile_define(combo_legend_) + "\n";
+        // M-2/B1: PMC-Pflicht (F9). WICHTIG fuer die Kosten: dieser Bau-Batch und der Mess-Batch teilen sich
+        // DASSELBE Code/build (emit_gn_out_persistence_variables). Traegt nur EINER der beiden das Flag,
+        // rekonfiguriert der jeweils andere das Verzeichnis zurueck und der Treiber-Neubau faellt bei JEDEM
+        // Job-Wechsel an -- ueber einen 7-Tage-Batch die eigentliche Kostenfalle. Deshalb beide oder keiner.
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+             " -DCMAKE_BUILD_TYPE=" + header_.build_semantic.cmake_build_type +
+             ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
@@ -1339,8 +1379,13 @@ private:
         // tragen, sonst truege dieselbe Zelle je nach Job zwei verschiedene Mess-Zeilen. F-B1 (05.08.2026):
         // [all] traegt auch hier die -U-Loeschung statt "kein Zusatz" (Alt-Aussage galt NUR VOR F-B1;
         // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=" +
-             header_.build_semantic.cmake_build_type + ceb_combo_compile_define(combo_legend_) + "\n";
+        // M-2/B1: PMC-Pflicht (F9) -- DIE Stelle, an der die 131.072-Zellen-Matrix ihren Treiber baut. Ohne das
+        // Flag liefert pmc_source_factory.hpp die NullPmcSource und ALLE HW-Spalten sind strukturell 0; der
+        // #37-Preflight zwei Bloecke weiter unten wertete genau diesen Ausfall als Erfolg (pmc=ok).
+        // Spiegel des Bau-Batches: dasselbe geteilte Code/build, deshalb dasselbe Configure-Kommando.
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+             " -DCMAKE_BUILD_TYPE=" + header_.build_semantic.cmake_build_type +
+             ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
         s += "      set -euo pipefail\n";
