@@ -258,14 +258,16 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // INC-0: Compiler-SYSTEM-Kanal -- -mcx16 (atomic128-Unter-Achse, Cx16Option). Gate = USE_SNMALLOC && x86_64 (snmallocs
 // ds/aba.h verlangt CMPXCHG16B; -mcx16 ist x86_64-only). Freigabe-Prinzip: die Compiler-Achse GIBT -mcx16 frei, das
 // snmalloc-Organ SETZT es durch. Wert single-source aus der Achse (gcc/clang teilen -mcx16). In conf/go2 inert.
+//
+// T2-B: DIE ENTSCHEIDUNG WOHNT AB HIER IN DER NAHT, NICHT ZWEIMAL. Das #if stand wortgleich hier UND in
+// toolchain_stamp_naht.hpp, sobald das Glied [5] die atomic128-Achse traegt. Zwei Orte, EINE Entscheidung
+// -- also genau die Konstellation, aus der die W-6/W-13-Divergenz entstand: der Bau haengt -mcx16 an,
+// waehrend das Glied "no_cx16" behauptet (oder umgekehrt), und die Identitaets-Aussage ist falsch, ohne
+// dass irgendwo etwas bricht. Diese Funktion liest jetzt dieselbe Quelle wie der Stempel.
 [[nodiscard]] std::vector<std::string> perm_compiler_isa_cflags() {
-#if defined(COMDARE_AXIS_06_USE_SNMALLOC) && COMDARE_AXIS_06_USE_SNMALLOC && defined(COMDARE_ARCH_X86_64)
-    std::string_view const flag = ::comdare::cache_engine::measurement::Cx16Option::gcc_flag(); // == clang_flag()
+    std::string_view const flag = ::comdare::cache_engine::profile_facade::active_atomic128_wahl().flags;
     if (flag.empty()) return {};
     return {std::string{flag}};
-#else
-    return {};
-#endif
 }
 
 [[nodiscard]] std::vector<std::string> perm_mess_defines() {
@@ -309,12 +311,23 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
 // make_lazy_adhoc_fingerprint_fn_from_env). Beide Seiten rufen DIESELBEN argumentlosen, reinen
 // Komposition-Funktionen der Toolchain-Naht -- deshalb koennen sie nicht auseinanderlaufen. Wer hier
 // etwas aendert, MUSS es dort mitaendern; die Naht ist genau deshalb EINE Funktion und kein Argument.
-[[nodiscard]] std::vector<std::string> perm_stamp_glied_defines() {
+//
+// T2-B: DIE ZWEI GLIEDER TRENNEN SICH HIER. Glied [6] (bvset) ist run-konstant -- es haengt an der
+// Enable-Menge des Treibers, nicht an der Permutation. Glied [5] ist es NICHT mehr: seit T2-B traegt es
+// opt/opt_flags/ext/gate dieser Permutation. Wuerde diese Funktion weiter BEIDE liefern, bekaeme der
+// Perm-Pfad ZWEI -DCOMDARE_TOOLCHAIN_STAMP_GLIED-Argumente (den run-konstanten aus dem Basis-Kanal und
+// den per-Perm-Wert), und welches gewinnt, entschiede die Argument-Reihenfolge in der Response-Datei --
+// eine Identitaets-Aussage per Zufall. Deshalb: der Parameter sagt, ob das Glied [5] mitkommt. Der
+// Einzel-Pfad (kein <system_axes>) nimmt es mit und ist damit byte-identisch zum Vor-T2-B-Stand; der
+// Perm-Pfad laesst es weg und haengt seinen eigenen Wert an EINER Stelle an (compile_for_perm).
+[[nodiscard]] std::vector<std::string> perm_stamp_glied_defines(bool mit_toolchain_glied = true) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     std::vector<std::string> d;
-    if (std::string arg = pfn::toolchain_stamp_glied_define_arg(pfn::compose_live_toolchain_stamp_glied());
-        !arg.empty())
-        d.push_back(std::move(arg));
+    if (mit_toolchain_glied) {
+        if (std::string arg = pfn::toolchain_stamp_glied_define_arg(pfn::compose_live_toolchain_stamp_glied());
+            !arg.empty())
+            d.push_back(std::move(arg));
+    }
     if (std::string arg = pfn::build_variant_set_signature_define_arg(pfn::live_build_variant_set_signature_glied());
         !arg.empty())
         d.push_back(std::move(arg));
@@ -352,13 +365,16 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     return d;
 }
 
-[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp = nullptr) {
+// T2-B: `mit_toolchain_glied=false` liefert denselben Kanal OHNE das Glied [5] -- die Basis der
+// per-Perm-Fabriken, die ihren eigenen Glied-Wert anhaengen (s. perm_stamp_glied_defines oben).
+[[nodiscard]] std::vector<std::string> perm_compile_flags(cx::ThesisProfile const* tp                = nullptr,
+                                                          bool                     mit_toolchain_glied = true) {
     std::vector<std::string> d = perm_mess_defines();
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_external_utils_cflags(tp)) d.push_back(std::move(f));
     for (auto& f : perm_target_isa_cflags(tp)) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
-    for (auto& f : perm_stamp_glied_defines()) d.push_back(std::move(f)); // NB/CX-4: Glieder [5]/[6] LIVE
+    for (auto& f : perm_stamp_glied_defines(mit_toolchain_glied)) d.push_back(std::move(f)); // Glieder [5]/[6]
     return d;
 }
 
@@ -613,11 +629,14 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
             tp_ptr != nullptr && tp_ptr->target_isa.isa.size() == 1 ? std::string_view{tp_ptr->target_isa.isa.front()}
                                                                     : std::string_view{})};
         a.system_cell_operating_system = std::string{pf::kSystemCellBuildOsFamily};
+        // T2-B: die Basis-Defines kommen OHNE das Glied [5] herein -- der per-Perm-Wert wird unten an
+        // genau EINER Stelle angehaengt (sonst zwei konkurrierende Defines, s. perm_stamp_glied_defines).
         a.compile_for_perm =
-            [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
-             fno = facade_supports_fno_gnu_unique(),
+            [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
+             cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
              dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
-                                                 ::comdare::cache_engine::abi::SystemCellValues cell_values) {
+                                                 ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                                 pf::PermToolchainGliedWert const& toolchain_glied) {
                 // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march (die
                 // [d,e,f]-ISA-Identitaet) und die Gate-Flags bleiben erhalten. dbg==false => flags==opt_flag =>
                 // byte-identisch zum Ist-Compile-Kanal.
@@ -640,6 +659,11 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
                 // Wertform => leeres Argument => gar kein Define => byte-identischer Bau.
                 std::vector<std::string> perm_defines = def;
                 if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                    perm_defines.push_back(std::move(arg));
+                // T2-B: das PER-PERM-Glied [5]. Derselbe String, den der Laufzeit-Zwilling dieser Iteration
+                // bekommt (die Schleife bildet ihn EINMAL und reicht ihn zweimal weiter) -- deshalb kann die
+                // Tier-Binary keinen anderen Fingerprint einkompiliert bekommen als den, den die CEB erwartet.
+                if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
                     perm_defines.push_back(std::move(arg));
                 return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
             };
@@ -1119,11 +1143,13 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   permutiert opt_level×simd aus der XML (ep.opt_levels/simd_extensions) und ruft die Fabrik je Perm mit den
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
+    // T2-B (SPIEGEL der Profil-Naht): Basis-Defines ohne Glied [5], der per-Perm-Wert kommt unten dazu.
     a.compile_for_perm =
-        [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
-         fno = facade_supports_fno_gnu_unique(),
+        [inc = perm_include_dirs(), def = perm_compile_flags(nullptr, /*mit_toolchain_glied=*/false),
+         cxx = cxx_compiler(), libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique(),
          dbg = facade_build_type_is_debug()](std::string const& opt_flag, std::string const& march_flag,
-                                             ::comdare::cache_engine::abi::SystemCellValues cell_values) {
+                                             ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                             pf::PermToolchainGliedWert const& toolchain_glied) {
             // Scheibe 2b: Build-Typ Debug ersetzt die Optimierung (opt_flag) durch -O0 -g; -march ([d,e,f]-ISA-
             // Identitaet) und Gate-Flags bleiben. dbg==false => flags==opt_flag => byte-identisch zum Ist-Kanal.
             std::string flags =
@@ -1143,6 +1169,9 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
             // W10-C4 (SPIEGEL der Profil-Naht): das Zellwert-Define als eigenes Argument im defines-Kanal.
             std::vector<std::string> perm_defines = def;
             if (std::string arg = pf::system_cell_values_define_arg(cell_values.value); !arg.empty())
+                perm_defines.push_back(std::move(arg));
+            // T2-B (SPIEGEL): das PER-PERM-Glied [5] aus derselben Schleifen-Iteration wie der Zwilling.
+            if (std::string arg = pf::toolchain_stamp_glied_define_arg(toolchain_glied.value); !arg.empty())
                 perm_defines.push_back(std::move(arg));
             return ex::make_gpp_compile_fn(inc, std::move(perm_defines), cxx, libs, flags, fno);
         };

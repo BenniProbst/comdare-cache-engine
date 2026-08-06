@@ -57,8 +57,13 @@ struct RunExperimentArgs {
     ///
     /// W10-C4: SPIEGEL der RunProfileArgs-Naht -- die Fabrik nimmt zusaetzlich die System-ZELLWERTE dieser Zelle
     /// entgegen (benannter Typ abi::SystemCellValues nach K-1-Muster, kein dritter nackter string). Leer == Identitaet.
+    /// T2-B (SPIEGEL der Profil-Naht, Codex [CX-B1]): zusaetzlich der fertig gerenderte per-Perm-Wert des
+    /// Preimage-Glieds [5] als benannter Traeger. Ohne ihn haetten O2 und O3 derselben Zelle denselben
+    /// Fingerprint -- ein falscher Skip. LEER == kein Define == byte-identisch zum Vor-T2-B-Bau.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
-                                ::comdare::cache_engine::abi::SystemCellValues cell_values)>
+                                ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const&
+                                    toolchain_glied)>
         compile_for_perm;
     // W10-C4: die beiden lauf-konstanten System-Zellen dieses Baus (SPIEGEL zu RunProfileArgs). Die Facade loest
     // sie auf, die Perm-Schleife ergaenzt simd_id. Beide leer (Default) => kein Define => byte-identischer Bau.
@@ -304,23 +309,38 @@ struct RunExperimentResult {
             std::string const perm_cell_values = ::comdare::cache_engine::profile_facade::compose_system_cell_values(
                 a.system_cell_target_isa, a.system_cell_operating_system, simd_id);
             ::comdare::cache_engine::abi::SystemCellValues const perm_zellwerte{perm_cell_values};
-            ex::CompileFn const                                  perm_compile =
-                a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte) : a.compile;
+            // T2-B (SPIEGEL der run_profile-Schleife, Codex [CX-B1]): das per-Perm-Glied [5] wird EINMAL
+            // gebildet und geht in den Bau-Kanal. Dieser Pfad schreibt kein Lager zurueck (kein
+            // Fingerprint-Provider), deshalb steht hier nur die Bau-Haelfte -- aber sie MUSS stehen: sonst
+            // truege eine hier gebaute Binary das run-konstante Glied und kollidierte ueber opt-Stufen hinweg.
+            std::string const perm_simd_segment =
+                (simd_id == std::string{cm::SimdNoExtOption::simd_id()}) ? std::string{} : simd_id;
+            std::string const perm_gate =
+                cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+            ::comdare::cache_engine::profile_facade::PermToolchainAchsen perm_achsen{};
+            perm_achsen.opt               = opt_id;
+            perm_achsen.opt_flags         = opt_flag;
+            perm_achsen.simd              = perm_simd_segment;
+            perm_achsen.gate_contribution = perm_gate;
+            ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const perm_toolchain_glied{
+                ::comdare::cache_engine::profile_facade::compose_toolchain_stamp_glied_for_perm(perm_achsen)};
+            ex::CompileFn const perm_compile =
+                a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
+                                   : a.compile;
             // Lane F R3 (O-8 Schritt 10): der Zwilling der Perm-Schleife aus profile_run_entry.hpp -- er
             // buchstabierte dieselbe Ordnung ein zweites Mal. Jetzt liest auch er die EINE Suffix-Quelle,
             // damit die beiden Lauf-Pfade nicht auseinanderlaufen koennen.
             ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
             perm_parts.cxx = a.compiler_tag;
             perm_parts.opt = opt_id;
-            if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) perm_parts.simd = simd_id;
+            perm_parts.simd = perm_simd_segment; // T2-B: dieselbe no_extension-Regel wie im Glied [5]
             // W10-M2 (REV2-B2-Rest, SPIEGEL): auch dieser Perm-Pfad fuellte das +ceb=-Glied nicht -- der
             // Contract-Minor-Bump waere hier ebenso unsichtbar geblieben. Wert aus der EINEN Zusammensetzung.
             std::string const perm_ceb = ::comdare::cache_engine::profile_facade::ceb_contract_version_text();
             perm_parts.ceb             = perm_ceb;
             std::string const perm_bt  = build_type_version_value();
             perm_parts.build_type      = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
-            std::string const perm_gate =
-                cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+            // T2-B: derselbe perm_gate, den auch das Glied [5] traegt -- oben EINMAL gebildet.
             perm_parts.gate_contribution = perm_gate; // OP-7: am ENDE, leer => kein Segment
             std::string const perm_suffix =
                 ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);

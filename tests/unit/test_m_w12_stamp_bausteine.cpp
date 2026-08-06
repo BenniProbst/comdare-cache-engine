@@ -1476,6 +1476,74 @@ TEST(MW12StampBausteine, Nb3T2dFeldOrdnungCxxDriverStehtAmEnde) {
     EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(p), std::string_view{"cxx_dialect"});
 }
 
+// -- T2-B (1): DAS GLIED [5] TRENNT DIE opt-STUFEN WIEDER --------------------------------------------
+// Codex-Zweitreview [CX-B1], KRITISCH, verbatim: "Live-Glied[5] nur cxx/ceb/bt -> O2/O3 derselben Zelle
+// identischer Fingerprint = falscher Skip". Der Test misst genau diese Aussage am Renderer-Weg, den die
+// Perm-Schleife wirklich benutzt -- nicht an einem nachgebauten Zwilling.
+TEST(MW12StampBausteine, T2bGliedTrenntOptStufenUndSimd) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+
+    pfn::PermToolchainAchsen o2{};
+    o2.opt       = "O2";
+    o2.opt_flags = "-O2";
+    pfn::PermToolchainAchsen o3{};
+    o3.opt       = "O3";
+    o3.opt_flags = "-O3";
+    pfn::PermToolchainAchsen o3avx{};
+    o3avx.opt               = "O3";
+    o3avx.opt_flags         = "-O3";
+    o3avx.simd              = "avx512";
+    o3avx.gate_contribution = "avx512";
+
+    std::string const g2    = pfn::compose_toolchain_stamp_glied_for_perm(o2);
+    std::string const g3    = pfn::compose_toolchain_stamp_glied_for_perm(o3);
+    std::string const g3avx = pfn::compose_toolchain_stamp_glied_for_perm(o3avx);
+
+    // (1) DER BEFUND, GEHEILT: verschiedene opt-Stufen => verschiedene Glieder => verschiedene Preimages.
+    EXPECT_NE(g2, g3);
+    // (2) Die Flags stehen MIT im Glied -- zwei Optionen gleicher id mit anderen Flags waeren sonst gleich
+    //     (Owner-KERN abend-5: die Flags sind Teil der Achsen-DEFINITION).
+    EXPECT_NE(g2.find("opt=O2{-O2}"), std::string::npos) << g2;
+    EXPECT_NE(g3.find("opt=O3{-O3}"), std::string::npos) << g3;
+    // (3) ext und gate wandern ebenfalls ins Glied.
+    EXPECT_NE(g3avx.find("ext=avx512"), std::string::npos) << g3avx;
+    EXPECT_NE(g3avx.find("gate=avx512"), std::string::npos) << g3avx;
+    EXPECT_NE(g3, g3avx);
+    // (4) DIE IDENTITAETS-ZUSAGE: leere Perm-Achsen == der run-konstante Wert. Der Einzel-Pfad rechnet
+    //     damit byte-identisch weiter -- es gibt nur EINEN Renderer-Weg, keinen zweiten fuer "live".
+    EXPECT_EQ(pfn::compose_toolchain_stamp_glied_for_perm(pfn::PermToolchainAchsen{}),
+              pfn::compose_live_toolchain_stamp_glied());
+    // (5) Jedes erzeugte Glied bleibt ein gueltiger, transportfaehiger Preimage-Wert.
+    for (std::string const& g : {g2, g3, g3avx}) {
+        EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(g)) << g;
+        EXPECT_NO_THROW((void)pfn::toolchain_stamp_glied_define_arg(g)) << g;
+    }
+}
+
+// -- T2-B (2): DIE atomic128-ACHSE HAT EINE QUELLE ----------------------------------------------------
+// Vor T2-B stand dasselbe #if in der Facade (perm_compiler_isa_cflags) UND haette im Stempel ein zweites
+// Mal stehen muessen. Zwei Orte, eine Entscheidung -- der Bau haette -mcx16 angehaengt, waehrend das Glied
+// "no_cx16" behauptet, ohne dass irgendwo etwas bricht.
+TEST(MW12StampBausteine, T2bAtomic128HatEineQuelle) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    namespace cm  = ::comdare::cache_engine::measurement;
+
+    pfn::Atomic128Wahl const w = pfn::active_atomic128_wahl();
+    // (1) Die Wahl ist IMMER getroffen -- es gibt keinen "unbekannt"-Zustand (fail-closed: die Achse hat
+    //     einen Default, und der steht dann auch im Glied).
+    EXPECT_FALSE(w.id.empty());
+    // (2) id und Flags gehoeren zusammen: cx16 traegt -mcx16, no_cx16 traegt nichts.
+    if (w.id == cm::Cx16Option::atomic128_id()) {
+        EXPECT_EQ(w.flags, cm::Cx16Option::gcc_flag());
+    } else {
+        EXPECT_EQ(w.id, cm::NoCx16Option::atomic128_id());
+        EXPECT_TRUE(w.flags.empty());
+    }
+    // (3) Und genau diese id steht im LIVE-Glied -- der Stempel kann keine andere Wahl behaupten.
+    std::string const live = pfn::compose_live_toolchain_stamp_glied();
+    EXPECT_NE(live.find(std::string{"atomic128="} + std::string{w.id}), std::string::npos) << live;
+}
+
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------
 // Der Codex-Blocker war konkret: A={Toolchain="TC\nX", bvset="BV"} und B={Toolchain="TC", bvset="X\nBV"}
 // erzeugen BYTE-IDENTISCHE Preimages. Der Test beweist, dass beide Belegungen jetzt gar nicht mehr

@@ -35,8 +35,15 @@
 
 #include <builder/driver_build_variant_signature.hpp> // kDriverBuildVariantSignature (CT-Zwilling, Glied [6])
 
-#include <cache_engine/abi/toolchain_stamp_glied.hpp>        // Renderer + die CT-Compiler-Realversions-Erhebung
-#include <cache_engine/measurement/compiler_system_axis.hpp> // Dialekt-Ids + driver_default (Single-Source)
+// T2-B: das globale Umbrella-Gate der atomic128-Wahl. Es MUSS hier stehen und nicht bloss beim Aufrufer:
+// die Entscheidung ist ein #if, und ein Header, der sie ohne den definierenden Header trifft, faellt in
+// jeder TU anders aus, die ihn frueher inkludiert. Genau so entstuende ein Glied, das je Uebersetzungs-
+// einheit etwas anderes behauptet -- die Drift-Klasse, gegen die diese Naht gebaut ist.
+#include <axes/alloc/axis_06_allocator_flags.hpp> // COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
+
+#include <cache_engine/abi/toolchain_stamp_glied.hpp>            // Renderer + die CT-Compiler-Realversions-Erhebung
+#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // T2-B: Cx16Option/-mcx16 (Single-Source)
+#include <cache_engine/measurement/compiler_system_axis.hpp>     // Dialekt-Ids + driver_default (Single-Source)
 
 #include <cstdlib>
 #include <string>
@@ -134,18 +141,100 @@ namespace comdare::cache_engine::profile_facade {
     return tag_version == cea::kDetectedCompilerRealVersion;
 }
 
-/// compose_live_toolchain_stamp_glied() -- der LIVE-Wert des Preimage-Glieds [5]. ARGUMENTLOS und REIN
-/// (s. Kopf): Bau-Kanal und Laufzeit-Zwilling rufen dieselbe Funktion und bekommen denselben String.
+// -- T2-B: DIE PER-PERM-ACHSEN DES GLIEDS [5] ---------------------------------------------------------
+//
+// DER BEFUND, DEN DAS SCHLIESST (Codex-Zweitreview [CX-B1], KRITISCH, verbatim): "Live-Glied[5] nur
+// cxx/ceb/bt -> O2/O3 derselben Zelle identischer Fingerprint = falscher Skip". Der Kopf dieses Headers
+// hat den Zustand damals ehrlich benannt und die Heilung ausdruecklich in diese Scheibe verwiesen: die
+// Felder opt/opt_flags/ext/gate entstehen in der optxsimd-Schleife (profile_run_entry.hpp /
+// experiment_run_entry.hpp) und erreichen die Naht NUR ueber die compile_for_perm-Signatur.
+//
+// WARUM EIN TRAEGER UND KEINE VIER STRINGS: die Fabrik-Signatur traegt bereits opt_flag und march_flag als
+// nackte Strings. Vier weitere gleichartige Strings daneben waeren genau die Vertausch-Falle, gegen die
+// W10-C4 den benannten SystemCellValues-Traeger eingefuehrt hat (K-1-Muster). PermToolchainAchsen sammelt
+// sie stattdessen zu EINEM benannten Argument mit sprechenden Feldnamen.
+//
+// KEINE ZWEIT-ABLEITUNG (bindende Regel der Nachbar-Naht, hier wortgleich): die Werte kommen als das,
+// was die Schleife WIRKLICH permutiert -- opt_id/simd_id und die daraus AUFGELOESTEN Achsen-Flags. Nichts
+// wird aus dem -march-Flag zurueckgerechnet, nichts geraten.
+//
+// EHRLICHE GRENZE, benannt statt verschwiegen -- DER DEBUG-FALL: bei Build-Typ Debug ersetzt die CompileFn
+// die Optimierungs-Flags durch ex::debug_flags_for_toolchain() ("-O0 -g"), waehrend das Glied weiter die
+// opt-ACHSE dieser Permutation nennt (opt=O3{-O3}). Zwei Debug-Permutationen O2 und O3 erzeugen damit
+// byte-gleiche Binaries unter VERSCHIEDENEN Fingerprints. Das ist eine UEBER-Diskriminierung: sie kostet
+// einen Neubau, sie erzeugt keinen falschen Skip -- also die fail-closed Richtung. Sie ist zudem sichtbar,
+// weil +bt=Debug im selben Glied steht. Die Alternative (die effektiven Flags stempeln) waere eine
+// Zweit-Ableitung aus dem CompileFn-Inneren und wuerde ausserdem Whitespace ins Glied tragen, den die
+// Transport-Wache (T2-D) zu Recht verbietet.
+
+/// T2-B: der FERTIG GERENDERTE per-Perm-Wert des Glieds [5] als benannter Traeger mit EIGENEM Speicher.
+///
+/// WARUM OWNING UND NICHT WIE abi::SystemCellValues EINE SICHT: die Fabrik compile_for_perm haelt den Wert
+/// bis zum Bau jeder einzelnen Binary dieser Permutation. Eine Sicht muesste sich auf eine Variable im
+/// Schleifen-Rumpf stuetzen -- exakt die Lebensdauer-Falle, die T2-D an den abi-Traegern geschlossen hat
+/// (dort compile-hart durch den geloeschten Rvalue-Konstruktor). Hier kostet Eigentum nichts: der Wert ist
+/// ein reiner Laufzeit-String, es gibt keine consteval-Seite, die er verbauen koennte.
+///
+/// WARUM UEBERHAUPT EIN TYP UND KEIN NACKTER std::string: die Fabrik-Signatur traegt schon zwei
+/// gleichartige Strings (opt_flag, march_flag). Ein dritter koennte an einem Alt-Aufruf still in den
+/// falschen Slot rutschen -- dieselbe K-1-Begruendung wie bei SystemCellValues und OverlayHash.
+struct PermToolchainGliedWert {
+    std::string value;
+};
+
+/// T2-B: die per-Permutation aufgeloesten Toolchain-Achsen. LEER == die run-konstante Identitaet, also
+/// exakt der Vor-T2-B-Wert -- der Einzel-Pfad und jeder Aufrufer ohne System-Achsen rechnet unveraendert.
+struct PermToolchainAchsen {
+    std::string_view opt{};               ///< opt_level-id dieser Permutation ("O3")
+    std::string_view opt_flags{};         ///< die AUFGELOESTEN Flags dieser opt-Achse ("-O3")
+    std::string_view simd{};              ///< simd-id dieser Permutation (no_extension => leer gereicht)
+    std::string_view gate_contribution{}; ///< die Gate-Beitraege dieser Permutation
+    std::string_view target_isa{};        ///< Ziel-ISA-Segment, falls der Pfad eines fuehrt
+    std::string_view telemetry{};         ///< Telemetrie-Segment, falls der Pfad eines fuehrt
+};
+
+/// T2-B: die atomic128-Wahl DIESES Baus -- die EINE Quelle fuer Glied und Compile-Flag zugleich.
+///
+/// WARUM HIER UND NICHT (nur) IN DER FACADE: perm_compiler_isa_cflags() traf dieselbe Entscheidung ueber
+/// dasselbe #if. Zwei Orte, eine Entscheidung -- also die Konstellation, aus der jede Divergenz dieses
+/// Fensters entstanden ist. Ab hier liest die Facade diese Funktion, statt die Bedingung ein zweites Mal
+/// zu buchstabieren; damit kann das Glied gar keine andere atomic128-Wahl behaupten als die gebaute.
+///
+/// Die Achse ist RUN-KONSTANT (CT-Gate: snmalloc-Organ + x86_64), deshalb steht sie in beiden Wegen --
+/// im run-konstanten Live-Glied wie in jeder Permutation.
+struct Atomic128Wahl {
+    std::string_view id{};
+    std::string_view flags{};
+};
+
+[[nodiscard]] inline Atomic128Wahl active_atomic128_wahl() noexcept {
+    namespace cm = ::comdare::cache_engine::measurement;
+#if defined(COMDARE_AXIS_06_USE_SNMALLOC) && COMDARE_AXIS_06_USE_SNMALLOC && defined(COMDARE_ARCH_X86_64)
+    return Atomic128Wahl{cm::Cx16Option::atomic128_id(), cm::Cx16Option::gcc_flag()};
+#else
+    return Atomic128Wahl{cm::DefaultCompilerAtomicOption::atomic128_id(),
+                         cm::DefaultCompilerAtomicOption::gcc_flag()};
+#endif
+}
+
+/// compose_toolchain_stamp_glied_for_perm(achsen) -- DER EINE Renderer-Weg des Glieds [5].
 ///
 /// Die Felder kommen aus der EINEN Suffix-Quelle (SystemVersionSuffixParts + der Konverter
 /// toolchain_stamp_parts_from_suffix_parts), damit Glied und build_version-Suffix nicht getrennt driften
 /// koennen -- die Ordnungs-Deckung beider ist zusaetzlich per static_assert bewiesen.
 ///
-/// NB2-1: das cxx-Feld traegt ab hier IMMER den Tier-Treiber-Tag und NUR BEI BEWIESENER DECKUNG die
+/// NB2-1: das cxx-Feld traegt IMMER den Tier-Treiber-Tag und NUR BEI BEWIESENER DECKUNG die
 /// CEB-Realversion (Regel R1/R2 in abi/toolchain_stamp_glied.hpp, Deckungs-Wache
 /// ct_realversion_deckt_treiber oben). Damit ergeben verschiedene Treiber-Tags strukturell verschiedene
 /// Glieder -- der Fail-open-Fall "g++-17 und g++-18 kollabieren auf cxx=gcc" kann nicht mehr entstehen.
-[[nodiscard]] inline std::string compose_live_toolchain_stamp_glied() {
+///
+/// T2-B: DIE ZUSAGE DER REINHEIT BLEIBT. Auch diese Funktion ist REIN -- gleiche Achsen rein, gleicher
+/// String raus. Genau das traegt die Drift-Freiheit: der Bau-Kanal (perm_compile_flags -> Define) und der
+/// Laufzeit-Zwilling (make_lazy_adhoc_fingerprint_fn_from_env) bekommen denselben PermToolchainAchsen-Wert
+/// aus derselben Schleifen-Iteration und rufen dieselbe Funktion. Eine per-Perm-Signatur allein waere
+/// keine Garantie -- die Garantie ist, dass BEIDE Seiten aus EINEM Aufruf gespeist werden (der Aufrufer
+/// bildet den String genau einmal und reicht ihn zweimal weiter).
+[[nodiscard]] inline std::string compose_toolchain_stamp_glied_for_perm(PermToolchainAchsen const& achsen) {
     std::string const driver_tag = active_cxx_driver_tag();
     std::string const ceb        = ceb_contract_version_text();
     std::string const bt         = ::comdare::cache_engine::thesis_lazy::build_type_version_value();
@@ -154,14 +243,27 @@ namespace comdare::cache_engine::profile_facade {
     p.cxx        = driver_tag; // NB2-1 (R1): der Tier-Treiber-Tag ist der Identitaets-Diskriminator
     p.ceb        = ceb; // Perm-Pfad-Wert, G-C2 "heilt Fall C" -- der Contract-Bump wirkt ab hier im Preimage
     p.build_type = bt;  // (i): "Debug" nur im Debug-Bau, sonst leer => kein Segment
-    // opt/simd/target/tel/gate bleiben LEER -- per-Perm bzw. profil-abhaengig, s. Kopf (Scheibe C-3).
+    // T2-B: die per-Perm-Achsen. LEER (Default) => kein Segment => der run-konstante Vor-T2-B-Wert.
+    p.opt               = achsen.opt;
+    p.simd              = achsen.simd;
+    p.target_isa        = achsen.target_isa;
+    p.telemetry         = achsen.telemetry;
+    p.gate_contribution = achsen.gate_contribution;
 
     std::string_view const dialekt = cxx_driver_dialect(driver_tag);
     std::string_view const realver =
         ct_realversion_deckt_treiber(driver_tag) ? ::comdare::cache_engine::abi::kDetectedCompilerRealVersion
                                                  : std::string_view{};
-    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(
-        toolchain_stamp_parts_from_suffix_parts(p, dialekt, realver));
+    Atomic128Wahl const a128 = active_atomic128_wahl();
+    return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(toolchain_stamp_parts_from_suffix_parts(
+        p, dialekt, realver, achsen.opt_flags, a128.id, a128.flags));
+}
+
+/// compose_live_toolchain_stamp_glied() -- der RUN-KONSTANTE Wert des Glieds [5] (keine System-Achsen).
+/// Er ist ab T2-B kein eigener Weg mehr, sondern der Sonderfall "leere Perm-Achsen" des EINEN Renderers
+/// darueber. Damit kann der Einzel-Pfad gar nicht anders rendern als der Perm-Pfad.
+[[nodiscard]] inline std::string compose_live_toolchain_stamp_glied() {
+    return compose_toolchain_stamp_glied_for_perm(PermToolchainAchsen{});
 }
 
 /// live_build_variant_set_signature_glied() -- der LIVE-Wert des Preimage-Glieds [6]. Reine CT->RT-

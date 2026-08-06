@@ -25,6 +25,7 @@
 //    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
 #include "build_type_stamp.hpp"         // (i) §61-STUFEN: build_type_version_suffix (+bt=Debug bei COMDARE_BUILD_TYPE)
+#include "toolchain_stamp_naht.hpp"    // T2-B: PermToolchainAchsen/-GliedWert + der EINE Glied-[5]-Renderer
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
 #include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
 #include "lazy_adhoc_source_gen.hpp"    // INC-G6 (33/34): make_lazy_adhoc_source_gen (lazy golden-N-Fallback-Quelle)
@@ -93,8 +94,17 @@ struct RunProfileArgs {
     /// -DCOMDARE_SYSTEM_CELL_VALUES an die rsp-Zeile. Der Typ ist der BENANNTE abi::SystemCellValues (K-1-Muster,
     /// Praezedenz OverlayHash) und ausdruecklich kein dritter nackter string -- die Signatur truege sonst drei
     /// gleichartige Strings, und ein vertauschter Slot kompilierte klaglos. Leere Werte == Identitaet.
+    ///
+    /// T2-B (Codex [CX-B1], KRITISCH): die Fabrik nimmt ZUSAETZLICH den fertig gerenderten per-Perm-Wert
+    /// des Preimage-Glieds [5] entgegen. Er ist der Grund, warum diese Signatur ueberhaupt waechst: bis
+    /// dahin trug das Glied nur die run-konstanten Felder (cxx/ceb/bt), womit O2 und O3 DERSELBEN Zelle
+    /// denselben Fingerprint bekamen -- also einen falschen Skip im Skip-Gate. Der Typ ist wieder ein
+    /// BENANNTER Traeger (K-1), diesmal mit eigenem Speicher, weil die Fabrik ihn ueber die gesamte
+    /// Permutation haelt. LEER == kein Define == byte-identisch zum Vor-T2-B-Bau.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
-                                ::comdare::cache_engine::abi::SystemCellValues cell_values)>
+                                ::comdare::cache_engine::abi::SystemCellValues cell_values,
+                                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const&
+                                    toolchain_glied)>
                 compile_for_perm;
     std::string compiler_tag; // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     // W10-C4 (Bauplan-Dossier 20260803, Sektion 1): die beiden LAUF-KONSTANTEN System-Zellen dieses Baus. Die
@@ -875,8 +885,26 @@ struct RunProfileResult {
                     ::comdare::cache_engine::profile_facade::compose_system_cell_values(
                         a.system_cell_target_isa, a.system_cell_operating_system, simd_id);
                 ::comdare::cache_engine::abi::SystemCellValues const perm_zellwerte{perm_cell_values};
-                perm_compile =
-                    a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte) : a.compile;
+                // T2-B (Codex [CX-B1], KRITISCH) -- DIE PER-PERM-GLIED-[5]-BILDUNG, EINMAL FUER BEIDE SEITEN.
+                // Die Achsen kommen als das, was diese Schleife WIRKLICH permutiert: opt_id/simd_id und die
+                // daraus aufgeloesten Achsen-Flags. KEINE Zweit-Ableitung -- insbesondere kein Rueckschluss
+                // aus march_flag (wortgleiche Regel wie bei den Zellwerten oben). Der Gate-Beitrag wird HIER
+                // gebildet, weil ihn ab jetzt zwei Verbraucher teilen (Glied und Suffix); er stand vorher
+                // weiter unten und waere sonst ein zweites Mal berechnet worden.
+                std::string const perm_simd_segment =
+                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()}) ? std::string{} : simd_id;
+                std::string const perm_gate =
+                    cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                ::comdare::cache_engine::profile_facade::PermToolchainAchsen perm_achsen{};
+                perm_achsen.opt               = opt_id;
+                perm_achsen.opt_flags         = opt_flag;
+                perm_achsen.simd              = perm_simd_segment;
+                perm_achsen.gate_contribution = perm_gate;
+                ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const perm_toolchain_glied{
+                    ::comdare::cache_engine::profile_facade::compose_toolchain_stamp_glied_for_perm(perm_achsen)};
+                perm_compile = a.compile_for_perm
+                                   ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
+                                   : a.compile;
                 // W10-C4 FAIL-CLOSED (n/a-statt-NULL, bindend): ein `na` heisst "diese Zelle ist NICHT
                 // BESTIMMBAR" -- die Binary darf gebaut und gemessen werden, aber sie ist nicht zuordbar und
                 // geht deshalb NICHT ins Lager. Mechanisch: kein Fingerprint-Provider => kein
@@ -896,7 +924,12 @@ struct RunProfileResult {
                     // Der Zwilling rechnet ueber DIESELBE vervollstaendigte System-Zeile wie das consteval-Makro
                     // im Tier-Bau -- sonst zeigte der Lager-Key ab jetzt auf einen anderen Digest als das
                     // einkompilierte sha512_line, und das Lager fuende seine eigenen Binaries nicht wieder.
-                    perm_fingerprint = make_lazy_adhoc_fingerprint_fn_from_env(perm_cell_values);
+                    // T2-B: dasselbe gilt ab hier fuer das Glied [5] -- der Zwilling bekommt EXAKT den String,
+                    // der oben als Define an die Tier-Uebersetzung ging (derselbe Wert, nicht derselbe Weg
+                    // noch einmal gegangen). Ohne diese zweite Haelfte rechnete der Lager-Key ueber das
+                    // run-konstante Glied, waehrend die Binary das per-Perm-Glied traegt: garantierter Miss.
+                    perm_fingerprint =
+                        make_lazy_adhoc_fingerprint_fn_from_env(perm_cell_values, perm_toolchain_glied.value);
                 }
                 // Lane F R3 (O-8 Schritt 10): diese Kette WAR die bindende Form -- jetzt kommt sie aus der
                 // EINEN Suffix-Quelle, statt sie hier ein zweites Mal zu buchstabieren. Die erzeugten Bytes
@@ -905,7 +938,7 @@ struct RunProfileResult {
                 ::comdare::cache_engine::profile_facade::SystemVersionSuffixParts perm_parts;
                 perm_parts.cxx = a.compiler_tag;
                 perm_parts.opt = opt_id;
-                if (simd_id != std::string{cm::SimdNoExtOption::simd_id()}) perm_parts.simd = simd_id;
+                perm_parts.simd = perm_simd_segment; // T2-B: dieselbe no_extension-Regel wie im Glied [5]
                 // W10-M2 (REV2-B2-Rest): das +ceb=-Glied fehlte der Perm-build_version -- der Perm-Pfad ist aber
                 // GENAU der Pfad, an dem C4 die Zellwerte scharfschaltet. Ohne diese Verdrahtung waere der
                 // Contract-Minor-Bump dort UNSICHTBAR geblieben: dll_is_current vergleicht .version/.algos/
@@ -923,8 +956,7 @@ struct RunProfileResult {
                 std::string const perm_bt  = build_type_version_value();
                 perm_parts.build_type      = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
                 // Ledger 70.9 / OP-7: Gate-Beitraege am ENDE, leer => kein Segment (heute leer).
-                std::string const perm_gate =
-                    cm::gate_contribution_identity_text(cm::route_of_simd_id(simd_id), cm::SimdDialect::Gpp);
+                // T2-B: derselbe perm_gate, den auch das Glied [5] traegt -- oben EINMAL gebildet.
                 perm_parts.gate_contribution = perm_gate;
                 std::string const perm_suffix =
                     ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);
