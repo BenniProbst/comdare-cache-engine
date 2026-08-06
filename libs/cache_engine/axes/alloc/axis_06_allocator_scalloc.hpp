@@ -218,7 +218,15 @@ public:
             return nullptr;
         }
         if (p != nullptr) {
-            if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
+            // A1-Nachbesserung 2026-08-06 (Statistik-Symmetrie der Achse): die Gegenbuchung des ALTEN
+            // Blocks rechnet ALIGNED -- genau wie seine Buchung in allocate() und wie die Gegenbuchung
+            // in deallocate(). Die rohe old_bytes liess je reallocate Phantom-Bytes stehen. Volle
+            // Begruendung: axis_06_allocator_pool_resource.hpp, Abschnitt reallocate.
+            std::size_t aligned_old = ((old_bytes + alignment - 1) / alignment) * alignment;
+            if (aligned_old <= stats_.total_bytes_in_use)
+                stats_.total_bytes_in_use -= aligned_old;
+            else
+                stats_.total_bytes_in_use = 0;
             ++stats_.deallocation_count;
         }
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;

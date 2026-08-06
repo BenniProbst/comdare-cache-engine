@@ -200,6 +200,31 @@ public:
 
     // Sub-Concept: ReallocatingStrategy (alloc-new aus Pool + memcpy + dealloc-old in Pool;
     // der Test gibt das Ergebnis per m.deallocate frei → konsistent mit dem Pool).
+    //
+    // STATISTIK-SYMMETRIE (A1-Nachbesserung 2026-08-06, Review-Befund "Phantom-Bytes") -- der
+    // KANONISCHE Ort der Begruendung fuer die ganze Achse (die 23 Schwester-Strategien tragen dieselbe
+    // Korrektur mit Verweis hierher):
+    //
+    // BEFUND: allocate() bucht ALIGNED (aligned_bytes = aufgerundet auf alignment), deallocate() bucht
+    // ALIGNED gegen -- reallocate() buchte den ALTEN Block aber ROH (old_bytes) gegen und den NEUEN
+    // wieder ALIGNED (aligned_new). Je reallocate blieben damit (aligned_old - old_bytes) Bytes in
+    // total_bytes_in_use stehen, die real nicht mehr gehalten werden. Bei alignment-teilbaren Groessen
+    // (der bisher einzige gepruefte Fall, 64/128 @ 16) ist die Differenz 0 -- der Fehler war deshalb
+    // unsichtbar und wird jetzt mit alignment-UNGLEICHEN Werten (65 @ 16 -> 80) gepinnt
+    // (test_a1_wurf_vertrag_allokator_store, Abschnitt (4c)).
+    //
+    // MESSWIRKUNG -- ehrlich geprueft, nicht behauptet: KEINE. total_bytes_in_use ist eine T6-Groesse,
+    // die Korrektur waere also grundsaetzlich messwirksam. Sie ist es hier nicht, weil reallocate() auf
+    // dem gesamten Mess-Pfad NIE gerufen wird: `grep -rn "\.reallocate(\|->reallocate(" libs/ apps/
+    // modules/ benchmarks/ tools/ adapters/ deploy/` liefert GENAU EINEN Treffer, und der ist die
+    // Concept-Deklaration selbst (axis_06_allocator_reallocating_strategy_concept.hpp:35). Alle
+    // Aufrufer sind Tests. Kein aufgezeichneter Messwert kann sich bewegen -> KEIN algo_version-Bump
+    // (die Achse steht seit dem A1-Schnitt auf v1.0.1c und bleibt dort; ein Bump ohne Messwirkung
+    // wuerde den Tier-Binary-Cache grundlos komplett invalidieren).
+    //
+    // Der zusaetzliche else-Zweig (Klemmung auf 0) ist NICHT neu erfunden: er spiegelt exakt die Form
+    // in deallocate() darueber. Vorher fehlte er hier -- die Gegenbuchung war also auch in ihrer FORM
+    // die einzige, die aus der Reihe fiel.
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
         void* np = nullptr;
         try {
@@ -219,7 +244,15 @@ public:
             std::memcpy(np, p, copy_bytes);
             resource_->deallocate(p, old_bytes, alignment);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-            if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
+            // A1-Nachbesserung 2026-08-06 (Statistik-Symmetrie der Achse): die Gegenbuchung des ALTEN
+            // Blocks rechnet ALIGNED -- genau wie seine Buchung in allocate() und wie die Gegenbuchung
+            // in deallocate(). Die rohe old_bytes liess je reallocate Phantom-Bytes stehen. Volle
+            // Begruendung: axis_06_allocator_pool_resource.hpp, Abschnitt reallocate.
+            std::size_t aligned_old = ((old_bytes + alignment - 1) / alignment) * alignment;
+            if (aligned_old <= stats_.total_bytes_in_use)
+                stats_.total_bytes_in_use -= aligned_old;
+            else
+                stats_.total_bytes_in_use = 0;
             ++stats_.deallocation_count;
 #endif
         }

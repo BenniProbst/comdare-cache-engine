@@ -800,6 +800,59 @@ int main() {
         }
     }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::printf("== (4c) reallocate-Statistik: Gegenbuchung ALIGNED, keine Phantom-Bytes ==\n");
+    {
+        // A1-Nachbesserung 2026-08-06 (Review-Befund "Phantom-Bytes"): allocate() bucht ALIGNED,
+        // deallocate() bucht ALIGNED gegen -- reallocate() buchte den ALTEN Block ROH gegen und den
+        // NEUEN wieder ALIGNED. Je reallocate blieben (aligned_old - old_bytes) Bytes in
+        // total_bytes_in_use stehen. Die bisherigen Werte (64/128 @ 16) sind alignment-TEILBAR, dort ist
+        // die Differenz 0 -- der Fehler konnte gar nicht auffallen. Diese Wache rechnet deshalb
+        // ausschliesslich mit alignment-UNGLEICHEN Groessen und prueft die Bilanz absolut, nicht relativ.
+        //   65 @ 16 -> 80 (aufgerundet)   129 @ 16 -> 144   1 @ 16 -> 16
+        alloc::PoolResourceAllocator pool{};
+        pool.reset(); // Statistik-Nullpunkt (NICHT Pool-Release) -- die Bilanz unten ist absolut
+
+        void* a = pool.allocate(65, 16);
+        check("Vorbedingung: allocate(65,16) gelingt", a != nullptr);
+        check("allocate bucht ALIGNED (65 @ 16 -> 80)", pool.statistics().total_bytes_in_use == 80u);
+
+        void* b = pool.reallocate(a, 65, 129, 16);
+        check("Vorbedingung: reallocate(65 -> 129, @16) gelingt", b != nullptr);
+        std::printf("  [INFO] nach reallocate: in_use=%llu allocated=%llu alloc=%llu dealloc=%llu\n",
+                    static_cast<unsigned long long>(pool.statistics().total_bytes_in_use),
+                    static_cast<unsigned long long>(pool.statistics().total_bytes_allocated),
+                    static_cast<unsigned long long>(pool.statistics().allocation_count),
+                    static_cast<unsigned long long>(pool.statistics().deallocation_count));
+        // VOR der Korrektur stand hier 80 - 65 + 144 = 159 (15 Phantom-Bytes). Danach: 80 - 80 + 144.
+        check("reallocate bucht den ALTEN Block ALIGNED gegen (in_use == 144, NICHT 159)",
+              pool.statistics().total_bytes_in_use == 144u);
+        check("total_bytes_allocated kumuliert ALIGNED (80 + 144 == 224)",
+              pool.statistics().total_bytes_allocated == 224u);
+        check("Zaehler-Paarigkeit: 2 Vergaben, 1 Rueckgabe", pool.statistics().allocation_count == 2u &&
+                                                                 pool.statistics().deallocation_count == 1u);
+
+        // DIE EIGENTLICHE AUSSAGE: nach der Rueckgabe des letzten Blocks ist die Bilanz EXAKT 0. Genau
+        // das war vorher unmoeglich -- jede reallocate-Kette liess einen Rest stehen.
+        pool.deallocate(b, 129, 16);
+        check("Bilanz schliesst exakt: total_bytes_in_use == 0 nach der letzten Rueckgabe",
+              pool.statistics().total_bytes_in_use == 0u);
+        check("Zaehler-Paarigkeit am Ende: 2 Vergaben, 2 Rueckgaben",
+              pool.statistics().allocation_count == 2u && pool.statistics().deallocation_count == 2u);
+
+        // Gegenprobe an einer alignment-TEILBAREN Kette: dort war und bleibt die Rechnung dieselbe --
+        // die Korrektur aendert also nichts an dem Fall, den die alten Wachen abdeckten.
+        alloc::PoolResourceAllocator glatt{};
+        glatt.reset();
+        void* g = glatt.allocate(64, 16);
+        void* h = (g != nullptr) ? glatt.reallocate(g, 64, 128, 16) : nullptr;
+        check("alignment-teilbare Kette unveraendert (64 -> 128 @ 16 ergibt in_use == 128)",
+              h != nullptr && glatt.statistics().total_bytes_in_use == 128u);
+        if (h != nullptr) glatt.deallocate(h, 128, 16);
+        check("und schliesst ebenfalls auf 0", glatt.statistics().total_bytes_in_use == 0u);
+    }
+#endif
+
     std::printf("== (5) F4/Posten 74: append_slot wirft, statt in Nullspeicher zu memsetzen ==\n");
     {
         ErschoepfterStore store{};
