@@ -27,6 +27,7 @@
 #include <stdexcept> // NB/CX-1: die RT-Injektivitaets-Wache der injizierten Glieder ist FAIL-LOUD
 #include <string>
 #include <string_view>
+#include <type_traits> // T2-D: das Praedikat des geloeschten Rvalue-Konstruktors (GliedSterbenderString)
 
 namespace comdare::cache_engine::abi {
 
@@ -191,9 +192,61 @@ constexpr void require_injizierter_glied_wert(std::string_view glied, std::strin
 /// den Domain-Separator ins Preimage; damit war die ganze NB/CX-1-Zusage eine Absichtserklaerung. Der
 /// Wert wohnt ab hier PRIVAT und wird nur lesend herausgegeben. Der Traeger ist damit das, was er
 /// behauptet zu sein: ein Beweis-Tragender Typ, dessen Invariante ab Konstruktion gilt.
+///
+/// -- NB-3/T2-D: DIE LEBENSDAUER-HAELFTE DERSELBEN ZUSAGE ------------------------------------------------
+///
+/// DER BEFUND (Codex-Zweitreview [MITTEL], am Code bestaetigt): NB2-2 hat den Wert gekapselt, aber er
+/// bleibt eine SICHT. Zwei Loecher blieben damit offen, und beide fuehren an der Konstruktor-Wache vorbei:
+///   (a) DANGLING -- `ToolchainGlied{compose_live_toolchain_stamp_glied()}` bindet an ein Temporary, das am
+///       Ende des Voll-Ausdrucks stirbt. Der Traeger zeigt danach ins Leere; was gehasht wird, ist Zufall.
+///   (b) SPAETE MUTATION -- der Puffer HINTER der Sicht kann sich nach der Pruefung noch aendern. Die
+///       Zusage "ab Konstruktion geprueft" gilt dann fuer einen Wert, den niemand mehr hasht.
+///
+/// ZWEI MASSNAHMEN, je eine pro Loch:
+///   (a) Der Konstruktor aus einem std::string-RVALUE ist GELOESCHT. Ein Temporary kann sich damit nicht
+///       mehr an einen Traeger binden -- der Fehler wird compile-hart und nennt sich beim Namen, statt als
+///       sporadisch falscher Digest zu erscheinen. Lvalue-Strings (der Normalfall: eine benannte Variable,
+///       die den Aufruf ueberlebt) bleiben unveraendert zulaessig.
+///   (b) Die VOLLE Format-Wache laeuft ZUSAETZLICH beim GEBRAUCH, in anatomy_fingerprint_glieder() -- also
+///       an der einen Stelle, die weiss, welches Glied welches ist, und unmittelbar bevor der Wert ins
+///       Preimage geht. Zwischen dieser Pruefung und dem Hash liegt kein Aufrufer mehr.
+///
+/// -- T2-D-UEBERNAHME: WARUM (a) NICHT `explicit X(std::string&&) = delete` LAUTEN DARF ------------------
+///
+/// Die Vorarbeit dieser Wache stand genau so da -- und der Bau brach FLOTTENWEIT. Grund, am Objekt
+/// gelesen (gcc-Diagnose "call of overloaded 'ToolchainGlied(<brace-enclosed initializer list>)' is
+/// ambiguous", 2 Kandidaten): fuer ein STRING-LITERAL sind beide Konstruktoren gleich gut erreichbar --
+/// `char const[N]` -> `std::string_view` und `char const[N]` -> `std::string` sind beides
+/// benutzerdefinierte Konvertierungen derselben Rangstufe. Die Ueberladungsaufloesung kann zwischen ihnen
+/// nicht waehlen, und der geloeschte Kandidat macht damit ausgerechnet den Normalfall `ToolchainGlied{"TC"}`
+/// unbaubar (die static_asserts unten, jedes Test-Literal, jeder consteval-Zwilling in den generierten
+/// Anatomy-Modulen). Eine Wache, die den legitimen Gebrauch sperrt, ist keine Wache, sondern ein Ausfall.
+///
+/// DIE KORREKTUR: der geloeschte Konstruktor wird auf GENAU den Fall verengt, den er treffen soll -- ein
+/// std::string-PRVALUE/XVALUE. Als constrained Template greift er erst NACH der Deduktion: fuer ein
+/// Literal deduziert S zu `char const(&)[N]` (Bedingung falsch -> Kandidat existiert gar nicht), fuer
+/// einen benannten String zu `std::string&` (falsch -> erlaubt, der Traeger ueberlebt ja), und nur fuer
+/// ein Temporary zu `std::string` (wahr -> geloescht). Damit trifft die Sperre die Lebensdauer-Falle
+/// vollstaendig und sonst nichts.
+///
+/// WARUM KEIN OWNING-TRAEGER (die Alternative, ehrlich verworfen statt verschwiegen): ein std::string im
+/// Traeger wuerde die consteval-Seite kosten. kToolchainStampGlied & Co. sind `inline constexpr` und
+/// werden im consteval-Fingerprint der Tier-Binary ausgewertet; ein Traeger mit dynamischem Speicher kann
+/// dort nicht als Konstante leben. Der Preis waere die Compile-Zeit-Identitaet selbst -- also genau das,
+/// was das Glied leisten soll. Die zwei Massnahmen oben decken beide Loecher, ohne ihn zu zahlen.
+
+/// T2-D: das Praedikat des geloeschten Konstruktors -- GENAU ein std::string-Rvalue, nichts sonst.
+/// Es steht als benanntes Konzept da (und nicht dreimal als roher requires-Ausdruck), weil alle drei
+/// Traeger dieselbe Zusage geben und eine Divergenz zwischen ihnen niemandem auffiele.
+template <class S>
+concept GliedSterbenderString = std::is_same_v<S, std::string>;
+
 class OverlayHash {
 public:
     constexpr explicit OverlayHash(std::string_view v) : wert_{v} { require_injizierter_glied_wert("overlay", v); }
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary.
+    template <GliedSterbenderString S>
+    explicit OverlayHash(S&&) = delete;
 
     [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
 
@@ -254,9 +307,15 @@ inline constexpr std::string_view kBuildVariantSetSignatureGlied = COMDARE_BUILD
 ///
 /// NB2-2: beide Traeger sind ab hier GEKAPSELT (Begruendung ausfuehrlich bei OverlayHash) -- ein public
 /// mutierbares `.value` machte die Konstruktor-Wache zu einer blossen Empfehlung.
+///
+/// NB-3/T2-D: beide Traeger tragen dieselbe Lebensdauer-Haertung wie OverlayHash (ausfuehrlich dort):
+/// geloeschter Rvalue-Konstruktor gegen das Dangling, VOLL-Wache beim Gebrauch gegen die spaete Mutation.
 class ToolchainGlied {
 public:
     constexpr explicit ToolchainGlied(std::string_view v) : wert_{v} { require_injizierter_glied_wert("toolchain", v); }
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit ToolchainGlied(S&&) = delete;
 
     [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
 
@@ -267,6 +326,9 @@ private:
 class BvsetGlied {
 public:
     constexpr explicit BvsetGlied(std::string_view v) : wert_{v} { require_injizierter_glied_wert("bvset", v); }
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit BvsetGlied(S&&) = delete;
 
     [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
 
@@ -378,11 +440,33 @@ static_assert(injizierter_glied_wert_ist_wohlgeformt(kOverlaySourceHash),
 /// Die drei Schwanz-Glieder haben Defaults, weil sie INJIZIERT werden: wer sie nicht kennt, reicht sie
 /// nicht -- und rechnet dann byte-identisch zur Identitaet. Das ist dieselbe Zusage wie bei
 /// SystemCellValues (W10) und macht die Naht ohne Flotten-weiten Umbau baubar.
+///
+/// -- NB-3/T2-D: DIE VOLL-WACHE BEIM GEBRAUCH -----------------------------------------------------------
+///
+/// Die drei injizierten Werte werden HIER ein zweites Mal geprueft -- nicht aus Misstrauen gegen den
+/// Konstruktor, sondern weil die Traeger SICHTEN halten (ausfuehrliche Begruendung bei OverlayHash). Die
+/// Konstruktor-Wache beweist etwas ueber den Wert ZUM ZEITPUNKT DER KONSTRUKTION; gehasht wird er aber
+/// hier. Was dazwischen mit dem Puffer geschieht, weiss kein Traeger. Diese Funktion ist die einzige
+/// Stelle, die (a) unmittelbar vor dem Preimage steht und (b) weiss, WELCHES Glied welches ist -- der
+/// gemeinsame Emitter darunter kann das nicht: er bedient auch den MESSWERT-Genus, dessen Komponenten an
+/// denselben Positionen etwas voellig anderes bedeuten (bestandslog_index derive_key_from_lines ist
+/// bewusst generisch). Eine positionsbasierte Voll-Wache im Emitter wuerde dort Fremd-Glieder nach einer
+/// Grammatik pruefen, die fuer sie nie galt.
+///
+/// Die Funktion ist deshalb NICHT mehr `noexcept`: ein verletzter Wert MUSS heraus (zur Laufzeit als
+/// benannte Fehlerklasse, im konstanten Ausdruck als harter Compile-Fehler), statt ueber std::terminate zu
+/// laufen oder -- schlimmer -- ein mehrdeutiges Preimage zu hashen.
+///
+/// DIGEST-NEUTRAL: fuer jeden Wert, der die Wache besteht (also fuer jeden legitimen), aendert sich kein
+/// Byte. Nur Werte, die vorher STILL ein mehrdeutiges Preimage erzeugt haetten, werden jetzt abgelehnt.
 [[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
 anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std::string_view measurement,
                             ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
                             BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
-                            OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) noexcept {
+                            OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
+    require_injizierter_glied_wert("toolchain", toolchain.wert());
+    require_injizierter_glied_wert("bvset", bvset.wert());
+    require_injizierter_glied_wert("overlay", overlay.wert());
     return {kAnatomyFingerprintFormat, organ,            system,       measurement,
             kSubAxisValuesetSegment,   toolchain.wert(), bvset.wert(), overlay.wert()};
 }

@@ -256,14 +256,31 @@ inline constexpr std::array<std::string_view, kToolchainGliedKeyCount> kToolchai
 /// zusammengesetztes Feld liesse offen, ob der Aufrufer das getan hat; getrennte Felder machen es zur
 /// Pflicht, die der Renderer an EINER Stelle zusammensetzt.
 ///
-/// NB2-1: cxx_driver ist das DRITTE Feld und die eigentliche IDENTITAET des Tier-Treibers -- s. die
-/// ausfuehrliche Regel unten bei render_toolchain_stamp_glied. Kurz: die Realversion ist eine Eigenschaft
-/// der CEB-UEBERSETZUNG und deckt den Tier-Treiber nur in Ausnahmefaellen; der Treiber-TAG ist das einzige
+/// NB2-1: cxx_driver traegt die eigentliche IDENTITAET des Tier-Treibers -- s. die ausfuehrliche Regel
+/// unten bei render_toolchain_stamp_glied. Kurz: die Realversion ist eine Eigenschaft der ERHEBENDEN
+/// Stufe und deckt den Tier-Treiber nur, wenn sie an ihm selbst gemessen wurde; der Treiber-TAG ist das
 /// Datum, das den Tier-Treiber vollstaendig und gelesen (nicht geraten) benennt.
+///
+/// -- NB-3/T2-D: DIE POSITIONS-FALLE, UND WARUM cxx_driver AM ENDE STEHT ---------------------------------
+///
+/// DER BEFUND (Codex-Zweitreview [MITTEL], am Code bestaetigt): NB2-1 hat cxx_driver als DRITTES Feld
+/// EINGESCHOBEN. Ein Aggregat ist positionell initialisierbar -- jeder Bestands-Aufruf der Form
+/// `ToolchainStampParts{dialekt, realversion, opt, opt_flags, ...}` bekam damit still eine um EINS
+/// verschobene Belegung: opt landete in cxx_driver, opt_flags in opt, und so weiter. Es kompiliert
+/// anstandslos, alle Felder sind derselbe Typ, und das Ergebnis ist ein Glied, das eine voellig andere
+/// Toolchain behauptet als die gebaute. Genau die Klasse stiller Identitaets-Luege, gegen die dieses
+/// Glied gebaut wurde -- diesmal eingebaut durch seine eigene Heilung.
+///
+/// ZWEI MASSNAHMEN, beide noetig (die erste allein schuetzt nur diesen einen Einschub):
+///   (1) cxx_driver steht am FELD-ENDE. Ein NEUES Feld verschiebt damit kein bestehendes mehr -- das ist
+///       die Ordnungs-Regel, nach der neue Felder ab jetzt angehaengt werden, nicht eingeschoben.
+///   (2) Die Feld-ORDNUNG ist ab hier BEWIESEN, nicht vereinbart: der static_assert unter dem Struct
+///       belegt jedes Feld positionell mit einem eigenen Marker und liest es benannt zurueck. Wer ein
+///       Feld einschiebt, umsortiert oder entfernt, bricht COMPILE-HART mit Namen -- statt einen
+///       Aufrufer stumm zu verschieben. Damit ist auch (1) keine Bitte mehr, sondern durchgesetzt.
 struct ToolchainStampParts {
     std::string_view cxx_dialect{};       ///< Compiler-Haupt-Achsen-Option-id ("gcc"/"clang")
-    std::string_view cxx_realversion{};   ///< REAL erkannte Version ("16.1.0"), NIE der Treiber-Name (G-C4)
-    std::string_view cxx_driver{};        ///< NB2-1: der TIER-Treiber-Tag ("g++-16"), Pflicht wenn Dialekt gesetzt
+    std::string_view cxx_realversion{};   ///< REAL erhobene Version ("16.0.1"), NIE der Treiber-Name (G-C4)
     std::string_view opt{};               ///< opt_level-id ("O3")
     std::string_view opt_flags{};         ///< die konkreten Flags dieses Dialekts ("-O3") -- Teil der Definition
     std::string_view simd{};              ///< simd-id (+ext=); no_extension wird vom Aufrufer als leer gereicht
@@ -274,7 +291,24 @@ struct ToolchainStampParts {
     std::string_view gate_contribution{}; ///< die Gate-Beitraege (+gate=)
     std::string_view atomic128{};         ///< atomic128-id ("cx16"/"no_cx16")
     std::string_view atomic128_flags{};   ///< die konkreten Flags dieser Option ("-mcx16")
+    std::string_view cxx_driver{};        ///< NB2-1: der TIER-Treiber-Tag ("g++-16"), Pflicht wenn Dialekt gesetzt
 };
+
+/// NB-3/T2-D: die Feld-Ordnungs-Wache (Punkt (2) oben). Sie belegt das Aggregat POSITIONELL und prueft
+/// jedes Feld BENANNT zurueck -- die einzige Form, die eine Verschiebung wirklich bemerkt.
+static_assert(
+    [] {
+        ToolchainStampParts const p{"d", "r", "o", "of", "s", "c", "t", "tel", "bt", "g", "a", "af", "drv"};
+        return p.cxx_dialect == "d" && p.cxx_realversion == "r" && p.opt == "o" && p.opt_flags == "of" &&
+               p.simd == "s" && p.ceb == "c" && p.target_isa == "t" && p.telemetry == "tel" &&
+               p.build_type == "bt" && p.gate_contribution == "g" && p.atomic128 == "a" &&
+               p.atomic128_flags == "af" && p.cxx_driver == "drv";
+    }(),
+    "NB-3/T2-D: die Feld-Ordnung von ToolchainStampParts hat sich verschoben. Das Aggregat ist positionell "
+    "initialisierbar -- eine Verschiebung belegt bei jedem Bestands-Aufrufer STILL die falschen Felder und "
+    "das Glied [5] behauptet danach eine andere Toolchain als die gebaute. NEUE Felder werden ANGEHAENGT, "
+    "nie eingeschoben; wer wirklich umsortieren muss, zieht diese Wache im selben Commit nach und weist die "
+    "Aenderung als Preimage-Ereignis aus.");
 
 // -- NB/CX-2: DIE INTERNE INJEKTIVITAET DES RENDERERS --------------------------------------------------
 //
@@ -297,13 +331,61 @@ struct ToolchainStampParts {
 /// '\n' ist zusaetzlich verboten -- es ist der Domain-Separator der Glied-Folge (OF-M3-1).
 inline constexpr std::string_view kToolchainGliedStrukturZeichen = ";={}@";
 
-/// Ein WERT des Glieds ist wohlgeformt, wenn er kein Struktur- und kein Steuerzeichen traegt.
+// -- NB-3/T2-D: DER TRANSPORT-ZEICHENVORRAT -- WACHE UND @rsp SPRECHEN AB HIER DIESELBE SPRACHE --------
+//
+// DER BEFUND (Codex-Zweitreview [MITTEL] "rsp-Zeichenvorrat" + die opt_flags-Whitespace-Auflage der
+// Teil-2-Welle): das fertig gerenderte Glied reist als EIN Compile-Argument
+// (-DCOMDARE_TOOLCHAIN_STAMP_GLIED=\"...\") ueber eine gcc-Response-Datei. Deren Grammatik ist
+// dokumentiert und knapp: Optionen trennt WHITESPACE, ein Backslash schuetzt das naechste Zeichen, und
+// einfache WIE doppelte Anfuehrungszeichen klammern. Bis hierher garantierte die Wache diese Eigenschaft
+// nur fuer den TREIBER-TAG -- alle uebrigen Felder durften Whitespace tragen. Solange dort nur "-O3" und
+// "-mcx16" standen, fiel das nicht auf; mit den PER-PERM-Feldern (opt_flags aus der optxsimd-Schleife)
+// wird ein mehrteiliger Flag-String ("-O3 -funroll-loops") realistisch -- und der haette das Argument in
+// der @rsp-Datei in ZWEI Optionen zerlegt. Ergebnis: eine Tier-Uebersetzung mit halbem Stempel-Define
+// (oder mit einem Compile-Fehler an einer voellig anderen Stelle), also wieder eine Identitaets-Aussage,
+// die nicht haelt, was sie behauptet.
+//
+// DIE AUFLOESUNG -- EINE Sprache, EIN Praedikat, ZWEI Aufrufer: der Zeichenvorrat wird fuer JEDEN Wert des
+// Glieds verengt (nicht nur fuer den Tag), und die TRANSPORT-Naht (toolchain_stamp_glied_define_arg in
+// profile_facade/toolchain_stamp_naht.hpp) prueft mit GENAU DIESEM Praedikat, statt die Eigenschaft
+// anzunehmen. Damit kann die Wache nicht mehr laxer sein als der Transport und der Transport nicht
+// strenger als die Wache -- die Divergenz, aus der der Befund entstand, ist strukturell weg.
+//
+// WARUM VERENGEN STATT ESCAPEN (dieselbe Begruendung wie bei den Struktur-Zeichen, hier zusaetzlich
+// tragfaehig): ein Escaper braeuchte einen Unescaper, den niemand hat -- das Glied wird nirgends zerlegt,
+// nur gehasht und verglichen. Und er muesste in ZWEI Grammatiken gleichzeitig korrekt sein (@rsp UND
+// C-String-Literal des Makros), also genau die Doppel-Wahrheit, die dieses Fenster ueberall abbaut.
+//
+// EHRLICHE KONSEQUENZ, benannt statt verschwiegen: ein mehrteiliger Flag-String mit Leerzeichen wird ab
+// hier FAIL-LOUD abgelehnt. Das ist die gewollte Richtung -- die Achsen liefern ihre Flags heute als
+// EINEN Token ("-O3", "-Ofast", "-mcx16", "-march=x86-64-v3"); wer kuenftig mehrere braucht, rendert sie
+// whitespace-frei (z.B. komma-verbunden) und aendert damit bewusst ein Preimage-Byte, statt still ein
+// zerfallendes Compile-Argument zu bauen.
+//
+// '\v' und '\f' stehen ausdruecklich mit auf der Liste: sie sind isspace()-Whitespace und trennen in der
+// @rsp-Datei genauso wie ein Leerzeichen -- nur sieht man sie in keinem Log. Der Apostroph ebenso: er ist
+// in der @rsp-Grammatik ein KLAMMER-Zeichen (nicht nur '"'), also haette er die Argument-Grenzen
+// verschoben.
+inline constexpr std::string_view kToolchainGliedTransportZeichen = " \t\v\f\\\"'";
+
+/// NB-3/T2-D: die EINE Transport-Frage -- "reist dieser Text unzerlegt durch eine gcc-Response-Datei?".
+/// Sie wird von der Feld-Wache unten UND von der Define-Naht (toolchain_stamp_naht.hpp) gestellt.
+[[nodiscard]] constexpr bool toolchain_wert_ist_rsp_transportfaehig(std::string_view v) noexcept {
+    for (char const c : v) {
+        if (kToolchainGliedTransportZeichen.find(c) != std::string_view::npos) return false;
+    }
+    return true;
+}
+
+/// Ein WERT des Glieds ist wohlgeformt, wenn er kein Struktur-, kein Steuer- und kein Transport-Zeichen
+/// traegt. Die drei Verbote haben verschiedene Gruende (Zerlegbarkeit des Glieds, Domain-Separator der
+/// Glied-Folge, @rsp-Grammatik) und stehen deshalb als drei benannte Pruefungen da, nicht als eine Liste.
 [[nodiscard]] constexpr bool toolchain_wert_ist_wohlgeformt(std::string_view v) noexcept {
     for (char const c : v) {
         if (c == '\n' || c == '\r') return false;
         if (kToolchainGliedStrukturZeichen.find(c) != std::string_view::npos) return false;
     }
-    return true;
+    return toolchain_wert_ist_rsp_transportfaehig(v);
 }
 
 /// NB2-1: DIE ZWEI KLEBEPUNKTE DES cxx-FELDES. Der Renderer setzt es als
@@ -329,16 +411,21 @@ inline constexpr std::string_view kToolchainGliedStrukturZeichen = ";={}@";
            v.find(':') == std::string_view::npos;
 }
 
-/// NB2-1: der TREIBER-TAG reist VERBATIM ins Glied und muss deshalb selbst transportfaehig sein.
-/// Zusaetzlich zum Struktur-Zeichenvorrat verboten: ':' (der Klebepunkt, s. oben), Whitespace, Backslash
-/// und Anfuehrungszeichen -- die drei letzten wuerden das Argument in der gcc-Response-Datei (@rsp,
-/// build_orchestrator make_gpp_compile_fn) in mehrere Optionen zerlegen bzw. das C-String-Literal brechen.
-/// EHRLICHE GRENZE, benannt statt verschwiegen: ein Windows-Pfad-Treiber ("C:\\...") faellt damit fail-loud
-/// heraus. Das ist gewollt -- er koennte auf diesem Weg ohnehin nicht als Define reisen.
+/// NB2-1: der TREIBER-TAG reist VERBATIM ins Glied. Er traegt ZUSAETZLICH zur allgemeinen Feld-Wache das
+/// Verbot von ':' -- das ist der Klebepunkt zwischen Kopf und Tag (s. oben), und nur solange er im Tag
+/// nicht vorkommt, ist die Zerlegung des cxx-Feldes eindeutig.
+///
+/// NB-3/T2-D: die frueher HIER wiederholten Transport-Verbote (Whitespace, Backslash, Anfuehrungszeichen)
+/// stehen nicht mehr doppelt da -- sie gelten seit dem Transport-Zeichenvorrat oben fuer JEDEN Feldwert
+/// und werden ueber toolchain_wert_ist_wohlgeformt mitgeprueft. Zwei Listen desselben Verbots waeren genau
+/// die Sorte Kopie, aus der die Divergenzen dieses Fensters entstanden sind; erweitert wird ab jetzt an
+/// EINER Stelle (kToolchainGliedTransportZeichen), und die Erweiterung wirkt automatisch auf alle Felder.
+///
+/// EHRLICHE GRENZE, benannt statt verschwiegen: ein Windows-Pfad-Treiber ("C:\\...") faellt damit
+/// fail-loud heraus -- am ':' wie am Backslash. Das ist gewollt: er koennte auf diesem Weg ohnehin nicht
+/// als Define reisen.
 [[nodiscard]] constexpr bool toolchain_treiber_tag_ist_wohlgeformt(std::string_view v) noexcept {
-    for (char const c : v) {
-        if (c == ':' || c == ' ' || c == '\t' || c == '\\' || c == '"') return false;
-    }
+    if (v.find(':') != std::string_view::npos) return false;
     return toolchain_wert_ist_wohlgeformt(v);
 }
 
@@ -480,11 +567,14 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
             std::string{"fehlerklasse=stempel_injektivitaet: das Toolchain-Glied [5] kann nicht injektiv "
                         "gerendert werden -- das Feld '"} +
             std::string{feld} +
-            "' traegt ein STRUKTUR-Zeichen (';', '=', '{', '}', '@'), '-' bzw. ':' im Dialekt oder in der "
-            "Realversion, ':'/Whitespace/Backslash/Anfuehrungszeichen im Treiber-Tag oder einen "
-            "Zeilenumbruch. Zwei verschiedene Toolchain-Belegungen wuerden dann dasselbe Glied ergeben, "
-            "also denselben Fingerprint -- und damit einen falschen Skip. Den WERT korrigieren, nicht die "
-            "Wache.");
+            "' verletzt eine der drei Feld-Wachen. (1) STRUKTUR: ';', '=', '{', '}', '@' oder ein "
+            "Zeilenumbruch -- sie zerlegen das Glied bzw. die Glied-Folge. (2) TRANSPORT (gilt fuer JEDES "
+            "Feld, NB-3/T2-D): Whitespace inkl. '\\v'/'\\f', Backslash, Anfuehrungszeichen oder Apostroph -- "
+            "sie zerlegen das Define-Argument in der gcc-Response-Datei. (3) KLEBEPUNKTE: '-' und ':' im "
+            "Dialekt oder in der Realversion, ':' im Treiber-Tag -- sie machen die Zerlegung des "
+            "cxx-Feldes mehrdeutig. Zwei verschiedene Toolchain-Belegungen wuerden dann dasselbe Glied "
+            "ergeben, also denselben Fingerprint -- und damit einen falschen Skip. Den WERT korrigieren, "
+            "nicht die Wache.");
     if (std::string_view const feld = toolchain_stamp_parts_abhaengigkeits_diagnose(p); !feld.empty())
         throw std::invalid_argument(
             std::string{"fehlerklasse=stempel_unvollstaendig: das Toolchain-Glied [5] kann nicht gerendert "

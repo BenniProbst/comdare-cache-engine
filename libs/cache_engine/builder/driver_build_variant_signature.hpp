@@ -67,6 +67,25 @@ static_assert(kDriverBuildVariantSignature.size() <= ::comdare::cache_engine::ab
 static_assert(kDriverBuildVariantSignature.find('\n') == std::string_view::npos,
               "Das bvset-Glied darf den Domain-Separator '\\n' nicht enthalten.");
 
+// -- NB-3/T2-D: DIE PAAR-WACHE UEBER DIE VOLLEN REGISTRY-LISTEN ---------------------------------------
+//
+// build_variant_set_signature.hpp stellt die Namens-Eindeutigkeit fuer die Liste, die WIRKLICH emittiert
+// wird -- das ist die enabled Menge, und mehr kann ein registry-freier Header nicht sehen. Genau dort
+// bleibt aber eine Restluecke: zwei Wrapper mit demselben Namen, die sich per CMake-Flags gegenseitig
+// ausschliessen, stehen NIE zusammen in einer Enabled-Liste. Die enabled-Wache sieht dann je Bau nur
+// einen von beiden und schweigt -- waehrend die beiden Baue untereinander exakt kollidieren: gleiche
+// Namen, gleiche Felder, gleiche Signatur, seit Format 3 also gleicher Fingerprint und ein falscher Skip
+// GENAU ZWISCHEN DIESEN BEIDEN Konfigurationen. Der gefaehrlichste Fall ist damit der, den die untere
+// Ebene per Konstruktion nicht sehen kann.
+//
+// DIESER Header ist der erste Ort, an dem die VOLLEN Registry-Listen sichtbar sind (er zieht sie ohnehin
+// nach -- deshalb kostet die Wache keine neue Abhaengigkeit). Ueber All* geprueft, faellt ein Duplikat
+// auf, sobald es DEKLARIERT wird, unabhaengig von jeder Enable-Kombination. Das ist die Stelle, an der
+// die Zusage "der Name diskriminiert" wirklich gilt.
+COMDARE_BVSET_PAAR_WACHE(nodes::axis_01_page_type::AllPageTypes, "page_type (volle Registry)");
+COMDARE_BVSET_PAAR_WACHE(hardware::axis_09b_simd_extension::AllExtensions, "simd_extension (volle Registry)");
+COMDARE_BVSET_PAAR_WACHE(hardware::axis_12_general_hardware::AllPlatforms, "general_hardware (volle Registry)");
+
 /// Runtime-Naht fuer BuildConfig.build_variant_sig: liefert dieselbe CT-Konstante als std::string. Reine CT->RT-
 /// Materialisierung (erlaubte Richtung); es wird nichts abgeleitet, geparst oder geraten.
 [[nodiscard]] inline std::string driver_build_variant_signature() { return std::string{kDriverBuildVariantSignature}; }

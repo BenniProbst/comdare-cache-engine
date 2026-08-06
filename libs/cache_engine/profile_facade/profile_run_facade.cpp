@@ -319,20 +319,35 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
         !arg.empty())
         d.push_back(std::move(arg));
     // EINMALIGE Ehrlichkeits-Zeile, wenn die CT-Realversion den Tier-Treiber NICHT deckt (verschiedene
-    // Compiler fuer CEB und Tier-Bau). Dann traegt das Glied nur den Dialekt -- das ist korrekt, aber es
-    // soll im Trace stehen und nicht stumm passieren (Praezedenz der C-3a-Auflage: eine Identitaets-
-    // Entscheidung muss sichtbar sein). Der Hinweis haengt NICHT am Wert -- die Naht selbst bleibt rein.
+    // Compiler fuer CEB und Tier-Bau). Dann faellt aus dem Glied genau EIN Bestandteil weg -- die
+    // Versions-Behauptung; Dialekt UND Treiber-Tag bleiben drin. Das soll im Trace stehen und nicht stumm
+    // passieren (Praezedenz der C-3a-Auflage: eine Identitaets-Entscheidung muss sichtbar sein). Der
+    // Hinweis haengt NICHT am Wert -- die Naht selbst bleibt rein.
+    //
+    // NB-3/T2-D: DIESER TEXT WAR NACH NB2-1 FALSCH GEWORDEN. Er stammt aus NB/CX-4, wo das cxx-Feld
+    // tatsaechlich nur `<dialekt>[-<realversion>]` trug -- ohne Deckung blieb also wirklich "nur der
+    // Dialekt" uebrig, und genau daraus entstand der Fail-open-Fall (ii) des Codex-Zweitreviews: g++-17
+    // und g++-18 kollabierten auf dasselbe `cxx=gcc`. NB2-1 (R1) hat das geheilt -- der Treiber-Tag steht
+    // seither IMMER im Feld (`<dialekt>[-<realversion>]:<treiber-tag>`, abi/toolchain_stamp_glied.hpp).
+    // Der alte Satz haette einen Leser also ausgerechnet zu der Sorge zurueckgefuehrt, die der Code
+    // bereits ausgeraeumt hat: er las sich wie ein Verlust der Treiber-Unterscheidbarkeit. Eine
+    // Diagnose-Zeile, die den Ist-Stand falsch beschreibt, ist schlimmer als keine -- sie ist die einzige
+    // Quelle, aus der jemand im Trace ueberhaupt erfaehrt, WAS das Glied gerade behauptet.
     static bool gemeldet = false;
     if (!gemeldet) {
         gemeldet                  = true;
         std::string const treiber = pfn::active_cxx_driver_tag(); // dieselbe EINE Quelle wie cxx_compiler()
         if (!pfn::ct_realversion_deckt_treiber(treiber))
-            std::cerr << "[profile_facade] NB/CX-4: die compile-time erhobene Compiler-Realversion ('"
+            std::cerr << "[profile_facade] NB/CX-4 + NB2-1: die compile-time erhobene Compiler-Realversion ('"
                       << ::comdare::cache_engine::abi::kDetectedCompilerDialect << " "
                       << ::comdare::cache_engine::abi::kDetectedCompilerRealVersion
                       << "', die Toolchain DIESER CEB) deckt den Tier-Treiber '" << treiber
-                      << "' nicht beweisbar -- das Toolchain-Glied [5] traegt deshalb NUR den Dialekt, keine "
-                         "Realversion (fail-closed: lieber eine schwaechere wahre Aussage als eine ungedeckte).\n";
+                      << "' nicht beweisbar -- das Toolchain-Glied [5] traegt deshalb KEINE Realversions-"
+                         "Behauptung. Es traegt weiterhin Dialekt UND Treiber-Tag (cxx=<dialekt>:<treiber-tag>, "
+                         "NB2-1 Regel R1), verschiedene Treiber bleiben also unterscheidbar; weg faellt allein "
+                         "die ungedeckte Version (fail-closed: lieber eine schwaechere wahre Aussage als eine "
+                         "ungedeckte). Deckung gaebe es erst, wenn der Tag seine VOLLE Version selbst nennt "
+                         "(z.B. 'g++-15.3.0') und sie byte-gleich der CEB-Erhebung ist.\n";
     }
     return d;
 }

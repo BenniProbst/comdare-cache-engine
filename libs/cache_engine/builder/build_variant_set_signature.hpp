@@ -62,6 +62,56 @@ inline constexpr std::string_view kVariantSetSignatureStrukturZeichen = ";={}[]@
     return true;
 }
 
+// -- NB-3/T2-D: DIE PAARWEISE NAMENS-EINDEUTIGKEIT ---------------------------------------------------------------
+//
+// DER BEFUND (Codex-Zweitreview [MITTEL] "bvset paarweise Namens-Eindeutigkeit CT"): NB2-3 hat geprueft, dass ein
+// Name den Zeichenvorrat einhaelt -- also dass er die Signatur nicht ZERLEGT. Ungeprueft blieb die andere Haelfte
+// derselben Zusage: dass zwei VERSCHIEDENE Wrapper-Typen nicht denselben Namen tragen. Der Name ist genau deshalb
+// im Element, weil die Properties allein nicht diskriminieren (der Kommentar oben sagt es: "unterscheidet Wrapper,
+// deren Properties zufaellig gleich sind"). Tragen zwei Typen denselben Namen UND dieselben Feldwerte, dann rendert
+// die Enable-Menge {A} byte-identisch zu {B} -- zwei verschieden gebaute Treiber, eine Signatur, seit Format 3 also
+// derselbe Fingerprint und ein falscher Skip. Der Name als Diskriminator war damit eine Annahme, keine Zusage.
+//
+// WO DIE WACHE BEISST -- und wo ehrlicherweise nicht: sie laeuft ueber die Liste, die WIRKLICH emittiert wird
+// (dieselbe Doktrin wie COMDARE_BVSET_NAME_WACHE: nur was in eine Signatur wandert, muss etwas beweisen). Damit
+// faellt jedes Namens-Duplikat auf, dessen beide Traeger gleichzeitig enabled sind. Ein Duplikat, dessen Traeger
+// sich per CMake-Flags gegenseitig AUSSCHLIESSEN, sieht diese Ebene per Konstruktion nicht -- sie bekommt immer
+// nur eine der beiden Listen zu sehen. Genau diese Restluecke schliesst driver_build_variant_signature.hpp, indem
+// es die Wache zusaetzlich ueber die VOLLEN Registry-Listen (All*) stellt: dort sind beide Traeger gleichzeitig
+// sichtbar, unabhaengig davon, was gerade enabled ist. Zwei Ebenen, weil dieser Header registry-frei bleiben muss.
+//
+// LAUFZEIT-KOSTEN: keine. Der Vergleich ist O(n^2) ueber hoechstens eine Handvoll Registry-Eintraege und laeuft
+// ausschliesslich im konstanten Ausdruck.
+
+/// Sind die name()-Werte aller Listen-Elemente paarweise verschieden? Verglichen wird der TEXT, nicht der Zeiger:
+/// zwei Wrapper duerfen sehr wohl auf dasselbe Literal zeigen -- dann sind sie eben nicht unterscheidbar, und
+/// genau das soll auffallen.
+template <class L>
+[[nodiscard]] constexpr bool variant_set_signature_namen_paarweise_eindeutig() noexcept {
+    constexpr std::size_t                                  n = mp::mp_size<L>::value;
+    std::array<std::string_view, (n == 0 ? 1 : n)>          namen{};
+    std::size_t                                            i = 0;
+    mp::mp_for_each<mp::mp_transform<mp::mp_identity, L>>([&namen, &i](auto id) {
+        namen[i++] = std::string_view{decltype(id)::type::name()};
+    });
+    for (std::size_t a = 0; a + 1 < n; ++a) {
+        for (std::size_t b = a + 1; b < n; ++b) {
+            if (namen[a] == namen[b]) return false;
+        }
+    }
+    return true;
+}
+
+/// Die Paar-Wache je Achsen-Liste. ACHSE ist ein String-Literal, damit die Fehlerzeile die Achse beim Namen nennt --
+/// "irgendwo im bvset stehen zwei gleiche Namen" waere im 3-Achsen-Fall eine Suche statt eines Befundes.
+#define COMDARE_BVSET_PAAR_WACHE(L, ACHSE)                                                                             \
+    static_assert(                                                                                                     \
+        ::comdare::cache_engine::builder::experiment::variant_set_signature_namen_paarweise_eindeutig<L>(),             \
+        "NB-3/T2-D: zwei Registry-Wrapper der Achse " ACHSE " tragen denselben name(). Der Name ist der "               \
+        "Diskriminator, der Wrapper mit zufaellig gleichen Properties unterscheidet -- bei gleichem Namen UND "         \
+        "gleichen Feldern rendern zwei VERSCHIEDENE Enable-Mengen dieselbe bvset-Signatur, also seit Format 3 "         \
+        "denselben Fingerprint (falscher Skip). Den NAMEN eindeutig machen, nicht die Wache.")
+
 namespace detail {
 
 // -- Zwei-Pass-Senken: erst zaehlen (Laenge), dann fuellen (exakt dimensioniertes std::array). Beide Paesse laufen
@@ -170,6 +220,7 @@ constexpr void ct_put_hw_element(Sink& s) noexcept {
 
 template <class Sink, class PageList>
 constexpr void ct_put_page_group(Sink& s) noexcept {
+    COMDARE_BVSET_PAAR_WACHE(PageList, "page_type");
     ct_put_text(s, "page_type[");
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, PageList>>(
         [&s](auto id) { ct_put_page_element<Sink, typename decltype(id)::type>(s); });
@@ -178,6 +229,7 @@ constexpr void ct_put_page_group(Sink& s) noexcept {
 
 template <class Sink, class SimdList>
 constexpr void ct_put_simd_group(Sink& s) noexcept {
+    COMDARE_BVSET_PAAR_WACHE(SimdList, "simd_extension");
     ct_put_text(s, "simd_extension[");
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, SimdList>>(
         [&s](auto id) { ct_put_simd_element<Sink, typename decltype(id)::type>(s); });
@@ -186,6 +238,7 @@ constexpr void ct_put_simd_group(Sink& s) noexcept {
 
 template <class Sink, class HwList>
 constexpr void ct_put_hw_group(Sink& s) noexcept {
+    COMDARE_BVSET_PAAR_WACHE(HwList, "general_hardware");
     ct_put_text(s, "general_hardware[");
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, HwList>>(
         [&s](auto id) { ct_put_hw_element<Sink, typename decltype(id)::type>(s); });

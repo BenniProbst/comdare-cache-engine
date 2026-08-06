@@ -172,14 +172,48 @@ namespace comdare::cache_engine::profile_facade {
     return std::string{::comdare::cache_engine::builder::experiment::kDriverBuildVariantSignature};
 }
 
+// -- NB-3/T2-D: DIE TRANSPORT-NAHT SPRICHT DIESELBE SPRACHE WIE DIE WACHE ------------------------------
+//
+// DER BEFUND (Codex-Zweitreview [MITTEL] rsp-Zeichenvorrat, hier zu Ende gedacht): die beiden
+// Define-Argumente behaupteten in ihrem Kommentar, die Wertformen enthielten "weder Whitespace noch
+// Backslash", weil "die Injektivitaets-Wachen in abi/ das garantieren". Fuer den TRAEGER-Weg stimmte das
+// (abi::anatomy_glied_zeichen_erlaubt ist eine ALLOWLIST ohne Whitespace) -- nur laeuft der Bau-Kanal gar
+// nicht ueber einen Traeger: perm_stamp_glied_defines() reicht den frisch GERENDERTEN String direkt
+// hierher. Auf genau diesem Weg war die zugesagte Eigenschaft also unbewiesen; ein Wert mit Whitespace
+// waere in der @rsp-Datei in zwei Optionen zerfallen, und die Tier-Uebersetzung haette ein anderes
+// (oder gar kein) Stempel-Define bekommen als der Laufzeit-Zwilling.
+//
+// DIE AUFLOESUNG: die Behauptung wird zur PRUEFUNG, und zwar mit DEMSELBEN Praedikat, das der Traeger
+// benutzt (abi::injizierter_glied_wert_ist_wohlgeformt). Damit kann Transport-Erwartung und Wachen-Zusage
+// nicht mehr auseinanderlaufen -- es gibt nur noch eine Sprache und einen Ort, an dem sie definiert ist.
+// Die Feld-Ebene bleibt zusaetzlich schaerfer gegatet (abi/toolchain_stamp_glied.hpp,
+// kToolchainGliedTransportZeichen) -- das ist kein Widerspruch, sondern eine Verengung: sie nennt das
+// verletzende FELD beim Namen, bevor ueberhaupt ein Glied entsteht.
+
+/// Die gemeinsame Transport-Wache beider Define-Argumente. FAIL-LOUD mit benannter Fehlerklasse: ein
+/// stilles Weglassen des Defines waere das Schlimmste -- die Tier-Binary bekaeme dann einen ANDEREN
+/// Fingerprint einkompiliert als den, den die CEB fuer sie erwartet, und wuerde nie wieder gefunden.
+inline void require_define_arg_transportfaehig(std::string_view define_name, std::string_view werte) {
+    if (::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(werte)) return;
+    throw std::invalid_argument(
+        std::string{"fehlerklasse=stempel_transport: die Wertform fuer "} + std::string{define_name} +
+        " verletzt die Injektivitaets-/Transport-Wache der injizierten Preimage-Glieder. Sie reist als EIN "
+        "Argument durch eine gcc-Response-Datei (@rsp); Whitespace, Backslash oder Anfuehrungszeichen "
+        "wuerden sie dort in mehrere Optionen zerlegen, und die Tier-Uebersetzung bekaeme einen anderen "
+        "Stempel als der CEB-Laufzeit-Zwilling. Den WERT korrigieren, nicht die Wache. Wert: '" +
+        std::string{werte} + "'");
+}
+
 /// Das Compiler-Argument, das die Wertform als C-STRING-LITERAL in die Tier-Uebersetzung traegt.
 /// Escaping-Begruendung wortgleich zur Zellwert-Naht: die Argumente reisen ueber eine gcc-Response-Datei
 /// (@rsp, build_orchestrator make_gpp_compile_fn), dort trennt Whitespace die Optionen und ein Backslash
-/// schuetzt das naechste Zeichen. Beide Wertformen enthalten weder Whitespace noch Backslash (die
-/// Injektivitaets-Wachen in abi/ garantieren das compile- bzw. laufzeit-hart), also reicht das Escapen der
-/// beiden Anfuehrungszeichen. LEERE Wertform => LEERES Argument => kein Define => Identitaet.
+/// schuetzt das naechste Zeichen. Dass beide Wertformen weder Whitespace noch Backslash noch
+/// Anfuehrungszeichen tragen, ist ab NB-3/T2-D GEPRUEFT statt angenommen (s. Abschnitt oben) -- deshalb
+/// reicht das Escapen der beiden Anfuehrungszeichen, die das Makro selbst braucht.
+/// LEERE Wertform => LEERES Argument => kein Define => Identitaet.
 [[nodiscard]] inline std::string toolchain_stamp_glied_define_arg(std::string_view werte) {
     if (werte.empty()) return {};
+    require_define_arg_transportfaehig("COMDARE_TOOLCHAIN_STAMP_GLIED", werte);
     std::string out = "-DCOMDARE_TOOLCHAIN_STAMP_GLIED=\\\"";
     out += werte;
     out += "\\\"";
@@ -189,6 +223,7 @@ namespace comdare::cache_engine::profile_facade {
 /// Spiegel fuer das bvset-Glied [6].
 [[nodiscard]] inline std::string build_variant_set_signature_define_arg(std::string_view werte) {
     if (werte.empty()) return {};
+    require_define_arg_transportfaehig("COMDARE_BUILD_VARIANT_SET_SIGNATURE", werte);
     std::string out = "-DCOMDARE_BUILD_VARIANT_SET_SIGNATURE=\\\"";
     out += werte;
     out += "\\\"";

@@ -1,5 +1,9 @@
 // Querschnitt M -- W12-A (Section43): X.Y.Z-Parse-Helfer (Inkrement 2) + Planer-Selbst-Stempel (Inkrement 3).
-// Leichte TU (keine Registries): verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
+// Leichte TU: verifiziert die isolierten Stempel-Bausteine + ihre Byte-Trennung zur .algos-Welt.
+// EHRLICHKEITS-NACHZUG (NB-3/T2-D): der Kopf sagte "keine Registries". Das stimmt seit NB/CX-4 nicht mehr --
+// profile_facade/toolchain_stamp_naht.hpp zieht driver_build_variant_signature.hpp und damit die drei
+// Build-Achsen-Registries samt CMake-generierter Flags-Header nach. Die Abhaengigkeit ist ab hier EXPLIZIT
+// inkludiert statt transitiv geerbt; die Beschreibung nennt den Ist-Stand.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // W12-A3: AnatomyVersionLines-POD-Layout-Wache
 #include <cache_engine/abi/anatomy_fingerprint.hpp>        // K7b-3: anatomy_fingerprint_hex (A13-M3: 3 Stempel-Zeilen)
@@ -18,7 +22,12 @@
 #include <profile_facade/system_version_suffix.hpp> // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
 #include <profile_facade/toolchain_stamp_naht.hpp> // NB/CX-4: die LIVE-Naht der Glieder [5]/[6]
 
+#include "builder/build_variant_set_signature.hpp"  // NB-3/T2-D: die Paar-Wache (Praedikat-Haelfte)
+#include "builder/driver_build_variant_signature.hpp" // NB-3/T2-D: die realen Registry-Listen (All*)
+
 #include <gtest/gtest.h>
+
+#include <boost/mp11.hpp> // NB-3/T2-D: mp_list fuer die synthetischen Negativ-Listen
 
 #include <algorithm>
 #include <array>
@@ -28,6 +37,7 @@
 #include <stdexcept> // NB/CX-1/CX-2: die Injektivitaets-Wachen sind FAIL-LOUD (std::invalid_argument)
 #include <string>
 #include <string_view>
+#include <type_traits> // NB-3/T2-D: is_constructible_v-Beweis des geloeschten Rvalue-Konstruktors
 #include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
 namespace m  = ::comdare::cache_engine::measurement;
@@ -1319,6 +1329,151 @@ TEST(MW12StampBausteine, Nb23BvsetNamensWacheFaengtStrukturzeichen) {
     //     dass die Bestands-Namen die Wache real bestehen (sonst haette der Bau schon gebrochen).
     EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(
         bx::kDriverBuildVariantSignature));
+}
+
+namespace {
+// NB-3/T2-D: SYNTHETISCHE Registry-Wrapper fuer die Negativ-Probe der Paar-Wache. Sie muessen synthetisch
+// sein: die realen Registries sind (per compile-harter Wache) eindeutig, an ihnen liesse sich der
+// Kollisions-Fall gar nicht mehr herstellen. Nur name() wird gebraucht -- die Paar-Wache liest sonst
+// nichts vom Typ.
+struct T2dDupA {
+    static constexpr std::string_view name() { return "dup"; }
+};
+struct T2dDupB {
+    static constexpr std::string_view name() { return "dup"; }
+};
+struct T2dUniq {
+    static constexpr std::string_view name() { return "uniq"; }
+};
+} // namespace
+
+// -- NB-3/T2-D (1): DIE PAARWEISE NAMENS-EINDEUTIGKEIT DES bvset-GLIEDS -------------------------------
+// NB2-3 hat geprueft, dass ein Name die Signatur nicht ZERLEGT. Die andere Haelfte derselben Zusage --
+// dass der Name ueberhaupt DISKRIMINIERT -- war offen: zwei verschiedene Wrapper mit gleichem Namen und
+// gleichen Feldern lassen {A} und {B} byte-identisch rendern. Seit Format 3 ist das ein gleicher
+// Fingerprint fuer zwei verschieden gebaute Treiber (falscher Skip). Die Wache selbst ist compile-hart
+// (static_assert je emittierter Liste UND je voller Registry-Liste); hier steht das Praedikat.
+TEST(MW12StampBausteine, Nb3T2dBvsetNamenSindPaarweiseEindeutig) {
+    namespace bx = ::comdare::cache_engine::builder::experiment;
+    namespace mp = ::boost::mp11;
+
+    // (1) Der Kollisions-Fall, um den es geht: zwei VERSCHIEDENE Typen, EIN Name.
+    EXPECT_FALSE((bx::variant_set_signature_namen_paarweise_eindeutig<mp::mp_list<T2dDupA, T2dDupB>>()));
+    // (2) Er faellt auch auf, wenn er in einer laengeren Liste versteckt sitzt (die Pruefung ist paarweise,
+    //     nicht bloss "Nachbarn vergleichen").
+    EXPECT_FALSE((bx::variant_set_signature_namen_paarweise_eindeutig<mp::mp_list<T2dDupA, T2dUniq, T2dDupB>>()));
+    // (3) Verschiedene Namen passieren -- die Wache ist DIGEST-NEUTRAL.
+    EXPECT_TRUE((bx::variant_set_signature_namen_paarweise_eindeutig<mp::mp_list<T2dDupA, T2dUniq>>()));
+    // (4) Die Rand-Kardinalitaeten: leer und einelementig sind trivial eindeutig (kein Paar existiert).
+    EXPECT_TRUE((bx::variant_set_signature_namen_paarweise_eindeutig<mp::mp_list<>>()));
+    EXPECT_TRUE((bx::variant_set_signature_namen_paarweise_eindeutig<mp::mp_list<T2dUniq>>()));
+    // (5) Die REALEN Registries dieses Treibers -- volle Listen, nicht bloss die enabled Menge. Diese
+    //     Zeilen sind zugleich der Beweis, dass die compile-harte Wache in
+    //     driver_build_variant_signature.hpp nicht auf einer leeren Menge trivial gruen ist.
+    EXPECT_TRUE((bx::variant_set_signature_namen_paarweise_eindeutig<
+                 ::comdare::cache_engine::nodes::axis_01_page_type::AllPageTypes>()));
+    EXPECT_TRUE((bx::variant_set_signature_namen_paarweise_eindeutig<
+                 ::comdare::cache_engine::hardware::axis_09b_simd_extension::AllExtensions>()));
+    EXPECT_TRUE((bx::variant_set_signature_namen_paarweise_eindeutig<
+                 ::comdare::cache_engine::hardware::axis_12_general_hardware::AllPlatforms>()));
+    EXPECT_GT((mp::mp_size<::comdare::cache_engine::nodes::axis_01_page_type::AllPageTypes>::value), 1u);
+}
+
+// -- NB-3/T2-D (2): DER TRANSPORT-ZEICHENVORRAT GILT FUER JEDES FELD ----------------------------------
+// Vor T2-D garantierte die Wache die @rsp-Transportfaehigkeit nur fuer den TREIBER-TAG. Mit den
+// per-Perm-Feldern (opt_flags aus der optxsimd-Schleife) wird ein mehrteiliger Flag-String realistisch --
+// und der haette das Define-Argument in der Response-Datei in ZWEI Optionen zerlegt.
+TEST(MW12StampBausteine, Nb3T2dTransportZeichenvorratGiltFuerJedesFeld) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (1) Das Praedikat selbst: jedes Transport-Zeichen einzeln, inkl. der unsichtbaren.
+    for (std::string_view const boese : {"a b", "a\tb", "a\vb", "a\fb", "a\\b", "a\"b", "a'b"})
+        EXPECT_FALSE(abi::toolchain_wert_ist_rsp_transportfaehig(boese)) << "wert='" << boese << "'";
+    for (std::string_view const gut : {"-O3", "-mcx16", "-march=x86-64-v3", "g++-16", "8.0"})
+        EXPECT_TRUE(abi::toolchain_wert_ist_rsp_transportfaehig(gut)) << "wert='" << gut << "'";
+
+    // (2) Die Verengung wirkt auf ALLE Felder, nicht nur auf den Tag -- der Renderer nennt das Feld.
+    abi::ToolchainStampParts p{};
+    p.cxx_dialect = "gcc";
+    p.cxx_driver  = "g++-16";
+    p.opt         = "O3";
+    p.opt_flags   = "-O3 -funroll-loops"; // genau der Fall, den die Teil-2-Welle heraufbeschwoert
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(p), std::string_view{"opt_flags"});
+    EXPECT_THROW((void)abi::render_toolchain_stamp_glied(p), std::invalid_argument);
+
+    // (3) Whitespace-frei gerendert passiert derselbe Inhalt -- die gewollte Ausweichform.
+    p.opt_flags = "-O3,-funroll-loops";
+    EXPECT_EQ(abi::toolchain_stamp_parts_diagnose(p), std::string_view{});
+    EXPECT_NO_THROW((void)abi::render_toolchain_stamp_glied(p));
+
+    // (4) DIGEST-NEUTRALITAET: die heutige einteilige Flag-Form bleibt unveraendert zulaessig.
+    p.opt_flags = "-O3";
+    EXPECT_NE(abi::render_toolchain_stamp_glied(p).find("opt=O3{-O3}"), std::string::npos);
+}
+
+// -- NB-3/T2-D (3): DIE TRANSPORT-NAHT PRUEFT, STATT ZU BEHAUPTEN -------------------------------------
+// Der Bau-Kanal (perm_stamp_glied_defines) reicht den frisch GERENDERTEN String direkt an die
+// Define-Naht -- er laeuft also gar nicht durch einen Traeger. Auf genau diesem Weg war die zugesagte
+// Transport-Eigenschaft unbewiesen.
+TEST(MW12StampBausteine, Nb3T2dDefineNahtIstFailLoud) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    namespace bx  = ::comdare::cache_engine::builder::experiment;
+
+    // (1) LEER bleibt LEER -- kein Define, also die Identitaet (unveraendert).
+    EXPECT_EQ(pfn::toolchain_stamp_glied_define_arg(""), std::string{});
+    EXPECT_EQ(pfn::build_variant_set_signature_define_arg(""), std::string{});
+
+    // (2) Ein Wert mit Whitespace wird ABGELEHNT statt still zerlegt zu werden -- beide Nahtstellen.
+    EXPECT_THROW((void)pfn::toolchain_stamp_glied_define_arg("tc=1;opt=O3{-O3 -x}"), std::invalid_argument);
+    EXPECT_THROW((void)pfn::build_variant_set_signature_define_arg("bvset=1;page_type[{a b}]"),
+                 std::invalid_argument);
+
+    // (3) Die LEBENDEN Werte passieren -- die Naht ist digest-neutral fuer den realen Bau.
+    EXPECT_NO_THROW((void)pfn::toolchain_stamp_glied_define_arg(pfn::compose_live_toolchain_stamp_glied()));
+    EXPECT_NO_THROW((void)pfn::build_variant_set_signature_define_arg(bx::kDriverBuildVariantSignature));
+}
+
+// -- NB-3/T2-D (4): TRAEGER-LEBENSDAUER UND VOLL-WACHE BEIM GEBRAUCH ----------------------------------
+// Die Traeger halten eine SICHT. Die Konstruktor-Wache beweist etwas ueber den Wert ZUM ZEITPUNKT DER
+// KONSTRUKTION -- gehasht wird er spaeter. Beide Loecher werden getrennt geschlossen.
+TEST(MW12StampBausteine, Nb3T2dTraegerLebensdauerUndVollWache) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // (a) DANGLING: ein Temporary kann sich nicht mehr an einen Traeger binden (compile-hart). Lvalues,
+    //     also der Normalfall einer benannten Variable, die den Aufruf ueberlebt, bleiben zulaessig.
+    static_assert(!std::is_constructible_v<abi::ToolchainGlied, std::string&&>);
+    static_assert(!std::is_constructible_v<abi::BvsetGlied, std::string&&>);
+    static_assert(!std::is_constructible_v<abi::OverlayHash, std::string&&>);
+    static_assert(std::is_constructible_v<abi::ToolchainGlied, std::string&>);
+    static_assert(std::is_constructible_v<abi::ToolchainGlied, std::string_view>);
+
+    // (b) SPAETE MUTATION: der Puffer HINTER der Sicht aendert sich nach der Pruefung. Die Voll-Wache in
+    //     anatomy_fingerprint_glieder() steht unmittelbar vor dem Preimage -- zwischen ihr und dem Hash
+    //     liegt kein Aufrufer mehr.
+    std::string wert = "tc=1";
+    abi::ToolchainGlied const tc{wert}; // Konstruktor-Wache: wohlgeformt
+    EXPECT_NO_THROW((void)abi::anatomy_fingerprint_glieder("O", "S", "M", tc));
+    wert[2] = '\n'; // der Domain-Separator, nachtraeglich eingeschleust
+    EXPECT_THROW((void)abi::anatomy_fingerprint_glieder("O", "S", "M", tc), std::invalid_argument);
+}
+
+// -- NB-3/T2-D (5): DIE FELD-ORDNUNG VON ToolchainStampParts IST BEWIESEN -----------------------------
+// NB2-1 hatte cxx_driver als DRITTES Feld EINGESCHOBEN. Ein Aggregat ist positionell initialisierbar --
+// ein Bestands-Aufruf haette danach still um eins verschoben belegt. Die Ordnungs-Wache steht als
+// static_assert am Struct; hier steht die lesbare Haelfte: cxx_driver ist das LETZTE Feld.
+TEST(MW12StampBausteine, Nb3T2dFeldOrdnungCxxDriverStehtAmEnde) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    // Positionelle Belegung der ersten vier Felder -- die Ordnung, nach der Bestands-Aufrufer lesen.
+    abi::ToolchainStampParts const p{"gcc", "15.3.0", "O3", "-O3"};
+    EXPECT_EQ(p.cxx_dialect, std::string_view{"gcc"});
+    EXPECT_EQ(p.cxx_realversion, std::string_view{"15.3.0"});
+    EXPECT_EQ(p.opt, std::string_view{"O3"});
+    EXPECT_EQ(p.opt_flags, std::string_view{"-O3"});
+    EXPECT_TRUE(p.cxx_driver.empty()) << "cxx_driver muss das LETZTE Feld sein -- neue Felder werden "
+                                         "ANGEHAENGT, nie eingeschoben.";
+    // Und die Abhaengigkeits-Diagnose sieht genau das: ein Dialekt ohne Treiber-Tag ist unvollstaendig.
+    EXPECT_EQ(abi::toolchain_stamp_parts_abhaengigkeits_diagnose(p), std::string_view{"cxx_dialect"});
 }
 
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------
