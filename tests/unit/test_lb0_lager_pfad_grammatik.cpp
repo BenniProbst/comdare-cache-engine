@@ -21,6 +21,7 @@
 
 #include "bestandslog/lager_baum_writer.hpp"
 #include "bestandslog/lager_pfad_grammatik.hpp"
+#include "comdare_test_tmp.hpp"           // #278/#24 + Posten 69: per-User-/per-Build-Temp-Wurzel
 #include "support/oeb_stempel_zeilen.hpp" // OE-B-Stempel-Fixture + split_lines + Ruecklese (LB-6)
 
 #include <cache_engine/abi/system_axis_order.hpp>
@@ -117,10 +118,18 @@ std::vector<bl::AchsenWert> system_drei() {
 std::string hex128(char c) { return std::string(128, c); }
 
 // Ein Temp-Verzeichnis je Test (OE-B-Dummy-Lager).
+//
+// POSTEN 69 / #278/#24 (nachgezogen 2026-08-06): die Wurzel kommt aus comdare::test::user_tmp_dir(),
+// nicht direkt aus temp_directory_path(). Ein fester Name direkt unter /tmp ist fuer JEDEN User und
+// JEDEN Worktree dieselbe Adresse; der Konstruktor raeumt sie per remove_all leer, also loeschten
+// zwei gleichzeitig laufende ctest-Laeufe desselben Users einander mitten im Test die Dateien
+// (genau die Flake-Klasse, wegen der comdare_test_tmp.hpp ueberhaupt existiert -- diese TU hatte die
+// Haus-Regel bisher nicht befolgt). user_tmp_dir() liegt weiterhin UNTER temp_directory_path(): die
+// Repo-/Golden-Neutralitaet der TU aendert sich dadurch nicht.
 class TempLager {
 public:
     TempLager() {
-        auto const basis = fs::temp_directory_path() / "comdare_lb0_lager";
+        auto const basis = ::comdare::test::user_tmp_dir() / "comdare_lb0_lager";
         fs::remove_all(basis);
         fs::create_directories(basis);
         pfad_ = basis.string();

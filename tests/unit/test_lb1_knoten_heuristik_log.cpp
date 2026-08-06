@@ -17,6 +17,7 @@
 
 #include "bestandslog/knoten_heuristik_log.hpp"
 #include "bestandslog/lager_baum_writer.hpp"
+#include "comdare_test_tmp.hpp"           // #278/#24 + Posten 69: per-User-/per-Build-Temp-Wurzel
 #include "support/oeb_stempel_zeilen.hpp" // OE-B-Stempel-Fixture + split_lines + Ruecklese (LB-6)
 
 #include <cache_engine/abi/anatomy_fingerprint.hpp> // OF-M3-2: das Overlay-Glied, heute ehrlich leer
@@ -24,6 +25,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -32,6 +35,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
@@ -105,10 +109,32 @@ bl::KnotenLog frisches_log() {
     return l;
 }
 
+// Ein Log, das die 4-KB-Schwelle SICHER ueberschreitet (jedes Blatt ist ueber 150 Byte).
+// Bis 2026-08-06 protected static in TruncateZustandsmaschine; seit LB-6 hier, weil der
+// Nebenlaeufigkeits-Abschnitt (7) dasselbe Log braucht und kein Fixture-Erbe ist.
+[[nodiscard]] bl::KnotenLog grosses_log() {
+    bl::KnotenLog l = frisches_log();
+    for (int i = 0; i < 40; ++i) {
+        std::string key(128, 'a');
+        key[0]       = static_cast<char>('0' + (i % 10));
+        key[1]       = static_cast<char>('a' + (i / 10));
+        auto const e = bl::beobachte_blatt(l, bl::KnotenBlatt{key, bl::Genus::binary, "2026-08-03T12:00:00Z"});
+        (void)e;
+    }
+    return l;
+}
+
 class TempKnoten {
 public:
+    // POSTEN 69 / #278/#24: die Wurzel kommt aus comdare::test::user_tmp_dir(), nicht direkt aus
+    // temp_directory_path(). Ein fester Name direkt unter /tmp ist je uid UND je Worktree
+    // dieselbe Adresse -- der Konstruktor raeumt sie per remove_all leer, und zwei gleichzeitig
+    // laufende ctest-Laeufe (zwei Worktrees desselben Users) loeschten einander mitten im Test die
+    // Dateien. Fuer den Nebenlaeufigkeits-Abschnitt (7) ist das keine Theorie mehr: er faehrt zwei
+    // echte Threads auf DIESEM Verzeichnis. user_tmp_dir() liegt weiterhin unter
+    // temp_directory_path() -- die Golden-/Repo-Neutralitaet der TU aendert sich dadurch nicht.
     TempKnoten() {
-        auto const basis = fs::temp_directory_path() / "comdare_lb1_knoten";
+        auto const basis = ::comdare::test::user_tmp_dir() / "comdare_lb1_knoten";
         fs::remove_all(basis);
         fs::create_directories(basis);
         pfad_ = basis.string();
@@ -332,19 +358,10 @@ class TruncateZustandsmaschine : public ::testing::Test {
 protected:
     FakeAblage f;
     SkriptUhr  uhr;
-
-    // Ein Log, das die 4-KB-Schwelle SICHER ueberschreitet (jedes Blatt ist ueber 150 Byte).
-    [[nodiscard]] static bl::KnotenLog grosses_log() {
-        bl::KnotenLog l = frisches_log();
-        for (int i = 0; i < 40; ++i) {
-            std::string key(128, 'a');
-            key[0]       = static_cast<char>('0' + (i % 10));
-            key[1]       = static_cast<char>('a' + (i / 10));
-            auto const e = bl::beobachte_blatt(l, bl::KnotenBlatt{key, bl::Genus::binary, "2026-08-03T12:00:00Z"});
-            (void)e;
-        }
-        return l;
-    }
+    // grosses_log() stand bis 2026-08-06 HIER als protected static. Seit LB-6 braucht ihn auch der
+    // Nebenlaeufigkeits-Abschnitt (7), der KEIN Fixture-Erbe ist -- er ist deshalb in den anonymen
+    // Namensraum oben gewandert statt ein zweites Mal hingeschrieben zu werden. Die Aufrufe in den
+    // TEST_F-Rumpfen darunter sind unveraendert (unqualifizierte Namenssuche findet ihn dort).
 };
 
 TEST_F(TruncateZustandsmaschine, BuildEndeIstDerRegelfallUndErhaeltDieZaehlung) {
@@ -630,4 +647,195 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndHeuteLEER) {
     // Und der Anker des Knoten-Logs ist genau die Form dieses Fingerprints -- keine Zweitrechnung.
     EXPECT_TRUE(bl::ist_fingerprint_hex(hex128('a')));
     EXPECT_FALSE(bl::ist_fingerprint_hex(std::string(127, 'a')));
+}
+
+// ===========================================================================
+// (7) ECHTE DATEISYSTEM-KONKURRENZ -- zwei bzw. vier OS-Threads auf EINEM Knoten (LB-6).
+//
+// BEFUND, DER DIESEN ABSCHNITT ERZWINGT: der Bestands-Konkurrenz-Test
+// TruncateZustandsmaschine.ZweiSchreiberKonkurrenzGenauEinerTruncatet... laeuft auf FakeAblage
+// (In-Memory) und ist SEQUENZIELL VERSCHACHTELT -- der "zweite Schreiber" ist ein Aufruf INNERHALB
+// des ersten, auf demselben Thread. Er belegt die Zustandslogik, aber kein einziges Byte davon
+// beruehrt je ein Dateisystem und kein einziger Befehl laeuft je gleichzeitig. LB-6 verlangt einen
+// Spin-Lock-Konkurrenz-Test; hier fahren echte std::thread gegen make_filesystem_ablage().
+//
+// WAS HIER BEWUSST NICHT BEHAUPTET WIRD: wechselseitiger Ausschluss. bestandslog_lock.hpp sagt in
+// seinem Kopf ausdruecklich, dass mc/S3 mit den Bordmitteln des Hauses KEIN CAS bieten und ein
+// Rest-Race-Fenster bleibt (store -> Zweit-Verify ist kein atomarer Vergleich-und-Setze). Ein Test,
+// der Mutual Exclusion behauptet, behauptete also etwas, das das Design gar nicht verspricht -- er
+// waere ein Flake-Erzeuger, kein Beweis. Gemessen wird stattdessen die Zusage, die das Design
+// WIRKLICH gibt: Kollisionen sind UNSCHAEDLICH (idempotente, byte-gleiche Schreibvorgaenge). Der
+// beobachtete Ueberlappungsgrad wird als Test-Property protokolliert, nicht assertiert.
+// ===========================================================================
+namespace {
+
+/// Ein Log fuer einen konkreten (Temp-)Knoten -- dieselben 40 Blaetter, nur mit anderem Knoten-Pfad.
+[[nodiscard]] bl::KnotenLog grosses_log_fuer(std::string const& knoten) {
+    bl::KnotenLog l = grosses_log();
+    l.knoten        = knoten;
+    return l;
+}
+
+/// Der Endstand, den ein VOLLZOGENER Truncate hinterlaesst: Blatt-Liste fort, Zaehlung erhalten,
+/// abgeschlossen=1, Crash-Marke geloescht (knoten_heuristik_log.hpp, Schritt 2).
+[[nodiscard]] std::string erwartete_inventarisierte_bytes(std::string const& knoten, std::string const& stand_utc) {
+    bl::KnotenLog l   = grosses_log_fuer(knoten);
+    l.blaetter        = {};
+    l.stand_utc       = stand_utc;
+    l.abgeschlossen   = true;
+    l.inventur_laeuft = false;
+    return bl::emit_knoten_log(l);
+}
+
+/// Ein Truncate-Zyklus im gelockten Abschnitt. Liefert true == Arbeit gelungen (Vertrag von fn).
+bool truncate_im_abschnitt(bl::BaumAblage const& ablage, std::string const& knoten,
+                           bl::AlleinschreiberNachweis const& n, std::atomic<int>& truncates) {
+    bl::KnotenLogOffen offen{grosses_log_fuer(knoten)};
+    auto               s = std::move(offen).schluss_build_ende(n);
+    if (!s) return false;
+    if (s->truncate_und_inventarisiere(ablage, n, "2026-08-03T13:00:00Z").ok())
+        truncates.fetch_add(1, std::memory_order_relaxed);
+    return true;
+}
+
+/// Warten mit FRIST: ein Test darf nie haengen. Liefert false, wenn die Frist verstrich.
+[[nodiscard]] bool warte_auf(std::atomic<bool> const& flagge, std::chrono::seconds budget) {
+    auto const frist = std::chrono::steady_clock::now() + budget;
+    while (!flagge.load(std::memory_order_acquire)) {
+        if (std::chrono::steady_clock::now() > frist) return false;
+        std::this_thread::yield();
+    }
+    return true;
+}
+
+} // namespace
+
+TEST(Lb1DateisystemKonkurrenz, ZweiEchteThreadsGenauEinerTruncatetDieZaehlungBleibtKonsistent) {
+    TempKnoten        temp;
+    auto const        ablage = bl::make_filesystem_ablage();
+    std::string const knoten = temp.pfad() + "/" + std::string{kKnoten};
+    ASSERT_TRUE(ablage.verzeichnis_anlegen(knoten));
+
+    // KEINE Skript-Uhr hier: zwei Threads teilten sich sonst ein und dasselbe beschreibbare int64
+    // (SkriptUhr::jetzt) -- das waere ein Datenrennen im TEST selbst. system_now_epoch_s ist
+    // zustandslos. Die Frist-Wache misst damit echte Sekunden gegen budget=30 (kSectionBudgetSeconds).
+    bl::NowFn const uhr = [] { return bl::system_now_epoch_s(); };
+
+    std::atomic<int>  truncates{0};
+    std::atomic<bool> a_haelt{false};  // A ist IM Abschnitt
+    std::atomic<bool> b_fertig{false}; // B hat seinen Versuch hinter sich
+    std::atomic<bool> b_wartezeit_ok{true};
+    auto              o_a = bl::LockOutcome::deadline_exceeded; // bewusst KEINE der Erwartungen
+    auto              o_b = bl::LockOutcome::deadline_exceeded;
+
+    std::thread ta([&] {
+        o_a = bl::mit_knoten_lock(ablage, knoten, owner("uuid-a"), uhr, [&](bl::AlleinschreiberNachweis const& n) {
+            a_haelt.store(true, std::memory_order_release);
+            // A HAELT den Lock, bis B seinen Versuch wirklich hinter sich hat. Ohne dieses Warten
+            // waere die Konkurrenz nur behauptet: B koennte vollstaendig NACH A's Freigabe laufen,
+            // und der Test faerbte sich gruen, ohne je eine Ueberschneidung gesehen zu haben.
+            if (!warte_auf(b_fertig, std::chrono::seconds{20})) b_wartezeit_ok.store(false);
+            return truncate_im_abschnitt(ablage, knoten, n, truncates);
+        });
+    });
+    std::thread tb([&] {
+        if (!warte_auf(a_haelt, std::chrono::seconds{20})) b_wartezeit_ok.store(false);
+        o_b = bl::mit_knoten_lock(ablage, knoten, owner("uuid-b"), uhr, [&](bl::AlleinschreiberNachweis const& n) {
+            return truncate_im_abschnitt(ablage, knoten, n, truncates);
+        });
+        b_fertig.store(true, std::memory_order_release);
+    });
+    ta.join();
+    tb.join();
+
+    ASSERT_TRUE(b_wartezeit_ok.load()) << "Die Ueberschneidung kam nicht zustande -- ohne sie ist der Test wertlos";
+    EXPECT_EQ(o_a, bl::LockOutcome::ok) << bl::to_string(o_a);
+    EXPECT_EQ(o_b, bl::LockOutcome::lock_unavailable)
+        << "Ein zweiter Schreiber betritt den Knoten NICHT, solange A ihn haelt -- gemeldet: " << bl::to_string(o_b);
+    EXPECT_EQ(truncates.load(), 1) << "GENAU EINER truncatet";
+
+    // Der Lock ist auf beiden Wegen freigegeben (RAII bzw. nie erworben).
+    EXPECT_FALSE(fs::exists(fs::path{bl::lock_key_for(bl::knoten_log_pfad(knoten))}));
+    // Und auf der Platte steht die inventarisierte Form -- byte-genau die eines ungestoerten Laufs.
+    auto const roh = ct::lies_blatt_datei(fs::path{bl::knoten_log_pfad(knoten)});
+    ASSERT_TRUE(roh.has_value());
+    EXPECT_EQ(*roh, erwartete_inventarisierte_bytes(knoten, "2026-08-03T13:00:00Z"));
+    auto const ladung = bl::lade_knoten_log(ablage, knoten);
+    ASSERT_TRUE(ladung.ok()) << bl::to_string(ladung.fehler);
+    EXPECT_TRUE(ladung.log.abgeschlossen);
+    EXPECT_FALSE(ladung.log.inventur_laeuft) << "keine haengengebliebene Crash-Marke";
+    EXPECT_EQ(ladung.log.binaries, 40u) << "Die Zaehlung bleibt konsistent (kein Doppel-Zaehlen)";
+    EXPECT_TRUE(ladung.log.blaetter.empty());
+}
+
+TEST(Lb1DateisystemKonkurrenz, SpinKonkurrenzVierThreadsKonvergiertAufEinByteIdentischesLog) {
+    TempKnoten        temp;
+    auto const        ablage = bl::make_filesystem_ablage();
+    std::string const knoten = temp.pfad() + "/" + std::string{kKnoten};
+    ASSERT_TRUE(ablage.verzeichnis_anlegen(knoten));
+    bl::NowFn const uhr = [] { return bl::system_now_epoch_s(); };
+
+    constexpr int    kThreads = 4;
+    std::atomic<int> gewonnen{0}, abgewiesen{0}, dritte_klasse{0}, truncates{0};
+    std::atomic<int> drin{0}, drin_max{0};
+
+    std::vector<std::thread> mannschaft;
+    mannschaft.reserve(kThreads);
+    for (int i = 0; i < kThreads; ++i) {
+        mannschaft.emplace_back([&, i] {
+            auto const frist = std::chrono::steady_clock::now() + std::chrono::seconds{20};
+            for (;;) {
+                auto const o = bl::mit_knoten_lock(
+                    ablage, knoten, owner("uuid-" + std::to_string(i)), uhr, [&](bl::AlleinschreiberNachweis const& n) {
+                        // NUR BEOBACHTUNG, keine Zusicherung (s. Abschnitts-Kopf): wie viele Threads
+                        // waren zugleich im Abschnitt? Das Rest-Race-Fenster des Locks ist bekannt
+                        // und dokumentiert; hier wird es gemessen statt weggeschaut.
+                        int const jetzt = drin.fetch_add(1, std::memory_order_acq_rel) + 1;
+                        for (int alt = drin_max.load(std::memory_order_relaxed); jetzt > alt;)
+                            if (drin_max.compare_exchange_weak(alt, jetzt, std::memory_order_relaxed)) break;
+                        bool const erg = truncate_im_abschnitt(ablage, knoten, n, truncates);
+                        drin.fetch_sub(1, std::memory_order_acq_rel);
+                        return erg;
+                    });
+                if (o == bl::LockOutcome::ok) {
+                    gewonnen.fetch_add(1, std::memory_order_relaxed);
+                    break;
+                }
+                if (o == bl::LockOutcome::lock_unavailable) {
+                    abgewiesen.fetch_add(1, std::memory_order_relaxed);
+                } else {
+                    dritte_klasse.fetch_add(1, std::memory_order_relaxed);
+                    break;
+                }
+                if (std::chrono::steady_clock::now() > frist) break; // Frist: ein Test haengt nie
+                // Der Wiederhol-Jitter gehoert laut try_acquire_lock-Kopf dem AUFRUFER -- hier ist
+                // der Aufrufer dieser Thread.
+                std::this_thread::sleep_for(std::chrono::milliseconds{1});
+            }
+        });
+    }
+    for (auto& t : mannschaft) t.join();
+
+    RecordProperty("beobachtete_maximale_ueberlappung", drin_max.load());
+    RecordProperty("abgewiesene_versuche", abgewiesen.load());
+
+    EXPECT_EQ(gewonnen.load(), kThreads) << "jeder Spin-Schreiber bekommt den Knoten irgendwann";
+    EXPECT_EQ(dritte_klasse.load(), 0) << "kein Zyklus endet in work_failed oder deadline_exceeded";
+    EXPECT_EQ(truncates.load(), kThreads) << "jeder gewonnene Abschnitt vollzieht seinen Truncate";
+    EXPECT_GE(drin_max.load(), 1);
+
+    // DIE ZUSAGE, DIE DAS DESIGN GIBT: der Endstand ist BYTE-IDENTISCH zu dem eines einzelnen,
+    // ungestoerten Laufs. Das ist Punkt (b) des bestandslog_lock-Kopfes -- Kollisionen kosten
+    // doppelte Arbeit, nie Datenverlust. Der jeweils LETZTE Schreibvorgang eines Threads ist die
+    // inventarisierte Form (Schritt 2 folgt immer auf dessen Schritt 1), und alle vier Threads
+    // schreiben dieselben Bytes; ein haengengebliebener Zwischenstand ist damit ausgeschlossen.
+    EXPECT_FALSE(fs::exists(fs::path{bl::lock_key_for(bl::knoten_log_pfad(knoten))})) << "kein Lock-Leichnam";
+    auto const roh = ct::lies_blatt_datei(fs::path{bl::knoten_log_pfad(knoten)});
+    ASSERT_TRUE(roh.has_value());
+    EXPECT_EQ(*roh, erwartete_inventarisierte_bytes(knoten, "2026-08-03T13:00:00Z"));
+    auto const ladung = bl::lade_knoten_log(ablage, knoten);
+    ASSERT_TRUE(ladung.ok()) << bl::to_string(ladung.fehler);
+    EXPECT_FALSE(ladung.log.inventur_laeuft) << "keine haengengebliebene Crash-Marke nach vier Konkurrenten";
+    EXPECT_TRUE(ladung.log.abgeschlossen);
+    EXPECT_EQ(ladung.log.binaries, 40u);
 }

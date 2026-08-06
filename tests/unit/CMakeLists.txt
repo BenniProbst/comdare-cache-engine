@@ -4967,6 +4967,9 @@ target_link_libraries(test_lb0_lager_pfad_grammatik PRIVATE Boost::mp11)
 # Truncate-Zustandsmaschine (bestandslog/knoten_heuristik_log.hpp). Eigener Test wegen der
 # Owner-Auflage A-1 ("Truncate ist die Bug-Quelle" -> eigene Test-Klasse). Include-/Link-Satz wie
 # test_lb0_lager_pfad_grammatik (der Knoten-Log zieht den Baum-Writer und damit die 18 Organ-Achsen).
+# LB-6 (2026-08-06): zusaetzlich Threads::Threads -- Abschnitt (7) der TU faehrt ECHTE std::thread
+# gegen make_filesystem_ablage() (Spin-Lock-Konkurrenz auf dem realen Dateisystem, Owner-Auflage
+# LB-6). Ohne das Ziel-Link scheitert der Test erst beim Linken, nicht beim Uebersetzen.
 comdare_add_test(test_lb1_knoten_heuristik_log
     SOURCES test_lb1_knoten_heuristik_log.cpp)
 target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
@@ -4974,7 +4977,7 @@ target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common")
-target_link_libraries(test_lb1_knoten_heuristik_log PRIVATE Boost::mp11)
+target_link_libraries(test_lb1_knoten_heuristik_log PRIVATE Boost::mp11 Threads::Threads)
 
 # A1-Lager-Rest S4: G-E3 (produktiver Messwert-Genus-Schreiber), G-E6 (Versions-Tag +
 # syntax_version 3->4) und G-E7 (Dual-ccache-Ziel-Strategy + mc-Alias-Preflight). Reine
