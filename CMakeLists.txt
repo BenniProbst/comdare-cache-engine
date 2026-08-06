@@ -57,14 +57,30 @@ option(COMDARE_PROVISION_VENDOR_ALLOCATORS
        ${COMDARE_BUILD_PERMUTATIONS})
 
 # ─────────────────────────────────────────────────────────────────────────────
-# V5-#26 / Task #153 — Intel-PCM Windows-Cache-Miss-Quelle (WindowsPcmPmcSource)
+# V5-#26 / Task #153 + CE-DL2 / Task #152 -- DIE REALE HW-PMC-QUELLE (Linux UND Windows)
 # ─────────────────────────────────────────────────────────────────────────────
+# B5/M-2-KORREKTUR (2026-08-06): dieser Block und die option()-Beschreibung nannten frueher NUR den
+# Windows-/Intel-PCM-Zweig. Das war seit CE-DL2 (Task #152, 25.06.) falsch und hat aktiv zu der
+# Fehldeutung eingeladen, das Flag sei auf Linux entbehrlich -- genau daran ist die F9-PFLICHT beim
+# Umbau auf die dynamische Mess-Kette verloren gegangen. Der Schalter gated BEIDE Zweige.
+#
 # Default OFF → der Build ist UNVERÄNDERT: es wird KEIN cpucounters.h gesucht, KEIN msr.sys gebraucht,
-# die Factory (pmc_source_factory.hpp) liefert NullPmcSource (available=false, HW-Spalten ehrlich 0).
-# ON → reale L2/L3-Cache-Miss-Messung über Intel PCM (BSD-3). Benötigt PCM-Header+Lib (COMDARE_PCM_DIR)
-#      sowie ein signiertes msr.sys + Admin zur Laufzeit (System-Schritt, NICHT im Build).
+# und AUF LINUX wird der perf_event_open-Zweig gar nicht erst uebersetzt (linux_perf_pmc_source.hpp ist
+# selbst auf das Makro geguardet). Die Factory (pmc_source_factory.hpp) liefert dann die NullPmcSource
+# (available=false, HW-Spalten strukturell 0). ES GIBT OHNE DAS FLAG AUF LINUX KEINE PMC-QUELLE.
+# ON auf LINUX -> reale Cache-Miss-/dTLB-Messung ueber perf_event_open(2) (LinuxPerfPmcSource, KEINE
+#      Vendor-Lib noetig). Laufzeit-Vorbedingung ist nur die Rechtelage (kernel.perf_event_paranoid /
+#      CAP_PERFMON); ohne sie meldet die Quelle ehrlich available=0 -- und die beiden PMC-Smokes fallen
+#      seit M-2/B3 dann HART (fail-closed), statt den Ausfall als Skip zu testieren.
+# ON auf WINDOWS -> reale L2/L3-Cache-Miss-Messung ueber Intel PCM (BSD-3). Benoetigt PCM-Header+Lib
+#      (COMDARE_PCM_DIR) sowie ein signiertes msr.sys + Admin zur Laufzeit (System-Schritt, NICHT im Build).
 #      Doku: docs/sessions/2026-06-18-windows-pcm-pmc-source-integration.md
-option(COMDARE_ENABLE_PMC "Intel PCM Windows cache-miss source (WindowsPcmPmcSource, BSD-3)" OFF)
+# PFLICHT-LAGE: F9 (Owner 2026-07-16) macht das Flag fuer JEDEN offiziellen Mess-Lauf verbindlich; die
+#      emittierten Mess-Jobs setzen es seit M-2/B1 an allen Treiber-Bau-Stellen (experiment_plan_director.hpp,
+#      ceb_pmc_compile_define()). Der Default bleibt OFF, weil test:unit ohne HW-Zugriff baut.
+option(COMDARE_ENABLE_PMC
+       "Reale HW-PMC-Quelle: Linux perf_event_open / Windows Intel PCM (BSD-3). OFF => NullPmcSource, HW-Spalten strukturell 0"
+       OFF)
 set(COMDARE_PCM_DIR "" CACHE PATH "Wurzel der Intel-PCM-Installation (enthält cpucounters.h + PCM-Lib)")
 if(COMDARE_ENABLE_PMC)
     if(UNIX AND NOT APPLE)

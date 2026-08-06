@@ -2,10 +2,19 @@
 // V5-#26 / Task #152 (CE-DL2) — LinuxPerfPmcSource: REALE CPU-Cache-Miss-Quelle via perf_event_open(2) (Linux).
 //
 // Linux-Spiegel der WindowsPcmPmcSource: Drop-in-Implementierung derselben `IPmcSource`-Naht (pmc_source.hpp),
-// liefert die +6 HW-Counter (cache_misses L1/LL, dtlb, best-effort L2/coherence, RAPL-energy) aus echten
-// Performance-Monitoring-Countern statt `NullPmcSource`-0. KEINE Änderung an POD/Pipeline/PDF/CSV-Schema
-// (pmc_source.hpp:6-9) — eine weitere IPmcSource-Implementierung, die die bereits existierenden 7 pmc_*-Spalten
-// befüllt (cache_engine_builder_iterator.hpp lazy_csv_header/format_csv_row, UNVERÄNDERT).
+// die die bereits existierenden 7 pmc_*-Spalten aus echten Performance-Monitoring-Countern statt aus
+// `NullPmcSource`-0 befuellt. KEINE Aenderung an POD/Pipeline/PDF/CSV-Schema (pmc_source.hpp:6-9) --
+// cache_engine_builder_iterator.hpp lazy_csv_header/format_csv_row bleiben UNVERAENDERT.
+//
+// WAS SIE REAL LIEFERT (B5/M-2-KORREKTUR 2026-08-06): der Kopf sagte frueher "+6 HW-Counter (... best-effort
+// L2/coherence, RAPL-energy)". Das war die aeltere, zu optimistische Fassung und widersprach dem eigenen Code
+// weiter unten. TATSAECHLICH GEOEFFNET werden DREI generische Counter -- cache_misses_l1 (L1D/READ/MISS),
+// cache_misses_l3 (LAST-LEVEL/READ/MISS, ehrlich LL) und dtlb_misses (DTLB/READ/MISS) -- plus
+// energy_micro_joules als best-effort RAPL-Snapshot (root-/Zonen-abhaengig). cache_misses_l2 und
+// coherence_invalidations bleiben AUCH MIT dem Flag 0: dafuer gibt es keinen portablen generischen Counter,
+// und ein RAW-Rateversuch ist bewusst unterblieben (Feld-Mapping + Konstruktor unten sagen es woertlich).
+// branch_misses wird von KEINER PMC-Quelle befuellt (offener Posten M-3a). Diese honest-0-Spalten sind im
+// Anhang als solche zu fuehren, nicht als gemessen.
 //
 // BUILD-SICHERHEIT (kritisch, analog windows_pcm_pmc_source.hpp): die GANZE Implementierung steht hinter
 //     #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)

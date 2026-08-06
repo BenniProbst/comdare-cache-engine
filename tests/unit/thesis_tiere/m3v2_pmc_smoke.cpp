@@ -21,6 +21,17 @@
 namespace ex  = comdare::cache_engine::builder::experiment;
 namespace bld = comdare::cache_engine::builder;
 
+// M-2 / B3 (P-PMC-1, 2026-08-06) -- DIE ERWARTUNG FOLGT DEM BAU, NICHT DER LAUFZEIT.
+// Spiegel des Ankers in linux_perf_pmc_smoke.cpp; Begruendung dort ausgeschrieben. Kurz:
+// ohne -DCOMDARE_ENABLE_PMC gibt es auf Linux gar keine PMC-Quelle (der Code kompiliert sich weg), also ist
+// available==0 der ehrliche Normalfall. MIT dem Flag heisst available==0 dagegen "gebaut, aber kein Zugriff"
+// -- und genau dieser Zustand hat den #37-Preflight bisher gruen passieren lassen.
+#if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
+constexpr bool kPmcExpected = true;
+#else
+constexpr bool kPmcExpected = false;
+#endif
+
 int main() {
     // (1) Die EINE PMC-Quelle (Factory wählt build-/OS-abhängig; lokal OFF → NullPmcSource).
     std::unique_ptr<::comdare::cache_engine::measurement::IPmcSource> pmc = bld::make_pmc_source();
@@ -68,11 +79,21 @@ int main() {
     bool const counters_all_zero = delta.cache_misses_l1 == 0 && delta.cache_misses_l2 == 0 &&
                                    delta.cache_misses_l3 == 0 && delta.dtlb_misses == 0 &&
                                    delta.coherence_invalidations == 0 && delta.energy_micro_joules == 0;
-    bool const pmc_seam_ok       = delta.available || counters_all_zero;
+    // M-2/B3 (2026-08-06): die zweite Haelfte des Verdikts gilt nur noch, WENN der Bau die Quelle gar nicht
+    // einkompiliert hat. Vorher war "alle Zaehler 0" das Erfolgskriterium AUCH dann, wenn die Quelle
+    // ausdruecklich eingebaut war -- damit testierte der Smoke seine eigene Abwesenheit als Erfolg.
+    // Der 13.07.-Inversionsfix bleibt unangetastet: `delta.available` steht unveraendert als erster Term,
+    // ein live-PMC (available=1) ist und bleibt der Erfolgsfall und kann nie SMOKE_FAIL kippen.
+    bool const pmc_seam_ok = delta.available || (!kPmcExpected && counters_all_zero);
 
     std::cout << "missing_pmc_cols=" << missing << "  pmc_available=" << (delta.available ? "1" : "0")
               << "  counters_all_zero=" << (counters_all_zero ? "1" : "0")
+              << "  pmc_expected_by_build=" << (kPmcExpected ? "1" : "0")
               << "  pmc_seam_ok=" << (pmc_seam_ok ? "1" : "0") << "\n";
+    if (kPmcExpected && !delta.available)
+        std::cout << "[PMC-FEHLER] COMDARE_ENABLE_PMC ist einkompiliert, die Quelle meldet aber available=0. "
+                     "Ursache pruefen: perf_event_paranoid, CAP_PERFMON/Executor-Rechte, Container ohne perf. "
+                     "F3-PFLICHT: was gemessen werden KANN, MUSS gemessen werden.\n";
     std::cout << ((missing == 0 && pmc_seam_ok) ? "SMOKE_OK\n" : "SMOKE_FAIL\n");
     return (missing == 0 && pmc_seam_ok) ? 0 : 1;
 }

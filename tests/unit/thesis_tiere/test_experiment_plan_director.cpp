@@ -2115,6 +2115,197 @@ TEST(MeasurementComboCtDefine, CebCompileSitesCarryDefineWhenFannedAndOmitForAll
         << "[all] => kein Hinweis-Echo (Stufe-1-cmake byte-identisch)";
 }
 
+// =============================================================================
+// M-2 / B2 (P-PMC-1, 2026-08-06) -- DIE PMC-INVARIANTE. Der KERN dieses Pakets.
+//
+// WURZEL, und deshalb genau DIESE Form: die PMC-Pflicht (F9, Owner 2026-07-16 "PFLICHT fuer die
+// Vollstaendigkeit aller perf-Messwerte") wurde am 16.07. an ZWEI JOB-NAMEN geheftet (measure:smoke +
+// measure:golden-320). Als die Mess-Arbeit in den Planer wanderte, wanderte die Pflicht nicht mit --
+// niemand merkte es, weil keine Wache die SACHE prueft. Ein Test, der stattdessen die Zahl "4" hart
+// verdrahtet, wiederholt denselben Fehler eine Ebene hoeher: er ist gruen, sobald jemand eine FUENFTE
+// Emissionsstelle baut, und er ist rot aus dem falschen Grund, sobald eine Stelle legitim entfaellt.
+//
+// DIE INVARIANTE, die hier gepinnt wird -- eine Vollstaendigkeits-Bedingung, keine Zahl:
+//
+//     Zu JEDER emittierten `cmake -B build`-Zeile, deren FOLGEZEILE den comdare-messung-driver baut,
+//     gehoert -DCOMDARE_ENABLE_PMC=ON.
+//
+// Der Selektor ist die EIGENSCHAFT "dieser Configure traegt einen Mess-Treiber-Bau", nicht der Job-Name
+// und nicht die Anzahl. Eine Emission OHNE Treiber-Bau bleibt bewusst flaglos (super .gitlab-ci.yml haelt
+// einen Auswertungs-Job ausdruecklich ohne COMDARE_ENABLE_PMC) -- die Invariante sagt darueber nichts und
+// soll das auch nicht.
+//
+// GESCHLOSSEN GEGEN DAS LEERLAUFEN (Regel 6 in Testform): geprueft wird nicht nur die Implikation, sondern
+// die DECKUNG. Es wird von den TREIBER-BAU-Zeilen aus gezaehlt (das ist der Nenner) und verlangt, dass jede
+// von ihnen unmittelbar hinter einem geflaggten Configure steht. Damit faellt der Test auch dann rot, wenn
+// ein Umbau die Nachbarschaft aufbricht (Zeile dazwischen) oder die Emission umbenennt -- er kann nicht
+// still gruen leer laufen. Eine nackte 0 ist kein Befund: der Nenner wird mit ausgegeben.
+//
+// GEGENPROBE: der Kern-Pruefer wird unten zuerst gegen einen HANDGEBAUTEN Text gefahren, in dem genau eine
+// Stelle das Flag NICHT traegt -- findet er dort nichts, taugt das Verfahren nicht und der Test sagt es.
+// =============================================================================
+namespace {
+
+std::vector<std::string> split_lines(std::string const& text) {
+    std::vector<std::string> lines;
+    std::size_t              start = 0;
+    while (start <= text.size()) {
+        std::size_t const nl = text.find('\n', start);
+        if (nl == std::string::npos) {
+            if (start < text.size()) lines.push_back(text.substr(start));
+            break;
+        }
+        lines.push_back(text.substr(start, nl - start));
+        start = nl + 1;
+    }
+    return lines;
+}
+
+// Der Befund einer Emission. Alle drei Zahlen beziehen sich auf DENSELBEN Nenner (driver_builds).
+struct PmcInvariantReport {
+    std::size_t              driver_builds = 0; // NENNER: Zeilen, die den Mess-Treiber bauen
+    std::size_t              configured    = 0; // davon: unmittelbar hinter einer `cmake -B build`-Zeile
+    std::size_t              flagged       = 0; // davon: deren Configure -DCOMDARE_ENABLE_PMC=ON traegt
+    std::vector<std::string> violations;        // die verletzenden Configure-/Treiber-Zeilen, woertlich
+};
+
+// Der EINE Pruefer. Ausgangspunkt ist die Treiber-Bau-Zeile (der Nenner), nicht die Configure-Zeile --
+// so kann keine Stelle dadurch verschwinden, dass ihr Configure umformuliert wird.
+PmcInvariantReport pmc_invariant(std::string const& emitted) {
+    static constexpr char const* kDriverBuild = "cmake --build build --target comdare-messung-driver";
+    static constexpr char const* kConfigure   = "cmake -B build";
+    static constexpr char const* kPmcFlag     = "-DCOMDARE_ENABLE_PMC=ON";
+
+    PmcInvariantReport             rep;
+    std::vector<std::string> const lines = split_lines(emitted);
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (lines[i].find(kDriverBuild) == std::string::npos) continue;
+        ++rep.driver_builds;
+        if (i == 0 || lines[i - 1].find(kConfigure) == std::string::npos) {
+            rep.violations.push_back("kein `cmake -B build` unmittelbar VOR dem Treiber-Bau: " + lines[i]);
+            continue;
+        }
+        ++rep.configured;
+        if (lines[i - 1].find(kPmcFlag) == std::string::npos) {
+            rep.violations.push_back("Mess-Treiber-Bau ohne PMC-Flag (F9-PFLICHT 2026-07-16): " + lines[i - 1]);
+            continue;
+        }
+        ++rep.flagged;
+    }
+    return rep;
+}
+
+// Die EINE Abnahme je Emission. `wo` benennt Kanal + Builder, damit ein roter Lauf sofort sagt, WELCHE
+// der Emissionen gebrochen ist.
+void expect_pmc_invariant(std::string const& emitted, char const* wo) {
+    PmcInvariantReport const rep = pmc_invariant(emitted);
+    std::string              verstoesse;
+    for (auto const& v : rep.violations) verstoesse += "\n    - " + v;
+
+    EXPECT_GT(rep.driver_builds, 0u)
+        << wo << ": Wache leer gelaufen -- kein `" << "cmake --build build --target comdare-messung-driver"
+        << "` in der Emission gefunden. Entweder die Emission wurde umbenannt (dann ist DIESER Test "
+           "nachzuziehen) oder sie ist verschwunden (dann ist die Kette gebrochen).";
+    EXPECT_EQ(rep.configured, rep.driver_builds)
+        << wo << ": " << rep.driver_builds << " Treiber-Bau-Zeilen geprueft, davon " << rep.configured
+        << " mit unmittelbar vorangehendem `cmake -B build`." << verstoesse;
+    EXPECT_EQ(rep.flagged, rep.driver_builds)
+        << wo << ": " << rep.driver_builds << " Treiber-Bau-Zeilen geprueft, davon " << rep.flagged
+        << " mit -DCOMDARE_ENABLE_PMC=ON konfiguriert. Ohne das Flag liefert pmc_source_factory.hpp die "
+           "NullPmcSource -- ALLE HW-Zaehler sind dann strukturell 0 und der #37-Preflight testiert diesen "
+           "Ausfall als pmc=ok."
+        << verstoesse;
+}
+
+} // namespace
+
+// (M-2/B2) Die Invariante ueber ALLE Emissionen, die einen Mess-Treiber bauen -- BEIDE Builder (Stufe 1
+//       CiYamlBuilder = ceb:build + ceb:emit; Stufe 2 TierCiYamlBuilder = tier-build-batch + measure-batch)
+//       und BEIDE Kanaele (Thesis + Experiment). Ein Test, der nur EINEN Builder konstruiert, saehe die
+//       beiden teuersten Stellen (die 7d-Batches der Stufe 2) NICHT.
+TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
+    // (0) GEGENPROBE ZUERST: findet das Verfahren ueberhaupt? Handgebauter Text, EIN Verstoss.
+    //     Ohne diesen Schritt waere ein spaeteres "0 Verstoesse" nicht unterscheidbar von "der Pruefer
+    //     sucht am falschen Ort".
+    std::string const kunstlich = std::string{} +
+                                  "    - cmake -B build -G Ninja -DCOMDARE_ENABLE_PMC=ON -DCMAKE_BUILD_TYPE=Release\n"
+                                  "    - cmake --build build --target comdare-messung-driver\n"
+                                  "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
+                                  "    - cmake --build build --target comdare-messung-driver\n"
+                                  "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
+                                  "    - cmake --build build --target comdare_experiment_planner\n";
+    PmcInvariantReport const probe = pmc_invariant(kunstlich);
+    ASSERT_EQ(probe.driver_builds, 2u) << "Gegenprobe: der Pruefer muss GENAU die 2 Treiber-Bau-Zeilen sehen "
+                                          "(die dritte Konfiguration baut ein anderes Target)";
+    ASSERT_EQ(probe.configured, 2u) << "Gegenprobe: beide stehen unmittelbar hinter einer Konfiguration";
+    ASSERT_EQ(probe.flagged, 1u) << "Gegenprobe: GENAU eine der beiden traegt das Flag";
+    ASSERT_EQ(probe.violations.size(), 1u) << "Gegenprobe: der Pruefer BEISST -- er meldet die flaglose Stelle";
+
+    planner::ExperimentPlanDirector const director;
+
+    // (1) Thesis-Kanal, all_axes_golden (die Live-/golden-Strecke, Combo [all]).
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::CiYamlBuilder cb;
+    director.construct(*tp, cb);
+    expect_pmc_invariant(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)");
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    expect_pmc_invariant(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
+
+    // (2) Derselbe Thesis-Kanal GEFANNT (drei Mess-Combos): der Fanout vervielfacht die Stufe-1-Stellen.
+    //     Die Invariante darf davon nicht abhaengen -- genau das ist ihr Punkt gegenueber einer festen Zahl.
+    auto tp_fan = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp_fan.has_value());
+    tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
+    planner::CiYamlBuilder cb_fan;
+    director.construct(*tp_fan, cb_fan);
+    expect_pmc_invariant(cb_fan.text(), "Thesis/Stufe1 GEFANNT (3 Combos)");
+    planner::TierCiYamlBuilder tb_fan;
+    director.construct(*tp_fan, tb_fan);
+    expect_pmc_invariant(tb_fan.text(), "Thesis/Stufe2 GEFANNT (3 Combos)");
+
+    // (3) Minimal-Profil: die kleinste Emission ueberhaupt. Auch sie baut den Treiber.
+    auto const tp_min = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp_min.has_value());
+    planner::CiYamlBuilder cb_min;
+    director.construct(*tp_min, cb_min);
+    expect_pmc_invariant(cb_min.text(), "Thesis-min/Stufe1");
+    planner::TierCiYamlBuilder tb_min;
+    director.construct(*tp_min, tb_min);
+    expect_pmc_invariant(tb_min.text(), "Thesis-min/Stufe2");
+
+    // (4) Experiment-Kanal (eigene Schrittzahl, eigener Zwilling -- im Haus schon einmal als "Fix fehlt im
+    //     Experiment-Zwilling" aufgefallen).
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value()) << "experiment_golden.xml nicht parsbar: " << COMDARE_EXPERIMENT_GOLDEN;
+    planner::CiYamlBuilder cb_exp;
+    director.construct(*ep, cb_exp);
+    expect_pmc_invariant(cb_exp.text(), "Experiment/Stufe1");
+    planner::TierCiYamlBuilder tb_exp;
+    director.construct(*ep, tb_exp);
+    expect_pmc_invariant(tb_exp.text(), "Experiment/Stufe2");
+}
+
+// (M-2/B2, Zusatz) Die Invariante haengt an der SACHE, nicht an der Konfigurations-Nachbarschaft: der
+//       PMC-Zusatz sitzt VOR -DCMAKE_BUILD_TYPE und laesst damit die W2-Nachbarschaft (BUILD_TYPE direkt
+//       gefolgt vom Combo-Define) unberuehrt. Das ist keine Kosmetik -- die W2-Pins oben lesen genau diese
+//       Nachbarschaft und wuerden bei einer Einschiebung dazwischen still ihre Aussage verlieren.
+TEST(PmcPflichtInvariante, FlagStehtVorDemBuildTypUndLaesstDieComboNachbarschaftIntakt) {
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->measurement_tooling = {{"wallclock"}};
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                cb;
+    director.construct(*tp, cb);
+    std::string const& s1 = cb.text();
+
+    EXPECT_NE(s1.find("-DCOMDARE_V32_ENABLE=ON -DCOMDARE_ENABLE_PMC=ON -DCMAKE_BUILD_TYPE=Release"), std::string::npos)
+        << "PMC-Zusatz steht zwischen V32-Schalter und Build-Typ (Reihenfolge der beiden super-Mess-Jobs)";
+    EXPECT_NE(s1.find("-DCMAKE_BUILD_TYPE=Release \"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos)
+        << "die W2-Nachbarschaft (Build-Typ direkt gefolgt vom Combo-Define) bleibt unangetastet";
+}
+
 // (S6-P1 g/h) §61-MODI: der Mess-Job traegt (g) den smoke=Debug-Branch (parallel/schnell) + measure=Release (sonst),
 //       den §61-Regressions-Fix (DLL-Bau parallel statt =1) und (h) per-Host-Lanes (prod1/amd, prod2/intel; avx512
 //       nie intel). Paralleles MESSEN (debug-Ideal) bleibt UNGEBAUT (§16.2-M1) -- hier NICHT getestet (ehrliche Luecke).
