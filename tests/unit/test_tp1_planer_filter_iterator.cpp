@@ -445,6 +445,135 @@ int main() {
                        r.resumed_csv_rows.find(kAltMarke) == std::string::npos);
         }
 
+        // (6e) T2-A/K2-NB (Codex-Auflage "fehlende Tests"): DIE v5-INVALIDIERUNG AM LITERALEN ON-DISK-STAMP.
+        //      Der Praefix-Bump v5->v6 war bewiesen, aber UNGETESTET -- bewiesen nur ueber die Konstruktion
+        //      "der Praefix beginnt mit resume-v6". Hier liegt ein Stamp auf der Platte, wie ihn ein Lauf
+        //      VOR dem Bump geschrieben haette: dieselbe Konfiguration, dieselbe Zeilenzahl, nur die
+        //      Format-Marke ist die alte. Er darf NICHT gelten -- sonst uebernaehme ein v6-Lauf Messwerte,
+        //      die unter der schwaecheren v5-Zusage entstanden sind (ohne Fingerprint-Kopplung).
+        {
+            ex::LazyRunConfig cfg6e   = mach_cfg(base / "k2_v5");
+            fs::path const    bin_dir = lege_altstand(cfg6e); // legt einen v6-Stamp an
+            std::string const v6      = ex::lazy_resume_stamp_prefix(cfg6e, dims);
+            check_true("(6e) Vorbedingung: der heutige Praefix ist resume-v6", v6.rfind("resume-v6|", 0) == 0);
+            // Derselbe Stamp, EIN Zeichen anders: die Format-Marke der Vorgaenger-Generation.
+            std::string v5 = v6;
+            v5.replace(0, std::string{"resume-v6"}.size(), "resume-v5");
+            { std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc} << v5 << "|rows=1\n"; }
+            check_true("(6e) der LITERALE v5-Stamp auf der Platte gilt fuer einen v6-Lauf NICHT",
+                       !ex::lazy_try_resume_binary(bin_dir, v6, nullptr));
+            check_true("(6e) und der v5-Lauf selbst haette ihn akzeptiert (die Wache trennt, sie sperrt nicht)",
+                       ex::lazy_try_resume_binary(bin_dir, v5, nullptr));
+        }
+
+        // (6f) T2-A/K2-NB (Codex-Haertung (b)): DIE FORM DES "|fpr="-FELDES WIRD GEPRUEFT.
+        //      DER BEFUND: der Provider-Wert reiste ROH in eine Ein-Zeilen-Datei. Enthaelt er ein '\n',
+        //      zerfaellt die Datei; der Leser sieht nur die ERSTE Zeile -- und die kann fuer einen
+        //      KUERZEREN Fingerprint ein vollstaendiger, gueltiger Stamp sein. Genau das wird hier am
+        //      Objekt vorgefuehrt (rot), und danach die Wache, die es beendet (gruen).
+        {
+            std::string const kFpKurz = std::string(128, 'd');
+            // ROT AM OBJEKT: ein Provider-Wert, der den kurzen Fingerprint + den Schwanz enthaelt und
+            // danach umbricht. Ein Lauf mit dem KURZEN Wert liest Zeile 1 -- und sie passt.
+            std::string const boeser_wert = kFpKurz + "|rows=1\nweiterer-muell";
+            ex::LazyRunConfig cfg6f       = mach_cfg(base / "k2_form");
+            fs::path const    bin_dir     = lege_altstand(cfg6f, "|fpr=" + kFpKurz);
+            { std::ofstream{bin_dir / "result.csv.stamp", std::ios::trunc}
+                  << ex::lazy_resume_stamp_prefix(cfg6f, dims) << "|fpr=" << boeser_wert << "|rows=99\n"; }
+            std::string const stamp_kurz = ex::lazy_resume_stamp_prefix(cfg6f, dims) + "|fpr=" + kFpKurz;
+            check_true("(6f) ROT: die aufgetrennte Ablage passt als Stamp fuer den KUERZEREN Fingerprint",
+                       ex::lazy_try_resume_binary(bin_dir, stamp_kurz, nullptr));
+            // GRUEN: ein Provider, der so etwas liefert, kommt gar nicht mehr bis zur Ablage. Der Lauf
+            // deaktiviert Resume UND Stamp fuer diese Binary und sagt es literal.
+            cfg6f.bestand_fingerprint_fn = [boeser_wert](std::string const&) { return boeser_wert; };
+            { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+            { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << boeser_wert; }
+            std::string log6f;
+            ex::LazyRunResult r6f;
+            {
+                CerrCapture fang;
+                r6f   = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6f);
+                log6f = fang.text();
+            }
+            check_eq("(6f) GRUEN: kein Resume auf einem form-verletzenden Fingerprint", r6f.resumed_binaries,
+                     std::size_t{0});
+            check_true("(6f) GRUEN: der Verstoss steht literal im Log",
+                       log6f.find("Fingerprint ist nicht 128-hex") != std::string::npos);
+            check_true("(6f) GRUEN: es bleibt KEIN Stamp liegen, der einen fremden Stand zertifizieren koennte",
+                       !fs::exists(bin_dir / "result.csv.stamp", ec));
+        }
+
+        // (6g) F8 -- DIE DOKTRIN WIRD FESTGESCHRIEBEN, NICHT VERBOTEN (Ledger 06.08. mittag-12, OFFENE
+        //      OWNER-FRAGE). Codex nannte das Cross-Run-Szenario "SCHWER": DLL weg -> Neubau mit
+        //      UNVERAENDERTEM Fingerprint -> ein SPAETERER Lauf resumiert die alten Zeilen. Das ist KEIN
+        //      Leck, sondern der ZWECK des Fingerprints: er IST die Bau-Identitaet. Ist er unveraendert,
+        //      ist die neu gebaute DLL aequivalent, und die alten Messwerte gelten weiter.
+        //      Dieser Test HAELT diese Erwartung fest -- schlaegt er eines Tages um, ist das ein
+        //      DOKTRIN-Wechsel und muss als solcher entschieden werden (und nicht als Bugfix passieren).
+        {
+            std::string const kFp8   = std::string(128, 'e');
+            ex::LazyRunConfig cfg6g  = mach_cfg(base / "f8_doktrin");
+            cfg6g.bestand_fingerprint_fn = [kFp8](std::string const&) { return kFp8; };
+            fs::path const bin_dir       = lege_altstand(cfg6g, "|fpr=" + kFp8);
+            // Lauf 1: die DLL FEHLT (Ordner geraeumt) -> Neubau -> b.skipped falsch -> KEIN Resume.
+            ex::LazyRunResult r1;
+            {
+                CerrCapture fang;
+                r1 = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6g);
+            }
+            check_eq("(6g) Neubau im selben Lauf: KEIN Resume (b.skipped falsch -- korrekt)", r1.resumed_binaries,
+                     std::size_t{0});
+            // Lauf 2: die DLL liegt jetzt da, ihr Sidecar traegt DENSELBEN Fingerprint -> b.skipped ->
+            // Resume der alten Zeilen. GEWOLLT: gleicher Fingerprint == gleiche Bau-Identitaet.
+            { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+            { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << kFp8; }
+            (void)lege_altstand(cfg6g, "|fpr=" + kFp8); // der Stand, den Lauf 1 nicht angetastet hat
+            ex::LazyRunResult r2;
+            {
+                CerrCapture fang;
+                r2 = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6g);
+            }
+            check_eq("(6g) F8-DOKTRIN: gleicher Fingerprint -> der spaetere Lauf resumiert (Fingerprint == Identitaet)",
+                     r2.resumed_binaries, std::size_t{1});
+            check_true("(6g) F8-DOKTRIN: und uebernimmt genau die alten Zeilen",
+                       r2.resumed_csv_rows.find(kAltMarke) != std::string::npos);
+        }
+
+        // (6h) T2-A/K2-NB (Codex-Haertung (d)): DER PROVIDER WIRD EINMAL GELESEN, NICHT ZWEIMAL.
+        //      DER BEFUND: das DLL-Gate (provision_core) und der Mess-Resume-Stamp riefen
+        //      cfg.bestand_fingerprint_fn GETRENNT auf. Dieselbe std::function garantiert keinen
+        //      identischen Rueckgabewert -- ein ZUSTANDSABHAENGIGER Provider prueft dann mit X und
+        //      stempelt mit Y. Der Stamp bezeugt eine Identitaet, die das Gate nie gesehen hat.
+        //      LAGE: ein Provider, der beim ERSTEN Aufruf kFpA liefert und danach kFpB. Die Ablage
+        //      (Sidecar + Stamp) traegt kFpA.
+        //      ALT (zwei Lesepunkte): Gate liest kFpA -> b.skipped; der Stamp entsteht mit kFpB -> er
+        //      passt NICHT auf die Ablage -> kein Resume, und der Lauf haette eine Marke mit kFpB
+        //      geschrieben, waehrend das Sidecar der DLL kFpA sagt.
+        //      NEU (ein Lesepunkt): b.fingerprint traegt kFpA in beide Konsumenten -> Resume greift,
+        //      und der Zaehler steht literal auf 1 Aufruf.
+        {
+            std::string const kFpA = std::string(128, '1');
+            std::string const kFpB = std::string(128, '2');
+            auto const        rufe = std::make_shared<int>(0);
+            ex::LazyRunConfig cfg6h = mach_cfg(base / "k2_einmal");
+            cfg6h.bestand_fingerprint_fn = [rufe, kFpA, kFpB](std::string const&) {
+                return ((*rufe)++ == 0) ? kFpA : kFpB; // zustandsabhaengig -- genau der Fehlerfall
+            };
+            fs::path const bin_dir = lege_altstand(cfg6h, "|fpr=" + kFpA);
+            { std::ofstream{bin_dir / "perm.dll", std::ios::trunc} << "nicht-ladbar-aber-vorhanden\n"; }
+            { std::ofstream{bin_dir / "perm.dll.fingerprint", std::ios::trunc} << kFpA; }
+            ex::LazyRunResult r6h;
+            {
+                CerrCapture fang;
+                r6h = ex::run_lazy_static_then_dynamic(tree, sel1, compile_stub, gen_stub, ram_stub, cfg6h);
+            }
+            check_eq("(6h) der Fingerprint-Provider wird GENAU EINMAL je Binary befragt", *rufe, 1);
+            check_eq("(6h) und Gate wie Stamp speisen sich aus demselben Wert -> Resume greift",
+                     r6h.resumed_binaries, std::size_t{1});
+            check_true("(6h) die alten Zeilen reisen unveraendert weiter",
+                       r6h.resumed_csv_rows.find(kAltMarke) != std::string::npos);
+        }
+
         // (6b) DER BEFUND: derselbe alte Stand, aber der Compile scheitert -> KEIN Resume, sondern der
         //      nicht_gebaut-Marker TRITT AN DIE STELLE der stale Erfolgs-CSV, und der Stamp faellt (kein
         //      Resume-Anspruch im Folgelauf mehr).

@@ -146,7 +146,20 @@ struct BuildResult {
     // Inhalt), waehrend des Baus aus spec.axes berechnet. Leer, wenn keine AlgoSigFn injiziert ist (rueckwaerts-
     // kompatibel). Der Mess-Resume-Pfad (cache_engine_builder_iterator) haengt sie additiv an den Resume-Stamp ->
     // eine Algo-Aenderung erzwingt die Neu-Messung GENAU der betroffenen Binaries (ehrlich, kein stilles Stale-Resume).
-    std::string        algo_sig;
+    std::string algo_sig;
+    // T2-A/K2-NB (Codex-Scope-K2, Haertung (d) "EINMAL lesen"): der 128-hex-Fingerprint, den provision_core
+    // fuer DIESE Binary EINMAL beim Provider geholt hat -- derselbe Wert, den (A) als Skip-Erwartung
+    // verglichen und den der Erfolgszweig als `.fingerprint`-Sidecar geschrieben hat.
+    //
+    // WARUM ER MITREIST (und der Mess-Pfad den Provider nicht ein zweites Mal fragt): das DLL-Gate und der
+    // Mess-Resume-Stamp riefen cfg.bestand_fingerprint_fn GETRENNT auf. Dieselbe std::function garantiert
+    // keinen identischen Rueckgabewert -- ein zustandsabhaengiger Provider koennte mit X pruefen und mit Y
+    // stempeln, und der Stamp bezeugte dann eine Identitaet, die das Gate nie gesehen hat. Muster identisch
+    // zu algo_sig darueber: waehrend des Baus EINMAL erhoben, im Ergebnis getragen, vom Mess-Pfad
+    // konsumiert. Leer, wenn kein Provider injiziert ist (byte-neutral) ODER wenn der Job vor dem
+    // Provider-Aufruf ausgeschieden ist (Gate-Ablehnung) -- dann ist r.ok() false und der Mess-Pfad
+    // erreicht den Stamp ohnehin nicht.
+    std::string        fingerprint;
     [[nodiscard]] bool ok() const noexcept { return status == 0; }
 };
 
@@ -603,6 +616,11 @@ private:
                 // Lager-Index-Anker neben der Binary landet (== minio-Key == Bestandslog key_sha512).
                 // Leer, wenn kein Fingerprint-Provider injiziert ist -> (A) ist dann fail-closed (skippt NIE).
                 std::string const expected_fp = fingerprint_ ? fingerprint_(spec.binary_id) : std::string{};
+                // T2-A/K2-NB: DERSELBE Wert reist im Ergebnis weiter -- der Mess-Resume-Stamp speist sich
+                // daraus, statt den Provider ein zweites Mal zu fragen (s. BuildResult::fingerprint).
+                // Damit ist "EINMAL je Job berechnet" nicht mehr nur fuer Gate und Sidecar wahr, sondern
+                // fuer ALLE drei Konsumenten dieser Zahl.
+                r.fingerprint = expected_fp;
 
                 // (A) INKREMENTELL: bestehende, fingerprint-aktuelle DLL ueberspringen (Resume nach Absturz).
                 // DER EINE VERGLEICH (F7 "NUR"): `.fingerprint`-Sidecar == expected_fp. .version/.algos/.variant
