@@ -922,9 +922,31 @@ struct RunProfileResult {
                 perm_achsen.gate_contribution = perm_gate;
                 ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const perm_toolchain_glied{
                     ::comdare::cache_engine::profile_facade::compose_toolchain_stamp_glied_for_perm(perm_achsen)};
-                perm_compile = a.compile_for_perm
-                                   ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
-                                   : a.compile;
+                // T2-A/H2 (Codex-Befund, 2026-08-06) -- DER FALLBACK STEMPELT AB HIER DEN BAU, DER WIRKLICH
+                // STATTFINDET. Ist `compile_for_perm` unbelegt, faellt der Bau dieser Zelle auf die
+                // LAUF-KONSTANTE CompileFn zurueck: keine per-Zelle montierten Flags, kein per-Perm-Define
+                // (weder Zellwerte noch Glied [5]) -- die entstehende .so ist BYTE-GLEICH der Identitaets-
+                // Binary. Gestempelt wurde sie trotzdem per Perm (eigener Fingerprint-Provider, eigenes
+                // +cxx=+opt=+ext=-Suffix in .version und CSV-Provenienz). Das ist die schlimmste Sorte
+                // Falschaussage, die dieser Pfad kennt: der Stempel behauptet eine Identitaet, die im
+                // Binary nicht steht -- das Lager kaeme mit dem Schluessel nie wieder an seine Binary, und
+                // die CSV wiese |opt x simd| verschieden getaggte Zeilen ueber EIN UND DENSELBEN Bau aus.
+                // Ab jetzt ist der Fallback-Fall in einer benannten Bedingung sichtbar und ALLE drei
+                // Stempel-Wege (Fingerprint, build_version, CSV-Tag) folgen ihr: gebaut wird das
+                // lauf-konstante Binary, gestempelt wird die lauf-konstante Identitaet. Die Mess-Matrix
+                // waechst weiterhin (die Zelle wird gemessen) -- nur luegt sie nicht mehr ueber ihren Bau.
+                bool const perm_bau_je_zelle = static_cast<bool>(a.compile_for_perm);
+                perm_compile                 = perm_bau_je_zelle
+                                                   ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
+                                                   : a.compile;
+                if (!perm_bau_je_zelle)
+                    std::cerr << "[Compiler-Compiler-Fehler: "
+                              << cm::error_class_label(cm::CompilerCompilerErrorClass::ToolchainFehlt)
+                              << "] keine per-Perm-CompileFn (compile_for_perm unbelegt) -- opt=" << opt_id
+                              << " simd=" << simd_id
+                              << " baut mit dem LAUF-KONSTANTEN Bau; Fingerprint, .version-Suffix und "
+                                 "CSV-Provenienz dieser Zelle tragen deshalb die lauf-konstante Identitaet "
+                                 "(gestempelt wird, was wirklich gebaut wurde).\n";
                 // W10-C4 FAIL-CLOSED (n/a-statt-NULL, bindend): ein `na` heisst "diese Zelle ist NICHT
                 // BESTIMMBAR" -- die Binary darf gebaut und gemessen werden, aber sie ist nicht zuordbar und
                 // geht deshalb NICHT ins Lager. Mechanisch: kein Fingerprint-Provider => kein
@@ -940,7 +962,22 @@ struct RunProfileResult {
                                  "zurueckgeschrieben (kein Fingerprint-Anker: ein `na`-Stempel ist nicht "
                                  "zuordbar).\n";
                     perm_fingerprint = ex::FingerprintFn{};
-                } else if (lazy_fingerprint && !perm_cell_values.empty()) {
+                } else if (lazy_fingerprint && perm_bau_je_zelle) {
+                    // T2-A/H1 (Codex-Befund, 2026-08-06) -- DIE UMSCHALTUNG HAENGT NICHT MEHR AN `.empty()`.
+                    // Die fruehere Bedingung war `lazy_fingerprint && !perm_cell_values.empty()`. Leere
+                    // Zellwerte sind aber der API-DEFAULT dieses Einstiegs (compose_system_cell_values gibt
+                    // {} zurueck, sobald Ziel-ISA oder OS-Familie unbelegt sind -- jeder Aufrufer, der die
+                    // beiden Facade-Zellen nicht setzt, landet dort). Genau dann fiel der Zwilling auf den
+                    // LAUF-KONSTANTEN Provider zurueck und rechnete fuer JEDE Zelle denselben Digest: O2 und
+                    // O3 bekamen wieder EINEN Lager-Schluessel -- das Loch in T2-B, unter der Zeile
+                    // versteckt, die es zu schliessen vorgab. Das per-Perm-Glied [5] ist von den Zellwerten
+                    // UNABHAENGIG (es traegt opt/opt_flags/ext/gate), also darf ein leeres Zellwerte-Set die
+                    // Umschaltung nicht verhindern. Leer bleibt dabei ehrlich leer: die System-Zeile geht
+                    // unveraendert ins Preimage (dokumentierte Identitaet des Parameters), nur das Glied
+                    // kommt jetzt per Zelle. Die `na`-Wache oben bleibt VORGESCHALTET (fail-closed schlaegt
+                    // Differenzierung), und ohne per-Zelle-Bau (H2) waere ein per-Zelle-Digest eine Luege --
+                    // deshalb steht `perm_bau_je_zelle` in derselben Bedingung.
+                    //
                     // Der Zwilling rechnet ueber DIESELBE vervollstaendigte System-Zeile wie das consteval-Makro
                     // im Tier-Bau -- sonst zeigte der Lager-Key ab jetzt auf einen anderen Digest als das
                     // einkompilierte sha512_line, und das Lager fuende seine eigenen Binaries nicht wieder.
@@ -986,8 +1023,13 @@ struct RunProfileResult {
                 // Ledger 70.9 / OP-7: Gate-Beitraege am ENDE, leer => kein Segment (heute leer).
                 // T2-B: derselbe perm_gate, den auch das Glied [5] traegt -- oben EINMAL gebildet.
                 perm_parts.gate_contribution = perm_gate;
+                // T2-A/H2: OHNE per-Zelle-Bau ist der Suffix LEER -- .version-Sidecar und CSV-Provenienz
+                // nennen dann exakt die lauf-konstante Identitaet, die auch wirklich gebaut wurde. Die
+                // Zusammensetzung selbst bleibt die EINE Suffix-Quelle (perm_parts unveraendert gefuellt);
+                // es entscheidet nur noch, OB dieser Bau ein eigenes Suffix verdient hat.
                 std::string const perm_suffix =
-                    ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);
+                    perm_bau_je_zelle ? ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts)
+                                      : std::string{};
                 perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
                 perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
                 // W10-C4: die Zellwerte stehen LITERAL in der Perm-Zeile -- der Bau-Log ist damit der Beleg,

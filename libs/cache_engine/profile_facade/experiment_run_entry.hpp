@@ -324,9 +324,22 @@ struct RunExperimentResult {
             perm_achsen.gate_contribution = perm_gate;
             ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const perm_toolchain_glied{
                 ::comdare::cache_engine::profile_facade::compose_toolchain_stamp_glied_for_perm(perm_achsen)};
+            // T2-A/H2 (SPIEGEL der run_profile-Schleife, Codex-Befund 2026-08-06): auch hier stempelte der
+            // Fallback einen ANDEREN Bau als den, der wirklich stattfand -- ohne per-Perm-CompileFn entsteht
+            // die lauf-konstante Binary, waehrend .version-Sidecar und CSV-Provenienz das per-Perm-Suffix
+            // trugen. Dieser Pfad schreibt kein Lager zurueck (kein Fingerprint-Provider), die Provenienz-
+            // Haelfte gilt trotzdem: eine Zeile darf keine Toolchain-Wahl behaupten, die im Binary fehlt.
+            bool const          perm_bau_je_zelle = static_cast<bool>(a.compile_for_perm);
             ex::CompileFn const perm_compile =
-                a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
-                                   : a.compile;
+                perm_bau_je_zelle ? a.compile_for_perm(opt_flag, march_flag, perm_zellwerte, perm_toolchain_glied)
+                                  : a.compile;
+            if (!perm_bau_je_zelle)
+                std::cerr << "[Compiler-Compiler-Fehler: "
+                          << cm::error_class_label(cm::CompilerCompilerErrorClass::ToolchainFehlt)
+                          << "] keine per-Perm-CompileFn (compile_for_perm unbelegt) -- opt=" << opt_id
+                          << " simd=" << simd_id
+                          << " baut mit dem LAUF-KONSTANTEN Bau; der .version-/CSV-Suffix dieser Zelle "
+                             "bleibt deshalb leer (gestempelt wird, was wirklich gebaut wurde).\n";
             // Lane F R3 (O-8 Schritt 10): der Zwilling der Perm-Schleife aus profile_run_entry.hpp -- er
             // buchstabierte dieselbe Ordnung ein zweites Mal. Jetzt liest auch er die EINE Suffix-Quelle,
             // damit die beiden Lauf-Pfade nicht auseinanderlaufen koennen.
@@ -342,8 +355,10 @@ struct RunExperimentResult {
             perm_parts.build_type      = perm_bt; // (i) +bt=Debug NUR bei Debug (sonst byte-identisch)
             // T2-B: derselbe perm_gate, den auch das Glied [5] traegt -- oben EINMAL gebildet.
             perm_parts.gate_contribution = perm_gate; // OP-7: am ENDE, leer => kein Segment
+            // T2-A/H2 (SPIEGEL): ohne per-Zelle-Bau kein per-Zelle-Suffix.
             std::string const perm_suffix =
-                ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts);
+                perm_bau_je_zelle ? ::comdare::cache_engine::profile_facade::compose_system_version_suffix(perm_parts)
+                                  : std::string{};
             std::string const perm_build_version     = a.build_version + perm_suffix;
             std::string const perm_tag_build_version = tag_build_version + perm_suffix;
             std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
