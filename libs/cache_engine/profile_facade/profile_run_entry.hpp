@@ -388,11 +388,31 @@ struct RunProfileResult {
     // lazy_gen. Gated auf COMDARE_BESTANDSLOG (Default aus => leer => kein Sidecar => byte-neutral). Drift-frei: fasst
     // dieselbe Combo (COMDARE_MEASUREMENT_COMBO) + version_table wie lazy_gen -> der Fingerprint deckt sich byte-genau
     // mit dem sha512_line, den die DLL einkompiliert traegt (anatomy_fingerprint_hex ueber dieselben 4 Zeilen).
+    //
+    // T2-C -- DIE DRITTE STUFE DER FAIL-CLOSED-REGEL: UNBEKANNTE TIER-REALVERSION HEISST NICHT SKIP-FAEHIG.
+    // Die Sonde (toolchain_stamp_naht, einmal je Treiber-Tag) erhebt die Version am Tier-Treiber selbst.
+    // Antwortet er nicht -- Treiber fehlt, Tag nicht sondierbar, Ausgabe unbrauchbar --, dann ist die
+    // Identitaet der zu bauenden Binary nicht vollstaendig bestimmt. Eine unbestimmte Identitaet darf
+    // keinen Skip tragen: der Provider faellt weg, damit kein `.fingerprint` entsteht, und dll_is_current
+    // gibt bei leerer Erwartung IMMER false zurueck (build_orchestrator.hpp:305). Ehrlicher Neubau statt
+    // geratener Wiederverwendung -- dieselbe Mechanik und dieselbe Begruendung wie beim `na`-Zellwert.
     ex::FingerprintFn const lazy_fingerprint = [] {
         char const* const bl = std::getenv("COMDARE_BESTANDSLOG");
-        return (bl != nullptr && std::string_view{bl} == std::string_view{"true"})
-                   ? make_lazy_adhoc_fingerprint_fn_from_env()
-                   : ex::FingerprintFn{};
+        if (bl == nullptr || std::string_view{bl} != std::string_view{"true"}) return ex::FingerprintFn{};
+        if (!::comdare::cache_engine::profile_facade::tier_realversion_ist_bekannt()) {
+            std::cerr << "[Compiler-Compiler-Fehler: "
+                      << ::comdare::cache_engine::measurement::error_class_label(
+                             ::comdare::cache_engine::measurement::CompilerCompilerErrorClass::KonfigXmlParse)
+                      << "] T2-C: die REALVERSION des Tier-Treibers '"
+                      << ::comdare::cache_engine::profile_facade::active_cxx_driver_tag()
+                      << "' konnte nicht erhoben werden (Sonde ohne brauchbare Antwort). Die Identitaet der "
+                         "Binaries dieses Laufs ist damit nicht vollstaendig bestimmt -- es wird KEIN "
+                         "Fingerprint-Sidecar geschrieben, also NICHTS uebersprungen und NICHTS ins Lager "
+                         "zurueckgeschrieben (fail-closed: lieber ein ehrlicher Neubau als ein geratener "
+                         "Skip).\n";
+            return ex::FingerprintFn{};
+        }
+        return make_lazy_adhoc_fingerprint_fn_from_env();
     }();
     // A7-B (Lager-Gate, G2 Folge-B): das BUILD-VARIANTEN-Gate, gleiches opt-in-Muster wie COMDARE_BESTANDSLOG darueber.
     // Gated auf COMDARE_VARIANT_GATE=true; Default AUS => leerer String => Variant-Gate AUS => byte-neutral (exakt der

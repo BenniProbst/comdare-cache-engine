@@ -1544,6 +1544,63 @@ TEST(MW12StampBausteine, T2bAtomic128HatEineQuelle) {
     EXPECT_NE(live.find(std::string{"atomic128="} + std::string{w.id}), std::string::npos) << live;
 }
 
+// -- T2-C: DIE RT-REALVERSIONS-SONDE AM TIER-TREIBER --------------------------------------------------
+// Codex-Zweitreview [K], KRITISCH: "Tier-Treiber-REALVERSION wird nie gemessen (g++-16-Binary 16.1->16.3
+// = identischer Stempel = falscher Skip)". Der Test misst die Sonde selbst -- ihre Antwort, ihre
+// Fail-closed-Wege und die Zusage, dass ein nicht sondierbarer Tag NIE an eine Shell geht.
+TEST(MW12StampBausteine, T2cRealversionsSondeIstFailClosed) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+
+    // (1) DIE ECHTE FLOTTE. Auf einer Maschine ohne den Treiber liefert die Sonde ehrlich nichts --
+    //     deshalb wird die Antwort nur GEPRUEFT, wenn es eine gibt (kein Test, der Umgebung behauptet).
+    for (char const* tag : {"g++", "g++-16"}) {
+        auto const v = pfn::tier_realversion_von(tag);
+        if (v.has_value()) {
+            EXPECT_TRUE(pfn::sonden_antwort_ist_version(*v)) << tag << " -> '" << *v << "'";
+            EXPECT_NE(v->find('.'), std::string::npos) << "erwartet X.Y.Z-Form, bekam '" << *v << "'";
+        }
+    }
+    // (2) EIN TREIBER, DEN ES NICHT GIBT: die Sonde laeuft, bekommt keine brauchbare Antwort, und sagt
+    //     das auch -- statt eine Version zu erfinden (Owner-KERN: keine Phantom-Versionen).
+    EXPECT_FALSE(pfn::tier_realversion_von("g++-999999").has_value());
+    // (3) NICHT SONDIERBARE TAGS gehen GAR NICHT ERST an eine Shell. Die Glied-Wachen allein reichen
+    //     dafuer nicht (sie sind Denylisten und lassen '$'/'&'/'|' durch, die im Preimage harmlos sind).
+    for (char const* boese : {"g++ -o /tmp/x", "g++;touch /tmp/x", "g++$(id)", "g++|sh", "g++&", ""}) {
+        EXPECT_FALSE(pfn::treiber_tag_ist_sondierbar(boese)) << "tag='" << boese << "'";
+        EXPECT_FALSE(pfn::tier_realversion_von(boese).has_value()) << "tag='" << boese << "'";
+    }
+    // (4) Reale Tag-Formen bleiben sondierbar -- die Wache ist kein Verbot des Normalfalls.
+    for (char const* gut : {"g++", "g++-16", "clang++-18", "/usr/bin/g++-16"})
+        EXPECT_TRUE(pfn::treiber_tag_ist_sondierbar(gut)) << "tag='" << gut << "'";
+
+    // (5) Die Antwort-Wache: nur Ziffern und Punkte, beginnend mit einer Ziffer.
+    for (char const* boese : {"gcc (Debian) 15.3.0", "", "v15.3.0", "15.3.0-suse", "abc"})
+        EXPECT_FALSE(pfn::sonden_antwort_ist_version(boese)) << "antwort='" << boese << "'";
+    for (char const* gut : {"15.3.0", "16.0.1", "16"}) EXPECT_TRUE(pfn::sonden_antwort_ist_version(gut));
+}
+
+// -- T2-C (2): UNBEKANNTE VERSION == NICHT SKIP-FAEHIG, UND DIE STEMPEL-FORM -------------------------
+TEST(MW12StampBausteine, T2cUnbekanntHeisstNichtSkipFaehig) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+
+    // (1) Die Skip-Faehigkeits-Frage ist exakt "ist eine Realversion erhoben?" -- kein zweiter Begriff.
+    EXPECT_EQ(pfn::tier_realversion_ist_bekannt(), !pfn::active_tier_realversion().empty());
+
+    // (2) DIE STEMPEL-FORM. Ist die Version erhoben, steht sie als <dialekt>-<realversion>:<tag> im Glied;
+    //     ist sie es nicht, steht dort <dialekt>:<tag> -- der Treiber bleibt in BEIDEN Faellen drin
+    //     (NB2-1 Regel R1), es faellt nur die Versions-Behauptung weg.
+    std::string const tag  = pfn::active_cxx_driver_tag();
+    std::string const real = pfn::active_tier_realversion();
+    std::string const glied = pfn::compose_live_toolchain_stamp_glied();
+    std::string const dialekt{pfn::cxx_driver_dialect(tag)};
+    std::string const erwartet =
+        real.empty() ? ("cxx=" + dialekt + ":" + tag) : ("cxx=" + dialekt + "-" + real + ":" + tag);
+    EXPECT_NE(glied.find(erwartet), std::string::npos) << "erwartet '" << erwartet << "' in '" << glied << "'";
+
+    // (3) Und das Ergebnis bleibt ein gueltiger, transportfaehiger Preimage-Wert.
+    EXPECT_TRUE(::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(glied)) << glied;
+}
+
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIEDER --------------------------------------
 // Der Codex-Blocker war konkret: A={Toolchain="TC\nX", bvset="BV"} und B={Toolchain="TC", bvset="X\nBV"}
 // erzeugen BYTE-IDENTISCHE Preimages. Der Test beweist, dass beide Belegungen jetzt gar nicht mehr

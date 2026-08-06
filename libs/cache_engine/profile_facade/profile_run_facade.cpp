@@ -346,21 +346,36 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     // bereits ausgeraeumt hat: er las sich wie ein Verlust der Treiber-Unterscheidbarkeit. Eine
     // Diagnose-Zeile, die den Ist-Stand falsch beschreibt, ist schlimmer als keine -- sie ist die einzige
     // Quelle, aus der jemand im Trace ueberhaupt erfaehrt, WAS das Glied gerade behauptet.
+    //
+    // T2-C: DIE ZEILE BERICHTET AB JETZT DIE SONDE, NICHT DIE DECKUNG. Die Frage "deckt die CEB-Version
+    // den Tier-Treiber?" war ein Ersatz fuer eine Messung, die es nicht gab. Seit T2-C gibt es sie: der
+    // Tier-Treiber nennt seine Version selbst. Damit hat die Zeile genau zwei Faelle zu melden -- erhoben
+    // (mit dem Wert, damit er im Trace steht und nicht nur im Binary) oder NICHT erhoben (dann ist der
+    // Lauf nicht skip-faehig, und das ist die wichtigste Zeile des ganzen Laufs).
     static bool gemeldet = false;
     if (!gemeldet) {
         gemeldet                  = true;
         std::string const treiber = pfn::active_cxx_driver_tag(); // dieselbe EINE Quelle wie cxx_compiler()
-        if (!pfn::ct_realversion_deckt_treiber(treiber))
-            std::cerr << "[profile_facade] NB/CX-4 + NB2-1: die compile-time erhobene Compiler-Realversion ('"
+        std::string const real    = pfn::active_tier_realversion();
+        if (real.empty()) {
+            std::cerr << "[profile_facade] T2-C: die REALVERSION des Tier-Treibers '" << treiber
+                      << "' konnte NICHT erhoben werden (Sonde ohne brauchbare Antwort oder Tag nicht "
+                         "sondierbar). Das Toolchain-Glied [5] traegt deshalb keine Versions-Behauptung -- es "
+                         "traegt weiterhin Dialekt UND Treiber-Tag (cxx=<dialekt>:<treiber-tag>, NB2-1 Regel "
+                         "R1), verschiedene Treiber bleiben also unterscheidbar. FOLGE: dieser Lauf ist NICHT "
+                         "skip-faehig (kein Fingerprint-Sidecar, kein Lager-Rueckschrieb) -- eine unbestimmte "
+                         "Identitaet darf keinen Skip tragen.\n";
+        } else {
+            std::cerr << "[profile_facade] T2-C: Tier-Treiber '" << treiber << "' meldet Realversion '" << real
+                      << "' (am Treiber erhoben, nicht von der CEB geerbt). Das Toolchain-Glied [5] traegt sie "
+                         "als cxx=<dialekt>-" << real << ":" << treiber << ". Zum Vergleich die CEB-Toolchain: '"
                       << ::comdare::cache_engine::abi::kDetectedCompilerDialect << " "
-                      << ::comdare::cache_engine::abi::kDetectedCompilerRealVersion
-                      << "', die Toolchain DIESER CEB) deckt den Tier-Treiber '" << treiber
-                      << "' nicht beweisbar -- das Toolchain-Glied [5] traegt deshalb KEINE Realversions-"
-                         "Behauptung. Es traegt weiterhin Dialekt UND Treiber-Tag (cxx=<dialekt>:<treiber-tag>, "
-                         "NB2-1 Regel R1), verschiedene Treiber bleiben also unterscheidbar; weg faellt allein "
-                         "die ungedeckte Version (fail-closed: lieber eine schwaechere wahre Aussage als eine "
-                         "ungedeckte). Deckung gaebe es erst, wenn der Tag seine VOLLE Version selbst nennt "
-                         "(z.B. 'g++-15.3.0') und sie byte-gleich der CEB-Erhebung ist.\n";
+                      << ::comdare::cache_engine::abi::kDetectedCompilerRealVersion << "'"
+                      << (pfn::ct_realversion_deckt_treiber(treiber) ? " (deckungsgleich)."
+                                                                     : " (anderer Compiler -- unschaedlich, die "
+                                                                       "Version stammt ab T2-C vom Tier-Treiber).")
+                      << "\n";
+        }
     }
     return d;
 }

@@ -45,7 +45,12 @@
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // T2-B: Cx16Option/-mcx16 (Single-Source)
 #include <cache_engine/measurement/compiler_system_axis.hpp>     // Dialekt-Ids + driver_default (Single-Source)
 
+#include <array>
+#include <cstdio> // T2-C: popen/pclose -- die RT-Realversions-Sonde startet den Treiber selbst
 #include <cstdlib>
+#include <map>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -217,6 +222,133 @@ struct Atomic128Wahl {
 #endif
 }
 
+// -- T2-C: DIE RT-REALVERSIONS-SONDE AM TIER-TREIBER SELBST -------------------------------------------
+//
+// DER BEFUND, DEN DAS SCHLIESST (Codex-Zweitreview [K], KRITISCH, Ledger vormittag-1 verbatim):
+// "Tier-Treiber-REALVERSION wird nie gemessen (g++-16-Binary 16.1->16.3 = identischer Stempel =
+// falscher Skip)". NB2-1 hat das Problem korrekt DIAGNOSTIZIERT und fail-closed entschaerft -- ohne
+// bewiesene Deckung behauptete das Glied gar keine Version mehr. Das war ehrlich, aber es blieb ein
+// Verzicht: zwei Baue mit g++-16 = 16.0.1 und g++-16 = 16.3.0 tragen weiterhin DASSELBE Glied, weil der
+// Tag identisch ist. Der Skip zwischen ihnen ist damit weiter falsch, nur nicht mehr auf einer LUEGE
+// gegruendet, sondern auf einer LUECKE.
+//
+// DIE HEILUNG, die NB2-1 selbst als "der Weg zu mehr" deklariert hat: die Version wird am TIER-TREIBER
+// ERHOBEN, statt von der CEB geerbt. Das ist die Laufzeit-Factory-Doktrin des Owners, wortgleich
+// angewandt (Hardware-Werte nie statisch -- Laufzeit-Erhebung je ISAxOS): der Treiber sagt seine Version
+// selbst, wir lesen sie, wir raten sie nicht.
+//
+// EINMAL JE TAG, GECACHT: die Sonde startet einen Prozess. In einem Lauf mit hunderten Permutationen
+// waere ein Aufruf je Permutation absurd -- und er koennte zwischen zwei Permutationen sogar
+// VERSCHIEDENE Antworten geben (ein Toolchain-Wechsel mitten im Lauf). Der Cache je Tag macht die
+// Erhebung damit nicht nur billig, sondern auch KONSISTENT: ein Lauf hat genau eine Wahrheit je Tag.
+//
+// FAIL-CLOSED, DREISTUFIG -- und die dritte Stufe ist die eigentliche Zusage:
+//   (1) Der Tag ist nicht sondierbar (s. treiber_tag_ist_sondierbar) -> Version UNBEKANNT.
+//   (2) Die Sonde laeuft nicht oder antwortet unbrauchbar               -> Version UNBEKANNT.
+//   (3) UNBEKANNT heisst NICHT SKIP-FAEHIG. Nicht "nimm halt den Tag" -- die Identitaet der Binary ist
+//       dann schlicht nicht vollstaendig bestimmt, und eine unbestimmte Identitaet darf keinen Skip
+//       tragen. Mechanisch faellt dafuer der Fingerprint-Provider weg (dieselbe Mechanik wie beim
+//       `na`-Zellwert, W10-C4): kein Provider -> kein .fingerprint -> dll_is_current gibt bei leerer
+//       Erwartung IMMER false zurueck (build_orchestrator.hpp:305, Punkt (1) der dortigen Regel) ->
+//       ehrlicher Neubau statt geratener Wiederverwendung.
+//
+// KEINE PHANTOM-VERSIONEN (Owner-KERN frueh-12, verbatim: "wir arbeiten mit gcc 15.3 und die neueste
+// Version (die ueberhaupt existieren kann) ist gcc 16"): die Sonde erfindet nichts. Sie liefert genau
+// das, was der Treiber ausgibt -- auf dieser Flotte g++ -> 15.3.0 und g++-16 -> 16.0.1.
+
+namespace detail {
+
+/// T2-C: EIN Kommando starten und seine ERSTE Ausgabezeile lesen. Bewusst winzig: die Sonde stellt genau
+/// eine Frage, deren Antwort ein einziges Token ist. Ein allgemeiner Prozess-Runner waere hier mehr
+/// Angriffsflaeche als Nutzen.
+[[nodiscard]] inline std::optional<std::string> erste_ausgabe_zeile(std::string const& cmd) {
+#if defined(_WIN32)
+    std::FILE* p = ::_popen(cmd.c_str(), "r");
+#else
+    std::FILE* p = ::popen(cmd.c_str(), "r");
+#endif
+    if (p == nullptr) return std::nullopt;
+    std::array<char, 256> puffer{};
+    char const*           gelesen = std::fgets(puffer.data(), static_cast<int>(puffer.size()), p);
+#if defined(_WIN32)
+    int const rc = ::_pclose(p);
+#else
+    int const rc = ::pclose(p);
+#endif
+    if (gelesen == nullptr || rc != 0) return std::nullopt; // (2) keine Antwort oder Fehler-Exit
+    std::string zeile{puffer.data()};
+    while (!zeile.empty() && (zeile.back() == '\n' || zeile.back() == '\r')) zeile.pop_back();
+    if (zeile.empty()) return std::nullopt;
+    return zeile;
+}
+
+} // namespace detail
+
+/// T2-C: DARF dieser Tag ueberhaupt an eine Shell? Der Tag kommt aus COMDARE_CXX, also von aussen.
+///
+/// WARUM DIESE WACHE EIGENSTAENDIG DASTEHT: die Glied-Wachen fragen "ist der Text im Stempel eindeutig
+/// zerlegbar und transportfaehig" -- sie sind DENYLISTEN und lassen z.B. '$', '&', '|', '(' passieren,
+/// weil die im PREIMAGE voellig harmlos sind. In einer Kommandozeile sind sie es nicht. Deshalb wird hier
+/// zusaetzlich die ALLOWLIST des Preimage-Zeichenvorrats verlangt (abi::injizierter_glied_wert_ist_
+/// wohlgeformt): uebrig bleiben Buchstaben, Ziffern und '. , + - _ /', also genau die Form, die ein
+/// Compiler-Treiber-Tag oder -Pfad real hat. Alles andere wird NICHT sondiert -- Version unbekannt,
+/// fail-closed, statt einer Zeichenkette aus der Umgebung eine Shell zu oeffnen.
+[[nodiscard]] inline bool treiber_tag_ist_sondierbar(std::string_view tag) noexcept {
+    if (tag.empty()) return false;
+    if (!::comdare::cache_engine::abi::toolchain_treiber_tag_ist_wohlgeformt(tag)) return false;
+    return ::comdare::cache_engine::abi::injizierter_glied_wert_ist_wohlgeformt(tag);
+}
+
+/// T2-C: eine Sonden-ANTWORT ist brauchbar, wenn sie wie eine Version aussieht -- Ziffern und Punkte,
+/// beginnend mit einer Ziffer. Ein Treiber, der auf `-dumpfullversion` etwas anderes sagt (Fehlertext,
+/// Banner, leere Zeile), hat die Frage nicht beantwortet; dann wird auch nichts behauptet.
+[[nodiscard]] inline bool sonden_antwort_ist_version(std::string_view v) noexcept {
+    if (v.empty() || v.front() < '0' || v.front() > '9') return false;
+    for (char const c : v) {
+        if (!((c >= '0' && c <= '9') || c == '.')) return false;
+    }
+    // Die Klebepunkt-Regel des cxx-Feldes gilt weiter: keine '-'/':'/Struktur-Zeichen (hier per
+    // Konstruktion erfuellt, aber die Wache steht da, wo die Zusage gebraucht wird).
+    return ::comdare::cache_engine::abi::toolchain_realversion_ist_wohlgeformt(v);
+}
+
+/// T2-C: die REALVERSION DIESES Tier-Treibers, am Treiber selbst erhoben. std::nullopt == UNBEKANNT.
+/// Einmal je Tag; das Ergebnis (auch das negative) wird gecacht, damit ein fehlender Treiber nicht je
+/// Permutation erneut einen Prozessstart kostet.
+[[nodiscard]] inline std::optional<std::string> tier_realversion_von(std::string const& driver_tag) {
+    static std::mutex                                          schloss;
+    static std::map<std::string, std::optional<std::string>>   cache;
+    std::lock_guard<std::mutex> const                          sperre{schloss};
+    if (auto const it = cache.find(driver_tag); it != cache.end()) return it->second;
+
+    std::optional<std::string> ergebnis = std::nullopt;
+    if (treiber_tag_ist_sondierbar(driver_tag)) {
+        namespace cm = ::comdare::cache_engine::measurement;
+        // Die Frage je Dialekt: gcc kennt -dumpfullversion (volle X.Y.Z), clang antwortet auf
+        // -dumpversion mit derselben Form. Beide geben EIN Token -- deshalb reicht die erste Zeile.
+        std::string_view const frage =
+            cxx_driver_dialect(driver_tag) == cm::ClangCompilerAxis::compiler_id() ? "-dumpversion"
+                                                                                   : "-dumpfullversion";
+        std::string const cmd = driver_tag + " " + std::string{frage} + " 2>/dev/null";
+        if (auto const zeile = detail::erste_ausgabe_zeile(cmd); zeile.has_value()) {
+            if (sonden_antwort_ist_version(*zeile)) ergebnis = *zeile;
+        }
+    }
+    cache.emplace(driver_tag, ergebnis);
+    return ergebnis;
+}
+
+/// T2-C: die Realversion des AKTIVEN Tier-Treibers (leer == UNBEKANNT).
+[[nodiscard]] inline std::string active_tier_realversion() {
+    auto const v = tier_realversion_von(active_cxx_driver_tag());
+    return v.has_value() ? *v : std::string{};
+}
+
+/// T2-C: DIE SKIP-FAEHIGKEITS-FRAGE. Ist sie mit NEIN beantwortet, darf keine Binary dieses Laufs ueber
+/// den Fingerprint uebersprungen werden -- die Aufrufer loeschen dafuer ihren Fingerprint-Provider
+/// (Mechanik und Praezedenz: der `na`-Zellwert der W10-C4-Naht).
+[[nodiscard]] inline bool tier_realversion_ist_bekannt() { return !active_tier_realversion().empty(); }
+
 /// compose_toolchain_stamp_glied_for_perm(achsen) -- DER EINE Renderer-Weg des Glieds [5].
 ///
 /// Die Felder kommen aus der EINEN Suffix-Quelle (SystemVersionSuffixParts + der Konverter
@@ -251,12 +383,15 @@ struct Atomic128Wahl {
     p.gate_contribution = achsen.gate_contribution;
 
     std::string_view const dialekt = cxx_driver_dialect(driver_tag);
-    std::string_view const realver =
-        ct_realversion_deckt_treiber(driver_tag) ? ::comdare::cache_engine::abi::kDetectedCompilerRealVersion
-                                                 : std::string_view{};
-    Atomic128Wahl const a128 = active_atomic128_wahl();
+    // T2-C: die Version kommt AB HIER vom Tier-Treiber selbst (RT-Sonde, einmal je Tag gecacht), nicht
+    // mehr geerbt von der CEB-Uebersetzung. Die alte Deckungs-Wache ct_realversion_deckt_treiber bleibt
+    // als Diagnose-Werkzeug stehen (sie beantwortet eine ANDERE Frage: "ist die CEB mit demselben
+    // Compiler gebaut wie die Tier-Binaries?"), aber sie entscheidet nicht mehr ueber den Stempel --
+    // eine geerbte Version war immer eine Aussage ueber den falschen Compiler.
+    std::string const       realversion = active_tier_realversion(); // leer == unbekannt (fail-closed)
+    Atomic128Wahl const     a128        = active_atomic128_wahl();
     return ::comdare::cache_engine::abi::render_toolchain_stamp_glied(toolchain_stamp_parts_from_suffix_parts(
-        p, dialekt, realver, achsen.opt_flags, a128.id, a128.flags));
+        p, dialekt, realversion, achsen.opt_flags, a128.id, a128.flags));
 }
 
 /// compose_live_toolchain_stamp_glied() -- der RUN-KONSTANTE Wert des Glieds [5] (keine System-Achsen).
