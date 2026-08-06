@@ -81,7 +81,10 @@ public:
     /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
     /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
     /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
-    static constexpr std::string_view algo_version = "v1.0.1c";
+    /// 2. Bump (2026-08-06): v1.0.1c -> v1.0.2c -- die reallocate()-Statistik-Korrektur bekam
+    /// nachtraeglich einen Bump (Owner-Entscheid: "heute unerreichbar" entlastet nicht, s. dort).
+    /// Volle Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    static constexpr std::string_view algo_version = "v1.0.2c";
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::alloc::StdMalloc",
                                   "axes/alloc/axis_06_allocator_std_malloc.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {

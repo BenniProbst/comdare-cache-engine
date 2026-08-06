@@ -60,7 +60,10 @@ public:
     /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
     /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
     /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
-    static constexpr std::string_view               algo_version = "v1.0.1c";
+    /// 2. Bump (2026-08-06): v1.0.1c -> v1.0.2c -- die reallocate()-Statistik-Korrektur bekam
+    /// nachtraeglich einen Bump (Owner-Entscheid: "heute unerreichbar" entlastet nicht, s. dort).
+    /// Volle Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    static constexpr std::string_view               algo_version = "v1.0.2c";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EXGEN"; }
 
     [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept { return true; }

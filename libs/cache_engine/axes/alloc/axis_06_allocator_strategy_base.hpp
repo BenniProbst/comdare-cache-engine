@@ -73,6 +73,57 @@
 //     PilotAlloc), Composition::allocator (eine Registry-Variante) oder eine an AllocatorStrategyBase
 //     haengende Test-Variante. Die Aenderung kann heute also keinen Uebersetzungs-Fehler ausloesen,
 //     den es nicht schon vorher gab.
+//
+// ==================================================================================================
+// A1-VERSIONS-BUMP, 2. BUMP (2026-08-06, Owner-Entscheid nach Lens-Pass) -- v1.0.1c -> v1.0.2c FUER
+// GENAU DIE 24 STRATEGIEN MIT EIGENER reallocate()-IMPLEMENTIERUNG
+// ==================================================================================================
+// DIE UMKEHR, DIE DIESER ABSCHNITT DOKUMENTIERT: die reallocate()-Statistik-Symmetrie-Korrektur
+// (Phantom-Bytes, volle Begruendung: axis_06_allocator_pool_resource.hpp, Abschnitt "reallocate")
+// wurde urspruenglich OHNE Bump ausgeliefert -- Begruendung damals: "reallocate() wird auf dem
+// gesamten Mess-/Produktions-Pfad nie gerufen (grep-belegt: 0 Treffer ausserhalb von Tests und der
+// Concept-Deklaration selbst), ein Bump wuerde den Tier-Binary-Cache grundlos komplett invalidieren."
+//
+// DER EINWAND (Lens-Pass 06.08.2026, vom Owner uebernommen): dieselbe Aussageform -- "wird unter den
+// heutigen Umstaenden nicht beobachtet" -- hatte den 1. Bump oben NICHT von der Bump-Pflicht befreit
+// (dort: "jede Aenderung liegt hinter einer Bedingung, die im Normalbetrieb nie feuert", trotzdem
+// wurden alle 26 Strategien gebumpt, weil die Cache-Staleness-Sorge Vorrang hatte). Owner-Entscheid:
+// "HEUTE UNERREICHBAR" ENTLASTET NICHT. reallocate() ist keine tote oder experimentelle Faehigkeit,
+// sondern eine offiziell im Typsystem gefuehrte Achsen-Faehigkeit (ReallocatingStrategy-Concept). Ein
+// KUENFTIGER Konsument koennte sie in den Mess-Pfad ziehen; ohne diesen Bump waere ein VOR der
+// Statistik-Korrektur unter UNVERAENDERTEM v1.0.1c gecachtes Binary weiterhin auswaehlbar und braechte
+// den Phantom-Byte-Fehler still zurueck -- ein Cache-IDENTITAETS-Risiko, kein Kosmetikposten.
+//
+// WARUM NUR 24 UND NICHT ALLE 26 (Umkehrung der "MINIMAL und VOLLSTAENDIG"-Regel des 1. Bumps): der
+// 1. Bump betraf die CRTP-WURZEL (allocate_or_throw, beide Adapter) -- geerbt von allen 26, deshalb
+// alle 26. Die reallocate()-Statistik-Korrektur sitzt dagegen JE STRATEGIE in deren EIGENER
+// reallocate()-Implementierung, nicht an der Wurzel. PmrResourceAllocator und VampirNfpAllocator
+// implementieren KEIN reallocate() (PMR-Interface bietet das nicht direkt, s.
+// axis_06_allocator_pmr_resource.hpp; VampirNfpAllocator dito) -- der Phantom-Byte-Fehler kann in
+// ihnen strukturell nicht existieren, ein Bump ohne Code-Aenderung waere selbst ein Verstoss gegen die
+// Bump-Disziplin ("Startwert 'v1'; Bump-Disziplin ab dem 1. Bump" -- ein Bump zeigt eine Aenderung AN,
+// er ist kein routinemaessiges Hochzaehlen). Sie bleiben auf v1.0.1c stehen.
+//
+// DIE 24: buddy, cama, crystalline, dlmalloc, exgen, hmalloc, hoard, jemalloc, lrmalloc, michael_lf,
+// mimalloc, numalloc, pim_malloc, pool_resource, ptmalloc2, rpmalloc, scalloc, slab, snmalloc,
+// starmalloc, std_malloc, tcmalloc, tcmalloc_wh, vmem_mag -- exakt die Menge, die den reallocate-Fix
+// erhielt (Beleg: `git show --stat` auf den reallocate-Fix-Commit listet genau diese 24 .hpp-Dateien).
+//
+// FROZEN-NEUTRALITAET GEPRUEFT (dieselbe Auflage wie beim 1. Bump, VOR dem Bau gemessen): die drei
+// eingefrorenen Fingerprint-Fixtures (test_g3_sha512_index.cpp, test_w10_system_cell_values.cpp,
+// test_m_w12_stamp_bausteine.cpp) bilden ihren "allocator"-Slot AUSSCHLIESSLICH aus SYNTHETISCHEN
+// Mock-Literalen (MockAxisV1::algo_version = "v1.0.0" bzw. das handgeschriebene Fixture-Literal
+// "allocator=a@1.0.0c") -- beide sind vom Typ her von der REALEN AllVendors-Registry entkoppelt und
+// koennen sich durch diesen Bump strukturell nicht bewegen. Keine XML-Registry-Datei (system_axis_
+// registry.xml) und keine golden_fullpilot_320_binary_ids*-Datei enthaelt einen algo_version-String
+// dieser Achse (repo-weiter grep nach "v1.0.1c"/"v1.0.2c" ausserhalb von axes/alloc/ und tests/unit/
+// bleibt leer). Die algo_sig BEWEGT sich dagegen bewusst (das ist der Zweck des Bumps): der
+// inkrementelle Tier-Binary-Cache verwirft die 24 betroffenen Binaries und baut sie neu.
+//
+// GRAMMATIK: PATCH-Stelle, Owner-Q3-Flag bleibt 'c' -> "v1.0.1c" -> "v1.0.2c" fuer die 24; die 2
+// reallocate-losen Strategien bleiben bei "v1.0.1c". Wohlgeformt nach assert_version_grammar/
+// ce_owned_version_satisfies_cpu_enforce (ENFORCE ist scharf); gepinnt in
+// test_a1_algo_version_pin_alloc_axis (Nachtrag 2. Bump).
 
 #include "concepts/axis_06_allocator_concept.hpp"
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"

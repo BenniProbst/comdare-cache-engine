@@ -98,7 +98,10 @@ public:
     /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
     /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
     /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
-    static constexpr std::string_view               algo_version = "v1.0.1c";
+    /// 2. Bump (2026-08-06): v1.0.1c -> v1.0.2c -- die reallocate()-Statistik-Korrektur unten bekam
+    /// nachtraeglich einen Bump (Owner-Entscheid: "heute unerreichbar" entlastet nicht, s. dort).
+    /// Volle Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
+    static constexpr std::string_view               algo_version = "v1.0.2c";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "POOL"; }
 
     // Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
@@ -213,14 +216,23 @@ public:
     // unsichtbar und wird jetzt mit alignment-UNGLEICHEN Werten (65 @ 16 -> 80) gepinnt
     // (test_a1_wurf_vertrag_allokator_store, Abschnitt (4c)).
     //
-    // MESSWIRKUNG -- ehrlich geprueft, nicht behauptet: KEINE. total_bytes_in_use ist eine T6-Groesse,
-    // die Korrektur waere also grundsaetzlich messwirksam. Sie ist es hier nicht, weil reallocate() auf
-    // dem gesamten Mess-Pfad NIE gerufen wird: `grep -rn "\.reallocate(\|->reallocate(" libs/ apps/
-    // modules/ benchmarks/ tools/ adapters/ deploy/` liefert GENAU EINEN Treffer, und der ist die
-    // Concept-Deklaration selbst (axis_06_allocator_reallocating_strategy_concept.hpp:35). Alle
-    // Aufrufer sind Tests. Kein aufgezeichneter Messwert kann sich bewegen -> KEIN algo_version-Bump
-    // (die Achse steht seit dem A1-Schnitt auf v1.0.1c und bleibt dort; ein Bump ohne Messwirkung
-    // wuerde den Tier-Binary-Cache grundlos komplett invalidieren).
+    // MESSWIRKUNG UNTER DEN HEUTIGEN AUFRUFERN -- ehrlich geprueft, nicht behauptet: KEINE.
+    // total_bytes_in_use ist eine T6-Groesse, die Korrektur waere also grundsaetzlich messwirksam. Kein
+    // aufgezeichneter Messwert kann sich HEUTE bewegen, weil reallocate() auf dem gesamten Mess-Pfad NIE
+    // gerufen wird: `grep -rn "\.reallocate(\|->reallocate(" libs/ apps/ modules/ benchmarks/ tools/
+    // adapters/ deploy/` liefert GENAU EINEN Treffer, und der ist die Concept-Deklaration selbst
+    // (axis_06_allocator_reallocating_strategy_concept.hpp:35). Alle Aufrufer sind Tests.
+    //
+    // TROTZDEM BUMP (2. Bump, 2026-08-06, Owner-Entscheid nach Lens-Pass -- Umkehr der Erst-Fassung
+    // dieses Abschnitts): "kein Aufrufer heute" wurde zuerst als Bump-Ausschluss gewertet. Der Owner hat
+    // das verworfen: "HEUTE UNERREICHBAR ENTLASTET NICHT" -- reallocate() ist eine offiziell im
+    // Typsystem gefuehrte Achsen-Faehigkeit (ReallocatingStrategy-Concept), kein totes Feature. Ein
+    // KUENFTIGER Konsument koennte sie in den Mess-Pfad ziehen und dabei ein VOR dieser Korrektur unter
+    // unveraendertem Versions-Stand gecachtes Binary mit dem Phantom-Byte-Fehler weiterverwenden --
+    // ein Cache-IDENTITAETS-Risiko, kein Kosmetikposten. Die 24 Strategien mit eigener
+    // reallocate()-Implementierung gehen deshalb auf v1.0.2c; PmrResourceAllocator und
+    // VampirNfpAllocator implementieren kein reallocate() und bleiben auf v1.0.1c stehen. Volle
+    // Begruendung: axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP, 2. BUMP".
     //
     // Der zusaetzliche else-Zweig (Klemmung auf 0) ist NICHT neu erfunden: er spiegelt exakt die Form
     // in deallocate() darueber. Vorher fehlte er hier -- die Gegenbuchung war also auch in ihrer FORM
