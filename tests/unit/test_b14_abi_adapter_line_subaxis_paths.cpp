@@ -135,7 +135,8 @@ struct ProbeLineComposition : cmp::ArtComposition {
     using allocator     = SondenAllokator;
 
     static constexpr std::string_view name = "ProbeLineComposition";
-    COMDARE_DEFINE_COMPOSITION_LOCATION("ProbeLineComposition", "tests/unit/test_b14_abi_adapter_line_subaxis_paths.cpp");
+    COMDARE_DEFINE_COMPOSITION_LOCATION("ProbeLineComposition",
+                                        "tests/unit/test_b14_abi_adapter_line_subaxis_paths.cpp");
 };
 
 template <cl::CacheLineSize S>

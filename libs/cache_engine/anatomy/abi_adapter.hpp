@@ -75,7 +75,8 @@
 #include <axes/lookup/composable/search_algo_rebind.hpp> // A8-S5 PHASE B: search_algo_for_composition_t (bewusst boost-frei)
 #include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-b1b: ObservableComposedContainer<Organ>
 #include "../axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
-#include "../axes/cacheline/cacheline_line_bytes.hpp" // B14-NB2 / KF-6-Auflage (D): Line-Groesse NUR ueber die Achse (line_bytes_of<L>())
+// B14-NB2 / KF-6-Auflage (D): Line-Groesse NUR ueber die Achse (line_bytes_of<L>())
+#include "../axes/cacheline/cacheline_line_bytes.hpp"
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
 // PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
 #include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
