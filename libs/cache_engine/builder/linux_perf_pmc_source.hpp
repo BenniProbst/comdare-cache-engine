@@ -96,7 +96,11 @@ public:
 
     /// Öffnet den Counter (self-monitoring: pid=0, cpu=-1). false = EACCES/EPERM/ENOENT/EINVAL/ENODEV →
     /// dieses Feld bleibt available=false (KEIN erfundener Wert). attr.disabled=1 → Start erst per begin().
-    bool open(std::uint32_t type, std::uint64_t config) noexcept {
+    /// DIAGNOSE-ZUSATZ (2026-08-06, PMC-Intel-Lane-Untersuchung): das Verschweigen des errno in den
+    /// RUECKGABEWERT bleibt bewusst so (kein erfundener Wert je Fehlerklasse in den Messdaten) -- neu ist
+    /// NUR eine Sichtbarkeits-Zeile auf stderr bei Fehlschlag, mit dem betroffenen Event-Namen. Kein
+    /// Verhaltenswechsel: Rueckgabewert, fd_-Zustand und jeder Zaehler-Pfad bleiben unveraendert.
+    bool open(std::uint32_t type, std::uint64_t config, char const* event_name = "") noexcept {
         struct ::perf_event_attr attr;
         std::memset(&attr, 0, sizeof(attr)); // Muellbits in Reserve-Feldern → EINVAL; immer memset.
         attr.type           = type;
@@ -109,6 +113,11 @@ public:
         attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
         long const r        = perf_event_open(&attr, /*pid*/ 0, /*cpu*/ -1, /*group_fd*/ -1, /*flags*/ 0);
         if (r < 0) {
+            int const eno = errno; // SOFORT sichern -- fprintf/strerror koennen errno selbst ueberschreiben.
+            std::fprintf(stderr,
+                         "[PMC-DIAG] perf_event_open fehlgeschlagen: event=%s type=%u config=%llu "
+                         "errno=%d (%s)\n",
+                         event_name, type, static_cast<unsigned long long>(config), eno, std::strerror(eno));
             fd_ = -1;
             return false;
         }
@@ -208,12 +217,18 @@ public:
     LinuxPerfPmcSource() noexcept {
         using namespace detail_linux_perf;
         // Jeder Counter wird INDIVIDUELL geöffnet; ein Fehlschlag deaktiviert NUR dieses Feld (nicht die Source).
-        l1d_ok_  = c_l1d_.open(PERF_TYPE_HW_CACHE, cache_cfg(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ,
-                                                             PERF_COUNT_HW_CACHE_RESULT_MISS));
-        ll_ok_   = c_ll_.open(PERF_TYPE_HW_CACHE, cache_cfg(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ,
-                                                            PERF_COUNT_HW_CACHE_RESULT_MISS));
-        dtlb_ok_ = c_dtlb_.open(PERF_TYPE_HW_CACHE, cache_cfg(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ,
-                                                              PERF_COUNT_HW_CACHE_RESULT_MISS));
+        l1d_ok_ = c_l1d_.open(
+            PERF_TYPE_HW_CACHE,
+            cache_cfg(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
+            "cache_misses_l1");
+        ll_ok_ =
+            c_ll_.open(PERF_TYPE_HW_CACHE,
+                       cache_cfg(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
+                       "cache_misses_l3_ll");
+        dtlb_ok_ = c_dtlb_.open(
+            PERF_TYPE_HW_CACHE,
+            cache_cfg(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
+            "dtlb_misses");
         // L2 + coherence_invalidations: KEIN portabler generischer Counter → bewusst NICHT geöffnet, Feld 0.
         // RAPL: best-effort sysfs-Snapshot; Verfügbarkeit erst bei begin() (Lesbarkeit kann variieren).
         ready_ = l1d_ok_ || ll_ok_ || dtlb_ok_;
