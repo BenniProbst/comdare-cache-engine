@@ -11,6 +11,7 @@
 
 #include <topics/filter/axis_filter/axis_filter_bloom.hpp>
 #include <topics/filter/axis_filter/axis_filter_cuckoo.hpp>
+#include <topics/filter/axis_filter/axis_filter_none.hpp>
 #include <topics/filter/axis_filter/axis_filter_range_surf.hpp>
 #include <topics/filter/axis_filter/axis_filter_xor.hpp>
 #include <topics/filter/axis_filter/axis_filter_registry.hpp>
@@ -64,7 +65,7 @@ TYPED_TEST(FilterWrapperTest, IsEnabledMatchesFlag) {
     SUCCEED();
 }
 
-// 4 Wrappers × 4 TYPED_TESTs = 16 typed Tests (skaliert mit N)
+// 5 Wrappers x 4 TYPED_TESTs = 20 typed Tests (skaliert mit N; E14 NoneFilter End-Append)
 
 // ─── Spezifische Verhaltens-Tests (5) ───
 
@@ -74,6 +75,8 @@ TEST(R7_5_e_Axis_Filter_Specific, SupportsRangeQueryDifferentiated) {
     static_assert(ax_filter::CuckooFilter::supports_range_query() == false);
     static_assert(ax_filter::RangeSurfFilter::supports_range_query() == true);
     static_assert(ax_filter::XorFilter::supports_range_query() == false);
+    // E14: NoneFilter filtert nichts, unterstuetzt aber keine ECHTE Range-Query-Semantik (kein Range-Konzept).
+    static_assert(ax_filter::NoneFilter::supports_range_query() == false);
     SUCCEED();
 }
 
@@ -82,6 +85,7 @@ TEST(R7_5_e_Axis_Filter_Specific, FlagSuffixUppercase) {
     static_assert(ax_filter::CuckooFilter::flag_suffix() == std::string_view{"CUCKOO"});
     static_assert(ax_filter::RangeSurfFilter::flag_suffix() == std::string_view{"RANGE_SURF"});
     static_assert(ax_filter::XorFilter::flag_suffix() == std::string_view{"XOR"});
+    static_assert(ax_filter::NoneFilter::flag_suffix() == std::string_view{"NONE"});
     SUCCEED();
 }
 
@@ -90,12 +94,25 @@ TEST(R7_5_e_Axis_Filter_Specific, SubaxesOrthogonal) {
     static_assert(std::is_same_v<ax_filter::CuckooFilter::axis_tag, ax_filter::subaxes::mutability_tag>);
     static_assert(std::is_same_v<ax_filter::RangeSurfFilter::axis_tag, ax_filter::subaxes::query_type_tag>);
     static_assert(std::is_same_v<ax_filter::XorFilter::axis_tag, ax_filter::subaxes::error_profile_tag>);
+    // E14: NoneFilter teilt sich query_type_tag mit Bloom/RangeSurf -- kein neuer Subaxis-Zweig noetig,
+    // die Baseline ist selbst eine Auspraegung DIESER Unter-Achse (Query-Art), keine eigene.
+    static_assert(std::is_same_v<ax_filter::NoneFilter::axis_tag, ax_filter::subaxes::query_type_tag>);
     SUCCEED();
 }
 
-TEST(R7_5_e_Axis_Filter_Specific, RegistryHas4Filters) {
-    static_assert(mp::mp_size<ax_filter::AllFilters>::value == 4);
+TEST(R7_5_e_Axis_Filter_Specific, RegistryHas5Filters) {
+    // E14 (Owner 06.08.2026, "die Eingabe ist einfach die Ausgabe"): NoneFilter End-Append, Default OFF --
+    // AllFilters waechst strukturell 4->5, EnabledFilters bleibt >0 (golden-320-Neutralitaet lebt in
+    // source_catalog.hpp/test_profile_roundtrip, NICHT hier -- diese Wache prueft nur die Registry selbst).
+    static_assert(mp::mp_size<ax_filter::AllFilters>::value == 5);
     static_assert(mp::mp_size<ax_filter::EnabledFilters>::value > 0);
+    SUCCEED();
+}
+
+TEST(R7_5_e_Axis_Filter_Specific, NoneFilterDisabledByDefault) {
+    // E14-Auflage (End-Append + Default OFF ist die Voraussetzung der golden-320-Neutralitaet, nicht nur
+    // eine Empfehlung) -- diese Wache pinnt die Erwartung namentlich, nicht nur ueber die CMake-Option.
+    static_assert(ax_filter::NoneFilter::enabled == false);
     SUCCEED();
 }
 
@@ -105,4 +122,4 @@ TEST(R7_5_e_Filter, TopicConfigSetExposesAxisFilter) {
     SUCCEED();
 }
 
-// Total: 4 Wrappers × 4 TYPED = 16 typed + 5 spezifisch = 21 Tests
+// Total: 5 Wrappers x 4 TYPED = 20 typed + 6 spezifisch = 26 Tests

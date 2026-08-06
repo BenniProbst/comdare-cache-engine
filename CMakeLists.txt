@@ -383,11 +383,14 @@ option(COMDARE_AXIS_14_ENABLE_IMMUTABLE_SHARED_REF "ValueHandle ImmutableSharedR
 option(COMDARE_AXIS_14_ENABLE_VERSIONED_POINTER    "ValueHandle VersionedPointer (MVCC, Masstree/SMART)" ON)
 option(COMDARE_AXIS_14_ENABLE_CHAIN_REF            "ValueHandle ChainRef (multi-value chained external, prt-art F.6)" ON)
 
-# V41.F.6.1.R7.5.e axis_filter (4 Strategien)
+# V41.F.6.1.R7.5.e axis_filter (5 Strategien)
 option(COMDARE_AXIS_FILTER_ENABLE_BLOOM      "Filter Bloom (Bloom 1970 point-query)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_CUCKOO     "Filter Cuckoo (Fan CoNEXT 2014, delete-capable)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_RANGE_SURF "Filter RangeSurf (Zhang SIGMOD 2018, range-query)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_XOR        "Filter Xor (Graf+Lemire 2020, smaller than Bloom)" ON)
+# E14 (Owner 2026-08-06, "die Eingabe ist einfach die Ausgabe"): Baseline ohne Filterung, END-APPEND,
+# Default OFF -- golden-320 nimmt mp_take_c<EnabledFilters,1> (Index 0 bleibt Bloom, s. axis_filter_registry.hpp).
+option(COMDARE_AXIS_FILTER_ENABLE_NONE       "Filter None (E14, kein Filter, Identitaets-Vergleichs-Nullpunkt)" OFF)
 
 # V41.F.6.1.R7.5.f axis_io (4 Strategien)
 option(COMDARE_AXIS_IO_ENABLE_IN_MEMORY_ONLY "IO InMemoryOnly (baseline, no persistence)" ON)
@@ -1190,7 +1193,7 @@ configure_file(
 message(STATUS "  axis_08 (9 concurrency): NONE=${COMDARE_AXIS_08_USE_NONE} BLOCKING=${COMDARE_AXIS_08_USE_BLOCKING} RW=${COMDARE_AXIS_08_USE_READER_WRITER} OLC=${COMDARE_AXIS_08_USE_OPTIMISTIC} LF=${COMDARE_AXIS_08_USE_LOCK_FREE} WF=${COMDARE_AXIS_08_USE_WAIT_FREE} RCU=${COMDARE_AXIS_08_USE_RCU} HP=${COMDARE_AXIS_08_USE_HAZARD_PTR} OLC_RB=${COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS}")
 
 # V41.F.6.1.R7.5.e axis_filter Flags (USE = ENABLE)
-foreach(_f BLOOM CUCKOO RANGE_SURF XOR)
+foreach(_f BLOOM CUCKOO RANGE_SURF XOR NONE)
     if(COMDARE_AXIS_FILTER_ENABLE_${_f})
         set(COMDARE_AXIS_FILTER_USE_${_f} 1)
     else()
@@ -1201,7 +1204,9 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/filter_axis/axis_filter_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/filter_axis/axis_filter_flags.hpp"
     @ONLY)
-message(STATUS "  axis_filter (4 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} XOR=${COMDARE_AXIS_FILTER_USE_XOR}")
+message(STATUS "  axis_filter (5 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} "
+    "CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} "
+    "XOR=${COMDARE_AXIS_FILTER_USE_XOR} NONE=${COMDARE_AXIS_FILTER_USE_NONE}")
 
 # V41.F.6.1.R7.5.f axis_io Flags (USE = ENABLE)
 foreach(_i IN_MEMORY_ONLY DIRECT BUFFERED MMAP)
