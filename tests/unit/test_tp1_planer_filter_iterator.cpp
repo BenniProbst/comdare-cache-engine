@@ -25,6 +25,14 @@
 //        die Bilanz macht built_new/built_skip zu Konsumenten. Die Pflichtfelder lane=/zelle=/fenster=
 //        reisen aus cfg.marker_kontext in JEDE Zeile -- das Substrat des (zelle, fenster)-Keys.
 //
+// STEMPEL-HOMONYMIE (T2-A/F4-NB3, 2026-08-06 -- die Verwechslung, die Befund 1 ausgeloest hat): "Stempel"
+// heisst in diesem Haus DREIERLEI. (1) der PLAN-Stempel `batchplan-v3|...|idx=...|bau=...` aus
+// slice_plan_stamp -- DAS ist der Gegenstand von Fall (11); (2) der LAGER-/SIDECAR-Stempel (Blattinhalt +
+// .fingerprint/.version/.algos/.variant), den dll_is_current und der Lager-Binder lesen -- der Gegenstand
+// der OE-B-Wellen (test_f3_lager_key_provider_iterator, test_lb0_*, test_lb1_*); (3) der
+// VERSIONIERUNGS-Stempel, den die Binary selbst einkompiliert traegt. Wer hier "den Stempel" ohne
+// Qualifizierung liest, liest die falsche Datei -- der Fall (11l) ist genau die Wache dagegen.
+//
 // Deterministisch, ohne minio/mc: FakeTransport (in-Memory), Stub-Compile ohne echte DLLs.
 // Build: plain main (KEIN gtest), Return 0/1 -- Registrierung nach dem test_lazy_resume_binary-Muster
 // (schwerer Host-Treiber-Header + Boost::mp11).
@@ -43,7 +51,8 @@
 #include <memory>
 #include <optional>
 #include <sstream>
-#include <stdexcept> // CX-W1: std::runtime_error als simulierter Push-Wurf
+#include <functional> // T2-A/F4-NB3 (11l): std::bad_function_call als benannte Wurf-Klasse des Fail-safe
+#include <stdexcept>  // CX-W1: std::runtime_error als simulierter Push-Wurf
 #include <string>
 #include <thread> // T2-A/F4-NB2 (11h): yield() statt sleep -- die Barriere wird beobachtet, nicht gehofft
 #include <vector>
@@ -936,9 +945,15 @@ int main() {
     //      (d) ein Zaehler, der gegen eine ANDERE Selektion geschrieben wurde, traegt keinen Anspruch,
     //      (e) und ein Fenster MIT Bau-Fehler laesst den Zaehler stehen (kein Ueberspringen des Lochs).
     {
+        // T2-A/F4-NB3 (Befund 1): eine benannte Plan-Ablage OHNE Bau-Anker ist seit dieser Welle INERT
+        // (plan_anker_befund, fail-closed). Die Faelle (a)-(k) pruefen die Plan-MECHANIK, also fuehren
+        // sie ab hier einen Anker -- sonst pruefen sie ab sofort die Abwesenheit einer Ablage. Der Wert ist
+        // 128-hex wie ein echter K7b-Fingerprint (read_fingerprint_sidecar verlangt die Form); wo ein Fall
+        // die Bau-Identitaet selbst variiert, ueberschreibt er ihn (11j/11k).
         auto const mach_bau_cfg = [&](FakeStore& store, fs::path const& out, fs::path const& plan) {
-            ex::LazyRunConfig c = make_cfg(store, out);
-            c.batch_plan_datei  = plan;
+            ex::LazyRunConfig c        = make_cfg(store, out);
+            c.batch_plan_datei         = plan;
+            c.bestand_fingerprint_fn   = [](std::string const&) { return std::string(128, 'f'); };
             return c;
         };
         auto const datei_text = [](fs::path const& p) {
@@ -970,7 +985,11 @@ int main() {
             auto const builds = ex::run_planer_driven_provision(orch, view, alle, cfg11, agg, bl::PresenceFn{});
             check_eq("(11a) Lauf 1 baut die volle Selektion", builds.size(), std::size_t{8});
         }
-        std::string const plan_stamp = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain);
+        // Der Vergleichs-Stempel kommt aus DERSELBEN Identitaets-Quelle wie der geschriebene
+        // (plan_identitaet_of) -- ein von Hand ankerlos gebildeter Stempel wuerde ab T2-A/F4-NB3 gar nicht
+        // mehr passen, weil die ankerlose Ablage inert bleibt (s. Fall 11l).
+        std::string const plan_stamp = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain,
+                                                            ex::plan_identitaet_of(view, cfg11));
         check_true("(11a) der Plan liegt als Dokument auf der Platte", fs::exists(plan_datei, ec));
         check_eq("(11a) und traegt Kopf-Glieder + den Schwanz-Schluessel + die Fach-Zeile", datei_text(plan_datei),
                  plan_stamp + "|rows=1\n0;8;8\n");
@@ -1051,7 +1070,7 @@ int main() {
                     ex::run_planer_driven_provision(orch, view, alle, cfg_t1, agg, bl::PresenceFn{}, nullptr, nullptr);
                 check_eq("(11c2) Vorlauf baut die volle Selektion in zwei Faechern", builds.size(), std::size_t{8});
             }
-            std::string const stamp_t = bl::slice_plan_stamp(alle, 4);
+            std::string const stamp_t = bl::slice_plan_stamp(alle, 4, ex::plan_identitaet_of(view, cfg_t1));
             check_eq("(11c2) der Plan traegt ZWEI Faecher", datei_text(plan_t), stamp_t + "|rows=2\n0;4;4\n4;4;4\n");
             // Den Zaehler auf das ERSTE Fach zuruecksetzen -- der Zustand nach einem Abbruch mitten im Lauf.
             { std::ofstream{z_t, std::ios::trunc} << stamp_t << "|kompiliert=4|gemessen=0|rows=2\n"; }
@@ -1108,7 +1127,8 @@ int main() {
             auto const builds = ex::run_planer_driven_provision(orch, view, vier, cfg11c, agg, bl::PresenceFn{});
             check_eq("(11d) fremder Stempel -> kein Resume-Anspruch -> voller Bau", builds.size(), std::size_t{4});
             check_eq("(11d) und der Plan wird auf die neue Selektion umgeschrieben", datei_text(plan_datei),
-                     bl::slice_plan_stamp(vier, bl::kBuildSliceGrain) + "|rows=1\n0;4;4\n");
+                     bl::slice_plan_stamp(vier, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg11c)) +
+                         "|rows=1\n0;4;4\n");
         }
 
         // (e) EIN FENSTER MIT BAU-FEHLER LAESST DEN ZAEHLER STEHEN. Frische Ablage, damit (d) nicht
@@ -1147,12 +1167,18 @@ int main() {
 
             FakeStore         store_f;
             ex::LazyRunConfig cfg_bau = mach_bau_cfg(store_f, base / "f4f" / "bau", plan_f);
-            // T2-A/F4-NB2 (Befund 3): BEIDE Laeufe tragen DIESELBE Bau-Identitaet. Das ist keine
-            // Test-Bequemlichkeit, sondern der produktive Ist: profile_run_entry.hpp belegt
-            // bestand_fingerprint_fn UNBEDINGT in der EINEN make_cfg, die Bau- wie Mess-Pass baut. Seit
-            // NB2 traegt der Plan-Stempel diese Identitaet mit -- ein Bau-Lauf OHNE Anker und ein
-            // Mess-Lauf MIT Anker finden einander deshalb nicht mehr (fail-closed). Genau darauf beisst
-            // (11j); hier wird die REGULAERE Lage geprueft, in der beide Seiten denselben Anker fuehren.
+            // T2-A/F4-NB2 (Befund 3): BEIDE Laeufe tragen DIESELBE Bau-Identitaet. Seit NB2 traegt der
+            // Plan-Stempel diese Identitaet mit -- ein Bau-Lauf OHNE Anker und ein Mess-Lauf MIT Anker
+            // finden einander deshalb nicht mehr (fail-closed). Genau darauf beisst (11j); hier wird die
+            // REGULAERE Lage geprueft, in der beide Seiten denselben Anker fuehren.
+            //
+            // T2-A/F4-NB3 (Opus-Zweit-Review), PRAEZISIERUNG EINER FRUEHEREN ZUSAGE: hier stand
+            // "profile_run_entry.hpp belegt bestand_fingerprint_fn UNBEDINGT in der EINEN make_cfg". Das
+            // ist zu grosszuegig und war genau die Ungenauigkeit, unter der Befund 1 durchrutschte:
+            // UNBEDINGT ist allein die ZUWEISUNG (profile_run_entry.hpp:632, cfg.bestand_fingerprint_fn =
+            // perm_fingerprint). Der WERT ist an drei Stellen leer -- ohne COMDARE_BESTANDSLOG=true
+            // (:436), bei unbekannter Tier-Realversion (:438, T2-C) und beim `na`-Zellwert (:1013,
+            // W10-C4). Zugewiesen heisst nicht belegt.
             cfg_bau.bestand_fingerprint_fn = [kFpF](std::string const&) { return kFpF; };
             std::string const plan_f_stamp =
                 bl::slice_plan_stamp(eins, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_bau));
@@ -1323,9 +1349,56 @@ int main() {
                      std::size_t{2});
             pump.close();
             check_eq("(11h) nach close() bleibt die Bilanz stehen", pump.failed_count(), std::size_t{2});
-            pump.drain(); // idempotent + kehrt nach close() sofort zurueck (kein Haenger)
+            pump.drain(); // idempotent + kehrt nach vollzogenem close() sofort zurueck (kein Haenger)
             check_eq("(11h) drain() nach close() haengt nicht und aendert nichts", pump.failed_count(),
                      std::size_t{2});
+        }
+
+        // ==========================================================================================
+        // (11h2) T2-A/F4-NB3 AUFLAGE 1 -- DIE BARRIERE HIELT NICHT BEI PARALLELEM close().
+        //
+        // DER BEFUND: drain() trug ein `if (closed_) return;` mit der Begruendung "nach close() ist der
+        // Drain ohnehin vollzogen". close() setzt closed_ aber UNTER dem Lock, gibt ihn frei und haengt
+        // dann im join(), waehrend der Worker die Restqueue abarbeitet. Ein drain() in diesem Fenster nahm
+        // die Abkuerzung, obwohl der Push noch lief -- und push_vollzug() las danach ein failed_count(),
+        // das nichts wusste. Das ist Befund 1 durch die Hintertuer, und still.
+        //
+        // GELTUNG DIESER PROBE, ehrlich benannt: sie ist eine NEBENLAEUFIGKEITS-Probe. Die NEU-Zusage
+        // (nach drain() ist der Push gebucht) gilt in BEIDEN Verschraenkungen -- die Probe kann also nie
+        // falsch ROT werden. Der ALT-Stand faellt, sobald die Schliessung das Fenster wirklich trifft;
+        // getroffen wird es hier ueber die Handshake-Reihenfolge (Schliesser laeuft, waehrend der Push
+        // deterministisch an einem Flag haengt).
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11h2) NB3/Auflage 1: die Barriere haelt auch bei parallelem close() --\n";
+            std::atomic<bool> im_push{false};
+            std::atomic<bool> freigeben{false};
+            ex::AsyncPushPump pump{[&im_push, &freigeben](fs::path const&, std::string const&) {
+                                       im_push.store(true);
+                                       while (!freigeben.load()) std::this_thread::yield();
+                                   },
+                                   "v-test", {}, 0};
+            pump.enqueue(fs::path{"/tmp/comdare-11h2-eins"});
+            while (!im_push.load()) std::this_thread::yield();
+            // Der Schliesser laeuft aus einem EIGENEN Thread und bleibt im join() haengen, solange der
+            // Push haelt -- genau das Fenster, in dem closed_ true ist und trotzdem etwas aussteht.
+            std::atomic<bool> schliesser_laeuft{false};
+            std::thread       schliesser{[&pump, &schliesser_laeuft] {
+                schliesser_laeuft.store(true);
+                pump.close();
+            }};
+            while (!schliesser_laeuft.load()) std::this_thread::yield();
+            for (int i = 0; i < 1000; ++i) std::this_thread::yield(); // dem close() Zeit fuer closed_=true
+            freigeben.store(true);
+            pump.drain(); // NEU: wartet auf die Buchung -- ALT kehrte hier sofort zurueck
+            check_eq("(11h2) NACH der Barriere ist der Push gebucht (ALT: 0, weil abgekuerzt wurde)",
+                     pump.pushed_count(), std::size_t{1});
+            schliesser.join();
+            check_eq("(11h2) und der vollzogene close() aendert die Bilanz nicht", pump.pushed_count(),
+                     std::size_t{1});
+            pump.drain(); // Gegenprobe: OHNE die Abkuerzung haengt drain() nach vollzogenem close() NICHT
+            check_eq("(11h2) Gegenprobe: drain() nach vollzogenem close() kehrt zurueck", pump.pushed_count(),
+                     std::size_t{1});
         }
 
         // ==========================================================================================
@@ -1475,6 +1548,10 @@ int main() {
                        neu_a.substr(0, neu_a.rfind("|bau=")) == neu_b.substr(0, neu_b.rfind("|bau=")));
             check_true("(11j) derselbe Bau-Stand ist reproduzierbar derselbe Stempel",
                        bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, idA) == neu_a);
+            // GELTUNGSBEREICH DIESER ZEILE (T2-A/F4-NB3 nachgefuehrt): sie prueft die PRIMITIVE
+            // slice_plan_stamp, nicht das Verhalten der Ablage. `ohne-anker` ist die ehrliche
+            // Selbstauskunft einer Zeichenkette -- sie ist ausdruecklich KEIN zulaessiger Ablage-Zustand:
+            // ankerlos wird seit NB3 gar nichts mehr abgelegt (fail-closed, s. Fall 11l-c).
             check_true("(11j) OHNE Anker sagt der Stempel das, statt eine Deckung zu behaupten",
                        bl::slice_plan_stamp(alle, bl::kBuildSliceGrain).find("|bau=ohne-anker") != std::string::npos);
             check_true("(11j) und 'ohne Anker' ist NICHT dasselbe wie 'mit Anker'", neu_a.find("ohne-anker") ==
@@ -1635,6 +1712,276 @@ int main() {
                 check_eq("(11k) Vorbedingung: die Zelle hat resumiert", r_k.resumed_binaries, std::size_t{1});
                 check_eq("(11k) NEU: EIN Korn fuer beide Wege -> die Mess-Front wird fortgeschrieben",
                          datei_text(z_k), stamp_k + "|kompiliert=1|gemessen=1|rows=1\n");
+            }
+        }
+
+        // ==========================================================================================
+        // (11l) T2-A/F4-NB3 -- DIE BAU-IDENTITAETS-NAHT MIT ZAEHL-BISS (statt mit Kommentar).
+        //
+        // plan_identitaet_of stand bis hierher UNGEPRUEFT da: ihre Bedingungen waren als Kommentar
+        // behauptet, kein Test schlug an, wenn eine kippt. Genau das wird hier geheilt -- und zwar am
+        // Stand NACH zwei Entscheiden derselben Woche:
+        //
+        //   OWNER-DOKTRIN "KEINE KOSTENKLAMMERN" (2026-08-06): das frueher erste Glied
+        //   `cfg.batch_plan_datei.empty()` ist ENTFERNT. Die Identitaet entsteht ab jetzt, SOBALD ein
+        //   Provider da ist -- unabhaengig von der Ablage. Die Zaehl-Wache pinnt deshalb nicht mehr
+        //   "0 bei leerer Ablage", sondern die Zahl, die wirklich zugesagt ist: GENAU EIN Durchlauf
+        //   ueber die Selektion, in BEIDEN Lagen. Das faengt die zwei Regressionen, die real drohen --
+        //   der Durchlauf je FENSTER statt je Lauf, und der doppelte Durchlauf (Bau- + Mess-Weg).
+        //
+        //   (a) OHNE Plan-Ablage: die Identitaet entsteht trotzdem (bedingungsarm), der Lauf zahlt
+        //       GENAU EINEN Durchlauf -- und es entsteht dennoch KEIN Plan und KEIN Zaehler, weil die
+        //       Ablage-Ebene an ihrem EIGENEN Gate haengt (PlanPersistenz::aktiv()==false). Die Kosten
+        //       sind bewusst getragen, die Wirkung bleibt inert: das ist die neue Wahrheit.
+        //   (b) MIT Plan-Ablage: dieselbe EINE Zahl (der Pfad aendert die Kosten NICHT mehr) -- und der
+        //       abgelegte Stempel traegt einen 128-hex-Digest statt des Wortes `ohne-anker`.
+        //   (c) MIT Plan-Ablage, ABER OHNE ANKER -- der Zweig, der durch (B) noch wichtiger wird, weil
+        //       er die EINZIGE verbliebene Bedingung dieser Funktion traegt. Sie ist FAIL-SAFE und
+        //       nicht Sparsamkeit: FingerprintFn ist ein std::function; faellt sie, ruft plan_bau_digest
+        //       eine leere std::function -> std::bad_function_call mitten im Bau. Und die Ebene darueber
+        //       zieht seit T2-A/F4-NB3 (Opus-Zweit-Review, Befund 1) die zweite Konsequenz: ein
+        //       ankerloser Stempel ist fuer JEDEN Bau-Stand derselbe, der Zaehler-Leser nimmt ihn an,
+        //       und der Folgelauf ueberspringt Faecher, die dll_is_current nie gesehen hat. Deshalb wird
+        //       KEIN ankerloser Plan mehr abgelegt -- inert, beziffert angesagt, und ohne Wurf.
+        //
+        // DIE ZURECHNUNG DER ZAEHLUNG (der Grund fuer die Fixture-Form): die FingerprintFn hat im
+        // Voll-Lauf DREI moegliche Konsumenten -- den Orchestrator (je BAU-JOB, set_fingerprint_provider),
+        // die vom Iterator selbst gebundene Lager-Praesenz (je Index, make_index_key_fn) und den
+        // Plan-Stempel. Die ersten beiden werden hier STILLGELEGT, damit die Zahl den dritten misst:
+        // die Praesenz kommt als HOST-INJEKTION (cfg.bestand_present hat Vorrang, s. Fall (5)) und sagt
+        // "alles liegt" -- damit ist kein Job zu bauen und der Orchestrator fragt niemanden. Uebrig
+        // bleibt exakt der Stempel.
+        // ==========================================================================================
+        {
+            std::cout << "\n-- (11l) NB3: EIN Durchlauf fuer die Bau-Identitaet, und die Fail-closed-Klammer --\n";
+            std::string const kFpL = std::string(128, 'b');
+            // DER ZAEHLER. shared_ptr, weil die Fn in die LazyRunConfig kopiert wird und der Bau sie
+            // aus mehreren Threads rufen DARF -- atomar, damit die Zahl nicht an einer Annahme haengt.
+            auto const rufe          = std::make_shared<std::atomic<std::size_t>>(0);
+            auto const zaehlende_fp  = [rufe, kFpL](std::string const&) {
+                rufe->fetch_add(1, std::memory_order_relaxed);
+                return kFpL;
+            };
+            bl::PresenceFn const alles_da = [](std::size_t) { return true; };
+
+            ex::BuildSelection sel_l;
+            sel_l.indices    = alle;
+            sel_l.provenance = "explicit";
+            auto const ram_l = []() -> std::uint64_t { return ~std::uint64_t{0}; };
+            auto const mach_l = [&](FakeStore& store, fs::path const& out, fs::path const& plan) {
+                ex::LazyRunConfig c      = make_cfg(store, out);
+                c.batch_plan_datei       = plan;
+                c.bestand_fingerprint_fn = zaehlende_fp;
+                // bestandslog_active braucht den Key-Provider; nullopt = keine Registrierung.
+                c.bestand_key_of  = [](fs::path const&) -> std::optional<std::string> { return std::nullopt; };
+                c.bestand_present = alles_da; // Vorrang-Naht: der Iterator bindet die Praesenz NICHT selbst
+                c.max_binaries    = 8;
+                return c;
+            };
+
+            // -- (11l-a) OHNE PLAN-ABLAGE: die Identitaet entsteht trotzdem (keine Kostenklammer), sie
+            //    kostet GENAU EINEN Durchlauf, und die Ablage bleibt dennoch inert.
+            {
+                FakeStore         store_a;
+                ex::LazyRunConfig cfg_a = mach_l(store_a, base / "f4l" / "ohne_ablage", fs::path{});
+                check_true("(11l-a) Vorbedingung: die Plan-Ablage ist unbelegt", cfg_a.batch_plan_datei.empty());
+                // ALT-STAND-BISS zur Owner-Doktrin: hier stand frueher die Kosten-Klammer und lieferte
+                // die LEERE Funktion. Sie ist entfernt -- die Naht haengt allein am Provider.
+                check_true("(11l-a) OHNE Kostenklammer: plan_identitaet_of liefert trotzdem eine Identitaet",
+                           static_cast<bool>(ex::plan_identitaet_of(view, cfg_a)));
+                rufe->store(0);
+                {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_a);
+                }
+                // DER BISS: GENAU EIN Durchlauf ueber die Selektion -- nicht je Fenster, nicht zweimal.
+                check_eq("(11l-a) und zahlt dafuer GENAU EINEN Durchlauf ueber die Selektion", rufe->load(),
+                         alle.size());
+                // Die Kosten sind getragen, die WIRKUNG bleibt aus: die Ablage-Ebene hat ihr eigenes Gate.
+                check_true("(11l-a) trotzdem entsteht weder Plan noch Zaehler (aktiv()==false)",
+                           !fs::exists(base / "f4l" / "ohne_ablage" / "batch_plan.txt", ec));
+            }
+
+            // -- (11l-b) SPIEGEL: belegte Ablage -> DIESELBE EINE Zahl (der Pfad aendert die Kosten nicht).
+            {
+                fs::path const    plan_b = base / "f4l" / "mit_ablage" / "batch_plan.txt";
+                FakeStore         store_b;
+                ex::LazyRunConfig cfg_b = mach_l(store_b, base / "f4l" / "mit_ablage", plan_b);
+                rufe->store(0);
+                {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_b);
+                }
+                check_eq("(11l-b) SPIEGEL: mit Ablage kostet der Stempel DIESELBEN EINEN Durchlauf",
+                         rufe->load(), alle.size());
+                check_true("(11l-b) und der Plan liegt", fs::exists(plan_b, ec));
+                // Der Stempel der Platte traegt einen DIGEST, nicht das Wort. (Der Vergleichs-Stempel
+                // kostet selbst einen Durchlauf -- deshalb steht er NACH der Zaehl-Pruefung.)
+                std::string const stamp_b =
+                    bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_b));
+                check_true("(11l-b) der abgelegte Stempel ist GENAU der aus derselben Identitaets-Quelle",
+                           datei_text(plan_b).compare(0, stamp_b.size(), stamp_b) == 0);
+                auto const bau_glied = stamp_b.substr(stamp_b.rfind("|bau=") + 5);
+                check_eq("(11l-b) das |bau=-Glied ist ein 128-hex-Digest", bau_glied.size(), std::size_t{128});
+                check_true("(11l-b) und ausdruecklich NICHT das Wort 'ohne-anker'",
+                           bau_glied.find(bl::kPlanOhneAnker) == std::string::npos);
+            }
+
+            // -- (11l-c) FAIL-CLOSED: Ablage belegt, ANKER FEHLT -> keine Ablage, eine Zeile, kein Wurf.
+            {
+                fs::path const    plan_c = base / "f4l" / "ohne_anker" / "batch_plan.txt";
+                FakeStore         store_c;
+                ex::LazyRunConfig cfg_c   = mach_l(store_c, base / "f4l" / "ohne_anker", plan_c);
+                cfg_c.bestand_fingerprint_fn = {}; // DER Unterschied zu (11l-b)
+                check_true("(11l-c) Vorbedingung: Ablage benannt, aber KEIN Anker",
+                           !cfg_c.batch_plan_datei.empty() && !cfg_c.bestand_fingerprint_fn);
+                auto const befund_c = ex::plan_anker_befund(view, cfg_c, alle, bl::kBuildSliceGrain);
+                check_true("(11l-c) und die Aufrufer-Wache erkennt genau das (provider_fehlt)",
+                           !befund_c.traegt() && befund_c.provider_fehlt);
+                check_true("(11l-c) ein nicht tragender Befund liefert auch KEINEN Stempel", befund_c.stamp.empty());
+                // ALT-STAND-BISS: DIESE Zeichenkette waere hier frueher auf die Platte gegangen -- sie
+                // traegt kein Bau-Glied, ist also fuer JEDEN ankerlosen Bau-Stand dieselbe.
+                std::string const alt_ohne_anker = bl::slice_plan_stamp(alle, bl::kBuildSliceGrain);
+                check_true("(11l-c) ALT-STAND-BISS: der frueher abgelegte Stempel traegt |bau=ohne-anker",
+                           alt_ohne_anker.find(std::string{"|bau="} + bl::kPlanOhneAnker) != std::string::npos);
+
+                // Der Wurf wird NACH KLASSE gefangen, nicht nur nach Anwesenheit: faellt eines Tages das
+                // zweite Glied der Klammer in plan_identitaet_of, steht hier literal std::bad_function_call
+                // -- die Diagnose, die der Kommentar dort behauptet, statt eines nackten "warf".
+                bool        warf = false;
+                std::string wurf_klasse;
+                std::string log_c;
+                try {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_c);
+                    log_c = fang.text();
+                } catch (std::bad_function_call const&) {
+                    warf        = true;
+                    wurf_klasse = "std::bad_function_call";
+                } catch (std::exception const& e) {
+                    warf        = true;
+                    wurf_klasse = e.what();
+                } catch (...) {
+                    warf        = true;
+                    wurf_klasse = "unbekannte Wurf-Klasse";
+                }
+                check_true(("(11l-c) FAIL-SAFE: kein Wurf -- die leere std::function wird nie gerufen (Wurf: " +
+                            (warf ? wurf_klasse : std::string{"keiner"}) + ")")
+                               .c_str(),
+                           !warf);
+                check_true("(11l-c) FAIL-CLOSED: KEIN Plan-Dokument entsteht", !fs::exists(plan_c, ec));
+                check_true("(11l-c) und KEIN Phasen-Zaehler daneben",
+                           !fs::exists(fs::path{plan_c.string() + ".zaehler"}, ec));
+                check_true("(11l-c) der ankerlose Stempel steht damit NIRGENDS auf der Platte",
+                           !fs::exists(plan_c.parent_path(), ec));
+                check_true("(11l-c) und der Fall ist beziffert angesagt (nie stumm)",
+                           log_c.find("plan-ablage INERT (bau-weg)") != std::string::npos &&
+                               log_c.find("8 Indizes dieses Laufs") != std::string::npos);
+            }
+
+            // ======================================================================================
+            // (11l-d)/(11l-e) T2-A/F4-NB3 AUFLAGE 2 -- DERSELBE DEFEKT PRO ATOM STATT PRO LAUF.
+            //
+            // Der produktive Provider liefert fuer eine NICHT MATERIALISIERBARE binary_id absichtlich
+            // den LEEREN String (lazy_adhoc_source_gen.hpp:367). Fuer so ein Atom ist dll_is_current
+            // per Konstruktion blind (leere Erwartung => nie skippen => deckt NICHTS) -- der Digest
+            // hasht den leeren Wert trotzdem mit, und der Zaehler fuehrt das Atom als gedeckt. Die
+            // Anker-Wache aus (11l-c) greift dagegen NICHT: der Provider ist ja gesetzt.
+            // ======================================================================================
+
+            // -- (11l-d) EIN Atom ohne pruefbare Identitaet -> Ablage inert, Zeile mit Zahl UND Index.
+            {
+                fs::path const    plan_d = base / "f4l" / "ein_leeres_atom" / "batch_plan.txt";
+                FakeStore         store_d;
+                ex::LazyRunConfig cfg_d = mach_l(store_d, base / "f4l" / "ein_leeres_atom", plan_d);
+                // Genau EIN Atom (view_index 5) ist nicht materialisierbar -- alle anderen sind sauber.
+                cfg_d.bestand_fingerprint_fn = [kFpL, &view](std::string const& binary_id) {
+                    return binary_id == view[5].binary_id ? std::string{} : kFpL;
+                };
+                auto const befund_d = ex::plan_anker_befund(view, cfg_d, alle, bl::kBuildSliceGrain);
+                check_true("(11l-d) die Wache erkennt den Form-Verstoss (Provider ist gesetzt!)",
+                           !befund_d.traegt() && !befund_d.provider_fehlt);
+                check_eq("(11l-d) und beziffert ihn genau", befund_d.form_verstoesse, std::size_t{1});
+                check_eq("(11l-d) mit dem ERSTEN betroffenen view_index", befund_d.erster_verstoss,
+                         std::size_t{5});
+                check_true("(11l-d) ein nicht tragender Befund liefert keinen Stempel", befund_d.stamp.empty());
+                // ALT-STAND-BISS: die ALTE Naht (roher Digest ohne Formwache) haette hier sehr wohl
+                // einen Stempel gebildet -- und er sieht GUELTIG aus (128-hex, kein `ohne-anker`).
+                std::string const alt_d =
+                    bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_d));
+                check_eq("(11l-d) ALT-STAND-BISS: der Alt-Stempel entstand und sah gueltig aus (128-hex)",
+                         alt_d.substr(alt_d.rfind("|bau=") + 5).size(), std::size_t{128});
+                check_true("(11l-d) ALT-STAND-BISS: ohne jeden Hinweis auf das ungedeckte Atom",
+                           alt_d.find(bl::kPlanOhneAnker) == std::string::npos);
+                std::string log_d;
+                {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_d);
+                    log_d = fang.text();
+                }
+                check_true("(11l-d) NEU: KEIN Plan und KEIN Zaehler", !fs::exists(plan_d, ec) &&
+                                                                          !fs::exists(fs::path{plan_d.string() +
+                                                                                               ".zaehler"},
+                                                                                      ec));
+                check_true("(11l-d) und die Zeile nennt Zahl UND ersten Index",
+                           log_d.find("plan-ablage INERT (bau-weg)") != std::string::npos &&
+                               log_d.find("1 von 8 Atomen liefern keine pruefbare Bau-Identitaet") !=
+                                   std::string::npos &&
+                               log_d.find("erstes: view_index 5") != std::string::npos);
+            }
+
+            // -- (11l-e) ALLE Atome leer + ZWEI VERSCHIEDENE Bau-Staende -> ALT stempel-GLEICH.
+            {
+                fs::path const    plan_e = base / "f4l" / "alles_leer" / "batch_plan.txt";
+                FakeStore         store_e;
+                ex::LazyRunConfig cfg_e1 = mach_l(store_e, base / "f4l" / "alles_leer", plan_e);
+                ex::LazyRunConfig cfg_e2 = mach_l(store_e, base / "f4l" / "alles_leer_b", plan_e);
+                // Zwei VERSCHIEDENE Bau-Staende -- aber beide koennen fuer KEIN Atom eine Identitaet
+                // erheben. Die Verschiedenheit ist real (andere Toolchain), im Preimage aber unsichtbar.
+                cfg_e1.bestand_fingerprint_fn = [](std::string const&) { return std::string{}; };
+                cfg_e2.bestand_fingerprint_fn = [](std::string const&) { return std::string{}; };
+                std::string const alt_e1 =
+                    bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_e1));
+                std::string const alt_e2 =
+                    bl::slice_plan_stamp(alle, bl::kBuildSliceGrain, ex::plan_identitaet_of(view, cfg_e2));
+                check_true("(11l-e) ALT-STAND-BISS: zwei VERSCHIEDENE Bau-Staende sind stempel-GLEICH",
+                           alt_e1 == alt_e2);
+                check_true("(11l-e) ALT-STAND-BISS: und der Stempel sieht dabei gueltig aus (kein ohne-anker)",
+                           alt_e1.find(bl::kPlanOhneAnker) == std::string::npos);
+                check_true("(11l-e) NEU: fuer BEIDE entsteht gar kein Stempel",
+                           ex::plan_anker_befund(view, cfg_e1, alle, bl::kBuildSliceGrain).stamp.empty() &&
+                               ex::plan_anker_befund(view, cfg_e2, alle, bl::kBuildSliceGrain).stamp.empty());
+                check_eq("(11l-e) und die Zahl benennt ALLE ungedeckten Atome (kein Abbruch beim ersten)",
+                         ex::plan_anker_befund(view, cfg_e1, alle, bl::kBuildSliceGrain).form_verstoesse,
+                         alle.size());
+                std::string log_e;
+                {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_e1);
+                    log_e = fang.text();
+                }
+                check_true("(11l-e) NEU: also auch keine Ablage auf der Platte", !fs::exists(plan_e, ec));
+                check_true("(11l-e) und die Zeile beziffert alle acht",
+                           log_e.find("8 von 8 Atomen liefern keine pruefbare Bau-Identitaet") !=
+                               std::string::npos);
+            }
+
+            // -- (11l-f) GEGENPROBE: durchweg gueltige 128-hex -> die Wache trennt, sie sperrt nicht.
+            //    (Das ist dieselbe Lage wie (11l-b) -- hier explizit als Nicht-Regression benannt.)
+            {
+                fs::path const    plan_f2 = base / "f4l" / "form_ok" / "batch_plan.txt";
+                FakeStore         store_f2;
+                ex::LazyRunConfig cfg_f2  = mach_l(store_f2, base / "f4l" / "form_ok", plan_f2);
+                auto const        befund  = ex::plan_anker_befund(view, cfg_f2, alle, bl::kBuildSliceGrain);
+                check_true("(11l-f) GEGENPROBE: durchweg 128-hex -> der Befund traegt", befund.traegt());
+                check_eq("(11l-f) und zaehlt keinen Verstoss", befund.form_verstoesse, std::size_t{0});
+                {
+                    CerrCapture fang;
+                    (void)ex::run_lazy_static_then_dynamic(tree, sel_l, compile_stub, gen_stub, ram_l, cfg_f2);
+                }
+                check_true("(11l-f) die Ablage entsteht unveraendert", fs::exists(plan_f2, ec));
+                check_true("(11l-f) und traegt GENAU den Stempel des Befunds",
+                           datei_text(plan_f2).compare(0, befund.stamp.size(), befund.stamp) == 0);
             }
         }
     }

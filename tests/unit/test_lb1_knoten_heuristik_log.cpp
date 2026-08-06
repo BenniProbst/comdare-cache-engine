@@ -8,6 +8,12 @@
 // OE-B-DUMMY-LAGER: FakeAblage (In-Memory, zaehlt die Verben) plus ein echtes Temp-Verzeichnis.
 // Kein minio, kein Netz, kein mc; die Zeit kommt ueber eine SKRIPT-Uhr (NowFn), damit Frist- und
 // Konfliktfaelle ohne Wall-Clock reproduzierbar sind.
+//
+// STEMPEL-HOMONYMIE (T2-A/F4-NB3, 2026-08-06): der SHA512-Anker dieses Logs sitzt auf dem v6-BLATT-Key,
+// also am LAGER-/SIDECAR-Stempel (Blattinhalt + .fingerprint/.version/.algos/.variant). Er ist NICHT
+// der Plan-Stempel `|bau=` aus bestandslog::slice_plan_stamp und nicht der Versionierungs-Stempel in
+// der Binary. Drei Dinge, ein Wort -- die unqualifizierte Rede von "dem Stempel" hat den
+// F4-NB2-Fehlschluss ausgeloest; hier steht deshalb, welcher gemeint ist.
 
 #include "bestandslog/knoten_heuristik_log.hpp"
 #include "bestandslog/lager_baum_writer.hpp"

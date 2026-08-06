@@ -87,13 +87,25 @@ public:
     /// W11-Zusage "Wall-Clock ~ max(Bau, Push)" gilt ab jetzt je Fenster statt ueber den ganzen Lauf.
     /// Ohne Plan-Ablage wird die Barriere nie gerufen (der Aufrufer gated sie), der Ist-Pfad ist unberuehrt.
     ///
-    /// Nach close() kehrt sie sofort zurueck: der Drain ist dann bereits vollzogen. KONTRAKT: sie laeuft
-    /// aus DEMSELBEN Thread wie close() (dem Bau-Treiber), nie nebenlaeufig dazu -- eine parallele
-    /// Schliessung waehrend eines Wartens wuerde die Barriere zwar nicht haengen lassen (der schliessende
-    /// Thread drainiert die Queue selbst), aber die Aussage von failed_count() danach unklar machen.
+    /// T2-A/F4-NB3 (Gegenpruefer-Messung, AUFLAGE 1) -- DIE ABKUERZUNG `if (closed_) return;` IST GEFALLEN.
+    ///
+    /// Sie stand hier mit der Begruendung "nach close() ist der Drain ohnehin vollzogen" und einem KONTRAKT
+    /// an den Aufrufer ("laeuft aus demselben Thread wie close()"). Beides hielt nicht: close() setzt
+    /// closed_ UNTER dem Lock, gibt ihn frei und haengt dann im join(), waehrend der Worker die Restqueue
+    /// abarbeitet. Ein drain() in genau diesem Fenster nahm die Abkuerzung, obwohl queue_ und in_flight_
+    /// noch belegt sein konnten -- danach las push_vollzug() ein failed_count(), das nichts wusste, und der
+    /// Bau-Zaehler schrieb ein Fenster fort, dessen Pushes noch liefen. Das ist der von NB2 geheilte
+    /// Befund 1 durch die Hintertuer, und still. Gemessen: ALT kehrte drain() mit pushed_count()==0
+    /// zurueck, wo die Zusage 1 ist.
+    ///
+    /// OHNE die Abkuerzung stimmt die Zusage in JEDER Verschraenkung, und ein Haenger ist ausgeschlossen:
+    /// der Worker kehrt nur bei LEERER Queue zurueck und setzt in_flight_ vor jeder naechsten Runde
+    /// zurueck -- nach seinem Ende ist das Praedikat also per Konstruktion wahr, das wait() faellt sofort
+    /// durch. Damit traegt die Klasse ihre Zusage selbst, statt sie als Bitte an den Aufrufer zu
+    /// formulieren. (Am heutigen Pfad ist closed_ beim drain()-Aufruf ohnehin immer false -- EIN
+    /// Bau-Treiber-Thread, drain() waehrend des Baus, close() danach -- der Schnitt ist dort neutral.)
     void drain() {
         std::unique_lock<std::mutex> lk(mtx_);
-        if (closed_) return;
         drain_cv_.wait(lk, [this] { return queue_.empty() && !in_flight_; });
     }
 

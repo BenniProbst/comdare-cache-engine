@@ -1153,21 +1153,156 @@ using PushVollzugFn = std::function<std::size_t()>;
 // ist die ehrliche Aussage: ohne Fingerprint deckt dll_is_current nichts, also darf der Zaehler eines
 // Laufs MIT Ankern hier nicht gelten (und umgekehrt).
 //
-// OHNE PLAN-ABLAGE ebenfalls LEER -- und das ist KEIN Fallback, sondern eine KOSTEN-Klammer mit Beweis:
-// ist cfg.batch_plan_datei leer, gilt PlanPersistenz::aktiv()==false (planer_driven_build.hpp), und der
-// Stempel wird von KEINER Stelle mehr gelesen -- weder write_batch_plan/read_phasen_zaehler (beide unter
-// aktiv()) noch der Mess-Zweig (der steht selbst unter !batch_plan_datei.empty()). Ohne diese Klammer
-// zahlte der HEUTIGE produktive Lauf -- in dem die Plan-Ablage unbelegt und die Ebene damit inert ist --
-// einen vollen FingerprintFn-Durchlauf ueber die Selektion fuer eine Zeichenkette, die niemand ansieht.
-// Die Doktrin dieser Naht ist "leerer Pfad => inert => verhaltensidentisch zum Ist"; ein stiller
-// Zusatz-Durchlauf ueber 2^17 Binaries waere genau deren Verletzung.
+// T2-A/F4-NB3 (Befund 1) NACHGEFUEHRT: dieser ankerlose Stempel wird seit dieser Welle NICHT MEHR ABGELEGT.
+// Er war fuer JEDEN ankerlosen Bau-Stand derselbe, und der Zaehler-Leser nahm ihn an -- die beiden Welten
+// trugen zwar verschiedene Stempel, INNERHALB der ankerlosen Welt aber alle denselben. Die Aufrufer-Seite
+// haelt jetzt fail-closed dagegen (plan_anker_befund, unten): benannte Ablage ohne Anker => inert.
+//
+// WAS DER STEMPEL BINDET UND WER IHN LIEST: die Identitaets-Funktion liefert je view_index GENAU DEN
+// Fingerprint, den dll_is_current an dieser Position als Erwartung vergleichen wuerde; plan_bau_digest
+// verdichtet die Folge zum Glied `|bau=` des Plan-Stempels. Gelesen wird dieses Glied von zwei Stellen --
+// dem Bau-Weg (read_phasen_zaehler entscheidet daran den Plan-Resume, run_planer_driven_provision) und
+// dem Mess-Weg (read_batch_plan entscheidet daran, ob die Mess-Front fortgeschrieben wird). Beide fragen
+// dieselbe Frage: "stammt dieser Zaehlerstand aus DEMSELBEN Bau-Stand wie dieser Lauf?".
+//
+// T2-A/F4-NB3, OWNER-DOKTRIN 2026-08-06 (bindend): KEINE KOSTENKLAMMERN. Hier stand bis zu dieser Welle
+// ein zweites Glied `cfg.batch_plan_datei.empty()`, begruendet damit, dass der Stempel ohne Plan-Ablage
+// "von keiner Stelle gelesen" werde. Diese Begruendungsform gilt nicht mehr: das System ist gross, und
+// eine Naht, die heute niemand liest, wird uebermorgen weiterverwertet -- eine Bedingung, die allein
+// Rechenzeit spart, kauft diese Ersparnis mit einer Fallunterscheidung, die jeder spaetere Leser erst
+// widerlegen muss. Die Funktion ist ab jetzt bedingungsaermer: sie liefert die Identitaet, SOBALD ein
+// Provider da ist -- unabhaengig davon, ob eine Ablage benannt ist. EHRLICH BEZIFFERT, was das kostet:
+// ein FingerprintFn-Durchlauf ueber die Selektion, EINMAL je Lauf, auch im heutigen Voll-Bau ohne
+// Plan-Ablage. Das ist bewusst in Kauf genommen (Groessenordnung: derselbe Durchlauf, den der Miss-Scan
+// des Planers und der Bau-Filter des Consumers ohnehin je einmal zahlen).
 //
 // LEBENSDAUER: view und cfg werden per Referenz gehalten. Beide Aufruf-Stellen bilden den Stempel
 // SOFORT -- die Funktion ueberlebt den Ausdruck nicht, in dem sie entsteht.
 [[nodiscard]] inline bestandslog::PlanIdentitaetFn plan_identitaet_of(StaticBinaryView const& view,
                                                                       LazyRunConfig const&    cfg) {
-    if (cfg.batch_plan_datei.empty() || !cfg.bestand_fingerprint_fn) return {};
+    // DIESE EINE BEDINGUNG IST SICHERHEIT, NICHT SPARSAMKEIT -- sie faellt NICHT unter die
+    // Kostenklammer-Doktrin und darf nicht mit dem eben entfernten Pfad-Glied verwechselt werden:
+    //
+    // FingerprintFn ist ein std::function (build_orchestrator.hpp:188) -- ein LEERES std::function ist
+    // ansprechbar, aber nicht aufrufbar. Faellt diese Zeile, entsteht hier eine NICHT-leere
+    // PlanIdentitaetFn, deren Rumpf ein leeres std::function ruft; plan_bau_digest
+    // (planer_driven_build.hpp:301) haelt sie fuer einen gueltigen Anker, betritt die Schleife, und der
+    // ERSTE Index wirft std::bad_function_call -- mitten im Bau, aus einer Buchhaltungs-Naht heraus.
+    //
+    // PRODUKTIV ERREICHBAR, nicht theoretisch: profile_run_entry.hpp LEERT den Provider ohne das
+    // COMDARE_BESTANDSLOG-Opt-in (:436), bei unbekannter Tier-Realversion (:438, T2-C) und beim
+    // `na`-Zellwert (:1013, W10-C4) -- waehrend bestandslog_active an keinem der drei haengt. Wer diese
+    // Bedingung als "doppelt gemoppelt" streicht, baut genau diesen Wurf ein. Der Biss dagegen steht in
+    // test_tp1_planer_filter_iterator, Fall (11l-c).
+    //
+    // Die AUFRUFER-Seite zieht daraus zusaetzlich die fail-closed-Konsequenz: eine benannte Plan-Ablage
+    // OHNE Anker bleibt inert, statt einen ankerlosen Stempel abzulegen (s. plan_anker_befund).
+    if (!cfg.bestand_fingerprint_fn) return {};
     return [&view, &cfg](std::size_t i) -> std::string { return cfg.bestand_fingerprint_fn(view[i].binary_id); };
+}
+
+// T2-A/F4-NB3 (Opus-Zweit-Review 2026-08-06, BEFUND 1 [HOCH]) -- EINE PLAN-ABLAGE OHNE BAU-ANKER IST
+// KEINE PLAN-ABLAGE.
+//
+// DER BEFUND AM OBJEKT: fehlt der Fingerprint-Provider, liefert plan_identitaet_of die leere Funktion und
+// plan_bau_digest stempelt das WORT `ohne-anker` statt eines Digests. Damit tragen ZWEI VERSCHIEDENE
+// Bau-Staende denselben Stempel -- und der Zaehler-Leser (read_phasen_zaehler) nimmt ihn an. Der Folgelauf
+// ueberspringt dann die vom Alt-Zaehler gedeckten FUEHRENDEN Faecher; ihre .so stammen aus einem anderen
+// Bau-Stand, und dll_is_current wird nie gefragt, weil diese Faecher gar nicht erst in den Strom gehen
+// (SlicePlanner::run, Schritt (4)). Das ist derselbe Leitsatz-Bruch wie Befund 3 -- "der Zaehler-Resume
+// darf nie mehr behaupten, als der Fingerprint deckt" --, nur eben ueber den ANKERLOSEN Weg, und er
+// geschieht STILL: keine Zeile sagt es an.
+//
+// PRODUKTIV ERREICHBAR, nicht theoretisch: cfg.bestand_fingerprint_fn wird an zwei Stellen GELEERT --
+// beim `na`-Zellwert (profile_run_entry.hpp, W10-C4) und bei unbekannter Tier-Realversion (ebenda, T2-C).
+// Beide Male ist das Leeren richtig ("eine unbestimmte Identitaet traegt keinen Skip"); falsch war allein,
+// dass die PLAN-Ebene diese Entscheidung nicht mitvollzogen hat: bestandslog_active haengt nicht am
+// Provider, also lief die Ablage weiter und zertifizierte ankerlos.
+//
+// DERSELBE DEFEKT EINE EBENE TIEFER -- PRO ATOM STATT PRO LAUF (Gegenpruefer-Messung, AUFLAGE 2):
+// der produktive Provider liefert fuer eine NICHT MATERIALISIERBARE binary_id absichtlich den LEEREN
+// String (lazy_adhoc_source_gen.hpp:367 -- "keine DLL, also kein Fingerprint"). Fuer so ein Atom ist
+// dll_is_current per Konstruktion blind (expected_fingerprint leer => return false, es skippt NIE, deckt
+// also NICHTS). plan_bau_digest hasht den leeren Wert trotzdem mit, und der Zaehler fuehrt das Atom als
+// gedeckt. Sind ALLE Atome so, sind zwei verschiedene Bau-Staende wieder stempel-GLEICH -- und der
+// Stempel sieht dabei GUELTIG aus (kein `ohne-anker`), der Leser nimmt den fremden Stand also an. Die
+// Anker-Wache allein greift dagegen nicht: der Provider IST ja gesetzt.
+//
+// DIE HEILUNG IST EIN GATE, NICHT ZWEI: dieselbe fail-closed-Klammer traegt beide Ausfallgruende, und
+// beide melden ueber DIESELBE beziffernde Zeile. Ist eine Plan-Ablage benannt, aber (a) kein Provider da
+// ODER (b) auch nur EIN Atom ohne pruefbare Identitaet, wird KEIN Plan und KEIN Zaehler geschrieben und
+// KEINER gelesen -- die Ebene bleibt inert wie bei leerem Pfad, und der Lauf arbeitet ehrlich. Lieber
+// keine Ablage als eine, die ein Atom deckt, das dll_is_current nie sieht.
+//
+// DIE FORM-WAHRHEIT KOMMT AUS IHRER EINEN HEIMAT: detail::fp_is_hex_128 (fingerprint_sidecar.hpp) --
+// dieselbe Wache, die der Mess-Resume seit T2-A/K2-NB benutzt (s.u., `|fpr=`-Glied). KEINE zweite
+// Formwache; das war der K2-NB-Entscheid, und er gilt hier genauso.
+//
+// slice_plan_stamp/plan_bau_digest bleiben UNVERAENDERT: das `ohne-anker`-Glied ist dort die ehrliche
+// Selbstauskunft einer Zeichenkette, die niemand zum Zertifizieren benutzen darf -- und genau dieses
+// "niemand" wird hier durchgesetzt. Nebenbei stimmt damit erstmals die Injektivitaets-Zusage im Kopf von
+// plan_bau_digest ("der Trenner liegt ausserhalb des Hex-Alphabets"): eine Eigenschaft, die bis hierher
+// behauptet und nirgends geprueft war.
+struct PlanAnkerBefund {
+    /// Der Plan-Stempel dieses Laufs. BELEGT NUR, wenn traegt() -- ein nicht tragender Befund hat keinen
+    /// Stempel, damit ein Aufrufer ihn nicht versehentlich doch ablegen kann.
+    std::string stamp;
+    bool        provider_fehlt  = false; ///< cfg.bestand_fingerprint_fn ist leer (Ausfallgrund a)
+    std::size_t form_verstoesse = 0;     ///< Atome ohne pruefbare 128-hex-Identitaet (Ausfallgrund b)
+    std::size_t erster_verstoss = 0;     ///< view_index des ERSTEN davon (nur mit form_verstoesse > 0)
+
+    [[nodiscard]] bool traegt() const noexcept { return !provider_fehlt && form_verstoesse == 0; }
+};
+
+// DIE EINE STELLE, DIE ENTSCHEIDET, OB DIESER LAUF EINE PLAN-ABLAGE BEKOMMT -- und die den Stempel
+// gleich mitliefert, damit Entscheidung und Ergebnis nicht auseinanderlaufen koennen.
+//
+// KOSTEN, ehrlich benannt: die Form-Pruefung sitzt IN der Digest-Schleife, in der jeder Wert ohnehin
+// GENAU EINMAL geholt wird -- sie kostet also keinen zusaetzlichen Provider-Aufruf. Bewusst wird NICHT
+// beim ersten Verstoss abgebrochen: der Durchlauf ist bereits bezahlt, und ein Abbruch machte die
+// gemeldete Zahl zur Halbwahrheit ("mindestens einer"). Eine Ersparnis, die eine Diagnose verstuemmelt,
+// ist genau die Sorte Klammer, die die Owner-Doktrin vom 2026-08-06 gefaellt hat.
+[[nodiscard]] inline PlanAnkerBefund plan_anker_befund(StaticBinaryView const& view, LazyRunConfig const& cfg,
+                                                       std::vector<std::size_t> const& indices, std::size_t grain) {
+    PlanAnkerBefund                     befund;
+    bestandslog::PlanIdentitaetFn const roh = plan_identitaet_of(view, cfg);
+    if (!roh) {
+        befund.provider_fehlt = true;
+        return befund;
+    }
+    std::string const stamp =
+        bestandslog::slice_plan_stamp(indices, grain, [&roh, &befund](std::size_t i) -> std::string {
+            std::string wert = roh(i);
+            if (!detail::fp_is_hex_128(wert)) {
+                if (befund.form_verstoesse == 0) befund.erster_verstoss = i;
+                ++befund.form_verstoesse;
+            }
+            return wert;
+        });
+    if (befund.form_verstoesse == 0) befund.stamp = stamp;
+    return befund;
+}
+
+// Die EINE Ansage dazu (nie stumm, beziffert): beide Wege -- Bau und Mess -- melden denselben Sachverhalt
+// mit derselben Zeile, damit ein Betreiber ihn im Log nicht zweimal lernen muss. `weg` benennt die Seite,
+// der Befund den Grund -- mit Zahl und erstem Index, wo es einen gibt.
+inline void melde_plan_ablage_ohne_anker(LazyRunConfig const& cfg, std::size_t indizes,
+                                         PlanAnkerBefund const& befund, char const* weg) {
+    std::cerr << "[bestandslog] plan-ablage INERT (" << weg << "): " << cfg.batch_plan_datei.string()
+              << " ist benannt, aber ";
+    if (befund.provider_fehlt)
+        std::cerr << "dieser Lauf fuehrt KEINEN Fingerprint-Anker (bestand_fingerprint_fn leer) -- ein Plan-Stempel "
+                     "mit dem Glied |bau="
+                  << bestandslog::kPlanOhneAnker << " waere fuer JEDEN Bau-Stand derselbe";
+    else
+        std::cerr << befund.form_verstoesse << " von " << indizes
+                  << " Atomen liefern keine pruefbare Bau-Identitaet (nicht 128-hex; erstes: view_index "
+                  << befund.erster_verstoss
+                  << ") -- ein Stempel, der sie mitrechnet, deckt Atome, die dll_is_current nie sieht";
+    std::cerr << " und wuerde einem Folgelauf ein Praefix zertifizieren, das nie geprueft wurde. Es wird kein Plan "
+                 "und kein Zaehler geschrieben und keiner gelesen; die "
+              << indizes << " Indizes dieses Laufs werden ehrlich bearbeitet\n"
+              << std::flush;
 }
 
 // #46b I1b (opt-in): den Planer-getriebenen provision-Bau ausfuehren. Ein async Producer (SlicePlanner) slict die
@@ -1210,9 +1345,19 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // nicht ein zweites Mal als Literal fuehren (W5-Hebung). Leere Datei => aktiv()==false => inert.
     // T2-A/F4-NB2 (Befund 3): der Stempel traegt die BAU-IDENTITAET dieses Laufs mit. Ohne sie war der
     // Zaehler eine von dll_is_current unabhaengige zweite Resume-Autoritaet (s. slice_plan_stamp).
-    bestandslog::PlanPersistenz plan_persistenz{
-        cfg.batch_plan_datei, bestandslog::slice_plan_stamp(indices, grain, plan_identitaet_of(view, cfg)),
-        std::string{kLazyResumeRowsKey}};
+    // T2-A/F4-NB3 (Befund 1 + Auflage 2): die FAIL-CLOSED-Klammer. Der Befund wird UNBEDINGT erhoben --
+    // keine Pfad-Klammer davor (Owner-Doktrin "keine Kostenklammern"). Traegt er, bekommt die Ablage ihren
+    // Stempel; ein leerer Pfad macht sie ohnehin inert (aktiv()==false), das ist ihr eigenes Gate. Traegt
+    // er nicht, gibt es KEINE PlanPersistenz -- weder Schreib- noch Lese-Weg. Die Meldung haengt allein
+    // daran, dass ueberhaupt eine Ablage BENANNT ist: ohne Namen gibt es nichts, was inert geworden waere
+    // (Aussage-Richtigkeit, keine Ersparnis).
+    PlanAnkerBefund const       plan_anker = plan_anker_befund(view, cfg, indices, grain);
+    bestandslog::PlanPersistenz plan_persistenz;
+    if (plan_anker.traegt())
+        plan_persistenz =
+            bestandslog::PlanPersistenz{cfg.batch_plan_datei, plan_anker.stamp, std::string{kLazyResumeRowsKey}};
+    else if (!cfg.batch_plan_datei.empty())
+        melde_plan_ablage_ohne_anker(cfg, indices.size(), plan_anker, "bau-weg");
     bestandslog::SlicePlanQueue queue;
     bestandslog::SlicePlanner   planner(queue, indices, grain, present, plan_persistenz);
 
@@ -2513,37 +2658,48 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     // FAIL-CLOSED: passt der Plan nicht (anderer Stempel, andere Selektion, kein Plan da), wird NICHTS
     // geschrieben -- lieber keine Zahl als eine, die gegen einen fremden Plan zaehlt. Der Fall sagt es
     // literal, damit niemand eine stumme Ablage fuer eine leere haelt.
+    // Die aeussere Klammer ist die ABWESENHEIT DES GEGENSTANDS, keine Ersparnis: ohne benannte Ablage gibt
+    // es kein Dokument, an das eine Mess-Front geschrieben werden koennte -- also auch keine Frage.
     if (!cfg.batch_plan_datei.empty()) {
+        // T2-A/F4-NB3 (Befund 1 + Auflage 2): dieselbe FAIL-CLOSED-Klammer wie im Bau-Weg, und zwar VOR
+        // dem Lesen. Ohne Anker traegt der Stempel das Wort `ohne-anker` und wuerde JEDEN ankerlosen Plan
+        // annehmen, egal aus welchem Bau-Stand; mit formlosen Atomen sieht er gueltig aus und deckt
+        // trotzdem Atome, die dll_is_current nie sieht. Beides heisst hier: kein Plan-Zaehler.
+        //
         // T2-A/F4-NB2 (Korn-Divergenz): das Korn kommt aus DERSELBEN Quelle wie im Bau-Weg
         // (plan_slice_korn). Hier stand bis hierher bestandslog::kBuildSliceGrain als Literal -- der
         // Mess-Lauf bildete damit bei abweichendem Korn einen ANDEREN Stempel als der Bau-Lauf, der den
         // Plan geschrieben hat, und meldete "kein passender Batch-Plan" fuer einen Plan, der danebenlag.
         // T2-A/F4-NB2 (Befund 3): dieselbe Bau-Identitaets-Bindung wie im Bau-Weg -- der Mess-Lauf findet
         // den Plan seines Bau-Laufs nur, wenn er GEGEN DENSELBEN BAU-STAND misst. Genau das soll er.
-        std::string const plan_stamp =
-            bestandslog::slice_plan_stamp(indices, plan_slice_korn(cfg), plan_identitaet_of(view, cfg));
-        std::string const plan_rows_key = kLazyResumeRowsKey;
-        auto const        faecher       = bestandslog::read_batch_plan(cfg.batch_plan_datei, plan_stamp, plan_rows_key);
-        if (!faecher.has_value()) {
-            std::cerr << "[bestandslog] plan-zaehler: kein zu dieser Selektion passender Batch-Plan unter "
-                      << cfg.batch_plan_datei.string() << " -- die Mess-Front wird NICHT fortgeschrieben\n"
-                      << std::flush;
+        PlanAnkerBefund const mess_anker = plan_anker_befund(view, cfg, indices, plan_slice_korn(cfg));
+        if (!mess_anker.traegt()) {
+            melde_plan_ablage_ohne_anker(cfg, indices.size(), mess_anker, "mess-weg");
         } else {
-            std::filesystem::path const z_datei{cfg.batch_plan_datei.string() + ".zaehler"};
-            auto const          alt = bestandslog::read_phasen_zaehler(z_datei, plan_stamp, *faecher, plan_rows_key);
-            std::uint64_t const kompiliert = alt.has_value() ? alt->kompiliert : 0;
-            // Die Front ueberholt die Bau-Front nie: gemessen werden kann nur, was gebaut ist. Diese eine
-            // Klammer haelt die Invariante, die der Leser spaeter erzwingt (parse_phasen_zaehler: g > k
-            // ist unglaubwuerdig). Die frueher hier stehende max()-Klammer ist mit der Praefix-Semantik
-            // gefallen -- s. den Absatz darueber.
-            std::uint64_t gemessen = plan_gemessene_atome;
-            if (gemessen > kompiliert) gemessen = kompiliert;
-            if (!bestandslog::write_phasen_zaehler(z_datei, plan_stamp,
-                                                   bestandslog::PhasenZaehler{kompiliert, gemessen}, faecher->size(),
-                                                   plan_rows_key))
-                std::cerr << "[bestandslog] warn: Mess-Front des Batch-Plans nicht persistiert (" << z_datei.string()
-                          << ") -- die Messwerte selbst sind unberuehrt\n"
+            std::string const plan_stamp    = mess_anker.stamp;
+            std::string const plan_rows_key = kLazyResumeRowsKey;
+            auto const faecher = bestandslog::read_batch_plan(cfg.batch_plan_datei, plan_stamp, plan_rows_key);
+            if (!faecher.has_value()) {
+                std::cerr << "[bestandslog] plan-zaehler: kein zu dieser Selektion passender Batch-Plan unter "
+                          << cfg.batch_plan_datei.string() << " -- die Mess-Front wird NICHT fortgeschrieben\n"
                           << std::flush;
+            } else {
+                std::filesystem::path const z_datei{cfg.batch_plan_datei.string() + ".zaehler"};
+                auto const alt = bestandslog::read_phasen_zaehler(z_datei, plan_stamp, *faecher, plan_rows_key);
+                std::uint64_t const kompiliert = alt.has_value() ? alt->kompiliert : 0;
+                // Die Front ueberholt die Bau-Front nie: gemessen werden kann nur, was gebaut ist. Diese
+                // eine Klammer haelt die Invariante, die der Leser spaeter erzwingt (parse_phasen_zaehler:
+                // g > k ist unglaubwuerdig). Die frueher hier stehende max()-Klammer ist mit der
+                // Praefix-Semantik gefallen -- s. den Absatz darueber.
+                std::uint64_t gemessen = plan_gemessene_atome;
+                if (gemessen > kompiliert) gemessen = kompiliert;
+                if (!bestandslog::write_phasen_zaehler(z_datei, plan_stamp,
+                                                       bestandslog::PhasenZaehler{kompiliert, gemessen},
+                                                       faecher->size(), plan_rows_key))
+                    std::cerr << "[bestandslog] warn: Mess-Front des Batch-Plans nicht persistiert ("
+                              << z_datei.string() << ") -- die Messwerte selbst sind unberuehrt\n"
+                              << std::flush;
+            }
         }
     }
 
