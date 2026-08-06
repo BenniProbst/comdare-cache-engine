@@ -48,7 +48,12 @@ namespace mp = boost::mp11;
 struct AxisVariantVersion {
     std::string_view axis;    ///< kCompositionAxisNames-Slot (z.B. "search_algo")
     std::string      variant; ///< W::name() (z.B. "bst")
-    std::string      version; ///< W::algo_version (seit A13-M3/C4 durchgehend "v1.0.0c", Owner-Q3-Flag-Grammatik)
+    /// W::algo_version. Owner-Q3-Flag-Grammatik ("vX.Y.Z" + GENAU EIN Hardware-Flag, ce-eigen immer 'c').
+    /// A13-M3/C4 hat den Bestand auf "v1.0.0c" vereinheitlicht; seit dem A1-Wurf-Vertrag (06.08.2026) ist
+    /// er NICHT mehr durchgehend gleich: die 26 Strategien der Allokator-Achse stehen auf "v1.0.1c"
+    /// (axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP"; gepinnt in
+    /// test_a1_algo_version_pin_alloc_axis), der uebrige Bestand auf "v1.0.0c".
+    std::string      version;
 };
 
 /// assert_version_grammar<W>() -- die GEMEINSAME Flag-Grammatik-Wache EINER registrierten Variante (Owner-Q3/E2
