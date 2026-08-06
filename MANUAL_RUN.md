@@ -82,7 +82,50 @@ Ausführung, CSV) ist der getestete Pfad der `thesis_tiere`-Harness bzw. `messun
   `codegen`; die standalone-Codegen-Pfad-Auflösung wird zusammen mit dem 320-DLL-Neubau
   (#215) final abgeglichen — für den Schnell-Selbst-Test genügen `--help` + `--enumerate-only`.
 
-## 6. Plattform-Hinweise
+## 6. Stand abfragen: `comdare-experiment-planner status` (W5)
+
+Der **Experiment-Planer** ist eine eigene Binary (`apps/experiment_planner`, Target
+`comdare_experiment_planner`). Sein Subkommando `status` ist ein **reiner Rueck-Leser**: es baut nichts,
+misst nichts und reserviert nichts -- es berichtet den Stand von CEB-Bauten, Tier-Binaries und Messwerten
+und beendet mit `0`.
+
+```bash
+cmake --build build --target comdare_experiment_planner
+build/apps/experiment_planner/comdare-experiment-planner status --root=Code/measure_out
+```
+
+- `--root=<dir>` -- Wurzel des Mess-Ausgabe-Baums. Default: `Code/measure_out`, ersatzweise `measure_out`.
+  Der **aufgeloeste** Wert steht immer in der Kopfzeile (`root=...`, `root_vorhanden=ja|nein`).
+- Fenster: `COMDARE_GOLDEN_N_RANGE="start:count"`. Der `start` **filtert** die Erhebung: nur Perms in
+  `[start, start+count)` gehen in die Bilanz. Perm-Verzeichnisse ausserhalb gehoeren einem **anderen**
+  Fenster und erscheinen als eigene `[status-fremdfenster]`-Zeile (`im_fenster=nein` in der Zell-Zeile),
+  nie als Fortschritt des aktuellen Fensters. `offen=` der Gesamt-Zeile ist die **Summe** der
+  Zell-Offenstaende (je Zelle `count - gemessen`), nicht ein `count` minus aller Messungen.
+  **Ohne** gepinntes Fenster (`count=0` oder Env leer) gibt es kein Binary-SOLL -- `offen=` traegt dann
+  den Sentinel `unbelegt` statt einer erfundenen Zahl. Dasselbe gilt, wenn es **nichts zu summieren** gibt
+  (Plan nicht erhoben, Walk ohne Zelle, oder alle Zellen fremd): eine leere Summe ist keine `0`. Sprengt die
+  Summe den Wertebereich, steht der eigene Sentinel `uebergelaufen` -- nie eine umgeklappte Zahl.
+- Fortschritts-Cursor: `done=` ist eine Aussage ueber die **zuletzt** gelesene Zeile. Schreibt ein
+  Folge-Fenster hinter das `done` weiter, faellt `done=nein` zurueck. Ein bei einem Abbruch halb
+  geschriebenes `[progress] perm=N axes_changed=` zaehlt als `abgebrochene_zeile=`, nicht als Fortschritt;
+  dasselbe gilt fuer einen Wert mit angehaengtem Muell (`axes_changed=1x`). Die `[status-cursor]`-Zeile
+  traegt die Fenster-Zugehoerigkeit **selbst** (`im_fenster=ja|nein`): `done=` gilt nur fuer das eigene
+  Fenster, das Fertig-Signal einer fremden Perm steht als `done_fremd=` daneben. Hat sich eine vorhandene
+  `progress.cursor` **nie** vollstaendig gemeldet (nur Fragmente/fremde Zeilen), ist `letzte_perm=unbelegt` --
+  nicht `0`, denn `0` ist ein echter Cursor-Wert.
+- Bestandslog (Aggregat-Quelle): `COMDARE_BESTANDSLOG=true` + `COMDARE_BESTANDSLOG_DOC_KEY` + erreichbare
+  Ebene B. Fehlt eines davon, erscheint **eine** ehrliche `keine Daten`-Zeile -- kein Abbruch, keine
+  Reservierung (`status` bindet **keinen** `planer_block`). Wirft der Transport, ist auch das
+  Berichts-Inhalt: `[status-bestand] quelle=fehler (<what>)` mit rc `0`, nie rc `2`.
+- Scan-Kappen: der Perm-Baum wird tiefen- **und** breiten-begrenzt gelesen. Greift die Breiten-Kappe,
+  sagt die Zell-Zeile `scan_gekappt=ja` -- die Bilanz ist dann ausdruecklich unvollstaendig.
+- Fehlende Quellen sind Berichts-Inhalt, kein Fehler. Exit-Codes: `0` Bericht, `1` Usage,
+  `2` Konfig-Fehler (z.B. kaputte `COMDARE_GOLDEN_N_RANGE`). Kein `watch`/`follow` -- jeder Aufruf ist ein
+  Schnappschuss.
+
+Detail-Hilfe: `comdare-experiment-planner help status`.
+
+## 7. Plattform-Hinweise
 
 - **Windows:** aus Git-Bash die `C:/…`-Schreibweise für Pfad-Argumente verwenden.
 - **Linux:** Standard-POSIX-Pfade; Exe ohne `.exe`-Endung.

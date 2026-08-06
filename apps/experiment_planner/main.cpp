@@ -20,29 +20,35 @@
 // planer_block-Kontext, Fassaden-Aufrufe) aus super Code/02_messung_driver/main.cpp hierher.
 //
 // CLI (clig.dev, uebernommen aus der V-6vi-Subcommand-Linie des Treibers):
-//   validate [<profil>] | plan dump|ci|cmake [<profil>] | cache-key | fingerprint [<profil>] | version |
-//   help [<subcommand>]
+//   validate [<profil>] | plan dump|ci|cmake [<profil>] | cache-key | fingerprint [<profil>] |
+//   status [<profil>] [--root=<dir>] | version | help [<subcommand>]
+// W5 (Owner-R5, 05.08.2026): `status` ist der ON-DEMAND-RUECK-LESER -- die einzige Rolle dieser Binary, die
+// nach dem Lauf FRAGT statt ihn zu planen. Er steuert nichts (kein watch, kein Block, keine Reservierung).
 // Der Treiber behaelt tier ci|cmake (CEB-Rolle) und run (Mess-Vollzug). KEINE Alt-Flags in dieser NEUEN
 // Oberflaeche (die deprecated Aliase des Treibers wandern bewusst NICHT mit -- Aufraeumpass-Doktrin).
 //
 // Ausgaben (clig.dev): Daten/Emissionen -> stdout; Diagnose/Fehler -> stderr.
 
-#include <profile_facade/g1_binary_version_stamp.hpp> // version: g1_build_type_label() (EINE Build-Typ-Wahrheit)
-#include <profile_facade/planner/planner_cli_env.hpp> // W1-Hoist: env_trimmed/GoldenRange/parse_size_env_strict
-#include <profile_facade/planner/planner_version.hpp> // Section 43.b/64: planner_version_stamp()
-#include <profile_facade/profile_run_facade.hpp>      // die EINE Schnitt-Naht (kuenftige #35-.so-Schnittstelle)
+#include <profile_facade/g1_binary_version_stamp.hpp>       // version: g1_build_type_label() (EINE Build-Typ-Wahrheit)
+#include <profile_facade/planner/planner_cli_env.hpp>       // W1-Hoist: env_trimmed/GoldenRange/parse_size_env_strict
+#include <profile_facade/planner/planner_status_reader.hpp> // W5: der ON-DEMAND-Rueck-Leser (status)
+#include <profile_facade/planner/planner_version.hpp>       // Section 43.b/64: planner_version_stamp()
+#include <profile_facade/profile_run_facade.hpp>            // die EINE Schnitt-Naht (kuenftige #35-.so-Schnittstelle)
 
-#include <builder/artifact_transport/artifact_cache.hpp> // planer_block-Kontext: ArtifactCache::from_env
+#include <builder/artifact_transport/artifact_cache.hpp>    // planer_block-Kontext: ArtifactCache::from_env
+#include <builder/bestandslog/artifact_cache_transport.hpp> // W5: make_bestand_transport (NUR LESEND, kein Binden)
 
 #include "xml_config_parser/xml_reader.hpp" // Bruecke-I2: Root-Tag-Sniff des validate-Profils (common-DOM)
 
 #include <cstddef>
 #include <exception>
+#include <filesystem> // W5: der aufgeloeste Mess-Ausgabe-Root (status --root)
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view> // W5: --root=-Flag-Praefix ohne Laengen-Literal
 #include <vector>
 
 namespace {
@@ -266,8 +272,132 @@ struct PlanerBlockGate {
     }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// W5 (Owner-R5): `status` -- der ON-DEMAND-RUECK-LESER. Er berichtet den Stand von CEB-Bauten, Tier-Binaries und
+// Messwerten und STEUERT NICHTS: kein Bau, keine Messung, keine Reservierung, kein planer_block (deshalb gibt es
+// hier auch kein exit 6). Kein watch/follow -- jeder Aufruf ist ein Schnappschuss.
+//
+// Die SUBSTANZ liegt in profile_facade/planner/planner_status_reader.hpp (Leser-je-Quelle -> Aggregator ->
+// Renderer); dieser Host tut nur, was ein Host tut: Argumente aufloesen, die vier Quellen anstoepseln, rendern.
+//
+// FEHLENDE QUELLEN SIND BERICHTS-INHALT, KEIN FEHLER: ein nicht existierender Mess-Baum, eine fehlende
+// progress.cursor, ein abgeschaltetes Bestandslog -> je EINE ehrliche "keine Daten"-Zeile und rc 0. Nur ein
+// kaputtes COMDARE_GOLDEN_N_RANGE (Konfig-Fehler) liefert rc 2 -- dieselbe Klasse wie bei `fingerprint`.
+
+/// Der Mess-Ausgabe-Wurzelpfad. Default = der EIGENE Emissions-Kanon des Planers
+/// ($CI_PROJECT_DIR/Code/measure_out/<slug>/perm<idx>, experiment_plan_director), mit der Bare-Metal-Probe
+/// `measure_out` als Zweit-Kandidat. Die Binary kannte bis W5 KEINEN measure_out-Pfad -- `--root=` ist die eine
+/// neue, deklarierte Zutat (ein Flag, KEINE neue Pflicht-Env). Der aufgeloeste Wert steht IMMER in der Kopfzeile.
+[[nodiscard]] std::filesystem::path resolve_status_root(std::string const& root_arg) {
+    if (!root_arg.empty()) return std::filesystem::path{root_arg};
+    std::error_code             ec;
+    std::filesystem::path const kanon{"Code/measure_out"};
+    if (std::filesystem::exists(kanon, ec) && !ec) return kanon;
+    std::filesystem::path const baremetal{"measure_out"};
+    if (std::filesystem::exists(baremetal, ec) && !ec) return baremetal;
+    return kanon; // nichts gefunden -> den Kanon NENNEN (der Bericht sagt root_vorhanden=nein)
+}
+
+/// Die Bestandslog-Sicht -- GENAU dasselbe Gate wie make_planer_block_gate, aber NUR LESEND: kein Lock, keine
+/// Reservierung, kein PromiseGuard. Dasselbe Objekt-Budget (1 Versuch, 10 s Deckel): ein unerreichbarer Store
+/// darf ein on-demand-Kommando nicht minutenlang aufhalten. Jeder Ausfall ist eine benannte "keine Daten"-Zeile.
+[[nodiscard]] pln::BestandSicht lies_bestand_sicht() {
+    namespace atp = ::comdare::cache_engine::builder::artifact_transport;
+    namespace bl  = ::comdare::cache_engine::builder::bestandslog;
+
+    pln::BestandSicht s{};
+    if (pln::env_trimmed("COMDARE_BESTANDSLOG") != "true") return s; // aktiv=false -> "nicht aktiv"-Zeile
+    s.aktiv = true;
+
+    // Der Transport ist die EINZIGE Quelle dieses Kommandos, die ueber ein Netz geht -- und die einzige, die
+    // WIRFT statt leer zu liefern (Env-Fehlform, Endpunkt weg, TLS/CA, Timeout). Faenge man sie nicht HIER,
+    // liefe sie in den run_status_guarded-Rahmen und machte aus dem Bericht rc 2 -- also genau die
+    // Konfig-Fehler-Klasse, die dem Anwender sagt "dein Aufruf war falsch", obwohl nur eine von vier Quellen
+    // stumm blieb. Die Zusage des Kommandos lautet: fehlende Quellen sind BERICHTS-Inhalt, rc 0.
+    try {
+        auto const cache = atp::ArtifactCache::from_env().with_object_budget(/*tries=*/1, /*timeout_s=*/10);
+        if (!cache.minio_enabled()) {
+            s.grund = "Ebene B (minio) ist nicht konfiguriert";
+            return s;
+        }
+        std::string const doc_key = pln::env_trimmed("COMDARE_BESTANDSLOG_DOC_KEY");
+        if (doc_key.empty()) {
+            s.grund = "COMDARE_BESTANDSLOG_DOC_KEY ist leer";
+            return s;
+        }
+        auto const xml = bl::make_bestand_transport(cache).fetch(doc_key);
+        if (!xml) {
+            s.grund = "Dokument '" + doc_key + "' im Objekt-Store nicht gefunden/nicht lesbar";
+            return s;
+        }
+        return pln::bestand_sicht_aus_xml(*xml);
+    } catch (std::exception const& e) {
+        s.fehler = true;
+        s.grund  = e.what(); // der WORTLAUT des Transports, nicht eine nachgebaute Vermutung
+    } catch (...) {
+        s.fehler = true;
+        s.grund  = "unbekannte Ausnahme im Bestandslog-Transport";
+    }
+    return s;
+}
+
+[[nodiscard]] int run_status_guarded(std::string const& prof, std::string const& root_arg) noexcept {
+    try {
+        pln::StatusBericht bericht{};
+        bericht.planer_stempel = pln::planner_version_stamp();
+        bericht.profil         = prof;
+        bericht.root           = resolve_status_root(root_arg);
+
+        // Das Fenster kennt nur die Env (COMDARE_GOLDEN_N_RANGE) -- der Plan traegt es nicht (die Emission
+        // reicht es als Shell-Variable durch). Fehlform => Konfig-Fehler, NIE stille Voll-View.
+        if (auto const r = pln::parse_golden_range_env()) {
+            bericht.fenster         = std::to_string(r->start) + ":" + std::to_string(r->count);
+            bericht.fenster_bekannt = r->count > 0; // count==0 deaktiviert das Fenster (syntaktisch gueltig)
+            bericht.fenster_start   = r->start;     // FILTERT die Erhebung (H1), nicht nur den Anzeigestring
+            bericht.fenster_count   = r->count;
+        }
+
+        // SOLL: derselbe deterministische Director-Walk wie plan dump/ci/cmake. rc != 0 ist KEIN Abbruch --
+        // der Bericht sagt dann "plan=nicht_erhoben" MIT Grund und berichtet die uebrigen Quellen weiter.
+        (void)pf::collect_plan_soll_facade(prof, bericht.soll, std::cerr);
+
+        pln::erhebe_zellen(bericht, pf::mess_format_fakten_facade());
+        bericht.bestand = lies_bestand_sicht();
+        pln::render_status(bericht, std::cout);
+        return 0;
+    } catch (std::exception const& e) {
+        std::cerr << "[Konfig-Fehler: status] " << e.what() << "\n";
+        return 2;
+    } catch (...) {
+        std::cerr << "[Konfig-Fehler: status] unbekannte Ausnahme\n";
+        return 2;
+    }
+}
+
 // Hilfe nach stdout (clig.dev: Hilfe ist Daten), rc 0. topic leer = Uebersicht; sonst Detail je Subcommand.
 void help_for(std::string const& topic) {
+    if (topic == "status") {
+        std::cout << "comdare-experiment-planner status [<profil>] [--root=<dir>]\n"
+                  << "  ON-DEMAND-Rueck-Leser: berichtet den Stand von CEB-Bauten, Tier-Binaries und Messwerten.\n"
+                  << "  Steuert NICHTS (kein Bau, keine Messung, keine Reservierung, kein planer_block).\n"
+                  << "  Quellen: progress.cursor (Fenster-Cursor) | result.csv/.stamp/.stale (Mess-Resume) |\n"
+                  << "           .fingerprint-Sidecars (gebaute Binaries) | Bestandslog-XML (Aggregat).\n"
+                  << "  --root=<dir>  Wurzel des Mess-Ausgabe-Baums. Default: Code/measure_out, sonst measure_out;\n"
+                  << "                der aufgeloeste Wert steht IMMER in der Kopfzeile (kein stilles Raten).\n"
+                  << "  Fenster: COMDARE_GOLDEN_N_RANGE \"start:count\" -- start FILTERT: nur Perms in\n"
+                  << "           [start,start+count) zaehlen in die Bilanz; alles andere gehoert einem anderen\n"
+                  << "           Fenster und steht als eigene [status-fremdfenster]-Zeile. offen= ist die SUMME\n"
+                  << "           der Zell-Offenstaende. Ohne Fenster gibt es kein Binary-SOLL --\n"
+                  << "           offen= traegt dann den Sentinel 'unbelegt' statt einer erfundenen Zahl;\n"
+                  << "           ebenso, wenn es nichts zu summieren gibt (kein Plan / keine Zelle im Fenster).\n"
+                  << "           Sprengt die Summe den Wertebereich: 'uebergelaufen', nie eine kleine Zahl.\n"
+                  << "           Auch die [status-cursor]-Zeile traegt im_fenster=; done= gilt NUR fuer das\n"
+                  << "           eigene Fenster, ein fremdes Fertig-Signal steht als done_fremd= daneben.\n"
+                  << "  Bestandslog: COMDARE_BESTANDSLOG=true + _DOC_KEY + minio; sonst EINE 'keine Daten'-Zeile.\n"
+                  << "  Fehlende Quellen sind BERICHTS-Inhalt, kein Fehler. Exit: 0 Bericht; 2 Konfig-Fehler\n"
+                  << "  (kaputte COMDARE_GOLDEN_N_RANGE). KEIN watch/follow -- jeder Aufruf ist ein Schnappschuss.\n";
+        return;
+    }
     if (topic == "validate") {
         std::cout << "comdare-experiment-planner validate [<profil>]\n"
                   << "  Rein-lesende Pre-Flight-Pruefung des Profils -- baut KEINE DLL, misst NICHT.\n"
@@ -319,6 +449,8 @@ void help_for(std::string const& topic) {
               << "  plan cmake [<profil>]   experiment_plan.cmake fuer den Bare-Metal-Bau\n"
               << "  cache-key               ce-Objekt-Cache-Key-Praefix der env-gepinnten GN-Zelle\n"
               << "  fingerprint [<profil>]  Chunk-Organ-Fingerprint-Pre-Image (COMDARE_GOLDEN_N_RANGE-Fenster)\n"
+              << "  status [<profil>] [--root=<dir>]\n"
+              << "                          Rueck-Leser: Stand von CEB-Bauten, Tier-Binaries und Messwerten\n"
               << "  version                 Planer-Selbst-Stempel + Compile-Einstellung\n"
               << "  help [<subcommand>]     diese Uebersicht bzw. Detail-Hilfe (auch: <subcommand> --help)\n\n"
               << "Rollen-Trennung (Section 40.b/42, ZWEI MODULE): die STUFE-2-Sicht (tier ci|cmake) und der\n"
@@ -399,6 +531,30 @@ int main(int argc, char* argv[]) {
             return 0;
         }
         return run_fingerprint_guarded(resolve_profile(a2));
+    }
+    // W5-ANDOCKPUNKT EINGELOEST (Owner-R5): der reservierte additive if-Zweig. `status` ist rein lesend --
+    // es bindet KEINEN planer_block und kann darum nie 6 liefern.
+    if (a1 == "status") {
+        if (a2 == "--help" || a2 == "-h" || a3 == "--help" || a3 == "-h") {
+            help_for("status");
+            return 0;
+        }
+        // Flag und Positional in beliebiger Reihenfolge: --root=<dir> irgendwo, das erste Nicht-Flag ist
+        // das Profil (dieselbe '-'-Reserve wie resolve_profile).
+        std::string root_arg, prof_arg;
+        for (std::size_t i = 2; i < args.size(); ++i) {
+            std::string const& a = args[i];
+            if (a.rfind("--root=", 0) == 0) {
+                root_arg = a.substr(std::string_view{"--root="}.size());
+            } else if (!a.empty() && a.front() == '-') {
+                std::cerr << "comdare-experiment-planner: unbekanntes Flag '" << a
+                          << "' fuer status -- erwartet: --root=<dir> (Detail: 'help status').\n";
+                return 1;
+            } else if (prof_arg.empty()) {
+                prof_arg = a;
+            }
+        }
+        return run_status_guarded(resolve_profile(prof_arg), root_arg);
     }
     if (a1 == "plan") {
         if (a2 == "--help" || a2 == "-h" || a3 == "--help" || a3 == "-h") {

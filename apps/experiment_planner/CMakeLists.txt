@@ -17,7 +17,11 @@ target_compile_features(comdare_experiment_planner PRIVATE cxx_std_23)
 
 target_include_directories(comdare_experiment_planner PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"      # <cache_engine/measurement/...> (planner_version.hpp)
-    "${PROJECT_SOURCE_DIR}/libs/common/serialization")     # xml_config_parser/xml_reader.hpp (Root-Tag-Sniff)
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"      # xml_config_parser/xml_reader.hpp (Root-Tag-Sniff)
+    # W5: der status-Rueck-Leser zieht bestandslog_document.hpp, das <serialization/xml_config_parser/xml_reader.hpp>
+    # inkludiert -- also die libs/common-WURZEL, nicht nur deren serialization/-Unterverzeichnis. Beide Wurzeln
+    # stehen bewusst nebeneinander: die obere Zeile deckt die W1-Form ohne Praefix, diese die praefigierte Form.
+    "${PROJECT_SOURCE_DIR}/libs/common")
 
 # Die PUBLIC-Include-Wurzel des Fassaden-Targets (libs/cache_engine) liefert <profile_facade/...> und
 # <builder/artifact_transport/artifact_cache.hpp>.

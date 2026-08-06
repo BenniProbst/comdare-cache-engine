@@ -868,6 +868,13 @@ struct LazyRunResult {
     std::size_t bestand_takeover_uebernommen = 0;
 };
 
+// W5 (2026-08-05): der Feld-Schluessel des Resume-Stempel-Schwanzes als EINE benannte Konstante. Er stand
+// bis hierher ZWEIMAL als nacktes Literal -- im SCHREIBER (result.csv.stamp) und im LESER
+// (lazy_try_resume_binary). Ein drittes Auftreten entsteht mit dem status-Rueck-Leser des Planers, der den
+// Stand derselben Datei berichtet; ab drei Kopien ist Format-Drift nur noch eine Frage der Zeit. Die Hebung
+// ist STRING-IDENTISCH (kein Byte der Emission bewegt sich); der Wert selbst bleibt "|rows=".
+inline constexpr char kLazyResumeRowsKey[] = "|rows=";
+
 // ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
 // Der Stempel kodiert ALLES, was die Mess-Matrix einer Binary bestimmt: BuildVersion (Memento-/Code-Stand der
 // DLL — copymem-v1-Ergebnisse sind mit undolog-v1 NICHT mischbar), n_ops/seed/records (Workload-Skala) und
@@ -942,7 +949,7 @@ struct LazyRunResult {
     std::ifstream sf{stamp_p};
     std::string   stamp;
     if (!sf || !std::getline(sf, stamp)) return false;
-    std::string const rows_key = "|rows=";
+    std::string const rows_key = kLazyResumeRowsKey;
     if (stamp.size() <= stamp_prefix.size() + rows_key.size()) return false;
     if (stamp.compare(0, stamp_prefix.size(), stamp_prefix) != 0) return false;           // Config weicht ab
     if (stamp.compare(stamp_prefix.size(), rows_key.size(), rows_key) != 0) return false; // Format weicht ab
@@ -1940,7 +1947,7 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             }
             if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 && per_binary_all_valid) {
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
-                if (sf) { sf << binary_resume_stamp << "|rows=" << per_binary_rows << "\n"; }
+                if (sf) { sf << binary_resume_stamp << kLazyResumeRowsKey << per_binary_rows << "\n"; }
             } else {
                 // Der frische Stand ist NICHT zertifizierbar (Write gescheitert, Zeilen unvollstaendig oder
                 // eine Zwei-Phasen-Zeile ungueltig) -- also faellt der Resume-Anspruch. Die Mess-Zeilen selbst
