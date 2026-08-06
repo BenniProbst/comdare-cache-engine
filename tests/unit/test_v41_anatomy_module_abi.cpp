@@ -28,6 +28,7 @@
 #include <compositions/art_reference.hpp>
 
 #include <cstdint>
+#include <string_view> // B14-NB4: Schema-Namens-Kopplung des codegen-Minor-Pins
 #include <type_traits>
 
 namespace ana    = ::comdare::cache_engine::anatomy;
@@ -87,13 +88,23 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     // fuehrte KEIN Test den Minor literal, ein vergessener oder falscher Bump waere still durchgelaufen.
     // Dieser eine Pin ist die Gegenprobe und steht bewusst neben den beiden anderen literalen Konstanten-Pins
     // dieser Datei (ABI-Major/Minor), weil Major und Minor zusammen die ceb_contract_version bilden.
-    static_assert(ce_abi::kCebContractCodegenMinor == 0,
-                  "E-24 C8: der CEB-Contract-codegen-Minor steht auf 0 (RESET 2 -> 0 im SELBEN Commit wie der "
-                  "ABI-Major 7 -> 8). Der Minor zaehlt Vertrags-Erweiterungen INNERHALB eines Majors -- die 1 "
-                  "(A13-M4) und die 2 (W10-M2) waren beide unter Major 7 begruendet, ein '8.1' ohne je "
-                  "existierende 8.0-Basis waere eine Versions-Luege. Wer diesen Wert aendert, aendert +ceb= in "
-                  "JEDER build_version -> jede perm.dll.version mismatcht -> ALLE Tier-Binaries werden neu "
-                  "gebaut und der Objekt-Store-Bucket wechselt.");
+    static_assert(ce_abi::kCebContractCodegenMinor == 1,
+                  "B14-NB4: der CEB-Contract-codegen-Minor steht auf 1 (Bump 0 -> 1 unter Major 8, im SELBEN "
+                  "Commit wie die Benennung von kV3AxisSchema[5][5] = line_bytes). Der Minor zaehlt "
+                  "Vertrags-Erweiterungen INNERHALB eines Majors; die 8.0-Basis, gegen die gebumpt wird, "
+                  "existiert (anders als das beim E-24-C8-Reset verworfene '8.1 ohne 8.0'). Wer diesen Wert "
+                  "aendert, aendert +ceb= in JEDER build_version -> jede perm.dll.version mismatcht -> ALLE "
+                  "Tier-Binaries werden neu gebaut und der Objekt-Store-Bucket wechselt.");
+    // B14-NB4 -- BUMP-GEGENPROBE: der Bump ist nicht Kosmetik, sondern der EINZIGE Hebel, der die neue
+    // Schema-Belegung an die stale Binary meldet. Deshalb steht die KOPPLUNG hier als Wache und nicht als
+    // Satz im Vollzugs-Absatz: solange [5][5] benannt ist, DARF der Minor nicht wieder auf die 0 fallen,
+    // gegen die die vorhandenen Binaries gebaut wurden.
+    static_assert(std::string_view{::comdare::cache_engine::anatomy::kV3AxisSchema[5].names[5]} == "line_bytes" &&
+                      ce_abi::kCebContractCodegenMinor > 0,
+                  "B14-NB4: kV3AxisSchema[5][5] ist benannt, aber der codegen-Minor steht wieder auf der "
+                  "8.0-Basis. Damit wuerde eine vor B14-NB4 gebaute Major-8-DLL von dll_is_current still "
+                  "geskippt und truege eine leere line_bytes-Spalte -- die CLU faellt dann fuer den ganzen "
+                  "Lauf auf n/a.");
     // BUCKET-SHIFT-GEGENPROBE (E-24 C8): der lebende Vertragswert ist NICHT der eingefrorene Vorgaenger.
     // Damit steht der Shift 7.2 -> 8.0 als Wache da und nicht bloss als Satz im Vollzugs-Absatz.
     static_assert(ce_abi::kCebContractCodegenMinorAbi7 == 2);
@@ -112,8 +123,12 @@ TEST(R5D_CebContract, CodegenMinorIsPinnedLiterally) {
     static_assert(ce_abi::kAnatomyVersionLinesLayout == 6,
                   "A13-M4: das Stempel-POD-Layout ist an den CEB-Contract-Minor gekoppelt -- wer das Layout "
                   "bumpt, entscheidet im SELBEN Commit ueber kCebContractCodegenMinor.");
-    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 0u);
-    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 0ULL);
+    // B14-NB4: diese beiden Laufzeit-Pins trugen die 0 ein ZWEITES Mal (neben dem static_assert oben) --
+    // beim Bump 0 -> 1 sind sie zuerst uebersehen worden und vom ctest-Lauf gefangen worden. Sie bleiben
+    // LITERAL (das ist ihr Zweck: der hand-gebumpte Minor braucht eine Stelle, die nicht mitwandert), aber
+    // sie stehen jetzt unmittelbar unter dem static_assert, damit ein kuenftiger Bump beide zugleich sieht.
+    EXPECT_EQ(ce_abi::kCebContractCodegenMinor, 1u);
+    EXPECT_EQ(ce_abi::kCebContractVersion.pack(), (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) | 1ULL);
 }
 
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {
