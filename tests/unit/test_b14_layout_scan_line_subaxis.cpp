@@ -259,6 +259,30 @@ int main() {
     std::uint64_t const v256 = ml::detail::padded_aos_field_sum(buf.data(), 4096, kRecordSize, 256);
     check_true("Pruefsummen bei 64/128/256 sind paarweise verschieden", v64 != v128 && v128 != v256 && v64 != v256);
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // -- (E) GESCHWISTER-BEFUND: cache_lines_touched ist eine MESSGROESSE und zaehlte in observe_scan mit
+    // dem Literal 64. Dieselbe Klasse wie oben, nur ein Zaehler weiter: mit permutierter Line waere die CLU
+    // in 64-B-Einheiten stehen geblieben, also blind fuer die Achse. Zahlen literal, damit die Wache beisst.
+    auto clu = [&buf](auto organ, std::size_t n, std::size_t rs) {
+        (void)organ.observe_scan(buf.data(), n, rs);
+        return organ.statistics().cache_lines_touched;
+    };
+    constexpr std::size_t   kCluN = 1024;
+    std::uint64_t const     alt_formel = (static_cast<std::uint64_t>(kCluN) * kRecordSize + 63u) / 64u; // = 768
+    check_eq("CLU CLA am Default == Alt-Formel ceil(n*rs/64)",
+             clu(Huelle<ml::CacheLineAlignedMemoryLayout>{}, kCluN, kRecordSize), alt_formel);
+    check_eq("CLU Probe B32  (ceil(1024*48/32))", clu(Huelle<ProbeCla<cl::CacheLineSize::B32>>{}, kCluN, kRecordSize),
+             std::uint64_t{1536});
+    check_eq("CLU Probe B64  (ceil(1024*48/64))", clu(Huelle<ProbeCla<cl::CacheLineSize::B64>>{}, kCluN, kRecordSize),
+             std::uint64_t{768});
+    check_eq("CLU Probe B128 (ceil(1024*48/128))", clu(Huelle<ProbeCla<cl::CacheLineSize::B128>>{}, kCluN, kRecordSize),
+             std::uint64_t{384});
+    check_eq("CLU Probe B256 (ceil(1024*48/256))", clu(Huelle<ProbeCla<cl::CacheLineSize::B256>>{}, kCluN, kRecordSize),
+             std::uint64_t{192});
+#else
+    std::cout << "  [--]  CLU-Wache uebersprungen (COMDARE_CE_ENABLE_STATISTICS aus)\n";
+#endif
+
     std::cout << "\n==== B14-NB3 Scan-/Wrapper-Wache: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";
     return g_fail == 0 ? 0 : 1;

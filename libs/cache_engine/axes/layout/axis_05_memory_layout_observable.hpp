@@ -18,6 +18,7 @@
 
 #include "axis_05_memory_layout_strategy_base.hpp" // RepresentationKind (2026-07-06: Job 214061 — TU-Reihenfolge-Glueck beendet)
 #include "concepts/axis_05_memory_layout_concept.hpp"
+#include <axes/cacheline/cacheline_line_bytes.hpp> // B14-NB3: Linienzaehlung NUR ueber die cacheline-Unterachse
 #include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 #include <cstddef>
 #include <cstdint>
@@ -30,8 +31,9 @@ struct MemoryLayoutSnapshot {
     std::uint64_t scan_count       = 0; ///< Anzahl scan_field_sum-Aufrufe
     std::uint64_t records_scanned  = 0; ///< kumulierte Datensatz-Zahl ueber alle Scans
     std::uint64_t field_bytes_read = 0; ///< P-MD1: REAL belegte Nutzbytes je Layout (n * useful, LAYOUT-ABHAENGIG)
-    std::uint64_t cache_lines_touched =
-        0;                           ///< P-MD1: REAL beruehrte 64-B-Lines je Layout (ceil(n*span/64), LAYOUT-ABHAENGIG)
+    std::uint64_t cache_lines_touched = 0; ///< P-MD1: REAL beruehrte Lines je Layout (ceil(n*span/line),
+                                           ///< LAYOUT-ABHAENGIG). B14-NB3: `line` ist die Groesse der
+                                           ///< cacheline-Unterachse (Default 64), kein Literal mehr.
     std::uint64_t last_checksum = 0; ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
 
     [[nodiscard]] bool operator==(MemoryLayoutSnapshot const&) const noexcept = default;
@@ -127,8 +129,18 @@ public:
         // Record-Stride. Die LAYOUT-DISTINKTE, REALE CLU kommt aus observe_real_footprint() (P-MD1-ERDUNG #167),
         // das vom LayoutAwareChunkedStore mit dem ECHTEN, representation-spezifischen Key-Scan-Footprint gefuettert
         // wird — NICHT mehr aus einem entkoppelten record_useful_bytes/record_line_span-Deskriptor.
-        constexpr std::size_t kKeyBytes     = sizeof(std::uint64_t);
-        constexpr std::size_t kLineBytes    = 64u;
+        // B14-NB3 (2026-08-06) -- GESCHWISTER-BEFUND des Lead-Befundes, beim Heilen der Scan-Seite gefunden:
+        // hier stand `constexpr std::size_t kLineBytes = 64u;`. Das ist dieselbe Klasse wie das Literal in
+        // CacheLineAlignedMemoryLayout::scan_field_sum, nur einen Zaehler weiter: cache_lines_touched ist eine
+        // MESSGROESSE (sie geht ueber die Observer-Statistik in die CSV), und mit einer permutierten
+        // line_size haette sie weiter in 64-B-Einheiten gezaehlt -- die Achse waere in der CLU unsichtbar
+        // geblieben. Die Line kommt deshalb aus der Unterachse der GEWRAPPTEN Strategie.
+        // BYTE-NEUTRAL: alle fuenf Strategien stehen am Default-NTTP CacheLineConfig{} == B64.
+        // (Der REALE, representation-genaue Footprint kommt weiterhin aus observe_real_footprint(); der
+        // Store speist ihn seit P-CACHELINE-LITERAL bereits achsen-treu.)
+        constexpr std::size_t kKeyBytes  = sizeof(std::uint64_t);
+        constexpr std::size_t kLineBytes = ::comdare::cache_engine::cacheline::line_bytes_of<Strategy>();
+        static_assert(kLineBytes > 0u, "cacheline-Unterachse liefert Line-Groesse 0 -- Linienzaehlung unmoeglich");
         std::size_t const     rs            = (record_size == 0) ? (2u * kKeyBytes) : record_size;
         std::uint64_t const   touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
         stats_.field_bytes_read += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(kKeyBytes);
