@@ -79,7 +79,7 @@ option(COMDARE_PROVISION_VENDOR_ALLOCATORS
 #      emittierten Mess-Jobs setzen es seit M-2/B1 an allen Treiber-Bau-Stellen (experiment_plan_director.hpp,
 #      ceb_pmc_compile_define()). Der Default bleibt OFF, weil test:unit ohne HW-Zugriff baut.
 option(COMDARE_ENABLE_PMC
-       "Reale HW-PMC-Quelle: Linux perf_event_open / Windows Intel PCM (BSD-3). OFF => NullPmcSource, HW-Spalten strukturell 0"
+       "Reale HW-PMC-Quelle: Linux perf_event_open / Windows Intel PCM (BSD-3). OFF => NullPmcSource, HW-Spalten 0"
        OFF)
 set(COMDARE_PCM_DIR "" CACHE PATH "Wurzel der Intel-PCM-Installation (enthält cpucounters.h + PCM-Lib)")
 if(COMDARE_ENABLE_PMC)
