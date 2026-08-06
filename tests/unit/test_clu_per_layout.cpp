@@ -7,14 +7,17 @@
 // Strategy::record_useful_bytes/record_line_span (entkoppelt, ignorierte den realen Store: soa-Modell 75% bei
 // realem 25%). JETZT legt jede Strategie ueber ihre RepresentationKind WIRKLICH unterschiedlich ab
 // (if-constexpr-Dispatch, zero-cost), und organ_observe_layout(ObservableMemoryLayout<L>) treibt den ECHTEN
-// Key-Scan-Footprint (field_bytes = real beruehrte Key-Bytes, cache_lines = real beruehrte 64-B-Linien) in den
-// Observer (observe_real_footprint).
+// Key-Scan-Footprint (field_bytes = real beruehrte Key-Bytes, cache_lines = real beruehrte Linien DER
+// cacheline-Unterachse, line_bytes = deren Groesse) in den Observer (observe_real_footprint).
+// B14-NB4: die Einheit reist seit der CLU-Kettenheilung MIT dem Zaehler -- vorher stand hier "64-B-Linien"
+// und im Rechenweg unten das Literal 64.0.
 //
 // Prueft LITERAL:
 //   (a) ROUND-TRIP: insert(k,v) -> lookup(k)==v ueber ALLE 5 Reps x Node4/16/48/256 (kein Datenverlust/Vertauschung).
 //   (b) die 5 Reps haben WIRKLICH verschiedenen Byte-Footprint: der Key-only-Scan beruehrt je Rep verschiedene
 //       Byte-Zahlen (field_bytes) UND verschiedene Linien-Zahlen (cache_lines) — paarweise mind. 4 distinkte Werte.
-//   (c) CLU je Layout = field_bytes/(cache_lines*64) aus dem REALEN Store + plausibel (>20%, <=100%) + 5-fach distinkt.
+//   (c) CLU je Layout = field_bytes/(cache_lines*line_bytes) aus dem REALEN Store + plausibel + 5-fach distinkt
+//       (line_bytes = die vom Snapshot MITGELIEFERTE Einheit, kein Literal 64 mehr -- B14-NB4).
 //   (d) /O2-Fuzz N gross (randomisierte Keys/Values, volle uint64-Domain) -> kein UB/OOB, Round-Trip 100%.
 //
 // Build (identischer Include-Satz wie scratch_clu_pmd1_verify.ps1):
@@ -22,6 +25,7 @@
 // SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg (scratch_clu_pmd1_verify.ps1) entfernt (Behelfsweg-Bereinigung);
 //   Test jetzt registriertes ctest-Target (tests/unit/CMakeLists.txt, M-CE-24-Block COMDARE_MCE24_PLAIN_TESTS).
 
+#include <axes/cacheline/cacheline_line_bytes.hpp> // B14-NB4: die Einheit der Linienzahl kommt aus der Achse
 #include <axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <axes/node/axis_04_node_type_node4.hpp>
 #include <axes/node/axis_04_node_type_node16.hpp>
@@ -58,7 +62,15 @@ struct LayoutResult {
     std::uint64_t records     = 0;
     std::uint64_t field_bytes = 0;
     std::uint64_t cache_lines = 0;
-    double        clu_pct     = 0.0;
+    // B14-NB4: die EINHEIT von cache_lines, aus dem Snapshot statt aus einem Literal. Hier stand die CLU
+    // frueher als field_bytes/(cache_lines*64.0) -- derselbe /64-Nenner, der in der produktiven Achse
+    // (measurement/system_axis.hpp) der Landeblocker von B14 war. Auch dieser Verbraucher folgt jetzt der
+    // Quelle; heute liefert sie 64, aber sie SAGT es, statt dass der Test es annimmt.
+    std::uint64_t line_bytes = 0;
+    /// die Einheit, die die Achse der Strategie L SELBST nennt -- unabhaengig davon, was der Snapshot
+    /// meldet. Erst der Vergleich der beiden macht die Aussage nicht-tautologisch.
+    std::uint64_t achsen_einheit = 0;
+    double        clu_pct        = 0.0;
 };
 
 // ── (a) Round-Trip insert->lookup ueber EINE Rep x EIN node_type ──────────────────────────────────────────
@@ -87,7 +99,7 @@ static bool roundtrip_one(char const* nname, char const* lname, std::uint64_t kN
 }
 
 // Treibt den REALEN Mess-Pfad fuer EINE Layout-Strategie L: echter Store + organ_observe_layout.
-// Node256 (cap=256): die Chunks spannen viele 64-B-Linien → der per-Chunk-Line-Footprint differenziert die 5
+// Node256 (cap=256): die Chunks spannen viele Linien -> der per-Chunk-Line-Footprint differenziert die 5
 // Reps ECHT (bei winzigen Knoten kollabiert jeder Chunk auf eine Linie und maskiert den Layout-Unterschied).
 template <class L>
 static LayoutResult measure_layout(char const* name, std::uint64_t kN) {
@@ -101,13 +113,16 @@ static LayoutResult measure_layout(char const* name, std::uint64_t kN) {
     auto const snap = ml.statistics();
 
     LayoutResult r;
-    r.name        = name;
-    r.records     = snap.records_scanned;
-    r.field_bytes = snap.field_bytes_read;
-    r.cache_lines = snap.cache_lines_touched;
-    r.clu_pct     = (r.cache_lines == 0)
-                        ? 0.0
-                        : (100.0 * static_cast<double>(r.field_bytes) / (static_cast<double>(r.cache_lines) * 64.0));
+    r.name           = name;
+    r.records        = snap.records_scanned;
+    r.field_bytes    = snap.field_bytes_read;
+    r.cache_lines    = snap.cache_lines_touched;
+    r.line_bytes     = snap.line_bytes;
+    r.achsen_einheit = static_cast<std::uint64_t>(::comdare::cache_engine::cacheline::line_bytes_of<L>());
+    r.clu_pct        = (r.cache_lines == 0 || r.line_bytes == 0)
+                           ? 0.0
+                           : (100.0 * static_cast<double>(r.field_bytes) /
+                              (static_cast<double>(r.cache_lines) * static_cast<double>(r.line_bytes)));
     return r;
 }
 
@@ -183,6 +198,14 @@ int main() {
         std::cout << buf << "\n";
     }
 
+    // (c-0) B14-NB4: der Snapshot NENNT die Einheit seines Linien-Zaehlers, und sie ist die der Achse.
+    // Ohne diesen Satz waere die CLU-Spalte oben eine Zahl ohne Bezugsgroesse -- genau der Zustand, in dem
+    // der produktive Verbraucher (measurement/system_axis.hpp) das Literal 64 einsetzte.
+    for (auto const& r : res) {
+        tr("Einheit " + r.name + " gemeldet (line_bytes != 0, fail-closed sonst)", r.line_bytes != 0);
+        tr("Einheit " + r.name + " == cacheline-Unterachse GENAU DIESER Strategie", r.line_bytes == r.achsen_einheit);
+    }
+
     // (c-1) jede CLU physikalisch plausibel: >5% und <=100%. (Untergrenze 5%, NICHT 20%: cache_line_aligned hat
     // mit 8 Nutz-Key-Bytes auf 64-B-Padding-Stride eine ECHTE CLU von 8/64=12.5% — das ist der korrekte, niedrigste
     // reale Wert, kein Phantom. Das alte 20%-Limit stammte aus dem entkoppelten Deskriptor-Modell, das CLA auf 25%
@@ -206,8 +229,9 @@ int main() {
         tr("field_bytes layout-abhaengig (real, nicht invariant)", fb_varies);
     }
 
-    // (b-2) cache_lines (real beruehrte 64-B-Linien) hat mind. 4 DISTINKTE Werte ueber die 5 Reps —
+    // (b-2) cache_lines (real beruehrte Linien der Unterachse) hat mind. 4 DISTINKTE Werte ueber die 5 Reps --
     //       der echte Beleg, dass die 5 Repraesentationen physisch verschiedenen Byte-Footprint haben.
+    //       (Einheit: die per Snapshot mitgelieferte line_bytes, oben in (c-0) gegen die Achse gepinnt.)
     {
         std::vector<std::uint64_t> cls;
         for (auto const& r : res) cls.push_back(r.cache_lines);

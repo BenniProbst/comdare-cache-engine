@@ -77,7 +77,15 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
     /*T3  path_compression*/
     {{"compress", "prefix_len", "bytes_saved", "cuts", "checksum", nullptr, nullptr, nullptr}}, // Phase B (T3)
     /*T4  node_type*/ {{"find", "keys_stored", "queries", "checksum", nullptr, nullptr, nullptr, nullptr}},
-    /*T5  memory_layout*/ {{"scan", "records", "field_bytes", "cache_lines", "checksum", nullptr, nullptr, nullptr}},
+    /*T5  memory_layout. B14-NB4: line_bytes in den RESERVIERTEN Slot [5][5] (vorher nullptr) -- die EINHEIT
+      von cache_lines. Seit B14-NB3 zaehlt cache_lines in Linien DER cacheline-Unterachse; der Verbraucher
+      (measurement/system_axis.hpp, CLU = field_bytes/(cache_lines*line_bytes)) sitzt HINTER der Modul-ABI
+      und kann die Line-Groesse dort nicht rekonstruieren -- sie ist Compile-Zeit-Eigenschaft der DLL.
+      LAYOUT-NEUTRAL wie der T2-Praezedenzfall indirect_steps in [2][6]: axis_stats ist fix [18][8],
+      sizeof bleibt 1344 (ABI-7), kein ABI-Major-Bump. Additiv ist nur die CSV-Spalte
+      stat_memory_layout_line_bytes -- genau der Fall, den lazy_csv_header als "Phase B fuellt leere
+      Schema-Slots" vorsieht.*/
+    {{"scan", "records", "field_bytes", "cache_lines", "checksum", "line_bytes", nullptr, nullptr}},
     /*T6  allocator*/
     {{"bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt", "fail", "budget_reject", nullptr, nullptr}},
     /*T7  prefetch*/

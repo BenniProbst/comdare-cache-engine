@@ -5136,3 +5136,58 @@ add_test(NAME test_p_cacheline_store_line_source COMMAND test_p_cacheline_store_
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_p_cacheline_store_line_source)
 set_tests_properties(test_p_cacheline_store_line_source PROPERTIES
     LABELS "axes;cacheline;p_cacheline;standalone" TIMEOUT 60)
+
+# B14-NB3 (2026-08-06) -- SCAN-SEITE der KF-6-Auflage (D) + WRAPPER-AUDIT.
+# Schwester-Wache zu test_p_cacheline_store_line_source: dort folgt der STORE der cacheline-Unterachse,
+# hier der MESS-SCAN. Tragende Aussage: dieselben Bytes, nur die Unterachse permutiert -> der Stride des
+# gepaddeten AoS-Scans folgt ihr. Am Stand vor B14-NB3 (hartes `kCacheLine = 64` in
+# CacheLineAlignedMemoryLayout::scan_field_sum) fielen alle vier Line-Groessen auf denselben Stride --
+# die Achse waere in der Messung wirkungslos gewesen. Zusaetzlich der Wrapper-Audit: die Bedingung, die
+# abi_adapter::detail::layout_scan_stride_bytes als Bau-Regel traegt, wird hier gegen alle aktivierten
+# Strategien, ihre Registry-Huellen UND eine bewusst nicht-forwardende Negativ-Probe gefahren.
+# Kein XML-Parser, kein Profil: reine Achsen-/Scan-Aussage (Include-Satz wie test_p_cacheline_*).
+add_executable(test_b14_layout_scan_line_subaxis "test_b14_layout_scan_line_subaxis.cpp")
+target_compile_features(test_b14_layout_scan_line_subaxis PRIVATE cxx_std_23)
+target_include_directories(test_b14_layout_scan_line_subaxis PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b14_layout_scan_line_subaxis PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_b14_layout_scan_line_subaxis)
+add_test(NAME test_b14_layout_scan_line_subaxis COMMAND test_b14_layout_scan_line_subaxis)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b14_layout_scan_line_subaxis)
+set_tests_properties(test_b14_layout_scan_line_subaxis PROPERTIES
+    LABELS "axes;cacheline;memory_layout;b14;standalone" TIMEOUT 60)
+
+# B14-NB3 (2026-08-06) -- die DREI abi_adapter-Mess-Pfade bei Line-Groesse 32/64/128/256 (Codex C-ii) und
+# die Leck-Wache fuer den Layout-Scan-Puffer auf dem Exception-Pfad (Codex C-iii).
+# (C-ii): die Puffer-Geometrie (B14-NB2) und der Scan-Stride (B14-NB3) waren bis hierher nur am
+#   Achsen-Default B64 je gelaufen -- also genau dort, wo sie nichts aendern. Die TU instanziiert und
+#   FAEHRT run_workload / _segmented / _segmented_v2 mit einer line-permutierten Komposition.
+# (C-iii): nach erfolgreicher Puffer-Allokation fuehrte jede spaetere Exception in `catch (...) return 0`
+#   OHNE Freigabe (real erreichbar: PoolResourceAllocator wirft laut eigener Deklaration bad_alloc im
+#   Churn-Segment). Ein Sonden-Allokator erzwingt genau dieses Fenster und prueft die BILANZ des Blocks:
+#   ohne den RAII-Waechter fehlen 1 MiB (B64) bzw. 4 MiB (B256) je Fehlschlag.
+# Braucht COMDARE_MEASUREMENT_ON (Pfad A ist sonst nicht kompiliert) -- Definitionssatz wie
+# test_abi_adapter_g3_batch2.
+comdare_add_test(test_b14_abi_adapter_line_subaxis_paths
+    SOURCES test_b14_abi_adapter_line_subaxis_paths.cpp)
+target_include_directories(test_b14_abi_adapter_line_subaxis_paths PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b14_abi_adapter_line_subaxis_paths PRIVATE Boost::mp11)
+target_compile_definitions(test_b14_abi_adapter_line_subaxis_paths PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+# B14-NB4: LABELS nachgezogen. comdare_add_test (cmake/gtest_setup.cmake) setzt NUR TIMEOUT, keine Labels --
+# die Schwester-Wache oben traegt "b14", diese Bau-Variante blieb dadurch ohne. Wer `ctest -L b14` fahrt
+# (der Weg, auf dem das Paket lokal nachgeprueft wird), bekaeme sonst die HAELFTE der B14-Wachen und
+# haette trotzdem den Eindruck, das Paket geprueft zu haben. Der TIMEOUT der Helper-Zeile bleibt stehen
+# (set_tests_properties ist additiv je Property).
+set_tests_properties(test_b14_abi_adapter_line_subaxis_paths PROPERTIES
+    LABELS "anatomy;abi;memory_layout;cacheline;b14")

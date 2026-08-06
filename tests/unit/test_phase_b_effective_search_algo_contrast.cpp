@@ -256,7 +256,11 @@ static_assert(Fassade::algo_version == Effektiv::algo_version);
 // ===================================================================================================
 // DIE TREIBER-ARITHMETIK -- aus dem Quelltext abgeleitet, nicht geraten.
 // ===================================================================================================
-// abi_adapter.hpp, run_workload: EIN Layout-Puffer ueber `alloc.allocate(kLbufBytes, 64)`, danach
+// abi_adapter.hpp, run_workload: EIN Layout-Puffer ueber `alloc.allocate(kLbufBytes, kLineBytes)` --
+// seit B14-NB2/NB3 kommt BEIDES (Groesse wie Alignment) aus der cacheline-Unterachse, nicht mehr aus dem
+// Literal 64; am Achsen-Default sind die Zahlen unveraendert (kLineBytes == 64). Die Allokation selbst laeuft
+// seit B14-NB3 ueber detail::ScanBufferGuard (RAII) -- an der ZAHL der Allocate-Aufrufe aendert das nichts,
+// und nur die zaehlt die Arithmetik unten. Danach
 // `do_batch` je einmal als Warmup und je Mess-Batch; jeder Batch fuehrt kChurn=2048 `alloc.allocate`-
 // Aufrufe (Segment 2). Bei batches=1 sind das also 1 + 2*2048 Aufrufe -- der EIGENANTEIL des
 // Treibers, der schon vor Phase B ueber die Kompositions-Strategie lief. Genau er ist der Grund,

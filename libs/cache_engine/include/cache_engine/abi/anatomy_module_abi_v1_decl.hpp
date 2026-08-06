@@ -417,7 +417,46 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 /// C8 (grep-Doktrin, gegen den Wortlaut "der EINE literale Pin"): tests/unit/test_w10_c4_zellwert_naht.cpp
 /// fuehrte einen ZWEITEN literalen Wert-Pin (drei ".2"-Stellen). Er ist mit diesem Commit auf die Konstante
 /// umgestellt -- die TU bezeugt die C4-VERDRAHTUNG (Glied vorhanden, Ordnung, Dedupe), nicht den Zahlenwert.
-inline constexpr std::uint32_t kCebContractCodegenMinor = 0;
+///
+/// B14-NB4 VOLLZUG (06.08.2026) -- Minor 0 -> 1 unter Major 8. GRUND, in der Sprache dieses Absatzes:
+/// kV3AxisSchema[5][5] traegt ab jetzt `line_bytes` (vorher reservierter nullptr-Slot, T2-Praezedenz
+/// [2][6] `indirect_steps`). Das ist eine VERTRAGS-ERWEITERUNG INNERHALB des Majors -- genau die Klasse,
+/// die diese Konstante zaehlt: der POD waechst NICHT (sizeof bleibt 1344, axis_stats[18][8] unveraendert,
+/// static_assert in observable_tier.hpp), die vtable bewegt sich nicht, der Loader haette also KEINEN
+/// Grund, eine aeltere Major-8-DLL abzulehnen.
+/// DAS PROBLEM, DAS DER BUMP LOEST (identisch zur W10-M2-Begruendung oben, nur ein Feld weiter): eine
+/// Major-8-DLL, die VOR diesem Commit gebaut wurde, schreibt in [5][5] nichts -- der Slot bleibt 0. Der
+/// Host liest ihn als "Einheit unbekannt" und meldet die CLU fail-closed als n/a. Das ist die RICHTIGE
+/// Reaktion des Verbrauchers, aber das FALSCHE Ergebnis fuer die Messung: eine stale Binary wuerde von
+/// dll_is_current still geskippt (der `.fingerprint` bewegt sich durch diesen Commit NICHT -- binary_id,
+/// perm.algos und algo_version sind unberuehrt) und truege eine dauerhaft leere CLU-Spalte durch den
+/// ganzen Lauf. Die Heilung der CLU-Kette waere damit gebaut, aber am Messobjekt wirkungslos.
+/// WIRKUNG: "+ceb=8.0" -> "+ceb=8.1" in jeder build_version (Einzel- UND Perm-Pfad, letzterer seit der
+/// W10-C4-Verdrahtung) -> der Fingerprint mismatcht -> ALLE Tier-Binaries werden neu gebaut, und
+/// cache_key_prefix zeigt auf einen NEUEN Objekt-Store-Bucket = deklarierte EINMALIGE
+/// Bucket-Invalidierung (M4-/W10-M2-/E-24-C8-Praezedenz).
+/// KEINE VERSIONS-LUEGE: anders als beim verworfenen "8.1 ohne 8.0" des E-24-C8-Resets existiert die
+/// 8.0-Basis hier wirklich (sie ist der Stand, gegen den gebumpt wird).
+/// EHRLICH AUSGEWIESENE KOSTEN: die Invalidierung trifft JEDEN vorhandenen Tier-Bestand unter 8.0. Sie ist
+/// vertretbar, solange der Voll-Bau noch aussteht (Lage-Stand 06.08.: Messbeginn nicht erfolgt). Existiert
+/// zum Landezeitpunkt ein schuetzenswerter Voll-Bestand, ist DIESE Zeile der Ort, an dem neu zu entscheiden
+/// ist -- die Alternative waere, den Bestand bewusst mit leerer CLU-Spalte weiterzufuehren.
+/// binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320 und der
+/// CRC-Anker kNewGolden131072Crc64 sind byte-neutral.
+///
+/// DIE FUNDSTELLEN-LISTE (B14-NB4) -- und warum sie diesen Absatz ersetzt hat. Der Text oben sprach
+/// zweimal von "dem EINEN literalen Pin"; beide Male war das falsch. E-24 C8 fand einen ZWEITEN
+/// (test_w10_c4_zellwert_naht) und stellte ihn auf die Konstante um -- der Wortlaut blieb aber stehen.
+/// Beim Bump 8.0 -> 8.1 sind daraufhin VIER weitere literale Stellen uebersehen worden; gefangen hat
+/// sie nicht dieser Header, sondern der ctest-Doppellauf. Statt die Zusage ein drittes Mal zu
+/// wiederholen, steht hier ab jetzt, WO die Zahl wirklich literal steht:
+///   tests/unit/test_v41_anatomy_module_abi.cpp      -- static_assert + 2x EXPECT_EQ (der Kontroll-Pin)
+///   tests/unit/test_e24_c10_g5_lade_wache.cpp       -- ceb_contract_version_text() + --version-Block
+///   tests/unit/test_e24_c10_g6_identitaets_bilanz.cpp -- +ceb=-Wert, Minor-Anteil, Objekt-Store-Key
+/// WER DIESE KONSTANTE DREHT, DREHT DIESE DREI DATEIEN MIT. Die drei Konsumenten-Tests
+/// (test_g1_binary_version_stamp, test_s1_cache_key_prefix, test_s5_artifact_cache_bounded) leiten den
+/// Wert weiterhin bewusst AB und wandern von selbst mit -- sie sind hier bewusst NICHT gelistet.
+inline constexpr std::uint32_t kCebContractCodegenMinor = 1;
 
 /// HISTORIEN-FREEZE des Vorgaenger-Minors (E-24 C8, additiv -- s. kHostAnatomyAbiVersionAbi7). Der Wert 2
 /// ist der W10-M2-Stand unter Major 7; er wird von den Bucket-Diff-Beweisen als "Vorgaenger-Bucket" zitiert.

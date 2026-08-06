@@ -114,11 +114,14 @@ int main() {
     std::cout << "\n-- Ebene 1 (BEWEGT): +ceb= / Objekt-Store-Key --\n";
     {
         std::string const ceb = pf::ceb_contract_version_text();
-        std::cout << "  Kette der Shifts: 7.0 -> 7.1 (M4) -> 7.2 (W10) -> 8.0 (E-24 C8)\n";
-        eq("der HEUTIGE +ceb=-Wert (Major aus der ABI, Minor aus kCebContractCodegenMinor)", ceb, std::string{"8.0"});
+        std::cout << "  Kette der Shifts: 7.0 -> 7.1 (M4) -> 7.2 (W10) -> 8.0 (E-24 C8) -> 8.1 (B14-NB4)\n";
+        eq("der HEUTIGE +ceb=-Wert (Major aus der ABI, Minor aus kCebContractCodegenMinor)", ceb, std::string{"8.1"});
         eq("... Major-Anteil == COMDARE_ANATOMY_ABI_MAJOR", static_cast<int>(COMDARE_ANATOMY_ABI_MAJOR), 8);
-        eq("... Minor-Anteil == kCebContractCodegenMinor (RESET 2 -> 0 im C8-Commit)",
-           static_cast<int>(abi::kCebContractCodegenMinor), 0);
+        // B14-NB4: Bump 0 -> 1 unter Major 8 (Vertrags-Erweiterung kV3AxisSchema[5][5] = line_bytes).
+        // Diese Fundstelle war beim Bump uebersehen worden -- gefangen vom ctest-Doppellauf, nicht vom
+        // Decl-Header, der weiterhin von "dem EINEN literalen Pin" sprach.
+        eq("... Minor-Anteil == kCebContractCodegenMinor (B14-NB4: 0 -> 1)",
+           static_cast<int>(abi::kCebContractCodegenMinor), 1);
         tr("der Vor-Wert 7.2 ist NICHT mehr der Ist-Wert (der Shift hat stattgefunden)", ceb != "7.2");
 
         // Die EINE Key-Naht: sie MUSS genau ein +ceb=-Segment fuehren (Suffix-Wache-Regel), und dessen
@@ -137,7 +140,8 @@ int main() {
             pos = key.find("+ceb=", pos + 1);
         }
         eq("der Objekt-Store-Key traegt GENAU EIN +ceb=-Segment", n, std::size_t{1});
-        tr("... und es traegt den heutigen Wert (+ceb=8.0)", key.find("+ceb=8.0") != std::string::npos);
+        tr("... und es traegt den heutigen Wert (+ceb=8.1)", key.find("+ceb=8.1") != std::string::npos);
+        tr("... und der C8-Vor-Wert kommt nirgends mehr vor (+ceb=8.0)", key.find("+ceb=8.0") == std::string::npos);
         tr("... und der Vor-Wert kommt nirgends mehr vor (+ceb=7.2)", key.find("+ceb=7.2") == std::string::npos);
 
         // Die POSITION des Glieds in der deklarativen Ordnung ist unveraendert -- der Bump bewegt den

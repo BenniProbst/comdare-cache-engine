@@ -127,7 +127,8 @@ TEST(MSystemAxisWurzel, WallClockCollectsLatencyAndThroughputFromHostValues) {
 TEST(MSystemAxisWurzel, ObserverSnapshotCollectsReadOnlyHostPodValues) {
     an::ComdareTierObserverSnapshot snapshot{};
     snapshot.axis_stats[5][2]  = 2048;   // memory_layout.field_bytes (Nutzbytes)
-    snapshot.axis_stats[5][3]  = 64;     // memory_layout.cache_lines (beruehrte 64-B-Lines)
+    snapshot.axis_stats[5][3]  = 64;     // memory_layout.cache_lines (beruehrte Linien DER Unterachse)
+    snapshot.axis_stats[5][5]  = 64;     // memory_layout.line_bytes -- die EINHEIT dieser Linien (B14-NB4)
     snapshot.axis_stats[6][1]  = 4096;   // allocator.bytes_in_use (bewusst NICHT als FOOTPRINT etikettiert)
     snapshot.axis_stats[16][4] = 12;     // queuing_q1.peak_size (T16 seit Bau-INC-2c) (Software-Puffer, kein LFB)
     snapshot.tier_fill_level   = 123456; // should not be mutated or consumed by these categories
@@ -136,10 +137,11 @@ TEST(MSystemAxisWurzel, ObserverSnapshotCollectsReadOnlyHostPodValues) {
     EXPECT_EQ(m::ObserverSnapshotSystemAxis::regime(), m::MeasurementRegime::TimeObserver);
     EXPECT_TRUE(axis.available());
 
-    // CLU = Auslastung field_bytes/(cache_lines*64) in Prozent (Thesis 03:383) — NICHT der rohe Zaehler.
+    // CLU = Auslastung field_bytes/(cache_lines*line_bytes) in Prozent (Thesis 03:383) -- NICHT der rohe
+    // Zaehler. B14-NB4: der Nenner kommt aus dem Snapshot-Slot [5][5], nicht mehr aus einem Literal 64.
     auto const clu = collect(axis, m::MeasurementCategory::CLU);
     EXPECT_TRUE(clu.valid());
-    EXPECT_EQ(clu.value, 50u); // 2048 Nutzbytes auf 64 Lines a 64 B = 50 %
+    EXPECT_EQ(clu.value, 50u); // 2048 Nutzbytes auf 64 Linien a 64 B = 50 %
 
     // honest-0: bytes_in_use ist nicht der Thesis-Kanon bytes_in_use_peak; peak_size ist Software-Queue,
     // kein Hardware-Line-Fill-Buffer — beide Kategorien bleiben invalid statt falsch etikettiert.
@@ -258,6 +260,7 @@ TEST(MSystemAxisWurzel, HonestNullStellenTragenIhreEinzelklassifikation) {
     an::ComdareTierObserverSnapshot snapshot{};
     snapshot.axis_stats[5][2] = 2048;
     snapshot.axis_stats[5][3] = 64;
+    snapshot.axis_stats[5][5] = 64; // B14-NB4: Einheit der Linien
     m::ObserverSnapshotSystemAxis const observer{snapshot};
 
     // MEMORY_FOOTPRINT: die Kategorie ist sinnvoll, es fehlt die peak-SPALTE -> SourceUnavailable.
@@ -297,9 +300,68 @@ TEST(MSystemAxisWurzel, DegenerierteRohwerteTrennenFehlerVonFehlenderQuelle) {
 
     an::ComdareTierObserverSnapshot leer_snapshot{};
     leer_snapshot.axis_stats[5][2] = 2048;
-    leer_snapshot.axis_stats[5][3] = 0; // kein Nenner: die Quelle hat nichts geliefert
+    leer_snapshot.axis_stats[5][3] = 0;  // kein Nenner: die Quelle hat nichts geliefert
+    leer_snapshot.axis_stats[5][5] = 64; // Einheit liegt vor -- der Zaehler fehlt
     m::ObserverSnapshotSystemAxis const observer{leer_snapshot};
     EXPECT_EQ(collect(observer, m::MeasurementCategory::CLU).status, m::SampleStatus::SourceUnavailable);
+
+    // B14-NB4, ZWEITER fail-closed-Pfad: der Zaehler LIEGT VOR, aber die Quelle nennt seine EINHEIT nicht
+    // eindeutig (der Observer vergiftet line_bytes auf 0, sobald zwei Produzenten mit verschiedenen Linien
+    // in denselben Zaehler geschrieben haben). Eine Prozentzahl aus zwei Einheiten waere ein Phantom --
+    // also n/a, nicht "50 %". Ohne diese Zeile koennte der Nenner still auf ein Literal zurueckfallen.
+    an::ComdareTierObserverSnapshot einheitenlos{};
+    einheitenlos.axis_stats[5][2] = 2048;
+    einheitenlos.axis_stats[5][3] = 64;
+    einheitenlos.axis_stats[5][5] = 0; // Einheit vergiftet
+    m::ObserverSnapshotSystemAxis const ohne_einheit{einheitenlos};
+    EXPECT_EQ(collect(ohne_einheit, m::MeasurementCategory::CLU).status, m::SampleStatus::SourceUnavailable);
+    EXPECT_EQ(collect(ohne_einheit, m::MeasurementCategory::CLU).value, 0u);
+}
+
+// ---- B14-NB4: DER BISS AUF DER VERBRAUCHER-SEITE ------------------------------------------------------
+//
+// Warum dieser Test existiert: B14-NB3 hat die EINHEIT von axis_stats[5][3] (cache_lines) geaendert -- der
+// Zaehler laeuft seitdem in Linien DER cacheline-Unterachse (32/64/128/256) statt in 64-B-Linien. Der
+// Nenner hier im Verbraucher blieb bei einem harten 64 stehen. Der Review-Befund, der B14 blockiert hat,
+// ist genau diese Luecke: eine Messgroesse korrigieren, ohne ihren Verbraucher mitzuziehen, verschiebt den
+// Fehler von der Einheit in den WERT.
+//
+// Die Zahlen sind NICHT frei gewaehlt, sondern die des Befundes (n=1024 Records a record_size=48; der
+// Key-Scan beruehrt in allen vier Faellen DIESELBEN 49152 Bytes und liest DIESELBEN 8192 Nutz-Key-Bytes):
+//   cache_lines = ceil(1024*48 / line) -> B32 1536 / B64 768 / B128 384 / B256 192
+// Genau diese vier Zahlen pinnt test_b14_layout_scan_line_subaxis auf der PRODUZENTEN-Seite. Hier steht
+// die Gegenprobe: dass der VERBRAUCHER aus ihnen wieder EINEN Wert macht.
+TEST(MSystemAxisWurzel, CluIstInvariantGegenDieCachelineUnterachse) {
+    struct Fall {
+        std::uint64_t line_bytes;
+        std::uint64_t cache_lines;
+        std::uint64_t alt_erwartung; // was der Alt-Nenner (Literal 64) gemeldet haette
+    };
+    constexpr std::uint64_t kFieldBytes = 8192;
+    constexpr std::array    kFaelle{Fall{32, 1536, 8}, Fall{64, 768, 16}, Fall{128, 384, 33}, Fall{256, 192, 66}};
+
+    for (auto const& f : kFaelle) {
+        // Kontroll-Rechnung: die vier Belegungen beschreiben WIRKLICH denselben physischen Scan.
+        EXPECT_EQ(f.cache_lines * f.line_bytes, 49152u) << "line_bytes=" << f.line_bytes;
+
+        an::ComdareTierObserverSnapshot snapshot{};
+        snapshot.axis_stats[5][2] = kFieldBytes;
+        snapshot.axis_stats[5][3] = f.cache_lines;
+        snapshot.axis_stats[5][5] = f.line_bytes;
+        m::ObserverSnapshotSystemAxis const axis{snapshot};
+
+        auto const clu = collect(axis, m::MeasurementCategory::CLU);
+        ASSERT_TRUE(clu.valid()) << "line_bytes=" << f.line_bytes;
+        // NEU: durchgaengig derselbe Wert -- die Unterachse aendert die Auslastung nicht, weil sie den
+        // physischen Fussabdruck nicht aendert. 8192 Nutzbytes auf 49152 beruehrten Bytes = 16 %.
+        EXPECT_EQ(clu.value, 16u) << "line_bytes=" << f.line_bytes;
+
+        // ALT: derselbe Snapshot durch den Alt-Nenner (Literal 64) -- VERBATIM nachgerechnet, damit der
+        // Test beisst statt nur gruen zu sein. Diese Zeile faellt, sobald jemand das Literal zurueckholt.
+        std::uint64_t const alt = (kFieldBytes * 100u) / (f.cache_lines * 64u);
+        EXPECT_EQ(alt, f.alt_erwartung) << "line_bytes=" << f.line_bytes;
+        if (f.line_bytes != 64) EXPECT_NE(alt, clu.value) << "line_bytes=" << f.line_bytes;
+    }
 }
 
 // Fixture-UNABHAENGIGER Ableitungsweg (Auflage aus der Risiko-Liste): statt handgepflegter Erwartungen
@@ -310,6 +372,7 @@ TEST(MSystemAxisWurzel, StatusInvarianteGiltUeberAlleKategorienUndAchsen) {
     an::ComdareTierObserverSnapshot snapshot{};
     snapshot.axis_stats[5][2] = 2048;
     snapshot.axis_stats[5][3] = 64;
+    snapshot.axis_stats[5][5] = 64; // B14-NB4: Einheit der Linien
     m::PmcCounters counters{};
     counters.available = true;
 

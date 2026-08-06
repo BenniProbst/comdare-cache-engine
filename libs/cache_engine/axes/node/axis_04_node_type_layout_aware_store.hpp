@@ -341,10 +341,36 @@ public:
             std::uint64_t checksum  = 0;
             std::uint64_t key_bytes = 0, lines = 0;
             key_scan_footprint_(c, checksum, key_bytes, lines);
+            // B14-NB4: der Store nennt die EINHEIT seiner Linienzahl mit. `lines` entsteht in
+            // key_scan_footprint_ aus kLineBytes = line_bytes_of<L>() -- diese Zeile reicht GENAU diese
+            // Quelle weiter, damit der Verbraucher hinter der Modul-ABI (ObserverSnapshotSystemAxis) die
+            // CLU mit demselben Nenner bildet, mit dem hier gezaehlt wurde. Ohne sie waere die Einheit
+            // am Verbraucher nicht rekonstruierbar (observable_tier.hpp-POD transportierte sie nicht).
+            //
+            // DER STILLE FALLBACK, DEN DIESE SIGNATUR-AENDERUNG SONST GEOEFFNET HAETTE (B14-NB4): das
+            // `else` unten ist ein LEGITIMER Weg fuer Organe, die gar keine Real-Footprint-API haben --
+            // aber ein Organ, das die ALTE Vier-Argument-Form noch traegt, faende hier ab jetzt lautlos
+            // denselben Ausgang und maesse plotzlich ueber observe_scan (anderer Zaehler, anderer
+            // Stride). Genau das ist die Klasse "stiller Fallback, gegen den man selbst argumentiert".
+            // Deshalb: wer die Real-Footprint-API ueberhaupt anbietet, MUSS die Einheit mitfuehren.
+            static_assert(
+                !requires {
+                    org.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{});
+                } ||
+                    requires {
+                        org.observe_real_footprint(std::uint64_t{}, std::size_t{}, std::uint64_t{}, std::uint64_t{},
+                                                   std::uint64_t{});
+                    },
+                "B14-NB4: dieses Layout-Organ traegt die ALTE observe_real_footprint-Form ohne "
+                "line_bytes. Es wuerde lautlos auf den observe_scan-Pfad zurueckfallen und eine "
+                "ANDERE Groesse messen. Die Einheit der Linienzahl gehoert in die Signatur -- "
+                "Organ auf die Fuenf-Argument-Form ziehen.");
             if constexpr (requires {
-                              org.observe_real_footprint(checksum, std::size_t{}, std::uint64_t{}, std::uint64_t{});
+                              org.observe_real_footprint(checksum, std::size_t{}, std::uint64_t{}, std::uint64_t{},
+                                                         std::uint64_t{});
                           }) {
-                acc += org.observe_real_footprint(checksum, c.count, key_bytes, lines);
+                acc += org.observe_real_footprint(checksum, c.count, key_bytes, lines,
+                                                  static_cast<std::uint64_t>(kLineBytes));
             } else {
                 // Fallback (alte Observer ohne Real-Footprint-API): der bestehende observe_scan-Pfad.
                 acc += org.observe_scan(c.data, c.count, record_phys_bytes());
