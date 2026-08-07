@@ -242,6 +242,20 @@ private:
 // ---------------------------------------------------------------------------
 // Baupunkt (6): die KAMPAGNEN-PROJEKTION.
 //
+// KEIN PRODUKTIONS-AUFRUFER (Stand A5) -- und das steht hier, damit es niemand erst wieder herausfinden
+// muss. Genau diese Sorte Halb-Verdrahtung war der Anlass des ganzen Pakets: project_slice_eta_s stand
+// jahrelang korrekt gerechnet und ungerufen da. Der Unterschied zu damals ist, dass der Grund hier
+// BENANNT und nicht bloss unbemerkt ist:
+//
+//   Die Projektion braucht Posten je (MASCHINE x PERM). BatchReservierung traegt heute maschine,
+//   threads, slice_begin/count, eta_s und avg_size_bytes -- aber KEIN Perm-Feld. Die Zuordnung einer
+//   Kalibrierung zu ihrer System-Permutation ist im Bestandslog also gar nicht ablesbar. Sie
+//   nachzuruesten ist ein syntax_version-Bump des Dokuments = Draht-Entscheid, kein Bau-Detail.
+//
+// Bis dahin ist dies eine geprueft rechnende Funktion mit ehrlicher Ausgabe, deren Eingabe der Aufrufer
+// aus einer anderen Quelle beschaffen muss (z.B. dem Planer, der die Perm-Zuordnung ohnehin kennt).
+// Sie erfindet sich diese Zuordnung ausdruecklich NICHT selbst.
+//
 // Eingabe sind die im Bestandslog liegenden Kalibrier-Posten je (Maschine x Perm). Jeder Posten sagt:
 // "diese Maschine hat fuer diese Perm N Binaries in eta_s Sekunden gebaut". Daraus wird die Voll-Bau-Zeit
 // hochgerechnet.
