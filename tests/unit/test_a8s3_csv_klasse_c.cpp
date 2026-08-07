@@ -4,10 +4,13 @@
 // sie bewegen KEIN Wire-Byte, sondern haengen ADDITIV hinten an das WIDE-Schema (lazy_csv_header). Vier
 // Bloecke sind in dieser Scheibe entstanden:
 //   (C1) pmc_branch_misses  -- Befund B8/Katalog P11: die Spalte war "geschrieben, aber stumm" (Header
-//        trug sie nicht). KORRIGIERT 2026-08-06 (B5/M-2-KORREKTUR-2): die urspruengliche Zusage "PmcCounters
-//        ERHOB branch_misses real" war falsch -- keine IPmcSource weist das Feld je zu, dieser Test prueft
-//        NUR, dass ein gesetzter Wert treu bis in die Zelle durchgereicht wird (Plumbing), nicht dass er
-//        real gemessen ist (s. cache_engine_builder_iterator.hpp:499 fuer die vollstaendige Korrektur).
+//        trug sie nicht). Zwischenstand 2026-08-06 (B5/M-2-KORREKTUR-2): die urspruengliche Zusage
+//        "PmcCounters ERHOB branch_misses real" war falsch, die Spalte war honest-0, und dieser Test
+//        pruefte nur das Plumbing. SEIT M-3a (2026-08-07) IST SIE REAL: LinuxPerfPmcSource oeffnet
+//        PERF_TYPE_HARDWARE / PERF_COUNT_HW_BRANCH_MISSES als vierten Zaehler, das Feld traegt ein eigenes
+//        branch_misses_source_available, und die Zelle rendert ueber pmc_zelle -- also mit demselben
+//        Ehrlichkeits-Vertrag wie l2/l3/coherence/energy. Der Test prueft entsprechend nicht mehr nur
+//        Durchreichung, sondern die Unterscheidung "echte 0" (W14) gegen "Quelle nicht da" (W13).
 //   (C2) op_<art>_p999_ns   -- Tail-Perzentile aus DENSELBEN IST-Vektoren wie p50/p99. Kern-Groesse fuer
 //        den T6-Alloc-Tail und das T16-eager/lazy-Pareto, fuer die p99 zu grob ist.
 //   (C3) alloc_bytes_in_use_peak / alloc_external_frag_milli / alloc_internal_frag_milli -- die drei
@@ -26,6 +29,10 @@
 //   * WERTE: pmc_branch_misses traegt den realen Zaehler; p999 >= p99 (Nearest-Rank-Monotonie).
 //   * EHRLICHKEIT: die drei T6-Spalten sind "n/a", NIE "0"; und in einer failed-Zeile tragen die
 //     p999-Spalten "failed" statt einer stillen Null (dieselbe Ersatz-Kaskade wie der op_*-Bestandsblock).
+//   * QUELLEN-EHRLICHKEIT je PMC-Zaehler (W7-W14): fuer l3, l2, coherence, energy UND seit M-3a
+//     branch_misses steht IMMER das Paar nebeneinander -- Quelle offen + real 0 => "0"; Quelle nie
+//     geoeffnet => "n/a". Nur so ist gezeigt (statt behauptet), dass das Flag die Unterscheidung traegt
+//     und nicht der Zahlenwert.
 //
 // Build: Standalone int main() (kein gtest), reiner Host-Pfad -- kein Tier, keine Achsen-Instanz.
 
@@ -89,6 +96,11 @@ void tr(std::string const& was, bool ok) {
     row.timed_ops         = 2000;
     row.pmc.available     = true;
     row.pmc.branch_misses = 4711; // der reale Zaehler, der bisher nicht emittiert wurde
+    // M-3a (2026-08-07): seit branch_misses REAL erhoben wird (LinuxPerfPmcSource, PERF_TYPE_HARDWARE /
+    // PERF_COUNT_HW_BRANCH_MISSES), rendert die Zelle ueber pmc_zelle und verlangt den Quellen-Beleg.
+    // Eine Probe-Zeile, die einen Zaehlerwert OHNE Beleg setzt, ist genau der Fall, der jetzt 'n/a' wird --
+    // die Standard-Probe stellt deshalb den Beleg mit (der Gegenfall steht als W13 unten).
+    row.pmc.branch_misses_source_available = true;
     for (std::size_t k = 0; k < row.op_lat.size(); ++k) {
         row.op_lat[k].n       = 1000 + k;
         row.op_lat[k].p50_ns  = 100 + static_cast<std::int64_t>(k);
@@ -206,6 +218,33 @@ int main() {
         std::string const en_ua = cell(header, ua, "pmc_energy_micro_joules"); // ua = unavailable_row von oben
         std::cout << "    W12 pmc_energy_micro_joules (RAPL nie gelesen) = '" << en_ua << "'\n";
         tr("W12 ein NIE gelesenes RAPL-Delta wird '" + na + "', nie eine erfundene '0'", en_ua == na);
+
+        // W13/W14 (M-3a, 2026-08-07): branch_misses ist seit diesem Paket kein honest-0-Feld mehr, sondern
+        // ein real erhobener Zaehler mit eigenem Quellen-Flag. Er faellt damit unter DENSELBEN Vertrag wie
+        // l2/l3/coherence/energy -- und wird hier mit BEIDEN Faellen nebeneinander gezeigt, damit die
+        // Unterscheidung nicht nur behauptet ist. W3 oben deckt bereits den Normalfall "Quelle offen,
+        // Wert != 0" ab; hier kommen die beiden Grenzfaelle dazu.
+        //
+        // W13: die Quelle wurde NIE geoeffnet (z.B. perf_event_open scheitert) -- 'n/a', NICHT '0'. Das ist
+        // exakt der Zustand, den die Spalte vor M-3a strukturell nicht ausdruecken konnte: sie stand als
+        // nackte 0 da, ununterscheidbar von einer echten Nullmessung.
+        ex::LazyMeasuredRow bm_unavail_row                = probe_row();
+        bm_unavail_row.pmc.branch_misses                  = 0;
+        bm_unavail_row.pmc.branch_misses_source_available = false;
+        std::vector<std::string> const bmu                = split_semicolon(ex::format_csv_row(bm_unavail_row));
+        std::string const              bm_ua              = cell(header, bmu, "pmc_branch_misses");
+        std::cout << "    W13 pmc_branch_misses (Quelle nie geoeffnet) = '" << bm_ua << "'\n";
+        tr("W13 (M-3a) eine NIE geoeffnete branch-Quelle wird '" + na + "', nie eine erfundene '0'", bm_ua == na);
+
+        // W14: die Quelle WAR offen und hat real 0 gemessen (ein Zweig ohne Fehlvorhersagen ist moeglich) --
+        // muss '0' bleiben. Kein Token darf einen realen Nullbefund verdecken.
+        ex::LazyMeasuredRow bm_real_zero_row                = probe_row();
+        bm_real_zero_row.pmc.branch_misses                  = 0;
+        bm_real_zero_row.pmc.branch_misses_source_available = true;
+        std::vector<std::string> const bmz                  = split_semicolon(ex::format_csv_row(bm_real_zero_row));
+        std::string const              bm_rz                = cell(header, bmz, "pmc_branch_misses");
+        std::cout << "    W14 pmc_branch_misses (Quelle offen, real 0) = '" << bm_rz << "'\n";
+        tr("W14 (M-3a) eine ECHTE 0 (branch-Quelle offen) bleibt '0', wird NIE zu '" + na + "'", bm_rz == "0");
     }
 
     if (g_fail == 0)

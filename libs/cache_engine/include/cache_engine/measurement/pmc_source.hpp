@@ -41,6 +41,15 @@ struct PmcCounters {
     // best-effort (RAPL-sysfs, oft root-only seit Linux 5.10) und faellt beim Fehlschlag auf denselben POD-
     // Default 0 zurueck wie die drei obigen Felder -- dieselbe Fehlerklasse, dieselbe Behandlung.
     bool energy_micro_joules_source_available = false;
+    // M-3a (2026-08-07): branch_misses war das LETZTE Feld OHNE eigenes Flag -- es konnte strukturell nie
+    // "nicht erhoben" ausdruecken und stand in jeder CSV-Zeile als nackte 0, ununterscheidbar von einer
+    // echten Nullmessung. Seit M-3a erhebt LinuxPerfPmcSource den Zaehler REAL (PERF_TYPE_HARDWARE /
+    // PERF_COUNT_HW_BRANCH_MISSES -- generisch und portabel, oeffnet auf Intel UND AMD, anders als das
+    // LL-Event, das auf AMD Zen5 mit ENOENT scheitert); dieses Flag traegt das Oeffnungsergebnis. Damit
+    // gilt fuer branch_misses dieselbe Regel wie fuer l2/l3/coherence/energy: eine Zahl bedeutet "diese
+    // Quelle hat wirklich geliefert" (auch eine ECHTE 0), "n/a" bedeutet "Quelle nicht da".
+    // WindowsPcmPmcSource nennt das Feld nicht -> bleibt dort beim Default false (ehrlich).
+    bool branch_misses_source_available = false;
 };
 
 /// Pluggable HW-Performance-Counter-Quelle. begin()→Op-Lauf→end() liefert das Counter-Delta.

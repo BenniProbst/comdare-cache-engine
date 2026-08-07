@@ -122,11 +122,53 @@ TEST(V5MeasurementSnapshot, AvailablePmcFillsHwColumns) {
     c.branch_misses           = 17;
     c.coherence_invalidations = 5;
     c.energy_micro_joules     = 99000;
-    auto const m              = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
+    // M-3a (2026-08-07): measurement_from_workload_result kopiert die flag-tragenden Zaehler nicht mehr
+    // blind bei `available`, sondern verlangt je Zaehler den eigenen Quellen-Beleg (der Gegenfall steht
+    // als eigene TU unten). Der Mock stellt den Beleg deshalb mit.
+    c.cache_misses_l2_source_available         = true;
+    c.cache_misses_l3_source_available         = true;
+    c.branch_misses_source_available           = true;
+    c.coherence_invalidations_source_available = true;
+    c.energy_micro_joules_source_available     = true;
+    auto const m = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
     EXPECT_EQ(m.pmc_available, 1u);
     EXPECT_EQ(m.cache_misses_l1, 1111u);
     EXPECT_EQ(m.cache_misses_l3, 33u);
     EXPECT_EQ(m.branch_misses, 17u);
     EXPECT_EQ(m.energy_micro_joules, 99000u);
     EXPECT_EQ(m.search_lookup, 1088u); // Observer-Daten unverändert daneben
+}
+
+// M-3a (2026-08-07) -- KEINE BLINDE KOPIE MEHR (Pipeline B, die zweite CSV-Naht).
+// Vorher uebernahm dieser Pfad bei `available` ALLE sieben Zaehler, ohne die feinkoernigen
+// *_source_available zu befragen. Auf AMD Zen5 ist das der Regelfall: available==true (L1D oeffnete),
+// waehrend cache_misses_l3 mangels generischem LL-Event beim POD-Default 0 bleibt.
+//
+// EHRLICHE EINORDNUNG (die TU soll nicht mehr behaupten, als sie zeigt): am heutigen Bestand setzen alle
+// IPmcSource-Implementierungen Wert und Flag stets gemeinsam, ein Wert ohne Beleg entsteht nirgends. Diese
+// TU haelt deshalb eine WACHE gegen kuenftige Drift fest -- eine neue Quelle, die einen Zaehler ohne
+// Oeffnungs-Beleg setzt, darf ihn nicht bis in den Mess-POD durchreichen.
+TEST(V5MeasurementSnapshot, PmcCountersWithoutOwnSourceAreNotCopied) {
+    ::comdare::cache_engine::measurement::PmcCounters c;
+    c.available       = true; // die ZEILE ist Messung (L1D lieferte) ...
+    c.cache_misses_l1 = 1111;
+    c.dtlb_misses     = 7;
+    // ... aber diese Werte haben KEINEN Quellen-Beleg (alle *_source_available bleiben Default false).
+    c.cache_misses_l2         = 222;
+    c.cache_misses_l3         = 33;
+    c.branch_misses           = 17;
+    c.coherence_invalidations = 5;
+    c.energy_micro_joules     = 99000;
+
+    auto const m = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
+    EXPECT_EQ(m.pmc_available, 1u); // die grobkoernige Zeilen-Marke bleibt unveraendert
+    // l1/dtlb: kein eigenes Flag im Bestands-POD -> weiterhin an der Zeilen-Aussage gebunden.
+    EXPECT_EQ(m.cache_misses_l1, 1111u);
+    EXPECT_EQ(m.dtlb_misses, 7u);
+    // Die fuenf flag-tragenden: NICHT uebernommen, bleiben POD-Default 0.
+    EXPECT_EQ(m.cache_misses_l2, 0u);
+    EXPECT_EQ(m.cache_misses_l3, 0u);
+    EXPECT_EQ(m.branch_misses, 0u);
+    EXPECT_EQ(m.coherence_invalidations, 0u);
+    EXPECT_EQ(m.energy_micro_joules, 0u);
 }
