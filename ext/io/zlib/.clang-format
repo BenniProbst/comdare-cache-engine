@@ -1,0 +1,7 @@
+# Vendor-Snapshot: der Fremdquelltext bleibt UNBERUEHRT (COMDARE-VENDOR-PROVENANCE.md).
+# DisableFormat sorgt dafuer, dass `clang-format --style=file` diese Dateien unveraendert
+# zurueckgibt -- die Format-Wache laeuft also gruen, OHNE dass ein einziges Vendor-Byte
+# umformatiert wird. Ohne diese Datei erbte der Snapshot die projektweite .clang-format der
+# Repo-Wurzel und jede Fremddatei waere eine Format-Abweichung.
+DisableFormat: true
+SortIncludes: Never
