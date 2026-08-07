@@ -39,27 +39,64 @@
 //   (1) BASIS MIT SUB-LISTE          x512{f.vl.bw.dq}, x128{sse.sse2....}   BreitenBasis + BreitenSubset
 //   (2) COMPANION OHNE BASIS         gfni, vaes, vpclmulqdq                 Companion
 //   (3) SKALAR OHNE REGISTERBREITE   popcnt, bmi1, bmi2, abm, ...           Skalar
-//   (4) OHNE REGISTERBREITE UEBERH.  mmx, mmxext, 3dnow, 3dnowext           BasislosFamilie
-// (2), (3) und (4) sehen in der FORM gleich aus -- ein Token auf Tiefe 0 ohne Klammer -- und sind
-// trotzdem drei verschiedene Sachen. Genau deshalb steht die Unterscheidung im KATALOG und nicht im
-// Parser: die Form kann sie nicht sehen. Sie steckt hier im Feld `kind`, und `kind` ist der einzige
-// Grund, warum diese Tabelle mehr ist als eine Elternteil-Pruefung.
+//   (4) EIGENE BASIS, ANDERE DATEI   m64{mmx.mmxext.3dnow.3dnowext}         MedienBasis + MedienSubset
+// (2) und (3) sehen in der FORM gleich aus -- ein Token auf Tiefe 0 ohne Klammer -- und sind trotzdem
+// zwei verschiedene Sachen (Companion: die Breite FOLGT der Basis; Skalar: es gibt gar keine Breite).
+// (4) sah bis zum 07.08.2026 ebenfalls so aus (blosses Token, Owner-Entscheid offen); seit der
+// Basis-Entscheidung (s.u.) hat es die FORM von (1) -- eine eigene Klammer -- aber auf einer ANDEREN
+// Registerdatei (MM0-MM7, x87-aliasiert) als x128/x256/x512 (XMM/YMM/ZMM). Die Unterscheidung steht im
+// KATALOG und nicht im Parser: die Form kann weder (2) von (3) noch (1) von (4) trennen. Sie steckt hier
+// im Feld `kind`, und `kind` ist der einzige Grund, warum diese Tabelle mehr ist als eine
+// Elternteil-Pruefung.
 //
-// == DER OFFENE OWNER-ENTSCHEID ZU FALL (4) -- HIER NICHT ENTSCHIEDEN ==============================
-// Die MMX-/3DNow!-Familie liegt auf den 64-bit-MM-Registern, die auf den x87-Stack ALIASIERT sind. Sie
-// gehoert damit unter KEINE der Basen x128/x256/x512. In der Grammatik kann sie ZWEI Gestalten annehmen:
-//     (a) blosses Token auf Tiefe 0   "1.0.0.c.mmx.mmxext.3dnow"
-//     (b) eigene Basis mit Klammer    "1.0.0.c.x64{mmx.mmxext.3dnow}"
-// Welche RICHTIG ist, ist eine Aussage ueber die Hardware-Semantik (haben MM-Register eine "Breite" im
-// Sinne der Basen?) und damit ein Owner-Entscheid. DIESE WACHE NIMMT IHN NICHT VORWEG: sie akzeptiert
-// BEIDE Gestalten. Technisch traegt das Feld `eltern_alternativ` -- die betroffenen Eintraege nennen
-// SOWOHL die Tiefe 0 ("") ALS AUCH "x64" als zulaessige Platzierung.
-// DER PREIS, offen benannt: bis zum Entscheid gibt es fuer DIESELBE Tatsache ZWEI schreibbare Formen,
-// und weil der Stempel Identitaet ist, sind das ZWEI verschiedene Byte-Folgen. Das ist der Grund, warum
-// der Entscheid faellig ist -- aber ihn zu RATEN waere teurer: eine falsche Basis stuende dann in jedem
-// Fingerprint-Preimage, das je gebaut wird.
-// MECHANISCHE MARKIERUNG: `entscheid_offen` ist bei GENAU sechs Eintraegen gesetzt, und ein
-// static_assert unten zaehlt sie. Wer den Entscheid vollzieht, kommt an diesen sechs Zeilen nicht vorbei.
+// == FALL (4): DIE MMX-/3DNOW!-BASIS m64 -- ENTSCHIEDEN AM 07.08.2026 ==============================
+// Der Owner-Entscheid ist GEFALLEN: MMX, MMXExt, 3DNow! und 3DNowExt gehoeren zusammen und bekommen
+// eine EIGENE Basis. Kriterium des Owners: "gehoert es zusammen -> eigene Basis" -- konkret geprueft an
+// (a) einem gemeinsamen Registersatz und (b) zusammenhaengender Verarbeitung ("wenn die Daten einmal
+// dort sind"). Beides ist primaerquellenbelegt (dedizierte Recherche, Volltext-PDFs, nicht aus einer
+// Zusammenfassung): docs/plaene/20260807-RECHERCHE-mmx-3dnow-basis-oder-token.md.
+//
+// DER ZENTRALE BELEG, woertlich: AMD64 APM Vol. 3 (24594, Rev. 3.28), Anhang D, SS D.1, Punkt 4:
+//   "4. 64-bit media Instructions ... perform vector operations on packed integer and floating-point
+//   values held in the 64-bit MMX(tm) registers. The MMX register set overlays the FPR0-FPR7 physical
+//   registers. This group is composed of the MMX and 3DNow!(tm) instruction subsets and was
+//   subsequently expanded by the MMX and 3DNow! extensions subsets."
+// AMD beantwortet die Frage fuer alle vier Token in EINEM Satz -- das ist woertlich dieselbe Konstruktion
+// wie AVX-512 (ein Block mit einem Fundament und Subsets darauf), nur eine Registergeneration frueher.
+// Haertester Einzelbeleg fuer die ZUSAMMENGEHOERIGKEIT: 3DNow! hat KEINEN einzigen Transferbefehl -- der
+// einzige Weg in ein MM-Register hinein und aus ihm heraus sind MOVD/MOVQ, und die sind MMX-gegated
+// (APM Vol. 3, Anhang D, Tab. D-2). 3DNow! ohne MMX ist ein Rechenwerk ohne Tueren.
+//
+// WARUM NICHT `BreitenBasis` (wie x128/x256/x512): die drei Breiten-Basen sind DREI SICHTEN AUF
+// DIESELBE Registerdatei (XMM in YMM in ZMM, Intel SDM Vol. 1 SS15.5) in EINER AMD-Instruktionsgruppe
+// ("SSE instructions", APM Vol. 3 Anhang D SS D.1 Punkt 5). Die MM-Register sind eine ANDERE Datei in
+// einer ANDEREN Gruppe ("64-bit media Instructions", Punkt 4) -- kein vierter Breitengrad derselben
+// Achse. Deshalb traegt diese Basis die EIGENE Sorte `MedienBasis` (und ihre Kinder `MedienSubset`):
+// das Typsystem sagt selbst, dass hier eine andere Registerdatei beginnt, statt eine Achse zu
+// behaupten, die es nicht gibt.
+//
+// WARUM DER NAME `m64` UND NICHT `x64`: drei Gruende.
+//   1. "x64" ist die Industrie-Bezeichnung der ARCHITEKTUR x86-64 (Microsoft fuehrt sie offiziell so) --
+//      in einem String, der mit 'c' bereits "CPU" sagt, laese sich "c.x64{mmx}" als "64-bit-CPU".
+//   2. "64" ist in DIESER Datei schon mit der ADRESSBREITE belegt (Reserve-Tabelle, "-mapxf": "NUR
+//      -m64"). Zwei Bedeutungen von "64" in einer Datei waeren eine Falle.
+//   3. Das 'x'-Praefix behauptet eine Achse mit x128/x256/x512, die es laut obigem Beleg nicht gibt.
+// `m64` ist AMDs EIGENER Gruppenname ("64-bit media"), zugleich der C-Typ `__m64` und die
+// APM-Operandenschreibweise `mmx2/mem64` -- der Katalog traegt damit die Bezeichnung der Primaerquelle
+// statt einer erfundenen.
+//
+// DIE GEGENSTIMME, redlich benannt (die Recherche fuehrt sie selbst aus): anders als bei AVX-512 spricht
+// KEIN AMD-Dokument eine formale CPUID-Abhaengigkeit aus ("3DNow! requires MMX" steht nirgends; Anhang D
+// sagt im Gegenteil, jedes Subset sei "optional" und einzeln zu pruefen). Die Fundament-Beziehung ist
+// also FUNKTIONAL (kein Transferbefehl ohne MMX) und WERKZEUGKETTEN-SEITIG erzwungen (gcc -m3dnowa
+// impliziert -m3dnow impliziert -mmmx, gemessen), aber nicht in CPUID SELBST ausgesprochen. Das
+// Owner-Kriterium fragt nach Registersatz und Verarbeitung, nicht nach CPUID-Syntax -- deshalb faellt
+// die Entscheidung trotzdem auf "eigene Basis".
+//
+// MECHANISCHE MARKIERUNG, JETZT AUFGELOEST: `entscheid_offen` stand bei GENAU sechs Eintraegen (die
+// Basis selbst + die vier Familien-Mitglieder + '3dnowprefetch', dessen Einordnung als Skalar separat
+// bestaetigt wurde, s. dort). Alle sechs tragen es jetzt NICHT mehr -- der static_assert unten zaehlt
+// GENAU NULL. Wer einen siebten markiert, hat einen NEUEN Entscheid eroeffnet und muss ihn begruenden.
 //
 // Metaprog: reine POD-Deskriptoren (trivially-copyable), alles constexpr, kein std::variant, keine
 // vtable, KEINE dynamische Allokation, keine Laufzeit-Map -- die Wache laeuft im consteval-Pfad des
@@ -81,11 +118,12 @@ namespace comdare::cache_engine::measurement {
 enum class FlagTokenKind : std::uint8_t {
     HardwareBasis       = 0, // c g f n -- ZIEL-HARDWARE-Klasse, KEIN SIMD (Design-Doc: CPU/GPU/FPGA/NPU)
     HardwareUnterklasse = 1, // p e -- Kern-Klasse, verengt die CPU-Nutzung; nur unter 'c'
-    BreitenBasis        = 2, // x128 x256 x512 (+ x64, s. offener Entscheid) -- Registerbreite
-    BreitenSubset       = 3, // Fall (1): steht in der Klammer SEINER Basis
+    BreitenBasis        = 2, // x128 x256 x512 -- DREI Sichten auf EINE Registerdatei (XMM/YMM/ZMM)
+    BreitenSubset       = 3, // Fall (1): steht in der Klammer SEINER Breiten-Basis
     Companion           = 4, // Fall (2): eigenes CPUID-Bit, die Breite FOLGT der Basis
     Skalar              = 5, // Fall (3): reine GPR-Instruktion, GAR KEINE Vektorbreite
-    BasislosFamilie     = 6, // Fall (4): x87-aliasierte MM-Register, unter KEINER Breiten-Basis
+    MedienBasis         = 6, // Fall (4): m64 -- ANDERE Registerdatei (MM0-MM7, x87-aliasiert), ANDERE Gruppe
+    MedienSubset        = 7, // Fall (4): steht in der Klammer der Medien-Basis m64 (mmx/mmxext/3dnow/3dnowext)
 };
 
 /// Stabiles Etikett je Sorte (Single-Source fuer Diagnose-Ausgaben; kein Roh-String am Emit-Ort).
@@ -97,7 +135,8 @@ enum class FlagTokenKind : std::uint8_t {
         case FlagTokenKind::BreitenSubset: return "breiten_subset";
         case FlagTokenKind::Companion: return "companion";
         case FlagTokenKind::Skalar: return "skalar";
-        case FlagTokenKind::BasislosFamilie: return "basislos_familie";
+        case FlagTokenKind::MedienBasis: return "medien_basis";
+        case FlagTokenKind::MedienSubset: return "medien_subset";
     }
     return "unbekannt"; // out-of-range-Cast -> sichtbarer Default (kein UB, kein stiller Skip)
 }
@@ -127,8 +166,9 @@ struct FlagCatalogEntry {
     std::string_view gpp;     // g++/clang -m<flag>; leer == kein Compiler-Schalter
     FlagTokenKind    kind;
     std::string_view eltern;                 // "" == Tiefe 0
-    std::string_view eltern_alternativ{};    // NUR fuer den offenen Fall-(4)-Entscheid belegt
-    bool             entscheid_offen{false}; // haengt an einem offenen Owner-Entscheid
+    std::string_view eltern_alternativ{};    // Mechanismus fuer offene Platzierungs-Entscheide; heute
+                                              // von KEINEM Eintrag belegt (Fall (4) ist entschieden, s.o.)
+    bool             entscheid_offen{false}; // haengt an einem offenen Owner-Entscheid; heute 0 Treffer
 };
 
 /// DER KATALOG. Reihenfolge = Lese-Reihenfolge der Recherche-Synthese (Ziel-Hardware, Breiten-Basen mit
@@ -150,13 +190,13 @@ inline constexpr std::array<FlagCatalogEntry, 62> kFlagGrammarCatalog{{
     {"e", "", "", FlagTokenKind::HardwareUnterklasse, "c"}, // efficiency core (R7: NICHT MEHR experimental)
 
     // -- (1) DIE REGISTERBREITEN-BASEN --------------------------------------------------------------
+    // Genau drei: alle drei Sichten auf DIESELBE Registerdatei (XMM in YMM in ZMM). Die Medien-Basis
+    // m64 (Fall 4, s.u.) liegt auf einer ANDEREN Datei und steht deshalb NICHT hier, sondern in ihrem
+    // eigenen Abschnitt bei ihren Kindern -- die Reihenfolge der Tabelle folgt der Registerdatei, nicht
+    // nur der Klammer-Form.
     {"x128", "", "", FlagTokenKind::BreitenBasis, ""},
     {"x256", "", "", FlagTokenKind::BreitenBasis, ""},
     {"x512", "", "", FlagTokenKind::BreitenBasis, ""},
-    // x64 EXISTIERT NUR, WEIL DER OWNER-ENTSCHEID ZU FALL (4) OFFEN IST (s. Kopf). Faellt er auf
-    // "blosses Token", verschwindet diese Zeile ersatzlos; faellt er auf "eigene Basis", verlieren die
-    // vier Familien-Eintraege unten ihr eltern_alternativ und tragen "x64" als eltern.
-    {"x64", "", "", FlagTokenKind::BreitenBasis, "", "", true},
 
     // -- x128: 128-bit XMM, Legacy-SSE (66/F2/F3 0F) bzw. VEX.128 -----------------------------------
     // AUFNAHMEKRITERIUM (Synthese): das eigene CPUID-Bit kennt AUSSCHLIESSLICH eine 128-bit-Form, die
@@ -243,32 +283,55 @@ inline constexpr std::array<FlagCatalogEntry, 62> kFlagGrammarCatalog{{
     {"adx", "adx", "-madx", FlagTokenKind::Skalar, ""},
     {"rdrand", "rdrand", "-mrdrnd", FlagTokenKind::Skalar, ""}, // cpuinfo MIT 'a', Schalter OHNE
     {"rdseed", "rdseed", "-mrdseed", FlagTokenKind::Skalar, ""},
-    // 3dnowprefetch: MEINE EINORDNUNG, und sie ist ausdruecklich als solche markiert. Der
-    // Synthese-Katalog fuehrt das Token GAR NICHT (weder unter basen noch unter companion); Lens 1
-    // nennt es "companion"; der Vollausbau-Beweis in algo_semver.hpp gruppiert es bei der
-    // MMX-Familie. Ich ordne es als SKALAR ein, weil PREFETCH/PREFETCHW auf KEINEM Vektorregister
-    // arbeitet -- weder auf MM noch auf XMM -- und die Breite damit weder folgt (Companion) noch
-    // aliasiert ist (Fall 4). Es ist zugleich der einzige 3DNow!-Rest, der in modernen AMD- UND
-    // Intel-CPUs weiterlebt und fuer eine Cache-Engine unmittelbar einschlaegig ist. Weil das eine
-    // SETZUNG ist und keine Katalog-Aussage, traegt der Eintrag entscheid_offen.
-    {"3dnowprefetch", "3dnowprefetch", "-mprfchw", FlagTokenKind::Skalar, "", "", true},
+    // 3dnowprefetch: SKALAR, jetzt primaerquellenbelegt (vorher eine offen markierte Setzung des
+    // Autors). AMD APM Vol. 3, PREFETCHW, S. 276, woertlich: "Support for the PREFETCH and PREFETCHW
+    // instructions is indicated by CPUID Fn8000_0001_ECX[3DNowPrefetch] OR Fn8000_0001_EDX[LM] OR
+    // Fn8000_0001_EDX[3DNow] = 1." Drei Folgen: (a) die Verfuegbarkeit ist durch LONG MODE impliziert --
+    // auf jeder x86-64-CPU vorhanden, unabhaengig von 3DNow!, also x86-64-Grundausstattung und kein
+    // 3DNow!-Rest; (b) das Bit liegt in ECX, alle vier m64-Familienbits liegen in EDX -- schon die
+    // Registerlage trennt; (c) der Befehl fasst KEIN Register an, weder MM noch XMM, er nimmt eine
+    // Speicheradresse. Deshalb bleibt der Eintrag SKALAR auf Tiefe 0, NICHT unter m64 -- und der Punkt
+    // ist nicht mehr offen (N-3).
+    {"3dnowprefetch", "3dnowprefetch", "-mprfchw", FlagTokenKind::Skalar, ""},
 
-    // -- (4) OHNE REGISTERBREITE UEBERHAUPT: die MMX-/3DNow!-Familie -------------------------------
-    // 64-bit-MM-Register, ALIASIERT auf den x87-FP-Stack. Sie gehoeren unter KEINE der Basen
-    // x128/x256/x512. DIE PLATZIERUNG IST DER OFFENE OWNER-ENTSCHEID (s. Kopf): jeder dieser vier
-    // Eintraege nennt DIE TIEFE 0 ("") UND "x64" als zulaessig, damit beide Gestalten heute tragen und
-    // keine praejudiziert wird.
-    // ABGRENZUNG, die die Recherche mitliefert: die Synthese empfiehlt diese Familie ausdruecklich
-    // NICHT zur Aufnahme in den Produktiv-Katalog ("auf keiner erreichbaren Maschine wahr"). Sie steht
-    // hier trotzdem, weil der VOLLAUSBAU-Beweis in algo_semver.hpp sie fuehrt und der Owner-Entscheid
-    // zu ihrer Gestalt sonst gar nicht formulierbar waere. Sie ist Vokabular, keine Bau-Empfehlung.
-    {"mmx", "mmx", "-mmmx", FlagTokenKind::BasislosFamilie, "", "x64", true},
-    {"mmxext", "mmxext", "-m3dnowa", FlagTokenKind::BasislosFamilie, "", "x64", true},
-    {"3dnow", "3dnow", "-m3dnow", FlagTokenKind::BasislosFamilie, "", "x64", true},
-    // 3dnowext teilt sich den Compiler-Schalter -m3dnowa mit mmxext (GCC schaltet mit "Enhanced
-    // 3DNow!" beides zugleich). Die cpuinfo-Ids sind verschieden -- das ist der Beleg dafuer, dass die
-    // gpp-Spalte NICHT eindeutig sein muss und die cpuinfo-Spalte sehr wohl.
-    {"3dnowext", "3dnowext", "-m3dnowa", FlagTokenKind::BasislosFamilie, "", "x64", true},
+    // -- (4) DIE MEDIEN-BASIS m64: EIGENE Registerdatei, EIGENE Gruppe -------------------------------
+    // ENTSCHIEDEN am 07.08.2026 (s. Kopf): MMX, MMXExt, 3DNow! und 3DNowExt arbeiten auf DEMSELBEN
+    // Registersatz MM0-MM7 (x87-aliasiert) und teilen sich Zustand und Aufraeum-Protokoll (EMMS/FEMMS
+    // sind laut AMD "identical"). Sie gehoeren deshalb zusammen, aber unter KEINE der drei Breiten-Basen
+    // -- die MM-Register sind eine ANDERE Datei in einer ANDEREN AMD-Instruktionsgruppe als XMM/YMM/ZMM
+    // (APM Vol. 3, Anhang D, SS D.1, Punkt 4 vs. Punkt 5). Deshalb die EIGENE Sorte `MedienBasis`
+    // statt `BreitenBasis` -- das Typsystem behauptet keine vierte Breite einer Achse, die es nicht
+    // gibt.
+    {"m64", "", "", FlagTokenKind::MedienBasis, ""},
+    // Die vier Subsets, jetzt MIT genau EINEM Elternteil ("m64") -- der Owner-Entscheid ist gefallen,
+    // die zweite Gestalt (blosses Token auf Tiefe 0) ist ABSICHTLICH NICHT mehr zulaessig. Eine
+    // Komposition, die die alte Schreibweise "1.0.0.c.mmx..." (ohne m64) benutzt, muss ab jetzt an
+    // dieser Wache BRECHEN (s. algo_semver.hpp, Abschnitt (m4), fuer den Bruch-Beweis).
+    {"mmx", "mmx", "-mmmx", FlagTokenKind::MedienSubset, "m64"},
+    // N-1 (Katalog-Korrektur, gemessen 07.08.2026, gcc 15.3.0): der Eintrag trug bisher "-m3dnowa" mit
+    // der Begruendung, GCC schalte mit "Enhanced 3DNow!" beides (MmxExt UND 3DNowExt) zugleich. GEMESSEN
+    // FALSCH: `gcc -m3dnowa -dM -E -x c /dev/null` setzt NUR __MMX__/__3dNOW__/__3dNOW_A__ -- KEIN
+    // mmxext-Makro existiert in GCC ueberhaupt, und `gcc -mmmxext` ist "unrecognized command-line
+    // option ... did you mean '-mmmx'?". Die MmxExt-Intrinsics (z.B. _mm_avg_pu8 == PAVGB) stehen in
+    // xmmintrin.h INNERHALB von `#pragma GCC target("sse")`; AMD Tab. D-2 gattet PAVGB konsequent auf
+    // "SSE || MmxExt". Der ehrliche Schalter ist deshalb "-msse" (derselbe Schalter wie beim 'sse'-
+    // Eintrag oben in x128 -- gpp muss NICHT eindeutig sein, s. Kommentar bei 3dnowext unten), NICHT
+    // "-m3dnowa".
+    {"mmxext", "mmxext", "-msse", FlagTokenKind::MedienSubset, "m64"},
+    {"3dnow", "3dnow", "-m3dnow", FlagTokenKind::MedienSubset, "m64"},
+    // 3dnowext BEHAELT "-m3dnowa": das IST der richtige Schalter (setzt __3dNOW_A__, gemessen), anders
+    // als bei mmxext oben. Die cpuinfo-Ids sind ohnehin verschieden -- das ist der Beleg dafuer, dass
+    // die gpp-Spalte NICHT eindeutig sein muss und die cpuinfo-Spalte sehr wohl.
+    {"3dnowext", "3dnowext", "-m3dnowa", FlagTokenKind::MedienSubset, "m64"},
+    // N-2 (Kommentar-Korrektur, gemessen 07.08.2026): eine fruehere Fassung dieses Abschnitts behauptete,
+    // die Familie sei "auf keiner erreichbaren Maschine wahr". FALSCH fuer die Haelfte: /proc/cpuinfo auf
+    // prod1 (AMD Ryzen 9 9950X3D, 32 Kerne) zaehlt 'mmx' 32x, 'mmxext' 32x, '3dnowprefetch' 32x -- aber
+    // '3dnow' 0x und '3dnowext' 0x. Zusaetzlich ist 'mmx' Teil der x86-64-GRUNDLINIE: `gcc -march=x86-64`
+    // setzt __MMX__ ohne jedes weitere Flag, also auf JEDER gebauten Binary wahr. OWNER-FRAGE (bewusst
+    // NICHT hier entschieden): soll 'mmx' deshalb notationell unterdrueckt werden (es stuende sonst in
+    // jedem Fingerprint-Preimage), oder ist Vollstaendigkeit gewollt? Das ist eine Notations-Entscheidung,
+    // keine Hardware-Frage, und sie traegt bewusst KEIN entscheid_offen -- der Katalog war an dieser
+    // Stelle nicht falsch, nur unvollstaendig kommentiert.
 }};
 
 /// WARUM ES EINE RESERVE-TABELLE GIBT UND KEINEN KOMMENTAR.
@@ -357,9 +420,9 @@ inline constexpr std::size_t kNoFlagCatalogEntry = static_cast<std::size_t>(-1);
         FlagCatalogEntry const& e = kFlagGrammarCatalog[i];
         if (e.token != token) continue;
         if (e.eltern == eltern) return i;
-        // Die zweite zulaessige Platzierung -- heute NUR der offene Fall-(4)-Entscheid. Die
-        // empty()-Bedingung ist wesentlich: ohne sie liesse ein leeres eltern_alternativ jedes
-        // Tiefe-0-Token unter jedem Eltern-Token durch.
+        // Die zweite zulaessige Platzierung -- der Mechanismus fuer offene Entscheide, heute von KEINEM
+        // Eintrag belegt (Fall (4) ist entschieden, s. Kopf). Die empty()-Bedingung ist wesentlich: ohne
+        // sie liesse ein leeres eltern_alternativ jedes Tiefe-0-Token unter jedem Eltern-Token durch.
         if (!e.eltern_alternativ.empty() && e.eltern_alternativ == eltern) return i;
     }
     return kNoFlagCatalogEntry;
@@ -419,7 +482,7 @@ inline constexpr std::size_t kNoFlagCatalogEntry = static_cast<std::size_t>(-1);
     for (FlagCatalogEntry const& e : kFlagGrammarCatalog) {
         if (e.token.empty()) return false;
         bool const traegt_schalter = e.kind == FlagTokenKind::BreitenSubset || e.kind == FlagTokenKind::Companion ||
-                                     e.kind == FlagTokenKind::Skalar || e.kind == FlagTokenKind::BasislosFamilie;
+                                     e.kind == FlagTokenKind::Skalar || e.kind == FlagTokenKind::MedienSubset;
         if (traegt_schalter && e.gpp.empty()) return false;
         if (!traegt_schalter && !e.gpp.empty()) return false; // Struktur-Token traegt NIE einen Schalter
     }
@@ -461,12 +524,14 @@ inline constexpr std::size_t kNoFlagCatalogEntry = static_cast<std::size_t>(-1);
     return true;
 }
 
-/// Die ZWEITE Platzierung gibt es NUR beim offenen Fall-(4)-Entscheid. Diese Wache haelt fest, dass
-/// niemand die Mehrdeutigkeit auf andere Eintraege ausdehnt, ohne es zu merken.
+/// Die ZWEITE Platzierung ist an einen offenen Entscheid gebunden -- WELCHE Sorte das betrifft, ist NICHT
+/// mehr festgeschrieben (Fall (4) war der einzige Fall bis zum 07.08.2026 und ist jetzt entschieden).
+/// Diese Wache haelt fest, dass niemand eine Mehrdeutigkeit einfuehrt, ohne sie ALS offenen Entscheid zu
+/// markieren. Heute (0 Eintraege mit eltern_alternativ) ist sie vakuum-wahr -- ein Wert fuer die Zukunft,
+/// nicht fuer den Bestand.
 [[nodiscard]] constexpr bool flag_catalog_alternative_only_for_open_decision() noexcept {
     for (FlagCatalogEntry const& e : kFlagGrammarCatalog)
-        if (!e.eltern_alternativ.empty() && (e.kind != FlagTokenKind::BasislosFamilie || !e.entscheid_offen))
-            return false;
+        if (!e.eltern_alternativ.empty() && !e.entscheid_offen) return false;
     return true;
 }
 
@@ -501,7 +566,7 @@ inline constexpr std::size_t kNoFlagCatalogEntry = static_cast<std::size_t>(-1);
 //     cpuinfo-Id, und die Compiler-Schalter stimmen ueberein. Wer dort ein Flag ergaenzt, ohne ihm hier
 //     ein Token zu geben, bricht compile-time.
 // Die UMGEKEHRTE Richtung ist bewusst NICHT gefordert: dieser Katalog ist echt groesser (62 gegen 23
-// Eintraege), weil er x128, die x256-Wurzel, sechs Skalar-Luecken und die basislose Familie mitfuehrt.
+// Eintraege), weil er x128, die x256-Wurzel, sechs Skalar-Luecken und die Medien-Basis m64 mitfuehrt.
 // Ein Zwang zur Gleichmaechtigkeit hiesse, den alten Katalog aus einer Grammatik-Aenderung heraus zu
 // erweitern -- das ist ein eigener Bauschritt mit eigenen Folgen (Signatur-Erhebung, Bau-Gate).
 [[nodiscard]] constexpr bool grammar_catalog_covers_simd_feature_catalog() noexcept {
@@ -516,8 +581,9 @@ inline constexpr std::size_t kNoFlagCatalogEntry = static_cast<std::size_t>(-1);
 // == COMPILE-ZEIT-BATTERIE: der Beweis, nicht die Behauptung =======================================
 
 static_assert(kFlagGrammarCatalog.size() == 62,
-              "Die Zahl ist am echten Katalog gerechnet: 4 Ziel-Hardware + 2 Kern-Klassen + 4 "
-              "Breiten-Basen + 10 x128 + 12 x256 + 14 x512 + 3 Companion + 9 Skalar + 4 basislos.");
+              "Die Zahl ist am echten Katalog gerechnet: 4 Ziel-Hardware + 2 Kern-Klassen + 3 "
+              "Breiten-Basen + 10 x128 + 12 x256 + 14 x512 + 3 Companion + 9 Skalar + 1 Medien-Basis + "
+              "4 Medien-Subset.");
 static_assert(kFlagGrammarReserve.size() == 14);
 static_assert(flag_catalog_entries_are_nonempty());
 static_assert(flag_catalog_pairs_unique());
@@ -529,11 +595,13 @@ static_assert(grammar_catalog_covers_simd_feature_catalog(),
               "Ein Flag in simd_feature_flag.hpp ohne Grammatik-Token (oder mit abweichendem "
               "Compiler-Schalter) waere genau die Drift, gegen die diese Bruecke gebaut ist.");
 
-// Der offene Owner-Entscheid, mechanisch markiert: x64 + mmx/mmxext/3dnow/3dnowext + 3dnowprefetch.
-static_assert(flag_catalog_offene_entscheide() == 6,
-              "GENAU sechs Eintraege haengen am offenen Entscheid: die Basis 'x64', die vier Eintraege der "
-              "MMX-/3DNow!-Familie und meine Einordnung von '3dnowprefetch' als Skalar. Wer einen siebten "
-              "markiert oder einen wegnimmt, hat den Entscheid beruehrt und muss es begruenden.");
+// Der Fall-(4)-Entscheid ist GEFALLEN (07.08.2026): 0 offene Eintraege, vorher genau sechs.
+static_assert(flag_catalog_offene_entscheide() == 0,
+              "Der Fall-(4)-Entscheid ist GEFALLEN (07.08.2026): 'm64' (vormals 'x64') verliert "
+              "entscheid_offen, die vier Familien-Eintraege verlieren es zusammen mit ihrem "
+              "eltern_alternativ, und '3dnowprefetch' verliert es separat (N-3, primaerquellenbelegt als "
+              "bestaetigter Skalar). Macht GENAU sechs geschlossene Eintraege, nicht fuenf -- wer einen "
+              "davon uebersieht oder einen siebten neu markiert, muss es hier begruenden.");
 
 // -- DIE DREI NAMENSRAEUME, je EINZELN belegt -- keiner ist aus einem anderen ableitbar ------------
 static_assert(find_flag_catalog_entry("sse3", "x128") != kNoFlagCatalogEntry);
@@ -594,22 +662,43 @@ static_assert(flag_token_is_admitted_under("bmi1", "") && flag_token_is_admitted
 static_assert(flag_token_is_admitted_under("abm", "") && flag_token_is_admitted_under("movbe", ""));
 static_assert(flag_token_is_admitted_under("adx", "") && flag_token_is_admitted_under("rdrand", ""));
 static_assert(flag_token_is_admitted_under("rdseed", ""));
-// (4) Basislose Familie: BEIDE Gestalten tragen -- der Owner-Entscheid ist NICHT vorweggenommen.
-static_assert(flag_token_is_admitted_under("mmx", ""));    // Gestalt (a): blosses Token
-static_assert(flag_token_is_admitted_under("mmx", "x64")); // Gestalt (b): eigene Basis
-static_assert(flag_token_is_admitted_under("mmxext", "") && flag_token_is_admitted_under("mmxext", "x64"));
-static_assert(flag_token_is_admitted_under("3dnow", "") && flag_token_is_admitted_under("3dnow", "x64"));
-static_assert(flag_token_is_admitted_under("3dnowext", "") && flag_token_is_admitted_under("3dnowext", "x64"));
-static_assert(flag_token_is_admitted_under("x64", ""));
-// ... aber sie stehen NICHT unter den drei ECHTEN Breiten-Basen. Genau das ist die Hardware-Aussage
-// hinter Fall (4): MM-Register sind x87-aliasiert, sie sind keine 128/256/512-bit-Register.
-static_assert(!flag_token_is_admitted_under("mmx", "x128"));
-static_assert(!flag_token_is_admitted_under("mmx", "x256"));
-static_assert(!flag_token_is_admitted_under("mmx", "x512"));
-static_assert(!flag_token_is_admitted_under("3dnow", "x512"));
-// 3dnowprefetch ist als SKALAR eingeordnet (meine Setzung, s. Katalog-Zeile) -- also NUR Tiefe 0.
+// (4) Medien-Basis m64: ENTSCHIEDEN -- genau EINE Gestalt ist zulaessig, die andere ist ABSICHTLICH tot.
+static_assert(flag_token_is_admitted_under("m64", ""));    // die Basis selbst, Tiefe 0
+static_assert(flag_token_is_admitted_under("mmx", "m64")); // Gestalt (b): unter ihrer eigenen Basis
+static_assert(flag_token_is_admitted_under("mmxext", "m64"));
+static_assert(flag_token_is_admitted_under("3dnow", "m64"));
+static_assert(flag_token_is_admitted_under("3dnowext", "m64"));
+// Gestalt (a), das blosse Token auf Tiefe 0, ist seit dem Entscheid NICHT mehr zulaessig -- wer sie
+// schreibt, bricht jetzt an DIESER Wache (die BISSPROBE des Bruchs steht in algo_semver.hpp, (m4)).
+static_assert(!flag_token_is_admitted_under("mmx", ""));
+static_assert(!flag_token_is_admitted_under("mmxext", ""));
+static_assert(!flag_token_is_admitted_under("3dnow", ""));
+static_assert(!flag_token_is_admitted_under("3dnowext", ""));
+// "x64" EXISTIERT NICHT MEHR im Katalog (Namens-Entscheid, s. Kopf) -- weder als Basis noch als Eltern.
+static_assert(!flag_token_is_admitted_under("x64", ""));
+static_assert(!flag_token_is_admitted_under("mmx", "x64"));
+static_assert(!flag_token_is_admitted_under("3dnow", "x64"));
+// NEGATIV-WACHE (Auftrag S1): die Medien-Basis ist eine ANDERE Registerdatei als x128/x256/x512 -- ALLE
+// VIER Subsets muessen unter ALLEN DREI Breiten-Basen brechen. Das ist die Hardware-Aussage hinter
+// Fall (4): MM-Register sind x87-aliasiert, sie sind keine 128/256/512-bit-Register, und m64 ist keine
+// vierte Breite derselben Achse.
+static_assert(!flag_token_is_admitted_under("mmx", "x128") && !flag_token_is_admitted_under("mmx", "x256") &&
+              !flag_token_is_admitted_under("mmx", "x512"));
+static_assert(!flag_token_is_admitted_under("mmxext", "x128") && !flag_token_is_admitted_under("mmxext", "x256") &&
+              !flag_token_is_admitted_under("mmxext", "x512"));
+static_assert(!flag_token_is_admitted_under("3dnow", "x128") && !flag_token_is_admitted_under("3dnow", "x256") &&
+              !flag_token_is_admitted_under("3dnow", "x512"));
+static_assert(!flag_token_is_admitted_under("3dnowext", "x128") &&
+              !flag_token_is_admitted_under("3dnowext", "x256") &&
+              !flag_token_is_admitted_under("3dnowext", "x512"));
+// ... und umgekehrt: die drei ECHTEN Breiten-Subsets stehen NICHT unter m64.
+static_assert(!flag_token_is_admitted_under("sse2", "m64"));
+static_assert(!flag_token_is_admitted_under("avx2", "m64"));
+static_assert(!flag_token_is_admitted_under("vl", "m64"));
+// 3dnowprefetch ist als SKALAR eingeordnet (jetzt primaerquellenbelegt, N-3) -- also NUR Tiefe 0, NICHT
+// unter m64: es ist kein Mitglied der Familie, sondern durch Long Mode implizierte x86-64-Grundausstattung.
 static_assert(flag_token_is_admitted_under("3dnowprefetch", ""));
-static_assert(!flag_token_is_admitted_under("3dnowprefetch", "x64"));
+static_assert(!flag_token_is_admitted_under("3dnowprefetch", "m64"));
 
 // -- DIE ZIEL-HARDWARE UND DIE KERN-KLASSEN --------------------------------------------------------
 static_assert(flag_token_is_admitted_under("c", ""));
@@ -647,10 +736,12 @@ static_assert(flag_token_is_admitted_under("bmi1", "") && flag_token_is_reserve(
 // -- DIE ETIKETTEN (Single-Source fuer Diagnose) ---------------------------------------------------
 static_assert(flag_token_kind_label(FlagTokenKind::BreitenSubset) == std::string_view{"breiten_subset"});
 static_assert(flag_token_kind_label(FlagTokenKind::Companion) == std::string_view{"companion"});
-static_assert(flag_token_kind_label(FlagTokenKind::BasislosFamilie) == std::string_view{"basislos_familie"});
+static_assert(flag_token_kind_label(FlagTokenKind::MedienBasis) == std::string_view{"medien_basis"});
+static_assert(flag_token_kind_label(FlagTokenKind::MedienSubset) == std::string_view{"medien_subset"});
 static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("gfni", "")].kind == FlagTokenKind::Companion);
 static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("popcnt", "")].kind == FlagTokenKind::Skalar);
-static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("mmx", "")].kind == FlagTokenKind::BasislosFamilie);
+static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("m64", "")].kind == FlagTokenKind::MedienBasis);
+static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("mmx", "m64")].kind == FlagTokenKind::MedienSubset);
 static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("f", "x512")].kind == FlagTokenKind::BreitenSubset);
 static_assert(kFlagGrammarCatalog[find_flag_catalog_entry("f", "")].kind == FlagTokenKind::HardwareBasis);
 // ... und die letzten beiden Zeilen sind zusammen der schaerfste Einzelbeweis dieser Datei: 'f' ist

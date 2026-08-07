@@ -299,12 +299,14 @@ TEST(MW12StampBausteine, S2KatalogWacheKenntTokenUndSeineBasis) {
     EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{popcnt}")));
     EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{f.vl}.gfni.popcnt")));
 
-    // (4) DER OFFENE OWNER-ENTSCHEID: die MMX-Familie traegt BEIDE Gestalten, keine ist praejudiziert.
-    //     Faellt eine der beiden Zeilen, ist der Entscheid still vorweggenommen worden.
-    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext")));
-    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow.3dnowext}")));
-    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x128{mmx}"))); // aber nie x128/256/512
-    EXPECT_EQ(m::flag_catalog_offene_entscheide(), 6u) << "der offene Entscheid haengt an GENAU sechs Eintraegen";
+    // (4) FALL (4) IST ENTSCHIEDEN (07.08.2026): NUR die m64-Basis-Form ist noch katalog-gueltig, die
+    //     alte bare-Token-Form bricht jetzt LAUT (compile-time UND hier, zur Laufzeit sichtbar).
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext")));
+    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.m64{mmx.mmxext.3dnow.3dnowext}")));
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow.3dnowext}")))
+        << "der alte Name 'x64' ist nicht mehr im Katalog";
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x128{mmx}"))); // andere Registerdatei
+    EXPECT_EQ(m::flag_catalog_offene_entscheide(), 0u) << "der Fall-(4)-Entscheid ist gefallen, sechs Eintraege zu";
 
     // (5) DIE DREI NAMENSRAEUME: getrennt gefuehrt, nie ineinander umgerechnet.
     EXPECT_EQ(m::flag_token_for_cpuinfo("pni"), std::string_view{"sse3"}); // cpuinfo != Token
@@ -315,7 +317,7 @@ TEST(MW12StampBausteine, S2KatalogWacheKenntTokenUndSeineBasis) {
     EXPECT_EQ(m::parse_algo_semver("1.0.0.x128{sse4.1}"), (m::AlgoSemVer{}));
     EXPECT_EQ(m::parse_algo_semver("1.0.0.avx512_vbmi2"), (m::AlgoSemVer{}));
 
-    // (6) DER VOLLAUSBAU geht vollstaendig durch -- 58 Knoten, jedes ein echtes Token an seiner Stelle.
+    // (6) DER VOLLAUSBAU geht vollstaendig durch -- 59 Knoten, jedes ein echtes Token an seiner Stelle.
     //     Ein Katalog, der eine legitime Vollform verwirft, ist ein Defekt und keine Wache.
     constexpr std::string_view kVoll =
         "1.0.0.c{p.e}"
@@ -323,8 +325,8 @@ TEST(MW12StampBausteine, S2KatalogWacheKenntTokenUndSeineBasis) {
         ".x256{avx.avx2.fma.f16c.vnni.ifma.vnniint8.vnniint16.neconvert.sha512.sm3.sm4}"
         ".x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}"
         ".gfni.vaes.vpclmulqdq.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed"
-        ".mmx.mmxext.3dnow.3dnowext.3dnowprefetch";
-    EXPECT_EQ(m::parse_algo_semver(kVoll).flags.count, 58u);
+        ".m64{mmx.mmxext.3dnow.3dnowext}.3dnowprefetch";
+    EXPECT_EQ(m::parse_algo_semver(kVoll).flags.count, 59u);
     EXPECT_TRUE(m::ce_owned_version_is_wellformed(kVoll));
 
     // (7) DER BESTAND BLEIBT GRUEN -- gemessen an den echten Registries, nicht behauptet.

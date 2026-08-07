@@ -708,21 +708,24 @@ struct RenderedAlgoSemVer {
 //   (1) BASIS MIT SUB-LISTE:        x512{f.vl.bw.dq}      -- Basis + Klammer
 //   (2) COMPANION OHNE BASIS:       gfni                  -- Breite FOLGT der Basis, eigenes CPUID-Bit
 //   (3) SKALAR OHNE JEDE BREITE:    popcnt, bmi2, abm     -- GPR-Instruktionen, nie in einer Klammer
-//   (4) FAMILIE OHNE REGISTERBREITE: mmx, 3dnow, mmxext   -- 64-bit-MM-Register, x87-aliasiert; sie
-//       gehoeren unter KEINE der Basen x128/x256/x512.
-// (2), (3) und (4) sehen in der FORM gleich aus -- ein Token auf Tiefe 0 ohne Klammer -- und sind
-// trotzdem drei verschiedene Sachen. Genau das ist der Grund, warum die Unterscheidung in den KATALOG
-// gehoert und nicht in den Parser: die Form kann sie nicht sehen, und sie muss es auch nicht.
+//   (4) EIGENE BASIS, ANDERE DATEI: m64{mmx.mmxext.3dnow.3dnowext} -- MM0-MM7, x87-aliasiert; eine
+//       ANDERE Registerdatei als x128/x256/x512, deshalb eine EIGENE Basis (MedienBasis) statt einer
+//       vierten Breite derselben Achse.
+// (2) und (3) sehen in der FORM gleich aus -- ein Token auf Tiefe 0 ohne Klammer -- und sind trotzdem
+// zwei verschiedene Sachen. Genau das ist der Grund, warum die Unterscheidung in den KATALOG gehoert
+// und nicht in den Parser: die Form kann sie nicht sehen, und sie muss es auch nicht. (4) sah bis zum
+// 07.08.2026 ebenso aus (blosses Token); der Parser HAELT diese alte Form weiterhin fuer wohlgeformt
+// (er kennt keinen Katalog), aber die Katalog-Wache laesst sie seit dem Entscheid NICHT mehr durch --
+// s. (m4) unten fuer den Beweis, dass die alte Schreibweise jetzt LAUT bricht.
 //
-// OFFENER OWNER-ENTSCHEID zu (4), WEITERHIN OFFEN UND JETZT MECHANISCH MARKIERT: die MMX-Familie kann in
-// dieser Grammatik ZWEI Gestalten annehmen -- als blosses Token auf Tiefe 0 ("1.0.0.c.mmx", wie ein
-// Companion) oder als EIGENE Basis mit Klammer ("1.0.0.c.x64{mmx.mmxext.3dnow}"). Die Form traegt beide;
-// welche RICHTIG ist, ist eine Aussage ueber die Hardware-Semantik (haben die MM-Register eine "Breite"
-// im Sinne der Basen?) und damit ein Owner-Entscheid. DIE KATALOG-WACHE NIMMT IHN NICHT VORWEG: sie
-// LAESST BEIDE GESTALTEN DURCH (flag_grammar_catalog.hpp, Feld `eltern_alternativ`). Der Preis ist offen
-// benannt: bis zum Entscheid gibt es fuer dieselbe Tatsache zwei schreibbare Byte-Folgen. Ein
-// static_assert dort zaehlt die sechs betroffenen Eintraege -- wer den Entscheid vollzieht, kommt an
-// ihnen nicht vorbei.
+// FALL (4) IST ENTSCHIEDEN (07.08.2026): die MMX-/3DNow!-Familie bekommt die eigene Basis `m64`
+// ("1.0.0.c.m64{mmx.mmxext.3dnow}"), NICHT `x64` (Namens-Entscheid, Begruendung in
+// flag_grammar_catalog.hpp am Kopf) und NICHT mehr das blosse Tiefe-0-Token. Primaerquelle: AMD APM
+// Vol. 3, Anhang D, SS D.1, Punkt 4 -- MMX und 3DNow! sind EINE Instruktionsgruppe auf EINEM
+// Registersatz. Die vollstaendige Recherche (Primaerquellen im Volltext, Gegenrede eingeschlossen)
+// steht in docs/plaene/20260807-RECHERCHE-mmx-3dnow-basis-oder-token.md. Der `entscheid_offen`-Zaehler
+// in flag_grammar_catalog.hpp steht jetzt auf NULL (vorher sechs); wer ihn wieder anhebt, eroeffnet
+// einen NEUEN Entscheid und muss ihn begruenden.
 //
 // WO DIE WACHE ANDOCKT -- drei Stellen, alle gebaut:
 //   (1) `flag_catalog_is_satisfied(AlgoSemVer const&)` unmittelbar unter dieser Andockstelle. Sie laeuft
@@ -1028,11 +1031,14 @@ static_assert(parse_algo_semver("1.0.0.x512{f.vl}.gfni.vaes.vpclmulqdq").flags.c
 static_assert(parse_algo_semver("1.0.0.x512{f.vl}.gfni").has_top_level_flag("gfni"));
 // (3) Skalar OHNE JEDE Breite -- reine GPR-Instruktionen.
 static_assert(parse_algo_semver("1.0.0.c.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed").flags.count == 9);
-// (4) Familie OHNE Registerbreite (MMX/3DNow!, x87-aliasierte MM-Register): beide Gestalten, die der
-//     offene Owner-Entscheid zulaesst -- als blosses Token UND als eigene Basis mit Klammer.
+// (4) Medien-Basis m64 (MMX/3DNow!, x87-aliasierte MM-Register auf einer ANDEREN Registerdatei als
+//     x128/x256/x512). Die FORM traegt beide Gestalten -- der Parser kennt keinen Katalog und haelt
+//     auch die seit dem 07.08.2026 KATALOG-UNGUELTIGE bare-Token-Form fuer syntaktisch wohlgeformt.
+//     Das ist beabsichtigt (Trennung Form/Katalog, s. Kopf) und wird in (m4) unten katalogseitig
+//     scharf gestellt: dort bricht die bare-Token-Form, hier nicht.
 static_assert(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext.3dnowprefetch").flags.count == 6);
-static_assert(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}").flags.count == 5);
-static_assert(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}").flags.nodes[1].view() == "x64");
+static_assert(parse_algo_semver("1.0.0.c.m64{mmx.mmxext.3dnow}").flags.count == 5);
+static_assert(parse_algo_semver("1.0.0.c.m64{mmx.mmxext.3dnow}").flags.nodes[1].view() == "m64");
 // DER VOLLAUSBAU: alles zugleich. Er belegt den Knoten-Deckel an der Sache statt an einer Schaetzung.
 namespace detail {
 inline constexpr std::string_view kVollausbau =
@@ -1041,14 +1047,16 @@ inline constexpr std::string_view kVollausbau =
     ".x256{avx.avx2.fma.f16c.vnni.ifma.vnniint8.vnniint16.neconvert.sha512.sm3.sm4}"
     ".x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}"
     ".gfni.vaes.vpclmulqdq.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed"
-    ".mmx.mmxext.3dnow.3dnowext.3dnowprefetch";
+    ".m64{mmx.mmxext.3dnow.3dnowext}.3dnowprefetch";
 } // namespace detail
-static_assert(parse_algo_semver(detail::kVollausbau).flags.count == 58,
-              "der am echten Katalog gerechnete Vollausbau -- er ist die Bemessung von kMaxFlagNodes.");
+static_assert(parse_algo_semver(detail::kVollausbau).flags.count == 59,
+              "der am echten Katalog gerechnete Vollausbau -- er ist die Bemessung von kMaxFlagNodes. "
+              "58 -> 59 seit dem m64-Entscheid: die Basis selbst ist jetzt ein EIGENER Knoten (vorher "
+              "waren mmx/mmxext/3dnow/3dnowext vier bare Blaetter ohne Basis-Knoten).");
 static_assert(!parse_algo_semver(detail::kVollausbau).is_sentinel(),
               "der Vollausbau MUSS parsen. Tut er es nicht, ist ein Deckel zu klein -- und ein Deckel, der "
               "eine legitime Eingabe verwirft, ist ein Defekt und keine Wache.");
-static_assert(kMaxFlagNodes > 58, "Luft ueber dem heutigen Vollausbau, nicht knapp daneben.");
+static_assert(kMaxFlagNodes > 59, "Luft ueber dem heutigen Vollausbau, nicht knapp daneben.");
 // Die DOTTED-Katalognamen (avx10.1/avx10.2) brechen LAUT statt still in zwei Knoten zu zerfallen -- das
 // ist Loch 2 der Token-Regel, hier als Beweis und nicht als Behauptung.
 static_assert(parse_algo_semver("1.0.0.x512{avx10.1}") == AlgoSemVer{});
@@ -1300,16 +1308,25 @@ static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{popcnt}")
 static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{bmi2}")));
 static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed")));
 
-// (m4) DER OFFENE OWNER-ENTSCHEID ZU FALL (4): BEIDE Gestalten gehen durch, keine ist praejudiziert.
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext")));
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}")));
-static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow.3dnowext}")));
-// ... aber NICHT unter einer der drei echten Breiten-Basen. Das ist die Hardware-Aussage hinter Fall (4):
-// MM-Register sind auf den x87-Stack aliasiert, sie sind keine 128/256/512-bit-Register.
+// (m4) FALL (4) IST ENTSCHIEDEN: NUR die m64-Basis-Form geht noch durch. Die ALTE bare-Token-Form
+// (Gestalt (a), gestern noch gleichberechtigt) bricht jetzt LAUT -- genau die Falle, die beim ersten
+// Grammatik-Commit erst am Schadensort auffiel: hier ist die WACHE selbst der Bissbeweis.
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext"))); // Gestalt (a)
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.m64{mmx.mmxext.3dnow.3dnowext}"))); // (b)
+// Der alte Name "x64" ist NICHT mehr im Katalog -- weder als Basis noch als Elternteil. Eine Komposition,
+// die ihn benutzt, faellt auf ZWEI Arten zugleich (x64 selbst unbekannt, mmx darunter also erst recht):
+// die alte Schreibweise liefert kein stilles @0.0.0, sie liefert compile-time FALSE an dieser Wache.
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow.3dnowext}")));
+// ... und die vier Subsets stehen NICHT unter einer der drei echten Breiten-Basen. Das ist die
+// Hardware-Aussage hinter Fall (4): MM-Register sind auf den x87-Stack aliasiert und eine ANDERE
+// Registerdatei als XMM/YMM/ZMM -- m64 ist keine vierte Breite derselben Achse.
 static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{mmx}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x256{mmxext}")));
 static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{3dnow}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{3dnowext}")));
 
-// (m5) DER VOLLAUSBAU GEHT VOLLSTAENDIG DURCH. Er ist das schaerfste Positiv-Kriterium dieser Datei: 58
+// (m5) DER VOLLAUSBAU GEHT VOLLSTAENDIG DURCH. Er ist das schaerfste Positiv-Kriterium dieser Datei: 59
 // Knoten, jedes einzelne Token ein echtes Katalog-Token an seiner richtigen Stelle. Faellt er, ist eine
 // Katalog-Zeile falsch -- und ein Katalog, der eine legitime Vollform verwirft, ist ein Defekt und keine
 // Wache (dasselbe Argument, das schon kMaxFlagNodes von 32 auf 96 gehoben hat).
