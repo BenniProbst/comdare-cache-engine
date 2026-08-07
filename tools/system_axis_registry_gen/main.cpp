@@ -46,7 +46,7 @@
 #include <cache_engine/measurement/simd_feature_flag.hpp> // Section 40.a: feingranularer Flag-Katalog (code=Wahrheit)
 #include <cache_engine/measurement/simd_sub_axis.hpp>
 #include <cache_engine/measurement/target_isa_complex_axis.hpp> // O-8 Schritt 6: innerer Komplex-Wrapper
-#include <cache_engine/measurement/target_isa_sub_axes.hpp>     // O-8 Schritt 6: numa_node + page
+#include <cache_engine/measurement/target_isa_sub_axes.hpp> // O-8/6 + OD-11-RT: numa_node+page+core_class
 #include <cache_engine/measurement/target_isa_system_axis.hpp>
 
 #include <array>
@@ -362,18 +362,23 @@ void emit_target_isa_complex_members(std::ofstream& f) {
     f << "    </sub_axis>\n";
 }
 
-/// O-8 Schritt 6: die zwei Unter-Achsen OHNE compile-statischen Options-Katalog (numa_node, page).
-/// Ihre zulaessige Werte-Menge haengt an der Maschine und wird zur Laufzeit aufgeloest (OD-10,
-/// Folge-Paket) -- hier steht das ANGEBOT, nicht die Aufloesung. Muster: die workload-Unter-Achse.
+/// O-8 Schritt 6 + OD-11-RT: die Unter-Achsen OHNE compile-statischen Options-Katalog (numa_node, page,
+/// core_class). Ihre zulaessige Werte-Menge haengt an der Maschine und wird zur Laufzeit aufgeloest
+/// (OD-10-RT bzw. OD-11-RT) -- hier steht das ANGEBOT, nicht die Aufloesung.
+/// B7 (Codex-Review 02.08.2026, hier mit core_class nachgezogen): iteriert die MITGLIEDSCHAFTS-LISTE
+/// meas::TargetIsaOpenSubAxes, statt die Aufrufe von Hand zu fuehren. Vorher war die Zahl ZWEI hier ein
+/// zweites Mal kodiert -- eine dritte Unter-Achse waere entweder gar nicht emittiert worden oder (bei
+/// handischem Nachzug) an einer tautologischen Header-Wache vorbei in die XML gelaufen. Jetzt gibt es
+/// EINE Quelle fuer Wache UND Emission: die Liste. Emissions-Reihenfolge == Listen-Reihenfolge, und die
+/// ersten beiden Mitglieder stehen unveraendert vorn -- die bestehenden zwei XML-Zeilen bleiben deshalb
+/// byte-identisch, es tritt genau eine dritte hinzu.
 void emit_target_isa_open_sub_axes(std::ofstream& f) {
-    auto emit_open = [&f]<class Sub>(std::type_identity<Sub>) {
+    meas::TargetIsaOpenSubAxes::for_each([&f]<class Sub>(std::type_identity<Sub>) {
         note_name(Sub::axis_label());
         f << "    <sub_axis id=\"" << xml_escape(Sub::axis_label()) << "\" parent=\""
           << xml_escape(Sub::parent_axis_label()) << "\" stage=\"runtime\" value_type=\"token\" option_source=\""
           << xml_escape(Sub::option_source()) << "\"/>\n";
-    };
-    emit_open(std::type_identity<meas::NumaNodeSubAxis>{});
-    emit_open(std::type_identity<meas::PageSubAxis>{});
+    });
 }
 
 /// P5/A9a: Emissions-Koerper der Haupt-Achse "target_isa".

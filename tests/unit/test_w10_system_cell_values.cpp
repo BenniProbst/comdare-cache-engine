@@ -375,7 +375,7 @@ TEST(W10SystemCellValues, SchluesselMengeIstGegenAchsenOrdnungUndHubGewacht) {
 TEST(W10SystemCellValues, KeineRtUnterAchsenInDerVervollstaendigtenZeile) {
     std::string const fertig{kFertig.view()};
     for (std::string_view const verboten :
-         {"os_version", "kernel", "build", "os_family", "numa_node", "page", "scheduling"})
+         {"os_version", "kernel", "build", "os_family", "numa_node", "page", "scheduling", "core_class"})
         EXPECT_EQ(fertig.find(verboten), std::string::npos)
             << "A-15: '" << verboten << "' darf in keiner Stempel-Zeile auftauchen";
 

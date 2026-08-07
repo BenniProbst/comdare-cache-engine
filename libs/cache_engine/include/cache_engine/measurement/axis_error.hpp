@@ -360,6 +360,30 @@ using BuildError = std::variant<InfraErrorClass, CompilerCompilerErrorClass>;
 [[nodiscard]] constexpr ErrorDomain error_domain(BuildError const& e) noexcept {
     return std::visit([](auto c) noexcept { return error_domain(c); }, e);
 }
+/// ERHEBUNGS-FEHLER-SUMME: EIN Wert, der ENTWEDER ein Quellen-ZUGANGS- ODER ein fehlendes-OS-Feature-
+/// Urteil ist. Sie ist die Schwester von BuildError -- dieselbe Bauform, andere Alternativen -- und die
+/// gemeinsame K4-Naht ALLER prozessfreien Erhebungs-Proben (OS-U3 os_probe, OD-10-RT numa_page_probe,
+/// OD-11-RT numa_cpu_pin_process_probe).
+///
+/// WARUM SIE HIER STEHT UND NICHT DREIMAL DANEBEN (Befund beim Bau von OD-11-RT, 06.08.2026): jede der
+/// drei Proben fuehrte bisher ihr eigenes `using ...ProbeError = std::variant<HardwareProbeErrorClass,
+/// CompilerCompilerErrorClass>` MIT einer eigenen `error_domain`-Ueberladung. Ein type alias erzeugt
+/// aber KEINEN neuen Typ: die drei Ueberladungen haben dieselbe Signatur. Solange sich zwei der
+/// Probe-Header nie in derselben Uebersetzungseinheit trafen, fiel das nicht auf -- der erste Test, der
+/// zwei Proben zugleich einbindet, bekam prompt "redefinition of error_domain". Das war eine LATENTE
+/// Mine, kein Fehler des neuen Pakets: sie haette jeden kuenftigen Konsumenten getroffen, der zwei
+/// Erhebungen nebeneinander auswertet -- also genau die Folge-Pakete OD-10-RT-K und OD-11-RT-K.
+/// AB JETZT: EINE Definition. Die drei Probe-Header behalten ihre sprechenden Alias-Namen (sie sagen,
+/// WELCHE Erhebung den Fehler traegt) und ihre eigenen Etikett-Funktionen, aber die Domaenen-Zuordnung
+/// hat nur noch diese eine Quelle.
+using ProbeErrorSum = std::variant<HardwareProbeErrorClass, CompilerCompilerErrorClass>;
+[[nodiscard]] constexpr ErrorDomain error_domain(ProbeErrorSum const& e) noexcept {
+    return std::visit([](auto c) noexcept { return error_domain(c); }, e);
+}
+// Die beiden Summen sind VERSCHIEDENE Typen -- faellt das je zusammen, waeren Bau-Urteil und
+// Erhebungs-Urteil nicht mehr unterscheidbar (und die zwei error_domain-Ueberladungen mehrdeutig).
+static_assert(!std::is_same_v<ProbeErrorSum, BuildError>);
+
 /// Log-Etikett je BuildError-Variante (Serialisierungs-Single-Source): das richtige Label je Domaene.
 [[nodiscard]] constexpr std::string_view build_error_label(BuildError const& e) noexcept {
     return std::visit(

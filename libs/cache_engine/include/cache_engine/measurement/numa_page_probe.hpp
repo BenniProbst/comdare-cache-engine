@@ -148,11 +148,11 @@ struct PageSizeCapability {
 /// K4: exakt die Form von OsProbeError/BuildError -- eine typisierte Summe an der Expected/Result-Naht.
 /// Die erste Alternative klassifiziert den Quellen-ZUGANG, die zweite ausschliesslich die fehlende
 /// OS-Faehigkeit. Diese ausdrueckliche variant-Ausnahme ist Fehler-TRANSPORT, niemals Familien-Dispatch.
-using NumaPageProbeError = std::variant<HardwareProbeErrorClass, CompilerCompilerErrorClass>;
-
-[[nodiscard]] constexpr ErrorDomain error_domain(NumaPageProbeError const& error) noexcept {
-    return std::visit([](auto const value) noexcept { return error_domain(value); }, error);
-}
+/// Die Summe selbst steht seit OD-11-RT EINMAL in axis_error.hpp (ProbeErrorSum); der sprechende Name
+/// bleibt hier. Die frueher hier stehende error_domain-Ueberladung ist entfallen -- Begruendung an
+/// ProbeErrorSum: sie war signaturgleich zu der der Schwester-Proben und schloss aus, dass zwei
+/// Erhebungen je in derselben Uebersetzungseinheit ausgewertet werden.
+using NumaPageProbeError = ProbeErrorSum;
 
 /// Das bestehende stabile Etikett der jeweils getragenen #29-Domaene, ohne ein drittes Vokabular zu
 /// erfinden. QuelleFehlt bleibt "quelle_fehlt", der L6-Produzent meldet das zementierte

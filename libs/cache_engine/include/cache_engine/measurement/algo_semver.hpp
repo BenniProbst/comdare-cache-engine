@@ -169,6 +169,21 @@
 ///       der Probe bleibt unangetastet, und die System-Achsen-Code-Version "target_isa" wird nicht
 ///       gebumpt.
 ///       Erhebung: der generische Wachen-grep oben faengt sie (numa_page_probe.hpp).
+///   (h) OD-11-RT (06.08.2026): die KERN-KLASSEN-/PROZESS-LOKALITAETS-Verfahrens-Version.
+///       measurement/numa_cpu_pin_process_probe.hpp fuehrt kNumaCpuPinProcessProbeVersion als EIGENES ce-Literal --
+///       wieder EIN Literal und DREI probe_ids ("numa_cpu_pin_process_probe.<familie>@v1.0.0c", je Familie eine).
+///       Sie ist die DRITTE Auspraegung derselben Klasse wie (f) und (g) und belegt damit, dass die in
+///       (g) beschriebene Klasse "Erhebungs-Verfahrens-Version" wirklich eine Klasse ist und kein Paar
+///       von Sonderfaellen. Sie entsteht nach dem A13-M3/C4-Vollzug und startet deshalb sofort
+///       dreistellig mit CPU-Flag; es gibt fuer sie keine Migration, nur die beiden Wachen ab Zeile eins.
+///       MECHANISCH GESICHERT: der Header traegt beide B12-Wachen (ungated
+///       ce_owned_version_is_wellformed im K5-Vertrag, gated ce_owned_version_satisfies_cpu_enforce
+///       hinter COMDARE_VERSION_HW_FLAG_ENFORCE), dazu die Praefix-DISJUNKTHEITS-Wache gegen
+///       "numa_page_probe." -- ohne sie liese ein Log-Grep auf die eine Erhebungs-Familie die andere mit.
+///       ABGRENZUNG wie bei (f)/(g): probe_id-Ereignis, KEIN Stempel-Ereignis. Die Unter-Achse
+///       core_class haengt an target_isa (binary_id="never"); die A-15-Neutralitaet ist damit nicht nur
+///       zugesichert, sondern strukturell erzwungen.
+///       Erhebung: der generische Wachen-grep oben faengt sie (numa_cpu_pin_process_probe.hpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif
