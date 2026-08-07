@@ -45,8 +45,24 @@
 // Konfiguration schlaegt der #error an, obwohl der echte Uebersetzungslauf ihn nie erreicht
 // (gcc/clang lesen streng von oben nach unten; 424/424 gruen). Die Wache bleibt damit fuer den
 // COMPILER scharf und ist nur fuer den Analysator stumm -- die Umkehrung waere der Fehler.
-// cppcheck-suppress preprocessorErrorDirective
+//
+// ZWEI KORREKTUREN AM ERSTEN HEILUNGSVERSUCH (07.08., Pipeline 15245 blieb rot):
+//   (1) DIE ZEILE ZAEHLT. `// cppcheck-suppress` gilt fuer die UNMITTELBAR FOLGENDE Zeile. Die
+//       Suppression stand vor dem `#if`, cppcheck meldet aber die `#error`-ZEILE -- sie ging ins
+//       Leere. Sie gehoert ZWISCHEN `#if` und `#error`, nicht davor.
+//   (2) CPPCHECK MELDET NUR DEN ERSTEN preprocessorErrorDirective JE DATEI. Unterdrueckt man nur
+//       diesen hier, RUECKT DER NAECHSTE NACH -- die Blindheits-Gegenprobe unten wurde dann zum
+//       neuen roten Job. Lokal reproduziert mit exakt dem CI-Aufruf (cppcheck 2.21.0,
+//       --enable=warning,portability --inline-suppr --library=googletest --std=c++23):
+//         Ist-Stand      -> rc=2, meldet Zeile 50
+//         nur (1)        -> rc=2, meldet jetzt Zeile 59   <== die halbe Heilung
+//         (1) UND beide  -> rc=0, null Ausgabe
+//       Deshalb traegt JEDER `#error` dieser Datei seine eigene Suppression. Wer hier einen
+//       dritten ergaenzt, muss ihm ebenfalls eine mitgeben, sonst ist der Job wieder rot.
+// GEGENPROBE ZUR HEILUNG SELBST: mit erzwungenem `-DBOOST_MP11_VERSION` feuert der `#error` unter
+// g++ weiterhin -- die Suppression ist PUNKTUELL fuer den Analysator, der Compiler bleibt scharf.
 #if defined(BOOST_MP11_VERSION) || defined(BOOST_MP11_HPP_INCLUDED) || defined(BOOST_CONFIG_HPP)
+// cppcheck-suppress preprocessorErrorDirective
 #error "FK-3-HERMETIK GERISSEN: axis_error_traits.hpp zieht Boost (Begruendung im Kommentar darueber)."
 #endif
 
@@ -56,6 +72,7 @@
 // fehlte im ersten Wurf, und die Wache haette einen Boost-Zug nicht gemeldet.)
 #include <boost/mp11.hpp>
 #if !defined(BOOST_MP11_VERSION)
+// cppcheck-suppress preprocessorErrorDirective
 #error "FK-3-WACHE IST BLIND: <boost/mp11.hpp> setzt BOOST_MP11_VERSION nicht -- der #error oben koennte nie feuern."
 #endif
 

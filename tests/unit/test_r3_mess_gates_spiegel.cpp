@@ -68,11 +68,21 @@ void check_true(std::string const& was, bool ok) {
 }
 
 /// Der HOST-Nachbau des Tier-Fingerprints: dieselbe EINE Glied-Ordnung, dieselbe SHA-512-Primitive.
+///
+/// E-E (07.08.2026) -- DAS OVERLAY-GLIED [7] MUSS HIER DEN LIVE-WERT TRAGEN, und dieser Test hat den
+/// Grund selbst geliefert: er ist am Bau der Scharfschaltung ROT geworden, weil er weiter mit
+/// OverlayHash{""} rechnete, waehrend die beiden REALEN .so-Module den einkompilierten Wert trugen
+/// (gemessen: TU 524fa622... gegen Host 0e9e719f...). Das ist genau die Drift, gegen die dieser Test
+/// gebaut ist -- nur diesmal auf der Host-Seite. Ab hier zieht er dieselbe Konstante, die auch die
+/// Uebersetzungseinheit der Module gezogen hat; damit prueft er zusaetzlich, dass das Glied den Weg in
+/// die reale .so wirklich findet und nicht bloss in eine Host-Rechnung.
+/// Die uebrigen Glieder bleiben LEER: die Probe-Module werden ohne Toolchain-/bvset-Define uebersetzt,
+/// ihr einkompilierter Wert ist dort also tatsaechlich die Identitaet.
 [[nodiscard]] std::string host_fingerprint(std::string_view organ, std::string_view system,
                                            std::string_view measurement, std::string_view mess_gates) {
     auto const glieder =
         cea::anatomy_fingerprint_glieder(organ, system, measurement, cea::ToolchainGlied{""}, cea::BvsetGlied{""},
-                                         cea::OverlayHash{""}, cea::MessGatesGlied{mess_gates});
+                                         cea::OverlayHash{cea::kOverlaySourceHash}, cea::MessGatesGlied{mess_gates});
     std::string const preimage =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = s5::sha512(

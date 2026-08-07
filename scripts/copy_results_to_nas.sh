@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
 # DEPRECATED (W9.5/G4, 2026-07-19) -- NICHT LOESCHEN, nur als Referenz erhalten.
 #   Superseded durch die CI-Mess-Rueckschreibungs-Pipeline (measurement/ + WRITE-Token, autonom persistiert).
-#   Zusaetzlich obsolet: der UNC-Zielhost \\backup1.comdare.de ist abgeschaltet (.de -> .local). Manuelle NAS-Ablage
-#   ist nur noch Notfall-Fallback; der offizielle Weg schreibt die Roh-CSVs ueber die Pipeline zurueck.
+#   Manuelle NAS-Ablage ist nur noch Notfall-Fallback; der offizielle Weg schreibt die Roh-CSVs ueber die
+#   Pipeline zurueck (Owner-Entscheid A vom 2026-07-18: measure-drop HTTPS-PUT, KEIN POSIX-NFS-Mount).
+#
+# KORREKTUR 2026-08-07 (Owner-Wort + eigene Messung): der Satz "der UNC-Zielhost \\backup1.comdare.de ist
+#   abgeschaltet (.de -> .local)" stand hier und war FALSCH. Am 2026-08-07 von prod1 nachgemessen:
+#   `getent hosts backup1.comdare.de` -> 10.0.10.243, `curl -I https://backup1.comdare.de/` -> HTTP/2 200.
+#   backup1 ist gesund und in Betrieb. Die ".de -> .local"-Umstellung vom 2026-07-13 betraf AUSSCHLIESSLICH
+#   die GitLab-Domain (die HAProxy-SNI-Route fuer .de mappt nicht mehr aufs GitLab-Backend) -- nicht den
+#   eigenen A-Record und nicht die eigene SNI-Route von backup1. Der Grund, warum dieses Skript deprecated
+#   bleibt, ist ALLEIN der Owner-Entscheid oben, NICHT ein toter Host.
+#
+# ZWEI GERAETE, NICHT EINS -- die Namen sind leicht zu verwechseln, die Kapazitaeten unterscheiden sich stark:
+#   backup1 = WD PR4100 (4-Bay, prod-Realm), V20 10.0.20.241, VIP 10.0.10.243, backup1.comdare.de
+#   backup2 = WD PR2100 (2-Bay, ARM, dev-Realm),  V20 10.0.20.242, VIP 10.0.10.244, backup2.comdare.local
+#   BEIDE exportieren einen Pfad namens `Cluster_NFS` -- wer nur den Freigabenamen prueft, trifft das
+#   falsche Geraet. Immer die IP mitfuehren.
 # copy_results_to_nas.sh — robuste NAS-Ablage der Mess-Roh-CSVs (User-Direktive 2026-06-08).
 #
 # Das NAS (\\backup1.comdare.de\Cluster_NFS\experiment results) unterstützt nur UNC-Pfade + bash, und die

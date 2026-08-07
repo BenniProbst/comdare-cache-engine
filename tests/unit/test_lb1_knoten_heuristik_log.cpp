@@ -627,14 +627,31 @@ TEST(Lb1DummyLager, StempelBlattWirdNebenDemKnotenLogZeilenweiseVerbatimZurueckg
 }
 
 // ===========================================================================
-// (6) SHA512-OVERLAY -- die DEKLARIERTE Luecke (L14-Muster), nicht die stille.
+// (6) SHA512-OVERLAY -- die Luecke ist GESCHLOSSEN (E-E, 07.08.2026).
+//
+// DIESER TEST HIESS BIS HIERHER "DasOverlayGliedIstStrukturellDaUndHeuteLEER" und pruefte die
+// LEERHEIT. Er war damit die schaerfste Wache der deklarierten Luecke -- und genau deshalb ist er der
+// Ort, an dem ihre Schliessung als Erstes sichtbar werden MUSS. Er wird nicht geloescht und nicht
+// entschaerft, sondern UMGEKEHRT: aus "heute leer, und das ist deklariert" wird "belegt, und so sieht
+// der Beleg aus". Ein stillschweigend geloeschter Leerheits-Test waere die schlechteste aller
+// Varianten -- niemand saehe mehr, dass hier je eine Luecke war.
 // ===========================================================================
-TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndHeuteLEER) {
-    // OF-M3-2 = Fallback B: das Glied existiert seit A13-M3/C3, traegt aber bis zur Owner-Definition
-    // nur seinen Separator. Diese Scheibe konsumiert den Fingerprint AS-IS und eicht NICHTS.
-    EXPECT_TRUE(comdare::cache_engine::abi::kOverlaySourceHash.empty())
-        << "Sobald der Overlay-Codegen das Define setzt, ist das Voll-Soll der ABNAHME-3/4 erreichbar "
-           "-- bis dahin ist die Luecke DEKLARIERT, nicht still.";
+TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndSeitEeBELEGT) {
+    // OF-M3-2 = Fallback B (Historik): das Glied existierte seit A13-M3/C3, trug aber bis zur
+    // Owner-Definition nur seinen Separator. Die drei Owner-Festlegungen (Konkatenation, feste Ordnung je
+    // Achsen-Kategorie, Verzeichnis-Schnitt ueber die drei kanonischen Ordnungen plus anatomy/) liegen seit
+    // dem 07.08.2026 vor; der Pre-Build-Codegen tools/overlay_source_hash_gen fuellt das Glied.
+    EXPECT_FALSE(comdare::cache_engine::abi::kOverlaySourceHash.empty())
+        << "Das Overlay-Glied ist LEER. Damit deckt der SHA512 reine Quell-Code-Aenderungen NICHT -- zwei "
+           "Baue mit gleichen Achsen-Strings, aber geaendertem Implementierungs-Quelltext haetten denselben "
+           "Fingerprint, dll_is_current uebersprange den Neubau und das Lager liefe die alte Binary aus. "
+           "Ursache pruefen: laeuft comdare_overlay_source_hash (cmake/overlay_source_hash.cmake), und haengt "
+           "das Ziel dieser TU daran?";
+    // Und er ist GENAU ein SHA-512-Hex -- die Form, die das Budget kAnatomyFingerprintOverlayMax (128)
+    // voraussetzt. Eine andere Laenge waere ein Codegen-Fehler, kein zulaessiger Wert.
+    EXPECT_EQ(comdare::cache_engine::abi::kOverlaySourceHash.size(), std::size_t{128});
+    EXPECT_TRUE(bl::ist_fingerprint_hex(std::string{comdare::cache_engine::abi::kOverlaySourceHash}))
+        << "das Overlay-Glied muss dieselbe 128-hex-Form haben wie jeder andere Fingerprint im Haus";
     // O-2/C-2 (Format 2 -> 3): 6 -> 8 Glieder (Toolchain [5], bvset [6]); das Overlay-Glied ist ans ENDE
     // gewandert und heisst jetzt [7]. Die AUSSAGE dieses Tests ist unveraendert -- das Overlay-Glied ist
     // strukturell da und heute leer -- nur seine Position und die Glied-Zahl sind nachgezogen. Die
@@ -642,9 +659,11 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndHeuteLEER) {
     // weitere Umsortierung soll diesen Test nicht erneut faelschlich rot faerben.
     // R-3 (Format 3 -> 4, 07.08.2026): 8 -> 9 Glieder (Mess-Gates [8], abi/mess_gates_glied.hpp). Das
     // Overlay-Glied bleibt [7] -- die Bestands-Nummern wurden NICHT verschoben, das neue Glied haengt
-    // sich an. Die AUSSAGE dieses Tests ist weiterhin unveraendert: das Overlay-Glied ist strukturell da
-    // und heute leer. Was sich verschiebt, ist nur seine Rolle als "Schwanz-Glied" -- es ist ab hier das
-    // letzte NOCH LEERE Glied, und genau diese Eigenschaft ist die, auf die es dieser Test abgesehen hat.
+    // sich an.
+    // E-E (07.08.2026): die POSITIONS-Zusagen unten sind unveraendert -- die Scharfschaltung hat KEIN
+    // Glied hinzugefuegt, verschoben oder entfernt (deshalb auch KEIN Format-Bump: das Layout ist
+    // dasselbe, nur der Inhalt von [7] wechselt von leer auf belegt). Genau das pruefen die drei
+    // folgenden Zeilen weiter -- sie sind der Beleg, dass die Scharfschaltung layout-neutral war.
     EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 9u);
     EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintOverlayGlied,
               comdare::cache_engine::abi::kAnatomyFingerprintMessGatesGlied - 1u)

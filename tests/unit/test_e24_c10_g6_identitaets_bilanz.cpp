@@ -178,14 +178,26 @@ int main() {
         eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{9});
         eq("die Position der System-Zeile in der Glied-Folge", abi::kAnatomyFingerprintSystemGlied, std::size_t{2});
 
-        constexpr auto    kRefJetzt = abi::anatomy_fingerprint_hex(kRefOrgan, kRefSystem, kRefMess);
+        // E-E (07.08.2026): das Overlay-Glied [7] wird ab hier EXPLIZIT LEER gereicht -- und die beiden
+        // Digests bleiben dadurch BYTE-IDENTISCH (nachgemessen an einer Probe-TU: der Leer-Digest ist
+        // unveraendert 0a74581660d2dd6d...572a0a3c). Das ist kein Ausweichen vor der Scharfschaltung,
+        // sondern die Voraussetzung dafuer, dass diese Bilanz weiter etwas AUSSAGT: sie prueft, ob der
+        // ABI-MAJOR die Stempel-Ebene bewegt. Liefe der Default herein, traege sie ab jetzt den
+        // QUELLTEXT-Stand des Baums, bewegte sich bei jedem Commit, und die Aussage waere nicht mehr
+        // messbar -- der Zeuge wuerde durch Rauschen ersetzt. Die Wirksamkeit des LIVE-Werts beweist
+        // stattdessen der Bissbeweis in test_m_w12_stamp_bausteine.cpp.
+        constexpr auto kRefJetzt = abi::anatomy_fingerprint_hex(
+            kRefOrgan, kRefSystem, kRefMess, abi::ToolchainGlied{abi::kToolchainStampGlied},
+            abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""});
         std::string const ref_jetzt{kRefJetzt.data()};
         std::cout << "  Referenz-SA-Tripel:\n    organ  = " << kRefOrgan << "\n    system = " << kRefSystem
                   << "\n    mess   = " << kRefMess << "\n";
         eq("der Stempel des Referenz-Tripels ist IDENTISCH zum eingefrorenen Wert", ref_jetzt,
            std::string{kRefDigestVorC8});
 
-        constexpr auto    kLeerJetzt = abi::anatomy_fingerprint_hex("", "", "");
+        constexpr auto kLeerJetzt = abi::anatomy_fingerprint_hex(
+            "", "", "", abi::ToolchainGlied{abi::kToolchainStampGlied},
+            abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""}); // E-E: s. oben
         std::string const leer_jetzt{kLeerJetzt.data()};
         eq("der Stempel des LEEREN Tripels ist IDENTISCH zum eingefrorenen Wert (Glied-Struktur)", leer_jetzt,
            std::string{kLeerDigestVorC8});
@@ -201,7 +213,9 @@ int main() {
         // die Stempel-Ebene nicht bewegt), und diese Wache prueft ab jetzt die DEFAULT-Glied-Folge, also
         // exakt den Zustand vor der Injektion. Wer sie nach C-3 gruen halten will, muss die Bilanz neu
         // formulieren -- nicht die Wache entschaerfen.
-        auto const glieder    = abi::anatomy_fingerprint_glieder(kRefOrgan, kRefSystem, kRefMess);
+        auto const glieder = abi::anatomy_fingerprint_glieder(
+            kRefOrgan, kRefSystem, kRefMess, abi::ToolchainGlied{abi::kToolchainStampGlied},
+            abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""}); // E-E: s. oben
         auto const major_text = std::to_string(COMDARE_ANATOMY_ABI_MAJOR);
         bool       major_frei = true;
         for (auto const& glied : glieder) {

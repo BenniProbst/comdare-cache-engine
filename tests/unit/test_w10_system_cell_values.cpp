@@ -453,6 +453,12 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
                                               "simd_extension[{avx512}];"
                                               "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
+    // E-E END-FORM (07.08.2026): das Overlay-Glied [7] EXPLIZIT und als LITERAL -- byte-gleich zu den
+    // beiden Zwillingen. Begruendung ausfuehrlich in test_m_w12_stamp_bausteine.cpp: seit der
+    // Scharfschaltung traegt der DEFAULT des Glieds den Quell-Hash dieses Baums, und ein Anker darueber
+    // waere bei jedem Commit rot. Nachrechenbar: printf 'comdare-overlay-fixture' | sha512sum
+    constexpr std::string_view kFrozenOverlay = "84250c96ec21228119ca6607154fa450e8ffdbc1ae3074be9d8bcf7599198593"
+                                                "19f52c64502a78a13da5cb76d05e4988e4c7be0d72fa70935f4a2e5bba5f47ec";
     // FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): NEU-ANKER als deklariertes Byte-Ereignis. Die
     // Versions-Schreibweise wandert von "@1.0.0c" auf "@1.0.0.c" und bewegt damit die Preimage-Glieder
     // [1]/[2]/[3] -- der Fingerprint MUSS wandern. BYTE-GLEICH zum Zwilling in
@@ -461,12 +467,15 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     // Ordnung"). Der Vektor rechnet ueber den DEFAULT des neunten Glieds (leer), nicht ueber
     // kMessGatesTuGlied -- sonst haenge er am Bau-Zustand DIESER TU.
     // Vorgaenger: Format 3 17148e5a4d0f4a2d...1469cef8ce89374; Format 4 (R-3) 5b18feacb6c7295e...00bac75e.
+    // [NEU EINGEFROREN 07.08.2026, E-E: Glied [7] wechselt von LEER auf BELEGT (kein Format-Bump, das
+    // Layout bleibt neun Glieder). Vorgaenger 88f59b9b0da85e34...96125688, in der git-Historie. Alle drei
+    // Fundstellen im SELBEN Commit gedreht.]
     constexpr std::string_view kFrozenFingerprintV1 =
-        "88f59b9b0da85e34c6be48653867c76a15f1d0a22b241c8f92f5846677224c49"
-        "03fc296f331ea3205046e897403675a2525cc62658e4bfda0cb5771a96125688";
-    auto const frozen_glieder =
-        cea::anatomy_fingerprint_glieder(kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure,
-                                         cea::ToolchainGlied{kFrozenToolchain}, cea::BvsetGlied{kFrozenBvset});
+        "d53aebdbb22902f3cdbbf5947bc36ea5ba04808248fc23fa99a1b95471edda7c"
+        "f0f13be791ced93d2ded7b4906a1c5c4c2123b28322cc38378b06250f20b4d84";
+    auto const frozen_glieder = cea::anatomy_fingerprint_glieder(
+        kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure, cea::ToolchainGlied{kFrozenToolchain},
+        cea::BvsetGlied{kFrozenBvset}, cea::OverlayHash{kFrozenOverlay});
     std::span<std::string_view const> const frozen{frozen_glieder.data(), frozen_glieder.size()};
     EXPECT_EQ(bl::to_hex(bl::BinaryKeyPolicy::derive_key(frozen)), std::string{kFrozenFingerprintV1})
         << "der Default-Pfad (leeres Werte-Set) MUSS byte-identisch zum Vor-W10-Stand bleiben";
