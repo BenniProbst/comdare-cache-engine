@@ -132,7 +132,7 @@ ROT=0
 
 # ── Wache 1: Diff-Hygiene (ASCII + Spaltenbreite) ────────────────────────────
 echo "============================================================================="
-echo " [1/2] DIFF-HYGIENE (ASCII + Spaltenbreite)"
+echo " [1/3] DIFF-HYGIENE (ASCII + Spaltenbreite)"
 echo "============================================================================="
 if [ -f scripts/ci_diff_ascii_width_guard.sh ]; then
     if sh scripts/ci_diff_ascii_width_guard.sh "$BEREICH"; then
@@ -147,7 +147,7 @@ echo ""
 
 # ── Wache 2: clang-format ueber ALLE beruehrten C++-Dateien ──────────────────
 echo "============================================================================="
-echo " [2/2] CLANG-FORMAT ueber alle beruehrten C++-Dateien"
+echo " [2/3] CLANG-FORMAT ueber alle beruehrten C++-Dateien"
 echo "============================================================================="
 
 CF="${COMDARE_CLANG_FORMAT:-}"
@@ -191,6 +191,101 @@ echo "  (von $ANZ_DATEIEN beruehrten Dateien insgesamt; der Rest ist kein C++.)"
 echo "-----------------------------------------------------------------------------"
 echo ""
 
+# ── Wache 3: cppcheck (= CI-Job lint:static) ─────────────────────────────────
+# WARUM DIESE WACHE 2026-08-07 DAZUKAM: sie stand hier als "Werkzeug lokal nicht
+# vorhanden" -- und DAS WAR FALSCH. /home/comdare/tools/cppcheck-2.21.0 traegt exakt die
+# CI-Version. Die Behauptung hat an EINEM Tag ZWEI rote Pipelines durchgelassen (15239,
+# 15245: beide 19 von 20 Jobs gruen, nur lint:static rot, beide am selben Befund).
+# Eine Wache, die ein vorhandenes Werkzeug fuer fehlend erklaert, ist schlimmer als gar
+# keine: sie erzeugt die Gewissheit, geprueft zu haben.
+#
+# VOLLER SCOPE, nicht Diff-Scope: cppcheck faehrt MEHRERE Praeprozessor-Konfigurationen
+# durch und meldet nur den ERSTEN preprocessorErrorDirective JE DATEI -- eine Aenderung in
+# Datei A kann einen Befund in Datei B sichtbar machen, die selbst unberuehrt ist. Ein
+# Diff-Scope wuerde genau das verpassen. Der Volllauf kostet ~1-2 min; eine rote Pipeline
+# kostet mehr.
+#
+# DIE PFADE KOMMEN AUS DER .gitlab-ci.yml, NICHT AUS EINER KOPIE HIER: sonst driften Wache
+# und Job auseinander, und die Wache wird wieder zu einer Aussage ueber sich selbst.
+echo "============================================================================="
+echo " [3/3] CPPCHECK (identisch zum CI-Job lint:static)"
+echo "============================================================================="
+
+CC="${COMDARE_CPPCHECK:-}"
+CC_GESUCHT=""
+if [ -z "$CC" ]; then
+    for kandidat in \
+        "${COMDARE_CITOOLS_DIR:-/nonexistent}/bin/cppcheck" \
+        /home/comdare/tools/cppcheck-2.21.0/bin/cppcheck \
+        cppcheck
+    do
+        CC_GESUCHT="$CC_GESUCHT $kandidat"
+        if command -v "$kandidat" >/dev/null 2>&1; then CC="$kandidat"; break; fi
+    done
+fi
+
+if [ -z "$CC" ]; then
+    # EHRLICH bleiben: sagen, WO gesucht wurde -- sonst ist "nicht gefunden" wieder
+    # eine Behauptung ohne Beleg, und genau daran ist diese Wache schon einmal gescheitert.
+    echo "  NICHT GEFAHREN: kein cppcheck gefunden."
+    echo "  Gesucht in:$CC_GESUCHT"
+    echo "  Setze COMDARE_CPPCHECK=<pfad>. Die CI faehrt es trotzdem -- dieses Gate ist"
+    echo "  damit OFFEN, das Gesamt-Verdikt sagt dazu nichts."
+    CPPCHECK_GEFAHREN=0
+else
+    echo "WERKZEUG: $CC ($("$CC" --version 2>/dev/null || echo 'Version unbekannt'))"
+    CI_YML=".gitlab-ci.yml"
+    LINT_PATHS=""
+    [ -f "$CI_YML" ] && LINT_PATHS=$(sed -n 's/^[[:space:]]*COMDARE_LINT_PATHS:[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$CI_YML" | head -1)
+    # Faellt die Variable im Repo weg, gilt der Template-Default -- nicht raten, benennen.
+    if [ -z "$LINT_PATHS" ]; then
+        LINT_PATHS="libs apps tests"
+        echo "  HINWEIS: COMDARE_LINT_PATHS steht nicht in $CI_YML -> Template-Default '$LINT_PATHS'."
+    fi
+    IGN_DIRS="${COMDARE_CPPCHECK_IGNORE_DIRS:-ext build _archive_code_pre_migration modules}"
+    IGN="-i ./.citools"
+    IGN_ANZ=1
+    # POSIX: KEINE Process Substitution (`< <(...)`) -- dieses Skript laeuft unter /bin/sh.
+    # Ein `while read` hinter einer Pipe liefe zudem in einer Subshell und verloere IGN.
+    # Der for-Loop ueber $(find ...) ist wortsplitting-abhaengig; das ist hier unkritisch,
+    # weil die Namen aus IGN_DIRS stammen (ext/build/modules) und keine Leerzeichen tragen.
+    for d in $IGN_DIRS; do
+        case "$d" in
+            */*) IGN="$IGN -i ./$d"; IGN_ANZ=$((IGN_ANZ + 1)) ;;
+            *)   for p in $(find . -path ./.citools -prune -o -type d -name "$d" -print 2>/dev/null); do
+                     IGN="$IGN -i $p"; IGN_ANZ=$((IGN_ANZ + 1))
+                 done ;;
+        esac
+    done
+    CC_LOG=$(mktemp)
+    # EXAKT der Aufruf aus ci-templates/base-pipeline.yml (.lint-static) -- jede Abweichung
+    # macht das Gate zu einer Aussage ueber einen anderen Lauf als den, der zaehlt.
+    set +e
+    "$CC" --enable=warning,portability --inline-suppr --library=googletest \
+          --error-exitcode=2 --std=c++23 --language=c++ -q $LINT_PATHS $IGN >"$CC_LOG" 2>&1
+    CC_RC=$?
+    set -e
+    CC_FEHLER=$(grep -c ': error:' "$CC_LOG" 2>/dev/null || true)
+    [ -z "$CC_FEHLER" ] && CC_FEHLER=0
+    echo ""
+    echo "VERSTOESSE (falls vorhanden):"
+    if [ "$CC_RC" -ne 0 ]; then
+        grep ': error:' "$CC_LOG" | sed 's/^/  /' | head -30
+        ROT=1
+    else
+        echo "  (keine)"
+    fi
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "NENNER (nie eine nackte Null):"
+    echo "  Pfade: $LINT_PATHS | $IGN_ANZ Ignore-Eintraege | Exit $CC_RC | $CC_FEHLER Fehlerzeile(n)."
+    echo "  VOLLER Scope wie die CI -- NICHT nur die $ANZ_DATEIEN beruehrten Dateien."
+    echo "-----------------------------------------------------------------------------"
+    rm -f "$CC_LOG"
+    CPPCHECK_GEFAHREN=1
+fi
+echo ""
+
 # ── WAS DIESE WACHE NICHT PRUEFT ─────────────────────────────────────────────
 # Eine Wache, die nur ihr eigenes Gruen meldet und ueber ihre Luecken schweigt, ist
 # eine Einladung zum Fehlschluss "gruen == landefaehig". Genau so ist Pipeline 15199
@@ -199,8 +294,9 @@ echo ""
 # Luecke ab jetzt IM Verdikt, nicht in einem Kommentar, den niemand liest.
 echo "============================================================================="
 echo " NICHT VON DIESER WACHE GEPRUEFT (die CI faehrt sie trotzdem):"
-echo "   * cppcheck / lint:static  -- Werkzeug lokal nicht vorhanden (MinIO-Cache-Artefakt"
-echo "     citool-cppcheck-2.21.0). Faengt u.a. uninitMemberVarNoCtor, das hier durchginge."
+if [ "${CPPCHECK_GEFAHREN:-0}" -eq 0 ]; then
+echo "   * cppcheck / lint:static  -- OFFEN, Werkzeug nicht gefunden (s. [3/3] oben)."
+fi
 echo "   * Bau + ctest             -- absichtlich nicht: sie gehoeren in den Bau-Schritt,"
 echo "     nicht in eine Datei-Wache. VOR dem Push selbst fahren."
 echo "   * chktex / LaTeX-Gates    -- nur im thesis-Repo relevant."
