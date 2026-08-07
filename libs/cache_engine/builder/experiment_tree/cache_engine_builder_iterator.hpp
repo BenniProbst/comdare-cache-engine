@@ -545,15 +545,28 @@ struct LazyMeasuredRow {
     // Spalte wird umbenannt oder verschoben, alte CSVs lesen sie header-getrieben leer/n-a (Datenerhaltung).
     //
     // (C1) pmc_branch_misses (Katalog P11, Befund B8): die Spalte existiert seit dieser Scheibe additiv.
-    //      KORREKTUR 2026-08-06 (B5/M-2-KORREKTUR-2, im selben Zug wie die L3-Ehrlichmachung gefunden): die
-    //      urspruengliche Zusage "PmcCounters ERHEBT branch_misses real" war FALSCH und wird hiermit
-    //      zurueckgenommen. Keine heutige IPmcSource weist branch_misses je einen Wert zu -- LinuxPerfPmc-
-    //      Source oeffnet nur l1d/ll/dtlb (linux_perf_pmc_source.hpp), WindowsPcmPmcSource nennt das Feld
-    //      gar nicht. Die Spalte traegt daher IMMER den PmcCounters-Default 0, unabhaengig von pmc_available
-    //      -- offener Posten M-3a (linux_perf_pmc_source.hpp Kopf: "branch_misses wird von KEINER PMC-Quelle
-    //      befuellt"). branch_misses real anzubinden ist eine EIGENE, disjunkte Aenderung, nicht Teil dieses
-    //      Pakets. Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist
-    //      positionsstabil fuer Bestands-Leser.
+    //      Sie war zweimal falsch etikettiert: erst als "ERHEBT real" (Zusage ohne Quelle), dann ab
+    //      2026-08-06 als honest-0 mit dem Zusatz "eine spaetere echte Quelle (M-3a) fuellt hier". GENAU
+    //      DAS IST JETZT GESCHEHEN (M-3a, 2026-08-07): LinuxPerfPmcSource oeffnet PERF_TYPE_HARDWARE /
+    //      PERF_COUNT_HW_BRANCH_MISSES als vierten Zaehler -- ein generisches Event, das auf Intel UND AMD
+    //      abbildet. Die Zelle rendert seither ueber pmc_zelle(), also mit demselben Ehrlichkeits-Vertrag
+    //      wie l2/l3/coherence/energy.
+    //
+    //      ABWAEGUNG 0 -> "n/a" (2026-08-07, bewusst getroffen und hier festgehalten): die Umstellung
+    //      aendert den ZELLINHALT, nicht das Schema -- Spaltenname und Position bleiben, kein Bestands-
+    //      Leser verliert eine Spalte. Ein Werkzeug, das die Zelle als Zahl parst, saehe kuenftig "n/a".
+    //      Die Konsumenten-Suche (2026-08-07, super/Code + thesis, 5709 Dateien im Nenner, mit
+    //      Positiv-Kontrolle ueber "cache_misses_l1") fand fuer branch_misses/pmc_branch_misses KEINEN
+    //      Konsumenten ausserhalb des gespiegelten cache-engine-Baums selbst: kein super-eigenes Werkzeug
+    //      (03_binary_to_csv liest die Spalte nicht), kein tools/latex_anhang-Treffer, kein Thesis-Treffer,
+    //      keine golden-Datei (die golden_fullpilot_*-Dateien tragen binary_ids, keine Mess-Zellen).
+    //      Hinzu kommt: sobald der Zaehler real erhoben wird -- und das ist ab hier der Normalfall auf
+    //      Linux+PMC -- steht dort ohnehin eine Zahl; "n/a" erscheint nur, wenn das Oeffnen scheitert, und
+    //      DANN ist "n/a" die einzig richtige Aussage. Eine ECHTE 0 bleibt "0" (pmc_zelle unterscheidet
+    //      das), und die PMC-off-Zeile behaelt ihre 0-Konvention unveraendert.
+    //
+    //      Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist positionsstabil
+    //      fuer Bestands-Leser.
     h += ";pmc_branch_misses";
     // (C2) Tail-Perzentile p999 je Op-Art (Katalog Abschnitt 5 "TAIL-PERZENTILE"): aus DENSELBEN IST-Vektoren
     //      wie p50/p99, Reihenfolge kOpKindNames (single-source, identisch zum op_*-Block oben). Kern-Groesse
@@ -865,12 +878,13 @@ struct LazyMeasuredRow {
     out += ';';
     out += (row.h2_score.empty() ? std::string{"-"} : row.h2_score);
     // A8-S3 / KLASSE C (2026-08-04) -- die vier END-Append-Bloecke, Reihenfolge IDENTISCH zum Header.
-    // (C1) pmc_branch_misses: KORRIGIERT 2026-08-06 (B5/M-2-KORREKTUR-2) -- der Wert ist IMMER der
-    //      PmcCounters-Default 0 (keine IPmcSource weist ihn zu, s. lazy_csv_header-Kommentar oben),
-    //      unabhaengig von pmc_available. Die Spalte emittiert trotzdem stabil weiter: eine spaetere echte
-    //      Quelle (M-3a) fuellt hier ohne Schema-Bruch.
+    // (C1) pmc_branch_misses: M-3a VOLLZOGEN (2026-08-07) -- die Zelle traegt jetzt einen REAL erhobenen
+    //      Zaehler und faellt in dieselbe pmc_zelle-Ehrlichkeit wie l2/l3/coherence/energy. Der frueher hier
+    //      stehende Satz "der Wert ist IMMER der PmcCounters-Default 0" beschrieb den Zustand VOR diesem
+    //      Paket und waere jetzt falsch: LinuxPerfPmcSource oeffnet den Zaehler ueber PERF_TYPE_HARDWARE /
+    //      PERF_COUNT_HW_BRANCH_MISSES und meldet das Ergebnis in branch_misses_source_available.
     out += ';';
-    zelle(std::to_string(row.pmc.branch_misses));
+    pmc_zelle(row.pmc.branch_misses, row.pmc.branch_misses_source_available);
     // (C2) p999 je Op-Art: DIESELBE Ersatz-Kaskade wie der op_*-Block oben (nicht_gebaut > gesperrt > failed >
     //      Zahl) -- eine Tail-Spalte darf nicht als einzige eine stille Null zeigen, wenn die Zeile gar keine
     //      Messung ist.

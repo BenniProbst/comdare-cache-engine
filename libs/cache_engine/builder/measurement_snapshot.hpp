@@ -133,19 +133,43 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
 
 /// Wie oben, aber befüllt zusätzlich die 6 HW-Counter aus einer PMC-Quelle (#26). `pmc_available` spiegelt
 /// EHRLICH `pmc.available`: NullPmcSource → 0 (HW-Spalten bleiben 0), reale Quelle → 1 + echte Werte.
+///
+/// M-3a (2026-08-07) -- KEINE BLINDE KOPIE MEHR. Vorher uebernahm dieser Zweig bei `pmc.available` ALLE
+/// sieben Zaehler, ohne die feinkoernigen PmcCounters::*_source_available zu befragen. `available` ist
+/// aber die ZEILEN-weite Aussage ("mindestens ein Zaehler hat geliefert"), nicht die Aussage ueber den
+/// EINZELNEN Zaehler -- auf AMD Zen5 ist available==true (L1D oeffnete), waehrend cache_misses_l3 mangels
+/// generischem LL-Event (ENOENT) beim POD-Default 0 bleibt. Jeder flag-tragende Zaehler wird deshalb nur
+/// noch uebernommen, wenn SEINE Quelle wirklich offen war.
+///
+/// EHRLICHE EINORDNUNG DER WIRKUNG (nicht mehr behaupten, als es ist): am heutigen Bestand aendert das
+/// keinen einzigen Zahlenwert -- LinuxPerfPmcSource und der PAPI-Pfad setzen Wert und Flag stets
+/// gemeinsam, ein Wert ohne Flag entsteht nirgends. Die Pruefung ist damit eine WACHE gegen kuenftige
+/// Drift (eine neue IPmcSource, die einen Wert ohne Oeffnungs-Beleg setzt, wird hier nicht mehr
+/// durchgereicht), keine Korrektur eines heute falschen Wertes.
+///
+/// WAS HIER BEWUSST NICHT GEHEILT WIRD (Schema-Grenze, als Vorschlag zurueckgehalten): der Ziel-POD traegt
+/// mit `pmc_available` nur EINE grobkoernige Marke. Ein Zaehler ohne Quelle landet daher weiterhin als
+/// 0 im POD, ununterscheidbar von einer echten Nullmessung -- die feinkoernige Wahrheit GEHT AN DIESER
+/// NAHT VERLOREN. Sie liesse sich nur durch zusaetzliche Flag-Felder im POD (und damit neue CSV-Spalten)
+/// ausdruecken; das beruehrt ein CSV-Schema und ist deshalb NICHT Teil dieses Pakets. Die WIDE-Pipeline
+/// (cache_engine_builder_iterator.hpp, pmc_zelle) hat diese Marke bereits und rendert dort "n/a".
 [[nodiscard]] inline ComdareMeasurementSnapshotV1
 measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, std::string_view permutation_id,
                                  measurement::PmcCounters const& pmc) {
     auto m = measurement_from_workload_result(r, permutation_id);
     if (pmc.available) {
-        m.cache_misses_l1         = pmc.cache_misses_l1;
-        m.cache_misses_l2         = pmc.cache_misses_l2;
-        m.cache_misses_l3         = pmc.cache_misses_l3;
-        m.dtlb_misses             = pmc.dtlb_misses;
-        m.branch_misses           = pmc.branch_misses;
-        m.coherence_invalidations = pmc.coherence_invalidations;
-        m.energy_micro_joules     = pmc.energy_micro_joules;
-        m.pmc_available           = 1;
+        // l1 + dtlb: der Bestands-POD fuehrt fuer diese beiden KEIN eigenes Quellen-Flag (identisch zur
+        // WIDE-Pipeline, wo sie ueber `zelle` statt `pmc_zelle` gehen). Sie bleiben deshalb an
+        // `pmc.available` gebunden -- hier wird kein Flag erfunden, das es im POD nicht gibt.
+        m.cache_misses_l1 = pmc.cache_misses_l1;
+        m.dtlb_misses     = pmc.dtlb_misses;
+        // Die flag-tragenden Zaehler: je Zaehler die EIGENE Quelle befragen.
+        if (pmc.cache_misses_l2_source_available) m.cache_misses_l2 = pmc.cache_misses_l2;
+        if (pmc.cache_misses_l3_source_available) m.cache_misses_l3 = pmc.cache_misses_l3;
+        if (pmc.branch_misses_source_available) m.branch_misses = pmc.branch_misses;
+        if (pmc.coherence_invalidations_source_available) m.coherence_invalidations = pmc.coherence_invalidations;
+        if (pmc.energy_micro_joules_source_available) m.energy_micro_joules = pmc.energy_micro_joules;
+        m.pmc_available = 1;
     }
     return m;
 }
