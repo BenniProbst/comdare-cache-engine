@@ -1,6 +1,9 @@
 #pragma once
-// AXIS_ALGO_VERSION: 1
+// AXIS_ALGO_VERSION: 2
 // heuristik/break_even.hpp -- Schnittpunkt-Finder zweier AxisSpline f/g DERSELBEN Organ-Achse.
+// algo_version 1 -> 2 (T-9, 2026-08-07): die Besser-Entscheidung ist nicht mehr pauschal "kleiner", sondern
+// richtungs-parametriert aus dem Optimierungs-Katalog. Das ist eine echte Verhaltens-Aenderung an der
+// Heuristik-Mathematik -> Bump ist Pflicht (GN-8/O-4-Tripwire, tools/axis_version_lock/axis_version.lock).
 // PAKET W3-C (Ledger Sec.32-F8, "Break-Even-Mathematik"). Header-only, KEINE Fremdbibliothek, kein Python.
 //
 // F8-MATHEMATIK (verbatim-treu): "Switch-Thresholds = Schnittpunkte zwischen den f(x)-Spline-Funktionen
@@ -14,14 +17,35 @@
 // (deterministisch, feste Iterationszahl) auf d==0. Exakte Knoten-Treffer (d(a)==0) werden separat als
 // Schnittpunkt erfasst (ohne Doppelzaehlung). ALLE Schnittpunkte, deterministisch, aufsteigend nach x.
 //
-// KONVENTION "besser" = KLEINERER y-Wert (Performance: niedrigere Latenz/Kosten ist besser). Je
-// Schnittpunkt wird geprueft, welche Kurve UNMITTELBAR LINKS und welche UNMITTELBAR RECHTS niedriger
-// liegt -> BreakEvenPoint{x, y, links_besser, rechts_besser}.
+// "BESSER" KOMMT AUS DEM KATALOG, NICHT AUS EINER PAUSCHALEN ANNAHME (T-9, 2026-08-07).
+// Bis heute stand hier: "KONVENTION 'besser' = KLEINERER y-Wert (Performance: niedrigere Latenz/Kosten ist
+// besser)" -- pauschal fuer ALLE Achsen. Das ist fuer 15 der 19 Achsen-Zeilen des Optimierungs-Katalogs
+// FALSCH HERUM: dort steht mindestens eine MAX-Zielgroesse (Durchsatz, Cache-Line-Auslastung,
+// Kompressionsrate, IPC, Fanout, Batching, ...). Fuer jede solche Groesse meldete dieser Finder bisher die
+// SCHLECHTERE Kurve als die bessere. Die Richtung ist jetzt ein Parameter, dessen Quelle
+// heuristik/axis_optimization_catalog.hpp ist (Katalog-Uebertragung aus
+// super docs/audits/20260709-axes-optimization-deep-research-BEFUND.md:83-101).
+//
+// Je Schnittpunkt wird geprueft, welche Kurve UNMITTELBAR LINKS und welche UNMITTELBAR RECHTS BESSER liegt
+// -> BreakEvenPoint{x, y, links_besser, rechts_besser}. "Besser" heisst bei Minimize niedriger, bei Maximize
+// hoeher. Die SCHNITTPUNKT-MENGE selbst ist richtungs-UNABHAENGIG (Nullstellen von d = f-g); nur die
+// Besser-Etikettierung dreht sich. Deshalb ist der Eingriff auf detail::better_at begrenzt.
+//
+// COMPILE-TIME, kein Runtime-Switch: die Richtung ist ein Nicht-Typ-Template-Parameter, `if constexpr`
+// waehlt den Vergleich -- es entsteht KEIN Laufzeit-Zweig. Der Default bleibt Minimize, damit die bestehende
+// Aufruf-Form quellkompatibel bleibt; wer eine MAX-Groesse vergleicht, MUSS sie nennen.
+//
+// KANONISCHE AUFRUF-FORM (Katalog als Single-Source, alles compile-time aufgeloest):
+//     constexpr auto dir = objective_direction(CatalogAxis::PathCompression, "compression_ratio");
+//     auto const pts = find_break_even_points<dir>(f, g);
+// Fuer nicht-Pareto-Achsen genuegt die Abkuerzung ueber die fuehrende Zielgroesse:
+//     auto const pts = find_break_even_points_of_axis<CatalogAxis::PathCompression>(f, g);
 //
 // BENANNTES PATTERN: Strategy (die f/g sind AxisSpline<Strategy> -- der Finder ist generisch ueber
 // BELIEBIGE Strategy-Kombination, auch monoton x natuerlich). Die Bisektion ist ein klassisches,
 // benanntes Wurzel-Einschluss-Verfahren (bracketing root-find), deterministisch.
 
+#include "axis_optimization_catalog.hpp"
 #include "axis_spline.hpp"
 
 #include <algorithm>
@@ -32,10 +56,11 @@
 
 namespace comdare::cache_engine::heuristik {
 
-/// Welche der beiden Kurven (f oder g) auf einer Seite des Schnittpunkts besser (= niedriger) ist.
+/// Welche der beiden Kurven (f oder g) auf einer Seite des Schnittpunkts BESSER ist. "Besser" ist
+/// richtungs-abhaengig: bei Minimize niedriger, bei Maximize hoeher (axis_optimization_catalog.hpp).
 enum class Curve : std::uint8_t {
-    F   = 0, ///< die erste Kurve ist niedriger (besser)
-    G   = 1, ///< die zweite Kurve ist niedriger (besser)
+    F   = 0, ///< die erste Kurve ist besser (bei Minimize niedriger, bei Maximize hoeher)
+    G   = 1, ///< die zweite Kurve ist besser (bei Minimize niedriger, bei Maximize hoeher)
     Tie = 2, ///< innerhalb der Toleranz gleichauf (kein klarer Vorteil)
 };
 
@@ -43,8 +68,8 @@ enum class Curve : std::uint8_t {
 struct BreakEvenPoint {
     double x             = 0.0;        ///< Schnittpunkt-Position (Parameter-Achse)
     double y             = 0.0;        ///< Funktionswert am Schnittpunkt (Mittel aus f,g)
-    Curve  links_besser  = Curve::Tie; ///< welche Kurve unmittelbar LINKS niedriger liegt
-    Curve  rechts_besser = Curve::Tie; ///< welche Kurve unmittelbar RECHTS niedriger liegt
+    Curve  links_besser  = Curve::Tie; ///< welche Kurve unmittelbar LINKS besser liegt (richtungs-abhaengig)
+    Curve  rechts_besser = Curve::Tie; ///< welche Kurve unmittelbar RECHTS besser liegt (richtungs-abhaengig)
 };
 
 namespace detail {
@@ -56,13 +81,18 @@ namespace detail {
     return 0;
 }
 
-/// Welche Kurve ist bei x niedriger (besser)? tol trennt "gleichauf" (Tie) sauber ab.
-template <class SplineF, class SplineG>
+/// Welche Kurve ist bei x BESSER? tol trennt "gleichauf" (Tie) sauber ab. Die Richtung entscheidet, ob
+/// niedriger oder hoeher besser ist -- sie kommt aus dem Katalog (axis_optimization_catalog.hpp) und ist
+/// compile-time bekannt: `if constexpr` erzeugt KEINEN Laufzeit-Zweig.
+template <OptimizationDirection Dir, class SplineF, class SplineG>
 [[nodiscard]] Curve better_at(SplineF const& f, SplineG const& g, double x, double tol) {
     double const d = f.eval(x) - g.eval(x);
-    if (d < -tol) return Curve::F; // f niedriger
-    if (d > tol) return Curve::G;  // g niedriger
-    return Curve::Tie;
+    if (d >= -tol && d <= tol) return Curve::Tie;
+    if constexpr (Dir == OptimizationDirection::Minimize) {
+        return d < 0.0 ? Curve::F : Curve::G; // kleiner ist besser
+    } else {
+        return d > 0.0 ? Curve::F : Curve::G; // groesser ist besser
+    }
 }
 
 } // namespace detail
@@ -70,7 +100,11 @@ template <class SplineF, class SplineG>
 /// Findet ALLE Break-Even-Schnittpunkte von f und g auf ihrer Domaenen-Ueberlappung. Deterministisch:
 /// festes Gitter (Vereinigung beider Knoten), feste Bisektions-Iterationszahl. `y_tol` toleriert
 /// Knoten-Treffer und Tie. Rueckgabe aufsteigend nach x, ohne Duplikate.
-template <class SplineF, class SplineG>
+///
+/// `Dir` ist die Optimierungsrichtung der verglichenen ZIELGROESSE (nicht der Achse -- eine Achse traegt
+/// gegenlaeufige Groessen). Quelle ist heuristik/axis_optimization_catalog.hpp; der Default Minimize haelt
+/// die alte Aufruf-Form quellkompatibel und bleibt fuer Latenz-/Kosten-Kurven korrekt.
+template <OptimizationDirection Dir = OptimizationDirection::Minimize, class SplineF, class SplineG>
 [[nodiscard]] std::vector<BreakEvenPoint> find_break_even_points(SplineF const& f, SplineG const& g,
                                                                  double y_tol = 1e-9) {
     std::vector<BreakEvenPoint> out;
@@ -104,8 +138,8 @@ template <class SplineF, class SplineG>
         BreakEvenPoint p;
         p.x             = xr;
         p.y             = 0.5 * (f.eval(xr) + g.eval(xr));
-        p.links_besser  = detail::better_at(f, g, xl, y_tol);
-        p.rechts_besser = detail::better_at(f, g, xh, y_tol);
+        p.links_besser  = detail::better_at<Dir>(f, g, xl, y_tol);
+        p.rechts_besser = detail::better_at<Dir>(f, g, xh, y_tol);
         out.push_back(p);
     };
 
@@ -143,6 +177,21 @@ template <class SplineF, class SplineG>
     if (!grid.empty() && detail::sign_tol(d_at(grid.back()), y_tol) == 0) record(grid.back());
 
     return out;
+}
+
+/// KATALOG-ABKUERZUNG ueber die FUEHRENDE Zielgroesse einer Achse (die im Katalog zuerst genannte).
+/// Fuer die Pareto-Achsen T5 memory_layout / T6 allocator / T18 queuing_q2 verweigert diese Form
+/// COMPILE-TIME den Dienst: dort gibt es laut Katalog (BEFUND :450-453) keine einzelne Extremal-Groesse,
+/// und eine stillschweigend gewaehlte waere genau die Falschaussage, die T-9 beseitigt. Der Aufrufer nennt
+/// dort die Zielgroesse selbst: find_break_even_points<objective_direction(Achse, "id")>(f, g).
+template <CatalogAxis Axis, class SplineF, class SplineG>
+[[nodiscard]] std::vector<BreakEvenPoint> find_break_even_points_of_axis(SplineF const& f, SplineG const& g,
+                                                                         double y_tol = 1e-9) {
+    static_assert(!requires_explicit_objective(Axis),
+                  "Pareto-Achse (T5 memory_layout / T6 allocator / T18 queuing_q2): der Katalog kennt hier KEINE "
+                  "einzelne Extremal-Groesse. Zielgroesse explizit nennen -- "
+                  "find_break_even_points<objective_direction(Achse, \"<id>\")>(f, g).");
+    return find_break_even_points<leading_direction(Axis)>(f, g, y_tol);
 }
 
 } // namespace comdare::cache_engine::heuristik
