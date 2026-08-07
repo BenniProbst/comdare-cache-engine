@@ -37,9 +37,8 @@ namespace h = ::comdare::cache_engine::heuristik;
 
 namespace {
 
-using P2  = h::FeaturePoint<2>;
-using P1  = h::FeaturePoint<1>;
-using P13 = h::FeaturePoint<h::kWorkloadFeatureCount>;
+using P2 = h::FeaturePoint<2>;
+using P1 = h::FeaturePoint<1>;
 
 // Fixture (1): drei klar getrennte Gruppen, Abstand innerhalb <= 0.15, zwischen ~10.
 std::vector<P2> three_group_points() {
@@ -336,6 +335,75 @@ TEST(HeuristikWorkloadClusterT10, FromOpMixAggregateFillsSharesHonestly) {
     };
     h::WorkloadFeatureVector const e = h::from_op_mix_aggregate(EmptyAggregate{});
     EXPECT_EQ(e.op_lookup_share, 0.0); // leere Op-Summe -> ehrlich 0, keine Division durch 0
+}
+
+// --------------------------------------------------------------------------------------------------
+// (8) k-WAHL (BEFUND Abschnitt 3): der Sweep als Datenbasis, Silhouette- und Elbow-Votum getrennt.
+// BISSPROBE: auf der 3-Gruppen-Fixture MUSS beides k=3 finden -- ein Votum, das stur den Rand oder
+// eine feste Zahl zurueckgibt, faellt hier durch (k=3 ist weder k_min=1 noch k_max=5).
+// --------------------------------------------------------------------------------------------------
+TEST(HeuristikWorkloadClusterT10, SweepKVotesFindThreeGroups) {
+    std::vector<P2> const pts   = three_group_points();
+    auto const            sweep = h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 1, 5, 100);
+    ASSERT_TRUE(sweep.has_value());
+    ASSERT_EQ(sweep->size(), 5u);
+    for (std::size_t i = 0; i < sweep->size(); ++i) EXPECT_EQ((*sweep)[i].k, i + 1);
+
+    // WCSS faellt monoton mit k (mehr Zentroide koennen nie schlechter passen).
+    for (std::size_t i = 1; i < sweep->size(); ++i) EXPECT_LE((*sweep)[i].wcss, (*sweep)[i - 1].wcss + 1e-9);
+    EXPECT_NEAR((*sweep)[2].wcss, 0.04, 1e-12); // k=3 analytisch, wie im Einzel-Lauf
+
+    // k=1 und k=n haben keine definierte Silhouette -> ehrlich nullopt, kein Ersatzwert.
+    EXPECT_FALSE((*sweep)[0].silhouette.has_value());
+    ASSERT_TRUE((*sweep)[2].silhouette.has_value());
+
+    EXPECT_EQ(h::best_k_by_silhouette(*sweep), std::optional<std::size_t>{3});
+    EXPECT_EQ(h::elbow_k_by_max_chord_distance(*sweep), std::optional<std::size_t>{3});
+}
+
+// Der Domaenen-Anker (BEFUND :170-175) wird GEMELDET, nicht erzwungen: k=3 liegt unter der unteren
+// Anker-Grenze 6, das Verdikt sagt das ehrlich -- und die Voten bleiben trotzdem bei 3.
+TEST(HeuristikWorkloadClusterT10, DomainAnchorIsReportedNotEnforced) {
+    std::vector<P2> const pts   = three_group_points();
+    auto const            sweep = h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 1, 5, 100);
+    ASSERT_TRUE(sweep.has_value());
+    for (h::KCandidateDiagnostics const& d : *sweep)
+        EXPECT_FALSE(d.within_domain_anchor); // 1..5 liegt komplett unter kPlanDomainAnchorLowerK = 6
+    EXPECT_EQ(h::best_k_by_silhouette(*sweep), std::optional<std::size_t>{3}); // Anker ueberstimmt NICHTS
+
+    // Eigene Anker-Grenzen sind Parameter: [2,4] macht k=2..4 anker-konform, k=1/k=5 nicht.
+    auto const own = h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 1, 5, 100, 2, 4);
+    ASSERT_TRUE(own.has_value());
+    EXPECT_FALSE((*own)[0].within_domain_anchor);
+    EXPECT_TRUE((*own)[1].within_domain_anchor);
+    EXPECT_TRUE((*own)[3].within_domain_anchor);
+    EXPECT_FALSE((*own)[4].within_domain_anchor);
+    EXPECT_EQ(h::kPlanDomainAnchorLowerK, 6u); // Plan-Zitat, keine geratene Zahl
+    EXPECT_EQ(h::kPlanDomainAnchorUpperK, 20u);
+}
+
+// GEGENPROBE: entartete Sweeps und entartete Kurven verweigern sich, statt ein Schein-k zu liefern.
+TEST(HeuristikWorkloadClusterT10, KSelectionRefusesDegenerateInput) {
+    std::vector<P2> const pts = three_group_points();
+    EXPECT_FALSE((h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 0, 5, 100).has_value()));  // k_min=0
+    EXPECT_FALSE((h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 4, 2, 100).has_value()));  // min>max
+    EXPECT_FALSE((h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 1, 10, 100).has_value())); // k_max>n
+    std::vector<P2> const empty;
+    EXPECT_FALSE((h::sweep_k<h::HierarchicalLinkage::Average, 2>(empty, 1, 1, 100).has_value()));
+
+    // Elbow braucht >= 3 Kandidaten -- mit zweien gibt es keine Sehne, an der ein Knie messbar waere.
+    auto const two = h::sweep_k<h::HierarchicalLinkage::Average, 2>(pts, 1, 2, 100);
+    ASSERT_TRUE(two.has_value());
+    EXPECT_FALSE(h::elbow_k_by_max_chord_distance(*two).has_value());
+
+    // Waagerechte WCSS-Kurve (alle Punkte identisch -> WCSS ueberall 0): kein Knie, kein Fake-k.
+    std::vector<P2> const same(5, P2{1.0, 2.0});
+    auto const            flat = h::sweep_k<h::HierarchicalLinkage::Average, 2>(same, 1, 3, 100);
+    ASSERT_TRUE(flat.has_value());
+    for (h::KCandidateDiagnostics const& d : *flat) EXPECT_EQ(d.wcss, 0.0);
+    EXPECT_FALSE(h::elbow_k_by_max_chord_distance(*flat).has_value());
+    // Und ohne definierte Silhouette gibt es auch kein Silhouette-Votum.
+    EXPECT_FALSE(h::best_k_by_silhouette(*flat).has_value());
 }
 
 // Fremdes/verstuemmeltes Dendrogramm wird abgewiesen (Wache in cut_dendrogram).

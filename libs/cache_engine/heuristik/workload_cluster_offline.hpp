@@ -15,11 +15,18 @@
 //   GEBAUT:  Dendrogramm (agglomerativ, Lance-Williams-Rekurrenz), Schnitt bei k, k-Means-Verfeinerung
 //            (deterministisch aus den Schnitt-Zentroiden gesaeht), zentrums-naechster Repraesentant je
 //            Cluster, Diagnostik WCSS (Elbow-Datenbasis) + mittlere Silhouette (Rousseeuw 1987),
-//            Nearest-Centroid-Zuordnung mit explizitem noise-Schwellwert (Default-Fallback, :239-244).
+//            der k-Sweep als Datenbasis der k-Wahl mit Silhouette- und Elbow-Votum + Domaenen-Anker
+//            (Abschnitt 3, siehe den eigenen Kopf dort), und die Nearest-Centroid-Zuordnung mit
+//            explizitem noise-Schwellwert (Default-Fallback, :239-244).
 //   NICHT GEBAUT (zweiter Schnitt / Owner): das modifizierte Online-DBSCAN ueber Ankunftsraten-
 //            Zeitreihen (QueryBot 5000, :141-144) + Konzept-Drift/ADWIN (:254-261) -- braucht den
 //            E1->E4-Mess-Rueckkanal; die Gap-Statistik und BIC (:159-162) -- brauchen eine
-//            Zufalls-Referenz bzw. GMM (Seed-/Verfahrens-Entscheid beim Owner).
+//            Zufalls-Referenz bzw. GMM (Seed-/Verfahrens-Entscheid beim Owner). Weil diese beiden
+//            fehlen, bleibt der vom BEFUND :168-169 geforderte KONSENS unvollstaendig: die Voten
+//            werden einzeln gemeldet, es gibt bewusst keine Funktion, die "das" k zurueckgibt.
+//            Die Pareto-Front je Cluster (BEFUND Abschnitt 4, "minimaler Strang") ist NICHT hier
+//            faellig -- die traegt T-8 (best_binary_selector); dieser Baustein liefert die
+//            Last-Aequivalenzklassen, ueber denen T-8 seine Fronten bildet.
 //
 // OFFENE FESTLEGUNGEN (Mechanik mit explizitem Parameter, KEINE geratenen Konstanten):
 //   * LINKAGE-Kriterium: der BEFUND sagt nur "agglomerative Hierarchie", nennt KEIN Kriterium ->
@@ -470,6 +477,122 @@ template <std::size_t Dim>
     double const d = std::sqrt(best_d);
     if (d > noise_distance_threshold) return std::nullopt; // "noise" -> sicherer Default (BEFUND :243)
     return NearestClusterAssignment{best_c, d};
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Die k-WAHL (BEFUND Abschnitt 3). Der BEFUND verlangt ausdruecklich KEIN einzelnes Kriterium:
+// "Die Verfahren widersprechen sich regelmaessig ... daher keines allein" (:164-165) und
+// "Mehrere Kriterien konsensuell (Silhouette und Gap-Statistik als Haupt, Elbow als Plausibilitaet,
+// BIC falls GMM-Variante)" (:168-169).
+//
+// WAS HIER STEHT: die DATENBASIS (ein Sweep ueber k) und die zwei Kriterien, die sich OHNE jede
+// Zufallsquelle deterministisch bilden lassen -- Silhouette (Rousseeuw 1987, :157-158) und Elbow
+// ueber die WCSS-Kurve (:155-156). Dazu der Domaenen-Anker als Regularisierung (:170-175).
+//
+// WAS BEWUSST FEHLT (und darum NICHT als "Konsens" ausgegeben wird): Gap-Statistik (:159-160)
+// braucht eine Null-Referenz OHNE Struktur, also eine Zufallsquelle -- Verfahren UND Seed sind ein
+// Owner-Entscheid, den der BEFUND nicht faellt. BIC (:161-162) braucht eine GMM-Variante, die es
+// hier nicht gibt. Solange beide fehlen, ist der vom BEFUND geforderte Konsens UNVOLLSTAENDIG.
+// Darum gibt es hier bewusst KEINE Funktion, die "das" k zurueckgibt: jedes Kriterium meldet sein
+// eigenes Votum, die Zusammenfuehrung bleibt beim Aufrufer/Owner. Ein erfundener Zwei-Kriterien-
+// Konsens waere genau die Sorte stiller Festlegung, die der Auftrag verbietet.
+// ---------------------------------------------------------------------------------------------------
+
+/// Domaenen-Anker der k-Wahl (BEFUND :170-175): die natuerliche Cluster-Zahl liegt in der
+/// Groessenordnung der von Hand destillierten Archetypen -- grob 6 Ober-Cluster (die Herkunfts-Cluster
+/// A-F der Kompositions-Achsen) bis 14 Fein-Cluster (LP01-LP14). Ein datengetriebenes k weit ausserhalb
+/// [6, ~20] ist laut BEFUND "ein Warnsignal fuer einen falsch normierten Merkmalsraum, nicht fuer 50
+/// echte Lasttypen". Beide Grenzen sind PLAN-ZITAT, keine geratenen Werte -- und sie werden NIE
+/// erzwungen, sondern nur ehrlich als Verdikt gemeldet.
+inline constexpr std::size_t kPlanDomainAnchorLowerK = 6;  ///< BEFUND :172-174 ("grob ~6 Ober-Cluster")
+inline constexpr std::size_t kPlanDomainAnchorUpperK = 20; ///< BEFUND :174-175 ("ausserhalb [6, ~20]")
+
+/// Diagnostik EINES k-Kandidaten. Traegt die Roh-Groessen aller Kriterien, faellt selbst KEINE Wahl.
+struct KCandidateDiagnostics {
+    std::size_t           k    = 0;                     ///< die gepruefte Cluster-Zahl
+    double                wcss = 0.0;                   ///< Elbow-Datenbasis (BEFUND :155-156)
+    std::optional<double> silhouette;                   ///< Rousseeuw (:157-158); nullopt wo undefiniert
+    bool                  kmeans_converged     = false; ///< ehrlich: hat die Verfeinerung konvergiert
+    bool                  within_domain_anchor = false; ///< liegt k im Anker-Intervall (:170-175)
+};
+
+/// Sweep ueber k_min..k_max (beide inklusive). Fuehrt je k die volle Offline-Pipeline aus und sammelt
+/// die Diagnostik. Die Anker-Grenzen sind Parameter (Default = Plan-Zitat), damit der Owner sie
+/// ueberstimmen kann, ohne dass hier Code angefasst wird.
+/// HONEST-EMPTY: k_min == 0, k_min > k_max, k_max > n oder ein fehlschlagendes k -> std::nullopt
+/// (ein Sweep mit Loechern waere eine irrefuehrende Datenbasis).
+template <HierarchicalLinkage Linkage, std::size_t Dim>
+[[nodiscard]] std::optional<std::vector<KCandidateDiagnostics>>
+sweep_k(std::span<FeaturePoint<Dim> const> pts, std::size_t k_min, std::size_t k_max, std::size_t kmeans_max_iterations,
+        std::size_t anchor_lower = kPlanDomainAnchorLowerK, std::size_t anchor_upper = kPlanDomainAnchorUpperK) {
+    if (pts.empty() || k_min == 0 || k_min > k_max || k_max > pts.size()) return std::nullopt;
+    std::vector<KCandidateDiagnostics> out;
+    out.reserve(k_max - k_min + 1);
+    for (std::size_t k = k_min; k <= k_max; ++k) {
+        std::optional<OfflineWorkloadClustering<Dim>> const r =
+            cluster_offline<Linkage, Dim>(pts, k, kmeans_max_iterations);
+        if (!r) return std::nullopt; // ehrlich kein Teil-Sweep
+        KCandidateDiagnostics d;
+        d.k                    = k;
+        d.wcss                 = r->wcss;
+        d.silhouette           = r->silhouette;
+        d.kmeans_converged     = r->kmeans_converged;
+        d.within_domain_anchor = (k >= anchor_lower && k <= anchor_upper);
+        out.push_back(d);
+    }
+    return out;
+}
+
+/// Silhouette-Votum (BEFUND :157-158, Haupt-Kriterium): das k mit der hoechsten mittleren Silhouette.
+/// Kandidaten ohne definierte Silhouette (k==1, k==n) zaehlen ehrlich NICHT mit. Gleichstand ->
+/// kleinstes k (deterministisch; kleines k ist laut :176-177 zusaetzlich RAM-oekonomisch).
+/// Kein Kandidat mit definierter Silhouette -> std::nullopt (kein Ersatz-Votum).
+[[nodiscard]] inline std::optional<std::size_t> best_k_by_silhouette(std::span<KCandidateDiagnostics const> sweep) {
+    std::optional<std::size_t> best_k;
+    double                     best_s = 0.0;
+    for (KCandidateDiagnostics const& d : sweep) {
+        if (!d.silhouette || !std::isfinite(*d.silhouette)) continue;
+        if (!best_k || *d.silhouette > best_s) { // striktes '>': Gleichstand behaelt das kleinere k
+            best_s = *d.silhouette;
+            best_k = d.k;
+        }
+    }
+    return best_k;
+}
+
+/// Elbow-Votum (BEFUND :155-156, "Plausibilitaet", ausdruecklich NICHT allein tragfaehig).
+///
+/// LESART, klar benannt: der BEFUND beschreibt die "Ellenbogen"-Stelle inhaltlich ("ab der die
+/// Intra-Cluster-Varianz nicht mehr merklich faellt") und warnt selbst, sie sei "auf runden Kurven
+/// schwer eindeutig abzulesen" -- er nennt aber KEIN Ableseverfahren. Hier steht das gebraeuchliche
+/// deterministische: das k mit dem groessten senkrechten Abstand der (k, WCSS)-Kurve zur Sehne
+/// zwischen ihrem ersten und letzten Punkt. Der Funktionsname sagt das Verfahren, damit es nie als
+/// "der" Elbow durchgeht. Braucht >= 3 Kandidaten; degenerierte Sehne (alle WCSS gleich) ->
+/// std::nullopt statt eines Schein-Knies.
+[[nodiscard]] inline std::optional<std::size_t>
+elbow_k_by_max_chord_distance(std::span<KCandidateDiagnostics const> sweep) {
+    if (sweep.size() < 3) return std::nullopt;
+    for (KCandidateDiagnostics const& d : sweep)
+        if (!std::isfinite(d.wcss)) return std::nullopt;
+    double const x0  = static_cast<double>(sweep.front().k);
+    double const y0  = sweep.front().wcss;
+    double const x1  = static_cast<double>(sweep.back().k);
+    double const y1  = sweep.back().wcss;
+    double const dx  = x1 - x0;
+    double const dy  = y1 - y0;
+    double const len = std::sqrt(dx * dx + dy * dy);
+    if (!(len > 0.0) || !(std::abs(dy) > 0.0)) return std::nullopt; // waagerechte/entartete Sehne
+    std::optional<std::size_t> best_k;
+    double                     best_dist = 0.0;
+    for (KCandidateDiagnostics const& d : sweep) {
+        double const px   = static_cast<double>(d.k);
+        double const dist = std::abs(dy * px - dx * d.wcss + x1 * y0 - y1 * x0) / len;
+        if (!best_k || dist > best_dist) { // striktes '>': Gleichstand behaelt das kleinere k
+            best_dist = dist;
+            best_k    = d.k;
+        }
+    }
+    return best_k;
 }
 
 } // namespace comdare::cache_engine::heuristik
