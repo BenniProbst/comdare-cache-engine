@@ -54,16 +54,16 @@ namespace {
 // -- Die Literale der Makro-Naht (Ebene A). Organ-/System-Zeile bewusst kurz und synthetisch (Praezedenz
 //    test_w10/test_m_w12: geprueft wird die MESS-Naht, nicht die Welt). Die MESS-Zeile ist dagegen die
 //    reale Vollmengen-Form -- sie IST der Prueflings-Gegenstand.
-#define COMDARE_D2_ORGAN_LIT "search_algo=k_ary@1.0.0c;filter=bloom@2.3.4c"
+#define COMDARE_D2_ORGAN_LIT "search_algo=k_ary@1.0.0.c;filter=bloom@2.3.4.c"
 #define COMDARE_D2_SYSTEM_LIT                                                                                          \
-    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;"                                  \
-    "[simd=code@1.0.0c]"
+    "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;external_utils=code@1.0.0.c;"                               \
+    "[simd=code@1.0.0.c]"
 #define COMDARE_D2_MESS_VOLL                                                                                           \
-    "measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;"                                           \
-    "measurement_tooling=micro@1.0.0c;"                                                                                \
-    "[load_framework=ycsb@1.0.0c]"
+    "measurement_tooling=wallclock@1.0.0.c;measurement_tooling=macro@1.0.0.c;"                                         \
+    "measurement_tooling=micro@1.0.0.c;"                                                                               \
+    "[load_framework=ycsb@1.0.0.c]"
 // Die EINZEL-Wahl [wallclock] -- die Zeile, die eine wallclock-hart gebaute CEB stempelt.
-#define COMDARE_D2_MESS_WALLCLOCK "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"
+#define COMDARE_D2_MESS_WALLCLOCK "measurement_tooling=wallclock@1.0.0.c;[load_framework=ycsb@1.0.0.c]"
 
 constexpr char kMessVoll[]      = COMDARE_D2_MESS_VOLL;
 constexpr char kMessWallclock[] = COMDARE_D2_MESS_WALLCLOCK;

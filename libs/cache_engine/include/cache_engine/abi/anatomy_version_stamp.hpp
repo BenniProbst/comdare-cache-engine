@@ -82,7 +82,10 @@ template <class Comp>
 [[nodiscard]] inline std::string organ_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
-    std::array<AxisVersionEntry, kOrganAxisCount> const entries{{
+    // FLAG-GRAMMATIK v2: `static constexpr` statt `const`, damit die Form-Wache unten ueber GENAU DIESE
+    // Eintraege laufen kann -- nicht ueber eine zweite, nachgebaute Liste (die waere die Drift-Quelle,
+    // gegen die dieser Header an jeder anderen Stelle argumentiert).
+    static constexpr std::array<AxisVersionEntry, kOrganAxisCount> entries{{
         {"search_algo", Comp::search_algo::name(), Comp::search_algo::algo_version},
         {"cache_traversal", Comp::cache_traversal::name(), Comp::cache_traversal::algo_version},
         {"mapping", Comp::mapping::name(), Comp::mapping::algo_version},
@@ -107,6 +110,24 @@ template <class Comp>
                   "Die Organ-Stempel-Zeile muss ALLE Organ-Haupt-Achsen tragen (ORG-18). Genau diese "
                   "Luecke war A8.2: das Array stand auf 17 und liess persistence_target aus, wodurch "
                   "eine Drift dieser Achse im Stempel unsichtbar blieb.");
+    // FLAG-GRAMMATIK v2 (Owner-Direktive 07.08.2026: der Bestand SOLL brechen -- aber LAUT).
+    // DIESE WACHE SCHLIESST EINE GEMESSENE LUECKE, keine vermutete. Bissprobe vor ihrem Einbau: eine
+    // Composition mit dem ALT-Literal "v1.0.0c" an allen 18 Achsen uebersetzte KLAGLOS und lieferte
+    // "search_algo=algoALT@0.0.0;...;persistence_target=algoALT@0.0.0" -- achtzehn Nicht-Staende, die als
+    // Stempel in den SHA512-Fingerprint und damit in die Lager-Identitaet gereist waeren.
+    //
+    // WARUM SIE HIER STEHT UND NICHT IN DER REGISTRY-WACHE: guard_all_registered_organ_versions()
+    // (axis_variant_version_table.hpp) deckt die REGISTRIERTEN Varianten ab und wird nur dort
+    // instanziiert, wo die Tabelle gebaut wird. organ_stamp_line<Comp> stempelt aber JEDE Composition --
+    // auch test-lokale und solche aus einem Pruefling, die in keiner ce-Registry stehen. Fuer die gab es
+    // bis hierher gar keine Wache. Das Muster ist nicht neu: meta_meta_stamp_suffix.hpp setzt seit
+    // A13-M3/C2 (Z-07) genau so eine static_assert an die Stempel-STELLE statt an die Quelle.
+    static_assert(::comdare::cache_engine::measurement::axis_version_entries_are_wellformed(entries),
+                  "Eine Organ-Achse dieser Composition traegt eine UNPARSBARE algo_version und wuerde still "
+                  "als '@0.0.0' gestempelt -- der Stempel ist Lager-Identitaet, ein Nicht-Stand darf darin "
+                  "nie unbemerkt reisen. Erlaubt ist die Flag-Grammatik v2 (\"X.Y.Z\" plus null bis n "
+                  "punkt-getrennte Flags, KEIN 'v'-Praefix) oder exakt der dokumentierte Sentinel \"0.0.0\". "
+                  "Haeufigste Ursache: ein Alt-Literal der Q3-Form (\"v1.0.0c\").");
     std::string line = build_axis_version_stamp_line(entries);
     // A13-M2 (OP-11-Rueckbau): der Organ-Meta-Meta-Klammer-Anhang ANS ENDE. abi::OrganMetaMetas ist heute leer
     // -> append_meta_meta_suffix laesst die Zeile BYTE-IDENTISCH. Der Mechanismus ist damit gebaut, ohne
@@ -134,7 +155,7 @@ template <class Comp>
 /// Code-Identitaet der System-Achse, der Zellwert haengt als NAMENS-Anteil davor am '@' (Owner-Q2).
 ///
 /// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
-/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0c]", also VIER Eintraege statt
+/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0.c]", also VIER Eintraege statt
 /// drei. Die Glieder kommen aus der EINEN Typliste ExternalUtilsHub::meta_metas (keine zweite Liste); die
 /// EBENE steckt in der Klammer-Tiefe, nicht im Namen. Owner-E2 woertlich: Meta-Metas werden "einfach dynamisch
 /// ans Ende der Kette in den bestehenden Zeilen angehaengt" -- keine Sonderzeile, kein Sonderfeld.
@@ -149,10 +170,21 @@ template <class Comp>
     // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt GENAU DREI HAUPT-Achsen-Segmente statt fuenf -- die
     // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
     // wurde die Hartkodierung damals aufgeloest.
-    // Render: "v1.0.0c" -> "1.0.0c" (seit A13-M3/C4; bis dahin render-neutral "v1.0.0" -> "1.0.0" wie "v1").
-    std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
-    for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
-        entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
+    // Render: "1.0.0.c" -> "1.0.0c" (seit A13-M3/C4; bis dahin render-neutral "v1.0.0" -> "1.0.0" wie "v1").
+    // FLAG-GRAMMATIK v2: dieselbe Form-Wache wie an der Organ-Zeile, hier als constexpr-Aufbau ueber die
+    // Registry-Tabelle. Sie ist an DIESER Zeile nicht die erste Verteidigung (system_axis_code_versions.hpp
+    // traegt die B12-Wachen je Eintrag), aber sie ist die einzige AN DER STEMPEL-STELLE -- und genau dort
+    // entstuende der stille "@0.0.0"-Kollaps. Zwei Wachen an derselben Sache sind hier kein Zuviel: die
+    // eine bewacht die QUELLE, die andere den VERBRAUCH.
+    static constexpr auto entries = [] {
+        std::array<AxisVersionEntry, kSystemAxisCodeCount> e{};
+        for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
+            e[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
+        return e;
+    }();
+    static_assert(::comdare::cache_engine::measurement::axis_version_entries_are_wellformed(entries),
+                  "Eine System-Achsen-Code-Version ist UNPARSBAR und wuerde still als '@0.0.0' gestempelt. "
+                  "Erlaubt ist die Flag-Grammatik v2 oder exakt der dokumentierte Sentinel \"0.0.0\".");
     std::string line = build_axis_version_stamp_line(entries);
     // A13-M2: der Meta-Meta-Klammer-Anhang ANS ENDE. Single-Source der Glieder == ExternalUtilsHub::meta_metas
     // (external_utils_family_axis.hpp:149) -- ein spaeteres gpu/fpga/npu-Glied erscheint hier ohne Edit.
@@ -218,7 +250,7 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
-    // bekannte id -> "v1.0.0c" (Render "1.0.0c", seit A13-M3/C4), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur
+    // bekannte id -> "1.0.0.c" (Render "1.0.0c", seit A13-M3/C4), unbekannte id -> "0.0.0"-Sentinel (@0.0.0, nur
     // ungueltige ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
     // A13-M2 (OP-3-Rueckbau, Owner-E2): load_framework steht NICHT mehr vorne, sondern als KLAMMER-Anhang
     // ANS ENDE.
@@ -232,7 +264,7 @@ template <class Comp>
 
 /// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
 /// kMeasurementAxisVersionLine. Statt EINER Tooling-Wahl traegt die Zeile die MENGE der gewaehlten Mess-Tools als N
-/// Eintraege "measurement_tooling=<t>@1.0.0c" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
+/// Eintraege "measurement_tooling=<t>@1.0.0.c" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
 /// Leere Tokens werden uebersprungen; leere/leer-gefilterte Menge -> leere Zeile. Dieselbe X.Y.Z-Voll-Form / SEPARATE
 /// Welt zur .algos-Sig wie die Einzel-Form (build_axis_version_stamp_line). binary_id-NEUTRAL (Mess-Achse
 /// binary_id="never" -> der Stempel lebt nur im Version-Line/Binary, nie in der binary_id/CRC).
@@ -246,7 +278,7 @@ template <class Comp>
     // einkompiliert" => leere Zeile) bleibt unberuehrt; append_meta_meta_suffix laesst eine leere Zeile leer.
     for (std::string_view const t : toolings)
         if (!t.empty())
-            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
+            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "0.0.0"
             // fuer unbekannte ids. Die gueltigen ids (wallclock/macro/micro) rendern seit A13-M3/C4 "1.0.0c"
             // -- deklariertes Byte-Ereignis der Q3-Migration, nicht mehr render-neutral.
             entries.push_back(

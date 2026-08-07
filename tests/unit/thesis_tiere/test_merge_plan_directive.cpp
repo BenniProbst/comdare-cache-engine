@@ -148,7 +148,7 @@ TEST(MergePlanDirective, SotaSourceStampIsAppendOnly) {
     EXPECT_EQ(catalog.find("COMDARE_ANATOMY_VERSION_STAMP"), std::string::npos)
         << "ce-only/Katalog-Pfad darf KEINE Stempel-Zeile tragen (byte-identisch)";
 
-    tlz::SotaStampLines const stamp{"", "target_isa=code@1.0.0c", ""};
+    tlz::SotaStampLines const stamp{"", "target_isa=code@1.0.0.c", ""};
     std::string const         with_stamp = tlz::render_sota_module_source(fq, header, stamp);
     // Append-only: der Katalog-Quelltext ist ein exaktes Praefix des Stempel-Quelltexts.
     EXPECT_EQ(with_stamp.rfind(catalog, 0), 0u) << "Stempel ist NICHT append-only (Katalog-Praefix gebrochen)";
@@ -168,11 +168,11 @@ TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
 
     // (d2) Die Makro-SLOT-Ordnung ist organ, system, measurement -- literal gepinnt, damit kein Slot still
     //      verrutscht. A13-M3/C3: der vierte (merge-)Slot ist ersatzlos entfallen.
-    tlz::SotaStampLines const stamp{"search_algo=k_ary@1.0.0c", "target_isa=code@1.0.0c",
-                                    "measurement_tooling=wallclock@1.0.0c"};
+    tlz::SotaStampLines const stamp{"search_algo=k_ary@1.0.0.c", "target_isa=code@1.0.0.c",
+                                    "measurement_tooling=wallclock@1.0.0.c"};
     std::string const         with_stamp = tlz::render_sota_module_source(fq, header, stamp);
-    EXPECT_NE(with_stamp.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"search_algo=k_ary@1.0.0c\", "
-                              "\"target_isa=code@1.0.0c\", \"measurement_tooling=wallclock@1.0.0c\")"),
+    EXPECT_NE(with_stamp.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"search_algo=k_ary@1.0.0.c\", "
+                              "\"target_isa=code@1.0.0.c\", \"measurement_tooling=wallclock@1.0.0.c\")"),
               std::string::npos)
         << with_stamp;
 
@@ -180,8 +180,8 @@ TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
     std::vector<tlz::AxisMergeDirective> const directives{
         tlz::AxisMergeDirective{"path_compression", "Stufe2_PrueflingReplace", "prt_art", {"prt_patricia"}}};
     std::string const directive_src = tlz::render_directive_merge_module_source(fq, header, directives, stamp);
-    EXPECT_NE(directive_src.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"search_algo=k_ary@1.0.0c\", "
-                                 "\"target_isa=code@1.0.0c\", \"measurement_tooling=wallclock@1.0.0c\")"),
+    EXPECT_NE(directive_src.find("COMDARE_ANATOMY_VERSION_STAMP_M(\"search_algo=k_ary@1.0.0.c\", "
+                                 "\"target_isa=code@1.0.0.c\", \"measurement_tooling=wallclock@1.0.0.c\")"),
               std::string::npos)
         << directive_src;
 
@@ -190,7 +190,7 @@ TEST(MergePlanDirective, C1SotaQuelleTraegtVolleStempelZeilen) {
     //      kein 17-Achsen-Pfad, ceb_parse_path liefert keine Achsen-Paare, und die SOTA-Kompositions-Slots
     //      tragen kein name()/algo_version (Metadaten-BLOCKER, abi/anatomy_version_stamp.hpp-Kopf). Das ist der
     //      BENANNTE K-3-Rest; er wird hier festgeschrieben, damit er nicht als stiller Ausfall durchgeht.
-    std::string const meas = "measurement_tooling=wallclock@1.0.0c";
+    std::string const meas = "measurement_tooling=wallclock@1.0.0.c";
     auto const        by_id =
         tlz::build_sota_view_source_map(std::vector<tlz::SotaMergeLebewesen>{{"Stufe1_CeOnly", "hot"}}, meas);
     ASSERT_EQ(by_id.size(), 1u);

@@ -41,11 +41,11 @@
 // LayoutAwareChunkedStore) ist damit mit abgedeckt, ohne die Knoten-Achse mitzubumpen: es gibt keine
 // Permutation ohne Allokator. MINIMAL und VOLLSTAENDIG zugleich.
 //
-// GRAMMATIK: PATCH-Stelle, Owner-Q3-Flag bleibt 'c' (CPU-only-Flotte) -> "v1.0.0c" -> "v1.0.1c".
+// GRAMMATIK: PATCH-Stelle, Owner-Q3-Flag bleibt 'c' (CPU-only-Flotte) -> "1.0.0.c" -> "1.0.1.c".
 // Wohlgeformt nach assert_version_grammar/ce_owned_version_satisfies_cpu_enforce (ENFORCE ist scharf).
 // FROZEN-NEUTRAL: die drei eingefrorenen Fingerprint-Fixtures (test_g3_sha512_index,
 // test_w10_system_cell_values, test_m_w12_stamp_bausteine) bilden ihre Organ-Zeile aus LITERALEN
-// ("search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c") ohne Allokator-Slot --
+// ("search_algo=k_ary@1.0.0.c;path_compression=path_compression_none@1.0.0.c") ohne Allokator-Slot --
 // sie koennen sich durch diesen Bump nicht bewegen und tun es nachweislich nicht.
 // PATCH statt MINOR: der Erfolgs-Pfad ist verhaltens-gleich, geaendert hat sich ausschliesslich das
 // Fehlschlag-Signal; die Achsen-API waechst nur um allocate_or_throw an der Wurzel.
@@ -112,16 +112,16 @@
 // FROZEN-NEUTRALITAET GEPRUEFT (dieselbe Auflage wie beim 1. Bump, VOR dem Bau gemessen): die drei
 // eingefrorenen Fingerprint-Fixtures (test_g3_sha512_index.cpp, test_w10_system_cell_values.cpp,
 // test_m_w12_stamp_bausteine.cpp) bilden ihren "allocator"-Slot AUSSCHLIESSLICH aus SYNTHETISCHEN
-// Mock-Literalen (MockAxisV1::algo_version = "v1.0.0" bzw. das handgeschriebene Fixture-Literal
-// "allocator=a@1.0.0c") -- beide sind vom Typ her von der REALEN AllVendors-Registry entkoppelt und
+// Mock-Literalen (MockAxisV1::algo_version = "1.0.0" bzw. das handgeschriebene Fixture-Literal
+// "allocator=a@1.0.0.c") -- beide sind vom Typ her von der REALEN AllVendors-Registry entkoppelt und
 // koennen sich durch diesen Bump strukturell nicht bewegen. Keine XML-Registry-Datei (system_axis_
 // registry.xml) und keine golden_fullpilot_320_binary_ids*-Datei enthaelt einen algo_version-String
-// dieser Achse (repo-weiter grep nach "v1.0.1c"/"v1.0.2c" ausserhalb von axes/alloc/ und tests/unit/
+// dieser Achse (repo-weiter grep nach "1.0.1.c"/"1.0.2.c" ausserhalb von axes/alloc/ und tests/unit/
 // bleibt leer). Die algo_sig BEWEGT sich dagegen bewusst (das ist der Zweck des Bumps): der
 // inkrementelle Tier-Binary-Cache verwirft die 24 betroffenen Binaries und baut sie neu.
 //
-// GRAMMATIK: PATCH-Stelle, Owner-Q3-Flag bleibt 'c' -> "v1.0.1c" -> "v1.0.2c" fuer die 24; die 2
-// reallocate-losen Strategien bleiben bei "v1.0.1c". Wohlgeformt nach assert_version_grammar/
+// GRAMMATIK: PATCH-Stelle, Owner-Q3-Flag bleibt 'c' -> "1.0.1.c" -> "1.0.2.c" fuer die 24; die 2
+// reallocate-losen Strategien bleiben bei "1.0.1.c". Wohlgeformt nach assert_version_grammar/
 // ce_owned_version_satisfies_cpu_enforce (ENFORCE ist scharf); gepinnt in
 // test_a1_algo_version_pin_alloc_axis (Nachtrag 2. Bump).
 

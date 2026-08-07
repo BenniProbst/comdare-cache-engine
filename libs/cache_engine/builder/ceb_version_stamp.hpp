@@ -107,8 +107,9 @@
 // und die Glied-ANZAHL. R-3 haengt ein NEUNTES Preimage-Glied an (abi/mess_gates_glied.hpp: der
 // Praeprozessor-Zustand der Mess-Gates einer Uebersetzungseinheit) und bumpt fingerprint_format 3 -> 4.
 // FOLGE, gemessen und im selben Commit als Test-Pin nachgezogen (test_d4_ceb_schluessel_wahl):
-//     [all]  vor R-3 (Format 3): 004251f467c004a88f...f76c8d8
-//     [all]  ab  R-3 (Format 4): db7bac00b3de6eef05...aa832234
+//     [all]  vor R-3 (Format 3):        004251f467c004a88f...f76c8d8
+//     [all]  ab  R-3 (Format 4):        db7bac00b3de6eef05...aa832234
+//     [all]  ab  FLAG-GRAMMATIK v2:     9f8802514f7a5e5ee4...6f5c4fe8
 // DIESE CEB REICHT DAS NEUE GLIED BEWUSST NICHT (der Aufruf unten bleibt die 3-arg-Form, das Glied kommt
 // als LEERER Default): sie ist KEIN Tier-Binary -- dieselbe Sache wie bei den Zellwerten und den
 // Toolchain-/bvset-Gliedern. Ihre Identitaet ist ihre einkompilierte Mess-WAHL, nicht der Gate-Zustand
@@ -147,7 +148,7 @@
 //
 // A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): der ZWILLING wird SYMMETRISCH nachgezogen --
 // load_framework steht nicht mehr vorne, sondern als KLAMMER-ANHANG ANS ENDE der Mess-Zeile
-// ("measurement_tooling=...;[load_framework=ycsb@1.0.0c]"). Genau dieser Header ist der von O-8 Schritt 12
+// ("measurement_tooling=...;[load_framework=ycsb@1.0.0.c]"). Genau dieser Header ist der von O-8 Schritt 12
 // dokumentierte DRITTE Ableitungsweg; wer ihn beim Umbau der Mess-Ordnung vergisst, bekommt exakt dieselbe
 // Drift zurueck. Die Klammer-Zeichen kommen aus abi::kMetaMetaGroupOpen/Close (EINE Wahrheit ihrer
 // Schreibweise), die Ordnung aus diesem Kommentar -- und der Drift-Guard beweist beides.
@@ -159,7 +160,7 @@
 
 #include <cache_engine/abi/anatomy_fingerprint.hpp>    // anatomy_fingerprint_hex (consteval SHA-512)
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: kMetaMetaGroupOpen/Close (EINE Klammer-Wahrheit)
-#include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver (rohe "vX.Y.Z" -> {x,y,z})
+#include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver + render_algo_semver (die EINE Grammatik)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
 
@@ -212,32 +213,28 @@ struct CebComboLegend {
 };
 
 namespace detail {
-/// consteval: Anzahl Dezimalstellen von n (mind. 1, auch fuer 0).
-[[nodiscard]] consteval std::size_t ceb_digits(std::uint32_t n) noexcept {
-    std::size_t d = 1;
-    while (n >= 10) {
-        n /= 10;
-        ++d;
-    }
-    return d;
+/// consteval: die gerenderte Laenge EINER Version -- ueber DENSELBEN Renderer, den auch der Laufzeit-Weg
+/// benutzt (measurement::render_algo_semver).
+///
+/// HIER STAND VOR DER FLAG-GRAMMATIK v2 EIN ZWEITER RENDERER, und das war der Kern der Naht: eine
+/// Laengen-Rechnung (ceb_digits + ceb_flag_len) und eine Zeichen-Ausgabe (put_num + Flag-Schwanz), beide
+/// von Hand symmetrisch zu abi::measurement_stamp_line gehalten. Mit einem SKALAREN Flag ("c" bzw. "ce")
+/// war das noch nachrechenbar -- eine Zahl zwischen 0 und 2. Mit einer Flag-LISTE, die Klammern,
+/// Rekursion und mehrere Basen kennt, waere die Nachrechnung ein zweiter Parser gewesen, und ihre Drift
+/// haette sich als FALSCHE PUFFERLAENGE gezeigt, also als abgeschnittener Stempel und damit als stille
+/// Fehl-Identitaet. Deshalb rechnet und rendert ab jetzt beides derselbe Code.
+[[nodiscard]] consteval std::size_t ceb_version_len(std::string_view rohe_version) noexcept {
+    return ::comdare::cache_engine::measurement::render_algo_semver(
+               ::comdare::cache_engine::measurement::parse_algo_semver(rohe_version))
+        .len;
 }
-/// consteval: Laenge des load_framework-Segments "load_framework=<id>@X.Y.Z" (ohne Trenner/Klammern).
+/// consteval: Laenge des load_framework-Segments "load_framework=<id>@<version>" (ohne Trenner/Klammern).
 /// O-8 Schritt 12: dieselbe Quelle und dieselbe Form wie in abi::measurement_stamp_line (Schritt 9).
-// A13-M1b-Fixup (Review-BEFUND-2): der konsteval-Zwilling rendert den Owner-Q3-Flag-Schwanz MIT -- bei
-// Anlage no-op (Bestand noch flaglos), seit der A13-M3/C4-Migration auf "v1.0.0c" traegt er das 'c'
-// automatisch. Laenge und Renderer sind symmetrisch aus denselben Registry-Werten berechnet; der
-// Zwillingstest (test_m_w12, CEB-Zeile == abi::measurement_stamp_line) blieb ueber die Migration gruen.
-[[nodiscard]] consteval std::size_t ceb_flag_len(::comdare::cache_engine::measurement::AlgoSemVer const& v) noexcept {
-    return (::comdare::cache_engine::measurement::hardware_flag_char(v.hardware) != '\0' ? 1U : 0U) +
-           (v.experimental ? 1U : 0U);
-}
 [[nodiscard]] consteval std::size_t ceb_load_framework_segment_len() noexcept {
     using ::comdare::cache_engine::measurement::kMeasurementFrameworkRegistry;
-    using ::comdare::cache_engine::measurement::parse_algo_semver;
     auto const& fw = kMeasurementFrameworkRegistry[0];
-    auto const  v  = parse_algo_semver(fw.version);
     return std::string_view{"load_framework="}.size() + fw.id.size() + 1 // '@'
-           + ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z) + ceb_flag_len(v);
+           + ceb_version_len(fw.version);
 }
 
 /// Kapazitaets-Deckel der Tooling-Liste. Grosszuegig gegen die drei Registry-Eintraege, weil eine Legende
@@ -324,7 +321,6 @@ struct CebToolingList {
 /// "measurement_tooling=<id>@X.Y.Z;...;[load_framework=<id>@X.Y.Z]" (ohne '\0').
 /// A13-M2: der Klammer-Anhang kostet ';' + '[' + Segment + ']' == Segment + 3 Zeichen.
 [[nodiscard]] consteval std::size_t ceb_measurement_stamp_len(CebToolingList const& l) noexcept {
-    using ::comdare::cache_engine::measurement::parse_algo_semver;
     using ::comdare::cache_engine::measurement::tooling_version_for_id;
     std::size_t n = 0;
     for (std::size_t i = 0; i < l.count; ++i) {
@@ -332,8 +328,7 @@ struct CebToolingList {
         n += std::string_view{"measurement_tooling="}.size();
         n += l.ids[i].size();
         ++n; // '@'
-        auto const v = parse_algo_semver(tooling_version_for_id(l.ids[i]));
-        n += ceb_digits(v.x) + 1 + ceb_digits(v.y) + 1 + ceb_digits(v.z) + ceb_flag_len(v);
+        n += ceb_version_len(tooling_version_for_id(l.ids[i]));
     }
     // Leer-Semantik wie in Schritt 9: der Meta-Meta-Anhang entsteht NUR, wenn ueberhaupt Tooling da ist
     // (eine sonst leere Mess-Zeile bleibt leer und wird nie zu einem einsamen Rahmen-Segment). Der
@@ -366,7 +361,6 @@ inline constexpr auto kCebCtLegend = CebComboLegend{"[all]"};
 /// load_framework-Anhang (Owner-E2/Q1).
 template <CebComboLegend L>
 [[nodiscard]] consteval auto ceb_measurement_stamp_array_for() {
-    using ::comdare::cache_engine::measurement::parse_algo_semver;
     using ::comdare::cache_engine::measurement::tooling_version_for_id;
     constexpr auto        kList = detail::ceb_tooling_list(L.view());
     constexpr std::size_t kLen  = detail::ceb_measurement_stamp_len(kList);
@@ -376,30 +370,20 @@ template <CebComboLegend L>
     auto                       put = [&](std::string_view s) {
         for (char const c : s) out[p++] = c;
     };
-    auto put_num = [&](std::uint32_t v) {
-        char        tmp[10]{};
-        std::size_t d = 0;
-        do {
-            tmp[d++] = static_cast<char>('0' + (v % 10));
-            v /= 10;
-        } while (v != 0);
-        for (std::size_t k = 0; k < d; ++k) out[p++] = tmp[d - 1 - k];
+    /// FLAG-GRAMMATIK v2: die Version kommt aus DEM EINEN Renderer. Der Puffer wird benannt, weil .view()
+    /// in ihn hineinzeigt (dieselbe Lebenszeit-Falle wie in measurement::render_algo_semver).
+    auto put_version = [&put](std::string_view rohe_version) {
+        ::comdare::cache_engine::measurement::RenderedAlgoSemVer const r =
+            ::comdare::cache_engine::measurement::render_algo_semver(
+                ::comdare::cache_engine::measurement::parse_algo_semver(rohe_version));
+        put(r.view());
     };
     for (std::size_t i = 0; i < kList.count; ++i) {
         if (i != 0) out[p++] = ';';
         put("measurement_tooling=");
         put(kList.ids[i]);
-        out[p++]     = '@';
-        auto const v = parse_algo_semver(tooling_version_for_id(kList.ids[i]));
-        put_num(v.x);
-        out[p++] = '.';
-        put_num(v.y);
-        out[p++] = '.';
-        put_num(v.z);
-        // A13-M1b-Fixup: Flag-Schwanz (heute no-op, Migration-sicher -- s. ceb_flag_len).
-        if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(v.hardware); hw != '\0')
-            out[p++] = hw;
-        if (v.experimental) out[p++] = 'e';
+        out[p++] = '@';
+        put_version(tooling_version_for_id(kList.ids[i]));
     }
     // A13-M2 (OP-3-Rueckbau, Owner-E2 "ans Ende der Kette" + Owner-Q1 Klammer-Form): das load_framework-
     // Segment steht als geklammerter Meta-Meta-Anhang AM ENDE -- dieselbe Ordnung wie in
@@ -412,17 +396,8 @@ template <CebComboLegend L>
         out[p++]       = ::comdare::cache_engine::abi::kMetaMetaGroupOpen;
         put("load_framework=");
         put(fw.id);
-        out[p++]      = '@';
-        auto const fv = parse_algo_semver(fw.version);
-        put_num(fv.x);
-        out[p++] = '.';
-        put_num(fv.y);
-        out[p++] = '.';
-        put_num(fv.z);
-        // A13-M1b-Fixup: Flag-Schwanz (heute no-op, Migration-sicher -- s. ceb_flag_len).
-        if (char const hw = ::comdare::cache_engine::measurement::hardware_flag_char(fv.hardware); hw != '\0')
-            out[p++] = hw;
-        if (fv.experimental) out[p++] = 'e';
+        out[p++] = '@';
+        put_version(fw.version);
         out[p++] = ::comdare::cache_engine::abi::kMetaMetaGroupClose;
     }
     out[p] = '\0';

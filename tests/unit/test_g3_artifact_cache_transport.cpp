@@ -677,7 +677,7 @@ TEST(G3ArtifactCacheTransport, PushWirftWennLokaleVersionMarkeFehlt) {
     bool        warf = false;
     std::string was;
     try {
-        cache.push_tier_binary(dir.pfad(), "v1.0.0c");
+        cache.push_tier_binary(dir.pfad(), "1.0.0.c");
     } catch (at::ArtefaktPushFehler const& e) {
         warf = true;
         was  = e.what();

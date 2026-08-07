@@ -153,14 +153,14 @@ ex::ExperimentTree make_tree(std::shared_ptr<ex::ExperimentNodeFactory> const& f
 }
 
 // Gemeinsame Lauf-Konfiguration (frisches Ausgabe-Verzeichnis je Lauf). build_version in der
-// vX.Y.Zc-Grammatik; sie kann hier nie einen Skip ausloesen, weil der Stub-Compile gar keine
+// Flag-Grammatik v2; sie kann hier nie einen Skip ausloesen, weil der Stub-Compile gar keine
 // perm.dll erzeugt und dll_is_current deren Existenz verlangt -- die EINZIGE Skip-Quelle ist damit
 // der Lager-Bau-Filter (saubere Zurechnung).
 ex::LazyRunConfig make_cfg(FakeStore& store, fs::path const& out) {
     ex::LazyRunConfig cfg;
     cfg.source_dir         = out / "src";
     cfg.output_dir         = out / "dll";
-    cfg.build_version      = "v1.0.0c";
+    cfg.build_version      = "1.0.0.c";
     cfg.per_binary_subdirs = true;
     cfg.build_parallelism  = 1;
     cfg.provision_only     = true;

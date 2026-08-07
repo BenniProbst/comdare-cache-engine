@@ -48,14 +48,13 @@ namespace mp = boost::mp11;
 struct AxisVariantVersion {
     std::string_view axis;    ///< kCompositionAxisNames-Slot (z.B. "search_algo")
     std::string      variant; ///< W::name() (z.B. "bst")
-    /// W::algo_version. Owner-Q3-Flag-Grammatik ("vX.Y.Z" + GENAU EIN Hardware-Flag, ce-eigen immer 'c').
-    /// A13-M3/C4 hat den Bestand auf "v1.0.0c" vereinheitlicht; seit dem A1-Wurf-Vertrag (06.08.2026) ist
-    /// er NICHT mehr durchgehend gleich: alle 26 Strategien der Allokator-Achse gingen zunaechst auf
-    /// "v1.0.1c" (1. Bump), 24 davon -- die mit eigener reallocate()-Implementierung -- danach auf
-    /// "v1.0.2c" (2. Bump, reallocate-Statistik-Korrektur); PmrResourceAllocator und VampirNfpAllocator
-    /// implementieren kein reallocate() und blieben auf "v1.0.1c" stehen
+    /// W::algo_version in der FLAG-GRAMMATIK v2 ("X.Y.Z" + null bis n punkt-getrennte Flags, ce-eigen immer
+    /// mit 'c' darunter). Der Bestand ist NICHT durchgehend gleich: alle 26 Strategien der Allokator-Achse
+    /// gingen zunaechst auf "1.0.1.c" (1. Bump), 24 davon -- die mit eigener reallocate()-Implementierung --
+    /// danach auf "1.0.2.c" (2. Bump, reallocate-Statistik-Korrektur); PmrResourceAllocator und
+    /// VampirNfpAllocator implementieren kein reallocate() und blieben auf "1.0.1.c" stehen
     /// (axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP"; gepinnt in
-    /// test_a1_algo_version_pin_alloc_axis), der uebrige Bestand auf "v1.0.0c".
+    /// test_a1_algo_version_pin_alloc_axis), der uebrige Bestand auf "1.0.0.c".
     std::string version;
 };
 
@@ -67,55 +66,40 @@ struct AxisVariantVersion {
 template <class W>
 constexpr void assert_version_grammar() {
     // A1 (G2-4a, W12-A, 2026-07-23): Concept-Guard der X.Y.Z-Disziplin -- JEDE registrierte Organ-Variante MUSS eine
-    // PARSBARE algo_version tragen. Eine Fehlform (Kurzform "v1.2", Tippfehler, ohne 'v') parst zum Sentinel und
-    // bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden requires-Existenz-Guard (Datei-Kopf) um
-    // die WOHLGEFORMTHEIT -- unparsbare Versionen koennen ab jetzt nicht mehr unbemerkt in eine Registry gelangen.
+    // PARSBARE algo_version tragen. Eine Fehlform (Kurzform "1.2", Tippfehler, eine Klammer ohne Basis) parst zum
+    // Sentinel und bricht hier compile-time MIT dem Typ-Namen. Ergaenzt den bestehenden requires-Existenz-Guard
+    // (Datei-Kopf) um die WOHLGEFORMTHEIT -- unparsbare Versionen koennen nicht unbemerkt in eine Registry gelangen.
     // A13-M1-Auflage K-5: die Wache prueft das x/y/z-TRIPEL (is_sentinel), NICHT den Struct-Vergleich gegen
     // AlgoSemVer{} -- sonst koennte eine Flag-Sentinel-Form die Wache umgehen.
-    // A13-M1b (Owner-Q3 02.08.2026): die zulaessige Form ist "vX.Y.Z[HWFLAG[e]]" -- die Kurzform "vN" faellt seit
-    // dem Rueckbau ebenfalls in diese Wache (sie ist jetzt Sentinel).
+    // FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): die zulaessige Form ist "X.Y.Z[.flag]*" OHNE 'v'-Praefix. Die
+    // gesamte Alt-Schreibweise ("v1.0.0c") faellt damit ebenfalls in diese Wache -- sie ist jetzt Sentinel.
     static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).is_sentinel(),
-                  "algo_version unparsbar (Sentinel): erlaubt ist NUR \"vX.Y.Z\" mit optional GENAU EINEM "
-                  "Hardware-Flag (c/g/f/n) und danach optional 'e' -- die Kurzform \"vN\" ist verboten "
-                  "(Owner-Q3 02.08.2026), A10-X.Y.Z-Disziplin");
-    // A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix markiert experimentelle Achsen-Algorithmen
-    // AUS EINEM PRUEFLING. Die ce-EIGENEN Registry-Varianten sind der stabile Bestand und duerfen es nie tragen
-    // -- sonst waeren die ce-Stempel/Fingerprints/Lager-Keys nicht mehr beweisbar golden-neutral. Ein 'e' in
-    // einer ce-Registry bricht hier compile-time MIT dem Typ-Namen.
-    static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).experimental,
-                  "algo_version experimentell ('e'-Suffix): das 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung "
-                  "(Owner-E2 02.08.2026) -- ce-eigene Registry-Varianten tragen es NIE");
-    // A13-M1b, WACHE "wenn Flag vorhanden, dann GENAU EIN -- und im CPU-Scope 'c'" (Owner-Q3 02.08.2026).
-    // Die Zweiteilung ist Absicht und deckt die Uebergangs-Phase sauber ab:
-    //   * MEHRFACH-/Fremd-/Gross-Flags ("v1.0.0cg", "v1.0.0ec", "v1.0.0C", "v1.0.0x") sind schon grammatisch
-    //     unparsbar und laufen in die Sentinel-Wache oben -- "genau EIN Flag" ist damit durchgesetzt.
-    //   * Diese Wache HIER faengt den verbleibenden Fall: ein WOHLGEFORMTES, aber im CPU-only-Scope falsches
-    //     Flag ("v1.0.0g"/"v1.0.0f"/"v1.0.0n"). Sie ist NICHT tautologisch -- eine ce-Registry-Variante mit
-    //     "v1.0.0g" bricht hier compile-time MIT dem Typ-Namen, waehrend die FLAGLOSE Form ("v1.0.0") durch
-    //     GENAU DIESE Wache geht (sie prueft nur ein VORHANDENES Flag). Bis A13-M3/C4 war das die
-    //     Uebergangs-Toleranz des flaglosen Bestands; seit C4 weist den flaglosen Fall der ENFORCE-Zweig
-    //     unten hart zurueck -- diese Wache bleibt trotzdem noetig (sie faengt g/f/n, ENFORCE faengt "kein
-    //     Flag"), und sie bleibt die einzige, die auch ohne das Define greift.
-    //   * Die restliche Owner-Pflicht -- dass ueberhaupt ein Flag DA sein MUSS -- ist der ENFORCE-Block unten.
-    static_assert(!::comdare::cache_engine::measurement::parse_algo_semver(W::algo_version).has_hardware_flag() ||
-                      ::comdare::cache_engine::measurement::version_satisfies_cpu_only_policy(W::algo_version),
-                  "algo_version mit FALSCHEM Hardware-Flag: zulaessig ist im CPU-only-Scope GENAU 'c' (bzw. 'ce') "
-                  "-- g/f/n sind reserviert und werden hier nicht produziert (Owner-Q3 02.08.2026)");
+                  "algo_version unparsbar (Sentinel): erlaubt ist NUR \"X.Y.Z\" mit null bis n punkt-getrennten "
+                  "Flags und optionalen Komposit-Klammern (\"1.0.0.c{p.e}.x512{f}\") -- KEIN 'v'-Praefix, ein "
+                  "Punkt VOR jedem Flag, hinter '{' nie ein fuehrender Punkt (Owner-KERN 07.08.2026), "
+                  "A10-X.Y.Z-Disziplin");
+    // WACHE "wenn ein Flag da ist, dann ist 'c' darunter" (Owner-F-10). Sie ist NICHT tautologisch -- eine
+    // ce-Registry-Variante mit "1.0.0.g" bricht hier compile-time MIT dem Typ-Namen, waehrend die FLAGLOSE
+    // Form ("1.0.0") durch GENAU DIESE Wache geht (sie prueft nur ein VORHANDENES Flag). Den flaglosen Fall
+    // weist der ENFORCE-Zweig unten hart zurueck; diese Wache bleibt trotzdem noetig (sie faengt g/f/n ohne
+    // 'c', ENFORCE faengt "kein Flag"), und sie ist die einzige, die auch ohne das Define greift.
+    static_assert(::comdare::cache_engine::measurement::ce_owned_version_is_wellformed(W::algo_version),
+                  "algo_version ohne CPU-Basis: traegt eine ce-eigene Version ueberhaupt Flags, MUSS 'c' "
+                  "darunter sein -- g/f/n sind reserviert und werden hier nicht produziert (Owner-F-10 "
+                  "07.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
-    // A13-M1b SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code, daher muessen alle Versionen mit 'c'
-    // oder 'ce' enden"). SCHARF seit A13-M3/C4: der Migrations-Commit hat die 122 W::algo_version-Literale von
-    // "v1.0.0" auf "v1.0.0c" gezogen UND das Define im SELBEN Commit auf 1 gesetzt (ein Byte-Ereignis, ein
-    // Neuanker). Vorher stand es auf 0, weil die Wache jede noch flaglose Registry-Variante compile-gebrochen
-    // haette. Die Wachen-LOGIK selbst (ce_owned_version_satisfies_cpu_enforce) ist immer kompiliert und in
-    // algo_semver.hpp CT-bewiesen; das Define schaltet nur ihre ANWENDUNG auf jede Registry-Variante.
-    // B12 (Codex-Review 02.08.2026): der ENFORCE-Zweig prueft cpu UND !experimental ueber DIESELBE
-    // Politik-Funktion wie die drei Nicht-Organ-Registries. version_satisfies_cpu_only_policy allein liesse
-    // "v1.0.0ce" durch ('ce' erfuellt die CPU-Politik) -- hier faengt es heute schon die ungated 'e'-Wache
-    // oben ab, aber die Politik darf nicht davon ABHAENGEN, dass die zweite Wache daneben steht.
+    // SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code", in der v2 als F-10 praezisiert: "ce-eigene
+    // Achsen tragen mindestens 'c'"). Die Wachen-LOGIK selbst (ce_owned_version_satisfies_cpu_enforce) ist
+    // immer kompiliert und in algo_semver.hpp CT-bewiesen; das Define schaltet nur ihre ANWENDUNG auf jede
+    // Registry-Variante.
+    // WAS HIER MIT DER v2 ENTFALLEN IST: der frueher mitgepruefte Term "!experimental". Er hat keinen
+    // Gegenstand mehr -- 'e' bedeutet EFFICIENCY CORE und ist ein legitimes Flag. Die alte B12-Wache
+    // "ce-Registry traegt NIE 'e'" ist nicht abgeschwaecht, sondern gegenstandslos; ihre Aufgabe uebernimmt
+    // die Pflicht "traegt mindestens 'c'" (Owner-F-10 verbatim: "Der vorschlag trifft ins Schwarze").
     static_assert(::comdare::cache_engine::measurement::ce_owned_version_satisfies_cpu_enforce(W::algo_version),
-                  "algo_version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version auf "
-                  "'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
-                  "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+                  "algo_version ohne CPU-Flag: im CPU-only-Scope MUSS jede Version 'c' unter ihren Flags "
+                  "tragen (Owner-Q3 02.08.2026 / F-10 07.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist "
+                  "scharf");
 #endif
 }
 
@@ -277,13 +261,12 @@ inline void guard_all_registered_organ_error_classes() {
             out += val;
             out += '@';
             // A13-M3/C4 (DV-3 = Rueckbau): die Kurzform "v0" ist hier auf die dreistellige Sentinel-Form
-            // gezogen. A13-M1b hatte sie stehen lassen mit dem Argument "der Sidecar-Vergleich ist
-            // String-gleich, ein Wechsel waere ein Byte-Bruch ohne Nutzen" -- das war richtig, SOLANGE der
-            // Slot sonst unveraendert blieb. C4 zieht in EXAKT DIESEM Slot die algo_versions auf "v1.0.0c";
-            // ein zurueckgelassenes "v0" ergaebe eine GEMISCHTE Signatur (v1.0.0c neben v0) und damit einen
-            // Verstoss gegen Owner-Q3 ("einheitlich und immer 3-stellig"). Der Byte-Bruch faellt so im selben
-            // .algos-Ereignis an wie die Migration; nach dem Fenster kostete er eine eigene Sidecar-Kaskade.
-            out += ver.empty() ? std::string_view{"v0.0.0"} : ver;
+            // gezogen; ein zurueckgelassenes "v0" ergaebe eine GEMISCHTE Signatur und damit einen Verstoss
+            // gegen Owner-Q3 ("einheitlich und immer 3-stellig").
+            // FLAG-GRAMMATIK v2: der Wortlaut kommt aus kAlgoSemVerSentinelLiteral (Single-Source) statt aus
+            // einem zweiten Literal -- mit dem Wegfall des 'v' faellt er ausserdem mit dem GERENDERTEN
+            // Sentinel zusammen, den compose_organ_stamp_line unten emittiert.
+            out += ver.empty() ? ::comdare::cache_engine::measurement::kAlgoSemVerSentinelLiteral : ver;
             break;
         }
     }
@@ -313,12 +296,12 @@ inline void guard_all_registered_organ_error_classes() {
             out += '=';
             out += val;
             out += '@';
-            // A13-M1b: dreistelliger Sentinel (Owner-Q3). Byte-neutral -- "v0" und "v0.0.0" rendern beide
-            // "0.0.0"; nach dem Kurzform-Rueckbau ist "v0.0.0" aber der ABSICHTLICHE statt der zufaellige Weg.
-            // A13-M3/C4 hat den .algos-Zwilling oben (compose_algo_signature) auf dieselbe Form gezogen --
-            // seither ist der Sentinel in BEIDEN Pfaden dreistellig, ohne stille Ausnahme.
-            out += ::comdare::cache_engine::measurement::algo_semver_string(ver.empty() ? std::string_view{"v0.0.0"}
-                                                                                        : ver);
+            // Dreistelliger Sentinel (Owner-Q3), aus derselben Single-Source wie der .algos-Zwilling oben.
+            // FLAG-GRAMMATIK v2: rohe und gerenderte Sentinel-Form sind dieselbe Zeichenfolge -- der
+            // algo_semver_string-Durchlauf ist hier ab jetzt die Identitaet und bleibt trotzdem stehen,
+            // weil er fuer die NICHT-leeren Faelle die kanonische Form erzwingt.
+            out += ::comdare::cache_engine::measurement::algo_semver_string(
+                ver.empty() ? ::comdare::cache_engine::measurement::kAlgoSemVerSentinelLiteral : ver);
             break;
         }
     }

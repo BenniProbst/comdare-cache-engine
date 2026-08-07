@@ -110,7 +110,7 @@ public:
     using axis_tag   = alloc_::subaxes::synchronization_tag;
     using family_id  = std::integral_constant<int, 0>; // 0 = KEINE Vendor-Familie: reine Test-Strategie
 
-    static constexpr std::string_view algo_version = "v1.0.0";
+    static constexpr std::string_view algo_version = "1.0.0";
 
     [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return false; }

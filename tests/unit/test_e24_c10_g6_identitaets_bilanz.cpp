@@ -80,9 +80,9 @@ void tr(char const* w, bool c) {
 /// Referenz-"SA-Binary": ein fixes Tripel aus Organ-/System-/Mess-Zeile. Es muss kein echtes Binary
 /// sein -- die Aussage ist "gleiche Eingabe, gleicher Stempel", und dafuer ist ein FESTES Tripel der
 /// schaerfere Zeuge als ein wanderndes.
-inline constexpr std::string_view kRefOrgan  = "search_algo=array256@1.0.0c;memory_layout=soa@1.0.0c";
-inline constexpr std::string_view kRefSystem = "compiler=gcc@16.0.0c;os=linux@1.0.0c;isa=x86_64@1.0.0c";
-inline constexpr std::string_view kRefMess   = "wallclock@1.0.0c+load_framework=intern@1.0.0c";
+inline constexpr std::string_view kRefOrgan  = "search_algo=array256@1.0.0.c;memory_layout=soa@1.0.0.c";
+inline constexpr std::string_view kRefSystem = "compiler=gcc@16.0.0.c;os=linux@1.0.0.c;isa=x86_64@1.0.0.c";
+inline constexpr std::string_view kRefMess   = "wallclock@1.0.0.c+load_framework=intern@1.0.0.c";
 
 /// Der Digest des Referenz-Tripels. [NEU EINGEFROREN 2026-08-05, O-2/C-2: der Preimage-Format-Bump 2 -> 3
 /// (zwei zusaetzliche Glieder) verschiebt beide Digests dieser Bilanz -- deklariert und im SELBEN Commit
@@ -93,8 +93,13 @@ inline constexpr std::string_view kRefMess   = "wallclock@1.0.0c+load_framework=
 /// Die AUSSAGE der Bilanz ist unveraendert und wird durch den Neu-Anker NICHT entschaerft: sie sagt,
 /// dass der ABI-MAJOR die Stempel-Ebene nicht bewegt -- nicht, dass diese Ebene unbeweglich WAERE.
 /// Format-3-Werte: 6667b5bf...91c6c493 (Referenz) und ec3a5ea9...c8ee9cb (leer), in der git-Historie.]
-inline constexpr std::string_view kRefDigestVorC8 = "24ca89055adcb1c5219c9497cfdf121706bcd0d36b908c73204e61ea173fd194"
-                                                    "e5eeac5c519b5f0857acd66c62ac1a7f68db1c86966ca7ac7eac23792eed52b3";
+/// [ZUM DRITTEN MAL EINGEFROREN 2026-08-07, FLAG-GRAMMATIK v2 (Owner-KERN): die Versions-Schreibweise
+/// des REFERENZ-TRIPELS wandert von "@1.0.0c" auf "@1.0.0.c" -- damit aendert sich die EINGABE des
+/// Digests, nicht das Verfahren. Der LEER-Digest bleibt deshalb unberuehrt (er hat keine Versionen im
+/// Preimage), und genau diese Asymmetrie ist der Beleg, dass hier die Zeilen gewandert sind und nicht
+/// die Glied-Struktur. Format-4/R-3-Referenzwert: 24ca8905...173fd194, in der git-Historie.]
+inline constexpr std::string_view kRefDigestVorC8 = "d1ddf922888c7fd15036686c76fa6ad54e6c444323377ea2bec1c828dc0cae3b"
+                                                    "35bf33915610cbce50184c43ef58f4b17e936bc99b8f2d2e59c6ca31ffbe20b0";
 
 /// Der Digest des LEEREN Tripels -- der Zeuge der Glied-STRUKTUR (leere Glieder, aber Separatoren bleiben;
 /// das ist der GA-01-Fix, und er wuerde bei jeder Glied-Umsortierung brechen). Genau deshalb ist er der

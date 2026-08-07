@@ -3,7 +3,7 @@
 // System-ZELLWERTE in der System-Stempel-Zeile.
 //
 // WOZU: bis W10 traegt die System-Zeile NUR die statischen Achsen-CODE-Versionen
-// ("target_isa=code@1.0.0c;..."), nicht die je Bau gewaehlte ZELLE. Zwei Baue derselben Permutation
+// ("target_isa=code@1.0.0.c;..."), nicht die je Bau gewaehlte ZELLE. Zwei Baue derselben Permutation
 // auf verschiedenen OS-Familien oder ISAs bekommen damit denselben SHA512 -- genau die Kollision, die
 // Owner-E3 (Wiederverwendbarkeit/Zuordbarkeit) ausschliesst. W10 ergaenzt den Zellwert als
 // hierarchische Namens-Erweiterung des Algorithmus-Markers ("code" -> "code.<token>"). Der Emitter
@@ -16,8 +16,8 @@
 // byte-unberuehrt, und die Achsen-NAMEN bleiben kanonisch (kSystemAxisOrder-Konsumenten, A14-Guards).
 //
 // ZIEL-FORM (E-1-Default (a), Beispiel prod1):
-//   "target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;external_utils=code@1.0.0c;"
-//   "[simd=code.avx512@1.0.0c]"
+//   "target_isa=code.x86_64@1.0.0.c;operating_system=code.linux@1.0.0.c;external_utils=code@1.0.0.c;"
+//   "[simd=code.avx512@1.0.0.c]"
 // Der Meta-Meta-Anhang bleibt am Realm-Zeilen-ENDE (Owner-E2 / Stempel-KERN 02.08.): dieser
 // Vervollstaendiger fuegt IN Entries ein und haengt NIE ein Segment an.
 //
@@ -96,7 +96,7 @@ static_assert(system_cell_token_is_wellformed(kSystemCellValueNa),
 // keine Token-Zeichen, Grossbuchstaben ebenso wenig -- W10 fuehrt damit beweisbar KEIN neues
 // Versions-Literal ein und braucht keinen Naht-Listen-Eintrag.
 static_assert(!system_cell_token_is_wellformed("1.0.0c"), "ein Token kann keine Version sein ('.' fehlt im Vorrat)");
-static_assert(!system_cell_token_is_wellformed("code@1.0.0c"), "ein Token kann kein '@' tragen");
+static_assert(!system_cell_token_is_wellformed("code@1.0.0.c"), "ein Token kann kein '@' tragen");
 static_assert(!system_cell_token_is_wellformed("X86_64"), "Grossbuchstaben sind eine zweite Schreibweise -- verboten");
 static_assert(!system_cell_token_is_wellformed(""), "ein leeres Token ist kein Token (n/a reist als 'na')");
 

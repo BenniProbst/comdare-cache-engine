@@ -2,14 +2,14 @@
 //
 // **Befund CX-W6:** die Flag-Grammatik-Wachen (parsbar / nie 'e' / Flag-konform + gated ENFORCE) liefen nur
 // ueber die GEFILTERTEN Enabled*-Listen. Deaktiviert-aber-registrierte Varianten (Bestandsfall:
-// Array256SearchAlgo, COMDARE_AXIS_03A_ENABLE_ARRAY256=OFF, algo_version "v1.0.0") trugen weiter ein
-// algo_version-Literal, das KEINE Wache sah -- ein 'e'/falsches Flag bliebe bis zur spaeteren Aktivierung
+// Array256SearchAlgo, COMDARE_AXIS_03A_ENABLE_ARRAY256=OFF, algo_version "1.0.0") trugen weiter ein
+// algo_version-Literal, das KEINE Wache sah -- ein falsches Flag bliebe bis zur spaeteren Aktivierung
 // unentdeckt, und der A13-M3/C4-ENFORCE-Commit haette daran nicht angeschlagen. Der Fix zieht die Wache ueber die
 // VOLLE registrierte Population (guard_all_registered_organ_versions ueber axes26_registered::R* = All*-Listen).
 //
 // **Negativ-Probe (RED vor Fix / GREEN nach Fix):** schon das BAUEN dieser TU instanziiert
 // guard_all_registered_organ_versions() ueber JEDE registrierte Organ-Variante (der Bau IST die Wache; Muster
-// test_reflect_versions_all17). Ein temporaeres "v1.0.0e" an einer DEAKTIVIERTEN Variante (z.B.
+// test_reflect_versions_all17). Ein temporaeres "1.0.0.g" an einer DEAKTIVIERTEN Variante (z.B.
 // axis_03a_search_algo_array256.hpp) braeche NACH dem Fix den Bau dieser TU MIT dem Typ-Namen; VOR dem Fix lief
 // derselbe Bau durch (die deaktivierte Variante war unbewacht). Die Laufzeit-Checks belegen zusaetzlich, dass die
 // Voll-Registry-Population ECHT groesser ist als die Enabled-Tabelle -- deaktivierte Varianten sind jetzt drin.
@@ -59,11 +59,11 @@ TEST(ReflectVersionsAllRegistered, FullRegisteredIsStrictlyLargerThanEnabledTabl
     EXPECT_GT(ex::kAllRegisteredOrganVariantCount, enabled.size())
         << "kein deaktivierter Bestand? dann waere der Befund gegenstandslos -- erwartet: registriert > enabled.";
     // gesunde Untergrenze (der Bestand traegt >100 registrierte Organ-Varianten). Grep-Beleg zum Stand
-    // 06.08.2026 (nach dem 2. Bump): 96x "v1.0.0c" + 2x "v1.0.1c" + 24x "v1.0.2c" == 122 -- der
-    // A1-Wurf-Vertrag hat zunaechst alle 26 Strategien der Allokator-Achse auf "v1.0.1c" gehoben
-    // (1. Bump), danach die 24 Strategien mit eigener reallocate()-Implementierung auf "v1.0.2c"
+    // 06.08.2026 (nach dem 2. Bump): 96x "1.0.0.c" + 2x "1.0.1.c" + 24x "1.0.2.c" == 122 -- der
+    // A1-Wurf-Vertrag hat zunaechst alle 26 Strategien der Allokator-Achse auf "1.0.1.c" gehoben
+    // (1. Bump), danach die 24 Strategien mit eigener reallocate()-Implementierung auf "1.0.2.c"
     // (2. Bump, Owner-Entscheid nach Lens-Pass); PmrResourceAllocator/VampirNfpAllocator (kein eigenes
-    // reallocate()) blieben auf "v1.0.1c" stehen (axis_06_allocator_strategy_base.hpp, Abschnitt
+    // reallocate()) blieben auf "1.0.1.c" stehen (axis_06_allocator_strategy_base.hpp, Abschnitt
     // "A1-VERSIONS-BUMP" / "A1-VERSIONS-BUMP, 2. BUMP"; gepinnt in test_a1_algo_version_pin_alloc_axis).
     // Die frueher hier notierte Zahl "122x v1.0.0c" beschrieb den Stand VOR dem 1. Bump.
     EXPECT_GE(ex::kAllRegisteredOrganVariantCount, 100u);
@@ -75,8 +75,8 @@ TEST(ReflectVersionsAllRegistered, DisabledArray256IsRegisteredAndNowUnderCePoli
     EXPECT_FALSE(::comdare::cache_engine::lookup::Array256SearchAlgo::enabled)
         << "Vorbedingung des Befunds: Array256 ist Default OFF.";
     // seine algo_version steht unter derselben ce-Politik wie jede aktive Variante -- seit A13-M3/C4 traegt
-    // auch sie das CPU-Flag ("v1.0.0c" fuer search_algo; die Allokator-Achse steht seit dem A1-Schnitt auf
-    // "v1.0.1c"), sonst haette die gated ENFORCE-Wache den Bau gebrochen.
+    // auch sie das CPU-Flag ("1.0.0.c" fuer search_algo; die Allokator-Achse steht seit dem A1-Schnitt auf
+    // "1.0.1.c"), sonst haette die gated ENFORCE-Wache den Bau gebrochen.
     EXPECT_TRUE(
         meas::ce_owned_version_is_wellformed(::comdare::cache_engine::lookup::Array256SearchAlgo::algo_version));
 
@@ -116,17 +116,19 @@ TEST(ReflectVersionsAllRegistered, PruefDockVersionsFollowCeFlagGrammar) {
         SCOPED_TRACE(std::string{an::genus_name(g)});
         // (a) jede Ebene-2-Gattung traegt eine bezifferte Dock-Version (kein stiller Leerstempel).
         ASSERT_FALSE(raw.empty()) << "Gattung ohne Dock-Version -- die Mess-Provenienz waere unbeziffert.";
-        // (b) Owner-Q10: das 'v' gehoert ins ROH-Literal.
-        EXPECT_EQ(raw.front(), 'v');
-        // (c) ce-Politik ungated: wohlgeformt und NIE 'e' (Pruefling-Markierung, Owner-E2).
+        // (b) FLAG-GRAMMATIK v2 R1: das 'v'-Praefix ist ERSATZLOS ENTFALLEN. Hier stand bis zum
+        //     Owner-KERN vom 07.08.2026 die Gegen-Zusage (EXPECT_EQ(raw.front(), 'v'), Owner-Q10).
+        EXPECT_EQ(raw.find('v'), std::string_view::npos) << "das Roh-Literal traegt kein 'v' mehr.";
+        // (c) ce-Politik ungated: wohlgeformt (traegt sie Flags, ist 'c' darunter -- Owner-F-10).
         EXPECT_TRUE(meas::ce_owned_version_is_wellformed(raw));
-        // (d) ce-Politik gated: CPU-only-Flotte -> Flag 'c' (Owner-Q3). Dieselbe Wache, die
+        // (d) ce-Politik gated: CPU-only-Flotte -> die CPU-Basis 'c' ist Pflicht. Dieselbe Wache, die
         //     COMDARE_VERSION_HW_FLAG_ENFORCE compile-hart zieht -- hier zusaetzlich zur Laufzeit belegt.
         EXPECT_TRUE(meas::ce_owned_version_satisfies_cpu_enforce(raw));
-        // (e) Render-Neutralitaet: die GERENDERTE Form ist praefixfrei, behaelt aber das Flag.
+        // (e) RENDER-TREUE: rohe und gerenderte Form FALLEN ZUSAMMEN (R1) -- der Stempel traegt das
+        //     Roh-Literal unveraendert, nicht mehr eine um das 'v' verkuerzte Fassung.
         std::string const stamp = pd::pruef_dock_version_stamp(an::genus_name(g), raw);
-        EXPECT_EQ(stamp, std::string{an::genus_name(g)} + "@" + std::string{raw.substr(1)});
-        EXPECT_EQ(stamp.find("@v"), std::string::npos) << "Praefix 'v' darf NICHT in die gerenderte Form (Q10).";
-        EXPECT_EQ(stamp.back(), 'c') << "CPU-only: die gerenderte Version MUSS auf 'c' enden (Q3).";
+        EXPECT_EQ(stamp, std::string{an::genus_name(g)} + "@" + std::string{raw});
+        EXPECT_EQ(stamp.find("@v"), std::string::npos) << "die gerenderte Form traegt nie ein 'v'.";
+        EXPECT_EQ(stamp.back(), 'c') << "CPU-only: die gerenderte Version MUSS die CPU-Basis tragen.";
     }
 }

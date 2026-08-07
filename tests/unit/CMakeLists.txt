@@ -1634,6 +1634,24 @@ foreach(_dt IN LISTS COMDARE_GOALV6_LIGHT_DTESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
+# (a2) Abdeckungs-Gate fuer die Allokator-DOKU-AKTEN (2026-08-07). Eigener Block statt LIGHT_DTESTS-Liste,
+# weil der Test den Aktenpfad als Compile-Define braucht (Muster: test_25_kanon_dataset_akten). Die 23 Akten
+# in algorithm_profiles/allocators/ haben laut ihrem eigenen Kopf-Kommentar BEWUSST keinen Produktions-Leser
+# (#48 Scheibe 2: "kein Code-Leser; Allocator-Wahl = CT-Adapter, Statischer-Dispatch-Doktrin") -- genau darum
+# kann ihr Verfall heute unbemerkt bleiben, obwohl die Thesis-Tabelle tab:allocator-profiles zehn von ihnen
+# namentlich zitiert. Kein Boost, keine generated-Flags: nur der self-contained KF-1-Reader aus libs/common.
+add_executable(test_allocator_profile_bestand "test_allocator_profile_bestand.cpp")
+target_compile_features(test_allocator_profile_bestand PRIVATE cxx_std_23)
+target_include_directories(test_allocator_profile_bestand PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/common")
+comdare_set_platform_defines(test_allocator_profile_bestand)
+target_compile_definitions(test_allocator_profile_bestand PRIVATE
+    "COMDARE_CE_ALLOCATOR_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/allocators\""
+    "COMDARE_CE_ADAPTERS_DIR=\"${PROJECT_SOURCE_DIR}/adapters\"")
+add_test(NAME test_allocator_profile_bestand COMMAND test_allocator_profile_bestand)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_allocator_profile_bestand)
+set_tests_properties(test_allocator_profile_bestand PROPERTIES LABELS "goal_v6;phase_d")
+
 # (b) Container-Gattungs-Tests: brauchen die q1/q2-Achsen-Registries → Boost::mp11 + generated-Flags.
 set(COMDARE_GOALV6_BOOST_DTESTS
     test_container_genus            # #75 Container q2-Slot (in-process)

@@ -128,14 +128,13 @@ concept SystemMetaMetaAxisConcept = CebSystemAxisConcept<A> && is_system_meta_me
 /// COMDARE_VERSION_HW_FLAG_ENFORCE scharf geschaltet -- Migrations-Naht-Liste in algo_semver.hpp).
 ///
 /// A13-M3/C2 (Befund Z-03, Wellen-Zweitpass 03.08.2026): die beiden Zwillinge bauten die ce-Politik
-/// SELBST nach, statt die B12-Single-Source zu rufen -- und zwar LUECKENHAFT. `wohlgeformt` fragte das
-/// 'e' gar nicht ab, `cpu_pflicht` rief version_satisfies_cpu_only_policy, das "v1.0.0ce" erfuellt (die
-/// CPU-Politik ist erfuellt, nur die PRUEFLING-Markierung ist an einer ce-EIGENEN Achse nie zulaessig).
-/// Folge am Ist: `axis_code_version = "v1.0.0ce"` passierte BEIDE Wachen und waere als
-/// Pruefling-Experiment durch Lager und SHA512-Gate gereist. Seit C2 rufen beide die EINE Politik
-/// (ce_owned_version_is_wellformed / ce_owned_version_satisfies_cpu_enforce, algo_semver.hpp B12) --
-/// dieselbe Quelle wie die Organ-Registry und die drei Nicht-Organ-Registries. Wer die Politik aendert,
-/// aendert sie damit an genau EINER Stelle, nie wieder je Registry verschieden.
+/// SELBST nach, statt die B12-Single-Source zu rufen -- und zwar LUECKENHAFT. Seit C2 rufen beide die
+/// EINE Politik (ce_owned_version_is_wellformed / ce_owned_version_satisfies_cpu_enforce,
+/// algo_semver.hpp B12) -- dieselbe Quelle wie die Organ-Registry und die Nicht-Organ-Registries. Wer
+/// die Politik aendert, aendert sie damit an genau EINER Stelle, nie wieder je Registry verschieden.
+/// GENAU DAS HAT SICH BEIM UMBAU AUF DIE FLAG-GRAMMATIK v2 AUSGEZAHLT: die Bedeutung von 'e' hat sich
+/// umgedreht (experimental -> efficiency core), und diese Datei musste dafuer keine Zeile POLITIK
+/// aendern -- nur ihre Proben (s. unten).
 ///
 /// Die M2-Zusatz-Strenge "kein Sentinel" BLEIBT ausdruecklich stehen: B12 laesst das dokumentierte
 /// Sentinel-Literal ungated durch (es ist ein zulaessiger REGISTRY-Eintrag "Version unbekannt"), eine
@@ -161,29 +160,48 @@ template <auto& Lit>
 struct MetaMetaVersionProbe {
     static constexpr std::string_view axis_code_version = Lit;
 };
-inline constexpr std::string_view kProbeVersionCe       = "v1.0.0ce"; // Pruefling-Markierung an ce-Achse
-inline constexpr std::string_view kProbeVersionC        = "v1.0.0c";  // die Ziel-Form nach A13-M3/C4
-inline constexpr std::string_view kProbeVersionFlaglos  = "v1.0.0";   // Negativ-Probe (seit C4 kein Bestand)
-inline constexpr std::string_view kProbeVersionGpu      = "v1.0.0g";  // falsches Hardware-Flag (Owner-Q3)
-inline constexpr std::string_view kProbeVersionSentinel = "v0.0.0";   // dokumentierter Sentinel
-inline constexpr std::string_view kProbeVersionKaputt   = "v1.0";     // unparsbar
+inline constexpr std::string_view kProbeVersionC         = "1.0.0.c";       // die Bestands-/Ziel-Form
+inline constexpr std::string_view kProbeVersionEffizienz = "1.0.0.c{e}";    // efficiency core: LEGITIM (R7)
+inline constexpr std::string_view kProbeVersionFlaglos   = "1.0.0";         // grammatisch ok, CPU-Pflicht fehlt
+inline constexpr std::string_view kProbeVersionGpu       = "1.0.0.g";       // Flags, aber ohne CPU-Basis (F-10)
+inline constexpr std::string_view kProbeVersionSimdOhneC = "1.0.0.x512{f}"; // dito, mit Komposit-Flag
+inline constexpr std::string_view kProbeVersionSentinel  = "0.0.0";         // dokumentierter Sentinel
+inline constexpr std::string_view kProbeVersionKaputt    = "1.0";           // unparsbar (Kurzform)
+inline constexpr std::string_view kProbeVersionAltform   = "v1.0.0c";       // die ALTE Q3-Schreibweise
 } // namespace detail
 
-// -- Z-03-NEGATIV-PROBE (die Luecke, die C2 schliesst): 'ce' an einer ce-EIGENEN Meta-Meta bricht ab jetzt
-//    BEIDE Wachen. Vor C2 passierte dieses Literal beide (Compile-Beweis im Audit + eigene Rotprobe).
-static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionCe>>(),
-              "Z-03: 'e' ist AUSSCHLIESSLICH die Pruefling-Markierung (Owner-E2) und an einer ce-eigenen "
-              "Meta-Meta nie zulaessig -- auch nicht zusammen mit dem CPU-Flag.");
-static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionCe>>(),
-              "Z-03: der gated Zwilling darf 'ce' ebenfalls nie passieren lassen.");
+// -- DIE PROBEN SIND MIT DER FLAG-GRAMMATIK v2 NEU GEDACHT, NICHT UMGESCHRIEBEN ------------------------
+// Die Z-03-Probe hiess bis zur v2 kProbeVersionCe = "v1.0.0ce" und behauptete: "'e' ist AUSSCHLIESSLICH
+// die Pruefling-Markierung und an einer ce-eigenen Meta-Meta nie zulaessig". Diese Aussage ist mit dem
+// Owner-KERN vom 07.08.2026 FALSCH GEWORDEN -- 'e' bedeutet EFFICIENCY CORE. Haette man das Literal bloss
+// auf die neue Schreibweise gezogen, waere die Probe WEITER GRUEN GEBLIEBEN (jetzt am 'v'-Praefix statt
+// am 'e') und haette dabei eine Regel bezeugt, die es nicht mehr gibt: gruen aus dem falschen Grund.
+// Sie ist deshalb ERSETZT durch (1) die POSITIVE Gegenprobe -- ein efficiency-core-Flag MUSS jetzt
+// durchgehen -- und (2) die Probe auf die Regel, die an ihre Stelle getreten ist (Owner-F-10: "traegt
+// mindestens 'c'"), einmal mit einem Einzel- und einmal mit einem Komposit-Flag.
+
+// (1) 'e' IST LEGITIM -- die Umkehrung der alten Z-03-Aussage, als Positiv-Beweis.
+static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionEffizienz>>(),
+              "'e' bedeutet EFFICIENCY CORE (Owner-KERN 07.08.2026) und ist ein Flag wie jedes andere -- "
+              "das Konzept 'experimental' ist ersatzlos deprecated.");
+static_assert(meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionEffizienz>>(),
+              "... und der gated Zwilling laesst es ebenfalls durch: die CPU-Basis 'c' ist da.");
+// (2) DIE REGEL, DIE AN IHRE STELLE GETRETEN IST: Flags ohne CPU-Basis brechen BEIDE Wachen.
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionGpu>>(),
+              "Owner-F-10: traegt eine ce-eigene Achse ueberhaupt Flags, MUSS 'c' darunter sein.");
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionSimdOhneC>>(),
+              "... und das gilt auch fuer ein Komposit-Flag: SIMD ohne CPU-Basis ist keine ce-eigene Version.");
+static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionSimdOhneC>>());
+// (3) DIE ALT-SCHREIBWEISE hat keine Uebergangs-Toleranz -- sie ist schlicht unparsbar.
+static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionAltform>>(),
+              "die Q3-Form 'v1.0.0c' ist ab der v2 kein Sonderfall, sondern unparsbar.");
 // -- Die uebrigen Klassen, damit die Umstellung nicht nur die Luecke, sondern die ganze Politik belegt --
 static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionFlaglos>>(),
               "die flaglose Form bleibt GRAMMATISCH wohlgeformt -- die CPU-PFLICHT setzt die gated Wache durch.");
 static_assert(!meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionFlaglos>>(),
-              "... und bricht genau dann, wenn C4 COMDARE_VERSION_HW_FLAG_ENFORCE scharf schaltet.");
+              "... und bricht genau dort, wo COMDARE_VERSION_HW_FLAG_ENFORCE scharf ist.");
 static_assert(meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionC>>());
 static_assert(meta_meta_version_cpu_pflicht<detail::MetaMetaVersionProbe<detail::kProbeVersionC>>());
-static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionGpu>>());
 static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionSentinel>>(),
               "eine Meta-Meta ist PFLICHT (Owner-E2) und darf nie auf dem Sentinel stehen.");
 static_assert(!meta_meta_version_wohlgeformt<detail::MetaMetaVersionProbe<detail::kProbeVersionKaputt>>());

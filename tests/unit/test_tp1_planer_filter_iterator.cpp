@@ -759,8 +759,8 @@ int main() {
         std::string log;
         {
             CerrCapture fang;
-            ex::mess_pfad_synchron_push(werfen, out / "sX", "v1.0.0c", "binid-X", out, &lager);
-            ex::mess_pfad_synchron_push(geht, out / "sY", "v1.0.0c", "binid-Y", out, &lager);
+            ex::mess_pfad_synchron_push(werfen, out / "sX", "1.0.0.c", "binid-X", out, &lager);
+            ex::mess_pfad_synchron_push(geht, out / "sY", "1.0.0.c", "binid-Y", out, &lager);
             log = fang.text();
         }
         check_true("(8) der gelungene Push lief wirklich", gepusht);

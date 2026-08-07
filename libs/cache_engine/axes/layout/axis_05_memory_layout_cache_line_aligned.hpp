@@ -71,7 +71,7 @@ public:
     /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
     /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
     /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
-    static constexpr std::string_view algo_version = "v1.0.0c";
+    static constexpr std::string_view algo_version = "1.0.0.c";
 
     // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (macht die Layout-Achse F15-operativ).
     // LAYOUT-FIX (X-Abschn.4, 2026-06-04): cache_line_aligned modelliert auf Cache-Line-Grenzen GEPADDETE

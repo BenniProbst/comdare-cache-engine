@@ -63,15 +63,15 @@ namespace {
 // Sie steht hier als Literal, weil der consteval-Weg ein Literal braucht; ihre UEBEREINSTIMMUNG mit dem
 // lebenden cea::system_stamp_line() wird unten zur Laufzeit geprueft -- kein blinder Pin.
 constexpr std::string_view kSystemZeileRoh =
-    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+    "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;external_utils=code@1.0.0.c;[simd=code@1.0.0.c]";
 
 // Das Beispiel-Werte-Set (prod1-Zelle) in der Define-Wertform.
 constexpr SystemCellValues kWerteProd1{"target_isa=x86_64;operating_system=linux;simd=avx512"};
 
 // Die ZIEL-ZEILE des Dossiers (E-1-Default (a)): der Zellwert als hierarchische Namens-Erweiterung des
 // Algorithmus-Markers "code" -> "code.<token>". Achsen-Namen und Versionsteil unangetastet.
-constexpr std::string_view kSystemZeileZiel = "target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;"
-                                              "external_utils=code@1.0.0c;[simd=code.avx512@1.0.0c]";
+constexpr std::string_view kSystemZeileZiel = "target_isa=code.x86_64@1.0.0.c;operating_system=code.linux@1.0.0.c;"
+                                              "external_utils=code@1.0.0.c;[simd=code.avx512@1.0.0.c]";
 
 constexpr auto kFertig =
     cea::complete_system_stamp_line_array<cea::complete_system_stamp_line_size(kSystemZeileRoh, kWerteProd1)>(
@@ -81,10 +81,10 @@ constexpr auto kFertig =
 // Bewusst KURZE, synthetische Organ-/Mess-Zeilen (Praezedenz test_m_w12 A4-POD-Test): geprueft wird
 // die Naht, nicht die Welt. Die SYSTEM-Zeile ist dagegen die reale Form -- sie IST der Prueflings-
 // gegenstand und wird oben gegen das lebende cea::system_stamp_line() abgeglichen.
-#define COMDARE_W10_TEST_ORGAN_LIT "search_algo=k_ary@1.0.0c;filter=bloom@2.3.4c"
+#define COMDARE_W10_TEST_ORGAN_LIT "search_algo=k_ary@1.0.0.c;filter=bloom@2.3.4.c"
 #define COMDARE_W10_TEST_SYSTEM_LIT                                                                                    \
-    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]"
-#define COMDARE_W10_TEST_MEASURE_LIT "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"
+    "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;external_utils=code@1.0.0.c;[simd=code@1.0.0.c]"
+#define COMDARE_W10_TEST_MEASURE_LIT "measurement_tooling=wallclock@1.0.0.c;[load_framework=ycsb@1.0.0.c]"
 
 constexpr std::string_view kOrganLit   = COMDARE_W10_TEST_ORGAN_LIT;
 constexpr std::string_view kMeasureLit = COMDARE_W10_TEST_MEASURE_LIT;
@@ -227,20 +227,20 @@ TEST(W10SystemCellValues, LeeresWerteSetIstDieIdentitaet) {
 // =================================================================================================
 TEST(W10SystemCellValues, VervollstaendigteZeileBleibtGrammatikKonform) {
     // Der volle consteval-Weg (Scanner F1-F6 + Entry-Strenge Z-09) traegt die vervollstaendigte Zeile.
-    static_assert(cea::stamp_line_is_parsable<"target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;"
-                                              "external_utils=code@1.0.0c;[simd=code.avx512@1.0.0c]">,
+    static_assert(cea::stamp_line_is_parsable<"target_isa=code.x86_64@1.0.0.c;operating_system=code.linux@1.0.0.c;"
+                                              "external_utils=code@1.0.0.c;[simd=code.avx512@1.0.0.c]">,
                   "die vervollstaendigte Zeile MUSS die A13-M2-Klammer-Grammatik erfuellen.");
     // ... und der Owner-Q2-Namensraum traegt sie ohne jede Grammatik-Aenderung: '.' VOR dem '@' ist
     // transparenter Namens-Bestandteil, '.' NACH dem '@' bleibt reiner Zahlen-Trenner.
-    static_assert(cea::stamp_line_is_parsable<"target_isa=code.na@1.0.0c;operating_system=code.na@1.0.0c;"
-                                              "external_utils=code@1.0.0c;[simd=code.na@1.0.0c]">,
+    static_assert(cea::stamp_line_is_parsable<"target_isa=code.na@1.0.0.c;operating_system=code.na@1.0.0.c;"
+                                              "external_utils=code@1.0.0.c;[simd=code.na@1.0.0.c]">,
                   "auch die na-Sentinel-Form ist parser-legal.");
 
-    static constexpr char kZiel[] = "target_isa=code.x86_64@1.0.0c;operating_system=code.linux@1.0.0c;"
-                                    "external_utils=code@1.0.0c;[simd=code.avx512@1.0.0c]";
+    static constexpr char kZiel[] = "target_isa=code.x86_64@1.0.0.c;operating_system=code.linux@1.0.0.c;"
+                                    "external_utils=code@1.0.0.c;[simd=code.avx512@1.0.0.c]";
     constexpr auto        se      = cea::parse_stamp_entries<cea::count_stamp_entries(std::string_view{kZiel})>(kZiel);
-    static constexpr char kRoh[]  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
-                                    "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
+    static constexpr char kRoh[]  = "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;"
+                                    "external_utils=code@1.0.0.c;[simd=code@1.0.0.c]";
     constexpr auto        sr      = cea::parse_stamp_entries<cea::count_stamp_entries(std::string_view{kRoh})>(kRoh);
 
     // EINTRAGS-ZAHL unveraendert -- der Zellwert reist IN einem Eintrag, nie als zusaetzliches Segment.
@@ -267,8 +267,13 @@ TEST(W10SystemCellValues, VervollstaendigteZeileBleibtGrammatikKonform) {
         EXPECT_EQ(se[i].reserved, sr[i].reserved) << "Flag-/Ebenen-Bits duerfen sich nicht bewegen (Index " << i << ")";
     }
     static_assert(se[0].x == 1u && se[0].y == 0u && se[0].z == 0u);
-    static_assert(cea::stamp_entry_hardware_flag(se[0]) == cea::StampEntryHardwareFlag::cpu);
-    static_assert(!cea::stamp_entry_is_experimental(se[0]), "'e' bleibt die Pruefling-Markierung, W10 setzt keins.");
+    // FLAG-GRAMMATIK v2: die Flag-Liste reist als HASH (Owner-F-3); die Skalar-Praedikate
+    // stamp_entry_hardware_flag / stamp_entry_is_experimental gibt es nicht mehr. Die Aussage, die diese
+    // beiden Zeilen trugen, ist dieselbe geblieben und wird jetzt am Hash geprueft: W10 fuehrt keine neue
+    // Version und keine neuen Flags ein, also traegt der Eintrag GENAU den Flag-Stand der Roh-Zeile.
+    static_assert(cea::stamp_entry_has_flags(se[0]), "die migrierte System-Version traegt die CPU-Basis.");
+    static_assert(cea::stamp_entry_flags_hash(se[0]) == cea::stamp_entry_flags_hash(sr[0]),
+                  "W10 bewegt den Flag-Stand nicht -- vervollstaendigte und rohe Zeile tragen denselben Hash.");
 
     // STEMPEL-KERN: der Meta-Meta-Anhang bleibt am Realm-Zeilen-ENDE und behaelt seine Ebene.
     static_assert(cea::stamp_entry_meta_level(se[0]) == 0u);
@@ -375,8 +380,8 @@ TEST(W10SystemCellValues, SchluesselMengeIstGegenAchsenOrdnungUndHubGewacht) {
                   "(kein Lager-Rueckschrieb) haengt am eigenen Praedikat, nicht an der Grammatik.");
     EXPECT_EQ(
         cea::complete_system_stamp_line(kSystemZeileRoh, SystemCellValues{"target_isa=na;operating_system=na;simd=na"}),
-        std::string{"target_isa=code.na@1.0.0c;operating_system=code.na@1.0.0c;external_utils=code@1.0.0c;"
-                    "[simd=code.na@1.0.0c]"});
+        std::string{"target_isa=code.na@1.0.0.c;operating_system=code.na@1.0.0.c;external_utils=code@1.0.0.c;"
+                    "[simd=code.na@1.0.0.c]"});
 
     // Der Wert-Lookup ist die EINE Nachschlage-Stelle (keine zweite Ableitung im Renderer).
     static_assert(cea::system_cell_value_for(kWerteProd1.value, "target_isa") == "x86_64");
@@ -434,8 +439,9 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     //     O-2/C-2: im Format-3-Commit NEU eingefroren (Bump 2 -> 3, zwei zusaetzliche Glieder) -- die
     //     AUSSAGE ist unveraendert, nur ihr Zeuge ist der heutige. Alle drei Fundstellen wurden im
     //     SELBEN Commit gedreht (Lehre "gruene Tests zementieren alte Ordnung").
-    constexpr std::string_view kFrozenOrgan = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
-    constexpr std::string_view kFrozenMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+    constexpr std::string_view kFrozenOrgan =
+        "search_algo=k_ary@1.0.0.c;path_compression=path_compression_none@1.0.0.c";
+    constexpr std::string_view kFrozenMeasure = "measurement_tooling=wallclock@1.0.0.c;[load_framework=ycsb@1.0.0.c]";
     // NB/CX-4 END-FORM (06.08.2026, der ZWEITE und LETZTE Neuanker-Dreh des Buendels): der Vektor rechnet
     // ab hier ueber BELEGTE Glieder [5]/[6] -- Literale, byte-gleich zu test_g3_sha512_index.cpp und
     // test_m_w12_stamp_bausteine.cpp. Vorgaenger f8f811a9...9137fb0c, in der git-Historie. Grund: mit der
@@ -443,19 +449,21 @@ TEST(W10SystemCellValues, ZwillingsGleichheitConstevalMakroGegenLaufzeitLagerKey
     // neuen Teil des Preimage nicht ab. LITERALE statt Live-Werte, weil die Live-Werte an Toolchain und
     // Enable-Menge der Maschine haengen (8er-Docker-Matrix).
     constexpr std::string_view kFrozenToolchain =
-        "tc=1;cxx=gcc-16.2.0@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c";
+        "tc=1;cxx=gcc-16.2.0@1.0.0.c;opt=O3{-O3}@1.0.0.c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0.c";
     constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
                                               "simd_extension[{avx512}];"
                                               "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
-    // R-3 (07.08.2026): NEU-ANKER als deklariertes Byte-Ereignis (Format-Bump 3 -> 4, das neunte
-    // Preimage-Glied). BYTE-GLEICH zum Zwilling in test_m_w12_stamp_bausteine.cpp -- der Vektor bleibt
-    // damit das, was er war: EIN Zeuge an drei Fundstellen, alle im SELBEN Commit gedreht (Lehre
-    // "gruene Tests zementieren alte Ordnung"). Der Vektor rechnet ueber den DEFAULT des neunten
-    // Glieds (leer), nicht ueber kMessGatesTuGlied -- sonst haenge er am Bau-Zustand DIESER TU.
-    // Vorgaenger (Format 3): 17148e5a4d0f4a2d...1469cef8ce89374.
+    // FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): NEU-ANKER als deklariertes Byte-Ereignis. Die
+    // Versions-Schreibweise wandert von "@1.0.0c" auf "@1.0.0.c" und bewegt damit die Preimage-Glieder
+    // [1]/[2]/[3] -- der Fingerprint MUSS wandern. BYTE-GLEICH zum Zwilling in
+    // test_m_w12_stamp_bausteine.cpp und test_g3_sha512_index.cpp: der Vektor bleibt das, was er war --
+    // EIN Zeuge an drei Fundstellen, alle im SELBEN Commit gedreht (Lehre "gruene Tests zementieren alte
+    // Ordnung"). Der Vektor rechnet ueber den DEFAULT des neunten Glieds (leer), nicht ueber
+    // kMessGatesTuGlied -- sonst haenge er am Bau-Zustand DIESER TU.
+    // Vorgaenger: Format 3 17148e5a4d0f4a2d...1469cef8ce89374; Format 4 (R-3) 5b18feacb6c7295e...00bac75e.
     constexpr std::string_view kFrozenFingerprintV1 =
-        "5b18feacb6c7295e7d6f0cde6657b21732765942608482a131d5807aa32ba9fc"
-        "9cbcfeb89b0fba48ec13a746d5ae7e470cc5befb296873f375aaa9ea00bac75e";
+        "88f59b9b0da85e34c6be48653867c76a15f1d0a22b241c8f92f5846677224c49"
+        "03fc296f331ea3205046e897403675a2525cc62658e4bfda0cb5771a96125688";
     auto const frozen_glieder =
         cea::anatomy_fingerprint_glieder(kFrozenOrgan, kSystemZeileRoh, kFrozenMeasure,
                                          cea::ToolchainGlied{kFrozenToolchain}, cea::BvsetGlied{kFrozenBvset});

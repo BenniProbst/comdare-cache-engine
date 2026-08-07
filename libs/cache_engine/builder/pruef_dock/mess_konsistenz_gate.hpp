@@ -37,7 +37,7 @@
 //
 // WARUM STRING-GLEICHHEIT UND KEIN MENGEN-VERGLEICH: die Zeile IST die kanonische Form der Mess-Achsen-
 // Wahl (measurement_stamp_line, Section 43/47) und traegt mehr als die Tooling-MENGE -- naemlich die
-// Code-VERSION je Tooling ("@1.0.0c") und den Meta-Meta-Klammer-Anhang ([load_framework=...]). Ein
+// Code-VERSION je Tooling ("@1.0.0.c") und den Meta-Meta-Klammer-Anhang ([load_framework=...]). Ein
 // Mengen-Vergleich wuerde einen Versions-Sprung der Mess-Achse ("neues Messsystem", Owner-KERN F2)
 // GENAU NICHT sehen, obwohl F2 fuer diesen Fall den Neubau aller Binaries verlangt. Ein Zweit-Parser
 // waere ausserdem die Drift-Klasse, gegen die schon die D-1-Naht gebaut ist. Die Zeile ist der Vertrag.
@@ -145,7 +145,7 @@ namespace mess_konsistenz_detail {
 /// Zahl der Mess-HAUPT-Achsen-Segmente einer Stempel-Zeile (Ebene 0 der Klammer-Grammatik).
 ///
 /// FORM DER ZEILE (anatomy_version_stamp.hpp::measurement_stamp_line, A13-M2/Owner-E2):
-///     "measurement_tooling=wallclock@1.0.0c;measurement_tooling=macro@1.0.0c;[load_framework=ycsb@1.0.0c]"
+///     "measurement_tooling=wallclock@1.0.0.c;measurement_tooling=macro@1.0.0.c;[load_framework=ycsb@1.0.0.c]"
 /// Die HAUPT-Achsen stehen als ';'-getrennte Segmente auf Ebene 0; der Meta-Meta-Anhang steht GEKLAMMERT
 /// am ENDE und ist Ebene 1, also KEINE Haupt-Achse. Genau dafuer ist er geklammert -- ohne die Klammer
 /// koennte ein Konsument load_framework nicht von einer Mess-HAUPT-Achse unterscheiden

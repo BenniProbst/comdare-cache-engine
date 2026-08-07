@@ -421,7 +421,7 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     // nannte ihn aber NICHT. Das ist D-1 in klein, eine Ebene tiefer:
     //     Wallclock-Messcode auf high_resolution_clock geaendert + Registry wallclock 1.0.0c -> 2.0.0c
     //     [macro]-TIER-OBJEKT   329e45a0... -> 87bbbce6...   GEAENDERT
-    //     [macro]-Glied [3]     measurement_tooling=macro@1.0.0c;[...]   BYTE-GLEICH
+    //     [macro]-Glied [3]     measurement_tooling=macro@1.0.0.c;[...]   BYTE-GLEICH
     //     [macro]-tier_fp       ab530b58... -> ab530b58...   UNVERAENDERT
     // NENNER + GEGENPROBE (eine nackte Null ist kein Befund): dasselbe Verfahren trennt [macro] von
     // [wallclock] am Objekt (329e45a0 vs c3384d4b), und derselbe Versions-Bump BEWEGT den Fingerprint

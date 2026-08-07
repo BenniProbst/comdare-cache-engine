@@ -2,7 +2,7 @@
 // Regressionsorakel"; NACHTRAG 2026-08-06, Lens-Pass + Owner-Entscheid "2. Bump").
 //
 // DER BEFUND. Der A1-Wurf-Vertrag hat den FEHLSCHLAG-Vertrag der Achse 6 geaendert und deshalb alle 26
-// Strategien von "v1.0.0c" auf "v1.0.1c" gebumpt (1. Bump; Begruendung: axis_06_allocator_strategy_
+// Strategien von "1.0.0.c" auf "1.0.1.c" gebumpt (1. Bump; Begruendung: axis_06_allocator_strategy_
 // base.hpp, Abschnitt "A1-VERSIONS-BUMP"). Der Bump selbst war UNBEWACHT: keine Zeile im Bestand haette
 // gemerkt, wenn er versehentlich zurueckfiele, wenn eine einzelne Strategie ihn nicht mitmachte, wenn
 // eine NEUE Strategie mit dem alten Literal in die Registry kaeme -- oder wenn der Bump gar nicht dort
@@ -24,7 +24,7 @@
 //       ABSICHTLICHEN Nachziehen dieser Datei. Ausgeschrieben statt ueber die Registry gefaltet --
 //       ein Fold ueber mp_for_each faenge zwar dieselben Faelle, benennt beim Bruch aber nicht die
 //       Strategie. Dazu die Registry-Seite: GENAU 26 Vendor, und JEDE traegt genau EINES der beiden
-//       Literale je nach reallocate-Zugehoerigkeit (das faengt die 27. Strategie, die mit "v1.0.0c"
+//       Literale je nach reallocate-Zugehoerigkeit (das faengt die 27. Strategie, die mit "1.0.0.c"
 //       hereinkaeme und in der Namensliste unten fehlte, UND eine Strategie, die die FALSCHE der
 //       beiden Versionen traegt).
 //
@@ -63,13 +63,13 @@ namespace meas = ::comdare::cache_engine::measurement;
 namespace {
 
 /// Das Literal des 2. Bumps -- die 24 Strategien mit eigener reallocate()-Implementierung.
-constexpr std::string_view kA1AllocatorVersionV2 = "v1.0.2c";
+constexpr std::string_view kA1AllocatorVersionV2 = "1.0.2.c";
 
 /// Das Literal des 1. Bumps -- unveraendert fuer die zwei reallocate-losen Strategien (s. Datei-Kopf).
-constexpr std::string_view kA1AllocatorVersionV1 = "v1.0.1c";
+constexpr std::string_view kA1AllocatorVersionV1 = "1.0.1.c";
 
 /// Der Stand VOR dem A1-Schnitt ueberhaupt. Nur fuer den Kontrast in (B); er steht in keiner Quelle mehr.
-constexpr std::string_view kVorA1AllocatorVersion = "v1.0.0c";
+constexpr std::string_view kVorA1AllocatorVersion = "1.0.0.c";
 
 /// Die zwei Strategien OHNE eigenes reallocate() (PMR-Interface bietet das nicht direkt; VampirNfpAllocator
 /// dito) -- sie bekamen den 2. Bump NICHT und stehen weiterhin auf kA1AllocatorVersionV1. Namentlich
@@ -100,39 +100,39 @@ constexpr std::array<std::string_view, 2> kReallocateLoseStrategien{"pmr_resourc
 //     Strategie. 24x kA1AllocatorVersionV2, 2x kA1AllocatorVersionV1 (PmrResourceAllocator,
 //     VampirNfpAllocator -- kein eigenes reallocate()).
 // -------------------------------------------------------------------------------------------------
-static_assert(al::StdMalloc::algo_version == "v1.0.2c");
-static_assert(al::MimallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::SnmallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::PmrResourceAllocator::algo_version == "v1.0.1c", "kein eigenes reallocate() -- kein 2. Bump");
-static_assert(al::JemallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::TCMallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::DlmallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::HoardAllocator::algo_version == "v1.0.2c");
-static_assert(al::SlabAllocator::algo_version == "v1.0.2c");
-static_assert(al::MichaelLockFreeAllocator::algo_version == "v1.0.2c");
-static_assert(al::ScallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::NUMAllocAllocator::algo_version == "v1.0.2c");
-static_assert(al::RPMallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::LRMallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::CAMAAllocator::algo_version == "v1.0.2c");
-static_assert(al::StarMallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::TCMallocWarehouseAllocator::algo_version == "v1.0.2c");
-static_assert(al::HMallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::PIMMallocAllocator::algo_version == "v1.0.2c");
-static_assert(al::CrystallineAllocator::algo_version == "v1.0.2c");
-static_assert(al::ExgenAllocator::algo_version == "v1.0.2c");
-static_assert(al::BuddyAllocator::algo_version == "v1.0.2c");
-static_assert(al::PtMalloc2Allocator::algo_version == "v1.0.2c");
-static_assert(al::VmemMagazinesAllocator::algo_version == "v1.0.2c");
-static_assert(al::PoolResourceAllocator::algo_version == "v1.0.2c");
-static_assert(al::VampirNfpAllocator::algo_version == "v1.0.1c", "kein eigenes reallocate() -- kein 2. Bump");
+static_assert(al::StdMalloc::algo_version == "1.0.2.c");
+static_assert(al::MimallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::SnmallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::PmrResourceAllocator::algo_version == "1.0.1.c", "kein eigenes reallocate() -- kein 2. Bump");
+static_assert(al::JemallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::TCMallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::DlmallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::HoardAllocator::algo_version == "1.0.2.c");
+static_assert(al::SlabAllocator::algo_version == "1.0.2.c");
+static_assert(al::MichaelLockFreeAllocator::algo_version == "1.0.2.c");
+static_assert(al::ScallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::NUMAllocAllocator::algo_version == "1.0.2.c");
+static_assert(al::RPMallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::LRMallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::CAMAAllocator::algo_version == "1.0.2.c");
+static_assert(al::StarMallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::TCMallocWarehouseAllocator::algo_version == "1.0.2.c");
+static_assert(al::HMallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::PIMMallocAllocator::algo_version == "1.0.2.c");
+static_assert(al::CrystallineAllocator::algo_version == "1.0.2.c");
+static_assert(al::ExgenAllocator::algo_version == "1.0.2.c");
+static_assert(al::BuddyAllocator::algo_version == "1.0.2.c");
+static_assert(al::PtMalloc2Allocator::algo_version == "1.0.2.c");
+static_assert(al::VmemMagazinesAllocator::algo_version == "1.0.2.c");
+static_assert(al::PoolResourceAllocator::algo_version == "1.0.2.c");
+static_assert(al::VampirNfpAllocator::algo_version == "1.0.1.c", "kein eigenes reallocate() -- kein 2. Bump");
 
 /// Die Registry-Seite desselben Pins: GENAU 26 Vendor. Waechst die Liste, ist die Namensliste oben
 /// unvollstaendig -- und der naechste Satz faengt, was ihr fehlt.
 static_assert(boost::mp11::mp_size<al::AllVendors>::value == 26);
 
 TEST(A1AlgoVersionPinAllocAxis, JedeRegistrierteStrategieTraegtDieFuerSieErwarteteVersion) {
-    // Deckt die Luecke der Namensliste: eine NEUE Strategie, die mit "v1.0.0c" (oder irgendetwas
+    // Deckt die Luecke der Namensliste: eine NEUE Strategie, die mit "1.0.0.c" (oder irgendetwas
     // anderem als der fuer sie erwarteten Version) in AllVendors kaeme, faellt hier auf -- auch wenn
     // niemand die 26 Zeilen oben ergaenzt. erwartete_allocator_version() ist DIESELBE Zuordnung wie in
     // (A) und im Wirkungs-Pin unten -- eine Stelle, kein zweites Namens-Literal.
@@ -153,23 +153,23 @@ TEST(A1AlgoVersionPinAllocAxis, JedeRegistrierteStrategieTraegtDieFuerSieErwarte
 }
 
 TEST(A1AlgoVersionPinAllocAxis, BeideVersionsLiteraleSindGrammatikalischWohlgeformt) {
-    // Der Pin darf keine Fehlform zementieren: BEIDE Literale muessen die Owner-Q3-Grammatik erfuellen
-    // (dreistellig, GENAU EIN Hardware-Flag, im CPU-Scope 'c', NIE experimentell).
+    // Der Pin darf keine Fehlform zementieren: BEIDE Literale muessen die FLAG-GRAMMATIK v2 erfuellen
+    // (dreistellig, Punkt vor jedem Flag, CPU-Basis 'c' darunter -- Owner-KERN 07.08.2026 / F-10).
     meas::AlgoSemVer const v2 = meas::parse_algo_semver(kA1AllocatorVersionV2);
     EXPECT_FALSE(v2.is_sentinel());
     EXPECT_EQ(v2.x, 1u);
     EXPECT_EQ(v2.y, 0u);
     EXPECT_EQ(v2.z, 2u) << "PATCH-Stelle, 2. Bump: die reallocate-Statistik-Korrektur.";
-    EXPECT_EQ(v2.hardware, meas::HardwareFlag::cpu);
-    EXPECT_FALSE(v2.experimental) << "das 'e'-Suffix ist AUSSCHLIESSLICH die Pruefling-Markierung.";
+    EXPECT_TRUE(v2.has_top_level_flag("c"));
+    EXPECT_EQ(v2.flags.count, 1u) << "der Bestand traegt heute GENAU die CPU-Basis, ohne Sub-Flags.";
     EXPECT_TRUE(meas::ce_owned_version_is_wellformed(kA1AllocatorVersionV2));
     EXPECT_TRUE(meas::ce_owned_version_satisfies_cpu_enforce(kA1AllocatorVersionV2));
 
     meas::AlgoSemVer const v1 = meas::parse_algo_semver(kA1AllocatorVersionV1);
     EXPECT_FALSE(v1.is_sentinel());
     EXPECT_EQ(v1.z, 1u) << "PATCH-Stelle, 1. Bump: der Wurf-Vertrag.";
-    EXPECT_EQ(v1.hardware, meas::HardwareFlag::cpu);
-    EXPECT_FALSE(v1.experimental);
+    EXPECT_TRUE(v1.has_top_level_flag("c"));
+    EXPECT_EQ(v1.flags.count, 1u);
     EXPECT_TRUE(meas::ce_owned_version_is_wellformed(kA1AllocatorVersionV1));
     EXPECT_TRUE(meas::ce_owned_version_satisfies_cpu_enforce(kA1AllocatorVersionV1));
 

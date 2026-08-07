@@ -83,7 +83,7 @@ TEST(ReflectVersionsAll17, ComposeSignatureUsesTableAndValuesetTail) {
 // === W12-A Byte-Wache (§43, Golden-Wache des Versionierungs-Pakets) =================================
 // Die .algos-/Sidecar-Signatur-Serialisierung MUSS fuer ungebumpte Algorithmen BYTE-IDENTISCH bleiben: ein
 // Algorithmus bei X.Y.Z n.0.0 serialisiert WEITERHIN als sein roher algo_version-String (heute "vN"), NIE als
-// die X.Y.Z-Voll-Form ("1.0.0"/"v1.0.0"). Andernfalls invalidiert die W12-Versions-Migration den GESAMTEN
+// die X.Y.Z-Voll-Form ("1.0.0"/"1.0.0"). Andernfalls invalidiert die W12-Versions-Migration den GESAMTEN
 // frisch gebauten 131072er-Cache. compose_algo_signature + AxisVariantVersion::version bleiben unangetastet;
 // die X.Y.Z-Voll-Form lebt AUSSCHLIESSLICH in den neuen Stempel-Zeilen/Planer/Registry (getrennte Welten).
 TEST(ReflectVersionsAll17, W12AByteGuardComposeSerializationRawVersionUnchanged) {
@@ -118,7 +118,7 @@ TEST(ReflectVersionsAll17, W12AOrganStampLineUsesXYZFromTableSeparateFromAlgosSi
     std::vector<std::pair<std::string, std::string>> const axes = {{std::string{e.axis}, e.variant}};
 
     std::string const stamp = ex::compose_organ_stamp_line(axes, table);
-    // X.Y.Z-Voll-Form aus der Tabelle (heute "v1.0.0" -> "1.0.0" nach A1-Migration), NUR Haupt-Achse, KEIN Sub-Schwanz:
+    // X.Y.Z-Voll-Form aus der Tabelle (heute "1.0.0" -> "1.0.0" nach A1-Migration), NUR Haupt-Achse, KEIN Sub-Schwanz:
     std::string const expected = std::string{e.axis} + "=" + e.variant + "@" +
                                  ::comdare::cache_engine::measurement::algo_semver_string(e.version);
     EXPECT_EQ(stamp, expected);

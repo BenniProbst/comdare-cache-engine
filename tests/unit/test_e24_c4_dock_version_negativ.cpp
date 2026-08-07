@@ -19,10 +19,17 @@
 // fehlenden Include. Gefordert ist der BESTIMMTE Bruch an der ENFORCE-Wache, nicht irgendeiner.
 //
 // ERWARTETE DIAGNOSEN (drei, unabhaengig voneinander -- die drei Weisen, eine Dock-Version falsch zu
-// schreiben; alle drei sind am Ist real vorgekommene Fehlerbilder, siehe algo_semver.hpp:604-614):
-//   E24-C4-DOCK-VERSION-NEGATIV-1  flaglose Kurzform "v1.0.0"  -> gated ENFORCE-Wache beisst.
-//   E24-C4-DOCK-VERSION-NEGATIV-2  "v1.0.0e" (Pruefling-Marke) -> schon die UNGATED Politik beisst.
-//   E24-C4-DOCK-VERSION-NEGATIV-3  "v1.0.0g" (fremdes HW-Flag) -> im CPU-only-Scope unzulaessig.
+// schreiben; alle drei sind am Ist real vorgekommene Fehlerbilder, siehe die B12-Batterie in algo_semver.hpp):
+//   E24-C4-DOCK-VERSION-NEGATIV-1  flaglose Form "1.0.0"      -> gated ENFORCE-Wache beisst.
+//   E24-C4-DOCK-VERSION-NEGATIV-2  "v1.0.0c" (Alt-Schreibweise) -> schon die UNGATED Politik beisst.
+//   E24-C4-DOCK-VERSION-NEGATIV-3  "1.0.0.g" (fremdes HW-Flag)  -> im CPU-only-Scope unzulaessig.
+//
+// FALL 2 IST MIT DER FLAG-GRAMMATIK v2 NEU GEDACHT, NICHT UMGESCHRIEBEN: er hiess bis zum Owner-KERN vom
+// 07.08.2026 "v1.0.0e (Pruefling-Marke)" und pruefte, dass ein 'e' an einer ce-eigenen Version verboten
+// ist. Diese Regel gibt es nicht mehr -- 'e' bedeutet EFFICIENCY CORE und ist legitim. Haette man das
+// Literal nur auf die neue Schreibweise gezogen, waere der Bruch geblieben (jetzt am 'v'), aber die
+// Begruendung im Fehlertext waere falsch geworden. An seine Stelle tritt der Fehler, der HEUTE der
+// wahrscheinlichste ist: eine aus der Q3-Welt kopierte Alt-Schreibweise.
 
 #include "builder/pruef_dock/pruef_dock_version.hpp"
 
@@ -38,22 +45,23 @@ namespace meas = ::comdare::cache_engine::measurement;
 ///     GRAMMATISCH wohlgeformt (die ungated Politik laesst sie durch) -- erst die scharfgeschaltete
 ///     ENFORCE-Wache weist sie ab. Genau deshalb waere sie ohne diese Fixture erst im Voll-Bau
 ///     aufgefallen (Risiko R5).
-inline constexpr std::string_view kDockVersionOhneFlag = "v1.0.0";
+inline constexpr std::string_view kDockVersionOhneFlag = "1.0.0";
 
-/// (2) Die Pruefling-Markierung 'e' an einer ce-eigenen Version: compile-VERBOTEN (Owner-E2; 'e' ist
-///     ausschliesslich der Pruefling, LEDGER:3611).
-inline constexpr std::string_view kDockVersionExperimentell = "v1.0.0e";
+/// (2) Die ALTE Q3-Schreibweise: sie ist ab der Flag-Grammatik v2 schlicht UNPARSBAR und faellt damit
+///     schon durch die ungated Politik (Owner: "ich moechte die alten Wege komplett ersetzen" -- es gibt
+///     keine Uebergangs-Toleranz).
+inline constexpr std::string_view kDockVersionAltform = "v1.0.0c";
 
 /// (3) Ein fremdes Hardware-Flag im CPU-only-Scope (Owner-Q3: die Flotte ist CPU-only, alles endet 'c').
-inline constexpr std::string_view kDockVersionFremdesFlag = "v1.0.0g";
+inline constexpr std::string_view kDockVersionFremdesFlag = "1.0.0.g";
 
 static_assert(meas::ce_owned_version_satisfies_cpu_enforce(kDockVersionOhneFlag),
               "E24-C4-DOCK-VERSION-NEGATIV-1: eine Dock-Version OHNE Hardware-Flag muss an der "
               "ENFORCE-Wache brechen -- erwarteter Bruch");
 
-static_assert(meas::ce_owned_version_is_wellformed(kDockVersionExperimentell),
-              "E24-C4-DOCK-VERSION-NEGATIV-2: eine ce-eigene Dock-Version darf NIE die "
-              "Pruefling-Markierung 'e' tragen -- erwarteter Bruch");
+static_assert(meas::ce_owned_version_is_wellformed(kDockVersionAltform),
+              "E24-C4-DOCK-VERSION-NEGATIV-2: die Q3-Alt-Schreibweise 'v1.0.0c' ist unparsbar und damit "
+              "kein zulaessiges Dock-Versions-Literal -- erwarteter Bruch");
 
 static_assert(meas::ce_owned_version_satisfies_cpu_enforce(kDockVersionFremdesFlag),
               "E24-C4-DOCK-VERSION-NEGATIV-3: im CPU-only-Scope ist ein fremdes Hardware-Flag "

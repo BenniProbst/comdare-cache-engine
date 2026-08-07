@@ -160,24 +160,24 @@ TEST(D4CebSchluesselWahl, GleicheComboLiefertDenselbenSchluesselUeberZweiUnabhae
 // Vor-D-4-Stand. Dieser Anker haelt genau das fest: waere die Vollmengen-Zeile je gewandert, waeren alle
 // bestehenden ceb_key_sha512 entwertet, und das MUSS ein deklariertes Byte-Ereignis sein, kein Nebeneffekt.
 TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
-    // R-3 (07.08.2026) -- NEU-ANKER, UND ZWAR ALS DAS DEKLARIERTE BYTE-EREIGNIS, DAS DIESER TEST FORDERT.
+    // FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026) -- NEU-ANKER ALS DAS DEKLARIERTE BYTE-EREIGNIS, DAS
+    // DIESER TEST FORDERT.
     //
-    // Der Format-Bump 3 -> 4 (das neunte Preimage-Glied "mess-gates", abi/mess_gates_glied.hpp) bewegt das
-    // ERSTE Preimage-Glied und haengt ein neuntes an. kCebFingerprintFor rechnet ueber
-    // anatomy_fingerprint_hex, also zwangslaeufig mit. DAS WAR VORHERGESAGT UND IST GEWOLLT: dieser Test
-    // ist die Wache, die verhindert, dass es STILL geschieht -- er ist am R-3-Bau ROT geworden, der alte
-    // und der neue Wert stehen im Scheiben-Protokoll, und der neue ist aus dem literalen Testlauf
-    // uebernommen, nicht vorausberechnet.
-    //   Vor-D-4/Format-3-Wert (HISTORIE): 004251f467c004a88feb5e12af2382ee...80283ce71475cfc478a41f00f76c8d8
+    // Die CEB-Mess-Array-Zeile rendert die Tooling-Versionen; deren Schreibweise wandert von "@1.0.0c"
+    // (Q3) auf "@1.0.0.c" (v2, Punkt vor jedem Flag). kCebFingerprintFor rechnet ueber
+    // anatomy_fingerprint_hex ueber genau diese Zeile, also zwangslaeufig mit. DAS WAR VORHERGESAGT UND
+    // IST GEWOLLT: dieser Test ist die Wache, die verhindert, dass es STILL geschieht -- er ist am
+    // v2-Bau ROT geworden, und der neue Wert ist aus dem literalen Testlauf uebernommen, nicht
+    // vorausberechnet.
+    //   HISTORIE: Format 3 004251f467c004a88f...f76c8d8; Format 4 (R-3) db7bac00b3de6eef05...aa832234
     //
-    // WARUM DAS TRAGBAR IST: ceb_key_sha512 hat GEMESSEN null Lese-Stellen (ceb_version_stamp.hpp:81-84 --
-    // reine Provenienz; die Suche nach einem Vergleich auf dem Feld liefert 0 Treffer in libs/, apps/ und
+    // WARUM DAS TRAGBAR IST: ceb_key_sha512 hat GEMESSEN null Lese-Stellen (ceb_version_stamp.hpp -- reine
+    // Provenienz; die Suche nach einem Vergleich auf dem Feld liefert 0 Treffer in libs/, apps/ und
     // tests/). Alt-Bestandslog-Zeilen behalten ihren alten Schluessel und werden von niemandem
     // gegengerechnet. Der Alt-Bestand wird nicht ENTWERTET, er wird nur nicht mehr fortgeschrieben.
-    // Der Sidecar-Bestand, der am Fingerprint haengt, ist im Fenster dieses Commits literal 0.
     constexpr std::string_view kFormat4Vollmenge =
-        "db7bac00b3de6eef05d3ce898f6f98d163171cc33319b2e2e50bbe25c62bbd443ce6c1356d906a64bf49d974f5a5c927"
-        "546587fc5381795ebd79bacbaa832234";
+        "9f8802514f7a5e5ee4a4229844d83eaabf0b8860652691a2238819e346bcd48b223b297f057b7ea747cf6cac993cd7ad"
+        "a926af71de1fd9ea188e09176f5c4fe8";
     EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat4Vollmenge)
         << "Der Vollmengen-Schluessel ist gewandert -- damit sind ALLE bestehenden Bestandslog-Eintraege "
            "entwertet. Das ist erlaubt, aber nur als deklariertes Byte-Ereignis mit Owner-Entscheid, nie "
