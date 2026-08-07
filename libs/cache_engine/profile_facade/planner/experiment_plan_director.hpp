@@ -106,14 +106,33 @@ struct PlanMeasurementCombo {
     std::string              legend;     // kanonische [a,b,c]-HAUPT-Kurzform (legend::measurement_tooling_combo)
 };
 
-/// S5-P1 (P-VOLLZUG, 2026-07-20): die vom Planer aufgeloeste Build-/Mess-Semantik der S5-Mess-Strecke (die measure-
-/// Methodik der run_methodology_registry). Der Tier-Emitter speist daraus CMAKE_BUILD_TYPE (Tier-Bau + Mess-Job)
-/// und die 1-Thread-Politik (COMDARE_BUILD_PARALLEL im Mess-Job). Default = measure-Semantik (Release/misst/1-Thread)
-/// => byte-identisch zum Vor-S5-tier:build. GOLDEN/binary_id-NEUTRAL: reine Bau-/Mess-Matrix, KEIN Stempel.
+/// S5-P1 (P-VOLLZUG, 2026-07-20): die vom Planer aufgeloeste Build-/Mess-Semantik der S5-Mess-Strecke -- die Zeile
+/// der AKTIVEN Methodik aus der run_methodology_registry. Default = measure-Semantik (Release/misst/1-Thread) =>
+/// byte-identisch zum Vor-S5-tier:build. GOLDEN/binary_id-NEUTRAL: reine Bau-/Mess-Matrix, KEIN Stempel.
+///
+/// WER SIE LIEST -- gezaehlt, nicht behauptet (Welle B/3, 2026-08-07; Nenner: ALLE Zugriffe der Form
+/// header_.build_semantic.* im Repo, 8 Stueck):
+///     cmake_build_type   8 Leser (Tier-Emitter: -DCMAKE_BUILD_TYPE, COMDARE_BUILD_TYPE-Env, (j3)-Dual-Compile)
+///     measurement_on     0 Leser
+///     single_thread      0 Leser
+/// Die beiden letzten werden GESCHRIEBEN UND NIE GELESEN. Sie bleiben trotzdem stehen und sind ausdruecklich NICHT
+/// zurueckgebaut: sie sind der benannte S6-Konsum (der per-Methodik-Fanout {debug,measure,release} zu N
+/// Mess-Strecken). Ein stiller Rueckbau von etwas Gemeintem waere teurer als ein totes Feld. Was NICHT bleibt, ist
+/// die Behauptung, sie wuerden gelesen -- die stand bis zum 07.08.2026 hier und liess ein Phantom wie eine
+/// Verdrahtung aussehen.
+///
+/// WARUM DER EMITTER measurement_on HEUTE NICHT BRAUCHT (und warum man es nicht beilaeufig "nachverdrahten" darf,
+/// ohne den Fanout zu bauen): der Emitter verzweigt auf cmake_build_type == "Debug" -- das ist die BAU-Frage
+/// (Reuse-Schluessel, (j3)-Vorlauf, ARTEFAKT_TRIES), nicht die Mess-Frage. Die Mess-Frage stellt die Runtime-Naht,
+/// und die liest die REGISTRY-Zeile direkt (measure_parallelism.hpp: !m.measurement_on || m.single_thread =>
+/// 1-Thread), nicht diesen Plan-seitigen Spiegel. Der Spiegel ist deshalb heute reine Plan-Annotation. Damit er als
+/// Annotation nicht still falsch werden kann, nagelt ihn eine Wache je Modus an die Registry-Zeile
+/// (test_experiment_plan_director: PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus).
 struct PlanBuildSemantic {
     std::string cmake_build_type = "Release"; // CMAKE_BUILD_TYPE des Tier-Baus/Mess-Baus (measure => "Release")
-    bool        measurement_on   = true;      // misst das Profil (measure/debug: true; nur-release: false) -- S6-Konsum
-    bool        single_thread    = true;      // 1-Thread-deterministischer Mess-Vollzug (Section 38.b)
+    bool        measurement_on   = true;      // misst das Profil (measure/debug: true; release/compare: false)
+                                              // -- 0 Leser, reserviert fuer den S6-Fanout (s.o.)
+    bool single_thread = true; // 1-Thread-deterministischer Mess-Vollzug (Section 38.b) -- 0 Leser, S6 (s.o.)
 };
 
 /// Kopf des Plans: Provenienz (Quelle/Profil) + Perm-Zahl + Registry-Trio-Annotation.
@@ -152,8 +171,10 @@ struct PlanHeader {
     // trio). resolved=false (INERT-Default) wenn der Director OHNE volles RegistryTrio konstruiert wurde; sonst
     // ok=true bei organ-reinem Profil (0 Rejects). binary_id-neutral -- reine Plan-Kopf-Annotation (kein Filter).
     tlz::ResolverReport resolver;
-    // S5-P1: die aufgeloeste Build-/Mess-Semantik (measure-Methodik). Nur der Tier-Emitter (emit_batch_build_job /
-    // emit_batch_measure_job) liest sie; die uebrigen Builder rendern sie NICHT (=> ihre Emission unveraendert). Default
+    // S5-P1: die aufgeloeste Build-/Mess-Semantik (Zeile der aktiven Methodik). Nur der Tier-Emitter
+    // (emit_batch_targets / emit_batch_*_job) greift ueberhaupt zu, und AUSSCHLIESSLICH auf cmake_build_type; die
+    // uebrigen Builder rendern sie NICHT (=> ihre Emission unveraendert). measurement_on/single_thread haben heute
+    // 0 Leser und sind fuer den S6-Fanout reserviert -- die Zaehlung steht an der Struct-Doku. Default
     // (measure => Release) haelt den tier:build-Teil byte-identisch zu HEAD.
     PlanBuildSemantic build_semantic;
 };
@@ -1968,9 +1989,11 @@ private:
     // S5-P1 (P-VOLLZUG): die Build-/Mess-Semantik der S5-Mess-Strecke aus dem A9.1-Feld run_methodology. Der Planer
     // waehlt fuer die Mess-Strecke die measure-Methodik (run_methodology_registry-Single-Source: Release / misst /
     // 1-Thread-deterministisch, §38.b); cmake_build_type/single_thread stammen IMMER aus dieser Zeile => tier:build
-    // byte-identisch zum Vor-S5-Verhalten (Default-Release). Das Feld wird gelesen: measurement_on spiegelt, ob das
-    // Profil ueberhaupt misst (leer ODER measure/debug deklariert => ja; NUR release => nein, reiner Referenz-
-    // Durchsatz -- S6-Konsum). Der per-Methodik-Fanout {debug,measure,release} zu N Mess-Strecken ist S6.
+    // byte-identisch zum Vor-S5-Verhalten (Default-Release). measurement_on spiegelt, ob das Profil ueberhaupt misst
+    // (leer ODER measure/debug deklariert => ja; NUR release/compare => nein, reiner Referenz-Durchsatz).
+    // ES WIRD HEUTE VON NIEMANDEM GELESEN: hier stand bis zum 07.08.2026 der Satz "Das Feld wird gelesen" -- er war
+    // falsch (0 Leser, nachgezaehlt ueber alle header_.build_semantic-Zugriffe, s. Struct-Doku). Der Konsument ist
+    // der per-Methodik-Fanout {debug,measure,release} zu N Mess-Strecken, und der ist S6.
     [[nodiscard]] static PlanBuildSemantic
     build_semantic_of_run_methodology(std::vector<std::string> const& run_methodology) {
         // §61-STUFEN/(j2): GENAU EIN aktiver Modus je Profil (validate erzwingt exactly-one, j1). Die Build-Semantik
@@ -1983,14 +2006,12 @@ private:
             throw std::invalid_argument(
                 "build_semantic_of_run_methodology: " + std::to_string(run_methodology.size()) +
                 " Modi deklariert -- GENAU EINER erlaubt (exactly-one je Call, Ledger 61-STUFEN).");
-        auto const info_for = [](std::string const& id) -> cm::RunMethodologyInfo const& {
-            for (std::size_t i = 0; i < cm::kRunMethodologyCount; ++i)
-                if (cm::kRunMethodologyRegistry[i].id == id) return cm::kRunMethodologyRegistry[i];
-            return cm::run_methodology_info(cm::RunMethodology::Measure); // unbekannt => measure-Default
-        };
-        cm::RunMethodologyInfo const& m = run_methodology.empty()
-                                              ? cm::run_methodology_info(cm::RunMethodology::Measure)
-                                              : info_for(run_methodology.front());
+        // Welle B/1 (2026-08-07) FAIL-CLOSED + SINGLE-SOURCE: die Token-Aufloesung (leer => measure-Default,
+        // unbekannt => HARTER Fehler) steht ab jetzt EINMAL in der Registry (run_methodology_for_ids). Hier stand
+        // bis heute eine ZWEITE, eigene Suchschleife, die ein unbekanntes Token STILL auf measure warf -- ein
+        // Tippfehler im Profil emittierte damit eine vollstaendige Mess-Strecke, die niemand angefordert hat.
+        // Die >1-Wache bleibt HIER (eigene, den Planer nennende Meldung); die Registry wiederholt sie nur.
+        cm::RunMethodologyInfo const& m = cm::run_methodology_for_ids(run_methodology);
         return PlanBuildSemantic{std::string(m.cmake_build_type), m.measurement_on, m.single_thread};
     }
 

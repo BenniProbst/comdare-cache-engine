@@ -505,6 +505,62 @@ TEST(Od11NumaCpuPinProcessProbe, StrukturbruecheInDerListeBleibenQuelleKorrupt) 
     EXPECT_EQ(grenzfall->front(), cem::kMaxCpuId);
 }
 
+// -- Welle B/2 (2026-08-07): der Id-Deckel als ABGESCHLOSSENES Intervall [0, kMaxCpuId] -----------
+// Der Bestandstest direkt darueber belegt am Objekt, dass kMaxCpuId die groesste ZULAESSIGE Id ist und
+// nicht die erste unzulaessige. Die Darwin-Zelle rechnete bis heute basis+anzahl gegen den Deckel statt
+// basis+anzahl-1 -- ein Block, dessen LETZTE Id genau kMaxCpuId ist, fiel damit als QuelleKorrupt
+// heraus, obwohl jede seiner Ids zulaessig ist. Diese Wachen nageln die Rechnung fest; sie laufen als
+// static_assert, also auf jeder Bau-Plattform und ohne Darwin.
+static_assert(cem::detail::numa_cpu_pin_process_cpu_id_block_fits(0, 1), "ein einzelner Kern passt immer");
+static_assert(cem::detail::numa_cpu_pin_process_cpu_id_block_fits(0, static_cast<std::uint64_t>(cem::kMaxCpuId) + 1U),
+              "der volle Id-Raum 0..kMaxCpuId passt (kMaxCpuId+1 Ids)");
+static_assert(cem::detail::numa_cpu_pin_process_cpu_id_block_fits(cem::kMaxCpuId, 1),
+              "die Ober-Id allein passt -- sie ist zulaessig, nicht die erste unzulaessige");
+static_assert(!cem::detail::numa_cpu_pin_process_cpu_id_block_fits(cem::kMaxCpuId, 2), "eine Id zu viel passt nicht");
+static_assert(!cem::detail::numa_cpu_pin_process_cpu_id_block_fits(0, 0),
+              "'n/a statt Null': ein leerer Block ist kein passender Block");
+// DER OFF-BY-ONE SELBST, als Paar: der Block endet exakt auf kMaxCpuId und ist damit zulaessig -- die
+// ALTE Formel (basis+anzahl > kMaxCpuId) haette ihn abgewiesen, wie die zweite Zeile vorrechnet.
+static_assert(cem::detail::numa_cpu_pin_process_cpu_id_block_fits(static_cast<std::uint64_t>(cem::kMaxCpuId) - 1U, 2));
+static_assert(static_cast<std::uint64_t>(cem::kMaxCpuId) - 1U + 2U > static_cast<std::uint64_t>(cem::kMaxCpuId),
+              "Alt-Formel-Nachweis: basis+anzahl ueberschreitet den Deckel, basis+anzahl-1 nicht.");
+
+TEST(Od11NumaCpuPinProcessProbe, DarwinPerflevelKarteRespektiertDenIdDeckelExakt) {
+    // Der reale Apple-Silicon-Fall: zwei Ebenen, perflevel0 == P (schnellste zuerst, nicht sortiert).
+    auto const hybrid = cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({4, 6});
+    ASSERT_TRUE(hybrid.has_value());
+    EXPECT_EQ(hybrid->source, cem::CoreTopologySource::DarwinPerflevel);
+    ASSERT_EQ(hybrid->groups.size(), 2u);
+    EXPECT_EQ(hybrid->groups[0].kind, cem::CoreClassKind::HoheLeistung);
+    EXPECT_EQ(hybrid->groups[1].kind, cem::CoreClassKind::HoheEffizienz);
+    EXPECT_EQ(hybrid->groups[0].cpu_ids, (std::vector<std::uint32_t>{0, 1, 2, 3}));
+    EXPECT_EQ(hybrid->groups[1].cpu_ids, (std::vector<std::uint32_t>{4, 5, 6, 7, 8, 9}));
+
+    // Eine Ebene (Intel-Mac): Homogen/Uniform -- NICHT DarwinPerflevel, die Quelle traegt keine Klassen.
+    auto const uniform = cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({8});
+    ASSERT_TRUE(uniform.has_value());
+    EXPECT_EQ(uniform->source, cem::CoreTopologySource::Homogen);
+    ASSERT_EQ(uniform->groups.size(), 1u);
+    EXPECT_EQ(uniform->groups[0].kind, cem::CoreClassKind::Uniform);
+
+    // DER GRENZFALL: die zweite Ebene endet auf GENAU kMaxCpuId. Zulaessig -- der Alt-Stand wies ihn ab.
+    auto const rand = cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({cem::kMaxCpuId, 1});
+    ASSERT_TRUE(rand.has_value()) << "letzte Id == kMaxCpuId ist zulaessig (Off-by-one der macOS-Zelle)";
+    ASSERT_EQ(rand->groups.size(), 2u);
+    EXPECT_EQ(rand->groups[1].cpu_ids.back(), cem::kMaxCpuId);
+    // Und einer mehr ist es nicht: die letzte Id waere kMaxCpuId+1.
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({cem::kMaxCpuId, 2}),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt);
+
+    // Die uebrigen K4-Klassen der Ableitung, jede einzeln belegt.
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({}),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt); // keine Ebene
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({4, 0}),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt); // Ebene ohne Prozessoren
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_perflevel_core_classes({1, 1, 1}),
+                        cem::HardwareProbeErrorClass::FormatUnbekannt); // mehr Ebenen als das Vokabular traegt
+}
+
 TEST(Od11NumaCpuPinProcessProbe, UnbrauchbareCacheGroesseWirdKlassifiziert) {
     // Ohne den K-Suffix ist es nicht das sysfs-Format -- NIE interpretieren.
     expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cache_size("32768"),

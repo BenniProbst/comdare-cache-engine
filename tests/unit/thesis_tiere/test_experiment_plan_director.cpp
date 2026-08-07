@@ -2442,9 +2442,9 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
         << "(R5) tp-Pfad: build_semantic_of_run_methodology bricht bei >1 Modi HART ab (kein stilles front())";
 
     // Runtime-Konsum (Mess-Loop-Naht, resolve_measure_parallelism -> run_methodology_for_ids): wirft ebenfalls bei >1.
-    EXPECT_THROW(mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
         << "(R5) run_methodology_for_ids bricht bei >1 Methoden HART ab";
-    EXPECT_THROW(mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
 
     // exactly-one bleibt gueltig + byte-neutral (kein Fehlalarm):
     EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
@@ -2454,6 +2454,96 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
     tp1->run_methodology = {"measure"};
     planner::TierCmakeGraphBuilder cm_one;
     EXPECT_NO_THROW(director.construct(*tp1, cm_one)) << "(R5) exactly-one-Profil baut normal (byte-neutral)";
+}
+
+// (Welle B/1, 2026-08-07) FAIL-CLOSED beim UNBEKANNTEN Modus-Token. Bis heute fiel ein Tippfehler ("mesure") auf
+// BEIDEN Konsum-Ebenen STILL auf measure zurueck -- der Planer emittierte daraufhin eine vollstaendige measure-
+// Mess-Strecke, also eine MESSUNG, die niemand angefordert hat. Leer bleibt der Default (Abwesenheit ist eine
+// Aussage), ein falsch geschriebener Wunsch ist es NICHT.
+TEST(MeasurementModi61, UnknownModeTokenFailsClosedInsteadOfSilentMeasure) {
+    namespace mm = comdare::cache_engine::measurement;
+    planner::ExperimentPlanDirector const director;
+
+    // (1) Runtime-Konsum (Mess-Loop-Naht, run_methodology_for_ids). Der (void)-Cast: die Funktion ist [[nodiscard]],
+    // und die Rueckgabe interessiert im Wurf-Fall nicht (sonst -Wunused-result).
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"mesure"}), std::invalid_argument);
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"profiling"}), std::invalid_argument);
+    EXPECT_THROW((void)mm::run_methodology_for_ids({""}), std::invalid_argument) << "leeres TOKEN != leere Liste";
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"Measure"}), std::invalid_argument)
+        << "Tokens sind klein geschrieben";
+    // SPRECHEND, nicht nur hart: die Meldung nennt das Token UND die gueltige Menge aus der Registry.
+    try {
+        (void)mm::run_methodology_for_ids({"mesure"});
+        ADD_FAILURE() << "unbekannter Token muss werfen";
+    } catch (std::invalid_argument const& e) {
+        std::string const msg = e.what();
+        EXPECT_NE(msg.find("mesure"), std::string::npos) << msg;
+        EXPECT_NE(msg.find("debug, measure, release, compare"), std::string::npos) << msg;
+    }
+
+    // (2) Planer-Konsum (build_semantic_of_run_methodology via construct()) -- KEINE Emission mehr aus Tippfehlern.
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->run_methodology = {"mesure"};
+    planner::TierCmakeGraphBuilder cm_bogus;
+    EXPECT_THROW(director.construct(*tp, cm_bogus), std::invalid_argument)
+        << "tp-Pfad: unbekannter Token bricht HART ab (kein stiller measure-Ersatz)";
+
+    // Gegenprobe (byte-neutral, kein Fehlalarm): die VIER gueltigen Tokens und die leere Liste tragen unveraendert.
+    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
+    EXPECT_EQ(mm::run_methodology_for_ids({"measure"}).methodology, mm::RunMethodology::Measure);
+    EXPECT_EQ(mm::run_methodology_for_ids({"release"}).methodology, mm::RunMethodology::Release);
+    EXPECT_EQ(mm::run_methodology_for_ids({"compare"}).methodology, mm::RunMethodology::Compare);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure) << "leer => measure-Default";
+    auto tp_ok = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp_ok.has_value());
+    tp_ok->run_methodology = {"compare"};
+    planner::TierCmakeGraphBuilder cm_ok;
+    EXPECT_NO_THROW(director.construct(*tp_ok, cm_ok)) << "gueltiger Token baut normal";
+}
+
+// (Welle B/3, 2026-08-07) DER PLAN-SEITIGE SPIEGEL DER REGISTRY-ZEILE.
+// Befund am Objekt: PlanBuildSemantic::measurement_on und ::single_thread haben NULL produktive Leser -- alle acht
+// Zugriffe der Form header_.build_semantic.* im Repo lesen cmake_build_type. Beide Felder bleiben stehen (S6-Konsum,
+// s. Struct-Doku); ein stiller Rueckbau waere schlimmer als ein totes Feld. Damit ein ungelesenes Feld aber nicht
+// STILL falsch werden kann -- niemand merkt es ja -- nagelt diese Wache den Spiegel je Modus an die Registry-Zeile,
+// aus der er stammt. Wer die Registry aendert und den Planer vergisst (oder umgekehrt), faellt hier auf, statt dem
+// spaeteren S6-Fanout einen falschen Wert zu vererben.
+TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus) {
+    namespace mm = comdare::cache_engine::measurement;
+    planner::ExperimentPlanDirector const director;
+
+    auto semantik_fuer = [&director](std::vector<std::string> const& methodik) {
+        auto tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+        EXPECT_TRUE(tp.has_value());
+        tp->run_methodology = methodik;
+        CountingBuilder b;
+        director.construct(*tp, b);
+        return b.header.build_semantic;
+    };
+
+    for (std::size_t i = 0; i < mm::kRunMethodologyCount; ++i) {
+        auto const& zeile = mm::kRunMethodologyRegistry[i];
+        auto const  sem   = semantik_fuer({std::string(zeile.id)});
+        EXPECT_EQ(sem.cmake_build_type, std::string(zeile.cmake_build_type)) << zeile.id;
+        EXPECT_EQ(sem.measurement_on, zeile.measurement_on) << zeile.id;
+        EXPECT_EQ(sem.single_thread, zeile.single_thread) << zeile.id;
+    }
+
+    // Leer => die measure-Zeile (Abwesenheit ist der Default, kein eigener Zustand).
+    auto const& measure = mm::run_methodology_info(mm::RunMethodology::Measure);
+    auto const  leer    = semantik_fuer({});
+    EXPECT_EQ(leer.cmake_build_type, std::string(measure.cmake_build_type));
+    EXPECT_EQ(leer.measurement_on, measure.measurement_on);
+    EXPECT_EQ(leer.single_thread, measure.single_thread);
+
+    // Und die Unterscheidungs-Probe, ohne die der Spiegel-Test nichts messen wuerde: measurement_on traegt NICHT
+    // ueber alle Modi denselben Wert. Ein Feld, das immer gleich ist, waere auch als Annotation wertlos.
+    EXPECT_TRUE(semantik_fuer({"debug"}).measurement_on);
+    EXPECT_FALSE(semantik_fuer({"release"}).measurement_on);
+    EXPECT_FALSE(semantik_fuer({"compare"}).measurement_on);
+    EXPECT_TRUE(semantik_fuer({"measure"}).single_thread);
+    EXPECT_FALSE(semantik_fuer({"debug"}).single_thread);
 }
 
 // (smoke=>debug-Entkopplung 2026-07-22): der Director-Methodik-Override entkoppelt Bau-Profil != Methodik-Profil.
