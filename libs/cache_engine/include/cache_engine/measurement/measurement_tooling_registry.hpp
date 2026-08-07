@@ -67,16 +67,17 @@ namespace detail {
 }
 } // namespace detail
 static_assert(detail::tooling_versionen_wohlgeformt(),
-              "Mess-Tooling-Version verletzt die ce-Registry-Politik: (a) sie ist UNPARSBAR (und nicht der "
-              "dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
-              "(b) sie traegt das experimentelle 'e' (das ist AUSSCHLIESSLICH die Pruefling-Markierung, "
-              "Owner-E2 02.08.2026); oder (c) sie traegt ein FALSCHES Hardware-Flag (im CPU-only-Scope ist "
-              "GENAU 'c' bzw. 'ce' zulaessig, Owner-Q3 02.08.2026)");
+              "Mess-Tooling-Version verletzt die ce-Registry-Politik -- DREI moegliche Gruende: (a) sie ist "
+              "UNPARSBAR (und nicht der dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde still "
+              "als @0.0.0 stempeln; oder (b) sie traegt Flags, aber 'c' ist nicht darunter (g/f/n sind "
+              "reserviert, nicht produziert -- Owner-F-10 07.08.2026); oder (c) ein Flag-Token steht NICHT "
+              "im Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, flag_grammar_catalog.hpp)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::tooling_versionen_cpu_pflicht(),
-              "Mess-Tooling-Version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede Version "
-              "auf 'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
-              "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+              "Mess-Tooling-Version ohne CPU-Flag: im CPU-only-Scope MUSS jede Version 'c' unter ihren Flags "
+              "tragen (Owner-Q3 02.08.2026 / F-10 07.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf. "
+              "HINWEIS zur Historie: 'e' ist seit der Flag-Grammatik v2 EFFICIENCY CORE und damit legitim -- "
+              "der frueher hier genannte Term \"NIE experimentell\" ist gegenstandslos");
 #endif
 
 namespace detail {
