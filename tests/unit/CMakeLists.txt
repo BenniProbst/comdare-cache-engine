@@ -1284,6 +1284,17 @@ target_include_directories(test_heuristik_spline_break_even PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 target_link_libraries(test_heuristik_spline_break_even PRIVATE Boost::mp11)
 
+# T-10 (2026-08-07): Workload-Cluster-Bildung, OFFLINE-Haelfte (Merkmalsvektor + Normalisierung +
+# agglomerative Hierarchie + k-Means-Verfeinerung + k-Wahl-Diagnostik). Plan-Quelle: super
+# docs/audits/20260709-workload-cluster-research-BEFUND.md. Header-only, reine std -> KEIN Boost.
+# Der Test belegt zusaetzlich die Concept-Naht gegen das reale WorkloadProfileAggregate aus
+# builder/cacheline_policy/cacheline_policy_selector.hpp -> Include-Root libs/cache_engine.
+comdare_add_test(test_heuristik_workload_cluster
+    SOURCES test_heuristik_workload_cluster.cpp)
+target_include_directories(test_heuristik_workload_cluster PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # AP-9/#243: host-side provenance manifest sidecar, golden-/POD-neutral.
 comdare_add_test(test_ap9_provenance_manifest
     SOURCES test_ap9_provenance_manifest.cpp)
