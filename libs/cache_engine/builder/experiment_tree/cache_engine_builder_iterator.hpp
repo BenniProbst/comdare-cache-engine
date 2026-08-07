@@ -496,10 +496,15 @@ struct LazyMeasuredRow {
     // Alle vier Bloecke sind END-Appends nach exakt dem Muster von series/PMC/fairness_mode: keine bestehende
     // Spalte wird umbenannt oder verschoben, alte CSVs lesen sie header-getrieben leer/n-a (Datenerhaltung).
     //
-    // (C1) pmc_branch_misses (Katalog P11, Befund B8): PmcCounters ERHEBT branch_misses real
-    //      (pmc_source.hpp), der 7er-pmc-Block emittierte es als einziges Feld NICHT -- ein "geschrieben,
-    //      aber stumm"-Fall wie die T7-Schema-Luecke. Die Thesis sagt die Schema-Erweiterung woertlich zu
-    //      (05_evaluation). Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist
+    // (C1) pmc_branch_misses (Katalog P11, Befund B8): die Spalte existiert seit dieser Scheibe additiv.
+    //      KORREKTUR 2026-08-06 (B5/M-2-KORREKTUR-2, im selben Zug wie die L3-Ehrlichmachung gefunden): die
+    //      urspruengliche Zusage "PmcCounters ERHEBT branch_misses real" war FALSCH und wird hiermit
+    //      zurueckgenommen. Keine heutige IPmcSource weist branch_misses je einen Wert zu -- LinuxPerfPmc-
+    //      Source oeffnet nur l1d/ll/dtlb (linux_perf_pmc_source.hpp), WindowsPcmPmcSource nennt das Feld
+    //      gar nicht. Die Spalte traegt daher IMMER den PmcCounters-Default 0, unabhaengig von pmc_available
+    //      -- offener Posten M-3a (linux_perf_pmc_source.hpp Kopf: "branch_misses wird von KEINER PMC-Quelle
+    //      befuellt"). branch_misses real anzubinden ist eine EIGENE, disjunkte Aenderung, nicht Teil dieses
+    //      Pakets. Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist
     //      positionsstabil fuer Bestands-Leser.
     h += ";pmc_branch_misses";
     // (C2) Tail-Perzentile p999 je Op-Art (Katalog Abschnitt 5 "TAIL-PERZENTILE"): aus DENSELBEN IST-Vektoren
@@ -740,18 +745,39 @@ struct LazyMeasuredRow {
     // #156-De-Risk (2026-06-20): die 7 PMC/HW-Counter ALS LETZTE Spalten (Reihenfolge IDENTISCH zum Header). Mit
     // NullPmcSource (COMDARE_ENABLE_PMC=OFF) sind alle Werte 0 und pmc_available=0 (ehrlich „nicht real gemessen");
     // mit Intel-PCM=ON real. Additiv → cowfix-v1/tier150-Leser unberührt (leere PMC-Spalten dort = n-a).
+    // B5/M-2-KORREKTUR-2/3 (2026-08-06, Owner-Auflage nach dem AMD-L3-Befund + Owner-KERN "stiller Rueckfall
+    // ist verboten"): vier der sieben Zellen (l2, l3, coherence, energy) tragen NUR DANN eine Zahl, wenn ihr
+    // EIGENES Quellen-Flag (PmcCounters::*_source_available) sagt, dass GENAU DIESER Zaehler wirklich
+    // geoeffnet/gelesen wurde -- eine Quelle, die es auf dieser Plattform nicht gibt (z.B. cache_misses_l3
+    // via PERF_TYPE_HW_CACHE/LL auf AMD Zen5, ENOENT) ODER die ohne Zugriffsrecht fehlschlaegt (RAPL-Energy,
+    // root-only seit Linux 5.10), rendert die EINE D2-Taxonomie SourceUnavailable/"n/a" (axis_error.hpp)
+    // statt einer erfundenen 0. Eine Zahl, die die Quelle wirklich geliefert hat -- auch eine ECHTE 0 --
+    // bleibt unveraendert eine Zahl (kein Token verdeckt einen realen Nullbefund). Gilt NUR wenn die Zeile
+    // ueberhaupt `pmc.available` ist; die PMC-off-Zeile (NullPmcSource) behaelt ihre bestehende 0-Konvention
+    // unveraendert (kein Verhaltenswechsel im Default-Build, in dem praktisch die gesamte Test-/Golden-Flotte
+    // laeuft).
+    std::string_view const pmc_na    = cem::sample_status_token(cem::SampleStatus::SourceUnavailable);
+    auto                   pmc_zelle = [&](std::uint64_t value, bool source_available) {
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else if (row.pmc.available && !source_available) {
+            out += pmc_na;
+        } else {
+            out += std::to_string(value);
+        }
+    };
     out += ';';
     zelle(std::to_string(row.pmc.cache_misses_l1));
     out += ';';
-    zelle(std::to_string(row.pmc.cache_misses_l2));
+    pmc_zelle(row.pmc.cache_misses_l2, row.pmc.cache_misses_l2_source_available);
     out += ';';
-    zelle(std::to_string(row.pmc.cache_misses_l3));
+    pmc_zelle(row.pmc.cache_misses_l3, row.pmc.cache_misses_l3_source_available);
     out += ';';
     zelle(std::to_string(row.pmc.dtlb_misses));
     out += ';';
-    zelle(std::to_string(row.pmc.coherence_invalidations));
+    pmc_zelle(row.pmc.coherence_invalidations, row.pmc.coherence_invalidations_source_available);
     out += ';';
-    zelle(std::to_string(row.pmc.energy_micro_joules));
+    pmc_zelle(row.pmc.energy_micro_joules, row.pmc.energy_micro_joules_source_available);
     out += ';';
     zelle(row.pmc.available ? "1" : "0");
     // CMD-2/#252 (2026-07-11): container_store_ops ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). Host-seitige
@@ -771,8 +797,10 @@ struct LazyMeasuredRow {
     out += ';';
     out += (row.h2_score.empty() ? std::string{"-"} : row.h2_score);
     // A8-S3 / KLASSE C (2026-08-04) -- die vier END-Append-Bloecke, Reihenfolge IDENTISCH zum Header.
-    // (C1) pmc_branch_misses: real erhoben (PmcCounters), bisher nur nicht emittiert. Mit NullPmcSource
-    //      (COMDARE_ENABLE_PMC=OFF) ist der Wert 0 und pmc_available==0 sagt es -- exakt wie die 7 Nachbarn.
+    // (C1) pmc_branch_misses: KORRIGIERT 2026-08-06 (B5/M-2-KORREKTUR-2) -- der Wert ist IMMER der
+    //      PmcCounters-Default 0 (keine IPmcSource weist ihn zu, s. lazy_csv_header-Kommentar oben),
+    //      unabhaengig von pmc_available. Die Spalte emittiert trotzdem stabil weiter: eine spaetere echte
+    //      Quelle (M-3a) fuellt hier ohne Schema-Bruch.
     out += ';';
     zelle(std::to_string(row.pmc.branch_misses));
     // (C2) p999 je Op-Art: DIESELBE Ersatz-Kaskade wie der op_*-Block oben (nicht_gebaut > gesperrt > failed >
