@@ -4,9 +4,26 @@
 // measurement_axis_registry.xml:55-56 ("die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen ->
 // nicht emittiert; erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar").
 //
-// STRUKT-R Lane D (Q-4, 2026-07-26): COMPARE ist der 4. Registry-Modus (§62-C: Replay-Sichten-Vergleich je
-// Maschine NACH der Release-Messung); zuvor lebte er NUR als XSD-Kommentar-Reserve (experiment_schema.xsd:60-61),
-// nicht als Typ. WAEHLBARKEIT, NICHT VOLLZUG: seine Build-Semantik ist heute bewusst release-GLEICH
+// STRUKT-R Lane D (Q-4, 2026-07-26): COMPARE ist der 4. Registry-Modus; zuvor lebte er NUR als
+// XSD-Kommentar-Reserve (experiment_schema.xsd:60-61), nicht als Typ.
+//
+// ORDNUNG KORRIGIERT (Owner-Entscheid O-A, 2026-08-07 -- §62-C ist insoweit SUPERSEDED): compare steht
+// FORMAL VOR release, nicht danach. Die geltende Reihenfolge ist measure -> compare -> release, kumulativ:
+// Owner verbatim "formal kommt compare als Stufe mit eigenen Optionen (lesend Messwertlager) vor dem
+// release, der auch die Messwerte nachlesen muss, aber dann eine optimale binary produziert."
+// Die alte Fassung (§62-C, 21.07.: "ERST ZUM SCHLUSS, NACH DEM RELEASE, folgt je Maschine der erweiterte
+// COMPARE-Modus") stand hier bis heute und ist nicht mehr die Anweisung. Zwei Konsequenzen fuer den Bau:
+// compare braucht EIGENE Optionen mit LESENDEM Lager-Zugriff, und release liest die Messwerte ebenfalls
+// nach -- es erzeugt daraus die OPTIMALE Binary. Beides ist noch nicht gebaut (Paket D2, s. unten).
+//
+// NICHT VERWECHSELN: die REGISTRY-Reihenfolge unten ist {debug, measure, release, compare} -- eine
+// AUFZAEHLUNG in der historischen Reihenfolge ihrer Entstehung, KEINE Ablauf-Ordnung. Die Ablauf-Ordnung
+// ist measure -> compare -> release (s.o.). Die Enum-Reihenfolge wurde bewusst NICHT umgestellt: sie ist
+// stempel-/ABI-relevant, und der Owner-Entscheid O-A betrifft die formale STUFEN-Ordnung, nicht die
+// Aufzaehlung. Wer eine Ablauf-Ordnung braucht, leitet sie aus der Enthaltungs-Ordnung ab
+// (measure ist in compare enthalten, compare in release), nicht aus dem Enum-Index.
+//
+// WAEHLBARKEIT, NICHT VOLLZUG: seine Build-Semantik ist heute bewusst release-GLEICH
 // {Release, misst NICHT, parallel}, damit die Wahl von compare an KEINER Emissions-Naht ein anderes Verhalten
 // erzeugt (die Emitter verzweigen ausschliesslich auf cmake_build_type == "Debug"; measurement_on gatet allein
 // die Mess-Parallelitaet, measure_parallelism.hpp:25). Der modus-SPEZIFISCHE Ablauf (Replay-Vergleich statt
@@ -38,7 +55,7 @@ enum class RunMethodology : std::uint8_t {
     Debug,   ///< Debug-Lauf -- parallel/schnell, KEINE Mess-golden-Zahlen (Verifikation der Verdrahtung)
     Measure, ///< Mess-Lauf -- 1-Thread/deterministisch, die golden-Messung (Run-to-Run-stabil)
     Release, ///< Release-Lauf -- Voll-Optimierung ohne Mess-Instrumentierung (Referenz-Durchsatz)
-    Compare, ///< COMPARE-Lauf -- Replay-Sichten-Vergleich der Release-Messung je Maschine (§62-C); Etikett bis D2
+    Compare, ///< COMPARE-Lauf -- Stufe VOR release (O-A): liest das Messwertlager, eigene Optionen; Etikett bis D2
 };
 
 // Single-Source: Drift einer 5. Methode bricht hier compile-time (statt still 4 zu bleiben).
@@ -68,9 +85,11 @@ struct RunMethodologyInfo {
 /// S5-P1-Build-Semantik: measure = deterministischer 1-Thread-Messlauf (Release, misst); debug = paralleler
 /// Verdrahtungs-Check (Debug, misst, KEINE 1-Thread-Determinismus-Garantie); release = Referenz-Durchsatz (Release,
 /// misst NICHT). Der Emitter waehlt fuer die S5-Mess-Strecke die measure-Zeile (der Methodik-Fanout ist S6).
-/// Lane D (Q-4/Q-5): compare = Replay-Sichten-Vergleich NACH der Release-Messung -- baut wie release (Release,
-/// misst NICHT, parallel), weil es die BEREITS gemessenen Sichten vergleicht und selbst KEINE golden-Zahlen
-/// erhebt. Die Zeile ist damit bewusst byte-gleich zu release: Waehlbarkeit ohne Verhaltens-Aenderung (Vollzug D2).
+/// Lane D (Q-4/Q-5), Ordnung nach O-A (2026-08-07): compare ist die Stufe VOR release -- es LIEST das
+/// Messwertlager (eigene Optionen) und vergleicht die bereits gemessenen Sichten, erhebt aber selbst KEINE
+/// golden-Zahlen. Es baut deshalb wie release (Release, misst NICHT, parallel); die Zeile ist bewusst
+/// byte-gleich zu release: Waehlbarkeit ohne Verhaltens-Aenderung (Vollzug D2). Danach erst release, das die
+/// Messwerte ebenfalls nachliest und daraus die OPTIMALE Binary erzeugt -- auch das ist Paket D2.
 inline constexpr std::array<RunMethodologyInfo, kRunMethodologyCount> kRunMethodologyRegistry{{
     {RunMethodology::Debug, "debug", "Debug", "Debug", true, false},
     {RunMethodology::Measure, "measure", "Measure", "Release", true, true},

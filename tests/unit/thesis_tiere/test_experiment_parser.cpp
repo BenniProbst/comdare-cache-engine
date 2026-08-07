@@ -717,8 +717,9 @@ TEST(ExperimentParser, BogusRunMethodologyIsError) {
     EXPECT_EQ(vr.run_methodology_checked, 2u);
 }
 
-// (a9c-compare) STRUKT-R Lane D (Q-4/Q-5, 2026-07-26): COMPARE ist der 4. Registry-Modus (§62-C: Replay-Sichten-
-//       Vergleich je Maschine NACH der Release-Messung); vorher lebte er NUR als XSD-Kommentar-Reserve. Die Wache
+// (a9c-compare) STRUKT-R Lane D (Q-4/Q-5, 2026-07-26): COMPARE ist der 4. Registry-Modus (Replay-Sichten-
+//       Vergleich je Maschine); vorher lebte er NUR als XSD-Kommentar-Reserve. Ordnung nach Owner-Entscheid
+//       O-A (2026-08-07, §62-C insoweit SUPERSEDED): compare steht VOR release, nicht danach. Die Wache
 //       haelt die WAEHLBARKEIT literal fest: (i) Anzahl-/Namen-Anker compile-time, (ii) ein Profil-XML mit
 //       <method value="compare"/> PARST, (iii) der Validator AKZEPTIERT das Token OHNE Zutun (registry-getrieben
 //       ueber check_measurement_sub_axis -- kein id-Literal in Validator/Parser/XSD), (iv) exactly-one
