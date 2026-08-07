@@ -134,7 +134,7 @@ template <class Comp>
 /// Code-Identitaet der System-Achse, der Zellwert haengt als NAMENS-Anteil davor am '@' (Owner-Q2).
 ///
 /// A13-M2 (Owner-Entscheid E2 + Antwort Q1 vom 02.08.2026): HINTER die drei Haupt-Achsen-Segmente haengt die
-/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0c]", also VIER Eintraege statt
+/// Zeile jetzt den KLAMMER-ANHANG der System-Meta-Metas -- heute "[simd=code@1.0.0.c]", also VIER Eintraege statt
 /// drei. Die Glieder kommen aus der EINEN Typliste ExternalUtilsHub::meta_metas (keine zweite Liste); die
 /// EBENE steckt in der Klammer-Tiefe, nicht im Namen. Owner-E2 woertlich: Meta-Metas werden "einfach dynamisch
 /// ans Ende der Kette in den bestehenden Zeilen angehaengt" -- keine Sonderzeile, kein Sonderfeld.
@@ -149,7 +149,7 @@ template <class Comp>
     // Achse bump-bar. A3 (O-8 Schritt 4): die Zeile traegt GENAU DREI HAUPT-Achsen-Segmente statt fuenf -- die
     // Schleife zieht das aus kSystemAxisCodeCount automatisch nach, hier war KEIN Edit noetig. Genau dafuer
     // wurde die Hartkodierung damals aufgeloest.
-    // Render: "v1.0.0c" -> "1.0.0c" (seit A13-M3/C4; bis dahin render-neutral "v1.0.0" -> "1.0.0" wie "v1").
+    // Render: "1.0.0.c" -> "1.0.0c" (seit A13-M3/C4; bis dahin render-neutral "v1.0.0" -> "1.0.0" wie "v1").
     std::array<AxisVersionEntry, kSystemAxisCodeCount> entries{};
     for (std::size_t i = 0; i < kSystemAxisCodeCount; ++i)
         entries[i] = {kSystemAxisCodeVersions[i].axis, "code", kSystemAxisCodeVersions[i].version};
@@ -218,7 +218,7 @@ template <class Comp>
     using ::comdare::cache_engine::measurement::build_axis_version_stamp_line;
     if (tooling.empty()) return {};
     // A2 (G2-4 Schritt 4): die Code-Version aus der Tooling-Registry (Lookup per id) statt der "v1"-Hartkodierung;
-    // bekannte id -> "v1.0.0c" (Render "1.0.0c", seit A13-M3/C4), unbekannte id -> "v0.0.0"-Sentinel (@0.0.0, nur
+    // bekannte id -> "1.0.0.c" (Render "1.0.0c", seit A13-M3/C4), unbekannte id -> "0.0.0"-Sentinel (@0.0.0, nur
     // ungueltige ids; A13-M1b: dreistellig nach Owner-Q3, byte-neutral zum frueheren "v0").
     // A13-M2 (OP-3-Rueckbau, Owner-E2): load_framework steht NICHT mehr vorne, sondern als KLAMMER-Anhang
     // ANS ENDE.
@@ -232,7 +232,7 @@ template <class Comp>
 
 /// measurement_stamp_line(toolings) -- K7b-2 (Section 64-D1-B, 2026-07-22): die MENGEN-Form der
 /// kMeasurementAxisVersionLine. Statt EINER Tooling-Wahl traegt die Zeile die MENGE der gewaehlten Mess-Tools als N
-/// Eintraege "measurement_tooling=<t>@1.0.0c" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
+/// Eintraege "measurement_tooling=<t>@1.0.0.c" (';'-getrennt, Eingabe-Reihenfolge; Section-64-Vollmengen-Provenienz).
 /// Leere Tokens werden uebersprungen; leere/leer-gefilterte Menge -> leere Zeile. Dieselbe X.Y.Z-Voll-Form / SEPARATE
 /// Welt zur .algos-Sig wie die Einzel-Form (build_axis_version_stamp_line). binary_id-NEUTRAL (Mess-Achse
 /// binary_id="never" -> der Stempel lebt nur im Version-Line/Binary, nie in der binary_id/CRC).
@@ -246,7 +246,7 @@ template <class Comp>
     // einkompiliert" => leere Zeile) bleibt unberuehrt; append_meta_meta_suffix laesst eine leere Zeile leer.
     for (std::string_view const t : toolings)
         if (!t.empty())
-            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "v0.0.0"
+            // A2 (G2-4 Schritt 4): Code-Version per id-Lookup (Registry) statt "v1"-Hartkodierung; Sentinel "0.0.0"
             // fuer unbekannte ids. Die gueltigen ids (wallclock/macro/micro) rendern seit A13-M3/C4 "1.0.0c"
             // -- deklariertes Byte-Ereignis der Q3-Migration, nicht mehr render-neutral.
             entries.push_back(

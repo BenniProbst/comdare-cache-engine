@@ -136,7 +136,7 @@ public:
     /// NICHT gebumpt in dieser Scheibe -- deklariert, nicht stillschweigend: der Allokations-PFAD aendert
     /// sich, der Algorithmus nicht. Der Bump-Entscheid fuer alle 16 S5-01c-Varianten liegt im Mess-/A13-
     /// Fenster (S5-04-Praezedenz: v1.0.0c blieb trotz perf-relevantem Pfadwechsel).
-    static constexpr std::string_view algo_version = "v1.0.0c";
+    static constexpr std::string_view algo_version = "1.0.0.c";
 
     [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }       // skalare Baseline
     [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return false; } // UNSORTIERT

@@ -35,14 +35,14 @@ struct MeasurementFrameworkInfo {
     std::string_view     id;      ///< kanonischer XML-/Legenden-Token ("ycsb")
     std::string_view     name;    ///< exakt der Enum-Name (Doku/Reporting)
     std::string_view     version; ///< O-8 Schritt 0A: bump-bare Code-Version der Mess-Framework-Achse (seit
-                                  ///< A13-M3/C4 "v1.0.0c"; Muster MeasurementToolingInfo.version). INERT angelegt --
+                                  ///< A13-M3/C4 "1.0.0.c"; Muster MeasurementToolingInfo.version). INERT angelegt --
     ///< der Emissions-Konsument (Segment der kMeasurementAxisVersionLine) entsteht erst mit
     ///< der Scharfschaltung in O-8 Schritt 9. Bis dahin liest sie NIEMAND: byte-neutral.
 };
 
 /// Die EINE Registry der Mess-Framework-UNTER-Achse -- Index == MeasurementFramework-Wert (static_assert-gesichert).
 inline constexpr std::array<MeasurementFrameworkInfo, kMeasurementFrameworkCount> kMeasurementFrameworkRegistry{{
-    {MeasurementFramework::Ycsb, "ycsb", "Ycsb", "v1.0.0c"},
+    {MeasurementFramework::Ycsb, "ycsb", "Ycsb", "1.0.0.c"},
 }};
 
 namespace detail {
@@ -62,7 +62,7 @@ namespace detail {
 } // namespace detail
 static_assert(detail::framework_versionen_wohlgeformt(),
               "Mess-Framework-Version verletzt die ce-Registry-Politik: (a) UNPARSBAR (und nicht der "
-              "dokumentierte Sentinel \"v0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
+              "dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
               "(b) experimentelles 'e' (AUSSCHLIESSLICH die Pruefling-Markierung, Owner-E2 02.08.2026); oder "
               "(c) FALSCHES Hardware-Flag (im CPU-only-Scope GENAU 'c' bzw. 'ce', Owner-Q3 02.08.2026)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE

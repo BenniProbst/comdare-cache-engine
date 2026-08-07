@@ -52,9 +52,9 @@
 // Die drei Stempel-Literale. Sie stehen als Makros da, damit BEIDE Bauten nachweislich dieselben
 // Zeichen sehen (der Runner prueft die drei Zeilen zusaetzlich auf Byte-Gleichheit -- waeren sie
 // verschieden, waere ein Fingerprint-Unterschied trivial und bewiese nichts ueber die Gates).
-#define COMDARE_R3_BISS_ORGAN_LIT "search_algo=k_ary@1.0.0c;filter=bloom@2.3.4c"
+#define COMDARE_R3_BISS_ORGAN_LIT "search_algo=k_ary@1.0.0.c;filter=bloom@2.3.4.c"
 #define COMDARE_R3_BISS_SYSTEM_LIT                                                                                     \
-    "target_isa=code@1.0.0c;operating_system=code@1.0.0c;external_utils=code@1.0.0c;[simd=code@1.0.0c]"
-#define COMDARE_R3_BISS_MEASURE_LIT "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]"
+    "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;external_utils=code@1.0.0.c;[simd=code@1.0.0.c]"
+#define COMDARE_R3_BISS_MEASURE_LIT "measurement_tooling=wallclock@1.0.0.c;[load_framework=ycsb@1.0.0.c]"
 
 COMDARE_ANATOMY_VERSION_STAMP_M(COMDARE_R3_BISS_ORGAN_LIT, COMDARE_R3_BISS_SYSTEM_LIT, COMDARE_R3_BISS_MEASURE_LIT)

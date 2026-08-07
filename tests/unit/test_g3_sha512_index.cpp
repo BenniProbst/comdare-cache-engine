@@ -40,7 +40,7 @@ namespace {
 //   (1) die merge-ZEILE entfaellt ersatzlos (Owner-E2) -> kMerge faellt aus dem Preimage;
 //   (2) OF-M3-1 = Option A: die Glieder sind '\n'-getrennt, mit fingerprint_format-Kennung vorn und dem
 //       Sub-Achsen-Werteset-Segment als eigenem Glied (abi::anatomy_fingerprint_glieder);
-//   (3) die Fixtures sind in END-Form modernisiert (Owner-Q3-Flag-Grammatik "@1.0.0c" + die HEUTIGEN
+//   (3) die Fixtures sind in END-Form modernisiert (Owner-Q3-Flag-Grammatik "@1.0.0.c" + die HEUTIGEN
 //       System-/Mess-Achsen) -- kSystem trug "compiler=code@1.0.0", eine seit O-8 Schritt 4 abgeschaffte
 //       System-Haupt-Achse, kMeasure trug "wallclock@1.0.0" ohne Achsen-Praefix. Als Hash-Konsistenz-Anker
 //       war das gleichgueltig, als REFERENZ-BEISPIEL las es sich falsch.
@@ -51,29 +51,30 @@ namespace {
 // Glieder mit LITERALEN Werten belegt (nicht mit den Live-Werten: die haengen an Toolchain und
 // Enable-Menge der Maschine und waeren in der 8er-Docker-Matrix je Distro andere).]
 // Der neue Hex wurde NICHT vorausberechnet, sondern aus dem literalen Testlauf uebernommen.
-constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0c;path_compression=path_compression_none@1.0.0c";
-constexpr std::string_view kSystem  = "target_isa=code@1.0.0c;operating_system=code@1.0.0c;"
-                                      "external_utils=code@1.0.0c;[simd=code@1.0.0c]";
-constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0c;[load_framework=ycsb@1.0.0c]";
+constexpr std::string_view kOrgan   = "search_algo=k_ary@1.0.0.c;path_compression=path_compression_none@1.0.0.c";
+constexpr std::string_view kSystem  = "target_isa=code@1.0.0.c;operating_system=code@1.0.0.c;"
+                                      "external_utils=code@1.0.0.c;[simd=code@1.0.0.c]";
+constexpr std::string_view kMeasure = "measurement_tooling=wallclock@1.0.0.c;[load_framework=ycsb@1.0.0.c]";
 
 // NB/CX-4 END-FORM: die beiden injizierten Glieder sind BELEGT -- byte-gleich zu den Literalen in
 // test_m_w12_stamp_bausteine.cpp und test_w10_system_cell_values.cpp (EIN Testvektor, drei Module).
 constexpr std::string_view kFrozenToolchain =
-    "tc=1;cxx=gcc-16.2.0@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0c";
+    "tc=1;cxx=gcc-16.2.0@1.0.0.c;opt=O3{-O3}@1.0.0.c;ext=avx512;ceb=8.0;gate=avx512;atomic128=cx16{-mcx16}@1.0.0.c";
 constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
                                           "simd_extension[{avx512}];"
                                           "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
 
 // Der eingefrorene 128-hex (== kFrozenFingerprintV1 in A1).
-// [NEU EINGEFROREN 07.08.2026, R-3 -- der Format-Bump 3 -> 4 (das neunte Preimage-Glied "mess-gates",
-// abi/mess_gates_glied.hpp) bewegt das ERSTE Glied und haengt ein neuntes an; jeder Fingerprint wandert
-// dadurch zwangslaeufig. Das ist der ZWECK des Bumps (F7) und ein DEKLARIERTES Byte-Ereignis, kein
-// Nebenprodukt: die drei Fundstellen dieses EINEN Vektors (hier, test_m_w12_stamp_bausteine.cpp,
-// test_w10_system_cell_values.cpp) sind im SELBEN Commit gedreht. Vorgaenger (Format 3):
-// 17148e5a4d0f4a2d...1469cef8ce89374. Der Vektor rechnet ueber den DEFAULT des neunten Glieds (leer),
-// damit er nicht am Bau-Zustand der jeweiligen Test-TU haengt.]
-constexpr std::string_view kFrozenFingerprintV1 = "5b18feacb6c7295e7d6f0cde6657b21732765942608482a131d5807aa32ba9fc"
-                                                  "9cbcfeb89b0fba48ec13a746d5ae7e470cc5befb296873f375aaa9ea00bac75e";
+// [NEU EINGEFROREN 07.08.2026, FLAG-GRAMMATIK v2 (Owner-KERN) -- die Versions-Schreibweise in den
+// Stempel-Zeilen wandert von "@1.0.0c" (Q3) auf "@1.0.0.c" (v2) und bewegt damit die Preimage-Glieder
+// [1]/[2]/[3]; der Fingerprint MUSS wandern. Das ist GEWOLLT (der Owner hat die Cache-Invalidierung
+// ausdruecklich verlangt) und ein DEKLARIERTES Byte-Ereignis, kein Nebenprodukt: die drei Fundstellen
+// dieses EINEN Vektors (hier, test_m_w12_stamp_bausteine.cpp, test_w10_system_cell_values.cpp) sind im
+// SELBEN Commit gedreht. Vorgaenger: Format 3 17148e5a4d0f4a2d...1469cef8ce89374; Format 4 (R-3)
+// 5b18feacb6c7295e...00bac75e. Der Vektor rechnet ueber den DEFAULT des neunten Glieds (leer), damit er
+// nicht am Bau-Zustand der jeweiligen Test-TU haengt.]
+constexpr std::string_view kFrozenFingerprintV1 = "88f59b9b0da85e34c6be48653867c76a15f1d0a22b241c8f92f5846677224c49"
+                                                  "03fc296f331ea3205046e897403675a2525cc62658e4bfda0cb5771a96125688";
 
 // Die Glied-Folge kommt aus der EINEN Quelle abi::anatomy_fingerprint_glieder -- der Test darf sie NICHT
 // selbst zusammenstellen, sonst pinnt er eine zweite Ordnung fest (Lehre "gruene Tests zementieren alte

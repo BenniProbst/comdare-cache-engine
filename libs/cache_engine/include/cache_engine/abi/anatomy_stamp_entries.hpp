@@ -9,26 +9,27 @@
 // A3 liefert NUR den Parser + den Sentinel; die Verdrahtung ans AnatomyVersionLines-POD (drei Zeiger+Count-Paare)
 // folgt in A4 (POD 88->136, Layout 4->5). header-only, C++23, rein consteval/constexpr (kein Runtime-Switch).
 //
-// A13-M1 (Owner-Entscheid E2 vom 02.08.2026): das 'e'-Suffix der Versionsbezifferung (seit A13-M1b in der Form
-// "achse=algo@X.Y.Zce") markiert einen EXPERIMENTELLEN Achsen-Algorithmus aus einem Pruefling. Im Entry-POD reist
-// die Markierung im dafuer
-// vorgesehenen reserved-Feld (anatomy_module_abi_v1_decl.hpp: "0 (Ausrichtung / kuenftige Flags)") als BIT 0 --
-// kein sizeof-/Layout-Bruch am 48-Byte-Entry-POD, keine Entry-Layout-Versions-Folge. Ohne 'e' bleibt reserved == 0
-// -> der gesamte Bestand ist byte-identisch (golden-neutral).
-//
 // NAMENS-TOLERANZ (Owner-Nachtrag Q2 vom 02.08.2026): erweiterte HIERARCHISCHE Algorithmus-/Achsen-Namen nach dem
 // Muster "prt-art.memory.abc@1.0.0" sind zulaessig. Der Tokenizer teilt strikt an '=' (erstes) und '@' (erstes nach
-// dem '='), danach liest parse_dotted_semver -- ein '.' im NAMENS-Anteil VOR dem '@' ist damit transparenter
-// Namens-Bestandteil, ein '.' im VERSIONS-Anteil bleibt reiner Zahlen-Trenner (drei Zahlen, sonst Sentinel).
+// dem '='), danach liest parse_algo_semver -- ein '.' im NAMENS-Anteil VOR dem '@' ist damit transparenter
+// Namens-Bestandteil, ein '.' im VERSIONS-Anteil gehoert der Versions-Grammatik (drei Zahlen, danach der
+// Flag-Schwanz; sonst Sentinel).
 //
-// A13-M1b (Owner-Antwort Q3 vom 02.08.2026): die Versionsbezifferung traegt zusaetzlich GENAU EIN
-// HARDWARE-FLAG ('c'=CPU / 'g'=GPU / 'f'=FPGA / 'n'=NPU), und zwar VOR dem optionalen 'e'
-// ("achse=algo@X.Y.Zc", "achse=algo@X.Y.Zce"). Im Entry-POD belegt es die BITS 1-2 des reserved-Feldes --
-// direkt neben dem A13-M1-Experimental-Bit 0, weiterhin ohne sizeof-/Layout-Bruch am 48-Byte-Entry-POD.
-// KODIERUNG 00=c, 01=g, 10=f, 11=n. Der POD kennt bewusst KEIN "kein Flag": wir produzieren nur CPU-Code,
-// 'c' IST der Default -- eine flaglose Zeile ("@X.Y.Z") landet damit auf 00 und laesst reserved bei 0.
-// Der BESTAND traegt seit A13-M3/C4 "@X.Y.Zc" und landet auf demselben Code 00: die POD-Byte-Gleichheit
-// ueberlebt die Q3-Migration, die Stempel-ZEILE selbst ist dabei ein deklariertes Byte-Ereignis.
+// == FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026) -- WAS SICH HIER GEAENDERT HAT ======================
+// Der Versions-Anteil eines entry traegt jetzt "X.Y.Z" plus null bis n punkt-getrennte Flags mit optionalen,
+// rekursiven Klammer-Gruppen ("achse=algo@1.0.0.c{p.e}.x512{f.vl}.gfni"). Die Grammatik selbst lebt EINMAL,
+// in measurement/algo_semver.hpp; dieser Header ruft sie und kodiert ihr Ergebnis in den POD.
+//   * ENTFALLEN: das Experimental-Bit 0 (das Konzept "experimental" ist ersatzlos deprecated -- 'e' bedeutet
+//     ab jetzt EFFICIENCY CORE) und der 4-Werte-Hardware-Code in den Bits 1-2 (die Hardware-Zielrichtung ist
+//     kein Skalar mehr, sondern eine Liste). Die drei Bits stehen bewusst LEER (kStampEntryReservedFreeMask).
+//   * NEU: die Flag-Liste reist als HASH in den Bits 6-31 (Owner-Entscheid F-3: "Hash der normalisierten
+//     Flag-Zeichenkette, nicht als Bitmaske ueber einen festen Katalog"). Begruendung, Grenze und die
+//     Frage, warum die Kollisions-Moeglichkeit hier tragbar ist, stehen bei kStampEntryFlagsHashShift.
+//   * UNVERAENDERT: die Bits 3-5 (Meta-Meta-Ebene) und das 48-Byte-Layout des Entry-POD. Es gibt weiterhin
+//     KEINEN sizeof-/Layout-Bruch und keine Entry-Layout-Versions-Folge.
+// BYTE-WIRKUNG, ehrlich benannt: eine FLAGLOSE Version laesst reserved (ausser der Meta-Ebene) weiterhin
+// exakt 0. Der migrierte Bestand traegt "@1.0.0.c" und damit einen Flag-Hash != 0 -- das POD-Feld bewegt
+// sich also, gemeinsam mit der Stempel-ZEILE, im selben deklarierten Byte-Ereignis.
 //
 // == A13-M2: DIE KLAMMER-GRAMMATIK (Owner-Antwort Q1 vom 02.08.2026) ==============================
 // Owner-Q1 verbatim: "Q1 - Wie empfohlen nach Klammern (derzeit auch so geplant, bitte nachlesen)."
@@ -43,7 +44,7 @@
 //   line     := [ segment ( ';' segment )* ]
 //   segment  := entry | group
 //   group    := '[' segment ( ';' segment )* ']'
-//   entry    := achse '=' algorithmus '@' X '.' Y '.' Z [ HWFLAG [ 'e' ] ]
+//   entry    := achse '=' algorithmus '@' <version>   -- <version> == Flag-Grammatik v2, s. algo_semver.hpp
 //   EBENE    := die KLAMMER-TIEFE, in der das entry steht: 0 == Haupt-Achse (der gesamte heutige
 //               Bestand, byte-unveraendert), 1 == Meta-Meta, 2 == Meta-Meta-Meta, ... Die Rekursion ist
 //               OFFEN (Layer-Modell D4 / Owner Q-D: kein festes drittes Level).
@@ -93,7 +94,7 @@
 // bleibt ausdruecklich zulaessig -- verboten ist der UNPARSBARE Rest, nicht die Null-Version.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1
-#include <cache_engine/measurement/algo_semver.hpp>        // parse_dotted_semver (X.Y.Z-Ruecklesung)
+#include <cache_engine/measurement/algo_semver.hpp>        // parse_algo_semver + render_flag_tail
 
 #include <array>
 #include <cstddef>
@@ -102,64 +103,88 @@
 
 namespace comdare::cache_engine::abi {
 
-/// A13-M1: Bit 0 des AnatomyStampEntryV1::reserved-Feldes == "experimenteller Achsen-Algorithmus" ('e'-Suffix der
-/// Versionsbezifferung, Owner-E2). EINZIGE Wahrheit dieser Belegung -- zusammen mit den Hardware-Flag-Bits unten.
-inline constexpr std::uint32_t kStampEntryFlagExperimental = 1u << 0;
-
-/// A13-M1b (Owner-Q3): BITS 1-2 == das Hardware-Flag der Versionsbezifferung. Die uebrigen 29 Bits bleiben
-/// 0/reserviert. Shift + Maske sind die EINZIGE Wahrheit der Lage; die Codes darunter die der Belegung.
-inline constexpr std::uint32_t kStampEntryHwFlagShift = 1u;
-inline constexpr std::uint32_t kStampEntryHwFlagMask  = 0x3u << kStampEntryHwFlagShift;
+/// FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): BITS 0-2 SIND FREI. Bis zur v2 trug Bit 0 die Markierung
+/// "experimenteller Achsen-Algorithmus" und die Bits 1-2 das EINE Hardware-Flag als 4-Werte-Code. Beides
+/// gibt es nicht mehr: 'e' bedeutet EFFICIENCY CORE (das Konzept "experimental" ist ersatzlos deprecated),
+/// und die Hardware-Zielrichtung ist kein Skalar mehr, sondern eine LISTE (Kardinalitaet 1 -> n). Die drei
+/// Bits bleiben bewusst LEER stehen statt umgewidmet zu werden -- ein Leser, der einen Alt-Eintrag sieht,
+/// soll die Stelle finden, an der die alte Bedeutung sass, statt sie mit einer neuen zu verwechseln.
+inline constexpr std::uint32_t kStampEntryReservedFreeMask = 0x7u;
 
 /// A13-M2 (Owner-Q1): BITS 3-5 == die META-META-EBENE == die KLAMMER-TIEFE des Eintrags. 0 == Haupt-Achse
-/// (klammerlos); System- und Mess-Zeile tragen seit A13-M2 je EINE Ebene-1-Gruppe ("[simd=code@1.0.0c]" bzw.
-/// "[load_framework=ycsb@1.0.0c]"), die Organ-Zeile bleibt klammerlos (OrganMetaMetas ist leer).
+/// (klammerlos); System- und Mess-Zeile tragen seit A13-M2 je EINE Ebene-1-Gruppe ("[simd=code@1.0.0.c]" bzw.
+/// "[load_framework=ycsb@1.0.0.c]"), die Organ-Zeile bleibt klammerlos (OrganMetaMetas ist leer).
 /// 1 == Meta-Meta, 2 == Meta-Meta-Meta, ... Shift + Maske sind die
 /// EINZIGE Wahrheit der Lage, kStampEntryMaxMetaLevel die der Kapazitaet (tiefer bricht der Parser hart).
 inline constexpr std::uint32_t kStampEntryMetaLevelShift = 3u;
 inline constexpr std::uint32_t kStampEntryMetaLevelMask  = 0x7u << kStampEntryMetaLevelShift;
 inline constexpr std::uint32_t kStampEntryMaxMetaLevel   = 7u;
 
-/// Die Code-Punkte der Bits 1-2. c == 0 ist der DEFAULT (Owner-Q3: "Wir produzieren nur CPU code") -- deshalb
-/// bleibt reserved sowohl fuer die flaglose Form als auch fuer den heutigen 'c'-Bestand exakt 0 (die
-/// A13-M3/C4-Migration hat den POD damit NICHT bewegt).
-inline constexpr std::uint32_t kStampEntryHwCodeCpu  = 0u;
-inline constexpr std::uint32_t kStampEntryHwCodeGpu  = 1u;
-inline constexpr std::uint32_t kStampEntryHwCodeFpga = 2u;
-inline constexpr std::uint32_t kStampEntryHwCodeNpu  = 3u;
+/// FLAG-GRAMMATIK v2 -- BITS 6-31 == der HASH der Flag-Liste (Owner-Entscheid F-3 vom 07.08.2026 verbatim:
+/// "Die Flag-Menge wird als Hash der normalisierten Flag-Zeichenkette kodiert, nicht als Bitmaske ueber
+/// einen festen Katalog. Damit ist die Katalog-Groesse nicht gedeckelt.").
+///
+/// WARUM EIN HASH UND KEINE BITMASKE: die Flag-Menge ist ab der v2 offen (Kardinalitaet 1 -> n, rekursive
+/// Sub-Token, ein Katalog, der erst noch recherchiert wird). Eine Bitmaske haette den Katalog auf 26
+/// Eintraege gedeckelt und muesste bei jedem neuen SIMD-Subset das POD-Layout anfassen.
+///
+/// EHRLICHE GRENZE, weil sie zur Sache gehoert: 26 Bit sind KEINE kollisionsfreie Kodierung. Zwei
+/// verschiedene Flag-Listen koennen denselben Hash tragen. Das ist tragbar, und zwar aus einem Grund, der
+/// nachpruefbar ist und nicht aus Bequemlichkeit stammt: die IDENTITAET eines Stempels haengt NICHT an
+/// diesem Feld, sondern an der ZEILE. Der Fingerprint (abi/anatomy_fingerprint.hpp) rechnet SHA-512 ueber
+/// die vollstaendige Zeichenfolge der Realm-Zeilen -- dort reist der Flag-Schwanz Zeichen fuer Zeichen mit.
+/// Dieses Feld ist ein SCHNELLER VERGLEICHS-/FILTER-Wert auf dem geparsten POD, kein Schluessel, an dem das
+/// Skip-Gate haengt. Waere es einer, waere die Kollision fail-open und der Hash die falsche Wahl.
+///
+/// Shift und Maske sind die EINZIGE Wahrheit der Lage; kStampEntryFlagsHashNone die der Leer-Bedeutung.
+inline constexpr std::uint32_t kStampEntryFlagsHashShift = 6u;
+inline constexpr std::uint32_t kStampEntryFlagsHashBits  = 26u;
+inline constexpr std::uint32_t kStampEntryFlagsHashSpan  = (1u << kStampEntryFlagsHashBits) - 1u;
+inline constexpr std::uint32_t kStampEntryFlagsHashMask  = kStampEntryFlagsHashSpan << kStampEntryFlagsHashShift;
 
-/// Der Flag-Typ der Versions-Grammatik, unter abi-Namen sichtbar (keine zweite Aufzaehlung -- die Grammatik in
-/// measurement/algo_semver.hpp bleibt die Single-Source).
-using StampEntryHardwareFlag = ::comdare::cache_engine::measurement::HardwareFlag;
+/// Der Hash-Wert einer LEEREN Flag-Liste. Er ist EXAKT 0 und wird von keiner nicht-leeren Liste erreicht
+/// (s. stamp_entry_flags_hash_of): "keine Flags" und "irgendwelche Flags" sind damit im POD sicher
+/// unterscheidbar, statt sich mit Wahrscheinlichkeit 2^-26 zu verwechseln. Folge, die das mitbringt: eine
+/// flaglose Version laesst reserved (ausser der Meta-Ebene) exakt 0 -- so wie der gesamte Bestand vor der
+/// v2 dastand.
+inline constexpr std::uint32_t kStampEntryFlagsHashNone = 0u;
 
-/// Grammatik-Flag -> Bit-Code. `none` (flaglose Form) UND `cpu` (der Bestand seit C4) fallen beide auf 0 --
-/// genau so ist "c == Default" gemeint; der POD unterscheidet "kein Flag" nicht von "CPU".
-[[nodiscard]] constexpr std::uint32_t stamp_entry_hw_code(StampEntryHardwareFlag f) noexcept {
-    switch (f) {
-        case StampEntryHardwareFlag::gpu: return kStampEntryHwCodeGpu;
-        case StampEntryHardwareFlag::fpga: return kStampEntryHwCodeFpga;
-        case StampEntryHardwareFlag::npu: return kStampEntryHwCodeNpu;
-        case StampEntryHardwareFlag::cpu:
-        case StampEntryHardwareFlag::none: break;
+/// FNV-1a (32 Bit) ueber die KANONISCHE Flag-Zeichenkette, auf kStampEntryFlagsHashBits gefaltet und auf
+/// [1, kStampEntryFlagsHashSpan] abgebildet.
+///
+/// DIE ZEICHENKETTE KOMMT AUS measurement::render_flag_tail -- also aus DEMSELBEN Renderer, der sie in die
+/// Stempel-Zeile schreibt. Ein hier nachgebauter Zusammenbau waere eine zweite Wahrheit ueber die
+/// kanonische Schreibweise; genau daran ist die Q3-Welt am CEB-Zwilling schon einmal entlanggeschrammt.
+///
+/// Die XOR-Faltung (h >> Bits) ^ h vor der Maske ist kein Zierrat: eine nackte Maske wuerfe die oberen
+/// 6 Bit weg, in denen FNV-1a den groessten Teil seiner Streuung traegt.
+/// Die Abbildung auf [1, Span] statt [0, Span] haelt die 0 fuer den Leer-Fall frei (s.o.).
+[[nodiscard]] constexpr std::uint32_t
+stamp_entry_flags_hash_of(::comdare::cache_engine::measurement::FlagList const& flags) noexcept {
+    // Der Puffer MUSS benannt werden: .view() zeigt in ihn hinein, und ein Temporary waere am Ende des
+    // vollen Ausdrucks tot. Genau diese Klasse beschreibt measurement::FlagToken in ihrer Begruendung,
+    // warum die Token als KOPIE im Knoten liegen -- sie faellt hier ein zweites Mal an.
+    auto const             puffer    = ::comdare::cache_engine::measurement::render_flag_tail(flags);
+    std::string_view const kanonisch = puffer.view();
+    if (kanonisch.empty()) return kStampEntryFlagsHashNone;
+    std::uint32_t h = 2166136261u; // FNV-1a offset basis
+    for (char const c : kanonisch) {
+        h ^= static_cast<std::uint32_t>(static_cast<unsigned char>(c));
+        h *= 16777619u; // FNV-1a prime
     }
-    return kStampEntryHwCodeCpu;
+    std::uint32_t const gefaltet = ((h >> kStampEntryFlagsHashBits) ^ h) & kStampEntryFlagsHashSpan;
+    return 1u + (gefaltet % kStampEntryFlagsHashSpan);
 }
 
-/// Praedikat statt Bit-Fummelei am Aufruf-Ort (Konsumenten: Lager-Identitaet/Skip-Gate, spaeter G-E6/A2).
-[[nodiscard]] constexpr bool stamp_entry_is_experimental(AnatomyStampEntryV1 const& e) noexcept {
-    return (e.reserved & kStampEntryFlagExperimental) != 0u;
+/// Der Flag-Hash eines Eintrags -- Praedikat statt Bit-Fummelei am Aufruf-Ort (Konsumenten:
+/// Lager-Identitaet/Skip-Gate, G-E6/A2).
+[[nodiscard]] constexpr std::uint32_t stamp_entry_flags_hash(AnatomyStampEntryV1 const& e) noexcept {
+    return (e.reserved & kStampEntryFlagsHashMask) >> kStampEntryFlagsHashShift;
 }
 
-/// Bit-Code -> Grammatik-Flag. Liefert NIE `none`: der POD-Default 00 IST 'c' (s. Kopf-Kommentar), ein
-/// Alt-Eintrag mit reserved == 0 liest sich damit korrekt als CPU-Stand.
-[[nodiscard]] constexpr StampEntryHardwareFlag stamp_entry_hardware_flag(AnatomyStampEntryV1 const& e) noexcept {
-    switch ((e.reserved & kStampEntryHwFlagMask) >> kStampEntryHwFlagShift) {
-        case kStampEntryHwCodeGpu: return StampEntryHardwareFlag::gpu;
-        case kStampEntryHwCodeFpga: return StampEntryHardwareFlag::fpga;
-        case kStampEntryHwCodeNpu: return StampEntryHardwareFlag::npu;
-        default: break;
-    }
-    return StampEntryHardwareFlag::cpu;
+/// Traegt der Eintrag ueberhaupt Flags? (Verlaesslich, nicht wahrscheinlich -- s. kStampEntryFlagsHashNone.)
+[[nodiscard]] constexpr bool stamp_entry_has_flags(AnatomyStampEntryV1 const& e) noexcept {
+    return stamp_entry_flags_hash(e) != kStampEntryFlagsHashNone;
 }
 
 /// A13-M2: die META-META-EBENE des Eintrags == seine Klammer-Tiefe (0 == Haupt-Achse). Praedikat statt
@@ -306,18 +331,27 @@ consteval void scan_stamp_segments(std::string_view line, Visitor&& visit) {
     flush(line.size());
 }
 
-/// Das GERENDERTE Sentinel-Literal der Versions-Bezifferung ("0.0.0", NIE mit 'v' und NIE mit Flags --
-/// algo_semver_string rendert den Sentinel immer nackt, K-5). Es ist die EINZIGE Zeichenfolge, die auf den
+/// Das GERENDERTE Sentinel-Literal der Versions-Bezifferung. Es ist die EINZIGE Zeichenfolge, die auf den
 /// {0,0,0}-Sentinel parsen DARF; jede andere, die dort landet, ist unparsbarer Rest.
-inline constexpr std::string_view kStampEntryRenderedSentinel = "0.0.0";
+///
+/// FLAG-GRAMMATIK v2: hier stand bis zur v2 ein EIGENES Literal "0.0.0" neben dem rohen
+/// kAlgoSemVerSentinelLiteral ("v0.0.0") -- zwei Wortlaute, weil rohe und gerenderte Form sich um das 'v'
+/// unterschieden. Mit dem Wegfall des 'v'-Praefixes fallen beide zusammen; ein zweites Literal waere ab
+/// jetzt eine zweite Wahrheit. Es steht deshalb nur noch der VERWEIS auf die Single-Source.
+inline constexpr std::string_view kStampEntryRenderedSentinel =
+    ::comdare::cache_engine::measurement::kAlgoSemVerSentinelLiteral;
 
 /// A13-M3/C2b (Befund Z-09): der Versions-Teil ist wohlgeformt, wenn er entweder auf einen echten Wert
-/// parst ODER exakt das dokumentierte Sentinel-Rendering ist. Das ist wortgleich die B12-Doktrin
-/// version_is_parsable_or_documented_sentinel, nur auf der GERENDERTEN Seite der Grammatik -- ohne diese
-/// Unterscheidung koennte man den Sentinel nicht von "1.0.0cg" trennen, denn beide parsen auf {0,0,0}.
+/// parst ODER exakt das dokumentierte Sentinel-Rendering ist. Ohne diese Unterscheidung koennte man den
+/// Sentinel nicht von einer Fehlform wie "1.0.0.c{" trennen, denn beide parsen auf {0,0,0}.
+///
+/// FLAG-GRAMMATIK v2: das ist ab jetzt WORTGLEICH die B12-Doktrin
+/// measurement::version_is_parsable_or_documented_sentinel -- die frueher getrennte "gerenderte Seite der
+/// Grammatik" gibt es nicht mehr. Die Funktion bleibt als abi-seitiger NAME stehen (die Aufrufer unten
+/// lesen sich damit an der Stempel-Grammatik entlang), delegiert aber, statt die Bedingung ein zweites
+/// Mal zu formulieren.
 [[nodiscard]] constexpr bool dotted_version_is_wellformed(std::string_view ver) noexcept {
-    return !::comdare::cache_engine::measurement::parse_dotted_semver(ver).is_sentinel() ||
-           ver == kStampEntryRenderedSentinel;
+    return ::comdare::cache_engine::measurement::version_is_parsable_or_documented_sentinel(ver);
 }
 
 /// Materialisiert EIN Segment [begin, end) des Literals in einen Entry-POD: axis = vor '=', algorithm =
@@ -347,26 +381,24 @@ inline constexpr std::string_view kStampEntryRenderedSentinel = "0.0.0";
               "ohne sie darf nicht still auf @0.0.0 kollabieren";
     std::string_view const ver{lit + at + 1, seg_end - (at + 1)};
     if (!dotted_version_is_wellformed(ver))
-        throw "A13-M3 Stempel-Eintrag: unparsbarer Versions-Teil (Kurzform, 'v'-Praefix, zweites "
-              "Hardware-Flag oder Rest hinter dem Flag-Schwanz) -- er faellt nicht mehr still auf @0.0.0; "
-              "zulaessig ist nur ein echtes X.Y.Z[HWFLAG][e] oder exakt das Sentinel-Rendering '0.0.0'";
+        throw "Stempel-Eintrag: unparsbarer Versions-Teil (Kurzform, 'v'-Praefix, fehlender Punkt vor "
+              "einem Flag, fuehrender Punkt hinter '{', leere oder unbalancierte Klammer, Rest hinter dem "
+              "Flag-Schwanz) -- er faellt nicht mehr still auf @0.0.0; zulaessig ist nur ein echtes "
+              "X.Y.Z[.flag]* der Flag-Grammatik v2 oder exakt das Sentinel-Rendering '0.0.0'";
     AnatomyStampEntryV1 e{};
     e.axis      = lit + seg_start;
     e.axis_len  = eq - seg_start;
     e.algorithm = lit + eq + 1;
     e.algo_len  = at - (eq + 1);
     ::comdare::cache_engine::measurement::AlgoSemVer const sv =
-        ::comdare::cache_engine::measurement::parse_dotted_semver(ver);
+        ::comdare::cache_engine::measurement::parse_algo_semver(ver);
     e.x = sv.x;
     e.y = sv.y;
     e.z = sv.z;
-    // A13-M1: das 'e'-Suffix wandert als Bit 0 ins reserved-Feld (ohne 'e' bleibt das Bit 0).
-    if (sv.experimental) e.reserved |= kStampEntryFlagExperimental;
-    // A13-M1b: das Hardware-Flag wandert als Bits 1-2 daneben. Ohne Flag (und bei 'c') ist der Code 0
-    // -> reserved bleibt fuer den gesamten Bestand exakt 0, vor wie nach der C4-Migration (Byte-Gleichheit
-    // des PODs; die Stempel-ZEILE selbst ist das deklarierte Byte-Ereignis). Das dokumentierte
-    // Sentinel-Rendering "0.0.0" traegt nie Flags und bleibt damit ebenfalls bei reserved == 0.
-    e.reserved |= (stamp_entry_hw_code(sv.hardware) << kStampEntryHwFlagShift);
+    // FLAG-GRAMMATIK v2 (Owner-F-3): die Flag-Liste wandert als HASH in die Bits 6-31. Eine flaglose
+    // Version und das dokumentierte Sentinel-Rendering "0.0.0" lassen das Feld exakt 0 (die
+    // Meta-Ebene-Bits setzt der Aufrufer parse_stamp_entries danach daneben).
+    e.reserved |= (stamp_entry_flags_hash_of(sv.flags) << kStampEntryFlagsHashShift) & kStampEntryFlagsHashMask;
     return e;
 }
 
@@ -489,14 +521,38 @@ static_assert(stamp_line_is_parsable<"[[[[[[[a=b@1.0.0]]]]]]]">, "Tiefe 7 ist di
 static_assert(!stamp_line_is_parsable<"nur_ein_name">, "Segment ohne '=' faellt nicht mehr auf einen leeren "
                                                        "Algorithmus + @0.0.0 durch.");
 static_assert(!stamp_line_is_parsable<"achse=algo">, "Segment ohne '@' faellt nicht mehr auf @0.0.0 durch.");
-static_assert(!stamp_line_is_parsable<"a=x@1.0.0cg">, "zweites Hardware-Flag: unparsbarer Rest, kein stiller "
-                                                      "Sentinel-Kollaps.");
-static_assert(!stamp_line_is_parsable<"achse=algo@1.0e">, "Kurzform 'X.Y' mit Flag-Schwanz ist unparsbar.");
-static_assert(!stamp_line_is_parsable<"achse=algo@v1.0.0">, "die GERENDERTE Form traegt nie ein 'v'-Praefix "
-                                                            "(Owner-Q10: 'v' lebt nur im Roh-Literal).");
+static_assert(!stamp_line_is_parsable<"achse=algo@1.0.c">, "Kurzform 'X.Y' mit Flag-Schwanz ist unparsbar.");
 static_assert(!stamp_line_is_parsable<"a=b@1.0.0;achse=algo">, "auch als ZWEITES Segment einer sonst "
                                                                "wohlgeformten Zeile bricht die Fehlform.");
 static_assert(!stamp_line_is_parsable<"a=b@1.0.0;[c=d]">, "und ebenso im Klammer-Anhang.");
+
+// -- NEGATIV (FLAG-GRAMMATIK v2): die ALTE Schreibweise und die neuen Fehlformen ------------------------
+// DIESE BATTERIE IST NEU GEDACHT, NICHT UMGESCHRIEBEN. Die alten Negativ-Literale ("a=x@1.0.0cg" = zweites
+// Hardware-Flag, "@v1.0.0" = 'v'-Praefix in der gerenderten Form) testeten die Q3-Grammatik. Nach dem
+// Umbau sind sie ENTWEDER trivial ("cg" ist heute ein Token wie jedes andere und faellt nur noch am
+// FEHLENDEN PUNKT durch, nicht mehr am zweiten Flag) ODER sie haetten weiter gruen gemeldet, ohne die
+// Regel zu treffen, fuer die sie einmal standen. Ersetzt sind sie durch je eine Probe auf DIE REGEL, die
+// die v2 wirklich durchsetzt.
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0c">, "R2: das Flag OHNE fuehrenden Punkt ist die ALTE "
+                                                     "Q3-Schreibweise -- es gibt keine Uebergangs-Toleranz.");
+static_assert(!stamp_line_is_parsable<"a=x@v1.0.0.c">, "R1: kein 'v'-Praefix, in KEINER Form mehr.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0.c.{p}">, "R3: die Klammer haengt DIREKT an der Basis, "
+                                                          "ohne Punkt dazwischen.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0.c{.p}">, "R4: hinter '{' steht nie ein fuehrender Punkt.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0.c{}">, "R4: eine leere Gruppe ist keine Gruppe.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0.c{p">, "unbalancierte Klammer im Versions-Teil.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0.{p}">, "Klammer ohne Basis.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0..c">, "doppelter Punkt vor dem Flag.");
+static_assert(!stamp_line_is_parsable<"a=x@1.0.0.avx512_vbmi2">, "R5: der Unterstrich der Katalog-Token "
+                                                                 "gehoert nicht in die Notation.");
+// -- POSITIV (FLAG-GRAMMATIK v2): die Formen, die der Renderer wirklich erzeugt --
+static_assert(stamp_line_is_parsable<"a=x@1.0.0.c">, "die migrierte Bestands-Form.");
+static_assert(stamp_line_is_parsable<"a=x@1.0.0.c{p.e}">, "Basis mit Komposit-Klammer.");
+static_assert(stamp_line_is_parsable<"memory_layout=Soa@1.0.0.c{p.e}.x512{f.vl.bw.dq}.gfni">,
+              "das Owner-Beispiel in voller Laenge -- die '{'/'}' der Versions-Grammatik kollidieren NICHT "
+              "mit den '['/']' der Zeilen-Grammatik (der Zeilen-Scanner kennt nur ';', '[' und ']').");
+static_assert(stamp_line_is_parsable<"a=x@1.0.0.c;[b=y@1.0.0.c{p}]">,
+              "Komposit-Flag INNERHALB eines Meta-Meta-Klammer-Anhangs -- beide Klammer-Ebenen zugleich.");
 
 /// Parst die Stempel-Zeile aus dem Literal `lit` (nullterminiert, effektive Laenge M-1) in genau N Eintraege
 /// (N == count_stamp_entries(lit)), in TEXT-Reihenfolge -- die Klammer-Anhaenge stehen also hinter den
@@ -532,77 +588,84 @@ stamp_entries_ptr(std::array<AnatomyStampEntryV1, N> const& arr) noexcept {
         return arr.data();
 }
 
-// -- A13-M1/M1b: CT-Selbstbeweis des Parsers (Flag-Bits + Owner-Q2-Namens-Toleranz) ----------------------------
+// -- CT-Selbstbeweis des Parsers (Flag-Hash + Owner-Q2-Namens-Toleranz) ----------------------------------
 // Der Probe-Literal liegt bewusst NAMESPACE-SCOPE constexpr: nur so ueberleben die {ptr,len}-Sichten des
 // consteval-Ergebnisses als Konstant-Ausdruck (dieselbe K7b-3-Praezedenz wie im Makro-Aufrufer).
 namespace detail {
-// Segment 0: Owner-Q2-Namens-Toleranz + Owner-Q3-Voll-Form "ce". Segment 1: die FLAGLOSE Form (bis A13-M3/C4
-// der Bestand, seither eine reine Parser-Probe fuer Alt-/Fremd-Zeilen -- die Probe BLEIBT, weil der Parser
-// sie weiter lesen koennen muss).
-inline constexpr char kStampEntryProbeLine[] = "prt-art.memory.abc=prt_patricia@2.3.4ce;filter=bloom@1.0.0";
+// Segment 0: Owner-Q2-Namens-Toleranz + die v2-Voll-Form mit Komposit-Flag. Segment 1: die FLAGLOSE Form
+// (bis A13-M3/C4 der Bestand, seither eine reine Parser-Probe fuer Alt-/Fremd-Zeilen -- die Probe BLEIBT,
+// weil der Parser sie weiter lesen koennen muss).
+inline constexpr char kStampEntryProbeLine[] = "prt-art.memory.abc=prt_patricia@2.3.4.c{p.e};filter=bloom@1.0.0";
 inline constexpr auto kStampEntryProbe =
     parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryProbeLine})>(kStampEntryProbeLine);
 
 static_assert(kStampEntryProbe.size() == 2, "Probe-Zeile hat genau zwei ';'-Segmente.");
 // Owner-Q2: hierarchischer Name mit Punkten VOR dem '@' bleibt EIN Achsen-Name (kein Versions-Anteil).
+// Das gilt ab der v2 GEGEN eine Grammatik, die den Punkt auch RECHTS vom '@' als Trenner kennt -- die
+// Trennung an '@' ist damit die Stelle, an der die beiden Punkt-Bedeutungen auseinandergehalten werden.
 static_assert(std::string_view(kStampEntryProbe[0].axis, kStampEntryProbe[0].axis_len) == "prt-art.memory.abc");
 static_assert(std::string_view(kStampEntryProbe[0].algorithm, kStampEntryProbe[0].algo_len) == "prt_patricia");
 static_assert(kStampEntryProbe[0].x == 2u && kStampEntryProbe[0].y == 3u && kStampEntryProbe[0].z == 4u);
-// A13-M1: 'e' -> Bit 0. A13-M1b: 'c' -> Bits 1-2 == 0 (c ist der Default) -> reserved == genau das e-Bit.
-static_assert(stamp_entry_is_experimental(kStampEntryProbe[0]));
-static_assert(stamp_entry_hardware_flag(kStampEntryProbe[0]) == StampEntryHardwareFlag::cpu);
-static_assert(kStampEntryProbe[0].reserved == kStampEntryFlagExperimental);
-// Die flaglose Form: KEIN Flag-Bit gesetzt, und sie liest sich per Default als CPU-Stand.
-static_assert(!stamp_entry_is_experimental(kStampEntryProbe[1]));
-static_assert(stamp_entry_hardware_flag(kStampEntryProbe[1]) == StampEntryHardwareFlag::cpu);
+// Die Flag-Liste reist als Hash in den Bits 6-31; die Bits 0-2 bleiben frei, die Bits 3-5 sind die Ebene.
+static_assert(stamp_entry_has_flags(kStampEntryProbe[0]));
+static_assert(stamp_entry_flags_hash(kStampEntryProbe[0]) ==
+              stamp_entry_flags_hash_of(::comdare::cache_engine::measurement::parse_algo_semver("2.3.4.c{p.e}").flags));
+static_assert((kStampEntryProbe[0].reserved & kStampEntryReservedFreeMask) == 0u);
+static_assert((kStampEntryProbe[0].reserved & kStampEntryMetaLevelMask) == 0u);
+// Die flaglose Form: KEIN Flag-Hash -> reserved bleibt exakt 0 (so wie der Bestand vor der v2 dastand).
+static_assert(!stamp_entry_has_flags(kStampEntryProbe[1]));
 static_assert(kStampEntryProbe[1].reserved == 0u);
 static_assert(kStampEntryProbe[1].x == 1u && kStampEntryProbe[1].y == 0u && kStampEntryProbe[1].z == 0u);
 
-// A13-M1b: die NICHT-CPU-Flags belegen die Bits 1-2 verschieden -- sonst waeren zwei Hardware-Staende im POD
-// ununterscheidbar (Lager-Key-Kollision). Zweite Probe-Zeile, damit die Bit-Belegung nicht nur behauptet ist.
-inline constexpr char kStampEntryHwProbeLine[] = "a=x@1.0.0g;b=y@1.0.0f;c=z@1.0.0n;d=w@1.0.0ne";
-inline constexpr auto kStampEntryHwProbe =
-    parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryHwProbeLine})>(kStampEntryHwProbeLine);
+// VERSCHIEDENE Flag-Listen belegen das reserved-Feld VERSCHIEDEN -- sonst waeren zwei Hardware-Staende im
+// POD ununterscheidbar (Lager-Key-Kollision). Die Probe-Zeile deckt die vier Basen, die Komposit-Form und
+// ein Companion-Flag ab; die Aussage ist eine ECHTE Ungleichheits-Pruefung auf den erhobenen Werten, keine
+// Nachrechnung der Kodierungs-Formel.
+inline constexpr char kStampEntryFlagProbeLine[] =
+    "a=x@1.0.0.c;b=y@1.0.0.g;c=z@1.0.0.f;d=w@1.0.0.n;e=v@1.0.0.c{p.e};f=u@1.0.0.c{e};g=t@1.0.0.gfni";
+inline constexpr auto kStampEntryFlagProbe =
+    parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryFlagProbeLine})>(kStampEntryFlagProbeLine);
 
-static_assert(kStampEntryHwProbe.size() == 4);
-static_assert(stamp_entry_hardware_flag(kStampEntryHwProbe[0]) == StampEntryHardwareFlag::gpu);
-static_assert(stamp_entry_hardware_flag(kStampEntryHwProbe[1]) == StampEntryHardwareFlag::fpga);
-static_assert(stamp_entry_hardware_flag(kStampEntryHwProbe[2]) == StampEntryHardwareFlag::npu);
-static_assert(stamp_entry_hardware_flag(kStampEntryHwProbe[3]) == StampEntryHardwareFlag::npu);
-static_assert(kStampEntryHwProbe[0].reserved == (kStampEntryHwCodeGpu << kStampEntryHwFlagShift));
-static_assert(kStampEntryHwProbe[1].reserved == (kStampEntryHwCodeFpga << kStampEntryHwFlagShift));
-static_assert(kStampEntryHwProbe[2].reserved == (kStampEntryHwCodeNpu << kStampEntryHwFlagShift));
-// 'ne' == NPU + experimentell: BEIDE Bit-Gruppen zugleich, ohne einander zu ueberschreiben.
-static_assert(stamp_entry_is_experimental(kStampEntryHwProbe[3]));
-static_assert(kStampEntryHwProbe[3].reserved ==
-              (kStampEntryFlagExperimental | (kStampEntryHwCodeNpu << kStampEntryHwFlagShift)));
-static_assert(!stamp_entry_is_experimental(kStampEntryHwProbe[2]));
-// Die vier Flag-Staende sind im reserved-Feld paarweise verschieden (keine stille Kollision).
-static_assert(kStampEntryHwProbe[0].reserved != kStampEntryHwProbe[1].reserved);
-static_assert(kStampEntryHwProbe[1].reserved != kStampEntryHwProbe[2].reserved);
-static_assert(kStampEntryHwProbe[2].reserved != kStampEntryHwProbe[3].reserved);
-static_assert(kStampEntryHwProbe[0].reserved != kStampEntryProbe[1].reserved); // g != flaglose Form
+static_assert(kStampEntryFlagProbe.size() == 7);
+static_assert(stamp_entry_has_flags(kStampEntryFlagProbe[0]));
+static_assert(stamp_entry_has_flags(kStampEntryFlagProbe[6]));
+// Paarweise verschieden -- ALLE 21 Paare, nicht nur die Nachbarn (die Nachbar-Pruefung der Q3-Batterie
+// haette eine Kollision zwischen 'c' und 'gfni' nicht gesehen).
+static_assert(
+    [] {
+        for (std::size_t i = 0; i < kStampEntryFlagProbe.size(); ++i)
+            for (std::size_t j = i + 1; j < kStampEntryFlagProbe.size(); ++j)
+                if (kStampEntryFlagProbe[i].reserved == kStampEntryFlagProbe[j].reserved) return false;
+        return true;
+    }(),
+    "zwei verschiedene Flag-Listen duerfen nie dasselbe reserved-Feld belegen.");
+// ... und alle verschieden von der FLAGLOSEN Form (deren Hash ist per Konstruktion die 0).
+static_assert(
+    [] {
+        for (auto const& e : kStampEntryFlagProbe)
+            if (e.reserved == kStampEntryProbe[1].reserved) return false;
+        return true;
+    }(),
+    "eine Flag-tragende Version darf nie wie die flaglose Form aussehen.");
+// 'c{p.e}' und 'c{e}' unterscheiden sich -- der Hash sieht die GANZE Liste, nicht nur die Basis.
+static_assert(kStampEntryFlagProbe[4].reserved != kStampEntryFlagProbe[5].reserved);
+// 'gfni' ist NICHT 'g' -- der mehrzeichige Token bleibt auch im POD ein eigener Stand.
+static_assert(kStampEntryFlagProbe[6].reserved != kStampEntryFlagProbe[1].reserved);
 
-// Fehlform-Wache (A13-M3/C2b, Befund Z-09 -- GEDREHT): ein zweites Hardware-Flag war bis C2b grammatisch
-// Sentinel und liess den Eintrag STILL auf @0.0.0 mit reserved == 0 kollabieren. Genau das schrieb die
-// alte Probe hier fest ("kein Bit wandert ins reserved-Feld") -- sie zementierte damit das fail-open,
-// statt es zu beanstanden. Ab C2b ist die Form ein HARTER consteval-Bruch; die Probe steht deshalb als
-// NEGATIV-Aussage oben bei den uebrigen Z-09-Fehlformen (stamp_line_is_parsable<"a=x@1.0.0cg"> == false).
-// Was hier bleibt, ist die POSITIVE Restaussage, die weiterhin wahr sein muss: der Parser raet NIE ein
-// Flag herbei -- eine flaglose Version traegt kein Flag-Bit (kStampEntryProbe[1], oben belegt), und das
-// dokumentierte Sentinel-Rendering bleibt zulaessig UND flaglos.
+// Der Parser raet NIE ein Flag herbei: das dokumentierte Sentinel-Rendering bleibt zulaessig UND flaglos.
 inline constexpr char kStampEntrySentinelLine[] = "a=x@0.0.0";
 inline constexpr auto kStampEntrySentinelProbe =
     parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntrySentinelLine})>(kStampEntrySentinelLine);
 static_assert(kStampEntrySentinelProbe[0].x == 0u && kStampEntrySentinelProbe[0].y == 0u &&
               kStampEntrySentinelProbe[0].z == 0u);
 static_assert(kStampEntrySentinelProbe[0].reserved == 0u);
+static_assert(!stamp_entry_has_flags(kStampEntrySentinelProbe[0]));
 
 // -- A13-M2: CT-Selbstbeweis der KLAMMER-Grammatik (Owner-Q1) -------------------------------------------
 // (1) Der klammerlose Bestand bleibt Ebene 0 und reserved == 0 -- die Erweiterung ist byte-neutral.
 static_assert(stamp_entry_meta_level(kStampEntryProbe[1]) == 0u);
 static_assert(!stamp_entry_is_meta_meta(kStampEntryProbe[1]));
-static_assert(!stamp_entry_is_meta_meta(kStampEntryProbe[0])); // 'ce' setzt Flag-Bits, aber KEINE Ebene
+static_assert(!stamp_entry_is_meta_meta(kStampEntryProbe[0])); // Flags setzen den Hash, aber KEINE Ebene
 
 // (2) Die reale A13-M2-System-Zeilen-Form: DREI Haupt-Achsen + EIN Klammer-Anhang == VIER Eintraege.
 inline constexpr char kStampEntryBracketLine[] =
@@ -639,19 +702,27 @@ static_assert(std::string_view(kStampEntryNestedProbe[2].axis, kStampEntryNested
 // Die Ebenen sind im reserved-Feld paarweise verschieden -- sonst waeren zwei Ebenen im POD ununterscheidbar.
 static_assert(kStampEntryNestedProbe[0].reserved != kStampEntryNestedProbe[1].reserved);
 static_assert(kStampEntryNestedProbe[1].reserved != kStampEntryNestedProbe[2].reserved);
-// Ebene und Flag-Bits ueberlappen NICHT: eine geklammerte 'ce'-Version traegt beide Gruppen zugleich.
-inline constexpr char kStampEntryLevelFlagLine[] = "[a=x@1.0.0ce]";
+// Ebene und Flag-Hash ueberlappen NICHT: eine geklammerte Version mit Komposit-Flag traegt beide Gruppen
+// zugleich, ohne dass eine die andere ueberschreibt.
+inline constexpr char kStampEntryLevelFlagLine[] = "[a=x@1.0.0.c{p.e}]";
 inline constexpr auto kStampEntryLevelFlagProbe =
     parse_stamp_entries<count_stamp_entries(std::string_view{kStampEntryLevelFlagLine})>(kStampEntryLevelFlagLine);
 static_assert(kStampEntryLevelFlagProbe.size() == 1);
-static_assert(stamp_entry_is_experimental(kStampEntryLevelFlagProbe[0]));
+static_assert(stamp_entry_has_flags(kStampEntryLevelFlagProbe[0]));
 static_assert(stamp_entry_meta_level(kStampEntryLevelFlagProbe[0]) == 1u);
-static_assert(kStampEntryLevelFlagProbe[0].reserved ==
-              (kStampEntryFlagExperimental | (1u << kStampEntryMetaLevelShift)));
-// Die MASKEN der drei Bit-Gruppen sind disjunkt (Bit 0 / Bits 1-2 / Bits 3-5).
-static_assert((kStampEntryFlagExperimental & kStampEntryHwFlagMask) == 0u);
-static_assert((kStampEntryFlagExperimental & kStampEntryMetaLevelMask) == 0u);
-static_assert((kStampEntryHwFlagMask & kStampEntryMetaLevelMask) == 0u);
+// Derselbe Flag-Stand wie in der KLAMMERLOSEN Probe oben -- die Ebene aendert den Hash nicht, und der Hash
+// nicht die Ebene.
+static_assert(stamp_entry_flags_hash(kStampEntryLevelFlagProbe[0]) == stamp_entry_flags_hash(kStampEntryProbe[0]));
+static_assert(kStampEntryLevelFlagProbe[0].reserved !=
+              kStampEntryProbe[0].reserved); // ... verschieden bleiben sie trotzdem (die Ebene)
+static_assert((kStampEntryLevelFlagProbe[0].reserved & kStampEntryReservedFreeMask) == 0u);
+// Die MASKEN der drei Bit-Gruppen sind disjunkt und decken zusammen das ganze Wort ab (Bits 0-2 frei /
+// Bits 3-5 Ebene / Bits 6-31 Flag-Hash). Die Vollstaendigkeits-Zeile ist neu: sie faengt eine kuenftige
+// Verschiebung, bei der zwischen zwei Gruppen ein unbenanntes Loch entstuende.
+static_assert((kStampEntryReservedFreeMask & kStampEntryMetaLevelMask) == 0u);
+static_assert((kStampEntryReservedFreeMask & kStampEntryFlagsHashMask) == 0u);
+static_assert((kStampEntryMetaLevelMask & kStampEntryFlagsHashMask) == 0u);
+static_assert((kStampEntryReservedFreeMask | kStampEntryMetaLevelMask | kStampEntryFlagsHashMask) == 0xFFFFFFFFu);
 } // namespace detail
 
 } // namespace comdare::cache_engine::abi

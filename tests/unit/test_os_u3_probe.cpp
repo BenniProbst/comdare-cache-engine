@@ -68,8 +68,11 @@ template <class OsAxis>
 
     std::string_view const version = cem::os_probe_version_part(id);
     cem::AlgoSemVer const  parsed  = cem::parse_algo_semver(version);
-    return cem::ce_owned_version_is_wellformed(version) && !parsed.is_sentinel() && !parsed.experimental &&
-           version.find('e') == std::string_view::npos;
+    // FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): hier standen bis zum Umbau zwei weitere Terme --
+    // `!parsed.experimental` und `version.find('e') == npos`. BEIDE SIND ERSATZLOS ENTFALLEN: 'e' bedeutet
+    // ab jetzt EFFICIENCY CORE und ist ein legitimes Flag. Der zweite Term war ausserdem schon vorher zu
+    // grob -- er haette jedes Flag-Token mit einem 'e' darin verworfen.
+    return cem::ce_owned_version_is_wellformed(version) && !parsed.is_sentinel();
 }
 
 struct FantasieAchse;
@@ -91,9 +94,9 @@ static_assert(!CompleteType<cem::OperatingSystemProbe<FantasieAchse>>,
 static_assert(probe_id_contract<cem::LinuxOperatingSystem>());
 static_assert(probe_id_contract<cem::WindowsOperatingSystem>());
 static_assert(probe_id_contract<cem::MacosOperatingSystem>());
-static_assert(LinuxProbe::probe_id() == std::string_view{"os_probe.linux@v1.0.0c"});
-static_assert(WindowsProbe::probe_id() == std::string_view{"os_probe.windows@v1.0.0c"});
-static_assert(MacosProbe::probe_id() == std::string_view{"os_probe.macos@v1.0.0c"});
+static_assert(LinuxProbe::probe_id() == std::string_view{"os_probe.linux@1.0.0.c"});
+static_assert(WindowsProbe::probe_id() == std::string_view{"os_probe.windows@1.0.0.c"});
+static_assert(MacosProbe::probe_id() == std::string_view{"os_probe.macos@1.0.0.c"});
 static_assert(LinuxProbe::probe_id() != WindowsProbe::probe_id() && LinuxProbe::probe_id() != MacosProbe::probe_id() &&
               WindowsProbe::probe_id() != MacosProbe::probe_id());
 
@@ -329,7 +332,7 @@ TEST(OsU3Probe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStandBleibtV1) 
         if (entry.axis != cem::LinuxOperatingSystem::axis_label()) continue;
         code_version_found = true;
         // A13-M3/C4: die Migration zieht das HW-Flag an, sie BUMPT den Stand nicht (1.0.0 bleibt 1.0.0).
-        EXPECT_EQ(entry.version, std::string_view{"v1.0.0c"})
+        EXPECT_EQ(entry.version, std::string_view{"1.0.0.c"})
             << "A-15: RT-Unter-Achsen duerfen den operating_system-Code-Stand nicht bumpen.";
     }
     ASSERT_TRUE(code_version_found);

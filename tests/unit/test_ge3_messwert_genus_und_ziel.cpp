@@ -68,11 +68,11 @@ bl::ZellKoordinaten zelle_avx512() { return {.combo = "vereint", .opt = "O2", .s
 // Die Mess-Schluessel-Komponenten: voll-permutative Mess-Zeilen + Hardware-Identitaet. NICHT der
 // Binary-Fingerprint -- die Trennung der Genera ist genau der Punkt (Section 66-N3, keine Fusion).
 std::array<std::string_view, 3> mess_komponenten() {
-    return {"measurement_tooling=wallclock@1.0.0c", "[load_framework=ycsb@1.0.0c]", "hw=prod1/amd64_v3"};
+    return {"measurement_tooling=wallclock@1.0.0.c", "[load_framework=ycsb@1.0.0.c]", "hw=prod1/amd64_v3"};
 }
 
 std::array<std::string_view, 3> mess_komponenten_zweit() {
-    return {"measurement_tooling=pmc@1.0.0c", "[load_framework=ycsb@1.0.0c]", "hw=prod1/amd64_v3"};
+    return {"measurement_tooling=pmc@1.0.0.c", "[load_framework=ycsb@1.0.0.c]", "hw=prod1/amd64_v3"};
 }
 
 } // namespace
@@ -111,7 +111,7 @@ TEST(Ge3MesswertGenus, E2ERueckschriebSchreibtEinMeasurementDokumentMitKorrektem
 
     auto const key = bl::messwert_key_hex(mess_komponenten());
     EXPECT_EQ(mess.observe(key, zelle_avx2(), "search_algo=k_ary/blatt", 4096, "[vereint,O2,avx2]",
-                           "2026-08-03T12:00:00Z", "search_algo@1.0.0c"),
+                           "2026-08-03T12:00:00Z", "search_algo@1.0.0.c"),
               bl::MesswertOutcome::fresh_register);
     EXPECT_EQ(mess.pending_fresh(), 1u);
 
@@ -127,7 +127,7 @@ TEST(Ge3MesswertGenus, E2ERueckschriebSchreibtEinMeasurementDokumentMitKorrektem
     ASSERT_EQ(doc->bestand.size(), 1u);
     EXPECT_EQ(doc->bestand[0].key_sha512, key);
     EXPECT_EQ(doc->bestand[0].zelle, zelle_avx2());
-    EXPECT_EQ(doc->bestand[0].versions, "search_algo@1.0.0c");
+    EXPECT_EQ(doc->bestand[0].versions, "search_algo@1.0.0.c");
     // Roundtrip-Gate: emit(parse(emit)) == emit.
     EXPECT_EQ(bl::emit_document(*doc), store.objekte.at("lager/messwerte.xml"));
 }
@@ -200,12 +200,12 @@ TEST(Ge6VersionsTag, V4RoundtrippedByteStabilUndTraegtDenTag) {
     e.bytes      = 7;
     e.stempel    = "[vereint,O2,avx2]";
     e.done_utc   = "2026-08-03T12:00:00Z";
-    e.versions   = "search_algo@1.0.0c;target_isa@1.0.0c";
+    e.versions   = "search_algo@1.0.0.c;target_isa@1.0.0.c";
     d.bestand.push_back(e);
 
     auto const einmal = bl::emit_document(d);
     EXPECT_NE(einmal.find("syntax_version=\"4\""), std::string::npos);
-    EXPECT_NE(einmal.find("versions=\"search_algo@1.0.0c;target_isa@1.0.0c\""), std::string::npos);
+    EXPECT_NE(einmal.find("versions=\"search_algo@1.0.0.c;target_isa@1.0.0.c\""), std::string::npos);
     auto const wieder = bl::parse_bestandslog(einmal);
     ASSERT_TRUE(wieder.has_value());
     EXPECT_EQ(bl::emit_document(*wieder), einmal);
@@ -261,9 +261,9 @@ TEST(Ge6VersionsTag, EinAbweichenderTagAendertDieIDENTITAETNICHT) {
     bl::BestandEintrag a;
     a.key_sha512         = std::string(128, 'd');
     a.zelle              = zelle_avx2();
-    a.versions           = "search_algo@1.0.0c";
+    a.versions           = "search_algo@1.0.0.c";
     bl::BestandEintrag b = a;
-    b.versions           = "search_algo@2.0.0c";
+    b.versions           = "search_algo@2.0.0.c";
     EXPECT_TRUE(bl::same_eintrag_identity(a, b));
     EXPECT_FALSE(bl::eintrag_identity_less(a, b));
     EXPECT_FALSE(bl::eintrag_identity_less(b, a));
@@ -287,12 +287,12 @@ TEST(Ge6VersionsTag, MergeVerschmilztDieBeidenEintraegeZuEinem) {
     ASSERT_TRUE(bl::store_document_merged(t, "d", erst).has_value());
 
     bl::BestandslogDocument zweit = erst;
-    zweit.bestand[0].versions     = "search_algo@1.0.0c";
+    zweit.bestand[0].versions     = "search_algo@1.0.0.c";
     zweit.bestand[0].done_utc     = "2026-08-03T11:00:00Z";
     auto const geschrieben        = bl::store_document_merged(t, "d", zweit);
     ASSERT_TRUE(geschrieben.has_value());
     ASSERT_EQ(geschrieben->bestand.size(), 1u) << "Gleiche (key, zelle) -> EIN Eintrag, kein Dedup-Drift";
-    EXPECT_EQ(geschrieben->bestand[0].versions, "search_algo@1.0.0c") << "Der SPAETERE Eintrag gewinnt";
+    EXPECT_EQ(geschrieben->bestand[0].versions, "search_algo@1.0.0.c") << "Der SPAETERE Eintrag gewinnt";
     EXPECT_GT(geschrieben->doc_revision, 0u);
 }
 

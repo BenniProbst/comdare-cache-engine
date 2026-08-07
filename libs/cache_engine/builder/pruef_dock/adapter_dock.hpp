@@ -37,7 +37,7 @@
 
 #include "pruef_dock.hpp"             // IPruefDock + dock_status_* + V5-Vertrag (:74-79)
 #include "genus_conformance_gate.hpp" // E-24 C4 (a/5): das Gattungs-Orakel
-#include "pruef_dock_version.hpp"     // E-24 C4 (b/5): die ce-eigene Dock-Version (vX.Y.Zc)
+#include "pruef_dock_version.hpp"     // E-24 C4 (b/5): die ce-eigene Dock-Version (X.Y.Z[.flag]*)
 #include "anatomy/adapter_tier.hpp"
 
 #include <builder/anatomy_commands/genus_tier_observe_trace_abi.hpp> // E-24 C4 (c/5): der Mess-Treiber
@@ -96,7 +96,7 @@ public:
 /// den Antrieb per dynamic_cast (bewaehrtes Pfad-B-Probing).
 class AdapterPruefDock final : public IPruefDock {
 public:
-    /// Die ce-eigene Selbst-Version dieses Docks (Q3-Grammatik vX.Y.Zc, ENFORCE-bewacht in
+    /// Die ce-eigene Selbst-Version dieses Docks (Flag-Grammatik v2, ENFORCE-bewacht in
     /// pruef_dock_version.hpp). BEWUSST nicht virtuell: der IPruefDock-Vertrag steht unter dem
     /// HY-D2-Freeze und wird von C4 nicht erweitert.
     static constexpr std::string_view dock_version() noexcept { return kAdapterDockVersion; }

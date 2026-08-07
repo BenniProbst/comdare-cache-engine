@@ -126,7 +126,7 @@ public:
     /// NICHT gebumpt in dieser Scheibe -- deklariert, nicht stillschweigend: der Allokations-PFAD aendert
     /// sich, der Algorithmus nicht (Pilot-Praezedenz linear_scan; Bump-Entscheid fuer die Achse liegt im
     /// Mess-/A13-Fenster, S5-04-Praezedenz v1.0.0c).
-    static constexpr std::string_view algo_version = "v1.0.0c";
+    static constexpr std::string_view algo_version = "1.0.0.c";
 
     /// SONDERFALL: kein SIMD — Cost-DP-Algorithmus ist nicht vectorisierbar.
     [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }

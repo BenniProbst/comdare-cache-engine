@@ -7,7 +7,10 @@
 //
 // KRITISCH (Byte-Wache, Section 43): Dies ist eine SEPARATE Formatier-Welt zur .algos-Signatur
 // (compose_algo_signature). Der Stempel nutzt die X.Y.Z-VOLL-Form (algo_semver_string), die .algos-Sig
-// behaelt die ROHE Version ("v1") -- kein gemeinsamer Formatter (Entscheid W12-A-3: getrennte Felder).
+// behaelt die ROHE Version verbatim -- kein gemeinsamer Formatter (Entscheid W12-A-3: getrennte Felder).
+// FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): mit dem Wegfall des 'v'-Praefixes fallen rohe und gerenderte
+// Form zeichengleich zusammen. Die TRENNUNG der beiden Welten bleibt trotzdem bestehen -- sie ist eine
+// Aussage ueber die QUELLE (Literal vs. Stempel), nicht ueber die Schreibweise.
 // Aenderungen hier beruehren die .algos-Sig / den 131072er-Cache NICHT (eigener Test + Byte-Wache belegen es).
 //
 // Reihenfolge = Eingabe-Reihenfolge; der Aufrufer liefert die kanonische compose-Ordnung (Entscheid W12-A-5).
@@ -29,7 +32,7 @@ namespace comdare::cache_engine::measurement {
 struct AxisVersionEntry {
     std::string_view axis;         // Haupt-Achsen-Name (z.B. "search_algo")
     std::string_view algorithm;    // gewaehlter Algorithmus == W::name() (z.B. "bst")
-    std::string_view algo_version; // roher W::algo_version ("v1.0.0"); WIRD zu X.Y.Z[Flags] geparst
+    std::string_view algo_version; // roher W::algo_version ("1.0.0.c"); WIRD ueber algo_semver_string kanonisiert
 };
 
 /// Baut die Stempel-Zeile "achse=algorithmus@X.Y.Z;..." (Voll-Form via algo_semver_string). Leere Eingabe -> "".

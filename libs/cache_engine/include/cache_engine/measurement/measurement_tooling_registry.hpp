@@ -38,15 +38,15 @@ struct MeasurementToolingInfo {
     std::string_view   id;      ///< kanonischer Legenden-/XML-/Stempel-Token ("wallclock"/"macro"/"micro")
     std::string_view   name;    ///< exakt der Enum-Name (Doku/Reporting)
     std::string_view   version; ///< A2 (G2-4 Schritt 4): bump-bare Code-Version der Mess-Tooling-Achse (seit
-                                ///< A13-M3/C4 "v1.0.0c"); measurement_stamp_line liest sie statt der Hartkodierung.
+                                ///< A13-M3/C4 "1.0.0.c"); measurement_stamp_line liest sie statt der Hartkodierung.
 };
 
 /// Die EINE Registry der Mess-Tooling-HAUPT-Achse -- Index == Tooling-Wert (static_assert-gesichert). Die `id`-Token
 /// stimmen mit measurement_stamp_line (abi/anatomy_version_stamp.hpp) ueberein: measurement_tooling=<id>@X.Y.Z.
 inline constexpr std::array<MeasurementToolingInfo, kMeasurementToolingCount> kMeasurementToolingRegistry{{
-    {MeasurementTooling::WallClock, "wallclock", "WallClock", "v1.0.0c"},
-    {MeasurementTooling::Macro, "macro", "Macro", "v1.0.0c"},
-    {MeasurementTooling::Micro, "micro", "Micro", "v1.0.0c"},
+    {MeasurementTooling::WallClock, "wallclock", "WallClock", "1.0.0.c"},
+    {MeasurementTooling::Macro, "macro", "Macro", "1.0.0.c"},
+    {MeasurementTooling::Micro, "micro", "Micro", "1.0.0.c"},
 }};
 
 namespace detail {
@@ -68,7 +68,7 @@ namespace detail {
 } // namespace detail
 static_assert(detail::tooling_versionen_wohlgeformt(),
               "Mess-Tooling-Version verletzt die ce-Registry-Politik: (a) sie ist UNPARSBAR (und nicht der "
-              "dokumentierte Sentinel \"v0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
+              "dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 stempeln; oder "
               "(b) sie traegt das experimentelle 'e' (das ist AUSSCHLIESSLICH die Pruefling-Markierung, "
               "Owner-E2 02.08.2026); oder (c) sie traegt ein FALSCHES Hardware-Flag (im CPU-only-Scope ist "
               "GENAU 'c' bzw. 'ce' zulaessig, Owner-Q3 02.08.2026)");
@@ -99,14 +99,14 @@ static_assert(detail::tooling_registry_is_complete(),
 }
 
 /// A2 (G2-4 Schritt 4): die bump-bare Code-Version zu einer Tooling-`id` (Stempel-Token). Bekannte id -> ihre
-/// Registry-Version (seit A13-M3/C4 "v1.0.0c" -> Render "1.0.0c"); UNBEKANNTE id -> Sentinel (@0.0.0, NUR fuer
+/// Registry-Version (seit A13-M3/C4 "1.0.0.c" -> Render "1.0.0c"); UNBEKANNTE id -> Sentinel (@0.0.0, NUR fuer
 /// ungueltige ids). Die frueher hier zugesicherte RENDER-NEUTRALITAET gueltiger golden-ids ("v1.0.0" -> "1.0.0")
 /// gilt seit C4 NICHT mehr: die Mess-Zeile traegt das CPU-Flag -- deklariertes Byte-Ereignis der Q3-Migration.
 /// measurement_stamp_line (abi/anatomy_version_stamp.hpp) liest hierueber statt der frueheren "v1"-Hartkodierung.
 ///
 /// A13-M1b (Owner-Q3 02.08.2026 "Versionierungen sind ... immer 3-Stellig"): der Sentinel-Rueckgabewert war
 /// die Kurzform "v0", die mit dem Kurzform-Rueckbau nur noch ZUFAELLIG (weil unparsbar) auf den Sentinel
-/// fiele. Er steht deshalb jetzt dreistellig als "v0.0.0" da -- ABSICHTLICH statt zufaellig, byte-neutral:
+/// fiele. Er steht deshalb jetzt dreistellig als "0.0.0" da -- ABSICHTLICH statt zufaellig, byte-neutral:
 /// beide Formen rendern ueber algo_semver_string identisch "0.0.0".
 /// A13-M3/C4 (DV-3) hat denselben Rueckbau am .algos-Signatur-Pfad nachgezogen -- "@v0" existiert nirgends mehr.
 /// B12: das Literal kommt aus kAlgoSemVerSentinelLiteral (Single-Source) -- GENAU dieser Wortlaut ist der
@@ -114,7 +114,7 @@ static_assert(detail::tooling_registry_is_complete(),
 [[nodiscard]] constexpr std::string_view tooling_version_for_id(std::string_view id) noexcept {
     for (std::size_t i = 0; i < kMeasurementToolingCount; ++i)
         if (kMeasurementToolingRegistry[i].id == id) return kMeasurementToolingRegistry[i].version;
-    return kAlgoSemVerSentinelLiteral; // unbekannte id -> Sentinel (dreistellig "v0.0.0", Owner-Q3)
+    return kAlgoSemVerSentinelLiteral; // unbekannte id -> Sentinel (dreistellig "0.0.0", Owner-Q3)
 }
 
 /// Compile-time-Iteration ueber die Mess-Tooling-HAUPT-Achse (Metaprogrammierungs-Interface fuer den Fan-out).

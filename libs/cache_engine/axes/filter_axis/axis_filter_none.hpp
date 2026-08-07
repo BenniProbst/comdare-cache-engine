@@ -47,7 +47,7 @@ public:
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NONE"; }
     /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache) -- Startwert wie die
     /// vier bestehenden Filter-Geschwister.
-    static constexpr std::string_view algo_version = "v1.0.0c";
+    static constexpr std::string_view algo_version = "1.0.0.c";
 
     /// Probe-Multiplizitaet: 0 Hash-Tests -- es gibt strukturell nichts zu pruefen (ein echter, nicht
     /// behaupteter Nullpunkt; kein Datenmember, ABI/POD unberuehrt -- analog Bloom::probe_multiplicity()).

@@ -78,7 +78,7 @@ public:
     /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
     /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
     /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
-    static constexpr std::string_view               algo_version = "v1.0.1c";
+    static constexpr std::string_view               algo_version = "1.0.1.c";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "VAMPIR_NFP"; }
 
     [[nodiscard]] static constexpr bool                        has_native_aligned_alloc() noexcept { return true; }
