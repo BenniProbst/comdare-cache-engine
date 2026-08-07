@@ -1,5 +1,5 @@
 #pragma once
-// AXIS_ALGO_VERSION: 1
+// AXIS_ALGO_VERSION: 2
 // heuristik/axis_optimization_catalog.hpp -- DER Min/Max-Katalog der Achsen-Optimierungsrichtungen ALS CODE.
 //
 // QUELLE (autoritativ, verbatim uebertragen -- NICHT erfunden, NICHT interpoliert):
@@ -101,11 +101,17 @@ inline constexpr std::size_t kCatalogAxisCount = 19;
 inline constexpr std::size_t kAxisObjectiveCount = 45;
 
 /// EINE Zielgroesse einer Achse: was gemessen wird, und in welche Richtung "besser" zeigt.
+// Default-Initialisierer nach dem Muster des heuristik-Bestands (axis_spline.hpp: `double x = 0.0;`).
+// Sie aendern an der Aggregat-Initialisierung der constexpr-Tabellen nichts, machen aber jedes Feld
+// auch bei einer kuenftigen Teil-Initialisierung bestimmt -- und halten cppcheck (uninitMemberVarNoCtor,
+// Job lint:static) gruen. Die Direction-Vorgabe Minimize ist hier KEINE Semantik-Aussage: jede echte
+// Zeile in kAxisObjectives nennt ihre Richtung verbatim, und die Vollzaehligkeits-static_asserts unten
+// (17 MAX / 28 MIN / 45) wuerden ein stillschweigend defaultetes Feld sofort brechen.
 struct AxisObjective {
-    CatalogAxis           axis;      ///< die Achse, zu der die Groesse gehoert (Konsistenz-Anker)
-    std::string_view      id;        ///< stabiler ASCII-Token, EINDEUTIG INNERHALB der Achse
-    OptimizationDirection direction; ///< MIN oder MAX -- verbatim aus dem Katalog, nie abgeleitet
-    std::string_view      quantity;  ///< die Katalog-Formulierung (ASCII-transliteriert), Rueckverfolgung
+    CatalogAxis           axis      = CatalogAxis::SearchAlgo; ///< die Achse der Groesse (Konsistenz-Anker)
+    std::string_view      id        = {};                      ///< stabiler ASCII-Token, EINDEUTIG INNERHALB der Achse
+    OptimizationDirection direction = OptimizationDirection::Minimize; ///< verbatim aus dem Katalog
+    std::string_view      quantity  = {}; ///< die Katalog-Formulierung (ASCII), Rueckverfolgung
 };
 
 /// Die flache Zielgroessen-Tabelle. Reihenfolge = Nennungs-Reihenfolge im Katalog; das ERSTE Element je Achse
@@ -204,16 +210,19 @@ inline constexpr std::array<AxisObjective, kAxisObjectiveCount> kAxisObjectives{
 
 /// Eine Katalog-Achsen-Zeile. `name` ist der Achsen-Token, der -- wo vorhanden -- byte-gleich zum
 /// Kompositions-Achsen-Namen ist (kCompositionAxisNames); `source_line` zeigt auf die BEFUND-Zeile.
+// Default-Initialisierer wie bei AxisObjective oben -- selbe Begruendung, selbe Unschaedlichkeit:
+// die Kachelungs-static_asserts (lueckenlos, ueberlappungsfrei, 19 Achsen) brechen bei einem
+// stillschweigend defaulteten Fenster sofort.
 struct AxisOptimizationInfo {
-    CatalogAxis      axis;
-    std::string_view t_id;            ///< "T0".."T18" -- die T-Nummer des Katalogs
-    std::string_view name;            ///< Achsen-Token ("search_algo", ...)
-    std::uint16_t    source_line;     ///< Zeile in docs/audits/20260709-axes-optimization-deep-research-BEFUND.md
-    std::string_view mess_kategorien; ///< Spalte "Haupt-Mess-Kat." (verbatim)
-    std::string_view parameter_art;   ///< Spalte "Parameter-Art" (verbatim, ASCII-transliteriert)
-    std::size_t      objective_begin; ///< Index der ersten Zielgroesse in kAxisObjectives
-    std::size_t      objective_count; ///< Anzahl der Zielgroessen dieser Achse
-    bool             pareto;          ///< BEFUND :450-453: keine EINZELNE Extremal-Groesse -- Zielgroesse noetig
+    CatalogAxis      axis            = CatalogAxis::SearchAlgo;
+    std::string_view t_id            = {};    ///< "T0".."T18" -- die T-Nummer des Katalogs
+    std::string_view name            = {};    ///< Achsen-Token ("search_algo", ...)
+    std::uint16_t    source_line     = 0;     ///< Zeile in docs/audits/20260709-axes-optimization-...-BEFUND.md
+    std::string_view mess_kategorien = {};    ///< Spalte "Haupt-Mess-Kat." (verbatim)
+    std::string_view parameter_art   = {};    ///< Spalte "Parameter-Art" (verbatim, ASCII-transliteriert)
+    std::size_t      objective_begin = 0;     ///< Index der ersten Zielgroesse in kAxisObjectives
+    std::size_t      objective_count = 0;     ///< Anzahl der Zielgroessen dieser Achse
+    bool             pareto          = false; ///< BEFUND :450-453: keine EINZELNE Extremal-Groesse
 };
 
 /// Die EINE Registry der Katalog-Achsen -- Index == CatalogAxis-Wert (static_assert-gesichert).

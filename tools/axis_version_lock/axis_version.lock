@@ -1,7 +1,7 @@
 # axis_version.lock -- GN-8/O-4 content-digest tripwire (PAKET W3-C, Ledger Sec.32-F4)
 # format: v1
 # fields per line: <algo_version> <sha256-hex> <relative-path>
-1 fa83541946504463f5e5690c62188be67ebb458a31e13a1c47f85296632e481e libs/cache_engine/heuristik/axis_optimization_catalog.hpp
+2 367ee40310c4c1cc524c734515a3b1776490c2c7b66c0c7c2d55b2e0b97d9dd1 libs/cache_engine/heuristik/axis_optimization_catalog.hpp
 1 854cc453f715eff63dbbcff93b26242b6ee59eddb56edd41487b28c5c66c067c libs/cache_engine/heuristik/axis_spline.hpp
 2 4419e7aa615178bb2cb6b38c6be7dab4450c48884c36f96c7e1ad8d2b0deef01 libs/cache_engine/heuristik/break_even.hpp
 2 c9dd1a8ebeb70013fc5dbf4cf28d2552d8730dde9e5696771449b8183ee76e62 libs/cache_engine/heuristik/measurement_curve_loader.hpp
