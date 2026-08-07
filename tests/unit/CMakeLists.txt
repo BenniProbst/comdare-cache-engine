@@ -4312,21 +4312,21 @@ set_tests_properties(test_od10_numa_page_probe PROPERTIES LABELS "numapageprobe;
 # jede K4-Fehlerklasse einzeln, liest die Live-Maschine mit benannten Skip-Guards und prueft die
 # A-15-Stempel-Neutralitaet. Include-/Link-Menge identisch zu test_od10_numa_page_probe: auch diese TU
 # bindet abi/anatomy_version_stamp.hpp direkt ein und folgt damit dem A14-Stempel-Guard.
-add_executable(test_od11_numa_process_probe "test_od11_numa_process_probe.cpp")
-target_compile_features(test_od11_numa_process_probe PRIVATE cxx_std_23)
-target_include_directories(test_od11_numa_process_probe PRIVATE
+add_executable(test_od11_numa_cpu_pin_process_probe "test_od11_numa_cpu_pin_process_probe.cpp")
+target_compile_features(test_od11_numa_cpu_pin_process_probe PRIVATE cxx_std_23)
+target_include_directories(test_od11_numa_cpu_pin_process_probe PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_BINARY_DIR}/generated")
-target_link_libraries(test_od11_numa_process_probe PRIVATE gtest gtest_main Boost::mp11)
-comdare_set_platform_defines(test_od11_numa_process_probe)
-target_compile_definitions(test_od11_numa_process_probe PRIVATE
+target_link_libraries(test_od11_numa_cpu_pin_process_probe PRIVATE gtest gtest_main Boost::mp11)
+comdare_set_platform_defines(test_od11_numa_cpu_pin_process_probe)
+target_compile_definitions(test_od11_numa_cpu_pin_process_probe PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
-add_test(NAME test_od11_numa_process_probe COMMAND test_od11_numa_process_probe)
-set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_od11_numa_process_probe)
-set_tests_properties(test_od11_numa_process_probe PROPERTIES LABELS "numaprocessprobe;measurement")
+add_test(NAME test_od11_numa_cpu_pin_process_probe COMMAND test_od11_numa_cpu_pin_process_probe)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_od11_numa_cpu_pin_process_probe)
+set_tests_properties(test_od11_numa_cpu_pin_process_probe PROPERTIES LABELS "numacpupinprocessprobe;measurement")
 
 # Task #7 P3: der Stufe-1-REAL-Beweis (F13 "erst prod1 testen"). Fixture-Teil: v1-Kontrakt-Dateien in
 # der ECHTEN Schreiber-Form (Werte-Schluessel je DIMM wiederholt -- vom live verifizierten Format

@@ -1,12 +1,12 @@
 #pragma once
-// measurement/numa_process_probe_linux.hpp -- prozessfreie Linux-Erhebung fuer OD-11-RT.
+// measurement/numa_cpu_pin_process_probe_linux.hpp -- prozessfreie Linux-Erhebung fuer OD-11-RT.
 //
 // WAS: Diese Datei bindet die Linux-Spezialisierung der CT-Factory an genau vier Quellen:
 //   <cpu_root>/online                                  -> die logischen Prozessoren der Maschine,
 //   <pmu_root>/cpu_core/cpus + cpu_atom/cpus           -> die HYBRIDE Kern-Klassen-Zuordnung (Intel),
 //   <cpu_root>/cpuN/cache/index3/{size,shared_cpu_list}-> die L3-DOMAENEN (AMD-X3D und Verwandte),
 //   sched_getaffinity/sched_setaffinity                -> die Zuordnungs-FAEHIGKEIT dieses Threads.
-// Die Wurzeln kommen ausschliesslich aus NumaProcessProbeContext; dadurch ist der gesamte Datei-Teil
+// Die Wurzeln kommen ausschliesslich aus NumaCpuPinProcessProbeContext; dadurch ist der gesamte Datei-Teil
 // ohne Zugriff auf die Live-Maschine testbar.
 //
 // K2 PROZESS-FREI: nur Datei-Reads und Scheduler-Syscalls im eigenen Prozess. Die sysfs-Auswertung ist
@@ -65,7 +65,7 @@
 // A-15 STEMPEL-NEUTRAL: die erhobenen Zahlen verlassen diesen Blatt-Header nur als RT-Ergebnis. Diese
 // Datei kennt keinen Registry-, ABI- oder Stempel-Header und schreibt kein Byte in diese Pfade.
 
-#include <cache_engine/measurement/numa_process_probe.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -91,7 +91,7 @@ namespace detail {
 /// Die Werte-Menge einer CPU-Liste: aufsteigend, duplikatfrei, nichtleer.
 using CpuIdSet = std::vector<std::uint32_t>;
 
-[[nodiscard]] inline std::string_view numa_process_trim(std::string_view value) noexcept {
+[[nodiscard]] inline std::string_view numa_cpu_pin_process_trim(std::string_view value) noexcept {
     auto const is_space = [](char c) noexcept { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
     while (!value.empty() && is_space(value.front())) value.remove_prefix(1);
     while (!value.empty() && is_space(value.back())) value.remove_suffix(1);
@@ -101,7 +101,7 @@ using CpuIdSet = std::vector<std::uint32_t>;
 /// Liest eine sysfs-Datei vollstaendig. Die Trennung existiert/lesbar ist die A4-Kernaussage: eine
 /// FEHLENDE Quelle ist ein anderer Zustand als eine vorhandene, auf die kein Zugriff besteht.
 [[nodiscard]] inline std::expected<std::string, HardwareProbeErrorClass>
-numa_process_read_file(std::filesystem::path const& path) {
+numa_cpu_pin_process_read_file(std::filesystem::path const& path) {
     if (path.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleFehlt);
 
     std::error_code ec;
@@ -120,7 +120,7 @@ numa_process_read_file(std::filesystem::path const& path) {
 /// FORMAT-Bruch (die Grammatik passt nicht), ein Ueberlauf ist ein INHALTS-Bruch (die Grammatik passt,
 /// die Zahl ist Muell). Der Deckel-Vergleich bleibt beim Aufrufer, weil er je Feld verschieden ist.
 [[nodiscard]] inline std::expected<std::uint64_t, HardwareProbeErrorClass>
-numa_process_take_uint(std::string_view& text) noexcept {
+numa_cpu_pin_process_take_uint(std::string_view& text) noexcept {
     if (text.empty() || text.front() < '0' || text.front() > '9')
         return std::unexpected(HardwareProbeErrorClass::FormatUnbekannt);
 
@@ -143,8 +143,8 @@ numa_process_take_uint(std::string_view& text) noexcept {
 /// deduplizierte Liste wuerde aus einer kaputten Quelle eine plausible Kern-Klasse machen -- genau die
 /// Klasse Fehler, gegen die die K4-Trennung gebaut ist.
 [[nodiscard]] inline std::expected<CpuIdSet, HardwareProbeErrorClass>
-numa_process_parse_cpu_list(std::string_view raw) {
-    std::string_view text = numa_process_trim(raw);
+numa_cpu_pin_process_parse_cpu_list(std::string_view raw) {
+    std::string_view text = numa_cpu_pin_process_trim(raw);
     if (text.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
     // Fremdzeichen sind ein FORMAT-Bruch: diese Datei ist nicht die Kernel-Liste, die wir lesen.
     for (char const c : text)
@@ -155,12 +155,12 @@ numa_process_parse_cpu_list(std::string_view raw) {
     bool          first = true;
     std::uint64_t last  = 0;
     while (true) {
-        auto begin = numa_process_take_uint(text);
+        auto begin = numa_cpu_pin_process_take_uint(text);
         if (!begin.has_value()) return std::unexpected(begin.error());
         std::uint64_t end = *begin;
         if (!text.empty() && text.front() == '-') {
             text.remove_prefix(1);
-            auto parsed_end = numa_process_take_uint(text);
+            auto parsed_end = numa_cpu_pin_process_take_uint(text);
             if (!parsed_end.has_value()) return std::unexpected(parsed_end.error());
             end = *parsed_end;
         }
@@ -186,13 +186,13 @@ numa_process_parse_cpu_list(std::string_view raw) {
 /// Parst die sysfs-CACHE-GROESSE ("98304K" -> 100663296 Bytes). Der Kernel schreibt hier immer Kibibyte
 /// mit K-Suffix; ein anderes Format wird NICHT geraten, sondern als FormatUnbekannt gemeldet.
 [[nodiscard]] inline std::expected<std::uint64_t, HardwareProbeErrorClass>
-numa_process_parse_cache_size(std::string_view raw) {
-    std::string_view text = numa_process_trim(raw);
+numa_cpu_pin_process_parse_cache_size(std::string_view raw) {
+    std::string_view text = numa_cpu_pin_process_trim(raw);
     if (text.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
     if (!text.ends_with(kCacheSizeKibSuffix)) return std::unexpected(HardwareProbeErrorClass::FormatUnbekannt);
     text.remove_suffix(kCacheSizeKibSuffix.size());
 
-    auto kib = numa_process_take_uint(text);
+    auto kib = numa_cpu_pin_process_take_uint(text);
     if (!kib.has_value()) return std::unexpected(kib.error());
     if (!text.empty()) return std::unexpected(HardwareProbeErrorClass::FormatUnbekannt); // Rest vor dem Suffix
     // 'n/a statt Null': ein 0-Byte-Cache existiert nicht.
@@ -203,18 +203,18 @@ numa_process_parse_cache_size(std::string_view raw) {
 
 /// Liest die ONLINE-Liste der logischen Prozessoren. PORTABEL (kein Plattform-Guard): reiner Datei-Zugriff.
 [[nodiscard]] inline std::expected<CpuIdSet, HardwareProbeErrorClass>
-numa_process_read_online_cpus(NumaProcessProbeContext const& ctx) {
+numa_cpu_pin_process_read_online_cpus(NumaCpuPinProcessProbeContext const& ctx) {
     if (ctx.cpu_root.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleFehlt);
-    auto text = numa_process_read_file(ctx.cpu_root / std::string{kCpuOnlineLeafName});
+    auto text = numa_cpu_pin_process_read_file(ctx.cpu_root / std::string{kCpuOnlineLeafName});
     if (!text.has_value()) return std::unexpected(text.error());
-    return numa_process_parse_cpu_list(*text);
+    return numa_cpu_pin_process_parse_cpu_list(*text);
 }
 
 /// Liest die "cpus"-Datei EINER Hybrid-PMU. Ein FEHLENDES Verzeichnis ist hier kein Fehler, sondern die
 /// Aussage "diese Maschine fuehrt keine getrennten PMUs" -- der Aufrufer bekommt deshalb ein leeres
 /// optional-Aequivalent (leere Menge) und entscheidet, was das bedeutet.
 [[nodiscard]] inline std::expected<CpuIdSet, HardwareProbeErrorClass>
-numa_process_read_pmu_cpus(NumaProcessProbeContext const& ctx, std::string_view pmu_dir_name) {
+numa_cpu_pin_process_read_pmu_cpus(NumaCpuPinProcessProbeContext const& ctx, std::string_view pmu_dir_name) {
     if (ctx.cpu_pmu_root.empty()) return CpuIdSet{};
     std::filesystem::path const leaf = ctx.cpu_pmu_root / std::string{pmu_dir_name} / std::string{kPmuCpuListLeafName};
 
@@ -223,9 +223,9 @@ numa_process_read_pmu_cpus(NumaProcessProbeContext const& ctx, std::string_view 
     if (ec) return std::unexpected(HardwareProbeErrorClass::QuelleUnlesbar);
     if (!exists) return CpuIdSet{}; // erwarteter Normalfall auf jeder nicht-hybriden Maschine
 
-    auto text = numa_process_read_file(leaf);
+    auto text = numa_cpu_pin_process_read_file(leaf);
     if (!text.has_value()) return std::unexpected(text.error());
-    return numa_process_parse_cpu_list(*text);
+    return numa_cpu_pin_process_parse_cpu_list(*text);
 }
 
 /// EINE L3-Domaene, bevor sie gegen die anderen geprueft wird.
@@ -243,7 +243,7 @@ struct L3Domain {
 /// aufsteigend nach kleinster CPU-Id sortiert: die Verzeichnis-Reihenfolge des Dateisystems ist nicht
 /// deterministisch, das Ergebnis muss es sein.
 [[nodiscard]] inline std::expected<std::vector<L3Domain>, HardwareProbeErrorClass>
-numa_process_read_l3_domains(NumaProcessProbeContext const& ctx, CpuIdSet const& online) {
+numa_cpu_pin_process_read_l3_domains(NumaCpuPinProcessProbeContext const& ctx, CpuIdSet const& online) {
     std::vector<L3Domain> domains;
     if (ctx.cpu_root.empty()) return domains;
 
@@ -257,14 +257,14 @@ numa_process_read_l3_domains(NumaProcessProbeContext const& ctx, CpuIdSet const&
         if (!exists) continue;
         ++gefunden;
 
-        auto size_text = numa_process_read_file(index / std::string{kCacheSizeLeafName});
+        auto size_text = numa_cpu_pin_process_read_file(index / std::string{kCacheSizeLeafName});
         if (!size_text.has_value()) return std::unexpected(size_text.error());
-        auto size_bytes = numa_process_parse_cache_size(*size_text);
+        auto size_bytes = numa_cpu_pin_process_parse_cache_size(*size_text);
         if (!size_bytes.has_value()) return std::unexpected(size_bytes.error());
 
-        auto shared_text = numa_process_read_file(index / std::string{kCacheSharedCpuListLeaf});
+        auto shared_text = numa_cpu_pin_process_read_file(index / std::string{kCacheSharedCpuListLeaf});
         if (!shared_text.has_value()) return std::unexpected(shared_text.error());
-        auto shared = numa_process_parse_cpu_list(*shared_text);
+        auto shared = numa_cpu_pin_process_parse_cpu_list(*shared_text);
         if (!shared.has_value()) return std::unexpected(shared.error());
 
         // Dieselbe Domaene wird von jedem ihrer Prozessoren gemeldet -- sie wird EINMAL aufgenommen, und
@@ -290,7 +290,7 @@ numa_process_read_l3_domains(NumaProcessProbeContext const& ctx, CpuIdSet const&
 
 /// Prueft, dass eine Klassen-Menge eine echte Teilmenge der Online-Menge ist. Eine Klasse mit einem
 /// Prozessor, den es nicht gibt, ist eine kaputte Quelle und kein zu ignorierender Ausreisser.
-[[nodiscard]] inline bool numa_process_is_subset(CpuIdSet const& part, CpuIdSet const& whole) noexcept {
+[[nodiscard]] inline bool numa_cpu_pin_process_is_subset(CpuIdSet const& part, CpuIdSet const& whole) noexcept {
     return std::includes(whole.begin(), whole.end(), part.begin(), part.end());
 }
 
@@ -305,7 +305,7 @@ numa_process_read_l3_domains(NumaProcessProbeContext const& ctx, CpuIdSet const&
 ///   - sonst                                                              -> Homogen (Stufe 3).
 /// Das Ergebnis traegt immer mindestens eine Gruppe, jede Gruppe eine nichtleere CPU-Menge.
 [[nodiscard]] inline std::expected<CoreClassMap, HardwareProbeErrorClass>
-numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& performance_cpus,
+numa_cpu_pin_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& performance_cpus,
                                   CpuIdSet const& efficiency_cpus, std::vector<L3Domain> const& l3_domains) {
     if (online.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
 
@@ -313,7 +313,8 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
     if (!performance_cpus.empty() || !efficiency_cpus.empty()) {
         if (performance_cpus.empty() || efficiency_cpus.empty())
             return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt); // halbes PMU-Paar
-        if (!numa_process_is_subset(performance_cpus, online) || !numa_process_is_subset(efficiency_cpus, online))
+        if (!numa_cpu_pin_process_is_subset(performance_cpus, online) ||
+            !numa_cpu_pin_process_is_subset(efficiency_cpus, online))
             return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
         CpuIdSet schnitt;
         std::set_intersection(performance_cpus.begin(), performance_cpus.end(), efficiency_cpus.begin(),
@@ -332,7 +333,7 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
     groessen.reserve(l3_domains.size());
     for (auto const& domain : l3_domains) {
         if (domain.cpu_ids.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
-        if (!numa_process_is_subset(domain.cpu_ids, online))
+        if (!numa_cpu_pin_process_is_subset(domain.cpu_ids, online))
             return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
         groessen.push_back(domain.size_bytes);
     }
@@ -373,27 +374,28 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
 }
 
 /// Die Klassen-Achse in einem Zug. PORTABEL.
-[[nodiscard]] inline CoreClassMapResult numa_process_collect_core_classes(NumaProcessProbeContext const& ctx) {
-    auto online = numa_process_read_online_cpus(ctx);
-    if (!online.has_value()) return std::unexpected(NumaProcessProbeError{online.error()});
+[[nodiscard]] inline CoreClassMapResult
+numa_cpu_pin_process_collect_core_classes(NumaCpuPinProcessProbeContext const& ctx) {
+    auto online = numa_cpu_pin_process_read_online_cpus(ctx);
+    if (!online.has_value()) return std::unexpected(NumaCpuPinProcessProbeError{online.error()});
 
-    auto performance = numa_process_read_pmu_cpus(ctx, kPerformanceCorePmuDirName);
-    if (!performance.has_value()) return std::unexpected(NumaProcessProbeError{performance.error()});
-    auto efficiency = numa_process_read_pmu_cpus(ctx, kEfficiencyCorePmuDirName);
-    if (!efficiency.has_value()) return std::unexpected(NumaProcessProbeError{efficiency.error()});
+    auto performance = numa_cpu_pin_process_read_pmu_cpus(ctx, kPerformanceCorePmuDirName);
+    if (!performance.has_value()) return std::unexpected(NumaCpuPinProcessProbeError{performance.error()});
+    auto efficiency = numa_cpu_pin_process_read_pmu_cpus(ctx, kEfficiencyCorePmuDirName);
+    if (!efficiency.has_value()) return std::unexpected(NumaCpuPinProcessProbeError{efficiency.error()});
 
     std::vector<L3Domain> l3;
     if (performance->empty() && efficiency->empty()) {
         // Die L3-Stufe wird nur betreten, wenn die benannte Klassifikation fehlt -- sonst laese die Probe
         // eine Quelle, deren Aussage sie ohnehin verwirft, und ein Lesefehler darin wuerde eine
         // vollstaendig erhobene Hybrid-Karte kippen.
-        auto domains = numa_process_read_l3_domains(ctx, *online);
-        if (!domains.has_value()) return std::unexpected(NumaProcessProbeError{domains.error()});
+        auto domains = numa_cpu_pin_process_read_l3_domains(ctx, *online);
+        if (!domains.has_value()) return std::unexpected(NumaCpuPinProcessProbeError{domains.error()});
         l3 = std::move(*domains);
     }
 
-    auto composed = numa_process_compose_core_classes(*online, *performance, *efficiency, l3);
-    if (!composed.has_value()) return std::unexpected(NumaProcessProbeError{composed.error()});
+    auto composed = numa_cpu_pin_process_compose_core_classes(*online, *performance, *efficiency, l3);
+    if (!composed.has_value()) return std::unexpected(NumaCpuPinProcessProbeError{composed.error()});
     return *composed;
 }
 
@@ -418,7 +420,8 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
 /// Sie lebt in detail und traegt den Familien-Namen: Windows und macOS haben ihre EIGENE Erprobung mit
 /// eigenen Syscalls in ihren eigenen Blaettern. Ein familienloser Name hier waere ein Blatt, das fuer die
 /// anderen mitspricht -- genau die Kopplung, die die CT-Familien-Factory ausschliesst.
-[[nodiscard]] inline PinningCapabilityResult numa_process_probe_pinning_linux(NumaProcessProbeContext const& ctx) {
+[[nodiscard]] inline PinningCapabilityResult
+numa_cpu_pin_process_probe_pinning_linux(NumaCpuPinProcessProbeContext const& ctx) {
 #if defined(__linux__)
     if (!ctx.erprobe_pinning) {
         // Ausdruecklich abgeschaltet: es wird KEIN Erfolg erfunden und keine Faehigkeit behauptet.
@@ -428,13 +431,13 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
     cpu_set_t erlaubt{};
     CPU_ZERO(&erlaubt);
     if (::sched_getaffinity(0, sizeof(erlaubt), &erlaubt) != 0)
-        return std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+        return std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
 
     int const anzahl = CPU_COUNT(&erlaubt);
     if (anzahl <= 0) {
         // Die Schnittstelle hat geantwortet, ihre Antwort traegt aber keine Aussage ('n/a statt Null':
         // eine leere Maske ist kein "0 erlaubte Kerne", sondern eine kaputte Quelle).
-        return std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+        return std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
     }
 
     int ziel = -1;
@@ -443,7 +446,7 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
             ziel = cpu;
             break;
         }
-    if (ziel < 0) return std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+    if (ziel < 0) return std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
 
     PinningCapability result{};
     result.erlaubte_kerne  = static_cast<std::uint32_t>(anzahl);
@@ -470,22 +473,22 @@ numa_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& perfor
     return result;
 #else
     static_cast<void>(ctx);
-    return std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+    return std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
 #endif
 }
 
 } // namespace detail
 
 [[nodiscard]] inline ProcessLocalityTopology
-NumaProcessProbe<LinuxOperatingSystem>::collect(NumaProcessProbeContext const& ctx) {
+NumaCpuPinProcessProbe<LinuxOperatingSystem>::collect(NumaCpuPinProcessProbeContext const& ctx) {
 #if defined(__linux__)
     // Die beiden Felder sind unabhaengig: eine verweigerte Zuordnung darf die Kern-Klassen-Karte nicht
     // verschwinden lassen (Owner-KERN: die Werte werden trotzdem ausgegeben).
-    return ProcessLocalityTopology{detail::numa_process_collect_core_classes(ctx),
-                                   detail::numa_process_probe_pinning_linux(ctx)};
+    return ProcessLocalityTopology{detail::numa_cpu_pin_process_collect_core_classes(ctx),
+                                   detail::numa_cpu_pin_process_probe_pinning_linux(ctx)};
 #else
     static_cast<void>(ctx);
-    return detail::numa_process_os_feature_missing();
+    return detail::numa_cpu_pin_process_os_feature_missing();
 #endif
 }
 

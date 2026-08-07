@@ -1,12 +1,20 @@
-// measurement/numa_process_probe.hpp -- prozess-freie RT-Erhebung der target_isa-Unter-Achse
+// measurement/numa_cpu_pin_process_probe.hpp -- prozess-freie RT-Erhebung der target_isa-Unter-Achse
 // core_class und der Zuordnungs-Faehigkeit dieser Maschine (Paket OD-11-RT).
 //
-// WOHER DAS PAKET KOMMT (Owner-KERN 06.08.2026, verbatim): "numa page ist eine Cache-Seiten
-// Koordination von Cache-Seiten lokalitaet. Jetzt brauchen wir ein pendant numa_process_probe dazu,
-// welche sich damit beschaeftigt, wo Programme ausgefuehrt werden, nicht welche Speicherseiten wo
-// liegen, sie sind aber beide strukturell aehnliche Unterachsen. Das ist also eine fehlende neue
-// Unterachse, sie existiert nur im Plan, nicht gebaut." Dieser Header ist ihr Bau. Er spiegelt
+// WOHER DAS PAKET KOMMT (Owner-KERN 06.08.2026, verbatim -- WORTLAUT UNVERAENDERT, auch der darin
+// genannte alte Name): "numa page ist eine Cache-Seiten Koordination von Cache-Seiten lokalitaet.
+// Jetzt brauchen wir ein pendant numa_process_probe dazu, welche sich damit beschaeftigt, wo
+// Programme ausgefuehrt werden, nicht welche Speicherseiten wo liegen, sie sind aber beide
+// strukturell aehnliche Unterachsen. Das ist also eine fehlende neue Unterachse, sie existiert nur
+// im Plan, nicht gebaut." Dieser Header ist ihr Bau. Er spiegelt
 // numa_page_probe.hpp Abschnitt fuer Abschnitt; wo er abweicht, steht der Grund darunter benannt.
+//
+// NAME (Owner-KERN 06.08.2026, NACH dem Bau, verbatim): "Ich moechte numa_process_probe besser
+// numa_cpu_pin_process_probe nennen". Der neue Name benennt DAS PINNING als Gegenstand, nicht bloss
+// den Prozess -- das ist die Sache selbst, nicht Kosmetik. Er gilt fuer die Probe: Dateien, Typen,
+// Bezeichner und den probe_id-Praefix. Die XML-Achsen-Id der Unter-Achse bleibt davon UNBERUEHRT
+// core_class (aus dem Plan, s. target_isa_sub_axes.hpp) -- die Probe ist das ERHEBUNGS-Verfahren,
+// die Unter-Achse ist der erhobene Gegenstand; der Owner hat das Verfahren umbenannt, nicht die Achse.
 //
 // WAS ERHOBEN WIRD (zwei GETRENNTE Dinge, siehe "EINE ACHSE, ZWEI ERGEBNISSE" unten):
 //   core_class -- die KERN-KLASSEN dieser Maschine samt der logischen Prozessoren je Klasse. linux:
@@ -37,7 +45,7 @@
 // DIE EINE MUTIERENDE STELLE, ausdruecklich und begrenzt: die Pinning-Faehigkeit laesst sich NICHT aus
 // einer Datei lesen. "Der Kernel reicht die Zuordnung durch" ist nur durch HANDLUNG + RUECKPROBE
 // feststellbar: sched_setaffinity kann 0 melden und die Maske trotzdem nicht auf genau einen Kern
-// stehen. Die Familien-Erprobung (numa_process_probe_pinning_<familie>) fuehrt deshalb genau vier
+// stehen. Die Familien-Erprobung (numa_cpu_pin_process_probe_pinning_<familie>) fuehrt deshalb genau vier
 // Syscalls -- Vormaske lesen, Ziel setzen,
 // zuruecklesen, Vormaske wiederherstellen -- auf dem AUFRUFENDEN Thread und auf keinem anderen. Sie ist
 // idempotent, erzeugt keinen Prozess und keinen Thread, und ob die Wiederherstellung gelang, steht als
@@ -81,7 +89,7 @@
 // Feld des Runtime-Ergebnisses. Aendert sich eine Quelle oder die Zusammensetzung der Werte, MUSS die
 // Version steigen, damit Messungen aus verschiedenen Erhebungs-Verfahren unterscheidbar bleiben. Der
 // Familien-Teil wird aus OsAxis::os_family_id() in einen constexpr-Puffer komponiert und nirgendwo als
-// zweites Literal gepflegt (Muster kOsProbeVersion/kNumaPageProbeVersion). kNumaProcessProbeVersion
+// zweites Literal gepflegt (Muster kOsProbeVersion/kNumaPageProbeVersion). kNumaCpuPinProcessProbeVersion
 // startet dreistellig mit CPU-Flag als "v1.0.0c"; COMDARE_VERSION_HW_FLAG_ENFORCE ist SCHARF, ein
 // flagloses Literal braeche hier sofort. Die zentrale Naht-Liste in algo_semver.hpp fuehrt diese Quelle
 // als Auspraegung derselben Klasse wie (f) OS-U3 und (g) OD-10-RT.
@@ -272,11 +280,12 @@ struct PinningCapability {
 /// ausgeloest, der sie dorthin gehoben hat (Begruendung dort): drei Proben mit je einem type alias auf
 /// DENSELBEN variant und je einer eigenen error_domain-Ueberladung sind drei Definitionen derselben
 /// Funktion. Der sprechende Alias-Name bleibt hier, weil er sagt, WELCHE Erhebung den Fehler traegt.
-using NumaProcessProbeError = ProbeErrorSum;
+using NumaCpuPinProcessProbeError = ProbeErrorSum;
 
 /// Das bestehende stabile Etikett der jeweils getragenen #29-Domaene, ohne ein drittes Vokabular zu
 /// erfinden -- wortgleich zur numa/page-Naht.
-[[nodiscard]] constexpr std::string_view numa_process_probe_error_label(NumaProcessProbeError const& error) noexcept {
+[[nodiscard]] constexpr std::string_view
+numa_cpu_pin_process_probe_error_label(NumaCpuPinProcessProbeError const& error) noexcept {
     return std::visit(
         [](auto const value) noexcept -> std::string_view {
             if constexpr (std::is_same_v<std::remove_cvref_t<decltype(value)>, HardwareProbeErrorClass>)
@@ -287,8 +296,8 @@ using NumaProcessProbeError = ProbeErrorSum;
         error);
 }
 
-using CoreClassMapResult      = std::expected<CoreClassMap, NumaProcessProbeError>;
-using PinningCapabilityResult = std::expected<PinningCapability, NumaProcessProbeError>;
+using CoreClassMapResult      = std::expected<CoreClassMap, NumaCpuPinProcessProbeError>;
+using PinningCapabilityResult = std::expected<PinningCapability, NumaCpuPinProcessProbeError>;
 
 /// Das Ergebnis EINER Erhebung: ENTWEDER die Werte-Menge ODER eine benannte Fehlerklasse, je Feld
 /// unabhaengig. Es gibt keinen dritten Zustand und keinen Ersatzwert.
@@ -358,7 +367,7 @@ inline constexpr std::string_view kCacheSizeKibSuffix = "K";
 /// einzige Antwort auf Owner-Bedingung (b), aber sie ist die eine mutierende Stelle des Headers. Ein
 /// Aufrufer, der in einem bereits gepinnten Mess-Fenster steht, muss sie abschalten koennen -- und wenn
 /// er das tut, meldet das Ergebnis KeineSchnittstelle statt eines erfundenen Erfolgs.
-struct NumaProcessProbeContext {
+struct NumaCpuPinProcessProbeContext {
     std::filesystem::path cpu_root;
     std::filesystem::path cpu_pmu_root;
     bool                  erprobe_pinning = true;
@@ -366,7 +375,7 @@ struct NumaProcessProbeContext {
 
 /// Die echten Handles an genau einer Stelle. Tests ersetzen sie durch Wegwerf-Baeume; die
 /// Probe-Spezialisierungen enthalten dadurch keine versteckten, nicht injizierbaren Pfad-Konstanten.
-[[nodiscard]] inline NumaProcessProbeContext default_numa_process_probe_context() {
+[[nodiscard]] inline NumaCpuPinProcessProbeContext default_numa_cpu_pin_process_probe_context() {
     return {std::filesystem::path{kDefaultCpuRoot}, std::filesystem::path{kDefaultCpuPmuRoot}, true};
 }
 
@@ -375,10 +384,10 @@ namespace detail {
 /// Der EINE L6-Ausgang einer nicht-nativen Zelle: BEIDE Felder melden die fehlende Familien-
 /// Schnittstelle. Er steht hier im Public Header und nicht in einem Blatt, damit die drei Blaetter nicht
 /// je eine eigene Formulierung derselben Aussage tragen und kein Blatt ein anderes inkludieren muss.
-[[nodiscard]] inline ProcessLocalityTopology numa_process_os_feature_missing() {
+[[nodiscard]] inline ProcessLocalityTopology numa_cpu_pin_process_os_feature_missing() {
     return ProcessLocalityTopology{
-        std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}),
-        std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt})};
+        std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}),
+        std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt})};
 }
 
 } // namespace detail
@@ -413,56 +422,56 @@ inline constexpr std::size_t kMaxDistinctCoreClasses = 2;
 
 namespace detail {
 
-inline constexpr std::string_view kNumaProcessProbeIdPrefix = "numa_process_probe.";
+inline constexpr std::string_view kNumaCpuPinProcessProbeIdPrefix = "numa_cpu_pin_process_probe.";
 /// K5/A13-M1b: dreistellig, mit CPU-Hardware-Flag, NIE experimentell. COMDARE_VERSION_HW_FLAG_ENFORCE
 /// ist scharf (Default 1) -- ein flagloses "v1.0.0" braeche die gated Wache unten sofort.
-inline constexpr std::string_view kNumaProcessProbeVersion = "v1.0.0c";
+inline constexpr std::string_view kNumaCpuPinProcessProbeVersion = "v1.0.0c";
 
 /// Ein fester constexpr-Puffer statt std::string: probe_id() muss auch compile-time aus dem von der
 /// Achse gelieferten string_view komponierbar sein. 64 Bytes lassen Platz fuer kuenftige echte
 /// Familien-IDs, ohne die heutige ID-Laenge als zweite Wissensquelle einzufrieren.
-struct NumaProcessProbeIdBuffer final {
+struct NumaCpuPinProcessProbeIdBuffer final {
     std::array<char, 64> bytes{};
     std::size_t          length = 0;
 
     [[nodiscard]] constexpr std::string_view view() const noexcept { return {bytes.data(), length}; }
 };
 
-[[nodiscard]] consteval NumaProcessProbeIdBuffer compose_numa_process_probe_id(std::string_view family,
+[[nodiscard]] consteval NumaCpuPinProcessProbeIdBuffer compose_numa_cpu_pin_process_probe_id(std::string_view family,
                                                                                std::string_view version) noexcept {
-    NumaProcessProbeIdBuffer result{};
-    std::size_t const        required = kNumaProcessProbeIdPrefix.size() + family.size() + 1U + version.size();
+    NumaCpuPinProcessProbeIdBuffer result{};
+    std::size_t const        required = kNumaCpuPinProcessProbeIdPrefix.size() + family.size() + 1U + version.size();
     if (required > result.bytes.size()) return result;
 
     auto append = [&result](std::string_view part) {
         for (char const c : part) result.bytes[result.length++] = c;
     };
-    append(kNumaProcessProbeIdPrefix);
+    append(kNumaCpuPinProcessProbeIdPrefix);
     append(family);
     result.bytes[result.length++] = '@';
     append(version);
     return result;
 }
 
-[[nodiscard]] constexpr std::size_t numa_process_probe_at_count(std::string_view id) noexcept {
+[[nodiscard]] constexpr std::size_t numa_cpu_pin_process_probe_at_count(std::string_view id) noexcept {
     std::size_t count = 0;
     for (char const c : id)
         if (c == '@') ++count;
     return count;
 }
 
-[[nodiscard]] constexpr std::string_view numa_process_probe_family_part(std::string_view id) noexcept {
-    if (!id.starts_with(kNumaProcessProbeIdPrefix)) return {};
-    std::size_t const at = id.find('@', kNumaProcessProbeIdPrefix.size());
+[[nodiscard]] constexpr std::string_view numa_cpu_pin_process_probe_family_part(std::string_view id) noexcept {
+    if (!id.starts_with(kNumaCpuPinProcessProbeIdPrefix)) return {};
+    std::size_t const at = id.find('@', kNumaCpuPinProcessProbeIdPrefix.size());
     if (at == std::string_view::npos) return {};
-    return id.substr(kNumaProcessProbeIdPrefix.size(), at - kNumaProcessProbeIdPrefix.size());
+    return id.substr(kNumaCpuPinProcessProbeIdPrefix.size(), at - kNumaCpuPinProcessProbeIdPrefix.size());
 }
 
 } // namespace detail
 
 /// K5-Helfer: schneidet den rohen vX.Y.Z-Teil hinter '@' aus der komponierten Verfahrens-ID. Die
 /// separate genau-ein-'@'-Wache unten verhindert, dass ein mehrdeutiger Rest akzeptiert wird.
-[[nodiscard]] constexpr std::string_view numa_process_probe_version_part(std::string_view id) noexcept {
+[[nodiscard]] constexpr std::string_view numa_cpu_pin_process_probe_version_part(std::string_view id) noexcept {
     std::size_t const at = id.find('@');
     if (at == std::string_view::npos) return {};
     return id.substr(at + 1U);
@@ -475,17 +484,17 @@ struct NumaProcessProbeIdBuffer final {
 /// TOTALITAETS-WACHE: bewusst nur deklariert. Eine neue OS-Achsen-Auspraegung ohne ausdrueckliche
 /// Probe-Entscheidung bleibt ein unvollstaendiger Typ und kann nicht still auf eine Familie fallen.
 template <class OsAxis>
-struct NumaProcessProbe;
+struct NumaCpuPinProcessProbe;
 
 template <>
-struct NumaProcessProbe<LinuxOperatingSystem> {
+struct NumaCpuPinProcessProbe<LinuxOperatingSystem> {
     using os_axis = LinuxOperatingSystem;
     /// DER ANSCHLUSS: die Unter-Achse, deren machine_resolved-Werte hier aufgeloest werden -- als TYP,
     /// nicht als Etikett. Die Wachen am Dateiende pruefen, dass sie es wirklich ist.
     using core_axis = CoreClassSubAxis;
 
-    inline static constexpr detail::NumaProcessProbeIdBuffer kProbeId =
-        detail::compose_numa_process_probe_id(os_axis::os_family_id(), detail::kNumaProcessProbeVersion);
+    inline static constexpr detail::NumaCpuPinProcessProbeIdBuffer kProbeId =
+        detail::compose_numa_cpu_pin_process_probe_id(os_axis::os_family_id(), detail::kNumaCpuPinProcessProbeVersion);
 
     [[nodiscard]] static constexpr std::string_view probe_id() noexcept { return kProbeId.view(); }
     [[nodiscard]] static constexpr bool             has_native_probe() noexcept {
@@ -502,16 +511,16 @@ struct NumaProcessProbe<LinuxOperatingSystem> {
         return "sysfs_cpu_baum_und_sched_affinity_auf_dieser_build_plattform_nicht_verfuegbar";
 #endif
     }
-    [[nodiscard]] static ProcessLocalityTopology collect(NumaProcessProbeContext const& context);
+    [[nodiscard]] static ProcessLocalityTopology collect(NumaCpuPinProcessProbeContext const& context);
 };
 
 template <>
-struct NumaProcessProbe<WindowsOperatingSystem> {
+struct NumaCpuPinProcessProbe<WindowsOperatingSystem> {
     using os_axis   = WindowsOperatingSystem;
     using core_axis = CoreClassSubAxis;
 
-    inline static constexpr detail::NumaProcessProbeIdBuffer kProbeId =
-        detail::compose_numa_process_probe_id(os_axis::os_family_id(), detail::kNumaProcessProbeVersion);
+    inline static constexpr detail::NumaCpuPinProcessProbeIdBuffer kProbeId =
+        detail::compose_numa_cpu_pin_process_probe_id(os_axis::os_family_id(), detail::kNumaCpuPinProcessProbeVersion);
 
     [[nodiscard]] static constexpr std::string_view probe_id() noexcept { return kProbeId.view(); }
     [[nodiscard]] static constexpr bool             has_native_probe() noexcept {
@@ -528,16 +537,16 @@ struct NumaProcessProbe<WindowsOperatingSystem> {
         return "logical_processor_information_ex_und_thread_affinity_auf_dieser_build_plattform_nicht_verfuegbar";
 #endif
     }
-    [[nodiscard]] static ProcessLocalityTopology collect(NumaProcessProbeContext const& context);
+    [[nodiscard]] static ProcessLocalityTopology collect(NumaCpuPinProcessProbeContext const& context);
 };
 
 template <>
-struct NumaProcessProbe<MacosOperatingSystem> {
+struct NumaCpuPinProcessProbe<MacosOperatingSystem> {
     using os_axis   = MacosOperatingSystem;
     using core_axis = CoreClassSubAxis;
 
-    inline static constexpr detail::NumaProcessProbeIdBuffer kProbeId =
-        detail::compose_numa_process_probe_id(os_axis::os_family_id(), detail::kNumaProcessProbeVersion);
+    inline static constexpr detail::NumaCpuPinProcessProbeIdBuffer kProbeId =
+        detail::compose_numa_cpu_pin_process_probe_id(os_axis::os_family_id(), detail::kNumaCpuPinProcessProbeVersion);
 
     [[nodiscard]] static constexpr std::string_view probe_id() noexcept { return kProbeId.view(); }
     [[nodiscard]] static constexpr bool             has_native_probe() noexcept {
@@ -554,19 +563,19 @@ struct NumaProcessProbe<MacosOperatingSystem> {
         return "sysctl_hw_perflevel_auf_dieser_build_plattform_nicht_verfuegbar";
 #endif
     }
-    [[nodiscard]] static ProcessLocalityTopology collect(NumaProcessProbeContext const& context);
+    [[nodiscard]] static ProcessLocalityTopology collect(NumaCpuPinProcessProbeContext const& context);
 };
 
 /// Der Vertrag jeder entschiedenen Familien-Zelle. os_axis bindet die Familien-Wahl als TYP, core_axis
 /// bindet die AUFGELOESTE Unter-Achse als TYP; collect liefert je Feld genau einen Traeger oder einen
 /// klassifizierten K4-Fehler, nie einen Ersatzwert.
 template <class Probe>
-concept NumaProcessProbeConcept = requires(NumaProcessProbeContext const& context) {
+concept NumaCpuPinProcessProbeConcept = requires(NumaCpuPinProcessProbeContext const& context) {
     typename Probe::os_axis;
     typename Probe::core_axis;
     requires OperatingSystemAxisConcept<typename Probe::os_axis>;
     requires TargetIsaSubAxisConcept<typename Probe::core_axis>;
-    requires std::same_as<Probe, NumaProcessProbe<typename Probe::os_axis>>;
+    requires std::same_as<Probe, NumaCpuPinProcessProbe<typename Probe::os_axis>>;
     { Probe::probe_id() } -> std::same_as<std::string_view>;
     { Probe::has_native_probe() } -> std::same_as<bool>;
     { Probe::not_implemented_reason() } -> std::same_as<std::string_view>;
@@ -578,27 +587,28 @@ namespace detail {
 /// Der gesamte K5-Vertrag in einer CT-Wache: Single-Source-Praefix, die Familie direkt aus dem
 /// Achsen-Typ, genau ein Trenner und eine echte, dreistellige, ce-eigene, nicht-experimentelle Version.
 template <class OsAxis>
-[[nodiscard]] consteval bool numa_process_probe_id_contract_is_satisfied() noexcept {
-    std::string_view const id      = NumaProcessProbe<OsAxis>::probe_id();
-    std::string_view const version = numa_process_probe_version_part(id);
+[[nodiscard]] consteval bool numa_cpu_pin_process_probe_id_contract_is_satisfied() noexcept {
+    std::string_view const id      = NumaCpuPinProcessProbe<OsAxis>::probe_id();
+    std::string_view const version = numa_cpu_pin_process_probe_version_part(id);
     AlgoSemVer const       parsed  = parse_algo_semver(version);
-    return id.starts_with(kNumaProcessProbeIdPrefix) && numa_process_probe_family_part(id) == OsAxis::os_family_id() &&
-           numa_process_probe_at_count(id) == 1U && ce_owned_version_is_wellformed(version) && !parsed.is_sentinel() &&
-           !parsed.experimental && version.find('e') == std::string_view::npos;
+    return id.starts_with(kNumaCpuPinProcessProbeIdPrefix) &&
+           numa_cpu_pin_process_probe_family_part(id) == OsAxis::os_family_id() &&
+           numa_cpu_pin_process_probe_at_count(id) == 1U && ce_owned_version_is_wellformed(version) &&
+           !parsed.is_sentinel() && !parsed.experimental && version.find('e') == std::string_view::npos;
 }
 
 template <class OsAxis>
-[[nodiscard]] consteval bool numa_process_probe_version_satisfies_cpu_enforce() noexcept {
+[[nodiscard]] consteval bool numa_cpu_pin_process_probe_version_satisfies_cpu_enforce() noexcept {
     return ce_owned_version_satisfies_cpu_enforce(
-        numa_process_probe_version_part(NumaProcessProbe<OsAxis>::probe_id()));
+        numa_cpu_pin_process_probe_version_part(NumaCpuPinProcessProbe<OsAxis>::probe_id()));
 }
 
 /// ANSCHLUSS-WACHE: haengt die Zelle wirklich an der target_isa-Unter-Achse core_class, und deklariert
 /// diese wirklich noch machine_resolved? Wuerde sie auf einen CT-Options-Katalog umgestellt, waere diese
 /// Probe gegenstandslos -- sie soll dann brechen, nicht stumm weiterlaufen.
 template <class OsAxis>
-[[nodiscard]] consteval bool numa_process_probe_is_anchored() noexcept {
-    using Probe = NumaProcessProbe<OsAxis>;
+[[nodiscard]] consteval bool numa_cpu_pin_process_probe_is_anchored() noexcept {
+    using Probe = NumaCpuPinProcessProbe<OsAxis>;
     return std::same_as<typename Probe::core_axis, CoreClassSubAxis> &&
            Probe::core_axis::option_source() == std::string_view{"machine_resolved"} &&
            Probe::core_axis::parent_axis_label() == std::string_view{"target_isa"};
@@ -606,87 +616,89 @@ template <class OsAxis>
 
 } // namespace detail
 
-static_assert(NumaProcessProbeConcept<NumaProcessProbe<LinuxOperatingSystem>>);
-static_assert(NumaProcessProbeConcept<NumaProcessProbe<WindowsOperatingSystem>>);
-static_assert(NumaProcessProbeConcept<NumaProcessProbe<MacosOperatingSystem>>);
+static_assert(NumaCpuPinProcessProbeConcept<NumaCpuPinProcessProbe<LinuxOperatingSystem>>);
+static_assert(NumaCpuPinProcessProbeConcept<NumaCpuPinProcessProbe<WindowsOperatingSystem>>);
+static_assert(NumaCpuPinProcessProbeConcept<NumaCpuPinProcessProbe<MacosOperatingSystem>>);
 
-static_assert(detail::numa_process_probe_id_contract_is_satisfied<LinuxOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_id_contract_is_satisfied<LinuxOperatingSystem>(),
               "K5: die Linux-probe_id verletzt Praefix/Familie/Trenner/Versions-Grammatik.");
-static_assert(detail::numa_process_probe_id_contract_is_satisfied<WindowsOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_id_contract_is_satisfied<WindowsOperatingSystem>(),
               "K5: die Windows-probe_id verletzt Praefix/Familie/Trenner/Versions-Grammatik.");
-static_assert(detail::numa_process_probe_id_contract_is_satisfied<MacosOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_id_contract_is_satisfied<MacosOperatingSystem>(),
               "K5: die macOS-probe_id verletzt Praefix/Familie/Trenner/Versions-Grammatik.");
 
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
-static_assert(detail::numa_process_probe_version_satisfies_cpu_enforce<LinuxOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_version_satisfies_cpu_enforce<LinuxOperatingSystem>(),
               "K5: die Linux-probe_id-Version verletzt die CPU-only-Pflicht: sie MUSS auf 'c' enden und darf NIE "
               "'e' tragen (Owner-Q3/E2 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
-static_assert(detail::numa_process_probe_version_satisfies_cpu_enforce<WindowsOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_version_satisfies_cpu_enforce<WindowsOperatingSystem>(),
               "K5: die Windows-probe_id-Version verletzt die CPU-only-Pflicht: sie MUSS auf 'c' enden und darf NIE "
               "'e' tragen (Owner-Q3/E2 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
-static_assert(detail::numa_process_probe_version_satisfies_cpu_enforce<MacosOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_version_satisfies_cpu_enforce<MacosOperatingSystem>(),
               "K5: die macOS-probe_id-Version verletzt die CPU-only-Pflicht: sie MUSS auf 'c' enden und darf NIE "
               "'e' tragen (Owner-Q3/E2 02.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf.");
 #endif
 
 // Paarweise verschieden, alle drei Vergleiche: zwei Familien duerfen nie als dasselbe Verfahren im Log
 // oder Messergebnis erscheinen. Die IDs bleiben trotzdem vollstaendig aus os_family_id() abgeleitet.
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::probe_id() !=
-                  NumaProcessProbe<WindowsOperatingSystem>::probe_id() &&
-              NumaProcessProbe<LinuxOperatingSystem>::probe_id() !=
-                  NumaProcessProbe<MacosOperatingSystem>::probe_id() &&
-              NumaProcessProbe<WindowsOperatingSystem>::probe_id() !=
-                  NumaProcessProbe<MacosOperatingSystem>::probe_id());
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::probe_id() !=
+                  NumaCpuPinProcessProbe<WindowsOperatingSystem>::probe_id() &&
+              NumaCpuPinProcessProbe<LinuxOperatingSystem>::probe_id() !=
+                  NumaCpuPinProcessProbe<MacosOperatingSystem>::probe_id() &&
+              NumaCpuPinProcessProbe<WindowsOperatingSystem>::probe_id() !=
+                  NumaCpuPinProcessProbe<MacosOperatingSystem>::probe_id());
 // Und disjunkt zu BEIDEN bestehenden Verfahrens-Familien: dieselbe Maschine erhebt jetzt drei
 // verschiedene Dinge, und die Provenienz-Kette muss sie unterscheiden koennen (das Praefix ist die
-// einzige Trennung). "numa_process_probe." darf ausserdem kein Praefix-Treffer von "numa_page_probe."
+// einzige Trennung). "numa_cpu_pin_process_probe." darf ausserdem kein Praefix-Treffer von "numa_page_probe."
 // sein -- ein Log-Grep auf die eine Familie darf die andere nicht mitlesen.
-static_assert(!NumaProcessProbe<LinuxOperatingSystem>::probe_id().starts_with(std::string_view{"os_probe."}));
-static_assert(!NumaProcessProbe<LinuxOperatingSystem>::probe_id().starts_with(std::string_view{"numa_page_probe."}));
-static_assert(detail::kNumaProcessProbeIdPrefix != std::string_view{"os_probe."});
-static_assert(detail::kNumaProcessProbeIdPrefix != std::string_view{"numa_page_probe."});
-static_assert(!detail::kNumaProcessProbeIdPrefix.starts_with(std::string_view{"numa_page_probe."}) &&
-              !std::string_view{"numa_page_probe."}.starts_with(detail::kNumaProcessProbeIdPrefix));
+static_assert(!NumaCpuPinProcessProbe<LinuxOperatingSystem>::probe_id().starts_with(std::string_view{"os_probe."}));
+static_assert(!NumaCpuPinProcessProbe<LinuxOperatingSystem>::probe_id().starts_with(std::string_view{
+    "numa_page_probe."}));
+static_assert(detail::kNumaCpuPinProcessProbeIdPrefix != std::string_view{"os_probe."});
+static_assert(detail::kNumaCpuPinProcessProbeIdPrefix != std::string_view{"numa_page_probe."});
+static_assert(!detail::kNumaCpuPinProcessProbeIdPrefix.starts_with(std::string_view{"numa_page_probe."}) &&
+              !std::string_view{"numa_page_probe."}.starts_with(detail::kNumaCpuPinProcessProbeIdPrefix));
 
 // -- Der ANSCHLUSS an die statische Einhaengung ---------------------------------------------------
-static_assert(detail::numa_process_probe_is_anchored<LinuxOperatingSystem>(),
+static_assert(detail::numa_cpu_pin_process_probe_is_anchored<LinuxOperatingSystem>(),
               "OD-11-RT: die Linux-Zelle loest nicht mehr die machine_resolved-Unter-Achse core_class am "
               "target_isa-Komplex auf -- dann erhebt sie etwas anderes als das, was die statische "
               "Einhaengung angeboten hat.");
-static_assert(detail::numa_process_probe_is_anchored<WindowsOperatingSystem>());
-static_assert(detail::numa_process_probe_is_anchored<MacosOperatingSystem>());
+static_assert(detail::numa_cpu_pin_process_probe_is_anchored<WindowsOperatingSystem>());
+static_assert(detail::numa_cpu_pin_process_probe_is_anchored<MacosOperatingSystem>());
 // NAMENSFALLE (uebernommen aus target_isa_sub_axes.hpp, hier als Gegenprobe an der RT-Seite): die Achse
 // heisst "core_class" -- "scheduling"/"hetero_core_dispatch" sind die CT-POLICY (was der Bau tun soll),
 // nicht das RT-FAKTUM (was die Maschine hat), und "cpu_core"/"cpu_atom" sind die Intel-Rohnamen der
 // QUELLE, nicht die Bedeutung der Achse.
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() == std::string_view{"core_class"});
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != std::string_view{"scheduling"});
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() !=
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() == std::string_view{"core_class"});
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != std::string_view{"scheduling"});
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() !=
               std::string_view{"hetero_core_dispatch"});
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != kPerformanceCorePmuDirName);
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != kEfficiencyCorePmuDirName);
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != kPerformanceCorePmuDirName);
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != kEfficiencyCorePmuDirName);
 // ABGRENZUNG zu den beiden SPEICHER-Unter-Achsen: dieselbe Mechanik, andere Sache. Die Wache steht hier,
 // weil dieser Header der neue ist (Owner: "strukturell aehnliche Unterachsen" -- aehnlich, nicht gleich).
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != NumaNodeSubAxis::axis_label());
-static_assert(NumaProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != PageSubAxis::axis_label());
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != NumaNodeSubAxis::axis_label());
+static_assert(NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis::axis_label() != PageSubAxis::axis_label());
 // Alle drei Familien loesen DIESELBE Achse auf -- die Familie waehlt die Quelle, nicht die Achse.
-static_assert(std::same_as<NumaProcessProbe<WindowsOperatingSystem>::core_axis,
-                           NumaProcessProbe<LinuxOperatingSystem>::core_axis> &&
-              std::same_as<NumaProcessProbe<MacosOperatingSystem>::core_axis,
-                           NumaProcessProbe<LinuxOperatingSystem>::core_axis>);
+static_assert(std::same_as<NumaCpuPinProcessProbe<WindowsOperatingSystem>::core_axis,
+                           NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis> &&
+              std::same_as<NumaCpuPinProcessProbe<MacosOperatingSystem>::core_axis,
+                           NumaCpuPinProcessProbe<LinuxOperatingSystem>::core_axis>);
 
 // -- Die K4-Domaenen, textuell und semantisch an den Bestand gebunden ------------------------------
-static_assert(error_domain(NumaProcessProbeError{HardwareProbeErrorClass::QuelleFehlt}) == ErrorDomain::HardwareProbe);
-static_assert(numa_process_probe_error_label(NumaProcessProbeError{HardwareProbeErrorClass::QuelleFehlt}) ==
-              std::string_view{"quelle_fehlt"});
-static_assert(numa_process_probe_error_label(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt}) ==
-              std::string_view{"quelle_korrupt"});
-static_assert(numa_process_probe_error_label(NumaProcessProbeError{HardwareProbeErrorClass::FormatUnbekannt}) ==
-              std::string_view{"format_unbekannt"});
-static_assert(error_domain(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
+static_assert(error_domain(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleFehlt}) ==
+              ErrorDomain::HardwareProbe);
+static_assert(numa_cpu_pin_process_probe_error_label(NumaCpuPinProcessProbeError{
+                  HardwareProbeErrorClass::QuelleFehlt}) == std::string_view{"quelle_fehlt"});
+static_assert(numa_cpu_pin_process_probe_error_label(NumaCpuPinProcessProbeError{
+                  HardwareProbeErrorClass::QuelleKorrupt}) == std::string_view{"quelle_korrupt"});
+static_assert(numa_cpu_pin_process_probe_error_label(NumaCpuPinProcessProbeError{
+                  HardwareProbeErrorClass::FormatUnbekannt}) == std::string_view{"format_unbekannt"});
+static_assert(error_domain(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
               ErrorDomain::CompilerCompiler);
-static_assert(numa_process_probe_error_label(
-                  NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
+static_assert(numa_cpu_pin_process_probe_error_label(
+                  NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
               std::string_view{"betriebssystem_feature_fehlt"});
 
 // -- Die drei Vokabulare: BEIDE Drift-Richtungen (RF-3-Lehre) + volle Disjunktheit -----------------
@@ -766,6 +778,6 @@ static_assert(PinningCapability{}.availability == PinningAvailability::KeineSchn
 
 // Die Definitionen liegen in Plattform-Blaettern. Jedes Blatt ist auf jeder Plattform uebersetzbar und
 // inkludiert seinerseits diesen Public Header, sodass auch eine direkte Blatt-Inklusion gueltig ist.
-#include <cache_engine/measurement/numa_process_probe_linux.hpp>
-#include <cache_engine/measurement/numa_process_probe_macos.hpp>
-#include <cache_engine/measurement/numa_process_probe_windows.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe_linux.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe_macos.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe_windows.hpp>

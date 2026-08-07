@@ -1,5 +1,5 @@
 #pragma once
-// measurement/numa_process_probe_macos.hpp -- prozessfreie macOS-Erhebung fuer OD-11-RT.
+// measurement/numa_cpu_pin_process_probe_macos.hpp -- prozessfreie macOS-Erhebung fuer OD-11-RT.
 //
 // WAS: Die macOS-Spezialisierung liest die Kern-Klassen ueber die PERFLEVEL-sysctls, die Darwin auf
 // Apple Silicon fuehrt:
@@ -38,7 +38,7 @@
 // A-15 STEMPEL-NEUTRAL: dieser Blatt-Header erzeugt nur RT-Werte und kennt keinen ABI-, Registry- oder
 // Stempel-Pfad.
 
-#include <cache_engine/measurement/numa_process_probe.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -53,7 +53,7 @@
 namespace comdare::cache_engine::measurement {
 
 [[nodiscard]] inline ProcessLocalityTopology
-NumaProcessProbe<MacosOperatingSystem>::collect(NumaProcessProbeContext const& ctx) {
+NumaCpuPinProcessProbe<MacosOperatingSystem>::collect(NumaCpuPinProcessProbeContext const& ctx) {
 #if defined(__APPLE__)
     static_cast<void>(ctx);
 
@@ -65,17 +65,17 @@ NumaProcessProbe<MacosOperatingSystem>::collect(NumaProcessProbeContext const& c
     std::size_t   groesse = sizeof(ebenen);
     if (::sysctlbyname("hw.nperflevels", &ebenen, &groesse, nullptr, 0) != 0 || groesse == 0) {
         return ProcessLocalityTopology{
-            std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}),
+            std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}),
             std::move(pinning)};
     }
     if (ebenen == 0) {
         return ProcessLocalityTopology{
-            std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt}), std::move(pinning)};
+            std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt}), std::move(pinning)};
     }
     if (static_cast<std::size_t>(ebenen) > kMaxDistinctCoreClasses) {
         // Mehr Leistungs-Ebenen als das Vokabular traegt -- NICHT auf zwei zwingen, sondern benennen.
         return ProcessLocalityTopology{
-            std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::FormatUnbekannt}), std::move(pinning)};
+            std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::FormatUnbekannt}), std::move(pinning)};
     }
 
     CoreClassMap map;
@@ -87,14 +87,15 @@ NumaProcessProbe<MacosOperatingSystem>::collect(NumaProcessProbeContext const& c
         std::size_t       len    = sizeof(anzahl);
         if (::sysctlbyname(name.c_str(), &anzahl, &len, nullptr, 0) != 0 || len == 0) {
             return ProcessLocalityTopology{
-                std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}),
+                std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}),
                 std::move(pinning)};
         }
         // 'n/a statt Null': eine Ebene ohne Prozessoren ist keine leere Klasse, sondern eine kaputte Quelle.
         if (anzahl == 0 || static_cast<std::size_t>(anzahl) > kMaxCpuCount ||
             static_cast<std::uint64_t>(naechste) + anzahl > kMaxCpuId) {
             return ProcessLocalityTopology{
-                std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt}), std::move(pinning)};
+                std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt}),
+                std::move(pinning)};
         }
 
         CoreClassGroup gruppe;
@@ -109,7 +110,7 @@ NumaProcessProbe<MacosOperatingSystem>::collect(NumaProcessProbeContext const& c
     return ProcessLocalityTopology{std::move(map), std::move(pinning)};
 #else
     static_cast<void>(ctx);
-    return detail::numa_process_os_feature_missing();
+    return detail::numa_cpu_pin_process_os_feature_missing();
 #endif
 }
 

@@ -363,7 +363,7 @@ using BuildError = std::variant<InfraErrorClass, CompilerCompilerErrorClass>;
 /// ERHEBUNGS-FEHLER-SUMME: EIN Wert, der ENTWEDER ein Quellen-ZUGANGS- ODER ein fehlendes-OS-Feature-
 /// Urteil ist. Sie ist die Schwester von BuildError -- dieselbe Bauform, andere Alternativen -- und die
 /// gemeinsame K4-Naht ALLER prozessfreien Erhebungs-Proben (OS-U3 os_probe, OD-10-RT numa_page_probe,
-/// OD-11-RT numa_process_probe).
+/// OD-11-RT numa_cpu_pin_process_probe).
 ///
 /// WARUM SIE HIER STEHT UND NICHT DREIMAL DANEBEN (Befund beim Bau von OD-11-RT, 06.08.2026): jede der
 /// drei Proben fuehrte bisher ihr eigenes `using ...ProbeError = std::variant<HardwareProbeErrorClass,

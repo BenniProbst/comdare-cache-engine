@@ -7,10 +7,14 @@
 // bis hierher GAR KEINEN Typ -- sie lebten nur als XSD-Elemente (experiment_schema.xsd, O-2-Block) und
 // als Bauplan-Namen. Dieser Header gibt ihnen den Typ.
 //
-// DAZU TRITT core_class (Paket OD-11-RT, Owner-KERN 06.08.2026). Der Owner verbatim: "numa page ist
-// eine Cache-Seiten Koordination von Cache-Seiten lokalitaet. Jetzt brauchen wir ein pendant
-// numa_process_probe dazu, welche sich damit beschaeftigt, wo Programme ausgefuehrt werden, nicht
-// welche Speicherseiten wo liegen, sie sind aber beide strukturell aehnliche Unterachsen." numa_node
+// DAZU TRITT core_class (Paket OD-11-RT, Owner-KERN 06.08.2026). Der Owner verbatim -- WORTLAUT
+// UNVERAENDERT, auch der darin genannte alte Proben-Name: "numa page ist eine Cache-Seiten
+// Koordination von Cache-Seiten lokalitaet. Jetzt brauchen wir ein pendant numa_process_probe dazu,
+// welche sich damit beschaeftigt, wo Programme ausgefuehrt werden, nicht welche Speicherseiten wo
+// liegen, sie sind aber beide strukturell aehnliche Unterachsen." Die PROBE heisst seit dem
+// Folge-KERN desselben Tages ("Ich moechte numa_process_probe besser numa_cpu_pin_process_probe
+// nennen") numa_cpu_pin_process_probe; die ACHSE hier heisst unveraendert core_class -- der Owner
+// hat das Erhebungs-VERFAHREN umbenannt, nicht den erhobenen Gegenstand. numa_node
 // und page tragen die SPEICHER-Lokalitaet, core_class die AUSFUEHRUNGS-Lokalitaet. Der Name kommt aus
 // dem Plan und ist nicht neu erfunden: docs/plaene/20260806-PLAN-hybrid-architektur-pmc-achsen-
 // zuordnung.md:382 -- "Ein `core_class`-Geschwister neben `numa_node`/`page` braucht keine einzige

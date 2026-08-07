@@ -30,7 +30,7 @@
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/hardware_probe_factory.hpp>
 #include <cache_engine/measurement/numa_page_probe.hpp>
-#include <cache_engine/measurement/numa_process_probe.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe.hpp>
 #include <cache_engine/measurement/operating_system_axis.hpp>
 #include <cache_engine/measurement/target_isa_sub_axes.hpp>
 
@@ -58,9 +58,9 @@ namespace cem  = ::comdare::cache_engine::measurement;
 namespace cabi = ::comdare::cache_engine::abi;
 namespace fs   = std::filesystem;
 
-using LinuxProbe   = cem::NumaProcessProbe<cem::LinuxOperatingSystem>;
-using WindowsProbe = cem::NumaProcessProbe<cem::WindowsOperatingSystem>;
-using MacosProbe   = cem::NumaProcessProbe<cem::MacosOperatingSystem>;
+using LinuxProbe   = cem::NumaCpuPinProcessProbe<cem::LinuxOperatingSystem>;
+using WindowsProbe = cem::NumaCpuPinProcessProbe<cem::WindowsOperatingSystem>;
+using MacosProbe   = cem::NumaCpuPinProcessProbe<cem::MacosOperatingSystem>;
 
 namespace {
 
@@ -74,19 +74,19 @@ namespace {
 }
 
 /// Zweite, ABSICHTLICH unabhaengige Formulierung des K5-Vertrags. Sie ruft die Produktions-Helfer
-/// numa_process_probe_family_part/at_count NICHT auf: sonst koennten Wache und Gegenprobe denselben
+/// numa_cpu_pin_process_probe_family_part/at_count NICHT auf: sonst koennten Wache und Gegenprobe denselben
 /// Praefix-/Trenner-Fehler teilen.
 template <class OsAxis>
 [[nodiscard]] consteval bool probe_id_contract() noexcept {
-    constexpr std::string_view prefix = "numa_process_probe.";
-    constexpr std::string_view id     = cem::NumaProcessProbe<OsAxis>::probe_id();
+    constexpr std::string_view prefix = "numa_cpu_pin_process_probe.";
+    constexpr std::string_view id     = cem::NumaCpuPinProcessProbe<OsAxis>::probe_id();
     if (!id.starts_with(prefix) || count_character(id, '@') != 1U) return false;
 
     std::size_t const separator = id.find('@');
     if (separator <= prefix.size()) return false;
     if (id.substr(prefix.size(), separator - prefix.size()) != OsAxis::os_family_id()) return false;
 
-    std::string_view const version = cem::numa_process_probe_version_part(id);
+    std::string_view const version = cem::numa_cpu_pin_process_probe_version_part(id);
     cem::AlgoSemVer const  parsed  = cem::parse_algo_semver(version);
     return cem::ce_owned_version_is_wellformed(version) && !parsed.is_sentinel() && !parsed.experimental &&
            version.find('e') == std::string_view::npos;
@@ -97,23 +97,23 @@ struct FantasieAchse;
 template <class T>
 concept CompleteType = requires { sizeof(T); };
 
-static_assert(cem::NumaProcessProbeConcept<LinuxProbe>);
-static_assert(cem::NumaProcessProbeConcept<WindowsProbe>);
-static_assert(cem::NumaProcessProbeConcept<MacosProbe>);
+static_assert(cem::NumaCpuPinProcessProbeConcept<LinuxProbe>);
+static_assert(cem::NumaCpuPinProcessProbeConcept<WindowsProbe>);
+static_assert(cem::NumaCpuPinProcessProbeConcept<MacosProbe>);
 static_assert(std::same_as<typename LinuxProbe::os_axis, cem::LinuxOperatingSystem>);
 static_assert(std::same_as<typename WindowsProbe::os_axis, cem::WindowsOperatingSystem>);
 static_assert(std::same_as<typename MacosProbe::os_axis, cem::MacosOperatingSystem>);
 static_assert(!std::same_as<LinuxProbe, WindowsProbe> && !std::same_as<LinuxProbe, MacosProbe> &&
               !std::same_as<WindowsProbe, MacosProbe>);
-static_assert(!CompleteType<cem::NumaProcessProbe<FantasieAchse>>,
-              "Das primaere NumaProcessProbe-Template muss als Totalitaets-Wache unvollstaendig bleiben.");
+static_assert(!CompleteType<cem::NumaCpuPinProcessProbe<FantasieAchse>>,
+              "Das primaere NumaCpuPinProcessProbe-Template muss als Totalitaets-Wache unvollstaendig bleiben.");
 
 static_assert(probe_id_contract<cem::LinuxOperatingSystem>());
 static_assert(probe_id_contract<cem::WindowsOperatingSystem>());
 static_assert(probe_id_contract<cem::MacosOperatingSystem>());
-static_assert(LinuxProbe::probe_id() == std::string_view{"numa_process_probe.linux@v1.0.0c"});
-static_assert(WindowsProbe::probe_id() == std::string_view{"numa_process_probe.windows@v1.0.0c"});
-static_assert(MacosProbe::probe_id() == std::string_view{"numa_process_probe.macos@v1.0.0c"});
+static_assert(LinuxProbe::probe_id() == std::string_view{"numa_cpu_pin_process_probe.linux@v1.0.0c"});
+static_assert(WindowsProbe::probe_id() == std::string_view{"numa_cpu_pin_process_probe.windows@v1.0.0c"});
+static_assert(MacosProbe::probe_id() == std::string_view{"numa_cpu_pin_process_probe.macos@v1.0.0c"});
 static_assert(LinuxProbe::probe_id() != WindowsProbe::probe_id() && LinuxProbe::probe_id() != MacosProbe::probe_id() &&
               WindowsProbe::probe_id() != MacosProbe::probe_id());
 // GESCHWISTER-ABGRENZUNG: die beiden Erhebungen an derselben Maschine duerfen im Log nie als eine
@@ -121,7 +121,7 @@ static_assert(LinuxProbe::probe_id() != WindowsProbe::probe_id() && LinuxProbe::
 static_assert(LinuxProbe::probe_id() != cem::NumaPageProbe<cem::LinuxOperatingSystem>::probe_id());
 static_assert(!LinuxProbe::probe_id().starts_with(std::string_view{"numa_page_probe."}));
 static_assert(!cem::NumaPageProbe<cem::LinuxOperatingSystem>::probe_id().starts_with(
-    std::string_view{"numa_process_probe."}));
+    std::string_view{"numa_cpu_pin_process_probe."}));
 
 /// DER ANSCHLUSS als Test-Aussage: die Probe loest genau die Unter-Achse auf, die als machine_resolved
 /// angeboten ist -- ueber den TYP, nicht ueber ein Etikett.
@@ -229,8 +229,8 @@ private:
 
 /// Ein Kontext, der NUR die Dateien liest und die Zuordnung NICHT erprobt -- die Fixture-Tests sollen
 /// die Affinitaet des Test-Threads nicht anfassen.
-[[nodiscard]] cem::NumaProcessProbeContext lese_kontext(fs::path cpu_root, fs::path pmu_root) {
-    cem::NumaProcessProbeContext ctx{};
+[[nodiscard]] cem::NumaCpuPinProcessProbeContext lese_kontext(fs::path cpu_root, fs::path pmu_root) {
+    cem::NumaCpuPinProcessProbeContext ctx{};
     ctx.cpu_root        = std::move(cpu_root);
     ctx.cpu_pmu_root    = std::move(pmu_root);
     ctx.erprobe_pinning = false;
@@ -244,7 +244,7 @@ void expect_hardware_error(Result const& result, cem::HardwareProbeErrorClass ex
     ASSERT_NE(error, nullptr) << "Ein Quellen-Zugangsfehler darf nie als Compiler-Compiler-Fehler reisen.";
     EXPECT_EQ(*error, expected);
     EXPECT_EQ(cem::error_domain(result.error()), cem::ErrorDomain::HardwareProbe);
-    EXPECT_EQ(cem::numa_process_probe_error_label(result.error()), label);
+    EXPECT_EQ(cem::numa_cpu_pin_process_probe_error_label(result.error()), label);
 }
 
 /// Die Parser melden die nackte Klasse (kein variant) -- eigene Erwartung, damit die Negativ-Proben
@@ -270,8 +270,8 @@ void expect_parser_class(Result const& result, cem::HardwareProbeErrorClass expe
 }
 
 template <class OsAxis>
-void verify_native_or_l6_producer(cem::NumaProcessProbeContext const& context, std::size_t& native_count) {
-    using Probe = cem::NumaProcessProbe<OsAxis>;
+void verify_native_or_l6_producer(cem::NumaCpuPinProcessProbeContext const& context, std::size_t& native_count) {
+    using Probe = cem::NumaCpuPinProcessProbe<OsAxis>;
     if constexpr (Probe::has_native_probe()) {
         ++native_count;
     } else {
@@ -284,7 +284,7 @@ void verify_native_or_l6_producer(cem::NumaProcessProbeContext const& context, s
             EXPECT_EQ(*error, cem::CompilerCompilerErrorClass::BetriebssystemFeatureFehlt);
         }
         EXPECT_EQ(cem::error_domain(topology.core_classes.error()), cem::ErrorDomain::CompilerCompiler);
-        EXPECT_EQ(cem::numa_process_probe_error_label(topology.pinning.error()),
+        EXPECT_EQ(cem::numa_cpu_pin_process_probe_error_label(topology.pinning.error()),
                   std::string_view{"betriebssystem_feature_fehlt"});
         EXPECT_FALSE(Probe::not_implemented_reason().empty())
             << "Eine fremde Familien-Zelle muss ihren ehrlichen Nicht-Implementierungsgrund benennen.";
@@ -295,7 +295,7 @@ void verify_native_or_l6_producer(cem::NumaProcessProbeContext const& context, s
 
 // -- Block B (runtime, HARDWARE-FREI): die tragende Klassifikations-Logik --------------------------
 
-TEST(Od11NumaProcessProbe, ListenGrammatikDeckDieVierRealenKernelFormenAb) {
+TEST(Od11NumaCpuPinProcessProbe, ListenGrammatikDeckDieVierRealenKernelFormenAb) {
     struct Fall {
         std::string_view           text;
         std::vector<std::uint32_t> erwartet;
@@ -307,7 +307,7 @@ TEST(Od11NumaProcessProbe, ListenGrammatikDeckDieVierRealenKernelFormenAb) {
         {"0-3,8-11\n", {0, 1, 2, 3, 8, 9, 10, 11}},          // die reale CCD-Form
     };
     for (auto const& fall : faelle) {
-        auto const result = cem::detail::numa_process_parse_cpu_list(fall.text);
+        auto const result = cem::detail::numa_cpu_pin_process_parse_cpu_list(fall.text);
         ASSERT_TRUE(result.has_value()) << "Kernel-Form abgelehnt: " << fall.text;
         EXPECT_EQ(*result, fall.erwartet) << "Falsche Expansion fuer: " << fall.text;
     }
@@ -316,9 +316,9 @@ TEST(Od11NumaProcessProbe, ListenGrammatikDeckDieVierRealenKernelFormenAb) {
 /// DRIFT-GEGENPROBE zur Geschwister-Probe: die Listen-Grammatik steht in beiden Blaettern (mit
 /// verschiedenen Deckeln, siehe Kopf des Linux-Blattes). Die Duplikation wird nicht verschwiegen,
 /// sondern hier festgenagelt -- laufen die beiden Parser je auseinander, bricht dieser Test.
-TEST(Od11NumaProcessProbe, DieDoppelteListenGrammatikDarfNieAuseinanderlaufen) {
+TEST(Od11NumaCpuPinProcessProbe, DieDoppelteListenGrammatikDarfNieAuseinanderlaufen) {
     for (std::string_view const form : {"0", "0-3", "0-1,4", "0,2,4-5"}) {
-        auto const prozess = cem::detail::numa_process_parse_cpu_list(form);
+        auto const prozess = cem::detail::numa_cpu_pin_process_parse_cpu_list(form);
         auto const seite   = cem::detail::numa_page_parse_id_list(form);
         ASSERT_TRUE(prozess.has_value()) << form;
         ASSERT_TRUE(seite.has_value()) << form;
@@ -326,17 +326,17 @@ TEST(Od11NumaProcessProbe, DieDoppelteListenGrammatikDarfNieAuseinanderlaufen) {
     }
     // Und die Stelle, an der sie sich UNTERSCHEIDEN duerfen und muessen: der Deckel.
     auto const ueber_knoten_deckel = std::to_string(cem::kMaxNumaNodeId + 1U);
-    EXPECT_TRUE(cem::detail::numa_process_parse_cpu_list(ueber_knoten_deckel).has_value())
+    EXPECT_TRUE(cem::detail::numa_cpu_pin_process_parse_cpu_list(ueber_knoten_deckel).has_value())
         << "Eine CPU-Id oberhalb des NUMA-Knoten-Deckels ist gueltig -- der Deckel ist feldspezifisch.";
     EXPECT_FALSE(cem::detail::numa_page_parse_id_list(ueber_knoten_deckel).has_value());
 }
 
-TEST(Od11NumaProcessProbe, CacheGroessenKontraktWirdExaktGelesen) {
-    auto const l3_klein = cem::detail::numa_process_parse_cache_size("32768K\n");
+TEST(Od11NumaCpuPinProcessProbe, CacheGroessenKontraktWirdExaktGelesen) {
+    auto const l3_klein = cem::detail::numa_cpu_pin_process_parse_cache_size("32768K\n");
     ASSERT_TRUE(l3_klein.has_value());
     EXPECT_EQ(*l3_klein, std::uint64_t{32768} * 1024U);
 
-    auto const l3_vcache = cem::detail::numa_process_parse_cache_size("98304K\n");
+    auto const l3_vcache = cem::detail::numa_cpu_pin_process_parse_cache_size("98304K\n");
     ASSERT_TRUE(l3_vcache.has_value());
     EXPECT_EQ(*l3_vcache, std::uint64_t{98304} * 1024U);
     // Die tragende Unterscheidung dieser Quelle: die beiden realen prod1-Groessen sind verschieden.
@@ -345,11 +345,11 @@ TEST(Od11NumaProcessProbe, CacheGroessenKontraktWirdExaktGelesen) {
 
 /// DER BISS, Teil 1: DIESELBE Klassifikations-Funktion, drei eingespeiste Maschinen, drei verschiedene
 /// Antworten. Ohne diesen Test waere "core_class" ein Feld, das immer dasselbe sagt.
-TEST(Od11NumaProcessProbe, HybridUniformUndL3AsymmetrieLiefernDreiVerschiedeneKarten) {
+TEST(Od11NumaCpuPinProcessProbe, HybridUniformUndL3AsymmetrieLiefernDreiVerschiedeneKarten) {
     std::vector<std::uint32_t> const online = {0, 1, 2, 3, 4, 5, 6, 7};
 
     // (1) HYBRID (Intel-Fassung): zwei benannte PMUs.
-    auto const hybrid = cem::detail::numa_process_compose_core_classes(online, {0, 1, 2, 3}, {4, 5, 6, 7}, {});
+    auto const hybrid = cem::detail::numa_cpu_pin_process_compose_core_classes(online, {0, 1, 2, 3}, {4, 5, 6, 7}, {});
     ASSERT_TRUE(hybrid.has_value());
     EXPECT_EQ(hybrid->source, cem::CoreTopologySource::HybridPmu);
     ASSERT_EQ(hybrid->groups.size(), 2U);
@@ -363,7 +363,7 @@ TEST(Od11NumaProcessProbe, HybridUniformUndL3AsymmetrieLiefernDreiVerschiedeneKa
         {std::uint64_t{98304} * 1024U, {0, 1, 2, 3}}, // V-Cache-CCD
         {std::uint64_t{32768} * 1024U, {4, 5, 6, 7}}, // Frequenz-CCD
     };
-    auto const asymmetrisch = cem::detail::numa_process_compose_core_classes(online, {}, {}, ccds);
+    auto const asymmetrisch = cem::detail::numa_cpu_pin_process_compose_core_classes(online, {}, {}, ccds);
     ASSERT_TRUE(asymmetrisch.has_value());
     EXPECT_EQ(asymmetrisch->source, cem::CoreTopologySource::L3Domaene);
     ASSERT_EQ(asymmetrisch->groups.size(), 2U);
@@ -376,7 +376,7 @@ TEST(Od11NumaProcessProbe, HybridUniformUndL3AsymmetrieLiefernDreiVerschiedeneKa
         {std::uint64_t{32768} * 1024U, {0, 1, 2, 3}},
         {std::uint64_t{32768} * 1024U, {4, 5, 6, 7}},
     };
-    auto const uniform = cem::detail::numa_process_compose_core_classes(online, {}, {}, gleich);
+    auto const uniform = cem::detail::numa_cpu_pin_process_compose_core_classes(online, {}, {}, gleich);
     ASSERT_TRUE(uniform.has_value());
     EXPECT_EQ(uniform->source, cem::CoreTopologySource::Homogen);
     ASSERT_EQ(uniform->groups.size(), 1U);
@@ -394,7 +394,7 @@ TEST(Od11NumaProcessProbe, HybridUniformUndL3AsymmetrieLiefernDreiVerschiedeneKa
 
 /// DER BISS, Teil 2: dieselbe Aussage EINE Schicht hoeher -- ueber den vollen Fixture-Baum, also
 /// einschliesslich Datei-Lesen, PMU-Suche und L3-Zusammenfassung.
-TEST(Od11NumaProcessProbe, FixtureBaumTrenntEingespeisteHybridUndUniformMaschine) {
+TEST(Od11NumaCpuPinProcessProbe, FixtureBaumTrenntEingespeisteHybridUndUniformMaschine) {
     // (a) Eingespeiste HYBRID-Fassung: der PMU-Baum existiert.
     {
         ProcessTestTree tree("hybrid");
@@ -402,8 +402,8 @@ TEST(Od11NumaProcessProbe, FixtureBaumTrenntEingespeisteHybridUndUniformMaschine
         fs::path const cpu = tree.make_cpu_root("0-7\n");
         fs::path const pmu = tree.make_pmu_root("0-3\n", "4-7\n");
 
-        auto const karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, pmu));
-        ASSERT_TRUE(karte.has_value()) << cem::numa_process_probe_error_label(karte.error());
+        auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, pmu));
+        ASSERT_TRUE(karte.has_value()) << cem::numa_cpu_pin_process_probe_error_label(karte.error());
         EXPECT_EQ(karte->source, cem::CoreTopologySource::HybridPmu);
         ASSERT_EQ(karte->groups.size(), 2U);
         EXPECT_EQ(karte->groups[0].cpu_ids, (std::vector<std::uint32_t>{0, 1, 2, 3}));
@@ -416,8 +416,8 @@ TEST(Od11NumaProcessProbe, FixtureBaumTrenntEingespeisteHybridUndUniformMaschine
         fs::path const cpu = tree.make_cpu_root("0-7\n");
         fs::path const pmu = tree.make_pmu_root("", "");
 
-        auto const karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, pmu));
-        ASSERT_TRUE(karte.has_value()) << cem::numa_process_probe_error_label(karte.error());
+        auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, pmu));
+        ASSERT_TRUE(karte.has_value()) << cem::numa_cpu_pin_process_probe_error_label(karte.error());
         EXPECT_EQ(karte->source, cem::CoreTopologySource::Homogen);
         ASSERT_EQ(karte->groups.size(), 1U);
         EXPECT_EQ(karte->groups[0].kind, cem::CoreClassKind::Uniform);
@@ -433,8 +433,8 @@ TEST(Od11NumaProcessProbe, FixtureBaumTrenntEingespeisteHybridUndUniformMaschine
         tree.add_l3(cpu, 2, "32768K\n", "2-3\n");
         tree.add_l3(cpu, 3, "32768K\n", "2-3\n");
 
-        auto const karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, pmu));
-        ASSERT_TRUE(karte.has_value()) << cem::numa_process_probe_error_label(karte.error());
+        auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, pmu));
+        ASSERT_TRUE(karte.has_value()) << cem::numa_cpu_pin_process_probe_error_label(karte.error());
         EXPECT_EQ(karte->source, cem::CoreTopologySource::L3Domaene);
         ASSERT_EQ(karte->groups.size(), 2U);
         EXPECT_EQ(karte->groups[0].kind, cem::CoreClassKind::GrosserCache);
@@ -444,12 +444,13 @@ TEST(Od11NumaProcessProbe, FixtureBaumTrenntEingespeisteHybridUndUniformMaschine
     }
 }
 
-TEST(Od11NumaProcessProbe, FehlenderPmuUndFehlenderL3BaumSindKeinFehlerSondernDieUniformeAntwort) {
+TEST(Od11NumaCpuPinProcessProbe, FehlenderPmuUndFehlenderL3BaumSindKeinFehlerSondernDieUniformeAntwort) {
     ProcessTestTree tree("keine_quellen");
     ASSERT_TRUE(tree.ready());
     fs::path const cpu = tree.make_cpu_root("0-1\n");
 
-    auto const karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, tree.child("gibt_es_nicht")));
+    auto const karte =
+        cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, tree.child("gibt_es_nicht")));
     ASSERT_TRUE(karte.has_value()) << "Eine Maschine ohne Hybrid-PMU und ohne L3-Knoten ist uniform, kein Fehler.";
     EXPECT_EQ(karte->source, cem::CoreTopologySource::Homogen);
     ASSERT_EQ(karte->groups.size(), 1U);
@@ -458,19 +459,19 @@ TEST(Od11NumaProcessProbe, FehlenderPmuUndFehlenderL3BaumSindKeinFehlerSondernDi
 
 // -- Block C (runtime): jede K4-Fehlerklasse einzeln, plus der L6-Producer -------------------------
 
-TEST(Od11NumaProcessProbe, FehlendeOnlineQuelleBleibtQuelleFehlt) {
+TEST(Od11NumaCpuPinProcessProbe, FehlendeOnlineQuelleBleibtQuelleFehlt) {
     ProcessTestTree tree("cpu_fehlt");
     ASSERT_TRUE(tree.ready());
-    auto const karte =
-        cem::detail::numa_process_collect_core_classes(lese_kontext(tree.child("nicht_vorhanden"), tree.child("egal")));
+    auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(
+        lese_kontext(tree.child("nicht_vorhanden"), tree.child("egal")));
     expect_hardware_error(karte, cem::HardwareProbeErrorClass::QuelleFehlt, "quelle_fehlt");
 }
 
-TEST(Od11NumaProcessProbe, VorhandeneAberLeereOnlineQuelleBleibtQuelleKorrupt) {
+TEST(Od11NumaCpuPinProcessProbe, VorhandeneAberLeereOnlineQuelleBleibtQuelleKorrupt) {
     ProcessTestTree tree("cpu_leer");
     ASSERT_TRUE(tree.ready());
     fs::path const cpu   = tree.make_cpu_root("   \n");
-    auto const     karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, tree.child("egal")));
+    auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, tree.child("egal")));
     expect_hardware_error(karte, cem::HardwareProbeErrorClass::QuelleKorrupt, "quelle_korrupt");
     // A4-Kern: vorhanden und korrupt darf nie als fehlend degradiert werden.
     auto const* error = std::get_if<cem::HardwareProbeErrorClass>(&karte.error());
@@ -478,63 +479,68 @@ TEST(Od11NumaProcessProbe, VorhandeneAberLeereOnlineQuelleBleibtQuelleKorrupt) {
     EXPECT_NE(*error, cem::HardwareProbeErrorClass::QuelleFehlt);
 }
 
-TEST(Od11NumaProcessProbe, FremdesZeichenInDerListeBleibtFormatUnbekannt) {
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("0 1 2"),
+TEST(Od11NumaCpuPinProcessProbe, FremdesZeichenInDerListeBleibtFormatUnbekannt) {
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("0 1 2"),
                         cem::HardwareProbeErrorClass::FormatUnbekannt);
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("cpu0"),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("cpu0"),
                         cem::HardwareProbeErrorClass::FormatUnbekannt);
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("0;1"), cem::HardwareProbeErrorClass::FormatUnbekannt);
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("0;1"),
+                        cem::HardwareProbeErrorClass::FormatUnbekannt);
 }
 
-TEST(Od11NumaProcessProbe, StrukturbruecheInDerListeBleibenQuelleKorrupt) {
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("3-1"), cem::HardwareProbeErrorClass::QuelleKorrupt);
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("0-3,2"), cem::HardwareProbeErrorClass::QuelleKorrupt);
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("0,"), cem::HardwareProbeErrorClass::QuelleKorrupt);
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("0-999999"),
+TEST(Od11NumaCpuPinProcessProbe, StrukturbruecheInDerListeBleibenQuelleKorrupt) {
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("3-1"),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
-    expect_parser_class(cem::detail::numa_process_parse_cpu_list("0-99999999999999999999999"),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("0-3,2"),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt);
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("0,"),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt);
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("0-999999"),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt);
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cpu_list("0-99999999999999999999999"),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
     // Und die Gegenprobe: die zulaessige Ober-Id selbst wird NICHT abgewiesen.
-    auto const grenzfall = cem::detail::numa_process_parse_cpu_list(std::to_string(cem::kMaxCpuId));
+    auto const grenzfall = cem::detail::numa_cpu_pin_process_parse_cpu_list(std::to_string(cem::kMaxCpuId));
     ASSERT_TRUE(grenzfall.has_value());
     EXPECT_EQ(grenzfall->front(), cem::kMaxCpuId);
 }
 
-TEST(Od11NumaProcessProbe, UnbrauchbareCacheGroesseWirdKlassifiziert) {
+TEST(Od11NumaCpuPinProcessProbe, UnbrauchbareCacheGroesseWirdKlassifiziert) {
     // Ohne den K-Suffix ist es nicht das sysfs-Format -- NIE interpretieren.
-    expect_parser_class(cem::detail::numa_process_parse_cache_size("32768"),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cache_size("32768"),
                         cem::HardwareProbeErrorClass::FormatUnbekannt);
-    expect_parser_class(cem::detail::numa_process_parse_cache_size("32768M"),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cache_size("32768M"),
                         cem::HardwareProbeErrorClass::FormatUnbekannt);
-    expect_parser_class(cem::detail::numa_process_parse_cache_size("32 768K"),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cache_size("32 768K"),
                         cem::HardwareProbeErrorClass::FormatUnbekannt);
     // 'n/a statt Null': ein 0-Byte-Cache existiert nicht.
-    expect_parser_class(cem::detail::numa_process_parse_cache_size("0K"), cem::HardwareProbeErrorClass::QuelleKorrupt);
-    expect_parser_class(cem::detail::numa_process_parse_cache_size("  \n"),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cache_size("0K"),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt);
+    expect_parser_class(cem::detail::numa_cpu_pin_process_parse_cache_size("  \n"),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
     // Und die Gegenprobe: die reale prod1-Groesse wird akzeptiert.
-    EXPECT_TRUE(cem::detail::numa_process_parse_cache_size("98304K").has_value());
+    EXPECT_TRUE(cem::detail::numa_cpu_pin_process_parse_cache_size("98304K").has_value());
 }
 
-TEST(Od11NumaProcessProbe, EinHalbesHybridPmuPaarIstEinBefundUndKeineHalbeKarte) {
+TEST(Od11NumaCpuPinProcessProbe, EinHalbesHybridPmuPaarIstEinBefundUndKeineHalbeKarte) {
     std::vector<std::uint32_t> const online = {0, 1, 2, 3};
     // Nur die P-Seite gemeldet: die Maschine haette dann Kerne ohne Klasse.
-    expect_parser_class(cem::detail::numa_process_compose_core_classes(online, {0, 1}, {}, {}),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_core_classes(online, {0, 1}, {}, {}),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
     // Nur die E-Seite.
-    expect_parser_class(cem::detail::numa_process_compose_core_classes(online, {}, {2, 3}, {}),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_core_classes(online, {}, {2, 3}, {}),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
     // Ein Kern in BEIDEN Klassen.
-    expect_parser_class(cem::detail::numa_process_compose_core_classes(online, {0, 1, 2}, {2, 3}, {}),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_core_classes(online, {0, 1, 2}, {2, 3}, {}),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
     // Eine Klasse mit einem Prozessor, den es nicht gibt.
-    expect_parser_class(cem::detail::numa_process_compose_core_classes(online, {0, 1}, {2, 3, 9}, {}),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_core_classes(online, {0, 1}, {2, 3, 9}, {}),
                         cem::HardwareProbeErrorClass::QuelleKorrupt);
     // Und die Gegenprobe: das vollstaendige, disjunkte Paar wird akzeptiert.
-    EXPECT_TRUE(cem::detail::numa_process_compose_core_classes(online, {0, 1}, {2, 3}, {}).has_value());
+    EXPECT_TRUE(cem::detail::numa_cpu_pin_process_compose_core_classes(online, {0, 1}, {2, 3}, {}).has_value());
 }
 
-TEST(Od11NumaProcessProbe, MehrAlsZweiL3GroessenWerdenBenanntStattAufZweiGezwungen) {
+TEST(Od11NumaCpuPinProcessProbe, MehrAlsZweiL3GroessenWerdenBenanntStattAufZweiGezwungen) {
     std::vector<std::uint32_t> const    online = {0, 1, 2, 3, 4, 5};
     std::vector<cem::detail::L3Domain> const drei = {
         {std::uint64_t{98304} * 1024U, {0, 1}},
@@ -542,15 +548,15 @@ TEST(Od11NumaProcessProbe, MehrAlsZweiL3GroessenWerdenBenanntStattAufZweiGezwung
         {std::uint64_t{32768} * 1024U, {4, 5}},
     };
     // NICHT GERATEN: eine Dreiteilung auf gross/klein braeuchte einen Schwellwert.
-    expect_parser_class(cem::detail::numa_process_compose_core_classes(online, {}, {}, drei),
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_core_classes(online, {}, {}, drei),
                         cem::HardwareProbeErrorClass::FormatUnbekannt);
     // Die Gegenprobe an der Ausdrucksgrenze: GENAU zwei werden akzeptiert.
     std::vector<cem::detail::L3Domain> const zwei = {drei[0], drei[2]};
-    EXPECT_TRUE(cem::detail::numa_process_compose_core_classes({0, 1, 4, 5}, {}, {}, zwei).has_value());
+    EXPECT_TRUE(cem::detail::numa_cpu_pin_process_compose_core_classes({0, 1, 4, 5}, {}, {}, zwei).has_value());
     EXPECT_EQ(cem::kMaxDistinctCoreClasses, 2U);
 }
 
-TEST(Od11NumaProcessProbe, EinHalbVorhandenerL3BaumIstEinBefundUndKeineUniformeMaschine) {
+TEST(Od11NumaCpuPinProcessProbe, EinHalbVorhandenerL3BaumIstEinBefundUndKeineUniformeMaschine) {
     ProcessTestTree tree("l3_halb");
     ASSERT_TRUE(tree.ready());
     fs::path const cpu = tree.make_cpu_root("0-3\n");
@@ -559,13 +565,13 @@ TEST(Od11NumaProcessProbe, EinHalbVorhandenerL3BaumIstEinBefundUndKeineUniformeM
     tree.add_l3(cpu, 1, "98304K\n", "0-1\n");
     // cpu2/cpu3 tragen KEINEN L3-Knoten -- der Baum ist inkonsistent.
 
-    auto const karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, pmu));
+    auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, pmu));
     expect_hardware_error(karte, cem::HardwareProbeErrorClass::QuelleKorrupt, "quelle_korrupt");
     // Die tragende Gegenprobe: er faellt NICHT still auf "uniform" zurueck.
     EXPECT_FALSE(karte.has_value());
 }
 
-TEST(Od11NumaProcessProbe, WidersprecheL3GroesseFuerDieselbeDomaeneBleibtQuelleKorrupt) {
+TEST(Od11NumaCpuPinProcessProbe, WidersprecheL3GroesseFuerDieselbeDomaeneBleibtQuelleKorrupt) {
     ProcessTestTree tree("l3_widerspruch");
     ASSERT_TRUE(tree.ready());
     fs::path const cpu = tree.make_cpu_root("0-1\n");
@@ -573,12 +579,12 @@ TEST(Od11NumaProcessProbe, WidersprecheL3GroesseFuerDieselbeDomaeneBleibtQuelleK
     tree.add_l3(cpu, 0, "98304K\n", "0-1\n");
     tree.add_l3(cpu, 1, "32768K\n", "0-1\n"); // dieselbe Domaene, andere Groesse
 
-    auto const karte = cem::detail::numa_process_collect_core_classes(lese_kontext(cpu, pmu));
+    auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, pmu));
     expect_hardware_error(karte, cem::HardwareProbeErrorClass::QuelleKorrupt, "quelle_korrupt");
 }
 
-TEST(Od11NumaProcessProbe, JedeFremdeFamilieErzeugtDenBenanntenL6Befund) {
-    cem::NumaProcessProbeContext const context      = cem::default_numa_process_probe_context();
+TEST(Od11NumaCpuPinProcessProbe, JedeFremdeFamilieErzeugtDenBenanntenL6Befund) {
+    cem::NumaCpuPinProcessProbeContext const context      = cem::default_numa_cpu_pin_process_probe_context();
     std::size_t                        native_count = 0;
     verify_native_or_l6_producer<cem::LinuxOperatingSystem>(context, native_count);
     verify_native_or_l6_producer<cem::WindowsOperatingSystem>(context, native_count);
@@ -588,50 +594,50 @@ TEST(Od11NumaProcessProbe, JedeFremdeFamilieErzeugtDenBenanntenL6Befund) {
 
 // -- Block C2 (runtime): die Einhaengung in die ISA-x-OS-Zelle ------------------------------------
 
-TEST(Od11NumaProcessProbe, DieZelleLiefertDenKontextUndReichtLeereHandlesUnveraendertDurch) {
+TEST(Od11NumaCpuPinProcessProbe, DieZelleLiefertDenKontextUndReichtLeereHandlesUnveraendertDurch) {
     using LinuxZelle   = cem::HardwareProbeDevice<cem::Prod1Zen5TargetIsa, cem::LinuxOperatingSystem>;
     using WindowsZelle = cem::HardwareProbeDevice<cem::Prod1Zen5TargetIsa, cem::WindowsOperatingSystem>;
 
-    auto const linux_ctx = cem::make_numa_process_context<LinuxZelle>();
+    auto const linux_ctx = cem::make_numa_cpu_pin_process_context<LinuxZelle>();
     EXPECT_EQ(linux_ctx.cpu_root, fs::path{cem::kDefaultCpuRoot});
     EXPECT_EQ(linux_ctx.cpu_pmu_root, fs::path{cem::kDefaultCpuPmuRoot});
     // Die Zelle ist die EINZIGE Quelle der Wurzeln -- sie deckt sich mit dem Prober-Default.
-    auto const default_ctx = cem::default_numa_process_probe_context();
+    auto const default_ctx = cem::default_numa_cpu_pin_process_probe_context();
     EXPECT_EQ(linux_ctx.cpu_root, default_ctx.cpu_root);
     EXPECT_EQ(linux_ctx.cpu_pmu_root, default_ctx.cpu_pmu_root);
 
     // Eine pfad-lose Zelle behauptet KEINE Wurzel, und der Kontext-Bau erfindet auch keine.
-    auto const windows_ctx = cem::make_numa_process_context<WindowsZelle>();
+    auto const windows_ctx = cem::make_numa_cpu_pin_process_context<WindowsZelle>();
     EXPECT_TRUE(windows_ctx.cpu_root.empty());
     EXPECT_TRUE(windows_ctx.cpu_pmu_root.empty());
     auto leer            = windows_ctx;
     leer.erprobe_pinning = false;
-    expect_hardware_error(cem::detail::numa_process_collect_core_classes(leer),
+    expect_hardware_error(cem::detail::numa_cpu_pin_process_collect_core_classes(leer),
                           cem::HardwareProbeErrorClass::QuelleFehlt, "quelle_fehlt");
 }
 
-TEST(Od11NumaProcessProbe, DieZellenErhebungLaeuftUeberDieselbeFamilienKoordinateWieDieRamKette) {
-    auto kontext            = cem::make_numa_process_context<cem::CebHardwareProbeDevice>();
+TEST(Od11NumaCpuPinProcessProbe, DieZellenErhebungLaeuftUeberDieselbeFamilienKoordinateWieDieRamKette) {
+    auto kontext            = cem::make_numa_cpu_pin_process_context<cem::CebHardwareProbeDevice>();
     kontext.erprobe_pinning = false;
-    auto const topology     = cem::probe_numa_process_topology<cem::CebHardwareProbeDevice>(kontext);
+    auto const topology     = cem::probe_numa_cpu_pin_process_topology<cem::CebHardwareProbeDevice>(kontext);
     if constexpr (LinuxProbe::has_native_probe()) {
         EXPECT_TRUE(topology.core_classes.has_value())
             << "Die native Zell-Erhebung muss die Kern-Klassen liefern: "
-            << cem::numa_process_probe_error_label(topology.core_classes.error());
+            << cem::numa_cpu_pin_process_probe_error_label(topology.core_classes.error());
     } else {
         ASSERT_FALSE(topology.core_classes.has_value());
-        EXPECT_EQ(cem::numa_process_probe_error_label(topology.core_classes.error()),
+        EXPECT_EQ(cem::numa_cpu_pin_process_probe_error_label(topology.core_classes.error()),
                   std::string_view{"betriebssystem_feature_fehlt"});
     }
 }
 
 // -- Block C3 (runtime): die Zuordnungs-Erprobung und der WARN ------------------------------------
 
-TEST(Od11NumaProcessProbe, AbgeschalteteErprobungErfindetKeinenErfolg) {
-    auto kontext            = cem::default_numa_process_probe_context();
+TEST(Od11NumaCpuPinProcessProbe, AbgeschalteteErprobungErfindetKeinenErfolg) {
+    auto kontext            = cem::default_numa_cpu_pin_process_probe_context();
     kontext.erprobe_pinning = false;
 #if defined(__linux__)
-    auto const pinning = cem::detail::numa_process_probe_pinning_linux(kontext);
+    auto const pinning = cem::detail::numa_cpu_pin_process_probe_pinning_linux(kontext);
     ASSERT_TRUE(pinning.has_value());
     EXPECT_EQ(pinning->availability, cem::PinningAvailability::KeineSchnittstelle);
     EXPECT_EQ(pinning->erlaubte_kerne, 0U);
@@ -640,7 +646,7 @@ TEST(Od11NumaProcessProbe, AbgeschalteteErprobungErfindetKeinenErfolg) {
 #endif
 }
 
-TEST(Od11NumaProcessProbe, DerWarnFeuertNurWennKlassenDaSindUndDerPinNichtDurchgesetzt) {
+TEST(Od11NumaCpuPinProcessProbe, DerWarnFeuertNurWennKlassenDaSindUndDerPinNichtDurchgesetzt) {
     auto baue = [](std::size_t klassen, cem::PinningAvailability pin) {
         cem::CoreClassMap map;
         map.source = (klassen > 1U) ? cem::CoreTopologySource::HybridPmu : cem::CoreTopologySource::Homogen;
@@ -663,8 +669,8 @@ TEST(Od11NumaProcessProbe, DerWarnFeuertNurWennKlassenDaSindUndDerPinNichtDurchg
 
     // Eine NICHT erhobene Seite loest den WARN nicht aus -- sie traegt bereits ihre eigene Fehlerklasse.
     cem::ProcessLocalityTopology unerhoben{
-        std::unexpected(cem::NumaProcessProbeError{cem::HardwareProbeErrorClass::QuelleFehlt}),
-        std::unexpected(cem::NumaProcessProbeError{cem::HardwareProbeErrorClass::QuelleFehlt})};
+        std::unexpected(cem::NumaCpuPinProcessProbeError{cem::HardwareProbeErrorClass::QuelleFehlt}),
+        std::unexpected(cem::NumaCpuPinProcessProbeError{cem::HardwareProbeErrorClass::QuelleFehlt})};
     EXPECT_FALSE(warns_no_pinned_locality(unerhoben));
 
     // Der Text ist der vom Owner woertlich vorgegebene -- er wird hier gepinnt, nicht neu formuliert.
@@ -673,7 +679,7 @@ TEST(Od11NumaProcessProbe, DerWarnFeuertNurWennKlassenDaSindUndDerPinNichtDurchg
 
 // -- Block D (runtime): die Live-Maschine, mit benanntem Skip-Guard --------------------------------
 
-TEST(Od11NumaProcessProbe, LinuxRealLiefertDieKernKlassenUndStimmtMitEinerZweitLesungUeberein) {
+TEST(Od11NumaCpuPinProcessProbe, LinuxRealLiefertDieKernKlassenUndStimmtMitEinerZweitLesungUeberein) {
     if constexpr (!LinuxProbe::has_native_probe()) {
         GTEST_SKIP() << "Die Live-Erhebung ist nur in der nativen Linux-Zelle erreichbar.";
     } else {
@@ -682,12 +688,12 @@ TEST(Od11NumaProcessProbe, LinuxRealLiefertDieKernKlassenUndStimmtMitEinerZweitL
             GTEST_SKIP() << "Benannter Skip-Guard: der sysfs-CPU-Baum ist auf diesem Host nicht lesbar.";
         }
 
-        auto kontext            = cem::default_numa_process_probe_context();
+        auto kontext            = cem::default_numa_cpu_pin_process_probe_context();
         kontext.erprobe_pinning = false;
         auto const topology     = LinuxProbe::collect(kontext);
         ASSERT_TRUE(topology.core_classes.has_value())
             << "Live-Erhebung der Kern-Klassen fehlgeschlagen: "
-            << cem::numa_process_probe_error_label(topology.core_classes.error());
+            << cem::numa_cpu_pin_process_probe_error_label(topology.core_classes.error());
         auto const& karte = *topology.core_classes;
         ASSERT_FALSE(karte.groups.empty()) << "'n/a statt Null': eine leere Klassen-Menge darf es nie geben.";
 
@@ -721,14 +727,14 @@ TEST(Od11NumaProcessProbe, LinuxRealLiefertDieKernKlassenUndStimmtMitEinerZweitL
 /// WARUM acpi_cppc NICHT IN DER KETTE STEHT -- am Objekt belegt statt behauptet. Auf einer Maschine mit
 /// CPPC-Raengen zeigt dieser Test, dass die Zahl der verschiedenen Raenge GROESSER ist als die Zahl der
 /// erhobenen Kern-Klassen. Eine Klassen-Ableitung aus dem Rang haette also Klassen erfunden.
-TEST(Od11NumaProcessProbe, CppcIstEinRangUndKeineKlasseUndDeshalbNichtInDerKette) {
+TEST(Od11NumaCpuPinProcessProbe, CppcIstEinRangUndKeineKlasseUndDeshalbNichtInDerKette) {
     if constexpr (!LinuxProbe::has_native_probe()) {
         GTEST_SKIP() << "Die Live-Gegenprobe ist nur in der nativen Linux-Zelle erreichbar.";
     } else {
         auto const online_text =
             read_trimmed_file(fs::path{cem::kDefaultCpuRoot} / std::string{cem::kCpuOnlineLeafName});
         if (!online_text.has_value()) GTEST_SKIP() << "Benannter Skip-Guard: der sysfs-CPU-Baum ist nicht lesbar.";
-        auto const online = cem::detail::numa_process_parse_cpu_list(*online_text);
+        auto const online = cem::detail::numa_cpu_pin_process_parse_cpu_list(*online_text);
         ASSERT_TRUE(online.has_value());
 
         std::vector<std::string> raenge;
@@ -745,9 +751,9 @@ TEST(Od11NumaProcessProbe, CppcIstEinRangUndKeineKlasseUndDeshalbNichtInDerKette
         std::sort(raenge.begin(), raenge.end());
         raenge.erase(std::unique(raenge.begin(), raenge.end()), raenge.end());
 
-        auto kontext            = cem::default_numa_process_probe_context();
+        auto kontext            = cem::default_numa_cpu_pin_process_probe_context();
         kontext.erprobe_pinning = false;
-        auto const karte        = cem::detail::numa_process_collect_core_classes(kontext);
+        auto const karte        = cem::detail::numa_cpu_pin_process_collect_core_classes(kontext);
         ASSERT_TRUE(karte.has_value());
 
         std::cout << "[OD-11-RT live] cppc_verschiedene_raenge=" << raenge.size()
@@ -764,15 +770,16 @@ TEST(Od11NumaProcessProbe, CppcIstEinRangUndKeineKlasseUndDeshalbNichtInDerKette
     }
 }
 
-TEST(Od11NumaProcessProbe, DieErprobungStelltDieAffinitaetDesAufrufersWiederHer) {
+TEST(Od11NumaCpuPinProcessProbe, DieErprobungStelltDieAffinitaetDesAufrufersWiederHer) {
 #if defined(__linux__)
     cpu_set_t vorher{};
     CPU_ZERO(&vorher);
     if (::sched_getaffinity(0, sizeof(vorher), &vorher) != 0)
         GTEST_SKIP() << "Benannter Skip-Guard: sched_getaffinity ist auf diesem Host nicht verfuegbar.";
 
-    auto const pinning = cem::detail::numa_process_probe_pinning_linux(cem::default_numa_process_probe_context());
-    ASSERT_TRUE(pinning.has_value()) << cem::numa_process_probe_error_label(pinning.error());
+    auto const pinning =
+        cem::detail::numa_cpu_pin_process_probe_pinning_linux(cem::default_numa_cpu_pin_process_probe_context());
+    ASSERT_TRUE(pinning.has_value()) << cem::numa_cpu_pin_process_probe_error_label(pinning.error());
 
     cpu_set_t nachher{};
     CPU_ZERO(&nachher);
@@ -796,7 +803,7 @@ TEST(Od11NumaProcessProbe, DieErprobungStelltDieAffinitaetDesAufrufersWiederHer)
 
 // -- Block E (runtime): A-15-Stempel-Neutralitaet --------------------------------------------------
 
-TEST(Od11NumaProcessProbe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStandBleibtV1) {
+TEST(Od11NumaCpuPinProcessProbe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStandBleibtV1) {
     bool code_version_found = false;
     for (auto const& entry : cabi::kSystemAxisCodeVersions) {
         if (entry.axis != cem::CoreClassSubAxis::parent_axis_label()) continue;
@@ -811,7 +818,7 @@ TEST(Od11NumaProcessProbe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStan
     // Weder die Verfahrens-ID noch ihr Praefix noch das ACHSEN-LABEL duerfen je im Stempel auftauchen.
     EXPECT_EQ(stamp.find(std::string{LinuxProbe::probe_id()}), std::string::npos)
         << "A-15-Bruch: die probe_id steht im System-Stempel: " << stamp;
-    EXPECT_EQ(stamp.find("numa_process_probe."), std::string::npos)
+    EXPECT_EQ(stamp.find("numa_cpu_pin_process_probe."), std::string::npos)
         << "A-15-Bruch: das Verfahrens-Praefix steht im System-Stempel: " << stamp;
     EXPECT_EQ(stamp.find(std::string{cem::CoreClassSubAxis::axis_label()}), std::string::npos)
         << "A-15-Bruch: das Achsen-Label core_class steht im System-Stempel: " << stamp;
@@ -824,7 +831,7 @@ TEST(Od11NumaProcessProbe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStan
               cabi::SystemCellValuesDiagnose::verbotener_rt_schluessel);
 
     if constexpr (LinuxProbe::has_native_probe()) {
-        auto kontext            = cem::default_numa_process_probe_context();
+        auto kontext            = cem::default_numa_cpu_pin_process_probe_context();
         kontext.erprobe_pinning = false;
         auto const topology     = LinuxProbe::collect(kontext);
         if (topology.core_classes.has_value() && !topology.core_classes->groups.empty()) {

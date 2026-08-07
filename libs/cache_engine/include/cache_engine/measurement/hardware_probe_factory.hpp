@@ -43,7 +43,7 @@
 // numa_node_root() heisst deshalb NICHT "keine Erhebung", sondern "der Zugang laeuft dort nicht ueber
 // Pfade".
 // OD-11-RT haengt nach demselben Muster die DRITTE Erhebung an dieselbe Zelle: die Prozess-/Kern-Klassen-
-// Probe (numa_process_probe.hpp) mit den Handles cpu_root/cpu_pmu_root. Sie ist das Pendant zur
+// Probe (numa_cpu_pin_process_probe.hpp) mit den Handles cpu_root/cpu_pmu_root. Sie ist das Pendant zur
 // numa/page-Probe -- dort die SPEICHER-Lokalitaet ("wo liegen die Seiten"), hier die AUSFUEHRUNGS-
 // Lokalitaet ("wo laeuft der Code", Owner-KERN 06.08.2026). Auch sie hat ihr EIGENES has_native_probe()
 // je Familie und ist auf allen drei Familien eine echte Zelle. Dass die Zell-Handles hier und nicht in
@@ -59,7 +59,7 @@
 
 #include <cache_engine/measurement/machine_identity.hpp>
 #include <cache_engine/measurement/numa_page_probe.hpp>
-#include <cache_engine/measurement/numa_process_probe.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe.hpp>
 #include <cache_engine/measurement/operating_system_axis.hpp>
 #include <cache_engine/measurement/ram_frequency_reading.hpp>
 #include <cache_engine/measurement/ram_probe_chain.hpp>
@@ -152,7 +152,7 @@ struct HardwareProbeDevice<IsaComplexAxis, LinuxOperatingSystem> {
     //    (gemessen auf prod1: cpu/online 0444, cpu*/cache/index3/size 0444) -- deshalb gibt es auch hier
     //    keine Boot-Cache-Stufe wie bei der RAM-Kette. ZWEI Wurzeln, weil die Quellen in verschiedenen
     //    Baeumen liegen: die Hybrid-PMUs haengen unter /sys/devices, die Kern-Verzeichnisse unter
-    //    /sys/devices/system/cpu. Die Literale kommen aus numa_process_probe.hpp und stehen nicht ein
+    //    /sys/devices/system/cpu. Die Literale kommen aus numa_cpu_pin_process_probe.hpp und stehen nicht ein
     //    zweites Mal da.
     [[nodiscard]] static constexpr std::string_view cpu_root() noexcept { return kDefaultCpuRoot; }
     [[nodiscard]] static constexpr std::string_view cpu_pmu_root() noexcept { return kDefaultCpuPmuRoot; }
@@ -224,7 +224,7 @@ struct HardwareProbeDevice<IsaComplexAxis, MacosOperatingSystem> {
     [[nodiscard]] static constexpr std::string_view hugepage_root() noexcept { return {}; }
 
     // OD-11-RT: leer, weil Darwin die Kern-Klassen ueber die hw.perflevel*-sysctls anbietet und fuer die
-    // ZUORDNUNG gar keine durchsetzende Schnittstelle fuehrt (siehe numa_process_probe_macos.hpp).
+    // ZUORDNUNG gar keine durchsetzende Schnittstelle fuehrt (siehe numa_cpu_pin_process_probe_macos.hpp).
     // Wieder eine Aussage ueber den ZUGRIFFSWEG, nicht ueber eine fehlende Erhebungs-Zelle.
     [[nodiscard]] static constexpr std::string_view cpu_root() noexcept { return {}; }
     [[nodiscard]] static constexpr std::string_view cpu_pmu_root() noexcept { return {}; }
@@ -371,7 +371,7 @@ static_assert(HardwareProbeDevice<Prod1Zen5TargetIsa, WindowsOperatingSystem>::c
               HardwareProbeDevice<Prod1Zen5TargetIsa, WindowsOperatingSystem>::cpu_pmu_root().empty() &&
               HardwareProbeDevice<Prod1Zen5TargetIsa, MacosOperatingSystem>::cpu_root().empty() &&
               HardwareProbeDevice<Prod1Zen5TargetIsa, MacosOperatingSystem>::cpu_pmu_root().empty());
-// (c) Die Zell-Handles sind AUS numa_process_probe.hpp gezogen, nicht ein zweites Mal hingeschrieben.
+// (c) Die Zell-Handles sind AUS numa_cpu_pin_process_probe.hpp gezogen, nicht ein zweites Mal hingeschrieben.
 static_assert(HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::cpu_root() == kDefaultCpuRoot &&
               HardwareProbeDevice<Prod1Zen5TargetIsa, LinuxOperatingSystem>::cpu_pmu_root() == kDefaultCpuPmuRoot);
 // (d) Die beiden Wurzeln sind verschieden. Hier ist die Praefix-Beziehung AUSDRUECKLICH erlaubt und
@@ -467,8 +467,8 @@ template <class Device = CebHardwareProbeDevice>
 /// Kontext ab -- das ist eine AUFRUFER-Entscheidung und keine Plattform-Eigenschaft.
 template <class Device>
     requires HardwareProbeDeviceConcept<Device>
-[[nodiscard]] inline NumaProcessProbeContext make_numa_process_context() {
-    NumaProcessProbeContext ctx{};
+[[nodiscard]] inline NumaCpuPinProcessProbeContext make_numa_cpu_pin_process_context() {
+    NumaCpuPinProcessProbeContext ctx{};
     ctx.cpu_root     = std::filesystem::path{Device::cpu_root()};
     ctx.cpu_pmu_root = std::filesystem::path{Device::cpu_pmu_root()};
     return ctx;
@@ -479,8 +479,9 @@ template <class Device>
 /// FAMILIEN-Wahl kommt aus der Zell-Koordinate Device::os_axis, nicht aus einem Runtime-Schalter.
 template <class Device = CebHardwareProbeDevice>
     requires HardwareProbeDeviceConcept<Device>
-[[nodiscard]] inline ProcessLocalityTopology probe_numa_process_topology(NumaProcessProbeContext const& ctx) {
-    return NumaProcessProbe<typename Device::os_axis>::collect(ctx);
+[[nodiscard]] inline ProcessLocalityTopology
+probe_numa_cpu_pin_process_topology(NumaCpuPinProcessProbeContext const& ctx) {
+    return NumaCpuPinProcessProbe<typename Device::os_axis>::collect(ctx);
 }
 
 // =================================================================================================
@@ -614,22 +615,22 @@ static_assert(TargetIsaSubAxisConcept<NumaPageProbe<CebHardwareProbeDevice::os_a
 // Probe IHRER OS-Familie -- die Familien-Wahl laeuft ueber denselben Zell-Typ wie RAM-Kette und
 // numa/page-Probe, nicht ueber einen dritten Kanal.
 static_assert(
-    std::is_same_v<decltype(probe_numa_process_topology<CebHardwareProbeDevice>(
-                       std::declval<NumaProcessProbeContext const&>())),
+    std::is_same_v<decltype(probe_numa_cpu_pin_process_topology<CebHardwareProbeDevice>(
+                       std::declval<NumaCpuPinProcessProbeContext const&>())),
                    ProcessLocalityTopology>);
-static_assert(NumaProcessProbeConcept<NumaProcessProbe<CebHardwareProbeDevice::os_axis>>);
+static_assert(NumaCpuPinProcessProbeConcept<NumaCpuPinProcessProbe<CebHardwareProbeDevice::os_axis>>);
 // A-15/A10 STRUKTURELL, wie bei RamFrequencyReading und NumaPageTopology: es gibt in diesem Header keine
 // Funktion, die eine ProcessLocalityTopology an eine Stempel-, Achsen- oder binary_id-API reicht, und
 // keine Achse nimmt den Typ an. Die Erhebung LIEST die System-Achsen als Zell-Koordinaten und fuegt
 // ihnen nichts hinzu.
-static_assert(TargetIsaSubAxisConcept<NumaProcessProbe<CebHardwareProbeDevice::os_axis>::core_axis>);
+static_assert(TargetIsaSubAxisConcept<NumaCpuPinProcessProbe<CebHardwareProbeDevice::os_axis>::core_axis>);
 // Und die ABGRENZUNG der drei Erhebungen: dieselbe Zelle, drei verschiedene Verfahrens-IDs. Faellt das
 // zusammen, erscheinen in der Provenienz-Kette zwei Erhebungen als eine.
-static_assert(NumaProcessProbe<CebHardwareProbeDevice::os_axis>::probe_id() !=
+static_assert(NumaCpuPinProcessProbe<CebHardwareProbeDevice::os_axis>::probe_id() !=
               NumaPageProbe<CebHardwareProbeDevice::os_axis>::probe_id());
-static_assert(!std::is_same_v<NumaProcessProbe<CebHardwareProbeDevice::os_axis>::core_axis,
+static_assert(!std::is_same_v<NumaCpuPinProcessProbe<CebHardwareProbeDevice::os_axis>::core_axis,
                               NumaPageProbe<CebHardwareProbeDevice::os_axis>::numa_axis> &&
-              !std::is_same_v<NumaProcessProbe<CebHardwareProbeDevice::os_axis>::core_axis,
+              !std::is_same_v<NumaCpuPinProcessProbe<CebHardwareProbeDevice::os_axis>::core_axis,
                               NumaPageProbe<CebHardwareProbeDevice::os_axis>::page_axis>);
 
 } // namespace comdare::cache_engine::measurement

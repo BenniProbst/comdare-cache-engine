@@ -1,5 +1,5 @@
 #pragma once
-// measurement/numa_process_probe_windows.hpp -- prozessfreie Windows-Erhebung fuer OD-11-RT.
+// measurement/numa_cpu_pin_process_probe_windows.hpp -- prozessfreie Windows-Erhebung fuer OD-11-RT.
 //
 // WAS: Die Windows-Spezialisierung liest beide Felder aus dem eigenen Prozess:
 //   core_class -- GetLogicalProcessorInformationEx(RelationProcessorCore, ...) liefert je physischem
@@ -34,7 +34,7 @@
 // A-15 STEMPEL-NEUTRAL: die gelesenen Zahlen werden nur in den RT-Traeger geschrieben. Dieser
 // Blatt-Header kennt keinen ABI-, Registry- oder Stempel-Pfad.
 
-#include <cache_engine/measurement/numa_process_probe.hpp>
+#include <cache_engine/measurement/numa_cpu_pin_process_probe.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -52,16 +52,17 @@ namespace detail {
 
 /// Die Zuordnungs-Erprobung der Windows-Zelle. Familien-Name aus demselben Grund wie in der Linux-Zelle:
 /// jedes Blatt spricht nur fuer sich.
-[[nodiscard]] inline PinningCapabilityResult numa_process_probe_pinning_windows(NumaProcessProbeContext const& ctx) {
+[[nodiscard]] inline PinningCapabilityResult
+numa_cpu_pin_process_probe_pinning_windows(NumaCpuPinProcessProbeContext const& ctx) {
 #if defined(_WIN32)
     if (!ctx.erprobe_pinning) return PinningCapability{PinningAvailability::KeineSchnittstelle, 0, 0, false};
 
     DWORD_PTR prozess_maske = 0;
     DWORD_PTR system_maske  = 0;
     if (::GetProcessAffinityMask(::GetCurrentProcess(), &prozess_maske, &system_maske) == FALSE)
-        return std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+        return std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
     if (prozess_maske == 0)
-        return std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+        return std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
 
     PinningCapability result{};
     DWORD_PTR         ziel_bit = 0;
@@ -75,7 +76,7 @@ namespace detail {
             ++result.erlaubte_kerne;
         }
     }
-    if (ziel_bit == 0) return std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+    if (ziel_bit == 0) return std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
 
     // SetThreadAffinityMask liefert die VORMASKE (0 == Fehlschlag, dokumentiert).
     DWORD_PTR const vormaske = ::SetThreadAffinityMask(::GetCurrentThread(), ziel_bit);
@@ -93,14 +94,14 @@ namespace detail {
     return result;
 #else
     static_cast<void>(ctx);
-    return std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+    return std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
 #endif
 }
 
 } // namespace detail
 
 [[nodiscard]] inline ProcessLocalityTopology
-NumaProcessProbe<WindowsOperatingSystem>::collect(NumaProcessProbeContext const& ctx) {
+NumaCpuPinProcessProbe<WindowsOperatingSystem>::collect(NumaCpuPinProcessProbeContext const& ctx) {
 #if defined(_WIN32)
     static_cast<void>(ctx.cpu_root);
 
@@ -108,20 +109,21 @@ NumaProcessProbe<WindowsOperatingSystem>::collect(NumaProcessProbeContext const&
     // JEDER Ausgang ist ausdruecklich belegt und keiner haengt an einem STALE GetLastError(): der
     // Fehlercode wird nur DIREKT nach einem als FALSE gemeldeten Aufruf gelesen.
     CoreClassMapResult klassen =
-        std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+        std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
     DWORD length = 0;
     if (::GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length) != FALSE) {
         // Dokumentiert unmoeglich (der nullptr-Aufruf MUSS mit ERROR_INSUFFICIENT_BUFFER scheitern).
-        klassen = std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+        klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
     } else if (::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
         // Die Schnittstelle traegt auf diesem Host nicht -> D1-Befund (Vorbelegung, hier nur benannt).
     } else if (length == 0) {
-        klassen = std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+        klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
     } else {
         std::vector<unsigned char> buffer(static_cast<std::size_t>(length));
         auto* const                first = reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(buffer.data());
         if (::GetLogicalProcessorInformationEx(RelationProcessorCore, first, &length) == FALSE) {
-            klassen = std::unexpected(NumaProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
+            klassen =
+                std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
         } else {
             struct WindowsKernKlasse {
                 std::uint32_t              efficiency_class = 0;
@@ -165,15 +167,15 @@ NumaProcessProbe<WindowsOperatingSystem>::collect(NumaProcessProbeContext const&
             }
 
             if (broken || fremd) {
-                klassen = std::unexpected(NumaProcessProbeError{fremd ? HardwareProbeErrorClass::FormatUnbekannt
+                klassen = std::unexpected(NumaCpuPinProcessProbeError{fremd ? HardwareProbeErrorClass::FormatUnbekannt
                                                                       : HardwareProbeErrorClass::QuelleKorrupt});
             } else if (klassen_roh.empty()) {
                 // 'n/a statt Null': eine leere Klassen-Liste wird NIE als Erfolg gemeldet.
-                klassen = std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+                klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
             } else if (klassen_roh.size() > kMaxDistinctCoreClasses) {
                 // Mehr als zwei Effizienz-Klassen liessen sich nur mit einem Schwellwert auf zwei
                 // zwingen -- NICHT geraten, sondern benannt.
-                klassen = std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::FormatUnbekannt});
+                klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::FormatUnbekannt});
             } else {
                 // Windows: 0 == leistungsstaerkster Typ, hoehere Werte == effizientere Typen.
                 std::sort(klassen_roh.begin(), klassen_roh.end(),
@@ -197,17 +199,17 @@ NumaProcessProbe<WindowsOperatingSystem>::collect(NumaProcessProbeContext const&
                 map.source =
                     (klassen_roh.size() == 1U) ? CoreTopologySource::Homogen : CoreTopologySource::HybridPmu;
                 if (korrupt)
-                    klassen = std::unexpected(NumaProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+                    klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
                 else
                     klassen = std::move(map);
             }
         }
     }
 
-    return ProcessLocalityTopology{std::move(klassen), detail::numa_process_probe_pinning_windows(ctx)};
+    return ProcessLocalityTopology{std::move(klassen), detail::numa_cpu_pin_process_probe_pinning_windows(ctx)};
 #else
     static_cast<void>(ctx);
-    return detail::numa_process_os_feature_missing();
+    return detail::numa_cpu_pin_process_os_feature_missing();
 #endif
 }
 
