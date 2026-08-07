@@ -39,6 +39,13 @@
 // Zieht dieser Header Boost, wandert mp11 in die system_axis-/builder-Pfade und reisst die CI-Hermetik
 // (A15-Risiko, Praezedenz test_v41/test_m_contract, LEDGER:2014-2015). DANN -- und erst dann -- ist
 // der Zeitpunkt fuer den Separat-Header, den das Design vorsorglich verlangt hatte.
+// WERKZEUG-LIMIT, kein Defekt (Pipeline 15239, lint:static): cppcheck 2.21.0 faehrt MEHRERE
+// Praeprozessor-Konfigurationen durch und probiert dabei auch die Annahme "BOOST_MP11_VERSION ist
+// gesetzt" -- weil das Makro weiter unten durch den Gegenproben-Include entsteht. In DIESER
+// Konfiguration schlaegt der #error an, obwohl der echte Uebersetzungslauf ihn nie erreicht
+// (gcc/clang lesen streng von oben nach unten; 424/424 gruen). Die Wache bleibt damit fuer den
+// COMPILER scharf und ist nur fuer den Analysator stumm -- die Umkehrung waere der Fehler.
+// cppcheck-suppress preprocessorErrorDirective
 #if defined(BOOST_MP11_VERSION) || defined(BOOST_MP11_HPP_INCLUDED) || defined(BOOST_CONFIG_HPP)
 #error "FK-3-HERMETIK GERISSEN: axis_error_traits.hpp zieht Boost (Begruendung im Kommentar darueber)."
 #endif
