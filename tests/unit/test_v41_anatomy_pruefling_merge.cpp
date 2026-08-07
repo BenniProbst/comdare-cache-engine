@@ -187,22 +187,27 @@ TEST(R5C_MergeDispatch, Stufe3FullJoin) {
 namespace {
 struct StampCeVariant {
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "gleicher_name"; }
-    static constexpr std::string_view               algo_version = "v1.0.0c";
+    static constexpr std::string_view               algo_version = "1.0.0.c";
 };
 // Ein ANDERER Typ mit demselben Namen UND derselben Version -> byte-gleiches Organ-Segment.
 struct StampPrueflingKollision {
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "gleicher_name"; }
-    static constexpr std::string_view               algo_version = "v1.0.0c";
+    static constexpr std::string_view               algo_version = "1.0.0.c";
 };
 // Owner-Q2-konform: erweiterter hierarchischer Name (seit A13-M1 parser-gedeckt).
 struct StampPrueflingHierarchisch {
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "prt-art.gleicher_name"; }
-    static constexpr std::string_view               algo_version = "v1.0.0c";
+    static constexpr std::string_view               algo_version = "1.0.0.c";
 };
-// Owner-Q2-konform: gleicher Name, aber als PRUEFLING-Stand mit 'e' markiert.
-struct StampPrueflingExperimentell {
+// Owner-Q2-konform: gleicher Name, aber ANDERE Version -- die Segmente sind damit byte-verschieden.
+// FLAG-GRAMMATIK v2: hier stand bis zum Owner-KERN vom 07.08.2026 "v1.0.0ce" und der Kommentar sagte
+// "als PRUEFLING-Stand mit 'e' markiert". Diese Markierung gibt es nicht mehr -- 'e' bedeutet EFFICIENCY
+// CORE. Die Fixture braucht fuer ihre Aussage aber gar keine Pruefling-Semantik, sondern nur eine
+// UNTERSCHEIDBARE Version; sie traegt deshalb jetzt ein anderes Komposit-Flag. Ein bloss umgeschriebenes
+// 'e'-Literal haette den Test gruen gelassen und dabei ein totes Konzept bezeugt.
+struct StampPrueflingAndereVersion {
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "gleicher_name"; }
-    static constexpr std::string_view               algo_version = "v1.0.0ce";
+    static constexpr std::string_view               algo_version = "1.0.0.c{e}";
 };
 } // namespace
 
@@ -216,7 +221,7 @@ TEST(A13M3C5MergeNamensNaht, Q2WacheTrenntByteVerschiedeneMergeBinaries) {
     // (2) POSITIV, Weg A (erweiterter hierarchischer Name, Owner-Q2-Muster "prt-art.memory.abc").
     static_assert(prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingHierarchisch>>());
     // (3) POSITIV, Weg B (das 'e'-Experimentalflag -- ce-eigene Versionen tragen es nie, also trennt es sicher).
-    static_assert(prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingExperimentell>>());
+    static_assert(prf::merge_lists_render_distinct_segments<CeList, mp::mp_list<StampPrueflingAndereVersion>>());
     // (4) ABGRENZUNG: derselbe TYP ist keine Kollision (er ist dieselbe Variante, nicht zwei).
     static_assert(!prf::merge_segments_collide<StampCeVariant, StampCeVariant>());
     // (5) ABGRENZUNG: nicht-stempelbare Dummy-Typen rendern kein Segment und koennen keines duplizieren --

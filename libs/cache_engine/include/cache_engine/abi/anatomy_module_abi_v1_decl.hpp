@@ -345,7 +345,8 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 ///   (M1)  Die Versions-Grammatik fuehrt das Pruefling-Merkmal als eigenes Glied: ein Trailing-'e' hinter dem
 ///         Hardware-Flag markiert einen experimentellen Algorithmus-Stand und reist als Flag-Bit im
 ///         AnatomyStampEntryV1 mit, statt als Namens-Konvention im Text zu stehen.
-///   (M1b) Die Kurzform ist zurueckgebaut: jede Version steht dreistellig als "vX.Y.Z" mit GENAU EINEM
+///   (M1b) Die Kurzform ist zurueckgebaut: jede Version steht dreistellig. SEIT DER FLAG-GRAMMATIK v2
+///         (07.08.2026) OHNE 'v'-Praefix und mit einem PUNKT vor jedem Flag ("1.0.0.c"). Frueher: mit
 ///         Hardware-Flag und optionalem 'e' da, und "vN"/"vNe"/"vNc" parsen ab jetzt auf den Sentinel.
 ///   (M2)  Die Meta-Meta-Achsen haengen GEKLAMMERT ans ENDE ihrer Realm-Zeile (System- und Mess-Zeile), statt
 ///         als weiteres Haupt-Achsen-Glied mitzulaufen -- damit wandern die gerenderten Stempel-Zeilen.
@@ -355,10 +356,10 @@ inline constexpr std::uint64_t     kAnatomyAbiMagicAbi7 = 0x434F4D444141372EULL;
 ///         Alt-Aufruf der vierstelligen string_view-Form compile-hart bricht statt still ein Feld zu verrutschen.
 ///   (M3c) Das Fingerprint-Preimage ist INJEKTIV: '\n'-Domain-Separator zwischen allen Gliedern, die Kennung
 ///         "fingerprint_format=2" als Erstglied und das Sub-Achsen-Werteset als eigenes Glied.
-///   (M3d) Alle ce-EIGENEN Versions-Literale sind auf die CPU-Flag-Form "v1.0.0c" migriert und
+///   (M3d) Alle ce-EIGENEN Versions-Literale sind auf die CPU-Flag-Form "1.0.0.c" migriert und
 ///         COMDARE_VERSION_HW_FLAG_ENFORCE steht auf 1, womit eine flaglose ce-eigene Version compile-hart bricht.
 ///   (M3e) Die SOTA-Modul-Emission traegt die VOLLEN Organ-/System-/Mess-Stempel-Zeilen statt der Kurzform, und
-///         der rohe .algos-Sentinel steht dreistellig als "v0.0.0" statt als Kurzform "v0".
+///         der rohe .algos-Sentinel steht dreistellig als "0.0.0" statt als Kurzform "v0".
 /// WIRKUNG DES BUMPS: "+ceb=7.0" -> "+ceb=7.1" in jeder build_version -> jede perm.dll.version mismatcht in
 /// dll_is_current -> ALLE Tier-Binaries werden neu gebaut, und cache_key_prefix zeigt auf einen NEUEN
 /// Objekt-Store-Bucket. binary_id und perm.algos (Organ-Provenienz) bleiben UNBERUEHRT -- golden_fullpilot_320

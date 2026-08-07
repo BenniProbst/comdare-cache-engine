@@ -6,7 +6,7 @@
 //
 // RENDER-NEUTRAL (A11, Stand bis A13-M3/C4): "v1.0.0" rendert ueber algo_semver_string identisch zu "1.0.0" wie
 // zuvor "v1" -> der emittierte Quelltext + der gerenderte System-Stempel blieben byte-identisch. SEIT A13-M3/C4
-// steht die Tabelle auf "v1.0.0c" und rendert "1.0.0c" -- das ist das DEKLARIERTE Stempel-/SHA512-Byte-Ereignis
+// steht die Tabelle auf "1.0.0.c" und rendert "1.0.0c" -- das ist das DEKLARIERTE Stempel-/SHA512-Byte-Ereignis
 // der Owner-Q3-Flag-Migration (EIN Neuanker im M3-Fenster), keine stille Verschiebung.
 // "code" (der Algorithmus-Marker der System-Achse) lebt weiter in system_stamp_line, NICHT hier: diese Tabelle
 // traegt NUR die pro-Achse bump-bare Code-Version, die Achse-zu-Marker-Zuordnung ist Sache der Stempel-Funktion.
@@ -25,7 +25,7 @@ namespace comdare::cache_engine::abi {
 struct SystemAxisCodeVersion {
     std::string_view axis; ///< System-Haupt-Achsen-Name ("compiler"/"external_utils"/...)
     std::string_view
-        version; ///< rohe Code-Version (seit A13-M3/C4 "v1.0.0c"); build_axis_version_stamp_line rendert X.Y.Z[c]
+        version; ///< rohe Code-Version (seit A13-M3/C4 "1.0.0.c"); build_axis_version_stamp_line rendert X.Y.Z[c]
 };
 
 // Single-Source: Drift einer 4. System-Haupt-Achse bricht hier compile-time (statt still 3 zu bleiben).
@@ -38,7 +38,7 @@ struct SystemAxisCodeVersion {
 inline constexpr std::size_t kSystemAxisCodeCount = 3;
 
 /// Die EINE Tabelle der System-Achsen-Code-Versionen -- Reihenfolge == kanonische System-Stempel-Ordnung (Section 43,
-/// W12-A-1). Init war "v1.0.0" (render-neutral zum frueheren "v1"); seit A13-M3/C4 "v1.0.0c" (Owner-Q3).
+/// W12-A-1). Init war "v1.0.0" (render-neutral zum frueheren "v1"); seit A13-M3/C4 "1.0.0.c" (Owner-Q3).
 /// Je Eintrag einzeln bump-bar.
 ///
 /// BUMP-WACHE operating_system (A14 / Bump-Verbots-Wache (Design-3/RISIKEN; K5 selbst = probe_id-Versionierung, OS-U3), Owner-Entscheid E3 vom 02.08.2026) -- seit B6
@@ -53,9 +53,9 @@ inline constexpr std::size_t kSystemAxisCodeCount = 3;
 /// Einfuehrung neu gebaut werden"). Wer hier dennoch bumpt, tut das aus einem ANDEREN Grund und muss
 /// ihn benennen.
 inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystemAxisCodeVersions{{
-    {"target_isa", "v1.0.0c"},
-    {"operating_system", "v1.0.0c"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
-    {"external_utils", "v1.0.0c"},
+    {"target_isa", "1.0.0.c"},
+    {"operating_system", "1.0.0.c"}, // A14/Bump-Verbot: NICHT wegen der Unter-Achsen bumpen (Wache oben)
+    {"external_utils", "1.0.0.c"},
 }};
 
 // -- B6 (Codex-Review 02.08.2026): die BUMP-WACHE ist ab hier MASCHINELL -------------------------------
@@ -75,23 +75,23 @@ inline constexpr std::array<SystemAxisCodeVersion, kSystemAxisCodeCount> kSystem
 // System-Stempel-Ordnung (Section 43 / W12-A-1). Eine reine Umsortierung waere sonst ein Byte-Ereignis,
 // das keine der Wachen sieht.
 //
-// MIGRATIONS-NAHT (VOLLZOGEN in A13-M3/C4): die drei Literale stehen auf "v1.0.0c" (Owner-Q3) -- DIESE DREI
+// MIGRATIONS-NAHT (VOLLZOGEN in A13-M3/C4): die drei Literale stehen auf "1.0.0.c" (Owner-Q3) -- DIESE DREI
 // ASSERTS SIND IM SELBEN COMMIT MITGEGANGEN. Das war Absicht: die Migration ist ein deklariertes
 // Byte-Ereignis, kein stiller Nachzug (Naht-Liste (a) in measurement/algo_semver.hpp).
 static_assert(kSystemAxisCodeVersions[0].axis == std::string_view{"target_isa"} &&
-                  kSystemAxisCodeVersions[0].version == std::string_view{"v1.0.0c"},
-              "System-Achsen-Code-Version [0] target_isa != \"v1.0.0c\": ein Bump ist ein STEMPEL-/SHA512-"
+                  kSystemAxisCodeVersions[0].version == std::string_view{"1.0.0.c"},
+              "System-Achsen-Code-Version [0] target_isa != \"1.0.0.c\": ein Bump ist ein STEMPEL-/SHA512-"
               "BYTE-EREIGNIS (system_stamp_line -> Lager-/Skip-Identitaet). Wenn er GEWOLLT ist, diese Zeile "
               "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
 static_assert(kSystemAxisCodeVersions[1].axis == std::string_view{"operating_system"} &&
-                  kSystemAxisCodeVersions[1].version == std::string_view{"v1.0.0c"},
-              "System-Achsen-Code-Version [1] operating_system != \"v1.0.0c\": die drei OS-UNTER-Achsen "
+                  kSystemAxisCodeVersions[1].version == std::string_view{"1.0.0.c"},
+              "System-Achsen-Code-Version [1] operating_system != \"1.0.0.c\": die drei OS-UNTER-Achsen "
               "(os_version/kernel/build) sind RT-Unter-Achsen (A-15) und duerfen diesen Eintrag NICHT bumpen "
               "(Owner-E3 02.08.2026). Ein Bump aus einem ANDEREN Grund ist ein STEMPEL-/SHA512-BYTE-EREIGNIS: "
               "diese Zeile im selben Commit mit-aendern und den Grund benennen (Doppel-Absicht).");
 static_assert(kSystemAxisCodeVersions[2].axis == std::string_view{"external_utils"} &&
-                  kSystemAxisCodeVersions[2].version == std::string_view{"v1.0.0c"},
-              "System-Achsen-Code-Version [2] external_utils != \"v1.0.0c\": ein Bump ist ein STEMPEL-/SHA512-"
+                  kSystemAxisCodeVersions[2].version == std::string_view{"1.0.0.c"},
+              "System-Achsen-Code-Version [2] external_utils != \"1.0.0.c\": ein Bump ist ein STEMPEL-/SHA512-"
               "BYTE-EREIGNIS (system_stamp_line -> Lager-/Skip-Identitaet). Wenn er GEWOLLT ist, diese Zeile "
               "im selben Commit mit-aendern und das Byte-Ereignis deklarieren (Doppel-Absicht).");
 
@@ -113,7 +113,7 @@ namespace detail {
 } // namespace detail
 static_assert(detail::system_versionen_wohlgeformt(),
               "System-Achsen-Code-Version verletzt die ce-Registry-Politik: (a) UNPARSBAR (und nicht der "
-              "dokumentierte Sentinel \"v0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 in "
+              "dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 in "
               "system_stamp_line stempeln; oder (b) experimentelles 'e' (AUSSCHLIESSLICH die Pruefling-"
               "Markierung, Owner-E2 02.08.2026); oder (c) FALSCHES Hardware-Flag (im CPU-only-Scope GENAU "
               "'c' bzw. 'ce', Owner-Q3 02.08.2026)");

@@ -192,7 +192,7 @@ static_assert(
 /// fuehrt compiler/scheduling/load_framework nur als UMZUEGE (A3/O-8 Schritt 4), also ohne eigenen Eintrag.
 struct ToolchainAxisVersion {
     std::string_view axis;    ///< Toolchain-Achsen-Name ("compiler"/"opt_level"/"atomic128")
-    std::string_view version; ///< rohe Code-Version in Q3-Grammatik ("v1.0.0c"); gerendert praefixfrei (Q10)
+    std::string_view version; ///< rohe Code-Version in Q3-Grammatik ("1.0.0.c"); gerendert praefixfrei (Q10)
 };
 
 /// Genau DREI Toolchain-Achsen -- die untrennbare Unter-Achsen-GRUPPE der aeusseren System-Komplex-Achse
@@ -213,18 +213,18 @@ inline constexpr std::size_t kToolchainAxisCount = 3;
 /// muss das als deklariertes Byte-Ereignis begruenden -- dieselbe Doppel-Absicht wie bei
 /// kSystemAxisCodeVersions (dort static_assert je Eintrag, hier ebenso unten).
 inline constexpr std::array<ToolchainAxisVersion, kToolchainAxisCount> kToolchainAxisVersions{{
-    {"compiler", "v1.0.0c"},
-    {"opt_level", "v1.0.0c"},
-    {"atomic128", "v1.0.0c"},
+    {"compiler", "1.0.0.c"},
+    {"opt_level", "1.0.0.c"},
+    {"atomic128", "1.0.0.c"},
 }};
 
 // Bump-Wache, maschinell (Muster system_axis_code_versions.hpp:B6): Achse UND Version je Index.
 static_assert(kToolchainAxisVersions[0].axis == std::string_view{"compiler"});
-static_assert(kToolchainAxisVersions[0].version == std::string_view{"v1.0.0c"});
+static_assert(kToolchainAxisVersions[0].version == std::string_view{"1.0.0.c"});
 static_assert(kToolchainAxisVersions[1].axis == std::string_view{"opt_level"});
-static_assert(kToolchainAxisVersions[1].version == std::string_view{"v1.0.0c"});
+static_assert(kToolchainAxisVersions[1].version == std::string_view{"1.0.0.c"});
 static_assert(kToolchainAxisVersions[2].axis == std::string_view{"atomic128"});
-static_assert(kToolchainAxisVersions[2].version == std::string_view{"v1.0.0c"});
+static_assert(kToolchainAxisVersions[2].version == std::string_view{"1.0.0.c"});
 
 // Q3-GRAMMATIK-WACHE (Owner 02.08.2026: "Versionierungen sind einheitlich und immer 3-Stellig und beginnen
 // mit 'v' ... alle Versionen [muessen] mit 'c' oder 'ce' enden"): jede der drei Versionen ist wohlgeformt
@@ -518,8 +518,8 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 ///
 /// Form (Beispiel, voll belegt). Der Stempel ist EINE Zeile -- er steht hier nur des 120-Spalten-Limits
 /// wegen auf zwei Zeilen; die beiden Haelften gehoeren OHNE Trenner und OHNE Leerzeichen aneinander:
-///   tc=1;cxx=gcc:g++-16@1.0.0c;opt=O3{-O3}@1.0.0c;ext=avx512;ceb=8.0;bt=Debug;
-///   gate=avx512;atomic128=cx16{-mcx16}@1.0.0c
+///   tc=1;cxx=gcc:g++-16@1.0.0.c;opt=O3{-O3}@1.0.0.c;ext=avx512;ceb=8.0;bt=Debug;
+///   gate=avx512;atomic128=cx16{-mcx16}@1.0.0.c
 ///
 /// ALLE Felder leer => "" (die Identitaet). Das ist kein Sonderfall, sondern dieselbe Zusage wie beim
 /// Overlay-Glied und beim Zellwert-Set: ein nicht injizierter Wert veraendert das Preimage NICHT.
@@ -552,7 +552,7 @@ inline void toolchain_append_axis(std::string& out, std::string_view key, std::s
 ///
 /// EINE ABWEICHUNG, DIE HIER STEHEN MUSS STATT UNBEMERKT ZU BLEIBEN: die EINGEFROREREN Testvektoren
 /// (test_g3_sha512_index / test_m_w12_stamp_bausteine / test_w10_system_cell_values) tragen als Glied [5]
-/// ein LITERAL in der VOR-NB2-1-Form ("tc=1;cxx=gcc-16.2.0@1.0.0c;..."), also ohne Treiber-Tag. Das ist
+/// ein LITERAL in der VOR-NB2-1-Form ("tc=1;cxx=gcc-16.2.0@1.0.0.c;..."), also ohne Treiber-Tag. Das ist
 /// ABSICHT und kein Versehen: ein Frozen-Vektor ist ein reiner Hash-Konsistenz-Anker (Lane-B-Sync B3),
 /// sein Glied-Literal muss maschinen-unabhaengig sein und wird NICHT nachgezogen -- ein dritter
 /// Neuanker-Dreh im selben Buendel waere teurer als der Erkenntnisgewinn. Dass die REALE Renderer-Form

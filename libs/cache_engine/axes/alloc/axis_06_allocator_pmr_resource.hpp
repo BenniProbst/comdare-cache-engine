@@ -62,7 +62,7 @@ public:
     /// geaendert hat, ohne eine Registry-/XML-Flaeche zu bewegen -- ohne Bump wuerde der inkrementelle
     /// Tier-Binary-Cache alte Binaries weiterverwenden. Volle Begruendung samt Frozen-Neutralitaets-Beweis:
     /// axis_06_allocator_strategy_base.hpp, Abschnitt "A1-VERSIONS-BUMP".
-    static constexpr std::string_view algo_version = "v1.0.1c";
+    static constexpr std::string_view algo_version = "1.0.1.c";
     COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::alloc::PmrResourceAllocator",
                                   "axes/alloc/axis_06_allocator_pmr_resource.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {

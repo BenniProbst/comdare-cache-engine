@@ -91,7 +91,7 @@ namespace comdare::cache_engine::builder::bestandslog {
 // ---------------------------------------------------------------------------
 // 3 -> 4 (G-E6, A1-Lager-Rest-Welle): EIN OPTIONALES Attribut am <eintrag> -- versions, der
 // Versions-Tag der Haupt-Achsen dieses Bestands (Form "<achse>@X.Y.Zc;<achse>@X.Y.Zc", Owner-Q3/Q10-
-// Flag-Grammatik). Seit A13-M3/C4 (67e4965f, ENFORCE=1) sind die Quelldaten REAL vX.Y.Zc; OE-C
+// Flag-Grammatik). Seit der Flag-Grammatik v2 (07.08.2026) sind die Quelldaten REAL X.Y.Z[.flag]*; OE-C
 // verlangt, dass ein Versions-Bump EINER Haupt-Achse alle Bestaende selektiv invalidieren kann, die
 // sie enthalten. Genau dafuer muss die Version LESBAR am Eintrag stehen.
 //
@@ -205,7 +205,7 @@ struct BestandEintrag {
     std::string     stempel;    // "[d,e,f][g,h,i]+bt=Release" (Varianten-Identitaet, §62-B)
     std::string     done_utc;   // Fertigstellungs-Zeitstempel (ISO-8601 UTC)
     // G-E6 (syntax_version 4, OPTIONAL -- leer = nicht gemeldet): der Versions-Tag der Haupt-Achsen
-    // in Owner-Q3/Q10-Flag-Grammatik, z.B. "search_algo@1.0.0c;target_isa@1.0.0c". Er steht am ENDE
+    // in Owner-Q3/Q10-Flag-Grammatik, z.B. "search_algo@1.0.0.c;target_isa@1.0.0.c". Er steht am ENDE
     // der Feld-Folge, weil die Attribut-Reihenfolge des Emitters Teil der Byte-Stabilitaet ist --
     // neue Felder kommen hinten dazu, nie zwischen die bestehenden. Er ist NICHT Teil der
     // Identitaet (s. same_eintrag_identity unten): zwei Eintraege mit gleichem (key, zelle) sind

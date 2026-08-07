@@ -140,7 +140,7 @@ enum class MergeStrategy {
 //
 // OWNER-Q2 (02.08.2026, Design-Invariante): die Merge-Strategie WIRD durchgefuehrt, aber sie hat seit
 // A13-M3 KEINE eigene Stempel-ZEILE mehr (Owner-E2). Sie lebt im Stempel nur noch ueber das
-// 'e'-Experimentalflag und ueber die erweiterten hierarchischen Namen ("prt-art.memory.abc@1.0.0c", seit
+// 'e'-Experimentalflag und ueber die erweiterten hierarchischen Namen ("prt-art.memory.abc@1.0.0.c", seit
 // A13-M1 parser-gedeckt). GENAU DARAUS folgt eine Pflicht, die vorher die merge-Zeile getragen hat:
 //
 //   Zwei BYTE-VERSCHIEDENE Merge-Binaries duerfen NIE namensgleiche Organ-Segmente rendern.

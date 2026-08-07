@@ -53,7 +53,7 @@
 // Version steigen, damit Messungen aus verschiedenen Erhebungs-Verfahren unterscheidbar bleiben. Der
 // Familien-Teil wird aus OsAxis::os_family_id() in einen constexpr-Puffer komponiert und nirgendwo als
 // zweites Literal gepflegt (Muster kOsProbeVersion). kNumaPageProbeVersion startet dreistellig mit
-// CPU-Flag als "v1.0.0c" -- die A13-M3/C4-Migration ist vollzogen und COMDARE_VERSION_HW_FLAG_ENFORCE
+// CPU-Flag als "1.0.0.c" -- die A13-M3/C4-Migration ist vollzogen und COMDARE_VERSION_HW_FLAG_ENFORCE
 // ist SCHARF, ein flagloses Literal braeche hier sofort. Die zentrale Naht-Liste in algo_semver.hpp
 // fuehrt diese Quelle als eigene Klasse; der dort VORNE stehende generische Wachen-grep
 // (ce_owned_version_satisfies_cpu_enforce) findet sie, weil beide B12-Wachen unten stehen.
@@ -256,7 +256,7 @@ namespace detail {
 inline constexpr std::string_view kNumaPageProbeIdPrefix = "numa_page_probe.";
 /// K5/A13-M1b: dreistellig, mit CPU-Hardware-Flag, NIE experimentell. COMDARE_VERSION_HW_FLAG_ENFORCE
 /// ist scharf (Default 1) -- ein flagloses "v1.0.0" braeche die gated Wache unten sofort.
-inline constexpr std::string_view kNumaPageProbeVersion = "v1.0.0c";
+inline constexpr std::string_view kNumaPageProbeVersion = "1.0.0.c";
 
 /// Ein fester constexpr-Puffer statt std::string: probe_id() muss auch compile-time aus dem von der
 /// Achse gelieferten string_view komponierbar sein. 64 Bytes lassen Platz fuer kuenftige echte
@@ -300,7 +300,7 @@ struct NumaPageProbeIdBuffer final {
 
 } // namespace detail
 
-/// K5-Helfer: schneidet den rohen vX.Y.Z-Teil hinter '@' aus der komponierten Verfahrens-ID. Die
+/// K5-Helfer: schneidet den rohen Versions-Teil hinter '@' aus der komponierten Verfahrens-ID. Die
 /// separate genau-ein-'@'-Wache unten verhindert, dass ein mehrdeutiger Rest akzeptiert wird.
 [[nodiscard]] constexpr std::string_view numa_page_probe_version_part(std::string_view id) noexcept {
     std::size_t const at = id.find('@');
@@ -421,15 +421,21 @@ concept NumaPageProbeConcept = requires(NumaPageProbeContext const& context) {
 namespace detail {
 
 /// Der gesamte K5-Vertrag in einer CT-Wache: Single-Source-Praefix, die Familie direkt aus dem
-/// Achsen-Typ, genau ein Trenner und eine echte, dreistellige, ce-eigene, nicht-experimentelle Version.
+/// Achsen-Typ, genau ein Trenner und eine echte, dreistellige, ce-eigene Version.
+///
+/// FLAG-GRAMMATIK v2: hier standen bis zum Owner-KERN vom 07.08.2026 zwei weitere Terme --
+/// `!parsed.experimental` und `version.find('e') == npos`. BEIDE SIND ERSATZLOS ENTFALLEN, und zwar
+/// nicht aus Bequemlichkeit: 'e' bedeutet ab jetzt EFFICIENCY CORE. Der zweite Term war ausserdem
+/// schon vorher zu grob -- er haette jedes Flag-Token mit einem 'e' darin verworfen. Was von der
+/// Absicht bleibt ("eine ce-eigene Version ist keine Fremd-Version"), traegt
+/// ce_owned_version_is_wellformed, und zwar an EINER Stelle statt hier ein zweites Mal.
 template <class OsAxis>
 [[nodiscard]] consteval bool numa_page_probe_id_contract_is_satisfied() noexcept {
     std::string_view const id      = NumaPageProbe<OsAxis>::probe_id();
     std::string_view const version = numa_page_probe_version_part(id);
     AlgoSemVer const       parsed  = parse_algo_semver(version);
     return id.starts_with(kNumaPageProbeIdPrefix) && numa_page_probe_family_part(id) == OsAxis::os_family_id() &&
-           numa_page_probe_at_count(id) == 1U && ce_owned_version_is_wellformed(version) && !parsed.is_sentinel() &&
-           !parsed.experimental && version.find('e') == std::string_view::npos;
+           numa_page_probe_at_count(id) == 1U && ce_owned_version_is_wellformed(version) && !parsed.is_sentinel();
 }
 
 template <class OsAxis>

@@ -78,8 +78,11 @@ template <class OsAxis>
 
     std::string_view const version = cem::numa_page_probe_version_part(id);
     cem::AlgoSemVer const  parsed  = cem::parse_algo_semver(version);
-    return cem::ce_owned_version_is_wellformed(version) && !parsed.is_sentinel() && !parsed.experimental &&
-           version.find('e') == std::string_view::npos;
+    // FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): hier standen bis zum Umbau zwei weitere Terme --
+    // `!parsed.experimental` und `version.find('e') == npos`. BEIDE SIND ERSATZLOS ENTFALLEN: 'e' bedeutet
+    // ab jetzt EFFICIENCY CORE und ist ein legitimes Flag. Der zweite Term war ausserdem schon vorher zu
+    // grob -- er haette jedes Flag-Token mit einem 'e' darin verworfen.
+    return cem::ce_owned_version_is_wellformed(version) && !parsed.is_sentinel();
 }
 
 struct FantasieAchse;
@@ -101,9 +104,9 @@ static_assert(!CompleteType<cem::NumaPageProbe<FantasieAchse>>,
 static_assert(probe_id_contract<cem::LinuxOperatingSystem>());
 static_assert(probe_id_contract<cem::WindowsOperatingSystem>());
 static_assert(probe_id_contract<cem::MacosOperatingSystem>());
-static_assert(LinuxProbe::probe_id() == std::string_view{"numa_page_probe.linux@v1.0.0c"});
-static_assert(WindowsProbe::probe_id() == std::string_view{"numa_page_probe.windows@v1.0.0c"});
-static_assert(MacosProbe::probe_id() == std::string_view{"numa_page_probe.macos@v1.0.0c"});
+static_assert(LinuxProbe::probe_id() == std::string_view{"numa_page_probe.linux@1.0.0.c"});
+static_assert(WindowsProbe::probe_id() == std::string_view{"numa_page_probe.windows@1.0.0.c"});
+static_assert(MacosProbe::probe_id() == std::string_view{"numa_page_probe.macos@1.0.0.c"});
 static_assert(LinuxProbe::probe_id() != WindowsProbe::probe_id() && LinuxProbe::probe_id() != MacosProbe::probe_id() &&
               WindowsProbe::probe_id() != MacosProbe::probe_id());
 
@@ -515,7 +518,7 @@ TEST(Od10NumaPageProbe, LaufzeitwerteBleibenAusDemSystemStempelUndDerCodeStandBl
         if (entry.axis != cem::NumaNodeSubAxis::parent_axis_label()) continue;
         code_version_found = true;
         // A-15: die RT-Erhebung ist rein additiv -- sie bumpt den target_isa-Code-Stand NICHT.
-        EXPECT_EQ(entry.version, std::string_view{"v1.0.0c"})
+        EXPECT_EQ(entry.version, std::string_view{"1.0.0.c"})
             << "A-15: RT-Unter-Achsen duerfen den target_isa-Code-Stand nicht bumpen.";
     }
     ASSERT_TRUE(code_version_found) << "Die Eltern-Achse target_isa muss im Code-Versions-Register stehen.";
