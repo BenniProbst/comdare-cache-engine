@@ -1646,7 +1646,8 @@ target_include_directories(test_allocator_profile_bestand PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common")
 comdare_set_platform_defines(test_allocator_profile_bestand)
 target_compile_definitions(test_allocator_profile_bestand PRIVATE
-    "COMDARE_CE_ALLOCATOR_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/allocators\"")
+    "COMDARE_CE_ALLOCATOR_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/allocators\""
+    "COMDARE_CE_ADAPTERS_DIR=\"${PROJECT_SOURCE_DIR}/adapters\"")
 add_test(NAME test_allocator_profile_bestand COMMAND test_allocator_profile_bestand)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_allocator_profile_bestand)
 set_tests_properties(test_allocator_profile_bestand PROPERTIES LABELS "goal_v6;phase_d")

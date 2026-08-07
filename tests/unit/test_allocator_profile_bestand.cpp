@@ -21,14 +21,27 @@
 // zweite Mechanik. Es verdrahtet die Akten NICHT in den Produktionspfad; das waere ein Runtime-Switch
 // gegen die Statischer-Dispatch-Doktrin und damit eine Regression, kein Fortschritt.
 //
-// SELBSTCHECK: prueft NUR Existenz und Wohlgeformtheit des Aktenbestands (Metadaten). Es prueft NICHT
-// die inhaltliche Richtigkeit von Lizenz-, Venue- oder Jahr-Angaben und NICHT deren Uebereinstimmung mit
-// der Thesis-Tabelle (anderes Repo, hier nicht lesbar). Es beruehrt keine Messung: permutation_axes.xml,
-// binary_id und golden bleiben unangetastet.
+// DREI MENGEN, die dieses Gate auseinanderhaelt (die Verwechslung war der eigentliche Defekt):
+//   23 Doku-Akten      -- *.profile.xml in diesem Verzeichnis (literaturgestuetzte Abdeckung)
+//   10 implementierte  -- davon jene mit Adapter-Skelett unter adapters/ (+ Original-Code unter
+//                         ext/allocator/); genau diese tabelliert die Thesis als "die zehn lauffaehigen"
+//   13 reine Doku      -- der Rest: dokumentiert, aber nicht implementiert
+// Die README des Verzeichnisses fuehrte lange "Mitglieder (10)" und meinte damit die MITTLERE Menge,
+// las sich aber wie die erste -- die 13 reinen Doku-Akten kamen darin gar nicht vor. Das Gate haelt
+// darum beide Zahlen getrennt gegen die Wirklichkeit.
+//
+// SELBSTCHECK: prueft NUR Existenz und Wohlgeformtheit des Aktenbestands (Metadaten) sowie die
+// Konsistenz der README-Tabelle und der adapters/-Praesenz. Es prueft NICHT die inhaltliche Richtigkeit
+// von Lizenz-, Venue- oder Jahr-Angaben und NICHT deren Uebereinstimmung mit der Thesis-Tabelle
+// (anderes Repo, hier nicht lesbar) -- die drei bekannten Lizenz-Abweichungen (michael_lockfree,
+// tcmalloc, lrmalloc) faengt dieses Gate also NICHT. "Implementiert" heisst hier: das Adapter-
+// Verzeichnis existiert; ob es baut, sagt dieser Test nicht. Es beruehrt keine Messung:
+// permutation_axes.xml, binary_id und golden bleiben unangetastet.
 
 #include <serialization/xml_config_parser/xml_reader.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -53,10 +66,10 @@ void tr(std::string const& what, bool cond) {
 // Die Zahl ist bewusst hart, damit ein STILLER Verlust auffaellt -- ein Bestands-Gate, das sich seine
 // Erwartung aus demselben Verzeichnis holt, das es prueft, kann per Konstruktion nichts entdecken.
 //
-// WENN EINE AKTE DAZUKOMMT ODER WEGFAELLT: diese Zahl hier mitziehen. Das ist Absicht, keine Huerde --
-// der rote Test ist die Aufforderung, den Zuwachs bewusst zu quittieren statt ihn durchrutschen zu
-// lassen. Kommt eine Akte hinzu, gehoert sie ausserdem in die README des Verzeichnisses (die zum
-// Stand 2026-08-07 noch "Mitglieder (10)" behauptet und damit selbst hinter dem Bestand zurueckliegt).
+// WENN EINE AKTE DAZUKOMMT ODER WEGFAELLT: diese Zahl hier mitziehen UND die README nachziehen
+// (Ueberschrifts-Zahl + Tabellenzeile) -- Pruefschritt (8) unten verlangt beides. Das ist Absicht,
+// keine Huerde: der rote Test ist die Aufforderung, den Zuwachs bewusst zu quittieren statt ihn
+// durchrutschen zu lassen.
 constexpr std::size_t kErwarteteAktenAnzahl = 23;
 
 // Die ZEHN Profile der Thesis-Tabelle \label{tab:allocator-profiles}. Diese Liste ist der eigentliche
@@ -69,6 +82,16 @@ std::vector<std::string> const& thesis_tabellen_profile() {
     static std::vector<std::string> const ids{"hoard",    "michael_lockfree", "mimalloc", "jemalloc", "tcmalloc",
                                               "snmalloc", "scalloc",          "rpmalloc", "lrmalloc", "dlmalloc"};
     return ids;
+}
+
+// Die zehn IMPLEMENTIERTEN sind deckungsgleich mit den zehn der Thesis-Tabelle -- und das ist kein
+// Zufall, sondern der Grund fuer die Zahl: die Thesis nennt sie "die zehn lauffaehigen". Jedes dieser
+// ids muss ein Adapter-Verzeichnis adapters/<A-Nummer>-<name> haben. Der Praefix genuegt als Schluessel,
+// weil die Verzeichnisnamen die Familie voranstellen (adapters/A01-hoard, adapters/A03-michael-lockfree
+// -- man beachte den Bindestrich statt des Unterstrichs, darum wird NUR auf "A01-" geprueft).
+std::vector<std::string> const& implementierte_familien() {
+    static std::vector<std::string> const fam{"A01", "A03", "A04", "A05", "A06", "A07", "A08", "A10", "A11", "A20"};
+    return fam;
 }
 
 [[nodiscard]] std::string read_file(std::filesystem::path const& p) {
@@ -198,6 +221,64 @@ int main() {
     }
     std::cout << "THESIS-ANKER: " << gefunden << "/" << thesis_tabellen_profile().size()
               << " tabellierte Profile durch eine lesbare, getaggte Akte belegt\n";
+
+    // (7) DIE ADAPTER-PRAESENZ: sie ist der Grund, warum es "zehn lauffaehige" heisst. Ohne diese
+    //     Pruefung waere die 10 in README und Thesis eine nackte Zahl ohne Gegenstand.
+    std::cout << "\n-- Implementierte (Adapter-Skelett unter adapters/) --\n";
+    std::filesystem::path const adapters_dir{COMDARE_CE_ADAPTERS_DIR};
+    std::size_t                 impl_gefunden = 0;
+    for (auto const& fam : implementierte_familien()) {
+        bool da = false;
+        for (auto const& e : std::filesystem::directory_iterator(adapters_dir, ec)) {
+            if (e.is_directory() && e.path().filename().string().starts_with(fam + "-")) {
+                da = true;
+                break;
+            }
+        }
+        if (da) ++impl_gefunden;
+        tr("Adapter-Verzeichnis vorhanden: " + fam, da);
+    }
+    std::cout << "IMPLEMENTIERT: " << impl_gefunden << "/" << implementierte_familien().size()
+              << " Familien mit Adapter-Skelett\n";
+
+    // (8) DIE README GEGEN DIE WIRKLICHKEIT. Eine Zahl in einer Doku-Datei, die niemand prueft, driftet
+    //     genauso wie ein Aktenbestand, den niemand liest -- die alte "Mitglieder (10)" bei 23 Akten war
+    //     der Beweis. Geprueft wird: (a) die Ueberschrifts-Zahl == Aktenzahl, (b) jede Akte hat eine
+    //     Tabellenzeile. Findet der Test die Ueberschrift NICHT, ist das ROT und nicht still gruen --
+    //     sonst waere eine umformulierte Ueberschrift ein lautloser Weg, die Pruefung abzuschalten.
+    std::cout << "\n-- README-Konsistenz --\n";
+    std::filesystem::path const readme    = dir / "README.md";
+    bool const                  readme_da = std::filesystem::exists(readme, ec);
+    tr("README.md vorhanden", readme_da);
+    if (readme_da) {
+        std::string const text = read_file(readme);
+
+        // "## Mitglieder (N)" -- N wird gelesen, nicht geraten.
+        std::string const marker          = "## Mitglieder (";
+        auto const        pos             = text.find(marker);
+        bool const        ueberschrift_da = (pos != std::string::npos);
+        tr("README nennt eine Mitglieder-Zahl (Marker \"" + marker + "N)\")", ueberschrift_da);
+        if (ueberschrift_da) {
+            std::size_t const zahl_start = pos + marker.size();
+            std::size_t       i          = zahl_start;
+            while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i]))) ++i;
+            std::string const zahl_str    = text.substr(zahl_start, i - zahl_start);
+            std::size_t const readme_zahl = zahl_str.empty() ? 0 : static_cast<std::size_t>(std::stoul(zahl_str));
+            std::cout << "  README-Zahl: " << readme_zahl << " | realer Bestand: " << akten.size() << "\n";
+            tr("README-Mitgliederzahl == realer Aktenbestand", readme_zahl == akten.size());
+        }
+
+        // Jede Akte muss als Tabellenzeile auftauchen ("| <id> |").
+        std::size_t ohne_zeile = 0;
+        for (auto const& b : befunde) {
+            if (b.id.empty()) continue;
+            if (text.find("| " + b.id + " |") == std::string::npos) {
+                ++ohne_zeile;
+                std::cout << "  ohne README-Tabellenzeile: " << b.id << "\n";
+            }
+        }
+        tr("jede Akte hat eine README-Tabellenzeile", ohne_zeile == 0);
+    }
 
     std::cout << "\n==== Ergebnis: " << (g_fail == 0 ? "GRUEN" : "ROT") << " (" << g_fail << " Fehler, Nenner "
               << akten.size() << ") ====\n";
