@@ -8,6 +8,7 @@
 //
 // Literal, zeit- und IO-frei: alle Dauern sind Argumente, keine Wall-Clock.
 
+#include "bestandslog/bestandslog_lock.hpp" // (E2): merge_documents -- der Befund, auf den sich A5 stuetzt
 #include "bestandslog/eta_kalibrierung.hpp"
 
 #include <gtest/gtest.h>
@@ -273,6 +274,52 @@ TEST(A5EtaKalibrierung, BelastbarSchaltetDenETAZweigScharf) {
     // Und der Takeover rechnet ab hier gegen 1,5 x 256 = 384 s statt gegen die pauschale 30-min-Frist.
     EXPECT_FALSE(bl::is_takeable_by_eta(256.0, 1000, 1384)); // exakt 384 -> noch nicht
     EXPECT_TRUE(bl::is_takeable_by_eta(256.0, 1000, 1385));
+}
+
+// ===========================================================================
+// (E2) DER MERGE-BEFUND -- warum je Block nur EINMAL veroeffentlicht wird
+// ===========================================================================
+
+// Dieser Test BEHAUPTET nichts ueber richtig oder falsch -- er NAGELT das heutige Verhalten des in B2
+// eingefrorenen Record-Union-Merge fest, weil die A5-Verdrahtung sich darauf verlaesst:
+//
+//   Bei gleichem Fortschritts-Rang gewinnt die Reservierung mit gefuellter eta_s -- und wenn BEIDE eine
+//   tragen, stabil das REMOTE-Dokument. Die zweite Fortschreibung DERSELBEN offenen Reservierung wird
+//   also verworfen, waehrend store() true meldet.
+//
+// FOLGE: die Re-Kalibrierung je BLOCK (LEDGER:3299) traegt, weil jeder Slice eine eigene id hat. Die
+// periodische Fortschreibung INNERHALB eines Slices (F5-Spez Baupunkt 3) traegt NICHT -- sie braucht
+// eine geaenderte Konflikt-Aufloesung oder ein monotones Ordnungs-Feld (Draht-/Semantik-Entscheid).
+//
+// SCHLAEGT DIESER TEST FEHL, ist das eine gute Nachricht: dann wurde die Aufloesung geaendert, und die
+// Fortschreibung innerhalb des Slices kann scharfgeschaltet werden (SliceEtaKanal::veroeffentlicht).
+TEST(A5EtaKalibrierung, MergeVERWIRFTDieZweiteFortschreibungDerselbenReservierung) {
+    auto mach = [](std::string const& eta, bl::BatchStatus s) {
+        bl::BestandslogDocument d;
+        d.genus = bl::Genus::binary;
+        bl::BatchReservierung r;
+        r.id     = "uuid/0";
+        r.status = s;
+        r.eta_s  = eta;
+        d.reservierungen.push_back(r);
+        return d;
+    };
+
+    // ERSTE Kalibrierung: remote traegt noch nichts -> der neue Wert landet.
+    auto const erst = bl::merge_documents(mach("", bl::BatchStatus::offen), mach("250.000", bl::BatchStatus::offen));
+    EXPECT_EQ(erst.reservierungen.at(0).eta_s, "250.000") << "die erste Kalibrierung kommt durch";
+
+    // ZWEITE Fortschreibung: beide tragen eine ETA -> das REMOTE gewinnt, der neue Wert faellt weg.
+    auto const zweit =
+        bl::merge_documents(mach("100.000", bl::BatchStatus::offen), mach("250.000", bl::BatchStatus::offen));
+    EXPECT_EQ(zweit.reservierungen.at(0).eta_s, "100.000")
+        << "HEUTIGES Verhalten: die Fortschreibung wird verworfen -- deshalb je Block nur EIN Schrieb";
+
+    // Der Done-Schrieb dagegen gewinnt ueber den Rang -- das Abschluss-Testat ist davon unberuehrt.
+    auto const ende =
+        bl::merge_documents(mach("100.000", bl::BatchStatus::offen), mach("999.000", bl::BatchStatus::done));
+    EXPECT_EQ(ende.reservierungen.at(0).eta_s, "999.000");
+    EXPECT_EQ(ende.reservierungen.at(0).status, bl::BatchStatus::done);
 }
 
 // ===========================================================================

@@ -1458,6 +1458,27 @@ struct SliceEtaKanal {
     double                         zuletzt_s = 0.0; // zuletzt VEROEFFENTLICHTE ETA (Abweichungs-Trigger)
     std::size_t                    schriebe  = 0;   // gelungene Mid-Slice-Veroeffentlichungen (Testat)
     std::size_t                    fehler    = 0;   // misslungene (Testat -- nie stumm)
+
+    // EINMAL JE BLOCK VEROEFFENTLICHEN -- und warum das keine Sparsamkeit ist, sondern ein BEFUND:
+    //
+    // Der Record-Union-Merge (bestandslog_lock.hpp, in B2 EINGEFROREN) loest einen id-Konflikt so auf:
+    // hoehere Fortschritts-Stufe gewinnt (offen<released<done); bei GLEICHEM Rang gewinnt die mit
+    // gefuellter eta_s, und sonst -- also wenn BEIDE eine eta_s tragen -- stabil das REMOTE-Dokument.
+    // Am Objekt nachgemessen (merge_documents(remote{offen,eta=100}, lokal{offen,eta=250})): das
+    // Ergebnis traegt 100. Die ZWEITE und jede weitere Fortschreibung DERSELBEN offenen Reservierung
+    // wird also verworfen -- lautlos, mit einem store(), das true meldet.
+    //
+    // FOLGE FUER DIESES PAKET: die vom Ledger geforderte Re-Kalibrierung JE BLOCK (LEDGER:3299)
+    // funktioniert vollstaendig -- jeder Slice hat seine EIGENE id (owner_uuid/slice_seq), es gibt
+    // also gar keinen Konflikt. Was NICHT geht, ist die periodische Fortschreibung INNERHALB eines
+    // Slices (F5-Spez Baupunkt 3). Sie braucht entweder eine geaenderte Konflikt-Aufloesung des
+    // eingefrorenen Merge oder ein monotones Ordnungs-Feld am Record -- beides ist ein
+    // Draht-/Semantik-Entscheid und wird hier NICHT improvisiert (dieselbe Auflage, die
+    // builder_registration.hpp fuer den Takeover-Uhr-Anker stellt: "Befund in der Paketmeldung").
+    //
+    // Bis dahin wird je Block GENAU EINMAL veroeffentlicht. Ein zweiter Schreibvorgang waere kein
+    // Fortschritt, sondern ein Aufruf, der nichts tut und dabei den langen Exklusiv-Lock zieht.
+    bool veroeffentlicht = false;
 };
 
 [[nodiscard]] inline std::vector<BuildResult>
@@ -1544,8 +1565,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             {
                 std::lock_guard<std::mutex> lk(eta_kanal->mtx);
                 if (!eta_kanal->aktiv) return;
-                // Der Rest-Zaehler laeuft fuer JEDES Ergebnis herunter -- auch fuer Skips und Fehlschlaege.
-                // Er zaehlt die Fenster-Arbeit, nicht die Messpunkte.
+
+                // (1) SAMMELN -- IMMER, auch nach der Veroeffentlichung. Die spaeteren Punkte tragen das
+                // Block-Testat am Fenster-Ende und die Untergrenze des naechsten Blocks.
+                // Der Rest-Zaehler laeuft fuer JEDES Ergebnis herunter (auch Skips und Fehlschlaege): er
+                // zaehlt die Fenster-ARBEIT, nicht die Messpunkte.
                 if (eta_kanal->offen > 0) --eta_kanal->offen;
                 // KEIN Compile == KEIN Messpunkt. dauer_s ist genau deshalb ein optional (s. BuildResult).
                 if (!b.dauer_s) return;
@@ -1557,10 +1581,15 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 }
                 eta_kanal->kal.beobachte(*b.dauer_s, bytes);
 
+                // (2) VEROEFFENTLICHEN -- genau EINMAL je Block. Ein zweiter Schreibvorgang auf DIESELBE
+                // offene Reservierung wird vom eingefrorenen Merge verworfen und zoege dabei den langen
+                // Exklusiv-Lock; Herleitung und Messung stehen bei SliceEtaKanal::veroeffentlicht.
+                if (eta_kanal->veroeffentlicht) return;
                 auto const a = eta_kanal->kal.rest_projektion(eta_kanal->offen);
                 if (!bestandslog::eta_neu_schreiben(eta_kanal->zuletzt_s, a)) return;
-                eta_kanal->zuletzt_s = a.eta_s;
-                zu_schreiben         = eta_kanal->res;
+                eta_kanal->zuletzt_s       = a.eta_s;
+                eta_kanal->veroeffentlicht = true;
+                zu_schreiben               = eta_kanal->res;
                 // uebertrage_kalibrierung statt apply_calibration: hier kann die ZEIT tragen, waehrend
                 // noch keine Binary fertig ist -- dann bleibt avg_size_bytes leer statt "0" zu behaupten.
                 bestandslog::uebertrage_kalibrierung(zu_schreiben, a);
@@ -1666,10 +1695,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
         if (reserve) {
             std::lock_guard<std::mutex> lk(eta_kanal->mtx);
             eta_kanal->kal.neuer_block();
-            eta_kanal->res       = res;
-            eta_kanal->offen     = static_cast<std::uint64_t>(gefiltert.zu_bauen.size());
-            eta_kanal->zuletzt_s = 0.0;
-            eta_kanal->aktiv     = true;
+            eta_kanal->res             = res;
+            eta_kanal->offen           = static_cast<std::uint64_t>(gefiltert.zu_bauen.size());
+            eta_kanal->zuletzt_s       = 0.0;
+            eta_kanal->veroeffentlicht = false; // neuer Block, neue Reservierungs-id -> kein Merge-Konflikt
+            eta_kanal->aktiv           = true;
         }
 
         auto const               t0 = std::chrono::steady_clock::now();
