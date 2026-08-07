@@ -2502,6 +2502,50 @@ TEST(MeasurementModi61, UnknownModeTokenFailsClosedInsteadOfSilentMeasure) {
     EXPECT_NO_THROW(director.construct(*tp_ok, cm_ok)) << "gueltiger Token baut normal";
 }
 
+// (Welle B/3, 2026-08-07) DER PLAN-SEITIGE SPIEGEL DER REGISTRY-ZEILE.
+// Befund am Objekt: PlanBuildSemantic::measurement_on und ::single_thread haben NULL produktive Leser -- alle acht
+// Zugriffe der Form header_.build_semantic.* im Repo lesen cmake_build_type. Beide Felder bleiben stehen (S6-Konsum,
+// s. Struct-Doku); ein stiller Rueckbau waere schlimmer als ein totes Feld. Damit ein ungelesenes Feld aber nicht
+// STILL falsch werden kann -- niemand merkt es ja -- nagelt diese Wache den Spiegel je Modus an die Registry-Zeile,
+// aus der er stammt. Wer die Registry aendert und den Planer vergisst (oder umgekehrt), faellt hier auf, statt dem
+// spaeteren S6-Fanout einen falschen Wert zu vererben.
+TEST(MeasurementModi61, PlanBuildSemanticSpiegeltDieRegistryZeileFuerJedenModus) {
+    namespace mm = comdare::cache_engine::measurement;
+    planner::ExperimentPlanDirector const director;
+
+    auto semantik_fuer = [&director](std::vector<std::string> const& methodik) {
+        auto tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+        EXPECT_TRUE(tp.has_value());
+        tp->run_methodology = methodik;
+        CountingBuilder b;
+        director.construct(*tp, b);
+        return b.header.build_semantic;
+    };
+
+    for (std::size_t i = 0; i < mm::kRunMethodologyCount; ++i) {
+        auto const& zeile = mm::kRunMethodologyRegistry[i];
+        auto const  sem   = semantik_fuer({std::string(zeile.id)});
+        EXPECT_EQ(sem.cmake_build_type, std::string(zeile.cmake_build_type)) << zeile.id;
+        EXPECT_EQ(sem.measurement_on, zeile.measurement_on) << zeile.id;
+        EXPECT_EQ(sem.single_thread, zeile.single_thread) << zeile.id;
+    }
+
+    // Leer => die measure-Zeile (Abwesenheit ist der Default, kein eigener Zustand).
+    auto const& measure = mm::run_methodology_info(mm::RunMethodology::Measure);
+    auto const  leer    = semantik_fuer({});
+    EXPECT_EQ(leer.cmake_build_type, std::string(measure.cmake_build_type));
+    EXPECT_EQ(leer.measurement_on, measure.measurement_on);
+    EXPECT_EQ(leer.single_thread, measure.single_thread);
+
+    // Und die Unterscheidungs-Probe, ohne die der Spiegel-Test nichts messen wuerde: measurement_on traegt NICHT
+    // ueber alle Modi denselben Wert. Ein Feld, das immer gleich ist, waere auch als Annotation wertlos.
+    EXPECT_TRUE(semantik_fuer({"debug"}).measurement_on);
+    EXPECT_FALSE(semantik_fuer({"release"}).measurement_on);
+    EXPECT_FALSE(semantik_fuer({"compare"}).measurement_on);
+    EXPECT_TRUE(semantik_fuer({"measure"}).single_thread);
+    EXPECT_FALSE(semantik_fuer({"debug"}).single_thread);
+}
+
 // (smoke=>debug-Entkopplung 2026-07-22): der Director-Methodik-Override entkoppelt Bau-Profil != Methodik-Profil.
 // Ein all_axes_golden-Katalog (run_methodology=measure) emittiert MIT Override {"debug"} die DEBUG-Methodik
 // ((j3)-Dual-Compile + COMDARE_BUILD_TYPE=Debug + TRIES=1 + Methodik-Profil-Forward), WAEHREND Achsen/Perms/Lanes
