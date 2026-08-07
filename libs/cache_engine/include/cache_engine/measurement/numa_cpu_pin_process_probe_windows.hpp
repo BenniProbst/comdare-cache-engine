@@ -61,8 +61,7 @@ numa_cpu_pin_process_probe_pinning_windows(NumaCpuPinProcessProbeContext const& 
     DWORD_PTR system_maske  = 0;
     if (::GetProcessAffinityMask(::GetCurrentProcess(), &prozess_maske, &system_maske) == FALSE)
         return std::unexpected(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt});
-    if (prozess_maske == 0)
-        return std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
+    if (prozess_maske == 0) return std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
 
     PinningCapability result{};
     DWORD_PTR         ziel_bit = 0;
@@ -130,9 +129,9 @@ NumaCpuPinProcessProbe<WindowsOperatingSystem>::collect(NumaCpuPinProcessProbeCo
                 std::vector<std::uint32_t> cpu_ids;
             };
             std::vector<WindowsKernKlasse> klassen_roh;
-            DWORD                          offset  = 0;
-            bool                           broken  = false;
-            bool                           fremd   = false;
+            DWORD                          offset = 0;
+            bool                           broken = false;
+            bool                           fremd  = false;
             while (offset < length) {
                 auto const* const entry =
                     reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX const*>(buffer.data() + offset);
@@ -168,7 +167,7 @@ NumaCpuPinProcessProbe<WindowsOperatingSystem>::collect(NumaCpuPinProcessProbeCo
 
             if (broken || fremd) {
                 klassen = std::unexpected(NumaCpuPinProcessProbeError{fremd ? HardwareProbeErrorClass::FormatUnbekannt
-                                                                      : HardwareProbeErrorClass::QuelleKorrupt});
+                                                                            : HardwareProbeErrorClass::QuelleKorrupt});
             } else if (klassen_roh.empty()) {
                 // 'n/a statt Null': eine leere Klassen-Liste wird NIE als Erfolg gemeldet.
                 klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
@@ -196,8 +195,11 @@ NumaCpuPinProcessProbe<WindowsOperatingSystem>::collect(NumaCpuPinProcessProbeCo
                                                                           : CoreClassKind::HoheEffizienz;
                     map.groups.push_back(CoreClassGroup{kind, std::move(ids)});
                 }
-                map.source =
-                    (klassen_roh.size() == 1U) ? CoreTopologySource::Homogen : CoreTopologySource::HybridPmu;
+                // Review-Befund L-1 (2026-08-07): HybridPmu ist die BENANNTE Linux-cpu_core/cpu_atom-
+                // sysfs-Quelle (s. Doc am Enum) -- diese Zelle erhebt ueber EfficiencyClass und darf
+                // dieselbe Provenienz-Vokabel nicht mitbenutzen.
+                map.source = (klassen_roh.size() == 1U) ? CoreTopologySource::Homogen
+                                                        : CoreTopologySource::WindowsEfficiencyClass;
                 if (korrupt)
                     klassen = std::unexpected(NumaCpuPinProcessProbeError{HardwareProbeErrorClass::QuelleKorrupt});
                 else

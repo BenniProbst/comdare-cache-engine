@@ -151,9 +151,8 @@ namespace detail {
 ///   pinning_policy/core_layout -- die MODELL-seitigen Namen (platform/core_layout.hpp:40
 ///       PinningPolicyId, IPinningPolicy). Das ist die Durchsetzung, nicht das Angebot.
 inline constexpr std::array<std::string_view, 13> kTargetIsaSubAxisForbiddenLabels = {
-    "page_type", "page_topology", "numa_topology",  "scheduling", "hetero_core_dispatch",
-    "core",      "cpu",           "core_type",      "cpu_core",   "cpu_atom",
-    "pinning_policy", "core_layout", "worker_pool_layout"};
+    "page_type", "page_topology", "numa_topology",  "scheduling",  "hetero_core_dispatch", "core", "cpu", "core_type",
+    "cpu_core",  "cpu_atom",      "pinning_policy", "core_layout", "worker_pool_layout"};
 
 [[nodiscard]] consteval bool target_isa_sub_axis_labels_avoid_traps() {
     for (auto const& label : kTargetIsaSubAxisLabels)

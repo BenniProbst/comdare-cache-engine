@@ -61,7 +61,7 @@ NumaCpuPinProcessProbe<MacosOperatingSystem>::collect(NumaCpuPinProcessProbeCont
     // benannte Stufe und ausdruecklich KEIN Fehler und KEINE erfundene Faehigkeit.
     PinningCapabilityResult pinning = PinningCapability{PinningAvailability::KeineSchnittstelle, 0, 0, false};
 
-    std::uint32_t ebenen = 0;
+    std::uint32_t ebenen  = 0;
     std::size_t   groesse = sizeof(ebenen);
     if (::sysctlbyname("hw.nperflevels", &ebenen, &groesse, nullptr, 0) != 0 || groesse == 0) {
         return ProcessLocalityTopology{
@@ -79,10 +79,13 @@ NumaCpuPinProcessProbe<MacosOperatingSystem>::collect(NumaCpuPinProcessProbeCont
     }
 
     CoreClassMap map;
-    map.source            = (ebenen == 1U) ? CoreTopologySource::Homogen : CoreTopologySource::HybridPmu;
+    // Review-Befund L-1 (2026-08-07): HybridPmu ist die BENANNTE Linux-cpu_core/cpu_atom-sysfs-Quelle
+    // (s. Doc am Enum in numa_cpu_pin_process_probe.hpp) -- diese Zelle erhebt ueber PERFLEVEL-sysctls
+    // und darf dieselbe Provenienz-Vokabel nicht mitbenutzen.
+    map.source             = (ebenen == 1U) ? CoreTopologySource::Homogen : CoreTopologySource::DarwinPerflevel;
     std::uint32_t naechste = 0;
     for (std::uint32_t ebene = 0; ebene < ebenen; ++ebene) {
-        std::string const name  = "hw.perflevel" + std::to_string(ebene) + ".logicalcpu";
+        std::string const name   = "hw.perflevel" + std::to_string(ebene) + ".logicalcpu";
         std::uint32_t     anzahl = 0;
         std::size_t       len    = sizeof(anzahl);
         if (::sysctlbyname(name.c_str(), &anzahl, &len, nullptr, 0) != 0 || len == 0) {

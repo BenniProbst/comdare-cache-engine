@@ -251,8 +251,8 @@ numa_cpu_pin_process_read_l3_domains(NumaCpuPinProcessProbeContext const& ctx, C
     for (std::uint32_t const cpu : online) {
         std::filesystem::path const index = ctx.cpu_root / (std::string{kCpuDirPrefix} + std::to_string(cpu)) /
                                             std::string{kCacheDirName} / std::string{kL3CacheIndexDirName};
-        std::error_code ec;
-        bool const      exists = std::filesystem::exists(index, ec);
+        std::error_code             ec;
+        bool const                  exists = std::filesystem::exists(index, ec);
         if (ec) return std::unexpected(HardwareProbeErrorClass::QuelleUnlesbar);
         if (!exists) continue;
         ++gefunden;
@@ -282,9 +282,8 @@ numa_cpu_pin_process_read_l3_domains(NumaCpuPinProcessProbeContext const& ctx, C
     if (gefunden == 0) return std::vector<L3Domain>{}; // gar kein L3-Baum: keine Aussage, kein Fehler
     if (gefunden != online.size()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
 
-    std::sort(domains.begin(), domains.end(), [](L3Domain const& a, L3Domain const& b) noexcept {
-        return a.cpu_ids.front() < b.cpu_ids.front();
-    });
+    std::sort(domains.begin(), domains.end(),
+              [](L3Domain const& a, L3Domain const& b) noexcept { return a.cpu_ids.front() < b.cpu_ids.front(); });
     return domains;
 }
 
@@ -306,7 +305,7 @@ numa_cpu_pin_process_read_l3_domains(NumaCpuPinProcessProbeContext const& ctx, C
 /// Das Ergebnis traegt immer mindestens eine Gruppe, jede Gruppe eine nichtleere CPU-Menge.
 [[nodiscard]] inline std::expected<CoreClassMap, HardwareProbeErrorClass>
 numa_cpu_pin_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const& performance_cpus,
-                                  CpuIdSet const& efficiency_cpus, std::vector<L3Domain> const& l3_domains) {
+                                          CpuIdSet const& efficiency_cpus, std::vector<L3Domain> const& l3_domains) {
     if (online.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
 
     // -- Stufe 1: die benannte Hybrid-Klassifikation ------------------------------------------------
@@ -358,9 +357,18 @@ numa_cpu_pin_process_compose_core_classes(CpuIdSet const& online, CpuIdSet const
         std::sort(grosse.begin(), grosse.end());
         std::sort(kleine.begin(), kleine.end());
         if (grosse.empty() || kleine.empty()) return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt);
+        // Review-Befund L-3 (2026-08-07): adjacent_find prueft nur INNERHALB jeder Liste (ein Kern zweimal
+        // in DERSELBEN Domaene) -- das ist die Duplikat-Wache, keine Disjunktheits-Wache. Ein Kern, der in
+        // BEIDEN Domaenen auftaucht, faellt hier NICHT durch. Stufe 1 hat genau diese Kreuzpruefung
+        // (set_intersection, Zeile oben) -- Stufe 2 brauchte dieselbe und hatte sie nicht.
         if (std::adjacent_find(grosse.begin(), grosse.end()) != grosse.end() ||
             std::adjacent_find(kleine.begin(), kleine.end()) != kleine.end())
-            return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt); // ein Kern in zwei Domaenen
+            return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt); // ein Kern zweimal in derselben Domaene
+        CpuIdSet l3_schnitt;
+        std::set_intersection(grosse.begin(), grosse.end(), kleine.begin(), kleine.end(),
+                              std::back_inserter(l3_schnitt));
+        if (!l3_schnitt.empty())
+            return std::unexpected(HardwareProbeErrorClass::QuelleKorrupt); // ein Kern in beiden Domaenen
         map.groups.push_back(CoreClassGroup{CoreClassKind::GrosserCache, std::move(grosse)});
         map.groups.push_back(CoreClassGroup{CoreClassKind::KleinerCache, std::move(kleine)});
         return map;

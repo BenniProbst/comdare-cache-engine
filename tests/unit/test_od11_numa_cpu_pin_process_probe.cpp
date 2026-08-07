@@ -120,8 +120,8 @@ static_assert(LinuxProbe::probe_id() != WindowsProbe::probe_id() && LinuxProbe::
 // erscheinen -- weder als ganze ID noch ueber einen Praefix-Treffer.
 static_assert(LinuxProbe::probe_id() != cem::NumaPageProbe<cem::LinuxOperatingSystem>::probe_id());
 static_assert(!LinuxProbe::probe_id().starts_with(std::string_view{"numa_page_probe."}));
-static_assert(!cem::NumaPageProbe<cem::LinuxOperatingSystem>::probe_id().starts_with(
-    std::string_view{"numa_cpu_pin_process_probe."}));
+static_assert(!cem::NumaPageProbe<cem::LinuxOperatingSystem>::probe_id().starts_with(std::string_view{
+    "numa_cpu_pin_process_probe."}));
 
 /// DER ANSCHLUSS als Test-Aussage: die Probe loest genau die Unter-Achse auf, die als machine_resolved
 /// angeboten ist -- ueber den TYP, nicht ueber ein Etikett.
@@ -301,10 +301,10 @@ TEST(Od11NumaCpuPinProcessProbe, ListenGrammatikDeckDieVierRealenKernelFormenAb)
         std::vector<std::uint32_t> erwartet;
     };
     std::vector<Fall> const faelle = {
-        {"0\n", {0}},                                        // Ein-Kern-Fassung
-        {"0-3\n", {0, 1, 2, 3}},                             // zusammenhaengender Bereich
-        {"0-1,4\n", {0, 1, 4}},                              // Bereich plus Einzel-Id
-        {"0-3,8-11\n", {0, 1, 2, 3, 8, 9, 10, 11}},          // die reale CCD-Form
+        {"0\n", {0}},                               // Ein-Kern-Fassung
+        {"0-3\n", {0, 1, 2, 3}},                    // zusammenhaengender Bereich
+        {"0-1,4\n", {0, 1, 4}},                     // Bereich plus Einzel-Id
+        {"0-3,8-11\n", {0, 1, 2, 3, 8, 9, 10, 11}}, // die reale CCD-Form
     };
     for (auto const& fall : faelle) {
         auto const result = cem::detail::numa_cpu_pin_process_parse_cpu_list(fall.text);
@@ -470,8 +470,8 @@ TEST(Od11NumaCpuPinProcessProbe, FehlendeOnlineQuelleBleibtQuelleFehlt) {
 TEST(Od11NumaCpuPinProcessProbe, VorhandeneAberLeereOnlineQuelleBleibtQuelleKorrupt) {
     ProcessTestTree tree("cpu_leer");
     ASSERT_TRUE(tree.ready());
-    fs::path const cpu   = tree.make_cpu_root("   \n");
-    auto const karte = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, tree.child("egal")));
+    fs::path const cpu = tree.make_cpu_root("   \n");
+    auto const karte   = cem::detail::numa_cpu_pin_process_collect_core_classes(lese_kontext(cpu, tree.child("egal")));
     expect_hardware_error(karte, cem::HardwareProbeErrorClass::QuelleKorrupt, "quelle_korrupt");
     // A4-Kern: vorhanden und korrupt darf nie als fehlend degradiert werden.
     auto const* error = std::get_if<cem::HardwareProbeErrorClass>(&karte.error());
@@ -541,8 +541,8 @@ TEST(Od11NumaCpuPinProcessProbe, EinHalbesHybridPmuPaarIstEinBefundUndKeineHalbe
 }
 
 TEST(Od11NumaCpuPinProcessProbe, MehrAlsZweiL3GroessenWerdenBenanntStattAufZweiGezwungen) {
-    std::vector<std::uint32_t> const    online = {0, 1, 2, 3, 4, 5};
-    std::vector<cem::detail::L3Domain> const drei = {
+    std::vector<std::uint32_t> const         online = {0, 1, 2, 3, 4, 5};
+    std::vector<cem::detail::L3Domain> const drei   = {
         {std::uint64_t{98304} * 1024U, {0, 1}},
         {std::uint64_t{65536} * 1024U, {2, 3}},
         {std::uint64_t{32768} * 1024U, {4, 5}},
@@ -554,6 +554,33 @@ TEST(Od11NumaCpuPinProcessProbe, MehrAlsZweiL3GroessenWerdenBenanntStattAufZweiG
     std::vector<cem::detail::L3Domain> const zwei = {drei[0], drei[2]};
     EXPECT_TRUE(cem::detail::numa_cpu_pin_process_compose_core_classes({0, 1, 4, 5}, {}, {}, zwei).has_value());
     EXPECT_EQ(cem::kMaxDistinctCoreClasses, 2U);
+}
+
+// Review-Befund L-3 (2026-08-07, wf_f94d1373-f7b): Stufe 1 (Hybrid-PMU) prueft per set_intersection, dass
+// kein Kern in beiden Klassen liegt -- Stufe 2 (L3-Domaene) pruefte bislang nur adjacent_find INNERHALB
+// jeder Liste (ein Kern zweimal in DERSELBEN Domaene), nicht ZWISCHEN den Listen. Ein Kern, der in einer
+// grossen UND einer kleinen L3-Domaene auftaucht, fiel deshalb nicht durch -- exakt die Fehlklasse, gegen
+// die Stufe 1 schon gebaut war. Dieser Test spiegelt EinHalbesHybridPmuPaarIstEinBefundUndKeineHalbeKarte
+// fuer die L3-Stufe: derselbe Befund, dieselbe Behandlung, andere Quelle.
+TEST(Od11NumaCpuPinProcessProbe, EinKernInBeidenL3DomaenenIstEinBefundUndKeineDoppelteKarte) {
+    // cpu 1 traegt die grosse L3-Domaene (98304K, {0,1}) UND die kleine (65536K, {1,2}) -- derselbe Kern
+    // in beiden Groessen-Klassen. adjacent_find allein sieht das NICHT: cpu 1 kommt in JEDER Liste fuer
+    // sich genommen nur einmal vor.
+    std::vector<cem::detail::L3Domain> const ueberlappend = {
+        {std::uint64_t{98304} * 1024U, {0, 1}},
+        {std::uint64_t{65536} * 1024U, {1, 2}},
+    };
+    expect_parser_class(cem::detail::numa_cpu_pin_process_compose_core_classes({0, 1, 2}, {}, {}, ueberlappend),
+                        cem::HardwareProbeErrorClass::QuelleKorrupt);
+    // Die Gegenprobe: dieselben zwei Groessen, aber disjunkte Kern-Mengen, werden weiterhin akzeptiert --
+    // der neue Schnitt-Test darf die bestehende, echte L3Domaene-Klassifikation nicht mitbrechen.
+    std::vector<cem::detail::L3Domain> const disjunkt = {
+        {std::uint64_t{98304} * 1024U, {0, 1}},
+        {std::uint64_t{65536} * 1024U, {2, 3}},
+    };
+    auto const karte = cem::detail::numa_cpu_pin_process_compose_core_classes({0, 1, 2, 3}, {}, {}, disjunkt);
+    ASSERT_TRUE(karte.has_value());
+    EXPECT_EQ(karte->source, cem::CoreTopologySource::L3Domaene);
 }
 
 TEST(Od11NumaCpuPinProcessProbe, EinHalbVorhandenerL3BaumIstEinBefundUndKeineUniformeMaschine) {
@@ -585,7 +612,7 @@ TEST(Od11NumaCpuPinProcessProbe, WidersprecheL3GroesseFuerDieselbeDomaeneBleibtQ
 
 TEST(Od11NumaCpuPinProcessProbe, JedeFremdeFamilieErzeugtDenBenanntenL6Befund) {
     cem::NumaCpuPinProcessProbeContext const context      = cem::default_numa_cpu_pin_process_probe_context();
-    std::size_t                        native_count = 0;
+    std::size_t                              native_count = 0;
     verify_native_or_l6_producer<cem::LinuxOperatingSystem>(context, native_count);
     verify_native_or_l6_producer<cem::WindowsOperatingSystem>(context, native_count);
     verify_native_or_l6_producer<cem::MacosOperatingSystem>(context, native_count);
@@ -763,8 +790,7 @@ TEST(Od11NumaCpuPinProcessProbe, CppcIstEinRangUndKeineKlasseUndDeshalbNichtInDe
                 << "Diese Maschine traegt mehr CPPC-Raenge als Kern-Klassen -- eine Klassen-Ableitung aus "
                    "dem Rang haette Klassen erfunden. Genau deshalb ist die Quelle nicht in der Kette.";
         } else {
-            GTEST_SKIP() << "Benannter Skip-Guard: diese Maschine traegt hoechstens "
-                         << cem::kMaxDistinctCoreClasses
+            GTEST_SKIP() << "Benannter Skip-Guard: diese Maschine traegt hoechstens " << cem::kMaxDistinctCoreClasses
                          << " verschiedene CPPC-Raenge -- der Befund ist hier nicht beobachtbar.";
         }
     }

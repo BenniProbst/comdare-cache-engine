@@ -22,7 +22,14 @@
 //                 die Klassen BENENNT), sonst die L3-Domaenen aus <cpu_root>/cpuN/cache/index3
 //                 (Groesse + shared_cpu_list), sonst ehrlich uniform; windows:
 //                 GetLogicalProcessorInformationEx(RelationProcessorCore) mit EfficiencyClass; macos:
-//                 keine prozessfreie Kern-Klassen-Schnittstelle -- benannter L6-Befund.
+//                 KORREKTUR Review-Befund L-2 (2026-08-07, wf_f94d1373-f7b): diese Zeile behauptete
+//                 vorher "keine prozessfreie Kern-Klassen-Schnittstelle" -- das ist FALSCH und
+//                 widersprach dem eigenen macOS-Blatt. macOS HAT eine prozessfreie Quelle fuer die
+//                 Klassen-GROESSEN: hw.nperflevels + hw.perflevel<N>.logicalcpu (sysctlbyname). Die
+//                 benannte Luecke ist enger als die Zeile vorher sagte: Darwin liefert KEINE Zuordnung
+//                 Kern-Id -> Ebene (die Ids werden aus den Anzahlen ABGELEITET, nicht gelesen), und die
+//                 Zuordnungs-Erprobung meldet fuer diese Familie ehrlich KeineSchnittstelle (kein
+//                 sched_setaffinity-Aequivalent). Vollstaendige Begruendung im macOS-Blatt-Kopf.
 //   Zuordnungs-Faehigkeit (Pinning) -- KEINE Achse, sondern die BRAUCHBARKEITS-Aussage ueber die
 //                 Achsen-Werte: darf dieser Thread ueberhaupt einem einzelnen Kern zugeordnet werden,
 //                 und setzt der Kernel die Zuordnung wirklich durch. Ohne sie waeren die Kern-Klassen
@@ -187,23 +194,43 @@ inline constexpr std::size_t kCoreClassKindCount = 5;
 /// WORAUS die Klassifikation stammt. Sie reist MIT dem Ergebnis, weil zwei Maschinen mit derselben
 /// Klassen-Zahl trotzdem verschieden klassifiziert sein koennen und eine Messreihe, die das verschweigt,
 /// zwei unvergleichbare Erhebungen als eine ausweist.
-///   HybridPmu = <pmu_root>/cpu_core/cpus + cpu_atom/cpus. Die EINZIGE Quelle, die Kern-Klassen selbst
-///               BENENNT (zwei getrennte PMUs, Intel Alder Lake und aufwaerts),
-///   L3Domaene = genau ZWEI verschiedene L3-Groessen ueber <cpu_root>/cpuN/cache/index3. Sie benennt
-///               DOMAENEN, nicht Mikroarchitekturen -- deshalb GrosserCache/KleinerCache und nicht P/E,
-///   Homogen   = keine Unterscheidung erhebbar; genau eine Klasse, und das ist der Befund.
+///   HybridPmu = <pmu_root>/cpu_core/cpus + cpu_atom/cpus (LINUX). Die EINZIGE Quelle, die Kern-Klassen
+///               selbst BENENNT (zwei getrennte PMUs, Intel Alder Lake und aufwaerts),
+///   L3Domaene = genau ZWEI verschiedene L3-Groessen ueber <cpu_root>/cpuN/cache/index3 (LINUX). Sie
+///               benennt DOMAENEN, nicht Mikroarchitekturen -- deshalb GrosserCache/KleinerCache und
+///               nicht P/E,
+///   Homogen   = keine Unterscheidung erhebbar; genau eine Klasse, und das ist der Befund. TRAEGT KEINE
+///               plattform-spezifische Quelle -- "keine Unterscheidung" ist auf jeder Familie dieselbe
+///               Aussage, deshalb geteilt.
+///   WindowsEfficiencyClass = GetLogicalProcessorInformationEx(RelationProcessorCore).EfficiencyClass
+///               (WINDOWS). Review-Befund L-1 (2026-08-07, wf_f94d1373-f7b): dieser Wert wurde vorher
+///               FAELSCHLICH als HybridPmu gefuehrt, obwohl Windows weder cpu_core/cpu_atom noch
+///               ueberhaupt sysfs kennt -- eine Provenienz-Vokabel, die zwei verschiedene Erhebungs-
+///               Mechanismen unter demselben Wert verschmolz, ist dieselbe Fehlerklasse wie eine Spalte,
+///               die etwas anderes behauptet als sie ist,
+///   DarwinPerflevel = hw.nperflevels + hw.perflevel<N>.logicalcpu (MACOS). Dieselbe L-1-Korrektur: auch
+///               macOS fuehrte HybridPmu, obwohl es ueber sysctlbyname und nicht ueber eine PMU-sysfs-
+///               Datei erhebt.
+/// WARUM ANGEHAENGT STATT UMSORTIERT: HybridPmu/L3Domaene/Homogen reisen als Zahlen 0/1/2 in Log und
+/// Messergebnis (K5-Doktrin, wie bei axis_error.hpp CompilerCompilerErrorClass) -- ein Umsortieren
+/// verschoebe eine Bestands-Nummer. Die beiden neuen Werte werden deshalb ANGEHAENGT (3/4), nicht
+/// eingefuegt.
 enum class CoreTopologySource : std::uint8_t {
-    HybridPmu = 0,
-    L3Domaene = 1,
-    Homogen   = 2,
+    HybridPmu              = 0,
+    L3Domaene              = 1,
+    Homogen                = 2,
+    WindowsEfficiencyClass = 3,
+    DarwinPerflevel        = 4,
 };
-inline constexpr std::size_t kCoreTopologySourceCount = 3;
+inline constexpr std::size_t kCoreTopologySourceCount = 5;
 
 [[nodiscard]] constexpr std::string_view core_topology_source_token(CoreTopologySource s) noexcept {
     switch (s) {
         case CoreTopologySource::HybridPmu: return "quelle_hybrid_pmu";
         case CoreTopologySource::L3Domaene: return "quelle_l3_domaene";
         case CoreTopologySource::Homogen: return "quelle_homogen";
+        case CoreTopologySource::WindowsEfficiencyClass: return "quelle_windows_efficiency_class";
+        case CoreTopologySource::DarwinPerflevel: return "quelle_darwin_perflevel";
     }
     return "kernquelle_unbekannt";
 }
@@ -351,10 +378,10 @@ inline constexpr std::string_view kPmuCpuListLeafName        = "cpus";
 /// Der Namens-Kontrakt der Kern-Verzeichnisse unter <cpu_root>: "cpu<N>".
 inline constexpr std::string_view kCpuDirPrefix = "cpu";
 /// Der L3-Zugang je Kern: <cpu_root>/cpu<N>/cache/index3/{size,shared_cpu_list}.
-inline constexpr std::string_view kCacheDirName            = "cache";
-inline constexpr std::string_view kL3CacheIndexDirName     = "index3";
-inline constexpr std::string_view kCacheSizeLeafName       = "size";
-inline constexpr std::string_view kCacheSharedCpuListLeaf  = "shared_cpu_list";
+inline constexpr std::string_view kCacheDirName           = "cache";
+inline constexpr std::string_view kL3CacheIndexDirName    = "index3";
+inline constexpr std::string_view kCacheSizeLeafName      = "size";
+inline constexpr std::string_view kCacheSharedCpuListLeaf = "shared_cpu_list";
 /// Der Groessen-Suffix der sysfs-Cache-Groesse ("98304K"). Der Kernel schreibt hier immer Kibibyte.
 inline constexpr std::string_view kCacheSizeKibSuffix = "K";
 
@@ -437,10 +464,10 @@ struct NumaCpuPinProcessProbeIdBuffer final {
     [[nodiscard]] constexpr std::string_view view() const noexcept { return {bytes.data(), length}; }
 };
 
-[[nodiscard]] consteval NumaCpuPinProcessProbeIdBuffer compose_numa_cpu_pin_process_probe_id(std::string_view family,
-                                                                               std::string_view version) noexcept {
+[[nodiscard]] consteval NumaCpuPinProcessProbeIdBuffer
+compose_numa_cpu_pin_process_probe_id(std::string_view family, std::string_view version) noexcept {
     NumaCpuPinProcessProbeIdBuffer result{};
-    std::size_t const        required = kNumaCpuPinProcessProbeIdPrefix.size() + family.size() + 1U + version.size();
+    std::size_t const required = kNumaCpuPinProcessProbeIdPrefix.size() + family.size() + 1U + version.size();
     if (required > result.bytes.size()) return result;
 
     auto append = [&result](std::string_view part) {
@@ -697,8 +724,8 @@ static_assert(numa_cpu_pin_process_probe_error_label(NumaCpuPinProcessProbeError
                   HardwareProbeErrorClass::FormatUnbekannt}) == std::string_view{"format_unbekannt"});
 static_assert(error_domain(NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
               ErrorDomain::CompilerCompiler);
-static_assert(numa_cpu_pin_process_probe_error_label(
-                  NumaCpuPinProcessProbeError{CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
+static_assert(numa_cpu_pin_process_probe_error_label(NumaCpuPinProcessProbeError{
+                  CompilerCompilerErrorClass::BetriebssystemFeatureFehlt}) ==
               std::string_view{"betriebssystem_feature_fehlt"});
 
 // -- Die drei Vokabulare: BEIDE Drift-Richtungen (RF-3-Lehre) + volle Disjunktheit -----------------
@@ -711,10 +738,28 @@ static_assert(kCoreClassKindCount == static_cast<std::size_t>(CoreClassKind::Kle
 static_assert(core_class_kind_token(static_cast<CoreClassKind>(kCoreClassKindCount)) ==
                   std::string_view{"kernklasse_unbekannt"},
               "Drift: hinter dem Count liegt eine etikettierte Kern-Klasse");
-static_assert(kCoreTopologySourceCount == static_cast<std::size_t>(CoreTopologySource::Homogen) + 1);
+// L-1 (2026-08-07): der Namens-Pin zeigt jetzt auf DarwinPerflevel (=4), den NEUEN letzten Enumerator --
+// dieselbe Wanderung wie axis_error.hpp CompilerCompilerErrorClass (FK-8): die Wache wandert mit dem
+// letzten Wert, die Bestands-Nummern 0/1/2 stehen still.
+static_assert(kCoreTopologySourceCount == static_cast<std::size_t>(CoreTopologySource::DarwinPerflevel) + 1);
+static_assert(static_cast<std::uint8_t>(CoreTopologySource::HybridPmu) == 0 &&
+                  static_cast<std::uint8_t>(CoreTopologySource::L3Domaene) == 1 &&
+                  static_cast<std::uint8_t>(CoreTopologySource::Homogen) == 2,
+              "L-1 haengt an (3/4) und verschiebt KEINE Bestands-Nummer.");
+static_assert(static_cast<std::uint8_t>(CoreTopologySource::WindowsEfficiencyClass) == 3 &&
+              static_cast<std::uint8_t>(CoreTopologySource::DarwinPerflevel) == 4);
 static_assert(core_topology_source_token(static_cast<CoreTopologySource>(kCoreTopologySourceCount)) ==
                   std::string_view{"kernquelle_unbekannt"},
               "Drift: hinter dem Count liegt eine etikettierte Klassifikations-Quelle");
+static_assert(core_topology_source_token(CoreTopologySource::WindowsEfficiencyClass) !=
+                  core_topology_source_token(CoreTopologySource::HybridPmu),
+              "L-1: Windows und Linux duerfen nie dieselbe Provenienz-Vokabel tragen -- verschiedene "
+              "Erhebungs-Mechanismen sind verschiedene Aussagen.");
+static_assert(core_topology_source_token(CoreTopologySource::DarwinPerflevel) !=
+                  core_topology_source_token(CoreTopologySource::HybridPmu),
+              "L-1: macOS und Linux duerfen nie dieselbe Provenienz-Vokabel tragen.");
+static_assert(core_topology_source_token(CoreTopologySource::WindowsEfficiencyClass) !=
+              core_topology_source_token(CoreTopologySource::DarwinPerflevel));
 static_assert(kPinningAvailabilityCount == static_cast<std::size_t>(PinningAvailability::KeineSchnittstelle) + 1);
 static_assert(pinning_availability_token(static_cast<PinningAvailability>(kPinningAvailabilityCount)) ==
                   std::string_view{"pinfaehigkeit_unbekannt"},
@@ -740,6 +785,8 @@ static_assert(probe_label_ist_disjunkt(core_class_kind_token(static_cast<CoreCla
 static_assert(probe_label_ist_disjunkt(core_topology_source_token(CoreTopologySource::HybridPmu)));
 static_assert(probe_label_ist_disjunkt(core_topology_source_token(CoreTopologySource::L3Domaene)));
 static_assert(probe_label_ist_disjunkt(core_topology_source_token(CoreTopologySource::Homogen)));
+static_assert(probe_label_ist_disjunkt(core_topology_source_token(CoreTopologySource::WindowsEfficiencyClass)));
+static_assert(probe_label_ist_disjunkt(core_topology_source_token(CoreTopologySource::DarwinPerflevel)));
 static_assert(
     probe_label_ist_disjunkt(core_topology_source_token(static_cast<CoreTopologySource>(kCoreTopologySourceCount))));
 static_assert(probe_label_ist_disjunkt(pinning_availability_token(PinningAvailability::Durchgesetzt)));

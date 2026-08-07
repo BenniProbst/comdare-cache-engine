@@ -392,8 +392,7 @@ static_assert(kDefaultCpuPmuRoot != kDefaultSpdDeviceRoot && kDefaultCpuPmuRoot 
 // (f) NEU gegenueber OD-10-RT: die Kern-Wurzel darf die NUMA-Knoten-Wurzel nicht ENTHALTEN und umgekehrt.
 //     Beide liegen unter /sys/devices/system; waere eine Praefix der anderen, koennte eine Verwechslung
 //     im Kontext unbemerkt bleiben, weil beide Baeume dann dieselbe Datei-Menge saehen.
-static_assert(!kDefaultCpuRoot.starts_with(kDefaultNumaNodeRoot) &&
-              !kDefaultNumaNodeRoot.starts_with(kDefaultCpuRoot));
+static_assert(!kDefaultCpuRoot.starts_with(kDefaultNumaNodeRoot) && !kDefaultNumaNodeRoot.starts_with(kDefaultCpuRoot));
 
 // =================================================================================================
 // 3. DIE ZELLE DIESES BAUS
@@ -614,10 +613,9 @@ static_assert(TargetIsaSubAxisConcept<NumaPageProbe<CebHardwareProbeDevice::os_a
 // OD-11-RT: dieselbe Aussage fuer die dritte Erhebung. Die Kern-Klassen-Probe der CEB-Zelle ist die
 // Probe IHRER OS-Familie -- die Familien-Wahl laeuft ueber denselben Zell-Typ wie RAM-Kette und
 // numa/page-Probe, nicht ueber einen dritten Kanal.
-static_assert(
-    std::is_same_v<decltype(probe_numa_cpu_pin_process_topology<CebHardwareProbeDevice>(
-                       std::declval<NumaCpuPinProcessProbeContext const&>())),
-                   ProcessLocalityTopology>);
+static_assert(std::is_same_v<decltype(probe_numa_cpu_pin_process_topology<CebHardwareProbeDevice>(
+                                 std::declval<NumaCpuPinProcessProbeContext const&>())),
+                             ProcessLocalityTopology>);
 static_assert(NumaCpuPinProcessProbeConcept<NumaCpuPinProcessProbe<CebHardwareProbeDevice::os_axis>>);
 // A-15/A10 STRUKTURELL, wie bei RamFrequencyReading und NumaPageTopology: es gibt in diesem Header keine
 // Funktion, die eine ProcessLocalityTopology an eine Stempel-, Achsen- oder binary_id-API reicht, und
