@@ -2170,6 +2170,9 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_a15_fk3_axis_error_traits    # A15 / FK-3: Achsen-Fehlerraeume (20 Familien, Boost-Hermetik-Wache mit
                                        #         eigener Nicht-Blind-Probe, 4 Invarianten-Bissproben, Laufzeit-Biss
                                        #         an den 3 Mess-Achsen)
+    test_a15_fk4_organ_slot_traits    # A15 / FK-4: Organ-SLOT-Fehlerraeume T0..T17 (Namen gegen
+                                       #         kCompositionAxisNames, 18 gegen abi::kOrganAxisCount, D2-Saetze
+                                       #         deckungsgleich zu FK-5 = Anti-Parallelstruktur-Wache)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
