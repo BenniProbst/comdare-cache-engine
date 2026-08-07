@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 namespace cg  = comdare::builder::codegen;
@@ -223,8 +224,15 @@ TEST_F(CodegenFromProfileFixture, TemplateSubstitution_IncludesTemplateWhenPrese
 }
 
 // REV 7.6 V18.3 — Multi-Path-Lookup-Tests (cache-engine + prt-art Templates)
-TEST_F(CodegenFromProfileFixture, MultiPath_PrtArtTemplateFoundWhenSotaMissing) {
-    // Mock-Template NUR im prt_art_root, nicht in comdare_root
+//
+// UMGEDREHT 2026-08-07 (AP-2-neu/#236 W4, V-05-Nachpruefung): dieser Test hiess
+// `MultiPath_PrtArtTemplateFoundWhenSotaMissing` und behauptete POSITIV, dass der prt-art-Alt-Pfad fuer
+// "prtart" greift. Damit zementierte er GENAU den Pfad als Soll-Verhalten, der den 90ns-Stub in eine
+// Messung traegt -- die Fehlerklasse "gruene Tests zementieren die alte Ordnung". W4 verlangte
+// "delegieren ODER hart gaten"; gebaut ist jetzt das Gate (codegen.cpp), und der Test beweist es.
+TEST_F(CodegenFromProfileFixture, MultiPath_PrtArtStubIsRejectedNotSilentlyUsed) {
+    // Mock-Template NUR im prt_art_root, nicht in comdare_root -- exakt die Lage, in der der Alt-Pfad
+    // frueher gegriffen haette.
     auto prt_art_tpl_dir = tmp_dir_ / "prt_art" / "codegen" / "templates";
     fs::create_directories(prt_art_tpl_dir);
     {
@@ -244,11 +252,47 @@ TEST_F(CodegenFromProfileFixture, MultiPath_PrtArtTemplateFoundWhenSotaMissing) 
     xml::AlgorithmProfile p;
     p.id        = "prtart";
     p.paper_ref = "PRTART";
+
+    // (1) Der Lauf bricht LAUT ab, statt still den Stub einzubauen.
+    EXPECT_THROW(engine2.generate_module_from_profile(p, 0xAB), std::runtime_error);
+
+    // (2) Und er hinterlaesst KEINE Quelle, die den Stub inkludiert -- ein halb geschriebenes Modul
+    //     waere genauso gefaehrlich wie ein stilles.
+    auto const src_path = opts2.output_root / "module_profile_prtart_ab.cpp";
+    if (fs::exists(src_path)) {
+        auto const src = read_file(src_path);
+        EXPECT_EQ(src.find("prtart_body.hpp.template"), std::string::npos)
+            << "Der Abbruch hat eine Quelle zurueckgelassen, die den 90ns-Stub inkludiert.";
+    }
+}
+
+// GEGENPROBE zum Gate: ein ANDERES Pruefling-Template unter prt_art_root bleibt unberuehrt.
+// Das Gate trifft ausschliesslich die quarantaenisierte Id, nicht den Multi-Path-Lookup als solchen.
+TEST_F(CodegenFromProfileFixture, MultiPath_NonQuarantinedPrtArtTemplateStillWorks) {
+    auto prt_art_tpl_dir = tmp_dir_ / "prt_art" / "codegen" / "templates";
+    fs::create_directories(prt_art_tpl_dir);
+    {
+        std::ofstream f(prt_art_tpl_dir / "some_other_pruefling_body.hpp.template");
+        f << "// Mock Template (nicht quarantaeniert)\n"
+          << "namespace comdare::cache_engine::builder::generated {\n"
+          << "struct ProfileModuleBody { void run_workload(...) {} void pull_live_counters(...) {} };\n"
+          << "}\n";
+    }
+
+    cg::CodegenOptions opts2;
+    opts2.output_root  = tmp_dir_ / "generated_v18_3a_ok";
+    opts2.comdare_root = tmp_dir_;
+    opts2.prt_art_root = tmp_dir_;
+    cg::CodegenEngine engine2{opts2};
+
+    xml::AlgorithmProfile p;
+    p.id        = "some_other_pruefling";
+    p.paper_ref = "OTHER";
     engine2.generate_module_from_profile(p, 0xAB);
 
-    auto src = read_file(opts2.output_root / "module_profile_prtart_ab.cpp");
+    auto src = read_file(opts2.output_root / "module_profile_some_other_pruefling_ab.cpp");
     EXPECT_NE(src.find("Template     : yes"), std::string::npos);
-    EXPECT_NE(src.find("prtart_body.hpp.template"), std::string::npos);
+    EXPECT_NE(src.find("some_other_pruefling_body.hpp.template"), std::string::npos);
 }
 
 TEST_F(CodegenFromProfileFixture, MultiPath_SotaPriorityOverPrtArt) {

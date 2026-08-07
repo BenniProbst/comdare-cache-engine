@@ -6,8 +6,17 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
+#include <string_view>
 
 namespace comdare::builder::codegen {
+
+namespace {
+/// Die EINE Profil-Id, deren prt-art-Alt-Pfad-Template den 90ns-Stub traegt und deshalb nie in eine
+/// Messung geraten darf (AP-2-neu/#236 W4). Bewusst hier und nicht als Magic-String an der Fundstelle:
+/// wer den Namen aendert, sieht die Quarantaene.
+inline constexpr std::string_view kQuarantinedPrtArtProfileId = "prtart";
+} // namespace
 
 void CodegenEngine::generate_module(xml::PermutationEntry const& ce_perm, xml::PermutationEntry const& sa_perm,
                                     xml::PermutationEntry const& alloc_perm, std::uint64_t fingerprint) const {
@@ -100,10 +109,23 @@ void CodegenEngine::generate_module_from_profile(xml::AlgorithmProfile const& pr
     auto const sota_template_dir = opts_.comdare_root / "cache_engine" / "builder" / "codegen" / "templates";
     auto const sota_template     = sota_template_dir / (profile.id + "_body.hpp.template");
 
-    // QUARANTAENE-Hinweis (AP-2-neu/#236 W4, 2026-07-07): dieser V18-Template-Zug ist ein ALT-PFAD —
-    // das prtart_body-Template traegt den 90ns-Stub und ist NICHT Teil des Mess-Pfads. Der einzige
-    // PRT-ART-Mess-Pfad ist der Katalog-Pfad (sota_catalog, echte PrtArtComposition; Beweis:
+    // QUARANTAENE (AP-2-neu/#236 W4, 2026-07-07) -- SEIT 2026-08-07 EIN ECHTES GATE, VORHER NUR EIN HINWEIS.
+    // Dieser V18-Template-Zug ist ein ALT-PFAD: das prtart_body-Template traegt den 90ns-Stub
+    // (prtart_body.hpp.template:74 "cycles_per_op = ... > 0 ? 90u : 0u") und ist NICHT Teil des Mess-Pfads.
+    // Der einzige PRT-ART-Mess-Pfad ist der Katalog-Pfad (sota_catalog, echte PrtArtComposition; Beweis:
     // test_ap2_katalog_pfad_stubfrei). Notizen auch in den 3 prt-art-Alt-Pfad-Dateien.
+    //
+    // WARUM AUS DEM KOMMENTAR EIN WURF WURDE: W4 verlangte "delegieren ODER fuer Mess-Laeufe hart gaten".
+    // Bis heute war KEINES von beidem gebaut -- die Quarantaene bestand ausschliesslich aus Kommentaren
+    // ("OHNE Verhaltens-Change", LEDGER:706). Der Pfad war nur durch DREI ZUFAELLE unerreichbar
+    // (main.cpp setzt prt_art_root nie; es gibt kein prtart.profile.xml im Auto-Pickup; IPruefling::run
+    // wird ausserhalb von Tests nicht gerufen). Kippt einer davon, liefert der Mess-Pfad STILL
+    // 90ns-Konstanten statt Messwerten -- eine Messung, die aussieht wie eine Messung. Genau das
+    // verhindert dieses Gate: lieber ein lauter Abbruch als eine leise Falschzahl.
+    //
+    // SCHNITT: das Gate trifft AUSSCHLIESSLICH profile.id == "prtart" (der quarantaenisierte Stub).
+    // Andere Pruefling-Templates unter prt_art_root bleiben unberuehrt -- der Multi-Path-Lookup als
+    // solcher ist nicht das Problem, der eine Stub ist es.
     auto const prt_art_template_dir = opts_.prt_art_root / "prt_art" / "codegen" / "templates";
     auto const prt_art_template     = prt_art_template_dir / (profile.id + "_body.hpp.template");
 
@@ -113,6 +135,14 @@ void CodegenEngine::generate_module_from_profile(xml::AlgorithmProfile const& pr
         has_template  = true;
         template_path = sota_template;
     } else if (!opts_.prt_art_root.empty() && std::filesystem::exists(prt_art_template)) {
+        if (profile.id == kQuarantinedPrtArtProfileId) {
+            throw std::runtime_error{
+                "QUARANTAENE (AP-2-neu/#236 W4): der prt-art-Alt-Pfad wurde fuer profile.id=\"prtart\" betreten. "
+                "Dieses Template traegt den 90ns-Stub und darf NIE in eine Messung geraten. Der einzige "
+                "PRT-ART-Mess-Pfad ist der Katalog-Pfad (sota_catalog, echte PrtArtComposition). Gefundenes "
+                "Template: " +
+                prt_art_template.string()};
+        }
         has_template  = true;
         template_path = prt_art_template;
     }
