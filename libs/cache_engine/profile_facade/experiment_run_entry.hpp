@@ -445,13 +445,13 @@ struct RunExperimentResult {
                         cfg.row_sweep_axis     = "-"; // Experiment-Pässe sind keine Achsen-Sweeps
                         cfg.row_fairness_mode  = p.fairness_mode.empty() ? std::string{"-"} : p.fairness_mode;
                         cfg.row_h2_score = "-"; // H2-Akte ist Thesis-Profil-Provenienz — von der Brücke nicht getragen
-                        cfg.profile_datasets  = datasets_signature;
+                        cfg.profile_datasets = datasets_signature;
                         // M-1/D-2: die SOLL-Seite des Mess-Vertrags -- dieselbe Zeile, die oben die
                         // Experiment-Quellen stempelt (EINE Lesung, zwei Verbraucher).
                         cfg.erwartete_mess_zeile = live_mess_zeile;
                         // M-1/H-B: Observer-Ausstattung derselben Aufloesung (n/a statt 0).
                         cfg.mess_observer_ausstattung = live_observer_ausstattung;
-                        cfg.row_platform      = tag_platform;
+                        cfg.row_platform              = tag_platform;
                         cfg.row_build_version = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
                         cfg.source_dir        = a.src_dir;
                         cfg.output_dir        = perm_output_dir; // T2-A/F1-NB: per-Perm-Zell-Ordner, sonst == a.dll_dir

@@ -4594,7 +4594,20 @@ target_include_directories(test_m1h_stufen_und_pmc_wache PRIVATE
 comdare_set_platform_defines(test_m1h_stufen_und_pmc_wache)
 add_test(NAME test_m1h_stufen_und_pmc_wache COMMAND test_m1h_stufen_und_pmc_wache)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1h_stufen_und_pmc_wache)
-set_tests_properties(test_m1h_stufen_und_pmc_wache PROPERTIES LABELS "m1;messachse;stufen;pmc;fehlerklassen")
+# KORREKTUR (2026-08-07, CI-Heilung nach M-1): das Label 'pmc' entfernt. Der Test prueft REINE
+# CT-/Konfigurationslogik (pruefe_pmc_ausstattung/resolve_live_measurement_combo_legend als benannte
+# Funktionen mit explizit uebergebenen bool-Parametern) -- NICHT die Laufzeit-Verfuegbarkeit echter
+# PMC-Hardware. Fall (d) durchlaeuft micro/pmc=true/false-Kombinationen ALS PARAMETER, unabhaengig vom
+# eigenen COMDARE_ENABLE_PMC-Build-Zustand dieser TU; Fall (e) ist im CT-losen Zustand dieser TU (kein
+# comdare_measurement_combo_ct verlinkt) in JEDEM Fall ein No-op. Das Ergebnis ist also identisch, ob
+# diese Binary mit COMDARE_ENABLE_PMC=ON oder =OFF gebaut wird -- keine Hardware-Abhaengigkeit.
+# Mit dem Label 'pmc' schloss test:unit (-LE pmc) den Test aus, waehrend der .pmc-Job (Template
+# .bare_metal) nur eine explizite --target-Liste baut, die dieser Test nie erreichte -- 'Not Run' in
+# pmc:amd/pmc:intel, nie in irgendeinem Job wirklich geprueft. DIESELBE Fehlerklasse wie M-CE-25/
+# Muster-F (2026-07-13, m3v2_pmc_smoke), von der R4-Abdeckungswache diesmal LAUT statt still gemacht --
+# die Wache hat ihren Zweck erfuellt. Ohne das Label faellt der Test unter test:unit (baut comdare_tests
+# vollstaendig) und wird dort real ausgefuehrt.
+set_tests_properties(test_m1h_stufen_und_pmc_wache PROPERTIES LABELS "m1;messachse;stufen;fehlerklassen")
 
 # Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
 # load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
