@@ -152,10 +152,28 @@ static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::C
     return kRunMethodologyRegistry[static_cast<std::size_t>(m)];
 }
 
+namespace detail {
+/// Die gueltigen Tokens als Text -- fuer die Fehlermeldung aus DERSELBEN Registry (keine zweite Wissensquelle,
+/// keine handgepflegte Aufzaehlung, die bei einer 5. Methode still veraltet).
+[[nodiscard]] inline std::string run_methodology_known_ids() {
+    std::string out;
+    for (std::size_t i = 0; i < kRunMethodologyCount; ++i) {
+        if (i > 0) out += ", ";
+        out.append(kRunMethodologyRegistry[i].id);
+    }
+    return out;
+}
+} // namespace detail
+
 /// #45/§61-STUFEN: die AKTIVE Methodik aus den XML-Tokens (tp/ep.run_methodology; validate erzwingt exactly-one).
-/// Leer => measure-Default (Release, 1-Thread); unbekannt => ebenfalls measure-Default. SINGLE-SOURCE fuer den
-/// Runtime-Konsum (identische Regel wie experiment_plan_director::build_semantic_of_run_methodology, aber ohne
-/// Planer-Abhaengigkeit) -- der Mess-Loop leitet daraus single_thread ab (debug => paralleler Mess-Loop).
+/// LEER => measure-Default (Release, 1-Thread): die ABWESENHEIT einer Deklaration ist eine Aussage und bleibt der
+/// byte-neutrale Vor-§61-Stand. UNBEKANNTES Token => HARTER Fehler (Welle B/1, 2026-08-07, FAIL-CLOSED): bis hierher
+/// fiel ein Tippfehler im XML ("mesure", "profiling") STILL auf measure zurueck und loeste damit eine MESSUNG aus,
+/// die niemand angefordert hat. Leer und unbekannt sind NICHT dasselbe -- das eine ist Abwesenheit, das andere ein
+/// falsch geschriebener Wunsch. Der Validator gated denselben Token bereits VOR dem Bau (check_measurement_sub_axis,
+/// validate_profile.hpp); diese Wache traegt den UNVALIDIERTEN Direkt-Pfad (Struct-Injektion, Entry ohne Validat).
+/// SINGLE-SOURCE fuer den Runtime-Konsum UND fuer den Planer (experiment_plan_director::build_semantic_of_run_
+/// methodology delegiert hierher) -- der Mess-Loop leitet daraus single_thread ab (debug => paralleler Mess-Loop).
 [[nodiscard]] inline RunMethodologyInfo const& run_methodology_for_ids(std::vector<std::string> const& ids) {
     // R5/§61-STUFEN (LED:3190): GENAU EINE Methodik je Call. >1 ist ein Kontraktbruch -- der Validator gated ihn
     // VOR dem Bau (validate_profile: run_methodology.size()>1 => nicht ok). Hier defensiv HART (statt still ids.front()),
@@ -164,10 +182,13 @@ static_assert(kRunMethodologyRegistry[static_cast<std::size_t>(RunMethodology::C
         throw std::invalid_argument(
             "run_methodology_for_ids: " + std::to_string(ids.size()) +
             " Methoden deklariert -- GENAU EINE erlaubt (exactly-one je Call, Ledger 61-STUFEN).");
-    if (!ids.empty())
-        for (std::size_t i = 0; i < kRunMethodologyCount; ++i)
-            if (kRunMethodologyRegistry[i].id == ids.front()) return kRunMethodologyRegistry[i];
-    return run_methodology_info(RunMethodology::Measure); // leer/unbekannt => measure-Default
+    if (ids.empty()) return run_methodology_info(RunMethodology::Measure); // Abwesenheit => measure-Default
+    for (std::size_t i = 0; i < kRunMethodologyCount; ++i)
+        if (kRunMethodologyRegistry[i].id == ids.front()) return kRunMethodologyRegistry[i];
+    throw std::invalid_argument("run_methodology_for_ids: unbekannter Modus-Token \"" + ids.front() +
+                                "\" -- gueltig sind {" + detail::run_methodology_known_ids() +
+                                "}. FAIL-CLOSED (Welle B/1): ein stiller measure-Ersatz wuerde eine Messung "
+                                "ausloesen, die niemand angefordert hat.");
 }
 
 /// Compile-time-Iteration ueber die Run-Methodik-UNTER-Achse (Metaprogrammierungs-Interface).

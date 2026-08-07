@@ -2442,9 +2442,9 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
         << "(R5) tp-Pfad: build_semantic_of_run_methodology bricht bei >1 Modi HART ab (kein stilles front())";
 
     // Runtime-Konsum (Mess-Loop-Naht, resolve_measure_parallelism -> run_methodology_for_ids): wirft ebenfalls bei >1.
-    EXPECT_THROW(mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"debug", "measure"}), std::invalid_argument)
         << "(R5) run_methodology_for_ids bricht bei >1 Methoden HART ab";
-    EXPECT_THROW(mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"measure", "release"}), std::invalid_argument);
 
     // exactly-one bleibt gueltig + byte-neutral (kein Fehlalarm):
     EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
@@ -2454,6 +2454,52 @@ TEST(MeasurementModi61, TwoModeProfileHardFailsExactlyOne) {
     tp1->run_methodology = {"measure"};
     planner::TierCmakeGraphBuilder cm_one;
     EXPECT_NO_THROW(director.construct(*tp1, cm_one)) << "(R5) exactly-one-Profil baut normal (byte-neutral)";
+}
+
+// (Welle B/1, 2026-08-07) FAIL-CLOSED beim UNBEKANNTEN Modus-Token. Bis heute fiel ein Tippfehler ("mesure") auf
+// BEIDEN Konsum-Ebenen STILL auf measure zurueck -- der Planer emittierte daraufhin eine vollstaendige measure-
+// Mess-Strecke, also eine MESSUNG, die niemand angefordert hat. Leer bleibt der Default (Abwesenheit ist eine
+// Aussage), ein falsch geschriebener Wunsch ist es NICHT.
+TEST(MeasurementModi61, UnknownModeTokenFailsClosedInsteadOfSilentMeasure) {
+    namespace mm = comdare::cache_engine::measurement;
+    planner::ExperimentPlanDirector const director;
+
+    // (1) Runtime-Konsum (Mess-Loop-Naht, run_methodology_for_ids). Der (void)-Cast: die Funktion ist [[nodiscard]],
+    // und die Rueckgabe interessiert im Wurf-Fall nicht (sonst -Wunused-result).
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"mesure"}), std::invalid_argument);
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"profiling"}), std::invalid_argument);
+    EXPECT_THROW((void)mm::run_methodology_for_ids({""}), std::invalid_argument) << "leeres TOKEN != leere Liste";
+    EXPECT_THROW((void)mm::run_methodology_for_ids({"Measure"}), std::invalid_argument)
+        << "Tokens sind klein geschrieben";
+    // SPRECHEND, nicht nur hart: die Meldung nennt das Token UND die gueltige Menge aus der Registry.
+    try {
+        (void)mm::run_methodology_for_ids({"mesure"});
+        ADD_FAILURE() << "unbekannter Token muss werfen";
+    } catch (std::invalid_argument const& e) {
+        std::string const msg = e.what();
+        EXPECT_NE(msg.find("mesure"), std::string::npos) << msg;
+        EXPECT_NE(msg.find("debug, measure, release, compare"), std::string::npos) << msg;
+    }
+
+    // (2) Planer-Konsum (build_semantic_of_run_methodology via construct()) -- KEINE Emission mehr aus Tippfehlern.
+    auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    tp->run_methodology = {"mesure"};
+    planner::TierCmakeGraphBuilder cm_bogus;
+    EXPECT_THROW(director.construct(*tp, cm_bogus), std::invalid_argument)
+        << "tp-Pfad: unbekannter Token bricht HART ab (kein stiller measure-Ersatz)";
+
+    // Gegenprobe (byte-neutral, kein Fehlalarm): die VIER gueltigen Tokens und die leere Liste tragen unveraendert.
+    EXPECT_EQ(mm::run_methodology_for_ids({"debug"}).methodology, mm::RunMethodology::Debug);
+    EXPECT_EQ(mm::run_methodology_for_ids({"measure"}).methodology, mm::RunMethodology::Measure);
+    EXPECT_EQ(mm::run_methodology_for_ids({"release"}).methodology, mm::RunMethodology::Release);
+    EXPECT_EQ(mm::run_methodology_for_ids({"compare"}).methodology, mm::RunMethodology::Compare);
+    EXPECT_EQ(mm::run_methodology_for_ids({}).methodology, mm::RunMethodology::Measure) << "leer => measure-Default";
+    auto tp_ok = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp_ok.has_value());
+    tp_ok->run_methodology = {"compare"};
+    planner::TierCmakeGraphBuilder cm_ok;
+    EXPECT_NO_THROW(director.construct(*tp_ok, cm_ok)) << "gueltiger Token baut normal";
 }
 
 // (smoke=>debug-Entkopplung 2026-07-22): der Director-Methodik-Override entkoppelt Bau-Profil != Methodik-Profil.

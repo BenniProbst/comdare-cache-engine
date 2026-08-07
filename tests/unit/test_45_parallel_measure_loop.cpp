@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <stdexcept> // Welle B/1: fail-closed bei unbekanntem Modus-Token
 #include <string>
 #include <thread>
 #include <vector>
@@ -106,6 +107,23 @@ int main() {
         check_true("(2) debug + unparsebares Env => nproc>0 (Default, kein Abbruch)",
                    ex::resolve_measure_parallelism({"debug"}) > 0);
         ::unsetenv("COMDARE_MEASURE_PARALLEL");
+
+        // (2c Welle B/1, 2026-08-07) FAIL-CLOSED: ein UNBEKANNTES Token (Tippfehler im Profil) fiel bis heute STILL
+        //   auf measure zurueck -- resolve_measure_parallelism lieferte klaglos 0 und der Lauf MASS, obwohl niemand
+        //   diesen Modus angefordert hatte. Jetzt wirft die Registry (run_methodology_for_ids).
+        auto wirft_bei = [](std::vector<std::string> const& ids) {
+            try {
+                (void)ex::resolve_measure_parallelism(ids);
+            } catch (std::invalid_argument const&) { return true; }
+            return false;
+        };
+        check_true("(2c) unbekannter Token 'mesure' => wirft (kein stiller measure-Ersatz)", wirft_bei({"mesure"}));
+        check_true("(2c) unbekannter Token 'profiling' => wirft", wirft_bei({"profiling"}));
+        check_true("(2c) leeres Token '' => wirft (Token != leere Liste)", wirft_bei({""}));
+        // Gegenprobe: die vier gueltigen Tokens und die LEERE Liste werfen NIE (kein Fehlalarm, byte-neutral).
+        check_true("(2c) Gegenprobe: gueltige Tokens + leere Liste werfen nicht",
+                   !wirft_bei({"debug"}) && !wirft_bei({"measure"}) && !wirft_bei({"release"}) &&
+                       !wirft_bei({"compare"}) && !wirft_bei({}));
 
         // (2b smoke=>debug-Entkopplung 2026-07-22): der METHODIK-Override (profile_run_entry-Naht
         //   override.empty() ? tp.run_methodology : override) hat Vorrang -- ein measure-KATALOG misst PARALLEL, wenn

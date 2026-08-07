@@ -1983,14 +1983,12 @@ private:
             throw std::invalid_argument(
                 "build_semantic_of_run_methodology: " + std::to_string(run_methodology.size()) +
                 " Modi deklariert -- GENAU EINER erlaubt (exactly-one je Call, Ledger 61-STUFEN).");
-        auto const info_for = [](std::string const& id) -> cm::RunMethodologyInfo const& {
-            for (std::size_t i = 0; i < cm::kRunMethodologyCount; ++i)
-                if (cm::kRunMethodologyRegistry[i].id == id) return cm::kRunMethodologyRegistry[i];
-            return cm::run_methodology_info(cm::RunMethodology::Measure); // unbekannt => measure-Default
-        };
-        cm::RunMethodologyInfo const& m = run_methodology.empty()
-                                              ? cm::run_methodology_info(cm::RunMethodology::Measure)
-                                              : info_for(run_methodology.front());
+        // Welle B/1 (2026-08-07) FAIL-CLOSED + SINGLE-SOURCE: die Token-Aufloesung (leer => measure-Default,
+        // unbekannt => HARTER Fehler) steht ab jetzt EINMAL in der Registry (run_methodology_for_ids). Hier stand
+        // bis heute eine ZWEITE, eigene Suchschleife, die ein unbekanntes Token STILL auf measure warf -- ein
+        // Tippfehler im Profil emittierte damit eine vollstaendige Mess-Strecke, die niemand angefordert hat.
+        // Die >1-Wache bleibt HIER (eigene, den Planer nennende Meldung); die Registry wiederholt sie nur.
+        cm::RunMethodologyInfo const& m = cm::run_methodology_for_ids(run_methodology);
         return PlanBuildSemantic{std::string(m.cmake_build_type), m.measurement_on, m.single_thread};
     }
 
