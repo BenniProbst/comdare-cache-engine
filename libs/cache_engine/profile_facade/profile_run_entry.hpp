@@ -625,16 +625,16 @@ struct RunProfileResult {
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
         // greift nur als Fallback (n_ops=0 im Profil = ungesetzt).
-        cfg.n_ops                     = (tp.run_options.n_ops > 0) ? tp.run_options.n_ops : a.n_ops;
-        cfg.workload_records          = ws_n;
-        cfg.workload_configs          = a.workload_registry;
-        cfg.build_version             = perm_build_version; // GN-3: per-Perm (+cxx=+opt=+ext=), sonst = a.build_version
-        cfg.row_series                = series.empty() ? std::string{"-"} : series;
-        cfg.row_pruefling_type        = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
-        cfg.row_sweep_axis            = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
-        cfg.row_fairness_mode         = fairness_mode.empty() ? std::string{"-"} : fairness_mode; // GO-5 Fork 6
-        cfg.row_h2_score              = h2_score.empty() ? std::string{"-"} : h2_score;           // GO-5 Fork 7
-        cfg.profile_datasets          = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
+        cfg.n_ops              = (tp.run_options.n_ops > 0) ? tp.run_options.n_ops : a.n_ops;
+        cfg.workload_records   = ws_n;
+        cfg.workload_configs   = a.workload_registry;
+        cfg.build_version      = perm_build_version; // GN-3: per-Perm (+cxx=+opt=+ext=), sonst = a.build_version
+        cfg.row_series         = series.empty() ? std::string{"-"} : series;
+        cfg.row_pruefling_type = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
+        cfg.row_sweep_axis     = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
+        cfg.row_fairness_mode  = fairness_mode.empty() ? std::string{"-"} : fairness_mode; // GO-5 Fork 6
+        cfg.row_h2_score       = h2_score.empty() ? std::string{"-"} : h2_score;           // GO-5 Fork 7
+        cfg.profile_datasets   = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
         // M-1/D-2: die SOLL-Seite des Mess-Vertrags. DIESELBE Zeile, die oben die SOTA-Quellen und den lazy
         // Source-Gen stempelt -- der Vertrag vergleicht damit die Binary gegen das, was DIESER Lauf in sie
         // hineingestempelt hat, nicht gegen eine zweite Ableitung.

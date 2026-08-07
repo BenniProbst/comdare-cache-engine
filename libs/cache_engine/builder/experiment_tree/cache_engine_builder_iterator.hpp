@@ -2584,20 +2584,20 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
                 // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
                 // abwertend -- true && false == false, true && true == der bisherige Wert.
-                row.unified_real       = pr.unified_real && cfg.mess_observer_ausstattung;
-                row.profile_name       = pr.profile_name;
-                row.two_phase_valid    = pr.two_phase_valid;
-                row.sample_status      = pr.sample_status;
-                row.pmc                = pr.pmc;
-                row.series             = cfg.row_series;
-                row.pruefling_type     = cfg.row_pruefling_type;
-                row.sweep_axis         = cfg.row_sweep_axis;
-                row.working_set_n      = cfg.workload_records;
-                row.platform           = cfg.row_platform;
-                row.build_version      = cfg.row_build_version;
-                row.fairness_mode      = cfg.row_fairness_mode;
-                row.h2_score           = cfg.row_h2_score;
-                per_binary_all_valid   = per_binary_all_valid && row.two_phase_valid;
+                row.unified_real     = pr.unified_real && cfg.mess_observer_ausstattung;
+                row.profile_name     = pr.profile_name;
+                row.two_phase_valid  = pr.two_phase_valid;
+                row.sample_status    = pr.sample_status;
+                row.pmc              = pr.pmc;
+                row.series           = cfg.row_series;
+                row.pruefling_type   = cfg.row_pruefling_type;
+                row.sweep_axis       = cfg.row_sweep_axis;
+                row.working_set_n    = cfg.workload_records;
+                row.platform         = cfg.row_platform;
+                row.build_version    = cfg.row_build_version;
+                row.fairness_mode    = cfg.row_fairness_mode;
+                row.h2_score         = cfg.row_h2_score;
+                per_binary_all_valid = per_binary_all_valid && row.two_phase_valid;
                 if (cfg.per_binary_subdirs) {
                     per_binary_csv += format_csv_row(row);
                     ++per_binary_rows;
