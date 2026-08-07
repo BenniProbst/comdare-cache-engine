@@ -1274,11 +1274,15 @@ target_link_libraries(test_v5_measurement_snapshot PRIVATE
 # PAKET W3-C (Ledger Sec.32-F8): Heuristik-Spline-Vorbau -- AxisSpline (Strategy: Fritsch-Carlson monoton /
 # natuerlich-kubisch) + Break-Even-Finder + n/a-toleranter Measurement-Curve-Loader. Header-only, keine
 # Lib-Abhaengigkeit -> nur der ce-Include-Pfad noetig.
+# T-9 (2026-08-07): dazu der Min/Max-Katalog (heuristik/axis_optimization_catalog.hpp) und sein Drift-Beleg
+# gegen kCompositionAxisNames. Der Beleg liest axis_path_serialization.hpp, und DAS ist der einzige Grund
+# fuer Boost::mp11 an diesem Target -- der Katalog-Header selbst bleibt bewusst boost-frei (reine std).
 comdare_add_test(test_heuristik_spline_break_even
     SOURCES test_heuristik_spline_break_even.cpp)
 target_include_directories(test_heuristik_spline_break_even PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_heuristik_spline_break_even PRIVATE Boost::mp11)
 
 # AP-9/#243: host-side provenance manifest sidecar, golden-/POD-neutral.
 comdare_add_test(test_ap9_provenance_manifest

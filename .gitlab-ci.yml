@@ -425,8 +425,10 @@ contract:profile_coverage:
 
 # -- contract:axis-version-lock (GN-8/O-4 + PAKET W3-C, Ledger Sec.32-F4): Heuristik-Header-Tripwire, HARTES Gate --
 # WAS: baut das EXCLUDE_FROM_ALL-Tool comdare_axis_version_lock (2-Pass wie die anderen Tool-Gates, Anti-Phantom)
-# und prueft den SHA-256-Content-Digest der 3 Heuristik-Strategie-Header (axis_spline / break_even /
-# measurement_curve_loader) gegen das committete tools/axis_version_lock/axis_version.lock. Digest-Drift OHNE
+# und prueft den SHA-256-Content-Digest der 4 Heuristik-Strategie-Header (axis_optimization_catalog /
+# axis_spline / break_even / measurement_curve_loader; der Katalog kam mit T-9 2026-08-07 hinzu und ist
+# lock-pflichtig, weil er die Optimierungsrichtungen traegt, aus denen break_even seine Besser-Entscheidung
+# zieht) gegen das committete tools/axis_version_lock/axis_version.lock. Digest-Drift OHNE
 # algo_version-Bump (F4) -> Exit 1 -> Job ROT. Die Header werden NUR GELESEN; golden/TABU bleiben unberuehrt.
 # Nach bewusstem Header-Edit: lokal --write + Lockfile-Regen-Commit (siehe axis_version_lock.cpp Kopf).
 #
@@ -456,6 +458,7 @@ contract:axis-version-lock:
     - >
       ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check
       tools/axis_version_lock/axis_version.lock
+      libs/cache_engine/heuristik/axis_optimization_catalog.hpp
       libs/cache_engine/heuristik/axis_spline.hpp
       libs/cache_engine/heuristik/break_even.hpp
       libs/cache_engine/heuristik/measurement_curve_loader.hpp
