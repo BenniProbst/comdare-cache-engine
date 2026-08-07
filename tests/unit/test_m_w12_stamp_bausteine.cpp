@@ -38,6 +38,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits> // NB-3/T2-D: is_constructible_v-Beweis des geloeschten Rvalue-Konstruktors
+#include <utility>     // die Fehlform-Tabelle der Form-Wache (Paar aus Beschreibung und Literal)
 #include <vector>      // A4: die Flag-Schwanz-Gegenprobe der POD-Rekonstruktion
 #include <axes/persistence_target/axis_persistence_target_memory_only.hpp> // STRUKT-R ORG-18
 
@@ -281,6 +282,88 @@ TEST(MW12StampBausteine, FlagGrammatikV2StempelZeileEndeZuEnde) {
     EXPECT_EQ(zeile.find('['), std::string::npos);
     EXPECT_EQ(std::count(zeile.begin(), zeile.end(), '{'), 1);
     EXPECT_EQ(std::count(zeile.begin(), zeile.end(), '}'), 1);
+}
+
+// FLAG-GRAMMATIK v2 / Owner-Direktive 07.08.2026 ("wir WOLLEN den Bestand invalidieren" -- aber LAUT):
+// die Form-Wache der Stempel-Eintraege. Sie ist das Praedikat, auf dem die static_assert in
+// abi::organ_stamp_line<Comp> und abi::system_stamp_line sitzt.
+//
+// SIE SCHLIESST EINE GEMESSENE LUECKE. Bissprobe vor ihrem Einbau (07.08.2026, eigene Probe-TU): eine
+// Composition mit dem ALT-Literal "v1.0.0c" an allen 18 Organ-Achsen uebersetzte KLAGLOS und lieferte
+// "search_algo=algoALT@0.0.0;...;persistence_target=algoALT@0.0.0" -- achtzehn Nicht-Staende, die als
+// Stempel in den SHA512-Fingerprint und damit in die Lager-Identitaet gereist waeren. Genau die
+// Alias-Identitaet, gegen die die B11-Wachen eine Ebene tiefer gebaut sind.
+//
+// WARUM DIESER TEST DAS PRAEDIKAT PRUEFT UND NICHT organ_stamp_line SELBST: die Wache dort ist eine
+// static_assert im Funktions-Rumpf -- eine Instanziierung mit Alt-Literal ist ein HARTER Compile-Fehler
+// und laesst sich nicht in einem laufenden Test ausdruecken. Das Praedikat ist derselbe Zeuge, nur
+// aufrufbar. Der Compile-Bruch selbst ist am Objekt belegt (s.o.).
+TEST(MW12StampBausteine, FormWacheDerStempelEintraegeBeisstAufAltLiteralen) {
+    using m::axis_version_entries_are_wellformed;
+    using m::AxisVersionEntry;
+
+    // (1) POSITIV: die kanonischen Formen gehen durch -- inklusive der FLAGLOSEN (Fremd-Pruefling,
+    //     Test-Mock) und des dokumentierten Sentinels (die ABSICHT "Version unbekannt").
+    static constexpr std::array<AxisVersionEntry, 5> kGut{{
+        {"a", "x", "1.0.0.c"},
+        {"b", "y", "1.0.2.c"},
+        {"c", "z", "1.0.0.c{p.e}.x512{f.vl}.gfni"},
+        {"d", "w", "1.0.0"}, // flaglos: hier ausdruecklich zulaessig (nicht jede Zeile ist ce-eigen)
+        {"e", "v", "0.0.0"}, // der DOKUMENTIERTE Sentinel -- Absicht, kein Unfall
+    }};
+    EXPECT_TRUE(axis_version_entries_are_wellformed(kGut));
+    static_assert(axis_version_entries_are_wellformed(kGut));
+
+    // (2) NEGATIV: DIE ALT-FORM. Das ist der Fall, der vor dieser Wache still durchlief.
+    static constexpr std::array<AxisVersionEntry, 1> kAltform{{{"a", "x", "v1.0.0c"}}};
+    EXPECT_FALSE(axis_version_entries_are_wellformed(kAltform));
+    static_assert(!axis_version_entries_are_wellformed(kAltform));
+
+    // (3) NEGATIV: die uebrigen Wege, auf denen ein Nicht-Stand still als "@0.0.0" reisen wuerde.
+    //     Jeder EINZELN -- ein Sammel-Assert saehe nicht, wenn nur noch einer davon greift.
+    for (auto const& [text, fehlform] : std::array<std::pair<char const*, char const*>, 7>{{
+             {"v-Praefix mit neuer Notation", "v1.0.0.c"},
+             {"Flag ohne fuehrenden Punkt (Q3)", "1.0.0c"},
+             {"Kurzform", "1.0"},
+             {"fuehrender Punkt hinter '{'", "1.0.0.c{.p}"},
+             {"leere Gruppe", "1.0.0.c{}"},
+             {"unbalancierte Klammer", "1.0.0.c{p"},
+             {"Sentinel-WERT, aber undokumentiertes Literal", "0.0.0.c"},
+         }}) {
+        std::array<AxisVersionEntry, 1> const eintrag{{{"a", "x", fehlform}}};
+        EXPECT_FALSE(axis_version_entries_are_wellformed(eintrag)) << text << " -> '" << fehlform << "'";
+    }
+
+    // (4) EINE Fehlform unter vielen guten reicht -- die Wache prueft JEDEN Eintrag, nicht den ersten.
+    static constexpr std::array<AxisVersionEntry, 3> kEineFaul{{
+        {"a", "x", "1.0.0.c"},
+        {"b", "y", "v1.0.0c"}, // die faule in der MITTE
+        {"c", "z", "1.0.0.c"},
+    }};
+    static_assert(!axis_version_entries_are_wellformed(kEineFaul));
+}
+
+// FLAG-GRAMMATIK v2: die '{}' der VERSIONS-Grammatik und die '{}' des TOOLCHAIN-Glieds koexistieren ab
+// jetzt im selben Stempel-Text -- "opt=O3{-O3}@1.0.0.c" traegt beide Sorten in EINEM Segment. Sie sind
+// eindeutig getrennt, weil die einen VOR und die anderen HINTER dem '@' stehen. Das ist keine
+// Selbstverstaendlichkeit, sondern eine Zusage, an der ein kuenftiger Leser sich orientieren muss: wer
+// nach '{' scannt, ohne vorher am '@' zu trennen, verwechselt sie.
+TEST(MW12StampBausteine, VersionsKlammerUndToolchainKlammerKollidierenNicht) {
+    namespace abi = ::comdare::cache_engine::abi;
+    // Die reale Toolchain-Segment-Form parst als Stempel-Eintrag: Name inkl. Flag-Klammer links vom '@',
+    // Versions-Grammatik rechts davon.
+    static constexpr char kLit[] = "opt=O3{-O3}@1.0.0.c{p.e}";
+    constexpr auto        e      = abi::parse_stamp_entries<abi::count_stamp_entries(std::string_view{kLit})>(kLit);
+    static_assert(e.size() == 1);
+    EXPECT_EQ(std::string_view(e[0].algorithm, e[0].algo_len), std::string_view{"O3{-O3}"})
+        << "die Compiler-Flag-Klammer gehoert zum ALGORITHMUS-Anteil, links vom '@'.";
+    EXPECT_EQ(e[0].x, 1u);
+    EXPECT_TRUE(abi::stamp_entry_has_flags(e[0])) << "und die Versions-Klammer rechts vom '@' liefert den Flag-Hash.";
+    // Der Flag-Hash ist GENAU der von "1.0.0.c{p.e}" -- die linke Klammer faerbt nicht in ihn hinein.
+    EXPECT_EQ(abi::stamp_entry_flags_hash(e[0]),
+              abi::stamp_entry_flags_hash_of(m::parse_algo_semver("1.0.0.c{p.e}").flags));
+    // Gegenprobe: die Compiler-Flag-Schreibweise ist als VERSIONS-Flag unparsbar (sie traegt ein '-').
+    EXPECT_EQ(m::parse_algo_semver("1.0.0.O3{-O3}"), (m::AlgoSemVer{}));
 }
 
 TEST(MW12StampBausteine, AxisVersionStampLineUsesFullSemverAndCanonicalOrder) {

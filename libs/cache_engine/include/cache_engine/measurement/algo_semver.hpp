@@ -245,14 +245,32 @@ namespace comdare::cache_engine::measurement {
 //   Compiler-Limit unbegrenzt -- also ein unbenannter Deckel statt eines benannten. Wer tiefer schachtelt,
 //   bekommt den Sentinel und bricht damit an den CT-Wachen; das ist die laute Form.
 
-/// Laengen-Deckel EINES Flag-Tokens. Bemessen am laengsten realistischen Katalog-Token: "vpclmulqdq" (10)
-/// und "vp2intersect" (12); 16 laesst Luft, ohne den Knoten unnoetig gross zu machen.
+/// Laengen-Deckel EINES Flag-Tokens. AM ECHTEN KATALOG BEMESSEN (SIMD-Recherche 07.08.2026): das laengste
+/// vorkommende Token ist "3dnowprefetch" (13), danach "vp2intersect" (12) und "vpclmulqdq" (10). 16 laesst
+/// drei Zeichen Luft, ohne den Knoten unnoetig gross zu machen.
+/// ABGRENZUNG: die langen cpuinfo-Namen ("avx512_vp2intersect", 19) sind NICHT unsere Token -- s. die
+/// DREI-NAMENSRAEUME-Notiz weiter unten.
 inline constexpr std::size_t kMaxFlagTokenLen = 16;
 
 /// Deckel der GESAMTZAHL an Flag-Knoten einer Version (Basen + alle Sub-Token auf allen Ebenen).
-/// Bemessen am realistischen Vollausbau: "c{p.e}" (3) + "x512{...}" mit den ~18 AVX-512-Subsets (19) +
-/// die drei Companion-Flags gfni/vaes/vpclmulqdq (3) == 25. 32 laesst Luft fuer x256/x128 daneben.
-inline constexpr std::size_t kMaxFlagNodes = 32;
+///
+/// AM ECHTEN KATALOG BEMESSEN, nicht geschaetzt. Die SIMD-Recherche (Owner-Auftrag F-5/F-6, Ergebnis
+/// 07.08.2026) liefert die Vollmenge; der teuerste konstruierbare Fall ist eine Version, die ALLES
+/// deklariert:
+///     c{p.e}                                        3 Knoten
+///   + x128{sse.sse2.sse3.ssse3.sse41.sse42.sse4a.aes.pclmulqdq.sha}     1 + 10 = 11
+///   + x256{avx.avx2.fma.f16c.vnni.ifma.vnniint8.vnniint16.neconvert.sha512.sm3.sm4}  1 + 12 = 13
+///   + x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}  1 + 14 = 15
+///   + Companion/Skalar (gfni vaes vpclmulqdq popcnt bmi1 bmi2 abm movbe adx rdrand rdseed)   11
+///   + die basislose MMX-Familie (mmx mmxext 3dnow 3dnowext 3dnowprefetch)                     5
+///                                                                                    ------------
+///                                                                                            58
+/// Der ERSTE Ansatz stand auf 32 -- das haette eine vollstaendig deklarierte Organ-Version ABGELEHNT
+/// (der Deckel ist fail-loud: FlagList::append liefert false, die Version wird Sentinel und bricht an den
+/// CT-Wachen). Ein Deckel, der eine LEGITIME Eingabe verwirft, ist ein Defekt und keine Wache -- deshalb
+/// steht hier 96: deutlich ueber den 58, ohne unbegrenzt zu sein, mit Luft fuer die naechste ISA-Generation
+/// (AVX10 und die APX-Nachbarn stehen in der Recherche bereits als Reserve).
+inline constexpr std::size_t kMaxFlagNodes = 96;
 
 /// Deckel der SCHACHTELUNGS-TIEFE. 0 == Flag direkt hinter dem Tripel, 1 == Sub-Flag in dessen Klammer.
 /// Der Bestand uebt heute hoechstens 1 aus; die Grammatik ist rekursiv, deshalb ist der Deckel groesser
@@ -401,15 +419,32 @@ namespace detail {
 /// ein gekuerztes Flag waere ein falscher Stempel.
 ///
 /// WARUM ZIFFERN ERLAUBT SIND, EIN TOKEN AUS LAUTER ZIFFERN ABER NICHT -- das ist keine Stil-Frage,
-/// sondern eine ALIAS-WACHE derselben Klasse wie B11:
-///   * Ziffern MUESSEN vorkommen duerfen: 'x512', 'vbmi2', 'f16c' und die AVX-512-Token '4fmaps'/'4vnniw'
-///     tragen sie, letztere sogar an erster Stelle. Ein "Token beginnt mit einem Buchstaben" waere also
-///     falsch.
-///   * Ein Token aus LAUTER Ziffern macht die Grammatik mehrdeutig: "1.2.3.4" waere zugleich eine
-///     (verbotene) VIERSTELLIGE Version und eine dreistellige mit dem Flag "4". Ein Tippfehler in der
-///     Versions-Bezifferung wuerde damit still zu einer gueltigen, aber ANDEREN Identitaet -- genau der
-///     Fehler, den die Leading-Zero- und die Ueberlauf-Wache eine Ebene hoeher verhindern.
+/// sondern eine ALIAS-WACHE derselben Klasse wie B11. Sie schliesst ZWEI Loecher, und beide sind am
+/// echten SIMD-Katalog (Recherche 07.08.2026) belegt:
+///   * Ziffern MUESSEN vorkommen duerfen: 'x512', 'vbmi2', 'f16c', 'sse41', 'vnniint16' tragen sie, und
+///     '3dnow'/'3dnowext'/'3dnowprefetch' sogar an ERSTER Stelle. Ein "Token beginnt mit einem
+///     Buchstaben" waere also falsch.
+///   * LOCH 1 (Tiefe 0): ein Token aus lauter Ziffern macht "1.2.3.4" zugleich zu einer (verbotenen)
+///     VIERSTELLIGEN Version und zu einer dreistelligen mit dem Flag "4". Ein Tippfehler in der
+///     Bezifferung wuerde still zu einer gueltigen, aber ANDEREN Identitaet.
+///   * LOCH 2 (jede Tiefe): der Katalog enthaelt Namen MIT PUNKT -- 'avx10.1' und 'avx10.2' (AVX10
+///     versioniert sich so). Der Punkt IST unser Trenner. Waere "1" ein gueltiges Token, dann laese sich
+///     "x512{avx10.1}" STILL als zwei Geschwister 'avx10' und '1' -- wieder eine gueltige, aber andere
+///     Identitaet. Mit dieser Regel bricht die Form stattdessen laut (Sentinel).
 /// Die Bedingung ist rein FORMAL (mindestens ein [a-z]) und kennt keinen Katalog.
+///
+/// WAS SIE KOSTET -- OFFEN GELEGT, WEIL ES EIN OWNER-ENTSCHEID IST UND KEIN NEBENEFFEKT:
+/// die Recherche schlaegt fuer die Klammer eine PRAEFIX-STRIPPING-Kurzform vor ("x128{2.3.41.42}" statt
+/// "x128{sse2.sse3.sse41.sse42}"), mit dem Argument, dass die Basis innerhalb der Klammer disambiguiert.
+/// Diese Kurzform ist unter der Regel oben NICHT SCHREIBBAR. Das ist Absicht, aber es ist eine
+/// FORM-Entscheidung mit KATALOG-Wirkung, und sie gehoert deshalb sichtbar hierher:
+///   -- die Recherche fuehrt die Kurzform selbst als "Owner-Entscheid noetig", nicht als Festlegung;
+///   -- die VOLLNAMEN-Form ("x128{sse2.sse41}") traegt denselben Katalog vollstaendig und ist unter
+///      dieser Regel gueltig -- es geht also keine Ausdruckskraft verloren, nur eine Abkuerzung;
+///   -- die Kurzform zuzulassen hiesse, Loch 2 wieder zu oeffnen (s.o.), und der Owner hat den lauten
+///      Bruch ausdruecklich zum wichtigsten Merkmal dieses Umbaus erklaert.
+/// Wer die Kurzform will, hebt diese Regel auf und nimmt dafuer die stille Fehllesung von 'avx10.1' in
+/// Kauf. Das ist eine Abwaegung, keine Rechenaufgabe -- deshalb steht sie hier und wird nicht entschieden.
 [[nodiscard]] constexpr std::string_view take_flag_token(std::string_view& s) noexcept {
     std::size_t n            = 0;
     bool        hat_buchstab = false;
@@ -625,14 +660,54 @@ struct RenderedAlgoSemVer {
 // GREP-ANKER: S2-KATALOG-ANDOCKSTELLE
 //
 // WAS HIER NOCH NICHT STEHT UND WARUM: die Katalog-Wache -- also die Pruefung, ob ein Token ueberhaupt ein
-// zulaessiges Flag ist ('c'/'g'/'f'/'n'/'x128'/'x256'/'x512' als Basis, die AVX-Subsets als Sub-Token, die
-// Companion-Flags gfni/vaes/vpclmulqdq ohne Klammer) und ob es an SEINER Stelle stehen darf ('p'/'e' nur
-// unter 'c'). Sie braucht die SIMD-Recherche ueber alle x86-Erweiterungen fuer 32- und 64-Bit-ISA, die der
-// Owner unter F-5/F-6 beauftragt hat (Workflow wf_93522b50-447) und die noch nicht vorliegt. Eine Wache
-// gegen einen geratenen Katalog waere schlimmer als keine: sie wuerde gueltige Flags ablehnen und dabei
-// aussehen wie eine Zusage.
+// zulaessiges Flag ist und ob es an SEINER Stelle stehen darf ('p'/'e' nur unter 'c'). Der Parser prueft
+// die FORM. Eine Wache gegen einen geratenen Katalog waere schlimmer als keine: sie wuerde gueltige Flags
+// ablehnen und dabei aussehen wie eine Zusage.
 //
-// WO SIE ANDOCKT, wenn der Katalog da ist -- drei Stellen, alle hier in dieser Datei:
+// DAS MATERIAL LIEGT SEIT 07.08.2026 VOR (SIMD-Recherche, Owner-Auftrag F-5/F-6, 5 Lenses, 108 Token).
+// Was daraus fuer DIESE Datei folgt, steht unten; der Katalog selbst gehoert nach S2 und in die
+// Nachbarschaft von measurement/simd_feature_flag.hpp, nicht hierher.
+//
+// -- DIE DREI NAMENSRAEUME (der wichtigste Befund fuer S2) -----------------------------------------
+// Ein SIMD-Flag hat DREI verschiedene Namen, und keine zwei sind durcheinander ableitbar:
+//     Faehigkeit          cpuinfo-Id (Kernel)     Compiler-Schalter      UNSER Grammatik-Token
+//     SSE3                pni                     -msse3                 sse3
+//     SSE4.1              sse4_1                  -msse4.1               sse41
+//     AVX-512 VBMI2       avx512_vbmi2            -mavx512vbmi2          vbmi2   (unter x512)
+//     PCLMULQDQ           pclmulqdq               -mpclmul               pclmulqdq
+//     3DNow!-Prefetch     3dnowprefetch           -mprfchw               3dnowprefetch
+// Die ersten beiden Spalten fuehrt measurement/simd_feature_flag.hpp bereits GETRENNT und ausdruecklich
+// "NIE per String-Heuristik ineinander umgerechnet" (dort der Kopf-Kommentar zur Unterstrich-Falle). S2
+// bleibt bei DIESEM Muster und erfindet kein zweites: der Katalog-Eintrag bekommt ein drittes Feld
+// (Grammatik-Token) neben cpuinfo und gpp -- er leitet es NICHT ab.
+//
+// WELCHEN NAMENSRAUM DIESE GRAMMATIK FUEHRT: den DRITTEN, und zwar zwingend.
+//   * Der Compiler-Schalter scheidet aus: "-msse4.1" traegt einen PUNKT, und der Punkt IST unser Trenner.
+//   * Die cpuinfo-Id scheidet aus: "avx512_vbmi2" traegt einen UNTERSTRICH, und Owner-F-7 sagt verbatim
+//     "Ja wir verwenden NUR den Punkt".
+// Unsere Token sind also AUSDRUECKLICH NICHT die Compiler-Schalter und NICHT die Kernel-Namen, sondern
+// eine eigene, punkt- und unterstrichfreie Schreibweise. Das ist keine Bequemlichkeit, sondern die
+// einzige Form, die in einer punkt-getrennten Grammatik eindeutig bleibt. Wer eine Abbildung braucht,
+// baut sie als TABELLE (Muster simd_feature_flag.hpp), nie als String-Umformung.
+//
+// -- DIE VIER STRUKTURFAELLE, die der Katalog verlangt (alle vier traegt die Form, s. Beweise unten) --
+//   (1) BASIS MIT SUB-LISTE:        x512{f.vl.bw.dq}      -- Basis + Klammer
+//   (2) COMPANION OHNE BASIS:       gfni                  -- Breite FOLGT der Basis, eigenes CPUID-Bit
+//   (3) SKALAR OHNE JEDE BREITE:    popcnt, bmi2, abm     -- GPR-Instruktionen, nie in einer Klammer
+//   (4) FAMILIE OHNE REGISTERBREITE: mmx, 3dnow, mmxext   -- 64-bit-MM-Register, x87-aliasiert; sie
+//       gehoeren unter KEINE der Basen x128/x256/x512.
+// (2), (3) und (4) sehen in der FORM gleich aus -- ein Token auf Tiefe 0 ohne Klammer -- und sind
+// trotzdem drei verschiedene Sachen. Genau das ist der Grund, warum die Unterscheidung in den KATALOG
+// gehoert und nicht in den Parser: die Form kann sie nicht sehen, und sie muss es auch nicht.
+//
+// OFFENER OWNER-ENTSCHEID zu (4): die MMX-Familie kann in dieser Grammatik ZWEI Gestalten annehmen --
+// als blosses Token auf Tiefe 0 ("1.0.0.c.mmx", wie ein Companion) oder als EIGENE Basis mit Klammer
+// ("1.0.0.c.x64{mmx.mmxext.3dnow}"). Die Form traegt beide; welche RICHTIG ist, ist eine Aussage ueber
+// die Hardware-Semantik (haben die MM-Register eine "Breite" im Sinne der Basen?) und damit ein
+// Owner-Entscheid. Er ist NICHT vorweggenommen: es gibt hier keine Basis-Menge, die ihn praejudizieren
+// wuerde.
+//
+// WO DIE WACHE ANDOCKT, wenn der Katalog steht -- drei Stellen, alle hier in dieser Datei:
 //   (1) EINE neue Funktion `flag_catalog_is_satisfied(AlgoSemVer const&)` unmittelbar unter dieser
 //       Andockstelle. Sie laeuft ueber for_each_flag_node() (unten) und prueft je Knoten Token UND
 //       Elternteil. Bewusst KEINE Attrappe, die heute `true` liefert: eine Wache, die nichts prueft, aber
@@ -779,11 +854,27 @@ template <std::size_t N>
 
 // -- (b) DIE ACHT REGELN, JEDE EINZELN ------------------------------------------------------------
 
-// R1: KEIN 'v'-PRAEFIX MEHR. Die Alt-Form ist Sentinel -- keine Uebergangs-Toleranz (Owner: "die alten
-//     Wege komplett ersetzen"). Und: rohe und gerenderte Form sind ab jetzt DIESELBE Zeichenfolge.
+// R1: KEIN 'v'-PRAEFIX MEHR. Die Alt-Form ist Sentinel -- keine Uebergangs-Toleranz.
+//
+//     OWNER-DIREKTIVE 07.08.2026, verbatim: "Wir WOLLEN den gesamten Bestand invalidieren, weil uns das
+//     spaeter das Leben erleichtert. Die Entscheidung fuer den Umbau steht."
+//     Das ist die Begruendung dafuer, dass hier KEINE Doppel-Akzeptanz steht. Daraus folgt aber auch die
+//     Pflicht, unter der dieser Header seither gebaut ist: der Bruch muss LAUT sein. Ein Alt-Literal darf
+//     nie still zum Sentinel werden und weiterlaufen -- es muss an einer Wache compile-time anschlagen.
+//     Die Wachen, die das leisten, sind ce_owned_version_is_wellformed / _satisfies_cpu_enforce (hier),
+//     measurement::axis_version_entries_are_wellformed (an den Stempel-STELLEN) und
+//     abi::dotted_version_is_wellformed (auf der Ruecklese-Seite).
+//
+//     WAS EIN LESER DES ALT-LITERALS WISSEN MUSS -- die Bedeutung von 'e' HAT GEWECHSELT:
+//       Q3 (bis 06.08.2026):  "v1.0.0ce" == CPU + EXPERIMENTELL (Pruefling-Markierung, Owner-E2)
+//       v2  (ab 07.08.2026):  'e' == EFFICIENCY CORE, ein Hardware-Filter wie jeder andere
+//     Ein Alt-Literal "v1.0.0ce" bedeutet also NICHT "1.0.0.c{e}". Wer es migriert, uebersetzt es auf
+//     "1.0.0.c" -- das 'e' faellt weg, weil das Konzept dahinter ersatzlos deprecated ist. Im ce-Bestand
+//     ist dieser Fall nie aufgetreten (Haeufigkeit NULL, per grep erhoben); die Regel steht hier fuer
+//     Fremd-Literale und fuer die Lesbarkeit der git-Historie.
 static_assert(parse_algo_semver("v1.0.0") == AlgoSemVer{});
 static_assert(parse_algo_semver("v1.0.0c") == AlgoSemVer{});  // die alte Q3-Bestandsform
-static_assert(parse_algo_semver("v1.0.0ce") == AlgoSemVer{}); // die alte 'ce'-Form
+static_assert(parse_algo_semver("v1.0.0ce") == AlgoSemVer{}); // die alte 'ce'-Form (CPU + experimentell)
 static_assert(parse_algo_semver("v0.0.0") == AlgoSemVer{});   // auch der alte Sentinel-Wortlaut
 static_assert(parse_algo_semver("v1.0.0.c") == AlgoSemVer{}); // 'v' + neue Notation ist ebenfalls falsch
 static_assert(kAlgoSemVerSentinelLiteral == "0.0.0");
@@ -857,8 +948,55 @@ static_assert(parse_algo_semver("1.0.0.gfni").flags.count == 1);
 static_assert(parse_algo_semver("1.0.0.gfni").flags.nodes[0].view() == "gfni"); // NICHT 'g' + 'fni'
 static_assert(!(parse_algo_semver("1.0.0.gfni") == parse_algo_semver("1.0.0.g")));
 static_assert(parse_algo_semver("1.0.0.vpclmulqdq").flags.nodes[0].view() == "vpclmulqdq");
-static_assert(parse_algo_semver("1.0.0.x512{vbmi2}").flags.nodes[1].view() == "vbmi2");   // Ziffer IM Token
-static_assert(parse_algo_semver("1.0.0.x512{4fmaps}").flags.nodes[1].view() == "4fmaps"); // Ziffer VORN
+static_assert(parse_algo_semver("1.0.0.x512{vbmi2}").flags.nodes[1].view() == "vbmi2");           // Ziffer IM Token
+static_assert(parse_algo_semver("1.0.0.3dnowprefetch").flags.nodes[0].view() == "3dnowprefetch"); // Ziffer VORN
+
+// -- DIE VIER STRUKTURFAELLE DES ECHTEN KATALOGS (SIMD-Recherche 07.08.2026) ------------------------
+// Der Auftrag war ausdruecklich: wenn die Repraesentation einen dieser vier Faelle nicht abbilden kann,
+// ist sie falsch gewaehlt. Hier steht der Beweis, dass sie alle vier traegt -- an REALEN Token, nicht an
+// Platzhaltern. Es ist KEINE Katalog-Wache: die Form sagt nur, dass sich diese Gestalten SCHREIBEN
+// lassen, nicht dass die Token gueltig sind.
+// (1) Basis mit Sub-Liste.
+static_assert(parse_algo_semver("1.0.0.x512{f.vl.bw.dq}").flags.count == 5);
+static_assert(parse_algo_semver("1.0.0.x128{sse.sse2.sse3.ssse3.sse41.sse42.sse4a}").flags.count == 8);
+static_assert(parse_algo_semver("1.0.0.x256{avx.avx2.fma.f16c.vnni.vnniint8.vnniint16}").flags.count == 8);
+// (2) Companion OHNE Basis -- Breite folgt der Basis (gfni/vaes/vpclmulqdq).
+static_assert(parse_algo_semver("1.0.0.x512{f.vl}.gfni.vaes.vpclmulqdq").flags.count == 6);
+static_assert(parse_algo_semver("1.0.0.x512{f.vl}.gfni").has_top_level_flag("gfni"));
+// (3) Skalar OHNE JEDE Breite -- reine GPR-Instruktionen.
+static_assert(parse_algo_semver("1.0.0.c.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed").flags.count == 9);
+// (4) Familie OHNE Registerbreite (MMX/3DNow!, x87-aliasierte MM-Register): beide Gestalten, die der
+//     offene Owner-Entscheid zulaesst -- als blosses Token UND als eigene Basis mit Klammer.
+static_assert(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext.3dnowprefetch").flags.count == 6);
+static_assert(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}").flags.count == 5);
+static_assert(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}").flags.nodes[1].view() == "x64");
+// DER VOLLAUSBAU: alles zugleich. Er belegt den Knoten-Deckel an der Sache statt an einer Schaetzung.
+namespace detail {
+inline constexpr std::string_view kVollausbau =
+    "1.0.0.c{p.e}"
+    ".x128{sse.sse2.sse3.ssse3.sse41.sse42.sse4a.aes.pclmulqdq.sha}"
+    ".x256{avx.avx2.fma.f16c.vnni.ifma.vnniint8.vnniint16.neconvert.sha512.sm3.sm4}"
+    ".x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}"
+    ".gfni.vaes.vpclmulqdq.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed"
+    ".mmx.mmxext.3dnow.3dnowext.3dnowprefetch";
+} // namespace detail
+static_assert(parse_algo_semver(detail::kVollausbau).flags.count == 58,
+              "der am echten Katalog gerechnete Vollausbau -- er ist die Bemessung von kMaxFlagNodes.");
+static_assert(!parse_algo_semver(detail::kVollausbau).is_sentinel(),
+              "der Vollausbau MUSS parsen. Tut er es nicht, ist ein Deckel zu klein -- und ein Deckel, der "
+              "eine legitime Eingabe verwirft, ist ein Defekt und keine Wache.");
+static_assert(kMaxFlagNodes > 58, "Luft ueber dem heutigen Vollausbau, nicht knapp daneben.");
+// Die DOTTED-Katalognamen (avx10.1/avx10.2) brechen LAUT statt still in zwei Knoten zu zerfallen -- das
+// ist Loch 2 der Token-Regel, hier als Beweis und nicht als Behauptung.
+static_assert(parse_algo_semver("1.0.0.x512{avx10.1}") == AlgoSemVer{});
+static_assert(parse_algo_semver("1.0.0.avx10.2") == AlgoSemVer{});
+static_assert(!parse_algo_semver("1.0.0.x512{avx10}").is_sentinel()); // ... ohne die Version sehr wohl
+// Und die beiden ANDEREN Namensraeume sind ebenfalls keine gueltigen Token (s. DREI-NAMENSRAEUME):
+static_assert(parse_algo_semver("1.0.0.x128{sse4.1}") == AlgoSemVer{}); // Compiler-Schalter-Form (PUNKT)
+static_assert(parse_algo_semver("1.0.0.x128{sse4_1}") == AlgoSemVer{}); // cpuinfo-Form (UNTERSTRICH)
+static_assert(parse_algo_semver("1.0.0.avx512_vbmi2") == AlgoSemVer{}); // cpuinfo-Form der AVX-512-Familie
+static_assert(!parse_algo_semver("1.0.0.x128{sse41}").is_sentinel());   // ... unsere Form traegt
+static_assert(!parse_algo_semver("1.0.0.x512{vbmi2}").is_sentinel());
 
 // -- DAS OWNER-BEISPIEL, vollstaendig ---------------------------------------------------------------
 // memory_layout=SoaMemoryLayout@1.0.0.c{p.e}.x512{f.vl.bw.dq}.gfni  -- hier der Versions-Anteil.
@@ -941,6 +1079,9 @@ static_assert(detail::roundtrip_ist_treu("1.0.0.a{b{c{d}}}"));
 static_assert(detail::roundtrip_ist_treu("10.0.1.c"));
 static_assert(detail::roundtrip_ist_treu("999999.999999.999999.c"));
 static_assert(detail::roundtrip_ist_treu(kAlgoSemVerSentinelLiteral));
+// Der am echten SIMD-Katalog gerechnete VOLLAUSBAU (58 Knoten) kommt ebenfalls verbatim zurueck --
+// der teuerste Fall ist damit nicht nur parsbar, sondern auch verlustfrei renderbar.
+static_assert(detail::roundtrip_ist_treu(detail::kVollausbau));
 // Der Sentinel rendert IMMER nackt -- auch wenn das Quell-Literal Flags trug (K-5).
 static_assert(render_algo_semver(parse_algo_semver("0.0.0.c{p}")).view() == "0.0.0");
 // Und ein UNPARSBARES Literal rendert den Sentinel, statt zu raten.
