@@ -13,6 +13,7 @@
 #include <cache_engine/measurement/external_utils_family_axis.hpp>   // A13-M2: ExternalUtilsHub (System-Realm)
 #include <cache_engine/abi/system_axis_code_versions.hpp>            // A2: kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // A2: version-Feld + tooling_version_for_id
+#include <cache_engine/measurement/measurement_framework_registry.hpp> // S2: Bestands-Probe der Katalog-Wache
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
@@ -265,6 +266,84 @@ TEST(MW12StampBausteine, FlagGrammatikV2PolitikWachen) {
     for (auto const& t : m::kMeasurementToolingRegistry)
         EXPECT_TRUE(m::version_satisfies_cpu_only_policy(t.version))
             << "Bestands-Version '" << t.version << "' ohne CPU-Flag -- die Migration hat sie ausgelassen.";
+}
+
+// S2 (07.08.2026), DIE KATALOG-WACHE. Die Grammatik prueft die FORM, dieser Test die BEDEUTUNG:
+// steht jedes Flag-Token im Katalog (measurement/flag_grammar_catalog.hpp) und unter SEINER Basis?
+//
+// WARUM ER ALS LAUFZEIT-TEST EXISTIERT, OBWOHL DIE WACHE COMPILE-TIME IST: die static_assert-Batterie in
+// algo_semver.hpp ist der eigentliche Beweis -- sie bricht den Bau, bevor dieser Test je laeuft. Sie ist
+// aber im ctest-Protokoll UNSICHTBAR: ein gruener Lauf sagt nichts darueber, ob die Wache existiert oder
+// ob jemand sie herausgenommen hat. Dieser Test macht sie im Protokoll SICHTBAR und nennt bei einem
+// Bruch das verletzende Literal beim Namen.
+TEST(MW12StampBausteine, S2KatalogWacheKenntTokenUndSeineBasis) {
+    // (1) UNBEKANNTES TOKEN -- auf jeder Tiefe. Der Parser haelt die Form fuer richtig, der Katalog nicht.
+    EXPECT_FALSE(m::parse_algo_semver("1.0.0.x512{quatsch}").is_sentinel());                 // formal wohlgeformt ...
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{quatsch}"))); // ... und leer
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.quatsch")));
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c{quatsch}")));
+
+    // (2) BEKANNTES TOKEN UNTER FALSCHER BASIS -- die eigentliche Leistung der Wache.
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{sse2}"))); // sse2 -> x128
+    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x128{sse2}")));  // ... dort richtig
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x128{vl}")));   // vl -> x512
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x128{avx2}"))); // avx2 -> x256
+    // 'p'/'e' NUR unter 'c' (Owner-R8).
+    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c{p.e}")));
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.p")));
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.g{p}")));
+
+    // (3) COMPANION UND SKALAR gehoeren NEBEN die Basis, nicht IN sie -- aus entgegengesetzten Gruenden
+    //     (Companion: die Breite folgt der Basis; Skalar: es gibt keine Breite).
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{gfni}")));
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{popcnt}")));
+    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x512{f.vl}.gfni.popcnt")));
+
+    // (4) DER OFFENE OWNER-ENTSCHEID: die MMX-Familie traegt BEIDE Gestalten, keine ist praejudiziert.
+    //     Faellt eine der beiden Zeilen, ist der Entscheid still vorweggenommen worden.
+    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext")));
+    EXPECT_TRUE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow.3dnowext}")));
+    EXPECT_FALSE(m::flag_catalog_is_satisfied(m::parse_algo_semver("1.0.0.x128{mmx}"))); // aber nie x128/256/512
+    EXPECT_EQ(m::flag_catalog_offene_entscheide(), 6u) << "der offene Entscheid haengt an GENAU sechs Eintraegen";
+
+    // (5) DIE DREI NAMENSRAEUME: getrennt gefuehrt, nie ineinander umgerechnet.
+    EXPECT_EQ(m::flag_token_for_cpuinfo("pni"), std::string_view{"sse3"}); // cpuinfo != Token
+    EXPECT_EQ(m::flag_token_for_cpuinfo("sha_ni"), std::string_view{"sha"});
+    EXPECT_EQ(m::flag_token_for_cpuinfo("avx512_vbmi2"), std::string_view{"vbmi2"});
+    EXPECT_TRUE(m::flag_token_for_cpuinfo("sse3").empty()); // "sse3" ist ein TOKEN, keine cpuinfo-Id
+    // Und die beiden fremden Namensraeume sind als Token gar nicht schreibbar (Punkt bzw. Unterstrich).
+    EXPECT_EQ(m::parse_algo_semver("1.0.0.x128{sse4.1}"), (m::AlgoSemVer{}));
+    EXPECT_EQ(m::parse_algo_semver("1.0.0.avx512_vbmi2"), (m::AlgoSemVer{}));
+
+    // (6) DER VOLLAUSBAU geht vollstaendig durch -- 58 Knoten, jedes ein echtes Token an seiner Stelle.
+    //     Ein Katalog, der eine legitime Vollform verwirft, ist ein Defekt und keine Wache.
+    constexpr std::string_view kVoll =
+        "1.0.0.c{p.e}"
+        ".x128{sse.sse2.sse3.ssse3.sse41.sse42.sse4a.aes.pclmulqdq.sha}"
+        ".x256{avx.avx2.fma.f16c.vnni.ifma.vnniint8.vnniint16.neconvert.sha512.sm3.sm4}"
+        ".x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}"
+        ".gfni.vaes.vpclmulqdq.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed"
+        ".mmx.mmxext.3dnow.3dnowext.3dnowprefetch";
+    EXPECT_EQ(m::parse_algo_semver(kVoll).flags.count, 58u);
+    EXPECT_TRUE(m::ce_owned_version_is_wellformed(kVoll));
+
+    // (7) DER BESTAND BLEIBT GRUEN -- gemessen an den echten Registries, nicht behauptet.
+    for (auto const& t : m::kMeasurementToolingRegistry)
+        EXPECT_TRUE(m::ce_owned_version_is_wellformed(t.version))
+            << "Bestands-Version '" << t.version << "' faellt an der Katalog-Wache.";
+    for (auto const& f : m::kMeasurementFrameworkRegistry)
+        EXPECT_TRUE(m::ce_owned_version_is_wellformed(f.version))
+            << "Bestands-Version '" << f.version << "' faellt an der Katalog-Wache.";
+
+    // (8) DIE DRIFT-BRUECKE: jeder der 23 Eintraege des alten SIMD-Katalogs hat hier ein Token, und die
+    //     Compiler-Schalter stimmen ueberein. Wer dort ein Flag ergaenzt, ohne ihm hier eines zu geben,
+    //     bricht den Bau -- dieser Test nennt dann das Flag.
+    for (auto const& f : m::kSimdFeatureFlagCatalog) {
+        std::size_t const i = m::find_flag_catalog_entry_by_cpuinfo(f.cpuinfo);
+        ASSERT_NE(i, m::kNoFlagCatalogEntry) << "SIMD-Flag '" << f.cpuinfo << "' hat kein Grammatik-Token.";
+        EXPECT_EQ(m::kFlagGrammarCatalog[i].gpp, f.gpp)
+            << "Compiler-Schalter driften fuer '" << f.cpuinfo << "' zwischen den beiden Katalogen.";
+    }
 }
 
 TEST(MW12StampBausteine, FlagGrammatikV2StempelZeileEndeZuEnde) {

@@ -83,7 +83,8 @@ static_assert(::comdare::cache_engine::measurement::parse_algo_semver(kPlannerVe
 // GRAMMATISCH wohlgeformt -- den flaglosen Fall weist erst der gated Zwilling unten ab.
 static_assert(::comdare::cache_engine::measurement::ce_owned_version_is_wellformed(kPlannerVersion),
               "kPlannerVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n punkt-getrennten "
-              "Flags; traegt sie Flags, MUSS 'c' darunter sein (Owner-F-10 07.08.2026)");
+              "Flags; traegt sie Flags, MUSS 'c' darunter sein (Owner-F-10 07.08.2026) UND jedes Flag-Token "
+              "muss im Katalog stehen -- unter SEINER Basis (S2-Katalog-Wache, flag_grammar_catalog.hpp)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 // SCHARFSCHALTUNG (Migrations-Naht, algo_semver.hpp Klasse (e)): der Planer-Stempel MUSS -- wie jede
 // ce-Version -- die CPU-Basis tragen. Ohne diese Wache haette der Planer die Migration umgangen.

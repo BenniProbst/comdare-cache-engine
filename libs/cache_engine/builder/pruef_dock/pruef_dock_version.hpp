@@ -102,21 +102,29 @@ inline constexpr std::string_view kViewDockVersion     = "1.0.0.c";
 //     grammatisch wohlgeformt -- die weist erst (2) ab.
 //     FLAG-GRAMMATIK v2: der frueher mitgefuehrte Term "NIE 'e'" ist gegenstandslos -- 'e' bedeutet
 //     EFFICIENCY CORE und ist ein legitimes Flag.
+//     S2 (07.08.2026): dieselbe Wache prueft seit dem Katalog-Bau ZUSAETZLICH, dass jedes Flag-Token
+//     existiert und unter SEINER Basis steht (flag_grammar_catalog.hpp). Die Meldungstexte unten nennen
+//     beide Gruende -- ein Bruch mit nur einem genannten Grund waere ein Fehlverweis.
 static_assert(dock_version_detail::meas::ce_owned_version_is_wellformed(kSearchAlgorithmDockVersion),
-              "kSearchAlgorithmDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n punkt-getrennten "
-              "Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10)");
+              "kSearchAlgorithmDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n "
+              "punkt-getrennten Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10) UND jedes "
+              "Flag-Token muss im Katalog stehen -- unter SEINER Basis (S2, flag_grammar_catalog.hpp)");
 static_assert(dock_version_detail::meas::ce_owned_version_is_wellformed(kSetDockVersion),
-              "kSetDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n punkt-getrennten "
-              "Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10)");
+              "kSetDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n "
+              "punkt-getrennten Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10) UND jedes "
+              "Flag-Token muss im Katalog stehen -- unter SEINER Basis (S2, flag_grammar_catalog.hpp)");
 static_assert(dock_version_detail::meas::ce_owned_version_is_wellformed(kSequenceDockVersion),
-              "kSequenceDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n punkt-getrennten "
-              "Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10)");
+              "kSequenceDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n "
+              "punkt-getrennten Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10) UND jedes "
+              "Flag-Token muss im Katalog stehen -- unter SEINER Basis (S2, flag_grammar_catalog.hpp)");
 static_assert(dock_version_detail::meas::ce_owned_version_is_wellformed(kAdapterDockVersion),
-              "kAdapterDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n punkt-getrennten "
-              "Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10)");
+              "kAdapterDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n "
+              "punkt-getrennten Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10) UND jedes "
+              "Flag-Token muss im Katalog stehen -- unter SEINER Basis (S2, flag_grammar_catalog.hpp)");
 static_assert(dock_version_detail::meas::ce_owned_version_is_wellformed(kViewDockVersion),
-              "kViewDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n punkt-getrennten "
-              "Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10)");
+              "kViewDockVersion nicht wohlgeformt: erlaubt ist \"X.Y.Z\" mit null bis n "
+              "punkt-getrennten Flags; traegt sie Flags, MUSS \'c\' darunter sein (Owner-F-10) UND jedes "
+              "Flag-Token muss im Katalog stehen -- unter SEINER Basis (S2, flag_grammar_catalog.hpp)");
 
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 // (2) GATED (Default scharf): im CPU-only-Scope MUSS jede ce-Version die CPU-Basis 'c' unter ihren Flags

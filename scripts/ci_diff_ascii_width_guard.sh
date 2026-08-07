@@ -155,7 +155,32 @@ else
     rm -f "${_ce_diff_datei}.err"
 fi
 
-awk '
+# ---------------------------------------------------------------------------
+# VENDOR-AUSNAHME (2026-08-07): die Wache verspricht in ihrem Kopf, "nur SELBST
+# VERFASSTEN Code" zu pruefen -- implementiert war das aber allein ueber die
+# DATEIENDUNG. Vendorierter Fremdcode traegt dieselben Endungen und fiel damit
+# hinein. Aufgefallen beim ersten Vendor-Snapshot, der ueberhaupt in einem Diff
+# lag (libxlsxwriter/zlib): 20 Treffer, ALLE im Fremdcode -- ein "Cafe" in einem
+# Upstream-Doku-Kommentar, ein russisches Beispiel, ueberlange Zeilen in minizip.
+# Die Wache haette den Autor gezwungen, FREMDEN Quelltext umzuschreiben; genau
+# das verbietet die Vendoring-Doktrin (Stufe "faithful": treuer Snapshot).
+#
+# KEINE pauschale ext/-Ausnahme -- die wuerde auch comdare-EIGENE Dateien dort
+# blind stellen (ext/CMakeLists.txt, die Vendor-Wrapper). Stattdessen der Marker,
+# den das Haus fuer Vendor-Baeume ohnehin setzt: COMDARE-VENDOR-PROVENANCE.md.
+# Wer einen Snapshot einbringt, dokumentiert seine Herkunft -- und genau dieses
+# Dokument schaltet die Wache fuer diesen Baum ab. Kein zweiter Mechanismus.
+#
+# Die Ausnahme ist NICHT still: die uebersprungenen Vendor-Wurzeln werden unten
+# im Verdikt namentlich genannt. Eine stille Ausnahme waere die naechste Falle.
+_ce_vendor_roots=""
+if [ -d "${_ce_repo_root:-.}" ]; then
+    _ce_vendor_roots="$(cd "${_ce_repo_root:-.}" 2>/dev/null && \
+        find . -name 'COMDARE-VENDOR-PROVENANCE.md' -type f 2>/dev/null \
+        | sed 's|^\./||; s|/COMDARE-VENDOR-PROVENANCE\.md$||' | sort | tr '\n' ':')"
+fi
+
+awk -v vendor_roots="$_ce_vendor_roots" '
     # -------------------------------------------------------------------
     # Zustandsmaschine statt Regex-Vermutung: "vor dem ersten @@" heisst
     # Datei-Kopf (--- / +++ / index / mode ...), danach ist jede "+"-Zeile
@@ -175,8 +200,23 @@ awk '
         fatal = 0
         for (n = 128; n <= 255; n++) { is_high[sprintf("%c", n)] = 1 }
         sigma = sprintf("%c%c", 194, 167)   # SS als UTF-8: 0xC2 0xA7 -- erlaubte Ausnahme
+        vendor_n = 0
+        if (vendor_roots != "") vendor_n = split(vendor_roots, vendor_list, ":")
+        # split() liefert bei abschliessendem ":" ein leeres letztes Feld -- is_vendor
+        # faengt das ueber die r != ""-Pruefung ab.
+    }
+    function is_vendor(fname,    k, r) {
+        # Liegt die Datei unter einem Baum mit COMDARE-VENDOR-PROVENANCE.md?
+        # Praefix-Vergleich mit abschliessendem "/" -- damit "ext/io" nicht
+        # "ext/iotools" mitnimmt.
+        for (k = 1; k <= vendor_n; k++) {
+            r = vendor_list[k]
+            if (r != "" && substr(fname, 1, length(r) + 1) == r "/") return 1
+        }
+        return 0
     }
     function is_scoped(fname,    base, i, last_dot, ext) {
+        if (is_vendor(fname)) return 0
         base = fname
         i = length(base)
         while (i > 0 && substr(base, i, 1) != "/") i--
@@ -333,6 +373,15 @@ if [ -f "${_ce_awk_out}.skipped" ] && [ -s "${_ce_awk_out}.skipped" ]; then
     while IFS= read -r _ce_sf; do
         [ -n "$_ce_sf" ] && echo "    - ${_ce_sf}"
     done < "${_ce_awk_out}.skipped"
+fi
+if [ -n "$_ce_vendor_roots" ]; then
+    echo "  VENDOR-AUSNAHME (nicht still): diese Baeume tragen COMDARE-VENDOR-PROVENANCE.md"
+    echo "  und werden als Fremdcode NICHT auf ASCII/Breite geprueft --"
+    printf '%s' "$_ce_vendor_roots" | tr ':' '\n' | while IFS= read -r _ce_vr; do
+        [ -n "$_ce_vr" ] && echo "    - ${_ce_vr}/"
+    done
+    echo "  Eigener Code in diesen Baeumen (Wrapper, CMakeLists) liegt AUSSERHALB und"
+    echo "  wird weiter geprueft."
 fi
 echo "-----------------------------------------------------------------------------"
 

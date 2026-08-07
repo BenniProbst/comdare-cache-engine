@@ -5541,3 +5541,22 @@ target_compile_definitions(test_b14_abi_adapter_line_subaxis_paths PRIVATE
 # (set_tests_properties ist additiv je Property).
 set_tests_properties(test_b14_abi_adapter_line_subaxis_paths PROPERTIES
     LABELS "anatomy;abi;memory_layout;cacheline;b14")
+
+# --- A9-S1 (xlsx-Writer, Vendor-Scheibe) -----------------------------------------------------------
+# Rauchtest gegen die VENDORIERTEN Snapshots ext/io/libxlsxwriter (Tag v1.2.4) und ext/io/zlib
+# (Tag v1.3.2). Beide Vendor-Targets werden on-demand hereingezogen (NOT-TARGET-Guard in ihren
+# CMakeLists) -- exakt wie der liburing-Block weiter oben. Kein bestehendes Target bekommt dadurch
+# eine Abhaengigkeit; ohne diesen Test wuerde kein einziges zlib-/xlsx-Objekt uebersetzt.
+#
+# zlib wird zusaetzlich EXPLIZIT gelinkt: der Test bringt seinen eigenen ZIP-Leser mit und braucht
+# darum <zlib.h> selbst. Ueber comdare_vendored_xlsxwriter kaeme zlib nur als LINK_ONLY-Abhaengigkeit
+# an (dort ist es PRIVATE gelinkt, damit es nicht in Consumer leckt) -- ohne den Include-Pfad.
+if(NOT TARGET comdare_vendored_xlsxwriter)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/ext/io/libxlsxwriter" "${CMAKE_BINARY_DIR}/_ext_io_libxlsxwriter")
+endif()
+comdare_add_test(test_a9_xlsx_vendor_rauchtest
+    SOURCES test_a9_xlsx_vendor_rauchtest.cpp)
+target_link_libraries(test_a9_xlsx_vendor_rauchtest PRIVATE
+    comdare::vendored_xlsxwriter comdare::vendored_zlib)
+set_tests_properties(test_a9_xlsx_vendor_rauchtest PROPERTIES
+    LABELS "a9;xlsx;vendor;lager")
