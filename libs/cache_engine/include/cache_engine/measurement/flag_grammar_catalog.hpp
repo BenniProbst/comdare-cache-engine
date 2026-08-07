@@ -327,11 +327,16 @@ inline constexpr std::array<FlagCatalogEntry, 62> kFlagGrammarCatalog{{
     // die Familie sei "auf keiner erreichbaren Maschine wahr". FALSCH fuer die Haelfte: /proc/cpuinfo auf
     // prod1 (AMD Ryzen 9 9950X3D, 32 Kerne) zaehlt 'mmx' 32x, 'mmxext' 32x, '3dnowprefetch' 32x -- aber
     // '3dnow' 0x und '3dnowext' 0x. Zusaetzlich ist 'mmx' Teil der x86-64-GRUNDLINIE: `gcc -march=x86-64`
-    // setzt __MMX__ ohne jedes weitere Flag, also auf JEDER gebauten Binary wahr. OWNER-FRAGE (bewusst
-    // NICHT hier entschieden): soll 'mmx' deshalb notationell unterdrueckt werden (es stuende sonst in
-    // jedem Fingerprint-Preimage), oder ist Vollstaendigkeit gewollt? Das ist eine Notations-Entscheidung,
-    // keine Hardware-Frage, und sie traegt bewusst KEIN entscheid_offen -- der Katalog war an dieser
-    // Stelle nicht falsch, nur unvollstaendig kommentiert.
+    // setzt __MMX__ ohne jedes weitere Flag, also auf JEDER x86-64-Binary wahr.
+    // OWNER-ENTSCHEID (07.08.2026): 'mmx' bleibt DEKLARIERT, keine Unterdrueckung, keine Ausnahme-Logik.
+    // Verbatim: "Das ist technisch korrekt, wenn die Hardware vorhanden ist, dann wird sie deklariert.
+    // wir haben auch einen Vision5 2 mit RISC-V, mmx ist nicht selbstverstaendlich". Der Punkt, der die
+    // urspruengliche Frage aufloest: "auf JEDER Binary wahr" gilt nur INNERHALB der x86-64-Zelle. Der
+    // Katalog beschreibt eine PLATTFORMUEBERGREIFENDE Hardware-Landschaft (der Messpark fuehrt bereits
+    // einen VisionFive 2 mit RISC-V, s. axis_error_traits.hpp "RISC-V, macOS M1, macOS x86 -- Owner-E4",
+    // README.md "Pi 5 / VisionFive 2"), nicht nur die x86-Zelle -- und auf RISC-V GIBT ES KEIN MMX. Die
+    // Deklaration ist dort keine Redundanz, sondern eine Aussage: die ABWESENHEIT von 'mmx' im Preimage
+    // einer RISC-V-Binary ist genau die Information, die "immer wahr" faelschlich fuer trivial haelt.
 }};
 
 /// WARUM ES EINE RESERVE-TABELLE GIBT UND KEINEN KOMMENTAR.
