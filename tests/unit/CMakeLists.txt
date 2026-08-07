@@ -4601,6 +4601,84 @@ add_test(NAME test_m1_mess_achsen_wirkung COMMAND test_m1_mess_achsen_wirkung)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1_mess_achsen_wirkung)
 set_tests_properties(test_m1_mess_achsen_wirkung PROPERTIES LABELS "m1;messachse;stempel;fehlerklassen")
 
+# -- R-3 BISS (07.08.2026): DER MESS-GATE-ZUSTAND DER TU DISKRIMINIERT DEN TIER-FINGERPRINT ------------
+# Zwei .so aus EINEM Quelltext (r3_mess_gate_stamp_module.cpp) mit byte-identischen Stempel-Literalen;
+# der einzige Unterschied ist der Praeprozessor-Zustand der Mess-Gates. Am Vor-R-3-Stand liefern beide
+# denselben sha512_line (kein Gate-Makro im Preimage) -> der Runner ist ROT. Mit dem neunten
+# Preimage-Glied "mess-gates" sind sie verschieden -> GRUEN.
+# Praezedenz der Modul-TU-Targets: die perm_*-DLLs der Goal-V6-Schleife oben; Include-/Link-Menge der
+# Stempel-Flaeche: test_w10_system_cell_values (dieselbe Makro-Naht COMDARE_ANATOMY_VERSION_STAMP_M).
+# GATES-AUS wird per #undef IN DER QUELLE praepariert (Praezedenz test_a8s4_release_pfad_neutralitaet):
+# die Wurzel-CMakeLists setzt COMDARE_MEASUREMENT_ON=1 per add_compile_definitions GLOBAL, ein Target
+# kann eine Verzeichnis-Definition nicht abwaehlen.
+set(_r3_biss_dll_dir "${PROJECT_BINARY_DIR}/generated/r3_biss_modules")
+foreach(_r3mod IN ITEMS r3_biss_modul_gates_an r3_biss_modul_gates_aus)
+    add_library(${_r3mod} SHARED "r3_mess_gate_stamp_module.cpp")
+    target_compile_features(${_r3mod} PRIVATE cxx_std_23)
+    target_include_directories(${_r3mod} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_r3mod} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_r3mod})
+    set_target_properties(${_r3mod} PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        LIBRARY_OUTPUT_DIRECTORY  "${_r3_biss_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY  "${_r3_biss_dll_dir}")
+    # Hermetik: die Modul-TU zieht ueber abi_adapter.hpp die is_original-Codegen-Header. Die
+    # Codegen-Kante kann hier nicht direkt gesetzt werden (comdare_paper_codegen_all entsteht erst
+    # NACH add_subdirectory(tests)); die Wurzel-CMakeLists zieht sie ueber diese Registry nach.
+    # KEIN Test-Target -> die COMDARE_TEST_TARGETS-Schleife der Wurzel erreicht sie nicht.
+    set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${_r3mod})
+endforeach()
+target_compile_definitions(r3_biss_modul_gates_an PRIVATE
+    COMDARE_ANATOMY_MODULE_BUILD=1 COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
+    COMDARE_EXPERIMENT_MODE_ON=1 COMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1)
+target_compile_definitions(r3_biss_modul_gates_aus PRIVATE
+    COMDARE_ANATOMY_MODULE_BUILD=1 COMDARE_R3_BISS_GATES_AUS=1)
+
+add_executable(test_r3_mess_gate_fingerprint_biss "test_r3_mess_gate_fingerprint_biss.cpp")
+target_compile_features(test_r3_mess_gate_fingerprint_biss PRIVATE cxx_std_23)
+target_include_directories(test_r3_mess_gate_fingerprint_biss PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_r3_mess_gate_fingerprint_biss PRIVATE ${CMAKE_DL_LIBS})
+comdare_set_platform_defines(test_r3_mess_gate_fingerprint_biss)
+add_dependencies(test_r3_mess_gate_fingerprint_biss r3_biss_modul_gates_an r3_biss_modul_gates_aus)
+add_test(NAME test_r3_mess_gate_fingerprint_biss COMMAND test_r3_mess_gate_fingerprint_biss
+    "--an=$<TARGET_FILE:r3_biss_modul_gates_an>" "--aus=$<TARGET_FILE:r3_biss_modul_gates_aus>")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_r3_mess_gate_fingerprint_biss)
+set_tests_properties(test_r3_mess_gate_fingerprint_biss PROPERTIES
+    LABELS "r3;messachse;stempel;dll_roundtrip")
+
+# R-3 SPIEGEL-WACHE: die HOST-Vorhersage des neunten Glieds (mess_gates_glied_for_legend) gegen die
+# TU-Wahrheit (abi::kMessGatesTuGlied) -- und die Host-Nachrechnung der beiden real gebauten .so.
+# Include-/Link-Menge: die Mess-Naht (wie test_m1_mess_achsen_wirkung) PLUS der src/-Pfad fuer die
+# SHA-512-Primitive und ${CMAKE_DL_LIBS} fuer die dlopen-Haelfte.
+add_executable(test_r3_mess_gates_spiegel "test_r3_mess_gates_spiegel.cpp")
+target_compile_features(test_r3_mess_gates_spiegel PRIVATE cxx_std_23)
+target_include_directories(test_r3_mess_gates_spiegel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(test_r3_mess_gates_spiegel PRIVATE ${CMAKE_DL_LIBS})
+comdare_set_platform_defines(test_r3_mess_gates_spiegel)
+target_compile_definitions(test_r3_mess_gates_spiegel PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_dependencies(test_r3_mess_gates_spiegel r3_biss_modul_gates_an r3_biss_modul_gates_aus)
+add_test(NAME test_r3_mess_gates_spiegel COMMAND test_r3_mess_gates_spiegel
+    "--an=$<TARGET_FILE:r3_biss_modul_gates_an>" "--aus=$<TARGET_FILE:r3_biss_modul_gates_aus>")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_r3_mess_gates_spiegel)
+set_tests_properties(test_r3_mess_gates_spiegel PROPERTIES
+    LABELS "r3;messachse;stempel;dll_roundtrip")
+
 # M-1/H-A + M-1/H-2 (06.08.2026): die STUFEN-Wache im CT-losen Zweig und die PMC-Ausstattungs-Invariante.
 # BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT -- und hier ist das nicht bloss Unabhaengigkeit vom Makro-
 # Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,

@@ -640,10 +640,22 @@ TEST(Lb1OverlayAbgrenzung, DasOverlayGliedIstStrukturellDaUndHeuteLEER) {
     // strukturell da und heute leer -- nur seine Position und die Glied-Zahl sind nachgezogen. Die
     // POSITION wird ab hier ueber die BENANNTE Konstante geprueft, nicht ueber eine nackte Zahl: eine
     // weitere Umsortierung soll diesen Test nicht erneut faelschlich rot faerben.
-    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 8u);
+    // R-3 (Format 3 -> 4, 07.08.2026): 8 -> 9 Glieder (Mess-Gates [8], abi/mess_gates_glied.hpp). Das
+    // Overlay-Glied bleibt [7] -- die Bestands-Nummern wurden NICHT verschoben, das neue Glied haengt
+    // sich an. Die AUSSAGE dieses Tests ist weiterhin unveraendert: das Overlay-Glied ist strukturell da
+    // und heute leer. Was sich verschiebt, ist nur seine Rolle als "Schwanz-Glied" -- es ist ab hier das
+    // letzte NOCH LEERE Glied, und genau diese Eigenschaft ist die, auf die es dieser Test abgesehen hat.
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintGliedCount, 9u);
     EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintOverlayGlied,
+              comdare::cache_engine::abi::kAnatomyFingerprintMessGatesGlied - 1u)
+        << "das Overlay-Glied steht unmittelbar vor dem Mess-Gates-Glied (R-3)";
+    EXPECT_EQ(comdare::cache_engine::abi::kAnatomyFingerprintMessGatesGlied,
               comdare::cache_engine::abi::kAnatomyFingerprintGliedCount - 1u)
-        << "das Overlay-Glied ist per O-2/C-2 das Schwanz-Glied";
+        << "das Mess-Gates-Glied ist per R-3 das Schwanz-Glied";
+    // GEGENPROBE zur Leerheit oben: das Mess-Gates-Glied ist das erste Glied, das NIEMALS leer ist --
+    // sein Aus-Zustand ist ein Wert ("mg=m0;..."), keine Identitaet. Ohne diese Zeile liesse sich der
+    // Test auch mit einem still leer gebliebenen neunten Glied gruen halten.
+    EXPECT_FALSE(comdare::cache_engine::abi::kMessGatesTuGlied.empty());
     // Und der Anker des Knoten-Logs ist genau die Form dieses Fingerprints -- keine Zweitrechnung.
     EXPECT_TRUE(bl::ist_fingerprint_hex(hex128('a')));
     EXPECT_FALSE(bl::ist_fingerprint_hex(std::string(127, 'a')));

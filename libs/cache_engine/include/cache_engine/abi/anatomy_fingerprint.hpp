@@ -16,6 +16,7 @@
 // nicht im emittierten .cpp -> golden-CRC 0xF1C1F26A1232073B unberuehrt. Saat fuer den #46b-std::map-Lookup (ein
 // kompakter, stabiler Provenienz-Schluessel je Tier-Binary).
 
+#include "mess_gates_glied.hpp"        // R-3: der Mess-GATE-Zustand DIESER TU als Preimage-Glied [8]
 #include "subaxis_valueset_segment.hpp" // A13-M3: das Sub-Achsen-Werteset-Segment als Preimage-Glied
 
 #include <sha512/ctsha512.hpp>
@@ -86,7 +87,23 @@ inline constexpr char kAnatomyFingerprintSeparator = '\n';
 ///   Toolchain-Verankerung wuerde weiter uebersprungen, obwohl seine Toolchain-Identitaet nie geprueft
 ///   wurde. Mit dem Bump mismatcht die gesamte Flotte EINMAL und baut fail-closed neu (F7-Uebergangsregel,
 ///   KEIN Grandfathering). Das ist eine bewusste, einmalige Invalidierungswelle.
-inline constexpr std::string_view kAnatomyFingerprintFormat = "fingerprint_format=3";
+/// Format 4 (R-3, 07.08.2026): das MESS-GATES-Glied [8] kommt dazu (abi/mess_gates_glied.hpp) -- der
+///   PRAEPROZESSOR-Zustand der Mess-Gates DIESER Uebersetzungseinheit. Bis Format 3 stand KEIN
+///   Gate-Makro im Preimage; dasselbe emittierte .cpp mit und ohne -DCOMDARE_MEASUREMENT_ON=1 ergab
+///   zwei verschiedene Binaries mit DEMSELBEN Digest (am Objekt gemessen, tests/unit/
+///   r3_mess_gate_stamp_module.cpp: .so-sha256 820533fb vs. e92658ce, sha512_line BEIDE 6739cae7...).
+///   dll_is_current (build_orchestrator.hpp) vergleicht genau diese Zahl gegen ein Sidecar -- der Skip
+///   war still und falsch. Glied [3] konnte das nicht heilen: es traegt die Mess-Combo als HOST-Literal,
+///   also als Behauptung des Bauwerkzeugs, nicht als Wahrheit der TU.
+///   WARUM WIEDER EIN BUMP UND NICHT DIE NIEMALS-LEERHEIT DES NEUEN GLIEDS: dieselbe Begruendung wie
+///   bei Format 3 -- ein Bestand aus der Zeit VOR der Gate-Verankerung wuerde sonst weiter
+///   uebersprungen, obwohl seine Mess-Ausstattung nie geprueft wurde. Der Bump erzwingt die EINE
+///   deklarierte Invalidierungswelle. Sie ist im Fenster dieses Commits KOSTENLOS: der
+///   .fingerprint-Sidecar-Bestand ist literal 0 (git ls-files '*.fingerprint' -> 0 Zeilen; find ueber
+///   den GESAMTEN Arbeitsbaum inkl. Build-Verzeichnisse -> 0 Dateien). Nach dem ersten golden-Batch
+///   kostete dieselbe Aenderung einen Voll-Neubau der Flotte plus Messdaten-Entwertung -- der Fix
+///   gehoert deshalb VOR das naechste GOLDEN-UPDATE-Fenster und nicht dahinter.
+inline constexpr std::string_view kAnatomyFingerprintFormat = "fingerprint_format=4";
 
 /// Das letzte Preimage-Glied: der HASH ALLER SOURCE-CODE-DATEIEN IM OVERLAY (Owner-Abnahme 26.07.,
 /// Ledger 88: "consteval-SHA512-Zeile ueber Achsen-Strings + Versionen + Overlay-Source-Hashes").
@@ -336,9 +353,38 @@ private:
     std::string_view wert_;
 };
 
+/// R-3 -- DER TRAEGER DES MESS-GATES-GLIEDS [8]. Dieselbe K-1-Begruendung wie oben: das Preimage traegt
+/// ab Format 4 VIER aufeinanderfolgende Zeichenketten im Schwanz; vier nackte string_view koennten
+/// beliebig gegeneinander verschoben werden, es kompilierte, und der Digest waere falsch.
+///
+/// EIN UNTERSCHIED ZU DEN DREI ANDEREN, UND ER IST DER PUNKT DER SCHEIBE: dieser Wert wird NICHT
+/// injiziert. Er kommt aus dem Praeprozessor-Zustand der uebersetzten TU (abi/mess_gates_glied.hpp,
+/// kMessGatesTuGlied) und wird am Makro-Expansionsort EXPLIZIT gereicht. Ein Host kann ihn deshalb
+/// nicht falsch behaupten -- er kann ihn nur VORHERSAGEN (mess_gates_glied_for_legend an der Mess-Naht),
+/// und diese Vorhersage benutzt dieselbe Grammatik-Bildung (mess_gates_glied_komponieren).
+///
+/// DIE WACHE IST DIESELBE: die Grammatik "mg=m1;s1;x1;tw1;tm1;tmi1" benutzt ausschliesslich Zeichen aus
+/// anatomy_glied_zeichen_erlaubt, traegt kein '\n' und keinen leeren Schluessel. Der Traeger prueft das
+/// im Konstruktor, anatomy_fingerprint_glieder() ein zweites Mal beim Gebrauch (NB-3/T2-D).
+class MessGatesGlied {
+public:
+    constexpr explicit MessGatesGlied(std::string_view v) : wert_{v} {
+        require_injizierter_glied_wert("mess-gates", v);
+    }
+    /// NB-3/T2-D (a): kein Traeger auf ein sterbendes Temporary (Verengung s. OverlayHash).
+    template <GliedSterbenderString S>
+    explicit MessGatesGlied(S&&) = delete;
+
+    [[nodiscard]] constexpr std::string_view wert() const noexcept { return wert_; }
+
+private:
+    std::string_view wert_;
+};
+
 /// Anzahl der Preimage-Glieder. FEST -- die Injektivitaet der '\n'-Zerlegung haengt an der festen Anzahl.
 /// A13-M3 (Format 2): 6. O-2/C-2 (Format 3): 8 (Toolchain + bvset kommen dazu).
-inline constexpr std::size_t kAnatomyFingerprintGliedCount = 8;
+/// R-3 (Format 4): 9 (das Mess-Gates-Glied kommt dazu).
+inline constexpr std::size_t kAnatomyFingerprintGliedCount = 9;
 
 /// W10-C3: die POSITION der System-Zeile in der Glied-Folge, benannt statt als nackte 2.
 ///
@@ -360,6 +406,16 @@ inline constexpr std::size_t kAnatomyFingerprintToolchainGlied = 5;
 inline constexpr std::size_t kAnatomyFingerprintBvsetGlied     = 6;
 inline constexpr std::size_t kAnatomyFingerprintOverlayGlied   = 7;
 
+/// R-3: das Mess-Gates-Glied haengt sich HINTEN an -- die Bestands-Nummern [0]..[7] bleiben, wo sie
+/// sind. Das ist keine Bequemlichkeit: bestandslog_factory (Glied [2]) und die Konsumenten der
+/// Toolchain-/bvset-/Overlay-Naht adressieren ihre Glieder ueber genau diese Konstanten, und eine
+/// Umsortierung waere ein zweites Byte-Ereignis ohne Gewinn. Das Overlay-Glied verliert damit seine
+/// Schwanz-Stellung; ihre urspruengliche Begruendung ("ein noch leeres Glied gehoert an den Schwanz,
+/// damit die Positionen der GEFUELLTEN Glieder stabil bleiben") gilt fuer das Mess-Gates-Glied NICHT --
+/// es ist niemals leer (der Aus-Zustand ist "mg=m0;s0;x0;tw0;tm0;tmi0", nicht ""), es kann also nicht
+/// "spaeter scharfgeschaltet" werden und braucht die Schwanz-Stellung nicht.
+inline constexpr std::size_t kAnatomyFingerprintMessGatesGlied = 8;
+
 // -- BUDGET-NACHWEIS (O-2/C-2), maschinell statt als Absatz --------------------------------------------
 // Je Glied eine Obergrenze; ihre Summe plus die (GliedCount-1) Separator-Bytes MUSS in den
 // consteval-Puffer passen. Die Zahlen sind an den Ist-Daten begruendet (s. Budget-Beleg oben):
@@ -371,6 +427,9 @@ inline constexpr std::size_t kAnatomyFingerprintOverlayGlied   = 7;
 //   bvset 1536  -- das einzige mit der Flotte wachsende Glied; LEBEND gemessen in
 //                  driver_build_variant_signature.hpp gegen genau diese Konstante
 //   Overlay 128 -- ein SHA-512-Hex
+//   mess-gates 64 -- die feste Grammatik "mg=m1;s1;x1;tw1;tm1;tmi1" misst heute 24 Zeichen; 64 laesst
+//                  Raum fuer die angekuendigte G3-Gate-Verfeinerung (mess_achsen_naht.hpp:93-98) und
+//                  fuer ein viertes Mess-Tooling in der Registry, ohne das Budget neu zu verhandeln.
 inline constexpr std::size_t kAnatomyFingerprintFormatMax      = 32;
 inline constexpr std::size_t kAnatomyFingerprintOrganMax       = 768;
 inline constexpr std::size_t kAnatomyFingerprintSystemMax      = 256;
@@ -379,11 +438,13 @@ inline constexpr std::size_t kAnatomyFingerprintValuesetMax    = kSubAxisValuese
 inline constexpr std::size_t kAnatomyFingerprintToolchainMax   = 512;
 inline constexpr std::size_t kAnatomyFingerprintBvsetMax       = 1536;
 inline constexpr std::size_t kAnatomyFingerprintOverlayMax     = 128;
+inline constexpr std::size_t kAnatomyFingerprintMessGatesMax   = 64;
 
 inline constexpr std::size_t kAnatomyFingerprintBudgetSum =
     kAnatomyFingerprintFormatMax + kAnatomyFingerprintOrganMax + kAnatomyFingerprintSystemMax +
     kAnatomyFingerprintMeasurementMax + kAnatomyFingerprintValuesetMax + kAnatomyFingerprintToolchainMax +
-    kAnatomyFingerprintBvsetMax + kAnatomyFingerprintOverlayMax + (kAnatomyFingerprintGliedCount - 1);
+    kAnatomyFingerprintBvsetMax + kAnatomyFingerprintOverlayMax + kAnatomyFingerprintMessGatesMax +
+    (kAnatomyFingerprintGliedCount - 1);
 
 static_assert(kAnatomyFingerprintBudgetSum <= kAnatomyFingerprintPreimageMax,
               "O-2/C-2 BUDGET: die Summe der Glied-Obergrenzen plus Separatoren passt nicht mehr in "
@@ -397,6 +458,9 @@ static_assert(kSubAxisValuesetSegment.size() <= kAnatomyFingerprintValuesetMax);
 static_assert(kToolchainStampGlied.size() <= kAnatomyFingerprintToolchainMax);
 static_assert(kBuildVariantSetSignatureGlied.size() <= kAnatomyFingerprintBvsetMax);
 static_assert(kOverlaySourceHash.size() <= kAnatomyFingerprintOverlayMax);
+static_assert(kMessGatesTuGlied.size() <= kAnatomyFingerprintMessGatesMax,
+              "R-3: das mess-gates-Glied sprengt sein Budget -- kAnatomyFingerprintMessGatesMax heben UND "
+              "den Budget-Beleg oben nachziehen, statt die Grenze still zu verschieben.");
 
 // '\n'-FREIHEIT der neuen Glieder (OF-M3-1): die Injektivitaet der Zerlegung haengt daran, dass KEIN Glied
 // den Domain-Separator traegt. Fuer die per Define injizierten Glieder ist das hier compile-time bewiesen;
@@ -418,6 +482,18 @@ static_assert(injizierter_glied_wert_ist_wohlgeformt(kBuildVariantSetSignatureGl
               "NB/CX-1: COMDARE_BUILD_VARIANT_SET_SIGNATURE verletzt die Injektivitaets-Format-Wache.");
 static_assert(injizierter_glied_wert_ist_wohlgeformt(kOverlaySourceHash),
               "NB/CX-1: COMDARE_OVERLAY_SOURCE_HASH verletzt die Injektivitaets-Format-Wache.");
+// R-3: dieselbe Wache fuer das TU-Glied. Es ist zwar nicht injiziert, aber es reist durch DASSELBE
+// Preimage -- eine Grammatik, die den Domain-Separator oder einen leeren Schluessel traegt, machte die
+// Zerlegung genauso mehrdeutig. Der Wert entsteht per Praeprozessor, also faellt der Verstoss hier
+// compile-hart auf, nicht erst an einer Laufzeit-Naht.
+static_assert(kMessGatesTuGlied.find(kAnatomyFingerprintSeparator) == std::string_view::npos,
+              "Das Mess-Gates-Glied darf den Domain-Separator '\\n' nicht enthalten.");
+static_assert(injizierter_glied_wert_ist_wohlgeformt(kMessGatesTuGlied),
+              "R-3: kMessGatesTuGlied verletzt die Injektivitaets-Format-Wache.");
+static_assert(!kMessGatesTuGlied.empty(),
+              "R-3: das Mess-Gates-Glied ist NIEMALS leer -- der Aus-Zustand heisst 'mg=m0;s0;x0;tw0;tm0;tmi0'. "
+              "Ein leerer Wert waere die Identitaet und wuerde eine gate-lose TU mit dem CEB-Default (der "
+              "bewusst leeren Nicht-Tier-Identitaet) kollidieren lassen.");
 
 /// anatomy_fingerprint_glieder(...) -- DIE EINE QUELLE der Preimage-Ordnung. Jede Rechen-Stelle (der
 /// consteval-Hex unten, der Laufzeit-Zwilling lazy_adhoc_fingerprint_for, der Lager-Key-Ableiter
@@ -435,7 +511,11 @@ static_assert(injizierter_glied_wert_ist_wohlgeformt(kOverlaySourceHash),
 ///   [5] Toolchain-Glied             (NEU: Compiler-Haupt-Achse inkl. Flags, opt_level, atomic128, ext/bt/
 ///                                    gate/ceb -- die CEB-Laufzeit-Hauptachsen als CT-Glieder; heilt C1)
 ///   [6] bvset-Glied                 (NEU: Enabled-Mengen-Signatur der Build-Achsen; heilt C6)
-///   [7] Overlay-Source-Hash         (heute leer, OF-M3-2 = Fallback B; ans Ende gewandert)
+///   [7] Overlay-Source-Hash         (heute leer, OF-M3-2 = Fallback B)
+///   [8] Mess-Gates-Glied            (R-3, Format 4: der PRAEPROZESSOR-Zustand der Mess-Gates DIESER
+///                                    Uebersetzungseinheit -- TU-WAHRHEIT, nicht Host-Injektion. Glied [3]
+///                                    nennt die Mess-Combo als Host-LITERAL; erst dieses Glied macht den
+///                                    Gate-Zustand des Kompilats identitaets-wirksam)
 ///
 /// Die drei Schwanz-Glieder haben Defaults, weil sie INJIZIERT werden: wer sie nicht kennt, reicht sie
 /// nicht -- und rechnet dann byte-identisch zur Identitaet. Das ist dieselbe Zusage wie bei
@@ -459,16 +539,30 @@ static_assert(injizierter_glied_wert_ist_wohlgeformt(kOverlaySourceHash),
 ///
 /// DIGEST-NEUTRAL: fuer jeden Wert, der die Wache besteht (also fuer jeden legitimen), aendert sich kein
 /// Byte. Nur Werte, die vorher STILL ein mehrdeutiges Preimage erzeugt haetten, werden jetzt abgelehnt.
+///
+/// -- R-3: WARUM DER DEFAULT DES MESS-GATES-GLIEDS DIE LEERE IDENTITAET IST UND NICHT kMessGatesTuGlied
+///
+/// Diese Funktion ist `constexpr` und damit implizit `inline` -- ihre Default-Argumente sind Teil einer
+/// Entitaet mit EXTERNER Bindung. kMessGatesTuGlied ist TU-abhaengig (interne Bindung, per Definition
+/// je Uebersetzungseinheit verschieden). Stuende sie hier als Default, haetten zwei TUs desselben
+/// Programms verschiedene Definitionen derselben inline-Funktion: ein stiller ODR-Verstoss (IFNDR), und
+/// Misch-Programme EXISTIEREN real (test_a8s4_release_pfad_neutralitaet uebersetzt eine Release-TU neben
+/// Mess-TUs). Zusaetzlich haenge kCebFingerprint (ceb_version_stamp.hpp) dann am Gate-Zustand der
+/// CEB-eigenen TU statt an ihrer Mess-WAHL. Der Wert wird deshalb NUR am Makro-Expansionsort explizit
+/// gereicht -- dort, wo genau eine TU gemeint ist. Praezedenz der Fehlerklasse: die
+/// M-1/D-4-Verdrahtungs-Wache in ceb_version_stamp.hpp.
 [[nodiscard]] constexpr std::array<std::string_view, kAnatomyFingerprintGliedCount>
 anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std::string_view measurement,
-                            ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
-                            BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
-                            OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
+                            ToolchainGlied toolchain  = ToolchainGlied{kToolchainStampGlied},
+                            BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
+                            OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
+                            MessGatesGlied mess_gates = MessGatesGlied{""}) {
     require_injizierter_glied_wert("toolchain", toolchain.wert());
     require_injizierter_glied_wert("bvset", bvset.wert());
     require_injizierter_glied_wert("overlay", overlay.wert());
-    return {kAnatomyFingerprintFormat, organ,        system,        measurement, kSubAxisValuesetSegment,
-            toolchain.wert(),          bvset.wert(), overlay.wert()};
+    require_injizierter_glied_wert("mess-gates", mess_gates.wert());
+    return {kAnatomyFingerprintFormat, organ,        system,         measurement, kSubAxisValuesetSegment,
+            toolchain.wert(),          bvset.wert(), overlay.wert(), mess_gates.wert()};
 }
 
 /// W10-C3: die Positions-Konstante ist BEWIESEN, nicht behauptet -- wer die Glied-Ordnung oben umbaut,
@@ -489,12 +583,30 @@ static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, B
 static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, BvsetGlied{"BV"},
                                           OverlayHash{"OV"})[kAnatomyFingerprintOverlayGlied] == "OV",
               "kAnatomyFingerprintOverlayGlied zeigt nicht mehr auf das Overlay-Glied.");
-static_assert(kAnatomyFingerprintOverlayGlied == kAnatomyFingerprintGliedCount - 1,
-              "Das Overlay-Glied ist per O-2/C-2 das SCHWANZ-Glied (noch leer, L14/Phase 6).");
+static_assert(anatomy_fingerprint_glieder("O", "S", "M", ToolchainGlied{"TC"}, BvsetGlied{"BV"}, OverlayHash{"OV"},
+                                          MessGatesGlied{"MG"})[kAnatomyFingerprintMessGatesGlied] == "MG",
+              "kAnatomyFingerprintMessGatesGlied zeigt nicht mehr auf das Mess-Gates-Glied.");
+/// R-3: das Overlay-Glied war bis Format 3 das SCHWANZ-Glied (O-2/C-2: "ein noch leeres Glied gehoert
+/// an den Schwanz, damit die Positionen der GEFUELLTEN Glieder stabil bleiben"). Ab Format 4 steht das
+/// Mess-Gates-Glied dahinter -- und zwar OHNE die alte Begruendung zu verletzen: die Bestands-Nummern
+/// [0]..[7] sind unveraendert, das neue Glied haengt sich an. Das Overlay-Glied bleibt damit das letzte
+/// NOCH LEERE Glied; wird es scharfgeschaltet (L14/Phase 6), verschiebt sich weiterhin keine Position.
+static_assert(kAnatomyFingerprintOverlayGlied == kAnatomyFingerprintGliedCount - 2,
+              "Das Overlay-Glied ist das letzte NOCH LEERE Glied (L14/Phase 6) und steht vor dem "
+              "Mess-Gates-Glied.");
+static_assert(kAnatomyFingerprintMessGatesGlied == kAnatomyFingerprintGliedCount - 1,
+              "Das Mess-Gates-Glied ist per R-3 (Format 4) das SCHWANZ-Glied.");
 static_assert(kAnatomyFingerprintSystemGlied < kAnatomyFingerprintToolchainGlied &&
                   kAnatomyFingerprintToolchainGlied < kAnatomyFingerprintBvsetGlied &&
-                  kAnatomyFingerprintBvsetGlied < kAnatomyFingerprintOverlayGlied,
+                  kAnatomyFingerprintBvsetGlied < kAnatomyFingerprintOverlayGlied &&
+                  kAnatomyFingerprintOverlayGlied < kAnatomyFingerprintMessGatesGlied,
               "Die benannten Positionen muessen aufsteigend und paarweise verschieden sein.");
+static_assert(kAnatomyFingerprintGliedCount == 9,
+              "R-3 (Format 4): die Glied-Folge hat NEUN Glieder. Wer sie aendert, aendert das "
+              "Preimage-Layout -- also die Identitaet jeder Tier-Binary -- und MUSS die Format-Kennung "
+              "kAnatomyFingerprintFormat mitbumpen (F7).");
+static_assert(kAnatomyFingerprintFormat == "fingerprint_format=4",
+              "R-3: die Format-Kennung und die Glied-Zahl sind auseinandergelaufen.");
 
 // -- NB2-2: DIE EINE PREIMAGE-KONSTRUKTION -------------------------------------------------------------
 //
@@ -583,10 +695,12 @@ constexpr void anatomy_fingerprint_preimage_emit(std::span<std::string_view cons
 /// mehrdeutiges Preimage zu hashen.
 [[nodiscard]] consteval std::array<char, 129>
 anatomy_fingerprint_hex(std::string_view organ, std::string_view system, std::string_view measurement,
-                        ToolchainGlied toolchain = ToolchainGlied{kToolchainStampGlied},
-                        BvsetGlied     bvset     = BvsetGlied{kBuildVariantSetSignatureGlied},
-                        OverlayHash    overlay   = OverlayHash{kOverlaySourceHash}) {
-    auto const glieder = anatomy_fingerprint_glieder(organ, system, measurement, toolchain, bvset, overlay);
+                        ToolchainGlied toolchain  = ToolchainGlied{kToolchainStampGlied},
+                        BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
+                        OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
+                        MessGatesGlied mess_gates = MessGatesGlied{""}) {
+    auto const glieder =
+        anatomy_fingerprint_glieder(organ, system, measurement, toolchain, bvset, overlay, mess_gates);
     detail::PreimageBytesSenke<kAnatomyFingerprintPreimageMax> senke{};
     anatomy_fingerprint_preimage_emit(std::span<std::string_view const>{glieder.data(), glieder.size()}, senke);
     auto const digest =
@@ -618,8 +732,9 @@ anatomy_fingerprint_hex(std::string_view, std::string_view, std::string_view, st
     static_assert(detail::kFingerprintMergeAritaetEntfallen<Rest...>,
                   "A13-M3/K-1: die merge-ZEILE existiert nicht mehr (Owner-E2 02.08.2026) -- das 4. Argument von "
                   "anatomy_fingerprint_hex ist ein BENANNTER Glied-TYP, kein string_view. O-2/C-2 (Format 3) "
-                  "haengt zwei weitere injizierbare Glieder an: die Schwanz-Slots heissen jetzt "
-                  "ToolchainGlied{...}, BvsetGlied{...}, OverlayHash{...} -- in dieser Reihenfolge. Ein "
+                  "haengt zwei weitere injizierbare Glieder an, R-3 (Format 4) das Mess-Gates-Glied: die "
+                  "Schwanz-Slots heissen jetzt ToolchainGlied{...}, BvsetGlied{...}, OverlayHash{...}, "
+                  "MessGatesGlied{...} -- in dieser Reihenfolge. Ein "
                   "Alt-Aufruf mit nackten string_view wuerde sie still gegeneinander verschieben; genau das "
                   "verhindert diese Sperre. Aufruf auf die 3-arg-Form ziehen (bzw. die Traeger-Typen explizit "
                   "angeben).");

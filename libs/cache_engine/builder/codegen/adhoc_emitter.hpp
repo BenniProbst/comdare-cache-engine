@@ -109,6 +109,16 @@ template <class C>
         // ist die CLI-Haertung (POST-v3 #34).
         // A13-M3 (Owner-E2): der frueher hier stehende merge_stamp-Parameter und sein 4-arg-_MERGE-Zweig sind
         // ERSATZLOS ENTFERNT -- die Merge-ZEILE existiert nicht mehr. Es bleiben genau ZWEI Emissions-Formen.
+        //
+        // [HISTORIK, NACHZUG R-3 07.08.2026] Der Satz oben "Default: [all]/leere Mess-Tooling-Combo -> EXAKT
+        // die bisherige 2-arg-Makro-Zeile" beschreibt den Stand VOR der Mess-Naht und wird hier nicht
+        // geloescht, weil er die Byte-Bilanz jener Scheibe begruendet. LEBENDE WAHRHEIT auf dem PERM-Pfad:
+        // resolve_live_measurement_combo_legend() liefert im UNGESETZT-Fall ausdruecklich "[all]", und
+        // measurement_stamp_line_from_combo_legend("[all]") ist die VOLLMENGEN-Zeile -- also NICHT leer.
+        // Der Perm-Pfad emittiert damit die 3-arg-Form; die 2-arg-Form bleibt der ce-only-/Katalog-Pfad
+        // (make_lazy_adhoc_source_gen ohne Argument), an dem die 320er-Byte-Identitaets-Wachen haengen.
+        // FUER R-3 FOLGENLOS: das neunte Preimage-Glied materialisiert INNEN in der Makro-Expansion (wie kFP
+        // selbst), nicht im emittierten Quelltext -- beide Emissions-Formen bleiben byte-identisch.
         if (measurement_stamp.empty()) {
             // Default (kein Mess-Tooling) -> die bisherige 2-arg-Form (byte-identisch).
             src += "COMDARE_ANATOMY_VERSION_STAMP(\"";
