@@ -23,3 +23,7 @@ add_subdirectory(gen_golden_fullpilot)
 # PAKET W3-C (Ledger Sec.32-F4/GN-8/O-4): axis_version_lock -- Content-Digest-Tripwire der Heuristik-
 # Strategie-Header (EXCLUDE_FROM_ALL, INERT-by-default; explizit gebaut vom CI-Lock-Check-Job).
 add_subdirectory(axis_version_lock)
+# E-E (2026-08-07): overlay_source_hash_gen -- der Pre-Build-Codegen des Overlay-Glieds [7] des
+# Tier-Fingerprints. BEWUSST NICHT EXCLUDE_FROM_ALL: sein Ergebnis ist ein Compile-Define, das jede
+# Uebersetzungseinheit mit Anatomy-Fingerprint braucht (Verdrahtung: cmake/overlay_source_hash.cmake).
+add_subdirectory(overlay_source_hash_gen)

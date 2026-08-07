@@ -442,9 +442,34 @@ inline constexpr std::string_view kCebMeasurementStampFor{kCebMeasurementStampAr
 /// zwar aus derselben Sache heraus wie die Zellwerte oben: die CEB ist KEIN Tier-Binary.
 /// MECHANISCH GEDECKT: die 3-arg-Form kann die neuen Slots gar nicht belegen; wer sie belegen will, muss
 /// die benannten Traeger-Typen explizit nennen und begruendet damit ein eigenes Byte-Ereignis.
+///
+/// -- E-E (07.08.2026): DIE ZUSAGE "MECHANISCH GEDECKT" WAERE HIER GERADE FALSCH GEWORDEN -------------
+///
+/// Der Satz oben stimmte, SOLANGE alle Schwanz-Glieder einen LEEREN Default hatten. Mit der
+/// Scharfschaltung des Overlay-Glieds [7] hat sein Default einen WERT (abi::kOverlaySourceHash, der
+/// Quell-Hash dieses Baums) -- die 3-arg-Form belegte den Slot ab da also SEHR WOHL, und zwar still. Die
+/// Deckung war keine mehr; sie musste explizit werden. Genau deshalb steht der Traeger jetzt da.
+///
+/// UND WARUM ER LEER BLEIBT -- die eigentliche Sachfrage. Das Overlay-Glied traegt den Quelltext-Stand
+/// des Achsen-Baums. Haenge kCebFingerprint daran, bewegte er sich bei JEDER Aenderung an irgendeiner
+/// Achsen-Quelle. Das klaenge nach mehr Ehrlichkeit, zerstoerte aber genau die Zusage, fuer die dieser
+/// Wert existiert: der Byte-Anker in test_d4_ceb_schluessel_wahl haelt fest, dass eine Bewegung von
+/// ceb_key_sha512 "ein deklariertes Byte-Ereignis mit Owner-Entscheid" ist "und nie ein Nebenprodukt".
+/// Ein Wert, der sich mit jedem Commit bewegt, KANN diese Wache nicht mehr tragen -- der Anker waere
+/// dauerrot und wuerde als erstes weggeworfen. Die Entscheidung ist also nicht "weniger Information",
+/// sondern "die Wache behalten": die CEB ist KEIN Tier-Binary, ihr Schluessel ist Provenienz und
+/// ausdruecklich KEIN Wiederverwendungs-Kriterium (s. Kopf, Punkt (a)) -- er darf und soll ruhig liegen.
+/// Die Quelltext-Identitaet, um die es dem Owner geht, sitzt dort, wo sie hingehoert: in der
+/// TIER-Binary, ueber den Bau-Kanal (profile_facade/overlay_source_hash_naht.hpp).
+/// FOLGE, ausdruecklich benannt: kCebFingerprint bewegt sich mit E-E NICHT. Der Aufruf unten ist
+/// byte-identisch zum Vor-E-E-Stand, weil die drei genannten Traeger genau die Werte tragen, die vorher
+/// die Defaults lieferten.
 template <CebComboLegend L>
-inline constexpr auto kCebFingerprintArrayFor =
-    ::comdare::cache_engine::abi::anatomy_fingerprint_hex("", "", kCebMeasurementStampFor<L>);
+inline constexpr auto kCebFingerprintArrayFor = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(
+    "", "", kCebMeasurementStampFor<L>,
+    ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
+    ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},
+    ::comdare::cache_engine::abi::OverlayHash{""});
 template <CebComboLegend L>
 inline constexpr std::string_view kCebFingerprintFor{kCebFingerprintArrayFor<L>.data(), 128};
 
