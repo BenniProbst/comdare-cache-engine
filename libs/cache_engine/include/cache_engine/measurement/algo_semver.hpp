@@ -62,12 +62,15 @@
 // sie gleichsetzen will, entscheidet damit ein Byte-Ereignis -- das ist ein Owner-Entscheid, kein
 // Nebenprodukt dieses Parsers.
 //
-// -- WAS DIESER PARSER NICHT PRUEFT (bewusst, mit Andockstelle) --------------------------------------
-// Er prueft die FORM, nicht den KATALOG. "x512{quatsch}" und "zzz" sind hier WOHLGEFORMT -- ob 'vl' ein
-// echtes AVX-512-Subset ist und ob 'gfni' ein zulaessiges Companion-Flag ist, entscheidet die
-// KATALOG-WACHE, und die braucht die SIMD-Recherche (Owner F-5/F-6, Workflow wf_93522b50-447), die noch
-// nicht vorliegt. Sie ist ein eigener Schritt (S2). Die Andockstelle dafuer ist unten benannt und traegt
-// den Grep-Anker S2-KATALOG-ANDOCKSTELLE.
+// -- WAS DIESER PARSER SELBST NICHT PRUEFT -- UND WER ES SEIT S2 TUT ---------------------------------
+// parse_algo_semver prueft die FORM, nicht den KATALOG: "x512{quatsch}" und "zzz" sind FUER DEN PARSER
+// wohlgeformt. Ob 'vl' ein echtes AVX-512-Subset ist, ob 'gfni' ein zulaessiges Companion-Flag ist und ob
+// ein Token unter SEINER Basis steht, entscheidet die KATALOG-WACHE flag_catalog_is_satisfied() -- seit
+// dem 07.08.2026 gebaut (S2), auf measurement/flag_grammar_catalog.hpp gestuetzt und in
+// ce_owned_version_is_wellformed() eingehaengt. Die Trennung bleibt: der PARSER kennt keinen Katalog (er
+// liefert "1.0.0.x512{quatsch}" weiter als geparsten Wert), die WACHE lehnt ihn ab. Wer nur parst, sieht
+// die Form; wer eine ce-eigene Version PRUEFT, bekommt beides. Der Grep-Anker der Naht bleibt
+// S2-KATALOG-ANDOCKSTELLE.
 //
 // == UNVERAENDERT AUS DER Q3-WELT (die Zahlen-Ebene) ================================================
 //   UINT := '0' | [1-9][0-9]{0,5}  -- KEINE fuehrende Null (ausser der Komponente "0" selbst), HOECHSTENS
@@ -89,6 +92,11 @@
 // Anatomie-Fingerprint ist consteval -- s. abi/anatomy_fingerprint.hpp), keine schweren Includes.
 
 #pragma once
+
+// Der KATALOG der Grammatik (S2, 07.08.2026): welche Token es gibt und unter welcher Basis jedes stehen
+// darf. Er liegt bewusst in einer eigenen Datei -- die Grammatik ist eine Aussage ueber ZEICHEN, der
+// Katalog eine ueber HARDWARE. Diese Zeile ist die EINE Naht zwischen beiden.
+#include <cache_engine/measurement/flag_grammar_catalog.hpp>
 
 #include <array>
 #include <cstddef>
@@ -655,18 +663,24 @@ struct RenderedAlgoSemVer {
     return std::string{render_algo_semver(parse_algo_semver(algo_version)).view()};
 }
 
-// == S2-KATALOG-ANDOCKSTELLE ======================================================================
+// == S2-KATALOG-ANDOCKSTELLE (GEBAUT 07.08.2026) ==================================================
 //
 // GREP-ANKER: S2-KATALOG-ANDOCKSTELLE
 //
-// WAS HIER NOCH NICHT STEHT UND WARUM: die Katalog-Wache -- also die Pruefung, ob ein Token ueberhaupt ein
-// zulaessiges Flag ist und ob es an SEINER Stelle stehen darf ('p'/'e' nur unter 'c'). Der Parser prueft
-// die FORM. Eine Wache gegen einen geratenen Katalog waere schlimmer als keine: sie wuerde gueltige Flags
-// ablehnen und dabei aussehen wie eine Zusage.
+// WAS HIER STEHT: die Katalog-Wache -- die Pruefung, ob ein Token ueberhaupt ein zulaessiges Flag ist
+// UND ob es an SEINER Stelle stehen darf ('p'/'e' nur unter 'c', 'sse2' nur unter 'x128'). Der Parser
+// prueft die FORM, diese Wache den KATALOG.
 //
-// DAS MATERIAL LIEGT SEIT 07.08.2026 VOR (SIMD-Recherche, Owner-Auftrag F-5/F-6, 5 Lenses, 108 Token).
-// Was daraus fuer DIESE Datei folgt, steht unten; der Katalog selbst gehoert nach S2 und in die
-// Nachbarschaft von measurement/simd_feature_flag.hpp, nicht hierher.
+// WARUM SIE ERST JETZT KAM: eine Wache gegen einen GERATENEN Katalog waere schlimmer als keine gewesen --
+// sie haette gueltige Flags abgelehnt und dabei ausgesehen wie eine Zusage. Und eine Attrappe, die heute
+// `true` liefert, aber so heisst, als pruefte sie etwas, ist die gefaehrlichere Form von "nicht gebaut".
+// Der Vorgaenger hat deshalb ausdruecklich KEINE gebaut, sondern nur die Andockstelle benannt.
+//
+// DAS MATERIAL LAG SEIT DEM 07.08.2026 VOR (SIMD-Recherche, Owner-Auftrag F-5/F-6, 6 Lenses, 108 Token).
+// Der Katalog selbst steht in measurement/flag_grammar_catalog.hpp -- in der Nachbarschaft von
+// measurement/simd_feature_flag.hpp, dessen Muster (cpuinfo-Id und Compiler-Schalter als EIGENE
+// Tabellenfelder, nie per String-Heuristik ineinander umgerechnet) er um den DRITTEN Namensraum
+// fortschreibt. 62 zugelassene Eintraege, 14 begruendet abgelehnte (Reserve), beides compile-time.
 //
 // -- DIE DREI NAMENSRAEUME (der wichtigste Befund fuer S2) -----------------------------------------
 // Ein SIMD-Flag hat DREI verschiedene Namen, und keine zwei sind durcheinander ableitbar:
@@ -700,23 +714,24 @@ struct RenderedAlgoSemVer {
 // trotzdem drei verschiedene Sachen. Genau das ist der Grund, warum die Unterscheidung in den KATALOG
 // gehoert und nicht in den Parser: die Form kann sie nicht sehen, und sie muss es auch nicht.
 //
-// OFFENER OWNER-ENTSCHEID zu (4): die MMX-Familie kann in dieser Grammatik ZWEI Gestalten annehmen --
-// als blosses Token auf Tiefe 0 ("1.0.0.c.mmx", wie ein Companion) oder als EIGENE Basis mit Klammer
-// ("1.0.0.c.x64{mmx.mmxext.3dnow}"). Die Form traegt beide; welche RICHTIG ist, ist eine Aussage ueber
-// die Hardware-Semantik (haben die MM-Register eine "Breite" im Sinne der Basen?) und damit ein
-// Owner-Entscheid. Er ist NICHT vorweggenommen: es gibt hier keine Basis-Menge, die ihn praejudizieren
-// wuerde.
+// OFFENER OWNER-ENTSCHEID zu (4), WEITERHIN OFFEN UND JETZT MECHANISCH MARKIERT: die MMX-Familie kann in
+// dieser Grammatik ZWEI Gestalten annehmen -- als blosses Token auf Tiefe 0 ("1.0.0.c.mmx", wie ein
+// Companion) oder als EIGENE Basis mit Klammer ("1.0.0.c.x64{mmx.mmxext.3dnow}"). Die Form traegt beide;
+// welche RICHTIG ist, ist eine Aussage ueber die Hardware-Semantik (haben die MM-Register eine "Breite"
+// im Sinne der Basen?) und damit ein Owner-Entscheid. DIE KATALOG-WACHE NIMMT IHN NICHT VORWEG: sie
+// LAESST BEIDE GESTALTEN DURCH (flag_grammar_catalog.hpp, Feld `eltern_alternativ`). Der Preis ist offen
+// benannt: bis zum Entscheid gibt es fuer dieselbe Tatsache zwei schreibbare Byte-Folgen. Ein
+// static_assert dort zaehlt die sechs betroffenen Eintraege -- wer den Entscheid vollzieht, kommt an
+// ihnen nicht vorbei.
 //
-// WO DIE WACHE ANDOCKT, wenn der Katalog steht -- drei Stellen, alle hier in dieser Datei:
-//   (1) EINE neue Funktion `flag_catalog_is_satisfied(AlgoSemVer const&)` unmittelbar unter dieser
-//       Andockstelle. Sie laeuft ueber for_each_flag_node() (unten) und prueft je Knoten Token UND
-//       Elternteil. Bewusst KEINE Attrappe, die heute `true` liefert: eine Wache, die nichts prueft, aber
-//       so heisst, als pruefte sie etwas, ist die gefaehrlichere Form von "nicht gebaut".
-//   (2) ce_owned_version_is_wellformed() bekommt sie als weiteren Konjunktions-Term (ungated).
-//   (3) Die CT-Negativ-Batterie am Dateiende bekommt einen Abschnitt (m) mit den Katalog-Fehlformen.
-// Die STRUKTUR dafuer ist fertig: for_each_flag_node() liefert Token, Tiefe und ELTERN-Token je Knoten --
-// die Wache muss die Zeile nicht erneut tokenisieren, und sie kann die Eltern-Bedingung ('p' nur unter 'c')
-// ohne einen zweiten Parser stellen.
+// WO DIE WACHE ANDOCKT -- drei Stellen, alle gebaut:
+//   (1) `flag_catalog_is_satisfied(AlgoSemVer const&)` unmittelbar unter dieser Andockstelle. Sie laeuft
+//       ueber for_each_flag_node() und prueft je Knoten Token UND Elternteil.
+//   (2) ce_owned_version_is_wellformed() traegt sie als weiteren Konjunktions-Term (ungated).
+//   (3) Die CT-Batterie am Dateiende hat den Abschnitt (m) mit den Katalog-Fehlformen.
+// Die STRUKTUR dafuer war fertig: for_each_flag_node() liefert Token, Tiefe und ELTERN-Token je Knoten --
+// die Wache tokenisiert die Zeile nicht erneut, und sie stellt die Eltern-Bedingung ('p' nur unter 'c')
+// ohne einen zweiten Parser.
 
 /// Der Index des ELTERN-Knotens von nodes[i] -- oder kNoFlagParent, wenn nodes[i] auf Tiefe 0 steht.
 /// Aus der Pre-Order-Darstellung ABGELEITET (der naechste Knoten links mit Tiefe depth-1), nicht gespeichert:
@@ -742,6 +757,46 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
         std::string_view const eltern = (p == kNoFlagParent) ? std::string_view{} : v.flags.nodes[p].view();
         fn(v.flags.nodes[i].view(), v.flags.nodes[i].depth, eltern);
     }
+}
+
+/// DIE KATALOG-WACHE. Steht JEDES Flag-Token der Version im Katalog, und steht es UNTER SEINER BASIS?
+///
+/// Sie ist der zweite Halbsatz der Grammatik: der Parser sagt "die Zeichen sind richtig gesetzt", diese
+/// Wache sagt "die Token bedeuten etwas, und sie bedeuten es an dieser Stelle". Ohne sie ist
+/// "1.0.0.x512{quatsch}" ein gueltiger Stempel, und ein Stempel ist Identitaet.
+///
+/// WARUM DAS ELTERN-TOKEN UND NICHT NUR DAS TOKEN -- der Katalog belegt es an drei Stellen selbst:
+///   * 'sse2' IST ein Katalog-Token, gehoert aber unter 'x128'. "x512{sse2}" waere eine Behauptung ueber
+///     eine 512-bit-Form, die es unter dem sse2-Bit nicht gibt.
+///   * 'vnni' und 'ifma' existieren je ZWEIMAL -- als avx_vnni/avx_ifma unter x256 und als
+///     avx512_vnni/avx512ifma unter x512. Verschiedene CPUID-Bits, verschiedene Compiler-Schalter. Ohne
+///     das Elternteil waeren sie nicht unterscheidbar, und der Stempel bezoege sich auf zwei Sachen.
+///   * 'f' ist unter 'x512' das AVX-512-Foundation-Subset und auf Tiefe 0 die Ziel-Hardware FPGA.
+/// Die TIEFE braucht die Wache dagegen NICHT: die Eltern-Kette begrenzt sich selbst. Um ein Token auf
+/// Tiefe 2 zu erreichen, muss sein Elternteil auf Tiefe 1 zugelassen sein -- und jedes Tiefe-1-Token des
+/// Katalogs hat als Elternteil eine Basis, die ihrerseits nur auf Tiefe 0 steht. "c{c{p}}" faellt damit
+/// schon am inneren 'c' (s. Batterie (m)).
+///
+/// KEIN FRUEHER AUSSTIEG: for_each_flag_node laeuft die Liste vollstaendig ab. Bei hoechstens
+/// kMaxFlagNodes == 96 Knoten ist das im constexpr-Pfad kostenlos, und es haelt die Wache an der EINEN
+/// Traversal-Primitive statt eine zweite Schleifenform daneben zu stellen.
+[[nodiscard]] constexpr bool flag_catalog_is_satisfied(AlgoSemVer const& v) noexcept {
+    bool erfuellt = true;
+    for_each_flag_node(
+        v, [&erfuellt](std::string_view token, std::uint8_t /*tiefe*/, std::string_view eltern) constexpr noexcept {
+            if (!flag_token_is_admitted_under(token, eltern)) erfuellt = false;
+        });
+    return erfuellt;
+}
+
+/// Dieselbe Frage an ein ROHES Literal -- fuer Aufrufer, die keine AlgoSemVer in der Hand haben.
+/// ACHTUNG, die Bedeutung fuer unparsbare Eingaben: die parst auf den Sentinel, und der Sentinel traegt
+/// NIE Flags (K-5) -- er erfuellt den Katalog also LEER. Das ist Absicht und keine Luecke: die
+/// Parsbarkeit ist die Aufgabe von version_is_parsable_or_documented_sentinel(), und eine Wache, die
+/// zwei verschiedene Fehlerklassen in EINEM Verdikt vermischt, sagt am Ende ueber keine von beiden
+/// etwas. ce_owned_version_is_wellformed() stellt deshalb beide Fragen nacheinander.
+[[nodiscard]] constexpr bool version_flags_are_in_catalog(std::string_view raw) noexcept {
+    return flag_catalog_is_satisfied(parse_algo_semver(raw));
 }
 
 // == DIE POLITIK-WACHEN (B12) =====================================================================
@@ -778,9 +833,16 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
 /// werden. Genutzt von der Organ-Registry (axis_variant_version_table.hpp) und den Nicht-Organ-Registries
 /// (System-Achsen-Code, Mess-Tooling, Mess-Framework, Toolchain, Pruefdock):
 ///   (a) PARSBAR (oder exakt der dokumentierte Sentinel)      -- kein stiller @0.0.0-Fall,
-///   (b) wenn ueberhaupt ein Flag da ist, dann ist 'c' darunter (Owner-F-10).
+///   (b) wenn ueberhaupt ein Flag da ist, dann ist 'c' darunter (Owner-F-10),
+///   (c) JEDES Flag-Token steht im KATALOG und unter SEINER Basis (S2, 07.08.2026).
 /// Die Owner-PFLICHT "ein Flag MUSS da sein" ist bewusst NICHT hier, sondern im gated Zwilling unten -- so
 /// bleibt dieser ungated Teil auch fuer Alt-/Fremd-Literale nutzbar.
+///
+/// WARUM (c) UNGATED IST UND NICHT HINTER COMDARE_VERSION_HW_FLAG_ENFORCE: das Define schaltet eine
+/// POLITIK ("ce-eigene Achsen MUESSEN 'c' tragen"), also eine Aussage darueber, WAS deklariert sein muss.
+/// Der Katalog ist keine Politik, sondern eine Aussage darueber, ob das Deklarierte ueberhaupt existiert.
+/// "1.0.0.c{quatsch}" ist unter JEDER Politik falsch. Eine Wache dafuer hinter ein Define zu haengen,
+/// hiesse einem Header zwei Bedeutungen zu geben -- genau das, wogegen die Zweiteilung hier gebaut ist.
 ///
 /// ENTFALLEN GEGENUEBER DER Q3-FASSUNG: der frueher dritte Term "NIE experimentell". Er hat mit der v2
 /// keinen Gegenstand mehr -- 'e' bedeutet EFFICIENCY CORE und ist ein legitimes Flag (R7). Die alte
@@ -790,7 +852,8 @@ constexpr void for_each_flag_node(AlgoSemVer const& v, Fn&& fn) {
 [[nodiscard]] constexpr bool ce_owned_version_is_wellformed(std::string_view raw) noexcept {
     if (!version_is_parsable_or_documented_sentinel(raw)) return false;
     AlgoSemVer const v = parse_algo_semver(raw);
-    return !v.has_flags() || v.has_top_level_flag("c");
+    if (v.has_flags() && !v.has_top_level_flag("c")) return false;
+    return flag_catalog_is_satisfied(v);
 }
 
 /// B12 (c): der GATED Zwilling (COMDARE_VERSION_HW_FLAG_ENFORCE). Er verlangt das CPU-Flag, waehrend der
@@ -1156,5 +1219,163 @@ static_assert(!ce_owned_version_satisfies_cpu_enforce(""));
 // Der gated Zwilling ist NIE schwaecher als der ungated Teil (Ordnungs-Gegenprobe).
 static_assert(ce_owned_version_satisfies_cpu_enforce("1.0.0.c") && ce_owned_version_is_wellformed("1.0.0.c"));
 static_assert(!ce_owned_version_satisfies_cpu_enforce("1.0.0") && ce_owned_version_is_wellformed("1.0.0"));
+
+// -- (m) DIE KATALOG-WACHE (S2, 07.08.2026) --------------------------------------------------------
+// Der Beweis, dass die Wache BEISST -- und dass sie den Bestand nicht bricht.
+
+namespace detail {
+/// JEDES Katalog-Token muss ein GRAMMATISCH ERREICHBARES Token sein: take_flag_token() muss es
+/// VOLLSTAENDIG und UNVERAENDERT konsumieren. Das ist die schaerfste der Tabellen-Wachen, weil sie die
+/// EINE Fehlerklasse faengt, die eine Tabelle sonst still traegt: ein Eintrag, den die Grammatik gar
+/// nicht schreiben kann. Wer "avx512_vbmi2" (Unterstrich), "sse4.1" (Punkt), "SSE2" (Grossbuchstabe)
+/// oder ein 17 Zeichen langes Token in die token-Spalte setzt, legt eine Zulassung an, die NIE greift --
+/// die Tabelle behauptete dann eine Wache, die es nicht gibt.
+/// Sie steht HIER und nicht in flag_grammar_catalog.hpp, weil sie den PARSER braucht: der Katalog kennt
+/// die Grammatik nicht (und darf sie nicht kennen -- sonst haetten wir wieder zwei Wahrheiten ueber die
+/// Token-Regel, und der Include liefe im Kreis).
+[[nodiscard]] constexpr bool token_ist_grammatisch_erreichbar(std::string_view t) noexcept {
+    std::string_view       rest = t;
+    std::string_view const tok  = take_flag_token(rest);
+    return !tok.empty() && tok == t && rest.empty();
+}
+[[nodiscard]] constexpr bool alle_katalog_token_sind_erreichbar() noexcept {
+    for (FlagCatalogEntry const& e : kFlagGrammarCatalog) {
+        if (!token_ist_grammatisch_erreichbar(e.token)) return false;
+        if (!e.eltern.empty() && !token_ist_grammatisch_erreichbar(e.eltern)) return false;
+        if (!e.eltern_alternativ.empty() && !token_ist_grammatisch_erreichbar(e.eltern_alternativ)) return false;
+    }
+    for (FlagReserveEntry const& r : kFlagGrammarReserve)
+        if (!token_ist_grammatisch_erreichbar(r.token)) return false;
+    return true;
+}
+} // namespace detail
+static_assert(detail::alle_katalog_token_sind_erreichbar(),
+              "Ein Katalog-Token, das die Grammatik nicht schreiben kann (Unterstrich, Punkt, "
+              "Grossbuchstabe, zu lang), ist eine Zulassung, die nie greift -- also keine Wache.");
+// Gegenprobe der Wache selbst: die drei Fehlformen, gegen die sie gebaut ist, faellt sie auch wirklich.
+static_assert(!detail::token_ist_grammatisch_erreichbar("avx512_vbmi2"));      // cpuinfo-Namensraum
+static_assert(!detail::token_ist_grammatisch_erreichbar("sse4.1"));            // Compiler-Schalter-Namensraum
+static_assert(!detail::token_ist_grammatisch_erreichbar("SSE2"));              // Grossbuchstabe
+static_assert(!detail::token_ist_grammatisch_erreichbar("abcdefghijklmnopq")); // > kMaxFlagTokenLen
+static_assert(detail::token_ist_grammatisch_erreichbar("3dnowprefetch"));      // das laengste echte Token
+
+// (m1) UNBEKANNTES TOKEN bricht -- auf JEDER Tiefe.
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{quatsch}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.quatsch")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{quatsch}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.zzz")));
+// ... und der Parser haelt sie weiterhin fuer WOHLGEFORMT. Genau diese Arbeitsteilung ist der Punkt:
+// eine Zeile, die formal richtig gesetzt ist und trotzdem nichts bedeutet, faellt jetzt auf.
+static_assert(!parse_algo_semver("1.0.0.x512{quatsch}").is_sentinel());
+
+// (m2) BEKANNTES TOKEN UNTER FALSCHER BASIS bricht -- die eigentliche Leistung dieser Wache.
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{sse2}"))); // sse2 gehoert unter x128
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{sse2}")));  // ... dort traegt es
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{vl}")));   // vl gehoert unter x512
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x256{vl}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{avx2}"))); // avx2 gehoert unter x256
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{vl}")));      // und schon gar nicht unter c
+// 'p'/'e' NUR unter 'c' (Owner-R8) -- die Bedingung, die die Andockstelle namentlich genannt hat.
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{p.e}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.p")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.e")));  // 'e' auf Tiefe 0
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.g{p}"))); // 'p' unter der GPU
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{p}")));
+// Die Tiefe braucht die Wache nicht: die Eltern-Kette begrenzt sich selbst (s. flag_catalog_is_satisfied).
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{c{p}}"))); // schon das innere 'c' faellt
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c{p{e}}"))); // 'e' ist kein Sub von 'p'
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{f{vl}}")));
+
+// (m3) COMPANION AN BASIS-STELLE bricht -- und das ist eine HARDWARE-Aussage, keine Stil-Regel.
+// Es gibt KEIN separates avx512-gfni-Bit: gfni deckt mit EINEM CPUID-Bit Legacy-SSE, VEX.128/256 und
+// (mit avx512f bzw. avx512vl) EVEX ab. Ein "x512{gfni}" behauptete ein Bit, das die ISA nicht kennt --
+// waehrend die Owner-Form "...x512{f.vl.bw.dq}.gfni" genau richtig ist: der Companion steht NEBEN der
+// Basis, nicht in ihr, weil seine Breite der Basis FOLGT.
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{gfni}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x256{vaes}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{vpclmulqdq}")));
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{f.vl}.gfni.vaes.vpclmulqdq")));
+// Dieselbe Regel fuer die Skalare, aus dem ENTGEGENGESETZTEN Grund (sie haben gar keine Breite).
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{popcnt}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{bmi2}")));
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.popcnt.bmi1.bmi2.abm.movbe.adx.rdrand.rdseed")));
+
+// (m4) DER OFFENE OWNER-ENTSCHEID ZU FALL (4): BEIDE Gestalten gehen durch, keine ist praejudiziert.
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext")));
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow}")));
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x64{mmx.mmxext.3dnow.3dnowext}")));
+// ... aber NICHT unter einer der drei echten Breiten-Basen. Das ist die Hardware-Aussage hinter Fall (4):
+// MM-Register sind auf den x87-Stack aliasiert, sie sind keine 128/256/512-bit-Register.
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x128{mmx}")));
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.x512{3dnow}")));
+
+// (m5) DER VOLLAUSBAU GEHT VOLLSTAENDIG DURCH. Er ist das schaerfste Positiv-Kriterium dieser Datei: 58
+// Knoten, jedes einzelne Token ein echtes Katalog-Token an seiner richtigen Stelle. Faellt er, ist eine
+// Katalog-Zeile falsch -- und ein Katalog, der eine legitime Vollform verwirft, ist ein Defekt und keine
+// Wache (dasselbe Argument, das schon kMaxFlagNodes von 32 auf 96 gehoben hat).
+static_assert(flag_catalog_is_satisfied(parse_algo_semver(detail::kVollausbau)),
+              "der am echten SIMD-Katalog gerechnete Vollausbau MUSS den Katalog erfuellen.");
+static_assert(ce_owned_version_is_wellformed(detail::kVollausbau));
+static_assert(ce_owned_version_satisfies_cpu_enforce(detail::kVollausbau));
+// Und das Owner-Beispiel ebenso -- Zeichen fuer Zeichen die Form aus dem Design-Doc.
+static_assert(flag_catalog_is_satisfied(parse_algo_semver(detail::kOwnerBeispiel)));
+static_assert(ce_owned_version_is_wellformed(detail::kOwnerBeispiel));
+// Die drei Basen einzeln, in ihrer vollen Sub-Liste.
+static_assert(flag_catalog_is_satisfied(
+    parse_algo_semver("1.0.0.x128{sse.sse2.sse3.ssse3.sse41.sse42.sse4a.aes.pclmulqdq.sha}")));
+static_assert(flag_catalog_is_satisfied(
+    parse_algo_semver("1.0.0.x256{avx.avx2.fma.f16c.vnni.ifma.vnniint8.vnniint16.neconvert.sha512.sm3.sm4}")));
+static_assert(flag_catalog_is_satisfied(
+    parse_algo_semver("1.0.0.x512{f.cd.vl.dq.bw.ifma.vbmi.vbmi2.vnni.bitalg.vpopcntdq.vp2intersect.bf16.fp16}")));
+
+// (m6) DER BESTAND BLEIBT GRUEN. Alle ce-eigenen Literale tragen heute 'c' bzw. 'c{p.e}'-Formen; die
+// Wache darf sie nicht brechen. Das ist keine Vermutung: die Registry-Wachen an den Stempel-STELLEN
+// laufen ueber genau diese Literale, und der ctest-Lauf ist der Vollzugsbeleg.
+static_assert(ce_owned_version_is_wellformed("1.0.0.c"));
+static_assert(ce_owned_version_is_wellformed("1.0.1.c"));
+static_assert(ce_owned_version_is_wellformed("1.0.2.c"));
+static_assert(ce_owned_version_is_wellformed("1.0.0.c{p}"));
+static_assert(ce_owned_version_is_wellformed("1.0.0.c{e}"));
+static_assert(ce_owned_version_is_wellformed("1.0.0.c{p.e}"));
+static_assert(ce_owned_version_is_wellformed("1.0.0")); // flaglos: der Katalog ist LEER erfuellt
+static_assert(ce_owned_version_is_wellformed("0.0.0")); // Sentinel: traegt nie Flags (K-5)
+static_assert(flag_catalog_is_satisfied(AlgoSemVer{})); // die leere Liste erfuellt ihn vakuum-weise
+// ... und die Katalog-Fehlform faellt jetzt AUCH an der B12-Wache, nicht nur am Einzelpraedikat.
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c{quatsch}"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.x512{sse2}"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.gfni.quatsch"));
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c{p.x}"));
+// GEGENPROBE, damit (c) nicht von (b) verdeckt wird: "1.0.0.g{p}" muesste schon an der 'c'-Pflicht
+// scheitern -- "1.0.0.c.g{p}" traegt 'c' und faellt trotzdem, also greift wirklich der Katalog-Term.
+static_assert(!ce_owned_version_is_wellformed("1.0.0.c.g{p}"));
+static_assert(version_satisfies_cpu_only_policy("1.0.0.c.g{p}")); // ... die Politik allein liesse es durch
+
+// (m7) DIE ROHE FORM version_flags_are_in_catalog: ihre Semantik fuer UNPARSBARES ist offen gelegt.
+// Sie sagt NICHTS ueber die Parsbarkeit -- ein unparsbares Literal parst auf den Sentinel, der Sentinel
+// traegt nie Flags, und der leere Katalog ist erfuellt. Wer beide Fragen braucht, nimmt
+// ce_owned_version_is_wellformed().
+static_assert(version_flags_are_in_catalog("1.0.0.c{p.e}"));
+static_assert(!version_flags_are_in_catalog("1.0.0.x512{sse2}"));
+static_assert(version_flags_are_in_catalog("v1.0.0c"));    // unparsbar -> Sentinel -> LEER erfuellt
+static_assert(!ce_owned_version_is_wellformed("v1.0.0c")); // ... aber die Voll-Wache faellt trotzdem
+static_assert(version_flags_are_in_catalog("quatsch"));
+static_assert(!ce_owned_version_is_wellformed("quatsch"));
+
+// (m8) WAS DIESE WACHE AUSDRUECKLICH NICHT PRUEFT -- benannt, damit niemand es fuer geprueft haelt:
+//   * DOPPELUNGEN. "1.0.0.c.c" und "1.0.0.x512{f.f}" gehen durch. Jedes Token steht im Katalog und an
+//     seiner Stelle; dass es zweimal dasteht, ist eine andere Fehlerklasse (Redundanz, nicht Bedeutung)
+//     und braucht eine eigene Wache. Sie ist NICHT gebaut.
+//   * EINE BREITEN-BASIS OHNE SUB-LISTE. "1.0.0.c.x512" geht durch. Ob eine nackte Basis eine sinnvolle
+//     Aussage ist ("gebaut fuer 512-bit, ohne zu sagen welches Subset"), ist eine Sach-Frage, die keine
+//     der Quellen beantwortet -- und strenger zu sein als die Quellen waere Raten.
+//   * ABHAENGIGKEITEN ZWISCHEN FLAGS. "1.0.0.c.x512{vl}" ohne 'f' geht durch, obwohl alle AVX-512-Subsets
+//     auf avx512f gegated sind; ebenso "x256{vaes}" ohne aes. Die Recherche liefert diese Ketten
+//     (aes->vaes, pclmulqdq->vpclmulqdq, avx512f->alles), aber eine Voraussetzungs-Wache ist ein eigener
+//     Schritt mit eigener Semantik-Frage (fordert das Flag die Voraussetzung, oder impliziert es sie?).
+//   * OB DIE MASCHINE DAS FLAG HAT. Das ist die Aufgabe von machine_simd_signature.hpp und des
+//     Bau-Gates -- diese Wache prueft das VOKABULAR, nicht die Hardware vor Ort.
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.c")));        // Doppelung: NICHT geprueft
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x512")));     // nackte Basis: NICHT geprueft
+static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.x512{vl}"))); // ohne 'f': NICHT geprueft
 
 } // namespace comdare::cache_engine::measurement

@@ -78,15 +78,24 @@ constexpr void assert_version_grammar() {
                   "Flags und optionalen Komposit-Klammern (\"1.0.0.c{p.e}.x512{f}\") -- KEIN 'v'-Praefix, ein "
                   "Punkt VOR jedem Flag, hinter '{' nie ein fuehrender Punkt (Owner-KERN 07.08.2026), "
                   "A10-X.Y.Z-Disziplin");
-    // WACHE "wenn ein Flag da ist, dann ist 'c' darunter" (Owner-F-10). Sie ist NICHT tautologisch -- eine
-    // ce-Registry-Variante mit "1.0.0.g" bricht hier compile-time MIT dem Typ-Namen, waehrend die FLAGLOSE
-    // Form ("1.0.0") durch GENAU DIESE Wache geht (sie prueft nur ein VORHANDENES Flag). Den flaglosen Fall
-    // weist der ENFORCE-Zweig unten hart zurueck; diese Wache bleibt trotzdem noetig (sie faengt g/f/n ohne
-    // 'c', ENFORCE faengt "kein Flag"), und sie ist die einzige, die auch ohne das Define greift.
+    // WACHE ce_owned_version_is_wellformed -- sie prueft seit S2 (07.08.2026) ZWEI Dinge, und der
+    // Meldungstext nennt beide. Er nannte bis dahin nur das erste; das Literal "1.0.0.c.x512{sse2}" brach
+    // damit MIT DER FALSCHEN BEGRUENDUNG ("ohne CPU-Basis"), obwohl es 'c' sehr wohl trug. Eine Wache, die
+    // richtig anschlaegt und falsch berichtet, schickt den naechsten auf die falsche Faehrte.
+    //   (1) "wenn ein Flag da ist, dann ist 'c' darunter" (Owner-F-10). NICHT tautologisch -- eine
+    //       Registry-Variante mit "1.0.0.g" bricht hier MIT dem Typ-Namen, waehrend die FLAGLOSE Form
+    //       ("1.0.0") durchgeht (sie prueft nur ein VORHANDENES Flag). Den flaglosen Fall weist der
+    //       ENFORCE-Zweig unten zurueck; diese Wache bleibt noetig (sie faengt g/f/n ohne 'c') und ist die
+    //       einzige, die auch ohne das Define greift.
+    //   (2) KATALOG: jedes Flag-Token existiert und steht unter SEINER Basis
+    //       (measurement/flag_grammar_catalog.hpp). "1.0.0.c{quatsch}" und "1.0.0.c.x512{sse2}" brechen
+    //       hier -- das erste, weil es das Token nicht gibt, das zweite, weil sse2 unter x128 gehoert.
     static_assert(::comdare::cache_engine::measurement::ce_owned_version_is_wellformed(W::algo_version),
-                  "algo_version ohne CPU-Basis: traegt eine ce-eigene Version ueberhaupt Flags, MUSS 'c' "
-                  "darunter sein -- g/f/n sind reserviert und werden hier nicht produziert (Owner-F-10 "
-                  "07.08.2026)");
+                  "algo_version nicht wohlgeformt -- ZWEI moegliche Gruende, beide compile-time geprueft: "
+                  "(1) die Version traegt Flags, aber 'c' ist nicht darunter (g/f/n sind reserviert und "
+                  "werden hier nicht produziert, Owner-F-10 07.08.2026); (2) ein Flag-Token steht NICHT im "
+                  "Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, flag_grammar_catalog.hpp -- "
+                  "z.B. 'x512{sse2}': sse2 gehoert unter x128)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
     // SCHARFSCHALTUNG (Owner-Q3: "Wir produzieren nur CPU code", in der v2 als F-10 praezisiert: "ce-eigene
     // Achsen tragen mindestens 'c'"). Die Wachen-LOGIK selbst (ce_owned_version_satisfies_cpu_enforce) ist

@@ -471,6 +471,24 @@ struct RunProfileResult {
     // Enable-Menge identisch => inert. EINMAL ausgewertet (Lauf-Konstante), nicht je Perm -- die Treiber-Config ist
     // eine Compile-Zeit-Eigenschaft dieses Prozesses. ZIRKULARITAETS-VERBOT: die Soll-Seite kommt aus der AKTUELLEN
     // Treiber-Konfiguration, NIEMALS aus der alten DLL oder deren Sidecar (das darf nur verglichen werden).
+    //
+    // [NACHGEFUEHRT 2026-08-07 -- EHRLICHE WIRKUNG. Der Absatz oben ist HISTORIK und in seinem Kern-Versprechen
+    // UEBERHOLT: "eine andere Signatur -> `.variant`-Mismatch -> Neubau GENAU dieser Binary (das Cross-Maschinen-
+    // Gate)". DIESEN MECHANISMUS GIBT ES NICHT MEHR. Seit der A2-Eichung ist `.fingerprint` DER EINE VERGLEICH von
+    // dll_is_current (build_orchestrator.hpp:330-337) -- `.variant` wird beim Skip-Check nicht mehr gelesen, weder
+    // scharf noch aus. Die Diskriminierung der Enable-MENGEN leistet seit Preimage-Format 3 das bvset-Glied [6] IM
+    // Fingerprint (anatomy_fingerprint.hpp:299-306, F7-(b)): strukturell, und ohne diese Variable zu brauchen.
+    //
+    // WARUM DIE VARIABLE TROTZDEM STEHT -- sie ist DEPRECATED, NICHT TOT. Sie entscheidet heute allein darueber, ob
+    // das `.variant`-PROVENIENZ-Sidecar neben der Binary liegt: scharf => write_variant_sidecar schreibt es; aus =>
+    // leerer Wert => der Writer ist no-op UND prune_stale_sidecars entfernt ein vorhandenes (build_orchestrator.hpp
+    // :440-446 und :698-703). Das ist ein ARTEFAKT-Effekt, kein SKIP-Effekt. Wer sie setzt, bekommt Provenienz auf
+    // der Platte -- kein Gate. Genau diese Verwechslung soll der Absatz hier verhindern, denn der NAME verspricht
+    // weiter ein Gate.
+    //
+    // ENTFERNUNG: erst nach vollstaendig gelandetem und gemessenem F7-(b). Der Aufraeumpass fuehrt den Posten als
+    // AP-11 mit dieser harten Vorbedingung -- solange das bvset-Glied nicht in JEDEM relevanten Pfad im Fingerprint
+    // steht, waere ihr Wegfall ein stiller Deckungsverlust. Bis dahin ist diese Notiz die Wache gegen den Namen.]
     std::string const variant_gate_sig = [] {
         char const* const vg = std::getenv("COMDARE_VARIANT_GATE");
         return (vg != nullptr && std::string_view{vg} == std::string_view{"true"})

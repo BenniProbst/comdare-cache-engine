@@ -60,9 +60,33 @@ else
         || abbruch "'$BASIS' existiert nicht (erst 'git fetch origin', oder Basis-Ref als Argument angeben)"
 fi
 
-BEREICH="$BASIS..HEAD"
-echo "BEREICH: $BEREICH"
-echo "  Basis: $(git rev-parse --short "$BASIS")   HEAD: $(git rev-parse --short HEAD)"
+# DREI PUNKTE, NICHT ZWEI -- und das ist der Unterschied zwischen "meine Arbeit" und
+# "mein Rueckstand". Gefunden am 07.08.2026 an einem echten Fall:
+#
+#   git diff origin/development..HEAD    -> 12 Dateien   (ZWEI Punkte: Endpunkt gegen Endpunkt)
+#   git diff origin/development...HEAD   ->  1 Datei     (DREI Punkte: ab der Abzweigung)
+#
+# Der Commit hatte GENAU EINE Datei angefasst. Die elf anderen kamen daher, dass
+# origin/development inzwischen weitergezogen war. Der Zwei-Punkt-Diff zeigt fremde,
+# auf development laengst GEHEILTE Zeilen als "hinzugefuegt" -- die Wache schlug in
+# Code an, den der Autor nie beruehrt hat.
+#
+# ZWEI SCHAEDEN, der zweite ist der schlimmere:
+#   (1) Der Autor sucht Stunden in fremdem Code nach einem Verstoss, der ihm nicht gehoert.
+#   (2) Schlimmer: er "heilt" fremde Zeilen auf seinen ALTEN Stand zurueck -- und schleppt
+#       damit einen Rueckwaerts-Merge ein. Eine Wache, die zu einer Regression verleitet,
+#       ist schlechter als keine.
+#
+# Die Drei-Punkt-Form misst ab dem gemeinsamen Vorfahren (merge-base) und beantwortet
+# damit die Frage, die diese Wache stellen will: WAS HABE ICH HINZUGEFUEGT?
+BEREICH="$BASIS...HEAD"
+_MERGE_BASE=$(git merge-base "$BASIS" HEAD 2>/dev/null) || abbruch "merge-base mit '$BASIS' nicht bestimmbar"
+echo "BEREICH: $BEREICH   (Drei-Punkt: ab der Abzweigung, nicht ab dem Endpunkt)"
+echo "  Basis: $(git rev-parse --short "$BASIS")   Abzweigung: $(git rev-parse --short "$_MERGE_BASE")   HEAD: $(git rev-parse --short HEAD)"
+if [ "$_MERGE_BASE" != "$(git rev-parse "$BASIS")" ]; then
+    echo "  HINWEIS: '$BASIS' ist seit der Abzweigung weitergezogen. Gemessen wird DEINE Arbeit"
+    echo "           ab der Abzweigung -- nicht der Rueckstand. (Vor dem Landen trotzdem mergen.)"
+fi
 echo ""
 
 # ── SCHMUTZIGER ARBEITSSTAND IST EIN ABBRUCH, KEINE WARNUNG ──────────────────

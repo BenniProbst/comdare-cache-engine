@@ -112,16 +112,19 @@ namespace detail {
 }
 } // namespace detail
 static_assert(detail::system_versionen_wohlgeformt(),
-              "System-Achsen-Code-Version verletzt die ce-Registry-Politik: (a) UNPARSBAR (und nicht der "
-              "dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde still als @0.0.0 in "
-              "system_stamp_line stempeln; oder (b) experimentelles 'e' (AUSSCHLIESSLICH die Pruefling-"
-              "Markierung, Owner-E2 02.08.2026); oder (c) FALSCHES Hardware-Flag (im CPU-only-Scope GENAU "
-              "'c' bzw. 'ce', Owner-Q3 02.08.2026)");
+              "System-Achsen-Code-Version verletzt die ce-Registry-Politik -- DREI moegliche Gruende: "
+              "(a) UNPARSBAR (und nicht der dokumentierte Sentinel \"0.0.0\") -- ein junk-Literal wuerde "
+              "still als @0.0.0 in system_stamp_line stempeln; oder (b) sie traegt Flags, aber 'c' ist "
+              "nicht darunter (g/f/n sind reserviert, nicht produziert -- Owner-F-10 07.08.2026); oder "
+              "(c) ein Flag-Token steht NICHT im Katalog oder nicht unter SEINER Basis (S2-Katalog-Wache, "
+              "measurement/flag_grammar_catalog.hpp -- z.B. 'x512{sse2}': sse2 gehoert unter x128)");
 #if COMDARE_VERSION_HW_FLAG_ENFORCE
 static_assert(detail::system_versionen_cpu_pflicht(),
-              "System-Achsen-Code-Version ohne CPU-Hardware-Flag (oder mit 'e'): im CPU-only-Scope MUSS jede "
-              "Version auf 'c' enden und darf NIE experimentell sein (Owner-Q3/E2 02.08.2026) -- "
-              "COMDARE_VERSION_HW_FLAG_ENFORCE ist scharf");
+              "System-Achsen-Code-Version ohne CPU-Flag: im CPU-only-Scope MUSS jede Version 'c' unter "
+              "ihren Flags tragen (Owner-Q3 02.08.2026 / F-10 07.08.2026) -- COMDARE_VERSION_HW_FLAG_ENFORCE "
+              "ist scharf. HINWEIS zur Historie: 'e' ist seit der Flag-Grammatik v2 EFFICIENCY CORE und "
+              "damit ein legitimes Flag -- der frueher hier genannte Term \"NIE experimentell\" ist "
+              "gegenstandslos, nicht abgeschwaecht");
 #endif
 
 namespace detail {
