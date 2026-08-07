@@ -167,10 +167,28 @@ echo "  (von $ANZ_DATEIEN beruehrten Dateien insgesamt; der Rest ist kein C++.)"
 echo "-----------------------------------------------------------------------------"
 echo ""
 
+# ── WAS DIESE WACHE NICHT PRUEFT ─────────────────────────────────────────────
+# Eine Wache, die nur ihr eigenes Gruen meldet und ueber ihre Luecken schweigt, ist
+# eine Einladung zum Fehlschluss "gruen == landefaehig". Genau so ist Pipeline 15199
+# rot geworden: diese Wache war gruen, aber cppcheck (Job lint:static) faengt Klassen,
+# die sie gar nicht kennt (uninitMemberVarNoCtor an 7 Membern). Deshalb steht die
+# Luecke ab jetzt IM Verdikt, nicht in einem Kommentar, den niemand liest.
+echo "============================================================================="
+echo " NICHT VON DIESER WACHE GEPRUEFT (die CI faehrt sie trotzdem):"
+echo "   * cppcheck / lint:static  -- Werkzeug lokal nicht vorhanden (MinIO-Cache-Artefakt"
+echo "     citool-cppcheck-2.21.0). Faengt u.a. uninitMemberVarNoCtor, das hier durchginge."
+echo "   * Bau + ctest             -- absichtlich nicht: sie gehoeren in den Bau-Schritt,"
+echo "     nicht in eine Datei-Wache. VOR dem Push selbst fahren."
+echo "   * chktex / LaTeX-Gates    -- nur im thesis-Repo relevant."
+echo "   * gitleaks                -- braucht einen echten Klon (Submodul-Falle), separat."
+echo "============================================================================="
+echo ""
+
 # ── Verdikt ──────────────────────────────────────────────────────────────────
 echo "============================================================================="
 if [ "$ROT" -eq 0 ]; then
-    echo "VOR-PUSH-WACHE: GRUEN -- alle Gates ueber alle $ANZ_DATEIEN beruehrten Dateien."
+    echo "VOR-PUSH-WACHE: GRUEN -- die HIER gefahrenen Gates ueber alle $ANZ_DATEIEN beruehrten"
+    echo "Dateien. KEINE Aussage ueber die oben genannten ungeprueften Gates."
     echo "============================================================================="
     exit 0
 fi
