@@ -16,7 +16,7 @@
 // nicht im emittierten .cpp -> golden-CRC 0xF1C1F26A1232073B unberuehrt. Saat fuer den #46b-std::map-Lookup (ein
 // kompakter, stabiler Provenienz-Schluessel je Tier-Binary).
 
-#include "mess_gates_glied.hpp"        // R-3: der Mess-GATE-Zustand DIESER TU als Preimage-Glied [8]
+#include "mess_gates_glied.hpp"         // R-3: der Mess-GATE-Zustand DIESER TU als Preimage-Glied [8]
 #include "subaxis_valueset_segment.hpp" // A13-M3: das Sub-Achsen-Werteset-Segment als Preimage-Glied
 
 #include <sha512/ctsha512.hpp>
@@ -561,7 +561,7 @@ anatomy_fingerprint_glieder(std::string_view organ, std::string_view system, std
     require_injizierter_glied_wert("bvset", bvset.wert());
     require_injizierter_glied_wert("overlay", overlay.wert());
     require_injizierter_glied_wert("mess-gates", mess_gates.wert());
-    return {kAnatomyFingerprintFormat, organ,        system,         measurement, kSubAxisValuesetSegment,
+    return {kAnatomyFingerprintFormat, organ,        system,         measurement,      kSubAxisValuesetSegment,
             toolchain.wert(),          bvset.wert(), overlay.wert(), mess_gates.wert()};
 }
 
@@ -699,8 +699,7 @@ anatomy_fingerprint_hex(std::string_view organ, std::string_view system, std::st
                         BvsetGlied     bvset      = BvsetGlied{kBuildVariantSetSignatureGlied},
                         OverlayHash    overlay    = OverlayHash{kOverlaySourceHash},
                         MessGatesGlied mess_gates = MessGatesGlied{""}) {
-    auto const glieder =
-        anatomy_fingerprint_glieder(organ, system, measurement, toolchain, bvset, overlay, mess_gates);
+    auto const glieder = anatomy_fingerprint_glieder(organ, system, measurement, toolchain, bvset, overlay, mess_gates);
     detail::PreimageBytesSenke<kAnatomyFingerprintPreimageMax> senke{};
     anatomy_fingerprint_preimage_emit(std::span<std::string_view const>{glieder.data(), glieder.size()}, senke);
     auto const digest =

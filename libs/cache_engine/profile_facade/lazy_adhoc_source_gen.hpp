@@ -372,8 +372,7 @@ template <class List>
     // (der Default), also bewegt allein das neunte Glied den Digest.
     auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
         organ, system, measurement_stamp, toolchain_glied, bvset_glied,
-        ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},
-        mess_gates_glied);
+        ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash}, mess_gates_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -417,11 +416,9 @@ template <class List>
 /// zur CX-4-Absicht. Ein uebergebener Wert gewinnt IMMER -- auch der leere String, der dann genau das
 /// bedeutet, was er sagt: "diese Binary traegt das Glied nicht". Kein Zweig rechnet mehr etwas anderes,
 /// als der Aufrufer verlangt hat.
-[[nodiscard]] inline ex::FingerprintFn
-make_lazy_adhoc_fingerprint_fn_from_env(std::string                system_cell_values = {},
-                                        std::optional<std::string> toolchain_glied    = std::nullopt,
-                                        std::optional<std::string> bvset_glied        = std::nullopt,
-                                        std::optional<std::string> mess_gates_glied   = std::nullopt) {
+[[nodiscard]] inline ex::FingerprintFn make_lazy_adhoc_fingerprint_fn_from_env(
+    std::string system_cell_values = {}, std::optional<std::string> toolchain_glied = std::nullopt,
+    std::optional<std::string> bvset_glied = std::nullopt, std::optional<std::string> mess_gates_glied = std::nullopt) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     std::string tc_wert =
         toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
@@ -434,7 +431,7 @@ make_lazy_adhoc_fingerprint_fn_from_env(std::string                system_cell_v
     // nicht" (NB2-5, gilt hier unveraendert; Frozen-/Bestands-Binaries aus der Zeit vor Format 4).
     std::string mg_wert = mess_gates_glied.has_value() ? std::move(*mess_gates_glied) : pfn::live_mess_gates_glied();
     auto        tables  = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
-    auto version_table =
+    auto        version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),

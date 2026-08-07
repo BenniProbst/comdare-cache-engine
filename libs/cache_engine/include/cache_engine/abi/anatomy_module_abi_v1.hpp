@@ -168,11 +168,10 @@
                 system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine)>(                               \
             system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine);                                    \
         static constexpr char kM[] = measurement_lit;                                                                  \
-        static constexpr auto kFP = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(                             \
+        static constexpr auto kFP  = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(                            \
             organ_lit, kSC.view(), measurement_lit,                                                                    \
             ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},          \
-            ::comdare::cache_engine::abi::BvsetGlied{                                                                  \
-                ::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},                                         \
+            ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},    \
             ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
             ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied});            \
         static constexpr auto kOE =                                                                                    \

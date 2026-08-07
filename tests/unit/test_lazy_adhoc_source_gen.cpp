@@ -456,15 +456,15 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     cea::ToolchainGlied const tc{cea::kToolchainStampGlied};
     cea::BvsetGlied const     bv{cea::kBuildVariantSetSignatureGlied};
     cea::OverlayHash const    ov{cea::kOverlaySourceHash};
-    auto const                glieder_mg  = cea::anatomy_fingerprint_glieder(args[0], args[1], "", tc, bv, ov, mg);
-    std::string const         preimage_mg = cea::anatomy_fingerprint_preimage(
-        std::span<std::string_view const>{glieder_mg.data(), glieder_mg.size()});
+    auto const                glieder_mg = cea::anatomy_fingerprint_glieder(args[0], args[1], "", tc, bv, ov, mg);
+    std::string const         preimage_mg =
+        cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder_mg.data(), glieder_mg.size()});
     auto const digest_mg = ::comdare::cache_engine::sha512::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage_mg.data()), preimage_mg.size()});
     auto const        hex_mg = ::comdare::cache_engine::sha512::to_hex(digest_mg);
     std::string const emitted_fp_mg(hex_mg.data(), hex_mg.size());
-    std::string const provider_fp_mg = tlz::lazy_adhoc_fingerprint_for(
-        tables, id, version_table, /*measurement=*/{}, cea::SystemCellValues{}, tc, bv, mg);
+    std::string const provider_fp_mg = tlz::lazy_adhoc_fingerprint_for(tables, id, version_table, /*measurement=*/{},
+                                                                       cea::SystemCellValues{}, tc, bv, mg);
     check_eq("(a3/R-3) FingerprintFn MIT Mess-Gates-Glied == sha512 derselben Glied-Folge", provider_fp_mg,
              emitted_fp_mg);
     check_true("(a3/R-3) das Mess-Gates-Glied BEWEGT den Laufzeit-Fingerprint (sonst waere der Zwilling "

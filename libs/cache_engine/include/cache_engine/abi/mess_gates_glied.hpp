@@ -153,8 +153,8 @@ inline constexpr std::size_t kMessGatesFeldCount       = 6;
 /// Grammatik voraus, die TU schreibt eine andere -- und nichts braeche.
 /// constexpr: der static_assert unten bindet die Praeprozessor-Fassung compile-hart an sie.
 [[nodiscard]] constexpr std::string mess_gates_glied_komponieren(bool measurement_on, bool statistics_on,
-                                                                bool experiment_mode_on, bool tooling_wallclock,
-                                                                bool tooling_macro, bool tooling_micro) {
+                                                                 bool experiment_mode_on, bool tooling_wallclock,
+                                                                 bool tooling_macro, bool tooling_micro) {
     std::string g{kMessGatesGliedPraefix};
     g += measurement_on ? "m1" : "m0";
     g += ';';
@@ -214,9 +214,9 @@ constexpr bool kMessGatesTuToolingMicro =
 /// kMessGatesTuGlied -- DER WERT DES NEUNTEN GLIEDS FUER **DIESE** UEBERSETZUNGSEINHEIT.
 /// Er entsteht rein aus den Segment-Literalen oben, also aus dem Praeprozessor-Zustand, den der
 /// Compiler wirklich sieht. Interne Bindung -- s. der ODR-Absatz im Kopf.
-constexpr std::string_view kMessGatesTuGlied = "mg=" COMDARE_MESS_GATES_SEG_M ";" COMDARE_MESS_GATES_SEG_S
-                                               ";" COMDARE_MESS_GATES_SEG_X ";" COMDARE_MESS_GATES_SEG_TW
-                                               ";" COMDARE_MESS_GATES_SEG_TM ";" COMDARE_MESS_GATES_SEG_TMI;
+constexpr std::string_view kMessGatesTuGlied =
+    "mg=" COMDARE_MESS_GATES_SEG_M ";" COMDARE_MESS_GATES_SEG_S ";" COMDARE_MESS_GATES_SEG_X
+    ";" COMDARE_MESS_GATES_SEG_TW ";" COMDARE_MESS_GATES_SEG_TM ";" COMDARE_MESS_GATES_SEG_TMI;
 // NOLINTEND(misc-definitions-in-headers)
 
 // -- W3: DER SELBSTBEWEIS. DIE KONSTANTE KANN DEN TU-ZUSTAND NICHT VERFEHLEN ----------------------
