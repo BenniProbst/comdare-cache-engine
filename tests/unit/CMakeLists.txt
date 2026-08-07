@@ -5335,7 +5335,7 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_fk1_nicht_gebaut_m
 set_tests_properties(test_fk1_nicht_gebaut_marker PROPERTIES LABELS "fehlerklassen;standalone;measured")
 
 # A8-S3 (2026-08-04, Qualitaets-Katalog KLASSE C): Wache der HOST-seitigen CSV-Spalten-Ereignisse
-# (pmc_branch_misses = real erhoben aber bisher stumm; op_<art>_p999_ns = Tail-Perzentile aus den
+# (pmc_branch_misses = honest-0, NICHT erhoben -- offener Posten M-3a; op_<art>_p999_ns = Tail-Perzentile aus den
 # IST-Vektoren; die drei nicht erhobenen T6-Groessen ehrlich als "n/a" statt stiller 0). Tragende
 # Aussage: Header- und Zeilen-Zellenzahl sind GLEICH -- ein halb nachgezogener END-Append verschoebe
 # jede Auswertungs-Spalte. Reiner Host-Pfad, kein Tier.
