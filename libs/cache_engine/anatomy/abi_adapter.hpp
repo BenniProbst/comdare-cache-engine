@@ -2206,7 +2206,17 @@ public:
             if (saved_vh_) vh_organ_ = *saved_vh_;
             // §4.3 (User 2026-06-04, R1): MATERIALISIERTEN Patricia-Trie bit-exakt auf den save-Stand (Fallback-Pfad).
             if (saved_pc_) pc_organ_ = *saved_pc_;
-            mig_organ_.reset();
+            // M-1/D-1 (06.08.2026): reset() ist ein STATISTICS-Member, dieser Block aber ein
+            // MEASUREMENT_ON-Block. Die beiden Gates sind damit NICHT unabhaengig waehlbar gewesen --
+            // MEASUREMENT_ON=1 ohne CE_ENABLE_STATISTICS brach hier hart (g++ 15.3: "ObservableMigration
+            // <NoMigration> has no member named reset"). Gemessen am Objekt, nicht vermutet: dieselbe
+            // Uebersetzungszeile MIT dem Gate liefert 0 Fehler, OHNE es genau diese und die Schwester-
+            // Stelle in tier_migrate_step. Das ist der Grund, warum die Mess-Achse bis M-1 gar keine
+            // waehlbare Tier-Ausstattung HABEN konnte: die einzige Trennlinie, die der Code anbot, war
+            // nicht baubar. Der requires-Guard ist DASSELBE Idiom, das reset_pathb_driven_organs_()
+            // schon fuehrt (pt_organ_), und er ist in jeder heute baubaren Konfiguration TRUE --
+            // byte-identisch fuer den gesamten golden-/CI-Bestand.
+            if constexpr (requires { mig_organ_.reset(); }) mig_organ_.reset();
         } catch (...) {
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreissen.
         }
@@ -2334,7 +2344,11 @@ public:
                               container_algorithm_.store_migrate_step(
                                   mig_organ_, container_algorithm_tier1_.store_mut(), max_moves);
                           }) {
-                mig_organ_.reset(); // tier_moves je Schritt frisch (analog Observer-reset()+scan)
+                // M-1/D-1: Schwester-Stelle zu tier_rollback_all -- STATISTICS-Member in einem
+                // MEASUREMENT_ON-Block. Gleicher requires-Guard, gleiche Byte-Bilanz (in jeder heute
+                // baubaren Konfiguration TRUE).
+                // tier_moves je Schritt frisch (analog Observer-reset()+scan)
+                if constexpr (requires { mig_organ_.reset(); }) mig_organ_.reset();
                 moved = container_algorithm_.store_migrate_step(mig_organ_, container_algorithm_tier1_.store_mut(),
                                                                 max_moves);
                 mig_organ_.add_tier_moves(moved); // ECHTE Buchung der bewegten Records (stats_ privat → diese API)

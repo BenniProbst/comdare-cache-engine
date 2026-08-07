@@ -4384,13 +4384,72 @@ target_include_directories(test_m_w12_stamp_bausteine PRIVATE
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 # Hermetik (CI-3): planner_version.hpp zieht transitiv topics/axis.hpp (boost::mp11) -- explizit linken.
-target_link_libraries(test_m_w12_stamp_bausteine PRIVATE gtest gtest_main Boost::mp11)
+# M-1/D-4: comdare_measurement_combo_ct ist die EINE Emissionsstelle der einkompilierten Mess-Combo. Diese
+# TU zieht builder/ceb_version_stamp.hpp; ohne den Link braeche sie mit dem benannten #error der
+# Verdrahtungs-Wache (und haette vorher, still, einen anderen kCebFingerprint gesehen als der Fassaden-Link).
+target_link_libraries(test_m_w12_stamp_bausteine PRIVATE gtest gtest_main Boost::mp11
+    comdare_measurement_combo_ct)
 comdare_set_platform_defines(test_m_w12_stamp_bausteine)
 target_compile_definitions(test_m_w12_stamp_bausteine PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
 add_test(NAME test_m_w12_stamp_bausteine COMMAND test_m_w12_stamp_bausteine)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_w12_stamp_bausteine)
 set_tests_properties(test_m_w12_stamp_bausteine PROPERTIES LABELS "m;blut")
+
+# -- M-1/D-4 (06.08.2026): DER BISS des CEB-Schluessels -----------------------------------------------
+# Weist beidseitig nach, dass kCebFingerprint an der EINKOMPILIERTEN Mess-Combo haengt: verschiedene Combo
+# => verschiedener Schluessel (21 Paare ueber alle 7 nicht-leeren Tooling-Teilmengen), gleiche Combo =>
+# derselbe Schluessel ueber einen ZWEITEN, unabhaengigen (Laufzeit-)Ableitungsweg. Dazu der Byte-Anker der
+# Vollmenge, der den Alt-Bestand an ceb_key_sha512 vor stiller Entwertung schuetzt.
+# Include-/Link-Menge == test_m_w12_stamp_bausteine (dieselbe Stempel-Flaeche).
+add_executable(test_d4_ceb_schluessel_wahl "test_d4_ceb_schluessel_wahl.cpp")
+target_compile_features(test_d4_ceb_schluessel_wahl PRIVATE cxx_std_23)
+target_include_directories(test_d4_ceb_schluessel_wahl PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_d4_ceb_schluessel_wahl PRIVATE gtest gtest_main Boost::mp11
+    comdare_measurement_combo_ct)
+comdare_set_platform_defines(test_d4_ceb_schluessel_wahl)
+target_compile_definitions(test_d4_ceb_schluessel_wahl PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_d4_ceb_schluessel_wahl COMMAND test_d4_ceb_schluessel_wahl)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d4_ceb_schluessel_wahl)
+set_tests_properties(test_d4_ceb_schluessel_wahl PROPERTIES LABELS "m;d4;stempel;fehlerklassen")
+
+# -- M-1/D-2 (06.08.2026): DER BISS des Mess-Vertrags CEB <-> Tier-Binary ------------------------------
+# Weist nach, dass eine Tier-Binary mit FALSCHER (oder fehlender) Mess-Deklaration am Pruefdock abgewiesen
+# wird. Drei Ebenen, und jede traegt etwas Eigenes: (A) die ECHTE Makro-Expansion in der TU selbst
+# (COMDARE_ANATOMY_VERSION_STAMP_M, wie in test_w10_system_cell_values), (B) eine REALE gebaute .so ueber
+# die dlopen-Grenze (r5g-adhoc-Fixture -- sie besteht das FUNKTIONS-Gate und faellt am MESS-Vertrag, weil
+# sie gar keinen Stempel traegt), (C) manipulierte PODs, deren Entry-Arrays aus DEMSELBEN consteval-Parser
+# stammen wie die des Makros.
+# LINK-MENGE: Stempel-Flaeche (wie test_m_w12) PLUS comdare::anatomy_module_loader fuer Ebene B (dieselbe
+# Menge wie test_pruef_only_gate, das dieselbe Fixture faehrt).
+add_executable(test_d2_mess_konsistenz_gate "test_d2_mess_konsistenz_gate.cpp")
+target_compile_features(test_d2_mess_konsistenz_gate PRIVATE cxx_std_23)
+target_include_directories(test_d2_mess_konsistenz_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_d2_mess_konsistenz_gate PRIVATE gtest gtest_main Boost::mp11
+    comdare::anatomy_module_loader)
+comdare_set_platform_defines(test_d2_mess_konsistenz_gate)
+target_compile_definitions(test_d2_mess_konsistenz_gate PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1
+    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
+add_dependencies(test_d2_mess_konsistenz_gate comdare_r5g_adhoc_perm)
+add_test(NAME test_d2_mess_konsistenz_gate COMMAND test_d2_mess_konsistenz_gate)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d2_mess_konsistenz_gate)
+set_tests_properties(test_d2_mess_konsistenz_gate PROPERTIES LABELS "m;d2;stempel;pruefdock;fehlerklassen")
 
 # W10-C1 (Bauplan-Dossier 20260803): die Single-Source der System-ZELLWERTE (abi/system_cell_values.hpp).
 # Orakel: Ziel-Zeilen-Form, je Fehlform eine benannte CT-Diagnose, Identitaet bei leerem Werte-Set,
@@ -4522,6 +4581,56 @@ comdare_attach_generated_catalog(test_w2_combo_ct_stamp)
 add_test(NAME test_w2_combo_ct_stamp COMMAND test_w2_combo_ct_stamp)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_w2_combo_ct_stamp)
 set_tests_properties(test_w2_combo_ct_stamp PROPERTIES LABELS "w2;stempel;fehlerklassen")
+
+# M-1/D-1 BISS (06.08.2026): die Mess-Achse WIRKT auf die Tier-Defines. Prueft die reine Abbildung
+# profile_facade/mess_achsen_naht.hpp mess_achsen_defines() -- die EINE Funktion, aus der
+# perm_mess_defines() (profile_run_facade.cpp) ihren Mess-Teil zieht.
+# BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT: der Biss beisst an der ABBILDUNG (Legende -> Defines),
+# nicht am Makro-Zustand dieser TU. Er muss unabhaengig davon rot werden, wie die CEB gerade
+# konfiguriert ist -- sonst prueft er die Umgebung statt die Aenderung.
+add_executable(test_m1_mess_achsen_wirkung
+    "test_m1_mess_achsen_wirkung.cpp")
+target_compile_features(test_m1_mess_achsen_wirkung PRIVATE cxx_std_23)
+target_include_directories(test_m1_mess_achsen_wirkung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_m1_mess_achsen_wirkung)
+add_test(NAME test_m1_mess_achsen_wirkung COMMAND test_m1_mess_achsen_wirkung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1_mess_achsen_wirkung)
+set_tests_properties(test_m1_mess_achsen_wirkung PROPERTIES LABELS "m1;messachse;stempel;fehlerklassen")
+
+# M-1/H-A + M-1/H-2 (06.08.2026): die STUFEN-Wache im CT-losen Zweig und die PMC-Ausstattungs-Invariante.
+# BEWUSST OHNE COMDARE_MEASUREMENT_COMBO_CT -- und hier ist das nicht bloss Unabhaengigkeit vom Makro-
+# Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,
+# die comdare_measurement_combo_ct linkt, wuerde den geheilten Defekt gar nicht erreichen. Fall (a)
+# verifiziert diese Voraussetzung zur Laufzeit, damit die Zusage nicht bloss hier im CMake steht.
+add_executable(test_m1h_stufen_und_pmc_wache
+    "test_m1h_stufen_und_pmc_wache.cpp")
+target_compile_features(test_m1h_stufen_und_pmc_wache PRIVATE cxx_std_23)
+target_include_directories(test_m1h_stufen_und_pmc_wache PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_m1h_stufen_und_pmc_wache)
+add_test(NAME test_m1h_stufen_und_pmc_wache COMMAND test_m1h_stufen_und_pmc_wache)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1h_stufen_und_pmc_wache)
+# KORREKTUR (2026-08-07, CI-Heilung nach M-1): das Label 'pmc' entfernt. Der Test prueft REINE
+# CT-/Konfigurationslogik (pruefe_pmc_ausstattung/resolve_live_measurement_combo_legend als benannte
+# Funktionen mit explizit uebergebenen bool-Parametern) -- NICHT die Laufzeit-Verfuegbarkeit echter
+# PMC-Hardware. Fall (d) durchlaeuft micro/pmc=true/false-Kombinationen ALS PARAMETER, unabhaengig vom
+# eigenen COMDARE_ENABLE_PMC-Build-Zustand dieser TU; Fall (e) ist im CT-losen Zustand dieser TU (kein
+# comdare_measurement_combo_ct verlinkt) in JEDEM Fall ein No-op. Das Ergebnis ist also identisch, ob
+# diese Binary mit COMDARE_ENABLE_PMC=ON oder =OFF gebaut wird -- keine Hardware-Abhaengigkeit.
+# Mit dem Label 'pmc' schloss test:unit (-LE pmc) den Test aus, waehrend der .pmc-Job (Template
+# .bare_metal) nur eine explizite --target-Liste baut, die dieser Test nie erreichte -- 'Not Run' in
+# pmc:amd/pmc:intel, nie in irgendeinem Job wirklich geprueft. DIESELBE Fehlerklasse wie M-CE-25/
+# Muster-F (2026-07-13, m3v2_pmc_smoke), von der R4-Abdeckungswache diesmal LAUT statt still gemacht --
+# die Wache hat ihren Zweck erfuellt. Ohne das Label faellt der Test unter test:unit (baut comdare_tests
+# vollstaendig) und wird dort real ausgefuehrt.
+set_tests_properties(test_m1h_stufen_und_pmc_wache PROPERTIES LABELS "m1;messachse;stufen;fehlerklassen")
 
 # Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
 # load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
@@ -5169,6 +5278,28 @@ target_compile_definitions(test_a8s3_csv_klasse_c PRIVATE
 add_test(NAME test_a8s3_csv_klasse_c COMMAND test_a8s3_csv_klasse_c)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a8s3_csv_klasse_c)
 set_tests_properties(test_a8s3_csv_klasse_c PROPERTIES LABELS "a8;csv;standalone;measured")
+
+# M-1/H-B (06.08.2026): die Observer-Zellen der CSV sind "n/a" statt 0, wenn die Tier-Binary ohne
+# Observer-Gate gebaut ist. Gleicher Bau-Zuschnitt wie der Nachbar oben (reiner Host-Pfad ueber
+# format_csv_row/lazy_csv_header, kein Tier). Die Mess-Defines sind noetig, weil der Iterator-Header
+# den Mess-Pfad mitzieht -- sie beschreiben die uebersetzende TU, nicht die geprueften Zeilen.
+add_executable(test_m1hb_observer_zellen_ehrlich "test_m1hb_observer_zellen_ehrlich.cpp")
+target_compile_features(test_m1hb_observer_zellen_ehrlich PRIVATE cxx_std_23)
+target_include_directories(test_m1hb_observer_zellen_ehrlich PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_m1hb_observer_zellen_ehrlich PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_m1hb_observer_zellen_ehrlich)
+target_compile_definitions(test_m1hb_observer_zellen_ehrlich PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_m1hb_observer_zellen_ehrlich COMMAND test_m1hb_observer_zellen_ehrlich)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m1hb_observer_zellen_ehrlich)
+set_tests_properties(test_m1hb_observer_zellen_ehrlich PROPERTIES LABELS "m1;csv;messachse;standalone")
 
 # E-04-P1 (Slice-Kanal, Marker-Familie v2, Owner-KERN "live sehen ... exakt WELCHE ... noch offen"):
 # Guard der Zeilen-Grammatik des Live-Fortschritts-Kanals. Tragende Aussage: lane=/zelle=/fenster=

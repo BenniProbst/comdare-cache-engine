@@ -659,8 +659,18 @@ struct ExperimentPhaseProjection {
 /// bleiben byte-identisch zum Ist. Fork 3 (CacheEngine-self-Pass via phase.identity) + Fork 4 (per-Achse
 /// merge_mode in der Komposition) sind DATEN-getragen (Parser/validate), aber ihre binary_id-veraendernde
 /// AKTIVIERUNG ist golden-regen-/gate-gated und HIER NOCH NICHT scharf (das Kreuzprodukt bleibt merge×lebewesen).
+///
+/// M-1/D-2 (06.08.2026) -- APPEND-ONLY `measurement_stamp`, und der Grund ist ein BEFUND: der Thesis-Weg reichte
+/// die Mess-Tooling-Zeile seit A13-M3/C1 durch (profile_run_entry ruft build_sota_view_source_map(tp, stamp)),
+/// dieser Experiment-Weg NICHT -- er rief den Paar-Overload ohne Stempel. Beide Wege bauen Tier-Binaries, aber
+/// nur die des Thesis-Wegs DEKLARIERTEN je ihre Mess-Ausstattung; die des Experiment-Wegs trugen die 2-arg-Form
+/// mit measurement_line == "" (EHRLICH, aber eben "kein Mess-Tooling einkompiliert"). Solange die Deklaration
+/// niemand las (D-2: 0 produktive Leser), fiel die Asymmetrie nicht auf. Mit dem Mess-Konsistenz-Gate am
+/// Pruefdock faellt sie auf -- fail-closed, als deklaration_leer.
+/// DEFAULT LEER == die IDENTITAET: jeder Bestands-Aufruf (Planer-Weg, Projektions-Tests) rendert byte-identisch
+/// weiter; NUR der Lauf-Weg (experiment_run_entry) belegt das Argument und wechselt damit auf die 3-arg-_M-Form.
 [[nodiscard]] inline std::vector<ExperimentPhaseProjection>
-project_experiment_to_sota_passes(cx::ExperimentProfile const& ep) {
+project_experiment_to_sota_passes(cx::ExperimentProfile const& ep, std::string const& measurement_stamp = {}) {
     std::vector<cx::ExperimentPhase> const derived =
         ep.phases.empty() ? derive_default_experiment_phases() : std::vector<cx::ExperimentPhase>{};
     std::vector<cx::ExperimentPhase> const& phases = ep.phases.empty() ? derived : ep.phases;
@@ -672,7 +682,7 @@ project_experiment_to_sota_passes(cx::ExperimentProfile const& ep) {
         pairs.reserve(ep.lebewesen.size());
         for (auto const& l : ep.lebewesen) pairs.push_back(SotaMergeLebewesen{phase.merge, l});
         out.push_back(ExperimentPhaseProjection{phase.name, phase.merge, build_sota_passes(pairs),
-                                                build_sota_view_source_map(pairs)});
+                                                build_sota_view_source_map(pairs, measurement_stamp)});
     }
     return out;
 }

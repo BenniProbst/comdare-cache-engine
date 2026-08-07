@@ -22,6 +22,7 @@
 #include "system_version_suffix.hpp"   // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include "system_cell_values_naht.hpp" // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
 #include "toolchain_stamp_naht.hpp"    // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
+#include "mess_achsen_naht.hpp"        // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -270,9 +271,36 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     return {std::string{flag}};
 }
 
+// M-1/D-1 (06.08.2026) -- DIE STUFE-2->STUFE-3-NAHT DER MESS-ACHSE.
+//
+// WAS HIER VORHER STAND: die drei Mess-Defines als LITERALE in der Initialisierungsliste --
+// -DCOMDARE_MEASUREMENT_ON=1, -DCOMDARE_CE_ENABLE_STATISTICS=1, -DCOMDARE_EXPERIMENT_MODE_ON=1,
+// unabhaengig von jeder Tooling-Wahl. Ein vollstaendiger Scan nach MeasurementTooling|measurement_tooling
+// ueber libs/ und apps/ fand 105 Treffer in 14 Dateien -- Plan-Legende, Job-Fan-out, Stempel-Renderer,
+// XML-Trage-Pfad -- und KEINEN EINZIGEN, der Messcode ein- oder ausschaltet. Das Preimage-Glied [3]
+// deklarierte also "die CT-Mess-AUSSTATTUNG dieser Tier-Binary", waehrend jede Tier-Binary die volle
+// Ausstattung bekam. Der Stempel log, und nichts brach.
+//
+// AB HIER: der Mess-Teil des Define-Vektors ist eine FUNKTION der einkompilierten Mess-Achse
+// (profile_facade/mess_achsen_naht.hpp). Die Naht loest die Combo-Legende GENAU EINMAL auf; dieselbe
+// Aufloesung speist den Stempel (lazy_adhoc_source_gen measurement_stamp_from_env -> Glied [3]).
+// Deshalb kann der Bau nicht mehr etwas anderes einbauen, als der Stempel behauptet -- strukturell,
+// nicht per Absprache. Die Begruendung JEDER Zuordnung (welches Tooling welches Gate zieht) steht am
+// Objekt belegt im Kopf von mess_achsen_naht.hpp, ebenso die ehrliche Grenze (macro und micro teilen
+// heute EIN Gate) und die PMC-Entscheidung.
+//
+// WAS BEWUSST NICHT AUS DER MESS-ACHSE KOMMT:
+//   -DCOMDARE_ANATOMY_MODULE_BUILD=1  -- die Modul-Bau-Markierung. Sie sagt "dies ist eine Tier-Binary",
+//                                        nicht "so wird gemessen"; sie gilt fuer JEDE Ausstattung.
+//   -DCOMDARE_EXPERIMENT_MODE_ON=1    -- die Experiment-Kompilat-Markierung (Wurzel-CMakeLists:446
+//                                        "AKTIVIERT selbst keine Hooks"). Sie VERLANGT ihrerseits
+//                                        MEASUREMENT_ON (abi_adapter.hpp:9-10, #error) -- und weil die
+//                                        Naht MEASUREMENT_ON fuer jede nicht-leere Menge setzt, ist die
+//                                        Invariante erhalten.
 [[nodiscard]] std::vector<std::string> perm_mess_defines() {
-    std::vector<std::string> d = {"-DCOMDARE_ANATOMY_MODULE_BUILD=1", "-DCOMDARE_MEASUREMENT_ON=1",
-                                  "-DCOMDARE_CE_ENABLE_STATISTICS=1", "-DCOMDARE_EXPERIMENT_MODE_ON=1"};
+    std::vector<std::string> d = {"-DCOMDARE_ANATOMY_MODULE_BUILD=1"};
+    for (auto& f : ::comdare::cache_engine::profile_facade::live_mess_achsen_defines()) d.push_back(std::move(f));
+    d.emplace_back("-DCOMDARE_EXPERIMENT_MODE_ON=1");
 #ifdef COMDARE_OS_LINUX
     d.emplace_back("-DCOMDARE_OS_LINUX=1");
 #endif

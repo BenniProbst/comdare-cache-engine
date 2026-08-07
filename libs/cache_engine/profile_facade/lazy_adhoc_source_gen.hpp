@@ -74,6 +74,7 @@
 
 #include "source_catalog.hpp" // die 17 TopicConfigSet::StaticAxisVariants_* (Single-Source der Flyweight-Tabellen)
 #include "toolchain_stamp_naht.hpp" // NB/CX-4: die LIVE-Werte der Glieder [5]/[6] -- DIESELBEN wie im Bau-Kanal
+#include "mess_achsen_naht.hpp"     // M-1/D-1: die EINE Aufloesung der Mess-Combo -- DIESELBE wie im Bau-Kanal
 
 #include <builder/codegen/adhoc_emitter.hpp>                   // render_adhoc_module_source / strip_all_elaborated
 #include <builder/codegen/type_name.hpp>                       // type_name<W>
@@ -281,31 +282,20 @@ template <class List>
 ///
 /// BYTE-BILANZ von F-B2: KEIN Stempel-Byte bewegt sich. Der Wurf ersetzt ausschliesslich ein Ergebnis, das der
 /// Alt-Stand still aus einem widerspruechlichen Zustand erzeugte; jeder LEGALE Lauf rendert unveraendert.
+///
+/// M-1/D-1 (06.08.2026) -- DIE AUFLOESUNG WOHNT AB HIER IN DER MESS-NAHT, NICHT MEHR IN DIESER FUNKTION.
+/// Der frueher hier stehende #ifdef-Block (CT-Lesung + die beiden F-B2-Wuerfe + der Env-Zweig) ist
+/// WORTGLEICH nach profile_facade/mess_achsen_naht.hpp gewandert (resolve_live_measurement_combo_legend).
+/// GRUND: der BAU-Kanal (perm_mess_defines -> perm_compile_flags) leitet ab M-1 seinen Define-Vektor aus
+/// derselben Mess-Achse ab. Stuende die Aufloesung weiter NUR hier, muesste die Bau-Seite eine ZWEITE
+/// aufmachen -- und genau daraus entstand D-1: das Preimage-Glied [3] deklarierte eine Mess-Ausstattung,
+/// die der Bau nicht kannte. Eine Aufloesung, zwei Verbraucher, keine Absprache.
+/// BYTE-BILANZ: der Renderer ist unveraendert und bekommt denselben Legenden-String
+/// (der CT-lose UNGESETZT-Zweig liefert "[all]", und measurement_stamp_line_from_combo_legend("[all]")
+/// IST measurement_stamp_line_full_set()) -- kein Stempel-Byte bewegt sich.
 [[nodiscard]] inline std::string measurement_stamp_from_env() {
-#ifdef COMDARE_MEASUREMENT_COMBO_CT
-    // cppcheck-Adjazenz-Falle (Fallen-Kanon 05.08., lint:static 14673): das Makro darf NIE zwischen zwei
-    // String-Literalen stehen (unknownMacro/Configuration-required). Deshalb EINMAL in ein benanntes
-    // std::string-Objekt und danach nur noch ueber den Namen arbeiten.
-    std::string const ct_legend{COMDARE_MEASUREMENT_COMBO_CT};
-    char const* const e         = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    bool const        env_fehlt = (e == nullptr || *e == '\0');
-    // [all]/leer als einkompilierter Wert ist die Vollmenge, also KEINE spezifische Wahl (s. AUSNAHME oben).
-    bool const ct_ist_vollmenge = ct_legend.empty() || ct_legend == "[all]";
-    if (env_fehlt && !ct_ist_vollmenge)
-        throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO fehlt/leer, "
-                                 "aber die Mess-Combo ist einkompiliert ('" +
-                                 ct_legend +
-                                 "') -- beide Kanaele muessen synchron sein (die Env speist +mtool und die "
-                                 "Bestandslog-Zelle, das Compile-Define den Stempel)");
-    if (!env_fehlt && std::string_view{e} != std::string_view{ct_legend})
-        throw std::runtime_error("fehlerklasse=konfiguration_widerspruch: COMDARE_MEASUREMENT_COMBO ('" +
-                                 std::string{e} + "') != einkompilierte Combo ('" + ct_legend + "')");
-    return ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(ct_legend);
-#else
-    char const* const e = std::getenv("COMDARE_MEASUREMENT_COMBO");
-    return (e != nullptr && *e != '\0') ? ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(e)
-                                        : ::comdare::cache_engine::abi::measurement_stamp_line_full_set();
-#endif
+    return ::comdare::cache_engine::abi::measurement_stamp_line_from_combo_legend(
+        ::comdare::cache_engine::profile_facade::resolve_live_measurement_combo_legend());
 }
 
 /// make_lazy_adhoc_source_gen_from_env() -- die LIVE-Naht der S6-P1b Env-Bruecke (d)-(f): die vom Planer gewaehlte

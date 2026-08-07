@@ -405,7 +405,21 @@ struct RunProfileResult {
     // A13-M3/C1 (K-3): die SOTA-Quellen tragen ab jetzt die VOLLEN Stempel-Zeilen. Die Mess-Combo kommt aus
     // DERSELBEN Env-Bruecke (measurement_stamp_from_env), die zehn Zeilen tiefer den lazy Source-Gen speist --
     // die SOTA-DLLs eines Laufs stempeln damit dieselbe Tooling-Wahl wie die adhoc-DLLs desselben Laufs.
-    std::string const sota_measurement_stamp = measurement_stamp_from_env();
+    // M-1/D-2 (06.08.2026): DIE EINE Lesung der Mess-Zeile dieses Laufs. Sie hatte bis hierher genau zwei
+    // Konsumenten (SOTA-Quellen + lazy Source-Gen, beide unten); ab jetzt drei -- der dritte ist die SOLL-Seite
+    // des Mess-Vertrags am Pruefdock (LazyRunConfig::erwartete_mess_zeile). Sie steht bewusst als EIN benanntes
+    // Objekt da und wird nicht dreimal gerufen: measurement_stamp_from_env() ist zwar deterministisch, aber ein
+    // dritter Aufruf waere ein dritter Ableitungsweg in Wartestellung -- genau die O-8-Schritt-12-Falle, und
+    // genau der Mechanismus, aus dem D-1 entstanden ist.
+    // M-1/H-2 (06.08.2026): die PMC-Ausstattung gehoert zur Mess-Achse. Der Wurf steht VOR der ersten
+    // gestempelten Quelle -- ein Lauf, dessen einkompilierte Mess-Achse und PMC-Ausstattung sich
+    // widersprechen, darf gar nicht erst Binaries erzeugen. Herleitung + Messwerte: mess_achsen_naht.hpp.
+    // Ohne einkompilierte Combo (der gesamte heutige Bestand) ist der Aufruf ein No-op.
+    ::comdare::cache_engine::profile_facade::pruefe_pmc_gegen_mess_achse();
+    std::string const live_mess_zeile        = measurement_stamp_from_env();
+    std::string const sota_measurement_stamp = live_mess_zeile;
+    // M-1/H-B (06.08.2026): traegt die Tier-Binary dieses Laufs den Observer? Aus DERSELBEN Aufloesung.
+    bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
     for (auto& [k, v] : build_sota_view_source_map(tp, sota_measurement_stamp))
         fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn base_union = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
@@ -611,16 +625,23 @@ struct RunProfileResult {
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
         // greift nur als Fallback (n_ops=0 im Profil = ungesetzt).
-        cfg.n_ops                     = (tp.run_options.n_ops > 0) ? tp.run_options.n_ops : a.n_ops;
-        cfg.workload_records          = ws_n;
-        cfg.workload_configs          = a.workload_registry;
-        cfg.build_version             = perm_build_version; // GN-3: per-Perm (+cxx=+opt=+ext=), sonst = a.build_version
-        cfg.row_series                = series.empty() ? std::string{"-"} : series;
-        cfg.row_pruefling_type        = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
-        cfg.row_sweep_axis            = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
-        cfg.row_fairness_mode         = fairness_mode.empty() ? std::string{"-"} : fairness_mode; // GO-5 Fork 6
-        cfg.row_h2_score              = h2_score.empty() ? std::string{"-"} : h2_score;           // GO-5 Fork 7
-        cfg.profile_datasets          = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
+        cfg.n_ops              = (tp.run_options.n_ops > 0) ? tp.run_options.n_ops : a.n_ops;
+        cfg.workload_records   = ws_n;
+        cfg.workload_configs   = a.workload_registry;
+        cfg.build_version      = perm_build_version; // GN-3: per-Perm (+cxx=+opt=+ext=), sonst = a.build_version
+        cfg.row_series         = series.empty() ? std::string{"-"} : series;
+        cfg.row_pruefling_type = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
+        cfg.row_sweep_axis     = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
+        cfg.row_fairness_mode  = fairness_mode.empty() ? std::string{"-"} : fairness_mode; // GO-5 Fork 6
+        cfg.row_h2_score       = h2_score.empty() ? std::string{"-"} : h2_score;           // GO-5 Fork 7
+        cfg.profile_datasets   = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
+        // M-1/D-2: die SOLL-Seite des Mess-Vertrags. DIESELBE Zeile, die oben die SOTA-Quellen und den lazy
+        // Source-Gen stempelt -- der Vertrag vergleicht damit die Binary gegen das, was DIESER Lauf in sie
+        // hineingestempelt hat, nicht gegen eine zweite Ableitung.
+        cfg.erwartete_mess_zeile = live_mess_zeile;
+        // M-1/H-B: die Observer-Ausstattung derselben Aufloesung. false => die stat_*-, seg_*-,
+        // observable_axes-, fill_level- und filled_axes-Zellen sind ehrlich "n/a" statt 0.
+        cfg.mess_observer_ausstattung = live_observer_ausstattung;
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = perm_tag_build_version; // GN-3: per-Perm-CSV-Tag, sonst = tag_build_version
         cfg.source_dir                = a.src_dir;

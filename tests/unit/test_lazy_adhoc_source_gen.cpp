@@ -28,7 +28,8 @@
 #include <algorithm> // K7b-2: std::count (Trenner-Zaehlung der Mengen-Stempel-Zeile)
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib> // S6-P1b Env-Bruecke: setenv/unsetenv (COMDARE_MEASUREMENT_COMBO)
+#include <cstdlib>   // S6-P1b Env-Bruecke: setenv/unsetenv (COMDARE_MEASUREMENT_COMBO)
+#include <exception> // M-1/H-A: die Stufen-Wache wird als Wurf geprueft (std::exception::what)
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -357,12 +358,30 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
     check_true("(f) leere legend -> leer", abi::measurement_stamp_line_from_combo_legend("").empty());
 
     std::string const id = g320_ids.front();
-    // Env gesetzt ([macro]) -> die from_env-Naht stempelt die Quelle mit measurement_tooling=macro.
+    // M-1/H-A (06.08.2026) -- HIER STAND BIS HEUTE DIE LUECKE, UND ZWAR ALS GRUENER TEST.
+    // Bis hierher stempelte "Env [macro] ohne einkompilierte Combo" die Quelle klaglos mit
+    // measurement_tooling=macro -- und die BAU-Seite derselben Aufloesung leitete daraus einen anderen
+    // Tier-Define-Vektor ab, aus einer CEB, die nie fuer [macro] gebaut wurde. Das ist der uebersprungene
+    // CT-EINBAU der STUFE 2 der Mess-Stufen-Doktrin (Planer RT -> CEB CT -> Tier CT) und woertlich
+    // Owner-KERN F2 ("bei einem neuen Messsystem [muss] auch die CEB ... neu gebaut werden").
+    // Diese TU traegt COMDARE_MEASUREMENT_COMBO_CT nicht -- sie steht also in genau dem Zustand, in dem
+    // der Defekt sass. Die Erwartung dreht sich deshalb um: der Wurf IST das richtige Verhalten.
+    // Die STEMPEL-RENDERUNG einer spezifischen Combo bleibt oben in dieser Funktion geprueft
+    // (measurement_stamp_line_from_combo_legend) -- sie ist eine reine Abbildung und von der Frage
+    // "darf DIESE CEB das ueberhaupt fahren?" unberuehrt.
+    bool        env_warf = false;
+    std::string env_was;
     ::setenv("COMDARE_MEASUREMENT_COMBO", "[macro]", 1);
-    std::string const src_env = tlz::make_lazy_adhoc_source_gen_from_env()(id);
+    try {
+        (void)tlz::make_lazy_adhoc_source_gen_from_env()(id);
+    } catch (std::exception const& e) {
+        env_warf = true;
+        env_was  = e.what();
+    }
     ::unsetenv("COMDARE_MEASUREMENT_COMBO");
-    check_true("(f) Env [macro] -> Quelle traegt measurement_tooling=macro@1.0.0c",
-               src_env.find("measurement_tooling=macro@1.0.0c") != std::string::npos);
+    check_true("(f) H-A: Env [macro] OHNE einkompilierte Combo wird abgewiesen (Stufe-2-CT-Einbau fehlt)", env_warf);
+    check_true("(f) H-A: der Wurf meldet die Fehlerklasse konfiguration_widerspruch",
+               env_warf && env_was.find("fehlerklasse=konfiguration_widerspruch") != std::string::npos);
     // Env UNGESETZT == [all] -> NEU die VOLLE Vollmenge (Section 64-D1-B); byte-gleich zu einem explizit full_set-
     // gestempelten Gen. Der No-Arg-Default make_lazy_adhoc_source_gen() bleibt "" (2-arg) -> UNGESETZT != No-Arg-Default.
     std::string const src_unset = tlz::make_lazy_adhoc_source_gen_from_env()(id);

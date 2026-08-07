@@ -128,6 +128,54 @@ struct LazyRunConfig {
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
+    // M-1/D-2 (06.08.2026) -- DIE SOLL-SEITE DES MESS-VERTRAGS CEB <-> TIER-BINARY (LEDGER:3319).
+    //
+    // Die Mess-Stempel-Zeile, die DIESE CEB in die Tier-Quellen stempelt. Jede geladene Tier-Binary muss sie
+    // in ihrer eigenen Deklaration (comdare_anatomy_version_lines()->measurement_line) BYTE-GLEICH tragen,
+    // sonst wird sie NICHT gemessen (pruef_dock::pruefe_mess_konsistenz, fail-closed).
+    //
+    // BELEGT WIRD SIE AUS DERSELBEN FUNKTION, die die Quelle stempelt -- profile_facade
+    // measurement_stamp_from_env(), gespeist aus der EINEN Aufloesung resolve_live_measurement_combo_legend
+    // (M-1/D-1-Naht). Damit hat der Vertrag keine zweite Wahrheit: SOLL und die eingestempelte Zeile
+    // entstehen aus demselben Aufruf, nicht aus zwei Ableitungen, die jemand synchron halten muesste.
+    //
+    // WARUM SIE HIER STEHT UND NICHT IM BUILDER ABGELEITET WIRD: der Builder ist system- und mess-BLIND
+    // (W4-B-Invariante) und kennt COMDARE_MEASUREMENT_COMBO_CT nicht -- das Makro lebt am Fassaden-Rand
+    // (comdare_measurement_combo_ct). Die Erwartung muss also von dort HEREINGEREICHT werden.
+    //
+    // LEER == "die CEB benennt ihre einkompilierte Mess-Achse nicht". Das ist KEIN Freifahrtschein: das Gate
+    // klassifiziert es als erwartung_leer und weist ab. Der Produktions-Rand (profile_run_entry::make_cfg)
+    // belegt das Feld deshalb immer.
+    std::string erwartete_mess_zeile;
+    // M-1/H-B (06.08.2026) -- TRAEGT DIE TIER-BINARY DIESES LAUFS DEN OBSERVER (G2/G3)?
+    //
+    // Seit M-1/D-1 ist die Mess-Achse wirksam: eine [wallclock]-Binary wird OHNE
+    // COMDARE_CE_ENABLE_STATISTICS uebersetzt. tier_observe() hat seinen KOMPLETTEN Rumpf unter genau diesem
+    // Gate (anatomy/abi_adapter.hpp) und liefert dann einen LEEREN Snapshot. Gemessen, beide echten .so ueber
+    // dlopen, gleicher Treiber, gleicher Lauf:
+    //     [all]        IObservableTier=JA  insert_ok=256 lookup_ok=256  observable_axes=9  fill_level=256
+    //     [wallclock]  IObservableTier=JA  insert_ok=256 lookup_ok=256  observable_axes=0  fill_level=0
+    // Das Tier haelt in BEIDEN Faellen real 256 Eintraege -- und meldet unter [wallclock] fill_level=0.
+    // tier_fill_level und observable_axis_count sind dabei ausdruecklich KEIN Mess-Zustand
+    // (axis_operability_classification.hpp: "passive Build-/Compile-Konstante"); sie werden nur deshalb 0, weil
+    // fill_observer_v3 gar nicht erst gerufen wird.
+    //
+    // WARUM DAS OHNE DIESES FELD EINE LUEGE IN DEN MESSDATEN WAERE: perm_runner setzt unified_real
+    // BEDINGUNGSLOS auf true, und eine [wallclock]-Binary TRAEGT das Mess-Interface (IObservableTier=JA) --
+    // die vorhandene, ehrliche n/a-Alternative unten war fuer genau diesen neuen Fall unerreichbar. Eine
+    // [wallclock]-Zeile waere von einer echten Messung eines leeren Tiers mit lauter Null-Zaehlern nicht
+    // unterscheidbar gewesen. Der Zustand war vor D-1 NICHT erreichbar (keine Tier-Binary ohne STATISTICS war
+    // baubar) -- diese Scheibe hat die Gefahr erzeugt und schliesst sie hier.
+    //
+    // QUELLE: profile_facade::live_mess_observer_ausstattung() -- DIESELBE Aufloesung und DIESELBE Abbildung,
+    // aus der der Bau sein -DCOMDARE_CE_ENABLE_STATISTICS zieht und der Stempel sein Glied [3] rendert. Kein
+    // zweiter Parser, keine zweite Wahrheit. Weil pruefe_mess_konsistenz (D-2) VOR der Messung erzwingt, dass
+    // die Zeile des GELADENEN Moduls byte-gleich zu erwartete_mess_zeile ist, ist die aus der CEB-Seite
+    // abgeleitete Ausstattung nachweislich die des Moduls.
+    //
+    // DEFAULT true == IDENTITAET fuer den gesamten Bestand: jeder [all]-Lauf traegt den Observer, und jeder
+    // Bestands-Lauf ist ein [all]-Lauf (Sidecar-Bestand 0). Der Wert kann nur ABWERTEN, nie aufwerten.
+    bool mess_observer_ausstattung = true;
     // M3v2-SELEKTION (2026-06-18, Task #156): Lauf-weite Tags je Mess-Zeile, damit die Auswertung die drei
     // Mess-Klassen (Basis-320 / Per-Achsen-Sweep / SOTA-Reihen A/B/C) UND die Working-Set-N-Dimension UND die
     // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
@@ -496,10 +544,15 @@ struct LazyMeasuredRow {
     // Alle vier Bloecke sind END-Appends nach exakt dem Muster von series/PMC/fairness_mode: keine bestehende
     // Spalte wird umbenannt oder verschoben, alte CSVs lesen sie header-getrieben leer/n-a (Datenerhaltung).
     //
-    // (C1) pmc_branch_misses (Katalog P11, Befund B8): PmcCounters ERHEBT branch_misses real
-    //      (pmc_source.hpp), der 7er-pmc-Block emittierte es als einziges Feld NICHT -- ein "geschrieben,
-    //      aber stumm"-Fall wie die T7-Schema-Luecke. Die Thesis sagt die Schema-Erweiterung woertlich zu
-    //      (05_evaluation). Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist
+    // (C1) pmc_branch_misses (Katalog P11, Befund B8): die Spalte existiert seit dieser Scheibe additiv.
+    //      KORREKTUR 2026-08-06 (B5/M-2-KORREKTUR-2, im selben Zug wie die L3-Ehrlichmachung gefunden): die
+    //      urspruengliche Zusage "PmcCounters ERHEBT branch_misses real" war FALSCH und wird hiermit
+    //      zurueckgenommen. Keine heutige IPmcSource weist branch_misses je einen Wert zu -- LinuxPerfPmc-
+    //      Source oeffnet nur l1d/ll/dtlb (linux_perf_pmc_source.hpp), WindowsPcmPmcSource nennt das Feld
+    //      gar nicht. Die Spalte traegt daher IMMER den PmcCounters-Default 0, unabhaengig von pmc_available
+    //      -- offener Posten M-3a (linux_perf_pmc_source.hpp Kopf: "branch_misses wird von KEINER PMC-Quelle
+    //      befuellt"). branch_misses real anzubinden ist eine EIGENE, disjunkte Aenderung, nicht Teil dieses
+    //      Pakets. Die Spalte steht bewusst NICHT im 7er-Block, sondern hier hinten: der Block ist
     //      positionsstabil fuer Bestands-Leser.
     h += ";pmc_branch_misses";
     // (C2) Tail-Perzentile p999 je Op-Art (Katalog Abschnitt 5 "TAIL-PERZENTILE"): aus DENSELBEN IST-Vektoren
@@ -686,19 +739,39 @@ struct LazyMeasuredRow {
         zelle_sep("n/a");
     }
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
-    zelle_sep(std::to_string(o.search_lookup_count));
-    zelle_sep(std::to_string(o.search_hit_count));
-    zelle_sep(std::to_string(o.search_miss_count));
-    zelle_sep(std::to_string(o.search_insert_count));
-    zelle_sep(std::to_string(o.search_erase_count));
-    zelle_sep(std::to_string(o.search_peak_occupancy));
-    zelle_sep(std::to_string(o.alloc_bytes_allocated));
-    zelle_sep(std::to_string(o.alloc_bytes_in_use));
-    zelle_sep(std::to_string(o.alloc_allocation_count));
-    zelle_sep(std::to_string(o.alloc_deallocation_count));
-    zelle_sep(std::to_string(o.alloc_failure_count));
-    zelle_sep(std::to_string(o.observable_axis_count));
-    zelle_sep(std::to_string(o.tier_fill_level));
+    //
+    // M-1/H-B (06.08.2026): DIESE 13 ZELLEN STANDEN ALS EINZIGE DES OBSERVER-BLOCKS UNGESCHUETZT DA.
+    // Ihre Nachbarn -- seg_ns, seg_framework_ns/seg_run_total_ns/seg_coverage, stat_<achse>_<feld>,
+    // filled_axes -- rendern seit jeher "n/a", wenn unified_real false ist; diese dreizehn schrieben
+    // Zahlen aus DEMSELBEN Snapshot. Solange jede Mess-DLL zwingend mit Observer gebaut war, fiel das
+    // nicht auf. Seit D-1 ist eine [wallclock]-Binary ohne COMDARE_CE_ENABLE_STATISTICS baubar, und
+    // tier_observe liefert dann einen LEEREN POD -- die dreizehn Zellen wuerden literal 0 schreiben,
+    // ununterscheidbar von einer echten Messung mit dem Ergebnis 0.
+    // Besonders schwer wiegen die letzten zwei: tier_fill_level und observable_axis_count sind gar kein
+    // Mess-Zustand (axis_operability_classification.hpp: "passive Build-/Compile-Konstante"), und
+    // fill_level=0 ist bei einem real mit 256 Eintraegen gefuellten Tier schlicht falsch -- gemessen.
+    // Die Wall-Clock-Zellen der Zeile (total_ns/ns_per_op/op_lat) bleiben bewusst UNBERUEHRT: eine
+    // [wallclock]-Messung ist gueltig, sie hat nur keinen Observer. Ein zeilenweiter zell_ersatz waere
+    // deshalb falsch; die Ehrlichkeit ist zellgenau.
+    auto obs_zelle = [&](std::uint64_t v) {
+        if (row.unified_real)
+            zelle_sep(std::to_string(v));
+        else
+            zelle_sep(cem::sample_status_token(cem::SampleStatus::SourceUnavailable)); // "n/a", NIE 0
+    };
+    obs_zelle(o.search_lookup_count);
+    obs_zelle(o.search_hit_count);
+    obs_zelle(o.search_miss_count);
+    obs_zelle(o.search_insert_count);
+    obs_zelle(o.search_erase_count);
+    obs_zelle(o.search_peak_occupancy);
+    obs_zelle(o.alloc_bytes_allocated);
+    obs_zelle(o.alloc_bytes_in_use);
+    obs_zelle(o.alloc_allocation_count);
+    obs_zelle(o.alloc_deallocation_count);
+    obs_zelle(o.alloc_failure_count);
+    obs_zelle(o.observable_axis_count);
+    obs_zelle(o.tier_fill_level);
     zelle_sep(std::to_string(row.applied_axis_count)); // applied_axes
     // Phase A: die per-Achsen-Observer-Werte stat_<achse>_<feld> (WIDE, generisch aus kV3AxisSchema). Echt wenn
     // unified_real (Modul trägt das Mess-Interface), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
@@ -740,18 +813,39 @@ struct LazyMeasuredRow {
     // #156-De-Risk (2026-06-20): die 7 PMC/HW-Counter ALS LETZTE Spalten (Reihenfolge IDENTISCH zum Header). Mit
     // NullPmcSource (COMDARE_ENABLE_PMC=OFF) sind alle Werte 0 und pmc_available=0 (ehrlich „nicht real gemessen");
     // mit Intel-PCM=ON real. Additiv → cowfix-v1/tier150-Leser unberührt (leere PMC-Spalten dort = n-a).
+    // B5/M-2-KORREKTUR-2/3 (2026-08-06, Owner-Auflage nach dem AMD-L3-Befund + Owner-KERN "stiller Rueckfall
+    // ist verboten"): vier der sieben Zellen (l2, l3, coherence, energy) tragen NUR DANN eine Zahl, wenn ihr
+    // EIGENES Quellen-Flag (PmcCounters::*_source_available) sagt, dass GENAU DIESER Zaehler wirklich
+    // geoeffnet/gelesen wurde -- eine Quelle, die es auf dieser Plattform nicht gibt (z.B. cache_misses_l3
+    // via PERF_TYPE_HW_CACHE/LL auf AMD Zen5, ENOENT) ODER die ohne Zugriffsrecht fehlschlaegt (RAPL-Energy,
+    // root-only seit Linux 5.10), rendert die EINE D2-Taxonomie SourceUnavailable/"n/a" (axis_error.hpp)
+    // statt einer erfundenen 0. Eine Zahl, die die Quelle wirklich geliefert hat -- auch eine ECHTE 0 --
+    // bleibt unveraendert eine Zahl (kein Token verdeckt einen realen Nullbefund). Gilt NUR wenn die Zeile
+    // ueberhaupt `pmc.available` ist; die PMC-off-Zeile (NullPmcSource) behaelt ihre bestehende 0-Konvention
+    // unveraendert (kein Verhaltenswechsel im Default-Build, in dem praktisch die gesamte Test-/Golden-Flotte
+    // laeuft).
+    std::string_view const pmc_na    = cem::sample_status_token(cem::SampleStatus::SourceUnavailable);
+    auto                   pmc_zelle = [&](std::uint64_t value, bool source_available) {
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else if (row.pmc.available && !source_available) {
+            out += pmc_na;
+        } else {
+            out += std::to_string(value);
+        }
+    };
     out += ';';
     zelle(std::to_string(row.pmc.cache_misses_l1));
     out += ';';
-    zelle(std::to_string(row.pmc.cache_misses_l2));
+    pmc_zelle(row.pmc.cache_misses_l2, row.pmc.cache_misses_l2_source_available);
     out += ';';
-    zelle(std::to_string(row.pmc.cache_misses_l3));
+    pmc_zelle(row.pmc.cache_misses_l3, row.pmc.cache_misses_l3_source_available);
     out += ';';
     zelle(std::to_string(row.pmc.dtlb_misses));
     out += ';';
-    zelle(std::to_string(row.pmc.coherence_invalidations));
+    pmc_zelle(row.pmc.coherence_invalidations, row.pmc.coherence_invalidations_source_available);
     out += ';';
-    zelle(std::to_string(row.pmc.energy_micro_joules));
+    pmc_zelle(row.pmc.energy_micro_joules, row.pmc.energy_micro_joules_source_available);
     out += ';';
     zelle(row.pmc.available ? "1" : "0");
     // CMD-2/#252 (2026-07-11): container_store_ops ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). Host-seitige
@@ -771,8 +865,10 @@ struct LazyMeasuredRow {
     out += ';';
     out += (row.h2_score.empty() ? std::string{"-"} : row.h2_score);
     // A8-S3 / KLASSE C (2026-08-04) -- die vier END-Append-Bloecke, Reihenfolge IDENTISCH zum Header.
-    // (C1) pmc_branch_misses: real erhoben (PmcCounters), bisher nur nicht emittiert. Mit NullPmcSource
-    //      (COMDARE_ENABLE_PMC=OFF) ist der Wert 0 und pmc_available==0 sagt es -- exakt wie die 7 Nachbarn.
+    // (C1) pmc_branch_misses: KORRIGIERT 2026-08-06 (B5/M-2-KORREKTUR-2) -- der Wert ist IMMER der
+    //      PmcCounters-Default 0 (keine IPmcSource weist ihn zu, s. lazy_csv_header-Kommentar oben),
+    //      unabhaengig von pmc_available. Die Spalte emittiert trotzdem stabil weiter: eine spaetere echte
+    //      Quelle (M-3a) fuellt hier ohne Schema-Bruch.
     out += ';';
     zelle(std::to_string(row.pmc.branch_misses));
     // (C2) p999 je Op-Art: DIESELBE Ersatz-Kaskade wie der op_*-Block oben (nicht_gebaut > gesperrt > failed >
@@ -1992,12 +2088,21 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 pruef_hb.tick();
                 continue;
             }
-            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output);
+            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output, cfg.erwartete_mess_zeile);
             if (!oc.loaded) {
                 ++result.load_failed;
                 ++result.pruef_failed;
                 std::cerr << "[pruef-fail] binary_id='" << b.binary_id
                           << "' .so nicht ladbar/kein Mess-Interface: " << b.output.string() << "\n"
+                          << std::flush;
+            } else if (!oc.mess.passed()) {
+                // M-1/D-2: die Binary laedt und ist funktional pruefbar -- aber sie ist NICHT DIE, die diese
+                // CEB gebaut hat (oder sie deklariert gar nichts). Eigener Zweig VOR dem Funktions-Gate,
+                // damit die Meldung den Identitaets-Bruch benennt statt ihn als Gate-Fail zu tarnen.
+                ++result.loaded;
+                ++result.pruef_failed;
+                std::cerr << "[pruef-fail] binary_id='" << b.binary_id << "' "
+                          << pruef_dock::mess_konsistenz_meldung(oc.mess) << " -> " << b.output.string() << "\n"
                           << std::flush;
             } else if (oc.gate.passed()) {
                 ++result.loaded;
@@ -2391,6 +2496,36 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             oc.rows.push_back(std::move(marker));
             return oc;
         }
+        // (2b) M-1/D-2 -- DER MESS-VERTRAG CEB <-> TIER-BINARY (LEDGER:3319, Owner-KERN F2/F6).
+        //      Die Binary hat geladen. Bevor irgendetwas an ihr gemessen wird, muss sie DIESELBE
+        //      Mess-Ausstattung DEKLARIEREN, die diese CEB einkompiliert hat. Bis M-1 las die Deklaration
+        //      (measurement_line/measurement_entries) NIEMAND -- das Tier durfte behaupten, was es wollte.
+        //
+        //      WARUM HIER UND NICHT IM LOADER: der Loader ist ein reiner dlopen-Wrapper (bewusst entkoppelt,
+        //      Doku 24 Paragraf 8.6) und kennt die CEB-Erwartung nicht. Der Vertrag gehoert ans PRUEFDOCK --
+        //      genau das sagt LEDGER:3319, und genau dort steht er jetzt.
+        //
+        //      WARUM VOR acquire_search_algorithm_drive: die Antriebs-Beschaffung ist bereits die erste
+        //      Beruehrung der Mess-Flaeche. Eine Binary, die den Identitaets-Vertrag bricht, wird gar nicht
+        //      erst angefasst.
+        //
+        //      FEHLERKLASSE: die Binary EXISTIERT und laedt -- was fehlt, ist ihre Zulassung als Mess-Quelle
+        //      dieses Laufs. Das ist dieselbe Lage wie "kein Mess-Interface am Dock" (SourceUnavailable,
+        //      ehrliche n/a-Zeile), NICHT "nicht gebaut" und NICHT ein stiller Skip. Fehlende Zeilen sind
+        //      der Ehrlichkeits-Doktrin nach als solche zu schreiben, nicht als 0.
+        if (auto const mk = pruef_dock::pruefe_mess_konsistenz(handle, cfg.erwartete_mess_zeile); !mk.passed()) {
+            oc.load_failed = 1;
+            std::cerr << "[" << measurement::FailedCellD2Policy::log_prefix() << ": "
+                      << measurement::sample_status_label(measurement::SampleStatus::SourceUnavailable)
+                      << "] binary_id='" << b.binary_id << "' " << pruef_dock::mess_konsistenz_meldung(mk) << " -> "
+                      << b.output.string() << "\n"
+                      << std::flush;
+            LazyMeasuredRow marker = make_marker_row(b.binary_id);
+            marker.sample_status   = measurement::SampleStatus::SourceUnavailable;
+            oc.rows.push_back(std::move(marker));
+            return oc;
+        }
+
         pruef_dock::SearchAlgorithmDrive drive;
         if (pruef_dock::acquire_search_algorithm_drive(handle, drive) != pruef_dock::dock_status_ok) {
             oc.load_failed = 1;
@@ -2445,20 +2580,24 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 row.timed_ops          = pr.timed_ops;
                 row.op_lat             = pr.op_lat;
                 row.unified            = pr.unified;
-                row.unified_real       = pr.unified_real;
-                row.profile_name       = pr.profile_name;
-                row.two_phase_valid    = pr.two_phase_valid;
-                row.sample_status      = pr.sample_status;
-                row.pmc                = pr.pmc;
-                row.series             = cfg.row_series;
-                row.pruefling_type     = cfg.row_pruefling_type;
-                row.sweep_axis         = cfg.row_sweep_axis;
-                row.working_set_n      = cfg.workload_records;
-                row.platform           = cfg.row_platform;
-                row.build_version      = cfg.row_build_version;
-                row.fairness_mode      = cfg.row_fairness_mode;
-                row.h2_score           = cfg.row_h2_score;
-                per_binary_all_valid   = per_binary_all_valid && row.two_phase_valid;
+                // M-1/H-B: unified_real ist die Konjunktion aus "die Messung lief" (perm_runner) UND "diese
+                // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
+                // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
+                // abwertend -- true && false == false, true && true == der bisherige Wert.
+                row.unified_real     = pr.unified_real && cfg.mess_observer_ausstattung;
+                row.profile_name     = pr.profile_name;
+                row.two_phase_valid  = pr.two_phase_valid;
+                row.sample_status    = pr.sample_status;
+                row.pmc              = pr.pmc;
+                row.series           = cfg.row_series;
+                row.pruefling_type   = cfg.row_pruefling_type;
+                row.sweep_axis       = cfg.row_sweep_axis;
+                row.working_set_n    = cfg.workload_records;
+                row.platform         = cfg.row_platform;
+                row.build_version    = cfg.row_build_version;
+                row.fairness_mode    = cfg.row_fairness_mode;
+                row.h2_score         = cfg.row_h2_score;
+                per_binary_all_valid = per_binary_all_valid && row.two_phase_valid;
                 if (cfg.per_binary_subdirs) {
                     per_binary_csv += format_csv_row(row);
                     ++per_binary_rows;

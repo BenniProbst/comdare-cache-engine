@@ -3,9 +3,11 @@
 // KLASSE C (Qualitaets-Parameter-Katalog Abschnitt 3, Triage E2/E3 -> A8-S3) = Spalten-Ereignisse am HOST:
 // sie bewegen KEIN Wire-Byte, sondern haengen ADDITIV hinten an das WIDE-Schema (lazy_csv_header). Vier
 // Bloecke sind in dieser Scheibe entstanden:
-//   (C1) pmc_branch_misses  -- Befund B8/Katalog P11: PmcCounters ERHOB branch_misses real
-//        (pmc_source.hpp), der 7er-pmc-Block emittierte es als EINZIGES Feld nicht. "Geschrieben, aber
-//        stumm" -- dieselbe Klasse wie die T7-Schema-Luecke.
+//   (C1) pmc_branch_misses  -- Befund B8/Katalog P11: die Spalte war "geschrieben, aber stumm" (Header
+//        trug sie nicht). KORRIGIERT 2026-08-06 (B5/M-2-KORREKTUR-2): die urspruengliche Zusage "PmcCounters
+//        ERHOB branch_misses real" war falsch -- keine IPmcSource weist das Feld je zu, dieser Test prueft
+//        NUR, dass ein gesetzter Wert treu bis in die Zelle durchgereicht wird (Plumbing), nicht dass er
+//        real gemessen ist (s. cache_engine_builder_iterator.hpp:499 fuer die vollstaendige Korrektur).
 //   (C2) op_<art>_p999_ns   -- Tail-Perzentile aus DENSELBEN IST-Vektoren wie p50/p99. Kern-Groesse fuer
 //        den T6-Alloc-Tail und das T16-eager/lazy-Pareto, fuer die p99 zu grob ist.
 //   (C3) alloc_bytes_in_use_peak / alloc_external_frag_milli / alloc_internal_frag_milli -- die drei
@@ -149,6 +151,62 @@ int main() {
         if (cell(header, fc, name999) != failed_tok) failed_ok = false;
     }
     tr("W6 failed-Zeile: op_<art>_p999_ns == '" + failed_tok + "' (dieselbe Ersatz-Kaskade wie p50/p99)", failed_ok);
+
+    // -- W7-W10 (B5/M-2-KORREKTUR-2, 2026-08-06): die PMC-Zeilenehrlichkeit fuer cache_misses_l2/l3 und
+    //    coherence_invalidations -- derselbe #156-De-Risk-7er-Block wie pmc_branch_misses' Nachbarn, nicht
+    //    Klasse C, aber dieselbe Test-Infrastruktur passt am besten (probe_row/cell/format_csv_row).
+    //    Der Kern: ein Zaehler, der real 0 misst, bleibt "0"; ein Zaehler, dessen Quelle nie geoeffnet
+    //    wurde, wird "n/a" -- beide Faelle nebeneinander, damit die Unterscheidung nicht nur behauptet,
+    //    sondern gezeigt wird.
+    {
+        // W7: l3 WURDE geoeffnet (source_available=true) und misst REAL 0 -- muss "0" bleiben, nicht "n/a".
+        ex::LazyMeasuredRow real_zero_row                  = probe_row();
+        real_zero_row.pmc.cache_misses_l3                  = 0;
+        real_zero_row.pmc.cache_misses_l3_source_available = true;
+        std::vector<std::string> const rz                  = split_semicolon(ex::format_csv_row(real_zero_row));
+        std::string const              l3_rz               = cell(header, rz, "pmc_cache_misses_l3");
+        std::cout << "    W7 pmc_cache_misses_l3 (Quelle offen, real 0) = '" << l3_rz << "'\n";
+        tr("W7 eine ECHTE 0 (Quelle offen) bleibt '0', wird NIE zu '" + na + "'", l3_rz == "0");
+
+        // W8: l3 wurde NIE geoeffnet (source_available bleibt Default false) -- muss 'n/a' werden, NICHT '0',
+        // obwohl das POD-Feld selbst ebenfalls 0 ist (die Unterscheidung ist das Flag, nicht der Zahlenwert).
+        ex::LazyMeasuredRow unavailable_row  = probe_row(); // cache_misses_l3_source_available bleibt Default false
+        std::vector<std::string> const ua    = split_semicolon(ex::format_csv_row(unavailable_row));
+        std::string const              l3_ua = cell(header, ua, "pmc_cache_misses_l3");
+        std::cout << "    W8 pmc_cache_misses_l3 (Quelle nie geoeffnet) = '" << l3_ua << "'\n";
+        tr("W8 eine NIE geoeffnete Quelle wird '" + na + "', nie eine erfundene '0'", l3_ua == na);
+
+        // W9: l2 und coherence_invalidations gehen denselben Weg wie l3 (keine heutige Quelle oeffnet sie je).
+        std::string const l2_ua  = cell(header, ua, "pmc_cache_misses_l2");
+        std::string const coh_ua = cell(header, ua, "pmc_coherence_invalidations");
+        std::cout << "    W9 pmc_cache_misses_l2='" << l2_ua << "' pmc_coherence_invalidations='" << coh_ua << "'\n";
+        tr("W9 l2 UND coherence_invalidations folgen demselben Weg wie l3 ('" + na + "')", l2_ua == na && coh_ua == na);
+
+        // W10: PMC-OFF-Zeile (available=false, NullPmcSource-Analogon) behaelt die BESTEHENDE 0-Konvention --
+        // kein Verhaltenswechsel im Default-Build, in dem praktisch die gesamte Test-/Golden-Flotte laeuft.
+        ex::LazyMeasuredRow pmc_off_row       = probe_row();
+        pmc_off_row.pmc.available             = false;
+        std::vector<std::string> const off    = split_semicolon(ex::format_csv_row(pmc_off_row));
+        std::string const              l3_off = cell(header, off, "pmc_cache_misses_l3");
+        std::cout << "    W10 pmc_cache_misses_l3 (pmc_available=0, PMC-off-Analogon) = '" << l3_off << "'\n";
+        tr("W10 PMC-off-Zeile (pmc_available=0) bleibt bei der alten 0-Konvention, kein Verhaltenswechsel",
+           l3_off == "0");
+
+        // W11/W12 (B5/M-2-KORREKTUR-3, Owner-KERN "stiller Rueckfall ist verboten"): energy_micro_joules
+        // folgt demselben Muster wie l2/l3/coherence -- ein best-effort-RAPL-Fehlschlag (kein Root, keine
+        // Zone) darf nicht dieselbe '0' zeigen wie ein echtes Null-Delta.
+        ex::LazyMeasuredRow real_energy_row                      = probe_row();
+        real_energy_row.pmc.energy_micro_joules                  = 0;
+        real_energy_row.pmc.energy_micro_joules_source_available = true;
+        std::vector<std::string> const en_rz                     = split_semicolon(ex::format_csv_row(real_energy_row));
+        std::string const              en_real                   = cell(header, en_rz, "pmc_energy_micro_joules");
+        std::cout << "    W11 pmc_energy_micro_joules (Quelle gelesen, real 0) = '" << en_real << "'\n";
+        tr("W11 ein ECHTES Null-Delta (RAPL gelesen) bleibt '0', wird NIE zu '" + na + "'", en_real == "0");
+
+        std::string const en_ua = cell(header, ua, "pmc_energy_micro_joules"); // ua = unavailable_row von oben
+        std::cout << "    W12 pmc_energy_micro_joules (RAPL nie gelesen) = '" << en_ua << "'\n";
+        tr("W12 ein NIE gelesenes RAPL-Delta wird '" + na + "', nie eine erfundene '0'", en_ua == na);
+    }
 
     if (g_fail == 0)
         std::cout << "==== A8-S3 CSV-Klasse-C-Wache: ALLE OK ====\n";

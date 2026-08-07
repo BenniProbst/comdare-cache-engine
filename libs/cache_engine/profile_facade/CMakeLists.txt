@@ -137,16 +137,34 @@ target_compile_definitions(comdare_profile_run_facade PRIVATE
 # +mtool (Cache-Key) und die Bestandslog-Zelle. Die Cache-Key-Einfaltung (W-11) ist damit NICHT mitentschieden,
 # sondern ausdruecklich OFFEN (Nach-Abgabe; die Codegen-Zielform BAUPLAN:243 loest den -D-Interim spaeter ab).
 #
-# ORT: das Fassaden-Target ist die EINZIGE TU der Stempel-Naht im Treiber-/Planer-Link
-# (measurement_stamp_from_env kompiliert in profile_run_facade.cpp; main.cpp der beiden Hosts ist umbrella-frei).
-# LEER (Default) => KEIN Define => der #else-Zweig laeuft wortgleich weiter => byte-identisch zum Vor-W2-Stand.
+# ORT: bis M-1/D-4 stand das Define als target_compile_definitions(... PRIVATE) genau HIER, mit der
+# Begruendung "das Fassaden-Target ist die EINZIGE TU der Stempel-Naht". Fuer die STEMPEL-Naht stimmte das.
+# Fuer den CEB-SCHLUESSEL stimmt es nicht mehr, seit er (D-4) am selben Define haengt:
+# builder/ceb_version_stamp.hpp wird von DREI TUs uebersetzt (profile_run_facade.cpp,
+# apps/cache_engine_builder/main.cpp, tests/unit/test_m_w12_stamp_bausteine.cpp), und kCebFingerprint ist
+# `inline constexpr`, also eine Entitaet mit EXTERNER Bindung. Ein PRIVATE-Define haette ihr in einer TU
+# einen anderen Wert gegeben als in den anderen -- ODR-Verstoss, still (IFNDR), sichtbar erst als
+# widerspruechlicher CEB-Log-Kopf vs. Bestandslog-Zelle.
+#
+# DESHALB: EIN INTERFACE-ZIEL statt einer Abschrift je Target. Wer den Header uebersetzt, LINKT
+# comdare_measurement_combo_ct und bekommt damit denselben Wert wie jede andere TU desselben Programms.
+# Das Ziel setzt ZUSAETZLICH IMMER (auch bei leerer Combo) den Marker COMDARE_MEASUREMENT_COMBO_CT_WIRED;
+# ceb_version_stamp.hpp bricht ohne ihn mit #error. Erst dieser Marker macht die Zusage mechanisch: ohne
+# ihn waere "alle Einbinder linken das Ziel" eine Absichtserklaerung, die ein viertes Target morgen
+# stillschweigend verletzt.
+#
+# LEER (Default) => KEIN COMDARE_MEASUREMENT_COMBO_CT => der #else-Zweig laeuft wortgleich weiter =>
+# byte-identisch zum Vor-W2-Stand (gemessen: kCebFingerprint 004251f4...f76c8d8 vor und nach D-4).
 set(COMDARE_MEASUREMENT_COMBO "" CACHE STRING
     "W2: Mess-Combo-Legende [a,b,c] -- kompiliert die CEB messsystem-hart; leer = [all]-Vollmenge (Sect.-64-Default)")
+add_library(comdare_measurement_combo_ct INTERFACE)
+target_compile_definitions(comdare_measurement_combo_ct INTERFACE COMDARE_MEASUREMENT_COMBO_CT_WIRED=1)
 if(COMDARE_MEASUREMENT_COMBO)
-    target_compile_definitions(comdare_profile_run_facade PRIVATE
+    target_compile_definitions(comdare_measurement_combo_ct INTERFACE
         "COMDARE_MEASUREMENT_COMBO_CT=\"${COMDARE_MEASUREMENT_COMBO}\"")
-    message(STATUS "[profile_facade] W2: Mess-Combo COMPILE-hart eingebaut -- ${COMDARE_MEASUREMENT_COMBO}")
+    message(STATUS "[profile_facade] W2/D-4: Mess-Combo COMPILE-hart eingebaut -- ${COMDARE_MEASUREMENT_COMBO}")
 endif()
+target_link_libraries(comdare_profile_run_facade PRIVATE comdare_measurement_combo_ct)
 
 # SINGLE-SOURCE-HINWEIS (Registry-Kanon): COMDARE_CE_AXIS_REGISTRY (hier, ART-Partition "3er") und
 # COMDARE_CE_AXIS_REGISTRY_PATH (super-seitig 02_messung_driver/CMakeLists.txt + apps/experiment_planner,
