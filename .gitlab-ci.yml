@@ -144,15 +144,31 @@ build:clang:
 # Probe-Beleg Reaktivierung: Pipeline 12757 pmc:intel=success + pmc:amd=success (23.07.).
 # [DEPRECATED-Historie 09.-23.07.: pmc:intel war rules-gated auf COMDARE_PROD2_AVAILABLE wegen
 #  prod2-Node-Problemen (Handover docs/sessions/20260709-*); prod2 seit 22.07. dauerhaft gesund.]
+# WELLE E (2026-08-07): PMU-EXKLUSIVITAET JE HOST via resource_group. Die PMU (Performance Monitoring
+# Unit) ist eine EXKLUSIVE Hardware-Ressource des Runner-Hosts: fahren zwei Pipelines gleichzeitig
+# PMC-Jobs auf demselben Host, verfaelschen sich die Zaehler STILL -- die Messung sieht aus wie eine
+# Messung, ist aber Ressourcen-Konkurrenz. Belegter Fall (Ledger, Bridge-Rot-Ursache): Pipeline 15157
+# gruen vs 15159 rot auf demselben SHA. GitLab-resource_group serialisiert Jobs derselben Gruppe
+# projektweit UEBER Pipelines hinweg (genau die Luecke; die Runner-Concurrency allein laesst mehrere
+# Jobs je Host zu). Die Gruppe ist bewusst HOST-scoped und NICHT global: pmc:amd kann wegen der
+# Tag-UND-Semantik (s.o.) NUR auf prod1 laufen (Runner id=16, Tags prod,baremetal,amd), pmc:intel NUR
+# auf prod2 (Runner id=17, Tags prod,baremetal,intel) -- Beleg: Runner-Inventar in
+# docs/plaene/20260623-PIVOT-PLAN-156-GITLAB-RUNNER-PROD.md (Abschnitt 2b, LIVE-Runner-Liste).
+# Verschiedene Hosts = verschiedene PMUs -> die beiden Lanes duerfen weiter PARALLEL fahren; eine
+# globale Gruppe wuerde sie grundlos serialisieren. Alle anderen Jobs bauen mit COMDARE_ENABLE_PMC=OFF
+# (CMake-Default, Beleg CMakeLists.txt option-Block) und test:unit faehrt -LE pmc (Manifest) -> nur
+# diese zwei Jobs beruehren die PMU, nur sie tragen eine Gruppe.
 pmc:amd:
   extends: .pmc
   tags: [baremetal, amd]
+  resource_group: pmu-prod1   # Host-Beleg: Tag 'amd' -> nur Runner id=16 (prod1/AMD) nimmt den Job an
   rules:
     - if: '$COMDARE_PMC_LANES =~ /amd/'
 
 pmc:intel:
   extends: .pmc
   tags: [baremetal, intel]
+  resource_group: pmu-prod2   # Host-Beleg: Tag 'intel' -> nur Runner id=17 (prod2/Intel) nimmt den Job an
   rules:
     - if: '$COMDARE_PMC_LANES =~ /intel/'
 
