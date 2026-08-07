@@ -70,9 +70,9 @@ void check_true(std::string const& was, bool ok) {
 /// Der HOST-Nachbau des Tier-Fingerprints: dieselbe EINE Glied-Ordnung, dieselbe SHA-512-Primitive.
 [[nodiscard]] std::string host_fingerprint(std::string_view organ, std::string_view system,
                                            std::string_view measurement, std::string_view mess_gates) {
-    auto const glieder = cea::anatomy_fingerprint_glieder(organ, system, measurement, cea::ToolchainGlied{""},
-                                                          cea::BvsetGlied{""}, cea::OverlayHash{""},
-                                                          cea::MessGatesGlied{mess_gates});
+    auto const glieder =
+        cea::anatomy_fingerprint_glieder(organ, system, measurement, cea::ToolchainGlied{""}, cea::BvsetGlied{""},
+                                         cea::OverlayHash{""}, cea::MessGatesGlied{mess_gates});
     std::string const preimage =
         cea::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = s5::sha512(
@@ -107,8 +107,7 @@ using VersionLinesFn = cea::AnatomyVersionLines const* (*)();
 void fall_a_tu_wahrheit() {
     std::cout << "\n---- (a) NENNER: das Glied DIESER TU spiegelt ihren Makro-Zustand ----\n";
     std::cout << "  kMessGatesTuGlied = " << cea::kMessGatesTuGlied << "\n";
-    check_true("(a) das Glied ist NIEMALS leer (der Aus-Zustand ist mg=m0;s0;...)",
-               !cea::kMessGatesTuGlied.empty());
+    check_true("(a) das Glied ist NIEMALS leer (der Aus-Zustand ist mg=m0;s0;...)", !cea::kMessGatesTuGlied.empty());
     check_true("(a) das Glied besteht die Injektivitaets-Format-Wache",
                cea::injizierter_glied_wert_ist_wohlgeformt(cea::kMessGatesTuGlied));
     check_true("(a) das Glied haelt sein Preimage-Budget",
@@ -137,7 +136,7 @@ void fall_b_spiegel() {
     std::size_t geprueft = 0;
     for (auto const& legend : baubare_legenden()) {
         std::vector<std::string> const def = pf::mess_achsen_defines_for_legend(legend);
-        std::string const             ist  = pf::mess_gates_glied_for_legend(legend);
+        std::string const              ist = pf::mess_gates_glied_for_legend(legend);
         // Die ERWARTUNG wird hier UNABHAENGIG gebildet -- aus dem Define-Vektor, Feld fuer Feld, ohne die
         // Spiegel-Funktion zu benutzen. Sonst pruefte der Test eine Funktion gegen sich selbst.
         std::string erwartet = cea::mess_gates_glied_komponieren(
@@ -194,13 +193,16 @@ void fall_d_host_gegen_tu(std::string const& pfad_an, std::string const& pfad_au
     std::cout << "    erwartetes Glied AUS = " << glied_aus << "\n";
 
     struct Fall {
-        char const* name;
-        std::string pfad;
-        std::string glied;
+        // Default-Initialisierer: cppcheck verlangt sie (uninitMemberVarNoCtor), und sie sind hier
+        // sachlich richtig -- die Faelle werden ausschliesslich per Aggregat-Initialisierung
+        // vollstaendig belegt, ein leeres Feld waere ein Konstruktions-Fehler, kein gueltiger Zustand.
+        char const* name  = nullptr;
+        std::string pfad  = {};
+        std::string glied = {};
     };
     std::array<Fall, 2> const faelle{Fall{"GATES AN ", pfad_an, glied_an}, Fall{"GATES AUS", pfad_aus, glied_aus}};
     for (auto const& f : faelle) {
-        std::string                          fehler;
+        std::string                           fehler;
         cea::AnatomyVersionLines const* const v = lade_pod(f.pfad, fehler);
         if (v == nullptr) {
             check_true(std::string{"(d) "} + f.name + " geladen (" + fehler + ")", false);
@@ -230,7 +232,8 @@ int main(int argc, char** argv) {
     std::string pfad_aus;
     for (int i = 1; i < argc; ++i) {
         std::string_view const a{argv[i]};
-        if (a.rfind("--an=", 0) == 0) pfad_an = std::string{a.substr(5)};
+        if (a.rfind("--an=", 0) == 0)
+            pfad_an = std::string{a.substr(5)};
         else if (a.rfind("--aus=", 0) == 0)
             pfad_aus = std::string{a.substr(6)};
     }

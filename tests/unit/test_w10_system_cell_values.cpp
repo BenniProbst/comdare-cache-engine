@@ -296,11 +296,10 @@ TEST(W10SystemCellValues, MakroNahtVervollstaendigtDieSystemZeileUndDenFingerpri
     // (2) FINGERPRINT-DISKRIMINIERUNG, literal: kFP rechnet ueber die VERVOLLSTAENDIGTE Zeile. Der
     //     Digest OHNE Zellwerte ist damit ein ANDERER -- das ist der Kern der W10-Zusage (zwei Baue
     //     derselben Permutation auf verschiedenen OS-Familien/ISAs kollidieren nicht mehr).
-    constexpr auto kFpOhne =
-        cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileRoh, kMeasureLit, kTcDefault, kBvDefault, kOvDefault,
-                                     kMgDieserTu);
-    constexpr auto kFpMit = cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileZiel, kMeasureLit, kTcDefault,
-                                                         kBvDefault, kOvDefault, kMgDieserTu);
+    constexpr auto kFpOhne = cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileRoh, kMeasureLit, kTcDefault,
+                                                          kBvDefault, kOvDefault, kMgDieserTu);
+    constexpr auto kFpMit  = cea::anatomy_fingerprint_hex(kOrganLit, kSystemZeileZiel, kMeasureLit, kTcDefault,
+                                                          kBvDefault, kOvDefault, kMgDieserTu);
     static_assert(std::string_view{kFpOhne.data()} != std::string_view{kFpMit.data()},
                   "W10-C2: die Zellwerte MUESSEN den Fingerprint verschieben -- taeten sie es nicht, waere "
                   "die ganze W10-Zusage (Zuordbarkeit/Wiederverwendbarkeit, Owner-E3) leer.");

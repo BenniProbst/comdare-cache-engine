@@ -48,10 +48,10 @@ void check_true(std::string const& was, bool ok) {
 }
 
 struct GeladenesModul {
-    void*                        handle = nullptr;
-    cea::AnatomyVersionLines const* pod  = nullptr;
-    std::string                  pfad;
-    std::string                  fehler;
+    void*                           handle = nullptr;
+    cea::AnatomyVersionLines const* pod    = nullptr;
+    std::string                     pfad;
+    std::string                     fehler;
 };
 
 using VersionLinesFn = cea::AnatomyVersionLines const* (*)();
@@ -105,7 +105,8 @@ int main(int argc, char** argv) {
     std::string pfad_aus;
     for (int i = 1; i < argc; ++i) {
         std::string_view const a{argv[i]};
-        if (a.rfind("--an=", 0) == 0) pfad_an = std::string{a.substr(5)};
+        if (a.rfind("--an=", 0) == 0)
+            pfad_an = std::string{a.substr(5)};
         else if (a.rfind("--aus=", 0) == 0)
             pfad_aus = std::string{a.substr(6)};
     }
@@ -135,16 +136,15 @@ int main(int argc, char** argv) {
     check_true("(a) AUS traegt 128 Hex-Zeichen Fingerprint", aus.pod->sha512_len == 128);
 
     std::cout << "\n---- (b) GEGENPROBE: die drei Stempel-ZEILEN sind byte-gleich ----\n";
-    std::string const organ_an   = zeile(an.pod->organ_line, an.pod->organ_len);
-    std::string const organ_aus  = zeile(aus.pod->organ_line, aus.pod->organ_len);
-    std::string const sys_an     = zeile(an.pod->system_line, an.pod->system_len);
-    std::string const sys_aus    = zeile(aus.pod->system_line, aus.pod->system_len);
-    std::string const mess_an    = zeile(an.pod->measurement_line, an.pod->measurement_len);
-    std::string const mess_aus   = zeile(aus.pod->measurement_line, aus.pod->measurement_len);
+    std::string const organ_an  = zeile(an.pod->organ_line, an.pod->organ_len);
+    std::string const organ_aus = zeile(aus.pod->organ_line, aus.pod->organ_len);
+    std::string const sys_an    = zeile(an.pod->system_line, an.pod->system_len);
+    std::string const sys_aus   = zeile(aus.pod->system_line, aus.pod->system_len);
+    std::string const mess_an   = zeile(an.pod->measurement_line, an.pod->measurement_len);
+    std::string const mess_aus  = zeile(aus.pod->measurement_line, aus.pod->measurement_len);
     check_true("(b) Organ-Zeile identisch (der Unterschied liegt NICHT in den Literalen)", organ_an == organ_aus);
     check_true("(b) System-Zeile identisch", sys_an == sys_aus);
-    check_true("(b) Mess-Tooling-Zeile identisch -- Glied [3] SIEHT den Gate-Unterschied nicht",
-               mess_an == mess_aus);
+    check_true("(b) Mess-Tooling-Zeile identisch -- Glied [3] SIEHT den Gate-Unterschied nicht", mess_an == mess_aus);
 
     std::cout << "\n---- (c) BISS: die Fingerprints MUESSEN sich unterscheiden ----\n";
     std::string const fp_an  = zeile(an.pod->sha512_line, an.pod->sha512_len);
