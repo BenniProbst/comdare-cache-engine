@@ -1311,7 +1311,7 @@ static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.popcnt.bmi1.bmi
 // (m4) FALL (4) IST ENTSCHIEDEN: NUR die m64-Basis-Form geht noch durch. Die ALTE bare-Token-Form
 // (Gestalt (a), gestern noch gleichberechtigt) bricht jetzt LAUT -- genau die Falle, die beim ersten
 // Grammatik-Commit erst am Schadensort auffiel: hier ist die WACHE selbst der Bissbeweis.
-static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext"))); // Gestalt (a)
+static_assert(!flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.mmx.mmxext.3dnow.3dnowext")));     // Gestalt (a)
 static_assert(flag_catalog_is_satisfied(parse_algo_semver("1.0.0.c.m64{mmx.mmxext.3dnow.3dnowext}"))); // (b)
 // Der alte Name "x64" ist NICHT mehr im Katalog -- weder als Basis noch als Elternteil. Eine Komposition,
 // die ihn benutzt, faellt auf ZWEI Arten zugleich (x64 selbst unbekannt, mmx darunter also erst recht):

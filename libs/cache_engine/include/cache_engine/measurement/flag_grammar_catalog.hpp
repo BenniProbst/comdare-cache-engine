@@ -165,10 +165,10 @@ struct FlagCatalogEntry {
     std::string_view cpuinfo; // exakter /proc/cpuinfo-String; leer == nicht signaturfaehig
     std::string_view gpp;     // g++/clang -m<flag>; leer == kein Compiler-Schalter
     FlagTokenKind    kind;
-    std::string_view eltern;                 // "" == Tiefe 0
-    std::string_view eltern_alternativ{};    // Mechanismus fuer offene Platzierungs-Entscheide; heute
-                                              // von KEINEM Eintrag belegt (Fall (4) ist entschieden, s.o.)
-    bool             entscheid_offen{false}; // haengt an einem offenen Owner-Entscheid; heute 0 Treffer
+    std::string_view eltern;              // "" == Tiefe 0
+    std::string_view eltern_alternativ{}; // Mechanismus fuer offene Platzierungs-Entscheide; heute
+                                          // von KEINEM Eintrag belegt (Fall (4) ist entschieden, s.o.)
+    bool entscheid_offen{false};          // haengt an einem offenen Owner-Entscheid; heute 0 Treffer
 };
 
 /// DER KATALOG. Reihenfolge = Lese-Reihenfolge der Recherche-Synthese (Ziel-Hardware, Breiten-Basen mit
@@ -693,8 +693,7 @@ static_assert(!flag_token_is_admitted_under("mmxext", "x128") && !flag_token_is_
               !flag_token_is_admitted_under("mmxext", "x512"));
 static_assert(!flag_token_is_admitted_under("3dnow", "x128") && !flag_token_is_admitted_under("3dnow", "x256") &&
               !flag_token_is_admitted_under("3dnow", "x512"));
-static_assert(!flag_token_is_admitted_under("3dnowext", "x128") &&
-              !flag_token_is_admitted_under("3dnowext", "x256") &&
+static_assert(!flag_token_is_admitted_under("3dnowext", "x128") && !flag_token_is_admitted_under("3dnowext", "x256") &&
               !flag_token_is_admitted_under("3dnowext", "x512"));
 // ... und umgekehrt: die drei ECHTEN Breiten-Subsets stehen NICHT unter m64.
 static_assert(!flag_token_is_admitted_under("sse2", "m64"));
