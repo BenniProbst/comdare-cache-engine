@@ -54,6 +54,10 @@ public:
         c.cache_misses_l2 = static_cast<std::uint64_t>(::pcm::getL2CacheMisses(before_, after));
         c.cache_misses_l3 = static_cast<std::uint64_t>(::pcm::getL3CacheMisses(before_, after));
         c.available       = true;
+        // B5/M-2-KORREKTUR-2 (2026-08-06, Linux-Pendant-Konsistenz): Intel PCM liefert L2 UND L3 aus derselben
+        // System-Counter-State-Momentaufnahme -- anders als im Linux-Zweig sind hier BEIDE real geoeffnet.
+        c.cache_misses_l2_source_available = true;
+        c.cache_misses_l3_source_available = true;
         return c;
     }
 

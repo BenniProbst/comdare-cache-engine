@@ -273,6 +273,14 @@ public:
         if (ll_ok_) c_ll_.disable();
         if (dtlb_ok_) c_dtlb_.disable();
 
+        // B5/M-2-KORREKTUR-2 (2026-08-06): die Herkunfts-Flags sind eine OEFFNUNGS-Aussage (ll_ok_), keine
+        // Lese-Aussage -- ENOENT/EINVAL beim Oeffnen (z.B. LL/READ/MISS auf AMD Zen5) ist "Quelle nicht da"
+        // und rendert spaeter SourceUnavailable/"n/a"; ein spaeter leerer read() (Multiplexing-Verdraengung,
+        // read_scaled ok=false) ist eine ANDERE, hier unveraenderte Fehlerklasse (Feld bleibt 0, kein Token).
+        c.cache_misses_l3_source_available = ll_ok_;
+        // l2 + coherence_invalidations bleiben structurell false (kein Oeffnungsversuch existiert, s.
+        // Konstruktor-Kommentar unten "KEIN portabler generischer Counter") -- POD-Default traegt das bereits.
+
         bool ok = false, scaled = false;
         bool any = false;
         if (l1d_ok_) {
@@ -315,6 +323,13 @@ public:
             }
             c.energy_micro_joules = delta_uj;
             any                   = any || (delta_uj != 0);
+            // B5/M-2-KORREKTUR-3 (2026-08-06, Owner-KERN "stiller Rueckfall ist verboten", verallgemeinert
+            // aus dem L3-Befund): das RAPL-Delta wurde HIER WIRKLICH GELESEN (Start- und Ende-Snapshot beide
+            // erfolgreich) -- unabhaengig davon, ob es zufaellig 0 betraegt. Ohne dieses Flag wuerde ein
+            // fehlendes RAPL-Zonen-Leserecht (root-only seit Linux 5.10, s. Kopf-Kommentar) denselben
+            // Zahlenwert 0 erzeugen wie ein echtes Null-Delta -- exakt der stille Rueckfall, den l2/l3/
+            // coherence bereits nicht mehr zeigen.
+            c.energy_micro_joules_source_available = true;
         }
         // L2 + coherence_invalidations bleiben EHRLICH 0 (kein portabler generischer Counter).
         c.available = any; // true sobald >=1 Counter echt geliefert hat.
@@ -374,6 +389,8 @@ private:
             c.cache_misses_l3 = static_cast<std::uint64_t>(vals[1] < 0 ? 0 : vals[1]);
             c.dtlb_misses     = static_cast<std::uint64_t>(vals[2] < 0 ? 0 : vals[2]);
             c.available       = true;
+            // B5/M-2-KORREKTUR-2: PAPI_L3_TCM ist bei PAPI_OK ein reales Preset, kein Rateversuch.
+            c.cache_misses_l3_source_available = true;
         }
         return c;
     }

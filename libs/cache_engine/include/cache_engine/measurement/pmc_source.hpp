@@ -25,6 +25,22 @@ struct PmcCounters {
     std::uint64_t coherence_invalidations = 0;
     std::uint64_t energy_micro_joules     = 0;
     bool          available               = false; // false = NICHT real gemessen (ehrlich, kein Schein-0)
+    // B5/M-2-KORREKTUR-2 (2026-08-06, AMD-L3-Befund): PRO-ZAEHLER Verfuegbarkeit fuer die drei Felder, die
+    // NICHT auf jeder Plattform/jedem Vendor gleich real sind -- cache_misses_l3 scheitert auf AMD Zen5 beim
+    // Oeffnen (PERF_TYPE_HW_CACHE/LL/READ/MISS -> ENOENT, verifiziert auf identischer Hardware/Kernel wie
+    // prod1), cache_misses_l2/coherence_invalidations werden von KEINER heutigen IPmcSource je geoeffnet.
+    // `available` bleibt die ZEILEN-weite Aussage ("mindestens ein Zaehler hat real geliefert"); diese drei
+    // Flags sind die ZAEHLER-weite Verfeinerung darunter. Default false (Fail-Safe, wie SystemAxisSample,
+    // axis_error.hpp). Nur wenn `available && !dieses-Flag` wird die CSV-Zelle zu SourceUnavailable/"n/a"
+    // (axis_error.hpp) statt einer Zahl; bei `!available` (NullPmcSource/PMC-off) bleibt die bestehende
+    // 0-Konvention der ganzen Zeile unveraendert (kein Verhaltenswechsel im Default-Build).
+    bool cache_misses_l2_source_available         = false;
+    bool cache_misses_l3_source_available         = false;
+    bool coherence_invalidations_source_available = false;
+    // B5/M-2-KORREKTUR-3 (2026-08-06, Owner-KERN "stiller Rueckfall ist verboten"): energy_micro_joules ist
+    // best-effort (RAPL-sysfs, oft root-only seit Linux 5.10) und faellt beim Fehlschlag auf denselben POD-
+    // Default 0 zurueck wie die drei obigen Felder -- dieselbe Fehlerklasse, dieselbe Behandlung.
+    bool energy_micro_joules_source_available = false;
 };
 
 /// Pluggable HW-Performance-Counter-Quelle. begin()→Op-Lauf→end() liefert das Counter-Delta.
