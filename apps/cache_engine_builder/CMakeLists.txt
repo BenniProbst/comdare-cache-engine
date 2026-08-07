@@ -22,6 +22,12 @@ if(COMDARE_BUILD_BUILDER)
     comdare_module_loader
     comdare::workload_generator
     comdare::experiment
+    # M-1/D-4: die EINE Emissionsstelle der einkompilierten Mess-Combo (definiert in
+    # libs/cache_engine/profile_facade/CMakeLists.txt, dort verarbeitet VOR apps/). main.cpp zieht
+    # ceb_version_stamp.hpp fuer den Log-Kopf; seit der CEB-Schluessel an der einkompilierten Combo haengt,
+    # muss diese TU denselben Wert sehen wie profile_run_facade.cpp -- sonst ODR-Verstoss auf kCebFingerprint.
+    # Ohne diesen Link bricht die Uebersetzung mit dem benannten #error der Verdrahtungs-Wache.
+    comdare_measurement_combo_ct
   )
   target_compile_features(cache_engine_builder PRIVATE cxx_std_23)
   set_target_properties(cache_engine_builder PROPERTIES

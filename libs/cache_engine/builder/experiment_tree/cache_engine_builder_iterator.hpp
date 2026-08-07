@@ -128,6 +128,54 @@ struct LazyRunConfig {
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
+    // M-1/D-2 (06.08.2026) -- DIE SOLL-SEITE DES MESS-VERTRAGS CEB <-> TIER-BINARY (LEDGER:3319).
+    //
+    // Die Mess-Stempel-Zeile, die DIESE CEB in die Tier-Quellen stempelt. Jede geladene Tier-Binary muss sie
+    // in ihrer eigenen Deklaration (comdare_anatomy_version_lines()->measurement_line) BYTE-GLEICH tragen,
+    // sonst wird sie NICHT gemessen (pruef_dock::pruefe_mess_konsistenz, fail-closed).
+    //
+    // BELEGT WIRD SIE AUS DERSELBEN FUNKTION, die die Quelle stempelt -- profile_facade
+    // measurement_stamp_from_env(), gespeist aus der EINEN Aufloesung resolve_live_measurement_combo_legend
+    // (M-1/D-1-Naht). Damit hat der Vertrag keine zweite Wahrheit: SOLL und die eingestempelte Zeile
+    // entstehen aus demselben Aufruf, nicht aus zwei Ableitungen, die jemand synchron halten muesste.
+    //
+    // WARUM SIE HIER STEHT UND NICHT IM BUILDER ABGELEITET WIRD: der Builder ist system- und mess-BLIND
+    // (W4-B-Invariante) und kennt COMDARE_MEASUREMENT_COMBO_CT nicht -- das Makro lebt am Fassaden-Rand
+    // (comdare_measurement_combo_ct). Die Erwartung muss also von dort HEREINGEREICHT werden.
+    //
+    // LEER == "die CEB benennt ihre einkompilierte Mess-Achse nicht". Das ist KEIN Freifahrtschein: das Gate
+    // klassifiziert es als erwartung_leer und weist ab. Der Produktions-Rand (profile_run_entry::make_cfg)
+    // belegt das Feld deshalb immer.
+    std::string erwartete_mess_zeile;
+    // M-1/H-B (06.08.2026) -- TRAEGT DIE TIER-BINARY DIESES LAUFS DEN OBSERVER (G2/G3)?
+    //
+    // Seit M-1/D-1 ist die Mess-Achse wirksam: eine [wallclock]-Binary wird OHNE
+    // COMDARE_CE_ENABLE_STATISTICS uebersetzt. tier_observe() hat seinen KOMPLETTEN Rumpf unter genau diesem
+    // Gate (anatomy/abi_adapter.hpp) und liefert dann einen LEEREN Snapshot. Gemessen, beide echten .so ueber
+    // dlopen, gleicher Treiber, gleicher Lauf:
+    //     [all]        IObservableTier=JA  insert_ok=256 lookup_ok=256  observable_axes=9  fill_level=256
+    //     [wallclock]  IObservableTier=JA  insert_ok=256 lookup_ok=256  observable_axes=0  fill_level=0
+    // Das Tier haelt in BEIDEN Faellen real 256 Eintraege -- und meldet unter [wallclock] fill_level=0.
+    // tier_fill_level und observable_axis_count sind dabei ausdruecklich KEIN Mess-Zustand
+    // (axis_operability_classification.hpp: "passive Build-/Compile-Konstante"); sie werden nur deshalb 0, weil
+    // fill_observer_v3 gar nicht erst gerufen wird.
+    //
+    // WARUM DAS OHNE DIESES FELD EINE LUEGE IN DEN MESSDATEN WAERE: perm_runner setzt unified_real
+    // BEDINGUNGSLOS auf true, und eine [wallclock]-Binary TRAEGT das Mess-Interface (IObservableTier=JA) --
+    // die vorhandene, ehrliche n/a-Alternative unten war fuer genau diesen neuen Fall unerreichbar. Eine
+    // [wallclock]-Zeile waere von einer echten Messung eines leeren Tiers mit lauter Null-Zaehlern nicht
+    // unterscheidbar gewesen. Der Zustand war vor D-1 NICHT erreichbar (keine Tier-Binary ohne STATISTICS war
+    // baubar) -- diese Scheibe hat die Gefahr erzeugt und schliesst sie hier.
+    //
+    // QUELLE: profile_facade::live_mess_observer_ausstattung() -- DIESELBE Aufloesung und DIESELBE Abbildung,
+    // aus der der Bau sein -DCOMDARE_CE_ENABLE_STATISTICS zieht und der Stempel sein Glied [3] rendert. Kein
+    // zweiter Parser, keine zweite Wahrheit. Weil pruefe_mess_konsistenz (D-2) VOR der Messung erzwingt, dass
+    // die Zeile des GELADENEN Moduls byte-gleich zu erwartete_mess_zeile ist, ist die aus der CEB-Seite
+    // abgeleitete Ausstattung nachweislich die des Moduls.
+    //
+    // DEFAULT true == IDENTITAET fuer den gesamten Bestand: jeder [all]-Lauf traegt den Observer, und jeder
+    // Bestands-Lauf ist ein [all]-Lauf (Sidecar-Bestand 0). Der Wert kann nur ABWERTEN, nie aufwerten.
+    bool mess_observer_ausstattung = true;
     // M3v2-SELEKTION (2026-06-18, Task #156): Lauf-weite Tags je Mess-Zeile, damit die Auswertung die drei
     // Mess-Klassen (Basis-320 / Per-Achsen-Sweep / SOTA-Reihen A/B/C) UND die Working-Set-N-Dimension UND die
     // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
@@ -686,19 +734,39 @@ struct LazyMeasuredRow {
         zelle_sep("n/a");
     }
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
-    zelle_sep(std::to_string(o.search_lookup_count));
-    zelle_sep(std::to_string(o.search_hit_count));
-    zelle_sep(std::to_string(o.search_miss_count));
-    zelle_sep(std::to_string(o.search_insert_count));
-    zelle_sep(std::to_string(o.search_erase_count));
-    zelle_sep(std::to_string(o.search_peak_occupancy));
-    zelle_sep(std::to_string(o.alloc_bytes_allocated));
-    zelle_sep(std::to_string(o.alloc_bytes_in_use));
-    zelle_sep(std::to_string(o.alloc_allocation_count));
-    zelle_sep(std::to_string(o.alloc_deallocation_count));
-    zelle_sep(std::to_string(o.alloc_failure_count));
-    zelle_sep(std::to_string(o.observable_axis_count));
-    zelle_sep(std::to_string(o.tier_fill_level));
+    //
+    // M-1/H-B (06.08.2026): DIESE 13 ZELLEN STANDEN ALS EINZIGE DES OBSERVER-BLOCKS UNGESCHUETZT DA.
+    // Ihre Nachbarn -- seg_ns, seg_framework_ns/seg_run_total_ns/seg_coverage, stat_<achse>_<feld>,
+    // filled_axes -- rendern seit jeher "n/a", wenn unified_real false ist; diese dreizehn schrieben
+    // Zahlen aus DEMSELBEN Snapshot. Solange jede Mess-DLL zwingend mit Observer gebaut war, fiel das
+    // nicht auf. Seit D-1 ist eine [wallclock]-Binary ohne COMDARE_CE_ENABLE_STATISTICS baubar, und
+    // tier_observe liefert dann einen LEEREN POD -- die dreizehn Zellen wuerden literal 0 schreiben,
+    // ununterscheidbar von einer echten Messung mit dem Ergebnis 0.
+    // Besonders schwer wiegen die letzten zwei: tier_fill_level und observable_axis_count sind gar kein
+    // Mess-Zustand (axis_operability_classification.hpp: "passive Build-/Compile-Konstante"), und
+    // fill_level=0 ist bei einem real mit 256 Eintraegen gefuellten Tier schlicht falsch -- gemessen.
+    // Die Wall-Clock-Zellen der Zeile (total_ns/ns_per_op/op_lat) bleiben bewusst UNBERUEHRT: eine
+    // [wallclock]-Messung ist gueltig, sie hat nur keinen Observer. Ein zeilenweiter zell_ersatz waere
+    // deshalb falsch; die Ehrlichkeit ist zellgenau.
+    auto obs_zelle = [&](std::uint64_t v) {
+        if (row.unified_real)
+            zelle_sep(std::to_string(v));
+        else
+            zelle_sep(cem::sample_status_token(cem::SampleStatus::SourceUnavailable)); // "n/a", NIE 0
+    };
+    obs_zelle(o.search_lookup_count);
+    obs_zelle(o.search_hit_count);
+    obs_zelle(o.search_miss_count);
+    obs_zelle(o.search_insert_count);
+    obs_zelle(o.search_erase_count);
+    obs_zelle(o.search_peak_occupancy);
+    obs_zelle(o.alloc_bytes_allocated);
+    obs_zelle(o.alloc_bytes_in_use);
+    obs_zelle(o.alloc_allocation_count);
+    obs_zelle(o.alloc_deallocation_count);
+    obs_zelle(o.alloc_failure_count);
+    obs_zelle(o.observable_axis_count);
+    obs_zelle(o.tier_fill_level);
     zelle_sep(std::to_string(row.applied_axis_count)); // applied_axes
     // Phase A: die per-Achsen-Observer-Werte stat_<achse>_<feld> (WIDE, generisch aus kV3AxisSchema). Echt wenn
     // unified_real (Modul trägt das Mess-Interface), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
@@ -1992,12 +2060,21 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 pruef_hb.tick();
                 continue;
             }
-            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output);
+            pruef_dock::PruefOutcome const oc = pruef_dock::run_so_conformance_gate(b.output, cfg.erwartete_mess_zeile);
             if (!oc.loaded) {
                 ++result.load_failed;
                 ++result.pruef_failed;
                 std::cerr << "[pruef-fail] binary_id='" << b.binary_id
                           << "' .so nicht ladbar/kein Mess-Interface: " << b.output.string() << "\n"
+                          << std::flush;
+            } else if (!oc.mess.passed()) {
+                // M-1/D-2: die Binary laedt und ist funktional pruefbar -- aber sie ist NICHT DIE, die diese
+                // CEB gebaut hat (oder sie deklariert gar nichts). Eigener Zweig VOR dem Funktions-Gate,
+                // damit die Meldung den Identitaets-Bruch benennt statt ihn als Gate-Fail zu tarnen.
+                ++result.loaded;
+                ++result.pruef_failed;
+                std::cerr << "[pruef-fail] binary_id='" << b.binary_id << "' "
+                          << pruef_dock::mess_konsistenz_meldung(oc.mess) << " -> " << b.output.string() << "\n"
                           << std::flush;
             } else if (oc.gate.passed()) {
                 ++result.loaded;
@@ -2391,6 +2468,36 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             oc.rows.push_back(std::move(marker));
             return oc;
         }
+        // (2b) M-1/D-2 -- DER MESS-VERTRAG CEB <-> TIER-BINARY (LEDGER:3319, Owner-KERN F2/F6).
+        //      Die Binary hat geladen. Bevor irgendetwas an ihr gemessen wird, muss sie DIESELBE
+        //      Mess-Ausstattung DEKLARIEREN, die diese CEB einkompiliert hat. Bis M-1 las die Deklaration
+        //      (measurement_line/measurement_entries) NIEMAND -- das Tier durfte behaupten, was es wollte.
+        //
+        //      WARUM HIER UND NICHT IM LOADER: der Loader ist ein reiner dlopen-Wrapper (bewusst entkoppelt,
+        //      Doku 24 Paragraf 8.6) und kennt die CEB-Erwartung nicht. Der Vertrag gehoert ans PRUEFDOCK --
+        //      genau das sagt LEDGER:3319, und genau dort steht er jetzt.
+        //
+        //      WARUM VOR acquire_search_algorithm_drive: die Antriebs-Beschaffung ist bereits die erste
+        //      Beruehrung der Mess-Flaeche. Eine Binary, die den Identitaets-Vertrag bricht, wird gar nicht
+        //      erst angefasst.
+        //
+        //      FEHLERKLASSE: die Binary EXISTIERT und laedt -- was fehlt, ist ihre Zulassung als Mess-Quelle
+        //      dieses Laufs. Das ist dieselbe Lage wie "kein Mess-Interface am Dock" (SourceUnavailable,
+        //      ehrliche n/a-Zeile), NICHT "nicht gebaut" und NICHT ein stiller Skip. Fehlende Zeilen sind
+        //      der Ehrlichkeits-Doktrin nach als solche zu schreiben, nicht als 0.
+        if (auto const mk = pruef_dock::pruefe_mess_konsistenz(handle, cfg.erwartete_mess_zeile); !mk.passed()) {
+            oc.load_failed = 1;
+            std::cerr << "[" << measurement::FailedCellD2Policy::log_prefix() << ": "
+                      << measurement::sample_status_label(measurement::SampleStatus::SourceUnavailable)
+                      << "] binary_id='" << b.binary_id << "' " << pruef_dock::mess_konsistenz_meldung(mk) << " -> "
+                      << b.output.string() << "\n"
+                      << std::flush;
+            LazyMeasuredRow marker = make_marker_row(b.binary_id);
+            marker.sample_status   = measurement::SampleStatus::SourceUnavailable;
+            oc.rows.push_back(std::move(marker));
+            return oc;
+        }
+
         pruef_dock::SearchAlgorithmDrive drive;
         if (pruef_dock::acquire_search_algorithm_drive(handle, drive) != pruef_dock::dock_status_ok) {
             oc.load_failed = 1;
@@ -2445,7 +2552,11 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 row.timed_ops          = pr.timed_ops;
                 row.op_lat             = pr.op_lat;
                 row.unified            = pr.unified;
-                row.unified_real       = pr.unified_real;
+                // M-1/H-B: unified_real ist die Konjunktion aus "die Messung lief" (perm_runner) UND "diese
+                // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
+                // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
+                // abwertend -- true && false == false, true && true == der bisherige Wert.
+                row.unified_real       = pr.unified_real && cfg.mess_observer_ausstattung;
                 row.profile_name       = pr.profile_name;
                 row.two_phase_valid    = pr.two_phase_valid;
                 row.sample_status      = pr.sample_status;

@@ -65,6 +65,11 @@ using PfnAbiVersion = std::uint64_t (*)();
 using PfnAbiMagic   = std::uint64_t (*)();
 using PfnCreate     = ana::IAnatomyBase* (*)();
 using PfnDestroy    = void (*)(ana::IAnatomyBase*);
+// M-1/D-2: das OPTIONALE 5. Symbol (comdare_anatomy_version_lines). NICHT Loader-Pflicht -- fehlt es, bleibt
+// der Handle-Zeiger nullptr und die Ladung gilt weiterhin als erfolgreich. Die Entscheidung, ob eine Binary
+// OHNE Deklaration messfaehig ist, faellt NICHT hier (der Loader ist ein reiner dlopen-Wrapper), sondern am
+// Pruefdock (mess_konsistenz_gate.hpp) -- dort fail-closed.
+using PfnVersionLines = abi::AnatomyVersionLines const* (*)();
 
 } // anonymous namespace
 
@@ -77,6 +82,9 @@ void AnatomyModuleHandle::unload() noexcept {
     if (anatomy_ && destroy_) { destroy_(anatomy_); }
     anatomy_ = nullptr;
     destroy_ = nullptr;
+    // M-1/D-2: der Stempel-POD lebt IM Modul (static constexpr der Makro-Materialisierung). Nach dem
+    // dlclose unten waere der Zeiger baumelnd -- er wird deshalb VOR dem Entladen genullt, nicht danach.
+    version_lines_ = nullptr;
 
     // 2. Modul entladen
     if (native_) {
@@ -151,8 +159,16 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
         return status_factory_returned_null;
     }
 
+    // M-1/D-2: das OPTIONALE Stempel-Symbol NACH der Version-Validierung ziehen. Reihenfolge ist tragend:
+    // erst wenn Magic + Major/Minor passen, ist das POD-Layout dieses Moduls ueberhaupt als das unsere
+    // lesbar. Ein Fehlen ist KEIN Lade-Fehler (der Loader kennt nur 4 Pflicht-Symbole) -- der Zeiger bleibt
+    // dann nullptr, und das Mess-Konsistenz-Gate am Pruefdock entscheidet fail-closed darueber.
+    abi::AnatomyVersionLines const* lines = nullptr;
+    if (auto* sym_lines = native_symbol(native, "comdare_anatomy_version_lines"); sym_lines != nullptr)
+        lines = reinterpret_cast<PfnVersionLines>(sym_lines)();
+
     // Handle aufbauen (RAII)
-    handle_out = AnatomyModuleHandle{native, anatomy, pfn_destroy, module_version};
+    handle_out = AnatomyModuleHandle{native, anatomy, pfn_destroy, module_version, lines};
     return status_ok;
 }
 
