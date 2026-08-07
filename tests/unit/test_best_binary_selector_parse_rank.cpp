@@ -32,6 +32,33 @@ static_assert(bb::kAbiMinor == COMDARE_ANATOMY_ABI_MINOR,
 static_assert(bb::kAbiMagic == COMDARE_ANATOMY_ABI_MAGIC,
               "K-5: kAbiMagic-Spiegel (best_binary_selector.hpp) driftet vom Decl-Header -- syncen!");
 
+// -- WELLE C T-8: KATALOG-PARITAETS-GATE (2026-08-07) --------------------------------------------
+// Die Optimierungsrichtung haengt an der ZIELGROESSE und ist im Katalog
+// (libs/cache_engine/heuristik/axis_optimization_catalog.hpp, 19 Achsen T0..T18, 45 Zielgroessen)
+// autoritativ hinterlegt. Der Selektor bleibt self-contained C++17 (build_and_run.bat /std:c++17) und
+// spiegelt das Enum, statt den C++23-Katalog-Header einzubinden. Genau wie beim K-5-ABI-Spiegel lebt
+// der Abgleich HIER im Test: driftet der Spiegel, bricht die Uebersetzung -- nicht erst die Auswahl.
+#include "../../libs/cache_engine/heuristik/axis_optimization_catalog.hpp"
+namespace heu = comdare::cache_engine::heuristik;
+static_assert(static_cast<int>(bb::OptimizationDirection::Minimize) ==
+                  static_cast<int>(heu::OptimizationDirection::Minimize),
+              "T-8: OptimizationDirection::Minimize-Spiegel driftet vom Katalog-Header -- syncen!");
+static_assert(static_cast<int>(bb::OptimizationDirection::Maximize) ==
+                  static_cast<int>(heu::OptimizationDirection::Maximize),
+              "T-8: OptimizationDirection::Maximize-Spiegel driftet vom Katalog-Header -- syncen!");
+// Der Katalog-ZEUGE der Richtung, die metric_direction(Metric::lookup) behauptet: T0 lookup_latency ist
+// MIN. objective_direction ist consteval -- ein unbekanntes Token waere hier ein Uebersetzungsfehler.
+static_assert(heu::objective_direction(heu::CatalogAxis::SearchAlgo, "lookup_latency") ==
+                  heu::OptimizationDirection::Minimize,
+              "T-8: Katalog T0 lookup_latency ist MIN -- die Selektor-Richtung haengt daran.");
+static_assert(bb::metric_direction(bb::Metric::lookup) == bb::OptimizationDirection::Minimize,
+              "T-8: metric_direction(lookup) muss dem Katalog-Zeugen T0 lookup_latency (MIN) folgen.");
+// Gegenprobe, dass der Spiegel eine MAX-Richtung ueberhaupt tragen KANN (17 der 45 Katalog-Groessen sind
+// MAX, z.B. T6 alloc_throughput) -- die pauschale "kleiner ist besser"-Konvention ist damit widerlegt.
+static_assert(heu::objective_direction(heu::CatalogAxis::Allocator, "alloc_throughput") ==
+                  heu::OptimizationDirection::Maximize,
+              "T-8: Katalog T6 alloc_throughput ist MAX -- Beleg, dass Richtung je Zielgroesse noetig ist.");
+
 static int  g_fail = 0;
 static void check(bool ok, char const* msg) {
     std::printf("  [%s] %s\n", ok ? "OK" : "FAIL", msg);
@@ -132,6 +159,90 @@ int main(int argc, char** argv) {
               "cells: samples=4 (2 Reps x 2 Zellen), cells=2");
     } else {
         check(false, "cells: Fixture 3 (argv[3]) fehlt");
+    }
+
+    // -- (WELLE C T-8, 2026-08-07): PARETO-FRONT statt Einzelsieger -- BISSBEWEIS -----------------
+    // Fixture 4 (argv[4]), 3 Kandidaten, zwei Zielgroessen (lookup, scan; Werte = Mediane):
+    //   bin_tie_loser lookup=100 scan=500 (3 Samples)   bin_true lookup=100 scan=200 (1 Sample)
+    //   bin_third     lookup=300 scan=100 (1 Sample)
+    // BISS 1 (dominierte Loesung gekuert): der EINZELSIEGER-Pfad rankt nur lookup, sieht den Gleichstand
+    //   100 == 100 und kuert per Tie-Break "mehr Samples zuerst" bin_tie_loser -- einen Kandidaten, den
+    //   bin_true bei gleichem lookup mit besserem scan DOMINIERT. Genau diese Binary wurde bisher versandt.
+    // BISS 2 (MAX-Groesse minimiert): wird scan als MAX-Zielgroesse gefuehrt, kehrt sich die Front um
+    //   (nur bin_tie_loser ist nicht-dominiert). Wer die Richtung ignoriert und pauschal minimiert, liefert
+    //   die exakt komplementaere Front {bin_true, bin_third} -- den einzig korrekten Kandidaten verwirft er.
+    if (argc >= 5) {
+        std::vector<bb::MeasurementRow> prows;
+        int const                       pn = bb::parse_measurement_csv(argv[4], prows);
+        check(pn == 5, "pareto: 5 Datenzeilen gelesen");
+
+        // BISS 1a: das Alt-Verhalten festnageln -- der Einzelsieger-Pfad kuert bin_tie_loser.
+        auto const r_lookup = bb::rank_binaries(prows, bb::RankingCriterion{bb::Metric::lookup});
+        check(r_lookup.size() == 3u && !r_lookup.empty() && r_lookup[0].binary_id == "bin_tie_loser",
+              "pareto/biss1: Einzelsieger-Ranking (nur lookup) kuert bin_tie_loser (Tie 100, 3 Samples)");
+
+        std::vector<bb::ParetoObjective> const obj_min{
+            {bb::Metric::lookup, bb::OptimizationDirection::Minimize},
+            {bb::Metric::scan, bb::OptimizationDirection::Minimize},
+        };
+        std::vector<std::string> pdisq;
+        auto const               front = bb::pareto_rank_binaries(prows, obj_min, &pdisq);
+        check(pdisq.empty(), "pareto: alle 3 Kandidaten in beiden Zielgroessen wertbar (keine Diagnose)");
+        check(front.entries.size() == 3u, "pareto: kein Kandidat verloren (3 Eintraege, Front + dominierte)");
+        // BISS 1b: bin_tie_loser ist DOMINIERT -- der Alt-Sieger ist nachweislich der falsche.
+        check(front.front_size == 2u, "pareto/biss1: Front = 2 nicht-dominierte (bin_true, bin_third)");
+        bool tie_loser_dominated = false, true_on_front = false, third_on_front = false;
+        for (auto const& c : front.entries) {
+            if (c.binary_id == "bin_tie_loser") tie_loser_dominated = !c.on_front && c.dominated_by == "bin_true";
+            if (c.binary_id == "bin_true") true_on_front = c.on_front;
+            if (c.binary_id == "bin_third") third_on_front = c.on_front;
+        }
+        check(tie_loser_dominated, "pareto/biss1: Alt-Sieger bin_tie_loser ist dominiert (von bin_true)");
+        check(true_on_front && third_on_front, "pareto/biss1: bin_true UND bin_third sind nicht-dominiert");
+        // Deterministische Ordnung: Front zuerst, lexikographisch richtungs-adjustiert (lookup, dann scan).
+        check(front.entries.size() == 3u && front.entries[0].binary_id == "bin_true" &&
+                  front.entries[1].binary_id == "bin_third" && front.entries[2].binary_id == "bin_tie_loser",
+              "pareto: deterministische Ordnung bin_true, bin_third, dann die dominierten");
+        auto const front2 = bb::pareto_rank_binaries(prows, obj_min, nullptr);
+        bool       stable = front2.entries.size() == front.entries.size() && front2.front_size == front.front_size;
+        for (std::size_t i = 0; stable && i < front.entries.size(); ++i)
+            stable = front2.entries[i].binary_id == front.entries[i].binary_id;
+        check(stable, "pareto: zweiter Lauf liefert byte-gleiche Reihenfolge (reproduzierbar)");
+        // Einzelsieger-SICHT auf die Front: waehlt bin_true -- nie den dominierten Alt-Sieger.
+        bb::ParetoCandidate const* view = bb::front_best_in(front, bb::Metric::lookup);
+        check(view != nullptr && view->binary_id == "bin_true",
+              "pareto: Einzelsieger-Sicht (lookup) liefert bin_true statt des dominierten bin_tie_loser");
+        bb::ParetoCandidate const* view_scan = bb::front_best_in(front, bb::Metric::scan);
+        check(view_scan != nullptr && view_scan->binary_id == "bin_third",
+              "pareto: Einzelsieger-Sicht (scan) liefert bin_third (bestes Front-Mitglied in scan)");
+        check(bb::front_best_in(front, bb::Metric::erase) == nullptr,
+              "pareto: Sicht auf eine NICHT-Zielgroesse ist honest-empty (nullptr, kein Rateweg)");
+        // Werte + Sample-/Zell-Zahlen wandern index-parallel mit (kein stiller Informationsverlust).
+        check(view != nullptr && view->values.size() == 2u && view->values[0] == 100.0 && view->values[1] == 200.0,
+              "pareto: Zielwerte index-parallel zu den Zielgroessen (lookup=100, scan=200)");
+        check(view != nullptr && view->samples.size() == 2u && view->samples[0] == 1u && view->cells[0] == 1u,
+              "pareto: Samples/Zellen je Zielgroesse erhalten");
+
+        // BISS 2: dieselben Daten, scan als MAX -- die Front kehrt sich um.
+        std::vector<bb::ParetoObjective> const obj_max{
+            {bb::Metric::lookup, bb::OptimizationDirection::Minimize},
+            {bb::Metric::scan, bb::OptimizationDirection::Maximize},
+        };
+        auto const front_max = bb::pareto_rank_binaries(prows, obj_max, nullptr);
+        check(front_max.front_size == 1u && !front_max.entries.empty() &&
+                  front_max.entries[0].binary_id == "bin_tie_loser",
+              "pareto/biss2: scan als MAX -> Front = {bin_tie_loser} (Richtung je Zielgroesse wirkt)");
+        bool true_dominated_max = false, third_dominated_max = false;
+        for (auto const& c : front_max.entries) {
+            if (c.binary_id == "bin_true") true_dominated_max = !c.on_front;
+            if (c.binary_id == "bin_third") third_dominated_max = !c.on_front;
+        }
+        check(true_dominated_max && third_dominated_max,
+              "pareto/biss2: bei scan=MAX sind bin_true und bin_third dominiert (pauschales MIN waere falsch)");
+        check(bb::pareto_rank_binaries(prows, {}, nullptr).entries.empty(),
+              "pareto: keine Zielgroessen -> leeres Ergebnis (honest-empty)");
+    } else {
+        check(false, "pareto: Fixture 4 (argv[4]) fehlt");
     }
 
     // ── (REV-DATA-05, WP-5 2026-07-16): Artefaktnamen-Allowlist (Pfad-Traversal-Sperre) ──────────

@@ -1,0 +1,6 @@
+binary_id;ns_per_op;two_phase_valid;op_lookup_p50_ns;op_scan_p50_ns
+bin_tie_loser;600;1;100;500
+bin_tie_loser;600;1;100;500
+bin_tie_loser;600;1;100;500
+bin_true;300;1;100;200
+bin_third;400;1;300;100

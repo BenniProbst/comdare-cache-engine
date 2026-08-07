@@ -21,6 +21,12 @@
 //   • Repository — TiereDllRepository: kapselt die binary_id→perm.dll-Auflösung im tiere/-Baum
 //                  (orch_make_stem-Round-Trip), entkoppelt vom Ranking.
 //
+// WELLE C T-8 (Owner-Entscheid 2026-07-10, gebaut 2026-08-07): die "beste Binary" ist bei mehreren
+// konkurrierenden Zielgroessen KEIN Einzelsieger mehr, sondern die PARETO-FRONT = Menge der nicht-
+// dominierten Kandidaten (pareto_rank_binaries). Der Einzelsieger-Pfad bleibt als SICHT auf die Front
+// bestehen (front_best_in, kann nie einen dominierten Kandidaten kueren); die Optimierungsrichtung
+// haengt an der ZIELGROESSE und kommt aus dem heuristik-Katalog (Spiegel, s. OptimizationDirection).
+//
 // SELF-CONTAINED: nur C++17-Standardbibliothek (header-getriebener CSV-Parser, FNV-1a, <filesystem>).
 // KEIN Python (wie die übrige Pipeline). KEINE externen Abhängigkeiten.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -215,6 +221,80 @@ struct RankedBinary {
                                                       RankingCriterion const&            crit,
                                                       std::vector<std::string>*          excluded = nullptr);
 
+// -- Pareto-Front (WELLE C T-8, Owner-Entscheid 2026-07-10) ---------------------------------------
+// Bei mehreren konkurrierenden Zielgroessen gibt es keinen Einzelsieger: das Ergebnis der Auswahl ist
+// die PARETO-FRONT, die Menge der nicht-dominierten Kandidaten. Kandidat A dominiert B, wenn A in
+// ALLEN Zielgroessen mindestens gleich gut und in mindestens EINER strikt besser ist. "besser" haengt
+// an der RICHTUNG der ZIELGROESSE, nicht an der Achse oder der Spalte -- Quelle ist der Katalog
+// libs/cache_engine/heuristik/axis_optimization_catalog.hpp (19 Achsen T0..T18, 45 Zielgroessen).
+// Der Katalog-Header ist C++23 (std::span/consteval); dieses Tool bleibt self-contained C++17
+// (build_and_run.bat /std:c++17). Deshalb SPIEGEL statt Include -- exakt das K-5-Muster des ABI-
+// Spiegels oben: Paritaets-Gate per static_assert gegen den Katalog-Header im Test
+// (tests/unit/test_best_binary_selector_parse_rank.cpp).
+
+/// Spiegel von heuristik::OptimizationDirection (Werte-identisch, Paritaets-Gate im Test).
+enum class OptimizationDirection : std::uint8_t {
+    Minimize = 0, ///< kleinerer Messwert ist besser (Latenz, Cache-Misses, Speicher, ...)
+    Maximize = 1, ///< groesserer Messwert ist besser (Durchsatz, CLU, Kompressionsrate, ...)
+};
+
+/// Richtung der sechs Selector-Metriken nach dem Katalog: alle sechs sind Latenz-Groessen (ns) und
+/// damit MIN (Katalog-Zeugen: T0 lookup_latency, T6 p99_latency -- Richtung haengt an der ZIELGROESSE).
+/// Eine kuenftige Durchsatz-Spalte (MAX, z.B. T6 alloc_throughput) bekommt hier ihre eigene Zeile.
+[[nodiscard]] constexpr OptimizationDirection metric_direction(Metric m) noexcept {
+    switch (m) {
+        case Metric::ns_per_op: return OptimizationDirection::Minimize; // Latenz je Operation (ns)
+        case Metric::insert: return OptimizationDirection::Minimize;    // op_insert_p50_ns
+        case Metric::lookup: return OptimizationDirection::Minimize;    // op_lookup_p50_ns (T0 lookup_latency)
+        case Metric::erase: return OptimizationDirection::Minimize;     // op_erase_p50_ns
+        case Metric::scan: return OptimizationDirection::Minimize;      // op_scan_p50_ns
+        case Metric::rmw: return OptimizationDirection::Minimize;       // op_rmw_p50_ns
+    }
+    return OptimizationDirection::Minimize;
+}
+
+/// EINE Zielgroesse der Mehrziel-Auswahl: Metrik-Spalte + EXPLIZITE Optimierungsrichtung.
+/// Die Richtung ist Teil der Zielgroesse (Katalog-Prinzip) und wird nie aus der Spalte geraten.
+struct ParetoObjective {
+    Metric                metric;
+    OptimizationDirection direction;
+};
+
+/// Ein Kandidat der Mehrziel-Auswertung. values/samples/cells sind INDEX-PARALLEL zu den Zielgroessen
+/// des Aufrufs: values[i] = Median der Zell-Mediane der i-ten Zielgroesse (wie RankedBinary), samples[i]
+/// und cells[i] die zugehoerigen Sample-/Zell-Zahlen -- kein stiller Informationsverlust.
+struct ParetoCandidate {
+    std::string              binary_id;
+    std::vector<double>      values;
+    std::vector<std::size_t> samples;
+    std::vector<std::size_t> cells;
+    bool                     on_front = false;
+    std::string              dominated_by; ///< leer auf der Front; sonst kleinste binary_id eines Dominators
+};
+
+/// Ergebnis der Mehrziel-Auswahl: DIE FRONT IST DAS ERGEBNIS. entries = Front zuerst, danach die
+/// dominierten Kandidaten -- beide Teile deterministisch sortiert (Schluessel: lexikographisch ueber
+/// die richtungs-adjustierten Zielwerte, besser zuerst; letzter Tie-Break binary_id aufsteigend).
+/// Damit sind Laeufe reproduzierbar und nichts wird verworfen.
+struct ParetoResult {
+    std::vector<ParetoObjective> objectives;
+    std::vector<ParetoCandidate> entries;
+    std::size_t                  front_size = 0; ///< entries[0..front_size) ist die Front
+};
+
+/// Mehrziel-Rangbildung (WELLE C T-8): aggregiert je Zielgroesse EXAKT wie rank_binaries (stratifiziert,
+/// Median der Zell-Mediane, Vollstaendigkeits-Gate) und bildet dann die Pareto-Front. Ein Kandidat, der
+/// nicht in ALLEN Zielgroessen wertbar ist (fehlende Werte oder Zell-Disqualifikation), wird mit
+/// Diagnose in `excluded` disqualifiziert. Leere objectives => leeres Ergebnis (honest-empty).
+[[nodiscard]] ParetoResult pareto_rank_binaries(std::vector<MeasurementRow> const&  rows,
+                                                std::vector<ParetoObjective> const& objectives,
+                                                std::vector<std::string>*           excluded = nullptr);
+
+/// EINZELSIEGER-SICHT auf die Front: bestes FRONT-Mitglied in EINER Metrik (Richtung aus den
+/// objectives des Ergebnisses; Tie-Break = Front-Ordnung). Die Sicht kann nie einen dominierten
+/// Kandidaten kueren. nullptr wenn die Front leer ist oder die Metrik keine Zielgroesse war.
+[[nodiscard]] ParetoCandidate const* front_best_in(ParetoResult const& result, Metric metric);
+
 // ── Repository: binary_id → reale perm.dll im tiere/-Baum ────────────────────────────────────────
 /// Kapselt die Auflösung. tiere_dir = build/thesis_tiere/tiere. Liefert das Verzeichnis (mit perm.dll)
 /// oder nullopt. Lange IDs: Match über `*_<fnv1a-hex>`-Suffix; kurze IDs: exakter sanitisierter Name.
@@ -254,9 +334,19 @@ public:
     [[nodiscard]] std::optional<ShippedArtifact>
     build(RankedBinary const& winner, Metric metric, std::filesystem::path const& source_dir, std::string& error) const;
 
+    /// (WELLE C T-8) Optionaler Pareto-Kontext fuers Manifest: die Front, aus der der Versand-Kandidat
+    /// als Einzelsieger-SICHT gewaehlt wurde (kein stiller Informationsverlust im ausgelieferten
+    /// Artefakt). Ohne Kontext bleibt das Manifest byte-identisch zum Bestand.
+    void set_pareto_context(std::string objectives_line, std::vector<std::string> front_ids) {
+        pareto_objectives_line_ = std::move(objectives_line);
+        pareto_front_ids_       = std::move(front_ids);
+    }
+
 private:
-    std::filesystem::path out_dir_;
-    std::string           artifact_name_;
+    std::filesystem::path    out_dir_;
+    std::string              artifact_name_;
+    std::string              pareto_objectives_line_; ///< z.B. "ns_per_op:min,lookup:min" (T-8)
+    std::vector<std::string> pareto_front_ids_;       ///< binary_ids der Front, deterministische Ordnung (T-8)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
