@@ -19,6 +19,16 @@
 #include "mess_gates_glied.hpp"         // R-3: der Mess-GATE-Zustand DIESER TU als Preimage-Glied [8]
 #include "subaxis_valueset_segment.hpp" // A13-M3: das Sub-Achsen-Werteset-Segment als Preimage-Glied
 
+// E-E (07.08.2026): der Overlay-Quell-Hash als Preimage-Glied [7]. Der Header ist GENERIERT
+// (tools/overlay_source_hash_gen, verdrahtet in cmake/overlay_source_hash.cmake) und setzt
+// COMDARE_OVERLAY_SOURCE_HASH, falls es nicht schon per -D hereingereicht wurde.
+//
+// HARTES #include, KEIN __has_include: fehlt der Header, MUSS der Bau brechen. Ein weiches
+// __has_include machte die Abwesenheit des Codegens still -- die TU rechnete dann mit leerem Glied
+// weiter und traege eine FALSCHE Identitaet. Genau diese Klasse von Stille beseitigt E-E; sie darf
+// nicht an ihrer eigenen Naht wieder eintreten.
+#include <cache_engine/abi/overlay_source_hash_generated.hpp>
+
 #include <sha512/ctsha512.hpp>
 
 #include <array>
@@ -113,18 +123,37 @@ inline constexpr std::string_view kAnatomyFingerprintFormat = "fingerprint_forma
 /// consteval-Hash kann keine Dateien lesen; jede Laufzeit-Variante waere ein Bruch der Doktrin
 /// "compile-time only" und wuerde die Binary nicht mehr eindeutig machen.
 ///
-/// HEUTE LEER, UND ZWAR EHRLICH: der Codegen existiert noch nicht (0 Treffer fuer eine
-/// Overlay-Hash-Quelle im Baum). Ein leeres Glied traegt (ausser seinem Separator) nichts zum Preimage bei;
-/// die Naht ist trotzdem gebaut und an EINER Stelle. Sobald der Codegen das Define setzt, wandert der Hash
-/// ohne jede weitere Aenderung in alle Fingerprints.
-/// OFFEN und bewusst NICHT geraten: WELCHE Dateimenge "das Overlay" ist (Verzeichnis-Schnitt,
-/// Sortier-Ordnung, Hash je Datei vs. ueber die Konkatenation). Das ist eine Identitaets-Entscheidung
-/// je Tier-Binary und gehoert dem Owner, nicht diesem Header. A13-M3/OF-M3-2 = FALLBACK B (Entscheid
-/// 03.08.2026): die drei Owner-Festlegungen lagen zum M3-Start NICHT vor -> das Glied bleibt "", KEIN
-/// Overlay-Codegen im Fenster; die Scharfschaltung ist ein deklariert spaeteres Fingerprint-Ereignis.
-#ifndef COMDARE_OVERLAY_SOURCE_HASH
-#define COMDARE_OVERLAY_SOURCE_HASH ""
-#endif
+/// -- E-E (07.08.2026): SCHARFGESCHALTET. DIE DREI OWNER-FESTLEGUNGEN LIEGEN VOR ------------------------
+///
+/// Bis hierher stand an dieser Stelle: "OFFEN und bewusst NICHT geraten: WELCHE Dateimenge 'das Overlay'
+/// ist (Verzeichnis-Schnitt, Sortier-Ordnung, Hash je Datei vs. ueber die Konkatenation)" -- A13-M3/
+/// OF-M3-2 = FALLBACK B, weil die Festlegungen zum M3-Start fehlten. Sie sind am 07.08.2026 getroffen,
+/// und sie stehen ab hier hier, damit die naechste Suche nicht wieder auf einer beantworteten Frage landet:
+///   (1) KONKATENATION, nicht Hash je Datei: die Bytes werden aneinandergehaengt, EINMAL SHA-512 darueber.
+///   (2) FESTE STATISCHE ORDNUNG JE ACHSEN-KATEGORIE, und zwar die BESTEHENDE: Organ nach
+///       kCompositionAxisNames (18), System nach kSystemAxisOrder (3), Mess strukturell EINE Achse
+///       (measurement_tooling -- pro Binary wird genau eine gewaehlt, dort ist nichts zu sortieren).
+///   (3) DER SCHNITT: ueber die drei kanonischen Achsen-Ordnungen -- je Achse die Dateimenge IHRER
+///       EIGENEN Implementierung -- plus libs/cache_engine/anatomy/ als gemeinsame Tier-Substanz.
+///
+/// DIE MENGE SELBST STEHT NICHT HIER, sondern an EINER Stelle: builder/overlay_source_set.hpp. Dort
+/// wohnen der Schnitt, seine Begruendung und die compile-harten Ordnungs-Wachen gegen die beiden
+/// kanonischen Quellen. Dieser Header darf sie nicht sehen -- abi/ liegt unter builder/ (dieselbe
+/// Schichtungs-Regel, aus der auch das bvset-Glied [6] injiziert statt inkludiert wird).
+///
+/// WAS DER WERT DECKT, UND WARUM ES DIE ANDEREN GLIEDER NICHT TUN: Glied [5] traegt Bau-SCHALTER,
+/// Glied [6] die ENABLED-MENGEN der Build-Achsen, die Glieder [1]/[2]/[3] Achsen-NAMEN und VERSIONEN --
+/// alles Behauptungen UEBER den Code. Der INHALT unserer Quelldateien war bis hierher von KEINEM Glied
+/// gedeckt: zwei Baue mit identischen Achsen-Strings, Versionen, Toolchain und bvset, aber geaendertem
+/// Implementierungs-Quelltext, trugen denselben Fingerprint, dll_is_current uebersprang den Neubau und
+/// das Lager lieferte die alte Binary aus (build_orchestrator.hpp, L14). Das endet mit diesem Glied.
+///
+/// KEIN FORMAT-BUMP, und der Grund ist praezise: anders als bei R-3 droht kein STILLER Skip, weil es
+/// keinen Bestand gibt, der uebersprungen werden koennte -- der .fingerprint-Sidecar-Bestand ist literal
+/// 0 (find ueber den GESAMTEN Arbeitsbaum inkl. Build-Verzeichnisse -> 0 Dateien, am 07.08. erneut
+/// nachgezaehlt). Das Glied wechselt von leer auf belegt; jeder Fingerprint bewegt sich damit ohnehin
+/// EINMAL, und zwar fail-closed (Neubau), nicht fail-open (falscher Skip). Waere Bestand da, waere der
+/// Bump Pflicht.
 inline constexpr std::string_view kOverlaySourceHash = COMDARE_OVERLAY_SOURCE_HASH;
 
 // -- NB/CX-1: DIE RT-INJEKTIVITAETS-WACHE DER INJIZIERTEN GLIED-WERTE ----------------------------------

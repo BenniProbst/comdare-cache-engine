@@ -19,10 +19,11 @@
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <cache_engine/measurement/simd_build_gate.hpp> // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock, default-permissiv)
 
-#include "system_version_suffix.hpp"   // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
-#include "system_cell_values_naht.hpp" // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
-#include "toolchain_stamp_naht.hpp"    // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
-#include "mess_achsen_naht.hpp"        // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
+#include "system_version_suffix.hpp"    // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
+#include "overlay_source_hash_naht.hpp" // E-E: der LIVE-Wert des Preimage-Glieds [7] + sein Define-Argument
+#include "system_cell_values_naht.hpp"  // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
+#include "toolchain_stamp_naht.hpp"     // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
+#include "mess_achsen_naht.hpp"         // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -358,6 +359,14 @@ static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis
     }
     if (std::string arg = pfn::build_variant_set_signature_define_arg(pfn::live_build_variant_set_signature_glied());
         !arg.empty())
+        d.push_back(std::move(arg));
+    // E-E: das Glied [7] (Overlay-Quell-Hash). Es steht hier und nicht bei den per-Perm-Fabriken, weil es
+    // RUN-KONSTANT ist: es traegt den Quelltext-Stand DIESER CEB, nicht eine Eigenschaft der Permutation.
+    // Damit kann die Falle von Glied [5] hier gar nicht erst entstehen (zwei konkurrierende Defines, deren
+    // Gewinner die Argument-Reihenfolge in der Response-Datei entschiede). Der Wert ist derselbe, den der
+    // CEB-Laufzeit-Zwilling liest -- beide Seiten ziehen abi::kOverlaySourceHash, es gibt keinen Parameter,
+    // ueber den eine zweite Wahrheit hereinkaeme (overlay_source_hash_naht.hpp).
+    if (std::string arg = pfn::overlay_source_hash_define_arg(pfn::live_overlay_source_hash_glied()); !arg.empty())
         d.push_back(std::move(arg));
     // EINMALIGE Ehrlichkeits-Zeile, wenn die CT-Realversion den Tier-Treiber NICHT deckt (verschiedene
     // Compiler fuer CEB und Tier-Bau). Dann faellt aus dem Glied genau EIN Bestandteil weg -- die

@@ -20,8 +20,9 @@
 #include "builder/ceb_version_stamp.hpp"              // A5: CEB-Selbst-Stempel (consteval Mess-Array + SHA-512)
 #include <cache_engine/abi/toolchain_stamp_glied.hpp> // O-2/C-2: Renderer + kToolchainAxisVersions
 #include <profile_facade/planner/planner_version.hpp>
-#include <profile_facade/system_version_suffix.hpp> // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
-#include <profile_facade/toolchain_stamp_naht.hpp>  // NB/CX-4: die LIVE-Naht der Glieder [5]/[6]
+#include <profile_facade/system_version_suffix.hpp>    // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
+#include <profile_facade/overlay_source_hash_naht.hpp> // E-E: die LIVE-Naht des Glieds [7]
+#include <profile_facade/toolchain_stamp_naht.hpp>     // NB/CX-4: die LIVE-Naht der Glieder [5]/[6]
 
 #include "builder/build_variant_set_signature.hpp"    // NB-3/T2-D: die Paar-Wache (Praedikat-Haelfte)
 #include "builder/driver_build_variant_signature.hpp" // NB-3/T2-D: die realen Registry-Listen (All*)
@@ -885,6 +886,25 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cache_line=64;hw_numa_capable=0}];"
                                               "simd_extension[{avx512}];"
                                               "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
+    // E-E END-FORM (07.08.2026): das Overlay-Glied [7] wird ab hier EXPLIZIT und als LITERAL gereicht.
+    //
+    // WARUM ES UEBERHAUPT HIER AUFTAUCHT: bis zur Scharfschaltung war sein Default LEER, der Vektor rechnete
+    // also implizit ueber ein leeres Glied. Seit E-E traegt der Default den QUELL-HASH DIESES BAUMS -- und
+    // damit haette dieser Anker sich bei JEDER Aenderung an irgendeiner Achsen-Quelle bewegt. Ein
+    // eingefrorener Testvektor, der bei jedem Commit wandert, ist kein Anker, sondern ein Dauerrot; er
+    // wuerde als erstes weggeworfen. Dieselbe Ueberlegung wie bei NB/CX-4, wo Toolchain- und bvset-Glied aus
+    // genau diesem Grund LITERALE statt Live-Werte bekamen ("die Live-Werte haengen an der uebersetzenden
+    // Toolchain und an der Enable-Menge der Maschine"). Hier ist die Abhaengigkeit noch schaerfer: sie ist
+    // der Quelltext selbst.
+    //
+    // WARUM EIN BELEGTES LITERAL UND NICHT "": weil ein Anker, der genau den NEUEN Teil des Preimage nicht
+    // abdeckt, ein gruener Test waere, der die alte Ordnung zementiert (Fixture-END-Form-Lehre, s. Kopf).
+    // Der Wert ist bewusst FREMD zur Maschine und damit stabil; er ist nachrechenbar:
+    //   printf 'comdare-overlay-fixture' | sha512sum
+    // Die WIRKSAMKEIT des LIVE-Werts beweist stattdessen EeOverlayGliedStehtLiveImPreimage (unten) --
+    // dieselbe Arbeitsteilung wie zwischen diesem Vektor und NbCx4LiveGliederStehenImPreimage.
+    constexpr std::string_view kFrozenOverlay = "84250c96ec21228119ca6607154fa450e8ffdbc1ae3074be9d8bcf7599198593"
+                                                "19f52c64502a78a13da5cb76d05e4988e4c7be0d72fa70935f4a2e5bba5f47ec";
     // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 ueber die '\n'-getrennte Glied-Folge. NIE aendern.
     //
     // NEU-ANKER ALS DEKLARIERTES BYTE-EREIGNIS, NICHT ALS STILLER FIX.
@@ -902,11 +922,21 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
     // wuerde alte Binaries als aktuell ausweisen.
     // Der neue Wert ist NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau
     // diesen Header uebernommen (dieselbe Methode wie bei den beiden vorigen Ankern).
+    //
+    // E-E (07.08.2026) -- DIE VIERTE BEWEGUNG, und die letzte, die das Overlay-Glied verursacht. Sie kommt
+    // NICHT von einem Format-Bump (das Layout bleibt fingerprint_format=4, neun Glieder): sie kommt davon,
+    // dass Glied [7] von LEER auf BELEGT wechselt. Ab hier ist der Anker gegen einen LITERALEN Overlay-Wert
+    // gepinnt und bewegt sich deshalb NICHT mehr mit dem Quelltext -- diese Bewegung ist einmalig.
+    //   Vorgaenger (Flag-Grammatik v2, leeres Overlay-Glied): 88f59b9b0da85e34...96125688
+    // WARUM KEIN FORMAT-BUMP NOETIG IST: anders als bei R-3 droht kein STILLER Skip, weil es keinen Bestand
+    // gibt -- der .fingerprint-Sidecar-Bestand ist literal 0 (am 07.08. ueber den gesamten Arbeitsbaum inkl.
+    // Build-Verzeichnisse nachgezaehlt). Jeder Fingerprint bewegt sich ohnehin einmal, und zwar fail-closed
+    // (Neubau), nicht fail-open (falscher Skip).
     constexpr std::string_view kFrozenFingerprintV1 =
-        "88f59b9b0da85e34c6be48653867c76a15f1d0a22b241c8f92f5846677224c49"
-        "03fc296f331ea3205046e897403675a2525cc62658e4bfda0cb5771a96125688";
+        "d53aebdbb22902f3cdbbf5947bc36ea5ba04808248fc23fa99a1b95471edda7c"
+        "f0f13be791ced93d2ded7b4906a1c5c4c2123b28322cc38378b06250f20b4d84";
     constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure, abi::ToolchainGlied{kFrozenToolchain},
-                                                     abi::BvsetGlied{kFrozenBvset});
+                                                     abi::BvsetGlied{kFrozenBvset}, abi::OverlayHash{kFrozenOverlay});
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");
     static_assert(std::string_view{fp.data()} == kFrozenFingerprintV1,
                   "EINGEFRORENER Fingerprint (B3-Sync): die Zeilen ODER der Hash haben sich geaendert -- unter "
@@ -1423,7 +1453,16 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     // OverlayHash-TYP"); der Aufruf ist auf die 3-arg-Form gezogen.
     static_assert(ceb::kCebFingerprint.size() == 128);
     EXPECT_EQ(ceb::kCebFingerprint.size(), std::size_t{128});
-    constexpr auto host = abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp);
+    // E-E (07.08.2026): die Nachrechnung muss die GLIEDER des Produktions-Aufrufs spiegeln, sonst prueft
+    // sie nicht mehr denselben Wert. Der Punkt ist NICHT das Overlay-Glied, sondern die Mess-ZEILE -- und
+    // die bleibt der einzige Freiheitsgrad. Seit der Scharfschaltung traegt der DEFAULT des Overlay-Glieds
+    // den Quell-Hash dieses Baums; die CEB rechnet aber bewusst OHNE ihn (ceb_version_stamp.hpp: sie ist
+    // kein Tier-Binary, ihr Schluessel soll ruhig liegen, damit der Byte-Anker in
+    // test_d4_ceb_schluessel_wahl weiter etwas aussagen kann). Stuende hier die 3-arg-Form, verglichen die
+    // beiden Wege ab jetzt VERSCHIEDENE Glied-Saetze -- der Test waere rot, ohne dass etwas driftet.
+    constexpr auto host =
+        abi::anatomy_fingerprint_hex("", "", ceb::kCebMeasurementStamp, abi::ToolchainGlied{abi::kToolchainStampGlied},
+                                     abi::BvsetGlied{abi::kBuildVariantSetSignatureGlied}, abi::OverlayHash{""});
     EXPECT_EQ(ceb::kCebFingerprint, std::string_view(host.data(), 128));
     // ceb_version_stamp() traegt beide Teile + die X.Y.Z-Form (keine rohe @v1).
     // D-4: die Vorspann-Erwartung nennt nicht mehr "wallclock" (das ist nur bei [all] das erste Tooling),
@@ -2115,6 +2154,59 @@ TEST(MW12StampBausteine, NbCx4LiveGliederStehenImPreimage) {
     ASSERT_FALSE(treiber.empty());
     EXPECT_NE(tc.find(":" + treiber + "@"), std::string::npos)
         << "das cxx-Feld muss den Tier-Treiber-Tag tragen: tc='" << tc << "' treiber='" << treiber << "'";
+}
+
+// -- E-E: DAS OVERLAY-GLIED [7] STEHT LIVE IM PREIMAGE -------------------------------------------------
+//
+// DIE ARBEITSTEILUNG (dieselbe wie zwischen dem Frozen-Vektor oben und NbCx4LiveGliederStehenImPreimage):
+// der eingefrorene Vektor pinnt einen LITERALEN Overlay-Wert und beweist damit das FORMAT; dieser Test
+// beweist die WIRKSAMKEIT des LIVE-Werts. Ohne ihn koennte das Glied weiter leer durchlaufen und niemand
+// merkte es -- genau der Zustand, in dem es vor E-E war, und genau der, den ein gruener Frozen-Vektor
+// NICHT ausschliesst.
+TEST(MW12StampBausteine, EeOverlayGliedStehtLiveImPreimage) {
+    namespace abi = ::comdare::cache_engine::abi;
+    namespace pf  = ::comdare::cache_engine::profile_facade;
+
+    // (1) Der LIVE-Wert ist da und ist genau EIN SHA-512-Hex. Ein leeres Glied hiesse: der Pre-Build-
+    //     Codegen ist nicht gelaufen (oder seine Bau-Kante fehlt) -- dann deckt der Fingerprint reine
+    //     Quell-Code-Aenderungen NICHT, und der Skip im Lager waere wieder falsch.
+    std::string_view const ovl = pf::live_overlay_source_hash_glied();
+    ASSERT_FALSE(ovl.empty()) << "das Overlay-Glied [7] ist LIVE LEER -- der Codegen hat nicht gewirkt";
+    EXPECT_EQ(ovl.size(), std::size_t{128}) << "glied='" << ovl << "'";
+    EXPECT_EQ(ovl.find_first_not_of("0123456789abcdef"), std::string_view::npos) << "glied='" << ovl << "'";
+    EXPECT_EQ(ovl, abi::kOverlaySourceHash) << "die Naht muss GENAU die einkompilierte Konstante liefern";
+
+    // (2) Er steht LITERAL im Preimage, an seiner benannten Position.
+    auto const glieder = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{""},
+                                                          abi::BvsetGlied{""}, abi::OverlayHash{ovl});
+    EXPECT_EQ(glieder[abi::kAnatomyFingerprintOverlayGlied], ovl);
+    std::string const preimage =
+        abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
+    EXPECT_NE(preimage.find(ovl), std::string::npos);
+
+    // (3) WIRKSAMKEIT -- die eigentliche Aussage: mit belegtem Glied ergibt sich ein ANDERER Digest als
+    //     mit leerem. Vor E-E waren beide Wege byte-gleich, weil das Glied immer leer war.
+    auto const leer = abi::anatomy_fingerprint_glieder("ORGAN", "SYSTEM", "MESS", abi::ToolchainGlied{""},
+                                                       abi::BvsetGlied{""}, abi::OverlayHash{""});
+    EXPECT_NE(abi::anatomy_fingerprint_preimage(std::span<std::string_view const>{leer.data(), leer.size()}), preimage);
+
+    // (4) DIE DRIFT-FREIHEIT DER NAHT: der argumentlose Aufruf liefert denselben Wert wie die Konstante,
+    //     die der CEB-Laufzeit-Zwilling liest. Genau darauf ruht, dass Bau-Kanal (-D an perm_compile) und
+    //     Zwilling ueber DASSELBE Glied rechnen -- es gibt keinen Parameter, ueber den eine zweite
+    //     Wahrheit hereinkaeme.
+    EXPECT_EQ(pf::live_overlay_source_hash_glied(), ovl);
+
+    // (5) Das Define-ARGUMENT traegt die Wertform als C-String-Literal und enthaelt keinen Whitespace --
+    //     sonst zerfiele es in der gcc-Response-Datei in mehrere Optionen.
+    std::string const arg = pf::overlay_source_hash_define_arg(ovl);
+    EXPECT_TRUE(arg.starts_with("-DCOMDARE_OVERLAY_SOURCE_HASH=")) << arg;
+    EXPECT_EQ(arg.find(' '), std::string::npos) << arg;
+    EXPECT_NE(arg.find(ovl), std::string::npos) << arg;
+    EXPECT_EQ(pf::overlay_source_hash_define_arg(""), std::string{}) << "leer => kein Define => Identitaet";
+
+    // (6) Die Transport-Wache ist scharf: ein Wert mit Domain-Separator kommt nicht durch.
+    EXPECT_THROW((void)pf::overlay_source_hash_define_arg("ab\ncd"), std::invalid_argument);
+    EXPECT_THROW((void)pf::overlay_source_hash_define_arg("a b"), std::invalid_argument);
 }
 
 // -- NB2-2: EINE PREIMAGE-QUELLE FUER BEIDE WEGE -------------------------------------------------------

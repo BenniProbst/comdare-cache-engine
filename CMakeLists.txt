@@ -661,6 +661,13 @@ endif()
 # ─────────────────────────────────────────────────────────────────────────────
 # V23.C.4 (2026-05-14): measurement migriert nach libs/common/measurement/
 # V23.C.3 (2026-05-14): hardware_isa migriert nach libs/common/platform/
+# E-E (2026-08-07): der generierte Baum ist ab hier fuer JEDES Ziel sichtbar. Grund: der
+# Overlay-Quell-Hash reist als generierter Compile-Define-Header
+# (generated/cache_engine/abi/overlay_source_hash_generated.hpp), und abi/anatomy_fingerprint.hpp zieht
+# ihn -- also braucht ihn auch ein Ziel, das sonst KEINEN Achsen-Code uebersetzt und den generierten
+# Baum bisher nicht auf seinem Pfad hatte. Verzeichnis-Bereich statt Ziel-Liste: eine Liste waere beim
+# naechsten neuen Ziel still unvollstaendig.
+include_directories("${PROJECT_BINARY_DIR}/generated")
 # V30.D.2 (2026-05-14): search_engine/ -> libs/search_engine/
 add_subdirectory(libs/search_engine)      # Domaene 1
 # V30.D.4+D.5 (2026-05-14): cache_engine/ -> libs/cache_engine/ (inkl. builder/)
@@ -710,6 +717,11 @@ if(COMDARE_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)  # tests/CMakeLists.txt ruft seinerseits add_subdirectory(unit) (REV 6)
 endif()
+
+# E-E (2026-08-07): das Overlay-Glied [7] des Tier-Fingerprints. MUSS hier stehen, NACH allen
+# add_subdirectory-Aufrufen: das Modul legt die Bau-Kante von JEDEM Ziel auf den Codegen, und dafuer
+# muessen alle Ziele bereits existieren.
+include(cmake/overlay_source_hash.cmake)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Status-Ausgabe

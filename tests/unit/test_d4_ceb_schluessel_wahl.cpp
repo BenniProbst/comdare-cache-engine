@@ -58,8 +58,17 @@ struct LegendeUndSchluessel {
 /// sondern die LAUFZEIT-Kette anatomy_fingerprint_glieder -> anatomy_fingerprint_preimage -> sha512 -> hex,
 /// also genau den Weg, den auch der Lager-Index faehrt (bestandslog_index.hpp derive_key_from_lines).
 /// Kaemen beide Wege auseinander, waere der CEB-Schluessel im Log-Kopf ein anderer als im Lager.
+/// E-E (07.08.2026): die Glieder werden ab hier EXPLIZIT gereicht, und zwar genau so, wie der
+/// Produktions-Aufruf sie reicht (ceb_version_stamp.hpp kCebFingerprintArrayFor). Der ZWEITE Weg soll
+/// die MESS-ZEILE unabhaengig nachrechnen -- nicht einen anderen Glied-SATZ. Seit der Scharfschaltung
+/// traegt der DEFAULT des Overlay-Glieds den Quell-Hash dieses Baums; die CEB rechnet aber bewusst ohne
+/// ihn (sie ist kein Tier-Binary, s. dort). Stuende hier weiter die 3-arg-Form, verglichen beide Wege
+/// verschiedene Glied-Saetze -- der Test waere rot, ohne dass irgendetwas driftet, und man haette ihn
+/// vermutlich "repariert", indem man die Aussage entschaerft.
 [[nodiscard]] std::string runtime_ceb_key(std::string const& mess) {
-    auto const        glieder = cabi::anatomy_fingerprint_glieder("", "", mess);
+    auto const glieder = cabi::anatomy_fingerprint_glieder(
+        "", "", mess, cabi::ToolchainGlied{cabi::kToolchainStampGlied},
+        cabi::BvsetGlied{cabi::kBuildVariantSetSignatureGlied}, cabi::OverlayHash{""});
     std::string const pre =
         cabi::anatomy_fingerprint_preimage(std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
