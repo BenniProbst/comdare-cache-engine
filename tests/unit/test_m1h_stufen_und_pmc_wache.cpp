@@ -20,6 +20,11 @@
 //      Die zwei bestehenden Widerspruchs-Wachen (F-B2) standen BEIDE im #ifdef-Zweig; der #else-Zweig --
 //      und genau der ist der Default-Bau, denn COMDARE_MEASUREMENT_COMBO ist per CACHE STRING "" leer --
 //      hatte keine.
+//      [NACHZUG R-3, 07.08.2026] Der Schluessel-Wert 004251f4... ist der Format-3-Stand. Der Format-Bump
+//      3 -> 4 (das neunte Preimage-Glied "mess-gates", abi/mess_gates_glied.hpp) hat ihn auf
+//      db7bac00... gehoben -- deklariertes Byte-Ereignis, Pin in test_d4_ceb_schluessel_wahl. An der
+//      BEOBACHTUNG oben aendert das nichts: die drei Zeilen zeigten EINEN Schluessel fuer drei
+//      Ausstattungen, und das gilt fuer jeden Wert, den dieser Schluessel gerade traegt.
 //
 // H-2 (EINSEITIG, s. Fall (d)): Legende [micro], gleiche Maschine, beide Varianten gebaut UND ausgefuehrt:
 //        COMDARE_ENABLE_PMC=OFF  -> NullPmcSource       cache_misses_l1 = 0

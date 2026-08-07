@@ -68,7 +68,7 @@
 //       Gate -- das ist die Lehre des D-1-Befunds in der Gegenrichtung.
 //   (b) ES GIBT NICHTS ZU UEBERSPRINGEN. Alles, was die CEB PRODUZIERT, ist bereits gegatet, und zwar von
 //       Gattern, die vollstaendig sind: die Tier-.so ueber das Preimage-Glied [3] (anatomy_fingerprint.hpp,
-//       kAnatomyFingerprintGliedCount = 8) mit dem fail-closed dll_is_current (build_orchestrator.hpp),
+//       kAnatomyFingerprintGliedCount = 9 seit R-3) mit dem fail-closed dll_is_current (build_orchestrator.hpp),
 //       der Objekt-Cache ueber "+mtool=" (artifact_transport/artifact_cache.hpp). Eine Mess-Achsen-
 //       Aenderung erzwingt heute schon den Tier-Neubau. Ein zweites Gatter ueber dieselbe Information
 //       waere kein Gewinn, sondern eine ZWEITE WAHRHEIT, die der ersten widersprechen kann.
@@ -99,6 +99,27 @@
 // eine Sache kostet nichts, solange niemand darauf nachschlaegt, s.o.; ein Schluessel fuer zwei Sachen
 // dagegen war der Defekt D-4). Eine Kanonisierung muesste BEIDE Zwillinge zugleich erfassen und ist damit
 // ein Byte-Ereignis am Tier-Preimage -- also eine eigene Scheibe mit Owner-Entscheid, kein Nebenprodukt.
+//
+// ------------------------------------------------------------------------------------------------
+// R-3 (07.08.2026) -- FORMAT-BUMP 3 -> 4: kCebFingerprint BEWEGT SICH. DEKLARIERT, NICHT STILL.
+// ------------------------------------------------------------------------------------------------
+// kCebFingerprintArrayFor rechnet ueber abi::anatomy_fingerprint_hex und damit ueber das Format-Glied [0]
+// und die Glied-ANZAHL. R-3 haengt ein NEUNTES Preimage-Glied an (abi/mess_gates_glied.hpp: der
+// Praeprozessor-Zustand der Mess-Gates einer Uebersetzungseinheit) und bumpt fingerprint_format 3 -> 4.
+// FOLGE, gemessen und im selben Commit als Test-Pin nachgezogen (test_d4_ceb_schluessel_wahl):
+//     [all]  vor R-3 (Format 3): 004251f467c004a88f...f76c8d8
+//     [all]  ab  R-3 (Format 4): db7bac00b3de6eef05...aa832234
+// DIESE CEB REICHT DAS NEUE GLIED BEWUSST NICHT (der Aufruf unten bleibt die 3-arg-Form, das Glied kommt
+// als LEERER Default): sie ist KEIN Tier-Binary -- dieselbe Sache wie bei den Zellwerten und den
+// Toolchain-/bvset-Gliedern. Ihre Identitaet ist ihre einkompilierte Mess-WAHL, nicht der Gate-Zustand
+// ihrer eigenen Uebersetzung. Ein kMessGatesTuGlied hier haette ausserdem eine Entitaet mit EXTERNER
+// Bindung (kCebFingerprint) an einen TU-abhaengigen Wert gehaengt -- exakt die ODR-Fehlerklasse, gegen die
+// die Verdrahtungs-Wache weiter unten gebaut ist.
+// WARUM TRAGBAR: ceb_key_sha512 hat GEMESSEN null Lese-Stellen (s. unten) -- das Feld ist Provenienz,
+// kein Schluessel, auf dem etwas nachschlaegt. Alt-Zeilen behalten ihren alten Wert und bleiben
+// auffindbar; niemand vergleicht sie gegen den neuen. Die BESTANDSLOG-BILANZ direkt darunter beschreibt
+// den M-1/D-4-Stand und bleibt fuer den Alt-Bestand richtig -- sie gilt aber nicht mehr als Aussage
+// "der Vollmengen-Schluessel ist unveraendert": das ist ab R-3 HISTORIE.
 //
 // ------------------------------------------------------------------------------------------------
 // BESTANDSLOG-BILANZ (Auftrag Punkt 4): DER ALT-BESTAND WIRD NICHT ENTWERTET

@@ -507,6 +507,11 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     ref_pre += abi::kBuildVariantSetSignatureGlied;
     ref_pre += '\n';
     ref_pre += abi::kOverlaySourceHash;
+    // R-3 (Format 4): das NEUNTE Glied. anatomy_fingerprint_hex("a","b","c") ruft den DEFAULT, und der
+    // ist die LEERE Identitaet (NICHT kMessGatesTuGlied -- s. den ODR-Absatz an anatomy_fingerprint_glieder).
+    // Der Separator bleibt trotzdem stehen: genau darauf beruht die Injektivitaet der Zerlegung.
+    ref_pre += '\n';
+    ref_pre += std::string_view{};
     auto const ref = s5::to_hex(s5::sha512(
         std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(ref_pre.data()), ref_pre.size()}));
     for (std::size_t i = 0; i < 128; ++i) EXPECT_EQ(fp[i], ref[i]) << "hex-Stelle " << i;
@@ -515,7 +520,7 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     // zu kollidieren) und das Werteset-Segment ein EIGENES Glied (F7-VERIFY, "schwerster Befund": sonst
     // wuerde ein Werteset-Bump unter dem SHA512-only-Skip-Gate STILL reused).
     constexpr auto glieder = abi::anatomy_fingerprint_glieder("a", "b", "c");
-    static_assert(glieder.size() == 8u); // O-2/C-2: 6 -> 8 (Toolchain + bvset)
+    static_assert(glieder.size() == 9u); // O-2/C-2: 6 -> 8 (Toolchain + bvset); R-3: 8 -> 9 (Mess-Gates)
     static_assert(glieder[0] == abi::kAnatomyFingerprintFormat);
     static_assert(glieder[4] == abi::kSubAxisValuesetSegment);
     // O-2/C-2: die drei Schwanz-Glieder ueber ihre BENANNTEN Positionen adressiert -- nicht ueber nackte
@@ -523,9 +528,15 @@ TEST(MW12StampBausteine, AnatomyFingerprintHexIsSha512OfSeparatedGlieder) {
     static_assert(glieder[abi::kAnatomyFingerprintToolchainGlied] == abi::kToolchainStampGlied);
     static_assert(glieder[abi::kAnatomyFingerprintBvsetGlied] == abi::kBuildVariantSetSignatureGlied);
     static_assert(glieder[abi::kAnatomyFingerprintOverlayGlied] == abi::kOverlaySourceHash);
-    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=3"},
-                  "O-2/C-2: der Format-Bump 2 -> 3 ist der Anker dieses Fensters -- er trennt den "
-                  "Alt-Bestand deterministisch vom 8-Glieder-Layout.");
+    // R-3: das neunte Glied im DEFAULT-Aufruf ist die LEERE Identitaet -- ausdruecklich NICHT
+    // kMessGatesTuGlied. Diese Zeile ist die Wache gegen genau den ODR-Fehler, der beim Bau naheliegt.
+    static_assert(glieder[abi::kAnatomyFingerprintMessGatesGlied].empty(),
+                  "R-3: der Default des Mess-Gates-Glieds MUSS die leere Identitaet sein (ODR: der TU-Wert "
+                  "haette in einem Default-Argument einer inline-Funktion externe Bindung).");
+    static_assert(abi::kAnatomyFingerprintFormat == std::string_view{"fingerprint_format=4"},
+                  "R-3: der Format-Bump 3 -> 4 ist der Anker dieses Fensters -- er trennt den Alt-Bestand "
+                  "deterministisch vom 9-Glieder-Layout (O-2/C-2 hat zuvor 2 -> 3 fuer das 8-Glieder-Layout "
+                  "getan; die Begruendung ist dieselbe: Layout-Evolution mismatcht, statt still zu kollidieren).");
     // Dass diese consteval-Quelle byte-gleich zur .algos-Laufzeit-Quelle ist, prueft die schwere TU
     // test_reflect_versions_all17 (dort liegt build_axis_variant_version_table; diese TU bleibt leicht).
 }
@@ -659,9 +670,18 @@ TEST(MW12StampBausteine, FrozenFingerprintTestVectorForLagerGateB3) {
                                               "simd_extension[{avx512}];"
                                               "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
     // EINGEFROREN (Sync mit Lane-B B3): 128-hex SHA-512 ueber die '\n'-getrennte Glied-Folge. NIE aendern.
+    //
+    // R-3 (07.08.2026) -- NEU-ANKER ALS DEKLARIERTES BYTE-EREIGNIS, NICHT ALS STILLER FIX.
+    // "NIE aendern" heisst nicht "nie", sondern "nie NEBENBEI". Der Format-Bump 3 -> 4 (das neunte
+    // Preimage-Glied, abi/mess_gates_glied.hpp) bewegt das ERSTE Glied und haengt ein neuntes an; jeder
+    // Fingerprint wandert dadurch zwangslaeufig -- genau das ist der Zweck des Bumps (F7: Layout-Evolution
+    // mismatcht deterministisch, statt still zu kollidieren). Der Vor-R-3-Wert bleibt als HISTORIE stehen:
+    //     Format 3 (O-2/C-2): 17148e5a4d0f4a2d... b7fd37fbba76414b... (128 hex)
+    // Der neue Wert ist NICHT vorausberechnet, sondern aus dem literalen Lauf einer Probe-TU gegen genau
+    // diesen Header uebernommen.
     constexpr std::string_view kFrozenFingerprintV1 =
-        "17148e5a4d0f4a2d96e1f5ad97dc4c727b99fce6e38bd6e337fb6dbf0e4461f9"
-        "b7fd37fbba76414be4718ad2180deecbb14387293935a8eff1469cef8ce89374";
+        "5b18feacb6c7295e7d6f0cde6657b21732765942608482a131d5807aa32ba9fc"
+        "9cbcfeb89b0fba48ec13a746d5ae7e470cc5befb296873f375aaa9ea00bac75e";
     constexpr auto fp = abi::anatomy_fingerprint_hex(kOrgan, kSystem, kMeasure, abi::ToolchainGlied{kFrozenToolchain},
                                                      abi::BvsetGlied{kFrozenBvset});
     static_assert(fp[128] == '\0', "Fingerprint-Zeile nullterminiert");

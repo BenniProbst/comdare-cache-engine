@@ -444,6 +444,32 @@ void check_fingerprint_drift_free(std::vector<std::string> const& g320_ids) {
     check_true("(a3) FingerprintFn ist 128-hex", provider_fp.size() == 128);
     check_eq("(a3) FingerprintFn == sha512(emittierte organ+system) -- drift-frei zum DLL-sha512_line", provider_fp,
              emitted_fp);
+
+    // -- R-3 (07.08.2026): DAS NEUNTE GLIED REIST AUCH AUF DEM LAUFZEIT-WEG ---------------------------
+    // Der Zwilling oben rechnet mit dem DEFAULT des Mess-Gates-Glieds (leer) -- das ist der
+    // Bestands-Aufruf und er bleibt byte-identisch. Diese Erweiterung belegt die andere Haelfte: wird das
+    // Glied gereicht, wandert der Digest, UND er wandert auf genau denselben Wert, den die Glied-Quelle
+    // liefert. Ohne diese zwei Zeilen bliebe der Laufzeit-Weg in dem Zustand, den R-3 am consteval-Weg
+    // gerade geheilt hat -- gate-blind.
+    namespace cea = ::comdare::cache_engine::abi;
+    cea::MessGatesGlied const mg{"mg=m1;s1;x1;tw1;tm1;tmi1"};
+    cea::ToolchainGlied const tc{cea::kToolchainStampGlied};
+    cea::BvsetGlied const     bv{cea::kBuildVariantSetSignatureGlied};
+    cea::OverlayHash const    ov{cea::kOverlaySourceHash};
+    auto const                glieder_mg  = cea::anatomy_fingerprint_glieder(args[0], args[1], "", tc, bv, ov, mg);
+    std::string const         preimage_mg = cea::anatomy_fingerprint_preimage(
+        std::span<std::string_view const>{glieder_mg.data(), glieder_mg.size()});
+    auto const digest_mg = ::comdare::cache_engine::sha512::sha512(
+        std::span<std::uint8_t const>{reinterpret_cast<std::uint8_t const*>(preimage_mg.data()), preimage_mg.size()});
+    auto const        hex_mg = ::comdare::cache_engine::sha512::to_hex(digest_mg);
+    std::string const emitted_fp_mg(hex_mg.data(), hex_mg.size());
+    std::string const provider_fp_mg = tlz::lazy_adhoc_fingerprint_for(
+        tables, id, version_table, /*measurement=*/{}, cea::SystemCellValues{}, tc, bv, mg);
+    check_eq("(a3/R-3) FingerprintFn MIT Mess-Gates-Glied == sha512 derselben Glied-Folge", provider_fp_mg,
+             emitted_fp_mg);
+    check_true("(a3/R-3) das Mess-Gates-Glied BEWEGT den Laufzeit-Fingerprint (sonst waere der Zwilling "
+               "gate-blind geblieben)",
+               provider_fp_mg != provider_fp);
 }
 
 } // namespace

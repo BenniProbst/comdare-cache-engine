@@ -147,6 +147,18 @@
 /// OHNE DEFINE IST ALLES BYTE-IDENTISCH (Identitaet aus C1e): kSC.view() == system_lit, also derselbe kFP,
 /// dasselbe kSE, dasselbe POD. KEIN POD-/Layout-Anfassen -- kSC.chars ist ein nullterminiertes char-Array
 /// mit statischer Lebensdauer, genau wie das frueher hier stehende kS[].
+///
+/// R-3 (Format 4, 07.08.2026) -- DIE VIER SCHWANZ-GLIEDER REISEN AB HIER ALLE EXPLIZIT. Bis hierher rief
+/// dieses Makro die 3-arg-Form; Toolchain/bvset/Overlay kamen als DEFAULT herein. Fuer das neue
+/// Mess-Gates-Glied ist der Default-Weg VERBOTEN: sein Wert (abi/mess_gates_glied.hpp, kMessGatesTuGlied)
+/// ist TU-abhaengig und hat interne Bindung -- als Default-Argument einer inline-Funktion waere er ein
+/// stiller ODR-Verstoss (ausfuehrliche Herleitung bei anatomy_fingerprint_glieder). Der EINE Ort, an dem
+/// genau eine Uebersetzungseinheit gemeint ist, ist der Expansionsort dieses Makros; also wird er hier
+/// gereicht. Die drei anderen stehen der Symmetrie halber daneben und rechnen byte-identisch zum
+/// Default-Weg -- kein Fingerprint bewegt sich dadurch, nur durch das neunte Glied selbst.
+/// GOLDEN-NEUTRAL bleibt es: der EMITTIERTE Makro-CALL (2-/3-arg) ist unveraendert, der Fingerprint
+/// materialisiert weiterhin erst in der Makro-EXPANSION -- die Round-Trip-Byte-Wachen und der
+/// binary_id-CRC-Anker sehen davon nichts.
 #define COMDARE_ANATOMY_VERSION_STAMP_M(organ_lit, system_lit, measurement_lit)                                        \
     extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::abi::AnatomyVersionLines const*                     \
     comdare_anatomy_version_lines() noexcept {                                                                         \
@@ -156,8 +168,13 @@
                 system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine)>(                               \
             system_lit, ::comdare::cache_engine::abi::kSystemCellValuesFromDefine);                                    \
         static constexpr char kM[] = measurement_lit;                                                                  \
-        static constexpr auto kFP =                                                                                    \
-            ::comdare::cache_engine::abi::anatomy_fingerprint_hex(organ_lit, kSC.view(), measurement_lit);             \
+        static constexpr auto kFP = ::comdare::cache_engine::abi::anatomy_fingerprint_hex(                             \
+            organ_lit, kSC.view(), measurement_lit,                                                                    \
+            ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},          \
+            ::comdare::cache_engine::abi::BvsetGlied{                                                                  \
+                ::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},                                         \
+            ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},               \
+            ::comdare::cache_engine::abi::MessGatesGlied{::comdare::cache_engine::abi::kMessGatesTuGlied});            \
         static constexpr auto kOE =                                                                                    \
             ::comdare::cache_engine::abi::parse_stamp_entries<::comdare::cache_engine::abi::count_stamp_entries(kO)>(  \
                 kO);                                                                                                   \

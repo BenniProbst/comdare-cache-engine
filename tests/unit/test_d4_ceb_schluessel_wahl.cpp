@@ -160,11 +160,25 @@ TEST(D4CebSchluesselWahl, GleicheComboLiefertDenselbenSchluesselUeberZweiUnabhae
 // Vor-D-4-Stand. Dieser Anker haelt genau das fest: waere die Vollmengen-Zeile je gewandert, waeren alle
 // bestehenden ceb_key_sha512 entwertet, und das MUSS ein deklariertes Byte-Ereignis sein, kein Nebeneffekt.
 TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
-    // Gemessen am Vor-D-4-Stand (Commit b9fd81ff) ueber eine Probe-TU gegen denselben Header.
-    constexpr std::string_view kVorD4Vollmenge =
-        "004251f467c004a88feb5e12af2382ee3e0568146ee81f79be384cced22b28734131db68ae86e5f83949b1ad21f40d288"
-        "80283ce71475cfc478a41f00f76c8d8";
-    EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kVorD4Vollmenge)
+    // R-3 (07.08.2026) -- NEU-ANKER, UND ZWAR ALS DAS DEKLARIERTE BYTE-EREIGNIS, DAS DIESER TEST FORDERT.
+    //
+    // Der Format-Bump 3 -> 4 (das neunte Preimage-Glied "mess-gates", abi/mess_gates_glied.hpp) bewegt das
+    // ERSTE Preimage-Glied und haengt ein neuntes an. kCebFingerprintFor rechnet ueber
+    // anatomy_fingerprint_hex, also zwangslaeufig mit. DAS WAR VORHERGESAGT UND IST GEWOLLT: dieser Test
+    // ist die Wache, die verhindert, dass es STILL geschieht -- er ist am R-3-Bau ROT geworden, der alte
+    // und der neue Wert stehen im Scheiben-Protokoll, und der neue ist aus dem literalen Testlauf
+    // uebernommen, nicht vorausberechnet.
+    //   Vor-D-4/Format-3-Wert (HISTORIE): 004251f467c004a88feb5e12af2382ee...80283ce71475cfc478a41f00f76c8d8
+    //
+    // WARUM DAS TRAGBAR IST: ceb_key_sha512 hat GEMESSEN null Lese-Stellen (ceb_version_stamp.hpp:81-84 --
+    // reine Provenienz; die Suche nach einem Vergleich auf dem Feld liefert 0 Treffer in libs/, apps/ und
+    // tests/). Alt-Bestandslog-Zeilen behalten ihren alten Schluessel und werden von niemandem
+    // gegengerechnet. Der Alt-Bestand wird nicht ENTWERTET, er wird nur nicht mehr fortgeschrieben.
+    // Der Sidecar-Bestand, der am Fingerprint haengt, ist im Fenster dieses Commits literal 0.
+    constexpr std::string_view kFormat4Vollmenge =
+        "db7bac00b3de6eef05d3ce898f6f98d163171cc33319b2e2e50bbe25c62bbd443ce6c1356d906a64bf49d974f5a5c927"
+        "546587fc5381795ebd79bacbaa832234";
+    EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat4Vollmenge)
         << "Der Vollmengen-Schluessel ist gewandert -- damit sind ALLE bestehenden Bestandslog-Eintraege "
            "entwertet. Das ist erlaubt, aber nur als deklariertes Byte-Ereignis mit Owner-Entscheid, nie "
            "als Nebenprodukt.";

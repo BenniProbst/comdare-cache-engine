@@ -345,21 +345,35 @@ template <class List>
 /// consteval-Zwilling in der Tier-Binary ueber ANDERE Glieder als dieser Laufzeit-Weg -- und die
 /// drift-freie Zusage dieser Funktion waere gebrochen. Genau deshalb bleibt die Verdrahtung EIN Schritt
 /// (Buendel-Scheibe C-3) und wird hier nur vorbereitet.
+///
+/// R-3 (Format 4) -- DAS MESS-GATES-GLIED [8]. Es ist der EINE Traeger, dessen Wert dieser Weg NICHT
+/// aus einem Compile-Define ziehen kann: er ist die Praeprozessor-WAHRHEIT der Tier-Uebersetzungseinheit
+/// (abi::kMessGatesTuGlied), und die entsteht erst beim Uebersetzen der emittierten Quelle. Der Host
+/// kann ihn nur VORHERSAGEN -- pf::mess_gates_glied_for_legend(legende), die die Vorhersage aus
+/// demselben Define-Vektor liest, den der Bau-Kanal wirklich anhaengt. Der Default ist die LEERE
+/// Identitaet (Bestands-Aufrufer rechnen byte-identisch weiter); die LIVE-Naht unten reicht den
+/// Vorhersage-Wert (NB/CX-4-Muster: "kein Argument" heisst LIVE, nicht leer).
 [[nodiscard]] inline std::string lazy_adhoc_fingerprint_for(
     LazySlotTables const& tables, std::string const& binary_id,
     std::vector<ex::AxisVariantVersion> const& version_table, std::string const& measurement_stamp = {},
     ::comdare::cache_engine::abi::SystemCellValues system_cell_values = {},
     ::comdare::cache_engine::abi::ToolchainGlied   toolchain_glied =
         ::comdare::cache_engine::abi::ToolchainGlied{::comdare::cache_engine::abi::kToolchainStampGlied},
-    ::comdare::cache_engine::abi::BvsetGlied bvset_glied = ::comdare::cache_engine::abi::BvsetGlied{
-        ::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied}) {
+    ::comdare::cache_engine::abi::BvsetGlied bvset_glied =
+        ::comdare::cache_engine::abi::BvsetGlied{::comdare::cache_engine::abi::kBuildVariantSetSignatureGlied},
+    ::comdare::cache_engine::abi::MessGatesGlied mess_gates_glied = ::comdare::cache_engine::abi::MessGatesGlied{""}) {
     std::string const macro_args = lazy_adhoc_macro_args_for(tables, binary_id);
     if (macro_args.empty()) return {}; // nicht materialisierbar -> keine DLL -> kein Fingerprint
     std::string const organ  = ex::compose_organ_stamp_line(ex::ceb_parse_path(binary_id), version_table);
     std::string const system = ::comdare::cache_engine::abi::complete_system_stamp_line(
         ::comdare::cache_engine::abi::system_stamp_line(), system_cell_values);
-    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(organ, system, measurement_stamp,
-                                                                                   toolchain_glied, bvset_glied);
+    // R-3: das Overlay-Glied wird ab hier EXPLIZIT gereicht -- es ist kein Schwanz-Glied mehr und kann
+    // nicht mehr per Default hinter dem Mess-Gates-Glied stehenbleiben. Der Wert ist derselbe wie zuvor
+    // (der Default), also bewegt allein das neunte Glied den Digest.
+    auto const glieder = ::comdare::cache_engine::abi::anatomy_fingerprint_glieder(
+        organ, system, measurement_stamp, toolchain_glied, bvset_glied,
+        ::comdare::cache_engine::abi::OverlayHash{::comdare::cache_engine::abi::kOverlaySourceHash},
+        mess_gates_glied);
     std::string const preimage = ::comdare::cache_engine::abi::anatomy_fingerprint_preimage(
         std::span<std::string_view const>{glieder.data(), glieder.size()});
     auto const digest = ::comdare::cache_engine::sha512::sha512(
@@ -406,19 +420,26 @@ template <class List>
 [[nodiscard]] inline ex::FingerprintFn
 make_lazy_adhoc_fingerprint_fn_from_env(std::string                system_cell_values = {},
                                         std::optional<std::string> toolchain_glied    = std::nullopt,
-                                        std::optional<std::string> bvset_glied        = std::nullopt) {
+                                        std::optional<std::string> bvset_glied        = std::nullopt,
+                                        std::optional<std::string> mess_gates_glied   = std::nullopt) {
     namespace pfn = ::comdare::cache_engine::profile_facade;
     std::string tc_wert =
         toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
     std::string bv_wert =
         bvset_glied.has_value() ? std::move(*bvset_glied) : pfn::live_build_variant_set_signature_glied();
-    auto tables = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
+    // R-3: "kein Argument" == der LIVE-Wert (NB/CX-4). live_mess_gates_glied() zieht durch DIESELBE
+    // EINE Aufloesung wie der Bau-Kanal (resolve_live_measurement_combo_legend -> mess_achsen_defines);
+    // eine zweite Ableitung waere die Drift-Klasse aus D-1. Ein explizit uebergebener Wert gewinnt
+    // IMMER -- auch der leere, der dann genau das heisst, was er sagt: "diese Binary traegt das Glied
+    // nicht" (NB2-5, gilt hier unveraendert; Frozen-/Bestands-Binaries aus der Zeit vor Format 4).
+    std::string mg_wert = mess_gates_glied.has_value() ? std::move(*mess_gates_glied) : pfn::live_mess_gates_glied();
+    auto        tables  = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
     auto version_table =
         std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
     std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie der Source-Gen
     return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
-            cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert),
-            bvset = std::move(bv_wert)](std::string const& binary_id) {
+            cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert), bvset = std::move(bv_wert),
+            mess_gates = std::move(mg_wert)](std::string const& binary_id) {
         // NB/CX-4: die Werte stehen zu diesem Zeitpunkt FEST (oben aufgeloest -- explizit uebergeben oder
         // live komponiert). Der frueher hier stehende empty()-Zweig ist ersatzlos entfallen: er war genau
         // die Konflation "nicht injiziert" == "leer injiziert", die den Zwilling still auf den CEB-eigenen
@@ -426,8 +447,9 @@ make_lazy_adhoc_fingerprint_fn_from_env(std::string                system_cell_v
         // NB2-5: die Aufloesung oben unterscheidet jetzt auch "leer UEBERGEBEN" von "nicht uebergeben".
         auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
         auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset};
+        auto const mg = ::comdare::cache_engine::abi::MessGatesGlied{mess_gates};
         return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
-                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv);
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv, mg);
     };
 }
 

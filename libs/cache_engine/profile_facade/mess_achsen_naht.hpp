@@ -145,10 +145,28 @@
 // (kAnatomyFingerprintGliedCount = 8). Was sich aendert, ist der WERT der Compile-Kommandos -- nicht
 // die Form des Preimage.
 //
+// ------------------------------------------------------------------------------------------------
+// [UEBERHOLT DURCH R-3, 07.08.2026] -- DER ABSATZ DARUEBER GILT FUER M-1 UND NICHT MEHR ALS LAGE.
+// ------------------------------------------------------------------------------------------------
+// Er ist HISTORIE und bleibt stehen, weil er richtig BEGRUENDET, warum M-1 keinen Bump brauchte:
+// M-1 bewegte kein Preimage-Byte, es aenderte nur die WERTE der Compile-Kommandos. R-3 dagegen MUSS
+// ein Byte in die Identitaet bringen -- der GATE-Zustand der Uebersetzungseinheit muss den Digest
+// diskriminieren, und Glied [3] kann das nicht leisten: es ist ein HOST-Literal (die Behauptung des
+// Bauwerkzeugs), nicht die Wahrheit der TU. Am Objekt gemessen (tests/unit/r3_mess_gate_stamp_module,
+// EIN Quelltext, zwei .so, byte-identische Stempel-Literale):
+//     Objekt GATES AN   sha256 820533fb...    sha512_line 6739cae7...
+//     Objekt GATES AUS  sha256 e92658ce...    sha512_line 6739cae7...   <- IDENTISCH
+// R-3 haengt deshalb ein NEUNTES Glied an (abi/mess_gates_glied.hpp) und bumpt fingerprint_format
+// 3 -> 4. Die M-1-Kopplung (eine Legenden-Aufloesung speist Stempel UND Defines) bleibt, was sie war:
+// eine VERHALTENS-Kopplung. Die IDENTITAETS-Kopplung ist erst das neue Glied.
+// DIE HOST-SEITE DIESES GLIEDS WOHNT IN DIESER DATEI: mess_gates_glied_for_legend() unten.
+//
 // header-only, ASCII-only, keine Bau-Abhaengigkeit ausser der Mess-Tooling-Registry.
 
+#include <cache_engine/abi/mess_gates_glied.hpp> // R-3: die EINE Grammatik des Mess-Gates-Preimage-Glieds
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // kMeasurementToolingRegistry (Single-Source)
 
+#include <algorithm> // R-3: std::find ueber den Define-Vektor (die Spiegelung liest, statt nachzubauen)
 #include <array>
 #include <cstddef>
 #include <cstdlib>
@@ -456,6 +474,44 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     return mess_achsen_defines(mess_tooling_menge_from_legend(legend));
 }
 
+/// mess_gates_glied_for_legend(legend) -- DIE HOST-VORHERSAGE DES NEUNTEN PREIMAGE-GLIEDS (R-3).
+///
+/// Sie liefert exakt den Wert, den abi::kMessGatesTuGlied in einer Tier-Uebersetzungseinheit annimmt,
+/// die mit den von mess_achsen_defines(mess_tooling_menge_from_legend(legend)) emittierten Defines
+/// uebersetzt wird. Der Laufzeit-Zwilling des Fingerprints (lazy_adhoc_fingerprint_for) braucht diese
+/// Vorhersage, weil er das Glied nicht aus der TU lesen KANN -- er rechnet ja auf der Host-Seite.
+///
+/// SIE IST EINE SPIEGELUNG UND KEINE ZWEITE ABBILDUNG, und zwar mechanisch: sie liest den
+/// Define-VEKTOR, den mess_achsen_defines() erzeugt, statt dessen Bedingungen nachzubauen. Ein
+/// zweiter, handgeschriebener Ausdruck ("micro oder macro -> s1") waere exakt die Divergenz-Klasse
+/// aus D-1: die Bau-Seite haengte eine Ausstattung an, die Vorhersage behauptete eine andere, und
+/// nichts braeche. Die GRAMMATIK wiederum wohnt nur EINMAL, in abi::mess_gates_glied_komponieren --
+/// dieselbe Funktion, an die der Praeprozessor-Weg per static_assert gebunden ist.
+///
+/// WARUM x1 FEST STEHT: COMDARE_EXPERIMENT_MODE_ON ist NICHT Teil der Mess-Achsen-Abbildung. Es wird
+/// von perm_mess_defines() (profile_run_facade.cpp) fuer JEDE Perm-Uebersetzung gesetzt -- die
+/// Experiment-Kompilat-Markierung gilt unabhaengig von der Tooling-Wahl. Diese Funktion sagt deshalb
+/// den PERM-BAU-Pfad vorher, und dort ist das Gate immer an. Wer eine Tier-Binary AUSSERHALB des
+/// Perm-Pfads baut (Test-Modul, Release-Bau), bekommt ein anderes Glied -- gewollt: es ist ein
+/// anderes Kompilat. Die Konsequenz ist in anatomy_fingerprint.hpp (Format 4) benannt.
+[[nodiscard]] inline std::string mess_gates_glied_for_legend(std::string_view legend) {
+    namespace cm                       = ::comdare::cache_engine::measurement;
+    std::vector<std::string> const def = mess_achsen_defines_for_legend(legend);
+    auto const hat = [&def](std::string const& d) { return std::find(def.begin(), def.end(), d) != def.end(); };
+    return ::comdare::cache_engine::abi::mess_gates_glied_komponieren(
+        hat("-DCOMDARE_MEASUREMENT_ON=1"), hat("-DCOMDARE_CE_ENABLE_STATISTICS=1"), /*experiment_mode_on=*/true,
+        hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::WallClock))),
+        hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Macro))),
+        hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))));
+}
+
+/// live_mess_gates_glied() -- der LIVE-Wert: das Mess-Gates-Glied der Tier-Binaries, die DIESE CEB
+/// baut. Dieselbe EINE Aufloesung wie live_mess_achsen_defines() und wie die Stempel-Seite -- ein
+/// dritter Ableitungsweg waere die Drift-Klasse aus D-1.
+[[nodiscard]] inline std::string live_mess_gates_glied() {
+    return mess_gates_glied_for_legend(resolve_live_measurement_combo_legend());
+}
+
 /// live_mess_achsen_defines() -- der LIVE-Wert fuer perm_mess_defines(): die Defines der Mess-Achse,
 /// die in DIESE CEB einkompiliert ist. Argumentlos und rein im selben Sinn wie die Toolchain-Naht:
 /// derselbe Aufruf liefert im Bau-Kanal genau das, was resolve_live_measurement_combo_legend() auf der
@@ -490,7 +546,8 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
 //
 // WARUM DIE HEILUNG EINE WACHE IST UND KEIN NEUES IDENTITAETS-GLIED: PMC in den Fingerprint oder in den
 // CEB-Schluessel aufzunehmen bewegt Identitaets-BYTES (Preimage-Format bzw. der gepinnte Default-Schluessel
-// 004251f4...). Das ist ein deklariertes Byte-Ereignis mit Owner-Entscheid und ausdruecklich NICHT das,
+// 004251f4..., seit dem R-3-Format-Bump db7bac00...). Das ist ein deklariertes Byte-Ereignis mit
+// Owner-Entscheid und ausdruecklich NICHT das,
 // was eine Heilungs-Scheibe nebenbei tut. Die Wache erreicht dasselbe Ziel -- keine zwei ununterscheidbaren
 // Laeufe mehr -- und bewegt kein Byte: sie macht den mehrdeutigen Zustand UNERREICHBAR statt ihn zu
 // benennen. micro ist die Achse, die die PMC-Instrumentierung DEKLARIERT (Registry: "feinkoernige

@@ -65,8 +65,15 @@ constexpr std::string_view kFrozenBvset = "bvset=1;bv=2;page_type[{bplus;hw_cach
                                           "general_hardware[{x86_64;hw_cache_line=64;hw_numa_capable=0}]";
 
 // Der eingefrorene 128-hex (== kFrozenFingerprintV1 in A1).
-constexpr std::string_view kFrozenFingerprintV1 = "17148e5a4d0f4a2d96e1f5ad97dc4c727b99fce6e38bd6e337fb6dbf0e4461f9"
-                                                  "b7fd37fbba76414be4718ad2180deecbb14387293935a8eff1469cef8ce89374";
+// [NEU EINGEFROREN 07.08.2026, R-3 -- der Format-Bump 3 -> 4 (das neunte Preimage-Glied "mess-gates",
+// abi/mess_gates_glied.hpp) bewegt das ERSTE Glied und haengt ein neuntes an; jeder Fingerprint wandert
+// dadurch zwangslaeufig. Das ist der ZWECK des Bumps (F7) und ein DEKLARIERTES Byte-Ereignis, kein
+// Nebenprodukt: die drei Fundstellen dieses EINEN Vektors (hier, test_m_w12_stamp_bausteine.cpp,
+// test_w10_system_cell_values.cpp) sind im SELBEN Commit gedreht. Vorgaenger (Format 3):
+// 17148e5a4d0f4a2d...1469cef8ce89374. Der Vektor rechnet ueber den DEFAULT des neunten Glieds (leer),
+// damit er nicht am Bau-Zustand der jeweiligen Test-TU haengt.]
+constexpr std::string_view kFrozenFingerprintV1 = "5b18feacb6c7295e7d6f0cde6657b21732765942608482a131d5807aa32ba9fc"
+                                                  "9cbcfeb89b0fba48ec13a746d5ae7e470cc5befb296873f375aaa9ea00bac75e";
 
 // Die Glied-Folge kommt aus der EINEN Quelle abi::anatomy_fingerprint_glieder -- der Test darf sie NICHT
 // selbst zusammenstellen, sonst pinnt er eine zweite Ordnung fest (Lehre "gruene Tests zementieren alte

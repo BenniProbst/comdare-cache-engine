@@ -88,15 +88,20 @@ inline constexpr std::string_view kRefMess   = "wallclock@1.0.0c+load_framework=
 /// (zwei zusaetzliche Glieder) verschiebt beide Digests dieser Bilanz -- deklariert und im SELBEN Commit
 /// nachgezogen. Die AUSSAGE der Bilanz bleibt: der ABI-MAJOR bewegt sie nicht. Die VOR-C8-Werte
 /// f8da53ce...c5af (Referenz) und fa10b791...23ae (leer) stehen in der git-Historie.]
-inline constexpr std::string_view kRefDigestVorC8 = "6667b5bf3ac5bfc8d5e258fc44c860331c7936d5d940b0b58719fdd88035180a"
-                                                    "9323a9cd6c38c0e2684bd1fc89421188dd3b1c7d537edcf7cd5bfc3291c6c493";
+/// [ERNEUT EINGEFROREN 2026-08-07, R-3: derselbe Vorgang aus demselben Grund -- der Format-Bump 3 -> 4
+/// haengt das NEUNTE Glied an (Mess-Gates, abi/mess_gates_glied.hpp) und bewegt damit beide Digests.
+/// Die AUSSAGE der Bilanz ist unveraendert und wird durch den Neu-Anker NICHT entschaerft: sie sagt,
+/// dass der ABI-MAJOR die Stempel-Ebene nicht bewegt -- nicht, dass diese Ebene unbeweglich WAERE.
+/// Format-3-Werte: 6667b5bf...91c6c493 (Referenz) und ec3a5ea9...c8ee9cb (leer), in der git-Historie.]
+inline constexpr std::string_view kRefDigestVorC8 = "24ca89055adcb1c5219c9497cfdf121706bcd0d36b908c73204e61ea173fd194"
+                                                    "e5eeac5c519b5f0857acd66c62ac1a7f68db1c86966ca7ac7eac23792eed52b3";
 
 /// Der Digest des LEEREN Tripels -- der Zeuge der Glied-STRUKTUR (leere Glieder, aber Separatoren bleiben;
 /// das ist der GA-01-Fix, und er wuerde bei jeder Glied-Umsortierung brechen). Genau deshalb ist er der
 /// empfindlichste Wert dieser Datei: er hat sich mit dem Format-3-Bump bewegt, WEIL zwei Glieder und damit
 /// zwei Separatoren dazugekommen sind -- das ist der Beweis, dass der Bump wirkt.
-inline constexpr std::string_view kLeerDigestVorC8 = "ec3a5ea9d8eb676c4254915276553c975fa047363f9c1f889ab23b2547779a2e"
-                                                     "9f3a1347e2287b8668f4365276e7fa231951d4dc887938c0292568888c8ee9cb";
+inline constexpr std::string_view kLeerDigestVorC8 = "0a74581660d2dd6d091f8696e80a60945abe97d4a270ba8e9be5db74f57d604e"
+                                                     "da47c4e8a39a4fb91be3da16501b6e630721d937b4fbc267ef54a232572a0a3c";
 
 /// Der CRC64-Anker der 2^17-golden-Menge. TABU-Wert; er steht hier als Bilanz-Zeuge, nicht als zweite
 /// Wahrheit -- die RECHNENDE Wache bleibt test_limits_entkopplung_vorstufe, die die 131072 ids
@@ -151,13 +156,21 @@ int main() {
     }
 
     // ----------------------------------------------------------------------------------------------
-    // EBENE 2 -- DIE UNBEWEGTE: der A13/W10-Stempel (SHA512-Preimage).
+    // EBENE 2 -- DIE VOM ABI-MAJOR UNBEWEGTE: der A13/W10-Stempel (SHA512-Preimage).
+    // R-3 (07.08.2026): "unbewegt" hiess hier immer "vom C8-Major-Dreh unbewegt" -- nie "unbeweglich".
+    // Ein DEKLARIERTES Preimage-Ereignis (Format-Bump) bewegt sie sehr wohl und soll es; die Anker
+    // werden dann im selben Commit nachgezogen (so geschehen 05.08. fuer 2 -> 3 und heute fuer 3 -> 4).
     // ----------------------------------------------------------------------------------------------
-    std::cout << "\n-- Ebene 2 (UNBEWEGT): Stempel-Preimage / SHA512 --\n";
+    std::cout << "\n-- Ebene 2 (durch den ABI-MAJOR UNBEWEGT; R-3-Format-Bump nachgezogen): Stempel-Preimage "
+                 "/ SHA512 --\n";
     {
+        // R-3 (07.08.2026): Format 4, NEUN Glieder. Diese beiden Zeilen sind KEINE Aussage darueber, dass
+        // die Stempel-Ebene unbeweglich waere -- sie sind der Zeuge dafuer, dass sie sich NUR durch
+        // deklarierte Preimage-Ereignisse bewegt und nie durch einen ABI-Major-Dreh. Genau deshalb werden
+        // sie bei jedem Format-Bump im SELBEN Commit nachgezogen (Praezedenz O-2/C-2, 05.08.).
         eq("die Preimage-FORMAT-Kennung", std::string{abi::kAnatomyFingerprintFormat},
-           std::string{"fingerprint_format=3"});
-        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{8});
+           std::string{"fingerprint_format=4"});
+        eq("die Zahl der Preimage-Glieder", abi::kAnatomyFingerprintGliedCount, std::size_t{9});
         eq("die Position der System-Zeile in der Glied-Folge", abi::kAnatomyFingerprintSystemGlied, std::size_t{2});
 
         constexpr auto    kRefJetzt = abi::anatomy_fingerprint_hex(kRefOrgan, kRefSystem, kRefMess);
@@ -173,7 +186,7 @@ int main() {
            std::string{kLeerDigestVorC8});
 
         // Der STRUKTURELLE Grund, warum der ABI-MAJOR diese Ebene nicht bewegt: er kommt in keinem der
-        // acht Glieder vor -- SOLANGE das Toolchain-Glied nicht befuellt ist.
+        // neun Glieder vor -- SOLANGE das Toolchain-Glied nicht befuellt ist.
         //
         // [NACHGEFUEHRT 2026-08-05, O-2/C-2 -- EHRLICHE EINSCHRAENKUNG statt stiller Fortschreibung:] das
         // Toolchain-Glied [5] traegt per Bauplan ein ceb=<abi_major>.<codegen_minor>-Feld (F7-Spez (a),
