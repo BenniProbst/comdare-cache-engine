@@ -6,9 +6,14 @@
 // run_workload-/tier_*-Aufruf am Dock. Runner-/Pruef-Dock-Verdrahtung = Folge-Increment (E1-Verweis).
 //
 // Review wf_c99a2132 (CONFIRMED-major, gefixt): read_delta zielt auf ein EIGENES, vollstaendiges
-// MeasuredDelta (alle 10 MeasuredEvents + per-Event-Gueltigkeit) — measurement::PmcCounters (TABU,
-// Bestand) kann Cycles/Instructions/MemStall strukturell nicht ausdruecken und waere fuer die
-// Folge-Verdrahtung eine Sackgasse gewesen. Der ABI-heilige Snapshot-POD bleibt unberuehrt.
+// MeasuredDelta (alle 10 MeasuredEvents + per-Event-Gueltigkeit) -- measurement::PmcCounters kann
+// Cycles/Instructions/MemStall strukturell nicht ausdruecken und waere fuer die Folge-Verdrahtung eine
+// Sackgasse gewesen. Der ABI-heilige Snapshot-POD bleibt unberuehrt.
+// PRAEZISIERUNG M-3a (2026-08-07): PmcCounters stand hier als "TABU, Bestand". Gemeint war und ist
+// "kein ZIEL-POD fuer read_delta" -- nicht "unveraenderlich". Der POD ist seit 2026-08-06/07 additiv um
+// fuenf per-Zaehler-Quellen-Flags gewachsen (B5/M-2-KORREKTUR-2/3 + M-3a); er traegt keine sizeof-/ABI-
+// Wache (nachgeprueft: kein static_assert(sizeof(PmcCounters)) im Baum, die "PMC-Wache" in
+// test_m1h_stufen_und_pmc_wache.cpp prueft die BUILD-Ausstattung, nicht das Layout).
 
 #include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource/PmcCounters (Bestands-Familie, nur Adapter)
 
@@ -128,11 +133,21 @@ private:
 };
 
 /// GoF-ADAPTER: wickelt die Bestands-PMC-Familie (measurement::IPmcSource) in das vendor-neutrale
-/// Interface — pmc_source.hpp bleibt byte-unberuehrt. EHRLICHKEITS-GRENZE (Review wf_c99a2132):
-/// IPmcSource kennt weder per-Event-Caps noch per-Event-Gueltigkeit (EIN available-Flag); der
-/// Adapter bewirbt deshalb nur die 7 STRUKTURELL ausdrueckbaren Kanaele und stempelt valid je
-/// Kanal grob-granular mit counters.available. Feinere Wahrheit braucht eine IPmcSource-API-
-/// Erweiterung (P4/Vendor-Impls) = Folge-Increment.
+/// Interface. Der Adapter bewirbt die 7 STRUKTURELL ausdrueckbaren Kanaele.
+///
+/// EHRLICHKEITS-GRENZE (Review wf_c99a2132) -- NACHGEZOGEN M-3a, 2026-08-07: der Satz hier lautete
+/// "IPmcSource kennt weder per-Event-Caps noch per-Event-Gueltigkeit (EIN available-Flag) ... Feinere
+/// Wahrheit braucht eine IPmcSource-API-Erweiterung (P4/Vendor-Impls) = Folge-Increment". Dieses
+/// Folge-Increment IST inzwischen geschehen: PmcCounters traegt seit 2026-08-06 (l2/l3/coherence/energy)
+/// und 2026-08-07 (branch_misses) FUENF per-Zaehler-Quellen-Flags. read_delta stempelt `valid` deshalb
+/// nicht mehr grob-granular mit counters.available, sondern je Kanal aus dessen eigenem Flag -- genau die
+/// per-Event-Gueltigkeit, die MeasuredDelta von Anfang an ausdruecken konnte und die der Adapter bisher
+/// verschenkte. Ebenfalls ueberholt: die frueher hier zugesicherte Byte-Unberuehrtheit von pmc_source.hpp
+/// (der POD ist seit den beiden Korrekturen additiv gewachsen) und die Einordnung von PmcCounters als
+/// TABU im Kopf dieser Datei -- gemeint war "kein Ziel-POD fuer read_delta", nicht "nie erweiterbar".
+/// OFFEN BLEIBT: cache_misses_l1 und dtlb_misses fuehren weiterhin KEIN eigenes Flag (der Bestands-POD
+/// hat keins); ihre Gueltigkeit bleibt an counters.available gebunden. Cycles/Instructions/MemStall sind
+/// in PmcCounters strukturell nicht ausdrueckbar und bleiben valid=false (unveraendert).
 class PmcSourceAdapter final : public IMeasurementSource {
 public:
     explicit PmcSourceAdapter(measurement::IPmcSource& source) noexcept : source_{source} {}
@@ -162,19 +177,24 @@ public:
     void end() noexcept override { last_ = source_.end(); }
     void read_delta(MeasuredDelta* out) const noexcept override {
         if (out == nullptr) return;
-        *out           = MeasuredDelta{};
-        auto const ok  = last_.available; // grob-granular (s. Klassen-Kommentar)
-        auto       set = [&](MeasuredEvent e, std::uint64_t v) {
+        *out          = MeasuredDelta{};
+        auto const ok = last_.available; // ZEILEN-weite Aussage: mindestens ein Zaehler hat geliefert.
+        // M-3a: `valid` ist die per-EVENT-Wahrheit. Ein Kanal ist nur dann gueltig, wenn die Zeile
+        // ueberhaupt Messung ist UND seine eigene Quelle offen war (s. Klassen-Kommentar).
+        auto set = [&](MeasuredEvent e, std::uint64_t v, bool source_available) {
             out->value[static_cast<std::size_t>(e)] = v;
-            out->valid[static_cast<std::size_t>(e)] = ok;
+            out->valid[static_cast<std::size_t>(e)] = ok && source_available;
         };
-        set(MeasuredEvent::L1dMiss, last_.cache_misses_l1);
-        set(MeasuredEvent::L2Miss, last_.cache_misses_l2);
-        set(MeasuredEvent::L3Miss, last_.cache_misses_l3);
-        set(MeasuredEvent::DtlbMiss, last_.dtlb_misses);
-        set(MeasuredEvent::BranchMiss, last_.branch_misses);
-        set(MeasuredEvent::CoherenceInval, last_.coherence_invalidations);
-        set(MeasuredEvent::EnergyUj, last_.energy_micro_joules);
+        // l1/dtlb: kein eigenes Flag im Bestands-POD -> an der Zeilen-Aussage gebunden (true eingesetzt).
+        set(MeasuredEvent::L1dMiss, last_.cache_misses_l1, true);
+        set(MeasuredEvent::DtlbMiss, last_.dtlb_misses, true);
+        // Die fuenf flag-tragenden Kanaele: je Kanal die eigene Quelle.
+        set(MeasuredEvent::L2Miss, last_.cache_misses_l2, last_.cache_misses_l2_source_available);
+        set(MeasuredEvent::L3Miss, last_.cache_misses_l3, last_.cache_misses_l3_source_available);
+        set(MeasuredEvent::BranchMiss, last_.branch_misses, last_.branch_misses_source_available);
+        set(MeasuredEvent::CoherenceInval, last_.coherence_invalidations,
+            last_.coherence_invalidations_source_available);
+        set(MeasuredEvent::EnergyUj, last_.energy_micro_joules, last_.energy_micro_joules_source_available);
     }
     void close() noexcept override { last_ = measurement::PmcCounters{}; }
 

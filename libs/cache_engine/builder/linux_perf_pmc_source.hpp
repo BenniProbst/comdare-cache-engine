@@ -6,15 +6,23 @@
 // `NullPmcSource`-0 befuellt. KEINE Aenderung an POD/Pipeline/PDF/CSV-Schema (pmc_source.hpp:6-9) --
 // cache_engine_builder_iterator.hpp lazy_csv_header/format_csv_row bleiben UNVERAENDERT.
 //
-// WAS SIE REAL LIEFERT (B5/M-2-KORREKTUR 2026-08-06): der Kopf sagte frueher "+6 HW-Counter (... best-effort
-// L2/coherence, RAPL-energy)". Das war die aeltere, zu optimistische Fassung und widersprach dem eigenen Code
-// weiter unten. TATSAECHLICH GEOEFFNET werden DREI generische Counter -- cache_misses_l1 (L1D/READ/MISS),
-// cache_misses_l3 (LAST-LEVEL/READ/MISS, ehrlich LL) und dtlb_misses (DTLB/READ/MISS) -- plus
-// energy_micro_joules als best-effort RAPL-Snapshot (root-/Zonen-abhaengig). cache_misses_l2 und
-// coherence_invalidations bleiben AUCH MIT dem Flag 0: dafuer gibt es keinen portablen generischen Counter,
-// und ein RAW-Rateversuch ist bewusst unterblieben (Feld-Mapping + Konstruktor unten sagen es woertlich).
-// branch_misses wird von KEINER PMC-Quelle befuellt (offener Posten M-3a). Diese honest-0-Spalten sind im
-// Anhang als solche zu fuehren, nicht als gemessen.
+// WAS SIE REAL LIEFERT (B5/M-2-KORREKTUR 2026-08-06, erweitert M-3a 2026-08-07): der Kopf sagte frueher
+// "+6 HW-Counter (... best-effort L2/coherence, RAPL-energy)". Das war die aeltere, zu optimistische Fassung
+// und widersprach dem eigenen Code weiter unten. TATSAECHLICH GEOEFFNET werden VIER generische Counter --
+// cache_misses_l1 (L1D/READ/MISS), cache_misses_l3 (LAST-LEVEL/READ/MISS, ehrlich LL), dtlb_misses
+// (DTLB/READ/MISS) und seit M-3a branch_misses -- plus energy_micro_joules als best-effort RAPL-Snapshot
+// (root-/Zonen-abhaengig). cache_misses_l2 und coherence_invalidations bleiben AUCH MIT dem Flag 0: dafuer
+// gibt es keinen portablen generischen Counter, und ein RAW-Rateversuch ist bewusst unterblieben
+// (Feld-Mapping + Konstruktor unten sagen es woertlich). Diese honest-0-Spalten sind im Anhang als solche
+// zu fuehren, nicht als gemessen.
+//
+// M-3a (2026-08-07) -- branch_misses ist NICHT mehr honest-0: der Satz "branch_misses wird von KEINER
+// PMC-Quelle befuellt" stand hier bis zu diesem Paket und ist damit ueberholt. Der Zaehler liegt als
+// PERF_COUNT_HW_BRANCH_MISSES unter PERF_TYPE_HARDWARE (NICHT unter PERF_TYPE_HW_CACHE wie die drei
+// anderen) -- ein generisches, vom Kernel auf jede Mikroarchitektur abgebildetes Event, das auf Intel
+// UND AMD oeffnet. Das ist der Unterschied zum LL-Event, das auf AMD Zen5 mit ENOENT scheitert: dort
+// fehlt die generische Abbildung, hier nicht. Fehlschlaege werden wie ueberall pro Feld gemeldet
+// (branch_misses_source_available), nie durch eine erfundene 0 verdeckt.
 //
 // BUILD-SICHERHEIT (kritisch, analog windows_pcm_pmc_source.hpp): die GANZE Implementierung steht hinter
 //     #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
@@ -209,6 +217,7 @@ inline bool read_rapl_max_range_uj(std::uint64_t& out_uj) noexcept {
 ///   cache_misses_l1         <- PERF_COUNT_HW_CACHE_L1D / OP_READ / RESULT_MISS   (portabel)
 ///   cache_misses_l3         <- PERF_COUNT_HW_CACHE_LL  / OP_READ / RESULT_MISS   (Last-Level; ehrlich LL)
 ///   dtlb_misses             <- PERF_COUNT_HW_CACHE_DTLB/ OP_READ / RESULT_MISS   (portabel)
+///   branch_misses           <- PERF_TYPE_HARDWARE / PERF_COUNT_HW_BRANCH_MISSES  (M-3a; andere type-Klasse!)
 ///   cache_misses_l2         <- KEIN portabler generischer Counter → bleibt 0 (kein RAW-Rateversuch)
 ///   coherence_invalidations <- KEIN portabler generischer Counter → bleibt 0 (kein RAW-Rateversuch)
 ///   energy_micro_joules     <- best-effort RAPL (powercap energy_uj, Delta) → 0 ohne Zone/Leserecht
@@ -229,9 +238,16 @@ public:
             PERF_TYPE_HW_CACHE,
             cache_cfg(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
             "dtlb_misses");
+        // M-3a (2026-08-07): vierter Zaehler, exakt nach dem Muster der drei obigen -- ABER unter einer
+        // anderen type-Klasse. PERF_COUNT_HW_BRANCH_MISSES ist ein PERF_TYPE_HARDWARE-Event, kein
+        // PERF_TYPE_HW_CACHE-Event; es gibt deshalb KEINE cache_cfg()-Kodierung (id|op<<8|res<<16), die
+        // config ist der Event-Wert selbst. Das ist kein Sonderweg, sondern die man7-Kodierung fuer diese
+        // Klasse -- ein cache_cfg()-Aufruf hier waere ein stiller Fehler (falsche config -> EINVAL oder,
+        // schlimmer, ein anderes Event).
+        branch_ok_ = c_branch_.open(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_misses");
         // L2 + coherence_invalidations: KEIN portabler generischer Counter → bewusst NICHT geöffnet, Feld 0.
         // RAPL: best-effort sysfs-Snapshot; Verfügbarkeit erst bei begin() (Lesbarkeit kann variieren).
-        ready_ = l1d_ok_ || ll_ok_ || dtlb_ok_;
+        ready_ = l1d_ok_ || ll_ok_ || dtlb_ok_ || branch_ok_;
 #if defined(COMDARE_ENABLE_PAPI)
         init_papi_fallback_(); // additiv: nur falls perf-Counter ausfielen UND PAPI verfügbar.
 #endif
@@ -250,6 +266,10 @@ public:
         if (dtlb_ok_) {
             c_dtlb_.reset();
             c_dtlb_.enable();
+        }
+        if (branch_ok_) {
+            c_branch_.reset();
+            c_branch_.enable();
         }
         // RAPL: monotoner Akkumulator → Start-Snapshot für Delta.
         rapl_have_start_ = detail_linux_perf::read_rapl_uj(rapl_start_uj_);
@@ -272,12 +292,16 @@ public:
         if (l1d_ok_) c_l1d_.disable();
         if (ll_ok_) c_ll_.disable();
         if (dtlb_ok_) c_dtlb_.disable();
+        if (branch_ok_) c_branch_.disable();
 
         // B5/M-2-KORREKTUR-2 (2026-08-06): die Herkunfts-Flags sind eine OEFFNUNGS-Aussage (ll_ok_), keine
         // Lese-Aussage -- ENOENT/EINVAL beim Oeffnen (z.B. LL/READ/MISS auf AMD Zen5) ist "Quelle nicht da"
         // und rendert spaeter SourceUnavailable/"n/a"; ein spaeter leerer read() (Multiplexing-Verdraengung,
         // read_scaled ok=false) ist eine ANDERE, hier unveraenderte Fehlerklasse (Feld bleibt 0, kein Token).
         c.cache_misses_l3_source_available = ll_ok_;
+        // M-3a (2026-08-07): dieselbe OEFFNUNGS-Aussage fuer den vierten Zaehler. Damit ist branch_misses
+        // nicht mehr das eine Feld, das strukturell nie "nicht erhoben" sagen konnte.
+        c.branch_misses_source_available = branch_ok_;
         // l2 + coherence_invalidations bleiben structurell false (kein Oeffnungsversuch existiert, s.
         // Konstruktor-Kommentar unten "KEIN portabler generischer Counter") -- POD-Default traegt das bereits.
 
@@ -305,6 +329,14 @@ public:
             if (ok) {
                 c.dtlb_misses = v;
                 any           = true;
+                if (scaled) scaled_ = true;
+            }
+        }
+        if (branch_ok_) {
+            std::uint64_t const v = c_branch_.read_scaled(ok, scaled);
+            if (ok) {
+                c.branch_misses = v;
+                any             = true;
                 if (scaled) scaled_ = true;
             }
         }
@@ -351,12 +383,14 @@ public:
     }
 
 private:
-    detail_linux_perf::PerfCounter c_l1d_{};  ///< L1-D read miss
-    detail_linux_perf::PerfCounter c_ll_{};   ///< Last-Level (L3) read miss
-    detail_linux_perf::PerfCounter c_dtlb_{}; ///< dTLB read miss
-    bool                           l1d_ok_  = false;
-    bool                           ll_ok_   = false;
-    bool                           dtlb_ok_ = false;
+    detail_linux_perf::PerfCounter c_l1d_{};    ///< L1-D read miss
+    detail_linux_perf::PerfCounter c_ll_{};     ///< Last-Level (L3) read miss
+    detail_linux_perf::PerfCounter c_dtlb_{};   ///< dTLB read miss
+    detail_linux_perf::PerfCounter c_branch_{}; ///< Branch miss (M-3a, PERF_TYPE_HARDWARE)
+    bool                           l1d_ok_    = false;
+    bool                           ll_ok_     = false;
+    bool                           dtlb_ok_   = false;
+    bool                           branch_ok_ = false;
     bool ready_  = false; ///< >=1 perf-Counter live geöffnet (Spiegel von WindowsPcmPmcSource::ready_)
     bool scaled_ = false; ///< >=1 gelesener Wert wurde multiplex-hochskaliert (Schätzung)
 

@@ -405,13 +405,36 @@ struct PmcSystemAxis final : SystemAxis<PmcSystemAxis> {
             return;
         }
 
+        // M-3a (2026-08-07) -- FEINKOERNIG STATT ZEILEN-WEIT. Bis hierher stempelte JEDE dieser Kategorien
+        // mark_ok(), sobald counters->available galt. Das ist die falsche Frage: `available` sagt nur
+        // "mindestens ein Zaehler hat geliefert", nicht "DIESER Zaehler". Auf AMD Zen5 ist available==true
+        // (L1D oeffnete), waehrend cache_misses_l3 mangels generischem LL-Event beim POD-Default 0 bleibt --
+        // mark_ok(0) haette diese 0 als gueltigen Messwert testiert. Die vier flag-tragenden Kategorien
+        // fragen deshalb ihre EIGENE Quelle; ohne sie ist es derselbe FK-2/K6-Fall wie oben (der ZUGANG zur
+        // Quelle fehlt, kein Urteil ueber die Kategorie) -> SourceUnavailable, nicht 0.
+        // l1/dtlb bleiben zeilen-gebunden: fuer sie fuehrt der Bestands-POD kein eigenes Flag (identisch zur
+        // WIDE-CSV, wo sie ueber `zelle` statt `pmc_zelle` gehen) -- hier wird kein Flag erfunden.
+        auto flag_gated = [&sample](std::uint64_t value, bool source_available) noexcept {
+            if (source_available)
+                sample.mark_ok(value);
+            else
+                sample.mark_source_unavailable();
+        };
         switch (sample.category) {
             case MeasurementCategory::CACHE_MISS_L1: sample.mark_ok(counters->cache_misses_l1); return;
-            case MeasurementCategory::CACHE_MISS_L2: sample.mark_ok(counters->cache_misses_l2); return;
-            case MeasurementCategory::CACHE_MISS_L3: sample.mark_ok(counters->cache_misses_l3); return;
+            case MeasurementCategory::CACHE_MISS_L2:
+                flag_gated(counters->cache_misses_l2, counters->cache_misses_l2_source_available);
+                return;
+            case MeasurementCategory::CACHE_MISS_L3:
+                flag_gated(counters->cache_misses_l3, counters->cache_misses_l3_source_available);
+                return;
             case MeasurementCategory::DTLB_MISS: sample.mark_ok(counters->dtlb_misses); return;
-            case MeasurementCategory::BRANCH_MISS: sample.mark_ok(counters->branch_misses); return;
-            case MeasurementCategory::ENERGY_J: sample.mark_ok(counters->energy_micro_joules); return;
+            case MeasurementCategory::BRANCH_MISS:
+                flag_gated(counters->branch_misses, counters->branch_misses_source_available);
+                return;
+            case MeasurementCategory::ENERGY_J:
+                flag_gated(counters->energy_micro_joules, counters->energy_micro_joules_source_available);
+                return;
             case MeasurementCategory::IPC_CPI:
                 // honest-0, FK-2/K6-Einordnung SourceUnavailable: das aktuelle PmcCounters-POD enthaelt keine
                 // instructions/cycles-Spalten. IPC/CPI ist eine ECHTE PMC-Kategorie dieser Achse (sie steht in

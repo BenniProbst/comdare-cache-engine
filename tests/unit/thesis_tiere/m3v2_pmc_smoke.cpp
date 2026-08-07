@@ -90,10 +90,13 @@ int main() {
     std::cout << "=== ROW ===\n" << line;
 
     // Maschinen-lesbarer Beleg: die 7 neuen Spalten existieren im Header (additiv ans Ende).
-    char const* const pmc_cols[] = {"pmc_cache_misses_l1", "pmc_cache_misses_l2",         "pmc_cache_misses_l3",
-                                    "pmc_dtlb_misses",     "pmc_coherence_invalidations", "pmc_energy_micro_joules",
-                                    "pmc_available"};
-    int               missing    = 0;
+    // M-3a (2026-08-07): pmc_branch_misses mitgefuehrt. Die Spalte steht nicht im positionsstabilen
+    // 7er-Block, sondern im Klasse-C-Anhang -- die Pruefung ist aber dieselbe (Existenz nach NAMEN, nie
+    // positional), und seit M-3a traegt sie einen real erhobenen Zaehler statt einer honest-0.
+    char const* const pmc_cols[] = {
+        "pmc_cache_misses_l1",         "pmc_cache_misses_l2",     "pmc_cache_misses_l3", "pmc_dtlb_misses",
+        "pmc_coherence_invalidations", "pmc_energy_micro_joules", "pmc_available",       "pmc_branch_misses"};
+    int missing = 0;
     for (char const* c : pmc_cols)
         if (header.find(c) == std::string::npos) {
             ++missing;

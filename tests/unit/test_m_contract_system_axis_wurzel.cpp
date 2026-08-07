@@ -164,6 +164,13 @@ TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
     counters.dtlb_misses         = 7;
     counters.branch_misses       = 17;
     counters.energy_micro_joules = 99000;
+    // M-3a (2026-08-07): die vier flag-tragenden Kategorien verlangen ihren EIGENEN Quellen-Beleg. Ein
+    // Zaehlerwert ohne Beleg ist seit diesem Paket kein gueltiger Messwert mehr, sondern SourceUnavailable
+    // (der Gegenfall steht als eigene TU unten). Diese TU zeigt den Normalfall "Quelle offen".
+    counters.cache_misses_l2_source_available     = true;
+    counters.cache_misses_l3_source_available     = true;
+    counters.branch_misses_source_available       = true;
+    counters.energy_micro_joules_source_available = true;
 
     m::PmcSystemAxis axis{counters};
     EXPECT_EQ(m::PmcSystemAxis::regime(), m::MeasurementRegime::PmcCounter);
@@ -179,6 +186,36 @@ TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
     auto const ipc_cpi = collect(axis, m::MeasurementCategory::IPC_CPI);
     EXPECT_FALSE(ipc_cpi.valid());
     EXPECT_EQ(ipc_cpi.value, 0u);
+}
+
+// M-3a (2026-08-07) -- DER GEGENFALL, ohne den die TU oben nur die halbe Aussage traegt.
+// `counters.available` ist die ZEILEN-weite Aussage ("mindestens ein Zaehler hat geliefert"), nicht die
+// Aussage ueber den EINZELNEN Zaehler. Genau dieser Fall ist auf AMD Zen5 der Normalzustand: L1D oeffnet,
+// also available==true, waehrend das LL-Event mangels generischer Abbildung mit ENOENT scheitert. Vor
+// M-3a stempelte PmcSystemAxis::do_collect hier mark_ok(0) -- also eine 0, die als gueltiger Messwert
+// auftrat und in der Auswertung von einer echten Nullmessung nicht zu unterscheiden war.
+TEST(MSystemAxisWurzel, PmcMarksCountersWithoutOwnSourceAsUnavailableNotZero) {
+    m::PmcCounters counters{};
+    counters.available       = true; // die ZEILE ist Messung ...
+    counters.cache_misses_l1 = 1111; // ... weil L1D geliefert hat
+    counters.dtlb_misses     = 7;
+    // ... aber KEIN flag-tragender Zaehler hat eine offene Quelle (alle Flags bleiben Default false).
+
+    m::PmcSystemAxis axis{counters};
+    EXPECT_TRUE(axis.available()); // die Zeilen-Aussage bleibt unveraendert wahr
+
+    // l1/dtlb fuehren kein eigenes Flag im Bestands-POD -> weiterhin an der Zeilen-Aussage gebunden.
+    EXPECT_TRUE(collect(axis, m::MeasurementCategory::CACHE_MISS_L1).valid());
+    EXPECT_EQ(collect(axis, m::MeasurementCategory::CACHE_MISS_L1).value, 1111u);
+    EXPECT_TRUE(collect(axis, m::MeasurementCategory::DTLB_MISS).valid());
+
+    // Die vier flag-tragenden: KEIN gueltiger Messwert, und der Wert bleibt 0 (keine Phantom-Zahl).
+    for (auto cat : {m::MeasurementCategory::CACHE_MISS_L2, m::MeasurementCategory::CACHE_MISS_L3,
+                     m::MeasurementCategory::BRANCH_MISS, m::MeasurementCategory::ENERGY_J}) {
+        auto const s = collect(axis, cat);
+        EXPECT_FALSE(s.valid()) << "Kategorie ohne eigene Quelle darf nicht als gemessen gelten";
+        EXPECT_EQ(s.value, 0u);
+    }
 }
 
 TEST(MSystemAxisWurzel, PmcHonestZeroWhenUnavailable) {
