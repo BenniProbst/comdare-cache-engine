@@ -3,6 +3,7 @@
 
 #include <charconv>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <set>
 #include <unordered_map>
@@ -218,6 +219,151 @@ std::vector<RankedBinary> rank_binaries(std::vector<MeasurementRow> const& rows,
     return out;
 }
 
+// -- Pareto-Front (WELLE C T-8, Owner-Entscheid 2026-07-10) ---------------------------------------
+
+namespace {
+
+// Richtungs-bewusster Vergleich: ist a STRIKT besser als b in Richtung dir? Das ist DIE Stelle, an der
+// die Katalog-Richtung wirkt -- die pauschale "kleiner ist besser"-Konvention gilt nur noch fuer MIN.
+[[nodiscard]] bool strictly_better(double a, double b, OptimizationDirection dir) {
+    return dir == OptimizationDirection::Minimize ? a < b : a > b;
+}
+
+// Pareto-Dominanz: a dominiert b, wenn a in ALLEN Zielgroessen mindestens gleich gut und in mindestens
+// EINER strikt besser ist. Gleichheit ist exakter double-Vergleich: die Werte sind Mediane echter
+// Messwerte; eine Epsilon-Toleranz waere eine geratene Aequivalenzklasse.
+[[nodiscard]] bool pareto_dominates(std::vector<double> const& a, std::vector<double> const& b,
+                                    std::vector<ParetoObjective> const& objectives) {
+    bool any_strict = false;
+    for (std::size_t i = 0; i < objectives.size(); ++i) {
+        if (strictly_better(b[i], a[i], objectives[i].direction)) return false; // b irgendwo strikt besser
+        if (strictly_better(a[i], b[i], objectives[i].direction)) any_strict = true;
+    }
+    return any_strict;
+}
+
+// Deterministischer Ordnungs-Schluessel (Reproduzierbarkeit): lexikographisch ueber die richtungs-
+// adjustierten Zielwerte (besser zuerst), letzter Tie-Break binary_id aufsteigend. binary_id ist je
+// Kandidat eindeutig, die Ordnung damit total -- gleiche Eingabe ergibt immer dieselbe Reihenfolge.
+[[nodiscard]] bool pareto_key_less(ParetoCandidate const& a, ParetoCandidate const& b,
+                                   std::vector<ParetoObjective> const& objectives) {
+    for (std::size_t i = 0; i < objectives.size(); ++i)
+        if (a.values[i] != b.values[i]) return strictly_better(a.values[i], b.values[i], objectives[i].direction);
+    return a.binary_id < b.binary_id;
+}
+
+} // namespace
+
+ParetoResult pareto_rank_binaries(std::vector<MeasurementRow> const&  rows,
+                                  std::vector<ParetoObjective> const& objectives, std::vector<std::string>* excluded) {
+    ParetoResult result;
+    result.objectives = objectives;
+    if (objectives.empty()) {
+        if (excluded != nullptr) excluded->push_back("(keine Zielgroessen angegeben -> leeres Ergebnis)");
+        return result;
+    }
+
+    // Je Zielgroesse EXAKT die Bestands-Aggregation wiederverwenden (rank_binaries: stratifiziert,
+    // Median der Zell-Mediane, Zell-Vollstaendigkeits-Gate) -- keine zweite Median-Logik, die driften
+    // koennte. Zell-Disqualifikationen werden mit Metrik-Praefix weitergereicht.
+    std::vector<std::vector<RankedBinary>> per_objective;
+    per_objective.reserve(objectives.size());
+    for (ParetoObjective const& obj : objectives) {
+        std::vector<std::string> cell_excluded;
+        per_objective.push_back(rank_binaries(rows, RankingCriterion{obj.metric}, &cell_excluded));
+        if (excluded != nullptr)
+            for (std::string const& e : cell_excluded) excluded->push_back(metric_name(obj.metric) + ": " + e);
+    }
+
+    // Kandidaten-Vereinigung; wertbar ist NUR, wer in ALLEN Zielgroessen vorkommt (gleiches Prinzip wie
+    // das Zell-Gate: unvollstaendige Kandidaten sind nicht vergleichbar und werden mit Diagnose
+    // disqualifiziert, nie still gewertet). std::map => deterministische Diagnose-Reihenfolge.
+    std::map<std::string, std::vector<RankedBinary const*>> by_id;
+    for (std::size_t i = 0; i < per_objective.size(); ++i)
+        for (RankedBinary const& rb : per_objective[i]) {
+            std::vector<RankedBinary const*>& slots = by_id[rb.binary_id];
+            slots.resize(objectives.size(), nullptr);
+            slots[i] = &rb;
+        }
+
+    std::vector<ParetoCandidate> candidates;
+    candidates.reserve(by_id.size());
+    for (auto const& [id, slots] : by_id) {
+        std::string missing;
+        for (std::size_t i = 0; i < slots.size(); ++i)
+            if (slots[i] == nullptr) {
+                if (!missing.empty()) missing += ",";
+                missing += metric_name(objectives[i].metric);
+            }
+        if (!missing.empty()) {
+            if (excluded != nullptr)
+                excluded->push_back(id + " (nicht in allen Zielgroessen wertbar; fehlt: " + missing +
+                                    " -> disqualifiziert)");
+            continue;
+        }
+        ParetoCandidate c;
+        c.binary_id = id;
+        c.values.reserve(slots.size());
+        c.samples.reserve(slots.size());
+        c.cells.reserve(slots.size());
+        for (RankedBinary const* rb : slots) {
+            c.values.push_back(rb->median_value);
+            c.samples.push_back(rb->samples);
+            c.cells.push_back(rb->cells);
+        }
+        candidates.push_back(std::move(c));
+    }
+
+    // Dominanz-Pruefung (O(n^2), Werkzeug-Massstab): candidates ist nach binary_id sortiert (std::map),
+    // der ERSTE gefundene Dominator ist damit der mit der kleinsten binary_id -> dominated_by ist
+    // deterministisch.
+    for (ParetoCandidate& c : candidates) {
+        for (ParetoCandidate const& other : candidates) {
+            if (&other == &c) continue;
+            if (pareto_dominates(other.values, c.values, objectives)) {
+                c.dominated_by = other.binary_id;
+                break;
+            }
+        }
+        c.on_front = c.dominated_by.empty();
+    }
+
+    // Front zuerst, danach die Dominierten -- beide Teile nach dem deterministischen Schluessel.
+    std::vector<ParetoCandidate> front, dominated;
+    for (ParetoCandidate& c : candidates) (c.on_front ? front : dominated).push_back(std::move(c));
+    auto const key_less = [&objectives](ParetoCandidate const& a, ParetoCandidate const& b) {
+        return pareto_key_less(a, b, objectives);
+    };
+    std::sort(front.begin(), front.end(), key_less);
+    std::sort(dominated.begin(), dominated.end(), key_less);
+    result.front_size = front.size();
+    result.entries    = std::move(front);
+    result.entries.insert(result.entries.end(), std::make_move_iterator(dominated.begin()),
+                          std::make_move_iterator(dominated.end()));
+    return result;
+}
+
+ParetoCandidate const* front_best_in(ParetoResult const& result, Metric metric) {
+    std::size_t idx        = 0;
+    bool        idx_found  = false;
+    auto const& objectives = result.objectives;
+    for (std::size_t i = 0; i < objectives.size(); ++i)
+        if (objectives[i].metric == metric) {
+            idx       = i;
+            idx_found = true;
+            break;
+        }
+    if (!idx_found || result.front_size == 0) return nullptr; // honest-empty statt Rateweg
+
+    // Iteration in Front-Ordnung; ersetzt wird NUR bei strikt besserem Metrik-Wert -> bei Gleichstand
+    // gewinnt das in der deterministischen Front-Ordnung fruehere Mitglied (reproduzierbar).
+    ParetoCandidate const* best = &result.entries[0];
+    for (std::size_t i = 1; i < result.front_size; ++i)
+        if (strictly_better(result.entries[i].values[idx], best->values[idx], objectives[idx].direction))
+            best = &result.entries[i];
+    return best;
+}
+
 std::optional<fs::path> TiereDllRepository::resolve_dir(std::string const& binary_id) const {
     std::error_code ec;
     if (!fs::is_directory(tiere_dir_, ec)) return std::nullopt;
@@ -379,6 +525,19 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
         mf << "cell_dims=" << kCellDims << "\n";
         mf << "aggregation=median_of_cell_medians(nearest_rank_lower)\n";
         mf << "missing_cells_policy=disqualify(candidate_must_cover_union_grid)\n";
+        // (WELLE C T-8) Pareto-Kontext, falls gesetzt: die Front ist das Ergebnis der Auswahl; das
+        // versandte Artefakt ist die Einzelsieger-SICHT (bestes Front-Mitglied in ranking_metric).
+        if (!pareto_front_ids_.empty()) {
+            mf << "pareto_objectives=" << pareto_objectives_line_ << "\n";
+            mf << "pareto_front_size=" << pareto_front_ids_.size() << "\n";
+            mf << "pareto_front=";
+            for (std::size_t i = 0; i < pareto_front_ids_.size(); ++i) {
+                if (i != 0) mf << ",";
+                mf << pareto_front_ids_[i];
+            }
+            mf << "\n";
+            mf << "selection=pareto_front_view(best_in_ranking_metric_within_front)\n";
+        }
         mf << "source_dir=" << source_dir.string() << "\n";
         mf << "dll_build_version=" << art.dll_build_version << "\n";
         mf << "algos=" << art.dll_algos << "\n"; // Organ-Provenienz (algo_sig); leer wenn kein .algos-Sidecar vorlag

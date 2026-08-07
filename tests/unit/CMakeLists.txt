@@ -4093,10 +4093,13 @@ target_include_directories(test_best_binary_selector_parse_rank PRIVATE
 comdare_set_platform_defines(test_best_binary_selector_parse_rank)
 # (REV-DATA-04, WP-5 2026-07-16): Fixture 2 = strikte Zahl-Validierung (nan/inf/12junk/leer-Pflicht verworfen).
 # (REV-DATA-07, WP-5 2026-07-16): Fixture 3 = Zell-Raster (unvollstaendiger Kandidat wird disqualifiziert).
+# (WELLE C T-8, 2026-08-07): Fixture 4 = Pareto-Front-Bissbeweis (Einzelsieger-Pfad kuert eine DOMINIERTE
+# Binary; zweite Probe: eine als MAX gefuehrte Zielgroesse kehrt die Front um).
 add_test(NAME test_best_binary_selector_parse_rank COMMAND test_best_binary_selector_parse_rank
     "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_wide.csv"
     "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_strict_values.csv"
-    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_cells.csv")
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_cells.csv"
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_pareto.csv")
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_best_binary_selector_parse_rank)
 set_tests_properties(test_best_binary_selector_parse_rank PROPERTIES LABELS "tools;best_binary" TIMEOUT 60)
 
