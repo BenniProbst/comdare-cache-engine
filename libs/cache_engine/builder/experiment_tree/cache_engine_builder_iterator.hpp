@@ -41,6 +41,7 @@
 #include "../bestandslog/lager_presence.hpp" // Lager-TP1(B)/G-E2: PresenceFn aus lager_contains + Fingerprint binden
 #include "../bestandslog/messwert_registrierung.hpp" // G-E3: der produktive Schreiber des measurement-Genus
 #include "../bestandslog/planer_driven_build.hpp" // #46b I1b: Planer-getriebener Slice-Bau (opt-in, SlicePlanner/Queue)
+#include "../bestandslog/eta_kalibrierung.hpp"    // A5/F5: laufende Kalibrierung (Schwelle, Median, Re-Kalibrierung)
 #include "../bestandslog/reservation_lifecycle.hpp" // #46b I1b: Reservierungs-Lifecycle je Slice (pro-forma/Kalib/Done)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Mess-Fortschritts-Testat je Zelle (Befund 6h-stumm)
@@ -1430,6 +1431,35 @@ inline void melde_plan_ablage_ohne_anker(LazyRunConfig const& cfg, std::size_t i
 // Rueckgabewert machte jeden Store-Fehler unsichtbar). Die pro-forma-Frist ist eine ECHTE 30min-Frist (B11) --
 // make_slice_reservation leitet sie aus EINEM now ab. Ein misslungener Eintrag ist NIE ein Bau-Fehler: das
 // Bestandslog ist Buchhaltung, der Bau laeuft weiter und die Zahl der Fehlschlaege steht am Ende als EINE Zeile.
+// A5/F5 Baupunkte (2)+(3)+(4): DER LAUFENDE KALIBRIER-KANAL EINES SLICES.
+//
+// Er liegt zwischen den Build-Workern (die je fertigem Compile eine Dauer liefern) und dem Bestandslog
+// (das die ETA traegt, SOLANGE der Slice laeuft -- genau das ist der Beweis-Anker der F5-Spez: "die
+// Reservierung traegt eta_s VOR Slice-Ende, nicht erst bei Done").
+//
+// DREI EIGENSCHAFTEN, die nicht verhandelbar sind:
+//  * THREAD-SICHER an der Naht: der Completion-Hook feuert aus mehreren Build-Workern gleichzeitig. Der
+//    Mutex schuetzt NUR das Sammeln; der Dokument-Schrieb laeuft AUSSERHALB (er ist I/O und darf die
+//    anderen Worker nicht am Buchen hindern).
+//  * SHARED_PTR, nicht Referenz: der Hook lebt im BuildOrchestrator und damit LAENGER als der Aufruf, der
+//    ihn registriert hat. Eine Referenz auf ein Local waere eine baumelnde Referenz, sobald der
+//    Bau-Durchlauf zurueckkehrt. Der geteilte Besitz nimmt diese Frage aus dem Kontrollfluss heraus.
+//  * INERT AUSSER IM SLICE: aktiv==false heisst, der Hook laesst alles fallen. Das gilt vor dem ersten
+//    Fenster, zwischen den Fenstern und nach dem letzten -- ein Ergebnis, das keinem reservierten Slice
+//    zugeordnet ist, darf keine fremde Reservierung fortschreiben.
+struct SliceEtaKanal {
+    explicit SliceEtaKanal(unsigned n_threads) : kal{n_threads} {}
+
+    std::mutex                     mtx;
+    bestandslog::EtaKalibrierung   kal; // ueberlebt die Slices; neuer_block() schneidet je Fenster
+    bestandslog::BatchReservierung res; // Kopie der LAUFENDEN Reservierung (Status bleibt offen)
+    bool                           aktiv     = false;
+    std::uint64_t                  offen     = 0;   // noch nicht fertige Binaries DIESES Fensters
+    double                         zuletzt_s = 0.0; // zuletzt VEROEFFENTLICHTE ETA (Abweichungs-Trigger)
+    std::size_t                    schriebe  = 0;   // gelungene Mid-Slice-Veroeffentlichungen (Testat)
+    std::size_t                    fehler    = 0;   // misslungene (Testat -- nie stumm)
+};
+
 [[nodiscard]] inline std::vector<BuildResult>
 run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& view,
                             std::vector<std::size_t> const& indices, LazyRunConfig const& cfg, BuildStats& agg,
@@ -1486,6 +1516,67 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     };
     std::size_t res_fehler           = 0; // nicht persistierte Reservierungs-Schreibvorgaenge (Testat am Ende)
     std::size_t bestand_skips_gesamt = 0; // G-A2: als Bestand uebersprungene Binaries (Testat am Ende)
+
+    // -----------------------------------------------------------------------
+    // A5/F5 (2)+(3)+(4): DIE LAUFENDE ETA-KALIBRIERUNG.
+    //
+    // WAS SICH DAMIT AENDERT -- der Kern des Pakets: bisher wurde apply_calibration AUSSCHLIESSLICH
+    // unmittelbar vor mark_done gerufen (unten, unveraendert). Die Reservierung trug ihre ETA also erst,
+    // wenn sie nicht mehr offen und damit nie mehr uebernehmbar war -- eine Zahl, die niemand mehr
+    // brauchte. Ab hier wird WAEHREND des Fensters kalibriert und geschrieben.
+    //
+    // DIE SCHWELLE kommt aus effective_build_workers und NICHT aus cfg.build_parallelism: letzteres ist
+    // 0, wenn kein Override gesetzt ist ("nimm die Heuristik"), und eine Schwelle von 0 hiesse "nach dem
+    // ERSTEN Compile veroeffentlichen" -- genau die Hochrechnung aus zu wenigen Punkten, gegen die dieses
+    // Paket gebaut ist. effective_build_workers loest die Heuristik auf und liefert die Zahl, die der
+    // Bau-Pool wirklich fahren wird -- das ist der Mini-Batch der Doktrin (LEDGER:3290).
+    //
+    // FUER EIN KLEINES LETZTES FENSTER faellt die Schwelle NICHT: dort werden schlicht nie genug Punkte
+    // erreicht, die Kalibrierung bleibt unbelastbar und schreibt nichts. Das ist die gewollte Richtung --
+    // lieber keine Zahl als eine aus drei Punkten.
+    unsigned const eta_worker = static_cast<unsigned>(orch.config().effective_build_workers(indices.size()));
+    auto const     eta_kanal  = std::make_shared<SliceEtaKanal>(eta_worker);
+    if (reserve) {
+        // add_ statt set_: der Iterator hat den Completion-Hook bereits mit dem Push-/Bestandslog-Zweig
+        // belegt. Ein set_ haette ihn STILL verdraengt (s. BuildOrchestrator::add_on_binary_done).
+        orch.add_on_binary_done([eta_kanal, &cfg, me, ttl_s, now_fn](BuildResult const& b) {
+            bestandslog::BatchReservierung zu_schreiben;
+            {
+                std::lock_guard<std::mutex> lk(eta_kanal->mtx);
+                if (!eta_kanal->aktiv) return;
+                // Der Rest-Zaehler laeuft fuer JEDES Ergebnis herunter -- auch fuer Skips und Fehlschlaege.
+                // Er zaehlt die Fenster-Arbeit, nicht die Messpunkte.
+                if (eta_kanal->offen > 0) --eta_kanal->offen;
+                // KEIN Compile == KEIN Messpunkt. dauer_s ist genau deshalb ein optional (s. BuildResult).
+                if (!b.dauer_s) return;
+                std::optional<std::uint64_t> bytes;
+                if (b.ok() && !b.skipped) {
+                    std::error_code ec;
+                    if (std::filesystem::exists(b.output, ec))
+                        bytes = static_cast<std::uint64_t>(std::filesystem::file_size(b.output, ec));
+                }
+                eta_kanal->kal.beobachte(*b.dauer_s, bytes);
+
+                auto const a = eta_kanal->kal.rest_projektion(eta_kanal->offen);
+                if (!bestandslog::eta_neu_schreiben(eta_kanal->zuletzt_s, a)) return;
+                eta_kanal->zuletzt_s = a.eta_s;
+                zu_schreiben         = eta_kanal->res;
+                // uebertrage_kalibrierung statt apply_calibration: hier kann die ZEIT tragen, waehrend
+                // noch keine Binary fertig ist -- dann bleibt avg_size_bytes leer statt "0" zu behaupten.
+                bestandslog::uebertrage_kalibrierung(zu_schreiben, a);
+            }
+            // AUSSERHALB des Mutex: der gelockte Dokument-Zyklus ist I/O (ABNAHME-1 nennt ihn den einzigen
+            // langen Exklusiv-Fall). Ihn unter dem Sammel-Mutex zu fahren wuerde die anderen Build-Worker
+            // fuer seine ganze Dauer am Buchen hindern.
+            bool const ok = bestandslog::store_reservation_locked(cfg.bestand_transport, cfg.bestand_doc_key, me, ttl_s,
+                                                                  now_fn, zu_schreiben, "ETA-Kalibrierung");
+            std::lock_guard<std::mutex> lk(eta_kanal->mtx);
+            if (ok)
+                ++eta_kanal->schriebe;
+            else
+                ++eta_kanal->fehler;
+        });
+    }
 
     std::size_t slice_seq = 0;
     // T2-A/F4: der Bau-Zaehler DIESES Laufs gegen den persistierten Plan. plan_praefix_intakt haelt fest, dass
@@ -1568,11 +1659,36 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                   << " zu_bauen=" << gefiltert.zu_bauen.size() << "\n"
                   << std::flush;
 
+        // A5/F5 (4): RE-KALIBRIERUNG JE BLOCK (LEDGER:3299). Der Block-Schnitt liegt VOR dem Bau des
+        // Fensters: die Zeiten des vorigen Fensters fallen (eine warm gelaufene oder gedrosselte Maschine
+        // soll sich in der naechsten Zahl zeigen), die Untergrenze longest_seen bleibt. zuletzt_s faellt
+        // ebenfalls -- jedes Fenster veroeffentlicht seine erste belastbare Zahl unbedingt.
+        if (reserve) {
+            std::lock_guard<std::mutex> lk(eta_kanal->mtx);
+            eta_kanal->kal.neuer_block();
+            eta_kanal->res       = res;
+            eta_kanal->offen     = static_cast<std::uint64_t>(gefiltert.zu_bauen.size());
+            eta_kanal->zuletzt_s = 0.0;
+            eta_kanal->aktiv     = true;
+        }
+
         auto const               t0 = std::chrono::steady_clock::now();
         BuildStats               slice_stats;
         std::vector<BuildResult> part =
             orch.provision_all(view, std::span<const std::size_t>{gefiltert.zu_bauen}, &slice_stats);
         auto const t1 = std::chrono::steady_clock::now();
+
+        // Der Kanal ist ab hier stumm: was jetzt noch feuern wuerde, gehoert zu keinem laufenden Fenster.
+        bestandslog::EtaAuskunft eta_schluss;
+        std::size_t              eta_schriebe = 0;
+        std::size_t              eta_fehler   = 0;
+        if (reserve) {
+            std::lock_guard<std::mutex> lk(eta_kanal->mtx);
+            eta_kanal->aktiv = false;
+            eta_schluss      = eta_kanal->kal.block_auskunft();
+            eta_schriebe     = eta_kanal->schriebe;
+            eta_fehler       = eta_kanal->fehler;
+        }
         // Die Wall-Clock des Fensters wird jetzt UNABHAENGIG vom Reservierungs-Zweig gebraucht (die
         // Bilanz-Zeile traegt sie auch ohne aktives Bestandslog) -- dieselbe Zahl, die apply_calibration
         // unten als eta_s in die Reservierung schreibt (deshalb KEIN zweites, redundantes eta_s-Feld).
@@ -1613,6 +1729,24 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             bestandslog::mark_done(res);
             if (!store_reservation(res, "Done-Reservierung")) ++res_fehler;
             if (guard) guard->commit(); // erfolgreicher Slice -> kein Release
+
+            // A5/F5: das Kalibrier-Testat DIESES Fensters. Eigene Zeile im [bestandslog]-Kanal -- die
+            // Marker-Grammatiken ([PLAN-TESTAT]/[BILANZ-TESTAT]) werden NICHT angefasst: sie werden
+            // maschinell gelesen, und ein zusaetzliches Feld darin waere eine Grammatik-Aenderung.
+            // Die VORHERSAGE (block_auskunft) steht neben der MESSUNG (wall_s) -- so ist die Guete der
+            // Schaetzung im Log selbst nachrechenbar und nicht nur behauptet. Ohne belastbare Grundlage
+            // steht dort "n/a", nie eine Zahl.
+            // Das Fenster heisst hier BEWUSST slice= und nicht fenster=: `fenster=` ist ein Pflichtfeld
+            // der Marker-Familie, und Wachen zaehlen sein Vorkommen ueber den ganzen Log-Strom
+            // (test_tp1_planer_filter_iterator: " fenster=0:8 " genau zweimal = einmal je Marker-Zeile).
+            // Wer sich aus einer Grammatik heraushaelt, haelt sich auch aus ihren Feldnamen heraus --
+            // sonst faelscht eine Zusatz-Zeile die Zaehlung einer fremden Wache.
+            std::cerr << "[bestandslog] eta-kalibrierung: slice=" << fenster
+                      << " vorhersage_s=" << bestandslog::eta_text(eta_schluss)
+                      << " gemessen_s=" << bestandslog::format_seconds(wall_s) << " punkte=" << eta_schluss.punkte
+                      << "/" << eta_schluss.noetige_punkte << " schriebe=" << eta_schriebe << " fehl=" << eta_fehler
+                      << "\n"
+                      << std::flush;
         }
         // T2-A/F4: DER ZAEHLER LAEUFT NACH DEM VOLLZUG HOCH, NICHT DAVOR. Gezaehlt werden die ATOME des
         // Fensters (seine view_indices) -- Lager-Treffer eingeschlossen, denn auch fuer sie gilt die Aussage

@@ -26,6 +26,7 @@
 #include <atomic>
 #include <cerrno>
 #include <cctype>
+#include <chrono> // A5/F5 Baupunkt (1): per-Binary-Compile-Dauer (steady_clock um den Compiler-Aufruf)
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +39,7 @@
 #include <iterator>
 #include <limits>
 #include <mutex>
+#include <optional> // A5/F5 Baupunkt (1): dauer_s ist optional -- "nicht gemessen" ist keine 0
 #include <span>
 #include <string>
 #include <string_view>
@@ -159,8 +161,21 @@ struct BuildResult {
     // konsumiert. Leer, wenn kein Provider injiziert ist (byte-neutral) ODER wenn der Job vor dem
     // Provider-Aufruf ausgeschieden ist (Gate-Ablehnung) -- dann ist r.ok() false und der Mess-Pfad
     // erreicht den Stamp ohnehin nicht.
-    std::string        fingerprint;
-    [[nodiscard]] bool ok() const noexcept { return status == 0; }
+    std::string fingerprint;
+    // A5/F5 Baupunkt (1) -- PER-BINARY-TIMING. Die Wanduhr-Dauer GENAU des externen Compiler-Aufrufs
+    // (compile_(job)), wie die F5-Spez sie verlangt ("Messung um den externen Compiler-Aufruf").
+    //
+    // WARUM optional UND NICHT double: ein Job, der gar nicht kompiliert hat -- Sidecar-Skip
+    // (dll_is_current), Gate-Ablehnung, unschreibbare Quelle -- hat KEINE Dauer. Eine 0 waere hier eine
+    // erfundene Zahl, und sie wuerde als "unendlich schneller Compile" in jeden Mittelwert und jeden
+    // Median einwandern. nullopt heisst "nicht gemessen"; der Kalibrier-Konsument kann den Filter damit
+    // nicht vergessen (EtaKalibrierung::beobachte bekommt den Wert gar nicht erst zu sehen).
+    //
+    // WAS BEWUSST NICHT DRINSTECKT: die RAM-Admission-Wartezeit (Block (B)). Sie ist Warteschlangen-Zeit,
+    // keine Arbeit. Sie mitzumessen wuerde die Parallelitaet DOPPELT buchen -- die ETA-Formel
+    // Sum(t_i)/N_threads modelliert die Serialisierung bereits selbst.
+    std::optional<double> dauer_s;
+    [[nodiscard]] bool    ok() const noexcept { return status == 0; }
 };
 
 struct BuildStats {
@@ -465,6 +480,25 @@ public:
     /// (byte-neutral). Feuert je Binary aus dem Worker-Thread nach results[j]-Finalisierung (Completion-Reihenfolge).
     void set_on_binary_done(BinaryDoneFn fn) { on_binary_done_ = std::move(fn); }
 
+    /// A5/F5: einen WEITEREN Completion-Hook ANHAENGEN, statt den bestehenden zu verdraengen.
+    ///
+    /// WARUM ES DIESE ZWEITE FORM GIBT: set_on_binary_done ueberschreibt. Der Iterator setzt dort bereits
+    /// den kombinierten Push-/Bestandslog-Hook (cache_engine_builder_iterator.hpp); ein zweiter set_-Aufruf
+    /// -- etwa fuer die ETA-Kalibrierung -- haette den async Push-Pump STILL abgeschaltet. Ein stiller
+    /// Verlust ist genau die Fehlerklasse, die hier nicht entstehen darf, deshalb steht die additive Form
+    /// neben der setzenden. Reihenfolge: der zuerst registrierte Hook laeuft zuerst.
+    void add_on_binary_done(BinaryDoneFn fn) {
+        if (!fn) return;
+        if (!on_binary_done_) {
+            on_binary_done_ = std::move(fn);
+            return;
+        }
+        on_binary_done_ = [erst = std::move(on_binary_done_), zweit = std::move(fn)](BuildResult const& b) {
+            erst(b);
+            zweit(b);
+        };
+    }
+
     /// I2: den Fingerprint-Provider setzen (Lager-Index-Anker je Binary). VOR provision_all aufrufen; leer = kein
     /// .fingerprint-Sidecar (byte-neutral). Opt-in wie set_on_binary_done -> die ctor-Signatur bleibt unveraendert.
     void set_fingerprint_provider(FingerprintFn fn) { fingerprint_ = std::move(fn); }
@@ -663,7 +697,13 @@ private:
                     }
                 }
                 if (r.status != -2) {
-                    r.status  = compile_(job);
+                    // A5/F5 Baupunkt (1): die Uhr steht GENAU um den externen Compiler-Aufruf -- nicht um
+                    // die Source-Generierung darueber und nicht um die RAM-Admission davor (s. BuildResult::
+                    // dauer_s). Sie laeuft auch fuer einen FEHLGESCHLAGENEN Compile: ein Fehlschlag hat
+                    // Bau-Zeit gekostet, und sie zu verschweigen wuerde die ETA zu kurz machen.
+                    auto const t_compile0 = std::chrono::steady_clock::now();
+                    r.status              = compile_(job);
+                    r.dauer_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_compile0).count();
                     r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
                     // d1-carrier + INC-29.2: den rohen Exit-Code in die richtige Fehler-DOMAENE uebersetzen
                     // (Erfolg = has_value). 127=spawn/argv (Prozess-Start), 125=rsp-IO, <0=Signal/Abbruch =>

@@ -3043,6 +3043,30 @@ add_test(NAME test_tp1_planer_filter_iterator COMMAND test_tp1_planer_filter_ite
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_tp1_planer_filter_iterator)
 set_tests_properties(test_tp1_planer_filter_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# A5 / F5-ETA-Paket -- der WIRK-Nachweis am echten run_planer_driven_provision: traegt die Reservierung
+# ihre eta_s WAEHREND der Slice laeuft (Beweis-Anker der F5-Spez), bleibt sie bei zu kleinem Fenster
+# EHRLICH leer, und ueberlebt der zuvor registrierte Completion-Hook die zweite Registrierung.
+# Der Store fuehrt eine HISTORIE -- der Endzustand allein koennte die Frage nicht beantworten.
+# Include-/Link-/Define-Satz identisch zu test_tp1_planer_filter_iterator (derselbe schwere Header).
+add_executable(test_a5_eta_slice_verdrahtung "test_a5_eta_slice_verdrahtung.cpp")
+target_compile_features(test_a5_eta_slice_verdrahtung PRIVATE cxx_std_23)
+target_include_directories(test_a5_eta_slice_verdrahtung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_a5_eta_slice_verdrahtung PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver)
+comdare_set_platform_defines(test_a5_eta_slice_verdrahtung)
+target_compile_definitions(test_a5_eta_slice_verdrahtung PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_a5_eta_slice_verdrahtung COMMAND test_a5_eta_slice_verdrahtung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a5_eta_slice_verdrahtung)
+set_tests_properties(test_a5_eta_slice_verdrahtung PROPERTIES LABELS "bestandslog;eta;standalone")
+
 # T2-A/F4 (Fable-Review MITTEL-1, 2026-08-06) -- die DURCHREICHUNG der Plan-Ablage durch die
 # run_profile-Fassade. test_tp1_planer_filter_iterator (Fall 11) belegt die MECHANIK auf Iterator-Ebene,
 # setzt cfg.batch_plan_datei dabei aber selbst -- und sprang damit ueber genau das Glied hinweg, das im
@@ -5133,6 +5157,15 @@ target_include_directories(test_g3_eta_estimator PRIVATE
 comdare_add_test(test_g3_reservation_lifecycle
     SOURCES test_g3_reservation_lifecycle.cpp)
 target_include_directories(test_g3_reservation_lifecycle PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+
+# A5 / F5-ETA-Paket: Belastbarkeits-Schwelle, Median-Projektion, Re-Kalibrierung, Kampagnen-Hochrechnung
+# (eta_kalibrierung.hpp). Rein arithmetisch, zeit-/IO-frei -- der Wirk-Nachweis am echten Bau-Weg liegt in
+# test_a5_eta_slice_verdrahtung.
+comdare_add_test(test_a5_eta_kalibrierung
+    SOURCES test_a5_eta_kalibrierung.cpp)
+target_include_directories(test_a5_eta_kalibrierung PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common")
 
