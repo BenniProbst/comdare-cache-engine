@@ -2167,6 +2167,9 @@ set(COMDARE_MCE24_PLAIN_TESTS
                                     #         W10-M2 (Contract-Minor 2, +ceb= am Perm-Pfad, Store-Key-Dedupe)
     test_e24_c9_fk5_fehlerraum        # E-24 C9 / FK-5: Organ-Achsen-Fehlerraum (Cross-Layer-Wahrheitsquellen-Naht,
                                        #         18-Achsen-Vollstaendigkeit, Negativ-Probe, D1/D2-Domaenen-Trennung)
+    test_a15_fk3_axis_error_traits    # A15 / FK-3: Achsen-Fehlerraeume (20 Familien, Boost-Hermetik-Wache mit
+                                       #         eigener Nicht-Blind-Probe, 4 Invarianten-Bissproben, Laufzeit-Biss
+                                       #         an den 3 Mess-Achsen)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
