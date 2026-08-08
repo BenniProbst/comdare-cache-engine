@@ -15,6 +15,22 @@
 > `test_pruefling_type_pilot`. Der folgende Text ist der historische Stand 2026-06-20 (#155 + #171) und bleibt
 > bewusst additiv erhalten; die konkreten `.ps1`-Aufrufe unten sind nicht mehr ausfuehrbar.
 
+> **ALTERS-VERMERK zu `tier150_measurements.csv` (2026-08-08).** Owner: *„tier150_measurements.csv Bitte
+> archivieren, ist veraltet. Wir messen den Gesamtstrang neu."* Der Lauf stammt vom **06.06.2026**
+> (`major3-320-v1`, FullPilot 320/320, 5760 Messzeilen). Er ist als **Datenquelle ueberholt** und darf
+> **nicht** Grundlage neuer Auswertungen sein.
+>
+> **Die Datei bleibt hier trotzdem liegen**, weil zwei Dinge daran haengen: `tests/unit/CMakeLists.txt:3304`
+> verdrahtet sie als `COMDARE_ORG18_TIER150_CSV`, und
+> `tests/unit/test_org18_persistence_target.cpp:157-165` pinnt sie auf **6.748.937 Bytes** — eine Wache
+> ausdruecklich *gegen* jede Veraenderung. Sie zu verschieben hiesse, diese Wache zu umgehen.
+>
+> Als **Format-Zeuge und Kompatibilitaets-Anker** bleibt sie in Gebrauch
+> (`measurement_curve_loader.hpp:19`, `result_ingest.hpp:33`, `cache_engine_builder_iterator.hpp:413,520,527,829`).
+> Die frueher unter `build/thesis_tiere/` mitgeschleppte, byte-identische **Zweitkopie** liegt seit dem
+> 08.08.2026 unter `docs/archiv/messdaten/20260606-fullpilot-320/` — siehe die dortige README fuer die
+> vollstaendige Begruendung.
+
 Stand: 2026-06-20 (#155 + #171). Dieses Verzeichnis enthält **Standalone-Tests und Mess-Treiber**, die
 bewusst **NICHT** über den normalen CMake-/CTest-Pfad (`comdare_add_test` in `tests/unit/CMakeLists.txt`)
 gebaut werden, sondern über committete PowerShell-Skripte mit einem **eigenen, schweren ADHOC-Include-Satz**.
