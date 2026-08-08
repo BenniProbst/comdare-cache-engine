@@ -1388,6 +1388,58 @@ TEST(TierCiYamlBuilder, SoftFailGuardAndFinalExit) {
     EXPECT_EQ(count_occurrences(yaml, "exit $FAIL"), 4u) << "je Batch-Job (2 Build + 2 Mess) ein Sammel-Exit";
 }
 
+// (D3-5, 2026-08-08) MessTestatIsExclusiveWithFehlerTestat -- die Testate schliessen einander aus.
+//
+// WARUM DIESER TEST NEU IST, obwohl die Emission laengst geprueft wurde: der Test darueber prueft mit
+// count_occurrences(...) > 0 die ANWESENHEIT der Zeichenkette, nicht die BEDINGUNG, unter der sie
+// gedruckt wird. Das [MESS-TESTAT] stand bis heute AUSSERHALB des schliessenden fi und wurde damit
+// unbedingt gedruckt -- auch direkt nach einem [FEHLER-TESTAT] derselben Zelle. Beide Testate standen
+// dann untereinander, und die Emissions-Tests blieben gruen, weil beide Zeichenketten ja vorkamen.
+// Wer die [MESS-TESTAT]-Zeilen als "gemessene Zellen" zaehlt, zaehlte die gescheiterten mit; der
+// Nenner war um genau die Fehlerzahl zu gross und schoente sich, je mehr schiefging.
+// Die Lehre steht im Testnamen: eine Zeichenkette zu finden heisst nicht, dass sie am richtigen Ast haengt.
+TEST(TierCiYamlBuilder, MessTestatIsExclusiveWithFehlerTestat) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // Beide Testate existieren ueberhaupt -- ohne diese Zusicherung koennte der Test unten
+    // trivial bestehen, weil er nichts zu pruefen faende (Nenner-Regel).
+    std::size_t const n_mess   = count_occurrences(yaml, "[MESS-TESTAT]");
+    std::size_t const n_fehler = count_occurrences(yaml, "[FEHLER-TESTAT]");
+    ASSERT_GT(n_mess, 0u) << "ohne MESS-TESTAT im Plan prueft dieser Test nichts";
+    ASSERT_GT(n_fehler, 0u) << "ohne FEHLER-TESTAT im Plan prueft dieser Test nichts";
+
+    // DIE INVARIANTE: jedem [MESS-TESTAT] im Mess-Zweig geht ein "else" unmittelbar voraus.
+    // Steht es dagegen direkt hinter einem "fi", ist es der unbedingte Druck von vorher.
+    std::size_t pos       = 0;
+    std::size_t geprueft  = 0;
+    std::size_t unbedingt = 0;
+    while ((pos = yaml.find("[MESS-TESTAT]", pos)) != std::string::npos) {
+        // Zeilenanfang der Testat-Zeile suchen, dann die Zeile davor betrachten.
+        std::size_t const zeilenanfang = yaml.rfind('\n', pos);
+        if (zeilenanfang != std::string::npos && zeilenanfang > 0) {
+            std::size_t const vor_anfang = yaml.rfind('\n', zeilenanfang - 1);
+            std::string const vorzeile =
+                yaml.substr(vor_anfang == std::string::npos ? 0 : vor_anfang + 1,
+                            zeilenanfang - (vor_anfang == std::string::npos ? 0 : vor_anfang + 1));
+            ++geprueft;
+            // Die Vorzeile muss das "else" tragen. Ein "fi" davor ist genau der alte Defekt.
+            if (vorzeile.find("else") == std::string::npos) {
+                ++unbedingt;
+                EXPECT_NE(vorzeile.find("else"), std::string::npos)
+                    << "MESS-TESTAT wird UNBEDINGT gedruckt -- Vorzeile war: '" << vorzeile << "'";
+            }
+        }
+        pos += 1;
+    }
+    EXPECT_GT(geprueft, 0u) << "kein MESS-TESTAT geprueft -- die Suche griff nicht";
+    EXPECT_EQ(unbedingt, 0u) << unbedingt << " von " << geprueft << " MESS-TESTAT-Zeilen haengen nicht am else-Zweig";
+}
+
 // (S4-c) TraceHygieneAndTimeout: Treiber-Detail je Aufruf nach $LOGDIR-Artefakt-Datei (>...log 2>&1); artifacts
 //        when:always mit den logs/-Verzeichnissen + expire_in 4 weeks; timeout: 7d an ALLEN Batch-Jobs.
 TEST(TierCiYamlBuilder, TraceHygieneAndTimeout) {

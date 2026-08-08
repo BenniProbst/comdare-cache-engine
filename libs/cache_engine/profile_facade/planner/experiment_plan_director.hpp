@@ -1493,9 +1493,18 @@ private:
                 s += "           " + driver_log_redirect("$LOGDIR/perm" + idx + "_mess.log") + "; then\n";
                 s += "        echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
                      " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"; FAIL=1\n";
-                s += "      fi\n";
-                s += "      echo \"[MESS-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
+                // D3-5 (2026-08-08): das [MESS-TESTAT] stand bis hierher AUSSERHALB des fi und wurde damit
+                // UNBEDINGT gedruckt -- auch unmittelbar nach einem [FEHLER-TESTAT] derselben Zelle. Eine
+                // gescheiterte Zelle trug beide Testate, und wer die [MESS-TESTAT]-Zeilen als "gemessene
+                // Zellen" zaehlt (der naheliegendste Gebrauch), zaehlte die gescheiterten mit. Der Nenner
+                // war damit strukturell zu gross, und zwar genau um die Fehlerzahl -- die Kennzahl schoente
+                // sich umso staerker, je mehr schiefging.
+                // Ab jetzt im else-Zweig: [MESS-TESTAT] heisst "diese Zelle WURDE gemessen", nicht "wir sind
+                // hier vorbeigekommen". Die beiden Testate schliessen einander aus; je Zelle steht genau eins.
+                s += "      else\n";
+                s += "        echo \"[MESS-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
                      " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"\n";
+                s += "      fi\n";
             }
         }
         // G4a P-B (§65 lokal->0, #35): der PRUNE-Schritt als LETZTER Schritt des MESS-Batches, je Perm.
