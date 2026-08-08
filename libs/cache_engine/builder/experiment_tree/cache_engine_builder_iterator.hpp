@@ -590,6 +590,12 @@ struct LazyMeasuredRow {
     //      Die Spalten existieren, damit die Luecke MASCHINENLESBAR ist statt unsichtbar: sobald eine echte
     //      Quelle da ist (Wire-Slot oder Zeitreihen-Zug), fuellt sie genau hier -- ohne Schema-Bruch.
     h += ";alloc_bytes_in_use_peak;alloc_external_frag_milli;alloc_internal_frag_milli";
+    // B-5 Runde 2 (2026-08-08, Lead-Entscheid): der amd_l3-Uncore-L3-Miss-Zaehler als EIGENE Spalte,
+    // additiv ganz am Ende (END-Append-Muster wie die A8-S3-Bloecke). Der NAME traegt die Geltung:
+    // "uncore_systemweit" sagt, dass hier der ganze CCX gezaehlt wurde und nicht der Pruefling allein.
+    // Genau deshalb steht der Wert NICHT in pmc_cache_misses_l3 -- der ist per-Task, und beide unter
+    // einer Ueberschrift waeren der Datenbruch aus Ledger :4506, nur quer ueber Vendoren.
+    h += ";pmc_l3_miss_uncore_systemweit";
     h += "\n";
     return h;
 }
@@ -848,14 +854,19 @@ struct LazyMeasuredRow {
             out += std::to_string(value);
         }
     };
+    // B-5 (2026-08-08): l1 und dtlb gingen als EINZIGE der sieben ueber `zelle` statt `pmc_zelle` -- sie
+    // konnten damit strukturell nie "nicht erhoben" sagen und trugen bei fehlender Quelle eine stille 0.
+    // Auf prod1 fiel das nie auf, weil beide dort oeffnen; auf WINDOWS ist die 0 dagegen heute schon
+    // gelogen (windows_pcm_pmc_source.hpp sagt selbst: "L1 bleibt ehrlich 0", und dtlb wird dort nie
+    // gesetzt). Jetzt laufen ALLE SIEBEN durch dieselbe Ehrlichkeit -- die Regel hat keine Ausnahme mehr.
     out += ';';
-    zelle(std::to_string(row.pmc.cache_misses_l1));
+    pmc_zelle(row.pmc.cache_misses_l1, row.pmc.cache_misses_l1_source_available);
     out += ';';
     pmc_zelle(row.pmc.cache_misses_l2, row.pmc.cache_misses_l2_source_available);
     out += ';';
     pmc_zelle(row.pmc.cache_misses_l3, row.pmc.cache_misses_l3_source_available);
     out += ';';
-    zelle(std::to_string(row.pmc.dtlb_misses));
+    pmc_zelle(row.pmc.dtlb_misses, row.pmc.dtlb_misses_source_available);
     out += ';';
     pmc_zelle(row.pmc.coherence_invalidations, row.pmc.coherence_invalidations_source_available);
     out += ';';
@@ -910,6 +921,12 @@ struct LazyMeasuredRow {
             out += (zell_ersatz.empty() ? nicht_erhoben : zell_ersatz);
         }
     }
+    // (C4) B-5 Runde 2: der amd_l3-Uncore-Wert -- eigene Groesse, eigene Spalte, dieselbe Ehrlichkeit.
+    //      Er laeuft durch pmc_zelle wie die anderen sieben: eine Zahl nur, wenn DIESE Quelle geliefert
+    //      hat, sonst der Token. Auf prod1 ist das heute "n/a" (der Uncore ist unter paranoid=1
+    //      gesperrt -- errno=13, am Objekt gemessen), auf einer Maschine mit CAP_PERFMON eine Zahl.
+    out += ';';
+    pmc_zelle(row.pmc.l3_miss_uncore_systemweit, row.pmc.l3_miss_uncore_systemweit_source_available);
     out += '\n';
     return out;
 }

@@ -164,11 +164,16 @@ TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
     counters.dtlb_misses         = 7;
     counters.branch_misses       = 17;
     counters.energy_micro_joules = 99000;
-    // M-3a (2026-08-07): die vier flag-tragenden Kategorien verlangen ihren EIGENEN Quellen-Beleg. Ein
+    // M-3a (2026-08-07): die flag-tragenden Kategorien verlangen ihren EIGENEN Quellen-Beleg. Ein
     // Zaehlerwert ohne Beleg ist seit diesem Paket kein gueltiger Messwert mehr, sondern SourceUnavailable
     // (der Gegenfall steht als eigene TU unten). Diese TU zeigt den Normalfall "Quelle offen".
+    // B-5 (2026-08-08): aus VIER flag-tragenden sind SIEBEN geworden -- l1 und dtlb waren die letzten
+    // beiden ohne eigenes Flag und mussten deshalb an der ZEILEN-Aussage haengen. Diese TU setzt jetzt
+    // alle sieben Belege, weil sie den Normalfall "jede Quelle hat geliefert" zeigt.
+    counters.cache_misses_l1_source_available     = true;
     counters.cache_misses_l2_source_available     = true;
     counters.cache_misses_l3_source_available     = true;
+    counters.dtlb_misses_source_available         = true;
     counters.branch_misses_source_available       = true;
     counters.energy_micro_joules_source_available = true;
 
@@ -197,24 +202,28 @@ TEST(MSystemAxisWurzel, PmcCollectsAvailableCountersAndDoesNotInventIpcCpi) {
 TEST(MSystemAxisWurzel, PmcMarksCountersWithoutOwnSourceAsUnavailableNotZero) {
     m::PmcCounters counters{};
     counters.available       = true; // die ZEILE ist Messung ...
-    counters.cache_misses_l1 = 1111; // ... weil L1D geliefert hat
+    counters.cache_misses_l1 = 1111; // ... aber KEIN Zaehler weist eine offene Quelle nach
     counters.dtlb_misses     = 7;
-    // ... aber KEIN flag-tragender Zaehler hat eine offene Quelle (alle Flags bleiben Default false).
+    // Alle sieben Quellen-Flags bleiben auf ihrem Default false.
 
     m::PmcSystemAxis axis{counters};
     EXPECT_TRUE(axis.available()); // die Zeilen-Aussage bleibt unveraendert wahr
 
-    // l1/dtlb fuehren kein eigenes Flag im Bestands-POD -> weiterhin an der Zeilen-Aussage gebunden.
-    EXPECT_TRUE(collect(axis, m::MeasurementCategory::CACHE_MISS_L1).valid());
-    EXPECT_EQ(collect(axis, m::MeasurementCategory::CACHE_MISS_L1).value, 1111u);
-    EXPECT_TRUE(collect(axis, m::MeasurementCategory::DTLB_MISS).valid());
-
-    // Die vier flag-tragenden: KEIN gueltiger Messwert, und der Wert bleibt 0 (keine Phantom-Zahl).
-    for (auto cat : {m::MeasurementCategory::CACHE_MISS_L2, m::MeasurementCategory::CACHE_MISS_L3,
+    // B-5 (2026-08-08) -- HIER STAND DIE AUSNAHME, UND SIE WAR DER DEFEKT. Bis hierher erwartete diese
+    // TU woertlich, dass l1/dtlb GUELTIG sind und 1111 bzw. 7 liefern, mit der Begruendung "fuehren kein
+    // eigenes Flag im Bestands-POD -> weiterhin an der Zeilen-Aussage gebunden". Die Begruendung war
+    // richtig (M-3a konnte kein Flag erfinden, das der POD nicht trug) -- die Wache hielt damit aber
+    // genau die Luecke fest, die B-5 schliesst. Der POD traegt die zwei Flags jetzt, also faellt die
+    // Ausnahme: ALLE SIEBEN Kategorien fragen ihre eigene Quelle.
+    // Warum das keine Haarspalterei ist: auf WINDOWS liefert Intel PCM weder L1 noch dTLB
+    // (windows_pcm_pmc_source.hpp: "L1 bleibt ehrlich 0", dtlb wird nie gesetzt). Dort testierte
+    // mark_ok(0) bisher eine Null, die nie gemessen wurde.
+    for (auto cat : {m::MeasurementCategory::CACHE_MISS_L1, m::MeasurementCategory::CACHE_MISS_L2,
+                     m::MeasurementCategory::CACHE_MISS_L3, m::MeasurementCategory::DTLB_MISS,
                      m::MeasurementCategory::BRANCH_MISS, m::MeasurementCategory::ENERGY_J}) {
         auto const s = collect(axis, cat);
         EXPECT_FALSE(s.valid()) << "Kategorie ohne eigene Quelle darf nicht als gemessen gelten";
-        EXPECT_EQ(s.value, 0u);
+        EXPECT_EQ(s.value, 0u) << "und sie darf erst recht keine Phantom-Zahl aus dem POD durchreichen";
     }
 }
 
