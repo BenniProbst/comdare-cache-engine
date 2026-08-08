@@ -198,7 +198,7 @@ enum class Checkpoint : std::uint8_t { In, Out };
 /// Bezeichner, Macro = Funktionsname, Micro = Achsenname. Reihenfolge der Vorlage bei
 /// IErgebnisMappe::mess_ebene_blatt() bestimmt wie bei SheetSchluessel die Anlage-Reihenfolge.
 struct MessEbenenSchluessel {
-    MessEbene   ebene;
+    MessEbene   ebene = MessEbene::Compare; // Default-Member-Initializer: cppcheck uninitMemberVarNoCtor
     std::string bezeichner;
 
     [[nodiscard]] bool operator==(MessEbenenSchluessel const&) const = default;
