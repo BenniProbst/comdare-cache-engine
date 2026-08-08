@@ -103,13 +103,34 @@ lint:layer-includes:
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
 # ── #273-T3 (2026-07-07): build:clang-Rollout — ce baut die Voll-Suite unter dem neuesten clang. ──
-# OPT-IN + advisory (COMDARE_CLANG_MATRIX=="1", wie super-T1): destabilisiert die Hauptpipeline NICHT.
 # clang-22.1.8 ist auf den bare-metal-Runnern vorhanden; lokal comdare_tests EXIT 0 bewiesen (07.07.).
 # Der gcc-15.3-Pin (T2) ist SEPARAT + gcc-15.3-gated (HO-11) und NICHT Teil dieses Jobs.
+#
+# 08.08.2026 -- UNBEDINGT GESCHALTET. Bis heute stand hier "OPT-IN + advisory
+# (COMDARE_CLANG_MATRIX==1, wie super-T1): destabilisiert die Hauptpipeline NICHT." Das war
+# richtig, solange clang den Baum nicht uebersetzen konnte, und es hatte eine unangenehme
+# Folge: die Variable ist in DIESEM Repo nirgends gesetzt, der Job lief also in KEINER
+# ce-Pipeline (nachgesehen an 15332: 21 Jobs, kein clang-Job darunter). Ein Gate, das nie
+# aufgeht, ist kein Gate -- es ist ein abgeschalteter Job.
+# Beide clang-Blocker sind heute geheilt (constexpr-Grammatik ohne Heap; CWG 1430), der
+# clang-Vollbau steht mit 1937/1938 und ctest 428/428 auf BEIDEN Compilern. Damit traegt der
+# Job und wird scharf geschaltet.
+#
+# WIE, ohne das Cluster-Repo anzufassen: die rules-Zeile steht in der VORLAGE
+# .build-clang-latest (ci-templates base-pipeline.yml:1130-1131, "if $COMDARE_CLANG_MATRIX
+# == 1"). ci-templates ist fuer diese Strecke read-only. Ein eigenes rules: im Job
+# UEBERSCHREIBT das geerbte vollstaendig -- der Eingriff bleibt damit im eigenen Repo.
+#
+# ZUR LAST: dieser Job liegt in stage 'build' und laeuft damit VOR test:unit (stage 'test')
+# und test:coverage-guard (stage 'contract'). Er trifft die beiden Vollbauten also nicht
+# gleichzeitig -- der OOM-Fall von Pipeline 15332 wiederholt sich hier nicht. Er baut
+# ausserdem comdare_tests, nicht 'all', und schreibt in einen eigenen ccache-Key.
 build:clang:
   extends: .build-clang-latest
   stage: build
   tags: [baremetal]
+  rules:
+    - when: on_success
   cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (clang) = eigener Key, DIESER Job ist ihr Writer
     key: "ccache-$CI_PROJECT_NAME-clang-a8"
     paths: [".ccache"]
