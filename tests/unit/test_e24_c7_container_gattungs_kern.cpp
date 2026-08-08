@@ -20,10 +20,10 @@
 //
 // Bau: plain int main() (kein gtest), Boost::mp11 + generated-Achsen-Includes.
 
-#include "anatomy/container_framework.hpp"
-
 #include "anatomy/set_default_organ.hpp" // SortedArrayKeySet (der Set-Kern; die Anatomien kommen
                                          // ueber GenusBindingTraits, s. u.)
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: ContainerType<G>/type_traits<G>
+                                                              // + comdare::container::ContainerGattungsKern & co.
 
 #include <cstddef>
 #include <cstdint>
@@ -127,7 +127,7 @@ static_assert(!cea::OrganSized<SearchOrgan>,
               "am Ist hat die SA-Anatomie KEIN size() -- deshalb ist size() ueber alle FUENF Genera "
               "nicht gemeinsam und der Container-Kern gilt nur fuer die vier Container-Genera");
 static_assert(!ccn::ContainerGattungsKern<SearchOrgan>);
-static_assert(!ccn::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
+static_assert(!ex::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
 
 // =============================================================================================
 // (D) KEIN VEREINHEITLICHTES OP-VERB -- die Verben sind paarweise fremd.

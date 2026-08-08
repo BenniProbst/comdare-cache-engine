@@ -20,9 +20,8 @@
 //
 // Bau: plain int main() (kein gtest), Boost::mp11 + generated-Achsen-Includes.
 
-#include "anatomy/container_framework.hpp"
-
 #include "anatomy/set_default_organ.hpp" // SortedArrayKeySet (der Set-Kern)
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<G>/ContainerElementTyped & co.
 
 #include <cstddef>
 #include <cstdint>
@@ -128,12 +127,12 @@ static_assert(std::is_same_v<typename SetOrgan::element_type, typename SetOrgan:
 // =============================================================================================
 
 static_assert(
-    std::is_same_v<ccn::type_traits<cea::AnatomyGenus::Set>::ElementTypeFor<SetComp>, typename SetOrgan::element_type>);
-static_assert(std::is_same_v<ccn::type_traits<cea::AnatomyGenus::Sequence>::ElementTypeFor<SeqComp>,
+    std::is_same_v<ex::type_traits<cea::AnatomyGenus::Set>::ElementTypeFor<SetComp>, typename SetOrgan::element_type>);
+static_assert(std::is_same_v<ex::type_traits<cea::AnatomyGenus::Sequence>::ElementTypeFor<SeqComp>,
                              typename SequenceOrgan::element_type>);
-static_assert(std::is_same_v<ccn::type_traits<cea::AnatomyGenus::Adapter>::ElementTypeFor<AdaComp>,
+static_assert(std::is_same_v<ex::type_traits<cea::AnatomyGenus::Adapter>::ElementTypeFor<AdaComp>,
                              typename AdapterOrgan::element_type>);
-static_assert(std::is_same_v<ccn::type_traits<cea::AnatomyGenus::View>::ElementTypeFor<ViewComp>,
+static_assert(std::is_same_v<ex::type_traits<cea::AnatomyGenus::View>::ElementTypeFor<ViewComp>,
                              typename ViewOrgan::element_type>);
 
 } // namespace
@@ -169,10 +168,10 @@ int main() {
     std::cout << "\n[F] Der Vertrag laeuft ueber type_traits<G>::ElementTypeFor (autoritativer Pfad)\n";
     check_true(
         "Set",
-        std::is_same_v<ccn::type_traits<cea::AnatomyGenus::Set>::ElementTypeFor<SetComp>, SetOrgan::element_type>);
+        std::is_same_v<ex::type_traits<cea::AnatomyGenus::Set>::ElementTypeFor<SetComp>, SetOrgan::element_type>);
     check_true(
         "View",
-        std::is_same_v<ccn::type_traits<cea::AnatomyGenus::View>::ElementTypeFor<ViewComp>, ViewOrgan::element_type>);
+        std::is_same_v<ex::type_traits<cea::AnatomyGenus::View>::ElementTypeFor<ViewComp>, ViewOrgan::element_type>);
 
     std::cout << "\n=== " << (g_fail == 0 ? "ALLE PRUEFUNGEN GRUEN" : "FEHLER") << " (" << g_fail << ") ===\n";
     return g_fail == 0 ? 0 : 1;

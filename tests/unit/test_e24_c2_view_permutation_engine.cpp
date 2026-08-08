@@ -17,9 +17,9 @@
 // keine Waisen-TU (Auflage 13).
 
 #include "anatomy/view_permutation_engine.hpp"
-#include "anatomy/view_tier.hpp"           // IViewTier + ViewObserverSnapshotV1 (Wire-POD, NUR gelesen)
-#include "anatomy/container_framework.hpp" // comdare::container::type_traits<View>::slot_count (Gattungs-Pin)
-#include "topics/view/view_policies.hpp"   // ECHTE axis_layout-/axis_accessor-Policies
+#include "anatomy/view_tier.hpp"         // IViewTier + ViewObserverSnapshotV1 (Wire-POD, NUR gelesen)
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<View>::slot_count (Gattungs-Pin)
+#include "topics/view/view_policies.hpp" // ECHTE axis_layout-/axis_accessor-Policies
 
 #include <src/permutations/permutation_engine.hpp>
 
@@ -40,7 +40,7 @@ namespace {
 
 namespace ana = comdare::cache_engine::anatomy;
 namespace vw  = comdare::cache_engine::view;
-namespace cco = comdare::container;
+namespace cco = comdare::cache_engine::builder::experiment; // SF-1: liefert type_traits<G> (vormals comdare::container)
 namespace mp  = boost::mp11;
 
 static int g_fail = 0;

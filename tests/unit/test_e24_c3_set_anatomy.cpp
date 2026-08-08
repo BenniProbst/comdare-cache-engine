@@ -24,9 +24,9 @@
 
 #include "anatomy/set_anatomy.hpp"
 
-#include "anatomy/container_framework.hpp"                    // Slot-Pins 13/9/11/5 (Gate-Klasse IV)
 #include "anatomy/set_default_organ.hpp"                      // SortedArrayKeySet: echtes search_algo-Kern-Organ
 #include "builder/anatomy_commands/set_execution_context.hpp" // E-24 C3: die Treiber-Flaeche
+#include "builder/experiment_tree/container_type_traits.hpp"  // SF-1: Slot-Pins 13/9/11/5 (Gate-Klasse IV)
 #include "builder/experiment_tree/genus_binding_traits.hpp"   // autoritative axis_names() der Set-Gattung
 
 #include <cstddef>
@@ -40,9 +40,8 @@
 namespace {
 
 namespace cea = comdare::cache_engine::anatomy;
-namespace cco = comdare::container;
 namespace cmd = comdare::cache_engine::builder::anatomy_commands;
-namespace ex  = comdare::cache_engine::builder::experiment;
+namespace ex  = comdare::cache_engine::builder::experiment; // SF-1: liefert auch type_traits<G> (Set)
 
 static int g_fail = 0;
 
@@ -147,8 +146,8 @@ static_assert(std::is_same_v<decltype(std::declval<StillOrgan const&>().filter_o
 // =============================================================================================
 // (B) SLOT-PIN bleibt gruen (Gate-Klasse IV) -- aus der Bau-Bruecke gerechnet
 // =============================================================================================
-static_assert(cco::type_traits<cea::AnatomyGenus::Set>::slot_count == StillOrgan::organ_count());
-static_assert(StillOrgan::axis_organ_names().size() == cco::type_traits<cea::AnatomyGenus::Set>::slot_count);
+static_assert(ex::type_traits<cea::AnatomyGenus::Set>::slot_count == StillOrgan::organ_count());
+static_assert(StillOrgan::axis_organ_names().size() == ex::type_traits<cea::AnatomyGenus::Set>::slot_count);
 static_assert(StillOrgan::axis_observation_t::total_slots() == StillOrgan::organ_count());
 
 // =============================================================================================

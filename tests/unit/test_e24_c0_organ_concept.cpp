@@ -19,9 +19,9 @@
 
 #include "anatomy/organ_concept.hpp"
 
-#include "anatomy/container_framework.hpp" // Wachen-Klasse: type_traits<G>::slot_count (Slot-Pins)
-#include "anatomy/set_default_organ.hpp"   // SortedArrayKeySet: echtes search_algo-Organ der Set-Anatomie
-#include "builder/experiment_tree/genus_binding_traits.hpp" // die 5 Genus-Spezialisierungen (Bau-Bruecke)
+#include "anatomy/set_default_organ.hpp" // SortedArrayKeySet: echtes search_algo-Organ der Set-Anatomie
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: Wachen-Klasse type_traits<G>::slot_count
+#include "builder/experiment_tree/genus_binding_traits.hpp"  // die 5 Genus-Spezialisierungen (Bau-Bruecke)
 
 #include <cstddef>
 #include <cstdint>
@@ -132,10 +132,10 @@ static_assert(AdaOrgan::organ_count() == AdaTraits::slot_count);
 static_assert(ViewOrgan::organ_count() == ViewTraits::slot_count);
 
 static_assert(SaTraits::slot_count == 18);
-static_assert(AdaTraits::slot_count == ctr::type_traits<cea::AnatomyGenus::Adapter>::slot_count);
-static_assert(SetTraits::slot_count == ctr::type_traits<cea::AnatomyGenus::Set>::slot_count);
-static_assert(SeqTraits::slot_count == ctr::type_traits<cea::AnatomyGenus::Sequence>::slot_count);
-static_assert(ViewTraits::slot_count == ctr::type_traits<cea::AnatomyGenus::View>::slot_count);
+static_assert(AdaTraits::slot_count == ex::type_traits<cea::AnatomyGenus::Adapter>::slot_count);
+static_assert(SetTraits::slot_count == ex::type_traits<cea::AnatomyGenus::Set>::slot_count);
+static_assert(SeqTraits::slot_count == ex::type_traits<cea::AnatomyGenus::Sequence>::slot_count);
+static_assert(ViewTraits::slot_count == ex::type_traits<cea::AnatomyGenus::View>::slot_count);
 static_assert(ctr::type_count == 4, "C0 aendert die Container-Typ-Menge nicht");
 
 // ---------------------------------------------------------------------------------------------

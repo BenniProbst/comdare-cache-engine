@@ -6,6 +6,7 @@
 
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/container_framework.hpp>
+#include <builder/experiment_tree/container_type_traits.hpp> // SF-1: type_traits<G>/ContainerType<G> (1-Param-Alias)
 
 #include <boost/mp11.hpp>
 
@@ -18,12 +19,14 @@
 
 namespace cc  = ::comdare::container;
 namespace cea = ::comdare::cache_engine::anatomy;
+namespace ex  = ::comdare::cache_engine::builder::experiment; // SF-1: liefert type_traits<G>/ContainerType<G>
 namespace mp  = boost::mp11;
 
 // ── Trait-Beweise (compile-time; spiegeln die Header-static_asserts als Test-Doku) ──────────────
+// type_count/type_list bleiben genus-eigen in comdare::container (SF-1 aendert daran nichts).
 static_assert(cc::type_count == 4);
-static_assert(cc::ContainerType<cea::AnatomyGenus::Set>);
-static_assert(!cc::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
+static_assert(ex::ContainerType<cea::AnatomyGenus::Set>);
+static_assert(!ex::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
 
 TEST(V29ContainerFramework, FourContainerTypesUnderOneInterface) {
     // Die comdare::container-Typ-Liste iteriert generisch ueber genau die 4 Container-Tier-Unterklassen.
@@ -32,9 +35,9 @@ TEST(V29ContainerFramework, FourContainerTypesUnderOneInterface) {
     mp::mp_for_each<cc::type_list>([&](auto tag) {
         constexpr cea::AnatomyGenus G = decltype(tag)::value;
         seen.push_back(G);
-        slots.push_back(cc::type_traits<G>::slot_count);
+        slots.push_back(ex::type_traits<G>::slot_count);
         // Jeder iterierte Typ traegt das Container-Aussen-Interface (Ebene 1).
-        EXPECT_EQ(cc::type_traits<G>::gattung, cea::AnatomyGattung::Container);
+        EXPECT_EQ(ex::type_traits<G>::gattung, cea::AnatomyGattung::Container);
         // Die Gattungs-Zuordnung des Enums stimmt mit dem Framework ueberein.
         EXPECT_EQ(cea::gattung_of(G), cea::AnatomyGattung::Container);
     });
@@ -49,19 +52,19 @@ TEST(V29ContainerFramework, FourContainerTypesUnderOneInterface) {
 
 TEST(V29ContainerFramework, AxisNamesArePreservedPerType) {
     // Der Achsen-Satz je Typ = exakt die bestehende GenusBindingTraits-Definition (re-exportiert, nicht umgebaut).
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Adapter>::axis_names().size(), 11u);
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Set>::axis_names().size(), 13u);
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Sequence>::axis_names().size(), 9u);
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::View>::axis_names().size(), 5u);
+    EXPECT_EQ(ex::type_traits<cea::AnatomyGenus::Adapter>::axis_names().size(), 11u);
+    EXPECT_EQ(ex::type_traits<cea::AnatomyGenus::Set>::axis_names().size(), 13u);
+    EXPECT_EQ(ex::type_traits<cea::AnatomyGenus::Sequence>::axis_names().size(), 9u);
+    EXPECT_EQ(ex::type_traits<cea::AnatomyGenus::View>::axis_names().size(), 5u);
     // Beispiel-Beleg: Sequence traegt growth_policy als letzte Achse (SequenceComposition-Growth-Slot).
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Sequence>::axis_names().back(), std::string_view{"growth_policy"});
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Adapter>::axis_names().back(), std::string_view{"inner_container"});
+    EXPECT_EQ(ex::type_traits<cea::AnatomyGenus::Sequence>::axis_names().back(), std::string_view{"growth_policy"});
+    EXPECT_EQ(ex::type_traits<cea::AnatomyGenus::Adapter>::axis_names().back(), std::string_view{"inner_container"});
 }
 
 TEST(V29ContainerFramework, NeutralityGuardsStayIntact) {
     // Der Anatomie-/ABI-Kern bleibt unberuehrt: die 3 Gattungen + 5 Genus unveraendert; SearchAlgorithm
     // ist KEIN Container-Typ (eigene Gattung). Namen konstant (golden-relevante Strings unangetastet).
-    static_assert(!cc::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
+    static_assert(!ex::ContainerType<cea::AnatomyGenus::SearchAlgorithm>);
     EXPECT_EQ(cea::gattung_name(cea::AnatomyGattung::Container), std::string_view{"Container"});
     EXPECT_EQ(cea::gattung_name(cea::AnatomyGattung::Map), std::string_view{"Map"});
     EXPECT_EQ(cea::gattung_of(cea::AnatomyGenus::SearchAlgorithm), cea::AnatomyGattung::Map);

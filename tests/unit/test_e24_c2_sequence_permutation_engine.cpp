@@ -16,8 +16,8 @@
 // keine Waisen-TU (Auflage 13).
 
 #include "anatomy/sequence_permutation_engine.hpp"
-#include "anatomy/sequence_tier.hpp"       // ISequenceTier + SequenceObserverSnapshotV1 (Wire-POD, NUR gelesen)
-#include "anatomy/container_framework.hpp" // comdare::container::type_traits<Sequence>::slot_count (Gattungs-Pin)
+#include "anatomy/sequence_tier.hpp" // ISequenceTier + SequenceObserverSnapshotV1 (Wire-POD, NUR gelesen)
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<Sequence>::slot_count (Gattungs-Pin)
 #include "topics/sequence/axis_growth/axis_growth_policies.hpp" // ECHTE axis_growth-Policies
 
 #include <src/permutations/permutation_engine.hpp>
@@ -38,7 +38,7 @@ namespace {
 
 namespace ana = comdare::cache_engine::anatomy;
 namespace ag  = comdare::cache_engine::sequence::axis_growth;
-namespace cco = comdare::container;
+namespace cco = comdare::cache_engine::builder::experiment; // SF-1: liefert type_traits<G> (vormals comdare::container)
 namespace mp  = boost::mp11;
 
 static int g_fail = 0;

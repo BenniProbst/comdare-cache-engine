@@ -79,6 +79,15 @@ lint:format:
 lint:static:
   extends: .lint-static
   tags: [baremetal]
+# SF-1 (2026-08-08): Schichtschnitt-Wache -- kein ci-templates-Erbe (das Template lebt in einem ANDEREN
+# Projekt), deshalb ein eigenstaendiger Job statt einer .lint-static-Erweiterung. Fasst keine Bau-Artefakte
+# an (reiner Text-Scan ueber libs/cache_engine/anatomy/), braucht deshalb kein needs/keine Cache-Vererbung.
+lint:layer-includes:
+  stage: lint
+  tags: [baremetal]
+  needs: []
+  script:
+    - sh scripts/lint_layer_includes.sh
 
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:

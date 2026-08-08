@@ -20,11 +20,11 @@
 //
 // Bau: plain int main() (kein gtest), Boost::mp11 + generated-Achsen-Includes.
 
-#include "anatomy/container_framework.hpp"
-
 #include "anatomy/idriveable_tier.hpp"
 #include "anatomy/set_default_organ.hpp"
 #include "anatomy/set_tier.hpp"
+#include "builder/experiment_tree/genus_binding_traits.hpp" // SF-1: GenusBindingTraits<G> direkt (statt
+                                                              // transitiv ueber container_framework.hpp)
 
 #include <cstddef>
 #include <cstdint>
@@ -37,7 +37,6 @@
 namespace {
 
 namespace cea = comdare::cache_engine::anatomy;
-namespace ccn = comdare::container;
 namespace ex  = comdare::cache_engine::builder::experiment;
 
 static int g_fail = 0;

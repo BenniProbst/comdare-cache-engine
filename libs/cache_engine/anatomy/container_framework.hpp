@@ -32,9 +32,17 @@
 // Unveraendert gilt: KEINE Aenderung an der AnatomyGattung/AnatomyGenus-ENUM-REIHENFOLGE (TABU), an
 // golden_fullpilot_320 oder an permutation_axes.
 
-#include <anatomy/anatomy_base.hpp>                         // AnatomyGattung/AnatomyGenus + gattung_of (constexpr)
-#include <anatomy/organ_concept.hpp>                        // E-24 C7-2: OrganSized/OrganClearable (ERHOBEN, C1)
-#include <builder/experiment_tree/genus_binding_traits.hpp> // GenusBindingTraits<G> + GenusBound<G> (Bau-Bindung je Genus)
+// SF-1 (2026-08-08, Schichtschnitt): dieser Header GEHOERT zu anatomy/ (untere Schicht) und darf keinen
+// Namen aus builder/ (obere Schicht) kennen -- hier waere sie ein Include-Zyklus, exakt wie in den vier
+// Geschwister-Headern, die denselben Verzicht schon dokumentieren (adapter_anatomy.hpp:205,
+// genus_observer_aggregate.hpp:130, organ_concept.hpp:26, sequence_anatomy.hpp:43). Bis hierher war
+// dieser Header der EINE Ausreisser: er zog builder/experiment_tree/genus_binding_traits.hpp per Include.
+// Die Bau-Bindung ist deshalb ab hier ein Template-PARAMETER (Binding), keine interne Suche mehr -- wer
+// sie braucht, reicht sie herein. Die Builder-Seite tut das ueber einen eigenen kleinen Adapter-Header
+// (builder/experiment_tree/container_type_traits.hpp), wo der Include auf genus_binding_traits.hpp
+// legitim ist (Abhaengigkeitsrichtung builder/ -> anatomy/, nicht umgekehrt).
+#include <anatomy/anatomy_base.hpp>  // AnatomyGattung/AnatomyGenus + gattung_of (constexpr)
+#include <anatomy/organ_concept.hpp> // E-24 C7-2: OrganSized/OrganClearable (ERHOBEN, C1)
 
 #include <boost/mp11.hpp>
 
@@ -44,19 +52,33 @@
 
 namespace comdare::container {
 
-namespace cea  = ::comdare::cache_engine::anatomy;
-namespace cexp = ::comdare::cache_engine::builder::experiment;
-namespace mp   = boost::mp11;
+namespace cea = ::comdare::cache_engine::anatomy;
+namespace mp  = boost::mp11;
 
-/// ContainerType<G> -- G ist ein Container-TYP gdw. (1) seine Gattung die Container-Gattung ist
-/// (Ebene-1-Aussen-Interface) UND (2) eine Bau-Bindung existiert (baubare Tier-Unterklasse). Das Genus
-/// SearchAlgorithm gehoert zur Gattung MAP und erfuellt (1) deshalb NICHT -- es ist kein Container-Typ
-/// (self-proving unten).
+/// GenusBuildBinding<G, Binding> -- Schicht-lokaler Spiegel von builder::experiment::GenusBound<G>
+/// (genus_binding_traits.hpp), OHNE den Builder-Typ zu kennen: die Bau-Bindung wird als Template-
+/// PARAMETER hereingereicht statt hier per GenusBindingTraits<G> nachgeschlagen (SF-1-Umkehrung, s.o.).
+/// Die Struktur-Anforderungen sind dieselben, die GenusBound bereits prueft (slot_count/name); dazu
+/// verlangt sie Binding::genus == G, damit niemand versehentlich die Bindung eines FREMDEN Genus
+/// hereinreicht (der alte Weg per globaler Spezialisierung GenusBindingTraits<G> konnte das nicht
+/// versehentlich falsch machen, weil G die Spezialisierung selbst auswaehlte -- als Template-Parameter
+/// muss die Zusicherung jetzt explizit stehen).
+template <cea::AnatomyGenus G, class Binding>
+concept GenusBuildBinding = requires {
+    { Binding::slot_count } -> std::convertible_to<std::size_t>;
+    Binding::name;
+    requires Binding::genus == G;
+};
+
+/// ContainerType<G, Binding> -- G ist ein Container-TYP gdw. (1) seine Gattung die Container-Gattung ist
+/// (Ebene-1-Aussen-Interface) UND (2) Binding eine passende Bau-Bindung ist (baubare Tier-Unterklasse).
+/// Das Genus SearchAlgorithm gehoert zur Gattung MAP und erfuellt (1) deshalb NICHT -- es ist kein
+/// Container-Typ (self-proving unten).
 /// NACHZUG E-24 C11 (OP-9): dieser Satz fuehrte SearchAlgorithm als Ebene-1-Kategorie. C7-2 hat den
 /// static_assert-TEXT weiter unten korrekt auf "SearchAlgorithm ist ein GENUS der Gattung Map" gezogen,
 /// diesen Doku-Kommentar direkt ueber demselben Concept aber nicht -- die Datei widersprach sich selbst.
-template <cea::AnatomyGenus G>
-concept ContainerType = (cea::gattung_of(G) == cea::AnatomyGattung::Container) && cexp::GenusBound<G>;
+template <cea::AnatomyGenus G, class Binding>
+concept ContainerType = (cea::gattung_of(G) == cea::AnatomyGattung::Container) && GenusBuildBinding<G, Binding>;
 
 /// type_list -- die Container-TYPEN als compile-time-Liste (Adapter/Set/Sequence/View). Jeder Eintrag ist
 /// die AnatomyGenus-Tier-Unterklasse als integral_constant (mp11-iterierbar).
@@ -76,25 +98,29 @@ using type_list = mp::mp_list<std::integral_constant<cea::AnatomyGenus, cea::Ana
 /// Empfehlung: docs/architecture/37_ap15_container_typen_sequence_plan.md (AP-15 Punkt 3).
 inline constexpr std::size_t type_count = mp::mp_size<type_list>::value;
 
-/// type_traits<G> -- das generische comdare::container-Interface je Container-TYP. RE-EXPORTIERT die
-/// bestehende GenusBindingTraits<G> (Achsen-Satz/Slot-Zahl/Komposition/Anatomie bleiben unveraendert je Typ).
-template <cea::AnatomyGenus G>
-    requires ContainerType<G>
+/// type_traits<G, Binding> -- das generische comdare::container-Interface je Container-TYP.
+/// RE-EXPORTIERT die hereingereichte Binding (Achsen-Satz/Slot-Zahl/Komposition/Anatomie bleiben
+/// unveraendert je Typ). Binding ist am Ist praktisch immer builder::experiment::GenusBindingTraits<G>
+/// (Bau-Bindung) -- dieser Header schlaegt sie aber nicht mehr selbst nach (SF-1). Der bequeme
+/// 1-Parameter-Aufrufpunkt fuer bestehende Aufrufstellen lebt im Builder-Adapter
+/// (builder/experiment_tree/container_type_traits.hpp).
+template <cea::AnatomyGenus G, class Binding>
+    requires ContainerType<G, Binding>
 struct type_traits {
     static constexpr cea::AnatomyGenus   genus      = G;
     static constexpr cea::AnatomyGattung gattung    = cea::AnatomyGattung::Container; // Ebene-1-Aussen-Interface
-    static constexpr std::size_t         slot_count = cexp::GenusBindingTraits<G>::slot_count;
-    static constexpr std::string_view    name       = cexp::GenusBindingTraits<G>::name;
+    static constexpr std::size_t         slot_count = Binding::slot_count;
+    static constexpr std::string_view    name       = Binding::name;
 
     /// Blatt-PermTuple -> reale Komposition (unveraendert je Typ; nur weitergereicht).
     template <class... T>
-    using CompositionFor = typename cexp::GenusBindingTraits<G>::template CompositionFor<T...>;
+    using CompositionFor = typename Binding::template CompositionFor<T...>;
     template <class Comp>
-    using AnatomyFor = typename cexp::GenusBindingTraits<G>::template AnatomyFor<Comp>;
+    using AnatomyFor = typename Binding::template AnatomyFor<Comp>;
 
     /// Der bisherige Achsen-Satz dieses Typs (exakt beibehalten).
     [[nodiscard]] static constexpr auto const& axis_names() noexcept {
-        return cexp::GenusBindingTraits<G>::axis_names();
+        return Binding::axis_names();
     }
 
     /// E-24 C7-3 -- DER GATTUNGS-TYP-VERTRAG (C7-Auflage C7-3).
@@ -117,24 +143,56 @@ struct type_traits {
 };
 
 // ── Self-proving (compile-time; kein Raten) ─────────────────────────────────────────────────────
-// (a) Alle 4 Tier-Unterklassen der Container-Gattung sind Container-TYPEN; SearchAlgorithm ist es NICHT.
+// (a) type_count/type_list sind genus-eigen und brauchen keine Bindung -- unveraendert pruefbar.
 static_assert(type_count == 4, "#29: Container-Typen heute = Adapter/Set/Sequence/View");
-static_assert(ContainerType<cea::AnatomyGenus::Adapter>);
-static_assert(ContainerType<cea::AnatomyGenus::Set>);
-static_assert(ContainerType<cea::AnatomyGenus::Sequence>);
-static_assert(ContainerType<cea::AnatomyGenus::View>);
-static_assert(!ContainerType<cea::AnatomyGenus::SearchAlgorithm>,
-              "E-24 C7-2: SearchAlgorithm ist ein GENUS der Gattung Map, kein Container-Typ "
-              "(der Assert-INHALT bleibt; der frueher hier stehende Text 'eine EIGENE Gattung' war "
-              "die Ebene-Vermengung, die C7-1 aufgeloest hat).");
-// (b) "exakt die bisherigen Container-Achsen": jeder Typ behaelt seinen Slot-Satz (keine Vereinheitlichung).
-static_assert(type_traits<cea::AnatomyGenus::Adapter>::slot_count == 11); // INC-2d: isa raus (war 12 nach INC-2c)
-static_assert(type_traits<cea::AnatomyGenus::Set>::slot_count == 13);
-static_assert(type_traits<cea::AnatomyGenus::Sequence>::slot_count == 9);
-static_assert(type_traits<cea::AnatomyGenus::View>::slot_count == 5);
-// (c) Gattungs-Konsistenz: alle Container-Typen tragen das Container-Aussen-Interface (Ebene 1).
-static_assert(type_traits<cea::AnatomyGenus::Adapter>::gattung == cea::AnatomyGattung::Container);
-static_assert(type_traits<cea::AnatomyGenus::View>::gattung == cea::AnatomyGattung::Container);
+// (b) die KONKRETEN 4 Container-Typen (echte GenusBindingTraits-Bindung, Slot-Pins 11/13/9/5,
+// Gattungs-Konsistenz) beweist seit SF-1 der Builder-Adapter, NICHT mehr dieser Header --
+// builder/experiment_tree/container_type_traits.hpp, dort im gleichnamigen Self-proving-Block.
+// Dieser Header selbst kennt keine reale Bindung mehr (das ist der ganze Punkt des Schnitts); er kann
+// also nur noch beweisen, dass sein EIGENER Mechanismus (Concept + Struct) mit IRGENDEINER strukturell
+// passenden Bindung funktioniert -- dafuer dient die Mock-Bindung unten.
+namespace container_framework_self_proof_detail {
+/// MockGenusBinding -- winziger Fake, der NICHTS mit builder/ zu tun hat. Er beweist, dass
+/// GenusBuildBinding/ContainerType/type_traits mit JEDER strukturell passenden Bindung arbeiten, nicht
+/// nur mit der echten GenusBindingTraits (die dieser Header seit SF-1 nicht mehr kennt).
+struct MockGenusBinding {
+    static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::Adapter;
+    static constexpr std::size_t       slot_count = 3;
+    static constexpr std::string_view  name       = "MockGenusBinding";
+
+    // CompositionFor/AnatomyFor sind hier ohne Bedeutung (dieser Selbstbeweis ruft sie nie mit
+    // konkreten Argumenten auf) -- sie muessen trotzdem als Member-Templates EXISTIEREN: der
+    // Compiler loest `Binding::template CompositionFor` in type_traits schon bei der
+    // Instanziierung der Klasse auf (Binding ist dort nicht mehr dependent), nicht erst beim Aufruf.
+    template <class... T>
+    using CompositionFor = void;
+    // AnatomyFor MUSS von Comp abhaengen (Identity statt void): type_traits<G,Binding>::ElementTypeFor
+    // bildet AnatomyFor<Comp>::element_type. Waere AnatomyFor<Comp> immer 'void' (unabhaengig von
+    // Comp), faltet der Compiler das schon bei der Klassen-Instanziierung zu void::element_type und
+    // meldet einen Fehler, obwohl ElementTypeFor hier nie mit einem konkreten Comp aufgerufen wird.
+    template <class Comp>
+    using AnatomyFor = Comp;
+};
+} // namespace container_framework_self_proof_detail
+
+static_assert(GenusBuildBinding<cea::AnatomyGenus::Adapter,
+                                 container_framework_self_proof_detail::MockGenusBinding>);
+// Genus-Mismatch (Set statt Adapter) MUSS die Bindung ablehnen -- das ist der Schutz, den frueher die
+// globale Spezialisierung GenusBindingTraits<G> implizit gab (G waehlte die Spezialisierung selbst).
+static_assert(!GenusBuildBinding<cea::AnatomyGenus::Set, container_framework_self_proof_detail::MockGenusBinding>,
+              "SF-1: eine Bindung fuer Adapter darf nicht als Bindung fuer Set durchgehen");
+static_assert(ContainerType<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>);
+static_assert(
+    type_traits<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>::slot_count ==
+    3);
+static_assert(type_traits<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>::
+                  gattung == cea::AnatomyGattung::Container);
+// SearchAlgorithm ist auch mit einer (falsch typisierten) Adapter-Mock-Bindung kein Container-Typ --
+// die Gattungs-Pruefung (1) greift schon vor der Bindungs-Pruefung (2).
+static_assert(!ContainerType<cea::AnatomyGenus::SearchAlgorithm,
+                              container_framework_self_proof_detail::MockGenusBinding>,
+              "E-24 C7-2: SearchAlgorithm ist ein GENUS der Gattung Map, kein Container-Typ -- unabhaengig "
+              "von der Bindung.");
 
 // ================================================================================================
 // E-24 C7-2 -- DER CONTAINER-GATTUNGS-KERN (ERHOBEN, nicht erfunden)

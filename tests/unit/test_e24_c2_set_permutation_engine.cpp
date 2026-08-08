@@ -19,8 +19,8 @@
 // COMDARE_TEST_TARGETS), also weder Waise noch nur-Quelle-im-Tree.
 
 #include "anatomy/set_permutation_engine.hpp"
-#include "anatomy/set_tier.hpp"            // ISetTier + SetObserverSnapshotV1 (Wire-POD, NUR gelesen)
-#include "anatomy/container_framework.hpp" // comdare::container::type_traits<Set>::slot_count (Gattungs-Pin)
+#include "anatomy/set_tier.hpp" // ISetTier + SetObserverSnapshotV1 (Wire-POD, NUR gelesen)
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<Set>::slot_count (Gattungs-Pin)
 
 #include <src/permutations/permutation_engine.hpp>
 
@@ -42,7 +42,7 @@
 namespace {
 
 namespace ana = comdare::cache_engine::anatomy;
-namespace cco = comdare::container;
+namespace cco = comdare::cache_engine::builder::experiment; // SF-1: liefert type_traits<G> (vormals comdare::container)
 namespace mp  = boost::mp11;
 
 static int g_fail = 0;
