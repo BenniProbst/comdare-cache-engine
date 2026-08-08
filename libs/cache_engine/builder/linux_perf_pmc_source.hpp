@@ -142,11 +142,12 @@ public:
     ~PerfCounter() { reset_fd(-1); }
     PerfCounter(PerfCounter const&)            = delete;
     PerfCounter& operator=(PerfCounter const&) = delete;
-    PerfCounter(PerfCounter&& o) noexcept : fd_(o.fd_) { o.fd_ = -1; }
+    PerfCounter(PerfCounter&& o) noexcept : fd_(o.fd_), event_name_(o.event_name_) { o.fd_ = -1; }
     PerfCounter& operator=(PerfCounter&& o) noexcept {
         if (this != &o) {
             reset_fd(o.fd_);
-            o.fd_ = -1;
+            event_name_ = o.event_name_; // B-5 R3: sonst diagnostiziert der Bewegte unter falschem Namen
+            o.fd_       = -1;
         }
         return *this;
     }
@@ -175,6 +176,7 @@ public:
         attr.exclude_hv     = exclude_kernel ? 1U : 0U; // Hypervisor ausschliessen.
         attr.inherit        = 0;                        // keine Kind-Vererbung.
         attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
+        event_name_         = (event_name != nullptr && event_name[0] != '\0') ? event_name : "<unbenannt>";
         long const r        = perf_event_open(&attr, pid, cpu, /*group_fd*/ -1, /*flags*/ 0);
         if (r < 0) {
             int const eno = errno; // SOFORT sichern -- fprintf/strerror koennen errno selbst ueberschreiben.
@@ -213,8 +215,48 @@ public:
             std::uint64_t t_enabled;
             std::uint64_t t_running;
         } d{};
-        if (::read(fd_, &d, sizeof(d)) != static_cast<::ssize_t>(sizeof(d))) return 0; // zu klein → ENOSPC
-        if (d.t_running == 0) return 0; // Counter lief nie (Multiplexing-Verdrängung) → ungültig.
+        if (::read(fd_, &d, sizeof(d)) != static_cast<::ssize_t>(sizeof(d))) {
+            // B-5 R3: auch DIESER Rueckfall war stumm. Ein zu kurzer read ist ein echter Fehler und
+            // muss ihn nennen, sonst steht spaeter nur "kein Wert" da und niemand weiss, warum.
+            std::fprintf(stderr, "[PMC-DIAG] read() unvollstaendig: event=%s -- Wert VERWORFEN\n", event_name_);
+            return 0;
+        }
+        if (d.t_running == 0) {
+            // ==========================================================================================
+            // B-5 R3 (2026-08-08) -- DIE STELLE, AN DER prod2 STILL SCHEITERT. Sie war bis hierher der
+            // letzte stumme Rueckfall im PMC-Pfad, und sie ist NICHT theoretisch: der pmc:intel-Trace
+            // (Job 368144, i9-12900K = Alder Lake, HYBRID) zeigt genau dieses Bild --
+            //     pmc_source.available = 1      <- alle vier Zaehler wurden GEOEFFNET
+            //     delta.available      = 0      <- und keiner hat etwas geliefert
+            // Der Bestand meldete dazu "COMDARE_ENABLE_PMC ist einkompiliert, die Quelle meldet aber
+            // available=0. Ursache pruefen: perf_event_paranoid, CAP_PERFMON, Container ohne perf" --
+            // also die RECHTE-Erklaerung, obwohl das Oeffnen nachweislich gelang. Eine korrekte Meldung,
+            // die auf die falsche Ursache zeigt: dieselbe Fehlerklasse wie die stille 0, eine Ebene hoeher.
+            //
+            // WAS t_running == 0 WIRKLICH HEISST: der Zaehler war offen, hat aber im ganzen Messfenster
+            // KEINE Zeit auf der Hardware bekommen. Zwei Ursachen kommen dafuer in Frage, und die
+            // ausgegebenen Zeiten trennen sie:
+            //   * Multiplexing-Verdraengung -- mehr Events als Zaehler-Slots, das Event kam nie dran.
+            //   * KERN-MIGRATION auf einer Hybrid-CPU -- der Zaehler haengt an der PMU-Domaene, auf der
+            //     er geoeffnet wurde (cpu_core); wandert der Task auf einen E-Core, zaehlt dort nichts.
+            //     Unter Fremdlast migriert der Scheduler haeufiger -- was erklaeren wuerde, warum
+            //     derselbe SHA auf prod2 mal gruen und mal rot faellt (15343 gruen / 15349 rot, fuenf
+            //     Minuten Abstand, parallel lint:static und sanitize:asan-ubsan auf derselben Maschine).
+            // In BEIDEN Faellen ist die Antwort dieselbe: KEIN Wert, und der Grund wird genannt.
+            // t_enabled > 0 bei t_running == 0 ist der Fingerabdruck -- die Zeile gibt beide aus, damit
+            // die Frage auf prod2 am Objekt entschieden wird statt vermutet.
+            // ==========================================================================================
+            std::fprintf(
+                stderr,
+                "[PMC-DIAG] Zaehler lief NIE: event=%s klasse=%.*s t_enabled=%llu t_running=0 "
+                "(offen, aber ohne Hardware-Zeit -- Multiplexing-Verdraengung ODER Kern-Migration "
+                "auf Hybrid-CPU; Wert VERWORFEN, keine 0)\n",
+                event_name_,
+                static_cast<int>(measurement::pmc_outcome_label(measurement::PmcCounterOutcome::NichtGelesen).size()),
+                measurement::pmc_outcome_label(measurement::PmcCounterOutcome::NichtGelesen).data(),
+                static_cast<unsigned long long>(d.t_enabled));
+            return 0;
+        }
         ok = true;
         if (d.t_running < d.t_enabled) { // Multiplexing → ehrlich hochrechnen.
             scaled = true;
@@ -232,6 +274,10 @@ private:
         fd_ = next;
     }
     int fd_ = -1;
+    /// B-5 R3: der Event-Name, den open() bekam. Der LESE-Pfad braucht ihn -- eine Diagnose ohne den
+    /// Namen des betroffenen Zaehlers waere im Job-Log wertlos. Zeigt immer auf ein String-Literal des
+    /// Aufrufers (Konstruktor der Quelle), lebt also laenger als dieses Objekt; kein Besitz, keine Kopie.
+    char const* event_name_ = "<ungeoeffnet>";
 };
 
 // -- B-5: die DYNAMISCH ermittelten PMU-Kennzahlen aus sysfs --------------------------------------
