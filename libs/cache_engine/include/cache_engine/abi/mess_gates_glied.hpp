@@ -66,8 +66,30 @@
 // und der Spiegel-Test machen das Vergessen compile- bzw. test-hart; die Erweiterung selbst gehoert
 // in die Beschreibung jenes Folgepakets.
 //
-// header-only, ASCII-only, keine Abhaengigkeit ausser <string>/<string_view>.
+// ------------------------------------------------------------------------------------------------
+// WARUM DIE BILDUNG KEINEN std::string BENUTZT (08.08.2026)
+// ------------------------------------------------------------------------------------------------
+// Die Grammatik-Bildung unten MUSS zur Uebersetzungszeit auswertbar sein: der static_assert am
+// Dateiende ist die EINZIGE Wache dagegen, dass die Praeprozessor-Fassung und die Host-Vorhersage
+// auseinanderlaufen (Drift-Klasse D-1). Ein `constexpr std::string` traegt das nicht ueberall --
+// am Objekt gemessen mit clang 22.1 gegen libstdc++ 13, 15.3 UND 16:
+//     error: static assertion expression is not an integral constant expression
+//     note:  undefined function '_M_construct<const char *>' cannot be used in a constant expression
+// Die Fehlerklasse ist eng und benannt: NUR das Konstruieren eines std::string AUS EINEM
+// string_view bricht (der const char*-Konstruktor, operator+=, append(string_view), das Wachsen
+// ueber die SSO-Grenze und der Vergleich gegen ein string_view sind alle auswertbar). g++ 15.3
+// wertet auch die string_view-Konstruktion aus -- der Bau war deshalb bis heute nur auf EINEM der
+// beiden offiziellen Compiler beweisbar, und das ist keine tragfaehige Wache.
+// DIE FOLGE IST KEIN AUSWEICHEN, SONDERN DER PASSENDE BAU: die Grammatik ist kurz und in ihrer
+// Laenge compile-time BESCHRAENKT (kMessGatesGliedMaxLen unten wird aus den Segmenten gerechnet).
+// Eine Bildung, die zur Uebersetzungszeit laufen MUSS, braucht keinen Heap. Es bleibt bei GENAU
+// EINER Bildung -- eine zweite, constexpr-taugliche neben der bestehenden waere exakt die Drift,
+// die dieser Header verhindert.
+//
+// header-only, ASCII-only, keine Abhaengigkeit ausser <array>/<cstddef>/<string>/<string_view>
+// (<string> traegt nur noch den LAUFZEIT-Ausgang MessGatesGliedText::str(), nicht die Bildung).
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -127,6 +149,68 @@ inline constexpr std::size_t kMessGatesFeldMacro       = 4;
 inline constexpr std::size_t kMessGatesFeldMicro       = 5;
 inline constexpr std::size_t kMessGatesFeldCount       = 6;
 
+/// Der Feld-TRENNER der Grammatik. Er steht hier als Konstante und nicht als Literal in der Bildung,
+/// weil die Kapazitaets-Rechnung unten mit ihm rechnet.
+inline constexpr char kMessGatesFeldTrenner = ';';
+
+/// DIE SEGMENT-FORMEN je Feld, in Feld-Reihenfolge: [feld][0] die AUS-, [feld][1] die AN-Form.
+/// Sie stehen HIER und nicht als Literale in der Bildung, weil die Kapazitaets-Rechnung darunter
+/// DIESELBEN Texte liest -- wer ein Segment verlaengert, bewegt damit automatisch die Kapazitaet und
+/// kann nicht vergessen, sie nachzuziehen. Die Zuordnung Zeile <-> Feld haelt eine Wache am
+/// Dateiende fest, damit eine Umsortierung bricht statt still zu verschieben.
+/// Die Praeprozessor-Fassung weiter unten traegt dieselben Texte noch einmal als Makro-Literale --
+/// sie MUSS, weil der Praeprozessor keine constexpr-Tabelle lesen kann. Genau diese unvermeidbare
+/// Doppelung ist der Grund fuer den Binde-static_assert am Dateiende.
+inline constexpr std::string_view kMessGatesSegmente[kMessGatesFeldCount][2] = {
+    {"m0", "m1"}, {"s0", "s1"}, {"x0", "x1"}, {"tw0", "tw1"}, {"tm0", "tm1"}, {"tmi0", "tmi1"},
+};
+
+/// kMessGatesGliedMaxLen -- die LAENGSTE Zeichenkette, die diese Grammatik bilden kann. GERECHNET
+/// aus den Segmenten oben, nicht abgezaehlt: der Puffer darunter kann konstruktiv nicht zu klein
+/// werden. Heute sind es 24 Zeichen ("mg=m0;s0;x0;tw0;tm0;tmi0"); die Wache am Dateiende prueft alle
+/// 2^6 baubaren Formen dagegen, damit die Zahl nicht bloss behauptet ist.
+inline constexpr std::size_t kMessGatesGliedMaxLen = [] {
+    std::size_t n = kMessGatesGliedPraefix.size() + (kMessGatesFeldCount - 1); // Praefix + Trenner
+    for (auto const& feld : kMessGatesSegmente)
+        n += feld[0].size() > feld[1].size() ? feld[0].size() : feld[1].size();
+    return n;
+}();
+
+/// MessGatesGliedText -- DAS ERGEBNIS DER EINEN BILDUNG: ein Zeichenpuffer fester Kapazitaet mit
+/// Laenge, also ein Literaltyp, den eine constant expression tragen kann. sv() ist die Sicht fuer die
+/// compile-harten Wachen; str() ist der Uebergang auf die Laufzeit-Seite und die einzige Stelle, die
+/// ueberhaupt einen Heap anfasst -- und sie tut es erst NACH der Uebersetzung.
+class MessGatesGliedText {
+  public:
+    /// anhaengen(...) -- der Wachstumsschritt. Ein Ueberlauf ist durch kMessGatesGliedMaxLen
+    /// konstruktiv ausgeschlossen; .at() haelt das trotzdem fest, statt still ueber den Rand zu
+    /// schreiben: in einer constant expression bricht es compile-hart, zur Laufzeit wirft es.
+    /// DIESE Meldung ist als einzige im Header unbenannt -- sie liest sich als "static assertion
+    /// expression is not an integral constant expression" (clang) bzw. "non-constant condition for
+    /// static assertion" (g++), ohne Text. Wer sie sieht, hat kMessGatesGliedMaxLen zu klein gesetzt
+    /// (am Objekt geprueft, Koeder K5): die Kapazitaet gehoert aus kMessGatesSegmente gerechnet, nicht
+    /// als Zahl eingetragen.
+    constexpr void anhaengen(std::string_view s) {
+        for (char const c : s) puffer_.at(laenge_++) = c;
+    }
+    constexpr void anhaengen(char c) { puffer_.at(laenge_++) = c; }
+
+    [[nodiscard]] constexpr std::string_view sv() const noexcept {
+        return std::string_view{puffer_.data(), laenge_};
+    }
+    [[nodiscard]] constexpr std::size_t size() const noexcept { return laenge_; }
+
+    /// str() -- der Ausgang zur Laufzeit. Bewusst NICHT constexpr: wer den Wert in einer constant
+    /// expression braucht, will sv(); wer einen std::string braucht, ist per Definition zur Laufzeit.
+    /// Sie steht hier und nicht am Aufrufort, damit `komponieren(...).sv()` nicht versehentlich in
+    /// einem `auto` landet und auf das gerade zerstoerte Temporary zeigt.
+    [[nodiscard]] std::string str() const { return std::string{sv()}; }
+
+  private:
+    std::array<char, kMessGatesGliedMaxLen> puffer_{};
+    std::size_t                            laenge_ = 0;
+};
+
 /// mess_gates_feld(glied, index) -- das index-te ';'-getrennte Feld NACH dem "mg="-Praefix.
 /// Ausserhalb des Bereichs (oder bei fehlendem Praefix) LEER -- das ist kein stiller Ersatzwert,
 /// sondern ein Ergebnis, auf das die Wachen unten ausdruecklich pruefen.
@@ -151,22 +235,30 @@ inline constexpr std::size_t kMessGatesFeldCount       = 6;
 /// profile_facade/mess_achsen_naht.hpp, die den Wert vorhersagt, den eine so gebaute Tier-Binary
 /// annehmen WIRD). Zwei Bildungen waeren exakt die Drift-Klasse aus D-1: der Host sagt eine
 /// Grammatik voraus, die TU schreibt eine andere -- und nichts braeche.
-/// constexpr: der static_assert unten bindet die Praeprozessor-Fassung compile-hart an sie.
-[[nodiscard]] constexpr std::string mess_gates_glied_komponieren(bool measurement_on, bool statistics_on,
-                                                                 bool experiment_mode_on, bool tooling_wallclock,
-                                                                 bool tooling_macro, bool tooling_micro) {
-    std::string g{kMessGatesGliedPraefix};
-    g += measurement_on ? "m1" : "m0";
-    g += ';';
-    g += statistics_on ? "s1" : "s0";
-    g += ';';
-    g += experiment_mode_on ? "x1" : "x0";
-    g += ';';
-    g += tooling_wallclock ? "tw1" : "tw0";
-    g += ';';
-    g += tooling_macro ? "tm1" : "tm0";
-    g += ';';
-    g += tooling_micro ? "tmi1" : "tmi0";
+/// constexpr: der static_assert unten bindet die Praeprozessor-Fassung compile-hart an sie. Der
+/// Rueckgabetyp ist MessGatesGliedText und NICHT std::string -- s. den Absatz "WARUM DIE BILDUNG
+/// KEINEN std::string BENUTZT" im Kopf. Die Laufzeit-Seiten holen sich ihren std::string mit .str().
+[[nodiscard]] constexpr MessGatesGliedText mess_gates_glied_komponieren(bool measurement_on, bool statistics_on,
+                                                                        bool experiment_mode_on,
+                                                                        bool tooling_wallclock, bool tooling_macro,
+                                                                        bool tooling_micro) {
+    // Die Zuordnung Argument -> Feld laeuft ueber die BENANNTEN Positionen, nicht ueber die
+    // Reihenfolge der Argumente: eine Umsortierung der Felder muss die Bildung mitnehmen, und die
+    // Wache am Dateiende faengt es, falls jemand nur die Segment-Tabelle umstellt.
+    bool an[kMessGatesFeldCount]{};
+    an[kMessGatesFeldMeasurement] = measurement_on;
+    an[kMessGatesFeldStatistics]  = statistics_on;
+    an[kMessGatesFeldExperiment]  = experiment_mode_on;
+    an[kMessGatesFeldWallclock]   = tooling_wallclock;
+    an[kMessGatesFeldMacro]       = tooling_macro;
+    an[kMessGatesFeldMicro]       = tooling_micro;
+
+    MessGatesGliedText g;
+    g.anhaengen(kMessGatesGliedPraefix);
+    for (std::size_t i = 0; i < kMessGatesFeldCount; ++i) {
+        if (i != 0) g.anhaengen(kMessGatesFeldTrenner);
+        g.anhaengen(kMessGatesSegmente[i][an[i] ? 1 : 0]);
+    }
     return g;
 }
 
@@ -275,9 +367,62 @@ static_assert(mess_gates_feld(kMessGatesTuGlied, kMessGatesFeldCount).empty(),
 /// vorhersagen, als die TU einbaut, und genau diese Drift ist die Fehlerklasse aus D-1.
 static_assert(mess_gates_glied_komponieren(kMessGatesTuMeasurementOn, kMessGatesTuStatisticsOn,
                                            kMessGatesTuExperimentModeOn, kMessGatesTuToolingWallclock,
-                                           kMessGatesTuToolingMacro, kMessGatesTuToolingMicro) == kMessGatesTuGlied,
+                                           kMessGatesTuToolingMacro, kMessGatesTuToolingMicro)
+                      .sv() == kMessGatesTuGlied,
               "R-3: die Praeprozessor-Bildung des mess-gates-Glieds und mess_gates_glied_komponieren() "
               "sind auseinandergelaufen -- es gibt dann ZWEI Grammatiken und die Host-Vorhersage ist wertlos.");
+
+// -- DIE WACHEN UM DEN PUFFER (08.08.2026) --------------------------------------------------------
+// Sie belegen, was der Kopf-Absatz behauptet: dass die Kapazitaet gerechnet und nicht geraten ist,
+// und dass die Segment-Tabelle zu den benannten Feld-Positionen passt.
+namespace detail {
+
+/// Die groesste Laenge ueber ALLE 2^6 baubaren Grammatiken. Sie laeuft die Bildung wirklich durch --
+/// laege eine Form ueber der Kapazitaet, braeche schon das .at() im Puffer, und zwar hier.
+[[nodiscard]] constexpr std::size_t mess_gates_groesste_bildung() {
+    std::size_t groesste = 0;
+    for (unsigned maske = 0; maske < (1u << kMessGatesFeldCount); ++maske) {
+        auto const bit = [maske](std::size_t feld) { return ((maske >> feld) & 1u) != 0u; };
+        auto const g   = mess_gates_glied_komponieren(bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics),
+                                                      bit(kMessGatesFeldExperiment), bit(kMessGatesFeldWallclock),
+                                                      bit(kMessGatesFeldMacro), bit(kMessGatesFeldMicro));
+        if (g.size() > groesste) groesste = g.size();
+    }
+    return groesste;
+}
+
+/// Jedes Feld einzeln AN: steht das erwartete AN-Segment an der erwarteten Position? Das bindet die
+/// ARGUMENT-ZUORDNUNG der Bildung (an[kMessGatesFeld*] = ...) an die Zeilen-Ordnung der Tabelle. Wer
+/// eines von beiden umstellt und das andere vergisst, bricht HIER -- statt still das Segment eines
+/// anderen Gates an diese Stelle zu schreiben.
+/// ABGRENZUNG, am Objekt geprueft (Koeder K3): eine Umsortierung der TABELLE ALLEIN faengt diese
+/// Wache NICHT -- Bildung und Wache lesen dieselbe Tabelle, also stimmen sie miteinander ueberein.
+/// Diesen Fall faengt der Binde-static_assert oben, weil die Praeprozessor-Fassung nicht mitwandert.
+/// Die beiden Wachen sind deshalb nicht redundant, sondern decken verschiedene Halbseiten ab.
+[[nodiscard]] constexpr bool mess_gates_segmente_stehen_auf_ihrem_feld() {
+    for (std::size_t feld = 0; feld < kMessGatesFeldCount; ++feld) {
+        auto const bit = [feld](std::size_t f) { return f == feld; };
+        auto const g   = mess_gates_glied_komponieren(bit(kMessGatesFeldMeasurement), bit(kMessGatesFeldStatistics),
+                                                      bit(kMessGatesFeldExperiment), bit(kMessGatesFeldWallclock),
+                                                      bit(kMessGatesFeldMacro), bit(kMessGatesFeldMicro));
+        for (std::size_t i = 0; i < kMessGatesFeldCount; ++i)
+            if (mess_gates_feld(g.sv(), i) != kMessGatesSegmente[i][i == feld ? 1 : 0]) return false;
+    }
+    return true;
+}
+
+} // namespace detail
+
+static_assert(detail::mess_gates_groesste_bildung() == kMessGatesGliedMaxLen,
+              "R-3/08.08.: kMessGatesGliedMaxLen trifft die groesste baubare Grammatik nicht mehr exakt. Zu "
+              "klein waere ein Ueberlauf (das .at() im Puffer faengt ihn), zu gross ein stiller Reserve-Rest -- "
+              "in beiden Faellen ist die Rechnung aus kMessGatesSegmente nachzuziehen, nicht die Zahl.");
+static_assert(detail::mess_gates_segmente_stehen_auf_ihrem_feld(),
+              "R-3/08.08.: die Segment-Tabelle kMessGatesSegmente und die benannten kMessGatesFeld*-Positionen "
+              "sind auseinandergelaufen -- die Bildung schreibt ein Gate an die Stelle eines anderen.");
+static_assert(mess_gates_glied_komponieren(false, false, false, false, false, false).sv() == "mg=m0;s0;x0;tw0;tm0;tmi0",
+              "R-3/08.08.: der AUS-Zustand der Grammatik hat seine Form geaendert. Er ist an mehreren Stellen "
+              "als Text belegt (anatomy_fingerprint.hpp: 'NIEMALS leer'); wer ihn bewegt, zieht sie mit.");
 
 #undef COMDARE_MESS_GATES_SEG_M
 #undef COMDARE_MESS_GATES_SEG_S
