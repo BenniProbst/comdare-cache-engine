@@ -291,13 +291,24 @@ test:coverage-guard:
       esac
       echo "DIFF-HYGIENE-WACHE: Bereich ${_ce_base}..HEAD"
       sh scripts/ci_diff_ascii_width_guard.sh "${_ce_base}..HEAD"
-    # Ground Truth = Bau-Baum-Konfiguration von test:unit (COMDARE_TEST_CONFIGURE_FLAGS) inklusive
-    # des 2-Pass-Codegen-Configures aus dem .test-Template: erst konfigurieren, dann das
-    # Codegen-Tool bauen, dann RECONFIGURE -- sonst registriert CMake die codegen-abhaengigen
-    # Tests nicht und die Wache haette einen zu kleinen Wahrheitsbegriff.
-    - cmake -B build-covguard -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-covguard --target comdare_anatomy_codegen_cli
-    - cmake -B build-covguard -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    # Ground Truth = derselbe Bau-Baum wie test:unit, seit 08.08.2026 ueber den GNU-Bauweg.
+    #
+    # WARUM DIE UMSTELLUNG HIER NOETIG WAR (und nicht nur Symmetrie ist): der alte Weg baute VOR
+    # dem Reconfigure nur comdare_anatomy_codegen_cli. Der Kommentar an dieser Stelle nannte das
+    # Risiko bereits richtig -- "sonst registriert CMake die codegen-abhaengigen Tests nicht und
+    # die Wache haette einen zu kleinen Wahrheitsbegriff" -- aber die Abhilfe war zu klein.
+    # Am Objekt gemessen (ce b2daf9a6): ein Prebuild-Ziel + Reconfigure registriert 429 Tests,
+    # 'make' (all) + Reconfigure registriert 431. Die Wache pruefte die Auswahl also gegen eine
+    # Inventur, die f15_compare_cli_smoke und test_v41_anatomy_adhoc_autobuilt_load selbst nicht
+    # kannte -- zwei Tests, die in KEINEM Job liefen, konnten von ihr nicht auffallen. Eine Wache
+    # mit unvollstaendigem Nenner meldet Vollstaendigkeit und deckt nichts.
+    #
+    # 'make' baut jedes Codegen-Werkzeug, ohne dass hier eines namentlich gepflegt werden muss;
+    # der ccache traegt den zweiten Vollbau der Pipeline (gemeinsamer Key je Projekt).
+    # 'make inventar' ist das projekteigene Ziel, das genau diesen Zustand herstellt (bauen +
+    # Reconfigure + Test-Target), OHNE die Tests auszufuehren -- die faehrt test:unit.
+    - sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
+    - make inventar BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
     - sh scripts/ci_test_coverage_guard.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
@@ -621,26 +632,69 @@ test:unit:
   # Die Auswahl selbst kommt aus dem Manifest; .test baut seine ctest-Zeile aus
   # COMDARE_TEST_CTEST_ARGS, deshalb wird die Variable hier im before_script belegt (das Template
   # laeuft in derselben Shell) statt als YAML-Literal.
-  before_script:
-    - . ./scripts/ci_test_coverage_manifest.sh
-    - 'COMDARE_TEST_CTEST_ARGS="$(ce_ctest_args test_unit)" || exit 3'
-    - 'export COMDARE_TEST_CTEST_ARGS'
-    - 'echo "ctest-Auswahl aus scripts/ci_test_coverage_manifest.sh (Kennung test_unit): ${COMDARE_TEST_CTEST_ARGS}"'
+  # -- GNU-BAUWEG (08.08.2026, Owner-Ansage; Ledger super :11370-11391) ------------------------
+  # DIESER JOB FAEHRT DEN OFFIZIELLEN WEG, NICHT MEHR cmake/ctest DIREKT.
+  # Der Owner: "Das einzige auf linux offizielle Verfahren ist ja configure.sh/make/make install
+  # oder make check". Ein offizieller Weg, den kein Job faehrt, verrottet unbemerkt -- das ist
+  # exakt die Klasse, in der run_all_tests.sh gelandet ist (13x [NOT FOUND] und trotzdem exit 0).
+  # Deshalb ERSETZT der GNU-Weg hier den direkten cmake-Aufruf, er steht nicht daneben.
+  #
+  # ER IST DABEI STRIKT VOLLSTAENDIGER ALS DER ALTE WEG, am Objekt gemessen (ce b2daf9a6):
+  #   alter Weg (Prebuild-Handliste + Reconfigure) ... 429 registrierte Tests
+  #   'make check' (all + Reconfigure) ............... 431 registrierte Tests
+  # Dem alten Weg fehlten f15_compare_cli_smoke und test_v41_anatomy_adhoc_autobuilt_load: die
+  # Prebuild-Liste COMDARE_TEST_PREBUILD_TARGET war eine HANDLISTE und damit dieselbe Fehlerklasse,
+  # die R4 bei den ctest-Auswahlen beseitigt hat -- sie waechst nach. 'make' baut jedes
+  # Codegen-Werkzeug ohne dass eines namentlich gepflegt werden muss.
+  #
+  # DIE TEST-AUSWAHL BLEIBT DIESELBE QUELLE: 'make check' sourct scripts/ci_test_coverage_manifest.sh
+  # und ruft ce_ctest mit der Kennung test_unit -- die Naht aus R4 ist unveraendert, sie wird nur
+  # nicht mehr hier im Job, sondern im Makefile gezogen. CTEST_EXTRA reicht allein die
+  # Ausgabe-Option fuer den GitLab-Test-Report durch.
+  #
+  # Was aus dem .test-Template bewusst NACHGEBAUT ist: die g++-15-Praeferenz (Toolchain-Floor
+  # V-6iii) und die 4x-Bau-Wiederholung (prod2 earlyoom-Kill, SE-21b/6709248). Beides gehoert zur
+  # Job-Umgebung, nicht in den Anwender-Bauweg -- ein Anwender soll kein Retry-Netz brauchen.
+  script:
+    - |
+      set -euo pipefail
+      _CC=cc; _CXX=c++
+      if command -v gcc-15 >/dev/null 2>&1; then _CC=gcc-15; fi
+      if command -v g++-15 >/dev/null 2>&1; then _CXX=g++-15; fi
+      echo "GNU-Bauweg: CC=$_CC CXX=$_CXX"
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests
+      _built=0
+      for _a in 1 2 3 4; do
+        if make BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make' nach 4 Versuchen nicht erfolgreich"; exit 4; }
+      make check CTEST_EXTRA="--output-junit $(pwd)/ctest-junit.xml"
   variables:
-    COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
-    COMDARE_TEST_BUILD_TARGET: "comdare_tests"
-    # G4a (2026-07-26): comdare_profile_run_facade ergaenzt. Die Fassade ist EXCLUDE_FROM_ALL und haengt an keinem
-    # Test-Target -- sie wurde in test:unit bislang GAR NICHT uebersetzt (Blindfleck-Befund: das Objektverzeichnis
-    # enthielt nur CXXDependInfo.json). Ein gruener Vollbau war damit keine Aussage ueber profile_run_entry.hpp;
-    # eine Regression dort waere erst im Voll-Bau-4 aufgefallen. Prebuild statt Test-Target, weil es eine Bibliothek
-    # ohne eigene Tests ist -- der 2-Pass baut sie mit, der Compiler ist hier die Wache.
-    COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli comdare_profile_run_facade"  # V-4 (27.07.): comdare_permutation_codegen_cli entfaellt mit dem Permutations-Retire (Target existiert nicht mehr)
-    # [HISTORIE #278 (2026-07-06, Job 214641), von R4 abgeloest: "contract-/pmc-Tests laufen bereits
-    #  HART in ihren eigenen Jobs (contract:* / pmc:amd) -- im unit-Sammel-Lauf zaehlten sie als
-    #  'Not Run' (5x). KEIN Auslassen: der Ausschluss verweist auf die dedizierten Gates."
-    #  Genau dieser Verweis war die Sollbruchstelle: er galt fuer die 5 Tests von damals und wurde
-    #  nie wieder nachgerechnet. COMDARE_TEST_CTEST_ARGS wird jetzt im before_script aus dem
-    #  Manifest belegt und von der Abdeckungs-Wache gegengerechnet.]
+    # Nur noch fuer die artifacts-Pfade des .test-Templates: configure.sh legt per Vorgabe 'build' an.
+    COMDARE_TEST_CMAKE_BUILD_DIR: "build"
+    # [HISTORIE, von der GNU-Bauweg-Umstellung (08.08.2026) abgeloest -- NICHT geloescht, weil die
+    #  Begruendungen weiter gelten und erklaeren, WARUM der neue Weg vollstaendiger sein muss:
+    #
+    #  COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
+    #    -> jetzt './configure.sh --enable-build-tests' (dieselbe Wirkung, offizieller Weg).
+    #  COMDARE_TEST_BUILD_TARGET: "comdare_tests"
+    #    -> jetzt 'make' (all) + 'make check'. 'all' ist die Obermenge; genau das schliesst die
+    #       zwei Loecher, die die Prebuild-Handliste offen liess.
+    #  COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli comdare_profile_run_facade"
+    #    G4a (2026-07-26): "comdare_profile_run_facade ergaenzt. Die Fassade ist EXCLUDE_FROM_ALL und
+    #    haengt an keinem Test-Target -- sie wurde in test:unit bislang GAR NICHT uebersetzt
+    #    (Blindfleck-Befund: das Objektverzeichnis enthielt nur CXXDependInfo.json). Ein gruener
+    #    Vollbau war damit keine Aussage ueber profile_run_entry.hpp." DIESE SORGE IST WEITER
+    #    BERECHTIGT und heute besser gedeckt: 'make' baut ALL, und die Fassade haengt am
+    #    Planer-Target, das die super-Naht per EXCLUDE_FROM_ALL=FALSE ins ALL zurueckholt.
+    #    V-4 (27.07.): comdare_permutation_codegen_cli entfiel mit dem Permutations-Retire.
+    #
+    #  #278 (2026-07-06, Job 214641): "contract-/pmc-Tests laufen bereits HART in ihren eigenen Jobs
+    #  -- im unit-Sammel-Lauf zaehlten sie als 'Not Run' (5x)." Genau dieser Verweis war die
+    #  Sollbruchstelle: er galt fuer die 5 Tests von damals und wurde nie wieder nachgerechnet.
+    #  Von R4 (06.08.) abgeloest; die Auswahl kommt seither aus dem Manifest und wird von der
+    #  Abdeckungs-Wache gegengerechnet -- daran aendert die GNU-Umstellung nichts.]
 
 # ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
 # Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).
