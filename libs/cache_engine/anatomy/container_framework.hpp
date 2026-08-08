@@ -104,6 +104,35 @@ inline constexpr std::size_t type_count = mp::mp_size<type_list>::value;
 /// (Bau-Bindung) -- dieser Header schlaegt sie aber nicht mehr selbst nach (SF-1). Der bequeme
 /// 1-Parameter-Aufrufpunkt fuer bestehende Aufrufstellen lebt im Builder-Adapter
 /// (builder/experiment_tree/container_type_traits.hpp).
+namespace container_framework_cwg1430_detail {
+/// KompositionFuer<Binding, T...> -- DIE INDIREKTION, DIE CWG 1430 VERLANGT (08.08.2026).
+///
+/// BEFUND, am Objekt gemessen: type_traits::CompositionFor reichte den Pack T... direkt an das
+/// ALIAS-Template Binding::CompositionFor weiter. Die realen Bindungen deklarieren dort aber KEINEN
+/// Pack, sondern feste Parameter (genus_binding_traits.hpp:79/107/137/165: T0..T9 + Inner). clang 22.1
+/// lehnt das ab:
+///     error: pack expansion used as argument for non-pack parameter of alias template
+/// g++ 15.3 akzeptiert es. Der Grund ist CWG 1430: ein Alias-Template wird SOFORT ersetzt, also muss
+/// die Zuordnung Pack -> feste Parameter schon beim Bilden des Alias aufgehen -- was sie erst nach der
+/// Expansion tut. Ein KLASSEN-Template hat das Problem nicht: seine Auswertung ist bis zur
+/// Instanziierung verzoegert, und dort ist der Pack bereits expandiert.
+///
+/// DIE SEMANTIK AENDERT SICH NICHT -- derselbe Typ, nur ueber einen zulaessigen Weg gebildet. Was sich
+/// aendert, ist der ZEITPUNKT der Aufloesung: frueher fiel ein fehlendes Binding::CompositionFor schon
+/// bei der Instanziierung von type_traits auf, jetzt erst beim ersten Gebrauch. Der Mock-Kommentar
+/// unten ist entsprechend nachgezogen, damit die Datei nicht das Gegenteil behauptet.
+///
+/// AnatomyFor BLEIBT ABSICHTLICH DIREKT: es reicht EINEN Parameter durch (kein Pack) und ist deshalb
+/// von CWG 1430 nicht betroffen -- am Objekt gemessen, beide Compiler bauen die Ein-Parameter-Form.
+/// Es hier ohne Not mitzuziehen wuerde nur seine fruehe Fehlererkennung aufgeben, die der Mock-Block
+/// unten ausdruecklich nutzt. Wer AnatomyFor kuenftig auf einen Pack umstellt, braucht dieselbe
+/// Indirektion -- dann gehoert sie hier daneben.
+template <class Binding, class... T>
+struct KompositionFuer {
+    using type = typename Binding::template CompositionFor<T...>;
+};
+} // namespace container_framework_cwg1430_detail
+
 template <cea::AnatomyGenus G, class Binding>
     requires ContainerType<G, Binding>
 struct type_traits {
@@ -113,8 +142,10 @@ struct type_traits {
     static constexpr std::string_view    name       = Binding::name;
 
     /// Blatt-PermTuple -> reale Komposition (unveraendert je Typ; nur weitergereicht).
+    /// Der Umweg ueber KompositionFuer ist KEINE Zutat, sondern die Bedingung dafuer, dass der Pack an
+    /// eine Bindung mit festen Parametern gereicht werden DARF -- s. die Begruendung dort (CWG 1430).
     template <class... T>
-    using CompositionFor = typename Binding::template CompositionFor<T...>;
+    using CompositionFor = typename container_framework_cwg1430_detail::KompositionFuer<Binding, T...>::type;
     template <class Comp>
     using AnatomyFor = typename Binding::template AnatomyFor<Comp>;
 
@@ -159,9 +190,13 @@ struct MockGenusBinding {
     static constexpr std::string_view  name       = "MockGenusBinding";
 
     // CompositionFor/AnatomyFor sind hier ohne Bedeutung (dieser Selbstbeweis ruft sie nie mit
-    // konkreten Argumenten auf) -- sie muessen trotzdem als Member-Templates EXISTIEREN: der
-    // Compiler loest `Binding::template CompositionFor` in type_traits schon bei der
-    // Instanziierung der Klasse auf (Binding ist dort nicht mehr dependent), nicht erst beim Aufruf.
+    // konkreten Argumenten auf) -- sie stehen trotzdem als Member-Templates da.
+    // NACHZUG 08.08.2026 (CWG-1430-Heilung): fuer CompositionFor ist das seit der Indirektion ueber
+    // KompositionFuer nicht mehr ZWINGEND -- der Compiler loest Binding::CompositionFor jetzt erst
+    // beim Gebrauch auf, nicht mehr bei der Instanziierung von type_traits. Der Eintrag bleibt
+    // dennoch stehen, weil dieser Mock eine STRUKTURELL vollstaendige Bindung vorfuehren soll: er ist
+    // die Vorlage dafuer, wie eine fremde Bindung auszusehen hat, und eine Vorlage mit Loechern
+    // waere die schlechtere Doku. Fuer AnatomyFor gilt die alte Begruendung UNVERAENDERT weiter (s.u.).
     template <class... T>
     using CompositionFor = void;
     // AnatomyFor MUSS von Comp abhaengen (Identity statt void): type_traits<G,Binding>::ElementTypeFor
