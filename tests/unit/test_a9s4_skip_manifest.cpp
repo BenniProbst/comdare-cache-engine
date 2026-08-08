@@ -45,7 +45,7 @@ void schreibe(std::filesystem::path const& p, std::string const& inhalt) {
 
 } // namespace
 
-// ── Manifest direkt ──────────────────────────────────────────────────────────────────────────
+// -- Manifest direkt --
 
 TEST(A9S4SkipManifest, FehlendesManifestIstEhrlichLeer) {
     TempDir const tmp;
@@ -78,7 +78,7 @@ TEST(A9S4SkipManifest, LeereListeIstNoOpKeinVerzeichnisAngelegt) {
     EXPECT_FALSE(std::filesystem::exists(nie_angelegt)) << "lazy: kein Anlegen ohne echten Anlass";
 }
 
-// ── filtere_bereits_vorhandene ───────────────────────────────────────────────────────────────
+// -- filtere_bereits_vorhandene --
 
 TEST(A9S4SkipManifest, FilterTrenntNeuUndBereitsVorhandenXlsx) {
     TempDir const tmp;
@@ -105,7 +105,7 @@ TEST(A9S4SkipManifest, CsvFormatUmgehtDenFilterVollstaendig) {
     EXPECT_TRUE(erg.bereits_vorhanden.empty());
 }
 
-// ── End-zu-Ende: render -> render (skip) -> render mit neuer Binary (additiv) ───────────────
+// -- End-zu-Ende: render -> render (skip) -> render mit neuer Binary (additiv) --
 
 inline constexpr char kCsvA[]     = "binary_id;workload\nbin_a;x\n";
 inline constexpr char kCsvB_neu[] = "binary_id;workload\nbin_b;y\n";
@@ -186,10 +186,10 @@ TEST(A9S4SkipManifest, PlanZeigtSkipVorschauOhneZuSchreiben) {
     EXPECT_EQ(nach_plan, 1u) << "plan() darf niemals schreiben";
 }
 
-// ── Kollisions-Schutz: NIE still ueberschreiben (der Defekt, den die Lazy-mkdir-Reparatur oben
+// -- Kollisions-Schutz: NIE still ueberschreiben (der Defekt, den die Lazy-mkdir-Reparatur oben
 // zuerst freigelegt hat -- zwei GETRENNTE render-Aufrufe fuer VERSCHIEDENE Binaries, die zufaellig
 // denselben Zeitstempel + dieselbe (leere) dynamische kv-Kette tragen, duerfen NIE dieselbe Datei
-// treffen und sich gegenseitig ueberschreiben). ──────────────────────────────────────────────
+// treffen und sich gegenseitig ueberschreiben). --
 
 inline constexpr char kCsvC_andereBinary[] = "binary_id;workload\nbin_c;z\n";
 
