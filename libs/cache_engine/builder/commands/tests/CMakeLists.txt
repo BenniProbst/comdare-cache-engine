@@ -39,3 +39,21 @@ else()
     add_test(NAME test_commands COMMAND test_commands)
     add_test(NAME test_engine_adapters COMMAND test_engine_adapters)
 endif()
+
+# W-1 (2026-08-08), ZWEITE HAELFTE DES BEFUNDS -- die #278-"Not-Run"-Klasse:
+# Bis heute waren diese beiden Ziele fuer ctest unsichtbar (enable_testing() stand in der
+# Wurzel NACH add_subdirectory(libs/cache_engine); s. Wurzel-CMakeLists an der geheilten
+# Stelle). Mit der Heilung sind ihre 27 gtest-Faelle sichtbar -- und damit faellt auf, dass
+# das Sammel-Target comdare_tests sie NICHT baut: es haengt ausschliesslich an der globalen
+# Liste COMDARE_TEST_TARGETS, und diese beiden standen dort nie. Am Objekt gemessen
+# (08.08.2026, `ninja -t query comdare_tests`): 0 Kanten auf test_commands/test_engine_adapters.
+# In einem Baum, der NUR comdare_tests baut, erzeugt gtest_discover_tests dann die
+# Platzhalter test_commands_NOT_BUILT / test_engine_adapters_NOT_BUILT -- zwei Eintraege, die
+# beim Lauf FEHLSCHLAGEN. Genau das ist die #278-Klasse, gegen die tests/unit/CMakeLists.txt
+# an rund 60 Stellen dieselbe Zeile traegt.
+# Die CI faehrt heute 'make' (all) und ist damit zufaellig gedeckt -- 'all' enthaelt beide
+# Ziele. Auf Zufall beruht sonst nichts an dieser Kette: die Registrierung macht die
+# Deckung zur Eigenschaft des Bauwegs statt zur Eigenschaft der gerade gewaehlten
+# Job-Zeile (die am 08.08. schon einmal von comdare_tests auf 'all' umgestellt wurde).
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_commands)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_engine_adapters)
