@@ -4,6 +4,13 @@
 // heutigen <output>-Trios (ExperimentOutput: csv_path, latex_path, comparison_metrics). KEIN "pdf" -- die
 // PDF-Kompilation ist KEIN Rueckschrieb-Kanal der Mess-Maschine (honest-0; das PDF entsteht Thesis-seitig).
 //
+// A9-S3 (2026-08-08): VIERTER Wert Xlsx. Owner-KERN 26.07. Section 6 woertlich: "xlsx = kuenftig DEFAULT,
+// CSV einstellbar + Fallback" -- der xlsx-Ergebnis-Writer (builder/lager_ablage/) existiert jetzt, und ohne
+// diesen vierten Wert bleibt der XML-Schalter der Rueckschrieb-Methode unwirksam (der Kommentar unten hat
+// genau das angekuendigt: eine 4. Methode bricht hier compile-time -- das ist jetzt gewollt eingetreten).
+// Xlsx bleibt wie die anderen drei GOLDEN-/HOST-NEUTRAL: die Registry-Zeile ist eine reine Identitaet, kein
+// Fan-out/Vollzug (der liegt in der Lager-Ablage-Strecke, nicht hier).
+//
 // ABGRENZUNG (Section 54-T2): eine Mess-Tooling-UNTER-Achse (Planer-gesteuert, delegiert, binary_id-NEUTRAL)
 // -- NICHT die HAUPT-Auffaecherung (MeasurementTooling, measurement_tooling_registry.hpp). A9.1 traegt diese
 // Achse PASSIV (Feld + Parse + XSD + validate-id-Check); der Fan-out/Vollzug gehoert S5.
@@ -24,10 +31,11 @@ enum class WritebackMethod : std::uint8_t {
     Csv,               ///< CSV -- die Roh-Messzeilen (<output><csv_path>); die maschinen-lesbare Wahrheit
     LatexTable,        ///< LaTeX-Tabelle -- die formatierte Ergebnis-Tabelle (<output><latex_path>)
     ComparisonMetrics, ///< Vergleichs-Metriken -- die abgeleiteten SOTA-Deltas (<output><comparison_metrics>)
+    Xlsx,              ///< xlsx -- A9-S3 Lager-Ablage-Mappe (DEFAULT-Auswerteformat, CSV bleibt Fallback)
 };
 
-// Single-Source: Drift einer 4. Methode bricht hier compile-time (statt still 3 zu bleiben).
-inline constexpr std::size_t kWritebackMethodCount = 3;
+// Single-Source: Drift einer 5. Methode bricht hier compile-time (statt still 4 zu bleiben).
+inline constexpr std::size_t kWritebackMethodCount = 4;
 
 struct WritebackMethodInfo {
     WritebackMethod  method;
@@ -40,6 +48,7 @@ inline constexpr std::array<WritebackMethodInfo, kWritebackMethodCount> kWriteba
     {WritebackMethod::Csv, "csv", "Csv"},
     {WritebackMethod::LatexTable, "latex_table", "LatexTable"},
     {WritebackMethod::ComparisonMetrics, "comparison_metrics", "ComparisonMetrics"},
+    {WritebackMethod::Xlsx, "xlsx", "Xlsx"},
 }};
 
 namespace detail {
@@ -55,15 +64,21 @@ namespace detail {
 static_assert(kWritebackMethodRegistry.size() == kWritebackMethodCount,
               "kWritebackMethodRegistry: Array-Groesse == kWritebackMethodCount (Anzahl-Anker).");
 static_assert(detail::writeback_method_registry_is_complete(),
-              "kWritebackMethodRegistry: 3 Eintraege, Index==WritebackMethod, id/name nie leer.");
+              "kWritebackMethodRegistry: 4 Eintraege, Index==WritebackMethod, id/name nie leer.");
 // Namen-Anker: Drift eines id-Tokens (Umbenennung/Vertauschung, inkl. des honest-0-Ausschlusses von pdf)
 // bricht hier compile-time.
 static_assert(kWritebackMethodRegistry[static_cast<std::size_t>(WritebackMethod::Csv)].id == std::string_view{"csv"} &&
                   kWritebackMethodRegistry[static_cast<std::size_t>(WritebackMethod::LatexTable)].id ==
                       std::string_view{"latex_table"} &&
                   kWritebackMethodRegistry[static_cast<std::size_t>(WritebackMethod::ComparisonMetrics)].id ==
-                      std::string_view{"comparison_metrics"},
-              "kWritebackMethodRegistry: id-Tokens sind {csv,latex_table,comparison_metrics} (Namen-Anker).");
+                      std::string_view{"comparison_metrics"} &&
+                  kWritebackMethodRegistry[static_cast<std::size_t>(WritebackMethod::Xlsx)].id ==
+                      std::string_view{"xlsx"},
+              "kWritebackMethodRegistry: id-Tokens sind {csv,latex_table,comparison_metrics,xlsx} (Namen-Anker).");
+// Drift-Gegenprobe (RF-3-Muster): hinter dem Count darf KEIN etikettierter Eintrag mehr auftauchen. Ein
+// Anhaengen ohne Hochzaehlen des Counts wuerde still schweigen -- diese Zeile bricht dann compile-time.
+static_assert(kWritebackMethodCount == static_cast<std::size_t>(WritebackMethod::Xlsx) + 1,
+              "kWritebackMethodCount muss genau hinter dem LETZTEN Enumerator stehen (Namens-Pin-Muster).");
 
 /// constexpr-Lookup (Index == WritebackMethod-Wert, durch static_assert garantiert).
 [[nodiscard]] constexpr WritebackMethodInfo const& writeback_method_info(WritebackMethod m) noexcept {

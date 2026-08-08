@@ -265,12 +265,32 @@ else
           --error-exitcode=2 --std=c++23 --language=c++ -q $LINT_PATHS $IGN >"$CC_LOG" 2>&1
     CC_RC=$?
     set -e
-    CC_FEHLER=$(grep -c ': error:' "$CC_LOG" 2>/dev/null || true)
+    # ── 08.08.2026: DIESE AUSWERTUNG WAR SELBST EINE FALSCH-GRUENE ANZEIGE ────────
+    # Sie filterte NUR auf ': error:'. cppcheck laeuft hier aber mit
+    # --enable=warning,portability, und --error-exitcode=2 schlaegt AUCH bei einer
+    # "warning:"-Meldung an. Folge bei einem reinen Warning: Verdikt ROT (der
+    # Exit-Code wurde korrekt gelesen), aber Verstoss-Liste LEER und Nenner 0 --
+    # also genau das "GRUEN MIT NENNER 0 IST ROT", vor dem der Kopf dieser Datei
+    # warnt. Wer die Diagnose liest statt des Verdikts, sieht nichts.
+    # Mit einem Koeder nachgestellt (uninitMemberVar, severity warning): cppcheck
+    # rc=2, "grep -c ': error:'" -> 0. Geheilt durch das volle Severity-Muster plus
+    # einen Rueckfall, der bei rotem Verdikt NIE stumm bleibt.
+    CC_MUSTER=': (error|warning|style|performance|portability|information):'
+    CC_FEHLER=$(grep -Ec "$CC_MUSTER" "$CC_LOG" 2>/dev/null || true)
     [ -z "$CC_FEHLER" ] && CC_FEHLER=0
+    CC_HARTE=$(grep -c ': error:' "$CC_LOG" 2>/dev/null || true)
+    [ -z "$CC_HARTE" ] && CC_HARTE=0
     echo ""
     echo "VERSTOESSE (falls vorhanden):"
     if [ "$CC_RC" -ne 0 ]; then
-        grep ': error:' "$CC_LOG" | sed 's/^/  /' | head -30
+        if [ "$CC_FEHLER" -gt 0 ]; then
+            grep -E "$CC_MUSTER" "$CC_LOG" | sed 's/^/  /' | head -30
+        else
+            # Rotes Verdikt ohne getroffenes Muster: eine unbekannte Severity oder ein
+            # Werkzeug-Abbruch. Stumm zu bleiben waere hier der schlimmere Fehler.
+            echo "  (kein bekanntes Severity-Muster getroffen -- rohes Log-Ende:)"
+            tail -20 "$CC_LOG" | sed 's/^/  /'
+        fi
         ROT=1
     else
         echo "  (keine)"
@@ -278,7 +298,7 @@ else
     echo ""
     echo "-----------------------------------------------------------------------------"
     echo "NENNER (nie eine nackte Null):"
-    echo "  Pfade: $LINT_PATHS | $IGN_ANZ Ignore-Eintraege | Exit $CC_RC | $CC_FEHLER Fehlerzeile(n)."
+    echo "  Pfade: $LINT_PATHS | $IGN_ANZ Ignore-Eintraege | Exit $CC_RC | $CC_FEHLER Befundzeile(n), davon $CC_HARTE mit Severity error."
     echo "  VOLLER Scope wie die CI -- NICHT nur die $ANZ_DATEIEN beruehrten Dateien."
     echo "-----------------------------------------------------------------------------"
     rm -f "$CC_LOG"

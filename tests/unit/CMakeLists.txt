@@ -5566,3 +5566,46 @@ target_link_libraries(test_a9_xlsx_vendor_rauchtest PRIVATE
     comdare::vendored_xlsxwriter comdare::vendored_zlib)
 set_tests_properties(test_a9_xlsx_vendor_rauchtest PROPERTIES
     LABELS "a9;xlsx;vendor;lager")
+
+# --- A9-S3 (xlsx-Writer, Writer-Kern) ---------------------------------------------------------------
+# WritebackMethod jetzt mit VIERTEM Wert Xlsx (writeback_method_registry.hpp) -- reiner Header-Test,
+# keine Vendor-Abhaengigkeit.
+comdare_add_test(test_a9s3_writeback_method_xlsx
+    SOURCES test_a9s3_writeback_method_xlsx.cpp)
+target_include_directories(test_a9s3_writeback_method_xlsx PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+set_tests_properties(test_a9s3_writeback_method_xlsx PROPERTIES
+    LABELS "a9;xlsx;lager;writeback_method")
+
+# Die Sheet-Namens-/Zeilenlimit-Wachen + der CSV-Fallback (builder/lager_ablage/ergebnis_mappe.hpp) sind
+# selbst header-only (reines std::ofstream), ABER ErgebnisMappenFactory::oeffne() (inline im Header)
+# referenziert detail::erzeuge_xlsx_ergebnis_mappe() in JEDEM Aufruf-Pfad -- auch wenn dieser Test nur
+# ErgebnisFormat::csv waehlt, ist die xlsx-Backend-Funktion ein ODR-Use und muss zur Linkzeit aufgeloest
+# werden. Jeder Konsument der Factory (auch ein CSV-only-Aufrufer) linkt deshalb comdare::lager_ablage --
+# NUR wer die Factory ueberhaupt nicht benutzt, bleibt frei vom Vendor-Link (Design-Kommentar in
+# ergebnis_mappe.hpp, detail::erzeuge_xlsx_ergebnis_mappe).
+comdare_add_test(test_a9s3_ergebnis_mappe_csv
+    SOURCES test_a9s3_ergebnis_mappe_csv.cpp)
+target_include_directories(test_a9s3_ergebnis_mappe_csv PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_a9s3_ergebnis_mappe_csv PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s3_ergebnis_mappe_csv PROPERTIES
+    LABELS "a9;xlsx;lager;csv;wachen")
+
+# Das xlsx-Backend (xlsx_ergebnis_writer.cpp, EIGENE TU) braucht das comdare_lager_ablage-Target (PRIVATE
+# gegen den Vendor gelinkt -- <xlsxwriter.h> leckt nicht in diesen Test). zlib wird zusaetzlich EXPLIZIT
+# gelinkt: der Test bringt seinen eigenen ZIP-Leser mit (Muster test_a9_xlsx_vendor_rauchtest.cpp).
+if(NOT TARGET comdare_vendored_xlsxwriter)
+    add_subdirectory("${PROJECT_SOURCE_DIR}/ext/io/libxlsxwriter" "${CMAKE_BINARY_DIR}/_ext_io_libxlsxwriter")
+endif()
+comdare_add_test(test_a9s3_xlsx_ergebnis_writer
+    SOURCES test_a9s3_xlsx_ergebnis_writer.cpp)
+target_include_directories(test_a9s3_xlsx_ergebnis_writer PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/ext/io/zlib")
+target_link_libraries(test_a9s3_xlsx_ergebnis_writer PRIVATE
+    comdare::lager_ablage comdare::vendored_zlib)
+set_tests_properties(test_a9s3_xlsx_ergebnis_writer PROPERTIES
+    LABELS "a9;xlsx;lager;writer_kern")
