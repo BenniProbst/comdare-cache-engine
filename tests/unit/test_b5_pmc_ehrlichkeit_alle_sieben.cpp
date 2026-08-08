@@ -4,8 +4,13 @@
 //   B-5/A  Die errno-KLASSEN sind getrennt. "Diesen Zaehler gibt es auf dieser CPU nicht" (ENOENT) und
 //          "es gibt ihn, aber wir duerfen nicht" (EACCES) sind verschiedene Zustaende mit verschiedenen
 //          Log-Etiketten -- und dennoch derselben Zelle, weil in BEIDEN Faellen nicht gemessen wurde.
-//   B-5/B  KEINER der SIEBEN PMC-Zaehler rendert je eine Zahl, wenn seine Quelle nicht geliefert hat.
+//   B-5/B  KEINE PMC-Spalte rendert je eine Zahl, wenn ihre Quelle nicht geliefert hat.
 //          Das ist der eigentliche Koeder: er beisst, sobald irgendein Zaehler wieder ungated wird.
+//          Es waren SIEBEN, als diese TU entstand; seit Runde 2 sind es ACHT (der amd_l3-Uncore-Wert
+//          kam als eigene Spalte dazu). Der DATEINAME sagt weiter "alle_sieben" und bleibt so: er
+//          reist als ctest-Name in CI-Logs, und eine Umbenennung waere ein deklariertes Log-Ereignis
+//          ohne Erkenntnisgewinn (dieselbe Abwaegung wie bei gattungs_bindung_fehlt in axis_error.hpp).
+//          Die WACHE zaehlt nicht den Namen, sondern den echten Header -- s. Fall D.
 //   B-5/C  Eine ECHTE Null bleibt eine Zahl. Die Ehrlichkeit darf keinen realen Nullbefund verdecken --
 //          sonst waere sie nur die umgekehrte Luege.
 //
@@ -55,11 +60,19 @@ void pruefe(bool bedingung, char const* was) {
     }
 }
 
-/// Die sieben PMC-Spalten, wie sie im Header stehen -- Namen woertlich aus lazy_csv_header().
+/// Die PMC-Wertspalten, wie sie im Header stehen -- Namen woertlich aus lazy_csv_header().
 /// Sie sind der Gegenstand von B-5: keine von ihnen darf je eine Zahl tragen, die nichts gemessen hat.
-constexpr char const* kPmcSpalten[] = {"pmc_cache_misses_l1", "pmc_cache_misses_l2",         "pmc_cache_misses_l3",
-                                       "pmc_dtlb_misses",     "pmc_coherence_invalidations", "pmc_energy_micro_joules",
-                                       "pmc_branch_misses"};
+/// Fall D unten haelt diese Liste gegen den ECHTEN Header -- waechst er, ohne dass sie mitwaechst,
+/// prueft die Wache an einer Spalte vorbei und faellt rot. Die Zahl steht deshalb nirgends fest.
+
+constexpr char const* kPmcSpalten[]   = {"pmc_cache_misses_l1", "pmc_cache_misses_l2", "pmc_cache_misses_l3",
+                                         "pmc_dtlb_misses", "pmc_coherence_invalidations", "pmc_energy_micro_joules",
+                                         "pmc_branch_misses",
+                                         // B-5 Runde 2: die ACHTE -- der amd_l3-Uncore-Wert. Er ist eine EIGENE
+                                         // Groesse (system-weit je CCX statt per-Task) und hat deshalb eine eigene
+                                         // Spalte; die Ehrlichkeitsregel gilt fuer ihn genauso: nie eine Zahl ohne
+                                         // Quelle. Die Drift-Wache in Fall D zaehlt ihn mit.
+                                         "pmc_l3_miss_uncore_systemweit"};
 constexpr std::size_t kPmcSpaltenZahl = sizeof(kPmcSpalten) / sizeof(kPmcSpalten[0]);
 
 /// Zerlegt eine CSV-Zeile an ';'. Der Header dieser CSV nutzt dasselbe Trennzeichen.
@@ -92,7 +105,7 @@ std::string zell_wert(std::vector<std::string> const& kopf, std::vector<std::str
 } // namespace
 
 int main() {
-    std::printf("== B-5: PMC-Ehrlichkeit, alle sieben Zaehler ==\n");
+    std::printf("== B-5: PMC-Ehrlichkeit, ALLE PMC-Spalten ==\n");
 
     // ------------------------------------------------------------------------------------------
     // FALL A -- die errno-Klassen sind getrennt, und sie sind es an den am Objekt GEMESSENEN Werten.

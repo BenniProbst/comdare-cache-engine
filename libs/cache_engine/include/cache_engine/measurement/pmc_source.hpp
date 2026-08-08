@@ -61,6 +61,25 @@ struct PmcCounters {
     // Damit traegt JEDER der sieben Zaehler sein eigenes Quellen-Flag -- die Regel hat keine Ausnahme mehr.
     bool cache_misses_l1_source_available = false;
     bool dtlb_misses_source_available     = false;
+    // B-5 Runde 2 (2026-08-08, Lead-Entscheid): der L3-Zaehler, den es auf AMD WIRKLICH gibt -- als
+    // EIGENE Groesse, nicht in cache_misses_l3 hinein.
+    //
+    // WARUM EINE EIGENE SPALTE UND NICHT DIESELBE: die beiden Zahlen sind nicht dasselbe Mass.
+    // cache_misses_l3 ist PER-TASK (der generische Last-Level-Zaehler, wie ihn Intel liefert);
+    // dieser hier kommt aus dem amd_l3-UNCORE-PMU, der SYSTEM-WEIT je CCX zaehlt -- pid=-1 ist
+    // zwingend, per-Task gibt EINVAL, weil ein Uncore keinen Prozess kennt (am Objekt gemessen,
+    // cpumask 0,8 = zwei CCX). Beide unter EINER Ueberschrift zu fuehren waere der Datenbruch aus
+    // Ledger :4506 -- "verschiedene Semantik unter derselben Ueberschrift" --, nur quer ueber
+    // Vendoren statt ueber die Zeit. Der Name traegt die Geltung deshalb SELBST: wer die Spalte
+    // liest, weiss ohne Nachschlagen, dass hier nicht der Pruefling allein gezaehlt wurde.
+    //
+    // GELTUNGS-VORBEHALT, der mitreist: waehrend des Messfensters zaehlt der Uncore ALLES auf diesem
+    // CCX, auch fremde Last. Der Wert ist als OBERGRENZE zu lesen, nicht als Prueflings-Wert. Er ist
+    // trotzdem mehr wert als nichts: auf einer Maschine mit CAP_PERFMON (oder paranoid<=0) ist er
+    // die einzige reale L3-Miss-Quelle, die AMD hergibt, und auf prod1 heute sagt das Flag ehrlich,
+    // dass er gesperrt war.
+    std::uint64_t l3_miss_uncore_systemweit                  = 0;
+    bool          l3_miss_uncore_systemweit_source_available = false;
 };
 
 /// Pluggable HW-Performance-Counter-Quelle. begin()→Op-Lauf→end() liefert das Counter-Delta.

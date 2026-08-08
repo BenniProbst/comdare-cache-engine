@@ -279,6 +279,70 @@ inline bool pmu_first_cpu_from_sysfs(char const* pmu_name, int& out_cpu) noexcep
     return true;
 }
 
+// -- B-5 Runde 2: DIE CORE-PMU-DOMAENEN DIESER MASCHINE, als MECHANISMUS statt Vendor-Sonderfall ----
+//
+// DAS PROBLEM, das dieser Block loest. `PERF_TYPE_HW_CACHE` mit cpu=-1 ist AELTER als die
+// Hybrid-Architektur: er kennt nur EINEN Core-PMU. Auf einem Alder/Raptor Lake registriert der Kernel
+// aber ZWEI -- `cpu_core` (P) und `cpu_atom` (E) -- und KEINEN generischen `cpu`. Ein Zaehler, der nur
+// den generischen Weg kennt, oeffnet dort gar nicht. Genau das ist der Zustand, in dem `pmc:intel`
+// seit dem 06.08. rot faellt: nicht EIN Zaehler fehlt, sondern ALLE VIER (available = l1d||ll||dtlb||
+// branch, und beide Smoke-Tests fallen an genau diesem Praedikat).
+//
+// DIE LOESUNG STEHT IM KERNEL-HEADER, sie ist nicht rekonstruiert. <linux/perf_event.h> woertlich:
+//     attr.config layout for type PERF_TYPE_HARDWARE and PERF_TYPE_HW_CACHE
+//     PERF_TYPE_HARDWARE:  0xEEEEEEEE000000AA   AA: hardware event ID
+//     PERF_TYPE_HW_CACHE:  0xEEEEEEEE00DDCCBB   BB/CC/DD: cache/op/result ID
+//                          EEEEEEEE: PMU type ID
+//     #define PERF_PMU_TYPE_SHIFT 32
+// Die GENERISCHE Kodierung bleibt also unveraendert -- nur die oberen 32 Bit adressieren den PMU.
+// Damit braucht der Hybrid-Weg KEINE rohen event/umask-Werte je Mikroarchitektur (das waere B-6 und
+// waere ohne prod2 ein Rateversuch gewesen); er benutzt dieselben generischen Event-IDs wie bisher.
+//
+// AM OBJEKT VERIFIZIERT auf prod1 (cpu-PMU type=4 aus sysfs), eigene Sonde:
+//     L1D/RD/MISS ohne Praefix        type=3 config=0x10000       -> oeffnet, zaehlt
+//     L1D/RD/MISS MIT Praefix (cpu)   type=3 config=0x400010000   -> oeffnet, zaehlt
+//     BRANCH_MISSES MIT Praefix (cpu) type=0 config=0x400000005   -> oeffnet, zaehlt
+//     L1D/RD/MISS MIT Praefix(amd_l3) type=3 config=0x1100010000  -> errno=2, korrekt abgewiesen
+// prod1 ist NICHT hybrid -- aber der Mechanismus ist vendorneutral, und das war hier pruefbar.
+//
+// WARNUNG, die den Bau bestimmt (ebenfalls am Objekt): ein PMU-Typ, den es GAR NICHT GIBT, wird NICHT
+// abgewiesen -- `config = (9999 << 32) | ...` oeffnete und lieferte eine Zahl. Der Kernel faellt still
+// auf einen anderen PMU zurueck. Das ist ein stiller Rueckfall im Kernel selbst, und daraus folgt hart:
+// der Typ wird IMMER aus sysfs gelesen, nie geraten, nie hartkodiert. Existiert der sysfs-Pfad nicht,
+// wird gar nicht erst geoeffnet. Sonst truegen Zellen Zahlen vom falschen PMU -- plausibel und falsch.
+
+/// PERF_PMU_TYPE_SHIFT ist erst in neueren Kernel-Headern definiert. Der WERT ist ABI (er steht im
+/// oben zitierten Layout-Kommentar und kann sich nicht aendern, ohne die Schnittstelle zu brechen) --
+/// die eigene Definition ist deshalb ein Fallback fuer aeltere Header, kein zweiter Wahrheitsort.
+#if !defined(PERF_PMU_TYPE_SHIFT)
+#define PERF_PMU_TYPE_SHIFT 32
+#endif
+
+/// config mit vorangestelltem PMU-Typ. typ==0 laesst die config unveraendert -- der Kernel-Header sagt
+/// dazu "If the PMU type ID is 0, the PERF_TYPE_RAW will be applied", weshalb 0 hier NIE gesetzt wird:
+/// 0 heisst bei uns "kein Praefix noetig", und dann geht die rohe config raus.
+inline std::uint64_t mit_pmu_typ(std::uint32_t typ, std::uint64_t config) noexcept {
+    if (typ == 0) return config;
+    return (static_cast<std::uint64_t>(typ) << PERF_PMU_TYPE_SHIFT) | config;
+}
+
+/// Die Core-PMU-Domaenen, auf denen ein GENERISCHER Zaehler leben kann -- in der Reihenfolge, in der
+/// sie versucht werden. Der Name ist der sysfs-Name; der Typ wird zur Laufzeit daraus aufgeloest.
+///
+/// WARUM DIESE REIHENFOLGE: `cpu` zuerst, weil auf jeder uniformen Maschine (prod1, jeder AMD, jeder
+/// nicht-hybride Intel) genau er existiert -- dort aendert sich damit NICHTS, und das ist Absicht.
+/// `cpu_core`/`cpu_atom` gibt es nur auf Hybrid, und dort gibt es `cpu` nicht; die Kette faellt also
+/// nie durch, sondern trifft auf jeder Maschine genau eine Wahl.
+///
+/// P/E-GETRENNTE MESSUNG IST HIER NICHT GELOEST, und das sage ich ausdruecklich statt es zu verdecken:
+/// der Owner-KERN verlangt, dass P- und E-Core GETRENNT gemessen und ausgewertet werden ("nicht
+/// gemittelt, nicht zusammengefasst, nicht 'die erste, die antwortet'"). Dieser Block macht die Zaehler
+/// auf Hybrid ueberhaupt erst OEFFENBAR -- welche Domaene gefahren wurde, wandert ins Log, aber die
+/// getrennte Erhebung ueber die NUMA-/Core-Unterachse ist eigene Arbeit (Board-Posten P/E-Core).
+/// Solange sie nicht steht, ist die gelieferte Zahl EINE Domaene mit Namen, keine anonyme Mischung.
+inline constexpr char const* kCorePmuDomaenen[]   = {"cpu", "cpu_core", "cpu_atom"};
+inline constexpr std::size_t kCorePmuDomaenenZahl = sizeof(kCorePmuDomaenen) / sizeof(kCorePmuDomaenen[0]);
+
 /// best-effort RAPL-Paket-Energie über /sys/class/powercap/intel-rapl:0/energy_uj (bereits in Mikrojoule;
 /// keine scale-Rechnung). KEIN perf nötig. Seit Linux 5.10 oft 0400 (root-only) → non-root liest -1 → energy
 /// bleibt 0/available=false. Wraparound via max_energy_range_uj wird zwischen begin()/end() berücksichtigt.
@@ -331,14 +395,18 @@ public:
         using namespace detail_linux_perf;
         using measurement::PmcCounterOutcome;
         // Jeder Counter wird INDIVIDUELL geöffnet; ein Fehlschlag deaktiviert NUR dieses Feld (nicht die Source).
-        l1d_oc_ = c_l1d_.open(
-            PERF_TYPE_HW_CACHE,
+        // B-5 Runde 2: JEDER generische Zaehler geht jetzt durch die Domaenen-Kette (oeffne_generisch_).
+        // Auf uniformen Maschinen ist das der bisherige Weg, Byte fuer Byte; auf Hybrid-Intel ist es der
+        // einzige, der ueberhaupt oeffnet -- dort kennt der generische PERF_TYPE_HW_CACHE die getrennten
+        // Domaenen cpu_core/cpu_atom nicht und liefert fuer ALLE VIER Zaehler nichts.
+        l1d_oc_ = oeffne_generisch_(
+            c_l1d_, PERF_TYPE_HW_CACHE,
             cache_cfg(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
-            "cache_misses_l1");
-        ll_oc_ =
-            c_ll_.open(PERF_TYPE_HW_CACHE,
-                       cache_cfg(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
-                       "cache_misses_l3_ll");
+            "cache_misses_l1", l1d_domaene_);
+        ll_oc_ = oeffne_generisch_(
+            c_ll_, PERF_TYPE_HW_CACHE,
+            cache_cfg(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
+            "cache_misses_l3_ll", ll_domaene_);
         // B-5: der AMD-ZWEITPFAD. Er wird NUR betreten, wenn der generische Weg das Event auf dieser CPU
         // gar nicht kennt -- also genau im ENOENT-Fall von Zen 5. Auf Intel oeffnet der generische Weg,
         // damit ist ll_oc_ dort Offen und dieser Block strukturell unerreichbar (kein Intel-Risiko).
@@ -347,7 +415,7 @@ public:
         // Was er liefert, ist die richtige ANTWORT auf die Frage "warum kein Wert": gibt es den Zaehler
         // auf dieser Maschine ueberhaupt (dann ZugriffVerweigert), oder gibt es ihn nicht?
         if (ll_oc_ == PmcCounterOutcome::EventNichtVorhanden) {
-            l3_pmu_oc_ = probe_amd_l3_pmu_();
+            l3_pmu_oc_ = oeffne_amd_l3_uncore_();
             // Die Sonde muss SPRECHEN, sonst ist die Diagnose gebaut und stumm -- und der naechste Leser
             // steht wieder vor derselben Frage wie 5c102e05. Die Zeile nennt die geschaerfte Begruendung.
             std::fprintf(stderr,
@@ -357,20 +425,34 @@ public:
                          static_cast<int>(measurement::pmc_outcome_label(l3_pmu_oc_).size()),
                          measurement::pmc_outcome_label(l3_pmu_oc_).data());
         }
-        dtlb_oc_ = c_dtlb_.open(
-            PERF_TYPE_HW_CACHE,
+        dtlb_oc_ = oeffne_generisch_(
+            c_dtlb_, PERF_TYPE_HW_CACHE,
             cache_cfg(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
-            "dtlb_misses");
+            "dtlb_misses", dtlb_domaene_);
         // M-3a (2026-08-07): vierter Zaehler, exakt nach dem Muster der drei obigen -- ABER unter einer
         // anderen type-Klasse. PERF_COUNT_HW_BRANCH_MISSES ist ein PERF_TYPE_HARDWARE-Event, kein
         // PERF_TYPE_HW_CACHE-Event; es gibt deshalb KEINE cache_cfg()-Kodierung (id|op<<8|res<<16), die
         // config ist der Event-Wert selbst. Das ist kein Sonderweg, sondern die man7-Kodierung fuer diese
         // Klasse -- ein cache_cfg()-Aufruf hier waere ein stiller Fehler (falsche config -> EINVAL oder,
         // schlimmer, ein anderes Event).
-        branch_oc_ = c_branch_.open(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_misses");
+        // Auch der HARDWARE-Zaehler laeuft durch die Kette: der Kernel-Header dokumentiert den
+        // PMU-Typ-Praefix fuer PERF_TYPE_HARDWARE genauso wie fuer PERF_TYPE_HW_CACHE (am Objekt
+        // verifiziert: config=0x400000005 oeffnete und zaehlte).
+        branch_oc_ = oeffne_generisch_(c_branch_, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_misses",
+                                       branch_domaene_);
         // L2 + coherence_invalidations: KEIN portabler generischer Counter → bewusst NICHT geöffnet, Feld 0.
         // RAPL: best-effort sysfs-Snapshot; Verfügbarkeit erst bei begin() (Lesbarkeit kann variieren).
         ready_ = l1d_offen_() || ll_offen_() || dtlb_offen_() || branch_offen_();
+        // Sichtbarkeit der Domaenen-Wahl: nur, wenn wirklich eine Nicht-Standard-Domaene gefahren wurde.
+        // Auf uniformen Maschinen bleibt die Ausgabe damit exakt so still wie vorher (kein Log-Rauschen
+        // in der gesamten bestehenden Flotte); auf Hybrid sagt sie, WO gezaehlt wurde.
+        if (hat_nichtgenerische_domaene_()) {
+            std::fprintf(stderr,
+                         "[PMC-DIAG] Core-PMU-Domaenen gefahren: l1=%s ll=%s dtlb=%s branch=%s "
+                         "(Hybrid-Maschine -- P/E-getrennte Erhebung ist eigene Arbeit, diese Zahlen "
+                         "stammen aus der genannten Domaene)\n",
+                         l1d_domaene_, ll_domaene_, dtlb_domaene_, branch_domaene_);
+        }
 #if defined(COMDARE_ENABLE_PAPI)
         init_papi_fallback_(); // additiv: nur falls perf-Counter ausfielen UND PAPI verfügbar.
 #endif
@@ -394,6 +476,10 @@ public:
             c_branch_.reset();
             c_branch_.enable();
         }
+        if (l3_uncore_offen_()) {
+            c_l3_uncore_.reset();
+            c_l3_uncore_.enable();
+        }
         // RAPL: monotoner Akkumulator → Start-Snapshot für Delta.
         rapl_have_start_ = detail_linux_perf::read_rapl_uj(rapl_start_uj_);
 #if defined(COMDARE_ENABLE_PAPI)
@@ -416,6 +502,7 @@ public:
         if (ll_offen_()) c_ll_.disable();
         if (dtlb_offen_()) c_dtlb_.disable();
         if (branch_offen_()) c_branch_.disable();
+        if (l3_uncore_offen_()) c_l3_uncore_.disable();
 
         // B-5 (2026-08-08) -- DIE FLAGS SIND JETZT EINE LESE-AUSSAGE, NICHT NUR EINE OEFFNUNGS-AUSSAGE.
         // Der Vorgaenger-Kommentar sagte hier woertlich, ein spaeter leerer read() (Multiplexing-Verdraengung,
@@ -474,6 +561,19 @@ public:
                 branch_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
             }
         }
+        // B-5 Runde 2: der amd_l3-Uncore-Wert. EIGENE Groesse, EIGENE Spalte -- er geht bewusst NICHT
+        // nach cache_misses_l3 (per-Task), weil er system-weit je CCX zaehlt. `any` wird von ihm NICHT
+        // gesetzt: er ist kein Prueflings-Wert und darf allein keine Zeile zur Messung erklaeren.
+        if (l3_uncore_offen_()) {
+            std::uint64_t const v = c_l3_uncore_.read_scaled(ok, scaled);
+            if (ok) {
+                c.l3_miss_uncore_systemweit                  = v;
+                c.l3_miss_uncore_systemweit_source_available = true;
+                if (scaled) scaled_ = true;
+            } else {
+                l3_pmu_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
+            }
+        }
         // best-effort RAPL-Energie-Delta (Mikrojoule). Nur wenn Start+Ende lesbar.
         std::uint64_t rapl_end_uj = 0;
         if (rapl_have_start_ && read_rapl_uj(rapl_end_uj)) {
@@ -517,10 +617,11 @@ public:
     }
 
 private:
-    detail_linux_perf::PerfCounter c_l1d_{};    ///< L1-D read miss
-    detail_linux_perf::PerfCounter c_ll_{};     ///< Last-Level (L3) read miss
-    detail_linux_perf::PerfCounter c_dtlb_{};   ///< dTLB read miss
-    detail_linux_perf::PerfCounter c_branch_{}; ///< Branch miss (M-3a, PERF_TYPE_HARDWARE)
+    detail_linux_perf::PerfCounter c_l1d_{};       ///< L1-D read miss
+    detail_linux_perf::PerfCounter c_ll_{};        ///< Last-Level (L3) read miss
+    detail_linux_perf::PerfCounter c_dtlb_{};      ///< dTLB read miss
+    detail_linux_perf::PerfCounter c_branch_{};    ///< Branch miss (M-3a, PERF_TYPE_HARDWARE)
+    detail_linux_perf::PerfCounter c_l3_uncore_{}; ///< B-5 R2: amd_l3-Uncore, SYSTEM-WEIT je CCX
     // B-5: die vier bool-Flags sind KLASSEN geworden. Value-Initialisierung liefert Offen (== 0), deshalb
     // wird jedes Feld im Konstruktor unbedingt aus dem open()-Ergebnis gesetzt -- ein nicht gesetztes Feld
     // stuende sonst still auf "geoeffnet". pmc_outcome_hat_wert() ist die Single-Source der Frage
@@ -533,11 +634,75 @@ private:
     /// scheiterte -- sonst bleibt es EventNichtVorhanden ("nicht gefragt, weil nicht noetig").
     /// Es fuellt bewusst KEINEN Wert (s. Kopf), sondern schaerft die BEGRUENDUNG im Log.
     measurement::PmcCounterOutcome l3_pmu_oc_ = measurement::PmcCounterOutcome::EventNichtVorhanden;
+    /// Auf WELCHER Core-PMU-Domaene der jeweilige Zaehler wirklich geoeffnet hat. Auf uniformen
+    /// Maschinen durchgaengig "generisch"; auf Hybrid der sysfs-Name (cpu_core/cpu_atom). Zeigt an,
+    /// WO gezaehlt wurde -- eine Zahl von einer Hybrid-Maschine bleibt damit nie anonym.
+    char const* l1d_domaene_    = "generisch";
+    char const* ll_domaene_     = "generisch";
+    char const* dtlb_domaene_   = "generisch";
+    char const* branch_domaene_ = "generisch";
 
     [[nodiscard]] bool l1d_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(l1d_oc_); }
     [[nodiscard]] bool ll_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(ll_oc_); }
     [[nodiscard]] bool dtlb_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(dtlb_oc_); }
     [[nodiscard]] bool branch_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(branch_oc_); }
+    [[nodiscard]] bool l3_uncore_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(l3_pmu_oc_); }
+
+    /// Wurde irgendein Zaehler auf einer anderen als der generischen Domaene geoeffnet? Genau dann ist
+    /// die Maschine hybrid (oder verhaelt sich so), und genau dann lohnt die Log-Zeile.
+    [[nodiscard]] bool hat_nichtgenerische_domaene_() const noexcept {
+        auto ist_generisch = [](char const* d) noexcept { return std::strcmp(d, "generisch") == 0; };
+        return !(ist_generisch(l1d_domaene_) && ist_generisch(ll_domaene_) && ist_generisch(dtlb_domaene_) &&
+                 ist_generisch(branch_domaene_));
+    }
+
+    /// B-5 Runde 2: oeffnet einen GENERISCHEN Zaehler auf der ersten Core-PMU-Domaene, die ihn hergibt.
+    ///
+    /// ABLAUF. Erst der Weg, den es immer schon gab: ohne PMU-Praefix. Auf jeder uniformen Maschine
+    /// traegt er, und dann passiert hier NICHTS Neues -- kein Verhaltenswechsel auf prod1, kein
+    /// Verhaltenswechsel auf irgendeinem nicht-hybriden Intel. Erst wenn er mit EventNichtVorhanden
+    /// scheitert (der Hybrid-Fall: der generische Weg kennt die getrennten Domaenen nicht), wird die
+    /// Kette aus kCorePmuDomaenen durchlaufen -- jede Domaene mit ihrem AUS SYSFS GELESENEN Typ.
+    ///
+    /// WAS DIESE FUNKTION NICHT TUT: raten. Existiert der sysfs-Pfad einer Domaene nicht, wird sie
+    /// uebersprungen statt mit einem geratenen Typ geoeffnet -- der Kernel wuerde einen unbekannten Typ
+    /// naemlich NICHT abweisen, sondern still auf einen anderen PMU zurueckfallen (am Objekt gemessen,
+    /// s. Block oben). Ein solcher Rueckfall ist genau die plausible falsche Zahl, die B-5 verhindert.
+    ///
+    /// out_domaene traegt den Namen der Domaene, auf der es geklappt hat -- damit eine Zahl von einer
+    /// Hybrid-Maschine nie anonym bleibt (s. P/E-Hinweis an kCorePmuDomaenen).
+    [[nodiscard]] static measurement::PmcCounterOutcome oeffne_generisch_(detail_linux_perf::PerfCounter& c,
+                                                                          std::uint32_t type, std::uint64_t config,
+                                                                          char const*  event_name,
+                                                                          char const*& out_domaene) noexcept {
+        using namespace detail_linux_perf;
+        using measurement::PmcCounterOutcome;
+        out_domaene                   = "generisch";
+        PmcCounterOutcome const erste = c.open(type, config, event_name);
+        if (erste != PmcCounterOutcome::EventNichtVorhanden) return erste; // Erfolg ODER anderer Grund
+
+        // Der generische Weg kennt dieses Event hier nicht -> die Domaenen-Kette. Auf einer uniformen
+        // Maschine ist "cpu" die einzige existierende und liefert dasselbe Ergebnis noch einmal; auf
+        // Hybrid greifen cpu_core/cpu_atom, die der generische Weg nicht sehen konnte.
+        PmcCounterOutcome letzte = erste;
+        for (std::size_t i = 0; i < kCorePmuDomaenenZahl; ++i) {
+            std::uint32_t typ = 0;
+            // KEIN Rateversuch: existiert der sysfs-Pfad nicht, wird diese Domaene uebersprungen.
+            // Das ist die Sicherung gegen die Kernel-Falle aus dem Block oben -- ein UNBEKANNTER
+            // PMU-Typ wird vom Kernel NICHT abgewiesen, sondern faellt still auf einen anderen PMU
+            // zurueck (am Objekt gemessen: Typ 9999 mit L1D-config oeffnete und lieferte eine Zahl).
+            // Ohne diese Zeile truege eine Zelle Zahlen vom falschen PMU -- plausibel und falsch.
+            if (!pmu_type_from_sysfs(kCorePmuDomaenen[i], typ)) continue;
+            if (typ == 0) continue; // 0 hiesse laut Kernel-Header PERF_TYPE_RAW -- nie als Praefix setzen
+            PmcCounterOutcome const oc = c.open(type, mit_pmu_typ(typ, config), event_name);
+            if (oc == PmcCounterOutcome::Offen) {
+                out_domaene = kCorePmuDomaenen[i];
+                return oc;
+            }
+            letzte = oc; // die letzte SPRECHENDE Aussage gewinnt (z.B. ZugriffVerweigert statt ENOENT)
+        }
+        return letzte;
+    }
 
     /// B-5: der AMD-ZWEITPFAD als reine DIAGNOSE-Sonde -- sie oeffnet den amd_l3-Uncore und schliesst ihn
     /// sofort wieder. Beantwortet genau eine Frage: existiert der echte L3-Zaehler auf dieser Maschine?
@@ -549,7 +714,7 @@ private:
     /// event=0x4, umask=0x1; mit der Feldbelegung aus format/ (event=config:0-7, umask=config:8-15)
     /// ergibt das 0x104. Uncore-Zwaenge, beide am Objekt gemessen: pid MUSS -1 sein (per-Task -> EINVAL,
     /// ein Uncore kennt keinen Prozess) und exclude_kernel MUSS 0 sein (keine Ring-Trennung -> EINVAL).
-    [[nodiscard]] static measurement::PmcCounterOutcome probe_amd_l3_pmu_() noexcept {
+    measurement::PmcCounterOutcome oeffne_amd_l3_uncore_() noexcept {
         using namespace detail_linux_perf;
         std::uint32_t typ = 0;
         int           cpu = 0;
@@ -558,9 +723,10 @@ private:
         if (!pmu_type_from_sysfs("amd_l3", typ)) return measurement::PmcCounterOutcome::EventNichtVorhanden;
         if (!pmu_first_cpu_from_sysfs("amd_l3", cpu)) cpu = 0;          // cpumask unlesbar -> erster Vertreter
         constexpr std::uint64_t kL3MissConfig = 0x4ULL | (0x1ULL << 8); // event=0x4, umask=0x1
-        PerfCounter             sonde{};
-        return sonde.open(typ, kL3MissConfig, "amd_l3_l3_miss_sonde", /*pid*/ -1, cpu,
-                          /*exclude_kernel*/ false);
+        // Uncore-Zwaenge, beide am Objekt gemessen: pid MUSS -1 sein (per-Task -> EINVAL, ein Uncore
+        // kennt keinen Prozess) und exclude_kernel MUSS 0 sein (keine Ring-Trennung -> EINVAL).
+        return c_l3_uncore_.open(typ, kL3MissConfig, "amd_l3_l3_miss", /*pid*/ -1, cpu,
+                                 /*exclude_kernel*/ false);
     }
     bool ready_  = false; ///< >=1 perf-Counter live geöffnet (Spiegel von WindowsPcmPmcSource::ready_)
     bool scaled_ = false; ///< >=1 gelesener Wert wurde multiplex-hochskaliert (Schätzung)
