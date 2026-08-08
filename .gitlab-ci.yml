@@ -256,6 +256,19 @@ test:coverage-guard:
   extends: .bare_metal
   stage: contract
   tags: [baremetal]
+  # ENTZERRUNG (08.08.2026, nach Pipeline 15332 rot): dieser Job baut seit der GNU-Umstellung
+  # 'all' statt eines einzelnen Codegen-Ziels -- er ist damit ein VOLLBAU. Zusammen mit dem
+  # zweiten Vollbau in test:unit lief er zeitgleich auf demselben Runner (13:37:26 gegen
+  # 13:37:55) und cc1plus wurde vom OOM-Killer geholt: "c++: fatal error: Terminated signal
+  # terminated program cc1plus". Das war KEIN Compiler- und kein Bauweg-Fehler -- GNU 15.3.0
+  # lief korrekt -- sondern Speicherdruck durch zwei parallele Vollbauten.
+  # SERIALISIERT wird ueber resource_group, NICHT ueber needs: dieser Job liegt in stage
+  # 'contract', test:unit in stage 'test' -- und 'contract' kommt VORHER (stages-Liste oben).
+  # Ein needs auf einen Job einer SPAETEREN Stage lehnt GitLab als Konfigurationsfehler ab.
+  # resource_group wirkt stage-unabhaengig: beide Jobs tragen dieselbe Gruppe, also laeuft
+  # immer nur einer der beiden Vollbauten. Nebeneffekt, der die Kosten teilweise einspielt:
+  # der zweite trifft einen warmen ccache.
+  resource_group: ce-vollbau
   needs: ["lint:secrets"]   # Konvention der contract-Familie
   script:
     # (0) SCHLUESSEL-WACHE ZUERST -- billig (kein Bau, kein Configure) und eine Stufe FRUEHER als
@@ -307,8 +320,23 @@ test:coverage-guard:
     # der ccache traegt den zweiten Vollbau der Pipeline (gemeinsamer Key je Projekt).
     # 'make inventar' ist das projekteigene Ziel, das genau diesen Zustand herstellt (bauen +
     # Reconfigure + Test-Target), OHNE die Tests auszufuehren -- die faehrt test:unit.
-    - sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
-    - make inventar BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
+    #
+    # Die 4x-Wiederholung ist dieselbe wie in test:unit und aus demselben Grund (SE-21b/6709248:
+    # earlyoom holt cc1plus, ninja nimmt den Bau danach an der Abbruchstelle wieder auf). Sie
+    # fehlte hier zunaechst -- genau daran ist Pipeline 15332 gescheitert. Ein Job, der einen
+    # Vollbau macht, braucht das Netz; ein Job, der ein einzelnes Ziel baute, kam ohne aus.
+    - |
+      set -euo pipefail
+      _CC=cc; _CXX=c++
+      if command -v gcc-15 >/dev/null 2>&1; then _CC=gcc-15; fi
+      if command -v g++-15 >/dev/null 2>&1; then _CXX=g++-15; fi
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
+      _built=0
+      for _a in 1 2 3 4; do
+        if make inventar BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
     - sh scripts/ci_test_coverage_guard.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
@@ -616,6 +644,10 @@ chaos:drift:
 test:unit:
   extends: .test
   tags: [baremetal]
+  # Gegenstueck zur resource_group in test:coverage-guard: seit der GNU-Umstellung machen BEIDE
+  # Jobs einen Vollbau. Liefen sie zeitgleich (Pipeline 15332: 13:37:55 gegen 13:37:26), holte
+  # der OOM-Killer cc1plus. Dieselbe Gruppe laesst immer nur einen von beiden bauen.
+  resource_group: ce-vollbau
   needs: ["lint:secrets"]
   # R4 (2026-08-06) -- DER WURZELSCHNITT. Bis hierher stand hier die Zeile
   #   COMDARE_TEST_CTEST_ARGS: "-LE contract|pmc"
