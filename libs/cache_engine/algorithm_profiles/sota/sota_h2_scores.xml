@@ -3,7 +3,8 @@
      TOOL-BERECHNETE H2-Code-Qualitaets-Akte (Dossier 20260712-go5 A.7 Option (b)):
      gewichtete cppcheck-Befunddichte pro kLOC ueber die vendorten ext/-Paper-Quellen.
      score="n/a" = Rekonstruktion ohne vendorte Original-Quelle (ehrlich, kein Pseudo-Wert).
-     Regenerieren: comdare-h2-score-akte --ce-root <ce> [--cppcheck <exe>] -->
+     Regenerieren: comdare-h2-score-akte, Optionen ce-root <ce> und optional cppcheck <exe>
+     (CLI-Optionen ohne den fuehrenden Doppelstrich notiert, den XML im Kommentar verbietet). -->
 <comdare_h2_quality_akte schema_version="1" tool="cppcheck" tool_version="2.21.0"
     tool_args="--enable=warning,style,performance,portability --quiet --platform=unix64 --template={severity}|{id}|{file}"
     loc_metric="physical_lines" weights="error=3;warning=2;performance=1;portability=1;style=0.5" exclude_dirs=".git;build">

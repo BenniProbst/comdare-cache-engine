@@ -59,9 +59,9 @@
   <!-- (b') PER-ACHSEN-SWEEP: hier die 17 SWEEPBAREN Achsen (Ganz-System-Coverage).
        persistence_target ist BEWUSST NICHT dabei: unter Owner-Entscheid Q-1 FALL B ist disk_writeback per
        option() AUS, die Achse hat also genau EINEN Wert und ein Sweep darueber erzeugt exakt die Baseline-
-       Binary -- ein No-op-Pass, den der Coverage-Guard (>=2 Auspraegungen je Sweep-Achse) zu Recht ablehnt.
+       Binary - ein No-op-Pass, den der Coverage-Guard (>=2 Auspraegungen je Sweep-Achse) zu Recht ablehnt.
        Die Achse ist trotzdem in permute_axes deklariert und steckt damit in JEDER binary_id. Sobald
-       disk_writeback aufgeschaltet wird, kommt hier EINE Sweep-Zeile dazu -- symmetrisch zur option(). Deklarativ; die vertieften Achsen laufen
+       disk_writeback aufgeschaltet wird, kommt hier EINE Sweep-Zeile dazu - symmetrisch zur option(). Deklarativ; die vertieften Achsen laufen
        ueber eigene Sweep-Baeume (axis_sweep_levels + axis_sweep_source_map), die Basis-Achsen ueber ihre Katalog-View. -->
   <axis_sweeps>
     <axis_sweep axis="search_algo"        baseline="index0"/>
@@ -204,7 +204,7 @@
        mit (Parse + validate gegen die 4 constexpr-Mess-Registries). Ids-Single-Source = die Mess-Registries
        (run_methodology / measurement_framework / writeback_method / measurement_tooling). Als Ganz-System-
        Abgabe-Referenz deklariert dieses Profil: run_methodology = measure (§61-STUFEN/(j1): GENAU EIN Modus je
-       Profil -- die golden-Abgabe IST der Mess-Modus, Release-Build + 1-Thread-Messen; die frueheren {debug,release}-
+       Profil - die golden-Abgabe IST der Mess-Modus, Release-Build + 1-Thread-Messen; die frueheren {debug,release}-
        Eintraege waren die A9-"sweepbar"-Auslegung, per §61-STUFEN supersediert); writeback_methods das volle Trio
        {csv,latex_table,comparison_metrics}; measurement_tooling die VOLLMENGE {wallclock,macro,micro} als EINE
        vereinte Combo (§64: Default = eine CEB, gemischte Pruef-Dock-Abnahme; die frueheren 3 separaten Combos waren
