@@ -122,11 +122,24 @@ namespace container_framework_cwg1430_detail {
 /// bei der Instanziierung von type_traits auf, jetzt erst beim ersten Gebrauch. Der Mock-Kommentar
 /// unten ist entsprechend nachgezogen, damit die Datei nicht das Gegenteil behauptet.
 ///
-/// AnatomyFor BLEIBT ABSICHTLICH DIREKT: es reicht EINEN Parameter durch (kein Pack) und ist deshalb
-/// von CWG 1430 nicht betroffen -- am Objekt gemessen, beide Compiler bauen die Ein-Parameter-Form.
-/// Es hier ohne Not mitzuziehen wuerde nur seine fruehe Fehlererkennung aufgeben, die der Mock-Block
-/// unten ausdruecklich nutzt. Wer AnatomyFor kuenftig auf einen Pack umstellt, braucht dieselbe
-/// Indirektion -- dann gehoert sie hier daneben.
+/// AnatomyFor BLEIBT ABSICHTLICH DIREKT, und das ist gemessen statt angenommen (08.08.2026):
+///   (1) In seiner heutigen Form reicht es EINEN Parameter durch, keinen Pack -- beide Compiler
+///       uebersetzen sie. CWG 1430 trifft es also nicht.
+///   (2) Stellt jemand es auf einen Pack um, traegt es denselben Fehler. Am ECHTEN Header geprueft
+///       (die zwei Zeilen unten auf `template <class... Comp>` gedreht): BEIDE Compiler brechen, mit
+///       genau "pack expansion argument for non-pack parameter".
+///   (3) GENAU DARIN liegt der Unterschied zu CompositionFor -- und der Grund, hier NICHTS zu bauen:
+///       Der Mock im Selbstbeweis unten fuehrt AnatomyFor als IDENTITY (= Comp). Ein Alias auf den
+///       Parameter selbst laesst den Pack-Fehler auf BEIDEN Compilern auffallen, waehrend ein Alias
+///       auf ein Klassen-Template (so bilden die echten Bindungen ihre Komposition) nur clang meldet.
+///       CompositionFor war blind, weil sein Mock SELBST einen Pack traegt -- Pack auf Pack passt.
+///       AnatomyFor ist das nicht: ein Pack-Umbau kann hier nicht still durchrutschen, er bricht
+///       sofort und in dieser Datei.
+/// Eine zusaetzliche Wache waere deshalb eine STILLE Wache -- nachgemessen: der Rueckfall bricht auch
+/// ohne sie. Und die Indirektion vorsorglich mitzuziehen waere schaedlich: sie verzoegert die
+/// Aufloesung, und damit faellt die Mock-Eigenschaft weg, auf der (3) beruht (nachgestellt: derselbe
+/// Mock bricht direkt, ueber eine Indirektion nicht mehr). Wer AnatomyFor kuenftig doch auf einen Pack
+/// umstellt, braucht dann dieselbe Indirektion -- der Compiler sagt es ihm an dieser Stelle.
 template <class Binding, class... T>
 struct KompositionFuer {
     using type = typename Binding::template CompositionFor<T...>;
