@@ -4750,6 +4750,29 @@ set_tests_properties(test_r3_mess_gates_spiegel PROPERTIES
 # Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,
 # die comdare_measurement_combo_ct linkt, wuerde den geheilten Defekt gar nicht erreichen. Fall (a)
 # verifiziert diese Voraussetzung zur Laufzeit, damit die Zusage nicht bloss hier im CMake steht.
+# B-5 (08.08.2026): PMC-Ehrlichkeit fuer ALLE SIEBEN Zaehler + errno-Klassentrennung.
+# KEIN 'pmc'-Label -- und das ist eine Lehre aus M-1/M-CE-25, keine Nachlaessigkeit: diese TU oeffnet
+# KEINEN Counter und liest KEINE PMU, sie prueft die reine Renderer-/Klassifikations-Logik mit von Hand
+# gesetzten POD-Feldern. Mit dem Label schloesse test:unit (-LE pmc) sie aus, waehrend die .pmc-Jobs nur
+# eine explizite --target-Liste bauen -- 'Not Run' in jedem Job, nie wirklich geprueft.
+add_executable(test_b5_pmc_ehrlichkeit_alle_sieben "test_b5_pmc_ehrlichkeit_alle_sieben.cpp")
+target_compile_features(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE cxx_std_23)
+target_include_directories(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_b5_pmc_ehrlichkeit_alle_sieben)
+target_compile_definitions(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_b5_pmc_ehrlichkeit_alle_sieben COMMAND test_b5_pmc_ehrlichkeit_alle_sieben)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b5_pmc_ehrlichkeit_alle_sieben)
+set_tests_properties(test_b5_pmc_ehrlichkeit_alle_sieben PROPERTIES LABELS "b5;csv;standalone")
+
 add_executable(test_m1h_stufen_und_pmc_wache
     "test_m1h_stufen_und_pmc_wache.cpp")
 target_compile_features(test_m1h_stufen_und_pmc_wache PRIVATE cxx_std_23)
