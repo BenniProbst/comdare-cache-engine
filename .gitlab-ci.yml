@@ -103,13 +103,34 @@ lint:layer-includes:
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
 # ── #273-T3 (2026-07-07): build:clang-Rollout — ce baut die Voll-Suite unter dem neuesten clang. ──
-# OPT-IN + advisory (COMDARE_CLANG_MATRIX=="1", wie super-T1): destabilisiert die Hauptpipeline NICHT.
 # clang-22.1.8 ist auf den bare-metal-Runnern vorhanden; lokal comdare_tests EXIT 0 bewiesen (07.07.).
 # Der gcc-15.3-Pin (T2) ist SEPARAT + gcc-15.3-gated (HO-11) und NICHT Teil dieses Jobs.
+#
+# 08.08.2026 -- UNBEDINGT GESCHALTET. Bis heute stand hier "OPT-IN + advisory
+# (COMDARE_CLANG_MATRIX==1, wie super-T1): destabilisiert die Hauptpipeline NICHT." Das war
+# richtig, solange clang den Baum nicht uebersetzen konnte, und es hatte eine unangenehme
+# Folge: die Variable ist in DIESEM Repo nirgends gesetzt, der Job lief also in KEINER
+# ce-Pipeline (nachgesehen an 15332: 21 Jobs, kein clang-Job darunter). Ein Gate, das nie
+# aufgeht, ist kein Gate -- es ist ein abgeschalteter Job.
+# Beide clang-Blocker sind heute geheilt (constexpr-Grammatik ohne Heap; CWG 1430), der
+# clang-Vollbau steht mit 1937/1938 und ctest 428/428 auf BEIDEN Compilern. Damit traegt der
+# Job und wird scharf geschaltet.
+#
+# WIE, ohne das Cluster-Repo anzufassen: die rules-Zeile steht in der VORLAGE
+# .build-clang-latest (ci-templates base-pipeline.yml:1130-1131, "if $COMDARE_CLANG_MATRIX
+# == 1"). ci-templates ist fuer diese Strecke read-only. Ein eigenes rules: im Job
+# UEBERSCHREIBT das geerbte vollstaendig -- der Eingriff bleibt damit im eigenen Repo.
+#
+# ZUR LAST: dieser Job liegt in stage 'build' und laeuft damit VOR test:unit (stage 'test')
+# und test:coverage-guard (stage 'contract'). Er trifft die beiden Vollbauten also nicht
+# gleichzeitig -- der OOM-Fall von Pipeline 15332 wiederholt sich hier nicht. Er baut
+# ausserdem comdare_tests, nicht 'all', und schreibt in einen eigenen ccache-Key.
 build:clang:
   extends: .build-clang-latest
   stage: build
   tags: [baremetal]
+  rules:
+    - when: on_success
   cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (clang) = eigener Key, DIESER Job ist ihr Writer
     key: "ccache-$CI_PROJECT_NAME-clang-a8"
     paths: [".ccache"]
@@ -262,13 +283,18 @@ test:coverage-guard:
   # 13:37:55) und cc1plus wurde vom OOM-Killer geholt: "c++: fatal error: Terminated signal
   # terminated program cc1plus". Das war KEIN Compiler- und kein Bauweg-Fehler -- GNU 15.3.0
   # lief korrekt -- sondern Speicherdruck durch zwei parallele Vollbauten.
-  # SERIALISIERT wird ueber resource_group, NICHT ueber needs: dieser Job liegt in stage
-  # 'contract', test:unit in stage 'test' -- und 'contract' kommt VORHER (stages-Liste oben).
-  # Ein needs auf einen Job einer SPAETEREN Stage lehnt GitLab als Konfigurationsfehler ab.
-  # resource_group wirkt stage-unabhaengig: beide Jobs tragen dieselbe Gruppe, also laeuft
-  # immer nur einer der beiden Vollbauten. Nebeneffekt, der die Kosten teilweise einspielt:
-  # der zweite trifft einen warmen ccache.
-  resource_group: ce-vollbau
+  # ZUR OOM-ABWEHR, zweiter Anlauf (08.08.2026). Der erste war eine resource_group ueber
+  # beide Vollbau-Jobs -- sie hat den Zweck erfuellt und einen SCHLIMMEREN Schaden erzeugt:
+  # resource_group serialisiert REPO-WEIT ueber alle Pipelines und Branches, nicht nur
+  # innerhalb einer Pipeline. Live beobachtet: drei Pipelines (15352 development, 15349 und
+  # 15345 main) standen gleichzeitig auf 'waiting_for_resource', waehrend 15343 baute. Eine
+  # Wache, die das ganze Team ausbremst, ist die falsche Wache.
+  #
+  # STATTDESSEN wird der DRUCK gesenkt statt der Zugriff serialisiert: dieser Job baut mit
+  # halber Parallelitaet (BUILD_JOBS unten). Der OOM entstand aus 2 Jobs x 4 gleichzeitigen
+  # cc1plus; mit 2 hier bleibt Luft. Zusammen mit der 4x-Wiederaufnahme unten ist ein
+  # einzelner earlyoom-Treffer ueberlebbar statt toedlich -- genau dafuer gibt es sie.
+  # Der Job ist eine Wache und liegt auf keinem kritischen Pfad: langsamer ist hier billig.
   needs: ["lint:secrets"]   # Konvention der contract-Familie
   script:
     # (0) SCHLUESSEL-WACHE ZUERST -- billig (kein Bau, kein Configure) und eine Stufe FRUEHER als
@@ -333,7 +359,7 @@ test:coverage-guard:
       CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
       _built=0
       for _a in 1 2 3 4; do
-        if make inventar BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        if make inventar BUILD_JOBS=2; then _built=1; break; fi   # halbe Parallelitaet: Druck senken statt serialisieren
         echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
@@ -677,10 +703,6 @@ chaos:drift:
 test:unit:
   extends: .test
   tags: [baremetal]
-  # Gegenstueck zur resource_group in test:coverage-guard: seit der GNU-Umstellung machen BEIDE
-  # Jobs einen Vollbau. Liefen sie zeitgleich (Pipeline 15332: 13:37:55 gegen 13:37:26), holte
-  # der OOM-Killer cc1plus. Dieselbe Gruppe laesst immer nur einen von beiden bauen.
-  resource_group: ce-vollbau
   needs: ["lint:secrets"]
   # R4 (2026-08-06) -- DER WURZELSCHNITT. Bis hierher stand hier die Zeile
   #   COMDARE_TEST_CTEST_ARGS: "-LE contract|pmc"
