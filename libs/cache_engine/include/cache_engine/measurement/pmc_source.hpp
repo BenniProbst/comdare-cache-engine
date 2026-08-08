@@ -27,8 +27,8 @@ struct PmcCounters {
     bool          available               = false; // false = NICHT real gemessen (ehrlich, kein Schein-0)
     // B5/M-2-KORREKTUR-2 (2026-08-06, AMD-L3-Befund): PRO-ZAEHLER Verfuegbarkeit fuer die drei Felder, die
     // NICHT auf jeder Plattform/jedem Vendor gleich real sind -- cache_misses_l3 scheitert auf AMD Zen5 beim
-    // Oeffnen (PERF_TYPE_HW_CACHE/LL/READ/MISS -> ENOENT, verifiziert auf identischer Hardware/Kernel wie
-    // prod1), cache_misses_l2/coherence_invalidations werden von KEINER heutigen IPmcSource je geoeffnet.
+    // Oeffnen (PERF_TYPE_HW_CACHE/LL/READ/MISS -> ENOENT, am Objekt auf prod1 nachgemessen),
+    // cache_misses_l2/coherence_invalidations werden von KEINER heutigen IPmcSource je geoeffnet.
     // `available` bleibt die ZEILEN-weite Aussage ("mindestens ein Zaehler hat real geliefert"); diese drei
     // Flags sind die ZAEHLER-weite Verfeinerung darunter. Default false (Fail-Safe, wie SystemAxisSample,
     // axis_error.hpp). Nur wenn `available && !dieses-Flag` wird die CSV-Zelle zu SourceUnavailable/"n/a"
@@ -50,6 +50,17 @@ struct PmcCounters {
     // Quelle hat wirklich geliefert" (auch eine ECHTE 0), "n/a" bedeutet "Quelle nicht da".
     // WindowsPcmPmcSource nennt das Feld nicht -> bleibt dort beim Default false (ehrlich).
     bool branch_misses_source_available = false;
+    // B-5 (2026-08-08): die LETZTEN zwei Felder ohne eigenes Flag. Bis hierher galt fuer sie die
+    // Begruendung "l1/dtlb bleiben zeilen-gebunden ... hier wird kein Flag erfunden" (system_axis.hpp) --
+    // richtig beobachtet, aber es machte sie strukturell unfaehig, je "nicht erhoben" zu sagen. Dass die
+    // Luecke auf prod1 nicht auffiel, ist Zufall der Plattform: dort oeffnen beide Zaehler (am Objekt
+    // belegt). Auf WINDOWS ist die 0 dagegen heute schon gelogen -- windows_pcm_pmc_source.hpp sagt es
+    // selbst woertlich ("L1 wird von der System-weiten PCM-Counter-State nicht direkt geliefert ... L1
+    // bleibt ehrlich 0"), und dtlb_misses wird dort ueberhaupt nie gesetzt. Beide Felder tragen dort also
+    // eine 0, die eine Messung behauptet. Mit diesen Flags lesen sie "n/a"; PCM setzt sie bewusst nicht.
+    // Damit traegt JEDER der sieben Zaehler sein eigenes Quellen-Flag -- die Regel hat keine Ausnahme mehr.
+    bool cache_misses_l1_source_available = false;
+    bool dtlb_misses_source_available     = false;
 };
 
 /// Pluggable HW-Performance-Counter-Quelle. begin()→Op-Lauf→end() liefert das Counter-Delta.

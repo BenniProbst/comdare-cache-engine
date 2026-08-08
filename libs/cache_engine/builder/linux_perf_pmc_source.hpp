@@ -46,9 +46,58 @@
 // Multiplexing-Skalierung. RAPL ist system-wide (pid=-1) → meist nur mit paranoid<=0/CAP_PERFMON → best-effort.
 // EHRLICHKEIT: pro Counter eigenes available-Flag; ein Fehlschlag (EACCES/EPERM/ENOENT/EINVAL) deaktiviert NUR
 // dieses Feld (Wert bleibt 0), NIE erfundene/abgeleitete Werte.
+//
+// ==================================================================================================
+// B-5 (2026-08-08) -- DIE ERRNO-KLASSEN WERDEN GETRENNT, UND EINE BESTANDS-BEGRUENDUNG WIRD KORRIGIERT
+// ==================================================================================================
+// WAS SICH AENDERT. Bis hierher lieferte PerfCounter::open() ein `bool` und warf damit drei
+// verschiedene Naturen in EINEN Zustand. Jetzt liefert es measurement::PmcCounterOutcome
+// (pmc_counter_outcome.hpp) -- die Trennung ist am Objekt begruendet, nicht theoretisch:
+//
+//   AM OBJEKT GEMESSEN, prod1 (AMD Ryzen 9 9950X3D, Zen 5, family 26 / model 68, Kernel
+//   6.17.0-35-generic, perf_event_paranoid=1, uid 1001), eigene perf_event_open-Sonde:
+//     PERF_TYPE_HW_CACHE / LL / READ / MISS   pid=0  cpu=-1  -> errno=2  (ENOENT)
+//     amd_l3 type=17 config=0x104             pid=-1 cpu=0   -> errno=13 (EACCES)
+//     amd_l3 type=17 config=0x104 per-task    pid=0  cpu=-1  -> errno=22 (EINVAL)
+//
+//   Drei Zeilen, drei Aussagen: das generische Last-Level-Event ist auf Zen 5 wirklich nicht
+//   abgebildet; der ECHTE L3-Zaehler existiert dagegen sehr wohl, ist aber unter paranoid=1
+//   gesperrt; und per-Task ist er strukturell nicht oeffenbar, weil ein Uncore-PMU je CCX zaehlt
+//   (cpumask 0,8) und keinen Prozess kennt. Ein `false` haette alle drei zu "Quelle nicht da"
+//   eingeebnet -- und genau daraus ist die folgende Falschaussage entstanden.
+//
+// RICHTIGSTELLUNG (belegt, nicht behauptet). ce `5c102e05` begruendet den Verzicht auf den AMD-Weg
+// woertlich mit: "die dafuer noetige amd_l3-Uncore-PMU ist auf identischer Hardware/Kernel wie prod1
+// als Modul vorhanden, aber NICHT GELADEN -- eine Infra-, keine Code-Frage." Das ist widerlegt:
+// `/sys/bus/event_source/devices/amd_l3/type` liefert 17, und `.../amd_l3/format/` traegt die
+// vollstaendige Feldbelegung. Der PMU IST geladen. Die Sperre ist eine RECHTE-Sperre (EACCES), und
+// die ist eine andere Aussage als ein fehlender Zaehler -- behebbar ohne andere Hardware.
+//
+// DER AMD-ZWEITPFAD, und was er BEWUSST NICHT TUT. Der amd_l3-PMU wird jetzt versucht, sobald der
+// generische LL-Weg mit EventNichtVorhanden scheitert -- Typ DYNAMISCH aus sysfs (heute 17; die Zahl
+// ist keine Konstante und wird nirgends hartkodiert), Kodierung am Objekt aus `perf list --details`
+// belegt: l3_lookup_state.l3_miss = event=0x4, umask=0x1, und mit der Feldbelegung aus format/
+// (event=config:0-7, umask=config:8-15) ergibt das config = 0x104.
+// Sein Ergebnis fuellt aber NICHT die Spalte pmc_cache_misses_l3, und das ist der Kern der
+// Entscheidung: der Uncore zaehlt SYSTEM-WEIT je CCX (pid=-1 ist zwingend, per-Task gibt EINVAL),
+// waehrend der generische LL-Zaehler auf Intel PER-TASK misst. Beide Zahlen unter EINER Ueberschrift
+// zu fuehren waere exakt der Datenbruch, den der Ledger (:4506) fuer diesen Posten beschreibt --
+// "verschiedene Semantik unter derselben Ueberschrift", nur quer ueber Vendoren statt ueber die Zeit.
+// Der Zweitpfad beantwortet deshalb genau die Frage, die der Bestand falsch beantwortet hat: GIBT es
+// den Zaehler auf dieser Maschine (dann ZugriffVerweigert) oder gibt es ihn nicht (EventNichtVorhanden)?
+// Eine eigene, ehrlich benannte Wert-Spalte fuer den system-weiten Zaehler ist ein Folge-Paket
+// (B-6-Natur, RAW-Events je Mikroarchitektur), kein stiller Einbau hier.
+//
+// INTEL BLEIBT UNBERUEHRT -- strukturell, nicht per Zusicherung: der Zweitpfad wird ausschliesslich
+// betreten, NACHDEM der generische LL-Weg mit EventNichtVorhanden gescheitert ist. Auf Intel oeffnet
+// dieser Weg, also wird der Zweitpfad dort nie erreicht. Er ist zusaetzlich hinter einer
+// Vendor-Pruefung (amd_l3-sysfs-Pfad existiert) gefuehrt, die auf Intel-Maschinen leer laeuft.
+// NICHT SELBST GETESTET: prod1 ist AMD; der Intel-Pfad ist hier unveraendert und wurde nicht
+// nachgemessen.
 
 #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
 
+#include <cache_engine/measurement/pmc_counter_outcome.hpp> // B-5: PmcCounterOutcome + errno-Klassifikation
 #include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource / PmcCounters (nach A2-Neben Stufe 1)
 
 // Kernel-/POSIX-Header NUR hier (innerhalb des Guards) — sonst würde ein Nicht-Linux-Build sie anfordern.
@@ -102,35 +151,45 @@ public:
         return *this;
     }
 
-    /// Öffnet den Counter (self-monitoring: pid=0, cpu=-1). false = EACCES/EPERM/ENOENT/EINVAL/ENODEV →
-    /// dieses Feld bleibt available=false (KEIN erfundener Wert). attr.disabled=1 → Start erst per begin().
-    /// DIAGNOSE-ZUSATZ (2026-08-06, PMC-Intel-Lane-Untersuchung): das Verschweigen des errno in den
-    /// RUECKGABEWERT bleibt bewusst so (kein erfundener Wert je Fehlerklasse in den Messdaten) -- neu ist
-    /// NUR eine Sichtbarkeits-Zeile auf stderr bei Fehlschlag, mit dem betroffenen Event-Namen. Kein
-    /// Verhaltenswechsel: Rueckgabewert, fd_-Zustand und jeder Zaehler-Pfad bleiben unveraendert.
-    bool open(std::uint32_t type, std::uint64_t config, char const* event_name = "") noexcept {
+    /// Oeffnet den Counter. Liefert seit B-5 die KLASSE des Ergebnisses (measurement::PmcCounterOutcome)
+    /// statt eines bool -- ENOENT ("dieses Event gibt es auf dieser CPU nicht"), EACCES/EPERM ("es gibt es,
+    /// aber wir duerfen nicht") und EINVAL ("wir haben es falsch angefordert") sind drei verschiedene
+    /// Aussagen, und der Bestand konnte sie strukturell nicht unterscheiden. Die Klassifikation selbst
+    /// liegt in pmc_counter_outcome.hpp (dort auch die am Objekt gemessenen errno-Belege).
+    ///
+    /// DEFAULTS = der bisherige Weg, unveraendert: self-monitoring (pid=0, cpu=-1) mit exclude_kernel.
+    /// Die drei Parameter sind NUR fuer Uncore-PMUs da, die per-Task strukturell nicht oeffnen (EINVAL)
+    /// und keine Ring-Trennung kennen (exclude_kernel -> ebenfalls EINVAL). Jeder bestehende Aufruf
+    /// nutzt die Defaults und verhaelt sich damit byte-gleich zu vorher.
+    /// attr.disabled=1 -> Start erst per begin(). Die stderr-Sichtbarkeitszeile (2026-08-06) bleibt und
+    /// traegt jetzt zusaetzlich das Klassen-Etikett, damit ein Log-Grep die Natur sieht, nicht nur die Zahl.
+    measurement::PmcCounterOutcome open(std::uint32_t type, std::uint64_t config, char const* event_name = "",
+                                        ::pid_t pid = 0, int cpu = -1, bool exclude_kernel = true) noexcept {
         struct ::perf_event_attr attr;
         std::memset(&attr, 0, sizeof(attr)); // Muellbits in Reserve-Feldern → EINVAL; immer memset.
         attr.type           = type;
         attr.size           = sizeof(attr); // PFLICHT (Forward-Compat / ENTER-FIELD-Check) → sonst EINVAL.
         attr.config         = config;
-        attr.disabled       = 1; // gestartet wird per ioctl ENABLE in begin().
-        attr.exclude_kernel = 1; // unter Default-paranoid(2) nötig (sonst EACCES).
-        attr.exclude_hv     = 1; // Hypervisor ausschließen.
-        attr.inherit        = 0; // keine Kind-Vererbung.
+        attr.disabled       = 1;                        // gestartet wird per ioctl ENABLE in begin().
+        attr.exclude_kernel = exclude_kernel ? 1U : 0U; // unter Default-paranoid(2) noetig (sonst EACCES).
+        attr.exclude_hv     = exclude_kernel ? 1U : 0U; // Hypervisor ausschliessen.
+        attr.inherit        = 0;                        // keine Kind-Vererbung.
         attr.read_format    = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
-        long const r        = perf_event_open(&attr, /*pid*/ 0, /*cpu*/ -1, /*group_fd*/ -1, /*flags*/ 0);
+        long const r        = perf_event_open(&attr, pid, cpu, /*group_fd*/ -1, /*flags*/ 0);
         if (r < 0) {
             int const eno = errno; // SOFORT sichern -- fprintf/strerror koennen errno selbst ueberschreiben.
+            measurement::PmcCounterOutcome const oc = measurement::classify_pmc_open_errno(eno);
             std::fprintf(stderr,
-                         "[PMC-DIAG] perf_event_open fehlgeschlagen: event=%s type=%u config=%llu "
-                         "errno=%d (%s)\n",
-                         event_name, type, static_cast<unsigned long long>(config), eno, std::strerror(eno));
+                         "[PMC-DIAG] perf_event_open fehlgeschlagen: event=%s klasse=%.*s type=%u "
+                         "config=%llu pid=%d cpu=%d errno=%d (%s)\n",
+                         event_name, static_cast<int>(measurement::pmc_outcome_label(oc).size()),
+                         measurement::pmc_outcome_label(oc).data(), type, static_cast<unsigned long long>(config),
+                         static_cast<int>(pid), cpu, eno, std::strerror(eno));
             fd_ = -1;
-            return false;
+            return oc;
         }
         fd_ = static_cast<int>(r);
-        return true;
+        return measurement::PmcCounterOutcome::Offen;
     }
 
     void reset() const noexcept {
@@ -174,6 +233,51 @@ private:
     }
     int fd_ = -1;
 };
+
+// -- B-5: die DYNAMISCH ermittelten PMU-Kennzahlen aus sysfs --------------------------------------
+// Ein PMU-Typ ist KEINE Konstante. Er wird beim Registrieren des Treibers vergeben und kann sich je
+// Kernel und Maschine unterscheiden -- auf prod1 traegt amd_l3 heute die 17, aber nichts garantiert
+// das. Deshalb wird er gelesen, nie hartkodiert; existiert der Pfad nicht, gibt es diesen PMU auf
+// dieser Maschine schlicht nicht (Rueckgabe -1) und der Aufrufer laesst den Zweitpfad aus.
+
+/// Liest eine kleine vorzeichenlose Dezimalzahl aus einer sysfs-Datei. false = nicht lesbar/leer/kein
+/// Zahlenpraefix -- in jedem dieser Faelle wird KEIN Ersatzwert geliefert (fail-closed, Praezedenz
+/// c1c76c87: der Nenner kommt aus derselben Quelle wie der Zaehler oder er kommt gar nicht).
+inline bool read_sysfs_u32(char const* path, std::uint32_t& out) noexcept {
+    std::FILE* f = std::fopen(path, "rb");
+    if (f == nullptr) return false;
+    char              buf[64] = {0};
+    std::size_t const n       = std::fread(buf, 1, sizeof(buf) - 1, f);
+    std::fclose(f);
+    if (n == 0) return false;
+    char* endp                 = nullptr;
+    errno                      = 0;
+    unsigned long long const v = std::strtoull(buf, &endp, 10);
+    if (endp == buf || errno != 0 || v > 0xFFFFFFFFULL) return false;
+    out = static_cast<std::uint32_t>(v);
+    return true;
+}
+
+/// Der perf-Typ eines dynamischen PMU aus /sys/bus/event_source/devices/<name>/type.
+/// false = dieser PMU existiert auf dieser Maschine nicht (Treiber nicht geladen / andere Hardware).
+inline bool pmu_type_from_sysfs(char const* pmu_name, std::uint32_t& out_type) noexcept {
+    char path[128] = {0};
+    std::snprintf(path, sizeof(path), "/sys/bus/event_source/devices/%s/type", pmu_name);
+    return read_sysfs_u32(path, out_type);
+}
+
+/// Die ERSTE CPU aus der cpumask eines Uncore-PMU. Ein Uncore-PMU zaehlt je Domaene (auf prod1 je CCX,
+/// cpumask "0,8"); der Kernel erwartet, dass man ihn auf einem der genannten Vertreter oeffnet. Wir
+/// nehmen den ersten -- fuer die FRAGE, ob der Zaehler ueberhaupt zugaenglich ist, genuegt einer.
+/// Format: kommaseparierte Liste, Bereiche mit '-' ("0,8" oder "0-7"). Wir lesen nur die erste Zahl.
+inline bool pmu_first_cpu_from_sysfs(char const* pmu_name, int& out_cpu) noexcept {
+    char path[128] = {0};
+    std::snprintf(path, sizeof(path), "/sys/bus/event_source/devices/%s/cpumask", pmu_name);
+    std::uint32_t first = 0;
+    if (!read_sysfs_u32(path, first)) return false;
+    out_cpu = static_cast<int>(first);
+    return true;
+}
 
 /// best-effort RAPL-Paket-Energie über /sys/class/powercap/intel-rapl:0/energy_uj (bereits in Mikrojoule;
 /// keine scale-Rechnung). KEIN perf nötig. Seit Linux 5.10 oft 0400 (root-only) → non-root liest -1 → energy
@@ -225,16 +329,35 @@ class LinuxPerfPmcSource final : public measurement::IPmcSource {
 public:
     LinuxPerfPmcSource() noexcept {
         using namespace detail_linux_perf;
+        using measurement::PmcCounterOutcome;
         // Jeder Counter wird INDIVIDUELL geöffnet; ein Fehlschlag deaktiviert NUR dieses Feld (nicht die Source).
-        l1d_ok_ = c_l1d_.open(
+        l1d_oc_ = c_l1d_.open(
             PERF_TYPE_HW_CACHE,
             cache_cfg(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
             "cache_misses_l1");
-        ll_ok_ =
+        ll_oc_ =
             c_ll_.open(PERF_TYPE_HW_CACHE,
                        cache_cfg(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
                        "cache_misses_l3_ll");
-        dtlb_ok_ = c_dtlb_.open(
+        // B-5: der AMD-ZWEITPFAD. Er wird NUR betreten, wenn der generische Weg das Event auf dieser CPU
+        // gar nicht kennt -- also genau im ENOENT-Fall von Zen 5. Auf Intel oeffnet der generische Weg,
+        // damit ist ll_oc_ dort Offen und dieser Block strukturell unerreichbar (kein Intel-Risiko).
+        // ER FUELLT KEINEN WERT (s. Kopf): der Uncore zaehlt system-weit je CCX, der generische Zaehler
+        // per-Task -- beides unter einer Ueberschrift waere der Datenbruch, den B-5 gerade verhindert.
+        // Was er liefert, ist die richtige ANTWORT auf die Frage "warum kein Wert": gibt es den Zaehler
+        // auf dieser Maschine ueberhaupt (dann ZugriffVerweigert), oder gibt es ihn nicht?
+        if (ll_oc_ == PmcCounterOutcome::EventNichtVorhanden) {
+            l3_pmu_oc_ = probe_amd_l3_pmu_();
+            // Die Sonde muss SPRECHEN, sonst ist die Diagnose gebaut und stumm -- und der naechste Leser
+            // steht wieder vor derselben Frage wie 5c102e05. Die Zeile nennt die geschaerfte Begruendung.
+            std::fprintf(stderr,
+                         "[PMC-DIAG] cache_misses_l3: generischer LL-Zaehler auf dieser CPU nicht "
+                         "abgebildet; amd_l3-Uncore-Sonde sagt: %.*s (Zelle bleibt n/a -- der Uncore "
+                         "zaehlt system-weit je CCX und gehoert nicht in eine per-Task-Spalte)\n",
+                         static_cast<int>(measurement::pmc_outcome_label(l3_pmu_oc_).size()),
+                         measurement::pmc_outcome_label(l3_pmu_oc_).data());
+        }
+        dtlb_oc_ = c_dtlb_.open(
             PERF_TYPE_HW_CACHE,
             cache_cfg(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
             "dtlb_misses");
@@ -244,10 +367,10 @@ public:
         // config ist der Event-Wert selbst. Das ist kein Sonderweg, sondern die man7-Kodierung fuer diese
         // Klasse -- ein cache_cfg()-Aufruf hier waere ein stiller Fehler (falsche config -> EINVAL oder,
         // schlimmer, ein anderes Event).
-        branch_ok_ = c_branch_.open(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_misses");
+        branch_oc_ = c_branch_.open(PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_misses");
         // L2 + coherence_invalidations: KEIN portabler generischer Counter → bewusst NICHT geöffnet, Feld 0.
         // RAPL: best-effort sysfs-Snapshot; Verfügbarkeit erst bei begin() (Lesbarkeit kann variieren).
-        ready_ = l1d_ok_ || ll_ok_ || dtlb_ok_ || branch_ok_;
+        ready_ = l1d_offen_() || ll_offen_() || dtlb_offen_() || branch_offen_();
 #if defined(COMDARE_ENABLE_PAPI)
         init_papi_fallback_(); // additiv: nur falls perf-Counter ausfielen UND PAPI verfügbar.
 #endif
@@ -255,19 +378,19 @@ public:
 
     void begin() noexcept override {
         // Counter-Gruppe auf 0 + zählen an, UNMITTELBAR vor t0 (run_observable_perm Z.165).
-        if (l1d_ok_) {
+        if (l1d_offen_()) {
             c_l1d_.reset();
             c_l1d_.enable();
         }
-        if (ll_ok_) {
+        if (ll_offen_()) {
             c_ll_.reset();
             c_ll_.enable();
         }
-        if (dtlb_ok_) {
+        if (dtlb_offen_()) {
             c_dtlb_.reset();
             c_dtlb_.enable();
         }
-        if (branch_ok_) {
+        if (branch_offen_()) {
             c_branch_.reset();
             c_branch_.enable();
         }
@@ -289,55 +412,66 @@ public:
 #endif
         }
         // Counter stoppen (DISABLE), UNMITTELBAR nach t1 (run_observable_perm Z.170), dann read.
-        if (l1d_ok_) c_l1d_.disable();
-        if (ll_ok_) c_ll_.disable();
-        if (dtlb_ok_) c_dtlb_.disable();
-        if (branch_ok_) c_branch_.disable();
+        if (l1d_offen_()) c_l1d_.disable();
+        if (ll_offen_()) c_ll_.disable();
+        if (dtlb_offen_()) c_dtlb_.disable();
+        if (branch_offen_()) c_branch_.disable();
 
-        // B5/M-2-KORREKTUR-2 (2026-08-06): die Herkunfts-Flags sind eine OEFFNUNGS-Aussage (ll_ok_), keine
-        // Lese-Aussage -- ENOENT/EINVAL beim Oeffnen (z.B. LL/READ/MISS auf AMD Zen5) ist "Quelle nicht da"
-        // und rendert spaeter SourceUnavailable/"n/a"; ein spaeter leerer read() (Multiplexing-Verdraengung,
-        // read_scaled ok=false) ist eine ANDERE, hier unveraenderte Fehlerklasse (Feld bleibt 0, kein Token).
-        c.cache_misses_l3_source_available = ll_ok_;
-        // M-3a (2026-08-07): dieselbe OEFFNUNGS-Aussage fuer den vierten Zaehler. Damit ist branch_misses
-        // nicht mehr das eine Feld, das strukturell nie "nicht erhoben" sagen konnte.
-        c.branch_misses_source_available = branch_ok_;
-        // l2 + coherence_invalidations bleiben structurell false (kein Oeffnungsversuch existiert, s.
-        // Konstruktor-Kommentar unten "KEIN portabler generischer Counter") -- POD-Default traegt das bereits.
+        // B-5 (2026-08-08) -- DIE FLAGS SIND JETZT EINE LESE-AUSSAGE, NICHT NUR EINE OEFFNUNGS-AUSSAGE.
+        // Der Vorgaenger-Kommentar sagte hier woertlich, ein spaeter leerer read() (Multiplexing-Verdraengung,
+        // read_scaled ok=false) sei "eine ANDERE, hier unveraenderte Fehlerklasse (Feld bleibt 0, kein Token)".
+        // Das war ein bewusst stehen gelassener STILLER RUECKFALL: der Zaehler oeffnete, lieferte aber nichts,
+        // und die Zelle trug trotzdem eine 0 unter einem "Quelle war da"-Flag -- ununterscheidbar von einer
+        // echten Nullmessung. Genau die Bauform, die der Owner-KERN verbietet ("Fehlschlag endet in return 0
+        // ohne Anzeige"). Die Flags werden deshalb erst UNTEN gesetzt, nachdem gelesen wurde, und nur dann,
+        // wenn dieser Zaehler wirklich einen Wert geliefert hat. Ein leerer read() schlaegt jetzt auf
+        // NichtGelesen um (-> Zelle "failed", nicht 0).
 
         bool ok = false, scaled = false;
         bool any = false;
-        if (l1d_ok_) {
+        if (l1d_offen_()) {
             std::uint64_t const v = c_l1d_.read_scaled(ok, scaled);
             if (ok) {
-                c.cache_misses_l1 = v;
-                any               = true;
+                c.cache_misses_l1                  = v;
+                c.cache_misses_l1_source_available = true;
+                any                                = true;
                 if (scaled) scaled_ = true;
+            } else {
+                l1d_oc_ = measurement::PmcCounterOutcome::NichtGelesen; // geoeffnet, aber nichts geliefert
             }
         }
-        if (ll_ok_) {
+        if (ll_offen_()) {
             // LL = Last-Level (CPU-abhängig L2 ODER L3) → ehrlich in das L3-Feld (Last-Level), NICHT L2 erfinden.
             std::uint64_t const v = c_ll_.read_scaled(ok, scaled);
             if (ok) {
-                c.cache_misses_l3 = v;
-                any               = true;
+                c.cache_misses_l3                  = v;
+                c.cache_misses_l3_source_available = true;
+                any                                = true;
                 if (scaled) scaled_ = true;
+            } else {
+                ll_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
             }
         }
-        if (dtlb_ok_) {
+        if (dtlb_offen_()) {
             std::uint64_t const v = c_dtlb_.read_scaled(ok, scaled);
             if (ok) {
-                c.dtlb_misses = v;
-                any           = true;
+                c.dtlb_misses                  = v;
+                c.dtlb_misses_source_available = true;
+                any                            = true;
                 if (scaled) scaled_ = true;
+            } else {
+                dtlb_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
             }
         }
-        if (branch_ok_) {
+        if (branch_offen_()) {
             std::uint64_t const v = c_branch_.read_scaled(ok, scaled);
             if (ok) {
-                c.branch_misses = v;
-                any             = true;
+                c.branch_misses                  = v;
+                c.branch_misses_source_available = true;
+                any                              = true;
                 if (scaled) scaled_ = true;
+            } else {
+                branch_oc_ = measurement::PmcCounterOutcome::NichtGelesen;
             }
         }
         // best-effort RAPL-Energie-Delta (Mikrojoule). Nur wenn Start+Ende lesbar.
@@ -387,10 +521,47 @@ private:
     detail_linux_perf::PerfCounter c_ll_{};     ///< Last-Level (L3) read miss
     detail_linux_perf::PerfCounter c_dtlb_{};   ///< dTLB read miss
     detail_linux_perf::PerfCounter c_branch_{}; ///< Branch miss (M-3a, PERF_TYPE_HARDWARE)
-    bool                           l1d_ok_    = false;
-    bool                           ll_ok_     = false;
-    bool                           dtlb_ok_   = false;
-    bool                           branch_ok_ = false;
+    // B-5: die vier bool-Flags sind KLASSEN geworden. Value-Initialisierung liefert Offen (== 0), deshalb
+    // wird jedes Feld im Konstruktor unbedingt aus dem open()-Ergebnis gesetzt -- ein nicht gesetztes Feld
+    // stuende sonst still auf "geoeffnet". pmc_outcome_hat_wert() ist die Single-Source der Frage
+    // "traegt dieser Zaehler einen Wert"; die vier Praedikate unten sind nur ihre benannte Anwendung.
+    measurement::PmcCounterOutcome l1d_oc_    = measurement::PmcCounterOutcome::UnbekannterFehler;
+    measurement::PmcCounterOutcome ll_oc_     = measurement::PmcCounterOutcome::UnbekannterFehler;
+    measurement::PmcCounterOutcome dtlb_oc_   = measurement::PmcCounterOutcome::UnbekannterFehler;
+    measurement::PmcCounterOutcome branch_oc_ = measurement::PmcCounterOutcome::UnbekannterFehler;
+    /// Das Ergebnis der amd_l3-Sonde. Nur belegt, wenn der generische LL-Weg mit EventNichtVorhanden
+    /// scheiterte -- sonst bleibt es EventNichtVorhanden ("nicht gefragt, weil nicht noetig").
+    /// Es fuellt bewusst KEINEN Wert (s. Kopf), sondern schaerft die BEGRUENDUNG im Log.
+    measurement::PmcCounterOutcome l3_pmu_oc_ = measurement::PmcCounterOutcome::EventNichtVorhanden;
+
+    [[nodiscard]] bool l1d_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(l1d_oc_); }
+    [[nodiscard]] bool ll_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(ll_oc_); }
+    [[nodiscard]] bool dtlb_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(dtlb_oc_); }
+    [[nodiscard]] bool branch_offen_() const noexcept { return measurement::pmc_outcome_hat_wert(branch_oc_); }
+
+    /// B-5: der AMD-ZWEITPFAD als reine DIAGNOSE-Sonde -- sie oeffnet den amd_l3-Uncore und schliesst ihn
+    /// sofort wieder. Beantwortet genau eine Frage: existiert der echte L3-Zaehler auf dieser Maschine?
+    ///   Rueckgabe Offen              -> ja, und er waere sogar zugaenglich (dann traegt das Log das)
+    ///   Rueckgabe ZugriffVerweigert  -> ja, aber paranoid/CAP_PERFMON sperrt ihn (prod1 heute)
+    ///   Rueckgabe EventNichtVorhanden-> nein: kein amd_l3-PMU (Intel, oder Treiber nicht geladen)
+    /// Der PMU-TYP wird DYNAMISCH aus sysfs gelesen -- 17 ist auf prod1 der heutige Wert, keine Konstante.
+    /// Die config-Kodierung ist am Objekt belegt (`perf list --details`): l3_lookup_state.l3_miss =
+    /// event=0x4, umask=0x1; mit der Feldbelegung aus format/ (event=config:0-7, umask=config:8-15)
+    /// ergibt das 0x104. Uncore-Zwaenge, beide am Objekt gemessen: pid MUSS -1 sein (per-Task -> EINVAL,
+    /// ein Uncore kennt keinen Prozess) und exclude_kernel MUSS 0 sein (keine Ring-Trennung -> EINVAL).
+    [[nodiscard]] static measurement::PmcCounterOutcome probe_amd_l3_pmu_() noexcept {
+        using namespace detail_linux_perf;
+        std::uint32_t typ = 0;
+        int           cpu = 0;
+        // Kein amd_l3 auf dieser Maschine -> der Zaehler existiert hier wirklich nicht. Das ist der
+        // Intel-Fall und der Fall "Treiber fehlt"; beide sind EventNichtVorhanden, kein Rateversuch.
+        if (!pmu_type_from_sysfs("amd_l3", typ)) return measurement::PmcCounterOutcome::EventNichtVorhanden;
+        if (!pmu_first_cpu_from_sysfs("amd_l3", cpu)) cpu = 0;          // cpumask unlesbar -> erster Vertreter
+        constexpr std::uint64_t kL3MissConfig = 0x4ULL | (0x1ULL << 8); // event=0x4, umask=0x1
+        PerfCounter             sonde{};
+        return sonde.open(typ, kL3MissConfig, "amd_l3_l3_miss_sonde", /*pid*/ -1, cpu,
+                          /*exclude_kernel*/ false);
+    }
     bool ready_  = false; ///< >=1 perf-Counter live geöffnet (Spiegel von WindowsPcmPmcSource::ready_)
     bool scaled_ = false; ///< >=1 gelesener Wert wurde multiplex-hochskaliert (Schätzung)
 
@@ -425,6 +596,10 @@ private:
             c.available       = true;
             // B5/M-2-KORREKTUR-2: PAPI_L3_TCM ist bei PAPI_OK ein reales Preset, kein Rateversuch.
             c.cache_misses_l3_source_available = true;
+            // B-5: dieselbe Ehrlichkeit fuer die beiden Felder, die hier ebenfalls real gefuellt werden --
+            // sonst truege ausgerechnet der Fallback-Pfad wieder nackte Zahlen ohne Quellen-Aussage.
+            c.cache_misses_l1_source_available = true;
+            c.dtlb_misses_source_available     = true;
         }
         return c;
     }

@@ -848,14 +848,19 @@ struct LazyMeasuredRow {
             out += std::to_string(value);
         }
     };
+    // B-5 (2026-08-08): l1 und dtlb gingen als EINZIGE der sieben ueber `zelle` statt `pmc_zelle` -- sie
+    // konnten damit strukturell nie "nicht erhoben" sagen und trugen bei fehlender Quelle eine stille 0.
+    // Auf prod1 fiel das nie auf, weil beide dort oeffnen; auf WINDOWS ist die 0 dagegen heute schon
+    // gelogen (windows_pcm_pmc_source.hpp sagt selbst: "L1 bleibt ehrlich 0", und dtlb wird dort nie
+    // gesetzt). Jetzt laufen ALLE SIEBEN durch dieselbe Ehrlichkeit -- die Regel hat keine Ausnahme mehr.
     out += ';';
-    zelle(std::to_string(row.pmc.cache_misses_l1));
+    pmc_zelle(row.pmc.cache_misses_l1, row.pmc.cache_misses_l1_source_available);
     out += ';';
     pmc_zelle(row.pmc.cache_misses_l2, row.pmc.cache_misses_l2_source_available);
     out += ';';
     pmc_zelle(row.pmc.cache_misses_l3, row.pmc.cache_misses_l3_source_available);
     out += ';';
-    zelle(std::to_string(row.pmc.dtlb_misses));
+    pmc_zelle(row.pmc.dtlb_misses, row.pmc.dtlb_misses_source_available);
     out += ';';
     pmc_zelle(row.pmc.coherence_invalidations, row.pmc.coherence_invalidations_source_available);
     out += ';';
