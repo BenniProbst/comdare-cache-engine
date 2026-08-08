@@ -154,6 +154,23 @@ struct MaschinenSysinfo {
 // in ANKUNFTSFOLGE (kein Blatt je Thread) -- Thread-Kennung UND Zeitpunkt stehen deshalb in JEDER
 // Zeile, nicht nur in der ersten (bei Nebenlaeufigkeit "ergibt sich das NICHT aus der vorigen Zeile").
 //
+// DRITTER NACHTRAG (checkpoint_measure-Soll-Design, docs/architecture/20260808-
+// checkpoint_measure_soll_design.md, ce cc028e1d) PRAEZISIERT DAS SPALTENSCHEMA: acht Spalten,
+// nicht fuenf -- Prozess, Thread, Mess-Ebene, Ziel, Aufrufer, Checkpoint, Zeitpunkt, Messwerte*.
+// "Mess-Ebene" (compare/macro/micro, compile-time am Checkpoint) und "Ziel" (die gelandete
+// Zielfunktion, via std::source_location) sind NEU gegenueber der ersten Fassung dieses Kommentars.
+// FUER DIESEN WRITER AENDERT SICH NICHTS: kopf()/zeile()/zeile_mit_verweis() nehmen jede Spaltenmenge
+// als std::span<std::string const> entgegen, ohne eingebautes Schema -- ein zusaetzliches Feld im
+// Aufrufer-seitigen Vektor genuegt. Wichtiger als die Spaltenzahl ist die praezisierte AUFRUFER-
+// SEMANTIK: "Der Aufrufer-Name wird REKONSTRUIERT, nicht gemessen. Er steht NICHT im Rohdatensatz.
+// Er entsteht beim Auslesen" (derselbe Owner-Text) -- ein Vorwaerts-Durchlauf mit einem Stapel je
+// Mess-Ebene loest ihn in O(n) auf (IN legt auf den Stapel seiner Ebene, OUT nimmt ihn herunter,
+// jeder Checkpoint bekommt als Aufrufer die Stapel-Spitze der naechsthoeheren Ebene). DIESE
+// AUFLOESUNG GEHOERT NICHT HIERHER: "das heisst, die Rekonstruktion gehoert in die AUSWERTUNG, nicht
+// in den Writer. Du bekommst fertige Zeilen." Bestaetigt exakt die SCOPE-GRENZE zwei Absaetze unten,
+// unabhaengig davon formuliert. Die Zeitbasis ist ebenfalls entschieden (nicht mehr offen): ein
+// billiger monotoner Zaehler im Hot-Path, einmal je Prozess-Lauf gegen die Systemzeit verankert.
+//
 // SCOPE-GRENZE (bewusst, s. Bericht an den Auftraggeber): dieser Writer PRUEFT die IN/OUT-Balance
 // NICHT. "Der Writer schreibt, er bewertet nicht" -- die Balance-Invariante ist eine AUSWERTUNG ueber
 // das FERTIGE Blatt (Lese-Zeit), keine Schreib-Zeit-Pflicht dieser Klasse. Sie ist ein eigenes Paket.
@@ -162,14 +179,18 @@ struct MaschinenSysinfo {
 // Stelle der bestehenden Mess-Pipeline (abi_adapter.hpp run_workload*, IPruefDock::measure,
 // perm_runner.hpp) einen Punkt, an dem dieser Writer sie abgreifen koennte -- der golden-Messpfad ist
 // nachweislich 1-Thread (run_methodology_registry.hpp), und selbst der Debug-Parallel-Pool taggt
-// keine Zeile mit Thread-/Prozess-Identitaet. Prozess/Thread/Aufrufer/Zeitpunkt sind deshalb reine
-// PARAMETER, die der AUFRUFER dieses Writers liefern MUSS -- dieser Header erfindet KEINE Quelle
-// dafuer und keinen Platzhalter-Wert.
+// keine Zeile mit Thread-/Prozess-Identitaet. checkpoint_measure (s.o.) ist die dafuer zustaendige,
+// NOCH NICHT gebaute Spezifikation -- ein eigenes Paket, nicht dieser Writer. Prozess/Thread/
+// Mess-Ebene/Ziel/Aufrufer/Zeitpunkt sind deshalb reine PARAMETER, die der AUFRUFER dieses Writers
+// liefern MUSS -- dieser Header erfindet KEINE Quelle dafuer und keinen Platzhalter-Wert.
 //
 // INTERNE HYPERLINKS (compare -> Funktion -> Achse): der vendorierte libxlsxwriter-Stand (Tag v1.2.4)
 // unterstuetzt `worksheet_write_url(ws, row, col, "internal:'Blatt'!Zelle", NULL)` unveraendert
 // (ext/io/libxlsxwriter/include/xlsxwriter/worksheet.h:2836-2877, src/worksheet.c:3393/:8420, keine
 // #ifdef-Ausblendung, im CMakeLists-Glob enthalten) -- zeile_mit_verweis() unten macht das nutzbar.
+// Empirisch belegt (nicht nur "die Funktion existiert"): eine real erzeugte sheet2.xml traegt
+// <hyperlinks><hyperlink ref="A2" location="'M_insert'!A2" .../></hyperlinks>, waehrend der sichtbare
+// Zellinhalt ("insert") ueber die sharedStrings-Tabelle erhalten bleibt (s. Test-Suite).
 
 /// Die drei Fassung-3-Ebenen.
 enum class MessEbene : std::uint8_t { Compare, Macro, Micro };

@@ -233,16 +233,24 @@ TEST(A9S3MessEbeneBlattsorte, BlattzahlBleibtFestUnabhaengigVonDerAufrufzahl) {
 
 // -----------------------------------------------------------------------------
 // IN/OUT als ZWEI Zeilen je Aufruf, Thread-Kennung UND Zeitpunkt in JEDER Zeile (nicht nur der ersten).
+//
+// Spaltenschema hier bewusst das VOLLE, per drittem Nachtrag (checkpoint_measure-Soll-Design, ce
+// cc028e1d) praezisierte: Prozess, Thread, Mess-Ebene, Ziel, Aufrufer, Checkpoint, Zeitpunkt,
+// Messwert -- acht Spalten, nicht fuenf. Aufrufer traegt hier bereits einen FERTIG REKONSTRUIERTEN
+// Wert (der Owner-Text: "Du bekommst fertige Zeilen" -- die Rekonstruktion selbst ist Auswertung,
+// nicht Schreiber-Pflicht, s. Kopf-Kommentar ergebnis_mappe.hpp Abschnitt 2B). Diese Zeile beweist
+// nur, dass acht beliebige Spalten unveraendert funktionieren -- KEIN Schema ist im Writer verdrahtet.
 // -----------------------------------------------------------------------------
 TEST(A9S3MessEbeneBlattsorte, InUndOutSindZweiZeilenMitThreadUndZeitpunktInJederZeile) {
     TempDir const tmp;
     auto          mappe = lab::ErgebnisMappenFactory::oeffne(tmp.path, "a9s3_inout", lab::ErgebnisFormat::csv);
     mappe->info_blatt({}, {}, {});
     auto& macro = mappe->mess_ebene_blatt(lab::MessEbenenSchluessel{lab::MessEbene::Macro, "erase"});
-    macro.kopf(std::vector<std::string>{"prozess", "thread", "aufrufer", "checkpoint", "zeitpunkt", "messwert"});
-    macro.zeile(std::vector<std::string>{"SYNTH_ceb1", "SYNTH_t7", "compare:x",
+    macro.kopf(std::vector<std::string>{"prozess", "thread", "mess_ebene", "ziel", "aufrufer", "checkpoint",
+                                        "zeitpunkt", "messwert"});
+    macro.zeile(std::vector<std::string>{"SYNTH_ceb1", "SYNTH_t7", "macro", "erase", "compare:x",
                                          std::string{lab::checkpoint_label(lab::Checkpoint::In)}, "42", "-"});
-    macro.zeile(std::vector<std::string>{"SYNTH_ceb1", "SYNTH_t7", "compare:x",
+    macro.zeile(std::vector<std::string>{"SYNTH_ceb1", "SYNTH_t7", "macro", "erase", "compare:x",
                                          std::string{lab::checkpoint_label(lab::Checkpoint::Out)}, "58", "913"});
     mappe->schliessen();
 
@@ -250,6 +258,6 @@ TEST(A9S3MessEbeneBlattsorte, InUndOutSindZweiZeilenMitThreadUndZeitpunktInJeder
     // ZWEI Zeilen (+ Kopfzeile), beide tragen dieselbe Thread-Kennung, VERSCHIEDENE Zeitpunkte.
     std::size_t const zeilen = std::count(inhalt.begin(), inhalt.end(), '\n');
     EXPECT_EQ(zeilen, 3u) << inhalt; // Kopf + IN + OUT
-    EXPECT_NE(inhalt.find("SYNTH_t7;compare:x;in;42;"), std::string::npos) << inhalt;
-    EXPECT_NE(inhalt.find("SYNTH_t7;compare:x;out;58;"), std::string::npos) << inhalt;
+    EXPECT_NE(inhalt.find("SYNTH_t7;macro;erase;compare:x;in;42;"), std::string::npos) << inhalt;
+    EXPECT_NE(inhalt.find("SYNTH_t7;macro;erase;compare:x;out;58;"), std::string::npos) << inhalt;
 }
