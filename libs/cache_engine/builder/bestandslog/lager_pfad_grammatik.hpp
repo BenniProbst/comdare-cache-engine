@@ -52,6 +52,32 @@
 namespace comdare::cache_engine::builder::bestandslog {
 
 // ---------------------------------------------------------------------------
+// str_von -- die EINE Art, hier einen std::string aus einer Sicht zu bauen (08.08.2026).
+// ---------------------------------------------------------------------------
+/// WARUM NICHT std::string{sv}: die A9-Abnahme-Anker am Dateiende (a9_namens_beispiele_treffen /
+/// a9_pfad_beispiele_treffen) sind consteval und laufen in static_assert -- die Pfad-Bildung MUSS
+/// also zur Uebersetzungszeit auswertbar bleiben. Genau der string_view-Konstruktor von std::string
+/// ist das nicht: am Objekt gemessen mit clang 22.1 gegen libstdc++ 13, 15.3 UND 16 bricht
+///     std::string s{sv};
+/// in einer constant expression mit "undefined function '_M_construct<const char *>' cannot be used
+/// in a constant expression", waehrend g++ 15.3 es auswertet. Die Fehlerklasse ist eng und gemessen:
+/// der const char*-Konstruktor, operator+=, append(string_view), das Wachsen ueber die SSO-Grenze und
+/// der Vergleich gegen ein string_view sind ALLE auswertbar -- nur die Konstruktion aus einer Sicht
+/// nicht. append() nimmt denselben Text ueber einen auswertbaren Weg auf.
+///
+/// ABGRENZUNG: das ist eine Anpassung an eine gemessene Bibliotheksgrenze, KEIN Umbau auf eine
+/// heap-freie Bildung. Anders als bei der Mess-Gates-Grammatik (abi/mess_gates_glied.hpp, dort ist
+/// die Bildung selbst auf einen Puffer fester Kapazitaet umgestellt) ist der PRODUKTIVE Weg hier die
+/// Laufzeit -- variable Ebenen-Zahl, bis kMaxKomponenteBytes je Komponente, sha512-Hex. constexpr
+/// traegt hier nur die beiden Abnahme-Anker. Ein Puffer fester Kapazitaet waere dort kein besserer,
+/// sondern ein engerer Bau.
+[[nodiscard]] constexpr std::string str_von(std::string_view sicht) {
+    std::string s;
+    s.append(sicht);
+    return s;
+}
+
+// ---------------------------------------------------------------------------
 // Die Zeichen der Grammatik. Vier Konstanten, damit kein Konsument ein Literal nachbildet.
 // ---------------------------------------------------------------------------
 
@@ -308,7 +334,7 @@ namespace detail {
     if (kette.size() > kMaxKomponenteBytes) {
         e.gekuerzt   = true;
         e.voll_kette = kette;
-        e.text       = std::string{kKurznamePraefix} + kurzname_hex(kette);
+        e.text       = str_von(kKurznamePraefix) + kurzname_hex(kette);
         return e;
     }
     e.text = std::move(kette);
@@ -359,13 +385,13 @@ namespace detail {
         innen += kGruppenPaarTrenner;
         innen.append(paare[i].wert);
     }
-    std::string kette{gruppe};
+    std::string kette = str_von(gruppe);
     kette += kKvTrenner;
     kette += innen;
     if (kette.size() > kMaxKomponenteBytes) {
         e.gekuerzt   = true;
         e.voll_kette = kette;
-        e.text       = std::string{gruppe} + kKvTrenner + std::string{kKurznamePraefix} + kurzname_hex(kette);
+        e.text       = str_von(gruppe) + kKvTrenner + str_von(kKurznamePraefix) + kurzname_hex(kette);
         // Auch der GEKUERZTE Gruppen-Ordner behaelt seinen Gruppen-Namen: der Baum bleibt fuer einen
         // Menschen navigierbar, nur die Werte-Rekombination weicht dem Hash. Wird auch das zu lang
         // (absurd lange Gruppen-Namen), meldet die Wache unten ehrlich statt zu schneiden.
@@ -411,7 +437,7 @@ namespace detail {
         e.fehler = f;
         return e;
     }
-    std::string const kopf  = std::string{datum} + '-' + std::string{zeit};
+    std::string const kopf  = str_von(datum) + '-' + str_von(zeit);
     std::string const kette = detail::baue_kv_kette(paare);
     std::string       name  = kopf;
     if (!kette.empty()) {
@@ -423,7 +449,7 @@ namespace detail {
     if (name.size() > kMaxKomponenteBytes) {
         e.gekuerzt   = true;
         e.voll_kette = kette;
-        e.text       = kopf + '_' + std::string{kKurznamePraefix} + kurzname_hex(kette) + '.' + std::string{endung};
+        e.text       = kopf + '_' + str_von(kKurznamePraefix) + kurzname_hex(kette) + '.' + str_von(endung);
         if (e.text.size() > kMaxKomponenteBytes) e.fehler = LagerPfadFehler::komponente_ueberlang;
         return e;
     }
@@ -448,8 +474,8 @@ namespace detail {
 /// Objekt-Schluessel == Praefix + Trenner + Blatt-Name. Dieselbe Funktion fuer Dateisystem-Pfad und
 /// Objekt-Store-Key -- der Unterschied ist die Wurzel, nicht die Grammatik.
 [[nodiscard]] constexpr std::string objekt_key(std::string_view praefix, std::string_view name) {
-    if (praefix.empty()) return std::string{name};
-    std::string out{praefix};
+    if (praefix.empty()) return str_von(name);
+    std::string out = str_von(praefix);
     out += kEbenenTrenner;
     out.append(name);
     return out;

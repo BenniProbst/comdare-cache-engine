@@ -490,6 +490,14 @@ static_assert(kOverlaySourceHash.size() <= kAnatomyFingerprintOverlayMax);
 static_assert(kMessGatesTuGlied.size() <= kAnatomyFingerprintMessGatesMax,
               "R-3: das mess-gates-Glied sprengt sein Budget -- kAnatomyFingerprintMessGatesMax heben UND "
               "den Budget-Beleg oben nachziehen, statt die Grenze still zu verschieben.");
+// Die Zeile darueber prueft nur die Grammatik DIESER TU. Seit die Bildung ihre Kapazitaet aus den
+// Segmenten rechnet (mess_gates_glied.hpp, kMessGatesGliedMaxLen), laesst sich die staerkere Aussage
+// treffen: KEINE der baubaren Gate-Kombinationen sprengt das Budget. Damit faellt ein zu langes
+// Segment hier auf, statt erst in der einen TU, die es zufaellig baut.
+static_assert(kMessGatesGliedMaxLen <= kAnatomyFingerprintMessGatesMax,
+              "R-3: die LAENGSTE baubare mess-gates-Grammatik sprengt kAnatomyFingerprintMessGatesMax. Ein "
+              "neues Gate oder ein laengeres Segment braucht ein groesseres Budget UND den Beleg oben -- "
+              "nicht das Glueck, dass die gerade uebersetzte TU unter der Grenze bleibt.");
 
 // '\n'-FREIHEIT der neuen Glieder (OF-M3-1): die Injektivitaet der Zerlegung haengt daran, dass KEIN Glied
 // den Domain-Separator traegt. Fuer die per Define injizierten Glieder ist das hier compile-time bewiesen;

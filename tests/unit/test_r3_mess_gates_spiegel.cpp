@@ -149,10 +149,12 @@ void fall_b_spiegel() {
         std::string const              ist = pf::mess_gates_glied_for_legend(legend);
         // Die ERWARTUNG wird hier UNABHAENGIG gebildet -- aus dem Define-Vektor, Feld fuer Feld, ohne die
         // Spiegel-Funktion zu benutzen. Sonst pruefte der Test eine Funktion gegen sich selbst.
-        std::string erwartet = cea::mess_gates_glied_komponieren(
-            hat(def, "-DCOMDARE_MEASUREMENT_ON=1"), hat(def, "-DCOMDARE_CE_ENABLE_STATISTICS=1"),
-            /*experiment_mode_on=*/true, hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1"),
-            hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MACRO=1"), hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MICRO=1"));
+        std::string erwartet =
+            cea::mess_gates_glied_komponieren(
+                hat(def, "-DCOMDARE_MEASUREMENT_ON=1"), hat(def, "-DCOMDARE_CE_ENABLE_STATISTICS=1"),
+                /*experiment_mode_on=*/true, hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_WALLCLOCK=1"),
+                hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MACRO=1"), hat(def, "-DCOMDARE_MEASUREMENT_TOOLING_MICRO=1"))
+                .str();
         std::cout << "    " << legend << "  ->  " << ist << "\n";
         check_true(std::string{"(b) "} + legend + ": Vorhersage == Define-Vektor", ist == erwartet);
         ++geprueft;
@@ -197,8 +199,8 @@ void fall_d_host_gegen_tu(std::string const& pfad_an, std::string const& pfad_au
     // BESTELLUNG der beiden CMake-Targets sind (r3_biss_modul_gates_an: MEASUREMENT_ON, STATISTICS,
     // EXPERIMENT_MODE_ON, TOOLING_WALLCLOCK; r3_biss_modul_gates_aus: keines davon). Waere die
     // Bestellung eine andere, faellt diese Wache -- und genau das soll sie.
-    std::string const glied_an  = cea::mess_gates_glied_komponieren(true, true, true, true, false, false);
-    std::string const glied_aus = cea::mess_gates_glied_komponieren(false, false, false, false, false, false);
+    std::string const glied_an  = cea::mess_gates_glied_komponieren(true, true, true, true, false, false).str();
+    std::string const glied_aus = cea::mess_gates_glied_komponieren(false, false, false, false, false, false).str();
     std::cout << "    erwartetes Glied AN  = " << glied_an << "\n";
     std::cout << "    erwartetes Glied AUS = " << glied_aus << "\n";
 

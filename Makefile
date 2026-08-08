@@ -47,10 +47,18 @@ else
   BUILD_PAR =
 endif
 
+# Zusaetzliche ctest-Argumente fuer 'make check'. Zweck: die CI braucht
+# '--output-junit <pfad>' fuer den GitLab-Test-Report, und ohne diese Naht
+# muesste sie ctest wieder selbst aufrufen -- also genau den offiziellen Weg
+# umgehen, den sie bewachen soll. Die AUSWAHL der Tests kommt weiterhin
+# ausschliesslich aus dem Manifest; hier lassen sich nur Ausgabe-Optionen
+# ergaenzen.
+CTEST_EXTRA ?=
+
 .DEFAULT_GOAL := all
 
 .PHONY: all install check installcheck uninstall clean distclean \
-        mostlyclean maintainer-clean konfiguriert help
+        mostlyclean maintainer-clean konfiguriert inventar help
 
 # -- Wache: ohne configure.sh geht nichts, und zwar LAUT -----------------------
 konfiguriert:
@@ -80,10 +88,42 @@ all: konfiguriert
 # 'ce_ctest' statt 'ctest' direkt: die Funktion quotet Modus und Muster selbst
 # korrekt (Muster wie '[1-9]' duerfen nicht globben) und bricht bei unbekannter
 # Kennung mit Exit 3 ab -- Vergessen ist damit laut, nicht still.
-check: all
-	$(CMAKE) --build "$(BUILDDIR)" $(BUILD_PAR) --target comdare_tests
+check: inventar
 	@. "$(SRCDIR)/scripts/ci_test_coverage_manifest.sh" && \
-	  ce_ctest test_unit "$(BUILDDIR)" --output-on-failure
+	  ce_ctest test_unit "$(BUILDDIR)" --output-on-failure $(CTEST_EXTRA)
+
+# -- inventar: projekteigenes Ziel (KEIN GNU-Standardziel) --------------------
+# Bringt den Baum in den Zustand, in dem ctest ALLE Tests kennt -- ohne sie
+# auszufuehren. 'check' haengt daran; die Abdeckungs-Wache
+# (scripts/ci_test_coverage_guard.sh) braucht genau diesen Zustand und sonst
+# nichts: sie rechnet die Vereinigung der Job-Auswahlen gegen 'ctest -N'. Faehrt
+# sie gegen einen unvollstaendig registrierten Baum, meldet sie Vollstaendigkeit
+# und deckt nichts -- eine Wache mit zu kleinem Nenner ist keine Wache.
+# Ohne dieses Ziel muesste die Wache cmake wieder selbst aufrufen und damit genau
+# den offiziellen Weg umgehen, den sie mit bewachen soll.
+#
+# DAS RECONFIGURE IST PFLICHT, NICHT KOSMETIK. Ein Teil der Tests wird erst
+# registriert, wenn die Codegen-Werkzeuge GEBAUT sind und CMake danach ein
+# zweites Mal laeuft -- bei einem einzigen Configure-Durchgang bleiben sie
+# unsichtbar. Am Objekt gemessen (ce b2daf9a6):
+#   nur configure + Test-Target bauen ....... 427 Tests registriert
+#   'all' + Reconfigure + Test-Target ....... 431 Tests registriert
+# Die vier, die sonst fehlen: f15_compare_cli_smoke,
+# test_v41_anatomy_adhoc_autobuilt_load, test_v41_anatomy_f15_measurement,
+# test_v41_anatomy_r5i_configure_codegen.
+#
+# WARUM 'all' + Reconfigure UND KEINE PREBUILD-LISTE: das CI-Template
+# (ci-templates base-pipeline.yml:474-477) baute vor dem Reconfigure eine
+# HANDGEPFLEGTE Target-Liste (COMDARE_TEST_PREBUILD_TARGET). Eine solche Liste
+# ist dieselbe Fehlerklasse, die R4 bei den ctest-Auswahlen beseitigt hat: sie
+# waechst nach. Gemessen erreicht sie 429 statt 431 -- ihr fehlten
+# f15_compare_cli_smoke und test_v41_anatomy_adhoc_autobuilt_load, zwei Tests,
+# die damit in KEINEM Job liefen. 'all' baut dagegen JEDES Codegen-Werkzeug,
+# ohne dass hier eines namentlich stehen muss, und das Ergebnis ist eine echte
+# Obermenge (Gegenprobe gefahren: kein Test geht dabei verloren).
+inventar: all
+	$(CMAKE) -S "$(SRCDIR)" -B "$(BUILDDIR)"
+	$(CMAKE) --build "$(BUILDDIR)" $(BUILD_PAR) --target comdare_tests
 
 # -- install: DESTDIR-faehig --------------------------------------------------
 # DESTDIR wird dem Praefix VORANGESTELLT (GNU: staged install; CMake dokumentiert
@@ -176,6 +216,7 @@ help:
 	@echo "  ./configure.sh [--prefix=PFAD] ...   konfigurieren (--help zeigt alles)"
 	@echo "  make                                 uebersetzen"
 	@echo "  make check                           Selbsttests (Auswahl 'test_unit')"
+	@echo "  make inventar                        nur registrieren, nicht ausfuehren (Wachen-Ziel)"
 	@echo "  make install [DESTDIR=PFAD]          installieren"
 	@echo "  make installcheck                    installierte Planer-CLI pruefen"
 	@echo "  make uninstall                       per install_manifest zurueckbauen"
