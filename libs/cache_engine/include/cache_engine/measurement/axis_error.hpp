@@ -318,7 +318,12 @@ inline constexpr std::size_t kDockErrorClassCount = 7;
 enum class LagerAblageFehlerKlasse : std::uint8_t {
     Zeilenlimit = 0, // xlsx-Zeilenlimit (1.048.576 Zeilen je Sheet) erreicht -- honest-Fehler statt Truncate
     Namenslimit = 1, // Datei-/Sheet-Name ueberschreitet die Wache (200 Byte bzw. 31 Zeichen/Zeichenklasse)
-    ZipFehler   = 2, // ZIP-/OOXML-Schreibfehler des Vendors (workbook_close != LXW_NO_ERROR) oder finales rename
+    // BUENDELT ZWEI URSACHEN, bewusst (Owner-Review 08.08.): der Vendor-ZIP-/OOXML-Schreibfehler
+    // (workbook_close != LXW_NO_ERROR) und das finale rename() sind beide "das Schreiben der
+    // Ausgabedatei ist gescheitert" -- es gibt heute keinen dritten Grund, der eine eigene Klasse
+    // rechtfertigt. Wer eine VIERTE LagerAblageFehlerKlasse braucht, soll diese Buendelung hier
+    // vorfinden, statt sie erst am Verhalten zu erraten.
+    ZipFehler = 2,
 };
 /// Single-Source der Lager-Ablage-Klassenzahl (Drift-Guards unten, beide Richtungen).
 inline constexpr std::size_t kLagerAblageFehlerKlasseCount = 3;
