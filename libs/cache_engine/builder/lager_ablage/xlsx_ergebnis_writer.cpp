@@ -49,35 +49,74 @@ namespace {
 /// jedem Schreiben -- kein stilles Truncate.
 class XlsxErgebnisBlatt final : public IErgebnisBlatt {
 public:
-    explicit XlsxErgebnisBlatt(lxw_worksheet* blatt) : blatt_(blatt) {}
+    /// url_format ist NULL fuer Sheets, die nie zeile_mit_verweis() nutzen (z.B. INFO) -- ein
+    /// tatsaechlicher Aufruf ohne Format waere ein Programmierfehler, kein Laufzeit-Fall (assert unten).
+    XlsxErgebnisBlatt(lxw_worksheet* blatt, lxw_format* url_format) : blatt_(blatt), url_format_(url_format) {}
 
     void kopf(std::span<std::string const> spalten) override { schreibe_zeile(spalten); }
     void zeile(std::span<std::string const> felder) override { schreibe_zeile(felder); }
 
+    void zeile_mit_verweis(std::span<std::string const> felder_vor_verweis, std::string const& verweis_text,
+                           std::string const& ziel_sheet, std::string const& ziel_zelle,
+                           std::span<std::string const> felder_nach_verweis) override {
+        pruefe_zeilenlimit();
+        lxw_col_t col = 0;
+        for (auto const& f : felder_vor_verweis) schreibe_zelle(col++, f);
+        schreibe_verweis_zelle(col++, verweis_text, ziel_sheet, ziel_zelle);
+        for (auto const& f : felder_nach_verweis) schreibe_zelle(col++, f);
+        ++naechste_zeile_;
+    }
+
 private:
-    void schreibe_zeile(std::span<std::string const> felder) {
+    void pruefe_zeilenlimit() {
         if (!xlsx_zeile_erlaubt(naechste_zeile_))
             throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::Zeilenlimit,
                                         "Zeile " + std::to_string(naechste_zeile_) + " erreicht das xlsx-Limit " +
                                             std::to_string(kXlsxZeilenlimit));
-        for (std::size_t col = 0; col < felder.size(); ++col) {
-            auto const spalte = static_cast<lxw_col_t>(col);
-            double     zahl   = 0.0;
-            lxw_error  err;
-            if (ist_reine_zahl(felder[col], zahl))
-                err = worksheet_write_number(blatt_, naechste_zeile_, spalte, zahl, nullptr);
-            else
-                err = worksheet_write_string(blatt_, naechste_zeile_, spalte, felder[col].c_str(), nullptr);
-            if (err != LXW_NO_ERROR)
-                throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
-                                            "worksheet_write bei Zeile " + std::to_string(naechste_zeile_) +
-                                                " Spalte " + std::to_string(col) +
-                                                ": lxw_error=" + std::to_string(static_cast<int>(err)));
-        }
+    }
+
+    /// Numerisch, wenn die GESAMTE Zeichenkette als Zahl geparst wird -- sonst Text (s. Kopf-Kommentar).
+    void schreibe_zelle(lxw_col_t spalte, std::string const& feld) {
+        double    zahl = 0.0;
+        lxw_error err;
+        if (ist_reine_zahl(feld, zahl))
+            err = worksheet_write_number(blatt_, naechste_zeile_, spalte, zahl, nullptr);
+        else
+            err = worksheet_write_string(blatt_, naechste_zeile_, spalte, feld.c_str(), nullptr);
+        if (err != LXW_NO_ERROR)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        "worksheet_write bei Zeile " + std::to_string(naechste_zeile_) + " Spalte " +
+                                            std::to_string(spalte) +
+                                            ": lxw_error=" + std::to_string(static_cast<int>(err)));
+    }
+
+    /// Interner Hyperlink: worksheet_write_url() traegt die Verknuepfung, ein NACHFOLGENDER
+    /// worksheet_write_string() auf DERSELBEN Zelle ueberschreibt nur den sichtbaren Text -- die
+    /// Verknuepfung bleibt erhalten (dokumentiertes Muster, worksheet.h:2820-2831/:2836-2877).
+    void schreibe_verweis_zelle(lxw_col_t spalte, std::string const& verweis_text, std::string const& ziel_sheet,
+                                std::string const& ziel_zelle) {
+        std::string const ziel    = "internal:'" + ziel_sheet + "'!" + ziel_zelle;
+        lxw_error const   err_url = worksheet_write_url(blatt_, naechste_zeile_, spalte, ziel.c_str(), nullptr);
+        if (err_url != LXW_NO_ERROR)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        "worksheet_write_url '" + ziel +
+                                            "': lxw_error=" + std::to_string(static_cast<int>(err_url)));
+        lxw_error const err_text =
+            worksheet_write_string(blatt_, naechste_zeile_, spalte, verweis_text.c_str(), url_format_);
+        if (err_text != LXW_NO_ERROR)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        "worksheet_write_string (Verweis-Text) '" + verweis_text +
+                                            "': lxw_error=" + std::to_string(static_cast<int>(err_text)));
+    }
+
+    void schreibe_zeile(std::span<std::string const> felder) {
+        pruefe_zeilenlimit();
+        for (std::size_t col = 0; col < felder.size(); ++col) schreibe_zelle(static_cast<lxw_col_t>(col), felder[col]);
         ++naechste_zeile_;
     }
 
     lxw_worksheet* blatt_;
+    lxw_format*    url_format_;
     std::uint32_t  naechste_zeile_ = 0;
 };
 
@@ -92,6 +131,9 @@ public:
         if (mappe_ == nullptr)
             throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
                                         tmp_pfad_.string() + ": workbook_new fehlgeschlagen");
+        // Fassung 3: EINMAL geholt, an jedes Blatt weitergereicht (workbook_get_default_url_format
+        // braucht das Mappen-Handle, nicht das Sheet-Handle -- worksheet.h:2820-2831).
+        url_format_ = workbook_get_default_url_format(mappe_);
     }
 
     ~XlsxErgebnisMappe() override {
@@ -120,15 +162,31 @@ public:
         for (std::size_t i = 0; i < schluessel_.size(); ++i)
             if (schluessel_[i] == schluessel) return *blaetter_[i];
 
-        std::string const label = sheet_label_fuer_index(schluessel_.size() + 1);
+        std::string const label = sheet_label_fuer_index(++naechster_sheet_index_);
         lxw_worksheet*    ws    = workbook_add_worksheet(mappe_, label.c_str());
         if (ws == nullptr)
             throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
                                         label + ": workbook_add_worksheet fehlgeschlagen");
         schluessel_.push_back(schluessel);
         labels_.push_back(label);
-        blaetter_.push_back(std::make_unique<XlsxErgebnisBlatt>(ws));
+        blaetter_.push_back(std::make_unique<XlsxErgebnisBlatt>(ws, url_format_));
         return *blaetter_.back();
+    }
+
+    IErgebnisBlatt& mess_ebene_blatt(MessEbenenSchluessel const& schluessel) override {
+        for (std::size_t i = 0; i < mess_ebenen_schluessel_.size(); ++i)
+            if (mess_ebenen_schluessel_[i] == schluessel) return *mess_ebenen_blaetter_[i];
+
+        ++naechster_sheet_index_; // gemeinsamer Zaehler mit blatt() -- s. ergebnis_mappe.hpp Abschnitt 2B
+        std::string const label = mess_ebene_sheetname(schluessel.ebene, schluessel.bezeichner, naechster_sheet_index_);
+        lxw_worksheet*    ws    = workbook_add_worksheet(mappe_, label.c_str());
+        if (ws == nullptr)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        label + ": workbook_add_worksheet fehlgeschlagen");
+        mess_ebenen_schluessel_.push_back(schluessel);
+        mess_ebenen_labels_.push_back(label);
+        mess_ebenen_blaetter_.push_back(std::make_unique<XlsxErgebnisBlatt>(ws, url_format_));
+        return *mess_ebenen_blaetter_.back();
     }
 
     void schliessen() override {
@@ -138,7 +196,7 @@ public:
         if (info_ws == nullptr)
             throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
                                         "INFO: workbook_add_worksheet fehlgeschlagen");
-        XlsxErgebnisBlatt info(info_ws);
+        XlsxErgebnisBlatt info(info_ws, url_format_);
         info.kopf(std::vector<std::string>{"kategorie", "schluessel", "wert"});
         auto const feld = [](std::string_view s) { return std::string{n_a_wenn_leer(s)}; };
         info.zeile(std::vector<std::string>{"sysinfo", "hostname", feld(sysinfo_.hostname)});
@@ -155,6 +213,13 @@ public:
             info.zeile(std::vector<std::string>{"sheet_legende", labels_[i],
                                                 schluessel_[i].mess_unter + "|" + schluessel_[i].system_unter + "|" +
                                                     schluessel_[i].organ_unter});
+        // Fassung 3: compare/Macro/Micro-Legende -- der Sheet-Name TRAEGT hier bereits Ebene+Bezeichner
+        // (mess_ebene_sheetname), die Legende bestaetigt es trotzdem explizit (dieselbe Ehrlichkeits-
+        // Redundanz wie bei der Fassung-1/2-Legende: nie auf den Namen allein verlassen).
+        for (std::size_t i = 0; i < mess_ebenen_labels_.size(); ++i)
+            info.zeile(std::vector<std::string>{"mess_ebene_legende", mess_ebenen_labels_[i],
+                                                std::string{mess_ebene_label(mess_ebenen_schluessel_[i].ebene)} + "|" +
+                                                    mess_ebenen_schluessel_[i].bezeichner});
 
         lxw_error const err = workbook_close(mappe_);
         // workbook_close() gibt den Vendor-Speicher IMMER frei (Erfolg wie Fehlschlag, libxlsxwriter-
@@ -181,13 +246,19 @@ private:
     std::filesystem::path                           verzeichnis_;
     std::string                                     stamm_;
     std::filesystem::path                           tmp_pfad_;
-    lxw_workbook*                                   mappe_ = nullptr;
+    lxw_workbook*                                   mappe_      = nullptr;
+    lxw_format*                                     url_format_ = nullptr;
     MaschinenSysinfo                                sysinfo_{};
     HauptAchsenBelegung                             haupt_{};
     KonstantenMeta                                  konstanten_{};
+    std::size_t                                     naechster_sheet_index_ = 0; // geteilt: blatt()+mess_ebene_blatt()
     std::vector<SheetSchluessel>                    schluessel_;
     std::vector<std::string>                        labels_;
     std::vector<std::unique_ptr<XlsxErgebnisBlatt>> blaetter_;
+    // Fassung 3 (parallele Buchhaltung, EIGENE Sheet-Zaehlung -- s. ergebnis_mappe.hpp Abschnitt 2B).
+    std::vector<MessEbenenSchluessel>               mess_ebenen_schluessel_;
+    std::vector<std::string>                        mess_ebenen_labels_;
+    std::vector<std::unique_ptr<XlsxErgebnisBlatt>> mess_ebenen_blaetter_;
 };
 
 } // namespace

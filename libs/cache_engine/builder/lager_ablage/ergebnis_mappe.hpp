@@ -30,6 +30,13 @@
 // DOKTRIN: C++23, header-only, statischer Dispatch fuer die Grammatik-Teile; die Format-Wahl
 // (xlsx|csv) ist der EINE bewusste Laufzeit-Draht (Haupt=CT/Unter=RT-Regel, Rueckschrieb-Methoden sind
 // eine Mess-UNTER-Achse) -- GoF Abstract Factory, KEIN std::variant (Verbotskanon). ASCII-only.
+//
+// FASSUNG 3 (Owner-Entscheid 08.08., additiv, s. Abschnitt 2B unten): eine ZWEITE Blattsorte in
+// DERSELBEN Mappe fuer die compare/Macro/Micro-Ebenen (Aufrufer=Prozess+Thread, IN/OUT-Checkpoint-
+// Zeilen, interne Hyperlinks zum Hinabsteigen). Gleiche Factory, gleiche Sheet-Namens-Wache, gleiches
+// INFO-Sheet -- kein zweiter Writer, kein Umbau der Fassung-1/2-Schnittstellen.
+
+#include "bestandslog/lager_pfad_grammatik.hpp"
 
 #include <cache_engine/measurement/axis_error.hpp>
 
@@ -120,6 +127,84 @@ struct MaschinenSysinfo {
 }
 
 // =================================================================================================
+// 2B. FASSUNG 3 (Owner-Entscheid 08.08., additiv): compare/Macro/Micro-Blattsorte
+// =================================================================================================
+// ZWEITE Blattsorte in DERSELBEN Mappe -- gleiche Factory, gleiche Sheet-Namens-Wache, gleiches
+// INFO-Sheet (Owner woertlich: "Wenn du die Mappe schon zusammen hast, ist das ein Zusatz, kein
+// Umbau"). Drei Ebenen mit UNTERSCHIEDLICHER Sheet-Zaehlung:
+//   compare -- 1 Sheet je Last-Messungs-Rekombination (Owner-Tabelle) bzw. GENAU 1 im einfachen Fall
+//              (Owner-Formel "Blattzahl = 1 + |Funktionen| + |Achsen|"). Diese Fassung LOEST die
+//              Spannung zwischen beiden Owner-Aussagen NICHT durch eine Wahl, sondern durch
+//              Allgemeinheit: die Zahl der compare-Sheets folgt der Zahl der verschiedenen
+//              Rekombinations-Bezeichner, die der Aufrufer tatsaechlich vorlegt (>=1) -- reduziert
+//              sich im einfachen Fall automatisch auf 1 (deckt die Formel), erlaubt aber mehrere,
+//              falls eine Mappe mehrere Rekombinationen vergleicht (deckt die Tabelle).
+//   Macro   -- 1 Sheet je FUNKTION (Interface-Funktion der Tier-Binary, am Pruefdock aufgerufen).
+//   Micro   -- 1 Sheet je ACHSE (der 18 Organ-Achsen, kCompositionAxisNames).
+// Blattzahl waechst NICHT mit der Lauflaenge (Owner-Doktrin woertlich): AUFRUFE werden zu ZEILEN im
+// EINEN Sheet ihrer Funktion/Achse, nie zu neuen Sheets.
+//
+// AUFRUFER = (PROZESS, THREAD) -- NACHTRAG woertlich: "Der Aufrufer ist also nicht uniform, sondern
+// ein Prozess UND einer von dessen Threads." Ein Thread ist systemisch ein GoF-Visitor ueber die
+// Mess-Ebenen (bewegt sich von hoeher nach tiefer und auf dem Stack sauber zurueck). JE AUFRUF ZWEI
+// ZEILEN -- Checkpoint::In (Interface-enter) und Checkpoint::Out (return) -- weil eine Zeile je
+// ABGESCHLOSSENEM Aufruf einen nie zurueckkehrenden Aufruf gar nicht schreiben wuerde: genau die
+// Regression (Invariante "wenn ein Thread ein Interface betritt, aber es nicht wieder verlaesst"),
+// die erkannt werden soll, bliebe unsichtbar. Mehrere Threads schreiben EINGEDAMPFT ins selbe Blatt
+// in ANKUNFTSFOLGE (kein Blatt je Thread) -- Thread-Kennung UND Zeitpunkt stehen deshalb in JEDER
+// Zeile, nicht nur in der ersten (bei Nebenlaeufigkeit "ergibt sich das NICHT aus der vorigen Zeile").
+//
+// SCOPE-GRENZE (bewusst, s. Bericht an den Auftraggeber): dieser Writer PRUEFT die IN/OUT-Balance
+// NICHT. "Der Writer schreibt, er bewertet nicht" -- die Balance-Invariante ist eine AUSWERTUNG ueber
+// das FERTIGE Blatt (Lese-Zeit), keine Schreib-Zeit-Pflicht dieser Klasse. Sie ist ein eigenes Paket.
+//
+// BEFUND (Recherche vor dem Bau, s. Bericht): Prozess+Thread-Identitaet erreicht HEUTE an KEINER
+// Stelle der bestehenden Mess-Pipeline (abi_adapter.hpp run_workload*, IPruefDock::measure,
+// perm_runner.hpp) einen Punkt, an dem dieser Writer sie abgreifen koennte -- der golden-Messpfad ist
+// nachweislich 1-Thread (run_methodology_registry.hpp), und selbst der Debug-Parallel-Pool taggt
+// keine Zeile mit Thread-/Prozess-Identitaet. Prozess/Thread/Aufrufer/Zeitpunkt sind deshalb reine
+// PARAMETER, die der AUFRUFER dieses Writers liefern MUSS -- dieser Header erfindet KEINE Quelle
+// dafuer und keinen Platzhalter-Wert.
+//
+// INTERNE HYPERLINKS (compare -> Funktion -> Achse): der vendorierte libxlsxwriter-Stand (Tag v1.2.4)
+// unterstuetzt `worksheet_write_url(ws, row, col, "internal:'Blatt'!Zelle", NULL)` unveraendert
+// (ext/io/libxlsxwriter/include/xlsxwriter/worksheet.h:2836-2877, src/worksheet.c:3393/:8420, keine
+// #ifdef-Ausblendung, im CMakeLists-Glob enthalten) -- zeile_mit_verweis() unten macht das nutzbar.
+
+/// Die drei Fassung-3-Ebenen.
+enum class MessEbene : std::uint8_t { Compare, Macro, Micro };
+
+[[nodiscard]] constexpr std::string_view mess_ebene_label(MessEbene e) noexcept {
+    switch (e) {
+        case MessEbene::Compare: return "compare";
+        case MessEbene::Macro: return "macro";
+        case MessEbene::Micro: return "micro";
+    }
+    return "mess_ebene_unbekannt";
+}
+
+/// IN (Interface-enter) oder OUT (return) -- je Aufruf ZWEI Zeilen, s. Kopf.
+enum class Checkpoint : std::uint8_t { In, Out };
+
+[[nodiscard]] constexpr std::string_view checkpoint_label(Checkpoint c) noexcept {
+    switch (c) {
+        case Checkpoint::In: return "in";
+        case Checkpoint::Out: return "out";
+    }
+    return "checkpoint_unbekannt";
+}
+
+/// Schluessel EINES compare/Macro/Micro-Sheets. bezeichner ist je Ebene: Compare = Rekombinations-
+/// Bezeichner, Macro = Funktionsname, Micro = Achsenname. Reihenfolge der Vorlage bei
+/// IErgebnisMappe::mess_ebene_blatt() bestimmt wie bei SheetSchluessel die Anlage-Reihenfolge.
+struct MessEbenenSchluessel {
+    MessEbene   ebene;
+    std::string bezeichner;
+
+    [[nodiscard]] bool operator==(MessEbenenSchluessel const&) const = default;
+};
+
+// =================================================================================================
 // 3. ErgebnisSchreibFehler -- honest-Fehler statt stillem Truncate (axis_error.hpp Domaene LagerAblage)
 // =================================================================================================
 
@@ -194,6 +279,27 @@ static_assert(!xlsx_sheetname_zulaessig("a\\b"));
 inline constexpr std::string_view kInfoBlattName = "INFO";
 static_assert(xlsx_sheetname_zulaessig(kInfoBlattName));
 
+/// Fassung-3-Sheet-Name: bevorzugt LESBAR (compare/Macro/Micro brauchen VORHERSAGBARE Hyperlink-
+/// Ziele, z.B. "M_insert" statt eines opaken S00N-Codes) -- faellt auf sheet_label_fuer_index()
+/// zurueck, wenn der bevorzugte Name die Wache verletzt (Kollisionsfreiheit ueber DENSELBEN
+/// Mechanismus, keine zweite Wache). Das Ebenen-Praefix macht Compare-/Macro-/Micro-Namen
+/// kollisionsfrei gegeneinander und gegen die Fassung-1/2-Sheets (die tragen nie C_/M_/X_).
+/// bestandslog::sanitisiere_wert (lager_pfad_grammatik.hpp) ist die Single-Source der
+/// Zeichenklassen-Bereinigung -- kein zweiter Sanitisierer.
+[[nodiscard]] inline std::string mess_ebene_sheetname(MessEbene ebene, std::string_view bezeichner,
+                                                      std::size_t fallback_index_1based) {
+    std::string_view praefix;
+    switch (ebene) {
+        case MessEbene::Compare: praefix = "C_"; break;
+        case MessEbene::Macro: praefix = "M_"; break;
+        case MessEbene::Micro: praefix = "X_"; break;
+    }
+    std::string kandidat{praefix};
+    kandidat += bestandslog::sanitisiere_wert(bezeichner);
+    if (xlsx_sheetname_zulaessig(kandidat)) return kandidat;
+    return sheet_label_fuer_index(fallback_index_1based);
+}
+
 // =================================================================================================
 // 5. DIE ZEILENLIMIT-WACHE (Dossier 4.2 Punkt 3)
 // =================================================================================================
@@ -237,6 +343,16 @@ public:
     /// Schreibt EINE Datenzeile. Kann ErgebnisSchreibFehler{Zeilenlimit} werfen (xlsx-Backend) statt
     /// still zu truncaten.
     virtual void zeile(std::span<std::string const> felder) = 0;
+
+    /// Fassung 3: schreibt EINE Zeile, in der GENAU EINE Spalte ein interner Hyperlink ist (compare ->
+    /// Funktion -> Achse). felder_vor_verweis + [Verweis-Zelle] + felder_nach_verweis ergeben zusammen
+    /// die Zeile. verweis_text ist der SICHTBARE Zellinhalt; ziel_sheet/ziel_zelle sind das
+    /// Hyperlink-Ziel ("M_insert"/"A1"). CSV-Fallback DEGRADIERT ehrlich: CSV kennt keine Hyperlinks,
+    /// die Zelle traegt dort nur verweis_text als Text (dokumentiertes Verhalten, kein stiller
+    /// Funktionsverlust). Traegt dieselbe Zeilenlimit-Wache wie zeile().
+    virtual void zeile_mit_verweis(std::span<std::string const> felder_vor_verweis, std::string const& verweis_text,
+                                   std::string const& ziel_sheet, std::string const& ziel_zelle,
+                                   std::span<std::string const> felder_nach_verweis) = 0;
 };
 
 /// EINE xlsx-Datei bzw. EIN CSV-Dateisatz am selben Baum-Blatt.
@@ -255,6 +371,11 @@ public:
     /// (deterministischer Sheet-Name, Reihenfolge = Aufrufreihenfolge). Wiederholter Aufruf mit
     /// demselben Schluessel liefert DASSELBE Sheet (Idempotenz, kein Doppel-Anlegen).
     virtual IErgebnisBlatt& blatt(SheetSchluessel const& schluessel) = 0;
+
+    /// Fassung 3: liefert das Sheet fuer diese compare/Macro/Micro-Ebene -- EIGENE Sheet-Zaehlung,
+    /// getrennt von blatt()/SheetSchluessel, aber DIESELBE Mappe/Factory/Namens-Wache/INFO-Sheet.
+    /// Idempotent wie blatt(): derselbe Schluessel liefert dasselbe Sheet.
+    virtual IErgebnisBlatt& mess_ebene_blatt(MessEbenenSchluessel const& schluessel) = 0;
 
     /// Schliesst die Mappe ATOMAR: tmp-Datei(en) + rename auf den finalen Namen. Baut das INFO-Blatt
     /// (inkl. Sheet-Legende ueber ALLE inzwischen angelegten Sheets) und finalisiert. Wirft
@@ -285,6 +406,19 @@ public:
     void kopf(std::span<std::string const> spalten) override { schreibe_zeile(spalten); }
     void zeile(std::span<std::string const> felder) override { schreibe_zeile(felder); }
 
+    /// CSV-Fallback-Degradation: keine Hyperlinks im Textformat -- verweis_text wird als GEWOEHNLICHE
+    /// Zelle geschrieben (dokumentiertes Verhalten, s. IErgebnisBlatt::zeile_mit_verweis).
+    void zeile_mit_verweis(std::span<std::string const> felder_vor_verweis, std::string const& verweis_text,
+                           std::string const& /*ziel_sheet*/, std::string const& /*ziel_zelle*/,
+                           std::span<std::string const> felder_nach_verweis) override {
+        zeile_hat_felder_ = false;
+        for (auto const& f : felder_vor_verweis) schreibe_feld(f);
+        schreibe_feld(verweis_text);
+        for (auto const& f : felder_nach_verweis) schreibe_feld(f);
+        strom_ << '\n';
+        zeile_hat_felder_ = false;
+    }
+
     /// Schliesst den Strom explizit (vor dem Rename) und meldet einen Schreibfehler ehrlich statt still.
     void strom_schliessen() {
         strom_.flush();
@@ -296,16 +430,26 @@ public:
     }
 
 private:
-    void schreibe_zeile(std::span<std::string const> felder) {
-        for (std::size_t i = 0; i < felder.size(); ++i) {
-            if (i != 0) strom_ << ';';
-            strom_ << felder[i];
+    /// Schreibt EIN Feld inkl. des Trenners VOR sich, ausser es ist das allererste Feld der Zeile.
+    void schreibe_feld(std::string_view feld) {
+        if (!zeile_hat_felder_) {
+            zeile_hat_felder_ = true;
+        } else {
+            strom_ << ';';
         }
+        strom_ << feld;
+    }
+
+    void schreibe_zeile(std::span<std::string const> felder) {
+        zeile_hat_felder_ = false;
+        for (auto const& f : felder) schreibe_feld(f);
         strom_ << '\n';
+        zeile_hat_felder_ = false;
     }
 
     std::filesystem::path tmp_pfad_;
     std::ofstream         strom_;
+    bool                  zeile_hat_felder_ = false; // Trenner-Zustand ueber schreibe_feld()-Aufrufe hinweg
 };
 
 } // namespace detail
@@ -326,13 +470,30 @@ public:
         for (std::size_t i = 0; i < schluessel_.size(); ++i)
             if (schluessel_[i] == schluessel) return *blaetter_[i];
 
-        std::string const label    = sheet_label_fuer_index(schluessel_.size() + 1);
+        std::string const label    = sheet_label_fuer_index(++naechster_sheet_index_);
         auto const        tmp_pfad = verzeichnis_ / (stamm_ + "__" + label + ".csv.tmp");
         schluessel_.push_back(schluessel);
         labels_.push_back(label);
         tmp_pfade_.push_back(tmp_pfad);
         blaetter_.push_back(std::make_unique<detail::CsvErgebnisBlatt>(tmp_pfad));
         return *blaetter_.back();
+    }
+
+    IErgebnisBlatt& mess_ebene_blatt(MessEbenenSchluessel const& schluessel) override {
+        for (std::size_t i = 0; i < mess_ebenen_schluessel_.size(); ++i)
+            if (mess_ebenen_schluessel_[i] == schluessel) return *mess_ebenen_blaetter_[i];
+
+        // "CSV bleibt flach: eine Datei je Sheet, mit der EBENE ANFUEHREND im Namen" (Owner woertlich)
+        // -- der Ebenen-Token fuehrt den Datei-Suffix an, danach der (sanitisierte) Bezeichner.
+        std::string const dateisuffix = std::string{mess_ebene_label(schluessel.ebene)} + "_" +
+                                        bestandslog::sanitisiere_wert(schluessel.bezeichner);
+        auto const        tmp_pfad    = verzeichnis_ / (stamm_ + "__" + dateisuffix + ".csv.tmp");
+        mess_ebenen_schluessel_.push_back(schluessel);
+        mess_ebenen_dateisuffix_.push_back(dateisuffix);
+        mess_ebenen_tmp_pfade_.push_back(tmp_pfad);
+        ++naechster_sheet_index_; // gemeinsamer Zaehler mit blatt() -- s. Kopf-Kommentar der Klasse
+        mess_ebenen_blaetter_.push_back(std::make_unique<detail::CsvErgebnisBlatt>(tmp_pfad));
+        return *mess_ebenen_blaetter_.back();
     }
 
     void schliessen() override {
@@ -359,6 +520,12 @@ public:
             for (std::size_t i = 0; i < labels_.size(); ++i)
                 info << "sheet_legende;" << labels_[i] << ';' << schluessel_[i].mess_unter << '|'
                      << schluessel_[i].system_unter << '|' << schluessel_[i].organ_unter << '\n';
+            // Fassung 3: die compare/Macro/Micro-Legende -- Dateiname statt Sheet-Name (CSV hat keinen
+            // Sheet-Namen), aber dieselbe Kategorie-Spalte "mess_ebene_legende" wie im xlsx-Backend.
+            for (std::size_t i = 0; i < mess_ebenen_schluessel_.size(); ++i)
+                info << "mess_ebene_legende;" << mess_ebenen_dateisuffix_[i] << ';'
+                     << mess_ebene_label(mess_ebenen_schluessel_[i].ebene) << '|'
+                     << mess_ebenen_schluessel_[i].bezeichner << '\n';
             info.flush();
             if (info.fail())
                 throw ErgebnisSchreibFehler(ms::LagerAblageFehlerKlasse::ZipFehler,
@@ -368,6 +535,7 @@ public:
         // 2) alle Sheet-Streams sauber schliessen, BEVOR irgendetwas umbenannt wird (atomar auf
         //    Mappen-Ebene: erst wenn ALLES geschrieben ist, wird SICHTBAR gemacht).
         for (auto& blatt : blaetter_) blatt->strom_schliessen();
+        for (auto& blatt : mess_ebenen_blaetter_) blatt->strom_schliessen();
 
         // 3) rename tmp -> final, je Datei; jeder Fehl-Ausgang wirft (kein stilles Teil-Ergebnis).
         for (std::size_t i = 0; i < blaetter_.size(); ++i) {
@@ -379,6 +547,15 @@ public:
                                                                                         final_pfad.string() + ": " +
                                                                                         ec.message());
         }
+        for (std::size_t i = 0; i < mess_ebenen_blaetter_.size(); ++i) {
+            auto const      final_pfad = verzeichnis_ / (stamm_ + "__" + mess_ebenen_dateisuffix_[i] + ".csv");
+            std::error_code ec;
+            std::filesystem::rename(mess_ebenen_tmp_pfade_[i], final_pfad, ec);
+            if (ec)
+                throw ErgebnisSchreibFehler(ms::LagerAblageFehlerKlasse::ZipFehler, mess_ebenen_tmp_pfade_[i].string() +
+                                                                                        " -> " + final_pfad.string() +
+                                                                                        ": " + ec.message());
+        }
         auto const      info_final = verzeichnis_ / (stamm_ + "__" + std::string{kInfoBlattName} + ".csv");
         std::error_code ec;
         std::filesystem::rename(info_tmp, info_final, ec);
@@ -388,15 +565,21 @@ public:
     }
 
 private:
-    std::filesystem::path                                  verzeichnis_;
-    std::string                                            stamm_;
-    MaschinenSysinfo                                       sysinfo_{};
-    HauptAchsenBelegung                                    haupt_{};
-    KonstantenMeta                                         konstanten_{};
-    std::vector<SheetSchluessel>                           schluessel_;
-    std::vector<std::string>                               labels_;
-    std::vector<std::filesystem::path>                     tmp_pfade_;
+    std::filesystem::path              verzeichnis_;
+    std::string                        stamm_;
+    MaschinenSysinfo                   sysinfo_{};
+    HauptAchsenBelegung                haupt_{};
+    KonstantenMeta                     konstanten_{};
+    std::size_t                        naechster_sheet_index_ = 0; // geteilt: blatt()+mess_ebene_blatt()
+    std::vector<SheetSchluessel>       schluessel_;
+    std::vector<std::string>           labels_;
+    std::vector<std::filesystem::path> tmp_pfade_;
     std::vector<std::unique_ptr<detail::CsvErgebnisBlatt>> blaetter_;
+    // Fassung 3 (parallele Buchhaltung, EIGENE Sheet-Zaehlung -- s. Kopf-Kommentar Abschnitt 2B).
+    std::vector<MessEbenenSchluessel>                      mess_ebenen_schluessel_;
+    std::vector<std::string>                               mess_ebenen_dateisuffix_;
+    std::vector<std::filesystem::path>                     mess_ebenen_tmp_pfade_;
+    std::vector<std::unique_ptr<detail::CsvErgebnisBlatt>> mess_ebenen_blaetter_;
 };
 
 // =================================================================================================
