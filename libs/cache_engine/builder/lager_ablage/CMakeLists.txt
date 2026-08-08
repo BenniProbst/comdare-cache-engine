@@ -18,7 +18,8 @@ add_library(comdare::lager_ablage ALIAS comdare_lager_ablage)
 target_include_directories(comdare_lager_ablage PUBLIC
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")
 
 target_compile_features(comdare_lager_ablage PUBLIC cxx_std_23)
 

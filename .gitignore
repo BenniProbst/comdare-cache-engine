@@ -2,6 +2,9 @@
 build/
 build-*/
 out/
+# GNU-Bauweg (08.08.2026): von ./configure.sh erzeugte Konfigurations-Aufzeichnung.
+# Die drei Wurzeldateien configure.sh/Makefile SIND getrackt, ihr Ergebnis nicht.
+config.status
 # V33.E.1: Doxygen HTML-Output (Doxyfile bleibt)
 docs/doxygen_v32_commands/
 cmake-build-*/
@@ -22,6 +25,14 @@ CMakeScripts/
 cmake_install.cmake
 install_manifest.txt
 Makefile
+# GNU-Bauweg (08.08.2026): die Regel 'Makefile' darueber meint die von CMake
+# GENERIERTEN Makefiles (in build/ und Unterverzeichnissen). Das Makefile der
+# WURZEL ist eine Quelle -- der GNU-Vorbau neben configure.sh -- und muss
+# getrackt sein. Ohne diese Negation faellt es still aus jedem Klon heraus und
+# der offizielle Bauweg ist nach 'git clone' kaputt, ohne dass es jemand merkt.
+# Der fuehrende Schraegstrich bindet die Ausnahme an die Wurzel: generierte
+# Makefiles tiefer im Baum bleiben ignoriert.
+!/Makefile
 *.cmake
 !cmake/*.cmake
 !tools/permutation_codegen/*.cmake
