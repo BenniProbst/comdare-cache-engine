@@ -12,11 +12,25 @@
 //
 // I1 KONSOLIDIERUNG (User-Direktive 2026-06-04 „EINE konsistente Observer-Schnittstelle"): Es gibt GENAU EINE
 // versionierte `IObservableTier` mit GENAU EINER `tier_observe(ComdareTierObserverSnapshot*)` + GENAU EINEM
-// versionierten POD (axis_stats[17][8] + seg_ns[17]/Pfad B + Meta). Die früheren parallelen Observer-Sub-
+// versionierten POD (axis_stats[17][8] + seg_ns[17]/Pfad B + Meta -- ABI-HISTORIE gegen SHA 42b34354).
+// LEBEND sind axis_stats[18][8] + seg_ns[18]; die Zahl lebt in kV3AxisCount (:61), die 17 ist der
+// Stand VOR dem 6->7-Bump. HY-0 08.08.2026: dieselbe Klasse wie die Major-Kopie unten -- eine Zahl,
+// die anderswo lebt, als Kopie im Kommentar. Die frueheren parallelen Observer-Sub-
 // Interfaces + die früheren mehrfach versionierten Observer-PODs sind ENTFERNT; die Versionierung läuft
-// jetzt über ABI-Major (anatomy_module_abi_v1_decl.hpp, aktuell Major 6) — der Loader lehnt inkompatible Alt-DLLs per
+// jetzt ueber ABI-Major (anatomy_module_abi_v1_decl.hpp) -- der Loader lehnt inkompatible Alt-DLLs per
 // Major-Mismatch ab (KEINE per-Version-Sub-Interface-Vermehrung mit dynamic_cast-Degrade mehr). Historie:
 // docs/architecture/31_observer_interface_konsolidierung_i1.md.
+//
+// ABI-ETIKETT DIESER DATEI (HY-0, 2026-08-08) -- warum in der Zeile oben keine Zahl mehr steht:
+// Sie trug bis heute eine eigene Major-Zahl, eingeleitet mit dem Wort "aktuell". Das ist eine
+// Behauptung ueber den LEBENDEN Stand, und sie lag seit dem 26.07.2026 falsch -- ueber ZWEI Bumps
+// hinweg (6->7 STRUKT-R ORG-18, ce 774a5d5f; 7->8 E-24 C8, ce 4f569051), 13 Tage lang, ausserhalb
+// jeder Wache. Eine Kopie einer Zahl, die anderswo lebt, veraltet genau so lautlos.
+//   Stand 2026-07-26, ABI-HISTORIE gegen SHA 42b34354: aktuell Major 6 (anatomy_module_abi_v1_decl.hpp:54)
+//   LEBEND seit 2026-08-04: Major 8 -- Beleg anatomy_module_abi_v1_decl.hpp:89
+// Die Zahl gehoert in den Decl-Header und nur dorthin; hier steht ab jetzt der VERWEIS statt einer
+// Kopie. scripts/ci_hy_label_gate.sh (ctest: hy_label_gate) haelt beide Zeilen gegen den Header:
+// Teil B der Wache sucht repo-weit nach genau dieser Klasse (Wort "aktuell" plus eigene Major-Zahl).
 //
 // ABI-SICHER nach demselben Designprinzip wie IMeasurableWorkload (measurable_workload.hpp):
 //   - IObservableTier hängt NICHT an IAnatomyBase (das änderte dessen vtable-Layout), sondern ist ein
@@ -30,7 +44,9 @@
 // @related [[feedback_zwei_dimensionen_messmodell]] [[feedback_one_consistent_observer_interface_pruefdock]]
 
 #include "idriveable_tier.hpp"     // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
-#include "measurable_workload.hpp" // ComdareSegmentLatencyV2 (seg_ns[17]) für das Pfad-B-Timing im konsolidierten POD
+#include "measurable_workload.hpp" // ComdareSegmentLatencyV2: Pfad-B-Timing im konsolidierten POD
+// Die seg_ns-Groesse ist kV3AxisCount, lebend also seg_ns[18]. Die frueher an dieser Stelle
+// genannte seg_ns[17] ist der Stand vor dem 6->7-Bump -- ABI-HISTORIE gegen SHA 42b34354.
 
 #include <cstdint>
 #include <type_traits>
