@@ -38,7 +38,8 @@
      TABU: golden_fullpilot_320_binary_ids.txt + permutation_axes.xml + m3v2_study/m3v2_smoke/
      m3_golden_coverage bleiben byte-unberuehrt (dieses Profil ist SEPARAT/additiv; Basis = die idempotente
      golden-Baseline, Sweep-ids disjunkt bzw. idempotent per Konstruktion).
-     Verifikation: `messung_driver --validate <dieses Profil>` (VALIDAT OK) +
+     Verifikation: `messung_driver` mit Option validate <dieses Profil> (VALIDAT OK; CLI-Option ohne
+     den fuehrenden Doppelstrich notiert, den XML im Kommentar verbietet) +
      test_smoke_coverage_profile (Binary-Zaehlung + golden-Baseline-Identitaet). -->
 <comdare_thesis_profile id="m3_smoke_coverage" schema_version="1">
 
@@ -162,9 +163,9 @@
 
   <!-- (mess) MESS-UNTER-ACHSEN [A9.2 = S4-Delta B9 Profil-Fuellung WAS/WIE, 2026-07-20; PASSIV, Planer-delegiert]:
        binary_id-NEUTRAL. Parse + validate gegen die constexpr-Mess-Registries, aber der Plan-Director konsumiert
-       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> --dump-plan byte-
+       measurement_tooling NICHT (measurement_combos_of(categories) => 1 Voll-Konfig [all]) -> Option dump-plan (ohne fuehrenden Doppelstrich notiert) byte-
        identisch; der N>1-Fan-out gehoert S5/P-MESSTOOL. Ids-Single-Source = die Mess-Registries. run_methodology:
-       debug (§61-STUFEN/(j2): der Smoke IST der Debug-Modus -- Debug-Build, Verdrahtungs-Check "DASS es laeuft"; das
+       debug (§61-STUFEN/(j2): der Smoke IST der Debug-Modus - Debug-Build, Verdrahtungs-Check "DASS es laeuft"; das
        parallele Debug-MESSEN ist §16.2-M1/Task #45, heute 1-Thread); measurement_framework: ycsb (honest-1);
        writeback_methods: csv (die maschinen-lesbare Roh-Wahrheit); measurement_tooling: wallclock (konservativ). -->
   <run_methodology>

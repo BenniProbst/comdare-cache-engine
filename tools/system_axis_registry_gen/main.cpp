@@ -651,7 +651,7 @@ int main(int argc, char** argv) {
     f << "       (stage=runtime, vom Planer permutiert). Q2/K2: opt_level/simd/atomic128 materialisieren als\n";
     f << "       CompileFn-Flags (build_version-Suffix), NIE als Laufzeit-Typ-Switch und NIE in der binary_id. -->\n";
     f << "  <!-- AUSSCHLUSS: extension_hardware_system_axis.hpp = DEPRECATED-Insel; hardware_isa_system_axis.hpp =\n";
-    f << "       HOST-Deskriptor (treibt NICHT den Bau) -- beide NICHT Teil dieses Bau-treibenden Angebots. -->\n";
+    f << "       HOST-Deskriptor (treibt NICHT den Bau) - beide NICHT Teil dieses Bau-treibenden Angebots. -->\n";
 
     // -- P5/A9a: die Ordnung wird ABGELAUFEN, nicht wiederholt. Fuenf Handaufrufe sind hier entfallen. --
     for (auto const& e : kSystemAxisEmitters) e.emit(f);

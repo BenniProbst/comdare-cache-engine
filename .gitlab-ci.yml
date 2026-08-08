@@ -89,6 +89,22 @@ lint:layer-includes:
   script:
     - sh scripts/lint_layer_includes.sh
 
+# XML-WOHLGEFORMTHEIT (2026-08-08): am 08.08. lagen VIER getrackte XML dieses Repos nicht
+# wohlgeformt im Baum -- darunter all_axes_golden.profile.xml, das golden-Profil der
+# Abgabe-Messung. Fehlerklasse in allen Faellen: "--" INNERHALB eines XML-Kommentars (von XML 1.0
+# Abschnitt 2.5 ausnahmslos verboten). Nichts hat es gemeldet: es gab keine Wache, die den
+# XML-Bestand ueberhaupt ansieht. Zwei der Dateien sind generiert, ihre Generatoren schrieben den
+# Defekt mit -- die wurden im selben Commit mitgeheilt, diese Wache faengt den Rueckfall.
+# Reiner Parser-Lauf ueber `git ls-files '*.xml'`, keine Bau-Artefakte, deshalb needs: [] und
+# kein Cache-Erbe. Fail-closed: fehlt xmllint, wird der Job ROT (rc=2) und nennt das Paket --
+# ein stiller Skip waere das Abschalten der Wache (Bissbeweis: 4 Koeder-Klassen + 2 Abbruchwege).
+lint:xml-wellformed:
+  stage: lint
+  tags: [baremetal]
+  needs: []
+  script:
+    - sh scripts/ci_xml_wellformed_guard.sh
+
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
   extends: .ccache-pull   # ccache-Hygiene 04.08.: alle bare-metal-Erben sind Konsumenten (pull-only)
