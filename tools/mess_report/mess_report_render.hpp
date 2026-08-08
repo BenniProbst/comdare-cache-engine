@@ -29,6 +29,7 @@
 
 #include "dynamic_axis_filter.hpp"
 #include "realm_scan.hpp"
+#include "skip_manifest.hpp"
 
 #include <builder/lager_ablage/ergebnis_mappe.hpp>
 #include <cache_engine/measurement/csv_cell_reader.hpp>
@@ -40,6 +41,7 @@
 #include <fstream>
 #include <map>
 #include <ostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -179,6 +181,35 @@ struct GruppierteQuelle {
 }
 
 // =====================================================================================================
+// 3B. SKIP bei validem Bestand (vierter Owner-Nachtrag Punkt 2): "exakt gleiche binary" -> nicht
+// neu schreiben. Nur im xlsx-Pfad -- ein --format=csv-Testlauf ist bewusst blind gegen den
+// Skip-Zustand (skip_manifest.hpp Kopf-Kommentar).
+// =====================================================================================================
+
+struct SkipFilterErgebnis {
+    std::map<std::string, ZeilenGruppe> neu;               // wird in DIESEM Lauf geschrieben
+    std::vector<std::string>            bereits_vorhanden; // binary_ids, die das Manifest schon fuehrt (SKIP)
+};
+
+[[nodiscard]] inline SkipFilterErgebnis filtere_bereits_vorhandene(std::map<std::string, ZeilenGruppe> const& gruppen,
+                                                                   std::filesystem::path const& ziel_verzeichnis,
+                                                                   lab::ErgebnisFormat          format) {
+    SkipFilterErgebnis erg;
+    if (format != lab::ErgebnisFormat::xlsx) {
+        erg.neu = gruppen; // CSV-Testpfad: kein Skip-Zustand gelesen, alles wird geschrieben
+        return erg;
+    }
+    std::set<std::string> const bestand = lies_manifest(ziel_verzeichnis);
+    for (auto const& [bid, grp] : gruppen) {
+        if (bestand.contains(bid))
+            erg.bereits_vorhanden.push_back(bid);
+        else
+            erg.neu.emplace(bid, grp);
+    }
+    return erg;
+}
+
+// =====================================================================================================
 // 4. Dynamik-Kette anwenden -> Dateinamens-kvkette + KonstantenMeta
 // =====================================================================================================
 
@@ -254,32 +285,43 @@ struct SheetPlanEintrag {
 
 struct RenderPlan {
     std::filesystem::path         ziel_verzeichnis;
-    std::string                   dateiname_stamm; // OHNE Endung (s. ErgebnisMappenFactory::oeffne())
+    bool                          schreibt_nichts = false; // true -> kein Dateiname berechnet, nichts zu schreiben
+    std::string                   dateiname_stamm;         // OHNE Endung (s. ErgebnisMappenFactory::oeffne())
     bool                          dateiname_gekuerzt = false;
     std::string                   dateiname_voll_kette;
     std::vector<SheetPlanEintrag> sheets;
     std::size_t                   gelesene_zeilen              = 0;
     std::size_t                   ohne_binary_id_uebersprungen = 0;
     std::size_t                   stale_uebersprungen          = 0; // nur bei --realm-root belegt
+    std::vector<std::string>      bereits_vorhanden_binary_ids;     // SKIP: exakt gleiche Binary schon im Manifest
     lab::KonstantenMeta           konstanten_meta;
 };
 
-/// Baut den Plan (liest Quellen, gruppiert, entscheidet die Dynamik-Kette, validiert den
-/// Dateinamen) -- schreibt NICHTS. render() ruft dieselbe Funktion und schreibt danach zusaetzlich;
-/// plan() ruft sie mit kPlanZeitstempelPlatzhalter und schreibt nie.
+/// Baut den Plan (liest Quellen, gruppiert, filtert bereits vorhandene Binaries heraus, entscheidet
+/// die Dynamik-Kette NUR ueber die NEUEN Gruppen, validiert den Dateinamen) -- schreibt NICHTS.
+/// render() ruft dieselbe Funktion und schreibt danach zusaetzlich; plan() ruft sie mit
+/// kPlanZeitstempelPlatzhalter und schreibt nie -- beide lesen (aber schreiben nie) dasselbe
+/// Skip-Manifest, damit eine Vorschau nie etwas anderes verspricht als render() tatsaechlich tut.
 [[nodiscard]] inline RenderPlan berechne_plan(std::vector<std::filesystem::path> const& quellen,
                                               std::filesystem::path const& ziel_verzeichnis, DatumZeit const& dz,
                                               lab::ErgebnisFormat format, std::size_t stale_uebersprungen = 0) {
-    GruppierteQuelle const q = gruppiere_quellen(quellen);
+    GruppierteQuelle const   q    = gruppiere_quellen(quellen);
+    SkipFilterErgebnis const skip = filtere_bereits_vorhandene(q.gruppen, ziel_verzeichnis, format);
 
     RenderPlan plan;
     plan.ziel_verzeichnis             = ziel_verzeichnis;
     plan.gelesene_zeilen              = q.gelesene_zeilen;
     plan.ohne_binary_id_uebersprungen = q.ohne_binary_id_uebersprungen;
     plan.stale_uebersprungen          = stale_uebersprungen;
-    for (auto const& [bid, grp] : q.gruppen) plan.sheets.push_back({bid, grp.zeilen.size()});
+    plan.bereits_vorhanden_binary_ids = skip.bereits_vorhanden;
+    for (auto const& [bid, grp] : skip.neu) plan.sheets.push_back({bid, grp.zeilen.size()});
 
-    auto const              befunde = bewerte_dynamik(q.header, q.gruppen);
+    if (skip.neu.empty()) {
+        plan.schreibt_nichts = true; // nichts Neues -- kein Dateiname zu berechnen, keine Mappe zu oeffnen
+        return plan;
+    }
+
+    auto const              befunde = bewerte_dynamik(q.header, skip.neu);
     std::string_view const  endung  = (format == lab::ErgebnisFormat::xlsx) ? "xlsx" : "csv";
     DateinameErgebnis const dn      = baue_dateiname(dz, befunde, endung);
     if (!dn.ok) throw MessReportFehler("Dateiname verletzt die Wache (fehlerklasse=" + dn.fehler_text + ")");
@@ -297,8 +339,15 @@ struct RenderPlan {
 /// Hash-Reihenfolge.
 inline void drucke_plan(RenderPlan const& plan, std::ostream& out) {
     out << "ziel_verzeichnis=" << plan.ziel_verzeichnis.string() << "\n";
-    out << "dateiname=" << plan.dateiname_stamm << (plan.dateiname_gekuerzt ? " (gekuerzt)" : "") << "\n";
-    if (plan.dateiname_gekuerzt) out << "  volle_kette=" << plan.dateiname_voll_kette << "\n";
+    out << "bereits_vorhanden_skip=" << plan.bereits_vorhanden_binary_ids.size() << "\n";
+    for (auto const& bid : plan.bereits_vorhanden_binary_ids) out << "  SKIP binary_id=" << bid << "\n";
+    if (plan.schreibt_nichts) {
+        out << "schreibt_nichts=ja (alle Binaries dieser Quelle sind bereits im Manifest -- exakt gleiche "
+               "Binary, kein Neu-Schreiben)\n";
+    } else {
+        out << "dateiname=" << plan.dateiname_stamm << (plan.dateiname_gekuerzt ? " (gekuerzt)" : "") << "\n";
+        if (plan.dateiname_gekuerzt) out << "  volle_kette=" << plan.dateiname_voll_kette << "\n";
+    }
     out << "gelesene_zeilen=" << plan.gelesene_zeilen << "\n";
     out << "ohne_binary_id_uebersprungen=" << plan.ohne_binary_id_uebersprungen << "\n";
     out << "stale_uebersprungen=" << plan.stale_uebersprungen << "\n";
@@ -309,18 +358,52 @@ inline void drucke_plan(RenderPlan const& plan, std::ostream& out) {
     for (auto const& k : plan.konstanten_meta) out << "  M " << k.achse << "=" << k.wert << "\n";
 }
 
-/// Schreibt die Mappe tatsaechlich (ErgebnisMappenFactory, dieselbe Gruppierung wie berechne_plan
-/// -- beide laufen ueber dieselbe gruppiere_quellen()/bewerte_dynamik()-Kette, damit plan und render
-/// NIE auseinanderlaufen koennen).
+/// Schreibt die Mappe tatsaechlich -- dieselbe Gruppierung/Skip-Filterung wie berechne_plan (beide
+/// laufen ueber gruppiere_quellen() -> filtere_bereits_vorhandene() -> bewerte_dynamik(), damit plan
+/// und render NIE auseinanderlaufen koennen). Binaries, die das Manifest schon fuehrt, werden NICHT
+/// neu geschrieben (SKIP, vierter Owner-Nachtrag Punkt 2); sind ALLE Binaries dieser Quelle bereits
+/// erfasst, wird NICHTS angelegt (kein leeres Verzeichnis, keine leere Mappe -- lazy). Nach
+/// erfolgreichem schliessen() werden genau die NEU geschriebenen binary_ids additiv ins Manifest
+/// aufgenommen (nur im xlsx-Pfad -- s. skip_manifest.hpp Kopf-Kommentar).
 inline void fuehre_render_aus(std::vector<std::filesystem::path> const& quellen,
                               std::filesystem::path const& ziel_verzeichnis, DatumZeit const& dz,
                               lab::ErgebnisFormat format) {
-    GruppierteQuelle const  q       = gruppiere_quellen(quellen);
-    auto const              befunde = bewerte_dynamik(q.header, q.gruppen);
+    GruppierteQuelle const   q    = gruppiere_quellen(quellen);
+    SkipFilterErgebnis const skip = filtere_bereits_vorhandene(q.gruppen, ziel_verzeichnis, format);
+    if (skip.neu.empty()) return; // alle Binaries schon im Manifest -- nichts zu tun, nichts anzulegen
+
+    auto const              befunde = bewerte_dynamik(q.header, skip.neu);
     std::string_view const  endung  = (format == lab::ErgebnisFormat::xlsx) ? "xlsx" : "csv";
     DateinameErgebnis const dn      = baue_dateiname(dz, befunde, endung);
     if (!dn.ok) throw MessReportFehler("Dateiname verletzt die Wache (fehlerklasse=" + dn.fehler_text + ")");
     std::string const stamm = dn.text.substr(0, dn.text.size() - endung.size() - 1);
+
+    // LAZY-Erstellung (Owner-Direktive, vierter Nachtrag Punkt 3: "in der Realitaet werden Ordner
+    // und Daten erst lazy erstellt, wenn es darauf ankommt"): genau HIER, unmittelbar vor dem
+    // ersten tatsaechlichen Schreiben, nicht frueher (das Skip-Gate oben kann bis hierher komplett
+    // ohne jedes Anlegen durchlaufen -- s. skip.neu.empty()-Rueckkehr). Der xlsx-/CSV-Backend
+    // erwartet ein bestehendes Zielverzeichnis (workbook_close scheitert sonst mit ENOENT); in der
+    // Produktionskette uebernimmt das LagerBaumWriter::einlagern(), das dieses CLI (noch) nicht
+    // anspricht (s. Kopf-Kommentar skip_manifest.hpp) -- also traegt der Aufrufer hier dieselbe
+    // Pflicht selbst.
+    std::filesystem::create_directories(ziel_verzeichnis);
+
+    // NIE STILL UEBERSCHREIBEN (Messdaten-nie-loeschen-Doktrin, verschaerft durch den Owner:
+    // "es wird weder etwas als stale XLSX behalten, noch valide Messdaten geloescht"): trifft der
+    // berechnete Dateiname auf eine BEREITS VORHANDENE Datei, ist das eine Kollision (gleicher
+    // Zeitstempel + gleiche dynamische kv-Kette aus zwei GETRENNTEN render-Aufrufen) -- kein
+    // stilles workbook_close-Ueberschreiben, sondern ein lauter Abbruch. Nur der xlsx-Pfad ist
+    // hier bewacht (die reale Ausgabe, Owner-Direktive); der CSV-Testpfad bleibt unveraendert.
+    if (format == lab::ErgebnisFormat::xlsx) {
+        std::filesystem::path const ziel_datei = ziel_verzeichnis / (stamm + ".xlsx");
+        if (std::filesystem::exists(ziel_datei))
+            throw MessReportFehler("Ziel-Datei '" + ziel_datei.string() +
+                                   "' existiert bereits -- Messdaten werden NIE still ueberschrieben "
+                                   "(Owner-Direktive). Kollision aus gleichem Zeitstempel + gleicher "
+                                   "dynamischer kv-Kette zweier getrennter render-Aufrufe -- erneut "
+                                   "ausfuehren (andere Wall-Clock-Sekunde) oder die Quellen in EINEM "
+                                   "Aufruf zusammen rendern.");
+    }
 
     auto mappe = lab::ErgebnisMappenFactory::oeffne(ziel_verzeichnis, stamm, format);
 
@@ -329,12 +412,18 @@ inline void fuehre_render_aus(std::vector<std::filesystem::path> const& quellen,
         if (!b.dynamisch) konstanten_meta.push_back({b.achse, b.wert});
     mappe->info_blatt(lab::MaschinenSysinfo{}, lab::HauptAchsenBelegung{}, konstanten_meta);
 
-    for (auto const& [bid, grp] : q.gruppen) {
+    std::vector<std::string> neu_geschrieben;
+    neu_geschrieben.reserve(skip.neu.size());
+    for (auto const& [bid, grp] : skip.neu) {
         lab::IErgebnisBlatt& blatt = mappe->blatt(lab::SheetSchluessel{"", "", bid});
         blatt.kopf(std::span<std::string const>{q.header});
         for (auto const& zeile : grp.zeilen) blatt.zeile(std::span<std::string const>{zeile});
+        neu_geschrieben.push_back(bid);
     }
-    mappe->schliessen();
+    mappe->schliessen(); // wirft ErgebnisSchreibFehler bei jedem Fehl-Ausgang -- das Manifest wird
+                         // erst DANACH ergaenzt, ein Fehl-Ausgang darf keine Binary als "erledigt" fuehren.
+
+    if (format == lab::ErgebnisFormat::xlsx) ergaenze_manifest(ziel_verzeichnis, neu_geschrieben);
 }
 
 } // namespace comdare::cache_engine::tools::mess_report

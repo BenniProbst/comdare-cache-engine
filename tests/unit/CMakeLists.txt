@@ -5650,3 +5650,13 @@ target_include_directories(test_a9s4_mess_report_render PRIVATE
 target_link_libraries(test_a9s4_mess_report_render PRIVATE comdare::lager_ablage)
 set_tests_properties(test_a9s4_mess_report_render PROPERTIES
     LABELS "a9;mess_report;render;plan;led61")
+
+# Vierter Owner-Nachtrag Punkt 2 (08.08.): SKIP bei validem Bestand fuer exakt dieselbe Binary.
+comdare_add_test(test_a9s4_skip_manifest
+    SOURCES test_a9s4_skip_manifest.cpp)
+target_include_directories(test_a9s4_skip_manifest PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_a9s4_skip_manifest PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s4_skip_manifest PROPERTIES
+    LABELS "a9;mess_report;skip;manifest")

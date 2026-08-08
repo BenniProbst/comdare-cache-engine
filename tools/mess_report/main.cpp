@@ -86,12 +86,21 @@ struct RenderFlags {
 void help_for(std::string const& topic) {
     if (topic == "render") {
         std::cout << "comdare-mess-report render (--csv=<pfad> | --realm-root=<dir>) --out=<dir>\n"
-                     "                            [--format=xlsx|csv] [--dry-run] [--fassung3]\n"
-                     "  Liest offizielle Mess-CSV(s) und schreibt einen xlsx- (Default) oder csv-Baum nach --out.\n"
+                     "                            [--format=xlsx] [--dry-run] [--fassung3]\n"
+                     "  Liest offizielle Mess-CSV(s) und schreibt einen xlsx-Baum nach --out. xlsx IST die\n"
+                     "  Ausgabe (Owner-Direktive: CSV wird nie verwendet, um Mess-Ergebnisse zu erhalten).\n"
+                     "  --format=csv existiert NUR als Test-/Fallback-Pfad (druckt einen Hinweis auf stderr,\n"
+                     "  liest/schreibt den Skip-Bestand nicht) -- kein regulaerer Weg fuer einen Anwender.\n"
                      "  Quelle GENAU EINE: --csv=<pfad> (eine Datei) XOR --realm-root=<dir> (rekursiver Scan nach\n"
                      "  *.result.csv; .stale-Bestaende werden weder gelesen noch angefasst).\n"
-                     "  --dry-run: liest und gruppiert wie ein echter Lauf, schreibt aber NICHTS (Vorschau mit der\n"
-                     "  echten Wall-Clock-Zeit dieses Aufrufs -- fuer eine deterministische Vorschau: 'plan').\n"
+                     "  SKIP bei validem Bestand (Owner-Direktive): eine binary_id, die bereits erfolgreich\n"
+                     "  geschrieben wurde (Manifest in --out), wird NICHT erneut geschrieben -- exakt gleiche\n"
+                     "  Binary heisst skip, eine neue Binary-Version erzeugt eine ZUSAETZLICHE neue Datei, die\n"
+                     "  alte bleibt unangetastet. Sind ALLE Binaries dieser Quelle schon erfasst, wird nichts\n"
+                     "  angelegt (kein leeres Verzeichnis).\n"
+                     "  --dry-run: liest, gruppiert und wendet den Skip-Filter an wie ein echter Lauf, schreibt\n"
+                     "  aber NICHTS (Vorschau mit der echten Wall-Clock-Zeit dieses Aufrufs -- fuer eine\n"
+                     "  deterministische Vorschau: 'plan').\n"
                      "  --fassung3: verlangt die 8 checkpoint_measure-Pflichtspalten (prozess/thread/mess_ebene/\n"
                      "  ziel/aufrufer/checkpoint/zeitpunkt/messwert, ce cc028e1d). Fehlen sie -> LAUTER Abbruch,\n"
                      "  KEIN stiller Fassung-1/2-Rueckfall (checkpoint_measure ist noch nicht gebaut).\n"
@@ -99,11 +108,13 @@ void help_for(std::string const& topic) {
         return;
     }
     if (topic == "plan") {
-        std::cout << "comdare-mess-report plan (--csv=<pfad> | --realm-root=<dir>) --out=<dir> [--format=xlsx|csv]\n"
-                     "  Dry-run: druckt den Ziel-Baum literal (Dateiname, Sheets je binary_id, konstante\n"
-                     "  Meta-Achsen, uebersprungene/gekappte Zeilen) -- schreibt NICHTS. Deterministisch: der\n"
-                     "  Zeitstempel ist auf den Epochen-Platzhalter 19700101-000000 gepinnt (LED-61: zwei Laeufe\n"
-                     "  ueber dieselben Quellen liefern byte-gleichen Text).\n"
+        std::cout << "comdare-mess-report plan (--csv=<pfad> | --realm-root=<dir>) --out=<dir> [--format=xlsx]\n"
+                     "  Dry-run: druckt den Ziel-Baum literal (Dateiname, Sheets je binary_id, welche binary_ids\n"
+                     "  per SKIP uebersprungen wuerden, konstante Meta-Achsen, uebersprungene/gekappte Zeilen) --\n"
+                     "  schreibt NICHTS, liest aber (wie render) das Skip-Manifest unter --out, sofern vorhanden.\n"
+                     "  Deterministisch: der Zeitstempel ist auf den Epochen-Platzhalter 19700101-000000 gepinnt\n"
+                     "  (LED-61: zwei Laeufe ueber dieselben Quellen/denselben --out-Zustand liefern byte-\n"
+                     "  gleichen Text).\n"
                      "  Exit: 0 ok; 1 Usage; 2 Quelle/Gruppierung/Dateiname-Fehler.\n";
         return;
     }
@@ -116,12 +127,15 @@ void help_for(std::string const& topic) {
                  "Usage:\n"
                  "  comdare-mess-report <subcommand> [argumente]\n\n"
                  "Subcommands:\n"
-                 "  render (--csv=<pfad> | --realm-root=<dir>) --out=<dir> [--format=xlsx|csv] [--dry-run]\n"
-                 "                           Mess-CSV(s) -> xlsx/csv-Baum (schreibt tatsaechlich)\n"
-                 "  plan   (--csv=<pfad> | --realm-root=<dir>) --out=<dir> [--format=xlsx|csv]\n"
-                 "                           deterministische Vorschau, schreibt NICHTS\n"
+                 "  render (--csv=<pfad> | --realm-root=<dir>) --out=<dir> [--format=xlsx] [--dry-run]\n"
+                 "                           Mess-CSV(s) -> xlsx-Baum (schreibt tatsaechlich; SKIP bei bereits\n"
+                 "                           erfasster Binary -- s. 'help render')\n"
+                 "  plan   (--csv=<pfad> | --realm-root=<dir>) --out=<dir> [--format=xlsx]\n"
+                 "                           deterministische Vorschau (inkl. Skip-Vorschau), schreibt NICHTS\n"
                  "  version                  Werkzeug-Selbst-Stempel\n"
                  "  help [<subcommand>]      diese Uebersicht bzw. Detail-Hilfe (auch: <subcommand> --help)\n\n"
+                 "xlsx IST die Ausgabe (Owner-Direktive) -- --format=csv ist ein reiner Test-/Fallback-Pfad,\n"
+                 "kein Weg, um Mess-Ergebnisse zu erhalten (s. 'help render').\n\n"
                  "Ausgaben: Daten/Emissionen -> stdout; Diagnose/Fehler -> stderr (clig.dev).\n"
                  "Exit-Codes: 0 Erfolg | 1 Usage | 2 Quelle/Gruppierung/Dateiname-Fehler | 3 Fassung3 ohne\n"
                  "Pflichtspalten.\n";
@@ -193,6 +207,11 @@ struct QuellenAufloesung {
         if (f.out.empty()) return fehler_usage("--out=<dir> ist Pflicht");
         if (f.format != "xlsx" && f.format != "csv")
             return fehler_usage("--format muss 'xlsx' oder 'csv' sein, nicht '" + f.format + "'");
+        if (f.format == "csv")
+            std::cerr << "comdare-mess-report: [Hinweis] --format=csv ist ein TEST-/Fallback-Pfad, kein Weg, um "
+                         "reale Mess-Ergebnisse zu erhalten (Owner-Direktive: xlsx ist die Ausgabe, CSV wird nie "
+                         "verwendet). Der Skip-Bestand (SKIP bei exakt gleicher Binary) wird in diesem Pfad "
+                         "weder gelesen noch geschrieben.\n";
 
         QuellenAufloesung const q = loese_quellen(f);
         if (!q.ok) return fehler_usage(q.fehler);
@@ -222,8 +241,23 @@ struct QuellenAufloesung {
             return 0;
         }
 
+        // Vorab-Blick auf den Skip-Bestand fuer eine ehrliche Erfolgsmeldung (dieselbe Filterung wie
+        // fuehre_render_aus() selbst -- keine zweite Wahrheit, nur ein zweiter Lese-Zugriff auf
+        // dasselbe Manifest).
+        mr::GruppierteQuelle const   vorab      = mr::gruppiere_quellen(q.pfade);
+        mr::SkipFilterErgebnis const vorab_skip = mr::filtere_bereits_vorhandene(vorab.gruppen, f.out, fmt);
+
         mr::fuehre_render_aus(q.pfade, std::filesystem::path{f.out}, mr::jetzt_utc(), fmt);
-        std::cout << "comdare-mess-report: geschrieben nach " << f.out << "\n";
+        if (vorab_skip.neu.empty()) {
+            std::cout << "comdare-mess-report: nichts geschrieben -- alle " << vorab_skip.bereits_vorhanden.size()
+                      << " Binary(s) dieser Quelle sind bereits im Manifest (SKIP, exakt gleiche Binary).\n";
+        } else {
+            std::cout << "comdare-mess-report: geschrieben nach " << f.out << " (" << vorab_skip.neu.size()
+                      << " neue Binary(s)";
+            if (!vorab_skip.bereits_vorhanden.empty())
+                std::cout << ", " << vorab_skip.bereits_vorhanden.size() << " uebersprungen (SKIP)";
+            std::cout << ")\n";
+        }
         return 0;
     } catch (mr::MessReportFehler const& e) {
         std::cerr << "[Fehler: " << (ist_plan ? "plan" : "render") << "] " << e.what() << "\n";
