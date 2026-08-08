@@ -1310,16 +1310,30 @@ private:
             s += "             \"$DRIVER\" experiment_config \"" + dll_dir + "\" \\\n";
             // #27: Detail nach <log>; die [heartbeat]-Zeilen (alle K Builds via ProgressHeartbeat every_n) zusaetzlich in den Trace.
             s += "             " + driver_log_redirect("$LOGDIR/perm" + idx + "_bau_${START}.log") + "; then\n";
+            // W0b-3 (2026-08-08): offen= steht ZUSAETZLICH auf der Fehler-Zeile. Vor der else-Bindung unten
+            // trug jedes Fenster sein offen= ueber das unbedingte [TESTAT]; mit der Bindung faellt es fuer
+            // das gescheiterte Fenster ersatzlos weg -- also genau dort, wo "wie viele davon noch offen"
+            // am meisten zaehlt. Beide Zeilen eines Guards tragen deshalb DENSELBEN Feldsatz; der Aggregator
+            // sieht den Fortschritt auf beiden Pfaden. Rein Shell-arithmetisch, damit byte-deterministisch.
             s += "          echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
-                 " phase=bau fenster=${START}:${COUNT}\"; FAIL=1\n";
-            s += "        fi\n";
+                 " phase=bau fenster=${START}:${COUNT} offen=$(( TOTAL - START - COUNT ))\"; FAIL=1\n";
+            // W0b-3 (2026-08-08) -- SCHWESTERSTELLE zu D3-5, derselbe Defekt im Bau-Batch: das [TESTAT] stand
+            // bis hierher HINTER dem fi und wurde damit UNBEDINGT gedruckt, auch fuer das eben gescheiterte
+            // Fenster. Der Guard ist WEICH (FAIL=1 statt Abbruch), die Zeile lief also wirklich; ein
+            // fehlgeschlagenes Fenster trug beide Testate untereinander. Wer die [TESTAT]-Zeilen als
+            // "gebaute Fenster" zaehlt -- der naheliegendste Gebrauch --, zaehlte die gescheiterten mit: der
+            // Nenner war um genau die Fehlerzahl zu gross und schoente sich, je mehr schiefging.
+            // Ab jetzt im else-Zweig: [TESTAT] heisst "dieses Fenster WURDE gebaut", nicht "wir sind hier
+            // vorbeigekommen". Die beiden Testate schliessen einander aus; je Fenster steht genau eins.
+            s += "        else\n";
             // E-04-P1 (Teil 1b): offen= = die nach DIESEM Fenster noch ausstehenden Binaries der Perm
             // (TOTAL - START - COUNT, rein Shell-arithmetisch => byte-deterministisch). Beantwortet den
             // Owner-KERN "wie viele davon noch offen" auf der SHELL-Ebene; die Treiber-Zeile [PLAN-TESTAT]
             // beantwortet dieselbe Frage INNERHALB des Fensters (zu_bauen nach Lager-Filter). Zwei Sichten,
             // eine Frage -- deshalb dasselbe Vokabular.
-            s += "        echo \"[TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+            s += "          echo \"[TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
                  " phase=bau fenster=${START}:${COUNT} offen=$(( TOTAL - START - COUNT ))\"\n";
+            s += "        fi\n";
             s += "        START=$(( START + COUNT ))\n";
             s += "      done\n";
             // S3-PRUEF-Schritt (UNBEDINGT je Perm nach der Fenster-Schleife): COMDARE_PRUEF_ONLY=true faehrt NUR das
@@ -1426,7 +1440,15 @@ private:
         // Exit != 0 den Batch ehrlich ab -- HART in BEIDEN Profilen, auch smoke (§66-N2 "beide hart").
         s += "      echo \"== [PMC-PREFLIGHT] lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
         s += "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n";
-        s += "      ctest --test-dir build -L pmc --output-on-failure\n";
+        // W0b-3 (2026-08-08), per T-6 gefundene Schwesterstelle DERSELBEN Klasse (ein Marker behauptet mehr,
+        // als er weiss): `ctest -L pmc` gibt bei NULL passenden Tests rc=0 aus ("No tests were found!!!", am
+        // Objekt gemessen) -- `set -e` greift also nicht, und die Zeile darunter meldet ungeruehrt pmc=ok.
+        // Ein Preflight, der nichts gefunden hat, ist damit von einem bestandenen nicht zu unterscheiden.
+        // Das ist keine graue Theorie: Commit 7dc372c7 fand am selben Tag Registrierungen, die es lautlos
+        // NICHT in die ctest-Inventur geschafft hatten. Traefe das die beiden pmc-Ziele, liefe eine
+        // mehrtaegige Messung mit kaputtem perf_event_open durch -- genau der Fall, den dieser Preflight
+        // verhindern soll. --no-tests=error macht den Leerlauf zum Fehler (rc=8).
+        s += "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n";
         s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " pmc=ok\"\n";
         // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (BYTE-GLEICH zur Vor-S4-Emission). Einmal je Batch.
         s +=
