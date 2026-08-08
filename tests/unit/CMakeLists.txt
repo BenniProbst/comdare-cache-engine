@@ -5623,3 +5623,30 @@ target_link_libraries(test_a9s3_mess_ebene_blattsorte PRIVATE
     comdare::lager_ablage comdare::vendored_zlib)
 set_tests_properties(test_a9s3_mess_ebene_blattsorte PROPERTIES
     LABELS "a9;xlsx;lager;fassung3;mess_ebene")
+
+# A9-S4: der Konsument (tools/mess_report/). Die drei Header sind self-contained (relative Includes
+# "../../tools/mess_report/..." loesen unabhaengig von den Include-Dirs auf); nur der Render-Test
+# zieht ergebnis_mappe.hpp (lager_ablage) und braucht deshalb denselben Vendor-Link wie oben.
+#
+# K13-Bissprobe (.stale-Wache): "der Koeder muss erst gegen das Werkzeug beissen" -- Test 1 der
+# Datei belegt am nackten String, dass eine Substring-Vereinfachung der Endungs-Pruefung die
+# .stale-Datei faelschlich durchgewunken haette, BEVOR Test 2 dieselbe Datei gegen die reale
+# scanne_realm_root()-Funktion prueft.
+comdare_add_test(test_a9s4_realm_scan_stale
+    SOURCES test_a9s4_realm_scan_stale.cpp)
+set_tests_properties(test_a9s4_realm_scan_stale PROPERTIES
+    LABELS "a9;mess_report;stale;wachen")
+
+comdare_add_test(test_a9s4_dynamic_axis_filter
+    SOURCES test_a9s4_dynamic_axis_filter.cpp)
+set_tests_properties(test_a9s4_dynamic_axis_filter PROPERTIES
+    LABELS "a9;mess_report;cor;dynamik")
+
+comdare_add_test(test_a9s4_mess_report_render
+    SOURCES test_a9s4_mess_report_render.cpp)
+target_include_directories(test_a9s4_mess_report_render PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_a9s4_mess_report_render PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s4_mess_report_render PROPERTIES
+    LABELS "a9;mess_report;render;plan;led61")

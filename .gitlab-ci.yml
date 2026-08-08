@@ -514,6 +514,39 @@ contract:experiment_driver:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# -- Stufe 4g-2: comdare-mess-report Struktur-Rauchtest (A9-S4) --
+# UNBEDINGTER struktureller Job -- kein `changes:`/`rules:`-Gate, kein Env-Var-Gate. Baut das
+# CLI-Target und faehrt --help, version und plan --dry-run (gegen eine synthetische 1-Zeilen-Fixture,
+# kein reales Mess-Archiv) als Rauchtest. Inert gegenueber INHALT (kein Gate auf eine reale
+# Mess-Auswertung -- "CI-Gruen != Auswertung" bleibt bindend, s. contract:experiment_driver-Nachbarn),
+# aber NICHT inert gegenueber EXISTENZ: der Job laeuft auf JEDER Pipeline.
+#
+# BEGRUENDUNG GEGEN DAS URSPRUENGLICHE "rules-gated inert"-DESIGN (A9-Doc :485 woertlich, Lead-Entscheid
+# A9-S4-Plan Punkt 3): ein Job, der ueber ein nie gesetztes Gate drei Wochen lang faktisch nie lief,
+# waehrend die Pipeline gruen blieb, ist DIESELBE Fehlerklasse wie eine Pipeline gruen mit
+# uebersprungenem Job oder eine Wache gruen mit Nenner 0 -- alle drei sind in dieser Woche bereits real
+# aufgetreten (u.a. contract:axis-version-lock: doppelter YAML-Schluessel machte das Gate faktisch
+# tot, s. Kommentar in heuristik/measurement_curve_loader.hpp:7-9). "Inert gegenueber Inhalt, nicht
+# gegenueber Existenz" ist die bindende Unterscheidung. Wer diesen Job spaeter INHALTLICH gaten will
+# (z.B. gegen ein reales Archiv), findet hier den Grund, es NICHT strukturell zu tun.
+contract:mess_report_smoke:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  script:
+    - cmake -B build-messreport -G Ninja -DCOMDARE_BUILD_TESTS=OFF
+    - cmake --build build-messreport --target comdare_mess_report
+    - MR=build-messreport/tools/mess_report/comdare-mess-report
+    - $MR --help
+    - $MR version
+    - mkdir -p "${CI_PROJECT_DIR}/mr_smoke/per_binary"
+    - SMOKE_CSV="${CI_PROJECT_DIR}/mr_smoke/per_binary/smoke_0_deadbeef.result.csv"
+    - printf 'binary_id;workload\nsmoke;a\n' > "$SMOKE_CSV"
+    - $MR plan --realm-root="${CI_PROJECT_DIR}/mr_smoke/per_binary" --out="${CI_PROJECT_DIR}/mr_smoke_out"
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
 # -- Stufe 4f: Contract Node-Shape-Gate (#234-F1..F4, W2) --
 # Die per-Familie Node-Shape-Achsen (btree_order/skip_list_shape/bst_shape/hash_probe_shape): Varianten-Shapes
 # werden als TYPEN direkt instanziiert (flag-unabhaengig — die CMake-Default-OFF-Optionen filtern nur die

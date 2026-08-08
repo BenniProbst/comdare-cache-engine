@@ -130,3 +130,42 @@ Detail-Hilfe: `comdare-experiment-planner help status`.
 - **Windows:** aus Git-Bash die `C:/…`-Schreibweise für Pfad-Argumente verwenden.
 - **Linux:** Standard-POSIX-Pfade; Exe ohne `.exe`-Endung.
 - Cache-Wurzel: Windows `C:\temp\comdare`, Linux `/tmp/comdare/`.
+
+## 8. Mess-Ergebnisse rendern: `comdare-mess-report render|plan|version` (A9-S4)
+
+Der **Konsument** des A9-S3-xlsx-Writers (`libs/cache_engine/builder/lager_ablage/`): liest
+offizielle Mess-CSV(s) und schreibt sie als xlsx- (Default) oder csv-Baum. Eigene Binary
+(`tools/mess_report`, Target `comdare_mess_report`) -- kein internes Bau-Werkzeug, sondern eine
+Nutzer-CLI fuer die Auswertung.
+
+```bash
+cmake --build build --target comdare_mess_report
+build/tools/mess_report/comdare-mess-report plan   --realm-root=<dir> --out=<ziel-dir>
+build/tools/mess_report/comdare-mess-report render --realm-root=<dir> --out=<ziel-dir>
+```
+
+- Quelle: **genau eine** von `--csv=<pfad>` (eine Datei) **oder** `--realm-root=<dir>` (rekursiver,
+  tiefen- und eintrags-begrenzter Scan nach `*.result.csv`). `.stale`-Bestaende werden dabei **weder
+  gelesen noch angefasst** -- sie werden gezaehlt (`stale_uebersprungen=`), nie eingelesen
+  (Messdaten-nie-loeschen-Doktrin).
+- `--out=<dir>` ist Pflicht fuer beide Subkommandos (Ziel-Verzeichnis der Mappe).
+- `--format=xlsx|csv` -- Default `xlsx`, `csv` ist der Fallback derselben Factory.
+- `plan` ist eine **deterministische** Vorschau (schreibt nichts): der Dateiname traegt den fest
+  gepinnten Zeitstempel-Platzhalter `19700101-000000` (dieselbe Epochen-Pin-Doktrin wie die
+  ZIP-Zeitstempel im xlsx-Backend) -- zwei Laeufe ueber dieselben Quellen liefern byte-gleichen Text.
+  `render --dry-run` verhaelt sich gleich, aber mit der echten Wall-Clock-Zeit dieses Aufrufs.
+- Sheet-Gruppierung: **eine Gruppe je `binary_id`** (Pflichtspalte im Quell-Header; fehlt sie, bricht
+  das Kommando ehrlich ab statt zu raten). Bei `--realm-root` entspricht das "eine Datei = eine
+  Gruppe" (jede `per_binary/*.result.csv` traegt bereits nur eine `binary_id`); bei `--csv` gegen eine
+  Aggregat-Datei splittet derselbe Algorithmus sie in dieselben Gruppen.
+- Dateiname (A9-Doc Abschnitt 5): nur **dynamische** Unter-Achsen-Kandidaten (die ueber die Gruppen
+  hinweg mehr als einen Wert tragen) erscheinen im Namen, als `<achse>=sweep`. Konstante/leere
+  Kandidaten landen ausschliesslich als Meta-Eintrag im INFO-Blatt, nie im Dateinamen.
+- `--fassung3`: verlangt die 8 checkpoint_measure-Pflichtspalten (`prozess`/`thread`/`mess_ebene`/
+  `ziel`/`aufrufer`/`checkpoint`/`zeitpunkt`/`messwert`, SOLL-Design ce `cc028e1d`). checkpoint_measure
+  ist noch nicht gebaut -- eine Quelle ohne diese Spalten bricht **laut** ab (Exit 3), es gibt **keinen**
+  stillen Fassung-1/2-Ruckfall und **keine** Platzhalter.
+- Exit-Codes: `0` Erfolg, `1` Usage, `2` Quelle/Gruppierung/Dateiname-Fehler, `3` `--fassung3` ohne
+  Pflichtspalten. Ausgaben: Daten/Emissionen -> stdout, Diagnose/Fehler -> stderr (clig.dev).
+
+Detail-Hilfe: `comdare-mess-report help render` bzw. `help plan`.

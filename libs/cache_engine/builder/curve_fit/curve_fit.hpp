@@ -11,6 +11,7 @@
 // AUFRUFER liefert den realen Spaltennamen; das Mapping Registry-Name -> Bestands-Spalte gehoert
 // in die E4'-Folge-Stufe.
 
+#include <cache_engine/measurement/csv_cell_reader.hpp>
 #include <cache_engine/measurement/measurement_category.hpp>
 
 #include <algorithm>
@@ -439,53 +440,14 @@ spline_intersections(AxisSpline const& a, AxisSpline const& b, std::size_t sampl
 
 namespace detail {
 
-/// Zell-Split mit minimalem RFC-4180-Quoting (Repo-Writer csv_quote quotet unconditional) und
-/// CRLF-Strip — Review wf_c99a2132: Windows-CSVs und gequotete Zellen duerfen weder Spalten
-/// verschieben noch das Header-Matching brechen.
-[[nodiscard]] inline std::vector<std::string> split_csv_line(std::string_view line, char delimiter) {
-    if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
-    std::vector<std::string> cells;
-    std::string              cell;
-    bool                     in_quotes = false;
-    for (std::size_t i = 0; i < line.size(); ++i) {
-        char const c = line[i];
-        if (c == '"') {
-            if (in_quotes && i + 1 < line.size() && line[i + 1] == '"') { // escaped quote
-                cell.push_back('"');
-                ++i;
-            } else {
-                in_quotes = !in_quotes;
-            }
-        } else if (c == delimiter && !in_quotes) {
-            cells.push_back(std::move(cell));
-            cell.clear();
-        } else {
-            cell.push_back(c);
-        }
-    }
-    cells.push_back(std::move(cell));
-    return cells;
-}
-
-/// Streng-numerische Zellen-Parser: ganze Zelle muss konsumiert werden (Review: 'n/a' darf NIE
-/// still zum Phantom-Punkt (0,0) werden).
-[[nodiscard]] inline bool parse_u64_cell(std::string const& cell, std::uint64_t& out) {
-    if (cell.empty()) return false;
-    char*                    end = nullptr;
-    unsigned long long const v   = std::strtoull(cell.c_str(), &end, 10);
-    if (end == nullptr || *end != '\0') return false;
-    out = static_cast<std::uint64_t>(v);
-    return true;
-}
-
-[[nodiscard]] inline bool parse_double_cell(std::string const& cell, double& out) {
-    if (cell.empty()) return false;
-    char*        end = nullptr;
-    double const v   = std::strtod(cell.c_str(), &end);
-    if (end == nullptr || *end != '\0' || !std::isfinite(v)) return false;
-    out = v;
-    return true;
-}
+// Zell-Split + streng-numerische Zellen-Parser: Single-Source in
+// cache_engine/measurement/csv_cell_reader.hpp (Extraktion 2026-08-08, vormals hier und in
+// heuristik/measurement_curve_loader.hpp byte-identisch dupliziert). `using` haelt die
+// Aufrufstellen unten (detail::split_csv_line, detail::parse_u64_cell, detail::parse_double_cell)
+// woertlich unveraendert.
+using ::comdare::cache_engine::measurement::csv::parse_double_cell;
+using ::comdare::cache_engine::measurement::csv::parse_u64_cell;
+using ::comdare::cache_engine::measurement::csv::split_csv_line;
 
 } // namespace detail
 
