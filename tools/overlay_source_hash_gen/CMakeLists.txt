@@ -8,6 +8,38 @@
 # laeuft VOR der Uebersetzung dessen, was er hasht, und darf davon nicht abhaengen. Boost::mp11 kommt
 # ueber experiment_tree/axis_path_serialization.hpp herein (dort wohnt kCompositionAxisNames, die
 # kanonische Organ-Ordnung, gegen die die Schnitt-Wachen pruefen).
+#
+# -- WARUM DIE GEERBTE VERZEICHNIS-KANTE HIER GELOESCHT WIRD (08.08.2026) ------------------------------
+# Der Satz "er darf von nichts abhaengen, was er hasht" stand oben schon als ABSICHT -- durchgesetzt war
+# er nicht. Die Wurzel-CMakeLists.txt legt zwei Verzeichnis-Kanten (CMakeLists.txt, link_libraries(
+# comdare::vendor_mimalloc) und link_libraries(comdare::vendor_snmalloc)), und die vererben sich auf
+# JEDES danach angelegte Ziel -- add_subdirectory(tools) steht spaeter, also auch auf dieses hier.
+# Am Objekt gemessen trug der Codegen damit
+#     LINK_LIBRARIES = comdare::vendor_mimalloc;comdare::vendor_snmalloc;Boost::mp11
+# obwohl seine eigene Zeile unten NUR Boost::mp11 nennt.
+#
+# Die Folge war ein CMake-Zyklus, sobald das Vendor-Provisioning an ist (super-Superbuild immer,
+# ce-standalone mit -DCOMDARE_BUILD_PERMUTATIONS=ON): comdare_vendor_mimalloc ist eine STATIC_LIBRARY,
+# bekommt also von cmake/overlay_source_hash.cmake die Wartekante auf den Codegen -- und der Codegen
+# wartete zugleich auf mimalloc. CMake bricht das mit "strongly connected component (cycle)" ab; latent
+# blieb es nur, weil ein warmes Bau-Verzeichnis nicht neu generiert.
+#
+# GEHEILT WIRD AN DER WURZEL, NICHT AM GRAPHEN: der Codegen wird von der geerbten Kante befreit, statt
+# die Ausnahme in die Kanten-Schleife zu schreiben. Die Loeschung ist MECHANISCH (sie nennt keinen
+# Bibliotheks-Namen) und wirkt nur in diesem Unterverzeichnis, das genau ein Ziel enthaelt. Eine
+# Namensliste waere hier derselbe Fehler, den cmake/overlay_source_hash.cmake ausdruecklich vermeidet:
+# der naechste vendored Baustein fiele wieder herein.
+#
+# Der Codegen VERLIERT dabei nichts, was er braucht: mimalloc ist ein Allokator (er hasht Dateien und
+# alloziert nichts Nennenswertes), snmalloc traegt reine Compile-Belange fuer Ziele, die
+# <snmalloc/snmalloc.h> ueber die Katalog-Kette ziehen -- main.cpp zieht sie nicht (Includes: nur
+# builder/overlay_source_set.hpp, sha512/ctsha512.hpp und Standard-Header). Boost::mp11 setzt die Zeile
+# unten SELBST, ist also von der Loeschung nicht betroffen.
+#
+# Bewacht wird die Zusage in cmake/overlay_source_hash.cmake: dort prueft eine Wache die transitive
+# Abhaengigkeits-Schliessung dieses Ziels und bricht LAUT ab, falls sie je wieder ein bauendes Ziel
+# enthaelt. Diese Zeile und jene Wache gehoeren zusammen.
+set_property(DIRECTORY PROPERTY LINK_LIBRARIES "")
 
 add_executable(comdare_overlay_source_hash_gen main.cpp)
 target_compile_features(comdare_overlay_source_hash_gen PRIVATE cxx_std_23)
