@@ -71,6 +71,17 @@ Das Fenster ist **EIN S12-Fenster ohne stillen Split** (BAUPLAN:26, Review-MAJOR
 
 ### 1.4 ABI-Flaeche (Decl, Modul-Makros, Adapter, Antriebs-Sub-Interfaces)
 
+> **NACHTRAG 08.08.2026 (Paket HY-0):** die beiden ABI-Zeilen dieser Tabelle sind der IST-Stand **VOR**
+> dem E-24-C8-Bump -- also genau der Zustand, den dieses Dossier zu bewegen plante (Abschnitt 2.6/4).
+> Vollzogen wurde er am 04.08.2026 mit ce `4f569051`. Lebend gilt seitdem: **Major 8**, Magic
+> **`.A8.`** = `0x434F4D444141382EULL`, Belege `anatomy_module_abi_v1_decl.hpp:89` und `:93`.
+> Die Zeilen-Anker der Tabelle (`:62`, `:66`, `:59`, `:264`, `:270-283`) sind gegen SHA `6b8eee0f`
+> verifizierte Historie und im heutigen Header GEWANDERT -- sie werden deshalb gekennzeichnet und
+> nicht stillschweigend korrigiert. Erzwungen wird der Nachzug in der Hybrid-Doku von
+> `scripts/ci_hy_label_gate.sh`; DIESES Dossier steht ausdruecklich NICHT unter jener Wache
+> (Begruendung: es ist ein datierter Planungs-Schnappschuss, dessen Zahlen als Vorher-Stand richtig
+> sind -- eine Wache darueber waere eine Dauerklage ueber korrekte Historie).
+
 | Anker | Datei:Zeile (ce) | Inhalt |
 |---|---|---|
 | ABI-Major/Minor | `libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp:62-63` | `COMDARE_ANATOMY_ABI_MAJOR 7` / `MINOR 0` |
