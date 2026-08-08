@@ -171,8 +171,7 @@ inline constexpr std::string_view kMessGatesSegmente[kMessGatesFeldCount][2] = {
 /// 2^6 baubaren Formen dagegen, damit die Zahl nicht bloss behauptet ist.
 inline constexpr std::size_t kMessGatesGliedMaxLen = [] {
     std::size_t n = kMessGatesGliedPraefix.size() + (kMessGatesFeldCount - 1); // Praefix + Trenner
-    for (auto const& feld : kMessGatesSegmente)
-        n += feld[0].size() > feld[1].size() ? feld[0].size() : feld[1].size();
+    for (auto const& feld : kMessGatesSegmente) n += feld[0].size() > feld[1].size() ? feld[0].size() : feld[1].size();
     return n;
 }();
 
@@ -181,7 +180,7 @@ inline constexpr std::size_t kMessGatesGliedMaxLen = [] {
 /// compile-harten Wachen; str() ist der Uebergang auf die Laufzeit-Seite und die einzige Stelle, die
 /// ueberhaupt einen Heap anfasst -- und sie tut es erst NACH der Uebersetzung.
 class MessGatesGliedText {
-  public:
+public:
     /// anhaengen(...) -- der Wachstumsschritt. Ein Ueberlauf ist durch kMessGatesGliedMaxLen
     /// konstruktiv ausgeschlossen; .at() haelt das trotzdem fest, statt still ueber den Rand zu
     /// schreiben: in einer constant expression bricht es compile-hart, zur Laufzeit wirft es.
@@ -195,10 +194,8 @@ class MessGatesGliedText {
     }
     constexpr void anhaengen(char c) { puffer_.at(laenge_++) = c; }
 
-    [[nodiscard]] constexpr std::string_view sv() const noexcept {
-        return std::string_view{puffer_.data(), laenge_};
-    }
-    [[nodiscard]] constexpr std::size_t size() const noexcept { return laenge_; }
+    [[nodiscard]] constexpr std::string_view sv() const noexcept { return std::string_view{puffer_.data(), laenge_}; }
+    [[nodiscard]] constexpr std::size_t      size() const noexcept { return laenge_; }
 
     /// str() -- der Ausgang zur Laufzeit. Bewusst NICHT constexpr: wer den Wert in einer constant
     /// expression braucht, will sv(); wer einen std::string braucht, ist per Definition zur Laufzeit.
@@ -206,9 +203,9 @@ class MessGatesGliedText {
     /// einem `auto` landet und auf das gerade zerstoerte Temporary zeigt.
     [[nodiscard]] std::string str() const { return std::string{sv()}; }
 
-  private:
+private:
     std::array<char, kMessGatesGliedMaxLen> puffer_{};
-    std::size_t                            laenge_ = 0;
+    std::size_t                             laenge_ = 0;
 };
 
 /// mess_gates_feld(glied, index) -- das index-te ';'-getrennte Feld NACH dem "mg="-Praefix.
@@ -239,9 +236,8 @@ class MessGatesGliedText {
 /// Rueckgabetyp ist MessGatesGliedText und NICHT std::string -- s. den Absatz "WARUM DIE BILDUNG
 /// KEINEN std::string BENUTZT" im Kopf. Die Laufzeit-Seiten holen sich ihren std::string mit .str().
 [[nodiscard]] constexpr MessGatesGliedText mess_gates_glied_komponieren(bool measurement_on, bool statistics_on,
-                                                                        bool experiment_mode_on,
-                                                                        bool tooling_wallclock, bool tooling_macro,
-                                                                        bool tooling_micro) {
+                                                                        bool experiment_mode_on, bool tooling_wallclock,
+                                                                        bool tooling_macro, bool tooling_micro) {
     // Die Zuordnung Argument -> Feld laeuft ueber die BENANNTEN Positionen, nicht ueber die
     // Reihenfolge der Argumente: eine Umsortierung der Felder muss die Bildung mitnehmen, und die
     // Wache am Dateiende faengt es, falls jemand nur die Segment-Tabelle umstellt.
