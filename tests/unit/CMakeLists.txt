@@ -5609,3 +5609,17 @@ target_link_libraries(test_a9s3_xlsx_ergebnis_writer PRIVATE
     comdare::lager_ablage comdare::vendored_zlib)
 set_tests_properties(test_a9s3_xlsx_ergebnis_writer PROPERTIES
     LABELS "a9;xlsx;lager;writer_kern")
+
+# A9-S3 Fassung 3 (Owner-Entscheid 08.08. + Nachtrag): compare/Macro/Micro-Blattsorte, interne
+# Hyperlinks, IN/OUT-Checkpoint-Zeilen. Braucht denselben Vendor-Link wie test_a9s3_xlsx_ergebnis_writer
+# (eigener ZIP-Leser fuer den Hyperlink-Rueck-Lese-Beleg).
+comdare_add_test(test_a9s3_mess_ebene_blattsorte
+    SOURCES test_a9s3_mess_ebene_blattsorte.cpp)
+target_include_directories(test_a9s3_mess_ebene_blattsorte PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/ext/io/zlib")
+target_link_libraries(test_a9s3_mess_ebene_blattsorte PRIVATE
+    comdare::lager_ablage comdare::vendored_zlib)
+set_tests_properties(test_a9s3_mess_ebene_blattsorte PROPERTIES
+    LABELS "a9;xlsx;lager;fassung3;mess_ebene")

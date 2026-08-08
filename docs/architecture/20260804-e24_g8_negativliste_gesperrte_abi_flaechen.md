@@ -232,6 +232,24 @@ Es besteht KEIN Handlungsbedarf im Fenster. Der offene Punkt 4 des Gattungs-Disk
 
 ## 6. Abschluss-Aufraeumpass -- Kandidaten aus diesem Fenster
 
+> **ZEIGER (08.08.2026): die geltende, zusammengefuehrte Kandidatenliste steht im super-Repo unter
+> `docs/plaene/20260808-KANDIDATENLISTE-75-abschluss-aufraeumpass.md`.** Dieser Abschnitt bleibt als
+> Fenster-Beleg stehen, ist aber nicht mehr die Arbeitsgrundlage.
+>
+> **Zwei Richtigstellungen aus dem Zusammenfuehren:**
+> 1. Der Satz unten *"Fortschreibung der Liste im E24-Dossier (die Nummern 33/34 stammen von dort)"*
+>    trifft nicht zu: `docs/architecture/20260803-e24_container_gattungs_abi_dossier.md` enthaelt
+>    **keine** nummerierte Kandidatenliste (nachgeprueft mit `/usr/bin/grep -nE '^\s*[0-9]+\.\s'` und
+>    `-nE '^\| *[0-9]+ *\|'`; es referenziert die Liste nur bei `:132` und `:296`). Die Nummern
+>    `33`-`38` stammen aus dem **super-Ledger** (`:3825` und `:3861`) und sind hier eine **Doppel-
+>    fuehrung** derselben Posten, keine eigene Zaehlung.
+> 2. Ist-Stand der sechs Posten am 08.08. (ce `4487a9c1`): `33` OFFEN (Doppel-Schicht am Objekt
+>    belegt, `set_dock.hpp:55` + `:100`) | `34` **UNBELEGT** (Fundstelle nicht auffindbar) | `35`
+>    **ERLEDIGT durch Design-Entscheid** (`pruef_dock_version.hpp:32/:66-74` erklaert das virtuelle
+>    `dock_version()` ausdruecklich fuer unerwuenscht und stellt `pruef_dock_version_for(genus)` als
+>    Ersatz) | `36` OFFEN, Umfang auf **54** Prosa-Treffer gewachsen (nicht 29) | `37` OFFEN,
+>    **Dublette von Ledger-Posten (32)** | `38` gilt weiter: die `perm_*`-Module NICHT reparieren.
+
 Fortschreibung der Liste im E24-Dossier (die Nummern 33/34 stammen von dort):
 
 | # | Kandidat |
