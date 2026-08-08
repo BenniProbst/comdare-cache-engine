@@ -30,6 +30,97 @@ super = `/home/comdare/Projekte/Research/probst-diplomarbeit-cache-engine`. Anke
 
 ---
 
+## NACHTRAG 08.08.2026 — DIE BLATTFORM IST ENTSCHIEDEN (Owner)
+
+**Dieses Dossier vom 03.08. liess die Blattform offen; es beschrieb Vendoring, API, Dateinamen und
+Ablage.** Am 08.08. hat der Owner die Blattform entschieden und noch am selben Tag praezisiert. Der
+Nachtrag steht hier, weil dieses Dokument die **technische Quelle im CE-Scope** ist — der Bau findet
+den Entscheid sonst nicht. **Primaerquelle und Verbatim:** `super
+docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md`, Abschnitte *OWNER-ENTSCHEID: DIE BLATTFORM*
+(super `3326ac7a`) und *OWNER-NACHTRAG … Prozess UND Thread* (super `f94345c8`, Punkte N-1..N-7).
+
+### Die Blaetter
+
+| Ebene | Sheets | Zeilen | Spalten |
+|---|---|---|---|
+| compare | 1 je Last-Messungs-Rekombination | Funktionsaufrufe | Verweis + akkumulierter Wert |
+| Macro | **1 je FUNKTION** | Aufruf-Zeitpunkte | Aufrufer · Zeitpunkt · Messwerte |
+| Micro | **1 je ACHSE** | Achsen-Aufrufe | Aufrufer · Zeitpunkt · Messwerte |
+
+**Blattzahl = `1 + |Funktionen| + |Achsen|` — fest.** Sie waechst **nicht** mit der Lauflaenge und
+nicht mit der Nebenlaeufigkeit. Das war der Grund des Entscheids: ein Blatt je Mess-Bereich je Ebene
+waeren zu viele. Stattdessen werden **die Aufrufe zu Zeilen** und sequentiell in das Blatt ihrer Achse
+bzw. ihrer Funktion geschrieben. Verbunden ueber **interne Hyperlinks** zum Hinabsteigen
+(compare -> Funktion -> Achse).
+
+**CSV bleibt flach** — eine Datei je Blatt, **Ebene anfuehrend** und **Zeitraum parsebar** im Namen.
+`CSV xor xlsx` bleibt Strategy Pattern (Abschnitt 4 unten unveraendert gueltig).
+
+**Fuer den Writer heisst das: eine zweite Blattsorte in derselben Mappe** — gleiche Factory, gleiche
+31-Zeichen-Wache, gleiches INFO-Sheet. **Kein zweiter Writer.**
+
+### Der Aufrufer ist ein Paar, kein Name
+
+> *„Der Aufrufer ist also nicht uniform, sondern ein Prozess UND einer von dessen Threads."*
+
+| Spalte | Inhalt |
+|---|---|
+| **Prozess** | der Prozess, unter dem der Thread laeuft |
+| **Thread** | die Thread-Kennung — Filterschluessel fuer die Zerlegung |
+| **Aufrufer** | die Stack-Kante: aus welcher Mess-Ebene der Besuch kam |
+| **Checkpoint** | `IN` (Interface-enter) oder `OUT` (return) |
+| **Zeitpunkt** | ueber Threads hinweg vergleichbare Zeitbasis |
+
+Der Thread ist **systemisch ein Visitor** ueber alle Mess-Ebenen unter einem Prozess und bewegt sich
+**immer von einer hoeheren Mess-Stufe in eine tiefere und auf dem Stack sauber zurueck**. Das ist
+GoF-Visitor und fuegt sich in die Doktrin *nur Lehrbuch-Entwurfsmuster*.
+
+### Je Aufruf ZWEI Zeilen — und warum das keine Notationsfrage ist
+
+`IN` und `OUT` werden **einzeln** erfasst, die Paarung erst beim Lesen gebildet. Das folgt zwingend aus
+der Invariante: **eine Zeile je *abgeschlossenem* Aufruf wuerde einen Aufruf, der nie zurueckkehrt,
+ueberhaupt keine Zeile schreiben lassen** — und genau der ist der Fall, der erkannt werden soll:
+
+> *„Wenn ein Thread ein Interface betritt, aber es nicht wieder verlaesst, ist das eine Regression."*
+
+Je `(Prozess, Thread, Interface)` muss die Checkpoint-Folge **balanciert** sein. Ein Ueberhang an `IN`
+am Ende eines Laufs ist **kein fehlender Messwert, sondern ein Befund**.
+
+### Mehrere Threads schreiben eingedampft, werden aber je Thread zerlegt
+
+Die Zeilenfolge im Blatt ist die **Ankunftsfolge**, nicht die Folge eines Threads. Damit die Zerlegung
+beim Lesen moeglich bleibt, muessen **Thread-Kennung und Zeitpunkt in jeder Zeile** stehen — kein
+Weglassen „weil es sich aus der vorigen Zeile ergibt"; bei Nebenlaeufigkeit ergibt es sich nicht.
+
+### Wo compare liegt — die Aufrufer-Kette ist geschlossen
+
+Die **compare-Ebene liegt IN DER CEB, noch vor dem Pruefdock**. Die CEB fuehrt die Last-Sequenz durch;
+innerhalb der Sequenz ist **die CEB — genauer einer ihrer Threads — am Pruefdock der Aufrufende einer
+Tier-Binary-Interface-Funktion**:
+
+```
+CEB-Thread (compare, in der CEB, vor dem Pruefdock)
+   ruft am Pruefdock -> Interface-Funktion der Tier-Binary   (macro)
+                          ruft -> Achsen-Aufrufe             (micro)
+```
+
+Die Spalte *Aufrufer* eines **Macro**-Blatts nennt also einen **CEB-Thread**; die eines **Micro**-Blatts
+die **Interface-Funktion samt Thread**, aus der der Achsen-Aufruf kam.
+
+### Die Falle beim Macro-Wert
+
+Die **Gattungs-Interface-Ebene verbindet** die Achsen-Aufrufe, **ueberwacht sie aber nicht**. Ihr Anteil
+ist *Macro-Gesamt minus Summe der Micros* und muss **separat gemessen** werden. **Wer Macro aus den
+Micros errechnet, verliert genau diesen Anteil und schreibt ihn faelschlich den Achsen zu.**
+
+### Offen (Bau-Detail, kein Owner-Entscheid)
+
+Die **Zeitbasis**: fuer die Zerlegung je Thread genuegt ein monotoner Zaehler je Prozess; fuer das
+Erkennen echter **Gleichzeitigkeit** ueber Threads hinweg genuegt er **nicht**. Wird beim Bau
+entschieden und hier nachgetragen.
+
+---
+
 ## 0. GATE-EINORDNUNG — BENANNTE ABWEICHUNG (Review-Befund befunde[6], KORRIGIERT)
 
 **Befund der Review (VERDIKT NACHBESSERN, genau EIN benannter Punkt):** Die Erstfassung stufte A9
