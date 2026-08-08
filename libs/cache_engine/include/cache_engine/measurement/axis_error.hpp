@@ -304,6 +304,36 @@ inline constexpr std::size_t kDockErrorClassCount = 7;
 /// Der Parameter bleibt bewusst stehen: sollte je eine Klasse anders abbilden, ist DIES die eine Stelle.
 [[nodiscard]] constexpr SampleStatus dock_error_sample_status(DockErrorClass) noexcept { return SampleStatus::Failed; }
 
+// -- A9-S3: LAGER-ABLAGE-SCHREIBFEHLER (INC-29.2-Drift-Guard-Muster, eigene Domaene) ------------------
+// A9-Design-Dossier Abschnitt 4.2 Punkt 4 woertlich: "ErgebnisSchreibFehler (zeilenlimit/namenslimit/
+// zip_fehler) wird in DIESE Framework-Welt eingeordnet (eigene Domaene der Lager-/Ablage-Strecke,
+// disjunkt zu D1/InfraErrorClass nach dem INC-29.2-Drift-Guard-Muster), NICHT als Insel-Enum erfunden."
+//
+// WARUM EINE EIGENE DOMAENE (W-4-Doktrin, wie InfraErrorClass/HardwareProbeErrorClass/DockErrorClass):
+// ein Schreibfehler der xlsx-/csv-Ablage entsteht NACH der Messung, beim Persistieren der fertigen
+// Zeilen -- er ist weder ein Bau-Urteil (D1), noch ein Mess-Ergebnis (D2), noch ein Erhebungs-
+// Zugriffsproblem (HardwareProbe), noch ein Prozess-/IO-Fehler des Bau-Kanals (Infra, dort geht es um
+// den Compiler-Subprozess). Eine Zelle "1.048.576 Zeilen erreicht" mit einer beliebigen Sammel-Klasse
+// zu etikettieren wuerde denselben Fehler wiederholen, den RF-2/RF-3/FK-1/FK-7 bereits vermieden haben.
+enum class LagerAblageFehlerKlasse : std::uint8_t {
+    Zeilenlimit = 0, // xlsx-Zeilenlimit (1.048.576 Zeilen je Sheet) erreicht -- honest-Fehler statt Truncate
+    Namenslimit = 1, // Datei-/Sheet-Name ueberschreitet die Wache (200 Byte bzw. 31 Zeichen/Zeichenklasse)
+    ZipFehler   = 2, // ZIP-/OOXML-Schreibfehler des Vendors (workbook_close != LXW_NO_ERROR) oder finales rename
+};
+/// Single-Source der Lager-Ablage-Klassenzahl (Drift-Guards unten, beide Richtungen).
+inline constexpr std::size_t kLagerAblageFehlerKlasseCount = 3;
+
+/// Log-/Zell-Etikett je Lager-Ablage-Fehlerklasse (stabil; darf in ErgebnisSchreibFehler::what() und in
+/// Logs zitiert werden). Der Fallback traegt ein eigenes Wort -- "unbekannt" ist bereits mehrfach vergeben.
+[[nodiscard]] constexpr std::string_view lager_ablage_fehler_label(LagerAblageFehlerKlasse c) noexcept {
+    switch (c) {
+        case LagerAblageFehlerKlasse::Zeilenlimit: return "lager_ablage_zeilenlimit";
+        case LagerAblageFehlerKlasse::Namenslimit: return "lager_ablage_namenslimit";
+        case LagerAblageFehlerKlasse::ZipFehler: return "lager_ablage_zip_fehler";
+    }
+    return "lager_ablage_fehler_unbekannt";
+}
+
 /// Ist ein Etikett gegen ALLE bestehenden Zell-/Fehler-Vokabeln disjunkt? Die Schleifen laufen ueber die
 /// Count-Single-Sources statt ueber handgepflegte Listen: waechst eine fremde Taxonomie, waechst diese
 /// Pruefung automatisch mit. Eine Liste haette genau beim naechsten Zuwachs geschwiegen -- dieselbe
@@ -329,6 +359,10 @@ inline constexpr std::size_t kDockErrorClassCount = 7;
     // sie reisen in DIESELBEN Experiment-Logs, und ein Log-Grep darf keine fremde Domaene mittreffen.
     for (std::size_t i = 0; i < kDockErrorClassCount; ++i)
         if (t == dock_error_label(static_cast<DockErrorClass>(i))) return false;
+    // A9-S3: die Lager-Ablage-Etiketten laufen aus demselben Grund mit -- sie reisen in denselben Logs
+    // und in ErgebnisSchreibFehler::what(), und ein Log-Grep darf keine fremde Domaene mittreffen.
+    for (std::size_t i = 0; i < kLagerAblageFehlerKlasseCount; ++i)
+        if (t == lager_ablage_fehler_label(static_cast<LagerAblageFehlerKlasse>(i))) return false;
     return true;
 }
 
@@ -340,6 +374,7 @@ enum class ErrorDomain : std::uint8_t {
     CompilerCompiler = 1, // D1: HW-/Compile-Fehlen — Log, Experiment misst weiter
     Sample           = 2, // D2: Mess-Zell-Status (Ok/n-a/failed)
     HardwareProbe    = 3, // Task #7: ZUGANG zur Hardware-Quelle, kein Urteil ueber die Hardware selbst
+    LagerAblage      = 4, // A9-S3: Schreibfehler der xlsx-/csv-Ablage, NACH der Messung, beim Persistieren
 };
 [[nodiscard]] constexpr ErrorDomain error_domain(InfraErrorClass) noexcept { return ErrorDomain::Infra; }
 [[nodiscard]] constexpr ErrorDomain error_domain(HardwareProbeErrorClass) noexcept {
@@ -353,6 +388,9 @@ enum class ErrorDomain : std::uint8_t {
 /// ausdruecklich KEINE eigene ErrorDomain. Die Domaenen-Liste bleibt damit unveraendert (kein Enum-Zuwachs
 /// an ErrorDomain), waehrend die Dock-KLASSE die Log-Aufloesung liefert, die SampleStatus allein nicht hat.
 [[nodiscard]] constexpr ErrorDomain error_domain(DockErrorClass) noexcept { return ErrorDomain::Sample; }
+/// A9-S3: die Lager-Ablage-Schreibfehler sind eine eigene Domaene (s. Kopf des Enums) -- weder Bau-
+/// Urteil noch Mess-Ergebnis noch Erhebungs-Zugriffsproblem noch Bau-Prozess-/IO-Fehler.
+[[nodiscard]] constexpr ErrorDomain error_domain(LagerAblageFehlerKlasse) noexcept { return ErrorDomain::LagerAblage; }
 
 /// Bau-Fehler-Traeger: EIN Wert, der ENTWEDER ein Infra- ODER ein Compiler-Compiler-Fehler ist (nie beides,
 /// nie fehletikettiert). std::variant = typisierte Summe (Expected/Result-Naht an BuildResult.outcome).
@@ -675,5 +713,48 @@ static_assert(!probe_label_ist_disjunkt(dock_error_label(DockErrorClass::Unbekan
 // deshalb hier positiv geprueft statt ueber die Gegenprobe).
 static_assert(probe_label_ist_disjunkt(dock_error_label(static_cast<DockErrorClass>(kDockErrorClassCount))),
               "Auch der Dock-Fallback muss disjunkt sein -- 'unbekannt' ist bereits doppelt vergeben.");
+
+// -- A9-S3: die Lager-Ablage-Taxonomie -- POD-Form, BEIDE Drift-Richtungen, volle Disjunktheit -------
+static_assert(std::is_same_v<std::underlying_type_t<LagerAblageFehlerKlasse>, std::uint8_t>);
+static_assert(std::is_trivially_copyable_v<LagerAblageFehlerKlasse>);
+// (1) Namens-Pin und (2) Etikett-hinter-Count -- beide, weil (1) allein ein ANHAENGEN nicht faengt (RF-3).
+static_assert(kLagerAblageFehlerKlasseCount == static_cast<std::size_t>(LagerAblageFehlerKlasse::ZipFehler) + 1);
+static_assert(lager_ablage_fehler_label(static_cast<LagerAblageFehlerKlasse>(kLagerAblageFehlerKlasseCount)) ==
+                  std::string_view{"lager_ablage_fehler_unbekannt"},
+              "Drift: hinter dem Count liegt eine etikettierte Lager-Ablage-Fehlerklasse");
+// Die Domaenen-Zuordnung ist zementiert: ein Ablage-Schreibfehler ist NIE ein Bau-Urteil, NIE ein
+// Mess-Ergebnis, NIE ein Erhebungs-Zugriffsproblem und NIE ein Bau-Prozess-/IO-Fehler. Wer das aufweicht,
+// meldet ein volles Sheet als Mess- oder Bau-Defekt.
+static_assert(error_domain(LagerAblageFehlerKlasse::Zeilenlimit) == ErrorDomain::LagerAblage &&
+              error_domain(LagerAblageFehlerKlasse::Namenslimit) == ErrorDomain::LagerAblage &&
+              error_domain(LagerAblageFehlerKlasse::ZipFehler) == ErrorDomain::LagerAblage);
+static_assert(error_domain(LagerAblageFehlerKlasse::Zeilenlimit) != error_domain(InfraErrorClass::ArtefaktIo));
+static_assert(error_domain(LagerAblageFehlerKlasse::Zeilenlimit) !=
+              error_domain(CompilerCompilerErrorClass::CompileKombination));
+static_assert(error_domain(LagerAblageFehlerKlasse::Zeilenlimit) != error_domain(HardwareProbeErrorClass::QuelleFehlt));
+static_assert(error_domain(LagerAblageFehlerKlasse::Zeilenlimit) != error_domain(DockErrorClass::FremdeGattung));
+static_assert(error_domain(LagerAblageFehlerKlasse::Zeilenlimit) != error_domain(SampleStatus::Failed));
+// Die drei Klassen muessen paarweise unterscheidbar bleiben -- sonst koennte ein Aufrufer "Zeilenlimit"
+// nicht mehr von "Namenslimit" unterscheiden, obwohl beide honest-Fehler statt stillem Truncate sind.
+static_assert(lager_ablage_fehler_label(LagerAblageFehlerKlasse::Zeilenlimit) !=
+              lager_ablage_fehler_label(LagerAblageFehlerKlasse::Namenslimit));
+static_assert(lager_ablage_fehler_label(LagerAblageFehlerKlasse::Namenslimit) !=
+              lager_ablage_fehler_label(LagerAblageFehlerKlasse::ZipFehler));
+static_assert(lager_ablage_fehler_label(LagerAblageFehlerKlasse::Zeilenlimit) !=
+              lager_ablage_fehler_label(LagerAblageFehlerKlasse::ZipFehler));
+// Token-Disjunktheit: die Lager-Ablage-Schleife steht SELBST in probe_label_ist_disjunkt (damit
+// KUENFTIGE Domaenen auch gegen sie pruefen) -- eine eigene Klasse ist deshalb NIE disjunkt gegen
+// SICH SELBST, exakt das InfraErrorClass-/DockErrorClass-Muster oben (nicht das HardwareProbeErrorClass-
+// Muster, das keine eigene Schleife fuehrt). Nur der FALLBACK jenseits des Counts bleibt disjunkt.
+static_assert(!probe_label_ist_disjunkt(lager_ablage_fehler_label(LagerAblageFehlerKlasse::Zeilenlimit)));
+static_assert(!probe_label_ist_disjunkt(lager_ablage_fehler_label(LagerAblageFehlerKlasse::Namenslimit)));
+static_assert(!probe_label_ist_disjunkt(lager_ablage_fehler_label(LagerAblageFehlerKlasse::ZipFehler)));
+static_assert(probe_label_ist_disjunkt(
+                  lager_ablage_fehler_label(static_cast<LagerAblageFehlerKlasse>(kLagerAblageFehlerKlasseCount))),
+              "Auch der Lager-Ablage-Fallback muss disjunkt sein -- 'unbekannt' ist bereits doppelt vergeben.");
+// Gegenprobe der Wache selbst (wie bei den Nachbar-Taxonomien): sie muss ein bekannt KOLLIDIERENDES
+// Etikett auch wirklich ablehnen, sonst waere die Disjunktheits-Aussage oben eine leere Zusicherung.
+static_assert(!probe_label_ist_disjunkt(sample_status_token(SampleStatus::Failed)));
+static_assert(!probe_label_ist_disjunkt(dock_error_label(DockErrorClass::FremdeGattung)));
 
 } // namespace comdare::cache_engine::measurement

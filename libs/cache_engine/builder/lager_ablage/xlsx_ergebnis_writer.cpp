@@ -1,0 +1,204 @@
+// builder/lager_ablage/xlsx_ergebnis_writer.cpp -- A9-S3: das xlsx-Backend, EIGENE TU.
+//
+// GRUND FUER DIE TU-GRENZE (Design-Dossier 4.1): <xlsxwriter.h> darf NICHT in die oeffentliche
+// Schnittstelle (ergebnis_mappe.hpp) lecken -- Nicht-Nutzer der Lager-Ablage-Strecke (golden-/CI-Pfad)
+// duerfen keinen Link-Zwang auf den Vendor bekommen. XlsxErgebnisBlatt/XlsxErgebnisMappe leben deshalb
+// in einem anonymen Namespace dieser Datei; nach aussen sichtbar ist ausschliesslich
+// detail::erzeuge_xlsx_ergebnis_mappe() (in ergebnis_mappe.hpp nur DEKLARIERT).
+//
+// DETERMINISMUS: der Vendor-Bau (ext/io/libxlsxwriter/CMakeLists.txt) setzt USE_DTOA_LIBRARY (Milo-Yip-
+// dtoa, MIT, locale-unabhaengig) -- worksheet_write_number() rendert double-Werte deshalb byte-
+// deterministisch. Diese TU traegt dazu bei, INDEM Zahlen als echte Zahlenzellen geschrieben werden
+// (nicht als Text): ein Feld wird numerisch geschrieben, wenn std::from_chars die GESAMTE Zeichenkette
+// verbraucht (kein Suffix uebrig) -- sonst als Text. Die honest-Zell-Token (failed/gesperrt/
+// nicht_gebaut/n/a/-) parsen NIE als Zahl und landen deshalb automatisch im Text-Zweig: KEINE
+// Sonderbehandlung noetig, Token-Treue folgt aus der Parse-Eigenschaft selbst.
+//
+// ATOMARITAET (IErgebnisMappe::schliessen()): die Mappe wird unter einem ".xlsx.tmp"-Pfad angelegt
+// (workbook_new() im Konstruktor -- die Bibliothek schreibt ohnehin erst bei workbook_close()
+// tatsaechlich Daten), und erst nach erfolgreichem workbook_close() auf den finalen Namen umbenannt.
+// Ein Leser sieht NIE eine unfertige Datei unter dem finalen Namen.
+
+#include "ergebnis_mappe.hpp"
+
+#include <xlsxwriter.h>
+
+#include <charconv>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <span>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+namespace comdare::cache_engine::builder::lager_ablage {
+
+namespace {
+
+/// Ist `feld` als Ganzes eine endliche Dezimalzahl? std::from_chars ist locale-unabhaengig (anders als
+/// strtod) -- dieselbe Determinismus-Ueberlegung, die den Vendor-Bau zu USE_DTOA_LIBRARY gefuehrt hat.
+[[nodiscard]] bool ist_reine_zahl(std::string const& feld, double& wert) noexcept {
+    if (feld.empty()) return false;
+    auto const [ptr, ec] = std::from_chars(feld.data(), feld.data() + feld.size(), wert);
+    return ec == std::errc{} && ptr == feld.data() + feld.size();
+}
+
+/// EIN xlsx-Sheet. Zeilen sind 0-indiziert (kopf() belegt Zeile 0); die Zeilenlimit-Wache greift VOR
+/// jedem Schreiben -- kein stilles Truncate.
+class XlsxErgebnisBlatt final : public IErgebnisBlatt {
+public:
+    explicit XlsxErgebnisBlatt(lxw_worksheet* blatt) : blatt_(blatt) {}
+
+    void kopf(std::span<std::string const> spalten) override { schreibe_zeile(spalten); }
+    void zeile(std::span<std::string const> felder) override { schreibe_zeile(felder); }
+
+private:
+    void schreibe_zeile(std::span<std::string const> felder) {
+        if (!xlsx_zeile_erlaubt(naechste_zeile_))
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::Zeilenlimit,
+                                        "Zeile " + std::to_string(naechste_zeile_) + " erreicht das xlsx-Limit " +
+                                            std::to_string(kXlsxZeilenlimit));
+        for (std::size_t col = 0; col < felder.size(); ++col) {
+            auto const spalte = static_cast<lxw_col_t>(col);
+            double     zahl   = 0.0;
+            lxw_error  err;
+            if (ist_reine_zahl(felder[col], zahl))
+                err = worksheet_write_number(blatt_, naechste_zeile_, spalte, zahl, nullptr);
+            else
+                err = worksheet_write_string(blatt_, naechste_zeile_, spalte, felder[col].c_str(), nullptr);
+            if (err != LXW_NO_ERROR)
+                throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                            "worksheet_write bei Zeile " + std::to_string(naechste_zeile_) +
+                                                " Spalte " + std::to_string(col) +
+                                                ": lxw_error=" + std::to_string(static_cast<int>(err)));
+        }
+        ++naechste_zeile_;
+    }
+
+    lxw_worksheet* blatt_;
+    std::uint32_t  naechste_zeile_ = 0;
+};
+
+/// EINE xlsx-Datei. Haelt die Sheets in Aufrufreihenfolge (SheetSchluessel -> Index, lineare Suche --
+/// die Sheet-Zahl je Mappe ist klein, eine Hash-Map waere hier ein ungenutzter Mehrwert).
+class XlsxErgebnisMappe final : public IErgebnisMappe {
+public:
+    XlsxErgebnisMappe(std::filesystem::path verzeichnis, std::string dateiname_stamm)
+        : verzeichnis_(std::move(verzeichnis)), stamm_(std::move(dateiname_stamm)),
+          tmp_pfad_(verzeichnis_ / (stamm_ + ".xlsx.tmp")) {
+        mappe_ = workbook_new(tmp_pfad_.string().c_str());
+        if (mappe_ == nullptr)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        tmp_pfad_.string() + ": workbook_new fehlgeschlagen");
+    }
+
+    ~XlsxErgebnisMappe() override {
+        // schliessen() nie aufgerufen: Vendor-Speicher trotzdem freigeben, aber KEINE Datei unter dem
+        // finalen Namen sichtbar machen (Atomaritaets-Vertrag gilt auch beim vorzeitigen Abbruch). Ein
+        // Dtor wirft nicht -- der Rueckgabewert von workbook_close() wird hier bewusst NICHT gemeldet;
+        // der honest-Fehlerpfad ist ausschliesslich schliessen().
+        if (mappe_ != nullptr) {
+            workbook_close(mappe_);
+            std::error_code ec;
+            std::filesystem::remove(tmp_pfad_, ec);
+        }
+    }
+
+    XlsxErgebnisMappe(XlsxErgebnisMappe const&)            = delete;
+    XlsxErgebnisMappe& operator=(XlsxErgebnisMappe const&) = delete;
+
+    void info_blatt(MaschinenSysinfo const& sysinfo, HauptAchsenBelegung const& haupt,
+                    KonstantenMeta const& konstanten) override {
+        sysinfo_    = sysinfo;
+        haupt_      = haupt;
+        konstanten_ = konstanten;
+    }
+
+    IErgebnisBlatt& blatt(SheetSchluessel const& schluessel) override {
+        for (std::size_t i = 0; i < schluessel_.size(); ++i)
+            if (schluessel_[i] == schluessel) return *blaetter_[i];
+
+        std::string const label = sheet_label_fuer_index(schluessel_.size() + 1);
+        lxw_worksheet*    ws    = workbook_add_worksheet(mappe_, label.c_str());
+        if (ws == nullptr)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        label + ": workbook_add_worksheet fehlgeschlagen");
+        schluessel_.push_back(schluessel);
+        labels_.push_back(label);
+        blaetter_.push_back(std::make_unique<XlsxErgebnisBlatt>(ws));
+        return *blaetter_.back();
+    }
+
+    void schliessen() override {
+        // INFO-Sheet ZULETZT anlegen: erst hier sind ALLE bis dahin angelegten Sheets fuer die Legende
+        // bekannt (info_blatt() selbst darf, wie dokumentiert, vor/nach/zwischen blatt()-Aufrufen kommen).
+        lxw_worksheet* info_ws = workbook_add_worksheet(mappe_, std::string{kInfoBlattName}.c_str());
+        if (info_ws == nullptr)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        "INFO: workbook_add_worksheet fehlgeschlagen");
+        XlsxErgebnisBlatt info(info_ws);
+        info.kopf(std::vector<std::string>{"kategorie", "schluessel", "wert"});
+        auto const feld = [](std::string_view s) { return std::string{n_a_wenn_leer(s)}; };
+        info.zeile(std::vector<std::string>{"sysinfo", "hostname", feld(sysinfo_.hostname)});
+        info.zeile(std::vector<std::string>{"sysinfo", "machine_id", feld(sysinfo_.machine_id)});
+        info.zeile(std::vector<std::string>{"sysinfo", "cpu_fabrication", feld(sysinfo_.cpu_fabrication)});
+        info.zeile(std::vector<std::string>{"sysinfo", "ram_pair", feld(sysinfo_.ram_pair)});
+        info.zeile(std::vector<std::string>{"sysinfo", "os_version", feld(sysinfo_.os_version)});
+        info.zeile(std::vector<std::string>{"sysinfo", "kernel", feld(sysinfo_.kernel)});
+        info.zeile(std::vector<std::string>{"sysinfo", "build", feld(sysinfo_.build)});
+        info.zeile(std::vector<std::string>{"sysinfo", "identity_verdict", feld(sysinfo_.identity_verdict)});
+        for (auto const& e : haupt_) info.zeile(std::vector<std::string>{"hauptachse", e.achse, e.wert});
+        for (auto const& e : konstanten_) info.zeile(std::vector<std::string>{"konstante", e.achse, e.wert});
+        for (std::size_t i = 0; i < labels_.size(); ++i)
+            info.zeile(std::vector<std::string>{"sheet_legende", labels_[i],
+                                                schluessel_[i].mess_unter + "|" + schluessel_[i].system_unter + "|" +
+                                                    schluessel_[i].organ_unter});
+
+        lxw_error const err = workbook_close(mappe_);
+        // workbook_close() gibt den Vendor-Speicher IMMER frei (Erfolg wie Fehlschlag, libxlsxwriter-
+        // Kontrakt) -- der Zeiger ist danach in jedem Fall ungueltig und darf im Dtor nicht erneut
+        // geschlossen werden.
+        mappe_ = nullptr;
+        if (err != LXW_NO_ERROR) {
+            std::error_code ec;
+            std::filesystem::remove(tmp_pfad_, ec);
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        tmp_pfad_.string() +
+                                            ": workbook_close lxw_error=" + std::to_string(static_cast<int>(err)));
+        }
+
+        auto const      final_pfad = verzeichnis_ / (stamm_ + ".xlsx");
+        std::error_code ec;
+        std::filesystem::rename(tmp_pfad_, final_pfad, ec);
+        if (ec)
+            throw ErgebnisSchreibFehler(measurement::LagerAblageFehlerKlasse::ZipFehler,
+                                        tmp_pfad_.string() + " -> " + final_pfad.string() + ": " + ec.message());
+    }
+
+private:
+    std::filesystem::path                           verzeichnis_;
+    std::string                                     stamm_;
+    std::filesystem::path                           tmp_pfad_;
+    lxw_workbook*                                   mappe_ = nullptr;
+    MaschinenSysinfo                                sysinfo_{};
+    HauptAchsenBelegung                             haupt_{};
+    KonstantenMeta                                  konstanten_{};
+    std::vector<SheetSchluessel>                    schluessel_;
+    std::vector<std::string>                        labels_;
+    std::vector<std::unique_ptr<XlsxErgebnisBlatt>> blaetter_;
+};
+
+} // namespace
+
+namespace detail {
+
+std::unique_ptr<IErgebnisMappe> erzeuge_xlsx_ergebnis_mappe(std::filesystem::path const& verzeichnis,
+                                                            std::string const&           dateiname_stamm) {
+    return std::make_unique<XlsxErgebnisMappe>(verzeichnis, dateiname_stamm);
+}
+
+} // namespace detail
+
+} // namespace comdare::cache_engine::builder::lager_ablage
