@@ -39,6 +39,15 @@ namespace {
 
 /// Ist `feld` als Ganzes eine endliche Dezimalzahl? std::from_chars ist locale-unabhaengig (anders als
 /// strtod) -- dieselbe Determinismus-Ueberlegung, die den Vendor-Bau zu USE_DTOA_LIBRARY gefuehrt hat.
+///
+/// BEWUSSTE, BENANNTE LUECKE (Owner-Review 08.08.): std::from_chars fuer double erkennt per C++-Norm
+/// auch die woertlichen Tokens "nan"/"inf"/"infinity" (gross-/kleinschreibungs-unabhaengig) und rendert
+/// sie dann als ZAHLENZELLE statt als Text. Die REALEN Zell-Token dieser Strecke ("-", "n/a", "failed",
+/// "gesperrt", "nicht_gebaut") sind davon NICHT betroffen -- keines von ihnen parst als Zahl. Die Luecke
+/// bleibt trotzdem offen: ein KUENFTIGES Feld, das woertlich "nan" oder "inf" traegt (z.B. ein IEEE-754-
+/// Diagnosewert aus einer neuen Mess-Quelle), wuerde hier still zur Zahl. Kein Sonderfall eingebaut,
+/// weil es heute keinen belegten Aufrufer gibt, der das braucht -- wird einer sichtbar, gehoert die
+/// Ausnahme HIERHIN, nicht an den Aufrufer.
 [[nodiscard]] bool ist_reine_zahl(std::string const& feld, double& wert) noexcept {
     if (feld.empty()) return false;
     auto const [ptr, ec] = std::from_chars(feld.data(), feld.data() + feld.size(), wert);
