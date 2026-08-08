@@ -27,6 +27,14 @@
 // xlsx-Pfad gefuehrt: ein --format=csv-Testlauf liest/schreibt das Manifest NICHT (Testlaeufe
 // duerfen den echten Skip-Zustand weder lesen noch veraendern).
 //
+// DIES IST EINE BEWUSSTE, VORLAEUFIGE GRENZE, KEIN BEHELFSWEG (Lead-Review 08.08., bestaetigt):
+// der LagerBaumWriter<MessdatenRealmPolicy> IST der SPAETERE Zielort dieses Werkzeugs, sobald es
+// die volle Mess-/System-/18-Organ-Achsen-Belegung + einen fertigen 128-hex-Fingerprint besitzt
+// (z.B. weil ein vorgelagerter Schritt sie mitliefert, statt dass dieses CLI sie aus der rohen CSV
+// raet). Bis dahin traegt dieses Sidecar-Manifest die Skip-Semantik. Wer dieses Manifest spaeter
+// als "provisorisch, kann weg" liest, ohne den LagerBaumWriter-Weg vorher gebaut zu haben, entfernt
+// die einzige Skip-Wache, die es dann gibt -- ERST der Umzug, DANN das Entfernen.
+//
 // ATOMAR: tmp + rename (Messdaten-nie-loeschen-Doktrin -- ein Absturz mitten im Schreiben darf
 // das Manifest nicht halb-kaputt hinterlassen; bestehende Eintraege werden NIE entfernt, nur
 // ergaenzt).
