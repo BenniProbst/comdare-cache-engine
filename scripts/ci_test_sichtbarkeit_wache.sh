@@ -16,7 +16,17 @@
 #     -> test_commands (20 Faelle) + test_engine_adapters (7 Faelle) = 27
 # `ctest -N` kannte davon 0. Darunter die Welch-t-Test-Faelle, auf denen die
 # Signifikanz-Aussage der Diplomarbeit steht.
-# Nach dem Vorziehen von enable_testing(): 429 -> 456 registrierte Tests.
+# WIRKUNG, je Zustand EINZELN gemessen (08.08.2026) -- "429 -> 456" waere ein Sprung ueber
+# zwei verschiedene Grundgesamtheiten hinweg und damit genau der Fehler, den diese Wache
+# verhindern soll. Sauber getrennt, jede Zahl mit ihrer Bedingung:
+#   429  frischer Configure, enable_testing() noch zu spaet          (Ausgangszustand)
+#   431  frischer Configure, enable_testing() vorgezogen             (+2 Platzhalter, s.u.)
+#   456  danach comdare_tests gebaut                                 (+27, Discovery gelaufen)
+#   460  'all' + Reconfigure -- der CI-Baum von test:coverage-guard   (+4 Codegen-Tests)
+# Die +2 bei 431 sind test_commands_NOT_BUILT / test_engine_adapters_NOT_BUILT: gtest_discover_tests
+# legt fuer ein noch nicht gebautes Ziel einen Platzhalter an, der beim Lauf FEHLSCHLAEGT. Deshalb
+# stehen beide Ziele seit W-1 in COMDARE_TEST_TARGETS -- sichtbar allein genuegt nicht, sie muessen
+# auch gebaut werden.
 #
 # WARUM EINE WACHE UND NICHT NUR DIE HEILUNG:
 # Die Heilung deckt den heutigen Baum. Sie deckt NICHT den naechsten Unterbaum, den
