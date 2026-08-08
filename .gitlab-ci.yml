@@ -380,6 +380,18 @@ test:coverage-guard:
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
     - sh scripts/ci_test_coverage_guard.sh build-covguard
+    # W-1 (2026-08-08): TEST-SICHTBARKEITS-WACHE -- die Stufe VOR der Abdeckungs-Wache.
+    # Die Abdeckungs-Wache oben rechnet die Job-Auswahlen gegen die LIVE-Inventur (ctest -N).
+    # Ihr Nenner ist damit genau so gut wie diese Inventur -- und die war es nicht: 27
+    # gtest-Faelle aus libs/cache_engine/builder/commands/tests standen ueberhaupt nicht drin,
+    # weil enable_testing() in der Wurzel NACH dem add_subdirectory kam. Eine Registrierung,
+    # die es nicht in die Inventur schafft, kann von keiner Wache vermisst werden, die auf
+    # der Inventur aufsetzt. Diese Wache prueft deshalb die STUFE DAVOR: Quelltext gegen
+    # Inventur, Differenz namentlich.
+    # HIER und nicht in einem eigenen Job, weil sie einen konfigurierten Bau-Baum braucht --
+    # build-covguard ist im selben Job schon gebaut. Ein eigener Job haette denselben
+    # Vollbau ein zweites Mal bezahlt.
+    - sh scripts/ci_test_sichtbarkeit_wache.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
 
