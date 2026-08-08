@@ -17,9 +17,9 @@
 // keine Waisen-TU (Auflage 13).
 
 #include "anatomy/view_permutation_engine.hpp"
-#include "anatomy/view_tier.hpp"         // IViewTier + ViewObserverSnapshotV1 (Wire-POD, NUR gelesen)
+#include "anatomy/view_tier.hpp" // IViewTier + ViewObserverSnapshotV1 (Wire-POD, NUR gelesen)
 #include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<View>::slot_count (Gattungs-Pin)
-#include "topics/view/view_policies.hpp" // ECHTE axis_layout-/axis_accessor-Policies
+#include "topics/view/view_policies.hpp"                     // ECHTE axis_layout-/axis_accessor-Policies
 
 #include <src/permutations/permutation_engine.hpp>
 

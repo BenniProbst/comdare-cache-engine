@@ -32,7 +32,7 @@ using type_traits = comdare::container::type_traits<G, GenusBindingTraits<G>>;
 template <cea::AnatomyGenus G>
 concept ContainerType = comdare::container::ContainerType<G, GenusBindingTraits<G>>;
 
-// ── Self-proving (compile-time; kein Raten) ─────────────────────────────────────────────────────
+// -- Self-proving (compile-time; kein Raten) -----------------------------------------------------
 // Die KONKRETEN 4 Container-Typen mit der echten Bau-Bindung. Dies ist der Teil des alten
 // container_framework.hpp-Selbstbeweises, der eine reale Bindung braucht (11/13/9/5 Slot-Pins,
 // Gattungs-Konsistenz) und deshalb seit SF-1 hierher gehoert, nicht mehr auf die anatomy/-Seite.

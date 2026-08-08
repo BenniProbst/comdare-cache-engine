@@ -19,9 +19,9 @@
 
 #include "anatomy/view_anatomy.hpp"
 
-#include "builder/anatomy_commands/view_execution_context.hpp"  // E-24 C3: die Treiber-Flaeche
-#include "builder/experiment_tree/container_type_traits.hpp"    // SF-1: Slot-Pins (Gate-Klasse IV), type_traits<G>
-#include "builder/experiment_tree/genus_binding_traits.hpp"     // autoritative axis_names()
+#include "builder/anatomy_commands/view_execution_context.hpp" // E-24 C3: die Treiber-Flaeche
+#include "builder/experiment_tree/container_type_traits.hpp"   // SF-1: Slot-Pins (Gate-Klasse IV), type_traits<G>
+#include "builder/experiment_tree/genus_binding_traits.hpp"    // autoritative axis_names()
 
 #include <cstddef>
 #include <cstdint>

@@ -19,7 +19,7 @@
 // COMDARE_TEST_TARGETS), also weder Waise noch nur-Quelle-im-Tree.
 
 #include "anatomy/set_permutation_engine.hpp"
-#include "anatomy/set_tier.hpp" // ISetTier + SetObserverSnapshotV1 (Wire-POD, NUR gelesen)
+#include "anatomy/set_tier.hpp"                              // ISetTier + SetObserverSnapshotV1 (Wire-POD, NUR gelesen)
 #include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<Set>::slot_count (Gattungs-Pin)
 
 #include <src/permutations/permutation_engine.hpp>

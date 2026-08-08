@@ -24,7 +24,7 @@
 #include "anatomy/set_default_organ.hpp"
 #include "anatomy/set_tier.hpp"
 #include "builder/experiment_tree/genus_binding_traits.hpp" // SF-1: GenusBindingTraits<G> direkt (statt
-                                                              // transitiv ueber container_framework.hpp)
+                                                            // transitiv ueber container_framework.hpp)
 
 #include <cstddef>
 #include <cstdint>

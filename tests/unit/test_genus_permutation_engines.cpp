@@ -24,8 +24,8 @@
 #include "anatomy/view_permutation_engine.hpp"
 #include "anatomy/adapter_permutation_engine.hpp" // E-24 C2 (OP-3): die vierte Container-Engine
 #include "anatomy/anatomy_base.hpp"
-#include "anatomy/container_framework.hpp"                    // E-24 C2: comdare::container::type_count (Wache)
-#include "builder/experiment_tree/container_type_traits.hpp"  // SF-1: type_traits<G>::slot_count je Genus
+#include "anatomy/container_framework.hpp"                   // E-24 C2: comdare::container::type_count (Wache)
+#include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<G>::slot_count je Genus
 
 #include <src/permutations/permutation_engine.hpp>
 
@@ -37,8 +37,8 @@
 #include <type_traits>
 
 namespace ana = comdare::cache_engine::anatomy;
-namespace cco = comdare::container;                          // E-24 C2: Gattungs-Slot-Pins (Struktur-Wache)
-namespace ex  = comdare::cache_engine::builder::experiment;   // SF-1: liefert type_traits<G>
+namespace cco = comdare::container;                         // E-24 C2: Gattungs-Slot-Pins (Struktur-Wache)
+namespace ex  = comdare::cache_engine::builder::experiment; // SF-1: liefert type_traits<G>
 namespace pe  = comdare::cache_engine::permutations;
 namespace mp  = boost::mp11;
 

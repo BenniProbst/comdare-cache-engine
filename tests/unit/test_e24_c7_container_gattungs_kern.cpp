@@ -20,10 +20,10 @@
 //
 // Bau: plain int main() (kein gtest), Boost::mp11 + generated-Achsen-Includes.
 
-#include "anatomy/set_default_organ.hpp" // SortedArrayKeySet (der Set-Kern; die Anatomien kommen
-                                         // ueber GenusBindingTraits, s. u.)
+#include "anatomy/set_default_organ.hpp"                     // SortedArrayKeySet (der Set-Kern; die Anatomien kommen
+                                                             // ueber GenusBindingTraits, s. u.)
 #include "builder/experiment_tree/container_type_traits.hpp" // SF-1: ContainerType<G>/type_traits<G>
-                                                              // + comdare::container::ContainerGattungsKern & co.
+                                                             // + comdare::container::ContainerGattungsKern & co.
 
 #include <cstddef>
 #include <cstdint>

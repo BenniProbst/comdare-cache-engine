@@ -119,9 +119,7 @@ struct type_traits {
     using AnatomyFor = typename Binding::template AnatomyFor<Comp>;
 
     /// Der bisherige Achsen-Satz dieses Typs (exakt beibehalten).
-    [[nodiscard]] static constexpr auto const& axis_names() noexcept {
-        return Binding::axis_names();
-    }
+    [[nodiscard]] static constexpr auto const& axis_names() noexcept { return Binding::axis_names(); }
 
     /// E-24 C7-3 -- DER GATTUNGS-TYP-VERTRAG (C7-Auflage C7-3).
     /// ElementTypeFor<Comp> == der Element-Typ, den die Anatomie dieses Container-Typs fuehrt.
@@ -175,24 +173,23 @@ struct MockGenusBinding {
 };
 } // namespace container_framework_self_proof_detail
 
-static_assert(GenusBuildBinding<cea::AnatomyGenus::Adapter,
-                                 container_framework_self_proof_detail::MockGenusBinding>);
+static_assert(GenusBuildBinding<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>);
 // Genus-Mismatch (Set statt Adapter) MUSS die Bindung ablehnen -- das ist der Schutz, den frueher die
 // globale Spezialisierung GenusBindingTraits<G> implizit gab (G waehlte die Spezialisierung selbst).
 static_assert(!GenusBuildBinding<cea::AnatomyGenus::Set, container_framework_self_proof_detail::MockGenusBinding>,
               "SF-1: eine Bindung fuer Adapter darf nicht als Bindung fuer Set durchgehen");
 static_assert(ContainerType<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>);
 static_assert(
-    type_traits<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>::slot_count ==
-    3);
-static_assert(type_traits<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>::
-                  gattung == cea::AnatomyGattung::Container);
+    type_traits<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>::slot_count == 3);
+static_assert(
+    type_traits<cea::AnatomyGenus::Adapter, container_framework_self_proof_detail::MockGenusBinding>::gattung ==
+    cea::AnatomyGattung::Container);
 // SearchAlgorithm ist auch mit einer (falsch typisierten) Adapter-Mock-Bindung kein Container-Typ --
 // die Gattungs-Pruefung (1) greift schon vor der Bindungs-Pruefung (2).
-static_assert(!ContainerType<cea::AnatomyGenus::SearchAlgorithm,
-                              container_framework_self_proof_detail::MockGenusBinding>,
-              "E-24 C7-2: SearchAlgorithm ist ein GENUS der Gattung Map, kein Container-Typ -- unabhaengig "
-              "von der Bindung.");
+static_assert(
+    !ContainerType<cea::AnatomyGenus::SearchAlgorithm, container_framework_self_proof_detail::MockGenusBinding>,
+    "E-24 C7-2: SearchAlgorithm ist ein GENUS der Gattung Map, kein Container-Typ -- unabhaengig "
+    "von der Bindung.");
 
 // ================================================================================================
 // E-24 C7-2 -- DER CONTAINER-GATTUNGS-KERN (ERHOBEN, nicht erfunden)

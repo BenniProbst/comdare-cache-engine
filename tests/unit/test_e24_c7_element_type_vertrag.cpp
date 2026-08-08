@@ -20,7 +20,7 @@
 //
 // Bau: plain int main() (kein gtest), Boost::mp11 + generated-Achsen-Includes.
 
-#include "anatomy/set_default_organ.hpp" // SortedArrayKeySet (der Set-Kern)
+#include "anatomy/set_default_organ.hpp"                     // SortedArrayKeySet (der Set-Kern)
 #include "builder/experiment_tree/container_type_traits.hpp" // SF-1: type_traits<G>/ContainerElementTyped & co.
 
 #include <cstddef>
