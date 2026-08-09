@@ -104,10 +104,16 @@ static_assert(std::is_standard_layout_v<MessCheckpointZeile>, "Mess-Zeile muss s
 // == Der heisse Zustand -- eigene Cacheline, trivially copyable ====================================
 //
 // WARUM DAS EIN EIGENER TYP IST: genau diese drei Felder fasst der heisse Pfad an. Als eigener Typ
-// tragen sie die static_asserts, die den BESTANDS-DEFEKT compile-hart faengen: ThreadArena
-// (include/cache_engine/measurement/thread_arena.hpp:35) haelt einen std::vector als Member -- ein
-// Vektor-Member zerstoert trivially_copyable, und die Zusicherung unten schluege fehl. Ein Kommentar
-// haette den Defekt nicht gefangen; dieser static_assert faengt ihn beim Uebersetzen.
+// tragen sie die Zusicherungen unten, und zwar HIER und nur hier.
+//
+// WAS DER trivially_copyable-ASSERT LEISTET -- und was nicht (praezisiert 09.08.2026). Er faengt
+// die FEHLERKLASSE des Bestands-Defekts, wenn sie IN DIESEM TYP auftritt: ThreadArena
+// (include/cache_engine/measurement/thread_arena.hpp:35) haelt einen std::vector als Member, und ein
+// Vektor-Member zerstoert trivially_copyable. Wer denselben Griff hier hineintraegt, faellt beim
+// Uebersetzen auf. Er faengt NICHT den Defekt in ThreadArena selbst -- eine Zusicherung in dieser
+// Datei kann ueber eine fremde Datei nichts aussagen. Die frueher hier stehende Formulierung
+// ("faengt den BESTANDS-DEFEKT") war genau diese Verwechslung; der Bestand bleibt sichtbar ueber
+// Abschnitt (1) von test_ms1, der ihn MISST.
 struct alignas(kCacheLineBytes) MessArenaHeiss {
     MessCheckpointZeile* basis      = nullptr;
     std::uint64_t        kapazitaet = 0;
@@ -117,7 +123,13 @@ struct alignas(kCacheLineBytes) MessArenaHeiss {
 static_assert(std::is_trivially_copyable_v<MessArenaHeiss>, "heisser Zustand muss trivially copyable sein");
 static_assert(std::is_standard_layout_v<MessArenaHeiss>, "heisser Zustand muss standard_layout sein");
 static_assert(alignof(MessArenaHeiss) == kCacheLineBytes, "heisser Zustand muss auf einer Cacheline beginnen");
-static_assert(sizeof(MessArenaHeiss) % kCacheLineBytes == 0, "heisser Zustand muss ganze Cachelines fuellen");
+// GENAU EINE Cacheline, nicht "ein Vielfaches davon". Der frueher hier stehende Assert
+// (sizeof % kCacheLineBytes == 0) KONNTE NIE FEUERN: die Norm verlangt, dass sizeof ein Vielfaches
+// von alignof ist, und alignof ist eine Zeile darueber bereits auf kCacheLineBytes festgenagelt --
+// die Zeile war damit von der Zeile darueber schon impliziert. Diese hier feuert: ein viertes Feld
+// im heissen Zustand macht sizeof zu 128, und dann teilt sich der heisse Pfad zwei Linien statt
+// einer. Genau das soll auffallen.
+static_assert(sizeof(MessArenaHeiss) == kCacheLineBytes, "der heisse Zustand muss in GENAU eine Cacheline passen");
 
 // == Der Ueberlauf-Befund der MESS-Arena -- Fehlerklasse DATENVERLUST ==============================
 struct UeberlaufBefund {
@@ -129,24 +141,60 @@ struct UeberlaufBefund {
     [[nodiscard]] constexpr bool hat_verlust() const noexcept { return verloren != 0u; }
 };
 
+// == Der Rueckgabe-Vertrag der Meldezeilen -- zwei Zahlen, nicht eine ==============================
+//
+// BEFUND, der diesen Typ erzwingt (09.08.2026): beide befund_zeile()-Ueberladungen gaben den
+// snprintf-Rueckgabewert unveraendert weiter und versprachen im Doxygen-Satz "geschriebene Zeichen".
+// snprintf liefert aber die Zahl, die WAERE geschrieben worden. Nachstellbar in test_ms1, Abschnitt
+// (15): auf einem 16-Byte-Puffer meldet die Verlust-Zeile benoetigt = 123, im Puffer stehen 15
+// Zeichen. Mit [[nodiscard]] laedt eine solche Zahl zum Weiterrechnen ein (puffer + rc), und das
+// zeigte 108 Byte hinter das Puffer-Ende.
+//
+// ENTSCHIEDEN ist die dritte Moeglichkeit, nicht die zwei naheliegenden. Nur die Doku zu
+// korrigieren liesse die Falle stehen; nur die geschriebene Laenge zurueckzugeben verschwiege das
+// ABSCHNEIDEN, und eine abgeschnittene Diagnose ist die schlimmste Sorte Diagnose -- sie sieht
+// vollstaendig aus. Zurueck kommen deshalb BEIDE Zahlen in EINEM Objekt, nach demselben Muster wie
+// AusleseErgebnis weiter unten: wer die Laenge nimmt, hat das Abschneiden zwangslaeufig in der Hand.
+struct MeldungsLaenge {
+    std::size_t geschrieben  = 0;     // Zeichen IM PUFFER, ohne Abschluss-Null -- immer < n
+    std::size_t benoetigt    = 0;     // Zeichen, die noetig gewesen waeren, ohne Abschluss-Null
+    bool        formatfehler = false; // snprintf hat negativ gemeldet (Kodierungsfehler)
+
+    [[nodiscard]] constexpr bool abgeschnitten() const noexcept { return formatfehler || benoetigt > geschrieben; }
+};
+
+/// Rechnet den snprintf-Rueckgabewert in den ehrlichen Vertrag um. EIN snprintf-Aufruf genuegt:
+/// sein Rueckgabewert IST `benoetigt`, und was davon im Puffer steht, ergibt sich aus n.
+[[nodiscard]] constexpr MeldungsLaenge meldung_verbuchen(int roh, std::size_t n) noexcept {
+    if (roh < 0) return MeldungsLaenge{0u, 0u, true};
+    std::size_t const benoetigt   = static_cast<std::size_t>(roh);
+    std::size_t const geschrieben = (n == 0u) ? 0u : (benoetigt < n ? benoetigt : n - 1u);
+    return MeldungsLaenge{geschrieben, benoetigt, false};
+}
+
 /// Schreibt die Verlust-Meldung in einen vom Aufrufer gestellten Puffer.
 ///
 /// KEIN ostream, KEIN Text-Objekt: die Meldung muss auch dann formulierbar sein, wenn gerade nichts
-/// belegt werden darf. Rueckgabe: geschriebene Zeichen ohne Abschluss-Null.
+/// belegt werden darf.
+///
+/// Rueckgabe: siehe MeldungsLaenge -- `geschrieben` sind die Zeichen IM Puffer, `benoetigt` die
+/// noetigen. Ein Aufruf mit n == 0 (puffer darf dann nullptr sein) schreibt nichts und liefert
+/// trotzdem `benoetigt` -- so laesst sich der Puffer ausmessen, bevor er gestellt wird.
 ///
 /// Der Text nennt ZAHL UND NENNER ("N von M"), nie nur "Ueberlauf" -- eine Meldung ohne Nenner
 /// laesst offen, ob zwei oder zwei Millionen Zeilen fehlen.
-[[nodiscard]] inline int befund_zeile(UeberlaufBefund const& b, char* puffer, std::size_t n) noexcept {
-    if (puffer == nullptr || n == 0u) return 0;
-    if (!b.hat_verlust()) {
-        return std::snprintf(puffer, n, "mess_arena: kein Verlust (belegt %llu von %llu Zeilen)",
-                             static_cast<unsigned long long>(b.belegt), static_cast<unsigned long long>(b.kapazitaet));
-    }
-    return std::snprintf(puffer, n,
-                         "mess_arena: DATENVERLUST -- ueberlauf_verloren = %llu von %llu angebotenen Zeilen "
-                         "(Kapazitaet %llu). Die Messung ist unvollstaendig.",
-                         static_cast<unsigned long long>(b.verloren), static_cast<unsigned long long>(b.versuche),
-                         static_cast<unsigned long long>(b.kapazitaet));
+[[nodiscard]] inline MeldungsLaenge befund_zeile(UeberlaufBefund const& b, char* puffer, std::size_t n) noexcept {
+    if (puffer == nullptr) n = 0u; // snprintf erlaubt (nullptr, 0) ausdruecklich -- nur diesen Fall
+    int const roh =
+        !b.hat_verlust()
+            ? std::snprintf(puffer, n, "mess_arena: kein Verlust (belegt %llu von %llu Zeilen)",
+                            static_cast<unsigned long long>(b.belegt), static_cast<unsigned long long>(b.kapazitaet))
+            : std::snprintf(puffer, n,
+                            "mess_arena: DATENVERLUST -- ueberlauf_verloren = %llu von %llu angebotenen Zeilen "
+                            "(Kapazitaet %llu). Die Messung ist unvollstaendig.",
+                            static_cast<unsigned long long>(b.verloren), static_cast<unsigned long long>(b.versuche),
+                            static_cast<unsigned long long>(b.kapazitaet));
+    return meldung_verbuchen(roh, n);
 }
 
 /// AusleseErgebnis -- Zeilen und Befund in EINEM Objekt.
@@ -177,9 +225,26 @@ public:
     /// gesagt wird, und meldet, wenn es zu wenig war. Wer die Formel hier einbaute, haette zwei
     /// Wahrheiten ueber die Kapazitaet.
     [[nodiscard]] bool reservieren(std::uint64_t kapazitaet_zeilen, VorabBeruehrung vorab) noexcept {
+        // BEIDE Teile des Zustands gehen zuerst weg, und zwar BEDINGUNGSLOS. Vorher kehrte die
+        // Funktion bei kapazitaet_zeilen == 0 um, BEVOR res_ angefasst wurde: der alte Block blieb
+        // dann abgebildet, waehrend heiss_ (und damit jede Zugriffsfunktion) schon "leer" sagte --
+        // ein Zustand, den das Objekt nach aussen falsch beschreibt. freigeben() ist idempotent.
         heiss_ = MessArenaHeiss{};
+        res_.freigeben();
         if (kapazitaet_zeilen == 0u) return false;
         std::size_t const bytes = static_cast<std::size_t>(kapazitaet_zeilen) * sizeof(MessCheckpointZeile);
+        // RUECKRECHNUNGS-WAECHTER. Die Multiplikation kann ueberlaufen, und ein Ueberlauf ist hier
+        // still: gemessen lieferte reservieren(2^59 + 1) TRUE und kapazitaet() == 576460752303423489
+        // auf einem 4096-Byte-Block -- die Arena haette 18 Trillionen Zeilen zugesagt und 128 Platz
+        // gehabt. Der erste Checkpoint schriebe hinter die Abbildung.
+        //
+        // Die Rueckrechnung ist EXAKT, nicht heuristisch: `bytes` ist (kapazitaet * 32) mod 2^64,
+        // also 32 * (kapazitaet mod 2^59); die Division durch 32 liefert kapazitaet mod 2^59. Die
+        // Gleichheit unten gilt damit genau fuer kapazitaet < 2^59 -- also genau fuer die Werte, die
+        // NICHT ueberlaufen. Sie weist keinen gueltigen Wert ab und laesst keinen ungueltigen durch.
+        // Der Vergleich laeuft in uint64, damit er auch auf einer 32-Bit-Plattform traegt, wo schon
+        // der static_cast auf size_t abschneidet.
+        if (static_cast<std::uint64_t>(bytes / sizeof(MessCheckpointZeile)) != kapazitaet_zeilen) return false;
         if (!res_.reservieren(bytes, vorab)) return false;
         heiss_.basis      = static_cast<MessCheckpointZeile*>(res_.basis());
         heiss_.kapazitaet = kapazitaet_zeilen;
@@ -235,8 +300,14 @@ private:
     SeitenReservierung res_{};   // kalt: nur Aufbau und Abbau
 };
 
-static_assert(sizeof(MessArena) % kCacheLineBytes == 0, "Mess-Arena muss ganze Cachelines fuellen");
 static_assert(alignof(MessArena) == kCacheLineBytes, "Mess-Arena muss auf einer Cacheline beginnen");
 static_assert(std::is_standard_layout_v<MessArena>, "Mess-Arena muss standard_layout sein (offsetof-Beleg)");
+// ERSATZLOS GESTRICHEN (09.08.2026): `sizeof(MessArena) % kCacheLineBytes == 0`. Der Assert konnte
+// nie feuern -- sizeof ist per Norm ein Vielfaches von alignof, und alignof ist eine Zeile darueber
+// festgenagelt; er war von seinem eigenen Nachbarn impliziert. Was er zusichern SOLLTE -- dass der
+// kalte Teil (res_) die heisse Cacheline nicht mitbenutzt -- steht seit heute anderswo und traegt
+// dort wirklich: sizeof(MessArenaHeiss) == kCacheLineBytes (oben) legt die heisse Linie fest,
+// standard_layout plus "heiss_ ist erstes Mitglied" setzt sie auf Offset 0 (zur Laufzeit gemessen
+// in test_ms1, Abschnitt (8)), und der Abstand der beiden Arenen sichert checkpoint_speicher.hpp.
 
 } // namespace comdare::cache_engine::builder::measure_storage

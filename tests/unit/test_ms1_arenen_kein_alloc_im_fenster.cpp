@@ -38,7 +38,10 @@
 // deklariert, obwohl der Weg darunter werfen kann. InMemoryMeasurementBuffer setzt darauf auf und
 // nennt seinen Pfad im Kommentar "Hot-Path: pro-Thread-Arena, kein Lock" (Z.42). Wer diese beiden
 // als Vorlage nimmt, baut den Defekt nach. Der static_assert auf MessArenaHeiss (mess_arena.hpp)
-// faengt genau diese Fehlerklasse beim Uebersetzen: ein Vektor-Member zerstoert trivially_copyable.
+// faengt diese FEHLERKLASSE beim Uebersetzen, WENN JEMAND SIE DORTHIN TRAEGT: ein Vektor-Member
+// zerstoert trivially_copyable. Er faengt nicht den Defekt in ThreadArena selbst -- eine Zusicherung
+// in mess_arena.hpp kann ueber eine fremde Datei nichts aussagen. Das stand hier bis zum 09.08.2026
+// missverstaendlich; sichtbar bleibt der Bestands-Defekt ueber Abschnitt (1), der ihn MISST.
 //
 // == DER RUECKNAHME-BELEG HAENGT AM COMMIT, NICHT AN EINER /tmp-KOPIE (Nachtrag 09.08.2026) ========
 //
@@ -208,6 +211,59 @@
 // KEIN ZUFALL AUSSER BEI KOEDERN (Haus-Doktrin). Die Koeder-Werte unten sind am 09.08.2026 frisch
 // aus /dev/urandom gewuerfelt und NICHT aus einer Doku abgeschrieben; die Koeder-GROESSE in (4) wird
 // zusaetzlich bei jedem Lauf neu gewuerfelt.
+//
+// == DER STELLVERTRETER: NEUN ABSCHNITTE, UND KEINER LAS JE EINE MESSZEILE (Nachtrag 09.08.2026) ===
+//
+// SELBSTCHECK dieses Blocks: jede Zahl ist an dieser Maschine erhoben. Jeder genannte Mutant ist
+// GEFAHREN, in BEIDEN Stufen -- lokal ohne Optimierung UND mit den CI-Flags (-O3 -DNDEBUG), weil
+// eine Beobachtbarkeits-Zusage genau zwischen diesen beiden Stufen schon einmal auseinandergefallen
+// ist (s. Block darueber). KEINE bestehende Pruefung wurde entschaerft; es sind nur welche
+// dazugekommen.
+//
+// DER BEFUND. Die Abschnitte (1) bis (9) pruefen die Mess-Arena ausschliesslich NEGATIV oder
+// INDIREKT: (5d) und (5c) fordern, dass etwas NICHT dasteht; (3) liest `belegt`, das aus dem
+// Versuchs-Zaehler abgeleitet wird und die Nutzlast nie beruehrt; (7) liest den Stapel zurueck,
+// nicht die Mess-Arena. Ein Mutant, der in anhaengen() statt der uebergebenen Zeile ein leeres
+// MessCheckpointZeile{} ablegt, lief deshalb durch alle neun Abschnitte und meldete "OK: MS-1",
+// RC=0. Die Arena haette nur Nullen schreiben koennen -- richtiges Messgeraet, falscher Gegenstand.
+// Dagegen steht seit heute Abschnitt (10).
+//
+// DIE MUTANTEN, gefahren gegen den fertigen Baum. Links der Eingriff, rechts die Pruefungen, die
+// gerissen sind -- in BEIDEN Stufen dieselben:
+//   A1 leere Zeile geschrieben ............ (10c)(10d)(10e)(10f)(10g)(10i)
+//   A2 Zeile auf platz^1 abgelegt .......... (5c) + (10c)(10d)(10e)(10f)(10g)(10i)
+//   A3 zeit_ticks <-> messwert vertauscht .. (10c)(10d)(10i)  -- die drei anderen Felder blieben gruen
+//   A4 auf kapazitaet-1-platz geschrieben .. (10c)..(10i) + (10j), das die Umkehrung ausdruecklich nennt
+//   B1 sauber() ohne unpaarige_aus ......... (12g)(12h)(12i)(12k)
+//   B2 sauber() ohne zu_tief ............... (12e)
+//   B3 sauber() konstant false ............. (12b)(12c)  -- die Positivkontrolle, ohne die B1/B2 wertlos waeren
+//   C1 befund() vertauscht die Zaehler ..... (11a)(11b)(11h)(11i)(12d)(12f)(12i)
+//   C2 befund_zeile vertauscht die Zahlen .. (11h)(11i)(12i)
+//   C3 befund() vertauscht Kap./Hoechst. ... (12j)(12k)
+//   D1 Kapazitaets-Waechter entfernt ....... (13b)(13c)
+//   D2 Planer-Formel ohne Waechter ......... UEBERSETZUNG BRICHT (beide static_asserts in (13))
+//   E1 zu_tief zurueck auf uint32 .......... UEBERSETZUNG BRICHT (Breiten-Symmetrie, stapel_arena.hpp)
+//   E2 nur StapelBefund auf uint16 ......... (14a)(14b)(14e)  -- der Riss, den E1 NICHT abdeckt
+//   F1 geschrieben == snprintf-Rueckgabe ... (15a)(15b)(15c)(15d)(15g)(15h)
+//   G1 Nenner 4 -> 40 in der Meldung ....... (5f)  -- die alte Suche "von 4" haette "von 40" durchgelassen
+//   G2 heisser Zustand nicht auf Offset 0 .. (8e)
+//   G3 reservieren(0) ohne freigeben() ..... (16c)
+//   G4 speicher_aufbauen kurzgeschlossen ... (16e)
+//   G6 kSeitenBytes auf 8192 verstellt ..... MS-2 (0) und (b)
+// A3 ist der Beleg dafuer, dass die Feld-Zaehler in (10) DISJUNKT sind und nicht pauschal
+// mitreissen. G6 ist zugleich der Beleg fuer die verschaerfte Schranke in MS-2 (b): die gemessenen
+// 16384 Fehler sind bei kErwarteteSeiten = 8192 exakt das Doppelte -- die frueher dort stehende
+// EINSCHLIESSENDE Grenze (<= kErwarteteSeiten * 2) haette diesen Mutanten durchgelassen.
+//
+// RUECKNAHME, gegen die COMMIT-BLOBS gezogen: `grep -c` auf den Wurf und auf "MUTANT-" liefert 0 in
+// mess_arena.hpp, stapel_arena.hpp, checkpoint_speicher.hpp, mess_speicher_kanon.hpp und
+// test_ms2 -- und ZWEI in dieser Datei. Beide sind Prosa, und die zweite ist DIESER SATZ selbst: er
+// nennt das Suchmuster und faellt deshalb in seine eigene Suche. Das wird hier ausgeschrieben statt
+// weggekuerzt, denn ein Ruecknahme-Beleg, der seine eigene Zahl nicht erklaert, ist keiner. Die
+// erste ist Zeile 63, Prosa aus dem Vorgaenger-Nachtrag. Kein Eingriff blieb im Code stehen;
+// Gegenprobe, dass derselbe Aufruf ueberhaupt zaehlt: "MessCheckpointZeile" -> 13 Treffer in
+// mess_arena.hpp. Der tragende Beleg bleibt wie gehabt der gruene Lauf dieses Tests aus dem
+// committeten Baum -- der ueberlebt jede Umformatierung und jede Zeilennummer.
 
 #include <builder/measure_storage/checkpoint_speicher.hpp>
 #include <builder/measure_storage/mess_arena.hpp>
@@ -379,6 +435,14 @@ namespace ms   = ::comdare::cache_engine::builder::measure_storage;
 // Owner-KERN: Batch 4096. Der Haus-Anker fuer eine Mess-Gruppe, keine gegriffene Groesse.
 inline constexpr std::uint64_t kAppends = 4096;
 
+// Rueckleseprobe (10): dieselbe Haus-Groesse, und die Kapazitaet ist EXAKT so gross. Exakt, damit
+// eine umgedrehte Reihenfolge (Schreiben auf kapazitaet-1-platz) eine ECHTE Umkehrung ist und als
+// solche benannt werden kann -- bei einer groesseren Arena waere sie nur ein Versatz.
+inline constexpr std::uint64_t kRueckleseZeilen = kAppends;
+static_assert(kRueckleseZeilen % 2u == 0u,
+              "die Umkehr-Diagnose in (10) braucht eine GERADE Zeilenzahl -- sonst faellt die mittlere "
+              "Zeile mit sich selbst zusammen und die Umkehrung waere dort nicht unterscheidbar");
+
 // == KOEDER, am 09.08.2026 frisch aus /dev/urandom gewuerfelt (K13: nie aus einer Doku) ============
 inline constexpr std::uint64_t kKoederZeit1   = 3207928510ull; // passt in die Arena
 inline constexpr std::uint64_t kKoederZeit2   = 2988986077ull; // passt
@@ -401,8 +465,8 @@ inline constexpr std::uint64_t kKoederOffen   = 0xa7ea73b0d04f92ecull; // MUSS o
 // Laeuft AUSSERHALB jedes Fensters -- hier darf belegt werden. Der Rueckfall wird ausgesprochen und
 // nicht verschwiegen: eine still eingesetzte Konstante waere genau der Zustand, den diese Funktion
 // beseitigen soll.
-[[nodiscard]] std::size_t koeder_groesse_wuerfeln(char const*& woher) noexcept {
-    std::uint32_t roh = 0;
+[[nodiscard]] std::uint64_t wurf_holen(char const*& woher) noexcept {
+    std::uint64_t roh = 0;
     woher             = "/dev/urandom";
     if (std::FILE* q = std::fopen("/dev/urandom", "rb"); q != nullptr) {
         if (std::fread(&roh, sizeof(roh), 1u, q) != 1u) roh = 0u;
@@ -412,11 +476,65 @@ inline constexpr std::uint64_t kKoederOffen   = 0xa7ea73b0d04f92ecull; // MUSS o
         // Kein Rueckfall auf eine Konstante: die Adresse eines Automatikobjekts ist dem Uebersetzer
         // ebenfalls unbekannt (ASLR), taugt also fuer denselben Zweck.
         woher = "Stapeladresse/ASLR (/dev/urandom nicht lesbar)";
-        roh   = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&roh) >> 4);
+        roh   = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(&roh)) * 0x9e3779b97f4a7c15ull;
     }
+    return roh;
+}
+
+[[nodiscard]] std::size_t koeder_groesse_wuerfeln(char const*& woher) noexcept {
+    std::uint64_t const roh = wurf_holen(woher);
     // 4096 .. 65535 Byte: gross genug, dass die Belegung kein Kleinkram ist, klein genug fuer jede
     // Maschine -- und nie 0, damit die Byte-Pruefung unten eine echte Aussage bleibt.
-    return static_cast<std::size_t>(4096u + (roh % 61440u));
+    return static_cast<std::size_t>(4096u + (static_cast<std::uint32_t>(roh) % 61440u));
+}
+
+// == DIE ERWARTUNGS-QUELLE FUER DIE RUECKLESUNG (10) ===============================================
+// splitmix64 -- die Mischfunktion aus Steele/Lea/Flood, dieselbe, die SplittableRandom und
+// std::mt19937-Seeding im Haus schon benutzen. Sie steht hier NICHT fuer Statistik, sondern fuer
+// UNDURCHSICHTIGKEIT und K13-Haerte: aus EINEM je Lauf frisch gewuerfelten Wurf entsteht fuer jede
+// Zeile und jedes Feld ein eigener Wert. Damit ist keine einzige Erwartung im Quelltext
+// abschreibbar, und der Uebersetzer kann keine davon vorausberechnen.
+[[nodiscard]] constexpr std::uint64_t mischen(std::uint64_t x) noexcept {
+    x += 0x9e3779b97f4a7c15ull;
+    x = (x ^ (x >> 30u)) * 0xbf58476d1ce4e5b9ull;
+    x = (x ^ (x >> 27u)) * 0x94d049bb133111ebull;
+    return x ^ (x >> 31u);
+}
+
+/// Die Zeile mit dem Index i, abgeleitet aus dem Wurf des Laufs.
+///
+/// JEDES Feld haengt an einem EIGENEN Ableitungsweg -- deshalb faellt eine Vertauschung zweier
+/// Felder auf. Und weil jeder Weg zusaetzlich am INDEX haengt, faellt ebenso eine falsche Position
+/// und eine verdrehte Reihenfolge auf. Beides ist der Zweck; ein Wert, der fuer alle Zeilen gleich
+/// waere, machte die Rueckleseprobe zu einer Prosa-Uebung.
+///
+/// Die Reserve-Felder bleiben 0 -- das ist die zugesagte Belegung (mess_arena.hpp), und die
+/// Rueckleseprobe prueft sie mit: die Arena darf dort auch nichts ERFINDEN.
+[[nodiscard]] ms::MessCheckpointZeile zeile_bauen(std::uint64_t wurf, std::uint64_t i) noexcept {
+    ms::MessCheckpointZeile z{};
+    z.zeit_ticks    = mischen(wurf ^ (4u * i + 0u));
+    z.messwert      = mischen(wurf ^ (4u * i + 1u));
+    z.deskriptor_ix = static_cast<std::uint32_t>(mischen(wurf ^ (4u * i + 2u)));
+    z.thread_nr     = static_cast<std::uint16_t>(mischen(wurf ^ (4u * i + 3u)) >> 23u);
+    // Auch das Tag-Byte traegt Positionsinformation: die Ebene wandert mit dem Index durch alle drei
+    // benutzten Werte, die Richtung wechselt je Zeile.
+    z.tag = ms::tag_bauen(static_cast<ms::MessEbene>(i % 3u), (i % 2u) == 0u ? ms::Richtung::Ein : ms::Richtung::Aus);
+    return z;
+}
+
+/// Die erste Zahl aus /proc/self/statm: die GROESSE DES ADRESSRAUMS in Seiten (VmSize).
+///
+/// Das ist die einzige Observable, an der sich eine noch abgebildete Reservierung zeigen laesst --
+/// die Arena gibt ihren Block nach aussen nicht preis, und ohne diese Messung waere "die Abbildung
+/// ist wirklich weg" eine reine Behauptung. Rueckgabe 0 = nicht messbar (kein procfs); der Aufrufer
+/// sagt das dann ausdruecklich, statt still durchzulaufen.
+[[nodiscard]] std::uint64_t vm_seiten() noexcept {
+    unsigned long long v = 0;
+    if (std::FILE* q = std::fopen("/proc/self/statm", "rb"); q != nullptr) {
+        if (std::fscanf(q, "%llu", &v) != 1) v = 0;
+        (void)std::fclose(q);
+    }
+    return static_cast<std::uint64_t>(v);
 }
 
 // Liest eine Datei ganz ein. Laeuft ausserhalb jedes Fensters -- hier darf belegt werden.
@@ -500,8 +618,8 @@ int main() {
     // Verkehr beider Arenen, nicht nur ein Anhaengen.
     {
         ms::CheckpointSpeicher sp;
-        bool const             steht = ms::speicher_aufbauen(sp, 4u * kAppends, 64u, ms::VorabBeruehrung::Ja);
-        pruefe(steht, "Aufbau: beide Arenen reserviert");
+        ms::AufbauBefund const steht = ms::speicher_aufbauen(sp, 4u * kAppends, 64u, ms::VorabBeruehrung::Ja);
+        pruefe(steht.steht(), "Aufbau: beide Arenen reserviert");
 
         ms::MessCheckpointZeile ein{};
         ein.tag = ms::tag_bauen(ms::MessEbene::Micro, ms::Richtung::Ein);
@@ -562,7 +680,7 @@ int main() {
         std::size_t const koeder_bytes = koeder_groesse_wuerfeln(woher); // VOR dem Fenster gewuerfelt
 
         ms::CheckpointSpeicher sp;
-        pruefe(ms::speicher_aufbauen(sp, 1024u, 64u, ms::VorabBeruehrung::Ja), "Aufbau (4)");
+        pruefe(ms::speicher_aufbauen(sp, 1024u, 64u, ms::VorabBeruehrung::Ja).steht(), "Aufbau (4)");
 
         ms::MessCheckpointZeile z{};
         z.tag = ms::tag_bauen(ms::MessEbene::Macro, ms::Richtung::Ein);
@@ -634,8 +752,11 @@ int main() {
         pruefe(!koeder_gefunden, "(5d) der Koeder-Wert steht in keiner ausgelesenen Zeile");
         pruefe(std::string_view{text}.find("DATENVERLUST") != std::string_view::npos,
                "(5e) die Meldung nennt die Fehlerklasse Datenverlust");
-        pruefe(std::string_view{text}.find("von 4") != std::string_view::npos,
-               "(5f) die Meldung nennt den Nenner, nicht nur die Zahl");
+        // RECHTE GRENZE, ergaenzt 09.08.2026: die Suche stand vorher auf "von 4" und war damit auch
+        // von "von 40" oder "von 4096" erfuellt -- eine Nenner-Pruefung, die jeden groesseren Nenner
+        // durchliess. Gesucht wird jetzt die ganze Wendung samt folgendem Wort.
+        pruefe(std::string_view{text}.find("1 von 4 angebotenen Zeilen") != std::string_view::npos,
+               "(5f) die Meldung nennt Zahl UND Nenner vollstaendig, nicht nur eine fuehrende Ziffer");
     }
 
     // -- (6) KOEDER Stapel-Arena: Ueberlauf ist ein PROGRAMMIERFEHLER, kein Datenverlust -------------
@@ -740,7 +861,17 @@ int main() {
         }
 
         ms::CheckpointSpeicher sp;
-        pruefe(ms::speicher_aufbauen(sp, 256u, 16u, ms::VorabBeruehrung::Ja), "Aufbau (8)");
+        pruefe(ms::speicher_aufbauen(sp, 256u, 16u, ms::VorabBeruehrung::Ja).steht(), "Aufbau (8)");
+
+        // DIE OFFSET-0-ZUSAGE, NACHGEMESSEN (ergaenzt 09.08.2026). checkpoint_speicher.hpp begruendet
+        // die Cacheline-Trennung damit, dass der heisse Zustand auf Offset 0 seiner Arena beginnt --
+        // und genau dafuer gab es bis heute keinen einzigen Beleg, weder einen offsetof-Assert (das
+        // Mitglied ist privat) noch eine Messung. Der Abstands-Assert dort misst die Objekte, nicht
+        // die heissen Zustaende; ohne diese zwei Zeilen war die Kette zwischen beidem unbewacht.
+        pruefe(static_cast<void const*>(&sp.mess) == sp.mess.heisse_basis(),
+               "(8e) der heisse Zustand der Mess-Arena beginnt auf Offset 0 ihres Objekts");
+        pruefe(static_cast<void const*>(&sp.stapel) == sp.stapel.heisse_basis(),
+               "(8f) der heisse Zustand der Stapel-Arena beginnt auf Offset 0 ihres Objekts");
 
         auto const linie_mess   = reinterpret_cast<std::uintptr_t>(sp.mess.heisse_basis()) / ms::kCacheLineBytes;
         auto const linie_stapel = reinterpret_cast<std::uintptr_t>(sp.stapel.heisse_basis()) / ms::kCacheLineBytes;
@@ -807,6 +938,490 @@ int main() {
         }
         std::cout << "     Gegenprobe der Wache: " << gefunden << " von 9 verbotenen Woertern im Probetext\n";
         pruefe(gefunden >= 4, "(9d) die Wache findet die Woerter, wenn sie da sind");
+    }
+
+    // -- (10) DIE POSITIVE RUECKLESUNG: die Arena gibt zurueck, was hineingeschrieben wurde ----------
+    // DAS IST DIE ZUSAGE, UM DIE ES BEIM GANZEN MODUL GEHT, und bis zum 09.08.2026 war sie
+    // UNBEWACHT. Alle uebrigen Abschnitte pruefen die Arena NEGATIV oder INDIREKT: (5d) und (5c)
+    // fordern, dass etwas NICHT dasteht; (3) leitet `belegt` aus dem Versuchs-Zaehler ab und ruehrt
+    // die Nutzlast nie an; (7) liest den STAPEL zurueck, nicht die Mess-Arena. Gemessener Befund:
+    // ein Mutant, der in anhaengen() statt der Zeile ein leeres MessCheckpointZeile{} ablegt, lief
+    // durch alle neun Abschnitte und meldete "OK: MS-1", RC=0. Die Arena haette nur Nullen schreiben
+    // koennen und der Test waere gruen geblieben -- richtiges Messgeraet, falscher Gegenstand.
+    //
+    // VIER MUTANTEN MUESSEN HIER STERBEN, und jeder hat seinen eigenen Eingang:
+    //   (a) leere Zeile geschrieben        -> die Feld-Zaehler (10c)..(10g) und die Byte-Gleichheit
+    //   (b) Zeile an falscher Position     -> dieselben Zaehler, weil jede Erwartung am Index haengt
+    //   (c) ein Feld vertauscht            -> die BEIDEN betroffenen Feld-Zaehler, benannt und einzeln
+    //   (d) Reihenfolge verdreht           -> zusaetzlich (10j), das die Umkehrung ausdruecklich nennt
+    //
+    // WARUM DIE ERWARTUNG NICHT IM QUELLTEXT STEHT (K13): jede Zeile wird aus EINEM je Lauf frisch
+    // gewuerfelten Wurf abgeleitet (zeile_bauen). Der Vergleich rechnet dieselbe Ableitung beim
+    // Lesen NEU -- er liest keine gespeicherte Kopie. Eine Erwartung, die aus demselben Puffer
+    // stammte, in den geschrieben wurde, verglichen die Arena mit sich selbst.
+    //
+    // DIE NUMMER SAGT NICHTS UEBER DAS GEWICHT. Dieser Abschnitt ist die Kernzusage des Moduls und
+    // steht nur deshalb hinten, weil die Nummern (5)..(9) bereits als Mutanten-Beleg in Commit
+    // f24c6ea9 protokolliert sind -- ein Umnummerieren entwertete diesen Beleg.
+    {
+        char const*         woher = nullptr;
+        std::uint64_t const wurf  = wurf_holen(woher);
+
+        ms::MessArena arena;
+        pruefe(arena.reservieren(kRueckleseZeilen, ms::VorabBeruehrung::Ja), "Aufbau (10)");
+
+        std::uint64_t falsch_slot = 0;
+        for (std::uint64_t i = 0; i < kRueckleseZeilen; ++i) {
+            ms::MessCheckpointZeile const z = zeile_bauen(wurf, i);
+            if (arena.anhaengen(z) != i) ++falsch_slot;
+        }
+
+        ms::AusleseErgebnis const erg = arena.auslesen();
+
+        std::uint64_t falsch_zeit    = 0;
+        std::uint64_t falsch_wert    = 0;
+        std::uint64_t falsch_desk    = 0;
+        std::uint64_t falsch_thread  = 0;
+        std::uint64_t falsch_tag     = 0;
+        std::uint64_t falsch_reserve = 0;
+        std::uint64_t falsch_bytes   = 0;
+        std::uint64_t umkehr_treffer = 0;
+
+        std::size_t const kKeine = ~static_cast<std::size_t>(0);
+        std::size_t       erste  = kKeine;
+        std::size_t const n      = erg.zeilen.size();
+        for (std::size_t i = 0; i < n; ++i) {
+            ms::MessCheckpointZeile const e = zeile_bauen(wurf, static_cast<std::uint64_t>(i));
+            ms::MessCheckpointZeile const g = erg.zeilen[i];
+
+            bool zeile_ok = true;
+            if (g.zeit_ticks != e.zeit_ticks) {
+                ++falsch_zeit;
+                zeile_ok = false;
+            }
+            if (g.messwert != e.messwert) {
+                ++falsch_wert;
+                zeile_ok = false;
+            }
+            if (g.deskriptor_ix != e.deskriptor_ix) {
+                ++falsch_desk;
+                zeile_ok = false;
+            }
+            if (g.thread_nr != e.thread_nr) {
+                ++falsch_thread;
+                zeile_ok = false;
+            }
+            if (g.tag != e.tag) {
+                ++falsch_tag;
+                zeile_ok = false;
+            }
+            if (g.reserviert_64 != 0u || g.reserviert_8 != 0u) {
+                ++falsch_reserve;
+                zeile_ok = false;
+            }
+            // Die Byte-Gleichheit ist die SCHAERFSTE der Beobachtungen: sie deckt auch das ab, was
+            // kein benanntes Feld traegt. Sie ist wohldefiniert, weil sizeof == 32 bei 8+8+8+4+2+1+1
+            // Byte Mitgliedern kein Polster laesst -- der static_assert in mess_arena.hpp haelt das.
+            if (std::memcmp(&g, &e, sizeof(ms::MessCheckpointZeile)) != 0) {
+                ++falsch_bytes;
+                zeile_ok = false;
+            }
+            if (!zeile_ok && erste == kKeine) erste = i;
+
+            // UMKEHR-DIAGNOSE: passt die gelesene Zeile zur Erwartung des GESPIEGELTEN Index, dann
+            // ist nicht der Inhalt falsch, sondern die REIHENFOLGE. Das wird ausgesprochen, statt in
+            // einem pauschalen "irgendetwas stimmt nicht" unterzugehen.
+            ms::MessCheckpointZeile const s = zeile_bauen(wurf, static_cast<std::uint64_t>(n - 1u - i));
+            if (n > 1u && g.zeit_ticks == s.zeit_ticks) ++umkehr_treffer;
+        }
+
+        std::cout << "-- (10) DIE POSITIVE RUECKLESUNG: die Arena gibt zurueck, was hineingeschrieben wurde --\n";
+        std::cout << "     Wurf = 0x" << std::hex << wurf << std::dec << " (gewuerfelt aus " << woher
+                  << "), geschrieben = " << kRueckleseZeilen << ", zurueckgelesen = " << n << "\n";
+        std::cout << "     Abweichungen: zeit_ticks = " << falsch_zeit << ", messwert = " << falsch_wert
+                  << ", deskriptor_ix = " << falsch_desk << ", thread_nr = " << falsch_thread
+                  << ", tag = " << falsch_tag << ", Reserve = " << falsch_reserve
+                  << ", Byte-Gleichheit = " << falsch_bytes << ", Umkehr-Treffer = " << umkehr_treffer << "\n";
+        if (erste != kKeine) {
+            ms::MessCheckpointZeile const e = zeile_bauen(wurf, static_cast<std::uint64_t>(erste));
+            ms::MessCheckpointZeile const g = erg.zeilen[erste];
+            std::cout << "     erste abweichende Zeile = " << erste << std::hex << "\n"
+                      << "       erwartet: zeit=0x" << e.zeit_ticks << " wert=0x" << e.messwert << " desk=0x"
+                      << e.deskriptor_ix << " thread=0x" << e.thread_nr << " tag=0x" << unsigned{e.tag} << "\n"
+                      << "       gelesen : zeit=0x" << g.zeit_ticks << " wert=0x" << g.messwert << " desk=0x"
+                      << g.deskriptor_ix << " thread=0x" << g.thread_nr << " tag=0x" << unsigned{g.tag} << std::dec
+                      << "\n";
+        }
+
+        pruefe(falsch_slot == 0, "(10a) anhaengen() gibt fortlaufend 0..n-1 zurueck");
+        pruefe(n == kRueckleseZeilen && erg.befund.belegt == kRueckleseZeilen && erg.befund.verloren == 0,
+               "(10b) es kommen genau so viele Zeilen zurueck, wie hineingeschrieben wurden, ohne Verlust");
+        pruefe(falsch_zeit == 0, "(10c) zeit_ticks kommt Zeile fuer Zeile unveraendert und an seinem Platz zurueck");
+        pruefe(falsch_wert == 0, "(10d) messwert kommt Zeile fuer Zeile unveraendert und an seinem Platz zurueck");
+        pruefe(falsch_desk == 0, "(10e) deskriptor_ix kommt unveraendert zurueck");
+        pruefe(falsch_thread == 0, "(10f) thread_nr kommt unveraendert zurueck");
+        pruefe(falsch_tag == 0, "(10g) das Tag-Byte (Ebene und Richtung) kommt unveraendert zurueck");
+        pruefe(falsch_reserve == 0, "(10h) die Reserve-Felder sind 0 -- die Arena erfindet dort nichts");
+        pruefe(falsch_bytes == 0, "(10i) alle 32 Byte jeder Zeile sind Byte fuer Byte identisch");
+        pruefe(umkehr_treffer == 0, "(10j) die Rueckgabe ist NICHT die umgekehrte Reihenfolge");
+    }
+
+    // -- (11) DIE FUENF STAPEL-ZAHLEN SIND EINZELN UNTERSCHEIDBAR -----------------------------------
+    // BEFUND, der diesen Abschnitt erzwingt: in (6) sind zu_tief und unpaarige_aus BEIDE 1. Ein
+    // Mutant, der die beiden im befund()-Aggregat vertauscht, war deshalb unbeobachtbar -- gemessen,
+    // RC=0. Dasselbe gilt fuer die Meldezeile: (6h) und (6i) pruefen nur, WELCHE Woerter vorkommen,
+    // nie, WELCHE ZAHL an welcher Stelle steht.
+    //
+    // Hier stehen deshalb Werte, die sich paarweise unterscheiden: zu_tief = 2, unpaarige_aus = 3,
+    // offen = 1. Jede Vertauschung zweier dieser Zahlen -- im Aggregat wie im Text -- faellt auf.
+    // kapazitaet und hoechststand sind hier zwangslaeufig gleich (4): zu_tief steigt nur, wenn der
+    // Stapel voll ist, und dann IST der Hoechststand die Kapazitaet. Diese beiden trennt Abschnitt
+    // (12), wo zu_tief = 0 bleibt und Kapazitaet 8 auf Hoechststand 2 trifft.
+    {
+        ms::StapelArena stapel;
+        pruefe(stapel.reservieren(4u, ms::VorabBeruehrung::Ja), "Aufbau (11): Tiefe 4");
+
+        ms::StapelEintrag e{};
+        e.log_index = kKoederStapel1;
+        for (int i = 0; i < 4; ++i) (void)stapel.hinauf(e); // fuellt bis 4 -- Hoechststand 4
+        for (int i = 0; i < 2; ++i) (void)stapel.hinauf(e); // zwei zu tief
+        for (int i = 0; i < 4; ++i) (void)stapel.herunter(nullptr);
+        for (int i = 0; i < 3; ++i) (void)stapel.herunter(nullptr); // drei unpaarige AUS
+        e.log_index = kKoederOffen;
+        (void)stapel.hinauf(e); // eines bleibt offen liegen
+
+        ms::StapelBefund const b = stapel.befund();
+        char                   text[320];
+        (void)ms::befund_zeile(b, text, sizeof(text));
+        std::string_view const sicht{text};
+
+        std::cout << "-- (11) die fuenf Stapel-Zahlen sind einzeln unterscheidbar --\n";
+        std::cout << "     " << text << "\n";
+        pruefe(b.zu_tief == 2, "(11a) zu_tief = 2");
+        pruefe(b.unpaarige_aus == 3, "(11b) unpaarige_aus = 3 -- eine ANDERE Zahl als zu_tief");
+        pruefe(b.offen == 1, "(11c) offen = 1");
+        pruefe(b.hoechststand == 4, "(11d) hoechststand = 4");
+        pruefe(b.kapazitaet == 4, "(11e) kapazitaet = 4");
+        pruefe(!b.sauber(), "(11f) der Befund gilt als nicht sauber");
+        // Zweiter, unabhaengiger Weg auf dieselben Zahlen: die Zugriffsfunktionen lesen den heissen
+        // Zustand direkt. Weicht das Aggregat von ihnen ab, sitzt der Fehler in befund().
+        pruefe(stapel.zu_tief() == 2 && stapel.unpaarige_aus() == 3 && stapel.tiefe() == 1 &&
+                   stapel.hoechststand() == 4,
+               "(11g) die Zugriffsfunktionen nennen dieselben Zahlen wie das Aggregat");
+        pruefe(sicht.find("zu_tief = 2 ") != std::string_view::npos, "(11h) die Meldung nennt zu_tief = 2");
+        pruefe(sicht.find("unpaariges_aus = 3,") != std::string_view::npos,
+               "(11i) die Meldung nennt unpaariges_aus = 3 -- nicht die Zahl von zu_tief");
+        pruefe(sicht.find("offen_geblieben = 1 ") != std::string_view::npos,
+               "(11j) die Meldung nennt offen_geblieben = 1");
+        pruefe(sicht.find("Hoechststand 4)") != std::string_view::npos, "(11k) die Meldung nennt Hoechststand 4");
+    }
+
+    // -- (12) JEDER TERM IN sauber() TRAEGT -- einzeln nachgewiesen ---------------------------------
+    // BEFUND, der diesen Abschnitt erzwingt: sauber() verundet drei Terme, und zwei davon waren
+    // strukturell unbeobachtbar. Streicht man `unpaarige_aus == 0u`, bleibt der ganze Testlauf gruen
+    // (gemessen, RC=0) -- in (6) wird sauber() gar nicht abgefragt, und in (7) entscheidet bereits
+    // `offen`. Fuer `zu_tief == 0u` gilt genau dasselbe.
+    //
+    // DREI LOSE, die sich in GENAU EINEM Zaehler unterscheiden. Das erste ist die Positivkontrolle:
+    // ohne sie waere ein sauber(), das immer false liefert, von einem richtigen nicht zu
+    // unterscheiden -- und die beiden Negativ-Lose waeren wertlos.
+    {
+        std::cout << "-- (12) jeder Term in sauber() traegt --\n";
+
+        // LOS A -- alles ausgeglichen. sauber() MUSS true sein, und die Meldung ist die andere.
+        {
+            ms::StapelArena stapel;
+            pruefe(stapel.reservieren(8u, ms::VorabBeruehrung::Ja), "Aufbau (12A): Tiefe 8");
+            ms::StapelEintrag e{};
+            e.log_index = kKoederStapel2;
+            (void)stapel.hinauf(e);
+            (void)stapel.hinauf(e);
+            (void)stapel.herunter(nullptr);
+            (void)stapel.herunter(nullptr);
+
+            ms::StapelBefund const b = stapel.befund();
+            char                   text[320];
+            (void)ms::befund_zeile(b, text, sizeof(text));
+            std::cout << "     A: " << text << "\n";
+            pruefe(b.offen == 0 && b.zu_tief == 0 && b.unpaarige_aus == 0, "(12a) Los A: alle drei Zaehler sind 0");
+            pruefe(b.sauber(), "(12b) Los A: sauber() ist TRUE -- die Positivkontrolle");
+            pruefe(std::string_view{text}.find("ausgeglichen") != std::string_view::npos,
+                   "(12c) Los A: die Meldung ist die ausgeglichene, nicht die Fehler-Meldung");
+        }
+
+        // LOS B -- NUR zu_tief. Kapazitaet 2 voll, ein Hinauf zu viel, danach sauber abgeraeumt.
+        {
+            ms::StapelArena stapel;
+            pruefe(stapel.reservieren(2u, ms::VorabBeruehrung::Ja), "Aufbau (12B): Tiefe 2");
+            ms::StapelEintrag e{};
+            e.log_index = kKoederZuTief;
+            (void)stapel.hinauf(e);
+            (void)stapel.hinauf(e);
+            (void)stapel.hinauf(e); // zu tief
+            (void)stapel.herunter(nullptr);
+            (void)stapel.herunter(nullptr);
+
+            ms::StapelBefund const b = stapel.befund();
+            char                   text[320];
+            (void)ms::befund_zeile(b, text, sizeof(text));
+            std::cout << "     B: " << text << "\n";
+            pruefe(b.zu_tief == 1 && b.unpaarige_aus == 0 && b.offen == 0,
+                   "(12d) Los B: NUR zu_tief steht, die beiden anderen sind 0");
+            pruefe(!b.sauber(), "(12e) Los B: zu_tief allein macht den Befund unsauber");
+        }
+
+        // LOS C -- NUR unpaarige_aus. Nichts zu tief, nichts offen, ein AUS zu viel.
+        // Zugleich trennt dieses Los kapazitaet (8) von hoechststand (2) -- in (11) fallen die
+        // beiden zwangslaeufig zusammen.
+        {
+            ms::StapelArena stapel;
+            pruefe(stapel.reservieren(8u, ms::VorabBeruehrung::Ja), "Aufbau (12C): Tiefe 8");
+            ms::StapelEintrag e{};
+            e.log_index = kKoederStapel3;
+            (void)stapel.hinauf(e);
+            (void)stapel.hinauf(e);
+            (void)stapel.herunter(nullptr);
+            (void)stapel.herunter(nullptr);
+            (void)stapel.herunter(nullptr); // eines zu viel
+
+            ms::StapelBefund const b = stapel.befund();
+            char                   text[320];
+            (void)ms::befund_zeile(b, text, sizeof(text));
+            std::string_view const sicht{text};
+            std::cout << "     C: " << text << "\n";
+            pruefe(b.unpaarige_aus == 1 && b.zu_tief == 0 && b.offen == 0,
+                   "(12f) Los C: NUR unpaarige_aus steht, die beiden anderen sind 0");
+            pruefe(!b.sauber(), "(12g) Los C: unpaarige_aus allein macht den Befund unsauber");
+            pruefe(sicht.find("PROGRAMMIERFEHLER") != std::string_view::npos,
+                   "(12h) Los C: die Meldung ist die Fehler-Meldung, nicht die ausgeglichene");
+            pruefe(sicht.find("unpaariges_aus = 1,") != std::string_view::npos,
+                   "(12i) Los C: die Meldung nennt unpaariges_aus = 1");
+            pruefe(b.kapazitaet == 8 && b.hoechststand == 2,
+                   "(12j) Los C: Kapazitaet 8 und Hoechststand 2 sind hier verschieden");
+            pruefe(sicht.find("ueber 8 Plaetze") != std::string_view::npos &&
+                       sicht.find("Hoechststand 2)") != std::string_view::npos,
+                   "(12k) Los C: die Meldung setzt Kapazitaet und Hoechststand an ihre eigene Stelle");
+        }
+    }
+
+    // -- (13) DER KAPAZITAETS-UEBERLAUF WIRD ABGEWIESEN, nicht still zugesagt ------------------------
+    // BEFUND: 2^59 Zeilen a 32 Byte sind exakt 2^64 Byte. Die Multiplikation in reservieren()
+    // wickelte, und reservieren(2^59 + 1) lieferte TRUE mit kapazitaet() == 576460752303423489 --
+    // auf einem 4096-Byte-Block. Die Arena sagte 576 Billiarden Zeilen zu und hatte 128; der erste
+    // Checkpoint schriebe hinter die Abbildung.
+    //
+    // Der Waechter muss ZWEI Dinge leisten, und beide werden hier gemessen: den Ueberlauf abweisen
+    // UND jeden gueltigen Wert durchlassen. Ein Waechter, der pauschal abweist, waere ebenso falsch
+    // und von einem richtigen nur an der Positivkontrolle (13d) zu unterscheiden.
+    {
+        std::cout << "-- (13) der Kapazitaets-Ueberlauf wird abgewiesen --\n";
+        ms::MessArena arena;
+
+        std::uint64_t const kExakt2Hoch64 = 1ull << 59u; // * 32 Byte == 2^64, wickelt auf 0
+        bool const          a             = arena.reservieren(kExakt2Hoch64, ms::VorabBeruehrung::Nein);
+        std::uint64_t const kap_a         = arena.kapazitaet();
+        bool const          basis_a       = arena.nutzlast_basis() == nullptr;
+
+        bool const          b       = arena.reservieren(kExakt2Hoch64 + 1u, ms::VorabBeruehrung::Nein);
+        std::uint64_t const kap_b   = arena.kapazitaet();
+        bool const          basis_b = arena.nutzlast_basis() == nullptr;
+
+        bool const gut = arena.reservieren(1024u, ms::VorabBeruehrung::Ja); // Positivkontrolle
+
+        std::cout << "     reservieren(2^59)   -> " << (a ? "TRUE" : "false") << ", kapazitaet = " << kap_a << "\n";
+        std::cout << "     reservieren(2^59+1) -> " << (b ? "TRUE" : "false") << ", kapazitaet = " << kap_b << "\n";
+        std::cout << "     reservieren(1024)   -> " << (gut ? "TRUE" : "false")
+                  << ", kapazitaet = " << arena.kapazitaet() << "\n";
+        pruefe(!a, "(13a) 2^59 Zeilen (== 2^64 Byte) werden abgewiesen");
+        pruefe(!b, "(13b) 2^59+1 Zeilen werden abgewiesen -- der Fall, der frueher TRUE lieferte");
+        pruefe(kap_a == 0 && kap_b == 0 && basis_a && basis_b,
+               "(13c) nach der Abweisung sagt die Arena KEINE Kapazitaet zu und haelt keine Basis");
+        pruefe(gut && arena.kapazitaet() == 1024, "(13d) Positivkontrolle: ein gueltiger Wert kommt weiter durch");
+
+        // DIESELBE FEHLERKLASSE IM FEEDER (T-6, Schwesterpflicht). Die Planer-Formel rechnete in
+        // nacktem uint64: gemessen uebersetzte frueher `static_assert(rechnen(2^63+1, 2, 1) == 2)`.
+        // Compile-hart UND zur Laufzeit, weil ein constexpr-Ergebnis sonst nur beim Uebersetzen
+        // geprueft waere und niemand die Zahl im Lauf zu sehen bekaeme.
+        constexpr ms::KapazitaetRechnung kNormal = ms::kapazitaet_zeilen_rechnen(1000u, 6u, 18u);
+        constexpr ms::KapazitaetRechnung kKipp   = ms::kapazitaet_zeilen_rechnen((1ull << 63u) + 1u, 2u, 1u);
+        constexpr ms::KapazitaetRechnung kSpaet  = ms::kapazitaet_zeilen_rechnen(1ull << 40u, 1ull << 20u, 64u);
+        static_assert(kNormal.darstellbar && kNormal.zeilen == 108000u,
+                      "die Planer-Formel muss gewoehnliche Zahlen unveraendert liefern");
+        static_assert(!kKipp.darstellbar, "der Ueberlauf in der ERSTEN Multiplikation muss auffallen");
+        static_assert(!kSpaet.darstellbar, "der Ueberlauf in der ZWEITEN Multiplikation muss ebenso auffallen");
+
+        std::cout << "     Planer-Formel: 1000*6*18 -> darstellbar = " << (kNormal.darstellbar ? 1 : 0)
+                  << ", zeilen = " << kNormal.zeilen
+                  << " | (2^63+1)*2*1 -> darstellbar = " << (kKipp.darstellbar ? 1 : 0) << ", zeilen = " << kKipp.zeilen
+                  << "\n";
+        pruefe(kNormal.darstellbar && kNormal.zeilen == 108000u, "(13e) die Planer-Formel rechnet gewoehnlich richtig");
+        pruefe(!kKipp.darstellbar && !kSpaet.darstellbar,
+               "(13f) beide Multiplikationen der Planer-Formel melden ihren Ueberlauf");
+    }
+
+    // -- (14) DIE FEHLERZAEHLER DES STAPELS WICKELN NICHT AUF "AUSGEGLICHEN" -------------------------
+    // BEFUND: zu_tief und unpaarige_aus waren uint32, waehrend der Versuchs-Zaehler der Mess-Arena
+    // uint64 ist -- ausdruecklich "damit der Verlust exakt ist". Gemessen: nach 2^32 Abweisungen
+    // meldete zu_tief() wieder 0, sauber() wieder TRUE und die Meldezeile woertlich "stapel_arena:
+    // ausgeglichen (Hoechststand 1 von 1 Plaetzen)".
+    //
+    // WAS HIER GEMESSEN WIRD UND WAS NICHT -- ehrlich benannt. Der Wickel bei 2^64 ist nicht mehr
+    // fahrbar, und ein Test, der 2^32 Runden dreht, gehoert nicht in einen Sekundenlauf. Gemessen
+    // wird deshalb ueber 2^16 hinaus: das faengt jede Verengung auf 8 oder 16 Bit am Objekt. Gegen
+    // eine Verengung auf 32 Bit steht der compile-harte Breiten-Assert in stapel_arena.hpp, der die
+    // Zaehler an MessArenaHeiss::versuche bindet -- also an genau die Zusage, aus der die Exaktheit
+    // ueberhaupt stammt.
+    {
+        constexpr std::uint64_t kAbweisungen = 70000; // > 2^16, in Millisekunden zu fahren
+        ms::StapelArena         stapel;
+        pruefe(stapel.reservieren(1u, ms::VorabBeruehrung::Ja), "Aufbau (14): Tiefe 1");
+
+        ms::StapelEintrag e{};
+        e.log_index = kKoederZuTief;
+        (void)stapel.hinauf(e);                                                          // der eine Platz ist belegt
+        for (std::uint64_t i = 0; i < kAbweisungen; ++i) (void)stapel.hinauf(e);         // alle zu tief
+        (void)stapel.herunter(nullptr);                                                  // wieder leer
+        for (std::uint64_t i = 0; i < kAbweisungen; ++i) (void)stapel.herunter(nullptr); // alle unpaarig
+
+        ms::StapelBefund const b = stapel.befund();
+        char                   text[320];
+        (void)ms::befund_zeile(b, text, sizeof(text));
+
+        std::cout << "-- (14) die Fehlerzaehler wickeln nicht --\n";
+        std::cout << "     " << kAbweisungen << " Abweisungen je Klasse -> zu_tief = " << b.zu_tief
+                  << ", unpaarige_aus = " << b.unpaarige_aus << "\n";
+        std::cout << "     " << text << "\n";
+        pruefe(b.zu_tief == kAbweisungen, "(14a) zu_tief zaehlt ueber 2^16 hinaus exakt weiter");
+        pruefe(b.unpaarige_aus == kAbweisungen, "(14b) unpaarige_aus zaehlt ueber 2^16 hinaus exakt weiter");
+        pruefe(!b.sauber(), "(14c) der Befund bleibt unsauber -- er kippt nicht auf ausgeglichen zurueck");
+        pruefe(std::string_view{text}.find("ausgeglichen") == std::string_view::npos,
+               "(14d) die Meldung sagt NICHT ausgeglichen");
+        pruefe(sizeof(stapel.zu_tief()) == sizeof(std::uint64_t) &&
+                   sizeof(stapel.unpaarige_aus()) == sizeof(std::uint64_t) &&
+                   sizeof(b.zu_tief) == sizeof(std::uint64_t),
+               "(14e) die Zaehler bleiben auch auf dem Weg nach draussen 64 Bit breit");
+    }
+
+    // -- (15) DER RUECKGABE-VERTRAG DER MELDEZEILEN IST EHRLICH -------------------------------------
+    // BEFUND: beide befund_zeile()-Ueberladungen gaben den snprintf-Rueckgabewert weiter und
+    // versprachen in der Doku "geschriebene Zeichen". Gemessen an einem 16-Byte-Puffer: Rueckgabe
+    // 124, strlen 15. Mit [[nodiscard]] laedt eine solche Zahl zum Weiterrechnen ein (puffer + rc),
+    // und das zeigte 109 Byte hinter das Puffer-Ende.
+    //
+    // Geprueft werden BEIDE Ueberladungen -- die Zusage gilt fuer das Modul, nicht fuer eine Datei.
+    {
+        std::cout << "-- (15) der Rueckgabe-Vertrag der Meldezeilen --\n";
+
+        ms::UeberlaufBefund ub{};
+        ub.kapazitaet = 3;
+        ub.versuche   = 4;
+        ub.belegt     = 3;
+        ub.verloren   = 1;
+
+        ms::StapelBefund sb{};
+        sb.kapazitaet    = 4;
+        sb.offen         = 1;
+        sb.hoechststand  = 4;
+        sb.zu_tief       = 2;
+        sb.unpaarige_aus = 3;
+
+        char klein[16];
+        char gross[400];
+
+        ms::MeldungsLaenge const m_kurz = ms::befund_zeile(ub, klein, sizeof(klein));
+        std::size_t const        m_len  = std::strlen(klein);
+        ms::MeldungsLaenge const m_voll = ms::befund_zeile(ub, gross, sizeof(gross));
+        ms::MeldungsLaenge const m_mass = ms::befund_zeile(ub, nullptr, 0u);
+
+        ms::MeldungsLaenge const s_kurz = ms::befund_zeile(sb, klein, sizeof(klein));
+        std::size_t const        s_len  = std::strlen(klein);
+        ms::MeldungsLaenge const s_voll = ms::befund_zeile(sb, gross, sizeof(gross));
+        ms::MeldungsLaenge const s_mass = ms::befund_zeile(sb, nullptr, 0u);
+
+        std::cout << "     mess_arena  16-Byte-Puffer: geschrieben = " << m_kurz.geschrieben << ", strlen = " << m_len
+                  << ", benoetigt = " << m_kurz.benoetigt << ", abgeschnitten = " << (m_kurz.abgeschnitten() ? 1 : 0)
+                  << "\n";
+        std::cout << "     stapel_arena 16-Byte-Puffer: geschrieben = " << s_kurz.geschrieben << ", strlen = " << s_len
+                  << ", benoetigt = " << s_kurz.benoetigt << ", abgeschnitten = " << (s_kurz.abgeschnitten() ? 1 : 0)
+                  << "\n";
+
+        pruefe(m_kurz.geschrieben == m_len && s_kurz.geschrieben == s_len,
+               "(15a) `geschrieben` ist die Zahl der Zeichen IM Puffer -- gegen strlen gemessen");
+        pruefe(m_kurz.geschrieben == sizeof(klein) - 1u && s_kurz.geschrieben == sizeof(klein) - 1u,
+               "(15b) der kleine Puffer ist bis auf die Abschluss-Null gefuellt");
+        pruefe(m_kurz.abgeschnitten() && s_kurz.abgeschnitten(),
+               "(15c) das Abschneiden wird gemeldet und nicht verschwiegen");
+        pruefe(m_kurz.benoetigt > m_kurz.geschrieben && s_kurz.benoetigt > s_kurz.geschrieben,
+               "(15d) `benoetigt` ist die volle Laenge und damit groesser als das Geschriebene");
+        pruefe(m_kurz.benoetigt == m_voll.benoetigt && s_kurz.benoetigt == s_voll.benoetigt,
+               "(15e) `benoetigt` haengt am Text, nicht an der Puffergroesse");
+        pruefe(!m_voll.abgeschnitten() && !s_voll.abgeschnitten() && m_voll.geschrieben == m_voll.benoetigt &&
+                   s_voll.geschrieben == s_voll.benoetigt,
+               "(15f) im grossen Puffer ist nichts abgeschnitten und beide Zahlen fallen zusammen");
+        pruefe(m_mass.geschrieben == 0 && s_mass.geschrieben == 0 && m_mass.benoetigt == m_voll.benoetigt &&
+                   s_mass.benoetigt == s_voll.benoetigt,
+               "(15g) (nullptr, 0) misst den Puffer aus, ohne zu schreiben");
+        pruefe(m_mass.abgeschnitten() && s_mass.abgeschnitten(),
+               "(15h) auch der Ausmess-Aufruf gilt als abgeschnitten -- er hat nichts abgeliefert");
+        pruefe(!m_kurz.formatfehler && !s_kurz.formatfehler, "(15i) kein Formatfehler auf dem regulaeren Weg");
+    }
+
+    // -- (16) DER AUFBAU SAGT, WAS ER GETAN HAT ------------------------------------------------------
+    // Zwei Befunde in einem Abschnitt, beide ueber den AUFBAU:
+    //   * reservieren(0) kehrte um, BEVOR die alte Reservierung freigegeben war. Das Objekt meldete
+    //     danach "leer" -- kapazitaet 0, Basis nullptr --, waehrend der alte Block weiter abgebildet
+    //     blieb. Sichtbar ist das nicht an der Schnittstelle, sondern am ADRESSRAUM; also wird dort
+    //     gemessen und nicht behauptet.
+    //   * speicher_aufbauen() gab ein nacktes `a && b` und verlor damit, WELCHE der beiden
+    //     Reservierungen gefehlt hat -- bei zwei Arenen mit voellig verschiedener Dimensionierung
+    //     ist genau das die Auskunft, die der Meldende braucht.
+    {
+        std::cout << "-- (16) der Aufbau sagt, was er getan hat --\n";
+
+        // Die Schranke wird GERECHNET, nicht gegriffen, und der Nenner kommt aus ms::kSeitenBytes --
+        // dieselbe Quelle, aus der auch MS-2 rechnet, und dort gegen sysconf(_SC_PAGESIZE) gemessen.
+        // 15/16 der Abbildung lassen genug Luft fuer die uebrige Prozess-Aktivitaet zwischen zwei
+        // Ablesungen und sind trotzdem weit von jedem Rauschen entfernt.
+        constexpr std::uint64_t kGrossBytes  = 64ull * 1024ull * 1024ull;
+        constexpr std::uint64_t kGross       = kGrossBytes / sizeof(ms::MessCheckpointZeile);
+        constexpr std::uint64_t kGrossSeiten = kGrossBytes / ms::kSeitenBytes;
+        constexpr std::uint64_t kSchranke    = kGrossSeiten - (kGrossSeiten / 16u);
+
+        std::uint64_t const vor = vm_seiten();
+        if (vor == 0u) {
+            // KEIN stiller Durchlauf: die Nichtmessbarkeit wird ausgesprochen.
+            std::cout << "     /proc/self/statm nicht lesbar -- die Freigabe ist hier UNGEPRUEFT\n";
+        } else {
+            ms::MessArena arena;
+            pruefe(arena.reservieren(kGross, ms::VorabBeruehrung::Nein), "Aufbau (16): 64 MiB");
+            std::uint64_t const mit  = vm_seiten();
+            bool const          weg  = !arena.reservieren(0u, ms::VorabBeruehrung::Nein);
+            std::uint64_t const nach = vm_seiten();
+
+            std::cout << "     VmSize in Seiten: vor = " << vor << ", mit 64 MiB = " << mit
+                      << ", nach reservieren(0) = " << nach << "\n";
+            pruefe(weg, "(16a) reservieren(0) weist ab");
+            pruefe(mit > vor + kSchranke, "(16b) die Reservierung ist im Adressraum sichtbar (Positivkontrolle)");
+            pruefe(mit > nach + kSchranke, "(16c) reservieren(0) gibt die alte Abbildung wirklich frei");
+            pruefe(arena.kapazitaet() == 0 && arena.nutzlast_basis() == nullptr,
+                   "(16d) und die Zugriffsfunktionen beschreiben denselben leeren Zustand");
+        }
+
+        ms::CheckpointSpeicher sp_a;
+        ms::AufbauBefund const ohne_mess = ms::speicher_aufbauen(sp_a, 0u, 16u, ms::VorabBeruehrung::Ja);
+        ms::CheckpointSpeicher sp_b;
+        ms::AufbauBefund const ohne_stapel = ms::speicher_aufbauen(sp_b, 16u, 0u, ms::VorabBeruehrung::Ja);
+        ms::CheckpointSpeicher sp_c;
+        ms::AufbauBefund const beide = ms::speicher_aufbauen(sp_c, 16u, 16u, ms::VorabBeruehrung::Ja);
+
+        std::cout << "     Aufbau-Befund: (0,16) -> mess = " << (ohne_mess.mess ? 1 : 0)
+                  << ", stapel = " << (ohne_mess.stapel ? 1 : 0) << " | (16,0) -> mess = " << (ohne_stapel.mess ? 1 : 0)
+                  << ", stapel = " << (ohne_stapel.stapel ? 1 : 0) << "\n";
+        pruefe(!ohne_mess.steht() && !ohne_mess.mess && ohne_mess.stapel,
+               "(16e) fehlt die MESS-Arena, sagt der Befund genau das -- und dass der Stapel steht");
+        pruefe(!ohne_stapel.steht() && ohne_stapel.mess && !ohne_stapel.stapel,
+               "(16f) fehlt die STAPEL-Arena, sagt der Befund genau das -- und dass die Mess-Arena steht");
+        pruefe(beide.steht() && beide.mess && beide.stapel, "(16g) Positivkontrolle: beide stehen, steht() ist TRUE");
     }
 
     if (g_fail == 0) {
