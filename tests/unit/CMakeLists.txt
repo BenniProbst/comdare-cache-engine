@@ -6329,7 +6329,15 @@ target_include_directories(test_warn2a_block_id_bidirektional PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_SOURCE_DIR}/libs/common/serialization")
-target_link_libraries(test_warn2a_block_id_bidirektional PRIVATE comdare_builder_xml_config_parser)
+# Boost::mp11 EXPLIZIT: die TU zieht ueber experiment_tree/axis_path_serialization.hpp ein
+# <boost/mp11.hpp>. Der vendorierte Pfad (cmake/third_party/boost_mp11/include) kommt AUSSCHLIESSLICH
+# ueber dieses Target -- comdare_builder_xml_config_parser vererbt ihn nicht. Ohne die Zeile baut die
+# TU nur dort, wo zusaetzlich ein SYSTEMWEITES boost liegt (prod1 hat eines, der CI-Container nicht):
+# ce-Pipeline 15482, Job test:coverage-guard -> "error: 'boost' has not been declared", make inventar
+# nach 4 Versuchen abgebrochen. Am Objekt erhoben: 88 Test-Targets ziehen den Header transitiv, 42
+# linken Boost::mp11 nicht, 41 davon erben den Include-Pfad ueber eine Bibliothek -- dieses eine erbt
+# gar nichts (flags.make: 0 boost-Includes). T-6 gefahren, Schwestermenge leer.
+target_link_libraries(test_warn2a_block_id_bidirektional PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
 set_tests_properties(test_warn2a_block_id_bidirektional PROPERTIES
     LABELS "warnungen;experiment_tree;bidirektionalitaet" TIMEOUT 60)
 
