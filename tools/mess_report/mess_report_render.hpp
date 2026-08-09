@@ -131,9 +131,9 @@ struct DatumZeit {
     // der ausgeschriebene Ausdruck macht die Feldbreite beweisbar.
     // Die Addition steht jeweils NACH dem Klemmen: tm_year + 1900 bzw. tm_mon + 1 liefen bei einem
     // entarteten Feld sonst selbst ueber (UB), noch bevor snprintf ueberhaupt gerufen wird.
-    int const jahr    = ((tm.tm_year < -1900) ? -1900 : ((tm.tm_year > 8099) ? 8099 : tm.tm_year)) + 1900;
-    int const monat   = ((tm.tm_mon < 0) ? 0 : ((tm.tm_mon > 11) ? 11 : tm.tm_mon)) + 1;
-    int const tag     = (tm.tm_mday < 1) ? 1 : ((tm.tm_mday > 31) ? 31 : tm.tm_mday);
+    int const jahr  = ((tm.tm_year < -1900) ? -1900 : ((tm.tm_year > 8099) ? 8099 : tm.tm_year)) + 1900;
+    int const monat = ((tm.tm_mon < 0) ? 0 : ((tm.tm_mon > 11) ? 11 : tm.tm_mon)) + 1;
+    int const tag   = (tm.tm_mday < 1) ? 1 : ((tm.tm_mday > 31) ? 31 : tm.tm_mday);
     char      buf_d[9];
     std::snprintf(buf_d, sizeof buf_d, "%04d%02d%02d", jahr, monat, tag);
     int const stunde  = (tm.tm_hour < 0) ? 0 : ((tm.tm_hour > 23) ? 23 : tm.tm_hour);
