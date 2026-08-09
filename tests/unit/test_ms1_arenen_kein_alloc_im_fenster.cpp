@@ -110,11 +110,104 @@
 // NACH dem letzten clang-format-Lauf erhoben. Der tragende Beleg bleibt aber der gruene Lauf dieses
 // Tests aus dem committeten Baum -- der ueberlebt jede Umformatierung.
 //
+// == DIE OPTIMIERUNGSSTUFE HAT DEN KOEDER GEFRESSEN (Nachtrag 09.08.2026) =========================
+//
+// SELBSTCHECK dieses Blocks: jede Zahl ist an dieser Maschine erhoben und woertlich uebernommen.
+// Es wird KEINE Zusage abgeschwaecht -- (3) fordert unveraendert 0. Geaendert ist ausschliesslich,
+// wie der KOEDER und der ABLESEVORGANG gegen den Uebersetzer gesichert sind.
+//
+// BEFUND AUS DER CI (Pipeline 15437, Job 369474, ce/development), woertlich:
+//     -- (2) Gegenprobe: der Zaehler sieht drei absichtliche Allokationen --
+//          erwartet = 3, gezaehlt = 1, Nutzsumme = 48
+//       [ERR] Gegenprobe: der Zaehler zaehlt
+//     -- (4) Gegenprobe K13: eine absichtliche Allokation im gemessenen Bereich --
+//          Koeder-Groesse = 38763, gezaehlt = 0, Bytes = 0
+//       [ERR] K13: der Zaehler sieht den Koeder im Arenen-Fenster
+//       [ERR] K13: die Byte-Zahl ist exakt die Koeder-Groesse
+//     FEHLGESCHLAGEN: 3 Pruefung(en)
+//
+// URSACHE, am Objekt entschieden: die Optimierungsstufe, NICHT die Arenen. Der lokale Bau faehrt mit
+// CMAKE_BUILD_TYPE leer (also -O0), die CI faehrt den GNU-Weg ./configure.sh, und der setzt
+// build_type="Release" -> -O3 -DNDEBUG. Nachgestellt mit DERSELBEN Uebersetzungseinheit, nur die
+// Stufe getauscht: -O0 gruen, -O1 rot, -O2 rot, -O3 rot -- Zeichen fuer Zeichen die CI-Ausgabe,
+// inklusive "Nutzsumme = 48". Es reisst bereits ab -O1, es ist nichts -O3-Eigenes.
+//
+// DER ZAEHLER WAR NICHT BLIND -- das ist die erste der beiden moeglichen Ursachen, und sie ist
+// ausgeschlossen: Abschnitt (1) meldet bei -O3 EXAKT dieselben Zahlen wie bei -O0 (Allokationen = 13,
+// angeforderte Bytes = 524224). Die operator-new-Ersetzung greift also auch im CI-Bau vollstaendig.
+// Es war der KOEDER, und zwar ueber ZWEI VERSCHIEDENE Mechanismen, nicht einen:
+//
+//   * Abschnitt (2) starb an GCCs -fallocation-dce ("remove unused C++ allocations", per Vorgabe an).
+//     Zwei der drei new/delete-Paare wurden ersatzlos entfernt; uebrig blieb der explizite
+//     ::operator new(64) -> gezaehlt = 1. Gemessen: -O3 -fno-allocation-dce -> gezaehlt = 3.
+//   * Abschnitt (4) starb an etwas ANDEREM. Die Belegung wurde bei GCC sehr wohl ausgefuehrt -- im
+//     Assembler steht "movl $38763, %edi; call _Znwm". Trotzdem wurde eine KONSTANTE 0 gedruckt
+//     (xorl %esi,%esi an beiden Druckstellen): unter -fassume-sane-operators-new-delete (Vorgabe)
+//     nimmt GCC an, die ersetzbaren globalen Allokationsoperatoren lesen und schreiben keinen
+//     globalen Speicher, und faltet g_neu_zaehler/g_neu_bytes ueber den Aufruf hinweg auf ihren
+//     Wert VOR dem Aufruf. Der Zaehler zaehlte zur Laufzeit; sein Ergebnis wurde zur
+//     UEBERSETZUNGSZEIT wegoptimiert.
+//
+// WARUM DAS ABSCHNITT (3) MITREISST, und warum das hier der eigentliche Punkt ist: derselbe
+// Faltungs-Mechanismus trifft die ZUSAGE. Nach scharf_stellen() weiss der Uebersetzer
+// "g_neu_zaehler == 0"; nimmt er zusaetzlich an, dass keine Allokation daran ruehrt, dann ist die
+// gedruckte "Allokationen = 0" in (3) bei -O3 eine KONSTANTE und keine Messung. Sie waere auch dann
+// 0, wenn die Arenen allozierten. Genau deshalb war (4) da, und genau deshalb hat (4) angeschlagen.
+// Ein gruenes (3) ohne ein gruenes (4) ist bei -O1 und hoeher wertlos.
+//
+// WARUM KEIN UEBERSETZER-SCHALTER: -fno-assume-sane-operators-new-delete heilt (4) bei GCC, aber
+// clangs Gegenstueck -fno-assume-sane-operator-new heilt es NICHT -- bei clang ist der Aufruf gar
+// nicht mehr da (echte allocation elision, im -O3-Assembler kommt die Groesse nur noch an der
+// Druckstelle vor). Auch die Zaehler-Globalen volatile zu machen heilt nur GCC, und dort mit
+// -Wvolatile-Warnung. Beide uebersetzer-eigenen Wege sind unvollstaendig; das Haus baut auf beiden.
+//
+// DIE HEILUNG, und was sie ausdruecklich NICHT ist. Die billige Heilung waere gewesen, (2) und (4)
+// zu entschaerfen -- sie sind der EINZIGE Grund, warum dieser Defekt sichtbar wurde; wer sie
+// weglaesst, kauft sich ein Gruen, das nichts bedeutet. Geaendert ist stattdessen:
+//   (a) eine undurchsichtige Schranke (leeres asm, "memory") auf jedem Koeder-Zeiger. Sie laesst den
+//       Zeiger in ein dem Uebersetzer unbekanntes Register entkommen -- damit ist die Belegung nicht
+//       mehr als tot beweisbar -- und erklaert zugleich den gesamten Speicher fuer veraendert.
+//   (b) dieselbe Schranke IM FENSTERRAHMEN, in scharf_stellen()/entschaerfen()/bytes(). Damit ist
+//       der Zaehlerstand aus dem SPEICHER zu lesen statt aus einer Annahme, und nichts darf ueber
+//       die Fenstergrenzen hinweg verschoben werden. Erst dadurch ist die "0" in (3) eine gemessene.
+//   (c) die Koeder-Groesse wird ZUR LAUFZEIT gewuerfelt (siehe koeder_groesse_wuerfeln). Was im
+//       Quelltext steht, kennt der Uebersetzer und darf darueber rechnen; was erst zur Laufzeit
+//       gelesen wird, kennt er nicht. Das erfuellt K13 im strengsten Sinn: frisch bei JEDEM Lauf,
+//       nicht abschreibbar. Ein blosses "benutze den Wert" genuegt NICHT -- das tat der Test schon
+//       (Nutzsumme = 48 wurde weiterhin korrekt gedruckt) und half nicht.
+//
+// WELCHES MITTEL TRAEGT WAS -- einzeln nachgemessen, statt drei Mittel pauschal zu behaupten:
+//   * Ohne die Schranken, aber MIT gewuerfelter Groesse, faellt der Test bei -O3 wieder um. Das
+//     Wuerfeln allein heilt also NICHT; die Schranke ist das tragende Mittel.
+//   * Mit den Schranken, aber MIT fester Groesse im Quelltext, ist er gruen. Das Wuerfeln ist damit
+//     nicht das, was heilt -- es ist die K13-Haerte (frisch je Lauf, nicht abschreibbar) und der
+//     Riegel gegen kuenftige Uebersetzer, die ueber eine bekannte Groesse rechnen wollen.
+// Beide Zahlen stehen im Paketbericht; sie sind der Grund, warum beide Mittel bleiben.
+//
+// GEMESSEN, beide Uebersetzer auf voller CI-Stufe, nach der Heilung:
+//     /usr/bin/c++ -O3 -DNDEBUG -> (1) 13/524224  (2) gezaehlt = 3  (3) Allokationen = 0
+//                                  (4) gezaehlt = 1, Bytes = <gewuerfelt>   OK: MS-1   RC=0
+//     clang++      -O3 -DNDEBUG -> dieselben Werte                          OK: MS-1   RC=0
+//
+// DER BLINDE ZAEHLER WIRD WEITERHIN ROT, NICHT STILL GRUEN. Das ist keine Absicht auf dem Papier,
+// sondern die Bauform: (1) fordert zahl > 0, (2) fordert genau 3, (4) fordert genau 1 UND die exakte
+// Byte-Zahl -- und (4) tut das INNERHALB des Arenen-Fensters, also auf demselben Pfad wie die Zusage.
+// Faellt die Zaehlung aus, faellt sie an allen dreien nach unten, und "0" ist dort ein FEHLER, kein
+// Erfolg. Gilt auch fuer die Schranke selbst: waere sie auf einem kuenftigen Uebersetzer wirkungslos,
+// verschwaende der Koeder wieder und (2)/(4) wuerden rot -- der Test kann sich nicht in ein stilles
+// Gruen retten.
+//
+// NEBENBEFUND, der eigenstaendig zaehlt und NICHT hier geheilt wird: der lokale Bau laeuft ohne
+// Optimierung, die CI mit -O3. Jeder Test, der eine Uebersetzer-Beobachtbarkeit zusichert, ist lokal
+// strukturell schwaecher als in der CI. MS-1 war lokal gruen und fiel erst in der CI um -- das ist
+// keine Flakiness, sondern eine Luecke zwischen lokalem und offiziellem Bauweg.
+//
 // Build: Standalone int main() (kein gtest -- ein Test-Framework alloziert im Fenster und machte die
 // Messung wertlos). Globale operator-new/delete-Ersetzung in DIESER TU gilt programmweit.
 //
 // KEIN ZUFALL AUSSER BEI KOEDERN (Haus-Doktrin). Die Koeder-Werte unten sind am 09.08.2026 frisch
-// aus /dev/urandom gewuerfelt und NICHT aus einer Doku abgeschrieben.
+// aus /dev/urandom gewuerfelt und NICHT aus einer Doku abgeschrieben; die Koeder-GROESSE in (4) wird
+// zusaetzlich bei jedem Lauf neu gewuerfelt.
 
 #include <builder/measure_storage/checkpoint_speicher.hpp>
 #include <builder/measure_storage/mess_arena.hpp>
@@ -153,18 +246,60 @@ inline std::uint64_t g_neu_zaehler = 0;
 inline std::uint64_t g_neu_bytes   = 0;
 inline bool          g_scharf      = false;
 
+// -- DIE UNDURCHSICHTIGE SCHRANKE ------------------------------------------------------------------
+// Ein leeres asm-Stueck mit "memory"-Clobber. Es erzeugt keinen einzigen Befehl, erklaert dem
+// Uebersetzer aber, dass an dieser Stelle beliebiger Speicher gelesen und geschrieben worden sein
+// kann. Damit faellt genau die Annahme weg, die (4) in der CI toetete: dass ein Aufruf von
+// operator new den Zaehlerstand nicht beruehrt. Der Stand wird wieder aus dem SPEICHER geholt.
+//
+// SELBSTCHECK: die Schranke ist kein Zaun um ein Ergebnis, sondern um eine ANNAHME. Sie unterdrueckt
+// nichts und faelscht nichts -- sie verbietet dem Uebersetzer nur, eine Zahl zu erfinden, die er
+// nicht gemessen hat. Wuerden die Arenen allozieren, zaehlte der Zaehler das MIT Schranke genauso
+// wie ohne; ohne Schranke duerfte er es verschweigen.
+#if !defined(__GNUC__) && !defined(__clang__)
+inline void const volatile* volatile g_senke = nullptr;
+#endif
+
+inline void speicher_schranke() noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+    __asm__ __volatile__("" : : : "memory");
+#else
+    // SCHWAECHERER RUECKFALL fuer Uebersetzer ohne GNU-asm. Ausdruecklich als schwaecher benannt
+    // statt als gleichwertig ausgegeben: er ordnet die volatile-Zugriffe, erklaert aber nicht den
+    // uebrigen Speicher fuer veraendert. Traegt er nicht, wird der Test ROT -- die Koeder in (2) und
+    // (4) verschwinden dann wieder --, er kann sich nicht in ein stilles Gruen retten.
+    (void)g_senke;
+#endif
+}
+
+// Laesst einen Zeiger in ein dem Uebersetzer unbekanntes Register entkommen. Danach ist die
+// zugehoerige Belegung nicht mehr als tot beweisbar -- weder ueber -fallocation-dce (GCC) noch ueber
+// die allocation elision von clang.
+inline void nicht_wegoptimieren(void const volatile* p) noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+    __asm__ __volatile__("" : : "r"(p) : "memory");
+#else
+    g_senke = p;
+#endif
+}
+
 inline void scharf_stellen() noexcept {
     g_neu_zaehler = 0;
     g_neu_bytes   = 0;
     g_scharf      = true;
+    speicher_schranke(); // HIER beginnt das Fenster -- nichts darf darueber hinweg verschoben werden
 }
 
 [[nodiscard]] inline std::uint64_t entschaerfen() noexcept {
+    speicher_schranke(); // ... und HIER endet es: der Stand wird gelesen, nicht geraten
     g_scharf = false;
     return g_neu_zaehler;
 }
 
-[[nodiscard]] inline std::uint64_t bytes() noexcept { return g_neu_bytes; }
+[[nodiscard]] inline std::uint64_t bytes() noexcept {
+    speicher_schranke();
+    return g_neu_bytes;
+}
 
 inline void* roh_holen(std::size_t n) noexcept {
     if (g_scharf) {
@@ -255,7 +390,34 @@ inline constexpr std::uint64_t kKoederStapel3 = 3816673831ull;
 inline constexpr std::uint64_t kKoederStapel4 = 1938343354ull;
 inline constexpr std::uint64_t kKoederZuTief  = 0xf9285cdf0d550d02ull; // MUSS abgewiesen werden
 inline constexpr std::uint64_t kKoederOffen   = 0xa7ea73b0d04f92ecull; // MUSS offen liegenbleiben
-inline constexpr std::size_t   kKoederBytes   = 38763;                 // Groesse der Koeder-Allokation
+
+// == DIE KOEDER-GROESSE WIRD ZUR LAUFZEIT GEWUERFELT ===============================================
+// Der Zweck ist NICHT Statistik, sondern Undurchsichtigkeit. Eine Groesse, die im Quelltext steht,
+// kennt der Uebersetzer, und er darf ueber sie rechnen -- die 38763, die hier stand, hat er bei -O3
+// genau dafuer benutzt. Eine erst zur Laufzeit gelesene kennt er nicht. Zugleich ist K13 damit im
+// strengsten Sinn erfuellt: der Koeder ist bei JEDEM Lauf frisch gewuerfelt und kann gar nicht aus
+// einer Doku abgeschrieben sein.
+//
+// Laeuft AUSSERHALB jedes Fensters -- hier darf belegt werden. Der Rueckfall wird ausgesprochen und
+// nicht verschwiegen: eine still eingesetzte Konstante waere genau der Zustand, den diese Funktion
+// beseitigen soll.
+[[nodiscard]] std::size_t koeder_groesse_wuerfeln(char const*& woher) noexcept {
+    std::uint32_t roh = 0;
+    woher             = "/dev/urandom";
+    if (std::FILE* q = std::fopen("/dev/urandom", "rb"); q != nullptr) {
+        if (std::fread(&roh, sizeof(roh), 1u, q) != 1u) roh = 0u;
+        (void)std::fclose(q);
+    }
+    if (roh == 0u) {
+        // Kein Rueckfall auf eine Konstante: die Adresse eines Automatikobjekts ist dem Uebersetzer
+        // ebenfalls unbekannt (ASLR), taugt also fuer denselben Zweck.
+        woher = "Stapeladresse/ASLR (/dev/urandom nicht lesbar)";
+        roh   = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(&roh) >> 4);
+    }
+    // 4096 .. 65535 Byte: gross genug, dass die Belegung kein Kleinkram ist, klein genug fuer jede
+    // Maschine -- und nie 0, damit die Byte-Pruefung unten eine echte Aussage bleibt.
+    return static_cast<std::size_t>(4096u + (roh % 61440u));
+}
 
 // Liest eine Datei ganz ein. Laeuft ausserhalb jedes Fensters -- hier darf belegt werden.
 [[nodiscard]] bool datei_lesen(char const* pfad, std::string& hinein) {
@@ -301,13 +463,25 @@ int main() {
         // Uebersetzer darf eine Belegung, deren Ergebnis nie benutzt wird, ersatzlos entfernen
         // (C++ erlaubt das ausdruecklich fuer new/delete-Paare) -- dann zaehlte der Zaehler nichts
         // und die Gegenprobe waere selbst der wertlose Test, den sie ausschliessen soll.
+        //
+        // BENUTZEN GENUEGT NICHT -- am Objekt gelernt. Genau das stand hier schon, und bei -O3 hat
+        // GCC trotzdem zwei der drei Paare ueber -fallocation-dce entfernt und die Nutzsumme 48 aus
+        // den Konstanten ausgerechnet, statt sie aus dem Speicher zu lesen: "gezaehlt = 1,
+        // Nutzsumme = 48". Erst die Schranke laesst die Zeiger entkommen; danach ist keine der drei
+        // Belegungen mehr als tot beweisbar. Die drei Formen sind mit Absicht verschieden --
+        // Skalar, Feld, expliziter ::operator new --, weil sie verschieden weit wegoptimierbar sind.
         ms_wache::scharf_stellen();
-        int* a                    = new int(7);
-        int* b                    = new int[16];
-        int* c                    = static_cast<int*>(::operator new(64));
-        b[0]                      = 11;
-        b[15]                     = 13;
-        c[0]                      = 17;
+        int* a = new int(7);
+        ms_wache::nicht_wegoptimieren(a);
+        int* b = new int[16];
+        ms_wache::nicht_wegoptimieren(b);
+        int* c = static_cast<int*>(::operator new(64));
+        ms_wache::nicht_wegoptimieren(c);
+        b[0]  = 11;
+        b[15] = 13;
+        c[0]  = 17;
+        ms_wache::nicht_wegoptimieren(b);
+        ms_wache::nicht_wegoptimieren(c);
         std::uint64_t const zahl  = ms_wache::entschaerfen();
         int const           summe = *a + b[0] + b[15] + c[0];
         delete a;
@@ -377,7 +551,16 @@ int main() {
     // sehen -- sonst beweist (3) nichts, weil dann jeder Pfad "0" ergaebe.
     // ZWEI unabhaengige Observablen: die ANZAHL und die BYTE-Zahl. Ein Mutant, der die Zaehlung
     // stillegte, faellt an beiden; einer, der nur die Byte-Summe verlore, faellt an der zweiten.
+    //
+    // DIESER ABSCHNITT TRAEGT (3). Ohne ihn waere die dort gedruckte 0 bei -O1 und hoeher nicht von
+    // einer wegoptimierten 0 zu unterscheiden -- genau das war der CI-Defekt. Er misst deshalb
+    // denselben Arenen-Verkehr, nur mit einem Koeder mitten drin, und ist dreifach gegen den
+    // Uebersetzer gesichert: Groesse erst zur Laufzeit gewuerfelt, Zeiger durch die Schranke,
+    // Zaehlerstand hinter der Schranke im Fensterrahmen gelesen.
     {
+        char const*       woher        = nullptr;
+        std::size_t const koeder_bytes = koeder_groesse_wuerfeln(woher); // VOR dem Fenster gewuerfelt
+
         ms::CheckpointSpeicher sp;
         pruefe(ms::speicher_aufbauen(sp, 1024u, 64u, ms::VorabBeruehrung::Ja), "Aufbau (4)");
 
@@ -386,19 +569,21 @@ int main() {
 
         ms_wache::scharf_stellen();
         (void)sp.mess.anhaengen(z);
-        char* koeder             = new char[kKoederBytes]; // DER KOEDER -- absichtlich, im Fenster
-        koeder[0]                = 1;
-        koeder[kKoederBytes - 1] = 2;
+        char* koeder = new char[koeder_bytes]; // DER KOEDER -- absichtlich, im Fenster
+        ms_wache::nicht_wegoptimieren(koeder);
+        koeder[0]                 = 1;
+        koeder[koeder_bytes - 1u] = 2;
+        ms_wache::nicht_wegoptimieren(koeder);
         (void)sp.mess.anhaengen(z);
         std::uint64_t const zahl  = ms_wache::entschaerfen();
         std::uint64_t const bytes = ms_wache::bytes();
         delete[] koeder;
 
         std::cout << "-- (4) Gegenprobe K13: eine absichtliche Allokation im gemessenen Bereich --\n";
-        std::cout << "     Koeder-Groesse = " << kKoederBytes << ", gezaehlt = " << zahl << ", Bytes = " << bytes
-                  << "\n";
+        std::cout << "     Koeder-Groesse = " << koeder_bytes << " (gewuerfelt aus " << woher
+                  << "), gezaehlt = " << zahl << ", Bytes = " << bytes << "\n";
         pruefe(zahl == 1, "K13: der Zaehler sieht den Koeder im Arenen-Fenster");
-        pruefe(bytes == kKoederBytes, "K13: die Byte-Zahl ist exakt die Koeder-Groesse");
+        pruefe(bytes == koeder_bytes, "K13: die Byte-Zahl ist exakt die Koeder-Groesse");
     }
 
     // -- (5) KOEDER Mess-Arena: Ueberlauf ist DATENVERLUST -------------------------------------------
