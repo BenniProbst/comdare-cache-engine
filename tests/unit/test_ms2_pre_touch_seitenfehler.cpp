@@ -41,6 +41,7 @@
 
 #if defined(__linux__)
 #include <sys/resource.h>
+#include <unistd.h>
 #endif
 
 namespace {
@@ -59,8 +60,16 @@ namespace ms = ::comdare::cache_engine::builder::measure_storage;
 // 64 MiB = 2 097 152 Zeilen a 32 Byte = 16 384 Seiten a 4 KiB. Die Groesse ist so gewaehlt, dass die
 // erwartete Fehlerzahl vierstellig ist -- bei einer kleinen Arena verschwaende sie im Rauschen der
 // uebrigen Prozess-Aktivitaet und der Test koennte MIT und OHNE nicht unterscheiden.
-inline constexpr std::uint64_t kZeilen          = (64ull * 1024ull * 1024ull) / sizeof(ms::MessCheckpointZeile);
-inline constexpr std::uint64_t kErwarteteSeiten = (64ull * 1024ull * 1024ull) / 4096ull;
+inline constexpr std::uint64_t kArenaBytes = 64ull * 1024ull * 1024ull;
+inline constexpr std::uint64_t kZeilen     = kArenaBytes / sizeof(ms::MessCheckpointZeile);
+
+// DER NENNER KOMMT AUS DER HAUSKONSTANTE, nicht aus einer zweiten Zahl (korrigiert 09.08.2026).
+// Hier stand ein Literal 4096 neben ms::kSeitenBytes, das denselben Sachverhalt fuehrt -- zwei
+// Wahrheiten ueber die Seitengroesse, und auf einem Kern mit 64-KiB-Seiten waere die eine still
+// falsch geworden, waehrend die Rechnung weiterlief. Es gibt jetzt eine Quelle, und die wird unten
+// zusaetzlich gegen sysconf(_SC_PAGESIZE) gemessen: eine festgeschriebene Zahl darf nicht geglaubt
+// werden, genau wie bei der Cacheline-Konstante in MS-1.
+inline constexpr std::uint64_t kErwarteteSeiten = kArenaBytes / ms::kSeitenBytes;
 
 struct Lauf {
     std::uint64_t minflt_delta = 0;
@@ -131,12 +140,25 @@ struct Lauf {
 
 int main() {
     std::cout << "== MS-2: wirkt die Vorab-Beruehrung? ==\n";
-    std::cout << "   Arena = 64 MiB = " << kZeilen << " Zeilen a 32 Byte = " << kErwarteteSeiten << " Seiten a 4 KiB\n";
+    std::cout << "   Arena = " << (kArenaBytes / (1024ull * 1024ull)) << " MiB = " << kZeilen << " Zeilen a "
+              << sizeof(ms::MessCheckpointZeile) << " Byte = " << kErwarteteSeiten << " Seiten a " << ms::kSeitenBytes
+              << " Byte\n";
 
 #if !defined(__linux__)
     std::cout << "   getrusage nicht verfuegbar -- auf dieser Plattform NICHT GEMESSEN, nicht gruen.\n";
     return 1;
 #else
+    // DIE HAUSKONSTANTE GEGEN DIE MASCHINE. Ohne diese Zeile waere die ganze Fehlerzahl-Rechnung auf
+    // einem Kern mit 64-KiB-Seiten still um Faktor 16 daneben, und (b) unten schluege zu -- mit einer
+    // Meldung ueber Riesenseiten, die die falsche Ursache naennte. Der Nenner wird deshalb gemessen,
+    // bevor er benutzt wird.
+    long const seitengroesse = sysconf(_SC_PAGESIZE);
+    std::cout << "   sysconf(_SC_PAGESIZE) = " << seitengroesse << ", Hauskonstante kSeitenBytes = " << ms::kSeitenBytes
+              << "\n";
+    pruefe(
+        seitengroesse > 0 && static_cast<std::size_t>(seitengroesse) == ms::kSeitenBytes,
+        "(0) die Hauskonstante kSeitenBytes stimmt mit der Maschine ueberein -- sonst ist jeder Nenner unten falsch");
+
     // Reihenfolge bewusst: erst OHNE, dann MIT. Beide bekommen eine eigene, frische Reservierung --
     // es gibt keinen Aufwaerm-Effekt der einen auf die andere, weil verschiedene Seiten belegt werden.
     Lauf const ohne = durchgang(ms::VorabBeruehrung::Nein);
@@ -172,7 +194,12 @@ int main() {
     // (b) Die Groessenordnung muss zur Rechnung passen. Nicht auf die Zahl genau -- der Prozess hat
     //     nebenher eigene Fehler -- aber in der richtigen Dimension. Eine Abweichung um Faktor 2
     //     hiesse, dass hier etwas anderes gemessen wird als angenommen (z.B. doch Riesenseiten).
-    pruefe(ohne.minflt_delta >= kErwarteteSeiten / 2u && ohne.minflt_delta <= kErwarteteSeiten * 2u,
+    //
+    //     BEIDE GRENZEN SIND ECHT, nicht einschliessend (korrigiert 09.08.2026). Vorher stand hier
+    //     `>= kErwarteteSeiten / 2u`, und damit kam die exakt halbierte Zahl noch durch -- also genau
+    //     der Fall "ein Fault deckt 8 KiB statt 4 KiB", den die Schranke abfangen soll. Eine Grenze,
+    //     die den Grenzfall einschliesst, den sie meint, faengt ihn nicht.
+    pruefe(ohne.minflt_delta > kErwarteteSeiten / 2u && ohne.minflt_delta < kErwarteteSeiten * 2u,
            "(b) die Fehlerzahl ohne Vorsorge liegt in der gerechneten Groessenordnung");
 
     // (c) DIE ZUSAGE: mit Vorab-Beruehrung bleibt das Fenster praktisch frei. Nicht "== 0"

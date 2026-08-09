@@ -101,6 +101,20 @@ public:
         freigeben();
         if (bytes == 0u) return false;
         std::size_t const gerundet = (bytes + kSeitenBytes - 1u) / kSeitenBytes * kSeitenBytes;
+        // RUECKRECHNUNGS-WAECHTER auf der Aufrundung. Sie ist eine Addition und kann ueberlaufen:
+        // fuer bytes nahe SIZE_MAX wickelt `bytes + kSeitenBytes - 1u`, und das Ergebnis wird
+        // KLEINER als die Anforderung. Die Pruefung ist exakt -- eine Aufrundung darf nie
+        // schrumpfen, und nur der Ueberlauf laesst sie schrumpfen.
+        //
+        // WAS SIE WIRKLICH TRAEGT, ehrlich benannt (sonst waere sie eine Wache ohne Eingang): auf
+        // dem LINUX-Pfad ist ihre Wirkung nicht beobachtbar. Der Ueberlauf faellt hier immer auf
+        // gerundet == 0, und mmap weist eine Laenge von 0 selbst mit EINVAL ab -- reservieren()
+        // liefert also so oder so false. Auf dem ERSATZWEG ist es anders: std::aligned_alloc darf
+        // fuer 0 Byte einen NICHT-nullen Zeiger liefern, und dann meldete steht() einen Block, der
+        // keiner ist. Diese Zeile ist damit die einzige Wache des Ersatzwegs. Sie steht hier und
+        // nicht dort, weil die Rechnung beiden gemeinsam ist -- den Ersatzweg selbst kann diese
+        // Maschine nicht fahren, was der Kommentar unten schon fuer VirtualAlloc feststellt.
+        if (gerundet < bytes) return false;
 #if defined(__linux__)
         void* p = ::mmap(nullptr, gerundet, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (p == MAP_FAILED) return false;

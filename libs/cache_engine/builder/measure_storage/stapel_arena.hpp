@@ -50,6 +50,10 @@
 // verbliebenen Eintraege heraus -- mit Deskriptor und Ebene, damit die Meldung sagen kann, WELCHES
 // EIN offen blieb, und nicht nur, DASS eines offen blieb.
 
+// mess_arena.hpp ist TRAGEND, nicht dekorativ: die Breiten-Symmetrie der Fehlerzaehler unten wird
+// gegen MessArenaHeiss::versuche zugesichert, und MeldungsLaenge kommt von dort. Bis zum 09.08.2026
+// war der Include hier tatsaechlich tot -- er ist es nicht mehr, und beide Zusicherungen brechen,
+// wenn ihn jemand entfernt.
 #include "mess_arena.hpp"
 #include "mess_speicher_kanon.hpp"
 
@@ -89,54 +93,90 @@ static_assert(std::is_standard_layout_v<StapelEintrag>, "Stapel-Eintrag muss sta
 // deshalb darf er nicht in derselben Cacheline liegen wie der heisse Zustand der Mess-Arena --
 // das waere selbstgemachtes False Sharing in ausgerechnet dem Modul, das solche Effekte messen soll.
 // Die Trennung wird in checkpoint_speicher.hpp compile-hart zugesichert, nicht behauptet.
+//
+// DIE BEIDEN FEHLERZAEHLER SIND 64 BIT BREIT, WIE `versuche` DRUEBEN (korrigiert 09.08.2026).
+// BEFUND: sie waren uint32, waehrend MessArenaHeiss::versuche uint64 ist -- ausdruecklich "damit der
+// Verlust exakt ist". Diese Asymmetrie WAR der Defekt. Gemessen: nach 2^32 Abweisungen lieferte
+// zu_tief() wieder 0, sauber() wieder TRUE und die Meldezeile woertlich "stapel_arena: ausgeglichen
+// (Hoechststand 1 von 1 Plaetzen)". Ein Programmierfehler-Zaehler, der bei genuegend vielen Fehlern
+// auf "alles in Ordnung" umschlaegt, ist schlimmer als keiner.
+//
+// WARUM 64 BIT UND KEIN SAETTIGUNGS-ZAEHLER. Ein saettigender Zaehler wuerde nie wieder auf 0
+// fallen, aber er wuerde LUEGEN, sobald er stehenbleibt ("4294967295" fuer jede groessere Zahl) --
+// und das Haus fuehrt hier exakte Zahlen, weil `verloren = versuche - kapazitaet` exakt sein muss.
+// Dieselbe Rechnung, die 64 Bit fuer `versuche` genuegen laesst, genuegt hier erst recht: jeder der
+// beiden Zaehler steigt hoechstens EINMAL JE CHECKPOINT, und `versuche` steigt bei JEDEM. Wer diese
+// Zaehler zum Wickeln bringt, hat `versuche` laengst zum Wickeln gebracht -- die Grenze liegt also
+// nicht hier. Die Reihenfolge der Mitglieder ist so gewaehlt, dass kein Polster entsteht.
 struct alignas(kCacheLineBytes) StapelArenaHeiss {
     StapelEintrag* basis         = nullptr;
+    std::uint64_t  zu_tief       = 0; // Fehlerklasse A: Verschachtelung zu tief (Programmierfehler)
+    std::uint64_t  unpaarige_aus = 0; // Fehlerklasse B: AUS ohne EIN (Programmierfehler, anderer)
     std::uint32_t  kapazitaet    = 0;
     std::uint32_t  top           = 0; // Zahl der derzeit offenen Eintraege
     std::uint32_t  hoechststand  = 0; // groesste je erreichte Tiefe -- misst die offene Haus-Frage
-    std::uint32_t  zu_tief       = 0; // Fehlerklasse A: Verschachtelung zu tief (Programmierfehler)
-    std::uint32_t  unpaarige_aus = 0; // Fehlerklasse B: AUS ohne EIN (Programmierfehler, anderer)
     std::uint32_t  polster       = 0;
 };
 
 static_assert(std::is_trivially_copyable_v<StapelArenaHeiss>, "heisser Stapel-Zustand muss trivially copyable sein");
 static_assert(std::is_standard_layout_v<StapelArenaHeiss>, "heisser Stapel-Zustand muss standard_layout sein");
 static_assert(alignof(StapelArenaHeiss) == kCacheLineBytes, "heisser Stapel-Zustand beginnt auf einer Cacheline");
-static_assert(sizeof(StapelArenaHeiss) % kCacheLineBytes == 0, "heisser Stapel-Zustand fuellt ganze Cachelines");
+// GENAU EINE Cacheline. Der frueher hier stehende Assert (sizeof % kCacheLineBytes == 0) konnte nie
+// feuern: sizeof ist per Norm ein Vielfaches von alignof, und alignof steht eine Zeile darueber.
+// Dieser hier feuert, sobald der heisse Zustand ueber eine Linie hinauswaechst.
+static_assert(sizeof(StapelArenaHeiss) == kCacheLineBytes,
+              "der heisse Stapel-Zustand muss in GENAU eine Cacheline passen");
+// DIE BREITEN-SYMMETRIE, compile-hart. Genau dieser Vergleich war der gefundene Defekt: die
+// Fehlerzaehler waren schmaler als der Zaehler, dessen Exaktheit dieselbe Begruendung traegt. Wer
+// sie wieder verschmaelert, faellt hier auf -- und nicht erst nach 2^32 Programmierfehlern.
+static_assert(sizeof(StapelArenaHeiss::zu_tief) == sizeof(MessArenaHeiss::versuche) &&
+                  sizeof(StapelArenaHeiss::unpaarige_aus) == sizeof(MessArenaHeiss::versuche),
+              "die Fehlerzaehler des Stapels muessen so breit sein wie der Versuchs-Zaehler der Mess-Arena");
 
 // == Der Befund der STAPEL-Arena -- eigene Fehlerklassen, eigener Text =============================
 //
 // SELBSTCHECK: dieser Typ hat KEIN Feld "verloren" und der Text unten enthaelt das Wort
 // "DATENVERLUST" nicht. Das ist die Trennung der Fehlerklassen, gebaut statt versprochen.
 struct StapelBefund {
-    std::uint32_t kapazitaet    = 0;
-    std::uint32_t offen         = 0; // EIN ohne AUS, beim Auslesen liegengeblieben -- REGRESSION
-    std::uint32_t hoechststand  = 0;
-    std::uint32_t zu_tief       = 0;
-    std::uint32_t unpaarige_aus = 0;
+    std::uint32_t kapazitaet   = 0;
+    std::uint32_t offen        = 0; // EIN ohne AUS, beim Auslesen liegengeblieben -- REGRESSION
+    std::uint32_t hoechststand = 0;
 
+    // 64 Bit wie im heissen Zustand -- die Breite darf auf dem Weg nach draussen nicht schrumpfen,
+    // sonst waere der Wickel nur um eine Ebene verschoben.
+    std::uint64_t zu_tief       = 0;
+    std::uint64_t unpaarige_aus = 0;
+
+    /// SAUBER heisst: alle DREI Fehlerklassen sind leer. Jeder der drei Terme traegt einzeln, und
+    /// das ist seit 09.08.2026 auch nachgewiesen: test_ms1 Abschnitt (12) faehrt drei Lose, die sich
+    /// in GENAU EINEM Zaehler unterscheiden, plus die Positivkontrolle. Vorher war der Ausdruck
+    /// dreimal geschrieben und einmal gedeckt -- `zu_tief` und `unpaarige_aus` liessen sich
+    /// ersatzlos streichen, ohne dass ein Test rot wurde.
     [[nodiscard]] constexpr bool sauber() const noexcept { return offen == 0u && zu_tief == 0u && unpaarige_aus == 0u; }
 };
 
 /// Schreibt die Stapel-Meldung in einen vom Aufrufer gestellten Puffer. Kein ostream, kein
-/// Text-Objekt. Rueckgabe: geschriebene Zeichen ohne Abschluss-Null.
+/// Text-Objekt. Rueckgabe: siehe MeldungsLaenge (mess_arena.hpp) -- `geschrieben` sind die Zeichen
+/// IM Puffer, `benoetigt` die noetigen; abgeschnitten() sagt, ob die Diagnose vollstaendig ist.
 ///
 /// Der Text nennt die drei Befunde GETRENNT. Sie in eine Zahl zusammenzuziehen hiesse, drei
 /// verschiedene Ursachen (zu tiefe Verschachtelung, unpaariges Austreten, offen gebliebenes
 /// Eintreten) hinter einer Meldung zu verstecken.
-[[nodiscard]] inline int befund_zeile(StapelBefund const& b, char* puffer, std::size_t n) noexcept {
-    if (puffer == nullptr || n == 0u) return 0;
-    if (b.sauber()) {
-        return std::snprintf(puffer, n, "stapel_arena: ausgeglichen (Hoechststand %llu von %llu Plaetzen)",
-                             static_cast<unsigned long long>(b.hoechststand),
-                             static_cast<unsigned long long>(b.kapazitaet));
-    }
-    return std::snprintf(puffer, n,
-                         "stapel_arena: PROGRAMMIERFEHLER -- zu_tief = %llu (Verschachtelung ueber %llu Plaetze), "
-                         "unpaariges_aus = %llu, offen_geblieben = %llu (EIN ohne AUS, Hoechststand %llu)",
-                         static_cast<unsigned long long>(b.zu_tief), static_cast<unsigned long long>(b.kapazitaet),
-                         static_cast<unsigned long long>(b.unpaarige_aus), static_cast<unsigned long long>(b.offen),
-                         static_cast<unsigned long long>(b.hoechststand));
+[[nodiscard]] inline MeldungsLaenge befund_zeile(StapelBefund const& b, char* puffer, std::size_t n) noexcept {
+    if (puffer == nullptr) n = 0u;
+    int const roh =
+        b.sauber()
+            ? std::snprintf(puffer, n, "stapel_arena: ausgeglichen (Hoechststand %llu von %llu Plaetzen)",
+                            static_cast<unsigned long long>(b.hoechststand),
+                            static_cast<unsigned long long>(b.kapazitaet))
+            : std::snprintf(puffer, n,
+                            "stapel_arena: PROGRAMMIERFEHLER -- zu_tief = %llu (Verschachtelung ueber %llu "
+                            "Plaetze), unpaariges_aus = %llu, offen_geblieben = %llu (EIN ohne AUS, "
+                            "Hoechststand %llu)",
+                            static_cast<unsigned long long>(b.zu_tief), static_cast<unsigned long long>(b.kapazitaet),
+                            static_cast<unsigned long long>(b.unpaarige_aus), static_cast<unsigned long long>(b.offen),
+                            static_cast<unsigned long long>(b.hoechststand));
+    return meldung_verbuchen(roh, n);
 }
 
 // == DIE STAPEL-ARENA ==============================================================================
@@ -154,7 +194,11 @@ public:
     /// Vorgabewert bei typisch einstelliger Verschachtelung. Welche Tiefe WIRKLICH auftritt, misst
     /// hoechststand() -- damit schliesst sich die Luecke am Objekt statt durch Schaetzung.
     [[nodiscard]] bool reservieren(std::uint32_t tiefe_plaetze, VorabBeruehrung vorab) noexcept {
+        // Wie drueben in der Mess-Arena: der alte Block geht BEDINGUNGSLOS weg, sonst bliebe er bei
+        // tiefe_plaetze == 0 abgebildet, waehrend heiss_ schon "leer" meldet. freigeben() ist
+        // idempotent, res_.reservieren() ruft es ohnehin selbst zuerst auf.
         heiss_ = StapelArenaHeiss{};
+        res_.freigeben();
         if (tiefe_plaetze == 0u) return false;
         std::size_t const bytes = static_cast<std::size_t>(tiefe_plaetze) * sizeof(StapelEintrag);
         if (!res_.reservieren(bytes, vorab)) return false;
@@ -202,8 +246,8 @@ public:
     [[nodiscard]] std::uint32_t tiefe() const noexcept { return heiss_.top; }
     [[nodiscard]] std::uint32_t kapazitaet() const noexcept { return heiss_.kapazitaet; }
     [[nodiscard]] std::uint32_t hoechststand() const noexcept { return heiss_.hoechststand; }
-    [[nodiscard]] std::uint32_t zu_tief() const noexcept { return heiss_.zu_tief; }
-    [[nodiscard]] std::uint32_t unpaarige_aus() const noexcept { return heiss_.unpaarige_aus; }
+    [[nodiscard]] std::uint64_t zu_tief() const noexcept { return heiss_.zu_tief; }
+    [[nodiscard]] std::uint64_t unpaarige_aus() const noexcept { return heiss_.unpaarige_aus; }
 
     /// Was liegengeblieben ist: jedes EIN ohne AUS. NICHT aufgeraeumt, sondern herausgegeben.
     [[nodiscard]] std::span<StapelEintrag const> offene() const noexcept {
@@ -223,8 +267,11 @@ private:
     SeitenReservierung res_{};   // kalt: eigene Reservierung, eigene Seiten
 };
 
-static_assert(sizeof(StapelArena) % kCacheLineBytes == 0, "Stapel-Arena muss ganze Cachelines fuellen");
 static_assert(alignof(StapelArena) == kCacheLineBytes, "Stapel-Arena muss auf einer Cacheline beginnen");
 static_assert(std::is_standard_layout_v<StapelArena>, "Stapel-Arena muss standard_layout sein (offsetof-Beleg)");
+// ERSATZLOS GESTRICHEN (09.08.2026), aus demselben Grund wie drueben: `sizeof % kCacheLineBytes`
+// war von der alignof-Zusicherung darueber bereits impliziert und konnte nie feuern. Die Trennung
+// sichern jetzt sizeof(StapelArenaHeiss) == kCacheLineBytes, standard_layout plus erstes Mitglied,
+// und der Abstands-Assert in checkpoint_speicher.hpp.
 
 } // namespace comdare::cache_engine::builder::measure_storage
