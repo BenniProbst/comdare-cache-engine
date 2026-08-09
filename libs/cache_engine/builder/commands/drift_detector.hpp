@@ -18,6 +18,19 @@
 //   und winsorized_mean. Median := percentile_ns(s, 0.5); Spannweite via latency_min/max_ns. Es wird
 //   KEIN synthetischer Mess-Puffer erzeugt — der Detektor bewertet reale per-Wiederholungs-Proben (ns).
 //
+// T-15 (2026-08-09) -- WER DIE ZAHLEN STELLT, seit dieses Gate produktiv laeuft.
+//   Die Signatur-Defaults unten (reps=3, threshold=0.05, max_reruns=3) sind MECHANISMUS-Defaults fuer
+//   Aufrufer ohne Konfiguration. Der PRODUKTIVE Mess-Pfad benutzt sie NICHT: er uebergibt immer
+//   explizit die Werte aus harness/drift_gated_cell.hpp DriftGateConfig, die ihrerseits aus dem
+//   Profil-XML (<drift_gate reps threshold_permille max_reruns/>) kommen. Dort steht auch das
+//   Owner-Budget 5 (GOAL-v8 VI.5, 08.08.2026: "Beim Scheitern bis zu 5 Wiederholungen"); es steht
+//   bewusst NICHT hier, weil ein zweiter Ort fuer dieselbe Owner-Zahl genau die Drift erzeugte, die
+//   dieser Header sonst ueberall vermeidet -- und weil eine Aenderung dieses Signatur-Defaults von
+//   keinem Test und keinem Aufrufer beobachtet wuerde (test_chaos_drift_gate uebergibt max_reruns an
+//   jeder Stelle explizit): sie waere eine Aenderung, die nichts aendert.
+//   BIS T-15 hatte diese Datei NULL produktive Aufrufer -- der Mechanismus war vollstaendig, getestet
+//   und wirkungslos. Die Klammer sitzt in cache_engine_builder_iterator.hpp (measure_under_setting).
+//
 // KALIBRIERUNG: Die Schwelle (threshold) ist parametrisiert; ihre exakte Kalibrierung gegen reale
 //   PMC-Läufe ist #156-gegatet (mehrtägiger Voll-Lauf). Der MECHANISMUS (Detektor + Rerun-Controller +
 //   Warn-Log) ist hier vollständig und deterministisch CI-verifizierbar (Job chaos:drift /

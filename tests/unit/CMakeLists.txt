@@ -227,6 +227,36 @@ target_include_directories(test_chaos_drift_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
+# T-15 (2026-08-09) -- DAS GATE IN DER MESS-SCHLEIFE, nicht die Mechanik.
+# SELBSTCHECK: test_chaos_drift_gate (#197, darueber) beweist den MECHANISMUS; dieser Test beweist,
+# dass die produktive Zelle ihn ueberhaupt RUFT. Der Register-Befund S5-06 vom 09.08.2026 lautete
+# "kein einziger realer Messwert laeuft heute durch das Drift-Gate" -- exakt 3 Nicht-Build-Dateien
+# nannten run_with_drift_gate, 0 davon produktiv. Deterministisches ns-Skript, keine Zeitnahme, kein
+# Zufall. COMDARE_T15_ITERATOR_QUELLE reicht die Iterator-Quelle fuer die Verdrahtungs-Wache durch
+# (Muster von test_module_loader, das ebenfalls einen Pfad per compile definition erhaelt).
+# Rezept gespiegelt von test_m1hb_observer_zellen_ehrlich (weiter unten): standalone int main(), das
+# den Iterator-Header zieht -> derselbe Include-Satz und dieselben Mess-Defines. Sie beschreiben die
+# uebersetzende TU, nicht die geprueften Zeilen.
+add_executable(test_t15_drift_gate_messschleife "test_t15_drift_gate_messschleife.cpp")
+target_compile_features(test_t15_drift_gate_messschleife PRIVATE cxx_std_23)
+target_include_directories(test_t15_drift_gate_messschleife PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_t15_drift_gate_messschleife PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t15_drift_gate_messschleife)
+target_compile_definitions(test_t15_drift_gate_messschleife PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_T15_ITERATOR_QUELLE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree/cache_engine_builder_iterator.hpp\""
+    "COMDARE_T15_FASSADE_QUELLE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade/profile_run_entry.hpp\"")
+add_test(NAME test_t15_drift_gate_messschleife COMMAND test_t15_drift_gate_messschleife)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t15_drift_gate_messschleife)
+set_tests_properties(test_t15_drift_gate_messschleife PROPERTIES LABELS "t15;drift;messschleife;standalone")
+
 # Phase 6.5 (REV 7, 2026-05-13): TestDataSetAccumulationEngine
 comdare_add_test(test_test_data_accumulation
     SOURCES test_test_data_accumulation.cpp

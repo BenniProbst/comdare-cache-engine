@@ -30,6 +30,7 @@
 #include "runtime_variable_loop.hpp"   // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
 #include <harness/perm_runner.hpp> // A2-Neben Stufe 2: run_observable_perm / format_perm_result (nach harness/ herausgeloest)
+#include <harness/drift_gated_cell.hpp> // T-15 (09.08.2026): DriftGateConfig + run_cell_with_drift_gate -- die Zell-Klammer
 #include <cache_engine/measurement/axis_error.hpp> // E-6/K-10: SampleStatus + sample_status_token (n/a-Zell-Renderer)
 #include "measure_parallelism.hpp"   // #45: resolve_measure_parallelism (Debug-Methodik -> Mess-Pool; Entry-Konsum)
 #include "result_ingest.hpp"         // ingest_result_line / parse_result_line_to_node_value (#45 reine Parse-Naht)
@@ -342,6 +343,18 @@ struct LazyRunConfig {
     // Ungesetzt (Default) => die Marker-Zeilen tragen den ehrlichen Sentinel "unbelegt"; die Zeile
     // selbst entfaellt NIE (der Kanal darf nie stumm sein). Rein beobachtend: nur std::cerr.
     MarkerKontext marker_kontext;
+    // T-15 (09.08.2026) -- DIE DRIFT-KLAMMER JE ZELLE. reps/threshold/max_reruns kommen aus dem
+    // Profil-XML (<drift_gate reps threshold_pct max_reruns/>), NICHT aus dem Code: die Schwelle ist
+    // #156-kalibrierungs-gegatet und darf ohne Neubau aenderbar sein.
+    //
+    // SELBSTCHECK: dies ist NICHT n_repeats. n_repeats (oben, KF-10) ist die Berichts-Wiederholung und
+    // erzeugt N eigene Zeilen mit eigenem repetition_index; drift_gate.reps ist gruppen-intern und
+    // erzeugt EIN Drift-Urteil ueber EINE Zelle. Wer die beiden vermengt, misst N*M statt N.
+    //
+    // Der Default (reps=3, 5 %, max_reruns=5) IST die Owner-Regel aus GOAL-v8 VI.5 -- ein Default von
+    // "aus" haette bedeutet, dass die Regel ueberall dort schweigt, wo das XML sie nicht nennt, und
+    // genau das war der Zustand, den T-15 beendet.
+    DriftGateConfig drift_gate{};
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -413,6 +426,20 @@ struct LazyMeasuredRow {
     // mit Intel-PCM=ON real (Montag Linux+PMC). Die 7 PMC-Felder werden ADDITIV als LETZTE CSV-Spalten emittiert
     // (lazy_csv_header single-source) — bestehende Spalten unberührt → cowfix-v1/tier150-Leser bleiben kompatibel.
     measurement::PmcCounters pmc{};
+    // T-15 (09.08.2026) -- DAS DRIFT-URTEIL DIESER ZELLE, aus DriftGatedCellResult durchgereicht.
+    //
+    // SELBSTCHECK: diese vier Felder sind KEIN Messwert, sondern die PROVENIENZ des Messwerts daneben.
+    // Ohne sie waere eine Zelle, die ihr Rerun-Budget erschoepft hat (also bis zuletzt streute), von
+    // einer beim ersten Versuch stabilen nicht zu unterscheiden -- kontaminierte Messdaten sind die
+    // einzige unheilbare Klasse dieser Arbeit, und ihre Sichtbarkeit haengt genau an diesen Zahlen.
+    //
+    // drift_reps == 0 heisst "Gate war fuer diese Zelle aus" -> es liegt KEINE Drift-Aussage vor. Das
+    // ist die D4-Unterscheidung: nicht "stabil", nicht "instabil" -- keine Aussage.
+    std::uint32_t drift_reps       = 0;     // Wiederholungen je Gruppe (0 = Gate aus)
+    std::uint32_t drift_reruns     = 0;     // ausgeloeste Reruns dieser Zelle
+    double        drift_relative   = 0.0;   // Median-relative Spannweite der angenommenen Gruppe
+    bool          drift_bestimmbar = false; // D4: gab es ueberhaupt einen Nenner (Median > 0, n >= 2)?
+    bool          drift_stabil     = false; // bestimmbar UND unter der Schwelle
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -597,6 +624,23 @@ struct LazyMeasuredRow {
     // Genau deshalb steht der Wert NICHT in pmc_cache_misses_l3 -- der ist per-Task, und beide unter
     // einer Ueberschrift waeren der Datenbruch aus Ledger :4506, nur quer ueber Vendoren.
     h += ";pmc_l3_miss_uncore_systemweit";
+    // T-15 (2026-08-09) -- DIE DRIFT-PROVENIENZ, vier Spalten, END-Append nach demselben Muster wie
+    // series/PMC/fairness_mode: keine bestehende Spalte wird umbenannt oder verschoben, alte CSVs
+    // lesen sie header-getrieben leer/n-a (Datenerhaltung, kein Bestands-Leser bricht).
+    //
+    // SELBSTCHECK: die vier Spalten beantworten GENAU EINE Frage -- "wie zuverlaessig ist die Zahl in
+    // dieser Zeile?". Sie sind bewusst NICHT in eine einzige Sammel-Spalte gefaltet:
+    //   drift_reps       -- Wiederholungen je Gruppe. 0 == das Gate war fuer diese Zelle AUS; dann
+    //                       steht in den drei folgenden Spalten der ehrliche n/a-Token und keine 0.
+    //   drift_reruns     -- wie oft die Gruppe neu gemessen wurde. > 0 heisst: die Maschine war
+    //                       waehrend dieser Zelle unruhig.
+    //   drift_relative   -- die Median-relative Spannweite der ANGENOMMENEN Gruppe (Anteil, nicht
+    //                       Prozent -- 0.05 == 5 %). n/a, wenn D4 sie fuer unbestimmbar erklaert
+    //                       (kein positiver Median): dort gaebe es keinen Nenner, und eine 0 waere
+    //                       exakt die Luege, die D4 am 08.08. abgestellt hat.
+    //   drift_status     -- "stabil" / "instabil" (Budget erschoepft, nie stabil geworden) /
+    //                       "unbestimmbar" / der n/a-Token bei ausgeschaltetem Gate.
+    h += ";drift_reps;drift_reruns;drift_relative;drift_status";
     h += "\n";
     return h;
 }
@@ -928,6 +972,53 @@ struct LazyMeasuredRow {
     //      gesperrt -- errno=13, am Objekt gemessen), auf einer Maschine mit CAP_PERFMON eine Zahl.
     out += ';';
     pmc_zelle(row.pmc.l3_miss_uncore_systemweit, row.pmc.l3_miss_uncore_systemweit_source_available);
+    // T-15 (2026-08-09) -- die vier Drift-Provenienz-Zellen, Reihenfolge IDENTISCH zum Header.
+    //
+    // SELBSTCHECK: hier steht NIE eine 0 fuer "keine Aussage". Die Kaskade ist dieselbe wie im ganzen
+    // Rest der Zeile: gibt es die Zeile als Messung gar nicht (nicht gebaut / gesperrt / failed), traegt
+    // zell_ersatz; war das Gate aus oder die Drift unbestimmbar, traegt der n/a-Token aus der EINEN
+    // D2-Taxonomie. Eine Zahl erscheint ausschliesslich dort, wo sie erhoben wurde.
+    {
+        std::string_view const keine_aussage = cem::sample_status_token(cem::SampleStatus::SourceUnavailable);
+        bool const             gate_aus      = (row.drift_reps == 0);
+        // (1) drift_reps: die konfigurierte Gruppen-Groesse. 0 ist hier KEIN Ersatz-Wert, sondern die
+        //     Aussage "Gate aus" selbst -- deshalb als Zahl, nicht als Token.
+        out += ';';
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else {
+            out += std::to_string(row.drift_reps);
+        }
+        // (2) drift_reruns
+        out += ';';
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else if (gate_aus) {
+            out += keine_aussage;
+        } else {
+            out += std::to_string(row.drift_reruns);
+        }
+        // (3) drift_relative -- nur mit Nenner (D4). Ohne bestimmbare Drift gibt es keinen Anteil.
+        out += ';';
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else if (gate_aus || !row.drift_bestimmbar) {
+            out += keine_aussage;
+        } else {
+            out += std::to_string(row.drift_relative);
+        }
+        // (4) drift_status
+        out += ';';
+        if (!zell_ersatz.empty()) {
+            out += zell_ersatz;
+        } else if (gate_aus) {
+            out += keine_aussage;
+        } else if (!row.drift_bestimmbar) {
+            out += "unbestimmbar";
+        } else {
+            out += (row.drift_stabil ? "stabil" : "instabil");
+        }
+    }
     out += '\n';
     return out;
 }
@@ -2762,11 +2853,32 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             ++per_binary_settings;
             std::string const setting_id  = s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
             std::string const workload_id = lazy_extract_workload_id(s.setting_label);
-            PermResult const  pr =
-                workload_id.empty()
-                    ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
-                    : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops, cfg.workload_seed,
-                                        cfg.workload_records, &cfg.workload_configs, cell_pmc);
+            // T-15 (2026-08-09) -- DIE KLAMMER. Bis hierher stand an dieser Stelle GENAU EIN
+            // Mess-Aufruf je Einstellung, und der Drift-Detektor aus #197 hatte im ganzen Repo NULL
+            // produktive Aufrufer (Register S5-06 / Ledger 09.08.: "kein einziger realer Messwert
+            // laeuft heute durch das Drift-Gate"). Jetzt laeuft die Zeitnahme je Zelle durch das Gate:
+            // cfg.drift_gate.reps Wiederholungen, Schwelle und Rerun-Budget AUS DEM PROFIL-XML.
+            //
+            // SELBSTCHECK: der Mess-Aufruf selbst ist UNVERAENDERT -- dieselben Argumente, dieselbe
+            // Verzweigung workload_id.empty(). Was sich aendert, ist ausschliesslich, WIE OFT er laeuft
+            // und wer darueber urteilt. Bei drift_gate.reps < 2 ruft die Klammer ihn exakt einmal; die
+            // Zeile ist dann byte-identisch zum Stand vor dieser Scheibe.
+            //
+            // Die beiden Marker klammern den Mess-Aufruf fuer die Verdrahtungs-Wache in
+            // test_t15_drift_gate_messschleife: sie prueft, dass es im ganzen Iterator keinen
+            // Mess-Aufruf AUSSERHALB dieser Klammer gibt. Wer sie verschiebt, muss die Wache mitnehmen.
+            auto const zelle = run_cell_with_drift_gate(
+                cfg.drift_gate,
+                [&]() -> PermResult {
+                    // [T-15-KLAMMER]
+                    return workload_id.empty() ? run_observable_perm(*obs, setting_id, cfg.n_ops, cell_pmc)
+                                               : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops,
+                                                                   cfg.workload_seed, cfg.workload_records,
+                                                                   &cfg.workload_configs, cell_pmc);
+                    // [T-15-KLAMMER-ENDE]
+                },
+                [](PermResult const& p) { return p.total_ns; }, &std::cerr, setting_id);
+            PermResult const& pr = zelle.payload;
             // #45: worker-lokaler Parse statt geteiltem Baum-Round-Trip -- identischer NodeValue, byte-identisch zum Ist.
             if (auto parsed = parse_result_line_to_node_value(pr.line)) {
                 ++oc.measured;
@@ -2786,19 +2898,27 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
                 // Binary ist ueberhaupt mit Observer gebaut" (cfg). Der zweite Faktor ist neu; ohne ihn
                 // schrieb eine [wallclock]-Zeile literal 0 in Zellen, die es nicht wissen konnte. Nur
                 // abwertend -- true && false == false, true && true == der bisherige Wert.
-                row.unified_real     = pr.unified_real && cfg.mess_observer_ausstattung;
-                row.profile_name     = pr.profile_name;
-                row.two_phase_valid  = pr.two_phase_valid;
-                row.sample_status    = pr.sample_status;
-                row.pmc              = pr.pmc;
-                row.series           = cfg.row_series;
-                row.pruefling_type   = cfg.row_pruefling_type;
-                row.sweep_axis       = cfg.row_sweep_axis;
-                row.working_set_n    = cfg.workload_records;
-                row.platform         = cfg.row_platform;
-                row.build_version    = cfg.row_build_version;
-                row.fairness_mode    = cfg.row_fairness_mode;
-                row.h2_score         = cfg.row_h2_score;
+                row.unified_real    = pr.unified_real && cfg.mess_observer_ausstattung;
+                row.profile_name    = pr.profile_name;
+                row.two_phase_valid = pr.two_phase_valid;
+                row.sample_status   = pr.sample_status;
+                row.pmc             = pr.pmc;
+                row.series          = cfg.row_series;
+                row.pruefling_type  = cfg.row_pruefling_type;
+                row.sweep_axis      = cfg.row_sweep_axis;
+                row.working_set_n   = cfg.workload_records;
+                row.platform        = cfg.row_platform;
+                row.build_version   = cfg.row_build_version;
+                row.fairness_mode   = cfg.row_fairness_mode;
+                row.h2_score        = cfg.row_h2_score;
+                // T-15: die Provenienz der Zahl reist MIT der Zahl. drift_reps == 0 heisst "Gate war
+                // aus" -> die Zeile behauptet dann keine Drift-Aussage (D4-Unterscheidung), statt eine
+                // 0 zu zeigen, die wie "stabil gemessen" aussaehe.
+                row.drift_reps       = zelle.gate_aktiv ? cfg.drift_gate.reps : 0u;
+                row.drift_reruns     = static_cast<std::uint32_t>(zelle.reruns);
+                row.drift_relative   = zelle.verdict.relative_drift;
+                row.drift_bestimmbar = zelle.verdict.bestimmbar;
+                row.drift_stabil     = zelle.stable;
                 per_binary_all_valid = per_binary_all_valid && row.two_phase_valid;
                 if (cfg.per_binary_subdirs) {
                     per_binary_csv += format_csv_row(row);

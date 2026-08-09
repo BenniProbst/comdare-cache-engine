@@ -725,7 +725,20 @@ struct RunProfileResult {
             a.methodik_run_methodology.empty() ? tp.run_methodology : a.methodik_run_methodology);
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
-        cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
+        cfg.n_repeats = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
+        // T-15 (2026-08-09): das LETZTE Glied der Drift-Kette XML -> ThesisProfile -> LazyRunConfig.
+        // Ohne diese Zeilen traegt der produktive Lauf die Code-Defaults und das Profil-XML koennte die
+        // Schwelle nicht stellen -- genau die Hartkodierung, die der Register-Befund S5-06 ruegt
+        // ("reps/threshold/max_reruns aus dem Profil-XML, nicht hartkodiert").
+        //
+        // SELBSTCHECK: NUR bei deklariertem <drift_gate> wird ueberschrieben. Fehlt das Element, bleibt
+        // der Owner-Default der cache_engine-Schicht (DriftGateConfig) stehen -- er ist die EINE
+        // Wahrheit, und eine Kopie der Zahlen in der common-Schicht waere die zweite.
+        if (tp.drift_gate_declared) {
+            cfg.drift_gate.reps       = static_cast<std::uint32_t>(tp.drift_gate_reps);
+            cfg.drift_gate.threshold  = static_cast<double>(tp.drift_gate_threshold_permille) / 1000.0;
+            cfg.drift_gate.max_reruns = static_cast<std::uint32_t>(tp.drift_gate_max_reruns);
+        }
         cfg.env_limits.thread_count = 16;
         if (a.min_free_gb > 0.0) {
             cfg.ram_per_build_bytes     = static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
