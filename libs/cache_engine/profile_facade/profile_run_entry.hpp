@@ -608,14 +608,14 @@ struct RunProfileResult {
     // ADDITIV: der rohe CSV-Strom oben bleibt unangetastet -- golden bleibt byte-identisch. Die Mappe
     // entsteht NEBEN a.out_csv, ihr Name folgt der bestandslog-Grammatik. Das Format kommt aus
     // <writeback_methods>; LEER/FEHLEND => xlsx (Owner-KERN 26.07.). Bis heute hatte der seit A9-S3
-    // fertige xlsx-Writer NULL Produktions-Aufrufer -- das hier ist der erste.
+    // fertige xlsx-Writer NULL Produktions-Aufrufer -- das hier ist der erste. csv UND xlsx zugleich
+    // sind seit dem Owner-Entscheid 09.08. gueltig -- dann nennt ziele() BEIDE Ausgaben DERSELBEN Mappe.
     // I/O: im Mess-Fenster werden Zeilen nur ENTGEGENGENOMMEN; geschrieben wird erst in schliessen()
     // unten, neben csv.flush() (Contention-Doktrin, Design-Dossier V-A9-4).
     ::comdare::cache_engine::lager_naht::MappenNaht mappe;
     mappe.oeffnen(a.out_csv, tp.writeback_methods);
     mappe.kopf_aus_csv(ex::lazy_csv_header());
-    std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziel=" + mappe.ziel().string() : "")
-              << "\n";
+    std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziele=" + mappe.ziele() : "") << "\n";
 
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
     // #171 (2026-06-20): make_cfg traegt zusaetzlich pruefling_type (full/abstract/-). Basis/Sweep uebergeben

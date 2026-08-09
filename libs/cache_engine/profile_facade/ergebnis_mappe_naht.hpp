@@ -53,32 +53,49 @@ namespace bl  = ::comdare::cache_engine::builder::bestandslog;
 namespace ms  = ::comdare::cache_engine::measurement;
 
 // =================================================================================================
-// 1. FORMAT-ENTSCHEIDUNG -- exactly-one, aber ueber der RICHTIGEN Grundgesamtheit
+// 1. FORMAT-ENTSCHEIDUNG -- eines ODER BEIDE aus {csv,xlsx}
 // =================================================================================================
 //
-// DIE FALLE, die hier bewusst NICHT gebaut wird: die exactly-one-Regel von <run_methodology>
-// (validate_profile.hpp: "if (tp.run_methodology.size() > 1) ... GENAU EINE erlaubt") laesst sich
-// NICHT wortwoertlich auf <writeback_methods> uebertragen. Gemessen am Objekt:
-// all_axes_golden.profile.xml:216-220 -- das Profil, das .gitlab-ci.yml:93 woertlich "das
-// golden-Profil der Abgabe-Messung" nennt -- deklariert DREI Eintraege:
+// OWNER-ENTSCHEID 2026-08-09, woertlich: "xlsx ist der Standard und CSV ist waehlbar, und ich lege
+// jetzt fest, dass AUCH BEIDE ZUSAMMEN waehlbar sein koennen. NICHT NUR ENTWEDER ODER."
+// Damit faellt die exactly-one-Regel ueber der FORMAT-Teilmenge, die die erste Fassung dieser Datei
+// noch fuehrte (Nachtrag 05.08.: "entweder CSV xor xlsx"). ES GILT SEITHER:
+//     leer / fehlend / nur Kanal-Token  ->  xlsx           (Default, UNVERAENDERT)
+//     nur csv                           ->  csv
+//     nur xlsx                          ->  xlsx
+//     csv UND xlsx                      ->  BEIDE          (gueltiger Eingang, KEIN Fehler)
+//
+// WAS VOM 05.08. UNVERAENDERT BLEIBT -- nur die Ausschliesslichkeit ist aufgehoben, nicht der Rest:
+// es ist ein STRATEGY PATTERN, xlsx ist der Default, und es gibt KEINE Chain-of-Responsibility-
+// Weiterreichung. Jenes Verbot richtete sich gegen "unnoetigen overhead", also gegen ZWEI
+// UNABHAENGIGE SCHREIBWEGE, die dieselbe Sache zweimal erzeugen. Zwei Ausgaben aus EINER Mappe sind
+// das nicht: MappenNaht baut die Mappe EINMAL -- ein Zeitstempel, ein Dateiname-Stamm, EIN
+// Feld-Split je Zeile -- und reicht DIESELBEN Felder an die aktiven Strategien weiter (Abschnitt 4).
+//
+// DIE FALLE, die hier WEITERHIN NICHT gebaut wird -- und die durch den Entscheid nicht kleiner,
+// sondern groesser geworden ist: die exactly-one-Regel von <run_methodology> (validate_profile.hpp
+// :480/:1296: "if (run_methodology.size() > 1) ... GENAU EINE erlaubt") laesst sich NICHT auf
+// <writeback_methods> uebertragen -- weder wortwoertlich noch auf die Format-Teilmenge verengt.
+// Gemessen am Objekt: all_axes_golden.profile.xml:216-220 -- das Profil, das .gitlab-ci.yml:93
+// woertlich "das golden-Profil der Abgabe-Messung" nennt -- deklariert DREI Eintraege:
 //     <method value="csv"/> <method value="latex_table"/> <method value="comparison_metrics"/>
 // Eine Regel `writeback_methods.size() > 1 => Fehler` braeche also exakt die Abgabe-Messung.
 //
 // Der Grund ist semantisch, nicht kosmetisch: {debug,measure,release} sind ALTERNATIVEN derselben
 // Frage (welcher Modus?), {csv,latex_table,comparison_metrics,xlsx} sind es NICHT.
 // writeback_method_registry.hpp sagt ueber sich selbst, die Achse sei "die EHRLICHE Formalisierung
-// des heutigen <output>-Trios" -- also DREI UNABHAENGIGE Ausgabe-Kanaele (Roh-CSV, LaTeX-Tabelle,
-// SOTA-Vergleichsmetriken), von denen mehrere gleichzeitig sinnvoll sind.
+// des heutigen <output>-Trios" -- also UNABHAENGIGE Ausgabe-Kanaele (Roh-CSV, LaTeX-Tabelle,
+// SOTA-Vergleichsmetriken), von denen mehrere gleichzeitig sinnvoll sind. Seit dem 09.08. gilt das
+// AUCH innerhalb der Format-Teilmenge {csv,xlsx}: die beiden sind keine konkurrierenden
+// Alternativen mehr, sondern zwei AUSGABE-STRATEGIEN derselben Mappe.
 //
-// Die exactly-one-Regel gilt deshalb ueber der Teilmenge, die tatsaechlich eine ALTERNATIVE bildet:
-// den FORMAT-Token {csv, xlsx}. latex_table/comparison_metrics sind fuer DIESE Frage kein Konflikt,
-// sondern anderer Kanal. NENNER: die Zahl steht nie nackt da -- FormatWahl traegt sowohl die
-// Grundgesamtheit (token_gesamt) als auch die Teilmenge (format_token), ueber der entschieden wurde,
-// und diagnose() rendert beide fuer die Lauf-AUSGABE.
+// NENNER: die Zahl steht nie nackt da -- FormatWahl traegt sowohl die Grundgesamtheit (token_gesamt)
+// als auch die Teilmenge (format_token), aus der die Wahl entstand, und diagnose() rendert beide
+// fuer die Lauf-AUSGABE.
 
 /// Welche der FORMAT-Token {csv,xlsx} eine id bezeichnet -- oder keine.
 enum class TokenSorte : std::uint8_t {
-    format,    ///< csv | xlsx -- eine ALTERNATIVE, ueber die exactly-one entscheidet
+    format,    ///< csv | xlsx -- benennt eine AUSGABE-STRATEGIE der Mappe (mehrere zugleich erlaubt)
     kanal,     ///< latex_table | comparison_metrics -- unabhaengiger Ausgabe-Kanal, kein Format
     unbekannt, ///< in kWritebackMethodRegistry NICHT enthalten
 };
@@ -96,19 +113,22 @@ enum class TokenSorte : std::uint8_t {
     return TokenSorte::unbekannt;
 }
 
-/// Lage der Format-Entscheidung. `default_leer` ist KEIN Fehler (Owner-KERN-Default), `mehrdeutig`
-/// schon -- dann wurde NICHT geraten.
+/// Lage der Format-Entscheidung. KEINER dieser Werte ist ein Fehler: `default_leer` ist der
+/// Owner-KERN-Default, und `beide` ist seit dem Owner-Entscheid 09.08. ein gueltiger Eingang.
 enum class FormatLage : std::uint8_t {
     default_leer, ///< kein FORMAT-Token deklariert -> xlsx (Owner-KERN 26.07.)
-    gewaehlt,     ///< genau ein FORMAT-Token deklariert -> dieses
-    mehrdeutig,   ///< csv UND xlsx deklariert -> exactly-one verletzt, es wird NICHT geraten
+    gewaehlt,     ///< genau EINE Format-Sorte deklariert (ggf. mehrfach genannt) -> diese
+    beide,        ///< csv UND xlsx deklariert -> BEIDE aus DERSELBEN Mappe (Owner 09.08.)
 };
 
 struct FormatWahl {
-    lab::ErgebnisFormat format = lab::ErgebnisFormat::xlsx;
-    FormatLage          lage   = FormatLage::default_leer;
+    // Welche Strategien die EINE Mappe herausschreiben. Beide zugleich ist zulaessig; beide false
+    // kann nicht entstehen -- ohne FORMAT-Token faellt die Wahl auf den xlsx-Default.
+    bool       xlsx = true;  ///< die Mappe entsteht als EINE .xlsx-Datei
+    bool       csv  = false; ///< die Mappe entsteht ZUSAETZLICH/STATTDESSEN als flache Sheet-CSVs
+    FormatLage lage = FormatLage::default_leer;
     // NENNER-Trias: nie eine nackte Zahl. token_gesamt ist die Grundgesamtheit (alle deklarierten
-    // Eintraege), format_token die Teilmenge, ueber der exactly-one entschied, unbekannt_token die
+    // Eintraege), format_token die Teilmenge, aus der die Wahl entstand, unbekannt_token die
     // Eintraege, die in KEINER Registry-Zeile stehen.
     std::size_t token_gesamt    = 0;
     std::size_t format_token    = 0;
@@ -116,18 +136,23 @@ struct FormatWahl {
     std::size_t unbekannt_token = 0;
     std::string unbekannt_liste; ///< die unbekannten ids selbst, komma-getrennt (nie nur gezaehlt)
 
-    [[nodiscard]] bool eindeutig() const noexcept { return lage != FormatLage::mehrdeutig; }
+    /// Wieviele Ausgaben diese Wahl erzeugt -- 1 oder 2, nie 0.
+    [[nodiscard]] std::size_t ausgaben() const noexcept {
+        return (xlsx ? std::size_t{1} : std::size_t{0}) + (csv ? std::size_t{1} : std::size_t{0});
+    }
 
     /// Menschenlesbare Fassung MIT Grundgesamtheit -- gehoert in die Lauf-AUSGABE, nicht nur in den
     /// Kopf des Lesers (GOAL v8 Prueffrage 1).
     [[nodiscard]] std::string diagnose() const {
         std::string s = "format=";
-        s += (format == lab::ErgebnisFormat::xlsx) ? "xlsx" : "csv";
+        if (xlsx) s += "xlsx";
+        if (xlsx && csv) s += "+";
+        if (csv) s += "csv";
         s += " lage=";
         switch (lage) {
             case FormatLage::default_leer: s += "default_leer"; break;
             case FormatLage::gewaehlt: s += "gewaehlt"; break;
-            case FormatLage::mehrdeutig: s += "mehrdeutig"; break;
+            case FormatLage::beide: s += "beide"; break;
         }
         s += " format_token=" + std::to_string(format_token) + "/" + std::to_string(token_gesamt);
         s += " (kanal=" + std::to_string(kanal_token) + " unbekannt=" + std::to_string(unbekannt_token);
@@ -169,26 +194,32 @@ struct FormatWahl {
         }
     }
 
-    // Ein doppeltes "csv;csv" ist KEINE Mehrdeutigkeit -- es benennt zweimal dieselbe Alternative.
-    // Mehrdeutig ist nur der echte Konflikt: beide Formate gleichzeitig verlangt.
+    // Beide Formate zugleich sind seit dem Owner-Entscheid 09.08. der VOLLE Eingang, nicht der
+    // verbotene: die Mappe wird einmal gebaut und zweimal herausgeschrieben.
     if (csv_gesehen && xlsx_gesehen) {
-        w.lage   = FormatLage::mehrdeutig;
-        w.format = lab::ErgebnisFormat::xlsx; // Rueckfallwert; der Aufrufer DARF ihn nicht benutzen
+        w.lage = FormatLage::beide;
+        w.xlsx = true;
+        w.csv  = true;
         return w;
     }
+    // Ein doppeltes "csv;csv" nennt zweimal DIESELBE Strategie -- das sind zwei Nennungen, aber
+    // EINE Ausgabe. Nur csv UND xlsx sind zwei Ausgaben.
     if (csv_gesehen) {
-        w.lage   = FormatLage::gewaehlt;
-        w.format = lab::ErgebnisFormat::csv;
+        w.lage = FormatLage::gewaehlt;
+        w.xlsx = false;
+        w.csv  = true;
         return w;
     }
     if (xlsx_gesehen) {
-        w.lage   = FormatLage::gewaehlt;
-        w.format = lab::ErgebnisFormat::xlsx;
+        w.lage = FormatLage::gewaehlt;
+        w.xlsx = true;
+        w.csv  = false;
         return w;
     }
     // LEER, FEHLEND, oder ausschliesslich Kanal-/Unbekannt-Token -> xlsx (Owner-KERN-Default).
-    w.lage   = FormatLage::default_leer;
-    w.format = lab::ErgebnisFormat::xlsx;
+    w.lage = FormatLage::default_leer;
+    w.xlsx = true;
+    w.csv  = false;
     return w;
 }
 
@@ -316,9 +347,17 @@ inline void jetzt_datum_zeit(std::string& datum, std::string& zeit) {
 // Unter-Achsen-Permutationen ist die CoR-Filterkette der Auswertung (A9-S4) und ausdruecklich NICHT
 // Teil dieses Pakets.
 //
+// EINE MAPPE, EIN ODER ZWEI AUSGABEN (Owner-Entscheid 09.08.): sind csv UND xlsx deklariert, wird
+// die Mappe trotzdem nur EINMAL gebaut -- EIN Zeitstempel, EIN Dateiname-Stamm, EIN Feld-Split je
+// Zeile, EIN INFO-Blatt-Inhalt. Was sich verdoppelt, ist allein das HERAUSSCHREIBEN: dieselben
+// Felder gehen an jede aktive Strategie. Es gibt hier KEINEN zweiten Bau-Weg, keinen zweiten Lauf
+// und keine zweite Zeilen-Quelle -- genau darauf zielte das 05.08.-Verbot, und genau das bleibt.
+//
 // WIRFT NIE nach aussen: ein Mappen-Fehler darf einen laufenden Mess-Lauf nicht abbrechen, solange
-// die Mappe additiv neben der offiziellen CSV steht. Jeder Fehlausgang setzt scharf()==false und
-// hinterlaesst seinen Grund in diagnose(); der Aufrufer gibt ihn aus. Beobachtbar, nicht verdeckt.
+// die Mappe additiv neben der offiziellen CSV steht. Ein Fehlausgang legt die BETROFFENE Strategie
+// still (die andere schreibt weiter) und hinterlaesst seinen Grund MIT ZIELNAMEN in diagnose(); der
+// Aufrufer gibt ihn aus. Erst wenn keine Strategie mehr steht, ist scharf()==false. Beobachtbar,
+// nicht verdeckt.
 class MappenNaht {
 public:
     MappenNaht()                             = default;
@@ -328,55 +367,63 @@ public:
     /// Oeffnet die Mappe NEBEN der offiziellen CSV (dasselbe Verzeichnis -- die Lagerbaum-Stelle wird
     /// hier nicht neu erfunden, sie wird von der bereits getroffenen Wahl des Aufrufers geerbt).
     void oeffnen(std::filesystem::path const& out_csv, std::vector<std::string> const& writeback_methods) {
-        wahl_ = waehle_ergebnis_format(writeback_methods);
-        if (!wahl_.eindeutig()) {
-            diagnose_ = wahl_.diagnose() +
-                        " -- csv UND xlsx gleichzeitig deklariert: exactly-one verletzt, es wird NICHT geraten";
-            return;
-        }
+        wahl_     = waehle_ergebnis_format(writeback_methods);
+        diagnose_ = wahl_.diagnose();
 
+        // EIN Zeitstempel fuer ALLE Strategien: zwei jetzt_datum_zeit()-Aufrufe koennten ueber einen
+        // Sekundenwechsel stolpern -- dann truege EINE Messung zwei verschiedene Namen.
         std::string datum;
         std::string zeit;
         jetzt_datum_zeit(datum, zeit);
-        std::string_view const endung = (wahl_.format == lab::ErgebnisFormat::xlsx) ? "xlsx" : "csv";
 
-        auto const stamm = mappen_stamm(datum, zeit, endung);
+        // EIN Stamm fuer ALLE Strategien: die Mappe hat EINE Identitaet, auch wenn sie zweimal
+        // herausgeschrieben wird -- <datum>-<zeit>.xlsx und <datum>-<zeit>__S001.csv gehoeren
+        // sichtbar zusammen. Der Stamm ist von der Endung unabhaengig: blatt_dateiname() setzt ihn
+        // als "<datum>-<zeit>" und haengt die Endung nur an (lager_pfad_grammatik.hpp), mappen_stamm
+        // schneidet sie wieder ab; die Kuerzungs-Variante greift erst ueber kMaxKomponenteBytes und
+        // ist bei LEERER kv-Kette unerreichbar. Deshalb genuegt EIN Aufruf.
+        auto const stamm = mappen_stamm(datum, zeit, wahl_.xlsx ? "xlsx" : "csv");
         if (!stamm.ok) {
-            diagnose_ = wahl_.diagnose() + " -- " + stamm.fehler;
+            diagnose_ += " -- " + stamm.fehler;
             return;
         }
 
         auto verzeichnis = out_csv.parent_path();
         if (verzeichnis.empty()) verzeichnis = ".";
+        std::error_code ec;
+        std::filesystem::create_directories(verzeichnis, ec); // vorhandenes Verzeichnis ist kein Fehler
 
-        try {
-            std::error_code ec;
-            std::filesystem::create_directories(verzeichnis, ec); // vorhandenes Verzeichnis ist kein Fehler
-            mappe_ = lab::ErgebnisMappenFactory::oeffne(verzeichnis, stamm.text, wahl_.format);
-            blatt_ = &mappe_->blatt(lab::SheetSchluessel{});
-            ziel_  = verzeichnis / (wahl_.format == lab::ErgebnisFormat::xlsx
-                                        ? stamm.text + ".xlsx"
-                                        : stamm.text + "__S001.csv");
-            diagnose_ = wahl_.diagnose();
-        } catch (std::exception const& e) {
-            mappe_.reset();
-            blatt_    = nullptr;
-            diagnose_ = wahl_.diagnose() + " -- oeffnen fehlgeschlagen: " + e.what();
-        }
+        // xlsx zuerst -- es ist der Standard; csv ist die zusaetzlich waehlbare Strategie.
+        if (wahl_.xlsx) oeffne_eine(verzeichnis, stamm.text, lab::ErgebnisFormat::xlsx);
+        if (wahl_.csv) oeffne_eine(verzeichnis, stamm.text, lab::ErgebnisFormat::csv);
     }
 
-    [[nodiscard]] bool                         scharf() const noexcept { return blatt_ != nullptr; }
-    [[nodiscard]] FormatWahl const&            wahl() const noexcept { return wahl_; }
-    [[nodiscard]] std::string const&           diagnose() const noexcept { return diagnose_; }
-    [[nodiscard]] std::filesystem::path const& ziel() const noexcept { return ziel_; }
-    [[nodiscard]] std::size_t                  zeilen() const noexcept { return zeilen_; }
+    /// Steht MINDESTENS eine Strategie? (Bei zwei Ausgaben bleibt die Naht scharf, solange eine lebt.)
+    [[nodiscard]] bool               scharf() const noexcept { return !ausgaben_.empty(); }
+    [[nodiscard]] FormatWahl const&  wahl() const noexcept { return wahl_; }
+    [[nodiscard]] std::string const& diagnose() const noexcept { return diagnose_; }
+
+    /// ALLE Ziele dieser EINEN Mappe, komma-getrennt. Bei zwei Strategien muessen BEIDE in der
+    /// Lauf-Ausgabe erscheinen -- eine ungenannte Datei ist eine unbeobachtete Datei.
+    [[nodiscard]] std::string ziele() const {
+        std::string s;
+        for (auto const& a : ausgaben_) {
+            if (!s.empty()) s += ", ";
+            s += a.ziel.string();
+        }
+        return s;
+    }
+
+    /// Zeilen DER MAPPE -- eine Zeile bleibt EINE Zeile, auch wenn sie in zwei Dateien faellt.
+    [[nodiscard]] std::size_t zeilen() const noexcept { return zeilen_; }
     /// Zeilen, deren Feldzahl NICHT der Kopfzeile entsprach -- die Wache gegen stille Spalten-
     /// Verschiebung. Muss bei intaktem Schema 0 sein.
     [[nodiscard]] std::size_t feld_abweichungen() const noexcept { return feld_abweichungen_; }
     /// Grundgesamtheit, ueber der feld_abweichungen() zaehlt: die Zahl der Spalten der Kopfzeile.
     [[nodiscard]] std::size_t kopf_spalten() const noexcept { return kopf_spalten_; }
 
-    /// Die Kopfzeile -- genau der String, den lazy_csv_header() liefert.
+    /// Die Kopfzeile -- genau der String, den lazy_csv_header() liefert. EIN Split fuer ALLE
+    /// Strategien: der Kopf der Mappe ist EIN Kopf.
     void kopf_aus_csv(std::string_view header_zeile) {
         if (!scharf()) return;
         auto const felder = csv_zeile_in_felder(header_zeile);
@@ -399,52 +446,81 @@ public:
         for (auto const z : csv_blob_in_zeilen(blob)) zeile_aus_csv(z);
     }
 
-    /// Schreibt INFO-Blatt und schliesst die Mappe. DAS ist der einzige Punkt, an dem die
+    /// Schreibt INFO-Blatt und schliesst JEDE Ausgabe. DAS ist der einzige Punkt, an dem die
     /// xlsx-Strategie die Platte anfasst -- der Aufrufer ruft ihn NACH der Mess-Schleife.
-    /// Rueckgabe false = die Mappe steht NICHT vollstaendig auf der Platte (Grund in diagnose()).
+    /// DIESELBEN Meta-Daten gehen in jede Ausgabe (ein INFO-Inhalt, zwei Darstellungen).
+    /// Rueckgabe false = mindestens eine Ausgabe steht NICHT vollstaendig auf der Platte -- oder es
+    /// stand gar keine (Grund jeweils in diagnose(), mit Zielnamen).
     bool schliessen(lab::MaschinenSysinfo const& sysinfo, lab::HauptAchsenBelegung const& haupt,
                     lab::KonstantenMeta const& konstanten) {
-        if (mappe_ == nullptr) return false;
-        try {
-            mappe_->info_blatt(sysinfo, haupt, konstanten);
-            mappe_->schliessen();
-            mappe_.reset();
-            blatt_ = nullptr;
-            return true;
-        } catch (std::exception const& e) {
-            mappe_.reset();
-            blatt_ = nullptr;
-            diagnose_ += std::string{" -- schliessen fehlgeschlagen: "} + e.what();
-            return false;
+        if (ausgaben_.empty()) return false;
+        bool alle_ok = true;
+        for (auto& a : ausgaben_) {
+            try {
+                a.mappe->info_blatt(sysinfo, haupt, konstanten);
+                a.mappe->schliessen();
+            } catch (std::exception const& e) {
+                diagnose_ += " -- schliessen (" + a.ziel.string() + ") fehlgeschlagen: " + e.what();
+                alle_ok = false;
+            }
         }
+        ausgaben_.clear();
+        return alle_ok;
     }
 
 private:
-    void schreibe(std::vector<std::string> const& felder, bool ist_kopf) {
+    /// EINE Ausgabe-Strategie DERSELBEN Mappe. `blatt` zeigt in das von `mappe` besessene Objekt --
+    /// Verschieben der Ausgabe (Vektor-Wachstum) laesst dieses Objekt an Ort und Stelle.
+    struct Ausgabe {
+        std::unique_ptr<lab::IErgebnisMappe> mappe;
+        lab::IErgebnisBlatt*                 blatt = nullptr;
+        std::filesystem::path                ziel;
+    };
+
+    /// Legt EINE Strategie an. Scheitert sie, fehlt genau diese Ausgabe -- die andere bleibt.
+    void oeffne_eine(std::filesystem::path const& verzeichnis, std::string const& stamm, lab::ErgebnisFormat f) {
+        bool const ist_xlsx = (f == lab::ErgebnisFormat::xlsx);
         try {
-            if (ist_kopf) {
-                blatt_->kopf(felder);
-            } else {
-                blatt_->zeile(felder);
-                ++zeilen_;
-            }
+            Ausgabe a;
+            a.mappe = lab::ErgebnisMappenFactory::oeffne(verzeichnis, stamm, f);
+            a.blatt = &a.mappe->blatt(lab::SheetSchluessel{});
+            a.ziel  = verzeichnis / (ist_xlsx ? stamm + ".xlsx" : stamm + "__S001.csv");
+            ausgaben_.push_back(std::move(a));
         } catch (std::exception const& e) {
-            // Zeilenlimit / Schreibfehler: die Mappe wird stillgelegt, aber LAUT -- ab hier ist
-            // scharf() false, und der Grund steht in diagnose(). Der CSV-Pfad laeuft unberuehrt weiter.
-            mappe_.reset();
-            blatt_ = nullptr;
-            diagnose_ += std::string{" -- schreiben abgebrochen: "} + e.what();
+            diagnose_ += std::string{" -- oeffnen ("} + (ist_xlsx ? "xlsx" : "csv") + ") fehlgeschlagen: " + e.what();
         }
     }
 
-    std::unique_ptr<lab::IErgebnisMappe> mappe_;
-    lab::IErgebnisBlatt*                 blatt_ = nullptr;
-    FormatWahl                           wahl_{};
-    std::string                          diagnose_ = "nicht geoeffnet";
-    std::filesystem::path                ziel_;
-    std::size_t                          zeilen_            = 0;
-    std::size_t                          kopf_spalten_      = 0;
-    std::size_t                          feld_abweichungen_ = 0;
+    /// Reicht DIESELBEN Felder an jede aktive Strategie weiter. Hier wird "eine Mappe, zwei
+    /// Ausgaben" konkret: gesplittet wurde EINMAL (beim Aufrufer oben), gezaehlt wird EINMAL.
+    void schreibe(std::vector<std::string> const& felder, bool ist_kopf) {
+        for (auto it = ausgaben_.begin(); it != ausgaben_.end();) {
+            try {
+                if (ist_kopf) {
+                    it->blatt->kopf(felder);
+                } else {
+                    it->blatt->zeile(felder);
+                }
+                ++it;
+            } catch (std::exception const& e) {
+                // Zeilenlimit / Schreibfehler: NUR DIESE Strategie wird stillgelegt, aber LAUT --
+                // ihr Ziel und ihr Grund stehen in diagnose(). Die andere Strategie und der rohe
+                // CSV-Pfad laufen unberuehrt weiter.
+                diagnose_ += " -- schreiben abgebrochen (" + it->ziel.string() + "): " + e.what();
+                it = ausgaben_.erase(it);
+            }
+        }
+        // Die Zeile zaehlt, sobald sie in MINDESTENS einer Ausgabe steht (bei genau einer Strategie
+        // ist das wortgleich zum Verhalten vor dem 09.08.: schlaegt sie fehl, zaehlt sie nicht).
+        if (!ist_kopf && !ausgaben_.empty()) ++zeilen_;
+    }
+
+    std::vector<Ausgabe> ausgaben_; ///< 1..2 Strategien DERSELBEN Mappe, xlsx zuerst; leer = nicht scharf
+    FormatWahl           wahl_{};
+    std::string          diagnose_          = "nicht geoeffnet";
+    std::size_t          zeilen_            = 0;
+    std::size_t          kopf_spalten_      = 0;
+    std::size_t          feld_abweichungen_ = 0;
 };
 
 } // namespace comdare::cache_engine::lager_naht

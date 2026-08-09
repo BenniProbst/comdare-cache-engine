@@ -256,12 +256,12 @@ struct RunExperimentResult {
 
     // -- A9-S5 (2026-08-09): DIESELBEN Zeilen ZUSAETZLICH in eine Ergebnis-Mappe (Schwesterstelle zu
     // profile_run_entry.hpp -- T-6: derselbe Fix an beiden Naehten, nicht nur an der ersten). ADDITIV:
-    // der rohe CSV-Strom bleibt unangetastet. Format aus <writeback_methods>, LEER/FEHLEND => xlsx.
+    // der rohe CSV-Strom bleibt unangetastet. Format aus <writeback_methods>, LEER/FEHLEND => xlsx;
+    // csv UND xlsx zugleich sind seit dem Owner-Entscheid 09.08. gueltig -- dann nennt ziele() BEIDE.
     ::comdare::cache_engine::lager_naht::MappenNaht mappe;
     mappe.oeffnen(a.out_csv, ep.writeback_methods);
     mappe.kopf_aus_csv(ex::lazy_csv_header());
-    std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziel=" + mappe.ziel().string() : "")
-              << "\n";
+    std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziele=" + mappe.ziele() : "") << "\n";
 
     auto emit = [&](ex::LazyRunResult const& r) {
         csv << r.resumed_csv_rows;

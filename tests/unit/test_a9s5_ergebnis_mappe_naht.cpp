@@ -1,9 +1,12 @@
 // test_a9s5_ergebnis_mappe_naht -- A9-S5: die Naht, an der aus einem Mess-Lauf eine Mappe entsteht.
 //
-// DIE ZWEI ZUSICHERUNGEN, die dieses Paket schuldet:
+// DIE DREI ZUSICHERUNGEN, die dieses Paket schuldet:
 //   (1) LEERES <writeback_methods> erzeugt WIRKLICH eine xlsx-Mappe -- nicht "einen Aufruf, der nicht
 //       wirft", sondern eine Datei, die mit der ZIP-Signatur beginnt (eine xlsx IST ein ZIP).
 //   (2) GEGENEINGANG: csv gewaehlt => ein Ordner mit flachen Sheet-Dateien und KEINE xlsx.
+//   (3) Owner-Entscheid 09.08.: csv UND xlsx zugleich => BEIDE Ausgaben, und zwar aus EINER Mappe.
+//       Der Beleg dafuer ist nicht "beide Dateien liegen da", sondern ihr GEMEINSAMER Dateiname-
+//       Stamm -- zwei Schreibwege oder zwei Laeufe haetten zwei Zeitstempel und zwei Staemme.
 //
 // T-2 (Aussage statt Anwesenheit): keine Zusicherung dieses Tests lautet "existiert" oder "wirft
 // nicht". Geprueft werden Werte (ZIP-Signatur, exakter Zellinhalt), Positionen (Spalten-Index einer
@@ -74,11 +77,12 @@ std::vector<std::string> dateien_mit_endung(std::filesystem::path const& dir, st
 
 TEST(A9S5FormatWahl, LeerErgibtXlsxUndNenntDieGrundgesamtheit) {
     auto const w = naht::waehle_ergebnis_format({});
-    EXPECT_EQ(w.format, lab::ErgebnisFormat::xlsx) << "LEER muss der Owner-KERN-Default xlsx sein.";
+    EXPECT_TRUE(w.xlsx) << "LEER muss der Owner-KERN-Default xlsx sein.";
+    EXPECT_FALSE(w.csv) << "LEER darf KEINE csv-Ausgabe hinzuerfinden.";
     EXPECT_EQ(w.lage, naht::FormatLage::default_leer);
     EXPECT_EQ(w.token_gesamt, 0u);
     EXPECT_EQ(w.format_token, 0u);
-    EXPECT_TRUE(w.eindeutig());
+    EXPECT_EQ(w.ausgaben(), 1u);
     // Der Nenner darf nicht nur im Kopf stehen: er muss in der AUSGABE erscheinen.
     EXPECT_NE(w.diagnose().find("format_token=0/0"), std::string::npos)
         << "diagnose() muss Teilmenge UND Grundgesamtheit tragen, war: " << w.diagnose();
@@ -88,20 +92,23 @@ TEST(A9S5FormatWahl, LeerErgibtXlsxUndNenntDieGrundgesamtheit) {
 TEST(A9S5FormatWahl, GoldenTripelWaehltCsvUeberDreiEintraegen) {
     std::vector<std::string> const golden{"csv", "latex_table", "comparison_metrics"};
     auto const                     w = naht::waehle_ergebnis_format(golden);
-    EXPECT_EQ(w.format, lab::ErgebnisFormat::csv);
+    EXPECT_TRUE(w.csv);
+    EXPECT_FALSE(w.xlsx) << "Ohne xlsx-Token darf die Abgabe-Messung KEINE xlsx danebenlegen.";
     EXPECT_EQ(w.lage, naht::FormatLage::gewaehlt);
     EXPECT_EQ(w.token_gesamt, 3u) << "Grundgesamtheit = die 3 Eintraege des golden-Profils.";
     EXPECT_EQ(w.format_token, 1u) << "Nur 'csv' ist ein FORMAT-Token; die anderen zwei sind Kanaele.";
     EXPECT_EQ(w.kanal_token, 2u);
     EXPECT_EQ(w.unbekannt_token, 0u);
-    // Die eigentliche Regressions-Wache: eine wortwoertlich uebernommene run_methodology-Regel
-    // (size() > 1 => Fehler) wuerde hier mehrdeutig/abgelehnt liefern und die Abgabe-Messung brechen.
-    EXPECT_TRUE(w.eindeutig()) << "3 Eintraege duerfen die Abgabe-Messung NICHT mehrdeutig machen.";
+    // Die eigentliche Regressions-Wache -- durch den Entscheid 09.08. NICHT entschaerft: eine
+    // wortwoertlich uebernommene run_methodology-Regel (size() > 1 => Fehler) wuerde diesen Eingang
+    // ablehnen und damit exakt die Abgabe-Messung brechen. 3 Eintraege sind EINE Ausgabe.
+    EXPECT_EQ(w.ausgaben(), 1u) << "3 Eintraege duerfen die Abgabe-Messung NICHT ablehnen.";
 }
 
 TEST(A9S5FormatWahl, NurKanaeleFallenAufXlsxZurueck) {
     auto const w = naht::waehle_ergebnis_format({"latex_table", "comparison_metrics"});
-    EXPECT_EQ(w.format, lab::ErgebnisFormat::xlsx);
+    EXPECT_TRUE(w.xlsx);
+    EXPECT_FALSE(w.csv);
     EXPECT_EQ(w.lage, naht::FormatLage::default_leer) << "Kein FORMAT-Token => Default-Lage, nicht 'gewaehlt'.";
     EXPECT_EQ(w.token_gesamt, 2u);
     EXPECT_EQ(w.format_token, 0u);
@@ -109,26 +116,37 @@ TEST(A9S5FormatWahl, NurKanaeleFallenAufXlsxZurueck) {
 
 TEST(A9S5FormatWahl, XlsxWirdGewaehlt) {
     auto const w = naht::waehle_ergebnis_format({"xlsx"});
-    EXPECT_EQ(w.format, lab::ErgebnisFormat::xlsx);
+    EXPECT_TRUE(w.xlsx);
+    EXPECT_FALSE(w.csv);
     EXPECT_EQ(w.lage, naht::FormatLage::gewaehlt) << "Explizites xlsx ist 'gewaehlt', nicht 'default_leer'.";
     EXPECT_EQ(w.format_token, 1u);
 }
 
-// T-4 GEGENEINGANG zur exactly-one-Zusicherung: der Eingang, bei dem sie NICHT gilt.
-TEST(A9S5FormatWahl, CsvUndXlsxGleichzeitigIstMehrdeutigUndRaetNicht) {
+// OWNER-ENTSCHEID 09.08.: der Eingang, den die erste Fassung dieser Datei noch ABLEHNTE. Er ist
+// jetzt der VOLLE Eingang -- beide Formate, eine Mappe. (Bis 09.08. stand hier das Gegenteil:
+// "mehrdeutig ... es wird NICHT geraten". Die Ausschliesslichkeit ist aufgehoben, sonst nichts.)
+TEST(A9S5FormatWahl, CsvUndXlsxGleichzeitigErgibtBEIDEAusgaben) {
     auto const w = naht::waehle_ergebnis_format({"csv", "xlsx"});
-    EXPECT_EQ(w.lage, naht::FormatLage::mehrdeutig);
-    EXPECT_FALSE(w.eindeutig()) << "Zwei konkurrierende FORMAT-Token duerfen NICHT still aufgeloest werden.";
+    EXPECT_EQ(w.lage, naht::FormatLage::beide);
+    EXPECT_TRUE(w.xlsx);
+    EXPECT_TRUE(w.csv);
+    EXPECT_EQ(w.ausgaben(), 2u) << "Beide Formate zugleich sind ein GUELTIGER Eingang, kein Fehler.";
     EXPECT_EQ(w.format_token, 2u);
     EXPECT_EQ(w.token_gesamt, 2u);
+    // Die Lauf-Ausgabe muss BEIDE nennen -- sonst bliebe die zweite Datei unbeobachtet.
+    EXPECT_NE(w.diagnose().find("format=xlsx+csv"), std::string::npos)
+        << "diagnose() muss beide Formate nennen, war: " << w.diagnose();
 }
 
-// Grenzfall daneben: zweimal DASSELBE Format ist kein Konflikt.
-TEST(A9S5FormatWahl, DoppeltesCsvIstKeineMehrdeutigkeit) {
+// Grenzfall daneben, der die Zaehlung von der AUSGABE trennt: zweimal DASSELBE Format sind zwei
+// Nennungen, aber EINE Ausgabe -- nicht zwei. Ein `format_token`-basierter Kurzschluss faellt hier.
+TEST(A9S5FormatWahl, DoppeltesCsvBleibtEineAusgabe) {
     auto const w = naht::waehle_ergebnis_format({"csv", "csv"});
     EXPECT_EQ(w.lage, naht::FormatLage::gewaehlt);
-    EXPECT_EQ(w.format, lab::ErgebnisFormat::csv);
-    EXPECT_EQ(w.format_token, 2u) << "Beide Nennungen zaehlen in die Teilmenge -- sie kollidieren nur nicht.";
+    EXPECT_TRUE(w.csv);
+    EXPECT_FALSE(w.xlsx);
+    EXPECT_EQ(w.ausgaben(), 1u) << "Zwei Nennungen DESSELBEN Formats sind EINE Ausgabe.";
+    EXPECT_EQ(w.format_token, 2u) << "Beide Nennungen zaehlen in die Teilmenge -- sie sind nur dasselbe.";
 }
 
 // validate_profile() laeuft auf dem Mess-Pfad NICHT (profile_run_facade.cpp:776 vs. :809): ein
@@ -136,7 +154,8 @@ TEST(A9S5FormatWahl, DoppeltesCsvIstKeineMehrdeutigkeit) {
 // verschwinden -- es muss BENANNT werden.
 TEST(A9S5FormatWahl, UnbekanntesTokenWirdBenanntNichtGeschluckt) {
     auto const w = naht::waehle_ergebnis_format({"parquet"});
-    EXPECT_EQ(w.format, lab::ErgebnisFormat::xlsx) << "Unbekanntes Token ist kein Format-Token => Default bleibt.";
+    EXPECT_TRUE(w.xlsx) << "Unbekanntes Token ist kein Format-Token => Default bleibt.";
+    EXPECT_FALSE(w.csv);
     EXPECT_EQ(w.unbekannt_token, 1u);
     EXPECT_EQ(w.unbekannt_liste, "parquet") << "Die id selbst muss erhalten bleiben, nicht nur gezaehlt.";
     EXPECT_NE(w.diagnose().find("parquet"), std::string::npos)
@@ -206,7 +225,8 @@ TEST(A9S5Naht, LeeresWritebackErzeugtEchteXlsxMappe) {
     n.oeffnen(out_csv, {}); // LEER
 
     ASSERT_TRUE(n.scharf()) << "Naht nicht scharf: " << n.diagnose();
-    EXPECT_EQ(n.wahl().format, lab::ErgebnisFormat::xlsx);
+    EXPECT_TRUE(n.wahl().xlsx);
+    EXPECT_FALSE(n.wahl().csv);
 
     n.kopf_aus_csv(kKopf);
     n.zeile_aus_csv(kZeile1);
@@ -251,7 +271,8 @@ TEST(A9S5Naht, CsvGewaehltErzeugtFlacheSheetsUndKeineXlsx) {
     n.oeffnen(out_csv, {"csv"});
 
     ASSERT_TRUE(n.scharf()) << "Naht nicht scharf: " << n.diagnose();
-    EXPECT_EQ(n.wahl().format, lab::ErgebnisFormat::csv);
+    EXPECT_TRUE(n.wahl().csv);
+    EXPECT_FALSE(n.wahl().xlsx) << "Ohne xlsx-Token darf KEINE xlsx-Ausgabe entstehen.";
 
     n.kopf_aus_csv(kKopf);
     n.zeile_aus_csv(kZeile1);
@@ -299,15 +320,73 @@ TEST(A9S5Naht, ZeileMitFalscherFeldzahlWirdGezaehlt) {
     EXPECT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {}));
 }
 
-// Mehrdeutigkeit => die Naht geht gar nicht erst scharf, und der Grund steht in der Ausgabe.
-TEST(A9S5Naht, MehrdeutigesFormatOeffnetKeineMappe) {
-    TempDir const   tmp;
+// ZUSICHERUNG (3) / OWNER-ENTSCHEID 09.08.: beide Formate => BEIDE Ausgaben, aus EINER Mappe.
+//
+// Bis zum 09.08. stand hier das Gegenteil (MehrdeutigesFormatOeffnetKeineMappe: "scharf()==false,
+// es wird NICHT geraten"). Die Ausschliesslichkeit ist aufgehoben -- der Rest des 05.08.-Kanons
+// nicht: es bleibt EINE Mappe. Die schaerfste pruefbare Aussage dafuer ist der GEMEINSAME
+// Dateiname-Stamm: zwei unabhaengige Schreibwege (oder zwei Laeufe) haetten zwei Zeitstempel
+// genommen und damit zwei verschiedene Staemme erzeugt. Genau daran wuerde ein Rueckfall auf
+// "zweimal dasselbe bauen" auffliegen -- ohne dass eine Datei fehlen muesste.
+TEST(A9S5Naht, BeideFormateErzeugenBeideAusgabenAusEinerMappe) {
+    TempDir const    tmp;
     naht::MappenNaht n;
     n.oeffnen(tmp.path / "measurements.csv", {"csv", "xlsx"});
 
+    ASSERT_TRUE(n.scharf()) << "Naht nicht scharf: " << n.diagnose();
+    EXPECT_TRUE(n.wahl().xlsx);
+    EXPECT_TRUE(n.wahl().csv);
+    EXPECT_EQ(n.wahl().lage, naht::FormatLage::beide);
+    EXPECT_EQ(n.wahl().ausgaben(), 2u);
+
+    // BEIDE Ziele muessen in der Lauf-Ausgabe stehen -- eine ungenannte Datei ist eine
+    // unbeobachtete Datei. (Nach schliessen() ist die Liste leer, deshalb HIER lesen.)
+    std::string const ziele = n.ziele();
+    EXPECT_NE(ziele.find(".xlsx"), std::string::npos) << "ziele() nennt die xlsx nicht: " << ziele;
+    EXPECT_NE(ziele.find("__S001.csv"), std::string::npos) << "ziele() nennt die csv nicht: " << ziele;
+
+    n.kopf_aus_csv(kKopf);
+    n.zeile_aus_csv(kZeile1);
+    n.zeile_aus_csv(kZeile2);
+    EXPECT_EQ(n.zeilen(), 2u) << "Eine Zeile bleibt EINE Zeile der Mappe, auch wenn sie in zwei Dateien faellt.";
+    EXPECT_EQ(n.feld_abweichungen(), 0u);
+    ASSERT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << n.diagnose();
+
+    // MENGE: genau eine xlsx UND genau ein flaches Sheet-CSV -- nicht das eine STATT des anderen.
+    auto const xlsx_dateien = dateien_mit_endung(tmp.path, ".xlsx");
+    auto const sheets       = dateien_mit_endung(tmp.path, "__S001.csv");
+    ASSERT_EQ(xlsx_dateien.size(), 1u) << "Die xlsx-Ausgabe fehlt.";
+    ASSERT_EQ(sheets.size(), 1u) << "Die csv-Ausgabe fehlt.";
+    ASSERT_EQ(dateien_mit_endung(tmp.path, "__INFO.csv").size(), 1u) << "Das INFO-Blatt der csv-Ausgabe fehlt.";
+    EXPECT_TRUE(dateien_mit_endung(tmp.path, ".xlsx.tmp").empty()) << "Kein tmp-Rest der xlsx-Ausgabe.";
+    EXPECT_TRUE(dateien_mit_endung(tmp.path, ".csv.tmp").empty()) << "Kein tmp-Rest der csv-Ausgabe.";
+
+    // DIE EIGENTLICHE AUSSAGE: EIN Stamm traegt beide Ausgaben.
+    std::string const kXlsxSuffix = ".xlsx";
+    std::string const kCsvSuffix  = "__S001.csv";
+    std::string const stamm_xlsx  = xlsx_dateien.front().substr(0, xlsx_dateien.front().size() - kXlsxSuffix.size());
+    std::string const stamm_csv   = sheets.front().substr(0, sheets.front().size() - kCsvSuffix.size());
+    EXPECT_EQ(stamm_xlsx, stamm_csv) << "Verschiedene Staemme heissen: ZWEI Mappen statt einer. xlsx="
+                                     << xlsx_dateien.front() << " csv=" << sheets.front();
+
+    // WERT statt Anwesenheit, Seite xlsx: die Datei IST ein ZIP (Signatur 'PK\x03\x04').
+    auto const inhalt = read_file(tmp.path / xlsx_dateien.front());
+    ASSERT_GE(inhalt.size(), 4u) << "xlsx ist leer/abgeschnitten.";
+    EXPECT_EQ(static_cast<unsigned char>(inhalt[0]), 0x50u);
+    EXPECT_EQ(static_cast<unsigned char>(inhalt[1]), 0x4Bu);
+    EXPECT_EQ(static_cast<unsigned char>(inhalt[2]), 0x03u);
+    EXPECT_EQ(static_cast<unsigned char>(inhalt[3]), 0x04u);
+
+    // WERT statt Anwesenheit, Seite csv: byte-genau dieselben Zeilen -- inklusive der LEEREN Zelle.
+    std::string const erwartet = "binary_id;setting;n_ops\nb1;s1;100\nb2;;200\n";
+    EXPECT_EQ(read_file(tmp.path / sheets.front()), erwartet);
+}
+
+// GEGENPROBE zur Ausgabe-Zahl: schliessen() ohne je geoeffnete Mappe bleibt false. Ohne diesen Fall
+// koennte scharf() konstant true zurueckgeben und alle Zusicherungen oben blieben gruen.
+TEST(A9S5Naht, SchliessenOhneGeoeffneteMappeIstFalse) {
+    naht::MappenNaht n; // nie geoeffnet
     EXPECT_FALSE(n.scharf());
-    EXPECT_NE(n.diagnose().find("mehrdeutig"), std::string::npos) << "Grund fehlt in der Ausgabe: " << n.diagnose();
-    EXPECT_TRUE(dateien_mit_endung(tmp.path, ".xlsx").empty()) << "Bei Mehrdeutigkeit darf NICHTS geraten werden.";
-    EXPECT_TRUE(dateien_mit_endung(tmp.path, "__S001.csv").empty());
-    EXPECT_FALSE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << "schliessen() ohne geoeffnete Mappe ist false.";
+    EXPECT_EQ(n.ziele(), "") << "Ohne Ausgabe gibt es keinen Zielnamen.";
+    EXPECT_FALSE(n.schliessen(lab::MaschinenSysinfo{}, {}, {}));
 }
