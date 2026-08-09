@@ -24,7 +24,7 @@
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 //    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
-#include "ergebnis_mappe_naht.hpp"     // A9-S5: Format-Wahl + die Mappe NEBEN der offiziellen CSV (additiv)
+#include "ergebnis_mappe_naht.hpp" // A9-S5: Format-Wahl + die Mappe NEBEN der offiziellen CSV (additiv)
 #include <cache_engine/measurement/machine_identity.hpp> // A9-S5: live_hostname() fuers INFO-Blatt
 #include "build_type_stamp.hpp"         // (i) §61-STUFEN: build_type_version_suffix (+bt=Debug bei COMDARE_BUILD_TYPE)
 #include "toolchain_stamp_naht.hpp"     // T2-B: PermToolchainAchsen/-GliedWert + der EINE Glied-[5]-Renderer

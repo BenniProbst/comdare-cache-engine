@@ -300,7 +300,7 @@ struct StammErgebnis {
 /// Grammatik nennt das ausdruecklich den Normalfall, nicht einen Sonderfall.
 [[nodiscard]] inline StammErgebnis mappen_stamm(std::string_view datum, std::string_view zeit,
                                                 std::string_view endung) {
-    StammErgebnis          r;
+    StammErgebnis               r;
     std::span<bl::KvPaar const> keine_paare{};
     auto const                  e = bl::blatt_dateiname(datum, zeit, keine_paare, endung);
     if (e.fehler != bl::LagerPfadFehler::ok) {

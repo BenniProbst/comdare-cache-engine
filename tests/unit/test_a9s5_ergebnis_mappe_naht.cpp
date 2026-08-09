@@ -219,8 +219,8 @@ constexpr char const* kZeile2 = "b2;;200\n";
 
 // ZUSICHERUNG (1): leeres writeback_methods => WIRKLICH eine xlsx.
 TEST(A9S5Naht, LeeresWritebackErzeugtEchteXlsxMappe) {
-    TempDir const   tmp;
-    auto const      out_csv = tmp.path / "measurements.csv";
+    TempDir const    tmp;
+    auto const       out_csv = tmp.path / "measurements.csv";
     naht::MappenNaht n;
     n.oeffnen(out_csv, {}); // LEER
 
@@ -265,8 +265,8 @@ TEST(A9S5Naht, LeeresWritebackErzeugtEchteXlsxMappe) {
 
 // ZUSICHERUNG (2) / T-4 GEGENEINGANG: csv gewaehlt => flache Sheets, KEINE xlsx.
 TEST(A9S5Naht, CsvGewaehltErzeugtFlacheSheetsUndKeineXlsx) {
-    TempDir const   tmp;
-    auto const      out_csv = tmp.path / "measurements.csv";
+    TempDir const    tmp;
+    auto const       out_csv = tmp.path / "measurements.csv";
     naht::MappenNaht n;
     n.oeffnen(out_csv, {"csv"});
 
@@ -299,7 +299,7 @@ TEST(A9S5Naht, CsvGewaehltErzeugtFlacheSheetsUndKeineXlsx) {
 // einen Gegeneingang hatte. Die lange Richtung ist die realistische: eine neue Spalte in
 // format_csv_row() ohne die passende in lazy_csv_header() macht JEDE Zeile ein Feld zu lang.)
 TEST(A9S5Naht, ZeileMitFalscherFeldzahlWirdGezaehlt) {
-    TempDir const   tmp;
+    TempDir const    tmp;
     naht::MappenNaht n;
     n.oeffnen(tmp.path / "measurements.csv", {"csv"});
     ASSERT_TRUE(n.scharf()) << n.diagnose();

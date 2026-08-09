@@ -10,9 +10,9 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 #include "planner/experiment_plan_director.hpp" // W5-B: ExperimentPlanDirector/PlanTextBuilder (katalog-schwer -> NUR hier)
-#include "planner/planner_cli_env.hpp"    // check-size: env_trimmed (COMDARE_GN_TOTAL)
-#include "planner/planner_mengen_types.hpp" // check-size: MengenEingang (die flache POD-Naht)
-#include <harness/drift_gated_cell.hpp>  // check-size: DriftGateConfig -- die PRODUKTIVEN Drift-Defaults
+#include "planner/planner_cli_env.hpp"          // check-size: env_trimmed (COMDARE_GN_TOTAL)
+#include "planner/planner_mengen_types.hpp"     // check-size: MengenEingang (die flache POD-Naht)
+#include <harness/drift_gated_cell.hpp>         // check-size: DriftGateConfig -- die PRODUKTIVEN Drift-Defaults
 
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
@@ -1535,9 +1535,9 @@ int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner
     //    4096-Literal (die Korn-Wache haelt drei static_assert auf genau diese Konstante).
     out.batch_korn = static_cast<std::uint64_t>(planner::kGnBatchSlice);
     if (std::string const gn = planner::env_trimmed("COMDARE_GN_TOTAL"); !gn.empty()) {
-        errno            = 0;
-        char*      ende  = nullptr;
-        auto const wert  = std::strtoull(gn.c_str(), &ende, 10);
+        errno           = 0;
+        char*      ende = nullptr;
+        auto const wert = std::strtoull(gn.c_str(), &ende, 10);
         if (errno == 0 && ende != nullptr && *ende == '\0' && wert != 0u) {
             out.binaries_je_perm = wert;
             out.binaries_aus_env = true;

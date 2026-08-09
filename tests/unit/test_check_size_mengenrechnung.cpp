@@ -151,9 +151,9 @@ int main() {
         e.n_ops              = 131072; // 2^17 == COMDARE_GN_TOTAL des Voll-Baus
         e.profile_axis_count = 19;     // die 19 Organ-Achsen => zeilen_je_op = 2 + 2*19 = 40
 
-        auto e_ohne_gate         = e;
-        e_ohne_gate.drift_reps   = 1; // reps < 2 == GATE AUS => genau EIN Durchlauf
-        auto const s_ohne        = pl::mengen_rechnen(e_ohne_gate);
+        auto e_ohne_gate       = e;
+        e_ohne_gate.drift_reps = 1; // reps < 2 == GATE AUS => genau EIN Durchlauf
+        auto const s_ohne      = pl::mengen_rechnen(e_ohne_gate);
         pruefe_gleich(s_ohne.zeilen_je_op, 40u, "H: zeilen_je_op == 2 + 2*19");
         pruefe_gleich(s_ohne.drift_faktor, 1u, "H: Gate AUS => Faktor 1, nicht reps und nicht 0");
         pruefe_gleich(s_ohne.arena_bytes_je_op_batch, 167772160u, "H: 2^17*40*32*1 == 160 MiB");
@@ -228,7 +228,7 @@ int main() {
         e.zellen_gezaehlt    = 1;
         e.binaries_je_perm   = 4096;
         e.n_ops              = 16;
-        e.drift_reps         = 1; // Gate AUS => Faktor 1, damit der Faktor nichts beitraegt
+        e.drift_reps         = 1;                    // Gate AUS => Faktor 1, damit der Faktor nichts beitraegt
         e.profile_axis_count = 1152921504606846976u; // 2^60
         auto const s         = pl::mengen_rechnen(e);
         pruefe(s.ueberlauf, "G5a: die Arena-Wache erkennt den Ueberlauf");
@@ -264,21 +264,21 @@ int main() {
     }
     {
         // 5c -- die ZELL-Wache allein: perm_count * combo_count laeuft ueber.
-        auto e            = eingang_a();
-        e.perm_count      = 9223372036854775808u; // 2^63
-        e.combo_count     = 4;
-        auto const s      = pl::mengen_rechnen(e);
+        auto e        = eingang_a();
+        e.perm_count  = 9223372036854775808u; // 2^63
+        e.combo_count = 4;
+        auto const s  = pl::mengen_rechnen(e);
         pruefe(s.ueberlauf, "G5c: die Zell-Wache erkennt den Ueberlauf");
         pruefe(s.grund.find("perm_count * combo_count") != std::string::npos, "G5c: es war die ZELL-Wache");
     }
     {
         // 5d -- die KAMPAGNEN-Wache allein: Arena und Bytes passen, erst die Kampagnen-Ops laufen ueber.
-        auto e            = eingang_a();
-        e.n_ops           = 1152921504606846976u; // 2^60
-        e.tooling_leer    = false;
-        e.ebene_macro     = false;
-        e.ebene_micro     = false; // zeilen_je_op = 0 => Arena und Bytes bleiben 0, keine Wache schlaegt dort an
-        auto const s      = pl::mengen_rechnen(e);
+        auto e         = eingang_a();
+        e.n_ops        = 1152921504606846976u; // 2^60
+        e.tooling_leer = false;
+        e.ebene_macro  = false;
+        e.ebene_micro  = false; // zeilen_je_op = 0 => Arena und Bytes bleiben 0, keine Wache schlaegt dort an
+        auto const s   = pl::mengen_rechnen(e);
         pruefe(s.ueberlauf, "G5d: die Kampagnen-Wache erkennt den Ueberlauf");
         pruefe(s.grund.find("binaries_je_perm") != std::string::npos, "G5d: es war die KAMPAGNEN-Wache");
     }
@@ -313,14 +313,14 @@ int main() {
     }
     // == T-4 GEGENEINGANG 6: leerer Walk und n_ops=0 =============================================
     {
-        auto e        = eingang_a();
-        e.perm_count  = 0;
-        auto const s  = pl::mengen_rechnen(e);
+        auto e       = eingang_a();
+        e.perm_count = 0;
+        auto const s = pl::mengen_rechnen(e);
         pruefe(!s.erhoben, "G6: perm_count=0 => nicht erhoben");
         pruefe(!s.grund.empty(), "G6: der Grund ist nie leer, wenn nicht erhoben");
 
-        auto e2      = eingang_a();
-        e2.n_ops     = 0;
+        auto e2       = eingang_a();
+        e2.n_ops      = 0;
         auto const s2 = pl::mengen_rechnen(e2);
         pruefe(!s2.erhoben, "G6: n_ops=0 => nicht erhoben (kein stiller Default)");
     }

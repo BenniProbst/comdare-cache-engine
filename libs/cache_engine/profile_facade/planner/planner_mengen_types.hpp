@@ -54,26 +54,26 @@ namespace ms_ = ::comdare::cache_engine::builder::measure_storage;
 // Die HERKUNFT einer Zahl -- neben JEDER Menge, weil eine Menge ohne Herkunft nicht pruefbar ist.
 // ---------------------------------------------------------------------------------------------------------------
 enum class MengenArt : std::uint8_t {
-    Exakt = 0,        ///< aus dem deterministischen Director-Walk gezaehlt
-    Xml,              ///< im Profil-XML ausdruecklich deklariert
-    Default,          ///< NICHT deklariert -- der eingebaute Rueckfall traegt die Zahl
-    Konstante,        ///< compile-hart im Bestand (static_assert-gewacht)
-    Umgebung,         ///< aus einer Umgebungsvariablen
-    Gerechnet,        ///< Produkt/Summe der Faktoren darueber
-    Geschaetzt,       ///< der Aufrufer hat sie geschaetzt/kalibriert eingereicht
-    Unbestimmbar      ///< es gibt sie heute nicht -- und sie wird auch nicht erfunden
+    Exakt = 0,   ///< aus dem deterministischen Director-Walk gezaehlt
+    Xml,         ///< im Profil-XML ausdruecklich deklariert
+    Default,     ///< NICHT deklariert -- der eingebaute Rueckfall traegt die Zahl
+    Konstante,   ///< compile-hart im Bestand (static_assert-gewacht)
+    Umgebung,    ///< aus einer Umgebungsvariablen
+    Gerechnet,   ///< Produkt/Summe der Faktoren darueber
+    Geschaetzt,  ///< der Aufrufer hat sie geschaetzt/kalibriert eingereicht
+    Unbestimmbar ///< es gibt sie heute nicht -- und sie wird auch nicht erfunden
 };
 
 [[nodiscard]] constexpr char const* art_wort(MengenArt a) noexcept {
     switch (a) {
-    case MengenArt::Exakt: return "exakt";
-    case MengenArt::Xml: return "xml";
-    case MengenArt::Default: return "default";
-    case MengenArt::Konstante: return "konstante";
-    case MengenArt::Umgebung: return "env";
-    case MengenArt::Gerechnet: return "gerechnet";
-    case MengenArt::Geschaetzt: return "GESCHAETZT";
-    case MengenArt::Unbestimmbar: return "unbestimmbar";
+        case MengenArt::Exakt: return "exakt";
+        case MengenArt::Xml: return "xml";
+        case MengenArt::Default: return "default";
+        case MengenArt::Konstante: return "konstante";
+        case MengenArt::Umgebung: return "env";
+        case MengenArt::Gerechnet: return "gerechnet";
+        case MengenArt::Geschaetzt: return "GESCHAETZT";
+        case MengenArt::Unbestimmbar: return "unbestimmbar";
     }
     return "?";
 }
@@ -81,7 +81,7 @@ enum class MengenArt : std::uint8_t {
 /// Eine Zeile des Berichts: WAS, WIEVIEL, WOHER -- nie eine nackte Zahl.
 struct MengenFaktor {
     std::string name;
-    std::string wert;   ///< als Text, damit "n/a" und Zahlen dieselbe Spalte teilen
+    std::string wert; ///< als Text, damit "n/a" und Zahlen dieselbe Spalte teilen
     MengenArt   art = MengenArt::Unbestimmbar;
     std::string nenner; ///< die Grundgesamtheit/Fundstelle -- gehoert in die AUSGABE, nicht in den Kopf
 };
@@ -90,18 +90,18 @@ struct MengenFaktor {
 // Das URTEIL eines Deckels. "Unbestimmbar" ist ausdruecklich NICHT "haelt".
 // ---------------------------------------------------------------------------------------------------------------
 enum class Deckelurteil : std::uint8_t {
-    KeinDeckel = 0,   ///< der Aufrufer hat keinen gesetzt -- es wird nur berichtet
-    Haelt,            ///< Menge <= Deckel, gerechnet
-    Gerissen,         ///< Menge > Deckel
-    Unbestimmbar      ///< Deckel verlangt, aber die Menge ist nicht berechenbar -> gilt als NICHT bestanden
+    KeinDeckel = 0, ///< der Aufrufer hat keinen gesetzt -- es wird nur berichtet
+    Haelt,          ///< Menge <= Deckel, gerechnet
+    Gerissen,       ///< Menge > Deckel
+    Unbestimmbar    ///< Deckel verlangt, aber die Menge ist nicht berechenbar -> gilt als NICHT bestanden
 };
 
 [[nodiscard]] constexpr char const* urteil_wort(Deckelurteil u) noexcept {
     switch (u) {
-    case Deckelurteil::KeinDeckel: return "kein_deckel";
-    case Deckelurteil::Haelt: return "haelt";
-    case Deckelurteil::Gerissen: return "GERISSEN";
-    case Deckelurteil::Unbestimmbar: return "unbestimmbar";
+        case Deckelurteil::KeinDeckel: return "kein_deckel";
+        case Deckelurteil::Haelt: return "haelt";
+        case Deckelurteil::Gerissen: return "GERISSEN";
+        case Deckelurteil::Unbestimmbar: return "unbestimmbar";
     }
     return "?";
 }
@@ -111,10 +111,10 @@ enum class Deckelurteil : std::uint8_t {
 // ---------------------------------------------------------------------------------------------------------------
 struct MengenEingang {
     // -- aus dem deterministischen Director-Walk (exakt) --------------------------------------------------------
-    std::uint64_t perm_count         = 0; ///< PlanHeader.perm_count -- |opt x simd| JE Mess-Kombination
-    std::uint64_t combo_count        = 0; ///< PlanHeader.measurement_combo_count
-    std::uint64_t zellen_gezaehlt    = 0; ///< begin_perm-Aufrufe des Walks -- die GEGENPROBE zum Produkt
-    std::uint64_t profile_axis_count = 0; ///< PlanHeader.profile_axis_count (s. Warnung in mengen_rechnen)
+    std::uint64_t perm_count         = 0;     ///< PlanHeader.perm_count -- |opt x simd| JE Mess-Kombination
+    std::uint64_t combo_count        = 0;     ///< PlanHeader.measurement_combo_count
+    std::uint64_t zellen_gezaehlt    = 0;     ///< begin_perm-Aufrufe des Walks -- die GEGENPROBE zum Produkt
+    std::uint64_t profile_axis_count = 0;     ///< PlanHeader.profile_axis_count (s. Warnung in mengen_rechnen)
     bool          ebene_macro        = false; ///< PlanMeasurementCombo.tooling enthaelt "macro"
     bool          ebene_micro        = false; ///< PlanMeasurementCombo.tooling enthaelt "micro"
     bool          tooling_leer       = true;  ///< tooling leer == volles Angebot (dann gelten beide Ebenen)
@@ -127,10 +127,10 @@ struct MengenEingang {
     bool          drift_aus_xml    = false;
 
     // -- aus der Umgebung / dem compile-harten Bestand ----------------------------------------------------------
-    std::uint64_t binaries_je_perm  = 0;     ///< COMDARE_GN_TOTAL (golden: 131072)
-    bool          binaries_aus_env  = false;
-    std::uint64_t batch_korn        = 0;     ///< planner::kGnBatchSlice -- der Aufrufer reicht sie, damit hier
-                                             ///< KEIN viertes 4096-Literal entsteht (Korn-Wache!)
+    std::uint64_t binaries_je_perm = 0; ///< COMDARE_GN_TOTAL (golden: 131072)
+    bool          binaries_aus_env = false;
+    std::uint64_t batch_korn       = 0; ///< planner::kGnBatchSlice -- der Aufrufer reicht sie, damit hier
+                                        ///< KEIN viertes 4096-Literal entsteht (Korn-Wache!)
 
     // -- Aufrufer-Kalibrierung und Deckel ------------------------------------------------------------------------
     double        sekunden_je_op = 0.0; ///< 0 == keine Kalibrierung => die Dauer bleibt n/a
@@ -147,7 +147,7 @@ struct MengenEingang {
 // ---------------------------------------------------------------------------------------------------------------
 struct MessMengenSicht {
     bool                      erhoben = false;
-    std::string               grund;   ///< wenn !erhoben: warum -- nie leer bei !erhoben
+    std::string               grund; ///< wenn !erhoben: warum -- nie leer bei !erhoben
     std::vector<MengenFaktor> faktoren;
 
     std::uint64_t zellen                  = 0;
@@ -221,8 +221,8 @@ namespace mengen_detail {
 
 [[nodiscard]] inline std::string sekunden_text(double s) {
     if (!(s >= 0.0) || s != s) return "n/a"; // NaN faellt durch beide Vergleiche
-    char        puffer[64];
-    int const   n = std::snprintf(puffer, sizeof(puffer), "%.3f", s);
+    char      puffer[64];
+    int const n = std::snprintf(puffer, sizeof(puffer), "%.3f", s);
     return (n > 0) ? std::string(puffer, static_cast<std::size_t>(n)) : std::string{"n/a"};
 }
 
@@ -396,13 +396,13 @@ namespace mengen_detail {
     // diese Zusicherung trifft, faellt ein VERLANGTER Byte-Deckel hier UNBESTIMMBAR -- dieselbe
     // fail-closed-Richtung wie beim Zeit-Deckel darunter. Ohne verlangten Deckel bleibt der Bericht frei.
     if (e.deckel_bytes != 0u) {
-        s.speicher_urteil = (s.zeilen_je_op == 0u)                        ? Deckelurteil::Unbestimmbar
+        s.speicher_urteil = (s.zeilen_je_op == 0u)                          ? Deckelurteil::Unbestimmbar
                             : (s.arena_bytes_je_op_batch <= e.deckel_bytes) ? Deckelurteil::Haelt
                                                                             : Deckelurteil::Gerissen;
     }
     if (e.deckel_tage > 0.0) {
         // Unbestimmbar ist NICHT "haelt": ein verlangter Deckel ohne Zahl faellt fail-closed durch.
-        s.zeit_urteil = !s.dauer_bekannt            ? Deckelurteil::Unbestimmbar
+        s.zeit_urteil = !s.dauer_bekannt                  ? Deckelurteil::Unbestimmbar
                         : (s.dauer_tage <= e.deckel_tage) ? Deckelurteil::Haelt
                                                           : Deckelurteil::Gerissen;
     }
@@ -436,8 +436,8 @@ namespace mengen_detail {
         o += "die bis zum Abbruch erhobenen Faktoren:\n";
     }
 
-    o += mengen_detail::breit("FAKTOR", 26) + mengen_detail::breit("MENGE", 22) +
-         mengen_detail::breit("ART", 14) + "NENNER (woher die Zahl kommt)\n";
+    o += mengen_detail::breit("FAKTOR", 26) + mengen_detail::breit("MENGE", 22) + mengen_detail::breit("ART", 14) +
+         "NENNER (woher die Zahl kommt)\n";
     o += std::string(120, '-') + "\n";
     for (auto const& f : s.faktoren) {
         o += mengen_detail::breit(f.name, 26) + mengen_detail::breit(f.wert, 22) +
@@ -460,13 +460,13 @@ namespace mengen_detail {
         o += "  (zeilen_je_op=0 -- die Arena rechnet zu NULL Bytes; ob das null Checkpoint-Zeilen BEDEUTET\n"
              "            oder ein Tooling-Fehlparse ist, sichert der Bestand nicht zu -> fail-closed)";
     } else {
-        o += "  (arena_bytes_je_op_batch=" + std::to_string(s.arena_bytes_je_op_batch) + " gegen --max-bytes=" +
-             std::to_string(e.deckel_bytes) + ")";
+        o += "  (arena_bytes_je_op_batch=" + std::to_string(s.arena_bytes_je_op_batch) +
+             " gegen --max-bytes=" + std::to_string(e.deckel_bytes) + ")";
     }
     o += "\n  zeit:     " + std::string{urteil_wort(s.zeit_urteil)};
     if (e.deckel_tage > 0.0) {
-        o += "  (dauer_maschinentage=" + (s.dauer_bekannt ? mengen_detail::sekunden_text(s.dauer_tage)
-                                                          : std::string{"n/a"}) +
+        o += "  (dauer_maschinentage=" +
+             (s.dauer_bekannt ? mengen_detail::sekunden_text(s.dauer_tage) : std::string{"n/a"}) +
              " gegen --max-tage=" + mengen_detail::sekunden_text(e.deckel_tage) + ")";
     } else {
         o += "  (kein --max-tage gesetzt -- es wird nur berichtet)";
@@ -492,7 +492,8 @@ namespace mengen_detail {
          "     oben (Zeile drift_faktor) und entscheidet den Widerspruch NICHT.\n";
     if (e.zellen_gezaehlt != s.zellen) {
         o += "  5. ZELL-DIVERGENZ: das Produkt (" + std::to_string(s.zellen) + ") und die Walk-Zaehlung (" +
-             std::to_string(e.zellen_gezaehlt) + ") stimmen NICHT ueberein. Eine der beiden Zahlen ist falsch;\n"
+             std::to_string(e.zellen_gezaehlt) +
+             ") stimmen NICHT ueberein. Eine der beiden Zahlen ist falsch;\n"
              "     dieser Bericht waehlt keine Seite.\n";
     }
 

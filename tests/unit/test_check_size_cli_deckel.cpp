@@ -31,11 +31,11 @@
 #include <string>
 
 #if defined(_WIN32)
-#define COMDARE_POPEN _popen
+#define COMDARE_POPEN  _popen
 #define COMDARE_PCLOSE _pclose
 #else
 #include <sys/wait.h>
-#define COMDARE_POPEN popen
+#define COMDARE_POPEN  popen
 #define COMDARE_PCLOSE pclose
 #endif
 
@@ -77,8 +77,8 @@ Lauf fahre(std::string const& binary, std::string const& argzeile) {
 
 void pruefe_lauf(Lauf const& l, int soll_rc, char const* nadel, char const* was) {
     ++gesamt;
-    bool const rc_ok    = (l.rc == soll_rc);
-    bool const text_ok  = (nadel == nullptr) || (l.ausgabe.find(nadel) != std::string::npos);
+    bool const rc_ok   = (l.rc == soll_rc);
+    bool const text_ok = (nadel == nullptr) || (l.ausgabe.find(nadel) != std::string::npos);
     if (!rc_ok || !text_ok) {
         ++rot;
         std::printf("  ROT : %s -- rc ist=%d soll=%d%s%s\n", was, l.rc, soll_rc,

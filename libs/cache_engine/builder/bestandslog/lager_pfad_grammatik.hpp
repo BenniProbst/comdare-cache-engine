@@ -131,10 +131,10 @@ inline constexpr std::string_view kKurznamePraefix = "H=";
 // ---------------------------------------------------------------------------
 enum class LagerPfadFehler : int {
     ok = 0,
-    achse_leer,              // Achsen-Name ohne Zeichen
-    achse_zeichenklasse,     // Achsen-Name ausserhalb [a-z0-9_]
-    wert_leer,               // Wert ohne Zeichen (ein "achse=" waere ein unlesbares Segment)
-    wert_zeichenklasse,      // Wert ausserhalb [a-z0-9._-]
+    achse_leer,           // Achsen-Name ohne Zeichen
+    achse_zeichenklasse,  // Achsen-Name ausserhalb [a-z0-9_]
+    wert_leer,            // Wert ohne Zeichen (ein "achse=" waere ein unlesbares Segment)
+    wert_zeichenklasse,   // Wert ausserhalb [a-z0-9._-]
     gruppen_wert_trenner, // '-' im Wert eines GRUPPEN-Segments (dort ist '-' der Paar-Trenner)
     // K1 (09.08.2026): hier stand hybrid_segment_verboten (L3). Der Entscheid ist aufgehoben, die
     // Klasse ist ersatzlos entfallen -- s. Kopf. Bewusst NICHT als Platzhalter stehengelassen: eine

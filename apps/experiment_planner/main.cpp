@@ -41,7 +41,7 @@
 
 #include "xml_config_parser/xml_reader.hpp" // Bruecke-I2: Root-Tag-Sniff des validate-Profils (common-DOM)
 
-#include <cerrno>  // check-size: ERANGE der strtoull-Bereichspruefung des Byte-Deckels
+#include <cerrno> // check-size: ERANGE der strtoull-Bereichspruefung des Byte-Deckels
 #include <cstddef>
 #include <cstdint> // check-size: uint64_t (der Byte-Deckel)
 #include <cstdlib> // check-size: strtoull -- der Byte-Deckel ist eine GANZE Zahl, kein double
@@ -271,8 +271,7 @@ struct PlanerBlockGate {
 //
 // STEUERT NICHTS, wie `status`: kein Bau, keine Messung, keine Reservierung, kein planer_block (also nie 6).
 [[nodiscard]] int run_check_size_guarded(std::string const& profil, std::string const& max_bytes_arg,
-                                         std::string const& max_tage_arg,
-                                         std::string const& sek_je_op_arg) noexcept {
+                                         std::string const& max_tage_arg, std::string const& sek_je_op_arg) noexcept {
     try {
         // Die drei Aufrufer-Zutaten -- geparst VOR dem Profil-Walk. KONFIG-FEHLER SIND HART (rc 2), nicht
         // stillschweigend 0: ein vertippter Deckel, der als "kein Deckel" durchrutscht, waere genau der
@@ -284,8 +283,8 @@ struct PlanerBlockGate {
                 std::size_t  gelesen = 0;
                 double const w       = std::stod(s, &gelesen);
                 if (gelesen != s.size() || !(w > 0.0)) {
-                    std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '"
-                              << s << "'.\n";
+                    std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '" << s
+                              << "'.\n";
                     kaputt = true;
                     return 0.0;
                 }
@@ -311,13 +310,13 @@ struct PlanerBlockGate {
                     break;
                 }
             }
-            errno                        = 0;
+            errno                         = 0;
             char*                    ende = nullptr;
             unsigned long long const w    = std::strtoull(s.c_str(), &ende, 10);
             if (!nur_ziffern || ende != s.c_str() + s.size() || errno == ERANGE || w == 0ull) {
                 std::cerr << "comdare-experiment-planner: " << flag
-                          << " erwartet eine positive GANZE Zahl in Bytes (dezimal, ohne Vorzeichen), bekam '"
-                          << s << "'.\n";
+                          << " erwartet eine positive GANZE Zahl in Bytes (dezimal, ohne Vorzeichen), bekam '" << s
+                          << "'.\n";
                 kaputt = true;
                 return 0u;
             }
@@ -527,21 +526,20 @@ void help_for(std::string const& topic) {
         return;
     }
     if (topic == "check-size") {
-        std::cout
-            << "comdare-experiment-planner check-size [<profil>] [--max-bytes=N] [--max-tage=F]\n"
-            << "                                      [--sekunden-je-op=F]   (kanonisches Flag: --check-size)\n"
-            << "  MENGEN-VORSCHAU vor dem Lauf: rechnet die Mess-Menge aus dem deterministischen Plan-Walk\n"
-            << "  und druckt sie AUFGESCHLUESSELT -- jede Menge mit ihrem Nenner, jede geschaetzte Groesse\n"
-            << "  als solche markiert. Baut KEINE DLL, misst NICHT, schreibt nichts.\n"
-            << "    --max-bytes=N        Deckel auf die Arena EINES Mess-Prozesses; N = positive GANZE Zahl\n"
-            << "                         in Bytes (dezimal). Flag weglassen = nur berichten; 0 ist rc 2.\n"
-            << "    --max-tage=F         Deckel auf die geschaetzte Dauer in Maschinentagen\n"
-            << "    --sekunden-je-op=F   Kalibrierung des Aufrufers. OHNE sie bleibt die Dauer n/a --\n"
-            << "                         der Bestand liefert VOR dem Lauf keine gemessene Zeit.\n"
-            << "  FAIL-CLOSED: ein verlangter Deckel, dessen Menge nicht berechenbar ist, gilt als NICHT\n"
-            << "  bestanden (Exit 1). Ein Deckel, der mangels Zahl gruen meldet, ist keine Pruefung.\n"
-            << "  Exit: 0 haelt; 1 Deckel gerissen/unbestimmbar oder nicht erhoben; 2 kaputtes Flag oder\n"
-            << "        ueberzaehliges Argument; 5 unbekannte Profil-Wurzel.\n";
+        std::cout << "comdare-experiment-planner check-size [<profil>] [--max-bytes=N] [--max-tage=F]\n"
+                  << "                                      [--sekunden-je-op=F]   (kanonisches Flag: --check-size)\n"
+                  << "  MENGEN-VORSCHAU vor dem Lauf: rechnet die Mess-Menge aus dem deterministischen Plan-Walk\n"
+                  << "  und druckt sie AUFGESCHLUESSELT -- jede Menge mit ihrem Nenner, jede geschaetzte Groesse\n"
+                  << "  als solche markiert. Baut KEINE DLL, misst NICHT, schreibt nichts.\n"
+                  << "    --max-bytes=N        Deckel auf die Arena EINES Mess-Prozesses; N = positive GANZE Zahl\n"
+                  << "                         in Bytes (dezimal). Flag weglassen = nur berichten; 0 ist rc 2.\n"
+                  << "    --max-tage=F         Deckel auf die geschaetzte Dauer in Maschinentagen\n"
+                  << "    --sekunden-je-op=F   Kalibrierung des Aufrufers. OHNE sie bleibt die Dauer n/a --\n"
+                  << "                         der Bestand liefert VOR dem Lauf keine gemessene Zeit.\n"
+                  << "  FAIL-CLOSED: ein verlangter Deckel, dessen Menge nicht berechenbar ist, gilt als NICHT\n"
+                  << "  bestanden (Exit 1). Ein Deckel, der mangels Zahl gruen meldet, ist keine Pruefung.\n"
+                  << "  Exit: 0 haelt; 1 Deckel gerissen/unbestimmbar oder nicht erhoben; 2 kaputtes Flag oder\n"
+                  << "        ueberzaehliges Argument; 5 unbekannte Profil-Wurzel.\n";
         return;
     }
     if (topic == "fingerprint") {

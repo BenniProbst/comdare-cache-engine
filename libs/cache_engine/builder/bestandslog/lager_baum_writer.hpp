@@ -276,8 +276,7 @@ struct LagerWurzelPaar {
     anatomy::AnatomyGenus   genus;
 
     LagerWurzelPaar() = delete;
-    constexpr LagerWurzelPaar(anatomy::AnatomyGattung ga, anatomy::AnatomyGenus ge) noexcept
-        : gattung{ga}, genus{ge} {}
+    constexpr LagerWurzelPaar(anatomy::AnatomyGattung ga, anatomy::AnatomyGenus ge) noexcept : gattung{ga}, genus{ge} {}
 
     friend bool operator==(LagerWurzelPaar const&, LagerWurzelPaar const&) = default;
 };
@@ -299,14 +298,14 @@ enum class LagerBaumFehler : int {
     wurzel_token_fehlt,        // K1: Gattung/Genus ohne Lager-Token (kein Enumerator der Anatomie)
     gattung_genus_unvereinbar, // K1: gattung_of(genus) != gattung -- das Genus haengt woanders
     system_achse_unbekannt,    // eine System-Achse steht nicht in abi::kSystemAxisOrder
-    system_achsen_ordnung,  // System-Achsen nicht in der bindenden Ordnung (L22)
-    organ_achse_unbekannt,  // eine Organ-Achse steht nicht in experiment::kCompositionAxisNames
-    organ_achse_doppelt,    // dieselbe Organ-Achse zweimal geliefert
-    organ_achse_fehlt,      // eine der 18 Organ-Achsen fehlt -> ein Gruppen-Ordner waere unvollstaendig
-    ebene_fehlt,            // eine PFLICHT-Ebene ist leer
-    fingerprint_form,       // Blatt-Fingerprint ist kein 128-stelliges Klein-Hex
-    ablage_verzeichnis,     // Verzeichnis-Anlegen schlug fehl
-    ablage_datei,           // Datei-Schreiben schlug fehl
+    system_achsen_ordnung,     // System-Achsen nicht in der bindenden Ordnung (L22)
+    organ_achse_unbekannt,     // eine Organ-Achse steht nicht in experiment::kCompositionAxisNames
+    organ_achse_doppelt,       // dieselbe Organ-Achse zweimal geliefert
+    organ_achse_fehlt,         // eine der 18 Organ-Achsen fehlt -> ein Gruppen-Ordner waere unvollstaendig
+    ebene_fehlt,               // eine PFLICHT-Ebene ist leer
+    fingerprint_form,          // Blatt-Fingerprint ist kein 128-stelliges Klein-Hex
+    ablage_verzeichnis,        // Verzeichnis-Anlegen schlug fehl
+    ablage_datei,              // Datei-Schreiben schlug fehl
 };
 
 [[nodiscard]] constexpr std::string_view to_string(LagerBaumFehler f) noexcept {
@@ -626,8 +625,7 @@ struct BinariesBaumSpec {
 // faellt. Die Zusicherung gehoert an die SPEC, nicht ans Paar: ein Default-Member-Initializer in
 // der Spec stellte denselben stillen Default eine Ebene hoeher wieder her und liefe an einer
 // Paar-Wache vorbei (nachgemessen: die enge Fassung liess genau das durch).
-static_assert(!std::is_default_constructible_v<MessdatenBaumSpec> &&
-                  !std::is_default_constructible_v<BinariesBaumSpec>,
+static_assert(!std::is_default_constructible_v<MessdatenBaumSpec> && !std::is_default_constructible_v<BinariesBaumSpec>,
               "K1: keine Spec darf ohne genanntes Wurzel-Paar konstruierbar sein.");
 
 // ---------------------------------------------------------------------------
