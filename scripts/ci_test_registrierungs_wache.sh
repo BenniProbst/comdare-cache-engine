@@ -138,14 +138,32 @@ fi
 ALLOWLIST="scripts/ci_test_registrierungs_allowlist.txt"
 
 # ---------------------------------------------------------------------------
-# SOLL: alle getrackten Test-Quelldateien unter tests/, ohne den vendorierten
+# SOLL: alle getrackten Test-Quelldateien im GANZEN Baum, ohne den vendorierten
 # ext/-Baum (fremder Code, fremde Bauwege).
+#
+# WARUM REPO-WEIT UND NICHT NUR tests/: die zwei Dateien, an denen dieser ganze
+# Befund haengt, liegen gar nicht unter tests/ --
+# libs/cache_engine/builder/commands/tests/test_commands.cpp und
+# test_engine_adapters.cpp. Ihre 27 gtest-Faelle waren 79 Tage lang in jedem Baum
+# unsichtbar (W-1: enable_testing() stand nach dem add_subdirectory). Eine Wache
+# gegen unsichtbare Tests, die ausgerechnet diese beiden nicht im Nenner hat,
+# waere eine Wache mit einem Loch an genau der Stelle des Vorfalls.
+# Am Objekt gemessen (09.08.2026): 459 Dateien insgesamt, 456 unter tests/ und
+# 3 darunter -- die zwei oben plus
+# libs/cache_engine/builder/workload_driver/test_load_profile_writer.cpp.
+#
+# Das Muster ist am DATEINAMEN verankert, nicht am Pfad, und zwar bewusst nach
+# `git ls-files` statt als Pathspec: in einem git-Pathspec matcht '*' auch '/',
+# weshalb '*/test_*.cpp' auch
+# libs/test_infra/workload_generator/src/workload_generator.cpp trifft -- eine
+# Datei, die kein Test ist. Am Objekt geprueft: Pathspec 460 Treffer,
+# Basename-Filter 459.
 # ---------------------------------------------------------------------------
 TMP=$(mktemp -d) || exit 2
 trap 'rm -rf "$TMP"' EXIT INT TERM
 
-git ls-files 'tests/**/test_*.cpp' 'tests/test_*.cpp' 2>/dev/null |
-    "$GREP" -v '/ext/' | "$GREP" -v '^ext/' | sort > "$TMP/soll.txt" || true
+git ls-files 2>/dev/null | "$GREP" -v '^ext/' | "$GREP" -v '/ext/' |
+    "$GREP" -E '(^|/)test_[^/]*\.cpp$' | sort > "$TMP/soll.txt" || true
 
 SOLL_N=$(wc -l < "$TMP/soll.txt" | tr -d ' ')
 if [ "$SOLL_N" -eq 0 ]; then
@@ -238,7 +256,7 @@ fi
 echo ""
 echo "-----------------------------------------------------------------------------"
 echo "NENNER (nie eine nackte Zahl):"
-echo "  $SOLL_N getrackte Test-Quelldatei(en) unter tests/ (ohne ext/) -- SOLL."
+echo "  $SOLL_N getrackte Test-Quelldatei(en) im Baum (ohne ext/) -- SOLL."
 echo "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
 echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER Begruendung, $UNBEGR_N ohne Begruendung."
 echo "  Gegenprobe des Messgeraets: '$GEGENPROBE' trifft in $IST_ART (das Muster sucht)."
