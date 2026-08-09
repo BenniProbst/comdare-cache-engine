@@ -164,7 +164,12 @@ constexpr std::int64_t kDelP99   = 7000591;
 /// still mitwandert). Die Kopplung wird unten ueber die Namen geprueft, nicht ueber die Position.
 struct HandPin {
     std::string_view name;
-    std::int64_t     wert;
+    // 09.08.2026: Initialisierer ergaenzt. Jede der neun Instanzen unten wird per
+    // Aggregat-Initialisierung mit beiden Feldern belegt, der Wert ist also nie unbestimmt --
+    // aber cppcheck sieht das nicht (uninitMemberVarNoCtor) und lint:static faellt hart rot.
+    // Ein Default-Initialisierer kostet hier nichts und nimmt der Klasse die Moeglichkeit,
+    // spaeter doch unbestimmt zu sein, wenn jemand eine zehnte Zeile unvollstaendig anlegt.
+    std::int64_t wert{};
 };
 constexpr std::array<HandPin, 9> kHandPins{{
     {"write_p50_ns", kWriteP50},
