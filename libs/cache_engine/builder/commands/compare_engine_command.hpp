@@ -83,7 +83,14 @@ public:
         // Wenn nicht signifikant: Tie. Fallback nur wenn keine Samples vorhanden.
         if (!result_a_.latency_samples_ns.empty() && !result_b_.latency_samples_ns.empty()) {
             welch_ = stats::welch_t_test(result_a_.latency_samples_ns, result_b_.latency_samples_ns);
-            if (welch_.valid && welch_.p_value < alpha_) {
+            // D4a-Schwesterstelle (T-6): ein DEGENERIERTER Welch (beide Gruppen ohne Varianz, also
+            // 0/0) lieferte hier bisher p=1.0 und damit `Tie` -- ununterscheidbar von einem echt
+            // gemessenen Gleichstand. Das Verdict dafuer existiert bereits: InconclusiveData.
+            // Ohne diese Zeile unterschreibt der Vergleich still die Semantik "gleich schnell"
+            // fuer zwei Kandidaten, die 11 % auseinanderliegen koennen.
+            if (welch_.degeneriert) {
+                verdict_ = Verdict::InconclusiveData;
+            } else if (welch_.valid && welch_.p_value < alpha_) {
                 verdict_ = (welch_.mean_a < welch_.mean_b) ? Verdict::EE_A_Wins // kleinere Latenz = EE_A schneller
                                                            : Verdict::EE_B_Wins;
             } else {

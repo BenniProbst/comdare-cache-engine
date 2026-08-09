@@ -61,8 +61,10 @@
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp>    // R6 Inkrement 2: ABI-Fuellstands-Treiber
 
 #include <chrono>
+#include <cmath>  // D4a: std::isfinite / std::nan im Degenerations-Praedikat-Test
 #include <cstdint>
 #include <filesystem>
+#include <limits> // D4a: numeric_limits<double>::infinity() als zweiter nicht-endlicher Eingang
 #include <random>
 #include <span>
 #include <string>
@@ -780,4 +782,93 @@ TEST(F15RobustStats, MannWhitneyDistinctIdenticalAndOutlierRobust) {
     EXPECT_EQ(stats::cliff_delta_magnitude(w3.cliff_delta), std::string_view{"large"});
     // invalid bei leerer Gruppe:
     EXPECT_FALSE(stats::mann_whitney_u_test(std::span<const std::int64_t>{}, std::span<const std::int64_t>{bo}).valid);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4a (2026-08-09) — WELCH: DIE NULL ALS DATEN-AUSSAGE, NICHT NUR ALS DIVISIONS-GEFAHR
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// DER BEFUND, den diese Tests festnageln: welch_t_test rettete bei se<=0 die Division, gab
+// t=0, p=1.0 zurueck UND setzte valid=true. Der Aufrufer bekam damit ein Ergebnis, das von
+// einem ECHT gemessenen "kein Unterschied" nicht zu unterscheiden war -- obwohl der Test in
+// diesem Zweig gar nicht gerechnet hat: bei var_a==0 UND var_b==0 ist die t-Statistik 0/0,
+// also UNDEFINIERT, und zwar auch dann, wenn die beiden Gruppen weit auseinanderliegen.
+//
+// KOEDER (K13, frisch aus /dev/urandom gewuerfelt am 2026-08-09T18:31:31Z, NICHT aus einer Doku
+// abgeschrieben): zwei KONSTANTE Gruppen, 929 (5x) gegen 1031 (4x) -- 11 % auseinander. Vorher
+// meldete Welch dafuer p=1.0 bei valid=true, also "kein Unterschied". Der Gegeneingang (T-4)
+// steht direkt daneben: dieselben Gruppen MIT Streuung duerfen NICHT degeneriert heissen.
+
+TEST(F15WelchDegeneriert, KonstanteGruppenMitVerschiedenenMittelnSindDegeneriert) {
+    std::vector<std::int64_t> const a(5, 929);  // KOEDER, gewuerfelt: Wert 929, n=5, Varianz 0
+    std::vector<std::int64_t> const b(4, 1031); // KOEDER, gewuerfelt: Wert 1031, n=4, Varianz 0
+    auto const w = stats::welch_t_test(std::span<const std::int64_t>{a}, std::span<const std::int64_t>{b});
+
+    // Die beiden Gruppen liegen 11 % auseinander -- das ist die PRAEMISSE des Koeders, und sie
+    // wird hier gepinnt statt vorausgesetzt (sonst koennte der Koeder unbemerkt stumpf werden).
+    ASSERT_DOUBLE_EQ(w.mean_a, 929.0);
+    ASSERT_DOUBLE_EQ(w.mean_b, 1031.0);
+    ASSERT_GT(w.mean_b - w.mean_a, 0.10 * w.mean_a) << "Koeder stumpf: die Gruppen liegen zu nah";
+    ASSERT_DOUBLE_EQ(w.var_a, 0.0);
+    ASSERT_DOUBLE_EQ(w.var_b, 0.0);
+
+    EXPECT_TRUE(w.valid) << "valid bleibt 'gerechnet' -- die Aussage steckt in degeneriert";
+    EXPECT_TRUE(w.degeneriert) << "0/0 ist keine Messung von 'kein Unterschied'";
+    EXPECT_DOUBLE_EQ(w.p_value, 1.0);
+}
+
+TEST(F15WelchDegeneriert, StreuendeGruppenSindNichtDegeneriert) {
+    // GEGENEINGANG (T-4 / K13 beide Richtungen): dieselben Mittelwerte, aber mit echter Streuung.
+    // Faellt diese Zusicherung, war der neue Guard konstant-rot und haette nichts bewiesen.
+    std::vector<std::int64_t> a, b;
+    for (int i = 0; i < 5; ++i) a.push_back(929 + i);
+    for (int i = 0; i < 4; ++i) b.push_back(1031 + i);
+    auto const w = stats::welch_t_test(std::span<const std::int64_t>{a}, std::span<const std::int64_t>{b});
+    EXPECT_TRUE(w.valid);
+    EXPECT_FALSE(w.degeneriert);
+    EXPECT_LT(w.p_value, 0.05) << "mit Streuung wird der Unterschied SICHTBAR -- vorher war er es nicht";
+}
+
+TEST(F15WelchDegeneriert, ZuWenigSamplesIstDegeneriertUndNichtGerechnet) {
+    // n<2: gar nichts gerechnet. valid=false (wie bisher) UND degeneriert=true (neu) -- die
+    // beiden Felder sagen zwei verschiedene Dinge und werden hier getrennt gepinnt.
+    std::vector<std::int64_t> const one{42};
+    std::vector<std::int64_t>       many(8, 100);
+    for (std::size_t i = 0; i < many.size(); ++i) many[i] = 100 + static_cast<std::int64_t>(i);
+    auto const w = stats::welch_t_test(std::span<const std::int64_t>{one}, std::span<const std::int64_t>{many});
+    EXPECT_FALSE(w.valid);
+    EXPECT_TRUE(w.degeneriert);
+}
+
+TEST(F15WelchDegeneriert, DegenerationsPraedikatHatBeideRichtungen) {
+    // Das Praedikat ist die EINE Stelle, an der "degeneriert" entschieden wird; es wird hier
+    // direkt befragt, damit auch der zweite Ausloeser (nicht-endlicher p-Wert) eine Zusicherung
+    // hat und nicht nur als toter Zweig im Header steht (T-2: Aussage statt Anwesenheit).
+    EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(0.0, 1.0));  // se == 0
+    EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(-1.0, 0.01)); // se < 0 (fail-closed)
+    EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(2.5, std::nan("")));
+    EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(2.5, std::numeric_limits<double>::infinity()));
+    EXPECT_FALSE(stats::welch_ergebnis_ist_degeneriert(2.5, 0.01)); // GEGENEINGANG: hier faellt es
+}
+
+TEST(F15WelchDegeneriert, NichtEndlichesPFeuertUeberDemGanzenNennerNie) {
+    // NENNER IN DER AUSGABE: der zweite Ausloeser (nicht-endliches p) ist aus std::int64_t-Eingaben
+    // heute NICHT erreichbar -- denom>0 folgt aus se>0. Das ist eine AUSSAGE ueber eine
+    // Grundgesamtheit, keine Vermutung, deshalb wird sie gezaehlt und die Zahl ausgegeben.
+    std::mt19937_64 rng{20260809u}; // fester Seed: reproduzierbare Zaehlung, kein Koeder
+    std::size_t     geprueft = 0, nicht_endlich = 0, se_null = 0;
+    for (int lauf = 0; lauf < 2000; ++lauf) {
+        std::size_t const         na = 2 + static_cast<std::size_t>(rng() % 60);
+        std::size_t const         nb = 2 + static_cast<std::size_t>(rng() % 60);
+        std::vector<std::int64_t> a(na), b(nb);
+        for (auto& v : a) v = static_cast<std::int64_t>(rng() % 1000000000ULL);
+        for (auto& v : b) v = static_cast<std::int64_t>(rng() % 1000000000ULL);
+        auto const w = stats::welch_t_test(std::span<const std::int64_t>{a}, std::span<const std::int64_t>{b});
+        ++geprueft;
+        if (!std::isfinite(w.p_value)) ++nicht_endlich;
+        if (w.degeneriert) ++se_null;
+    }
+    EXPECT_EQ(geprueft, 2000u);
+    EXPECT_EQ(nicht_endlich, 0u) << nicht_endlich << " von " << geprueft << " Laeufen mit nicht-endlichem p";
+    EXPECT_EQ(se_null, 0u) << se_null << " von " << geprueft << " zufaelligen Laeufen degeneriert";
 }
