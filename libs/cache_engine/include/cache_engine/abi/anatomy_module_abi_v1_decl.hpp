@@ -108,7 +108,8 @@
 #define COMDARE_ANATOMY_ABI_MAJOR 9
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA*A9*" als big-endian uint64_t (NAHT-1 Major 9).
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility.
+/// "COMDA*A9*" als big-endian uint64_t (NAHT-1 Major 9).
 #define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141392EULL
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -15,7 +15,8 @@
 // im OFF-Zustand ECHT uebersetzt. Ein #error dort braeche genau die Wache, die den OFF-Pfad belegt.
 #if !defined(COMDARE_MEASUREMENT_ON) || !COMDARE_MEASUREMENT_ON
 #error                                                                                                                 \
-    "NAHT-1: genus_mess_naht.hpp in einer TU ohne COMDARE_MEASUREMENT_ON -- die CEB-Haelfte der Mess-Naht existiert nur im Mess-Kompilat."
+    "NAHT-1: genus_mess_naht.hpp in einer TU ohne COMDARE_MEASUREMENT_ON -- "
+    "die CEB-Haelfte der Mess-Naht existiert nur im Mess-Kompilat."
 #endif
 
 #include <anatomy/observable_tier.hpp> // IObservableTier + IMessVisitor + MessEdge + SnapshotSink
