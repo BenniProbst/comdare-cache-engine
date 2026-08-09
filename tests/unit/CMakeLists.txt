@@ -5984,3 +5984,27 @@ target_link_libraries(test_d55_hdr_verdrahtung PRIVATE
     comdare_hdr_histogram_wrapper)
 target_compile_definitions(test_d55_hdr_verdrahtung PRIVATE
     "COMDARE_D55_MESSPFAD_ROOT=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage\"")
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Warnungs-Review Runde 1c/2a (09.08.2026) — die zwei Wachen zu den Funden, die DEFEKTE waren.
+#   test_warn2a_block_id_bidirektional : block_id==axis auch auf dem PROFIL-Pfad (7 gemeldete
+#       Stellen + 1, die kein Uebersetzer sieht, weil sie default-konstruiert statt aggregiert).
+#   test_warn1_d2_fingerprint_koeder   : der nachgezogene, BEISSENDE Koeder zu D2 (die erste
+#       Minimalprobe unterschied ihre zwei Hypothesen nicht).
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+comdare_add_test(test_warn2a_block_id_bidirektional
+    SOURCES test_warn2a_block_id_bidirektional.cpp)
+target_include_directories(test_warn2a_block_id_bidirektional PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+target_link_libraries(test_warn2a_block_id_bidirektional PRIVATE comdare_builder_xml_config_parser)
+set_tests_properties(test_warn2a_block_id_bidirektional PROPERTIES
+    LABELS "warnungen;experiment_tree;bidirektionalitaet" TIMEOUT 60)
+
+comdare_add_test(test_warn1_d2_fingerprint_koeder
+    SOURCES test_warn1_d2_fingerprint_koeder.cpp
+    LIBRARIES comdare_experiment)
+set_tests_properties(test_warn1_d2_fingerprint_koeder PROPERTIES
+    LABELS "warnungen;speicher;koeder" TIMEOUT 60)

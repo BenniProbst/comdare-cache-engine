@@ -46,6 +46,12 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
         AxisLevel tier;
         tier.axis      = "tier";
         tier.is_static = true;
+        // DIE ACHTE STELLE -- und die einzige, die KEIN Uebersetzer gemeldet hat: dieser Block
+        // default-konstruiert und weist danach Felder zu, statt zu aggregat-initialisieren. Damit
+        // greift -Wmissing-field-initializers hier nicht, obwohl block_id genauso leer blieb wie an
+        // den sieben gemeldeten Stellen. Belegt am Objekt, warum die Warnung nur der Anlass ist und
+        // die ZUSICHERUNG der Gegenstand: der Test unten prueft alle acht, der Uebersetzer sah sieben.
+        tier.block_id  = "tier";
         for (auto const& t : tp.base_tiers) tier.values.push_back(t.id);
         if (!tier.values.empty()) levels.push_back(std::move(tier));
     }
