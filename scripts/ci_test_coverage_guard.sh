@@ -51,11 +51,18 @@
 #   Umgebung: COMDARE_FREMD_INVENTUR=<datei>  aktiviert Befund (e). Die Datei ist
 #   eine Zeile-je-Testname-Inventur, wie test:unit sie nach
 #   build/Testing/ctest_unit_inventar.txt schreibt.
+#   COMDARE_WACHE_STRIKT=1  macht aus 'declared:VAR ungesetzt' einen Fehler statt
+#   einer Annahme (s.u.). Ungesetzt/leer = weich; jeder andere Wert = Abbruch.
+#   COMDARE_D2_FLOOR_PFAD=<datei>  lenkt die Untergrenze um (Selbsttest).
 # EXIT:    0 = Invariante haelt
 #          1 = Abdeckungsluecke: ein registrierter Test faehrt in keinem Job
 #          2 = Bedienung/Umgebung. Dazu zaehlt ein fehlendes, leeres oder
 #              abgerissenes Registrierungs-Protokoll: wer seinen Nenner nicht
-#              belegen kann, meldet nicht gruen (fail-closed).
+#              belegen kann, meldet nicht gruen (fail-closed). Ebenso eine
+#              fehlende/unlesbare Untergrenze, ein abgestuerztes ctest und --
+#              nur bei COMDARE_WACHE_STRIKT=1 -- ein Gate ohne gesetzte
+#              Deklarationsvariable (Verdrahtungsfehler: die Testmenge stimmt,
+#              die Auskunft ueber die Jobs fehlt).
 #          3 = Manifest defekt
 #          4 = NENNER-BEFUND: die Inventur ist nachweislich kleiner als das, was
 #              dieser Baum registrieren muesste (uebersprungener Block), oder sie
@@ -201,10 +208,48 @@ ce_werkzeug_pruefen() {
     ce_abbruch "$_ce_m" 2
 }
 
+# =============================================================================
+# STRENG-MODUS (Lead-Entscheid 2026-08-09) -- ein eigener Schalter, kein Merkmal
+# =============================================================================
+# WAS ER BEANTWORTET: nicht "laufe ich in GitLab?", sondern "WIRD HIER
+# VOLLSTAENDIGKEIT ERWARTET?". Das ist bewusst NICHT $CI_JOB_ID. Ein
+# Umgebungs-Merkmal waere ein Stellvertreter fuer die eigentliche Frage, und die
+# beiden fallen auseinander, sobald jemand die Wache von Hand fuer eine Abnahme
+# faehrt: auf dem baremetal-Weg des Par. 61 Dual-Wegs waere $CI_JOB_ID leer, die
+# Wache liefe weich, und die Abnahme saehe aus wie ein Freispruch. Genau die
+# Sorte Stillschweigen, gegen die dieser Bogen gebaut ist.
+#
+# WAS ER TUT: 'declared:VAR' ist im weichen Modus fail-OPEN -- ein Gate ohne
+# gesetzte Variable gilt als deklariert und bekommt die Deckung gutgeschrieben.
+# Lokal ist das richtig (dort setzt niemand CI-Variablen). Im strengen Modus ist
+# eine fehlende Auskunft ein VERDRAHTUNGS-Fehler und damit Exit 2: der Job hat
+# seine Variable nicht gesetzt, und eine Deckung aus einer Annahme ist keine.
+#
+# WERTE: '1' = streng, ungesetzt/leer = weich. JEDER ANDERE WERT IST ABBRUCH --
+# dieselbe Doktrin wie bei der Untergrenze: ein unlesbarer Schalter wird nicht
+# als "dann eben nicht" gelesen. Wer 'COMDARE_WACHE_STRIKT=ja' schreibt, meinte
+# streng und bekaeme sonst still weich.
+CE_STRIKT=${COMDARE_WACHE_STRIKT-}
+case "$CE_STRIKT" in
+    '')  CE_STRIKT_MODUS="WEICH  (COMDARE_WACHE_STRIKT ungesetzt)" ;;
+    1)   CE_STRIKT_MODUS="STRENG (COMDARE_WACHE_STRIKT=1)" ;;
+    *)
+        _ce_m="COMDARE_WACHE_STRIKT hat den Wert '${CE_STRIKT}'. Erlaubt ist '1'"
+        _ce_m="${_ce_m} (streng) oder ungesetzt/leer (weich). Ein unlesbarer Schalter"
+        _ce_m="${_ce_m} wird nicht als 'weich' gelesen -- sonst liefe ein als streng"
+        _ce_m="${_ce_m} gemeinter Lauf still weich durch."
+        ce_abbruch "$_ce_m" 2
+        ;;
+esac
+
 echo "============================================================================="
 echo " ABDECKUNGS-WACHE der CI-Test-Auswahl  (scripts/ci_test_coverage_guard.sh)"
 echo " Bau-Baum : ${CE_BUILD_DIR}"
 echo " Manifest : ${_ce_manifest}"
+# DER MODUS STEHT IMMER DA, in beiden Faellen. Sonst ist einem gruenen Ergebnis
+# nicht anzusehen, ob es streng zustande kam -- und ein Freispruch, dessen
+# Massstab man nicht kennt, ist keiner.
+echo " Modus    : ${CE_STRIKT_MODUS}"
 echo "============================================================================="
 
 # DIE ROT-MARKE DES NENNERS WIRD HIER GESETZT, NICHT ERST BEI DER URTEILSBILDUNG.
@@ -632,6 +677,34 @@ if [ "$CE_GATES_UNGEPRUEFT" -gt 0 ]; then
     done < "${_ce_tmp}/ungepruefte_gates.txt"
 else
     echo "        ${CE_GATES_GESAMT} von ${CE_GATES_GESAMT} Gate(n) gegen eine gesetzte Variable GEPRUEFT."
+fi
+
+# STRENG-MODUS: hier wird aus der Sichtbarkeit eine Haerte.
+# ERST NACH DER SCHLEIFE, nicht darin: ein Abbruch beim ersten fehlenden Gate
+# naennte genau eines und verschwiege die uebrigen. Wer eine CI-Verdrahtung
+# richtigstellt, will alle fehlenden Variablen in EINEM Lauf sehen, nicht eine
+# pro Lauf.
+if [ "$CE_STRIKT" = 1 ] && [ "$CE_GATES_UNGEPRUEFT" -gt 0 ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: STRENG-MODUS UND UNGEPRUEFTE GATES -- ${CE_GATES_UNGEPRUEFT} von ${CE_GATES_GESAMT}."
+    echo "COMDARE_WACHE_STRIKT=1 heisst: hier wird VOLLSTAENDIGKEIT erwartet. Ein Gate,"
+    echo "dessen Deklarationsvariable niemand gesetzt hat, wird dann NICHT mehr als"
+    echo "deklariert angenommen -- seine Deckung waere eine Annahme, und eine Annahme"
+    echo "ist im strengen Lauf keine Deckung. Betroffen:"
+    echo ""
+    while read -r _ce_ug; do
+        echo "    OHNE AUSKUNFT: ${_ce_ug}"
+    done < "${_ce_tmp}/ungepruefte_gates.txt"
+    echo ""
+    echo "SO WIRD DAS BEHOBEN: die genannte Variable im variables:-Block des Jobs setzen"
+    echo "(oder auf dem Dual-Weg von Hand mitgeben). Das ist ein VERDRAHTUNGS-Fehler und"
+    echo "deshalb Exit 2 -- kein Abdeckungs-Befund (1) und kein Nenner-Befund (4): die"
+    echo "Testmenge ist in Ordnung, die Auskunft ueber die Jobs fehlt."
+    echo "NICHT so beheben: COMDARE_WACHE_STRIKT wegnehmen. Dann meldet derselbe Lauf"
+    echo "gruen, und der Unterschied zwischen 'geprueft' und 'angenommen' ist wieder weg."
+    echo "-----------------------------------------------------------------------------"
+    ce_abbruch "Streng-Modus: ${CE_GATES_UNGEPRUEFT} Gate(n) ohne gesetzte Deklarationsvariable." 2
 fi
 
 CE_RC=0

@@ -137,11 +137,14 @@ struct Lauf {
 // falschen Grund. COMDARE_D2_FLOOR_PFAD zeigt deshalb auf eine Datei IM Baum, die
 // der jeweilige Fall selbst schreibt. Schreibt er sie nicht, prueft er damit gerade
 // den fail-closed-Zweig: eine Wache ohne Untergrenze meldet nicht gruen.
-[[nodiscard]] Lauf wache_fahren(fs::path const& baum) {
+// 'zusatz_env' wird VOR den Aufruf gesetzt (z.B. "COMDARE_WACHE_STRIKT=1 "). Es steht
+// bewusst als Zeichenkette da und nicht als putenv(): der Prozess dieses Tests darf die
+// Variable nicht behalten, sonst faerbte ein Fall den naechsten ein.
+[[nodiscard]] Lauf wache_fahren(fs::path const& baum, std::string const& zusatz_env = "") {
     fs::path const    ctest_dir = fs::path{COMDARE_D2_CTEST_BIN}.parent_path();
     fs::path const    floor     = baum / "ci_test_inventory_floor.txt";
     std::string const befehl = "PATH=\"" + ctest_dir.string() + ":$PATH\" COMDARE_D2_FLOOR_PFAD=\"" + floor.string()
-                             + "\" sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
+                             + "\" " + zusatz_env + "sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
 
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -566,6 +569,72 @@ TEST(D2AbdeckungsWacheNenner, UngepruefteGatesWerdenGezaehltUndAendernDenRcNicht
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "Gate(n)")) << lauf.ausgabe;
     // Und er macht gerade KEINEN Nenner-Befund daraus.
     EXPECT_NE(lauf.code, 4) << "Ein ungesetztes Deklarations-Gate ist kein Nenner-Defekt.\n" << lauf.ausgabe;
+    // Der MODUS steht in der Ausgabe -- ohne ihn waere einem gruenen Ergebnis nicht
+    // anzusehen, nach welchem Massstab es zustande kam.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Modus")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "WEICH")) << lauf.ausgabe;
+}
+
+// -- STRENG-MODUS (Lead-Entscheid 2026-08-09) -----------------------------------------------
+// Der Schalter beantwortet "wird hier Vollstaendigkeit erwartet?" -- ausdruecklich NICHT
+// "laufe ich in GitLab?". $CI_JOB_ID waere ein Stellvertreter: auf dem baremetal-Zweig des
+// Par. 61 Dual-Wegs waere er leer, die Wache liefe weich, und die Abnahme saehe aus wie ein
+// Freispruch. Diese drei Faelle halten den Schalter an seiner Bedeutung fest.
+TEST(D2AbdeckungsWacheNenner, StrengModusMachtUngepruefteGatesZumFehler) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_WACHE_STRIKT=1 ");
+    lauf_berichten("streng, Variable ungesetzt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Fehlende Auskunft ist ein VERDRAHTUNGS-Fehler (2), kein Befund (1/4).\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "STRENG")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "OHNE AUSKUNFT")) << lauf.ausgabe;
+    // Die betroffene Variable MUSS namentlich dastehen -- sonst waere die Meldung
+    // nicht behebbar, nur beunruhigend (V-1).
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_PMC_LANES")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// T-4 GEGENEINGANG: mit gesetzter Variable ist der strenge Lauf gerade NICHT rot.
+// Ohne diesen Fall waere die Zusicherung oben auch von einer Wache erfuellt, die im
+// strengen Modus immer abbricht -- also von Daueralarm.
+TEST(D2AbdeckungsWacheNenner, StrengModusMitGesetzterVariableBrichtNichtAb) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_WACHE_STRIKT=1 COMDARE_PMC_LANES=amd ");
+    lauf_berichten("streng, Variable gesetzt", lauf, marke);
+
+    EXPECT_NE(lauf.code, 2) << "Mit gesetzter Variable darf der strenge Modus nicht abbrechen.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "STRENG")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "OHNE AUSKUNFT")) << lauf.ausgabe;
+}
+
+// Ein unlesbarer Schalter wird nicht als "weich" gelesen -- dieselbe Doktrin wie bei der
+// Untergrenze. Wer 'COMDARE_WACHE_STRIKT=ja' schreibt, meinte streng.
+TEST(D2AbdeckungsWacheNenner, UnlesbarerStrengSchalterIstAbbruchStattWeich) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    // Der Wert ist die frisch gewuerfelte Marke: garantiert weder '1' noch leer.
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_WACHE_STRIKT=" + marke + " ");
+    lauf_berichten("Schalter unlesbar", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_WACHE_STRIKT")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, marke)) << "Der unbrauchbare Wert gehoert in die Meldung.\n" << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
 }
 
 #endif // !_WIN32
