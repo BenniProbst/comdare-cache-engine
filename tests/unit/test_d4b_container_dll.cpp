@@ -10,6 +10,20 @@
 //
 // Build: cl /std:c++latest /EHsc test_d4b_container_dll.cpp anatomy_module_loader.cpp → exe <perm_container.dll>
 
+// STAND 09.08.2026 -- REGISTRIERT seit MT-L4. Bis hierher lag diese Datei 68 Tage unregistriert im
+// Baum: getrackt, uebersetzbar, in KEINER CMakeLists.txt genannt (am 09.08. gemessen: 0 Treffer).
+// Sie war damit die aelteste der vier MT-L4-Dateien. Dass sie fehlt, stand die ganze Zeit im Repo --
+// der Kopf ihres Zwillings test_d4b_container_adapter.cpp (D4b.1, in-process, registriert)
+// kuendigt sie woertlich an: "der echte .dll-Round-Trip folgt in D4b.2 (test_d4b_container_dll via
+// AnatomyModuleLoader)". D4b.1 kam in den Bauweg, D4b.2 nicht.
+// DIE OBIGE cl-BAUZEILE IST HISTORIE (MSVC) und bleibt als Beleg stehen. Der Lauf haengt jetzt am
+// ctest-Gate: das Pflicht-Argument ist die real gebaute Adapter-Genus-Permutations-DLL
+// perm_adapter_d12, die tests/unit/CMakeLists.txt ohnehin schon baut und die
+// test_e24_c10_genus_dll_roundtrip dort bereits als "--gut="-Modul faehrt. Es musste also kein
+// neues Pilot-Modul gebaut werden -- es lag fertig daneben.
+// Die Erwartungen unten (organ_count 12 an der Gattungs-API, 13 im Observer-POD) stammen vom
+// 03.06.2026; sie werden ab jetzt bei jedem Lauf gegen das echte Modul gemessen statt geglaubt.
+
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/adapter_tier.hpp> // IAdapterTier + AdapterObserverSnapshotV1
@@ -62,8 +76,19 @@ int main(int argc, char** argv) {
 
     // Gattungs-API über die DLL-Grenze: das ist eine CONTAINER-Gattung (NICHT SearchAlgorithm).
     check_true("genus == Adapter (Container über DLL)", a->genus() == ana::AnatomyGenus::Adapter);
-    check_eq("organ_count == 12 (§28 + INC-2c: 11 geteilt/delegiert + inner_container)", a->organ_count(),
-             std::size_t{12});
+    // ERSTLAUF-KORREKTUR 09.08.2026 (MT-L4): hier stand 12, und weiter unten stand 13 -- fuer DASSELBE
+    // Objekt. Beide Zahlen waren falsch und widersprachen einander; die Datei war 68 Tage unregistriert
+    // und hat den INC-2c-Wechsel auf 11 nicht mitbekommen. Die 11 ist nicht "das, was herauskam",
+    // sondern durch DREI voneinander unabhaengige Quellen gedeckt, alle am 09.08.2026 gemessen:
+    //   (1) die Anatomie selbst -- adapter_anatomy.hpp:264 organ_count() { return
+    //       Composition::slot_count; } mit dem Kommentar "// 11";
+    //   (2) der bereits registrierte und GRUEN laufende Zwilling test_d4b_container_adapter.cpp:42/:56
+    //       (D4b.1, in-process), der zweimal auf 11 prueft;
+    //   (3) das real gebaute Modul perm_adapter_d12 ueber die .so-Grenze.
+    // Haette D4b.2 seit dem 03.06. im Bauweg gehangen, waere der Wechsel hier mitgezogen worden --
+    // genau das ist der Schaden, den ein unregistrierter Test anrichtet.
+    check_eq("organ_count == 11 (Doku 14 Abschnitt 28 + INC-2c: 10 geteilt/delegiert + inner_container)",
+             a->organ_count(), std::size_t{11});
     check_eq("composition_name == AdapterComposition", std::string{a->composition_name()},
              std::string{"AdapterComposition"});
 
@@ -78,7 +103,15 @@ int main(int argc, char** argv) {
                   << " front=" << pod.front_reads << " back=" << pod.back_reads << " organs=" << pod.organ_count
                   << " size=" << ct->tier_size() << "\n";
         check_eq("tier_observe_container: push_count == 20 (über DLL getrieben)", pod.push_count, std::uint64_t{20});
-        check_eq("tier_observe_container: organ_count == 13", pod.organ_count, std::uint64_t{13});
+        // T-3 (fremder Nenner) statt eines zweiten Literals: der Observer-POD und die Gattungs-API sind
+        // ZWEI getrennte Wege ueber dieselbe .so-Grenze. Dass sie DENSELBEN Wert liefern, ist die
+        // eigentliche Zusicherung eines Round-Trip-Tests -- und keine der beiden Seiten kann sie allein
+        // erfuellen. Frueher stand hier die feste 13, waehrend oben die feste 12 stand: zwei Literale,
+        // die sich gegenseitig nie geprueft haben und beide falsch waren.
+        check_eq("tier_observe_container: organ_count == das der Gattungs-API (beide Wege einig)",
+                 pod.organ_count, static_cast<std::uint64_t>(a->organ_count()));
+        check_eq("tier_observe_container: organ_count == 11 (INC-2c, wie der Zwilling D4b.1)",
+                 pod.organ_count, std::uint64_t{11});
         check_eq("tier_observe_container: peak_occupancy == 20 (unbeschränkter Adapter über DLL)", pod.peak_occupancy,
                  std::uint64_t{20});
         std::uint64_t out = 0;

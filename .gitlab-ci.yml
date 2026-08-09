@@ -412,6 +412,25 @@ test:coverage-guard:
     # build-covguard ist im selben Job schon gebaut. Ein eigener Job haette denselben
     # Vollbau ein zweites Mal bezahlt.
     - sh scripts/ci_test_sichtbarkeit_wache.sh build-covguard
+    # MT-L4 (2026-08-09): TEST-REGISTRIERUNGS-WACHE -- die Stufe VOR der Sichtbarkeits-Wache.
+    # Jene vergleicht die Registrierungs-AUFRUFE im CMake-Quelltext gegen `ctest -N`. Eine
+    # Test-Quelldatei, die ueberhaupt kein add_test aufruft, steht in ihrem SOLL nie drin und
+    # kann von ihr nicht vermisst werden. Genau so lagen vier Dateien 14 bzw. 68 Tage im Repo,
+    # ohne je gebaut zu werden; eine davon war beim ersten Lauf sofort rot, eine zweite trug
+    # zwei einander widersprechende Erwartungen. Diese Wache nimmt deshalb den Git-Index als
+    # SOLL und den GEBAUTEN Baum (build.ninja) als IST -- zwei Quellen, von denen keine die
+    # gepruefte CMake-Datei ist.
+    # HIER aus demselben Grund wie die beiden Wachen darueber: build-covguard steht im selben
+    # Job schon konfiguriert und gebaut. Ein eigener Job haette den Vollbau ein drittes Mal bezahlt.
+    - sh scripts/ci_test_registrierungs_wache.sh build-covguard
+    # AS-Bewaffnung (2026-08-09): ACHSEN-ROUNDTRIP-WACHE -- genau DREI Registry-Roundtrip-Gates.
+    # Warum zusaetzlich zu den drei Wachen oben: die vergleichen alle SOLL gegen IST, wobei der
+    # SOLL aus derselben tests/unit/CMakeLists.txt kommt, die geprueft wird. Loescht jemand einen
+    # der drei add_test-Bloecke KOMPLETT, sinken SOLL und IST gemeinsam und alle drei bleiben
+    # gruen (Selbst-Inventur, V-7). Diese Wache traegt ihren Nenner -- die Drei und die drei
+    # Namen -- als Literal im Skript und ist damit die einzige, die eine vollstaendige Loeschung
+    # bemerkt.
+    - sh scripts/ci_achsen_roundtrip_wache.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
 

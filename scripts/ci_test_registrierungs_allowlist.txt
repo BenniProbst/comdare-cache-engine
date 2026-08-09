@@ -1,0 +1,42 @@
+# =============================================================================
+#  ALLOWLIST der TEST-REGISTRIERUNGS-WACHE (MT-L4, 2026-08-09)
+#  gelesen von scripts/ci_test_registrierungs_wache.sh
+# =============================================================================
+#
+# HIER STEHT NUR, WAS BEGRUENDET AUSSERHALB DES BAUWEGS LIEGEN DARF.
+# Nicht jede Test-Quelldatei muss in jedem Baum uebersetzt werden -- ein Test gegen
+# einen optionalen Fremdbaum ist ohne diesen Baum legitim abwesend. Was NICHT legitim
+# ist: dass diese Abwesenheit unbemerkt bleibt.
+#
+# FORMAT je Zeile, drei Felder, '|'-getrennt:
+#
+#   <test-quelldatei> | <gegenstand-der-fehlen-muss> | <begruendung>
+#
+# Feld 2 ist der Kern und der Grund, warum diese Liste kein Freibrief ist: es nennt
+# einen GEGENSTAND auf der Platte, dessen ABWESENHEIT die Ausnahme traegt. Die Wache
+# prueft ihn bei jedem Lauf nach. Existiert die Datei wieder, ist die Ausnahme
+# ERLOSCHEN und die Zeile wird ROT -- ohne dass jemand diese Liste anfassen muss.
+# Eine Allowlist ohne diese Gegenprobe waere eine Freistellung mit unbegrenzter
+# Laufzeit; genau daran sind die vier unregistrierten Dateien 14 bzw. 68 Tage lang
+# nicht aufgefallen.
+#
+# Feld 2 leer lassen ist zulaessig, aber die schwaechste Form: dann ist die Ausnahme
+# nur ein Satz und laeuft nie ab. Wer das tut, sollte in Feld 3 sagen, warum es
+# keinen pruefbaren Gegenstand gibt.
+#
+# -----------------------------------------------------------------------------
+# prt-art-Legacy-Baum: vier Tests haengen an if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
+# in tests/unit/CMakeLists.txt:116 bzw. :187. Diese Variable wird bei :96-99 aus
+# EINEM Gegenstand gesetzt -- der Existenz von prt_art/include/prt_art/prt_art.hpp.
+# Im Standalone-Bau von ce fehlt dieser Baum (gemessen 09.08.2026: das Verzeichnis
+# prt_art/ existiert nicht), mit COMDARE_CE_PRUEFLINGE ist er da. Genau dieselbe
+# Datei prueft die Wache nach: kommt der Legacy-Baum zurueck und die Tests bleiben
+# trotzdem ungebaut, ist das ein Befund und kein Normalzustand.
+# Dieselben vier stehen aus dem SPIEGELBILDLICHEN Grund in
+# scripts/ci_test_sichtbarkeit_allowlist.txt: dort fehlt ihr ctest-Eintrag,
+# hier ihre Uebersetzung. Zwei Stufen, ein Grund.
+# -----------------------------------------------------------------------------
+tests/unit/test_concepts_compile.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Concept-Test, nur mit dem Legacy-Baum baubar
+tests/unit/test_value_handle.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Concept-Test, nur mit dem Legacy-Baum baubar
+tests/unit/test_three_layer_audit.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Concept-Test, nur mit dem Legacy-Baum baubar
+tests/unit/test_six_page_structures.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Seitentypen-Test, nur mit dem Legacy-Baum baubar
