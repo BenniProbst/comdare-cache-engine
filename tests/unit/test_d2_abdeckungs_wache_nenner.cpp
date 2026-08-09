@@ -132,8 +132,8 @@ struct Lauf {
 // ---------------------------------------------------------------------------
 [[nodiscard]] Lauf wache_fahren(fs::path const& baum) {
     fs::path const    ctest_dir = fs::path{COMDARE_D2_CTEST_BIN}.parent_path();
-    std::string const befehl    = "PATH=\"" + ctest_dir.string() + ":$PATH\" sh \"" + wachen_pfad() + "\" \"" +
-                               baum.string() + "\" 2>&1";
+    std::string const befehl =
+        "PATH=\"" + ctest_dir.string() + ":$PATH\" sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
 
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -142,9 +142,7 @@ struct Lauf {
         return ergebnis;
     }
     char puffer[4096];
-    while (std::fgets(puffer, sizeof puffer, rohr) != nullptr) {
-        ergebnis.ausgabe += puffer;
-    }
+    while (std::fgets(puffer, sizeof puffer, rohr) != nullptr) { ergebnis.ausgabe += puffer; }
     int const status = ::pclose(rohr);
     ergebnis.code    = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
     return ergebnis;
@@ -174,17 +172,13 @@ public:
 
     void inventur_schreiben(std::vector<std::string> const& testnamen) const {
         std::ofstream aus{wurzel_ / "CTestTestfile.cmake"};
-        for (auto const& name : testnamen) {
-            aus << "add_test(" << name << " \"/bin/true\")\n";
-        }
+        for (auto const& name : testnamen) { aus << "add_test(" << name << " \"/bin/true\")\n"; }
     }
 
     void protokoll_schreiben(std::vector<std::string> const& zeilen) const {
         std::ofstream aus{wurzel_ / "comdare_registrierungs_protokoll.txt"};
         aus << "# praepariert von test_d2_abdeckungs_wache_nenner\n";
-        for (auto const& z : zeilen) {
-            aus << z << "\n";
-        }
+        for (auto const& z : zeilen) { aus << z << "\n"; }
     }
 
     [[nodiscard]] fs::path const& pfad() const { return wurzel_; }
@@ -194,8 +188,8 @@ private:
 };
 
 void lauf_berichten(char const* fall, Lauf const& lauf, std::string const& marke) {
-    std::cout << "  [D2] Fall '" << fall << "' | Koeder " << marke << " | Prueflig " << wachen_pfad()
-              << " | Exit " << lauf.code << "\n";
+    std::cout << "  [D2] Fall '" << fall << "' | Koeder " << marke << " | Prueflig " << wachen_pfad() << " | Exit "
+              << lauf.code << "\n";
 }
 
 // Ein Bau-Baum braucht mindestens einen registrierten Test, sonst bricht die Wache mit
@@ -209,16 +203,16 @@ void lauf_berichten(char const* fall, Lauf const& lauf, std::string const& marke
 //     NAMENTLICH genannt. Vor D2 war genau dieser Fall gruen.
 // ===========================================================================================
 TEST(D2AbdeckungsWacheNenner, UebersprungenerBlockIstRotUndWirdNamentlichGenannt) {
-    std::string const marke      = koeder_marke();
-    std::string const block      = "koederblock_" + marke;
-    std::string const fehlt      = "test_koeder_fehlt_" + marke;
+    std::string const marke = koeder_marke();
+    std::string const block = "koederblock_" + marke;
+    std::string const fehlt = "test_koeder_fehlt_" + marke;
     PraeparierterBaum baum{marke};
 
     // Der Koeder-Test steht NICHT in der Inventur -- genau das ist der Zustand, den ein
     // uebersprungener Registrierungs-Block erzeugt.
     baum.inventur_schreiben({grundstock(marke)});
-    baum.protokoll_schreiben({"BLOCK|" + block + "|UEBERSPRUNGEN|" + fehlt + "|Werkzeug fehlt (praepariert)",
-                              "ENDE|1"});
+    baum.protokoll_schreiben(
+        {"BLOCK|" + block + "|UEBERSPRUNGEN|" + fehlt + "|Werkzeug fehlt (praepariert)", "ENDE|1"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("uebersprungener Block", lauf, marke);
@@ -245,8 +239,7 @@ TEST(D2AbdeckungsWacheNenner, GelaufenerBlockIstKeinNennerBefund) {
     PraeparierterBaum baum{marke};
 
     baum.inventur_schreiben({grundstock(marke), gibtes});
-    baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + gibtes + "|Werkzeug vorhanden (praepariert)",
-                              "ENDE|1"});
+    baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + gibtes + "|Werkzeug vorhanden (praepariert)", "ENDE|1"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("gelaufener Block", lauf, marke);
@@ -272,8 +265,8 @@ TEST(D2AbdeckungsWacheNenner, AktivOhneRegistriertenTestIstEinWiderspruch) {
     PraeparierterBaum baum{marke};
 
     baum.inventur_schreiben({grundstock(marke)});
-    baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + behauptet + "|behauptet gelaufen (praepariert)",
-                              "ENDE|1"});
+    baum.protokoll_schreiben(
+        {"BLOCK|" + block + "|AKTIV|" + behauptet + "|behauptet gelaufen (praepariert)", "ENDE|1"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("AKTIV ohne Test", lauf, marke);

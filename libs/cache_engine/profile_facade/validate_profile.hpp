@@ -103,7 +103,7 @@ struct ProfileValidationResult {
     // Wache tatsaechlich befragt (valid_categories.size()) -- NICHT aus kMeasurementAxisCount daneben.
     // Sonst meldete der Bericht einen Nenner, den die Wache gar nicht benutzt hat; ein richtiges Messgeraet
     // am falschen Gegenstand faellt nie auf. 0 = keine Auswahl deklariert = Wache lief nicht.
-    std::size_t categories_offered = 0;
+    std::size_t categories_offered      = 0;
     std::size_t opt_levels_checked      = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
     std::size_t simd_checked            = 0; // GN-3: gepruefte <system_axes><external_utils><simd> (0 = keine)
     std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
@@ -637,8 +637,8 @@ struct ExperimentValidationResult {
     std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
     // Paket #11 (2026-08-09): NENNER der Teilmengen-Garantie -- Groesse des ANGEBOTS, gegen das geprueft wurde.
     // Belegt aus der befragten Menge selbst (valid_categories.size()), nie aus einer Konstante daneben.
-    std::size_t              categories_offered = 0;
-    std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
+    std::size_t categories_offered      = 0;
+    std::size_t workloads_checked       = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
     std::size_t opt_levels_checked      = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
     std::size_t simd_checked            = 0; // opt-f/A3: gepruefte <system_axes><external_utils><simd> (0 = keine)
     std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
