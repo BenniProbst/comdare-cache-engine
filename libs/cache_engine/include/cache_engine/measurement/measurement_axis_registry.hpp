@@ -57,9 +57,27 @@ namespace detail {
     }
     return true;
 }
+
+// NAMENS-EINDEUTIGKEIT (Paket #11, 2026-08-09) -- die Wache unter dem NENNER der Teilmengen-Garantie.
+// WARUM EIGENS: die Auswahl-Wache (validate_profile.hpp) baut ihr ANGEBOT als std::set<std::string> UEBER
+// DIESE NAMEN. Ein Namens-Duplikat in der Registry kollabierte diese Menge auf 15, waehrend
+// kMeasurementAxisCount weiter 16 saggt -- der gemeldete Nenner ueberzeichnete dann den Deckungsgrad der
+// Wache, und die verdeckte 16. Kategorie waere aus der XML nicht mehr adressierbar (der Name traefe die
+// andere). Genau die Fehlerklasse "eine Wache mit unvollstaendigem Nenner meldet Vollstaendigkeit und deckt
+// nichts". registry_is_complete() oben faengt das NICHT: es prueft je Eintrag einzeln (Index/Regime/nicht
+// leer), nie ein Eintrag GEGEN den anderen. Hier bricht der Bau, nicht erst die Laufzeit.
+[[nodiscard]] consteval bool registry_names_are_unique() {
+    for (std::size_t i = 0; i < kMeasurementAxisCount; ++i)
+        for (std::size_t j = i + 1; j < kMeasurementAxisCount; ++j)
+            if (kMeasurementAxisRegistry[i].name == kMeasurementAxisRegistry[j].name) return false;
+    return true;
+}
 } // namespace detail
 static_assert(detail::registry_is_complete(),
               "kMeasurementAxisRegistry: 16 Eintraege, Index==Kategorie, Regime==regime_of, Name nie leer");
+static_assert(detail::registry_names_are_unique(),
+              "kMeasurementAxisRegistry: die Namen muessen PAARWEISE VERSCHIEDEN sein -- sie sind der Nenner "
+              "der <measurement_categories>-Teilmengen-Garantie und der XML-Adressraum der Kategorien.");
 
 /// constexpr-Lookup (Index == Kategorie-Wert, durch static_assert garantiert).
 [[nodiscard]] constexpr MeasurementAxisInfo const& axis_info(MeasurementCategory c) noexcept {

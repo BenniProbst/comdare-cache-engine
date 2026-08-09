@@ -855,7 +855,13 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
     os << "=== EXPERIMENT-PROFIL-VALIDAT (rein-lesend; KEIN DLL-Bau, KEINE Messung) ===\n";
     os << "  Experiment id=" << ep->id << " version=" << ep->version << "\n";
     os << "  geprueft: " << vr.engines_checked << " engines, " << vr.phases_checked << " phases, "
-       << vr.variants_checked << " allowed_variants, " << vr.categories_checked << " measurement_categories";
+       << vr.variants_checked << " allowed_variants, " << vr.categories_checked;
+    // Paket #11 (2026-08-09): der NENNER der Teilmengen-Garantie gehoert in die Ausgabe -- aber NUR, wenn die
+    // Wache auch lief. categories_offered==0 heisst "keine <measurement_categories> deklariert" (= alle
+    // Kategorien, KERN-A); dann waere ein "0 von 0" eine Falschaussage ueber ein Angebot, das es sehr wohl
+    // gibt. Ohne Auswahl bleibt die Zeile daher byte-identisch zum Ist-Stand.
+    if (vr.categories_offered > 0) os << " von " << vr.categories_offered;
+    os << " measurement_categories";
     if (vr.workloads_checked > 0) os << ", " << vr.workloads_checked << " workloads";
     os << "\n";
     for (auto const& w : vr.warnings) os << "  [HINWEIS] " << w << "\n";
