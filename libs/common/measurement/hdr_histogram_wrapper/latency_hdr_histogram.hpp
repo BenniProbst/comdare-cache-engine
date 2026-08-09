@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdio>
 #include <span>
 #include <utility>
 
@@ -121,6 +122,26 @@ public:
     [[nodiscard]] std::int64_t count() const noexcept { return h_ != nullptr ? h_->total_count : 0; }
 
     [[nodiscard]] double mean() const noexcept { return (h_ != nullptr && h_->total_count != 0) ? hdr_mean(h_) : 0.0; }
+
+    /// Schreibt die klassische HdrHistogram-Perzentil-Verteilung (.hgrm) in einen BEREITS OFFENEN Strom.
+    ///
+    /// WARUM DER STROM VON AUSSEN KOMMT: die persistierte Datei traegt mehr als die Verteilung -- sie
+    /// braucht davor den Verwurf-Kopf mit seinem Nenner (s. hdr_lauf_persistieren). Beides in EINEN
+    /// Strom zu schreiben ist die einzige Weise, die beiden Teile untrennbar zu halten; ein zweiter,
+    /// getrennt geoeffneter Strom koennte die Verteilung ohne ihren Nenner hinterlassen.
+    /// Der Strom gehoert dem Aufrufer: diese Methode oeffnet, schliesst und flusht ihn NICHT (so auch
+    /// die ausdrueckliche Zusage der vendorierten Quelle, vendor/include/hdr/hdr_histogram.h:460).
+    ///
+    /// false = nicht bereit (hdr_init fehlgeschlagen), kein Strom, oder der C-Kern meldete einen
+    /// Schreibfehler. Der Rueckgabewert von hdr_percentiles_print ist die EINZIGE Stelle, an der ein
+    /// EIO auffaellt -- ihn wegzuwerfen hiesse, eine halb geschriebene Verteilung fuer voll zu nehmen.
+    [[nodiscard]] bool verteilung_schreiben(std::FILE* strom, std::int32_t ticks_pro_halbdistanz = 5,
+                                            double wert_skala = 1.0) const noexcept {
+        if (h_ == nullptr || strom == nullptr) return false;
+        // h_ ist in einer const-Methode "hdr_histogram* const" -- der Pointee bleibt nicht-const, die
+        // C-Signatur passt also ohne const_cast. hdr_percentiles_print iteriert nur.
+        return hdr_percentiles_print(h_, strom, ticks_pro_halbdistanz, wert_skala, CLASSIC) == 0;
+    }
 
     [[nodiscard]] static LatencyHdrHistogram from_samples(std::span<std::int64_t const> ns) noexcept {
         LatencyHdrHistogram hist;
