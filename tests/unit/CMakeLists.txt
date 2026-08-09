@@ -5935,3 +5935,18 @@ add_test(NAME test_check_size_cli_deckel COMMAND test_check_size_cli_deckel
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_cli_deckel)
 set_tests_properties(test_check_size_cli_deckel PROPERTIES
     LABELS "check_size;planer;cli;deckel;standalone" TIMEOUT 120)
+# D5-5 HDR-VERDRAHTUNG (2026-08-09) -- die Thesis-Zusage "das HdrHistogram ERHEBT die Latenz-
+# Perzentile" bekommt einen Produktions-Konsumenten in der AUSWERTUNG (nicht in der Erhebung).
+# COMDARE_D55_MESSPFAD_ROOT ist ein QUELLPFAD, den der Test NUR LIEST (Muster wie
+# COMDARE_D51_ZENSUS_ROOT_*): der Erhebungs-Pfad checkpoint_measure/measure_storage, in dem der
+# HDR-Header 0-mal vorkommen muss. Link auf den Wrapper, weil der Test das ECHTE Histogramm fahrt.
+comdare_add_test(test_d55_hdr_verdrahtung
+    SOURCES test_d55_hdr_verdrahtung.cpp)
+target_include_directories(test_d55_hdr_verdrahtung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_d55_hdr_verdrahtung PRIVATE
+    comdare_hdr_histogram_wrapper)
+target_compile_definitions(test_d55_hdr_verdrahtung PRIVATE
+    "COMDARE_D55_MESSPFAD_ROOT=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage\"")

@@ -12,10 +12,12 @@ target_include_directories(comdare_f15_compare_cli PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_BINARY_DIR}/generated")
 
 target_link_libraries(comdare_f15_compare_cli PRIVATE
     comdare::anatomy_module_loader
+    comdare_hdr_histogram_wrapper # D5-5: HDR-Perzentile in der Auswertung (Thesis-Zusage)
     comdare::workload_driver   # V5-I10: WorkloadGenerator-Impl für --measurement-plan (run_measurement_plan)
     comdare::workload_generator # F5.R1 (#35): Fassaden-Konsument — test_infra-Workload-Provider hinter get_cache_engine()
     Boost::mp11)
