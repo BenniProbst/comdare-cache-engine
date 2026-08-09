@@ -1,4 +1,41 @@
-# hybrid/ -- RESERVIERTER STUB der Hybrid-Tier-Stufe (KEIN CODE)
+# hybrid/ -- Hybrid-Tier-Stufe (Klassifikations-Fundament gebaut, Reroute offen)
+
+> **NACHTRAG 09.08.2026 (Paket HY-A1) -- DIESE README WAR AB HIER UEBERHOLT.**
+> Der ganze folgende Text beschreibt den Stand bis zum 08.08.2026: einen reinen Namens-Stub
+> ohne Code. Er bleibt unveraendert stehen (Doku wird deprecated, nicht geloescht), ist aber in
+> zwei Punkten nicht mehr der Ist-Stand:
+>
+> 1. **Der Ordner enthaelt jetzt Code.** Vier Header, alle header-only, kein `add_subdirectory`
+>    noetig (sie werden ueber den bestehenden Include-Pfad `libs/cache_engine` gefunden --
+>    genauso wie `anatomy/`, das ebenfalls nicht als Unterverzeichnis eingetragen ist):
+>
+>    | Datei | Inhalt |
+>    |---|---|
+>    | `heuristik_adapter_klassifikation.hpp` | Einzelquelle aller Enum-Werte + Vollstaendigkeits-Wache + Partition ABI-sichtbar/Klassifikation |
+>    | `heuristik_adapter_gate.hpp` | das Concept-Gate (S1 Zielfaehigkeit, S2 Paar-Konsistenz, S3 Ein-Gattung-Hybrid) |
+>    | `heuristik_adapter_strategy.hpp` | Strategy je bedientem Genus (Primaertemplate + 5 Spezialisierungen + CRTP-Wache) |
+>    | `heuristik_adapter_synthese_matrix.hpp` | 2D-Matrix-Liste Layer x Node, compile-time Rekursion |
+>
+> 2. **Der Bau-Zeitpunkt "erst in der Auswertungsphase" gilt fuer dieses Fundament nicht mehr.**
+>    Er stammt aus Owner-Entscheid E1 (02.08.), der die Hybrid-Stufe als spaetere Stufe hinter der
+>    CEB einordnete. Am 08.08. hat der Owner mit GO-3 die Hybrid-Natur zusaetzlich als eigene
+>    **Gattung** benannt (`HEURISTIK-ADAPTER` / `Function-Interface-Reroute`, LEDGER:2488) und am
+>    09.08. mit E-1 final ausdruecklich angeordnet: "Bitte lege es an." Die Klassifikations- und
+>    Concept-Ebene ist damit vorgezogen; der eigentliche **Reroute**, das **Hybrid-Pruefdock** und
+>    das **Tier-Modul** bleiben Folgepakete (HY-A2/A3) und sind hier weiterhin NICHT gebaut.
+>
+> Die unten stehende Tabelle "Geplante Dateien" ist davon UNBERUEHRT gueltig -- keine der dort
+> genannten Dateien existiert bisher. Sie beschreibt die Dock-/Proxy-/Router-Schicht, HY-A1 hat
+> die Klassifikations-Schicht DARUNTER gebaut.
+>
+> **Weiterhin offen und in HY-A1 bewusst NICHT entschieden:** K1 (Lager-Identitaet), K2
+> (Schichten-Entscheid Loader/Drive), K5 (Snapshot-Aggregations-Semantik) -- und neu der
+> Zahlen-Widerspruch **Node-Obergrenze 32 (09.08.) gegen Dock-Array-MaxN 8 (Q6, 02.08.)**,
+> benannt im Kopf von `heuristik_adapter_synthese_matrix.hpp`.
+
+---
+
+## Stand bis 08.08.2026 (Historie) -- RESERVIERTER STUB der Hybrid-Tier-Stufe (KEIN CODE)
 
 <!--
   ZWECK DIESES ORDNERS (Paket HY-D2, 02.08.2026)
