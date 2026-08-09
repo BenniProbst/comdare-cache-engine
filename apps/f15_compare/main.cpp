@@ -93,6 +93,9 @@ void print_usage() {
               << "  --pin-core=N   Mess-Thread optional auf Core N pinnen (Default: no-op)\n"
               << "  --csv=PATH     Report zusaetzlich als CSV schreiben\n"
               << "  --json=PATH    Report zusaetzlich als JSON schreiben\n"
+              << "  --hdr-out=DIR  D5-5: je gemessenem Binary EIN HDR-Histogramm nach DIR schreiben\n"
+              << "                 (<binary>.hdr.hgrm, klassische Perzentil-Verteilung MIT Verwurf-Kopf\n"
+              << "                 und Nenner). Ohne die Option wird nichts abgelegt.\n"
               << "  --observe      Pfad-B Prüf-Dock-Modus: jede DLL ueber das gattungs-passende Prüf-Dock\n"
               << "                 (measure_genus_sequential) messen + Observer-Trace (CSV+JSON) je DLL schreiben.\n"
               << "                 Funktioniert ab 1 DLL (kein Baseline-Vergleich). Statt des Pfad-A-Vergleichs.\n"
@@ -136,6 +139,23 @@ bool write_text_file(std::string const& path, std::string const& content) {
     return os.good();
 }
 
+/// D5-5: macht aus einem Binary-Namen einen Dateinamen-Bestandteil. Der Name kommt aus dem
+/// Modul-Dateinamen und darf theoretisch Zeichen tragen, die einen Pfad ZERLEGEN wuerden ('/', '.',
+/// '\\') -- ein ungesaeubertes Anhaengen koennte die Datei stillschweigend woanders anlegen. Erlaubt
+/// bleiben ASCII-Alphanumerik, '-' und '_'; alles andere wird zu '_'. Ein leerer Rest wuerde eine
+/// namenlose Datei erzeugen, deshalb faellt er auf "unbenannt".
+[[nodiscard]] std::string dateiname_saeubern(std::string_view name) {
+    std::string out;
+    out.reserve(name.size());
+    for (char const c : name) {
+        bool const ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' ||
+                        c == '_';
+        out.push_back(ok ? c : '_');
+    }
+    if (out.empty()) out = "unbenannt";
+    return out;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -171,6 +191,9 @@ int main(int argc, char** argv) {
     double                  alpha    = 0.05;
     std::uint64_t           baseline = 0, ops = 2000, batches = 128, seed = 11;
     std::string             csv_path, json_path, observe_out, pipeline_csv;
+    // D5-5: Verzeichnis fuer die je-Lauf persistierten HDR-Histogramme (Owner-Termin 3). Leer =>
+    // keine Ablage => byte-identisches Verhalten zu vorher (Anti-Phantom, wie bei --csv/--json).
+    std::string             hdr_out_dir;
     std::string             workload_label = "micro";
     std::string             measurement_plan; // V5-I10: --measurement-plan=A,B,C,D (host-seitige Lastprofile je Binary)
     bool                    observe = false;
@@ -196,6 +219,7 @@ int main(int argc, char** argv) {
         // wie Stufe-05-Konvention) — speist die LaTeX-Pipeline (03/04/05) mit ECHTEN Mess-Zahlen.
         else if (parse_flag_str(a, "--pipeline-csv=", pipeline_csv)) {
         } else if (parse_flag_str(a, "--workload=", workload_label)) {
+        } else if (parse_flag_str(a, "--hdr-out=", hdr_out_dir)) {
         } else if (parse_flag_str(a, "--observe-out=", observe_out)) {
         } else if (parse_flag_str(a, "--measurement-plan=", measurement_plan)) {
         } else if (parse_flag_u64(a, "--pin-core=", u)) {
@@ -557,7 +581,31 @@ int main(int argc, char** argv) {
                       << " (p50=" << (a.p50.abweichung_rel * 100.0) << " % p95=" << (a.p95.abweichung_rel * 100.0)
                       << " % p99=" << (a.p99.abweichung_rel * 100.0) << " %)\n";
         }
+        // Der Prozentsatz oben ist NUR dort lesbar, wo vergleichbar gilt. Sonst ist er 0, weil nicht
+        // dividiert werden konnte -- das muss dastehen, sonst liest man eine 0 als "kein Unterschied".
+        if (!a.p50.vergleichbar || !a.p95.vergleichbar || !a.p99.vergleichbar) {
+            std::cout << "      BEFUND: Kanon 0 ns, HDR nicht -- die relative Abweichung ist fuer"
+                      << (a.p50.vergleichbar ? "" : " p50") << (a.p95.vergleichbar ? "" : " p95")
+                      << (a.p99.vergleichbar ? "" : " p99")
+                      << " NICHT definiert (zu viele 0-ns-Proben; s. VERWURF oben)\n";
+        }
         if (!a.histogramm_bereit) std::cout << "      BEFUND: hdr_init fehlgeschlagen -- ALLE Proben verloren\n";
+
+        // JE-LAUF-PERSISTENZ (Owner-Termin 3, 09.04.: "JE LAUF werden HDR-Histogramme persistiert").
+        // Eine Datei je gemessenem Binary; der Dateiname traegt den Binary-Namen, damit die Ablage
+        // ohne eine zweite Zuordnungstabelle lesbar bleibt. Die Datei traegt ihren eigenen Nenner
+        // (s. hdr_lauf_persistieren) -- eine nackte Verteilung waere wieder still.
+        if (!hdr_out_dir.empty()) {
+            std::filesystem::path const ziel =
+                std::filesystem::path{hdr_out_dir} / (dateiname_saeubern(names[i]) + ".hdr.hgrm");
+            if (auswertung::hdr_lauf_persistieren(std::span<const std::int64_t>{results[i].latency_samples_ns}, ziel,
+                                                  names[i])) {
+                std::cout << "      HDR-Histogramm persistiert -> " << ziel.string() << "\n";
+            } else {
+                std::cerr << "HDR-Histogramm-Schreiben fehlgeschlagen: " << ziel.string() << "\n";
+                return 4;
+            }
+        }
     }
 
     // V41.P3-Bridge: 16-Spalten-Pipeline-Mess-CSV (eine Zeile je gemessener Organ-Composition).
