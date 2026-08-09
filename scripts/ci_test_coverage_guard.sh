@@ -140,9 +140,65 @@ _ce_tmp=$(mktemp -d) || ce_abbruch "mktemp -d fehlgeschlagen." 2
 trap 'rm -rf "$_ce_tmp"' EXIT INT TERM
 
 # ce_namen <ctest-argumente...> -> sortierte Testnamen auf stdout
+#
+# K11-HEILUNG (D2-G3.3, 2026-08-09). Hier stand bis heute:
+#     ctest --test-dir "$CE_BUILD_DIR" -N "$@" 2>/dev/null \
+#         | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' | LC_ALL=C sort -u
+# Zwei Fehler in einer einzigen Zeile:
+#   * '2>/dev/null' verschluckt den Fehlerkanal von ctest. Ein ctest, das gar
+#     nicht durchlief, sah danach exakt aus wie ein ctest, der nichts fand.
+#   * Ein 'rc=$?' hinter dieser Pipe haette 'sort' gemessen, nie ctest. Deshalb
+#     laeuft ctest jetzt ALLEIN in eine Datei, und der Code wird als EIGENE
+#     Anweisung unmittelbar danach gelesen.
+# AM OBJEKT GEMESSEN (2026-08-09, ctest 4.3.4, /tmp/d2probe):
+#     CTestTestfile.cmake mit Syntaxfehler .. Exit 8, stderr "Parse error."
+#     Selektor ohne Treffer (-R zzz) ....... Exit 0, leere Liste
+#     Verzeichnis ohne CTestTestfile ....... Exit 0, "Total Tests: 0"
+# Die ersten beiden Faelle sind also unterscheidbar -- vorher kamen beide als
+# "0 Treffer" an. Ein kaputtes ctest wurde damit als PHANTOM-GATE (Exit 1)
+# oder als leerer Bau-Baum (Exit 2) gemeldet: eine falsche Anschuldigung gegen
+# den Job-Selektor bzw. gegen die Konfiguration.
+#
+# WARUM EIN VERMERK IN EINER DATEI UND KEIN DIREKTES 'exit': ce_namen wird an
+# mehreren Stellen in einer Kommando-Substitution $( ) gerufen. Ein 'exit' darin
+# beendet nur die Subshell -- das Skript liefe mit einer leeren Zahl weiter und
+# waere damit genau die Sorte Wache, gegen die dieses Paket gebaut ist. Der
+# Vermerk in "${_ce_tmp}/werkzeug_fehler.txt" ueberlebt die Subshell;
+# ce_werkzeug_pruefen() macht daraus im Hauptprozess einen Abbruch.
 ce_namen() {
-    ctest --test-dir "$CE_BUILD_DIR" -N "$@" 2>/dev/null \
-        | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' | LC_ALL=C sort -u
+    ctest --test-dir "$CE_BUILD_DIR" -N "$@" > "${_ce_tmp}/ctest_roh.txt" 2> "${_ce_tmp}/ctest_err.txt"
+    _ce_ctest_rc=$?
+    if [ "$_ce_ctest_rc" -ne 0 ]; then
+        {
+            echo "ctest --test-dir '${CE_BUILD_DIR}' -N $* -> Exit ${_ce_ctest_rc}"
+            sed 's/^/      /' "${_ce_tmp}/ctest_err.txt"
+        } >> "${_ce_tmp}/werkzeug_fehler.txt"
+        return 1
+    fi
+    sed -n 's/^ *Test *#[0-9][0-9]*: *//p' "${_ce_tmp}/ctest_roh.txt" | LC_ALL=C sort -u
+}
+
+# Ein WERKZEUG-Fehler ist keine Messung. Diese Pruefung steht an jeder Stelle,
+# an der die Wache aus ce_namen-Ergebnissen ein Urteil formt -- fail-closed.
+ce_werkzeug_pruefen() {
+    [ -s "${_ce_tmp}/werkzeug_fehler.txt" ] || return 0
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: DAS WERKZEUG SELBST HAT VERSAGT -- das ist NICHT '0 Treffer'."
+    echo "ctest ist nicht durchgelaufen. Was es auf dem Fehlerkanal sagte (frueher"
+    echo "durch '2>/dev/null' verworfen):"
+    echo ""
+    cat "${_ce_tmp}/werkzeug_fehler.txt"
+    echo ""
+    echo "UNTERSCHEIDUNG, DIE HIER HAENGT: eine leere Trefferliste aus einem GESUNDEN"
+    echo "ctest ist ein Befund ueber den Selektor (Phantom-Gate, Exit 1). Eine leere"
+    echo "Trefferliste aus einem ABGESTUERZTEN ctest ist ein Befund ueber die Umgebung"
+    echo "(Exit 2). Wer beide gleich behandelt, beschuldigt den Selektor fuer einen"
+    echo "Werkzeug-Defekt -- und haelt eine Wache fuer scharf, die gar nicht gemessen hat."
+    echo "-----------------------------------------------------------------------------"
+    _ce_m="ctest ist nicht durchgelaufen (Ausgabe oben). Eine Inventur, die nicht"
+    _ce_m="${_ce_m} erhoben werden konnte, ist weder eine leere noch eine gedeckte Menge."
+    ce_abbruch "$_ce_m" 2
 }
 
 echo "============================================================================="
@@ -151,11 +207,123 @@ echo " Bau-Baum : ${CE_BUILD_DIR}"
 echo " Manifest : ${_ce_manifest}"
 echo "============================================================================="
 
+# DIE ROT-MARKE DES NENNERS WIRD HIER GESETZT, NICHT ERST BEI DER URTEILSBILDUNG.
+# Sie stand bis 2026-08-09 unmittelbar vor den Befunden (c)/(d)/(e). Jede Pruefung
+# davor -- und die Untergrenze unten IST eine solche -- haette ihr Ergebnis bei der
+# spaeteren Zuweisung 'CE_NENNER_ROT=0' wieder verloren: eine Pruefung, die rechnet,
+# druckt und dann ueberschrieben wird. Genau die Bauform, gegen die D2 gebaut ist.
+# Wer hier eine weitere Initialisierung einfuegt, macht alles darueber wirkungslos.
+CE_NENNER_ROT=0
+
 ce_namen > "${_ce_tmp}/alle.txt"
+ce_werkzeug_pruefen
 CE_GESAMT=$(wc -l < "${_ce_tmp}/alle.txt" | tr -d ' ')
 [ "$CE_GESAMT" -gt 0 ] || ce_abbruch "die Live-Inventur (ctest -N) meldet 0 Tests -- der Bau-Baum ist ohne -DCOMDARE_BUILD_TESTS=ON konfiguriert oder leer." 2
 echo ""
 echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
+
+# =============================================================================
+# DIE UNTERGRENZE DES NENNERS (D2, 2026-08-09) -- eine Zahl, die NICHT aus diesem
+# Lauf stammt
+# =============================================================================
+# WAS OHNE SIE FEHLT: bis hierher hat die Wache ihren Nenner ausschliesslich aus
+# sich selbst bezogen. 'ctest -N' liefert die Menge, 'ctest -N -R ...' die
+# Teilmengen -- dasselbe Werkzeug, derselbe Baum, derselbe Augenblick. Schrumpft
+# der Baum, schrumpfen BEIDE Zahlen im Gleichschritt und ihr Verhaeltnis bleibt
+# 'vollstaendig'. Die einzige Zahl, die vorher gegen Schrumpfen half, war
+# '> 0' -- ein Baum mit einem einzigen Test erfuellte sie.
+#
+# V-7 (FREMDER NENNER): diese Untergrenze steht in einer COMMITTETEN Datei. Sie
+# ist damit die einzige Zahl im ganzen Lauf, die niemand aus dem gemessenen Baum
+# herleiten kann -- sie stammt aus einem frueheren, bewusst abgenommenen Zustand
+# und aendert sich nur durch einen Menschen in einem eigenen Commit.
+#
+# FAIL-CLOSED: fehlt die Datei oder ist ihr Inhalt keine einzelne Ganzzahl, ist
+# das ABBRUCH (Exit 2), nicht 'dann eben ohne Untergrenze'. Eine Wache, die ihre
+# Vergleichsgroesse verliert und trotzdem gruen meldet, hat die Pruefung nur
+# aufgehuebscht.
+#
+# UEBERSCHREITEN IST KEIN FEHLER: waechst die Testzahl, ist das der Normalfall.
+# Die Wache sagt dann, dass die Datei nachgezogen gehoert -- in einem eigenen,
+# im Diff sichtbaren Commit. Sie schreibt sie NIEMALS selbst: eine Untergrenze,
+# die sich selbst nachfuehrt, ist keine.
+# =============================================================================
+_ce_floor_pfad=${COMDARE_D2_FLOOR_PFAD:-${_ce_dir}/ci_test_inventory_floor.txt}
+if [ ! -f "$_ce_floor_pfad" ]; then
+    _ce_m="die committete Untergrenze fehlt: '${_ce_floor_pfad}'."
+    _ce_m="${_ce_m} Ohne sie hat diese Wache keine einzige Zahl, die nicht aus dem"
+    _ce_m="${_ce_m} geprueften Baum selbst stammt (V-7). Anlegen: eine Zeile, eine"
+    _ce_m="${_ce_m} Ganzzahl; '#'-Kommentare sind erlaubt."
+    ce_abbruch "$_ce_m" 2
+fi
+
+# Kommentare weg, Leerraum weg, Leerzeilen weg. Das abschliessende 'echo' erzwingt
+# einen Zeilenabschluss, damit eine Datei ohne schliessenden Zeilenumbruch nicht
+# als 0 Zeilen durchgeht.
+{ sed -e 's/#.*$//' -e 's/[[:space:]]//g' "$_ce_floor_pfad"; echo; } | sed '/^$/d' > "${_ce_tmp}/floor.txt"
+_ce_floor_zeilen=$(wc -l < "${_ce_tmp}/floor.txt" | tr -d ' ')
+if [ "$_ce_floor_zeilen" -ne 1 ]; then
+    _ce_m="'${_ce_floor_pfad}' enthaelt ${_ce_floor_zeilen} Wertzeilen, erwartet ist"
+    _ce_m="${_ce_m} GENAU EINE. Zwei Zahlen in einer Untergrenze sind keine"
+    _ce_m="${_ce_m} Untergrenze, sondern eine offene Frage."
+    ce_abbruch "$_ce_m" 2
+fi
+CE_FLOOR=$(cat "${_ce_tmp}/floor.txt")
+case "$CE_FLOOR" in
+    '' | *[!0-9]*)
+        _ce_m="die Untergrenze in '${_ce_floor_pfad}' ist keine reine Ganzzahl,"
+        _ce_m="${_ce_m} sondern '${CE_FLOOR}'. Fail-closed: eine unlesbare"
+        _ce_m="${_ce_m} Untergrenze wird nicht als 'keine' behandelt."
+        ce_abbruch "$_ce_m" 2
+        ;;
+esac
+
+echo "UNTERGRENZE (committet, ${_ce_floor_pfad}): ${CE_FLOOR}"
+if [ "$CE_GESAMT" -lt "$CE_FLOOR" ]; then
+    echo "  -> UNTERSCHRITTEN um $(( CE_FLOOR - CE_GESAMT )) Test(e)."
+    CE_NENNER_ROT=1
+    CE_FLOOR_ROT=1
+elif [ "$CE_GESAMT" -gt "$CE_FLOOR" ]; then
+    echo "  -> ueberschritten um $(( CE_GESAMT - CE_FLOOR )) Test(e). Kein Fehler; die Datei"
+    echo "     gehoert bei Gelegenheit in einem EIGENEN Commit auf ${CE_GESAMT} nachgezogen."
+    CE_FLOOR_ROT=0
+else
+    echo "  -> genau erreicht (${CE_GESAMT} == ${CE_FLOOR})."
+    CE_FLOOR_ROT=0
+fi
+
+# =============================================================================
+# DER PARTITIONS-BELEG WIRD GERECHNET, NICHT GESETZT (D2-G3.2, 2026-08-09)
+# =============================================================================
+# Hier stand bis heute, ganz am Ende und nur im gruenen Zweig, die Zeile
+#     echo "  Summe : $(( _ce_ohne_pmc + _ce_mit_pmc ))  ==  Inventur ${CE_GESAMT}"
+# Das '==' darin war eine ZEICHENKETTE. Es sah aus wie das Ergebnis eines
+# Vergleichs und war der Text zwischen zwei Zahlen: die Zeile haette
+# '431 == 430' gedruckt und die Wache waere gruen geblieben.
+#
+# ZWEI FEHLER, EINER DAVON UNSICHTBAR:
+#   * Der Vergleich fand nicht statt (das '==').
+#   * Der Block lief nur bei CE_RC == 0 und stand HINTER der Zuweisung
+#     'CE_RC=4'. Ein dort gesetztes CE_NENNER_ROT haette das Urteil nicht mehr
+#     erreicht -- die Pruefung waere auch nach dem Einbau eines echten
+#     Vergleichs wirkungslos geblieben. Deshalb wird hier gerechnet, oben, wo
+#     das Ergebnis noch zaehlt; gedruckt wird weiter unten.
+#
+# WAS DIE GLEICHUNG BEHAUPTET: '-L pmc' und '-LE pmc' sind komplementaer, ihre
+# Summe MUSS die Inventur sein. Weicht sie ab, ist eine der drei Zahlen nicht
+# das, wofuer die Wache sie haelt -- und jede Deckungsaussage darueber ebenso.
+# Das ist ein NENNER-Befund (Exit 4), kein Abdeckungs-Befund (Exit 1).
+# =============================================================================
+CE_OHNE_PMC=$(ce_namen -LE pmc | wc -l | tr -d ' ')
+CE_MIT_PMC=$(ce_namen -L pmc | wc -l | tr -d ' ')
+ce_werkzeug_pruefen
+CE_PARTITION_SUMME=$(( CE_OHNE_PMC + CE_MIT_PMC ))
+if [ "$CE_PARTITION_SUMME" -ne "$CE_GESAMT" ]; then
+    CE_NENNER_ROT=1
+    CE_PARTITION_ROT=1
+else
+    CE_PARTITION_ROT=0
+fi
 
 # =============================================================================
 # DER NENNER ERKLAERT SICH SELBST -- Registrierungs-Protokoll auswerten (D2)
@@ -332,9 +500,15 @@ echo "DEKLARIERTE JOB-AUSWAHLEN (Quelle: Manifest):"
 
 : > "${_ce_tmp}/gedeckt.txt"
 : > "${_ce_tmp}/tote_namen.txt"
+: > "${_ce_tmp}/ungepruefte_gates.txt"
 CE_LEERE_SELEKTOREN=""
+# NENNER FUER DIE GATE-ZAHL (V-1): die Bilanz unten nennt "N von M" -- eine nackte
+# Zahl ungepruefter Gates waere ohne M nicht einzuordnen.
+CE_GATES_GESAMT=0
+CE_GATES_UNGEPRUEFT=0
 
 for _ce_job in $CE_COV_JOBS; do
+    CE_GATES_GESAMT=$(( CE_GATES_GESAMT + 1 ))
     _ce_mode=$(ce_cov_lookup MODE "$_ce_job") || exit 3
     _ce_patt=$(ce_cov_lookup PATT "$_ce_job") || exit 3
     _ce_gate=$(ce_cov_lookup GATE "$_ce_job") || exit 3
@@ -351,8 +525,15 @@ for _ce_job in $CE_COV_JOBS; do
             eval "_ce_wert=\${${_ce_var}-__CE_UNGESETZT__}"
             case "$_ce_wert" in
                 __CE_UNGESETZT__)
+                    # FAIL-OPEN, UND AB HIER GEZAEHLT (D2-G3 Punkt 4). Der Zweig bleibt
+                    # bewusst 'ja' -- lokal ist keine CI-Variable gesetzt, und ein Rot
+                    # waere hier Daueralarm. Er wird aber nicht mehr verschwiegen: die
+                    # Bilanz nennt die Zahl, damit "gedeckt" und "als gedeckt ANGENOMMEN"
+                    # unterscheidbar bleiben.
                     _ce_aktiv=ja
                     _ce_grund="${_ce_var} ungesetzt -> ANNAHME deklariert (Lauf ausserhalb der CI)"
+                    CE_GATES_UNGEPRUEFT=$(( CE_GATES_UNGEPRUEFT + 1 ))
+                    echo "${_ce_job} (Variable ${_ce_var} ungesetzt)" >> "${_ce_tmp}/ungepruefte_gates.txt"
                     ;;
                 "")
                     _ce_aktiv=nein
@@ -426,11 +607,59 @@ CE_GEDECKT=$(wc -l < "${_ce_tmp}/gedeckt.txt" | tr -d ' ')
 LC_ALL=C comm -23 "${_ce_tmp}/alle.txt" "${_ce_tmp}/gedeckt.txt" > "${_ce_tmp}/luecke.txt"
 CE_LUECKE=$(wc -l < "${_ce_tmp}/luecke.txt" | tr -d ' ')
 
+ce_werkzeug_pruefen
+
 echo ""
 echo "BILANZ: ${CE_GEDECKT} von ${CE_GESAMT} registrierten Tests werden von einem fahrenden Job ausgefuehrt."
 
+# UNGEPRUEFTE GATES SICHTBAR MACHEN (D2-G3, 2026-08-09).
+# 'declared:VAR' ist fail-OPEN: ist VAR ungesetzt, nimmt die Wache an, der Job sei
+# deklariert, und schreibt ihm die Deckung GUT. Das ist fuer den lokalen Lauf
+# richtig (dort ist keine CI-Variable gesetzt) -- es blieb aber unsichtbar. Wer die
+# Bilanz las, konnte nicht unterscheiden, ob ein Gate GEPRUEFT und aktiv war oder
+# ob es nur mangels Auskunft als aktiv GALT. Ab hier steht die Zahl in der Ausgabe:
+# Deckung aus einer Annahme ist Deckung mit Sternchen, keine Messung.
+# ABSICHTLICH OHNE ROT-HAERTE: in der CI setzt jeder Job diese Variablen ueber
+# seinen variables:-Block, dort ist der Zaehler 0. Ihn hart zu schalten wuerde
+# jeden lokalen Lauf rot machen -- eine Wache, die immer rot ist, ist so wertlos
+# wie eine, die nie rot wird. Ob im CI-Kontext zusaetzlich hart geschaltet wird,
+# ist eine offene Owner/Lead-Entscheidung (siehe Bericht D2, Punkt B.4).
+if [ "$CE_GATES_UNGEPRUEFT" -gt 0 ]; then
+    echo "        ${CE_GATES_UNGEPRUEFT} von ${CE_GATES_GESAMT} Gate(n) UNGEPRUEFT -- Deklarations-"
+    echo "        variable in diesem Lauf nicht gesetzt, ihre Deckung ist ANNAHME, nicht Messung:"
+    while read -r _ce_ug; do
+        echo "           ANNAHME: ${_ce_ug}"
+    done < "${_ce_tmp}/ungepruefte_gates.txt"
+else
+    echo "        ${CE_GATES_GESAMT} von ${CE_GATES_GESAMT} Gate(n) gegen eine gesetzte Variable GEPRUEFT."
+fi
+
 CE_RC=0
-CE_NENNER_ROT=0
+
+# -- PARTITIONS-WIDERSPRUCH ausgeben (D2-G3.2) --
+# GERECHNET wird weiter oben (vor der Urteilsbildung, sonst koennte das Ergebnis
+# nichts mehr bewirken); hier wird nur noch berichtet. Die Zahlen stammen aus
+# denselben Variablen, die dort gesetzt wurden -- kein zweiter ctest-Aufruf, damit
+# Anzeige und Urteil nicht auseinanderlaufen koennen.
+if [ "$CE_PARTITION_ROT" -ne 0 ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: PARTITIONS-WIDERSPRUCH -- '-L pmc' und '-LE pmc' muessen die Inventur"
+    echo "restlos und ueberschneidungsfrei zerlegen. Sie tun es nicht:"
+    echo ""
+    echo "    ohne Label 'pmc' (-LE pmc)  : ${CE_OHNE_PMC}"
+    echo "    mit  Label 'pmc' (-L  pmc)  : ${CE_MIT_PMC}"
+    echo "    Summe                       : ${CE_PARTITION_SUMME}"
+    echo "    Inventur (ctest -N)         : ${CE_GESAMT}"
+    echo "    Differenz                   : $(( CE_PARTITION_SUMME - CE_GESAMT ))"
+    echo ""
+    echo "IST DIE SUMME GROESSER, traegt mindestens ein Test 'pmc' UND faellt zugleich"
+    echo "in die Gegenauswahl -- dann zaehlt er doppelt und die Deckung ist zu gut"
+    echo "gerechnet. IST SIE KLEINER, kennt die Inventur Tests, die KEINE der beiden"
+    echo "Auswahlen sieht; sie laufen in keinem der beiden Job-Zweige."
+    echo "SO WIRD DAS BEHOBEN: das Label am Test richtigstellen, nicht diese Pruefung."
+    echo "-----------------------------------------------------------------------------"
+fi
 
 # -- Befund (c): NENNER GESCHRUMPFT -- der eigentliche D2-Defekt --
 # Bis hierher hat die Wache nur gerechnet. Ohne den folgenden Block waere alles
@@ -546,11 +775,19 @@ if [ "$CE_LUECKE" -gt 0 ]; then
     echo "FEHLER: ABDECKUNGSLUECKE -- ${CE_LUECKE} Test(s) werden GEBAUT, aber von KEINEM"
     echo "fahrenden CI-Job ausgefuehrt. Ihre Zusicherungen sind wirkungslos:"
     echo ""
+    # T-6 SCHWESTERSTELLE zum awk-Vergleich oben (2026-08-09): hier stand zweimal
+    # 'grep -qx'. Dasselbe Muster, dieselbe Falle -- das blanke 'grep' ist je nach
+    # PATH GNU grep 3.11 oder ugrep 7.5.0. Ein Testname mit Regex-Sonderzeichen
+    # (die Suite hat welche mit '+') haette hier je nach Engine anders getroffen und
+    # damit die falsche LABEL-Marke gedruckt. awk vergleicht $0 == n bytegleich.
+    ce_namen -L pmc      > "${_ce_tmp}/label_pmc.txt"
+    ce_namen -L contract > "${_ce_tmp}/label_contract.txt"
+    ce_werkzeug_pruefen
     while read -r _ce_t; do
         _ce_marke="ohne contract/pmc-Label"
-        if ce_namen -L pmc | grep -qx "$_ce_t"; then
+        if awk -v n="$_ce_t" 'BEGIN{f=1} $0==n {f=0} END{exit f}' "${_ce_tmp}/label_pmc.txt"; then
             _ce_marke="Label 'pmc' (Hardware-Klasse)"
-        elif ce_namen -L contract | grep -qx "$_ce_t"; then
+        elif awk -v n="$_ce_t" 'BEGIN{f=1} $0==n {f=0} END{exit f}' "${_ce_tmp}/label_contract.txt"; then
             _ce_marke="Label 'contract'"
         fi
         echo "    UNGEDECKT: ${_ce_t}   [${_ce_marke}]"
@@ -584,15 +821,20 @@ if [ "$CE_RC" -eq 0 ]; then
     echo ""
     echo "PARTITIONS-BELEG (dieselbe Rechnung, nur andersherum gelesen):"
     echo "  bedingte Registrierungs-Bloecke     : ${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} gelaufen (kein stiller Schwund)"
-    _ce_ohne_pmc=$(ce_namen -LE pmc | wc -l | tr -d ' ')
-    _ce_mit_pmc=$(ce_namen -L pmc | wc -l | tr -d ' ')
-    echo "  ohne Label 'pmc' (test:unit)        : ${_ce_ohne_pmc}"
-    echo "  mit  Label 'pmc' (pmc:amd/intel)    : ${_ce_mit_pmc}"
-    echo "  Summe                               : $(( _ce_ohne_pmc + _ce_mit_pmc ))  ==  Inventur ${CE_GESAMT}"
+    # KEIN ZWEITER CTEST-AUFRUF: die drei Zahlen stehen schon fest, sie wurden oben
+    # erhoben UND VERGLICHEN. Wuerde hier neu gemessen, koennte die gedruckte Zeile
+    # von der geprueften abweichen -- dann belegte der "Beleg" wieder etwas anderes
+    # als das, worueber geurteilt wurde.
+    echo "  ohne Label 'pmc' (test:unit)        : ${CE_OHNE_PMC}"
+    echo "  mit  Label 'pmc' (pmc:amd/intel)    : ${CE_MIT_PMC}"
+    echo "  Summe (VERGLICHEN, nicht behauptet) : ${CE_PARTITION_SUMME}  ==  Inventur ${CE_GESAMT}"
     echo "  -> -L und -LE mit demselben Muster sind komplementaer; ein dritter Fall"
     echo "     existiert nicht. Die Deckung ist damit strukturell, nicht durch Audit."
     echo ""
+    echo "  Untergrenze (committet)             : ${CE_GESAMT} >= ${CE_FLOOR}  (Quelle: ${_ce_floor_pfad})"
     echo "  Nenner gegen FREMDE Quelle (e)      : ${CE_FREMD_STATUS}"
+    _ce_gates_ok=$(( CE_GATES_GESAMT - CE_GATES_UNGEPRUEFT ))
+    echo "  Gates gegen gesetzte Variable       : ${_ce_gates_ok} von ${CE_GATES_GESAMT} (${CE_GATES_UNGEPRUEFT} ANNAHME)"
     echo ""
     echo "ABDECKUNGS-WACHE: GRUEN -- kein Test ohne fahrenden Job,"
     echo "und der Nenner ist belegt: ${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} bedingten Bloecken gelaufen, 0 uebersprungen."
