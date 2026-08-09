@@ -234,3 +234,92 @@ NENNER (nie eine nackte Null):
 
 DIFF-HYGIENE-WACHE: GRUEN.
 >>> EXIT: 0
+
+################################################################################
+################################################################################
+###
+###  NACHTRAG 2026-08-09 -- WAS DIESES PROTOKOLL NICHT ABDECKTE
+###
+###  Die sieben Faelle oben bleiben gueltig; sie werden hier NICHT widerrufen.
+###  Aber sie haben eine gemeinsame Luecke, die erst am 09.08.2026 auffiel:
+###  JEDER von ihnen faehrt die Wache ueber `--stdin` oder ueber einen
+###  ausdruecklichen Bereich. KEINER fuhr sie OHNE ARGUMENTE.
+###
+###  Genau dort lagen zwei stille blinde Flecken:
+###    (a) `git diff` ohne Revision vergleicht den Arbeitsbaum gegen den INDEX,
+###        nicht gegen HEAD. Wer vor der Pruefung `git add` sagt, ist unsichtbar.
+###    (b) untracked NEUE Dateien sieht `git diff` in gar keinem Modus.
+###  Beide endeten in "0 Zusatzzeilen geprueft ... GRUEN, Exit 0" -- also in
+###  genau der stillen Null, gegen die diese Wache gebaut wurde.
+###
+###  AM OBJEKT AUFGESCHLAGEN im Paket D5-1, Commit c98b4b95: gemeldet wurde
+###  "0 nicht-ASCII in 189 hinzugefuegten Zeilen"; der Commit trug 570
+###  hinzugefuegte C++-Zeilen mit 7 nicht-ASCII und 6 Zeilen ueber 120 Spalten.
+###  Die neue Testdatei war gestagt UND neu -- beide Flecken auf einmal.
+###  Die Differenz 570-189 IST der blinde Fleck, in Zeilen gemessen.
+###
+###  DIE WACHE GEGEN DIE HISTORIE (Beleg, dass der Bereichsweg immer trug):
+###    sh scripts/ci_diff_ascii_width_guard.sh 404ff6cf..c98b4b95   -> Exit 1
+###      NICHT-ASCII   tests/unit/test_d51_perzentil_kanon.cpp:71 / 81 / 113
+###                    / 115 / 161 / 163 / 296
+###      >120-SPALTEN  dieselben sechs Trennlinien-Zeilen, je 282 Byte
+###      588 Zusatzzeilen geprueft, davon 7 Nicht-ASCII, davon 6 ueber 120.
+###    sh scripts/ci_diff_ascii_width_guard.sh 404ff6cf..0ebc5759   -> Exit 0
+###      588 Zusatzzeilen geprueft, davon 0 Nicht-ASCII, davon 0 ueber 120.
+###  Der Bereichsweg haette den Fehler also gefunden -- er wurde nur nie
+###  gefahren. Der Default-Modus, den man stattdessen fuhr, konnte ihn nicht
+###  finden. Das ist der ganze Vorgang in zwei Zeilen.
+###
+###  DIESES PROTOKOLL WIRD AB HIER NICHT MEHR FORTGESCHRIEBEN. An seine Stelle
+###  tritt ein AUSFUEHRBARER Selbsttest, weil ein Protokoll nichts nachweist,
+###  sobald sich das Werkzeug aendert:
+###      scripts/ci_diff_ascii_width_guard.selbsttest.sh   (9 Faelle)
+###  Er wuerfelt seinen Koeder bei JEDEM Lauf neu (K13: ein abgeschriebener
+###  Doku-Beispielwert kann allowgelistet sein) und laeuft seit dem 09.08.2026
+###  in der CI VOR der Wache selbst (.gitlab-ci.yml, Schritt 0.4).
+###
+###  ROT-LAUF (vor der Reparatur, Koeder-Wurf: Euro U+20AC, Kennzeichen
+###  14079c550069) -- woertlich:
+###      [ok ] 1 ungestagt beisst                 Exit 1 wie erwartet
+###      [ROT] 2 gestagt beisst                   Exit 0, erwartet 1
+###      [ROT] 3 untracked beisst                 Exit 0, erwartet 1
+###      [ok ] 4 sauber bleibt gruen              Exit 0 wie erwartet
+###      [ok ] 5 Paragraf-Ausnahme haelt          Exit 0 wie erwartet
+###      [ROT] 6 gestagt >120 Spalten beisst      Exit 0, erwartet 1
+###      [ROT] 7 leerer Nenner ist Abbruch        Exit 0, erwartet 2
+###      [ok ] 8 Bereichsmodus beisst weiter      Exit 1 wie erwartet
+###      [ok ] 9 leerer Bereich bleibt Exit 0     Exit 0 wie erwartet
+###        5 von 9 Faellen wie erwartet, 4 abweichend.
+###      WACHE-SELBSTTEST: ROT.            >>> EXIT: 1
+###
+###  Die Ausgabe der vier roten Faelle war jeweils identisch und lautete in der
+###  entscheidenden Zeile:
+###      0 Zusatzzeilen in selbst verfasstem Code geprueft, davon 0 Nicht-ASCII
+###      DIFF-HYGIENE-WACHE: GRUEN.
+###  -- der Koeder lag im Baum und die Wache meldete GRUEN.
+###
+###  GRUEN-LAUF (nach der Reparatur, ANDERER Wurf: a-Umlaut U+00E4,
+###  Kennzeichen bd9e9e2ebe99) -- woertlich:
+###      [ok ] 1 ungestagt beisst                 Exit 1 wie erwartet
+###      [ok ] 2 gestagt beisst                   Exit 1 wie erwartet
+###      [ok ] 3 untracked beisst                 Exit 1 wie erwartet
+###      [ok ] 4 sauber bleibt gruen              Exit 0 wie erwartet
+###      [ok ] 5 Paragraf-Ausnahme haelt          Exit 0 wie erwartet
+###      [ok ] 6 gestagt >120 Spalten beisst      Exit 1 wie erwartet
+###      [ok ] 7 leerer Nenner ist Abbruch        Exit 2 wie erwartet
+###      [ok ] 8 Bereichsmodus beisst weiter      Exit 1 wie erwartet
+###      [ok ] 9 leerer Bereich bleibt Exit 0     Exit 0 wie erwartet
+###        9 von 9 Faellen wie erwartet, 0 abweichend.
+###      WACHE-SELBSTTEST: GRUEN.          >>> EXIT: 0
+###
+###  Dass Rot- und Gruen-Lauf VERSCHIEDENE Koeder gezogen haben (Euro / Umlaut)
+###  ist Absicht und Teil des Beweises: der Fall haengt an der LAGE (gestagt /
+###  untracked), nicht an einem bestimmten Zeichen.
+###
+###  REGRESSIONSPROBE, dass die Reparatur den CI-Weg nicht angefasst hat: der
+###  Lauf 404ff6cf..c98b4b95 ist vor und nach der Aenderung BYTEGLEICH (diff
+###  ohne Ausgabe); bei 404ff6cf..0ebc5759 unterscheidet sich einzig die
+###  echote ARGUMENTE-Zeile, alle Zahlen sind identisch.
+###
+################################################################################
+################################################################################

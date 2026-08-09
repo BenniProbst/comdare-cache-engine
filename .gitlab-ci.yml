@@ -337,6 +337,18 @@ test:coverage-guard:
     # Faelle, s. scripts/ci_diff_ascii_width_guard.bissbeweis.txt), die CI-Variablen-Verdrahtung
     # selbst konnte nur syntaktisch (pyyaml, read-only) und nicht in einer echten Pipeline
     # bestaetigt werden -- der erste echte Lauf ist der Beweis dieser einen Stelle.
+    #
+    # (0.4) SELBSTTEST DER WACHE, VOR ihrem Einsatz (09.08.2026). Die Wache selbst ist ein
+    # Werkzeug wie jedes andere und kann still erblinden -- am 09.08. am Objekt belegt: ihr
+    # DEFAULT-MODUS verglich gegen den INDEX statt gegen HEAD und sah untracked Dateien gar
+    # nicht; wer vor der Pruefung `git add` sagte, bekam "0 Zusatzzeilen ... GRUEN". Der
+    # Biss-Beweis konnte das nicht auffangen, weil alle sieben dort protokollierten Faelle
+    # ueber --stdin oder einen Bereich laufen und KEINER die Wache ohne Argumente fuhr.
+    # Der Selbsttest wuerfelt seinen Koeder bei jedem Lauf neu (kein fest eingetragener
+    # Beispielwert, der allowgelistet sein koennte) und faehrt neun Faelle in Wegwerf-Repos
+    # unter TMPDIR -- er fasst dieses Repo nicht an. Bewusst VOR der Wache: eine erblindete
+    # Wache soll auffallen, bevor ihr Gruen als Beleg gilt.
+    - sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
     - |
       set -eu
       _ce_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
