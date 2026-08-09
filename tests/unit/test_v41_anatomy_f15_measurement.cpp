@@ -792,9 +792,9 @@ TEST(F15RobustStats, MannWhitneyDistinctIdenticalAndOutlierRobust) {
     EXPECT_FALSE(stats::mann_whitney_u_test(std::span<const std::int64_t>{}, std::span<const std::int64_t>{bo}).valid);
 }
 
-// ═════════════════════════════════════════════════════════════════════════════════════════════
-// D4a (2026-08-09) — WELCH: DIE NULL ALS DATEN-AUSSAGE, NICHT NUR ALS DIVISIONS-GEFAHR
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
+// D4a (2026-08-09) -- WELCH: DIE NULL ALS DATEN-AUSSAGE, NICHT NUR ALS DIVISIONS-GEFAHR
+// =================================================================================================
 //
 // DER BEFUND, den diese Tests festnageln: welch_t_test rettete bei se<=0 die Division, gab
 // t=0, p=1.0 zurueck UND setzte valid=true. Der Aufrufer bekam damit ein Ergebnis, das von
@@ -881,9 +881,9 @@ TEST(F15WelchDegeneriert, NichtEndlichesPFeuertUeberDemGanzenNennerNie) {
     EXPECT_EQ(se_null, 0u) << se_null << " von " << geprueft << " zufaelligen Laeufen degeneriert";
 }
 
-// ═════════════════════════════════════════════════════════════════════════════════════════════
-// D4b (2026-08-09) — MANN-WHITNEY: valid HINTER den Guard, cliff_delta nicht "gross" ueber Nichts
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
+// D4b (2026-08-09) -- MANN-WHITNEY: valid HINTER den Guard, cliff_delta nicht "gross" ueber Nichts
+// =================================================================================================
 //
 // DER BEFUND: r.valid=true und r.cliff_delta standen VOR jedem Degenerations-Check. Der einzige
 // Ausschluss war na==0||nb==0. Bei na=1, nb=1 mit verschiedenen Werten ist
@@ -971,9 +971,9 @@ TEST(F15MwuDegeneriert, DiskrepanzWarntNurWennBeideTestsGesprochenHaben) {
         << "ein degenerierter Welch ist mit dem Rang-Test nicht 'uneinig' -- er hat nichts gesagt";
 }
 
-// ═════════════════════════════════════════════════════════════════════════════════════════════
-// D4c (2026-08-09) — BONFERRONI: m IST DIE ZAHL DER GETESTETEN HYPOTHESEN, NICHT DER KANDIDATEN
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
+// D4c (2026-08-09) -- BONFERRONI: m IST DIE ZAHL DER GETESTETEN HYPOTHESEN, NICHT DER KANDIDATEN
+// =================================================================================================
 //
 // DER BEFUND: holm_bonferroni_adjust bekam IMMER alle Kandidaten, auch die, fuer die gar kein
 // Test gerechnet wurde (raw_p = 1.0 als Platzhalter). Die Korrektur skaliert mit (m-k) --
@@ -1003,7 +1003,7 @@ constexpr std::int64_t kBasisZentrum      = 100000;
 } // namespace
 
 TEST(F15BonferroniNenner, DegenerierteKandidatenVerduennenDieFamilieNichtMehr) {
-    // ── Aufbau: 7 echte Kandidaten + 2 degenerierte, ZWEI VERSCHIEDENER Degenerations-Klassen.
+    // -- Aufbau: 7 echte Kandidaten + 2 degenerierte, ZWEI VERSCHIEDENER Degenerations-Klassen.
     auto const           baseline_samples = fein_samples(kBasisZentrum, kSamplesJeKandidat);
     cmd::ExecutionResult baseline{};
     baseline.engine_name        = "baseline";
@@ -1041,13 +1041,13 @@ TEST(F15BonferroniNenner, DegenerierteKandidatenVerduennenDieFamilieNichtMehr) {
     ASSERT_EQ(rep9.comparisons.size(), 9u);
     ASSERT_EQ(rep7.comparisons.size(), 7u);
 
-    // ── PRAEMISSE des Koeders, gepinnt statt vorausgesetzt: der Kipp-Kandidat liegt WIRKLICH im
+    // -- PRAEMISSE des Koeders, gepinnt statt vorausgesetzt: der Kipp-Kandidat liegt WIRKLICH im
     //    Fenster. Wird der Koeder je stumpf (andere Formel, andere Samples), faellt genau hier auf.
     double const roh = rep9.comparisons[0].raw_p;
     ASSERT_GT(roh, 0.05 / 9.0) << "Kipp-Koeder stumpf: p_roh zu klein, er waere auch mit m=9 signifikant";
     ASSERT_LT(roh, 0.05 / 7.0) << "Kipp-Koeder stumpf: p_roh zu gross, er wird auch mit m=7 nicht signifikant";
 
-    // ── DER INVARIANZ-BEWEIS: derselbe Datensatz MIT und OHNE die degenerierten Kandidaten muss
+    // -- DER INVARIANZ-BEWEIS: derselbe Datensatz MIT und OHNE die degenerierten Kandidaten muss
     //    fuer die ECHTEN identische korrigierte p-Werte liefern. Das Orakel ist der zweite Lauf,
     //    also eine unabhaengige Rechnung ueber eine andere Eingabemenge -- nicht die Funktion,
     //    die geprueft wird, und nicht aus einer Doku abgeschrieben.
@@ -1058,13 +1058,13 @@ TEST(F15BonferroniNenner, DegenerierteKandidatenVerduennenDieFamilieNichtMehr) {
         EXPECT_DOUBLE_EQ(rep9.comparisons[i].robust_adjusted_p, rep7.comparisons[i].robust_adjusted_p);
     }
 
-    // ── DER KIPP-BEWEIS: mit m=7 ist der Kandidat signifikant. Mit dem alten m=9 waere er es
+    // -- DER KIPP-BEWEIS: mit m=7 ist der Kandidat signifikant. Mit dem alten m=9 waere er es
     //    nicht -- und das wird hier nicht behauptet, sondern nachgerechnet: (m-k)*p bei k=0.
     EXPECT_TRUE(rep9.comparisons[0].significant) << "adjusted_p=" << rep9.comparisons[0].adjusted_p;
     EXPECT_DOUBLE_EQ(rep9.comparisons[0].adjusted_p, 7.0 * roh);
     EXPECT_GT(9.0 * roh, 0.05) << "so sah es vorher aus: 9 * " << roh << " = " << (9.0 * roh);
 
-    // ── Die degenerierten selbst: nicht getestet, nie signifikant, neutraler korrigierter Wert.
+    // -- Die degenerierten selbst: nicht getestet, nie signifikant, neutraler korrigierter Wert.
     for (std::size_t i = 7; i < 9; ++i) {
         EXPECT_FALSE(rep9.comparisons[i].getestet_welch) << "Kandidat " << namen[i];
         EXPECT_FALSE(rep9.comparisons[i].significant);
@@ -1222,9 +1222,9 @@ TEST(F15ExportRobust, CsvUndJsonTragenDieDegenerationsFelderUndDenNenner) {
     EXPECT_NE(json.find("\"proben_tot\":true"), std::string::npos) << json;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════════════════════
-// D4d (2026-08-09) — success HEISST "es gab eine echte Probe", nicht "der Vektor ist nicht leer"
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
+// D4d (2026-08-09) -- success HEISST "es gab eine echte Probe", nicht "der Vektor ist nicht leer"
+// =================================================================================================
 //
 // DER BEFUND: make_execution_result setzte success = !latency_samples_ns.empty(). 35 Proben von
 // exakt 0 ns galten damit als Erfolg. Der bestehende Test MakeExecutionResultFillsPercentiles
@@ -1296,9 +1296,9 @@ TEST(F15ProbenSindTot, ResultCsvHeaderIstEINGEFROREN) {
     EXPECT_NE(cmd::to_json_object(r).find("\"degeneriert\":"), std::string::npos);
 }
 
-// ═════════════════════════════════════════════════════════════════════════════════════════════
-// D4e (2026-08-09) — f15-CLI: TOTE-PROBEN-GRUPPE + SUMMENZEILE A+B+C+D+gemessen == geladen
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
+// D4e (2026-08-09) -- f15-CLI: TOTE-PROBEN-GRUPPE + SUMMENZEILE A+B+C+D+gemessen == geladen
+// =================================================================================================
 //
 // DER BEFUND: die Lade-Schleife der CLI hatte drei benannte Ausschluss-Gruende, aber keinen
 // Zaehler; am Ende stand nur "N gemessen" -- ohne Grundgesamtheit. Und eine vierte Gruppe fehlte

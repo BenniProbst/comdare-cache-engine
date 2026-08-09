@@ -124,12 +124,24 @@
 /// DAS ERSTE, BINDENDE KOMMANDO IST DER GENERISCHE WACHEN-GREP (A13-M3/C2, Befund GA-05/Z-10 vom
 /// 03.08.2026). Er steht VOR den klassen-spezifischen Kommandos, weil er die Klassen VOLLSTAENDIG liefert,
 /// statt sie an Datei-NAMEN zu erraten:
-///     grep -rn 'ce_owned_version_satisfies_cpu_enforce\|ce_owned_version_is_wellformed' --include=*.hpp --include=*.cpp libs tests tools apps
+///     grep -rn 'ce_owned_version_\(satisfies_cpu_enforce\|is_wellformed\)' --include='*.[hc]pp' libs tests tools apps
 ///     (09.08.2026 EINZEILIG gezogen: die Fortsetzung stand als '\' am Zeilenende und setzte damit
 ///      den // -Kommentar fort -- GCC meldete "multi-line comment" [-Wcomment]. Mit 476 von 2447
 ///      Vorkommen war das der GROESSTE Einzelposten der Warnungs-Erhebung. Hier folgte zufaellig
 ///      wieder eine ///-Zeile, es ging also nichts verloren; waere die Folgezeile Code gewesen,
 ///      waere sie STILL verschwunden. Genau deshalb wird das Muster beseitigt, nicht unterdrueckt.)
+///     (09.08.2026, zweiter Durchgang: einzeilig war die Zeile 143 Byte lang und riss damit die
+///      120-Spalten-Regel der Diff-Hygiene-Wache. Ein Umbruch scheidet nach dem Befund oben aus --
+///      er brauchte genau das '\' am Zeilenende, das hier gerade beseitigt wurde. Das Kommando ist
+///      deshalb VERDICHTET statt umgebrochen: gemeinsames Praefix ce_owned_version_ ausgeklammert,
+///      die zwei --include zu einer Klasse zusammengezogen. GEMESSEN, nicht behauptet: je Baum
+///      liefern beide Formen dieselbe Zahl, die Listen sind byteweise identisch (diff -q, leer).
+///      IN DIESEM BAUM SIND ES 130. Auf der Basis aebc4f2c waren es 131 -- und dieser eine Treffer
+///      ist NICHT verloren gegangen, sondern war ein Phantom: die alte Kommandozeile enthielt ihr
+///      eigenes Suchmuster woertlich und traf damit SICH SELBST. Die verdichtete Form schiebt '\('
+///      zwischen Praefix und Alternative und tut das nicht mehr. Die weggefallene Fundstelle ist
+///      also genau diese Doku-Zeile, keine Wache -- die Zaehlung wird dadurch richtiger, nicht
+///      duenner. Wer hier 130 misst und 131 erwartet, sucht eine Quelle, die es nie gab.)
 /// Begruendung (das ist keine Stil-Frage): jede ce-EIGENE Versions-Quelle traegt per B12-Doktrin genau
 /// diese beiden Wachen -- wer eine neue Quelle ohne sie anlegt, hat keine Naht angelegt, sondern eine
 /// Luecke. BELEG, warum dieser grep noetig wurde: die Klassen (e) kPlannerVersion und (f) kOsProbeVersion

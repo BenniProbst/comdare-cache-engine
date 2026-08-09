@@ -20,7 +20,8 @@
 #include <anatomy/observable_tier.hpp>
 #include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::percentile_ns)
 #include "workload_driver/workload_orchestrator.hpp"
-#include <cache_engine/measurement/pipeline_csv_schema.hpp> // B-3: DIE EINE Pipeline-Spaltenliste (kein Literal mehr hier)
+// B-3: DIE EINE Pipeline-Spaltenliste (kein Literal mehr hier).
+#include <cache_engine/measurement/pipeline_csv_schema.hpp>
 #include <cache_engine/measurement/pmc_source.hpp> // V5-#26: pluggable HW-Counter-Quelle (measurement::PmcCounters) für die +6-Spalten
 
 #include <cstdint>

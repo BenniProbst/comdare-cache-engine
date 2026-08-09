@@ -42,7 +42,7 @@ struct PairwiseComparison {
     double            robust_adjusted_p{1.0};          ///< Holm-korrigierter MWU-p-Wert
     bool              robust_significant{false};       ///< robust_adjusted_p <= alpha (Rang-Test)
     bool              significance_discrepancy{false}; ///< Welch- ↔ MWU-Signifikanz UNEINIG (Warnsignal)
-    // D4c (2026-08-09) — WER GEHOERT UEBERHAUPT IN DIE HYPOTHESEN-FAMILIE?
+    // D4c (2026-08-09) -- WER GEHOERT UEBERHAUPT IN DIE HYPOTHESEN-FAMILIE?
     //
     // proben_tot ist die DATEN-Ebene: Kandidat oder Baseline haben keine einzige Probe > 0. Das
     // faengt WEDER D4a NOCH D4b, weil es keine Eigenschaft des Tests ist: ein Kandidat aus lauter
@@ -149,7 +149,7 @@ struct MultiCompareSummary {
     std::size_t significant_faster{0}; ///< signifikant UND schneller als Baseline (= CE bringt Wert)
     std::size_t significant_slower{0}; ///< signifikant ABER langsamer
     std::size_t not_significant{0};    ///< GETESTET, aber kein signifikanter Unterschied (FWER-korrigiert)
-    double      win_rate{0.0};         ///< significant_faster / getestet — die F15-Headline-Zahl
+    double      win_rate{0.0};         ///< significant_faster / getestet -- die F15-Headline-Zahl
     std::size_t robust_significant{0}; ///< R5.D: signifikant auch im robusten Rang-Test (MWU)
     std::size_t discrepancies{0};      ///< R5.D: Welch ↔ MWU uneinig (ausreisser-Warnsignal)
     // D4c: der NENNER der Headline-Zahl, und er steht neben ihr statt hinter ihr.
