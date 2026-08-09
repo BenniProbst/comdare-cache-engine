@@ -273,7 +273,7 @@ TEST(V234aShapedAdapter, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 8); // E-24 C8: 7 -> 8 (Ebene-1-Gattung ABI-sichtbar)
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 9); // NAHT-1 (d4c0b49c): 8 -> 9, Mess-Visitor am Genus-Interface
     EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
     EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 8u);
 }
