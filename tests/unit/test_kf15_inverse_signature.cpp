@@ -59,8 +59,8 @@ int main() {
         auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
         ex::ExperimentTree tree{factory};
         tree.build({
-            ex::AxisLevel{"traversal", {"ART"}, true, ""},         // gepinnt → Paper-Signatur "traversal=ART"
-            ex::AxisLevel{"node", {"N4", "N16", "N48"}, true, ""}, // freigegeben → 3 Varianten-Binaries
+            ex::AxisLevel{"traversal", {"ART"}, true, "", ""},         // gepinnt → Paper-Signatur "traversal=ART"
+            ex::AxisLevel{"node", {"N4", "N16", "N48"}, true, "", ""}, // freigegeben → 3 Varianten-Binaries
         });
         // binaries: ART/N4, ART/N16, ART/N48 — alle mit gepinnter Signatur "traversal=ART"
 

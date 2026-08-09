@@ -125,8 +125,8 @@ TEST(Warn2aBlockIdBidirektional, JedeProfilErzeugteStatischeEbeneTraegtIhrenBloc
 TEST(Warn2aBlockIdBidirektional, DasOrakelUnterscheidetTatsaechlich) {
     std::vector<ex::AxisLevel> vorher_zustand;
     // exakt die alte Aggregat-Initialisierung: vier Elemente, block_id bleibt leer
-    vorher_zustand.push_back(ex::AxisLevel{"cacheline.line_size", {"64"}, /*is_static=*/true, ""});
-    vorher_zustand.push_back(ex::AxisLevel{"allocator", {"mimalloc"}, /*is_static=*/true, ""});
+    vorher_zustand.push_back(ex::AxisLevel{"cacheline.line_size", {"64"}, /*is_static=*/true, "", ""});
+    vorher_zustand.push_back(ex::AxisLevel{"allocator", {"mimalloc"}, /*is_static=*/true, "", ""});
 
     Bilanz const b = bilanziere(vorher_zustand);
     EXPECT_EQ(b.statische, 2u);

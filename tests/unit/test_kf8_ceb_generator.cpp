@@ -47,10 +47,10 @@ int main() {
     auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
     tree.build({
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},
-        ex::AxisLevel{"node", {"N4", "N16"}, true, ""},
-        ex::AxisLevel{"node.cl_line", {"64"}, true, ""},
-        ex::AxisLevel{"concurrency", {"1", "2"}, false, "thread_count"}, // dynamisch -> keine neuen Binaries
+        ex::AxisLevel{"traversal", {"ART"}, true, "", ""},
+        ex::AxisLevel{"node", {"N4", "N16"}, true, "", ""},
+        ex::AxisLevel{"node.cl_line", {"64"}, true, "", ""},
+        ex::AxisLevel{"concurrency", {"1", "2"}, false, "thread_count", ""}, // dynamisch -> keine neuen Binaries
     });
     check_eq("binary_count (1x2x1)", tree.binary_count(), std::size_t{2});
 

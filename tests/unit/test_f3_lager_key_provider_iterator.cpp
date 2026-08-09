@@ -145,9 +145,9 @@ private:
 ex::ExperimentTree make_tree(std::shared_ptr<ex::ExperimentNodeFactory> const& f) {
     ex::ExperimentTree t{f};
     t.build({
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},
-        ex::AxisLevel{"node.cl_line", {"1", "16", "2", "3"}, true, ""},
-        ex::AxisLevel{"concurrency", {"1"}, false, "thread_count"},
+        ex::AxisLevel{"traversal", {"ART"}, true, "", ""},
+        ex::AxisLevel{"node.cl_line", {"1", "16", "2", "3"}, true, "", ""},
+        ex::AxisLevel{"concurrency", {"1"}, false, "thread_count", ""},
     });
     return t;
 }

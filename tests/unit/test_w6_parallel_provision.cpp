@@ -52,10 +52,10 @@ static void check_eq(char const* what, A const& got, B const& want) {
 static ex::ExperimentTree make_tree(std::shared_ptr<ex::ExperimentNodeFactory> const& f) {
     ex::ExperimentTree t{f};
     t.build({
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},                        // gepinnt (Ziffer immer 0)
-        ex::AxisLevel{"node", {"N4", "N16", "N48", "N256"}, true, ""},        // freigegeben (Ziffer 0..3)
-        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""},               // statische cacheline-Sub-Ebene (0..1)
-        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"}, // dynamisch (keine Binary)
+        ex::AxisLevel{"traversal", {"ART"}, true, "", ""},                 // gepinnt (Ziffer immer 0)
+        ex::AxisLevel{"node", {"N4", "N16", "N48", "N256"}, true, "", ""}, // freigegeben (Ziffer 0..3)
+        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, "", ""},        // statische cacheline-Sub-Ebene (0..1)
+        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count", ""}, // dynamisch (keine Binary)
     });
     return t;
 }

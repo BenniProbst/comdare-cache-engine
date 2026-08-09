@@ -44,7 +44,7 @@ static ex::ExperimentTree make_tree(std::shared_ptr<ex::ExperimentNodeFactory> c
     std::vector<std::string> nodes;
     for (std::size_t i = 0; i < n; ++i) nodes.push_back("v" + std::to_string(i));
     ex::ExperimentTree t{f};
-    t.build({ex::AxisLevel{"traversal", {"ART"}, true, ""}, ex::AxisLevel{"node", nodes, true, ""}});
+    t.build({ex::AxisLevel{"traversal", {"ART"}, true, "", ""}, ex::AxisLevel{"node", nodes, true, "", ""}});
     return t;
 }
 

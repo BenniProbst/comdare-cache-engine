@@ -17,9 +17,9 @@ int main() {
     auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
     tree.build({
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},
-        ex::AxisLevel{"node", {"N4", "N16"}, true, ""}, // 2 Binaries (kurze reale Compile-Zeit)
-        ex::AxisLevel{"node.cl_line", {"64"}, true, ""},
+        ex::AxisLevel{"traversal", {"ART"}, true, "", ""},
+        ex::AxisLevel{"node", {"N4", "N16"}, true, "", ""}, // 2 Binaries (kurze reale Compile-Zeit)
+        ex::AxisLevel{"node.cl_line", {"64"}, true, "", ""},
     });
     ex::StaticBinaryView view = tree.static_binary_view();
     std::cout << "Statischer Teilbaum: " << view.size() << " Tier-Binaries bereitzustellen\n";

@@ -37,10 +37,10 @@ int main() {
     // ── Teil 1: Baum aus ZUSAMMENHÄNGENDEM Gesamt-Level-Satz + Filterung ──
     ex::ExperimentTree         tree{factory};
     std::vector<ex::AxisLevel> all_levels = {
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},          // statisch, gepinnt
-        ex::AxisLevel{"node", {"N4", "N16", "N256"}, true, ""}, // statisch, freigegeben
-        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""}, // statisch (compile-time cacheline) -> Binary
-        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"}, // DYNAMISCH -> for-Schleife
+        ex::AxisLevel{"traversal", {"ART"}, true, "", ""},          // statisch, gepinnt
+        ex::AxisLevel{"node", {"N4", "N16", "N256"}, true, "", ""}, // statisch, freigegeben
+        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, "", ""}, // statisch (compile-time cacheline) -> Binary
+        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count", ""}, // DYNAMISCH -> for-Schleife
     };
     tree.build(all_levels);
 
