@@ -124,8 +124,12 @@
 /// DAS ERSTE, BINDENDE KOMMANDO IST DER GENERISCHE WACHEN-GREP (A13-M3/C2, Befund GA-05/Z-10 vom
 /// 03.08.2026). Er steht VOR den klassen-spezifischen Kommandos, weil er die Klassen VOLLSTAENDIG liefert,
 /// statt sie an Datei-NAMEN zu erraten:
-///     grep -rn 'ce_owned_version_satisfies_cpu_enforce\|ce_owned_version_is_wellformed' \
-///          --include=*.hpp --include=*.cpp libs tests tools apps
+///     grep -rn 'ce_owned_version_satisfies_cpu_enforce\|ce_owned_version_is_wellformed' --include=*.hpp --include=*.cpp libs tests tools apps
+///     (09.08.2026 EINZEILIG gezogen: die Fortsetzung stand als '\' am Zeilenende und setzte damit
+///      den // -Kommentar fort -- GCC meldete "multi-line comment" [-Wcomment]. Mit 476 von 2447
+///      Vorkommen war das der GROESSTE Einzelposten der Warnungs-Erhebung. Hier folgte zufaellig
+///      wieder eine ///-Zeile, es ging also nichts verloren; waere die Folgezeile Code gewesen,
+///      waere sie STILL verschwunden. Genau deshalb wird das Muster beseitigt, nicht unterdrueckt.)
 /// Begruendung (das ist keine Stil-Frage): jede ce-EIGENE Versions-Quelle traegt per B12-Doktrin genau
 /// diese beiden Wachen -- wer eine neue Quelle ohne sie anlegt, hat keine Naht angelegt, sondern eine
 /// Luecke. BELEG, warum dieser grep noetig wurde: die Klassen (e) kPlannerVersion und (f) kOsProbeVersion
