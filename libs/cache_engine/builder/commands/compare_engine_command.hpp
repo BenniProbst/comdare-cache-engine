@@ -100,6 +100,17 @@ public:
         }
 
         // HH.3 Konfigurierbarer Schwellwert (Fallback ohne Samples)
+        //
+        // D4-Schwesterstelle (T-6), SECHSTE Fundstelle derselben Klasse: throughput_ratio_ wird
+        // oben bei Nenner 0 auf 0.0 GERETTET. Diese gerettete Null faellt hier unter
+        // 1/winner_threshold_ (= 0.952 bei Default 1.05) und erzeugt EE_B_Wins -- aus "B hat nie
+        // einen Durchsatz gemeldet" wurde "B ist schneller". Ohne bestimmbaren Quotienten gibt es
+        // kein Urteil; die Pruefung steht VOR den Schwellwert-Vergleichen, weil danach die 0 nicht
+        // mehr von einem echt gemessenen Verhaeltnis 0 zu unterscheiden waere.
+        if (!(result_b_.throughput_ops_per_sec > 0.0)) {
+            verdict_ = Verdict::InconclusiveData;
+            return 0;
+        }
         if (throughput_ratio_ > winner_threshold_) {
             verdict_ = Verdict::EE_A_Wins;
         } else if (throughput_ratio_ < (1.0 / winner_threshold_)) {

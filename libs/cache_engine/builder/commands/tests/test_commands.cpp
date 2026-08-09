@@ -340,3 +340,38 @@ TEST(MultiAxisAutoPermutator, EmptyAxisListGivesEmptyPlan) {
     EXPECT_TRUE(plan.axis_ids.empty());
     EXPECT_EQ(plan.cartesian_size(), 0u);
 }
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4-Schwesterstelle (T-6), SECHSTE Fundstelle derselben Klasse (2026-08-09)
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// Das Suchmuster war "die Null wird als DIVISIONS-Gefahr gerettet und nicht als DATEN-Aussage
+// behandelt". Der Fallback-Pfad ohne Latenz-Samples rettet throughput_ratio_ bei Nenner 0 auf
+// 0.0 -- und diese gerettete Null faellt anschliessend unter 1/winner_threshold_ (= 0.952) und
+// erzeugt EE_B_Wins. "B hat nie einen Durchsatz gemeldet" wurde damit zu "B ist schneller".
+TEST(CompareEngineCommand, NichtBestimmbarerDurchsatzQuotientGibtKeinUrteil) {
+    cmd::ExecutionResult r_a{};
+    r_a.engine_name            = "ee-a";
+    r_a.success                = true;
+    r_a.throughput_ops_per_sec = 1000.0;
+    cmd::ExecutionResult r_b{};
+    r_b.engine_name            = "ee-b";
+    r_b.success                = true;
+    r_b.throughput_ops_per_sec = 0.0; // nie gemessen -> der Quotient ist NICHT bestimmbar
+    // Keine Latenz-Samples auf beiden Seiten -> der Schwellwert-Fallback greift.
+    cmd::CompareEngineCommand cmp(r_a, r_b);
+    EXPECT_EQ(cmp.execute(), 0);
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::InconclusiveData)
+        << "ein geretteter Nenner darf kein Urteil erzeugen";
+
+    // GEGENEINGANG (T-4): mit einem echten Nenner muss der Fallback weiterhin urteilen -- sonst
+    // waere die neue Bedingung eine pauschale Verweigerung und wuerde nichts belegen.
+    cmd::ExecutionResult s_b{};
+    s_b.engine_name            = "ee-b";
+    s_b.success                = true;
+    s_b.throughput_ops_per_sec = 500.0; // a/b = 2.0 > 1.05
+    cmd::CompareEngineCommand cmp2(r_a, s_b);
+    EXPECT_EQ(cmp2.execute(), 0);
+    EXPECT_EQ(cmp2.verdict(), cmd::CompareEngineCommand::Verdict::EE_A_Wins);
+    EXPECT_NEAR(cmp2.throughput_ratio(), 2.0, 1e-9);
+}
