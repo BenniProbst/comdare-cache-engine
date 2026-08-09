@@ -1676,13 +1676,43 @@ if(_r5g_ae_status STREQUAL "FOUND")
             GRUND  "comdare-adhoc-emitter gefunden, ${_r5g_autobuilt_count} Permutations-DLLs emittiert")
 
         # V41.F.6.1 R5.D — Smoke-Test des comdare-f15-compare-CLI ueber die realen R5.G-DLLs:
-        # faehrt die echte Binary (nicht nur die Treiber-Logik) + prueft Exit-0 + "win_rate"-Ausgabe.
-        # (apps/ wird vor tests/ verarbeitet → Target existiert; default-Build baut CLI + DLLs.)
+        # faehrt die echte Binary (nicht nur die Treiber-Logik) und prueft BEIDES --
+        # Exit-Code 0 UND die "Ranking (schnellste"-Zeile in der Ausgabe.
+        # (apps/ wird vor tests/ verarbeitet -> Target existiert.)
+        #
+        # D1e (2026-08-09) -- WARUM HIER EIN TREIBER STEHT UND KEIN PASS_REGULAR_EXPRESSION.
+        # Bis heute stand hier `PASS_REGULAR_EXPRESSION "Ranking .schnellste"`. Diese
+        # ctest-Eigenschaft VERWIRFT den Exit-Code vollstaendig: trifft der Regex, gilt der
+        # Test als bestanden, auch wenn die Binary mit != 0 endet. Das war kein theoretisches
+        # Risiko -- main.cpp hat 11 von 12 numerischen return-Anweisungen ungleich 0, und DREI
+        # davon (return 4 in den Zeilen 549/558/566, CSV-/JSON-Schreibfehler) liegen HINTER der
+        # Ranking-Zeile (481). Am Objekt nachgestellt: mit einem unbeschreibbaren --csv-Pfad
+        # endet die echte Binary mit Exit 4, druckt die Ranking-Zeile -- und ctest meldete
+        # "Passed  100% tests passed, 0 tests failed out of 1".
+        # Der Kommentar versprach ausserdem eine "win_rate"-Ausgabe (main.cpp:455) und ein
+        # "Exit-0"; geprueft wurde in Wahrheit nur die Ranking-Zeile (main.cpp:481).
+        #
+        # ABGRENZUNG: bei den drei Negativ-Compile-Fixturen weiter unten (E24-C1/C4, HY-A1)
+        # bleibt PASS_REGULAR_EXPRESSION RICHTIG -- dort MUSS der Bau fehlschlagen, das
+        # Verwerfen des Exit-Codes ist dort der Zweck. Hier ist es der Riss.
         if(TARGET comdare_f15_compare_cli)
             add_test(NAME f15_compare_cli_smoke
-                COMMAND comdare_f15_compare_cli "${_r5g_autobuilt_dir}" --batches=16 --alpha=0.05)
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DCLI=$<TARGET_FILE:comdare_f15_compare_cli>"
+                    "-DCLI_ARGS=${_r5g_autobuilt_dir};--batches=16;--alpha=0.05"
+                    "-DEXPECT=Ranking .schnellste"
+                    "-DLABEL=comdare-f15-compare"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/cli_smoke.cmake")
+            # DIE BAUKANTE: ohne diese Zeile haengt die CLI an KEINEM Sammel-Target --
+            # comdare_tests baut sie nie, und der Test faellt in der CI als "Not Run" auf
+            # (#278 Klasse-B-Fix, dieselbe Klasse). Registriert wird das BUILD-TARGET,
+            # nicht der Testname -- hier weichen sie als einzige Stelle der Datei ab.
+            set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_f15_compare_cli)
+            # TIMEOUT: comdare_add_test setzt 60s automatisch (cmake/gtest_setup.cmake:90);
+            # ein rohes add_test bekommt NICHTS -- ein haengender Mess-Lauf blockierte den
+            # Job bis zum globalen CI-Timeout. 300s, weil der Lauf 48 DLLs vermisst.
             set_tests_properties(f15_compare_cli_smoke PROPERTIES
-                PASS_REGULAR_EXPRESSION "Ranking .schnellste"
+                TIMEOUT 300
                 LABELS "r5d;f15;cli")
             comdare_registrierung_vermerken(
                 BLOCK  r5d_f15_compare_cli_smoke

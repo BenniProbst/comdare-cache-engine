@@ -38,8 +38,19 @@
 #   (d) BEHAUPTET-AKTIVER BLOCK OHNE TEST -- ein Block meldet sich als gelaufen,
 #       sein Test steht aber nicht in der Inventur (umbenannt, Registrierung
 #       verschluckt). Die Gegenrichtung von (c).
+#   (e) NENNER GEGEN FREMDE QUELLE (D1c, 2026-08-09) -- die AUSSENSICHT. (c)/(d)
+#       belegen den Nenner gegen den Quelltext DIESES Baums; sie koennen nicht
+#       sehen, ob dieser Baum ueberhaupt so gebaut wurde wie der Baum, in dem die
+#       Voll-Suite faehrt (beide koennten denselben Block ueberspringen, und das
+#       Protokoll saehe in beiden gleich aus). (e) vergleicht deshalb gegen die
+#       Inventur eines ANDEREN Jobs, hereingereicht ueber COMDARE_FREMD_INVENTUR.
+#       Fail-closed: angekuendigt-aber-fehlend und leer sind ROT, nicht
+#       "uebersprungen". Ungesetzt = ausdruecklich als NICHT GEFAHREN gemeldet.
 #
 # AUFRUF:  sh scripts/ci_test_coverage_guard.sh <build-verzeichnis>
+#   Umgebung: COMDARE_FREMD_INVENTUR=<datei>  aktiviert Befund (e). Die Datei ist
+#   eine Zeile-je-Testname-Inventur, wie test:unit sie nach
+#   build/Testing/ctest_unit_inventar.txt schreibt.
 # EXIT:    0 = Invariante haelt
 #          1 = Abdeckungsluecke: ein registrierter Test faehrt in keinem Job
 #          2 = Bedienung/Umgebung. Dazu zaehlt ein fehlendes, leeres oder
@@ -48,7 +59,8 @@
 #          3 = Manifest defekt
 #          4 = NENNER-BEFUND: die Inventur ist nachweislich kleiner als das, was
 #              dieser Baum registrieren muesste (uebersprungener Block), oder sie
-#              widerspricht dem Protokoll (Block meldet AKTIV, Test fehlt).
+#              widerspricht dem Protokoll (Block meldet AKTIV, Test fehlt), oder
+#              sie weicht von der Inventur eines anderen Jobs ab (Befund (e)).
 #          WARUM 4 EIN EIGENER CODE IST -- und nicht einfach 1: der Selbsttest
 #          muss "rot aus dem richtigen Grund" von "rot aus irgendeinem Grund"
 #          unterscheiden koennen. Ein Koeder, der nur 'nicht 0' prueft, beisst
@@ -252,6 +264,69 @@ echo "  ${CE_GESAMT} Tests in der Inventur; ${CE_BLOCKS} bedingte Registrierungs
 echo "  davon ${CE_BLOCKS_AKTIV} gelaufen und ${CE_BLOCKS_UEBER} uebersprungen."
 echo "  Quelle: ${_ce_protokoll}"
 
+# =============================================================================
+# DRITTE ACHSE (D1c, 2026-08-09): DER NENNER GEGEN EINE FREMDE QUELLE
+# =============================================================================
+# ABGRENZUNG ZU (c)/(d), damit hier nichts doppelt geprueft wird: das
+# Registrierungs-Protokoll oben belegt den Nenner gegen den QUELLTEXT dieses
+# Baums -- es faengt uebersprungene Bloecke. Es kann aber nichts darueber sagen,
+# ob DIESER Baum ueberhaupt so gebaut wurde wie der Baum, in dem die Voll-Suite
+# faehrt: beide Baeume haetten denselben Block ueberspringen koennen, und das
+# Protokoll saehe in beiden gleich aus. Diese Achse vergleicht deshalb gegen
+# eine Inventur, die ein ANDERER Job erzeugt hat (test:unit). Sie ist die
+# Aussen-, nicht die Innensicht.
+#
+# FAIL-CLOSED. Ist COMDARE_FREMD_INVENTUR gesetzt, MUSS die Datei da und nicht
+# leer sein -- sonst waere ein verlorenes Artefakt von einem Gleichstand nicht
+# zu unterscheiden. Ist sie NICHT gesetzt (lokaler Lauf), wird die Achse
+# ausdruecklich als NICHT GEFAHREN gemeldet und verschwindet nicht still.
+#
+# EXIT-KLASSE: eine Abweichung hier ist ein NENNER-BEFUND und setzt deshalb
+# CE_NENNER_ROT (Exit 4), nicht CE_RC=1. Das ist dieselbe Unterscheidung, die
+# (c)/(d) eingefuehrt haben: "rot, weil der Nenner nicht stimmt" muss von
+# "rot, weil ein Test ungedeckt ist" unterscheidbar bleiben -- sonst beweist
+# ein Koeder, der nur 'nicht 0' prueft, nichts ueber den Nenner.
+# =============================================================================
+CE_FREMD_STATUS="NICHT GEFAHREN"
+CE_FREMD_ROT=0
+_ce_fremd=${COMDARE_FREMD_INVENTUR-}
+echo ""
+if [ -z "$_ce_fremd" ]; then
+    echo "DRITTE ACHSE (Fremd-Inventur): NICHT GEFAHREN -- COMDARE_FREMD_INVENTUR ist"
+    echo "  ungesetzt. Der Nenner ist damit nur gegen den eigenen Quelltext belegt"
+    echo "  (Protokoll oben), nicht gegen den Baum eines anderen Jobs."
+elif [ ! -f "$_ce_fremd" ]; then
+    echo "DRITTE ACHSE (Fremd-Inventur): ROT -- die angekuendigte Datei fehlt:"
+    echo "  COMDARE_FREMD_INVENTUR='${_ce_fremd}'"
+    echo "  Angekuendigt und nicht da wird NICHT uebersprungen (fail-closed)."
+    CE_FREMD_STATUS="ROT (Datei fehlt)"
+    CE_FREMD_ROT=1
+else
+    LC_ALL=C sort -u "$_ce_fremd" | sed '/^[[:space:]]*$/d' > "${_ce_tmp}/fremd.txt"
+    CE_FREMD_N=$(wc -l < "${_ce_tmp}/fremd.txt" | tr -d ' ')
+    if [ "$CE_FREMD_N" -eq 0 ]; then
+        echo "DRITTE ACHSE (Fremd-Inventur): ROT -- '${_ce_fremd}' ist leer."
+        echo "  Eine leere Gegenquelle ist keine Bestaetigung (fail-closed)."
+        CE_FREMD_STATUS="ROT (Datei leer)"
+        CE_FREMD_ROT=1
+    else
+        LC_ALL=C comm -23 "${_ce_tmp}/alle.txt" "${_ce_tmp}/fremd.txt" > "${_ce_tmp}/nur_hier.txt"
+        LC_ALL=C comm -13 "${_ce_tmp}/alle.txt" "${_ce_tmp}/fremd.txt" > "${_ce_tmp}/nur_fremd.txt"
+        _ce_nh=$(wc -l < "${_ce_tmp}/nur_hier.txt" | tr -d ' ')
+        _ce_nf=$(wc -l < "${_ce_tmp}/nur_fremd.txt" | tr -d ' ')
+        echo "DRITTE ACHSE (Fremd-Inventur): dieser Baum ${CE_GESAMT}, fremder Baum ${CE_FREMD_N}"
+        echo "  Quelle: ${_ce_fremd}"
+        if [ "$_ce_nh" -eq 0 ] && [ "$_ce_nf" -eq 0 ]; then
+            echo "  -> deckungsgleich (${CE_GESAMT} == ${CE_FREMD_N}), Namen identisch."
+            CE_FREMD_STATUS="GRUEN (${CE_GESAMT} == ${CE_FREMD_N})"
+        else
+            echo "  -> ABWEICHUNG: ${_ce_nh} nur hier, ${_ce_nf} nur im fremden Baum."
+            CE_FREMD_STATUS="ROT (${CE_GESAMT} != ${CE_FREMD_N})"
+            CE_FREMD_ROT=1
+        fi
+    fi
+fi
+
 echo ""
 echo "DEKLARIERTE JOB-AUSWAHLEN (Quelle: Manifest):"
 
@@ -408,6 +483,36 @@ if [ -s "${_ce_tmp}/phantom_bloecke.txt" ]; then
     CE_NENNER_ROT=1
 fi
 
+# -- Befund (e): NENNER GEGEN FREMDE QUELLE (D1c) -- die Aussensicht auf (c)/(d) --
+if [ "$CE_FREMD_ROT" -ne 0 ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: NENNER-ABWEICHUNG gegen die fremde Inventur (${CE_FREMD_STATUS})."
+    echo "Das Protokoll oben belegt den Nenner gegen den QUELLTEXT DIESES Baums. Diese"
+    echo "Achse belegt ihn gegen einen ANDEREN Baum, der denselben Quellstand baut."
+    echo "Weichen die ab, ist mindestens einer der beiden nicht so gebaut wie gedacht --"
+    echo "und eine Abdeckung ueber einem zu kleinen Nenner deckt nichts."
+    if [ -s "${_ce_tmp}/nur_hier.txt" ]; then
+        echo ""
+        echo "  NUR IN DIESEM Baum registriert (im fremden fehlend):"
+        while read -r _ce_t; do echo "    + ${_ce_t}"; done < "${_ce_tmp}/nur_hier.txt"
+    fi
+    if [ -s "${_ce_tmp}/nur_fremd.txt" ]; then
+        echo ""
+        echo "  NUR IM FREMDEN Baum registriert (hier fehlend):"
+        while read -r _ce_t; do echo "    - ${_ce_t}"; done < "${_ce_tmp}/nur_fremd.txt"
+    fi
+    echo ""
+    echo "SO WIRD DAS BEHOBEN (nicht durch Abschalten der Achse):"
+    echo "  * Beide Jobs muessen denselben Bauweg fahren (./configure.sh && make bzw."
+    echo "    'make inventar'). Fehlt in einem Baum das Reconfigure nach dem"
+    echo "    Codegen-Bau, registriert CMake dort weniger Tests."
+    echo "  * Fehlt die Datei, ist das Artefakt verlorengegangen oder 'needs:' zieht"
+    echo "    es nicht -- ein CI-Verdrahtungsfehler, kein Test-Befund."
+    echo "-----------------------------------------------------------------------------"
+    CE_NENNER_ROT=1
+fi
+
 # -- Befund (a): Phantom-Gates --
 if [ -n "$CE_LEERE_SELEKTOREN" ]; then
     echo ""
@@ -486,6 +591,8 @@ if [ "$CE_RC" -eq 0 ]; then
     echo "  Summe                               : $(( _ce_ohne_pmc + _ce_mit_pmc ))  ==  Inventur ${CE_GESAMT}"
     echo "  -> -L und -LE mit demselben Muster sind komplementaer; ein dritter Fall"
     echo "     existiert nicht. Die Deckung ist damit strukturell, nicht durch Audit."
+    echo ""
+    echo "  Nenner gegen FREMDE Quelle (e)      : ${CE_FREMD_STATUS}"
     echo ""
     echo "ABDECKUNGS-WACHE: GRUEN -- kein Test ohne fahrenden Job,"
     echo "und der Nenner ist belegt: ${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} bedingten Bloecken gelaufen, 0 uebersprungen."
