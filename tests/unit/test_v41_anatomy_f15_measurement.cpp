@@ -529,11 +529,19 @@ TEST(F15ResultAggregator, EmptyCollection) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(F15LatencyStats, NearestRankPercentiles) {
-    // 1..100 → p50 (k=floor(0.5*100)=50) = sortiert[50] = 51; p99 (k=99) = 100.
+    // SELBSTCHECK DIESER AENDERUNG (D5-1, 2026-08-09)
+    //   ZUSICHERT: latency_p50/p99 rechnen die Lehrbuch-Formel k = ceil(q*n)-1.
+    //              1..100 -> p50: k = ceil(50)-1 = 49 -> sortiert[49] = 50.
+    //              1..100 -> p99: k = ceil(99)-1 = 98 -> sortiert[98] = 99.
+    //   ZUSICHERT NICHT: dass die frueheren Pins (51 / 100) falsch GEMESSEN waren -- sie waren
+    //              korrekt fuer die alte Formel k = min(n-1, floor(q*n)). Die Formel hat gewechselt,
+    //              nicht die Messung. FOLGE: alle vor dem 2026-08-09 erhobenen p50/p95/p99 sind
+    //              nach einer anderen Definition gerechnet und mit den heutigen nicht vergleichbar.
     std::vector<std::int64_t> s(100);
     for (int i = 0; i < 100; ++i) s[static_cast<std::size_t>(i)] = i + 1;
-    EXPECT_EQ(stats::latency_p50_ns(std::span<const std::int64_t>{s}).count(), 51);
-    EXPECT_EQ(stats::latency_p99_ns(std::span<const std::int64_t>{s}).count(), 100);
+    EXPECT_EQ(stats::latency_p50_ns(std::span<const std::int64_t>{s}).count(), 50); // D5-1: war 51
+    EXPECT_EQ(stats::latency_p95_ns(std::span<const std::int64_t>{s}).count(), 95); // D5-1: war 96
+    EXPECT_EQ(stats::latency_p99_ns(std::span<const std::int64_t>{s}).count(), 99); // D5-1: war 100
     EXPECT_EQ(stats::percentile_ns(std::span<const std::int64_t>{s}, 0.0).count(), 1);
     EXPECT_EQ(stats::percentile_ns(std::span<const std::int64_t>{s}, 1.0).count(), 100); // q geklemmt, k=n-1
 }
@@ -703,8 +711,11 @@ TEST(F15ResultBuilder, MakeExecutionResultFillsPercentiles) {
     auto r = cmd::make_execution_result("art", s, 1234.0);
     EXPECT_EQ(r.engine_name, std::string_view{"art"});
     EXPECT_DOUBLE_EQ(r.throughput_ops_per_sec, 1234.0);
-    EXPECT_EQ(r.latency_p50.count(), 51); // p50 (nearest-rank) von 1..100
-    EXPECT_EQ(r.latency_p99.count(), 100);
+    // D5-1 (2026-08-09): Kanon k = ceil(q*n)-1. p50 von 1..100 = 50 (war 51), p99 = 99 (war 100).
+    // Der Konnektor make_execution_result rechnet damit nachweislich ueber stats::percentile_ns
+    // und nicht ueber eine eigene Formel -- das ist die Aussage dieses Pins.
+    EXPECT_EQ(r.latency_p50.count(), 50);
+    EXPECT_EQ(r.latency_p99.count(), 99);
     EXPECT_TRUE(r.success);
     EXPECT_EQ(r.latency_samples_ns.size(), 100u);
     // leere Samples → success=false

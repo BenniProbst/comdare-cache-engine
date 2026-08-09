@@ -18,6 +18,7 @@
 // @doku docs/sessions/20260531-v5-reverifikation-substanz-luecken.md (Blocker 1) + messarchitektur_v5_design.md
 
 #include <anatomy/observable_tier.hpp>
+#include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::percentile_ns)
 #include "workload_driver/workload_orchestrator.hpp"
 #include <cache_engine/measurement/pmc_source.hpp> // V5-#26: pluggable HW-Counter-Quelle (measurement::PmcCounters) für die +6-Spalten
 
@@ -88,7 +89,12 @@ namespace detail {
     }
     return h;
 }
-/// p50 (Median, Nearest-Rank) über die zusammengeführten Op-Latenzen eines Lastprofil-Laufs.
+/// p50 (Median) ueber die zusammengefuehrten Op-Latenzen eines Lastprofil-Laufs.
+/// SELBSTCHECK (D5-1, 2026-08-09)
+///   ZUSICHERT: der Median ist der KANON-Fall q=0.5 (stats::percentile_ns) und KEINE eigene Bauart;
+///              bei gerader Sample-Zahl ist das die UNTERE Mitte.
+///   ZUSICHERT NICHT: Vergleichbarkeit mit frueheren Laeufen -- vorher lieferte detail::nearest_rank_p
+///              hier die OBERE Mitte. Alle vor dem 2026-08-09 erhobenen p50 sind anders gerechnet.
 [[nodiscard]] inline std::int64_t merged_p50_ns(workload_driver::WorkloadRunResult const& r) {
     std::vector<std::int64_t> all;
     all.reserve(r.insert_ns.size() + r.lookup_ns.size() + r.erase_ns.size() + r.clear_ns.size());
@@ -96,7 +102,7 @@ namespace detail {
     all.insert(all.end(), r.lookup_ns.begin(), r.lookup_ns.end());
     all.insert(all.end(), r.erase_ns.begin(), r.erase_ns.end());
     all.insert(all.end(), r.clear_ns.begin(), r.clear_ns.end());
-    return anatomy_commands::detail::nearest_rank_p(std::move(all), 0.5);
+    return commands::stats::percentile_ns(all, 0.5).count();
 }
 [[nodiscard]] inline double throughput_ops_per_sec(std::uint64_t op_count, std::int64_t total_ns) noexcept {
     return (total_ns > 0) ? (static_cast<double>(op_count) / (static_cast<double>(total_ns) / 1'000'000'000.0)) : 0.0;

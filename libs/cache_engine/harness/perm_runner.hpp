@@ -34,6 +34,7 @@
 #include <builder/workload_driver/load_profile_parser.hpp> // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
 #include <builder/pruef_dock/conformance_gate.hpp> // (Audit K9 / V5-I4): Konformitäts-Gate VOR der Messung (import→GATE→messen)
 #include <builder/pmc_source_factory.hpp> // #156-De-Risk: make_pmc_source() (IPmcSource/PmcCounters) — PMC in den WIDE-Mess-Pfad
+#include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::percentile_ns)
 
 #include <array> // GOAL-L1: kOpKindNames + PermResult::op_lat (per-Interface-Funktions-Latenzen)
 #include <chrono>
@@ -95,16 +96,19 @@ namespace comdare::cache_engine::builder::experiment {
 
 // ── GOAL-M/L1 (2026-06-12): per-Interface-Funktions-Latenzen für die Konfig×Tier-Auswertung ───────────
 /// Aggregat der getimten Latenzen EINER Interface-Funktion (Op-Art) dieser Messung: Sample-Zahl +
-/// Nearest-Rank-Perzentile (konsistent zu serialize_workload_run_results_csv). n==0 = Op-Art im Profil
-/// nicht vorhanden (bzw. Scan auf nicht-scanbarem Tier ehrlich übersprungen).
+/// Perzentile nach dem D5-1-KANON (stats::percentile_ns, Lehrbuch-Nearest-Rank k = ceil(q*n)-1; dieselbe
+/// Funktion wie serialize_workload_run_results_csv). n==0 = Op-Art im Profil nicht vorhanden (bzw. Scan
+/// auf nicht-scanbarem Tier ehrlich uebersprungen).
+/// SELBSTCHECK (D5-1, 2026-08-09): ZUSICHERT, dass p50/p99/p999 aus dem EINEN Kanon kommen.
+/// ZUSICHERT NICHT, dass die Zahlen mit frueheren Laeufen vergleichbar sind -- die Formel hat gewechselt.
 struct OpKindLatency {
     std::uint64_t n      = 0;
     std::int64_t  p50_ns = 0;
     std::int64_t  p99_ns = 0;
     // A8-S3 / Katalog-Klasse C (Tail-Perzentile, Abschnitt 5): p999 aus DENSELBEN IST-Vektoren wie p50/p99
-    // (workload_orchestrator::WorkloadRunResult, Nearest-Rank). Reiner HOST-Wert -- kein Wire-Feld, keine
+    // (workload_orchestrator::WorkloadRunResult, D5-1-Kanon). Reiner HOST-Wert -- kein Wire-Feld, keine
     // POD-Aenderung, keine zweite Mess-Klammer. Er traegt den Alloc-/Flush-Tail (T6-Alloc-Tail,
-    // T16-eager/lazy-Pareto), fuer den p99 nachweislich zu grob ist. Bei kleinem n faellt Nearest-Rank
+    // T16-eager/lazy-Pareto), fuer den p99 nachweislich zu grob ist. Bei kleinem n faellt der Kanon
     // ehrlich auf das Maximum zurueck -- das IST die beste Aussage dieser Stichprobe, kein Schaetzwert.
     std::int64_t p999_ns = 0;
 };
@@ -236,6 +240,7 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
 // ── Achse 2 (INC-1): Lastprofil-Mess-Lauf über den BEREITS implementierten Op-Skript-Runner (generischer CS-Interpreter über den flachen Op-Vektor — KEIN GoF-Interpreter mit Grammatik/AST) ──
 namespace wd  = ::comdare::cache_engine::builder::workload_driver;
 namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
+namespace st  = ::comdare::cache_engine::builder::commands::stats; // D5-1 Perzentil-Kanon
 
 /// run_workload_perm — treibt EIN Lastprofil (workload_id) über `workload_driver::run_workload_profile` statt
 /// des hartgecodeten insert/lookup-Loops (run_observable_perm). Die Op-Sequenz wird host-seitig reproduzierbar
@@ -328,8 +333,8 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
         for (std::size_t k = 0; k < per_kind.size(); ++k) {
             auto const& v = *per_kind[k];
             for (std::int64_t ns : v) total += ns;
-            r.op_lat[k] = OpKindLatency{static_cast<std::uint64_t>(v.size()), acd::nearest_rank_p(v, 0.5),
-                                        acd::nearest_rank_p(v, 0.99), acd::nearest_rank_p(v, 0.999)};
+            r.op_lat[k] = OpKindLatency{static_cast<std::uint64_t>(v.size()), st::percentile_ns(v, 0.5).count(),
+                                        st::percentile_ns(v, 0.99).count(), st::percentile_ns(v, 0.999).count()};
             r.timed_ops += static_cast<std::uint64_t>(v.size());
         }
 

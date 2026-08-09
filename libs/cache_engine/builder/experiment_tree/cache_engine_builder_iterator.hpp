@@ -53,9 +53,10 @@
 #include "../../anatomy/measurable_workload.hpp" // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (17 Segmente, INC-2d)
 #include "../../anatomy/resource_controllable_tier.hpp" // IResourceControllableTier
 
-#include <algorithm> // #165-B: std::nth_element (Gruppen-Median im quality_flag)
-#include <array>     // GOAL-L1: LazyMeasuredRow::op_lat (per-Interface-Funktions-Latenzen)
-#include <chrono>    // #46b I1b: Slice-Wall-Clock fuer die ETA-Kalibrierung
+#include <algorithm>                          // #165-B: std::nth_element (Gruppen-Median im quality_flag)
+#include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::nearest_rank_index)
+#include <array>                              // GOAL-L1: LazyMeasuredRow::op_lat (per-Interface-Funktions-Latenzen)
+#include <chrono>                             // #46b I1b: Slice-Wall-Clock fuer die ETA-Kalibrierung
 #include <cstddef>
 #include <map> // #165-B: Gruppen-Buckets (binary_id|profile_name) im annotate_quality_flags
 #include <cstdint>
@@ -958,7 +959,13 @@ inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
         rows[i].quality_flag = 0; // Reset (idempotent — Mehrfachaufruf sicher)
         groups[rows[i].binary_id + "|" + rows[i].profile_name].push_back(i);
     }
-    // (2) je Gruppe: Median der gültigen ns_per_op (Nearest-Rank, nth_element) → Zeilen > k×Median flaggen.
+    // (2) je Gruppe: Median der gueltigen ns_per_op -> Zeilen > k*Median flaggen.
+    // SELBSTCHECK (D5-1, 2026-08-09)
+    //   ZUSICHERT: der Gruppen-Median ist der KANON-Fall q=0.5 (stats::nearest_rank_index) und KEINE
+    //              eigene Bauart. Vorher stand hier `mid = vals.size() / 2` -- bei GERADER Gruppengroesse
+    //              die OBERE Mitte, also eine fuenfte Median-Definition im selben Repo.
+    //   ZUSICHERT NICHT: eine Aussage ueber die Guete der Ausreisser-Heuristik selbst (kQualityOutlierK
+    //              bleibt unveraendert); nur die Median-DEFINITION wird vereinheitlicht.
     for (auto const& [key, idxs] : groups) {
         std::vector<double> vals;
         vals.reserve(idxs.size());
@@ -967,7 +974,7 @@ inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
             if (v >= 0.0) vals.push_back(v);
         }
         if (vals.size() < kQualityMinGroup) continue; // zu wenig Evidenz → konservativ kein Flag
-        std::size_t const mid = vals.size() / 2;
+        std::size_t const mid = commands::stats::nearest_rank_index(vals.size(), 0.5);
         std::nth_element(vals.begin(), vals.begin() + static_cast<std::ptrdiff_t>(mid), vals.end());
         double const median = vals[mid];
         if (median <= 0.0) continue; // degenerierter Median → kein sinnvoller Multiplikator

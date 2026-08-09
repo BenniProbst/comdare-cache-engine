@@ -33,7 +33,8 @@
 //
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md Paragraf 8.7/8.8
 
-#include "tier_observe_trace_abi.hpp" // AbiTierTraceConfig + detail::abi_dur_ns / detail::nearest_rank_p
+// Zieht ausserdem den D5-1-Perzentil-Kanon mit (st:: = builder::commands::stats).
+#include "tier_observe_trace_abi.hpp" // AbiTierTraceConfig + detail::abi_dur_ns
 
 #include <anatomy/adapter_tier.hpp>
 #include <anatomy/sequence_tier.hpp>
@@ -321,17 +322,22 @@ void write_shared_csv_cells(std::ostringstream& os, std::size_t index, Snap cons
        << cp.read_ns.size() << ',' << cp.delete_ns.size();
 }
 
+// SELBSTCHECK (D5-1, 2026-08-09)
+//   ZUSICHERT: die p50/p95/p99-Felder dieser JSON kommen aus dem EINEN Kanon (stats::percentile_ns,
+//              Lehrbuch-Nearest-Rank k = ceil(q*n)-1) -- identisch zur nicht-Genus-Schwesterdatei.
+//   ZUSICHERT NICHT: Vergleichbarkeit mit vor dem 2026-08-09 erzeugten Traces (andere Formel). Und
+//              NICHT die Vollstaendigkeit der Feldliste -- delete_p99_ns fehlt weiterhin (Paket D5-4).
 template <class Snap>
 void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap const& cp) {
     os << "{\"checkpoint\":" << index << ",\"observe_wall_ns\":" << cp.observe_wall_ns
-       << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.5)
-       << ",\"write_p95_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.95)
-       << ",\"write_p99_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.99)
-       << ",\"read_p50_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.5)
-       << ",\"read_p95_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.95)
-       << ",\"read_p99_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.99)
-       << ",\"delete_p50_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.5)
-       << ",\"delete_p95_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.95);
+       << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << st::percentile_ns(cp.write_ns, 0.5).count()
+       << ",\"write_p95_ns\":" << st::percentile_ns(cp.write_ns, 0.95).count()
+       << ",\"write_p99_ns\":" << st::percentile_ns(cp.write_ns, 0.99).count()
+       << ",\"read_p50_ns\":" << st::percentile_ns(cp.read_ns, 0.5).count()
+       << ",\"read_p95_ns\":" << st::percentile_ns(cp.read_ns, 0.95).count()
+       << ",\"read_p99_ns\":" << st::percentile_ns(cp.read_ns, 0.99).count()
+       << ",\"delete_p50_ns\":" << st::percentile_ns(cp.delete_ns, 0.5).count()
+       << ",\"delete_p95_ns\":" << st::percentile_ns(cp.delete_ns, 0.95).count();
 }
 
 } // namespace genus_trace_detail

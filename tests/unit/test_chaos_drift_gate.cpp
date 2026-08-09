@@ -62,7 +62,9 @@ TEST(ChaosDriftGate, AssessUnstableSeriesAboveThreshold) {
 
 TEST(ChaosDriftGate, AssessBoundaryNotStrictlyGreaterIsStable) {
     // Genau an der Schwelle: drift == threshold ist NICHT unstable (Vergleich ist strikt „>").
-    // {1000,1050}: median (nearest-rank q=0.5, n=2, k=1) = 1050, Spannweite 50 → drift = 50/1050.
+    // {1000,1050}: median = D5-1-Kanon q=0.5 bei n=2 -> k = ceil(0.5*2)-1 = 0 -> 1000 (UNTERE Mitte;
+    // bis 2026-08-09 war es k=1 -> 1050). Spannweite 50 -> drift = 50/1000. Die Zusicherung dieses
+    // Falls haengt NICHT am Median-Wert: geprueft wird, dass drift == threshold nicht instabil ist.
     // Wir setzen die Schwelle exakt auf diesen Wert und erwarten stable (drift > threshold ist false).
     std::vector<std::int64_t> const s{1000, 1050};
     cmd::DriftVerdict const         probe = cmd::assess_drift(s, kThreshold);

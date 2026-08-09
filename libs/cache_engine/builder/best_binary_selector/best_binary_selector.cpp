@@ -180,8 +180,16 @@ std::vector<RankedBinary> rank_binaries(std::vector<MeasurementRow> const& rows,
         by_id_cell[r.binary_id][std::move(cell)].push_back(v);
     }
 
-    // Median (nearest-rank, UNTERE Mitte vals[(n-1)/2]). Bewusste Werkzeug-Definition; Achtung: csv_to_latex/
-    // diagram_generator nutzen die nearest-rank-OBERE Mitte — Divergenz bei geradem n = REV-DATA-12 (offen).
+    // Median vals[(n-1)/2] (UNTERE Mitte).
+    // SELBSTCHECK (D5-1, 2026-08-09)
+    //   ZUSICHERT: (n-1)/2 IST der Kanon-Fall q=0.5 -- es gilt (n-1)/2 == ceil(0.5*n)-1 fuer JEDES n
+    //              (nachgerechnet fuer n=1..64 in tests/unit/test_d51_perzentil_kanon.cpp,
+    //              D51PerzentilKanon.MedianIstQGleichEinHalb). Dieses Werkzeug rechnet also seit jeher
+    //              kanonisch; es bleibt bewusst auf der Integer-Form, weil es ueber `double`-Kriterien
+    //              aggregiert und kein ns-Perzentil zieht.
+    //   ZUSICHERT NICHT: Gleichstand mit den super-Werkzeugen. csv_to_latex/diagram_generator nutzen die
+    //              OBERE Mitte (round(0.5*(n-1)+0.5)) -- Divergenz bei geradem n. Das ist REV-DATA-12 und
+    //              wird in D5-2/D5-3 im super-Repo geschlossen, NICHT hier.
     auto lower_median = [](std::vector<double>& vals) -> double {
         std::sort(vals.begin(), vals.end());
         return vals.empty() ? 0.0 : vals[(vals.size() - 1) / 2];

@@ -1271,6 +1271,24 @@ target_include_directories(test_v5_measurement_snapshot PRIVATE
 target_link_libraries(test_v5_measurement_snapshot PRIVATE
     comdare::workload_driver)
 
+# D5-1 PERZENTIL-KANON (2026-08-09) -- die EINE Perzentil-Definition (stats::nearest_rank_index,
+# Lehrbuch-Formel ceil(q*n)-1) + die Wache darueber. Die drei COMDARE_D51_ZENSUS_ROOT_*-Defines sind
+# QUELLPFADE, die der Test NUR LIEST (gleiches Muster wie COMDARE_A8S4_ABI_ADAPTER_SRC):
+#   _BUILDER/_HARNESS = Auswertungs-Baum, in dem genau EINE Quantil->Index-Umrechnung stehen darf;
+#   _CE               = der ganze ce-Baum, in dem der Name nearest_rank_p 0-mal vorkommen muss.
+# Link auf workload_driver, weil der Kreuz-Test die ECHTEN Serialisierer fahrt (kein Nachbau).
+comdare_add_test(test_d51_perzentil_kanon
+    SOURCES test_d51_perzentil_kanon.cpp)
+target_include_directories(test_d51_perzentil_kanon PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_d51_perzentil_kanon PRIVATE
+    comdare::workload_driver)
+target_compile_definitions(test_d51_perzentil_kanon PRIVATE
+    "COMDARE_D51_ZENSUS_ROOT_BUILDER=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder\""
+    "COMDARE_D51_ZENSUS_ROOT_HARNESS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/harness\""
+    "COMDARE_D51_ZENSUS_ROOT_CE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine\"")
+
 # PAKET W3-C (Ledger Sec.32-F8): Heuristik-Spline-Vorbau -- AxisSpline (Strategy: Fritsch-Carlson monoton /
 # natuerlich-kubisch) + Break-Even-Finder + n/a-toleranter Measurement-Curve-Loader. Header-only, keine
 # Lib-Abhaengigkeit -> nur der ce-Include-Pfad noetig.

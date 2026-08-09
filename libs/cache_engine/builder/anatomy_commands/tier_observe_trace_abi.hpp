@@ -13,7 +13,8 @@
 // Gattungs-ABI). KEIN Runtime-Switch; reine Interface-Indirektion.
 
 #include <anatomy/observable_tier.hpp>
-#include <anatomy/rollbackable_tier.hpp> // V5-I7: Zwei-Phasen-Treiber (tier_save_all/tier_rollback_all)
+#include <anatomy/rollbackable_tier.hpp>      // V5-I7: Zwei-Phasen-Treiber (tier_save_all/tier_rollback_all)
+#include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::percentile_ns)
 
 #include <algorithm>
 #include <chrono>
@@ -28,6 +29,7 @@
 namespace comdare::cache_engine::builder::anatomy_commands {
 
 namespace an = ::comdare::cache_engine::anatomy;
+namespace st = ::comdare::cache_engine::builder::commands::stats; // D5-1 Perzentil-Kanon
 
 /// Konfiguration des ABI-Fuellstands-Treibers (deterministisch via seed).
 struct AbiTierTraceConfig {
@@ -65,14 +67,16 @@ namespace detail {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
 }
 
-/// Nearest-Rank-Perzentil (p ∈ [0,1]) über eine Roh-ns-Stichprobe (Kopie + sort; leere Stichprobe → 0).
-[[nodiscard]] inline std::int64_t nearest_rank_p(std::vector<std::int64_t> v, double p) {
-    if (v.empty()) return 0;
-    std::sort(v.begin(), v.end());
-    std::size_t rank = static_cast<std::size_t>(p * static_cast<double>(v.size() - 1) + 0.5);
-    if (rank >= v.size()) rank = v.size() - 1;
-    return v[rank];
-}
+// SELBSTCHECK (D5-1, 2026-08-09)
+//   ZUSICHERT: in dieser Datei existiert KEINE Perzentil-Formel mehr; alle p-Felder ihrer
+//              Serialisierer ziehen stats::percentile_ns.
+//   ZUSICHERT NICHT: dass Altdaten weiter gelten -- sie tun es nicht (andere Definition).
+//
+// D5-1 (2026-08-09): hier stand `detail::nearest_rank_p` -- eine ZWEITE Perzentil-Formel
+// (rank = round(p*(n-1))), die den Namen "Nearest-Rank" zu Unrecht trug und bei 1..100 p50=51
+// lieferte. Sie ist ERSATZLOS geloescht, ohne Alias und ohne Weiterleitung: jede uebersehene
+// Aufrufstelle sollte compile-time brechen, nicht still weiterrechnen. Der EINE Kanon steht in
+// builder/commands/latency_stats.hpp (stats::nearest_rank_index / stats::percentile_ns).
 
 /// V5-I7 Zwei-Phasen-Messung EINER Operation (User-Direktive 2026-05-31, Mess-Architektur §4):
 ///   save-all → op (Phase 1: Warmup, Cache/Branch-Predictor heizen, Timing VERWORFEN)
@@ -304,14 +308,14 @@ template <class TimedOp>
         auto const& o  = cp.observer;
         if (i != 0) os << ',';
         os << "{\"checkpoint\":" << i << ",\"observe_wall_ns\":" << cp.observe_wall_ns
-           << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.5)
-           << ",\"write_p95_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.95)
-           << ",\"write_p99_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.99)
-           << ",\"read_p50_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.5)
-           << ",\"read_p95_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.95)
-           << ",\"read_p99_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.99)
-           << ",\"delete_p50_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.5)
-           << ",\"delete_p95_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.95)
+           << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << st::percentile_ns(cp.write_ns, 0.5).count()
+           << ",\"write_p95_ns\":" << st::percentile_ns(cp.write_ns, 0.95).count()
+           << ",\"write_p99_ns\":" << st::percentile_ns(cp.write_ns, 0.99).count()
+           << ",\"read_p50_ns\":" << st::percentile_ns(cp.read_ns, 0.5).count()
+           << ",\"read_p95_ns\":" << st::percentile_ns(cp.read_ns, 0.95).count()
+           << ",\"read_p99_ns\":" << st::percentile_ns(cp.read_ns, 0.99).count()
+           << ",\"delete_p50_ns\":" << st::percentile_ns(cp.delete_ns, 0.5).count()
+           << ",\"delete_p95_ns\":" << st::percentile_ns(cp.delete_ns, 0.95).count()
            << ",\"search_insert\":" << o.axis_stats[0][3] << ",\"search_lookup\":" << o.axis_stats[0][0]
            << ",\"search_hit\":" << o.axis_stats[0][1] << ",\"search_miss\":" << o.axis_stats[0][2]
            << ",\"search_peak_occupancy\":" << o.axis_stats[0][5] << ",\"alloc_bytes_in_use\":" << o.axis_stats[6][1]
