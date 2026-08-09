@@ -3357,6 +3357,38 @@ add_test(NAME test_lagp2_messwert_genus COMMAND test_lagp2_messwert_genus)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lagp2_messwert_genus)
 set_tests_properties(test_lagp2_messwert_genus PROPERTIES LABELS "bestandslog;messwert_genus;standalone")
 
+# B-3 + SCHEMA-FREEZE STUFE 1 (2026-08-09) -- die Schema-Hoheit der Mess-Ausgabe wird eingefroren.
+#
+# GEGENSTAND: die Spaltenliste. Sie ist der Vertrag, an dem die Auswerte-Stufen, die Resume-Wache, das
+# Lager, die xlsx-Mappe und das PDF haengen. Bis heute schuetzte ihn nur gute Absicht.
+#
+# Der Test faehrt DREI Bissproben (Spalte zu / Spalte weg / zwei vertauscht) BEVOR er das echte Schema
+# gruen meldet -- eine Wache, deren Biss nie vorgefuehrt wurde, ist von einer blinden nicht zu
+# unterscheiden. Die Koeder sind je Lauf frisch gewuerfelt (Startwert steht in der Ausgabe).
+#
+# Include-/Link-Satz wie test_lazy_resume_binary: die TU zieht den ECHTEN Erzeuger
+# cache_engine_builder_iterator.hpp (lazy_csv_header) statt eines Nachbaus; measurement_snapshot.hpp
+# bringt die workload_driver-Kante mit (deshalb comdare::workload_driver, anders als bei
+# test_lazy_resume_binary).
+add_executable(test_b3_schema_freeze_stufe1 "test_b3_schema_freeze_stufe1.cpp")
+target_compile_features(test_b3_schema_freeze_stufe1 PRIVATE cxx_std_23)
+target_include_directories(test_b3_schema_freeze_stufe1 PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b3_schema_freeze_stufe1 PRIVATE Boost::mp11
+    comdare::workload_driver)
+comdare_set_platform_defines(test_b3_schema_freeze_stufe1)
+target_compile_definitions(test_b3_schema_freeze_stufe1 PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_b3_schema_freeze_stufe1 COMMAND test_b3_schema_freeze_stufe1)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b3_schema_freeze_stufe1)
+set_tests_properties(test_b3_schema_freeze_stufe1 PROPERTIES LABELS "contract;standalone;schema_freeze;b3")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
