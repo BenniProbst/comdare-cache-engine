@@ -16,6 +16,7 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/measurable_workload.hpp>
 #include <builder/commands/multi_compare.hpp>
+#include <builder/commands/hdr_perzentil_auswertung.hpp> // D5-5: HDR neben dem Kanon (Auswertung)
 #include <builder/commands/result_aggregator.hpp>
 // V41 OpenDone.2 — Pfad-B Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
 #include <builder/pruef_dock/pruef_dock.hpp>
@@ -60,14 +61,15 @@
 #include <utility>
 #include <vector>
 
-namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
-namespace ana    = ::comdare::cache_engine::anatomy;
-namespace cmd    = ::comdare::cache_engine::builder::commands;
-namespace stats  = ::comdare::cache_engine::builder::commands::stats;
-namespace wd     = ::comdare::cache_engine::builder::workload_driver;
-namespace pd     = ::comdare::cache_engine::builder::pruef_dock;
-namespace bld    = ::comdare::cache_engine::builder;     // V5-I1 (#50): ComdareMeasurementSnapshotV1 + Serializer
-namespace meas   = ::comdare::cache_engine::measurement; // A2-Neben Stufe 1: PmcCounters/IPmcSource
+namespace loader     = ::comdare::cache_engine::builder::anatomy_loader;
+namespace ana        = ::comdare::cache_engine::anatomy;
+namespace cmd        = ::comdare::cache_engine::builder::commands;
+namespace stats      = ::comdare::cache_engine::builder::commands::stats;
+namespace auswertung = ::comdare::cache_engine::builder::commands::auswertung; // D5-5: HDR neben dem Kanon
+namespace wd         = ::comdare::cache_engine::builder::workload_driver;
+namespace pd         = ::comdare::cache_engine::builder::pruef_dock;
+namespace bld        = ::comdare::cache_engine::builder;     // V5-I1 (#50): ComdareMeasurementSnapshotV1 + Serializer
+namespace meas       = ::comdare::cache_engine::measurement; // A2-Neben Stufe 1: PmcCounters/IPmcSource
 
 namespace {
 
@@ -486,6 +488,37 @@ int main(int argc, char** argv) {
     if (ranking.size() >= 2 && ranking.front().first > 0.0) {
         std::cout << "  Spanne langsamste/schnellste (p50) = " << (ranking.back().first / ranking.front().first)
                   << "x\n";
+    }
+
+    // == D5-5 (2026-08-09): HDR-PERZENTILE NEBEN DEM KANON ========================================
+    // Thesis-Zusage (03_messsystem_prtart.tex + 05_evaluation.tex, Praesens): die Perzentile werden
+    // ueber HDR-Histogramme bestimmt. Hier ist der Produktions-Konsument dafuer -- in der
+    // AUSWERTUNG, nachdem oben schon stumpf real gemessen wurde, nicht im Messpfad.
+    //
+    // Es ersetzt den Kanon NICHT: das Ranking oben bleibt auf stats::latency_p50_ns. HDR steht
+    // DANEBEN, zusammen mit der Abweichung und dem Urteil gegen die aus significant_figures
+    // hergeleitete Toleranz. Eine Abweichung ausserhalb der Toleranz ist ein BEFUND fuer den
+    // Auswerter (Rang-Divergenz an einem Verteilungssprung), kein Abbruchgrund -- deshalb wird sie
+    // ausgewiesen und nicht als Fehler zurueckgegeben.
+    std::cout << "  HDR-Perzentile (Toleranz " << (auswertung::GeltendeGeometrie::kRelativeToleranz * 100.0)
+              << " % aus significant_figures=" << meas::LatencyHdrHistogram::kSignifikanteStellen << " hergeleitet):\n";
+    for (std::size_t i = 0; i < results.size(); ++i) {
+        auto const a = auswertung::hdr_auswerten(std::span<const std::int64_t>{results[i].latency_samples_ns});
+        std::cout << "    " << names[i] << "  p50: kanon=" << a.p50.kanon_ns << " hdr=" << a.p50.hdr_ns
+                  << "  p95: kanon=" << a.p95.kanon_ns << " hdr=" << a.p95.hdr_ns << "  p99: kanon=" << a.p99.kanon_ns
+                  << " hdr=" << a.p99.hdr_ns << "\n";
+        // Der Verwurf bekommt IMMER seinen Nenner -- eine Zahl ohne Grundgesamtheit ist unlesbar.
+        if (a.verworfen_null != 0 || a.verworfen_negativ != 0 || a.verworfen_ausserhalb != 0) {
+            std::cout << "      VERWURF von " << a.vorgelegt << " Proben: " << a.verworfen_null
+                      << "x 0ns (unter Uhr-Aufloesung), " << a.verworfen_negativ << "x negativ (DEFEKT der Zeitnahme), "
+                      << a.verworfen_ausserhalb << "x ausserhalb der Histogramm-Spanne\n";
+        }
+        if (!a.p50.in_toleranz || !a.p95.in_toleranz || !a.p99.in_toleranz) {
+            std::cout << "      BEFUND: HDR weicht staerker vom Kanon ab als die Bucket-Breite erlaubt"
+                      << " (p50=" << (a.p50.abweichung_rel * 100.0) << " % p95=" << (a.p95.abweichung_rel * 100.0)
+                      << " % p99=" << (a.p99.abweichung_rel * 100.0) << " %)\n";
+        }
+        if (!a.histogramm_bereit) std::cout << "      BEFUND: hdr_init fehlgeschlagen -- ALLE Proben verloren\n";
     }
 
     // V41.P3-Bridge: 16-Spalten-Pipeline-Mess-CSV (eine Zeile je gemessener Organ-Composition).
