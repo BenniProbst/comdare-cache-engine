@@ -260,6 +260,25 @@ berührt `abi_adapter.hpp` im Hot-Path.
    überwachen; ihr Anteil ist *Macro-Gesamt minus Summe der Micros* und muss separat gemessen werden.
    Ist sie eine **vierte** Ebene im Filter oder ein Sonderfall von `macro`? Das entscheidet, gegen
    welche Ebene ein Micro-Checkpoint seinen Aufrufer sucht.
+
+   > **LESEFALLE, ausdruecklich benannt (Nachtrag HY-0, 08.08.2026).** Diese "vierte Ebene" ist
+   > **nicht** die *4. Mess-Ebene der Hybrid-Stufe* aus dem Owner-KERN vom 08.08.2026. Es sind zwei
+   > verschiedene Dinge, die zufaellig dieselbe Ordnungszahl tragen:
+   >
+   > | | hier, Offener Punkt 3 | Hybrid-Stufe (Owner-KERN 08.08.) |
+   > |---|---|---|
+   > | Was ist die Vier? | ein **Rang im Ebenen-FILTER** des Checkpoint-Stacks | eine **gebaute Mess-Schicht** mit eigenem Code |
+   > | Gegenstand | die Gattungs-Interface-Ebene (Macro-Gesamt minus Summe der Micros) | die eigene Macro-Benchmarking-Schicht der Hybrid-Tier-Binary |
+   > | Wozu | entscheidet, gegen welche Ebene ein Micro-Checkpoint seinen Aufrufer sucht | misst den **Overhead des Reroutes zu multiplen Tier-Binary-Zielen am Hybrid-Pruefdock** |
+   > | Lage | Sonderfall **von** `macro` oder Rang daneben | **dazwischengequetscht**, nicht angehaengt |
+   > | Status | offen, entscheidet dieses Dokument | Owner-Pflicht, Gattung `HEURISTIK-ADAPTER` / Genus `Function-Interface-Reroute` |
+   >
+   > **Wer beides gleichsetzt, baut die falsche Schicht.** Wer den Owner-KERN fuer die Antwort auf
+   > diesen Punkt 3 haelt, schliesst eine Frage, die nie gestellt war -- und baut die Hybrid-Macro-
+   > Schicht gar nicht, weil er sie fuer einen Filter-Rang haelt. Umgekehrt: die Hybrid-Ebene tritt **nicht
+   > automatisch** als vierter Wert des `compare`/`macro`/`micro`-Flags hinzu; ob sie es soll, ist ein
+   > eigener, hier noch nicht getroffener Entscheid. Die Gegenstelle dieses Absatzes steht in
+   > `libs/cache_engine/hybrid/README.md` (Nachtrag 08.08.2026, Abschnitt 2).
 4. **Kapazität des Stacks** — feste Zahl, aus der XML, oder aus der erwarteten Aufrufzahl gerechnet?
    Hängt an `--check-size`, das die Größe ohnehin auf der CEB rechnet.
 5. **Prozess-Ende ohne Auslesen** — ein stiller Verlust wäre derselbe Fehler wie ein verschwiegener

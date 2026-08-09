@@ -89,6 +89,22 @@ lint:layer-includes:
   script:
     - sh scripts/lint_layer_includes.sh
 
+# XML-WOHLGEFORMTHEIT (2026-08-08): am 08.08. lagen VIER getrackte XML dieses Repos nicht
+# wohlgeformt im Baum -- darunter all_axes_golden.profile.xml, das golden-Profil der
+# Abgabe-Messung. Fehlerklasse in allen Faellen: "--" INNERHALB eines XML-Kommentars (von XML 1.0
+# Abschnitt 2.5 ausnahmslos verboten). Nichts hat es gemeldet: es gab keine Wache, die den
+# XML-Bestand ueberhaupt ansieht. Zwei der Dateien sind generiert, ihre Generatoren schrieben den
+# Defekt mit -- die wurden im selben Commit mitgeheilt, diese Wache faengt den Rueckfall.
+# Reiner Parser-Lauf ueber `git ls-files '*.xml'`, keine Bau-Artefakte, deshalb needs: [] und
+# kein Cache-Erbe. Fail-closed: fehlt xmllint, wird der Job ROT (rc=2) und nennt das Paket --
+# ein stiller Skip waere das Abschalten der Wache (Bissbeweis: 4 Koeder-Klassen + 2 Abbruchwege).
+lint:xml-wellformed:
+  stage: lint
+  tags: [baremetal]
+  needs: []
+  script:
+    - sh scripts/ci_xml_wellformed_guard.sh
+
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
   extends: .ccache-pull   # ccache-Hygiene 04.08.: alle bare-metal-Erben sind Konsumenten (pull-only)
@@ -321,6 +337,18 @@ test:coverage-guard:
     # Faelle, s. scripts/ci_diff_ascii_width_guard.bissbeweis.txt), die CI-Variablen-Verdrahtung
     # selbst konnte nur syntaktisch (pyyaml, read-only) und nicht in einer echten Pipeline
     # bestaetigt werden -- der erste echte Lauf ist der Beweis dieser einen Stelle.
+    #
+    # (0.4) SELBSTTEST DER WACHE, VOR ihrem Einsatz (09.08.2026). Die Wache selbst ist ein
+    # Werkzeug wie jedes andere und kann still erblinden -- am 09.08. am Objekt belegt: ihr
+    # DEFAULT-MODUS verglich gegen den INDEX statt gegen HEAD und sah untracked Dateien gar
+    # nicht; wer vor der Pruefung `git add` sagte, bekam "0 Zusatzzeilen ... GRUEN". Der
+    # Biss-Beweis konnte das nicht auffangen, weil alle sieben dort protokollierten Faelle
+    # ueber --stdin oder einen Bereich laufen und KEINER die Wache ohne Argumente fuhr.
+    # Der Selbsttest wuerfelt seinen Koeder bei jedem Lauf neu (kein fest eingetragener
+    # Beispielwert, der allowgelistet sein koennte) und faehrt neun Faelle in Wegwerf-Repos
+    # unter TMPDIR -- er fasst dieses Repo nicht an. Bewusst VOR der Wache: eine erblindete
+    # Wache soll auffallen, bevor ihr Gruen als Beleg gilt.
+    - sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
     - |
       set -eu
       _ce_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
@@ -364,6 +392,18 @@ test:coverage-guard:
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
     - sh scripts/ci_test_coverage_guard.sh build-covguard
+    # W-1 (2026-08-08): TEST-SICHTBARKEITS-WACHE -- die Stufe VOR der Abdeckungs-Wache.
+    # Die Abdeckungs-Wache oben rechnet die Job-Auswahlen gegen die LIVE-Inventur (ctest -N).
+    # Ihr Nenner ist damit genau so gut wie diese Inventur -- und die war es nicht: 27
+    # gtest-Faelle aus libs/cache_engine/builder/commands/tests standen ueberhaupt nicht drin,
+    # weil enable_testing() in der Wurzel NACH dem add_subdirectory kam. Eine Registrierung,
+    # die es nicht in die Inventur schafft, kann von keiner Wache vermisst werden, die auf
+    # der Inventur aufsetzt. Diese Wache prueft deshalb die STUFE DAVOR: Quelltext gegen
+    # Inventur, Differenz namentlich.
+    # HIER und nicht in einem eigenen Job, weil sie einen konfigurierten Bau-Baum braucht --
+    # build-covguard ist im selben Job schon gebaut. Ein eigener Job haette denselben
+    # Vollbau ein zweites Mal bezahlt.
+    - sh scripts/ci_test_sichtbarkeit_wache.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
 

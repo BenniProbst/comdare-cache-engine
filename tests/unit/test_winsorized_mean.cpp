@@ -57,13 +57,15 @@ int main() {
         std::vector<std::int64_t> v{100, 100, 100, 100, 100, 100, 100, 100, 100, 100000};
         double const plain = stats::latency_mean_ns(std::span<const std::int64_t>{v}); // (9*100+100000)/10 = 10090
         expect_near("plain mean (spike)", plain, 10090.0);
-        // trim_q=0.1: untere Grenze P(0.1), obere Grenze P(0.9). Nearest-Rank ueber n=10:
-        //   k_lo = floor(0.1*10)=1 → 1.-kleinster (sortiert 100..100,100000) = 100.
-        //   k_hi = floor(0.9*10)=9 → 9.-kleinster (Index 9, 0-basiert min(9, 9)) = 100000? -> nein:
-        // Nearest-Rank P(0.9): k=min(n-1, floor(0.9*10))=min(9,9)=9 → groesster Wert = 100000. Damit clampt 0.1
-        // NICHT (obere Grenze = der Spike selbst). Wir pruefen daher trim_q so, dass die obere Grenze < Spike liegt:
-        // trim_q=0.2 → P(0.8): k=min(9, floor(0.8*10)=8)=8 → 9.-kleinster (0-basiert Index 8) = 100 (alle ausser Spike).
-        // Untere Grenze P(0.2): k=floor(0.2*10)=2 → 100. → alle Spike-Werte werden auf 100 geclampt → Mittel = 100.
+        // D5-1-KANON (2026-08-09), k = ceil(q*n)-1 ueber n=10, sortiert {100 x9, 100000}:
+        //   P(0.2): k = ceil(2)-1 = 1 -> 100   (untere Winsor-Grenze)
+        //   P(0.8): k = ceil(8)-1 = 7 -> 100   (obere Winsor-Grenze; der Spike liegt DARUEBER)
+        // -> der Spike wird auf 100 geklemmt, alle uebrigen Werte sind bereits 100 -> Mittel = 100.
+        // HISTORIE (nicht mehr gueltig): bis 2026-08-09 rechnete percentile_ns k = min(n-1, floor(q*n));
+        // damit lag P(0.9) auf Index 9 = 100000, die obere Grenze war der Spike SELBST und trim_q=0.1
+        // klemmte nicht. Deshalb steht hier trim_q=0.2. Unter dem Kanon wuerde auch trim_q=0.1 klemmen
+        // (P(0.9): k = ceil(9)-1 = 8 -> 100); der Fall bleibt bei 0.2, weil er dieselbe Aussage schaerfer
+        // traegt (beide Flanken nachweislich innerhalb der 9 normalen Werte).
         double const wins = stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.2);
         expect_near("winsorized mean (spike clamped to 100)", wins, 100.0);
         // Robustheits-Aussage: das winsorisierte Mittel liegt drastisch unter dem arithmetischen Mittel.

@@ -59,10 +59,24 @@ Die Kette wird um GENAU EINE Rekursions-Ebene nach dem bestehenden Muster verlae
 | 3 | **Hybrid-Pruef-Docks (Hybrid-Tier-Binary <-> plain Tier-Binaries)** | bidirektional | **NEU, dieses Design**; N Docks statt einem, N dynamisch |
 
 Nach OBEN ist die Hybrid-Tier-Binary selbst ein gewoehnliches Tier-Modul am CEB-Pruef-Dock: sie
-exportiert die 4 Pflicht-Symbole der Anatomy-ABI (`anatomy_module_abi_v1_decl.hpp:62` Major 7,
-`:66` Magic `.A7.`) und liefert `IAnatomyBase` + `IObservableTier` als virtuelles ganzes
+exportiert die 4 Pflicht-Symbole der Anatomy-ABI (`anatomy_module_abi_v1_decl.hpp:62` Major 7, -- ABI-HISTORIE gegen SHA 6b8eee0f
+`:66` Magic `.A7.`) und liefert `IAnatomyBase` + `IObservableTier` als virtuelles ganzes -- ABI-HISTORIE gegen SHA 6b8eee0f
 Tier-Binary (SearchAlgorithm-Huelle). Nach UNTEN spricht jedes ihrer Docks seine plain Tier-Binary
 ueber EXAKT dieselbe Anatomy-ABI (`AnatomyModuleLoader`-Wiederverwendung).
+
+> **NACHTRAG 08.08.2026 (Paket HY-0) -- die beiden Zahlen im Absatz darueber sind Historie.**
+> Seit E-24 C8 (04.08.2026, ce `4f569051`) gilt:
+>
+> - **Major 8** -- Beleg `anatomy_module_abi_v1_decl.hpp:89`
+> - **Magic `.A8.`** = `0x434F4D444141382EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:93`
+>
+> Die Aussage des Absatzes -- kein eigener ABI-Schritt fuer die Hybrid-Stufe, beide Grenzen sind
+> die bestehende versionierte Anatomy-ABI -- ist davon UNBERUEHRT; nur die Zahl und die
+> Zeilen-Anker sind gewandert. Die alten Angaben bleiben als verifizierte Historie stehen (gegen
+> SHA `6b8eee0f`, den in Abschnitt 11 selbst genannten Basisstand, zeigen `:62` und `:66` wirklich
+> auf die beiden `#define`-Zeilen der damaligen ABI). Erzwungen wird das
+> Nachziehen ab jetzt von `scripts/ci_hy_label_gate.sh` (ctest: `hy_label_gate`), die den lebenden
+> Major maschinell aus dem Decl-Header liest und jeden Anker gegen Header bzw. SHA-Objekt nachrechnet.
 
 **Folge (wichtigster Freihalte-Entscheid): die Hybrid-Stufe braucht KEINEN eigenen ABI-Schritt.**
 Beide Grenzen sind die bestehende versionierte ABI. Siehe Abschnitt 6.
@@ -450,8 +464,10 @@ Pruefung -> CI gruen.
 | Anker | Datei:Zeile | Inhalt |
 |---|---|---|
 | Owner-Spec | super `docs/sessions/20260802-OWNER-entscheide-hybrid-tier-stempel-regression-os-unterachsen.md:7` | Entscheid 1 verbatim |
-| ABI-Major | `libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp:62` | `COMDARE_ANATOMY_ABI_MAJOR 7` |
-| ABI-Magic | dieselbe Datei `:59` | Magic von `.A6.` auf `.A7.` bewegt |
+| ABI-Major | `libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp:62` | `COMDARE_ANATOMY_ABI_MAJOR 7` -- ABI-HISTORIE gegen SHA 6b8eee0f |
+| ABI-Magic | dieselbe Datei `:59` | Magic von `.A6.` auf `.A7.` bewegt -- ABI-HISTORIE gegen SHA 6b8eee0f |
+| ABI-Major (lebend seit 04.08.2026) | `anatomy_module_abi_v1_decl.hpp:89` | Major 8 -- E-24 C8, ce `4f569051`, HY-0-Nachtrag oben |
+| ABI-Magic (lebend seit 04.08.2026) | `anatomy_module_abi_v1_decl.hpp:93` | Magic `.A8.` = `0x434F4D444141382EULL` |
 | Gattungs-Enum | `libs/cache_engine/anatomy/anatomy_base.hpp:78-84` | `AnatomyGenus` {SearchAlgorithm, Set, Sequence, Adapter, View} |
 | statische Haupt-Kommunikation | `libs/cache_engine/anatomy/observable_tier.hpp:185/:193` | `class IObservableTier : public IDriveableTier` / `tier_observe(...)` |
 | Dock-Doktrin | `libs/cache_engine/builder/pruef_dock/pruef_dock.hpp:10-14` | IPruefDock ist KEINE ABI-Grenze; ABI-Grenze = Antriebs-Sub-Interface + POD |

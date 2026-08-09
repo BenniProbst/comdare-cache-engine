@@ -53,6 +53,11 @@
 #include <builder/experiment_tree/slice_marker.hpp>   // E-04-P1: kSliceMarkerTraceMarken (Tee-Filter-Single-Source)
 #include <builder/bestandslog/planer_block_value.hpp> // G4b-2/E4: make_planer_block_reservation_value (der Wert-Kern)
 #include <builder/bestandslog/reservation_lifecycle.hpp> // G4a(7): make_pro_forma_reservation / BatchTyp::planer_block
+// LAG-P4 (Korn-Wache, s. unten bei kGnBatchSlice): die beiden ANDEREN Traeger des 4096er-Korns. Der Weg
+// hierher besteht ohnehin transitiv (profile_run_entry.hpp -> cache_engine_builder_iterator.hpp ->
+// planer_driven_build.hpp -> batch_planner.hpp); die Wache haengt aber NICHT an einer fremden
+// Include-Kette, die ein spaeterer Umbau still kappen koennte -- sie zieht ihre Operanden selbst.
+#include <builder/bestandslog/planer_driven_build.hpp> // LAG-P4: bestandslog::kBuildSliceGrain (+ kGnBatchSlice)
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
@@ -660,6 +665,48 @@ private:
 // Organ-Bau-Volumen als chunk<k> -- O(Perms x Chunks) war INTERIM (W4/INC-G6, vor dem §62-B-Gesetz). Ersetzt durch
 // die O(Maschinen)-Batch-Emission (kGnBatchSlice-Scheiben INNERHALB EINES Batch-Jobs je Host).
 inline constexpr std::size_t kGnBatchSlice = 4096;
+
+// ===========================================================================
+// LAG-P4 -- DIE KORN-WACHE: das 4096er-Korn ist ab hier COMPILE-HART gebunden.
+//
+// SELBSTCHECK: diese drei static_assert sichern zu, dass die DREI Traeger des Batch-Korns denselben
+// Wert tragen UND dass dieser Wert die Owner-Zahl 4096 ist. Sie sichern NICHT zu, dass das Korn an
+// jeder Verwendungsstelle auch wirklich BENUTZT wird (wer eine vierte Konstante neu erfindet, faellt
+// hier nicht auf), und sie sagen NICHTS ueber die Laufzeit-Groesse eines konkreten Fensters (ein Rest-
+// Fenster am Ende einer Selektion ist zulaessig kleiner).
+//
+// WARUM COMPILE-HART UND NICHT ALS KOMMENTAR. Bis zu diesem Paket hielt die Bindung allein ein
+// Kommentar an jeder der drei Stellen. Das ist am Objekt widerlegt: der Spiegel-Kommentar in
+// batch_planner.hpp verwies auf "experiment_plan_director.hpp:439" -- die Konstante stand real bei
+// :662. Der Verweis war also selbst schon abgedriftet, waehrend er die Bindung behauptete. Ein
+// Kommentar kann eine Invariante beschreiben; halten kann er sie nicht.
+//
+// WAS AUSEINANDERLAUFEN WUERDE, wenn die drei divergieren -- je Zusicherung eine eigene Folge, siehe
+// die Fehlertexte. Der Kern: der Planer EMITTIERT die Scheiben-Grenzen, das Bestandslog RESERVIERT
+// und DEDUPLIZIERT genau diese Scheiben, und der planer-getriebene Bau STEMPELT das Korn in den
+// Batch-Plan, den der spaetere Mess-Lauf ueber denselben Stempel wiederfindet. Drei Rollen, EIN Korn.
+// ===========================================================================
+static_assert(kGnBatchSlice == 4096,
+              "LAG-P4/Korn-Wache: planner::kGnBatchSlice (experiment_plan_director.hpp) ist nicht 4096. Das "
+              "Batch-Korn ist eine OWNER-FESTLEGUNG vom 22.07.2026 ('Batch stets 4096, mit Zeitstempel "
+              "reserviert'; F6 vom 01.08.2026: 4096er-Batches sind JOB-MEILENSTEINE genau EINER Maschine, nie "
+              "geteilt, nie unterbrochen). Wer diese Zahl aendert, aendert die Reservierungs-Groesse des "
+              "Bestandslogs, den Wiederaufnahme-Takt nach einem Abbruch und die Gleichverteilung zwischen den "
+              "Maschinen. Das ist kein Zahlendreher, den man hier still korrigiert, sondern ein Owner-Entscheid.");
+static_assert(::comdare::cache_engine::builder::bestandslog::kGnBatchSlice == kGnBatchSlice,
+              "LAG-P4/Korn-Wache: bestandslog::kGnBatchSlice (batch_planner.hpp) und planner::kGnBatchSlice "
+              "(experiment_plan_director.hpp) laufen auseinander. Beide MUESSEN dasselbe Korn tragen: der Planer "
+              "emittiert die Scheiben-Grenzen, und das Bestandslog reserviert und dedupliziert GENAU diese "
+              "Scheiben. Bei ungleichem Korn beansprucht eine Maschine ein Fenster, das die andere nie als "
+              "Fenster sieht -- aus der Gleichverteilung wird Doppelarbeit, und der Takeover bei ETA+50% gibt "
+              "eine Menge frei, die der uebernehmende Lauf gar nicht deckt.");
+static_assert(::comdare::cache_engine::builder::bestandslog::kBuildSliceGrain == kGnBatchSlice,
+              "LAG-P4/Korn-Wache: bestandslog::kBuildSliceGrain (planer_driven_build.hpp) und "
+              "planner::kGnBatchSlice (experiment_plan_director.hpp) laufen auseinander. Der planer-getriebene "
+              "Bau slict die selektierten Indizes mit diesem Korn und stempelt es in den Batch-Plan ('|korn='); "
+              "der SPAETERE Mess-Lauf sucht seinen Plan ueber genau diesen Stempel. Bei ungleichem Korn findet "
+              "der Mess-Lauf den Plan seines eigenen Bau-Laufs NICHT mehr und schreibt die Mess-Front nicht "
+              "fort -- fail-closed, aber still falsch: der Plan IST da, er wird nur nicht wiedererkannt.");
 
 // W10-Nacharbeit (§42, Serie-E2E 11562/11566): die dynamischen Child-Pipelines ERBEN die globalen Parent-Variablen
 // NICHT (self-contained). Ohne die ccache-Konfiguration scheitert der CEB-/Tier-Bau am Runner an
@@ -1310,16 +1357,30 @@ private:
             s += "             \"$DRIVER\" experiment_config \"" + dll_dir + "\" \\\n";
             // #27: Detail nach <log>; die [heartbeat]-Zeilen (alle K Builds via ProgressHeartbeat every_n) zusaetzlich in den Trace.
             s += "             " + driver_log_redirect("$LOGDIR/perm" + idx + "_bau_${START}.log") + "; then\n";
+            // W0b-3 (2026-08-08): offen= steht ZUSAETZLICH auf der Fehler-Zeile. Vor der else-Bindung unten
+            // trug jedes Fenster sein offen= ueber das unbedingte [TESTAT]; mit der Bindung faellt es fuer
+            // das gescheiterte Fenster ersatzlos weg -- also genau dort, wo "wie viele davon noch offen"
+            // am meisten zaehlt. Beide Zeilen eines Guards tragen deshalb DENSELBEN Feldsatz; der Aggregator
+            // sieht den Fortschritt auf beiden Pfaden. Rein Shell-arithmetisch, damit byte-deterministisch.
             s += "          echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
-                 " phase=bau fenster=${START}:${COUNT}\"; FAIL=1\n";
-            s += "        fi\n";
+                 " phase=bau fenster=${START}:${COUNT} offen=$(( TOTAL - START - COUNT ))\"; FAIL=1\n";
+            // W0b-3 (2026-08-08) -- SCHWESTERSTELLE zu D3-5, derselbe Defekt im Bau-Batch: das [TESTAT] stand
+            // bis hierher HINTER dem fi und wurde damit UNBEDINGT gedruckt, auch fuer das eben gescheiterte
+            // Fenster. Der Guard ist WEICH (FAIL=1 statt Abbruch), die Zeile lief also wirklich; ein
+            // fehlgeschlagenes Fenster trug beide Testate untereinander. Wer die [TESTAT]-Zeilen als
+            // "gebaute Fenster" zaehlt -- der naheliegendste Gebrauch --, zaehlte die gescheiterten mit: der
+            // Nenner war um genau die Fehlerzahl zu gross und schoente sich, je mehr schiefging.
+            // Ab jetzt im else-Zweig: [TESTAT] heisst "dieses Fenster WURDE gebaut", nicht "wir sind hier
+            // vorbeigekommen". Die beiden Testate schliessen einander aus; je Fenster steht genau eins.
+            s += "        else\n";
             // E-04-P1 (Teil 1b): offen= = die nach DIESEM Fenster noch ausstehenden Binaries der Perm
             // (TOTAL - START - COUNT, rein Shell-arithmetisch => byte-deterministisch). Beantwortet den
             // Owner-KERN "wie viele davon noch offen" auf der SHELL-Ebene; die Treiber-Zeile [PLAN-TESTAT]
             // beantwortet dieselbe Frage INNERHALB des Fensters (zu_bauen nach Lager-Filter). Zwei Sichten,
             // eine Frage -- deshalb dasselbe Vokabular.
-            s += "        echo \"[TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
+            s += "          echo \"[TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell +
                  " phase=bau fenster=${START}:${COUNT} offen=$(( TOTAL - START - COUNT ))\"\n";
+            s += "        fi\n";
             s += "        START=$(( START + COUNT ))\n";
             s += "      done\n";
             // S3-PRUEF-Schritt (UNBEDINGT je Perm nach der Fenster-Schleife): COMDARE_PRUEF_ONLY=true faehrt NUR das
@@ -1390,8 +1451,28 @@ private:
         s += "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'\n";
         s += "      when: on_success   # smoke: Auto-Messlauf (kleiner Umfang, Rauch-Test der Mess-Strecke)\n";
         s += "    - when: manual       # sonst: 320er-§41-Gate (Voll-Messlauf erst nach User-Entscheid)\n";
-        // Sichtbarkeits-Doktrin: Mess-Fehler => CSV 'failed' + Log, die Pipeline bleibt gruen (nicht still verschluckt).
-        s += "  allow_failure: true\n";
+        // #278 / OV-16 (2026-08-09): HIER STAND EINE EMISSION DES VERBOTENEN FLAGS -- ersatzlos entfernt.
+        // (Die entfernte Zeile wird hier bewusst NICHT als Emissions-Literal zitiert -- ein Audit, das nach
+        //  Emissions-Zeilen dieses Flags sucht, soll 0 Treffer haben und nicht an einem Kommentar haengen.)
+        // SELBSTCHECK: der Mess-Batch traegt KEIN allow_failure; sein Schluss-Verdikt ist `exit $FAIL` (unten),
+        //   also faellt der CI-Job hart, sobald auch nur eine Zelle scheiterte. Zugesichert von
+        //   test_experiment_plan_director.cpp TierCiYamlBuilder.KeinAllowFailureInEmittierterJobYamlBeideStufen...
+        //   (0 Treffer je Batch, Nenner 2 Host-Lanes) -- der Test war mit dieser Zeile ROT.
+        // DIE ZWEI EBENEN, die hier verschmolzen waren und nie wieder verschmelzen duerfen:
+        //   ZELLE -> ein Mess-Fehler gibt [FEHLER-TESTAT] + Log aus, setzt FAIL=1 und die Schleife MISST WEITER
+        //            (die CSV-Zelle traegt "failed", nie eine stille Null; perm_runner.hpp:145/354).
+        //   JOB   -> der Batch endet auf `exit $FAIL` und ist damit HART ROT. Das ist die Owner-Regel.
+        // PROVENIENZ DES DEFEKTS: Owner 2026-07-06 14:16:43 UTC "bei einer harten Pipeline darf es kein allow
+        //   failure geben" (Issue #278), Verschaerfung 2026-07-17 "die gesamte Pipeline IMMER hart gruen".
+        //   Zwei Tage nach der Verschaerfung fuegte b5e64a51c (2026-07-19) das Flag ohne GO ein; 0d91dc1e3
+        //   (2026-07-20) klebte den Kommentar "Sichtbarkeits-Doktrin" darueber -- die erste Erwaehnung des
+        //   Begriffs ueberhaupt. Die Owner-Aussage vom 2026-07-16, auf die er sich berief, galt der CSV-ZELLE.
+        //   Bestaetigung Owner 2026-08-09: "Allow failure war schon IMMER verboten ... aber der CI-Job failed
+        //   immer hart."
+        // FOLGE-STUFEN (am Objekt geprueft, super-Pipelines 15372/15306): ein hart roter Mess-Batch stoppt
+        //   persist:measurements / anhang:forward / thesis:pdf NICHT -- keiner von ihnen hat eine needs-Kante
+        //   auf planer:delegate-trigger. In 15372 fiel die Bridge trigger:cache-engine hart, und thesis:pdf
+        //   (spaetere Stage) lief trotzdem auf success.
         s += "  script:\n";
         // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
         emit_child_submodule_prolog(s, header_.profile_basename); // ce-Submodul-Klon, Spiegel des Bau-Jobs
@@ -1426,7 +1507,15 @@ private:
         // Exit != 0 den Batch ehrlich ab -- HART in BEIDEN Profilen, auch smoke (§66-N2 "beide hart").
         s += "      echo \"== [PMC-PREFLIGHT] lane=" + host + " ts=$(date -u +%FT%TZ) ==\"\n";
         s += "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n";
-        s += "      ctest --test-dir build -L pmc --output-on-failure\n";
+        // W0b-3 (2026-08-08), per T-6 gefundene Schwesterstelle DERSELBEN Klasse (ein Marker behauptet mehr,
+        // als er weiss): `ctest -L pmc` gibt bei NULL passenden Tests rc=0 aus ("No tests were found!!!", am
+        // Objekt gemessen) -- `set -e` greift also nicht, und die Zeile darunter meldet ungeruehrt pmc=ok.
+        // Ein Preflight, der nichts gefunden hat, ist damit von einem bestandenen nicht zu unterscheiden.
+        // Das ist keine graue Theorie: Commit 7dc372c7 fand am selben Tag Registrierungen, die es lautlos
+        // NICHT in die ctest-Inventur geschafft hatten. Traefe das die beiden pmc-Ziele, liefe eine
+        // mehrtaegige Messung mit kaputtem perf_event_open durch -- genau der Fall, den dieser Preflight
+        // verhindern soll. --no-tests=error macht den Leerlauf zum Fehler (rc=8).
+        s += "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n";
         s += "      echo \"[PMC-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " pmc=ok\"\n";
         // Mess-Fenster = das VOLLE [0:COMDARE_GN_TOTAL) der Zelle (BYTE-GLEICH zur Vor-S4-Emission). Einmal je Batch.
         s +=
@@ -1493,9 +1582,18 @@ private:
                 s += "           " + driver_log_redirect("$LOGDIR/perm" + idx + "_mess.log") + "; then\n";
                 s += "        echo \"[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
                      " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"; FAIL=1\n";
-                s += "      fi\n";
-                s += "      echo \"[MESS-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
+                // D3-5 (2026-08-08): das [MESS-TESTAT] stand bis hierher AUSSERHALB des fi und wurde damit
+                // UNBEDINGT gedruckt -- auch unmittelbar nach einem [FEHLER-TESTAT] derselben Zelle. Eine
+                // gescheiterte Zelle trug beide Testate, und wer die [MESS-TESTAT]-Zeilen als "gemessene
+                // Zellen" zaehlt (der naheliegendste Gebrauch), zaehlte die gescheiterten mit. Der Nenner
+                // war damit strukturell zu gross, und zwar genau um die Fehlerzahl -- die Kennzahl schoente
+                // sich umso staerker, je mehr schiefging.
+                // Ab jetzt im else-Zweig: [MESS-TESTAT] heisst "diese Zelle WURDE gemessen", nicht "wir sind
+                // hier vorbeigekommen". Die beiden Testate schliessen einander aus; je Zelle steht genau eins.
+                s += "      else\n";
+                s += "        echo \"[MESS-TESTAT] ts=$(date -u +%FT%TZ) lane=" + host + " zelle=" + cell3 +
                      " phase=mess fenster=0:${COMDARE_GN_TOTAL:-16}\"\n";
+                s += "      fi\n";
             }
         }
         // G4a P-B (§65 lokal->0, #35): der PRUNE-Schritt als LETZTER Schritt des MESS-Batches, je Perm.

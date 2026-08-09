@@ -28,12 +28,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm> // (W0b-3) std::find ueber die aus dem Plan GELESENE Marken-Menge
+#include <array>     // (W0b-3) kTestatKlassifikation
 #include <cstddef>
 #include <cstdlib> // (i) Byte-Wache: setenv/unsetenv (COMDARE_BUILD_TYPE)
 #include <filesystem>
 #include <optional>
 #include <stdexcept> // (R5) EXPECT_THROW std::invalid_argument (exactly-one-Haertung)
 #include <string>
+#include <string_view> // (W0b-3) Marken-Namen der Klassifikation
+#include <utility>     // (W0b-3) std::pair der Klassifikation
 #include <vector>
 
 #ifndef COMDARE_PLANNER_THESIS_MIN
@@ -1196,6 +1200,90 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
 }
 
+// -- #278 / OV-16: KEIN allow_failure in irgendeiner EMITTIERTEN Job-YAML (beide CI-Stufen). -----------------
+// SELBSTCHECK: dieser Test beisst genau dann, wenn ein Emissionsblock das Wort 'allow_failure' in die Job-YAML
+//   schreibt, und NUR dann -- kein anderer Test dieses Baums nennt es (gegengeprueft 2026-08-09:
+//   `git grep -c allow_failure -- tests/` = 0 Treffer, rc=1). Vor dem Entfernen von
+//   experiment_plan_director.hpp emit_batch_measure_job:"  allow_failure: true\n" war er ROT (2 Treffer,
+//   1 je Host-Lane); danach gruen. Ein Wiedereinbau macht ihn sofort wieder rot -- der mutierte Zweig ist
+//   also beobachtbar und wird von keiner anderen Zusicherung verdeckt.
+// PROVENIENZ: Owner 2026-07-06 14:16:43 UTC "bei einer harten Pipeline darf es kein allow failure geben";
+//   Verschaerfung 2026-07-17 "die gesamte Pipeline IMMER hart gruen"; 2026-07-26 "Pipelines muessen hart gruen
+//   durchlaufen, da wird nichts unterbrochen"; Bestaetigung 2026-08-09 "Allow failure war schon IMMER verboten.
+//   Wenn dann muss ein Fehler sauber mit einer Warnung an den Anwender angezeigt und die Messung uebersprungen
+//   werden, aber der CI-Job failed immer hart."
+// ZWEI EBENEN, hier BEIDE geprueft (sie duerfen nie wieder verschmelzen -- genau daran entstand der Defekt:
+//   Commit b5e64a51c 2026-07-19 fuegte das Flag auf JOB-Ebene ein, 0d91dc1e3 2026-07-20 klebte den Kommentar
+//   "Sichtbarkeits-Doktrin" darueber, obwohl die Owner-Aussage vom 2026-07-16 der CSV-ZELLE galt):
+//   JOB   -> kein allow_failure; der Batch endet auf `exit $FAIL` = hartes Verdikt.
+//   ZELLE -> je gescheiterter Zelle [FEHLER-TESTAT] + FAIL=1, der Batch MISST DURCH (Schleife bleibt intakt).
+TEST(TierCiYamlBuilder, KeinAllowFailureInEmittierterJobYamlBeideStufenUndZellEbeneIntakt) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb; // Stufe 2: die Batch-Jobs (Bau + Mess) je Host-Lane
+    planner::CiYamlBuilder                cb; // Stufe 1: die CEB-Jobs (build/emit/trigger)
+    director.construct(*tp, tb);
+    director.construct(*tp, cb);
+    std::string const& stufe2 = tb.text();
+    std::string const& stufe1 = cb.text();
+
+    // GEGENPROBE VOR DEM NICHTFUND: dass die Suche auf GENAU diesen Texten ueberhaupt greift, wird an einem
+    // Literal belegt, das in derselben Emission steht (sonst waere eine 0 nur eine stille Null).
+    std::size_t const measure_batches = count_occurrences(stufe2, "# JOB measure-batch ");
+    ASSERT_EQ(measure_batches, 2u) << "Nenner: 2 Host-Lanes (amd+intel) => 2 Mess-Batches";
+    // (Der GN-11-`timeout: 7d` taugt hier NICHT als Nenner-Probe: er steht auch im Bau-Batch, also 4x statt 2x --
+    //  am Objekt gemessen 2026-08-09. Genommen wird ein Literal, das NUR der Mess-Batch traegt.)
+    ASSERT_EQ(count_occurrences(stufe2, "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n"),
+              measure_batches)
+        << "Gegenprobe: die Suche findet in DIESEM Text (PMC-Preflight nur im Mess-Batch, je Lane einer)";
+    ASSERT_GT(count_occurrences(stufe1, "  stage: ceb-build\n"), 0u) << "Gegenprobe: Stufe-1-Text ist nicht leer";
+
+    // (1) JOB-EBENE: 0 von 2 Mess-Batches (und 0 in der gesamten Emission BEIDER Stufen) traegt allow_failure.
+    EXPECT_EQ(count_occurrences(stufe2, "allow_failure"), 0u)
+        << "#278: die Stufe-2-Emission traegt 0 allow_failure (Nenner: " << measure_batches << " Mess-Batches)";
+    EXPECT_EQ(count_occurrences(stufe1, "allow_failure"), 0u) << "#278: auch die Stufe-1-Emission traegt 0";
+
+    // (2)+(3) werden PRO MESS-BATCH-BLOCK geprueft, nicht global. Grund, am Objekt gemessen (2026-08-09): global
+    //     gezaehlt traegt die Stufe-2-YAML 4x `exit $FAIL`, 16x [FEHLER-TESTAT] und 12x "; FAIL=1" -- weil der
+    //     BAU-Batch dieselben Marken fuer seine Bau-/Pruef-Schritte fuehrt. Ein globaler Nenner haette hier also
+    //     einen Bau-Befund als Mess-Befund ausgegeben. Geschnitten wird wie im Nachbar-Test G4a...InCorrectOrder.
+    auto measure_bloecke = [&stufe2] {
+        std::vector<std::string> blocks;
+        std::size_t              pos = stufe2.find("# JOB measure-batch ");
+        while (pos != std::string::npos) {
+            std::size_t const next = stufe2.find("\n# JOB ", pos + 1);
+            blocks.push_back(stufe2.substr(pos, next == std::string::npos ? std::string::npos : next - pos));
+            pos = stufe2.find("# JOB measure-batch ", pos + 1);
+        }
+        return blocks;
+    }();
+    ASSERT_EQ(measure_bloecke.size(), measure_batches);
+
+    for (std::string const& blk : measure_bloecke) {
+        // (2) JOB-EBENE, positiv: das harte Verdikt steht wirklich da. Ohne diese Zusicherung koennte ein
+        //     spaeterer Umbau `exit $FAIL` durch `exit 0` ersetzen -- und das Entfernen von allow_failure waere
+        //     folgenlos, ohne dass irgendetwas rot wuerde.
+        EXPECT_EQ(blk.find("allow_failure"), std::string::npos) << "kein allow_failure IN DIESEM Mess-Batch";
+        EXPECT_EQ(count_occurrences(blk, "      exit $FAIL"), 1u) << "genau ein hartes Schluss-Verdikt je Batch";
+        EXPECT_EQ(blk.find("exit 0"), std::string::npos) << "kein weich gemachter Schluss im Mess-Batch";
+
+        // (3) ZELL-EBENE, unangetastet: je Zelle GENAU ein Testat (die beiden schliessen einander aus, D3-5),
+        //     die Fehler-Zelle setzt FAIL=1 statt abzubrechen -- der Batch misst durch.
+        std::size_t const zellen = count_occurrences(blk, "      echo \"== [MESS] zelle=");
+        ASSERT_GT(zellen, 0u) << "Nenner: die Mess-Koepfe dieser Lane";
+        // Gezaehlt wird die ECHO-Emission, nicht das blosse Vorkommen der Marke: die Schluss-Zeile
+        // `exit $FAIL` traegt "[FEHLER-TESTAT]" im KOMMENTAR mit, und ein naiver Marken-Zaehler laege je
+        // Batch um genau 1 daneben (am Objekt gemessen 2026-08-09: 3 statt 2).
+        EXPECT_EQ(count_occurrences(blk, "echo \"[FEHLER-TESTAT]"), zellen)
+            << "je Zelle ein Fehler-Zweig ([FEHLER-TESTAT] + FAIL=1) -- die Warnung an den Anwender";
+        EXPECT_EQ(count_occurrences(blk, "echo \"[MESS-TESTAT]"), zellen) << "je Zelle ein Erfolgs-Zweig";
+        EXPECT_EQ(count_occurrences(blk, "; FAIL=1"), zellen)
+            << "die gescheiterte Zelle setzt FAIL=1 und der Batch laeuft weiter (kein exit im Fehler-Zweig)";
+    }
+}
+
 // (W6) Legenden-Determinismus beider Stufen: zwei Laeufe -> byte-gleich (Thesis + Experiment).
 TEST(TierCiYamlBuilder, StageTwoIsByteDeterministic) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
@@ -1388,6 +1476,665 @@ TEST(TierCiYamlBuilder, SoftFailGuardAndFinalExit) {
     EXPECT_EQ(count_occurrences(yaml, "exit $FAIL"), 4u) << "je Batch-Job (2 Build + 2 Mess) ein Sammel-Exit";
 }
 
+// ---------------------------------------------------------------------------
+// (D3-5 / W0b-3, 2026-08-08) WERKZEUG DER TESTAT-BINDUNGS-WACHE.
+//
+// Ein Shell-Testat behauptet "dieser Schritt IST getan". Steht sein echo HINTER dem schliessenden fi
+// eines SOFT-FAIL-Guards -- `if ! <cmd>; then echo "[FEHLER-TESTAT] ..."; FAIL=1; fi` -- dann wird es
+// UNBEDINGT gedruckt, auch fuer die gescheiterte Zelle. Der Guard ist WEICH: er setzt FAIL=1, statt
+// abzubrechen, die Zeile darunter laeuft also wirklich. Wer die Testat-Zeilen als "erledigte Zellen"
+// zaehlt -- der naheliegendste Gebrauch --, zaehlt die Fehlschlaege mit; der Nenner ist um genau die
+// Fehlerzahl zu gross und schoent sich, je mehr schiefgeht.
+//
+// D3-5 heilte das [MESS-TESTAT]. W0b-3 ist die SCHWESTERSTELLE: dasselbe im Bau-Batch ([TESTAT]).
+//
+// WARUM DIE VORIGE FASSUNG DIESER WACHE DIE SCHWESTER NICHT SAH: sie lief ueber EINEN handgenannten
+// Marker. Die Klasse hatte aber zwei Stellen, und ein dritter Marker haette sie wieder blind
+// erwischt. Deshalb liest diese Fassung die Marken-Menge AUS DEM EMITTIERTEN PLAN und verlangt fuer
+// jede eine Klassifikation -- eine neue Marke faellt mit ihrem Namen auf, statt stumm durchzurutschen.
+//
+// NICHT GEMEINT sind die unter `set -euo pipefail` gefuehrten Testate ([CEB-TESTAT], [PMC-TESTAT]):
+// dort bricht ein Fehler den ganzen Job ab, das Testat wird nie erreicht. Das ist eine andere Bauart,
+// kein Defekt -- sie steht deshalb namentlich in der Klassifikation und nicht stillschweigend im
+// Ausnahmefall.
+//
+// GRENZEN (T-9), ausdruecklich benannt statt verschwiegen -- drei Stueck:
+//  1. Die Wache liest den EMITTIERTEN Shell-Text STRUKTURELL, sie fuehrt ihn nicht aus. Die Bindung
+//     erkennt sie an else/fi und an FAIL=1, nicht an der Semantik eines beliebigen Konstrukts: ein
+//     Testat, das ueber `&&`/`||` oder eine Shell-Funktion gebunden wird, gilt ihr als "kein
+//     Soft-Fail-Guard" und bleibt ungeprueft.
+//  2. Als Testat zaehlt nur, was "TESTAT" IM NAMEN traegt -- das ist die Grammatik der Familie
+//     (Marke, ts=, dann Felder), aber eine Erfolgsmeldung, die anders hiesse, faellt durch. Die
+//     Alternative (jedes echo "[...]") war verworfen: die Schritt-KOEPFE [BAU]/[MESS]/[PRUEF] sind
+//     legitim unbedingt und erzeugten lauter Falschklagen.
+//  3. Geprueft werden die zwei CI-Emissionen, seit dem Nachsatz W0b-3 in BEIDEN Methodiken
+//     (measure UND debug, alle_wachen_plaene -- der Debug-Zweig mit seinem (j3)-Dual-Compile war
+//     vorher strukturell ungeprueft). Der bare-metal-Spiegel (TierCmakeGraphBuilder,
+//     Abschnitt 61 Dual-Weg) emittiert heute UEBERHAUPT keine Testate und ist damit nicht
+//     Gegenstand dieser Wache -- am Objekt nachgesehen (2026-08-08), nicht angenommen.
+// ---------------------------------------------------------------------------
+namespace {
+
+[[nodiscard]] std::string ohne_rand(std::string const& s) {
+    std::size_t const a = s.find_first_not_of(" \t");
+    if (a == std::string::npos) return {};
+    return s.substr(a, s.find_last_not_of(" \t") - a + 1);
+}
+
+[[nodiscard]] std::vector<std::string> zeilen_von(std::string const& text) {
+    std::vector<std::string> out;
+    std::size_t              a = 0;
+    while (true) {
+        std::size_t const e = text.find('\n', a);
+        if (e == std::string::npos) {
+            out.push_back(text.substr(a));
+            break;
+        }
+        out.push_back(text.substr(a, e - a));
+        a = e + 1;
+    }
+    return out;
+}
+
+// Die Marke eines Testat-ECHOS, sonst "". Nur echte Emissionen zaehlen: eine Zeile, die eine Marke
+// bloss NENNT (`exit $FAIL   # Fehler je Zelle sichtbar ([FEHLER-TESTAT] + Log-Artefakt)`), ist kein
+// Testat und darf den Nenner nicht fuellen. Genau daran waere ein reiner Zeichenketten-Zaehler
+// vorbeigelaufen -- der Plan emittiert solche Kommentare wirklich.
+[[nodiscard]] std::string testat_marke_der_zeile(std::string const& zeile) {
+    std::string const anker = "echo \"[";
+    std::size_t const p     = zeile.find(anker);
+    if (p == std::string::npos) return {};
+    std::size_t const a = p + anker.size();
+    std::size_t const e = zeile.find(']', a);
+    if (e == std::string::npos) return {};
+    std::string marke = zeile.substr(a, e - a);
+    if (marke.find("TESTAT") == std::string::npos) return {};
+    return marke;
+}
+
+// Die Marken-Menge, aus dem Plan GELESEN statt handgelistet (Reihenfolge des ersten Auftretens).
+[[nodiscard]] std::vector<std::string> emittierte_testat_marken(std::vector<std::string> const& z) {
+    std::vector<std::string> marken;
+    for (std::string const& zeile : z) {
+        std::string const marke = testat_marke_der_zeile(zeile);
+        if (marke.empty()) continue;
+        if (std::find(marken.begin(), marken.end(), marke) == marken.end()) marken.push_back(marke);
+    }
+    return marken;
+}
+
+[[nodiscard]] bool ist_kontrollfluss(std::string const& roh) {
+    std::string const t = ohne_rand(roh);
+    return t == "fi" || t == "else" || t == "done" || t.rfind("if ", 0) == 0 || t.rfind("elif ", 0) == 0 ||
+           t.rfind("while ", 0) == 0 || t.rfind("for ", 0) == 0;
+}
+
+// Die Feldnamen einer Testat-Zeile in Reihenfolge. Getrennt wird am '=', der Name davor gelesen --
+// NICHT am Leerzeichen: die Werte enthalten selbst welche ($(date -u +%FT%TZ),
+// $(( TOTAL - START - COUNT ))), ein Split am Leerzeichen zerlegte sie falsch.
+//
+// GELESEN WIRD NUR DIE ECHO-NUTZLAST zwischen den aeusseren Anfuehrungszeichen. Ohne diese Klammer
+// zaehlte die angehaengte Shell-Anweisung `; FAIL=1` als Feld "FAIL" mit -- im ersten roten Lauf
+// meldete die Wache genau das, und die Grammatik der Zeile ist nicht, was hinter ihr noch steht.
+[[nodiscard]] std::vector<std::string> feldnamen(std::string const& roh) {
+    std::size_t const auf = roh.find('"');
+    std::size_t const zu  = roh.rfind('"');
+    if (auf == std::string::npos || zu <= auf) return {};
+    std::string const        zeile = roh.substr(auf, zu - auf + 1);
+    std::vector<std::string> felder;
+    for (std::size_t i = 0; i < zeile.size(); ++i) {
+        if (zeile[i] != '=') continue;
+        std::size_t j = i;
+        while (j > 0) {
+            char const c    = zeile[j - 1];
+            bool const teil = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+            if (!teil) break;
+            --j;
+        }
+        if (j == i) continue;                        // '=' ohne Namen davor
+        if (j == 0 || zeile[j - 1] != ' ') continue; // nur freistehende Felder, kein ${X:-Y}-Innenleben
+        felder.push_back(zeile.substr(j, i - j));
+    }
+    return felder;
+}
+
+[[nodiscard]] std::string verkettet(std::vector<std::string> const& v) {
+    std::string s;
+    for (std::string const& e : v) {
+        if (!s.empty()) s += ' ';
+        s += e;
+    }
+    return s;
+}
+
+// BEIDE emittierten Plaene, nicht nur der eine. Der erste rote Lauf klagte [CEB-TESTAT] als
+// "wird nicht mehr emittiert" ein -- die Marke steht naemlich in der STUFE-1-Emission
+// (CiYamlBuilder), waehrend die Batch-Testate aus der STUFE-2-Emission (TierCiYamlBuilder)
+// kommen. Eine Wache, die nur eine Stufe liest, ist auf der anderen blind: genau die
+// Schwesterstellen-Blindheit, gegen die dieses Paket gebaut ist, eine Ebene hoeher.
+struct EmittierterPlan {
+    std::string              name;
+    std::vector<std::string> zeilen;
+};
+
+// (Nachsatz W0b-3, 08.08.2026) BEIDE Methodiken, nicht nur der eine golden-measure-Release-Pfad:
+// der Review fand alle drei Wachen-Tests auf demselben Pfad -- der Debug-Zweig ((j3) Dual-Compile,
+// ZWEI Treiber-Aufrufe je Mess-Fenster, eigene Testat-Zeilen) war strukturell ungeprueft. Die
+// Debug-Plaene entstehen wie in MeasurementModi61 (j2): dieselben Achsen, run_methodology={"debug"}.
+// Vier Plaene = {Stufe 1, Stufe 2} x {measure, debug}; jede Wache laeuft ueber ALLE vier.
+[[nodiscard]] std::vector<EmittierterPlan> alle_wachen_plaene(cx::ThesisProfile const& tp) {
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                b1m;
+    planner::TierCiYamlBuilder            b2m;
+    director.construct(tp, b1m);
+    director.construct(tp, b2m);
+    cx::ThesisProfile dbg = tp;
+    dbg.run_methodology   = {"debug"};
+    planner::CiYamlBuilder     b1d;
+    planner::TierCiYamlBuilder b2d;
+    director.construct(dbg, b1d);
+    director.construct(dbg, b2d);
+    return {{"CiYamlBuilder (Stufe 1, measure)", zeilen_von(b1m.text())},
+            {"TierCiYamlBuilder (Stufe 2, measure)", zeilen_von(b2m.text())},
+            {"CiYamlBuilder (Stufe 1, debug)", zeilen_von(b1d.text())},
+            {"TierCiYamlBuilder (Stufe 2, debug)", zeilen_von(b2d.text())}};
+}
+
+// ---------------------------------------------------------------------------
+// (Nachsatz W0b-3) GRAMMATIK DER CTEST-ERKENNUNG, als benannte Helfer ueber eine MENGE geprueft
+// (Test CtestGrammatikHelfer...). Die vorige Fassung verglich den Zeilenanfang woertlich mit
+// "ctest " und suchte "--no-tests=error" als Substring der GANZEN Zeile. Das war in beide
+// Richtungen falsch: zu ENGER Nenner (uebersehen: /usr/bin/ctest, `if ! ctest`, `VAR=1 ctest`,
+// `cd build && ctest`, Tab-Einrueckung, nacktes `ctest` ohne Argument) und zu WEITE Annahme
+// (akzeptiert: der Schalter im Kommentar hinter `#`, in einem ANDEREN Kommando derselben Zeile
+// hinter `;`/`&&`, oder als Praefix eines anderen Tokens wie --no-tests=error-x).
+// RICHTUNG DER RESTUNSICHERHEIT: die Erkennung zaehlt jedes ctest-Token in Kommando-Position
+// LIEBER EINMAL ZU VIEL (z.B. `echo ctest` unquotiert) -- ein Zuviel erzwingt den Schalter und
+// faellt laut auf, ein Zuwenig waere die stille Null. Quotes werden NICHT geparst; die
+// Emissionen tragen kein '#' und kein 'ctest' in Anfuehrungszeichen (Mengen-Test dokumentiert das).
+// ---------------------------------------------------------------------------
+
+// Schneidet den Kommentarteil ab: '#' am Zeilenanfang oder nach Leerraum beginnt den Kommentar.
+[[nodiscard]] std::string ohne_kommentar(std::string const& roh) {
+    for (std::size_t i = 0; i < roh.size(); ++i) {
+        if (roh[i] != '#') continue;
+        if (i == 0 || roh[i - 1] == ' ' || roh[i - 1] == '\t') return roh.substr(0, i);
+    }
+    return roh;
+}
+
+// Zerlegt die (kommentarfreie) Zeile in Kommando-Segmente an den Trennern && / || / ; / | und
+// jedes Segment in Whitespace-Token. Die Trenner werden auch OHNE umgebende Leerzeichen erkannt.
+[[nodiscard]] std::vector<std::vector<std::string>> kommando_segmente(std::string const& roh) {
+    std::string const                     z = ohne_kommentar(roh);
+    std::vector<std::vector<std::string>> segmente(1);
+    std::string                           token;
+    auto const                            token_abschliessen = [&] {
+        if (!token.empty()) segmente.back().push_back(token);
+        token.clear();
+    };
+    auto const segment_abschliessen = [&] {
+        token_abschliessen();
+        if (!segmente.back().empty()) segmente.emplace_back();
+    };
+    for (std::size_t i = 0; i < z.size(); ++i) {
+        char const c = z[i];
+        if (c == ' ' || c == '\t') {
+            token_abschliessen();
+        } else if (c == ';') {
+            segment_abschliessen();
+        } else if (c == '&' && i + 1 < z.size() && z[i + 1] == '&') {
+            segment_abschliessen();
+            ++i;
+        } else if (c == '|') {
+            segment_abschliessen();
+            if (i + 1 < z.size() && z[i + 1] == '|') ++i;
+        } else {
+            token += c;
+        }
+    }
+    token_abschliessen();
+    if (segmente.back().empty()) segmente.pop_back();
+    return segmente;
+}
+
+// Ein Token ruft ctest, wenn es "ctest" IST oder auf "/ctest" ENDET (Pfad-Aufruf).
+[[nodiscard]] bool ist_ctest_token(std::string const& t) {
+    if (t == "ctest") return true;
+    static constexpr std::string_view suffix = "/ctest";
+    return t.size() > suffix.size() && t.compare(t.size() - suffix.size(), suffix.size(), suffix.data()) == 0;
+}
+
+struct CtestZeilenBefund {
+    std::size_t aufrufe     = 0; // Segmente der Zeile mit ctest in Kommando-Position
+    std::size_t ohne_schutz = 0; // davon ohne das EXAKTE Argument-Token --no-tests=error
+};
+
+// Je Kommando-Segment: erstes ctest-Token gesucht; geschuetzt ist der Aufruf nur, wenn im SELBEN
+// Segment NACH dem ctest-Token das exakte Token --no-tests=error steht (kein Substring, kein
+// Kommentar, kein Nachbar-Kommando).
+[[nodiscard]] CtestZeilenBefund ctest_befund_der_zeile(std::string const& roh) {
+    CtestZeilenBefund b;
+    for (std::vector<std::string> const& seg : kommando_segmente(roh)) {
+        std::size_t ctest_pos = seg.size();
+        for (std::size_t j = 0; j < seg.size(); ++j) {
+            if (ist_ctest_token(seg[j])) {
+                ctest_pos = j;
+                break;
+            }
+        }
+        if (ctest_pos == seg.size()) continue;
+        ++b.aufrufe;
+        bool geschuetzt = false;
+        for (std::size_t j = ctest_pos + 1; j < seg.size(); ++j)
+            if (seg[j] == "--no-tests=error") geschuetzt = true;
+        if (!geschuetzt) ++b.ohne_schutz;
+    }
+    return b;
+}
+
+// ---------------------------------------------------------------------------
+// (Nachsatz W0b-3) SET-E-BINDUNG STRUKTURELL: die Klassifikation nannte [CEB-TESTAT]/[PMC-TESTAT]
+// SetEAbbruch, aber KEIN Test verifizierte, dass die Marke wirklich set-e-gebunden ist. Diese
+// Helfer lesen die Emission strukturell: die Marke muss in einem YAML-'- |'-Block stehen, in dem
+// VOR ihr `set -euo pipefail` laeuft, zwischen set -e und Marke darf nichts aufweichen (`set +e`,
+// `|| true`), und mindestens EIN hartes (Nicht-echo-, Nicht-Kommentar-)Kommando muss dazwischen
+// stehen -- sonst gaebe es nichts, dessen Fehlschlag das Testat verhindert.
+// GRENZE (T-9): strukturell, nicht ausgefuehrt. Ein Kommando, das seinen Fehlschlag selbst
+// verschluckt (`cmd || echo weiter`), saehe diese Pruefung nur ueber das `|| `-Verbot; exotische
+// Formen (Funktionsdefinitionen, `if`-gebundene harte Kommandos) sind nicht gemeint.
+// ---------------------------------------------------------------------------
+struct SetEBindung {
+    bool        im_pipe_block   = false; // Marke steht in einem '- |'-Block
+    bool        set_e_davor     = false; // `set -euo pipefail` VOR der Marke im selben Block
+    bool        aufgeweicht     = false; // `set +e` oder `|| true` zwischen set -e und Marke
+    bool        hartes_kommando = false; // >=1 Nicht-echo-Kommando zwischen set -e und Marke
+    std::string beanstandet;             // erste beanstandete Zeile (Diagnose)
+};
+
+[[nodiscard]] SetEBindung pruefe_set_e_bindung(std::vector<std::string> const& z, std::size_t i) {
+    SetEBindung b;
+    // Die Marken-Zeile MUSS selbst Blockinhalt sein (>= 6 Leerzeichen). Ohne diese Pruefung fand
+    // die erste Fassung dieses Helfers fuer eine als EIGENES '- '-Listen-Element ausgekoppelte
+    // Marke den '- |' der VORGAENGER-Zeilen und meldete gruen -- der M2-Koeder (09.08., [CEB-TESTAT]
+    // als '    - echo ...') biss NICHT und hat genau diesen Defekt im Test aufgedeckt (T-9/K13:
+    // der Koeder muss erst beissen, sonst ist der Test der Defekt).
+    if (z[i].rfind("      ", 0) != 0) {
+        b.beanstandet = ohne_rand(z[i]);
+        return b;
+    }
+    std::size_t start = i;
+    while (start > 0) {
+        std::string const t = ohne_rand(z[start - 1]);
+        if (t == "- |") {
+            b.im_pipe_block = true;
+            break;
+        }
+        // Blockinhalt der Emissionen ist mit >= 6 Leerzeichen eingerueckt; alles andere
+        // (naechstes '- '-Listenelement, 'script:', Job-Schluessel) beendet die Suche.
+        if (z[start - 1].rfind("      ", 0) != 0) break;
+        --start;
+    }
+    if (!b.im_pipe_block) {
+        b.beanstandet = ohne_rand(z[i]);
+        return b;
+    }
+    std::size_t set_e = i;
+    for (std::size_t k = start; k < i; ++k) {
+        if (ohne_rand(z[k]) == "set -euo pipefail") {
+            b.set_e_davor = true;
+            set_e         = k;
+            break;
+        }
+    }
+    if (!b.set_e_davor) {
+        b.beanstandet = ohne_rand(z[i]);
+        return b;
+    }
+    for (std::size_t k = set_e + 1; k < i; ++k) {
+        std::string const t = ohne_rand(z[k]);
+        if (t.empty() || t.rfind("#", 0) == 0) continue;
+        if (t.find("set +e") != std::string::npos || t.find("|| true") != std::string::npos) {
+            b.aufgeweicht = true;
+            if (b.beanstandet.empty()) b.beanstandet = t;
+        }
+        if (t.rfind("echo ", 0) != 0) b.hartes_kommando = true;
+    }
+    return b;
+}
+
+// Ergebnis MIT NENNER: `geprueft` ist die Grundgesamtheit (alle echo-Emissionen der Marke),
+// `unbedingt` die Zahl derer, denen KEIN else unmittelbar vorausgeht.
+struct TestatBindung {
+    std::size_t geprueft  = 0;
+    std::size_t unbedingt = 0;
+    std::string erste_vorzeile;
+};
+
+// DIE INVARIANTE FUER EINEN MARKER (die Hilfsfunktion, die D3-5 nur inline kannte): jedem
+// Testat-echo geht ein "else" unmittelbar voraus. Ein "fi" davor ist genau der Defekt.
+[[nodiscard]] TestatBindung testat_haengt_am_else(std::vector<std::string> const& z, std::string const& marker) {
+    TestatBindung b;
+    for (std::size_t i = 0; i < z.size(); ++i) {
+        if (testat_marke_der_zeile(z[i]) != marker) continue;
+        ++b.geprueft;
+        std::string const vorzeile = (i == 0) ? std::string{} : ohne_rand(z[i - 1]);
+        if (vorzeile != "else") {
+            ++b.unbedingt;
+            if (b.erste_vorzeile.empty()) b.erste_vorzeile = vorzeile;
+        }
+    }
+    return b;
+}
+
+struct SoftFailGuard {
+    std::size_t fehler_zeile = 0;
+    bool        hat_else     = false;
+    bool        hat_erfolg   = false;
+    std::size_t erfolg_zeile = 0;
+    std::string unbedingtes_testat; // Marke eines Testats HINTER dem fi ("" = keins)
+    std::string unbedingte_zeile;
+};
+
+// DIE KLASSEN-WACHE, eine Ebene UEBER der Marken-Liste: jeder Soft-Fail-Guard wird an seiner
+// "[FEHLER-TESTAT] ... FAIL=1"-Zeile erkannt und von seinem fi aus nach vorn gelesen. Ein Testat
+// zwischen dem fi und dem naechsten Kontrollfluss-Schluesselwort wird unbedingt gedruckt -- das
+// gilt fuer JEDE Marke, auch fuer eine, die es heute noch nicht gibt.
+[[nodiscard]] std::vector<SoftFailGuard> soft_fail_guards(std::vector<std::string> const& z) {
+    std::vector<SoftFailGuard> guards;
+    for (std::size_t i = 0; i < z.size(); ++i) {
+        if (testat_marke_der_zeile(z[i]) != "FEHLER-TESTAT") continue;
+        SoftFailGuard g;
+        g.fehler_zeile    = i;
+        bool        weich = false;
+        std::size_t k     = i;
+        for (; k < z.size(); ++k) {
+            if (z[k].find("FAIL=1") != std::string::npos) weich = true;
+            std::string const t = ohne_rand(z[k]);
+            if (k > i && (t == "else" || t == "fi")) break;
+        }
+        // Kein FAIL=1 im then-Zweig => HARTER Guard (set -e / exit). Andere Bauart, hier nicht gemeint.
+        if (!weich || k >= z.size()) continue;
+        std::size_t fi          = k;
+        bool        fi_gefunden = (ohne_rand(z[k]) == "fi");
+        if (ohne_rand(z[k]) == "else") {
+            g.hat_else = true;
+            for (std::size_t m = k + 1; m < z.size(); ++m) {
+                if (ohne_rand(z[m]) == "fi") {
+                    fi          = m;
+                    fi_gefunden = true;
+                    break;
+                }
+                if (g.hat_erfolg || testat_marke_der_zeile(z[m]).empty()) continue;
+                g.hat_erfolg   = true;
+                g.erfolg_zeile = m;
+            }
+        }
+        // HINTER dem schliessenden fi laeuft alles wieder unbedingt -- AUCH bei einem Guard MIT
+        // else-Zweig. Ein dort ergaenztes zweites Testat waere derselbe Defekt eine Zeile spaeter,
+        // und die erste Fassung dieser Wache sah genau dorthin nicht (beim Entwurf des dritten
+        // Koeders aufgefallen: sie prueft sonst nur den Guard OHNE else).
+        for (std::size_t m = fi + 1; fi_gefunden && m < z.size() && !ist_kontrollfluss(z[m]); ++m) {
+            std::string const marke = testat_marke_der_zeile(z[m]);
+            if (marke.empty()) continue;
+            g.unbedingtes_testat = marke;
+            g.unbedingte_zeile   = ohne_rand(z[m]);
+            break;
+        }
+        guards.push_back(g);
+    }
+    return guards;
+}
+
+enum class Bindung {
+    SoftFailElse, // Erfolgs-Zwilling eines Soft-Fail-Guards -- MUSS im else-Zweig stehen
+    SetEAbbruch,  // unter `set -euo pipefail` gefuehrt -- ein Fehler bricht den Job ab
+    FehlerAnker   // die Fehler-Marke selbst
+};
+
+// WER EINE NEUE SHELL-TESTAT-MARKE EMITTIERT, TRAEGT SIE HIER EIN. Der Test faellt sonst mit ihrem
+// Namen -- und zwar in BEIDE Richtungen (unklassifiziert emittiert / klassifiziert aber verschwunden).
+constexpr std::array<std::pair<std::string_view, Bindung>, 6> kTestatKlassifikation{{
+    {"FEHLER-TESTAT", Bindung::FehlerAnker},
+    {"CEB-TESTAT", Bindung::SetEAbbruch},    // STUFE 1: CEB gebaut (harter cmake --build davor)
+    {"TESTAT", Bindung::SoftFailElse},       // Bau-Fenster je Perm
+    {"PRUEF-TESTAT", Bindung::SoftFailElse}, // S3-Konformitaets-Gate je Perm
+    {"PMC-TESTAT", Bindung::SetEAbbruch},    // PMC-Preflight (harter ctest davor)
+    {"MESS-TESTAT", Bindung::SoftFailElse},  // Mess-Zelle
+}};
+
+} // namespace
+
+// (W0b-3) Die Marken-Menge BEIDER Stufen ist klassifiziert, und jede Soft-Fail-Marke haengt am else.
+TEST(TierCiYamlBuilder, TestatMarkenSindKlassifiziertUndHaengenAmElse) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
+
+    // (1) Die Marken werden aus den emittierten Plaenen GELESEN, nicht handgelistet.
+    std::vector<std::string> gefunden;
+    for (EmittierterPlan const& p : pl)
+        for (std::string const& marke : emittierte_testat_marken(p.zeilen))
+            if (std::find(gefunden.begin(), gefunden.end(), marke) == gefunden.end()) gefunden.push_back(marke);
+    ASSERT_FALSE(gefunden.empty()) << "keine Testat-Marke in den Plaenen -- die Suche griff nicht";
+
+    // (2) Jede emittierte Marke ist klassifiziert. Eine NEUE Marke faellt hier mit ihrem Namen auf.
+    for (std::string const& marke : gefunden) {
+        bool bekannt = false;
+        for (auto const& eintrag : kTestatKlassifikation)
+            if (eintrag.first == marke) bekannt = true;
+        EXPECT_TRUE(bekannt) << "unklassifizierte Testat-Marke [" << marke
+                             << "] -- in kTestatKlassifikation eintragen (SoftFailElse oder SetEAbbruch)";
+    }
+    // (3) und umgekehrt: keine klassifizierte Marke ist lautlos aus den Plaenen verschwunden.
+    for (auto const& eintrag : kTestatKlassifikation)
+        EXPECT_NE(std::find(gefunden.begin(), gefunden.end(), std::string{eintrag.first}), gefunden.end())
+            << "klassifizierte Marke [" << eintrag.first << "] wird nicht mehr emittiert -- Klassifikation nachziehen";
+    EXPECT_EQ(gefunden.size(), kTestatKlassifikation.size())
+        << gefunden.size() << " emittierte Marken gegen " << kTestatKlassifikation.size() << " klassifizierte ("
+        << verkettet(gefunden) << ")";
+
+    // (4) DIE INVARIANTE je Soft-Fail-Marke, ueber die benannte Hilfsfunktion, ueber BEIDE Stufen.
+    std::size_t soft_marken = 0;
+    for (auto const& eintrag : kTestatKlassifikation) {
+        if (eintrag.second != Bindung::SoftFailElse) continue;
+        ++soft_marken;
+        std::size_t geprueft = 0, unbedingt = 0;
+        std::string erste;
+        for (EmittierterPlan const& p : pl) {
+            TestatBindung const b = testat_haengt_am_else(p.zeilen, std::string{eintrag.first});
+            geprueft += b.geprueft;
+            unbedingt += b.unbedingt;
+            if (erste.empty()) erste = b.erste_vorzeile;
+        }
+        EXPECT_GT(geprueft, 0u) << "[" << eintrag.first << "] kam nicht vor -- daran prueft der Test nichts";
+        EXPECT_EQ(unbedingt, 0u) << unbedingt << " von " << geprueft << " [" << eintrag.first
+                                 << "]-Zeilen haengen nicht am else-Zweig; erste beanstandete Vorzeile: '" << erste
+                                 << "'";
+    }
+    EXPECT_EQ(soft_marken, 3u) << "erwartet: [TESTAT] (bau), [PRUEF-TESTAT], [MESS-TESTAT]";
+}
+
+// (W0b-3) Marker-AGNOSTISCH: kein Testat steht hinter dem fi eines Soft-Fail-Guards. Faengt auch eine
+// Marke, die es heute noch nicht gibt -- der Test kennt hier keine Namen, nur die Struktur.
+TEST(TierCiYamlBuilder, KeinTestatUnbedingtHinterEinemSoftFailGuard) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
+
+    std::size_t gesamt = 0, mit_else = 0, unbedingt = 0;
+    for (EmittierterPlan const& p : pl) {
+        std::vector<SoftFailGuard> const guards = soft_fail_guards(p.zeilen);
+        gesamt += guards.size();
+        for (SoftFailGuard const& g : guards) {
+            if (g.hat_else) ++mit_else;
+            if (g.unbedingtes_testat.empty()) continue;
+            ++unbedingt;
+            ADD_FAILURE() << p.name << ": [" << g.unbedingtes_testat << "] steht HINTER dem fi eines Soft-Fail-"
+                          << "Guards und wird damit auch fuer die gescheiterte Zelle gedruckt: '" << g.unbedingte_zeile
+                          << "'";
+        }
+    }
+    ASSERT_GT(gesamt, 0u) << "kein Soft-Fail-Guard in den Plaenen -- die Suche griff nicht";
+    EXPECT_EQ(unbedingt, 0u) << unbedingt << " von " << gesamt << " Soft-Fail-Guards drucken ihr Testat unbedingt";
+    EXPECT_EQ(mit_else, gesamt) << mit_else << " von " << gesamt << " Soft-Fail-Guards haben einen else-Zweig";
+}
+
+// (W0b-3, per T-6 gefunden) DIESELBE KLASSE an einer anderen Naht: ein Marker, der mehr behauptet, als er
+// weiss. `ctest -L <label>` liefert bei NULL passenden Tests rc=0 ("No tests were found!!!"), `set -e` greift
+// also nicht, und das [PMC-TESTAT] meldet ungeruehrt pmc=ok -- ein Preflight, der nichts gefunden hat, ist von
+// einem bestandenen nicht zu unterscheiden. Geprueft wird ueber ALLE emittierten ctest-Aufrufe, nicht ueber
+// den einen von heute: ein zweiter Aufruf ohne den Schalter faellt damit von selbst auf.
+TEST(TierCiYamlBuilder, JederEmittierteCtestAufrufMachtDenLeerlaufZumFehler) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
+
+    // (Nachsatz W0b-3) Erkennung ueber die benannten Grammatik-Helfer statt ueber den woertlichen
+    // Zeilenanfang "ctest " -- die alte Form uebersah Praefixe (/usr/bin/ctest, if !, VAR=1,
+    // cd build &&) und akzeptierte den Schalter als Substring irgendwo in der Zeile (Kommentar,
+    // Nachbar-Kommando). Die Helfer selbst stehen unter dem Mengen-Test CtestGrammatikHelfer...
+    std::size_t aufrufe = 0, ohne_schalter = 0;
+    for (EmittierterPlan const& p : pl) {
+        for (std::string const& roh : p.zeilen) {
+            CtestZeilenBefund const b = ctest_befund_der_zeile(roh);
+            aufrufe += b.aufrufe;
+            ohne_schalter += b.ohne_schutz;
+            if (b.ohne_schutz > 0)
+                ADD_FAILURE() << p.name << ": ctest-Aufruf ohne exaktes Argument --no-tests=error -- ein Lauf "
+                              << "ohne passende Tests meldet rc=0 und faerbt das folgende Testat gruen: '"
+                              << ohne_rand(roh) << "'";
+        }
+    }
+    ASSERT_GT(aufrufe, 0u) << "kein ctest-Aufruf in den Plaenen -- die Suche griff nicht";
+    EXPECT_EQ(ohne_schalter, 0u) << ohne_schalter << " von " << aufrufe
+                                 << " emittierten ctest-Aufrufen lassen den Leerlauf als Erfolg durchgehen";
+}
+
+// (Nachsatz W0b-3) DIE GRAMMATIK SELBST, ueber eine MENGE von Formen geprueft statt ueber eine
+// Annahme (T-4 Gegeneingang): jede Zeile traegt ihre erwartete Zaehlung; der Fehltext nennt die
+// Zeile. Die Menge dokumentiert auch die BEWUSSTE Restunsicherheit (unquotiertes `echo ctest`
+// zaehlt mit -- fail-closed: ein Zuviel erzwingt den Schalter, ein Zuwenig waere still).
+TEST(TierCiYamlBuilder, CtestGrammatikHelferErkennenPraefixeUndExakteSchreibweise) {
+    struct Form {
+        char const* zeile;
+        std::size_t aufrufe;
+        std::size_t ohne_schutz;
+        char const* warum;
+    };
+    constexpr std::array<Form, 18> formen{{
+        // erkannt UND geschuetzt:
+        {"      ctest --test-dir build -L pmc --no-tests=error --output-on-failure", 1, 0, "der Regelfall"},
+        {"cd build && ctest -L pmc --no-tests=error", 1, 0, "Praefix-Kommando && ctest"},
+        // erkannt, NICHT geschuetzt -- die Formen, die die alte Wache UEBERSAH:
+        {"ctest -L pmc", 1, 1, "nackter Aufruf ohne Schalter"},
+        {"\tctest\t-L pmc", 1, 1, "Tab-Einrueckung/-Trennung (alte Wache: rfind 'ctest ')"},
+        {"/usr/bin/ctest -L pmc", 1, 1, "Pfad-Aufruf (alte Wache sah nur Zeilenanfang 'ctest ')"},
+        {"if ! ctest -L pmc; then", 1, 1, "if-!-Guard ersetzt den Schalter NICHT (Leerlauf ist rc=0)"},
+        {"COMDARE_X=1 ctest -L pmc", 1, 1, "Env-Praefix"},
+        {"cd build && ctest -L pmc", 1, 1, "Kommando-Praefix"},
+        {"ctest", 1, 1, "nacktes ctest ohne Argumente (alte Wache verlangte 'ctest ')"},
+        // erkannt, NICHT geschuetzt -- die Schreibweisen, die die alte Wache faelschlich AKZEPTIERTE:
+        {"ctest -L pmc --no-tests=ignore", 1, 1, "ignore ist das Gegenteil von error"},
+        {"ctest -L pmc # --no-tests=error", 1, 1, "Schalter nur im Kommentar"},
+        {"ctest -L pmc; echo --no-tests=error", 1, 1, "Schalter im NACHBAR-Kommando hinter ';'"},
+        {"ctest -L pmc --no-tests=error-x", 1, 1, "Praefix-Token ist nicht das exakte Argument"},
+        // NICHT erkannt (kein Aufruf):
+        {"# ctest -L pmc", 0, 0, "reiner Kommentar"},
+        {"      # Par. 66: ctest -L pmc kommt spaeter", 0, 0, "eingerueckter Kommentar"},
+        {"ctest_registrierung foo", 0, 0, "anderes Wort mit ctest-Praefix"},
+        {"myctest -L x", 0, 0, "anderes Wort mit ctest-Suffix ohne '/'"},
+        // BEWUSSTE Restunsicherheit, dokumentiert statt verschwiegen:
+        {"echo ctest ohne Anfuehrungszeichen", 1, 1, "fail-closed: unquotiertes Wort zaehlt mit"},
+    }};
+    for (Form const& f : formen) {
+        CtestZeilenBefund const b = ctest_befund_der_zeile(f.zeile);
+        EXPECT_EQ(b.aufrufe, f.aufrufe) << "Aufruf-Zaehlung fuer '" << f.zeile << "' (" << f.warum << ")";
+        EXPECT_EQ(b.ohne_schutz, f.ohne_schutz) << "Schutz-Wertung fuer '" << f.zeile << "' (" << f.warum << ")";
+    }
+    // Nenner der Menge selbst: 18 Formen, davon 2 geschuetzt, 11 ungeschuetzt erkannt, 4 keine
+    // Aufrufe, 1 dokumentierte Restunsicherheit -- eine leere Menge kann nicht gruen sein.
+    static_assert(formen.size() == 18u);
+}
+
+// (Nachsatz W0b-3) DIE SetEAbbruch-KLASSIFIKATION BEKOMMT IHREN PRUEFER. Bisher war
+// "[CEB-TESTAT]/[PMC-TESTAT] stehen unter set -euo pipefail hinter einem harten Kommando" eine
+// Behauptung der Klassifikationstabelle -- KEIN Test verifizierte sie (Review-Mangel). Jetzt
+// strukturell erzwungen, je Marke und je Emission: (1) die Marke steht in einem '- |'-Block,
+// (2) `set -euo pipefail` laeuft VOR ihr im selben Block, (3) nichts weicht dazwischen auf
+// (`set +e`, `|| true`), (4) mindestens ein hartes (Nicht-echo-)Kommando steht dazwischen --
+// sonst gaebe es nichts, dessen Fehlschlag das Testat verhindert. Wird eine SetEAbbruch-Marke
+// eines Tages hinter das fi eines Soft-Fail-Guards verschoben oder ihr Block entschaerft,
+// faellt sie hier mit Zeilentext auf.
+TEST(TierCiYamlBuilder, SetEAbbruchMarkenSindWirklichSetEGebunden) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
+
+    std::size_t geprueft = 0;
+    for (EmittierterPlan const& p : pl) {
+        for (std::size_t i = 0; i < p.zeilen.size(); ++i) {
+            std::string const marke = testat_marke_der_zeile(p.zeilen[i]);
+            if (marke.empty()) continue;
+            bool set_e_marke = false;
+            for (auto const& eintrag : kTestatKlassifikation)
+                if (eintrag.first == marke && eintrag.second == Bindung::SetEAbbruch) set_e_marke = true;
+            if (!set_e_marke) continue;
+            ++geprueft;
+            SetEBindung const b = pruefe_set_e_bindung(p.zeilen, i);
+            EXPECT_TRUE(b.im_pipe_block) << p.name << ": [" << marke
+                                         << "] steht in keinem '- |'-Block -- als eigenes Listen-Element "
+                                         << "truege es keinen set-e-Kontext: '" << b.beanstandet << "'";
+            EXPECT_TRUE(b.set_e_davor) << p.name << ": [" << marke
+                                       << "] ohne `set -euo pipefail` VOR der Marke im selben Block";
+            EXPECT_FALSE(b.aufgeweicht) << p.name << ": [" << marke
+                                        << "] Block zwischen set -e und Marke aufgeweicht: '" << b.beanstandet << "'";
+            EXPECT_TRUE(b.hartes_kommando)
+                << p.name << ": [" << marke << "] ohne hartes Kommando zwischen set -e und Marke -- "
+                << "es gibt nichts, dessen Fehlschlag das Testat verhindert";
+        }
+    }
+    ASSERT_GT(geprueft, 0u) << "keine SetEAbbruch-Marke in den 4 Plaenen -- daran prueft der Test nichts";
+}
+
+// (W0b-3) Die else-Bindung nimmt dem Fehlerpfad seine Fortschrittsinformation, wenn das Erfolgs-Testat
+// Felder traegt, die das [FEHLER-TESTAT] nicht hat: `offen=` stand bisher NUR am Bau-Testat, das vor der
+// Heilung auch nach einem Fehlschlag lief. Ab der else-Bindung faellt es fuer die gescheiterte Zelle
+// ersatzlos weg -- genau dort, wo "wie viele noch offen" am meisten zaehlt. Beide Zeilen eines Guards
+// tragen deshalb DIESELBEN Felder; das ist die Deckung dieser Forderung, nicht bloss ihre Absicht.
+TEST(TierCiYamlBuilder, FehlerTestatTraegtDieselbenFelderWieSeinErfolgsTestat) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
+
+    std::size_t gesamt = 0, paare = 0, ungleich = 0;
+    for (EmittierterPlan const& p : pl) {
+        std::vector<SoftFailGuard> const guards = soft_fail_guards(p.zeilen);
+        gesamt += guards.size();
+        for (SoftFailGuard const& g : guards) {
+            if (!g.hat_else || !g.hat_erfolg) continue;
+            ++paare;
+            std::vector<std::string> const f_fehler = feldnamen(p.zeilen[g.fehler_zeile]);
+            std::vector<std::string> const f_erfolg = feldnamen(p.zeilen[g.erfolg_zeile]);
+            if (f_fehler == f_erfolg) continue;
+            ++ungleich;
+            ADD_FAILURE() << p.name << ": Guard-Paar mit ungleichem Feldsatz -- [FEHLER-TESTAT] traegt '"
+                          << verkettet(f_fehler) << "', [" << testat_marke_der_zeile(p.zeilen[g.erfolg_zeile])
+                          << "] traegt '" << verkettet(f_erfolg) << "'";
+        }
+    }
+    // Der NENNER: jeder Guard muss ein vergleichbares Paar bilden, sonst prueft der Test weniger,
+    // als er zu pruefen vorgibt.
+    ASSERT_GT(gesamt, 0u) << "kein Soft-Fail-Guard in den Plaenen -- die Suche griff nicht";
+    ASSERT_EQ(paare, gesamt) << paare << " vergleichbare Guard-Paare von " << gesamt << " Guards";
+    EXPECT_EQ(ungleich, 0u) << ungleich << " von " << paare << " Guard-Paaren tragen ungleiche Feldsaetze";
+}
+
 // (S4-c) TraceHygieneAndTimeout: Treiber-Detail je Aufruf nach $LOGDIR-Artefakt-Datei (>...log 2>&1); artifacts
 //        when:always mit den logs/-Verzeichnissen + expire_in 4 weeks; timeout: 7d an ALLEN Batch-Jobs.
 TEST(TierCiYamlBuilder, TraceHygieneAndTimeout) {
@@ -1507,8 +2254,12 @@ TEST(TierCiYamlBuilder, G4aStorageActivationPmcPreflightAndPruneAreEmittedInCorr
         << "Skript-Pfad bleibt workdir-relativ (KLASSE)";
 
     // (b) #37 PMC-Preflight: je Mess-Batch genau einmal, und VOR der ersten Messung dieses Batches.
-    EXPECT_EQ(count_occurrences(yaml, "      ctest --test-dir build -L pmc --output-on-failure\n"), measure_batches)
-        << "je Mess-Batch ein PMC-Preflight";
+    //     --no-tests=error ist seit W0b-3 Teil der erwarteten Bytes und KEIN Beiwerk: ohne den Schalter meldet
+    //     ctest bei null passenden Tests rc=0, `set -e` greift nicht, und das [PMC-TESTAT] darunter faerbt einen
+    //     Preflight gruen, der nichts ausgefuehrt hat.
+    EXPECT_EQ(count_occurrences(yaml, "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n"),
+              measure_batches)
+        << "je Mess-Batch ein PMC-Preflight, der den Leerlauf zum Fehler macht";
     EXPECT_EQ(count_occurrences(yaml, "      cmake --build build --target m3v2_pmc_smoke linux_perf_pmc_smoke\n"),
               measure_batches);
     // Die Reihenfolge-Invarianten gelten PRO JOB, nicht global: die YAML traegt mehrere Mess-Batches (je Lane einen),
@@ -1755,12 +2506,21 @@ TEST(TierCiYamlBuilder, SliceKanalMarkerFamilyV2Emission) {
     EXPECT_NE(yaml.find("[BATCH-BAU] ceb=[all] lane=amd"), std::string::npos) << "KOPF-Grammatik unveraendert";
     EXPECT_EQ(count_occurrences(yaml, " perms="), 2u) << "je Build-Batch EINE Perm-Zahl im KOPF";
 
-    // (c) OFFEN-ZAEHLER: jedes Schritt-Testat der Fenster-Schleife traegt den Rest der Perm. Ein [TESTAT] ohne
-    //     offen= waere die alte, zaehlerlose Zeile -- deshalb Gleichheit gegen die Zahl der [TESTAT]-Zeilen.
+    // (c) OFFEN-ZAEHLER: jede Zeile der Bau-Fenster-Schleife traegt den Rest der Perm. Seit W0b-3 sind das ZWEI
+    //     je Fenster: das [TESTAT] im else-Zweig UND sein [FEHLER-TESTAT]-Zwilling. Vorher lief das [TESTAT] auch
+    //     nach einem Fehlschlag und trug den Zaehler dabei mit; mit der else-Bindung faellt es fuer das
+    //     gescheiterte Fenster weg, und ohne offen= auf der Fehler-Zeile verloere genau der Fehlerpfad die
+    //     Fortschrittsinformation -- also dort, wo "wie viele davon noch offen" am meisten zaehlt.
     std::size_t const testate = count_occurrences(yaml, "[TESTAT] ts=");
     EXPECT_GT(testate, 0u) << "es gibt Schritt-Testate der Fenster-Schleife";
-    EXPECT_EQ(count_occurrences(yaml, " offen=$(( TOTAL - START - COUNT ))"), testate)
-        << "JEDES Schritt-Testat traegt den Rest-Zaehler (kein zaehlerloses Testat mehr)";
+    EXPECT_EQ(count_occurrences(yaml, " offen=$(( TOTAL - START - COUNT ))"), 2u * testate)
+        << "je Bau-Fenster ZWEI Zeilen mit Rest-Zaehler (Erfolg + Fehler), kein zaehlerloser Pfad mehr";
+    // Der Zwilling namentlich, damit die 2u oben nicht bloss eine Zahl ist, die irgendwie aufgeht.
+    EXPECT_NE(yaml.find("[FEHLER-TESTAT] ts=$(date -u +%FT%TZ) lane=amd zelle=[O2,no_extension]"
+                        "[search_algo,cache_traversal,mapping] phase=bau fenster=${START}:${COUNT} "
+                        "offen=$(( TOTAL - START - COUNT ))"),
+              std::string::npos)
+        << "das Bau-[FEHLER-TESTAT] traegt den Rest-Zaehler (W0b-3)";
 
     // (d) STUFE 1: das CEB-Bau-Ereignis maschinenlesbar (der Owner-Teil "ob der CEB gebaut wird"). Genau EINES je
     //     CEB-Strecke -- hier ist die Stufe-1-YAML eine andere Builder-Ausgabe, deshalb separat erhoben.

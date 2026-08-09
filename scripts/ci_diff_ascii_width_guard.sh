@@ -81,14 +81,47 @@
 #     SEINER Seite). Im Default-Modus (ohne --stdin) fuehrt DIESES Skript
 #     `git diff` selbst aus und prueft dessen Exit-Code selbst -- das ist der
 #     empfohlene, sichere Aufrufweg.
+#   * Die Aufzaehlung der untracked Dateien im Default-Modus laeuft ueber
+#     `git ls-files --others --exclude-standard`, zeilenweise gelesen. Ein
+#     Dateiname mit einem ZEILENUMBRUCH darin wuerde dabei zerfallen; solche
+#     Namen gibt es im Baum nicht (C++-Quellen), und `core.quotePath=false`
+#     haelt Umlaut-Namen zusammen. Ignorierte Dateien (.gitignore) bleiben
+#     ausgenommen -- Bauartefakte sind kein selbst verfasster Code.
+#   * Der Default-Modus misst den ARBEITSSTAND, nicht die Commit-Historie: was
+#     bereits committet ist, sieht er nicht mehr. Fuer "alles, was ein Push
+#     uebertragen wuerde" ist scripts/vor_push_alle_wachen.sh der richtige
+#     Aufrufer -- der bestimmt den Bereich selbst und bricht bei schmutzigem
+#     Arbeitsstand ab. Die beiden ergaenzen sich; keiner ersetzt den anderen.
 #
 # AUFRUF:
 #   sh scripts/ci_diff_ascii_width_guard.sh [<git-diff-args...>]
-#       Ohne Argumente: git diff -U0 (Arbeitsverzeichnis gegen HEAD, ersetzt
-#       die bisherige manuelle Vor-Paketmeldung-Pruefung 1:1).
+#       Ohne Argumente (DEFAULT-MODUS): der GESAMTE unfertige Arbeitsstand gegen
+#       HEAD -- `git diff -U0 HEAD` (erfasst gestagte UND ungestagte Aenderungen
+#       an getrackten Dateien) PLUS jede untracked, nicht ignorierte Datei
+#       einzeln ueber `git diff --no-index /dev/null <datei>`. Ein leerer Nenner
+#       ist in diesem Modus ein ABBRUCH (Exit 2), kein GRUEN.
 #       Mit Argumenten: an `git diff -U0 --no-color --no-ext-diff` durchgereicht,
 #       z.B. ein Revisionsbereich fuer CI (`origin/main...HEAD`) oder eine
-#       Pfad-Einschraenkung nach `--`.
+#       Pfad-Einschraenkung nach `--`. Dieser Weg ist UNVERAENDERT.
+#
+# WARUM DER DEFAULT-MODUS AM 09.08.2026 REPARIERT WURDE (Befund am Objekt):
+# Hier stand bis heute "git diff -U0 (Arbeitsverzeichnis gegen HEAD)". Das war
+# FALSCH, und die Wache tat es auch nicht: `git diff` OHNE Revision vergleicht
+# den Arbeitsbaum gegen den INDEX. Wer seine Arbeit vor der Pruefung `git add`-et,
+# bekam "0 Zusatzzeilen ... GRUEN" -- und untracked NEUE Dateien sieht `git diff`
+# in gar keinem Modus. Zwei blinde Flecken, beide still, beide genau in der Lage,
+# in der ein Agent kurz vor der Paketmeldung steht.
+#
+# Der Biss-Beweis (ci_diff_ascii_width_guard.bissbeweis.txt) konnte das nicht
+# auffangen: alle sieben dort protokollierten Faelle laufen ueber `--stdin` oder
+# einen ausdruecklichen Bereich. KEINER fuhr die Wache ohne Argumente.
+#
+# Aufgeschlagen ist es im Paket D5-1 (Commit c98b4b95): gemeldet "0 nicht-ASCII in
+# 189 hinzugefuegten Zeilen", tatsaechlich 570 hinzugefuegte C++-Zeilen mit 7
+# nicht-ASCII und 6 Zeilen ueber 120 Spalten. Die neue Testdatei war gestagt UND
+# neu -- beide blinden Flecken auf einmal. Die Differenz 570-189 IST der blinde
+# Fleck, in Zeilen gemessen. Ausfuehrbarer Nachweis beider Flecken und ihrer
+# Reparatur: scripts/ci_diff_ascii_width_guard.selbsttest.sh (Faelle 2, 3, 6, 7).
 #   sh scripts/ci_diff_ascii_width_guard.sh --stdin < fertiger-diff.txt
 #       Liest einen bereits erzeugten Unified-Diff von stdin (Tests, oder wenn
 #       ein Aufrufer den Diff bereits selbst erzeugt und PIPESTATUS-geprueft
@@ -123,7 +156,14 @@ _ce_diff_datei="$(mktemp "${TMPDIR:-/tmp}/ce_diff_guard.XXXXXX")" \
     || ce_abbruch "mktemp fuer die Diff-Datei fehlgeschlagen."
 _ce_awk_out="$(mktemp "${TMPDIR:-/tmp}/ce_diff_guard_out.XXXXXX")" \
     || ce_abbruch "mktemp fuer die Ausgabedatei fehlgeschlagen."
-trap 'rm -f "$_ce_diff_datei" "$_ce_awk_out"' EXIT INT TERM HUP
+_ce_untracked_liste="$(mktemp "${TMPDIR:-/tmp}/ce_diff_guard_unt.XXXXXX")" \
+    || ce_abbruch "mktemp fuer die Untracked-Liste fehlgeschlagen."
+trap 'rm -f "$_ce_diff_datei" "$_ce_awk_out" "$_ce_untracked_liste"' EXIT INT TERM HUP
+
+# DEFAULT-MODUS = ohne Argumente und ohne --stdin. Nur dort wird der Arbeitsstand
+# selbst zusammengestellt (gegen HEAD + untracked) und nur dort ist ein leerer
+# Nenner ein Abbruch. Der Bereichs- und der stdin-Weg bleiben unberuehrt.
+_ce_default_modus=0
 
 echo "============================================================================="
 echo " DIFF-HYGIENE-WACHE: ASCII + Spaltenbreite  (scripts/ci_diff_ascii_width_guard.sh)"
@@ -140,6 +180,13 @@ else
     command -v git >/dev/null 2>&1 || ce_abbruch "git ist nicht im PATH."
     _ce_script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || ce_abbruch "Skript-Verzeichnis nicht aufloesbar."
     _ce_repo_root=$(CDPATH= cd -- "$_ce_script_dir/.." && pwd) || ce_abbruch "Repo-Wurzel nicht aufloesbar."
+    # OHNE ARGUMENTE: ausdruecklich gegen HEAD statt gegen den INDEX. `git diff`
+    # ohne Revision vergleicht den Arbeitsbaum mit dem INDEX -- gestagte Arbeit
+    # waere unsichtbar (s. Kopf, Befund D5-1). `HEAD` erfasst beides auf einmal.
+    if [ "$#" -eq 0 ]; then
+        _ce_default_modus=1
+        set -- HEAD
+    fi
     echo ""
     echo "MODUS: git diff selbst ausgefuehrt (Repo: ${_ce_repo_root})"
     echo "ARGUMENTE: git diff -U0 --no-color --no-ext-diff $*"
@@ -153,6 +200,36 @@ else
         ce_abbruch "git diff selbst ist fehlgeschlagen (rc=${_ce_rc}) -- KEINE stille Null, echter Abbruch."
     fi
     rm -f "${_ce_diff_datei}.err"
+
+    # UNTRACKED DATEIEN: `git diff` sieht sie in KEINEM Modus, auch nicht gegen
+    # HEAD -- eine brandneue Datei ist fuer ihn schlicht nicht vorhanden. Genau
+    # diese Lage hatte die neue D5-1-Testdatei. Jede untracked, nicht ignorierte
+    # Datei wird deshalb einzeln gegen /dev/null gestellt; das erzeugt einen
+    # regulaeren Unified-Diff ("+++ b/<pfad>", alle Zeilen als "+"), den die
+    # Zustandsmaschine unten unveraendert verarbeitet.
+    if [ "$_ce_default_modus" -eq 1 ]; then
+        git -C "$_ce_repo_root" ls-files --others --exclude-standard \
+            > "$_ce_untracked_liste" 2>/dev/null
+        _ce_rc=$?
+        [ "$_ce_rc" -eq 0 ] \
+            || ce_abbruch "git ls-files --others ist fehlgeschlagen (rc=${_ce_rc}) -- keine stille Null."
+        _ce_unt_n=0
+        while IFS= read -r _ce_uf; do
+            [ -n "$_ce_uf" ] || continue
+            [ -f "${_ce_repo_root}/${_ce_uf}" ] || continue
+            git -C "$_ce_repo_root" -c core.quotePath=false \
+                diff -U0 --no-color --no-ext-diff --no-index -- /dev/null "$_ce_uf" \
+                >> "$_ce_diff_datei" 2>/dev/null
+            _ce_rc=$?
+            # --no-index: 0 = identisch, 1 = Unterschied (hier IMMER der Normalfall,
+            # denn die Datei existiert und /dev/null ist leer), >1 = echter Fehler.
+            [ "$_ce_rc" -le 1 ] \
+                || ce_abbruch "git diff --no-index auf '${_ce_uf}' fehlgeschlagen (rc=${_ce_rc})."
+            _ce_unt_n=$(( _ce_unt_n + 1 ))
+        done < "$_ce_untracked_liste"
+        echo "UNTRACKED: ${_ce_unt_n} neue, nicht ignorierte Datei(en) zusaetzlich einbezogen"
+        echo "           (git diff sieht sie sonst in keinem Modus)."
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -386,6 +463,26 @@ fi
 echo "-----------------------------------------------------------------------------"
 
 rm -f "${_ce_awk_out}.meta" "${_ce_awk_out}.skipped"
+
+# GRUEN MIT NENNER 0 IST ROT (Hausdoktrin, s. scripts/vor_push_alle_wachen.sh im
+# Kopf). Im DEFAULT-MODUS hat der Aufrufer gesagt "pruefe meinen Arbeitsstand" --
+# findet die Wache dort ueberhaupt nichts, dann hat sie NICHT gemessen, und das
+# darf kein bestandenes Gate sein. Bis 09.08.2026 druckte genau dieser Fall
+# "GRUEN" und lieferte Exit 0; das war die Quittung, die ein Agent nach `git add`
+# bekam, ohne dass je eine Zeile geprueft worden waere.
+#
+# BEWUSST NUR IM DEFAULT-MODUS: ein AUSDRUECKLICH angegebener Bereich, der leer
+# ist, ist eine Aussage des Aufrufers (leerer Merge-Commit, Pfad-Einschraenkung
+# ohne Treffer) und darf die CI nicht abwuergen. Dieselbe Asymmetrie prueft der
+# Selbsttest in den Faellen 7 und 9.
+if [ "$_ce_default_modus" -eq 1 ] && [ "$_ce_added" -eq 0 ]; then
+    echo ""
+    ce_abbruch "DEFAULT-MODUS mit NENNER 0 -- es wurde nichts geprueft, also ist \
+nichts bestanden. Der Arbeitsbaum ist gegenueber HEAD unveraendert und es liegen \
+keine untracked Dateien vor. Ist die Arbeit schon committet, dann pruefe den \
+BEREICH: 'sh scripts/vor_push_alle_wachen.sh' (bestimmt ihn selbst) oder \
+'sh scripts/ci_diff_ascii_width_guard.sh <basis>...HEAD'."
+fi
 
 echo ""
 if [ "$_ce_ascii" -eq 0 ] && [ "$_ce_width" -eq 0 ]; then

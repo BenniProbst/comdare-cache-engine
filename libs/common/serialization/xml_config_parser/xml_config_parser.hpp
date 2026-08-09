@@ -265,6 +265,27 @@ struct ThesisProfile {
     int  repetitions             = 3;
     bool repetitions_interpolate = false;
     bool repetitions_overlay     = true;
+    // == T-15 (2026-08-09): <drift_gate reps=".." threshold_permille=".." max_reruns=".."/> ==========
+    // Die drei Zahlen der Drift-Regel aus GOAL-v8 VI.5 ("Drift-Gate 5 % ueber 3 Wiederholungen [...]
+    // beim Scheitern bis zu 5 Wiederholungen"), ADDITIV im comdare_thesis_profile-Kanal.
+    //
+    // SELBSTCHECK: dies ist NICHT <repetitions> darueber. <repetitions> ist die BERICHTS-Wiederholung
+    // (KF-10) und erzeugt eine dynamische Baum-Achse mit N eigenen Zeilen je repetition_index --
+    // "separat, nie aggregiert". <drift_gate reps> ist gruppen-INTERN: N Proben derselben Zelle, aus
+    // denen EIN Drift-Urteil entsteht, und die die Zeile NICHT vervielfachen. Beide tragen im Korpus
+    // zufaellig den Default 3; sie sind trotzdem verschiedene Achsen und multiplizieren sich.
+    //
+    // WARUM PERMILLE UND KEIN KOMMAWERT: der Parser dieser Schicht kennt nur ganze Zahlen (to_int).
+    // Ein Kommawert brauchte eine zweite Zahl-Naht mit eigener Locale-/Rundungs-Frage fuer genau ein
+    // Attribut. 50 == 5 %; die Kalibrierung der Schwelle gegen reale PMC-Laeufe ist #156-gegatet und
+    // braucht 0,1-%-Schritte, nicht feiner.
+    //
+    // FEHLT DAS ELEMENT (declared == false), bleibt der Code-Default der cache_engine-Schicht stehen --
+    // eine Kopie der Owner-Zahlen HIER waere eine zweite Wahrheit, die niemand synchron hielte.
+    bool drift_gate_declared           = false;
+    int  drift_gate_reps               = 3;
+    int  drift_gate_threshold_permille = 50;
+    int  drift_gate_max_reruns         = 5;
     // modes + static
     std::vector<ThesisMode> modes;
     std::string             static_axes_from; // "base_tier"
