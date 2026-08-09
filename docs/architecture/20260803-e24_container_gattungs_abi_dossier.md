@@ -75,7 +75,7 @@ Das Fenster ist **EIN S12-Fenster ohne stillen Split** (BAUPLAN:26, Review-MAJOR
 > dem E-24-C8-Bump -- also genau der Zustand, den dieses Dossier zu bewegen plante (Abschnitt 2.6/4).
 > Vollzogen wurde er am 04.08.2026 mit ce `4f569051`.
 > Damals galt: **Major 8**, Magic **`.A8.`** = `0x434F4D444141382EULL` -- ABI-HISTORIE gegen SHA 0f08fab5.
-> Lebend gilt seit NAHT-1 (09.08.2026, Mess-Naht am Genus-Interface): **Major 9**, Magic **`.A9.`** = `0x434F4D444141392EULL` -- Belege `anatomy_module_abi_v1_decl.hpp:108` und `anatomy_module_abi_v1_decl.hpp:112`.
+> Lebend gilt seit NAHT-1 (09.08.2026, Mess-Naht am Genus-Interface): **Major 9**, Magic **`.A9.`** = `0x434F4D444141392EULL` -- Belege `anatomy_module_abi_v1_decl.hpp:108` und `anatomy_module_abi_v1_decl.hpp:113`.
 > *(Nachsatz 08.08., Review-Mangel geschlossen: genau dieser Satz war eine vom Paket selbst gepflanzte
 > Lebend-Behauptung in einer Formulierung, die Teil B der Wache nicht sah -- ein gewuerfelter
 > Major-4-Koeder in derselben Formulierung blieb gruen. Teil B triggert jetzt auch auf "lebend

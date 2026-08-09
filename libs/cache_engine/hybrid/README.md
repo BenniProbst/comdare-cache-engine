@@ -89,7 +89,7 @@ Paket den Namen `hybrid` in `libs/cache_engine/` belegt.
   Stand 02.08.2026: "Major 7, `anatomy_module_abi_v1_decl.hpp:62`" -- ABI-HISTORIE gegen SHA 6b8eee0f
   Stand 04.08.2026: "Major 8, Magic `.A8.` = `0x434F4D444141382EULL`" -- ABI-HISTORIE gegen SHA 0f08fab5
   **LEBENDER STAND seit NAHT-1 (09.08.2026, Mess-Naht am Genus-Interface): Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:108`.
-  **Magic `.A9.`** (`0x434F4D444141392EULL`) -- Beleg `anatomy_module_abi_v1_decl.hpp:112`.
+  **Magic `.A9.`** (`0x434F4D444141392EULL`) -- Beleg `anatomy_module_abi_v1_decl.hpp:113`.
 - Die Dock-Bestueckung ist Runtime-Konfiguration und gehoert in ein Sidecar-Manifest, NIE in die
   binary_id. Das Sidecar-Format wird erst NACH der A13-Stempel-Regression fixiert.
 - Offene Auflagen K1 (Lager-Identitaet der Hybrid-.so), K2 (Schichten-Entscheid Loader/Drive),
@@ -120,7 +120,7 @@ Lebender Stand seit E-24 C8 (04.08.2026, ce `4f569051`):
 
 - Stand 04.08.2026: "Major 8, Magic `.A8.` = `0x434F4D444141382EULL`" -- ABI-HISTORIE gegen SHA 0f08fab5
 - **Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:108`
-- **Magic `.A9.`** = `0x434F4D444141392EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:112`
+- **Magic `.A9.`** = `0x434F4D444141392EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:113`
 
 Die alten Zeilen-Anker sind nicht falsch geschrieben, sondern GEWANDERT: gegen SHA `6b8eee0f`
 -- den Stand, den Abschnitt 11 des Design-Dokuments selbst als seine Basis nennt -- zeigen `:62`
