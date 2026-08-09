@@ -213,18 +213,26 @@ private:
     static void propagate_split(Pool& p, path_stack_t<Pool>& stack, std::uint64_t up_slice, std::size_t left_node,
                                 std::size_t right_node, std::size_t& new_root) {
         constexpr int W = Pool::kWidth;
-        // NACHBEDINGUNG HIER VERANKERT: verlaesst diese Funktion ueber den "es ist Platz"-Zweig, bleibt die
-        // Layer-Wurzel unveraendert -- new_root MUSS dann `root` sein. Das galt bisher NUR, weil der einzige
-        // Aufrufpfad new_root rund 100 Zeilen hoeher vorbelegt (bplus_find_or_insert: `new_root = root;`);
-        // `root` selbst reiste als stummer Parameter mit und wurde nie gelesen (-Wunused-parameter, beide
-        // Uebersetzer). Die Zuweisung ist heute ein No-Op -- sie schreibt denselben Wert, den die Vorbelegung
-        // schon haelt -- und macht die Zusicherung LOKAL, statt sie von Fernwirkung abhaengen zu lassen.
+        // NACHBEDINGUNG: verlaesst diese Funktion ueber den "es ist Platz"-Zweig, bleibt die Layer-Wurzel
+        // unveraendert -- new_root behaelt dann den Wert, den die Deklarationsstelle ihm gegeben hat
+        // (`std::size_t new_root = layer_root;`). Die Zusicherung haengt damit an einer INITIALISIERUNG und
+        // nicht mehr an einer spaeteren Zuweisung irgendwo im Aufrufpfad.
+        //
+        // ZWEI WEGE, EINE STELLE (Merge-Befund 09.08.2026): warn-libs wollte `root` als Parameter behalten
+        // und hier `new_root = root;` schreiben; warn-tests hat `root` aus der ganzen Kette
+        // (bplus_find_or_insert -> split_leaf_and_insert -> propagate_split) entfernt und stattdessen
+        // new_root schon bei der Deklaration belegt. Beides heilt dieselbe -Wunused-parameter-Meldung, aber
+        // NUR EINES von beidem darf im Baum stehen. Der Automerge nahm die Signaturen des einen und die
+        // Rumpfzeile des anderen -- `new_root = root;` ohne `root` im Sichtbarkeitsbereich, ein harter
+        // Uebersetzungsfehler, der erst im VOLLBAU auffiel (kein Konfliktmarker, die Stellen liegen 80
+        // Zeilen auseinander). Genommen ist warn-tests' Weg: er entfernt einen wirklich toten Parameter aus
+        // drei Signaturen UND beseitigt nebenbei eine uninitialisierte Variable (vorher `std::size_t
+        // new_root;` ohne Wert). warn-libs' Zuweisung waere an dieser Stelle ein reines No-Op gewesen.
         //
         // GEPRUEFT, ob hier stattdessen ein Vergleich VERGESSEN wurde (z.B. `if (inode == root)`): NEIN.
         // Der Wurzel-Split wird ueber `stack.empty()` erkannt, und der Stack traegt genau den Pfad
         // Wurzel->Blatt; ist er leer, ist die Wurzel ueberschritten. Ein Knoten-Vergleich gegen `root`
         // waere dazu redundant, nicht ergaenzend.
-        new_root = root;
         for (;;) {
             if (stack.empty()) { // Wurzel-Split -> neue Wurzel-Internode
                 std::size_t const nr = p.new_internode();
