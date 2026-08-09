@@ -8,6 +8,8 @@
 // und schreibt eine booktabs-Tabelle mit allen Permutationen + Cache-
 // Metriken.
 
+#include "latex_anhang.hpp" // die EINE Deklarationsstelle (auch fuer das _lib-Ziel + den Test)
+
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
@@ -20,30 +22,6 @@
 #include <vector>
 
 namespace latex_anhang {
-
-inline constexpr int status_ok               = 0;
-inline constexpr int status_io_error         = 10;
-inline constexpr int status_invalid_argument = 4;
-inline constexpr int status_parse_error      = 11;
-
-struct CsvRow {
-    std::string   permutation_id;
-    std::uint64_t fingerprint             = 0;
-    bool          succeeded               = false;
-    std::string   workload_used           = "n/a";
-    std::uint64_t op_count                = 0;
-    std::uint64_t total_cycles            = 0;
-    std::uint64_t cache_misses_l1         = 0;
-    std::uint64_t cache_misses_l2         = 0;
-    std::uint64_t cache_misses_l3         = 0;
-    std::uint64_t dtlb_misses             = 0;
-    std::uint64_t coherence_invalidations = 0;
-    std::uint64_t energy_micro_joules     = 0;
-    std::uint64_t bytes_allocated         = 0;
-    std::uint64_t bytes_in_use_peak       = 0;
-    double        external_frag           = 0.0;
-    double        internal_frag           = 0.0;
-};
 
 [[nodiscard]] std::vector<std::string> split_csv_line(std::string const& line) {
     std::vector<std::string> result;
@@ -243,7 +221,7 @@ int main(int argc, char const* const* argv) {
         if (eq == std::string_view::npos) {
             std::cerr << "Unknown arg: " << a << "\n";
             print_help();
-            return 4;
+            return latex_anhang::status_invalid_argument;
         }
         std::string_view k = a.substr(0, eq);
         std::string_view v = a.substr(eq + 1);
@@ -257,13 +235,13 @@ int main(int argc, char const* const* argv) {
             label = std::string(v);
         else {
             std::cerr << "Unknown flag: " << k << "\n";
-            return 4;
+            return latex_anhang::status_invalid_argument;
         }
     }
     if (input_path.empty() || output_path.empty()) {
         std::cerr << "Missing --input or --output\n";
         print_help();
-        return 4;
+        return latex_anhang::status_invalid_argument;
     }
 
     std::vector<latex_anhang::CsvRow> rows;

@@ -49,6 +49,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility> // std::pair -- Laufzeit-Zeuge fuer WACHE 3 fuehrt Wert und Token zusammen
 #include <vector>
 
 namespace bl  = comdare::cache_engine::builder::bestandslog;
@@ -372,12 +373,18 @@ namespace {
 inline constexpr bl::LagerWurzelPaar kWurzelMapSa{cea::AnatomyGattung::Map, cea::AnatomyGenus::SearchAlgorithm};
 
 bl::MessdatenBaumSpec messdaten_spec() {
-    bl::MessdatenBaumSpec s{kWurzelMapSa};
-    s.mess        = {{"mess", "vereint"}, {"load_framework", "on"}};
-    s.system      = system_drei();
-    s.meta_metas  = {{"simd", "avx2"}};
-    s.organ       = organ_18_gemischt();
-    s.haupt_blatt = {{"blatt", hex128('a')}};
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wmissing-field-initializers; RAUSCHEN, aber ehrlich
+    // gemacht): die Spec steht jetzt als VOLLE designierte Liste da -- auch die drei absichtlich
+    // leeren Unter-Ebenen sind benannt, statt still per Aggregat-Rest zu entstehen.
+    bl::MessdatenBaumSpec s{.wurzel       = kWurzelMapSa,
+                            .mess         = {{"mess", "vereint"}, {"load_framework", "on"}},
+                            .system       = system_drei(),
+                            .meta_metas   = {{"simd", "avx2"}},
+                            .organ        = organ_18_gemischt(),
+                            .haupt_blatt  = {{"blatt", hex128('a')}},
+                            .mess_unter   = {},
+                            .system_unter = {},
+                            .organ_unter  = {}};
     return s;
 }
 
@@ -486,12 +493,16 @@ TEST(Lb2WurzelNegativ, GenusAusEinerFREMDENGattungWirdKlassifiziertAbgewiesen) {
     // Set gehoert zur Gattung Container -- unter gattung=map hat es nichts zu suchen. Ohne diese Wache
     // entstuende der Pfad "gattung=map/genus=set/..." klaglos: wohlgeformt, schreibbar, und eine LUEGE
     // ueber die Abstammung. Genau die Klasse Fehler, die nie klappert.
-    bl::MessdatenBaumSpec s{bl::LagerWurzelPaar{cea::AnatomyGattung::Map, cea::AnatomyGenus::Set}};
-    s.mess        = {{"mess", "vereint"}};
-    s.system      = system_drei();
-    s.organ       = organ_18_gemischt();
-    s.haupt_blatt = {{"blatt", hex128('a')}};
-    auto const k  = bl::MessdatenRealmPolicy::kaskade(s);
+    bl::MessdatenBaumSpec s{.wurzel       = bl::LagerWurzelPaar{cea::AnatomyGattung::Map, cea::AnatomyGenus::Set},
+                            .mess         = {{"mess", "vereint"}},
+                            .system       = system_drei(),
+                            .meta_metas   = {},
+                            .organ        = organ_18_gemischt(),
+                            .haupt_blatt  = {{"blatt", hex128('a')}},
+                            .mess_unter   = {},
+                            .system_unter = {},
+                            .organ_unter  = {}};
+    auto const            k = bl::MessdatenRealmPolicy::kaskade(s);
     EXPECT_EQ(k.fehler, bl::LagerBaumFehler::gattung_genus_unvereinbar);
     EXPECT_TRUE(k.pfad().empty()) << "Ein abgewiesenes Paar darf keinen halben Pfad zurueckgeben";
 
@@ -502,12 +513,16 @@ TEST(Lb2WurzelNegativ, GenusAusEinerFREMDENGattungWirdKlassifiziertAbgewiesen) {
 
     // GEGENPROBE: dasselbe Genus unter SEINER Gattung laeuft durch -- die Wache weist das PAAR ab,
     // nicht das Genus. Ohne diese Haelfte waere "lehnt ab" auch mit einer kaputten Wache erfuellt.
-    bl::MessdatenBaumSpec gut{bl::LagerWurzelPaar{cea::AnatomyGattung::Container, cea::AnatomyGenus::Set}};
-    gut.mess        = {{"mess", "vereint"}};
-    gut.system      = system_drei();
-    gut.organ       = organ_18_gemischt();
-    gut.haupt_blatt = {{"blatt", hex128('a')}};
-    auto const ok   = bl::MessdatenRealmPolicy::kaskade(gut);
+    bl::MessdatenBaumSpec gut{.wurzel     = bl::LagerWurzelPaar{cea::AnatomyGattung::Container, cea::AnatomyGenus::Set},
+                              .mess       = {{"mess", "vereint"}},
+                              .system     = system_drei(),
+                              .meta_metas = {},
+                              .organ      = organ_18_gemischt(),
+                              .haupt_blatt  = {{"blatt", hex128('a')}},
+                              .mess_unter   = {},
+                              .system_unter = {},
+                              .organ_unter  = {}};
+    auto const            ok = bl::MessdatenRealmPolicy::kaskade(gut);
     ASSERT_TRUE(ok.ok()) << bl::to_string(ok.fehler);
     EXPECT_EQ(ok.ebenen[0], "gattung=container");
     EXPECT_EQ(ok.ebenen[1], "genus=set");
@@ -522,11 +537,12 @@ TEST(Lb2WurzelNegativ, EinEnumWertOhneLagerTokenBrichtStattStillUnterUnknownZuLa
     ASSERT_EQ(cea::genus_name(fremd), "Unknown") << "Vorbedingung: 200 ist kein Enumerator der Anatomie";
     ASSERT_TRUE(bl::lager_genus_token(fremd).empty()) << "und hat folgerichtig keinen Lager-Token";
 
-    bl::BinariesBaumSpec s{bl::LagerWurzelPaar{cea::AnatomyGattung::Map, fremd}};
-    s.system     = system_drei();
-    s.organ      = organ_18_gemischt();
-    s.mess_typ   = {{"mess", "vereint"}};
-    auto const k = bl::BinariesRealmPolicy::kaskade(s);
+    bl::BinariesBaumSpec s{.wurzel     = bl::LagerWurzelPaar{cea::AnatomyGattung::Map, fremd},
+                           .system     = system_drei(),
+                           .meta_metas = {},
+                           .organ      = organ_18_gemischt(),
+                           .mess_typ   = {{"mess", "vereint"}}};
+    auto const           k = bl::BinariesRealmPolicy::kaskade(s);
     EXPECT_EQ(k.fehler, bl::LagerBaumFehler::wurzel_token_fehlt)
         << "ANWESENHEIT vor BEZIEHUNG: der fehlende Token ist die erste Ursache, nicht die Unvereinbarkeit";
     EXPECT_TRUE(k.pfad().empty());
@@ -540,11 +556,21 @@ TEST(Lb2Wurzel, DieLagerTokenSindEINGEFROREN) {
     EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Map), "map");
     EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Container), "container");
     EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Graph), "graph");
+    EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::HeuristikAdapter), "heuristik_adapter");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::SearchAlgorithm), "search_algorithm");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Set), "set");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Sequence), "sequence");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Adapter), "adapter");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::View), "view");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::FunctionInterfaceReroute), "function_interface_reroute");
+
+    // Die NAMENS-WARNUNG aus anatomy_base.hpp gilt auf der Platte genauso wie im Quelltext:
+    // "Adapter" OHNE Praefix meint IMMER den Container-Genus. Beide Token stehen ab dem ersten
+    // eingelagerten Blatt nebeneinander im selben Vaterordner -- waeren sie gleich, verschmolzen
+    // zwei Genera still zu einem Ast.
+    EXPECT_NE(bl::lager_genus_token(cea::AnatomyGenus::Adapter),
+              bl::lager_genus_token(cea::AnatomyGenus::FunctionInterfaceReroute))
+        << "adapter (Container-Genus) und function_interface_reroute (Hybrid-Genus) sind zwei Adressen";
 
     // Der Token ist BEWUSST nicht der C++-Name: E-24 C7-1 hat den Enumerator SearchAlgorithm nach Map
     // umbenannt, weil damals nichts eingefroren war. Waere der Ordnername an gattung_name() gekoppelt,
@@ -577,10 +603,80 @@ TEST(Lb2Wurzel, NENNER_JedeGattungUndJedesGenusDerAnatomieIstEinsortierbar) {
               << " -- Genera mit Lager-Token: " << mit_genus_token << "/" << genera
               << " (Grundgesamtheit: Scan ueber alle 256 uint8_t-Werte, Zugehoerigkeit per "
                  "anatomy::gattung_name/genus_name)\n";
-    EXPECT_EQ(gattungen, 3u) << "Stand 09.08.2026: Map, Container, Graph";
-    EXPECT_EQ(genera, 5u) << "Stand 09.08.2026: SearchAlgorithm, Set, Sequence, Adapter, View";
+    // NACHGEZOGEN 09.08.2026 (Warnungs-Runde 1, Klasse REGRESSION): hier standen 3 und 5. Die
+    // Anatomie fuehrt seit HY-A1 VIER Gattungen und SECHS Genera (HeuristikAdapter bzw.
+    // FunctionInterfaceReroute). Diese beiden Zeilen sind eine ABSICHTLICHE Stolperkante: sie sollen
+    // fallen, wenn die Anatomie waechst -- genau das ist passiert, und genau deshalb werden sie
+    // NACHGEZOGEN und nicht etwa gegen die laufende Zahl aufgeweicht. Eine Zusicherung, die sich die
+    // Grundgesamtheit selbst aus der Tabelle holt, koennte nie mehr fallen.
+    EXPECT_EQ(gattungen, 4u) << "Stand 09.08.2026 nach HY-A1: Map, Container, Graph, HeuristikAdapter";
+    EXPECT_EQ(genera, 6u)
+        << "Stand 09.08.2026 nach HY-A1: SearchAlgorithm, Set, Sequence, Adapter, View, FunctionInterfaceReroute";
     EXPECT_EQ(mit_gattung_token, gattungen) << "K1: keine Gattung ohne Lager-Token";
     EXPECT_EQ(mit_genus_token, genera) << "K1: kein Genus ohne Lager-Token";
+}
+
+// ---------------------------------------------------------------------------
+// LAUFZEIT-ZEUGE fuer WACHE 3 (Injektivitaet). BEFUND, der ihn ausgeloest hat
+// (Warnungs-Review Runde 2b, 09.08.2026):
+//
+//   lager_baum_writer.hpp:258:15: error: static assertion expression is not an integral
+//                                        constant expression
+//   note: constexpr evaluation hit maximum step limit; possible infinite loop?
+//         in call to 'length(&"Unknown"[0])' ... in call to 'ist_gattung_enumerator(10)'
+//
+// Die consteval-Wache lief ueber 32640 Paare mit je vier Orakel-Aufrufen und sprengte damit
+// clangs Schrittgrenze -- auf clang war sie also kein Testat, sondern ein Abbruch. Sie ist
+// jetzt zweiphasig (Zugehoerigkeit einmal je Wert, dann Paare ueber die eingesammelten Token).
+//
+// WARUM DIESER TEST TROTZ DER consteval-WACHE: eine Umbau, der eine Wache BILLIGER macht, kann
+// sie unbemerkt HOHL machen -- und eine hohle consteval-Wache klappert nicht, sie schweigt.
+// Hier steht deshalb ein ZWEITER, unabhaengig geschriebener Zeuge derselben Eigenschaft, mit
+// Nenner in der Ausgabe. Sein Orakel ist die ANATOMIE (gattung_name/genus_name), nicht die
+// Token-Tabelle und nicht die consteval-Wache (T-3/T-5).
+// ---------------------------------------------------------------------------
+TEST(Lb2Wurzel, NENNER_DieLagerTokenSindPAARWEISE_VERSCHIEDEN_LaufzeitZeuge) {
+    std::vector<std::pair<int, std::string_view>> gattung_tok, genus_tok;
+    for (int v = 0; v <= 255; ++v) {
+        auto const ga = static_cast<cea::AnatomyGattung>(static_cast<std::uint8_t>(v));
+        if (cea::gattung_name(ga) != std::string_view{"Unknown"})
+            gattung_tok.emplace_back(v, bl::lager_gattung_token(ga));
+        auto const ge = static_cast<cea::AnatomyGenus>(static_cast<std::uint8_t>(v));
+        if (cea::genus_name(ge) != std::string_view{"Unknown"}) genus_tok.emplace_back(v, bl::lager_genus_token(ge));
+    }
+
+    // Die Paar-Zahl ist der NENNER dieses Tests -- nicht die Zahl der Token.
+    auto        paare       = [](std::size_t n) { return n * (n - 1) / 2; };
+    std::size_t kollisionen = 0;
+    for (std::size_t a = 0; a < gattung_tok.size(); ++a)
+        for (std::size_t b = a + 1; b < gattung_tok.size(); ++b)
+            if (gattung_tok[a].second == gattung_tok[b].second) {
+                ++kollisionen;
+                ADD_FAILURE() << "Gattung " << gattung_tok[a].first << " und " << gattung_tok[b].first
+                              << " teilen den Token '" << gattung_tok[a].second << "'";
+            }
+    for (std::size_t a = 0; a < genus_tok.size(); ++a)
+        for (std::size_t b = a + 1; b < genus_tok.size(); ++b)
+            if (genus_tok[a].second == genus_tok[b].second) {
+                ++kollisionen;
+                ADD_FAILURE() << "Genus " << genus_tok[a].first << " und " << genus_tok[b].first
+                              << " teilen den Token '" << genus_tok[a].second << "'";
+            }
+
+    std::cout << "[K1-NENNER] geprueft: " << paare(gattung_tok.size()) << " Gattungs-Paare + "
+              << paare(genus_tok.size()) << " Genus-Paare (aus " << gattung_tok.size() << " Gattungen und "
+              << genus_tok.size() << " Genera, gefunden per Scan ueber alle 256 uint8_t-Werte) -- " << kollisionen
+              << " Kollisionen\n";
+    EXPECT_EQ(kollisionen, 0u);
+
+    // GEGENEINGANG (T-4): DIESELBE Pruef-Logik an einer Tabelle, die die Zusicherung VERLETZT.
+    // Ohne ihn belegte die 0 oben nur, dass die Schleife laeuft -- nicht, dass sie etwas sieht.
+    std::vector<std::string_view> const entartet{"map", "container", "map"};
+    std::size_t                         gegen = 0;
+    for (std::size_t a = 0; a < entartet.size(); ++a)
+        for (std::size_t b = a + 1; b < entartet.size(); ++b)
+            if (entartet[a] == entartet[b]) ++gegen;
+    EXPECT_EQ(gegen, 1u) << "die Pruef-Logik selbst muss eine Kollision sehen koennen, sonst ist die 0 oben leer";
 }
 
 // ===========================================================================
@@ -589,11 +685,12 @@ TEST(Lb2Wurzel, NENNER_JedeGattungUndJedesGenusDerAnatomieIstEinsortierbar) {
 namespace {
 
 bl::BinariesBaumSpec binaries_spec() {
-    bl::BinariesBaumSpec s{kWurzelMapSa};
-    s.system     = system_drei();
-    s.meta_metas = {{"simd", "avx2"}};
-    s.organ      = organ_18_gemischt();
-    s.mess_typ   = {{"mess", "vereint"}};
+    // Volle designierte Liste (Warnungs-Runde 2, wie messdaten_spec oben): alle fuenf Ebenen benannt.
+    bl::BinariesBaumSpec s{.wurzel     = kWurzelMapSa,
+                           .system     = system_drei(),
+                           .meta_metas = {{"simd", "avx2"}},
+                           .organ      = organ_18_gemischt(),
+                           .mess_typ   = {{"mess", "vereint"}}};
     return s;
 }
 

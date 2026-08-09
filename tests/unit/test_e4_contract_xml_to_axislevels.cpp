@@ -128,10 +128,20 @@ int main(int argc, char** argv) {
     std::vector<ex::AxisLevel> const levels = ex::build_axis_levels(*tp, "ce_only", ex::AxisRegistry{});
     check_eq("Positiv: AxisLevel-Anzahl", levels.size(), std::size_t{11});
     if (levels.size() == 11) {
-        check_axis_level("static[0]", levels[0], "tier", {"tier_a", "tier_b"}, true, "", "");
-        check_axis_level("static[1]", levels[1], "search_algo", {"art", "hot"}, true, "", "");
-        check_axis_level("static[2]", levels[2], "cache_traversal", {"linear"}, true, "", "");
-        check_axis_level("static[3]", levels[3], "value_handle", {"inline", "external"}, true, "", "");
+        // block_id NACHGEZOGEN 09.08.2026: hier stand viermal "" -- die XML-Bahn liess die
+        // Rueck-Referenz auf den AxisBlock leer, WAEHREND die compile-time-Bahn sie seit jeher setzt
+        // (axis_reflect.hpp:42, woertlich `/*block_id=*/std::string{axis}`) und zwei andere Tests sie
+        // einfordern (test_br1_subset.cpp:58 `l.block_id != l.axis -> block_ok = false`,
+        // test_harness_compile `!d.block_id().empty()`). Zwei Bahnen, zwei Ergebnisse fuer dasselbe
+        // Feld: genau die Sorte Abweichung, die erst auffaellt, wenn jemand die Rueck-Referenz
+        // BENUTZT. Vereinheitlicht wurde auf die compile-time-Konvention (block_id == axis), weil sie
+        // die aeltere und die von Wachen gedeckte ist; diese Zeilen ziehen nach. Die dynamischen
+        // Ebenen unten trugen block_id bereits -- sie bleiben unveraendert und sind der Gegenbeleg,
+        // dass hier NICHT die Zusicherung aufgeweicht, sondern eine Luecke geschlossen wird.
+        check_axis_level("static[0]", levels[0], "tier", {"tier_a", "tier_b"}, true, "", "tier");
+        check_axis_level("static[1]", levels[1], "search_algo", {"art", "hot"}, true, "", "search_algo");
+        check_axis_level("static[2]", levels[2], "cache_traversal", {"linear"}, true, "", "cache_traversal");
+        check_axis_level("static[3]", levels[3], "value_handle", {"inline", "external"}, true, "", "value_handle");
         check_axis_level("dyn-level[4]", levels[4], "concurrency", {"1", "4"}, false, "thread_count", "concurrency");
         check_axis_level("dyn-level[5]", levels[5], "prefetch", {"all_on", "all_off"}, false, "hw_prefetcher",
                          "prefetch");
@@ -174,10 +184,14 @@ int main(int argc, char** argv) {
     std::vector<ex::AxisLevel> const neg_levels = ex::build_axis_levels(*neg, "ce_only", ex::AxisRegistry{});
     check_eq("Negativ: AxisLevel-Anzahl wie Bestand", neg_levels.size(), std::size_t{7});
     if (neg_levels.size() == 7) {
-        check_axis_level("neg.static[0]", neg_levels[0], "tier", {"tier_a", "tier_b"}, true, "", "");
-        check_axis_level("neg.static[1]", neg_levels[1], "search_algo", {"art", "hot"}, true, "", "");
-        check_axis_level("neg.static[2]", neg_levels[2], "cache_traversal", {"linear"}, true, "", "");
-        check_axis_level("neg.static[3]", neg_levels[3], "value_handle", {"inline", "external"}, true, "", "");
+        // block_id auch hier nachgezogen (s. Begruendung an der Positiv-Fixture oben): die
+        // Negativ-Fixture prueft, dass FEHLERHAFTE dynamische Bloecke fallen -- die statischen Ebenen
+        // entstehen auf demselben Weg wie oben und tragen dieselbe Rueck-Referenz.
+        check_axis_level("neg.static[0]", neg_levels[0], "tier", {"tier_a", "tier_b"}, true, "", "tier");
+        check_axis_level("neg.static[1]", neg_levels[1], "search_algo", {"art", "hot"}, true, "", "search_algo");
+        check_axis_level("neg.static[2]", neg_levels[2], "cache_traversal", {"linear"}, true, "", "cache_traversal");
+        check_axis_level("neg.static[3]", neg_levels[3], "value_handle", {"inline", "external"}, true, "",
+                         "value_handle");
     }
 
     std::vector<ex::DynamicDim> const neg_dyn = dynamic_dims(neg_levels);

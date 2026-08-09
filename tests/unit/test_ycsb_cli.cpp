@@ -15,31 +15,12 @@
 #include <string_view>
 #include <vector>
 
-// Re-declare ycsb_cli API (Lib hat YCSB_CLI_TEST_NO_MAIN=1, kein main())
-namespace ycsb_cli {
-namespace wg = comdare::workload_generator;
-enum class OutputFormat : std::uint8_t { Binary = 0, Tsv = 1, Json = 2 };
-struct CliConfig {
-    wg::YcsbWorkload      workload      = wg::YcsbWorkload::C;
-    std::uint64_t         num_keys      = 100000;
-    std::uint64_t         num_ops       = 1000000;
-    std::uint32_t         key_size      = 16;
-    std::uint32_t         value_size    = 64;
-    wg::KeyDistribution   key_dist      = wg::KeyDistribution::Zipfian;
-    double                zipfian_theta = 0.99;
-    std::uint64_t         seed          = 42;
-    std::filesystem::path output        = "workload.bin";
-    OutputFormat          format        = OutputFormat::Binary;
-};
-int parse_workload(std::string_view s, wg::YcsbWorkload& out) noexcept;
-int parse_format(std::string_view s, OutputFormat& out) noexcept;
-int parse_key_dist(std::string_view s, wg::KeyDistribution& out) noexcept;
-int parse_args(int argc, char const* const* argv, CliConfig& cfg) noexcept;
-int write_binary(std::filesystem::path const& p, std::span<wg::Operation const> ops) noexcept;
-int write_tsv(std::filesystem::path const& p, std::span<wg::Operation const> ops) noexcept;
-int write_json(std::filesystem::path const& p, std::span<wg::Operation const> ops) noexcept;
-int generate_and_write(CliConfig const& cfg) noexcept;
-} // namespace ycsb_cli
+// KEINE Handabschrift der ycsb_cli-Signaturen mehr (09.08.2026): hier standen die Typen und
+// neun Deklarationen ein ZWEITES Mal, abgeschrieben von main.cpp. Zwei Kopien derselben
+// Schnittstelle laufen still auseinander -- und als main.cpp die Helfer in einen unbenannten
+// Namensraum legte, merkte diese Datei es nicht beim Uebersetzen, sondern erst der Binder.
+// Jetzt liest der Test dieselbe Deklarationsstelle wie die Bibliothek.
+#include "ycsb_cli.hpp"
 
 namespace wg = comdare::workload_generator;
 

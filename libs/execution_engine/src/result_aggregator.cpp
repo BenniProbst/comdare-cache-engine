@@ -1,5 +1,7 @@
 #include <comdare/experiment/result_aggregator.hpp>
 
+#include <cache_engine/measurement/pipeline_csv_schema.hpp> // B-3: DIE EINE Pipeline-Spaltenliste
+
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -59,11 +61,10 @@ void ResultAggregator::export_csv(std::filesystem::path const& path) const {
     std::ofstream out{path};
     if (!out) throw std::runtime_error{"Could not open " + path.string()};
 
-    // V20.3 — workload_used als zusaetzliche Spalte (zwischen succeeded und op_count)
-    out << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
-        << "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
-        << "coherence_invalidations,energy_micro_joules,"
-        << "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
+    // V20.3 — workload_used als zusaetzliche Spalte (zwischen succeeded und op_count).
+    // B-3 (2026-08-09): die Liste stand hier als viertes identisches Literal. Sie kommt jetzt aus der
+    // EINEN Quelle (cache_engine/measurement/pipeline_csv_schema.hpp) -- gerufen, nicht abgeschrieben.
+    out << ::comdare::cache_engine::measurement::pipeline16_csv_header();
 
     for (auto const& r : results_) {
         out << r.permutation_id << ',' << r.fingerprint << ',' << (r.succeeded ? 1 : 0) << ',' << r.workload_used << ','

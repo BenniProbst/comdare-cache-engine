@@ -25,6 +25,7 @@
 #include "system_version_suffix.hpp"    // Lane F R3: die EINE Suffix-Quelle (Segment-Ordnung deklarativ)
 #include "overlay_source_hash_naht.hpp" // E-E: der LIVE-Wert des Preimage-Glieds [7] + sein Define-Argument
 #include "system_cell_values_naht.hpp"  // W10-C4: Zellwert-Aufloesung + Define-Argument (die EINE Wertform)
+#include "system_axes_entscheidung.hpp" // T-1: die EINE <system_axes>-Entscheidung + ihre Zwei-Parse-Wache
 #include "toolchain_stamp_naht.hpp"     // NB/CX-4: die LIVE-Werte der Preimage-Glieder [5]/[6] + ihre Define-Args
 #include "mess_achsen_naht.hpp"         // M-1/D-1: die Mess-Achse -> Tier-Defines (Stufe-2->Stufe-3-Naht)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
@@ -606,9 +607,12 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     // run_profile sie SELBST (opt×simd-Walk) und haengt je Kombination das +cxx=+opt=+ext=-Suffix ans build_version.
     // Dann darf die BASIS-build_version den system_axes_version_suffix() NICHT tragen (sonst doppelte Provenienz) —
     // exakt wie run_experiment_profile_facade. OHNE <system_axes> bleibt der Einzel-Pfad byte-identisch.
-    bool const profile_has_system_axes =
-        tp_opt && (!tp_opt->compiler.opt_levels.empty() || !tp_opt->external_utils.simd_options.empty());
-    auto const is_selected = [&workload_select](std::string const& id) {
+    // T-1 (2026-08-09): der Ausdruck stand hier frueher AUSGESCHRIEBEN und ein zweites Mal (De-Morgan-dual)
+    // in profile_run_entry.hpp -- zwei Parses derselben Datei, die dasselbe sagen MUSSTEN, ohne dass es
+    // jemand erzwang. Jetzt faellt die Entscheidung an EINER Stelle und reist als Wert mit (a.system_achsen
+    // unten); run_profile prueft sie gegen seinen eigenen Parse. Details: system_axes_entscheidung.hpp.
+    bool const profile_has_system_axes = tp_opt && pf::profil_deklariert_system_achsen(*tp_opt);
+    auto const is_selected             = [&workload_select](std::string const& id) {
         return workload_select.empty() ||
                std::find(workload_select.begin(), workload_select.end(), id) != workload_select.end();
     };
@@ -668,6 +672,12 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     }
     a.n_ops        = args.n_ops;
     a.max_binaries = args.max_binaries;
+    // T-1: DIE ENTSCHEIDUNG REIST MIT. Sie ist oben EINMAL gefallen; run_profile darf sie nicht neu
+    // erfinden, sondern haelt seinen eigenen Parse dagegen. Genau die Belegung von compile_for_perm
+    // unten haengt an ihr -- driftete sie, liefe die Perm-Schleife ohne per-Perm-Bau und ohne
+    // per-Perm-Fingerprint. Bei nicht lesbarem Profil bleibt sie ungetragen (der Entry bricht ohnehin ab).
+    a.system_achsen = tp_opt ? pf::system_achsen_entscheidung_von(profile_has_system_axes)
+                             : pf::SystemAchsenEntscheidung::NichtGetragen;
     // GN-3 (§33, 2026-07-19): build_version + opt×simd-Kanal je nach <system_axes>-Deklaration (profile_has_system_axes).
     if (profile_has_system_axes) {
         // Die opt×simd-Perm-Schleife in run_profile haengt je Kombination +cxx=+opt=+ext= an → BASIS OHNE
@@ -859,7 +869,13 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
     os << "=== EXPERIMENT-PROFIL-VALIDAT (rein-lesend; KEIN DLL-Bau, KEINE Messung) ===\n";
     os << "  Experiment id=" << ep->id << " version=" << ep->version << "\n";
     os << "  geprueft: " << vr.engines_checked << " engines, " << vr.phases_checked << " phases, "
-       << vr.variants_checked << " allowed_variants, " << vr.categories_checked << " measurement_categories";
+       << vr.variants_checked << " allowed_variants, " << vr.categories_checked;
+    // Paket #11 (2026-08-09): der NENNER der Teilmengen-Garantie gehoert in die Ausgabe -- aber NUR, wenn die
+    // Wache auch lief. categories_offered==0 heisst "keine <measurement_categories> deklariert" (= alle
+    // Kategorien, KERN-A); dann waere ein "0 von 0" eine Falschaussage ueber ein Angebot, das es sehr wohl
+    // gibt. Ohne Auswahl bleibt die Zeile daher byte-identisch zum Ist-Stand.
+    if (vr.categories_offered > 0) os << " von " << vr.categories_offered;
+    os << " measurement_categories";
     if (vr.workloads_checked > 0) os << ", " << vr.workloads_checked << " workloads";
     os << "\n";
     for (auto const& w : vr.warnings) os << "  [HINWEIS] " << w << "\n";

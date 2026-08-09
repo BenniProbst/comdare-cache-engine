@@ -14,6 +14,12 @@
 //   (e) GOLDEN-NEUTRALITAET — die gepinnte Basis des Beispiel-Profils (MIT measurement_categories) erzeugt
 //       weiterhin genau 1 Zelle mit der golden-320-Baseline-binary_id: Kategorien sind eine Spalten-
 //       PROJEKTION, KEINE Achse → binary_id-neutral.
+//   (f) TEILMENGEN-GARANTIE / Koeder (Paket #11, 2026-08-09) -- ein bei JEDEM Lauf NEU GEWUERFELTER Name
+//       ausserhalb des Angebots wird hart abgelehnt; die Vorbedingung "liegt wirklich ausserhalb" ist
+//       selbst ein ASSERT. Der Bericht nennt dabei BEIDE Zahlen (Auswahl von Grundgesamtheit).
+//   (g) TEILMENGEN-GARANTIE / Gegeneingang (Paket #11) -- die VOLLE Auswahl (alle Registry-Namen) geht
+//       glatt durch, Zaehler == Nenner. (f) ohne (g) waere wertlos: eine Wache, die alles ablehnt,
+//       bestuende (f) ebenfalls und ist von der richtigen nicht zu unterscheiden.
 //
 // TABU-Wache: m3v2_study.profile.xml + golden_fullpilot_320_binary_ids.txt werden NUR GELESEN.
 
@@ -26,10 +32,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -48,6 +56,45 @@ namespace cx  = comdare::builder::xml;
 namespace ex  = comdare::cache_engine::builder::experiment;
 namespace tlz = comdare::cache_engine::thesis_lazy;
 namespace fs  = std::filesystem;
+namespace ms  = comdare::cache_engine::measurement; // Paket #11: kMeasurementAxisRegistry = die Grundgesamtheit
+
+// -- Paket #11 (2026-08-09): die TEILMENGEN-GARANTIE. Die Erwartungen unten leiten die Grundgesamtheit AUS
+//    kMeasurementAxisRegistry ab statt "16" zu tippen -- waechst die Registry auf 17, wandert das Gate mit,
+//    statt eine tote Zahl zu behaupten. --
+std::vector<std::string> offered_categories() {
+    std::vector<std::string> v;
+    for (auto const& info : ms::kMeasurementAxisRegistry) v.emplace_back(info.name);
+    return v;
+}
+
+bool is_offered(std::string const& name) {
+    for (auto const& info : ms::kMeasurementAxisRegistry)
+        if (info.name == name) return true;
+    return false;
+}
+
+std::string categories_block_of(std::vector<std::string> const& names) {
+    std::string block = "  <measurement_categories>";
+    for (auto const& n : names) block += "<category name=\"" + n + "\"/>";
+    block += "</measurement_categories>\n";
+    return block;
+}
+
+// FRISCH GEWUERFELT (K13): der Koeder entsteht bei JEDEM Lauf neu. Ein fest verdrahteter Koeder verliert
+// seine Beweiskraft in dem Moment, in dem er versehentlich ins Angebot wandert -- dann prueft der Test still
+// den Gutfall weiter und sieht aus wie vorher. Die Schleife wuerfelt daher so lange, bis der Koeder
+// NACHWEISLICH AUSSERHALB des Angebots liegt; der Test macht diese Vorbedingung anschliessend hart.
+std::string fresh_koeder() {
+    std::mt19937_64 rng{std::random_device{}() ^
+                        static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count())};
+    std::uniform_int_distribution<int> letter{0, 25};
+    for (int attempt = 0; attempt < 64; ++attempt) {
+        std::string name = "KOEDER_";
+        for (int i = 0; i < 12; ++i) name += static_cast<char>('A' + letter(rng));
+        if (!is_offered(name)) return name;
+    }
+    return {};
+}
 
 fs::path example_profile_path() { return fs::path{COMDARE_THESIS_PROFILES_DIR} / "wdk_fairness_example.profile.xml"; }
 
@@ -113,10 +160,16 @@ TEST(MeasurementCategories, ParserAndValidateOnExampleProfile) {
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
     EXPECT_EQ(vr.categories_checked, 4u);
+    // Paket #11: der NENNER wird mitgefuehrt -- und zwar der, den die Wache wirklich befragt hat.
+    EXPECT_EQ(vr.categories_offered, ms::kMeasurementAxisRegistry.size());
 
     std::ostringstream os;
     tlz::print_validation_report(vr, *tp, os);
-    EXPECT_NE(os.str().find("4 measurement_categories"), std::string::npos) << os.str();
+    // BEIDE Zahlen stehen in der Ausgabe: Auswahl "von" Grundgesamtheit. "4 measurement_categories" allein
+    // liesse offen, wogegen geprueft wurde -- und waere von einem falschen Nenner nicht zu unterscheiden.
+    std::string const expect_both =
+        "4 von " + std::to_string(ms::kMeasurementAxisRegistry.size()) + " measurement_categories";
+    EXPECT_NE(os.str().find(expect_both), std::string::npos) << os.str();
 }
 
 // (b) UNGUELTIGE KATEGORIE — ein getippter Name ist ein HARTER Fehler (Single-Source kMeasurementAxisRegistry).
@@ -176,4 +229,62 @@ TEST(MeasurementCategories, CategoriesAreBinaryIdNeutralAgainstGolden) {
     ex::StaticBinaryView const view = tree.static_binary_view();
     ASSERT_EQ(view.size(), 1u) << "gepinnte Basis muss genau 1 Zelle ergeben";
     EXPECT_EQ(view[0].binary_id, golden0) << "measurement_categories duerfen die binary_id NIE beeinflussen";
+}
+
+// -----------------------------------------------------------------------------
+// Paket #11 (2026-08-09) -- DIE TEILMENGEN-GARANTIE ALS WACHE, mit ihrem Gegeneingang.
+//
+// (f) und (g) gehoeren ZUSAMMEN und duerfen nie getrennt gelesen werden. (f) allein wuerde auch von einer
+// Wache bestanden, die AUSNAHMSLOS alles ablehnt -- und die blinde Wache sieht von aussen genauso aus wie
+// die richtige. Erst (g) zeigt, dass die Wache UNTERSCHEIDET: die vollstaendige, legitime Auswahl muss
+// glatt durchgehen. Zusammen belegen sie, dass "Teilmenge des Angebots" gemessen und nicht behauptet wird.
+// -----------------------------------------------------------------------------
+
+// (f) GEGENEINGANG "Auswahl nennt etwas Unbekanntes" -- der FRISCH GEWUERFELTE Koeder MUSS BEISSEN.
+TEST(MeasurementCategories, FreshKoederIsRejectedAndDenominatorIsReported) {
+    std::string const koeder = fresh_koeder();
+    ASSERT_FALSE(koeder.empty()) << "kein Koeder ausserhalb des Angebots wuerfelbar";
+    // VORBEDINGUNG, hart: ein Koeder INNERHALB des Angebots ist kein Koeder -- der Test pruefte dann still
+    // den Gutfall und meldete trotzdem Erfolg. Genau diese Vertauschung soll hier auffallen.
+    ASSERT_FALSE(is_offered(koeder)) << "Koeder liegt IM Angebot, ist also keiner: " << koeder;
+
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+    auto const             bad      = parse_temp(categories_block_of({koeder}));
+    ASSERT_TRUE(bad.has_value());
+    ASSERT_EQ(bad->measurement_categories.size(), 1u) << "der Koeder muss den Parser ueberhaupt erreichen";
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*bad, registry);
+    EXPECT_FALSE(vr.ok) << "Koeder \"" << koeder << "\" blieb unbemerkt -- die Wache deckt nichts";
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE Mess-Kategorie")) << "Koeder: " << koeder;
+    EXPECT_EQ(vr.categories_checked, 1u);
+    // BEIDE Zahlen: auch im Fehlerfall muss der Nenner stehen, sonst bleibt unklar, wogegen geprueft wurde.
+    EXPECT_EQ(vr.categories_offered, ms::kMeasurementAxisRegistry.size());
+}
+
+// (g) GEGENEINGANG "Auswahl = Gesamtmenge" -- die volle Auswahl geht glatt durch, Zaehler == Nenner.
+// Damit ist zugleich der NENNER selbst gegengeprueft: das gemeldete Angebot ist nicht nur eine Zahl, jedes
+// seiner Elemente ist auch wirklich waehlbar. Ein Nenner, der Namen mitzaehlt, die die Wache dann ablehnt,
+// faellt hier auf (und keine der Zahlen allein wuerde ihn verraten).
+TEST(MeasurementCategories, FullSelectionEqualsOfferAndPasses) {
+    std::vector<std::string> const all = offered_categories();
+    ASSERT_EQ(all.size(), ms::kMeasurementAxisRegistry.size());
+
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+    auto const             full     = parse_temp(categories_block_of(all));
+    ASSERT_TRUE(full.has_value());
+    ASSERT_EQ(full->measurement_categories.size(), all.size());
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*full, registry);
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok) << "die Gesamtmenge IST eine Teilmenge ihrer selbst";
+    EXPECT_EQ(vr.categories_checked, all.size());
+    EXPECT_EQ(vr.categories_offered, all.size());
+    // Kein Duplikat-Hinweis: die Registry-Namen sind paarweise verschieden (registry_names_are_unique()).
+    EXPECT_FALSE(any_contains(vr.warnings, "mehrfach deklariert"));
+
+    std::ostringstream os;
+    tlz::print_validation_report(vr, *full, os);
+    std::string const expect_both =
+        std::to_string(all.size()) + " von " + std::to_string(all.size()) + " measurement_categories";
+    EXPECT_NE(os.str().find(expect_both), std::string::npos) << os.str();
 }

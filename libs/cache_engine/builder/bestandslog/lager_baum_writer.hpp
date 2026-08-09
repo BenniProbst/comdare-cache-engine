@@ -148,11 +148,16 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         case anatomy::AnatomyGattung::Map: return "map";
         case anatomy::AnatomyGattung::Container: return "container";
         case anatomy::AnatomyGattung::Graph: return "graph";
-        // HY-A1 (09.08.2026): die Hybrid-Gattung, genau wie der static_assert unten es verlangt
-        // ("Wer eine Gattung hinzufuegt -- etwa die Hybrid-Gattung HEURISTIK-ADAPTER aus E-1 --
-        // traegt sie HIER nach"). Sichtbar wurde die Luecke erst, als der -Wswitch-Fix in
-        // pruef_dock_version.hpp den Reroute-Zweig ueberhaupt erreichbar machte: vorher fiel er
-        // stumm durch, und die Wache konnte nicht anschlagen.
+        // HY-A1-NACHZUG (09.08.2026, Warnungs-Review Runde 2b): die vierte Ebene-1-Kategorie.
+        // Sie war in anatomy_base.hpp bereits angelegt (HeuristikAdapter = 3, Owner GO-3 +
+        // E-1 final), hier aber NICHT -- genau der Fall, den die Wache unten woertlich
+        // benennt ("Wer eine Gattung hinzufuegt -- etwa die Hybrid-Gattung HEURISTIK-ADAPTER
+        // aus E-1 -- traegt sie HIER nach"). Der Token folgt der Hausform der Tabelle
+        // (snake_case des Enumerator-Namens, wie "search_algorithm"); er traegt den
+        // Unterstrich, weil er GELESEN wird -- der C++-Name bleibt HeuristikAdapter.
+        // WARUM ES SO LANGE STILL BLIEB: sichtbar wurde die Luecke erst, als der -Wswitch-Fix
+        // in pruef_dock_version.hpp den Reroute-Zweig ueberhaupt erreichbar machte -- vorher
+        // fiel er stumm durch, und die Wache konnte nicht anschlagen.
         case anatomy::AnatomyGattung::HeuristikAdapter: return "heuristik_adapter";
     }
     return {};
@@ -165,11 +170,18 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         case anatomy::AnatomyGenus::Sequence: return "sequence";
         case anatomy::AnatomyGenus::Adapter: return "adapter";
         case anatomy::AnatomyGenus::View: return "view";
-        // HY-A1: Ebene 2 der Hybrid-Stufe. Der Token wird gebraucht, obwohl ein Reroute-Genus
-        // KEIN eigenes Pruef-Dock hat (Weg C) -- das sind zwei verschiedene Fragen: das Dock
-        // entscheidet, wo gemessen wird, der Lager-Token, wo das ERGEBNIS liegt. Ohne ihn ist
-        // die Gattung nicht einsortierbar, und jedes_genus_haengt_an_einer_lagerbaren_gattung()
-        // faellt -- am Objekt gesehen in ce-Pipeline 15466.
+        // HY-A1-NACHZUG, Ebene 2 der Hybrid-Stufe. Der Token heisst AUSGESCHRIEBEN und teilt
+        // bewusst kein Segment mit "adapter" (dem Container-Genus eine Zeile darueber) -- auf
+        // der Genus-Ebene waere die Verwechslung real, und zwei Genera unter demselben
+        // Ordnernamen wuerden ihre Messreihen still ineinanderschieben.
+        // GEBRAUCHT WIRD ER AUCH OHNE PRUEF-DOCK: ein Reroute-Genus hat keines (Weg C), und
+        // genus() einer Hybrid-Binary liefert ihn nie (Owner-Entscheid E-1). Das sind zwei
+        // verschiedene Fragen -- das Dock entscheidet, WO gemessen wird, der Lager-Token, wo
+        // das ERGEBNIS liegt. Fuer den Lagerbaum zaehlt genau die KLASSIFIKATION, deshalb
+        // braucht er hier einen eigenen Token und nicht etwa den geerbten Ziel-Genus-Token.
+        // Ohne ihn ist die Gattung nicht einsortierbar, und
+        // jedes_genus_haengt_an_einer_lagerbaren_gattung() faellt -- am Objekt gesehen in
+        // ce-Pipeline 15466.
         case anatomy::AnatomyGenus::FunctionInterfaceReroute: return "function_interface_reroute";
     }
     return {};
@@ -227,20 +239,49 @@ namespace detail {
 /// WACHE 3 -- die Token sind PAARWEISE VERSCHIEDEN. Das ist die schaerfste der drei: zwei Gattungen
 /// mit demselben Token wuerden ihre Baeume STILL ineinander schieben. Nichts wuerde klappern, die
 /// Pfade blieben wohlgeformt, und zwei Messreihen laegen unter derselben Adresse.
+/// ZWEI DURCHGAENGE STATT EINES QUADRATS -- und warum das kein Sparen an der Wache ist.
+///
+/// BEFUND (Warnungs-Review Runde 2b, 09.08.2026, am Objekt gemessen): die vorige Fassung lief
+/// ueber alle 256*255/2 = 32640 PAARE und rief in jedem Paar VIER Zugehoerigkeits-Orakel auf.
+/// Jedes davon baut in anatomy_base.hpp ein string_view aus einem char-Literal, also ein
+/// constexpr-strlen. clang 22.1 bricht daran ab:
+///     error: static assertion expression is not an integral constant expression
+///     note: constexpr evaluation hit maximum step limit; possible infinite loop?
+///           in call to 'length(&"Unknown"[0])' ... in call to 'ist_gattung_enumerator(10)'
+/// g++ 15.3 wertet dieselbe Schleife aus -- seine Vorgabe fuer constexpr-Schritte liegt um
+/// Groessenordnungen hoeher. Die Wache war damit NICHT portabel: auf clang war sie kein
+/// Testat, sondern ein Uebersetzungs-Abbruch.
+///
+/// KONKRET: GCCs -fconstexpr-ops-limit hat den Default 33.554.432, clangs -fconstexpr-steps
+/// nur 1.048.576 -- die alte Form lag mit ueber 2,6 Mio. Schritten zwischen beiden Budgets.
+/// Das ist der ganze Grund, warum NUR clang brach.
+///
+/// NICHT GEWAEHLT: -fconstexpr-steps hochdrehen. Das waere das Senken der Warnstufe in gruen --
+/// die Wache bliebe teuer und die naechste Gattung schoebe sie wieder ueber die Grenze.
+///
+/// DIE GRUNDGESAMTHEIT BLEIBT DIESELBE: weiterhin der GESAMTE uint8_t-Bereich (256 Werte je
+/// Enum), weiterhin JEDES ungeordnete Paar. Nur wird die Zugehoerigkeit EINMAL je Wert
+/// bestimmt statt einmal je Paar -- 512 Orakel-Aufrufe statt 130560. Was danach paarweise
+/// verglichen wird, sind fertige string_views ohne weiteres strlen.
 [[nodiscard]] consteval bool lager_wurzel_tokens_sind_unterscheidbar() {
-    for (int a = 0; a <= 255; ++a)
-        for (int b = a + 1; b <= 255; ++b) {
-            auto const ga1 = static_cast<anatomy::AnatomyGattung>(static_cast<std::uint8_t>(a));
-            auto const ga2 = static_cast<anatomy::AnatomyGattung>(static_cast<std::uint8_t>(b));
-            if (ist_gattung_enumerator(ga1) && ist_gattung_enumerator(ga2) &&
-                lager_gattung_token(ga1) == lager_gattung_token(ga2))
-                return false;
-            auto const ge1 = static_cast<anatomy::AnatomyGenus>(static_cast<std::uint8_t>(a));
-            auto const ge2 = static_cast<anatomy::AnatomyGenus>(static_cast<std::uint8_t>(b));
-            if (ist_genus_enumerator(ge1) && ist_genus_enumerator(ge2) &&
-                lager_genus_token(ge1) == lager_genus_token(ge2))
-                return false;
-        }
+    std::array<std::string_view, 256> gattung_tokens{};
+    std::size_t                       gattung_n = 0;
+    std::array<std::string_view, 256> genus_tokens{};
+    std::size_t                       genus_n = 0;
+
+    for (int v = 0; v <= 255; ++v) {
+        auto const ga = static_cast<anatomy::AnatomyGattung>(static_cast<std::uint8_t>(v));
+        if (ist_gattung_enumerator(ga)) gattung_tokens[gattung_n++] = lager_gattung_token(ga);
+        auto const ge = static_cast<anatomy::AnatomyGenus>(static_cast<std::uint8_t>(v));
+        if (ist_genus_enumerator(ge)) genus_tokens[genus_n++] = lager_genus_token(ge);
+    }
+
+    for (std::size_t a = 0; a < gattung_n; ++a)
+        for (std::size_t b = a + 1; b < gattung_n; ++b)
+            if (gattung_tokens[a] == gattung_tokens[b]) return false;
+    for (std::size_t a = 0; a < genus_n; ++a)
+        for (std::size_t b = a + 1; b < genus_n; ++b)
+            if (genus_tokens[a] == genus_tokens[b]) return false;
     return true;
 }
 

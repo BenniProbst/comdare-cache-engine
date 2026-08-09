@@ -108,14 +108,14 @@ public:
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
         if (n == 0) return 0;
-        // 09.08.2026 (clang-Runde 2, -Wshadow): hier stand eine ZWEITE `constexpr kHashes = 4`,
-        // die das Klassen-Member (Z. 43) verdeckte. Beide trugen denselben Wert, es war also kein
-        // aktiver Defekt -- aber genau die Bauform, gegen die dieses Projekt gebaut ist: wer k in
-        // Z. 43 auf 6 zieht, bekommt `probe_multiplicity()` == 6, waehrend diese Sonde weiter 4
-        // Positionen probt. Die Messkurve wuerde sich still verschieben, und die Zahl, die sie
-        // erklaert, saesse woanders. GCC meldet das nicht -- clang schon.
-        std::size_t const     mBits   = n * 8u; // Pseudo-Bitmap m = n Bytes * 8 Bit
-        std::uint64_t         hits    = 0;
+        // 09.08.2026 (Warnungs-Runde 2, clang -Wshadow; Klasse MUTANT): hier stand ein LOKALES
+        // `constexpr std::size_t kHashes = 4;`, das das gleichnamige Klassen-Mitglied (Zeile 43)
+        // verdeckte. Heute sind beide 4 -- aber probe_multiplicity() meldet das KLASSEN-k an die
+        // Mess-Normierung. Wer das Klassen-k je aendert, haette die Normierung geaendert und diese
+        // Probe-Schleife NICHT: die gemeldete Probenzahl und die tatsaechliche waeren still
+        // auseinandergelaufen. Die Lokale faellt weg; es gibt genau EIN k.
+        std::size_t const mBits = n * 8u; // Pseudo-Bitmap m = n Bytes * 8 Bit
+        std::uint64_t     hits  = 0;
         for (std::size_t i = 0; i < q; ++i) {
             std::uint32_t const key = queries[i]; // 1 Byte je Query als Schlüssel
             // double-hashing (Kirsch/Mitzenmacher 2006): h1 = FNV-artig, h2 = Rotation

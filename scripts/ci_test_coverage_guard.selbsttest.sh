@@ -1,7 +1,7 @@
 # shellcheck shell=sh
 # =============================================================================
-# comdare-cache-engine -- SELBSTTEST der ZWEITEN ACHSE der ABDECKUNGS-WACHE
-#   Prueft: scripts/ci_test_coverage_guard.sh, Befund (d) "Fremd-Inventur"
+# comdare-cache-engine -- SELBSTTEST der DRITTEN ACHSE (Fremd-Inventur) der ABDECKUNGS-WACHE
+#   Prueft: scripts/ci_test_coverage_guard.sh, Befund (e) "Fremd-Inventur"
 #   (D1c, 2026-08-09)
 # =============================================================================
 # WAS DIESES SKRIPT ZUSICHERT:
@@ -56,7 +56,7 @@ _st_tmp=$(mktemp -d) || st_abbruch "mktemp -d fehlgeschlagen."
 trap 'rm -rf "$_st_tmp"' EXIT INT TERM
 
 echo "============================================================================="
-echo " SELBSTTEST der ZWEITEN ACHSE  (scripts/ci_test_coverage_guard.selbsttest.sh)"
+echo " SELBSTTEST der DRITTEN ACHSE (Fremd-Inventur)  (scripts/ci_test_coverage_guard.selbsttest.sh)"
 echo " Bau-Baum : ${ST_BUILD}"
 echo "============================================================================="
 
@@ -76,7 +76,7 @@ echo "GRUNDLAUF (Achse ungefahren): RC=${ST_GRUND_RC}"
 if [ "$ST_GRUND_RC" -ne 0 ]; then
     echo ""
     echo "Der Grundlauf ist bereits ROT. Dann laesst sich NICHT unterscheiden, ob ein"
-    echo "spaeteres ROT von der zweiten Achse kommt oder von einem der uebrigen Befunde."
+    echo "spaeteres ROT von der dritten Achse kommt oder von einem der uebrigen Befunde."
     echo "Letzte Zeilen des Grundlaufs:"
     tail -12 "${_st_tmp}/grund.log"
     st_abbruch "Grundlauf nicht gruen -- der RC-Beitrag der Achse ist nicht messbar."
@@ -111,7 +111,7 @@ echo ""
 echo "FAELLE:"
 
 # (5) Achse ungefahren -> ausdruecklich gemeldet, kein Einfluss auf den RC
-st_fall "ungesetzt_meldet_laut" 0 "" "ZWEITE ACHSE (Fremd-Inventur): NICHT GEFAHREN"
+st_fall "ungesetzt_meldet_laut" 0 "" "DRITTE ACHSE (Fremd-Inventur): NICHT GEFAHREN"
 
 # (1) Gleichstand -> gruen
 st_fall "gleichstand_gruen" 0 "${_st_tmp}/echt.txt" "deckungsgleich"
@@ -123,22 +123,22 @@ LC_ALL=C grep -vxF -f "${_st_tmp}/entfernt.txt" "${_st_tmp}/echt.txt" > "${_st_t
 echo "  (Koeder: ${_st_k} Tests frisch gezogen und aus der fremden Inventur entfernt)"
 set --
 while read -r _st_n; do set -- "$@" "$_st_n"; done < "${_st_tmp}/entfernt.txt"
-st_fall "abweichung_rot_mit_namen" 1 "${_st_tmp}/geschrumpft.txt" "ABWEICHUNG" "$@"
+st_fall "abweichung_rot_mit_namen" 4 "${_st_tmp}/geschrumpft.txt" "ABWEICHUNG" "$@"
 
 # (3) angekuendigt, aber fehlend -> rot (fail-closed)
-st_fall "fehlende_datei_rot" 1 "${_st_tmp}/gibt-es-nicht-$$.txt" "Datei fehlt"
+st_fall "fehlende_datei_rot" 4 "${_st_tmp}/gibt-es-nicht-$$.txt" "Datei fehlt"
 
 # (4) leer -> rot (fail-closed)
 : > "${_st_tmp}/leer.txt"
-st_fall "leere_datei_rot" 1 "${_st_tmp}/leer.txt" "ist leer"
+st_fall "leere_datei_rot" 4 "${_st_tmp}/leer.txt" "ist leer"
 
 echo ""
 echo "-----------------------------------------------------------------------------"
 echo "NENNER: 5 Faelle gefahren, davon ${ST_FEHLER} abweichend."
 echo "-----------------------------------------------------------------------------"
 if [ "$ST_FEHLER" -eq 0 ]; then
-    echo "SELBSTTEST ABDECKUNGS-WACHE (zweite Achse): GRUEN."
+    echo "SELBSTTEST ABDECKUNGS-WACHE (dritte Achse): GRUEN."
     exit 0
 fi
-echo "SELBSTTEST ABDECKUNGS-WACHE (zweite Achse): ROT."
+echo "SELBSTTEST ABDECKUNGS-WACHE (dritte Achse): ROT."
 exit 1

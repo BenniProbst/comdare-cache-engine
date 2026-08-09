@@ -25,18 +25,26 @@ bl::BestandslogDocument make_reference_binary() {
     d.doc_revision      = 7;
     d.created_utc       = "2026-07-23T12:00:00Z";
 
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wmissing-designated-field-initializers): das G-E6-Feld
+    // `versions` ist jetzt an allen vier Eintraegen EXPLIZIT benannt -- die Nicht-Meldung ("") ist
+    // eine Entscheidung, kein Aggregat-Restwert. GEGENPROBE 09.08. dazu: KEIN Test dieser Datei
+    // fuhr bis dahin eine NICHT-leere versions durch emit+parse -- der G-E6-Emit-Zweig (attribut
+    // nur wenn non-empty, inkl. xml_encode) war ungedeckt. Deshalb traegt Eintrag 'a' jetzt ein
+    // echtes Tag (Format aus der Header-Doku) und die drei anderen decken den Weglass-Zweig.
     d.bestand.push_back(bl::BestandEintrag{.key_sha512 = std::string(128, 'a'),
                                            .zelle      = {.combo = "default", .opt = "O2", .simd = "avx2"},
                                            .pfad       = "tier/perm_00042.dll",
                                            .bytes      = 428032,
                                            .stempel    = "[d,e,f][g,h,i]+bt=Release",
-                                           .done_utc   = "2026-07-23T12:05:11Z"});
+                                           .done_utc   = "2026-07-23T12:05:11Z",
+                                           .versions   = "search_algo@1.0.0.c;target_isa@1.0.0.c"});
     d.bestand.push_back(bl::BestandEintrag{.key_sha512 = std::string(128, 'b'),
                                            .zelle      = {.combo = "", .opt = "O3", .simd = "avx512"},
                                            .pfad       = "ceb/cache_engine_builder",
                                            .bytes      = 12000000,
                                            .stempel    = "[a,b,c]",
-                                           .done_utc   = "2026-07-23T12:06:00Z"});
+                                           .done_utc   = "2026-07-23T12:06:00Z",
+                                           .versions   = ""});
 
     d.reservierungen.push_back(bl::BatchReservierung{.id                = "owner-1234/0",
                                                      .typ               = bl::BatchTyp::tier,
@@ -131,7 +139,8 @@ TEST(G3BestandslogDocument, MeasurementGenusRoundtrip) {
                                            .pfad       = "measure/cell_00007.csv",
                                            .bytes      = 8192,
                                            .stempel    = "[d,e,f][g,h,i]+hwident",
-                                           .done_utc   = "2026-07-23T13:00:00Z"});
+                                           .done_utc   = "2026-07-23T13:00:00Z",
+                                           .versions   = ""}); // explizit nicht gemeldet (G-E6)
     std::string const x1 = bl::emit_document(d);
     auto const        p  = bl::parse_bestandslog(x1);
     ASSERT_TRUE(p.has_value());
@@ -164,7 +173,8 @@ TEST(G3BestandslogDocument, EntityEscapingRoundtrip) {
                                            .pfad       = "path/with & < > \" ' chars",
                                            .bytes      = 1,
                                            .stempel    = "[d,e,f] & [g,h,i] <bt=\"Release\">",
-                                           .done_utc   = "t2"});
+                                           .done_utc   = "t2",
+                                           .versions   = ""}); // explizit nicht gemeldet (G-E6)
 
     std::string const x1 = bl::emit_document(d);
     auto const        p  = bl::parse_bestandslog(x1);

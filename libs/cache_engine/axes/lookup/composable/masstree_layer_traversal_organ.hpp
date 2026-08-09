@@ -126,7 +126,12 @@ struct MasstreeLayerTraversalOrgan {
             out_phys = ph;
             return;
         }
-        split_leaf_and_insert(p, lf, slice, stack, out_leaf, out_phys, new_root, root);
+        // `root` wird hier NICHT mehr weitergereicht: es war bis in propagate_split hinunter tot
+        // (Warnungs-Review Runde 2b). Die Zusicherung "new_root ist gesetzt" wird eine Zeile ueber
+        // diesem Aufruf gegeben (`new_root = root;` am Kopf von bplus_find_or_insert) und nicht
+        // unterwegs durchgereicht -- eine Kette weitergereichter, nie gelesener Parameter macht
+        // genau das unauffindbar.
+        split_leaf_and_insert(p, lf, slice, stack, out_leaf, out_phys, new_root);
     }
 
 private:
@@ -149,9 +154,13 @@ private:
     }
 
     // Voller Leaf (kWidth Eintraege) + neuer slice -> Split (mid = kWidth/2+1), neuer Eintrag landet links/rechts.
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wunused-parameter; Klasse MUTANT): hier und in
+    // propagate_split wurde `root` durch drei Ebenen gereicht und NIRGENDS gelesen -- ob der Split
+    // die Wurzel erreicht, entscheidet allein der leere Pfad-Stack. Der tote Parameter suggerierte
+    // eine wurzel-relative Logik, die es nie gab; wer ihn sah, suchte sie. Er faellt weg.
     template <class Pool>
     static void split_leaf_and_insert(Pool& p, std::size_t lf, std::uint64_t slice, path_stack_t<Pool>& stack,
-                                      std::size_t& out_leaf, int& out_phys, std::size_t& new_root, std::size_t root) {
+                                      std::size_t& out_leaf, int& out_phys, std::size_t& new_root) {
         constexpr int             W = Pool::kWidth;
         std::array<LEntry, W + 1> tmp{};
         for (int i = 0; i < W; ++i) {
@@ -188,14 +197,42 @@ private:
             out_phys = ins - mid;
         }
 
-        propagate_split(p, stack, split_slice, lf, rt, new_root, root);
+        propagate_split(p, stack, split_slice, lf, rt, new_root);
     }
 
     // (up_slice, right_node) in den Eltern-Internode einfuegen; bei voll: Internode-Split (Median hoch).
+    //
+    // TOTER PARAMETER `root` ENTFERNT (Warnungs-Review Runde 2b, 09.08.2026). clang meldete:
+    //   masstree_layer_traversal_organ.hpp:197:96: warning: unused parameter 'root' [-Wunused-parameter]
+    // Er suggerierte, diese Funktion setze new_root aus root -- tatsaechlich tut das
+    // bplus_find_or_insert() ganz oben (`new_root = root;`, eine Ebene ueber split_leaf_and_insert),
+    // und zwar VOR jedem Pfad, der hierher fuehrt. Ein Parameter, der eine Zusicherung nur
+    // ANDEUTET, ist schlimmer als keiner: er laedt dazu ein, die Vorbedingung hier zu suchen.
+    // VERHALTENS-NEUTRAL: private static, ein einziger Aufrufer (split_leaf_and_insert), kein ABI.
     template <class Pool>
     static void propagate_split(Pool& p, path_stack_t<Pool>& stack, std::uint64_t up_slice, std::size_t left_node,
-                                std::size_t right_node, std::size_t& new_root, std::size_t root) {
+                                std::size_t right_node, std::size_t& new_root) {
         constexpr int W = Pool::kWidth;
+        // NACHBEDINGUNG: verlaesst diese Funktion ueber den "es ist Platz"-Zweig, bleibt die Layer-Wurzel
+        // unveraendert -- new_root behaelt dann den Wert, den die Deklarationsstelle ihm gegeben hat
+        // (`std::size_t new_root = layer_root;`). Die Zusicherung haengt damit an einer INITIALISIERUNG und
+        // nicht mehr an einer spaeteren Zuweisung irgendwo im Aufrufpfad.
+        //
+        // ZWEI WEGE, EINE STELLE (Merge-Befund 09.08.2026): warn-libs wollte `root` als Parameter behalten
+        // und hier `new_root = root;` schreiben; warn-tests hat `root` aus der ganzen Kette
+        // (bplus_find_or_insert -> split_leaf_and_insert -> propagate_split) entfernt und stattdessen
+        // new_root schon bei der Deklaration belegt. Beides heilt dieselbe -Wunused-parameter-Meldung, aber
+        // NUR EINES von beidem darf im Baum stehen. Der Automerge nahm die Signaturen des einen und die
+        // Rumpfzeile des anderen -- `new_root = root;` ohne `root` im Sichtbarkeitsbereich, ein harter
+        // Uebersetzungsfehler, der erst im VOLLBAU auffiel (kein Konfliktmarker, die Stellen liegen 80
+        // Zeilen auseinander). Genommen ist warn-tests' Weg: er entfernt einen wirklich toten Parameter aus
+        // drei Signaturen UND beseitigt nebenbei eine uninitialisierte Variable (vorher `std::size_t
+        // new_root;` ohne Wert). warn-libs' Zuweisung waere an dieser Stelle ein reines No-Op gewesen.
+        //
+        // GEPRUEFT, ob hier stattdessen ein Vergleich VERGESSEN wurde (z.B. `if (inode == root)`): NEIN.
+        // Der Wurzel-Split wird ueber `stack.empty()` erkannt, und der Stack traegt genau den Pfad
+        // Wurzel->Blatt; ist er leer, ist die Wurzel ueberschritten. Ein Knoten-Vergleich gegen `root`
+        // waere dazu redundant, nicht ergaenzend.
         for (;;) {
             if (stack.empty()) { // Wurzel-Split -> neue Wurzel-Internode
                 std::size_t const nr = p.new_internode();
@@ -215,7 +252,7 @@ private:
                 p.inode_set_slice_at(inode, ci, up_slice);
                 p.inode_set_child_at(inode, ci + 1, right_node);
                 p.inode_set_n(inode, n + 1);
-                return; // new_root unveraendert (= root)
+                return; // new_root unveraendert -- gesetzt in bplus_find_or_insert (`new_root = root;`)
             }
             // Internode voll: temp mit (n+1) Slices + (n+2) Kindern aufbauen, dann am Median splitten.
             std::array<std::uint64_t, W + 1> sl{};
@@ -266,7 +303,13 @@ public:
             std::size_t         leaf;
             int                 phys;
             bool                was_new;
-            std::size_t         new_root;
+            // VORBELEGT statt uninitialisiert (Warnungs-Review Runde 2b, 09.08.2026). Der Wert wird von
+            // bplus_find_or_insert in seiner ersten Zeile ohnehin ueberschrieben -- aber solange er das
+            // NUR dort tut, haengt die Wohldefiniertheit dieser Variablen an der Disziplin einer fremden
+            // Funktion. Der Vergleich `new_root != layer_root` zwei Zeilen weiter wuerde sonst auf Muell
+            // laufen und die Layer-Wurzel auf einen erfundenen Knoten-Index setzen. layer_root ist die
+            // richtige Vorbelegung: "keine neue Wurzel" ist genau der Fall, in dem sie unveraendert bleibt.
+            std::size_t new_root = layer_root;
             bplus_find_or_insert(p, layer_root, slice, leaf, phys, was_new, new_root);
             if (new_root != layer_root) {
                 if (holder_is_pool_root)

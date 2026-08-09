@@ -1097,6 +1097,11 @@ target_link_libraries(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)
 include(anatomy_codegen_runner)
+# D2 (09.08.2026): jeder bedingte Registrierungs-Block vermerkt sich im
+# Registrierungs-Protokoll -- BEIDE Zweige. Die Abdeckungs-Wache liest es und
+# macht einen uebersprungenen Block ROT, statt ueber einem stillschweigend
+# kleineren Nenner Vollstaendigkeit zu melden (cmake/registrierungs_protokoll.cmake).
+include(registrierungs_protokoll)
 set(_r5i_snippet "${PROJECT_BINARY_DIR}/generated/r5i_perm_list.cmake")
 set(_r5i_pilot_dir "${PROJECT_BINARY_DIR}/generated/r5i_anatomy_modules")
 comdare_run_anatomy_codegen_tool(
@@ -1131,17 +1136,34 @@ if(_r5i_status STREQUAL "FOUND" AND EXISTS "${_r5i_snippet}")
     add_dependencies(test_v41_anatomy_r5i_configure_codegen ${_r5i_pilot_targets})
 
     message(STATUS "R5.I: configure-time codegen ACTIVE (test target enabled)")
+    comdare_registrierung_vermerken(
+        BLOCK  r5i_configure_codegen
+        STATUS AKTIV
+        TESTS  test_v41_anatomy_r5i_configure_codegen
+        GRUND  "anatomy-codegen-Werkzeug gefunden (status=${_r5i_status}), Snippet vorhanden")
 else()
     message(STATUS
         "R5.I: configure-time codegen SKIPPED (status=${_r5i_status}). "
         "Build the tool first: cmake --build . --target comdare_anatomy_codegen_cli, "
         "then re-configure to enable the R5.I pilot test.")
+    comdare_registrierung_vermerken(
+        BLOCK  r5i_configure_codegen
+        STATUS UEBERSPRUNGEN
+        TESTS  test_v41_anatomy_r5i_configure_codegen
+        GRUND  "status=${_r5i_status}: comdare_anatomy_codegen_cli bauen, dann reconfigure")
 endif()
 
 # V41.F.6.1 F.5 — comdare_perms_pa Pilot: Pruefling-Stufe-2-Composition -> DLL (Plugin-Controller).
 # MATERIALISIERT die prt-art-Composition als Permutations-Binary (Beweis "Binaries aus Rekombinationen").
 # Nur aktiv wenn ein Pruefling geladen ist (COMDARE_PRUEFLING_INCLUDE_DIRS via COMDARE_CE_PRUEFLINGE)
 # UND das Codegen-Tool bereits gebaut wurde (2-Pass-Build, wie R5.I).
+#
+# D2-AUSNAHME, BENANNT STATT VERSCHWIEGEN: die beiden Bloecke unten (comdare_perms_pa,
+# comdare_perms_full_join) stehen BEWUSST NICHT im Registrierungs-Protokoll. Sie
+# registrieren keinen einzigen ctest-Test, sondern nur DLL-Targets -- sie koennen den
+# Nenner der Abdeckungs-Wache also gar nicht verkleinern. Wer hier spaeter ein
+# comdare_add_test() einfuegt, muss den Block nachtragen; der Protokoll-Aufruf gehoert
+# dann in BEIDE Zweige (siehe R5.I/F15 oben).
 if(COMDARE_PRUEFLING_INCLUDE_DIRS)
     set(_pa_snippet   "${PROJECT_BINARY_DIR}/generated/comdare_perms_pa_list.cmake")
     set(_pa_pilot_dir "${PROJECT_BINARY_DIR}/generated/comdare_perms_pa_modules")
@@ -1237,9 +1259,19 @@ if(_f15_status STREQUAL "FOUND" AND EXISTS "${_f15_snippet}")
         "COMDARE_F15_MEASUREMENT_DIR=\"${_f15_pilot_dir}\"")
     add_dependencies(test_v41_anatomy_f15_measurement ${_f15_pilot_targets})
     message(STATUS "F15: measurement driver test ENABLED")
+    comdare_registrierung_vermerken(
+        BLOCK  f15_measurement
+        STATUS AKTIV
+        TESTS  test_v41_anatomy_f15_measurement
+        GRUND  "anatomy-codegen-Werkzeug gefunden (status=${_f15_status}), Snippet vorhanden")
 else()
     message(STATUS
         "F15: SKIPPED (status=${_f15_status}). Build comdare_anatomy_codegen_cli first, then re-configure.")
+    comdare_registrierung_vermerken(
+        BLOCK  f15_measurement
+        STATUS UEBERSPRUNGEN
+        TESTS  test_v41_anatomy_f15_measurement
+        GRUND  "status=${_f15_status}: comdare_anatomy_codegen_cli bauen, dann reconfigure")
 endif()
 
 # V41.F.6.1 R5.G — COMDARE_DEFINE_ANATOMY_MODULE_ADHOC-Makro (Auto-Permutations-Materialisierung).
@@ -1637,6 +1669,11 @@ if(_r5g_ae_status STREQUAL "FOUND")
         add_dependencies(test_v41_anatomy_adhoc_autobuilt_load ${_r5g_autobuilt_targets})
         message(STATUS
             "R5.G: Auto-Permutations-Skalierung ACTIVE (${_r5g_autobuilt_count} auto-gebaute DLLs).")
+        comdare_registrierung_vermerken(
+            BLOCK  r5g_adhoc_autobuilt
+            STATUS AKTIV
+            TESTS  test_v41_anatomy_adhoc_autobuilt_load
+            GRUND  "comdare-adhoc-emitter gefunden, ${_r5g_autobuilt_count} Permutations-DLLs emittiert")
 
         # V41.F.6.1 R5.D — Smoke-Test des comdare-f15-compare-CLI ueber die realen R5.G-DLLs:
         # faehrt die echte Binary (nicht nur die Treiber-Logik) und prueft BEIDES --
@@ -1677,12 +1714,49 @@ if(_r5g_ae_status STREQUAL "FOUND")
             set_tests_properties(f15_compare_cli_smoke PROPERTIES
                 TIMEOUT 300
                 LABELS "r5d;f15;cli")
+            comdare_registrierung_vermerken(
+                BLOCK  r5d_f15_compare_cli_smoke
+                STATUS AKTIV
+                TESTS  f15_compare_cli_smoke
+                GRUND  "Target comdare_f15_compare_cli vorhanden")
+        else()
+            comdare_registrierung_vermerken(
+                BLOCK  r5d_f15_compare_cli_smoke
+                STATUS UEBERSPRUNGEN
+                TESTS  f15_compare_cli_smoke
+                GRUND  "Target comdare_f15_compare_cli existiert in dieser Konfiguration nicht")
         endif()
+    else()
+        # Der Emitter lief, hat aber NICHTS emittiert -- eigener Zweig, eigener Vermerk.
+        # Sonst faellt genau der Fall durch, in dem das Werkzeug DA ist und trotzdem
+        # kein Test entsteht (leerer Permutations-Raum, Glob greift ins Leere).
+        message(STATUS
+            "R5.G: Auto-Permutations-Skalierung SKIPPED (Emitter lief, 0 DLLs).")
+        comdare_registrierung_vermerken(
+            BLOCK  r5g_adhoc_autobuilt
+            STATUS UEBERSPRUNGEN
+            TESTS  test_v41_anatomy_adhoc_autobuilt_load
+            GRUND  "Emitter gefunden, aber 0 Permutations-DLLs in ${_r5g_autobuilt_dir}")
+        comdare_registrierung_vermerken(
+            BLOCK  r5d_f15_compare_cli_smoke
+            STATUS UEBERSPRUNGEN
+            TESTS  f15_compare_cli_smoke
+            GRUND  "haengt an r5g_adhoc_autobuilt -- dort 0 Permutations-DLLs")
     endif()
 else()
     message(STATUS
         "R5.G: Auto-Permutations-Skalierung SKIPPED (status=${_r5g_ae_status}). "
         "Build comdare_adhoc_emitter_cli first, then re-configure.")
+    comdare_registrierung_vermerken(
+        BLOCK  r5g_adhoc_autobuilt
+        STATUS UEBERSPRUNGEN
+        TESTS  test_v41_anatomy_adhoc_autobuilt_load
+        GRUND  "status=${_r5g_ae_status}: comdare_adhoc_emitter_cli bauen, dann reconfigure")
+    comdare_registrierung_vermerken(
+        BLOCK  r5d_f15_compare_cli_smoke
+        STATUS UEBERSPRUNGEN
+        TESTS  f15_compare_cli_smoke
+        GRUND  "haengt an r5g_adhoc_autobuilt -- Emitter-Werkzeug fehlt (status=${_r5g_ae_status})")
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3313,6 +3387,38 @@ add_test(NAME test_lagp2_messwert_genus COMMAND test_lagp2_messwert_genus)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lagp2_messwert_genus)
 set_tests_properties(test_lagp2_messwert_genus PROPERTIES LABELS "bestandslog;messwert_genus;standalone")
 
+# B-3 + SCHEMA-FREEZE STUFE 1 (2026-08-09) -- die Schema-Hoheit der Mess-Ausgabe wird eingefroren.
+#
+# GEGENSTAND: die Spaltenliste. Sie ist der Vertrag, an dem die Auswerte-Stufen, die Resume-Wache, das
+# Lager, die xlsx-Mappe und das PDF haengen. Bis heute schuetzte ihn nur gute Absicht.
+#
+# Der Test faehrt DREI Bissproben (Spalte zu / Spalte weg / zwei vertauscht) BEVOR er das echte Schema
+# gruen meldet -- eine Wache, deren Biss nie vorgefuehrt wurde, ist von einer blinden nicht zu
+# unterscheiden. Die Koeder sind je Lauf frisch gewuerfelt (Startwert steht in der Ausgabe).
+#
+# Include-/Link-Satz wie test_lazy_resume_binary: die TU zieht den ECHTEN Erzeuger
+# cache_engine_builder_iterator.hpp (lazy_csv_header) statt eines Nachbaus; measurement_snapshot.hpp
+# bringt die workload_driver-Kante mit (deshalb comdare::workload_driver, anders als bei
+# test_lazy_resume_binary).
+add_executable(test_b3_schema_freeze_stufe1 "test_b3_schema_freeze_stufe1.cpp")
+target_compile_features(test_b3_schema_freeze_stufe1 PRIVATE cxx_std_23)
+target_include_directories(test_b3_schema_freeze_stufe1 PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b3_schema_freeze_stufe1 PRIVATE Boost::mp11
+    comdare::workload_driver)
+comdare_set_platform_defines(test_b3_schema_freeze_stufe1)
+target_compile_definitions(test_b3_schema_freeze_stufe1 PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_b3_schema_freeze_stufe1 COMMAND test_b3_schema_freeze_stufe1)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b3_schema_freeze_stufe1)
+set_tests_properties(test_b3_schema_freeze_stufe1 PROPERTIES LABELS "contract;standalone;schema_freeze;b3")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
@@ -3380,6 +3486,26 @@ target_compile_definitions(test_experiment_dock_payload PRIVATE
 add_test(NAME test_experiment_dock_payload COMMAND test_experiment_dock_payload)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_experiment_dock_payload)
 set_tests_properties(test_experiment_dock_payload PROPERTIES LABELS "contract;standalone;harness;welle5;dock")
+
+# Warnungs-Review Runde 2b (clang ueber den Test-Bau, 09.08.2026) -- Wire-Totalitaet des AxisKind-Kanals.
+# Der Nachbar-Test darueber ist ein plain-main-Harnisch und wird per nacktem add_executable gebaut, traegt
+# also KEINE Hauswarnstufe; genau deshalb blieb dort ein -Wswitch mit drei unbehandelten Meta-Meta-Realms
+# unsichtbar (experiment_dock_payload.hpp:77). Dieses Gate ist ein GOOGLE TEST und laeuft ueber
+# comdare_add_test -- damit traegt es COMDARE_set_default_warnings und meldet den Rueckfall selbst.
+comdare_add_test(test_axis_kind_wire_totalitaet
+    SOURCES test_axis_kind_wire_totalitaet.cpp
+    LIBRARIES Boost::mp11)
+target_include_directories(test_axis_kind_wire_totalitaet PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_compile_definitions(test_axis_kind_wire_totalitaet PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_axis_kind_wire_totalitaet PROPERTIES LABELS "contract;welle5;dock;warnungs-review")
 
 # W5-C TEIL 2 (builder-Leaf progress_delta.hpp) - Delta-Rekonstruktion gegen die reale StaticBinaryView (done 1x).
 add_executable(test_progress_delta "test_progress_delta.cpp")
@@ -4377,6 +4503,32 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e4_contract_xml_to
 # Label BEWUSST ohne 'contract': ce test:unit laeuft mit -LE 'contract|pmc', und die dedizierten
 # contract-Gates matchen nur explizite -R-Listen -- mit 'contract'-Label waere der Test CI-tot.
 set_tests_properties(test_e4_contract_xml_to_axislevels PROPERTIES LABELS "profiles;e4")
+
+# T-1 (2026-08-09): DIE ZWEI PARSES DESSELBEN PROFILS, DIE DASSELBE SAGEN MUESSEN.
+# profile_run_facade.cpp entscheidet aus SEINEM Parse ueber compile_for_perm, profile_run_entry.hpp aus
+# SEINEM ueber die opt x simd-Perm-Schleife. Ueber EINEN Parse sind die beiden Ausdruecke De-Morgan-Duale
+# (der Test misst das: 5 von 5 Profil-Formen gleich); getrennt hat sie die STRUKTUR -- zwei unabhaengige
+# load_thesis_profile()-Aufrufe auf denselben Pfad zu zwei Zeitpunkten. Der Test faehrt genau das nach.
+# Include-/Link-Satz wie test_e4_contract_xml_to_axislevels: er braucht nur den Parser-Datentyp und den
+# neuen header-only Entscheidungs-Header (libs/cache_engine/profile_facade), sonst nichts.
+# DREI ctest-EINTRAEGE: die Wache, der Mutant-Selbstbiss (faehrt den ROT-Beleg bei JEDEM Lauf mit, statt
+# ihn als Prosa verjaehren zu lassen) -- T-7: ein Test, der in keinem Job faehrt, ist nicht gebaut.
+add_executable(test_t1_system_achsen_eine_entscheidung "test_t1_system_achsen_eine_entscheidung.cpp")
+target_compile_features(test_t1_system_achsen_eine_entscheidung PRIVATE cxx_std_23)
+target_include_directories(test_t1_system_achsen_eine_entscheidung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+target_link_libraries(test_t1_system_achsen_eine_entscheidung PRIVATE
+    Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t1_system_achsen_eine_entscheidung)
+add_test(NAME test_t1_system_achsen_eine_entscheidung
+    COMMAND test_t1_system_achsen_eine_entscheidung)
+add_test(NAME test_t1_system_achsen_eine_entscheidung_selbstbiss
+    COMMAND test_t1_system_achsen_eine_entscheidung --selbstbiss)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t1_system_achsen_eine_entscheidung)
+set_tests_properties(test_t1_system_achsen_eine_entscheidung
+    test_t1_system_achsen_eine_entscheidung_selbstbiss
+    PROPERTIES LABELS "profiles;system_axes;standalone")
 
 # Schicht E3 Paket A - #223-Gate-Beweis im echten perm_runner-Pfad.
 add_executable(test_e3_contract_conformance_gate_wirksam "test_e3_contract_conformance_gate_wirksam.cpp")
@@ -5867,6 +6019,29 @@ target_link_libraries(test_a9s3_mess_ebene_blattsorte PRIVATE
 set_tests_properties(test_a9s3_mess_ebene_blattsorte PROPERTIES
     LABELS "a9;xlsx;lager;fassung3;mess_ebene")
 
+# -----------------------------------------------------------------------------
+# D2 (2026-08-09) -- SELBSTTEST DER ABDECKUNGS-WACHE (T-6).
+#
+# Prueft scripts/ci_test_coverage_guard.sh gegen praeparierte Bau-Baeume: ein
+# uebersprungener Registrierungs-Block MUSS Exit 4 geben und namentlich in der
+# Ausgabe stehen; ein gelaufener Block darf das NICHT (T-4-Gegeneingang). Die
+# Kennungen wuerfelt der Test frisch aus /dev/urandom (K13).
+#
+# WARUM ALS GOOGLE TEST und nicht als weitere Shell-Probe: Owner-Entscheid
+# 2026-08-09 ("Skripte sagen gar nichts"). Damit faehrt die Pruef-Logik in Debug
+# UND Release ueber ctest mit, ohne eigenen CI-Job.
+#
+# UNBEDINGT registriert -- kein if() um diesen Block. Ein Selbsttest gegen den
+# stillen Nenner-Schwund darf nicht selbst in einem bedingten Block sitzen; die
+# Windows-Ausnahme traegt der Test intern als GTEST_SKIP.
+comdare_add_test(test_d2_abdeckungs_wache_nenner
+    SOURCES test_d2_abdeckungs_wache_nenner.cpp)
+target_compile_definitions(test_d2_abdeckungs_wache_nenner PRIVATE
+    "COMDARE_D2_GUARD_SH=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_coverage_guard.sh\""
+    "COMDARE_D2_CTEST_BIN=\"${CMAKE_CTEST_COMMAND}\"")
+set_tests_properties(test_d2_abdeckungs_wache_nenner PROPERTIES
+    LABELS "wachen;d2;nenner;selbsttest")
+
 # A9-S4: der Konsument (tools/mess_report/). Die drei Header sind self-contained (relative Includes
 # "../../tools/mess_report/..." loesen unabhaengig von den Include-Dirs auf); nur der Render-Test
 # zieht ergebnis_mappe.hpp (lager_ablage) und braucht deshalb denselben Vendor-Link wie oben.
@@ -6014,3 +6189,27 @@ target_link_libraries(test_d55_hdr_verdrahtung PRIVATE
     comdare_hdr_histogram_wrapper)
 target_compile_definitions(test_d55_hdr_verdrahtung PRIVATE
     "COMDARE_D55_MESSPFAD_ROOT=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage\"")
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Warnungs-Review Runde 1c/2a (09.08.2026) — die zwei Wachen zu den Funden, die DEFEKTE waren.
+#   test_warn2a_block_id_bidirektional : block_id==axis auch auf dem PROFIL-Pfad (7 gemeldete
+#       Stellen + 1, die kein Uebersetzer sieht, weil sie default-konstruiert statt aggregiert).
+#   test_warn1_d2_fingerprint_koeder   : der nachgezogene, BEISSENDE Koeder zu D2 (die erste
+#       Minimalprobe unterschied ihre zwei Hypothesen nicht).
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+comdare_add_test(test_warn2a_block_id_bidirektional
+    SOURCES test_warn2a_block_id_bidirektional.cpp)
+target_include_directories(test_warn2a_block_id_bidirektional PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+target_link_libraries(test_warn2a_block_id_bidirektional PRIVATE comdare_builder_xml_config_parser)
+set_tests_properties(test_warn2a_block_id_bidirektional PROPERTIES
+    LABELS "warnungen;experiment_tree;bidirektionalitaet" TIMEOUT 60)
+
+comdare_add_test(test_warn1_d2_fingerprint_koeder
+    SOURCES test_warn1_d2_fingerprint_koeder.cpp
+    LIBRARIES comdare_experiment)
+set_tests_properties(test_warn1_d2_fingerprint_koeder PROPERTIES
+    LABELS "warnungen;speicher;koeder" TIMEOUT 60)

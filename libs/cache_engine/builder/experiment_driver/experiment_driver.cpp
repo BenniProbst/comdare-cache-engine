@@ -241,8 +241,12 @@ namespace {
 #endif
 }
 
-int hot_compile_missing_modules(std::filesystem::path const& generated_dir, std::filesystem::path const& build_dir,
-                                std::vector<std::uint64_t> const& fingerprints, bool verbose) {
+// KEIN generated_dir-Parameter: der Nachbau laeuft ueber `cmake --build <build_dir> --target ...`,
+// und das Bauverzeichnis kennt sein Quellverzeichnis aus der Konfiguration bereits. Der frueher hier
+// gefuehrte generated_dir wurde NIE gelesen (-Wunused-parameter, GCC und clang) -- tote Schnittstellen-
+// Flaeche, die dem Aufrufer eine Abhaengigkeit versprach, die es nicht gibt.
+int hot_compile_missing_modules(std::filesystem::path const& build_dir, std::vector<std::uint64_t> const& fingerprints,
+                                bool verbose) {
     int        hot_compiled  = 0;
     auto const dll_dir_debug = build_dir / "Debug";
     auto const dll_dir       = std::filesystem::is_directory(dll_dir_debug) ? dll_dir_debug : build_dir;
@@ -338,13 +342,12 @@ int ExperimentDriver::phase4b_functional_tests(std::span<loader::ModuleHandle> h
 // enable_runtime_codegen aktiviert ist.
 int ExperimentDriver::phase3_hot_compile_missing(std::vector<std::uint64_t> const& fingerprints) {
     if (!opts_.enable_runtime_codegen) return status_ok;
-    auto const bdir      = build_dir_for(opts_.output_dir);
-    auto const generated = opts_.output_dir / "generated";
+    auto const bdir = build_dir_for(opts_.output_dir);
     if (opts_.verbose) {
         std::cout << "\n[Phase 3 V13.2] Hot-Compile fehlende Module ueber " << fingerprints.size()
                   << " Permutationen ...\n";
     }
-    int hot_compiled = hot_compile_missing_modules(generated, bdir, fingerprints, opts_.verbose);
+    int hot_compiled = hot_compile_missing_modules(bdir, fingerprints, opts_.verbose);
     if (opts_.verbose) {
         std::cout << "[Phase 3 V13.2] Hot-Compile abgeschlossen: " << hot_compiled << " neu kompiliert\n";
     }
