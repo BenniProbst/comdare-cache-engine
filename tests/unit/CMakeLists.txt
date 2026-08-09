@@ -5766,3 +5766,44 @@ target_link_libraries(test_a9s3_mess_ebene_blattsorte PRIVATE
     comdare::lager_ablage comdare::vendored_zlib)
 set_tests_properties(test_a9s3_mess_ebene_blattsorte PROPERTIES
     LABELS "a9;xlsx;lager;fassung3;mess_ebene")
+
+# ===================================================================================================
+# MS-1 / MS-2 (2026-08-09) -- MeasureStorage: die ZWEI ARENEN und ihr Allokations-Beweis.
+#
+# SELBSTCHECK: beide Ziele sind STANDALONE int main() ohne gtest. Das ist keine Bequemlichkeit,
+# sondern Pflicht: MS-1 ersetzt global operator new/delete und zaehlt JEDE Allokation im Fenster --
+# ein Test-Framework, das im selben Fenster einen String oder einen Vektor anfasst, machte die Zahl
+# wertlos. Rezept gespiegelt von test_t15_drift_gate_messschleife (oben): eigener add_executable,
+# eigener add_test, kein comdare_add_test (das haengt gtest an, gtest_setup.cmake:83).
+#
+# COMDARE_MS_HOT_QUELLE reicht die heissen Kopfdateien fuer die Text-Wache durch (Muster:
+# COMDARE_T15_ITERATOR_QUELLE oben) -- die Wache prueft, dass im heissen Block weder new noch malloc
+# noch std::vector steht. Sie schliesst die Luecke, die eine operator-new-Ersetzung strukturell
+# offenlaesst (C-malloc ist fuer sie unsichtbar).
+set(_ms_dir "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage")
+
+add_executable(test_ms1_arenen_kein_alloc_im_fenster "test_ms1_arenen_kein_alloc_im_fenster.cpp")
+target_compile_features(test_ms1_arenen_kein_alloc_im_fenster PRIVATE cxx_std_23)
+target_include_directories(test_ms1_arenen_kein_alloc_im_fenster PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+comdare_set_platform_defines(test_ms1_arenen_kein_alloc_im_fenster)
+target_compile_definitions(test_ms1_arenen_kein_alloc_im_fenster PRIVATE
+    "COMDARE_MS_QUELLE_MESS=\"${_ms_dir}/mess_arena.hpp\""
+    "COMDARE_MS_QUELLE_STAPEL=\"${_ms_dir}/stapel_arena.hpp\"")
+add_test(NAME test_ms1_arenen_kein_alloc_im_fenster COMMAND test_ms1_arenen_kein_alloc_im_fenster)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ms1_arenen_kein_alloc_im_fenster)
+set_tests_properties(test_ms1_arenen_kein_alloc_im_fenster PROPERTIES
+    LABELS "ms;measure_storage;arena;kein_alloc;standalone")
+
+add_executable(test_ms2_pre_touch_seitenfehler "test_ms2_pre_touch_seitenfehler.cpp")
+target_compile_features(test_ms2_pre_touch_seitenfehler PRIVATE cxx_std_23)
+target_include_directories(test_ms2_pre_touch_seitenfehler PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_ms2_pre_touch_seitenfehler)
+add_test(NAME test_ms2_pre_touch_seitenfehler COMMAND test_ms2_pre_touch_seitenfehler)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ms2_pre_touch_seitenfehler)
+set_tests_properties(test_ms2_pre_touch_seitenfehler PROPERTIES
+    LABELS "ms;measure_storage;arena;seitenfehler;standalone")
+
+unset(_ms_dir)
