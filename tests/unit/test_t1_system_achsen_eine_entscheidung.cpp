@@ -78,10 +78,15 @@ constexpr char const* kKoeder = "4e2ec7b6bypjqca=";
 // Die Sorten entscheiden, was --selbstbiss von jedem Fall namentlich erwartet.
 enum class Sorte { Trennung, Skip, Aequivalenz, Determinismus };
 
+// Die drei Felder tragen einen expliziten Default, obwohl JEDE Konstruktion (notiere(), unten)
+// alle drei setzt: cppcheck 2.21 meldet uninitMemberVarNoCtor sonst als style-Verstoss, und
+// lint:static faellt darauf mit exit 2 -- gemessen in ce-Pipeline 15482/15485, Job 370390.
+// Semantisch neutral (die Werte werden ohnehin ueberschrieben), aber der Default macht aus
+// "zufaellig immer gesetzt" ein "kann gar nicht ungesetzt sein".
 struct Fall {
     std::string name;
-    Sorte       sorte;
-    bool        gehalten;
+    Sorte       sorte    = Sorte::Trennung;
+    bool        gehalten = false;
 };
 
 std::vector<Fall> g_faelle;
