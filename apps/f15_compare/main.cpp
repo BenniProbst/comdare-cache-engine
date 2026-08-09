@@ -35,6 +35,7 @@
 #include <builder/workload_driver/workload_orchestrator.hpp>
 #include <builder/workload_driver/workload_profiles.hpp> // INC-0: Single-Source profile_by_name (geteilt mit perm_runner)
 #include <builder/measurement_snapshot.hpp> // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
+#include <cache_engine/measurement/pipeline_csv_schema.hpp> // B-3: DIE EINE Pipeline-Spaltenliste (direkt, nicht transitiv)
 #include <builder/provenance_manifest.hpp> // AP-9/#243: host-seitiges Provenance-Sidecar (Compiler/Flags/ISA/Allokator/4-Repo-git-SHAs)
 #include <builder/measurement/thread_pinning.hpp> // AP-13/#247: opt-in Mess-Thread-Pinning (--pin-core=N), host-seitig, Default no-op
 #include <builder/pmc_source_factory.hpp> // V5-#26 / Task #153: make_pmc_source() (Windows-Intel-PCM o. NullPmcSource)
@@ -493,10 +494,9 @@ int main(int argc, char** argv) {
     // Anti-Phantom (Ledger §0): PMU-/Energie-Spalten UND bytes_allocated/bytes_in_use_peak = honest-0 (P4-gated,
     // kein PMC/Allocator-Zaehler) -- KEINE ops*64-Byte-Schaetzung mehr. Nur die Latenz ist real gemessen.
     if (!pipeline_csv.empty()) {
-        std::string out = "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
-                          "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
-                          "coherence_invalidations,energy_micro_joules,"
-                          "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
+        // B-3 (2026-08-09): Spaltenliste aus der EINEN Quelle (cache_engine/measurement/pipeline_csv_schema.hpp),
+        // vorher hier als Literal abgeschrieben -- eine Aenderung dort brach diese Stelle nicht.
+        std::string out = ::comdare::cache_engine::measurement::pipeline16_csv_header();
         for (std::size_t i = 0; i < results.size(); ++i) {
             double const  mean = stats::latency_mean_ns(std::span<const std::int64_t>{results[i].latency_samples_ns});
             std::uint64_t fp   = 14695981039346656037ULL; // FNV-1a über den Namen → stabiler Fingerprint

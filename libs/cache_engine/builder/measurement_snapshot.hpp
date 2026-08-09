@@ -20,6 +20,7 @@
 #include <anatomy/observable_tier.hpp>
 #include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::percentile_ns)
 #include "workload_driver/workload_orchestrator.hpp"
+#include <cache_engine/measurement/pipeline_csv_schema.hpp> // B-3: DIE EINE Pipeline-Spaltenliste (kein Literal mehr hier)
 #include <cache_engine/measurement/pmc_source.hpp> // V5-#26: pluggable HW-Counter-Quelle (measurement::PmcCounters) für die +6-Spalten
 
 #include <cstdint>
@@ -187,14 +188,10 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
                                                             std::vector<std::string> const& permutation_ids,
                                                             std::vector<std::string> const& workload_used) {
     std::ostringstream os;
-    // 16 Pipeline-kanonische Spalten (Stufe-04/05-konsumierbar) ...
-    os << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
-          "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
-          "coherence_invalidations,energy_micro_joules,"
-          "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag,"
-          // ... + 6 Observer-Spalten + pmc_available (die „+6" + Ehrlichkeits-Flag)
-          "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,pmc_available,"
-          "branch_misses,throughput_ops_per_sec\n";
+    // B-3 (2026-08-09): die Spaltenliste stand hier als LITERAL und dreimal identisch woanders. Sie kommt
+    // jetzt aus der EINEN Quelle (measurement/pipeline_csv_schema.hpp) -- gerufen, nicht abgeschrieben.
+    // Byte-identisch zur Altfassung: 16 Pipeline-Spalten + 9 Zusatzspalten, Komma, abschliessendes '\n'.
+    os << ::comdare::cache_engine::measurement::pipeline_voll_csv_header();
     std::size_t const n = rows.size();
     for (std::size_t i = 0; i < n; ++i) {
         auto const&       m = rows[i];
@@ -220,10 +217,8 @@ serialize_measurements_pipeline16_csv(std::vector<ComdareMeasurementSnapshotV1> 
                                       std::vector<std::string> const&                  permutation_ids,
                                       std::vector<std::string> const&                  workload_used) {
     std::ostringstream os;
-    os << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
-          "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
-          "coherence_invalidations,energy_micro_joules,"
-          "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
+    // B-3: dieselbe EINE Quelle wie die volle Sicht -- die 16 sind deren Praefix, kein zweites Schema.
+    os << ::comdare::cache_engine::measurement::pipeline16_csv_header();
     for (std::size_t i = 0; i < rows.size(); ++i) {
         auto const&       m = rows[i];
         std::string const pid =
