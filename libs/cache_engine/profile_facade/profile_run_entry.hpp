@@ -24,6 +24,8 @@
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 //    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
+#include "ergebnis_mappe_naht.hpp"     // A9-S5: Format-Wahl + die Mappe NEBEN der offiziellen CSV (additiv)
+#include <cache_engine/measurement/machine_identity.hpp> // A9-S5: live_hostname() fuers INFO-Blatt
 #include "build_type_stamp.hpp"         // (i) §61-STUFEN: build_type_version_suffix (+bt=Debug bei COMDARE_BUILD_TYPE)
 #include "toolchain_stamp_naht.hpp"     // T2-B: PermToolchainAchsen/-GliedWert + der EINE Glied-[5]-Renderer
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
@@ -602,6 +604,19 @@ struct RunProfileResult {
     }
     csv << ex::lazy_csv_header();
 
+    // -- A9-S5 (2026-08-09): DIESELBEN Zeilen ZUSAETZLICH in eine Ergebnis-Mappe. -----------------
+    // ADDITIV: der rohe CSV-Strom oben bleibt unangetastet -- golden bleibt byte-identisch. Die Mappe
+    // entsteht NEBEN a.out_csv, ihr Name folgt der bestandslog-Grammatik. Das Format kommt aus
+    // <writeback_methods>; LEER/FEHLEND => xlsx (Owner-KERN 26.07.). Bis heute hatte der seit A9-S3
+    // fertige xlsx-Writer NULL Produktions-Aufrufer -- das hier ist der erste. csv UND xlsx zugleich
+    // sind seit dem Owner-Entscheid 09.08. gueltig -- dann nennt ziele() BEIDE Ausgaben DERSELBEN Mappe.
+    // I/O: im Mess-Fenster werden Zeilen nur ENTGEGENGENOMMEN; geschrieben wird erst in schliessen()
+    // unten, neben csv.flush() (Contention-Doktrin, Design-Dossier V-A9-4).
+    ::comdare::cache_engine::lager_naht::MappenNaht mappe;
+    mappe.oeffnen(a.out_csv, tp.writeback_methods);
+    mappe.kopf_aus_csv(ex::lazy_csv_header());
+    std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziele=" + mappe.ziele() : "") << "\n";
+
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
     // #171 (2026-06-20): make_cfg traegt zusaetzlich pruefling_type (full/abstract/-). Basis/Sweep uebergeben
     // leer ("-"); die SOTA-Paesse uebergeben den aus merge abgeleiteten Typ (sota_catalog::derive_pruefling_type).
@@ -756,6 +771,10 @@ struct RunProfileResult {
         std::vector<ex::LazyMeasuredRow> rows = r.csv_rows;
         ex::annotate_quality_flags(rows);
         for (auto const& row : rows) csv << ex::format_csv_row(row);
+        // A9-S5: DIESELBEN Zeilen in die Mappe -- aus derselben In-Memory-Quelle wie die rohe CSV
+        // (Richtung xlsx -> csv, es wird NIE eine fertige CSV-Datei zurueckgelesen).
+        mappe.blob_aus_csv(r.resumed_csv_rows);
+        for (auto const& row : rows) mappe.zeile_aus_csv(ex::format_csv_row(row));
         *row_sink += count_lines(r.resumed_csv_rows) + rows.size();
         res.any_measured += r.measured;
         res.any_resumed += r.resumed_binaries;
@@ -1178,6 +1197,25 @@ struct RunProfileResult {
     // Schreibens/Flushens aufgetretener Fehler (Platte voll, IO-Fehler) setzt failbit/badbit und
     // wuerde sonst eine still abgeschnittene CSV als Erfolg ausgeben.
     bool const csv_ok = csv.good();
+
+    // -- A9-S5: die Mappe schliessen. HIER liegt ihr einziger Datei-Schreibvorgang -- nach der
+    // Mess-Schleife, nicht darin. info_blatt() vertraegt ueberwiegend leere Felder ("n/a statt Null"):
+    // hostname ist per live_hostname() erreichbar, machine_id/cpu_fabrication/ram_pair/
+    // identity_verdict stammen aus der XML-Systemachsen-Deklaration und liegen in RunProfileArgs
+    // NICHT vor -- sie bleiben leer und werden von der Mappe als "n/a" gerendert, nicht erfunden.
+    // BEWUSST NICHT exit-wirksam in diesem Schritt: die Mappe steht additiv neben der offiziellen CSV,
+    // ein Mappen-Fehler darf einen sonst gueltigen Mess-Lauf nicht rot faerben. Verdeckt ist der Zweig
+    // deshalb nicht -- mappe_ok und der Grund stehen in der Zeile unten.
+    bool mappe_ok = false;
+    if (mappe.scharf()) {
+        ::comdare::cache_engine::builder::lager_ablage::MaschinenSysinfo sysinfo;
+        sysinfo.hostname = ::comdare::cache_engine::measurement::live_hostname();
+        mappe_ok         = mappe.schliessen(sysinfo, {}, {});
+    }
+    std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen()
+              << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
+              << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
+
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed

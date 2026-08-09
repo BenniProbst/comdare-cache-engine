@@ -92,7 +92,13 @@ target_include_directories(comdare_profile_run_facade
 target_link_libraries(comdare_profile_run_facade PRIVATE
     Boost::mp11
     comdare::workload_driver
-    comdare::anatomy_module_loader)
+    comdare::anatomy_module_loader
+    # A9-S5 (2026-08-09): der ERSTE Produktions-Konsument des A9-S3-xlsx-Writers. Bis hierher trug
+    # comdare_lager_ablage sich selbst als "Consumer-only ... kein bestehendes ce-Ziel haengt daran"
+    # -- genau deshalb war der Owner-KERN-Default xlsx im Lauf unwirksam. Der Link ist Pflicht, nicht
+    # optional: ErgebnisMappenFactory::oeffne() ist inline im Header und referenziert
+    # detail::erzeuge_xlsx_ergebnis_mappe() in JEDEM Zweig -- auch im reinen csv-Pfad (ODR-Use).
+    comdare::lager_ablage)
 
 # E3-Haertung fuer den Super-Subbuild: diese Targets tragen historisch noch
 # CMAKE_SOURCE_DIR-basierte Include-Roots. Additiv echte ce-Roots setzen, ohne

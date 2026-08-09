@@ -5,9 +5,18 @@
 //
 // OWNER-KERN 26.07. Section 6 (woertlich): "xlsx = kuenftig DEFAULT, CSV einstellbar + Fallback. CSVs
 // werden im FACTORY PATTERN je Sheet einzeln gebaut; xlsx = EINE Datei mit EINEM Sheet je gewaehlter
-// Unter-Achsen-Permutation + zusaetzlichem INFO-Sheet." Owner-Kanon 05.08.: "entweder CSV xor xlsx,
-// xlsx ist default ... das ist ein strategy pattern, keine chain of responsibility" -- genau EINE
-// aktive Strategie je Lauf, kein Doppelschreiben.
+// Unter-Achsen-Permutation + zusaetzlichem INFO-Sheet." Owner-Kanon 05.08.: "das ist ein strategy
+// pattern, keine chain of responsibility".
+//
+// OWNER-ENTSCHEID 09.08. -- die AUSSCHLIESSLICHKEIT des 05.08. ist aufgehoben (woertlich): "xlsx ist
+// der Standard und CSV ist waehlbar, und ich lege jetzt fest, dass AUCH BEIDE ZUSAMMEN waehlbar sein
+// koennen. NICHT NUR ENTWEDER ODER." Ein Lauf darf oeffne() also ZWEIMAL rufen -- einmal je Format --
+// und beide Ausgaben aus DERSELBEN Mappe speisen. Was NICHT erlaubt bleibt (der eigentliche Sinn des
+// 05.08.-Verbots gegen "unnoetigen overhead"): ZWEI UNABHAENGIGE SCHREIBWEGE, die dieselbe Sache
+// zweimal ERZEUGEN. Die Mappe wird EINMAL gebaut, die Strategien schreiben sie nur verschieden
+// heraus; die Zusammenfuehrung leistet profile_facade/ergebnis_mappe_naht.hpp (EIN Zeitstempel, EIN
+// Dateiname-Stamm, EIN Feld-Split je Zeile). Der Rest des 05.08.-Kanons gilt unveraendert: Strategy
+// Pattern, xlsx = Default, KEINE Chain-of-Responsibility-Weiterreichung.
 //
 // BAUFORM (Dossier 4.1): geteilt. Interfaces + Factory + CSV-Fallback sind HEADER-ONLY (dieser Header).
 // Das xlsx-Backend ist eine EIGENE TU (xlsx_ergebnis_writer.cpp, Target comdare_lager_ablage), die
@@ -61,8 +70,9 @@ namespace ms = ::comdare::cache_engine::measurement;
 // 1. FORMAT-WAHL (Strategy, kein std::variant)
 // =================================================================================================
 
-/// Die EINE Laufzeit-Weiche der Factory: xlsx ist DEFAULT (Owner-KERN 26.07.), csv der Fallback
-/// DERSELBEN Factory. Genau eine aktive Strategie je Lauf (Owner-Kanon 05.08.), kein Doppelschreiben.
+/// Die EINE Laufzeit-Weiche der Factory: xlsx ist DEFAULT (Owner-KERN 26.07.), csv die zusaetzlich
+/// waehlbare Strategie DERSELBEN Factory. Genau eine Strategie je oeffne()-AUFRUF -- ein LAUF darf
+/// seit dem Owner-Entscheid 09.08. beide waehlen und dann zweimal oeffnen (s. Kopf).
 enum class ErgebnisFormat : std::uint8_t { xlsx, csv };
 
 // =================================================================================================
@@ -616,7 +626,8 @@ namespace detail {
                                                                           std::string const&           dateiname_stamm);
 } // namespace detail
 
-/// Abstract Factory (GoF): Default xlsx, csv einstellbar. EINE aktive Strategie je Aufruf.
+/// Abstract Factory (GoF): Default xlsx, csv einstellbar. EINE Strategie je AUFRUF -- ein Lauf, der
+/// beide Formate waehlt, ruft zweimal und speist beide aus derselben Mappe (Owner-Entscheid 09.08.).
 class ErgebnisMappenFactory {
 public:
     [[nodiscard]] static std::unique_ptr<IErgebnisMappe> oeffne(std::filesystem::path const& blatt_verzeichnis,
