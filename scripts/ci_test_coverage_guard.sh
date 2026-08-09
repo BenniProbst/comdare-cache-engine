@@ -87,6 +87,78 @@ CE_GESAMT=$(wc -l < "${_ce_tmp}/alle.txt" | tr -d ' ')
 [ "$CE_GESAMT" -gt 0 ] || ce_abbruch "die Live-Inventur (ctest -N) meldet 0 Tests -- der Bau-Baum ist ohne -DCOMDARE_BUILD_TESTS=ON konfiguriert oder leer." 2
 echo ""
 echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
+
+# =============================================================================
+# ZWEITE ACHSE (D1c, 2026-08-09): DER NENNER GEGEN EINE FREMDE QUELLE
+# =============================================================================
+# WARUM. Alles unterhalb rechnet gegen ce_namen -- also gegen 'ctest -N' des
+# Baums, den DIESER Job selbst gebaut hat. Jede Pruefung vergleicht damit
+# denselben Baum mit sich selbst, nur unter anderen -R/-L-Filtern. Ist der
+# Nenner zu klein, meldet die Wache Vollstaendigkeit ueber einer zu kleinen
+# Menge -- und niemand merkt es. Das ist keine Theorie: im Kopf dieser Datei
+# steht der Fall bereits ("live gemessen 2026-08-06: 404 statt 406 ... und die
+# Wache haette einen zu kleinen Wahrheitsbegriff"). Bisher haengt die Abwehr
+# allein daran, dass der Job seinen Baum richtig konfiguriert -- also an
+# Disziplin, nicht an einem Werkzeug.
+#
+# WAS DIESE ACHSE TUT. Sie vergleicht die eigene Inventur gegen die Inventur
+# eines ANDEREN Jobs (test:unit), die als Artefakt hereinkommt. Beide Jobs
+# bauen denselben Quellstand mit derselben Konfiguration; ihre Inventuren
+# MUESSEN deckungsgleich sein. Jede Abweichung ist ein Befund -- entweder ist
+# einer der beiden Baeume unvollstaendig, oder die Registrierung ist nicht
+# deterministisch. Beides gehoert laut gemeldet, nicht verschwiegen.
+#
+# FAIL-CLOSED. Ist COMDARE_FREMD_INVENTUR gesetzt, MUSS die Datei da und
+# lesbar sein -- fehlt sie, ist das ROT und kein Ueberspringen. Ist die
+# Variable NICHT gesetzt (lokaler Lauf), wird die Achse ausdruecklich als
+# NICHT GEFAHREN gemeldet; sie verschwindet nicht still aus dem Bericht.
+# =============================================================================
+CE_FREMD_STATUS="NICHT GEFAHREN"
+CE_FREMD_ROT=0
+_ce_fremd=${COMDARE_FREMD_INVENTUR-}
+echo ""
+if [ -z "$_ce_fremd" ]; then
+    echo "ZWEITE ACHSE (Fremd-Inventur): NICHT GEFAHREN -- COMDARE_FREMD_INVENTUR ist"
+    echo "  ungesetzt. In der CI setzt test:coverage-guard sie auf das test:unit-Artefakt;"
+    echo "  ohne sie prueft diese Wache ihren Nenner NUR gegen sich selbst."
+else
+    if [ ! -f "$_ce_fremd" ]; then
+        echo "ZWEITE ACHSE (Fremd-Inventur): ROT -- die angekuendigte Datei fehlt:"
+        echo "  COMDARE_FREMD_INVENTUR='${_ce_fremd}'"
+        echo "  Eine angekuendigte Gegenquelle, die fehlt, wird NICHT uebersprungen:"
+        echo "  sonst waere ein verlorenes Artefakt von einem Gleichstand nicht zu"
+        echo "  unterscheiden (fail-closed)."
+        CE_FREMD_STATUS="ROT (Datei fehlt)"
+        CE_FREMD_ROT=1
+    else
+        LC_ALL=C sort -u "$_ce_fremd" | sed '/^[[:space:]]*$/d' > "${_ce_tmp}/fremd.txt"
+        CE_FREMD_N=$(wc -l < "${_ce_tmp}/fremd.txt" | tr -d ' ')
+        if [ "$CE_FREMD_N" -eq 0 ]; then
+            echo "ZWEITE ACHSE (Fremd-Inventur): ROT -- '${_ce_fremd}' ist leer."
+            echo "  Eine leere Gegenquelle ist keine Bestaetigung (fail-closed)."
+            CE_FREMD_STATUS="ROT (Datei leer)"
+            CE_FREMD_ROT=1
+        else
+            LC_ALL=C comm -23 "${_ce_tmp}/alle.txt" "${_ce_tmp}/fremd.txt" \
+                > "${_ce_tmp}/nur_hier.txt"
+            LC_ALL=C comm -13 "${_ce_tmp}/alle.txt" "${_ce_tmp}/fremd.txt" \
+                > "${_ce_tmp}/nur_fremd.txt"
+            _ce_nh=$(wc -l < "${_ce_tmp}/nur_hier.txt" | tr -d ' ')
+            _ce_nf=$(wc -l < "${_ce_tmp}/nur_fremd.txt" | tr -d ' ')
+            echo "ZWEITE ACHSE (Fremd-Inventur): dieser Baum ${CE_GESAMT}, fremder Baum ${CE_FREMD_N}"
+            echo "  Quelle: ${_ce_fremd}"
+            if [ "$_ce_nh" -eq 0 ] && [ "$_ce_nf" -eq 0 ]; then
+                echo "  -> deckungsgleich (${CE_GESAMT} == ${CE_FREMD_N}), Namen identisch."
+                CE_FREMD_STATUS="GRUEN (${CE_GESAMT} == ${CE_FREMD_N})"
+            else
+                echo "  -> ABWEICHUNG: ${_ce_nh} nur hier, ${_ce_nf} nur im fremden Baum."
+                CE_FREMD_STATUS="ROT (${CE_GESAMT} != ${CE_FREMD_N})"
+                CE_FREMD_ROT=1
+            fi
+        fi
+    fi
+fi
+
 echo ""
 echo "DEKLARIERTE JOB-AUSWAHLEN (Quelle: Manifest):"
 
@@ -217,6 +289,36 @@ if [ -s "${_ce_tmp}/tote_namen.txt" ]; then
     CE_RC=1
 fi
 
+# -- Befund (d): zweite Achse -- der Nenner gegen eine FREMDE Quelle (D1c) --
+if [ "$CE_FREMD_ROT" -ne 0 ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: NENNER-ABWEICHUNG gegen die fremde Inventur (${CE_FREMD_STATUS})."
+    echo "Die Wache unten rechnet ihre Abdeckung ueber IHRER Inventur. Weicht die von"
+    echo "der eines anderen Jobs ab, der denselben Quellstand baut, dann ist mindestens"
+    echo "eine der beiden unvollstaendig -- und eine Abdeckung ueber einem zu kleinen"
+    echo "Nenner meldet Vollstaendigkeit, ohne etwas zu decken."
+    if [ -s "${_ce_tmp}/nur_hier.txt" ]; then
+        echo ""
+        echo "  NUR IN DIESEM Baum registriert (im fremden fehlend):"
+        while read -r _ce_t; do echo "    + ${_ce_t}"; done < "${_ce_tmp}/nur_hier.txt"
+    fi
+    if [ -s "${_ce_tmp}/nur_fremd.txt" ]; then
+        echo ""
+        echo "  NUR IM FREMDEN Baum registriert (hier fehlend):"
+        while read -r _ce_t; do echo "    - ${_ce_t}"; done < "${_ce_tmp}/nur_fremd.txt"
+    fi
+    echo ""
+    echo "SO WIRD DAS BEHOBEN (nicht durch Abschalten der Achse):"
+    echo "  * Beide Jobs muessen denselben Bauweg fahren -- ./configure.sh && make"
+    echo "    bzw. 'make inventar'. Fehlt in einem Baum das Reconfigure nach dem"
+    echo "    Codegen-Bau, registriert CMake dort weniger Tests."
+    echo "  * Fehlt die Datei, ist das Artefakt des liefernden Jobs verlorengegangen"
+    echo "    oder 'needs:' zieht es nicht -- das ist ein CI-Verdrahtungsfehler."
+    echo "-----------------------------------------------------------------------------"
+    CE_RC=1
+fi
+
 # -- Befund (c): die eigentliche Invariante --
 if [ "$CE_LUECKE" -gt 0 ]; then
     echo ""
@@ -259,6 +361,8 @@ if [ "$CE_RC" -eq 0 ]; then
     echo "  Summe                               : $(( _ce_ohne_pmc + _ce_mit_pmc ))  ==  Inventur ${CE_GESAMT}"
     echo "  -> -L und -LE mit demselben Muster sind komplementaer; ein dritter Fall"
     echo "     existiert nicht. Die Deckung ist damit strukturell, nicht durch Audit."
+    echo ""
+    echo "ZWEITE ACHSE (Nenner gegen fremde Quelle): ${CE_FREMD_STATUS}"
     echo ""
     echo "ABDECKUNGS-WACHE: GRUEN -- kein Test ohne fahrenden Job."
 else

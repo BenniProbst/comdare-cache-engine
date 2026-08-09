@@ -392,6 +392,14 @@ test:coverage-guard:
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
     - sh scripts/ci_test_coverage_guard.sh build-covguard
+    # D1c (2026-08-09): SELBSTTEST der zweiten Achse der Wache oben. Er wuerfelt seinen
+    # Koeder bei JEDEM Lauf neu (Schrumpf-Menge aus der echten Inventur) und prueft, dass
+    # eine abweichende, eine fehlende und eine leere Gegenquelle je ROT ergeben -- und dass
+    # der Gleichstand GRUEN bleibt. Ohne ihn waere die Achse eine Behauptung: eine Wache,
+    # deren Biss nie nachgefahren wird, kann still konstant gruen sein.
+    # HIER, weil der Selbsttest einen konfigurierten Baum braucht -- build-covguard steht
+    # im selben Job schon. Ein eigener Job haette denselben Vollbau zweimal bezahlt.
+    - sh scripts/ci_test_coverage_guard.selbsttest.sh build-covguard
     # W-1 (2026-08-08): TEST-SICHTBARKEITS-WACHE -- die Stufe VOR der Abdeckungs-Wache.
     # Die Abdeckungs-Wache oben rechnet die Job-Auswahlen gegen die LIVE-Inventur (ctest -N).
     # Ihr Nenner ist damit genau so gut wie diese Inventur -- und die war es nicht: 27
@@ -796,6 +804,27 @@ test:unit:
         echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make' nach 4 Versuchen nicht erfolgreich"; exit 4; }
+      # D1c (2026-08-09) -- DIESER JOB VEROEFFENTLICHT SEINE INVENTUR.
+      # Die Abdeckungs-Wache rechnet ihre Abdeckung gegen 'ctest -N' IHRES EIGENEN Baums.
+      # Ein Nenner, der aus derselben Quelle stammt wie die Rechnung, kann nicht bestaetigen,
+      # dass er vollstaendig ist -- genau daran scheiterte sie schon einmal (Kopf von
+      # scripts/ci_test_coverage_guard.sh: "404 statt 406 ... zu kleiner Wahrheitsbegriff").
+      # Deshalb legt dieser Job seine Inventur als GEGENQUELLE ab. Sie geht in
+      # build/Testing/, weil das .test-Template dieses Verzeichnis ohnehin als Artefakt
+      # einsammelt -- so braucht es KEINE zweite artifacts-Liste, die von der des Templates
+      # wegdriften koennte.
+      # 'make inventar' zuerst: erst danach sind die codegen-abhaengigen Tests registriert.
+      # Die Inventur wird VOR 'make check' geschrieben, damit sie auch dann vorliegt, wenn
+      # ein Test faellt -- sie beschreibt die REGISTRIERTE Menge, nicht den Ausgang.
+      make inventar BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
+      mkdir -p build/Testing
+      ctest --test-dir build -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' | LC_ALL=C sort -u \
+        > build/Testing/ctest_unit_inventar.txt
+      echo "D1c: Inventur veroeffentlicht -- $(wc -l < build/Testing/ctest_unit_inventar.txt) Tests"
+      # OFFEN (eigenes Paket, s. Commit-Bogen): der VERBRAUCHER fehlt noch. test:coverage-guard
+      # liegt in Stage 'contract', dieser Job in Stage 'test' -- 'needs' darf nicht auf eine
+      # SPAETERE Stage zeigen (nachgerechnet: 17 needs-Kanten im File, 0 vorwaerts). Die
+      # Verdrahtung braucht eine Topologie-Entscheidung, keine Zeile hier.
       make check CTEST_EXTRA="--output-junit $(pwd)/ctest-junit.xml"
   variables:
     # Nur noch fuer die artifacts-Pfade des .test-Templates: configure.sh legt per Vorgabe 'build' an.
