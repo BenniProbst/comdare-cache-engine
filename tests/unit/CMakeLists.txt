@@ -5828,3 +5828,21 @@ add_test(NAME test_check_size_mengenrechnung COMMAND test_check_size_mengenrechn
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_mengenrechnung)
 set_tests_properties(test_check_size_mengenrechnung PROPERTIES
     LABELS "check_size;planer;mengen;drift_gate;standalone")
+
+# ===================================================================================================
+# check-size CLI (09.08.2026, Lens-Befund B-1..B-3) -- die KOMMANDO-SCHICHT des Byte-Deckels.
+#
+# Der Rechner-Test oben deckt mengen_rechnen/mengen_bericht; ALLE vier Lens-Defekte lagen aber in der
+# Schicht darueber (Argument-Schleife + run_check_size_guarded). Dieser Test faehrt darum die ECHTE
+# Planer-Binary als Prozess: der Binary-Pfad reist als $<TARGET_FILE:...>-Argument (Muster
+# test_adhoc_buildvariant_dll), das gueltige Profil als expliziter Quellbaum-Pfad -- NICHT aus der
+# Umgebung geraten, damit der Test hermetisch gegen COMDARE_THESIS_PROFILE ist.
+add_executable(test_check_size_cli_deckel "test_check_size_cli_deckel.cpp")
+target_compile_features(test_check_size_cli_deckel PRIVATE cxx_std_23)
+comdare_set_platform_defines(test_check_size_cli_deckel)
+add_test(NAME test_check_size_cli_deckel COMMAND test_check_size_cli_deckel
+    "$<TARGET_FILE:comdare_experiment_planner>"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_cli_deckel)
+set_tests_properties(test_check_size_cli_deckel PROPERTIES
+    LABELS "check_size;planer;cli;deckel;standalone" TIMEOUT 120)

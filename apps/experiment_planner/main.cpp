@@ -41,8 +41,10 @@
 
 #include "xml_config_parser/xml_reader.hpp" // Bruecke-I2: Root-Tag-Sniff des validate-Profils (common-DOM)
 
+#include <cerrno>  // check-size: ERANGE der strtoull-Bereichspruefung des Byte-Deckels
 #include <cstddef>
 #include <cstdint> // check-size: uint64_t (der Byte-Deckel)
+#include <cstdlib> // check-size: strtoull -- der Byte-Deckel ist eine GANZE Zahl, kein double
 #include <exception>
 #include <filesystem> // W5: der aufgeloeste Mess-Ausgabe-Root (status --root)
 #include <fstream>
@@ -272,13 +274,10 @@ struct PlanerBlockGate {
                                          std::string const& max_tage_arg,
                                          std::string const& sek_je_op_arg) noexcept {
     try {
-        pln::MengenEingang eingang{};
-        if (int const rc = pf::collect_mess_menge_facade(std::filesystem::path{profil}, eingang, std::cerr); rc != 0) {
-            return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
-        }
-
-        // Die drei Aufrufer-Zutaten. KONFIG-FEHLER SIND HART (rc 2), nicht stillschweigend 0: ein vertippter
-        // Deckel, der als "kein Deckel" durchrutscht, waere genau der Gruen-ohne-Pruefung-Fall.
+        // Die drei Aufrufer-Zutaten -- geparst VOR dem Profil-Walk. KONFIG-FEHLER SIND HART (rc 2), nicht
+        // stillschweigend 0: ein vertippter Deckel, der als "kein Deckel" durchrutscht, waere genau der
+        // Gruen-ohne-Pruefung-Fall. Die Reihenfolge (erst Flags, dann Profil) ist Absicht: ein kaputtes Flag
+        // ist ohne Profil pruefbar und faellt auch dann als 2, wenn zusaetzlich das Profil unlesbar ist.
         auto zahl_oder_fehler = [](std::string const& s, char const* flag, bool& kaputt) -> double {
             if (s.empty()) return 0.0;
             try {
@@ -298,12 +297,45 @@ struct PlanerBlockGate {
                 return 0.0;
             }
         };
-        bool         kaputt = false;
-        double const bytes  = zahl_oder_fehler(max_bytes_arg, "--max-bytes", kaputt);
-        eingang.deckel_tage = zahl_oder_fehler(max_tage_arg, "--max-tage", kaputt);
-        eingang.sekunden_je_op = zahl_oder_fehler(sek_je_op_arg, "--sekunden-je-op", kaputt);
+        // Der Byte-Deckel ist eine GANZE Zahl und wird als solche geparst (strtoull, Ganz-String + errno).
+        // NICHT als double: static_cast<uint64_t>(0.5) waere 0 == "kein Deckel" (stiller Deckel-Verlust),
+        // und der Cast von inf/1e30/2^64 nach uint64 ist UB. Nur [0-9]+ ist zugelassen -- strtoull selbst
+        // wuerde "-1" kommentarlos nach 2^64-1 wickeln und Hex/Leerraum schlucken. 0 ist ABGELEHNT: ein
+        // Deckel von null Bytes ist ein Tippfehler, kein Auftrag "nicht pruefen" (Flag weglassen heisst das).
+        auto ganzzahl_oder_fehler = [](std::string const& s, char const* flag, bool& kaputt) -> std::uint64_t {
+            if (s.empty()) return 0u; // Flag nicht gesetzt == kein Deckel
+            bool nur_ziffern = true;
+            for (char const c : s) {
+                if (c < '0' || c > '9') {
+                    nur_ziffern = false;
+                    break;
+                }
+            }
+            errno                        = 0;
+            char*                    ende = nullptr;
+            unsigned long long const w    = std::strtoull(s.c_str(), &ende, 10);
+            if (!nur_ziffern || ende != s.c_str() + s.size() || errno == ERANGE || w == 0ull) {
+                std::cerr << "comdare-experiment-planner: " << flag
+                          << " erwartet eine positive GANZE Zahl in Bytes (dezimal, ohne Vorzeichen), bekam '"
+                          << s << "'.\n";
+                kaputt = true;
+                return 0u;
+            }
+            return static_cast<std::uint64_t>(w);
+        };
+        bool                kaputt       = false;
+        std::uint64_t const deckel_bytes = ganzzahl_oder_fehler(max_bytes_arg, "--max-bytes", kaputt);
+        double const        deckel_tage  = zahl_oder_fehler(max_tage_arg, "--max-tage", kaputt);
+        double const        sek_je_op    = zahl_oder_fehler(sek_je_op_arg, "--sekunden-je-op", kaputt);
         if (kaputt) return 2;
-        eingang.deckel_bytes = static_cast<std::uint64_t>(bytes);
+
+        pln::MengenEingang eingang{};
+        if (int const rc = pf::collect_mess_menge_facade(std::filesystem::path{profil}, eingang, std::cerr); rc != 0) {
+            return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+        }
+        eingang.deckel_bytes   = deckel_bytes;
+        eingang.deckel_tage    = deckel_tage;
+        eingang.sekunden_je_op = sek_je_op;
 
         auto const sicht = pln::mengen_rechnen(eingang);
         std::cout << pln::mengen_bericht(sicht, eingang);
@@ -501,14 +533,15 @@ void help_for(std::string const& topic) {
             << "  MENGEN-VORSCHAU vor dem Lauf: rechnet die Mess-Menge aus dem deterministischen Plan-Walk\n"
             << "  und druckt sie AUFGESCHLUESSELT -- jede Menge mit ihrem Nenner, jede geschaetzte Groesse\n"
             << "  als solche markiert. Baut KEINE DLL, misst NICHT, schreibt nichts.\n"
-            << "    --max-bytes=N        Deckel auf die Arena EINES Mess-Prozesses (0/weg = nur berichten)\n"
+            << "    --max-bytes=N        Deckel auf die Arena EINES Mess-Prozesses; N = positive GANZE Zahl\n"
+            << "                         in Bytes (dezimal). Flag weglassen = nur berichten; 0 ist rc 2.\n"
             << "    --max-tage=F         Deckel auf die geschaetzte Dauer in Maschinentagen\n"
             << "    --sekunden-je-op=F   Kalibrierung des Aufrufers. OHNE sie bleibt die Dauer n/a --\n"
             << "                         der Bestand liefert VOR dem Lauf keine gemessene Zeit.\n"
             << "  FAIL-CLOSED: ein verlangter Deckel, dessen Menge nicht berechenbar ist, gilt als NICHT\n"
             << "  bestanden (Exit 1). Ein Deckel, der mangels Zahl gruen meldet, ist keine Pruefung.\n"
-            << "  Exit: 0 haelt; 1 Deckel gerissen/unbestimmbar oder nicht erhoben; 2 kaputtes Flag;\n"
-            << "        5 unbekannte Profil-Wurzel.\n";
+            << "  Exit: 0 haelt; 1 Deckel gerissen/unbestimmbar oder nicht erhoben; 2 kaputtes Flag oder\n"
+            << "        ueberzaehliges Argument; 5 unbekannte Profil-Wurzel.\n";
         return;
     }
     if (topic == "fingerprint") {
@@ -669,12 +702,21 @@ int main(int argc, char* argv[]) {
             } else if (a.rfind("--sekunden-je-op=", 0) == 0) {
                 sek_arg = a.substr(std::string_view{"--sekunden-je-op="}.size());
             } else if (!a.empty() && a.front() == '-') {
+                // rc 2, nicht 1: die Hilfe verspricht "2 kaputtes Flag", und rc 1 ist schon das Urteil
+                // "Deckel gerissen" -- eine kaputte Kommandozeile muss davon UNTERSCHEIDBAR sein.
                 std::cerr << "comdare-experiment-planner: unbekanntes Flag '" << a
                           << "' fuer check-size -- erwartet: --max-bytes=N | --max-tage=F | --sekunden-je-op=F "
                              "(Detail: 'help check-size').\n";
-                return 1;
+                return 2;
             } else if (prof_arg.empty()) {
                 prof_arg = a;
+            } else {
+                // Ein NICHT verbrauchtes Positional wird ABGELEHNT, nie verworfen: "max-bytes=1000" (Striche
+                // vergessen) saehe sonst wie ein Zweit-Profil aus und verschwaende stumm -- der Deckel gleich mit.
+                std::cerr << "comdare-experiment-planner: ueberzaehliges Argument '" << a
+                          << "' fuer check-size -- das Profil ist schon '" << prof_arg
+                          << "'. Vertipptes Flag ohne '--'? (Detail: 'help check-size').\n";
+                return 2;
             }
         }
         return run_check_size_guarded(resolve_profile(prof_arg), max_bytes_arg, max_tage_arg, sek_arg);

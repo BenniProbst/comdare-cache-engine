@@ -388,9 +388,17 @@ namespace mengen_detail {
     }
 
     // == 9. DIE DECKEL ===========================================================================================
+    // VORLAEUFIGER ENTSCHEID (fail-closed, 2026-08-09, Owner-Entscheid OFFEN): zeilen_je_op == 0 (Tooling
+    // ohne Makro- und ohne Mikro-Ebene, z.B. wallclock-only) rechnet die Arena zu NULL Bytes. Ein Byte-
+    // Deckel, der dann "haelt", haelt nicht WEIL die Kampagne passt, sondern WEIL nichts gerechnet wurde --
+    // ununterscheidbar von einem Tooling-Fehlparse. Der Bestand sichert "wallclock-only == null
+    // Checkpoint-Zeilen" nirgends zu (checkpoint_measure ist unverdrahtet, s. Kopf). Bis der Eigentuemer
+    // diese Zusicherung trifft, faellt ein VERLANGTER Byte-Deckel hier UNBESTIMMBAR -- dieselbe
+    // fail-closed-Richtung wie beim Zeit-Deckel darunter. Ohne verlangten Deckel bleibt der Bericht frei.
     if (e.deckel_bytes != 0u) {
-        s.speicher_urteil =
-            (s.arena_bytes_je_op_batch <= e.deckel_bytes) ? Deckelurteil::Haelt : Deckelurteil::Gerissen;
+        s.speicher_urteil = (s.zeilen_je_op == 0u)                        ? Deckelurteil::Unbestimmbar
+                            : (s.arena_bytes_je_op_batch <= e.deckel_bytes) ? Deckelurteil::Haelt
+                                                                            : Deckelurteil::Gerissen;
     }
     if (e.deckel_tage > 0.0) {
         // Unbestimmbar ist NICHT "haelt": ein verlangter Deckel ohne Zahl faellt fail-closed durch.
@@ -446,11 +454,14 @@ namespace mengen_detail {
 
     o += "\nDECKEL\n";
     o += "  speicher: " + std::string{urteil_wort(s.speicher_urteil)};
-    if (e.deckel_bytes != 0u) {
+    if (e.deckel_bytes == 0u) {
+        o += "  (kein --max-bytes gesetzt -- es wird nur berichtet)";
+    } else if (s.speicher_urteil == Deckelurteil::Unbestimmbar) {
+        o += "  (zeilen_je_op=0 -- die Arena rechnet zu NULL Bytes; ob das null Checkpoint-Zeilen BEDEUTET\n"
+             "            oder ein Tooling-Fehlparse ist, sichert der Bestand nicht zu -> fail-closed)";
+    } else {
         o += "  (arena_bytes_je_op_batch=" + std::to_string(s.arena_bytes_je_op_batch) + " gegen --max-bytes=" +
              std::to_string(e.deckel_bytes) + ")";
-    } else {
-        o += "  (kein --max-bytes gesetzt -- es wird nur berichtet)";
     }
     o += "\n  zeit:     " + std::string{urteil_wort(s.zeit_urteil)};
     if (e.deckel_tage > 0.0) {

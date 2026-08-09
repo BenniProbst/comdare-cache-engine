@@ -345,6 +345,51 @@ int main() {
         pruefe_enthaelt(b, "zellen=6/5", "G8: die Schlusszeile zeigt beide Zahlen");
     }
 
+    // == T-4 GEGENEINGANG 9: BYTE-DECKEL bei zeilen_je_op == 0 ist UNBESTIMMBAR, nicht "haelt" ====
+    // Der Stellvertreter-Fall des Byte-Deckels (Lens-Befund B-4, 09.08.2026): wallclock-only rechnet
+    // die Arena zu NULL Bytes. Ein Deckel, der dann "haelt", haelt, WEIL nichts gerechnet wurde --
+    // ununterscheidbar von einem Tooling-Fehlparse. VORLAEUFIG fail-closed (Owner-Entscheid offen,
+    // s. Kommentar an mengen_rechnen Abschnitt 9); DIESER Test nagelt die getroffene Wahl fest.
+    {
+        auto e         = eingang_a();
+        e.tooling_leer = false;
+        e.ebene_macro  = false;
+        e.ebene_micro  = false; // wallclock-only => zeilen_je_op = 0 => arena_bytes = 0
+        e.deckel_bytes = 1;     // ein VERLANGTER Deckel -- jede Arena > 0 wuerde ihn reissen
+        auto const s   = pl::mengen_rechnen(e);
+        pruefe_gleich(s.zeilen_je_op, 0u, "G9: wallclock-only => zeilen_je_op == 0");
+        pruefe_gleich(s.arena_bytes_je_op_batch, 0u, "G9: die Arena rechnet zu 0 Bytes");
+        pruefe(s.speicher_urteil == pl::Deckelurteil::Unbestimmbar,
+               "G9: verlangter Byte-Deckel ueber einer Null-Rechnung => unbestimmbar, NICHT haelt");
+        pruefe(s.abgelehnt(), "G9: unbestimmbar faellt fail-closed durch");
+        auto const b = pl::mengen_bericht(s, e);
+        pruefe_enthaelt(b, "speicher=unbestimmbar", "G9: die Schlusszeile sagt speicher=unbestimmbar");
+        pruefe_enthaelt(b, "fail-closed", "G9: der DECKEL-Block benennt den Grund");
+    }
+    // G9-GEGENEINGANG a: DERSELBE Eingang OHNE verlangten Deckel bleibt reiner Bericht (kein_deckel,
+    // nicht abgelehnt) -- fail-closed heisst nicht, dass wallclock-only nicht mehr berichtet werden darf.
+    {
+        auto e         = eingang_a();
+        e.tooling_leer = false;
+        e.ebene_macro  = false;
+        e.ebene_micro  = false;
+        auto const s   = pl::mengen_rechnen(e);
+        pruefe(s.speicher_urteil == pl::Deckelurteil::KeinDeckel, "G9a: ohne Deckel bleibt es kein_deckel");
+        pruefe(!s.abgelehnt(), "G9a: ohne verlangten Deckel wird nicht abgelehnt");
+    }
+    // G9-GEGENEINGANG b: sobald EINE Ebene aktiv ist (zeilen_je_op > 0), urteilt derselbe Deckel wieder
+    // normal -- der Unbestimmbar-Zweig verschluckt das echte Urteil nicht.
+    {
+        auto e         = eingang_a();
+        e.tooling_leer = false;
+        e.ebene_macro  = true;
+        e.ebene_micro  = false; // zeilen_je_op = 2 => arena = 10*2*18*32 = 11520
+        e.deckel_bytes = 1;
+        auto const s   = pl::mengen_rechnen(e);
+        pruefe_gleich(s.arena_bytes_je_op_batch, 11520u, "G9b: arena == 10*2*18*32");
+        pruefe(s.speicher_urteil == pl::Deckelurteil::Gerissen, "G9b: 11520 > 1 => GERISSEN, nicht unbestimmbar");
+    }
+
     // == NENNER DER TESTAUSSAGE SELBST -- nie eine nackte Zahl ====================================
     std::printf("%s: %d/%d Zusicherungen bestanden (Grundgesamtheit: alle Zusicherungen dieser Datei)\n",
                 rot == 0 ? "GRUEN" : "ROT", gesamt - rot, gesamt);
