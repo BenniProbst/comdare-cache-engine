@@ -83,7 +83,14 @@ public:
         // Wenn nicht signifikant: Tie. Fallback nur wenn keine Samples vorhanden.
         if (!result_a_.latency_samples_ns.empty() && !result_b_.latency_samples_ns.empty()) {
             welch_ = stats::welch_t_test(result_a_.latency_samples_ns, result_b_.latency_samples_ns);
-            if (welch_.valid && welch_.p_value < alpha_) {
+            // D4a-Schwesterstelle (T-6): ein DEGENERIERTER Welch (beide Gruppen ohne Varianz, also
+            // 0/0) lieferte hier bisher p=1.0 und damit `Tie` -- ununterscheidbar von einem echt
+            // gemessenen Gleichstand. Das Verdict dafuer existiert bereits: InconclusiveData.
+            // Ohne diese Zeile unterschreibt der Vergleich still die Semantik "gleich schnell"
+            // fuer zwei Kandidaten, die 11 % auseinanderliegen koennen.
+            if (welch_.degeneriert) {
+                verdict_ = Verdict::InconclusiveData;
+            } else if (welch_.valid && welch_.p_value < alpha_) {
                 verdict_ = (welch_.mean_a < welch_.mean_b) ? Verdict::EE_A_Wins // kleinere Latenz = EE_A schneller
                                                            : Verdict::EE_B_Wins;
             } else {
@@ -93,6 +100,17 @@ public:
         }
 
         // HH.3 Konfigurierbarer Schwellwert (Fallback ohne Samples)
+        //
+        // D4-Schwesterstelle (T-6), SECHSTE Fundstelle derselben Klasse: throughput_ratio_ wird
+        // oben bei Nenner 0 auf 0.0 GERETTET. Diese gerettete Null faellt hier unter
+        // 1/winner_threshold_ (= 0.952 bei Default 1.05) und erzeugt EE_B_Wins -- aus "B hat nie
+        // einen Durchsatz gemeldet" wurde "B ist schneller". Ohne bestimmbaren Quotienten gibt es
+        // kein Urteil; die Pruefung steht VOR den Schwellwert-Vergleichen, weil danach die 0 nicht
+        // mehr von einem echt gemessenen Verhaeltnis 0 zu unterscheiden waere.
+        if (!(result_b_.throughput_ops_per_sec > 0.0)) {
+            verdict_ = Verdict::InconclusiveData;
+            return 0;
+        }
         if (throughput_ratio_ > winner_threshold_) {
             verdict_ = Verdict::EE_A_Wins;
         } else if (throughput_ratio_ < (1.0 / winner_threshold_)) {

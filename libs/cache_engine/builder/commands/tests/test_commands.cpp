@@ -187,6 +187,24 @@ TEST(WelchTTest, IdenticalSamplesGiveTOfZero) {
     EXPECT_TRUE(r.valid);
     EXPECT_NEAR(r.t_statistic, 0.0, 1e-9);
     EXPECT_NEAR(r.p_value, 1.0, 1e-6);
+    // D4a (2026-08-09): dieser Test hat den se<=0-Zweig bisher nur auf seinen ZAHLENWERT geprueft
+    // und damit stillschweigend die Semantik unterschrieben, die er vorfand ("p=1.0 heisst kein
+    // Unterschied"). Der Zweig feuert aber genauso bei zwei KONSTANTEN Gruppen mit weit
+    // auseinanderliegenden Mitteln -- siehe die Schwester-Zusicherung direkt darunter.
+    EXPECT_TRUE(r.degeneriert) << "p=1.0 aus 0/0 ist eine Rettung, keine Messung";
+}
+
+// D4a-Schwester (T-6) zu IdenticalSamplesGiveTOfZero: DERSELBE Zweig, andere Daten. Der Koeder
+// (K13, gewuerfelt 2026-08-09) sind zwei konstante Gruppen 929 und 1031 -- 11 % auseinander.
+// Vorher lieferte Welch dafuer exakt dieselbe Ausgabe wie fuer zwei identische Gruppen.
+TEST(WelchTTest, KonstanteAberVerschiedeneGruppenSindDegeneriertNichtGleich) {
+    std::vector<std::int64_t> a(5, 929);
+    std::vector<std::int64_t> b(4, 1031);
+    auto                      r = cmd::stats::welch_t_test(a, b);
+    ASSERT_GT(r.mean_b - r.mean_a, 0.10 * r.mean_a) << "Koeder stumpf geworden";
+    EXPECT_TRUE(r.valid);
+    EXPECT_TRUE(r.degeneriert);
+    EXPECT_NEAR(r.p_value, 1.0, 1e-12);
 }
 
 TEST(WelchTTest, ClearlySeparatedSamplesGiveLowP) {
@@ -211,6 +229,40 @@ TEST(WelchTTest, TooFewSamplesInvalid) {
     std::vector<std::int64_t> b{200, 201};
     auto                      r = cmd::stats::welch_t_test(a, b);
     EXPECT_FALSE(r.valid);
+    EXPECT_TRUE(r.degeneriert) << "nicht gerechnet ist auch keine Aussage";
+}
+
+// D4a-Schwesterstelle (T-6) auf der VERDICT-Ebene: CompareEngineCommand las bisher nur
+// welch_.valid und landete bei einem degenerierten Welch (p=1.0) im Zweig `Tie` -- also im
+// selben Verdict wie ein echt gemessener Gleichstand. Verdict::InconclusiveData gab es dafuer
+// schon, es wurde nur nie erreicht, wenn Samples vorhanden waren.
+TEST(CompareEngineCommand, DegenerierterWelchIstInconclusiveUndKeinTie) {
+    cmd::ExecutionResult r_a{};
+    r_a.engine_name        = "ee-a";
+    r_a.success            = true;
+    r_a.latency_samples_ns = std::vector<std::int64_t>(5, 929); // KOEDER, gewuerfelt: konstant
+    cmd::ExecutionResult r_b{};
+    r_b.engine_name        = "ee-b";
+    r_b.success            = true;
+    r_b.latency_samples_ns = std::vector<std::int64_t>(4, 1031); // KOEDER: konstant, 11 % hoeher
+
+    cmd::CompareEngineCommand cmp(r_a, r_b);
+    EXPECT_EQ(cmp.execute(), 0);
+    EXPECT_TRUE(cmp.welch().degeneriert);
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::InconclusiveData);
+
+    // GEGENEINGANG (T-4): dieselbe Konstellation MIT Streuung muss weiterhin ein echtes Urteil
+    // geben -- sonst waere der neue Zweig eine konstante Ablehnung und wuerde nichts belegen.
+    cmd::ExecutionResult s_a{};
+    s_a.success            = true;
+    s_a.latency_samples_ns = {929, 930, 928, 931, 927};
+    cmd::ExecutionResult s_b{};
+    s_b.success            = true;
+    s_b.latency_samples_ns = {1031, 1032, 1030, 1033};
+    cmd::CompareEngineCommand cmp2(s_a, s_b);
+    EXPECT_EQ(cmp2.execute(), 0);
+    EXPECT_FALSE(cmp2.welch().degeneriert);
+    EXPECT_EQ(cmp2.verdict(), cmd::CompareEngineCommand::Verdict::EE_A_Wins);
 }
 
 TEST(CompareEngineCommand, WelchBasedVerdictWhenSamplesPresent) {
@@ -287,4 +339,39 @@ TEST(MultiAxisAutoPermutator, EmptyAxisListGivesEmptyPlan) {
     auto plan = multi.build_plan();
     EXPECT_TRUE(plan.axis_ids.empty());
     EXPECT_EQ(plan.cartesian_size(), 0u);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4-Schwesterstelle (T-6), SECHSTE Fundstelle derselben Klasse (2026-08-09)
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// Das Suchmuster war "die Null wird als DIVISIONS-Gefahr gerettet und nicht als DATEN-Aussage
+// behandelt". Der Fallback-Pfad ohne Latenz-Samples rettet throughput_ratio_ bei Nenner 0 auf
+// 0.0 -- und diese gerettete Null faellt anschliessend unter 1/winner_threshold_ (= 0.952) und
+// erzeugt EE_B_Wins. "B hat nie einen Durchsatz gemeldet" wurde damit zu "B ist schneller".
+TEST(CompareEngineCommand, NichtBestimmbarerDurchsatzQuotientGibtKeinUrteil) {
+    cmd::ExecutionResult r_a{};
+    r_a.engine_name            = "ee-a";
+    r_a.success                = true;
+    r_a.throughput_ops_per_sec = 1000.0;
+    cmd::ExecutionResult r_b{};
+    r_b.engine_name            = "ee-b";
+    r_b.success                = true;
+    r_b.throughput_ops_per_sec = 0.0; // nie gemessen -> der Quotient ist NICHT bestimmbar
+    // Keine Latenz-Samples auf beiden Seiten -> der Schwellwert-Fallback greift.
+    cmd::CompareEngineCommand cmp(r_a, r_b);
+    EXPECT_EQ(cmp.execute(), 0);
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::InconclusiveData)
+        << "ein geretteter Nenner darf kein Urteil erzeugen";
+
+    // GEGENEINGANG (T-4): mit einem echten Nenner muss der Fallback weiterhin urteilen -- sonst
+    // waere die neue Bedingung eine pauschale Verweigerung und wuerde nichts belegen.
+    cmd::ExecutionResult s_b{};
+    s_b.engine_name            = "ee-b";
+    s_b.success                = true;
+    s_b.throughput_ops_per_sec = 500.0; // a/b = 2.0 > 1.05
+    cmd::CompareEngineCommand cmp2(r_a, s_b);
+    EXPECT_EQ(cmp2.execute(), 0);
+    EXPECT_EQ(cmp2.verdict(), cmd::CompareEngineCommand::Verdict::EE_A_Wins);
+    EXPECT_NEAR(cmp2.throughput_ratio(), 2.0, 1e-9);
 }

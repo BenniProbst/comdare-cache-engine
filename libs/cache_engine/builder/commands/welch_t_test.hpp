@@ -30,6 +30,21 @@ struct WelchResult {
     std::size_t n_a{0};
     std::size_t n_b{0};
     bool        valid{false};
+    // D4a (2026-08-09) -- DIE NULL ALS DATEN-AUSSAGE, NICHT NUR ALS DIVISIONS-GEFAHR.
+    //
+    // `valid` und `degeneriert` sagen ZWEI VERSCHIEDENE Dinge, und die Trennung ist tragend:
+    //   valid       == "es wurde ueberhaupt ein Ergebnis GERECHNET" (n>=2 auf beiden Seiten)
+    //   degeneriert == "das Ergebnis traegt KEINE Aussage" -- der Zahlenwert ist eine Rettung
+    //                  vor der Division, kein Messbefund.
+    // Sie sind NICHT komplementaer: se<=0 liefert valid=true UND degeneriert=true (gerechnet,
+    // aber leer), n<2 liefert valid=false UND degeneriert=true (nicht einmal gerechnet).
+    //
+    // WARUM DAS EIN EIGENES FELD BRAUCHT und nicht durch p_value==1.0 ausdrueckbar ist: ein
+    // ECHT gemessenes p von 1.0 (zwei identisch streuende Gruppen) und die Rettung bei
+    // Varianz 0 auf beiden Seiten sind am Zahlenwert nicht unterscheidbar. Genau diese
+    // Ununterscheidbarkeit ist der Befund -- ein Konsument (multi_compare, D4c) muss den
+    // degenerierten Fall aus der Hypothesen-Familie NEHMEN koennen, den echten nicht.
+    bool degeneriert{false};
 };
 
 namespace detail {
@@ -107,14 +122,40 @@ inline std::pair<double, double> mean_and_unbiased_variance(std::span<const std:
 
 } // namespace detail
 
+/// D4a -- DIE EINE Stelle, an der ueber "degeneriert" entschieden wird.
+///
+/// Zwei Ausloeser, und sie sind NICHT derselbe Fall:
+///   (1) se <= 0  -- beide Stichproben haben Varianz 0. Die t-Statistik ist dann (m_a - m_b)/0,
+///       also 0/0 bzw. unendlich: UNDEFINIERT. Der Zaehler kann dabei beliebig gross sein --
+///       zwei konstante Gruppen 929 und 1031 liegen 11 % auseinander und sind trotzdem nicht
+///       t-testbar. Genau deshalb ist das kein "kein Unterschied", sondern "keine Aussage".
+///   (2) p nicht endlich -- NaN/inf aus der Verteilungsfunktion (student_t_p_value_two_tailed
+///       liefert NaN bei df<=0). Aus std::int64_t-Eingaben ist das HEUTE nicht erreichbar
+///       (denom>0 folgt aus se>0, gemessen ueber 2000 zufaellige Laeufe in
+///       F15WelchDegeneriert.NichtEndlichesPFeuertUeberDemGanzenNennerNie: 0 von 2000). Der
+///       Zweig steht trotzdem und ist fail-closed: ein unerkennbarer NaN, der als p=NaN in die
+///       Bonferroni-Familie liefe, waere schlimmer als ein nie feuernder Guard.
+///
+/// FAIL-CLOSED-FORM: `!(se > 0.0)` statt `se <= 0.0` -- damit faengt der Guard auch ein NaN-se,
+/// bei dem BEIDE Vergleiche falsch waeren.
+[[nodiscard]] inline bool welch_ergebnis_ist_degeneriert(double standardfehler, double p_wert) noexcept {
+    return !(standardfehler > 0.0) || !std::isfinite(p_wert);
+}
+
 /// Welch's t-test fuer zwei unabhaengige Stichproben mit ungleichen Varianzen.
 /// Liefert t-Statistik, Welch-Satterthwaite-df + zweiseitigen P-Value.
-/// Bei < 2 Samples pro Gruppe ist .valid = false.
+/// Bei < 2 Samples pro Gruppe ist .valid = false UND .degeneriert = true (nichts gerechnet).
 inline WelchResult welch_t_test(std::span<const std::int64_t> samples_a, std::span<const std::int64_t> samples_b) {
     WelchResult r{};
     r.n_a = samples_a.size();
     r.n_b = samples_b.size();
-    if (r.n_a < 2 || r.n_b < 2) { return r; }
+    if (r.n_a < 2 || r.n_b < 2) {
+        // Nicht gerechnet (valid bleibt false) UND ohne Aussage (degeneriert). Beide Felder
+        // werden gesetzt, weil ein Konsument beides getrennt braucht: multi_compare schliesst
+        // ueber `degeneriert` aus der Familie aus, compare_engine_command liest `valid`.
+        r.degeneriert = true;
+        return r;
+    }
 
     const auto [mean_a, var_a] = detail::mean_and_unbiased_variance(samples_a);
     const auto [mean_b, var_b] = detail::mean_and_unbiased_variance(samples_b);
@@ -127,11 +168,16 @@ inline WelchResult welch_t_test(std::span<const std::int64_t> samples_a, std::sp
     const double se_b_sq = var_b / static_cast<double>(r.n_b);
     const double se      = std::sqrt(se_a_sq + se_b_sq);
 
-    if (se <= 0.0) {
+    if (welch_ergebnis_ist_degeneriert(se, 1.0)) {
+        // se <= 0 (oder NaN): beide Varianzen sind 0. Der zurueckgegebene p-Wert von 1.0 bleibt
+        // stehen, damit sich am Zahlen-Verhalten bestehender Konsumenten NICHTS aendert -- die
+        // AUSSAGE steckt jetzt in degeneriert. Kein Vorzeichen und keine Signifikanz werden hier
+        // erfunden, auch wenn mean_a != mean_b ist: der Test hat nicht gerechnet.
         r.t_statistic        = 0.0;
         r.degrees_of_freedom = static_cast<double>(r.n_a + r.n_b - 2);
         r.p_value            = 1.0;
         r.valid              = true;
+        r.degeneriert        = true;
         return r;
     }
 
@@ -144,6 +190,8 @@ inline WelchResult welch_t_test(std::span<const std::int64_t> samples_a, std::sp
 
     r.p_value = detail::student_t_p_value_two_tailed(r.t_statistic, r.degrees_of_freedom);
     r.valid   = true;
+    // Zweiter Ausloeser: ein nicht endlicher p-Wert waere ein gerechnetes Nichts.
+    r.degeneriert = welch_ergebnis_ist_degeneriert(se, r.p_value);
     return r;
 }
 

@@ -81,18 +81,28 @@ inline std::string csv_quote(std::string_view s) {
     r.engine_name            = engine_name;
     r.throughput_ops_per_sec = throughput_ops_per_sec;
     std::span<const std::int64_t> const sp{latency_samples_ns};
-    r.latency_p50        = stats::latency_p50_ns(sp);
-    r.latency_p99        = stats::latency_p99_ns(sp);
-    r.success            = !latency_samples_ns.empty();
+    r.latency_p50 = stats::latency_p50_ns(sp);
+    r.latency_p99 = stats::latency_p99_ns(sp);
+    // D4d: success hiess bisher !empty(). 35 Proben von exakt 0 ns galten damit als Erfolg --
+    // und liefen als "unschlagbar schnelle" Komposition weiter in Ranking und Statistik. Beide
+    // Felder werden aus DERSELBEN Definition abgeleitet (proben_sind_tot, execution_result.hpp),
+    // damit hier kein zweiter Ableitungsweg entsteht.
+    r.degeneriert        = proben_sind_tot(sp);
+    r.success            = !r.degeneriert;
     r.latency_samples_ns = std::move(latency_samples_ns);
     return r;
 }
 
 /// CSV-Header-Zeile (RFC-4180-konform), passend zu to_csv_row / to_csv.
+///
+/// D4d: `degeneriert` haengt HINTEN an -- Positions-Leser der bisherigen zwoelf Spalten bleiben
+/// heil. Das ist die EINE Spaltenaenderung dieser Woche; der Kopf ist per Literal-Test
+/// (F15ProbenSindTot.ResultCsvHeaderIstEINGEFROREN) eingefroren, damit die naechste nicht
+/// unbemerkt dazukommt.
 [[nodiscard]] inline std::string result_csv_header() {
     return "engine_name,workload_kind,throughput_ops_per_sec,latency_p50_ns,latency_p99_ns,"
            "total_cache_misses,memory_footprint_bytes,H1_clu_improvement,H2_layout_score,"
-           "H3_inline_external_ratio,n_latency_samples,success";
+           "H3_inline_external_ratio,n_latency_samples,success,degeneriert";
 }
 
 /// Eine ExecutionResult als CSV-Zeile (ohne Zeilenumbruch).
@@ -102,7 +112,7 @@ inline std::string csv_quote(std::string_view s) {
        << r.throughput_ops_per_sec << ',' << r.latency_p50.count() << ',' << r.latency_p99.count() << ','
        << r.total_cache_misses << ',' << r.memory_footprint_bytes << ',' << r.H1_clu_improvement << ','
        << r.H2_layout_score << ',' << r.H3_inline_external_ratio << ',' << r.latency_samples_ns.size() << ','
-       << (r.success ? 1 : 0);
+       << (r.success ? 1 : 0) << ',' << (r.degeneriert ? 1 : 0);
     return os.str();
 }
 
@@ -126,7 +136,8 @@ inline std::string csv_quote(std::string_view s) {
        << "\"H1_clu_improvement\":" << r.H1_clu_improvement << ',' << "\"H2_layout_score\":" << r.H2_layout_score << ','
        << "\"H3_inline_external_ratio\":" << r.H3_inline_external_ratio << ','
        << "\"n_latency_samples\":" << r.latency_samples_ns.size() << ','
-       << "\"success\":" << (r.success ? "true" : "false") << '}';
+       << "\"success\":" << (r.success ? "true" : "false") << ','
+       << "\"degeneriert\":" << (r.degeneriert ? "true" : "false") << '}';
     return os.str();
 }
 
