@@ -100,8 +100,8 @@ protected:
 template <class ImplFabrik, KonfigConcept MK>
 class GenusInterface : public GattungKern<GenusInterface<ImplFabrik, MK>, MK> {
 public:
-    using basis_t     = GattungKern<GenusInterface<ImplFabrik, MK>, MK>;
-    using impl_t      = decltype(ImplFabrik::template bauen<MK>());
+    using basis_t = GattungKern<GenusInterface<ImplFabrik, MK>, MK>;
+    using impl_t  = decltype(ImplFabrik::template bauen<MK>());
 
     // `template <class MK2 = MK>` ist hier PFLICHT und kein Stil -- aus demselben, am Objekt
     // gemessenen Grund wie in pilot_suche_impl.hpp: `MessVisitor<MK>` im Parameter einer gewoehnlichen
@@ -113,7 +113,7 @@ public:
 
     /// SPEZIALFUNKTION des Genus, MESSENDE Form. Der Visitor ist Pflichtparameter.
     template <class Last, class MK2 = MK>
-        requires (std::same_as<MK2, MK> && aktiv<MK2>)
+        requires(std::same_as<MK2, MK> && aktiv<MK2>)
     [[nodiscard]] auto fahren(Last const& last, MessVisitor<MK2>& visitor) const {
         auto impl = ImplFabrik::template bauen<MK2>();
         return impl.fahren_impl(last, visitor);
@@ -121,7 +121,7 @@ public:
 
     /// SPEZIALFUNKTION des Genus, STILLE Form. Der Visitor-Parameter existiert hier NICHT.
     template <class Last, class MK2 = MK>
-        requires (std::same_as<MK2, MK> && !aktiv<MK2>)
+        requires(std::same_as<MK2, MK> && !aktiv<MK2>)
     [[nodiscard]] auto fahren(Last const& last) const {
         auto impl = ImplFabrik::template bauen<MK2>();
         return impl.fahren_impl(last);
@@ -158,7 +158,6 @@ public:
 // des TYPS, nicht dass unten auch gemessen WIRD -- das ist Sache der Abnahme mit dem gewuerfelten
 // Koeder. Anwesenheit ist keine Aussage.
 template <class GenusT>
-inline constexpr bool kette_geschlossen =
-    (GenusT::mess_tag == GenusT::konfiguration_t::tag());
+inline constexpr bool kette_geschlossen = (GenusT::mess_tag == GenusT::konfiguration_t::tag());
 
 } // namespace comdare::cache_engine::mess

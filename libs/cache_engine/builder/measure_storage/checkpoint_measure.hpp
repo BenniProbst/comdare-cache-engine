@@ -82,8 +82,7 @@ namespace mess = ::comdare::cache_engine::mess;
 #else
     // Ersatzweg: ein monotoner Zaehler, der auf jeder Plattform existiert. Teurer, aber ehrlich --
     // und er wird auf der 8er-Docker-Matrix (x86-64) nicht gefahren.
-    return static_cast<std::uint64_t>(
-        std::chrono::steady_clock::now().time_since_epoch().count());
+    return static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
 #endif
 }
 
@@ -103,8 +102,7 @@ struct ProzessAnker {
     [[nodiscard]] static ProzessAnker setzen() noexcept {
         ProzessAnker a{};
         a.ns_bei_start = static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::steady_clock::now().time_since_epoch())
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
                 .count());
         a.ticks_bei_start = zeit_ticks_jetzt();
         return a;
@@ -121,9 +119,9 @@ struct ProzessAnker {
 /// (kapazitaet_zeilen_rechnen in checkpoint_speicher.hpp) und wird vom Planer gerufen. Wer sie hier
 /// noch einmal aufschriebe, haette zwei Wahrheiten ueber die Kapazitaet -- und die zweite veraltete.
 struct MessMasse {
-    std::uint64_t   kapazitaet_zeilen = 0;                     // Mess-Arena: erwartete EREIGNISZAHL
-    std::uint32_t   tiefe_plaetze     = 0;                     // Stapel-Arena: VERSCHACHTELUNGSTIEFE
-    VorabBeruehrung vorab             = VorabBeruehrung::Ja;   // Seitenfehler in den Aufbau ziehen
+    std::uint64_t   kapazitaet_zeilen = 0;                   // Mess-Arena: erwartete EREIGNISZAHL
+    std::uint32_t   tiefe_plaetze     = 0;                   // Stapel-Arena: VERSCHACHTELUNGSTIEFE
+    VorabBeruehrung vorab             = VorabBeruehrung::Ja; // Seitenfehler in den Aufbau ziehen
 };
 
 // ==================================================================================================
@@ -138,9 +136,9 @@ struct MessMasse {
 
 /// Ergebnis von flush_mess -- die Datenverlust-Klasse.
 struct FlushBefundMess {
-    UeberlaufBefund befund{};             // Kapazitaet, Versuche, belegt, verloren -- mit Nenner
-    std::uint64_t   uebergeben     = 0;   // Zeilen, die die Senke bekommen hat
-    bool            senke_bedient  = false;
+    UeberlaufBefund befund{};          // Kapazitaet, Versuche, belegt, verloren -- mit Nenner
+    std::uint64_t   uebergeben    = 0; // Zeilen, die die Senke bekommen hat
+    bool            senke_bedient = false;
 
     /// Vollstaendig heisst: die Senke wurde bedient UND es ging nichts verloren.
     [[nodiscard]] constexpr bool vollstaendig() const noexcept { return senke_bedient && !befund.hat_verlust(); }
@@ -153,7 +151,7 @@ struct FlushBefundMess {
 /// ihre Anzahl -- eine Meldung, die sagt DASS etwas offen blieb, aber nicht WELCHES, laesst genau die
 /// Diagnose offen, fuer die der Stapel ueberhaupt gefuehrt wird.
 struct FlushBefundStapel {
-    StapelBefund befund{};             // offen, hoechststand, zu_tief, unpaarige_aus -- mit Nenner
+    StapelBefund befund{}; // offen, hoechststand, zu_tief, unpaarige_aus -- mit Nenner
     bool         senke_bedient = false;
 
     /// AUSGEGLICHEN heisst: alle drei Fehlerklassen leer. Delegiert an StapelBefund::sauber(), damit
@@ -204,9 +202,9 @@ public:
     /// gegen den eigenen verglichen, BEVOR gemessen wird.
     static constexpr std::uint64_t tag = MK::tag();
 
-    CheckpointMeasure() noexcept                                 = default;
-    CheckpointMeasure(CheckpointMeasure const&)                  = delete;
-    CheckpointMeasure& operator=(CheckpointMeasure const&)       = delete;
+    CheckpointMeasure() noexcept                           = default;
+    CheckpointMeasure(CheckpointMeasure const&)            = delete;
+    CheckpointMeasure& operator=(CheckpointMeasure const&) = delete;
 
     // ----------------------------------------------------------------------------------------------
     // init -- DIE GLOBALE INITIALISIERUNG BEIDER ARENEN, VOR dem Messfenster
@@ -300,8 +298,8 @@ public:
     /// hat die Regression vernichtet, die er haette anzeigen sollen (stapel_arena.hpp, woertlich).
     template <StapelSenkeConcept S>
     [[nodiscard]] FlushBefundStapel flush_stapel(S& senke) noexcept {
-        StapelBefund const                    b      = speicher_.stapel.befund();
-        std::span<StapelEintrag const> const  offene = speicher_.stapel.offene();
+        StapelBefund const                   b      = speicher_.stapel.befund();
+        std::span<StapelEintrag const> const offene = speicher_.stapel.offene();
         senke.stapel_aufnehmen(b, offene);
         return FlushBefundStapel{b, true};
     }
@@ -309,7 +307,7 @@ public:
     // ----------------------------------------------------------------------------------------------
     // Auskunft -- fuer die Abnahme und die Dock-Diagnose, NICHT fuer den heissen Pfad
     // ----------------------------------------------------------------------------------------------
-    [[nodiscard]] ProzessAnker const& anker() const noexcept { return anker_; }
+    [[nodiscard]] ProzessAnker const&       anker() const noexcept { return anker_; }
     [[nodiscard]] CheckpointSpeicher const& speicher() const noexcept { return speicher_; }
 
 private:

@@ -199,9 +199,9 @@ struct Konfiguration {
     /// ein zur Laufzeit gerechneter Tag koennte von einer Konfiguration abweichen, die schon
     /// einkompiliert ist, und genau das soll strukturell unmoeglich sein.
     [[nodiscard]] static consteval std::uint64_t tag() noexcept {
-        std::uint64_t h = detail::kFnvOffset;
-        h               = detail::fnv_schritt(h, kMessAbiMajor);
-        h               = detail::fnv_schritt(h, sizeof(ms::MessCheckpointZeile));
+        std::uint64_t h        = detail::kFnvOffset;
+        h                      = detail::fnv_schritt(h, kMessAbiMajor);
+        h                      = detail::fnv_schritt(h, sizeof(ms::MessCheckpointZeile));
         std::uint64_t position = 0;
         // Die POSITION geht MIT ein -- deshalb ist <A,B> nicht <B,A>. Der Faltungsausdruck laeuft in
         // Deklarationsreihenfolge (Komma-Faltung ueber den Pack), die Reihenfolge ist also die des

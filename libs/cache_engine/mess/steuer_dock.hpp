@@ -71,15 +71,14 @@ inline constexpr bool ist_grundbefehl =
 template <class B, class MK>
 struct BefehlGefaltet : std::false_type {};
 template <class B, InstrumentConcept... Is>
-struct BefehlGefaltet<B, Konfiguration<Is...>>
-    : std::bool_constant<(BefehlIn<B, typename Is::befehle>::value || ...)> {};
+struct BefehlGefaltet<B, Konfiguration<Is...>> : std::bool_constant<(BefehlIn<B, typename Is::befehle>::value || ...)> {
+};
 
 } // namespace detail
 
 /// BefehlErlaubt<B, MK> -- die Bedingung, an der ein nicht angebotener Befehl scheitert.
 template <class B, class MK>
-concept BefehlErlaubt =
-    KonfigConcept<MK> && (detail::ist_grundbefehl<B> || detail::BefehlGefaltet<B, MK>::value);
+concept BefehlErlaubt = KonfigConcept<MK> && (detail::ist_grundbefehl<B> || detail::BefehlGefaltet<B, MK>::value);
 
 // ==================================================================================================
 // DAS STEUERDOCK
@@ -88,14 +87,14 @@ concept BefehlErlaubt =
 /// Was beim Anschliessen herauskommt. Fehlerklassen, keine Booleans -- ein nacktes false liesse
 /// offen, WORAN es lag, und die drei Gruende verlangen drei verschiedene Reaktionen.
 enum class AnschlussBefund : std::uint8_t {
-    Angeschlossen  = 0, ///< Tag und Zensus stimmen -- die CEB passt auf dieses Dock
-    SD_01_TagFremd = 1, ///< die CEB traegt eine ANDERE Mess-Konfiguration -> harter Abbruch
+    Angeschlossen          = 0, ///< Tag und Zensus stimmen -- die CEB passt auf dieses Dock
+    SD_01_TagFremd         = 1, ///< die CEB traegt eine ANDERE Mess-Konfiguration -> harter Abbruch
     SD_03_ZensusAbweichung = 2, ///< Tag gleich, aber die Befehlszahl weicht ab -> zweiter, unabhaengiger Weg
 };
 
 /// Was die CEB ueber sich behauptet, wenn sie andockt.
 struct CebBeschreibung {
-    std::uint64_t mess_tag      = 0; ///< MK::tag() der CEB
+    std::uint64_t mess_tag       = 0; ///< MK::tag() der CEB
     std::uint64_t befehls_zensus = 0; ///< wie viele Befehle sie zu kennen behauptet
 };
 
@@ -221,7 +220,7 @@ struct ZuDocks<ListenSatz<Ls...>> {
     struct EineKonfig<Liste<Is...>> {
         using typ = Konfiguration<Is...>;
     };
-    using konfigurationen = ListenSatz<typename EineKonfig<Ls>::typ...>;
+    using konfigurationen               = ListenSatz<typename EineKonfig<Ls>::typ...>;
     static constexpr std::size_t anzahl = sizeof...(Ls);
 };
 

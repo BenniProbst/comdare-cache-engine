@@ -87,9 +87,9 @@ std::string g_obj_leer;
 
 /// DAS ORAKEL -- eigener Rechenweg (Division statt Modulo-Operator), kein geteilter Header.
 [[nodiscard]] std::uint64_t orakel_koeder(std::uint64_t r) noexcept {
-    std::uint64_t const teiler  = 4093ull;
-    std::uint64_t const ganze   = r / teiler;
-    std::uint64_t const rest    = r - (ganze * teiler);
+    std::uint64_t const teiler = 4093ull;
+    std::uint64_t const ganze  = r / teiler;
+    std::uint64_t const rest   = r - (ganze * teiler);
     return rest + 17ull;
 }
 
@@ -195,7 +195,7 @@ TEST(Ck1Messkette, KoederWertKommtAmFernenEndeAn) {
     ASSERT_TRUE(aufbau.mess) << "WERKZEUG KAPUTT: die MESS-Arena steht nicht.";
     ASSERT_TRUE(aufbau.stapel) << "WERKZEUG KAPUTT: die STAPEL-Arena steht nicht.";
 
-    PilotGenus<mk::Voll>    genus{};
+    PilotGenus<mk::Voll>      genus{};
     mk::MessVisitor<mk::Voll> visitor{instrument, 0u};
     pl::Last const            last{R, 3u};
 
@@ -206,8 +206,8 @@ TEST(Ck1Messkette, KoederWertKommtAmFernenEndeAn) {
     ASSERT_TRUE(flush.senke_bedient);
     ASSERT_TRUE(senke.bedient);
 
-    auto const fund = zeile_suchen(senke.zeilen, pl::StationAchseKoeder::deskriptor_ix, ms::MessEbene::Micro,
-                                   ms::Richtung::Aus);
+    auto const fund =
+        zeile_suchen(senke.zeilen, pl::StationAchseKoeder::deskriptor_ix, ms::MessEbene::Micro, ms::Richtung::Aus);
 
     // DER NENNER, in der Ausgabe -- nicht im Kommentar.
     std::printf("[CK-1] Koeder R=%llu soll=%llu | Zeilen gesamt=%llu (Kapazitaet %llu, verloren %llu) | "
@@ -215,9 +215,8 @@ TEST(Ck1Messkette, KoederWertKommtAmFernenEndeAn) {
                 static_cast<unsigned long long>(R), static_cast<unsigned long long>(soll),
                 static_cast<unsigned long long>(senke.zeilen.size()),
                 static_cast<unsigned long long>(flush.befund.kapazitaet),
-                static_cast<unsigned long long>(flush.befund.verloren),
-                static_cast<unsigned long long>(fund.treffer), static_cast<unsigned long long>(fund.position),
-                static_cast<unsigned long long>(fund.messwert),
+                static_cast<unsigned long long>(flush.befund.verloren), static_cast<unsigned long long>(fund.treffer),
+                static_cast<unsigned long long>(fund.position), static_cast<unsigned long long>(fund.messwert),
                 static_cast<unsigned long long>(erg.achsen_gerufen));
 
     // AUSGANG (c): Werkzeug kaputt -- sauberer Befund, aber keine Zeile.
@@ -247,7 +246,7 @@ TEST(Ck1Messkette, StapelArenaGetrenntUndAusgeglichen) {
     ASSERT_TRUE(koeder_wuerfeln(R)) << "WERKZEUG KAPUTT: /dev/urandom nicht lesbar.";
 
     ms::CheckpointMeasure<mk::Voll> instrument{};
-    auto const aufbau = instrument.init(ms::MessMasse{4096u, 64u, ms::VorabBeruehrung::Ja});
+    auto const                      aufbau = instrument.init(ms::MessMasse{4096u, 64u, ms::VorabBeruehrung::Ja});
     ASSERT_TRUE(aufbau.steht());
 
     PilotGenus<mk::Voll>      genus{};

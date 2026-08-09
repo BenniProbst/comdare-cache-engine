@@ -102,7 +102,7 @@ struct LaufErgebnis {
 
 /// Die Last eines Laufs.
 struct Last {
-    std::uint64_t saat  = 0; // der gewuerfelte Koeder R
+    std::uint64_t saat   = 0; // der gewuerfelte Koeder R
     std::uint64_t runden = 1;
 };
 
@@ -133,7 +133,7 @@ public:
 
     /// MESSENDE Form: Visitor ist Pflichtparameter (kein Default, kein Zeiger, kein optional).
     template <class MK2 = MK>
-        requires (std::same_as<MK2, MK> && aktiv<MK2>)
+        requires(std::same_as<MK2, MK> && aktiv<MK2>)
     [[nodiscard]] LaufErgebnis fahren_impl(Last const& last, MessVisitor<MK2>& visitor) const {
         NahtAn<MK2> naht{visitor};
         return kern(last, naht);
@@ -141,7 +141,7 @@ public:
 
     /// STILLE Form: der Visitor-Parameter EXISTIERT NICHT.
     template <class MK2 = MK>
-        requires (std::same_as<MK2, MK> && !aktiv<MK2>)
+        requires(std::same_as<MK2, MK> && !aktiv<MK2>)
     [[nodiscard]] LaufErgebnis fahren_impl(Last const& last) const {
         StillNaht naht{};
         return kern(last, naht);
@@ -203,8 +203,8 @@ struct SucheImplFabrik {
 template <KonfigConcept MK>
 [[nodiscard]] consteval std::uint64_t zeilen_je_op() noexcept {
     std::uint64_t n = 0;
-    if constexpr (EbeneEingebaut<MK, ms::MessEbene::Macro>) { n += 2u; }           // ein Makro-Paar
-    if constexpr (EbeneEingebaut<MK, ms::MessEbene::Micro>) { n += 2u * 2u; }      // zwei Achsen-Paare
+    if constexpr (EbeneEingebaut<MK, ms::MessEbene::Macro>) { n += 2u; }      // ein Makro-Paar
+    if constexpr (EbeneEingebaut<MK, ms::MessEbene::Micro>) { n += 2u * 2u; } // zwei Achsen-Paare
     return n;
 }
 

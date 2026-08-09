@@ -12,6 +12,4 @@ using DieseKonfiguration = ::ck1::mk::Voll; // <== DIE EINE ZEILE
 
 // Nicht static, nicht inline: der Aufruf MUSS als Symbol im Objekt stehen, sonst prueft der
 // Vergleich nichts.
-std::uint64_t ck1_fahren_voll(std::uint64_t saat) noexcept {
-    return ::ck1::koerper_fahren<DieseKonfiguration>(saat);
-}
+std::uint64_t ck1_fahren_voll(std::uint64_t saat) noexcept { return ::ck1::koerper_fahren<DieseKonfiguration>(saat); }
