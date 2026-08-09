@@ -144,6 +144,15 @@ int main(int argc, char* argv[]) {
     pruefe_lauf(fahre(binary, "check-size " + kein_profil + " --max-bytes=0.5"), 2, "GANZE Zahl",
                 "K10: kaputtes Flag + kaputtes Profil => rc 2 (Flags werden VOR dem Profil geprueft)");
 
+    // == K11: die VORZEICHEN-KLASSE -- nur die Nur-Ziffern-Wache faengt sie ==========================
+    // strtoull selbst wickelt "-5" KOMMENTARLOS nach 2^64-5 (kein ERANGE, Ganz-String verbraucht):
+    // ohne die Nur-Ziffern-Wache wuerde ein negativer Deckel zu einem riesigen "haelt"-Deckel. Die
+    // Ganz-String-Wache kann diese Klasse NICHT fangen -- dieser Fall ist der einzige, der die
+    // Nur-Ziffern-Wache isoliert beobachtbar macht (Mutations-Befund 09.08.2026: eine Mutation der
+    // Ganz-String-Wache allein ist von der Nur-Ziffern-Wache verdeckt und hier ausdruecklich bekannt).
+    pruefe_lauf(fahre(binary, "check-size --max-bytes=-5"), 2, "GANZE Zahl",
+                "K11: --max-bytes=-5 => rc 2 (strtoull haette nach 2^64-5 gewickelt)");
+
     std::printf("%s: %d/%d Zusicherungen bestanden (Grundgesamtheit: alle Zusicherungen dieser Datei)\n",
                 rot == 0 ? "GRUEN" : "ROT", gesamt - rot, gesamt);
     return rot == 0 ? 0 : 1;
