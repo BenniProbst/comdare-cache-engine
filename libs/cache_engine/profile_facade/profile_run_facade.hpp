@@ -10,6 +10,7 @@
 #include <builder/artifact_transport/artifact_cache.hpp> // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include <builder/experiment_tree/progress_delta.hpp> // Welle 5 (E-W5-2): ProgressSinkFn / ProgressDelta (§38-Naht, No-Op)
 #include <profile_facade/planner/planner_status_types.hpp> // W5: MessFormatFakten / PlanSollSicht (NUR PODs, std-only)
+#include <profile_facade/planner/planner_mengen_types.hpp> // check-size: MengenEingang (PODs + reine Rechnung)
 
 #include <cstddef>
 #include <cstdint>
@@ -395,5 +396,25 @@ struct PlanerBlockContext {
 // Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
 [[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out,
                                            std::ostream& os);
+
+// ---------------------------------------------------------------------------------------------------------------
+// check-size (2026-08-09): die MENGEN-ERHEBUNG vor dem Lauf.
+//
+// Dieselbe Naht-Form wie collect_plan_soll_facade: DERSELBE deterministische Director-Walk, ein sammelnder
+// ConcreteBuilder, ein FLACHER POD zurueck -- die katalog-schweren Header bleiben in der Fassaden-.cpp.
+// Baut KEINE DLL, misst NICHT, schreibt nichts.
+//
+// ARBEITSTEILUNG, ausdruecklich: diese Funktion ERHEBT nur (Walk-Zahlen, Profil-Zahlen, Umgebung). Sie
+// RECHNET nicht. Gerechnet wird in planner::mengen_rechnen (planner/planner_mengen_types.hpp) -- ein reiner
+// Header ohne Katalog, damit die Rechnung mit von Hand gesetzten Zahlen pruefbar ist, ohne ein Profil, eine
+// Registry oder eine DLL zu brauchen. Genau diese Trennung macht den Soll-Wert eines Tests unabhaengig von
+// der Maschinerie, die ihn sonst erzeugen wuerde.
+//
+// Was der Aufrufer NACH dieser Funktion noch selbst setzt (weil es von der Kommandozeile kommt, nicht aus
+// dem Profil): sekunden_je_op, deckel_bytes, deckel_tage.
+//
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
+                                            std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade

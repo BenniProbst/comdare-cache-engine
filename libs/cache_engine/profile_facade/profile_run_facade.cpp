@@ -10,6 +10,9 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 #include "planner/experiment_plan_director.hpp" // W5-B: ExperimentPlanDirector/PlanTextBuilder (katalog-schwer -> NUR hier)
+#include "planner/planner_cli_env.hpp"    // check-size: env_trimmed (COMDARE_GN_TOTAL)
+#include "planner/planner_mengen_types.hpp" // check-size: MengenEingang (die flache POD-Naht)
+#include <harness/drift_gated_cell.hpp>  // check-size: DriftGateConfig -- die PRODUKTIVEN Drift-Defaults
 
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=external_utils
@@ -40,6 +43,7 @@
 #include <builder/workload_driver/load_profile_parser.hpp>
 
 #include <algorithm>
+#include <cerrno> // check-size: strtoull-Fehlerpruefung fuer COMDARE_GN_TOTAL
 #include <cstdlib>
 #include <filesystem>
 #include <fstream> // W5-B: --dump-plan Root-Tag-Sniff (ifstream)
@@ -1430,6 +1434,115 @@ int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner:
         return rc;
     }
     out.erhoben = true;
+    return 0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// check-size (2026-08-09): die MENGEN-ERHEBUNG. Derselbe Director-Walk, ein dritter sammelnder Builder.
+// ---------------------------------------------------------------------------------------------------------------
+namespace {
+
+// Der MENGEN-Sammler -- GoF Builder wie StatusSollBuilder, andere Ernte. Er emittiert nichts, baut nichts,
+// misst nichts. Er zaehlt die Zellen und liest die drei Kopf-Zahlen, die die Mengenrechnung braucht.
+//
+// WORST CASE UEBER DIE KOMBINATIONEN, mit Absicht: jede Mess-Kombination ist eine EIGENE CEB und damit ein
+// EIGENER Mess-Prozess mit einer EIGENEN Arena. Bemessen werden muss die GROESSTE davon -- deshalb ODER
+// ueber die aktiven Ebenen und nicht etwa ein Mittelwert. Eine Arena, die nur im Mittel passt, laeuft in
+// der Haelfte der Faelle ueber.
+class MengenSollBuilder final : public planner::IPlanBuilder {
+public:
+    explicit MengenSollBuilder(planner::MengenEingang& out) noexcept : out_(out) {}
+
+    void begin_plan(planner::PlanHeader const& h) override {
+        out_.perm_count         = static_cast<std::uint64_t>(h.perm_count);
+        out_.combo_count        = static_cast<std::uint64_t>(h.measurement_combo_count);
+        out_.profile_axis_count = static_cast<std::uint64_t>(h.profile_axis_count);
+        out_.profile_id         = h.profile_id;
+        out_.source_kind        = h.source_kind;
+        out_.tooling_leer       = false; // wird wahr, sobald EINE Kombination leer ist (== volles Angebot)
+    }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override {
+        combo_gesehen_ = true;
+        if (c.tooling.empty()) {
+            out_.tooling_leer = true; // leer == volles Angebot (experiment_plan_director.hpp:109)
+            return;
+        }
+        for (auto const& t : c.tooling) {
+            if (t == "macro") out_.ebene_macro = true;
+            if (t == "micro") out_.ebene_micro = true;
+        }
+    }
+    void end_measurement_combo(planner::PlanMeasurementCombo const&) override {}
+    void begin_perm(planner::PlanPerm const&) override { ++out_.zellen_gezaehlt; }
+    void on_step(planner::PlanStep const&) override {}
+    void end_perm(planner::PlanPerm const&) override {}
+    void end_plan(planner::PlanHeader const&) override {
+        // Kein einziger begin_measurement_combo => es gibt keine Kombinations-Stufe. Dann gilt das volle
+        // Angebot, nicht "keine Ebene aktiv" -- fail-closed in Richtung der GROESSEREN Arena.
+        if (!combo_gesehen_) out_.tooling_leer = true;
+    }
+
+private:
+    planner::MengenEingang& out_;
+    bool                    combo_gesehen_ = false;
+};
+
+} // namespace
+
+int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
+                              std::ostream& os) {
+    // Frischer Stand wie bei collect_plan_soll_facade: der Aufrufer setzt SEINE Zutaten (sekunden_je_op,
+    // deckel_*) erst NACH dieser Funktion, ein Reset hier kann sie darum nicht loeschen.
+    out = planner::MengenEingang{};
+
+    // 1. Der Walk -- die exakten Zahlen (Perms, Kombinationen, Zellen, Achsen).
+    MengenSollBuilder builder{out};
+    if (int const rc = construct_plan_into(profile_path, builder, os, "check-size"); rc != 0) return rc;
+
+    // 2. Die PROFIL-Zahlen, die der Walk nicht traegt: n_ops und das Drift-Gate.
+    //
+    // EHRLICHER BEFUND, der in die Ausgabe gehoert und nicht in einen Kommentar: diese beiden Groessen gibt es
+    // NUR am <comdare_thesis_profile>. ExperimentProfile (<comdare_experiment>, xml_config_parser.hpp:467-495)
+    // hat WEDER ein n_ops- NOCH ein drift_gate-Feld. Fuer diese Wurzel bleiben beide Zahlen darum Defaults --
+    // und werden im Bericht als "default" ausgewiesen, nicht als Profil-Entscheid.
+    if (out.source_kind == "thesis") {
+        if (auto const tp = tlz::load_thesis_profile(profile_path)) {
+            // n_ops sitzt NICHT direkt am ThesisProfile, sondern an dessen <run_options>-Unterstruktur
+            // (ThesisRunOptions::n_ops, xml_config_parser.hpp:194). 0 == ungesetzt => Treiber-Default.
+            if (tp->run_options.n_ops != 0u) {
+                out.n_ops         = tp->run_options.n_ops;
+                out.n_ops_aus_xml = true;
+            }
+            if (tp->drift_gate_declared) {
+                out.drift_reps       = static_cast<std::uint64_t>(tp->drift_gate_reps);
+                out.drift_max_reruns = static_cast<std::uint64_t>(tp->drift_gate_max_reruns);
+                out.drift_aus_xml    = true;
+            }
+        }
+    }
+    // Der Rueckfall ist DERSELBE, den der Mess-Pfad nimmt -- keine zweite Wahrheit.
+    if (out.n_ops == 0u) {
+        out.n_ops         = ExperimentRunArgs{}.n_ops; // 10000 (profile_run_facade.hpp:195)
+        out.n_ops_aus_xml = false;
+    }
+    if (!out.drift_aus_xml) {
+        ex::DriftGateConfig const d{}; // die PRODUKTIVEN Defaults (drift_gated_cell.hpp:74)
+        out.drift_reps       = d.reps;
+        out.drift_max_reruns = d.max_reruns;
+    }
+
+    // 3. Das Korn und die Kampagnen-Breite. Das Korn kommt aus planner::kGnBatchSlice -- KEIN viertes
+    //    4096-Literal (die Korn-Wache haelt drei static_assert auf genau diese Konstante).
+    out.batch_korn = static_cast<std::uint64_t>(planner::kGnBatchSlice);
+    if (std::string const gn = planner::env_trimmed("COMDARE_GN_TOTAL"); !gn.empty()) {
+        errno            = 0;
+        char*      ende  = nullptr;
+        auto const wert  = std::strtoull(gn.c_str(), &ende, 10);
+        if (errno == 0 && ende != nullptr && *ende == '\0' && wert != 0u) {
+            out.binaries_je_perm = wert;
+            out.binaries_aus_env = true;
+        }
+    }
     return 0;
 }
 
