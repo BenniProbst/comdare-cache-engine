@@ -148,6 +148,12 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         case anatomy::AnatomyGattung::Map: return "map";
         case anatomy::AnatomyGattung::Container: return "container";
         case anatomy::AnatomyGattung::Graph: return "graph";
+        // HY-A1 (09.08.2026): die Hybrid-Gattung, genau wie der static_assert unten es verlangt
+        // ("Wer eine Gattung hinzufuegt -- etwa die Hybrid-Gattung HEURISTIK-ADAPTER aus E-1 --
+        // traegt sie HIER nach"). Sichtbar wurde die Luecke erst, als der -Wswitch-Fix in
+        // pruef_dock_version.hpp den Reroute-Zweig ueberhaupt erreichbar machte: vorher fiel er
+        // stumm durch, und die Wache konnte nicht anschlagen.
+        case anatomy::AnatomyGattung::HeuristikAdapter: return "heuristik_adapter";
     }
     return {};
 }
@@ -159,6 +165,12 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         case anatomy::AnatomyGenus::Sequence: return "sequence";
         case anatomy::AnatomyGenus::Adapter: return "adapter";
         case anatomy::AnatomyGenus::View: return "view";
+        // HY-A1: Ebene 2 der Hybrid-Stufe. Der Token wird gebraucht, obwohl ein Reroute-Genus
+        // KEIN eigenes Pruef-Dock hat (Weg C) -- das sind zwei verschiedene Fragen: das Dock
+        // entscheidet, wo gemessen wird, der Lager-Token, wo das ERGEBNIS liegt. Ohne ihn ist
+        // die Gattung nicht einsortierbar, und jedes_genus_haengt_an_einer_lagerbaren_gattung()
+        // faellt -- am Objekt gesehen in ce-Pipeline 15466.
+        case anatomy::AnatomyGenus::FunctionInterfaceReroute: return "function_interface_reroute";
     }
     return {};
 }

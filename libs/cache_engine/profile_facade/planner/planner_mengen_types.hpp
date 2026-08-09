@@ -36,7 +36,7 @@
 // Zellen) als EIGENE Faktor-Zeilen aus, statt sie stillschweigend hineinzumultiplizieren. Eine
 // Endzahl "Arena-Bytes der Kampagne" waere eine Erfindung ueber eine ungeklaerte Lebensdauer.
 
-#include <type_traits> // is_same_v -- Wache an der KapazitaetRechnung-Zuweisung
+#include <type_traits>                                     // is_same_v -- Wache an der KapazitaetRechnung-Zuweisung
 #include <builder/measure_storage/checkpoint_speicher.hpp> // kapazitaet_zeilen_rechnen + MessCheckpointZeile
 
 #include <cstddef>
