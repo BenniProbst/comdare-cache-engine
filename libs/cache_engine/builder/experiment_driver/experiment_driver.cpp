@@ -245,8 +245,8 @@ namespace {
 // und das Bauverzeichnis kennt sein Quellverzeichnis aus der Konfiguration bereits. Der frueher hier
 // gefuehrte generated_dir wurde NIE gelesen (-Wunused-parameter, GCC und clang) -- tote Schnittstellen-
 // Flaeche, die dem Aufrufer eine Abhaengigkeit versprach, die es nicht gibt.
-int hot_compile_missing_modules(std::filesystem::path const&      build_dir,
-                                std::vector<std::uint64_t> const& fingerprints, bool verbose) {
+int hot_compile_missing_modules(std::filesystem::path const& build_dir, std::vector<std::uint64_t> const& fingerprints,
+                                bool verbose) {
     int        hot_compiled  = 0;
     auto const dll_dir_debug = build_dir / "Debug";
     auto const dll_dir       = std::filesystem::is_directory(dll_dir_debug) ? dll_dir_debug : build_dir;

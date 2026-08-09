@@ -108,9 +108,22 @@ void expect_same_final_state(MockTier const& x, MockTier const& y) {
 TEST(V5TwoPhaseDriver, TwoPhaseEqualsSinglePhaseFinalState) {
     auto const cfg = small_cfg();
     MockTier   single;
-    ac::drive_tier_observe_trace_abi(single, cfg);
-    MockTier twophase;
-    ac::drive_two_phase_tier_trace_abi(twophase, &twophase, cfg);
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wunused-result; Klasse MUTANT): beide Traces wurden
+    // verworfen -- zwei Treiber, die beide vorzeitig dieselbe Menge NICHTS gefahren haetten,
+    // liessen den End-Zustands-Vergleich gruen. Die Traces belegen jetzt, dass BEIDE Laeufe alle
+    // Fuellstands-Checkpoints der cfg erreicht haben, bevor die Gleichheit ueberhaupt zaehlt.
+    auto const trace_single = ac::drive_tier_observe_trace_abi(single, cfg);
+    MockTier   twophase;
+    auto const trace_two = ac::drive_two_phase_tier_trace_abi(twophase, &twophase, cfg);
+    ASSERT_EQ(trace_single.checkpoints.size(), cfg.fill_checkpoints.size());
+    ASSERT_EQ(trace_two.checkpoints.size(), cfg.fill_checkpoints.size());
+    // Zweiter Reviewer, 09.08.: die Snapshot-ZAHL allein beweist nicht, dass die Ziele ERREICHT
+    // wurden (der Treiber haengt auch bei Stagnation einen Snapshot an). Der Fuellstand im
+    // Snapshot muss dem bestellten Checkpoint entsprechen -- fuer BEIDE Laeufe.
+    for (std::size_t i = 0; i < cfg.fill_checkpoints.size(); ++i) {
+        EXPECT_EQ(trace_single.checkpoints[i].fill_level, cfg.fill_checkpoints[i]) << i;
+        EXPECT_EQ(trace_two.checkpoints[i].fill_level, cfg.fill_checkpoints[i]) << i;
+    }
     expect_same_final_state(single, twophase);
 }
 
@@ -118,9 +131,17 @@ TEST(V5TwoPhaseDriver, TwoPhaseEqualsSinglePhaseFinalState) {
 TEST(V5TwoPhaseDriver, ColdFallbackEqualsSinglePhase) {
     auto const cfg = small_cfg();
     MockTier   single;
-    ac::drive_tier_observe_trace_abi(single, cfg);
-    MockTier cold;
-    ac::drive_two_phase_tier_trace_abi(cold, nullptr, cfg);
+    // Gleiche Haertung wie oben (Warnungs-Runde 2): erst der Beleg, dass beide Laeufe die volle
+    // Checkpoint-Strecke gefahren sind, dann der End-Zustands-Vergleich.
+    auto const trace_single = ac::drive_tier_observe_trace_abi(single, cfg);
+    MockTier   cold;
+    auto const trace_cold = ac::drive_two_phase_tier_trace_abi(cold, nullptr, cfg);
+    ASSERT_EQ(trace_single.checkpoints.size(), cfg.fill_checkpoints.size());
+    ASSERT_EQ(trace_cold.checkpoints.size(), cfg.fill_checkpoints.size());
+    for (std::size_t i = 0; i < cfg.fill_checkpoints.size(); ++i) {
+        EXPECT_EQ(trace_single.checkpoints[i].fill_level, cfg.fill_checkpoints[i]) << i;
+        EXPECT_EQ(trace_cold.checkpoints[i].fill_level, cfg.fill_checkpoints[i]) << i;
+    }
     expect_same_final_state(single, cold);
 }
 

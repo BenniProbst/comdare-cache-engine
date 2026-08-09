@@ -152,8 +152,9 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         // Sie war in anatomy_base.hpp bereits angelegt (HeuristikAdapter = 3, Owner GO-3 +
         // E-1 final), hier aber NICHT -- genau der Fall, den die Wache unten woertlich
         // benennt ("Wer eine Gattung hinzufuegt -- etwa die Hybrid-Gattung HEURISTIK-ADAPTER
-        // aus E-1 -- traegt sie HIER nach"). Der Token traegt den Unterstrich, weil er
-        // GELESEN wird; der C++-Name bleibt HeuristikAdapter.
+        // aus E-1 -- traegt sie HIER nach"). Der Token folgt der Hausform der Tabelle
+        // (snake_case des Enumerator-Namens, wie "search_algorithm"); er traegt den
+        // Unterstrich, weil er GELESEN wird -- der C++-Name bleibt HeuristikAdapter.
         // WARUM ES SO LANGE STILL BLIEB: sichtbar wurde die Luecke erst, als der -Wswitch-Fix
         // in pruef_dock_version.hpp den Reroute-Zweig ueberhaupt erreichbar machte -- vorher
         // fiel er stumm durch, und die Wache konnte nicht anschlagen.
@@ -173,11 +174,14 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         // bewusst kein Segment mit "adapter" (dem Container-Genus eine Zeile darueber) -- auf
         // der Genus-Ebene waere die Verwechslung real, und zwei Genera unter demselben
         // Ordnernamen wuerden ihre Messreihen still ineinanderschieben.
-        // GEBRAUCHT WIRD ER AUCH OHNE PRUEF-DOCK: ein Reroute-Genus hat keines (Weg C), das
-        // sind zwei verschiedene Fragen -- das Dock entscheidet, WO gemessen wird, der
-        // Lager-Token, wo das ERGEBNIS liegt. Ohne ihn ist die Gattung nicht einsortierbar,
-        // und jedes_genus_haengt_an_einer_lagerbaren_gattung() faellt -- am Objekt gesehen
-        // in ce-Pipeline 15466.
+        // GEBRAUCHT WIRD ER AUCH OHNE PRUEF-DOCK: ein Reroute-Genus hat keines (Weg C), und
+        // genus() einer Hybrid-Binary liefert ihn nie (Owner-Entscheid E-1). Das sind zwei
+        // verschiedene Fragen -- das Dock entscheidet, WO gemessen wird, der Lager-Token, wo
+        // das ERGEBNIS liegt. Fuer den Lagerbaum zaehlt genau die KLASSIFIKATION, deshalb
+        // braucht er hier einen eigenen Token und nicht etwa den geerbten Ziel-Genus-Token.
+        // Ohne ihn ist die Gattung nicht einsortierbar, und
+        // jedes_genus_haengt_an_einer_lagerbaren_gattung() faellt -- am Objekt gesehen in
+        // ce-Pipeline 15466.
         case anatomy::AnatomyGenus::FunctionInterfaceReroute: return "function_interface_reroute";
     }
     return {};
@@ -247,6 +251,10 @@ namespace detail {
 /// g++ 15.3 wertet dieselbe Schleife aus -- seine Vorgabe fuer constexpr-Schritte liegt um
 /// Groessenordnungen hoeher. Die Wache war damit NICHT portabel: auf clang war sie kein
 /// Testat, sondern ein Uebersetzungs-Abbruch.
+///
+/// KONKRET: GCCs -fconstexpr-ops-limit hat den Default 33.554.432, clangs -fconstexpr-steps
+/// nur 1.048.576 -- die alte Form lag mit ueber 2,6 Mio. Schritten zwischen beiden Budgets.
+/// Das ist der ganze Grund, warum NUR clang brach.
 ///
 /// NICHT GEWAEHLT: -fconstexpr-steps hochdrehen. Das waere das Senken der Warnstufe in gruen --
 /// die Wache bliebe teuer und die naechste Gattung schoebe sie wieder ueber die Grenze.

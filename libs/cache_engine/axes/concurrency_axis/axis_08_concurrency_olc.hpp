@@ -65,8 +65,18 @@ private:
     // URSAECHLICH weg statt per Unterdrueckung -- und die Mess-Bahn bleibt unveraendert, denn erzeugt
     // wird derselbe EINE volatile-Store. Ein `(void)valid_sink;` waere die schlechtere Loesung: es
     // legte einen zusaetzlichen volatile-LOAD in genau den Pfad, dessen Laufzeit hier gemessen wird.
+    //
+    // thread_local ERGAENZT 09.08.2026 (Warnungs-Runde 1 hatte den zweiten, GETRENNTEN Befund an
+    // derselben Stelle): die Senke war als EINZIGE dieser Klasse nicht thread_local, waehrend
+    // version_() und snapshot_() es beide sind. Solange einfaedig gemessen wird, faellt das nicht auf;
+    // sobald mehrfaedig gemessen wird, ist dieselbe Adresse ein Data Race UND ein False-Sharing-Punkt
+    // -- und verfaelscht dann genau die Messung, fuer die die Senke ueberhaupt existiert. Das sind ZWEI
+    // Befunde an einer Zeile: die Warnung (hier ueber die Zugriffsfunktion ursaechlich geheilt) und die
+    // Teilung (hier ueber thread_local geheilt). Beide zusammen brauchen KEIN [[maybe_unused]]: die
+    // Zugriffsfunktion laesst die Warnung gar nicht erst entstehen. Erzeugt wird weiterhin derselbe
+    // EINE volatile-Store, die Mess-Bahn bleibt unveraendert.
     [[nodiscard]] static volatile bool& valid_sink_() noexcept {
-        static volatile bool s = false;
+        static thread_local volatile bool s = false;
         return s;
     }
     [[nodiscard]] static std::atomic<unsigned>& version_() noexcept {

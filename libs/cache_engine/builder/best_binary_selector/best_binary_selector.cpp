@@ -114,11 +114,10 @@ int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_r
     // Parametername bewusst `spalten_name` (nicht `col`): die umschliessende Funktion fuehrt bereits
     // ein `col` -- die Kopf->Index-MAP. Beide Lambdas fangen mit [&], ein gleichnamiger Parameter
     // verdeckte die Map also innerhalb des Rumpfes (-Wshadow, GCC).
-    auto        reject  = [&](char const* spalten_name, std::string const& val) {
+    auto reject = [&](char const* spalten_name, std::string const& val) {
         if (reject_diags != nullptr)
-            reject_diags->push_back("Zeile " + std::to_string(line_no) + ": Feld '" + spalten_name +
-                                    "' ungueltig ('" + val +
-                                    "') -> Zeile verworfen");
+            reject_diags->push_back("Zeile " + std::to_string(line_no) + ": Feld '" + spalten_name + "' ungueltig ('" +
+                                    val + "') -> Zeile verworfen");
     };
 
     int         count = 0;

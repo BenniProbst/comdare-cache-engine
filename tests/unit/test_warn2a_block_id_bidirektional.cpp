@@ -77,9 +77,7 @@ namespace {
 
 /// Das ORAKEL. Es kommt NICHT aus dem Prueflind: die Regel ist aus experiment_tree.hpp/axis_reflect.hpp
 /// abgelesen und hier eigenstaendig formuliert -- block_id ist gesetzt und gleich der Achse.
-[[nodiscard]] bool traegt_seinen_block(ex::AxisLevel const& l) {
-    return !l.block_id.empty() && l.block_id == l.axis;
-}
+[[nodiscard]] bool traegt_seinen_block(ex::AxisLevel const& l) { return !l.block_id.empty() && l.block_id == l.axis; }
 
 struct Bilanz {
     std::size_t              statische = 0; // der NENNER
@@ -111,8 +109,8 @@ TEST(Warn2aBlockIdBidirektional, JedeProfilErzeugteStatischeEbeneTraegtIhrenBloc
 
     // DER NENNER GEHOERT IN DIE AUSGABE -- eine nackte Null waere von einem echten Freispruch
     // nicht zu unterscheiden.
-    std::string bericht = "block_id gesetzt bei " + std::to_string(b.konform) + " von " +
-                          std::to_string(b.statische) + " statischen Ebenen";
+    std::string bericht = "block_id gesetzt bei " + std::to_string(b.konform) + " von " + std::to_string(b.statische) +
+                          " statischen Ebenen";
     for (auto const& v : b.verletzer) bericht += "\n  VERLETZER: " + v;
 
     // Waechst der Baum nicht, misst der Test nichts: die Grundgesamtheit selbst wird geprueft.

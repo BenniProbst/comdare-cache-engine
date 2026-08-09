@@ -32,9 +32,19 @@ public:
     // Sparse byte state push: marker + varint length + delta bytes
     [[nodiscard]] bool push_state(std::uint8_t state_marker, std::span<std::byte const> delta) noexcept {
         // Worst-case Pflicht-Bytes: 1 (marker) + 9 (varint max) + delta.size()
+        // ERST die Groesse pruefen, DANN rechnen. "10 + delta.size()" kann selbst umschlagen: ein
+        // span mit size() nahe SIZE_MAX ergaebe ein winziges `required`, die Schranke unten liesse es
+        // durch, und der memcpy am Ende kopierte trotzdem die volle (riesige) delta.size(). Ein Delta,
+        // das allein schon groesser als die ganze Arena ist, kann nie passen -- hier ist Schluss.
+        if (delta.size() > capacity_bytes_) { return false; }
         std::size_t const required = 10 + delta.size();
         std::size_t const offset   = next_offset_.fetch_add(required, std::memory_order_relaxed);
-        if (offset + required > capacity_bytes_) {
+        // UEBERLAUF-SICHERE FORM. Frueher stand hier "offset + required > capacity_bytes_". Das
+        // fetch_add oben zaehlt AUCH IM FEHLERFALL weiter (es ist unbedingt), offset waechst also nach
+        // dem ersten Ueberlauf ungebremst -- und "offset + required" kann dann selbst ueberlaufen und
+        // wieder klein werden. Dann haette die Wache DURCHGELASSEN und memcpy haette ausserhalb des
+        // Puffers geschrieben. Die umgestellte Form addiert nie und kann deshalb nicht umschlagen.
+        if (required > capacity_bytes_ || offset > capacity_bytes_ - required) {
             return false; // Overflow
         }
         // 1. Marker
@@ -61,6 +71,20 @@ public:
     [[nodiscard]] std::size_t bytes_used() const noexcept {
         return static_cast<std::size_t>(
             (std::min)(next_offset_.load(std::memory_order_relaxed), static_cast<std::uint64_t>(capacity_bytes_)));
+    }
+
+    /// ANGEFORDERTE Bytes, ungekappt -- dieselbe Naht wie records_attempted() in CustomAllocation1.
+    /// bytes_used() kappt auf die Kapazitaet und macht damit "Log randvoll" von "Log uebergelaufen"
+    /// ununterscheidbar. Der ungekappte Zaehler ist die Gegenprobe dazu.
+    [[nodiscard]] std::uint64_t bytes_requested() const noexcept {
+        return next_offset_.load(std::memory_order_relaxed);
+    }
+
+    /// Wie viele angeforderte Bytes NICHT geschrieben wurden. 0 heisst: kein State ging verloren.
+    [[nodiscard]] std::uint64_t bytes_dropped() const noexcept {
+        std::uint64_t const requested = bytes_requested();
+        std::uint64_t const cap       = static_cast<std::uint64_t>(capacity_bytes_);
+        return requested > cap ? requested - cap : 0;
     }
 
     [[nodiscard]] std::size_t capacity_bytes() const noexcept { return capacity_bytes_; }

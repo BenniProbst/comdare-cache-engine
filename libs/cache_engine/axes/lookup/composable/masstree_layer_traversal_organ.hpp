@@ -154,6 +154,10 @@ private:
     }
 
     // Voller Leaf (kWidth Eintraege) + neuer slice -> Split (mid = kWidth/2+1), neuer Eintrag landet links/rechts.
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wunused-parameter; Klasse MUTANT): hier und in
+    // propagate_split wurde `root` durch drei Ebenen gereicht und NIRGENDS gelesen -- ob der Split
+    // die Wurzel erreicht, entscheidet allein der leere Pfad-Stack. Der tote Parameter suggerierte
+    // eine wurzel-relative Logik, die es nie gab; wer ihn sah, suchte sie. Er faellt weg.
     template <class Pool>
     static void split_leaf_and_insert(Pool& p, std::size_t lf, std::uint64_t slice, path_stack_t<Pool>& stack,
                                       std::size_t& out_leaf, int& out_phys, std::size_t& new_root) {
@@ -297,7 +301,7 @@ public:
             // Funktion. Der Vergleich `new_root != layer_root` zwei Zeilen weiter wuerde sonst auf Muell
             // laufen und die Layer-Wurzel auf einen erfundenen Knoten-Index setzen. layer_root ist die
             // richtige Vorbelegung: "keine neue Wurzel" ist genau der Fall, in dem sie unveraendert bleibt.
-            std::size_t         new_root = layer_root;
+            std::size_t new_root = layer_root;
             bplus_find_or_insert(p, layer_root, slice, leaf, phys, was_new, new_root);
             if (new_root != layer_root) {
                 if (holder_is_pool_root)

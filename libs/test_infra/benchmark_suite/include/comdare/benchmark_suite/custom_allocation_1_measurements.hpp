@@ -64,12 +64,33 @@ public:
     CustomAllocation1(CustomAllocation1 const&)            = delete;
     CustomAllocation1& operator=(CustomAllocation1 const&) = delete;
 
-    // Lock-free append: returns slot-index oder UINT64_MAX bei Ueberlauf
+    /// Rueckgabewert von append() im Ueberlauf-Fall. Frueher stand hier das nackte Literal
+    /// UINT64_MAX in der Funktion; ein Aufrufer konnte den Fall damit nur benennen, indem er das
+    /// Literal ABSCHRIEB. Ein Name ist die Naht, an der die Wache greifen kann.
+    static constexpr std::uint64_t kOverflow = (std::numeric_limits<std::uint64_t>::max)();
+
+    // Lock-free append: returns slot-index oder kOverflow bei Ueberlauf
     [[nodiscard]] std::uint64_t append(MeasurementRecord32 const& record) noexcept {
         std::uint64_t slot = next_slot_.fetch_add(1, std::memory_order_relaxed);
-        if (slot >= capacity_records_) { return (std::numeric_limits<std::uint64_t>::max)(); }
+        if (slot >= capacity_records_) { return kOverflow; }
         buffer_[slot] = record;
         return slot;
+    }
+
+    /// ZAHL DER VERSUCHE, ungekappt. records_used() kappt auf die Kapazitaet (das ist dort richtig,
+    /// denn nur so viele Saetze sind wirklich lesbar) -- damit ist "Arena randvoll" von "Arena
+    /// uebergelaufen, N Saetze sind WEG" nicht mehr unterscheidbar. Genau diese Ununterscheidbarkeit
+    /// war der Defekt: ein Ueberlauf sah aus wie ein vollstaendiger Lauf. Hier steht der ungekappte
+    /// Zaehler, aus dem die Differenz gebildet wird.
+    [[nodiscard]] std::uint64_t records_attempted() const noexcept {
+        return next_slot_.load(std::memory_order_relaxed);
+    }
+
+    /// Wie viele Saetze VERWORFEN wurden. 0 heisst: kein Satz ging verloren.
+    [[nodiscard]] std::uint64_t records_dropped() const noexcept {
+        std::uint64_t const attempted = records_attempted();
+        std::uint64_t const cap       = static_cast<std::uint64_t>(capacity_records_);
+        return attempted > cap ? attempted - cap : 0;
     }
 
     [[nodiscard]] std::span<MeasurementRecord32 const> snapshot() const noexcept {

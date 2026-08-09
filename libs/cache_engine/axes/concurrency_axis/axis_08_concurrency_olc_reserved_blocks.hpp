@@ -70,8 +70,16 @@ private:
     // URSAECHLICH weg statt per Unterdrueckung -- und die Mess-Bahn bleibt unveraendert, denn erzeugt
     // wird derselbe EINE volatile-Store. Ein `(void)valid_sink;` waere die schlechtere Loesung: es
     // legte einen zusaetzlichen volatile-LOAD in genau den Pfad, dessen Laufzeit hier gemessen wird.
+    //
+    // thread_local ERGAENZT 09.08.2026 -- SCHWESTERSTELLE zu axis_08_concurrency_olc.hpp, wortgleiche
+    // Begruendung: die Senke war die EINZIGE nicht-thread_local Groesse dieser Klasse, waehrend
+    // version_(), next_block_id_() und snapshot_() alle drei thread_local sind. Geteilt ist sie bei
+    // mehrfaedigem Messen ein Data Race UND ein False-Sharing-Punkt -- in einer NEBENLAEUFIGKEITS-Achse
+    // ausgerechnet an der Stelle, die die Messung schuetzen soll. Beide Befunde (Warnung, Teilung)
+    // sind hier ohne jede Unterdrueckung geheilt: die Zugriffsfunktion gegen die Warnung, thread_local
+    // gegen die Teilung. Es bleibt bei demselben EINEN volatile-Store.
     [[nodiscard]] static volatile bool& valid_sink_() noexcept {
-        static volatile bool s = false;
+        static thread_local volatile bool s = false;
         return s;
     }
     [[nodiscard]] static std::atomic<unsigned>& version_() noexcept {

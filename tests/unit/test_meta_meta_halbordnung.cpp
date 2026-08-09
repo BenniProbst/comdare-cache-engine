@@ -82,6 +82,18 @@ struct GpuClusterMetaMeta final : meas::SystemMetaMetaAxis<GpuClusterMetaMeta> {
     using meta_metas                                                  = meas::MetaMetaMembers<GpuMetaMeta>;
 };
 
+// 09.08.2026 (Warnungs-Runde 2, clang -Wunused-const-variable; Klasse MUTANT): der Kommentar oben
+// BEHAUPTET fuer alle drei Test-Typen die A13-M3/C4-Migration auf das geflaggte "1.0.0.c" -- geprueft
+// wurde davon nichts: GpuMetaMeta::axis_code_version wurde in dieser TU nie gelesen (die Warnung war
+// der Beleg; ihre zwei Geschwister erreichten nur zufaellig eine gelesene Stelle). Eine Behauptung
+// ueber DREI, die keiner ansieht, ist dieselbe Blindstelle wie die Fuenf-Gattungen-Wache aus Runde 1.
+// Jetzt ist die Migrations-Behauptung fuer jeden der drei Typen eine WACHE statt eines Satzes.
+static_assert(Avx512MetaMeta::axis_code_version == std::string_view{"1.0.0.c"} &&
+                  GpuMetaMeta::axis_code_version == std::string_view{"1.0.0.c"} &&
+                  GpuClusterMetaMeta::axis_code_version == std::string_view{"1.0.0.c"},
+              "A13-M3/C4: die drei Test-Meta-Metas tragen das geflaggte Owner-Q3-Format 1.0.0.c -- "
+              "wer eine davon migriert, zieht diese Wache mit, statt den Kommentar veralten zu lassen.");
+
 // Identitaeten (A1-Vokabular) ueber ECHTEN Meta-Meta-TYPEN -- nicht ueber A1s Platzhaltern.
 using IdCpuOnly   = meas::CpuOnlyIdentity;
 using IdAvx512    = meas::MetaMetaSet<Avx512MetaMeta>;

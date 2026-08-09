@@ -61,8 +61,12 @@ TEST(PageRelocationTree, StateTracksEvaluations) {
     ce::PageRelocationTree<DummyPage> t;
     ce::PageRelocationEvent           e{};
     e.load_factor = 0.10;
-    t.evaluate(e, ce::DecisionContext{});
-    t.evaluate(e, ce::DecisionContext{});
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wunused-result; Klasse MUTANT): beide evaluate-Ergebnisse
+    // wurden verworfen, geprueft wurde nur der Zaehlerstand. Ein Baum, der SKIP liefert und trotzdem
+    // total_executes hochzaehlt, waere hier gruen gewesen. Jetzt ist der Zaehler an die sichtbare
+    // Entscheidung gebunden: 2 Executes, WEIL beide Aufrufe EXECUTE entschieden (load_factor < 0.20).
+    EXPECT_EQ(t.evaluate(e, ce::DecisionContext{}), ce::Decision::EXECUTE);
+    EXPECT_EQ(t.evaluate(e, ce::DecisionContext{}), ce::Decision::EXECUTE);
     auto s = t.save_state();
     EXPECT_EQ(s.total_evaluations, 2u);
     EXPECT_EQ(s.total_executes, 2u);

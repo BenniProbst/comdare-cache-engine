@@ -49,7 +49,7 @@ template <class T>
 [[nodiscard]] std::uint64_t feld_nach_default_konstruktion() {
     alignas(T) unsigned char roh[sizeof(T)];
     std::memset(roh, kSchmutzMuster, sizeof roh);
-    T* p = new (static_cast<void*>(roh)) T; // DEFAULT-init, bewusst ohne {}
+    T*            p       = new (static_cast<void*>(roh)) T; // DEFAULT-init, bewusst ohne {}
     std::uint64_t gelesen = 0;
     std::memcpy(&gelesen, roh, sizeof gelesen); // fingerprint liegt bei beiden Zwillingen an Offset 0
     p->~T();
@@ -87,8 +87,8 @@ TEST(Warn1D2FingerprintKoeder, PermutationResultNulltSeineSkalareAuchAufSchmutzi
 
     // DER NENNER: PermutationResult fuehrt drei skalare/triviale Mitglieder. Alle drei muessen
     // einen Ruhewert tragen -- vor der Heilung waren es zwei von drei.
-    int erfuellt = 0;
-    int const gesamt = 3;
+    int       erfuellt = 0;
+    int const gesamt   = 3;
 
     if (r->fingerprint == 0u) ++erfuellt;
     if (r->succeeded == false) ++erfuellt;
@@ -97,13 +97,15 @@ TEST(Warn1D2FingerprintKoeder, PermutationResultNulltSeineSkalareAuchAufSchmutzi
         // record{} ist wertinitialisiert -> die gesamte Byte-Darstellung muss frei vom Muster sein.
         unsigned char const* rec = reinterpret_cast<unsigned char const*>(&r->record);
         for (std::size_t i = 0; i < sizeof(r->record); ++i)
-            if (rec[i] == kSchmutzMuster) { record_genullt = false; break; }
+            if (rec[i] == kSchmutzMuster) {
+                record_genullt = false;
+                break;
+            }
     }
     if (record_genullt) ++erfuellt;
 
-    EXPECT_EQ(r->fingerprint, 0u)
-        << "D2 ist zurueck: fingerprint traegt Schmutz statt des Ruhewerts 0. "
-           "0 heisst 'nicht berechnet' und ist von jedem echten Hash unterscheidbar.";
+    EXPECT_EQ(r->fingerprint, 0u) << "D2 ist zurueck: fingerprint traegt Schmutz statt des Ruhewerts 0. "
+                                     "0 heisst 'nicht berechnet' und ist von jedem echten Hash unterscheidbar.";
     EXPECT_EQ(erfuellt, gesamt) << "Ruhewert gesetzt bei " << erfuellt << " von " << gesamt
                                 << " skalaren Mitgliedern von PermutationResult";
 

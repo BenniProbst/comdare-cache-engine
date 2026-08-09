@@ -44,8 +44,12 @@ namespace {
 // Token-Tabelle des Prueflings -- eine Tabelle, die sich selbst abzaehlt, ist zu 100 Prozent
 // vollstaendig und beweist nichts (T-5). Wer AxisKind erweitert, faellt in dieser Zeile auf.
 constexpr std::array<cet::AxisKind, 6> kAlleAxisKinds{
-    cet::AxisKind::organ,          cet::AxisKind::system_measurement,    cet::AxisKind::system_config,
-    cet::AxisKind::system_meta_meta, cet::AxisKind::measurement_meta_meta, cet::AxisKind::organ_meta_meta,
+    cet::AxisKind::organ,
+    cet::AxisKind::system_measurement,
+    cet::AxisKind::system_config,
+    cet::AxisKind::system_meta_meta,
+    cet::AxisKind::measurement_meta_meta,
+    cet::AxisKind::organ_meta_meta,
 };
 
 } // namespace
@@ -85,9 +89,11 @@ TEST(AxisKindWire, TokenUndParserSindSYMMETRISCH) {
     for (auto const k : kAlleAxisKinds) {
         cet::AxisKind zurueck{};
         auto const    tok = pl::detail::axis_kind_token(k);
-        if (pl::detail::parse_axis_kind(tok, zurueck) && zurueck == k) ++geschlossen;
-        else ADD_FAILURE() << "Token '" << tok << "' liest sich nicht auf AxisKind "
-                           << static_cast<unsigned>(k) << " zurueck";
+        if (pl::detail::parse_axis_kind(tok, zurueck) && zurueck == k)
+            ++geschlossen;
+        else
+            ADD_FAILURE() << "Token '" << tok << "' liest sich nicht auf AxisKind " << static_cast<unsigned>(k)
+                          << " zurueck";
     }
     std::cout << "[AXISKIND-NENNER] token->parse->token geschlossen: " << geschlossen << "/" << kAlleAxisKinds.size()
               << "\n";
@@ -112,8 +118,10 @@ TEST(AxisKindWire, EineMetaMetaFaerbungUEBERLEBT_DenByteRoundtrip) {
     // Achsen als kind="organ" auf den Draht und kam als AxisKind::organ zurueck -- byte-stabil und
     // falsch. Hier faellt der Test, wenn die Faerbung unterwegs verloren geht.
     pl::ExperimentSubtreePayload p;
-    p.axes.push_back({cet::AxisKind::system_meta_meta, "simd", pl::AxisRangeForm::enumerated, {"avx2", "avx512"}, 0, 0});
-    p.axes.push_back({cet::AxisKind::measurement_meta_meta, "load_framework", pl::AxisRangeForm::index_range, {}, 0, 2});
+    p.axes.push_back(
+        {cet::AxisKind::system_meta_meta, "simd", pl::AxisRangeForm::enumerated, {"avx2", "avx512"}, 0, 0});
+    p.axes.push_back(
+        {cet::AxisKind::measurement_meta_meta, "load_framework", pl::AxisRangeForm::index_range, {}, 0, 2});
     p.axes.push_back({cet::AxisKind::organ_meta_meta, "organ_hub", pl::AxisRangeForm::enumerated, {"a"}, 0, 0});
 
     std::string const s1 = pl::emit_experiment_subtree_xml(p);
