@@ -1900,6 +1900,50 @@ set_tests_properties(${_comdare_negativ_compile_tu_c4} PROPERTIES
     TIMEOUT 300
     LABELS "goal_v6;phase_d;negativ_compile")
 
+# HY-A1 -- DRITTE Negativ-Compile-Fixture, nach demselben in C1 benannten Muster (a)-(d) oben.
+# Gegenstand: das Concept-Gate der Gattung HEURISTIK-ADAPTER. Owner-Auflage 09.08.2026: "die
+# Einschraenkung muss HART PER TEST bewiesen werden" -- ein Concept, dessen Ausschluss nie gefahren
+# wurde, ist eine Behauptung.
+# DREI Diagnosen, drei VERSCHIEDENE Sperren (nicht dreimal dieselbe): S1 Zielfaehigkeit,
+# S2 Paar-Konsistenz, plus die CRTP-Wache RerouteGuard an der Konstruktion.
+# ZUR MARKER-WAHL, weil hier eine Falle liegt: die Fixture prueft NICHT auf die Diagnose der direkten
+# Typbildung. Die bricht zwar korrekt, druckt aber nur "template constraint failure" -- die Meldung des
+# zugehoerigen static_assert erscheint NIE, weil der Name danach unbekannt ist. Der Marker kommt daher
+# aus je einem Detektor-static_assert, dessen Meldung zuverlaessig gedruckt wird; die direkte Typbildung
+# steht daneben als Beweis, dass eine ECHTE Uebersetzung scheitert. Literal nachgestellt vor der Abnahme.
+set(_comdare_negativ_compile_tu_hy_a1 test_hy_a1_reroute_gate_negativ)
+add_executable(${_comdare_negativ_compile_tu_hy_a1} EXCLUDE_FROM_ALL "${_comdare_negativ_compile_tu_hy_a1}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu_hy_a1} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu_hy_a1} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu_hy_a1} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu_hy_a1})
+add_test(NAME ${_comdare_negativ_compile_tu_hy_a1}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target ${_comdare_negativ_compile_tu_hy_a1})
+set_tests_properties(${_comdare_negativ_compile_tu_hy_a1} PROPERTIES
+    PASS_REGULAR_EXPRESSION "HY-A1-NEGATIV-PROBE"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
+
+# HY-A1 -- die POSITIV-Seite derselben Gattung: Gate, Partition, Strategie-Struktur, Synthese-Matrix
+# und der Weg-C-Pass-through, in gtest. Owner-Auflage: "fuer JEDE Gattung+Genus per google test
+# bewiesen durchlaessig" -- ein Gate, das nur ablehnt, waere genauso falsch wie eines, das alles
+# zulaesst. Header-only (hybrid/ ist eine reine Header-Stufe, kein add_subdirectory noetig).
+comdare_add_test(test_hy_a1_heuristik_adapter_gattung
+    SOURCES test_hy_a1_heuristik_adapter_gattung.cpp)
+target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # E-24 C4 (c/5) -- die vier Container-Docks als IPruefDock-Impls, in-process gefahren.
 # EIGENER BLOCK statt COMDARE_GOALV6_BOOST_DTESTS (am Bau erzwungen, nicht aus Geschmack): diese TU
 # konstruiert/zerstoert AnatomyModuleHandle, und AnatomyModuleHandle::unload() lebt im Loader-.cpp

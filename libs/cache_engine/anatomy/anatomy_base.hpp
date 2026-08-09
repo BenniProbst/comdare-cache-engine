@@ -29,7 +29,12 @@ namespace comdare::cache_engine::anatomy {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3-EBENEN-MODELL (Doc 30 §8.0/§8.1, korr. 2026-06-03 — vorher fälschlich „5 Gattungen"):
-//   Ebene 1  AnatomyGattung    = Aussen-Interface/Pruef-Dock: Map | Container | Graph  (NUR 3)
+//   Ebene 1  AnatomyGattung    = Aussen-Interface/Pruef-Dock: Map | Container | Graph | HeuristikAdapter
+//            NACHZUG HY-A1 (09.08.2026): hier stand "NUR 3". Das war bis zum 08.08. korrekt; der
+//            Owner hat mit GO-3 eine VIERTE Gattung benannt (HEURISTIK-ADAPTER, LEDGER:2488). Die
+//            alte Zahl bleibt als Historie lesbar, die lebende Zahl ist VIER. Die neue Gattung ist
+//            allerdings KEINE Pruef-Dock-Gattung: sie hat kein eigenes Dock, weil ihre Binaries per
+//            genus() das ZIEL-Genus melden und am Dock des Ziels andocken (Owner E-1 final, Weg C).
 //   Ebene 2  AnatomyGenus      = TIER-UNTERKLASSE unter einem Gattungs-Interface (fester Achsen-Satz)
 //   Ebene 3  Achsen            = Organe der Tier-Unterklasse (permutieren; KEINE optional)
 // Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER der Container-Gattung (Doc 24 Z.564 / Doc 27 §0),
@@ -54,7 +59,34 @@ enum class AnatomyGattung : std::uint8_t {
     // Ebene 2 bleibt korrekt: AnatomyGenus::SearchAlgorithm heisst weiterhin so (das GENUS heisst so).
     Map       = 0, ///< K -> V Schluessel-Wert-Interface (std::map-artig); Genus: SearchAlgorithm
     Container = 1, ///< Container-Interface; Genera: Set/Sequence/Adapter/View
-    Graph     = 2  ///< Graph-Interface (Stub -- noch kein Genus implementiert, Q5 nach Abgabe)
+    Graph     = 2, ///< Graph-Interface (Stub -- noch kein Genus implementiert, Q5 nach Abgabe)
+    // ------------------------------------------------------------------------------------------
+    // HY-A1 (09.08.2026): DIE VIERTE EBENE-1-KATEGORIE -- ANGEHAENGT, NIE EINGESCHOBEN.
+    // Map/Container/Graph behalten 0/1/2 unangetastet; die Enum-REIHENFOLGE ist TABU
+    // (E24-DOSSIER:168). Der Kopf-Kommentar oben sagte "NUR 3" -- das war der Stand bis heute und
+    // bleibt als Historie lesbar; die lebende Zahl ist VIER.
+    //
+    // AUTORITAET, woertlich (Owner GO-3 vom 08.08.2026, LEDGER:2488):
+    //   "erzeugt eine neue HEURISTIK-ADAPTER Gattung und ein Genus >>Function-Interface-Reroute<<
+    //    denn die Hybrid-Tier-Binary macht nichts anderes, als per compile time die Interfaces
+    //    einer Gattung+Genus zu erben und diese nach heuristischen Anforderungen (wie ein Heuristik
+    //    gesteuertes Mutex) an die eigentlichen Tier-Binary Interfaces durchzustellen und die
+    //    Ergebnisse zu empfangen."
+    // Bestaetigt und praezisiert durch Owner-Entscheid E-1 final vom 09.08.2026: die Klassifikation
+    // (Gattung+Genus, Weg A) UND der transparente Pass-through (geerbtes Ziel-Genus, Weg C) gelten
+    // GEMEINSAM auf verschiedenen Ebenen -- siehe die C-Seiten-Notiz an IAnatomyBase::genus() unten.
+    //
+    // NAMENS-WARNUNG (die Kollision wurde geprueft, nicht angenommen): der Wortbestandteil "Adapter"
+    // ist in diesem Repo BEREITS vergeben -- AnatomyGenus::Adapter ist die Container-Tier-Unterklasse
+    // nach Vorbild std::stack/std::queue, mit eigenem Dock, eigener ABI und eigenem Snapshot-POD.
+    // Eine C++-Mehrdeutigkeit besteht NICHT (zwei verschiedene scoped enums, jeder Gebrauch ist
+    // qualifiziert), wohl aber eine LESE-Verwechslungsgefahr. Deshalb die Merkregel, die ueberall
+    // gilt: "Adapter" OHNE Praefix meint IMMER den Container-Genus. Die Hybrid-Gattung heisst NIE
+    // verkuerzt "Adapter", sondern immer "HeuristikAdapter" -- Owner-Name "HEURISTIK-ADAPTER".
+    // Der GENUS-Name (FunctionInterfaceReroute, s.u.) teilt bewusst KEIN Token mit "Adapter": auf der
+    // Genus-Ebene, wo die Kollision real waere, gibt es damit keine Beruehrung.
+    // ------------------------------------------------------------------------------------------
+    HeuristikAdapter = 3 ///< Heuristik-Adapter-Interface; Genera: Reroute-Genera (Ebene 2, s.u.)
 };
 
 /// gattung_name() — Compile-Time-String pro Gattung (Ebene 1).
@@ -63,6 +95,7 @@ enum class AnatomyGattung : std::uint8_t {
         case AnatomyGattung::Map: return "Map";
         case AnatomyGattung::Container: return "Container";
         case AnatomyGattung::Graph: return "Graph";
+        case AnatomyGattung::HeuristikAdapter: return "HeuristikAdapter";
     }
     return "Unknown";
 }
@@ -103,7 +136,37 @@ enum class AnatomyGenus : std::uint8_t {
     Set             = 1, ///< Tier-Unterklasse der Container-Gattung (K only, Bird)
     Sequence        = 2, ///< Tier-Unterklasse der Container-Gattung (V indexed, Reptile)
     Adapter         = 3, ///< Tier-Unterklasse der Container-Gattung (Wrapper über Inner-Substrat, Invertebrate)
-    View            = 4  ///< Tier-Unterklasse der Container-Gattung (non-owning, Plant)
+    View            = 4, ///< Tier-Unterklasse der Container-Gattung (non-owning, Plant)
+    // ------------------------------------------------------------------------------------------
+    // HY-A1 (09.08.2026): DER ERSTE REROUTE-GENUS der Gattung HeuristikAdapter. ANGEHAENGT
+    // (Wert 5); 0..4 bleiben unangetastet, die Enum-REIHENFOLGE ist TABU (E24-DOSSIER:168).
+    //
+    // ER IST BEWUSST NICHT DIE ANTWORT VON genus(). Owner-Entscheid E-1 final (09.08.2026) verbindet
+    // zwei Ebenen, die man nicht verwechseln darf:
+    //   KLASSIFIKATIONS-Ebene (Weg A) -- DIESER Enum-Wert. Er sortiert die Hybrid-.so im Lagerbaum
+    //     (Gattung -> Genus -> REST) und benennt die ART des Reroutes. Er ist eine Eigenschaft des
+    //     ARTEFAKTS.
+    //   INTERFACE-Ebene (Weg C) -- genus() einer Hybrid-Binary liefert das GEERBTE ZIEL-Genus, also
+    //     z.B. SearchAlgorithm, NIE diesen Wert. Der Pass-through ist nach aussen transparent.
+    // Wer diesen Wert je aus genus() zurueckgibt, bricht Weg C. Die ausfuehrliche Begruendung samt
+    // Folgen fuer Dock-Auswahl und Registry steht an IAnatomyBase::genus() unten -- an genau der
+    // Stelle, an der jemand es sonst falsch machen wuerde.
+    //
+    // WARUM DIE STRUKTUR MEHRERE REROUTE-GENERA TRAGEN MUSS (Owner E-1 final, woertlich): "weil sich
+    // die Art und Weise der Reroute-Genus fuer den Anwendungszweck unterscheiden kann -- etwa wenn ein
+    // Graph ein anderes Reroute benoetigt als SearchAlgorithm. Daher ist das durchaus eine eigene
+    // Gattung mit multiplen Genus (spaeter)." HEUTE gibt es GENAU EINEN. Ein zweiter wird hier
+    // angehaengt (Wert 6) und bekommt eine HeuristikRerouteStrategy-Spezialisierung -- mehr nicht:
+    // die Klassifikations-Partition (hybrid/heuristik_adapter_klassifikation.hpp) und das
+    // Concept-Gate sind ueber gattung_of() formuliert, nicht ueber Aufzaehlungen einzelner Werte.
+    //
+    // NAMENSWAHL, begruendet: der Owner-Name ist "Function-Interface-Reroute". Als Enumerator
+    // FunctionInterfaceReroute. Der naheliegende Kurzname "Adapter" ist VERGEBEN (View/Set/Sequence/
+    // Adapter sind Container-Tier-Unterklassen; Adapter = std::stack-Vorbild, ~170 Fundstellen).
+    // "Reroute" statt "Adapter" macht die Verwechslung schon lexikalisch unmoeglich und trifft
+    // zugleich die Sache genauer: es wird DURCHGESTELLT, nicht gekapselt.
+    // ------------------------------------------------------------------------------------------
+    FunctionInterfaceReroute = 5 ///< Reroute-Genus der Gattung HeuristikAdapter -- NIE von genus()
 };
 
 /// genus_name<G>() — Compile-Time-String pro Tier-Unterklasse (Ebene 2).
@@ -114,6 +177,7 @@ enum class AnatomyGenus : std::uint8_t {
         case AnatomyGenus::Sequence: return "Sequence";
         case AnatomyGenus::Adapter: return "Adapter";
         case AnatomyGenus::View: return "View";
+        case AnatomyGenus::FunctionInterfaceReroute: return "FunctionInterfaceReroute";
     }
     return "Unknown";
 }
@@ -129,6 +193,10 @@ enum class AnatomyGenus : std::uint8_t {
         case AnatomyGenus::Sequence:
         case AnatomyGenus::Adapter:
         case AnatomyGenus::View: return AnatomyGattung::Container;
+        // HY-A1: der Reroute-Genus gehoert zur Gattung HeuristikAdapter. Diese Zuordnung ist der
+        // EINZIGE Ort, an dem die Ebene-1-Zugehoerigkeit der Hybrid-Klassifikation steht -- das
+        // Concept-Gate (hybrid/heuristik_adapter_gate.hpp) leitet daraus ab, statt Werte aufzuzaehlen.
+        case AnatomyGenus::FunctionInterfaceReroute: return AnatomyGattung::HeuristikAdapter;
     }
     return AnatomyGattung::Container;
 }
@@ -219,6 +287,30 @@ public:
     /// frueher hier stehende Begriff "Anatomie-Gattung" war Ebene-2-Sprache und ist nach dem finalen
     /// Owner-Modell (LEDGER:3836) falsch -- die GATTUNG ist Ebene 1 (Map/Container/Graph) und wird
     /// host-seitig constexpr aus diesem Wert abgeleitet (gattung_of), NICHT ueber den Draht getragen.
+    ///
+    /// ----------------------------------------------------------------------------------------
+    /// HY-A1 (09.08.2026) -- DIE HYBRID-REGEL. HIER, WEIL HIER DER FEHLER PASSIEREN WUERDE.
+    /// ----------------------------------------------------------------------------------------
+    /// Eine HYBRID-Tier-Binary (Gattung HeuristikAdapter) liefert aus genus() das **geerbte
+    /// ZIEL-Genus** -- also SearchAlgorithm, Set, Sequence, Adapter oder View -- und NIEMALS
+    /// AnatomyGenus::FunctionInterfaceReroute. Owner-Entscheid E-1 final vom 09.08.2026, Weg C:
+    /// der Pass-through ist nach aussen TRANSPARENT; wer die Binary befragt, sieht das Ziel.
+    ///
+    /// DER NAHELIEGENDE FEHLER: "die Binary ist ein HeuristikAdapter, also gibt genus() den
+    /// HeuristikAdapter-Wert zurueck." Das ist falsch, und es ist teuer falsch -- drei Folgen:
+    ///   (1) PruefDockRegistry::select_for waehlt das Dock ueber die IM MODUL deklarierte Gattung
+    ///       (pruef_dock_registry.hpp, "EIN Dock je Gattung"). Gaebe eine Hybrid-Binary ihren
+    ///       eigenen Wert zurueck, faende select_for KEIN Dock -- die Binary waere unmessbar.
+    ///   (2) Genau deshalb braucht die Hybrid-Stufe KEIN sechstes Pruef-Dock: sie dockt an dem
+    ///       Dock ihres ZIEL-Genus an und wird dort gemessen wie jedes andere Tier (soll_design
+    ///       Abschnitt 2 + Abschnitt 5: "wird am CEB-Pruef-Dock gemessen wie jedes andere Tier").
+    ///   (3) Die Hybrid-NATUR steht damit NICHT in genus(), sondern im STEMPEL bzw. im
+    ///       Sidecar-Manifest -- und in der Klassifikation (dem Enum-Wert), die den Lagerbaum
+    ///       sortiert. Das ist Weg A, und er widerspricht Weg C nicht: verschiedene Ebenen.
+    ///
+    /// KURZFORM: FunctionInterfaceReroute ist ein KLASSIFIKATIONS-Wert (Artefakt-Eigenschaft),
+    /// kein INTERFACE-Wert (Laufzeit-Antwort). Die Partition beider Mengen ist compile-hart in
+    /// hybrid/heuristik_adapter_klassifikation.hpp festgelegt und dort per static_assert bewacht.
     [[nodiscard]] virtual AnatomyGenus genus() const noexcept = 0;
 
     /// Anzahl Achsen (Pflicht 17 fuer Mammal = 15 Such-Achsen + queuing q1/q2, INC-2d; weniger fuer andere Gattungen)
