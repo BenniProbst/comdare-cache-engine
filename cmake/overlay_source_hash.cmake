@@ -155,4 +155,34 @@ endfunction()
 
 _comdare_overlay_hash_kante_in_verzeichnis("${PROJECT_SOURCE_DIR}")
 
+# -- (c) DASSELBE fuer ein UEBERPROJEKT (09.08.2026) --------------------------------------------------
+# BEFUND, am Objekt gemessen: der Aufruf oben laeuft ueber PROJECT_SOURCE_DIR -- das ist DIESES Projekt.
+# Bindet ein Ueberprojekt ce per add_subdirectory ein (super: Code/CMakeLists.txt:211), dann liegen
+# DESSEN Ziele ausserhalb und existieren zu diesem Zeitpunkt noch gar nicht: super legt sie erst ab
+# Zeile 302 an. Sie bekamen die Wartekante nie und uebersetzten gegen einen Header, den niemand fuer
+# sie erzeugt hatte. In super-Pipeline 15457 fielen dadurch DREI Jobs zugleich:
+#   build:clang, analyse:thesis-data, visibility:tier-binaries
+# alle mit "cache_engine/abi/overlay_source_hash_generated.hpp: No such file or directory".
+#
+# UND DIE PRAEZISIERUNG, die dabei anfiel: das ist KEIN clang-Spezifikum. Die Vermutung lautete, GCC
+# falle nicht darauf herein -- gemessen fallen die GCC-Jobs genauso. Es ist eine fehlende
+# Abhaengigkeitskante, die je nach ninja-Scheduling zuschlaegt; clang zeigt sie nur frueher, weil
+# clang-scan-deps den Verbraucher schon in Schritt 11/110 anfasst, den Erzeuger aber erst 15/110 baut.
+#
+# WARUM DEFER und nicht ein zweiter Aufruf hier: die Ziele des Ueberprojekts gibt es JETZT noch nicht.
+# cmake_language(DEFER) haengt den Lauf ans ENDE der Verarbeitung des Wurzelverzeichnisses -- dann sind
+# alle add_subdirectory() abgearbeitet und BUILDSYSTEM_TARGETS liefert sie vollstaendig.
+#
+# WARUM NICHT eine gepflegte Liste der super-Ziele: dieselbe Begruendung wie unter (b) -- eine Liste
+# muss von Hand nachgetragen werden, und ein vergessener Eintrag ist hier SCHLIMMER als rot (er
+# uebersetzt gegen einen VERALTETEN Header, also stille Falschidentitaet). Die Kante bleibt mechanisch.
+#
+# Doppelte Kanten sind unschaedlich: add_dependencies ist idempotent, und der Nachlauf ueberstreicht
+# den ce-Teilbaum zwangslaeufig ein zweites Mal.
+if(NOT PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    cmake_language(DEFER DIRECTORY "${CMAKE_SOURCE_DIR}"
+                   CALL _comdare_overlay_hash_kante_in_verzeichnis "${CMAKE_SOURCE_DIR}")
+    message(STATUS "comdare E-E: Overlay-Hash-Kante fuer das Ueberprojekt vorgemerkt (DEFER auf ${CMAKE_SOURCE_DIR})")
+endif()
+
 message(STATUS "comdare E-E: Overlay-Quell-Hash verdrahtet -> ${_ovl_gen_header}")
