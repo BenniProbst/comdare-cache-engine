@@ -88,6 +88,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -557,6 +558,12 @@ namespace detail {
     if (gattung_token.empty() || genus_token.empty()) return LagerBaumFehler::wurzel_token_fehlt;
     if (!wurzel_paar_ist_stimmig(w)) return LagerBaumFehler::gattung_genus_unvereinbar;
 
+    // Die drei Grammatik-Ausgaenge darunter sind KONSTRUKTIV UNERREICHBAR (Lens-Befund 09.08.):
+    // jeder Token ist per static_assert ist_wert_rein, jede der drei Achsen ist_achse_rein, und der
+    // laengste Wert (genus=search_algorithm, 22 B) liegt weit unter kMaxKomponenteBytes. kv_kette
+    // hat keine weitere Fehlerquelle. Sie bleiben als Form-Invariante des ebene_anhaengen-Musters
+    // stehen; einen Eingang, der sie erreicht, gibt es nicht (Mutanten dort ueberleben per
+    // Definition -- das ist kein Test-Loch, sondern tote Grammatik-Vorsicht).
     std::array<KvPaar, 1> const g{KvPaar{kGattungAchse, gattung_token}};
     if (!ebene_anhaengen(k, kv_kette(g))) return k.fehler;
     std::array<KvPaar, 1> const n{KvPaar{kGenusAchse, genus_token}};
@@ -613,6 +620,16 @@ struct BinariesBaumSpec {
     std::vector<AchsenWert> mess_typ;   // Ebene 10: Mess-Typ als TIEFSTER Haupt-Achsen-Typ (D-12)
 };
 
+// DIE WACHE ZUM LAUTEN BRUCH (K1, Lens-Auflage 09.08.): "keine Spec aus der Zeit vor K1 uebersetzt
+// noch" war bis hier nur Disziplin -- eine gestrichene Zeile (LagerWurzelPaar() = delete) haette
+// den stillen Default gattung=map/genus=search_algorithm wiederhergestellt, ohne dass ein Test
+// faellt. Die Zusicherung gehoert an die SPEC, nicht ans Paar: ein Default-Member-Initializer in
+// der Spec stellte denselben stillen Default eine Ebene hoeher wieder her und liefe an einer
+// Paar-Wache vorbei (nachgemessen: die enge Fassung liess genau das durch).
+static_assert(!std::is_default_constructible_v<MessdatenBaumSpec> &&
+                  !std::is_default_constructible_v<BinariesBaumSpec>,
+              "K1: keine Spec darf ohne genanntes Wurzel-Paar konstruierbar sein.");
+
 // ---------------------------------------------------------------------------
 // Der CT-Vertrag einer Realm-Policy (Concept-Guard statt vtable -- CRTP/Concept-Doktrin, GoF Strategy).
 // ---------------------------------------------------------------------------
@@ -630,6 +647,9 @@ struct MessdatenRealmPolicy {
     [[nodiscard]] static KaskadeErgebnis kaskade(Spec const& s) {
         KaskadeErgebnis k;
         if (auto const f = detail::wurzel_ebenen(k, s.wurzel, realm()); f != LagerBaumFehler::ok) {
+            // Die Bedingung unterscheidet nur in den konstruktiv unerreichbaren Grammatik-
+            // Ausgaengen von wurzel_ebenen (s. dort); auf allen erreichbaren Pfaden ist sie
+            // aequivalent zur bedingungslosen Zuweisung. Sie steht hier der Form wegen.
             if (k.fehler == LagerBaumFehler::ok) k.fehler = f;
             return k;
         }
@@ -666,6 +686,7 @@ struct BinariesRealmPolicy {
     [[nodiscard]] static KaskadeErgebnis kaskade(Spec const& s) {
         KaskadeErgebnis k;
         if (auto const f = detail::wurzel_ebenen(k, s.wurzel, realm()); f != LagerBaumFehler::ok) {
+            // Schwester der Messdaten-Policy: Bedingung nur der Form wegen, s. Kommentar dort.
             if (k.fehler == LagerBaumFehler::ok) k.fehler = f;
             return k;
         }
