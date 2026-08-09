@@ -50,6 +50,7 @@
 #include <builder/commands/result_aggregator.hpp>   // R5.E: Mess-Ergebnisse → CSV/JSON
 #include <builder/commands/latency_stats.hpp>       // R5.E: Latenz-Perzentile (geteilt, non-mutierend)
 #include <builder/commands/multi_compare.hpp>       // R6: N Kompositionen vs Baseline, FWER-kontrolliert
+#include <builder/commands/lade_bilanz.hpp>         // D4e: Bilanz des Mess-Laufs (Nenner + Summenprobe)
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u8u8.hpp>
@@ -1288,4 +1289,103 @@ TEST(F15ProbenSindTot, ResultCsvHeaderIstEINGEFROREN) {
     auto const zaehle_kommata  = [](std::string const& s) { return std::count(s.begin(), s.end(), ','); };
     EXPECT_EQ(zaehle_kommata(cmd::to_csv_row(r)), zaehle_kommata(cmd::result_csv_header()));
     EXPECT_NE(cmd::to_json_object(r).find("\"degeneriert\":"), std::string::npos);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4e (2026-08-09) — f15-CLI: TOTE-PROBEN-GRUPPE + SUMMENZEILE A+B+C+D+gemessen == geladen
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// DER BEFUND: die Lade-Schleife der CLI hatte drei benannte Ausschluss-Gruende, aber keinen
+// Zaehler; am Ende stand nur "N gemessen" -- ohne Grundgesamtheit. Und eine vierte Gruppe fehlte
+// ganz: ein Ergebnis aus lauter Nullen hat p50=0 und GEWINNT jedes p50-Ranking.
+//
+// Die Bilanz liegt bewusst in einem eigenen Header (lade_bilanz.hpp) und nicht in der main():
+// der einzige heutige Test der CLI ist ein CTest-Regex auf ihre Ausgabe, gefahren gegen echte
+// R5.G-DLLs -- also gegen Daten, in denen der degenerierte Fall per Konstruktion nicht vorkommt.
+// Ein Regex auf einer Ausgabe, in der der Fall nicht auftreten KANN, ist kein Testat.
+
+TEST(F15LadeBilanz, SummeGehtAufUndDieZeileNenntDenNenner) {
+    cmd::LadeBilanz b{};
+    b.geladen            = 40;
+    b.gemessen           = 31;
+    b.nicht_messfaehig   = 3;
+    b.konformitaet_fehlt = 2;
+    b.zu_wenige_proben   = 3;
+    b.tote_proben        = 1;
+    EXPECT_EQ(b.verbucht(), 40u);
+    EXPECT_TRUE(b.summe_stimmt());
+    EXPECT_EQ(b.zeile(), "BILANZ: 40 geladen = 31 gemessen + 3 nicht mess-faehig + 2 Konformitaet + "
+                         "3 zu wenige Proben + 1 tote Proben");
+}
+
+TEST(F15LadeBilanz, EineUnverbuchteBinaryWirdALSBEFUNDGEMELDET) {
+    // GEGENEINGANG (T-4): genau EINE Binary verschwindet. Die alte CLI haette weiterhin "31
+    // gemessen" gedruckt und nichts bemerkt.
+    cmd::LadeBilanz b{};
+    b.geladen          = 40;
+    b.gemessen         = 31;
+    b.nicht_messfaehig = 3;
+    b.zu_wenige_proben = 5; // 31+3+5 = 39, eine fehlt
+    EXPECT_FALSE(b.summe_stimmt());
+    EXPECT_NE(b.zeile().find("Summe geht NICHT auf"), std::string::npos) << b.zeile();
+    EXPECT_NE(b.zeile().find("verbucht=39"), std::string::npos) << b.zeile();
+    EXPECT_EQ(cmd::lade_bilanz_exit_code(b), cmd::kExitBilanzGehtNichtAuf);
+}
+
+TEST(F15LadeBilanz, ToteProbenErzeugenEinenEIGENENExitCode) {
+    cmd::LadeBilanz b{};
+    b.geladen     = 4;
+    b.gemessen    = 3;
+    b.tote_proben = 1;
+    EXPECT_TRUE(b.summe_stimmt());
+    EXPECT_EQ(cmd::lade_bilanz_exit_code(b), 6);
+    // 5 war schon vergeben (Lastprofil-Pfad: "keine einzige DLL gemessen") -- deshalb 6.
+    EXPECT_NE(cmd::lade_bilanz_exit_code(b), 5);
+}
+
+TEST(F15LadeBilanz, EineSAUBEREBilanzGibtNull) {
+    // Die andere Richtung (K13): ohne tote Proben und mit aufgehender Summe darf NICHTS anschlagen.
+    cmd::LadeBilanz b{};
+    b.geladen            = 12;
+    b.gemessen           = 10;
+    b.konformitaet_fehlt = 2;
+    EXPECT_TRUE(b.summe_stimmt());
+    EXPECT_TRUE(b.hat_messung());
+    EXPECT_EQ(cmd::lade_bilanz_exit_code(b), 0);
+}
+
+TEST(F15LadeBilanz, KaputteZaehlungWiegtSchwererAlsToteProben) {
+    // Beide Befunde gleichzeitig: dann muss der Zaehl-Befund gewinnen. Wenn die Bilanz nicht
+    // aufgeht, ist auch die Zahl der toten Proben nicht belastbar.
+    cmd::LadeBilanz b{};
+    b.geladen     = 10;
+    b.gemessen    = 5;
+    b.tote_proben = 2; // 7 != 10
+    EXPECT_EQ(cmd::lade_bilanz_exit_code(b), cmd::kExitBilanzGehtNichtAuf);
+}
+
+TEST(F15LadeBilanz, DieVierteGruppeEntstehtAusMakeExecutionResult) {
+    // Die NAHT zu D4d: die CLI entscheidet nicht selbst, was eine tote Probe ist -- sie liest
+    // ExecutionResult::degeneriert. Hier wird genau diese Kette in Miniatur gefahren, mit dem
+    // gewuerfelten Koeder aus D4d (35 Nullen), damit die CLI-Aenderung ein Orakel hat, das ohne
+    // DLL-Laden auskommt.
+    cmd::LadeBilanz           b{};
+    std::vector<std::vector<std::int64_t>> proben_je_dll{
+        {10, 20, 30, 40},                     // echt
+        std::vector<std::int64_t>(35, 0),     // KOEDER, gewuerfelt: tot
+        {11, 22, 33},                         // echt
+    };
+    b.geladen = proben_je_dll.size();
+    for (auto& p : proben_je_dll) {
+        auto const r = cmd::make_execution_result("dll", p);
+        if (r.degeneriert)
+            ++b.tote_proben;
+        else
+            ++b.gemessen;
+    }
+    EXPECT_EQ(b.geladen, 3u);
+    EXPECT_EQ(b.gemessen, 2u);
+    EXPECT_EQ(b.tote_proben, 1u);
+    EXPECT_TRUE(b.summe_stimmt());
+    EXPECT_EQ(cmd::lade_bilanz_exit_code(b), 6);
 }

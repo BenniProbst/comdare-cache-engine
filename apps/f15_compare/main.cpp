@@ -17,6 +17,7 @@
 #include <anatomy/measurable_workload.hpp>
 #include <builder/commands/multi_compare.hpp>
 #include <builder/commands/hdr_perzentil_auswertung.hpp> // D5-5: HDR neben dem Kanon (Auswertung)
+#include <builder/commands/lade_bilanz.hpp> // D4e: Bilanz des Mess-Laufs (Nenner + Summenprobe + Exit-Codes)
 #include <builder/commands/result_aggregator.hpp>
 // V41 OpenDone.2 — Pfad-B Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
 #include <builder/pruef_dock/pruef_dock.hpp>
@@ -407,11 +408,17 @@ int main(int argc, char** argv) {
     names.reserve(handles.size());
     std::vector<cmd::ExecutionResult> results;
     results.reserve(handles.size());
+    // D4e: die Lade-Schleife hatte drei benannte Ausschluss-Gruende und keinen einzigen Zaehler.
+    // Am Ende stand nur "N gemessen" -- ohne Grundgesamtheit. Ab hier wird JEDER Pfad verbucht,
+    // und die Summenprobe A+B+C+D+gemessen == geladen deckt einen vergessenen Pfad auf.
+    cmd::LadeBilanz bilanz{};
+    bilanz.geladen = handles.size();
     for (std::size_t i = 0; i < handles.size(); ++i) {
         auto* base = handles[i].anatomy();
         auto* mw   = dynamic_cast<ana::IMeasurableWorkload*>(base);
         if (mw == nullptr) {
             std::cerr << "DLL " << i << " nicht mess-faehig — uebersprungen\n";
+            ++bilanz.nicht_messfaehig;
             continue;
         }
         // V5-Audit-Fix (Konformitäts-Gate-Pflicht, Mess-Architektur): JEDE Tier-Binary besteht VOR der Messung
@@ -420,18 +427,37 @@ int main(int argc, char** argv) {
         auto* dt = dynamic_cast<ana::IDriveableTier*>(base);
         if (dt == nullptr || !pd::run_conformance_gate(*dt).passed()) {
             std::cerr << "DLL " << i << " KONFORMITAET FEHLGESCHLAGEN — nicht gemessen\n";
+            ++bilanz.konformitaet_fehlt;
             continue;
         }
         std::vector<std::int64_t> samples(static_cast<std::size_t>(batches));
         auto const                n = mw->run_workload(ops, batches, seed, samples.data(), samples.size());
         if (n < 2) {
             std::cerr << "DLL " << i << " lieferte < 2 Samples — uebersprungen\n";
+            ++bilanz.zu_wenige_proben;
             continue;
         }
         samples.resize(static_cast<std::size_t>(n));
         std::string nm = std::string{handles[i].anatomy()->composition_name()} + "_" + std::to_string(i);
+        // D4e: die VIERTE Gruppe. Ohne sie kommt ein Ergebnis aus lauter Nullen in `results` und
+        // GEWINNT anschliessend das p50-Ranking -- eine praeparierte Null-DLL waere die schnellste
+        // Komposition der Messung. Die Entscheidung faellt NICHT hier, sondern in
+        // make_execution_result (D4d): die CLI liest sie nur, damit es genau eine Definition gibt.
+        auto ergebnis = cmd::make_execution_result(nm, std::move(samples));
+        if (ergebnis.degeneriert) {
+            std::cerr << "DLL " << i << " lieferte TOTE PROBEN (keine einzige > 0 ns) — nicht gewertet\n";
+            ++bilanz.tote_proben;
+            continue;
+        }
         names.push_back(std::move(nm));
-        results.push_back(cmd::make_execution_result(names.back(), std::move(samples)));
+        ergebnis.engine_name = names.back(); // string_view auf den stabilen Speicher umhaengen
+        results.push_back(std::move(ergebnis));
+        ++bilanz.gemessen;
+    }
+    std::cout << "  " << bilanz.zeile() << "\n";
+    if (!bilanz.summe_stimmt()) {
+        std::cerr << "BILANZ GEHT NICHT AUF — die Lade-Schleife hat einen unverbuchten Pfad.\n";
+        return cmd::kExitBilanzGehtNichtAuf;
     }
     if (results.size() < 2) {
         std::cerr << "Weniger als 2 mess-faehige DLLs — Abbruch.\n";
@@ -451,8 +477,10 @@ int main(int argc, char** argv) {
     std::cout << "F15 multi-compare ueber " << results.size() << " DLLs (baseline=" << names[base_idx]
               << ", alpha=" << alpha << ", samples/DLL=" << batches << ")\n";
     std::cout << "  significant_faster=" << sum.significant_faster << "  significant_slower=" << sum.significant_slower
-              << "  not_significant=" << sum.not_significant << "\n";
-    std::cout << "  win_rate=" << sum.win_rate << "  (Anteil, der die Baseline signifikant schlaegt)\n";
+              << "  not_significant=" << sum.not_significant << "  degeneriert=" << sum.degeneriert << "\n";
+    // D4c: die Headline-Zahl steht NIE ohne ihre Grundgesamtheit. Der Text kommt aus
+    // win_rate_zeile(), damit CLI, CSV und Bericht dieselbe Formulierung tragen.
+    std::cout << "  win_rate=" << stats::win_rate_zeile(sum) << "\n";
     // R5.D — robuster Rang-Test (Mann-Whitney-U) als Gegenprobe zum parametrischen Welch.
     std::cout << "  robust_significant(MWU)=" << sum.robust_significant
               << "  discrepancies(Welch<->MWU)=" << sum.discrepancies
@@ -565,6 +593,15 @@ int main(int argc, char** argv) {
             std::cerr << "JSON-Schreiben fehlgeschlagen: " << json_path << "\n";
             return 4;
         }
+    }
+    // D4e: der Lauf ist FACHLICH durch (Ausgaben und Dateien sind geschrieben), aber er hat tote
+    // Proben gesehen. Das ist ein BEFUND fuer den Auswerter, kein Schreibfehler -- deshalb ein
+    // eigener Code am Ende und nicht ein frueher Abbruch. Code 6, weil 5 schon vergeben ist
+    // (Lastprofil-Pfad oben: "keine einzige DLL gemessen").
+    if (int const bilanz_code = cmd::lade_bilanz_exit_code(bilanz); bilanz_code != 0) {
+        std::cerr << "BEFUND: " << bilanz.tote_proben << " von " << bilanz.geladen
+                  << " geladenen DLLs lieferten tote Proben -- sie sind NICHT in die Auswertung eingegangen.\n";
+        return bilanz_code;
     }
     return 0;
 }
