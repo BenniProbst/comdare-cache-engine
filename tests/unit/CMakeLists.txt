@@ -5431,6 +5431,7 @@ target_link_libraries(test_g3_takeover_sweep PRIVATE Threads::Threads)
 comdare_add_test(test_lb0_lager_pfad_grammatik
     SOURCES test_lb0_lager_pfad_grammatik.cpp)
 target_include_directories(test_lb0_lager_pfad_grammatik PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
@@ -5447,6 +5448,7 @@ target_link_libraries(test_lb0_lager_pfad_grammatik PRIVATE Boost::mp11)
 comdare_add_test(test_lb1_knoten_heuristik_log
     SOURCES test_lb1_knoten_heuristik_log.cpp)
 target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
@@ -5474,6 +5476,7 @@ target_link_libraries(test_ge3_messwert_genus_und_ziel PRIVATE Threads::Threads)
 comdare_add_test(test_ge1_claim_check_und_sidecar
     SOURCES test_ge1_claim_check_und_sidecar.cpp)
 target_include_directories(test_ge1_claim_check_und_sidecar PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
