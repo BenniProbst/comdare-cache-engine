@@ -7,10 +7,33 @@
 #include "workload.hpp"
 #include <chrono>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <vector>
 
 namespace comdare::cache_engine::builder::commands {
+
+/// D4c/D4d (2026-08-09) -- DIE EINE Stelle, an der "diese Proben tragen keine Aussage" entschieden
+/// wird. Bewusst auf der SPANNE definiert und nicht auf ExecutionResult, damit sowohl der Erzeuger
+/// (make_execution_result, D4d) als auch der Konsument (multi_compare, D4c) dieselbe Definition
+/// benutzen -- zwei Ableitungswege waeren genau die Drift-Klasse, gegen die dieses Paket gebaut ist.
+///
+/// TOT heisst: leer ODER kein einziger Wert > 0. Beides ist derselbe Befund -- die Messung hat
+/// nichts geliefert, was ueber der Uhr-Aufloesung liegt.
+///
+/// WARUM NICHT "alle Werte gleich": eine Probenreihe aus lauter 1000 ist eine ECHTE Messung mit
+/// (verdaechtig) hoher Praezision; sie darf gemessen und getestet werden. Eine Reihe aus lauter
+/// Nullen dagegen kann keine Latenz sein -- sie entsteht, wenn nichts gelaufen ist. Nur der
+/// zweite Fall ist hier gemeint.
+///
+/// WARUM > 0 UND NICHT >= 0: negative Latenzen sind ein Zeitnahme-DEFEKT (die HDR-Auswertung
+/// zaehlt sie eigens als `verworfen_negativ`). Eine Reihe, die ausschliesslich aus Nullen und
+/// negativen Werten besteht, traegt keine Aussage -- und `>= 0` haette genau sie durchgelassen.
+[[nodiscard]] inline bool proben_sind_tot(std::span<const std::int64_t> samples) noexcept {
+    for (auto v : samples)
+        if (v > 0) return false;
+    return true;
+}
 
 /**
  * @brief ExecutionResult - Mess-Daten einer ExecutionEngine-Ausfuehrung

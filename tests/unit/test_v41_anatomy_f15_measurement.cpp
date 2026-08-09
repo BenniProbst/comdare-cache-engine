@@ -962,3 +962,249 @@ TEST(F15MwuDegeneriert, DiskrepanzWarntNurWennBeideTestsGesprochenHaben) {
     EXPECT_FALSE(rep.comparisons[0].significance_discrepancy)
         << "ein degenerierter Welch ist mit dem Rang-Test nicht 'uneinig' -- er hat nichts gesagt";
 }
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4c (2026-08-09) — BONFERRONI: m IST DIE ZAHL DER GETESTETEN HYPOTHESEN, NICHT DER KANDIDATEN
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// DER BEFUND: holm_bonferroni_adjust bekam IMMER alle Kandidaten, auch die, fuer die gar kein
+// Test gerechnet wurde (raw_p = 1.0 als Platzhalter). Die Korrektur skaliert mit (m-k) --
+// jeder untestbare Kandidat verschaerft also die Schwelle fuer die ECHTEN. Und win_rate teilte
+// durch die Gesamtzahl statt durch die getestete Menge.
+//
+// Der Algorithmus in multiple_comparison.hpp ist dabei KORREKT; falsch war ausschliesslich,
+// was hineingereicht wurde. Deshalb aendert D4c die Aufrufstelle und nicht den Algorithmus.
+
+namespace {
+// Fein aufloesende Sample-Konstruktion: center + 100*i. Die Streuung ist gross genug, dass ein
+// Versatz von 1 ns die t-Statistik nur um ~0.004 bewegt -- nur so ist ein p-Wert im schmalen
+// Kipp-Fenster [0.05/9 .. 0.05/7] ueberhaupt TREFFBAR.
+std::vector<std::int64_t> fein_samples(std::int64_t center, std::size_t n) {
+    std::vector<std::int64_t> v;
+    v.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) v.push_back(center + 100 * static_cast<std::int64_t>(i));
+    return v;
+}
+// Die sieben ECHTEN Kandidaten. Der erste ist der KIPP-KANDIDAT: sein Roh-p liegt zwischen
+// 0.05/9 und 0.05/7, er ist also bei m=9 nicht signifikant und bei m=7 signifikant. Genau daran
+// haengt die Headline-Zahl der Arbeit.
+constexpr std::int64_t kKippVersatz         = 734;
+constexpr std::int64_t kEchteVersaetze[7]   = {734, 700, 640, 560, 470, 360, 230};
+constexpr std::size_t  kSamplesJeKandidat   = 40;
+constexpr std::int64_t kBasisZentrum        = 100000;
+} // namespace
+
+TEST(F15BonferroniNenner, DegenerierteKandidatenVerduennenDieFamilieNichtMehr) {
+    // ── Aufbau: 7 echte Kandidaten + 2 degenerierte, ZWEI VERSCHIEDENER Degenerations-Klassen.
+    auto const baseline_samples = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    cmd::ExecutionResult baseline{};
+    baseline.engine_name        = "baseline";
+    baseline.latency_samples_ns = baseline_samples;
+
+    std::vector<std::string> namen;
+    namen.reserve(9);
+    for (int i = 0; i < 7; ++i) namen.push_back("echt_" + std::to_string(i));
+    namen.emplace_back("degeneriert_eine_probe");
+    namen.emplace_back("degeneriert_tote_proben");
+
+    std::vector<cmd::ExecutionResult> nur_echte;
+    for (std::size_t i = 0; i < 7; ++i) {
+        cmd::ExecutionResult c{};
+        c.engine_name        = namen[i];
+        c.latency_samples_ns = fein_samples(kBasisZentrum - kEchteVersaetze[i], kSamplesJeKandidat);
+        nur_echte.push_back(c);
+    }
+    std::vector<cmd::ExecutionResult> mit_degenerierten = nur_echte;
+    {
+        cmd::ExecutionResult eine{}; // Klasse 1: n<2 -> Welch rechnet gar nicht
+        eine.engine_name        = namen[7];
+        eine.latency_samples_ns = {123456};
+        mit_degenerierten.push_back(eine);
+        cmd::ExecutionResult tot{}; // Klasse 2: Proben da, aber alle 0 -> DATEN-Degeneration
+        tot.engine_name        = namen[8];
+        tot.latency_samples_ns = std::vector<std::int64_t>(35, 0); // KOEDER, gewuerfelt: n=35
+        mit_degenerierten.push_back(tot);
+    }
+
+    auto const rep9 =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{mit_degenerierten}, 0.05);
+    auto const rep7 =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{nur_echte}, 0.05);
+    ASSERT_EQ(rep9.comparisons.size(), 9u);
+    ASSERT_EQ(rep7.comparisons.size(), 7u);
+
+    // ── PRAEMISSE des Koeders, gepinnt statt vorausgesetzt: der Kipp-Kandidat liegt WIRKLICH im
+    //    Fenster. Wird der Koeder je stumpf (andere Formel, andere Samples), faellt genau hier auf.
+    double const roh = rep9.comparisons[0].raw_p;
+    ASSERT_GT(roh, 0.05 / 9.0) << "Kipp-Koeder stumpf: p_roh zu klein, er waere auch mit m=9 signifikant";
+    ASSERT_LT(roh, 0.05 / 7.0) << "Kipp-Koeder stumpf: p_roh zu gross, er wird auch mit m=7 nicht signifikant";
+
+    // ── DER INVARIANZ-BEWEIS: derselbe Datensatz MIT und OHNE die degenerierten Kandidaten muss
+    //    fuer die ECHTEN identische korrigierte p-Werte liefern. Das Orakel ist der zweite Lauf,
+    //    also eine unabhaengige Rechnung ueber eine andere Eingabemenge -- nicht die Funktion,
+    //    die geprueft wird, und nicht aus einer Doku abgeschrieben.
+    for (std::size_t i = 0; i < 7; ++i) {
+        EXPECT_DOUBLE_EQ(rep9.comparisons[i].adjusted_p, rep7.comparisons[i].adjusted_p)
+            << "Kandidat " << i << ": zwei nie gemessene Zellen verschieben sein Urteil";
+        EXPECT_EQ(rep9.comparisons[i].significant, rep7.comparisons[i].significant);
+        EXPECT_DOUBLE_EQ(rep9.comparisons[i].robust_adjusted_p, rep7.comparisons[i].robust_adjusted_p);
+    }
+
+    // ── DER KIPP-BEWEIS: mit m=7 ist der Kandidat signifikant. Mit dem alten m=9 waere er es
+    //    nicht -- und das wird hier nicht behauptet, sondern nachgerechnet: (m-k)*p bei k=0.
+    EXPECT_TRUE(rep9.comparisons[0].significant) << "adjusted_p=" << rep9.comparisons[0].adjusted_p;
+    EXPECT_DOUBLE_EQ(rep9.comparisons[0].adjusted_p, 7.0 * roh);
+    EXPECT_GT(9.0 * roh, 0.05) << "so sah es vorher aus: 9 * " << roh << " = " << (9.0 * roh);
+
+    // ── Die degenerierten selbst: nicht getestet, nie signifikant, neutraler korrigierter Wert.
+    for (std::size_t i = 7; i < 9; ++i) {
+        EXPECT_FALSE(rep9.comparisons[i].getestet_welch) << "Kandidat " << namen[i];
+        EXPECT_FALSE(rep9.comparisons[i].significant);
+        EXPECT_DOUBLE_EQ(rep9.comparisons[i].adjusted_p, 1.0);
+    }
+}
+
+TEST(F15BonferroniNenner, WinRateTeiltDurchDieGetesteteMengeUndNennntSie) {
+    // Nenner in der AUSGABE (Pruefung 1): "X (Y von Z getestet, D degeneriert)" statt einer
+    // nackten Quote. Aufbau: 1 klar schnellerer echter Kandidat, 1 gleich schneller echter,
+    // 2 degenerierte -> heute waere win_rate 1/4 = 0.25, richtig ist 1/2 = 0.5.
+    cmd::ExecutionResult baseline{};
+    baseline.engine_name        = "baseline";
+    baseline.latency_samples_ns = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+
+    cmd::ExecutionResult schnell{};
+    schnell.engine_name        = "schnell";
+    schnell.latency_samples_ns = fein_samples(kBasisZentrum - 5000, kSamplesJeKandidat);
+    cmd::ExecutionResult gleich{};
+    gleich.engine_name        = "gleich";
+    gleich.latency_samples_ns = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    cmd::ExecutionResult tot{};
+    tot.engine_name        = "tot";
+    tot.latency_samples_ns = std::vector<std::int64_t>(35, 0);
+    cmd::ExecutionResult eine{};
+    eine.engine_name        = "eine_probe";
+    eine.latency_samples_ns = {4711};
+
+    std::vector<cmd::ExecutionResult> cands{schnell, gleich, tot, eine};
+    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const sum = stats::summarize(rep);
+
+    EXPECT_EQ(sum.total, 4u);
+    EXPECT_EQ(sum.getestet, 2u);
+    EXPECT_EQ(sum.degeneriert, 2u);
+    EXPECT_EQ(sum.significant_faster, 1u);
+    EXPECT_NEAR(sum.win_rate, 0.5, 1e-12) << "1 von 2 GETESTETEN, nicht 1 von 4 Kandidaten";
+    // Die vier Kategorien decken die Grundgesamtheit vollstaendig ab -- ohne diese Zusicherung
+    // koennte ein Kandidat still in keiner Kategorie landen.
+    EXPECT_EQ(sum.significant_faster + sum.significant_slower + sum.not_significant + sum.degeneriert, sum.total);
+
+    // Die GANZE Zeile wird gepinnt, nicht ein Teilstueck: ein Fragment-Treffer waere auch dann
+    // noch gruen, wenn Zaehler und Nenner vertauscht sind. Die Erwartung ist aus dem Formatvertrag
+    // "<quote> (<schneller> von <getestet> getestet, <degeneriert> degeneriert, Grundgesamtheit
+    // <total>)" von Hand abgeleitet, nicht aus der Ausgabe abgeschrieben.
+    EXPECT_EQ(stats::win_rate_zeile(sum), "0.5 (1 von 2 getestet, 2 degeneriert, Grundgesamtheit 4)");
+}
+
+TEST(F15BonferroniNenner, ToteProbenGewinnenNichtDenVergleich) {
+    // DIE ASYMMETRISCHE DEGENERATION, die weder D4a noch D4b faengt: EIN Kandidat mit lauter
+    // Nullen gegen eine normal streuende Baseline. se>0 (die Baseline traegt die Varianz), Welch
+    // rechnet durch, mean_a=0 -> "unschlagbar schnell", p winzig, faster_than_baseline=true.
+    // Das ist eine DATEN-Eigenschaft, keine Test-Eigenschaft -- deshalb prueft sie multi_compare
+    // an der Eingabe und nicht der t-Test an seinem Ergebnis.
+    cmd::ExecutionResult baseline{};
+    baseline.engine_name        = "baseline";
+    baseline.latency_samples_ns = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    cmd::ExecutionResult tot{};
+    tot.engine_name        = "praeparierte_null_dll";
+    tot.latency_samples_ns = std::vector<std::int64_t>(35, 0); // KOEDER, gewuerfelt: n=35
+    std::vector<cmd::ExecutionResult> cands{tot};
+
+    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    ASSERT_EQ(rep.comparisons.size(), 1u);
+    EXPECT_TRUE(rep.comparisons[0].proben_tot);
+    EXPECT_FALSE(rep.comparisons[0].getestet_welch);
+    EXPECT_FALSE(rep.comparisons[0].significant) << "eine tote Probe gewinnt keinen Vergleich";
+    EXPECT_FALSE(rep.comparisons[0].faster_than_baseline);
+    // GEGENPROBE (T-4): der Welch-Rohbefund WAERE hochsignifikant gewesen -- der Ausschluss
+    // passiert also wirklich in der Eingangspruefung und nicht, weil der Test ohnehin nichts fand.
+    EXPECT_TRUE(rep.comparisons[0].welch.valid);
+    EXPECT_LT(rep.comparisons[0].welch.p_value, 0.001);
+}
+
+TEST(F15BonferroniNenner, ToteBaselineMachtJedenVergleichUngetestet) {
+    // Die Baseline ist die Schwesterstelle des Kandidaten (T-6): ist SIE tot, ist kein einziger
+    // Vergleich mehr aussagefaehig -- und dann darf auch keine win_rate ueber 0 entstehen.
+    cmd::ExecutionResult baseline{};
+    baseline.engine_name        = "tote_baseline";
+    baseline.latency_samples_ns = std::vector<std::int64_t>(35, 0);
+    cmd::ExecutionResult a{};
+    a.engine_name        = "a";
+    a.latency_samples_ns = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    cmd::ExecutionResult b{};
+    b.engine_name        = "b";
+    b.latency_samples_ns = fein_samples(kBasisZentrum - 5000, kSamplesJeKandidat);
+    std::vector<cmd::ExecutionResult> cands{a, b};
+
+    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const sum = stats::summarize(rep);
+    EXPECT_EQ(sum.getestet, 0u);
+    EXPECT_EQ(sum.degeneriert, 2u);
+    EXPECT_DOUBLE_EQ(sum.win_rate, 0.0);
+    // "0 von 0 getestet" ist etwas voellig anderes als "0 von 2 haben gewonnen" -- und genau das
+    // war vorher nicht unterscheidbar, weil die Quote durch die Gesamtzahl teilte.
+    EXPECT_EQ(stats::win_rate_zeile(sum), "0 (0 von 0 getestet, 2 degeneriert, Grundgesamtheit 2)");
+}
+
+TEST(F15BonferroniNenner, GesundeFamilieBleibtUnveraendert) {
+    // GEGENEINGANG / K13 beide Richtungen: ohne einen einzigen degenerierten Kandidaten muss sich
+    // NICHTS aendern. Faellt das, war die Heilung eine pauschale Abwertung statt einer Trennung.
+    cmd::ExecutionResult baseline{};
+    baseline.engine_name        = "baseline";
+    baseline.latency_samples_ns = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    std::vector<cmd::ExecutionResult> cands;
+    for (std::size_t i = 0; i < 7; ++i) {
+        cmd::ExecutionResult c{};
+        c.engine_name        = "echt";
+        c.latency_samples_ns = fein_samples(kBasisZentrum - kEchteVersaetze[i], kSamplesJeKandidat);
+        cands.push_back(c);
+    }
+    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const sum = stats::summarize(rep);
+    EXPECT_EQ(sum.total, 7u);
+    EXPECT_EQ(sum.getestet, 7u);
+    EXPECT_EQ(sum.degeneriert, 0u);
+    for (auto const& c : rep.comparisons) {
+        EXPECT_TRUE(c.getestet_welch);
+        EXPECT_DOUBLE_EQ(c.raw_p, c.welch.p_value);
+    }
+    // Der Kipp-Kandidat ist auch hier signifikant: m=7 in beiden Faellen.
+    EXPECT_TRUE(rep.comparisons[0].significant);
+    EXPECT_DOUBLE_EQ(rep.comparisons[0].adjusted_p, 7.0 * rep.comparisons[0].raw_p);
+    static_assert(kEchteVersaetze[0] == kKippVersatz, "der erste Kandidat ist der Kipp-Kandidat");
+}
+
+TEST(F15ExportRobust, CsvUndJsonTragenDieDegenerationsFelderUndDenNenner) {
+    cmd::ExecutionResult baseline{};
+    baseline.engine_name        = "baseline";
+    baseline.latency_samples_ns = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    cmd::ExecutionResult schnell{};
+    schnell.engine_name        = "schnell";
+    schnell.latency_samples_ns = fein_samples(kBasisZentrum - 5000, kSamplesJeKandidat);
+    cmd::ExecutionResult tot{};
+    tot.engine_name        = "tot";
+    tot.latency_samples_ns = std::vector<std::int64_t>(35, 0);
+    std::vector<cmd::ExecutionResult> cands{schnell, tot};
+    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+
+    auto const csv = stats::report_to_csv(rep);
+    EXPECT_NE(csv.find("welch_degeneriert,mwu_degeneriert,proben_tot,getestet_welch,getestet_mwu"), std::string::npos)
+        << csv;
+    EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 3); // Header + 2 Zeilen
+
+    auto const json = stats::report_to_json(rep);
+    // Der JSON-Kopf traegt die Grundgesamtheit, nicht nur den Zaehler.
+    EXPECT_NE(json.find("\"total\":2"), std::string::npos) << json;
+    EXPECT_NE(json.find("\"getestet_welch\":1"), std::string::npos) << json;
+    EXPECT_NE(json.find("\"degeneriert\":1"), std::string::npos) << json;
+    EXPECT_NE(json.find("\"proben_tot\":true"), std::string::npos) << json;
+}
