@@ -108,7 +108,12 @@ public:
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
         if (n == 0) return 0;
-        constexpr std::size_t kHashes = 4;      // Bloom 1970: k unabhängige Hash-Funktionen
+        // 09.08.2026 (clang-Runde 2, -Wshadow): hier stand eine ZWEITE `constexpr kHashes = 4`,
+        // die das Klassen-Member (Z. 43) verdeckte. Beide trugen denselben Wert, es war also kein
+        // aktiver Defekt -- aber genau die Bauform, gegen die dieses Projekt gebaut ist: wer k in
+        // Z. 43 auf 6 zieht, bekommt `probe_multiplicity()` == 6, waehrend diese Sonde weiter 4
+        // Positionen probt. Die Messkurve wuerde sich still verschieben, und die Zahl, die sie
+        // erklaert, saesse woanders. GCC meldet das nicht -- clang schon.
         std::size_t const     mBits   = n * 8u; // Pseudo-Bitmap m = n Bytes * 8 Bit
         std::uint64_t         hits    = 0;
         for (std::size_t i = 0; i < q; ++i) {
