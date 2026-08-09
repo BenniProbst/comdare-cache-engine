@@ -138,6 +138,10 @@ TEST(V5TwoPhaseDriver, ColdFallbackEqualsSinglePhase) {
     auto const trace_cold = ac::drive_two_phase_tier_trace_abi(cold, nullptr, cfg);
     ASSERT_EQ(trace_single.checkpoints.size(), cfg.fill_checkpoints.size());
     ASSERT_EQ(trace_cold.checkpoints.size(), cfg.fill_checkpoints.size());
+    for (std::size_t i = 0; i < cfg.fill_checkpoints.size(); ++i) {
+        EXPECT_EQ(trace_single.checkpoints[i].fill_level, cfg.fill_checkpoints[i]) << i;
+        EXPECT_EQ(trace_cold.checkpoints[i].fill_level, cfg.fill_checkpoints[i]) << i;
+    }
     expect_same_final_state(single, cold);
 }
 
