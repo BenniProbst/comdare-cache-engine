@@ -33,7 +33,8 @@
 //
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md Paragraf 8.7/8.8
 
-// Zieht ausserdem den D5-1-Perzentil-Kanon mit (st:: = builder::commands::stats).
+// Zieht ausserdem das D5-4-Trace-Schema mit (ts:: = anatomy_commands::trace_schema) und ueber dieses
+// den D5-1-Perzentil-Kanon.
 #include "tier_observe_trace_abi.hpp" // AbiTierTraceConfig + detail::abi_dur_ns
 
 #include <anatomy/adapter_tier.hpp>
@@ -308,48 +309,29 @@ using ViewTierObserveTrace     = GenusTierObserveTrace<ana::ViewObserverSnapshot
 // Serialisierung -- geteilte Zeit-Spalten, gattungs-eigene Observer-Spalten
 // ================================================================================================
 
-namespace genus_trace_detail {
-
-/// Die Zeit-Spalten, die ALLE Gattungen teilen (Kopf + Zeile). Sie stehen VORNE und in derselben
-/// Reihenfolge wie beim SA-Trace (tier_observe_trace_abi.hpp:280-282), damit eine Auswertung, die den
-/// SA-Kopf kennt, die Container-CSV ohne Sonderfall lesen kann.
-inline constexpr char const* kSharedCsvHead =
-    "checkpoint,observe_wall_ns,fill_level,write_samples,read_samples,delete_samples";
-
-template <class Snap>
-void write_shared_csv_cells(std::ostringstream& os, std::size_t index, Snap const& cp) {
-    os << index << ',' << cp.observe_wall_ns << ',' << cp.fill_level << ',' << cp.write_ns.size() << ','
-       << cp.read_ns.size() << ',' << cp.delete_ns.size();
-}
-
-// SELBSTCHECK (D5-1, 2026-08-09)
-//   ZUSICHERT: die p50/p95/p99-Felder dieser JSON kommen aus dem EINEN Kanon (stats::percentile_ns,
-//              Lehrbuch-Nearest-Rank k = ceil(q*n)-1) -- identisch zur nicht-Genus-Schwesterdatei.
-//   ZUSICHERT NICHT: Vergleichbarkeit mit vor dem 2026-08-09 erzeugten Traces (andere Formel). Und
-//              NICHT die Vollstaendigkeit der Feldliste -- delete_p99_ns fehlt weiterhin (Paket D5-4).
-template <class Snap>
-void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap const& cp) {
-    os << "{\"checkpoint\":" << index << ",\"observe_wall_ns\":" << cp.observe_wall_ns
-       << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << st::percentile_ns(cp.write_ns, 0.5).count()
-       << ",\"write_p95_ns\":" << st::percentile_ns(cp.write_ns, 0.95).count()
-       << ",\"write_p99_ns\":" << st::percentile_ns(cp.write_ns, 0.99).count()
-       << ",\"read_p50_ns\":" << st::percentile_ns(cp.read_ns, 0.5).count()
-       << ",\"read_p95_ns\":" << st::percentile_ns(cp.read_ns, 0.95).count()
-       << ",\"read_p99_ns\":" << st::percentile_ns(cp.read_ns, 0.99).count()
-       << ",\"delete_p50_ns\":" << st::percentile_ns(cp.delete_ns, 0.5).count()
-       << ",\"delete_p95_ns\":" << st::percentile_ns(cp.delete_ns, 0.95).count();
-}
-
-} // namespace genus_trace_detail
+// D5-4 (2026-08-09): hier standen `kSharedCsvHead`, `write_shared_csv_cells` und
+// `write_shared_json_fields` -- die zweite Haelfte einer ABSCHRIFT. Der JSON-Feldblock war Zeichen fuer
+// Zeichen derselbe wie in serialize_abi_tier_trace_json, und als delete_p99_ns fehlte, fehlte es
+// deshalb in BEIDEN. Alle drei sind ERSATZLOS geloescht (kein Alias, keine Weiterleitung): eine
+// uebersehene Aufrufstelle soll compile-hart brechen, nicht still eine zweite Feldliste bedienen.
+// Der EINE Ort ist jetzt tier_trace_schema.hpp (trace_schema::kLatenzFelder + die Schreiber darueber);
+// die Namen dort sind BEWUSST andere, damit kein Aufruf per Namensgleichheit still weiterlebt.
+// Der Namensraum `genus_trace_detail` faellt damit ganz weg -- er trug nichts anderes.
+//
+// SELBSTCHECK (D5-4, 2026-08-09)
+//   ZUSICHERT: die acht Serialisierer unten (4 Container-Gattungen x CSV/JSON) rufen fuer den
+//              geteilten Teil ts:: -- dieselben Funktionen, die auch die SA-Gattung rendern.
+//   ZUSICHERT NICHT: die gattungs-eigenen Observer-Spalten -- die stehen je Serialisierer und sollen
+//              das auch (der Schnitt ist im Kopf dieser Datei begruendet: geteilte ZEIT, eigene OP).
 
 [[nodiscard]] inline std::string serialize_set_tier_trace_csv(SetTierObserveTrace const& trace) {
     std::ostringstream os;
-    os << genus_trace_detail::kSharedCsvHead
+    os << ts::kGeteilterCsvKopf
        << ",set_insert,set_contains,set_hit,set_miss,set_erase,set_current_size,set_peak_size,observable_axes\n";
     for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
-        genus_trace_detail::write_shared_csv_cells(os, i, cp);
+        ts::schreibe_geteilte_csv_zellen(os, i, cp);
         os << ',' << o.insert_count << ',' << o.contains_count << ',' << o.contains_hit_count << ','
            << o.contains_miss_count << ',' << o.erase_count << ',' << o.current_size << ',' << o.peak_size << ','
            << o.observable_axis_count << '\n';
@@ -364,7 +346,7 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
         if (i != 0) os << ',';
-        genus_trace_detail::write_shared_json_fields(os, i, cp);
+        ts::schreibe_geteilten_json_vorspann(os, i, cp);
         os << ",\"set_insert\":" << o.insert_count << ",\"set_contains\":" << o.contains_count
            << ",\"set_hit\":" << o.contains_hit_count << ",\"set_miss\":" << o.contains_miss_count
            << ",\"set_erase\":" << o.erase_count << ",\"set_peak_size\":" << o.peak_size
@@ -377,12 +359,12 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
 [[nodiscard]] inline std::string serialize_sequence_tier_trace_csv(SequenceTierObserveTrace const& trace) {
     std::ostringstream os;
     // delete_samples ist hier strukturell 0: ISequenceTier hat keine Loesch-Op (Kopf-Kommentar).
-    os << genus_trace_detail::kSharedCsvHead
+    os << ts::kGeteilterCsvKopf
        << ",seq_push,seq_at,seq_at_oob,seq_current_size,seq_peak_size,seq_growth_events,observable_axes\n";
     for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
-        genus_trace_detail::write_shared_csv_cells(os, i, cp);
+        ts::schreibe_geteilte_csv_zellen(os, i, cp);
         os << ',' << o.push_count << ',' << o.at_count << ',' << o.at_oob_count << ',' << o.current_size << ','
            << o.peak_size << ',' << o.growth_events << ',' << o.observable_axis_count << '\n';
     }
@@ -396,7 +378,7 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
         if (i != 0) os << ',';
-        genus_trace_detail::write_shared_json_fields(os, i, cp);
+        ts::schreibe_geteilten_json_vorspann(os, i, cp);
         os << ",\"seq_push\":" << o.push_count << ",\"seq_at\":" << o.at_count << ",\"seq_at_oob\":" << o.at_oob_count
            << ",\"seq_peak_size\":" << o.peak_size << ",\"seq_growth_events\":" << o.growth_events
            << ",\"observable_axes\":" << o.observable_axis_count << ",\"organ_count\":" << o.organ_count << '}';
@@ -409,12 +391,12 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
     std::ostringstream os;
     // read_samples ist hier strukturell 0: der Adapter hat keine nicht-konsumierende Lese-Op; die
     // Entnahme-Zeiten stehen in delete_samples (Kopf-Kommentar).
-    os << genus_trace_detail::kSharedCsvHead
+    os << ts::kGeteilterCsvKopf
        << ",adp_push,adp_pop,adp_front_reads,adp_back_reads,adp_current_occupancy,adp_peak_occupancy,organ_count\n";
     for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
-        genus_trace_detail::write_shared_csv_cells(os, i, cp);
+        ts::schreibe_geteilte_csv_zellen(os, i, cp);
         os << ',' << o.push_count << ',' << o.pop_count << ',' << o.front_reads << ',' << o.back_reads << ','
            << o.current_occupancy << ',' << o.peak_occupancy << ',' << o.organ_count << '\n';
     }
@@ -428,7 +410,7 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
         if (i != 0) os << ',';
-        genus_trace_detail::write_shared_json_fields(os, i, cp);
+        ts::schreibe_geteilten_json_vorspann(os, i, cp);
         os << ",\"adp_push\":" << o.push_count << ",\"adp_pop\":" << o.pop_count
            << ",\"adp_front_reads\":" << o.front_reads << ",\"adp_back_reads\":" << o.back_reads
            << ",\"adp_peak_occupancy\":" << o.peak_occupancy << ",\"organ_count\":" << o.organ_count << '}';
@@ -440,12 +422,12 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
 [[nodiscard]] inline std::string serialize_view_tier_trace_csv(ViewTierObserveTrace const& trace) {
     std::ostringstream os;
     // delete_samples ist hier strukturell 0: eine non-owning Sicht besitzt nichts (Kopf-Kommentar).
-    os << genus_trace_detail::kSharedCsvHead
+    os << ts::kGeteilterCsvKopf
        << ",view_read,view_read_oob,view_bound_size,view_bind_count,observable_axes,organ_count\n";
     for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
-        genus_trace_detail::write_shared_csv_cells(os, i, cp);
+        ts::schreibe_geteilte_csv_zellen(os, i, cp);
         os << ',' << o.read_count << ',' << o.read_oob_count << ',' << o.bound_size << ',' << o.bind_count << ','
            << o.observable_axis_count << ',' << o.organ_count << '\n';
     }
@@ -459,7 +441,7 @@ void write_shared_json_fields(std::ostringstream& os, std::size_t index, Snap co
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
         if (i != 0) os << ',';
-        genus_trace_detail::write_shared_json_fields(os, i, cp);
+        ts::schreibe_geteilten_json_vorspann(os, i, cp);
         os << ",\"view_read\":" << o.read_count << ",\"view_read_oob\":" << o.read_oob_count
            << ",\"view_bound_size\":" << o.bound_size << ",\"view_bind_count\":" << o.bind_count
            << ",\"observable_axes\":" << o.observable_axis_count << ",\"organ_count\":" << o.organ_count << '}';
