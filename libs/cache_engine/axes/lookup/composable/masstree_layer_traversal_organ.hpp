@@ -196,6 +196,18 @@ private:
     static void propagate_split(Pool& p, path_stack_t<Pool>& stack, std::uint64_t up_slice, std::size_t left_node,
                                 std::size_t right_node, std::size_t& new_root, std::size_t root) {
         constexpr int W = Pool::kWidth;
+        // NACHBEDINGUNG HIER VERANKERT: verlaesst diese Funktion ueber den "es ist Platz"-Zweig, bleibt die
+        // Layer-Wurzel unveraendert -- new_root MUSS dann `root` sein. Das galt bisher NUR, weil der einzige
+        // Aufrufpfad new_root rund 100 Zeilen hoeher vorbelegt (bplus_find_or_insert: `new_root = root;`);
+        // `root` selbst reiste als stummer Parameter mit und wurde nie gelesen (-Wunused-parameter, beide
+        // Uebersetzer). Die Zuweisung ist heute ein No-Op -- sie schreibt denselben Wert, den die Vorbelegung
+        // schon haelt -- und macht die Zusicherung LOKAL, statt sie von Fernwirkung abhaengen zu lassen.
+        //
+        // GEPRUEFT, ob hier stattdessen ein Vergleich VERGESSEN wurde (z.B. `if (inode == root)`): NEIN.
+        // Der Wurzel-Split wird ueber `stack.empty()` erkannt, und der Stack traegt genau den Pfad
+        // Wurzel->Blatt; ist er leer, ist die Wurzel ueberschritten. Ein Knoten-Vergleich gegen `root`
+        // waere dazu redundant, nicht ergaenzend.
+        new_root = root;
         for (;;) {
             if (stack.empty()) { // Wurzel-Split -> neue Wurzel-Internode
                 std::size_t const nr = p.new_internode();

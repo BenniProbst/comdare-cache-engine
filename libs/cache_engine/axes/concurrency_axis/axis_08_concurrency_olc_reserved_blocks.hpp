@@ -58,12 +58,22 @@ public:
         (void)next_block_id_().fetch_add(1u, std::memory_order_acq_rel);
     }
     static void release() noexcept {
-        unsigned const       now        = version_().load(std::memory_order_acquire);
-        static volatile bool valid_sink = false;
-        valid_sink                      = (now == snapshot_());
+        unsigned const now = version_().load(std::memory_order_acquire);
+        valid_sink_()      = (now == snapshot_());
     }
 
 private:
+    // `volatile`-SINK des Vergleichs. Der SCHREIBZUGRIFF ist der beobachtbare Effekt, der die
+    // Read-Validate-Bahn vor dem Wegoptimieren schuetzt -- gelesen wird der Wert bewusst NIE.
+    // Als Zugriffsfunktion formuliert (genau wie version_()/snapshot_()) statt als lokale Variable:
+    // eine lokale `set but not used`-Variable mahnen GCC UND clang zu Recht an. So faellt die Warnung
+    // URSAECHLICH weg statt per Unterdrueckung -- und die Mess-Bahn bleibt unveraendert, denn erzeugt
+    // wird derselbe EINE volatile-Store. Ein `(void)valid_sink;` waere die schlechtere Loesung: es
+    // legte einen zusaetzlichen volatile-LOAD in genau den Pfad, dessen Laufzeit hier gemessen wird.
+    [[nodiscard]] static volatile bool& valid_sink_() noexcept {
+        static volatile bool s = false;
+        return s;
+    }
     [[nodiscard]] static std::atomic<unsigned>& version_() noexcept {
         static thread_local std::atomic<unsigned> v{0u};
         return v;

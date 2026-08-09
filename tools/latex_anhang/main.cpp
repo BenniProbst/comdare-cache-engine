@@ -20,6 +20,13 @@
 #include <vector>
 
 namespace latex_anhang {
+// TU-LOKAL: dieses Werkzeug ist genau EINE Uebersetzungseinheit -- neben der main.cpp liegt kein
+// Header, der die Helfer deklariert. Sie hatten trotzdem EXTERNE Bindung, also keine vorherige
+// Deklaration (-Wmissing-declarations, 5 Stellen). Der unbenannte Namensraum gibt ihnen interne
+// Bindung; damit ist die Ursache behoben statt die Warnung unterdrueckt. Qualifizierte Aufrufe der
+// Form `latex_anhang::parse_csv(...)` bleiben gueltig -- ein unbenannter Namensraum wirkt im
+// umschliessenden Namensraum wie eine using-Directive.
+namespace {
 
 inline constexpr int status_ok               = 0;
 inline constexpr int status_io_error         = 10;
@@ -203,6 +210,7 @@ struct CsvRow {
     return out.good() ? status_ok : status_io_error;
 }
 
+} // namespace
 } // namespace latex_anhang
 
 namespace {
@@ -243,7 +251,7 @@ int main(int argc, char const* const* argv) {
         if (eq == std::string_view::npos) {
             std::cerr << "Unknown arg: " << a << "\n";
             print_help();
-            return 4;
+            return latex_anhang::status_invalid_argument;
         }
         std::string_view k = a.substr(0, eq);
         std::string_view v = a.substr(eq + 1);
@@ -257,13 +265,13 @@ int main(int argc, char const* const* argv) {
             label = std::string(v);
         else {
             std::cerr << "Unknown flag: " << k << "\n";
-            return 4;
+            return latex_anhang::status_invalid_argument;
         }
     }
     if (input_path.empty() || output_path.empty()) {
         std::cerr << "Missing --input or --output\n";
         print_help();
-        return 4;
+        return latex_anhang::status_invalid_argument;
     }
 
     std::vector<latex_anhang::CsvRow> rows;

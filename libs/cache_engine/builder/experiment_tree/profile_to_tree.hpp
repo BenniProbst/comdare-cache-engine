@@ -61,6 +61,22 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
         return false;
     };
 
+    // BIDIREKTIONALITAET (block_id): jede statische Ebene traegt die Rueck-Referenz auf ihren AxisBlock.
+    // Die Konvention ist `block_id == axis` -- so setzt sie der compile-time-Pfad (axis_reflect.hpp:42:
+    // `/*block_id=*/std::string{axis}`), und genau so pruefen sie test_br1_subset, test_br1_full22_count
+    // ("jeder Knoten block_id()==axis()") und test_harness_compile ("!d.block_id().empty()").
+    // DER BEFUND: der PROFIL-Pfad hier liess das Feld an sieben Stellen leer (-Wmissing-field-initializers,
+    // GCC und clang). Als Speicher-Warnung war das Rauschen -- std::string wird wertinitialisiert, es gibt
+    // keinen unbestimmten Wert. Als FACHLOGIK war es ein Riss: profil-erzeugte Baeume verletzten eine
+    // Zusicherung, die drei Tests fuehren -- die Tests bauen ihre Baeume aber ueber den compile-time-Pfad
+    // und sahen den Bruch nie. GOLDEN-NEUTRAL, und das ist nachgesehen statt vermutet: block_id geht NICHT
+    // in den Schluessel ein (StaticAxisNode::serialize() == `axis_ + "=" + value_`), also weder in die
+    // binary_id noch in den golden-CRC.
+    auto statische_ebene = [](std::string axis, std::vector<std::string> werte) {
+        std::string block = axis; // Rueck-Referenz auf den AxisBlock
+        return AxisLevel{std::move(axis), std::move(werte), /*is_static=*/true, /*variable=*/"", std::move(block)};
+    };
+
     // 2. Freigegebene permute_axes → statische Ebenen.
     for (auto const& ax : tp.permute_axes) {
         if (!is_active(ax.ref)) continue;
@@ -80,25 +96,25 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
         // kNewGolden131072Crc64-Wache (source_catalog.hpp) ist genau der Schutz dagegen.
         if (!ax.active) continue;
         if (ax.ref == "cacheline") { // compile-time → statische Sub-Ebenen (Binary-Identität)
-            if (!ax.line_sizes.empty()) levels.push_back(AxisLevel{"cacheline.line_size", ax.line_sizes, true, ""});
-            if (!ax.alignments.empty()) levels.push_back(AxisLevel{"cacheline.alignment", ax.alignments, true, ""});
+            if (!ax.line_sizes.empty()) levels.push_back(statische_ebene("cacheline.line_size", ax.line_sizes));
+            if (!ax.alignments.empty()) levels.push_back(statische_ebene("cacheline.alignment", ax.alignments));
             if (!ax.sw_prefetch_hints.empty())
-                levels.push_back(AxisLevel{"cacheline.sw_hint", ax.sw_prefetch_hints, true, ""});
+                levels.push_back(statische_ebene("cacheline.sw_hint", ax.sw_prefetch_hints));
             continue;
         }
         if (ax.ref == "node_width") { // C2/FF2: Knoten-Breite in Cache-Lines, compile-time → statische Sub-Ebene.
             // Exakt das cacheline-Muster: NUR wenn ein Profil die Achse deklariert UND aktiviert, entsteht eine
             // Ebene (Binary-Identität); ohne Profil-Aktivierung ändert sich KEINE binary_id.
             if (!ax.width_in_lines.empty())
-                levels.push_back(AxisLevel{"node_width.width_in_lines", ax.width_in_lines, true, ""});
+                levels.push_back(statische_ebene("node_width.width_in_lines", ax.width_in_lines));
             continue;
         }
         if (ax.ref == "alloc_hw") { // F-B: NUMA/Page→allocator, compile-time → statische Sub-Ebenen.
             // Exakt das cacheline-/node_width-Muster: NUR wenn ein Profil die Achse deklariert UND aktiviert,
             // entstehen Ebenen (Binary-Identität); ohne Profil-Aktivierung ändert sich KEINE binary_id.
             if (!ax.alloc_numa_nodes.empty())
-                levels.push_back(AxisLevel{"alloc_hw.numa_node", ax.alloc_numa_nodes, true, ""});
-            if (!ax.alloc_pages.empty()) levels.push_back(AxisLevel{"alloc_hw.page", ax.alloc_pages, true, ""});
+                levels.push_back(statische_ebene("alloc_hw.numa_node", ax.alloc_numa_nodes));
+            if (!ax.alloc_pages.empty()) levels.push_back(statische_ebene("alloc_hw.page", ax.alloc_pages));
             continue;
         }
         // #1-Fix (9dim-G1 == Ketten-A1): STRUKTURELLER Organ-only-binary_id-Guard. Nur die 17 Organ-
@@ -114,7 +130,7 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
             auto it = registry.find(ax.ref);
             if (it != registry.end()) vals = it->second;
         }
-        if (!vals.empty()) levels.push_back(AxisLevel{ax.ref, std::move(vals), true, ""});
+        if (!vals.empty()) levels.push_back(statische_ebene(ax.ref, std::move(vals)));
     }
 
     // 3. runtime_dynamic → dynamische Ebenen (Laufzeit-for-Schleife). DIE EINZIGE Quelle dieser Dimensionen

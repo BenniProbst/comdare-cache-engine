@@ -19,14 +19,6 @@ namespace comdare::p27 {
 
 namespace {
 
-// Strip leading + trailing whitespace.
-std::string_view trim(std::string_view s) {
-    auto first = s.find_first_not_of(" \t\r\n");
-    if (first == std::string_view::npos) return {};
-    auto last = s.find_last_not_of(" \t\r\n");
-    return s.substr(first, last - first + 1);
-}
-
 // Parse hex literal "0x1abc" or "1abc" (no prefix). Returns 0 on failure.
 std::uint64_t parse_hex(std::string_view s) {
     if (s.starts_with("0x") || s.starts_with("0X")) s.remove_prefix(2);
