@@ -100,7 +100,7 @@ struct Bilanz {
 
 } // namespace
 
-// ── DIE ZUSICHERUNG ────────────────────────────────────────────────────────────────────────────
+// -- DIE ZUSICHERUNG ------------------------------------------------------------------------------
 TEST(Warn2aBlockIdBidirektional, JedeProfilErzeugteStatischeEbeneTraegtIhrenBlock) {
     ex::AxisRegistry const leere_registry; // Werte sind explizit -> Registry wird nicht gebraucht
     auto const             levels = ex::build_axis_levels(profil_mit_allen_zweigen(), "", leere_registry);
@@ -119,7 +119,7 @@ TEST(Warn2aBlockIdBidirektional, JedeProfilErzeugteStatischeEbeneTraegtIhrenBloc
     EXPECT_EQ(b.konform, b.statische) << bericht;
 }
 
-// ── DER GEGENEINGANG (T-4): ein Eingang, bei dem die Zusicherung FAELLT ─────────────────────────
+// -- DER GEGENEINGANG (T-4): ein Eingang, bei dem die Zusicherung FAELLT --------------------------
 // Ohne ihn koennte `traegt_seinen_block` konstant true liefern und der Test waere blind.
 // Hier wird GENAU der Zustand nachgestellt, den der Profil-Pfad vor der Heilung erzeugte.
 TEST(Warn2aBlockIdBidirektional, DasOrakelUnterscheidetTatsaechlich) {
