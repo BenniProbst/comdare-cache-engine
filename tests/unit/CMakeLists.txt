@@ -3150,7 +3150,11 @@ target_include_directories(test_t2a_f4_facade_plan_durchreichung PRIVATE
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_t2a_f4_facade_plan_durchreichung PRIVATE Boost::mp11
-    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser)
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    # A9-S5: profile_run_entry.hpp haengt jetzt die Ergebnis-Mappe ein. ErgebnisMappenFactory::oeffne()
+    # ist inline im Header und ODR-nutzt detail::erzeuge_xlsx_ergebnis_mappe() in JEDEM Zweig -- wer den
+    # Entry-Header inkludiert, linkt deshalb comdare::lager_ablage (gleiche Lage wie die a9s3-Tests).
+    comdare::lager_ablage)
 comdare_set_platform_defines(test_t2a_f4_facade_plan_durchreichung)
 target_compile_definitions(test_t2a_f4_facade_plan_durchreichung PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
@@ -3207,7 +3211,10 @@ target_include_directories(test_lagp2_messwert_genus PRIVATE
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_lagp2_messwert_genus PRIVATE Boost::mp11
-    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser)
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    # A9-S5, Schwesterstelle zu test_t2a_f4_facade_plan_durchreichung: derselbe ODR-Use ueber
+    # <profile_facade/profile_run_entry.hpp> (Zeile 51 dieser Testdatei).
+    comdare::lager_ablage)
 comdare_set_platform_defines(test_lagp2_messwert_genus)
 target_compile_definitions(test_lagp2_messwert_genus PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
@@ -5766,6 +5773,23 @@ target_link_libraries(test_a9s3_mess_ebene_blattsorte PRIVATE
     comdare::lager_ablage comdare::vendored_zlib)
 set_tests_properties(test_a9s3_mess_ebene_blattsorte PROPERTIES
     LABELS "a9;xlsx;lager;fassung3;mess_ebene")
+
+# A9-S5 (2026-08-09) -- die NAHT: Format-Entscheidung + Feld-Adapter + die Mappe neben der offiziellen
+# CSV (profile_facade/ergebnis_mappe_naht.hpp). Bis hierher hatte der xlsx-Writer NULL Produktions-
+# Aufrufer; dieser Test ist der erste, der die beiden geschuldeten Zusicherungen prueft (leeres
+# <writeback_methods> => echte xlsx / csv gewaehlt => flache Sheets, keine xlsx).
+# Braucht comdare::lager_ablage wie jeder Konsument der Factory (ODR-Use von
+# detail::erzeuge_xlsx_ergebnis_mappe auch im csv-Zweig -- s. Kommentar bei test_a9s3_ergebnis_mappe_csv).
+comdare_add_test(test_a9s5_ergebnis_mappe_naht
+    SOURCES test_a9s5_ergebnis_mappe_naht.cpp)
+target_include_directories(test_a9s5_ergebnis_mappe_naht PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
+target_link_libraries(test_a9s5_ergebnis_mappe_naht PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s5_ergebnis_mappe_naht PROPERTIES
+    LABELS "a9;xlsx;lager;naht;format_wahl")
 
 # ===================================================================================================
 # MS-1 / MS-2 (2026-08-09) -- MeasureStorage: die ZWEI ARENEN und ihr Allokations-Beweis.

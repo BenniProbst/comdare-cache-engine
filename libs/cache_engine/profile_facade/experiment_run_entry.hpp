@@ -254,11 +254,23 @@ struct RunExperimentResult {
     }
     csv << ex::lazy_csv_header();
 
+    // -- A9-S5 (2026-08-09): DIESELBEN Zeilen ZUSAETZLICH in eine Ergebnis-Mappe (Schwesterstelle zu
+    // profile_run_entry.hpp -- T-6: derselbe Fix an beiden Naehten, nicht nur an der ersten). ADDITIV:
+    // der rohe CSV-Strom bleibt unangetastet. Format aus <writeback_methods>, LEER/FEHLEND => xlsx.
+    ::comdare::cache_engine::lager_naht::MappenNaht mappe;
+    mappe.oeffnen(a.out_csv, ep.writeback_methods);
+    mappe.kopf_aus_csv(ex::lazy_csv_header());
+    std::cout << "  [MAPPE] " << mappe.diagnose() << (mappe.scharf() ? "  ziel=" + mappe.ziel().string() : "")
+              << "\n";
+
     auto emit = [&](ex::LazyRunResult const& r) {
         csv << r.resumed_csv_rows;
         std::vector<ex::LazyMeasuredRow> rows = r.csv_rows; // lokale, mutierbare Kopie (LazyRunResult unberührt)
         ex::annotate_quality_flags(rows); // gate-freier additiver quality_flag (#165-B), wie run_profile
         for (auto const& row : rows) csv << ex::format_csv_row(row);
+        // A9-S5: dieselben Zeilen in die Mappe (aus derselben In-Memory-Quelle, nie aus der Datei).
+        mappe.blob_aus_csv(r.resumed_csv_rows);
+        for (auto const& row : rows) mappe.zeile_aus_csv(ex::format_csv_row(row));
         res.sota_rows += count_lines(r.resumed_csv_rows) + rows.size();
         res.any_measured += r.measured;
         res.any_resumed += r.resumed_binaries;
@@ -494,6 +506,19 @@ struct RunExperimentResult {
 
     csv.flush();
     bool const csv_ok = csv.good();
+
+    // A9-S5: die Mappe schliessen -- ihr einziger Datei-Schreibvorgang, NACH der Mess-Schleife.
+    // Nicht exit-wirksam (additiv neben der offiziellen CSV), aber beobachtbar: mappe_ok + Grund unten.
+    bool mappe_ok = false;
+    if (mappe.scharf()) {
+        ::comdare::cache_engine::builder::lager_ablage::MaschinenSysinfo sysinfo;
+        sysinfo.hostname = ::comdare::cache_engine::measurement::live_hostname();
+        mappe_ok         = mappe.schliessen(sysinfo, {}, {});
+    }
+    std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen()
+              << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
+              << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
+
     std::cout << "RUN_EXPERIMENT fertig: phasen=" << res.phases << " sota_rows=" << res.sota_rows
               << " sota_ids=" << res.sota_binary_ids << " measured=" << res.any_measured
               << " resumed=" << res.any_resumed << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string()
