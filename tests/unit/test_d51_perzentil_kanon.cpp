@@ -68,7 +68,7 @@ namespace {
 // EINMAL gewuerfelt: `od -An -N8 -tu8 /dev/urandom` am 2026-08-09.
 constexpr std::uint64_t kSeed = 3302311281923860264ULL;
 
-// ─────────────────────────────────────────────────────────────────────────────────────────────
+// =============================================================================================
 // ORAKEL (T-5) -- ZWEITIMPLEMENTIERT aus der DEFINITION, nicht aus der Index-Formel.
 //
 // Nearest-Rank-Perzentil, Lehrbuch: P(q) ist der KLEINSTE Stichprobenwert v, fuer den mindestens
@@ -78,7 +78,7 @@ constexpr std::uint64_t kSeed = 3302311281923860264ULL;
 // KOEDER-ANKER: die Rang-Rechnung hat GENAU ZWEI Summanden --
 //   Summand 1 = das Produkt q*n unter dem ceil,  Summand 2 = die Rang-Korrektur (+ 0).
 // Der Mutations-Koeder addiert delta = +-1 auf GENAU EINEN davon und muss den Test rot faerben.
-// ─────────────────────────────────────────────────────────────────────────────────────────────
+// =============================================================================================
 [[nodiscard]] std::size_t orakel_rang(double q, std::size_t n) {
     if (n == 0) return 0;
     if (q <= 0.0) return 1;
@@ -110,9 +110,9 @@ constexpr std::uint64_t kSeed = 3302311281923860264ULL;
     return hat ? best : *std::max_element(s.begin(), s.end());
 }
 
-// ─────────────────────────────────────────────────────────────────────────────────────────────
+// =============================================================================================
 // QUELLTEXT-ZENSUS -- whitespace-kollabiert, damit clang-format-Umbrueche ihn nicht blenden.
-// ─────────────────────────────────────────────────────────────────────────────────────────────
+// =============================================================================================
 [[nodiscard]] std::string kollabiert(std::filesystem::path const& p) {
     std::ifstream in(p, std::ios::binary);
     std::string   roh((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -158,9 +158,9 @@ constexpr std::uint64_t kSeed = 3302311281923860264ULL;
     return n;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────────────────────
+// =============================================================================================
 // Token-Extraktion aus den REAL rendernden Ausgabepfaden (kein Nachbau -- der echte Serialisierer).
-// ─────────────────────────────────────────────────────────────────────────────────────────────
+// =============================================================================================
 [[nodiscard]] std::int64_t json_feld(std::string const& js, std::string_view name) {
     std::string const schluessel = "\"" + std::string(name) + "\":";
     std::size_t const pos        = js.find(schluessel);
@@ -293,7 +293,7 @@ TEST(D51PerzentilKanon, DefinitionenWacheDrucktEins) {
 
 TEST(D51PerzentilKanon, NearestRankPIstErsatzlosGeloescht) {
     // GEZAEHLT WIRD DIE CODE-FORM `nearest_rank_p(` -- Deklaration ODER Aufruf. Sie muss 0 sein:
-    // ersatzlos geloescht heisst, dass keine Uebersetzungseinheit den Namen mehr auflösen kann.
+    // ersatzlos geloescht heisst, dass keine Uebersetzungseinheit den Namen mehr aufloesen kann.
     // Die BLOSSE ERWAEHNUNG ohne Klammer bleibt ausdruecklich erlaubt und wird nur GEDRUCKT: die
     // Kopfkommentare halten fest, WELCHE Formel warum verworfen wurde ("Doku wird nie geloescht").
     std::filesystem::path const wurzel{COMDARE_D51_ZENSUS_ROOT_CE};
