@@ -421,8 +421,8 @@ TEST(D55HdrPersistenz, PersistierteKanonUndHdrZahlenStimmenMitDerAuswertungUeber
     std::filesystem::path const ziel = dir / "lauf.hdr.hgrm";
 
     ASSERT_TRUE(auswertung::hdr_lauf_persistieren(as_span(v), ziel, "gewuerfelter-lauf"));
-    std::string const                 inhalt = datei_lesen(ziel);
-    auswertung::HdrAuswertung const   a      = auswertung::hdr_auswerten(as_span(v));
+    std::string const               inhalt = datei_lesen(ziel);
+    auswertung::HdrAuswertung const a      = auswertung::hdr_auswerten(as_span(v));
 
     for (auto const& [name, paar] : {std::pair{"p50", a.p50}, std::pair{"p95", a.p95}, std::pair{"p99", a.p99}}) {
         std::string const marke = "#[" + std::string{name} + " kanon_ns=" + std::to_string(paar.kanon_ns) +

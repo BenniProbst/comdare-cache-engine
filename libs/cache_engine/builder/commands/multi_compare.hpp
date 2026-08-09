@@ -84,7 +84,7 @@ struct MultiCompareReport {
     std::vector<std::size_t> idx_welch, idx_mwu;
 
     std::span<const std::int64_t> const base_samples{baseline.latency_samples_ns};
-    bool const                         baseline_tot = proben_sind_tot(base_samples);
+    bool const                          baseline_tot = proben_sind_tot(base_samples);
     for (auto const& c : candidates) {
         PairwiseComparison pc;
         pc.name = c.engine_name;
@@ -158,10 +158,10 @@ struct MultiCompareSummary {
     // decken `total` VOLLSTAENDIG ab. Vorher wurden die degenerierten unter not_significant
     // gefuehrt -- damit war "kein Unterschied gemessen" von "nie gemessen" nicht zu trennen, und
     // die win_rate teilte durch eine Grundgesamtheit, in der nie gemessene Zellen mitzaehlten.
-    std::size_t getestet{0};         ///< Nenner der win_rate: Kandidaten in der Welch-Familie
-    std::size_t degeneriert{0};      ///< total - getestet (nicht testbar, KEIN Messbefund)
-    std::size_t getestet_mwu{0};     ///< Nenner der robusten Quote (eigene Familie, eigenes m)
-    std::size_t degeneriert_mwu{0};  ///< total - getestet_mwu
+    std::size_t getestet{0};        ///< Nenner der win_rate: Kandidaten in der Welch-Familie
+    std::size_t degeneriert{0};     ///< total - getestet (nicht testbar, KEIN Messbefund)
+    std::size_t getestet_mwu{0};    ///< Nenner der robusten Quote (eigene Familie, eigenes m)
+    std::size_t degeneriert_mwu{0}; ///< total - getestet_mwu
 };
 
 /// D4c -- die Headline-Zahl mit ihrer Grundgesamtheit in EINER Zeile. Sie steht hier und nicht

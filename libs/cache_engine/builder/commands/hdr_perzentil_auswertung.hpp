@@ -253,8 +253,8 @@ auswertung_bauen(std::span<std::int64_t const>                                  
 /// Fehlende Elternverzeichnisse werden angelegt. false = Zielverzeichnis nicht anlegbar, Datei nicht
 /// zu oeffnen, oder ein Schreibfehler -- in allen drei Faellen ist die Datei NICHT gueltig, und der
 /// Aufrufer muss das melden statt sie fuer geschrieben zu halten.
-[[nodiscard]] inline bool hdr_lauf_persistieren(std::span<std::int64_t const> proben,
-                                                std::filesystem::path const& ziel, std::string_view lauf_kennung) {
+[[nodiscard]] inline bool hdr_lauf_persistieren(std::span<std::int64_t const> proben, std::filesystem::path const& ziel,
+                                                std::string_view lauf_kennung) {
     auto const          hist = ::comdare::cache_engine::measurement::LatencyHdrHistogram::from_samples(proben);
     HdrAuswertung const a    = detail::auswertung_bauen(proben, hist);
 
@@ -270,21 +270,22 @@ auswertung_bauen(std::span<std::int64_t const>                                  
     std::string const kennung{lauf_kennung};
     // Der Kopf ist bewusst '#'-kommentiert: hdr_percentiles_print haengt seinen eigenen '#'-Fuss an,
     // die Datei bleibt so durchgehend im selben Kommentar-Stil und Zeile-fuer-Zeile greppbar.
-    int rc = std::fprintf(strom,
-                          "#[comdare D5-5 HDR-Histogramm, je Lauf persistiert]\n"
-                          "#[lauf=%s]\n"
-                          "#[significant_figures=%d]\n"
-                          "#[toleranz_rel=%.10f]\n"
-                          "#[histogramm_bereit=%d]\n"
-                          "#[vorgelegt=%lld]\n"
-                          "#[aufgezeichnet=%lld]\n"
-                          "#[verworfen_null=%lld]\n"
-                          "#[verworfen_negativ=%lld]\n"
-                          "#[verworfen_ausserhalb=%lld]\n",
-                          kennung.c_str(), ::comdare::cache_engine::measurement::LatencyHdrHistogram::kSignifikanteStellen,
-                          a.toleranz_rel, a.histogramm_bereit ? 1 : 0, static_cast<long long>(a.vorgelegt),
-                          static_cast<long long>(a.aufgezeichnet), static_cast<long long>(a.verworfen_null),
-                          static_cast<long long>(a.verworfen_negativ), static_cast<long long>(a.verworfen_ausserhalb));
+    int rc =
+        std::fprintf(strom,
+                     "#[comdare D5-5 HDR-Histogramm, je Lauf persistiert]\n"
+                     "#[lauf=%s]\n"
+                     "#[significant_figures=%d]\n"
+                     "#[toleranz_rel=%.10f]\n"
+                     "#[histogramm_bereit=%d]\n"
+                     "#[vorgelegt=%lld]\n"
+                     "#[aufgezeichnet=%lld]\n"
+                     "#[verworfen_null=%lld]\n"
+                     "#[verworfen_negativ=%lld]\n"
+                     "#[verworfen_ausserhalb=%lld]\n",
+                     kennung.c_str(), ::comdare::cache_engine::measurement::LatencyHdrHistogram::kSignifikanteStellen,
+                     a.toleranz_rel, a.histogramm_bereit ? 1 : 0, static_cast<long long>(a.vorgelegt),
+                     static_cast<long long>(a.aufgezeichnet), static_cast<long long>(a.verworfen_null),
+                     static_cast<long long>(a.verworfen_negativ), static_cast<long long>(a.verworfen_ausserhalb));
 
     // Beide Perzentil-Zahlen wandern MIT in die Datei: wer sie spaeter liest, soll den Kanon nicht
     // aus der Bucket-Verteilung zurueckrechnen muessen (er stuende dort gar nicht drin).
@@ -292,10 +293,10 @@ auswertung_bauen(std::span<std::int64_t const>                                  
         if (rc < 0) break;
         // vergleichbar=0 heisst: abweichung_rel in DIESER Zeile ist bedeutungslos (Kanon 0 ns, HDR
         // nicht). Wer die Datei auswertet, darf die Zahl dann nicht mitteln oder auftragen.
-        rc = std::fprintf(strom,
-                          "#[%s kanon_ns=%lld hdr_ns=%lld abweichung_rel=%.10f in_toleranz=%d vergleichbar=%d]\n", name,
-                          static_cast<long long>(paar.kanon_ns), static_cast<long long>(paar.hdr_ns),
-                          paar.abweichung_rel, paar.in_toleranz ? 1 : 0, paar.vergleichbar ? 1 : 0);
+        rc =
+            std::fprintf(strom, "#[%s kanon_ns=%lld hdr_ns=%lld abweichung_rel=%.10f in_toleranz=%d vergleichbar=%d]\n",
+                         name, static_cast<long long>(paar.kanon_ns), static_cast<long long>(paar.hdr_ns),
+                         paar.abweichung_rel, paar.in_toleranz ? 1 : 0, paar.vergleichbar ? 1 : 0);
     }
 
     bool const verteilung_ok = (rc >= 0) && hist.verteilung_schreiben(strom);

@@ -148,8 +148,8 @@ bool write_text_file(std::string const& path, std::string const& content) {
     std::string out;
     out.reserve(name.size());
     for (char const c : name) {
-        bool const ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' ||
-                        c == '_';
+        bool const ok =
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_';
         out.push_back(ok ? c : '_');
     }
     if (out.empty()) out = "unbenannt";
@@ -188,9 +188,9 @@ int main(int argc, char** argv) {
     }
     std::filesystem::path const dll_dir{dll_dir_str};
 
-    double                  alpha    = 0.05;
-    std::uint64_t           baseline = 0, ops = 2000, batches = 128, seed = 11;
-    std::string             csv_path, json_path, observe_out, pipeline_csv;
+    double        alpha    = 0.05;
+    std::uint64_t baseline = 0, ops = 2000, batches = 128, seed = 11;
+    std::string   csv_path, json_path, observe_out, pipeline_csv;
     // D5-5: Verzeichnis fuer die je-Lauf persistierten HDR-Histogramme (Owner-Termin 3). Leer =>
     // keine Ablage => byte-identisches Verhalten zu vorher (Anti-Phantom, wie bei --csv/--json).
     std::string             hdr_out_dir;

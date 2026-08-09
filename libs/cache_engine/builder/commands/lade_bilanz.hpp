@@ -41,12 +41,12 @@ namespace comdare::cache_engine::builder::commands {
 /// eine Bilanz, die nicht aufgeht, bedeutet, dass ein Pfad durch die Lade-Schleife existiert, der
 /// keine Kategorie erhoeht -- also eine still verschwundene Binary.
 struct LadeBilanz {
-    std::size_t geladen{0};             ///< NENNER: vom Loader geoeffnete Module
-    std::size_t nicht_messfaehig{0};    ///< A: kein IMeasurableWorkload
-    std::size_t konformitaet_fehlt{0};  ///< B: std::map-Huellen-Gate nicht bestanden
-    std::size_t zu_wenige_proben{0};    ///< C: run_workload lieferte < 2 Samples
-    std::size_t tote_proben{0};         ///< D: Proben da, aber keine einzige > 0 (D4d)
-    std::size_t gemessen{0};            ///< in die Auswertung uebernommen
+    std::size_t geladen{0};            ///< NENNER: vom Loader geoeffnete Module
+    std::size_t nicht_messfaehig{0};   ///< A: kein IMeasurableWorkload
+    std::size_t konformitaet_fehlt{0}; ///< B: std::map-Huellen-Gate nicht bestanden
+    std::size_t zu_wenige_proben{0};   ///< C: run_workload lieferte < 2 Samples
+    std::size_t tote_proben{0};        ///< D: Proben da, aber keine einzige > 0 (D4d)
+    std::size_t gemessen{0};           ///< in die Auswertung uebernommen
 
     /// Summe der fuenf Kategorien.
     [[nodiscard]] constexpr std::size_t verbucht() const noexcept {
@@ -70,8 +70,9 @@ struct LadeBilanz {
                         std::to_string(konformitaet_fehlt) + " Konformitaet + " + std::to_string(zu_wenige_proben) +
                         " zu wenige Proben + " + std::to_string(tote_proben) + " tote Proben";
         if (!summe_stimmt()) {
-            s += "  [BEFUND: Summe geht NICHT auf, verbucht=" + std::to_string(verbucht()) + " gegen geladen=" +
-                 std::to_string(geladen) + " -- es gibt einen unverbuchten Pfad durch die Lade-Schleife]";
+            s += "  [BEFUND: Summe geht NICHT auf, verbucht=" + std::to_string(verbucht()) +
+                 " gegen geladen=" + std::to_string(geladen) +
+                 " -- es gibt einen unverbuchten Pfad durch die Lade-Schleife]";
         }
         return s;
     }

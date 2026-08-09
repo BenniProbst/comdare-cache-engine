@@ -62,7 +62,7 @@
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp>    // R6 Inkrement 2: ABI-Fuellstands-Treiber
 
 #include <chrono>
-#include <cmath>  // D4a: std::isfinite / std::nan im Degenerations-Praedikat-Test
+#include <cmath> // D4a: std::isfinite / std::nan im Degenerations-Praedikat-Test
 #include <cstdint>
 #include <filesystem>
 #include <limits> // D4a: numeric_limits<double>::infinity() als zweiter nicht-endlicher Eingang
@@ -852,7 +852,7 @@ TEST(F15WelchDegeneriert, DegenerationsPraedikatHatBeideRichtungen) {
     // Das Praedikat ist die EINE Stelle, an der "degeneriert" entschieden wird; es wird hier
     // direkt befragt, damit auch der zweite Ausloeser (nicht-endlicher p-Wert) eine Zusicherung
     // hat und nicht nur als toter Zweig im Header steht (T-2: Aussage statt Anwesenheit).
-    EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(0.0, 1.0));  // se == 0
+    EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(0.0, 1.0));   // se == 0
     EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(-1.0, 0.01)); // se < 0 (fail-closed)
     EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(2.5, std::nan("")));
     EXPECT_TRUE(stats::welch_ergebnis_ist_degeneriert(2.5, std::numeric_limits<double>::infinity()));
@@ -996,15 +996,15 @@ std::vector<std::int64_t> fein_samples(std::int64_t center, std::size_t n) {
 // Die sieben ECHTEN Kandidaten. Der erste ist der KIPP-KANDIDAT: sein Roh-p liegt zwischen
 // 0.05/9 und 0.05/7, er ist also bei m=9 nicht signifikant und bei m=7 signifikant. Genau daran
 // haengt die Headline-Zahl der Arbeit.
-constexpr std::int64_t kKippVersatz         = 734;
-constexpr std::int64_t kEchteVersaetze[7]   = {734, 700, 640, 560, 470, 360, 230};
-constexpr std::size_t  kSamplesJeKandidat   = 40;
-constexpr std::int64_t kBasisZentrum        = 100000;
+constexpr std::int64_t kKippVersatz       = 734;
+constexpr std::int64_t kEchteVersaetze[7] = {734, 700, 640, 560, 470, 360, 230};
+constexpr std::size_t  kSamplesJeKandidat = 40;
+constexpr std::int64_t kBasisZentrum      = 100000;
 } // namespace
 
 TEST(F15BonferroniNenner, DegenerierteKandidatenVerduennenDieFamilieNichtMehr) {
     // ── Aufbau: 7 echte Kandidaten + 2 degenerierte, ZWEI VERSCHIEDENER Degenerations-Klassen.
-    auto const baseline_samples = fein_samples(kBasisZentrum, kSamplesJeKandidat);
+    auto const           baseline_samples = fein_samples(kBasisZentrum, kSamplesJeKandidat);
     cmd::ExecutionResult baseline{};
     baseline.engine_name        = "baseline";
     baseline.latency_samples_ns = baseline_samples;
@@ -1094,7 +1094,8 @@ TEST(F15BonferroniNenner, WinRateTeiltDurchDieGetesteteMengeUndNennntSie) {
     eine.latency_samples_ns = {4711};
 
     std::vector<cmd::ExecutionResult> cands{schnell, gleich, tot, eine};
-    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const                        rep =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
     auto const sum = stats::summarize(rep);
 
     EXPECT_EQ(sum.total, 4u);
@@ -1127,7 +1128,8 @@ TEST(F15BonferroniNenner, ToteProbenGewinnenNichtDenVergleich) {
     tot.latency_samples_ns = std::vector<std::int64_t>(35, 0); // KOEDER, gewuerfelt: n=35
     std::vector<cmd::ExecutionResult> cands{tot};
 
-    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const rep =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
     ASSERT_EQ(rep.comparisons.size(), 1u);
     EXPECT_TRUE(rep.comparisons[0].proben_tot);
     EXPECT_FALSE(rep.comparisons[0].getestet_welch);
@@ -1153,7 +1155,8 @@ TEST(F15BonferroniNenner, ToteBaselineMachtJedenVergleichUngetestet) {
     b.latency_samples_ns = fein_samples(kBasisZentrum - 5000, kSamplesJeKandidat);
     std::vector<cmd::ExecutionResult> cands{a, b};
 
-    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const rep =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
     auto const sum = stats::summarize(rep);
     EXPECT_EQ(sum.getestet, 0u);
     EXPECT_EQ(sum.degeneriert, 2u);
@@ -1176,7 +1179,8 @@ TEST(F15BonferroniNenner, GesundeFamilieBleibtUnveraendert) {
         c.latency_samples_ns = fein_samples(kBasisZentrum - kEchteVersaetze[i], kSamplesJeKandidat);
         cands.push_back(c);
     }
-    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const rep =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
     auto const sum = stats::summarize(rep);
     EXPECT_EQ(sum.total, 7u);
     EXPECT_EQ(sum.getestet, 7u);
@@ -1202,7 +1206,8 @@ TEST(F15ExportRobust, CsvUndJsonTragenDieDegenerationsFelderUndDenNenner) {
     tot.engine_name        = "tot";
     tot.latency_samples_ns = std::vector<std::int64_t>(35, 0);
     std::vector<cmd::ExecutionResult> cands{schnell, tot};
-    auto const rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto const                        rep =
+        stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
 
     auto const csv = stats::report_to_csv(rep);
     EXPECT_NE(csv.find("welch_degeneriert,mwu_degeneriert,proben_tot,getestet_welch,getestet_mwu"), std::string::npos)
@@ -1230,7 +1235,7 @@ TEST(F15ExportRobust, CsvUndJsonTragenDieDegenerationsFelderUndDenNenner) {
 
 TEST(F15ProbenSindTot, LauterNullenIstKeinErfolgSondernDegeneration) {
     std::vector<std::int64_t> const nullen(35, 0); // KOEDER, gewuerfelt
-    auto const r = cmd::make_execution_result("tote_dll", nullen);
+    auto const                      r = cmd::make_execution_result("tote_dll", nullen);
     ASSERT_EQ(r.latency_samples_ns.size(), 35u) << "die Proben SIND da -- nur ohne Aussage";
     EXPECT_FALSE(r.success);
     EXPECT_TRUE(r.degeneriert);
@@ -1285,8 +1290,8 @@ TEST(F15ProbenSindTot, ResultCsvHeaderIstEINGEFROREN) {
     // Die Zeile traegt genau so viele Felder wie der Kopf Spalten hat -- ein Kopf, der laenger
     // ist als seine Zeilen, waere ein CSV, das niemand bemerkt, bis die Auswertung schief liegt.
     cmd::ExecutionResult r{};
-    r.engine_name              = "x";
-    auto const zaehle_kommata  = [](std::string const& s) { return std::count(s.begin(), s.end(), ','); };
+    r.engine_name             = "x";
+    auto const zaehle_kommata = [](std::string const& s) { return std::count(s.begin(), s.end(), ','); };
     EXPECT_EQ(zaehle_kommata(cmd::to_csv_row(r)), zaehle_kommata(cmd::result_csv_header()));
     EXPECT_NE(cmd::to_json_object(r).find("\"degeneriert\":"), std::string::npos);
 }
@@ -1369,11 +1374,11 @@ TEST(F15LadeBilanz, DieVierteGruppeEntstehtAusMakeExecutionResult) {
     // ExecutionResult::degeneriert. Hier wird genau diese Kette in Miniatur gefahren, mit dem
     // gewuerfelten Koeder aus D4d (35 Nullen), damit die CLI-Aenderung ein Orakel hat, das ohne
     // DLL-Laden auskommt.
-    cmd::LadeBilanz           b{};
+    cmd::LadeBilanz                        b{};
     std::vector<std::vector<std::int64_t>> proben_je_dll{
-        {10, 20, 30, 40},                     // echt
-        std::vector<std::int64_t>(35, 0),     // KOEDER, gewuerfelt: tot
-        {11, 22, 33},                         // echt
+        {10, 20, 30, 40},                 // echt
+        std::vector<std::int64_t>(35, 0), // KOEDER, gewuerfelt: tot
+        {11, 22, 33},                     // echt
     };
     b.geladen = proben_je_dll.size();
     for (auto& p : proben_je_dll) {
