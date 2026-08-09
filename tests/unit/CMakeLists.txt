@@ -2173,6 +2173,12 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_a15_fk4_organ_slot_traits    # A15 / FK-4: Organ-SLOT-Fehlerraeume T0..T17 (Namen gegen
                                        #         kCompositionAxisNames, 18 gegen abi::kOrganAxisCount, D2-Saetze
                                        #         deckungsgleich zu FK-5 = Anti-Parallelstruktur-Wache)
+    test_fk6_algo_error_classes       # FK-6: ALGORITHMEN-Fehlerraeume (die per-Varianten-Verfeinerung, die
+                                       #         FK-5 als "deklarierte Luecke" offen liess). BEDINGT statt
+                                       #         flaechig: gemessen tragen 26 von 126 registrierten Varianten
+                                       #         requires_specialized_hardware(), GENAU 1 meldet true
+                                       #         (pim_malloc -> quelle_nicht_verfuegbar). Koeder-Proben +
+                                       #         Uebergangsliste (Laenge 0, darf nur schrumpfen)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")

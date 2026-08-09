@@ -184,6 +184,19 @@ inline void guard_all_registered_organ_error_classes() {
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, AllRegisteredOrganVariantsFlat>>([](auto id) {
         using W = typename decltype(id)::type;
         ::comdare::cache_engine::topics::assert_organ_axis_error_classes<W>();
+        // FK-6 (09.08.2026) -- die ALGORITHMEN-Ebene, auf DERSELBEN Population und in DERSELBEN
+        // Schleife. Die Zeile darueber prueft, DASS ein Fehlerraum da und nicht leer ist (Achsen-
+        // Ebene); diese prueft, ob er fuer DIESEN Algorithmus AUSREICHT -- die per-Varianten-
+        // Verfeinerung, die der FK-5-Header als "deklarierte Luecke" offen gelassen hatte.
+        //
+        // SIE IST BEDINGT, NICHT FLAECHIG, und das ist ein MESSERGEBNIS (Zahlen in
+        // organ_axis_error_classes.hpp): von 126 registrierten Organ-Varianten braucht GENAU EINE
+        // eine Klasse, die ihre Achse nicht fuehrt (pim_malloc -> quelle_nicht_verfuegbar). Eine
+        // flaechige Pflicht haette 126 Abschriften erzwungen und kein falsches Etikett verhindert.
+        // Der Bau IST die Durchsetzung: eine kuenftige HW-gatete Variante (OD-5 nennt GPU/FPGA
+        // ausdruecklich) ohne die Klasse bricht HIER, mit dem Typ-Namen -- nicht erst in einer CSV,
+        // in der "keine PIM-Einheit vorhanden" als "Allokator gescheitert" gelesen haette.
+        ::comdare::cache_engine::topics::assert_algo_error_classes<W>();
     });
 }
 

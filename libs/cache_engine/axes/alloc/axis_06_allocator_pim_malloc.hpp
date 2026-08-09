@@ -26,6 +26,7 @@
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
+#include <array> // FK-6: der algorithmen-eigene Fehlerraum-Satz (2 Etiketten)
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -90,6 +91,28 @@ public:
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept {
         return true;
     } // SONDERFALL: PIM-Hardware-Pflicht
+
+    /// FK-6 (A15 EBENE 4, ALGORITHMEN-Ebene) -- DER EINE Fall im Bestand, in dem der Fehlerraum des
+    /// ALGORITHMUS ueber den seiner ACHSE hinausgeht. Gemessen 09.08.2026: von 126 registrierten
+    /// Organ-Varianten tragen 26 ueberhaupt requires_specialized_hardware(), und GENAU DIESE EINE
+    /// meldet true. Fuer die uebrigen 125 deckt die Achse den Raum vollstaendig ab -- deshalb steht
+    /// hier eine Deklaration und nicht in 126 Dateien eine Abschrift.
+    ///
+    /// WARUM 'quelle_nicht_verfuegbar' UND NICHT 'mess_fehler': pim_alloc() misst gegen PIM-DPU-
+    /// Hardware (UPMEM, Samsung HBM-PIM, SK Hynix AiM). Auf einer CPU-Flotte ist die schlicht NICHT
+    /// DA -- der Vendor-Shim liefert dann einen nullptr-Stub (vendor_includes/pim_malloc_include.hpp:
+    /// pim_detect_hardware() == 0). Das ist D2 SourceUnavailable und KEIN Defekt des Algorithmus.
+    /// Waere nur der Achsen-Boden deklariert, laese derselbe Lauf als "mess_fehler" -- also als
+    /// gescheiterter Allokator, obwohl nie eine PIM-Einheit vorhanden war. Genau diese Verwechslung
+    /// trennt axis_error.hpp seit INC-29.0 auseinander (Kopf: "ehrliches n/a, KEIN Algo-Fehler").
+    ///
+    /// DER BODEN BLEIBT DRIN: eine PIM-Allokation auf ECHTER PIM-Hardware kann sehr wohl real
+    /// scheitern (DPU-OOM). Der Satz ERGAENZT den Achsen-Boden, er ERSETZT ihn nicht -- sonst waere
+    /// ein echter Algo-Fehler auf PIM-Hardware ploetzlich unbenennbar.
+    [[nodiscard]] static constexpr auto error_classes() noexcept {
+        return std::array<std::string_view, 2>{::comdare::cache_engine::topics::kOrganErrMessFehler,
+                                               ::comdare::cache_engine::topics::kOrganErrQuelleNichtVerfuegbar};
+    }
 
     PIMMallocAllocator() noexcept : dpu_id_(kDefaultDpuId) {}
     explicit PIMMallocAllocator(int dpu_id) noexcept : dpu_id_(dpu_id) {}
