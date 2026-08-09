@@ -98,6 +98,12 @@ struct ProfileValidationResult {
     std::size_t workloads_checked = 0; // M-CE-12: gepruefte <workloads>-ids (0 = keine / Pruefung uebersprungen)
     std::size_t categories_checked =
         0; // INC-3 Familie A: gepruefte <measurement_categories>-Namen (0 = keine deklariert)
+    // NENNER der Teilmengen-Garantie (Paket #11, 2026-08-09): wie viele Kategorien das ANGEBOT umfasst,
+    // gegen das die Auswahl geprueft wurde. WICHTIG: dieser Wert wird aus DERSELBEN Menge belegt, die die
+    // Wache tatsaechlich befragt (valid_categories.size()) -- NICHT aus kMeasurementAxisCount daneben.
+    // Sonst meldete der Bericht einen Nenner, den die Wache gar nicht benutzt hat; ein richtiges Messgeraet
+    // am falschen Gegenstand faellt nie auf. 0 = keine Auswahl deklariert = Wache lief nicht.
+    std::size_t categories_offered = 0;
     std::size_t opt_levels_checked      = 0; // GN-3/§32-F4: gepruefte <system_axes><compiler><opt_level> (0 = keine)
     std::size_t simd_checked            = 0; // GN-3: gepruefte <system_axes><external_utils><simd> (0 = keine)
     std::size_t atomic128_checked       = 0; // S2/A2 P-SYSREG: gepruefte <system_axes><compiler><atomic128> (0 = keine)
@@ -353,6 +359,10 @@ inline void check_measurement_sub_axis(std::vector<std::string> const& tokens, R
     if (!tp.measurement_categories.empty()) {
         std::set<std::string> valid_categories;
         for (auto const& info : ms::kMeasurementAxisRegistry) valid_categories.insert(std::string{info.name});
+        // Paket #11: der NENNER kommt aus der befragten Menge selbst. Waeren zwei Registry-Namen gleich,
+        // stuende hier 15 und nicht 16 -- und der Bericht sagte die WAHRHEIT ueber den Deckungsgrad statt
+        // der Zusicherung. Den Fall verbietet zusaetzlich registry_names_are_unique() compile-hart.
+        r.categories_offered = valid_categories.size();
         std::set<std::string> seen_categories;
         for (auto const& cat : tp.measurement_categories) {
             ++r.categories_checked;
@@ -515,7 +525,12 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     if (r.datasets_checked > 0) os << ", " << r.datasets_checked << " datasets";
     // INC-3 Familie A: measurement_categories NUR ausgeben, wenn deklariert — die --validate-Ausgabe
     // bestehender Profile (ohne <measurement_categories>) bleibt byte-identisch (Default-Verhaltens-Gate).
-    if (r.categories_checked > 0) os << ", " << r.categories_checked << " measurement_categories";
+    // Paket #11 (2026-08-09): BEIDE Zahlen der Teilmengen-Garantie -- Auswahl "von" Angebot. Der Nenner
+    // gehoert in die AUSGABE und nicht nur in den Kopf des Pruefers: "4 measurement_categories" allein
+    // laesst offen, ob gegen 16 oder gegen 4 geprueft wurde -- eine Wache, die ihren Nenner verschweigt,
+    // ist von einer Wache mit falschem Nenner nicht zu unterscheiden.
+    if (r.categories_checked > 0)
+        os << ", " << r.categories_checked << " von " << r.categories_offered << " measurement_categories";
     // GN-3/§32-F4: system_axes (opt_level/simd) NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender
     // Profile (ohne <system_axes>) bleibt byte-identisch (Default-Verhaltens-Gate, wie datasets/categories).
     if (r.opt_levels_checked > 0) os << ", " << r.opt_levels_checked << " opt_levels";
@@ -620,6 +635,9 @@ struct ExperimentValidationResult {
     std::size_t              phases_checked     = 0;
     std::size_t              variants_checked   = 0; // gepruefte allowed_variants (0 = registry_dir leer / keine)
     std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
+    // Paket #11 (2026-08-09): NENNER der Teilmengen-Garantie -- Groesse des ANGEBOTS, gegen das geprueft wurde.
+    // Belegt aus der befragten Menge selbst (valid_categories.size()), nie aus einer Konstante daneben.
+    std::size_t              categories_offered = 0;
     std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
     std::size_t opt_levels_checked      = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
     std::size_t simd_checked            = 0; // opt-f/A3: gepruefte <system_axes><external_utils><simd> (0 = keine)
@@ -1266,6 +1284,8 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         std::set<std::string> valid_categories;
         for (auto const cat : ms::kAllMeasurementCategories)
             valid_categories.insert(std::string{ms::axis_info(cat).name});
+        // Paket #11: NENNER aus der befragten Menge (deckungsgleich zum Thesis-Kanal oben).
+        r.categories_offered = valid_categories.size();
         std::set<std::string> seen_categories;
         for (auto const& cat : ep.measurement_categories) {
             ++r.categories_checked;
