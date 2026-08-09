@@ -30,7 +30,13 @@
 #include "runtime_variable_loop.hpp"   // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
 #include <harness/perm_runner.hpp> // A2-Neben Stufe 2: run_observable_perm / format_perm_result (nach harness/ herausgeloest)
-#include <harness/drift_gated_cell.hpp> // T-15: DriftGateConfig + run_cell_with_drift_gate (Zell-Klammer)
+// T-15: DriftGateConfig + run_cell_with_drift_gate -- die Zell-Klammer der Mess-Schleife.
+// SELBSTCHECK (09.08.2026): der Hinweis steht BEWUSST ueber der Zeile, nicht dahinter. Als
+// Anhaenge-Kommentar war er 124 Byte lang (DIFF-HYGIENE-WACHE, >120); gekuerzt passte er in
+// die Ausrichtungs-Gruppe von AlignTrailingComments und clang-format verlangte eine andere
+// Spalte (ce-Pipeline 15430, Job 369291, -Wclang-format-violations, Spalte 40). Ohne
+// Anhaenge-Kommentar faellt die Zeile aus der Gruppe -- beide Wachen sind zugleich erfuellt.
+#include <harness/drift_gated_cell.hpp>
 #include <cache_engine/measurement/axis_error.hpp> // E-6/K-10: SampleStatus + sample_status_token (n/a-Zell-Renderer)
 #include "measure_parallelism.hpp"   // #45: resolve_measure_parallelism (Debug-Methodik -> Mess-Pool; Entry-Konsum)
 #include "result_ingest.hpp"         // ingest_result_line / parse_result_line_to_node_value (#45 reine Parse-Naht)
