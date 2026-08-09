@@ -5984,3 +5984,75 @@ target_link_libraries(test_d55_hdr_verdrahtung PRIVATE
     comdare_hdr_histogram_wrapper)
 target_compile_definitions(test_d55_hdr_verdrahtung PRIVATE
     "COMDARE_D55_MESSPFAD_ROOT=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage\"")
+
+# -- NAHT-1 BISS (09.08.2026, Owner-KERN "der Ansatz mit den SIDECARS IST FALSCH") ---------------------
+# DIE MESS-NAHT AM GENUS-INTERFACE: der Host reicht einen Mess-Visitor HINEIN, das Tier berichtet in ihn.
+# Zwei .so aus EINEM Quelltext (naht1_visitor_module.cpp) mit IDENTISCHER Komposition; der einzige
+# Unterschied ist der Praeprozessor-Zustand der Mess-Gates. Die MESS-AN-Schwester muss beissen (echte
+# Werte gegen das Host-Op-Buch), die MESS-AUS-Schwester darf NICHT (keine Flaeche, kein Symbol).
+# JEDE Schwester in ihr EIGENES Verzeichnis: AnatomyModuleLoader::load_all laedt ein VERZEICHNIS, nicht
+# eine Datei -- lagen beide zusammen, prueften die Faelle zufaellig dieselbe Binary.
+# Praezedenz des Schwester-Bau-Verfahrens: r3_biss_modul_gates_an/-aus (R-3, 07.08.2026).
+set(_naht1_an_dir  "${PROJECT_BINARY_DIR}/generated/naht1_modules_an")
+set(_naht1_aus_dir "${PROJECT_BINARY_DIR}/generated/naht1_modules_aus")
+foreach(_n1mod IN ITEMS naht1_modul_mess_an naht1_modul_mess_aus)
+    add_library(${_n1mod} SHARED "naht1_visitor_module.cpp")
+    target_compile_features(${_n1mod} PRIVATE cxx_std_23)
+    target_include_directories(${_n1mod} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${PROJECT_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_n1mod} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_n1mod})
+    set_target_properties(${_n1mod} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${_n1mod})
+endforeach()
+# DER DATEINAME IST TEIL DES VERTRAGS: AnatomyModuleLoader::load_all nimmt AUSSCHLIESSLICH Dateien
+# mit dem Praefix "comdare_anatomy_perm_" (anatomy_module_loader.cpp:190, Muster aus
+# anatomy_codegen.cmake). Ohne PREFIX "" + OUTPUT_NAME haetten die Schwestern "libnaht1_*.so"
+# geheissen und der Loader haette sie STILL uebergangen -- load_all liefert dann status_ok mit NULL
+# Handles, und der Koeder waere an einer leeren Menge "rot" geworden, ohne je die Naht zu beruehren.
+# Das ist die Gegenprobe-Regel in Reinform: eine Null ist erst ein Befund, wenn belegt ist, dass das
+# Verfahren ueberhaupt findet.
+set_target_properties(naht1_modul_mess_an PROPERTIES
+    PREFIX "" OUTPUT_NAME "comdare_anatomy_perm_naht1_an"
+    LIBRARY_OUTPUT_DIRECTORY "${_naht1_an_dir}" RUNTIME_OUTPUT_DIRECTORY "${_naht1_an_dir}")
+set_target_properties(naht1_modul_mess_aus PROPERTIES
+    PREFIX "" OUTPUT_NAME "comdare_anatomy_perm_naht1_aus"
+    LIBRARY_OUTPUT_DIRECTORY "${_naht1_aus_dir}" RUNTIME_OUTPUT_DIRECTORY "${_naht1_aus_dir}")
+target_compile_definitions(naht1_modul_mess_an PRIVATE
+    COMDARE_ANATOMY_MODULE_BUILD=1 COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+target_compile_definitions(naht1_modul_mess_aus PRIVATE
+    COMDARE_ANATOMY_MODULE_BUILD=1 COMDARE_NAHT1_GATES_AUS=1)
+
+comdare_add_test(test_naht1_mess_visitor_biss
+    SOURCES test_naht1_mess_visitor_biss.cpp)
+target_include_directories(test_naht1_mess_visitor_biss PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_naht1_mess_visitor_biss PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader
+    ${CMAKE_DL_LIBS})
+add_dependencies(test_naht1_mess_visitor_biss naht1_modul_mess_an naht1_modul_mess_aus)
+# DIE PFADE KOMMEN ALS COMPILE-DEFINITIONS, NICHT ALS CTEST-ARGUMENTE.
+# BEFUND am Objekt (09.08.2026): `set_property(TEST <n> PROPERTY COMMAND ...)` wird von ctest
+# IGNORIERT -- add_test() hat das Kommando bereits festgelegt, die Property landete zwar in
+# CTestTestfile.cmake (mit korrekt aufgeloesten Generator-Ausdruecken), aber ctest fuhr weiter das
+# argumentlose Kommando. Der Test lief daraufhin mit leeren Pfaden und wurde ROT -- ein Werkzeug-
+# Defekt, der sich wie ein Mess-Befund anfuehlte. Praezedenz der tragfaehigen Form im Baum:
+# COMDARE_R5G_ADHOC_DLL_DIR bei test_v41_anatomy_adhoc_dll_load.
+target_compile_definitions(test_naht1_mess_visitor_biss PRIVATE
+    "COMDARE_NAHT1_AN_SO=\"$<TARGET_FILE:naht1_modul_mess_an>\""
+    "COMDARE_NAHT1_AUS_SO=\"$<TARGET_FILE:naht1_modul_mess_aus>\""
+    "COMDARE_NAHT1_AN_DIR=\"${_naht1_an_dir}\""
+    "COMDARE_NAHT1_AUS_DIR=\"${_naht1_aus_dir}\"")
+set_tests_properties(test_naht1_mess_visitor_biss PROPERTIES
+    TIMEOUT 300 LABELS "naht1;messnaht;genus_interface;visitor;dll_roundtrip;fehlerklassen")

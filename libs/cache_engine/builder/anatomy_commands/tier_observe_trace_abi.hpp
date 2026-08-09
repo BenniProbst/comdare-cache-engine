@@ -49,6 +49,17 @@ struct AbiTierTraceConfig {
     // tier_insert den Fuellstand nicht mehr erhoeht (Fixed-Capacity-Store voll / Key-Kollision) — ein Fill
     // ueber die effektive Tier-Kapazitaet wuerde sonst haengen (entdeckt via f15_compare --observe).
     std::uint64_t max_insert_stagnation = 4096;
+    // NAHT-1 (Owner-KERN 09.08.2026): was die BAU-SEITE ueber die Mess-Ausstattung des Moduls
+    // BEHAUPTET -- die Host-Vorhersage des neunten Preimage-Glieds (mess_gates_glied_for_legend,
+    // profile_facade/mess_achsen_naht.hpp). Sie ist die eine Haelfte des Widerspruchs-Befunds; die
+    // andere ist die Probe am geladenen Modul.
+    //   -1 = unbekannt (nichts wird behauptet -> ein Widerspruch kann nicht festgestellt werden)
+    //    0 = Legende sagt: dieses Modul hat KEINE Messung eingebaut
+    //    1 = Legende sagt: dieses Modul HAT Messung eingebaut
+    // OFFEN, ausdruecklich: die automatische Ableitung dieses Werts aus dem Modul-Stempel ist NICHT
+    // verdrahtet -- der Aufrufer setzt ihn. Solange er -1 bleibt, verhaelt sich das Dock exakt wie
+    // vorher (Status 3 bei fehlender Flaeche). Eine ehrliche Wissensluecke, kein stiller Default.
+    int mess_legende_erwartung = -1;
 };
 
 /// Eine Fuellstands-Stufe: r/w/d-Wall-Clock-Roh-Samples + der Wall-Clock-korrelierte Observer-POD.
@@ -188,7 +199,14 @@ template <class TimedOp>
         snap.fill_level = tier.tier_size();
         // §8.7: EIN Observer-POD am Checkpoint, mit explizitem Wall-Clock-Zeitstempel korreliert (der
         // Builder persistiert die (Wall-Clock ↔ Observer)-Zuordnung).
-        tier.tier_observe(&snap.observer);
+        // NAHT-1 (Owner-KERN 09.08.2026): DIE UEBERGABE. Die CEB stellt die Senke auf und reicht
+        // sie durch das Genus-Interface HINEIN; das Tier berichtet in sie. Vorher stand hier der
+        // Sidecar-Pull (tier_observe), bei dem der Host von aussen einen POD abschabte.
+        // Die Senke ist ein gewoehnlicher Typ; typgeloescht wird nur der MessEdge, auf dem Stack,
+        // fuer die Dauer des Aufrufs.
+        an::SnapshotSink               mess_senke{&snap.observer};
+        an::MessEdge<an::SnapshotSink> mess_kante{mess_senke};
+        tier.tier_measure_accept(mess_kante);
         snap.observe_wall_ns = detail::abi_dur_ns(trace_start, clock::now());
         trace.checkpoints.push_back(std::move(snap));
     }
@@ -277,7 +295,14 @@ template <class TimedOp>
         }
 
         snap.fill_level = tier.tier_size();
-        tier.tier_observe(&snap.observer);
+        // NAHT-1 (Owner-KERN 09.08.2026): DIE UEBERGABE. Die CEB stellt die Senke auf und reicht
+        // sie durch das Genus-Interface HINEIN; das Tier berichtet in sie. Vorher stand hier der
+        // Sidecar-Pull (tier_observe), bei dem der Host von aussen einen POD abschabte.
+        // Die Senke ist ein gewoehnlicher Typ; typgeloescht wird nur der MessEdge, auf dem Stack,
+        // fuer die Dauer des Aufrufs.
+        an::SnapshotSink               mess_senke{&snap.observer};
+        an::MessEdge<an::SnapshotSink> mess_kante{mess_senke};
+        tier.tier_measure_accept(mess_kante);
         snap.observe_wall_ns = detail::abi_dur_ns(trace_start, clock::now());
         trace.checkpoints.push_back(std::move(snap));
     }

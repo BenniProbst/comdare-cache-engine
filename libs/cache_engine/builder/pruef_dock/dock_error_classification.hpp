@@ -55,6 +55,9 @@ static_assert(dock_status_no_anatomy == 1);
 static_assert(dock_status_wrong_genus == 2);
 static_assert(dock_status_subinterface_missing == 3);
 static_assert(dock_status_conformance_failed == 4);
+// NAHT-1: die zwei neuen Transport-Pins. Dreht jemand 5 oder 6, bricht die Uebersetzung HIER.
+static_assert(dock_status_mess_gate_mismatch == 5);
+static_assert(dock_status_mess_deaktiviert == 6);
 static_assert(anatomy_loader::status_ok == 0);
 
 /// classify_dock_status(s) -- die D2-Klasse eines Dock-Ergebnisses. LEER genau dann, wenn s == ok.
@@ -75,6 +78,10 @@ static_assert(anatomy_loader::status_ok == 0);
         case dock_status_wrong_genus: return cem::DockErrorClass::FremdeGattung;
         case dock_status_subinterface_missing: return cem::DockErrorClass::AntriebsInterfaceFehlt;
         case dock_status_conformance_failed: return cem::DockErrorClass::KonformitaetGescheitert;
+        // NAHT-1: ohne diese zwei Zeilen fielen die neuen Zustaende in UnbekannterDockStatus --
+        // sichtbar zwar, aber ohne Aussage. Die Registrierung IST Teil des Tests (T-7).
+        case dock_status_mess_gate_mismatch: return cem::DockErrorClass::MessGateWiderspruch;
+        case dock_status_mess_deaktiviert: return cem::DockErrorClass::MessDeaktiviert;
         default: return cem::DockErrorClass::UnbekannterDockStatus;
     }
 }

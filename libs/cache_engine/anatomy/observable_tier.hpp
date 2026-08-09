@@ -27,7 +27,8 @@
 // hinweg (6->7 STRUKT-R ORG-18, ce 774a5d5f; 7->8 E-24 C8, ce 4f569051), 13 Tage lang, ausserhalb
 // jeder Wache. Eine Kopie einer Zahl, die anderswo lebt, veraltet genau so lautlos.
 //   Stand 2026-07-26, ABI-HISTORIE gegen SHA 42b34354: aktuell Major 6 (anatomy_module_abi_v1_decl.hpp:54)
-//   LEBEND seit 2026-08-04: Major 8 -- Beleg anatomy_module_abi_v1_decl.hpp:89
+//   Stand 2026-08-04, ABI-HISTORIE gegen SHA 0f08fab5: Major 8 (E-24 C8)
+//   LEBEND seit 2026-08-09: Major 9 -- Beleg anatomy_module_abi_v1_decl.hpp:108 (NAHT-1)
 // Die Zahl gehoert in den Decl-Header und nur dorthin; hier steht ab jetzt der VERWEIS statt einer
 // Kopie. scripts/ci_hy_label_gate.sh (ctest: hy_label_gate) haelt beide Zeilen gegen den Header:
 // Teil B der Wache sucht repo-weit nach genau dieser Klasse (Wort "aktuell" plus eigene Major-Zahl).
@@ -45,6 +46,7 @@
 
 #include "idriveable_tier.hpp"     // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
 #include "measurable_workload.hpp" // ComdareSegmentLatencyV2: Pfad-B-Timing im konsolidierten POD
+#include "mess_visitor_abi.hpp"    // NAHT-1 (Owner-KERN 09.08.2026): IMessVisitor -- die Mess-Naht am Genus-Interface
 // Die seg_ns-Groesse ist kV3AxisCount, lebend also seg_ns[18]. Die frueher an dieser Stelle
 // genannte seg_ns[17] ist der Stand vor dem 6->7-Bump -- ABI-HISTORIE gegen SHA 42b34354.
 
@@ -67,6 +69,12 @@ inline constexpr std::size_t kV3AxisCount = 18;
 /// Feld-Spalten je Achse (K). 8 deckt die breiteste befüllte statistics()-Struktur (search_algo: 6,
 /// alloc: 5, cache_traversal/mapping: 6, q1/q2: 5) mit Reserve; schema-stabil gegen weitere Felder (Phase B).
 inline constexpr std::size_t kV3FieldCount = 8;
+// NAHT-1: die E1-Zeilenbreite der Mess-Naht ist DIESE Zahl -- gebunden, nicht abgeschrieben. Ein
+// Auseinanderlaufen waere sonst genau die Klasse "eine Zahl, die als Kopie lebt, veraltet lautlos"
+// (Praezedenz im Haus: der ABI-Major als Kopie in dieser Datei, 13 Tage falsch ueber zwei Bumps).
+static_assert(kMessVisitorAxisFieldCount == kV3FieldCount,
+              "NAHT-1: die E1-Zeilenbreite des Mess-Visitors muss kV3FieldCount SEIN, nicht ihr gleichen -- "
+              "beim Verbreitern des Achsen-Schemas beide Stellen bewusst anfassen");
 
 // ── Schema-Tabelle: (axis_idx, field_idx) → Feldname. SINGLE-SOURCE in kCompositionAxisNames-Reihenfolge.
 //    Leere Strings = (noch) nicht befülltes Feld; eine Achse, deren Felder alle "" sind, ist Phase-B (= 0).
@@ -197,6 +205,119 @@ inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified =
     8; // STRUKT-R ORG-18 (ABI-7): persistence_target-Slot -- axis_stats[18][8] + seg_ns[18], sizeof 1344
        // (war 7: INC-2d 1272, 6: INC-2c 1344 mit isa, 5: P-MD3 1416)
 
+// ----------------------------------------------------------------------------------------------
+// SnapshotSink -- die EINE Ruecksetzung des Ereignis-Stroms in den konsolidierten POD (NAHT-1)
+// ----------------------------------------------------------------------------------------------
+
+/// SnapshotSink -- GenusMessSink, die aus dem Visitor-Ereignis-Strom exakt den
+/// ComdareTierObserverSnapshot wieder zusammensetzt.
+///
+/// SIE WOHNT GENAU EINMAL, UND ZWAR HIER, WEIL SIE ZWEI KUNDEN HAT:
+///   (a) die TIER-Seite implementiert damit das Alt-Interface tier_observe (der Pull ist seit NAHT-1
+///       ein ABGELEITETER Klient der Push-Naht, s. abi_adapter.hpp) und
+///   (b) die CEB-Seite fuellt damit ihren Fuellstands-Trace (tier_visitor_trace_abi.hpp).
+/// Zwei Fassungen derselben Ruecksetzung waeren eine ABSCHRIFT -- und gegen eine Abschrift ist jede
+/// spaetere Loeschung wirkungslos: der Bau bliebe gruen, die Werte liefen auseinander. Deshalb EINE.
+///
+/// WAS SIE BEWEIST: dass der Ereignis-Strom ALLES traegt, was der POD trug. Gaebe es ein Feld, das
+/// die Naht nicht befoerdert, koennte diese Senke es nicht fuellen -- und die Bestands-Testate der
+/// Pull-Aera wuerden rot. Der Beweis ist damit der Testbestand selbst, nicht eine Zusage.
+///
+/// ORDNUNGS-WACHE: sie fuehrt einen Zustandsautomaten (order_ok()). Ein Mutant, der eine Zeile vor
+/// dem begin schickt, die Reihenfolge bricht oder eine Zeile unterschlaegt, faellt hier auf --
+/// nicht erst an einem Anwesenheits-Check, der so etwas per Konstruktion nie sieht.
+class SnapshotSink {
+public:
+    explicit SnapshotSink(ComdareTierObserverSnapshot* out) noexcept : out_(out) {}
+
+    void e2_begin(std::uint64_t genus_id, std::uint64_t fn_id, std::uint64_t fill_level,
+                  std::uint64_t axis_count) noexcept {
+        (void)genus_id;
+        (void)fn_id;
+        if (out_ == nullptr) return;
+        *out_                 = ComdareTierObserverSnapshot{};
+        out_->tier_fill_level = fill_level;
+        expected_axes_        = axis_count;
+        rows_seen_            = 0;
+        began_                = true;
+        ended_                = false;
+        order_broken_         = (axis_count != kV3AxisCount);
+    }
+
+    void e1_axis_row(std::uint64_t axis_idx, std::uint64_t const* fields, std::int64_t seg_ns) noexcept {
+        // AUFSTEIGEND und genau einmal je Achse -- alles andere ist ein Ordnungsverstoss, kein Zufall.
+        if (!began_ || ended_ || axis_idx != rows_seen_ || axis_idx >= kV3AxisCount || fields == nullptr) {
+            order_broken_ = true;
+            return;
+        }
+        ++rows_seen_;
+        if (out_ == nullptr) return;
+        for (std::size_t f = 0; f < kV3FieldCount; ++f) out_->axis_stats[axis_idx][f] = fields[f];
+        out_->seg_ns[axis_idx] = seg_ns;
+    }
+
+    void hybrid_reroute(std::uint64_t from_genus, std::uint64_t to_genus, std::int64_t decision_ns) noexcept {
+        // Vierte Ebene: der POD hat dafuer keinen Slot (bewusst -- der Hybrid-Rahmen ist E2 des
+        // ZIEL-Genus). Gezaehlt wird trotzdem, damit die Abnahme den Emitter-Nullstand belegen kann.
+        (void)from_genus;
+        (void)to_genus;
+        (void)decision_ns;
+        if (!began_ || ended_) order_broken_ = true;
+        ++reroutes_seen_;
+    }
+
+    void e2_end(std::uint64_t observable_axis_count, std::uint64_t filled_axis_count, std::uint64_t batches_measured,
+                std::int64_t seg_framework_ns, std::int64_t seg_run_total_ns) noexcept {
+        if (!began_ || ended_ || rows_seen_ != expected_axes_) order_broken_ = true;
+        ended_ = true;
+        if (out_ == nullptr) return;
+        out_->observable_axis_count = observable_axis_count;
+        out_->filled_axis_count     = filled_axis_count;
+        out_->batches_measured      = batches_measured;
+        out_->seg_framework_ns      = seg_framework_ns;
+        out_->seg_run_total_ns      = seg_run_total_ns;
+    }
+
+    /// Wurde ein VOLLSTAENDIGER, ordnungsgemaesser Rahmen gesehen? (Die Abnahme prueft das; der
+    /// Produktivpfad darf es pruefen -- er ist kalt, 1x je Checkpoint, nie im Hot-Loop.)
+    [[nodiscard]] bool order_ok() const noexcept { return began_ && ended_ && !order_broken_; }
+    /// Zahl der gesehenen E1-Zeilen -- der NENNER jeder Aussage ueber diesen Rahmen.
+    [[nodiscard]] std::uint64_t rows_seen() const noexcept { return rows_seen_; }
+    /// Zahl der gesehenen Hybrid-Umleitungen (lebend 0, bis HY-A2 den Emitter bringt).
+    [[nodiscard]] std::uint64_t reroutes_seen() const noexcept { return reroutes_seen_; }
+
+private:
+    ComdareTierObserverSnapshot* out_           = nullptr;
+    std::uint64_t                expected_axes_ = 0;
+    std::uint64_t                rows_seen_     = 0;
+    std::uint64_t                reroutes_seen_ = 0;
+    bool                         began_         = false;
+    bool                         ended_         = false;
+    bool                         order_broken_  = false;
+};
+static_assert(GenusMessSink<SnapshotSink>,
+              "NAHT-1: SnapshotSink muss die GenusMessSink-Flaeche treffen (sonst greift der Concept-Guard "
+              "erst an einer Instanziierung tief im Baum)");
+
+/// push_snapshot_to_visitor -- DIE EINE Umsetzung POD -> Ereignis-Strom, exakte Inverse von SnapshotSink.
+///
+/// Sie wohnt hier, weil JEDER Berichtende sie braucht: der ABI-Adapter (nach seiner Q1-Sequenz) und
+/// jede Test-Huelle, die IObservableTier erfuellt. Haette jeder seinen eigenen Emissions-Block, waere
+/// die REIHENFOLGE -- der eigentliche Vertrag der Naht -- an acht Stellen abgeschrieben, und ein
+/// Ordnungs-Defekt in einer davon fiele nie auf. Genau EINE Fassung, genau EINE Reihenfolge.
+inline void push_snapshot_to_visitor(ComdareTierObserverSnapshot const& s, IMessVisitor& v,
+                                     std::uint64_t genus_id) noexcept {
+    v.visit_e2_begin(genus_id, genus_fn_id::kCoreCheckpoint, s.tier_fill_level,
+                     static_cast<std::uint64_t>(kV3AxisCount));
+    for (std::size_t t = 0; t < kV3AxisCount; ++t)
+        v.visit_e1_axis_row(static_cast<std::uint64_t>(t), s.axis_stats[t], s.seg_ns[t]);
+    // Die vierte Ebene (visit_hybrid_reroute) hat BEWUSST keinen Emitter: ein Tier ist kein Router.
+    // Er kommt mit HY-A2. Die Abnahme belegt den Nullstand, damit "kein Emitter" eine GEMESSENE
+    // Aussage bleibt und nicht eine Zusage, die niemand nachrechnet.
+    v.visit_e2_end(s.observable_axis_count, s.filled_axis_count, s.batches_measured, s.seg_framework_ns,
+                   s.seg_run_total_ns);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — die EINE ABI-stabile Observer-Schnittstelle (I1)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,6 +337,15 @@ class IObservableTier : public IDriveableTier {
 public:
     ~IObservableTier() override = default;
 
+    /// DEPRECATED SEIT NAHT-1 (Owner-KERN 09.08.2026): DIES IST DER SIDECAR-PULL, den der KERN verwirft.
+    /// Er ist NICHT mehr die Mess-Naht, sondern ein ABGELEITETER Klient von tier_measure_accept: der
+    /// Adapter implementiert ihn, indem er die Push-Naht in eine SnapshotSink laufen laesst (EIN
+    /// Mess-Pfad, keine zweite Fassung). Er steht hier weiter, weil ihn 78 Aufrufstellen in 55 Dateien
+    /// rufen -- ihre Migration ist das benannte Folgepaket NAHT-2. Bis dahin gilt: NEUE Mess-Wege
+    /// nehmen tier_measure_accept; wer hier ansetzt, baut am verworfenen Muster weiter.
+    /// Der Weg der Ausserdienststellung ist ABSCHRIFT, NICHT LOESCHUNG -- eine ersatzlose Loeschung
+    /// braeche nur bei AUFRUFERN und liesse jede Kopie der Pull-Logik still weiterrechnen.
+    ///
     /// Die EINE Observer-Methode (I1): schreibt den konsolidierten Snapshot (axis_stats[kV3AxisCount][8] +
     /// seg_ns[kV3AxisCount] + Meta) nach *out. out != nullptr. noexcept (reines Auslesen + lesendes
     /// Pfad-B-Timing). Der Host stempelt das Resultat mit Wall-Clock + persistiert. Der ABI-Adapter
@@ -223,6 +353,24 @@ public:
     /// Observer-READ der NUR dort getriebenen Achsen (A8-S3) -> Organ-Reset (gegen Doppelzaehlung UND gegen
     /// strukturell nicht gelesene Zaehler).
     virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept = 0;
+
+    /// NAHT-1 (Owner-KERN 09.08.2026) -- DIE MESS-NAHT AM GENUS-INTERFACE.
+    ///
+    /// Der Host reicht den Mess-Visitor HINEIN; das Tier BERICHTET in ihn (e2_begin -> N x
+    /// e1_axis_row -> e2_end, Vertrag in mess_visitor_abi.hpp). Das ist die Umkehr des Transports
+    /// gegenueber tier_observe: dort griff der Host von aussen und schabte einen POD ab (Sidecar),
+    /// hier meldet der GEGENSTAND durch die Naht.
+    ///
+    /// PER REFERENZ, NICHT PER ZEIGER: es gibt keinen null-Zustand, also nichts, worauf man `if`
+    /// sagen koennte. "Bei deaktiviert wird KEINER uebergeben" ist keine Laufzeit-Abfrage, sondern
+    /// die Abwesenheit dieser ganzen Methode -- der Adapter erbt IObservableTier nur unter
+    /// COMDARE_MEASUREMENT_ON, unter OFF steht das Symbol nicht in der Binary (am Objekt belegt,
+    /// tests/unit/test_naht1_mess_visitor_biss.cpp prueft die Symboltabelle beider Schwestern).
+    ///
+    /// const: identisch zu tier_observe. Die Methode TREIBT den Pfad-B-Segment-Lauf (das ist der
+    /// Mess-Akt), aber sie veraendert den DATEN-Zustand des Tiers nicht -- die Organ-Zaehler sind
+    /// mutable/mess-intern. Genau derselbe Vertrag wie bisher, nur mit umgekehrter Transportrichtung.
+    virtual void tier_measure_accept(IMessVisitor& v) const noexcept = 0;
 
     /// Daten-erhaltender Statistik-Reset für Messphasen-Grenzen: nullt ausschließlich die kumulativen
     /// Observer-/Achsen-Zähler, ohne Tier-Daten oder reale Hilfsstrukturen (Filter/Slots/Trie/Store) zu leeren.

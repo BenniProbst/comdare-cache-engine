@@ -67,8 +67,9 @@ ueber EXAKT dieselbe Anatomy-ABI (`AnatomyModuleLoader`-Wiederverwendung).
 > **NACHTRAG 08.08.2026 (Paket HY-0) -- die beiden Zahlen im Absatz darueber sind Historie.**
 > Seit E-24 C8 (04.08.2026, ce `4f569051`) gilt:
 >
-> - **Major 8** -- Beleg `anatomy_module_abi_v1_decl.hpp:89`
-> - **Magic `.A8.`** = `0x434F4D444141382EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:93`
+> - Stand 04.08.2026: **Major 8**, Magic `.A8.` = `0x434F4D444141382EULL` -- ABI-HISTORIE gegen SHA 0f08fab5
+> - **Major 9** -- Beleg `anatomy_module_abi_v1_decl.hpp:108` (NAHT-1, Mess-Naht am Genus-Interface)
+> - **Magic `.A9.`** = `0x434F4D444141392EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:112`
 >
 > Die Aussage des Absatzes -- kein eigener ABI-Schritt fuer die Hybrid-Stufe, beide Grenzen sind
 > die bestehende versionierte Anatomy-ABI -- ist davon UNBERUEHRT; nur die Zahl und die
@@ -466,8 +467,10 @@ Pruefung -> CI gruen.
 | Owner-Spec | super `docs/sessions/20260802-OWNER-entscheide-hybrid-tier-stempel-regression-os-unterachsen.md:7` | Entscheid 1 verbatim |
 | ABI-Major | `libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp:62` | `COMDARE_ANATOMY_ABI_MAJOR 7` -- ABI-HISTORIE gegen SHA 6b8eee0f |
 | ABI-Magic | dieselbe Datei `:59` | Magic von `.A6.` auf `.A7.` bewegt -- ABI-HISTORIE gegen SHA 6b8eee0f |
-| ABI-Major (lebend seit 04.08.2026) | `anatomy_module_abi_v1_decl.hpp:89` | Major 8 -- E-24 C8, ce `4f569051`, HY-0-Nachtrag oben |
-| ABI-Magic (lebend seit 04.08.2026) | `anatomy_module_abi_v1_decl.hpp:93` | Magic `.A8.` = `0x434F4D444141382EULL` |
+| ABI-Major | `anatomy_module_abi_v1_decl.hpp:89` | Major 8 -- E-24 C8, ce `4f569051` -- ABI-HISTORIE gegen SHA 0f08fab5 |
+| ABI-Magic | `anatomy_module_abi_v1_decl.hpp:93` | Magic `.A8.` -- ABI-HISTORIE gegen SHA 0f08fab5 |
+| ABI-Major (lebend seit 09.08.2026) | `anatomy_module_abi_v1_decl.hpp:108` | Major 9 -- NAHT-1, Mess-Naht am Genus-Interface |
+| ABI-Magic (lebend seit 09.08.2026) | `anatomy_module_abi_v1_decl.hpp:112` | Magic `.A9.` = `0x434F4D444141392EULL` |
 | Gattungs-Enum | `libs/cache_engine/anatomy/anatomy_base.hpp:78-84` | `AnatomyGenus` {SearchAlgorithm, Set, Sequence, Adapter, View} |
 | statische Haupt-Kommunikation | `libs/cache_engine/anatomy/observable_tier.hpp:185/:193` | `class IObservableTier : public IDriveableTier` / `tier_observe(...)` |
 | Dock-Doktrin | `libs/cache_engine/builder/pruef_dock/pruef_dock.hpp:10-14` | IPruefDock ist KEINE ABI-Grenze; ABI-Grenze = Antriebs-Sub-Interface + POD |

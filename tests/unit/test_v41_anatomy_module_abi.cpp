@@ -49,11 +49,14 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
-    static_assert(COMDARE_ANATOMY_ABI_MAJOR ==
-                  8); // E-24 C8 (GATE 4): 7->8-Bump (Ebene-1-Gattung wird ABI-Flaeche; vorher ORG-18 6->7)
+    // NAHT-1 (09.08.2026): 8->9-Bump -- die Mess-Naht am Genus-Interface (IObservableTier erhaelt
+    // tier_measure_accept(IMessVisitor&); der Host reicht den Mess-Visitor HINEIN, statt einen POD
+    // abzuschaben). Diese Zeile MUSS bei jedem Major bewusst mitwandern -- sie ist die Wache, die
+    // einen versehentlichen Bump faengt, und sie hat bei diesem hier compile-hart angeschlagen.
+    static_assert(COMDARE_ANATOMY_ABI_MAJOR == 9); // NAHT-1 (vorher E-24 C8 7->8, ORG-18 6->7)
     static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // Minor auf 0 zurückgesetzt beim Major-Bump
     static_assert(COMDARE_ANATOMY_ABI_MAGIC ==
-                  0x434F4D444141382EULL); // "COMDA.A8." (Magic kodiert Major, Minor-Bump aendert es nicht)
+                  0x434F4D444141392EULL); // "COMDA.A9." (Magic kodiert Major, Minor-Bump aendert es nicht)
     // HISTORIEN-FREEZE-Gegenprobe (E-24 C8, additiv): der eingefrorene Vorgaenger-Wert ist NICHT der lebende.
     // Ohne diese Zeile stuende der Freeze nur als Zusage im Kommentar des Decl-Headers.
     static_assert(ce_abi::kAnatomyAbiMagicAbi7 == 0x434F4D444141372EULL);
@@ -62,7 +65,7 @@ TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 8); // E-24 C8 (vorher ORG-18: 7)
+    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 9); // NAHT-1 (vorher E-24 C8: 8)
     static_assert(ce_abi::kHostAnatomyAbiVersion.minor == 0);
     // G5-VORBEREITUNG: der eingefrorene Major-7-Host ist am lebenden Host NICHT ladefaehig. Das ist die
     // compile-time-Haelfte des G5-Beweises (die Laufzeit-Haelfte -- ein reales Major-7-Modul am Loader --

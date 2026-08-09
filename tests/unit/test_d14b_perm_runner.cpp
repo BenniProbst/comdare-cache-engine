@@ -51,6 +51,15 @@ struct MockObsTier final : ana::IObservableTier {
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data.size(); }
     // Die EINE konsolidierte tier_observe — search-Stats nach axis_stats[0] (T0). Wird von run_observable_perm
     // für das (volle-Matrix-)Wire-Format genutzt; ingest leitet die benannten Legacy-Felder daraus ab.
+    // NAHT-1 (Owner-KERN 09.08.2026): die Mess-Naht am Genus-Interface. Diese Huelle fuehrt
+    // keine Q1-Sequenz -- sie berichtet den Zustand, den sie ohnehin haelt, ueber die EINE
+    // Reihenfolge (ana::push_snapshot_to_visitor), damit der Ordnungs-Vertrag der Naht nicht
+    // je Huelle abgeschrieben wird und in einer Kopie lautlos veralten kann.
+    void tier_measure_accept(ana::IMessVisitor& v) const noexcept override {
+        ana::ComdareTierObserverSnapshot s{};
+        tier_observe(&s);
+        ana::push_snapshot_to_visitor(s, v, 0);
+    }
     void tier_observe(ana::ComdareTierObserverSnapshot* o) const noexcept override {
         if (!o) return;
         o->axis_stats[0][0]      = lookups;
@@ -87,8 +96,17 @@ struct BrokenTier final : ana::IObservableTier {
     [[nodiscard]] bool          tier_erase(std::uint64_t k) noexcept override { return data.erase(k) > 0; }
     void                        tier_clear() noexcept override { data.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data.size(); }
-    void                        tier_observe(ana::ComdareTierObserverSnapshot*) const noexcept override {}
-    void                        tier_reset_statistics() noexcept override {}
+    // NAHT-1 (Owner-KERN 09.08.2026): die Mess-Naht am Genus-Interface. Diese Huelle fuehrt
+    // keine Q1-Sequenz -- sie berichtet den Zustand, den sie ohnehin haelt, ueber die EINE
+    // Reihenfolge (ana::push_snapshot_to_visitor), damit der Ordnungs-Vertrag der Naht nicht
+    // je Huelle abgeschrieben wird und in einer Kopie lautlos veralten kann.
+    void tier_measure_accept(ana::IMessVisitor& v) const noexcept override {
+        ana::ComdareTierObserverSnapshot s{};
+        tier_observe(&s);
+        ana::push_snapshot_to_visitor(s, v, 0);
+    }
+    void tier_observe(ana::ComdareTierObserverSnapshot*) const noexcept override {}
+    void tier_reset_statistics() noexcept override {}
 };
 
 static int g_fail = 0;

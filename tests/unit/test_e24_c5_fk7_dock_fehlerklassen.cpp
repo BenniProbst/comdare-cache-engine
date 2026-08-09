@@ -298,7 +298,10 @@ int main() {
                 if (li == cem::dock_error_label(static_cast<cem::DockErrorClass>(j))) etiketten_ok = false;
         }
         tr("alle Klassen-Etiketten sind nicht-leer, nicht der Fallback und paarweise verschieden", etiketten_ok);
-        eq("Klassen-Zahl (Single-Source)", cem::kDockErrorClassCount, std::size_t{7});
+        // NAHT-1 (09.08.2026): 7 -> 9. Die beiden neuen sind MessGateWiderspruch + MessDeaktiviert
+        // (Mess-Naht am Genus-Interface). Diese Zahl steht hier BEWUSST als Literal und nicht als
+        // Ausdruck ueber das Enum: sie ist die Gegenprobe zur Single-Source, nicht ihre Wiederholung.
+        eq("Klassen-Zahl (Single-Source)", cem::kDockErrorClassCount, std::size_t{9});
 
         // (c) die Domaene bleibt D2 -- fuer JEDE Klasse, nicht nur fuer die geprobte.
         bool domaene_ok = true;

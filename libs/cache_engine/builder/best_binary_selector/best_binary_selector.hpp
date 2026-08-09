@@ -60,9 +60,17 @@ namespace comdare::cache_engine::best_binary {
 // (test_best_binary_selector_parse_rank.cpp:28/:32, test_hybrid_spline_selector_scaffold.cpp:31/:35), noch bevor
 // eine falsche Manifest-Provenienz geschrieben werden konnte. kAbiMinor bewegt sich NICHT (0 -> 0, der Major-Bump
 // setzt den ABI-Minor ohnehin auf 0) und brach folgerichtig auch nicht.
-inline constexpr std::uint32_t kAbiMajor = 8; // E-24 C8 7->8 (vorher ORG-18 6->7, INC-2d 5->6, INC-2b 4->5)
+// NAHT-1 (2026-08-09): Spiegel-Drift 8/".A8." -> 9/".A9." gesynct (Mess-Naht am Genus-Interface,
+// Major 8->9). Der Entwurf, der diesen Bau angestossen hat, nannte diesen Spiegel NICHT -- er stand
+// nur im Decl-Header. Gefunden hat ihn nicht der Entwurf, sondern der Zensus ueber kAbiMajor|kAbiMagic
+// vor dem Bump: die Zahl lebt an ZWEI Orten, und die zweite ist eine Abschrift. Ohne den Nachzug
+// schriebe der Spiegel falsche Manifest-Provenienz und der Selector verwuerfe jede neu gebaute
+// Major-9-Binary. Das K-5-Paritaets-Gate haette es compile-hart gefangen (test_best_binary_selector_
+// parse_rank.cpp, test_hybrid_spline_selector_scaffold.cpp) -- verlassen darf man sich darauf nicht,
+// denn eine Wache, die man erst beim Rotwerden bemerkt, hat den Fehler bereits zugelassen.
+inline constexpr std::uint32_t kAbiMajor = 9; // NAHT-1 8->9 (vorher E-24 C8 7->8, ORG-18 6->7, INC-2d 5->6)
 inline constexpr std::uint32_t kAbiMinor = 0;
-inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141382EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A8."
+inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141392EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA.A9."
 
 // ── orch_make_stem-Round-Trip (identisch BuildOrchestrator: sanitize + FNV-1a + kStemMax=120) ─────
 // Diese drei Funktionen sind eine 1:1-Spiegelung von build_orchestrator.hpp:114/122/138 — sie MÜSSEN

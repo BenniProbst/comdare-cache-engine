@@ -39,6 +39,15 @@ inline constexpr int dock_status_wrong_genus          = 2; // Modul-Gattung != D
 inline constexpr int dock_status_subinterface_missing = 3; // gattungs-Antrieb (dynamic_cast) == nullptr (alte DLL)
 inline constexpr int dock_status_conformance_failed =
     4; // V5-I4: std::map-Konformitaets-Gate fehlgeschlagen (vor Messung)
+// NAHT-1 (Owner-KERN 09.08.2026): die zweiseitige Aktivierung braucht ZWEI eigene Zustaende. Bis
+// hierher fielen beide in dock_status_subinterface_missing (3) = "alte DLL, sauber degradieren" --
+// und genau dieses stille Degrade ist der Grund, warum eine Reihe voller ehrlicher Nullen wie eine
+// Messung aussah. Die Trennung ist der Unterschied zwischen "hier wurde bewusst nicht gemessen"
+// und "hier behauptet jemand etwas, das nicht stimmt".
+inline constexpr int dock_status_mess_gate_mismatch =
+    5; // Legende und Mess-Flaeche widersprechen sich -> DEFEKT (JOB hart rot, nie allow_failure)
+inline constexpr int dock_status_mess_deaktiviert =
+    6; // Messeinrichtung EINER Seite bewusst aus -> kein Visitor uebergeben, nicht gemessen
 
 [[nodiscard]] inline std::string_view dock_status_name(int s) noexcept {
     switch (s) {
@@ -47,6 +56,11 @@ inline constexpr int dock_status_conformance_failed =
         case dock_status_wrong_genus: return "wrong_genus";
         case dock_status_subinterface_missing: return "subinterface_missing";
         case dock_status_conformance_failed: return "conformance_failed";
+        // NAHT-1: die Registrierung IST Teil des Tests (T-7) -- ein Status, den dock_status_name
+        // nicht kennt, faellt in "unknown" und ist damit im Bericht stumm. Ein stummer Zustand ist
+        // schlimmer als gar keiner: er sieht aus wie ein bekannter Fehler.
+        case dock_status_mess_gate_mismatch: return "mess_gate_mismatch";
+        case dock_status_mess_deaktiviert: return "mess_deaktiviert";
         default: return "unknown";
     }
 }

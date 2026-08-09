@@ -25,7 +25,8 @@
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anatomy-Module ABI Version. Lebender Stand: Major 8 (E-24 C8, Ebene-1-Gattung als ABI-Flaeche), Minor 0.
+/// Anatomy-Module ABI Version. Lebender Stand: Major 9 (NAHT-1, Mess-Naht am Genus-Interface), Minor 0.
+/// Vorher: Major 8 (E-24 C8, Ebene-1-Gattung als ABI-Flaeche) -- ABI-HISTORIE gegen SHA 0f08fab5.
 /// (Diese Kopfzeile nannte bis E-24 C8 stale "Major: 6 (#216-H2 tier_reset_statistics)" -- eine Zahl aus der
 /// 6er-Aera mit der Begruendung des 4er-Bumps. Sie steht bewusst als EIN Satz da; die Begruendungen je Major
 /// stehen darunter in der Historien-Kette, und der verbindliche Wert ist ausschliesslich das #define unten.)
@@ -86,11 +87,29 @@
 /// byte-neutral, und es entsteht KEINE golden_fullpilot_320_binary_ids_abi7.txt: der Alt-golden-Freeze der
 /// Majors 4/5/6 (decl:47/:53) hing jeweils an einer BEWEGTEN binary_id -- hier bewegt sich keine. Was dieser
 /// Major bewegt, ist die Lade-Akzeptanz und (ueber den Minor-Reset unten) der Objekt-Store-Bucket.
-#define COMDARE_ANATOMY_ABI_MAJOR 8
+/// NAHT-1 (2026-08-09, Owner-KERN "der Ansatz mit den SIDECARS IST FALSCH") ABI-Bruch Major 8->9,
+/// Minor->0: DIE MESS-NAHT AM GENUS-INTERFACE. IObservableTier erhaelt den vtable-Slot
+/// `tier_measure_accept(IMessVisitor&)`; der Host reicht den Mess-Visitor HINEIN, statt mit
+/// tier_observe(Snapshot*) von aussen einen POD abzuschaben. Der Pull-Slot bleibt vorerst stehen --
+/// als ABGELEITETER Klient der Push-Naht (abi_adapter.hpp: SnapshotSink + MessEdge), nicht als
+/// zweiter Mess-Pfad -- weil ihn 78 Aufrufstellen in 55 Dateien rufen; deren Migration ist das
+/// benannte Folgepaket NAHT-2. Praezedenz dieses Bump-Typs: Major 3->4 (#216-H2) ergaenzte auf
+/// genau dieselbe Weise EINEN IObservableTier-vtable-Slot.
+/// Loader lehnt Major-8-DLLs ab (host_compatible_with, Schritt 5 der 7-Schritt-Validierung) -> ALLE
+/// Permutations-DLLs werden neu gebaut. Das ist GEWOLLT und der lauteste Kanal, den das Haus hat:
+/// jede bestehende .so traegt die verworfene Sidecar-Naht.
+/// GOLDEN-BILANZ (AUSGEWIESEN, nicht behauptet): die binary_id-permutierende Komposition ist
+/// UNBERUEHRT -- keine neue Organ-Haupt-Achse, organ_count() bleibt 18, der Observer-POD bleibt
+/// axis_stats[18][8] + seg_ns[18] (sizeof 1344, static_assert in observable_tier.hpp haelt es fest).
+/// golden_fullpilot_320 und kNewGolden131072Crc64 sind deshalb byte-neutral, und es entsteht KEINE
+/// golden_fullpilot_320_binary_ids_abi8.txt: der Alt-golden-Freeze der Majors 4/5/6 hing jeweils an
+/// einer BEWEGTEN binary_id -- hier bewegt sich keine. Bewegt wird die Lade-Akzeptanz.
+/// Magic kodiert den Major -> von .A8. auf .A9. bewegt.
+#define COMDARE_ANATOMY_ABI_MAJOR 9
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA*A8*" als big-endian uint64_t (E-24 C8 Major 8).
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141382EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA*A9*" als big-endian uint64_t (NAHT-1 Major 9).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141392EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)

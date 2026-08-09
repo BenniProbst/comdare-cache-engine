@@ -114,19 +114,21 @@ int main(int argc, char** argv) {
     std::cout << "  COMDARE_ANATOMY_ABI_MINOR = " << COMDARE_ANATOMY_ABI_MINOR << "\n";
     std::cout << "  COMDARE_ANATOMY_ABI_MAGIC = 0x" << std::hex << std::uppercase
               << static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAGIC) << std::dec << std::nouppercase << "\n";
-    eq("Host-Major ist 8 (E-24 C8: DER MAJOR)", static_cast<int>(COMDARE_ANATOMY_ABI_MAJOR), 8);
+    // NAHT-1 (09.08.2026): 8 -> 9, die Mess-Naht am Genus-Interface. Diese drei Zeilen sind die
+    // LAUFZEIT-Haelfte der Major-Wache (die compile-time-Haelfte steht in test_v41_anatomy_module_abi).
+    eq("Host-Major ist 9 (NAHT-1: DER MAJOR)", static_cast<int>(COMDARE_ANATOMY_ABI_MAJOR), 9);
     eq("Host-Minor ist 0 (Major-Bump setzt den Minor zurueck)", static_cast<int>(COMDARE_ANATOMY_ABI_MINOR), 0);
-    eq("Magic kodiert den Major (\".A8.\")", static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAGIC),
-       static_cast<std::uint64_t>(0x434F4D444141382EULL));
+    eq("Magic kodiert den Major (\".A9.\")", static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAGIC),
+       static_cast<std::uint64_t>(0x434F4D444141392EULL));
     // Der Magic-WECHSEL, belegt statt behauptet: der Alt-Wert unterscheidet sich in GENAU EINEM Byte
     // (dem ASCII-Ziffern-Byte des Majors) -- das ist die Historien-Regel "Magic kodiert den Major".
     {
-        constexpr std::uint64_t kAltMagic = 0x434F4D444141372EULL; // ".A7."
+        constexpr std::uint64_t kAltMagic = 0x434F4D444141382EULL; // ".A8." (Vorgaenger, NAHT-1)
         constexpr std::uint64_t kXor      = kAltMagic ^ COMDARE_ANATOMY_ABI_MAGIC;
-        std::cout << "  Magic-Wechsel .A7. -> .A8., XOR = 0x" << std::hex << std::uppercase << kXor << std::dec
+        std::cout << "  Magic-Wechsel .A8. -> .A9., XOR = 0x" << std::hex << std::uppercase << kXor << std::dec
                   << std::nouppercase << "\n";
-        eq("der Magic-Wechsel bewegt GENAU das Major-Ziffern-Byte ('7' ^ '8')", kXor,
-           static_cast<std::uint64_t>(static_cast<std::uint64_t>('7' ^ '8') << 8));
+        eq("der Magic-Wechsel bewegt GENAU das Major-Ziffern-Byte ('8' ^ '9')", kXor,
+           static_cast<std::uint64_t>(static_cast<std::uint64_t>('8' ^ '9') << 8));
     }
 
     // ----------------------------------------------------------------------------------------------
@@ -165,10 +167,10 @@ int main(int argc, char** argv) {
     // ----------------------------------------------------------------------------------------------
     // (3) POSITIV -- der heutige Stand laedt und ist treibbar (sonst belegte die TU nur Ablehnung).
     // ----------------------------------------------------------------------------------------------
-    std::cout << "\n-- Positiv-Zweig: das Major-8-Modul --\n";
+    std::cout << "\n-- Positiv-Zweig: das LEBENDE Modul (Host-Major) --\n";
     {
         al::AnatomyModuleHandle h;
-        int const               st = lade_und_melde(neu, "Major-8-Modul", h);
+        int const               st = lade_und_melde(neu, "lebendes Modul", h);
         eq("    Loader-Status", std::string{al::status_name(st)}, std::string{"ok"});
         if (st == al::status_ok) {
             tr("    handle.valid()", h.valid());
@@ -204,7 +206,9 @@ int main(int argc, char** argv) {
         // ("der EINE literale Pin" in test_v41_anatomy_module_abi) war damit zum ZWEITEN Mal falsch --
         // sie ist dort jetzt durch die vollstaendige Fundstellen-Liste ersetzt.
         std::string const text = pf::ceb_contract_version_text();
-        eq("ceb_contract_version_text()", text, std::string{"8.1"});
+        // NAHT-1 (09.08.2026): 8.1 -> 9.1. Der Major wandert (Mess-Naht am Genus-Interface), der
+        // codegen-Minor bleibt 1 -- der Bump beruehrt kV3AxisSchema NICHT.
+        eq("ceb_contract_version_text()", text, std::string{"9.1"});
         // ... und ZUSAETZLICH die Ableitungs-Wache: der Text kommt aus derselben Quelle wie die
         // Lade-Wache oben. Beide zusammen schliessen aus, dass Pin und Wirkung auseinanderlaufen.
         eq("... und er ist aus dem Host-Major abgeleitet",
@@ -221,8 +225,8 @@ int main(int argc, char** argv) {
             if (nl == std::string::npos) break;
             std::cout << "    " << block.substr(pos, nl - pos) << "\n";
         }
-        tr("der --version-Block traegt die Zeile \"ceb-contract=8.1\"",
-           block.find("\nceb-contract=8.1\n") != std::string::npos);
+        tr("der --version-Block traegt die Zeile \"ceb-contract=9.1\"",
+           block.find("\nceb-contract=9.1\n") != std::string::npos);
     }
 
     // ----------------------------------------------------------------------------------------------

@@ -275,9 +275,16 @@ enum class DockErrorClass : std::uint8_t {
     KonformitaetGescheitert = 4, // Gattungs-Orakel VOR der Messung gerissen (conformance_failed); NICHT gemessen
     ModulLadeFehler         = 5, // der Loader kam gar nicht bis zum Dock (anatomy_module_loader status != ok)
     UnbekannterDockStatus   = 6, // Transport-Int jenseits des bekannten Vokabulars -> sichtbar, nie still
+    // NAHT-1 (Owner-KERN 09.08.2026, Mess-Naht am Genus-Interface). ANGEHAENGT -- 0..6 unberuehrt.
+    // WARUM ZWEI NEUE KLASSEN UND NICHT AntriebsInterfaceFehlt: jene Klasse heisst "zu alte DLL", also
+    // eine Wissensluecke ueber ein fremdes Artefakt. Die beiden hier sind etwas anderes. Sie in die
+    // Alt-Klasse zu werfen hiesse, einen DEFEKT und eine ABSICHT unter dem Etikett eines Altlast-Falls
+    // zu verstecken -- genau die Sorte Sammel-Etikett, die RF-2/FK-7 im Haus abgeschafft haben.
+    MessGateWiderspruch = 7, // Legende und Mess-Flaeche widersprechen sich: DEFEKT, nie ein Degrade
+    MessDeaktiviert     = 8, // eine Seite der UND-Bedingung ist bewusst aus -> planmaessig nicht gemessen
 };
 /// Single-Source der Dock-Klassenzahl (beide Drift-Wachen unten).
-inline constexpr std::size_t kDockErrorClassCount = 7;
+inline constexpr std::size_t kDockErrorClassCount = 9;
 
 /// Log-Etikett je Dock-Fehlerklasse (stabil; darf in Experiment-Logs zitiert werden). Der Fallback heisst
 /// bewusst NICHT "unbekannt" -- das Wort tragen error_class_label und infra_error_label bereits, und die
@@ -291,6 +298,8 @@ inline constexpr std::size_t kDockErrorClassCount = 7;
         case DockErrorClass::KonformitaetGescheitert: return "konformitaet_gescheitert";
         case DockErrorClass::ModulLadeFehler: return "modul_lade_fehler";
         case DockErrorClass::UnbekannterDockStatus: return "unbekannter_dock_status";
+        case DockErrorClass::MessGateWiderspruch: return "mess_gate_widerspruch";
+        case DockErrorClass::MessDeaktiviert: return "mess_deaktiviert";
     }
     return "dock_fehler_unbekannt";
 }
@@ -670,7 +679,10 @@ static_assert(!probe_label_ist_disjunkt(sample_status_label(SampleStatus::Failed
 static_assert(std::is_same_v<std::underlying_type_t<DockErrorClass>, std::uint8_t>);
 static_assert(std::is_trivially_copyable_v<DockErrorClass>);
 // (1) Namens-Pin und (2) Etikett-hinter-Count -- beide, weil (1) allein ein ANHAENGEN nicht faengt (RF-3).
-static_assert(kDockErrorClassCount == static_cast<std::size_t>(DockErrorClass::UnbekannterDockStatus) + 1);
+// NAHT-1: der Namens-Pin zeigt jetzt auf MessDeaktiviert -- die LETZTE Klasse. Der Pin muss beim
+// Anhaengen bewusst mitgezogen werden; genau dafuer ist er da (RF-3: ein Count-Vergleich allein
+// faengt ein Anhaengen nicht, ein Pin auf die letzte Klasse schon).
+static_assert(kDockErrorClassCount == static_cast<std::size_t>(DockErrorClass::MessDeaktiviert) + 1);
 static_assert(dock_error_label(static_cast<DockErrorClass>(kDockErrorClassCount)) ==
                   std::string_view{"dock_fehler_unbekannt"},
               "Drift: hinter dem Count liegt eine etikettierte Dock-Fehlerklasse");
@@ -696,6 +708,19 @@ static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::Konfo
 static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::ModulLadeFehler)) ==
               std::string_view{"failed"});
 static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::UnbekannterDockStatus)) ==
+              std::string_view{"failed"});
+// NAHT-1: BEIDE neuen Klassen lesen ebenfalls "failed" -- und fuer MessDeaktiviert ist das eine
+// bewusste Entscheidung, keine Nachlaessigkeit. Die Versuchung waere SourceUnavailable ("die Quelle
+// existiert hier planmaessig nicht"). Sie ist falsch: wer einem MESSENDEN Dock eine funktional-only
+// Binary vorlegt, hat eine Konfiguration gefahren, in der nichts gemessen werden KANN -- und genau
+// dieser Zustand soll laut werden, nicht als planmaessiges "n/a" durchgehen. Das ist der ganze Punkt
+// des KERNs vom 09.08.: eine Reihe ehrlicher Nullen sah bisher aus wie eine Messung.
+// AUSDRUECKLICH OFFEN (Owner-Entscheid, kein Eigenentscheid des Baus): ob ein PLANMAESSIG
+// funktional-only gefahrener Lauf seine Zellen als "failed" oder als "n/a" tragen soll. Bis dahin
+// gilt die lautere Variante.
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::MessGateWiderspruch)) ==
+              std::string_view{"failed"});
+static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::MessDeaktiviert)) ==
               std::string_view{"failed"});
 static_assert(sample_status_token(dock_error_sample_status(DockErrorClass::ModulOhneAnatomie)) !=
                   sample_status_token(SampleStatus::NotApplicable),

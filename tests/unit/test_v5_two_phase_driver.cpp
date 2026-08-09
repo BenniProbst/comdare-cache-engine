@@ -58,6 +58,15 @@ struct MockTier final : an::IObservableTier, an::IRollbackableTier {
     void                        tier_clear() noexcept override { data_.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data_.size(); }
     // Die EINE konsolidierte tier_observe — search → axis_stats[0].
+    // NAHT-1 (Owner-KERN 09.08.2026): die Mess-Naht am Genus-Interface. Diese Huelle fuehrt
+    // keine Q1-Sequenz -- sie berichtet den Zustand, den sie ohnehin haelt, ueber die EINE
+    // Reihenfolge (an::push_snapshot_to_visitor), damit der Ordnungs-Vertrag der Naht nicht
+    // je Huelle abgeschrieben wird und in einer Kopie lautlos veralten kann.
+    void tier_measure_accept(an::IMessVisitor& v) const noexcept override {
+        an::ComdareTierObserverSnapshot s{};
+        tier_observe(&s);
+        an::push_snapshot_to_visitor(s, v, 0);
+    }
     void tier_observe(an::ComdareTierObserverSnapshot* o) const noexcept override {
         if (!o) return;
         o->axis_stats[0][3] = ins_;

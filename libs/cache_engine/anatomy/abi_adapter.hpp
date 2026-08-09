@@ -2068,7 +2068,12 @@ public:
     //   (4) deren Organe erst jetzt nullen (reset_pathb_driven_organs_) -- Mess-Fenster = genau dieser Lauf.
     // Beide Lese-Zeitpunkte schreiben in DENSELBEN POD; das Wire-Layout ist unberuehrt (sizeof 1344, Version 8).
     // Rationale-Historie: docs/architecture/31_observer_interface_konsolidierung_i1.md.
-    void tier_observe(ComdareTierObserverSnapshot* out) const noexcept override {
+    // NAHT-1 (Owner-KERN 09.08.2026): DIE Q1-SEQUENZ IST DER MESS-AKT -- und sie wohnt ab hier GENAU
+    // EINMAL. Sowohl die Push-Naht (tier_measure_accept) als auch der abgeleitete Alt-Pull
+    // (tier_observe) fahren DIESE Funktion; es gibt keine zweite Fassung der Reihenfolge.
+    // Waere sie zweimal geschrieben, waere sie eine ABSCHRIFT -- und die A8-S3-Reihenfolge (SPAETER
+    // Observer-READ) ist genau die Sorte Detail, die in einer Kopie lautlos veraltet.
+    void run_q1_measure_sequence_(ComdareTierObserverSnapshot* out) const noexcept {
         if (out == nullptr) return;
         *out = ComdareTierObserverSnapshot{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -2090,6 +2095,46 @@ public:
         out->seg_framework_ns = seg.seg_framework_ns;
         out->seg_run_total_ns = seg.seg_run_total_ns;
 #endif // COMDARE_CE_ENABLE_STATISTICS
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // NAHT-1: DIE MESS-NAHT AM GENUS-INTERFACE (der KERN vom 09.08.2026)
+    // ---------------------------------------------------------------------------------------------
+    // Der Host reicht den Visitor herein, das Tier BERICHTET in ihn. Der Ereignis-Strom ist der
+    // Vertrag aus mess_visitor_abi.hpp: e2_begin -> 18 x e1_axis_row (AUFSTEIGEND) -> e2_end.
+    //
+    // WARUM HIER EIN STAGING-POD STEHT UND DAS KEIN "SIDECAR IM VISITOR-MANTEL" IST:
+    // Die Q1-Sequenz ist VIERSTUFIG und zeitlich verschraenkt -- die T17-Zeile ENTSTEHT erst in
+    // Schritt 2 und wird erst in Schritt 3 lesbar (A8-S3, am Objekt belegt: seg_ns[T17] > 0 bei
+    // axis_stats[T17][*] == 0, wenn zu frueh gelesen wird). Eine Achsen-Zeile liesse sich deshalb
+    // gar nicht emittieren, BEVOR der Segment-Lauf durch ist: der Strom kann erst fliessen, wenn
+    // die Messung fertig ist. Das Staging ist also eine FOLGE der Mess-Semantik, keine Abkuerzung,
+    // und es ist ueber die Naht nicht beobachtbar. Was der KERN verwirft, ist der TRANSPORT ueber
+    // die Grenze (Host greift hinein und schabt ab) -- und genau der ist hier umgekehrt.
+    //
+    // KOSTEN, EHRLICH BENANNT: 20 virtuelle Spruenge je Checkpoint (1 + 18 + 1), auf
+    // Checkpoint-Granularitaet -- NIE im per-Op-Hot-Loop. Der Alt-Pull kostete EINEN Aufruf plus
+    // einen 1344-Byte-POD ueber die Grenze; der Stoerabstand ist damit nicht schlechter geworden.
+    // Die per-Op-Wall-Clock misst weiterhin der Host um den vtable-Op-Aufruf herum -- sie querte
+    // die ABI nie und tut es auch jetzt nicht.
+    void tier_measure_accept(IMessVisitor& v) const noexcept override {
+        ComdareTierObserverSnapshot s{};
+        run_q1_measure_sequence_(&s);
+        // Die REIHENFOLGE wohnt in push_snapshot_to_visitor (observable_tier.hpp) -- genau einmal fuer
+        // alle Berichtenden. Hier steht der MESS-AKT, dort der VERTRAG; beides zu mischen hiesse, den
+        // Vertrag je Berichtendem abzuschreiben.
+        push_snapshot_to_visitor(s, v, static_cast<std::uint64_t>(genus()));
+    }
+
+    // NAHT-1: der Alt-Pull ist ab hier ein ABGELEITETER KLIENT der Push-Naht. Er rechnet nichts mehr
+    // selbst -- er stellt eine SnapshotSink auf und laesst den Ereignis-Strom hineinlaufen. Damit
+    // gibt es EINEN Mess-Pfad, und die 78 Bestands-Aufrufstellen (Folgepaket NAHT-2) sind unfreiwillig
+    // zum Regressionsnetz der neuen Naht geworden: faellt ein Feld aus dem Strom, werden sie rot.
+    void tier_observe(ComdareTierObserverSnapshot* out) const noexcept override {
+        if (out == nullptr) return;
+        SnapshotSink           sink{out};
+        MessEdge<SnapshotSink> edge{sink};
+        tier_measure_accept(edge);
     }
 
     void tier_reset_statistics() noexcept override { reset_axis_statistics_(); }
