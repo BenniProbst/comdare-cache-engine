@@ -134,8 +134,14 @@
 ///      120-Spalten-Regel der Diff-Hygiene-Wache. Ein Umbruch scheidet nach dem Befund oben aus --
 ///      er brauchte genau das '\' am Zeilenende, das hier gerade beseitigt wurde. Das Kommando ist
 ///      deshalb VERDICHTET statt umgebrochen: gemeinsames Praefix ce_owned_version_ ausgeklammert,
-///      die zwei --include zu einer Klasse zusammengezogen. GEMESSEN, nicht behauptet: beide Formen
-///      liefern dieselben 131 Treffer, die Listen sind byteweise identisch (diff -q, leer).)
+///      die zwei --include zu einer Klasse zusammengezogen. GEMESSEN, nicht behauptet: je Baum
+///      liefern beide Formen dieselbe Zahl, die Listen sind byteweise identisch (diff -q, leer).
+///      IN DIESEM BAUM SIND ES 130. Auf der Basis aebc4f2c waren es 131 -- und dieser eine Treffer
+///      ist NICHT verloren gegangen, sondern war ein Phantom: die alte Kommandozeile enthielt ihr
+///      eigenes Suchmuster woertlich und traf damit SICH SELBST. Die verdichtete Form schiebt '\('
+///      zwischen Praefix und Alternative und tut das nicht mehr. Die weggefallene Fundstelle ist
+///      also genau diese Doku-Zeile, keine Wache -- die Zaehlung wird dadurch richtiger, nicht
+///      duenner. Wer hier 130 misst und 131 erwartet, sucht eine Quelle, die es nie gab.)
 /// Begruendung (das ist keine Stil-Frage): jede ce-EIGENE Versions-Quelle traegt per B12-Doktrin genau
 /// diese beiden Wachen -- wer eine neue Quelle ohne sie anlegt, hat keine Naht angelegt, sondern eine
 /// Luecke. BELEG, warum dieser grep noetig wurde: die Klassen (e) kPlannerVersion und (f) kOsProbeVersion
