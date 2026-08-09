@@ -19,7 +19,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # comdare_run_adhoc_emitter — ruft comdare-adhoc-emitter zur Configure-Time auf.
 #   OUTPUT_DIR  <dir>        Ziel-Verzeichnis für die emittierten comdare_anatomy_perm_auto_*.cpp
-#   [STATUS_OUT <var>]       "FOUND" | "SKIPPED" | "ERROR"
+#   [STATUS_OUT <var>]       "FOUND" | "SKIPPED"
+#                            (D1f 2026-08-09: der dritte Zustand "ERROR" ist ENTFALLEN. Er war
+#                            ein stiller Pfad -- das Configure lief mit Exit 0 weiter und es
+#                            fehlten lautlos Tests. Ein Werkzeug-Fehler bricht jetzt hart ab,
+#                            es gibt also keinen Zustand mehr, den ein Aufrufer pruefen muesste.
+#                            Kein Aufrufer hat "ERROR" je ausgewertet -- nachgeprueft, 0 Treffer.)
 #   [FULL_COVERAGE]          --full-coverage an den Emitter durchreichen (1-wise-Stichprobe statt Pilot)
 # ─────────────────────────────────────────────────────────────────────────────
 function(comdare_run_adhoc_emitter)
@@ -86,11 +91,15 @@ function(comdare_run_adhoc_emitter)
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_STRIP_TRAILING_WHITESPACE)
 
+    # D1f (2026-08-09) -- FATAL_ERROR statt WARNING; Schwesterstelle zu
+    # cmake/anatomy_codegen_runner.cmake. Begruendung und Messung dort.
+    # Der Fall "Werkzeug noch nicht gebaut" oben bleibt WARNING/SKIPPED (Pass 1).
     if(NOT _rc EQUAL 0)
-        message(WARNING
+        message(FATAL_ERROR
             "comdare_run_adhoc_emitter: tool returned rc=${_rc}\n"
+            "  tool:       ${_tool_path}\n"
+            "  output-dir: ${ARG_OUTPUT_DIR}\n"
             "  stdout: ${_stdout}\n  stderr: ${_stderr}")
-        _ae_set_status_and_return("ERROR")
     endif()
 
     message(STATUS "comdare_run_adhoc_emitter: emitted modules into ${ARG_OUTPUT_DIR}\n"
@@ -122,13 +131,18 @@ function(comdare_build_adhoc_modules)
     file(GLOB _emitted_cpps "${ARG_OUTPUT_DIR}/comdare_anatomy_perm_auto_*.cpp")
     list(SORT _emitted_cpps)
     list(LENGTH _emitted_cpps _n_emitted)
+    # D1f (2026-08-09) -- FATAL_ERROR statt WARNING. Diese Funktion wird NUR unter
+    # 'if(_r5g_ae_status STREQUAL "FOUND")' gerufen (einziger Aufrufer:
+    # tests/unit/CMakeLists.txt:1616-1617). "Emitter meldet FOUND, hat aber nichts
+    # emittiert" ist damit kein zulaessiger Zustand, sondern ein Widerspruch --
+    # vorher lief das Configure mit leerer Target-Liste und Exit 0 weiter, und der
+    # R5.G-Zweig verschwand lautlos samt seiner Tests.
     if(_n_emitted EQUAL 0)
-        message(WARNING
-            "comdare_build_adhoc_modules: no emitted .cpp found in ${ARG_OUTPUT_DIR}.")
-        if(ARG_TARGETS_OUT)
-            set("${ARG_TARGETS_OUT}" "" PARENT_SCOPE)
-        endif()
-        return()
+        message(FATAL_ERROR
+            "comdare_build_adhoc_modules: der Emitter meldete FOUND, aber in "
+            "${ARG_OUTPUT_DIR} liegt keine einzige comdare_anatomy_perm_auto_*.cpp.\n"
+            "  Das ist ein Widerspruch, kein leerer Normalfall -- gerufen wird diese "
+            "Funktion ausschliesslich nach STATUS=FOUND.")
     endif()
 
     # V41.P1-Gateway: cache-engine-Wurzel robust via CMAKE_CURRENT_FUNCTION_LIST_DIR (Definitions-Datei

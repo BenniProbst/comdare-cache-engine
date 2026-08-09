@@ -27,7 +27,8 @@
 #       [NO_KNOWN]                           # optional: bekannte CE-Compositions weglassen
 #       [EXTERNAL_COMPOSITIONS               # optional (F.5): Pruefling-Compositions
 #           "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"]
-#       [STATUS_OUT  <var-name>])            # optional, "FOUND"/"SKIPPED"/"ERROR"
+#       [STATUS_OUT  <var-name>])            # optional, "FOUND"/"SKIPPED"
+#   (D1f 2026-08-09: "ERROR" ist ENTFALLEN -- war ein stiller Pfad, siehe unten am FATAL_ERROR.)
 #
 # Pruefling-Stufe-2-Codegen (nur prt-art):
 #   comdare_run_anatomy_codegen_tool(OUTPUT <pa.cmake> NO_KNOWN
@@ -130,18 +131,31 @@ function(comdare_run_anatomy_codegen_tool)
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_STRIP_TRAILING_WHITESPACE)
 
+    # D1f (2026-08-09) -- FATAL_ERROR statt WARNING. Ein abgestuerztes Werkzeug ist KEIN
+    # tolerierbarer Zustand: bis heute lief 'cmake -B build' danach mit Exit 0 weiter, und es
+    # fehlten lautlos Tests. Am Objekt gemessen (Werkzeug durch einen Stub mit Exit 49 ersetzt):
+    #   VORHER  cmake -B build -> Exit 0, nur zwei CMake-Warnungen; ctest -N: 478 statt 480.
+    #           Still verloren: test_v41_anatomy_f15_measurement,
+    #                           test_v41_anatomy_r5i_configure_codegen.
+    #   NACHHER cmake -B build -> Exit != 0, benannt.
+    # ABGRENZUNG: der Fall "Werkzeug noch nicht gebaut" oben bleibt WARNING/SKIPPED -- das ist
+    # Pass 1 des dokumentierten 2-Pass-Ablaufs und im super-Sub-Build der Normalfall.
     if(NOT _rc EQUAL 0)
-        message(WARNING
+        message(FATAL_ERROR
             "comdare_run_anatomy_codegen_tool: tool returned rc=${_rc}\n"
+            "  tool:   ${_tool_path}\n"
+            "  output: ${ARG_OUTPUT}\n"
             "  stdout: ${_stdout}\n"
             "  stderr: ${_stderr}")
-        _set_status_and_return("ERROR")
     endif()
 
     if(NOT EXISTS "${ARG_OUTPUT}")
-        message(WARNING
-            "comdare_run_anatomy_codegen_tool: tool succeeded but did not produce ${ARG_OUTPUT}")
-        _set_status_and_return("ERROR")
+        message(FATAL_ERROR
+            "comdare_run_anatomy_codegen_tool: tool succeeded (rc=0) but did not produce "
+            "${ARG_OUTPUT}\n"
+            "  tool:   ${_tool_path}\n"
+            "  stdout: ${_stdout}\n"
+            "  stderr: ${_stderr}")
     endif()
 
     message(STATUS
