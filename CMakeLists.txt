@@ -1659,3 +1659,14 @@ endif()
 include(axis_hierarchy_summary)
 comdare_print_axis_hierarchy()
 
+# -----------------------------------------------------------------------------
+# D2 (09.08.2026) -- ABSCHLUSS DES REGISTRIERUNGS-PROTOKOLLS.
+# Muss die LETZTE Anweisung dieser Datei bleiben: erst hier haben alle
+# add_subdirectory()-Zweige ihre bedingten Registrierungs-Bloecke vermerkt.
+# Die Endmarke ist der Grund, warum ein abgebrochener Configure-Lauf der
+# Abdeckungs-Wache nicht als "eben weniger Bloecke" durchgeht -- ohne sie
+# bricht die Wache ab (fail-closed). Details: cmake/registrierungs_protokoll.cmake.
+# -----------------------------------------------------------------------------
+include(registrierungs_protokoll)
+comdare_registrierung_abschliessen()
+

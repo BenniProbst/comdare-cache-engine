@@ -85,6 +85,17 @@ void tr(char const* w, bool c) {
         case ana::AnatomyGenus::Adapter: return "adp_push,adp_pop,adp_front_reads";
         case ana::AnatomyGenus::View: return "view_read,view_read_oob,view_bound_size";
         case ana::AnatomyGenus::SearchAlgorithm: return "";
+        // HY-A1-NACHZUG (Warnungs-Review Runde 2b, 09.08.2026). clang meldete hier:
+        //   warning: enumeration value 'FunctionInterfaceReroute' not handled in switch [-Wswitch]
+        // Der Fall ist ausgeschrieben statt weggelassen, obwohl er dasselbe LIEFERT wie der
+        // Fall-through -- weil "leer, weil unerreichbar" und "leer, weil vergessen" sonst dieselbe
+        // Zeile waeren. Er ist hier UNERREICHBAR und das steht in anatomy_base.hpp an genus():
+        // eine Hybrid-Tier-Binary gibt aus genus() das GEERBTE ZIEL-Genus zurueck und "NIEMALS
+        // AnatomyGenus::FunctionInterfaceReroute" (Owner-Entscheid E-1 final, Weg C). Dieser Test
+        // faehrt ausschliesslich ueber genus() der geladenen .so. Kaeme der Wert hier doch an,
+        // waere die Klassifikations-Partition gebrochen -- dann ist die leere Spaltenliste das
+        // richtige Signal: das Dock kennt fuer ihn keine Observer-Spalten.
+        case ana::AnatomyGenus::FunctionInterfaceReroute: return "";
     }
     return "";
 }

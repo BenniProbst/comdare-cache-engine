@@ -592,7 +592,20 @@ public:
                                              std::uint64_t out_capacity) noexcept override {
         if (out_latencies_ns == nullptr || out_capacity == 0 || batches == 0 || ops_per_batch == 0) { return 0; }
         try {
-            using SearchAlgo = typename A::composition_t::search_algo;
+            // TOTES LOKALES ALIAS ENTFERNT (Warnungs-Review Runde 2b, 09.08.2026). Hier stand
+            //     using SearchAlgo = typename A::composition_t::search_algo;
+            // und clang meldete es an DREI Rumpf-Anfaengen dieser Klasse doppelt:
+            //     warning: unused type alias 'SearchAlgo' [-Wunused-local-typedef]
+            //     warning: declaration shadows a type alias in
+            //              'comdare::cache_engine::anatomy::SearchAlgorithmAbiAdapter<A, ShapeCarrier>' [-Wshadow]
+            // Beides ist derselbe Rueckstand: A8-S5 Phase B (05.08.2026) hat die Rumpfe auf
+            // EffectiveSearchAlgo umgestellt -- den namens-gleichen Vorgaenger aber stehen lassen.
+            // Er verdeckte seither das Klassen-Alias (abi_adapter.hpp:2420) mit DEMSELBEN Typ, war
+            // also verhaltens-neutral und darum unsichtbar. Gefaehrlich war er trotzdem: wer in
+            // diesen Rumpfen kuenftig "SearchAlgo" schreibt, meint fast sicher die Phase-B-Naht und
+            // bekaeme die nicht-rebound Fassade -- die Allokator-Wahl der Komposition fiele lautlos
+            // auf den Achsen-Default zurueck. Die Zeile ersatzlos zu streichen ist die Heilung:
+            // "SearchAlgo" loest jetzt auf das Klassen-Alias auf, "EffectiveSearchAlgo" auf die Naht.
             using Allocator  = typename A::composition_t::allocator;     // R5.B: 2. operative Achse
             using MemLayout  = typename A::composition_t::memory_layout; // R5.B: 3. operative Achse
             using Serializer = typename A::composition_t::serialization; // R5.B: 4. operative Achse (axis_10)
@@ -707,7 +720,7 @@ public:
         *out = ComdareSegmentLatencyV1{};
         if (batches == 0 || ops_per_batch == 0) return 0;
         try {
-            using SearchAlgo = typename A::composition_t::search_algo;
+            // Zweiter der drei A8-S5-Phase-B-Rueckstaende -- siehe die Begruendung am ersten Rumpf.
             using Allocator  = typename A::composition_t::allocator;
             using MemLayout  = typename A::composition_t::memory_layout;
             using Serializer = typename A::composition_t::serialization;
@@ -816,7 +829,7 @@ public:
         *out = ComdareSegmentLatencyV2{};
         if (batches == 0 || ops_per_batch == 0) return 0;
         try {
-            using SearchAlgo      = typename A::composition_t::search_algo;
+            // Dritter der drei A8-S5-Phase-B-Rueckstaende -- siehe die Begruendung am ersten Rumpf.
             using CacheTraversal  = typename A::composition_t::cache_traversal;
             using Mapping         = typename A::composition_t::mapping;
             using PathCompression = typename A::composition_t::path_compression;

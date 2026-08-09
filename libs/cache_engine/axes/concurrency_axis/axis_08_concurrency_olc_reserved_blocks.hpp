@@ -58,12 +58,30 @@ public:
         (void)next_block_id_().fetch_add(1u, std::memory_order_acq_rel);
     }
     static void release() noexcept {
-        unsigned const       now        = version_().load(std::memory_order_acquire);
-        static volatile bool valid_sink = false;
-        valid_sink                      = (now == snapshot_());
+        unsigned const now = version_().load(std::memory_order_acquire);
+        valid_sink_()      = (now == snapshot_());
     }
 
 private:
+    // `volatile`-SINK des Vergleichs. Der SCHREIBZUGRIFF ist der beobachtbare Effekt, der die
+    // Read-Validate-Bahn vor dem Wegoptimieren schuetzt -- gelesen wird der Wert bewusst NIE.
+    // Als Zugriffsfunktion formuliert (genau wie version_()/snapshot_()) statt als lokale Variable:
+    // eine lokale `set but not used`-Variable mahnen GCC UND clang zu Recht an. So faellt die Warnung
+    // URSAECHLICH weg statt per Unterdrueckung -- und die Mess-Bahn bleibt unveraendert, denn erzeugt
+    // wird derselbe EINE volatile-Store. Ein `(void)valid_sink;` waere die schlechtere Loesung: es
+    // legte einen zusaetzlichen volatile-LOAD in genau den Pfad, dessen Laufzeit hier gemessen wird.
+    //
+    // thread_local ERGAENZT 09.08.2026 -- SCHWESTERSTELLE zu axis_08_concurrency_olc.hpp, wortgleiche
+    // Begruendung: die Senke war die EINZIGE nicht-thread_local Groesse dieser Klasse, waehrend
+    // version_(), next_block_id_() und snapshot_() alle drei thread_local sind. Geteilt ist sie bei
+    // mehrfaedigem Messen ein Data Race UND ein False-Sharing-Punkt -- in einer NEBENLAEUFIGKEITS-Achse
+    // ausgerechnet an der Stelle, die die Messung schuetzen soll. Beide Befunde (Warnung, Teilung)
+    // sind hier ohne jede Unterdrueckung geheilt: die Zugriffsfunktion gegen die Warnung, thread_local
+    // gegen die Teilung. Es bleibt bei demselben EINEN volatile-Store.
+    [[nodiscard]] static volatile bool& valid_sink_() noexcept {
+        static thread_local volatile bool s = false;
+        return s;
+    }
     [[nodiscard]] static std::atomic<unsigned>& version_() noexcept {
         static thread_local std::atomic<unsigned> v{0u};
         return v;

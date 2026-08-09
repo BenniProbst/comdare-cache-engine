@@ -113,10 +113,34 @@ struct DatumZeit {
     std::time_t const t = std::time(nullptr);
     std::tm           tm{};
     gmtime_r(&t, &tm);
-    char buf_d[9];
-    std::snprintf(buf_d, sizeof buf_d, "%04d%02d%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
-    char buf_z[7];
-    std::snprintf(buf_z, sizeof buf_z, "%02d%02d%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    // Der YYYYMMDD-Vertrag ist FESTBREITIG (8 Zeichen + NUL = 9). std::tm fuehrt sein Jahr aber als
+    // UNBESCHRAENKTES int: der Uebersetzer kann die Feldbreite nicht beweisen und meldet zu Recht
+    // "'%04d' directive output may be truncated writing between 4 and 11 bytes into a region of size 9".
+    // Eine Kuerzung waere KEIN Speicherfehler -- snprintf begrenzt und terminiert immer --, wohl aber ein
+    // STILL falsches Datum im Report-Dateinamen. Darum wird das Jahr auf den Vertragsbereich geklemmt:
+    // damit ist die Breite bewiesen (Ursache behoben, nicht Warnung unterdrueckt), und eine kaputte Uhr
+    // schlaegt sichtbar als 9999 auf, statt sich als plausibles Datum zu tarnen. Die Addition steht NACH
+    // dem Klemmen, weil tm_year + 1900 bei einem entarteten tm_year sonst selbst ueberliefe (UB).
+    // GEMESSEN, nicht vermutet: der Uebersetzer hat fuer KEIN std::tm-Feld eine Bereichsangabe
+    // ("directive argument in the range [-2147483647, 2147483647]"). Er meldet nur die jeweils ERSTE
+    // Direktive, die den Puffer sprengen kann -- nach dem Klemmen des Jahres rueckte prompt `%02d`
+    // (tm_mon) nach. Darum werden ALLE sechs Felder auf ihren Vertragsbereich geklemmt.
+    // AUSGESCHRIEBENE Ternaere statt eines klemme()-Helfers -- und das ist gemessen, nicht Geschmack:
+    // ueber einen Lambda-Aufruf traegt GCCs Wertebereichs-Analyse die Schranke NICHT mit; die Meldung
+    // kam mit "directive argument in the range [-2147481748, 2147483647]" unveraendert zurueck. Erst
+    // der ausgeschriebene Ausdruck macht die Feldbreite beweisbar.
+    // Die Addition steht jeweils NACH dem Klemmen: tm_year + 1900 bzw. tm_mon + 1 liefen bei einem
+    // entarteten Feld sonst selbst ueber (UB), noch bevor snprintf ueberhaupt gerufen wird.
+    int const jahr  = ((tm.tm_year < -1900) ? -1900 : ((tm.tm_year > 8099) ? 8099 : tm.tm_year)) + 1900;
+    int const monat = ((tm.tm_mon < 0) ? 0 : ((tm.tm_mon > 11) ? 11 : tm.tm_mon)) + 1;
+    int const tag   = (tm.tm_mday < 1) ? 1 : ((tm.tm_mday > 31) ? 31 : tm.tm_mday);
+    char      buf_d[9];
+    std::snprintf(buf_d, sizeof buf_d, "%04d%02d%02d", jahr, monat, tag);
+    int const stunde  = (tm.tm_hour < 0) ? 0 : ((tm.tm_hour > 23) ? 23 : tm.tm_hour);
+    int const minute  = (tm.tm_min < 0) ? 0 : ((tm.tm_min > 59) ? 59 : tm.tm_min);
+    int const sekunde = (tm.tm_sec < 0) ? 0 : ((tm.tm_sec > 60) ? 60 : tm.tm_sec); // 60 = Schaltsekunde (POSIX)
+    char      buf_z[7];
+    std::snprintf(buf_z, sizeof buf_z, "%02d%02d%02d", stunde, minute, sekunde);
     return {std::string(buf_d), std::string(buf_z)};
 }
 

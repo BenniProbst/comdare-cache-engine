@@ -105,9 +105,24 @@ std::vector<wd::WorkloadOp> mixed_sequence() {
 TEST(V5WorkloadOrchestrator, TwoPhaseProfileEqualsSinglePhaseFinalState) {
     auto const ops = mixed_sequence();
     MockTier   sp;
-    wd::run_workload_profile(sp, nullptr, ops, "single");
-    MockTier tp;
-    wd::run_workload_profile(tp, &tp, ops, "twophase");
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wunused-result; Klasse MUTANT): beide Ergebnisse wurden
+    // verworfen. Jetzt belegen sie erst, dass beide Laeufe dieselbe Op-Strecke gefahren sind und
+    // die Zwei-Phasen-Flagge korrekt gefaerbt ist -- dann zaehlt der End-Zustands-Vergleich.
+    auto const r_single = wd::run_workload_profile(sp, nullptr, ops, "single");
+    MockTier   tp;
+    auto const r_two = wd::run_workload_profile(tp, &tp, ops, "twophase");
+    // Zweiter Reviewer, 09.08.: op_count wird VOR der Op-Schleife aus ops.size() gesetzt und beweist
+    // nur die Bestellung. AUSGEFUEHRT belegen die per-Op-Samples: beide Laeufe muessen dieselben
+    // Sample-Zahlen je Op-Art tragen, und die Insert-Spur darf nicht leer sein.
+    EXPECT_FALSE(r_single.two_phase);
+    EXPECT_TRUE(r_two.two_phase);
+    ASSERT_FALSE(r_single.insert_ns.empty());
+    EXPECT_EQ(r_single.insert_ns.size(), r_two.insert_ns.size());
+    EXPECT_EQ(r_single.lookup_ns.size(), r_two.lookup_ns.size());
+    EXPECT_EQ(r_single.erase_ns.size(), r_two.erase_ns.size());
+    EXPECT_EQ(r_single.clear_ns.size(), r_two.clear_ns.size());
+    EXPECT_EQ(r_single.scan_ns.size(), r_two.scan_ns.size());
+    EXPECT_EQ(r_single.rmw_ns.size(), r_two.rmw_ns.size());
     EXPECT_EQ(sp.data_, tp.data_);
     EXPECT_EQ(sp.ins_, tp.ins_);
     EXPECT_EQ(sp.lk_, tp.lk_);

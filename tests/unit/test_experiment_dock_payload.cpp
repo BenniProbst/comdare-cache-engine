@@ -42,6 +42,12 @@ int main() {
     p.axes.push_back({tp::AxisKind::organ, "memory_layout", pl::AxisRangeForm::index_range, {}, 2, 8});
     // Sonderzeichen-Achse (Name + Werte tragen &, <, >): der Encode/Decode muss byte-treu round-trippen.
     p.axes.push_back({tp::AxisKind::organ, "weird&name", pl::AxisRangeForm::enumerated, {"v<1", "v>2", "a&b"}, 0, 0});
+    // Die drei Meta-Meta-Kinds (Nachzug 09.08.2026, Warnungs-Runde 2). VOR dem Nachzug in
+    // axis_kind_token/parse_axis_kind emittierte jede dieser Achsen kind="organ" -- dieser Roundtrip
+    // hier ist der Koeder, der genau diese stille Fehlfaerbung beisst: parse(emit(p)) != p.
+    p.axes.push_back({tp::AxisKind::system_meta_meta, "simd", pl::AxisRangeForm::enumerated, {"avx2", "avx512"}, 0, 0});
+    p.axes.push_back({tp::AxisKind::measurement_meta_meta, "load_framework", pl::AxisRangeForm::index_range, {}, 0, 3});
+    p.axes.push_back({tp::AxisKind::organ_meta_meta, "organ_mm_probe", pl::AxisRangeForm::enumerated, {"leer"}, 0, 0});
 
     std::string const s1 = pl::emit_experiment_subtree_xml(p);
     auto const        p2 = pl::parse_experiment_subtree_xml(s1);
@@ -70,6 +76,12 @@ int main() {
     check("(1d) kind-Faerbung system_config im Wire-Format", s1.find("kind=\"system_config\"") != std::string::npos);
     check("(1d) kind-Faerbung system_measurement im Wire-Format",
           s1.find("kind=\"system_measurement\"") != std::string::npos);
+    check("(1d) kind-Faerbung system_meta_meta im Wire-Format (nicht als 'organ' fehlgefaerbt)",
+          s1.find("kind=\"system_meta_meta\"") != std::string::npos);
+    check("(1d) kind-Faerbung measurement_meta_meta im Wire-Format",
+          s1.find("kind=\"measurement_meta_meta\"") != std::string::npos);
+    check("(1d) kind-Faerbung organ_meta_meta im Wire-Format",
+          s1.find("kind=\"organ_meta_meta\"") != std::string::npos);
 
     // ── Negativ-Faelle: jede Abweichung -> nullopt (nie stille Fehlfaerbung / halbe Nutzlast). ──
     check("(1e) unbekanntes kind -> nullopt",

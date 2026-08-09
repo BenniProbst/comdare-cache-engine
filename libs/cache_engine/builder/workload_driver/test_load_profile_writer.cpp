@@ -26,12 +26,27 @@ namespace fs = std::filesystem;
 namespace {
 
 std::FILE* g_log = nullptr; // optionaler Tee-Log (Argument 4) für robusten BELEG-Mitschnitt
+// 09.08.2026 (Warnungs-Runde 2, clang -Wformat-security; Klasse SPEICHER). Die leere Pack-
+// Instanziierung war `std::printf(fmt)` mit VARIABLEM Format: haette fmt je ein '%' getragen,
+// laese printf nicht existierende Argumente von Stack/Registern -- die klassische format-string-
+// Luecke. Heute tragen alle argumentlosen Aufrufe Literale ohne '%' (Gegenprobe 09.08., paren-
+// zaehlend statt komma-zaehlend: VIER Aufrufe, nicht einer -- ein Komma IM Literal ist kein
+// Argumenttrenner); der if-constexpr-Zweig macht daraus fputs und nimmt der Klasse dauerhaft
+// den Boden: ein kuenftiges '%' im Text ist dann Text, nie eine Leseanweisung.
 template <class... A>
 void emit(char const* fmt, A... a) {
-    std::printf(fmt, a...);
+    if constexpr (sizeof...(A) == 0) {
+        std::fputs(fmt, stdout);
+    } else {
+        std::printf(fmt, a...);
+    }
     std::fflush(stdout);
     if (g_log) {
-        std::fprintf(g_log, fmt, a...);
+        if constexpr (sizeof...(A) == 0) {
+            std::fputs(fmt, g_log);
+        } else {
+            std::fprintf(g_log, fmt, a...);
+        }
         std::fflush(g_log);
     }
 }

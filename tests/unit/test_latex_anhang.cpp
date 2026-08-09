@@ -11,34 +11,11 @@
 #include <string>
 #include <vector>
 
-namespace latex_anhang {
-inline constexpr int status_ok = 0;
-struct CsvRow {
-    std::string   permutation_id;
-    std::uint64_t fingerprint             = 0;
-    bool          succeeded               = false;
-    std::string   workload_used           = "n/a";
-    std::uint64_t op_count                = 0;
-    std::uint64_t total_cycles            = 0;
-    std::uint64_t cache_misses_l1         = 0;
-    std::uint64_t cache_misses_l2         = 0;
-    std::uint64_t cache_misses_l3         = 0;
-    std::uint64_t dtlb_misses             = 0;
-    std::uint64_t coherence_invalidations = 0;
-    std::uint64_t energy_micro_joules     = 0;
-    std::uint64_t bytes_allocated         = 0;
-    std::uint64_t bytes_in_use_peak       = 0;
-    double        external_frag           = 0.0;
-    double        internal_frag           = 0.0;
-};
-std::vector<std::string> split_csv_line(std::string const& line);
-std::string              escape_latex(std::string_view s);
-int                      parse_csv(std::string const& path, std::vector<CsvRow>& rows);
-int write_latex(std::string const& path, std::vector<CsvRow> const& rows, std::string const& caption,
-                std::string const& label);
-int write_latex_full_metrics(std::string const& path, std::vector<CsvRow> const& rows, std::string const& caption,
-                             std::string const& label);
-} // namespace latex_anhang
+// KEINE Handabschrift der latex_anhang-Schnittstelle mehr (09.08.2026): hier standen CsvRow
+// (16 Felder) und fuenf Signaturen ein ZWEITES Mal. Bei einer STRUKTUR ist die Abschrift die
+// teurere Sorte -- weicht ein Feld ab, meldet das kein Binder, sondern es werden stillschweigend
+// falsche Zahlen gelesen. Jetzt liest der Test dieselbe Definition wie die Bibliothek.
+#include "latex_anhang.hpp"
 
 namespace {
 
