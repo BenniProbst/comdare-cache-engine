@@ -83,14 +83,17 @@ if [ ! -d "$BUILD" ]; then
     exit 2
 fi
 
+# Den Bau-Baum ZUERST absolut aufloesen -- noch aus dem Verzeichnis des Aufrufers.
+# Nach dem Wechsel in die Repo-Wurzel wuerde ein relativer Pfad gegen die Wurzel
+# statt gegen den Aufrufer aufgeloest; das faellt im CI nicht auf (er ruft aus der
+# Wurzel) und waere von Hand eine stille Fehlmessung.
+BUILD_ABS=$(cd "$BUILD" && pwd) || exit 2
+
 WURZEL=$(git rev-parse --show-toplevel 2>/dev/null) || {
     echo "ABBRUCH: kein git-Arbeitsbaum -- der SOLL-Nenner ist nicht erhebbar." >&2
     exit 2
 }
 cd "$WURZEL" || exit 2
-
-# Absoluter Pfad des Bau-Baums: build.ninja fuehrt Quellen absolut.
-BUILD_ABS=$(cd "$BUILD" && pwd) || exit 2
 
 GREP=/usr/bin/grep
 [ -x "$GREP" ] || GREP=grep
