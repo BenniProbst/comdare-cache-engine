@@ -32,6 +32,7 @@
 #include "source_catalog.hpp"           // axis_sweep_source_map / axis_sweep_levels (Sweep-Quellen)
 #include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
 #include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
+#include "system_axes_entscheidung.hpp" // T-1: die EINE <system_axes>-Entscheidung + ihre Zwei-Parse-Wache
 #include "gn_cell_filter.hpp" // W5-C+ (§36.1): gn_cell_opt_allowed / gn_cell_simd_allowed / gn_walk_cells (Single-Source)
 #include "planner/plan_legend.hpp" // E-04-P1: die EINE Legenden-Quelle -- Treiber-Marker und Shell-Testate byte-gleich
 
@@ -104,7 +105,15 @@ struct RunProfileArgs {
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag,
                                 ::comdare::cache_engine::abi::SystemCellValues                         cell_values,
                                 ::comdare::cache_engine::profile_facade::PermToolchainGliedWert const& toolchain_glied)>
-                compile_for_perm;
+        compile_for_perm;
+    // T-1 (2026-08-09): DIE MITGEFUEHRTE <system_axes>-ENTSCHEIDUNG -- der Zwilling von compile_for_perm.
+    // Die Facade entscheidet aus IHREM Parse, ob compile_for_perm belegt wird; run_profile entscheidet aus
+    // SEINEM Parse derselben Datei, ob die Perm-Schleife laeuft. Das sind zwei Parses zu zwei Zeitpunkten.
+    // Deshalb reist die Antwort ab jetzt als Wert mit und wird unten gegen den eigenen Parse geprueft
+    // (system_achsen_entscheidung_haelt). NichtGetragen (Default) = Direkt-Aufrufer ohne Facade => die
+    // Wache haelt immer => byte-neutral fuer jeden Bestands-Aufrufer.
+    ::comdare::cache_engine::profile_facade::SystemAchsenEntscheidung system_achsen =
+        ::comdare::cache_engine::profile_facade::SystemAchsenEntscheidung::NichtGetragen;
     std::string compiler_tag; // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     // W10-C4 (Bauplan-Dossier 20260803, Sektion 1): die beiden LAUF-KONSTANTEN System-Zellen dieses Baus. Die
     // FACADE loest sie auf (sie kennt Profil-Deklaration und Bau-Plattform), die Perm-Schleife ergaenzt je Zelle
@@ -357,7 +366,34 @@ struct RunProfileResult {
         res.exit_code = 5;
         return res;
     }
-    auto const&             tp        = *tp_opt;
+    auto const& tp = *tp_opt;
+    // ── (0a) T-1 DIE ZWEI-PARSE-WACHE. Der Kopf oben sagt "Profil EINMAL parsen" -- fuer DIESE Funktion
+    //    stimmt das, fuer den LAUF nicht: die Facade hat dieselbe Datei schon einmal geparst und aus IHREM
+    //    Parse entschieden, ob compile_for_perm belegt wird. Zwischen den beiden Parsen liegt Arbeit
+    //    (Lastprofil-Entdeckung, Methodik-Aufloesung, Achsen-Versionstabelle) -- und damit ein Fenster, in
+    //    dem die Datei sich bewegen kann. Bewegt sie sich, laeuft die Perm-Schleife unten mit einer halben
+    //    Verdrahtung: ohne compile_for_perm ist perm_bau_je_zelle false, der per-Perm-Fingerprint-Provider
+    //    greift nicht, es wirkt der lauf-konstante -- jede Zelle bekaeme denselben Digest (LAG-Z1, WEG F).
+    //    Die Gegenrichtung kostet die Provenienz: die Basis-build_version traegt den system_axes_version_
+    //    suffix() dann NICHT, obwohl die Schleife, die ihn je Perm angehaengt haette, nie laeuft.
+    //    FAIL-CLOSED wie an den beiden Nachbar-Nahten (T2-C oben, W10-C4 unten): lieber ein ehrlicher
+    //    Abbruch als ein Lauf, dessen Stempel eine Verdrahtung behauptet, die es nicht gibt.
+    if (!::comdare::cache_engine::profile_facade::system_achsen_entscheidung_haelt(a.system_achsen, tp)) {
+        std::cerr << "[Compiler-Compiler-Fehler: "
+                  << ::comdare::cache_engine::measurement::error_class_label(
+                         ::comdare::cache_engine::measurement::CompilerCompilerErrorClass::KonfigXmlParse)
+                  << "] T-1: das Profil '" << a.profile_path.string()
+                  << "' hat sich zwischen den beiden Parsen dieses Laufs bewegt. Die Facade entschied "
+                  << (a.system_achsen == ::comdare::cache_engine::profile_facade::SystemAchsenEntscheidung::Ja
+                          ? "<system_axes> JA"
+                          : "<system_axes> NEIN")
+                  << ", der eigene Parse sagt "
+                  << (::comdare::cache_engine::profile_facade::profil_deklariert_system_achsen(tp) ? "JA" : "NEIN")
+                  << ". Damit passten Perm-Schleife und compile_for_perm nicht mehr zusammen -- Abbruch VOR "
+                     "jedem Bau (fail-closed: lieber kein Lauf als einer mit falschem Stempel).\n";
+        res.exit_code = 6;
+        return res;
+    }
     std::string const       mode_name = tp.modes.empty() ? std::string{"m3v2_base"} : tp.modes.front().name;
     ProfileRunOptions const ro        = profile_run_options(tp);
 
@@ -927,7 +963,10 @@ struct RunProfileResult {
     //    (opt/simd=system_config, NIE binary_id, NIE N) — es waechst NUR die MESS-Matrix (CSV × |opt×simd|).
     //    ISA-gegated (avx2 nur x86_64, wie system_axis_host_supports_simd). ──
     namespace cm = ::comdare::cache_engine::measurement;
-    if (tp.compiler.opt_levels.empty() && tp.external_utils.simd_options.empty()) {
+    // T-1 (2026-08-09): DIESELBE Funktion, die auch die Facade fragt (profile_run_facade.cpp). Hier stand
+    // frueher der De-Morgan-Duale des Facade-Ausdrucks ausgeschrieben -- zwei Wortlaute fuer EINE Frage.
+    // Die Wache bei (0a) oben haelt zusaetzlich die beiden PARSE-ZEITPUNKTE zusammen.
+    if (!::comdare::cache_engine::profile_facade::profil_deklariert_system_achsen(tp)) {
         run_all_passes(); // Identitaet: perm_* bleiben unveraendert (Vor-Wiring-Verhalten)
     } else {
         std::vector<std::string> const opt_perms =

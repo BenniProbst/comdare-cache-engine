@@ -4199,6 +4199,32 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e4_contract_xml_to
 # contract-Gates matchen nur explizite -R-Listen -- mit 'contract'-Label waere der Test CI-tot.
 set_tests_properties(test_e4_contract_xml_to_axislevels PROPERTIES LABELS "profiles;e4")
 
+# T-1 (2026-08-09): DIE ZWEI PARSES DESSELBEN PROFILS, DIE DASSELBE SAGEN MUESSEN.
+# profile_run_facade.cpp entscheidet aus SEINEM Parse ueber compile_for_perm, profile_run_entry.hpp aus
+# SEINEM ueber die opt x simd-Perm-Schleife. Ueber EINEN Parse sind die beiden Ausdruecke De-Morgan-Duale
+# (der Test misst das: 5 von 5 Profil-Formen gleich); getrennt hat sie die STRUKTUR -- zwei unabhaengige
+# load_thesis_profile()-Aufrufe auf denselben Pfad zu zwei Zeitpunkten. Der Test faehrt genau das nach.
+# Include-/Link-Satz wie test_e4_contract_xml_to_axislevels: er braucht nur den Parser-Datentyp und den
+# neuen header-only Entscheidungs-Header (libs/cache_engine/profile_facade), sonst nichts.
+# DREI ctest-EINTRAEGE: die Wache, der Mutant-Selbstbiss (faehrt den ROT-Beleg bei JEDEM Lauf mit, statt
+# ihn als Prosa verjaehren zu lassen) -- T-7: ein Test, der in keinem Job faehrt, ist nicht gebaut.
+add_executable(test_t1_system_achsen_eine_entscheidung "test_t1_system_achsen_eine_entscheidung.cpp")
+target_compile_features(test_t1_system_achsen_eine_entscheidung PRIVATE cxx_std_23)
+target_include_directories(test_t1_system_achsen_eine_entscheidung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+target_link_libraries(test_t1_system_achsen_eine_entscheidung PRIVATE
+    Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t1_system_achsen_eine_entscheidung)
+add_test(NAME test_t1_system_achsen_eine_entscheidung
+    COMMAND test_t1_system_achsen_eine_entscheidung)
+add_test(NAME test_t1_system_achsen_eine_entscheidung_selbstbiss
+    COMMAND test_t1_system_achsen_eine_entscheidung --selbstbiss)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t1_system_achsen_eine_entscheidung)
+set_tests_properties(test_t1_system_achsen_eine_entscheidung
+    test_t1_system_achsen_eine_entscheidung_selbstbiss
+    PROPERTIES LABELS "profiles;system_axes;standalone")
+
 # Schicht E3 Paket A - #223-Gate-Beweis im echten perm_runner-Pfad.
 add_executable(test_e3_contract_conformance_gate_wirksam "test_e3_contract_conformance_gate_wirksam.cpp")
 target_compile_features(test_e3_contract_conformance_gate_wirksam PRIVATE cxx_std_23)
