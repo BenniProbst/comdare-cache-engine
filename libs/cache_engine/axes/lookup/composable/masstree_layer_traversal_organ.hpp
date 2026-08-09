@@ -126,7 +126,7 @@ struct MasstreeLayerTraversalOrgan {
             out_phys = ph;
             return;
         }
-        split_leaf_and_insert(p, lf, slice, stack, out_leaf, out_phys, new_root, root);
+        split_leaf_and_insert(p, lf, slice, stack, out_leaf, out_phys, new_root);
     }
 
 private:
@@ -149,9 +149,13 @@ private:
     }
 
     // Voller Leaf (kWidth Eintraege) + neuer slice -> Split (mid = kWidth/2+1), neuer Eintrag landet links/rechts.
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wunused-parameter; Klasse MUTANT): hier und in
+    // propagate_split wurde `root` durch drei Ebenen gereicht und NIRGENDS gelesen -- ob der Split
+    // die Wurzel erreicht, entscheidet allein der leere Pfad-Stack. Der tote Parameter suggerierte
+    // eine wurzel-relative Logik, die es nie gab; wer ihn sah, suchte sie. Er faellt weg.
     template <class Pool>
     static void split_leaf_and_insert(Pool& p, std::size_t lf, std::uint64_t slice, path_stack_t<Pool>& stack,
-                                      std::size_t& out_leaf, int& out_phys, std::size_t& new_root, std::size_t root) {
+                                      std::size_t& out_leaf, int& out_phys, std::size_t& new_root) {
         constexpr int             W = Pool::kWidth;
         std::array<LEntry, W + 1> tmp{};
         for (int i = 0; i < W; ++i) {
@@ -188,13 +192,13 @@ private:
             out_phys = ins - mid;
         }
 
-        propagate_split(p, stack, split_slice, lf, rt, new_root, root);
+        propagate_split(p, stack, split_slice, lf, rt, new_root);
     }
 
     // (up_slice, right_node) in den Eltern-Internode einfuegen; bei voll: Internode-Split (Median hoch).
     template <class Pool>
     static void propagate_split(Pool& p, path_stack_t<Pool>& stack, std::uint64_t up_slice, std::size_t left_node,
-                                std::size_t right_node, std::size_t& new_root, std::size_t root) {
+                                std::size_t right_node, std::size_t& new_root) {
         constexpr int W = Pool::kWidth;
         for (;;) {
             if (stack.empty()) { // Wurzel-Split -> neue Wurzel-Internode

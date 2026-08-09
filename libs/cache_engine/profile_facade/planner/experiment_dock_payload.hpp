@@ -72,14 +72,25 @@ struct ExperimentSubtreePayload {
 
 namespace detail {
 
-/// AxisKind -> Wire-Token (Ledger §30-Vokabular). Total ueber die drei Enumeratoren (kein Default-Ausfall).
+/// AxisKind -> Wire-Token (Ledger §30-Vokabular). Total ueber ALLE Enumeratoren (kein Default-Ausfall).
+///
+/// NACHGEZOGEN 09.08.2026 (Warnungs-Runde 2, clang -Wswitch; Klasse MUTANT). Hier stand "Total ueber
+/// die drei Enumeratoren" -- und das war beim Lesen bereits falsch: AxisKind traegt seit den Meta-
+/// Meta-Entscheiden (Ledger 69.1/70.1, A13-M2/E2) SECHS Diskriminatoren. Der Fallback unten haette
+/// jede Meta-Meta-Achse STILL als "organ" verdrahtet -- eine echte, plausible, falsche Faerbung, und
+/// parse_axis_kind haette sie nie zurueckuebersetzen koennen: der Semantik-Roundtrip dieses PODs war
+/// fuer die drei neuen Kinds unerfuellbar. Genau der Fehler, den der "unerreichbar"-Kommentar
+/// ausgeschlossen hatte: er war erreichbar geworden, und keine Wache klapperte.
 [[nodiscard]] inline std::string_view axis_kind_token(topics::AxisKind k) noexcept {
     switch (k) {
         case topics::AxisKind::organ: return "organ";
         case topics::AxisKind::system_config: return "system_config";
         case topics::AxisKind::system_measurement: return "system_measurement";
+        case topics::AxisKind::system_meta_meta: return "system_meta_meta";
+        case topics::AxisKind::measurement_meta_meta: return "measurement_meta_meta";
+        case topics::AxisKind::organ_meta_meta: return "organ_meta_meta";
     }
-    return "organ"; // unerreichbar (Enum vollstaendig); haelt den switch total
+    return "organ"; // unerreichbar, solange der switch total ist; -Wswitch ist die Wache dafuer
 }
 
 /// Wire-Token -> AxisKind. false bei unbekanntem Token (der Negativ-Fall des Parsers -> harter Fehler).
@@ -94,6 +105,20 @@ namespace detail {
     }
     if (s == "system_measurement") {
         out = topics::AxisKind::system_measurement;
+        return true;
+    }
+    // Die drei Meta-Meta-Kinds (Nachzug 09.08.2026, s. axis_kind_token): ohne diese Zweige waere der
+    // Parser die zweite Haelfte desselben Defekts -- emit koennte sie schreiben, parse lehnte sie ab.
+    if (s == "system_meta_meta") {
+        out = topics::AxisKind::system_meta_meta;
+        return true;
+    }
+    if (s == "measurement_meta_meta") {
+        out = topics::AxisKind::measurement_meta_meta;
+        return true;
+    }
+    if (s == "organ_meta_meta") {
+        out = topics::AxisKind::organ_meta_meta;
         return true;
     }
     return false; // unbekanntes kind => Parse-Fehler (nie stille Fehlfaerbung)

@@ -108,9 +108,14 @@ public:
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
         if (n == 0) return 0;
-        constexpr std::size_t kHashes = 4;      // Bloom 1970: k unabhängige Hash-Funktionen
-        std::size_t const     mBits   = n * 8u; // Pseudo-Bitmap m = n Bytes * 8 Bit
-        std::uint64_t         hits    = 0;
+        // 09.08.2026 (Warnungs-Runde 2, clang -Wshadow; Klasse MUTANT): hier stand ein LOKALES
+        // `constexpr std::size_t kHashes = 4;`, das das gleichnamige Klassen-Mitglied (Zeile 43)
+        // verdeckte. Heute sind beide 4 -- aber probe_multiplicity() meldet das KLASSEN-k an die
+        // Mess-Normierung. Wer das Klassen-k je aendert, haette die Normierung geaendert und diese
+        // Probe-Schleife NICHT: die gemeldete Probenzahl und die tatsaechliche waeren still
+        // auseinandergelaufen. Die Lokale faellt weg; es gibt genau EIN k.
+        std::size_t const mBits = n * 8u; // Pseudo-Bitmap m = n Bytes * 8 Bit
+        std::uint64_t     hits  = 0;
         for (std::size_t i = 0; i < q; ++i) {
             std::uint32_t const key = queries[i]; // 1 Byte je Query als Schlüssel
             // double-hashing (Kirsch/Mitzenmacher 2006): h1 = FNV-artig, h2 = Rotation

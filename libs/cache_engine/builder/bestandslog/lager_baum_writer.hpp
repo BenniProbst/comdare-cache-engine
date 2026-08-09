@@ -225,20 +225,34 @@ namespace detail {
 /// WACHE 3 -- die Token sind PAARWEISE VERSCHIEDEN. Das ist die schaerfste der drei: zwei Gattungen
 /// mit demselben Token wuerden ihre Baeume STILL ineinander schieben. Nichts wuerde klappern, die
 /// Pfade blieben wohlgeformt, und zwei Messreihen laegen unter derselben Adresse.
+///
+/// UMBAU 09.08.2026 (Warnungs-Runde 2, clang; Klasse REGRESSION am WERKZEUG-BUDGET). Die erste Form
+/// lief als Doppelschleife ueber alle 256x255/2 Wertepaare und rief in JEDEM Paar die Enumerator-
+/// Orakel (gattung_name/genus_name + string_view-Vergleich gegen "Unknown") erneut -- zusammen ueber
+/// 2,6 Mio. constexpr-Schritte. GCCs Budget (-fconstexpr-ops-limit, Default 33.554.432) schluckt
+/// das; clangs Budget (-fconstexpr-steps, Default 1.048.576) NICHT: "constexpr evaluation hit
+/// maximum step limit" -- der Bau bricht, und zwar NUR unter clang. Ein Budget-Flag zu erhoehen
+/// waere der Stellvertreter (Signal weg, Kosten bleiben). Stattdessen sammelt SCHRITT 1 die Tokens
+/// der echten Enumeratoren EINMAL ein (2x256 Orakel-Aufrufe), und SCHRITT 2 vergleicht nur noch die
+/// eingesammelten Tokens paarweise. Die ZUSAGE ist byte-identisch dieselbe: verglichen werden exakt
+/// die Paare (a<b) echter Enumeratoren je Ebene -- nur eben ohne die 65.280-fache Orakel-Wiederholung.
 [[nodiscard]] consteval bool lager_wurzel_tokens_sind_unterscheidbar() {
-    for (int a = 0; a <= 255; ++a)
-        for (int b = a + 1; b <= 255; ++b) {
-            auto const ga1 = static_cast<anatomy::AnatomyGattung>(static_cast<std::uint8_t>(a));
-            auto const ga2 = static_cast<anatomy::AnatomyGattung>(static_cast<std::uint8_t>(b));
-            if (ist_gattung_enumerator(ga1) && ist_gattung_enumerator(ga2) &&
-                lager_gattung_token(ga1) == lager_gattung_token(ga2))
-                return false;
-            auto const ge1 = static_cast<anatomy::AnatomyGenus>(static_cast<std::uint8_t>(a));
-            auto const ge2 = static_cast<anatomy::AnatomyGenus>(static_cast<std::uint8_t>(b));
-            if (ist_genus_enumerator(ge1) && ist_genus_enumerator(ge2) &&
-                lager_genus_token(ge1) == lager_genus_token(ge2))
-                return false;
-        }
+    std::array<std::string_view, 256> ga_toks{};
+    std::array<std::string_view, 256> ge_toks{};
+    std::size_t                       ga_n = 0;
+    std::size_t                       ge_n = 0;
+    for (int v = 0; v <= 255; ++v) {
+        auto const ga = static_cast<anatomy::AnatomyGattung>(static_cast<std::uint8_t>(v));
+        if (ist_gattung_enumerator(ga)) ga_toks[ga_n++] = lager_gattung_token(ga);
+        auto const ge = static_cast<anatomy::AnatomyGenus>(static_cast<std::uint8_t>(v));
+        if (ist_genus_enumerator(ge)) ge_toks[ge_n++] = lager_genus_token(ge);
+    }
+    for (std::size_t a = 0; a < ga_n; ++a)
+        for (std::size_t b = a + 1; b < ga_n; ++b)
+            if (ga_toks[a] == ga_toks[b]) return false;
+    for (std::size_t a = 0; a < ge_n; ++a)
+        for (std::size_t b = a + 1; b < ge_n; ++b)
+            if (ge_toks[a] == ge_toks[b]) return false;
     return true;
 }
 

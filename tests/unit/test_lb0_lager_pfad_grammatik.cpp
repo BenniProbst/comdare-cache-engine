@@ -372,12 +372,18 @@ namespace {
 inline constexpr bl::LagerWurzelPaar kWurzelMapSa{cea::AnatomyGattung::Map, cea::AnatomyGenus::SearchAlgorithm};
 
 bl::MessdatenBaumSpec messdaten_spec() {
-    bl::MessdatenBaumSpec s{kWurzelMapSa};
-    s.mess        = {{"mess", "vereint"}, {"load_framework", "on"}};
-    s.system      = system_drei();
-    s.meta_metas  = {{"simd", "avx2"}};
-    s.organ       = organ_18_gemischt();
-    s.haupt_blatt = {{"blatt", hex128('a')}};
+    // 09.08.2026 (Warnungs-Runde 2, clang -Wmissing-field-initializers; RAUSCHEN, aber ehrlich
+    // gemacht): die Spec steht jetzt als VOLLE designierte Liste da -- auch die drei absichtlich
+    // leeren Unter-Ebenen sind benannt, statt still per Aggregat-Rest zu entstehen.
+    bl::MessdatenBaumSpec s{.wurzel       = kWurzelMapSa,
+                            .mess         = {{"mess", "vereint"}, {"load_framework", "on"}},
+                            .system       = system_drei(),
+                            .meta_metas   = {{"simd", "avx2"}},
+                            .organ        = organ_18_gemischt(),
+                            .haupt_blatt  = {{"blatt", hex128('a')}},
+                            .mess_unter   = {},
+                            .system_unter = {},
+                            .organ_unter  = {}};
     return s;
 }
 
@@ -486,12 +492,16 @@ TEST(Lb2WurzelNegativ, GenusAusEinerFREMDENGattungWirdKlassifiziertAbgewiesen) {
     // Set gehoert zur Gattung Container -- unter gattung=map hat es nichts zu suchen. Ohne diese Wache
     // entstuende der Pfad "gattung=map/genus=set/..." klaglos: wohlgeformt, schreibbar, und eine LUEGE
     // ueber die Abstammung. Genau die Klasse Fehler, die nie klappert.
-    bl::MessdatenBaumSpec s{bl::LagerWurzelPaar{cea::AnatomyGattung::Map, cea::AnatomyGenus::Set}};
-    s.mess        = {{"mess", "vereint"}};
-    s.system      = system_drei();
-    s.organ       = organ_18_gemischt();
-    s.haupt_blatt = {{"blatt", hex128('a')}};
-    auto const k  = bl::MessdatenRealmPolicy::kaskade(s);
+    bl::MessdatenBaumSpec s{.wurzel       = bl::LagerWurzelPaar{cea::AnatomyGattung::Map, cea::AnatomyGenus::Set},
+                            .mess         = {{"mess", "vereint"}},
+                            .system       = system_drei(),
+                            .meta_metas   = {},
+                            .organ        = organ_18_gemischt(),
+                            .haupt_blatt  = {{"blatt", hex128('a')}},
+                            .mess_unter   = {},
+                            .system_unter = {},
+                            .organ_unter  = {}};
+    auto const            k = bl::MessdatenRealmPolicy::kaskade(s);
     EXPECT_EQ(k.fehler, bl::LagerBaumFehler::gattung_genus_unvereinbar);
     EXPECT_TRUE(k.pfad().empty()) << "Ein abgewiesenes Paar darf keinen halben Pfad zurueckgeben";
 
@@ -502,12 +512,16 @@ TEST(Lb2WurzelNegativ, GenusAusEinerFREMDENGattungWirdKlassifiziertAbgewiesen) {
 
     // GEGENPROBE: dasselbe Genus unter SEINER Gattung laeuft durch -- die Wache weist das PAAR ab,
     // nicht das Genus. Ohne diese Haelfte waere "lehnt ab" auch mit einer kaputten Wache erfuellt.
-    bl::MessdatenBaumSpec gut{bl::LagerWurzelPaar{cea::AnatomyGattung::Container, cea::AnatomyGenus::Set}};
-    gut.mess        = {{"mess", "vereint"}};
-    gut.system      = system_drei();
-    gut.organ       = organ_18_gemischt();
-    gut.haupt_blatt = {{"blatt", hex128('a')}};
-    auto const ok   = bl::MessdatenRealmPolicy::kaskade(gut);
+    bl::MessdatenBaumSpec gut{.wurzel     = bl::LagerWurzelPaar{cea::AnatomyGattung::Container, cea::AnatomyGenus::Set},
+                              .mess       = {{"mess", "vereint"}},
+                              .system     = system_drei(),
+                              .meta_metas = {},
+                              .organ      = organ_18_gemischt(),
+                              .haupt_blatt  = {{"blatt", hex128('a')}},
+                              .mess_unter   = {},
+                              .system_unter = {},
+                              .organ_unter  = {}};
+    auto const            ok = bl::MessdatenRealmPolicy::kaskade(gut);
     ASSERT_TRUE(ok.ok()) << bl::to_string(ok.fehler);
     EXPECT_EQ(ok.ebenen[0], "gattung=container");
     EXPECT_EQ(ok.ebenen[1], "genus=set");
@@ -522,11 +536,12 @@ TEST(Lb2WurzelNegativ, EinEnumWertOhneLagerTokenBrichtStattStillUnterUnknownZuLa
     ASSERT_EQ(cea::genus_name(fremd), "Unknown") << "Vorbedingung: 200 ist kein Enumerator der Anatomie";
     ASSERT_TRUE(bl::lager_genus_token(fremd).empty()) << "und hat folgerichtig keinen Lager-Token";
 
-    bl::BinariesBaumSpec s{bl::LagerWurzelPaar{cea::AnatomyGattung::Map, fremd}};
-    s.system     = system_drei();
-    s.organ      = organ_18_gemischt();
-    s.mess_typ   = {{"mess", "vereint"}};
-    auto const k = bl::BinariesRealmPolicy::kaskade(s);
+    bl::BinariesBaumSpec s{.wurzel     = bl::LagerWurzelPaar{cea::AnatomyGattung::Map, fremd},
+                           .system     = system_drei(),
+                           .meta_metas = {},
+                           .organ      = organ_18_gemischt(),
+                           .mess_typ   = {{"mess", "vereint"}}};
+    auto const           k = bl::BinariesRealmPolicy::kaskade(s);
     EXPECT_EQ(k.fehler, bl::LagerBaumFehler::wurzel_token_fehlt)
         << "ANWESENHEIT vor BEZIEHUNG: der fehlende Token ist die erste Ursache, nicht die Unvereinbarkeit";
     EXPECT_TRUE(k.pfad().empty());
@@ -596,11 +611,12 @@ TEST(Lb2Wurzel, NENNER_JedeGattungUndJedesGenusDerAnatomieIstEinsortierbar) {
 namespace {
 
 bl::BinariesBaumSpec binaries_spec() {
-    bl::BinariesBaumSpec s{kWurzelMapSa};
-    s.system     = system_drei();
-    s.meta_metas = {{"simd", "avx2"}};
-    s.organ      = organ_18_gemischt();
-    s.mess_typ   = {{"mess", "vereint"}};
+    // Volle designierte Liste (Warnungs-Runde 2, wie messdaten_spec oben): alle fuenf Ebenen benannt.
+    bl::BinariesBaumSpec s{.wurzel     = kWurzelMapSa,
+                           .system     = system_drei(),
+                           .meta_metas = {{"simd", "avx2"}},
+                           .organ      = organ_18_gemischt(),
+                           .mess_typ   = {{"mess", "vereint"}}};
     return s;
 }
 

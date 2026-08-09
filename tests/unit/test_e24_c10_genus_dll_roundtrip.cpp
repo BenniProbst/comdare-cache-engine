@@ -85,6 +85,13 @@ void tr(char const* w, bool c) {
         case ana::AnatomyGenus::Adapter: return "adp_push,adp_pop,adp_front_reads";
         case ana::AnatomyGenus::View: return "view_read,view_read_oob,view_bound_size";
         case ana::AnatomyGenus::SearchAlgorithm: return "";
+        // 09.08.2026 (Warnungs-Runde 2, clang -Wswitch; Klasse MUTANT): das 6. Genus kam mit HY-A1,
+        // dieser switch blieb bei fuenf. Nach Owner-Entscheid E-1 "Weg C" liefert genus() einer
+        // Hybrid-Binary diesen Wert NIE (sie meldet ihr Ziel-Genus) -- ein Dock-Roundtrip fuer
+        // FunctionInterfaceReroute existiert also nicht, und die Spalten-Erwartung ist leer wie
+        // beim reinen SearchAlgorithm. Der explizite Fall haelt den switch total: das NAECHSTE
+        // neue Genus faellt wieder als -Wswitch auf, statt still durch das return "" zu rutschen.
+        case ana::AnatomyGenus::FunctionInterfaceReroute: return "";
     }
     return "";
 }
