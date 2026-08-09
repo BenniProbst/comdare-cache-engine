@@ -249,10 +249,16 @@ target_include_directories(test_t15_drift_gate_messschleife PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_t15_drift_gate_messschleife PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
 comdare_set_platform_defines(test_t15_drift_gate_messschleife)
+# SELBSTCHECK (09.08.2026): der Iterator-Pfad steht ueber eine Zwischenvariable, NICHT ausgeschrieben.
+# Ausgeschrieben war die Definitions-Zeile 135 Byte lang und die DIFF-HYGIENE-WACHE riss sie
+# (ci_diff_ascii_width_guard.sh, ce-Pipeline 15427, ">120-SPALTEN tests/unit/CMakeLists.txt:254").
+# Wert-identisch: _t15_tree + "/cache_engine_builder_iterator.hpp" ergibt denselben Pfad wie zuvor.
+set(_t15_tree "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree")
 target_compile_definitions(test_t15_drift_gate_messschleife PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
-    "COMDARE_T15_ITERATOR_QUELLE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree/cache_engine_builder_iterator.hpp\""
+    "COMDARE_T15_ITERATOR_QUELLE=\"${_t15_tree}/cache_engine_builder_iterator.hpp\""
     "COMDARE_T15_FASSADE_QUELLE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade/profile_run_entry.hpp\"")
+unset(_t15_tree)
 add_test(NAME test_t15_drift_gate_messschleife COMMAND test_t15_drift_gate_messschleife)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t15_drift_gate_messschleife)
 set_tests_properties(test_t15_drift_gate_messschleife PROPERTIES LABELS "t15;drift;messschleife;standalone")
