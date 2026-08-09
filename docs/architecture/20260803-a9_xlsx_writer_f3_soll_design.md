@@ -468,6 +468,12 @@ ist (K1 = offener B-Phasen-Entscheid; Hybrid-DESIGN ist fertig, BAU = Auswertung
 `:28`), nimmt KEIN Lager-Schema Hybrid-Knoten an — die Pfad-Grammatik reserviert bewusst KEIN
 Hybrid-Segment und wird bei K1-Entscheid additiv erweitert.
 
+> **VERALTET SEIT 09.08.2026 — K1 IST ENTSCHIEDEN.** Der Absatz direkt darueber beschreibt den Stand
+> *vor* dem Entscheid und bleibt als Historie stehen. Was jetzt gilt, steht im **NACHTRAG 09.08.2026**
+> am Ende dieses Dokuments: Hybrid ist kein Sonderfall mehr, sondern eine gewoehnliche Gattung+Genus
+> in den zwei Wurzelebenen. Auch die Kaskaden in 6.1/6.2 oben zeigen den Stand vor K1 — ihnen fehlen
+> die drei neuen Wurzelebenen.
+
 ## 7. Scheiben-Plan + Gates
 
 Einordnung: **Pflicht vor Trigger, Parallel-Spur GATE 9** (Abschnitt 0; Umstufung nur via V-A9-5).
@@ -578,6 +584,31 @@ mit Default laufen, RUECKFRAGEN brauchen die Vorlage vor dem betroffenen Scheibe
   Lager-ABLAGE/AUSWERTUNG dahinter. Optionen: (a) Lesart bestaetigen [Empfehlung+Default];
   (b) xlsx zusaetzlich an der Mess-Zeit-Naht erzeugen (mehr I/O im Messfenster, widerspricht der
   Contention-Doktrin). Umkehrbarkeit: hoch (Factory-Konfiguration, kein Formatbruch).
+- **V-A9-4 NACHTRAG (2026-08-09, A9-S5-Bau) -- die Optionsliste oben ist UEBERHOLT, die Entscheidung
+  fiel auf eine dort nicht aufgefuehrte dritte Variante.** Der Owner-Entscheid vom 09.08.
+  ("Richtung IMMER xlsx -> csv, NIE umgekehrt. Es gibt keinen Parser, der CSV einliest, um eine Mappe
+  zu bauen") schliesst Option (a) in ihrer urspruenglichen Bauform strukturell aus: sie haette die
+  fertige measurements.csv NACH dem Lauf zurueckgelesen, und genau dieses Zurueck-Lesen ist untersagt.
+  GEBAUT wurde deshalb (c): die Mappe wird an der Mess-Zeit-Naht GEOEFFNET und aus DENSELBEN
+  In-Memory-Zeilen gespeist, aus denen auch die rohe CSV entsteht (`format_csv_row()`) -- aber ihr
+  EINZIGER Datei-Schreibvorgang liegt in `schliessen()`, das NACH der Mess-Schleife neben `csv.flush()`
+  laeuft. Damit ist der SACHGRUND der Contention-Doktrin gewahrt (im Messfenster entsteht KEIN
+  zusaetzliches Datei-I/O; das xlsx-Backend puffert im libxlsxwriter-Speicher), ohne die verbotene
+  CSV-Rueckleserichtung zu brauchen. Der rohe CSV-Pfad bleibt UNBERUEHRT -- golden byte-identisch;
+  das ERSETZEN des rohen CSV-Pfads ist ein eigener, weiterhin Owner-freizugebender Schritt.
+  Umsetzung: `libs/cache_engine/profile_facade/ergebnis_mappe_naht.hpp` + die zwei Splice-Punkte in
+  `profile_run_entry.hpp` / `experiment_run_entry.hpp`.
+  OFFEN FUER DEN OWNER (zwei Punkte, bewusst nicht selbst entschieden):
+  (i) Abschnitt 4.3 nennt als Konsumenten ein CLI `tools/mess_report/`. Dieses CLI EXISTIERT
+  inzwischen auf dem Parallel-Strang `bau/a9-s4-mess-report` -- und bringt mit
+  `include/cache_engine/measurement/csv_cell_reader.hpp` genau den CSV-Leser mit, den der Entscheid
+  vom 09.08. ausschliesst. Ob damit A9-S4 nachzuziehen ist oder beide Wege nebeneinander bestehen
+  bleiben, ist NICHT hier entschieden worden.
+  (ii) Das golden-Profil deklariert `<method value="csv"/>`; nach der gebauten Regel waehlt es
+  folglich die CSV-STRATEGIE der Mappe (flache Sheet-Dateien), nicht xlsx. Diese Deklaration stammt
+  aus der Zeit VOR der Aufnahme von `xlsx` in die Registry (08.08.) und meinte dort "schreibe die rohe
+  CSV". Ob golden auf `xlsx` umzustellen ist, ist eine Owner-Frage -- der Bau hat sie NICHT
+  stillschweigend beantwortet.
 - **V-A9-5 [NEU — ESKALATION Gate-Einordnung, Default: Option A] A9-Einstufung Trigger vs.
   Auswertung:** Kontext: Bauplan `:43` sagt woertlich "Pflicht vor Trigger ... A9 xlsx" und die
   Gate-Kette fuehrt GATE 9 vor GATE 10/11; ZUGLEICH terminiert Bauplan `:40` den
@@ -647,3 +678,57 @@ liegt als `docs/architecture/20260802-hybrid_tier_stufe_soll_design.md` im ce (C
 beim Code); super `docs/sessions/` erhaelt nur den ueblichen Session-/Ledger-Verweis. Commit als
 Teil der Task-#22-Design-Nachtrags-Landung (Lead), zusammen mit dem Versand der Vorlagen
 V-A9-1..V-A9-6.
+
+---
+
+## NACHTRAG 09.08.2026 — K1 ENTSCHIEDEN: GATTUNG UND GENUS SIND DIE WURZELEBENEN DES LAGERBAUMS
+
+**Dieses Dossier vom 03.08. beschrieb die zwei Realm-Kaskaden ohne ein Gattungs-/Genus-Praefix und
+hielt K1 ausdruecklich offen (Abschnitt 6, "Hybrid-Auflage K1").** Am 09.08. hat der Owner K1
+entschieden. Der Nachtrag steht hier, weil dieses Dokument die technische Quelle im CE-Scope ist.
+
+**Owner verbatim:** die Hybrid-Gattung ist *"einfach eine weitere Gattung+Genus, die parallel zu allen
+anderen Gattung+Genus in den beiden wurzel-Ordner-Ebenen des Lagerbaumes mit einsortiert wird"* —
+praezisierend: *"Das ist auch weiterhin korrekt, aber DAVOR muessen zwei Ordner Ebenen
+gattung->genus->REST JEWEILS WIE DU GESAGT HAST kommen"* und *"Binary-Ordner und Messung-Ordner
+branchen unter Gattung->Genus->Binary/Messung->REST wie gehabt."*
+
+### Was sich aendert
+
+Die Kaskaden in 6.1/6.2 gelten **unveraendert weiter — aber erst ab Ebene 4.** Davor stehen jetzt drei
+gemeinsame Ebenen, fuer beide Realms dieselben:
+
+```
+gattung=<token>/genus=<token>/realm=binaries /  <System> / <Organ 1..5> / <Mess-Typ>
+gattung=<token>/genus=<token>/realm=messdaten/  <Mess> / <System> / <Organ 1..5> / <Blatt> / <Unter-Ebenen>
+```
+
+Die Token sind **eingefroren** und stehen in `lager_baum_writer.hpp`
+(`lager_gattung_token`/`lager_genus_token`): `map`, `container`, `graph` bzw. `search_algorithm`,
+`set`, `sequence`, `adapter`, `view`. Sie sind bewusst **nicht** `anatomy::gattung_name()`/
+`genus_name()`: E-24 C7-1 hat den Enumerator `SearchAlgorithm` nach `Map` umbenannt, weil damals
+nichts eingefroren war — ein Ordnername ist aber ab dem ersten eingelagerten Blatt eine Adresse. Die
+Token-Tabelle ist die Naht, die den C++-Namen beweglich und den Ordner stabil haelt.
+
+### Drei Folgen, die man leicht uebersieht
+
+1. **`realm` ist eine echte Ebene geworden.** Vor K1 war `binaries`/`messdaten` der `wurzel_`-String
+   des Writers und lief an jeder Wache vorbei. Die Owner-Ordnung verlangt Gattung *vor* Binary — ein
+   Praefix im Konstruktor-String kann aber nichts vor sich haben. `wurzel_` ist ab jetzt die Wurzel
+   des **Lagers**, nicht die eines Realms.
+2. **Der L3-Entscheid ist aufgehoben.** Die Pfad-Grammatik hatte einen harten `hybrid`-Token-Bann
+   (`traegt_hybrid_token`, Fehlerklasse `hybrid_segment_verboten`). Er ist ersatzlos entfallen; an
+   seine Stelle treten die Wurzel-Wachen im Writer (Token-Totalitaet consteval, Zugehoerigkeit
+   `gattung_of(genus) == gattung` zur Laufzeit).
+3. **Der Bestand bricht — beabsichtigt und laut.** `LagerWurzelPaar` hat keinen Vorgabe-Konstruktor,
+   deshalb uebersetzt keine Spec-Konstruktion aus der Zeit vor K1 mehr. Ein Migrationszwang fuer alte
+   Pfade besteht nicht; Pflicht war nur, dass der Bruch zur Uebersetzungszeit sichtbar ist.
+
+### Was K1 NICHT tut
+
+K1 traegt die Hybrid-Gattung **nicht** in `anatomy::AnatomyGattung` ein. Dort stehen weiterhin genau
+drei Werte (Map/Container/Graph); `HeuristikAdapter` und das Genus `Function-Interface-Reroute`
+existieren bisher nur in `libs/cache_engine/hybrid/README.md` und sind ein eigener Strang (E-1). K1
+liefert **Generizitaet, nicht Vorregistrierung**: sobald E-1 den Enum-Wert anlegt, bricht die
+Totalitaets-Wache den Bau, bis ein Lager-Token nachgetragen ist — kein Sonderfall, aber auch kein
+stilles Durchrutschen.

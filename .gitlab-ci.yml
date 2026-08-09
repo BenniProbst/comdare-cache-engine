@@ -89,6 +89,22 @@ lint:layer-includes:
   script:
     - sh scripts/lint_layer_includes.sh
 
+# XML-WOHLGEFORMTHEIT (2026-08-08): am 08.08. lagen VIER getrackte XML dieses Repos nicht
+# wohlgeformt im Baum -- darunter all_axes_golden.profile.xml, das golden-Profil der
+# Abgabe-Messung. Fehlerklasse in allen Faellen: "--" INNERHALB eines XML-Kommentars (von XML 1.0
+# Abschnitt 2.5 ausnahmslos verboten). Nichts hat es gemeldet: es gab keine Wache, die den
+# XML-Bestand ueberhaupt ansieht. Zwei der Dateien sind generiert, ihre Generatoren schrieben den
+# Defekt mit -- die wurden im selben Commit mitgeheilt, diese Wache faengt den Rueckfall.
+# Reiner Parser-Lauf ueber `git ls-files '*.xml'`, keine Bau-Artefakte, deshalb needs: [] und
+# kein Cache-Erbe. Fail-closed: fehlt xmllint, wird der Job ROT (rc=2) und nennt das Paket --
+# ein stiller Skip waere das Abschalten der Wache (Bissbeweis: 4 Koeder-Klassen + 2 Abbruchwege).
+lint:xml-wellformed:
+  stage: lint
+  tags: [baremetal]
+  needs: []
+  script:
+    - sh scripts/ci_xml_wellformed_guard.sh
+
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
   extends: .ccache-pull   # ccache-Hygiene 04.08.: alle bare-metal-Erben sind Konsumenten (pull-only)
@@ -321,6 +337,18 @@ test:coverage-guard:
     # Faelle, s. scripts/ci_diff_ascii_width_guard.bissbeweis.txt), die CI-Variablen-Verdrahtung
     # selbst konnte nur syntaktisch (pyyaml, read-only) und nicht in einer echten Pipeline
     # bestaetigt werden -- der erste echte Lauf ist der Beweis dieser einen Stelle.
+    #
+    # (0.4) SELBSTTEST DER WACHE, VOR ihrem Einsatz (09.08.2026). Die Wache selbst ist ein
+    # Werkzeug wie jedes andere und kann still erblinden -- am 09.08. am Objekt belegt: ihr
+    # DEFAULT-MODUS verglich gegen den INDEX statt gegen HEAD und sah untracked Dateien gar
+    # nicht; wer vor der Pruefung `git add` sagte, bekam "0 Zusatzzeilen ... GRUEN". Der
+    # Biss-Beweis konnte das nicht auffangen, weil alle sieben dort protokollierten Faelle
+    # ueber --stdin oder einen Bereich laufen und KEINER die Wache ohne Argumente fuhr.
+    # Der Selbsttest wuerfelt seinen Koeder bei jedem Lauf neu (kein fest eingetragener
+    # Beispielwert, der allowgelistet sein koennte) und faehrt neun Faelle in Wegwerf-Repos
+    # unter TMPDIR -- er fasst dieses Repo nicht an. Bewusst VOR der Wache: eine erblindete
+    # Wache soll auffallen, bevor ihr Gruen als Beleg gilt.
+    - sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
     - |
       set -eu
       _ce_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
@@ -364,6 +392,18 @@ test:coverage-guard:
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
     - sh scripts/ci_test_coverage_guard.sh build-covguard
+    # W-1 (2026-08-08): TEST-SICHTBARKEITS-WACHE -- die Stufe VOR der Abdeckungs-Wache.
+    # Die Abdeckungs-Wache oben rechnet die Job-Auswahlen gegen die LIVE-Inventur (ctest -N).
+    # Ihr Nenner ist damit genau so gut wie diese Inventur -- und die war es nicht: 27
+    # gtest-Faelle aus libs/cache_engine/builder/commands/tests standen ueberhaupt nicht drin,
+    # weil enable_testing() in der Wurzel NACH dem add_subdirectory kam. Eine Registrierung,
+    # die es nicht in die Inventur schafft, kann von keiner Wache vermisst werden, die auf
+    # der Inventur aufsetzt. Diese Wache prueft deshalb die STUFE DAVOR: Quelltext gegen
+    # Inventur, Differenz namentlich.
+    # HIER und nicht in einem eigenen Job, weil sie einen konfigurierten Bau-Baum braucht --
+    # build-covguard ist im selben Job schon gebaut. Ein eigener Job haette denselben
+    # Vollbau ein zweites Mal bezahlt.
+    - sh scripts/ci_test_sichtbarkeit_wache.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
 
@@ -576,6 +616,39 @@ contract:experiment_driver:
     - cmake -B build-expdrv -G Ninja -DCOMDARE_BUILD_TESTS=ON
     - cmake --build build-expdrv --target test_experiment_driver_v13
     - ce_ctest contract_experiment_driver build-expdrv --output-on-failure -V   # R4: Auswahl aus dem Manifest
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
+# -- Stufe 4g-2: comdare-mess-report Struktur-Rauchtest (A9-S4) --
+# UNBEDINGTER struktureller Job -- kein `changes:`/`rules:`-Gate, kein Env-Var-Gate. Baut das
+# CLI-Target und faehrt --help, version und plan --dry-run (gegen eine synthetische 1-Zeilen-Fixture,
+# kein reales Mess-Archiv) als Rauchtest. Inert gegenueber INHALT (kein Gate auf eine reale
+# Mess-Auswertung -- "CI-Gruen != Auswertung" bleibt bindend, s. contract:experiment_driver-Nachbarn),
+# aber NICHT inert gegenueber EXISTENZ: der Job laeuft auf JEDER Pipeline.
+#
+# BEGRUENDUNG GEGEN DAS URSPRUENGLICHE "rules-gated inert"-DESIGN (A9-Doc :485 woertlich, Lead-Entscheid
+# A9-S4-Plan Punkt 3): ein Job, der ueber ein nie gesetztes Gate drei Wochen lang faktisch nie lief,
+# waehrend die Pipeline gruen blieb, ist DIESELBE Fehlerklasse wie eine Pipeline gruen mit
+# uebersprungenem Job oder eine Wache gruen mit Nenner 0 -- alle drei sind in dieser Woche bereits real
+# aufgetreten (u.a. contract:axis-version-lock: doppelter YAML-Schluessel machte das Gate faktisch
+# tot, s. Kommentar in heuristik/measurement_curve_loader.hpp:7-9). "Inert gegenueber Inhalt, nicht
+# gegenueber Existenz" ist die bindende Unterscheidung. Wer diesen Job spaeter INHALTLICH gaten will
+# (z.B. gegen ein reales Archiv), findet hier den Grund, es NICHT strukturell zu tun.
+contract:mess_report_smoke:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  script:
+    - cmake -B build-messreport -G Ninja -DCOMDARE_BUILD_TESTS=OFF
+    - cmake --build build-messreport --target comdare_mess_report
+    - MR=build-messreport/tools/mess_report/comdare-mess-report
+    - $MR --help
+    - $MR version
+    - mkdir -p "${CI_PROJECT_DIR}/mr_smoke/per_binary"
+    - SMOKE_CSV="${CI_PROJECT_DIR}/mr_smoke/per_binary/smoke_0_deadbeef.result.csv"
+    - printf 'binary_id;workload\nsmoke;a\n' > "$SMOKE_CSV"
+    - $MR plan --realm-root="${CI_PROJECT_DIR}/mr_smoke/per_binary" --out="${CI_PROJECT_DIR}/mr_smoke_out"
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 

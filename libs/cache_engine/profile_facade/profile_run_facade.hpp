@@ -10,6 +10,7 @@
 #include <builder/artifact_transport/artifact_cache.hpp> // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include <builder/experiment_tree/progress_delta.hpp> // Welle 5 (E-W5-2): ProgressSinkFn / ProgressDelta (§38-Naht, No-Op)
 #include <profile_facade/planner/planner_status_types.hpp> // W5: MessFormatFakten / PlanSollSicht (NUR PODs, std-only)
+#include <profile_facade/planner/planner_mengen_types.hpp> // check-size: MengenEingang (PODs + reine Rechnung)
 
 #include <cstddef>
 #include <cstdint>
@@ -112,6 +113,30 @@ struct ProfileRunArgs {
     std::string                                                             bestand_doc_key;
     std::string                                                             bestand_owner_uuid;
     std::string                                                             bestand_maschine;
+    // LAG-P2 (2026-08-09) -- DAS ZWEITE GENUS, im EXAKTEN Muster der fuenf Felder darueber.
+    //
+    // SELBSTCHECK: diese drei Felder sichern zu, dass der Host das MESSWERT-Genus des Lagers
+    // beschicken KANN. Sie sichern NICHT zu, dass er es tut -- alle leer (Default) => der Iterator
+    // laesst mess_bestandslog_active false => keine Messwert-Registrierung => byte-/verhaltensneutral,
+    // exakt wie beim Binary-Genus.
+    //
+    // WARUM SIE HIER STEHEN MUESSEN: der produktive Weg laeuft ausschliesslich ueber diese Fassade --
+    // kein Host baut eine LazyRunConfig selbst. Bis LAG-P2 hatten die drei Iterator-Felder NULL
+    // externe Zuweiser; der vollstaendig gebaute Konsum im Iterator war damit aus dem Produktions-Lauf
+    // unerreichbar. Das ist dieselbe Klasse wie die T2-A/F4-Plan-Ablage, nur eine Naht weiter.
+    //
+    // EIGENER doc_key, KEIN zweiter Abschnitt im Binary-Dokument (D-05): das Bestandslog wird beim BAU
+    // UND beim MESSEN fortgeschrieben, JE REALM. Der Transport ist derselbe (bestand_cache oben) --
+    // es sind zwei Dokumente in EINEM Store, nicht zwei Stores.
+    //
+    // KEIN Gate auf dieser Ebene (wie oben): das harte Doppel-Gate sitzt beim Host. Der reale Provider
+    // ist bestandslog::make_messwert_key_fn (messwert_key_source.hpp) -- die Schwester von
+    // make_fingerprint_key_fn, mit derselben Sidecar-Lektuere und derselben fail-closed-Regel.
+    std::function<std::optional<std::string>(std::filesystem::path const&)> mess_bestand_key_of;
+    std::string                                                             mess_bestand_doc_key;
+    // G-E6 (syntax_version 4): der optionale Versions-Tag der Haupt-Achsen ("achse@X.Y.Zc;..."), den
+    // jeder Messwert-Eintrag mitfuehrt. Leer = nicht gemeldet (v3-byte-gleiche Ausgabe).
+    std::string mess_bestand_versions;
     // T2-A/F4 (Owner-KERN Zaehler-Resume): die Ablage des Batch-Plans. SECHSTES Glied derselben
     // Bestandslog-Naht und nach demselben Muster wie die fuenf darueber -- der Host belegt es, die Fassade
     // reicht es durch (a.batch_plan_datei), make_cfg legt es auf LazyRunConfig::batch_plan_datei
@@ -371,5 +396,25 @@ struct PlanerBlockContext {
 // Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
 [[nodiscard]] int collect_plan_soll_facade(std::filesystem::path const& profile_path, planner::PlanSollSicht& out,
                                            std::ostream& os);
+
+// ---------------------------------------------------------------------------------------------------------------
+// check-size (2026-08-09): die MENGEN-ERHEBUNG vor dem Lauf.
+//
+// Dieselbe Naht-Form wie collect_plan_soll_facade: DERSELBE deterministische Director-Walk, ein sammelnder
+// ConcreteBuilder, ein FLACHER POD zurueck -- die katalog-schweren Header bleiben in der Fassaden-.cpp.
+// Baut KEINE DLL, misst NICHT, schreibt nichts.
+//
+// ARBEITSTEILUNG, ausdruecklich: diese Funktion ERHEBT nur (Walk-Zahlen, Profil-Zahlen, Umgebung). Sie
+// RECHNET nicht. Gerechnet wird in planner::mengen_rechnen (planner/planner_mengen_types.hpp) -- ein reiner
+// Header ohne Katalog, damit die Rechnung mit von Hand gesetzten Zahlen pruefbar ist, ohne ein Profil, eine
+// Registry oder eine DLL zu brauchen. Genau diese Trennung macht den Soll-Wert eines Tests unabhaengig von
+// der Maschinerie, die ihn sonst erzeugen wuerde.
+//
+// Was der Aufrufer NACH dieser Funktion noch selbst setzt (weil es von der Kommandozeile kommt, nicht aus
+// dem Profil): sekunden_je_op, deckel_bytes, deckel_tage.
+//
+// Rueckgabe: 0 = Walk gefahren (out gefuellt), 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int collect_mess_menge_facade(std::filesystem::path const& profile_path, planner::MengenEingang& out,
+                                            std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade

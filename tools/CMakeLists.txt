@@ -27,3 +27,7 @@ add_subdirectory(axis_version_lock)
 # Tier-Fingerprints. BEWUSST NICHT EXCLUDE_FROM_ALL: sein Ergebnis ist ein Compile-Define, das jede
 # Uebersetzungseinheit mit Anatomy-Fingerprint braucht (Verdrahtung: cmake/overlay_source_hash.cmake).
 add_subdirectory(overlay_source_hash_gen)
+# A9-S4 (2026-08-08): comdare-mess-report -- der Konsument des A9-S3-xlsx-Writers (render|plan|
+# version). NICHT EXCLUDE_FROM_ALL: eine Nutzer-CLI wie best_binary_selector/ycsb_cli, Teil des
+# regulaeren Builds (der CI-Smoke-Test baut sie ueber das Default-ALL-Target, kein Extra-Ziel noetig).
+add_subdirectory(mess_report)

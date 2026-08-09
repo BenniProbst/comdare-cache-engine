@@ -23,13 +23,25 @@
 // bindende System-Achsen-Ordnung in abi/system_axis_order.hpp. KOMPONIERT werden beide erst im
 // Baum-Writer (lager_baum_writer.hpp), der die Kante bewusst und an EINER Stelle zieht.
 //
-// L3-ENTSCHEID (Manager, bindend fuer diese Welle -- HARTE WACHE, keine Meinung):
-// Das Lager reserviert KEIN Hybrid-Segment. Es gibt in dieser Grammatik keinen "hybrid"-Token, keine
-// Hybrid-Enum-Reserve und keinen Platzhalter dafuer. Die Lager-Identitaet der Hybrid-.so ist ein
-// EIGENER Owner-/K1-Entscheid im Hybrid-B-Fenster (Auswertungsphase); bis dahin ist jede Vorhaltung
-// hier eine Regression. Die Wache ist deshalb nicht nur ein Kommentar, sondern (a) ein
-// static_assert-Satz unten und (b) eine Laufzeit-Fehlerklasse hybrid_segment_verboten, die jeden
-// Versuch klassifiziert abweist. Erweitert wird ADDITIV und erst NACH dem K1-Entscheid.
+// L3-ENTSCHEID -- AUFGEHOBEN DURCH K1 (Owner-Entscheid 09.08.2026). NICHT GELOESCHT, sondern datiert:
+//
+// BIS K1 galt (L3, Manager): "Das Lager reserviert KEIN Hybrid-Segment." Die Grammatik trug dazu einen
+// Token "hybrid", ein Praedikat traegt_hybrid_token() und die Fehlerklasse hybrid_segment_verboten,
+// die jeden Achsen-Namen und jeden Wert mit diesem Praefix compile- und laufzeit-hart abwies. L3 war
+// ausdruecklich eine WARTEMARKE: die Lager-Identitaet der Hybrid-.so war "ein EIGENER Owner-/K1-
+// Entscheid im Hybrid-B-Fenster".
+//
+// K1 HAT ENTSCHIEDEN (verbatim): die Hybrid-Gattung ist "einfach eine weitere Gattung+Genus, die
+// parallel zu allen anderen Gattung+Genus in den beiden wurzel-Ordner-Ebenen des Lagerbaumes mit
+// einsortiert wird". Damit ist die Wartemarke eingeloest und die Wache GEGENSTANDSLOS -- ein Token,
+// der eine legitime Gattung abweist, waere ab jetzt selbst die Regression. Sie faellt deshalb
+// ersatzlos aus DIESER Datei.
+//
+// ERSATZLOS heisst NICHT ungesichert: was L3 hier verbot, ordnet K1 eine Schicht hoeher. Die zwei
+// Wurzelebenen (Gattung -> Genus) und ihre Wachen wohnen im Baum-Writer (lager_baum_writer.hpp),
+// weil nur DER die Layer-Kante zur Anatomie ziehen darf -- siehe LAYER-KANTE oben. Eine Gattung ohne
+// Lager-Token bricht dort den Bau; ein Genus, das nicht zu seiner Gattung gehoert, wird dort
+// klassifiziert abgewiesen. Diese Grammatik bleibt, was sie war: Zeichen, Laengen, Form.
 //
 // CT/RT-GRENZE: die Regeln und Wachen sind CT (constexpr-Praedikate + static_assert-Batterie am Ende,
 // inklusive der drei A9-Namens-Beispiele als consteval-Anker). Die KONKRETEN Pfade sind RT-Strings
@@ -119,17 +131,19 @@ inline constexpr std::string_view kKurznamePraefix = "H=";
 // ---------------------------------------------------------------------------
 enum class LagerPfadFehler : int {
     ok = 0,
-    achse_leer,              // Achsen-Name ohne Zeichen
-    achse_zeichenklasse,     // Achsen-Name ausserhalb [a-z0-9_]
-    wert_leer,               // Wert ohne Zeichen (ein "achse=" waere ein unlesbares Segment)
-    wert_zeichenklasse,      // Wert ausserhalb [a-z0-9._-]
-    gruppen_wert_trenner,    // '-' im Wert eines GRUPPEN-Segments (dort ist '-' der Paar-Trenner)
-    hybrid_segment_verboten, // L3: das Lager reserviert kein Hybrid-Segment
-    kette_leer,              // kv-Kette ohne ein einziges Paar
-    komponente_ueberlang,    // > kMaxKomponenteBytes, ohne dass ein Kurzname zulaessig waere
-    datum_form,              // datum != 8 Ziffern (YYYYMMDD)
-    zeit_form,               // zeit  != 6 Ziffern (HHMMSS)
-    endung_leer,             // Datei-Endung ohne Zeichen
+    achse_leer,           // Achsen-Name ohne Zeichen
+    achse_zeichenklasse,  // Achsen-Name ausserhalb [a-z0-9_]
+    wert_leer,            // Wert ohne Zeichen (ein "achse=" waere ein unlesbares Segment)
+    wert_zeichenklasse,   // Wert ausserhalb [a-z0-9._-]
+    gruppen_wert_trenner, // '-' im Wert eines GRUPPEN-Segments (dort ist '-' der Paar-Trenner)
+    // K1 (09.08.2026): hier stand hybrid_segment_verboten (L3). Der Entscheid ist aufgehoben, die
+    // Klasse ist ersatzlos entfallen -- s. Kopf. Bewusst NICHT als Platzhalter stehengelassen: eine
+    // Fehlerklasse, die niemand mehr vergeben kann, ist ein Stolperstein fuer jeden spaeteren Leser.
+    kette_leer,           // kv-Kette ohne ein einziges Paar
+    komponente_ueberlang, // > kMaxKomponenteBytes, ohne dass ein Kurzname zulaessig waere
+    datum_form,           // datum != 8 Ziffern (YYYYMMDD)
+    zeit_form,            // zeit  != 6 Ziffern (HHMMSS)
+    endung_leer,          // Datei-Endung ohne Zeichen
 };
 
 [[nodiscard]] constexpr std::string_view to_string(LagerPfadFehler f) noexcept {
@@ -140,7 +154,6 @@ enum class LagerPfadFehler : int {
         case LagerPfadFehler::wert_leer: return "wert_leer";
         case LagerPfadFehler::wert_zeichenklasse: return "wert_zeichenklasse";
         case LagerPfadFehler::gruppen_wert_trenner: return "gruppen_wert_trenner";
-        case LagerPfadFehler::hybrid_segment_verboten: return "hybrid_segment_verboten";
         case LagerPfadFehler::kette_leer: return "kette_leer";
         case LagerPfadFehler::komponente_ueberlang: return "komponente_ueberlang";
         case LagerPfadFehler::datum_form: return "datum_form";
@@ -183,25 +196,9 @@ enum class LagerPfadFehler : int {
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// L3-WACHE -- der harte Teil des Manager-Entscheids.
-// ---------------------------------------------------------------------------
-
-/// Der eine verbotene Token. Er steht hier als Konstante, damit die Wache eine Quelle hat und nicht
-/// an mehreren Stellen als Literal wiederkehrt -- NICHT als Reserve fuer ein kuenftiges Segment.
-inline constexpr std::string_view kVerbotenerHybridToken = "hybrid";
-
-/// true, wenn ein Achsen-Name oder Wert den Hybrid-Token TRAEGT: exakt "hybrid" oder "hybrid" gefolgt
-/// von einem Trennzeichen der Werte-Klasse ("hybrid_tier", "hybrid-so", "hybrid.1"). Ein blosses
-/// starts_with waere zu grob -- "hybridization" (ein legitimer Fachwert) darf nicht mitgerissen werden;
-/// genau dieselbe Trenner-Disziplin wie bei der Praefix-Semantik unten.
-[[nodiscard]] constexpr bool traegt_hybrid_token(std::string_view s) noexcept {
-    if (s.size() < kVerbotenerHybridToken.size()) return false;
-    if (s.substr(0, kVerbotenerHybridToken.size()) != kVerbotenerHybridToken) return false;
-    if (s.size() == kVerbotenerHybridToken.size()) return true;
-    char const next = s[kVerbotenerHybridToken.size()];
-    return next == '_' || next == '-' || next == '.';
-}
+// K1 (09.08.2026): hier wohnte die L3-WACHE (kVerbotenerHybridToken + traegt_hybrid_token). Sie ist
+// mit dem L3-Entscheid entfallen -- die Begruendung steht im Kopf. Wer sie in der Historie sucht:
+// letzter Stand vor dem Umbau ist Commit 4ab97516.
 
 // ---------------------------------------------------------------------------
 // Ergebnis-Typ. Ein Segment-Bau liefert IMMER: den Text, die Fehlerklasse, und -- falls gekuerzt --
@@ -223,15 +220,14 @@ struct KvPaar {
 };
 
 // ---------------------------------------------------------------------------
-// Pruefung EINES kv-Paares. Reihenfolge der Wachen ist bewusst: erst Anwesenheit, dann Zeichenklasse,
-// dann L3. So nennt die Fehlerklasse immer die ERSTE Ursache und nicht eine Folge davon.
+// Pruefung EINES kv-Paares. Reihenfolge der Wachen ist bewusst: erst Anwesenheit, dann Zeichenklasse.
+// So nennt die Fehlerklasse immer die ERSTE Ursache und nicht eine Folge davon.
 // ---------------------------------------------------------------------------
 [[nodiscard]] constexpr LagerPfadFehler pruefe_kv(KvPaar const& p) noexcept {
     if (p.achse.empty()) return LagerPfadFehler::achse_leer;
     if (!ist_achse_rein(p.achse)) return LagerPfadFehler::achse_zeichenklasse;
     if (p.wert.empty()) return LagerPfadFehler::wert_leer;
     if (!ist_wert_rein(p.wert)) return LagerPfadFehler::wert_zeichenklasse;
-    if (traegt_hybrid_token(p.achse) || traegt_hybrid_token(p.wert)) return LagerPfadFehler::hybrid_segment_verboten;
     return LagerPfadFehler::ok;
 }
 
@@ -359,10 +355,6 @@ namespace detail {
     }
     if (!ist_achse_rein(gruppe)) {
         e.fehler = LagerPfadFehler::achse_zeichenklasse;
-        return e;
-    }
-    if (traegt_hybrid_token(gruppe)) {
-        e.fehler = LagerPfadFehler::hybrid_segment_verboten;
         return e;
     }
     if (paare.empty()) {
@@ -514,17 +506,19 @@ static_assert(ist_achse_rein("01_read_path") && ist_achse_rein("target_isa") && 
 static_assert(ist_wert_rein("amd64_v3") && ist_wert_rein("6.17.0-35") && ist_wert_rein("sweep"));
 static_assert(!ist_wert_rein("") && !ist_achse_rein(""));
 
-// L3: der Hybrid-Token ist erkannt -- und "hybridization" wird NICHT mitgerissen.
-static_assert(traegt_hybrid_token("hybrid"));
-static_assert(traegt_hybrid_token("hybrid_tier") && traegt_hybrid_token("hybrid-so") &&
-              traegt_hybrid_token("hybrid.1"));
-static_assert(!traegt_hybrid_token("hybridization"), "Die L3-Wache darf keinen fachfremden Wert mitreissen.");
-static_assert(!traegt_hybrid_token("tier") && !traegt_hybrid_token(""));
-static_assert(pruefe_kv(KvPaar{"tier", "hybrid"}) == LagerPfadFehler::hybrid_segment_verboten,
-              "L3 (Manager-Entscheid): das Lager reserviert KEIN Hybrid-Segment -- die Hybrid-Lager-Identitaet "
-              "ist ein eigener K1-/Owner-Entscheid im Hybrid-B-Fenster (Auswertungsphase). Wer hier ein Segment "
-              "einfuehrt, dreht den Entscheid um und braucht dafuer ein Owner-Gate, keinen Patch.");
-static_assert(pruefe_kv(KvPaar{"hybrid_tier", "on"}) == LagerPfadFehler::hybrid_segment_verboten);
+// K1 (09.08.2026) -- DIE UMKEHRUNG DES L3-SATZES, an derselben Stelle und genauso hart.
+// Vorher stand hier: pruefe_kv({"tier","hybrid"}) == hybrid_segment_verboten. K1 hebt das auf, also
+// muss der Gegensatz belegt sein -- sonst waere die Aufhebung nur ein geloeschter Test. Ein
+// Hybrid-Wert ist ab jetzt ein Wert wie jeder andere: er faellt NUR noch durch die Zeichenklasse.
+static_assert(pruefe_kv(KvPaar{"tier", "hybrid"}) == LagerPfadFehler::ok,
+              "K1 (Owner 09.08.2026): die Hybrid-Gattung wird 'parallel zu allen anderen Gattung+Genus' in den "
+              "beiden Wurzelebenen einsortiert. Ein Sonderfall gegen 'hybrid' in der Zeichen-Grammatik waere "
+              "damit die Regression -- die Ordnung entsteht im Baum-Writer, nicht in einem Namens-Verbot.");
+static_assert(pruefe_kv(KvPaar{"hybrid_tier", "on"}) == LagerPfadFehler::ok);
+static_assert(pruefe_kv(KvPaar{"tier", "hybridization"}) == LagerPfadFehler::ok);
+// GEGENEINGANG (T-4): die Aufhebung ist ENG -- sie hebelt die Zeichenklasse NICHT aus.
+static_assert(pruefe_kv(KvPaar{"tier", "Hybrid"}) == LagerPfadFehler::wert_zeichenklasse,
+              "K1 hebt das Hybrid-VERBOT auf, nicht die Zeichenklasse: Grossbuchstaben bleiben abgewiesen.");
 
 // Fehlerklassen-Reihenfolge (erste Ursache gewinnt).
 static_assert(pruefe_kv(KvPaar{"", "x"}) == LagerPfadFehler::achse_leer);

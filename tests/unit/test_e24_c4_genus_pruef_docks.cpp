@@ -30,6 +30,8 @@
 #include "builder/pruef_dock/set_dock.hpp"
 #include "builder/pruef_dock/view_dock.hpp"
 
+#include "hybrid/heuristik_adapter_klassifikation.hpp" // HY-A1: Einzelquelle + Partition (Wachen-Nachzug)
+
 #include "anatomy/adapter_permutation_engine.hpp"
 #include "anatomy/sequence_permutation_engine.hpp"
 #include "anatomy/set_permutation_engine.hpp"
@@ -61,6 +63,7 @@ namespace pd  = comdare::cache_engine::builder::pruef_dock;
 namespace al  = comdare::cache_engine::builder::anatomy_loader;
 namespace abi = comdare::cache_engine::abi;
 namespace ag  = comdare::cache_engine::sequence::axis_growth;
+namespace hy  = comdare::cache_engine::hybrid;
 namespace vw  = comdare::cache_engine::view;
 namespace mp  = boost::mp11;
 
@@ -358,18 +361,54 @@ int main() {
         pd::register_all_genus_docks(reg);
         eq("Registry-Groesse (alle fuenf Gattungen)", reg.size(), std::size_t{5});
 
-        // VOLLSTAENDIGKEITS-WACHE ueber die ENUM-Werte, nicht ueber eine Aufzaehlung im Test: kaeme
-        // eine sechste Ebene-2-Gattung dazu und register_all_genus_docks vergaesse sie, bricht das hier.
-        constexpr std::array<ana::AnatomyGenus, 5> kAllGenera{ana::AnatomyGenus::SearchAlgorithm,
-                                                              ana::AnatomyGenus::Set, ana::AnatomyGenus::Sequence,
-                                                              ana::AnatomyGenus::Adapter, ana::AnatomyGenus::View};
-        bool                                       all_genera_covered = true;
-        for (auto const g : kAllGenera) {
+        // ------------------------------------------------------------------------------------
+        // NACHZUG HY-A1 (09.08.2026) -- DIESE WACHE WAR KEINE. KORREKTUR AM OBJEKT.
+        // ------------------------------------------------------------------------------------
+        // Hier stand: "VOLLSTAENDIGKEITS-WACHE ueber die ENUM-Werte, nicht ueber eine Aufzaehlung
+        // im Test: kaeme eine sechste Ebene-2-Gattung dazu und register_all_genus_docks vergaesse
+        // sie, bricht das hier." -- gefolgt von exakt einer solchen Aufzaehlung im Test
+        // (`constexpr std::array<ana::AnatomyGenus, 5> kAllGenera{...}`).
+        //
+        // Die Behauptung war nie zutreffend, und das ist am 09.08.2026 literal nachgemessen worden:
+        // AnatomyGenus::FunctionInterfaceReroute wurde angehaengt, diese TU neu uebersetzt (die
+        // .o-Zeitstempel liegen nach dem Header-Edit, es war kein Cache-Artefakt) -- 0 Fehler, der
+        // Test blieb gruen. Eine handgefuehrte Liste kann per Konstruktion nicht bemerken, dass das
+        // Enum laenger geworden ist.
+        //
+        // JETZT laeuft die Wache ueber die EINZELQUELLE hy::kAlleGenera, deren Deckungsgleichheit
+        // mit dem Enum ihrerseits compile-hart bewacht ist (256-Werte-Abgleich gegen genus_name(),
+        // hybrid/heuristik_adapter_klassifikation.hpp). Die Kette ist damit geschlossen:
+        // Enum -> Einzelquelle -> Dock-Registry.
+        //
+        // UND DIE NEUE UNTERSCHEIDUNG, die es vorher nicht zu treffen gab: nicht jedes Genus braucht
+        // ein Dock. Ein KLASSIFIKATIONS-Genus (Gattung HeuristikAdapter) hat keins und darf keins
+        // haben -- seine Binaries melden per genus() ihr ZIEL-Genus und docken an DESSEN Dock an
+        // (Owner-Entscheid E-1 final, Weg C). Deshalb wird hier nach der Partition gefiltert statt
+        // stumpf ueber alle Enum-Werte zu laufen; ein ungefilterter Lauf wuerde ab HY-A1 fehlschlagen
+        // und zwar zu Recht.
+        std::size_t abi_sichtbare            = 0;
+        bool        all_genera_covered       = true;
+        bool        klassifikation_ohne_dock = true;
+        for (auto const g : hy::kAlleGenera) {
             pd::IPruefDock const* d = reg.dock_for_genus(g);
-            if (d == nullptr || d->dock_genus() != g) all_genera_covered = false;
+            if (hy::ist_abi_sichtbares_genus(g)) {
+                ++abi_sichtbare;
+                if (d == nullptr || d->dock_genus() != g) all_genera_covered = false;
+            } else {
+                // Ein Reroute-Genus DARF kein Dock haben. Faende sich hier eins, waere Weg C
+                // gebrochen -- jemand haette der Hybrid-Stufe ein eigenes Dock gegeben.
+                if (d != nullptr) klassifikation_ohne_dock = false;
+            }
         }
-        tr("dock_for_genus() liefert fuer JEDE der fuenf Ebene-2-Gattungen ein Dock", all_genera_covered);
-        eq("Registry-Groesse == Zahl der Ebene-2-Gattungen", reg.size(), kAllGenera.size());
+        tr("dock_for_genus() liefert fuer JEDE ABI-sichtbare Ebene-2-Gattung ein Dock", all_genera_covered);
+        tr("ein KLASSIFIKATIONS-Genus (HeuristikAdapter) hat KEIN eigenes Dock (Weg C)", klassifikation_ohne_dock);
+        eq("Zahl der ABI-sichtbaren Genera == Registry-Groesse", reg.size(), abi_sichtbare);
+        eq("Zahl der ABI-sichtbaren Genera == Partitions-Konstante", abi_sichtbare,
+           hy::kPruefDockPflichtigeGenusAnzahl);
+        // Gegenprobe, dass die Einzelquelle wirklich MEHR Werte kennt als die Registry Docks hat --
+        // sonst waere die Filterung oben wirkungslos und die Wache truebe gestellt.
+        tr("die Einzelquelle kennt mehr Genera als es Docks gibt (die Filterung ist wirksam)",
+           hy::kAlleGenera.size() > reg.size());
 
         // LEBENSDAUER-FALLE, am Bau aufgelaufen und deshalb hier benannt: for_each_abi_adapter
         // materialisiert den ABI-Adapter je Permutation als LOKALE Variable im Callback

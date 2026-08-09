@@ -15,8 +15,16 @@
 namespace comdare::experiment {
 
 struct PermutationResult {
-    std::string                   permutation_id;
-    std::uint64_t                 fingerprint;
+    std::string permutation_id;
+    // 09.08.2026 (Warnungs-Runde 1, Klasse SPEICHER): hier stand `std::uint64_t fingerprint;` OHNE
+    // Initialisierer -- als EINZIGES Mitglied dieses Structs; record{} und succeeded=false tragen
+    // laengst welche. Wer `PermutationResult r;` schreibt und fingerprint nie setzt, dessen
+    // Copy-Konstruktor LIEST den unbestimmten Wert: undefiniertes Verhalten, gemeldet von GCC als
+    // "'r.PermutationResult::fingerprint' is used uninitialized". Die Ursache sass im Struct, nicht
+    // im Aufrufer -- deshalb wird sie hier geheilt und nicht an der Fundstelle.
+    // 0 ist der richtige Ruhewert: ein Fingerabdruck 0 heisst "nicht berechnet" und ist von jedem
+    // echten Hash unterscheidbar; ein zufaelliger Wert waere still falsch.
+    std::uint64_t                 fingerprint{};
     comdare_measurement_record_v1 record{};
     bool                          succeeded = false;
     std::string                   error_message;

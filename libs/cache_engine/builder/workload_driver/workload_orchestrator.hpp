@@ -18,6 +18,7 @@
 #include <anatomy/rollbackable_tier.hpp>
 #include <anatomy/scannable_tier.hpp>                          // V5-#49-E: Range-Scan-Sub-Interface (YCSB-E)
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp> // detail::two_phase_measure + abi_dur_ns
+#include <builder/commands/latency_stats.hpp>                  // D5-1: der EINE Perzentil-Kanon
 
 #include "workload_config.hpp"
 #include "workload_generator.hpp"
@@ -33,6 +34,7 @@ namespace comdare::cache_engine::builder::workload_driver {
 
 namespace an = ::comdare::cache_engine::anatomy;
 namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
+namespace st = ::comdare::cache_engine::builder::commands::stats; // D5-1 Perzentil-Kanon
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WorkloadRunResult — Mess-Ergebnis EINES Lastprofils über EIN Tier
@@ -229,7 +231,9 @@ run_measurement_plan(an::IObservableTier& tier, an::IRollbackableTier* rollback,
 /// serialize_workload_run_results_csv — Mess-Ergebnis-CSV des Lastprofil-Pfads (eine Zeile je Profil-Lauf).
 /// Trägt je Op-Kind die Sample-Zahl + p50/p95/p99-Perzentile (Tier-Wall-Clock, Doku 24 §2.1, GETRENNT) UND die
 /// korrelierten Observer-Zähler am Lauf-Ende. `two_phase`-Spalte dokumentiert, ob zwei-phasig (Rollback aktiv)
-/// gemessen wurde. Perzentile via `anatomy_commands::detail::nearest_rank_p` (Nearest-Rank, robust).
+/// gemessen wurde. Perzentile via `commands::stats::percentile_ns` -- D5-1-KANON, Lehrbuch-Nearest-Rank
+/// k = ceil(q*n)-1. ACHTUNG: alle vor dem 2026-08-09 mit dieser Funktion erzeugten p50/p95/p99-Spalten
+/// stammen aus einer ANDEREN Definition und sind mit den heutigen nicht vergleichbar.
 [[nodiscard]] inline std::string serialize_workload_run_results_csv(std::vector<WorkloadRunResult> const& rs) {
     std::ostringstream os;
     os << "profile,op_count,two_phase,"
@@ -241,21 +245,20 @@ run_measurement_plan(an::IObservableTier& tier, an::IRollbackableTier* rollback,
     for (auto const& r : rs) {
         auto const& o = r.observer;
         os << r.profile_name << ',' << r.op_count << ',' << (r.two_phase ? 1 : 0) << ',' << r.insert_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.95)
-           << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99) << ',' << r.lookup_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.95)
-           << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.99) << ',' << r.erase_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.erase_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.95) << ','
-           << ac::detail::nearest_rank_p(r.erase_ns, 0.99) << ',' << r.clear_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.clear_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.95) << ','
-           << ac::detail::nearest_rank_p(r.clear_ns, 0.99) << ',' << r.scan_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.scan_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.95) << ','
-           << ac::detail::nearest_rank_p(r.scan_ns, 0.99) << ',' << r.rmw_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.rmw_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.95) << ','
-           << ac::detail::nearest_rank_p(r.rmw_ns, 0.99) << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0]
-           << ',' << o.axis_stats[0][1] << ',' << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ','
-           << o.axis_stats[0][5] << ',' << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ','
-           << o.observable_axis_count << '\n';
+           << st::percentile_ns(r.insert_ns, 0.5).count() << ',' << st::percentile_ns(r.insert_ns, 0.95).count() << ','
+           << st::percentile_ns(r.insert_ns, 0.99).count() << ',' << r.lookup_ns.size() << ','
+           << st::percentile_ns(r.lookup_ns, 0.5).count() << ',' << st::percentile_ns(r.lookup_ns, 0.95).count() << ','
+           << st::percentile_ns(r.lookup_ns, 0.99).count() << ',' << r.erase_ns.size() << ','
+           << st::percentile_ns(r.erase_ns, 0.5).count() << ',' << st::percentile_ns(r.erase_ns, 0.95).count() << ','
+           << st::percentile_ns(r.erase_ns, 0.99).count() << ',' << r.clear_ns.size() << ','
+           << st::percentile_ns(r.clear_ns, 0.5).count() << ',' << st::percentile_ns(r.clear_ns, 0.95).count() << ','
+           << st::percentile_ns(r.clear_ns, 0.99).count() << ',' << r.scan_ns.size() << ','
+           << st::percentile_ns(r.scan_ns, 0.5).count() << ',' << st::percentile_ns(r.scan_ns, 0.95).count() << ','
+           << st::percentile_ns(r.scan_ns, 0.99).count() << ',' << r.rmw_ns.size() << ','
+           << st::percentile_ns(r.rmw_ns, 0.5).count() << ',' << st::percentile_ns(r.rmw_ns, 0.95).count() << ','
+           << st::percentile_ns(r.rmw_ns, 0.99).count() << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ','
+           << o.axis_stats[0][1] << ',' << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5]
+           << ',' << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
     }
     return os.str();
 }

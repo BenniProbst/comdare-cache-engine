@@ -41,8 +41,12 @@ public:
 /// AUFSUMMIERTE) Wall-Clock-Zeit der 4 in do_batch (abi_adapter.hpp) instrumentierten Achsen-Segmente
 /// über die Modul-Binary-Grenze trägt: search_algo / allocator / memory_layout / serialization.
 /// NUR int64-Felder → standard_layout + trivially_copyable (memcpy über die .dll-Grenze, identisch zum
-/// Observer-Snapshot-Designprinzip). Die uebrigen 13 Achsen (INC-2d: 17 Slots) sind passive Compile-Time-Deskriptoren ohne
-/// Laufzeit-Segment-Timer → der Host kennzeichnet sie ehrlich als n/a (NICHT 0, NICHT erfunden).
+/// Observer-Snapshot-Designprinzip). Die uebrigen -- nicht per-Segment instrumentierten -- Achsen sind passive
+/// Compile-Time-Deskriptoren ohne Laufzeit-Segment-Timer -> der Host kennzeichnet sie ehrlich als n/a
+/// (NICHT 0, NICHT erfunden). Ihre Zahl steht hier NICHT mehr als Kopie, sie ist kV3AxisCount - 4
+/// (observable_tier.hpp); die fruehere Angabe "13 Achsen (INC-2d: 17 Slots)" war der Stand vor
+/// STRUKT-R ORG-18 -- ABI-HISTORIE gegen SHA 42b34354. (Nachsatz HY-0 08.08.2026: Teilmengen-Zaehlungen
+/// deckt die Wache nicht, Grenze 3b von ci_hy_label_gate.sh -- deshalb Verweis statt Zahl.)
 struct ComdareSegmentLatencyV1 {
     std::int64_t  seg_search_algo_ns   = 0; // Segment 1 (axis_03a search_algo): Lookups auf der Such-Struktur
     std::int64_t  seg_allocator_ns     = 0; // Segment 2 (axis_06 allocator): alloc/dealloc-Churn
@@ -79,19 +83,24 @@ public:
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// (X) 17-Segment-Latenz-POD — der per-Achsen-Timer auf ALLE 17 SearchAlgorithm-Achsen (INC-2c: telemetry / INC-2d: isa sind System-Achsen) ausgeweitet
+// (X) Voll-Segment-Latenz-POD -- der per-Achsen-Timer auf ALLE 18 SearchAlgorithm-Achsen ausgeweitet
+//     (lebend, kV3AxisCount in observable_tier.hpp; Nachsatz HY-0 08.08.2026: hier stand im Praesens
+//     "auf ALLE 17 Achsen" -- ABI-HISTORIE gegen SHA 42b34354, der Stand nach INC-2c: telemetry /
+//     INC-2d: isa sind System-Achsen und VOR STRUKT-R ORG-18: persistence_target als T17 rein.)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// ComdareSegmentLatencyV2 — flacher, ABI-stabiler POD, der die ECHT gemessene (über die batches
-/// AUFSUMMIERTE) per-Achsen-Wall-Clock ALLER 17 SearchAlgorithm-Achsen über die Modul-Binary-Grenze trägt.
-/// INDEXBASIERT (seg_ns[17], NICHT benannte Felder): der Slot-Index IST die kanonische Achsen-Identität
-/// (T0..T16 == kCompositionAxisNames-Reihenfolge in builder/experiment_tree/axis_path_serialization.hpp:31-34);
-/// der CSV-Writer iteriert dann `for i in 0..16` statt 17 Felder hartzucodieren, und eine spätere Achsen-
-/// Umordnung verschiebt nur die Index-Bedeutung, bricht aber nicht still Name↔Feld. NUR int64/uint64-Felder
-/// → standard_layout + trivially_copyable (memcpy über die .dll-Grenze, identisch zum Observer-Snapshot-Prinzip).
-/// V1 (4 benannte Segmente) bleibt UNVERÄNDERT erhalten (ABI-Erhalt für alte DLLs / bestehende Tests).
+/// ComdareSegmentLatencyV2 -- flacher, ABI-stabiler POD, der die ECHT gemessene (ueber die batches
+/// AUFSUMMIERTE) per-Achsen-Wall-Clock ALLER 18 SearchAlgorithm-Achsen ueber die Modul-Binary-Grenze traegt.
+/// INDEXBASIERT (seg_ns[18], NICHT benannte Felder): der Slot-Index IST die kanonische Achsen-Identitaet
+/// (T0..T17 == kCompositionAxisNames-Reihenfolge in builder/experiment_tree/axis_path_serialization.hpp --
+/// der fruehere Zeilen-Anker :31-34 war GEWANDERT und ist deshalb entfernt, nicht nachgezogen: ein
+/// Zeilen-Anker in eine fremde Datei ist eine ungedeckte Kopie);
+/// der CSV-Writer iteriert die kV3AxisCount Slots statt Felder hartzucodieren, und eine spaetere Achsen-
+/// Umordnung verschiebt nur die Index-Bedeutung, bricht aber nicht still Name<->Feld. NUR int64/uint64-Felder
+/// -> standard_layout + trivially_copyable (memcpy ueber die .dll-Grenze, identisch zum Observer-Snapshot-Prinzip).
+/// V1 (4 benannte Segmente) bleibt UNVERAENDERT erhalten (ABI-Erhalt fuer alte DLLs / bestehende Tests).
 ///
-/// Seg-Index-Map (T0..T16): 0 search_algo · 1 cache_traversal · 2 mapping · 3 path_compression · 4 node_type
+/// Seg-Index-Map (T0..T17): 0 search_algo * 1 cache_traversal * 2 mapping * 3 path_compression * 4 node_type
 /// · 5 memory_layout · 6 allocator · 7 prefetch · 8 concurrency · 9 serialization · 10 value_handle
 /// · 11 index_organization · 12 io_dispatch · 13 migration_policy · 14 filter
 /// * 15 queuing_q1 * 16 queuing_q2 * 17 persistence_target (STRUKT-R ORG-18). KEINE Achse n/a -- jede treibt
@@ -115,15 +124,17 @@ struct ComdareSegmentLatencyV2 {
 };
 
 static_assert(std::is_standard_layout_v<ComdareSegmentLatencyV2>,
-              "ABI-Pflicht: 17-Segment-Latenz-POD muss standard_layout sein");
+              "ABI-Pflicht: Voll-Segment-Latenz-POD (kV3AxisCount Slots) muss standard_layout sein");
 static_assert(std::is_trivially_copyable_v<ComdareSegmentLatencyV2>,
-              "ABI-Pflicht: 17-Segment-Latenz-POD muss memcpy-fähig (trivially_copyable) sein");
+              "ABI-Pflicht: Voll-Segment-Latenz-POD (kV3AxisCount Slots) muss memcpy-faehig "
+              "(trivially_copyable) sein");
 
 /// IMeasurableWorkloadV3 — EIGENSTÄNDIGES Sub-Interface (L-74c-ABI-Prinzip: hängt NICHT an
 /// IMeasurableWorkload(V2)/IAnatomyBase → ändert deren vtable NICHT; der Host fragt via
 /// `dynamic_cast<IMeasurableWorkloadV3*>(ianatomy_ptr)`, alte Module → nullptr → sauberer Degrade auf V2/V1).
-/// Fährt einen 17-Segment-do_batch: je SearchAlgorithm-Achse ein eigener steady_clock-Timer, über die batches
-/// AUFSUMMIERT → echter per-Achsen-Timer für ALLE 17 Achsen (kein n/a mehr).
+/// Faehrt einen Voll-Segment-do_batch: je SearchAlgorithm-Achse ein eigener steady_clock-Timer, ueber die
+/// batches AUFSUMMIERT -> echter per-Achsen-Timer fuer ALLE 18 Achsen (kein n/a mehr; lebend, kV3AxisCount --
+/// Nachsatz HY-0 08.08.2026: hier stand ALLE 17 Achsen, ABI-HISTORIE gegen SHA 42b34354).
 class IMeasurableWorkloadV3 {
 public:
     virtual ~IMeasurableWorkloadV3() = default;

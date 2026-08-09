@@ -31,6 +31,8 @@
 //
 // HONEST-EMPTY: fehlende Spalte / leere Datei -> leeres Ergebnis (der Aufrufer erkennt es an .empty()).
 
+#include <cache_engine/measurement/csv_cell_reader.hpp>
+
 #include "axis_spline.hpp" // CurveSample (Single-Source des Sample-Typs)
 
 #include <cmath>
@@ -106,62 +108,17 @@ struct MeasurementSeries {
 
 namespace loader_detail {
 
-/// CSV-Zell-Split mit minimalem RFC-4180-Quoting + CRLF-Strip (identische Doktrin wie curve_fit).
-[[nodiscard]] inline std::vector<std::string> split_csv_line(std::string_view line, char delimiter) {
-    if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
-    std::vector<std::string> cells;
-    std::string              cell;
-    bool                     in_quotes = false;
-    for (std::size_t i = 0; i < line.size(); ++i) {
-        char const c = line[i];
-        if (c == '"') {
-            if (in_quotes && i + 1 < line.size() && line[i + 1] == '"') {
-                cell.push_back('"');
-                ++i;
-            } else {
-                in_quotes = !in_quotes;
-            }
-        } else if (c == delimiter && !in_quotes) {
-            cells.push_back(std::move(cell));
-            cell.clear();
-        } else {
-            cell.push_back(c);
-        }
-    }
-    cells.push_back(std::move(cell));
-    return cells;
-}
-
-/// Streng-numerisches Zellen-Parsen: die GANZE Zelle muss konsumiert werden (kein stiller Phantom-Punkt).
-[[nodiscard]] inline bool parse_double_cell(std::string const& cell, double& out) {
-    if (cell.empty()) return false;
-    char*        end = nullptr;
-    double const v   = std::strtod(cell.c_str(), &end);
-    if (end == nullptr || *end != '\0' || !std::isfinite(v)) return false; // NaN/Inf -> kein Punkt
-    out = v;
-    return true;
-}
-
-[[nodiscard]] inline bool is_na(std::string const& cell, std::vector<std::string> const& na_tokens) {
-    for (std::string const& t : na_tokens)
-        if (cell == t) return true;
-    return false;
-}
-
-/// Header-Index einer Spalte; -1 wenn Name leer oder nicht vorhanden.
-[[nodiscard]] inline std::ptrdiff_t col_index(std::vector<std::string> const& header, std::string const& name) {
-    if (name.empty()) return -1;
-    for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(header.size()); ++i)
-        if (header[static_cast<std::size_t>(i)] == name) return i;
-    return -1;
-}
-
-/// Zell-Wert an idx oder Default-Fallback "-" (idx<0 = Spalte fehlt bzw. leer konfiguriert).
-[[nodiscard]] inline std::string cell_or_dash(std::vector<std::string> const& cells, std::ptrdiff_t idx) {
-    if (idx < 0 || idx >= static_cast<std::ptrdiff_t>(cells.size())) return "-";
-    std::string const& v = cells[static_cast<std::size_t>(idx)];
-    return v.empty() ? std::string{"-"} : v;
-}
+// Zell-Split, streng-numerischer Zellen-Parser, Header-Index (linear), Zell-Fallback: Single-Source
+// in cache_engine/measurement/csv_cell_reader.hpp (Extraktion 2026-08-08, vormals hier und in
+// builder/curve_fit/curve_fit.hpp byte-identisch dupliziert -- "identische Doktrin wie curve_fit"
+// stand schon im alten Kommentar, ohne dass die Duplikation aufgeloest war). `using` haelt die
+// Aufrufstellen unten woertlich unveraendert; AXIS_ALGO_VERSION bleibt unveraendert, weil diese
+// Extraktion die SEMANTIK (welche Zeilen zu Kurvenpunkten werden) nicht beruehrt.
+using ::comdare::cache_engine::measurement::csv::cell_or_dash;
+using ::comdare::cache_engine::measurement::csv::col_index;
+using ::comdare::cache_engine::measurement::csv::is_na;
+using ::comdare::cache_engine::measurement::csv::parse_double_cell;
+using ::comdare::cache_engine::measurement::csv::split_csv_line;
 
 } // namespace loader_detail
 

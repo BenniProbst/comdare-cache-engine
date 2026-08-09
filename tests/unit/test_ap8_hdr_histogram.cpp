@@ -3,6 +3,7 @@
 #include <latency_hdr_histogram.hpp>
 
 #include <builder/anatomy_commands/tier_observe_trace_abi.hpp>
+#include <builder/commands/hdr_perzentil_auswertung.hpp> // D5-5: die HERGELEITETE Toleranz
 #include <builder/commands/latency_stats.hpp>
 #include <builder/measurement_snapshot.hpp>
 #include <builder/workload_driver/workload_orchestrator.hpp>
@@ -18,6 +19,7 @@
 
 namespace measurement = ::comdare::cache_engine::measurement;
 namespace stats       = ::comdare::cache_engine::builder::commands::stats;
+namespace auswertung  = ::comdare::cache_engine::builder::commands::auswertung;
 namespace builder     = ::comdare::cache_engine::builder;
 namespace workload    = ::comdare::cache_engine::builder::workload_driver;
 namespace trace_abi   = ::comdare::cache_engine::builder::anatomy_commands;
@@ -34,8 +36,13 @@ std::size_t count_cols(std::string const& csv_first_line) {
     return static_cast<std::size_t>(std::count(csv_first_line.begin(), csv_first_line.end(), ',') + 1);
 }
 
+// D5-5 (2026-08-09): die Toleranz war hier eine gesetzte 1 % ohne Begruendung. Sie ist jetzt aus
+// significant_figures HERGELEITET (auswertung::HdrGeometrie: 1/sub_bucket_half_count = 1/1024 =
+// 0.09765625 %) -- die gesetzte 1 % war um den Faktor 10.24 zu weit und haette eine falsch gewaehlte
+// Bucket-Geometrie nicht bemerkt. Die Rechnung steht in hdr_perzentil_auswertung.hpp.
 void expect_hdr_near_ref(std::int64_t actual, std::int64_t ref) {
-    EXPECT_NEAR(static_cast<double>(actual), static_cast<double>(ref), static_cast<double>(ref) * 0.01);
+    EXPECT_NEAR(static_cast<double>(actual), static_cast<double>(ref),
+                static_cast<double>(ref) * auswertung::GeltendeGeometrie::kRelativeToleranz);
 }
 
 workload::WorkloadRunResult make_workload_result() {

@@ -227,6 +227,42 @@ target_include_directories(test_chaos_drift_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
+# T-15 (2026-08-09) -- DAS GATE IN DER MESS-SCHLEIFE, nicht die Mechanik.
+# SELBSTCHECK: test_chaos_drift_gate (#197, darueber) beweist den MECHANISMUS; dieser Test beweist,
+# dass die produktive Zelle ihn ueberhaupt RUFT. Der Register-Befund S5-06 vom 09.08.2026 lautete
+# "kein einziger realer Messwert laeuft heute durch das Drift-Gate" -- exakt 3 Nicht-Build-Dateien
+# nannten run_with_drift_gate, 0 davon produktiv. Deterministisches ns-Skript, keine Zeitnahme, kein
+# Zufall. COMDARE_T15_ITERATOR_QUELLE reicht die Iterator-Quelle fuer die Verdrahtungs-Wache durch
+# (Muster von test_module_loader, das ebenfalls einen Pfad per compile definition erhaelt).
+# Rezept gespiegelt von test_m1hb_observer_zellen_ehrlich (weiter unten): standalone int main(), das
+# den Iterator-Header zieht -> derselbe Include-Satz und dieselben Mess-Defines. Sie beschreiben die
+# uebersetzende TU, nicht die geprueften Zeilen.
+add_executable(test_t15_drift_gate_messschleife "test_t15_drift_gate_messschleife.cpp")
+target_compile_features(test_t15_drift_gate_messschleife PRIVATE cxx_std_23)
+target_include_directories(test_t15_drift_gate_messschleife PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_t15_drift_gate_messschleife PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_t15_drift_gate_messschleife)
+# SELBSTCHECK (09.08.2026): der Iterator-Pfad steht ueber eine Zwischenvariable, NICHT ausgeschrieben.
+# Ausgeschrieben war die Definitions-Zeile 135 Byte lang und die DIFF-HYGIENE-WACHE riss sie
+# (ci_diff_ascii_width_guard.sh, ce-Pipeline 15427, ">120-SPALTEN tests/unit/CMakeLists.txt:254").
+# Wert-identisch: _t15_tree + "/cache_engine_builder_iterator.hpp" ergibt denselben Pfad wie zuvor.
+set(_t15_tree "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/experiment_tree")
+target_compile_definitions(test_t15_drift_gate_messschleife PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_T15_ITERATOR_QUELLE=\"${_t15_tree}/cache_engine_builder_iterator.hpp\""
+    "COMDARE_T15_FASSADE_QUELLE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade/profile_run_entry.hpp\"")
+unset(_t15_tree)
+add_test(NAME test_t15_drift_gate_messschleife COMMAND test_t15_drift_gate_messschleife)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t15_drift_gate_messschleife)
+set_tests_properties(test_t15_drift_gate_messschleife PROPERTIES LABELS "t15;drift;messschleife;standalone")
+
 # Phase 6.5 (REV 7, 2026-05-13): TestDataSetAccumulationEngine
 comdare_add_test(test_test_data_accumulation
     SOURCES test_test_data_accumulation.cpp
@@ -1303,6 +1339,34 @@ target_include_directories(test_v5_measurement_snapshot PRIVATE
 target_link_libraries(test_v5_measurement_snapshot PRIVATE
     comdare::workload_driver)
 
+# D5-1 PERZENTIL-KANON (2026-08-09) -- die EINE Perzentil-Definition (stats::nearest_rank_index,
+# Lehrbuch-Formel ceil(q*n)-1) + die Wache darueber. Die drei COMDARE_D51_ZENSUS_ROOT_*-Defines sind
+# QUELLPFADE, die der Test NUR LIEST (gleiches Muster wie COMDARE_A8S4_ABI_ADAPTER_SRC):
+#   _BUILDER/_HARNESS = Auswertungs-Baum, in dem genau EINE Quantil->Index-Umrechnung stehen darf;
+#   _CE               = der ganze ce-Baum, in dem der Name nearest_rank_p 0-mal vorkommen muss.
+# Link auf workload_driver, weil der Kreuz-Test die ECHTEN Serialisierer fahrt (kein Nachbau).
+comdare_add_test(test_d51_perzentil_kanon
+    SOURCES test_d51_perzentil_kanon.cpp)
+target_include_directories(test_d51_perzentil_kanon PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_d51_perzentil_kanon PRIVATE
+    comdare::workload_driver)
+target_compile_definitions(test_d51_perzentil_kanon PRIVATE
+    "COMDARE_D51_ZENSUS_ROOT_BUILDER=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder\""
+    "COMDARE_D51_ZENSUS_ROOT_HARNESS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/harness\""
+    "COMDARE_D51_ZENSUS_ROOT_CE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine\"")
+
+# D5-4 TRACE-SCHEMA (2026-08-09) -- die EINE Feldliste der Tier-Trace-Ausgabe (trace_schema::kLatenzFelder),
+# BEIDSEITIG geprueft: Schema -> Ausgabe (alle fuenf Serialisierer, Wert-Pins von Hand) und Ausgabe ->
+# Schema (Form-Suche <praefix>_p<ziffern>_ns findet keine Waise). Reine Header (anatomy_commands +
+# latency_stats) -> es genuegt der ce-Include-Pfad, kein Lib-Link.
+comdare_add_test(test_d54_trace_schema
+    SOURCES test_d54_trace_schema.cpp)
+target_include_directories(test_d54_trace_schema PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # PAKET W3-C (Ledger Sec.32-F8): Heuristik-Spline-Vorbau -- AxisSpline (Strategy: Fritsch-Carlson monoton /
 # natuerlich-kubisch) + Break-Even-Finder + n/a-toleranter Measurement-Curve-Loader. Header-only, keine
 # Lib-Abhaengigkeit -> nur der ce-Include-Pfad noetig.
@@ -1920,6 +1984,50 @@ set_tests_properties(${_comdare_negativ_compile_tu_c4} PROPERTIES
     TIMEOUT 300
     LABELS "goal_v6;phase_d;negativ_compile")
 
+# HY-A1 -- DRITTE Negativ-Compile-Fixture, nach demselben in C1 benannten Muster (a)-(d) oben.
+# Gegenstand: das Concept-Gate der Gattung HEURISTIK-ADAPTER. Owner-Auflage 09.08.2026: "die
+# Einschraenkung muss HART PER TEST bewiesen werden" -- ein Concept, dessen Ausschluss nie gefahren
+# wurde, ist eine Behauptung.
+# DREI Diagnosen, drei VERSCHIEDENE Sperren (nicht dreimal dieselbe): S1 Zielfaehigkeit,
+# S2 Paar-Konsistenz, plus die CRTP-Wache RerouteGuard an der Konstruktion.
+# ZUR MARKER-WAHL, weil hier eine Falle liegt: die Fixture prueft NICHT auf die Diagnose der direkten
+# Typbildung. Die bricht zwar korrekt, druckt aber nur "template constraint failure" -- die Meldung des
+# zugehoerigen static_assert erscheint NIE, weil der Name danach unbekannt ist. Der Marker kommt daher
+# aus je einem Detektor-static_assert, dessen Meldung zuverlaessig gedruckt wird; die direkte Typbildung
+# steht daneben als Beweis, dass eine ECHTE Uebersetzung scheitert. Literal nachgestellt vor der Abnahme.
+set(_comdare_negativ_compile_tu_hy_a1 test_hy_a1_reroute_gate_negativ)
+add_executable(${_comdare_negativ_compile_tu_hy_a1} EXCLUDE_FROM_ALL "${_comdare_negativ_compile_tu_hy_a1}.cpp")
+target_compile_features(${_comdare_negativ_compile_tu_hy_a1} PRIVATE cxx_std_23)
+target_include_directories(${_comdare_negativ_compile_tu_hy_a1} PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(${_comdare_negativ_compile_tu_hy_a1} PRIVATE Boost::mp11)
+comdare_set_platform_defines(${_comdare_negativ_compile_tu_hy_a1})
+add_test(NAME ${_comdare_negativ_compile_tu_hy_a1}
+         COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target ${_comdare_negativ_compile_tu_hy_a1})
+set_tests_properties(${_comdare_negativ_compile_tu_hy_a1} PROPERTIES
+    PASS_REGULAR_EXPRESSION "HY-A1-NEGATIV-PROBE"
+    RESOURCE_LOCK "comdare_nested_build"
+    TIMEOUT 300
+    LABELS "goal_v6;phase_d;negativ_compile")
+
+# HY-A1 -- die POSITIV-Seite derselben Gattung: Gate, Partition, Strategie-Struktur, Synthese-Matrix
+# und der Weg-C-Pass-through, in gtest. Owner-Auflage: "fuer JEDE Gattung+Genus per google test
+# bewiesen durchlaessig" -- ein Gate, das nur ablehnt, waere genauso falsch wie eines, das alles
+# zulaesst. Header-only (hybrid/ ist eine reine Header-Stufe, kein add_subdirectory noetig).
+comdare_add_test(test_hy_a1_heuristik_adapter_gattung
+    SOURCES test_hy_a1_heuristik_adapter_gattung.cpp)
+target_include_directories(test_hy_a1_heuristik_adapter_gattung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # E-24 C4 (c/5) -- die vier Container-Docks als IPruefDock-Impls, in-process gefahren.
 # EIGENER BLOCK statt COMDARE_GOALV6_BOOST_DTESTS (am Bau erzwungen, nicht aus Geschmack): diese TU
 # konstruiert/zerstoert AnatomyModuleHandle, und AnatomyModuleHandle::unload() lebt im Loader-.cpp
@@ -2247,6 +2355,12 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_a15_fk4_organ_slot_traits    # A15 / FK-4: Organ-SLOT-Fehlerraeume T0..T17 (Namen gegen
                                        #         kCompositionAxisNames, 18 gegen abi::kOrganAxisCount, D2-Saetze
                                        #         deckungsgleich zu FK-5 = Anti-Parallelstruktur-Wache)
+    test_fk6_algo_error_classes       # FK-6: ALGORITHMEN-Fehlerraeume (die per-Varianten-Verfeinerung, die
+                                       #         FK-5 als "deklarierte Luecke" offen liess). BEDINGT statt
+                                       #         flaechig: gemessen tragen 26 von 126 registrierten Varianten
+                                       #         requires_specialized_hardware(), GENAU 1 meldet true
+                                       #         (pim_malloc -> quelle_nicht_verfuegbar). Koeder-Proben +
+                                       #         Uebergangsliste (Laenge 0, darf nur schrumpfen)
     test_resthygiene2_organ_fingerprint) # Resthygiene-2: Organ-Fingerprint sort+concat == find|LC_ALL=C sort|xargs cat
 foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
@@ -3170,7 +3284,11 @@ target_include_directories(test_t2a_f4_facade_plan_durchreichung PRIVATE
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_t2a_f4_facade_plan_durchreichung PRIVATE Boost::mp11
-    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser)
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    # A9-S5: profile_run_entry.hpp haengt jetzt die Ergebnis-Mappe ein. ErgebnisMappenFactory::oeffne()
+    # ist inline im Header und ODR-nutzt detail::erzeuge_xlsx_ergebnis_mappe() in JEDEM Zweig -- wer den
+    # Entry-Header inkludiert, linkt deshalb comdare::lager_ablage (gleiche Lage wie die a9s3-Tests).
+    comdare::lager_ablage)
 comdare_set_platform_defines(test_t2a_f4_facade_plan_durchreichung)
 target_compile_definitions(test_t2a_f4_facade_plan_durchreichung PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
@@ -3207,6 +3325,37 @@ target_compile_definitions(test_f3_lager_key_provider_iterator PRIVATE
 add_test(NAME test_f3_lager_key_provider_iterator COMMAND test_f3_lager_key_provider_iterator)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_f3_lager_key_provider_iterator)
 set_tests_properties(test_f3_lager_key_provider_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
+
+# LAG-P2 (2026-08-09) -- das MESSWERT-GENUS des Lagers. Schwester-Ziel zu test_f3_lager_key_provider_
+# iterator: dort der reale bestand_key_of (Binary-Genus), hier der reale mess_bestand_key_of
+# (measurement-Genus) samt Rueckschrieb und dem Owner-SKIP vom 08.08.2026. Braucht zusaetzlich
+# profile_facade (RunProfileArgs) fuer die compile-harte Typ-Gleichheit der Drei-Schicht-Naht --
+# deshalb der generated_source_catalog-Anschluss wie bei den anderen profile_run_entry-Konsumenten.
+# KEIN contract-Label: der Test faehrt damit in test:unit (das seit R4 nur noch -LE pmc ausschliesst).
+add_executable(test_lagp2_messwert_genus "test_lagp2_messwert_genus.cpp")
+target_compile_features(test_lagp2_messwert_genus PRIVATE cxx_std_23)
+target_include_directories(test_lagp2_messwert_genus PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lagp2_messwert_genus PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    # A9-S5, Schwesterstelle zu test_t2a_f4_facade_plan_durchreichung: derselbe ODR-Use ueber
+    # <profile_facade/profile_run_entry.hpp> (Zeile 51 dieser Testdatei).
+    comdare::lager_ablage)
+comdare_set_platform_defines(test_lagp2_messwert_genus)
+target_compile_definitions(test_lagp2_messwert_genus PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_lagp2_messwert_genus)
+add_test(NAME test_lagp2_messwert_genus COMMAND test_lagp2_messwert_genus)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lagp2_messwert_genus)
+set_tests_properties(test_lagp2_messwert_genus PROPERTIES LABELS "bestandslog;messwert_genus;standalone")
 
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
@@ -4721,6 +4870,44 @@ add_test(NAME test_lazy_adhoc_source_gen COMMAND test_lazy_adhoc_source_gen)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_adhoc_source_gen)
 set_tests_properties(test_lazy_adhoc_source_gen PROPERTIES LABELS "e4;limits;inc-g6")
 
+# -- LAG-Z1 (2026-08-09): DER LAGER-SCHLUESSEL MUSS DIE SIMD-STUFE TRENNEN -----------------------------
+# SELBSTCHECK dieses Blocks: der Include-/Define-/Katalog-Satz ist WORTGLEICH zu test_lazy_adhoc_source_gen
+# direkt darueber -- dieselbe Naht (lazy_adhoc_source_gen.hpp), dieselbe umbrella-schwere Katalog-Kante.
+# EINZIGE Ergaenzung: libs/cache_engine/profile_facade, weil dieses Ziel zusaetzlich die beiden Perm-Naehte
+# zieht (system_cell_values_naht.hpp, toolchain_stamp_naht.hpp) -- genau die Quellen, aus denen
+# profile_run_entry.hpp:1008-1029 die Perm-Zelle bildet. Ohne sie waere die Wache eine ZWEITE Ableitung.
+# comdare_attach_generated_catalog ist Pflicht (P1689-Scan vs. Generator-Custom-Command, s. der Kommentar
+# am test_experiment_plan_director-Block).
+add_executable(test_lagz1_lager_schluessel_simd
+    "test_lagz1_lager_schluessel_simd.cpp")
+target_compile_features(test_lagz1_lager_schluessel_simd PRIVATE cxx_std_23)
+target_include_directories(test_lagz1_lager_schluessel_simd PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lagz1_lager_schluessel_simd PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_lagz1_lager_schluessel_simd)
+target_compile_definitions(test_lagz1_lager_schluessel_simd PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_lagz1_lager_schluessel_simd)
+add_test(NAME test_lagz1_lager_schluessel_simd COMMAND test_lagz1_lager_schluessel_simd)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lagz1_lager_schluessel_simd)
+set_tests_properties(test_lagz1_lager_schluessel_simd PROPERTIES LABELS "lager;bestandslog;lag-z1")
+# DER BISS FAEHRT MIT. Eine Wache, die nur am gesunden Objekt gruen ist, belegt nichts. --selbstbiss
+# ersetzt WEG L durch den lauf-konstanten Provider -- exakt den historischen Rueckfall, den
+# profile_run_entry.hpp:1074-1082 beschreibt -- und FORDERT, dass GENAU die Trennungs-Faelle reissen
+# und die SKIP-/Determinismus-Faelle halten. Zweiter ctest-Eintrag auf DERSELBEN Binary: kein zweites
+# Ziel, kein zweiter Bau, aber der Nenner faehrt bei jedem Lauf mit statt hier als Prosa zu verjaehren.
+add_test(NAME test_lagz1_lager_schluessel_simd_selbstbiss
+    COMMAND test_lagz1_lager_schluessel_simd --selbstbiss)
+set_tests_properties(test_lagz1_lager_schluessel_simd_selbstbiss
+    PROPERTIES LABELS "lager;bestandslog;lag-z1;selbstbiss")
+
 # W2 (Owner-GO mittag-6 R1, 2026-08-05) -- Flaechen-Gate des CT-Stempel-VORRANGS an der EINEN Stempel-Naht
 # measurement_stamp_from_env. DIESE TU ist der einzige Ort im Baum, der MIT der einkompilierten Mess-Combo
 # uebersetzt wird (COMDARE_MEASUREMENT_COMBO_CT) -- alle anderen TUs (auch test_lazy_adhoc_source_gen direkt
@@ -4850,6 +5037,29 @@ set_tests_properties(test_r3_mess_gates_spiegel PROPERTIES
 # Zustand wie beim Nachbarn oben, sondern die SACHE selbst: die H-A-Luecke SASS im #else-Zweig. Eine TU,
 # die comdare_measurement_combo_ct linkt, wuerde den geheilten Defekt gar nicht erreichen. Fall (a)
 # verifiziert diese Voraussetzung zur Laufzeit, damit die Zusage nicht bloss hier im CMake steht.
+# B-5 (08.08.2026): PMC-Ehrlichkeit fuer ALLE SIEBEN Zaehler + errno-Klassentrennung.
+# KEIN 'pmc'-Label -- und das ist eine Lehre aus M-1/M-CE-25, keine Nachlaessigkeit: diese TU oeffnet
+# KEINEN Counter und liest KEINE PMU, sie prueft die reine Renderer-/Klassifikations-Logik mit von Hand
+# gesetzten POD-Feldern. Mit dem Label schloesse test:unit (-LE pmc) sie aus, waehrend die .pmc-Jobs nur
+# eine explizite --target-Liste bauen -- 'Not Run' in jedem Job, nie wirklich geprueft.
+add_executable(test_b5_pmc_ehrlichkeit_alle_sieben "test_b5_pmc_ehrlichkeit_alle_sieben.cpp")
+target_compile_features(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE cxx_std_23)
+target_include_directories(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_b5_pmc_ehrlichkeit_alle_sieben)
+target_compile_definitions(test_b5_pmc_ehrlichkeit_alle_sieben PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_b5_pmc_ehrlichkeit_alle_sieben COMMAND test_b5_pmc_ehrlichkeit_alle_sieben)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b5_pmc_ehrlichkeit_alle_sieben)
+set_tests_properties(test_b5_pmc_ehrlichkeit_alle_sieben PROPERTIES LABELS "b5;csv;standalone")
+
 add_executable(test_m1h_stufen_und_pmc_wache
     "test_m1h_stufen_und_pmc_wache.cpp")
 target_compile_features(test_m1h_stufen_und_pmc_wache PRIVATE cxx_std_23)
@@ -5388,6 +5598,7 @@ target_link_libraries(test_g3_takeover_sweep PRIVATE Threads::Threads)
 comdare_add_test(test_lb0_lager_pfad_grammatik
     SOURCES test_lb0_lager_pfad_grammatik.cpp)
 target_include_directories(test_lb0_lager_pfad_grammatik PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
@@ -5404,6 +5615,7 @@ target_link_libraries(test_lb0_lager_pfad_grammatik PRIVATE Boost::mp11)
 comdare_add_test(test_lb1_knoten_heuristik_log
     SOURCES test_lb1_knoten_heuristik_log.cpp)
 target_include_directories(test_lb1_knoten_heuristik_log PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
@@ -5431,6 +5643,7 @@ target_link_libraries(test_ge3_messwert_genus_und_ziel PRIVATE Threads::Threads)
 comdare_add_test(test_ge1_claim_check_und_sidecar
     SOURCES test_ge1_claim_check_und_sidecar.cpp)
 target_include_directories(test_ge1_claim_check_und_sidecar PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
@@ -5746,3 +5959,151 @@ target_compile_definitions(test_d2_abdeckungs_wache_nenner PRIVATE
     "COMDARE_D2_CTEST_BIN=\"${CMAKE_CTEST_COMMAND}\"")
 set_tests_properties(test_d2_abdeckungs_wache_nenner PROPERTIES
     LABELS "wachen;d2;nenner;selbsttest")
+
+# A9-S4: der Konsument (tools/mess_report/). Die drei Header sind self-contained (relative Includes
+# "../../tools/mess_report/..." loesen unabhaengig von den Include-Dirs auf); nur der Render-Test
+# zieht ergebnis_mappe.hpp (lager_ablage) und braucht deshalb denselben Vendor-Link wie oben.
+#
+# K13-Bissprobe (.stale-Wache): "der Koeder muss erst gegen das Werkzeug beissen" -- Test 1 der
+# Datei belegt am nackten String, dass eine Substring-Vereinfachung der Endungs-Pruefung die
+# .stale-Datei faelschlich durchgewunken haette, BEVOR Test 2 dieselbe Datei gegen die reale
+# scanne_realm_root()-Funktion prueft.
+comdare_add_test(test_a9s4_realm_scan_stale
+    SOURCES test_a9s4_realm_scan_stale.cpp)
+set_tests_properties(test_a9s4_realm_scan_stale PROPERTIES
+    LABELS "a9;mess_report;stale;wachen")
+
+comdare_add_test(test_a9s4_dynamic_axis_filter
+    SOURCES test_a9s4_dynamic_axis_filter.cpp)
+set_tests_properties(test_a9s4_dynamic_axis_filter PROPERTIES
+    LABELS "a9;mess_report;cor;dynamik")
+
+comdare_add_test(test_a9s4_mess_report_render
+    SOURCES test_a9s4_mess_report_render.cpp)
+target_include_directories(test_a9s4_mess_report_render PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_a9s4_mess_report_render PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s4_mess_report_render PROPERTIES
+    LABELS "a9;mess_report;render;plan;led61")
+
+# Vierter Owner-Nachtrag Punkt 2 (08.08.): SKIP bei validem Bestand fuer exakt dieselbe Binary.
+comdare_add_test(test_a9s4_skip_manifest
+    SOURCES test_a9s4_skip_manifest.cpp)
+target_include_directories(test_a9s4_skip_manifest PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+target_link_libraries(test_a9s4_skip_manifest PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s4_skip_manifest PROPERTIES
+    LABELS "a9;mess_report;skip;manifest")
+# A9-S5 (2026-08-09) -- die NAHT: Format-Entscheidung + Feld-Adapter + die Mappe neben der offiziellen
+# CSV (profile_facade/ergebnis_mappe_naht.hpp). Bis hierher hatte der xlsx-Writer NULL Produktions-
+# Aufrufer; dieser Test ist der erste, der die beiden geschuldeten Zusicherungen prueft (leeres
+# <writeback_methods> => echte xlsx / csv gewaehlt => flache Sheets, keine xlsx).
+# Braucht comdare::lager_ablage wie jeder Konsument der Factory (ODR-Use von
+# detail::erzeuge_xlsx_ergebnis_mappe auch im csv-Zweig -- s. Kommentar bei test_a9s3_ergebnis_mappe_csv).
+comdare_add_test(test_a9s5_ergebnis_mappe_naht
+    SOURCES test_a9s5_ergebnis_mappe_naht.cpp)
+target_include_directories(test_a9s5_ergebnis_mappe_naht PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
+target_link_libraries(test_a9s5_ergebnis_mappe_naht PRIVATE comdare::lager_ablage)
+set_tests_properties(test_a9s5_ergebnis_mappe_naht PROPERTIES
+    LABELS "a9;xlsx;lager;naht;format_wahl")
+
+# ===================================================================================================
+# MS-1 / MS-2 (2026-08-09) -- MeasureStorage: die ZWEI ARENEN und ihr Allokations-Beweis.
+#
+# SELBSTCHECK: beide Ziele sind STANDALONE int main() ohne gtest. Das ist keine Bequemlichkeit,
+# sondern Pflicht: MS-1 ersetzt global operator new/delete und zaehlt JEDE Allokation im Fenster --
+# ein Test-Framework, das im selben Fenster einen String oder einen Vektor anfasst, machte die Zahl
+# wertlos. Rezept gespiegelt von test_t15_drift_gate_messschleife (oben): eigener add_executable,
+# eigener add_test, kein comdare_add_test (das haengt gtest an, gtest_setup.cmake:83).
+#
+# COMDARE_MS_HOT_QUELLE reicht die heissen Kopfdateien fuer die Text-Wache durch (Muster:
+# COMDARE_T15_ITERATOR_QUELLE oben) -- die Wache prueft, dass im heissen Block weder new noch malloc
+# noch std::vector steht. Sie schliesst die Luecke, die eine operator-new-Ersetzung strukturell
+# offenlaesst (C-malloc ist fuer sie unsichtbar).
+set(_ms_dir "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage")
+
+add_executable(test_ms1_arenen_kein_alloc_im_fenster "test_ms1_arenen_kein_alloc_im_fenster.cpp")
+target_compile_features(test_ms1_arenen_kein_alloc_im_fenster PRIVATE cxx_std_23)
+target_include_directories(test_ms1_arenen_kein_alloc_im_fenster PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+comdare_set_platform_defines(test_ms1_arenen_kein_alloc_im_fenster)
+target_compile_definitions(test_ms1_arenen_kein_alloc_im_fenster PRIVATE
+    "COMDARE_MS_QUELLE_MESS=\"${_ms_dir}/mess_arena.hpp\""
+    "COMDARE_MS_QUELLE_STAPEL=\"${_ms_dir}/stapel_arena.hpp\"")
+add_test(NAME test_ms1_arenen_kein_alloc_im_fenster COMMAND test_ms1_arenen_kein_alloc_im_fenster)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ms1_arenen_kein_alloc_im_fenster)
+set_tests_properties(test_ms1_arenen_kein_alloc_im_fenster PROPERTIES
+    LABELS "ms;measure_storage;arena;kein_alloc;standalone")
+
+add_executable(test_ms2_pre_touch_seitenfehler "test_ms2_pre_touch_seitenfehler.cpp")
+target_compile_features(test_ms2_pre_touch_seitenfehler PRIVATE cxx_std_23)
+target_include_directories(test_ms2_pre_touch_seitenfehler PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_ms2_pre_touch_seitenfehler)
+add_test(NAME test_ms2_pre_touch_seitenfehler COMMAND test_ms2_pre_touch_seitenfehler)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ms2_pre_touch_seitenfehler)
+set_tests_properties(test_ms2_pre_touch_seitenfehler PROPERTIES
+    LABELS "ms;measure_storage;arena;seitenfehler;standalone")
+
+unset(_ms_dir)
+
+# ===================================================================================================
+# check-size (2026-08-09) -- die MENGENRECHNUNG des Planers gegen handgerechnete Orakel.
+#
+# SELBSTCHECK: STANDALONE int main() ohne gtest und ohne Bibliotheks-Anhang. Der Prueflung
+# (profile_facade/planner/planner_mengen_types.hpp) ist ein reiner Header: er rechnet und berichtet,
+# er liest kein XML und faehrt keinen Walk. Genau deshalb kann dieser Test seine Soll-Werte VON HAND
+# setzen (T-3: die Grundgesamtheit stammt aus einer anderen Quelle als der Prueflung) -- er braucht
+# weder Profil noch Registry noch DLL. Rezept gespiegelt von test_ms1/test_ms2 oben.
+#
+# Die beiden Include-Wurzeln: libs/cache_engine traegt sowohl profile_facade/planner/... als auch
+# builder/measure_storage/checkpoint_speicher.hpp (die gerufene Bestands-Funktion).
+add_executable(test_check_size_mengenrechnung "test_check_size_mengenrechnung.cpp")
+target_compile_features(test_check_size_mengenrechnung PRIVATE cxx_std_23)
+target_include_directories(test_check_size_mengenrechnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_check_size_mengenrechnung)
+add_test(NAME test_check_size_mengenrechnung COMMAND test_check_size_mengenrechnung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_mengenrechnung)
+set_tests_properties(test_check_size_mengenrechnung PROPERTIES
+    LABELS "check_size;planer;mengen;drift_gate;standalone")
+
+# ===================================================================================================
+# check-size CLI (09.08.2026, Lens-Befund B-1..B-3) -- die KOMMANDO-SCHICHT des Byte-Deckels.
+#
+# Der Rechner-Test oben deckt mengen_rechnen/mengen_bericht; ALLE vier Lens-Defekte lagen aber in der
+# Schicht darueber (Argument-Schleife + run_check_size_guarded). Dieser Test faehrt darum die ECHTE
+# Planer-Binary als Prozess: der Binary-Pfad reist als $<TARGET_FILE:...>-Argument (Muster
+# test_adhoc_buildvariant_dll), das gueltige Profil als expliziter Quellbaum-Pfad -- NICHT aus der
+# Umgebung geraten, damit der Test hermetisch gegen COMDARE_THESIS_PROFILE ist.
+add_executable(test_check_size_cli_deckel "test_check_size_cli_deckel.cpp")
+target_compile_features(test_check_size_cli_deckel PRIVATE cxx_std_23)
+comdare_set_platform_defines(test_check_size_cli_deckel)
+add_test(NAME test_check_size_cli_deckel COMMAND test_check_size_cli_deckel
+    "$<TARGET_FILE:comdare_experiment_planner>"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_cli_deckel)
+set_tests_properties(test_check_size_cli_deckel PROPERTIES
+    LABELS "check_size;planer;cli;deckel;standalone" TIMEOUT 120)
+# D5-5 HDR-VERDRAHTUNG (2026-08-09) -- die Thesis-Zusage "das HdrHistogram ERHEBT die Latenz-
+# Perzentile" bekommt einen Produktions-Konsumenten in der AUSWERTUNG (nicht in der Erhebung).
+# COMDARE_D55_MESSPFAD_ROOT ist ein QUELLPFAD, den der Test NUR LIEST (Muster wie
+# COMDARE_D51_ZENSUS_ROOT_*): der Erhebungs-Pfad checkpoint_measure/measure_storage, in dem der
+# HDR-Header 0-mal vorkommen muss. Link auf den Wrapper, weil der Test das ECHTE Histogramm fahrt.
+comdare_add_test(test_d55_hdr_verdrahtung
+    SOURCES test_d55_hdr_verdrahtung.cpp)
+target_include_directories(test_d55_hdr_verdrahtung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_d55_hdr_verdrahtung PRIVATE
+    comdare_hdr_histogram_wrapper)
+target_compile_definitions(test_d55_hdr_verdrahtung PRIVATE
+    "COMDARE_D55_MESSPFAD_ROOT=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/measure_storage\"")

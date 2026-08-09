@@ -412,8 +412,12 @@ struct PmcSystemAxis final : SystemAxis<PmcSystemAxis> {
         // mark_ok(0) haette diese 0 als gueltigen Messwert testiert. Die vier flag-tragenden Kategorien
         // fragen deshalb ihre EIGENE Quelle; ohne sie ist es derselbe FK-2/K6-Fall wie oben (der ZUGANG zur
         // Quelle fehlt, kein Urteil ueber die Kategorie) -> SourceUnavailable, nicht 0.
-        // l1/dtlb bleiben zeilen-gebunden: fuer sie fuehrt der Bestands-POD kein eigenes Flag (identisch zur
-        // WIDE-CSV, wo sie ueber `zelle` statt `pmc_zelle` gehen) -- hier wird kein Flag erfunden.
+        // B-5 (2026-08-08): l1/dtlb sind jetzt EBENFALLS flag-gated. Der Satz an dieser Stelle lautete bis
+        // hierher "fuer sie fuehrt der Bestands-POD kein eigenes Flag ... hier wird kein Flag erfunden" --
+        // richtig beobachtet und richtig gehandelt (ein Flag zu erfinden, das der POD nicht traegt, waere
+        // geraten gewesen). Der POD traegt es jetzt, also faellt die Ausnahme: alle SIEBEN Zaehler fragen
+        // ihre eigene Quelle. Auf Windows liefert PCM weder L1 noch dTLB -- dort war mark_ok(0) bisher ein
+        // Testat auf eine Null, die nie gemessen wurde.
         auto flag_gated = [&sample](std::uint64_t value, bool source_available) noexcept {
             if (source_available)
                 sample.mark_ok(value);
@@ -421,14 +425,18 @@ struct PmcSystemAxis final : SystemAxis<PmcSystemAxis> {
                 sample.mark_source_unavailable();
         };
         switch (sample.category) {
-            case MeasurementCategory::CACHE_MISS_L1: sample.mark_ok(counters->cache_misses_l1); return;
+            case MeasurementCategory::CACHE_MISS_L1:
+                flag_gated(counters->cache_misses_l1, counters->cache_misses_l1_source_available);
+                return;
             case MeasurementCategory::CACHE_MISS_L2:
                 flag_gated(counters->cache_misses_l2, counters->cache_misses_l2_source_available);
                 return;
             case MeasurementCategory::CACHE_MISS_L3:
                 flag_gated(counters->cache_misses_l3, counters->cache_misses_l3_source_available);
                 return;
-            case MeasurementCategory::DTLB_MISS: sample.mark_ok(counters->dtlb_misses); return;
+            case MeasurementCategory::DTLB_MISS:
+                flag_gated(counters->dtlb_misses, counters->dtlb_misses_source_available);
+                return;
             case MeasurementCategory::BRANCH_MISS:
                 flag_gated(counters->branch_misses, counters->branch_misses_source_available);
                 return;

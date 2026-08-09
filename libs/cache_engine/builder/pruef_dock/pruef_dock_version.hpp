@@ -67,7 +67,9 @@ inline constexpr std::string_view kViewDockVersion     = "1.0.0.c";
 /// ein virtuelles dock_version(), siehe Kopf).
 ///
 /// EBENEN-TRENNUNG, die hier zaehlt (anatomy_base.hpp:39-45 vs. :78-84): AnatomyGattung (Ebene 1) hat DREI
-/// Werte, darunter Graph=2 -- AnatomyGenus (Ebene 2, die Tier-Unterklassen) hat FUENF und KEIN Graph. Ein
+/// Werte, darunter Graph=2 -- AnatomyGenus (Ebene 2) hat seit HY-A1 SECHS Werte, davon FUENF ABI-sichtbare
+/// und KEIN Graph. (Bis 09.08.2026 stand hier "hat FUENF"; das war ab HY-A1 falsch und hat genau den
+/// Defekt gedeckt, den -Wswitch dann meldete.) Ein
 /// Pruef-Dock haengt an der Ebene-2-Gattung (pruef_dock.hpp:61-62 dock_genus() -> AnatomyGenus), also gibt
 /// es hier nichts "fuer Graph" zu entscheiden. Der Graph-Enumerator bleibt unangetastet (E24-DOSSIER:163-164,
 /// Q5: nach Abgabe); ein unbekannter Wert liefert einen LEEREN string_view statt eines erfundenen Literals.
@@ -78,6 +80,17 @@ inline constexpr std::string_view kViewDockVersion     = "1.0.0.c";
         case anatomy::AnatomyGenus::Sequence: return kSequenceDockVersion;
         case anatomy::AnatomyGenus::Adapter: return kAdapterDockVersion;
         case anatomy::AnatomyGenus::View: return kViewDockVersion;
+        // HY-A1 (09.08.2026): FunctionInterfaceReroute ist ein KLASSIFIKATIONS-Genus (Gattung
+        // HeuristikAdapter) und hat per Owner-Entscheid E-1 "Weg C" KEIN eigenes Pruef-Dock -- seine
+        // Binaries melden ueber genus() ihr ZIEL-Genus und docken an DESSEN Dock an. Der leere
+        // string_view ist hier also die RICHTIGE Antwort und kein Ausfall.
+        //
+        // WARUM DER FALL TROTZDEM AUSGESCHRIEBEN WIRD, statt ihn dem return unten zu ueberlassen:
+        // ein ausgeschriebener case haelt -Wswitch scharf. Faellt spaeter ein SECHSTER ABI-sichtbarer
+        // Wert dazu, meldet der Uebersetzer ihn -- ein stiller Durchfall auf das return unten wuerde
+        // ihn mit einem LEEREN Versionsstempel quittieren, und genau das war der Defekt vom 09.08.:
+        // pruef_dock_version_stamp() stempelte algo_semver_string("") statt einer Version.
+        case anatomy::AnatomyGenus::FunctionInterfaceReroute: return std::string_view{};
     }
     return std::string_view{};
 }

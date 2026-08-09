@@ -668,6 +668,33 @@ endif()
 # Baum bisher nicht auf seinem Pfad hatte. Verzeichnis-Bereich statt Ziel-Liste: eine Liste waere beim
 # naechsten neuen Ziel still unvollstaendig.
 include_directories("${PROJECT_BINARY_DIR}/generated")
+
+# -- W-1 / ST-CTestWache (2026-08-08): enable_testing() MUSS VOR dem ersten add_subdirectory stehen --
+# DER BEFUND, am Objekt gemessen: enable_testing() stand bis hierher bei :717, also NACH
+# add_subdirectory(libs/cache_engine) bei :674. CMake verarbeitet Verzeichnisse in Reihenfolge; ein
+# add_test/gtest_discover_tests in einem Unterbaum, der VOR enable_testing() betreten wird, erzeugt
+# keinen ctest-Eintrag -- lautlos, ohne Warnung.
+# BETROFFEN war genau eine Stelle, und sie ist nicht harmlos:
+#   libs/cache_engine/builder/commands/tests/CMakeLists.txt:36-40 registriert test_commands und
+#   test_engine_adapters. Beide tragen zusammen 27 gtest-Faelle (20 + 7, am 08.08. durch Bau der
+#   Binaries und `--gtest_list_tests` ausgezaehlt) -- darunter die Welch-t-Test-Faelle, auf denen die
+#   Signifikanz-Aussage der Arbeit steht. `ctest -N` kannte davon 0.
+#   Die Binaries wurden zudem von KEINEM Bauweg erzeugt: erst ein ausdrueckliches
+#   `cmake --build --target test_commands test_engine_adapters` legte sie an.
+# WARUM HIER UND NICHT BEI :717: enable_testing() gilt fuer das aktuelle Verzeichnis UND alle danach
+# betretenen Unterverzeichnisse. Vor dem ERSTEN add_subdirectory gesetzt, deckt es jeden Unterbaum --
+# auch den, den morgen jemand hinzufuegt. Eine Position weiter unten deckt immer nur den Rest und
+# waere beim naechsten neuen Verzeichnis wieder still unvollstaendig (dieselbe Klasse, die diesen
+# Befund erzeugt hat).
+# Der Aufruf ist idempotent; der zweite -- unten im COMDARE_BUILD_TESTS-Block direkt vor
+# add_subdirectory(tests) -- bleibt bewusst stehen, damit ein Leser, der dort sucht, die
+# Testaktivierung weiterhin findet. Er ist ab jetzt ein No-op mit Kommentar.
+# (Absichtlich OHNE Zeilennummer: die verschiebt sich beim naechsten Einschub und zeigt dann
+#  auf eine fremde Zeile -- eine Fundstelle, die luegt, kostet mehr als keine.)
+if(COMDARE_BUILD_TESTS)
+  enable_testing()
+endif()
+
 # V30.D.2 (2026-05-14): search_engine/ -> libs/search_engine/
 add_subdirectory(libs/search_engine)      # Domaene 1
 # V30.D.4+D.5 (2026-05-14): cache_engine/ -> libs/cache_engine/ (inkl. builder/)
@@ -714,6 +741,9 @@ if(COMDARE_BUILD_BENCHMARKS)
 endif()
 
 if(COMDARE_BUILD_TESTS)
+  # W-1 (2026-08-08): der eigentliche enable_testing()-Aufruf steht jetzt VOR dem ersten
+  # add_subdirectory (s. dort, mit Begruendung). Dieser hier ist ein idempotenter No-op und
+  # bleibt nur stehen, damit wer an DIESER Stelle nach der Testaktivierung sucht, sie findet.
   enable_testing()
   add_subdirectory(tests)  # tests/CMakeLists.txt ruft seinerseits add_subdirectory(unit) (REV 6)
 endif()

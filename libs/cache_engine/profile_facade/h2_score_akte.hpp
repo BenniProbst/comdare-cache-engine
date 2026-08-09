@@ -126,7 +126,8 @@ struct H2ScoreAkte {
           "     TOOL-BERECHNETE H2-Code-Qualitaets-Akte (Dossier 20260712-go5 A.7 Option (b)):\n"
           "     gewichtete cppcheck-Befunddichte pro kLOC ueber die vendorten ext/-Paper-Quellen.\n"
           "     score=\"n/a\" = Rekonstruktion ohne vendorte Original-Quelle (ehrlich, kein Pseudo-Wert).\n"
-          "     Regenerieren: comdare-h2-score-akte --ce-root <ce> [--cppcheck <exe>] -->\n";
+          "     Regenerieren: comdare-h2-score-akte, Optionen ce-root <ce> und optional cppcheck <exe>\n"
+          "     (CLI-Optionen ohne den fuehrenden Doppelstrich notiert, den XML im Kommentar verbietet). -->\n";
     os << "<comdare_h2_quality_akte schema_version=\"" << a.schema_version << "\" tool=\"" << a.tool
        << "\" tool_version=\"" << a.tool_version << "\"\n    tool_args=\"" << a.tool_args << "\"\n    loc_metric=\""
        << a.loc_metric << "\" weights=\"" << a.weights << "\" exclude_dirs=\"" << a.exclude_dirs << "\">\n";
