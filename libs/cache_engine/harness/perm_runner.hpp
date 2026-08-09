@@ -14,9 +14,11 @@
 //       (ABI Major 4) ergänzt der virtuelle Reset-Punkt tier_reset_statistics() diesen Delta-Ansatz.
 //   (B) Gesamt-Wall-Clock: steady_clock um insert+lookup → total_ns je Messung (Host-Messung, KEINE
 //       Baum-Knoten-Eigenschaft → reist NUR über PermResult/LazyMeasuredRow in die CSV, NICHT über ingest).
-//   (X) Echter per-Segment-Timer auf ALLE 17 Achsen: drive_segment_latencies() ruft das ABI-Sub-Interface
-//       IMeasurableWorkloadV3 (run_workload_segmented_v2) → 17 aufsummierte per-Achsen-ns (T0..T16). KEINE Achse
-//       n/a mehr (jede treibt eine reale, strategie-abhängige Op); nur eine DLL OHNE V3-Interface → CSV n/a.
+//   (X) Echter per-Segment-Timer auf ALLE 18 Achsen (lebend, kV3AxisCount; Nachsatz HY-0 08.08.2026: hier
+//       stand ALLE 17 Achsen / T0..T16, ABI-HISTORIE gegen SHA 42b34354): drive_segment_latencies() ruft das
+//       ABI-Sub-Interface IMeasurableWorkloadV3 (run_workload_segmented_v2) -> kV3AxisCount aufsummierte
+//       per-Achsen-ns (T0..T17). KEINE Achse n/a mehr (jede treibt eine reale, strategie-abhaengige Op);
+//       nur eine DLL OHNE V3-Interface -> CSV n/a.
 
 // A2-Neben Stufe 2 (2026-07-18): perm_runner nach harness/ herausgeloest — interne Includes root-relativ
 // (Include-Wurzel libs/cache_engine) statt "../.."-relativ, da harness/ Schwester von builder/ ist.
@@ -218,7 +220,9 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
     r.timed_ops = 2u * n_ops; // GOAL-M1.1: Legacy-Fix-Workload = n_ops Inserts + n_ops Lookups getimt
     // KONSOLIDIERUNG (I1): den EINEN konsolidierten Snapshot ziehen (axis_stats + Pfad-B-seg_ns in EINEM POD).
     // Der EINE tier_observe hält intern die fixe Q1-Sequenz (axis_stats-READ → seg_ns-Timing → per-op-Reset) → keine
-    // Doppelzählung. Da tier_clear() jetzt container_algorithm_.reset() ruft, sind ALLE 17 Achsen pro Zeile warmup-frei
+    // Doppelzaehlung. Da tier_clear() jetzt container_algorithm_.reset() ruft, sind ALLE 18 Achsen pro Zeile
+    // warmup-frei
+    // (lebend, kV3AxisCount; Nachsatz HY-0 08.08.2026: hier stand ALLE 17 Achsen, ABI-HISTORIE gegen SHA 42b34354)
     // (kein post−pre-Delta nötig): die auto-gekoppelten Instanz-Organe (T1/T2/T3/T7/T8/T15/T16) werden in
     // tier_clear() statistik-genullt, die Scan-Achsen (T4/T5/T9/T10..T15) sind in fill_observer_v3 idempotent
     // (reset()+scan je Observe), T0 search_algo + T6 allocator werden über container_algorithm_.reset() frisch.
@@ -353,9 +357,11 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     return r;
 }
 
-/// (X) Treibt — falls das geladene Modul IMeasurableWorkloadV3 exponiert — den 17-Segment-Workload und liefert
-/// die ECHT gemessenen, über die Batches aufsummierten per-Achsen-ns ALLER 17 SearchAlgorithm-Achsen
-/// (T0..T16, kein n/a mehr). `tier` ist das via dynamic_cast erhaltene Sub-Interface (nullptr → out bleibt 0,
+/// (X) Treibt -- falls das geladene Modul IMeasurableWorkloadV3 exponiert -- den Voll-Segment-Workload und
+/// liefert die ECHT gemessenen, ueber die Batches aufsummierten per-Achsen-ns ALLER 18 SearchAlgorithm-Achsen
+/// (T0..T17, kein n/a mehr; lebend, kV3AxisCount -- Nachsatz HY-0 08.08.2026:
+/// hier stand ALLER 17 / T0..T16, ABI-HISTORIE gegen SHA 42b34354).
+/// `tier` ist das via dynamic_cast erhaltene Sub-Interface (nullptr -> out bleibt 0,
 /// → CSV ehrlich n/a). ops_per_batch/batches sind die Mess-Parameter; seed deterministisch. Gibt batches_measured (>0 = real).
 [[nodiscard]] inline std::uint64_t drive_segment_latencies(anatomy::IMeasurableWorkloadV3* tier,
                                                            std::uint64_t ops_per_batch, std::uint64_t batches,

@@ -1423,7 +1423,9 @@ TEST(TierCiYamlBuilder, SoftFailGuardAndFinalExit) {
 //     (Marke, ts=, dann Felder), aber eine Erfolgsmeldung, die anders hiesse, faellt durch. Die
 //     Alternative (jedes echo "[...]") war verworfen: die Schritt-KOEPFE [BAU]/[MESS]/[PRUEF] sind
 //     legitim unbedingt und erzeugten lauter Falschklagen.
-//  3. Geprueft werden die zwei CI-Emissionen. Der bare-metal-Spiegel (TierCmakeGraphBuilder,
+//  3. Geprueft werden die zwei CI-Emissionen, seit dem Nachsatz W0b-3 in BEIDEN Methodiken
+//     (measure UND debug, alle_wachen_plaene -- der Debug-Zweig mit seinem (j3)-Dual-Compile war
+//     vorher strukturell ungeprueft). Der bare-metal-Spiegel (TierCmakeGraphBuilder,
 //     Abschnitt 61 Dual-Weg) emittiert heute UEBERHAUPT keine Testate und ist damit nicht
 //     Gegenstand dieser Wache -- am Objekt nachgesehen (2026-08-08), nicht angenommen.
 // ---------------------------------------------------------------------------
@@ -1531,8 +1533,190 @@ struct EmittierterPlan {
     std::vector<std::string> zeilen;
 };
 
-[[nodiscard]] std::vector<EmittierterPlan> plaene(std::string const& stufe1, std::string const& stufe2) {
-    return {{"CiYamlBuilder (Stufe 1)", zeilen_von(stufe1)}, {"TierCiYamlBuilder (Stufe 2)", zeilen_von(stufe2)}};
+// (Nachsatz W0b-3, 08.08.2026) BEIDE Methodiken, nicht nur der eine golden-measure-Release-Pfad:
+// der Review fand alle drei Wachen-Tests auf demselben Pfad -- der Debug-Zweig ((j3) Dual-Compile,
+// ZWEI Treiber-Aufrufe je Mess-Fenster, eigene Testat-Zeilen) war strukturell ungeprueft. Die
+// Debug-Plaene entstehen wie in MeasurementModi61 (j2): dieselben Achsen, run_methodology={"debug"}.
+// Vier Plaene = {Stufe 1, Stufe 2} x {measure, debug}; jede Wache laeuft ueber ALLE vier.
+[[nodiscard]] std::vector<EmittierterPlan> alle_wachen_plaene(cx::ThesisProfile const& tp) {
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                b1m;
+    planner::TierCiYamlBuilder            b2m;
+    director.construct(tp, b1m);
+    director.construct(tp, b2m);
+    cx::ThesisProfile dbg = tp;
+    dbg.run_methodology   = {"debug"};
+    planner::CiYamlBuilder     b1d;
+    planner::TierCiYamlBuilder b2d;
+    director.construct(dbg, b1d);
+    director.construct(dbg, b2d);
+    return {{"CiYamlBuilder (Stufe 1, measure)", zeilen_von(b1m.text())},
+            {"TierCiYamlBuilder (Stufe 2, measure)", zeilen_von(b2m.text())},
+            {"CiYamlBuilder (Stufe 1, debug)", zeilen_von(b1d.text())},
+            {"TierCiYamlBuilder (Stufe 2, debug)", zeilen_von(b2d.text())}};
+}
+
+// ---------------------------------------------------------------------------
+// (Nachsatz W0b-3) GRAMMATIK DER CTEST-ERKENNUNG, als benannte Helfer ueber eine MENGE geprueft
+// (Test CtestGrammatikHelfer...). Die vorige Fassung verglich den Zeilenanfang woertlich mit
+// "ctest " und suchte "--no-tests=error" als Substring der GANZEN Zeile. Das war in beide
+// Richtungen falsch: zu ENGER Nenner (uebersehen: /usr/bin/ctest, `if ! ctest`, `VAR=1 ctest`,
+// `cd build && ctest`, Tab-Einrueckung, nacktes `ctest` ohne Argument) und zu WEITE Annahme
+// (akzeptiert: der Schalter im Kommentar hinter `#`, in einem ANDEREN Kommando derselben Zeile
+// hinter `;`/`&&`, oder als Praefix eines anderen Tokens wie --no-tests=error-x).
+// RICHTUNG DER RESTUNSICHERHEIT: die Erkennung zaehlt jedes ctest-Token in Kommando-Position
+// LIEBER EINMAL ZU VIEL (z.B. `echo ctest` unquotiert) -- ein Zuviel erzwingt den Schalter und
+// faellt laut auf, ein Zuwenig waere die stille Null. Quotes werden NICHT geparst; die
+// Emissionen tragen kein '#' und kein 'ctest' in Anfuehrungszeichen (Mengen-Test dokumentiert das).
+// ---------------------------------------------------------------------------
+
+// Schneidet den Kommentarteil ab: '#' am Zeilenanfang oder nach Leerraum beginnt den Kommentar.
+[[nodiscard]] std::string ohne_kommentar(std::string const& roh) {
+    for (std::size_t i = 0; i < roh.size(); ++i) {
+        if (roh[i] != '#') continue;
+        if (i == 0 || roh[i - 1] == ' ' || roh[i - 1] == '\t') return roh.substr(0, i);
+    }
+    return roh;
+}
+
+// Zerlegt die (kommentarfreie) Zeile in Kommando-Segmente an den Trennern && / || / ; / | und
+// jedes Segment in Whitespace-Token. Die Trenner werden auch OHNE umgebende Leerzeichen erkannt.
+[[nodiscard]] std::vector<std::vector<std::string>> kommando_segmente(std::string const& roh) {
+    std::string const                     z = ohne_kommentar(roh);
+    std::vector<std::vector<std::string>> segmente(1);
+    std::string                           token;
+    auto const                            token_abschliessen = [&] {
+        if (!token.empty()) segmente.back().push_back(token);
+        token.clear();
+    };
+    auto const segment_abschliessen = [&] {
+        token_abschliessen();
+        if (!segmente.back().empty()) segmente.emplace_back();
+    };
+    for (std::size_t i = 0; i < z.size(); ++i) {
+        char const c = z[i];
+        if (c == ' ' || c == '\t') {
+            token_abschliessen();
+        } else if (c == ';') {
+            segment_abschliessen();
+        } else if (c == '&' && i + 1 < z.size() && z[i + 1] == '&') {
+            segment_abschliessen();
+            ++i;
+        } else if (c == '|') {
+            segment_abschliessen();
+            if (i + 1 < z.size() && z[i + 1] == '|') ++i;
+        } else {
+            token += c;
+        }
+    }
+    token_abschliessen();
+    if (segmente.back().empty()) segmente.pop_back();
+    return segmente;
+}
+
+// Ein Token ruft ctest, wenn es "ctest" IST oder auf "/ctest" ENDET (Pfad-Aufruf).
+[[nodiscard]] bool ist_ctest_token(std::string const& t) {
+    if (t == "ctest") return true;
+    static constexpr std::string_view suffix = "/ctest";
+    return t.size() > suffix.size() && t.compare(t.size() - suffix.size(), suffix.size(), suffix.data()) == 0;
+}
+
+struct CtestZeilenBefund {
+    std::size_t aufrufe     = 0; // Segmente der Zeile mit ctest in Kommando-Position
+    std::size_t ohne_schutz = 0; // davon ohne das EXAKTE Argument-Token --no-tests=error
+};
+
+// Je Kommando-Segment: erstes ctest-Token gesucht; geschuetzt ist der Aufruf nur, wenn im SELBEN
+// Segment NACH dem ctest-Token das exakte Token --no-tests=error steht (kein Substring, kein
+// Kommentar, kein Nachbar-Kommando).
+[[nodiscard]] CtestZeilenBefund ctest_befund_der_zeile(std::string const& roh) {
+    CtestZeilenBefund b;
+    for (std::vector<std::string> const& seg : kommando_segmente(roh)) {
+        std::size_t ctest_pos = seg.size();
+        for (std::size_t j = 0; j < seg.size(); ++j) {
+            if (ist_ctest_token(seg[j])) {
+                ctest_pos = j;
+                break;
+            }
+        }
+        if (ctest_pos == seg.size()) continue;
+        ++b.aufrufe;
+        bool geschuetzt = false;
+        for (std::size_t j = ctest_pos + 1; j < seg.size(); ++j)
+            if (seg[j] == "--no-tests=error") geschuetzt = true;
+        if (!geschuetzt) ++b.ohne_schutz;
+    }
+    return b;
+}
+
+// ---------------------------------------------------------------------------
+// (Nachsatz W0b-3) SET-E-BINDUNG STRUKTURELL: die Klassifikation nannte [CEB-TESTAT]/[PMC-TESTAT]
+// SetEAbbruch, aber KEIN Test verifizierte, dass die Marke wirklich set-e-gebunden ist. Diese
+// Helfer lesen die Emission strukturell: die Marke muss in einem YAML-'- |'-Block stehen, in dem
+// VOR ihr `set -euo pipefail` laeuft, zwischen set -e und Marke darf nichts aufweichen (`set +e`,
+// `|| true`), und mindestens EIN hartes (Nicht-echo-, Nicht-Kommentar-)Kommando muss dazwischen
+// stehen -- sonst gaebe es nichts, dessen Fehlschlag das Testat verhindert.
+// GRENZE (T-9): strukturell, nicht ausgefuehrt. Ein Kommando, das seinen Fehlschlag selbst
+// verschluckt (`cmd || echo weiter`), saehe diese Pruefung nur ueber das `|| `-Verbot; exotische
+// Formen (Funktionsdefinitionen, `if`-gebundene harte Kommandos) sind nicht gemeint.
+// ---------------------------------------------------------------------------
+struct SetEBindung {
+    bool        im_pipe_block   = false; // Marke steht in einem '- |'-Block
+    bool        set_e_davor     = false; // `set -euo pipefail` VOR der Marke im selben Block
+    bool        aufgeweicht     = false; // `set +e` oder `|| true` zwischen set -e und Marke
+    bool        hartes_kommando = false; // >=1 Nicht-echo-Kommando zwischen set -e und Marke
+    std::string beanstandet;             // erste beanstandete Zeile (Diagnose)
+};
+
+[[nodiscard]] SetEBindung pruefe_set_e_bindung(std::vector<std::string> const& z, std::size_t i) {
+    SetEBindung b;
+    // Die Marken-Zeile MUSS selbst Blockinhalt sein (>= 6 Leerzeichen). Ohne diese Pruefung fand
+    // die erste Fassung dieses Helfers fuer eine als EIGENES '- '-Listen-Element ausgekoppelte
+    // Marke den '- |' der VORGAENGER-Zeilen und meldete gruen -- der M2-Koeder (09.08., [CEB-TESTAT]
+    // als '    - echo ...') biss NICHT und hat genau diesen Defekt im Test aufgedeckt (T-9/K13:
+    // der Koeder muss erst beissen, sonst ist der Test der Defekt).
+    if (z[i].rfind("      ", 0) != 0) {
+        b.beanstandet = ohne_rand(z[i]);
+        return b;
+    }
+    std::size_t start = i;
+    while (start > 0) {
+        std::string const t = ohne_rand(z[start - 1]);
+        if (t == "- |") {
+            b.im_pipe_block = true;
+            break;
+        }
+        // Blockinhalt der Emissionen ist mit >= 6 Leerzeichen eingerueckt; alles andere
+        // (naechstes '- '-Listenelement, 'script:', Job-Schluessel) beendet die Suche.
+        if (z[start - 1].rfind("      ", 0) != 0) break;
+        --start;
+    }
+    if (!b.im_pipe_block) {
+        b.beanstandet = ohne_rand(z[i]);
+        return b;
+    }
+    std::size_t set_e = i;
+    for (std::size_t k = start; k < i; ++k) {
+        if (ohne_rand(z[k]) == "set -euo pipefail") {
+            b.set_e_davor = true;
+            set_e         = k;
+            break;
+        }
+    }
+    if (!b.set_e_davor) {
+        b.beanstandet = ohne_rand(z[i]);
+        return b;
+    }
+    for (std::size_t k = set_e + 1; k < i; ++k) {
+        std::string const t = ohne_rand(z[k]);
+        if (t.empty() || t.rfind("#", 0) == 0) continue;
+        if (t.find("set +e") != std::string::npos || t.find("|| true") != std::string::npos) {
+            b.aufgeweicht = true;
+            if (b.beanstandet.empty()) b.beanstandet = t;
+        }
+        if (t.rfind("echo ", 0) != 0) b.hartes_kommando = true;
+    }
+    return b;
 }
 
 // Ergebnis MIT NENNER: `geprueft` ist die Grundgesamtheit (alle echo-Emissionen der Marke),
@@ -1641,12 +1825,8 @@ constexpr std::array<std::pair<std::string_view, Bindung>, 6> kTestatKlassifikat
 TEST(TierCiYamlBuilder, TestatMarkenSindKlassifiziertUndHaengenAmElse) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    planner::ExperimentPlanDirector const director;
-    planner::CiYamlBuilder                b1;
-    planner::TierCiYamlBuilder            b2;
-    director.construct(*tp, b1);
-    director.construct(*tp, b2);
-    std::vector<EmittierterPlan> const pl = plaene(b1.text(), b2.text());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
 
     // (1) Die Marken werden aus den emittierten Plaenen GELESEN, nicht handgelistet.
     std::vector<std::string> gefunden;
@@ -1697,12 +1877,8 @@ TEST(TierCiYamlBuilder, TestatMarkenSindKlassifiziertUndHaengenAmElse) {
 TEST(TierCiYamlBuilder, KeinTestatUnbedingtHinterEinemSoftFailGuard) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    planner::ExperimentPlanDirector const director;
-    planner::CiYamlBuilder                b1;
-    planner::TierCiYamlBuilder            b2;
-    director.construct(*tp, b1);
-    director.construct(*tp, b2);
-    std::vector<EmittierterPlan> const pl = plaene(b1.text(), b2.text());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
 
     std::size_t gesamt = 0, mit_else = 0, unbedingt = 0;
     for (EmittierterPlan const& p : pl) {
@@ -1730,28 +1906,115 @@ TEST(TierCiYamlBuilder, KeinTestatUnbedingtHinterEinemSoftFailGuard) {
 TEST(TierCiYamlBuilder, JederEmittierteCtestAufrufMachtDenLeerlaufZumFehler) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    planner::ExperimentPlanDirector const director;
-    planner::CiYamlBuilder                b1;
-    planner::TierCiYamlBuilder            b2;
-    director.construct(*tp, b1);
-    director.construct(*tp, b2);
-    std::vector<EmittierterPlan> const pl = plaene(b1.text(), b2.text());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
 
+    // (Nachsatz W0b-3) Erkennung ueber die benannten Grammatik-Helfer statt ueber den woertlichen
+    // Zeilenanfang "ctest " -- die alte Form uebersah Praefixe (/usr/bin/ctest, if !, VAR=1,
+    // cd build &&) und akzeptierte den Schalter als Substring irgendwo in der Zeile (Kommentar,
+    // Nachbar-Kommando). Die Helfer selbst stehen unter dem Mengen-Test CtestGrammatikHelfer...
     std::size_t aufrufe = 0, ohne_schalter = 0;
     for (EmittierterPlan const& p : pl) {
         for (std::string const& roh : p.zeilen) {
-            std::string const t = ohne_rand(roh);
-            if (t.rfind("ctest ", 0) != 0) continue; // nur der Aufruf selbst, keine Kommentar-Erwaehnung
-            ++aufrufe;
-            if (t.find("--no-tests=error") != std::string::npos) continue;
-            ++ohne_schalter;
-            ADD_FAILURE() << p.name << ": ctest-Aufruf ohne --no-tests=error -- ein Lauf ohne passende Tests "
-                          << "meldet rc=0 und faerbt das folgende Testat gruen: '" << t << "'";
+            CtestZeilenBefund const b = ctest_befund_der_zeile(roh);
+            aufrufe += b.aufrufe;
+            ohne_schalter += b.ohne_schutz;
+            if (b.ohne_schutz > 0)
+                ADD_FAILURE() << p.name << ": ctest-Aufruf ohne exaktes Argument --no-tests=error -- ein Lauf "
+                              << "ohne passende Tests meldet rc=0 und faerbt das folgende Testat gruen: '"
+                              << ohne_rand(roh) << "'";
         }
     }
     ASSERT_GT(aufrufe, 0u) << "kein ctest-Aufruf in den Plaenen -- die Suche griff nicht";
     EXPECT_EQ(ohne_schalter, 0u) << ohne_schalter << " von " << aufrufe
                                  << " emittierten ctest-Aufrufen lassen den Leerlauf als Erfolg durchgehen";
+}
+
+// (Nachsatz W0b-3) DIE GRAMMATIK SELBST, ueber eine MENGE von Formen geprueft statt ueber eine
+// Annahme (T-4 Gegeneingang): jede Zeile traegt ihre erwartete Zaehlung; der Fehltext nennt die
+// Zeile. Die Menge dokumentiert auch die BEWUSSTE Restunsicherheit (unquotiertes `echo ctest`
+// zaehlt mit -- fail-closed: ein Zuviel erzwingt den Schalter, ein Zuwenig waere still).
+TEST(TierCiYamlBuilder, CtestGrammatikHelferErkennenPraefixeUndExakteSchreibweise) {
+    struct Form {
+        char const* zeile;
+        std::size_t aufrufe;
+        std::size_t ohne_schutz;
+        char const* warum;
+    };
+    constexpr std::array<Form, 18> formen{{
+        // erkannt UND geschuetzt:
+        {"      ctest --test-dir build -L pmc --no-tests=error --output-on-failure", 1, 0, "der Regelfall"},
+        {"cd build && ctest -L pmc --no-tests=error", 1, 0, "Praefix-Kommando && ctest"},
+        // erkannt, NICHT geschuetzt -- die Formen, die die alte Wache UEBERSAH:
+        {"ctest -L pmc", 1, 1, "nackter Aufruf ohne Schalter"},
+        {"\tctest\t-L pmc", 1, 1, "Tab-Einrueckung/-Trennung (alte Wache: rfind 'ctest ')"},
+        {"/usr/bin/ctest -L pmc", 1, 1, "Pfad-Aufruf (alte Wache sah nur Zeilenanfang 'ctest ')"},
+        {"if ! ctest -L pmc; then", 1, 1, "if-!-Guard ersetzt den Schalter NICHT (Leerlauf ist rc=0)"},
+        {"COMDARE_X=1 ctest -L pmc", 1, 1, "Env-Praefix"},
+        {"cd build && ctest -L pmc", 1, 1, "Kommando-Praefix"},
+        {"ctest", 1, 1, "nacktes ctest ohne Argumente (alte Wache verlangte 'ctest ')"},
+        // erkannt, NICHT geschuetzt -- die Schreibweisen, die die alte Wache faelschlich AKZEPTIERTE:
+        {"ctest -L pmc --no-tests=ignore", 1, 1, "ignore ist das Gegenteil von error"},
+        {"ctest -L pmc # --no-tests=error", 1, 1, "Schalter nur im Kommentar"},
+        {"ctest -L pmc; echo --no-tests=error", 1, 1, "Schalter im NACHBAR-Kommando hinter ';'"},
+        {"ctest -L pmc --no-tests=error-x", 1, 1, "Praefix-Token ist nicht das exakte Argument"},
+        // NICHT erkannt (kein Aufruf):
+        {"# ctest -L pmc", 0, 0, "reiner Kommentar"},
+        {"      # Par. 66: ctest -L pmc kommt spaeter", 0, 0, "eingerueckter Kommentar"},
+        {"ctest_registrierung foo", 0, 0, "anderes Wort mit ctest-Praefix"},
+        {"myctest -L x", 0, 0, "anderes Wort mit ctest-Suffix ohne '/'"},
+        // BEWUSSTE Restunsicherheit, dokumentiert statt verschwiegen:
+        {"echo ctest ohne Anfuehrungszeichen", 1, 1, "fail-closed: unquotiertes Wort zaehlt mit"},
+    }};
+    for (Form const& f : formen) {
+        CtestZeilenBefund const b = ctest_befund_der_zeile(f.zeile);
+        EXPECT_EQ(b.aufrufe, f.aufrufe) << "Aufruf-Zaehlung fuer '" << f.zeile << "' (" << f.warum << ")";
+        EXPECT_EQ(b.ohne_schutz, f.ohne_schutz) << "Schutz-Wertung fuer '" << f.zeile << "' (" << f.warum << ")";
+    }
+    // Nenner der Menge selbst: 18 Formen, davon 2 geschuetzt, 11 ungeschuetzt erkannt, 4 keine
+    // Aufrufe, 1 dokumentierte Restunsicherheit -- eine leere Menge kann nicht gruen sein.
+    static_assert(formen.size() == 18u);
+}
+
+// (Nachsatz W0b-3) DIE SetEAbbruch-KLASSIFIKATION BEKOMMT IHREN PRUEFER. Bisher war
+// "[CEB-TESTAT]/[PMC-TESTAT] stehen unter set -euo pipefail hinter einem harten Kommando" eine
+// Behauptung der Klassifikationstabelle -- KEIN Test verifizierte sie (Review-Mangel). Jetzt
+// strukturell erzwungen, je Marke und je Emission: (1) die Marke steht in einem '- |'-Block,
+// (2) `set -euo pipefail` laeuft VOR ihr im selben Block, (3) nichts weicht dazwischen auf
+// (`set +e`, `|| true`), (4) mindestens ein hartes (Nicht-echo-)Kommando steht dazwischen --
+// sonst gaebe es nichts, dessen Fehlschlag das Testat verhindert. Wird eine SetEAbbruch-Marke
+// eines Tages hinter das fi eines Soft-Fail-Guards verschoben oder ihr Block entschaerft,
+// faellt sie hier mit Zeilentext auf.
+TEST(TierCiYamlBuilder, SetEAbbruchMarkenSindWirklichSetEGebunden) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
+
+    std::size_t geprueft = 0;
+    for (EmittierterPlan const& p : pl) {
+        for (std::size_t i = 0; i < p.zeilen.size(); ++i) {
+            std::string const marke = testat_marke_der_zeile(p.zeilen[i]);
+            if (marke.empty()) continue;
+            bool set_e_marke = false;
+            for (auto const& eintrag : kTestatKlassifikation)
+                if (eintrag.first == marke && eintrag.second == Bindung::SetEAbbruch) set_e_marke = true;
+            if (!set_e_marke) continue;
+            ++geprueft;
+            SetEBindung const b = pruefe_set_e_bindung(p.zeilen, i);
+            EXPECT_TRUE(b.im_pipe_block) << p.name << ": [" << marke
+                                         << "] steht in keinem '- |'-Block -- als eigenes Listen-Element "
+                                         << "truege es keinen set-e-Kontext: '" << b.beanstandet << "'";
+            EXPECT_TRUE(b.set_e_davor) << p.name << ": [" << marke
+                                       << "] ohne `set -euo pipefail` VOR der Marke im selben Block";
+            EXPECT_FALSE(b.aufgeweicht) << p.name << ": [" << marke
+                                        << "] Block zwischen set -e und Marke aufgeweicht: '" << b.beanstandet << "'";
+            EXPECT_TRUE(b.hartes_kommando)
+                << p.name << ": [" << marke << "] ohne hartes Kommando zwischen set -e und Marke -- "
+                << "es gibt nichts, dessen Fehlschlag das Testat verhindert";
+        }
+    }
+    ASSERT_GT(geprueft, 0u) << "keine SetEAbbruch-Marke in den 4 Plaenen -- daran prueft der Test nichts";
 }
 
 // (W0b-3) Die else-Bindung nimmt dem Fehlerpfad seine Fortschrittsinformation, wenn das Erfolgs-Testat
@@ -1762,12 +2025,8 @@ TEST(TierCiYamlBuilder, JederEmittierteCtestAufrufMachtDenLeerlaufZumFehler) {
 TEST(TierCiYamlBuilder, FehlerTestatTraegtDieselbenFelderWieSeinErfolgsTestat) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
-    planner::ExperimentPlanDirector const director;
-    planner::CiYamlBuilder                b1;
-    planner::TierCiYamlBuilder            b2;
-    director.construct(*tp, b1);
-    director.construct(*tp, b2);
-    std::vector<EmittierterPlan> const pl = plaene(b1.text(), b2.text());
+    // (Nachsatz W0b-3) measure UND debug durch beide Builder -- der Debug-Zweig war ungeprueft.
+    std::vector<EmittierterPlan> const pl = alle_wachen_plaene(*tp);
 
     std::size_t gesamt = 0, paare = 0, ungleich = 0;
     for (EmittierterPlan const& p : pl) {
