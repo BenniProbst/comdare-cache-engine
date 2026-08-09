@@ -36,6 +36,7 @@
 // Zellen) als EIGENE Faktor-Zeilen aus, statt sie stillschweigend hineinzumultiplizieren. Eine
 // Endzahl "Arena-Bytes der Kampagne" waere eine Erfindung ueber eine ungeklaerte Lebensdauer.
 
+#include <type_traits> // is_same_v -- Wache an der KapazitaetRechnung-Zuweisung
 #include <builder/measure_storage/checkpoint_speicher.hpp> // kapazitaet_zeilen_rechnen + MessCheckpointZeile
 
 #include <cstddef>
@@ -337,7 +338,22 @@ namespace mengen_detail {
         return s;
     }
     // DIE VERDRAHTUNG: die vorhandene Bestands-Funktion wird GERUFEN, nicht nachgebaut.
-    s.zeilen_je_op_batch = ms_::kapazitaet_zeilen_rechnen(e.n_ops, s.zeilen_je_op, s.drift_faktor);
+    //
+    // 09.08.2026 NACHGEZOGEN (clang-Runde 2, erster Fund): kapazitaet_zeilen_rechnen liefert seit MS-1
+    // KEIN nacktes uint64 mehr, sondern KapazitaetRechnung{zeilen, darstellbar}. Der Grund steht an der
+    // Funktion selbst -- in nacktem uint64 wickelte die Formel still, und `(2^63 + 1, 2, 1)` ergab den
+    // Wert 2: eine vollkommen plausible Kapazitaet aus einer masslosen Anforderung.
+    // Diese Zuweisungsstelle stammt aus einem ANDEREN Zweig und wurde beim Merge nicht mitgezogen.
+    // GCC uebersetzte den Baum trotzdem, clang nicht -- genau die Klasse, fuer die Runde 2 existiert.
+    //
+    // `darstellbar` wird hier NICHT ein zweites Mal geprueft, und das ist Absicht: die mul_sicher-Wache
+    // sechs Zeilen darueber hat den Ueberlauf bereits abgefangen und mit Grund gemeldet. Eine zweite
+    // Pruefung waere ein zweites Orakel fuer dieselbe Frage -- der static_assert unten haelt die
+    // Annahme fest, statt sie zu wiederholen.
+    auto const kapazitaet = ms_::kapazitaet_zeilen_rechnen(e.n_ops, s.zeilen_je_op, s.drift_faktor);
+    static_assert(std::is_same_v<decltype(kapazitaet.zeilen), std::uint64_t>,
+                  "KapazitaetRechnung::zeilen muss uint64 bleiben -- sonst bricht diese Zuweisung still.");
+    s.zeilen_je_op_batch = kapazitaet.zeilen;
     fak("zeilen_je_op_batch", std::to_string(s.zeilen_je_op_batch), MengenArt::Gerechnet,
         "measure_storage::kapazitaet_zeilen_rechnen(n_ops, zeilen_je_op, drift_faktor)");
     fak("byte_je_zeile", std::to_string(sizeof(ms_::MessCheckpointZeile)), MengenArt::Konstante,
