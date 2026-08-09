@@ -723,6 +723,13 @@ TEST(F15ResultBuilder, MakeExecutionResultFillsPercentiles) {
     // leere Samples → success=false
     auto empty = cmd::make_execution_result("none", {});
     EXPECT_FALSE(empty.success);
+    // D4d (2026-08-09): dieser Test hat DECKUNG VORGETAEUSCHT. Seine beiden Faelle (100 positive
+    // Werte / leer) verhalten sich unter der alten Definition success=!empty() und der neuen
+    // "mindestens eine Probe > 0" IDENTISCH -- die Luecke dazwischen (Proben da, alle 0) war fuer
+    // ihn unsichtbar. Sie steht jetzt in F15ProbenSindTot; hier wird nur noch mitgesichert, dass
+    // beide Felder gesetzt sind und sich in diesen zwei Faellen entsprechen.
+    EXPECT_FALSE(r.degeneriert);
+    EXPECT_TRUE(empty.degeneriert);
 }
 
 // Vollstaendige F15-Driver-Kette (in-process): drei "gemessene" Kompositionen vs Baseline.
@@ -1207,4 +1214,78 @@ TEST(F15ExportRobust, CsvUndJsonTragenDieDegenerationsFelderUndDenNenner) {
     EXPECT_NE(json.find("\"getestet_welch\":1"), std::string::npos) << json;
     EXPECT_NE(json.find("\"degeneriert\":1"), std::string::npos) << json;
     EXPECT_NE(json.find("\"proben_tot\":true"), std::string::npos) << json;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4d (2026-08-09) — success HEISST "es gab eine echte Probe", nicht "der Vektor ist nicht leer"
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// DER BEFUND: make_execution_result setzte success = !latency_samples_ns.empty(). 35 Proben von
+// exakt 0 ns galten damit als Erfolg. Der bestehende Test MakeExecutionResultFillsPercentiles
+// prueft nur "100 positive Werte -> true" und "leer -> false" -- beide Faelle sind unter alter
+// wie neuer Definition gleich, die Luecke war fuer ihn UNSICHTBAR. Er hat Deckung vorgetaeuscht.
+//
+// KOEDER (K13, gewuerfelt 2026-08-09T18:31:31Z): n = 35 Proben, alle exakt 0.
+
+TEST(F15ProbenSindTot, LauterNullenIstKeinErfolgSondernDegeneration) {
+    std::vector<std::int64_t> const nullen(35, 0); // KOEDER, gewuerfelt
+    auto const r = cmd::make_execution_result("tote_dll", nullen);
+    ASSERT_EQ(r.latency_samples_ns.size(), 35u) << "die Proben SIND da -- nur ohne Aussage";
+    EXPECT_FALSE(r.success);
+    EXPECT_TRUE(r.degeneriert);
+}
+
+TEST(F15ProbenSindTot, EineEinzigeEchteProbeGenuegt) {
+    // GEGENEINGANG (T-4): 34 Nullen und EINE echte Probe -> success. Die Schwelle liegt bei
+    // "mindestens eine", nicht bei "alle" -- sonst waere die Wache viel zu breit und wuerde jede
+    // Messung mit Nullen unter der Uhr-Aufloesung verwerfen.
+    std::vector<std::int64_t> gemischt(35, 0);
+    gemischt[17] = 1;
+    auto const r = cmd::make_execution_result("fast_tot", gemischt);
+    EXPECT_TRUE(r.success);
+    EXPECT_FALSE(r.degeneriert);
+}
+
+TEST(F15ProbenSindTot, NegativeProbenZaehlenNichtAlsErfolg) {
+    // Negative Latenzen sind ein Zeitnahme-DEFEKT. Eine Reihe aus Nullen und negativen Werten
+    // haette ein ">= 0" durchgelassen -- deshalb steht dort "> 0".
+    std::vector<std::int64_t> const kaputt{0, -5, 0, -1200, 0};
+    auto const                      r = cmd::make_execution_result("defekte_uhr", kaputt);
+    EXPECT_FALSE(r.success);
+    EXPECT_TRUE(r.degeneriert);
+}
+
+TEST(F15ProbenSindTot, LeereProbenBleibenOhneErfolg) {
+    auto const r = cmd::make_execution_result("keine", {});
+    EXPECT_FALSE(r.success);
+    EXPECT_TRUE(r.degeneriert);
+}
+
+TEST(F15ProbenSindTot, PraedikatIstDieEineDefinitionUndHatBeideRichtungen) {
+    std::vector<std::int64_t> const leer{};
+    std::vector<std::int64_t> const nullen(35, 0);
+    std::vector<std::int64_t> const negativ{-1, -2};
+    std::vector<std::int64_t> const echt{0, 0, 7};
+    EXPECT_TRUE(cmd::proben_sind_tot(std::span<const std::int64_t>{leer}));
+    EXPECT_TRUE(cmd::proben_sind_tot(std::span<const std::int64_t>{nullen}));
+    EXPECT_TRUE(cmd::proben_sind_tot(std::span<const std::int64_t>{negativ}));
+    EXPECT_FALSE(cmd::proben_sind_tot(std::span<const std::int64_t>{echt})); // hier faellt es
+}
+
+TEST(F15ProbenSindTot, ResultCsvHeaderIstEINGEFROREN) {
+    // ERSATZ-ORAKEL fuer die auf DIESER Datei fehlende Schema-Wache (MT-L3 bewacht die grosse
+    // Produktions-Mess-CSV in cache_engine_builder_iterator.hpp, nicht diesen Export). Der
+    // Header steht hier als LITERAL, damit eine weitere Spalte nicht unbemerkt entsteht: die
+    // eine Spaltenaenderung dieser Woche ist `degeneriert`, danach ist der Kopf zu.
+    EXPECT_EQ(cmd::result_csv_header(),
+              "engine_name,workload_kind,throughput_ops_per_sec,latency_p50_ns,latency_p99_ns,"
+              "total_cache_misses,memory_footprint_bytes,H1_clu_improvement,H2_layout_score,"
+              "H3_inline_external_ratio,n_latency_samples,success,degeneriert");
+    // Die Zeile traegt genau so viele Felder wie der Kopf Spalten hat -- ein Kopf, der laenger
+    // ist als seine Zeilen, waere ein CSV, das niemand bemerkt, bis die Auswertung schief liegt.
+    cmd::ExecutionResult r{};
+    r.engine_name              = "x";
+    auto const zaehle_kommata  = [](std::string const& s) { return std::count(s.begin(), s.end(), ','); };
+    EXPECT_EQ(zaehle_kommata(cmd::to_csv_row(r)), zaehle_kommata(cmd::result_csv_header()));
+    EXPECT_NE(cmd::to_json_object(r).find("\"degeneriert\":"), std::string::npos);
 }

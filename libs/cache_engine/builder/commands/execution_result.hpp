@@ -66,6 +66,15 @@ struct ExecutionResult {
     // Status
     bool             success{false};
     std::string_view error_message{};
+    // D4d (2026-08-09) -- EIGENES Feld neben success, und das ist kein Duplikat.
+    //
+    // `success` hat in diesem Feld ZWEI Schreiber-Klassen mit verschiedener Bedeutung:
+    //   make_execution_result (Mess-Pfad) -- "es gab eine verwertbare Probe"
+    //   ExecuteEngineCommand / der ABI-Adapter -- "die Backend-Operation hat geklappt"
+    // Nur der Mess-Pfad kann ueberhaupt etwas ueber die Proben sagen. `degeneriert` traegt genau
+    // diese Aussage getrennt, damit ein Schreiber der zweiten Klasse success setzen kann, ohne
+    // damit stillschweigend "die Daten sind verwertbar" zu behaupten.
+    bool degeneriert{false}; ///< keine einzige Probe > 0 (leer, nur Nullen oder nur Defekt-Werte)
 };
 
 } // namespace comdare::cache_engine::builder::commands
