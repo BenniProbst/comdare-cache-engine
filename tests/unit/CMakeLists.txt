@@ -4667,6 +4667,44 @@ add_test(NAME test_lazy_adhoc_source_gen COMMAND test_lazy_adhoc_source_gen)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_adhoc_source_gen)
 set_tests_properties(test_lazy_adhoc_source_gen PROPERTIES LABELS "e4;limits;inc-g6")
 
+# -- LAG-Z1 (2026-08-09): DER LAGER-SCHLUESSEL MUSS DIE SIMD-STUFE TRENNEN -----------------------------
+# SELBSTCHECK dieses Blocks: der Include-/Define-/Katalog-Satz ist WORTGLEICH zu test_lazy_adhoc_source_gen
+# direkt darueber -- dieselbe Naht (lazy_adhoc_source_gen.hpp), dieselbe umbrella-schwere Katalog-Kante.
+# EINZIGE Ergaenzung: libs/cache_engine/profile_facade, weil dieses Ziel zusaetzlich die beiden Perm-Naehte
+# zieht (system_cell_values_naht.hpp, toolchain_stamp_naht.hpp) -- genau die Quellen, aus denen
+# profile_run_entry.hpp:1008-1029 die Perm-Zelle bildet. Ohne sie waere die Wache eine ZWEITE Ableitung.
+# comdare_attach_generated_catalog ist Pflicht (P1689-Scan vs. Generator-Custom-Command, s. der Kommentar
+# am test_experiment_plan_director-Block).
+add_executable(test_lagz1_lager_schluessel_simd
+    "test_lagz1_lager_schluessel_simd.cpp")
+target_compile_features(test_lagz1_lager_schluessel_simd PRIVATE cxx_std_23)
+target_include_directories(test_lagz1_lager_schluessel_simd PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lagz1_lager_schluessel_simd PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_lagz1_lager_schluessel_simd)
+target_compile_definitions(test_lagz1_lager_schluessel_simd PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_lagz1_lager_schluessel_simd)
+add_test(NAME test_lagz1_lager_schluessel_simd COMMAND test_lagz1_lager_schluessel_simd)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lagz1_lager_schluessel_simd)
+set_tests_properties(test_lagz1_lager_schluessel_simd PROPERTIES LABELS "lager;bestandslog;lag-z1")
+# DER BISS FAEHRT MIT. Eine Wache, die nur am gesunden Objekt gruen ist, belegt nichts. --selbstbiss
+# ersetzt WEG L durch den lauf-konstanten Provider -- exakt den historischen Rueckfall, den
+# profile_run_entry.hpp:1074-1082 beschreibt -- und FORDERT, dass GENAU die Trennungs-Faelle reissen
+# und die SKIP-/Determinismus-Faelle halten. Zweiter ctest-Eintrag auf DERSELBEN Binary: kein zweites
+# Ziel, kein zweiter Bau, aber der Nenner faehrt bei jedem Lauf mit statt hier als Prosa zu verjaehren.
+add_test(NAME test_lagz1_lager_schluessel_simd_selbstbiss
+    COMMAND test_lagz1_lager_schluessel_simd --selbstbiss)
+set_tests_properties(test_lagz1_lager_schluessel_simd_selbstbiss
+    PROPERTIES LABELS "lager;bestandslog;lag-z1;selbstbiss")
+
 # W2 (Owner-GO mittag-6 R1, 2026-08-05) -- Flaechen-Gate des CT-Stempel-VORRANGS an der EINEN Stempel-Naht
 # measurement_stamp_from_env. DIESE TU ist der einzige Ort im Baum, der MIT der einkompilierten Mess-Combo
 # uebersetzt wird (COMDARE_MEASUREMENT_COMBO_CT) -- alle anderen TUs (auch test_lazy_adhoc_source_gen direkt
