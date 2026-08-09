@@ -1325,6 +1325,16 @@ target_compile_definitions(test_d51_perzentil_kanon PRIVATE
     "COMDARE_D51_ZENSUS_ROOT_HARNESS=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/harness\""
     "COMDARE_D51_ZENSUS_ROOT_CE=\"${PROJECT_SOURCE_DIR}/libs/cache_engine\"")
 
+# D5-4 TRACE-SCHEMA (2026-08-09) -- die EINE Feldliste der Tier-Trace-Ausgabe (trace_schema::kLatenzFelder),
+# BEIDSEITIG geprueft: Schema -> Ausgabe (alle fuenf Serialisierer, Wert-Pins von Hand) und Ausgabe ->
+# Schema (Form-Suche <praefix>_p<ziffern>_ns findet keine Waise). Reine Header (anatomy_commands +
+# latency_stats) -> es genuegt der ce-Include-Pfad, kein Lib-Link.
+comdare_add_test(test_d54_trace_schema
+    SOURCES test_d54_trace_schema.cpp)
+target_include_directories(test_d54_trace_schema PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # PAKET W3-C (Ledger Sec.32-F8): Heuristik-Spline-Vorbau -- AxisSpline (Strategy: Fritsch-Carlson monoton /
 # natuerlich-kubisch) + Break-Even-Finder + n/a-toleranter Measurement-Curve-Loader. Header-only, keine
 # Lib-Abhaengigkeit -> nur der ce-Include-Pfad noetig.

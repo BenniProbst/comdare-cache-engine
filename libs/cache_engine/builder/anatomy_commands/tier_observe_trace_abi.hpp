@@ -12,9 +12,13 @@
 // korrelierten Wall-Clock-Kontext) persistieren — ohne den konkreten Composition-Typ zu kennen (nur das
 // Gattungs-ABI). KEIN Runtime-Switch; reine Interface-Indirektion.
 
+// D5-4: die EINE Feldliste der Trace-Ausgabe. Sie zieht den D5-1-Perzentil-Kanon
+// (builder/commands/latency_stats.hpp) selbst mit -- diese Datei rechnet kein Perzentil mehr und
+// braucht latency_stats deshalb nicht mehr direkt.
+#include "tier_trace_schema.hpp"
+
 #include <anatomy/observable_tier.hpp>
-#include <anatomy/rollbackable_tier.hpp>      // V5-I7: Zwei-Phasen-Treiber (tier_save_all/tier_rollback_all)
-#include <builder/commands/latency_stats.hpp> // D5-1: der EINE Perzentil-Kanon (stats::percentile_ns)
+#include <anatomy/rollbackable_tier.hpp> // V5-I7: Zwei-Phasen-Treiber (tier_save_all/tier_rollback_all)
 
 #include <algorithm>
 #include <chrono>
@@ -29,7 +33,10 @@
 namespace comdare::cache_engine::builder::anatomy_commands {
 
 namespace an = ::comdare::cache_engine::anatomy;
-namespace st = ::comdare::cache_engine::builder::commands::stats; // D5-1 Perzentil-Kanon
+// D5-4: der Alias `st` (= builder::commands::stats) stand hier, solange die Serialisierer die
+// Perzentile SELBST riefen. Sie tun es nicht mehr -- der Alias ist mit dem Feldblock gegangen, damit
+// niemand ihn versehentlich fuer eine zehnte, hausgemachte Kennzahl wiederbelebt.
+namespace ts = trace_schema; // D5-4 Feldliste + geteilte Serialisierer
 
 /// Konfiguration des ABI-Fuellstands-Treibers (deterministisch via seed).
 struct AbiTierTraceConfig {
@@ -67,9 +74,10 @@ namespace detail {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
 }
 
-// SELBSTCHECK (D5-1, 2026-08-09)
-//   ZUSICHERT: in dieser Datei existiert KEINE Perzentil-Formel mehr; alle p-Felder ihrer
-//              Serialisierer ziehen stats::percentile_ns.
+// SELBSTCHECK (D5-1, ergaenzt D5-4, beide 2026-08-09)
+//   ZUSICHERT: in dieser Datei existiert KEINE Perzentil-Formel mehr -- und seit D5-4 auch keine
+//              Feldliste. Die p-Felder ihrer Serialisierer kommen ueber trace_schema::kLatenzFelder
+//              und rechnen dort mit stats::percentile_ns.
 //   ZUSICHERT NICHT: dass Altdaten weiter gelten -- sie tun es nicht (andere Definition).
 //
 // D5-1 (2026-08-09): hier stand `detail::nearest_rank_p` -- eine ZWEITE Perzentil-Formel
@@ -282,17 +290,17 @@ template <class TimedOp>
 /// Zahlen (die Roh-ns-Kurven bleiben im Trace für eine separate Perzentil-Auswertung).
 [[nodiscard]] inline std::string serialize_abi_tier_trace_csv(AbiTierObserveTrace const& trace) {
     std::ostringstream os;
-    os << "checkpoint,observe_wall_ns,fill_level,write_samples,read_samples,delete_samples,"
-          "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,"
+    // D5-4: Zeit-Kopf + Zeit-Zellen aus dem GETEILTEN Schema (ts::), nicht mehr als Literal-Abschrift.
+    os << ts::kGeteilterCsvKopf
+       << ",search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,"
           "alloc_bytes_in_use,alloc_alloc_count,observable_axes\n";
     for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
-        os << i << ',' << cp.observe_wall_ns << ',' << cp.fill_level << ',' << cp.write_ns.size() << ','
-           << cp.read_ns.size() << ',' << cp.delete_ns.size() << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0]
-           << ',' << o.axis_stats[0][1] << ',' << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ','
-           << o.axis_stats[0][5] << ',' << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ','
-           << o.observable_axis_count << '\n';
+        ts::schreibe_geteilte_csv_zellen(os, i, cp);
+        os << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ',' << o.axis_stats[0][1] << ','
+           << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5] << ',' << o.axis_stats[6][1]
+           << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
     }
     return os.str();
 }
@@ -300,6 +308,13 @@ template <class TimedOp>
 /// Persistiert den Pfad-B-Trace als JSON-Array (eine Objekt-Zeile je Checkpoint). Zusätzlich zur CSV trägt
 /// die JSON die **Perzentile** (p50/p95/p99) der r/w/d-Roh-ns-Kurven — die Tier-Wall-Clock-Detail-Auswertung
 /// (Doku 24 §2.1) korreliert mit den Observer-Zählern. Robust gegen Wall-Clock-Ausreisser (p50, vgl. Doku 22 §3.3).
+///
+/// SELBSTCHECK (D5-4, 2026-08-09)
+///   ZUSICHERT: der Latenz-Feldblock steht NICHT MEHR in dieser Datei. Er kommt aus
+///              trace_schema::kLatenzFelder und wird von derselben Funktion gerendert wie bei den vier
+///              Container-Gattungen -- ein Feld kann hier nicht mehr fehlen, ohne dort zu fehlen.
+///   ZUSICHERT NICHT: Vergleichbarkeit mit Traces vor dem 2026-08-09 (D5-1 hat die Perzentil-Definition
+///              gewechselt; D5-4 ergaenzt delete_p99_ns). Alte Traces sind ungueltig, nicht geloescht.
 [[nodiscard]] inline std::string serialize_abi_tier_trace_json(AbiTierObserveTrace const& trace) {
     std::ostringstream os;
     os << '[';
@@ -307,16 +322,8 @@ template <class TimedOp>
         auto const& cp = trace.checkpoints[i];
         auto const& o  = cp.observer;
         if (i != 0) os << ',';
-        os << "{\"checkpoint\":" << i << ",\"observe_wall_ns\":" << cp.observe_wall_ns
-           << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << st::percentile_ns(cp.write_ns, 0.5).count()
-           << ",\"write_p95_ns\":" << st::percentile_ns(cp.write_ns, 0.95).count()
-           << ",\"write_p99_ns\":" << st::percentile_ns(cp.write_ns, 0.99).count()
-           << ",\"read_p50_ns\":" << st::percentile_ns(cp.read_ns, 0.5).count()
-           << ",\"read_p95_ns\":" << st::percentile_ns(cp.read_ns, 0.95).count()
-           << ",\"read_p99_ns\":" << st::percentile_ns(cp.read_ns, 0.99).count()
-           << ",\"delete_p50_ns\":" << st::percentile_ns(cp.delete_ns, 0.5).count()
-           << ",\"delete_p95_ns\":" << st::percentile_ns(cp.delete_ns, 0.95).count()
-           << ",\"search_insert\":" << o.axis_stats[0][3] << ",\"search_lookup\":" << o.axis_stats[0][0]
+        ts::schreibe_geteilten_json_vorspann(os, i, cp);
+        os << ",\"search_insert\":" << o.axis_stats[0][3] << ",\"search_lookup\":" << o.axis_stats[0][0]
            << ",\"search_hit\":" << o.axis_stats[0][1] << ",\"search_miss\":" << o.axis_stats[0][2]
            << ",\"search_peak_occupancy\":" << o.axis_stats[0][5] << ",\"alloc_bytes_in_use\":" << o.axis_stats[6][1]
            << ",\"observable_axes\":" << o.observable_axis_count << '}';
