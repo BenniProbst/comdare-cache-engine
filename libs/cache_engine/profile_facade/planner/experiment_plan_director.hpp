@@ -1451,8 +1451,28 @@ private:
         s += "    - if: '$COMDARE_MEASURE_PROFILE == \"smoke\"'\n";
         s += "      when: on_success   # smoke: Auto-Messlauf (kleiner Umfang, Rauch-Test der Mess-Strecke)\n";
         s += "    - when: manual       # sonst: 320er-§41-Gate (Voll-Messlauf erst nach User-Entscheid)\n";
-        // Sichtbarkeits-Doktrin: Mess-Fehler => CSV 'failed' + Log, die Pipeline bleibt gruen (nicht still verschluckt).
-        s += "  allow_failure: true\n";
+        // #278 / OV-16 (2026-08-09): HIER STAND EINE EMISSION DES VERBOTENEN FLAGS -- ersatzlos entfernt.
+        // (Die entfernte Zeile wird hier bewusst NICHT als Emissions-Literal zitiert -- ein Audit, das nach
+        //  Emissions-Zeilen dieses Flags sucht, soll 0 Treffer haben und nicht an einem Kommentar haengen.)
+        // SELBSTCHECK: der Mess-Batch traegt KEIN allow_failure; sein Schluss-Verdikt ist `exit $FAIL` (unten),
+        //   also faellt der CI-Job hart, sobald auch nur eine Zelle scheiterte. Zugesichert von
+        //   test_experiment_plan_director.cpp TierCiYamlBuilder.KeinAllowFailureInEmittierterJobYamlBeideStufen...
+        //   (0 Treffer je Batch, Nenner 2 Host-Lanes) -- der Test war mit dieser Zeile ROT.
+        // DIE ZWEI EBENEN, die hier verschmolzen waren und nie wieder verschmelzen duerfen:
+        //   ZELLE -> ein Mess-Fehler gibt [FEHLER-TESTAT] + Log aus, setzt FAIL=1 und die Schleife MISST WEITER
+        //            (die CSV-Zelle traegt "failed", nie eine stille Null; perm_runner.hpp:145/354).
+        //   JOB   -> der Batch endet auf `exit $FAIL` und ist damit HART ROT. Das ist die Owner-Regel.
+        // PROVENIENZ DES DEFEKTS: Owner 2026-07-06 14:16:43 UTC "bei einer harten Pipeline darf es kein allow
+        //   failure geben" (Issue #278), Verschaerfung 2026-07-17 "die gesamte Pipeline IMMER hart gruen".
+        //   Zwei Tage nach der Verschaerfung fuegte b5e64a51c (2026-07-19) das Flag ohne GO ein; 0d91dc1e3
+        //   (2026-07-20) klebte den Kommentar "Sichtbarkeits-Doktrin" darueber -- die erste Erwaehnung des
+        //   Begriffs ueberhaupt. Die Owner-Aussage vom 2026-07-16, auf die er sich berief, galt der CSV-ZELLE.
+        //   Bestaetigung Owner 2026-08-09: "Allow failure war schon IMMER verboten ... aber der CI-Job failed
+        //   immer hart."
+        // FOLGE-STUFEN (am Objekt geprueft, super-Pipelines 15372/15306): ein hart roter Mess-Batch stoppt
+        //   persist:measurements / anhang:forward / thesis:pdf NICHT -- keiner von ihnen hat eine needs-Kante
+        //   auf planer:delegate-trigger. In 15372 fiel die Bridge trigger:cache-engine hart, und thesis:pdf
+        //   (spaetere Stage) lief trotzdem auf success.
         s += "  script:\n";
         // S2-NACHT: der Prolog verdrahtet COMDARE_GOLDEN_N_PROFILE auf das AKTIVE Profil (header_.profile_basename).
         emit_child_submodule_prolog(s, header_.profile_basename); // ce-Submodul-Klon, Spiegel des Bau-Jobs

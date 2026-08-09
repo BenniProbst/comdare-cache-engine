@@ -1200,6 +1200,90 @@ TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsSharp) {
         << "COMDARE_RUN_MEASURE hat null Konsumenten -> nie emittiert";
 }
 
+// -- #278 / OV-16: KEIN allow_failure in irgendeiner EMITTIERTEN Job-YAML (beide CI-Stufen). -----------------
+// SELBSTCHECK: dieser Test beisst genau dann, wenn ein Emissionsblock das Wort 'allow_failure' in die Job-YAML
+//   schreibt, und NUR dann -- kein anderer Test dieses Baums nennt es (gegengeprueft 2026-08-09:
+//   `git grep -c allow_failure -- tests/` = 0 Treffer, rc=1). Vor dem Entfernen von
+//   experiment_plan_director.hpp emit_batch_measure_job:"  allow_failure: true\n" war er ROT (2 Treffer,
+//   1 je Host-Lane); danach gruen. Ein Wiedereinbau macht ihn sofort wieder rot -- der mutierte Zweig ist
+//   also beobachtbar und wird von keiner anderen Zusicherung verdeckt.
+// PROVENIENZ: Owner 2026-07-06 14:16:43 UTC "bei einer harten Pipeline darf es kein allow failure geben";
+//   Verschaerfung 2026-07-17 "die gesamte Pipeline IMMER hart gruen"; 2026-07-26 "Pipelines muessen hart gruen
+//   durchlaufen, da wird nichts unterbrochen"; Bestaetigung 2026-08-09 "Allow failure war schon IMMER verboten.
+//   Wenn dann muss ein Fehler sauber mit einer Warnung an den Anwender angezeigt und die Messung uebersprungen
+//   werden, aber der CI-Job failed immer hart."
+// ZWEI EBENEN, hier BEIDE geprueft (sie duerfen nie wieder verschmelzen -- genau daran entstand der Defekt:
+//   Commit b5e64a51c 2026-07-19 fuegte das Flag auf JOB-Ebene ein, 0d91dc1e3 2026-07-20 klebte den Kommentar
+//   "Sichtbarkeits-Doktrin" darueber, obwohl die Owner-Aussage vom 2026-07-16 der CSV-ZELLE galt):
+//   JOB   -> kein allow_failure; der Batch endet auf `exit $FAIL` = hartes Verdikt.
+//   ZELLE -> je gescheiterter Zelle [FEHLER-TESTAT] + FAIL=1, der Batch MISST DURCH (Schleife bleibt intakt).
+TEST(TierCiYamlBuilder, KeinAllowFailureInEmittierterJobYamlBeideStufenUndZellEbeneIntakt) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb; // Stufe 2: die Batch-Jobs (Bau + Mess) je Host-Lane
+    planner::CiYamlBuilder                cb; // Stufe 1: die CEB-Jobs (build/emit/trigger)
+    director.construct(*tp, tb);
+    director.construct(*tp, cb);
+    std::string const& stufe2 = tb.text();
+    std::string const& stufe1 = cb.text();
+
+    // GEGENPROBE VOR DEM NICHTFUND: dass die Suche auf GENAU diesen Texten ueberhaupt greift, wird an einem
+    // Literal belegt, das in derselben Emission steht (sonst waere eine 0 nur eine stille Null).
+    std::size_t const measure_batches = count_occurrences(stufe2, "# JOB measure-batch ");
+    ASSERT_EQ(measure_batches, 2u) << "Nenner: 2 Host-Lanes (amd+intel) => 2 Mess-Batches";
+    // (Der GN-11-`timeout: 7d` taugt hier NICHT als Nenner-Probe: er steht auch im Bau-Batch, also 4x statt 2x --
+    //  am Objekt gemessen 2026-08-09. Genommen wird ein Literal, das NUR der Mess-Batch traegt.)
+    ASSERT_EQ(count_occurrences(stufe2, "      ctest --test-dir build -L pmc --no-tests=error --output-on-failure\n"),
+              measure_batches)
+        << "Gegenprobe: die Suche findet in DIESEM Text (PMC-Preflight nur im Mess-Batch, je Lane einer)";
+    ASSERT_GT(count_occurrences(stufe1, "  stage: ceb-build\n"), 0u) << "Gegenprobe: Stufe-1-Text ist nicht leer";
+
+    // (1) JOB-EBENE: 0 von 2 Mess-Batches (und 0 in der gesamten Emission BEIDER Stufen) traegt allow_failure.
+    EXPECT_EQ(count_occurrences(stufe2, "allow_failure"), 0u)
+        << "#278: die Stufe-2-Emission traegt 0 allow_failure (Nenner: " << measure_batches << " Mess-Batches)";
+    EXPECT_EQ(count_occurrences(stufe1, "allow_failure"), 0u) << "#278: auch die Stufe-1-Emission traegt 0";
+
+    // (2)+(3) werden PRO MESS-BATCH-BLOCK geprueft, nicht global. Grund, am Objekt gemessen (2026-08-09): global
+    //     gezaehlt traegt die Stufe-2-YAML 4x `exit $FAIL`, 16x [FEHLER-TESTAT] und 12x "; FAIL=1" -- weil der
+    //     BAU-Batch dieselben Marken fuer seine Bau-/Pruef-Schritte fuehrt. Ein globaler Nenner haette hier also
+    //     einen Bau-Befund als Mess-Befund ausgegeben. Geschnitten wird wie im Nachbar-Test G4a...InCorrectOrder.
+    auto measure_bloecke = [&stufe2] {
+        std::vector<std::string> blocks;
+        std::size_t              pos = stufe2.find("# JOB measure-batch ");
+        while (pos != std::string::npos) {
+            std::size_t const next = stufe2.find("\n# JOB ", pos + 1);
+            blocks.push_back(stufe2.substr(pos, next == std::string::npos ? std::string::npos : next - pos));
+            pos = stufe2.find("# JOB measure-batch ", pos + 1);
+        }
+        return blocks;
+    }();
+    ASSERT_EQ(measure_bloecke.size(), measure_batches);
+
+    for (std::string const& blk : measure_bloecke) {
+        // (2) JOB-EBENE, positiv: das harte Verdikt steht wirklich da. Ohne diese Zusicherung koennte ein
+        //     spaeterer Umbau `exit $FAIL` durch `exit 0` ersetzen -- und das Entfernen von allow_failure waere
+        //     folgenlos, ohne dass irgendetwas rot wuerde.
+        EXPECT_EQ(blk.find("allow_failure"), std::string::npos) << "kein allow_failure IN DIESEM Mess-Batch";
+        EXPECT_EQ(count_occurrences(blk, "      exit $FAIL"), 1u) << "genau ein hartes Schluss-Verdikt je Batch";
+        EXPECT_EQ(blk.find("exit 0"), std::string::npos) << "kein weich gemachter Schluss im Mess-Batch";
+
+        // (3) ZELL-EBENE, unangetastet: je Zelle GENAU ein Testat (die beiden schliessen einander aus, D3-5),
+        //     die Fehler-Zelle setzt FAIL=1 statt abzubrechen -- der Batch misst durch.
+        std::size_t const zellen = count_occurrences(blk, "      echo \"== [MESS] zelle=");
+        ASSERT_GT(zellen, 0u) << "Nenner: die Mess-Koepfe dieser Lane";
+        // Gezaehlt wird die ECHO-Emission, nicht das blosse Vorkommen der Marke: die Schluss-Zeile
+        // `exit $FAIL` traegt "[FEHLER-TESTAT]" im KOMMENTAR mit, und ein naiver Marken-Zaehler laege je
+        // Batch um genau 1 daneben (am Objekt gemessen 2026-08-09: 3 statt 2).
+        EXPECT_EQ(count_occurrences(blk, "echo \"[FEHLER-TESTAT]"), zellen)
+            << "je Zelle ein Fehler-Zweig ([FEHLER-TESTAT] + FAIL=1) -- die Warnung an den Anwender";
+        EXPECT_EQ(count_occurrences(blk, "echo \"[MESS-TESTAT]"), zellen) << "je Zelle ein Erfolgs-Zweig";
+        EXPECT_EQ(count_occurrences(blk, "; FAIL=1"), zellen)
+            << "die gescheiterte Zelle setzt FAIL=1 und der Batch laeuft weiter (kein exit im Fehler-Zweig)";
+    }
+}
+
 // (W6) Legenden-Determinismus beider Stufen: zwei Laeufe -> byte-gleich (Thesis + Experiment).
 TEST(TierCiYamlBuilder, StageTwoIsByteDeterministic) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
