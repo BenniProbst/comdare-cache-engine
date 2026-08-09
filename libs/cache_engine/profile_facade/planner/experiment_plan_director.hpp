@@ -53,6 +53,11 @@
 #include <builder/experiment_tree/slice_marker.hpp>   // E-04-P1: kSliceMarkerTraceMarken (Tee-Filter-Single-Source)
 #include <builder/bestandslog/planer_block_value.hpp> // G4b-2/E4: make_planer_block_reservation_value (der Wert-Kern)
 #include <builder/bestandslog/reservation_lifecycle.hpp> // G4a(7): make_pro_forma_reservation / BatchTyp::planer_block
+// LAG-P4 (Korn-Wache, s. unten bei kGnBatchSlice): die beiden ANDEREN Traeger des 4096er-Korns. Der Weg
+// hierher besteht ohnehin transitiv (profile_run_entry.hpp -> cache_engine_builder_iterator.hpp ->
+// planer_driven_build.hpp -> batch_planner.hpp); die Wache haengt aber NICHT an einer fremden
+// Include-Kette, die ein spaeterer Umbau still kappen koennte -- sie zieht ihre Operanden selbst.
+#include <builder/bestandslog/planer_driven_build.hpp> // LAG-P4: bestandslog::kBuildSliceGrain (+ kGnBatchSlice)
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
@@ -660,6 +665,48 @@ private:
 // Organ-Bau-Volumen als chunk<k> -- O(Perms x Chunks) war INTERIM (W4/INC-G6, vor dem §62-B-Gesetz). Ersetzt durch
 // die O(Maschinen)-Batch-Emission (kGnBatchSlice-Scheiben INNERHALB EINES Batch-Jobs je Host).
 inline constexpr std::size_t kGnBatchSlice = 4096;
+
+// ===========================================================================
+// LAG-P4 -- DIE KORN-WACHE: das 4096er-Korn ist ab hier COMPILE-HART gebunden.
+//
+// SELBSTCHECK: diese drei static_assert sichern zu, dass die DREI Traeger des Batch-Korns denselben
+// Wert tragen UND dass dieser Wert die Owner-Zahl 4096 ist. Sie sichern NICHT zu, dass das Korn an
+// jeder Verwendungsstelle auch wirklich BENUTZT wird (wer eine vierte Konstante neu erfindet, faellt
+// hier nicht auf), und sie sagen NICHTS ueber die Laufzeit-Groesse eines konkreten Fensters (ein Rest-
+// Fenster am Ende einer Selektion ist zulaessig kleiner).
+//
+// WARUM COMPILE-HART UND NICHT ALS KOMMENTAR. Bis zu diesem Paket hielt die Bindung allein ein
+// Kommentar an jeder der drei Stellen. Das ist am Objekt widerlegt: der Spiegel-Kommentar in
+// batch_planner.hpp verwies auf "experiment_plan_director.hpp:439" -- die Konstante stand real bei
+// :662. Der Verweis war also selbst schon abgedriftet, waehrend er die Bindung behauptete. Ein
+// Kommentar kann eine Invariante beschreiben; halten kann er sie nicht.
+//
+// WAS AUSEINANDERLAUFEN WUERDE, wenn die drei divergieren -- je Zusicherung eine eigene Folge, siehe
+// die Fehlertexte. Der Kern: der Planer EMITTIERT die Scheiben-Grenzen, das Bestandslog RESERVIERT
+// und DEDUPLIZIERT genau diese Scheiben, und der planer-getriebene Bau STEMPELT das Korn in den
+// Batch-Plan, den der spaetere Mess-Lauf ueber denselben Stempel wiederfindet. Drei Rollen, EIN Korn.
+// ===========================================================================
+static_assert(kGnBatchSlice == 4096,
+              "LAG-P4/Korn-Wache: planner::kGnBatchSlice (experiment_plan_director.hpp) ist nicht 4096. Das "
+              "Batch-Korn ist eine OWNER-FESTLEGUNG vom 22.07.2026 ('Batch stets 4096, mit Zeitstempel "
+              "reserviert'; F6 vom 01.08.2026: 4096er-Batches sind JOB-MEILENSTEINE genau EINER Maschine, nie "
+              "geteilt, nie unterbrochen). Wer diese Zahl aendert, aendert die Reservierungs-Groesse des "
+              "Bestandslogs, den Wiederaufnahme-Takt nach einem Abbruch und die Gleichverteilung zwischen den "
+              "Maschinen. Das ist kein Zahlendreher, den man hier still korrigiert, sondern ein Owner-Entscheid.");
+static_assert(::comdare::cache_engine::builder::bestandslog::kGnBatchSlice == kGnBatchSlice,
+              "LAG-P4/Korn-Wache: bestandslog::kGnBatchSlice (batch_planner.hpp) und planner::kGnBatchSlice "
+              "(experiment_plan_director.hpp) laufen auseinander. Beide MUESSEN dasselbe Korn tragen: der Planer "
+              "emittiert die Scheiben-Grenzen, und das Bestandslog reserviert und dedupliziert GENAU diese "
+              "Scheiben. Bei ungleichem Korn beansprucht eine Maschine ein Fenster, das die andere nie als "
+              "Fenster sieht -- aus der Gleichverteilung wird Doppelarbeit, und der Takeover bei ETA+50% gibt "
+              "eine Menge frei, die der uebernehmende Lauf gar nicht deckt.");
+static_assert(::comdare::cache_engine::builder::bestandslog::kBuildSliceGrain == kGnBatchSlice,
+              "LAG-P4/Korn-Wache: bestandslog::kBuildSliceGrain (planer_driven_build.hpp) und "
+              "planner::kGnBatchSlice (experiment_plan_director.hpp) laufen auseinander. Der planer-getriebene "
+              "Bau slict die selektierten Indizes mit diesem Korn und stempelt es in den Batch-Plan ('|korn='); "
+              "der SPAETERE Mess-Lauf sucht seinen Plan ueber genau diesen Stempel. Bei ungleichem Korn findet "
+              "der Mess-Lauf den Plan seines eigenen Bau-Laufs NICHT mehr und schreibt die Mess-Front nicht "
+              "fort -- fail-closed, aber still falsch: der Plan IST da, er wird nur nicht wiedererkannt.");
 
 // W10-Nacharbeit (§42, Serie-E2E 11562/11566): die dynamischen Child-Pipelines ERBEN die globalen Parent-Variablen
 // NICHT (self-contained). Ohne die ccache-Konfiguration scheitert der CEB-/Tier-Bau am Runner an
