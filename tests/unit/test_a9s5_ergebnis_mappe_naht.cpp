@@ -273,7 +273,10 @@ TEST(A9S5Naht, CsvGewaehltErzeugtFlacheSheetsUndKeineXlsx) {
     EXPECT_EQ(read_file(tmp.path / sheets.front()), erwartet);
 }
 
-// T-4 zur Spalten-Wache: eine Zeile mit zu wenigen Feldern MUSS auffallen.
+// T-4 zur Spalten-Wache: eine Zeile mit zu wenigen Feldern MUSS auffallen -- und eine mit zu
+// VIELEN ebenso. (Lens A9-S5, F1: '!=' -> '<' ueberlebte 16/16, weil nur die kurze Richtung
+// einen Gegeneingang hatte. Die lange Richtung ist die realistische: eine neue Spalte in
+// format_csv_row() ohne die passende in lazy_csv_header() macht JEDE Zeile ein Feld zu lang.)
 TEST(A9S5Naht, ZeileMitFalscherFeldzahlWirdGezaehlt) {
     TempDir const   tmp;
     naht::MappenNaht n;
@@ -282,11 +285,17 @@ TEST(A9S5Naht, ZeileMitFalscherFeldzahlWirdGezaehlt) {
 
     n.kopf_aus_csv(kKopf);      // 3 Spalten
     n.zeile_aus_csv(kZeile1);   // 3 Felder -- passt
-    n.zeile_aus_csv("b3;s3\n"); // 2 Felder -- passt NICHT
+    n.zeile_aus_csv("b3;s3\n"); // 2 Felder -- passt NICHT (zu KURZ)
 
     EXPECT_EQ(n.kopf_spalten(), 3u) << "Die Grundgesamtheit der Wache.";
     EXPECT_EQ(n.feld_abweichungen(), 1u) << "Genau die eine zu kurze Zeile muss gezaehlt werden.";
-    EXPECT_EQ(n.zeilen(), 2u) << "Geschrieben werden beide -- die Wache meldet, sie unterschlaegt nicht.";
+
+    n.zeile_aus_csv("b4;s4;400;u4\n"); // 4 Felder -- passt NICHT (zu LANG)
+    EXPECT_EQ(n.feld_abweichungen(), 2u)
+        << "Auch die zu LANGE Zeile (4 Felder gegen 3 Kopfspalten) muss zaehlen -- eine Wache, "
+           "die nur nach unten schaut, laesst '!=' -> '<' ueberleben.";
+
+    EXPECT_EQ(n.zeilen(), 3u) << "Geschrieben werden alle drei -- die Wache meldet, sie unterschlaegt nicht.";
     EXPECT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {}));
 }
 
@@ -300,5 +309,5 @@ TEST(A9S5Naht, MehrdeutigesFormatOeffnetKeineMappe) {
     EXPECT_NE(n.diagnose().find("mehrdeutig"), std::string::npos) << "Grund fehlt in der Ausgabe: " << n.diagnose();
     EXPECT_TRUE(dateien_mit_endung(tmp.path, ".xlsx").empty()) << "Bei Mehrdeutigkeit darf NICHTS geraten werden.";
     EXPECT_TRUE(dateien_mit_endung(tmp.path, "__S001.csv").empty());
-    EXPECT_FALSE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << "schliessen() einer nie geoeffneten Mappe ist false.";
+    EXPECT_FALSE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << "schliessen() ohne geoeffnete Mappe ist false.";
 }
