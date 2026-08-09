@@ -3152,6 +3152,34 @@ add_test(NAME test_f3_lager_key_provider_iterator COMMAND test_f3_lager_key_prov
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_f3_lager_key_provider_iterator)
 set_tests_properties(test_f3_lager_key_provider_iterator PROPERTIES LABELS "bestandslog;bau_filter;standalone")
 
+# LAG-P2 (2026-08-09) -- das MESSWERT-GENUS des Lagers. Schwester-Ziel zu test_f3_lager_key_provider_
+# iterator: dort der reale bestand_key_of (Binary-Genus), hier der reale mess_bestand_key_of
+# (measurement-Genus) samt Rueckschrieb und dem Owner-SKIP vom 08.08.2026. Braucht zusaetzlich
+# profile_facade (RunProfileArgs) fuer die compile-harte Typ-Gleichheit der Drei-Schicht-Naht --
+# deshalb der generated_source_catalog-Anschluss wie bei den anderen profile_run_entry-Konsumenten.
+# KEIN contract-Label: der Test faehrt damit in test:unit (das seit R4 nur noch -LE pmc ausschliesst).
+add_executable(test_lagp2_messwert_genus "test_lagp2_messwert_genus.cpp")
+target_compile_features(test_lagp2_messwert_genus PRIVATE cxx_std_23)
+target_include_directories(test_lagp2_messwert_genus PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lagp2_messwert_genus PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_lagp2_messwert_genus)
+target_compile_definitions(test_lagp2_messwert_genus PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_lagp2_messwert_genus)
+add_test(NAME test_lagp2_messwert_genus COMMAND test_lagp2_messwert_genus)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lagp2_messwert_genus)
+set_tests_properties(test_lagp2_messwert_genus PROPERTIES LABELS "bestandslog;messwert_genus;standalone")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
