@@ -3351,6 +3351,26 @@ add_test(NAME test_experiment_dock_payload COMMAND test_experiment_dock_payload)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_experiment_dock_payload)
 set_tests_properties(test_experiment_dock_payload PROPERTIES LABELS "contract;standalone;harness;welle5;dock")
 
+# Warnungs-Review Runde 2b (clang ueber den Test-Bau, 09.08.2026) -- Wire-Totalitaet des AxisKind-Kanals.
+# Der Nachbar-Test darueber ist ein plain-main-Harnisch und wird per nacktem add_executable gebaut, traegt
+# also KEINE Hauswarnstufe; genau deshalb blieb dort ein -Wswitch mit drei unbehandelten Meta-Meta-Realms
+# unsichtbar (experiment_dock_payload.hpp:77). Dieses Gate ist ein GOOGLE TEST und laeuft ueber
+# comdare_add_test -- damit traegt es COMDARE_set_default_warnings und meldet den Rueckfall selbst.
+comdare_add_test(test_axis_kind_wire_totalitaet
+    SOURCES test_axis_kind_wire_totalitaet.cpp
+    LIBRARIES Boost::mp11)
+target_include_directories(test_axis_kind_wire_totalitaet PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_compile_definitions(test_axis_kind_wire_totalitaet PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_axis_kind_wire_totalitaet PROPERTIES LABELS "contract;welle5;dock;warnungs-review")
+
 # W5-C TEIL 2 (builder-Leaf progress_delta.hpp) - Delta-Rekonstruktion gegen die reale StaticBinaryView (done 1x).
 add_executable(test_progress_delta "test_progress_delta.cpp")
 target_compile_features(test_progress_delta PRIVATE cxx_std_23)

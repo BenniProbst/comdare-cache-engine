@@ -13,8 +13,11 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <iostream> // Verlust-NENNER gehoert in die AUSGABE, nicht nur in ein EXPECT
+#include <limits>   // UINT64_MAX-Sentinel von CustomAllocation1::append
 #include <vector>
 
 namespace bs = comdare::benchmark_suite;
@@ -49,7 +52,10 @@ TEST(CustomAllocation1, ManyAppendsLockless) {
     for (int i = 0; i < 100; ++i) {
         bs::MeasurementRecord32 r{};
         r.op_id = static_cast<std::uint64_t>(i);
-        alloc.append(r);
+        // clang meldete hier -Wunused-result: append() traegt [[nodiscard]], weil sein Rueckgabewert
+        // der EINZIGE Ueberlauf-Melder ist. 1024 Saetze passen in 32 KiB, 100 sind also sicher --
+        // aber "sicher" gehoert geprueft, nicht angenommen.
+        ASSERT_NE(alloc.append(r), (std::numeric_limits<std::uint64_t>::max)()) << "Ueberlauf bei i=" << i;
     }
     EXPECT_EQ(alloc.records_used(), 100u);
 }
@@ -93,6 +99,76 @@ TEST(BenchmarkRunner, MultiplePhases) {
     }
     // 5 phases * (1 begin + 10 events + 1 end) = 60
     EXPECT_EQ(runner.records_collected(), 60u);
+    // NENNER-Gegenprobe zum neuen Verlust-Zaehler: in einem Lauf, der die Kapazitaet NICHT sprengt,
+    // muss er 0 sein. Ohne diese Richtung koennte die Wache konstant melden und waere wertlos.
+    EXPECT_EQ(runner.dropped_records(), 0u);
+    EXPECT_TRUE(runner.messreihe_ist_vollstaendig());
+}
+
+// ---------------------------------------------------------------------------
+// WARNUNGS-REVIEW RUNDE 2b (clang ueber den ce-Test-Bau, 09.08.2026) -- DER STILLE MESSVERLUST.
+//
+// BEFUND, woertlich aus dem Bau-Log:
+//   .../benchmark_suite/benchmark_runner.hpp:47:9: warning: ignoring return value of function
+//                       declared with 'nodiscard' attribute [-Wunused-result]   (ebenso :57, :66, :70)
+//
+// CustomAllocation1::append() meldet einen vollen Puffer mit UINT64_MAX, CustomAllocation2::
+// push_state() mit false. Beide Rueckgaben wurden verworfen -- ab dem ersten Ueberlauf ging jeder
+// weitere Satz verloren, ohne Wurf, ohne Rueckgabe, ohne Luecke in records_collected() (das klemmt
+// auf capacity_). Eine unvollstaendige Messreihe war von einer vollstaendigen NICHT unterscheidbar.
+//
+// DIESE ZWEI TESTS SIND DIE WACHE. Sie messen den VERLUST, nicht die Kapazitaet: Grundgesamtheit ist
+// die Zahl der ANGEBOTENEN Saetze, und die steht in der Ausgabe. Das Orakel kommt NICHT aus dem
+// Prueflung -- die Kapazitaet wird aus der KONSTRUKTOR-Angabe und sizeof(MeasurementRecord32)
+// gerechnet (beides von aussen bekannt), nicht aus records_collected() erfragt.
+// ---------------------------------------------------------------------------
+TEST(BenchmarkRunnerVerlust, NENNER_UeberlaufWirdGEZAEHLT_StattStillZuSchlucken) {
+    constexpr std::size_t kKapazitaetSaetze = 8;
+    constexpr std::size_t kBytes            = kKapazitaetSaetze * sizeof(bs::MeasurementRecord32);
+    constexpr std::size_t kAngeboten        = 20; // mehr als hineinpasst -- der Koeder
+
+    bs::BenchmarkRunner runner{kBytes, 4096};
+    for (std::size_t i = 0; i < kAngeboten; ++i) {
+        auto const h = runner.begin_measurement("ueberlauf");
+        (void)h;
+    }
+
+    auto const gespeichert = runner.records_collected();
+    auto const verworfen   = runner.dropped_records();
+    std::cout << "[VERLUST-NENNER] angeboten: " << kAngeboten << " -- gespeichert: " << gespeichert
+              << " -- verworfen: " << verworfen << " (Kapazitaet " << kKapazitaetSaetze
+              << " Saetze, gerechnet aus " << kBytes << " Byte / sizeof(MeasurementRecord32)="
+              << sizeof(bs::MeasurementRecord32) << ")\n";
+
+    EXPECT_EQ(gespeichert, kKapazitaetSaetze) << "der Puffer nimmt genau seine Kapazitaet auf";
+    EXPECT_EQ(verworfen, kAngeboten - kKapazitaetSaetze) << "und JEDER darueber hinaus angebotene Satz ist gezaehlt";
+    // DIE EIGENTLICHE ZUSICHERUNG: angeboten == gespeichert + verworfen. Vor der Heilung war die
+    // rechte Seite nur `gespeichert`, und die Differenz existierte nirgends.
+    EXPECT_EQ(gespeichert + verworfen, kAngeboten) << "kein Satz faellt zwischen die Zaehler";
+    EXPECT_FALSE(runner.messreihe_ist_vollstaendig()) << "eine Reihe mit Verlust darf sich NICHT vollstaendig nennen";
+}
+
+TEST(BenchmarkRunnerVerlust, NENNER_AuchDerZustandsLogZaehltSeinenUeberlauf) {
+    // push_state braucht 10 + delta.size() Byte. Bei 8-Byte-Delta sind das 18 -- in 32 Byte passt
+    // genau EINER, der zweite muss als Verlust erscheinen.
+    constexpr std::size_t kLogBytes  = 32;
+    constexpr std::size_t kAngeboten = 5;
+
+    bs::BenchmarkRunner      runner{1024 * 32, kLogBytes};
+    std::array<std::byte, 8> delta{};
+    for (std::size_t i = 0; i < kAngeboten; ++i) runner.log_sparse_state(static_cast<std::uint8_t>(i), delta);
+
+    std::cout << "[VERLUST-NENNER] Zustands-Pushes angeboten: " << kAngeboten
+              << " -- verworfen: " << runner.dropped_states() << " (Log-Kapazitaet " << kLogBytes
+              << " Byte, Bedarf je Push 10+" << delta.size() << ")\n";
+    EXPECT_GT(runner.dropped_states(), 0u) << "der Koeder muss beissen: 5 Pushes passen nicht in 32 Byte";
+    EXPECT_FALSE(runner.messreihe_ist_vollstaendig());
+
+    // GEGENEINGANG (T-4): derselbe Ablauf mit ausreichendem Log verliert NICHTS.
+    bs::BenchmarkRunner weit{1024 * 32, 4096};
+    for (std::size_t i = 0; i < kAngeboten; ++i) weit.log_sparse_state(static_cast<std::uint8_t>(i), delta);
+    EXPECT_EQ(weit.dropped_states(), 0u) << "sonst waere die Wache konstant rot und wuerde nichts unterscheiden";
+    EXPECT_TRUE(weit.messreihe_ist_vollstaendig());
 }
 
 TEST(BenchmarkRunner, SparseStateLog) {

@@ -72,14 +72,36 @@ struct ExperimentSubtreePayload {
 
 namespace detail {
 
-/// AxisKind -> Wire-Token (Ledger §30-Vokabular). Total ueber die drei Enumeratoren (kein Default-Ausfall).
+/// AxisKind -> Wire-Token (Ledger §30-Vokabular). Total ueber ALLE Enumeratoren (kein Default-Ausfall).
+///
+/// BEFUND (Warnungs-Review Runde 2b, 09.08.2026, clang ueber den Test-Bau):
+///     experiment_dock_payload.hpp:77:13: warning: enumeration values 'system_meta_meta',
+///     'measurement_meta_meta', and 'organ_meta_meta' not handled in switch [-Wswitch]
+/// Der Satz eine Zeile darueber ("Total ueber die drei Enumeratoren") war seit dem Anwachsen von
+/// AxisKind auf SECHS Enumeratoren falsch. Die Folge war nicht ein Absturz, sondern die
+/// Fehlerklasse dieses Hauses: jede Meta-Meta-Achse waere als "organ" auf den Draht gegangen --
+/// eine ECHTE, plausible, falsche Antwort. Und weil parse_axis_kind("organ") sauber
+/// AxisKind::organ zurueckgibt, haette der Byte-Roundtrip das BESTAETIGT statt zu klappern.
+/// Heute gibt noch KEINE Achse einen der drei Werte zurueck (axis.hpp: "verhaltens- und
+/// byte-neutral") -- der Fehler ist latent, nicht aktiv. Genau deshalb ist er hier zu schliessen
+/// und nicht erst, wenn die erste Meta-Meta stempelt.
+///
+/// ADDITIV: die drei bestehenden Token sind ZEICHENGLEICH geblieben, es aendert sich kein einziges
+/// Byte einer heute schreibbaren Nutzlast. Neu sind ausschliesslich drei bisher unschreibbare Faelle.
 [[nodiscard]] inline std::string_view axis_kind_token(topics::AxisKind k) noexcept {
     switch (k) {
         case topics::AxisKind::organ: return "organ";
         case topics::AxisKind::system_config: return "system_config";
         case topics::AxisKind::system_measurement: return "system_measurement";
+        case topics::AxisKind::system_meta_meta: return "system_meta_meta";
+        case topics::AxisKind::measurement_meta_meta: return "measurement_meta_meta";
+        case topics::AxisKind::organ_meta_meta: return "organ_meta_meta";
     }
-    return "organ"; // unerreichbar (Enum vollstaendig); haelt den switch total
+    // LEER, NICHT "organ": erreichbar nur noch fuer einen Wert, den niemand deklariert hat (Cast aus
+    // fremder Zahl). Ein plausibler Ersatzname waere genau der stille Stellvertreter, der oben den
+    // Befund ausgemacht hat -- leer laesst parse_axis_kind unten scheitern und macht ihn laut.
+    // Dieselbe Doktrin traegt lager_baum_writer.hpp fuer die Lager-Token.
+    return {};
 }
 
 /// Wire-Token -> AxisKind. false bei unbekanntem Token (der Negativ-Fall des Parsers -> harter Fehler).
@@ -94,6 +116,21 @@ namespace detail {
     }
     if (s == "system_measurement") {
         out = topics::AxisKind::system_measurement;
+        return true;
+    }
+    // Die drei Meta-Meta-Realms -- SYMMETRISCH zu axis_kind_token oben nachgezogen. Ein Schreiber,
+    // der einen Token emittiert, den der Leser nicht kennt, waere kein Roundtrip, sondern eine
+    // Einbahnstrasse mit gruenem Testat.
+    if (s == "system_meta_meta") {
+        out = topics::AxisKind::system_meta_meta;
+        return true;
+    }
+    if (s == "measurement_meta_meta") {
+        out = topics::AxisKind::measurement_meta_meta;
+        return true;
+    }
+    if (s == "organ_meta_meta") {
+        out = topics::AxisKind::organ_meta_meta;
         return true;
     }
     return false; // unbekanntes kind => Parse-Fehler (nie stille Fehlfaerbung)
