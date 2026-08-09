@@ -70,10 +70,16 @@ inline constexpr std::size_t kV3FieldCount = 8;
 
 // ── Schema-Tabelle: (axis_idx, field_idx) → Feldname. SINGLE-SOURCE in kCompositionAxisNames-Reihenfolge.
 //    Leere Strings = (noch) nicht befülltes Feld; eine Achse, deren Felder alle "" sind, ist Phase-B (= 0).
-//    Diese Tabelle treibt die CSV-Spaltennamen (stat_<achse>_<feld>) → keine Namens-Drift. Seit Phase-B-Abschluss
-//    (2026-06-04) sind ALLE 17 Achsen befüllt (Phase A: T0,T1,T2,T4,T5,T6,T9,T15,T16; Phase B ergänzt
-//    T3 path_compression, T7 prefetch, T8 concurrency, T10 value_handle, T11 index_org, T12 io_dispatch,
-//    T13 migration_policy, T14 filter; INC-2d: isa raus). ────────────────────────────────────────────────────────
+//    Diese Tabelle treibt die CSV-Spaltennamen (stat_<achse>_<feld>) -> keine Namens-Drift.
+//    LEBEND: befuellt sind ALLE 18 Achsen (kV3AxisCount; nachgerechnet von kV3FilledAxisCount unten,
+//    T17 persistence_target seit STRUKT-R ORG-18 eingeschlossen).
+//    Nachsatz HY-0 08.08.2026: die Zeile darunter behauptete im Praesens, alle -- damals 17 -- Achsen
+//    seien befuellt: dieselbe Klasse wie die Major-Kopie im Dateikopf, zehn Zeilen UNTER der Heilung,
+//    und die erste Wachen-Fassung sah sie nicht (Teil D kannte nur axis_stats[N]/seg_ns[N]). Jetzt Historie:
+//    Seit Phase-B-Abschluss (2026-06-04) waren ALLE 17 Achsen befuellt -- ABI-HISTORIE gegen SHA 42b34354
+//    (Phase A: T0,T1,T2,T4,T5,T6,T9,T15,T16; Phase B ergaenzt T3 path_compression, T7 prefetch,
+//    T8 concurrency, T10 value_handle, T11 index_org, T12 io_dispatch, T13 migration_policy, T14 filter;
+//    INC-2d: isa raus). ----------------------------------------------------------------------------------
 struct V3AxisFieldNames {
     char const* names[kV3FieldCount] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 };

@@ -49,12 +49,21 @@
 #   Anwesenheit).
 #
 # TEIL B -- LEBEND-BEHAUPTUNGEN im GESAMTEN Repo (Nenner: alle getrackten Dateien
-#   ausser ext/). Eine Zeile, die "aktuell" oder "lebender Stand" zusammen mit einer
+#   ausser ext/). Eine Zeile, die eine Lebend-Formulierung zusammen mit einer
 #   Major-Zahl nennt, BEHAUPTET den heutigen Stand. Sie muss mit dem Header
 #   uebereinstimmen. Dieser Teil hat KEINE Liste, die jemand pflegen muesste -- er
 #   findet die Schwesterstelle auch in einer Datei, an die beim Bau dieser Wache
-#   niemand gedacht hat. Am Objekt gefunden (08.08., 2490 getrackte Nicht-ext-
-#   Dateien): GENAU ZWEI solche Zeilen, davon eine falsch.
+#   niemand gedacht hat.
+#   GRAMMATIK (Nachsatz 08.08., Review-Mangel geschlossen): die erste Fassung sah
+#   nur "aktuell" und "lebender stand" und wertete nur den ERSTEN Major-Treffer der
+#   Zeile. Das Paket HY-0 hatte SELBST eine Lebend-Behauptung in der Formulierung
+#   "Lebend gilt seitdem: Major <n>" gepflanzt -- unsichtbar fuer die eigene Wache
+#   (Koeder-Beleg: dieselbe Formulierung mit gewuerfelter Major-Ziffer blieb gruen;
+#   die Ziffer steht hier bewusst NICHT, ein Zitat veraltet wie das Original).
+#   Jetzt triggern "aktuell", "lebender stand", "lebend gilt", "lebend seit" und
+#   "lebend:" (benannte LISTE, s. Grenze 6), und ALLE Major-Treffer der Zeile werden
+#   gewertet, nicht nur der erste. Teil-B-Funde MIT Anker laufen zusaetzlich durch
+#   die Anker-Pruefung von Teil C (Dubletten zur Teil-A-Liste ausgenommen).
 #
 # TEIL D -- POD-MASSE (Schwesterklasse, am 08.08. per T-6 gefunden): dieselbe
 #   Fehlerklasse -- eine Zahl, die anderswo lebt, als Kopie im Kommentar -- trifft im
@@ -66,15 +75,32 @@
 #   in den geprueften Dateien gegen kV3AxisCount -- mit derselben Marker-Regel wie
 #   Teil A. Symbolische Formen (axis_stats[kV3AxisCount][8]) sind KEINE Kopie und
 #   werden nicht angefasst; sie sind der richtige Weg, diese Wache leerlaufen zu lassen.
+#   NACHSATZ 08.08. (Review-Maengel geschlossen): Teil D prueft ZUSAETZLICH
+#     * "ALLE <N> ...Achsen" / "ALLER <N> ...Achsen" -- die Totalitaets-Behauptung
+#       ueber die Achsenzahl in Prosa (der blockierende Mangel stand als
+#       "sind ALLE 17 Achsen befuellt" in der bereits GEHEILTEN Datei, 10 Zeilen
+#       unter der Heilung, und diese Wache sah ihn nicht),
+#     * "T0..T<M>" -- die Bereichs-Obergrenze muss kV3AxisCount-1 sein,
+#   und er laeuft ueber eine EIGENE Dateiliste: die Teil-A-Liste PLUS die von
+#   observable_tier.hpp direkt eingebundene Schwesterdatei measurable_workload.hpp
+#   (dort lebte die Klasse weiter: seg_ns[17], ALLE(R) 17, T0..T16).
 #
-# TEIL C -- ANKER (die eigentliche Anker-Wache): traegt eine Zeile aus Teil A einen
-#   Anker der Form anatomy_module_abi_v1_decl.hpp:<L>, dann MUSS die Zeile <L>
+# TEIL C -- ANKER (die eigentliche Anker-Wache): traegt eine Zeile aus Teil A oder
+#   Teil B einen Anker der Form anatomy_module_abi_v1_decl.hpp:<L>, dann MUSS die
+#   Zeile <L>
 #     * bei LEBEND-Zeilen: im HEUTIGEN Header ein #define mit der behaupteten Zahl
-#       tragen (MAJOR <N> oder MAGIC mit der zu <N> gerechneten Byte-Folge),
+#       tragen (MAJOR <N> ODER MAGIC mit der zu <N> gerechneten Byte-Folge -- beide
+#       kodieren denselben ABI-Stand, eine Zeile darf auf beide zeigen),
 #     * bei HISTORIE-Zeilen: in `git show <SHA>:<Header>` dasselbe tragen.
 #   Damit ist "gegen SHA <pin> verifizierte Historie" keine Behauptung mehr, sondern
 #   eine bei jedem Lauf nachgerechnete Aussage -- und ein LEBEND-Anker kann nicht
 #   still verrotten, wenn sich der Header verschiebt.
+#   FAIL-CLOSED (Nachsatz 08.08., Review-Mangel geschlossen): ein Historien-SHA,
+#   dessen Objekt in einem VOLLEN Klon fehlt, ist ab jetzt ein BEFUND (erfunden,
+#   vertippt oder nie gepusht -- Koeder-Beleg: ein aus /dev/urandom gewuerfeltes
+#   40-Hex-SHA lief vorher als "nicht pruefbar" mit rc=0 durch). NUR in einem
+#   FLACHEN Klon (git rev-parse --is-shallow-repository = true) bleibt das fehlende
+#   Objekt eine gezaehlte, benannte Luecke -- dort fehlt der Klon, nicht die Aussage.
 #
 # ====================== GRENZEN, EHRLICH BENANNT =============================
 #  1. TEIL A hat eine LISTE. Ein NEUES Hybrid-Dokument, das niemand eintraegt, wird
@@ -92,19 +118,32 @@
 #  3. Diese Wache prueft ETIKETTEN, nicht ARCHITEKTUR. Ob die Hybrid-Stufe wirklich
 #     ohne eigenen ABI-Schritt auskommt, sagt sie nicht -- nur, dass die Doku ueber
 #     die ABI dasselbe sagt wie die ABI.
-#  3b. TEIL D deckt GENAU ZWEI POD-Masse (axis_stats[N][8], seg_ns[N]) gegen
-#     kV3AxisCount. Andere Zahlen desselben PODs -- sizeof 1344, kV3FieldCount 8,
-#     organ_count() -- sind NICHT gedeckt; fuer sie fehlt eine ebenso eindeutige
-#     Einzelquelle im selben Header.
+#  3b. TEIL D deckt die POD-Masse axis_stats[N][8] und seg_ns[N], die Totalitaets-
+#     Form "ALLE(R) <N> ...Achsen" und die Bereichs-Obergrenze "T0..T<M>" gegen
+#     kV3AxisCount. NICHT gedeckt bleiben: Teilmengen-Zaehlungen ("13 der Achsen
+#     sind passiv", "4 instrumentierte Achsen" -- ihr Soll ist NICHT kV3AxisCount,
+#     eine Pruefung dagegen waere eine Falschklage), Slot-Angaben ohne das Wort
+#     Achsen ("17 Slots"), Zahlangaben ohne ALLE(R) davor ("die 18 ...-Achsen"),
+#     sowie sizeof 1344, kV3FieldCount 8 und organ_count(). Die geheilten Stellen
+#     dieser Klassen tragen deshalb KEINE Kopie mehr, sondern den Verweis.
 #  4. Terminologie (Gattung/Genus-Sprache in Kommentaren) ist AUSDRUECKLICH NICHT
 #     gedeckt. Eine Sprach-Wache ueber Prosa waere unverhaeltnismaessig und wuerde
 #     an Synonymen scheitern; sie bliebe entweder blind oder eine Dauerklage.
-#  5. FLACHER KLON: liegt das SHA-Objekt eines Historien-Ankers nicht im Baum (GitLab
-#     klont per Default flach), kann Teil C diesen EINEN Anker nicht entscheiden. Das
-#     ist eine Eigenschaft des Klons, nicht der Aussage: derselbe Anker waere lokal
-#     gruen und in der CI rot. Solche Anker werden deshalb GEZAEHLT und bei jedem Lauf
-#     einzeln genannt, statt rot oder still gruen zu sein. Liegt das Objekt DA und
-#     widerspricht, bleibt es ein harter Befund.
+#  5. FLACHER KLON: NUR dort (GitLab klont per Default flach) ist ein fehlendes
+#     SHA-Objekt eine Eigenschaft des Klons, nicht der Aussage -- solche Anker werden
+#     GEZAEHLT und bei jedem Lauf einzeln genannt, statt rot oder still gruen zu
+#     sein. In einem VOLLEN Klon ist dasselbe fehlende Objekt ein harter BEFUND
+#     (fail-closed, s. Teil C). Nicht unterschieden wird ein PARTIELLER Klon
+#     (--filter/promisor): er meldet --is-shallow-repository=false und wuerde wie
+#     ein voller behandelt -- dort kann ein realer, nur nicht geholter Pin faelschlich
+#     rot werden. Das ist die fail-closed-Richtung und bleibt benannt statt geraten.
+#  6. TEIL B ist eine benannte GRAMMATIK-LISTE (aktuell / lebender stand /
+#     lebend gilt / lebend seit / lebend:). Eine Lebend-Behauptung in einer
+#     Formulierung AUSSERHALB der Liste sieht er nicht ("ist derzeit Major N").
+#     Bewusst NICHT aufgenommen: das nackte Wort "lebend" -- es traefe legitime
+#     Saetze wie "der eingefrorene Major-7-Host ist am lebenden Host NICHT
+#     ladefaehig" (tests/unit/test_v41_anatomy_module_abi.cpp) und machte die
+#     Wache zur Dauerklage.
 #
 # WERKZEUG-DISZIPLIN: /usr/bin/grep explizit (das blosse Wort 'grep' ist in dieser
 # Umgebung eine ugrep-Emulation), Kern-Logik in EINEM awk-Programm ohne Pipe in eine
@@ -145,6 +184,22 @@ DECL_REL="libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.
 DOKU_STANDARD="libs/cache_engine/hybrid/README.md
 docs/architecture/20260802-hybrid_tier_stufe_soll_design.md
 libs/cache_engine/anatomy/observable_tier.hpp"
+
+# Teil D laeuft ZUSAETZLICH ueber die von observable_tier.hpp:47 direkt eingebundene
+# Schwesterdatei (Nachsatz 08.08., Review-Mangel geschlossen: dort lebte dieselbe
+# Klasse weiter -- seg_ns[17], "ALLE(R) 17 ...Achsen", T0..T16) und ueber
+# perm_runner.hpp (bei der Nachsatz-T-6-Suche gefunden: vier lebende 17er-Aussagen
+# derselben Klasse, u.a. "ALLE 17 Achsen ... warmup-frei"). Beide stehen bewusst
+# NICHT in der Teil-A-Liste: sie tragen keine Major-/Magic-Etiketten, die
+# Lebend-Pflicht A2 waere dort eine leere Forderung und damit eine Dauerklage.
+# NICHT aufgenommen: result_ingest.hpp -- seine "17-Segment-id" beschreibt das
+# ALT-Format (Zeilen vor ORG-18 tragen konstruktionsbedingt 17 Segmente), eine
+# korrekte Aussage, die gegen kV3AxisCount zu halten eine Falschklage waere.
+# Repo-weit laufen die D-Muster NICHT: 161 "alle N ...Achsen"-Zeilen in 93 Dateien
+# tragen ueberwiegend FREMDE Nenner (11 Baustein-, 19 Alt-, 22 Registry-Achsen)
+# oder legitime Bump-Erzaehlung -- das waere die Dauerklage aus Grenze 1.
+POD_ZUSATZ="libs/cache_engine/anatomy/measurable_workload.hpp
+libs/cache_engine/harness/perm_runner.hpp"
 
 abbruch() {
     echo "$NAME: ABBRUCH -- $1" >&2
@@ -237,6 +292,28 @@ else
 fi
 N_DATEIEN=$(awk 'END { print NR+0 }' "$TMP/dateien.txt")
 [ "$N_DATEIEN" -gt 0 ] || abbruch "0 Dateien zu pruefen -- ein leerer Nenner ist kein bestandener Lauf."
+
+# -- Teil-D-Dateiliste: Teil-A-Liste plus POD_ZUSATZ (nur im Standard-Modus; im
+#    Koeder-/Einzelmodus prueft Teil D genau die uebergebenen Dateien).
+cp "$TMP/dateien.txt" "$TMP/dateien_d.txt"
+if [ $# -eq 0 ]; then
+    echo "$POD_ZUSATZ" | while IFS= read -r D; do
+        [ -n "$D" ] || continue
+        [ -f "$WURZEL/$D" ] || abbruch "Teil-D-Datei fehlt: $WURZEL/$D" \
+            "Eine verschwundene Datei darf den Nenner nicht still schrumpfen lassen."
+        echo "$WURZEL/$D"
+    done >> "$TMP/dateien_d.txt"
+fi
+N_DATEIEN_D=$(awk 'END { print NR+0 }' "$TMP/dateien_d.txt")
+
+# -- Klon-Beschaffenheit EINMAL bestimmen (Teil C, fail-closed): kann git die Frage
+#    nicht beantworten, kann diese Wache "fehlendes Objekt" nicht von "flacher Klon"
+#    unterscheiden -- dann darf sie nicht gruen werden.
+SHALLOW=$(git -C "$WURZEL" rev-parse --is-shallow-repository 2>/dev/null) || SHALLOW=""
+[ "$SHALLOW" = "true" ] || [ "$SHALLOW" = "false" ] || abbruch \
+    "Klon-Beschaffenheit unbestimmbar (git rev-parse --is-shallow-repository in '$WURZEL')." \
+    "Ohne diese Antwort ist 'SHA-Objekt fehlt' nicht von 'Klon ist flach' zu trennen," \
+    "und Teil C waere entweder fail-open oder eine Falschklage."
 
 echo "============================================================================="
 echo " $NAME -- ABI-ETIKETT- UND ANKER-WACHE"
@@ -367,6 +444,83 @@ while IFS= read -r F; do
 done < "$TMP/dateien.txt"
 N_OHNE_LEBEND=$(awk 'END { print NR+0 }' "$TMP/ohne_lebend.txt")
 
+# -- TEIL B: LEBEND-Behauptungen im GESAMTEN Repo (VOR Teil C: seine Anker laufen
+#    dort mit) -----------------------------------------------------------------
+# Nenner FREMD und ohne Liste: git nennt den Bestand. Laeuft die Wache auf einer
+# uebergebenen Datei (Koeder), entfaellt Teil B -- er hat dann keinen Bezug.
+# Ausgabeformat = das 8-Spalten-Format von Teil A, damit Teil C beide lesen kann.
+N_B_DATEIEN=0
+N_B_TREFFER=0
+N_B_BEFUND=0
+: > "$TMP/b_funde.txt"
+: > "$TMP/befund_b.txt"
+if [ $# -eq 0 ]; then
+    if ( cd "$WURZEL" && git ls-files -z >/dev/null 2>&1 ); then
+        ( cd "$WURZEL" && git -c core.quotePath=off ls-files ) | "$GREP" -v '^ext/' > "$TMP/bestand.txt" || true
+        N_B_DATEIEN=$(awk 'END { print NR+0 }' "$TMP/bestand.txt")
+        [ "$N_B_DATEIEN" -gt 0 ] || abbruch "git ls-files nennt 0 Dateien -- Teil B haette keinen Nenner."
+        ( cd "$WURZEL" && awk -v LEBEND="$MAJOR" '
+            function marker_sha(zeile,   s) {
+                if (match(zeile, /ABI-HISTORIE gegen SHA [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]+/)) {
+                    s = substr(zeile, RSTART, RLENGTH)
+                    sub(/^ABI-HISTORIE gegen SHA /, "", s)
+                    return s
+                }
+                return "-"
+            }
+            function anker(zeile,   rest, liste, t, st, ln) {
+                liste = ""
+                rest = zeile
+                while (match(rest, /anatomy_module_abi_v1_decl\.hpp:[0-9]+/)) {
+                    st = RSTART; ln = RLENGTH
+                    t = substr(rest, st, ln)
+                    sub(/^anatomy_module_abi_v1_decl\.hpp:/, "", t)
+                    liste = (liste == "") ? t : liste "," t
+                    rest = substr(rest, st + ln)
+                }
+                return (liste == "") ? "-" : liste
+            }
+            {
+                z = $0
+                lz = tolower(z)
+                # Benannte Grammatik-LISTE (s. Grenze 6). Das nackte "lebend" ist
+                # bewusst nicht dabei -- es traefe legitime Saetze.
+                if (lz !~ /aktuell/ && lz !~ /lebend(er)?[ ]+(stand|gilt|seit)/ && lz !~ /lebend:/) next
+                # ALLE Major-Treffer der Zeile, nicht nur der erste (Randnotiz des
+                # Reviews: der erste Treffer entschied, der zweite blieb ungesehen).
+                sha = marker_sha(z)
+                ank = anker(z)
+                zz = z; gsub(/\t/, " ", zz)
+                rest = lz
+                while (match(rest, /major[ ]*-?[ ]*[0-9]+/)) {
+                    st = RSTART; ln = RLENGTH
+                    t = substr(rest, st, ln)
+                    sub(/^major[ ]*-?[ ]*/, "", t)
+                    if (t + 0 == LEBEND + 0)  kl = "LEBEND"
+                    else if (sha != "-")      kl = "HISTORIE"
+                    else                      kl = "BEFUND"
+                    printf "%s\t%s\t%s\tMAJOR\t%s\t%s\t%s\t%s\n", kl, FILENAME, FNR, t + 0, sha, ank, zz
+                    rest = substr(rest, st + ln)
+                }
+            }
+        ' $(cat "$TMP/bestand.txt") ) > "$TMP/b_funde.txt" 2>/dev/null || true
+        N_B_TREFFER=$(awk 'END { print NR+0 }' "$TMP/b_funde.txt")
+        awk -F'\t' '$1=="BEFUND"' "$TMP/b_funde.txt" > "$TMP/befund_b.txt"
+        N_B_BEFUND=$(awk 'END { print NR+0 }' "$TMP/befund_b.txt")
+    else
+        abbruch "Teil B braucht git ls-files in '$WURZEL' -- ohne Bestand kein Nenner."
+    fi
+fi
+
+# -- C-Futter: Teil-A-Funde plus Teil-B-Funde ausserhalb der Teil-A-Liste --------
+# (Teil-B-Pfade sind repo-relativ -> absolut machen; Dateien der Teil-A-Liste sind
+#  dort bereits mit denselben Zeilen vertreten und wuerden doppelt gezaehlt.)
+awk -F'\t' -v OFS='\t' -v w="$WURZEL" '
+    NR==FNR { seen[$0] = 1; next }
+    { p = w "/" $2; if (p in seen) next; $2 = p; print }
+' "$TMP/dateien.txt" "$TMP/b_funde.txt" > "$TMP/b_funde_extern.txt"
+cat "$TMP/funde.txt" "$TMP/b_funde_extern.txt" > "$TMP/anker_quelle.txt"
+
 # -- TEIL C: Anker nachrechnen ------------------------------------------------
 # Fuer jede Angabe mit Anker: zeigt die Zeile wirklich auf das behauptete #define?
 : > "$TMP/anker_befund.txt"
@@ -386,32 +540,39 @@ while IFS="$(printf '\t')" read -r KL DAT ZL ART N SHA ANK TXT; do
             ZEILE=$(sed -n "${L}p" "$DECL" 2>/dev/null || true)
             HERKUNFT="heutiger Header"
         else
-            # FLACHER KLON ist eine Eigenschaft des KLONS, nicht der Aussage. GitLab
-            # klont per Default flach (GIT_DEPTH); ein Pin von vor drei Wochen liegt
-            # dann nicht im Baum. Daraus rc=1 zu machen hiesse, dieselbe Aussage lokal
-            # gruen und in der CI rot zu fahren -- und rc=0 ohne Wort waere die stille
-            # Null. Deshalb: NICHT PRUEFBAR wird gezaehlt und bei JEDEM Lauf genannt.
-            # Ist das Objekt DA und widerspricht, bleibt es ein harter Befund.
+            # FAIL-CLOSED (Nachsatz 08.08.): fehlt das SHA-Objekt, entscheidet die
+            # Klon-Beschaffenheit. In einem FLACHEN Klon (GitLab GIT_DEPTH) fehlt der
+            # KLON, nicht die Aussage -- gezaehlte, benannte Luecke wie bisher. In
+            # einem VOLLEN Klon MUSS jedes je gepushte Objekt da sein: ein fehlendes
+            # ist erfunden, vertippt oder nie gepusht -- ein harter BEFUND. Vorher
+            # lief ein gewuerfeltes 40-Hex-SHA hier als "nicht pruefbar" mit rc=0
+            # durch (Koeder-Beleg im Nachsatz-Commit): genau die stille Null.
             if ! git -C "$WURZEL" cat-file -e "${SHA}^{commit}" 2>/dev/null; then
-                N_ANKER_UNPRUEFBAR=$((N_ANKER_UNPRUEFBAR + 1))
-                echo "  $DAT:$ZL  Anker -> ${DECL_REL}:${L}  (SHA $SHA liegt nicht in diesem Klon)" >> "$TMP/anker_unpruefbar.txt"
+                if [ "$SHALLOW" = "true" ]; then
+                    N_ANKER_UNPRUEFBAR=$((N_ANKER_UNPRUEFBAR + 1))
+                    echo "  $DAT:$ZL  Anker -> ${DECL_REL}:${L}  (SHA $SHA liegt nicht in diesem FLACHEN Klon)" >> "$TMP/anker_unpruefbar.txt"
+                else
+                    {
+                        echo "  $DAT:$ZL  Anker -> ${DECL_REL}:${L}  (SHA $SHA)"
+                        echo "      behauptet: verifizierte Historie gegen SHA $SHA"
+                        echo "      dort steht: <kein solches Objekt in diesem VOLLEN Klon -- erfunden, vertippt oder nie gepusht>"
+                    } >> "$TMP/anker_befund.txt"
+                fi
                 IFS=,
                 continue
             fi
             ZEILE=$(git -C "$WURZEL" show "${SHA}:${DECL_REL}" 2>/dev/null | sed -n "${L}p") || ZEILE=""
             HERKUNFT="SHA $SHA"
         fi
-        TREFFER=0
-        case "$ART" in
-            MAJOR)
-                printf '%s\n' "$ZEILE" | awk -v n="$N" '$1=="#define" && $2=="COMDARE_ANATOMY_ABI_MAJOR" && $3+0==n+0 { ok=1 } END { exit !ok }' && TREFFER=1 || TREFFER=0
-                ERWARTET="#define COMDARE_ANATOMY_ABI_MAJOR $N"
-                ;;
-            MAGIC)
-                printf '%s\n' "$ZEILE" | awk -v h="$ERW_MAGIC" '$1=="#define" && $2=="COMDARE_ANATOMY_ABI_MAGIC" && toupper($3) ~ ("^0X" h) { ok=1 } END { exit !ok }' && TREFFER=1 || TREFFER=0
-                ERWARTET="#define COMDARE_ANATOMY_ABI_MAGIC 0x${ERW_MAGIC}ULL"
-                ;;
-        esac
+        # ODER-Treffer: MAJOR-define mit N oder MAGIC-define mit der aus N gerechneten
+        # Byte-Folge -- beide kodieren denselben ABI-Stand. Eine Zeile wie "Major 8,
+        # Magic .A8. -- Belege :89 und :93" traegt EINE Angabe mit ZWEI Ankern; jeder
+        # der beiden ist mit jeder der beiden Formen gedeckt.
+        printf '%s\n' "$ZEILE" | awk -v n="$N" -v h="$ERW_MAGIC" '
+            $1=="#define" && $2=="COMDARE_ANATOMY_ABI_MAJOR" && $3+0==n+0            { ok=1 }
+            $1=="#define" && $2=="COMDARE_ANATOMY_ABI_MAGIC" && toupper($3) ~ ("^0X" h) { ok=1 }
+            END { exit !ok }' && TREFFER=1 || TREFFER=0
+        ERWARTET="#define COMDARE_ANATOMY_ABI_MAJOR $N  ODER  #define COMDARE_ANATOMY_ABI_MAGIC 0x${ERW_MAGIC}ULL"
         if [ "$TREFFER" -eq 1 ]; then
             N_ANKER_OK=$((N_ANKER_OK + 1))
         else
@@ -424,7 +585,7 @@ while IFS="$(printf '\t')" read -r KL DAT ZL ART N SHA ANK TXT; do
         IFS=,
     done
     IFS=$OLDIFS
-done < "$TMP/funde.txt"
+done < "$TMP/anker_quelle.txt"
 N_ANKER_BEFUND=$((N_ANKER - N_ANKER_OK - N_ANKER_UNPRUEFBAR))
 
 # -- TEIL D: POD-Masse gegen kV3AxisCount --------------------------------------
@@ -451,23 +612,42 @@ if [ -f "$POD_HDR" ]; then
         # match(rest, "0") trifft dann jede Null der Zeile. Genau das ist beim ersten
         # Lauf am 08.08. passiert: 386 erfundene Befunde, darunter "axis_stats[0]" in
         # einer Zeile ohne jedes axis_stats. Dynamische Regexe gehoeren in Strings.
-        function pruefe(feld, muster,   rest, st, ln, t) {
-            rest = $0
+        # quelle: der Text, in dem gesucht wird (Original oder GROSS-Kopie);
+        # soll: der Wert, den die Angabe tragen muss (N bzw. N-1 bei T0..TM);
+        # praefix: was vor der Zahl weggeschnitten wird (statt gsub aller
+        # Nicht-Ziffern -- "T0..T16" enthaelt ZWEI Zahlengruppen, gsub machte
+        # daraus "016").
+        function pruefe(feld, muster, quelle, soll, praefix,   rest, st, ln, t, zz) {
+            rest = quelle
             while (match(rest, muster)) {
                 st = RSTART; ln = RLENGTH        # global, s. Teil A
                 t = substr(rest, st, ln)
-                gsub(/[^0-9]/, "", t)
+                sub(praefix, "", t)
+                sub(/[^0-9].*$/, "", t)
                 gesamt++
-                if (t + 0 != N + 0 && !marker($0)) {
-                    gsub(/\t/, " ")
-                    printf "BEFUND\t%s\t%s\t%s\t%s\t%s\n", FILENAME, FNR, feld, t + 0, $0
+                if (t + 0 != soll + 0 && !marker($0)) {
+                    zz = $0
+                    gsub(/\t/, " ", zz)
+                    printf "BEFUND\t%s\t%s\t%s\t%s\t%s\t%s\n", FILENAME, FNR, feld, t + 0, soll + 0, zz
                 }
                 rest = substr(rest, st + ln)
             }
         }
-        { pruefe("axis_stats", "axis_stats\\[[0-9]+\\]"); pruefe("seg_ns", "seg_ns\\[[0-9]+\\]") }
+        {
+            up = toupper($0)
+            pruefe("axis_stats[N]", "axis_stats\\[[0-9]+\\]", $0, N, "^axis_stats\\[")
+            pruefe("seg_ns[N]",     "seg_ns\\[[0-9]+\\]",     $0, N, "^seg_ns\\[")
+            # Totalitaets-Behauptung in Prosa: "ALLE 17 Achsen", "ALLER 17
+            # SearchAlgorithm-Achsen". Gross-Kopie, damit Gross-/Kleinschreibung
+            # keine Rolle spielt; gemeldet wird das Original. Teilmengen ("13 der
+            # Achsen") und "die 18 ..." OHNE alle(r) sind bewusst NICHT gedeckt
+            # (Grenze 3b) -- ihr Soll ist nicht kV3AxisCount.
+            pruefe("ALLE-N-ACHSEN", "ALLER?[ ]+[0-9]+[ ]+[A-Z0-9_-]*ACHSEN", up, N, "^ALLER?[ ]+")
+            # Bereichs-Obergrenze: T0..T<M> muss T0..T<kV3AxisCount-1> sein.
+            pruefe("T0..TM", "T0\\.\\.T[0-9]+", up, N - 1, "^T0\\.\\.T")
+        }
         END { printf "GESAMT\t%d\n", gesamt + 0 }
-    ' $(cat "$TMP/dateien.txt") > "$TMP/pod.txt"
+    ' $(cat "$TMP/dateien_d.txt") > "$TMP/pod.txt"
 
     N_D_ANGABEN=$(awk -F'\t' '$1=="GESAMT" { s += $2 } END { print s+0 }' "$TMP/pod.txt")
     awk -F'\t' '$1=="BEFUND"' "$TMP/pod.txt" > "$TMP/befund_d.txt"
@@ -477,43 +657,7 @@ else
         "Teil D kann ohne kV3AxisCount keine Aussage treffen."
 fi
 
-# -- TEIL B: LEBEND-Behauptungen im GESAMTEN Repo ------------------------------
-# Nenner FREMD und ohne Liste: git nennt den Bestand. Laeuft die Wache auf einer
-# uebergebenen Datei (Koeder), entfaellt Teil B -- er hat dann keinen Bezug.
-N_B_DATEIEN=0
-N_B_TREFFER=0
-N_B_BEFUND=0
-: > "$TMP/befund_b.txt"
-if [ $# -eq 0 ]; then
-    if ( cd "$WURZEL" && git ls-files -z >/dev/null 2>&1 ); then
-        ( cd "$WURZEL" && git -c core.quotePath=off ls-files ) | "$GREP" -v '^ext/' > "$TMP/bestand.txt" || true
-        N_B_DATEIEN=$(awk 'END { print NR+0 }' "$TMP/bestand.txt")
-        [ "$N_B_DATEIEN" -gt 0 ] || abbruch "git ls-files nennt 0 Dateien -- Teil B haette keinen Nenner."
-        ( cd "$WURZEL" && awk -v LEBEND="$MAJOR" '
-            function marker(z) {
-                return (z ~ /ABI-HISTORIE gegen SHA [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]+/)
-            }
-            {
-                z = $0
-                lz = tolower(z)
-                if (lz !~ /aktuell/ && lz !~ /lebender stand/) next
-                if (!match(lz, /major[ ]*-?[ ]*[0-9]+/)) next
-                st = RSTART; ln = RLENGTH   # RSTART/RLENGTH sind global, s. Teil A
-                t = substr(lz, st, ln)
-                sub(/^major[ ]*-?[ ]*/, "", t)
-                gsub(/\t/, " ", z)
-                if (t + 0 == LEBEND + 0)   printf "OK\t%s\t%s\t%s\t%s\n", FILENAME, FNR, t + 0, z
-                else if (marker(z))        printf "OK\t%s\t%s\t%s\t%s\n", FILENAME, FNR, t + 0, z
-                else                       printf "BEFUND\t%s\t%s\t%s\t%s\n", FILENAME, FNR, t + 0, z
-            }
-        ' $(cat "$TMP/bestand.txt") ) > "$TMP/lebendbehauptungen.txt" 2>/dev/null || true
-        N_B_TREFFER=$(awk 'END { print NR+0 }' "$TMP/lebendbehauptungen.txt")
-        awk -F'\t' '$1=="BEFUND"' "$TMP/lebendbehauptungen.txt" > "$TMP/befund_b.txt"
-        N_B_BEFUND=$(awk 'END { print NR+0 }' "$TMP/befund_b.txt")
-    else
-        abbruch "Teil B braucht git ls-files in '$WURZEL' -- ohne Bestand kein Nenner."
-    fi
-fi
+# (Teil B laeuft seit dem Nachsatz 08.08. VOR Teil C -- seine Anker gehen dort mit.)
 
 # -- Ausgabe ------------------------------------------------------------------
 if [ "$N_BEFUND_A" -gt 0 ]; then
@@ -540,13 +684,13 @@ fi
 if [ "$N_B_BEFUND" -gt 0 ]; then
     echo ""
     echo "B) LEBEND-BEHAUPTUNG IM REPO WIDERSPRICHT DEM HEADER:"
-    awk -F'\t' -v m="$MAJOR" '{ printf "  %s:%s  behauptet Major %s, Header sagt %s\n      %s\n", $2, $3, $4, m, $5 }' "$TMP/befund_b.txt"
+    awk -F'\t' -v m="$MAJOR" '{ printf "  %s:%s  behauptet Major %s, Header sagt %s\n      %s\n", $2, $3, $5, m, $8 }' "$TMP/befund_b.txt"
 fi
 
 if [ "$N_D_BEFUND" -gt 0 ]; then
     echo ""
     echo "D) POD-MASS OHNE DECKUNG -- Kopie einer Zahl, die in kV3AxisCount lebt:"
-    awk -F'\t' -v n="$ACHSEN" '{ printf "  %s:%s  %s[%s], kV3AxisCount sagt %s\n      %s\n", $2, $3, $4, $5, n, $6 }' "$TMP/befund_d.txt"
+    awk -F'\t' '{ printf "  %s:%s  %s traegt %s, Soll (aus kV3AxisCount) ist %s\n      %s\n", $2, $3, $4, $5, $6, $7 }' "$TMP/befund_d.txt"
 fi
 
 if [ "$N_ANKER_UNPRUEFBAR" -gt 0 ]; then
@@ -575,20 +719,23 @@ echo "  A  Hybrid-Doku, Zustand 'getrackter Baum, wie er auf der Platte liegt':"
 echo "     $N_DATEIEN Datei(en), $N_ANGABEN Major-/Magic-Angabe(n) gefunden."
 echo "     davon $N_LEBEND lebend (== Major $MAJOR), $N_HIST als Historie markiert,"
 echo "     $N_BEFUND_A ohne Deckung; $N_OHNE_LEBEND Datei(en) ohne lebenden Stand."
-echo "  C  Anker, Zustand 'Zeile im heutigen Header bzw. im gepinnten SHA-Objekt':"
-echo "     $N_ANKER aufloesbare(r) Anker gesehen, $N_ANKER_OK treffen, $N_ANKER_BEFUND nicht,"
-echo "     $N_ANKER_UNPRUEFBAR nicht pruefbar (SHA-Objekt fehlt in diesem Klon)."
+echo "  C  Anker, Zustand 'Zeile im heutigen Header bzw. im gepinnten SHA-Objekt'"
+echo "     (Quelle: Teil-A-Funde plus Teil-B-Funde ausserhalb der Teil-A-Liste; Klon: $( [ "$SHALLOW" = "true" ] && echo flach || echo voll )):"
+echo "     $N_ANKER aufloesbare(r) Anker gesehen, $N_ANKER_OK treffen, $N_ANKER_BEFUND nicht"
+echo "     (fehlendes SHA-Objekt im vollen Klon zaehlt als Befund, fail-closed),"
+echo "     $N_ANKER_UNPRUEFBAR nicht pruefbar (nur im flachen Klon moeglich)."
 echo "     $N_KURZ Kurz-Anker \`:NN\` NICHT gedeckt (kein Dateiname im Anker)."
 if [ $# -eq 0 ]; then
-    echo "  B  Repo, Zustand 'git ls-files ohne ext/, Arbeitsbaum':"
+    echo "  B  Repo, Zustand 'git ls-files ohne ext/, Arbeitsbaum', Grammatik-Liste"
+    echo "     aktuell/lebender stand/lebend gilt/lebend seit/lebend: (alle Treffer je Zeile):"
     echo "     $N_B_DATEIEN Datei(en) gescannt, $N_B_TREFFER ausdrueckliche LEBEND-Behauptung(en),"
     echo "     davon $N_B_BEFUND im Widerspruch zum Header."
 else
     echo "  B  Repo-Scan uebersprungen (Aufruf mit expliziten Dateien -- Teil B haette"
     echo "     dafuer keinen Bezug). Das ist der Koeder-/Einzelpruefungs-Modus."
 fi
-echo "  D  POD-Masse, Zustand 'dieselben Dateien gegen kV3AxisCount = $ACHSEN':"
-echo "     $N_D_ANGABEN literale Angabe(n) axis_stats[N]/seg_ns[N], davon $N_D_BEFUND ohne Deckung."
+echo "  D  POD-Masse, Zustand '$N_DATEIEN_D Datei(en) (Teil-A-Liste + Schwesterdatei) gegen kV3AxisCount = $ACHSEN':"
+echo "     $N_D_ANGABEN literale Angabe(n) axis_stats[N]/seg_ns[N]/ALLE-N-Achsen/T0..TM, davon $N_D_BEFUND ohne Deckung."
 echo "-----------------------------------------------------------------------------"
 
 GESAMT_BEFUND=$((N_BEFUND_A + N_OHNE_LEBEND + N_ANKER_BEFUND + N_B_BEFUND + N_D_BEFUND))
