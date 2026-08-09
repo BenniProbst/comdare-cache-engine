@@ -148,6 +148,11 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         case anatomy::AnatomyGattung::Map: return "map";
         case anatomy::AnatomyGattung::Container: return "container";
         case anatomy::AnatomyGattung::Graph: return "graph";
+        // HY-A1 (09.08.2026), NACHGETRAGEN 09.08.2026 (Warnungs-Runde 1, Klasse REGRESSION): die
+        // vierte Ebene-1-Kategorie. Sie kam mit HY-A1 in anatomy_base.hpp an, ohne dass diese Tabelle
+        // mitwuchs -- genau der Fall, den die WACHE 1 unten compile-hart abfangen soll. Der Token folgt
+        // der Hausform der Tabelle (snake_case des Enumerator-Namens, wie "search_algorithm").
+        case anatomy::AnatomyGattung::HeuristikAdapter: return "heuristik_adapter";
     }
     return {};
 }
@@ -159,6 +164,11 @@ inline constexpr std::string_view kRealmAchse   = "realm";
         case anatomy::AnatomyGenus::Sequence: return "sequence";
         case anatomy::AnatomyGenus::Adapter: return "adapter";
         case anatomy::AnatomyGenus::View: return "view";
+        // HY-A1: das Reroute-Genus der Gattung HeuristikAdapter. Es ist ein KLASSIFIKATIONS-Wert und
+        // sortiert das Hybrid-Artefakt im Lagerbaum ein; genus() einer Hybrid-Binary liefert ihn nie
+        // (Owner-Entscheid E-1, Weg C). Fuer den Lagerbaum zaehlt aber genau die Klassifikation --
+        // deshalb braucht er hier einen Token und nicht etwa den geerbten Ziel-Genus-Token.
+        case anatomy::AnatomyGenus::FunctionInterfaceReroute: return "function_interface_reroute";
     }
     return {};
 }

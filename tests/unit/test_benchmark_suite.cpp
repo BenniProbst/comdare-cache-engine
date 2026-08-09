@@ -49,9 +49,116 @@ TEST(CustomAllocation1, ManyAppendsLockless) {
     for (int i = 0; i < 100; ++i) {
         bs::MeasurementRecord32 r{};
         r.op_id = static_cast<std::uint64_t>(i);
-        alloc.append(r);
+        // Rueckgabewert bewusst konsumiert: append() ist [[nodiscard]], und genau das Wegwerfen war
+        // der Defekt von 09.08. Hier interessiert der Slot nicht, die VOLLSTAENDIGKEIT schon --
+        // deshalb wird sie unten am Tropfen-Zaehler geprueft statt am einzelnen Rueckgabewert.
+        EXPECT_NE(alloc.append(r), bs::CustomAllocation1::kOverflow);
     }
     EXPECT_EQ(alloc.records_used(), 100u);
+    EXPECT_EQ(alloc.records_dropped(), 0u);
+}
+
+// -----------------------------------------------------------------------------
+// 09.08.2026 -- Warnungs-Runde 1, Klasse SPEICHER.
+//
+// BEFUND: append() meldet den Ueberlauf mit kOverflow, push_state() mit false. Beide Meldungen
+// wurden von BenchmarkRunner verworfen (GCC: viermal -Wunused-result). Zugleich KAPPEN
+// records_used() und bytes_used() auf die Kapazitaet. Damit war "Arena randvoll" von "Arena
+// uebergelaufen, N Saetze fehlen" nicht mehr unterscheidbar -- eine loechrige Messreihe sah aus wie
+// eine vollstaendige. Die Wachen unten machen genau diesen Unterschied sichtbar.
+//
+// NENNER dieser Gruppe: 4 Tests. Jeder nennt seine Kapazitaet in Saetzen bzw. Bytes und stellt der
+// Verlust-Zusicherung einen GEGENEINGANG gegenueber, bei dem sie faellt (T-4).
+// -----------------------------------------------------------------------------
+
+TEST(CustomAllocation1, OverflowIsCountedNotHidden) {
+    // NENNER: Kapazitaet 4 Saetze (128 Byte / 32 Byte je Satz), 6 Versuche, also 2 erwartete Verluste.
+    bs::CustomAllocation1 alloc{4 * 32};
+    ASSERT_EQ(alloc.capacity_records(), 4u) << "Vorbedingung: die Arena fasst genau 4 Saetze";
+
+    bs::MeasurementRecord32 r{};
+    for (int i = 0; i < 4; ++i) {
+        r.op_id = static_cast<std::uint64_t>(i);
+        EXPECT_NE(alloc.append(r), bs::CustomAllocation1::kOverflow) << "Satz " << i << " muss noch passen";
+    }
+    EXPECT_EQ(alloc.records_dropped(), 0u) << "randvoll ist KEIN Verlust";
+
+    for (int i = 4; i < 6; ++i) {
+        r.op_id = static_cast<std::uint64_t>(i);
+        EXPECT_EQ(alloc.append(r), bs::CustomAllocation1::kOverflow) << "Satz " << i << " muss abgewiesen werden";
+    }
+
+    // Der Kern: records_used() steht still (es sind wirklich nur 4 Saetze lesbar) -- der Verlust wird
+    // NICHT dort sichtbar, sondern nur am ungekappten Zaehler. Genau diese Trennung war der Defekt.
+    EXPECT_EQ(alloc.records_used(), 4u);
+    EXPECT_EQ(alloc.records_attempted(), 6u);
+    EXPECT_EQ(alloc.records_dropped(), 2u) << "zwei Saetze sind verloren und muessen benannt sein";
+}
+
+TEST(BenchmarkRunner, LostMeasurementsAreVisible) {
+    // NENNER: Mess-Arena fuer 4 Saetze; eine Phase erzeugt 6 Saetze (begin + 4 events + end).
+    bs::BenchmarkRunner runner{4 * 32, 4096};
+
+    auto h = runner.begin_measurement("phase-zu-klein");
+    for (int e = 0; e < 4; ++e) { runner.record_event(h, bs::EventKind::Custom, static_cast<std::uint64_t>(e)); }
+    runner.end_measurement(h, 999);
+
+    // records_collected() allein LUEGE hier nicht, aber es sagt die Unwahrheit ueber die
+    // Vollstaendigkeit: 4 gesammelt sieht aus wie ein sauberer Lauf.
+    EXPECT_EQ(runner.records_collected(), 4u);
+    EXPECT_EQ(runner.measurements_dropped(), 2u) << "6 erzeugt - 4 Platz = 2 verloren";
+    EXPECT_FALSE(runner.measurement_complete()) << "eine loechrige Reihe darf sich nie vollstaendig nennen";
+}
+
+TEST(BenchmarkRunner, CompleteRunReportsNoLoss) {
+    // GEGENEINGANG zu LostMeasurementsAreVisible (T-4): dieselbe Phase, aber die Arena reicht.
+    // Faellt diese Zusicherung, meldet der Zaehler Verlust, wo keiner ist -- dann waere die Wache
+    // selbst der Defekt und jede gruene Messung ab sofort verdaechtig.
+    bs::BenchmarkRunner runner{1024 * 32, 4096};
+
+    auto h = runner.begin_measurement("phase-passt");
+    for (int e = 0; e < 4; ++e) { runner.record_event(h, bs::EventKind::Custom, static_cast<std::uint64_t>(e)); }
+    runner.end_measurement(h, 999);
+
+    EXPECT_EQ(runner.records_collected(), 6u);
+    EXPECT_EQ(runner.measurements_dropped(), 0u);
+    EXPECT_TRUE(runner.measurement_complete());
+}
+
+TEST(BenchmarkRunner, LostSparseStatesAreVisible) {
+    // NENNER: State-Log 40 Byte; je Eintrag 10 + 8 = 18 Byte, also passen genau 2, der 3. faellt.
+    // Die Mess-Arena ist absichtlich gross -- so ist bewiesen, dass measurement_complete() auch am
+    // State-Log haengt und nicht nur an den Mess-Saetzen.
+    bs::BenchmarkRunner      runner{1024 * 32, 40};
+    std::array<std::byte, 8> delta;
+    delta.fill(std::byte{0x55});
+
+    runner.log_sparse_state(0x01, std::span<std::byte const>{delta});
+    runner.log_sparse_state(0x02, std::span<std::byte const>{delta});
+    EXPECT_EQ(runner.states_dropped(), 0u) << "zwei Eintraege passen in 40 Byte";
+    EXPECT_TRUE(runner.measurement_complete());
+
+    runner.log_sparse_state(0x03, std::span<std::byte const>{delta});
+    EXPECT_EQ(runner.states_dropped(), 1u) << "der dritte Eintrag passt nicht mehr";
+    EXPECT_FALSE(runner.measurement_complete()) << "auch ein verlorener State macht die Reihe unvollstaendig";
+}
+
+TEST(CustomAllocation2, DeltaLargerThanArenaIsRejectedBeforeArithmetic) {
+    // NENNER: Arena 64 Byte, Delta 128 Byte. Das Delta allein ist groesser als die ganze Arena.
+    // Die Pruefung sitzt VOR "10 + delta.size()", damit diese Summe nicht umschlagen kann.
+    bs::CustomAllocation2      alloc{64};
+    std::array<std::byte, 128> big;
+    big.fill(std::byte{0x77});
+
+    EXPECT_FALSE(alloc.push_state(0x09, std::span<std::byte const>{big}));
+    EXPECT_EQ(alloc.bytes_used(), 0u) << "eine abgewiesene Einfuegung darf den Puffer nicht anfassen";
+
+    // GEGENEINGANG (T-4): ein Delta, das passt, muss weiterhin durchgehen -- sonst haette die neue
+    // Schranke die Arena stillgelegt statt sie zu sichern.
+    std::array<std::byte, 8> small;
+    small.fill(std::byte{0x11});
+    EXPECT_TRUE(alloc.push_state(0x0A, std::span<std::byte const>{small}));
+    EXPECT_EQ(alloc.bytes_dropped(), 0u);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

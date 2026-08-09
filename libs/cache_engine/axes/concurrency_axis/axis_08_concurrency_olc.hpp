@@ -53,9 +53,21 @@ public:
         // Optimistische Validierung: Re-Read der Version, Vergleich gegen den acquire-Snapshot.
         // Im Single-Thread-Pfad-A stets gueltig (keine Nebenlaeufer) — exerziert aber die echte
         // Read-Validate-Bahn. `volatile`-Sink verhindert Wegoptimieren des Vergleichs.
-        unsigned const       now        = version_().load(std::memory_order_acquire);
-        static volatile bool valid_sink = false;
-        valid_sink                      = (now == snapshot_());
+        unsigned const now = version_().load(std::memory_order_acquire);
+        // 09.08.2026 (Warnungs-Runde 1, Klasse MUTANT): hier stand `static volatile bool` -- OHNE
+        // thread_local, als EINZIGE Ausnahme in dieser Klasse. version_() und snapshot_() sind beide
+        // `static thread_local`; nur die Senke war GETEILT. Solange Pfad A einfaedig misst, faellt das
+        // nicht auf. Sobald mehrfaedig gemessen wird, ist dieselbe Adresse ein Data Race UND ein
+        // False-Sharing-Punkt -- er verfaelschte dann genau die Messung, fuer die die Senke existiert.
+        // thread_local ist zwei Zeilen tiefer schon die Hausform und kostet denselben einen Store.
+        //
+        // [[maybe_unused]] ist eine ENG BEGRENZTE, bewusste Unterdrueckung von -Wunused-but-set-variable
+        // und gilt genau fuer diese eine Deklaration. Sie ist hier fachlich richtig: die Variable IST
+        // definitionsgemaess schreib-nur. Ihr einziger Zweck ist, dass der Vergleich oben stattfindet
+        // und nicht wegoptimiert wird; ein Leser waere zusaetzliche, nicht gemessene Arbeit. Die
+        // Warnung meldet also korrekt, was hier ABSICHT ist -- deshalb wird sie benannt, nicht geheilt.
+        [[maybe_unused]] static thread_local volatile bool valid_sink = false;
+        valid_sink                                                    = (now == snapshot_());
     }
 
 private:

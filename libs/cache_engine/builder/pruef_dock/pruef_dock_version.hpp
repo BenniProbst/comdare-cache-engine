@@ -172,14 +172,37 @@ static_assert(
 static_assert(dock_version_detail::meas::parse_algo_semver(kSetDockVersion).x == 1u);
 static_assert(dock_version_detail::meas::parse_algo_semver(kSetDockVersion).has_top_level_flag("c"));
 
-// (4) Die Gattungs-Zuordnung ist fuer ALLE FUENF Ebene-2-Gattungen belegt. Eine kuenftige sechste faellt
-//     hier sofort auf (leerer Stempel), statt still eine unbezifferte Mess-Provenienz zu erzeugen.
+// (4) Die Gattungs-Zuordnung ist fuer die FUENF ANDOCKENDEN Ebene-2-Genera belegt.
+//
+//     NACHGEZOGEN 09.08.2026 (Warnungs-Runde 1, Klasse MUTANT). Hier stand: "ist fuer ALLE FUENF
+//     Ebene-2-Gattungen belegt. Eine kuenftige sechste faellt hier sofort auf (leerer Stempel)". Beide
+//     Saetze waren zum Zeitpunkt des Lesens schon falsch: die Anatomie fuehrt seit HY-A1 SECHS Genera,
+//     die sechste WAR gekommen -- und sie ist hier NICHT aufgefallen. Gefangen hat sie -Wswitch, nicht
+//     diese Wache. Der Grund: der !empty()-Test unten prueft nur SearchAlgorithm, obwohl seine
+//     Botschaft "jede Ebene-2-Gattung" sagt. Eine Wache, die eine Aussage ueber FUENF trifft und einen
+//     einzigen Wert ansieht, ist blind -- genau die Klasse Defekt, um die es in dieser Runde geht.
+//
+//     Beide Richtungen stehen jetzt da, denn nur zusammen sind sie eine Partition:
+//       HIN  -- die fuenf andockenden Genera tragen eine BEZIFFERTE Version (kein leerer Stempel).
+//       RUECK-- FunctionInterfaceReroute bleibt LEER. Ohne diese Zeile koennte jemand dort ein Literal
+//               eintragen, ohne dass etwas klappert -- und das bricht Owner-Entscheid E-1 "Weg C":
+//               eine Hybrid-Binary meldet ueber genus() ihr ZIEL-Genus und dockt an DESSEN Dock an.
+//               Ein eigener Stempel wuerde sie zu einer siebten Dock-Familie machen.
 static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::SearchAlgorithm) == kSearchAlgorithmDockVersion);
 static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::Set) == kSetDockVersion);
 static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::Sequence) == kSequenceDockVersion);
 static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::Adapter) == kAdapterDockVersion);
 static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::View) == kViewDockVersion);
-static_assert(!pruef_dock_version_for(anatomy::AnatomyGenus::SearchAlgorithm).empty(),
-              "jede Ebene-2-Gattung MUSS eine bezifferte Dock-Version tragen");
+static_assert(!pruef_dock_version_for(anatomy::AnatomyGenus::SearchAlgorithm).empty() &&
+                  !pruef_dock_version_for(anatomy::AnatomyGenus::Set).empty() &&
+                  !pruef_dock_version_for(anatomy::AnatomyGenus::Sequence).empty() &&
+                  !pruef_dock_version_for(anatomy::AnatomyGenus::Adapter).empty() &&
+                  !pruef_dock_version_for(anatomy::AnatomyGenus::View).empty(),
+              "jedes ANDOCKENDE Ebene-2-Genus MUSS eine bezifferte Dock-Version tragen -- und diese "
+              "Zusage nennt jetzt alle fuenf, statt sie an einem einzigen Wert zu behaupten");
+static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::FunctionInterfaceReroute).empty(),
+              "E-1 'Weg C': FunctionInterfaceReroute ist ein KLASSIFIKATIONS-Genus und hat KEIN eigenes "
+              "Pruef-Dock. Wer hier eine Version eintraegt, macht die Hybrid-Gattung zu einer eigenen "
+              "Dock-Familie und bricht den transparenten Pass-through -- der leere Stempel ist Absicht.");
 
 } // namespace comdare::cache_engine::builder::pruef_dock

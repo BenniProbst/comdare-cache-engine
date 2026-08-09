@@ -58,9 +58,14 @@ public:
         (void)next_block_id_().fetch_add(1u, std::memory_order_acq_rel);
     }
     static void release() noexcept {
-        unsigned const       now        = version_().load(std::memory_order_acquire);
-        static volatile bool valid_sink = false;
-        valid_sink                      = (now == snapshot_());
+        unsigned const now = version_().load(std::memory_order_acquire);
+        // 09.08.2026 (Warnungs-Runde 1, Klasse MUTANT): identische Stelle wie in
+        // axis_08_concurrency_olc.hpp -- dieselbe geteilte Senke in einer Nebenlaeufigkeits-Achse,
+        // waehrend version_(), snapshot_() und next_block_id_() hier alle drei `static thread_local`
+        // sind. Begruendung fuer thread_local und fuer die eng begrenzte [[maybe_unused]]-Unterdrueckung
+        // steht ausfuehrlich in der Schwesterdatei; sie gilt hier wortgleich.
+        [[maybe_unused]] static thread_local volatile bool valid_sink = false;
+        valid_sink                                                    = (now == snapshot_());
     }
 
 private:

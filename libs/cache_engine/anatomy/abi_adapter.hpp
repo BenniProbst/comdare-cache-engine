@@ -592,7 +592,13 @@ public:
                                              std::uint64_t out_capacity) noexcept override {
         if (out_latencies_ns == nullptr || out_capacity == 0 || batches == 0 || ops_per_batch == 0) { return 0; }
         try {
-            using SearchAlgo = typename A::composition_t::search_algo;
+            // 09.08.2026 (Warnungs-Runde 1, Klasse MUTANT): hier stand `using SearchAlgo = typename
+            // A::composition_t::search_algo;`. GCC meldete sie doppelt -- als -Wunused-local-typedefs UND
+            // als -Wshadow gegen das gleichnamige Klassen-Mitglied. Beides traf zu: der Workload unten
+            // laeuft auf EffectiveSearchAlgo (der Rebind-Naht), nicht auf der rohen Achsen-Strategie. Die
+            // tote Zeile war damit eine FALSCHE FAEHRTE: wer sie sah, musste annehmen, hier werde die
+            // unangepasste Strategie gemessen. Sie faellt weg; das Klassen-Mitglied gleichen Namens bleibt
+            // sichtbar, ein kuenftiger Gebrauch von SearchAlgo trifft also die eine gewollte Bedeutung.
             using Allocator  = typename A::composition_t::allocator;     // R5.B: 2. operative Achse
             using MemLayout  = typename A::composition_t::memory_layout; // R5.B: 3. operative Achse
             using Serializer = typename A::composition_t::serialization; // R5.B: 4. operative Achse (axis_10)
@@ -707,7 +713,13 @@ public:
         *out = ComdareSegmentLatencyV1{};
         if (batches == 0 || ops_per_batch == 0) return 0;
         try {
-            using SearchAlgo = typename A::composition_t::search_algo;
+            // 09.08.2026 (Warnungs-Runde 1, Klasse MUTANT): hier stand `using SearchAlgo = typename
+            // A::composition_t::search_algo;`. GCC meldete sie doppelt -- als -Wunused-local-typedefs UND
+            // als -Wshadow gegen das gleichnamige Klassen-Mitglied. Beides traf zu: der Workload unten
+            // laeuft auf EffectiveSearchAlgo (der Rebind-Naht), nicht auf der rohen Achsen-Strategie. Die
+            // tote Zeile war damit eine FALSCHE FAEHRTE: wer sie sah, musste annehmen, hier werde die
+            // unangepasste Strategie gemessen. Sie faellt weg; das Klassen-Mitglied gleichen Namens bleibt
+            // sichtbar, ein kuenftiger Gebrauch von SearchAlgo trifft also die eine gewollte Bedeutung.
             using Allocator  = typename A::composition_t::allocator;
             using MemLayout  = typename A::composition_t::memory_layout;
             using Serializer = typename A::composition_t::serialization;
@@ -816,7 +828,13 @@ public:
         *out = ComdareSegmentLatencyV2{};
         if (batches == 0 || ops_per_batch == 0) return 0;
         try {
-            using SearchAlgo      = typename A::composition_t::search_algo;
+            // 09.08.2026 (Warnungs-Runde 1, Klasse MUTANT): hier stand `using SearchAlgo = typename
+            // A::composition_t::search_algo;`. GCC meldete sie doppelt -- als -Wunused-local-typedefs UND
+            // als -Wshadow gegen das gleichnamige Klassen-Mitglied. Beides traf zu: der Workload unten
+            // laeuft auf EffectiveSearchAlgo (der Rebind-Naht), nicht auf der rohen Achsen-Strategie. Die
+            // tote Zeile war damit eine FALSCHE FAEHRTE: wer sie sah, musste annehmen, hier werde die
+            // unangepasste Strategie gemessen. Sie faellt weg; das Klassen-Mitglied gleichen Namens bleibt
+            // sichtbar, ein kuenftiger Gebrauch von SearchAlgo trifft also die eine gewollte Bedeutung.
             using CacheTraversal  = typename A::composition_t::cache_traversal;
             using Mapping         = typename A::composition_t::mapping;
             using PathCompression = typename A::composition_t::path_compression;

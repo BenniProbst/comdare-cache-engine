@@ -337,7 +337,22 @@ namespace mengen_detail {
         return s;
     }
     // DIE VERDRAHTUNG: die vorhandene Bestands-Funktion wird GERUFEN, nicht nachgebaut.
-    s.zeilen_je_op_batch = ms_::kapazitaet_zeilen_rechnen(e.n_ops, s.zeilen_je_op, s.drift_faktor);
+    //
+    // 09.08.2026 (Warnungs-Runde 1, Klasse REGRESSION): kapazitaet_zeilen_rechnen liefert seit dem
+    // MS-1-Umbau nicht mehr die nackte Zahl, sondern KapazitaetRechnung{zeilen, darstellbar} -- sie
+    // meldet den Ueberlauf jetzt SELBST, statt still eine zu kleine Zahl zurueckzugeben. Diese
+    // Zuweisung stand noch auf der alten Form und brach den Bau (uint64_t <- struct). Die Wache
+    // oben bleibt stehen: sie nennt den Grund fachlich. Der Befund der Funktion wird ZUSAETZLICH
+    // geprueft -- zwei unabhaengige Zeugen fuer dieselbe Aussage. Widersprechen sie sich, ist das
+    // ein Defekt und kein Rundungsfall.
+    auto const kap = ms_::kapazitaet_zeilen_rechnen(e.n_ops, s.zeilen_je_op, s.drift_faktor);
+    if (!kap.darstellbar) {
+        s.ueberlauf = true;
+        s.grund     = "kapazitaet_zeilen_rechnen meldet 'nicht darstellbar' -- n_ops * zeilen_je_op * "
+                      "drift_faktor passt nicht in uint64";
+        return s;
+    }
+    s.zeilen_je_op_batch = kap.zeilen;
     fak("zeilen_je_op_batch", std::to_string(s.zeilen_je_op_batch), MengenArt::Gerechnet,
         "measure_storage::kapazitaet_zeilen_rechnen(n_ops, zeilen_je_op, drift_faktor)");
     fak("byte_je_zeile", std::to_string(sizeof(ms_::MessCheckpointZeile)), MengenArt::Konstante,

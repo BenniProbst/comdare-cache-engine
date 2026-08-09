@@ -577,8 +577,15 @@ TEST(Lb2Wurzel, NENNER_JedeGattungUndJedesGenusDerAnatomieIstEinsortierbar) {
               << " -- Genera mit Lager-Token: " << mit_genus_token << "/" << genera
               << " (Grundgesamtheit: Scan ueber alle 256 uint8_t-Werte, Zugehoerigkeit per "
                  "anatomy::gattung_name/genus_name)\n";
-    EXPECT_EQ(gattungen, 3u) << "Stand 09.08.2026: Map, Container, Graph";
-    EXPECT_EQ(genera, 5u) << "Stand 09.08.2026: SearchAlgorithm, Set, Sequence, Adapter, View";
+    // NACHGEZOGEN 09.08.2026 (Warnungs-Runde 1, Klasse REGRESSION): hier standen 3 und 5. Die
+    // Anatomie fuehrt seit HY-A1 VIER Gattungen und SECHS Genera (HeuristikAdapter bzw.
+    // FunctionInterfaceReroute). Diese beiden Zeilen sind eine ABSICHTLICHE Stolperkante: sie sollen
+    // fallen, wenn die Anatomie waechst -- genau das ist passiert, und genau deshalb werden sie
+    // NACHGEZOGEN und nicht etwa gegen die laufende Zahl aufgeweicht. Eine Zusicherung, die sich die
+    // Grundgesamtheit selbst aus der Tabelle holt, koennte nie mehr fallen.
+    EXPECT_EQ(gattungen, 4u) << "Stand 09.08.2026: Map, Container, Graph, HeuristikAdapter";
+    EXPECT_EQ(genera, 6u)
+        << "Stand 09.08.2026: SearchAlgorithm, Set, Sequence, Adapter, View, FunctionInterfaceReroute";
     EXPECT_EQ(mit_gattung_token, gattungen) << "K1: keine Gattung ohne Lager-Token";
     EXPECT_EQ(mit_genus_token, genera) << "K1: kein Genus ohne Lager-Token";
 }
