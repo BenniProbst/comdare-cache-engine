@@ -30,7 +30,22 @@ struct MannWhitneyResult {
     double z_score{0.0};                 ///< standardisierte U-Statistik (Normalapprox)
     double p_value{1.0};                 ///< zweiseitiger p-Wert (erfc-Normalapprox)
     bool   a_stochastically_less{false}; ///< a tendiert zu KLEINEREN Werten (= a schneller bei Latenz)
-    bool   valid{false};                 ///< false bei leeren Gruppen
+    bool   valid{false};                 ///< false bei zu kleinen Gruppen (n<2 auf einer Seite)
+    // D4b (2026-08-09) -- dieselbe Trennung wie in WelchResult: `valid` sagt "gerechnet",
+    // `degeneriert` sagt "traegt keine Aussage".
+    //
+    // WARUM DIESER TEST EINE ANDERE SCHWELLE HAT ALS WELCH, und warum das kein Widerspruch ist:
+    // Welch degeneriert bei se<=0, also wenn JEDE Gruppe fuer sich konstant ist -- auch wenn die
+    // beiden Gruppen weit auseinanderliegen. Der Rang-Test kann genau diesen Fall: zwei konstante
+    // Gruppen 929 und 1031 belegen disjunkte Rangbaender, var_U>0, und das Ergebnis ist eine
+    // ECHTE Aussage. Umgekehrt ist var_U<=0 hier (algebraisch) aequivalent zu "ALLE N Werte
+    // identisch" -- und das IST ein Datenbefund ("kein Unterschied"), keine Rettung. Deshalb ist
+    // var_U<=0 hier NICHT degeneriert, se<=0 bei Welch dagegen schon.
+    //
+    // Degeneriert ist hier ausschliesslich die zu kleine Stichprobe (n<2 auf einer Seite): bei
+    // na=nb=1 ist var_U=0.25>0, der bestehende Guard greift also nicht, und cliff_delta ist
+    // zwangslaeufig +-1 ("large") -- ein Extremwert ueber zwei Einzelmessungen.
+    bool degeneriert{false};
     // R5.D — robustes Effektmass (Cliff's delta / Rang-Biseriale, direkt aus U_a). Beantwortet
     // "WIE VIEL", nicht nur "ob". Wertebereich [+1 .. -1]: +1 = a stochastisch IMMER kleiner (a
     // durchweg schneller), 0 = kein Unterschied, -1 = a durchweg langsamer. Ausreisser-robust (rang-basiert).
@@ -53,7 +68,13 @@ struct MannWhitneyResult {
     MannWhitneyResult r{};
     std::size_t const na = a.size();
     std::size_t const nb = b.size();
-    if (na == 0 || nb == 0) return r;
+    // D4b: EIN Guard statt des frueheren na==0||nb==0 -- der subsumiert den alten Fall und faengt
+    // zusaetzlich die Einzelprobe. valid bleibt hier false, cliff_delta bleibt 0.0: ueber eine
+    // einzelne Messung je Seite gibt es weder ein Rangbild noch ein Effektmass.
+    if (na < 2 || nb < 2) {
+        r.degeneriert = true;
+        return r;
+    }
 
     std::size_t const                         N = na + nb;
     std::vector<std::pair<std::int64_t, int>> all; // (Wert, Gruppe: 0=a, 1=b)
@@ -87,18 +108,25 @@ struct MannWhitneyResult {
     double const var_U  = (nad * nbd / 12.0) * ((Nd + 1.0) - tie_sum / (Nd * (Nd - 1.0)));
 
     r.u_statistic = U_a;
-    r.valid       = true;
     r.cliff_delta = 1.0 - 2.0 * U_a / (nad * nbd); // robustes Effektmass [+1..-1]
-    if (var_U <= 0.0) {                            // alle Werte identisch (oder n=1) → kein Unterschied
+    // D4b: var_U<=0 ist mit na,nb>=2 aequivalent zu "alle N Werte identisch" -- rechnerisch, nicht
+    // vermutet: der Klammerterm ist (N+1) - tie_sum/(N(N-1)), und tie_sum wird maximal N^3-N, wenn
+    // alle N Werte EINE Bindungsgruppe bilden; dann ist tie_sum/(N(N-1)) = N+1 und die Klammer
+    // exakt 0. Jede andere Bindungslage laesst sie positiv. Das ist eine echte Daten-Aussage
+    // ("kein Unterschied"), also KEINE Degeneration -- die Einzelprobe oben ist eine.
+    // D4b: valid wird erst hier gesetzt, HINTER allen Degenerations-Entscheidungen.
+    if (var_U <= 0.0) {
         r.z_score               = 0.0;
         r.p_value               = 1.0;
         r.a_stochastically_less = false;
+        r.valid                 = true;
         return r;
     }
     double const z          = (U_a - mean_U) / std::sqrt(var_U);
     r.z_score               = z;
     r.p_value               = std::erfc(std::fabs(z) / std::sqrt(2.0)); // zweiseitig
     r.a_stochastically_less = (U_a < mean_U);                           // a hat kleinere Raenge → a schneller
+    r.valid                 = true;
     return r;
 }
 

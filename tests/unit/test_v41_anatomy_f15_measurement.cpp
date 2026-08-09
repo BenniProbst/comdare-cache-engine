@@ -872,3 +872,93 @@ TEST(F15WelchDegeneriert, NichtEndlichesPFeuertUeberDemGanzenNennerNie) {
     EXPECT_EQ(nicht_endlich, 0u) << nicht_endlich << " von " << geprueft << " Laeufen mit nicht-endlichem p";
     EXPECT_EQ(se_null, 0u) << se_null << " von " << geprueft << " zufaelligen Laeufen degeneriert";
 }
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// D4b (2026-08-09) — MANN-WHITNEY: valid HINTER den Guard, cliff_delta nicht "gross" ueber Nichts
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// DER BEFUND: r.valid=true und r.cliff_delta standen VOR jedem Degenerations-Check. Der einzige
+// Ausschluss war na==0||nb==0. Bei na=1, nb=1 mit verschiedenen Werten ist
+// var_U = (1*1/12)*((3) - 0) = 0.25 > 0 -- der bestehende var_U-Guard greift also NICHT, und
+// cliff_delta = 1 - 2*U_a/(1*1) ist bei zwei Einzelmessungen ZWANGSLAEUFIG +-1, also "large",
+// voellig unabhaengig davon, wie nah die beiden Werte beieinanderliegen.
+//
+// KOEDER (K13, gewuerfelt 2026-08-09T18:31:31Z): 3160 gegen 3165 -- 5 ns Abstand, je EINE Probe.
+// Vorher: valid=true, cliff_delta=+1.0, magnitude "large" ("a ist durchweg schneller").
+
+TEST(F15MwuDegeneriert, EinzelprobenLiefernKeinGrossesEffektmass) {
+    std::vector<std::int64_t> const a{3160}; // KOEDER, gewuerfelt
+    std::vector<std::int64_t> const b{3165}; // KOEDER, gewuerfelt: 5 ns daneben
+    auto const m = stats::mann_whitney_u_test(std::span<const std::int64_t>{a}, std::span<const std::int64_t>{b});
+    EXPECT_TRUE(m.degeneriert) << "eine Probe je Seite ist keine Rangverteilung";
+    EXPECT_FALSE(m.valid) << "valid darf nicht VOR dem Guard gesetzt werden";
+    EXPECT_DOUBLE_EQ(m.cliff_delta, 0.0) << "kein Extremwert ueber Nichts";
+    EXPECT_EQ(stats::cliff_delta_magnitude(m.cliff_delta), std::string_view{"negligible"});
+}
+
+TEST(F15MwuDegeneriert, ZweiProbenJeSeiteSindNichtDegeneriert) {
+    // GEGENEINGANG (T-4): eine Probe MEHR je Seite, und der Rang-Test ist wieder zustaendig.
+    // Ohne diese Zusicherung koennte der neue Guard zu breit sein und alles ablehnen.
+    std::vector<std::int64_t> const a{3160, 3161};
+    std::vector<std::int64_t> const b{3165, 3166};
+    auto const m = stats::mann_whitney_u_test(std::span<const std::int64_t>{a}, std::span<const std::int64_t>{b});
+    EXPECT_FALSE(m.degeneriert);
+    EXPECT_TRUE(m.valid);
+    EXPECT_NEAR(m.cliff_delta, 1.0, 1e-12) << "hier ist +1 eine ECHTE Rang-Aussage: a liegt komplett unter b";
+}
+
+TEST(F15MwuDegeneriert, LeereGruppeBleibtUngueltigUndDegeneriert) {
+    std::vector<std::int64_t> const b{100, 200, 300};
+    auto const m = stats::mann_whitney_u_test(std::span<const std::int64_t>{}, std::span<const std::int64_t>{b});
+    EXPECT_FALSE(m.valid);
+    EXPECT_TRUE(m.degeneriert);
+}
+
+TEST(F15MwuDegeneriert, DurchgehendIdentischeWerteSindGueltigUndNichtDegeneriert) {
+    // BEWUSSTE ASYMMETRIE ZU WELCH, und sie ist begruendet: var_U<=0 tritt (algebraisch) GENAU
+    // dann ein, wenn ALLE N Werte identisch sind -- dann sagen die Daten wirklich "kein
+    // Unterschied", und der Rang-Test kann das auch sagen. Welchs se<=0 dagegen tritt schon ein,
+    // wenn jede Gruppe FUER SICH konstant ist, die beiden Gruppen aber weit auseinanderliegen.
+    // Genau diesen Fall behandelt der Rang-Test korrekt -- siehe die naechste Zusicherung.
+    std::vector<std::int64_t> const same(40, 500);
+    auto const m = stats::mann_whitney_u_test(std::span<const std::int64_t>{same}, std::span<const std::int64_t>{same});
+    EXPECT_TRUE(m.valid);
+    EXPECT_FALSE(m.degeneriert);
+    EXPECT_NEAR(m.cliff_delta, 0.0, 1e-12);
+}
+
+TEST(F15MwuDegeneriert, KonstanteVerschiedeneGruppenSindFuerDenRangTestSEHRWOHLTestbar) {
+    // Der Welch-Koeder aus D4a (929 vs 1031, je konstant), hier durch den Rang-Test geschickt.
+    // ORAKEL UNABHAENGIG (T-5): die Erwartung kommt NICHT aus welch_t_test, sondern aus der
+    // Rang-Konstruktion selbst -- alle 5 a-Werte belegen die Raenge 1..5, alle 4 b-Werte die
+    // Raenge 6..9, also U_a = 0 und cliff_delta = +1. Das ist per Hand nachrechenbar.
+    std::vector<std::int64_t> const a(5, 929);
+    std::vector<std::int64_t> const b(4, 1031);
+    auto const m = stats::mann_whitney_u_test(std::span<const std::int64_t>{a}, std::span<const std::int64_t>{b});
+    EXPECT_TRUE(m.valid);
+    EXPECT_FALSE(m.degeneriert) << "der Rang-Test kann diesen Fall -- nur Welch kann ihn nicht";
+    EXPECT_DOUBLE_EQ(m.u_statistic, 0.0);
+    EXPECT_NEAR(m.cliff_delta, 1.0, 1e-12);
+    EXPECT_TRUE(m.a_stochastically_less);
+}
+
+// D4b-Schwesterstelle (T-6) in multi_compare: die Diskrepanz-Warnung "Welch und MWU sind uneinig"
+// war frueher schon dann wahr, wenn EINER der beiden gar nicht gerechnet hatte. Der Koeder ist der
+// D4a-Koeder (929 vs 1031, je konstant): Welch degeneriert dort, der Rang-Test nicht -- vorher
+// ergab das eine "ausreisser-verdaechtige" Meldung, wo es gar keinen Ausreisser gibt.
+TEST(F15MwuDegeneriert, DiskrepanzWarntNurWennBeideTestsGesprochenHaben) {
+    cmd::ExecutionResult base{};
+    base.engine_name        = "baseline";
+    base.latency_samples_ns = std::vector<std::int64_t>(4, 1031); // konstant -> Welch degeneriert
+    cmd::ExecutionResult cand{};
+    cand.engine_name        = "kandidat";
+    cand.latency_samples_ns = std::vector<std::int64_t>(5, 929); // konstant, 11 % darunter
+    std::vector<cmd::ExecutionResult> cands{cand};
+
+    auto const rep = stats::multi_compare_against_baseline(base, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    ASSERT_EQ(rep.comparisons.size(), 1u);
+    EXPECT_TRUE(rep.comparisons[0].welch.degeneriert);
+    EXPECT_FALSE(rep.comparisons[0].mwu.degeneriert);
+    EXPECT_FALSE(rep.comparisons[0].significance_discrepancy)
+        << "ein degenerierter Welch ist mit dem Rang-Test nicht 'uneinig' -- er hat nichts gesagt";
+}

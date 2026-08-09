@@ -90,7 +90,12 @@ struct MultiCompareReport {
         pc.robust_adjusted_p  = adj_mwu[i];
         pc.robust_significant = (adj_mwu[i] <= alpha);
         // Diskrepanz: parametrischer und Rang-Test sind UNEINIG → Warnsignal (oft ausreisser-getrieben).
-        pc.significance_discrepancy = (pc.significant != pc.robust_significant);
+        // D4b: das gilt NUR, wenn BEIDE Tests ueberhaupt etwas gesagt haben. Ist einer degeneriert,
+        // ist die "Uneinigkeit" ein Artefakt des Platzhalter-p von 1.0 und kein Ausreisser-Hinweis --
+        // genau der Kandidat 929-vs-1031 loeste vorher eine Diskrepanz-Warnung aus, weil Welch dort
+        // nicht rechnen kann und der Rang-Test schon.
+        bool const beide_haben_gesprochen = !pc.welch.degeneriert && pc.welch.valid && !pc.mwu.degeneriert && pc.mwu.valid;
+        pc.significance_discrepancy = beide_haben_gesprochen && (pc.significant != pc.robust_significant);
     }
     return rep;
 }
