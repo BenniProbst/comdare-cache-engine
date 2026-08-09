@@ -5807,3 +5807,24 @@ set_tests_properties(test_ms2_pre_touch_seitenfehler PROPERTIES
     LABELS "ms;measure_storage;arena;seitenfehler;standalone")
 
 unset(_ms_dir)
+
+# ===================================================================================================
+# check-size (2026-08-09) -- die MENGENRECHNUNG des Planers gegen handgerechnete Orakel.
+#
+# SELBSTCHECK: STANDALONE int main() ohne gtest und ohne Bibliotheks-Anhang. Der Prueflung
+# (profile_facade/planner/planner_mengen_types.hpp) ist ein reiner Header: er rechnet und berichtet,
+# er liest kein XML und faehrt keinen Walk. Genau deshalb kann dieser Test seine Soll-Werte VON HAND
+# setzen (T-3: die Grundgesamtheit stammt aus einer anderen Quelle als der Prueflung) -- er braucht
+# weder Profil noch Registry noch DLL. Rezept gespiegelt von test_ms1/test_ms2 oben.
+#
+# Die beiden Include-Wurzeln: libs/cache_engine traegt sowohl profile_facade/planner/... als auch
+# builder/measure_storage/checkpoint_speicher.hpp (die gerufene Bestands-Funktion).
+add_executable(test_check_size_mengenrechnung "test_check_size_mengenrechnung.cpp")
+target_compile_features(test_check_size_mengenrechnung PRIVATE cxx_std_23)
+target_include_directories(test_check_size_mengenrechnung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_check_size_mengenrechnung)
+add_test(NAME test_check_size_mengenrechnung COMMAND test_check_size_mengenrechnung)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_check_size_mengenrechnung)
+set_tests_properties(test_check_size_mengenrechnung PROPERTIES
+    LABELS "check_size;planer;mengen;drift_gate;standalone")

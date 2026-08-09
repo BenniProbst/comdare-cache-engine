@@ -21,7 +21,8 @@
 //
 // CLI (clig.dev, uebernommen aus der V-6vi-Subcommand-Linie des Treibers):
 //   validate [<profil>] | plan dump|ci|cmake [<profil>] | cache-key | fingerprint [<profil>] |
-//   status [<profil>] [--root=<dir>] | version | help [<subcommand>]
+//   status [<profil>] [--root=<dir>] | check-size [<profil>] [--max-bytes=N] [--max-tage=F]
+//   [--sekunden-je-op=F] | version | help [<subcommand>]
 // W5 (Owner-R5, 05.08.2026): `status` ist der ON-DEMAND-RUECK-LESER -- die einzige Rolle dieser Binary, die
 // nach dem Lauf FRAGT statt ihn zu planen. Er steuert nichts (kein watch, kein Block, keine Reservierung).
 // Der Treiber behaelt tier ci|cmake (CEB-Rolle) und run (Mess-Vollzug). KEINE Alt-Flags in dieser NEUEN
@@ -41,6 +42,7 @@
 #include "xml_config_parser/xml_reader.hpp" // Bruecke-I2: Root-Tag-Sniff des validate-Profils (common-DOM)
 
 #include <cstddef>
+#include <cstdint> // check-size: uint64_t (der Byte-Deckel)
 #include <exception>
 #include <filesystem> // W5: der aufgeloeste Mess-Ausgabe-Root (status --root)
 #include <fstream>
@@ -254,6 +256,72 @@ struct PlanerBlockGate {
     }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// check-size (2026-08-09): die MENGEN-VORSCHAU. Der Planer rechnet die Mess-Menge, BEVOR gemessen wird.
+//
+// WARUM ES AN DIESER BINARY HAENGT: der Planer ist die Stelle, die FRAGT (Laufzeit); die CEB TRAEGT die Zahl
+// (Uebersetzungszeit). Die Menge entscheidet vor dem Lauf ueber Zeitfenster, Arena-Groesse und Rueckschrieb --
+// alle drei sind nach dem Start nicht mehr billig zu korrigieren.
+//
+// DIE AUSGABE IST DAS PRODUKT, nicht die interne Rechnung: gedruckt werden die Mengen JE FAKTOR mit ihrem
+// NENNER. Wer nur eine Endzahl sieht, kann einen fehlenden Faktor (z.B. die 18-fache Wiederholung durch das
+// Drift-Gate) nicht bemerken -- ein zu kleines Produkt sieht aus wie ein richtiges.
+//
+// STEUERT NICHTS, wie `status`: kein Bau, keine Messung, keine Reservierung, kein planer_block (also nie 6).
+[[nodiscard]] int run_check_size_guarded(std::string const& profil, std::string const& max_bytes_arg,
+                                         std::string const& max_tage_arg,
+                                         std::string const& sek_je_op_arg) noexcept {
+    try {
+        pln::MengenEingang eingang{};
+        if (int const rc = pf::collect_mess_menge_facade(std::filesystem::path{profil}, eingang, std::cerr); rc != 0) {
+            return rc; // 5 = unbekannte/unlesbare Profil-Wurzel (Diagnose steht schon auf stderr)
+        }
+
+        // Die drei Aufrufer-Zutaten. KONFIG-FEHLER SIND HART (rc 2), nicht stillschweigend 0: ein vertippter
+        // Deckel, der als "kein Deckel" durchrutscht, waere genau der Gruen-ohne-Pruefung-Fall.
+        auto zahl_oder_fehler = [](std::string const& s, char const* flag, bool& kaputt) -> double {
+            if (s.empty()) return 0.0;
+            try {
+                std::size_t  gelesen = 0;
+                double const w       = std::stod(s, &gelesen);
+                if (gelesen != s.size() || !(w > 0.0)) {
+                    std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '"
+                              << s << "'.\n";
+                    kaputt = true;
+                    return 0.0;
+                }
+                return w;
+            } catch (...) {
+                std::cerr << "comdare-experiment-planner: " << flag << " erwartet eine positive Zahl, bekam '" << s
+                          << "'.\n";
+                kaputt = true;
+                return 0.0;
+            }
+        };
+        bool         kaputt = false;
+        double const bytes  = zahl_oder_fehler(max_bytes_arg, "--max-bytes", kaputt);
+        eingang.deckel_tage = zahl_oder_fehler(max_tage_arg, "--max-tage", kaputt);
+        eingang.sekunden_je_op = zahl_oder_fehler(sek_je_op_arg, "--sekunden-je-op", kaputt);
+        if (kaputt) return 2;
+        eingang.deckel_bytes = static_cast<std::uint64_t>(bytes);
+
+        auto const sicht = pln::mengen_rechnen(eingang);
+        std::cout << pln::mengen_bericht(sicht, eingang);
+
+        // Nicht erhoben ist KEIN Erfolg: ohne Zahlen gibt es keine Freigabe.
+        if (!sicht.erhoben) return 1;
+        // Ein gerissener oder unbestimmbarer Deckel lehnt ab -- fail-closed, weil ein Deckel, der mangels Zahl
+        // gruen meldet, keine Pruefung ist.
+        return sicht.abgelehnt() ? 1 : 0;
+    } catch (std::exception const& e) {
+        std::cerr << "[Fehler: check-size] " << e.what() << "\n";
+        return 2;
+    } catch (...) {
+        std::cerr << "[Fehler: check-size] unbekannte Ausnahme\n";
+        return 2;
+    }
+}
+
 // Section 43.b/64: der PLANER ist die Binary mit EINER statischen Selbst-Version X.Y.Z (er permutiert, er IST
 // keine Permutation -> KEINE Achsen-Arrays). DEKLARIERTE ABWEICHUNG vom Treiber: der behaelt seinen G1-Block aus
 // vier Zeilen (planner/ceb-contract/build-type/build-version), weil er die CEB-Rolle traegt; hier stehen genau
@@ -426,6 +494,23 @@ void help_for(std::string const& topic) {
                   << "  COMDARE_MEASUREMENT_COMBO.\n";
         return;
     }
+    if (topic == "check-size") {
+        std::cout
+            << "comdare-experiment-planner check-size [<profil>] [--max-bytes=N] [--max-tage=F]\n"
+            << "                                      [--sekunden-je-op=F]   (kanonisches Flag: --check-size)\n"
+            << "  MENGEN-VORSCHAU vor dem Lauf: rechnet die Mess-Menge aus dem deterministischen Plan-Walk\n"
+            << "  und druckt sie AUFGESCHLUESSELT -- jede Menge mit ihrem Nenner, jede geschaetzte Groesse\n"
+            << "  als solche markiert. Baut KEINE DLL, misst NICHT, schreibt nichts.\n"
+            << "    --max-bytes=N        Deckel auf die Arena EINES Mess-Prozesses (0/weg = nur berichten)\n"
+            << "    --max-tage=F         Deckel auf die geschaetzte Dauer in Maschinentagen\n"
+            << "    --sekunden-je-op=F   Kalibrierung des Aufrufers. OHNE sie bleibt die Dauer n/a --\n"
+            << "                         der Bestand liefert VOR dem Lauf keine gemessene Zeit.\n"
+            << "  FAIL-CLOSED: ein verlangter Deckel, dessen Menge nicht berechenbar ist, gilt als NICHT\n"
+            << "  bestanden (Exit 1). Ein Deckel, der mangels Zahl gruen meldet, ist keine Pruefung.\n"
+            << "  Exit: 0 haelt; 1 Deckel gerissen/unbestimmbar oder nicht erhoben; 2 kaputtes Flag;\n"
+            << "        5 unbekannte Profil-Wurzel.\n";
+        return;
+    }
     if (topic == "fingerprint") {
         std::cout << "comdare-experiment-planner fingerprint [<profil>]\n"
                   << "  Druckt das Chunk-Organ-Fingerprint-PRE-IMAGE des Range-Fensters nach stdout (die CI\n"
@@ -451,6 +536,8 @@ void help_for(std::string const& topic) {
               << "  fingerprint [<profil>]  Chunk-Organ-Fingerprint-Pre-Image (COMDARE_GOLDEN_N_RANGE-Fenster)\n"
               << "  status [<profil>] [--root=<dir>]\n"
               << "                          Rueck-Leser: Stand von CEB-Bauten, Tier-Binaries und Messwerten\n"
+              << "  check-size [<profil>] [--max-bytes=N] [--max-tage=F] [--sekunden-je-op=F]\n"
+              << "                          Mengen-Vorschau VOR dem Lauf: Faktoren, Nenner, Arena, Dauer\n"
               << "  version                 Planer-Selbst-Stempel + Compile-Einstellung\n"
               << "  help [<subcommand>]     diese Uebersicht bzw. Detail-Hilfe (auch: <subcommand> --help)\n\n"
               << "Rollen-Trennung (Section 40.b/42, ZWEI MODULE): die STUFE-2-Sicht (tier ci|cmake) und der\n"
@@ -473,7 +560,8 @@ void help_for(std::string const& topic) {
 
 [[nodiscard]] int unbekanntes_subkommando(std::string const& wort) noexcept {
     std::cerr << "comdare-experiment-planner: unbekanntes Subkommando '" << wort
-              << "' -- erwartet: validate | plan dump|ci|cmake | cache-key | fingerprint | version | help.\n"
+              << "' -- erwartet: validate | plan dump|ci|cmake | cache-key | fingerprint | status | check-size | "
+                 "version | help.\n"
               << "  (Die CEB-Rolle 'tier ci|cmake' und der Mess-Lauf 'run' leben im comdare-messung-driver.)\n";
     return 1;
 }
@@ -555,6 +643,41 @@ int main(int argc, char* argv[]) {
             }
         }
         return run_status_guarded(resolve_profile(prof_arg), root_arg);
+    }
+    // check-size: DERSELBE additive if-Zweig wie `status`. Die Doppelstrich-Schreibweise `--check-size` ist der
+    // KANONISCHE FLAG-ALIAS des Subkommandos -- exakt das Muster, das diese Datei schon fuer `version` /
+    // `--version` fuehrt (s. Hilfe-Text dort). Das ist KEIN Alt-Flag im Sinne des Datei-Kopfes: die dort
+    // ausgeschlossenen Aliase sind die DEPRECATED Treiber-Flags (--dump-plan & Co.), die bewusst nicht
+    // mitwandern. Der Alias existiert, weil die Anforderung und die Entwurfs-Doku
+    // (docs/architecture/20260808-checkpoint_measure_soll_design.md:283) das Kommando `--check-size` nennen.
+    if (a1 == "check-size" || a1 == "--check-size") {
+        if (a2 == "--help" || a2 == "-h") {
+            help_for("check-size");
+            return 0;
+        }
+        std::string prof_arg, max_bytes_arg, max_tage_arg, sek_arg;
+        for (std::size_t i = 2; i < args.size(); ++i) {
+            std::string const& a = args[i];
+            if (a == "--help" || a == "-h") {
+                help_for("check-size");
+                return 0;
+            }
+            if (a.rfind("--max-bytes=", 0) == 0) {
+                max_bytes_arg = a.substr(std::string_view{"--max-bytes="}.size());
+            } else if (a.rfind("--max-tage=", 0) == 0) {
+                max_tage_arg = a.substr(std::string_view{"--max-tage="}.size());
+            } else if (a.rfind("--sekunden-je-op=", 0) == 0) {
+                sek_arg = a.substr(std::string_view{"--sekunden-je-op="}.size());
+            } else if (!a.empty() && a.front() == '-') {
+                std::cerr << "comdare-experiment-planner: unbekanntes Flag '" << a
+                          << "' fuer check-size -- erwartet: --max-bytes=N | --max-tage=F | --sekunden-je-op=F "
+                             "(Detail: 'help check-size').\n";
+                return 1;
+            } else if (prof_arg.empty()) {
+                prof_arg = a;
+            }
+        }
+        return run_check_size_guarded(resolve_profile(prof_arg), max_bytes_arg, max_tage_arg, sek_arg);
     }
     if (a1 == "plan") {
         if (a2 == "--help" || a2 == "-h" || a3 == "--help" || a3 == "-h") {

@@ -281,6 +281,24 @@ berührt `abi_adapter.hpp` im Hot-Path.
    > `libs/cache_engine/hybrid/README.md` (Nachtrag 08.08.2026, Abschnitt 2).
 4. **Kapazität des Stacks** — feste Zahl, aus der XML, oder aus der erwarteten Aufrufzahl gerechnet?
    Hängt an `--check-size`, das die Größe ohnehin auf der CEB rechnet.
+
+   > **NACHTRAG 09.08.2026 — `--check-size` existiert jetzt, dieser Punkt bleibt trotzdem offen.**
+   > Gebaut wurde das Kommando als `comdare-experiment-planner check-size` (kanonischer Flag-Alias
+   > `--check-size`), Substanz in `libs/cache_engine/profile_facade/planner/planner_mengen_types.hpp`.
+   > Es rechnet die **MESS-Arena** — `n_ops * zeilen_je_op * drift_faktor` über die vorhandene
+   > `measure_storage::kapazitaet_zeilen_rechnen()`, die bis dahin **keinen einzigen Aufrufer** hatte.
+   >
+   > **Was es NICHT rechnet: genau die hier gefragte Stapel-Kapazität.** Die Mess-Arena skaliert mit
+   > der Zahl der Checkpoints, der Stapel mit der **Verschachtelungstiefe** — zwei Größen, die nichts
+   > miteinander zu tun haben. Aus der Aufrufzahl folgt die Tiefe nicht. Der einzige Zahlenwert im
+   > Bestand ist die `64u` aus `test_ms1_arenen_kein_alloc_im_fenster.cpp:329`, dokumentiert als
+   > „der konservative Vorgabewert" — eine Test-Konstante, kein Produktions-Entscheid. Sie hier zur
+   > Planer-Formel zu erheben, hieße einen Testwert zum Kanon zu machen; deshalb wurde es nicht getan.
+   >
+   > Der Punkt braucht die Antwort auf eine Frage, die der Bestand heute nicht beantwortet: **wie tief
+   > verschachtelt die Gattungs-Interface-Kette überhaupt?** Solange `observer_registry/` und
+   > `measurement_matrix/` leere Stümpfe sind, gibt es dafür keine Erhebung — nur eine Schätzung, und
+   > eine Schätzung, die als gerechnete Kapazität auftritt, ist genau der Stellvertreter-Fehler.
 5. **Prozess-Ende ohne Auslesen** — ein stiller Verlust wäre derselbe Fehler wie ein verschwiegener
    Überlauf.
 6. **Verhältnis der Ebenen-Flags zu den CEB-Gates.** Die sechs CEB-Varianten sind ein- und ausgebaute
