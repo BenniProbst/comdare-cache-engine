@@ -20,31 +20,113 @@
 # JEDE ZEILE NENNT IHRE BEDINGUNG, nicht nur ein Motiv. Wer sie spaeter liest, soll
 # nachpruefen koennen, ob sie noch gilt -- eine Begruendung ohne pruefbare Bedingung
 # waere selbst wieder ein Stellvertreter.
+#
+# -- NACHGEZOGEN 09.08.2026 -------------------------------------------------------------
+# EINE ZEILE MUSS IN DEM BAUM GREIFEN KOENNEN, IN DEM DIE WACHE LAEUFT.
+# Die Wache hat genau EINE Aufrufstelle: .gitlab-ci.yml, Job test:coverage-guard,
+# `sh scripts/ci_test_sichtbarkeit_wache.sh build-covguard`. Dieser Baum entsteht ueber
+# `make inventar` (= 'all' + Reconfigure + comdare_tests, Makefile:124-127). Eine Zeile,
+# deren Test in GENAU DIESEM Baum sichtbar ist, deckt dort nie etwas ab -- sie faengt nur
+# das naechste echte Verschwinden desselben Namens lautlos weg. Vier solche Zeilen sind
+# heute entfernt worden, s. NACHRUF am Dateiende.
+# ---------------------------------------------------------------------------------------
 
 # -- Bedingung: if(COMDARE_PRT_ART_LEGACY_AVAILABLE) -------------------------
 # Der prt-art-Legacy-Baum ist ein optionales Nachbarrepo (tests/unit/CMakeLists.txt:95).
-# Fehlt es, bauen diese drei Tests nicht -- das ist gewollt und kein Defekt.
+# Fehlt es, bauen diese vier Tests nicht -- das ist gewollt und kein Defekt.
+# Am Objekt 09.08.2026: in BEIDEN gemessenen Baeumen unsichtbar (lokal build-xml und
+# CI build-covguard) -- das Nachbarrepo liegt auf prod1 also ebenfalls nicht vor.
 test_concepts_compile   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:117 -- optionaler prt-art-Legacy-Baum
 test_three_layer_audit   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:125 -- optionaler prt-art-Legacy-Baum
 test_value_handle   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:121 -- optionaler prt-art-Legacy-Baum
 test_six_page_structures   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:188 -- optionaler prt-art-Legacy-Baum
 
-# -- Bedingung: Codegen-Werkzeug lief NICHT (STATUS_OUT != FOUND) ------------
-# Diese Tests haengen an Codegen-Schnipseln, die erst nach dem Bau der jeweiligen
-# CLI existieren. In einem Ein-Pass-Configure ohne vorherigen Werkzeugbau sind sie
-# zu Recht abwesend; der CI-Job test:coverage-guard faehrt den 2-Pass ausdruecklich.
-test_v41_anatomy_r5i_configure_codegen   Bedingung `if(_r5i_status STREQUAL "FOUND" AND EXISTS ...)`, tests/unit/CMakeLists.txt:1072 -- Codegen-Schnipsel erst nach Werkzeugbau
-test_v41_anatomy_f15_measurement   Bedingung `if(_f15_status STREQUAL "FOUND" AND EXISTS ...)`, tests/unit/CMakeLists.txt:1179 -- Codegen-Schnipsel erst nach Werkzeugbau
+# -- Bedingung: if(COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F) -----
+# tests/unit/CMakeLists.txt:3829. HARDWARE-GATTER, kein Defekt -- am Objekt belegt.
+#
+# ANLASS: Pipeline 15412 (ce d47d1c74), Job test:coverage-guard, 1 von 23 Jobs rot. Die
+# Wache meldete diese beiden als unsichtbar. Lokal auf prod1 sind sie sichtbar.
+#
+# ES IST NICHT DIESELBE MASCHINE. Der Job fragt `tags: [baremetal]` (.gitlab-ci.yml:295),
+# und dieses Tag tragen BEIDE bare-metal-Runner: id=16 (prod1, Tags prod,baremetal,amd)
+# und id=17 (prod2, Tags prod,baremetal,intel) -- Beleg .gitlab-ci.yml:200-217 und
+# docs/plaene/20260623-PIVOT-PLAN-156-GITLAB-RUNNER-PROD.md:40-41. GitLab darf den Job
+# also auf prod2 legen. prod2 ist Intel; prod1 ist AMD Zen 5 mit AVX-512.
+#
+# WARUM DAS KEIN KAPUTTER PROBE-LAUF IST -- die Alternative wurde geprueft, nicht vermutet:
+# `check_cxx_source_runs` (tests/unit/CMakeLists.txt:3793-3794) speist ZWEI Variablen aus
+# demselben Verfahren. Waere die Probe im CI-Baum gescheitert (Compile- oder Lauffehler),
+# waeren BEIDE falsch. Die Zahlen sagen etwas anderes:
+#     461  ctest-Eintraege lokal, prod1     (`ctest --test-dir build-xml -N`, "Total Tests: 461")
+#     457  ctest-Eintraege im CI-Baum       (Trace 15412 / Job 368969)
+#   Differenz 4 = GENAU die vier Registrierungen hinter COMDARE_HOST_RUNS_AVX512F
+#   (die zwei hier + die zwei Schwestern unten). Waere AVX2 ebenfalls falsch gewesen,
+#   fehlten sechs (455). Es fehlen vier.
+# Also hat die Probe im CI-Baum kompiliert UND gelaufen und korrekt "AVX2 ja, AVX-512F
+# nein" gemeldet. Die Erkennung ist heil -- die CPU war eine andere.
+#
+# GEGENPROBE auf prod1 (AMD Ryzen 9 9950X3D), 09.08.2026, woertlich:
+#   /usr/bin/grep -c ' avx512f' /proc/cpuinfo              -> 32
+#   g++-15 -O3 -DNDEBUG p512.cpp -o t && ./t; echo $?      -> 0
+#     (ebenso mit -march=x86-64-v2 / -v3 / native / -mno-avx512f: die Probe liest CPUID
+#      zur LAUFZEIT, kein Compile-Flag kann sie faelschen)
+#   build-xml/CMakeCache.txt: COMDARE_HOST_RUNS_AVX512F=1, _COMPILED=TRUE, _EXITCODE=0
+#   /usr/bin/c++ und g++-15 sind DERSELBE Compiler (beide -> /opt/gcc-15.3/bin/g++,
+#   GCC 15.3.0) -- ein Toolchain-Unterschied scheidet damit ebenfalls aus.
+#
+# FOLGE FUER DIESE ZWEI ZEILEN: auf prod2 decken sie (Wache gruen), auf prod1 stehen sie
+# als "OHNE WIRKUNG IN DIESEM BAUM" im Bericht. Das ist gewollt -- der Bericht sagt dann,
+# WELCHER Runner den Job genommen hat.
+test_buildvariant_dll_real COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F, tests/unit/CMakeLists.txt:3829
+test_ap5_simd_extension_coherence COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F, tests/unit/CMakeLists.txt:3829
 
-# -- D2, BEFRISTET: comdare_adhoc_emitter_cli wird von KEINEM ce-Job gebaut --
-# ACHTUNG -- das sind die ZWEI Faelle, die der Gesamtstand-Workflow als D2 gemeldet hat.
-# Am Objekt gemessen (08.08.): `grep -c 'adhoc_emitter' .gitlab-ci.yml` = 0. Kein CI-Job
-# baut das Werkzeug, also ist `_r5g_ae_status` in JEDEM CI-Baum ungleich FOUND und beide
-# Tests existieren in der Inventur ueberhaupt nicht.
-# Sie stehen hier NICHT, weil das in Ordnung waere, sondern damit die Wache jetzt schon
-# gruen laufen kann, waehrend D2 noch offen ist -- OHNE dass die zwei Faelle aus dem Blick
-# geraten. Beim Schliessen von D2 fallen diese beiden Zeilen ersatzlos.
-# Wer sie hier findet und D2 als erledigt gebucht sieht: dann ist genau eines von beiden
-# falsch, und das ist der Punkt dieser Eintraege.
-test_v41_anatomy_adhoc_autobuilt_load   D2-OFFEN, befristet: Bedingung `if(_r5g_autobuilt_count GREATER 0)`, tests/unit/CMakeLists.txt:1559 -- comdare_adhoc_emitter_cli wird von keinem ce-Job gebaut (grep -c in .gitlab-ci.yml = 0). Faellt beim Schliessen von D2.
-f15_compare_cli_smoke   D2-OFFEN, befristet: Bedingung `if(TARGET comdare_f15_compare_cli)`, tests/unit/CMakeLists.txt:1580 -- Ziel existiert im CI-Baum nicht. Faellt beim Schliessen von D2.
+# -- T-6 SCHWESTERPFLICHT: die Hardware-Klasse hat VIER Mitglieder, nicht zwei ----------
+# Dieselbe Bedingung gattert zwei weitere Registrierungen, die diese Wache STRUKTURELL
+# nicht sehen kann -- ihr Name steht in einer CMake-Variablen:
+#   tests/unit/CMakeLists.txt:4869  add_test(NAME ${_tgt} ...) in comdare_add_simd_dispatch_test
+#                                   -> test_simd_field_sum_dispatch_avx512
+#                                      (Aufruf :4893, do_run = ${COMDARE_HOST_RUNS_AVX512F})
+#   tests/unit/CMakeLists.txt:4914  add_test(NAME ${_tgt} ...) in comdare_add_simd_add_u64_test
+#                                   -> test_simd_add_u64_carry_avx512
+#                                      (Aufruf :4925, do_run = ${COMDARE_HOST_RUNS_AVX512F})
+# Beide sind Teil der 19 "nicht statisch aufloesbar"-Registrierungen, die die Wache bei
+# jedem Lauf als eigene Zahl ausweist. Sie verschwinden auf prod2 ZUSAMMEN mit den zwei
+# oben -- und genau daher kommen die 4 der Differenz 461/457. Ein Allowlist-Eintrag waere
+# fuer sie wirkungslos (die Wache fragt sie nie ab); sie stehen hier als NAMEN, damit die
+# Klasse vollstaendig aufgeschrieben ist statt zur Haelfte.
+# Die Luecke bleibt eine Luecke: sie zu schliessen braucht eine andere SOLL-Quelle als den
+# Quelltext (z.B. `cmake --trace-expand`), keine schaerfere Regex -- s. Kopf der Wache.
+
+# -- NACHRUF: vier Zeilen am 09.08.2026 entfernt (Pipeline 15412, Punkt 3) --------------
+# Entfernt wurden:
+#   test_v41_anatomy_r5i_configure_codegen   Bedingung `if(_r5i_status STREQUAL "FOUND" ...)`, :1082
+#   test_v41_anatomy_f15_measurement         Bedingung `if(_f15_status STREQUAL "FOUND" ...)`, :1188
+#   test_v41_anatomy_adhoc_autobuilt_load    Bedingung `if(_r5g_autobuilt_count GREATER 0)`,   :1560
+#   f15_compare_cli_smoke                    Bedingung `if(TARGET comdare_f15_compare_cli)`,   :1581
+#
+# WARUM. Ihre Begruendung behauptete, die Ziele existierten im CI-Baum nicht -- bei den
+# beiden D2-Zeilen woertlich: "beide Tests existieren in der Inventur ueberhaupt nicht".
+# Am Objekt 09.08.2026 gemessen ist das in BEIDEN Baeumen falsch:
+#   lokal build-xml   : alle vier stehen in `ctest -N`  (je einzeln mit grep -Fxq geprueft)
+#   CI build-covguard : die Wache selbst meldete sie als "4 in diesem Baum WIRKUNGSLOS"
+#                       (Trace 15412 / Job 368969) -- also ebenfalls sichtbar.
+# Der Grund ist benennbar: seit der Umstellung auf `make inventar` baut der Job 'all' und
+# konfiguriert danach neu. 'all' baut jedes Codegen-Werkzeug, ohne dass ein Job es
+# NAMENTLICH nennen muesste -- deshalb ist `grep -c adhoc_emitter .gitlab-ci.yml` = 0
+# (nachgemessen, gilt weiter) und die daraus gezogene Folgerung trotzdem falsch.
+#
+# Die alte Praemisse war eine Aussage ueber die JOB-DATEI, die Folgerung eine ueber die
+# INVENTUR -- der klassische Stellvertreter. Eine Zeile mit falscher Begruendung ist
+# schlimmer als keine: sie sieht geprueft aus und faengt das naechste echte Verschwinden
+# desselben Namens lautlos weg.
+#
+# RISIKO DER ENTFERNUNG, ausdruecklich: sie ist NULL fuer die CI. Dass die vier im
+# CI-Baum sichtbar sind, steht in der Ausgabe der Wache aus 15412 selbst -- ohne
+# Allowlist-Zeile koennen sie dort also nicht als Befund auftauchen. Wer die Wache
+# lokal gegen einen EIN-PASS-Baum faehrt (nur configure, kein `make inventar`), bekommt
+# sie als Befund gemeldet -- das ist richtig so und keine Regression: der Referenzbaum
+# der Wache ist der, den test:coverage-guard baut.
+#
+# NICHT ENTSCHIEDEN: ob D2 als Aufgabe erledigt ist. Hier faellt nur die Aussage ueber
+# die Inventur, weil sie am Objekt widerlegt ist. Der Rest von D2 gehoert in den Ledger,
+# nicht in diese Datei.

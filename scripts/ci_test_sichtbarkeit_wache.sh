@@ -290,9 +290,19 @@ N_GEDECKT=$(awk 'END{print NR+0}' "$TMP/gedeckt.txt")
 # AUSNAHMEN, DIE IHREN GRUND UEBERLEBT HABEN: ein Allowlist-Eintrag, dessen Test in
 # DIESEM Baum laengst sichtbar ist, deckt nichts mehr -- er steht nur noch da und
 # wuerde beim naechsten echten Verschwinden desselben Namens lautlos greifen.
-# Das ist BERICHT, kein Fehler: welche Bedingung zutrifft, haengt am Baum (der
-# prt-art-Legacy-Baum ist lokal da und in der CI nicht). Ein rc=1 daraus zu machen
-# hiesse, die Wache auf EINER Maschine gruen und auf der anderen rot zu fahren.
+# Das ist BERICHT, kein Fehler: welche Bedingung zutrifft, haengt am Baum. Ein rc=1
+# daraus zu machen hiesse, die Wache auf EINER Maschine gruen und auf der anderen rot
+# zu fahren.
+# BEISPIEL, am Objekt gemessen (09.08.2026, Pipeline 15412): der Job test:coverage-guard
+# fragt `tags: [baremetal]`, und dieses Tag tragen BEIDE prod-Runner -- id=16 (prod1,
+# AMD Zen 5, MIT AVX-512F) und id=17 (prod2, Intel, OHNE). Auf prod2 fallen die vier
+# Registrierungen hinter COMDARE_HOST_RUNS_AVX512F weg (461 ctest-Eintraege gegen 457),
+# auf prod1 nicht. Dieselbe Wache, derselbe Commit, zwei Baeume -- genau der Fall, fuer
+# den dieser Abschnitt BERICHT statt Fehler meldet.
+# KORREKTUR zum frueheren Beispiel an dieser Stelle: dort stand "der prt-art-Legacy-Baum
+# ist lokal da und in der CI nicht". Das ist am Objekt falsch -- die vier
+# prt-art-Registrierungen sind in BEIDEN Baeumen unsichtbar (lokal build-xml ebenso wie
+# CI build-covguard), das Nachbarrepo liegt auch auf prod1 nicht vor.
 : > "$TMP/verwaist.txt"
 while IFS= read -r NAME; do
     [ -n "$NAME" ] || continue
