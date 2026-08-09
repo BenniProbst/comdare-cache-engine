@@ -40,6 +40,76 @@
 // als Vorlage nimmt, baut den Defekt nach. Der static_assert auf MessArenaHeiss (mess_arena.hpp)
 // faengt genau diese Fehlerklasse beim Uebersetzen: ein Vektor-Member zerstoert trivially_copyable.
 //
+// == DER RUECKNAHME-BELEG HAENGT AM COMMIT, NICHT AN EINER /tmp-KOPIE (Nachtrag 09.08.2026) ========
+//
+// SELBSTCHECK dieses Blocks: jede Zahl unten ist an DIESER Maschine erhoben und woertlich
+// uebernommen. Die md5-Werte sind gegen den COMMIT-BLOB gezogen, nicht gegen eine Datei im
+// Arbeitsbaum. Der Koeder ist frisch gewuerfelt und NICHT aus dem Commit-Text abgeschrieben -- die
+// drei dort protokollierten Mutanten sind ausdruecklich NICHT wiederverwendet.
+//
+// BEFUND, DER DIESEN NACHTRAG ERZWINGT: die Paketmeldung zu MS-1 belegte die Ruecknahme der drei
+// Mutanten mit einem md5-Vergleich gegen eine Sicherung unter /tmp und nannte
+// 3eee9322d14693997a8bb43649ebf788 als "erwartet". Der Commit f24c6ea9 traegt fuer stapel_arena.hpp
+// aber e026d4c3fdd9d868ec6b17fe333ef926. Der Beleg reproduziert damit NICHT gegen den Commit:
+// zwischen Ruecknahme (12:00) und Commit (12:06) lief ein clang-format-Pass (mtime 12:03) und brach
+// die Byte-Identitaet.
+//
+// ZWEI DINGE STIMMEN TROTZDEM, beide nachgerechnet statt behauptet:
+//   * Der Unterschied ist AUSSCHLIESSLICH Whitespace -- zwei Hunks: Member-Ausrichtung (Z.77-79) und
+//     sauber() ein- statt dreizeilig (Z.118-120). Kein Zeichen Logik.
+//   * MUTANT-Treffer in den vier Commit-Blobs: 0, 0, 0, 0. Gegenprobe, dass derselbe Aufruf
+//     ueberhaupt zaehlt: dasselbe Kommando auf "StapelArena" -> 14 Treffer in stapel_arena.hpp.
+//
+// WARUM md5-IDENTITAET DAS FALSCHE WERKZEUG WAR. Byte-Gleichheit gegen eine private /tmp-Sicherung
+// beweist nur "unveraendert seit MEINEM Schnappschuss". Sie ist (a) fuer niemanden sonst
+// reproduzierbar, weil die Sicherung nicht im Repo liegt, und (b) bricht bei jedem Format-Lauf, ohne
+// dass sich Logik geaendert haette. Das tragfaehige Werkzeug liegt bereits vor: DIESER TEST. Jeder
+// Mutant, der eine Zusage verletzt, toetet hier eine BENANNTE Pruefung -- also ist ein gruener Lauf
+// dieses Tests, gebaut aus dem COMMITTETEN Baum, der Ruecknahme-Beleg. Er ist format-immun, haengt am
+// Commit und faehrt bei jedem ctest mit, statt als Prosa zu verjaehren.
+//
+// == DER BISS-BEWEIS FUER GENAU DIESES WERKZEUG, WOERTLICH =========================================
+// Koeder-Wurf 09.08.2026: Rohwurf 181 aus /dev/urandom, Index 181 % 4 = 1 aus vier VORHER benannten
+// Kandidaten, Kennzeichen 38c48a8fcbd5. Gewaehlt ist damit M1: in hinauf() wird die
+// Kapazitaetspruefung ">=" zu ">". VOR dem Lauf vorhergesagt: die fuenfte Ablage bei top == 4 wird
+// faelschlich angenommen, also muessen (6b), (6c) und (6e) reissen, waehrend Abschnitt (3) (Tiefe 64,
+// Hoechststand 1) die Grenze nie beruehrt und gruen bleiben muss.
+//
+//   ROT, mit dem Koeder im Baum:
+//     -- (6) Koeder Stapel-Arena: Ueberlauf ist ein PROGRAMMIERFEHLER --
+//          stapel_arena: ausgeglichen (Hoechststand 5 von 4 Plaetzen)
+//       [ERR] (6b) die fuenfte wird abgewiesen
+//       [ERR] (6c) zu_tief = 1
+//       [ERR] (6d) der abgewiesene Koeder liegt nicht auf dem Stapel
+//       [ERR] (6e) der Hoechststand ist 4, nicht 5
+//       [ERR] (6f) ein unpaariges AUS, eigener Zaehler
+//       [ERR] (6h) die Meldung nennt die Fehlerklasse Programmierfehler
+//     FEHLGESCHLAGEN: 6 Pruefung(en)        RC=1
+//
+//   GRUEN, nach `git checkout --` derselben Datei:
+//     -- (6) Koeder Stapel-Arena: Ueberlauf ist ein PROGRAMMIERFEHLER --
+//          stapel_arena: PROGRAMMIERFEHLER -- zu_tief = 1 (Verschachtelung ueber 4 Plaetze),
+//          unpaariges_aus = 1, offen_geblieben = 0 (EIN ohne AUS, Hoechststand 4)
+//     OK: MS-1                              RC=0
+//
+// Alle drei vorhergesagten Pruefungen sind gerissen (drei weitere dazu), und die Abschnitte (3), (5)
+// und (7) blieben gruen -- der Koeder wird also von den GRENZ-Pruefungen gefangen und nicht von einer
+// fremden Zeile. Nebenbefund, ehrlich benannt: die Text-Wache in (9) blieb bei "verbotene Woerter =
+// 0", obwohl das Wort MUTANT im heissen Block stand. Sie ist eine Belegungs-Wache, KEIN
+// Mutanten-Melder; wer sie dafuer haelt, verlaesst sich auf eine Null, die nichts zusichert.
+//
+// RUECKNAHME, gegen den COMMIT-BLOB gezogen -- das ist der Punkt dieses Nachtrags:
+//     git show f24c6ea9:<pfad>/stapel_arena.hpp | md5sum -> e026d4c3fdd9d868ec6b17fe333ef926
+//     md5sum <Arbeitsbaum>/stapel_arena.hpp              -> e026d4c3fdd9d868ec6b17fe333ef926
+//     grep -c 38c48a8fcbd5 <Arbeitsbaum>                 -> 0  (rc=1; Gegenprobe: dasselbe Kommando
+//                                                               auf der Wurf-Datei -> 1)
+//     git status --short                                 -> leer
+//
+// REGEL FUER KUENFTIGE PAKETE: der Ruecknahme-Beleg wird gegen den COMMIT gezogen
+// (`git show <sha>:<pfad> | md5sum`), nie gegen eine Sicherung ausserhalb des Repos, und er wird ERST
+// NACH dem letzten clang-format-Lauf erhoben. Der tragende Beleg bleibt aber der gruene Lauf dieses
+// Tests aus dem committeten Baum -- der ueberlebt jede Umformatierung.
+//
 // Build: Standalone int main() (kein gtest -- ein Test-Framework alloziert im Fenster und machte die
 // Messung wertlos). Globale operator-new/delete-Ersetzung in DIESER TU gilt programmweit.
 //
