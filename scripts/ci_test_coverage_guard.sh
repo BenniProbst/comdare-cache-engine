@@ -907,7 +907,7 @@ if [ "$CE_RC" -eq 0 ]; then
     echo "  Untergrenze (committet)             : ${CE_GESAMT} >= ${CE_FLOOR}  (Quelle: ${_ce_floor_pfad})"
     echo "  Nenner gegen FREMDE Quelle (e)      : ${CE_FREMD_STATUS}"
     _ce_gates_ok=$(( CE_GATES_GESAMT - CE_GATES_UNGEPRUEFT ))
-    echo "  Gates gegen gesetzte Variable       : ${_ce_gates_ok} von ${CE_GATES_GESAMT} (${CE_GATES_UNGEPRUEFT} ANNAHME)"
+    echo "  Gates mit gesetzter Variable        : ${_ce_gates_ok}/${CE_GATES_GESAMT}, ${CE_GATES_UNGEPRUEFT} ANNAHME"
     echo ""
     echo "ABDECKUNGS-WACHE: GRUEN -- kein Test ohne fahrenden Job,"
     echo "und der Nenner ist belegt: ${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} bedingten Bloecken gelaufen, 0 uebersprungen."
