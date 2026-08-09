@@ -49,6 +49,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility> // std::pair -- Laufzeit-Zeuge fuer WACHE 3 fuehrt Wert und Token zusammen
 #include <vector>
 
 namespace bl  = comdare::cache_engine::builder::bestandslog;
@@ -540,11 +541,21 @@ TEST(Lb2Wurzel, DieLagerTokenSindEINGEFROREN) {
     EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Map), "map");
     EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Container), "container");
     EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Graph), "graph");
+    EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::HeuristikAdapter), "heuristik_adapter");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::SearchAlgorithm), "search_algorithm");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Set), "set");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Sequence), "sequence");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Adapter), "adapter");
     EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::View), "view");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::FunctionInterfaceReroute), "function_interface_reroute");
+
+    // Die NAMENS-WARNUNG aus anatomy_base.hpp gilt auf der Platte genauso wie im Quelltext:
+    // "Adapter" OHNE Praefix meint IMMER den Container-Genus. Beide Token stehen ab dem ersten
+    // eingelagerten Blatt nebeneinander im selben Vaterordner -- waeren sie gleich, verschmolzen
+    // zwei Genera still zu einem Ast.
+    EXPECT_NE(bl::lager_genus_token(cea::AnatomyGenus::Adapter),
+              bl::lager_genus_token(cea::AnatomyGenus::FunctionInterfaceReroute))
+        << "adapter (Container-Genus) und function_interface_reroute (Hybrid-Genus) sind zwei Adressen";
 
     // Der Token ist BEWUSST nicht der C++-Name: E-24 C7-1 hat den Enumerator SearchAlgorithm nach Map
     // umbenannt, weil damals nichts eingefroren war. Waere der Ordnername an gattung_name() gekoppelt,
@@ -577,10 +588,73 @@ TEST(Lb2Wurzel, NENNER_JedeGattungUndJedesGenusDerAnatomieIstEinsortierbar) {
               << " -- Genera mit Lager-Token: " << mit_genus_token << "/" << genera
               << " (Grundgesamtheit: Scan ueber alle 256 uint8_t-Werte, Zugehoerigkeit per "
                  "anatomy::gattung_name/genus_name)\n";
-    EXPECT_EQ(gattungen, 3u) << "Stand 09.08.2026: Map, Container, Graph";
-    EXPECT_EQ(genera, 5u) << "Stand 09.08.2026: SearchAlgorithm, Set, Sequence, Adapter, View";
+    EXPECT_EQ(gattungen, 4u) << "Stand 09.08.2026 nach HY-A1: Map, Container, Graph, HeuristikAdapter";
+    EXPECT_EQ(genera, 6u)
+        << "Stand 09.08.2026 nach HY-A1: SearchAlgorithm, Set, Sequence, Adapter, View, FunctionInterfaceReroute";
     EXPECT_EQ(mit_gattung_token, gattungen) << "K1: keine Gattung ohne Lager-Token";
     EXPECT_EQ(mit_genus_token, genera) << "K1: kein Genus ohne Lager-Token";
+}
+
+// ---------------------------------------------------------------------------
+// LAUFZEIT-ZEUGE fuer WACHE 3 (Injektivitaet). BEFUND, der ihn ausgeloest hat
+// (Warnungs-Review Runde 2b, 09.08.2026):
+//
+//   lager_baum_writer.hpp:258:15: error: static assertion expression is not an integral
+//                                        constant expression
+//   note: constexpr evaluation hit maximum step limit; possible infinite loop?
+//         in call to 'length(&"Unknown"[0])' ... in call to 'ist_gattung_enumerator(10)'
+//
+// Die consteval-Wache lief ueber 32640 Paare mit je vier Orakel-Aufrufen und sprengte damit
+// clangs Schrittgrenze -- auf clang war sie also kein Testat, sondern ein Abbruch. Sie ist
+// jetzt zweiphasig (Zugehoerigkeit einmal je Wert, dann Paare ueber die eingesammelten Token).
+//
+// WARUM DIESER TEST TROTZ DER consteval-WACHE: eine Umbau, der eine Wache BILLIGER macht, kann
+// sie unbemerkt HOHL machen -- und eine hohle consteval-Wache klappert nicht, sie schweigt.
+// Hier steht deshalb ein ZWEITER, unabhaengig geschriebener Zeuge derselben Eigenschaft, mit
+// Nenner in der Ausgabe. Sein Orakel ist die ANATOMIE (gattung_name/genus_name), nicht die
+// Token-Tabelle und nicht die consteval-Wache (T-3/T-5).
+// ---------------------------------------------------------------------------
+TEST(Lb2Wurzel, NENNER_DieLagerTokenSindPAARWEISE_VERSCHIEDEN_LaufzeitZeuge) {
+    std::vector<std::pair<int, std::string_view>> gattung_tok, genus_tok;
+    for (int v = 0; v <= 255; ++v) {
+        auto const ga = static_cast<cea::AnatomyGattung>(static_cast<std::uint8_t>(v));
+        if (cea::gattung_name(ga) != std::string_view{"Unknown"}) gattung_tok.emplace_back(v, bl::lager_gattung_token(ga));
+        auto const ge = static_cast<cea::AnatomyGenus>(static_cast<std::uint8_t>(v));
+        if (cea::genus_name(ge) != std::string_view{"Unknown"}) genus_tok.emplace_back(v, bl::lager_genus_token(ge));
+    }
+
+    // Die Paar-Zahl ist der NENNER dieses Tests -- nicht die Zahl der Token.
+    auto paare = [](std::size_t n) { return n * (n - 1) / 2; };
+    std::size_t kollisionen = 0;
+    for (std::size_t a = 0; a < gattung_tok.size(); ++a)
+        for (std::size_t b = a + 1; b < gattung_tok.size(); ++b)
+            if (gattung_tok[a].second == gattung_tok[b].second) {
+                ++kollisionen;
+                ADD_FAILURE() << "Gattung " << gattung_tok[a].first << " und " << gattung_tok[b].first
+                              << " teilen den Token '" << gattung_tok[a].second << "'";
+            }
+    for (std::size_t a = 0; a < genus_tok.size(); ++a)
+        for (std::size_t b = a + 1; b < genus_tok.size(); ++b)
+            if (genus_tok[a].second == genus_tok[b].second) {
+                ++kollisionen;
+                ADD_FAILURE() << "Genus " << genus_tok[a].first << " und " << genus_tok[b].first
+                              << " teilen den Token '" << genus_tok[a].second << "'";
+            }
+
+    std::cout << "[K1-NENNER] geprueft: " << paare(gattung_tok.size()) << " Gattungs-Paare + "
+              << paare(genus_tok.size()) << " Genus-Paare (aus " << gattung_tok.size() << " Gattungen und "
+              << genus_tok.size() << " Genera, gefunden per Scan ueber alle 256 uint8_t-Werte) -- "
+              << kollisionen << " Kollisionen\n";
+    EXPECT_EQ(kollisionen, 0u);
+
+    // GEGENEINGANG (T-4): DIESELBE Pruef-Logik an einer Tabelle, die die Zusicherung VERLETZT.
+    // Ohne ihn belegte die 0 oben nur, dass die Schleife laeuft -- nicht, dass sie etwas sieht.
+    std::vector<std::string_view> const entartet{"map", "container", "map"};
+    std::size_t gegen = 0;
+    for (std::size_t a = 0; a < entartet.size(); ++a)
+        for (std::size_t b = a + 1; b < entartet.size(); ++b)
+            if (entartet[a] == entartet[b]) ++gegen;
+    EXPECT_EQ(gegen, 1u) << "die Pruef-Logik selbst muss eine Kollision sehen koennen, sonst ist die 0 oben leer";
 }
 
 // ===========================================================================
