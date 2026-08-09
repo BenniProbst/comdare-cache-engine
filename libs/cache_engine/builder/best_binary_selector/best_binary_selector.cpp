@@ -111,9 +111,13 @@ int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_r
 
     // (REV-DATA-04) Diagnose-Helfer: verworfene Zeile protokollieren (Zeilennummer 1-basiert inkl. Header).
     std::size_t line_no = 1; // Header war Zeile 1
-    auto        reject  = [&](char const* col, std::string const& val) {
+    // Parametername bewusst `spalten_name` (nicht `col`): die umschliessende Funktion fuehrt bereits
+    // ein `col` -- die Kopf->Index-MAP. Beide Lambdas fangen mit [&], ein gleichnamiger Parameter
+    // verdeckte die Map also innerhalb des Rumpfes (-Wshadow, GCC).
+    auto        reject  = [&](char const* spalten_name, std::string const& val) {
         if (reject_diags != nullptr)
-            reject_diags->push_back("Zeile " + std::to_string(line_no) + ": Feld '" + col + "' ungueltig ('" + val +
+            reject_diags->push_back("Zeile " + std::to_string(line_no) + ": Feld '" + spalten_name +
+                                    "' ungueltig ('" + val +
                                     "') -> Zeile verworfen");
     };
 
@@ -138,10 +142,10 @@ int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_r
         }
         r.two_phase_valid = (fields[i_valid] == "1");
         // Optionale op_*-Felder: leer ⇒ 0 (= n/a, Bestands-Semantik); nicht-leer ⇒ STRIKT.
-        auto opt_field = [&](bool has, std::size_t idx, char const* col, double& dst) -> bool {
+        auto opt_field = [&](bool has, std::size_t idx, char const* spalten_name, double& dst) -> bool {
             if (!has || fields.size() <= idx || fields[idx].empty()) return true; // fehlend/leer ⇒ 0 (n/a)
             if (parse_double_strict(fields[idx], dst)) return true;
-            reject(col, fields[idx]);
+            reject(spalten_name, fields[idx]);
             return false;
         };
         if (!opt_field(has_ins, i_ins, "op_insert_p50_ns", r.op_insert_p50)) continue;

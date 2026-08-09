@@ -21,11 +21,11 @@
 //
 // Verwendung (von CMake comdare_generate_is_original_mixin):
 //
-//   is_original_validator \
-//       --manifest legacy_code/paper_a04_mimalloc/manifest.txt \
-//       --base-dir legacy_code/paper_a04_mimalloc \
-//       --lock-file legacy_code/paper_a04_mimalloc/sha256_locked.txt \
-//       --output ${CMAKE_BINARY_DIR}/generated/.../mimalloc_is_original.hpp \
+//   is_original_validator
+//       --manifest legacy_code/paper_a04_mimalloc/manifest.txt
+//       --base-dir legacy_code/paper_a04_mimalloc
+//       --lock-file legacy_code/paper_a04_mimalloc/sha256_locked.txt
+//       --output ${CMAKE_BINARY_DIR}/generated/.../mimalloc_is_original.hpp
 //       --namespace comdare::cache_engine::allocator::axis_06_allocator::generated
 //
 // Manifest-Format (@-Annotations + Function-Mappings):

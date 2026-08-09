@@ -226,7 +226,17 @@ int main(int argc, char** argv) {
     }
 
     auto measurement_pin = pin_core.has_value() ? bld::CorePinPolicy{*pin_core}.pin() : bld::NoPinPolicy{}.pin();
-    if (measurement_pin.active()) { std::cout << "AP-13 Mess-Thread auf Core " << *pin_core << " gepinnt.\n"; }
+    // Die Wache steht auf has_value() UND active(), nicht auf active() allein. Bisher trug den
+    // `*pin_core`-Zugriff nur eine Zusicherung aus einem ANDEREN Header: NoPinPolicy::pin() liefert
+    // einen default-konstruierten ScopedThreadPin (active_{false}), also folgte aus active() faktisch
+    // has_value(). Faktisch -- nicht strukturell. Gaebe NoPinPolicy je einen aktiven Pin zurueck
+    // (etwa ein Default-Pinning), laese diese Zeile ein LEERES optional aus: undefiniertes Verhalten.
+    // GCC meldet genau das ab -O3, wo das Inlining die Analyse traegt: "-Wmaybe-uninitialized" auf
+    // dem _M_payload des optional. Im Debug-Bau ist die Stelle UNSICHTBAR -- sie ist der Beleg
+    // dafuer, warum beide Bauweisen gefahren werden muessen.
+    if (pin_core.has_value() && measurement_pin.active()) {
+        std::cout << "AP-13 Mess-Thread auf Core " << *pin_core << " gepinnt.\n";
+    }
 
     // ── OpenDone.2 / Pfad B — Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
     // Wireht den (in test_v41_anatomy_adhoc_dll_load bewiesenen) Prüf-Dock-Mess-Pfad als CLI: jede REAL

@@ -5,7 +5,7 @@
 // Generiert YCSB-A/B/C/D/E/F Workloads + synthetic + schreibt sie nach Datei
 // in 3 Output-Formaten: binary (kompakt), tsv (debuggable), json (Inspection).
 //
-// Usage: ycsb_cli --workload=A --num-keys=100000 --num-ops=1000000 \
+// Usage: ycsb_cli --workload=A --num-keys=100000 --num-ops=1000000
 //                 --output=ycsb_a.bin --format=binary
 
 #include <comdare/workload_generator/workload_generator.hpp>
@@ -25,6 +25,13 @@
 namespace wg = comdare::workload_generator;
 
 namespace ycsb_cli {
+// TU-LOKAL: dieses Werkzeug ist genau EINE Uebersetzungseinheit -- neben der main.cpp liegt kein
+// Header, der die Helfer deklariert. Sie hatten trotzdem EXTERNE Bindung, also keine vorherige
+// Deklaration (-Wmissing-declarations, 9 Stellen). Der unbenannte Namensraum gibt ihnen interne
+// Bindung; damit ist die Ursache behoben statt die Warnung unterdrueckt. Qualifizierte Aufrufe der
+// Form `ycsb_cli::parse_args(...)` bleiben gueltig -- ein unbenannter Namensraum wirkt im
+// umschliessenden Namensraum wie eine using-Directive.
+namespace {
 
 enum class OutputFormat : std::uint8_t {
     Binary = 0,
@@ -206,6 +213,7 @@ inline constexpr std::uint32_t kBinaryVersion = 1u;
     return 4;
 }
 
+} // namespace
 }  // namespace ycsb_cli
 
 namespace {

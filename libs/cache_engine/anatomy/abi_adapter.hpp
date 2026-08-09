@@ -592,7 +592,6 @@ public:
                                              std::uint64_t out_capacity) noexcept override {
         if (out_latencies_ns == nullptr || out_capacity == 0 || batches == 0 || ops_per_batch == 0) { return 0; }
         try {
-            using SearchAlgo = typename A::composition_t::search_algo;
             using Allocator  = typename A::composition_t::allocator;     // R5.B: 2. operative Achse
             using MemLayout  = typename A::composition_t::memory_layout; // R5.B: 3. operative Achse
             using Serializer = typename A::composition_t::serialization; // R5.B: 4. operative Achse (axis_10)
@@ -707,7 +706,6 @@ public:
         *out = ComdareSegmentLatencyV1{};
         if (batches == 0 || ops_per_batch == 0) return 0;
         try {
-            using SearchAlgo = typename A::composition_t::search_algo;
             using Allocator  = typename A::composition_t::allocator;
             using MemLayout  = typename A::composition_t::memory_layout;
             using Serializer = typename A::composition_t::serialization;
@@ -816,7 +814,6 @@ public:
         *out = ComdareSegmentLatencyV2{};
         if (batches == 0 || ops_per_batch == 0) return 0;
         try {
-            using SearchAlgo      = typename A::composition_t::search_algo;
             using CacheTraversal  = typename A::composition_t::cache_traversal;
             using Mapping         = typename A::composition_t::mapping;
             using PathCompression = typename A::composition_t::path_compression;
