@@ -378,7 +378,7 @@ struct RunProfileResult {
         return res;
     }
     auto const& tp = *tp_opt;
-    // ── (0a) T-1 DIE ZWEI-PARSE-WACHE. Der Kopf oben sagt "Profil EINMAL parsen" -- fuer DIESE Funktion
+    // -- (0a) T-1 DIE ZWEI-PARSE-WACHE. Der Kopf oben sagt "Profil EINMAL parsen" -- fuer DIESE Funktion
     //    stimmt das, fuer den LAUF nicht: die Facade hat dieselbe Datei schon einmal geparst und aus IHREM
     //    Parse entschieden, ob compile_for_perm belegt wird. Zwischen den beiden Parsen liegt Arbeit
     //    (Lastprofil-Entdeckung, Methodik-Aufloesung, Achsen-Versionstabelle) -- und damit ein Fenster, in
