@@ -33,16 +33,73 @@
 #   (b) TOTER NAME in einer Namensliste -- steht ein Test namentlich in einem
 #       Job-Selektor, existiert aber nicht mehr, faellt das auf, obwohl die
 #       uebrigen Namen der Liste den Selektor noch "gruen" aussehen lassen.
+#   (c) UEBERSPRUNGENER REGISTRIERUNGS-BLOCK -- der Nenner selbst ist zu klein.
+#       Siehe den folgenden Absatz; das war der Blindfleck bis 2026-08-09.
+#   (d) BEHAUPTET-AKTIVER BLOCK OHNE TEST -- ein Block meldet sich als gelaufen,
+#       sein Test steht aber nicht in der Inventur (umbenannt, Registrierung
+#       verschluckt). Die Gegenrichtung von (c).
 #
 # AUFRUF:  sh scripts/ci_test_coverage_guard.sh <build-verzeichnis>
-# EXIT:    0 = Invariante haelt | 1 = Abdeckungsluecke (Testnamen im Klartext)
-#          2 = Bedienung/Umgebung | 3 = Manifest defekt
+# EXIT:    0 = Invariante haelt
+#          1 = Abdeckungsluecke: ein registrierter Test faehrt in keinem Job
+#          2 = Bedienung/Umgebung. Dazu zaehlt ein fehlendes, leeres oder
+#              abgerissenes Registrierungs-Protokoll: wer seinen Nenner nicht
+#              belegen kann, meldet nicht gruen (fail-closed).
+#          3 = Manifest defekt
+#          4 = NENNER-BEFUND: die Inventur ist nachweislich kleiner als das, was
+#              dieser Baum registrieren muesste (uebersprungener Block), oder sie
+#              widerspricht dem Protokoll (Block meldet AKTIV, Test fehlt).
+#          WARUM 4 EIN EIGENER CODE IST -- und nicht einfach 1: der Selbsttest
+#          muss "rot aus dem richtigen Grund" von "rot aus irgendeinem Grund"
+#          unterscheiden koennen. Ein Koeder, der nur 'nicht 0' prueft, beisst
+#          auch bei einem Phantom-Gate und beweist damit nichts ueber den Nenner.
 #
 # WICHTIG (Ground Truth): Der Bau-Baum MUSS so konfiguriert sein wie der Job, der
-# die Voll-Suite faehrt -- inklusive des 2-Pass-Codegen-Configures des .test-
-# Templates. Ohne den zweiten Pass registriert CMake zwei codegen-abhaengige Tests
-# NICHT (live gemessen 2026-08-06: 404 statt 406) und die Wache haette einen zu
-# kleinen Wahrheitsbegriff. Der CI-Job test:coverage-guard macht genau das.
+# die Voll-Suite faehrt. Mehrere Tests dieses Projekts werden erst registriert,
+# wenn ein 2-Pass-Werkzeug GEBAUT ist und CMake danach ein zweites Mal laeuft.
+# Das betrifft ZWEI Werkzeuge, nicht eines -- die zweite Stelle fehlte hier bis
+# 2026-08-09 und ist der Grund fuer den Rest dieses Absatzes:
+#   * comdare_anatomy_codegen_cli (Codegen-Pass) -> test_v41_anatomy_r5i_configure_codegen
+#     und test_v41_anatomy_f15_measurement.
+#   * comdare_adhoc_emitter_cli (Adhoc-Emitter-Pass) -> test_v41_anatomy_adhoc_autobuilt_load
+#     und f15_compare_cli_smoke.
+#
+# AM OBJEKT GEMESSEN (2026-08-09, build-covguard dieses Worktrees; Verfahren: die
+# fertig gebaute Werkzeug-Binary beiseitelegen, 'cmake -S . -B build-covguard'
+# erneut laufen lassen, 'ctest -N' zaehlen -- kein Neubau, nur Configure):
+#   beide Werkzeuge vorhanden ............................ 434 Tests
+#   Adhoc-Emitter beiseite, Codegen vorhanden ............ 432 Tests
+#   beide beiseite (= Zustand nach Pass 1) ............... 430 Tests
+# Jeder der beiden Passes traegt also genau zwei Tests; zusammen sind es vier.
+#
+# Das Emitter-Werkzeug steht in KEINEM CI-Job namentlich: '/usr/bin/grep -c
+# adhoc_emitter .gitlab-ci.yml' -> 0 (Gegenprobe mit demselben grep in derselben
+# Datei: 'anatomy_codegen' -> 2, 'make inventar' -> 3; die Null ist eine Null und
+# kein kaputtes Werkzeug). Es kommt seit dem GNU-Bauweg ueber 'make inventar'
+# (= 'all' + Reconfigure) mit, ohne dass es irgendwo namentlich gepflegt werden
+# muss. Der offizielle Weg, der diesen Zustand herstellt, ist 'make inventar';
+# der CI-Job test:coverage-guard macht genau das.
+#
+# UND DER PUNKT, AN DEM DIESE WACHE SELBST BLIND WAR: sie konnte den Unterschied
+# nicht SEHEN. Ein uebersprungener Registrierungs-Block macht keinen Laerm -- er
+# macht die Inventur kleiner. Ueber der kleineren Menge rechnete die Wache
+# korrekt und meldete GRUEN; sie hatte sogar recht ueber die Menge, die sie sah.
+# Ein falsches Messgeraet faellt irgendwann auf, ein richtiges Messgeraet am
+# falschen Gegenstand nie. Deshalb liest sie jetzt zusaetzlich das
+# REGISTRIERUNGS-PROTOKOLL (cmake/registrierungs_protokoll.cmake): dort vermerkt
+# JEDER bedingte Block SELBST, ob er gelaufen ist und welche Tests er registriert
+# haette. Ein uebersprungener Block ist ROT; ein fehlendes oder abgerissenes
+# Protokoll ist ABBRUCH (fail-closed). Der Nenner steht ab hier in der AUSGABE,
+# nicht im Kopf des Autors.
+#
+# SELBSTTEST (T-6): tests/unit/test_d2_abdeckungs_wache_nenner.cpp -- ein GOOGLE
+# TEST, keine weitere Shell-Probe (Owner-Entscheid 2026-08-09: "Es waere sauberer
+# im cmake-Debug Modus standard google Tests zu fahren und diese in Release zu
+# wiederholen aufgrund von compile regressionen. Skripte sagen gar nichts.").
+# Er baut praeparierte Bau-Baeume mit FRISCH GEWUERFELTEN Kennungen (/dev/urandom,
+# nie abgeschrieben), faehrt DIESES Skript darauf und prueft Exit-Code UND die
+# woertliche Ausgabe -- inklusive der Gegenprobe, dass derselbe Baum mit
+# gelaufenem Block NICHT mit 4 endet.
 #
 # ASCII-only (Leitplanke).
 # =============================================================================
@@ -87,6 +144,114 @@ CE_GESAMT=$(wc -l < "${_ce_tmp}/alle.txt" | tr -d ' ')
 [ "$CE_GESAMT" -gt 0 ] || ce_abbruch "die Live-Inventur (ctest -N) meldet 0 Tests -- der Bau-Baum ist ohne -DCOMDARE_BUILD_TESTS=ON konfiguriert oder leer." 2
 echo ""
 echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
+
+# =============================================================================
+# DER NENNER ERKLAERT SICH SELBST -- Registrierungs-Protokoll auswerten (D2)
+# =============================================================================
+# Die Inventur oben ist nicht die Menge aller Tests dieses Repos, sondern die
+# Menge, die DIESER Bau-Baum registriert hat. Bedingte Registrierungs-Bloecke
+# (2-Pass-Werkzeuge) koennen sie verkleinern, ohne dass irgendetwas rot wird.
+# Das Protokoll ist die einzige Stelle, an der ein solcher Block sich meldet --
+# es wird zur Configure-Zeit von den Bloecken selbst geschrieben, nicht hier
+# nachgebaut (dieselbe Doktrin wie beim Manifest: eine Quelle, zwei Leser).
+_ce_protokoll="${CE_BUILD_DIR}/comdare_registrierungs_protokoll.txt"
+
+if [ ! -f "$_ce_protokoll" ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "Erwartet wurde: ${_ce_protokoll}"
+    echo "Geschrieben wird es zur Configure-Zeit von cmake/registrierungs_protokoll.cmake"
+    echo "(Abschluss-Aufruf am Ende der Wurzel-CMakeLists.txt)."
+    echo "Ohne dieses Protokoll kann die Wache nicht wissen, ob ihre Inventur"
+    echo "vollstaendig ist -- und eine Wache, die ihren Nenner nicht belegen kann,"
+    echo "meldet nicht gruen. Der Bau-Baum wurde vermutlich mit einem aelteren Stand"
+    echo "konfiguriert: 'make inventar' erneut fahren."
+    echo "-----------------------------------------------------------------------------"
+    ce_abbruch "Registrierungs-Protokoll fehlt -- der Nenner ist unbelegt (fail-closed)." 2
+fi
+
+sed -n 's/^BLOCK|//p' "$_ce_protokoll" > "${_ce_tmp}/bloecke.txt"
+sed -n 's/^ENDE|//p'  "$_ce_protokoll" > "${_ce_tmp}/ende.txt"
+CE_BLOCKS=$(wc -l < "${_ce_tmp}/bloecke.txt" | tr -d ' ')
+_ce_ende_zeilen=$(wc -l < "${_ce_tmp}/ende.txt" | tr -d ' ')
+
+# Endmarke: genau eine, und ihre Zahl muss zu den gelesenen Bloecken passen.
+# Ein abgebrochener Configure-Lauf hinterlaesst sonst ein halbes Protokoll, und
+# "eben weniger Bloecke" saehe genauso aus wie "alles in Ordnung".
+if [ "$_ce_ende_zeilen" -ne 1 ]; then
+    echo ""
+    echo "Erwartet: GENAU EINE Zeile 'ENDE|<n>' in ${_ce_protokoll}."
+    echo "Gefunden: ${_ce_ende_zeilen}."
+    ce_abbruch "Registrierungs-Protokoll ohne genau eine Endmarke -- abgerissen oder doppelt." 2
+fi
+CE_BLOCKS_ERWARTET=$(cat "${_ce_tmp}/ende.txt")
+if [ "$CE_BLOCKS_ERWARTET" != "$CE_BLOCKS" ]; then
+    echo ""
+    echo "Endmarke nennt ${CE_BLOCKS_ERWARTET} Bloecke, gelesen wurden ${CE_BLOCKS}."
+    ce_abbruch "Registrierungs-Protokoll inkonsistent -- Endmarke und Blockzahl widersprechen sich." 2
+fi
+
+: > "${_ce_tmp}/uebersprungene_bloecke.txt"
+: > "${_ce_tmp}/phantom_bloecke.txt"
+CE_BLOCKS_AKTIV=0
+CE_BLOCKS_UEBER=0
+
+# Null Bloecke ist KEIN gueltiger Zustand, sondern der alte Blindfleck in neuer
+# Form: verschwinden die comdare_registrierung_vermerken()-Aufrufe, saehe die
+# Wache wieder nur "ein bisschen weniger Tests" und meldete gruen. Wer die
+# bedingten Bloecke wirklich abschafft, schafft auch diese Pruefung ab
+# (cmake/registrierungs_protokoll.cmake) -- das ist eine Entscheidung, die man
+# trifft, keine, in die man hineinrutscht.
+if [ "$CE_BLOCKS" -eq 0 ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "Das Protokoll ${_ce_protokoll}"
+    echo "enthaelt keinen einzigen Block. Entweder sind die Aufrufe von"
+    echo "comdare_registrierung_vermerken() verschwunden -- dann ist der alte Blindfleck"
+    echo "zurueck und die Wache saehe wieder nur 'ein bisschen weniger Tests'. Oder es"
+    echo "gibt wirklich keinen bedingten Registrierungs-Block mehr -- dann gehoert diese"
+    echo "Pruefung samt cmake/registrierungs_protokoll.cmake bewusst entfernt."
+    echo "-----------------------------------------------------------------------------"
+    ce_abbruch "Registrierungs-Protokoll ohne einen einzigen Block -- Nenner unbelegt (fail-closed)." 2
+fi
+
+echo ""
+echo "NENNER (nie eine nackte Null) -- bedingte Registrierungs-Bloecke:"
+
+while IFS='|' read -r _ce_bk _ce_bs _ce_bt _ce_bg; do
+    [ -n "${_ce_bk:-}" ] || continue
+    printf '%s\n' "${_ce_bt:-}" | tr ',' '\n' > "${_ce_tmp}/blocktests.txt"
+    if [ "${_ce_bs:-}" = "AKTIV" ]; then
+        CE_BLOCKS_AKTIV=$(( CE_BLOCKS_AKTIV + 1 ))
+        printf '  [gelaufen     ] %-26s -> %-46s (%s)\n' "$_ce_bk" "${_ce_bt:--}" "${_ce_bg:-}"
+        # GEGENPROBE: "AKTIV" ist ohne diese Zeile eine unpruefbare Behauptung.
+        # Der Zeilenvergleich laeuft in awk, NICHT in grep: 'grep' ist auf diesem
+        # Host je nach PATH GNU grep 3.11 oder ugrep 7.5.0, und die beiden sind
+        # sich bei Muster-Eskapierung nicht einig (Fallen-Register). awk vergleicht
+        # $0 == n bytegleich -- da gibt es keine Engine-Frage.
+        while read -r _ce_tn; do
+            [ -n "$_ce_tn" ] || continue
+            [ "$_ce_tn" = "-" ] && continue
+            if ! awk -v n="$_ce_tn" 'BEGIN{f=1} $0==n {f=0} END{exit f}' "${_ce_tmp}/alle.txt"; then
+                echo "${_ce_bk}|${_ce_tn}" >> "${_ce_tmp}/phantom_bloecke.txt"
+            fi
+        done < "${_ce_tmp}/blocktests.txt"
+    else
+        CE_BLOCKS_UEBER=$(( CE_BLOCKS_UEBER + 1 ))
+        printf '  [UEBERSPRUNGEN] %-26s -> %-46s (%s)\n' "$_ce_bk" "${_ce_bt:--}" "${_ce_bg:-}"
+        while read -r _ce_tn; do
+            [ -n "$_ce_tn" ] || continue
+            [ "$_ce_tn" = "-" ] && continue
+            echo "${_ce_bk}|${_ce_tn}" >> "${_ce_tmp}/uebersprungene_bloecke.txt"
+        done < "${_ce_tmp}/blocktests.txt"
+    fi
+done < "${_ce_tmp}/bloecke.txt"
+
+echo ""
+echo "  ${CE_GESAMT} Tests in der Inventur; ${CE_BLOCKS} bedingte Registrierungs-Bloecke,"
+echo "  davon ${CE_BLOCKS_AKTIV} gelaufen und ${CE_BLOCKS_UEBER} uebersprungen."
+echo "  Quelle: ${_ce_protokoll}"
+
 echo ""
 echo "DEKLARIERTE JOB-AUSWAHLEN (Quelle: Manifest):"
 
@@ -190,6 +355,58 @@ echo ""
 echo "BILANZ: ${CE_GEDECKT} von ${CE_GESAMT} registrierten Tests werden von einem fahrenden Job ausgefuehrt."
 
 CE_RC=0
+CE_NENNER_ROT=0
+
+# -- Befund (c): NENNER GESCHRUMPFT -- der eigentliche D2-Defekt --
+# Bis hierher hat die Wache nur gerechnet. Ohne den folgenden Block waere alles
+# darueber blosse Anzeige: die uebersprungenen Bloecke stuenden in der Ausgabe
+# und die letzte Zeile sagte trotzdem GRUEN. Genau so lief es bis 2026-08-09.
+if [ -s "${_ce_tmp}/uebersprungene_bloecke.txt" ]; then
+    _ce_fehlend=$(wc -l < "${_ce_tmp}/uebersprungene_bloecke.txt" | tr -d ' ')
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: NENNER GESCHRUMPFT -- ${CE_BLOCKS_UEBER} von ${CE_BLOCKS} bedingten Registrierungs-"
+    echo "Bloecken wurden UEBERSPRUNGEN. ${_ce_fehlend} Test(s) sind in diesem Baum deshalb gar"
+    echo "nicht erst registriert; die Inventur von ${CE_GESAMT} ist um sie zu klein. Jede Aussage"
+    echo "dieser Wache ueber 'alle Tests' waere eine Aussage ueber die falsche Menge:"
+    echo ""
+    while IFS='|' read -r _ce_bk _ce_tn; do
+        echo "    NICHT REGISTRIERT: ${_ce_tn}   [Block '${_ce_bk}']"
+    done < "${_ce_tmp}/uebersprungene_bloecke.txt"
+    echo ""
+    echo "SO WIRD DAS BEHOBEN (nicht durch Aufweichen der Wache):"
+    echo "  * Der Regelfall ist ein Bau-Baum, in dem ein 2-Pass-Werkzeug fehlt. Der Grund"
+    echo "    steht oben je Block im Klartext; 'make inventar' baut ALLE Werkzeuge und"
+    echo "    konfiguriert danach neu -- danach ist der Block AKTIV."
+    echo "  * Soll ein Block in dieser Konfiguration wirklich nicht laufen, dann ist DIESER"
+    echo "    Bau-Baum nicht der Wahrheitsbegriff der Wache. Die Wache gehoert an den Baum,"
+    echo "    der die Voll-Suite faehrt -- sie wird nicht an den kleineren Baum angepasst."
+    echo "-----------------------------------------------------------------------------"
+    CE_NENNER_ROT=1
+fi
+
+# -- Befund (d): NENNER-WIDERSPRUCH -- die Gegenrichtung von (c) --
+# Ein Block, der sich AKTIV meldet, dessen Test aber nicht in der Inventur steht.
+# Ohne diese Probe waere "AKTIV" eine unpruefbare Behauptung -- und ein Protokoll,
+# das man nicht widerlegen kann, ist kein Beleg, sondern eine zweite Meinung.
+if [ -s "${_ce_tmp}/phantom_bloecke.txt" ]; then
+    echo ""
+    echo "-----------------------------------------------------------------------------"
+    echo "FEHLER: NENNER-WIDERSPRUCH -- ein Registrierungs-Block meldet sich als GELAUFEN,"
+    echo "sein Test steht aber nicht in der Inventur (${CE_GESAMT} Tests). Entweder wurde der Test"
+    echo "umbenannt, ohne den Vermerk nachzuziehen, oder die Registrierung ist unterwegs"
+    echo "verschluckt worden. Beides macht das Protokoll als Beleg wertlos:"
+    echo ""
+    while IFS='|' read -r _ce_bk _ce_tn; do
+        echo "    BEHAUPTET, FEHLT: ${_ce_tn}   [Block '${_ce_bk}' meldet AKTIV]"
+    done < "${_ce_tmp}/phantom_bloecke.txt"
+    echo ""
+    echo "SO WIRD DAS BEHOBEN: den Namen im comdare_registrierung_vermerken(TESTS ...)"
+    echo "an den echten comdare_add_test()/add_test(NAME ...) angleichen -- beide stehen"
+    echo "in derselben Datei, wenige Zeilen auseinander."
+    echo "-----------------------------------------------------------------------------"
+    CE_NENNER_ROT=1
+fi
 
 # -- Befund (a): Phantom-Gates --
 if [ -n "$CE_LEERE_SELEKTOREN" ]; then
@@ -217,7 +434,7 @@ if [ -s "${_ce_tmp}/tote_namen.txt" ]; then
     CE_RC=1
 fi
 
-# -- Befund (c): die eigentliche Invariante --
+# -- HAUPTBEFUND: die eigentliche Invariante --
 if [ "$CE_LUECKE" -gt 0 ]; then
     echo ""
     echo "-----------------------------------------------------------------------------"
@@ -249,9 +466,19 @@ if [ "$CE_LUECKE" -gt 0 ]; then
     CE_RC=1
 fi
 
+# Der Nenner-Befund hat VORRANG vor der Abdeckungsluecke, und zwar mit eigenem
+# Code. Beide zusammen sind moeglich; dann ist die Luecke die kleinere Nachricht:
+# ueber einer nachweislich unvollstaendigen Inventur ist "X von Y gedeckt" gar
+# nicht erst beantwortbar. Wer zuerst den Gegenstand richtigstellt, rechnet
+# danach ohnehin neu.
+if [ "$CE_NENNER_ROT" -ne 0 ]; then
+    CE_RC=4
+fi
+
 if [ "$CE_RC" -eq 0 ]; then
     echo ""
     echo "PARTITIONS-BELEG (dieselbe Rechnung, nur andersherum gelesen):"
+    echo "  bedingte Registrierungs-Bloecke     : ${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} gelaufen (kein stiller Schwund)"
     _ce_ohne_pmc=$(ce_namen -LE pmc | wc -l | tr -d ' ')
     _ce_mit_pmc=$(ce_namen -L pmc | wc -l | tr -d ' ')
     echo "  ohne Label 'pmc' (test:unit)        : ${_ce_ohne_pmc}"
@@ -260,10 +487,17 @@ if [ "$CE_RC" -eq 0 ]; then
     echo "  -> -L und -LE mit demselben Muster sind komplementaer; ein dritter Fall"
     echo "     existiert nicht. Die Deckung ist damit strukturell, nicht durch Audit."
     echo ""
-    echo "ABDECKUNGS-WACHE: GRUEN -- kein Test ohne fahrenden Job."
+    echo "ABDECKUNGS-WACHE: GRUEN -- kein Test ohne fahrenden Job,"
+    echo "und der Nenner ist belegt: ${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} bedingten Bloecken gelaufen, 0 uebersprungen."
+elif [ "$CE_RC" -eq 4 ]; then
+    echo ""
+    echo "ABDECKUNGS-WACHE: ROT (NENNER) -- diese Wache kennt ihren eigenen Gegenstand"
+    echo "nicht vollstaendig. Sie sagt hier ausdruecklich NICHTS ueber die Abdeckung:"
+    echo "eine Wache mit unvollstaendigem Nenner meldet Vollstaendigkeit und deckt nichts."
 else
     echo ""
-    echo "ABDECKUNGS-WACHE: ROT."
+    echo "ABDECKUNGS-WACHE: ROT -- Nenner belegt (${CE_BLOCKS_AKTIV} von ${CE_BLOCKS} Bloecken gelaufen),"
+    echo "die Abdeckung ueber dieser vollstaendigen Menge haelt aber nicht."
 fi
 
 exit "$CE_RC"
