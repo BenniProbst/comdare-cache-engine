@@ -6107,6 +6107,59 @@ set_tests_properties(test_ms2_pre_touch_seitenfehler PROPERTIES
 unset(_ms_dir)
 
 # ===================================================================================================
+# CK-1 (2026-08-09) -- DIE ABNAHME DER MESSKETTE: checkpoint_measure + Durchreichung + Mess-Visitor.
+#
+# Owner-KERN 09.08.2026: "checkpoint measure ist das ZENTRALE MESSINSTRUMENT DES SYSTEMS, es MUSS
+# GEBAUT WERDEN. Sonst gibt es keine Messungen."
+#
+# DIE ZWEI BELEG-OBJEKTE, und warum sie OBJECT-Bibliotheken sind und keine Tests:
+# Die Zusage "bei deaktiviert entsteht KEIN Aufruf" wird AM OBJEKT belegt, nicht behauptet. Dafuer
+# wird derselbe Quelltext (ck1_naht_koerper.hpp) ZWEIMAL uebersetzt -- einmal mit voller, einmal mit
+# leerer Mess-Konfiguration -- und die Symboltabellen werden verglichen. Die beiden .cpp unterscheiden
+# sich in GENAU EINER ZEILE; nur deshalb ist der Symbolvergleich eine Aussage ueber die KONFIGURATION
+# und nicht ueber den Quelltext.
+#
+# Sie sind OBJECT-Bibliotheken, weil der Test die OBJEKTDATEIEN braucht (nm liest sie) und nicht ein
+# gelinktes Programm: beim Linken verschwaende der Linker genau die Symbole, um die es geht.
+add_library(ck1_naht_voll OBJECT "ck1_naht_voll.cpp")
+target_compile_features(ck1_naht_voll PRIVATE cxx_std_23)
+target_include_directories(ck1_naht_voll PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(ck1_naht_voll)
+
+add_library(ck1_naht_leer OBJECT "ck1_naht_leer.cpp")
+target_compile_features(ck1_naht_leer PRIVATE cxx_std_23)
+target_include_directories(ck1_naht_leer PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(ck1_naht_leer)
+
+# Der Test selbst: gtest, aber EIGENES main() -- deshalb `gtest` OHNE `gtest_main`. Das main() nimmt
+# die beiden Objektpfade als Argumente entgegen; sie kommen damit aus FREMDER QUELLE (CMake-
+# Generatorausdruck) und nicht aus einer Vermutung des Tests ueber das Bauverzeichnis (T-3).
+#
+# Kein comdare_add_test: dessen add_test() reicht keine Argumente durch. Rezept fuer die
+# Argument-Uebergabe gespiegelt von test_check_size_cli_deckel, Rezept fuer die gtest-Anbindung von
+# comdare_add_test (cmake/gtest_setup.cmake).
+add_executable(test_ck1_messkette_koeder "test_ck1_messkette_koeder.cpp")
+target_compile_features(test_ck1_messkette_koeder PRIVATE cxx_std_23)
+target_include_directories(test_ck1_messkette_koeder PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+comdare_set_platform_defines(test_ck1_messkette_koeder)
+target_link_libraries(test_ck1_messkette_koeder PRIVATE gtest)
+# Die Beleg-Objekte muessen VOR dem Test gebaut sein -- sonst laeuft nm auf eine fehlende Datei und
+# der Test meldete "Werkzeug kaputt", wo in Wahrheit nur die Reihenfolge fehlte.
+add_dependencies(test_ck1_messkette_koeder ck1_naht_voll ck1_naht_leer)
+add_test(NAME test_ck1_messkette_koeder COMMAND test_ck1_messkette_koeder
+    "$<TARGET_OBJECTS:ck1_naht_voll>"
+    "$<TARGET_OBJECTS:ck1_naht_leer>")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ck1_messkette_koeder)
+set_tests_properties(test_ck1_messkette_koeder PROPERTIES
+    LABELS "ck;checkpoint_measure;messkette;durchreichung;mess_visitor" TIMEOUT 60)
+
+# ===================================================================================================
 # check-size (2026-08-09) -- die MENGENRECHNUNG des Planers gegen handgerechnete Orakel.
 #
 # SELBSTCHECK: STANDALONE int main() ohne gtest und ohne Bibliotheks-Anhang. Der Prueflung
