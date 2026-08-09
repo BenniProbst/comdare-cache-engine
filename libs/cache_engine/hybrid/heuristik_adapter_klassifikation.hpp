@@ -182,11 +182,24 @@ static_assert(alle_genera_benannt(), "HY-A1-WACHE: ein gelistetes Genus hat kein
 // ------------------------------------------------------------------------------------------
 // ABGELEITET aus gattung_of(), NICHT als zweite Aufzaehlung. Das ist Absicht: eine zweite Liste
 // waere eine zweite Wahrheit, die driften kann -- exakt der Fehler, den (2) fuer die Namen behebt.
-// Ein Reroute-Genus erkennt man daran, dass seine Gattung HeuristikAdapter ist. Wer spaeter einen
-// ZWEITEN Reroute-Genus anhaengt, traegt ihn in kAlleGenera ein und bildet ihn in gattung_of() auf
-// HeuristikAdapter ab -- und ist damit automatisch hier richtig einsortiert, ohne eine Zeile
-// dieser Datei zu aendern. Genau das verlangt der Owner-Auftrag "die Struktur muss MEHRERE
-// Reroute-Genera tragen, ein zweiter baut nichts um".
+// Ein Reroute-Genus erkennt man daran, dass seine Gattung HeuristikAdapter ist.
+//
+// WAS EIN ZWEITER REROUTE-GENUS WIRKLICH KOSTET -- am Objekt durchgespielt (09.08.2026), statt
+// behauptet. SELBSTCHECK: hier stand vorher "ohne eine Zeile dieser Datei zu aendern". Das war
+// FALSCH, und zwar an derselben Sorte Stelle, die diese Datei weiter oben am alten
+// kAllGenera-Kommentar anprangert: kAlleGenera steht in DIESER Datei (Zeile 84), und die Wache
+// unter (4) nennt eine Zahl, die mitsteigt. Der Schattenlauf ergab GENAU DREI Dateien:
+//   1. anatomy_base.hpp -- Enum-Wert anhaengen, genus_name()-case, gattung_of() -> HeuristikAdapter.
+//      Ohne Schritt 1 bricht die Wache aus (2) [belegt: HY-A1-WACHE, 1 Assert].
+//   2. DIESE DATEI, zwei Stellen: der Eintrag in kAlleGenera (Abschnitt 1) und die Quittung im
+//      static_assert auf klassifikations_genus_anzahl() == 1 -> 2 (unten in diesem Abschnitt).
+//   3. heuristik_adapter_strategy.hpp -- die Laengen-Quittung kAlleGenera.size() == 6 -> 7.
+// UNANGETASTET bleiben Gate, Partitions-Logik und Synthese-Matrix: der neue Genus ist danach
+// automatisch als Klassifikation einsortiert, automatisch als Reroute-Ziel VERBOTEN, ohne
+// Strategie, und die Dock-Zahl bleibt bei 5 [Schattenlauf Schritt 3: RC=0].
+// DAS IST DER PUNKT DES OWNER-AUFTRAGS: die LOGIK baut nichts um; was bleibt, sind ein Eintrag in
+// der Einzelquelle und zwei BEWUSSTE Zahlen-Quittungen. Quittungen sind hier Zweck, nicht Reibung
+// -- sie zwingen den Anhaengenden zu der Entscheidung, ob sein Wert ABI-sichtbar ist.
 
 /// true gdw. G ein KLASSIFIKATIONS-Genus ist: es kommt NIE aus genus() und hat KEIN Pruef-Dock.
 [[nodiscard]] constexpr bool ist_klassifikations_genus(cea::AnatomyGenus g) noexcept {

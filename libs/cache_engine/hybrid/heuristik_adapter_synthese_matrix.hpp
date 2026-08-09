@@ -50,6 +50,13 @@
 // >>> OFFEN FUER DEN OWNER: ist 32 die Spalten-Obergrenze der Synthese-Matrix UND 8 die
 // >>> Dock-Array-Kapazitaet -- oder loest 32 die 8 ab?
 //
+// NACHZUG 09.08.2026 -- WAS DER ENTSCHEID JETZT VORFINDET: die Zahl ist nicht mehr bloss ein
+// Default, sie BINDET. Jede Matrix reicht ihre Spaltenzahl an ihre Zellen durch, die Schranke
+// Node < Nodes ist eine Constraint, und die Stufen-ID rechnet mit DIESER Zahl. Vorher war das
+// nicht so: eine mit 8 parametrisierte Matrix lieferte Zellen jenseits der 8 und IDs nach der
+// 32er-Formel -- der Owner-Entscheid haette also gar nicht durchgeschlagen. Er schlaegt jetzt
+// durch, egal wie er ausfaellt.
+//
 // ============================================================================================
 // WAS HIER BEWUSST NICHT STEHT
 // ============================================================================================
@@ -83,19 +90,31 @@ inline constexpr std::size_t kHybridRestTiefeDefault = 1;
 // (2) DIE ZELLE -- Spezialisierungspunkt EINER Synthese-Funktion
 // ------------------------------------------------------------------------------------------
 
-/// SyntheseZelle<Layer, Node, Ziel> -- die Adresse GENAU EINER Synthese-Funktion in der Matrix.
+/// SyntheseZelle<Layer, Node, Ziel, Nodes> -- die Adresse GENAU EINER Synthese-Funktion in der
+/// Matrix.
 ///
 /// Sie ist ueber das Ziel-Genus mit-parametrisiert, weil die Synthese nicht gattungs-blind sein
 /// kann: die Snapshot-Felder eines Set-Tiers sind andere als die eines Sequence-Tiers. Das
 /// Concept-Gate haengt deshalb auch hier -- eine Zelle fuer ein Klassifikations-Genus gibt es nicht.
 ///
+/// SELBSTCHECK (Nachzug 09.08.2026): die Zelle TRAEGT ihre Spaltenzahl selbst, statt sie erst in
+/// stufen_id() als Funktions-Template-Argument entgegenzunehmen. Vorher war beides moeglich und
+/// beides falsch: eine Zelle mit node=20 liess sich aus einer 8-Node-Matrix bilden, und
+/// stufen_id<>() rechnete dann mit der GLOBALEN 32 statt mit den 8 dieser Matrix -- im Widerspruch
+/// zur Zusage unten ("Die Obergrenze geht in die Formel ein"). Am Objekt belegt: RC=0, wo ein
+/// Fehler stehen musste. Jetzt ist Nodes Teil der Zell-IDENTITAET, und die Schranke Node < Nodes
+/// ist eine CONSTRAINT (SFINAE-faehig), kein static_assert im Rumpf -- damit ist die verbotene
+/// Zelle schon nicht BILDBAR und nicht erst bei Benutzung laut.
+///
 /// HEUTE traegt sie nur ihre Adresse und ihre Stufen-ID. Die eigentliche Synthese-Funktion wird in
 /// HY-A2 je Zelle spezialisiert -- das ist der Sinn eines Spezialisierungspunkts.
-template <std::size_t Layer, std::size_t Node, anatomy::AnatomyGenus Ziel>
-    requires HybridZielGenus<Ziel>
+template <std::size_t Layer, std::size_t Node, anatomy::AnatomyGenus Ziel,
+          std::size_t Nodes = kHybridNodeObergrenzeDefault>
+    requires HybridZielGenus<Ziel> && (Node < Nodes)
 struct SyntheseZelle {
     static constexpr std::size_t           layer = Layer; ///< == Rest-Tiefe an dieser Stufe
     static constexpr std::size_t           node  = Node;  ///< Dock-Index innerhalb der Stufe
+    static constexpr std::size_t           nodes = Nodes; ///< Spaltenzahl der Matrix, zu der sie gehoert
     static constexpr anatomy::AnatomyGenus ziel  = Ziel;
 
     /// Die im Stempel ablesbare Heuristik-Funktions-Stufen-ID (LEDGER:481).
@@ -103,12 +122,16 @@ struct SyntheseZelle {
     /// Layer langsam; damit bleiben die IDs einer Stufe zusammenhaengend, was sie im Stempel
     /// lesbar macht. Die Obergrenze geht in die Formel ein -- eine XML, die max_docks aendert,
     /// aendert damit bewusst auch die IDs, und das muss im Stempel sichtbar sein.
-    template <std::size_t NodeObergrenze = kHybridNodeObergrenzeDefault>
-    [[nodiscard]] static constexpr std::size_t stufen_id() noexcept {
-        static_assert(Node < NodeObergrenze, "SyntheseZelle: Node-Index liegt ausserhalb der Obergrenze.");
-        return Layer * NodeObergrenze + Node;
-    }
+    /// SIE IST KEIN FUNKTIONS-TEMPLATE MEHR: die Obergrenze ist die der Zelle, nicht eine am
+    /// Aufrufort frei waehlbare zweite Wahrheit.
+    [[nodiscard]] static constexpr std::size_t stufen_id() noexcept { return Layer * Nodes + Node; }
 };
+
+/// ZelleBildbar<Layer, Node, Ziel, Nodes> -- der DETEKTOR fuer die Zell-Schranke.
+/// Wie ZielBindungInstanziierbar im Gate: er fragt nicht "ist die Zahl kleiner?", sondern "laesst
+/// sich der TYP bilden?". Nur diese zweite Frage beweist, dass die Schranke wirkt.
+template <std::size_t Layer, std::size_t Node, anatomy::AnatomyGenus Ziel, std::size_t Nodes>
+concept ZelleBildbar = requires { typename SyntheseZelle<Layer, Node, Ziel, Nodes>; };
 
 // ------------------------------------------------------------------------------------------
 // (3) DIE MATRIX -- compile-time Rekursion durch Herunterzaehlen der Rest-Tiefe
@@ -129,8 +152,11 @@ struct SyntheseMatrix {
     using naechste_stufe = SyntheseMatrix<RestTiefe - 1, Ziel, Nodes>;
 
     /// Zelle (dieser Layer, node).
+    /// SELBSTCHECK: die Matrix reicht ihre EIGENE Spaltenzahl durch. Ohne dieses vierte Argument
+    /// erbte die Zelle den globalen Default (32) und eine 8-Node-Matrix konnte eine Zelle mit
+    /// node=20 hervorbringen -- am Objekt belegt.
     template <std::size_t Node>
-    using zelle = SyntheseZelle<RestTiefe, Node, Ziel>;
+    using zelle = SyntheseZelle<RestTiefe, Node, Ziel, Nodes>;
 
     /// Zahl der Layer dieser Matrix (D, D-1, ..., 1).
     [[nodiscard]] static constexpr std::size_t layer_anzahl() noexcept { return RestTiefe; }
@@ -179,13 +205,39 @@ static_assert(TiefeMatrix::naechste_stufe::naechste_stufe::naechste_stufe::zelle
 static_assert(SyntheseMatrix<2, anatomy::AnatomyGenus::View, 8>::zellen_gesamt() == 16);
 
 // STUFEN-IDs: zusammenhaengend je Layer, und ueber die Layer verschieden.
-static_assert(SyntheseZelle<1, 0, anatomy::AnatomyGenus::Set>::stufen_id<32>() == 32);
-static_assert(SyntheseZelle<1, 31, anatomy::AnatomyGenus::Set>::stufen_id<32>() == 63);
-static_assert(SyntheseZelle<2, 0, anatomy::AnatomyGenus::Set>::stufen_id<32>() == 64);
-static_assert(SyntheseZelle<1, 0, anatomy::AnatomyGenus::Set>::stufen_id<32>() !=
-                  SyntheseZelle<2, 0, anatomy::AnatomyGenus::Set>::stufen_id<32>(),
+static_assert(SyntheseZelle<1, 0, anatomy::AnatomyGenus::Set>::stufen_id() == 32);
+static_assert(SyntheseZelle<1, 31, anatomy::AnatomyGenus::Set>::stufen_id() == 63);
+static_assert(SyntheseZelle<2, 0, anatomy::AnatomyGenus::Set>::stufen_id() == 64);
+static_assert(SyntheseZelle<1, 0, anatomy::AnatomyGenus::Set>::stufen_id() !=
+                  SyntheseZelle<2, 0, anatomy::AnatomyGenus::Set>::stufen_id(),
               "HY-A1-MATRIX: zwei Zellen verschiedener Layer duerfen nie dieselbe Stufen-ID tragen "
               "-- sie sind im Stempel sonst nicht unterscheidbar.");
+
+// DIE NODE-SCHRANKE WIRKT WIRKLICH -- Nachzug 09.08.2026, beide Richtungen.
+// ERLAUBT: die letzte Spalte einer 8-Node-Matrix.
+static_assert(ZelleBildbar<1, 7, anatomy::AnatomyGenus::Set, 8>);
+// VERBOTEN: eine Spalte JENSEITS der Obergrenze derselben Matrix. Vorher war genau das bildbar.
+static_assert(!ZelleBildbar<1, 8, anatomy::AnatomyGenus::Set, 8>,
+              "HY-A1-MATRIX: Node == Nodes ist die erste Spalte AUSSERHALB -- sie darf sich nicht "
+              "bilden lassen.");
+static_assert(!ZelleBildbar<1, 20, anatomy::AnatomyGenus::Set, 8>,
+              "HY-A1-MATRIX: eine 8-Node-Matrix darf keine Zelle mit node=20 hervorbringen. Genau "
+              "dieser Fall war bis zum Nachzug am 09.08. wohlgeformt und lieferte zudem eine "
+              "Stufen-ID nach der 32er-Formel.");
+
+// UND DIE FORMEL RECHNET MIT DER OBERGRENZE DER MATRIX, nicht mit dem globalen Default.
+// Das ist die Zusage aus dem Kopf dieser Datei ("Die Obergrenze geht in die Formel ein"), hier
+// belegt statt behauptet: dieselbe (Layer, Node) liefert bei 8 Spalten eine ANDERE ID als bei 32.
+static_assert(SyntheseZelle<1, 3, anatomy::AnatomyGenus::Set, 8>::stufen_id() == 1 * 8 + 3);
+static_assert(SyntheseZelle<1, 3, anatomy::AnatomyGenus::Set, 32>::stufen_id() == 1 * 32 + 3);
+static_assert(SyntheseZelle<1, 3, anatomy::AnatomyGenus::Set, 8>::stufen_id() !=
+                  SyntheseZelle<1, 3, anatomy::AnatomyGenus::Set, 32>::stufen_id(),
+              "HY-A1-MATRIX: eine XML, die max_docks aendert, MUSS die Stufen-IDs mitaendern -- "
+              "sonst waere die Obergrenze im Stempel nicht ablesbar.");
+
+// DIE MATRIX REICHT IHRE SPALTENZAHL WIRKLICH DURCH (der Weg, auf dem der Defekt entstand).
+static_assert(SyntheseMatrix<1, anatomy::AnatomyGenus::Set, 8>::zelle<7>::nodes == 8);
+static_assert(SyntheseMatrix<1, anatomy::AnatomyGenus::Set, 8>::zelle<7>::stufen_id() == 1 * 8 + 7);
 
 // DAS GATE HAENGT AUCH HIER: keine Matrix und keine Zelle fuer ein Klassifikations-Genus.
 template <anatomy::AnatomyGenus G>

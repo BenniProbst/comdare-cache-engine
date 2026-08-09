@@ -77,6 +77,26 @@ concept RerouteStrategieVertrag = requires {
 ///     Strategie fuer den Reroute-Genus selbst bauen und das Gate an der Strategie vorbei
 ///     umgehen;
 ///   - dass Derived den Vertrag erfuellt -- sonst waere die Strategie nicht ansprechbar.
+///
+/// GRENZE, EHRLICH BENANNT -- WANN SIE UEBERHAUPT PRUEFT (Nachzug 09.08.2026):
+/// Die static_asserts stehen im Ctor-RUMPF. Ein Template-Member wird erst bei BENUTZUNG
+/// instanziiert, also erst bei der ERSTEN KONSTRUKTION. Wer eine Strategie nur ueber ihre
+/// statischen Member anspricht (X::strategie_name()), loest sie NIE aus. Das ist am Objekt
+/// belegt: eine handgeschriebene Strategie ohne strategie_name() uebersetzte sauber durch,
+/// solange niemand sie konstruierte -- und RerouteStrategieGebunden<G> haette sie ebenfalls
+/// durchgelassen, weil sein sizeof nur die EXISTENZ prueft, nicht den Vertrag.
+/// DESHALB ZWEI GEGENMASSNAHMEN, keine davon allein ausreichend:
+///   (a) unter (5) steht der Vertrag fuer ALLE FUENF Genera als static_assert -- das greift
+///       auch ohne Konstruktion;
+///   (b) test_hy_a1_heuristik_adapter_gattung.cpp konstruiert jede der fuenf genau einmal --
+///       das ist der einzige Weg, die Wache hier ueberhaupt scharf zu stellen.
+/// Ab HY-A2 werden die Strategien aus dem Makro herausgeschrieben; dann ist (a)+(b) das, was
+/// eine vergessene Vertrags-Flaeche noch faengt.
+///
+/// FALLE BEI DER KONSTRUKTION: der Basis-Ctor ist protected, damit ist die abgeleitete Strategie
+/// KEIN Aggregat (C++17 erlaubt Aggregate mit Basisklassen -- aber nicht mit unzugaenglichem
+/// Basis-Ctor). `Strategie s{}` scheitert deshalb mit "RerouteGuard() is protected within this
+/// context"; der richtige Weg ist der implizite Default-Ctor: `Strategie s;`.
 template <class Derived, anatomy::AnatomyGenus G>
 class RerouteGuard {
 protected:
@@ -168,8 +188,31 @@ static_assert(RerouteStrategieGebunden<anatomy::AnatomyGenus::View>);
 static_assert(!RerouteStrategieGebunden<anatomy::AnatomyGenus::FunctionInterfaceReroute>,
               "HY-A1-STRATEGY: fuer ein Klassifikations-Genus darf es keine Reroute-Strategie geben.");
 
-// Die Vertraege halten wirklich (nicht nur "es uebersetzt").
+// DER VERTRAG, FUER ALLE FUENF -- nicht nur fuer eine.
+// SELBSTCHECK (Nachzug 09.08.2026): hier stand vorher NUR SearchAlgorithm. Das genuegte nicht:
+// RerouteStrategieGebunden<G> prueft per sizeof allein die EXISTENZ, und die CRTP-Wache im
+// Ctor-Rumpf schweigt, solange niemand konstruiert. Eine handgeschriebene Strategie ohne
+// strategie_name() waere damit durch BEIDE Sperren gerutscht -- am Objekt belegt. Ab HY-A2 werden
+// die fuenf aus dem Makro herausgeschrieben; genau dann wird diese Zeile tragend.
 static_assert(RerouteStrategieVertrag<HeuristikRerouteStrategy<anatomy::AnatomyGenus::SearchAlgorithm>>);
+static_assert(RerouteStrategieVertrag<HeuristikRerouteStrategy<anatomy::AnatomyGenus::Set>>);
+static_assert(RerouteStrategieVertrag<HeuristikRerouteStrategy<anatomy::AnatomyGenus::Sequence>>);
+static_assert(RerouteStrategieVertrag<HeuristikRerouteStrategy<anatomy::AnatomyGenus::Adapter>>);
+static_assert(RerouteStrategieVertrag<HeuristikRerouteStrategy<anatomy::AnatomyGenus::View>>);
+
+// GEGENPROBE, damit die fuenf Zeilen oben nicht bloss immer-wahr sind: ein Typ, dem genau die
+// zweite Vertrags-Flaeche fehlt, erfuellt den Vertrag NICHT. Ohne diese Zeile koennte jemand
+// RerouteStrategieVertrag auf "true" degenerieren, ohne dass eine der fuenf bricht.
+namespace detail {
+/// NUR fuer die Gegenprobe: eine Attrappe mit ziel_genus(), aber OHNE strategie_name().
+struct VertragsAttrappeOhneNamen {
+    [[nodiscard]] static constexpr anatomy::AnatomyGenus ziel_genus() noexcept { return anatomy::AnatomyGenus::Set; }
+};
+} // namespace detail
+static_assert(!RerouteStrategieVertrag<detail::VertragsAttrappeOhneNamen>,
+              "HY-A1-STRATEGY: der Vertrag unterscheidet nicht mehr -- er ist auf immer-true "
+              "degeneriert und wuerde eine Strategie ohne strategie_name() durchlassen.");
+
 static_assert(HeuristikRerouteStrategy<anatomy::AnatomyGenus::Set>::ziel_genus() == anatomy::AnatomyGenus::Set);
 static_assert(HeuristikRerouteStrategy<anatomy::AnatomyGenus::View>::strategie_name() ==
               std::string_view{"Reroute<View>"});

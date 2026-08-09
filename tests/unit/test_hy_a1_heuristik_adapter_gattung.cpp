@@ -148,6 +148,43 @@ TEST(HyA1HeuristikAdapter, JedesDurchlaessigeGenusHatGenauEineStrategie) {
     EXPECT_EQ(hy::HeuristikRerouteStrategy<cea::AnatomyGenus::Adapter>::ziel_genus(), cea::AnatomyGenus::Adapter);
 }
 
+TEST(HyA1HeuristikAdapter, JedeStrategieWirdEinmalKonstruiertDamitDieCrtpWacheGreift) {
+    // NACHZUG 09.08.2026 -- OHNE DIESEN TEST WAR DIE CRTP-WACHE TOT.
+    // RerouteGuard traegt seine static_asserts im Ctor-RUMPF (Hausmuster OrganGuard). Ein solcher
+    // Rumpf wird erst bei der ERSTEN KONSTRUKTION instanziiert. Der uebrige Test spricht die
+    // Strategien nur statisch an (X::strategie_name()) -- die Wache lief damit in KEINEM Bau je
+    // los. Am Objekt belegt: eine handgeschriebene Strategie ohne strategie_name() uebersetzte
+    // sauber, solange niemand sie konstruierte.
+    // DIESE FUENF ZEILEN SIND DER SCHARFSCHALTER. Sie pruefen keine Rueckgabe -- der Beweis ist,
+    // DASS SIE UEBERSETZEN: jede Konstruktion zwingt den Ctor-Rumpf und damit beide static_asserts
+    // (Gate S1 + Vertrag) in die Instanziierung.
+    // FALLE, hier bewusst nicht wiederholt: `s{}` waere Aggregat-Initialisierung und scheitert am
+    // protected Basis-Ctor ("RerouteGuard() is protected within this context"). Richtig ist der
+    // implizite Default-Ctor `s;`.
+    hy::HeuristikRerouteStrategy<cea::AnatomyGenus::SearchAlgorithm> s_search;
+    hy::HeuristikRerouteStrategy<cea::AnatomyGenus::Set>             s_set;
+    hy::HeuristikRerouteStrategy<cea::AnatomyGenus::Sequence>        s_seq;
+    hy::HeuristikRerouteStrategy<cea::AnatomyGenus::Adapter>         s_adapter;
+    hy::HeuristikRerouteStrategy<cea::AnatomyGenus::View>            s_view;
+
+    // Die Objekte muessen benutzt werden, sonst optimiert/warnt der Bau sie weg. Zugleich die
+    // Aussage, dass eine KONSTRUIERTE Strategie dasselbe Ziel nennt wie die statische Form.
+    EXPECT_EQ(decltype(s_search)::ziel_genus(), cea::AnatomyGenus::SearchAlgorithm);
+    EXPECT_EQ(decltype(s_set)::ziel_genus(), cea::AnatomyGenus::Set);
+    EXPECT_EQ(decltype(s_seq)::ziel_genus(), cea::AnatomyGenus::Sequence);
+    EXPECT_EQ(decltype(s_adapter)::ziel_genus(), cea::AnatomyGenus::Adapter);
+    EXPECT_EQ(decltype(s_view)::ziel_genus(), cea::AnatomyGenus::View);
+
+    // Und die Vertrags-Flaeche haelt fuer ALLE FUENF, nicht nur fuer eine (vorher nur
+    // SearchAlgorithm asserted). RerouteStrategieGebunden prueft per sizeof NUR die Existenz --
+    // deshalb hier zusaetzlich der Vertrag selbst.
+    static_assert(hy::RerouteStrategieVertrag<decltype(s_search)>);
+    static_assert(hy::RerouteStrategieVertrag<decltype(s_set)>);
+    static_assert(hy::RerouteStrategieVertrag<decltype(s_seq)>);
+    static_assert(hy::RerouteStrategieVertrag<decltype(s_adapter)>);
+    static_assert(hy::RerouteStrategieVertrag<decltype(s_view)>);
+}
+
 // ============================================================================================
 // (C) WEG C -- der transparente Pass-through, ausfuehrbar belegt
 // ============================================================================================
@@ -234,9 +271,32 @@ TEST(HyA1HeuristikAdapter, SyntheseMatrixIstLayerMalNode) {
     EXPECT_EQ(hy::TiefeMatrix::naechste_stufe::naechste_stufe::naechste_stufe::rest_tiefe, std::size_t{0});
 
     // Stufen-IDs sind ueber die Layer hinweg verschieden (Stempel-Lesbarkeit).
-    constexpr auto id_l1 = hy::SyntheseZelle<1, 0, cea::AnatomyGenus::Set>::stufen_id<32>();
-    constexpr auto id_l2 = hy::SyntheseZelle<2, 0, cea::AnatomyGenus::Set>::stufen_id<32>();
+    constexpr auto id_l1 = hy::SyntheseZelle<1, 0, cea::AnatomyGenus::Set>::stufen_id();
+    constexpr auto id_l2 = hy::SyntheseZelle<2, 0, cea::AnatomyGenus::Set>::stufen_id();
     EXPECT_NE(id_l1, id_l2);
     EXPECT_EQ(id_l1, std::size_t{32});
     EXPECT_EQ(id_l2, std::size_t{64});
+}
+
+TEST(HyA1HeuristikAdapter, MatrixBindetIhreNodeObergrenzeAnDieZelle) {
+    // NACHZUG 09.08.2026. Vorher galt beides NICHT, und beides war am Objekt belegt:
+    //   - eine 8-Node-Matrix konnte eine Zelle mit node=20 bilden,
+    //   - deren stufen_id() rechnete mit dem globalen Default 32 statt mit den 8 der Matrix.
+    // Die Schranke ist eine CONSTRAINT, also compile-time; hier steht die Laufzeit-Haelfte, die
+    // belegt, dass die Zahlen danach WIRKLICH aus der Matrix kommen.
+    using AchtNodeMatrix = hy::SyntheseMatrix<1, cea::AnatomyGenus::Set, 8>;
+    EXPECT_EQ(AchtNodeMatrix::nodes, std::size_t{8});
+    EXPECT_EQ(AchtNodeMatrix::zelle<7>::nodes, std::size_t{8});
+    EXPECT_EQ(AchtNodeMatrix::zelle<7>::stufen_id(), std::size_t{1 * 8 + 7});
+
+    // Dieselbe Zell-Adresse in einer 32-Spalten-Matrix traegt eine ANDERE ID -- die Obergrenze
+    // geht wirklich in die Formel ein (Zusage im Kopf der Matrix-Datei).
+    using BreiteMatrix = hy::SyntheseMatrix<1, cea::AnatomyGenus::Set, 32>;
+    EXPECT_NE(AchtNodeMatrix::zelle<7>::stufen_id(), BreiteMatrix::zelle<7>::stufen_id());
+    EXPECT_EQ(BreiteMatrix::zelle<7>::stufen_id(), std::size_t{1 * 32 + 7});
+
+    // Und die Schranke selbst, als Detektor (die verbotene Zelle ist nicht BILDBAR).
+    EXPECT_TRUE((hy::ZelleBildbar<1, 7, cea::AnatomyGenus::Set, 8>));
+    EXPECT_FALSE((hy::ZelleBildbar<1, 8, cea::AnatomyGenus::Set, 8>));
+    EXPECT_FALSE((hy::ZelleBildbar<1, 20, cea::AnatomyGenus::Set, 8>));
 }
