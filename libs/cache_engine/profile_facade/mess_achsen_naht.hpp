@@ -498,11 +498,14 @@ using MessToolingMenge = std::array<bool, ::comdare::cache_engine::measurement::
     namespace cm                       = ::comdare::cache_engine::measurement;
     std::vector<std::string> const def = mess_achsen_defines_for_legend(legend);
     auto const hat = [&def](std::string const& d) { return std::find(def.begin(), def.end(), d) != def.end(); };
+    // .str() ist der Laufzeit-Ausgang der EINEN Bildung: sie rechnet in einem heap-freien Puffer
+    // (abi::MessGatesGliedText), damit derselbe Aufruf auch in einer constant expression laufen kann.
     return ::comdare::cache_engine::abi::mess_gates_glied_komponieren(
-        hat("-DCOMDARE_MEASUREMENT_ON=1"), hat("-DCOMDARE_CE_ENABLE_STATISTICS=1"), /*experiment_mode_on=*/true,
-        hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::WallClock))),
-        hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Macro))),
-        hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))));
+               hat("-DCOMDARE_MEASUREMENT_ON=1"), hat("-DCOMDARE_CE_ENABLE_STATISTICS=1"), /*experiment_mode_on=*/true,
+               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::WallClock))),
+               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Macro))),
+               hat(mess_tooling_deklarations_define(static_cast<std::size_t>(cm::MeasurementTooling::Micro))))
+        .str();
 }
 
 /// live_mess_gates_glied() -- der LIVE-Wert: das Mess-Gates-Glied der Tier-Binaries, die DIESE CEB

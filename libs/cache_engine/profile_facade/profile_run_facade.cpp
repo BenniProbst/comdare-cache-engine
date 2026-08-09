@@ -761,6 +761,13 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.bestand_doc_key    = args.bestand_doc_key;
     a.bestand_owner_uuid = args.bestand_owner_uuid;
     a.bestand_maschine   = args.bestand_maschine;
+    // LAG-P2: das MESSWERT-Genus -- reines Durchreichen wie die vier Zeilen darueber, KEIN Gate hier.
+    // Der Transport ist DERSELBE (oben aus bestand_cache gebunden); getrennt sind nur die Dokumente
+    // (eigener doc_key je Realm, D-05). Alle leer (Default) => mess_bestandslog_active false =>
+    // byte-neutral.
+    a.mess_bestand_key_of   = args.mess_bestand_key_of;
+    a.mess_bestand_doc_key  = args.mess_bestand_doc_key;
+    a.mess_bestand_versions = args.mess_bestand_versions;
     // T2-A/F4: die Plan-Ablage -- reines Durchreichen wie die vier Zeilen darueber, KEIN Gate hier (leerer
     // Pfad => PlanPersistenz inert => byte-neutral). Sie braucht den Umbrella-Umweg nicht: ein Pfad ist ein
     // Pfad, es gibt nichts aus einem ArtifactCache zu binden.

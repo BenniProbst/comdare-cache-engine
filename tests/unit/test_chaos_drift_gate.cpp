@@ -62,7 +62,9 @@ TEST(ChaosDriftGate, AssessUnstableSeriesAboveThreshold) {
 
 TEST(ChaosDriftGate, AssessBoundaryNotStrictlyGreaterIsStable) {
     // Genau an der Schwelle: drift == threshold ist NICHT unstable (Vergleich ist strikt „>").
-    // {1000,1050}: median (nearest-rank q=0.5, n=2, k=1) = 1050, Spannweite 50 → drift = 50/1050.
+    // {1000,1050}: median = D5-1-Kanon q=0.5 bei n=2 -> k = ceil(0.5*2)-1 = 0 -> 1000 (UNTERE Mitte;
+    // bis 2026-08-09 war es k=1 -> 1050). Spannweite 50 -> drift = 50/1000. Die Zusicherung dieses
+    // Falls haengt NICHT am Median-Wert: geprueft wird, dass drift == threshold nicht instabil ist.
     // Wir setzen die Schwelle exakt auf diesen Wert und erwarten stable (drift > threshold ist false).
     std::vector<std::int64_t> const s{1000, 1050};
     cmd::DriftVerdict const         probe = cmd::assess_drift(s, kThreshold);
@@ -70,11 +72,21 @@ TEST(ChaosDriftGate, AssessBoundaryNotStrictlyGreaterIsStable) {
     EXPECT_FALSE(v.unstable) << "drift == threshold darf nicht als instabil gelten (striktes >).";
 }
 
-TEST(ChaosDriftGate, EmptyAndSingleSampleAreStableNoCrash) {
+// D4 (2026-08-08) -- DIESE BEIDEN TESTS HABEN DEN DEFEKT ZEMENTIERT.
+// Sie hiessen "...AreStableNoCrash" und "ZeroMedianGuard..." und pruefen genau das, was sie im Namen
+// tragen: dass es nicht kracht. Dabei haben sie mit EXPECT_FALSE(v.unstable) zugleich festgeschrieben,
+// dass eine Gruppe OHNE Aussage als nicht-instabil gilt -- und run_with_drift_gate hat daraus "stabil"
+// gemacht. Ein Test, der einen Randfall NUR auf Absturzfreiheit prueft, unterschreibt stillschweigend
+// die Semantik, die er dabei vorfindet. Das ist dieselbe Klasse wie der m3v2_pmc_smoke-Befund
+// desselben Tages ("der Test misst ein leeres Fenster und besteht").
+// Absturzfreiheit bleibt gefordert; zusaetzlich wird jetzt die AUSSAGE geprueft.
+
+TEST(ChaosDriftGate, EmptyAndSingleSampleYieldNoVerdict) {
     cmd::DriftVerdict const e = cmd::assess_drift(std::span<const std::int64_t>{}, kThreshold);
     EXPECT_EQ(e.samples, 0u);
     EXPECT_DOUBLE_EQ(e.relative_drift, 0.0);
     EXPECT_FALSE(e.unstable);
+    EXPECT_FALSE(e.bestimmbar) << "0 Proben koennen keine Drift-Aussage tragen.";
 
     std::vector<std::int64_t> const one{500};
     cmd::DriftVerdict const         v = cmd::assess_drift(one, kThreshold);
@@ -84,15 +96,90 @@ TEST(ChaosDriftGate, EmptyAndSingleSampleAreStableNoCrash) {
     EXPECT_EQ(v.max_ns, 500);
     EXPECT_DOUBLE_EQ(v.relative_drift, 0.0);
     EXPECT_FALSE(v.unstable);
+    EXPECT_FALSE(v.bestimmbar) << "EINE Probe hat keine Wiederholungs-Streuung -- keine Aussage.";
 }
 
-TEST(ChaosDriftGate, ZeroMedianGuardNoDivisionByZero) {
-    // Degenerierte Null-Messung: median 0 → drift muss 0 bleiben (kein Division-durch-0/NaN/Crash).
+TEST(ChaosDriftGate, ZeroMedianIsNotDeterminableNotStable) {
+    // Degenerierte Null-Messung: median 0 -> kein Nenner. Kein Crash UND keine Aussage.
     std::vector<std::int64_t> const z{0, 0, 0};
     cmd::DriftVerdict const         v = cmd::assess_drift(z, kThreshold);
     EXPECT_EQ(v.median_ns, 0);
     EXPECT_DOUBLE_EQ(v.relative_drift, 0.0);
     EXPECT_FALSE(v.unstable);
+    EXPECT_FALSE(v.bestimmbar)
+        << "Drift 0 bei Median 0 ist GRUEN MIT NENNER NULL -- der Fall, gegen den D4 gebaut ist.";
+}
+
+TEST(ChaosDriftGate, StableSeriesIsExplicitlyDeterminable) {
+    // Die Gegenprobe zum Nenner: eine echte stabile Reihe MUSS bestimmbar sein. Ohne diesen Test
+    // koennte bestimmbar konstant false sein und alle Negativ-Tests wuerden trotzdem bestehen.
+    std::vector<std::int64_t> const s{1000, 1010, 1005};
+    cmd::DriftVerdict const         v = cmd::assess_drift(s, kThreshold);
+    EXPECT_TRUE(v.bestimmbar);
+    EXPECT_FALSE(v.unstable);
+    EXPECT_GT(v.median_ns, 0);
+}
+
+TEST(ChaosDriftGate, ZeroMedianGroupIsNeverAcceptedAsStable) {
+    // DER KERN VON D4 am Gate selbst: eine Messung, die nur Nullen liefert, lief vorher beim ERSTEN
+    // Versuch als "stabil" durch -- ohne Rerun, ohne eine einzige Warnzeile. Jetzt muss sie das
+    // Rerun-Budget ausschoepfen, unstabil bleiben und sich melden.
+    auto                       measure = []() -> std::int64_t { return 0; };
+    std::ostringstream         warn;
+    cmd::DriftGateResult const r =
+        cmd::run_with_drift_gate(measure, /*reps=*/3, kThreshold, /*max_reruns=*/2, &warn, "nullfenster");
+
+    EXPECT_FALSE(r.stable) << "Eine Null-Messung darf nie als stabil gelten.";
+    EXPECT_TRUE(r.exhausted);
+    EXPECT_EQ(r.attempts, 3u) << "1 initiale Gruppe + 2 Reruns -- das Budget muss WIRKLICH laufen.";
+    EXPECT_FALSE(r.verdict.bestimmbar);
+    EXPECT_NE(warn.str().find("UNBESTIMMBAR"), std::string::npos)
+        << "Das Gate muss den Fall benennen, statt zu schweigen. Log war: " << warn.str();
+    EXPECT_NE(warn.str().find("nicht drift-geprueft"), std::string::npos)
+        << "Die Schlussmeldung muss 'nicht geprueft' von 'geprueft und instabil' unterscheiden.";
+}
+
+TEST(ChaosDriftGate, SingleRepIsRefusedWithoutPointlessReruns) {
+    // reps==1: die Drift ist grundsaetzlich unbestimmbar, und ein Rerun liefert wieder eine
+    // Ein-Proben-Gruppe. Ehrlicher Sofort-Ausgang statt max_attempts sinnloser Messgruppen --
+    // measure_one darf KEIN einziges Mal gerufen werden.
+    int  aufrufe = 0;
+    auto measure = [&aufrufe]() -> std::int64_t {
+        ++aufrufe;
+        return 1000;
+    };
+    std::ostringstream         warn;
+    cmd::DriftGateResult const r =
+        cmd::run_with_drift_gate(measure, /*reps=*/1, kThreshold, /*max_reruns=*/3, &warn, "einzelprobe");
+
+    EXPECT_FALSE(r.stable);
+    EXPECT_EQ(r.attempts, 0u);
+    EXPECT_EQ(aufrufe, 0) << "Bei reps=1 darf gar nicht erst gemessen werden.";
+    EXPECT_NE(warn.str().find("reps=1"), std::string::npos) << "Log war: " << warn.str();
+}
+
+TEST(ChaosDriftGate, DeterminableGroupBeatsUndeterminableAsBest) {
+    // Die stillste Falle des alten Codes: eine unbestimmbare Gruppe traegt relative_drift == 0.0 und
+    // gewann damit JEDEN Vergleich um die "beste" Gruppe. Nach dem Erschoepfen waere die schlechteste
+    // denkbare Gruppe als Ergebnis zurueckgekommen. Hier liefert Gruppe 1 nur Nullen, alle weiteren
+    // eine hohe, aber MESSBARE Drift -- zurueckkommen muss die messbare.
+    int  gruppe  = 0;
+    int  probe   = 0;
+    auto measure = [&gruppe, &probe]() -> std::int64_t {
+        if (probe % 3 == 0) ++gruppe; // jede dritte Probe beginnt eine neue Gruppe
+        ++probe;
+        if (gruppe == 1) return 0;            // unbestimmbar
+        return (probe % 3 == 1) ? 100 : 1000; // grosse, aber bestimmbare Drift
+    };
+    std::ostringstream         warn;
+    cmd::DriftGateResult const r =
+        cmd::run_with_drift_gate(measure, /*reps=*/3, kThreshold, /*max_reruns=*/2, &warn, "bestwahl");
+
+    EXPECT_FALSE(r.stable);
+    EXPECT_TRUE(r.exhausted);
+    EXPECT_TRUE(r.verdict.bestimmbar)
+        << "Die zurueckgegebene 'beste' Gruppe muss eine mit AUSSAGE sein, nicht die Null-Gruppe.";
+    EXPECT_GT(r.verdict.median_ns, 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

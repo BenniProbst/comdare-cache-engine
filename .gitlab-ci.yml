@@ -89,6 +89,22 @@ lint:layer-includes:
   script:
     - sh scripts/lint_layer_includes.sh
 
+# XML-WOHLGEFORMTHEIT (2026-08-08): am 08.08. lagen VIER getrackte XML dieses Repos nicht
+# wohlgeformt im Baum -- darunter all_axes_golden.profile.xml, das golden-Profil der
+# Abgabe-Messung. Fehlerklasse in allen Faellen: "--" INNERHALB eines XML-Kommentars (von XML 1.0
+# Abschnitt 2.5 ausnahmslos verboten). Nichts hat es gemeldet: es gab keine Wache, die den
+# XML-Bestand ueberhaupt ansieht. Zwei der Dateien sind generiert, ihre Generatoren schrieben den
+# Defekt mit -- die wurden im selben Commit mitgeheilt, diese Wache faengt den Rueckfall.
+# Reiner Parser-Lauf ueber `git ls-files '*.xml'`, keine Bau-Artefakte, deshalb needs: [] und
+# kein Cache-Erbe. Fail-closed: fehlt xmllint, wird der Job ROT (rc=2) und nennt das Paket --
+# ein stiller Skip waere das Abschalten der Wache (Bissbeweis: 4 Koeder-Klassen + 2 Abbruchwege).
+lint:xml-wellformed:
+  stage: lint
+  tags: [baremetal]
+  needs: []
+  script:
+    - sh scripts/ci_xml_wellformed_guard.sh
+
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
   extends: .ccache-pull   # ccache-Hygiene 04.08.: alle bare-metal-Erben sind Konsumenten (pull-only)
@@ -103,13 +119,34 @@ lint:layer-includes:
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
 # ── #273-T3 (2026-07-07): build:clang-Rollout — ce baut die Voll-Suite unter dem neuesten clang. ──
-# OPT-IN + advisory (COMDARE_CLANG_MATRIX=="1", wie super-T1): destabilisiert die Hauptpipeline NICHT.
 # clang-22.1.8 ist auf den bare-metal-Runnern vorhanden; lokal comdare_tests EXIT 0 bewiesen (07.07.).
 # Der gcc-15.3-Pin (T2) ist SEPARAT + gcc-15.3-gated (HO-11) und NICHT Teil dieses Jobs.
+#
+# 08.08.2026 -- UNBEDINGT GESCHALTET. Bis heute stand hier "OPT-IN + advisory
+# (COMDARE_CLANG_MATRIX==1, wie super-T1): destabilisiert die Hauptpipeline NICHT." Das war
+# richtig, solange clang den Baum nicht uebersetzen konnte, und es hatte eine unangenehme
+# Folge: die Variable ist in DIESEM Repo nirgends gesetzt, der Job lief also in KEINER
+# ce-Pipeline (nachgesehen an 15332: 21 Jobs, kein clang-Job darunter). Ein Gate, das nie
+# aufgeht, ist kein Gate -- es ist ein abgeschalteter Job.
+# Beide clang-Blocker sind heute geheilt (constexpr-Grammatik ohne Heap; CWG 1430), der
+# clang-Vollbau steht mit 1937/1938 und ctest 428/428 auf BEIDEN Compilern. Damit traegt der
+# Job und wird scharf geschaltet.
+#
+# WIE, ohne das Cluster-Repo anzufassen: die rules-Zeile steht in der VORLAGE
+# .build-clang-latest (ci-templates base-pipeline.yml:1130-1131, "if $COMDARE_CLANG_MATRIX
+# == 1"). ci-templates ist fuer diese Strecke read-only. Ein eigenes rules: im Job
+# UEBERSCHREIBT das geerbte vollstaendig -- der Eingriff bleibt damit im eigenen Repo.
+#
+# ZUR LAST: dieser Job liegt in stage 'build' und laeuft damit VOR test:unit (stage 'test')
+# und test:coverage-guard (stage 'contract'). Er trifft die beiden Vollbauten also nicht
+# gleichzeitig -- der OOM-Fall von Pipeline 15332 wiederholt sich hier nicht. Er baut
+# ausserdem comdare_tests, nicht 'all', und schreibt in einen eigenen ccache-Key.
 build:clang:
   extends: .build-clang-latest
   stage: build
   tags: [baremetal]
+  rules:
+    - when: on_success
   cache:   # ccache-Hygiene 04.08.: eigene Objektklasse (clang) = eigener Key, DIESER Job ist ihr Writer
     key: "ccache-$CI_PROJECT_NAME-clang-a8"
     paths: [".ccache"]
@@ -256,6 +293,24 @@ test:coverage-guard:
   extends: .bare_metal
   stage: contract
   tags: [baremetal]
+  # ENTZERRUNG (08.08.2026, nach Pipeline 15332 rot): dieser Job baut seit der GNU-Umstellung
+  # 'all' statt eines einzelnen Codegen-Ziels -- er ist damit ein VOLLBAU. Zusammen mit dem
+  # zweiten Vollbau in test:unit lief er zeitgleich auf demselben Runner (13:37:26 gegen
+  # 13:37:55) und cc1plus wurde vom OOM-Killer geholt: "c++: fatal error: Terminated signal
+  # terminated program cc1plus". Das war KEIN Compiler- und kein Bauweg-Fehler -- GNU 15.3.0
+  # lief korrekt -- sondern Speicherdruck durch zwei parallele Vollbauten.
+  # ZUR OOM-ABWEHR, zweiter Anlauf (08.08.2026). Der erste war eine resource_group ueber
+  # beide Vollbau-Jobs -- sie hat den Zweck erfuellt und einen SCHLIMMEREN Schaden erzeugt:
+  # resource_group serialisiert REPO-WEIT ueber alle Pipelines und Branches, nicht nur
+  # innerhalb einer Pipeline. Live beobachtet: drei Pipelines (15352 development, 15349 und
+  # 15345 main) standen gleichzeitig auf 'waiting_for_resource', waehrend 15343 baute. Eine
+  # Wache, die das ganze Team ausbremst, ist die falsche Wache.
+  #
+  # STATTDESSEN wird der DRUCK gesenkt statt der Zugriff serialisiert: dieser Job baut mit
+  # halber Parallelitaet (BUILD_JOBS unten). Der OOM entstand aus 2 Jobs x 4 gleichzeitigen
+  # cc1plus; mit 2 hier bleibt Luft. Zusammen mit der 4x-Wiederaufnahme unten ist ein
+  # einzelner earlyoom-Treffer ueberlebbar statt toedlich -- genau dafuer gibt es sie.
+  # Der Job ist eine Wache und liegt auf keinem kritischen Pfad: langsamer ist hier billig.
   needs: ["lint:secrets"]   # Konvention der contract-Familie
   script:
     # (0) SCHLUESSEL-WACHE ZUERST -- billig (kein Bau, kein Configure) und eine Stufe FRUEHER als
@@ -282,6 +337,18 @@ test:coverage-guard:
     # Faelle, s. scripts/ci_diff_ascii_width_guard.bissbeweis.txt), die CI-Variablen-Verdrahtung
     # selbst konnte nur syntaktisch (pyyaml, read-only) und nicht in einer echten Pipeline
     # bestaetigt werden -- der erste echte Lauf ist der Beweis dieser einen Stelle.
+    #
+    # (0.4) SELBSTTEST DER WACHE, VOR ihrem Einsatz (09.08.2026). Die Wache selbst ist ein
+    # Werkzeug wie jedes andere und kann still erblinden -- am 09.08. am Objekt belegt: ihr
+    # DEFAULT-MODUS verglich gegen den INDEX statt gegen HEAD und sah untracked Dateien gar
+    # nicht; wer vor der Pruefung `git add` sagte, bekam "0 Zusatzzeilen ... GRUEN". Der
+    # Biss-Beweis konnte das nicht auffangen, weil alle sieben dort protokollierten Faelle
+    # ueber --stdin oder einen Bereich laufen und KEINER die Wache ohne Argumente fuhr.
+    # Der Selbsttest wuerfelt seinen Koeder bei jedem Lauf neu (kein fest eingetragener
+    # Beispielwert, der allowgelistet sein koennte) und faehrt neun Faelle in Wegwerf-Repos
+    # unter TMPDIR -- er fasst dieses Repo nicht an. Bewusst VOR der Wache: eine erblindete
+    # Wache soll auffallen, bevor ihr Gruen als Beleg gilt.
+    - sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
     - |
       set -eu
       _ce_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}"
@@ -291,14 +358,52 @@ test:coverage-guard:
       esac
       echo "DIFF-HYGIENE-WACHE: Bereich ${_ce_base}..HEAD"
       sh scripts/ci_diff_ascii_width_guard.sh "${_ce_base}..HEAD"
-    # Ground Truth = Bau-Baum-Konfiguration von test:unit (COMDARE_TEST_CONFIGURE_FLAGS) inklusive
-    # des 2-Pass-Codegen-Configures aus dem .test-Template: erst konfigurieren, dann das
-    # Codegen-Tool bauen, dann RECONFIGURE -- sonst registriert CMake die codegen-abhaengigen
-    # Tests nicht und die Wache haette einen zu kleinen Wahrheitsbegriff.
-    - cmake -B build-covguard -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-covguard --target comdare_anatomy_codegen_cli
-    - cmake -B build-covguard -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    # Ground Truth = derselbe Bau-Baum wie test:unit, seit 08.08.2026 ueber den GNU-Bauweg.
+    #
+    # WARUM DIE UMSTELLUNG HIER NOETIG WAR (und nicht nur Symmetrie ist): der alte Weg baute VOR
+    # dem Reconfigure nur comdare_anatomy_codegen_cli. Der Kommentar an dieser Stelle nannte das
+    # Risiko bereits richtig -- "sonst registriert CMake die codegen-abhaengigen Tests nicht und
+    # die Wache haette einen zu kleinen Wahrheitsbegriff" -- aber die Abhilfe war zu klein.
+    # Am Objekt gemessen (ce b2daf9a6): ein Prebuild-Ziel + Reconfigure registriert 429 Tests,
+    # 'make' (all) + Reconfigure registriert 431. Die Wache pruefte die Auswahl also gegen eine
+    # Inventur, die f15_compare_cli_smoke und test_v41_anatomy_adhoc_autobuilt_load selbst nicht
+    # kannte -- zwei Tests, die in KEINEM Job liefen, konnten von ihr nicht auffallen. Eine Wache
+    # mit unvollstaendigem Nenner meldet Vollstaendigkeit und deckt nichts.
+    #
+    # 'make' baut jedes Codegen-Werkzeug, ohne dass hier eines namentlich gepflegt werden muss;
+    # der ccache traegt den zweiten Vollbau der Pipeline (gemeinsamer Key je Projekt).
+    # 'make inventar' ist das projekteigene Ziel, das genau diesen Zustand herstellt (bauen +
+    # Reconfigure + Test-Target), OHNE die Tests auszufuehren -- die faehrt test:unit.
+    #
+    # Die 4x-Wiederholung ist dieselbe wie in test:unit und aus demselben Grund (SE-21b/6709248:
+    # earlyoom holt cc1plus, ninja nimmt den Bau danach an der Abbruchstelle wieder auf). Sie
+    # fehlte hier zunaechst -- genau daran ist Pipeline 15332 gescheitert. Ein Job, der einen
+    # Vollbau macht, braucht das Netz; ein Job, der ein einzelnes Ziel baute, kam ohne aus.
+    - |
+      set -euo pipefail
+      _CC=cc; _CXX=c++
+      if command -v gcc-15 >/dev/null 2>&1; then _CC=gcc-15; fi
+      if command -v g++-15 >/dev/null 2>&1; then _CXX=g++-15; fi
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
+      _built=0
+      for _a in 1 2 3 4; do
+        if make inventar BUILD_JOBS=2; then _built=1; break; fi   # halbe Parallelitaet: Druck senken statt serialisieren
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
     - sh scripts/ci_test_coverage_guard.sh build-covguard
+    # W-1 (2026-08-08): TEST-SICHTBARKEITS-WACHE -- die Stufe VOR der Abdeckungs-Wache.
+    # Die Abdeckungs-Wache oben rechnet die Job-Auswahlen gegen die LIVE-Inventur (ctest -N).
+    # Ihr Nenner ist damit genau so gut wie diese Inventur -- und die war es nicht: 27
+    # gtest-Faelle aus libs/cache_engine/builder/commands/tests standen ueberhaupt nicht drin,
+    # weil enable_testing() in der Wurzel NACH dem add_subdirectory kam. Eine Registrierung,
+    # die es nicht in die Inventur schafft, kann von keiner Wache vermisst werden, die auf
+    # der Inventur aufsetzt. Diese Wache prueft deshalb die STUFE DAVOR: Quelltext gegen
+    # Inventur, Differenz namentlich.
+    # HIER und nicht in einem eigenen Job, weil sie einen konfigurierten Bau-Baum braucht --
+    # build-covguard ist im selben Job schon gebaut. Ein eigener Job haette denselben
+    # Vollbau ein zweites Mal bezahlt.
+    - sh scripts/ci_test_sichtbarkeit_wache.sh build-covguard
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
 
@@ -621,26 +726,69 @@ test:unit:
   # Die Auswahl selbst kommt aus dem Manifest; .test baut seine ctest-Zeile aus
   # COMDARE_TEST_CTEST_ARGS, deshalb wird die Variable hier im before_script belegt (das Template
   # laeuft in derselben Shell) statt als YAML-Literal.
-  before_script:
-    - . ./scripts/ci_test_coverage_manifest.sh
-    - 'COMDARE_TEST_CTEST_ARGS="$(ce_ctest_args test_unit)" || exit 3'
-    - 'export COMDARE_TEST_CTEST_ARGS'
-    - 'echo "ctest-Auswahl aus scripts/ci_test_coverage_manifest.sh (Kennung test_unit): ${COMDARE_TEST_CTEST_ARGS}"'
+  # -- GNU-BAUWEG (08.08.2026, Owner-Ansage; Ledger super :11370-11391) ------------------------
+  # DIESER JOB FAEHRT DEN OFFIZIELLEN WEG, NICHT MEHR cmake/ctest DIREKT.
+  # Der Owner: "Das einzige auf linux offizielle Verfahren ist ja configure.sh/make/make install
+  # oder make check". Ein offizieller Weg, den kein Job faehrt, verrottet unbemerkt -- das ist
+  # exakt die Klasse, in der run_all_tests.sh gelandet ist (13x [NOT FOUND] und trotzdem exit 0).
+  # Deshalb ERSETZT der GNU-Weg hier den direkten cmake-Aufruf, er steht nicht daneben.
+  #
+  # ER IST DABEI STRIKT VOLLSTAENDIGER ALS DER ALTE WEG, am Objekt gemessen (ce b2daf9a6):
+  #   alter Weg (Prebuild-Handliste + Reconfigure) ... 429 registrierte Tests
+  #   'make check' (all + Reconfigure) ............... 431 registrierte Tests
+  # Dem alten Weg fehlten f15_compare_cli_smoke und test_v41_anatomy_adhoc_autobuilt_load: die
+  # Prebuild-Liste COMDARE_TEST_PREBUILD_TARGET war eine HANDLISTE und damit dieselbe Fehlerklasse,
+  # die R4 bei den ctest-Auswahlen beseitigt hat -- sie waechst nach. 'make' baut jedes
+  # Codegen-Werkzeug ohne dass eines namentlich gepflegt werden muss.
+  #
+  # DIE TEST-AUSWAHL BLEIBT DIESELBE QUELLE: 'make check' sourct scripts/ci_test_coverage_manifest.sh
+  # und ruft ce_ctest mit der Kennung test_unit -- die Naht aus R4 ist unveraendert, sie wird nur
+  # nicht mehr hier im Job, sondern im Makefile gezogen. CTEST_EXTRA reicht allein die
+  # Ausgabe-Option fuer den GitLab-Test-Report durch.
+  #
+  # Was aus dem .test-Template bewusst NACHGEBAUT ist: die g++-15-Praeferenz (Toolchain-Floor
+  # V-6iii) und die 4x-Bau-Wiederholung (prod2 earlyoom-Kill, SE-21b/6709248). Beides gehoert zur
+  # Job-Umgebung, nicht in den Anwender-Bauweg -- ein Anwender soll kein Retry-Netz brauchen.
+  script:
+    - |
+      set -euo pipefail
+      _CC=cc; _CXX=c++
+      if command -v gcc-15 >/dev/null 2>&1; then _CC=gcc-15; fi
+      if command -v g++-15 >/dev/null 2>&1; then _CXX=g++-15; fi
+      echo "GNU-Bauweg: CC=$_CC CXX=$_CXX"
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests
+      _built=0
+      for _a in 1 2 3 4; do
+        if make BUILD_JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"; then _built=1; break; fi
+        echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
+      done
+      [ "$_built" = 1 ] || { echo "FEHLER: 'make' nach 4 Versuchen nicht erfolgreich"; exit 4; }
+      make check CTEST_EXTRA="--output-junit $(pwd)/ctest-junit.xml"
   variables:
-    COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
-    COMDARE_TEST_BUILD_TARGET: "comdare_tests"
-    # G4a (2026-07-26): comdare_profile_run_facade ergaenzt. Die Fassade ist EXCLUDE_FROM_ALL und haengt an keinem
-    # Test-Target -- sie wurde in test:unit bislang GAR NICHT uebersetzt (Blindfleck-Befund: das Objektverzeichnis
-    # enthielt nur CXXDependInfo.json). Ein gruener Vollbau war damit keine Aussage ueber profile_run_entry.hpp;
-    # eine Regression dort waere erst im Voll-Bau-4 aufgefallen. Prebuild statt Test-Target, weil es eine Bibliothek
-    # ohne eigene Tests ist -- der 2-Pass baut sie mit, der Compiler ist hier die Wache.
-    COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli comdare_profile_run_facade"  # V-4 (27.07.): comdare_permutation_codegen_cli entfaellt mit dem Permutations-Retire (Target existiert nicht mehr)
-    # [HISTORIE #278 (2026-07-06, Job 214641), von R4 abgeloest: "contract-/pmc-Tests laufen bereits
-    #  HART in ihren eigenen Jobs (contract:* / pmc:amd) -- im unit-Sammel-Lauf zaehlten sie als
-    #  'Not Run' (5x). KEIN Auslassen: der Ausschluss verweist auf die dedizierten Gates."
-    #  Genau dieser Verweis war die Sollbruchstelle: er galt fuer die 5 Tests von damals und wurde
-    #  nie wieder nachgerechnet. COMDARE_TEST_CTEST_ARGS wird jetzt im before_script aus dem
-    #  Manifest belegt und von der Abdeckungs-Wache gegengerechnet.]
+    # Nur noch fuer die artifacts-Pfade des .test-Templates: configure.sh legt per Vorgabe 'build' an.
+    COMDARE_TEST_CMAKE_BUILD_DIR: "build"
+    # [HISTORIE, von der GNU-Bauweg-Umstellung (08.08.2026) abgeloest -- NICHT geloescht, weil die
+    #  Begruendungen weiter gelten und erklaeren, WARUM der neue Weg vollstaendiger sein muss:
+    #
+    #  COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
+    #    -> jetzt './configure.sh --enable-build-tests' (dieselbe Wirkung, offizieller Weg).
+    #  COMDARE_TEST_BUILD_TARGET: "comdare_tests"
+    #    -> jetzt 'make' (all) + 'make check'. 'all' ist die Obermenge; genau das schliesst die
+    #       zwei Loecher, die die Prebuild-Handliste offen liess.
+    #  COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli comdare_profile_run_facade"
+    #    G4a (2026-07-26): "comdare_profile_run_facade ergaenzt. Die Fassade ist EXCLUDE_FROM_ALL und
+    #    haengt an keinem Test-Target -- sie wurde in test:unit bislang GAR NICHT uebersetzt
+    #    (Blindfleck-Befund: das Objektverzeichnis enthielt nur CXXDependInfo.json). Ein gruener
+    #    Vollbau war damit keine Aussage ueber profile_run_entry.hpp." DIESE SORGE IST WEITER
+    #    BERECHTIGT und heute besser gedeckt: 'make' baut ALL, und die Fassade haengt am
+    #    Planer-Target, das die super-Naht per EXCLUDE_FROM_ALL=FALSE ins ALL zurueckholt.
+    #    V-4 (27.07.): comdare_permutation_codegen_cli entfiel mit dem Permutations-Retire.
+    #
+    #  #278 (2026-07-06, Job 214641): "contract-/pmc-Tests laufen bereits HART in ihren eigenen Jobs
+    #  -- im unit-Sammel-Lauf zaehlten sie als 'Not Run' (5x)." Genau dieser Verweis war die
+    #  Sollbruchstelle: er galt fuer die 5 Tests von damals und wurde nie wieder nachgerechnet.
+    #  Von R4 (06.08.) abgeloest; die Auswahl kommt seither aus dem Manifest und wird von der
+    #  Abdeckungs-Wache gegengerechnet -- daran aendert die GNU-Umstellung nichts.]
 
 # ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
 # Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).

@@ -11,8 +11,15 @@
 // key_sha512-Hex-Strings aus dem Bestandslog) + einer index->key-Abbildung -> keine Abhaengigkeit
 // vom konkreten B3-Sha512Key-Typ.
 //
-// KORN: kGnBatchSlice=4096 spiegelt experiment_plan_director.hpp:439 (die Slice-Grenzen uebernimmt
-// das Bestandslog 1:1 vom Planner-Takt). B13: Batch-Typ-Sequenz-Wache (planer_block->ceb->tier).
+// KORN: kGnBatchSlice=4096 spiegelt planner::kGnBatchSlice (experiment_plan_director.hpp) -- die
+// Slice-Grenzen uebernimmt das Bestandslog 1:1 vom Planner-Takt. B13: Batch-Typ-Sequenz-Wache
+// (planer_block->ceb->tier).
+//
+// LAG-P4 (2026-08-09): DER ANKER IST DER BEZEICHNER, NICHT DIE ZEILE. Hier stand bis heute
+// "experiment_plan_director.hpp:439"; die Konstante lag real bei :662. Der Verweis war abgedriftet,
+// waehrend er die Bindung behauptete -- eine Zeilennummer altert mit jeder Einfuegung darueber, ein
+// Bezeichner nicht. GEHALTEN wird die Gleichheit seit LAG-P4 ohnehin nicht mehr von diesem Kommentar,
+// sondern von der Korn-Wache (drei static_assert direkt bei planner::kGnBatchSlice).
 //
 // DOKTRIN: header-only C++23, ASCII-Kommentare (Section erlaubt), stdlib + slice_queue.hpp +
 // prozess_identitaet.hpp (die EINE pid-Weiche des Hauses, T2-A/F4-NB). Der Planer-Thread ist
@@ -47,7 +54,11 @@
 
 namespace comdare::cache_engine::builder::bestandslog {
 
-// Korn-Konstante (spiegelt experiment_plan_director.hpp:439 kGnBatchSlice=4096).
+// Korn-Konstante (spiegelt planner::kGnBatchSlice, experiment_plan_director.hpp -- Bezeichner-Anker,
+// keine Zeilennummer, s. Kopf). LAG-P4: eine Abweichung von 4096 ist ab jetzt ein COMPILE-Fehler; die
+// Wache steht in der Schicht, die alle drei Traeger sieht (experiment_plan_director.hpp, direkt bei
+// planner::kGnBatchSlice). Diese Datei darf sie nicht selbst tragen -- der Bestandslog liegt UNTER dem
+// Planer und inkludiert nie aufwaerts (progress_delta.hpp:5).
 inline constexpr std::uint64_t kGnBatchSlice = 4096;
 
 // Praedikat: ist die Binary mit globalem Index i schon im Lager?

@@ -84,8 +84,11 @@ Paket den Namen `hybrid` in `libs/cache_engine/` belegt.
   Konfigurations-/Umschaltpunkten. Der Op-Hot-Path bleibt variant-frei und cast-frei
   (Haupt-Kommunikation = statisches `IObservableTier`). In plain Tier-Binaries bleibt `std::variant`
   verboten.
-- Kein neuer ABI-Schritt: beide Grenzen der Stufe sind die bestehende Anatomy-ABI (Major 7,
-  `anatomy_module_abi_v1_decl.hpp:62`).
+- Kein neuer ABI-Schritt: beide Grenzen der Stufe sind die bestehende Anatomy-ABI. Der Satz nannte
+  hier bis zum 08.08.2026 eine Zahl, die inzwischen gewandert ist; sie bleibt als Historie stehen:
+  Stand 02.08.2026: "Major 7, `anatomy_module_abi_v1_decl.hpp:62`" -- ABI-HISTORIE gegen SHA 6b8eee0f
+  **LEBENDER STAND seit E-24 C8 (04.08.2026, ce `4f569051`): Major 8** -- Beleg `anatomy_module_abi_v1_decl.hpp:89`.
+  **Magic `.A8.`** (`0x434F4D444141382EULL`) -- Beleg `anatomy_module_abi_v1_decl.hpp:93`.
 - Die Dock-Bestueckung ist Runtime-Konfiguration und gehoert in ein Sidecar-Manifest, NIE in die
   binary_id. Das Sidecar-Format wird erst NACH der A13-Stempel-Regression fixiert.
 - Offene Auflagen K1 (Lager-Identitaet der Hybrid-.so), K2 (Schichten-Entscheid Loader/Drive),
@@ -93,3 +96,64 @@ Paket den Namen `hybrid` in `libs/cache_engine/` belegt.
   Bauschritt zu klaeren -- Details im Design-Dokument Abschnitt 7.
 - Erster Meilenstein der Auswertungsphase ist der F8-Minimal-DoD (genau 1 Standard-Dock,
   ctest-bewiesen), nicht der Vollausbau.
+
+## Nachtrag 08.08.2026 (Paket HY-0) -- ABI-Etikett und zwei Lesefallen
+
+Nichts oben ist geloescht. Dieser Abschnitt zieht nach, was sich seit dem 02.08. bewegt hat, und
+benennt zwei Stellen, an denen ein Leser die falsche Schicht bauen wuerde.
+
+### (1) Die ABI-Major dieser Doku war zwei Tage nach ihrer Entstehung ueberholt
+
+Der Bau-Zeitpunkt der Hybrid-Stufe liegt in der Auswertungsphase, ihre Doku entstand am 02.08. --
+dazwischen fiel am 04.08. der E-24-C8-Bump. Wer die obige Randbedingung woertlich nahm, baute
+gegen eine Anatomy-ABI, die der Loader heute per Major-Mismatch ablehnt (`host_compatible_with`,
+Schritt 5 der 7-Schritt-Validierung). Der Freihalte-Entscheid selbst haelt unveraendert: die Stufe
+braucht KEINEN eigenen ABI-Schritt -- sie haengt nur an einer anderen Zahl als aufgeschrieben.
+
+Stand 02.08.2026, unveraendert stehengelassen (jede Zeile gegen ihren SHA nachgerechnet):
+
+- ABI-Major 7 -- Anker `anatomy_module_abi_v1_decl.hpp:62` -- ABI-HISTORIE gegen SHA 6b8eee0f
+- ABI-Magic `.A7.` -- Anker `anatomy_module_abi_v1_decl.hpp:66` -- ABI-HISTORIE gegen SHA 6b8eee0f
+
+Lebender Stand seit E-24 C8 (04.08.2026, ce `4f569051`):
+
+- **Major 8** -- Beleg `anatomy_module_abi_v1_decl.hpp:89`
+- **Magic `.A8.`** = `0x434F4D444141382EULL` -- Beleg `anatomy_module_abi_v1_decl.hpp:93`
+
+Die alten Zeilen-Anker sind nicht falsch geschrieben, sondern GEWANDERT: gegen SHA `6b8eee0f`
+-- den Stand, den Abschnitt 11 des Design-Dokuments selbst als seine Basis nennt -- zeigen `:62`
+und `:66` wirklich auf die beiden `#define`-Zeilen der damaligen ABI. Deshalb werden sie als
+verifizierte Historie gekennzeichnet und nicht stillschweigend korrigiert -- wer die Herkunft
+einer Aussage tilgt, nimmt dem naechsten Leser die Moeglichkeit, sie nachzupruefen.
+
+**Was das Halten erzwingt:** `scripts/ci_hy_label_gate.sh` (ctest-Test `hy_label_gate`). Die Wache
+liest `COMDARE_ANATOMY_ABI_MAJOR` maschinell aus dem Decl-Header -- sie traegt selbst KEINE
+Major-Zahl -- und haelt jede Major-/Magic-Angabe dieser Doku dagegen. Zusaetzlich rechnet sie jeden
+Anker nach: ein LEBEND-Anker muss im heutigen Header auf den genannten `#define` zeigen, ein
+Historien-Anker im gepinnten SHA-Objekt. Beim naechsten Bump wird diese Doku ROT, nicht still falsch.
+
+### (2) LESEFALLE: "vierte Mess-Ebene" bedeutet hier etwas anderes als bei `checkpoint_measure`
+
+Es gibt im Haus zwei verschiedene "vierte Ebenen". Sie sind NICHT dieselbe Sache, und wer sie
+gleichsetzt, baut die falsche Schicht:
+
+- **Die 4. MESS-EBENE der Hybrid-Stufe** (Owner-KERN 08.08.2026, Gattung `HEURISTIK-ADAPTER`,
+  Genus `Function-Interface-Reroute`): die Hybrid-Tier-Binary bringt eine EIGENE
+  Macro-Benchmarking-Schicht mit. Die drei kanonischen Mess-Ebenen werden dadurch auf VIER
+  erweitert, und zwar **dazwischengequetscht, nicht angehaengt**. Gemessen wird der **Overhead des
+  Reroutes zu multiplen Tier-Binary-Zielen, am Hybrid-Pruefdock**. Das ist eine Schicht mit eigenem
+  Code, eigener Gattung und eigenen Pflicht-Zahlen in der Mess-Kampagne.
+- **Die offene "vierte Ebene" bei `checkpoint_measure`** (`docs/architecture/20260808-checkpoint_measure_soll_design.md`,
+  Offene Punkte 3): dort ist gefragt, ob die **Gattungs-Interface-Ebene** -- der Verbinder zwischen
+  den Achsen-Aufrufen, dessen Anteil *Macro-Gesamt minus Summe der Micros* ist -- eine eigene Stufe
+  im Ebenen-FILTER wird oder ein Sonderfall von `macro` bleibt. Das ist eine Frage an die
+  Aufloesungsregel des Checkpoint-Stacks (gegen welche Ebene ein Micro-Checkpoint seinen Aufrufer
+  sucht), KEINE neue Mess-Schicht.
+
+Kurz: die eine Vier ist eine **gebaute Schicht**, die andere ein **Filter-Rang**. Wer die
+Hybrid-Ebene fuer den Gattungs-Interface-Sonderfall haelt, baut die Hybrid-Macro-Schicht gar nicht
+und haelt die Owner-Pflicht faelschlich fuer erledigt; wer umgekehrt den offenen Punkt 3 mit dem
+Owner-KERN beantwortet zu haben glaubt, hat eine Frage geschlossen, die nie gestellt war. Die
+Zaehlung "drei Ebenen" in `checkpoint_measure_soll_design.md` bleibt fuer den Checkpoint-Stack
+richtig; die Hybrid-Ebene tritt dort NICHT automatisch als vierter Flag-Wert hinzu -- ob sie es
+soll, ist ein eigener Entscheid und in beiden Dokumenten als offen benannt.

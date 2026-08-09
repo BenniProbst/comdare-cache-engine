@@ -6,7 +6,7 @@
        (stage=runtime, vom Planer permutiert). Q2/K2: opt_level/simd/atomic128 materialisieren als
        CompileFn-Flags (build_version-Suffix), NIE als Laufzeit-Typ-Switch und NIE in der binary_id. -->
   <!-- AUSSCHLUSS: extension_hardware_system_axis.hpp = DEPRECATED-Insel; hardware_isa_system_axis.hpp =
-       HOST-Deskriptor (treibt NICHT den Bau) -- beide NICHT Teil dieses Bau-treibenden Angebots. -->
+       HOST-Deskriptor (treibt NICHT den Bau) - beide NICHT Teil dieses Bau-treibenden Angebots. -->
   <axis id="target_isa" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="2">
     <baustein name="x86_64" wrapper="X86_64TargetIsa" type="::comdare::cache_engine::measurement::X86_64TargetIsa" enabled="true" native="true" triple="" march=""/>
     <baustein name="aarch64" wrapper="Aarch64TargetIsa" type="::comdare::cache_engine::measurement::Aarch64TargetIsa" enabled="true" native="false" triple="-target aarch64-linux-gnu" march="-march=armv8-a"/>

@@ -143,6 +143,15 @@ struct RunProfileArgs {
     std::string                                                             bestand_doc_key;
     std::string                                                             bestand_owner_uuid;
     std::string                                                             bestand_maschine;
+    // LAG-P2 (2026-08-09): die mittlere Schicht des MESSWERT-Genus. ProfileRunArgs::mess_bestand_*
+    // (Fassade) -> DIESE Felder -> LazyRunConfig::mess_bestand_* (cache_engine_builder_iterator.hpp).
+    // Die Typen sind EXAKT die Iterator-Feldtypen -- test_lagp2_messwert_genus haelt das compile-hart
+    // fest (static_assert ueber std::is_same_v), weil ein abweichender Typ hier die AUF-A4-Falle
+    // waere. KEIN Gate auf dieser Ebene; alle leer (Default) => mess_bestandslog_active false =>
+    // keine Messwert-Registrierung => byte-neutral.
+    std::function<std::optional<std::string>(std::filesystem::path const&)> mess_bestand_key_of;
+    std::string                                                             mess_bestand_doc_key;
+    std::string                                                             mess_bestand_versions;
     // T2-A/F4 (Owner-KERN Zaehler-Resume): die Plan-Ablage -- das SECHSTE Glied derselben dreischichtigen
     // Naht, im Muster der fuenf Felder darueber. ProfileRunArgs::batch_plan_datei (Fassade) -> DIESES Feld ->
     // LazyRunConfig::batch_plan_datei (cache_engine_builder_iterator.hpp:243). KEIN Gate auf dieser Ebene.
@@ -690,6 +699,15 @@ struct RunProfileResult {
         cfg.bestand_doc_key    = a.bestand_doc_key;
         cfg.bestand_owner_uuid = a.bestand_owner_uuid;
         cfg.bestand_maschine   = a.bestand_maschine;
+        // LAG-P2: die LETZTE Schicht des MESSWERT-Genus -- ab hier liest der Iterator. Erst
+        // mess_bestandslog_active entscheidet: Transport (fetch+store) UND Key-Provider UND
+        // doc_key belegt. Das Gate ist EIGEN (eigener doc_key, eigener Provider), damit ein Host
+        // das Binary-Lager fahren kann, ohne das Messwert-Lager zu fuehren -- und umgekehrt.
+        // Ohne diese drei Zeilen war der vollstaendig gebaute Mess-Rueckschrieb des Iterators aus
+        // dem produktiven Lauf unerreichbar (0 externe Zuweiser, LAG-P2-Befund).
+        cfg.mess_bestand_key_of   = a.mess_bestand_key_of;
+        cfg.mess_bestand_doc_key  = a.mess_bestand_doc_key;
+        cfg.mess_bestand_versions = a.mess_bestand_versions;
         // T2-A/F4: die Plan-Ablage -- das letzte Glied der Kette ProfileRunArgs -> RunProfileArgs -> hier.
         // Ohne diese Zeile war die gesamte F4-Mechanik im produktiven Lauf unerreichbar (der Host baut keine
         // LazyRunConfig selbst). Leer (Default) => PlanPersistenz::aktiv()==false => keine Ablage => byte-
@@ -707,7 +725,20 @@ struct RunProfileResult {
             a.methodik_run_methodology.empty() ? tp.run_methodology : a.methodik_run_methodology);
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
-        cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
+        cfg.n_repeats = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
+        // T-15 (2026-08-09): das LETZTE Glied der Drift-Kette XML -> ThesisProfile -> LazyRunConfig.
+        // Ohne diese Zeilen traegt der produktive Lauf die Code-Defaults und das Profil-XML koennte die
+        // Schwelle nicht stellen -- genau die Hartkodierung, die der Register-Befund S5-06 ruegt
+        // ("reps/threshold/max_reruns aus dem Profil-XML, nicht hartkodiert").
+        //
+        // SELBSTCHECK: NUR bei deklariertem <drift_gate> wird ueberschrieben. Fehlt das Element, bleibt
+        // der Owner-Default der cache_engine-Schicht (DriftGateConfig) stehen -- er ist die EINE
+        // Wahrheit, und eine Kopie der Zahlen in der common-Schicht waere die zweite.
+        if (tp.drift_gate_declared) {
+            cfg.drift_gate.reps       = static_cast<std::uint32_t>(tp.drift_gate_reps);
+            cfg.drift_gate.threshold  = static_cast<double>(tp.drift_gate_threshold_permille) / 1000.0;
+            cfg.drift_gate.max_reruns = static_cast<std::uint32_t>(tp.drift_gate_max_reruns);
+        }
         cfg.env_limits.thread_count = 16;
         if (a.min_free_gb > 0.0) {
             cfg.ram_per_build_bytes     = static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);

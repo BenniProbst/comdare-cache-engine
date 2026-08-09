@@ -440,8 +440,13 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
   Wall-Clock-korrelieren → persistieren**.
 - **✅ JSON-Export + Perzentile (erledigt):** `serialize_abi_tier_trace_json` — JSON-Array (Objekt je Checkpoint)
   mit p50/p99 der r/w/d-Roh-ns-Kurven (Lebewesen-Wall-Clock-Detail-Auswertung §2.1, ausreisser-robust via p50
-  vgl. Doku 22 §3.3) korreliert mit den Observer-Zählern + `observe_wall_ns`. `detail::nearest_rank_p`
-  Nearest-Rank-Perzentil. Test: JSON-Form + p50/p99-Felder + 3 Checkpoint-Objekte. f15 29/29.
+  vgl. Doku 22 §3.3) korreliert mit den Observer-Zählern + `observe_wall_ns`. ~~`detail::nearest_rank_p`
+  Nearest-Rank-Perzentil.~~ **ÜBERHOLT seit D5-1 (2026-08-09):** `detail::nearest_rank_p` rechnete
+  `round(p*(n-1))` und trug den Namen „Nearest-Rank" zu Unrecht; die Funktion ist **ersatzlos gelöscht**.
+  Der Serialisierer zieht jetzt `commands::stats::percentile_ns` — die EINE kanonische Definition
+  (Lehrbuch-Nearest-Rank `k = ceil(q*n)-1`, `builder/commands/latency_stats.hpp`). **Alle vor dem
+  2026-08-09 aus diesem JSON gelesenen p50/p95/p99 sind nach einer anderen Definition gerechnet.**
+  Test: JSON-Form + p50/p99-Felder + 3 Checkpoint-Objekte. f15 29/29.
 - **✅ Allocator-Achse in den Cross-ABI-POD (erledigt 2026-05-30):** Zwei Schritte:
   1. **Loader-Entkopplung (`6140705`):** `cache_engine/abi/anatomy_module_abi_v1.hpp` zog `abi_adapter.hpp`
      (schwere Template) → koppelte den leichten dlopen-Loader an die GANZE Achsen-Library + generierte-Flags-

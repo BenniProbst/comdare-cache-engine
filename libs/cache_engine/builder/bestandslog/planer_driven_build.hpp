@@ -56,7 +56,15 @@ namespace comdare::cache_engine::builder::bestandslog {
 // dll_is_current bleibt die zweite, lokale Verteidigungslinie fuer alles, was gebaut wird.
 using PresenceFn = std::function<bool(std::size_t view_index)>;
 
-// Slice-Korn (spiegelt experiment_plan_director kGnBatchSlice=4096).
+// Slice-Korn (spiegelt planner::kGnBatchSlice, experiment_plan_director.hpp -- Bezeichner-Anker, keine
+// Zeilennummer). LAG-P4: eine Abweichung von 4096 ist ab jetzt ein COMPILE-Fehler; die Wache steht in
+// der Schicht, die alle drei Traeger sieht (experiment_plan_director.hpp, direkt bei
+// planner::kGnBatchSlice). Diese Datei darf sie nicht selbst tragen -- der Bestandslog liegt UNTER dem
+// Planer und inkludiert nie aufwaerts (progress_delta.hpp:5).
+//
+// WARUM DAS KORN HIER UEBERHAUPT NOCHMAL STEHT: es ist der Default des grain-Parameters von
+// slice_view_indices und der Wert, den der Batch-Plan-Stempel ('|korn=') traegt. Der Mess-Lauf findet
+// den Plan seines eigenen Bau-Laufs nur wieder, wenn beide Laeufe dieselbe Zahl stempeln.
 inline constexpr std::size_t kBuildSliceGrain = 4096;
 
 // Pure: slict die selektierten view-Indizes in Fenster der Groesse grain (Reihenfolge erhalten). Die

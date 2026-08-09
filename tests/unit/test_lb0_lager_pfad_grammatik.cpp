@@ -9,6 +9,15 @@
 // Abschnitt 6.1/6.2 = Pfad-Kaskaden). Das ist die L5-Abnahme-Naht: A9 muss diese Datei OHNE Aenderung
 // konsumieren koennen -- ein Fork der Grammatik faellt hier auf, nicht erst im Feld.
 //
+// K1 (Owner-Entscheid 09.08.2026) -- GATTUNG UND GENUS SIND DIE WURZELEBENEN. Beide Kaskaden tragen
+// seither drei gemeinsame Ebenen vorne: gattung=<token>/genus=<token>/realm=<binaries|messdaten>.
+// Fuer diese TU heisst das dreierlei, und alle drei sind Absicht:
+//   * jeder Ebenen-INDEX unten ist um 3 verschoben (die Golden-Strings selbst sind unveraendert --
+//     Owner: "REST wie gehabt"),
+//   * die zwei L3-Hybrid-Tests sind NEU GESCHRIEBEN statt geloescht: eine aufgehobene Regel braucht
+//     den Beleg fuer das Gegenteil, sonst heisst "aufgehoben" nur "ungeprueft",
+//   * Abschnitt (4b) ist neu und traegt die GEGENEINGAENGE zu den neuen Ordnungsregeln.
+//
 // OE-B-DUMMY-LAGER: die Realm-Writer werden gegen ein echtes Temp-Verzeichnis gefahren; die
 // "Binaries" sind Textdateien mit Stempel-String. Kein minio, kein Netz, kein mc.
 //
@@ -24,6 +33,7 @@
 #include "comdare_test_tmp.hpp"           // #278/#24 + Posten 69: per-User-/per-Build-Temp-Wurzel
 #include "support/oeb_stempel_zeilen.hpp" // OE-B-Stempel-Fixture + split_lines + Ruecklese (LB-6)
 
+#include <anatomy/anatomy_base.hpp> // K1: AnatomyGattung/AnatomyGenus + gattung_of (FREMDES Orakel)
 #include <cache_engine/abi/system_axis_order.hpp>
 
 #include <gtest/gtest.h>
@@ -31,7 +41,9 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <iostream>
 #include <map>
 #include <optional>
 #include <string>
@@ -39,9 +51,10 @@
 #include <system_error>
 #include <vector>
 
-namespace bl = comdare::cache_engine::builder::bestandslog;
-namespace ct = comdare::test;
-namespace fs = std::filesystem;
+namespace bl  = comdare::cache_engine::builder::bestandslog;
+namespace cea = comdare::cache_engine::anatomy;
+namespace ct  = comdare::test;
+namespace fs  = std::filesystem;
 
 namespace {
 
@@ -297,26 +310,34 @@ TEST(Lb0GrammatikNegativ, PraefixKollisionEins16WirdMitTrennerAufgeloest) {
     EXPECT_FALSE(bl::pfad_praefix_passt("node_fanout=1", "")) << "Ein leeres Praefix darf nie alles treffen";
 }
 
-TEST(Lb0GrammatikNegativ, L3HybridStringBrichtHart) {
-    // Der L3-Entscheid ist nicht nur ein Kommentar: JEDE Ebene laeuft durch dieselbe Wache.
+TEST(Lb0Grammatik, K1HybridIstEinWertWieJederAndere) {
+    // ERSETZT Lb0GrammatikNegativ.L3HybridStringBrichtHart (bis 09.08.2026). Die Aussage ist um 180
+    // Grad gedreht, deshalb ist der Test NEU GESCHRIEBEN und nicht angepasst: L3 verbot den Token
+    // "hybrid" auf jeder Ebene, K1 sortiert die Hybrid-Gattung als regulaere Gattung+Genus ein.
+    // Der alte Test hier nur zu LOESCHEN waere die halbe Arbeit -- eine aufgehobene Regel braucht den
+    // Beleg, dass jetzt das GEGENTEIL gilt, sonst ist "aufgehoben" bloss "ungeprueft".
     std::array<bl::KvPaar, 1> const wert{bl::KvPaar{"tier", "hybrid"}};
-    EXPECT_EQ(bl::kv_kette(wert).fehler, bl::LagerPfadFehler::hybrid_segment_verboten);
+    EXPECT_TRUE(bl::kv_kette(wert).ok());
+    EXPECT_EQ(bl::kv_kette(wert).text, "tier=hybrid");
 
     std::array<bl::KvPaar, 1> const achse{bl::KvPaar{"hybrid_tier", "on"}};
-    EXPECT_EQ(bl::kv_kette(achse).fehler, bl::LagerPfadFehler::hybrid_segment_verboten);
-
-    std::array<bl::KvPaar, 1> const suffix{bl::KvPaar{"tier", "hybrid-so"}};
-    EXPECT_EQ(bl::gruppen_segment("01_read_path", suffix).fehler, bl::LagerPfadFehler::hybrid_segment_verboten);
+    EXPECT_TRUE(bl::kv_kette(achse).ok());
+    EXPECT_EQ(bl::kv_kette(achse).text, "hybrid_tier=on");
 
     std::array<bl::KvPaar, 1> const gruppe{bl::KvPaar{"tier", "plain"}};
-    EXPECT_EQ(bl::gruppen_segment("hybrid_gruppe", gruppe).fehler, bl::LagerPfadFehler::hybrid_segment_verboten);
+    auto const                      g = bl::gruppen_segment("hybrid_gruppe", gruppe);
+    ASSERT_TRUE(g.ok()) << bl::to_string(g.fehler);
+    EXPECT_EQ(g.text, "hybrid_gruppe=tier-plain");
 
-    EXPECT_EQ(bl::blatt_dateiname("20260812", "093011", wert, "xlsx").fehler,
-              bl::LagerPfadFehler::hybrid_segment_verboten);
+    EXPECT_TRUE(bl::blatt_dateiname("20260812", "093011", wert, "xlsx").ok());
 
-    // GEGENPROBE: die Wache darf nichts Fachfremdes mitreissen.
-    std::array<bl::KvPaar, 1> const harmlos{bl::KvPaar{"tier", "hybridization"}};
-    EXPECT_TRUE(bl::kv_kette(harmlos).ok());
+    // GEGENEINGANG (T-4): die Aufhebung ist ENG. Sie betrifft NUR das Namens-Verbot -- die
+    // Zeichenklasse gilt unveraendert, ein "Hybrid" mit Grossbuchstaben faellt weiterhin durch.
+    std::array<bl::KvPaar, 1> const gross{bl::KvPaar{"tier", "Hybrid"}};
+    EXPECT_EQ(bl::kv_kette(gross).fehler, bl::LagerPfadFehler::wert_zeichenklasse);
+    // Und der Paar-Trenner bleibt im Gruppen-Segment mehrdeutig, auch fuer Hybrid-Werte.
+    std::array<bl::KvPaar, 1> const suffix{bl::KvPaar{"tier", "hybrid-so"}};
+    EXPECT_EQ(bl::gruppen_segment("01_read_path", suffix).fehler, bl::LagerPfadFehler::gruppen_wert_trenner);
 }
 
 TEST(Lb0GrammatikNegativ, GruppenSegmentWeistDenPaarTrennerImWertAb) {
@@ -345,8 +366,13 @@ TEST(Lb0Grammatik, PfadJoinIstZugleichDerObjektPraefix) {
 // ===========================================================================
 namespace {
 
+// K1: BEIDE Fixtures tragen DASSELBE Wurzel-Paar. Absicht -- so ist der einzige Unterschied zwischen
+// den zwei Realm-Pfaden die realm-Ebene selbst. Verschiedene Gattungen hier waeren bequem, machten den
+// Disjunktheits-Test unten aber wertlos: er wuerde dann die Gattung messen, nicht die Realm-Trennung.
+inline constexpr bl::LagerWurzelPaar kWurzelMapSa{cea::AnatomyGattung::Map, cea::AnatomyGenus::SearchAlgorithm};
+
 bl::MessdatenBaumSpec messdaten_spec() {
-    bl::MessdatenBaumSpec s;
+    bl::MessdatenBaumSpec s{kWurzelMapSa};
     s.mess        = {{"mess", "vereint"}, {"load_framework", "on"}};
     s.system      = system_drei();
     s.meta_metas  = {{"simd", "avx2"}};
@@ -360,19 +386,25 @@ bl::MessdatenBaumSpec messdaten_spec() {
 TEST(Lb2MessdatenRealm, KaskadeTraegtDieElfEbenenInDerBindendenOrdnung) {
     auto const k = bl::MessdatenRealmPolicy::kaskade(messdaten_spec());
     ASSERT_TRUE(k.ok()) << bl::to_string(k.fehler) << "/" << bl::to_string(k.pfad_fehler);
-    ASSERT_EQ(k.ebenen.size(), 8u) << "1 Mess + 1 System + 5 Organ-Gruppen + 1 Haupt-Blatt (Unter-Ebenen leer)";
-    EXPECT_EQ(k.ebenen[0], "mess=vereint+load_framework=on");
+    ASSERT_EQ(k.ebenen.size(), 11u) << "K1: 2 Wurzel (gattung, genus) + 1 realm + 1 Mess + 1 System + "
+                                       "5 Organ-Gruppen + 1 Haupt-Blatt (Unter-Ebenen leer)";
+    // K1 -- die drei gemeinsamen Wurzelebenen, VOR allem anderen.
+    EXPECT_EQ(k.ebenen[0], "gattung=map");
+    EXPECT_EQ(k.ebenen[1], "genus=search_algorithm");
+    EXPECT_EQ(k.ebenen[2], "realm=messdaten");
+    // ... und ab hier die Messdaten-Kaskade "wie gehabt" (Owner-Praezisierung), nur um 3 verschoben.
+    EXPECT_EQ(k.ebenen[3], "mess=vereint+load_framework=on");
     // Meta-Metas HINTEN, hinter load_framework on/off (D-09).
-    EXPECT_EQ(k.ebenen[1], "target_isa=amd64_v3+operating_system=linux+external_utils=avx2+simd=avx2");
-    EXPECT_EQ(k.ebenen[2], "01_read_path=search_algo-prt_art+cache_traversal-bfs");
-    EXPECT_EQ(k.ebenen[3], "02_layout=node_type-b_tree+memory_layout-soa+path_compression-none+filter-bloom+"
+    EXPECT_EQ(k.ebenen[4], "target_isa=amd64_v3+operating_system=linux+external_utils=avx2+simd=avx2");
+    EXPECT_EQ(k.ebenen[5], "01_read_path=search_algo-prt_art+cache_traversal-bfs");
+    EXPECT_EQ(k.ebenen[6], "02_layout=node_type-b_tree+memory_layout-soa+path_compression-none+filter-bloom+"
                            "serialization-flat");
-    EXPECT_EQ(k.ebenen[4], "03_placement=mapping-direct+allocator-arena+value_handle-inline_v+"
+    EXPECT_EQ(k.ebenen[7], "03_placement=mapping-direct+allocator-arena+value_handle-inline_v+"
                            "index_organization-clustered+migration_policy-lru");
-    EXPECT_EQ(k.ebenen[5], "04_execution=concurrency-single+prefetch-off");
-    EXPECT_EQ(k.ebenen[6], "05_write_path_io=queuing_q1-none+queuing_q2-none+io_dispatch-sync+"
+    EXPECT_EQ(k.ebenen[8], "04_execution=concurrency-single+prefetch-off");
+    EXPECT_EQ(k.ebenen[9], "05_write_path_io=queuing_q1-none+queuing_q2-none+io_dispatch-sync+"
                            "persistence_target-none");
-    EXPECT_EQ(k.ebenen[7], "blatt=" + hex128('a'));
+    EXPECT_EQ(k.ebenen[10], "blatt=" + hex128('a'));
 }
 
 TEST(Lb2MessdatenRealm, DreiUnterEbenenKommenNurWennSieGebrauchtWerden) {
@@ -381,9 +413,9 @@ TEST(Lb2MessdatenRealm, DreiUnterEbenenKommenNurWennSieGebrauchtWerden) {
     s.organ_unter = {{"node_fanout", "16"}};
     auto const k  = bl::MessdatenRealmPolicy::kaskade(s);
     ASSERT_TRUE(k.ok());
-    ASSERT_EQ(k.ebenen.size(), 10u) << "system_unter bleibt leer -> die Ebene entfaellt";
-    EXPECT_EQ(k.ebenen[8], "mess_unter=measurement_category-wallclock");
-    EXPECT_EQ(k.ebenen[9], "organ_unter=node_fanout-16");
+    ASSERT_EQ(k.ebenen.size(), 13u) << "system_unter bleibt leer -> die Ebene entfaellt";
+    EXPECT_EQ(k.ebenen[11], "mess_unter=measurement_category-wallclock");
+    EXPECT_EQ(k.ebenen[12], "organ_unter=node_fanout-16");
 }
 
 TEST(Lb2MessdatenRealm, OrganAchsenWerdenVonDerTabelleGeordnetNichtVomAufrufer) {
@@ -435,12 +467,120 @@ TEST(Lb2MessdatenRealmNegativ, PflichtEbenenSindPflicht) {
     EXPECT_EQ(bl::MessdatenRealmPolicy::kaskade(s).fehler, bl::LagerBaumFehler::ebene_fehlt);
 }
 
-TEST(Lb2MessdatenRealmNegativ, HybridBrichtAuchUeberDenWriter) {
+TEST(Lb2MessdatenRealm, K1HybridWertLaeuftAuchUeberDenWriterDurch) {
+    // ERSETZT Lb2MessdatenRealmNegativ.HybridBrichtAuchUeberDenWriter (bis 09.08.2026): dieselbe
+    // Eingabe, umgekehrte Erwartung. Der Writer hat keine eigene Hybrid-Meinung mehr.
     auto s       = messdaten_spec();
     s.mess_unter = {{"tier", "hybrid"}};
     auto const k = bl::MessdatenRealmPolicy::kaskade(s);
-    EXPECT_EQ(k.fehler, bl::LagerBaumFehler::grammatik);
-    EXPECT_EQ(k.pfad_fehler, bl::LagerPfadFehler::hybrid_segment_verboten);
+    ASSERT_TRUE(k.ok()) << bl::to_string(k.fehler) << "/" << bl::to_string(k.pfad_fehler);
+    EXPECT_EQ(k.ebenen.back(), "mess_unter=tier-hybrid");
+}
+
+// ===========================================================================
+// (4b) K1-GEGENEINGAENGE -- zu JEDER neuen Ordnungsregel ein Pfad, der sie VERLETZT (T-4).
+//      Ohne diesen Abschnitt bewiese der Rest der Datei nur, dass gueltige Pfade durchlaufen.
+// ===========================================================================
+TEST(Lb2WurzelNegativ, GenusAusEinerFREMDENGattungWirdKlassifiziertAbgewiesen) {
+    // DIE zentrale neue Ordnungsregel: die zwei Wurzelebenen sind eine HIERARCHIE, kein Nebeneinander.
+    // Set gehoert zur Gattung Container -- unter gattung=map hat es nichts zu suchen. Ohne diese Wache
+    // entstuende der Pfad "gattung=map/genus=set/..." klaglos: wohlgeformt, schreibbar, und eine LUEGE
+    // ueber die Abstammung. Genau die Klasse Fehler, die nie klappert.
+    bl::MessdatenBaumSpec s{bl::LagerWurzelPaar{cea::AnatomyGattung::Map, cea::AnatomyGenus::Set}};
+    s.mess        = {{"mess", "vereint"}};
+    s.system      = system_drei();
+    s.organ       = organ_18_gemischt();
+    s.haupt_blatt = {{"blatt", hex128('a')}};
+    auto const k  = bl::MessdatenRealmPolicy::kaskade(s);
+    EXPECT_EQ(k.fehler, bl::LagerBaumFehler::gattung_genus_unvereinbar);
+    EXPECT_TRUE(k.pfad().empty()) << "Ein abgewiesenes Paar darf keinen halben Pfad zurueckgeben";
+
+    // ORAKEL AUS FREMDER QUELLE (T-5): die Zuordnung wird NICHT aus dem Writer abgeschrieben, sondern
+    // bei der Anatomie erfragt -- sie ist die Einzigquelle der Ebene-2->Ebene-1-Bindung.
+    ASSERT_EQ(cea::gattung_of(cea::AnatomyGenus::Set), cea::AnatomyGattung::Container);
+    ASSERT_NE(cea::gattung_of(cea::AnatomyGenus::Set), cea::AnatomyGattung::Map);
+
+    // GEGENPROBE: dasselbe Genus unter SEINER Gattung laeuft durch -- die Wache weist das PAAR ab,
+    // nicht das Genus. Ohne diese Haelfte waere "lehnt ab" auch mit einer kaputten Wache erfuellt.
+    bl::MessdatenBaumSpec gut{bl::LagerWurzelPaar{cea::AnatomyGattung::Container, cea::AnatomyGenus::Set}};
+    gut.mess        = {{"mess", "vereint"}};
+    gut.system      = system_drei();
+    gut.organ       = organ_18_gemischt();
+    gut.haupt_blatt = {{"blatt", hex128('a')}};
+    auto const ok   = bl::MessdatenRealmPolicy::kaskade(gut);
+    ASSERT_TRUE(ok.ok()) << bl::to_string(ok.fehler);
+    EXPECT_EQ(ok.ebenen[0], "gattung=container");
+    EXPECT_EQ(ok.ebenen[1], "genus=set");
+}
+
+TEST(Lb2WurzelNegativ, EinEnumWertOhneLagerTokenBrichtStattStillUnterUnknownZuLanden) {
+    // Der zweite Gegeneingang: ein Wert, den die Anatomie gar nicht kennt (kuenftiger/fremder
+    // Enumerator). Er hat KEINEN Lager-Token -- und bekommt deshalb auch keinen Ersatz-Ordner.
+    // Genau das ist der Unterschied zu gattung_name(), das hier "Unknown" liefern wuerde: ein
+    // schreibbarer Ordner, unter dem sich alles Unbekannte still sammelt.
+    auto const fremd = static_cast<cea::AnatomyGenus>(200);
+    ASSERT_EQ(cea::genus_name(fremd), "Unknown") << "Vorbedingung: 200 ist kein Enumerator der Anatomie";
+    ASSERT_TRUE(bl::lager_genus_token(fremd).empty()) << "und hat folgerichtig keinen Lager-Token";
+
+    bl::BinariesBaumSpec s{bl::LagerWurzelPaar{cea::AnatomyGattung::Map, fremd}};
+    s.system     = system_drei();
+    s.organ      = organ_18_gemischt();
+    s.mess_typ   = {{"mess", "vereint"}};
+    auto const k = bl::BinariesRealmPolicy::kaskade(s);
+    EXPECT_EQ(k.fehler, bl::LagerBaumFehler::wurzel_token_fehlt)
+        << "ANWESENHEIT vor BEZIEHUNG: der fehlende Token ist die erste Ursache, nicht die Unvereinbarkeit";
+    EXPECT_TRUE(k.pfad().empty());
+}
+
+TEST(Lb2Wurzel, DieLagerTokenSindEINGEFROREN) {
+    // Diese Token sind ab dem ersten eingelagerten Blatt Adressen auf der Platte. Sie stehen deshalb
+    // hier EINZELN und WOERTLICH -- nicht als Schleife ueber die Tabelle, denn eine Schleife ueber die
+    // geprueften Werte belegt nur, dass die Tabelle sich selbst gleicht (T-5: das Orakel darf nicht
+    // aus dem Prueflung stammen). Wer einen Token aendert, aendert diese Zeilen sichtbar mit.
+    EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Map), "map");
+    EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Container), "container");
+    EXPECT_EQ(bl::lager_gattung_token(cea::AnatomyGattung::Graph), "graph");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::SearchAlgorithm), "search_algorithm");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Set), "set");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Sequence), "sequence");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::Adapter), "adapter");
+    EXPECT_EQ(bl::lager_genus_token(cea::AnatomyGenus::View), "view");
+
+    // Der Token ist BEWUSST nicht der C++-Name: E-24 C7-1 hat den Enumerator SearchAlgorithm nach Map
+    // umbenannt, weil damals nichts eingefroren war. Waere der Ordnername an gattung_name() gekoppelt,
+    // haette diese Umbenennung jeden bestehenden Ast verwaisen lassen.
+    constexpr auto kSa = cea::AnatomyGenus::SearchAlgorithm;
+    EXPECT_NE(bl::lager_genus_token(kSa), cea::genus_name(kSa))
+        << "search_algorithm != SearchAlgorithm -- Lager-Token und C++-Etikett sind entkoppelt";
+    EXPECT_EQ(bl::sanitisiere_wert(cea::genus_name(kSa)), "searchalgorithm")
+        << "und die bequeme Abkuerzung sanitisiere_wert(genus_name()) haette den Unterstrich verschluckt";
+}
+
+TEST(Lb2Wurzel, NENNER_JedeGattungUndJedesGenusDerAnatomieIstEinsortierbar) {
+    // NENNER mit Grundgesamtheit IN DER AUSGABE: die Zahl kommt aus der Anatomie (Scan ueber den
+    // gesamten uint8_t-Bereich mit gattung_name()/genus_name() als Zugehoerigkeits-Orakel), nicht aus
+    // der Token-Tabelle. Waere die Tabelle die Quelle, waere die Quote definitionsgemaess 100 Prozent.
+    std::size_t gattungen = 0, mit_gattung_token = 0, genera = 0, mit_genus_token = 0;
+    for (int v = 0; v <= 255; ++v) {
+        auto const ga = static_cast<cea::AnatomyGattung>(static_cast<std::uint8_t>(v));
+        if (cea::gattung_name(ga) != std::string_view{"Unknown"}) {
+            ++gattungen;
+            if (!bl::lager_gattung_token(ga).empty()) ++mit_gattung_token;
+        }
+        auto const ge = static_cast<cea::AnatomyGenus>(static_cast<std::uint8_t>(v));
+        if (cea::genus_name(ge) != std::string_view{"Unknown"}) {
+            ++genera;
+            if (!bl::lager_genus_token(ge).empty()) ++mit_genus_token;
+        }
+    }
+    std::cout << "[K1-NENNER] Gattungen mit Lager-Token: " << mit_gattung_token << "/" << gattungen
+              << " -- Genera mit Lager-Token: " << mit_genus_token << "/" << genera
+              << " (Grundgesamtheit: Scan ueber alle 256 uint8_t-Werte, Zugehoerigkeit per "
+                 "anatomy::gattung_name/genus_name)\n";
+    EXPECT_EQ(gattungen, 3u) << "Stand 09.08.2026: Map, Container, Graph";
+    EXPECT_EQ(genera, 5u) << "Stand 09.08.2026: SearchAlgorithm, Set, Sequence, Adapter, View";
+    EXPECT_EQ(mit_gattung_token, gattungen) << "K1: keine Gattung ohne Lager-Token";
+    EXPECT_EQ(mit_genus_token, genera) << "K1: kein Genus ohne Lager-Token";
 }
 
 // ===========================================================================
@@ -449,7 +589,7 @@ TEST(Lb2MessdatenRealmNegativ, HybridBrichtAuchUeberDenWriter) {
 namespace {
 
 bl::BinariesBaumSpec binaries_spec() {
-    bl::BinariesBaumSpec s;
+    bl::BinariesBaumSpec s{kWurzelMapSa};
     s.system     = system_drei();
     s.meta_metas = {{"simd", "avx2"}};
     s.organ      = organ_18_gemischt();
@@ -462,9 +602,14 @@ bl::BinariesBaumSpec binaries_spec() {
 TEST(Lb3BinariesRealm, WurzelIstDieSystemAchseUndMessTypLiegtZutiefst) {
     auto const k = bl::BinariesRealmPolicy::kaskade(binaries_spec());
     ASSERT_TRUE(k.ok()) << bl::to_string(k.fehler);
-    ASSERT_EQ(k.ebenen.size(), 7u) << "1 System + 5 Organ-Gruppen + 1 Mess-Typ";
-    EXPECT_EQ(k.ebenen.front(), "target_isa=amd64_v3+operating_system=linux+external_utils=avx2+simd=avx2");
-    EXPECT_EQ(k.ebenen[1], "01_read_path=search_algo-prt_art+cache_traversal-bfs");
+    ASSERT_EQ(k.ebenen.size(), 10u) << "K1: 2 Wurzel + 1 realm + 1 System + 5 Organ-Gruppen + 1 Mess-Typ";
+    // K1 -- dieselben drei Wurzelebenen wie im Messdaten-Realm, nur der realm-Token unterscheidet sich.
+    EXPECT_EQ(k.ebenen[0], "gattung=map");
+    EXPECT_EQ(k.ebenen[1], "genus=search_algorithm");
+    EXPECT_EQ(k.ebenen[2], "realm=binaries");
+    // Owner: "Binary-Ordner ... branchen unter Gattung->Genus->Binary/Messung->REST wie gehabt."
+    EXPECT_EQ(k.ebenen[3], "target_isa=amd64_v3+operating_system=linux+external_utils=avx2+simd=avx2");
+    EXPECT_EQ(k.ebenen[4], "01_read_path=search_algo-prt_art+cache_traversal-bfs");
     EXPECT_EQ(k.ebenen.back(), "mess=vereint") << "D-12: der Mess-Typ ist der TIEFSTE Haupt-Achsen-Typ";
 }
 
@@ -472,9 +617,14 @@ TEST(Lb3BinariesRealm, Abnahme5CebBinariesLiegenImSystemAchsenBlatt) {
     auto const spec = binaries_spec();
     auto const voll = bl::BinariesRealmPolicy::kaskade(spec);
     auto const ceb  = bl::BinariesRealmPolicy::ceb_blatt_ebenen(spec);
-    ASSERT_TRUE(ceb.ok());
-    ASSERT_EQ(ceb.ebenen.size(), 1u);
-    EXPECT_EQ(ceb.pfad(), voll.ebenen.front());
+    ASSERT_TRUE(ceb.ok()) << bl::to_string(ceb.fehler);
+    // K1-SCHWESTERPFLICHT (T-6): ceb_blatt_ebenen() baut seinen Satz eigenstaendig. Zoege man die drei
+    // Wurzelebenen nur in kaskade() ein, waeren es hier weiterhin 1 Ebene -- und die Praefix-Zusage
+    // von ABNAHME-5 waere LEISE gebrochen. Deshalb die Ebenen-ZAHL, nicht nur das Praefix-Praedikat.
+    ASSERT_EQ(ceb.ebenen.size(), 4u) << "gattung, genus, realm, system";
+    EXPECT_EQ(ceb.ebenen[0], "gattung=map");
+    EXPECT_EQ(ceb.ebenen[2], "realm=binaries");
+    EXPECT_EQ(ceb.ebenen[3], voll.ebenen[3]);
     // Und: der CEB-Praefix ist ein echtes Praefix des Tier-Pfades (mit Trenner-Semantik).
     EXPECT_TRUE(bl::pfad_praefix_passt(voll.pfad(), ceb.pfad()));
 }
@@ -501,8 +651,21 @@ TEST(Lb3BinariesRealm, DieZweiRealmsSindDisjunkt) {
     EXPECT_EQ(bl::to_string(bl::LagerRealm::binaries), "binaries");
     EXPECT_EQ(bl::to_string(bl::LagerRealm::messdaten), "messdaten");
     // Derselbe Achsen-Satz ergibt in beiden Realms VERSCHIEDENE Pfade (keine stille Verschmelzung).
-    EXPECT_NE(bl::MessdatenRealmPolicy::kaskade(messdaten_spec()).pfad(),
-              bl::BinariesRealmPolicy::kaskade(binaries_spec()).pfad());
+    auto const m = bl::MessdatenRealmPolicy::kaskade(messdaten_spec());
+    auto const b = bl::BinariesRealmPolicy::kaskade(binaries_spec());
+    EXPECT_NE(m.pfad(), b.pfad());
+    // K1: die Trennung sitzt jetzt IN der Kaskade (Ebene 3) und nicht mehr im wurzel_-String, den der
+    // Aufrufer reicht. Vorher war "die Realms sind disjunkt" eine Aussage ueber zwei Konstruktor-
+    // Argumente des Tests -- ein Stellvertreter. Jetzt ist sie eine Aussage ueber den Baum selbst.
+    ASSERT_GE(m.ebenen.size(), 3u);
+    ASSERT_GE(b.ebenen.size(), 3u);
+    EXPECT_EQ(m.ebenen[2], "realm=messdaten");
+    EXPECT_EQ(b.ebenen[2], "realm=binaries");
+    // Die zwei Wurzelebenen darueber sind identisch -- der Unterschied ist AUSSCHLIESSLICH der Realm.
+    EXPECT_EQ(m.ebenen[0], b.ebenen[0]);
+    EXPECT_EQ(m.ebenen[1], b.ebenen[1]);
+    EXPECT_FALSE(bl::pfad_praefix_passt(m.pfad(), b.pfad()));
+    EXPECT_FALSE(bl::pfad_praefix_passt(b.pfad(), m.pfad()));
 }
 
 // ===========================================================================
@@ -513,16 +676,19 @@ TEST(Lb2Einlagerung, DepthFirstLegtJedenKnotenAnBevorDasBlattGeschriebenWird) {
     auto const w = bl::make_messdaten_baum_writer(f.naht(), "wurzel");
     auto const e = w.einlagern(messdaten_spec(), "20260812-093011.xlsx", "inhalt");
     ASSERT_TRUE(e.ok()) << bl::to_string(e.fehler);
-    ASSERT_EQ(e.knoten.size(), 8u);
+    ASSERT_EQ(e.knoten.size(), 11u) << "K1: drei Ebenen mehr als vor dem Wurzel-Umbau";
     // Von der Wurzel abwaerts, jeder Knoten ein echtes Praefix des naechsten.
     for (std::size_t i = 1; i < e.knoten.size(); ++i)
         EXPECT_TRUE(bl::pfad_praefix_passt(e.knoten[i], e.knoten[i - 1])) << e.knoten[i];
-    EXPECT_TRUE(e.knoten.front().starts_with("wurzel/"));
+    EXPECT_EQ(e.knoten.front(), "wurzel/gattung=map") << "K1: der ERSTE angelegte Knoten unter der Lager-Wurzel "
+                                                         "ist die Gattung -- nicht der Realm und nicht die Mess-Ebene";
+    EXPECT_EQ(e.knoten[1], "wurzel/gattung=map/genus=search_algorithm");
+    EXPECT_EQ(e.knoten[2], "wurzel/gattung=map/genus=search_algorithm/realm=messdaten");
     EXPECT_EQ(e.knoten_pfad, e.knoten.back());
     EXPECT_EQ(e.blatt_pfad, e.knoten.back() + "/20260812-093011.xlsx");
     EXPECT_EQ(f.dateien.at(e.blatt_pfad), "inhalt");
     EXPECT_EQ(f.write_rufe, 1u) << "Genau EIN Blatt geschrieben";
-    EXPECT_EQ(f.mkdir_rufe, 9u) << "Wurzel + 8 Ebenen";
+    EXPECT_EQ(f.mkdir_rufe, 12u) << "Wurzel + 11 Ebenen";
 }
 
 TEST(Lb2EinlagerungNegativ, AblageFehlerWerdenKlassifiziertNichtVerschluckt) {
@@ -551,9 +717,13 @@ TEST(Lb2EinlagerungNegativ, AblageFehlerWerdenKlassifiziertNichtVerschluckt) {
 }
 
 TEST(Lb3Einlagerung, OeBDummyLagerBeideRealmsAufEchtemDateisystem) {
+    // K1: BEIDE Writer bekommen DIESELBE Wurzel -- naemlich die des LAGERS. Vor K1 stand hier
+    // temp.pfad()+"/binaries" bzw. +"/messdaten"; die Realm-Trennung kam damit aus zwei verschiedenen
+    // Konstruktor-Argumenten DIESES TESTS und nicht aus dem Baum. Gleiche Wurzel zu reichen ist der
+    // schaerfere Aufbau: trennen muss jetzt die Kaskade.
     TempLager  temp;
-    auto const bin  = bl::make_binaries_baum_writer(bl::make_filesystem_ablage(), temp.pfad() + "/binaries");
-    auto const mess = bl::make_messdaten_baum_writer(bl::make_filesystem_ablage(), temp.pfad() + "/messdaten");
+    auto const bin  = bl::make_binaries_baum_writer(bl::make_filesystem_ablage(), temp.pfad());
+    auto const mess = bl::make_messdaten_baum_writer(bl::make_filesystem_ablage(), temp.pfad());
 
     // "Binary" = Textdatei mit Stempel-String (OE-B). Der Stempel ist seit LB-6 MEHRZEILIG (die
     // Form des echten g1_binary_version_block, support/oeb_stempel_zeilen.hpp) -- der frueher hier
@@ -572,9 +742,15 @@ TEST(Lb3Einlagerung, OeBDummyLagerBeideRealmsAufEchtemDateisystem) {
     ASSERT_TRUE(m.ok()) << bl::to_string(m.fehler);
     EXPECT_TRUE(fs::exists(fs::path{m.blatt_pfad}));
 
-    // Die zwei Realm-Wurzeln sind auch auf der Platte disjunkt.
-    EXPECT_FALSE(bl::pfad_praefix_passt(m.blatt_pfad, temp.pfad() + "/binaries"));
-    EXPECT_FALSE(bl::pfad_praefix_passt(b.blatt_pfad, temp.pfad() + "/messdaten"));
+    // Die zwei Realm-Aeste sind auch auf der Platte disjunkt -- und zwar UNTERHALB der gemeinsamen
+    // Gattung/Genus-Wurzel, genau wie der Owner es angeordnet hat.
+    std::string const gemeinsam = temp.pfad() + "/gattung=map/genus=search_algorithm";
+    EXPECT_TRUE(bl::pfad_praefix_passt(b.blatt_pfad, gemeinsam)) << b.blatt_pfad;
+    EXPECT_TRUE(bl::pfad_praefix_passt(m.blatt_pfad, gemeinsam)) << m.blatt_pfad;
+    EXPECT_FALSE(bl::pfad_praefix_passt(m.blatt_pfad, gemeinsam + "/realm=binaries"));
+    EXPECT_FALSE(bl::pfad_praefix_passt(b.blatt_pfad, gemeinsam + "/realm=messdaten"));
+    // Und die gemeinsame Wurzel existiert wirklich als EIN Ordner (nicht zweimal nebeneinander).
+    EXPECT_TRUE(fs::is_directory(fs::path{gemeinsam}));
 
     // Idempotenz: derselbe Spec ergibt denselben Knoten (kein zweiter Ast).
     auto const b2 = bin.einlagern(binaries_spec(), "perm.dll", stempel);
@@ -588,7 +764,7 @@ TEST(Lb3Einlagerung, OeBStempelWirdVomDateisystemZeilenweiseVerbatimZurueckgeles
     // eine Datei DA ist, ist keine Aussage ueber ihren INHALT. Hier wird das Blatt geoeffnet,
     // gelesen, zerlegt und Zeile fuer Zeile einzeln geprueft.
     TempLager  temp;
-    auto const bin = bl::make_binaries_baum_writer(bl::make_filesystem_ablage(), temp.pfad() + "/binaries");
+    auto const bin = bl::make_binaries_baum_writer(bl::make_filesystem_ablage(), temp.pfad()); // K1: Lager-Wurzel
 
     std::string const stempel = ct::oeb_stempel_block();
     auto const        b       = bin.einlagern(binaries_spec(), "perm.dll", stempel);

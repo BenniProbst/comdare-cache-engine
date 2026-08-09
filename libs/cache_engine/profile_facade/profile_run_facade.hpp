@@ -112,6 +112,30 @@ struct ProfileRunArgs {
     std::string                                                             bestand_doc_key;
     std::string                                                             bestand_owner_uuid;
     std::string                                                             bestand_maschine;
+    // LAG-P2 (2026-08-09) -- DAS ZWEITE GENUS, im EXAKTEN Muster der fuenf Felder darueber.
+    //
+    // SELBSTCHECK: diese drei Felder sichern zu, dass der Host das MESSWERT-Genus des Lagers
+    // beschicken KANN. Sie sichern NICHT zu, dass er es tut -- alle leer (Default) => der Iterator
+    // laesst mess_bestandslog_active false => keine Messwert-Registrierung => byte-/verhaltensneutral,
+    // exakt wie beim Binary-Genus.
+    //
+    // WARUM SIE HIER STEHEN MUESSEN: der produktive Weg laeuft ausschliesslich ueber diese Fassade --
+    // kein Host baut eine LazyRunConfig selbst. Bis LAG-P2 hatten die drei Iterator-Felder NULL
+    // externe Zuweiser; der vollstaendig gebaute Konsum im Iterator war damit aus dem Produktions-Lauf
+    // unerreichbar. Das ist dieselbe Klasse wie die T2-A/F4-Plan-Ablage, nur eine Naht weiter.
+    //
+    // EIGENER doc_key, KEIN zweiter Abschnitt im Binary-Dokument (D-05): das Bestandslog wird beim BAU
+    // UND beim MESSEN fortgeschrieben, JE REALM. Der Transport ist derselbe (bestand_cache oben) --
+    // es sind zwei Dokumente in EINEM Store, nicht zwei Stores.
+    //
+    // KEIN Gate auf dieser Ebene (wie oben): das harte Doppel-Gate sitzt beim Host. Der reale Provider
+    // ist bestandslog::make_messwert_key_fn (messwert_key_source.hpp) -- die Schwester von
+    // make_fingerprint_key_fn, mit derselben Sidecar-Lektuere und derselben fail-closed-Regel.
+    std::function<std::optional<std::string>(std::filesystem::path const&)> mess_bestand_key_of;
+    std::string                                                             mess_bestand_doc_key;
+    // G-E6 (syntax_version 4): der optionale Versions-Tag der Haupt-Achsen ("achse@X.Y.Zc;..."), den
+    // jeder Messwert-Eintrag mitfuehrt. Leer = nicht gemeldet (v3-byte-gleiche Ausgabe).
+    std::string mess_bestand_versions;
     // T2-A/F4 (Owner-KERN Zaehler-Resume): die Ablage des Batch-Plans. SECHSTES Glied derselben
     // Bestandslog-Naht und nach demselben Muster wie die fuenf darueber -- der Host belegt es, die Fassade
     // reicht es durch (a.batch_plan_datei), make_cfg legt es auf LazyRunConfig::batch_plan_datei

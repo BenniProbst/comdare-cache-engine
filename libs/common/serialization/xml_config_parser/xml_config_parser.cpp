@@ -344,6 +344,26 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
         tp.repetitions_interpolate = (rep->attr("interpolate", "false") == "true");
         tp.repetitions_overlay     = (rep->attr("overlay_in_chart", "true") == "true");
     }
+    // T-15 (2026-08-09): <drift_gate reps=".." threshold_permille=".." max_reruns=".."/> -- die drei
+    // Zahlen der Drift-Regel. ADDITIV: fehlt das Element, bleibt declared==false und die
+    // cache_engine-Schicht behaelt ihren Owner-Default (byte-identisches Verhalten fuer jedes
+    // bestehende Profil).
+    //
+    // SELBSTCHECK: unsinnige Werte machen das PROFIL UNLESBAR (nullopt) statt still normalisiert zu
+    // werden -- exakt die Haltung von parse_u64_list_strict darueber. Eine negative Wiederholungszahl
+    // wuerde beim Cast nach uint32 zu einer astronomischen Gruppen-Groesse; eine Schwelle <= 0 liesse
+    // jede Messung als instabil gelten und verbrennt das Rerun-Budget bei JEDER Zelle. Beides waere
+    // eine Fehlkonfiguration, die erst nach Tagen Messzeit auffiele.
+    if (auto const* dg = root->child("drift_gate")) {
+        tp.drift_gate_declared           = true;
+        tp.drift_gate_reps               = to_int(dg->attr("reps", "3"), 3);
+        tp.drift_gate_threshold_permille = to_int(dg->attr("threshold_permille", "50"), 50);
+        tp.drift_gate_max_reruns         = to_int(dg->attr("max_reruns", "5"), 5);
+        // reps == 0/1 ist ZULAESSIG und heisst "Gate aus" (D4: eine einzelne Probe hat keine
+        // Wiederholungs-Streuung). Negativ ist es nicht.
+        if (tp.drift_gate_reps < 0 || tp.drift_gate_max_reruns < 0 || tp.drift_gate_threshold_permille <= 0)
+            return std::nullopt;
+    }
     if (auto const* ms = root->child("modes")) {
         for (auto const* m : ms->children_named("mode")) {
             ThesisMode md;
