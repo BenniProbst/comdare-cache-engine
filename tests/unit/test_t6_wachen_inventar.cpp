@@ -95,10 +95,15 @@ enum class Art {
 
 enum class Deckung { Gtest, Shell, Keine };
 
+// Die zwei Vorgaben sind KEINE Formsache, sie zeigen fail-closed. Wer eine Zeile ergaenzt und
+// ein Feld vergisst, bekommt: art=Wache -> die Zeile zaehlt in den Nenner und verlangt Deckung
+// (Selbsttest/Datenquelle wuerden sie still herausnehmen); deckung=Keine -> sie landet auf der
+// Warteliste, und die steht mit 3 von 3 bereits an ihrer Obergrenze, faellt also auf. Das
+// wertfreie '= {}' waere hier genau falsch: es hiesse Gtest, also BEHAUPTETE Deckung.
 struct Eintrag {
     std::string_view pfad; // wie er in der .gitlab-ci.yml steht
-    Art              art;
-    Deckung          deckung;
+    Art              art     = Art::Wache;
+    Deckung          deckung = Deckung::Keine;
     std::string_view beleg; // repo-relativ; bei Gtest die .cpp, bei Shell der Selbsttest
     std::string_view ziel;  // bei Gtest: der ctest-Zielname, der registriert sein MUSS
     std::string_view bemerkung;

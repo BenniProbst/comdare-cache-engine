@@ -417,9 +417,11 @@ TEST(MtL4RegistrierungsWacheIsa, GefaelschterOderFehlenderCacheIstExitZweiUndNic
                                            "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
                                            "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0\n";
 
+    // Leerer String, nicht nullptr: 'was' geht nach berichten(char const*) und wird dort in
+    // einen ostream geschoben -- ein Nullzeiger waere dabei undefiniert, ein leerer nicht.
     struct Fall {
         std::string zusatz;
-        char const* was;
+        char const* was = "";
     };
     std::vector<Fall> const faelle{// '-D' auf einen konfigurierten Baum: der Typ verraet es, _COMPILED nicht.
                                    {"COMDARE_HOST_RUNS_AVX512F:UNINITIALIZED=0\n"
