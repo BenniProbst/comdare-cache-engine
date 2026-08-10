@@ -412,6 +412,22 @@ TEST(T6BissRegistrierungsWache, UnpruefbareBegruendungWirdROT) {
 
     ASSERT_TRUE(fall.init());
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(waise, "// nie gebaut\n"));
+    // NACHGEZOGEN IN DER SAMMELLANDUNG (10.08.2026): der Gitlink gehoert VOR BEIDE
+    // Richtungen, wie in den Faellen (2) und (3). Grund ist die zweite ERLOSCHEN-
+    // Richtung aus dem mt-l4-Paket: seither fragt die Wache zusaetzlich, ob dieses
+    // Repo den Zweig des Gegenstands ueberhaupt KENNT. Ohne Gitlink faellt Richtung
+    // (b) als TOTE AUSNAHME durch -- also aus einem anderen Grund als dem, den dieser
+    // Fall misst. Genau so ist er beim ersten Zusammenschluss der beiden Pakete rot
+    // geworden: jedes einzeln gruen, zusammen rot. Dass der Gitlink VOR (a) steht und
+    // nicht zwischen den Richtungen, ist der Punkt: sonst unterschieden sich die zwei
+    // Baeume in ZWEI Dingen, und der Vergleich waere keiner mehr.
+    ASSERT_EQ(fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() +
+                    " git update-index --add --cacheinfo 160000,"
+                    "0000000000000000000000000000000000000001,ext/fremdbaum_" +
+                    marke)
+                  .code,
+              0)
+        << "Gitlink fuer den optionalen Fremdbaum konnte nicht angelegt werden.";
     ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));
 
     // (a) OHNE ART-PRAEFIX -- woertlich die Form, in der (2) und (3) bis zum 10.08.
