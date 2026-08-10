@@ -31,3 +31,8 @@ add_subdirectory(overlay_source_hash_gen)
 # version). NICHT EXCLUDE_FROM_ALL: eine Nutzer-CLI wie best_binary_selector/ycsb_cli, Teil des
 # regulaeren Builds (der CI-Smoke-Test baut sie ueber das Default-ALL-Target, kein Extra-Ziel noetig).
 add_subdirectory(mess_report)
+# VOR-PUSH-GATE (2026-08-10): beantwortet vor einem Push, WELCHE der CI-Jobs lokal gefahren sind
+# und welche nicht -- der Nenner kommt aus .gitlab-ci.yml selbst. Anlass: die Sammellandung fiel
+# mit 4 von 24 Jobs rot, und von den 24 war vorher KEINER lokal gefahren worden. Kein Engine-Bezug
+# (es laeuft VOR dem Bau), EXCLUDE_FROM_ALL; Kern in vor_push_gate.hpp, Tests in tests/unit.
+add_subdirectory(vor_push_gate)
