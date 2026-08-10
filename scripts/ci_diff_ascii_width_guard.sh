@@ -97,11 +97,34 @@
 #
 # WAS DER UMBAU KOSTET, auf ECHTEN Bereichen gemessen statt geschaetzt (dieselbe
 # Wache, einmal mit alter und einmal mit neuer skip_grund(), gegen dieselben
-# Diffs): HEAD~1 0 Verstoesse, HEAD~10 1, HEAD~25 1, HEAD~50 38, HEAD~100 79
-# (davon 58 in *.sh -- genau der Defekt, den dieser Umbau schliesst),
-# 1880f296..HEAD (der main-FF-Bereich, 2.462 Zusatzzeilen) 0. Der CI-Bereich ist
-# CI_COMMIT_BEFORE_SHA..HEAD, also ein Push -- die realistische Gate-Last liegt
-# bei 0 bis 1 Verstoessen. Der Umbau macht den naechsten Push nicht rot.
+# Diffs).
+#
+# ANKER (10.08.2026 nachgetragen): alle folgenden Bereiche sind gegen den
+# DAMALIGEN HEAD 9f932e91 zu lesen, nicht gegen den heutigen. "HEAD~50" ohne
+# diesen Anker bezeichnet an jedem spaeteren Commit einen ANDEREN Bereich -- das
+# ist keine Zahl mehr, sondern eine Behauptung. Der Anker ist nicht erschlossen,
+# sondern NACHGERECHNET: 9f932e91~50 liefert 1+37=38 und 9f932e91~100 liefert
+# 13+66=79, beide exakt wie unten notiert, und 1880f296..9f932e91 liefert exakt
+# 2.462. Drei unabhaengige Treffer -- damit steht fest, worauf sich die Zahlen
+# beziehen.
+#   9f932e91~1 0 Verstoesse, ~10 1, ~25 1, ~50 38, ~100 79 (davon 58 in *.sh --
+#   genau der Defekt, den dieser Umbau schliesst); 1880f296..9f932e91 (der
+#   main-FF-Bereich, 2.462 Zusatzzeilen) 0.
+# Der CI-Bereich ist CI_COMMIT_BEFORE_SHA..HEAD, also ein Push -- die realistische
+# Gate-Last liegt bei 0 bis 1 Verstoessen. Der Umbau macht den naechsten Push nicht rot.
+#
+# DIE ZAHL DIESES PAKETS, neu erhoben und BEIDSEITIG GEPINNT (10.08.2026):
+#     sh scripts/ci_diff_ascii_width_guard.sh 9f932e91..5bd90986
+#     -> 200 Zusatzzeilen geprueft, 0 uebersprungen, 0 Verstoesse, GRUEN.
+# Sie loest die 141 ab, die in der Commit-Nachricht von e715d73f steht ("prueft
+# 141 von 141"). Die 141 war ueber den ARBEITSDIFF erhoben, als erst der erste
+# Commit dieses Pakets geschrieben war; der zweite (5bd90986) kam danach. Die
+# Zahl verjaehrte zwischen Messung und Landung, ohne dass irgendwer etwas falsch
+# gemacht haette -- deshalb steht hier ein Bereich mit ZWEI festen SHAs und dem
+# Kommando statt einer nackten Zahl. Dieser Bereich misst sich in einem Jahr
+# noch gleich. Wer den HEUTE gefahrenen Push-Bereich braucht, misst ihn mit dem
+# Kommando oben und schreibt seinen eigenen Anker dazu; er waechst mit jedem
+# Commit und ist ohne Anker wertlos.
 #   * Spaltenbreite wird BYTEWEISE gemessen (LC_ALL=C `length()`), nicht als
 #     Unicode-Codepoint-Breite -- fuer den ASCII+SS-Regelbereich dieser Wache
 #     ist das identisch mit der Zeichenzahl; nur eine bereits ASCII-Verstoss-
@@ -220,8 +243,12 @@ else
         set -- HEAD
     fi
     echo ""
-    echo "MODUS: git diff selbst ausgefuehrt (Repo: ${_ce_repo_root})"
-    echo "ARGUMENTE: git diff -U0 --no-color --no-ext-diff $*"
+    # printf statt echo, auch hier: beide Zeilen tragen FREMDDATEN (einen Pfad und
+    # die Aufrufargumente). dash-echo wuerde Backslash-Sequenzen darin deuten und
+    # etwas anderes drucken, als die Wache verarbeitet hat -- s. die ausfuehrliche
+    # Begruendung an der uebersprungenen Menge weiter unten.
+    printf 'MODUS: git diff selbst ausgefuehrt (Repo: %s)\n' "$_ce_repo_root"
+    printf 'ARGUMENTE: git diff -U0 --no-color --no-ext-diff %s\n' "$*"
     # core.quotePath=false: sonst liefert git Pfade mit Nicht-ASCII als
     # C-quotierte Zeichenkette samt Anfuehrungszeichen ("b/...\302\247....md").
     # Die awk-Seite streift die Klammerung zwar ohnehin ab (s. dort), aber hier
@@ -289,6 +316,23 @@ fi
 #
 # Die Ausnahme ist NICHT still: die uebersprungenen Vendor-Wurzeln werden unten
 # im Verdikt namentlich genannt. Eine stille Ausnahme waere die naechste Falle.
+#
+# UND SIE IST NICHT UNGEPRUEFT (10.08.2026 nachgetragen, Pruefer-Befund): bis
+# heute deckte KEIN einziger der zwoelf Selbsttest-Faelle diese Haelfte von
+# skip_grund(). Streicht man die is_vendor()-Zeile unten, blieb der Selbsttest
+# 12 von 12 gruen -- die Ausnahme haette bei jedem kuenftigen Umbau lautlos
+# verschwinden koennen, oder lautlos alles durchgelassen. Jetzt tragen sie zwei
+# Faelle in scripts/ci_diff_ascii_width_guard.selbsttest.sh:
+#   Fall 13  echter Fixture-Baum MIT COMDARE-VENDOR-PROVENANCE.md und einem
+#            Verstoss darin -- er darf NICHT gemeldet werden.
+#   Fall 14  derselbe Baum, dieselbe Datei, derselbe Koeder, nur OHNE die
+#            Provenance-Datei -- er MUSS gemeldet werden. Ohne diesen
+#            Gegeneingang waere Fall 13 auch von einer Wache zu bestehen, die
+#            pauschal alles unter ext/ ueberspringt -- also von genau der
+#            Bauform, die dieser Kopf drei Absaetze weiter oben ablehnt.
+# Der Verstoss in Fall 13 liegt bewusst in einer .c-Datei, nicht in einer .md:
+# sonst truege die *.md-Schicht den Fall und er saehe nur so aus, als pruefe er
+# die Vendor-Schicht.
 _ce_vendor_roots=""
 if [ -d "${_ce_repo_root:-.}" ]; then
     _ce_vendor_roots="$(cd "${_ce_repo_root:-.}" 2>/dev/null && \
@@ -525,15 +569,28 @@ echo "  gedruckte Sammelbezeichnung \"(Doku-Prosa/Sonstiges)\" war irrefuehrend 
 echo "  unter \"Sonstiges\" lagen 143 getrackte *.sh mit 10.084 Zeilen Quelltext."
 if [ -f "${_ce_awk_out}.skipped" ] && [ -s "${_ce_awk_out}.skipped" ]; then
     echo "  Uebersprungene Dateien (namentlich MIT GRUND, keine zweite stille Null):"
+    # printf STATT echo -- und das ist keine Stilfrage (Befund 2026-08-10, am
+    # Objekt gemessen): `echo` in dash (= /bin/sh auf diesem Host) DEUTET
+    # Backslash-Sequenzen im Argument. Ein Dateiname, der als C-quotierter Pfad
+    # mit Oktal-Escapes hier ankommt ("HANDBUCH-\342\200\224-x.md"), wurde von
+    # echo wieder in die echten Bytes zurueckverwandelt und sah damit LESBAR aus.
+    # Folge: die Ausgabe konnte "der Pfad war nie quotiert" (core.quotePath=false
+    # greift) nicht von "der Pfad war quotiert und wurde entklammert" (der Griff
+    # fehlt) unterscheiden -- zwei verschiedene Zustaende, EINE Ausgabe. Genau
+    # daran war die quotePath-Schicht nicht einzeln pruefbar: der Selbsttest blieb
+    # gruen, als sie gestrichen wurde. Unter bash faellt es dagegen auf, dieselbe
+    # Wache haette also je nach aufrufender Shell zwei verschiedene Ausgaben.
+    # printf mit %s reicht das Argument unveraendert durch -- die Ausgabe sagt
+    # damit die Wahrheit ueber den Namen, den die Wache tatsaechlich gesehen hat.
     while IFS="$(printf '\t')" read -r _ce_sf _ce_sg; do
-        [ -n "$_ce_sf" ] && echo "    - ${_ce_sf}  [${_ce_sg}]"
+        [ -n "$_ce_sf" ] && printf '    - %s  [%s]\n' "$_ce_sf" "$_ce_sg"
     done < "${_ce_awk_out}.skipped"
 fi
 if [ -n "$_ce_vendor_roots" ]; then
     echo "  VENDOR-AUSNAHME (nicht still): diese Baeume tragen COMDARE-VENDOR-PROVENANCE.md"
     echo "  und werden als Fremdcode NICHT auf ASCII/Breite geprueft --"
     printf '%s' "$_ce_vendor_roots" | tr ':' '\n' | while IFS= read -r _ce_vr; do
-        [ -n "$_ce_vr" ] && echo "    - ${_ce_vr}/"
+        [ -n "$_ce_vr" ] && printf '    - %s/\n' "$_ce_vr"   # printf: s.o., echo deutet Backslashes
     done
     echo "  Eigener Code in diesen Baeumen (Wrapper, CMakeLists) liegt AUSSERHALB und"
     echo "  wird weiter geprueft."

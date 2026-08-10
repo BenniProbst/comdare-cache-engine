@@ -345,9 +345,13 @@ test:coverage-guard:
     # Biss-Beweis konnte das nicht auffangen, weil alle sieben dort protokollierten Faelle
     # ueber --stdin oder einen Bereich laufen und KEINER die Wache ohne Argumente fuhr.
     # Der Selbsttest wuerfelt seinen Koeder bei jedem Lauf neu (kein fest eingetragener
-    # Beispielwert, der allowgelistet sein koennte) und faehrt neun Faelle in Wegwerf-Repos
+    # Beispielwert, der allowgelistet sein koennte) und faehrt seine Faelle in Wegwerf-Repos
     # unter TMPDIR -- er fasst dieses Repo nicht an. Bewusst VOR der Wache: eine erblindete
     # Wache soll auffallen, bevor ihr Gruen als Beleg gilt.
+    # KEINE FALLZAHL AN DIESER STELLE (10.08.2026): hier stand "neun Faelle", waehrend es
+    # laengst zwoelf waren und jetzt fuenfzehn sind -- eine nackte Zahl ueber einen
+    # wachsenden Gegenstand, die niemand mitzieht. Der Selbsttest druckt seinen Nenner
+    # ("N von N Faellen wie erwartet") selbst; der gehoert in seine Ausgabe, nicht hierher.
     - sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
     - |
       set -eu
