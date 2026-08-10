@@ -186,8 +186,8 @@ struct QuellenAufloesung {
         // "unter dieser Wurzel liegt nichts" von "der Selektor sieht die Ablage gar nicht" nicht zu
         // unterscheiden -- und genau der zweite Fall lag ein halbes Jahr lang vor. Die Bilanz sagt
         // jetzt beides: wie viele Eintraege angesehen wurden UND wonach gesucht wurde.
-        out.fehler = "--realm-root='" + f.realm_root + "' enthaelt keine Mess-CSV (nach .stale-Ausschluss) -- " +
-                     out.bilanz;
+        out.fehler =
+            "--realm-root='" + f.realm_root + "' enthaelt keine Mess-CSV (nach .stale-Ausschluss) -- " + out.bilanz;
         return out;
     }
     out.ok = true;

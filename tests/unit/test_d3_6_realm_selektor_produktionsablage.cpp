@@ -65,8 +65,7 @@ struct TempDir {
     TempDir() {
         static std::atomic<unsigned> counter{0};
         path = std::filesystem::temp_directory_path() /
-               ("d3_6_realm_selektor_" + std::to_string(counter.fetch_add(1)) + "_" +
-                std::to_string(::time(nullptr)));
+               ("d3_6_realm_selektor_" + std::to_string(counter.fetch_add(1)) + "_" + std::to_string(::time(nullptr)));
         std::filesystem::create_directories(path);
     }
     ~TempDir() {
@@ -126,9 +125,8 @@ TEST(D36RealmSelektor, ProduktionsAblageWirdGEFUNDEN_FremderNennerAusDemErzeuger
 
     ASSERT_TRUE(erg.wurzel_vorhanden);
     // NENNER IN DER AUSSAGE: 2 angelegt, 2 erwartet -- eine nackte ">0"-Pruefung waere hier blind.
-    ASSERT_EQ(erg.gefundene_csvs.size(), 2u)
-        << "2 Produktions-CSVs angelegt, gefunden: " << erg.gefundene_csvs.size()
-        << " -- besuchte Eintraege: " << erg.besuchte_eintraege;
+    ASSERT_EQ(erg.gefundene_csvs.size(), 2u) << "2 Produktions-CSVs angelegt, gefunden: " << erg.gefundene_csvs.size()
+                                             << " -- besuchte Eintraege: " << erg.besuchte_eintraege;
     // Der Koeder muss ANKOMMEN, nicht nur der Dateiname passen (V-8: Gegenstand statt Ankuendigung).
     for (auto const& p : erg.gefundene_csvs)
         EXPECT_NE(lies(p).find(std::string{kKoederProduktion}), std::string::npos)

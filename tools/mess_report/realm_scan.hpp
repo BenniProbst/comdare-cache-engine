@@ -60,13 +60,13 @@
 
 namespace comdare::cache_engine::tools::mess_report {
 
-inline constexpr std::string_view kStaleSuffix      = ".stale";
-inline constexpr std::string_view kResultCsvSuffix  = ".result.csv";
+inline constexpr std::string_view kStaleSuffix     = ".stale";
+inline constexpr std::string_view kResultCsvSuffix = ".result.csv";
 /// Die Produktionsform -- EXAKTER Name, uebernommen von der Stelle, die ihn ohnehin fuehrt.
 inline constexpr std::string_view kResultCsvExakt = ::comdare::cache_engine::planner::kResultCsvName;
 /// Der Selektor als EIN Text, fuer die Ausgabe: wer eine Null liest, sieht daneben, wonach gesucht wurde.
 /// (Gegenstueck zu AF_RESULT_NAMEN in super/ci/anhang_forward_core.sh -- dieselbe Zusage, andere Sprache.)
-inline constexpr std::string_view kSelektorText    = "result.csv, *.result.csv";
+inline constexpr std::string_view kSelektorText     = "result.csv, *.result.csv";
 inline constexpr std::size_t      kMaxScanTiefe     = 8;
 inline constexpr std::size_t      kMaxScanEintraege = 200000;
 
