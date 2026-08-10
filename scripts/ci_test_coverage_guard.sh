@@ -62,7 +62,13 @@
 #              fehlende/unlesbare Untergrenze, ein abgestuerztes ctest und --
 #              nur bei COMDARE_WACHE_STRIKT=1 -- ein Gate ohne gesetzte
 #              Deklarationsvariable (Verdrahtungsfehler: die Testmenge stimmt,
-#              die Auskunft ueber die Jobs fehlt).
+#              die Auskunft ueber die Jobs fehlt). Seit D2-G5 ausserdem: eine
+#              nicht bestimmbare HOST-KLASSE (CMakeCache fehlt, ISA-Probe nicht
+#              uebersetzt, Variable von aussen gesetzt, Wert unverstanden,
+#              AVX-512F ohne AVX2) und eine Untergrenzen-Datei, die nicht fuer
+#              alle drei Klassen genau eine Ganzzahl nennt. Eine Wache, die
+#              nicht weiss, WELCHE Zahl fuer diesen Baum gilt, meldet nicht
+#              gruen -- und raet erst recht nicht die niedrigste.
 #          3 = Manifest defekt
 #          4 = NENNER-BEFUND: die Inventur ist nachweislich kleiner als das, was
 #              dieser Baum registrieren muesste (uebersprungener Block), oder sie
@@ -293,47 +299,205 @@ echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
 # im Diff sichtbaren Commit. Sie schreibt sie NIEMALS selbst: eine Untergrenze,
 # die sich selbst nachfuehrt, ist keine.
 # =============================================================================
+# -----------------------------------------------------------------------------
+# ZUERST: DIE HOST-KLASSE. EINE ZAHL OHNE HOST IST EINE ZAHL OHNE GEGENSTAND.
+# (D2-G5, 2026-08-10 -- der Nachtrag, ohne den die Untergrenze oben nicht gilt)
+# -----------------------------------------------------------------------------
+# WAS VORHER FALSCH WAR: es gab GENAU EINE committete Zahl, und ihr Kopf behauptete,
+# sie gelte "auf JEDER Hardware-Klasse". Das war nachrechenbar unwahr. Sechs
+# ctest-Registrierungen dieses Repos haengen an der ISA des BAU-HOSTS
+# (tests/unit/CMakeLists.txt:4134/5249/5262/5291/5294) -- vier an AVX-512F, zwei an
+# AVX2. Eine Maschine ohne AVX2 registriert also sechs Tests weniger als diese hier,
+# voellig zu Recht, und riss damit eine Untergrenze, die nur vier abgezogen hatte.
+# Die Wache haette rot gemeldet, und der Baum waere in Ordnung gewesen.
+#
+# WOHER DIE KLASSE KOMMT -- und warum NICHT aus /proc/cpuinfo: gefragt ist nicht,
+# welche ISA die Maschine kann, auf der diese Wache gerade laeuft, sondern welche
+# der BAU dieses Baums vorgefunden hat. Das sind zwei verschiedene Dinge, sobald
+# Container, Cross-Build oder ein zweiter Compiler im Spiel sind. Die einzige
+# Quelle, die genau das festhaelt, ist der CMakeCache DESSELBEN Baums: CMake hat
+# die Probe (check_cxx_source_runs mit __builtin_cpu_supports) dort wirklich
+# gefahren und ihr Ergebnis hinterlegt.
+#
+# FAIL-CLOSED, UND ZWAR SCHAERFER ALS ES AUSSIEHT: der blosse Wert genuegt nicht.
+# AM OBJEKT GEMESSEN (2026-08-10, CMake 4.x, /tmp/d2probe_cache):
+#     Probe laeuft, Exit 0 ..... VAR:INTERNAL=1   VAR_COMPILED:INTERNAL=TRUE
+#     Probe laeuft, Exit 1 ..... VAR:INTERNAL=    VAR_COMPILED:INTERNAL=TRUE
+#     Probe kompiliert nicht ... VAR:INTERNAL=    VAR_COMPILED:INTERNAL=FALSE
+#     Variable von aussen -D ... VAR:UNINITIALIZED=0  (KEINE _COMPILED-Zeile)
+# Der leere Wert ist also ZWEIDEUTIG: "diese CPU kann es nicht" und "der Compiler
+# hat die Probe nicht uebersetzt" sehen identisch aus. Wer nur den Wert liest,
+# stuft einen kaputten Werkzeugkasten als 'basis' ein und vergleicht gegen die
+# NIEDRIGSTE Untergrenze -- das ist genau das stille Durchwinken, gegen das diese
+# Datei gebaut ist. Deshalb ist _COMPILED=TRUE Pflicht, und eine von aussen
+# gesetzte Variable (keine _COMPILED-Zeile) ist ABBRUCH statt Annahme.
+_ce_cache="${CE_BUILD_DIR}/CMakeCache.txt"
+if [ ! -f "$_ce_cache" ]; then
+    _ce_m="die Host-Klasse ist nicht bestimmbar: '${_ce_cache}' fehlt. Ohne sie"
+    _ce_m="${_ce_m} waere jede Untergrenze eine Zahl ohne Gegenstand. Fail-closed:"
+    _ce_m="${_ce_m} das ist ABBRUCH, nicht die hoechste und nicht die niedrigste Annahme."
+    ce_abbruch "$_ce_m" 2
+fi
+
+# Die Schleife laeuft ABSICHTLICH in der aktuellen Shell und nicht in $( ): ein
+# ce_abbruch in einer Kommando-Substitution beendete nur die Subshell, und die
+# Wache liefe mit leerer Klasse weiter -- derselbe Riss, den ce_namen() oben
+# bereits einmal hatte.
+CE_HOST_AVX2=""
+CE_HOST_AVX512F=""
+for _ce_hv in COMDARE_HOST_RUNS_AVX2 COMDARE_HOST_RUNS_AVX512F; do
+    _ce_hv_da=$(sed -n "/^${_ce_hv}:/p" "$_ce_cache" | wc -l | tr -d ' ')
+    if [ "$_ce_hv_da" -eq 0 ]; then
+        _ce_m="'${_ce_hv}' steht nicht in '${_ce_cache}'. Dieser Baum wurde ohne die"
+        _ce_m="${_ce_m} ISA-Probe konfiguriert (Cross-Build?) -- die Host-Klasse ist damit"
+        _ce_m="${_ce_m} UNBEKANNT, nicht 'basis'."
+        ce_abbruch "$_ce_m" 2
+    fi
+    _ce_hv_comp_da=$(sed -n "/^${_ce_hv}_COMPILED:/p" "$_ce_cache" | wc -l | tr -d ' ')
+    if [ "$_ce_hv_comp_da" -eq 0 ]; then
+        _ce_m="'${_ce_hv}' steht in '${_ce_cache}', aber '${_ce_hv}_COMPILED' fehlt."
+        _ce_m="${_ce_m} Die Probe wurde also nie gefahren -- die Variable ist von aussen"
+        _ce_m="${_ce_m} gesetzt worden. Eine behauptete Host-Klasse ist keine gemessene."
+        ce_abbruch "$_ce_m" 2
+    fi
+    _ce_hv_comp=$(sed -n "s/^${_ce_hv}_COMPILED:[^=]*=//p" "$_ce_cache" | sed -n '1p')
+    if [ "$_ce_hv_comp" != "TRUE" ]; then
+        _ce_m="'${_ce_hv}_COMPILED' ist '${_ce_hv_comp}', nicht TRUE: die ISA-Probe hat"
+        _ce_m="${_ce_m} nicht einmal uebersetzt. Ihr leeres Ergebnis heisst deshalb 'unbekannt',"
+        _ce_m="${_ce_m} nicht 'diese CPU kann es nicht'."
+        ce_abbruch "$_ce_m" 2
+    fi
+    _ce_hv_wert=$(sed -n "s/^${_ce_hv}:[^=]*=//p" "$_ce_cache" | sed -n '1p')
+    case "$_ce_hv_wert" in
+        1)      _ce_hf=ja ;;
+        '' | 0) _ce_hf=nein ;;
+        *)
+            _ce_m="'${_ce_hv}' hat den Wert '${_ce_hv_wert}'. Erwartet ist 1, 0 oder leer."
+            _ce_m="${_ce_m} Ein unverstandener Wert wird nicht zu 'nein' gerundet."
+            ce_abbruch "$_ce_m" 2
+            ;;
+    esac
+    case "$_ce_hv" in
+        COMDARE_HOST_RUNS_AVX2)    CE_HOST_AVX2=$_ce_hf ;;
+        COMDARE_HOST_RUNS_AVX512F) CE_HOST_AVX512F=$_ce_hf ;;
+    esac
+done
+
+# Die Leiter hat drei Sprossen und KEINE vierte. 'AVX-512F ohne AVX2' gibt es auf
+# keiner x86-Maschine; stuende es da, waere nicht die Klasse ungewoehnlich, sondern
+# der Cache unglaubwuerdig -- und dann taugt auch die andere Zeile nichts.
+if [ "$CE_HOST_AVX2" = ja ] && [ "$CE_HOST_AVX512F" = ja ]; then
+    CE_HOST_KLASSE=avx512f
+elif [ "$CE_HOST_AVX2" = ja ] && [ "$CE_HOST_AVX512F" = nein ]; then
+    CE_HOST_KLASSE=avx2
+elif [ "$CE_HOST_AVX2" = nein ] && [ "$CE_HOST_AVX512F" = nein ]; then
+    CE_HOST_KLASSE=basis
+else
+    _ce_m="widerspruechliche Host-Klasse in '${_ce_cache}': AVX-512F=${CE_HOST_AVX512F},"
+    _ce_m="${_ce_m} AVX2=${CE_HOST_AVX2}. AVX-512F ohne AVX2 existiert nicht -- dieser Cache"
+    _ce_m="${_ce_m} beschreibt keine reale Maschine."
+    ce_abbruch "$_ce_m" 2
+fi
+
+_ce_hostname=$( (hostname 2>/dev/null || echo unbekannt) | sed -n '1p')
+echo ""
+echo "HOST-KLASSE (gemessen, ${_ce_cache}): ${CE_HOST_KLASSE}"
+echo "  COMDARE_HOST_RUNS_AVX2=${CE_HOST_AVX2}, COMDARE_HOST_RUNS_AVX512F=${CE_HOST_AVX512F}, Host: ${_ce_hostname}"
+
 _ce_floor_pfad=${COMDARE_D2_FLOOR_PFAD:-${_ce_dir}/ci_test_inventory_floor.txt}
 if [ ! -f "$_ce_floor_pfad" ]; then
     _ce_m="die committete Untergrenze fehlt: '${_ce_floor_pfad}'."
     _ce_m="${_ce_m} Ohne sie hat diese Wache keine einzige Zahl, die nicht aus dem"
-    _ce_m="${_ce_m} geprueften Baum selbst stammt (V-7). Anlegen: eine Zeile, eine"
-    _ce_m="${_ce_m} Ganzzahl; '#'-Kommentare sind erlaubt."
+    _ce_m="${_ce_m} geprueften Baum selbst stammt (V-7). Anlegen: eine Zeile JE"
+    _ce_m="${_ce_m} HOST-KLASSE, Form '<klasse> <ganzzahl>' fuer avx512f, avx2 und"
+    _ce_m="${_ce_m} basis; '#'-Kommentare sind erlaubt."
     ce_abbruch "$_ce_m" 2
 fi
 
-# Kommentare weg, Leerraum weg, Leerzeilen weg. Das abschliessende 'echo' erzwingt
-# einen Zeilenabschluss, damit eine Datei ohne schliessenden Zeilenumbruch nicht
-# als 0 Zeilen durchgeht.
-{ sed -e 's/#.*$//' -e 's/[[:space:]]//g' "$_ce_floor_pfad"; echo; } | sed '/^$/d' > "${_ce_tmp}/floor.txt"
-_ce_floor_zeilen=$(wc -l < "${_ce_tmp}/floor.txt" | tr -d ' ')
-if [ "$_ce_floor_zeilen" -ne 1 ]; then
-    _ce_m="'${_ce_floor_pfad}' enthaelt ${_ce_floor_zeilen} Wertzeilen, erwartet ist"
-    _ce_m="${_ce_m} GENAU EINE. Zwei Zahlen in einer Untergrenze sind keine"
-    _ce_m="${_ce_m} Untergrenze, sondern eine offene Frage."
-    ce_abbruch "$_ce_m" 2
-fi
-CE_FLOOR=$(cat "${_ce_tmp}/floor.txt")
-case "$CE_FLOOR" in
-    '' | *[!0-9]*)
-        _ce_m="die Untergrenze in '${_ce_floor_pfad}' ist keine reine Ganzzahl,"
-        _ce_m="${_ce_m} sondern '${CE_FLOOR}'. Fail-closed: eine unlesbare"
-        _ce_m="${_ce_m} Untergrenze wird nicht als 'keine' behandelt."
+# Kommentare weg, Rand-Leerraum weg, innere Leerraum-Laeufe auf EIN Leerzeichen,
+# Leerzeilen weg. Frueher stand hier 's/[[:space:]]//g' -- das entfernte AUCH das
+# Trennzeichen zwischen Klasse und Zahl und ist mit dem Format unvereinbar.
+# Das abschliessende 'echo' erzwingt einen Zeilenabschluss, damit eine Datei ohne
+# schliessenden Zeilenumbruch nicht als 0 Zeilen durchgeht.
+{
+    sed -e 's/#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+        -e 's/[[:space:]][[:space:]]*/ /g' "$_ce_floor_pfad"
+    echo
+} | sed '/^$/d' > "${_ce_tmp}/floor.txt"
+
+CE_FLOOR=""
+_ce_floor_gesehen=""
+while IFS= read -r _ce_fz; do
+    _ce_fk=${_ce_fz%% *}
+    _ce_fw=${_ce_fz#* }
+    if [ "$_ce_fk" = "$_ce_fz" ]; then
+        # Genau die alte Bauform: eine nackte Zahl ohne Klasse. Sie wird NICHT
+        # stillschweigend als 'gilt ueberall' gelesen -- das war der Defekt.
+        _ce_m="'${_ce_floor_pfad}' enthaelt die Zeile '${_ce_fz}' ohne Host-Klasse."
+        _ce_m="${_ce_m} Die alte Bauform (eine nackte Zahl fuer alle Maschinen) ist seit"
+        _ce_m="${_ce_m} D2-G5 ungueltig: sie galt nachweislich nicht auf jeder Klasse."
+        _ce_m="${_ce_m} Erwartet ist '<klasse> <ganzzahl>' fuer avx512f, avx2 und basis."
         ce_abbruch "$_ce_m" 2
-        ;;
-esac
+    fi
+    case "$_ce_fk" in
+        avx512f | avx2 | basis) ;;
+        *)
+            _ce_m="'${_ce_floor_pfad}' nennt die Host-Klasse '${_ce_fk}'. Bekannt sind"
+            _ce_m="${_ce_m} genau drei: avx512f, avx2, basis. Eine unbekannte Klasse wird"
+            _ce_m="${_ce_m} nicht uebergangen -- sie hiesse, dass die Leiter nicht mehr stimmt."
+            ce_abbruch "$_ce_m" 2
+            ;;
+    esac
+    case " ${_ce_floor_gesehen} " in
+        *" ${_ce_fk} "*)
+            _ce_m="'${_ce_floor_pfad}' nennt die Klasse '${_ce_fk}' mehrfach, erwartet ist"
+            _ce_m="${_ce_m} GENAU EINE Wertzeile je Klasse. Zwei Zahlen fuer dieselbe"
+            _ce_m="${_ce_m} Klasse sind keine Untergrenze, sondern eine offene Frage."
+            ce_abbruch "$_ce_m" 2
+            ;;
+    esac
+    case "$_ce_fw" in
+        '' | *[!0-9]*)
+            _ce_m="die Untergrenze der Klasse '${_ce_fk}' in '${_ce_floor_pfad}' ist"
+            _ce_m="${_ce_m} keine reine Ganzzahl, sondern '${_ce_fw}'. Fail-closed: eine"
+            _ce_m="${_ce_m} unlesbare Untergrenze wird nicht als 'keine' behandelt."
+            ce_abbruch "$_ce_m" 2
+            ;;
+    esac
+    _ce_floor_gesehen="${_ce_floor_gesehen} ${_ce_fk}"
+    [ "$_ce_fk" = "$CE_HOST_KLASSE" ] && CE_FLOOR=$_ce_fw
+done < "${_ce_tmp}/floor.txt"
 
-echo "UNTERGRENZE (committet, ${_ce_floor_pfad}): ${CE_FLOOR}"
+# ALLE DREI muessen dastehen, nicht nur die, die dieser Host gerade braucht.
+# Sonst faellt eine fehlende Klasse erst auf der Maschine auf, die sie braucht --
+# also genau dort, wo niemand hinschaut, und Monate spaeter.
+for _ce_fk in avx512f avx2 basis; do
+    case " ${_ce_floor_gesehen} " in
+        *" ${_ce_fk} "*) ;;
+        *)
+            _ce_m="'${_ce_floor_pfad}' hat keine Zeile fuer die Host-Klasse '${_ce_fk}'."
+            _ce_m="${_ce_m} Verlangt sind alle drei (avx512f, avx2, basis) -- eine fehlende"
+            _ce_m="${_ce_m} Klasse faellt sonst erst auf der Maschine auf, die sie braucht."
+            ce_abbruch "$_ce_m" 2
+            ;;
+    esac
+done
+
+echo "UNTERGRENZE (committet, ${_ce_floor_pfad}) fuer Klasse ${CE_HOST_KLASSE}: ${CE_FLOOR}"
 if [ "$CE_GESAMT" -lt "$CE_FLOOR" ]; then
-    echo "  -> UNTERSCHRITTEN um $(( CE_FLOOR - CE_GESAMT )) Test(e)."
+    echo "  -> UNTERSCHRITTEN um $(( CE_FLOOR - CE_GESAMT )) Test(e):"
+    echo "     ${CE_GESAMT} von mindestens ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE} (Host: ${_ce_hostname})."
     CE_NENNER_ROT=1
     CE_FLOOR_ROT=1
 elif [ "$CE_GESAMT" -gt "$CE_FLOOR" ]; then
-    echo "  -> ueberschritten um $(( CE_GESAMT - CE_FLOOR )) Test(e). Kein Fehler; die Datei"
-    echo "     gehoert bei Gelegenheit in einem EIGENEN Commit auf ${CE_GESAMT} nachgezogen."
+    echo "  -> ${CE_GESAMT} von mindestens ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE} (Host: ${_ce_hostname}):"
+    echo "     ueberschritten um $(( CE_GESAMT - CE_FLOOR )) Test(e). Kein Fehler; die Zeile"
+    echo "     '${CE_HOST_KLASSE}' gehoert bei Gelegenheit in einem EIGENEN Commit auf ${CE_GESAMT}"
+    echo "     nachgezogen -- und die beiden anderen Klassen im selben Zug mit."
     CE_FLOOR_ROT=0
 else
-    echo "  -> genau erreicht (${CE_GESAMT} == ${CE_FLOOR})."
+    echo "  -> genau erreicht: ${CE_GESAMT} von mindestens ${CE_FLOOR} fuer Klasse"
+    echo "     ${CE_HOST_KLASSE} (Host: ${_ce_hostname})."
     CE_FLOOR_ROT=0
 fi
 
@@ -904,7 +1068,9 @@ if [ "$CE_RC" -eq 0 ]; then
     echo "  -> -L und -LE mit demselben Muster sind komplementaer; ein dritter Fall"
     echo "     existiert nicht. Die Deckung ist damit strukturell, nicht durch Audit."
     echo ""
-    echo "  Untergrenze (committet)             : ${CE_GESAMT} >= ${CE_FLOOR}  (Quelle: ${_ce_floor_pfad})"
+    echo "  Untergrenze (committet)             : ${CE_GESAMT} >= ${CE_FLOOR} fuer Klasse ${CE_HOST_KLASSE}"
+    echo "                                        (Host: ${_ce_hostname}, Quelle: ${_ce_floor_pfad},"
+    echo "                                         Klasse gemessen aus ${_ce_cache})"
     echo "  Nenner gegen FREMDE Quelle (e)      : ${CE_FREMD_STATUS}"
     _ce_gates_ok=$(( CE_GATES_GESAMT - CE_GATES_UNGEPRUEFT ))
     echo "  Gates mit gesetzter Variable        : ${_ce_gates_ok}/${CE_GATES_GESAMT}, ${CE_GATES_UNGEPRUEFT} ANNAHME"

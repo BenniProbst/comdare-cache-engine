@@ -1,62 +1,107 @@
-# UNTERGRENZE DER CTEST-INVENTUR (D2, 2026-08-09)
+# UNTERGRENZE DER CTEST-INVENTUR -- EINE ZAHL JE HOST-KLASSE (D2-G5, 2026-08-10)
 # =============================================================================
-# WAS DIESE ZAHL IST: die kleinste Testzahl, die ein RICHTIG gebauter Baum dieses
-# Repos noch haben darf. Faellt 'ctest -N' darunter, ist etwas verschwunden --
-# scripts/ci_test_coverage_guard.sh meldet dann einen NENNER-BEFUND (Exit 4).
+# WAS DIESE ZAHLEN SIND: je Hardware-Klasse die kleinste Testzahl, die ein RICHTIG
+# gebauter Baum dieses Repos auf DIESER Klasse noch haben darf. Faellt 'ctest -N'
+# darunter, ist etwas verschwunden -- scripts/ci_test_coverage_guard.sh meldet
+# dann einen NENNER-BEFUND (Exit 4).
 #
-# WARUM SIE IN EINER DATEI STEHT UND NICHT IM SKRIPT: die Wache bezieht sonst
+# WELCHE ZEILE GILT, ENTSCHEIDET NICHT DIE MEINUNG, SONDERN DER BAU-BAUM: die
+# Wache liest COMDARE_HOST_RUNS_AVX2 und COMDARE_HOST_RUNS_AVX512F aus der
+# CMakeCache.txt DESSELBEN Baums, den sie gerade zaehlt. Laesst sich die Klasse
+# nicht bestimmen, ist das ABBRUCH (Exit 2) -- nicht die hoechste und nicht die
+# niedrigste Annahme.
+#
+# WARUM SIE IN EINER DATEI STEHEN UND NICHT IM SKRIPT: die Wache bezieht sonst
 # JEDE ihrer Zahlen aus dem Baum, den sie gerade prueft. Schrumpft der Baum,
 # schrumpfen Zaehler und Nenner gemeinsam und das Verhaeltnis bleibt 'vollstaendig'
-# (V-7 FREMDER NENNER). Diese Zahl ist die einzige im ganzen Lauf, die der
-# gemessene Baum nicht beeinflussen kann: sie stammt aus einem frueher bewusst
-# abgenommenen Zustand und aendert sich nur durch einen Menschen in einem eigenen,
+# (V-7 FREMDER NENNER). Diese Zahlen sind die einzigen im ganzen Lauf, die der
+# gemessene Baum nicht beeinflussen kann: sie stammen aus einem frueher bewusst
+# abgenommenen Zustand und aendern sich nur durch einen Menschen in einem eigenen,
 # im Diff sichtbaren Commit.
 #
 # DIE WACHE SCHREIBT DIESE DATEI NIEMALS SELBST. Eine Untergrenze, die sich beim
 # Unterschreiten automatisch nachfuehrt, ist keine Untergrenze, sondern ein
 # Protokoll des Verfalls. Waechst die Testzahl, sagt die Wache das ausdruecklich
-# an und die Zahl hier gehoert dann von Hand nachgezogen -- als eigener Commit,
+# an und die Zahlen hier gehoeren dann von Hand nachgezogen -- als eigener Commit,
 # damit die Aenderung im Diff auffaellt und jemand sie absichtlich verantwortet.
+# NACHZIEHEN HEISST ALLE DREI: die Sprossenabstaende (-4 und -2) sind Teil der
+# Aussage, nicht Beiwerk.
 #
-# -- WIE DIE ZAHL ENTSTANDEN IST (nachrechenbar, nicht geraten) ----------------
-# GEMESSEN am 2026-08-09 in diesem Repo, Stand aebc4f2c, Worktree wt-ce-fk,
-# Bau-Baum build-covguard (GCC 15.3.0, Ninja, offizieller Weg:
-# './configure.sh --with-generator=Ninja --enable-build-tests' + 'make inventar'):
+# -- WIE DIE ZAHLEN ENTSTANDEN SIND (nachgemessen, nicht fortgeschrieben) ------
+# GEMESSEN am 2026-08-10 in diesem Repo, Stand 9f932e91 (origin/development),
+# Worktree wt-ce-fk, Bau-Baum build-p (GCC 15.3.0, Ninja, offizieller Weg:
+# './configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-p'
+# + 'make inventar'), Messhost prod1:
 #
-#     ctest --test-dir build-covguard -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' \
-#         | LC_ALL=C sort -u | wc -l    ->    492
+#     ctest --test-dir build-p -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' \
+#         | LC_ALL=C sort -u | wc -l    ->    496
 #
-# Dieser Messhost ist die REICHSTE Hardware-Klasse: CMakeCache.txt meldet
-# COMDARE_HOST_RUNS_AVX2=1 UND COMDARE_HOST_RUNS_AVX512F=1. 492 ist damit ein
-# Maximum, keine Untergrenze -- ein Host ohne diese Vektor-Erweiterungen
-# registriert LEGITIM weniger Tests. Abgezogen werden deshalb genau die
-# Registrierungen, die an der Host-ISA haengen und am Objekt als anwesend
-# nachgewiesen wurden:
+# Dieser Messhost ist die REICHSTE Klasse: CMakeCache.txt meldet
+# COMDARE_HOST_RUNS_AVX2=1 UND COMDARE_HOST_RUNS_AVX512F=1. 496 ist damit die
+# Untergrenze fuer 'avx512f' und fuer sonst keine.
 #
-#     test_simd_field_sum_dispatch_avx2        (do_run an COMDARE_HOST_RUNS_AVX2)
-#     test_simd_field_sum_dispatch_avx512      (do_run an COMDARE_HOST_RUNS_AVX512F)
-#     test_buildvariant_dll_real               (AVX2 UND AVX512F, s. Allowlist)
-#     test_ap5_simd_extension_coherence        (AVX2 UND AVX512F, s. Allowlist)
+# DIE BEIDEN ANDEREN SPROSSEN SIND NICHT GERECHNET, SONDERN VON CMAKE ERZEUGT
+# (Gegenorakel, V-7: die Zahl kommt aus einer anderen Quelle als der Rechnung).
+# Verfahren: denselben Baum mit erzwungener Klasse neu KONFIGURIEREN (kein Neubau)
+# und die Namensmengen vergleichen --
+#     cmake -S . -B build-p -DCOMDARE_HOST_RUNS_AVX512F=0            -> 492
+#     cmake -S . -B build-p -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0 -> 490
+# und danach 'cmake -U COMDARE_HOST_RUNS_AVX2 -U COMDARE_HOST_RUNS_AVX512F', damit
+# die Probe wieder echt laeuft. Die Differenzen sind NAMENTLICH belegt, in beide
+# Richtungen (die Gegenrichtung war jeweils LEER -- es kommt nichts hinzu):
 #
-#     492 - 4 = 488
+#   avx512f -> avx2  verliert genau diese VIER:
+#       test_ap5_simd_extension_coherence      (Block an AVX2 UND AVX512F, CMakeLists.txt:4134)
+#       test_buildvariant_dll_real             (Block an AVX2 UND AVX512F, CMakeLists.txt:4134)
+#       test_simd_add_u64_carry_avx512         (do_run an AVX512F, CMakeLists.txt:5294)
+#       test_simd_field_sum_dispatch_avx512    (do_run an AVX512F, CMakeLists.txt:5262)
 #
-# KEINE ALLOWLIST FUER DIESE PRUEFUNG: die vier Namen sind hier ABGEZOGEN, nicht
-# erlaubt. Eine zweite Ausnahmeliste neben scripts/ci_test_sichtbarkeit_allowlist.txt
-# waere eine zweite Wahrheit ueber denselben Gegenstand. Die vier prt-art-Legacy-
-# Eintraege jener Allowlist (test_concepts_compile, test_three_layer_audit,
-# test_value_handle, test_six_page_structures) sind hier NICHT abgezogen: sie sind
-# in diesem Baum ohnehin abwesend (am Objekt geprueft) und stecken in den 492
-# gar nicht drin.
+#   avx2 -> basis    verliert zusaetzlich diese ZWEI:
+#       test_simd_add_u64_carry_avx2           (do_run an AVX2, CMakeLists.txt:5291)
+#       test_simd_field_sum_dispatch_avx2      (do_run an AVX2, CMakeLists.txt:5249)
 #
-# -- WAS DIESE ZAHL NICHT LEISTET (ehrlich benannt) ---------------------------
-# Zwischen 488 und 492 koennen auf DIESEM Host bis zu vier Registrierungen
-# verschwinden, ohne dass die Untergrenze anschlaegt. Das ist der Preis dafuer,
-# dass sie auf JEDER Hardware-Klasse gilt. Diese Luecke ist nicht ungedeckt:
-# uebersprungene Registrierungs-Bloecke faengt das Registrierungs-Protokoll
-# (Befund (c)/(d), Exit 4), und einen anders gebauten Baum faengt die
-# Fremd-Inventur (Befund (e), COMDARE_FREMD_INVENTUR). Die Untergrenze ist die
-# GROBE Achse gegen Schwund im Grossen -- sie ersetzt die beiden feinen nicht.
+# Mehr ISA-gattierte Registrierungen gibt es nicht: 'COMDARE_HOST_RUNS' kommt in
+# tests/unit/CMakeLists.txt an genau neun Stellen vor (zwei Proben-Definitionen,
+# eine Block-Bedingung, sechs do_run-Argumente), sonst nirgends im Repo.
 #
-# FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt, GENAU EINE Wertzeile mit
-# einer reinen Ganzzahl. Zwei Wertzeilen sind ein Abbruch (Exit 2), keine Wahl.
-488
+# EINE VIERTE KLASSE GIBT ES NICHT: 'AVX-512F ohne AVX2' existiert auf keiner
+# x86-Maschine. Stuende es im Cache, waere nicht die Klasse ungewoehnlich, sondern
+# der Cache unglaubwuerdig -- die Wache bricht dort ab.
+#
+# -- HISTORIE: DIE ALTE ZAHL 488 UND WARUM SIE ZU HOCH WAR ---------------------
+# BIS 2026-08-10 stand hier GENAU EINE Zahl, 488, mit dem Anspruch, sie gelte
+# "auf JEDER Hardware-Klasse". Sie ist NICHT geloescht, sondern hier vermerkt,
+# weil ihr Irrtum die Bauform erklaert:
+#
+#   * Sie entstand als 492 - 4 am Stand aebc4f2c. Der Abzug 4 war die richtige
+#     Zahl fuer den Schritt avx512f -> avx2, wurde aber als Abzug fuer JEDE
+#     Klasse verstanden. Fuer eine Maschine ganz ohne AVX2 sind es SECHS.
+#     Auf einer 'basis'-Maschine haette der damalige Baum 486 Tests gehabt und
+#     die Wache haette 486 < 488 gemeldet -- ROT an einem gesunden Baum.
+#   * Ihre Namensliste war ausserdem falsch besetzt: sie nannte
+#     test_simd_field_sum_dispatch_avx2 (das faellt erst bei 'basis') und liess
+#     test_simd_add_u64_carry_avx512 aus (das faellt schon bei 'avx2'). Die
+#     Anzahl stimmte zufaellig, die Menge nicht.
+#   * WAS SIE NICHT WAR: die Ursache der roten ce-Pipeline 15515 vom 2026-08-10.
+#     Der dortige prod2-Lauf hatte 488 Tests in seiner eigenen unfilterten
+#     Inventur ('D1c: Inventur veroeffentlicht -- 488 Tests') und damit GENAU die
+#     Untergrenze, nicht weniger. Die 486 aus der ctest-Summenzeile jenes Jobs ist
+#     die mit '-LE pmc' GEFILTERTE Laufzahl (488 - 2 pmc-Tests) und wird mit der
+#     Untergrenze nie verglichen. Rot war dort ein Umgebungs-Leck im Selbsttest.
+#
+# -- WAS DIESE ZAHLEN NICHT LEISTEN (ehrlich benannt) -------------------------
+# Innerhalb EINER Klasse ist die Untergrenze jetzt exakt und nicht mehr um vier
+# Tests locker -- der alte Schlupf ("zwischen 488 und 492 kann auf diesem Host
+# einiges verschwinden") ist damit zu. Was sie weiterhin nicht sehen: einen
+# Schwund, der zeitgleich mit einem ehrlichen Zuwachs kommt und ihn genau
+# ausgleicht. Dagegen stehen das Registrierungs-Protokoll (Befund (c)/(d),
+# Exit 4) und die Fremd-Inventur (Befund (e), COMDARE_FREMD_INVENTUR); die
+# Untergrenze ist die GROBE Achse gegen Schwund im Grossen und ersetzt die
+# beiden feinen nicht.
+#
+# FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
+# '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
+# Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
+avx512f 496
+avx2 492
+basis 490
