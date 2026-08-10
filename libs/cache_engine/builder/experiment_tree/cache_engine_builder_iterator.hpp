@@ -137,7 +137,7 @@ struct LazyRunConfig {
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
-    // M-1/D-2 (06.08.2026) -- DIE SOLL-SEITE DES MESS-VERTRAGS CEB <-> TIER-BINARY (LEDGER:3319).
+    // M-1/D-2 (06.08.2026) -- DIE SOLL-SEITE DES MESS-VERTRAGS CEB <-> TIER-BINARY (LEDGER §62-B).
     //
     // Die Mess-Stempel-Zeile, die DIESE CEB in die Tier-Quellen stempelt. Jede geladene Tier-Binary muss sie
     // in ihrer eigenen Deklaration (comdare_anatomy_version_lines()->measurement_line) BYTE-GLEICH tragen,
@@ -2795,14 +2795,14 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
             oc.rows.push_back(std::move(marker));
             return oc;
         }
-        // (2b) M-1/D-2 -- DER MESS-VERTRAG CEB <-> TIER-BINARY (LEDGER:3319, Owner-KERN F2/F6).
+        // (2b) M-1/D-2 -- DER MESS-VERTRAG CEB <-> TIER-BINARY (LEDGER §62-B, Owner-KERN F2/F6).
         //      Die Binary hat geladen. Bevor irgendetwas an ihr gemessen wird, muss sie DIESELBE
         //      Mess-Ausstattung DEKLARIEREN, die diese CEB einkompiliert hat. Bis M-1 las die Deklaration
         //      (measurement_line/measurement_entries) NIEMAND -- das Tier durfte behaupten, was es wollte.
         //
         //      WARUM HIER UND NICHT IM LOADER: der Loader ist ein reiner dlopen-Wrapper (bewusst entkoppelt,
         //      Doku 24 Paragraf 8.6) und kennt die CEB-Erwartung nicht. Der Vertrag gehoert ans PRUEFDOCK --
-        //      genau das sagt LEDGER:3319, und genau dort steht er jetzt.
+        //      genau das sagt LEDGER §62-B, und genau dort steht er jetzt.
         //
         //      WARUM VOR acquire_search_algorithm_drive: die Antriebs-Beschaffung ist bereits die erste
         //      Beruehrung der Mess-Flaeche. Eine Binary, die den Identitaets-Vertrag bricht, wird gar nicht

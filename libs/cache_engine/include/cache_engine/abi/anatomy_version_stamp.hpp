@@ -72,12 +72,32 @@ using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
 /// NIE zeilen-fremd; load_framework bleibt in der Mess-Zeile, die System-Meta-Metas in der System-Zeile.
 /// HEUTE: abi::OrganMetaMetas ist LEER -> der Anhang ist leer -> diese Zeile ist BYTE-IDENTISCH (no-op).
 ///
-/// BLOCKER (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
+/// GELTUNGSBEREICH (W12-A, Live-Code-Befund): die REALEN AdHocComposition-Achsen-Typen sind STRATEGIE-Typen
 /// (z.B. ObservableComposedContainer<...>) und tragen KEIN name()/algo_version -- nur die Registry-WRAPPER
-/// (StaticAxisVariants_*) tragen sie. Diese Funktion ist daher (noch) NICHT auf reale Module anwendbar; sie
-/// beweist die Format-/Ordnungs-Logik gegen name()/algo_version-tragende Typen (Test: Mock-Composition). Die
-/// Metadaten-Quelle fuer den realen Modul-Stempel ist eine offene Architektur-Frage (Registry-basiert im
-/// Emitter vs. Wrapper-Typ-Liste durchs Makro) -- beide beruehren die Emitter-Round-Trip-Byte-Wache.
+/// (StaticAxisVariants_*) tragen sie. Diese Funktion ist daher NICHT der Weg fuer reale Module; sie beweist
+/// die Format-/Ordnungs-Logik gegen name()/algo_version-tragende Typen (Test: Mock-Composition).
+///
+/// DIE METADATEN-QUELLE IST ENTSCHIEDEN -- SIE WAR ES SCHON, ALS HIER NOCH "OFFEN" STAND.
+/// Bis 10.08.2026 behauptete dieser Absatz, die Quelle sei "eine offene Architektur-Frage (Registry-basiert
+/// im Emitter vs. Wrapper-Typ-Liste durchs Makro)". Das war STALE und irrefuehrend: der Bau hatte die Frage
+/// zugunsten des REGISTRY-WEGES beantwortet, und zwar produktiv.
+///   QUELLE:   builder/experiment_tree/axis_variant_version_table.hpp -- eine compile-time-Tabelle
+///             {axis, variant -> algo_version}, gespeist aus DENSELBEN Registry-Enabled-Listen wie
+///             registry_to_axis_levels.hpp (registry-getrieben, nicht string-getrieben).
+///   WACHE:    dort greift ein mp_for_each je registrierter Variante W::algo_version ab -- fehlt einer
+///             Variante das Member, ist der Zugriff ill-formed und die Uebersetzung bricht MIT DEM
+///             TYP-NAMEN. Dazu je Kompositions-StrategyBase ein CRTP-Ctor-static_assert
+///             (requires { Derived::algo_version; }). Eine Variante ohne algo_version kann nicht
+///             unbemerkt in eine Registry gelangen.
+///   LESER:    ex::compose_organ_stamp_line() (axis_variant_version_table.hpp) liest die Tabelle; die
+///             Kette laeuft ueber profile_facade/lazy_adhoc_source_gen.hpp und den Katalog-Pfad
+///             (sota_catalog.hpp, pilot_source_map.hpp) produktiv bis in die ABI-exportierten
+///             AnatomyVersionLines. Die Emitter-Round-Trip-Byte-Wache bleibt dabei gruen: gestempelt
+///             wird im Kompilat, der emittierte .cpp-Quelltext aendert sich nicht.
+/// EHRLICH DAZU (LEDGER KON2-22): es gibt KEINE Owner-Notiz, die diese Frage entscheidet -- Gegenprobe
+/// "Wrapper-Typ-Liste" und "Registry-basiert im Emitter" = 0 Treffer im Ledger. Der BAU hat entschieden,
+/// ohne dass der Entscheid dokumentiert wurde. Dieser Absatz ist die Dokumentation, nicht der Entscheid;
+/// wer ihn umkehren will, hat einen Owner-Entscheid einzuholen und die drei Leser oben mitzuziehen.
 template <class Comp>
 [[nodiscard]] inline std::string organ_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;

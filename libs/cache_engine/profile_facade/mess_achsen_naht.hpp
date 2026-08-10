@@ -13,9 +13,24 @@
 // ignorierte. Eine [wallclock]-Binary und eine [micro]-Binary bekamen byte-gleiche Compile-Kommandos
 // und damit identische Mess-Ausstattung -- ihr Stempel behauptete Verschiedenes. Der Stempel log.
 //
-// Plan-Soll dagegen (LEDGER:3319): "welche Pruef-Tools in die CEB EINKOMPILIERT sind [...] bestimmt,
-// was auch das Tier-Binary beinhalten MUSS". Owner-KERN F2: "bei einem neuen Messsystem [muessen] auch
-// die CEB und ALLE Binaries fuer die Mess-Achsen-Einstellung neu gebaut werden".
+// Plan-Soll dagegen (LEDGER §62-B, KOMPILATIONS-STATUS-KOPPLUNG, Owner 21.07.): "welche Pruef-Tools in
+// die CEB EINKOMPILIERT sind [...] bestimmt, was auch das Tier-Binary beinhalten MUSS". Owner-KERN F2
+// (LEDGER Nachtrag 06.08.2026 abend-4, Abschnitt 1): "eine Mess-Achsen-Aenderung baut CEB UND alle
+// Binaries neu" -- bei einem neuen Messsystem muessen also auch die CEB und ALLE Binaries fuer die
+// Mess-Achsen-Einstellung neu gebaut werden.
+//
+// ANKER-REGEL (10.08.2026, an genau dieser Stelle erhoben): MARKE STATT ZEILENNUMMER.
+// Hier stand bis heute ein Verweis auf Ledger-Zeile 3319. Der Satz ist unveraendert, die Zahl war tot:
+// der Ledger ist von 16.785 auf 19.310 Zeilen gewachsen, Zeile 3319 traegt heute den
+// work_mode/--debug-Entscheid. Der Ledger hatte den Bruch selbst bemerkt (KON2-22) und auf Zeile 9077
+// korrigiert -- auch diese Zahl ist bereits tot (dort steht heute §19.C Dock-Topologie); am Objekt
+// wohnt der Satz heute bei Zeile 10409, also in §62-B. DREI Zahlen fuer EINEN unveraenderten Satz --
+// und die mittlere wurde von jemandem geschrieben, der gerade eine tote Zahl reparierte. Darum
+// verweist Code ab jetzt auf die MARKE, nie auf eine Zeile.
+// Wache: tests/unit/test_anker_marke_statt_ledgerzeile.cpp.
+// SELBSTCHECK: dieser Absatz nennt die toten Zahlen bewusst OHNE die Doppelpunkt-Form, sonst wuerde
+// die Wache ihre eigene Begruendung als Verstoss zaehlen. Eine Ausnahme-Liste waere die schlechtere
+// Loesung gewesen: sie waere die naechste Sache, die still verrottet.
 //
 // ------------------------------------------------------------------------------------------------
 // DIE HARTE BEDINGUNG DIESER NAHT -- EINE AUFLOESUNG, ZWEI VERBRAUCHER
@@ -127,9 +142,19 @@
 //       auf der Host-Seite der Modulgrenze und braucht vom Tier-Kompilat nichts.
 //   (c) Ein -DCOMDARE_ENABLE_PMC im Tier-Compile-Kommando waere damit ein Flag ohne Wirkung, das
 //       eine Ausstattung behauptet, die die Binary nicht traegt -- die exakte Spiegelung von D-1.
-//   (d) STUFEN-DOKTRIN (LEDGER:4082-4095): MESS ist DREISTUFIG Planer -> CEB -> Tier. Die Wahl der
-//       PMC-Quelle ist Stufe-2-Ware (CEB-Einbau + Pruefdock-Konfiguration) und endet dort; sie hat
-//       auf Stufe 3 kein Objekt, an dem sie wirken koennte.
+//   (d) STUFEN-DOKTRIN (LEDGER Nachtrag 05.08.2026 mittag-9/-10, Owner-Abnahme mittag-11; Tabellen-
+//       form im Nachtrag 06.08.2026 abend-4 Abschnitt 1): MESS ist DREISTUFIG DEHNBAR
+//       Planer (Stufe 1 = RT-Freigabe) -> CEB (CT-Einbau: Mess-Design + Pruefdock-Konfiguration)
+//       -> [Hybrid (CT)] -> Tier (CT-Einbau: Observer/Ausstattung). SYSTEM ist ZWEISTUFIG DEHNBAR
+//       (CEB = RT-Freigabe -> [Hybrid CT] -> Tier CT), ORGAN ZWEISTUFIG und hybrid-unberuehrt.
+//       GESETZ: Stufe 1 ist IMMER die RT-Freigabe in der Traeger-Binary, jede Folgestufe ist
+//       CT-Einbau entlang Planer -> CEB -> Tier.
+//       Die Wahl der PMC-Quelle ist danach Stufe-2-Ware (CEB-Einbau + Pruefdock-Konfiguration) und
+//       endet dort; sie hat auf Stufe 3 kein Objekt, an dem sie wirken koennte.
+//       ANKER-REGEL (10.08.2026, s. Kopf dieser Datei): hier standen die Ledger-Zeilen 4082-4095. Tot --
+//       Zeilen tragen heute den Landungsstand des Tages (super/ce-SHAs). Der Nachtrag ist eine
+//       datierte MARKE und waechst nicht mit dem Dokument. NICHT zu verwechseln mit §61-STUFEN: das
+//       ist die MODI-Leiter (measure liegt in release), eine andere Doktrin mit demselben Wort.
 // FOLGE FUER DIE REGISTRY-ZEILE: measurement_axis_registry.xml ordnet PmcSystemAxis dem micro-Tooling
 // zu. Das bleibt richtig -- aber es ist eine HOST-Kollektor-Wahl. Der TIER-Beitrag von micro ist G3
 // (die Segment-Timer), nicht PMC. Wer das anders entscheidet, aendert eine Owner-Frage, nicht diese
