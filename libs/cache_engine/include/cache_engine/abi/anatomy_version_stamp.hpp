@@ -89,15 +89,56 @@ using OrganMetaMetas = ::comdare::cache_engine::measurement::MetaMetaMembers<>;
 ///             TYP-NAMEN. Dazu je Kompositions-StrategyBase ein CRTP-Ctor-static_assert
 ///             (requires { Derived::algo_version; }). Eine Variante ohne algo_version kann nicht
 ///             unbemerkt in eine Registry gelangen.
-///   LESER:    ex::compose_organ_stamp_line() (axis_variant_version_table.hpp) liest die Tabelle; die
-///             Kette laeuft ueber profile_facade/lazy_adhoc_source_gen.hpp und den Katalog-Pfad
-///             (sota_catalog.hpp, pilot_source_map.hpp) produktiv bis in die ABI-exportierten
-///             AnatomyVersionLines. Die Emitter-Round-Trip-Byte-Wache bleibt dabei gruen: gestempelt
-///             wird im Kompilat, der emittierte .cpp-Quelltext aendert sich nicht.
-/// EHRLICH DAZU (LEDGER KON2-22): es gibt KEINE Owner-Notiz, die diese Frage entscheidet -- Gegenprobe
-/// "Wrapper-Typ-Liste" und "Registry-basiert im Emitter" = 0 Treffer im Ledger. Der BAU hat entschieden,
-/// ohne dass der Entscheid dokumentiert wurde. Dieser Absatz ist die Dokumentation, nicht der Entscheid;
-/// wer ihn umkehren will, hat einen Owner-Entscheid einzuholen und die drei Leser oben mitzuziehen.
+///   LESER:    ex::compose_organ_stamp_line() (axis_variant_version_table.hpp) liest die Tabelle.
+///             NICHT ALLE DREI EMITTER-PFADE TRAGEN SIE GLEICH WEIT -- Zensus der Aufruf-Stellen im
+///             Produktivbaum (11.08.2026, drei Stellen; Gegenprobe: der Gesamt-Zensus des Namens
+///             findet 5 Produktiv-Dateien, die zwei weiteren sind Include-/Kommentar-Zeilen):
+///     [1] ADHOC  profile_facade/lazy_adhoc_source_gen.hpp, in make_lazy_adhoc_source_gen() und
+///                lazy_adhoc_source_for(): der binary_id IST der Achsen-Pfad, ceb_parse_path liefert
+///                die vollen "achse=wert"-Paare -> REALE Organ-Zeile bis in die ABI. TRAEGT.
+///     [2] PILOT  builder/experiment_tree/pilot_source_map.hpp, in build_pilot_source_map(): der
+///                binary_id ist serialize_composition_path<P>(), ebenfalls ein realer Achsen-Pfad
+///                -> REALE Organ-Zeile. TRAEGT.
+///     [3] SOTA   profile_facade/sota_catalog.hpp, in sota_stamp_lines(): TRAEGT NICHT. Der
+///                SOTA-binary_id ist der eigene Namensraum "sota::<Reihe>::<Komposition>" ohne
+///                "achse=wert"-Segmente; ceb_parse_path liefert die LEERE Paar-Liste und
+///                compose_organ_stamp_line folglich die LEERE Organ-Zeile. Das ist der offene
+///                K-3-REST -- sota_stamp_lines() benennt ihn an seinem eigenen Kopf ausdruecklich.
+///                System- und Mess-Zeile sind dort real; nur die ORGAN-Zeile fehlt.
+///
+/// DER NAME "METADATEN-BLOCKER" BLEIBT HIER STEHEN -- ER IST EINE MARKE, KEIN ZUSTANDSWORT.
+/// Zwei Stellen im Baum verweisen auf ihn: der Kopf von sota_stamp_lines() ("der im Kopf von
+/// abi/anatomy_version_stamp.hpp dokumentierte METADATEN-BLOCKER") und der Kopf von
+/// compose_organ_stamp_line() ("LOEST DEN METADATEN-BLOCKER"). Die Fassung vom 10.08.2026 hatte das
+/// Wort aus der Ueberschrift dieses Absatzes entfernt und damit einen NEUEN toten Querverweis erzeugt
+/// -- genau die Defektklasse, gegen die das Anker-Paket antritt, und unsichtbar fuer dessen Wache, die
+/// nur das Ledger-Wort mit Doppelpunkt und Ziffer sucht. Darum steht die Marke wieder.
+/// DER BLOCKER, praezise: die realen Kompositions-Achsen-Typen tragen kein name()/algo_version, nur die
+/// Registry-WRAPPER tragen es. GELOEST fuer [1] und [2] ueber die Tabelle. OFFEN fuer [3] -- dort aber
+/// aus einem ZWEITEN Grund: schon der binary_id fuehrt keine Achsen-Paare mit.
+///
+/// BYTE-BILANZ, RICHTIGGESTELLT (11.08.2026): bis heute stand hier "gestempelt wird im Kompilat, der
+/// emittierte .cpp-Quelltext aendert sich nicht". Das ist falsch. builder/codegen/adhoc_emitter.hpp
+/// schreibt in render_adhoc_module_source() die Stempel-ZEILEN als Makro-Argumente WOERTLICH in den
+/// emittierten Quelltext (2-arg COMDARE_ANATOMY_VERSION_STAMP bzw. 3-arg _M). Byte-neutral ist nur der
+/// FINGERPRINT: er materialisiert INNEN in der Makro-Expansion, nicht im .cpp (so sagt es
+/// abi/anatomy_fingerprint.hpp an seinem Kopf, und NUR das sagt es). Byte-identisch bleibt zusaetzlich
+/// der ce-only-/Katalog-Pfad, solange er ohne Mess-Combo die 2-arg-Form emittiert -- daran haengen die
+/// 320er-Round-Trip-Wachen. Wer diese Unterscheidung einzieht, zieht die Wachen mit.
+///
+/// EHRLICH DAZU (LEDGER KON2-22): es gibt KEINE Owner-Notiz, die diese Frage entscheidet. Der BAU hat
+/// entschieden, ohne dass der Entscheid dokumentiert wurde -- die SUBSTANZ dieses Satzes haelt.
+/// RICHTIGSTELLUNG 11.08.2026 zur ZAHL: hier stand "Gegenprobe 'Wrapper-Typ-Liste' und 'Registry-
+/// basiert im Emitter' = 0 Treffer im Ledger". Am Objekt nachgezaehlt (Ledger 19.589 Zeilen): 2 bzw. 3
+/// Trefferzeilen, nicht 0. Alle Treffer sind KON2-22 SELBST -- der Satz wurde aus KON2-22 abgeschrieben
+/// und hat sich durch dessen eigene Landung widerlegt. Eine einbetonierte Null ohne Gegenprobe ist
+/// dieselbe Krankheit wie ein toter Zeilen-Anker, nur in Zahlenform.
+/// Dieser Absatz ist die Dokumentation, nicht der Entscheid; wer ihn umkehren will, hat einen
+/// Owner-Entscheid einzuholen und die drei Pfade oben mitzuziehen.
+///
+/// ANKER-FORM DIESES ABSATZES: er nennt Dateien mit FUNKTIONSNAMEN, nicht mit Zeilennummern -- dieselbe
+/// Regel wie fuer die Ledger-Marken (s. profile_facade/mess_achsen_naht.hpp, ANKER-REGEL). Ein
+/// Funktionsname wandert mit seiner Funktion; eine Zeilennummer wandert allein.
 template <class Comp>
 [[nodiscard]] inline std::string organ_stamp_line() {
     using ::comdare::cache_engine::measurement::AxisVersionEntry;

@@ -19,18 +19,29 @@
 // Binaries neu" -- bei einem neuen Messsystem muessen also auch die CEB und ALLE Binaries fuer die
 // Mess-Achsen-Einstellung neu gebaut werden.
 //
-// ANKER-REGEL (10.08.2026, an genau dieser Stelle erhoben): MARKE STATT ZEILENNUMMER.
-// Hier stand bis heute ein Verweis auf Ledger-Zeile 3319. Der Satz ist unveraendert, die Zahl war tot:
-// der Ledger ist von 16.785 auf 19.310 Zeilen gewachsen, Zeile 3319 traegt heute den
-// work_mode/--debug-Entscheid. Der Ledger hatte den Bruch selbst bemerkt (KON2-22) und auf Zeile 9077
-// korrigiert -- auch diese Zahl ist bereits tot (dort steht heute §19.C Dock-Topologie); am Objekt
-// wohnt der Satz heute bei Zeile 10409, also in §62-B. DREI Zahlen fuer EINEN unveraenderten Satz --
-// und die mittlere wurde von jemandem geschrieben, der gerade eine tote Zahl reparierte. Darum
-// verweist Code ab jetzt auf die MARKE, nie auf eine Zeile.
+// ANKER-REGEL (10.08.2026 an genau dieser Stelle erhoben, 11.08.2026 nachgeschaerft):
+// MARKE STATT ZEILENNUMMER.
+// Hier stand ein Verweis auf Ledger-Zeile 3319. Der Satz ist unveraendert, die Zahl war tot: der
+// Ledger wuchs von 16.785 auf 19.310 Zeilen, Zeile 3319 traegt heute den work_mode/--debug-Entscheid.
+// Der Ledger hatte den Bruch selbst bemerkt -- in KON2-15, das die Verschiebung der im Code zitierten
+// Zeilennummer 3319 ausdruecklich vermerkt -- und auf Zeile 9077 korrigiert. Auch diese Zahl war
+// binnen Tagen tot; dort steht heute die §19.C/§19.D-Dock-Topologie.
+//
+// VIER ZAHLEN FUER EINEN UNVERAENDERTEN SATZ -- die vierte starb, waehrend dieser Absatz entstand.
+// Die Fassung vom 10.08.2026 schrieb hier "am Objekt wohnt der Satz heute bei Zeile 10409". Das war
+// am 10.08. richtig und ist am 11.08. falsch: der Ledger wuchs ueber Nacht von 19.310 auf 19.589
+// Zeilen, Zeile 10409 traegt jetzt den §52-B13-Rest, der Satz wohnt bei 10688. Die Kette lautet also
+// 3319 -> 9077 -> 10409 -> 10688; drei dieser vier Zahlen schrieb jemand, der GERADE EINE TOTE ZAHL
+// REPARIERTE. Eine Zeilennummer laesst sich nicht pflegen, nur ersetzen.
+//
+// DARAUS DIE REGEL: Code verweist auf die MARKE (§62-B, KON2-15, "Nachtrag 05.08.2026 mittag-9"), nie
+// auf eine Zeile -- auch nicht auf eine, die heute stimmt. Eine Gegenwarts-Zeilennummer ist keine
+// Ausnahme von der Regel; sie ist der naechste Fall der Regel. Die Zahlen oben stehen als HISTORIE
+// (was wann tot war), nicht als Nachschlage-Anker -- das ist der Unterschied, der sie zulaessig macht.
 // Wache: tests/unit/test_anker_marke_statt_ledgerzeile.cpp.
-// SELBSTCHECK: dieser Absatz nennt die toten Zahlen bewusst OHNE die Doppelpunkt-Form, sonst wuerde
-// die Wache ihre eigene Begruendung als Verstoss zaehlen. Eine Ausnahme-Liste waere die schlechtere
-// Loesung gewesen: sie waere die naechste Sache, die still verrottet.
+// SELBSTCHECK: dieser Absatz nennt die toten Zahlen bewusst OHNE die Doppelpunkt-Form, sonst zaehlte
+// die Wache ihre eigene Begruendung als Verstoss. Eine Ausnahme-Liste waere die schlechtere Loesung
+// gewesen: sie waere die naechste Sache, die still verrottet.
 //
 // ------------------------------------------------------------------------------------------------
 // DIE HARTE BEDINGUNG DIESER NAHT -- EINE AUFLOESUNG, ZWEI VERBRAUCHER

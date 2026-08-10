@@ -27,17 +27,24 @@
 //       wird ueberholt.
 //
 // DIE ENTSCHEIDENDE BEOBACHTUNG -- WARUM EINE REGEL UND NICHT NUR DREI KORREKTUREN:
-// Fuer den EINEN unveraenderten Satz aus (2) existieren heute DREI Zahlen. Der Code sagte 3319.
-// Der Ledger bemerkte den Bruch selbst (KON2-22) und korrigierte auf 9077. Auch 9077 ist heute
-// tot (dort steht §19.C Dock-Topologie); am Objekt wohnt der Satz bei Zeile 10409, also in §62-B.
-// Die mittlere Zahl wurde von jemandem geschrieben, der GERADE EINE TOTE ZAHL REPARIERTE -- und
-// sie war binnen Tagen wieder tot. Eine Zeilennummer laesst sich nicht richtig pflegen; sie laesst
-// sich nur ersetzen. Marken (§62-B, §43.b, §58-V, "Nachtrag 05.08.2026 mittag-9") wandern nicht.
+// Fuer den EINEN unveraenderten Satz aus (2) existieren inzwischen VIER Zahlen. Der Code sagte 3319.
+// Der Ledger bemerkte den Bruch selbst -- in KON2-15, NICHT in KON2-22 (das ist der Anatomy-Stale-
+// Befund; die erste Fassung dieses Kopfes setzte die falsche Marke, im Marken-Paket) -- und
+// korrigierte auf 9077. Auch 9077 war binnen Tagen tot (dort steht die §19.C/§19.D-Dock-Topologie).
+// Die Fassung vom 10.08.2026 schrieb daraufhin "am Objekt wohnt der Satz bei Zeile 10409".
+// AM 11.08.2026 IST AUCH DIESE ZAHL TOT: der Ledger wuchs ueber Nacht von 19.310 auf 19.589 Zeilen,
+// 10409 traegt jetzt den §52-B13-Rest, der Satz wohnt bei 10688. Die Kette 3319 -> 9077 -> 10409 ->
+// 10688 hat sich also WAEHREND der Arbeit an ihr um ein Glied verlaengert, und drei der vier Zahlen
+// schrieb jemand, der gerade eine tote Zahl reparierte. Eine Zeilennummer laesst sich nicht pflegen;
+// sie laesst sich nur ersetzen. Marken (§62-B, §43.b, §58-V, "Nachtrag 05.08.2026 mittag-9", KON2-15)
+// wandern nicht. Auch eine Zahl, die HEUTE stimmt, ist keine Ausnahme -- sie ist der naechste Fall.
 //
 // WAS DIESE WACHE TUT
 // -------------------
 //   TEIL 1  NULL-ZONE (hart, kein Spielraum): die geheilten Dateien tragen NULL Zeilenverweise.
-//           Ein Rueckfall wird namentlich mit Datei:Zeile gemeldet.
+//           Ein Rueckfall wird namentlich mit Datei:Zeile gemeldet. Der Nenner sind die
+//           TATSAECHLICH GELESENEN Dateien -- eine benannte, aber nicht gescannte Datei ist ein
+//           harter Fehlschlag, kein stilles Gruen (s. NACHTRAG 11.08.2026 unten).
 //   TEIL 2  RATSCHE ueber den Gesamtbestand: der Baum traegt hoechstens kObergrenze Verweise.
 //           Heute sind es exakt so viele; JEDER NEUE Verweis -- egal in welcher Datei -- hebt die
 //           Zahl darueber und macht diesen Test rot. Damit ist die Klasse ab sofort geschlossen,
@@ -45,9 +52,30 @@
 //           Ratsche ist kein Dauerzustand: wer Altbestand heilt, senkt kObergrenze mit.
 //   TEIL 3  GEGENPROBE gegen die stille Null: ein Zaehler, der nichts findet, weil er nichts
 //           ansieht, wuerde TEIL 1 und TEIL 2 beide gruen erscheinen lassen. Deshalb wird
-//           positiv belegt, dass der Scan Dateien liest, Marken findet und Verweise findet.
+//           positiv belegt, dass der Scan Dateien liest, Marken findet und Verweise findet --
+//           und seit dem 11.08.2026 auch, dass der Erkenner IM SCAN verdrahtet ist.
 //   TEIL 4  KOEDER-EINHEIT (K13, beidseitig): der Erkenner selbst wird mit gewuerfelten Eingaben
 //           gefahren -- Zeilenverweis MUSS gefangen werden, Marke MUSS durchgelassen werden.
+//   TEIL 5  KOEDER AUF DEN NENNER (K13, beidseitig): die Buchfuehrung "welche Datei wurde gelesen"
+//           wird selbst gebissen -- erfundener Pfad MUSS durchfallen, gelesener Pfad MUSS bestehen,
+//           und eine (simuliert) umbenannte Null-Zonen-Datei MUSS gefangen werden.
+//
+// NACHTRAG 11.08.2026 -- ZWEI LANDUNGSBLOCKER AUS DER ZWEITEN LENS, BEIDE AN DER URSACHE GEHEILT
+// ----------------------------------------------------------------------------------------------
+// (B2) DER NULL-ZONEN-NENNER WAR HOHL. TEIL 1 zaehlte je Eintrag von kNullZone BEDINGUNGSLOS hoch
+//      und verglich das Ergebnis mit std::size(kNullZone) -- eine Tautologie, die nicht fallen
+//      konnte. Es gab keinen Existenz- und keinen Gelesen-Nachweis. UEBERLEBENDE MUTATION: eine
+//      Null-Zonen-Datei umbenennen; der Test blieb gruen und druckte weiter "3/3 geprueft".
+//      Das war DIESELBE stille Null, die derselbe Autor in ist_ausgeschlossen() vorbildlich
+//      seziert und dokumentiert hatte -- an zweiter Stelle, ungefixt. Ein Befund, den man einmal
+//      versteht, ist damit nicht ueberall behoben.
+//      GEHEILT: der Scan fuehrt jetzt e.gelesene (die real geoeffneten Dateien); TEIL 1 zaehlt nur
+//      beobachtete Dateien und meldet eine nicht gescannte namentlich; TEIL 5 beisst den Nenner.
+// (B1) lag ausserhalb dieser Datei (falsche Architektur-Aussage in abi/anatomy_version_stamp.hpp)
+//      und ist dort geheilt. Fuer diese Wache bleibt die LEHRE: der Commit vom 10.08.2026 erzeugte
+//      beim Heilen eines toten Ankers einen NEUEN toten Querverweis (er entfernte das Wort
+//      METADATEN-BLOCKER, auf das zwei andere Dateien namentlich zeigen) -- und diese Wache konnte
+//      ihn nicht sehen, weil sie nur das Ledger-Wort mit Doppelpunkt und Ziffer kennt. S. GRENZEN.
 //
 // GRENZEN, EHRLICH BENANNT (was diese Wache NICHT kann)
 // -----------------------------------------------------
@@ -60,6 +88,24 @@
 //   * Der Restbestand von kObergrenze Verweisen ist NICHT geprueft. Jeder einzelne davon kann
 //     tot sein; die Stichprobe dieses Tages fand 2 tote unter 3 untersuchten. Die Ratsche haelt
 //     nur den ZUWACHS auf.
+//   * SIE KENNT NUR EIN WORT. Alles unten am Objekt gemessen (11.08.2026, Stand dieses Commits,
+//     GNU grep, Muster "Wort, optional Leerraum, Doppelpunkt, optional Leerraum, Ziffer"):
+//       - Kurzform "LED" statt "LEDGER": 6 Fundstellen IM Scan-Bereich, fuer die Wache unsichtbar
+//         (profile_run_facade.cpp, registrierungs_sidecar.hpp, bestandslog_lock.hpp,
+//         run_methodology_registry.hpp, test_g3_bestandslog_lock.cpp, test_experiment_plan_director).
+//       - Andere wachsende Plandokumente, Form "DOSSIER:NNNN": 11 Fundstellen im Scan-Bereich.
+//         Die Doktrin gilt der ZAHL; diese Wache gilt einem WORT. Das ist die Luecke, nicht ein Rest.
+//       - ce-eigenes docs/: 92 Fundstellen der Vollform, ausserhalb der Scan-Wurzeln.
+//     Ein Folgeposten hat den Erkenner auf die Klasse "wachsendes Dokument, Doppelpunkt, Zahl" zu
+//     heben und die Ratsche danach NEU zu erheben. Bis dahin: benannt, nicht gedeckt.
+//   * SCAN-WURZELN: gescannt werden libs/apps/tools/tests. Ausserhalb liegen 110 Dateien mit
+//     Quell-Endung (adapters, benchmarks, cmake, deploy, modules, prerequisites, scripts, plus die
+//     Wurzel-CMakeLists). GEGENPROBE, damit die Null nicht nackt bleibt: dasselbe Muster findet dort
+//     heute 0 Treffer, waehrend es in den gescannten Wurzeln 94-mal trifft -- die Null ist echt, aber
+//     sie ist eine Momentaufnahme. Zukunftsrisiko, kein Gegenwartsdefekt.
+//   * SIE SIEHT KEINE MARKEN-QUERVERWEISE ZWISCHEN DATEIEN. Genau daran ist die erste Fassung
+//     dieses Pakets gescheitert: sie entfernte das Wort METADATEN-BLOCKER aus einem Datei-Kopf, auf
+//     das zwei andere Dateien namentlich zeigen. Form intakt, Ziel weg, Wache blind.
 //
 // SELBSTBEZUG, bewusst geloest: diese Datei wird von ihrem eigenen Scan miterfasst (sie liegt in
 // tests/). Sie enthaelt deshalb nirgends die verbotene Form; der Suchbegriff wird zur Laufzeit
@@ -77,7 +123,6 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
-#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -134,10 +179,22 @@ struct ZeilenTreffer {
 
 struct Ernte {
     std::vector<ZeilenTreffer> zeilenverweise; ///< die verbotene Form
+    /// Die TATSAECHLICH gelesenen Dateien, relativ zur Wurzel, generic_string.
+    /// SIE IST DER NENNER DER NULL-ZONE -- nicht die Wunschliste kNullZone. Vor dem 11.08.2026 zaehlte
+    /// TEIL 1 seine eigene Soll-Liste ab ("3/3 geprueft") und konnte deshalb strukturell nie fallen:
+    /// eine umbenannte Null-Zonen-Datei blieb gruen. Das war dieselbe stille Null wie die in
+    /// ist_ausgeschlossen() dokumentierte -- an zweiter Stelle, im selben Test.
+    std::vector<std::string> gelesene;
     std::size_t marken{0};                    ///< §-Marken -- die erlaubte Form, als Gegenprobe
     std::size_t dateien{0};
     std::size_t zeilen{0};
 };
+
+/// Wurde diese Datei vom Scan WIRKLICH gelesen? Der Unterschied zwischen "0 Treffer" und "nie
+/// angesehen" ist die ganze Frage; genau ihn beantwortet diese Funktion.
+bool wurde_gelesen(Ernte const& e, std::string_view const relativ) {
+    return std::find(e.gelesene.begin(), e.gelesene.end(), relativ) != e.gelesene.end();
+}
 
 /// Zaehlt die Treffer in EINER Textzeile. Getrennt herausgezogen, damit der Koeder-Test (TEIL 4)
 /// exakt dieselbe Logik fahren kann wie der Baum-Scan -- ein zweiter, nachgebauter Erkenner waere
@@ -221,7 +278,11 @@ Ernte ernte_baum() {
             if (ist_ausgeschlossen(rel) || !ist_quellendung(p)) { continue; }
             std::ifstream in{p};
             if (!in) { continue; }
+            // ERST HIER gilt die Datei als gelesen -- nach dem Oeffnen, nicht nach dem Finden. Ein
+            // Eintrag, der schon am ifstream scheitert, darf keinen Nenner fuellen.
+            std::string const rel_s = rel.generic_string();
             ++e.dateien;
+            e.gelesene.push_back(rel_s);
             std::string zeile;
             std::size_t nr = 0;
             while (std::getline(in, zeile)) {
@@ -230,8 +291,7 @@ Ernte ernte_baum() {
                 e.marken += marken_in(zeile);
                 std::size_t const n = zeilenverweise_in(zeile);
                 for (std::size_t k = 0; k < n; ++k) {
-                    e.zeilenverweise.push_back(
-                        {fs::relative(p, wurzel).generic_string(), nr, zeile.substr(0, 110)});
+                    e.zeilenverweise.push_back({rel_s, nr, zeile.substr(0, 110)});
                 }
             }
         }
@@ -244,11 +304,33 @@ Ernte const& ernte() {
     return einmal;
 }
 
-/// Wuerfel aus /dev/urandom, mit benanntem Rueckfall -- ein Test, der beim Fehlen der
-/// Entropie-Quelle stumm eine Konstante nimmt, hat seinen Koeder verloren.
+/// Wuerfel LITERAL aus /dev/urandom -- nicht ueber std::random_device.
+/// RICHTIGSTELLUNG 11.08.2026: hier versprach der Kommentar einen "benannten Rueckfall", den der Code
+/// nicht hatte. Er nahm std::random_device, und dessen Verhalten ohne Entropie-Quelle ist
+/// implementierungsdefiniert -- eine Implementierung DARF eine konstante Folge liefern. Ein Koeder aus
+/// einer Konstante ist kein Koeder. Jetzt steht die Quelle im Code, und der Rueckfall ist wirklich
+/// benannt: es gibt keinen. Fehlt die Quelle, ist das ein sprechender Fehlschlag, keine stille 0.
+bool wuerfel_bytes(unsigned char* ziel, std::size_t n) {
+    std::ifstream q{"/dev/urandom", std::ios::binary};
+    if (!q) { return false; }
+    q.read(reinterpret_cast<char*>(ziel), static_cast<std::streamsize>(n));
+    return static_cast<std::size_t>(q.gcount()) == n;
+}
+
 unsigned zufall(unsigned modulo) {
-    std::random_device rd;
-    return rd() % modulo;
+    if (modulo == 0) {
+        ADD_FAILURE() << "zufall(0) -- ein Wuerfel ohne Seiten. Aufrufstelle pruefen.";
+        return 0;
+    }
+    unsigned char b[4]{};
+    if (!wuerfel_bytes(b, sizeof b)) {
+        ADD_FAILURE() << "/dev/urandom nicht lesbar -- der Koeder waere eine Konstante. "
+                         "KEIN stiller Rueckfall auf eine feste Zahl.";
+        return 0;
+    }
+    unsigned v = 0;
+    for (unsigned char const x : b) { v = (v << 8) | static_cast<unsigned>(x); }
+    return v % modulo;
 }
 
 } // namespace
@@ -269,6 +351,19 @@ TEST(AnkerWache, DerScanSiehtUeberhauptEtwas) {
     // Die erlaubte Form muss die verbotene deutlich ueberwiegen; sonst ist die Hausregel Fiktion.
     EXPECT_GT(e.marken, e.zeilenverweise.size())
         << "Mehr Zeilenverweise als Marken -- die Anker-Regel ist im Bestand nicht die Mehrheit.";
+    // DIE VERDRAHTUNG Scan -> Erkenner (11.08.2026 nachgezogen). Ohne diese Zeile ueberlebt eine
+    // Mutation der Aufrufstelle in ernte_baum() ("n = 0" statt zeilenverweise_in(zeile)): TEIL 1 und
+    // TEIL 2 blieben gruen (0 Treffer sieht aus wie Sauberkeit), und TEIL 4 merkt nichts, weil er den
+    // Erkenner DIREKT ruft und den Baum-Scan gar nicht beruehrt. Der Restbestand ist die Zusicherung.
+    EXPECT_GT(e.zeilenverweise.size(), 0u)
+        << "Der Baum-Scan findet 0 Zeilenverweise. Bei kObergrenze=" << kObergrenze
+        << " Restbestand heisst das: der Erkenner ist im Scan nicht verdrahtet, nicht dass der "
+           "Baum sauber ist. Faellt diese Zusicherung nach echtem Vollzug der Heilung, gehoert sie "
+           "GEMEINSAM mit kObergrenze=0 entfernt -- nie allein.";
+    std::cout << "[NENNER] verdrahtung: zeilenverweise=" << e.zeilenverweise.size()
+              << " (>0 verlangt) gelesene-liste=" << e.gelesene.size() << " == dateien=" << e.dateien << "\n";
+    EXPECT_EQ(e.gelesene.size(), e.dateien) << "Gelesen-Liste und Datei-Zaehler driften -- der Nenner "
+                                               "der Null-Zone haengt an dieser Gleichheit.";
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -276,22 +371,37 @@ TEST(AnkerWache, DerScanSiehtUeberhauptEtwas) {
 // ------------------------------------------------------------------------------------------------
 TEST(AnkerWache, GeheilteDateienTragenKeinenZeilenverweis) {
     Ernte const& e = ernte();
-    std::size_t geprueft = 0;
-    std::size_t verstoesse = 0;
+    std::size_t beobachtet  = 0; ///< vom Scan WIRKLICH gelesen -- der einzige zulaessige Nenner
+    std::size_t fehlend     = 0; ///< in kNullZone benannt, aber nie angesehen
+    std::size_t verstoesse  = 0;
     for (std::string_view const soll : kNullZone) {
-        ++geprueft;
+        if (!wurde_gelesen(e, soll)) {
+            ++fehlend;
+            ADD_FAILURE() << "NULL-ZONEN-DATEI NICHT GESCANNT: " << soll << "\n"
+                          << "  Der Scan hat sie nie geoeffnet -- 'keine Treffer' waere hier BEDEUTUNGSLOS.\n"
+                          << "  Ursache ist entweder eine Umbenennung/Verschiebung (dann kNullZone nachziehen)\n"
+                          << "  oder ein Filter, der sie frisst. Beides macht den Nenner hohl.";
+            continue;
+        }
+        ++beobachtet;
         for (auto const& t : e.zeilenverweise) {
             if (t.datei == soll) {
                 ++verstoesse;
                 ADD_FAILURE() << "Zeilenverweis in der NULL-ZONE: " << t.datei << ":" << t.zeile << "\n"
                               << "  " << t.text << "\n"
-                              << "  Regel: MARKE statt Zeile (§62-B, Nachtrag 05.08.2026 mittag-9, KON2-22).";
+                              << "  Regel: MARKE statt Zeile (§62-B, Nachtrag 05.08.2026 mittag-9, KON2-15).";
             }
         }
     }
-    std::cout << "[NENNER] null-zone: " << geprueft << "/" << std::size(kNullZone)
-              << " Dateien geprueft, " << verstoesse << " Verstoesse (Soll 0)\n";
-    EXPECT_EQ(geprueft, std::size(kNullZone));
+    std::cout << "[NENNER] null-zone: " << beobachtet << "/" << std::size(kNullZone)
+              << " Dateien GELESEN (nicht bloss gewuenscht), " << fehlend << " nicht gescannt, "
+              << verstoesse << " Verstoesse (Soll 0)\n";
+    // Der Vergleich ist erst jetzt eine Aussage: beobachtet wird NUR hochgezaehlt, wenn die Datei in
+    // e.gelesene steht. Vor dem 11.08.2026 stand hier ein Zaehler, der im selben Schleifendurchlauf
+    // bedingungslos wuchs -- die Gleichung war eine Tautologie und konnte nicht fallen.
+    EXPECT_EQ(beobachtet, std::size(kNullZone)) << "Der Null-Zonen-Nenner ist hohl: nicht jede benannte "
+                                                   "Datei wurde gelesen.";
+    EXPECT_EQ(fehlend, 0u);
     EXPECT_EQ(verstoesse, 0u);
 }
 
@@ -359,4 +469,60 @@ TEST(AnkerWache, KoederBeisstBeidseitig) {
     std::cout << "[KOEDER B] falsch-positiv auf erlaubten Formen: " << falsch_positiv << "/"
               << erlaubt.size() << " Proben (Soll 0)\n";
     EXPECT_EQ(falsch_positiv, 0u) << "Die Wache beanstandet die erlaubte Marken-Form -- sie beisst blind.";
+}
+
+// ------------------------------------------------------------------------------------------------
+// TEIL 5: DER KOEDER AUF DEN NENNER SELBST (K13, beidseitig, gewuerfelt aus /dev/urandom).
+//
+// TEIL 4 prueft den ERKENNER. Dieser Teil prueft den NENNER -- und das ist eine andere Frage.
+// Die ueberlebende Mutation, gegen die er antritt (gefunden in der zweiten Lens am 10.08.2026):
+// eine Null-Zonen-Datei UMBENENNEN. Bis zum 11.08.2026 blieb TEIL 1 dabei gruen und druckte weiter
+// "3/3 Dateien geprueft" -- er zaehlte seine eigene Wunschliste ab. Der Test bestand aus einer
+// Behauptung ueber sich selbst.
+//
+// Warum das hier eine EIGENE Einheit ist und nicht bloss eine Zeile in TEIL 1: der Nenner-Fehler ist
+// nur sichtbar, wenn man ihn ABSICHTLICH herbeifuehrt. Ein gruener TEIL 1 beweist gar nichts ueber
+// seine eigene Fallhoehe -- genau das war ja der Defekt.
+// ------------------------------------------------------------------------------------------------
+TEST(AnkerWache, NullZonenNennerFaengtDieNichtGescannteDatei) {
+    Ernte const& e = ernte();
+    constexpr std::size_t kProben = 32;
+
+    // Seite A -- was NICHT gescannt wurde, MUSS als nicht gescannt erkannt werden.
+    // Gewuerfelt, damit kein einzelner Sonderfall die Aussage traegt.
+    std::size_t erkannt_fehlend = 0;
+    for (std::size_t i = 0; i < kProben; ++i) {
+        std::string const erfunden =
+            "libs/cache_engine/gibt_es_nicht_" + std::to_string(zufall(1000000000u)) + ".hpp";
+        erkannt_fehlend += wurde_gelesen(e, erfunden) ? 0u : 1u;
+    }
+    std::cout << "[KOEDER C] erfundene Pfade als 'nicht gescannt' erkannt: " << erkannt_fehlend << "/"
+              << kProben << "\n";
+    EXPECT_EQ(erkannt_fehlend, kProben) << "wurde_gelesen() haelt einen erfundenen Pfad fuer gelesen.";
+
+    // Seite B -- was WIRKLICH gescannt wurde, darf NICHT als fehlend gelten. Ohne diese Seite waere
+    // ein wurde_gelesen(), das immer 'false' sagt, in Seite A gruen -- und wuerde in TEIL 1 jede
+    // Null-Zonen-Datei falsch anklagen. Die Stichprobe wird aus der Gelesen-Liste GEWUERFELT.
+    ASSERT_FALSE(e.gelesene.empty()) << "Gelesen-Liste leer -- Seite B haette keinen Gegenstand.";
+    std::size_t erkannt_vorhanden = 0;
+    for (std::size_t i = 0; i < kProben; ++i) {
+        std::string const& treffer = e.gelesene[zufall(static_cast<unsigned>(e.gelesene.size()))];
+        erkannt_vorhanden += wurde_gelesen(e, treffer) ? 1u : 0u;
+    }
+    std::cout << "[KOEDER D] gewuerfelte gelesene Pfade als 'gelesen' erkannt: " << erkannt_vorhanden
+              << "/" << kProben << " (aus " << e.gelesene.size() << " gelesenen Dateien)\n";
+    EXPECT_EQ(erkannt_vorhanden, kProben) << "wurde_gelesen() verneint eine tatsaechlich gelesene Datei.";
+
+    // Seite C -- DIE SCHARFE PROBE: die Umbenennung, exakt wie sie die zweite Lens vorfuehrte.
+    // Jeder Null-Zonen-Name bekommt ein gewuerfeltes Suffix; der so entstandene Name MUSS durchfallen.
+    // Das ist der Biss, der vor dem 11.08.2026 nicht stattfand.
+    std::size_t umbenannt_gefangen = 0;
+    for (std::string_view const soll : kNullZone) {
+        std::string const umbenannt = std::string{soll} + ".umbenannt_" + std::to_string(zufall(1000000u));
+        umbenannt_gefangen += wurde_gelesen(e, umbenannt) ? 0u : 1u;
+    }
+    std::cout << "[KOEDER E] umbenannte Null-Zonen-Dateien gefangen: " << umbenannt_gefangen << "/"
+              << std::size(kNullZone) << "\n";
+    EXPECT_EQ(umbenannt_gefangen, std::size(kNullZone))
+        << "Eine umbenannte Null-Zonen-Datei gilt weiter als geprueft -- der Nenner ist wieder hohl.";
 }
