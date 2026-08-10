@@ -147,7 +147,7 @@ struct TempDir {
 /// Alle regulaeren Dateien mit dieser Endung -- die MENGE ist der Nenner, nicht die Anwesenheit einer
 /// einzelnen Datei.
 [[nodiscard]] std::vector<std::filesystem::path> dateien_mit_endung(std::filesystem::path const& dir,
-                                                                    std::string_view              endung) {
+                                                                    std::string_view             endung) {
     std::vector<std::filesystem::path> out;
     std::error_code                    ec;
     for (auto const& e : std::filesystem::directory_iterator(dir, ec)) {
@@ -180,11 +180,11 @@ struct TempDir {
     aus.resize(erwartet == 0 ? (komprimiert.size() * 8 + 1024) : erwartet);
     z_stream zs{};
     if (inflateInit2(&zs, -MAX_WBITS) != Z_OK) return {};
-    zs.next_in   = reinterpret_cast<Bytef*>(const_cast<char*>(komprimiert.data()));
-    zs.avail_in  = static_cast<uInt>(komprimiert.size());
-    zs.next_out  = reinterpret_cast<Bytef*>(aus.data());
-    zs.avail_out = static_cast<uInt>(aus.size());
-    int const rc = inflate(&zs, Z_FINISH);
+    zs.next_in                    = reinterpret_cast<Bytef*>(const_cast<char*>(komprimiert.data()));
+    zs.avail_in                   = static_cast<uInt>(komprimiert.size());
+    zs.next_out                   = reinterpret_cast<Bytef*>(aus.data());
+    zs.avail_out                  = static_cast<uInt>(aus.size());
+    int const         rc          = inflate(&zs, Z_FINISH);
     std::size_t const geschrieben = aus.size() - zs.avail_out;
     inflateEnd(&zs);
     if (rc != Z_STREAM_END && rc != Z_OK && rc != Z_BUF_ERROR) return {};
@@ -256,9 +256,7 @@ struct TempDir {
     return n;
 }
 
-[[nodiscard]] std::vector<std::string> semikolon_felder(std::string_view z) {
-    return naht::csv_zeile_in_felder(z);
-}
+[[nodiscard]] std::vector<std::string> semikolon_felder(std::string_view z) { return naht::csv_zeile_in_felder(z); }
 
 /// Der Pfad des getrackten Profil-Verzeichnisses -- von CMake gesetzt, damit der Test nicht raet.
 [[nodiscard]] std::filesystem::path profil_verzeichnis() {
@@ -323,7 +321,7 @@ TEST(W0bDurchstichKette, G1_JedesProfilMitFormatTokenTraegtXlsx) {
                                  "pruefen, also ist sie ROT (fail-closed).";
     ASSERT_TRUE(std::filesystem::is_directory(dir)) << "Profil-Verzeichnis fehlt: " << dir.string();
 
-    auto       alle       = dateien_mit_endung(dir, ".xml");
+    auto              alle   = dateien_mit_endung(dir, ".xml");
     std::size_t const n_dir1 = alle.size();
     // Zweites Inventar, falls das ce als Unterprojekt des super gebaut wird (dort liegt das
     // F1-Durchstich-Profil). Fehlt es, bleibt der Nenner ehrlich bei einem Verzeichnis.
@@ -333,8 +331,8 @@ TEST(W0bDurchstichKette, G1_JedesProfilMitFormatTokenTraegtXlsx) {
         ++n_dirs;
         for (auto const& p : dateien_mit_endung(dir2, ".xml")) alle.push_back(p);
     }
-    std::printf("[G1] Inventare: verzeichnisse=%zu xml_in_1=%zu xml_gesamt=%zu (dir1=%s dir2=%s)\n", n_dirs,
-                n_dir1, alle.size(), dir.string().c_str(), dir2.empty() ? "<nicht gesetzt>" : dir2.string().c_str());
+    std::printf("[G1] Inventare: verzeichnisse=%zu xml_in_1=%zu xml_gesamt=%zu (dir1=%s dir2=%s)\n", n_dirs, n_dir1,
+                alle.size(), dir.string().c_str(), dir2.empty() ? "<nicht gesetzt>" : dir2.string().c_str());
     std::fflush(stdout);
     ASSERT_GT(alle.size(), 0U) << "0 Profile gefunden -- ein leerer Nenner ist kein gruener Nenner.";
 
@@ -422,7 +420,7 @@ TEST(W0bDurchstichKette, G2_KopfUndZeileHabenDieselbeZellzahl) {
 // diesen Fall belegte G2 nur, dass zwei Zahlen zufaellig gleich sind.
 TEST(W0bDurchstichKette, G2_Gegeneingang_GestohlenesFeldWirdGezaehlt) {
     TempDir           tmp;
-    std::string const kopf = ex::lazy_csv_header();
+    std::string const kopf  = ex::lazy_csv_header();
     std::string       zeile = ex::format_csv_row(mess_zeile_mit_token(wuerfle_token(), 64));
     // Genau EIN Trennzeichen entfernen -> eine Zelle weniger, alles danach rutscht.
     auto const pos = zeile.find(';');
@@ -461,8 +459,7 @@ TEST(W0bDurchstichKette, G3_TokenStehtInXlsxUndInCsvDerselbenMappe) {
     // Tests druckte "ziele=" leer -- eine hohle Ausgabe ist genau der Stellvertreter, den V-1 verbietet.
     std::string const ziele_vor_schliessen = m.ziele();
     ASSERT_FALSE(ziele_vor_schliessen.empty()) << "Eine ungenannte Datei ist eine unbeobachtete Datei.";
-    ASSERT_TRUE(m.schliessen(lab::MaschinenSysinfo{}, {}, {}))
-        << m.diagnose();
+    ASSERT_TRUE(m.schliessen(lab::MaschinenSysinfo{}, {}, {})) << m.diagnose();
 
     auto const xlsx_dateien = dateien_mit_endung(tmp.pfad, ".xlsx");
     // Die csv-Strategie legt einen ORDNER mit flachen Sheet-Dateien an (OV-17: die Struktur der
@@ -480,13 +477,14 @@ TEST(W0bDurchstichKette, G3_TokenStehtInXlsxUndInCsvDerselbenMappe) {
     ASSERT_GE(csv_dateien.size(), 1U) << "Die csv-Strategie hat nichts hinterlassen: " << m.diagnose();
 
     // (a) EINE Mappe, zwei Ausgaben: gemeinsamer Stamm. Zwei Laeufe haetten zwei Zeitstempel.
-    std::string const stamm = xlsx_dateien[0].stem().string();
+    std::string const stamm          = xlsx_dateien[0].stem().string();
     bool              stamm_gefunden = false;
     for (auto const& c : csv_dateien) {
         if (c.filename().string().rfind(stamm, 0) == 0) stamm_gefunden = true;
     }
-    EXPECT_TRUE(stamm_gefunden) << "xlsx-Stamm '" << stamm << "' taucht in keiner Sheet-CSV auf -- dann "
-                                  "stammen die beiden Ausgaben nicht aus DERSELBEN Mappe.";
+    EXPECT_TRUE(stamm_gefunden) << "xlsx-Stamm '" << stamm
+                                << "' taucht in keiner Sheet-CSV auf -- dann "
+                                   "stammen die beiden Ausgaben nicht aus DERSELBEN Mappe.";
 
     // (b) GEGENSTAND statt Ankuendigung: die .xlsx wird ENTPACKT und der Token im Klartext gesucht.
     std::string const roh = lies_datei(xlsx_dateien[0]);
@@ -562,7 +560,7 @@ void schreibe_narrow_csv(std::filesystem::path const& p, std::string const& toke
 [[nodiscard]] int baue_pdf(std::filesystem::path const& dir, std::string const& tex_name) {
     std::string const cmd = "cd " + dir.string() + " && " + pdflatex_pfad() +
                             " -interaction=nonstopmode -halt-on-error " + tex_name + " > pdflatex.log 2>&1";
-    int const rc = std::system(cmd.c_str());
+    int const         rc  = std::system(cmd.c_str());
     return rc;
 }
 
@@ -597,8 +595,8 @@ TEST(W0bDurchstichKette, G4_TokenUeberlebtCsvTabellePdf) {
     }
 
     TempDir           tmp;
-    std::string const token = wuerfle_token();
-    std::string const gegen = gegen_token(token);
+    std::string const token  = wuerfle_token();
+    std::string const gegen  = gegen_token(token);
     std::size_t const n_rein = 3;
 
     auto const csv = tmp.pfad / "messwerte.csv";
@@ -621,18 +619,18 @@ TEST(W0bDurchstichKette, G4_TokenUeberlebtCsvTabellePdf) {
 
     auto const doc = tmp.pfad / "durchstich.tex";
     schreibe_wrapper_tex(doc, "tabelle", false);
-    int const rc = baue_pdf(tmp.pfad, "durchstich.tex");
+    int const  rc  = baue_pdf(tmp.pfad, "durchstich.tex");
     auto const pdf = tmp.pfad / "durchstich.pdf";
     std::printf("[G4] pdflatex rc=%d pdf_vorhanden=%d\n", rc, std::filesystem::exists(pdf) ? 1 : 0);
     std::fflush(stdout);
     ASSERT_EQ(rc, 0) << "pdflatex-Log:\n" << lies_datei(tmp.pfad / "pdflatex.log");
     ASSERT_TRUE(std::filesystem::exists(pdf));
 
-    std::string const pdf_roh  = lies_datei(pdf);
+    std::string const pdf_roh = lies_datei(pdf);
     ASSERT_EQ(pdf_roh.compare(0, 5, "%PDF-"), 0) << "Keine PDF-Signatur.";
-    std::string const norm     = pdf_nur_buchstaben(pdf_roh);
-    std::size_t const treffer  = zaehle_vorkommen(norm, token);
-    std::size_t const g_treff  = zaehle_vorkommen(norm, gegen);
+    std::string const norm    = pdf_nur_buchstaben(pdf_roh);
+    std::size_t const treffer = zaehle_vorkommen(norm, token);
+    std::size_t const g_treff = zaehle_vorkommen(norm, gegen);
     std::printf("[G4] PDF: bytes=%zu buchstaben=%zu token_treffer=%zu gegenkoeder_treffer=%zu (erwartet %zu/0)\n",
                 pdf_roh.size(), norm.size(), treffer, g_treff, n_rein);
     std::fflush(stdout);
@@ -675,14 +673,22 @@ TEST(W0bDurchstichKette, G5_WideUndNarrowSchemaSindHeuteDisjunkt) {
     std::string const kopf = ex::lazy_csv_header();
     // Die 16 Pflichtspalten des NARROW-Lesers -- abgeschrieben aus tools/latex_anhang/main.cpp:55-70
     // (FREMDE Quelle: nicht aus dem WIDE-Erzeuger abgeleitet).
-    char const* narrow[] = {"permutation_id",   "fingerprint",
-                            "succeeded",        "workload_used",
-                            "op_count",         "total_cycles",
-                            "cache_misses_l1",  "cache_misses_l2",
-                            "cache_misses_l3",  "dtlb_misses",
-                            "coherence_invalidations", "energy_micro_joules",
-                            "bytes_allocated",  "bytes_in_use_peak",
-                            "external_frag",    "internal_frag"};
+    char const*       narrow[] = {"permutation_id",
+                                  "fingerprint",
+                                  "succeeded",
+                                  "workload_used",
+                                  "op_count",
+                                  "total_cycles",
+                                  "cache_misses_l1",
+                                  "cache_misses_l2",
+                                  "cache_misses_l3",
+                                  "dtlb_misses",
+                                  "coherence_invalidations",
+                                  "energy_micro_joules",
+                                  "bytes_allocated",
+                                  "bytes_in_use_peak",
+                                  "external_frag",
+                                  "internal_frag"};
     std::size_t const n_narrow = sizeof(narrow) / sizeof(narrow[0]);
 
     auto const  wide_felder = semikolon_felder(kopf);
