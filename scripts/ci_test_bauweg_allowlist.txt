@@ -1,0 +1,39 @@
+# ALLOWLIST der Bauweg-Wache (scripts/ci_test_bauweg_wache.sh)
+# =============================================================================
+# Format je Zeile:  <pfad-relativ-zum-bau-verzeichnis><Leerzeichen><Begruendung>
+# Zeilen mit '#' am Anfang sind Kommentar.
+#
+# EINE ZEILE OHNE BEGRUENDUNG IST EIN FEHLER (die Wache bricht dann ab). Sonst waere
+# diese Datei der stille Rueckfall, gegen den die Wache gebaut ist.
+#
+# WAS HIER HINEINGEHOERT: ein aufgerufenes Bauprodukt, das ABSICHTLICH nicht am
+# Sammel-Target comdare_tests haengt -- z.B. weil der Test gerade pruefen soll, dass
+# ein Ziel NICHT baubar ist. Was hier NICHT hineingehoert: ein Ziel, dessen Kante
+# schlicht vergessen wurde. Dafuer gibt es die eine Zeile
+#   set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS <ziel>)
+# neben dem add_test(). Die Wache nennt sie in ihrer Fehlermeldung.
+#
+# Die Wache druckt JEDEN Eintrag samt Begruendung bei JEDEM Lauf und meldet zusaetzlich,
+# welche Eintraege in diesem Baum nichts mehr decken -- damit eine Ausnahme nicht
+# stillschweigend ihren Grund ueberlebt.
+# =============================================================================
+
+# -- OFFENER DEFEKT, NICHT EINE GEWOLLTE AUSNAHME (2026-08-09, D1b/D1e-Strang) --------
+# BEFUND: test_check_size_cli_deckel faehrt die ECHTE Planer-Binary als Prozess; der Pfad
+# reist als $<TARGET_FILE:comdare_experiment_planner>-Argument (tests/unit/CMakeLists.txt
+# :6224-6226). Registriert wird dort aber nur das TEST-Binary (:6227), nicht der Planer.
+# Das ist exakt die D1e-Klasse an einer zweiten Stelle (T-6-Schwesterpflicht).
+# HEUTE UNAUFFAELLIG, WEIL: comdare_experiment_planner haengt an 'all', und der GNU-Bauweg
+# baut 'all'. Am Objekt gemessen 2026-08-09: 'all' 4067 Pfade (enthaelt ihn),
+# comdare_tests 3997 (enthaelt ihn NICHT).
+# WO ES BRICHT: ueberall, wo nur comdare_tests gebaut wird -- die Sanitizer-Jobs, und vor
+# allem der super-Sub-Build, der die ce per add_subdirectory(... EXCLUDE_FROM_ALL) zieht
+# (dort ist ce's 'all' wirkungslos; apps/experiment_planner/CMakeLists.txt:73-86).
+# DIE HEILUNG IST EINE ZEILE, hinter tests/unit/CMakeLists.txt:6227:
+#   set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_experiment_planner)
+# SIE STEHT HIER NOCH NICHT, WEIL tests/unit/CMakeLists.txt in diesem Lauf einem ANDEREN
+# Strang als Alleinschreiber gehoert. Der Eintrag haelt die Wache landefaehig, OHNE den
+# Befund zu verstecken: er wird bei jedem Lauf mit dieser Begruendung gedruckt, und sobald
+# die Zeile oben gesetzt ist, meldet die Wache diesen Eintrag als wirkungslos -- dann
+# ersatzlos loeschen.
+apps/experiment_planner/comdare-experiment-planner OFFENER DEFEKT (D1e-Klasse), nicht gewollt -- s. Kommentar darueber
