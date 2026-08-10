@@ -52,23 +52,23 @@ using DefaultVariants = mp::mp_list<CeBekannt>;
 // DER SLOT. Genau die zwei Glieder, die PrueflingSlotConcept verlangt.
 // Kein CRTP-Basiszwang: der Pruefling erbt nie von CE, er erfuellt nur.
 struct SlotMin {
-    using PrueflingVariants                 = mp::mp_list<FixtureNeu>;
-    static constexpr bool has_pruefling     = true;
+    using PrueflingVariants             = mp::mp_list<FixtureNeu>;
+    static constexpr bool has_pruefling = true;
 };
 
 // Der Gegeneingang (T-4): derselbe Slot-Bau, aber has_pruefling = false.
 // Er belegt, dass StufeTwoAxis dann auf die CE-Default-Liste zurueckfaellt --
 // eine Zusicherung ohne Eingang, bei dem sie NICHT gilt, ist keine.
 struct SlotLeer {
-    using PrueflingVariants                 = mp::mp_list<FixtureNeu>;
-    static constexpr bool has_pruefling     = false;
+    using PrueflingVariants             = mp::mp_list<FixtureNeu>;
+    static constexpr bool has_pruefling = false;
 };
 
 // Und der Fall, der mp_unique beweisen muss: ein Slot, dessen Variante bereits
 // in der Default-Liste steht. Stufe 3 darf hier um 0 wachsen.
 struct SlotDoppelt {
-    using PrueflingVariants                 = mp::mp_list<CeBekannt>;
-    static constexpr bool has_pruefling     = true;
+    using PrueflingVariants             = mp::mp_list<CeBekannt>;
+    static constexpr bool has_pruefling = true;
 };
 
 } // namespace comdare::tests::pruefling_fixture
