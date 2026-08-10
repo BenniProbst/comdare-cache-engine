@@ -6219,6 +6219,16 @@ comdare_add_test(test_a9s4_realm_scan_stale
 set_tests_properties(test_a9s4_realm_scan_stale PROPERTIES
     LABELS "a9;mess_report;stale;wachen")
 
+# D3-6 (2026-08-10) -- die SCHWESTERSTELLE des anhang:forward-Selektors, hier in ce: der
+# --realm-root-Scan suchte NUR den Archiv-Suffix ".result.csv" und konnte die Produktions-Ablage
+# (bin_dir/"result.csv", cache_engine_builder_iterator.hpp:2950) rechnerisch nie treffen. Der Test
+# holt seinen Nenner aus dem ERZEUGER, nicht aus dem Pruefling -- deshalb steht er neben, nicht in
+# test_a9s4_realm_scan_stale.cpp (dessen Faelle fuettern ausschliesslich die Archivform).
+comdare_add_test(test_d3_6_realm_selektor_produktionsablage
+    SOURCES test_d3_6_realm_selektor_produktionsablage.cpp)
+set_tests_properties(test_d3_6_realm_selektor_produktionsablage PROPERTIES
+    LABELS "d3;mess_report;selektor;nenner;wachen")
+
 comdare_add_test(test_a9s4_dynamic_axis_filter
     SOURCES test_a9s4_dynamic_axis_filter.cpp)
 set_tests_properties(test_a9s4_dynamic_axis_filter PROPERTIES
