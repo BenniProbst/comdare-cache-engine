@@ -92,7 +92,9 @@ void help_for(std::string const& topic) {
                      "  --format=csv existiert NUR als Test-/Fallback-Pfad (druckt einen Hinweis auf stderr,\n"
                      "  liest/schreibt den Skip-Bestand nicht) -- kein regulaerer Weg fuer einen Anwender.\n"
                      "  Quelle GENAU EINE: --csv=<pfad> (eine Datei) XOR --realm-root=<dir> (rekursiver Scan nach\n"
-                     "  *.result.csv; .stale-Bestaende werden weder gelesen noch angefasst).\n"
+                     "  BEIDEN Ablageformen: <stamm>/result.csv (Produktion) und <binary_id>.result.csv (Archiv);\n"
+                     "  .stale-Bestaende werden weder gelesen noch angefasst). Der Scan meldet seinen Nenner\n"
+                     "  (angesehene Eintraege, Funde je Form, Selektor) -- auch und gerade, wenn er nichts fand.\n"
                      "  SKIP bei validem Bestand (Owner-Direktive): eine binary_id, die bereits erfolgreich\n"
                      "  geschrieben wurde (Manifest in --out), wird NICHT erneut geschrieben -- exakt gleiche\n"
                      "  Binary heisst skip, eine neue Binary-Version erzeugt eine ZUSAETZLICHE neue Datei, die\n"
@@ -153,6 +155,9 @@ struct QuellenAufloesung {
     std::size_t                        stale_uebersprungen = 0;
     bool                               ok                  = false;
     std::string                        fehler;
+    /// D3-6: der Nenner des Verzeichnis-Scans, LEER bei --csv (dort gibt es keinen Scan und damit
+    /// auch nichts zu belegen -- eine erfundene Bilanz waere schlimmer als keine).
+    std::string bilanz;
 };
 
 [[nodiscard]] QuellenAufloesung loese_quellen(RenderFlags const& f) {
@@ -175,8 +180,14 @@ struct QuellenAufloesung {
     }
     out.pfade               = scan.gefundene_csvs;
     out.stale_uebersprungen = scan.uebersprungen_stale;
+    out.bilanz              = mr::scan_bilanz(scan);
     if (out.pfade.empty()) {
-        out.fehler = "--realm-root='" + f.realm_root + "' enthaelt keine *.result.csv (nach .stale-Ausschluss)";
+        // D3-6: die Null trug frueher KEINEN Nenner ("enthaelt keine *.result.csv"). Damit war
+        // "unter dieser Wurzel liegt nichts" von "der Selektor sieht die Ablage gar nicht" nicht zu
+        // unterscheiden -- und genau der zweite Fall lag ein halbes Jahr lang vor. Die Bilanz sagt
+        // jetzt beides: wie viele Eintraege angesehen wurden UND wonach gesucht wurde.
+        out.fehler = "--realm-root='" + f.realm_root + "' enthaelt keine Mess-CSV (nach .stale-Ausschluss) -- " +
+                     out.bilanz;
         return out;
     }
     out.ok = true;
@@ -215,6 +226,11 @@ struct QuellenAufloesung {
 
         QuellenAufloesung const q = loese_quellen(f);
         if (!q.ok) return fehler_usage(q.fehler);
+        // D3-6 / V-1: der Nenner gehoert in die AUSGABE, nicht nur in den Fehlerfall. Ein Bericht ueber
+        // 3 Binaries ist erst dann pruefbar, wenn danebensteht, aus wie vielen angesehenen Eintraegen
+        // welcher Ablageform die 3 stammen -- sonst sieht ein Baum, dessen Produktionsdaten der Selektor
+        // nicht sieht, genauso aus wie ein Baum, der nur diese 3 enthaelt.
+        if (!q.bilanz.empty()) std::cout << "comdare-mess-report: realm-scan " << q.bilanz << "\n";
 
         if (f.fassung3) {
             auto const erste   = mr::lies_wide_csv(q.pfade.front());
