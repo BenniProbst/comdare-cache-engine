@@ -61,15 +61,47 @@
 #   * Sie prueft nur den DIFF-BEREICH, nicht den Gesamtbestand -- Alt-Zeilen,
 #     die nur durch reines Whitespace-Reformatieren zu "+"-Zeilen werden,
 #     zaehlt sie trotzdem (kein `git diff -w`); das ist Aufrufer-Sache.
-#   * Sie prueft nur SELBST VERFASSTEN Code (Erweiterungs-Liste unten:
-#     .cpp/.hpp/.h/.hh/.cc/.cxx/.tpp/.ipp/.inl/.cmake, CMakeLists.txt). Deutsche
-#     Doku-Prosa (*.md) traegt per Sprachdoktrin korrekte Umlaute und ist
-#     ABSICHTLICH ausgenommen -- das ist kein blinder Fleck, sondern Scope;
-#     ausgenommene Zeilen werden trotzdem GEZAEHLT und ihre Dateien NAMENTLICH
-#     gemeldet, damit "ausserhalb des Scopes" nicht zu einer zweiten stillen
-#     Null wird. Rohe Build-/Test-Logs mit Unicode-Trennlinien (CMake/make)
-#     stehen nie in einem Diff dieser Art (sie sind keine versionierten
-#     Quelldateien) und sind damit strukturell aussen vor, nicht per Ausnahme.
+#   * Sie prueft ALLES ausser zwei ausdruecklich benannten Ausnahmen (s.
+#     skip_grund() unten): deutsche Doku-Prosa (*.md) traegt per Sprachdoktrin
+#     korrekte Umlaute, und Vendor-Baeume mit COMDARE-VENDOR-PROVENANCE.md sind
+#     fremder Quelltext, den niemand umschreiben darf. Ausgenommene Zeilen werden
+#     trotzdem GEZAEHLT und ihre Dateien NAMENTLICH samt GRUND gemeldet, damit
+#     "ausserhalb des Scopes" nicht zu einer zweiten stillen Null wird. Rohe
+#     Build-/Test-Logs mit Unicode-Trennlinien (CMake/make) stehen nie in einem
+#     Diff dieser Art (sie sind keine versionierten Quelldateien) und sind damit
+#     strukturell aussen vor, nicht per Ausnahme.
+#
+# WARUM DIE RICHTUNG AM 10.08.2026 UMGEDREHT WURDE (Befund am Objekt):
+# Bis heute stand hier eine WHITELIST von Endungen -- .cpp/.hpp/.h/.hh/.cc/.cxx/
+# .tpp/.ipp/.inl/.cmake plus CMakeLists.txt. Eine Whitelist laesst alles durch,
+# was sie NICHT nennt, und sie nennt sich dabei nicht selbst: .sh, .c, .txt,
+# .yml, .py und .tcc fielen lautlos heraus. Die Wache meldete GRUEN und hatte die
+# Datei nie angesehen.
+#
+# DER SCHADEN WAR REAL, nicht bloss potenziell: ein Strang kuerzte seine
+# Bilanz-Zeile von 159 auf 121 und dann auf 122 Byte, ohne nachzumessen, und kam
+# durch alle Tore. Sein Satz dazu: "ihr GRUEN ueber meinen Bereich war KEIN
+# Urteil ueber die Datei, die ich geaendert habe."
+#
+# GEMESSEN VOR DEM UMBAU (10.08.2026, ce/development 9f932e91, Nenner aus
+# `git ls-files` -- also aus einer ANDEREN Quelle als dieser Wache):
+#   * 143 getrackte *.sh mit 10.084 Zeilen. Davon 24 im eigenen Baum (5.872
+#     Zeilen) mit 42 Nicht-ASCII und 55 ueberlangen Zeilen = 97 Verstoesse in 14
+#     Dateien; 119 unter ext/ (4.212 Zeilen) mit 29 ueberlangen Zeilen.
+#   * Die Wache meldete darauf 0 -- sie hat *.sh nie angesehen. 0 gegen 126 ist
+#     der blinde Fleck, in Verstoessen gemessen.
+# Dieser BESTAND ist mit dem Umbau NICHT beseitigt: die Wache ist ein DIFF-Gate
+# und sieht nur HINZUGEFUEGTE Zeilen. Der Umbau stoppt den ZUWACHS. Der Bestand
+# ist ein eigener Posten (analog zum ASCII-Zaehler des Wellenplans fuer W7) --
+# ausdruecklich UNGEDECKT und hier benannt, damit er nicht still bleibt.
+#
+# WAS DER UMBAU KOSTET, auf ECHTEN Bereichen gemessen statt geschaetzt (dieselbe
+# Wache, einmal mit alter und einmal mit neuer skip_grund(), gegen dieselben
+# Diffs): HEAD~1 0 Verstoesse, HEAD~10 1, HEAD~25 1, HEAD~50 38, HEAD~100 79
+# (davon 58 in *.sh -- genau der Defekt, den dieser Umbau schliesst),
+# 1880f296..HEAD (der main-FF-Bereich, 2.462 Zusatzzeilen) 0. Der CI-Bereich ist
+# CI_COMMIT_BEFORE_SHA..HEAD, also ein Push -- die realistische Gate-Last liegt
+# bei 0 bis 1 Verstoessen. Der Umbau macht den naechsten Push nicht rot.
 #   * Spaltenbreite wird BYTEWEISE gemessen (LC_ALL=C `length()`), nicht als
 #     Unicode-Codepoint-Breite -- fuer den ASCII+SS-Regelbereich dieser Wache
 #     ist das identisch mit der Zeichenzahl; nur eine bereits ASCII-Verstoss-
@@ -292,21 +324,31 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         }
         return 0
     }
-    function is_scoped(fname,    base, i, last_dot, ext) {
-        if (is_vendor(fname)) return 0
+    # BLACKLIST statt Endungs-WHITELIST (10.08.2026, s. Kopf). Rueckgabe: die
+    # leere Zeichenkette heisst GEPRUEFT, jede andere ist der GRUND der Ausnahme
+    # und wird im Nenner je Datei mitgedruckt. Genau ZWEI Gruende sind zulaessig;
+    # wer einen dritten braucht, aendert diese Funktion und begruendet ihn hier.
+    #
+    # WARUM DIE RICHTUNG ZAEHLT: eine Whitelist muss jede zu pruefende Endung
+    # kennen und schweigt ueber jede neue -- sie faellt zur falschen Seite aus.
+    # Eine Blacklist faellt zur richtigen Seite aus: eine unbekannte Endung wird
+    # GEPRUEFT. Kommt morgen eine .rs, .tcc oder .toml ins Repo, ist sie ohne
+    # Zutun gedeckt. Das ist dieselbe Fail-Closed-Richtung, die diese Wache auch
+    # bei fehlendem Werkzeug und bei leerem Nenner einhaelt.
+    function skip_grund(fname,    base, i, last_dot, ext) {
+        if (is_vendor(fname)) return "Vendor-Baum, COMDARE-VENDOR-PROVENANCE.md"
         base = fname
         i = length(base)
         while (i > 0 && substr(base, i, 1) != "/") i--
         base = substr(base, i + 1)
-        if (base == "CMakeLists.txt") return 1
         last_dot = 0
         for (i = 1; i <= length(base); i++) if (substr(base, i, 1) == ".") last_dot = i
-        if (last_dot == 0) return 0
-        ext = substr(base, last_dot)
-        if (ext == ".cpp" || ext == ".hpp" || ext == ".h"   || ext == ".hh"  || \
-            ext == ".cc"  || ext == ".cxx" || ext == ".tpp" || ext == ".ipp" || \
-            ext == ".inl" || ext == ".cmake") return 1
-        return 0
+        ext = (last_dot == 0) ? "" : substr(base, last_dot)
+        # *.md: deutsche Doku-Prosa traegt per Sprachdoktrin korrekte Umlaute.
+        # Das ist die urspruengliche und weiterhin richtige Begruendung -- sie
+        # galt nie fuer Quelltext, der nur zufaellig nicht auf der Liste stand.
+        if (ext == ".md") return "Doku-Prosa *.md, Sprachdoktrin"
+        return ""
     }
     function strip_sigma(s,    i, out, two) {
         out = ""
@@ -317,8 +359,11 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         }
         return out
     }
-    function note_skip(f) {
-        if (!(f in skipped_files)) { skipped_files[f] = 1; skipped_files_n++ }
+    function note_skip(f, grund) {
+        # Der GRUND wird je Datei festgehalten, nicht bloss die Tatsache des
+        # Ueberspringens: "ausserhalb des Scopes" ohne Grund ist genau das
+        # irrefuehrende Etikett, an dem die Shell-Blindheit so lange vorbeikam.
+        if (!(f in skipped_files)) { skipped_files[f] = grund; skipped_files_n++ }
     }
     {
         line = $0
@@ -369,7 +414,8 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         if (prefix == "+") {
             total_added++
             content = substr(line, 2)
-            if (is_scoped(curfile)) {
+            grund = skip_grund(curfile)
+            if (grund == "") {
                 total_scoped++
                 checked = strip_sigma(content)
                 viol_ascii = 0
@@ -386,7 +432,7 @@ awk -v vendor_roots="$_ce_vendor_roots" '
                 }
             } else {
                 total_skipped++
-                note_skip(curfile)
+                note_skip(curfile, grund)
             }
             newline_no++
             next
@@ -401,7 +447,9 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         printf "SUMMARY_SKIPPED=%d\n", total_skipped > "'"$_ce_awk_out"'.meta"
         printf "SUMMARY_ASCII=%d\n",   ascii_viol     > "'"$_ce_awk_out"'.meta"
         printf "SUMMARY_WIDTH=%d\n",   width_viol     > "'"$_ce_awk_out"'.meta"
-        for (f in skipped_files) print f > "'"$_ce_awk_out"'.skipped"
+        # Tabulator als Trenner: Dateinamen im Baum enthalten keinen, und die
+        # Shell-Seite liest Pfad und Grund damit ohne Rateschritt auseinander.
+        for (f in skipped_files) print f "\t" skipped_files[f] > "'"$_ce_awk_out"'.skipped"
     }
 ' "$_ce_diff_datei" > "$_ce_awk_out"
 _ce_awk_rc=$?
@@ -443,12 +491,15 @@ echo "--------------------------------------------------------------------------
 echo "NENNER (nie eine nackte Null):"
 echo "  ${_ce_scoped} Zusatzzeilen in selbst verfasstem Code geprueft, davon ${_ce_ascii} Nicht-ASCII,"
 echo "  davon ${_ce_width} ueber 120 Spalten."
-echo "  ${_ce_added} Zusatzzeilen insgesamt im Diff; ${_ce_skipped} davon ausserhalb des Scopes"
-echo "  (Doku-Prosa/Sonstiges) uebersprungen."
+echo "  ${_ce_added} Zusatzzeilen insgesamt im Diff; ${_ce_skipped} davon uebersprungen."
+echo "  GEPRUEFT WIRD ALLES; ausgenommen sind genau zwei Klassen, je Datei unten"
+echo "  mit GRUND benannt: Doku-Prosa *.md und Vendor-Baeume. Die frueher hier"
+echo "  gedruckte Sammelbezeichnung \"(Doku-Prosa/Sonstiges)\" war irrefuehrend --"
+echo "  unter \"Sonstiges\" lagen 143 getrackte *.sh mit 10.084 Zeilen Quelltext."
 if [ -f "${_ce_awk_out}.skipped" ] && [ -s "${_ce_awk_out}.skipped" ]; then
-    echo "  Uebersprungene Dateien (namentlich, keine zweite stille Null):"
-    while IFS= read -r _ce_sf; do
-        [ -n "$_ce_sf" ] && echo "    - ${_ce_sf}"
+    echo "  Uebersprungene Dateien (namentlich MIT GRUND, keine zweite stille Null):"
+    while IFS="$(printf '\t')" read -r _ce_sf _ce_sg; do
+        [ -n "$_ce_sf" ] && echo "    - ${_ce_sf}  [${_ce_sg}]"
     done < "${_ce_awk_out}.skipped"
 fi
 if [ -n "$_ce_vendor_roots" ]; then
@@ -460,6 +511,16 @@ if [ -n "$_ce_vendor_roots" ]; then
     echo "  Eigener Code in diesen Baeumen (Wrapper, CMakeLists) liegt AUSSERHALB und"
     echo "  wird weiter geprueft."
 fi
+# (c) DER BESTAND IST EIN EIGENER POSTEN -- und er wird hier BENANNT, nicht
+# stillschweigend mitgemeint. Diese Wache ist ein DIFF-Gate: sie urteilt ueber
+# HINZUGEFUEGTE Zeilen und ueber sonst nichts. Ein GRUEN heisst "der Zuwachs ist
+# sauber", NIE "die Datei ist sauber" -- genau diese Verwechslung war der
+# Schaden vom 09.08.2026. Bewusst OHNE Zahl: eine hier eingedruckte Bestandszahl
+# veraltet mit dem naechsten Commit und wuerde zur zweiten stillen Null. Die
+# gemessene Zahl steht datiert im Kopf dieser Datei.
+echo "  GRENZE (ungedeckt, ausdruecklich): geprueft ist der ZUWACHS in diesem Diff,"
+echo "  nicht der Bestand der beruehrten Dateien und nicht der des Baums. Wer ueber"
+echo "  eine DATEI urteilen will, misst die Datei -- nicht diesen Bereich."
 echo "-----------------------------------------------------------------------------"
 
 rm -f "${_ce_awk_out}.meta" "${_ce_awk_out}.skipped"

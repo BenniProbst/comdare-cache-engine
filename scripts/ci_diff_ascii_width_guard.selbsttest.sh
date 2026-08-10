@@ -251,6 +251,58 @@ st_neues_repo
 st_bewerte "9 leerer Bereich bleibt Exit 0" 0 "GRUEN" "$?" "$_st_out"
 rm -rf "$_st_repo"
 
+# --- Fall 10: SHELL-DECKUNG -- ein Koeder in einer .sh-Datei muss beissen ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-10, am Objekt gemessen): is_scoped()
+# war eine WHITELIST (.cpp/.hpp/.h/.hh/.cc/.cxx/.tpp/.ipp/.inl/.cmake plus
+# CMakeLists.txt). ALLES andere fiel lautlos heraus -- .sh, .c, .txt, .yml, .py.
+# Die Wache meldete GRUEN, ohne die Datei je angesehen zu haben. Ihr Nenner nannte
+# die Zeilen zwar als "ausserhalb des Scopes", aber unter dem Etikett
+# "(Doku-Prosa/Sonstiges)" -- das liest sich wie Prosa und war in Wahrheit
+# Quelltext: 143 getrackte .sh-Dateien mit 10.084 Zeilen.
+#
+# DER SCHADEN WAR REAL, nicht bloss potenziell: ein Strang kuerzte seine
+# Bilanz-Zeile von 159 auf 121 und dann auf 122 Byte, ohne nachzumessen, und kam
+# durch alle Tore -- das GRUEN ueber seinen Bereich war kein Urteil ueber die
+# Datei, die er geaendert hatte.
+#
+# Der Fall wuerfelt BEIDE Verstossklassen in EINE Shell-Datei: das nicht-ASCII-
+# Zeichen (oben frisch gewuerfelt) und eine ueberlange Zeile. Vor der Reparatur
+# lief er Exit 0 GRUEN durch -- protokolliert im Paket zu diesem Fall.
+st_neues_repo
+printf '# KOEDER %s %s Bilanz-Zeile\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/scripts/probe_bilanz.sh"
+printf '# %s\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    >> "${_st_repo}/scripts/probe_bilanz.sh"
+git -C "$_st_repo" add scripts/probe_bilanz.sh || st_abbruch "git add (Fall 10) fehlgeschlagen."
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "10 .sh-Deckung beisst" 1 "NICHT-ASCII" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 11: GEGENEINGANG -- die *.md-Ausnahme haelt, und .sh bleibt geprueft ---
+# Ohne diesen Fall waere Fall 10 auch von einer Wache zu bestehen, die schlicht
+# JEDE Datei rot faerbt -- dann waere deutsche Doku-Prosa unbenutzbar. Die
+# Ausnahme fuer *.md ist die urspruengliche, richtige Begruendung des Scopes:
+# deutsche Prosa traegt per Sprachdoktrin korrekte Umlaute.
+# Der Fall stellt beides gleichzeitig: eine .md-Datei mit demselben gewuerfelten
+# Zeichen (muss uebersprungen werden) UND eine saubere .sh-Datei (muss GEPRUEFT
+# werden, damit der Nenner nicht null ist -- sonst waere das Gruen wertlos).
+st_neues_repo
+printf 'Deutsche Doku-Prosa mit Umlaut %s und Kennzeichen %s.\n' "$_st_na" "$_st_kennzeichen" \
+    > "${_st_repo}/HANDBUCH.md"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_sauber.sh"
+git -C "$_st_repo" add HANDBUCH.md scripts/probe_sauber.sh \
+    || st_abbruch "git add (Fall 11) fehlgeschlagen."
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+# Das Muster ist bewusst die NENNER-Zeile und nicht bloss "GRUEN": genau EINE der
+# beiden Zusatzzeilen darf geprueft worden sein (die .sh), die andere (die .md)
+# gehoert in die uebersprungene Menge. Ein blosses "Exit 0" waere auch von einer
+# Wache zu bestehen, die BEIDE Dateien uebersieht -- also von genau dem Defekt,
+# den Fall 10 aufdeckt. So ist der Gegeneingang eine AUSSAGE, keine Anwesenheit.
+st_bewerte "11 md-Ausnahme haelt, sh geprueft" 0 \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
 rm -f "$_st_out"
 
 echo ""
