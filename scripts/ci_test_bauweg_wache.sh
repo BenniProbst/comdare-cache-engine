@@ -360,3 +360,24 @@ fi
 
 echo "BAUWEG-WACHE: OK ($N_BAUPRODUKT aufgerufene Bauprodukte, $N_BEFUND unbegruendet ausserhalb)."
 exit 0
+
+# -----------------------------------------------------------------------------
+# ABLOESUNGS-VERMERK (Lead, 10.08.2026) -- diese Datei ist eine WAISE auf Zeit.
+#
+# Owner-KERN vom 09.08.2026 14:34 (Rohtranskript Zeile 25562, promptSource=typed):
+#   "Ich sehe einen Haufen shells statt vernuenftiger google tests, was soll das?
+#    Es waere sauberer im cmake-Debug Modus standard google Tests zu fahren und
+#    diese in Release zu wiederholen aufgrund von compile regressionen.
+#    SKRIPTE SAGEN GAR NICHTS. ... die C++ Implementierung dazu."
+#
+# Diese Wache entstand in derselben Nacht, BEVOR der Lead das Owner-Wort im
+# Transkript gefunden hatte. Sie schliesst eine echte, am Objekt belegte Luecke
+# (T-7 zweite Haelfte: ein Test existiert erst, wenn sein Binary im Bauweg haengt)
+# und ist verifiziert -- deshalb wird sie gelandet und nicht verworfen.
+#
+# ABER SIE IST DER ZIELFORM NACH FALSCH. Ihr Umbau nach C++/GoogleTest ist als
+# Posten gefuehrt; das Vorbild steht im Haus: Code/ci_wachen/ mit Testwerkbank,
+# und ci/tests/xml_wellformed_probe.sh traegt seit dem 09.08. denselben Vermerk.
+#
+# WER DIESE DATEI ANFASST, baut sie um -- er erweitert sie nicht.
+# -----------------------------------------------------------------------------
