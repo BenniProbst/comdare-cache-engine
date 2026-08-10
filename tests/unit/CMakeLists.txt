@@ -6152,6 +6152,25 @@ target_compile_definitions(test_d2_abdeckungs_wache_nenner PRIVATE
 set_tests_properties(test_d2_abdeckungs_wache_nenner PROPERTIES
     LABELS "wachen;d2;nenner;selbsttest")
 
+# MT-L4/W0a (2026-08-10): SELBSTTEST DER ZWEITEN GEGENSTANDSART der Test-Registrierungs-
+# Wache. Anlass war ce-Pipeline 15517: die Wache meldete zu Recht ROT, weil das Format
+# ihrer Allowlist eine ISA-Gattierung strukturell nicht ausdruecken konnte -- Feld 2 nannte
+# immer eine DATEI, der Fall haengt aber an einer HOST-EIGENSCHAFT.
+#
+# UNBEDINGT registriert -- kein if() um diesen Block, und ausdruecklich NICHT hinter
+# COMDARE_HOST_RUNS_*. Ein Selbsttest der ISA-Erloschen-Pruefung, der selbst nur auf
+# AVX-512-Hosts liefe, waere genau auf der Host-Klasse blind, fuer die er gebaut ist.
+# Er wuerfelt seine Baeume und faehrt beide Richtungen; die Windows-Ausnahme traegt er
+# intern als GTEST_SKIP.
+comdare_add_test(test_mt_l4_registrierungs_wache_isa
+    SOURCES test_mt_l4_registrierungs_wache_isa.cpp)
+target_compile_definitions(test_mt_l4_registrierungs_wache_isa PRIVATE
+    "COMDARE_MTL4_WACHE_SH=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\""
+    "COMDARE_MTL4_ALLOWLIST=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_allowlist.txt\""
+    "COMDARE_MTL4_TESTS_CMAKE=\"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt\"")
+set_tests_properties(test_mt_l4_registrierungs_wache_isa PROPERTIES
+    LABELS "wachen;mt_l4;registrierung;selbsttest")
+
 # A9-S4: der Konsument (tools/mess_report/). Die drei Header sind self-contained (relative Includes
 # "../../tools/mess_report/..." loesen unabhaengig von den Include-Dirs auf); nur der Render-Test
 # zieht ergebnis_mappe.hpp (lager_ablage) und braucht deshalb denselben Vendor-Link wie oben.
