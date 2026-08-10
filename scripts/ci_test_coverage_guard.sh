@@ -635,6 +635,33 @@ else
     CE_PARTITION_ROT=0
 fi
 
+# -- DER FREISPRUCH BRAUCHT EINEN BELEG (2026-08-10) --------------------------
+# Bis heute wurde das ERGEBNIS dieser Rechnung an genau zwei Stellen sichtbar:
+# im Widerspruchs-Block (Exit 4) und im PARTITIONS-BELEG ganz unten -- und der
+# laeuft NUR bei CE_RC == 0. Auf JEDEM Baum mit Exit 1 (Phantom-Gate, toter
+# Name, Abdeckungsluecke) war der Ausgang dieser Rechnung damit UNSICHTBAR, und
+# die Schlusszeile sagte trotzdem "Nenner belegt".
+#
+# WARUM DAS NICHT NUR KOSMETIK IST: eine Gegenprobe ("eine heile Partition MUSS
+# schweigen") kann ohne diese Zeile nicht geschrieben werden. Sie haette nur die
+# ABWESENHEIT des Widerspruchs zu pruefen -- und die haelt auch dann, wenn hier
+# nie gerechnet wurde oder das Werkzeug gar nicht erst startete. Das ist die
+# Klasse "gruenes Gate ohne Gegenstand".
+#
+# Es ist dieselbe Lehre wie im Kopf dieses Abschnitts, eine Ebene tiefer: dort
+# war das '==' eine ZEICHENKETTE statt eines Vergleichs, hier ist der Beleg an
+# den gruenen Zweig gebunden -- ein Beleg, den nur der gruene Zweig druckt,
+# belegt den gruenen Zweig und sonst nichts.
+#
+# Die Zeile steht DESHALB unbedingt, traegt alle fuenf Zahlen und ist in beiden
+# Ausgaengen dieselbe: der Unterschied liegt in 'differenz', nicht in der Form.
+# Der ausfuehrliche Widerspruchs-Block unten bleibt unveraendert: er ERKLAERT
+# den Befund, diese Zeile BELEGT die Rechnung. Zwei Aufgaben, zwei Stellen.
+_ce_pdiff=$(( CE_PARTITION_SUMME - CE_GESAMT ))
+echo ""
+printf 'PARTITIONS-RECHNUNG: ohne=%s mit=%s summe=%s inventur=%s differenz=%s\n' \
+    "$CE_OHNE_PMC" "$CE_MIT_PMC" "$CE_PARTITION_SUMME" "$CE_GESAMT" "$_ce_pdiff"
+
 # =============================================================================
 # DER NENNER ERKLAERT SICH SELBST -- Registrierungs-Protokoll auswerten (D2)
 # =============================================================================
