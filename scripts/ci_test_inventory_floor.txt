@@ -28,55 +28,117 @@
 # Aussage, nicht Beiwerk.
 #
 # -- WIE DIE ZAHLEN ENTSTANDEN SIND (nachgemessen, nicht fortgeschrieben) ------
-# GEMESSEN am 2026-08-10 in diesem Repo, Stand 83a6d443, Worktree wt-ce-fk,
-# Bau-Baum build-covguard (GCC 15.3.0, Ninja, offizieller Weg:
-# './configure.sh --with-generator=Ninja --enable-build-tests --build-dir=...'
-# + 2-Pass-Werkzeuge gebaut und neu konfiguriert), Messhost prod1:
+# GEMESSEN am 2026-08-10 in diesem Repo, Stand 6c010cdc (die Sammellandung, auf der
+# Pipeline 15536 fuhr), Worktree wt-ce-fk, Messhost prod1, GCC 15.3.0, Ninja. Der
+# Bau-Baum build-covguard wurde dafuer KALT angelegt -- er existierte beim Start
+# nicht -- und mit dem Rezept des Jobs test:coverage-guard gebaut, einschliesslich
+# des Pruefling-Schalters, der diesen Baum von dem des Jobs test:unit unterscheidet:
 #
+#     CC=gcc-15 CXX=g++-15 sh ./configure.sh --with-generator=Ninja \
+#         --enable-build-tests --build-dir=build-covguard \
+#         -DCOMDARE_CE_PRUEFLINGE="$PWD/tests/pruefling_fixture"
+#     make inventar BUILD_JOBS=4
 #     ctest --test-dir build-covguard -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' \
-#         | LC_ALL=C sort -u | wc -l    ->    496
+#         | LC_ALL=C sort -u | wc -l    ->    479
+#
+# Dass der Baum wirklich der des Jobs ist, haengt nicht an der Absicht: der Bau
+# meldete 2172 Schritte, genau wie Job 371636. Ohne den Pruefling-Schalter sind es
+# 2168 Schritte und 478 Tests -- der Block 'pruefling_slots_v1' steht dann als
+# UEBERSPRUNGEN im Registrierungs-Protokoll. Wer hier ohne den Schalter misst, misst
+# den falschen Baum; genau das ist beim Nachmessen am 2026-08-10 zuerst passiert.
 #
 # Dieser Messhost ist die REICHSTE Klasse: CMakeCache.txt meldet
-# COMDARE_HOST_RUNS_AVX2=1 UND COMDARE_HOST_RUNS_AVX512F=1. 496 ist damit die
+# COMDARE_HOST_RUNS_AVX2=1 UND COMDARE_HOST_RUNS_AVX512F=1. 479 ist damit die
 # Untergrenze fuer 'avx512f' und fuer sonst keine.
+#
+# FREMDER NENNER (T-3), damit die Zahl nicht nur aus der eigenen Messung stammt: der
+# Job test:unit derselben Pipeline (371647, prod1, Stand 6c010cdc) hat seine Inventur
+# als Artefakt veroeffentlicht -- build/Testing/ctest_unit_inventar.txt, 478 Namen.
+# Sie ist mit der hiesigen Messung OHNE Pruefling-Schalter BYTE-GLEICH (diff leer).
+# Zwei Baeume, zwei Bau-Wege, zwei Maschinenlaeufe, dieselbe Namensmenge.
 #
 # DIE BEIDEN ANDEREN SPROSSEN SIND NICHT GERECHNET, SONDERN VON CMAKE ERZEUGT
 # (Gegenorakel, V-7: die Zahl kommt aus einer anderen Quelle als der Rechnung).
 # Verfahren: denselben Baum mit erzwungener Klasse neu KONFIGURIEREN (kein Neubau)
 # und die Namensmengen vergleichen --
-#     cmake -S . -B build-covguard -DCOMDARE_HOST_RUNS_AVX512F=0                  -> 492
-#     cmake -S . -B build-covguard -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0 -> 490
+#     cmake -S . -B build-covguard -DCOMDARE_HOST_RUNS_AVX512F=0                  -> 475
+#     cmake -S . -B build-covguard -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0 -> 473
 # und danach 'cmake -U COMDARE_HOST_RUNS_AVX2 -U COMDARE_HOST_RUNS_AVX512F', damit
-# die Probe wieder echt laeuft. Die Wiederherstellung ist nachgewiesen: 496 Tests,
+# die Probe wieder echt laeuft. Die Wiederherstellung ist nachgewiesen: 479 Tests,
 # Namensmenge Byte-gleich zur Erstmessung. Die Differenzen sind NAMENTLICH belegt,
-# in beide Richtungen (die Gegenrichtung war jeweils LEER -- es kommt nichts hinzu):
+# in beide Richtungen (die Gegenrichtung war jeweils LEER -- es kommt nichts hinzu).
+# ALLE Vergleiche mit LC_ALL=C, auch die von 'comm': ein comm ohne C-Kollation haelt
+# eine C-sortierte Datei fuer unsortiert und darf dann alles melden -- am 2026-08-10
+# genau so passiert und deshalb wiederholt worden.
 #
 #   avx512f -> avx2  verliert genau diese VIER:
-#       test_ap5_simd_extension_coherence      (Block an AVX2 UND AVX512F, tests/unit/CMakeLists.txt:4165)
-#       test_buildvariant_dll_real             (Block an AVX2 UND AVX512F, tests/unit/CMakeLists.txt:4165)
-#       test_simd_add_u64_carry_avx512         (do_run an AVX512F, tests/unit/CMakeLists.txt:5375)
-#       test_simd_field_sum_dispatch_avx512    (do_run an AVX512F, tests/unit/CMakeLists.txt:5343)
+#       test_ap5_simd_extension_coherence      (Block an AVX2 UND AVX512F, tests/unit/CMakeLists.txt:4236)
+#       test_buildvariant_dll_real             (Block an AVX2 UND AVX512F, tests/unit/CMakeLists.txt:4236)
+#       test_simd_add_u64_carry_avx512         (do_run an AVX512F, tests/unit/CMakeLists.txt:5446)
+#       test_simd_field_sum_dispatch_avx512    (do_run an AVX512F, tests/unit/CMakeLists.txt:5414)
 #
 #   avx2 -> basis    verliert zusaetzlich diese ZWEI:
-#       test_simd_add_u64_carry_avx2           (do_run an AVX2, tests/unit/CMakeLists.txt:5372)
-#       test_simd_field_sum_dispatch_avx2      (do_run an AVX2, tests/unit/CMakeLists.txt:5330)
+#       test_simd_add_u64_carry_avx2           (do_run an AVX2, tests/unit/CMakeLists.txt:5443)
+#       test_simd_field_sum_dispatch_avx2      (do_run an AVX2, tests/unit/CMakeLists.txt:5401)
 #
 # Mehr ISA-gattierte Registrierungen gibt es nicht: 'COMDARE_HOST_RUNS' kommt in
-# tests/unit/CMakeLists.txt an genau neun Stellen vor --
-#   VIER Proben-Definitionen  4129, 4130, 5292, 5293  (dieselben zwei
+# tests/unit/CMakeLists.txt an genau ZEHN Stellen vor --
+#   VIER Proben-Definitionen  4200, 4201, 5363, 5364  (dieselben zwei
 #       check_cxx_source_runs-Aufrufe stehen ZWEIMAL in der Datei; der zweite ist
 #       fuer den unteren Abschnitt da und ueberschreibt nichts: das Modul steigt bei
 #       'if(NOT DEFINED "${_var}")' aus, Modules/Internal/CheckSourceRuns.cmake:7)
-#   EINE Block-Bedingung      4165  (if(AVX2 AND AVX512F) -> die zwei add_test in
-#       4166 und 4180)
-#   VIER do_run-Argumente     5330, 5343, 5372, 5375
-# Die Summe 9 stimmte schon vorher; die ZUSAMMENSETZUNG war falsch aufgeschrieben.
-# Sonst REGISTRIERT niemand im Repo hinter diesen Variablen. Der Name kommt zwar
-# noch an vier weiteren Stellen vor -- scripts/ci_test_coverage_guard.sh (liest ihn),
-# scripts/ci_test_sichtbarkeit_wache.sh:42,299 und
+#   EINE Block-Bedingung      4236  (if(AVX2 AND AVX512F) -> die zwei add_test in
+#       4237 und 4251)
+#   VIER do_run-Argumente     5401, 5414, 5443, 5446
+#   EIN Kommentar             6232  (bei test_mt_l4_registrierungs_wache_isa; registriert nichts)
+# Bis zur Sammellandung waren es NEUN; der zehnte Fundort ist der Kommentar bei 6232,
+# der mit dem mt-l4-Paket hinzukam. Die REGISTRIERENDEN Stellen sind unveraendert --
+# deshalb sind die Sprossenabstaende -4 und -2 dieselben geblieben.
+# Sonst REGISTRIERT niemand im Repo hinter diesen Variablen; 'grep -rl' ueber alle
+# CMakeLists.txt und *.cmake ausserhalb von ext/ liefert genau diese eine Datei. Der
+# Name kommt zwar noch woanders vor -- scripts/ci_test_coverage_guard.sh (liest ihn,
+# 4 Fundstellen), scripts/ci_test_sichtbarkeit_wache.sh:59,328 und
 # tests/unit/test_ap5_simd_extension_coherence.cpp:10 (beide nur im Kommentar) --,
 # aber keine davon legt einen ctest-Eintrag an. Die frueher hier stehende Formel
 # "sonst nirgends im Repo" war deshalb zu weit gegriffen.
+#
+# -- WARUM DIE ZAHL GEFALLEN IST, UND WARUM DAS KEIN SCHWUND IST --------------
+# Die Sammellandung 6c010cdc hat die Inventur von 496 auf 479 gesenkt. Die Wache hat
+# das in Pipeline 15536 (Job 371636, prod1) als NENNER-BEFUND gemeldet -- literal
+# "UNTERSCHRITTEN um 17 Test(e)", Exit 4 -- und damit genau getan, wofuer sie da ist.
+# Die 17 sind vollstaendig aufgeklaert; jeder Posten ist gemessen, keiner gerechnet:
+#
+#   496   Stand 83a6d443, prod1, Klasse avx512f, Job-Rezept OHNE Pruefling-Schalter.
+#         Den gab es zu diesem Stand im Job noch nicht:
+#         'git show 83a6d443:.gitlab-ci.yml | grep -c COMDARE_CE_PRUEFLINGE' -> 0.
+#   -28   ca6d8af1 "D2-G1: die zwei gtest-Binaries unter libs/ nach dem Repo-Muster
+#         registrieren". gtest_discover_tests legte je gtest-FALL einen ctest-Eintrag
+#         an, add_test legt je BINARY einen an. Am Objekt gezaehlt (2026-08-10, die
+#         gebauten Binaries mit '--gtest_list_tests'): test_commands 23 Faelle,
+#         test_engine_adapters 7, zusammen 30 -- jetzt 2 Eintraege.
+#         KEIN Testfall ist verschwunden: gtest_main faehrt beim Start der Binary
+#         weiterhin alle 30. In 15536 sind beide Eintraege gruen gelaufen
+#         (Job 371647, Test #1 und #2, "Passed").
+#   +11   neue Test-Ziele der Landung: test_d2g1_ctest_registrierung,
+#         test_d3_6_realm_selektor_produktionsablage, test_hyg_kumulativer_bereich,
+#         test_mt_l3_wide_schema_orakel, test_mt_l4_registrierungs_wache_isa,
+#         test_t6_biss_achsen_roundtrip_wache, test_t6_biss_registrierungs_wache,
+#         test_t6_biss_sichtbarkeits_wache, test_t6_wachen_inventar,
+#         test_w0b_durchstich_kette und test_pruefling_fixture_ladung. Das letzte
+#         zaehlt nur, weil DIESELBE Landung dem Job den Schalter
+#         -DCOMDARE_CE_PRUEFLINGE mitgibt (8a8f6877).
+#   = 479 Stand 6c010cdc, prod1, Klasse avx512f, Job-Rezept MIT Schalter.
+#
+# WAS DER COVGUARD-JOB NICHT WAR: zu klein gebaut. Sein Registrierungs-Protokoll in
+# 15536 meldet 5 von 5 bedingten Bloecken GELAUFEN, 0 uebersprungen -- alle vier
+# 2-Pass-Tests sind drin. Der Nenner war vollstaendig; alt war nur die Untergrenze.
+#
+# WAS DARAUS FOLGT UND WAS NICHT: die alten drei Sprossen waren NICHT falsch, sie
+# waren UEBERHOLT. 492 ist am 2026-08-10 auf prod2 sogar unabhaengig bestaetigt
+# worden (Pipeline 15517, Job 371160: "LIVE-INVENTUR (ctest -N): 492", Klasse avx2).
+# Sie sind hier gesenkt worden, WEIL der Grund gemessen ist -- nicht, damit die Wache
+# gruen wird. Waere der Grund unklar geblieben, waere die Senkung unzulaessig; der
+# Kopf dieser Datei sagt es selbst, und er gilt auch fuer den, der ihn gerade liest.
 #
 # -- WIDERRUF: WAS DIE VORIGE FASSUNG DIESES ABSATZES BEHAUPTETE ---------------
 # Sie nannte fuenf Zeilenanker (4134, 5249, 5262, 5291, 5294) und die Aufteilung
@@ -90,11 +152,13 @@
 #     490 sind die alten 488 und 486 plus die 4, die der Merge zur avx512f-Sprosse
 #     hinzufuegte. Genau das schliesst der Absatz drei Zeilen weiter oben fuer sich
 #     aus ("NICHT GERECHNET, SONDERN VON CMAKE ERZEUGT").
-#   * Die drei Zahlen sind trotzdem RICHTIG. Sie stehen jetzt nicht mehr deshalb da,
-#     sondern weil sie am 2026-08-10 am Stand 83a6d443 neu erhoben wurden -- mit den
-#     zwei Namensmengen und beiden Gegenrichtungen, wie oben aufgefuehrt. Der Merge
-#     hat keine ISA-gattierte Registrierung hinzugefuegt; die Abstaende -4 und -6
-#     sind dieselben geblieben.
+#   * Die drei Zahlen waren trotzdem RICHTIG -- fuer IHREN Stand. Sie standen nicht
+#     mehr deshalb da, sondern weil sie am 2026-08-10 am Stand 83a6d443 neu erhoben
+#     wurden, mit den zwei Namensmengen und beiden Gegenrichtungen. Der Merge hat
+#     keine ISA-gattierte Registrierung hinzugefuegt; die Abstaende -4 und -2 sind
+#     dieselben geblieben.
+# DIESER ABSATZ IST HISTORIE: er beschreibt 496/492/490 am Stand 83a6d443. Gueltig
+# sind seit der Sammellandung 479/475/473, s. den Abschnitt darueber.
 #
 # NEBENBEI, damit niemand hineinlaeuft: das Erzwingen oben ist ein Verfahren fuer
 # 'ctest -N', NICHT fuer die Wache. Auf einem so erzwungenen Baum bricht
@@ -106,6 +170,23 @@
 # EINE VIERTE KLASSE GIBT ES NICHT: 'AVX-512F ohne AVX2' existiert auf keiner
 # x86-Maschine. Stuende es im Cache, waere nicht die Klasse ungewoehnlich, sondern
 # der Cache unglaubwuerdig -- die Wache bricht dort ab.
+#
+# -- HISTORIE: DIE SPROSSEN 496 / 492 / 490 (DEPRECATED 2026-08-10) -----------
+# Sie galten vom 2026-08-10 (Stand 83a6d443) bis zur Sammellandung 6c010cdc desselben
+# Tages. Sie sind NICHT geloescht, weil sie kein Irrtum waren, sondern ein
+# ueberholter Messstand -- und weil man an ihnen sieht, wie schnell eine Untergrenze
+# ihren Gegenstand verliert: zwischen Messung und Ueberholung lagen Stunden, nicht
+# Wochen. Was sie ueberholt hat, steht oben unter "WARUM DIE ZAHL GEFALLEN IST".
+# 492 ist unabhaengig belegt (15517/371160, prod2, Klasse avx2) und war damit die
+# einzige der drei, die je eine echte Maschine ihrer Klasse gesehen hat.
+#
+# WAS DARAN ZU LERNEN IST -- und was der Grund fuer den Abschnitt hier ist: ca6d8af1
+# hat die Zahl im eigenen Commit-Bogen ausdruecklich genannt ("ctest -N, beide Zahlen
+# mit Host: prod1 vorher 496, nachher 469") und die Untergrenze trotzdem nicht
+# nachgezogen. Der Paket-Stand hatte auch nie eine eigene Pipeline
+# ('/pipelines?sha=ca6d8af1' -> keine); die Wache lief also erstmals in der
+# Sammellandung ueber diese Aenderung. Wer eine Registrierung umbaut, aendert den
+# Gegenstand DIESER Datei -- und muss sie im selben Zug anfassen.
 #
 # -- HISTORIE: DIE ALTE ZAHL 488 UND WARUM SIE ZU HOCH WAR ---------------------
 # BIS 2026-08-10 stand hier GENAU EINE Zahl, 488, mit dem Anspruch, sie gelte
@@ -141,6 +222,6 @@
 # FORMAT: '#'-Kommentare und Leerzeilen sind erlaubt. Wertzeilen haben die Form
 # '<klasse> <ganzzahl>'. Verlangt sind ALLE DREI Klassen, jede GENAU EINMAL.
 # Eine nackte Zahl ohne Klasse (die alte Bauform) ist ein Abbruch, keine Wahl.
-avx512f 496
-avx2 492
-basis 490
+avx512f 479
+avx2 475
+basis 473
