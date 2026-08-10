@@ -6655,3 +6655,78 @@ target_compile_definitions(test_t6_biss_registrierungs_wache PRIVATE
     "COMDARE_T6_REG_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\"")
 set_tests_properties(test_t6_biss_registrierungs_wache PROPERTIES
     LABELS "wachen;t6;selbsttest;registrierung" TIMEOUT 300)
+# ===================================================================================================
+# W0b / ##25 DURCHSTICH (2026-08-10) -- die kleinste EHRLICHE Kette bis ins PDF, als Google Test.
+#
+# LOEST AB (nicht: loescht): die Shell-Deckung ci/durchstich_wache.sh + ci/durchstich_bissprobe.sh im
+# super-Repo. Owner 09.08. woertlich: "Ich sehe einen Haufen shells statt vernuenftiger google tests
+# ... Skripte sagen gar nichts." Diese TU deckt den Teil der Kette, den das ce BESITZT:
+#   format_csv_row -> MappenNaht -> .xlsx + .csv auf Platte -> LaTeX-Tabelle -> pdflatex -> PDF.
+#
+# WARUM DER INCLUDE-/LINK-SATZ SO GROSS IST: die Kette hat vier Erzeuger, und der Test greift jeden
+# von ihnen im ORIGINAL ab, statt ihn nachzubauen --
+#   * cache_engine_builder_iterator.hpp  (lazy_csv_header / format_csv_row / LazyMeasuredRow),
+#     deshalb der a8s3-Bauzuschnitt inkl. COMDARE_MEASUREMENT_ON=1 und der generierten Achsen-Dirs;
+#   * ergebnis_mappe_naht.hpp + comdare::lager_ablage (die Format-Wahl und die Mappe);
+#   * comdare_builder_xml_config_parser (der PRODUKTIONS-Parser fuer die getrackten Profile --
+#     der Nenner von G1 kommt so aus einer FREMDEN Quelle, nicht aus dem Prueflung);
+#   * comdare::latex_anhang_lib (das einzige tex-erzeugende Werkzeug des ce);
+#   * comdare_vendored_zlib -- die .xlsx wird ENTPACKT und der Lauf-Token im Klartext gesucht.
+#     Ohne zlib bliebe nur "die Datei faengt mit PK an", also Anwesenheit statt Aussage (T-2/V-8).
+#
+# COMDARE_DURCHSTICH_PROFIL_DIR: der Test soll den Profil-Ort nicht raten. Fehlt das Define, ist die
+# Wache ROT (fail-closed) -- sie faellt nicht auf ein leises Gruen zurueck.
+#
+# COMDARE_DURCHSTICH_PDFLATEX: find_program zur CONFIGURE-Zeit. Ist pdflatex da, ist das PDF-Glied
+# HART; ist es nicht da (ce-Bau-Image traegt kein TeX -- 0 Treffer auf latexmk|pdflatex|texlive in
+# .gitlab-ci.yml, gemessen 10.08.2026), meldet der Test die Luecke MIT NENNER und ueberspringt genau
+# dieses eine Glied. COMDARE_DURCHSTICH_PDF_PFLICHT=1 in der Umgebung macht daraus ein hartes Rot,
+# ohne dass jemand die Quelle anfassen muss -- der Hebel liegt damit in der YAML (Lead), nicht hier.
+# ===================================================================================================
+# ZWEITES Profil-Inventar: wird das ce als Unterprojekt des super gebaut, liegt unter
+# <super>/Code/experiment_config/thesis_profiles das F1-Durchstich-Profil -- genau die Datei, die den
+# Mini-Lauf der F1-Lieferung konfiguriert. Sie ist NICHT Teil des ce, wird aber vom selben Owner-KERN
+# regiert. Das Define entsteht NUR, wenn das Verzeichnis zur Configure-Zeit wirklich da ist (V-8: der
+# Gegenstand entscheidet, kein Schalter). Im ce-Alleinbau bleibt es leer und der Nenner sagt das.
+# Ein explizites -DCOMDARE_DURCHSTICH_PROFIL_DIR2=<pfad> hat Vorrang: so laesst sich die Wache auch
+# ohne Unterprojekt-Bau auf ein fremdes Inventar richten (und genau so wurde sie belegt).
+if(NOT DEFINED COMDARE_DURCHSTICH_PROFIL_DIR2)
+    set(COMDARE_DURCHSTICH_PROFIL_DIR2 "")
+    if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/Code/experiment_config/thesis_profiles")
+            set(COMDARE_DURCHSTICH_PROFIL_DIR2 "${CMAKE_SOURCE_DIR}/Code/experiment_config/thesis_profiles")
+            message(STATUS "Durchstich: zweites Profil-Inventar gefunden: ${COMDARE_DURCHSTICH_PROFIL_DIR2}")
+        endif()
+    endif()
+endif()
+
+find_program(COMDARE_DURCHSTICH_PDFLATEX_EXE NAMES pdflatex)
+if(NOT COMDARE_DURCHSTICH_PDFLATEX_EXE)
+    set(COMDARE_DURCHSTICH_PDFLATEX_EXE "")
+    message(STATUS "Durchstich: pdflatex NICHT gefunden (0 von 1) -- das PDF-Glied laeuft nur mit TeX.")
+else()
+    message(STATUS "Durchstich: pdflatex gefunden (1 von 1): ${COMDARE_DURCHSTICH_PDFLATEX_EXE}")
+endif()
+
+comdare_add_test(test_w0b_durchstich_kette
+    SOURCES test_w0b_durchstich_kette.cpp)
+target_include_directories(test_w0b_durchstich_kette PRIVATE
+    ${COMDARE_MCE24_INCLUDES}
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/tools/latex_anhang")
+target_link_libraries(test_w0b_durchstich_kette PRIVATE
+    Boost::mp11
+    comdare::lager_ablage
+    comdare_builder_xml_config_parser
+    comdare::latex_anhang_lib
+    comdare_vendored_zlib)
+comdare_set_platform_defines(test_w0b_durchstich_kette)
+target_compile_definitions(test_w0b_durchstich_kette PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    COMDARE_DURCHSTICH_PROFIL_DIR="${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles"
+    COMDARE_DURCHSTICH_PROFIL_DIR2="${COMDARE_DURCHSTICH_PROFIL_DIR2}"
+    COMDARE_DURCHSTICH_PDFLATEX="${COMDARE_DURCHSTICH_PDFLATEX_EXE}")
+# TIMEOUT 300 statt der 60 aus comdare_add_test: ein pdflatex-Erstlauf zieht sein Format-File und
+# braucht auf einem kalten Container mehr als eine Minute. Die 60 waeren ein Falsch-Rot.
+set_tests_properties(test_w0b_durchstich_kette PROPERTIES
+    LABELS "w0b;durchstich;kette;xlsx;pdf;koeder" TIMEOUT 300)
