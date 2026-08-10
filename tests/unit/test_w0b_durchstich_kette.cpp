@@ -269,6 +269,19 @@ struct TempDir {
 #endif
 }
 
+/// ZWEITES Profil-Verzeichnis, wenn es eines gibt: das ce wird vom super als Unterprojekt gebaut, und
+/// dort liegt unter Code/experiment_config/thesis_profiles das F1-Durchstich-Profil -- die Datei, die
+/// den Mini-Lauf der F1-Lieferung tatsaechlich konfiguriert. CMake setzt das Define NUR, wenn das
+/// Verzeichnis zur Configure-Zeit existiert (V-8: der Gegenstand entscheidet, nicht ein Schalter).
+/// Leer bedeutet: das ce wird allein gebaut, dieses Inventar existiert hier nicht.
+[[nodiscard]] std::filesystem::path profil_verzeichnis_2() {
+#ifdef COMDARE_DURCHSTICH_PROFIL_DIR2
+    return std::filesystem::path{COMDARE_DURCHSTICH_PROFIL_DIR2};
+#else
+    return {};
+#endif
+}
+
 [[nodiscard]] std::string pdflatex_pfad() {
 #ifdef COMDARE_DURCHSTICH_PDFLATEX
     return std::string{COMDARE_DURCHSTICH_PDFLATEX};
@@ -310,7 +323,19 @@ TEST(W0bDurchstichKette, G1_JedesProfilMitFormatTokenTraegtXlsx) {
                                  "pruefen, also ist sie ROT (fail-closed).";
     ASSERT_TRUE(std::filesystem::is_directory(dir)) << "Profil-Verzeichnis fehlt: " << dir.string();
 
-    auto const alle = dateien_mit_endung(dir, ".xml");
+    auto       alle       = dateien_mit_endung(dir, ".xml");
+    std::size_t const n_dir1 = alle.size();
+    // Zweites Inventar, falls das ce als Unterprojekt des super gebaut wird (dort liegt das
+    // F1-Durchstich-Profil). Fehlt es, bleibt der Nenner ehrlich bei einem Verzeichnis.
+    auto const  dir2   = profil_verzeichnis_2();
+    std::size_t n_dirs = 1;
+    if (!dir2.empty() && std::filesystem::is_directory(dir2)) {
+        ++n_dirs;
+        for (auto const& p : dateien_mit_endung(dir2, ".xml")) alle.push_back(p);
+    }
+    std::printf("[G1] Inventare: verzeichnisse=%zu xml_in_1=%zu xml_gesamt=%zu (dir1=%s dir2=%s)\n", n_dirs,
+                n_dir1, alle.size(), dir.string().c_str(), dir2.empty() ? "<nicht gesetzt>" : dir2.string().c_str());
+    std::fflush(stdout);
     ASSERT_GT(alle.size(), 0U) << "0 Profile gefunden -- ein leerer Nenner ist kein gruener Nenner.";
 
     cx::XmlConfigParser parser;

@@ -6375,6 +6375,23 @@ set_tests_properties(test_warn1_d2_fingerprint_koeder PROPERTIES
 # dieses eine Glied. COMDARE_DURCHSTICH_PDF_PFLICHT=1 in der Umgebung macht daraus ein hartes Rot,
 # ohne dass jemand die Quelle anfassen muss -- der Hebel liegt damit in der YAML (Lead), nicht hier.
 # ===================================================================================================
+# ZWEITES Profil-Inventar: wird das ce als Unterprojekt des super gebaut, liegt unter
+# <super>/Code/experiment_config/thesis_profiles das F1-Durchstich-Profil -- genau die Datei, die den
+# Mini-Lauf der F1-Lieferung konfiguriert. Sie ist NICHT Teil des ce, wird aber vom selben Owner-KERN
+# regiert. Das Define entsteht NUR, wenn das Verzeichnis zur Configure-Zeit wirklich da ist (V-8: der
+# Gegenstand entscheidet, kein Schalter). Im ce-Alleinbau bleibt es leer und der Nenner sagt das.
+# Ein explizites -DCOMDARE_DURCHSTICH_PROFIL_DIR2=<pfad> hat Vorrang: so laesst sich die Wache auch
+# ohne Unterprojekt-Bau auf ein fremdes Inventar richten (und genau so wurde sie belegt).
+if(NOT DEFINED COMDARE_DURCHSTICH_PROFIL_DIR2)
+    set(COMDARE_DURCHSTICH_PROFIL_DIR2 "")
+    if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/Code/experiment_config/thesis_profiles")
+            set(COMDARE_DURCHSTICH_PROFIL_DIR2 "${CMAKE_SOURCE_DIR}/Code/experiment_config/thesis_profiles")
+            message(STATUS "Durchstich: zweites Profil-Inventar gefunden: ${COMDARE_DURCHSTICH_PROFIL_DIR2}")
+        endif()
+    endif()
+endif()
+
 find_program(COMDARE_DURCHSTICH_PDFLATEX_EXE NAMES pdflatex)
 if(NOT COMDARE_DURCHSTICH_PDFLATEX_EXE)
     set(COMDARE_DURCHSTICH_PDFLATEX_EXE "")
@@ -6399,6 +6416,7 @@ comdare_set_platform_defines(test_w0b_durchstich_kette)
 target_compile_definitions(test_w0b_durchstich_kette PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
     COMDARE_DURCHSTICH_PROFIL_DIR="${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles"
+    COMDARE_DURCHSTICH_PROFIL_DIR2="${COMDARE_DURCHSTICH_PROFIL_DIR2}"
     COMDARE_DURCHSTICH_PDFLATEX="${COMDARE_DURCHSTICH_PDFLATEX_EXE}")
 # TIMEOUT 300 statt der 60 aus comdare_add_test: ein pdflatex-Erstlauf zieht sein Format-File und
 # braucht auf einem kalten Container mehr als eine Minute. Die 60 waeren ein Falsch-Rot.
