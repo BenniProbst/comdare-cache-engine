@@ -159,6 +159,50 @@
 #       z.B. ein Revisionsbereich fuer CI (`origin/main...HEAD`) oder eine
 #       Pfad-Einschraenkung nach `--`. Dieser Weg ist UNVERAENDERT.
 #
+#   sh scripts/ci_diff_ascii_width_guard.sh --bereich <basis> [<spitze>]
+#       KUMULATIVER MODUS (2026-08-10). Prueft den GANZEN Stand, der von <spitze>
+#       nach <basis> gehen wuerde -- nicht einen Push. <spitze> ist ohne Angabe
+#       HEAD. Typischer Aufruf vor einem main-Fast-Forward:
+#           sh scripts/ci_diff_ascii_width_guard.sh --bereich origin/main origin/development
+#
+# WARUM DIESER MODUS AM 10.08.2026 DAZUKAM (Befund am Objekt, Posten #48):
+# Diese Wache konnte einen Bereich schon immer messen -- aber nur, wenn ihr jemand
+# einen mitgab. Die CI gibt ihr CI_COMMIT_BEFORE_SHA..HEAD, also den PUSH. Damit
+# beantwortet sie "ist DIESER Push sauber?". Die Frage, die vor einem main-FF
+# zaehlt, ist eine andere: "ist der STAND sauber, der nach main geht?".
+#
+# Der Unterschied ist nicht theoretisch. Gemessen am 09.08.2026, DERSELBE Baum-SHA
+# aebc4f2c in beiden Laeufen:
+#     ce-Pipeline 15498  development  Bereich 2eb310ae..HEAD    1 Commit    GRUEN
+#     ce-Pipeline 15501  main         Bereich 8fcf0c0e..HEAD   86 Commits   ROT
+# 58 Verstoesse (37 Nicht-ASCII, 21 ueber 120 Spalten) in zwoelf Dateien, alle aus
+# Commits desselben Tages, jeder einzelne Push davon gruen. Nachgerechnet am
+# 10.08.2026 auf diesem Repo: `... 8fcf0c0e..aebc4f2c` -> Exit 1, 37 + 21 = 58.
+# Solange in kleinen Schritten gepusht wird, faellt nichts auf; der main-FF ist das
+# ERSTE kumulative Gate und traegt den ganzen aufgelaufenen Bereich auf einmal.
+#
+# WAS DIESER MODUS ZUSAETZLICH TUT (und warum es nicht dasselbe ist wie ein Bereich
+# von Hand):
+#   1. ER MISST AB DER ABZWEIGUNG, nicht ab dem Endpunkt. `git diff basis..spitze`
+#      (zwei Punkte) vergleicht Endpunkt gegen Endpunkt: hat die BASIS eigene
+#      Commits, erscheinen deren VORGAENGER-Zeilen als "hinzugefuegt" und die Wache
+#      schlaegt in Code an, den auf der Spitze niemand angefasst hat. Am Objekt
+#      gemessen (10.08.2026, Wegwerf-Repo): eine ueberlange Zeile aus dem
+#      Altbestand, die die Basis geheilt hat und die Spitze nie beruehrte --
+#      zwei Punkte: Exit 1, "q.cpp:1 (227 Byte)"; drei Punkte (merge-base):
+#      Exit 0. Dieser Modus loest die merge-base AUSDRUECKLICH auf und uebergibt
+#      sie git als SHA; der gedruckte Bereich ist damit derselbe Gegenstand, der
+#      gemessen wurde, und keine Abkuerzung, die morgen etwas anderes bedeutet.
+#   2. DER BEREICH STEHT IN DER AUSGABE -- beide Endpunkte als voller SHA, die
+#      Abzweigung, die Commit-Zahl im Bereich und die Divergenz auf der Basis.
+#      Ein Verdikt ohne seinen Bereich ist keine Aussage: dieselbe Wache auf
+#      demselben Baum sagt GRUEN oder ROT, je nachdem, was man ihr gibt.
+#   3. FAIL-CLOSED an beiden Enden: ein nicht aufloesbarer Ref (nicht geholt,
+#      flacher Klon, Tippfehler) ist ABBRUCH, keine stille Null. Und ein Bereich
+#      mit NULL Commits ist ebenfalls ABBRUCH -- dort waere nichts geprueft
+#      worden, und ein nicht gelaufener Test ist kein bestandener. Das ist genau
+#      die Asymmetrie, die der Default-Modus unten schon traegt.
+#
 # WARUM DER DEFAULT-MODUS AM 09.08.2026 REPARIERT WURDE (Befund am Objekt):
 # Hier stand bis heute "git diff -U0 (Arbeitsverzeichnis gegen HEAD)". Das war
 # FALSCH, und die Wache tat es auch nicht: `git diff` OHNE Revision vergleicht
@@ -202,9 +246,33 @@ command -v awk >/dev/null 2>&1 || ce_abbruch "awk ist nicht im PATH."
 command -v mktemp >/dev/null 2>&1 || ce_abbruch "mktemp ist nicht im PATH."
 
 _ce_stdin_modus=0
+_ce_bereich_modus=0
+_ce_bereich_basis=""
+_ce_bereich_spitze=""
+_ce_bereich_satz=""
 if [ "${1:-}" = "--stdin" ]; then
     _ce_stdin_modus=1
     shift
+elif [ "${1:-}" = "--bereich" ]; then
+    # KUMULATIVER MODUS. Die Argumente werden hier NUR eingesammelt; aufgeloest
+    # wird erst unten, wo die Repo-Wurzel feststeht -- eine Ref-Aufloesung ohne
+    # bekanntes Repo waere eine Aussage ueber das falsche Verzeichnis.
+    _ce_bereich_modus=1
+    shift
+    [ "$#" -ge 1 ] \
+        || ce_abbruch "--bereich braucht eine BASIS (z.B. 'origin/main'), optional eine SPITZE \
+(Default HEAD). Aufruf: --bereich <basis> [<spitze>]"
+    _ce_bereich_basis="$1"
+    shift
+    if [ "$#" -ge 1 ]; then
+        _ce_bereich_spitze="$1"
+        shift
+    else
+        _ce_bereich_spitze="HEAD"
+    fi
+    [ "$#" -eq 0 ] \
+        || ce_abbruch "--bereich nimmt hoechstens zwei Argumente (basis, spitze) -- \
+uebrig geblieben: $*. Pfad-Einschraenkungen gehoeren in den Durchreich-Modus."
 fi
 
 _ce_diff_datei="$(mktemp "${TMPDIR:-/tmp}/ce_diff_guard.XXXXXX")" \
@@ -235,6 +303,63 @@ else
     command -v git >/dev/null 2>&1 || ce_abbruch "git ist nicht im PATH."
     _ce_script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || ce_abbruch "Skript-Verzeichnis nicht aufloesbar."
     _ce_repo_root=$(CDPATH= cd -- "$_ce_script_dir/.." && pwd) || ce_abbruch "Repo-Wurzel nicht aufloesbar."
+
+    # -----------------------------------------------------------------------
+    # KUMULATIVER MODUS: den Bereich AUFLOESEN, ihn AUSSPRECHEN, dann messen.
+    # Aufgeloest wird zu vollen SHAs, und gemessen wird mit genau diesen SHAs --
+    # nicht mit den Ref-Namen. Ein Ref bewegt sich; eine Ausgabe, die "origin/main"
+    # sagt und einen anderen Commit gemessen hat, ist keine Aussage, sondern eine
+    # Fussnote. (V-1: der Pruefbereich ist Teil der Aussage.)
+    # -----------------------------------------------------------------------
+    if [ "$_ce_bereich_modus" -eq 1 ]; then
+        _ce_basis_sha=$(git -C "$_ce_repo_root" rev-parse --verify --quiet "${_ce_bereich_basis}^{commit}") \
+            || ce_abbruch "BASIS '${_ce_bereich_basis}' ist in diesem Repo nicht aufloesbar. \
+Kein Gruen daraus: erst 'git fetch origin', in der CI zusaetzlich GIT_DEPTH=0 (ein flacher Klon \
+kennt weder den fremden Zweig noch die Abzweigung)."
+        _ce_spitze_sha=$(git -C "$_ce_repo_root" rev-parse --verify --quiet "${_ce_bereich_spitze}^{commit}") \
+            || ce_abbruch "SPITZE '${_ce_bereich_spitze}' ist in diesem Repo nicht aufloesbar \
+(s. den Hinweis zur BASIS)."
+        _ce_mb=$(git -C "$_ce_repo_root" merge-base "$_ce_basis_sha" "$_ce_spitze_sha" 2>/dev/null) \
+            || ce_abbruch "Keine Abzweigung zwischen '${_ce_bereich_basis}' und '${_ce_bereich_spitze}' \
+bestimmbar (zusammenhanglose Historien oder abgeschnittener Klon). Fail-closed: das ist ABBRUCH."
+        [ -n "$_ce_mb" ] \
+            || ce_abbruch "merge-base lieferte eine LEERE Antwort -- undeutbar, also ABBRUCH."
+        _ce_n_bereich=$(git -C "$_ce_repo_root" rev-list --count "${_ce_mb}..${_ce_spitze_sha}") \
+            || ce_abbruch "Commit-Zahl im Bereich nicht bestimmbar -- ohne Nenner kein Urteil."
+        _ce_n_diverg=$(git -C "$_ce_repo_root" rev-list --count "${_ce_mb}..${_ce_basis_sha}") \
+            || ce_abbruch "Divergenz auf der Basis nicht bestimmbar -- ohne Nenner kein Urteil."
+        _ce_bereich_satz="${_ce_mb}..${_ce_spitze_sha} (${_ce_n_bereich} Commits)"
+        echo ""
+        echo "MODUS: --bereich (KUMULATIV -- der ganze Stand, der nach '${_ce_bereich_basis}' ginge,"
+        echo "       NICHT ein einzelner Push)"
+        echo "BEREICH (Teil der Aussage, nicht Beiwerk):"
+        echo "  BASIS      ${_ce_bereich_basis} = ${_ce_basis_sha}"
+        echo "  SPITZE     ${_ce_bereich_spitze} = ${_ce_spitze_sha}"
+        echo "  ABZWEIGUNG (merge-base) = ${_ce_mb}"
+        echo "  ${_ce_n_bereich} Commit(s) im Bereich; ${_ce_n_diverg} Commit(s) nur auf der BASIS (Divergenz)."
+        if [ "$_ce_n_diverg" -gt 0 ]; then
+            echo "  HINWEIS: die BASIS ist divergiert -- ein Fast-Forward ist damit NICHT moeglich."
+            echo "  Gemessen wird trotzdem ab der ABZWEIGUNG: das ist die Menge, die die SPITZE"
+            echo "  hinzufuegt. Der Endpunkt-Diff wuerde stattdessen fremde, laengst geheilte"
+            echo "  Zeilen als 'hinzugefuegt' anrechnen."
+        fi
+        # NULL COMMITS IST ABBRUCH, NICHT GRUEN. Hier hat der Aufrufer nicht nach
+        # einem beliebigen Diff gefragt, sondern nach einem URTEIL ueber einen
+        # Stand -- und ueber einen leeren Stand gibt es keines. Ein falsch
+        # verdrahteter Aufruf (`--bereich HEAD`, eine leere CI-Variable, zweimal
+        # derselbe Ref) endete sonst mit genau der Quittung, gegen die diese
+        # Wache gebaut ist: gruen, ohne hingesehen zu haben.
+        if [ "$_ce_n_bereich" -eq 0 ]; then
+            ce_abbruch "0 Commits zwischen Abzweigung und SPITZE -- es wurde NICHTS geprueft, \
+also ist nichts bestanden. Sind BASIS und SPITZE wirklich derselbe Stand, dann gibt es auch \
+nichts zu uebertragen und dieser Aufruf ist ueberfluessig, nicht gruen."
+        fi
+        # Gemessen wird mit den SHAs, die oben gedruckt stehen -- Endpunkt-Form
+        # ueber die AUFGELOESTE Abzweigung ist exakt der Drei-Punkt-Bereich, nur
+        # nachpruefbar: beide Enden sind sichtbar.
+        set -- "$_ce_mb" "$_ce_spitze_sha"
+    fi
+
     # OHNE ARGUMENTE: ausdruecklich gegen HEAD statt gegen den INDEX. `git diff`
     # ohne Revision vergleicht den Arbeitsbaum mit dem INDEX -- gestagte Arbeit
     # waere unsichtbar (s. Kopf, Befund D5-1). `HEAD` erfasst beides auf einmal.
@@ -630,10 +755,25 @@ BEREICH: 'sh scripts/vor_push_alle_wachen.sh' (bestimmt ihn selbst) oder \
 fi
 
 echo ""
+# DER BEREICH GEHOERT AN DAS VERDIKT, nicht nur in den Kopf der Ausgabe. Wer eine
+# Wache aufruft, liest ihre letzte Zeile -- und "GRUEN." allein ist ueber diese
+# Wache keine Aussage: dasselbe Werkzeug auf demselben Baum sagt GRUEN oder ROT,
+# je nachdem, welchen Bereich es bekommen hat (am Objekt: 09.08.2026, Baum
+# aebc4f2c, Push gruen / 86 Commits rot). Ohne den Bereich am Verdikt kann ein
+# Bericht die eine Zeile zitieren und dabei die halbe Aussage weglassen, ohne
+# irgendetwas Falsches zu schreiben.
 if [ "$_ce_ascii" -eq 0 ] && [ "$_ce_width" -eq 0 ]; then
-    echo "DIFF-HYGIENE-WACHE: GRUEN."
+    if [ -n "$_ce_bereich_satz" ]; then
+        echo "DIFF-HYGIENE-WACHE: GRUEN.  KUMULATIV ueber ${_ce_bereich_satz}"
+    else
+        echo "DIFF-HYGIENE-WACHE: GRUEN."
+    fi
     exit 0
 else
-    echo "DIFF-HYGIENE-WACHE: ROT."
+    if [ -n "$_ce_bereich_satz" ]; then
+        echo "DIFF-HYGIENE-WACHE: ROT.  KUMULATIV ueber ${_ce_bereich_satz}"
+    else
+        echo "DIFF-HYGIENE-WACHE: ROT."
+    fi
     exit 1
 fi

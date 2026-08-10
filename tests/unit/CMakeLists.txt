@@ -6241,6 +6241,29 @@ target_compile_definitions(test_mt_l4_registrierungs_wache_isa PRIVATE
     "COMDARE_MTL4_TESTS_CMAKE=\"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt\"")
 set_tests_properties(test_mt_l4_registrierungs_wache_isa PROPERTIES
     LABELS "wachen;mt_l4;registrierung;selbsttest")
+# -----------------------------------------------------------------------------
+# Posten #48 (2026-08-10) -- DIE KUMULATIVE ACHSE DER DIFF-HYGIENE-WACHE (T-6).
+#
+# Prueft scripts/ci_diff_ascii_width_guard.sh gegen Wegwerf-Repos, in denen der
+# Koeder IM BEREICH liegt und NICHT IM PUSH: der push-lokale Lauf ist dann gruen,
+# der kumulative (--bereich) rot -- auf DEMSELBEN Baum. Das ist die Lage vom
+# 09.08.2026 (ce-Pipeline 15498 gruen / 15501 rot, beide auf aebc4f2c, 58
+# Verstoesse), hier auf Knopfdruck herstellbar statt einmal beobachtet.
+# Die Marken wuerfelt der Test frisch aus /dev/urandom (K13).
+#
+# WARUM ALS GOOGLE TEST und nicht als weitere Shell-Probe: Owner-Entscheid
+# 2026-08-09 ("Skripte sagen gar nichts"). Damit faehrt der Biss-Beweis in Debug
+# UND Release ueber ctest mit, ohne eigenen CI-Job; die Shell-Menge waechst nicht.
+#
+# UNBEDINGT registriert -- kein if() um diesen Block, aus demselben Grund wie beim
+# D2-Selbsttest darueber. Die Windows-Ausnahme traegt der Test intern als
+# GTEST_SKIP (die Wache ist ein POSIX-sh-Skript).
+comdare_add_test(test_hyg_kumulativer_bereich
+    SOURCES test_hyg_kumulativer_bereich.cpp)
+target_compile_definitions(test_hyg_kumulativer_bereich PRIVATE
+    "COMDARE_HYG_GUARD_SH=\"${PROJECT_SOURCE_DIR}/scripts/ci_diff_ascii_width_guard.sh\"")
+set_tests_properties(test_hyg_kumulativer_bereich PROPERTIES
+    LABELS "wachen;hygiene;kumulativ;bereich;selbsttest")
 
 # A9-S4: der Konsument (tools/mess_report/). Die drei Header sind self-contained (relative Includes
 # "../../tools/mess_report/..." loesen unabhaengig von den Include-Dirs auf); nur der Render-Test

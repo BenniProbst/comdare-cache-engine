@@ -362,6 +362,56 @@ test:coverage-guard:
       esac
       echo "DIFF-HYGIENE-WACHE: Bereich ${_ce_base}..HEAD"
       sh scripts/ci_diff_ascii_width_guard.sh "${_ce_base}..HEAD"
+    # (0.6) DAS KUMULATIVE GATE (Posten #48, 10.08.2026) -- die Stufe UEBER (0.5).
+    #
+    # BEFUND, DER ES ERZWINGT: (0.5) misst den PUSH. Am 09.08.2026 stand DERSELBE Baum-SHA
+    # aebc4f2c in zwei Laeufen -- 15498 auf development ueber 1 Commit: GRUEN; 15501 auf main
+    # ueber 86 Commits: ROT, 58 Verstoesse (37 Nicht-ASCII, 21 ueber 120 Spalten) in zwoelf
+    # Dateien. Kein einziger dieser 58 war je in einem Push sichtbar. Der main-FF war das ERSTE
+    # kumulative Gate -- und er faellt zu spaet: da ist main schon rot, und ce/main rot macht
+    # jede super-Pipeline rot, die 'trigger:cache-engine' (branch: main) feuert.
+    #
+    # WARUM EIN CI-JOB UND KEIN AUFRUF IM FF-REZEPT (die Entscheidung, begruendet): ein Aufruf
+    # im Rezept ist eine PROZEDUR, die jemand vor jedem FF von Hand tippen muss. Genau daraus
+    # ist diese Wache entstanden -- ihr Vorgaenger war die handgetippte grep-Kette, die auf
+    # jeder grep-Engine still fehlschlug. Eine Prozedur, an die man sich erinnern muss, ist
+    # kein Gate. Der lokale Weg bleibt trotzdem moeglich und ist im Kopf der Wache
+    # dokumentiert (`--bereich origin/main origin/development`) -- er ERSETZT dieses Gate
+    # nicht, er nimmt ihm nur die Ueberraschung.
+    #
+    # WARUM HIER UND NICHT IN EINEM EIGENEN JOB: dieser Job hat das Werkzeug schon in der Hand
+    # und laeuft ohne rules-Gate. Ein eigener Job kostete einen Runner-Slot, und der Owner hat
+    # am 10.08.2026 ausdruecklich um WENIGER CI-Last gebeten. Und bewusst VOR dem Vollbau: das
+    # Gate faellt in Sekunden, ohne Bau-Budget zu verbrennen.
+    #
+    # WAS ES KOSTET, GEMESSEN STATT GESCHAETZT (10.08.2026, ce/development 9f932e91 gegen
+    # ce/main 1880f296): 21 Commits, 2.462 Zusatzzeilen, 0 Verstoesse -- mit der heutigen
+    # Endungs-Liste ebenso wie mit der breiteren Fassung aus fix/hygiene-wache-blacklist.
+    # Der Bestand ist also NULL: das Gate ist heute scharf schaltbar, ohne Dauer-Rot und ohne
+    # Zuwachs-Sonderregel. Waere die Zahl gross gewesen, stuende hier eine.
+    #
+    # FAIL-CLOSED an jeder Kante: fehlt der Basis-Zweig im Klon, bricht der Fetch ab und der
+    # Job ist ROT -- kein "dann halt ohne". Ein flacher Klon kennt die Abzweigung nicht und
+    # wird deshalb vorher entflacht. Und die Wache selbst bricht bei 0 Commits im Bereich ab
+    # (gruen mit Nenner 0 ist rot).
+    - |
+      set -eu
+      _ce_ff_basis="${COMDARE_HYG_FF_BASIS:-main}"
+      if [ "${CI_COMMIT_BRANCH:-}" = "$_ce_ff_basis" ]; then
+        echo "KUMULATIVES GATE: dieser Lauf ist bereits AUF '${_ce_ff_basis}'."
+        echo "  Hier IST der Bereich aus (0.5) der kumulative: ein Fast-Forward setzt"
+        echo "  CI_COMMIT_BEFORE_SHA auf den ALTEN Stand von '${_ce_ff_basis}', der"
+        echo "  Push-Bereich ist also exakt der ganze FF-Bereich (so entstand 15501)."
+        echo "  Ein zweiter Lauf waere eine Wiederholung, kein zusaetzliches Urteil."
+      else
+        _ce_gitdir=$(git rev-parse --git-dir)
+        if [ -e "${_ce_gitdir}/shallow" ]; then
+          echo "KUMULATIVES GATE: flacher Klon -- wird entflacht (ohne Historie keine Abzweigung)."
+          git fetch --no-tags --unshallow origin
+        fi
+        git fetch --no-tags origin "+refs/heads/${_ce_ff_basis}:refs/remotes/origin/${_ce_ff_basis}"
+        sh scripts/ci_diff_ascii_width_guard.sh --bereich "origin/${_ce_ff_basis}" HEAD
+      fi
     # Ground Truth = derselbe Bau-Baum wie test:unit, seit 08.08.2026 ueber den GNU-Bauweg.
     #
     # WARUM DIE UMSTELLUNG HIER NOETIG WAR (und nicht nur Symmetrie ist): der alte Weg baute VOR
