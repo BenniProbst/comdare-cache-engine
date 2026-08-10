@@ -113,13 +113,31 @@
 /// laesst die Owner-Pflicht undurchgesetzt; die Bestands-Literale bleiben davon unberuehrt.
 /// MIGRATIONS-NAHT-LISTE (A13-M1b-Fixup Review-BEFUND-2; Klasse (d) aus A13-M2 Review-BEFUND-3).
 /// VOLLZUG (A13-M3/C4 fuer die Q3-Form, FLAG-GRAMMATIK-v2 07.08.2026 fuer die Punkt-Notation): alle unten
-/// gefuehrten Klassen (a)-(h) stehen migriert da, ENFORCE ist scharf. Die Liste bleibt trotzdem stehen: sie
+/// gefuehrten Klassen (a)-(j) stehen migriert da, ENFORCE ist scharf. Die Liste bleibt trotzdem stehen: sie
 /// sagt, WELCHE Quellen-KLASSEN es gibt und woran eine neue erkannt wird. Jede KUENFTIGE ce-Versions-Quelle
 /// gehoert hier hinein und traegt die beiden B12-Wachen -- sonst entsteht wieder eine Luecke wie bei (e)/(f).
 /// DOKTRIN VORWEG: diese Liste ist AUS DEM DIFF/GREP ABZULEITEN, NIE HANDGEPFLEGT. Genau das Fortschreiben
 /// von Hand ist beim M2-Bau unterblieben (BEFUND-3). Ueberall dort, wo die Fundstellen ZAEHLBAR sind und
 /// mit dem Bestand WACHSEN, steht deshalb unten das KOMMANDO, mit dem der Migrations-Commit seine
 /// Fundstellen selbst erhebt -- die genannten Zahlen sind Momentaufnahmen und altern, die Kommandos nicht.
+///
+/// P14 (10.08.2026) -- DIE DOKTRIN IST AB HIER EIN RIEGEL, KEINE ABSICHTSERKLAERUNG.
+/// Die Selbstwartung stand bis heute nur als Satz da. Gemessen auf origin/development (95cb3039) trugen
+/// DREI produktive Dateien beide Politik-Wachen, ohne in dieser Liste zu stehen: pruef_dock_version.hpp
+/// (10 Aufrufe, fuenf eigene Literale), toolchain_stamp_glied.hpp (6 Aufrufe, drei eigene Literale) und
+/// hardware_meta_meta_axis.hpp (2 Aufrufe, die Heimat der (d)-Wachen). Das ist exakt die Klasse "(e)/(f)",
+/// vor der der Absatz darueber warnt -- sie ist also nicht theoretisch, sondern zum zweiten Mal eingetreten.
+/// Erzwungen wird die Liste jetzt von tests/unit/test_vs_taxonomie_klassen_grep.cpp: er erhebt selbst alle
+/// AUFRUF-Stellen unter libs/ und wird rot, sobald eine davon hier nicht NAMENTLICH steht -- in Debug wie in
+/// Release, ohne eigenen CI-Job. Wer eine Quelle streicht oder eine neue anlegt, hoert es sofort.
+/// WAS DER RIEGEL BEWUSST NICHT TUT: er pinnt die Trefferzahl des generischen Kommandos NICHT (sie waechst
+/// mit jeder Doku-Zeile, die den Bezeichner nennt -- s. den Absatz zur 130/131 unten), und er urteilt nicht
+/// ueber die Prosa einer Klasse. Er haelt die VOLLSTAENDIGKEIT, nicht die Richtigkeit der Beschreibung.
+/// EINE PRAEZISIERUNG AM RANDE, die der Riegel sichtbar gemacht hat: der generische grep sucht den
+/// Bezeichner OHNE Klammer und faengt deshalb auch reine VERWEISE mit. Am Objekt:
+/// axes/alloc/axis_06_allocator_strategy_base.hpp nennt die Wache zweimal in Kommentaren, mit Leerzeichen
+/// vor der Klammer -- das ist keine Quelle und steht deshalb zu Recht nicht als Klasse hier. Der Riegel
+/// zaehlt darum die AUFRUF-Form "<name>(" und nicht den blossen Namen.
 ///
 /// DAS ERSTE, BINDENDE KOMMANDO IST DER GENERISCHE WACHEN-GREP (A13-M3/C2, Befund GA-05/Z-10 vom
 /// 03.08.2026). Er steht VOR den klassen-spezifischen Kommandos, weil er die Klassen VOLLSTAENDIG liefert,
@@ -142,6 +160,14 @@
 ///      zwischen Praefix und Alternative und tut das nicht mehr. Die weggefallene Fundstelle ist
 ///      also genau diese Doku-Zeile, keine Wache -- die Zaehlung wird dadurch richtiger, nicht
 ///      duenner. Wer hier 130 misst und 131 erwartet, sucht eine Quelle, die es nie gab.)
+///     (10.08.2026, P14: die 130 gilt fuer den Stand 95cb3039 und ist unabhaengig nachgemessen
+///      worden -- 130. Der Riegel-Commit dieses Absatzes hebt sie auf 134, weil die neue
+///      Test-TU tests/unit/test_vs_taxonomie_klassen_grep.cpp die beiden Bezeichner viermal
+///      nennt. UND EINE FALLE, DIE HIER FESTGEHALTEN GEHOERT, weil sie sonst als zweiter
+///      Phantom-Befund wiederkehrt: 134 ist eine ZEILEN-Zahl (grep -rn), der Riegel berichtet
+///      dagegen 139 VORKOMMEN. Beide sind richtig und messen Verschiedenes; auf demselben Baum
+///      liefert `grep -ro ... | wc -l` genau die 139. Wer die zwei Zahlen gegeneinander haelt,
+///      vergleicht Zeilen mit Treffern -- und findet eine Abweichung, die keine ist.)
 /// Begruendung (das ist keine Stil-Frage): jede ce-EIGENE Versions-Quelle traegt per B12-Doktrin genau
 /// diese beiden Wachen -- wer eine neue Quelle ohne sie anlegt, hat keine Naht angelegt, sondern eine
 /// Luecke. BELEG, warum dieser grep noetig wurde: die Klassen (e) kPlannerVersion und (f) kOsProbeVersion
@@ -173,6 +199,16 @@
 ///           gated Wache -- heute tests/unit/test_striktheit_axis_dach_guard.cpp (ProofOrganMetaMeta)
 ///           und tests/unit/test_meta_meta_halbordnung.cpp (Avx512MetaMeta, GpuMetaMeta,
 ///           GpuClusterMetaMeta). Diese Sorte waechst mit jeder neuen Test-Meta-Meta.
+///       WO DIE ZWEI WACHEN WOHNEN (P14, 10.08.2026 nachgetragen): measurement/
+///       hardware_meta_meta_axis.hpp ist die Heimat von meta_meta_version_wohlgeformt<> und
+///       meta_meta_version_cpu_pflicht<>; die beiden ce_owned_version_*-Aufrufe DORT sind die
+///       DEFINITION dieser Klasse, nicht eine ihrer Auspraegungen (dazu die vier CT-Negativproben
+///       ueber MetaMetaVersionProbe). Daraus folgt eine Praezisierung des Satzes weiter oben, der
+///       generische grep liefere die Klassen VOLLSTAENDIG: bei (d) liefert er die KLASSE (ihre
+///       Heimat), nicht ihre MITGLIEDER -- external_utils_family_axis.hpp ruft den Zwilling und
+///       nicht die Wache selbst und faellt deshalb durch den generischen grep. Fuer die Mitglieder
+///       bleibt der klassen-spezifische grep der Einstieg. Das ist keine Luecke, sondern die Grenze
+///       eines Werkzeugs -- benannt, damit sie niemand fuer Vollstaendigkeit haelt.
 ///       GREP-ANWEISUNG (bindend):
 ///           grep -rn 'axis_code_version *=' --include=*.hpp --include=*.cpp libs tests tools apps
 ///       liefert die vollstaendige Klasse (d); ihre gated Absicherung findet
@@ -224,6 +260,67 @@
 ///       core_class haengt an target_isa (binary_id="never"); die A-15-Neutralitaet ist damit nicht nur
 ///       zugesichert, sondern strukturell erzwungen.
 ///       Erhebung: der generische Wachen-grep oben faengt sie (numa_cpu_pin_process_probe.hpp).
+///   (i) E-24 C4 (04.08.2026; als KLASSE nachgetragen 10.08.2026, P14): die DOCK-VERTRAGS-VERSIONEN
+///       der Pruef-Docks. Sie ist die groesste Einzel-Fundstelle der ganzen Liste und stand trotzdem
+///       nicht darin -- sichtbar allein daran, dass der generische Wachen-grep in
+///       builder/pruef_dock/pruef_dock_version.hpp ZEHN Aufrufe faengt, mehr als in jeder anderen
+///       produktiven Datei ausser dieser hier.
+///       GEGENSTAND: FUENF ce-eigene Literale, je Ebene-2-Genus genau eines --
+///       kSearchAlgorithmDockVersion, kSetDockVersion, kSequenceDockVersion, kAdapterDockVersion,
+///       kViewDockVersion (pruef_dock_version.hpp:58-64). Sie beziffern das Antriebs-/Gate-/
+///       Serialisierungs-Verhalten des Mess-UEBERGANGS einer Gattung: aendert es sich, aendert sich die
+///       BEDEUTUNG der erzeugten Mess-Zeilen, ohne dass sich Achsen-Version, Kompositions-Name oder
+///       binary_id bewegen (:14-18). Die Dock-Version ist die einzige Groesse, die diesen Unterschied
+///       tragen kann -- deshalb ist sie eine Versions-Quelle und keine Zierde.
+///       WACHEN-STATUS: MECHANISCH GESICHERT, fuenffach doppelt -- je Literal beide B12-Wachen (ungated
+///       is_wellformed :121-140, gated satisfies_cpu_enforce :146-160), dazu die Render-Treue-Wache
+///       :169-173 und die Gattungs-PARTITION :191-206 (fuenf andockende Genera beziffert, das
+///       Klassifikations-Genus FunctionInterfaceReroute ausdruecklich leer). Die Klasse-I-Negativprobe
+///       liegt in tests/unit/test_e24_c4_dock_version_negativ.cpp.
+///       ABGRENZUNG ZU (b): (b) fuehrt KEIN eigenes Literal -- ceb_version_stamp.hpp RENDERT eine
+///       anderswo gefuehrte Version ueber denselben render_algo_semver(); sie ist Renderer, nicht
+///       Quelle, und taucht im generischen grep folgerichtig gar nicht auf. (i) fuehrt fuenf eigene
+///       Literale und ist damit Quelle.
+///       ABGRENZUNG ZU (c): (c) serialisiert W::algo_version VERBATIM in compose_algo_signature -- jede
+///       Migration dort ist AUCH ein .algos-Sidecar-BYTE-Ereignis und gehoert in dasselbe Fenster wie
+///       die Stempel-Migration. (i) ist ausdruecklich KEINE ABI-Groesse: die Dock-Version reist weder in
+///       den Stempel noch in die Wire-PODs (:17-18, :35-36). Ein Dock-Bump ist ein
+///       DOCK-VERTRAGS-Ereignis der Builder-Seite -- KEIN Stempel- und KEIN Sidecar-Ereignis. Genau
+///       deshalb steht sie neben (j), die dieselbe Grammatik traegt und umgekehrt liegt.
+///       VERWEIS #67 -- BEFUND, KEINE ORDNUNG: alle fuenf Literale stehen heute auf "1.0.0.c". Das ist
+///       der Anfangsstand ("es ist die erste Version, die er traegt, nicht die erste, die er hat",
+///       :56-57), nicht die Zusage, dass sie gleich bleiben. Ohne diesen Verweis wuerde der Eintrag
+///       einen Befund als Ordnung festschreiben.
+///       OFFEN, damit die Abgrenzung nicht spaeter still kippt: der 06.08.-Stempel-Plan sieht eine
+///       GENUS-Version als CT-Komposition aus Organ-/System-/Mess-Gliedern vor -- die LEISTUNGS-Version
+///       eines Genus. Sie ist NICHT gebaut. Die fuenf Literale hier bleiben davon unberuehrt, weil sie
+///       die VERTRAGS-Version des Docks sind; eine gebaute Komposition waere eine Ergaenzung, kein
+///       Ersatz. Diese Klasse beschreibt den IST-Stand, nicht den Plan.
+///       Erhebung: der generische Wachen-grep oben faengt sie (pruef_dock_version.hpp).
+///   (j) O-2/C-2 + NB/CX-3 (05.-07.08.2026; als KLASSE nachgetragen 10.08.2026, P14): die
+///       TOOLCHAIN-ACHSEN-CODE-VERSIONEN. abi/toolchain_stamp_glied.hpp fuehrt kToolchainAxisVersions
+///       (:215-219) mit DREI eigenen Literalen -- compiler, opt_level, atomic128 --, der untrennbaren
+///       Unter-Achsen-GRUPPE der aeusseren System-Komplex-Achse (V7.2, Registry-Gruppe build_toolchain).
+///       WACHEN-STATUS: MECHANISCH GESICHERT -- je Literal beide B12-Wachen (:233-241), davor die
+///       Index-Bump-Wache, die Achse UND Version je Position pinnt (:222-227).
+///       ABGRENZUNG ZU (a): sie gehoert AUSDRUECKLICH NICHT in kSystemAxisCodeVersions. Die drei
+///       System-HAUPT-Achsen sind target_isa/operating_system/external_utils, ABSCHLIESSEND; compiler
+///       ist seit O-8 Schritt 4 keine Haupt-Achse mehr, sondern Unter-Achsen-Gruppe. Ein vierter
+///       Eintrag dort waere nicht nur eine Regression gegen den Entscheid, er wuerde die System-ZEILE
+///       (Glied [2]) bewegen (toolchain_stamp_glied.hpp:205-210). Der Anker wohnt deshalb neben dem
+///       Glied, in dem er wirkt -- das ist der Grund fuer die eigene Klasse und keine Geschmacksfrage.
+///       ABGRENZUNG ZU (i) -- und DAS ist der Grund, warum beide EINZELN gefuehrt werden: (j) steht IM
+///       PREIMAGE. Das Toolchain-Glied ist kAnatomyFingerprintToolchainGlied == 5
+///       (abi/anatomy_fingerprint.hpp:434); wer hier bumpt, verschiebt den Fingerprint ALLER Neubauten
+///       und muss das als deklariertes Byte-Ereignis begruenden (:212-214). (i) ist stempel-NEUTRAL,
+///       (j) ist stempel-WIRKSAM. Dieselbe Grammatik, entgegengesetzte ABI-Lage. Eine gemeinsame Klasse
+///       wuerde genau den Unterschied verstecken, an dem ein Bump entschieden wird.
+///       ABGRENZUNG ZU (f)/(g)/(h): jene sind Erhebungs-VERFAHRENS-Versionen und A-15-neutral (ihr Bump
+///       ist ein probe_id-Ereignis, kein Stempel-Ereignis). (j) ist das Gegenteil: keine Probe, sondern
+///       ein Preimage-Glied. binary_id bleibt trotzdem unberuehrt (Registry binary_id="never") -- der
+///       Fingerprint ist NICHT die binary_id, und diese Klasse ist der Ort, an dem das auffaellt.
+///       VERWEIS #67: auch diese drei stehen heute auf "1.0.0.c" -- BEFUND, keine Ordnung.
+///       Erhebung: der generische Wachen-grep oben faengt sie (toolchain_stamp_glied.hpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif
