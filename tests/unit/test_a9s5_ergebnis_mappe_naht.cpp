@@ -21,15 +21,19 @@
 
 #include "ergebnis_mappe_naht.hpp"
 
+#include <zlib.h>
+
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace naht = comdare::cache_engine::lager_naht;
@@ -579,4 +583,341 @@ TEST(A9S5Naht, OhneHerstellbaresZielEntstehtWederMappeNochCsv) {
         ++geprueft;
     }
     EXPECT_EQ(geprueft, 3u);
+}
+
+// =================================================================================================
+// E. DAS ORAKEL AM INHALT DER MAPPE -- W0b-Nachbesserung (2026-08-10)
+// =================================================================================================
+//
+// WARUM DIESER ABSCHNITT EXISTIERT. Ein adversarischer Pruefer hat am 10.08. den Aufruf
+// `stamm_blatt_->zeile(felder)` in MappenNaht::schreibe() zu einem No-op gemacht -- ohne dass er
+// wirft (Koeder M3s). Ergebnis: sieben von sieben Messzeilen verschwanden aus der Mappe, und KEINE
+// Schicht klapperte. Alle 21 Tests der Abschnitte A-D blieben gruen.
+//
+// WARUM SIE ALLE GRUEN BLIEBEN -- und das ist der Kern, nicht ein Versehen:
+//   * bestand()/zeilen_im_blatt() lesen zeilen_je_blatt_. Dieser Zaehler waechst in schreibe() im
+//     Erfolgspfad UNTER dem Aufruf, und "Erfolg" heisst dort nur "es wurde nicht geworfen". Ein
+//     No-op wirft nicht. Der Zaehler bewegt sich also MIT dem Defekt, nicht gegen ihn.
+//   * Die csv rettet NICHT. Sie ist an dieser Stelle kein unabhaengiger Zeuge, sondern haengt am
+//     KIND-Zweig DERSELBEN Funktion: schreibe() reicht dieselben Felder weiter. Eine Mutation auf
+//     dem Weg Naht->Mappe bewegt Zaehler UND csv gemeinsam. Das Messgeraet stand beim Nachbarn.
+//   * A9S5Bestand.CsvOnlyLaeuftDieXlsxErzeugungVollstaendigDurch prueft zwar csv-Zeilen gegen
+//     zeilen_im_blatt(0)+1 -- aber BEIDE Seiten dieses Vergleichs liegen auf derselben Seite der
+//     Mutation. Unter M3s bleiben sie miteinander konsistent (beide 7) und der Test bleibt gruen.
+//     Ein fremder Nenner ist erst dann fremd, wenn er die MUTIERTE STELLE nicht durchlaufen hat.
+//
+// WAS HIER ANDERS IST (T-3/V-7 ernst genommen): die Grundgesamtheit kommt aus der ERZEUGTEN DATEI,
+// nicht aus dem Prueflung. Eine .xlsx IST ein ZIP; das erste angelegte Blatt liegt als
+// xl/worksheets/sheet1.xml. Darin fuehrt libxlsxwriter selbst zwei Zahlen, die MappenNaht nie zu
+// Gesicht bekommt:
+//   (a) <dimension ref="A1:C8"/> -- die Ausdehnung, die die Bibliothek aus den tatsaechlich
+//       erfolgten worksheet_write_*-Aufrufen mitschreibt (worksheet.c:2050 _worksheet_write_dimension,
+//       gespeist aus _check_dimensions, worksheet.c:1260).
+//   (b) die Zahl der <row>-Elemente -- die tatsaechlich materialisierten Zeilen.
+// Unter M3s erreicht KEIN einziger Datenzeilen-Aufruf die Bibliothek: (a) bleibt bei "A1:C1" und
+// (b) bei 1 (nur der Kopf). Beide Zahlen fallen, der Zaehler nicht -- genau das ist der Biss.
+//
+// (a) UND (b) SIND NICHT DASSELBE, und das ist am Objekt nachgemessen: _check_dimensions() laeuft in
+// worksheet_write_string() VOR der Laengenpruefung (worksheet.c:7953 gegen :7957) und speichert die
+// Ausdehnung auch dann, wenn der Schreibvorgang danach mit einem Fehler zurueckkommt. `dimension`
+// ist deshalb eine OBERGRENZE, kein Zeilenzaehler -- A9S5Ablehnung unten pinnt genau diesen
+// Unterschied fest. Wer nur (a) pruefte, haette ein Orakel, das eine fehlgeschlagene Zeile mitzaehlt.
+//
+// EINE WEITERE STILLE VENDOR-EIGENSCHAFT, hier nur benannt, weil sie die Sollwerte unten erklaert:
+// worksheet_write_string() behandelt eine LEERE Zeichenkette ohne Format als "nichts zu tun" und
+// schreibt gar keine Zelle (worksheet.c:7944-7951). Die leere Mittelspalte der Eingangszeilen taucht
+// in sheet1.xml also nicht als Zelle auf. Auf `dimension` wirkt sich das nicht aus, weil Spalte C
+// belegt ist -- die Ausdehnung bleibt A..C.
+
+namespace {
+
+// -----------------------------------------------------------------------------
+// Minimaler ZIP-Leser -- identisches Muster zu test_a9s3_xlsx_ergebnis_writer.cpp und
+// test_a9_xlsx_vendor_rauchtest.cpp: Zentral-Directory statt lokaler Kopfsaetze, vendoriertes
+// zlib-Inflate. Kein Python, kein externes Werkzeug.
+//
+// T-6-VERMERK: das ist die VIERTE woertliche Kopie dieses Lesers im Testbaum (die anderen drei siehe
+// oben). Ein gemeinsamer Test-Hilfsheader waere die richtige Aufraeumarbeit -- sie beruehrt aber drei
+// fremde Testdateien und gehoert damit nicht in dieses Paket. Ausdruecklich als offen benannt, nicht
+// stillschweigend uebergangen.
+// -----------------------------------------------------------------------------
+
+std::uint16_t le16(std::string const& b, std::size_t off) {
+    return static_cast<std::uint16_t>(static_cast<unsigned char>(b[off]) |
+                                      (static_cast<unsigned char>(b[off + 1]) << 8));
+}
+std::uint32_t le32(std::string const& b, std::size_t off) {
+    return static_cast<std::uint32_t>(static_cast<unsigned char>(b[off])) |
+           (static_cast<std::uint32_t>(static_cast<unsigned char>(b[off + 1])) << 8) |
+           (static_cast<std::uint32_t>(static_cast<unsigned char>(b[off + 2])) << 16) |
+           (static_cast<std::uint32_t>(static_cast<unsigned char>(b[off + 3])) << 24);
+}
+std::string inflate_raw(char const* data, std::size_t csize, std::size_t usize) {
+    std::string out(usize, '\0');
+    if (usize == 0) return out;
+    z_stream s{};
+    if (inflateInit2(&s, -MAX_WBITS) != Z_OK) return {};
+    s.next_in    = reinterpret_cast<Bytef*>(const_cast<char*>(data));
+    s.avail_in   = static_cast<uInt>(csize);
+    s.next_out   = reinterpret_cast<Bytef*>(out.data());
+    s.avail_out  = static_cast<uInt>(usize);
+    int const rc = inflate(&s, Z_FINISH);
+    inflateEnd(&s);
+    if (rc != Z_STREAM_END) return {};
+    out.resize(s.total_out);
+    return out;
+}
+std::string zip_entry(std::string const& zip, std::string const& name) {
+    constexpr std::size_t kEocdMin = 22;
+    if (zip.size() < kEocdMin) return {};
+    std::size_t eocd = std::string::npos;
+    for (std::size_t i = zip.size() - kEocdMin + 1; i-- > 0;) {
+        if (le32(zip, i) == 0x06054b50u) {
+            eocd = i;
+            break;
+        }
+    }
+    if (eocd == std::string::npos) return {};
+    std::uint16_t const anzahl   = le16(zip, eocd + 10);
+    std::uint32_t const cd_start = le32(zip, eocd + 16);
+    if (cd_start >= zip.size()) return {};
+    std::size_t pos = cd_start;
+    for (std::uint16_t i = 0; i < anzahl; ++i) {
+        if (pos + 46 > zip.size() || le32(zip, pos) != 0x02014b50u) return {};
+        std::uint16_t const methode   = le16(zip, pos + 10);
+        std::uint32_t const csize     = le32(zip, pos + 20);
+        std::uint32_t const usize     = le32(zip, pos + 24);
+        std::uint16_t const namelen   = le16(zip, pos + 28);
+        std::uint16_t const extralen  = le16(zip, pos + 30);
+        std::uint16_t const kommentar = le16(zip, pos + 32);
+        std::uint32_t const lokal_off = le32(zip, pos + 42);
+        std::string const   eintrag   = zip.substr(pos + 46, namelen);
+        if (eintrag == name) {
+            if (csize == 0xffffffffu || usize == 0xffffffffu) return {};
+            if (lokal_off + 30 > zip.size() || le32(zip, lokal_off) != 0x04034b50u) return {};
+            std::size_t const daten = lokal_off + 30 + le16(zip, lokal_off + 26) + le16(zip, lokal_off + 28);
+            if (daten + csize > zip.size()) return {};
+            if (methode == 0) return zip.substr(daten, usize);
+            if (methode != 8) return {};
+            return inflate_raw(zip.data() + daten, csize, usize);
+        }
+        pos += 46 + namelen + extralen + kommentar;
+    }
+    return {};
+}
+
+/// Das Datenblatt der von MappenNaht erzeugten Mappe, als XML.
+///
+/// WARUM sheet1.xml: MappenNaht::oeffnen() legt das Datenblatt per stamm_->blatt(SheetSchluessel{})
+/// an, BEVOR schliessen() das INFO-Blatt anhaengt. Das Datenblatt ist damit das ZUERST angelegte
+/// Sheet -- dieselbe Zuordnung, die test_a9s3_xlsx_ergebnis_writer.cpp bereits nutzt ("sheet1.xml =
+/// S001, erste angelegte"). Der Test unten pruefte das nicht nur, er BELEGT es: er sucht in
+/// sheet1.xml nach Mess-Zellen, und das INFO-Blatt traegt andere.
+std::string datenblatt_xml(std::filesystem::path const& xlsx) {
+    return zip_entry(read_file(xlsx), "xl/worksheets/sheet1.xml");
+}
+
+/// Die Ausdehnung, die libxlsxwriter selbst mitgeschrieben hat: <dimension ref="A1:C8"/> -> "A1:C8".
+/// Leerer String = kein dimension-Element gefunden (dann faellt der Test, statt still 0 zu melden --
+/// FAIL-CLOSED).
+std::string dimension_ref(std::string const& sheet_xml) {
+    constexpr std::string_view kMarke = "<dimension ref=\"";
+    auto const                 start  = sheet_xml.find(kMarke);
+    if (start == std::string::npos) return {};
+    auto const von = start + kMarke.size();
+    auto const bis = sheet_xml.find('"', von);
+    if (bis == std::string::npos) return {};
+    return sheet_xml.substr(von, bis - von);
+}
+
+/// Die Zahl der tatsaechlich materialisierten <row>-Elemente im Blatt -- die haertere der beiden
+/// Vendor-Zahlen (s. Abschnitts-Kopf: dimension ist nur eine Obergrenze).
+std::size_t zeilen_im_blatt_xml(std::string const& sheet_xml) {
+    constexpr std::string_view kMarke = "<row ";
+    std::size_t                n      = 0;
+    std::size_t                pos    = 0;
+    while ((pos = sheet_xml.find(kMarke, pos)) != std::string::npos) {
+        ++n;
+        pos += kMarke.size();
+    }
+    return n;
+}
+
+/// Der Sollwert fuer dimension bei `datenzeilen` Datenzeilen ueber 3 Spalten -- aus dem FREMDEN
+/// Nenner gerechnet, nicht vom Prueflung erfragt. +1 fuer die Kopfzeile.
+std::string soll_dimension(std::size_t datenzeilen) { return "A1:C" + std::to_string(datenzeilen + 1); }
+
+} // namespace
+
+// DIE ABNAHME DIESES POSTENS. Der Zaehler der Naht wird gegen den INHALT der Mappe gehalten -- gegen
+// eine Quelle, die die mutierte Stelle nicht durchlaufen hat.
+//
+// BISS BELEGT (K13, Wegwerf-Mutation vom 10.08., protokolliert): mit `stamm_blatt_->zeile(felder);`
+// -> `(void) felder;` in ergebnis_mappe_naht.hpp faellt dieser Test mit
+//   dimension ist "A1:C1", soll "A1:C8"   und   <row>-Zahl ist 1, soll 8
+// waehrend n.zeilen_im_blatt(0) unveraendert 7 meldet. Ohne die Mutation ist er gruen.
+TEST(A9S5MappenInhalt, DieMappeTraegtDieZeilenWirklichNichtNurImZaehler) {
+    TempDir const     tmp;
+    std::string const eingang = eingangs_csv(7);
+    std::size_t const N       = datenzeilen_im_eingang(eingang); // FREMDER Nenner: 7, aus dem Eingang
+    ASSERT_EQ(N, 7u) << "Das Orakel selbst muss stimmen, sonst misst der Test nichts.";
+
+    naht::MappenNaht n;
+    // BEIDE Persistenzen: so liegt die Mappe als Datei vor UND ihr Kind daneben -- zwei Ausgaben
+    // derselben Mappe, die sich gegenseitig bezeugen koennen.
+    n.oeffnen(tmp.path / "measurements.csv", {"csv", "xlsx"});
+    ASSERT_TRUE(n.scharf()) << n.diagnose();
+
+    n.kopf_aus_csv(kKopf);
+    n.blob_aus_csv(eingang);
+
+    // WAS DIE NAHT BEHAUPTET -- vor dem Schliessen gelesen, danach ist das Objekt freigegeben.
+    std::size_t const behauptet = n.zeilen_im_blatt(0);
+    EXPECT_EQ(behauptet, N) << "Die Buchhaltung der Naht selbst.";
+    // Die Herkunft der Zahl muss in der AUSGABE stehen -- sonst liest ein Mensch sie als
+    // Inhalts-Aussage, die sie nicht ist (V-8).
+    EXPECT_NE(n.bestand().find("quelle=naht-buchhaltung"), std::string::npos)
+        << "bestand() muss seine Herkunft selbst ansagen, war: " << n.bestand();
+
+    ASSERT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << n.diagnose();
+
+    auto const xlsx_dateien = dateien_mit_endung(tmp.path, ".xlsx");
+    ASSERT_EQ(xlsx_dateien.size(), 1u) << "Ohne Mappe auf der Platte gibt es nichts zu pruefen.";
+    std::string const sheet = datenblatt_xml(tmp.path / xlsx_dateien.front());
+    ASSERT_FALSE(sheet.empty()) << "xl/worksheets/sheet1.xml nicht lesbar -- FAIL-CLOSED, nicht gruen.";
+
+    // ===== DAS ORAKEL: zwei Zahlen aus der DATEI, keine davon aus der Naht =====
+    EXPECT_EQ(dimension_ref(sheet), soll_dimension(N))
+        << "libxlsxwriter fuehrt die Ausdehnung selbst mit. Steht hier A1:C1, hat die Mappe nur den "
+           "Kopf gesehen -- egal was der Zaehler meldet. sheet1.xml war: "
+        << sheet;
+    EXPECT_EQ(zeilen_im_blatt_xml(sheet), N + 1) << "Materialisierte <row>-Elemente: " << N << " Datenzeilen + 1 Kopf.";
+
+    // ===== DIE EIGENTLICHE AUSSAGE DES POSTENS: Zaehler GEGEN Inhalt =====
+    EXPECT_EQ(zeilen_im_blatt_xml(sheet), behauptet + 1)
+        << "Die Naht meldete " << behauptet << " angenommene Zeilen. Die Mappe traegt sie nicht. "
+        << "Genau diese Luecke liess Koeder M3s ueberleben.";
+
+    // WERT statt Menge: die LETZTE Datenzeile muss mit ihrem Wert an ihrer Position stehen. Zeile 8
+    // (Kopf + 7), Spalte C, Wert 100+6 -- als echte Zahlzelle, nicht als String-Verweis. Eine
+    // Mutation, die nur die letzte Zeile verliert, faellt hier und nicht erst an der Menge.
+    EXPECT_NE(sheet.find("<c r=\"C8\"><v>106</v></c>"), std::string::npos)
+        << "Die letzte Datenzeile fehlt oder steht an der falschen Stelle. sheet1.xml war: " << sheet;
+
+    // ===== STAMM GEGEN KIND: zwei Ausgaben DERSELBEN Mappe muessen sich decken =====
+    // Das ist die zweite unabhaengige Achse: waeren es zwei Schreibwege statt Stamm und Kind,
+    // koennten sie hier auseinanderlaufen, ohne dass eine Datei fehlt.
+    auto const sheets = dateien_mit_endung(tmp.path, "__S001.csv");
+    ASSERT_EQ(sheets.size(), 1u);
+    EXPECT_EQ(zeilen_in_datei(tmp.path / sheets.front()), zeilen_im_blatt_xml(sheet))
+        << "Die csv ist das KIND der Mappe -- sie kann nicht mehr Zeilen tragen als der Stamm.";
+}
+
+// T-4 GEGENEINGANG zum Orakel oben: das Orakel darf nicht konstant sein. Drei verschiedene
+// Eingangsgroessen muessen DREI verschiedene Ausdehnungen erzeugen. Ohne diesen Fall duerfte
+// dimension_ref() konstant "A1:C8" liefern und die Abnahme oben bliebe gruen.
+TEST(A9S5MappenInhalt, DieAusdehnungFolgtDerEingangsgroesse) {
+    std::vector<std::size_t> const groessen{0, 2, 7};
+    std::vector<std::string>       gesehen;
+    std::size_t                    geprueft = 0;
+    for (std::size_t const g : groessen) {
+        TempDir const     tmp;
+        std::string const eingang = eingangs_csv(g);
+        std::size_t const N       = datenzeilen_im_eingang(eingang); // FREMDER Nenner
+        ASSERT_EQ(N, g) << "Fall " << geprueft << ": das Orakel selbst muss stimmen.";
+
+        naht::MappenNaht n;
+        n.oeffnen(tmp.path / "measurements.csv", {}); // Default = nur xlsx
+        ASSERT_TRUE(n.scharf()) << "Fall " << geprueft << ": " << n.diagnose();
+        n.kopf_aus_csv(kKopf);
+        n.blob_aus_csv(eingang);
+        ASSERT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << "Fall " << geprueft << ": " << n.diagnose();
+
+        auto const xlsx_dateien = dateien_mit_endung(tmp.path, ".xlsx");
+        ASSERT_EQ(xlsx_dateien.size(), 1u) << "Fall " << geprueft;
+        std::string const sheet = datenblatt_xml(tmp.path / xlsx_dateien.front());
+        ASSERT_FALSE(sheet.empty()) << "Fall " << geprueft << ": sheet1.xml nicht lesbar.";
+
+        EXPECT_EQ(dimension_ref(sheet), soll_dimension(N)) << "Fall " << geprueft << " (N=" << N << ")";
+        EXPECT_EQ(zeilen_im_blatt_xml(sheet), N + 1) << "Fall " << geprueft << " (N=" << N << ")";
+        gesehen.push_back(dimension_ref(sheet));
+        ++geprueft;
+    }
+    ASSERT_EQ(geprueft, 3u) << "Alle drei Groessen muessen gelaufen sein.";
+    // Der eigentliche Gegeneingang: die drei Ausdehnungen sind PAARWEISE VERSCHIEDEN. Ein Orakel,
+    // das immer dasselbe liefert, faellt genau hier.
+    EXPECT_NE(gesehen[0], gesehen[1]) << "N=0 und N=2 duerfen nicht dieselbe Ausdehnung haben.";
+    EXPECT_NE(gesehen[1], gesehen[2]) << "N=2 und N=7 duerfen nicht dieselbe Ausdehnung haben.";
+    EXPECT_EQ(gesehen[0], "A1:C1") << "Nur der Kopf -- genau die Lage, die Koeder M3s vortaeuscht.";
+}
+
+// DER ABLEHNUNGSPFAD -- bis heute unbefahren. verworfen() stand im ganzen Testfile nur als
+// EXPECT_EQ(..., 0u) (zwei Fundstellen: A9S5Bestand oben); kein Test trieb ihn je ueber null. Damit
+// war der gesamte catch-Zweig von schreibe() ungedeckt, inklusive der Kernsemantik
+// "legt der Stamm die Annahme nieder, faellt das Kind im selben Zug mit".
+//
+// DER AUSLOESER IST ECHT und stammt aus dem Vendor-Vertrag, nicht aus einem Test-Seam:
+// worksheet.c:28 setzt LXW_STR_MAX auf 32767; worksheet.c:7957 lehnt laengere Zeichenketten mit
+// LXW_ERROR_MAX_STRING_LENGTH_EXCEEDED ab; xlsx_ergebnis_writer.cpp:95-99 macht daraus einen
+// ErgebnisSchreibFehler{ZipFehler}, der in schreibe() im catch landet. Der andere denkbare Ausloeser
+// -- das Zeilenlimit kXlsxZeilenlimit -- braeuchte eine Million echte Zeilen und waere kein
+// staerkerer Beleg, nur ein langsamerer Test (dieselbe Begruendung fuehrt test_a9s3_xlsx_*).
+TEST(A9S5Ablehnung, LegtDerStammDieAnnahmeNiederFaelltDasKindMitUndVerworfeneZeilenWerdenGezaehlt) {
+    TempDir const    tmp;
+    naht::MappenNaht n;
+    n.oeffnen(tmp.path / "measurements.csv", {"csv", "xlsx"});
+    ASSERT_TRUE(n.scharf()) << n.diagnose();
+
+    n.kopf_aus_csv(kKopf);
+    n.zeile_aus_csv("b0;;100\n"); // wird angenommen
+
+    // Spalte A, damit der Fehlschlag VOR jeder anderen Zelle dieser Zeile faellt.
+    std::string const zu_lang(32768, 'a'); // 32768 > LXW_STR_MAX (32767)
+    n.zeile_aus_csv(zu_lang + ";;200\n");  // DIESE Zeile bringt den Stamm zu Fall
+    n.zeile_aus_csv("b2;;300\n");          // und DIESE trifft auf eine Mappe, die nicht mehr annimmt
+
+    // ===== DIE BUCHHALTUNG: der Zaehler, den bisher kein Test ueber null getrieben hat =====
+    EXPECT_FALSE(n.scharf()) << "Nach dem Schreibfehler darf die Naht nicht mehr scharf sein.";
+    EXPECT_TRUE(n.mappe_lebt()) << "Das Mappen-OBJEKT lebt weiter -- nur die Annahme ist niedergelegt.";
+    EXPECT_EQ(n.angeboten(), 3u) << "Grundgesamtheit: drei Datenzeilen wurden hereingereicht.";
+    EXPECT_EQ(n.zeilen_im_blatt(0), 1u) << "Genau die erste Zeile wurde angenommen.";
+    EXPECT_EQ(n.verworfen(), 2u) << "BEIDE muessen zaehlen: die Zeile, die den Fehler ausloeste, UND jede danach. Eine "
+                                    "verworfene Zeile, die still verschwindet, macht die csv unvollstaendig OHNE Spur.";
+    EXPECT_NE(n.bestand().find("S1:1/3 angeboten verworfen=2"), std::string::npos)
+        << "Der Nenner gehoert in die AUSGABE, auch im Fehlerfall. bestand() war: " << n.bestand();
+    EXPECT_NE(n.diagnose().find("die MAPPE nahm nicht mehr an"), std::string::npos)
+        << "Der Grund muss BENANNT sein, war: " << n.diagnose();
+
+    ASSERT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << n.diagnose();
+
+    // ===== DER GEGENSTAND: das Kind auf der Platte =====
+    // Das ist die pruefbare Fassung von "das Kind faellt MIT". Die csv darf NUR Kopf + b0 tragen:
+    // weder die ausloesende Zeile noch die danach duerfen sie erreicht haben.
+    auto const sheets = dateien_mit_endung(tmp.path, "__S001.csv");
+    ASSERT_EQ(sheets.size(), 1u) << "Die csv-Ausgabe fehlt.";
+    std::string const csv_inhalt = read_file(tmp.path / sheets.front());
+    EXPECT_EQ(zeilen_in_datei(tmp.path / sheets.front()), 2u)
+        << "Kopf + genau die eine angenommene Zeile. csv war: " << csv_inhalt;
+    EXPECT_NE(csv_inhalt.find("b0;;100"), std::string::npos) << "Die angenommene Zeile fehlt: " << csv_inhalt;
+    EXPECT_EQ(csv_inhalt.find("b2;;300"), std::string::npos)
+        << "Eine Zeile, die der Stamm ABGELEHNT hat, darf die csv NIE erreichen -- sonst waeren es "
+           "Geschwister statt Stamm und Kind. csv war: "
+        << csv_inhalt;
+    EXPECT_EQ(csv_inhalt.find(zu_lang), std::string::npos)
+        << "Auch die ausloesende Zeile selbst darf nicht im Kind stehen.";
+
+    // ===== UND DIE MAPPE SELBST: dimension ist eine OBERGRENZE, kein Zeilenzaehler =====
+    // Nachgemessen am Vendor: _check_dimensions() laeuft in worksheet_write_string() VOR der
+    // Laengenpruefung (worksheet.c:7953 gegen :7957) und speichert die Ausdehnung auch dann, wenn
+    // der Aufruf danach mit einem Fehler zurueckkommt. Die abgelehnte Zeile 3 weitet `dimension`
+    // also auf A1:C3 -- obwohl nur ZWEI <row>-Elemente entstehen. Dieser Unterschied wird hier
+    // festgenagelt, damit niemand `dimension` spaeter fuer eine Zeilenzahl haelt.
+    auto const xlsx_dateien = dateien_mit_endung(tmp.path, ".xlsx");
+    ASSERT_EQ(xlsx_dateien.size(), 1u);
+    std::string const sheet = datenblatt_xml(tmp.path / xlsx_dateien.front());
+    ASSERT_FALSE(sheet.empty()) << "sheet1.xml nicht lesbar -- FAIL-CLOSED.";
+    EXPECT_EQ(zeilen_im_blatt_xml(sheet), 2u) << "Kopf + die eine angenommene Zeile. sheet1.xml war: " << sheet;
+    EXPECT_EQ(dimension_ref(sheet), "A1:C3")
+        << "Erwartet ist die OBERGRENZE inklusive der abgelehnten Zeile -- weicht das ab, hat der "
+           "Vendor sein Verhalten geaendert und der Kommentar darueber ist falsch geworden.";
 }

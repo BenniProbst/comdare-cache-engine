@@ -6215,12 +6215,17 @@ set_tests_properties(test_a9s4_skip_manifest PROPERTIES
 # detail::erzeuge_xlsx_ergebnis_mappe auch im csv-Zweig -- s. Kommentar bei test_a9s3_ergebnis_mappe_csv).
 comdare_add_test(test_a9s5_ergebnis_mappe_naht
     SOURCES test_a9s5_ergebnis_mappe_naht.cpp)
+# W0b-Nachbesserung 2026-08-10: Abschnitt E liest die erzeugte .xlsx als ZIP zurueck (dimension ref
+# und <row>-Zahl aus xl/worksheets/sheet1.xml) -- das Orakel am INHALT statt am Zaehler. Dafuer
+# braucht dieses Ziel denselben Vendor-Link wie test_a9s3_xlsx_ergebnis_writer: zlib zum Inflaten.
 target_include_directories(test_a9s5_ergebnis_mappe_naht PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
-target_link_libraries(test_a9s5_ergebnis_mappe_naht PRIVATE comdare::lager_ablage)
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/ext/io/zlib")
+target_link_libraries(test_a9s5_ergebnis_mappe_naht PRIVATE
+    comdare::lager_ablage comdare::vendored_zlib)
 set_tests_properties(test_a9s5_ergebnis_mappe_naht PROPERTIES
     LABELS "a9;xlsx;lager;naht;format_wahl")
 
