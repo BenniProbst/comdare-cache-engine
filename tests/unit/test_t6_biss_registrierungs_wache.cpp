@@ -20,7 +20,11 @@
 //   Exit 1 = ohne gueltige Begruendung ausserhalb -> der BISS, mit dem Literal
 //   Exit 2 = die Wache konnte nicht pruefen       -> fail-closed, KEIN Biss
 //
-// DIE ZWEI EIGENSCHAFTEN, DIE BIS HEUTE REINE BEHAUPTUNG WAREN:
+// EXIT 1 HAT DREI EINGAENGE, und der Test deckt jeden einzeln: gar keine Allowlist-Zeile
+// (1), eine ERLOSCHENE (3), eine UNPRUEFBARE (7). Bis zum 10.08. fehlte der dritte --
+// die Sammellandung hat genau diese Luecke gefunden, s. Kopf von Fall (7).
+//
+// DIE DREI EIGENSCHAFTEN, DIE BIS HEUTE REINE BEHAUPTUNG WAREN:
 //  (a) DIE ERLOSCHENE AUSNAHME. Jede Allowlist-Zeile nennt einen GEGENSTAND, dessen
 //      Abwesenheit die Ausnahme traegt. Existiert er wieder, ist die Ausnahme erloschen
 //      und die Zeile wird ROT -- auch wenn niemand die Allowlist angefasst hat. Ohne
@@ -29,6 +33,10 @@
 //  (b) DIE MESSGERAET-GEGENPROBE. Bevor ein Nullbefund etwas bedeutet, muss belegt
 //      sein, dass das Werkzeug ueberhaupt sucht. Fall (5) nimmt der Wache den Beleg
 //      und verlangt ABBRUCH -- nicht "nichts gefunden, also in Ordnung".
+//  (c) DIE ART DER BEGRUENDUNG. Feld 2 nennt seit MT-L4 (461776ef) ein PRAEFIX
+//      ('datei:' oder 'isa:'), das die Gegenstandsart benennt. Eine Zeile ohne
+//      bekannte Art ist nicht nachpruefbar und damit ROT. Fall (7) faehrt denselben
+//      Gegenstand ohne und mit Praefix -- der Unterschied ist das Praefix, sonst nichts.
 //
 // K13: jeder Fall wuerfelt frisch aus /dev/urandom; die Marken kommen in keiner Datei
 // dieses Repos vor. GEGENKOEDER: Fall (0) faehrt denselben Baum ohne Manipulation und
@@ -217,8 +225,10 @@ TEST(T6BissRegistrierungsWache, BegruendeteWaiseIstKeinBefund) {
 
     ASSERT_TRUE(fall.init());
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(waise, "// nie gebaut\n"));
+    // 'datei:' benennt die ART des Gegenstands (MT-L4, 461776ef). Ohne Praefix ist die
+    // Zeile seit dieser Aenderung UNPRUEFBAR und damit ROT -- Fall (7) faehrt genau das.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
-                                     "# Wegwerf-Allowlist des Falls\n" + waise + " | " + grund +
+                                     "# Wegwerf-Allowlist des Falls\n" + waise + " | datei:" + grund +
                                          " | braucht den optionalen Fremdbaum\n"));
     ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));
 
@@ -228,6 +238,10 @@ TEST(T6BissRegistrierungsWache, BegruendeteWaiseIstKeinBefund) {
     EXPECT_EQ(lauf.code, 0) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "ABWESEND, ABER BEGRUENDET")) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, waise)) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, grund))
+        << "Der tragende Gegenstand muss NAMENTLICH erscheinen -- eine Begruendung, die die Wache nicht "
+           "ausweist, ist von Schweigen nicht zu unterscheiden.\n"
+        << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK"))
         << "Beleg, dass die Wache durchgelaufen ist -- sonst waere 'kein Befund' nur Schweigen.\n"
         << lauf.ausgabe;
@@ -248,7 +262,7 @@ TEST(T6BissRegistrierungsWache, ErloscheneAusnahmeWirdROT) {
     ASSERT_TRUE(fall.init());
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(waise, "// nie gebaut\n"));
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
-                                     waise + " | " + grund + " | braucht den optionalen Fremdbaum\n"));
+                                     waise + " | datei:" + grund + " | braucht den optionalen Fremdbaum\n"));
     // DER EINZIGE UNTERSCHIED ZU FALL (2): der Gegenstand ist wieder da.
     ASSERT_TRUE(fall.repo().schreibe(grund, "# der Fremdbaum ist zurueck\n"));
     ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));
@@ -338,6 +352,76 @@ TEST(T6BissRegistrierungsWache, NamensverwandterNachbarDecktNicht) {
     // erfuellt, die schlicht alles meldet.
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "3 getrackte Test-Quelldatei(en)")) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "1 davon NICHT im Bauweg")) << lauf.ausgabe;
+}
+
+// =============================================================================
+// (7) DIE UNPRUEFBARE BEGRUENDUNG -- die DRITTE Rot-Ursache der Wache, und die einzige,
+//     die dieser Biss-Test bis zur Sammellandung vom 10.08. nicht kannte.
+//
+// WOFUER ER DA IST. Feld 2 nennt seit MT-L4 (461776ef) die ART des Gegenstands. Eine
+// Zeile ohne bekannte Art kann niemand nachpruefen; sie ist nicht "vermutlich in
+// Ordnung", sondern ein Freibrief, und die Wache macht sie fail-closed ROT. Die Faelle
+// (2) und (3) oben pruefen den Weg der GUELTIGEN Begruendung -- sie sagen nichts
+// darueber, was mit einer ungueltigen geschieht. Genau diese Luecke hat die
+// Sammellandung aufgedeckt: beide Faelle bauten ihr Fixture noch in der alten
+// Zwei-Feld-Form, waren einzeln gruen und im Zusammenschluss rot.
+//
+// BEIDE RICHTUNGEN AN EINEM GEGENSTAND (K13, T-4). Derselbe Baum, derselbe gewuerfelte
+// Gegenstand, EIN Unterschied: das Praefix. Ohne Richtung (b) belegte (a) nur, dass die
+// Wache bei irgendeiner Allowlist rot wird -- nicht, dass das PRAEFIX das Urteil traegt.
+//
+// ABGRENZUNG, EHRLICH (T-9): die 'isa:'-Art wird hier NICHT nachgebaut. Sie haengt am
+// CMakeCache des gemessenen Baums und ist in test_mt_l4_registrierungs_wache_isa.cpp an
+// einem Synth-Cache in beide Richtungen gefahren (Faelle 1, 2, 5, 6 dort). Dieser Test
+// deckt den Biss der Wache am Wegwerf-REPO; eine zweite Abschrift derselben Zusicherung
+// truege hier nichts bei. Was hier fehlte und nun steht, ist die Art-Pruefung selbst.
+// =============================================================================
+TEST(T6BissRegistrierungsWache, UnpruefbareBegruendungWirdROT) {
+    std::string const marke = koeder();
+    std::string const waise = "tests/unit/test_waise_" + marke + ".cpp";
+    std::string const grund = "ext/fremdbaum_" + marke + "/CMakeLists.txt"; // existiert NICHT
+    Fall              fall{marke};
+
+    ASSERT_TRUE(fall.init());
+    ASSERT_TRUE(fall.repo().schreibe_und_verfolge(waise, "// nie gebaut\n"));
+    ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));
+
+    // (a) OHNE ART-PRAEFIX -- woertlich die Form, in der (2) und (3) bis zum 10.08.
+    //     standen. Der Gegenstand ist abwesend, die Begruendung klingt plausibel, und
+    //     trotzdem MUSS die Wache beissen: niemand kann nachpruefen, was gemeint ist.
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     waise + " | " + grund + " | braucht den optionalen Fremdbaum\n"));
+    Lauf const ohne = wache_fahren(fall.repo(), fall.baum());
+    berichten("Feld 2 ohne Art-Praefix", ohne, marke);
+
+    EXPECT_EQ(ohne.code, 1) << "Eine Begruendung ohne nachpruefbare Art MUSS Exit 1 geben. Nicht 0 (das waere der "
+                               "Freibrief) und nicht 2 (die Wache KONNTE pruefen -- sie hat ein Urteil).\n"
+                            << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "UNPRUEFBARE BEGRUENDUNG")) << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, grund))
+        << "Der gewuerfelte Gegenstand MUSS woertlich erscheinen -- sonst hat die Wache ihn nie gelesen.\n"
+        << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "1 mit UNPRUEFBARER Begruendung"))
+        << "Der Nenner gehoert in die Ausgabe (V-1), und er muss die Ursache TRENNEN: eine unpruefbare Zeile "
+           "ist etwas anderes als eine fehlende.\n"
+        << ohne.ausgabe;
+    EXPECT_TRUE(enthaelt(ohne.ausgabe, "1 unpruefbar"))
+        << "Das Schluss-Urteil muss die Ursache mitfuehren -- diese Zeile stand woertlich im roten Job 371647.\n"
+        << ohne.ausgabe;
+    EXPECT_FALSE(enthaelt(ohne.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << ohne.ausgabe;
+
+    // (b) DIESELBE ZEILE MIT 'datei:' -- gruen. Das ist der Gegenkoeder UND der Beleg,
+    //     dass oben das Praefix gemessen wurde und nicht etwa der Gegenstand, der Baum
+    //     oder die blosse Anwesenheit einer Allowlist.
+    ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
+                                     waise + " | datei:" + grund + " | braucht den optionalen Fremdbaum\n"));
+    Lauf const mit = wache_fahren(fall.repo(), fall.baum());
+    berichten("dasselbe Feld 2 MIT 'datei:'", mit, marke);
+
+    EXPECT_EQ(mit.code, 0) << "Ein Praefix mehr, sonst nichts -- die Zeile MUSS jetzt tragen.\n" << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "ABWESEND, ABER BEGRUENDET")) << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "0 mit UNPRUEFBARER Begruendung")) << mit.ausgabe;
+    EXPECT_TRUE(enthaelt(mit.ausgabe, "TEST-REGISTRIERUNGS-WACHE: OK")) << mit.ausgabe;
 }
 
 #endif // _WIN32
