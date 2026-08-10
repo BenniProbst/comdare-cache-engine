@@ -449,7 +449,9 @@ test:coverage-guard:
       # Die Gegenrichtung (kein Pruefling -> Block UEBERSPRUNGEN) faehrt test:unit in
       # derselben Pipeline; beide Zweige sind damit je Lauf belegt (T-4).
       # configure.sh reicht -D<name>=<wert> durch (configure.sh:178, '-D*) anhaengen').
-      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$CI_PROJECT_DIR/tests/pruefling_fixture"
+      _pf="$CI_PROJECT_DIR/tests/pruefling_fixture"
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja \
+        --enable-build-tests --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$_pf"
       _built=0
       for _a in 1 2 3 4; do
         if make inventar BUILD_JOBS=2; then _built=1; break; fi   # halbe Parallelitaet: Druck senken statt serialisieren
