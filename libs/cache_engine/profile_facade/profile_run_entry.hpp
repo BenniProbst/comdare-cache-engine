@@ -1245,13 +1245,20 @@ struct RunProfileResult {
     // BEWUSST NICHT exit-wirksam in diesem Schritt: die Mappe steht additiv neben der offiziellen CSV,
     // ein Mappen-Fehler darf einen sonst gueltigen Mess-Lauf nicht rot faerben. Verdeckt ist der Zweig
     // deshalb nicht -- mappe_ok und der Grund stehen in der Zeile unten.
+    // DER BESTAND IM SPEICHER, VOR dem Schliessen gelesen: danach ist das Mappen-Objekt freigegeben
+    // und die Aussage waere nicht mehr zu haben. Das ist die Zeile, die einen csv-only-Lauf belegt --
+    // sie sagt, wieviele Blaetter und Zeilen die xlsx-Erzeugung wirklich getragen hat, GEGEN die Zahl
+    // der angebotenen Zeilen. Ohne sie waere "nur csv persistiert" von "xlsx nie gelaufen" nicht zu
+    // unterscheiden.
+    std::cout << "  [MAPPE-BESTAND] " << mappe.bestand() << "\n";
     bool mappe_ok = false;
-    if (mappe.scharf()) {
+    if (mappe.mappe_lebt()) {
         ::comdare::cache_engine::builder::lager_ablage::MaschinenSysinfo sysinfo;
         sysinfo.hostname = ::comdare::cache_engine::measurement::live_hostname();
         mappe_ok         = mappe.schliessen(sysinfo, {}, {});
     }
-    std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen()
+    std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen() << "/" << mappe.angeboten()
+              << " (angenommen/angeboten) verworfen=" << mappe.verworfen()
               << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
               << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
 

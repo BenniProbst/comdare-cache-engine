@@ -387,6 +387,199 @@ TEST(A9S5Naht, BeideFormateErzeugenBeideAusgabenAusEinerMappe) {
 TEST(A9S5Naht, SchliessenOhneGeoeffneteMappeIstFalse) {
     naht::MappenNaht n; // nie geoeffnet
     EXPECT_FALSE(n.scharf());
+    EXPECT_FALSE(n.mappe_lebt());
     EXPECT_EQ(n.ziele(), "") << "Ohne Ausgabe gibt es keinen Zielnamen.";
     EXPECT_FALSE(n.schliessen(lab::MaschinenSysinfo{}, {}, {}));
+}
+
+// =================================================================================================
+// D. DIE ERZEUGUNG IST BEDINGUNGSLOS -- W0b (2026-08-10)
+// =================================================================================================
+//
+// DER OWNER-KERN, den dieser Abschnitt pruefen soll (09.08. 16:31, woertlich): "die csv wird doch
+// aus der xlsx gebildet, IMMER. es wird nur entweder xlsx oder csv oder BEIDE auf Platte gesichert,
+// was auf dem RAM liegt ist etwas voellig anderes."
+//
+// Bis W0b steuerte EIN Bit (wahl_.xlsx) beides: bei einem reinen csv-Profil wurde das
+// xlsx-Mappen-Objekt GAR NICHT gebaut -- die Erzeugung hing an der Persistenz-Wahl. Die Tests unten
+// trennen die beiden Fragen und pruefen die Erzeugung dort, wo sie stattfindet: IM SPEICHER, vor
+// und unabhaengig von jedem Datei-Schreibvorgang.
+//
+// T-3 (Nenner FREMD): die Grundgesamtheit N ist NICHT die Zahl, die der Prueflung meldet. Sie wird
+// unten aus dem Eingangs-CSV-Blob gezaehlt -- mit einer eigenen Schleife ueber '\n', die von
+// MappenNaht nichts weiss. Weichen beide voneinander ab, faellt der Test, nicht der Nenner.
+
+namespace {
+
+/// Der Eingang, gegen den gerechnet wird: EIN Kopf + `n` Datenzeilen, jede mit einer LEEREN Zelle
+/// in der Mitte (damit die Spaltentreue mitgeprueft ist). Von Hand gebaut, nicht vom Prueflung.
+std::string eingangs_csv(std::size_t n) {
+    std::string s;
+    for (std::size_t i = 0; i < n; ++i)
+        s += "b" + std::to_string(i) + ";;" + std::to_string(100 + i) + "\n";
+    return s;
+}
+
+/// UNABHAENGIGES ORAKEL fuer die Grundgesamtheit: zaehlt Datenzeilen im Eingang, ohne den Prueflung
+/// zu fragen. Genau das verlangt T-3 -- die Zahl darf nicht aus derselben Quelle kommen wie die
+/// gepruefte Aussage.
+std::size_t datenzeilen_im_eingang(std::string const& blob) {
+    std::size_t n = 0;
+    for (char const c : blob)
+        if (c == '\n') ++n;
+    return n;
+}
+
+/// Zeilen einer Datei auf der PLATTE (Gegenstand, nicht Ankuendigung).
+std::size_t zeilen_in_datei(std::filesystem::path const& p) {
+    return datenzeilen_im_eingang(read_file(p));
+}
+
+} // namespace
+
+// DIE ABNAHME. Ein Lauf, der NUR csv persistiert, muss die xlsx-Erzeugung vollstaendig durchlaufen
+// haben. Geprueft wird die Mappe IM SPEICHER -- vor schliessen(), also bevor irgendetwas auf der
+// Platte steht -- und zwar mit dem Nenner, den der Auftrag verlangt: wieviele Blaetter, wieviele
+// Zeilen je Blatt, gegen die Eingangs-CSV gerechnet.
+//
+// ROT VOR W0b: oeffnen() rief oeffne_eine(..., xlsx) nur `if (wahl_.xlsx)`; bei {"csv"} entstand gar
+// keine Mappe. blatt_zahl() waere 0, zeilen_im_blatt(0) waere 0 -- gegen 7 erwartete.
+TEST(A9S5Bestand, CsvOnlyLaeuftDieXlsxErzeugungVollstaendigDurch) {
+    TempDir const     tmp;
+    std::string const eingang = eingangs_csv(7);
+    std::size_t const N       = datenzeilen_im_eingang(eingang); // FREMDER Nenner: 7
+    ASSERT_EQ(N, 7u) << "Das Orakel selbst muss stimmen, sonst misst der Test nichts.";
+
+    naht::MappenNaht n;
+    n.oeffnen(tmp.path / "measurements.csv", {"csv"});
+
+    // Die Mappe steht -- OBWOHL nur csv persistiert wird. Das ist der Kern des Owner-KERNs.
+    ASSERT_TRUE(n.mappe_lebt()) << "Die xlsx-Mappe entsteht IMMER im Speicher. diagnose: " << n.diagnose();
+    ASSERT_TRUE(n.scharf()) << n.diagnose();
+    EXPECT_FALSE(n.wahl().xlsx) << "PERSISTENZ: keine xlsx auf die Platte -- das ist die andere Frage.";
+    EXPECT_TRUE(n.wahl().csv);
+
+    n.kopf_aus_csv(kKopf);
+    n.blob_aus_csv(eingang);
+
+    // ===== DER BESTAND IM SPEICHER, VOR jedem Datei-Schreibvorgang =====
+    EXPECT_EQ(n.blatt_zahl(), 1u) << "Die Mappe fuehrt EIN Blatt (ein konstanter SheetSchluessel).";
+    EXPECT_EQ(n.zeilen_im_blatt(0), N) << "Die Mappe muss ALLE " << N << " Eingangszeilen angenommen haben.";
+    EXPECT_EQ(n.angeboten(), N) << "Grundgesamtheit: was hereingereicht wurde.";
+    EXPECT_EQ(n.verworfen(), 0u) << "Keine Zeile darf unterwegs verlorengehen.";
+    EXPECT_EQ(n.zeilen(), N);
+    EXPECT_EQ(n.kopf_spalten(), 3u);
+    EXPECT_EQ(n.feld_abweichungen(), 0u);
+
+    // Der Nenner gehoert in die AUSGABE, nicht nur in den Kopf des Lesers (V-1).
+    std::string const b = n.bestand();
+    EXPECT_NE(b.find("mappe=xlsx-im-speicher"), std::string::npos) << "bestand() war: " << b;
+    EXPECT_NE(b.find("blaetter=1"), std::string::npos) << "bestand() war: " << b;
+    EXPECT_NE(b.find("S1:7/7 angeboten"), std::string::npos)
+        << "bestand() muss angenommene GEGEN angebotene Zeilen nennen, war: " << b;
+    EXPECT_NE(b.find("persistenz=csv"), std::string::npos)
+        << "bestand() muss die Persistenz-Wahl von der Erzeugung TRENNEN, war: " << b;
+
+    ASSERT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << n.diagnose();
+
+    // ===== DIE PLATTE: die Mappe LIEF, sie LANDET nur nicht =====
+    EXPECT_TRUE(dateien_mit_endung(tmp.path, ".xlsx").empty()) << "csv-only darf KEINE xlsx hinterlassen.";
+    EXPECT_TRUE(dateien_mit_endung(tmp.path, ".xlsx.tmp").empty())
+        << "Eine nicht persistierte Mappe darf auch keinen tmp-Rest hinterlassen -- sonst waere die "
+           "Entkopplung nur halb.";
+    auto const sheets = dateien_mit_endung(tmp.path, "__S001.csv");
+    ASSERT_EQ(sheets.size(), 1u);
+    // Der Gegenstand statt der Ankuendigung: die csv traegt genau die Zeilen, die die Mappe annahm.
+    EXPECT_EQ(zeilen_in_datei(tmp.path / sheets.front()), n.zeilen_im_blatt(0) + 1)
+        << "Die csv ist das KIND der Mappe -- sie kann nicht mehr und nicht weniger Zeilen tragen "
+           "als die Mappe angenommen hat (+1 fuer den Kopf).";
+    EXPECT_EQ(zeilen_in_datei(tmp.path / sheets.front()), N + 1) << "Und dieselbe Zahl gegen den FREMDEN Nenner.";
+}
+
+// T-4 GEGENEINGANG zur Abnahme oben: DERSELBE Eingang, die ANDERE Persistenz-Wahl. Der Bestand im
+// Speicher muss IDENTISCH sein -- daran faellt jede Fassung, in der ein Bit beide Fragen steuert.
+TEST(A9S5Bestand, DerBestandHaengtNICHTAnDerPersistenzWahl) {
+    std::string const eingang = eingangs_csv(7);
+    std::size_t const N       = datenzeilen_im_eingang(eingang);
+
+    // Drei Persistenz-Faelle, EIN erwarteter Bestand. Nenner: 3 von 3 Faellen (xlsx allein, csv
+    // allein, BEIDE) -- die vollstaendige Menge, die der Owner-Entscheid 09.08. zulaesst.
+    std::vector<std::vector<std::string>> const faelle{{}, {"csv"}, {"csv", "xlsx"}};
+    std::size_t                                 geprueft = 0;
+    for (auto const& methoden : faelle) {
+        TempDir const    tmp;
+        naht::MappenNaht n;
+        n.oeffnen(tmp.path / "measurements.csv", methoden);
+        ASSERT_TRUE(n.mappe_lebt()) << "Fall " << geprueft << ": die Mappe fehlt. " << n.diagnose();
+
+        n.kopf_aus_csv(kKopf);
+        n.blob_aus_csv(eingang);
+
+        EXPECT_EQ(n.blatt_zahl(), 1u) << "Fall " << geprueft;
+        EXPECT_EQ(n.zeilen_im_blatt(0), N)
+            << "Fall " << geprueft << ": der Bestand im Speicher darf sich mit der Persistenz-Wahl NICHT aendern.";
+        EXPECT_EQ(n.verworfen(), 0u) << "Fall " << geprueft;
+        ASSERT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << "Fall " << geprueft << ": " << n.diagnose();
+
+        // Und die Platte trennt die Faelle sehr wohl -- sonst waere die Trennung folgenlos.
+        std::size_t const xlsx_auf_platte = dateien_mit_endung(tmp.path, ".xlsx").size();
+        std::size_t const csv_auf_platte  = dateien_mit_endung(tmp.path, "__S001.csv").size();
+        EXPECT_EQ(xlsx_auf_platte, n.wahl().xlsx ? 1u : 0u) << "Fall " << geprueft;
+        EXPECT_EQ(csv_auf_platte, n.wahl().csv ? 1u : 0u) << "Fall " << geprueft;
+        ++geprueft;
+    }
+    EXPECT_EQ(geprueft, 3u) << "Alle drei Persistenz-Faelle muessen gelaufen sein, nicht nur der erste.";
+}
+
+// T-4 zur ZAHL: ein Lauf ohne Datenzeilen ergibt EIN Blatt und NULL Zeilen. Ohne diesen Gegeneingang
+// duerfte zeilen_im_blatt() konstant 7 liefern und die Abnahme oben bliebe gruen.
+TEST(A9S5Bestand, NullDatenzeilenErgebenEinBlattUndNullZeilen) {
+    TempDir const    tmp;
+    naht::MappenNaht n;
+    n.oeffnen(tmp.path / "measurements.csv", {"csv"});
+    ASSERT_TRUE(n.mappe_lebt()) << n.diagnose();
+
+    n.kopf_aus_csv(kKopf); // NUR der Kopf, keine Datenzeile
+
+    EXPECT_EQ(n.blatt_zahl(), 1u) << "Das Blatt entsteht mit der Mappe, nicht mit der ersten Zeile.";
+    EXPECT_EQ(n.zeilen_im_blatt(0), 0u) << "Der Kopf ist keine Datenzeile.";
+    EXPECT_EQ(n.angeboten(), 0u);
+    EXPECT_NE(n.bestand().find("S1:0/0 angeboten"), std::string::npos) << "bestand() war: " << n.bestand();
+    EXPECT_TRUE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << n.diagnose();
+}
+
+// FAIL-CLOSED / die Kind-Regel an ihrer haertesten Stelle: laesst sich das Ziel nicht herstellen,
+// entsteht KEINE Mappe -- und dann entsteht auch KEINE csv, obwohl csv verlangt war. Ein
+// csv-Ergebnis ohne funktionierenden xlsx-Weg waere ein Widerspruch, kein Sparmodus.
+//
+// Der Eingang ist real und nicht gestellt: das Elternverzeichnis der Ziel-CSV ist eine DATEI.
+// create_directories() scheitert daran; frueher wurde sein error_code verworfen.
+TEST(A9S5Naht, OhneHerstellbaresZielEntstehtWederMappeNochCsv) {
+    std::vector<std::vector<std::string>> const faelle{{}, {"csv"}, {"csv", "xlsx"}};
+    std::size_t                                 geprueft = 0;
+    for (auto const& methoden : faelle) {
+        TempDir const tmp;
+        auto const    blocker = tmp.path / "blocker"; // eine DATEI, kein Verzeichnis
+        { std::ofstream(blocker) << "x"; }
+        ASSERT_TRUE(std::filesystem::is_regular_file(blocker));
+
+        naht::MappenNaht n;
+        n.oeffnen(blocker / "measurements.csv", methoden);
+
+        EXPECT_FALSE(n.mappe_lebt()) << "Fall " << geprueft << ": ohne herstellbares Ziel darf keine Mappe entstehen.";
+        EXPECT_FALSE(n.scharf()) << "Fall " << geprueft;
+        EXPECT_EQ(n.ziele(), "") << "Fall " << geprueft
+                                 << ": ein genanntes Ziel, das nie entsteht, ist ein Stellvertreter.";
+        EXPECT_NE(n.diagnose().find("Zielverzeichnis nicht herstellbar"), std::string::npos)
+            << "Fall " << geprueft << ": der Grund muss BENANNT sein, war: " << n.diagnose();
+        EXPECT_FALSE(n.schliessen(lab::MaschinenSysinfo{}, {}, {})) << "Fall " << geprueft;
+
+        // Der Gegenstand: im Ordner liegt NUR der Blocker -- keine Mappe, kein Kind, kein tmp.
+        std::size_t dateien = 0;
+        for (auto const& e : std::filesystem::directory_iterator(tmp.path))
+            if (e.is_regular_file()) ++dateien;
+        EXPECT_EQ(dateien, 1u) << "Fall " << geprueft << ": es darf NICHTS ausser dem Blocker entstanden sein.";
+        ++geprueft;
+    }
+    EXPECT_EQ(geprueft, 3u);
 }
