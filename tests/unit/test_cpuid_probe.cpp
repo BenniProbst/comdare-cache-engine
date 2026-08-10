@@ -116,8 +116,8 @@ TEST(CpuidProbe, AvxFlagsAreOsEnablementGated) {
 
     // Monotonie des Gates: AVX-512F ⟹ AVX2 ⟹ AVX (jede breitere ISA impliziert die schmalere UND deren
     // OS-State — os_saves_avx512 ⊆ os_saves_avx, und die CPUID-Bits sind architektonisch geschachtelt).
-    if (raw.has_avx512f) { EXPECT_TRUE(raw.has_avx2) << "has_avx512f ohne has_avx2 — Gate inkonsistent"; }
-    if (raw.has_avx2) { EXPECT_TRUE(raw.has_avx) << "has_avx2 ohne has_avx — Gate inkonsistent"; }
+    if (raw.has_avx512f) { EXPECT_TRUE(raw.has_avx2) << "has_avx512f ohne has_avx2 -- Gate inkonsistent"; }
+    if (raw.has_avx2) { EXPECT_TRUE(raw.has_avx) << "has_avx2 ohne has_avx -- Gate inkonsistent"; }
 }
 #endif
 

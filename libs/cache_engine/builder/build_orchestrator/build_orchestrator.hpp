@@ -67,7 +67,7 @@ struct BuildConfig {
     // KF-16b:
     std::uint64_t ram_per_build_bytes     = 0; // RAM-Budget je Build; 0 = RAM-Gate AUS (nur CPU-Cap)
     std::uint64_t ram_safety_margin_bytes = 0; // Reserve, die immer frei bleiben muss
-    std::string   build_version{};             // Versions-/Anforderungs-Signatur; leer = nie überspringen
+    std::string   build_version{};             // Versions-/Anforderungs-Signatur; leer = nie ueberspringen
     // G2-3 (Lager-Gate A7): Zell-/ISA-konstante Build-Varianten-Signatur (build_variant_sidecar.hpp::
     // compose_variant_signature aus dem BuildVariantDefinitionV1-POD). Leer = Variant-Gate AUS (byte-neutral,
     // reiner Versions-/Organ-Skip wie bisher); die CEB/Facade fuellt sie in der spaeteren Integrations-Scheibe.
