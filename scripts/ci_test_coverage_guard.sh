@@ -68,7 +68,12 @@
 #              AVX-512F ohne AVX2) und eine Untergrenzen-Datei, die nicht fuer
 #              alle drei Klassen genau eine Ganzzahl nennt. Eine Wache, die
 #              nicht weiss, WELCHE Zahl fuer diesen Baum gilt, meldet nicht
-#              gruen -- und raet erst recht nicht die niedrigste.
+#              gruen -- und raet erst recht nicht die niedrigste. NACHGEBESSERT
+#              2026-08-10: "Variable von aussen gesetzt" heisst nicht mehr nur
+#              "_COMPILED fehlt". Erzwingt jemand die Klasse auf einem BEREITS
+#              konfigurierten Baum, ueberleben _COMPILED und _EXITCODE aus dem
+#              ehrlichen Lauf -- geprueft wird deshalb der TYP der Wertzeile
+#              (INTERNAL) und die Deckung von Wert und _EXITCODE.
 #          3 = Manifest defekt
 #          4 = NENNER-BEFUND: die Inventur ist nachweislich kleiner als das, was
 #              dieser Baum registrieren muesste (uebersprungener Block), oder sie
@@ -306,7 +311,9 @@ echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
 # WAS VORHER FALSCH WAR: es gab GENAU EINE committete Zahl, und ihr Kopf behauptete,
 # sie gelte "auf JEDER Hardware-Klasse". Das war nachrechenbar unwahr. Sechs
 # ctest-Registrierungen dieses Repos haengen an der ISA des BAU-HOSTS
-# (tests/unit/CMakeLists.txt:4134/5249/5262/5291/5294) -- vier an AVX-512F, zwei an
+# (tests/unit/CMakeLists.txt:4165/5330/5343/5372/5375, Stand 83a6d443 nachgemessen --
+# die frueher hier stehenden Anker 4134/5249/5262/5291/5294 galten nur vor dem Merge
+# b7d82d73 und loesen heute auf Kommentare auf) -- vier an AVX-512F, zwei an
 # AVX2. Eine Maschine ohne AVX2 registriert also sechs Tests weniger als diese hier,
 # voellig zu Recht, und riss damit eine Untergrenze, die nur vier abgezogen hatte.
 # Die Wache haette rot gemeldet, und der Baum waere in Ordnung gewesen.
@@ -320,17 +327,49 @@ echo "LIVE-INVENTUR (ctest -N): ${CE_GESAMT} registrierte Tests"
 # gefahren und ihr Ergebnis hinterlegt.
 #
 # FAIL-CLOSED, UND ZWAR SCHAERFER ALS ES AUSSIEHT: der blosse Wert genuegt nicht.
-# AM OBJEKT GEMESSEN (2026-08-10, CMake 4.x, /tmp/d2probe_cache):
-#     Probe laeuft, Exit 0 ..... VAR:INTERNAL=1   VAR_COMPILED:INTERNAL=TRUE
-#     Probe laeuft, Exit 1 ..... VAR:INTERNAL=    VAR_COMPILED:INTERNAL=TRUE
-#     Probe kompiliert nicht ... VAR:INTERNAL=    VAR_COMPILED:INTERNAL=FALSE
-#     Variable von aussen -D ... VAR:UNINITIALIZED=0  (KEINE _COMPILED-Zeile)
-# Der leere Wert ist also ZWEIDEUTIG: "diese CPU kann es nicht" und "der Compiler
-# hat die Probe nicht uebersetzt" sehen identisch aus. Wer nur den Wert liest,
-# stuft einen kaputten Werkzeugkasten als 'basis' ein und vergleicht gegen die
-# NIEDRIGSTE Untergrenze -- das ist genau das stille Durchwinken, gegen das diese
-# Datei gebaut ist. Deshalb ist _COMPILED=TRUE Pflicht, und eine von aussen
-# gesetzte Variable (keine _COMPILED-Zeile) ist ABBRUCH statt Annahme.
+# AM OBJEKT GEMESSEN (2026-08-10, CMake 4.3.4, /tmp/d2probe_483e0110), und im
+# Modul-Quelltext gegengelesen (Modules/Internal/CheckSourceRuns.cmake:95 try_run
+# schreibt _EXITCODE und _COMPILED; :113 setzt den Wert auf 1; :121 auf LEER):
+#
+#   FALL                              WERTZEILE               _COMPILED   _EXITCODE
+#   Probe laeuft, Exit 0 ........... VAR:INTERNAL=1           TRUE        0
+#   Probe laeuft, Exit 1 ........... VAR:INTERNAL=            TRUE        1
+#   Probe kompiliert nicht ......... VAR:INTERNAL=            FALSE       (fehlt)
+#   -D auf FRISCHEN Baum ........... VAR:UNINITIALIZED=0      (fehlt)     (fehlt)
+#   -D:BOOL auf frischen Baum ...... VAR:BOOL=0               (fehlt)     (fehlt)
+#   -D auf KONFIGURIERTEN Baum ..... VAR:UNINITIALIZED=0      TRUE        0
+#   -D:BOOL auf konfigurierten Baum  VAR:BOOL=0               TRUE        0
+#   -D:INTERNAL=0 auf konfiguriert . VAR:INTERNAL=0           TRUE        0
+#   -D:INTERNAL=  auf konfiguriert . VAR:INTERNAL=            TRUE        0
+#
+# DIE VIER UNTEREN ZEILEN SIND DER GRUND FUER DIESE NACHBESSERUNG (2026-08-10).
+# CMake entfernt _COMPILED und _EXITCODE beim Erzwingen NIE -- sie ueberleben aus
+# dem ehrlichen Lauf davor. Eine Wache, die bloss die ANWESENHEIT von _COMPILED
+# prueft, nimmt deshalb eine ERZWUNGENE Klasse als gemessene an. Am Objekt
+# vorgefuehrt: derselbe Baum, 490 Tests, ehrlicher Cache -> Exit 4 "UNTERSCHRITTEN
+# um 6 Test(e)"; erzwungener Cache -> "HOST-KLASSE (gemessen): basis" und kein
+# Befund. Sechs fehlende Tests verschwanden lautlos. Und das Verfahren, das dahin
+# fuehrt, ist kein Missbrauch: der Kopf von ci_test_inventory_floor.txt schreibt es
+# als Gegenorakel selbst vor.
+#
+# DREI UNABHAENGIGE MERKMALE, ALLE DREI PFLICHT:
+#  (1) DER TYP DER WERTZEILE MUSS 'INTERNAL' SEIN. check_cxx_source_runs schreibt
+#      'CACHE INTERNAL'; jede Form von aussen schreibt einen anderen Typ
+#      (UNINITIALIZED ohne Typangabe, sonst den angegebenen). Der TYP ist das
+#      unterscheidende Merkmal -- nicht die Anwesenheit von _COMPILED, und auch
+#      nicht das Wort 'UNINITIALIZED': '-DVAR:BOOL=0' umginge eine schwarze Liste.
+#  (2) _COMPILED MUSS 'TRUE' SEIN. Sonst ist der leere Wert zweideutig: "diese CPU
+#      kann es nicht" und "der Compiler hat die Probe nicht uebersetzt" sehen
+#      identisch aus, und ein kaputter Werkzeugkasten wuerde als 'basis' gegen die
+#      NIEDRIGSTE Untergrenze verglichen.
+#  (3) WERT UND _EXITCODE MUESSEN SICH DECKEN. Der Wert ist 1 GENAU DANN, wenn der
+#      Exit-Code 0 war (:112-113); leer sonst (:121). Eine 0 als Wert hat nie eine
+#      Probe geschrieben. Ohne (3) genuegte EIN ':INTERNAL' mehr auf derselben
+#      Kommandozeile, um (1) zu besiegen -- gemessen, siehe die letzten zwei Zeilen
+#      der Tabelle. (3) prueft die Wertzeile gegen einen Beleg daneben, den das
+#      Erzwingen nicht mitschreibt.
+# Faellt eines der drei, ist die Klasse UNBEKANNT -- und das ist ABBRUCH, nicht
+# 'basis' und damit die niedrigste Untergrenze.
 _ce_cache="${CE_BUILD_DIR}/CMakeCache.txt"
 if [ ! -f "$_ce_cache" ]; then
     _ce_m="die Host-Klasse ist nicht bestimmbar: '${_ce_cache}' fehlt. Ohne sie"
@@ -346,6 +385,7 @@ fi
 CE_HOST_AVX2=""
 CE_HOST_AVX512F=""
 for _ce_hv in COMDARE_HOST_RUNS_AVX2 COMDARE_HOST_RUNS_AVX512F; do
+    _ce_hv_zeile=$(sed -n "/^${_ce_hv}:/p" "$_ce_cache" | sed -n '1p')
     _ce_hv_da=$(sed -n "/^${_ce_hv}:/p" "$_ce_cache" | wc -l | tr -d ' ')
     if [ "$_ce_hv_da" -eq 0 ]; then
         _ce_m="'${_ce_hv}' steht nicht in '${_ce_cache}'. Dieser Baum wurde ohne die"
@@ -353,6 +393,36 @@ for _ce_hv in COMDARE_HOST_RUNS_AVX2 COMDARE_HOST_RUNS_AVX512F; do
         _ce_m="${_ce_m} UNBEKANNT, nicht 'basis'."
         ce_abbruch "$_ce_m" 2
     fi
+    # ... und GENAU EINMAL. AM OBJEKT GEMESSEN (2026-08-10): haengt man eine zweite
+    # Wertzeile an, nimmt CMake beim Laden die LETZTE -- diese Wache liest die erste.
+    # Ein Cache mit einer ehrlichen Zeile oben und einer erzwungenen unten liefe hier
+    # als 'gemessen' durch, waehrend der Bau die untere benutzt hat. CMake selbst legt
+    # jeden Eintrag nur einmal an; zwei Zeilen heisst von Hand bearbeitet.
+    if [ "$_ce_hv_da" -gt 1 ]; then
+        _ce_m="'${_ce_hv}' steht ${_ce_hv_da}-mal in '${_ce_cache}'. CMake schreibt jeden"
+        _ce_m="${_ce_m} Eintrag genau einmal und nimmt beim Lesen die LETZTE Zeile; welche"
+        _ce_m="${_ce_m} davon den Bau bestimmt hat, ist von aussen nicht mehr entscheidbar."
+        _ce_m="${_ce_m} Ein von Hand bearbeiteter Cache ist kein Messergebnis."
+        ce_abbruch "$_ce_m" 2
+    fi
+
+    # MERKMAL (1): DER TYP. 'NAME:TYP=WERT' -- alles zwischen dem ersten ':' und dem
+    # ersten '=' ist der Typ. Nur 'INTERNAL' stammt aus check_cxx_source_runs; jede
+    # andere Angabe kommt von aussen. Das wird VOR _COMPILED geprueft, denn _COMPILED
+    # ueberlebt das Erzwingen und beweist deshalb fuer sich genommen gar nichts.
+    _ce_hv_typ=${_ce_hv_zeile#*:}
+    _ce_hv_typ=${_ce_hv_typ%%=*}
+    if [ "$_ce_hv_typ" != "INTERNAL" ]; then
+        _ce_m="'${_ce_hv}' steht in '${_ce_cache}' mit dem Typ '${_ce_hv_typ}', nicht"
+        _ce_m="${_ce_m} INTERNAL. check_cxx_source_runs schreibt ausschliesslich INTERNAL --"
+        _ce_m="${_ce_m} diese Zeile hat also ein '-D' geschrieben, keine Probe. Eine daneben"
+        _ce_m="${_ce_m} stehende '${_ce_hv}_COMPILED'-Zeile aendert daran NICHTS: sie ueberlebt"
+        _ce_m="${_ce_m} das Erzwingen aus dem ehrlichen Lauf davor. Eine behauptete Host-Klasse"
+        _ce_m="${_ce_m} ist keine gemessene."
+        ce_abbruch "$_ce_m" 2
+    fi
+
+    # MERKMAL (2): _COMPILED. Fehlt sie, lief die Probe nie (frischer Baum + -D).
     _ce_hv_comp_da=$(sed -n "/^${_ce_hv}_COMPILED:/p" "$_ce_cache" | wc -l | tr -d ' ')
     if [ "$_ce_hv_comp_da" -eq 0 ]; then
         _ce_m="'${_ce_hv}' steht in '${_ce_cache}', aber '${_ce_hv}_COMPILED' fehlt."
@@ -367,16 +437,47 @@ for _ce_hv in COMDARE_HOST_RUNS_AVX2 COMDARE_HOST_RUNS_AVX512F; do
         _ce_m="${_ce_m} nicht 'diese CPU kann es nicht'."
         ce_abbruch "$_ce_m" 2
     fi
+
+    # Der WERT. Eine Probe schreibt 1 (CheckSourceRuns.cmake:113) oder LEER (:121) --
+    # eine 0 hat nie eine geschrieben, auch wenn der Typ INTERNAL lautet.
     _ce_hv_wert=$(sed -n "s/^${_ce_hv}:[^=]*=//p" "$_ce_cache" | sed -n '1p')
     case "$_ce_hv_wert" in
-        1)      _ce_hf=ja ;;
-        '' | 0) _ce_hf=nein ;;
+        1)  _ce_hf=ja ;;
+        '') _ce_hf=nein ;;
         *)
-            _ce_m="'${_ce_hv}' hat den Wert '${_ce_hv_wert}'. Erwartet ist 1, 0 oder leer."
-            _ce_m="${_ce_m} Ein unverstandener Wert wird nicht zu 'nein' gerundet."
+            _ce_m="'${_ce_hv}' hat den Wert '${_ce_hv_wert}'. Erwartet ist 1 oder leer --"
+            _ce_m="${_ce_m} etwas anderes schreibt check_cxx_source_runs nicht. Ein"
+            _ce_m="${_ce_m} unverstandener Wert wird nicht zu 'nein' gerundet."
             ce_abbruch "$_ce_m" 2
             ;;
     esac
+
+    # MERKMAL (3): WERT GEGEN _EXITCODE. Der zweite, unabhaengige Beleg -- er liegt in
+    # einer Zeile, die das Erzwingen NICHT mitschreibt, und deckt deshalb auch eine
+    # Faelschung ab, die den Typ INTERNAL korrekt trifft.
+    _ce_hv_ec_da=$(sed -n "/^${_ce_hv}_EXITCODE:/p" "$_ce_cache" | wc -l | tr -d ' ')
+    if [ "$_ce_hv_ec_da" -eq 0 ]; then
+        _ce_m="'${_ce_hv}_COMPILED' ist TRUE, aber '${_ce_hv}_EXITCODE' fehlt in"
+        _ce_m="${_ce_m} '${_ce_cache}'. try_run legt beide gemeinsam an -- fehlt eine,"
+        _ce_m="${_ce_m} ist dieser Cache von Hand bearbeitet und kein Messergebnis."
+        ce_abbruch "$_ce_m" 2
+    fi
+    _ce_hv_ec=$(sed -n "s/^${_ce_hv}_EXITCODE:[^=]*=//p" "$_ce_cache" | sed -n '1p')
+    if [ "$_ce_hf" = ja ] && [ "$_ce_hv_ec" != "0" ]; then
+        _ce_m="'${_ce_hv}' ist 1, aber '${_ce_hv}_EXITCODE' ist '${_ce_hv_ec}'."
+        _ce_m="${_ce_m} CMake setzt den Wert GENAU DANN auf 1, wenn der Exit-Code 0 war"
+        _ce_m="${_ce_m} (CheckSourceRuns.cmake:112-113). Wert und Beleg widersprechen sich --"
+        _ce_m="${_ce_m} das ist kein Messergebnis."
+        ce_abbruch "$_ce_m" 2
+    fi
+    if [ "$_ce_hf" = nein ] && [ "$_ce_hv_ec" = "0" ]; then
+        _ce_m="'${_ce_hv}' ist leer, aber '${_ce_hv}_EXITCODE' ist 0: die Probe lief und"
+        _ce_m="${_ce_m} war ERFOLGREICH. Dann haette CMake 1 geschrieben"
+        _ce_m="${_ce_m} (CheckSourceRuns.cmake:112-113). Der leere Wert behauptet 'diese CPU"
+        _ce_m="${_ce_m} kann es nicht' und wird vom Beleg daneben widerlegt -- Klasse UNBEKANNT."
+        ce_abbruch "$_ce_m" 2
+    fi
+
     case "$_ce_hv" in
         COMDARE_HOST_RUNS_AVX2)    CE_HOST_AVX2=$_ce_hf ;;
         COMDARE_HOST_RUNS_AVX512F) CE_HOST_AVX512F=$_ce_hf ;;

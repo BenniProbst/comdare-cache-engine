@@ -28,12 +28,12 @@
 # Aussage, nicht Beiwerk.
 #
 # -- WIE DIE ZAHLEN ENTSTANDEN SIND (nachgemessen, nicht fortgeschrieben) ------
-# GEMESSEN am 2026-08-10 in diesem Repo, Stand 9f932e91 (origin/development),
-# Worktree wt-ce-fk, Bau-Baum build-p (GCC 15.3.0, Ninja, offizieller Weg:
-# './configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-p'
-# + 'make inventar'), Messhost prod1:
+# GEMESSEN am 2026-08-10 in diesem Repo, Stand 83a6d443, Worktree wt-ce-fk,
+# Bau-Baum build-covguard (GCC 15.3.0, Ninja, offizieller Weg:
+# './configure.sh --with-generator=Ninja --enable-build-tests --build-dir=...'
+# + 2-Pass-Werkzeuge gebaut und neu konfiguriert), Messhost prod1:
 #
-#     ctest --test-dir build-p -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' \
+#     ctest --test-dir build-covguard -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' \
 #         | LC_ALL=C sort -u | wc -l    ->    496
 #
 # Dieser Messhost ist die REICHSTE Klasse: CMakeCache.txt meldet
@@ -44,25 +44,64 @@
 # (Gegenorakel, V-7: die Zahl kommt aus einer anderen Quelle als der Rechnung).
 # Verfahren: denselben Baum mit erzwungener Klasse neu KONFIGURIEREN (kein Neubau)
 # und die Namensmengen vergleichen --
-#     cmake -S . -B build-p -DCOMDARE_HOST_RUNS_AVX512F=0            -> 492
-#     cmake -S . -B build-p -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0 -> 490
+#     cmake -S . -B build-covguard -DCOMDARE_HOST_RUNS_AVX512F=0                  -> 492
+#     cmake -S . -B build-covguard -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0 -> 490
 # und danach 'cmake -U COMDARE_HOST_RUNS_AVX2 -U COMDARE_HOST_RUNS_AVX512F', damit
-# die Probe wieder echt laeuft. Die Differenzen sind NAMENTLICH belegt, in beide
-# Richtungen (die Gegenrichtung war jeweils LEER -- es kommt nichts hinzu):
+# die Probe wieder echt laeuft. Die Wiederherstellung ist nachgewiesen: 496 Tests,
+# Namensmenge Byte-gleich zur Erstmessung. Die Differenzen sind NAMENTLICH belegt,
+# in beide Richtungen (die Gegenrichtung war jeweils LEER -- es kommt nichts hinzu):
 #
 #   avx512f -> avx2  verliert genau diese VIER:
-#       test_ap5_simd_extension_coherence      (Block an AVX2 UND AVX512F, CMakeLists.txt:4134)
-#       test_buildvariant_dll_real             (Block an AVX2 UND AVX512F, CMakeLists.txt:4134)
-#       test_simd_add_u64_carry_avx512         (do_run an AVX512F, CMakeLists.txt:5294)
-#       test_simd_field_sum_dispatch_avx512    (do_run an AVX512F, CMakeLists.txt:5262)
+#       test_ap5_simd_extension_coherence      (Block an AVX2 UND AVX512F, tests/unit/CMakeLists.txt:4165)
+#       test_buildvariant_dll_real             (Block an AVX2 UND AVX512F, tests/unit/CMakeLists.txt:4165)
+#       test_simd_add_u64_carry_avx512         (do_run an AVX512F, tests/unit/CMakeLists.txt:5375)
+#       test_simd_field_sum_dispatch_avx512    (do_run an AVX512F, tests/unit/CMakeLists.txt:5343)
 #
 #   avx2 -> basis    verliert zusaetzlich diese ZWEI:
-#       test_simd_add_u64_carry_avx2           (do_run an AVX2, CMakeLists.txt:5291)
-#       test_simd_field_sum_dispatch_avx2      (do_run an AVX2, CMakeLists.txt:5249)
+#       test_simd_add_u64_carry_avx2           (do_run an AVX2, tests/unit/CMakeLists.txt:5372)
+#       test_simd_field_sum_dispatch_avx2      (do_run an AVX2, tests/unit/CMakeLists.txt:5330)
 #
 # Mehr ISA-gattierte Registrierungen gibt es nicht: 'COMDARE_HOST_RUNS' kommt in
-# tests/unit/CMakeLists.txt an genau neun Stellen vor (zwei Proben-Definitionen,
-# eine Block-Bedingung, sechs do_run-Argumente), sonst nirgends im Repo.
+# tests/unit/CMakeLists.txt an genau neun Stellen vor --
+#   VIER Proben-Definitionen  4129, 4130, 5292, 5293  (dieselben zwei
+#       check_cxx_source_runs-Aufrufe stehen ZWEIMAL in der Datei; der zweite ist
+#       fuer den unteren Abschnitt da und ueberschreibt nichts: das Modul steigt bei
+#       'if(NOT DEFINED "${_var}")' aus, Modules/Internal/CheckSourceRuns.cmake:7)
+#   EINE Block-Bedingung      4165  (if(AVX2 AND AVX512F) -> die zwei add_test in
+#       4166 und 4180)
+#   VIER do_run-Argumente     5330, 5343, 5372, 5375
+# Die Summe 9 stimmte schon vorher; die ZUSAMMENSETZUNG war falsch aufgeschrieben.
+# Sonst REGISTRIERT niemand im Repo hinter diesen Variablen. Der Name kommt zwar
+# noch an vier weiteren Stellen vor -- scripts/ci_test_coverage_guard.sh (liest ihn),
+# scripts/ci_test_sichtbarkeit_wache.sh:42,299 und
+# tests/unit/test_ap5_simd_extension_coherence.cpp:10 (beide nur im Kommentar) --,
+# aber keine davon legt einen ctest-Eintrag an. Die frueher hier stehende Formel
+# "sonst nirgends im Repo" war deshalb zu weit gegriffen.
+#
+# -- WIDERRUF: WAS DIE VORIGE FASSUNG DIESES ABSATZES BEHAUPTETE ---------------
+# Sie nannte fuenf Zeilenanker (4134, 5249, 5262, 5291, 5294) und die Aufteilung
+# "zwei Proben-Definitionen, eine Block-Bedingung, sechs do_run-Argumente". BEIDES
+# WAR FALSCH, und der Beleg dafuer ist so einfach wie der fuer die Korrektur:
+#   * Die fuenf Anker loesen am heutigen Stand auf Kommentare und set()-Zeilen auf.
+#     Sie loesen sauber auf in 78fcc627 -- dem Stand VOR dem Merge b7d82d73. Die
+#     Namens-Analyse ist also am Vor-Merge-Stand gefahren und danach ohne erneuten
+#     Blick uebernommen worden.
+#   * Damit waren auch die ZAHLEN nicht gemessen, sondern fortgeschrieben: 492 und
+#     490 sind die alten 488 und 486 plus die 4, die der Merge zur avx512f-Sprosse
+#     hinzufuegte. Genau das schliesst der Absatz drei Zeilen weiter oben fuer sich
+#     aus ("NICHT GERECHNET, SONDERN VON CMAKE ERZEUGT").
+#   * Die drei Zahlen sind trotzdem RICHTIG. Sie stehen jetzt nicht mehr deshalb da,
+#     sondern weil sie am 2026-08-10 am Stand 83a6d443 neu erhoben wurden -- mit den
+#     zwei Namensmengen und beiden Gegenrichtungen, wie oben aufgefuehrt. Der Merge
+#     hat keine ISA-gattierte Registrierung hinzugefuegt; die Abstaende -4 und -6
+#     sind dieselben geblieben.
+#
+# NEBENBEI, damit niemand hineinlaeuft: das Erzwingen oben ist ein Verfahren fuer
+# 'ctest -N', NICHT fuer die Wache. Auf einem so erzwungenen Baum bricht
+# scripts/ci_test_coverage_guard.sh seit 2026-08-10 mit Exit 2 ab -- eine
+# erzwungene Host-Klasse ist keine gemessene, und sie als solche zu nehmen war der
+# Defekt, den diese Nachbesserung geschlossen hat. Erst 'cmake -U ...' macht den
+# Baum wieder messbar.
 #
 # EINE VIERTE KLASSE GIBT ES NICHT: 'AVX-512F ohne AVX2' existiert auf keiner
 # x86-Maschine. Stuende es im Cache, waere nicht die Klasse ungewoehnlich, sondern
