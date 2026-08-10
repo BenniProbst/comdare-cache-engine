@@ -1,8 +1,21 @@
-// tests/unit/test_rf2_admission_marker_inert.cpp -- RF-2 (§70.2), 26.07.2026. UNREGISTRIERT.
+// tests/unit/test_rf2_admission_marker_inert.cpp -- RF-2 (Kanon-Abschnitt 70.2), 26.07.2026.
+// REGISTRIERT seit MT-L4 (09.08.2026) -- neben seinen CSV-Zeilen-Nachbarn test_a8s3_csv_klasse_c
+// und test_m1hb_observer_zellen_ehrlich, die denselben Renderer pruefen.
 //
-// Absichtlich NICHT in tests/unit/CMakeLists.txt (Sammel-Registrierung am Join, wie die Lane-C-Guards,
-// der A9b-Guard und der RF-3-Guard); der Voll-ctest-Zaehler bleibt unveraendert. Ohne gtest, damit der
-// Hand-Bau eine Zeile bleibt. Literal gelaufen (26.07.), ohne Zeilenfortsetzung notiert (-Wcomment):
+// STAND 26.07. (ueberholt, Wortlaut erhalten): "Absichtlich NICHT in tests/unit/CMakeLists.txt
+// (Sammel-Registrierung am Join, wie die Lane-C-Guards, der A9b-Guard und der RF-3-Guard); der
+// Voll-ctest-Zaehler bleibt unveraendert."
+// STAND 09.08.: der Join ist erfolgt. Der RF-3-Guard nebenan wurde am 02.08. nach demselben Muster
+// nachregistriert; RF-2 blieb dabei liegen -- 14 Tage. WAS DAS GEKOSTET HAT, in einem Satz: der
+// ERSTE Lauf dieser Datei nach der Registrierung war ROT, an genau EINER Zusicherung (Teil 3), und
+// zwar seit dem Tag, an dem der Renderer eine vierte Zelle je Op-Art bekam. Ein unregistrierter Test
+// altert lautlos mit seinem Pruefling; siehe die Begruendung an der reparierten Stelle unten.
+// Ohne gtest bleibt es (eigenes main, Exit 0/1) -- comdare_add_test linkt gtest/gtest_main nur als
+// Archiv, der main-tragende Member wird nicht gezogen. Der Hand-Bau bleibt moeglich; die unten
+// notierte Zeile ist der Stand vom 26.07. und braucht heute ZWEI Wurzeln mehr (am 09.08. gemessen:
+// -I <build>/generated fuer cache_engine/abi/overlay_source_hash_generated.hpp und
+// -I libs/cache_engine/src fuer sha512/ctsha512.hpp -- beide kamen nach dem 26.07. dazu).
+// Literal gelaufen (26.07.), ohne Zeilenfortsetzung notiert (-Wcomment):
 //
 //   g++ -std=c++23 -O0 -Wall -I libs/cache_engine -I libs/cache_engine/include -I libs/common/serialization -I libs/common -I cmake/third_party/boost_mp11/include tests/unit/test_rf2_admission_marker_inert.cpp -o <build>/test_rf2_guard
 //
@@ -125,8 +138,31 @@ int main() {
     std::string const zeile_marker = ex::format_csv_row(marker);
     check_eq("gleiche Spaltenzahl wie eine gemessene Zeile", feld_zahl(zeile_marker), feld_zahl(zeile_ok));
     check_true("die Marker-Zeile traegt das D1-Token", token_zahl(zeile_marker, "gesperrt") > 0);
-    check_eq("und zwar in allen 18 Latenz-Zellen (6 Op-Arten x 3)", token_zahl(zeile_marker, "gesperrt"),
-             std::size_t{18});
+    // T-3, FREMDER NENNER: die Zahl der D1-Zellen steht NICHT mehr als Literal hier, sondern kommt aus
+    // dem D2-PENDANT -- derselbe Renderer, der ANDERE Zweig. Genau das ist die Zusicherung, die
+    // cache_engine_builder_iterator.hpp:734-735 im Klartext behauptet ("Derselbe Zell-Satz, dieselbe
+    // Spaltenzahl wie beim D2-Pendant"); hier wird sie gemessen statt geglaubt.
+    //
+    // WARUM DIE ALTE FASSUNG FIEL (gemessen 09.08.2026, Erstlauf nach der Registrierung): sie stand auf
+    // der festen Zahl 18 mit der Begruendung "6 Op-Arten x 3". Der Renderer schreibt inzwischen eine
+    // VIERTE Zelle je Op-Art -- op_<art>_p999_ns, Block (C2) bei :954-965, zusaetzlich zu den drei des
+    // op_*-Blocks bei :741-765. Die Wahrheit ist 24; die Zusicherung war seit dem Tag dieser Erweiterung
+    // falsch. Sie ist niemandem aufgefallen, weil die Datei unregistriert war und nie gebaut wurde --
+    // das ist der eigentliche Befund von MT-L4 und der Grund, warum eine Zahl, die der Pruefling selbst
+    // veraendern kann, nicht als Literal in den Test gehoert.
+    ex::LazyMeasuredRow d2_pendant = basis_zeile();
+    d2_pendant.sample_status       = cem::SampleStatus::Failed;
+    std::string const zeile_d2     = ex::format_csv_row(d2_pendant);
+    std::size_t const d1_zellen    = token_zahl(zeile_marker, "gesperrt");
+    check_eq("D1 belegt GENAU so viele Zellen wie D2 im Pendant (Nenner aus dem anderen Zweig)", d1_zellen,
+             token_zahl(zeile_d2, "failed"));
+    // Zweiter, UNABHAENGIGER Anker -- gegen den Fall, dass beide Zweige gemeinsam auf null fallen und der
+    // Vergleich oben dann trivial gilt (V-8: der Zustand, in dem die Aussage erscheint und die Sache
+    // trotzdem nicht existiert). Die Op-Art-Zahl kommt aus dem Objekt; nur der Faktor 4 steht hier, und
+    // er ist die Aussage: 3 Zellen im op_*-Block (n/p50/p99) + 1 Tail-Zelle (p999).
+    check_eq("und das sind 4 Zellen je Op-Art (3 im op_*-Block + 1 Tail-p999)", d1_zellen,
+             std::size_t{4} * marker.op_lat.size());
+    check_true("beide Anker sind nicht trivial null (sonst waere der Vergleich oben wertlos)", d1_zellen > 0);
     check_true("die Identitaet bleibt lesbar (binary_id + setting stehen unveraendert vorne)",
                zeile_marker.rfind(marker.binary_id, 0) == 0 &&
                    zeile_marker.find(marker.setting_label) != std::string::npos);

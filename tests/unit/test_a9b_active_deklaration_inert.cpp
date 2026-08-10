@@ -1,8 +1,20 @@
-// tests/unit/test_a9b_active_deklaration_inert.cpp -- Lane A, Paket P6/A9b (26.07.2026). UNREGISTRIERT.
+// tests/unit/test_a9b_active_deklaration_inert.cpp -- Lane A, Paket P6/A9b (26.07.2026).
+// REGISTRIERT seit MT-L4 (09.08.2026) -- neben dem Muster-Block test_e4_contract_xml_to_axislevels,
+// dessen Include-Wurzeln der Absatz unten ohnehin schon als Vorbild nennt.
 //
-// Dieser Test ist ABSICHTLICH NICHT in tests/unit/CMakeLists.txt eingetragen: die Datei ist in der
-// laufenden Welle Konflikt-Zone (Sammel-Registrierung am Join, wie bei den Lane-C-Guards C-5). Der
-// Voll-ctest-Zaehler bleibt dadurch unveraendert; die Verifikation laeuft ueber einen Hand-Bau. Die
+// STAND 26.07. (ueberholt, Wortlaut erhalten): "Dieser Test ist ABSICHTLICH NICHT in
+// tests/unit/CMakeLists.txt eingetragen: die Datei ist in der laufenden Welle Konflikt-Zone
+// (Sammel-Registrierung am Join, wie bei den Lane-C-Guards C-5)."
+// STAND 09.08.: der Join ist erfolgt, die Konflikt-Zone ist 14 Tage alt und aufgeloest -- derselbe
+// Grund hielt den RF-3-Guard zurueck, der am 02.08. nachgezogen wurde (Owner-Entscheid E6). Der
+// Voll-ctest-Zaehler waechst um genau diesen einen Eintrag. Der Hand-Bau unten bleibt gueltig und
+// lief am 09.08.2026 unveraendert GRUEN durch (alle Teile OK) -- er war damit die einzige der vier
+// MT-L4-Dateien, die ihre 14 Tage ohne Bauweg ohne Schaden ueberstanden hat.
+// Der Dateiname bleibt stehen ("..._inert"), obwohl der Kanal seit 27.07. scharf ist: ein Rename
+// gehoert in den Aufraeumpass, nicht in die Registrierung.
+//
+// Die ursprueglichen Bau-Hinweise, unveraendert:
+// Die Verifikation lief bis hierher ueber einen Hand-Bau. Die
 // Include-Wurzeln sind die des Muster-Blocks von test_e4_contract_xml_to_axislevels, erweitert um
 // libs/cache_engine/include (validate_profile.hpp zieht cache_engine/measurement/*), die GENERIERTE
 // Flags-Wurzel <build>/generated fuer Teil 4 und die vendored boost_mp11-Wurzel. xml_reader ist

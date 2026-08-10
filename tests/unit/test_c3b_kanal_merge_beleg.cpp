@@ -1,5 +1,14 @@
 // tests/unit/test_c3b_kanal_merge_beleg.cpp -- Lane C, Paket C-3b "Kanal-Merge-BELEG"
-// (Bauplan-v3 D2.2, OD-4-GO; 26.07.2026). UNREGISTRIERT.
+// (Bauplan-v3 D2.2, OD-4-GO; 26.07.2026).
+// REGISTRIERT seit MT-L4 (09.08.2026) -- unmittelbar neben seiner Schwester test_c3a_gate_
+// scharfschaltung, die dieselbe Header-Familie prueft und bereits bei V-4 in den Bauweg kam.
+//
+// STAND 26.07. (ueberholt, Wortlaut erhalten): "UNREGISTRIERT."
+// STAND 09.08.: das war eine Schwesterstellen-Luecke, keine Absicht. Der Wiring-Block von C-3a
+// begruendete sich mit dem Satz "ein Identitaets-Test ohne Gate ist ein unsichtbarer Test"; C-3b
+// fiel bei genau diesem Zug durch das Raster und blieb weitere zwei Wochen ungebaut (am 09.08.
+// gemessen: 0 Treffer in tests/unit/CMakeLists.txt, 0 Zeilen in build.ninja). Anders als C-3a ist
+// dies ein echter gtest mit 8 TEST()-Faellen; sie laufen ab jetzt als ein ctest-Eintrag mit.
 //
 // AUFTRAG D2.2, WORTGETREU: "Beweis je Pfad, dass Baseline-march und Gate-Extras auf DERSELBEN
 // Compile-Zeile landen. Ist: Fassade konkateniert bereits (march :530-532/:1005-1007, gate-extras
