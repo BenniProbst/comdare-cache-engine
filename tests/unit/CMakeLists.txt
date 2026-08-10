@@ -3419,6 +3419,41 @@ add_test(NAME test_b3_schema_freeze_stufe1 COMMAND test_b3_schema_freeze_stufe1)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b3_schema_freeze_stufe1)
 set_tests_properties(test_b3_schema_freeze_stufe1 PROPERTIES LABELS "contract;standalone;schema_freeze;b3")
 
+# MT-L3 (2026-08-10) -- das UNABHAENGIGE Schema-Orakel der WIDE-Mess-CSV, als GOOGLE TEST.
+#
+# BEFUND, am Objekt mit zwei Werkzeugen gemessen: 33 Stellen in 19 TUs unter tests/ rufen
+# lazy_csv_header(), und JEDE zieht ihr Soll aus dem Erzeuger selbst. Genau 1 Testdatei fuehrt den
+# Voll-Header als Literal -- und das ist ein absichtlich VERALTETES Resume-Koeder-Schema, kein Orakel.
+#
+# ZWEI QUELLEN, ABSICHTLICH ZWEI UEBERSETZUNGSEINHEITEN:
+#   mt_l3_wide_schema_gefroren.cpp  traegt das eingefrorene Byte-Literal und inkludiert <cstddef> und
+#                                   <string_view> -- SONST NICHTS. Der Erzeuger ist dort weder direkt
+#                                   noch mittelbar sichtbar. Genau das macht `soll = lazy_csv_header()`
+#                                   nicht nur verboten, sondern unmoeglich: wer es doch wollte, muesste
+#                                   erst die Include-Liste aendern, und das steht im Diff.
+#   test_mt_l3_wide_schema_orakel.cpp  zieht den ECHTEN Erzeuger und haelt ihn dagegen.
+# Waeren beide EINE TU, koennte der Erzeuger ueber den gemeinsamen Include-Baum in das Orakel
+# zurueckwandern -- die Trennung ist die Zusicherung, nicht der Kommentar darueber.
+#
+# Include-/Link-Satz wie test_b3_schema_freeze_stufe1 (identische Erzeuger-Kette), zusaetzlich gtest
+# ueber comdare_add_test -- Debug UND Release, kein Shell-Skript.
+comdare_add_test(test_mt_l3_wide_schema_orakel
+    SOURCES test_mt_l3_wide_schema_orakel.cpp mt_l3_wide_schema_gefroren.cpp)
+target_include_directories(test_mt_l3_wide_schema_orakel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_mt_l3_wide_schema_orakel PRIVATE Boost::mp11
+    comdare::workload_driver)
+target_compile_definitions(test_mt_l3_wide_schema_orakel PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_mt_l3_wide_schema_orakel PROPERTIES
+    LABELS "contract;gtest;schema_freeze;mt_l3")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
