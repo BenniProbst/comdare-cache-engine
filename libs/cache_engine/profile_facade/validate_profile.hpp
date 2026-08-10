@@ -598,7 +598,10 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //       Paper-Templates noch NICHT) -> unbekannter ref = KEIN harter Fehler (faellt auf full zurueck). Abwesenheit
 //       = kein Template (byte-identisch). Hier daher KEINE harte Pruefung -- reine Provenienz/Weitergabe.
 //  (15) A9.1 (S4-Delta B9, 2026-07-20): die drei PASSIVEN Mess-UNTER-Achsen (run_methodology in {debug,measure,
-//       release} / measurement_framework in {ycsb} / writeback_methods in {csv,latex_table,comparison_metrics})
+//       release} / measurement_framework in {ycsb} / writeback_methods in {csv,latex_table,comparison_metrics,
+//       xlsx} -- xlsx seit ce 907b0433 (2026-08-08), s. writeback_method_registry.hpp:51. Die Pruefung selbst
+//       las schon immer die Registry, dieser Kommentar hinkte nach; die veraltete Dreier-Aufzaehlung war die
+//       Quelle der falschen Begruendung im F1-Durchstich-Profil ("xlsx existiert in der Registry nicht"))
 //       hart gegen ihre constexpr-Registries (Single-Source im Code); leer = Skip (byte-identisch). binary_id-
 //       NEUTRAL (Planer-delegiert); der Fan-out/Vollzug gehoert S5.
 //   HINWEIS K7 (E11-gated): die Phasen-KARDINALITAET-Gate ist durch die KERN-Beschreibung RESOLVED (0=derive /

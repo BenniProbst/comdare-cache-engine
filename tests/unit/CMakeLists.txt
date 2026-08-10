@@ -6425,13 +6425,13 @@ target_compile_definitions(test_naht1_mess_visitor_biss PRIVATE
 set_tests_properties(test_naht1_mess_visitor_biss PROPERTIES
     TIMEOUT 300 LABELS "naht1;messnaht;genus_interface;visitor;dll_roundtrip;fehlerklassen")
 
-# ─────────────────────────────────────────────────────────────────────────────────────────────────
-# Warnungs-Review Runde 1c/2a (09.08.2026) — die zwei Wachen zu den Funden, die DEFEKTE waren.
+# -----------------------------------------------------------------------------
+# Warnungs-Review Runde 1c/2a (09.08.2026) -- die zwei Wachen zu den Funden, die DEFEKTE waren.
 #   test_warn2a_block_id_bidirektional : block_id==axis auch auf dem PROFIL-Pfad (7 gemeldete
 #       Stellen + 1, die kein Uebersetzer sieht, weil sie default-konstruiert statt aggregiert).
 #   test_warn1_d2_fingerprint_koeder   : der nachgezogene, BEISSENDE Koeder zu D2 (die erste
 #       Minimalprobe unterschied ihre zwei Hypothesen nicht).
-# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 comdare_add_test(test_warn2a_block_id_bidirektional
     SOURCES test_warn2a_block_id_bidirektional.cpp)
 target_include_directories(test_warn2a_block_id_bidirektional PRIVATE

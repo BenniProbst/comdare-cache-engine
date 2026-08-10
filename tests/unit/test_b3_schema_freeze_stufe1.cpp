@@ -216,7 +216,7 @@ int main() {
     {
         // Das WOERTLICHE Literal, wie es bis zum 09.08. an vier Stellen stand
         // (measurement_snapshot.hpp:223, execution_engine/src/result_aggregator.cpp:63,
-        //  apps/f15_compare/main.cpp:496 -- und als Praefix in measurement_snapshot.hpp:191).
+        //  apps/f15_compare/main.cpp:496 -- und als Praefix in measurement_snapshot.hpp:192).
         std::string const alt16 = "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
                                   "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
                                   "coherence_invalidations,energy_micro_joules,"

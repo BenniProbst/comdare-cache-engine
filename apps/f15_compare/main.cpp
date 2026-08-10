@@ -37,7 +37,8 @@
 #include <builder/workload_driver/workload_orchestrator.hpp>
 #include <builder/workload_driver/workload_profiles.hpp> // INC-0: Single-Source profile_by_name (geteilt mit perm_runner)
 #include <builder/measurement_snapshot.hpp> // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
-#include <cache_engine/measurement/pipeline_csv_schema.hpp> // B-3: DIE EINE Pipeline-Spaltenliste (direkt, nicht transitiv)
+// B-3: DIE EINE Pipeline-Spaltenliste (direkt, nicht transitiv).
+#include <cache_engine/measurement/pipeline_csv_schema.hpp>
 #include <builder/provenance_manifest.hpp> // AP-9/#243: host-seitiges Provenance-Sidecar (Compiler/Flags/ISA/Allokator/4-Repo-git-SHAs)
 #include <builder/measurement/thread_pinning.hpp> // AP-13/#247: opt-in Mess-Thread-Pinning (--pin-core=N), host-seitig, Default no-op
 #include <builder/pmc_source_factory.hpp> // V5-#26 / Task #153: make_pmc_source() (Windows-Intel-PCM o. NullPmcSource)
@@ -480,7 +481,7 @@ int main(int argc, char** argv) {
         // make_execution_result (D4d): die CLI liest sie nur, damit es genau eine Definition gibt.
         auto ergebnis = cmd::make_execution_result(nm, std::move(samples));
         if (ergebnis.degeneriert) {
-            std::cerr << "DLL " << i << " lieferte TOTE PROBEN (keine einzige > 0 ns) — nicht gewertet\n";
+            std::cerr << "DLL " << i << " lieferte TOTE PROBEN (keine einzige > 0 ns) -- nicht gewertet\n";
             ++bilanz.tote_proben;
             continue;
         }
@@ -491,7 +492,7 @@ int main(int argc, char** argv) {
     }
     std::cout << "  " << bilanz.zeile() << "\n";
     if (!bilanz.summe_stimmt()) {
-        std::cerr << "BILANZ GEHT NICHT AUF — die Lade-Schleife hat einen unverbuchten Pfad.\n";
+        std::cerr << "BILANZ GEHT NICHT AUF -- die Lade-Schleife hat einen unverbuchten Pfad.\n";
         return cmd::kExitBilanzGehtNichtAuf;
     }
     if (results.size() < 2) {

@@ -431,6 +431,29 @@ test:coverage-guard:
     # Namen -- als Literal im Skript und ist damit die einzige, die eine vollstaendige Loeschung
     # bemerkt.
     - sh scripts/ci_achsen_roundtrip_wache.sh build-covguard
+    # D1b/D1e (2026-08-09): BAUWEG-WACHE -- die ZWEITE Haelfte von T-7.
+    # T-7 verlangt beides: ein Test existiert erst, wenn er in `ctest -N` erscheint UND
+    # sein Binary im Bauweg haengt. Die Wache darueber deckt die erste Haelfte, die
+    # Abdeckungs-Wache rechnet Job-Auswahlen gegen die Inventur. Fuer die zweite Haelfte
+    # gab es kein Werkzeug: beide bleiben gruen, wenn ein Test sauber registriert ist und
+    # sein Binary trotzdem an keinem Sammel-Target haengt. Genau das war D1e
+    # (f15_compare_cli_smoke rief comdare_f15_compare_cli auf, das Ziel hing nirgends).
+    # Sie vergleicht ZWEI getrennt erzeugte Artefakte (V-7, kein Selbst-Nenner):
+    #   CTestTestfile.cmake  -- was ctest aufruft
+    #   `ninja -t inputs`    -- was comdare_tests und 'all' herstellen
+    # HIER, weil sie einen konfigurierten Baum mit build.ninja braucht -- build-covguard
+    # steht im selben Job schon, und zwar NACH `make inventar`. Das ist wesentlich: erst
+    # dieser Zustand registriert die codegen-abhaengigen Tests (darunter
+    # f15_compare_cli_smoke). Ein Baum ohne `make inventar` prueft weniger; die Wache
+    # weist die uebersprungenen Bloecke dann namentlich aus, statt still gruen zu melden.
+    - sh scripts/ci_test_bauweg_wache.sh build-covguard
+    # Der Selbsttest wuerfelt seinen Koeder bei JEDEM Lauf neu (/dev/urandom) und prueft
+    # in einem synthetischen Bau-Baum beide Richtungen: dass "nur an 'all'", "nirgends"
+    # und ein fehlendes build.ninja je ROT bzw. Abbruch ergeben -- und dass der saubere
+    # Fall und ein blosser Datenpfad GRUEN bleiben. Ohne ihn waere die Wache eine
+    # Behauptung: eine Wache, deren Biss nie nachgefahren wird, kann still konstant
+    # gruen sein.
+    - sh scripts/ci_test_bauweg_wache.selbsttest.sh
   artifacts:
     paths: []     # Storage-500-Konvention der contract-Familie
 
