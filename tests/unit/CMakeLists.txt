@@ -6577,3 +6577,58 @@ target_compile_definitions(test_d2g1_ctest_registrierung PRIVATE
     "COMDARE_D2G1_BAUBAUM=\"${PROJECT_BINARY_DIR}\"")
 set_tests_properties(test_d2g1_ctest_registrierung PROPERTIES
     LABELS "d2g1;registrierung;ctest" TIMEOUT 120)
+# T-6 (2026-08-10) -- DIE WACHEN-SELBSTTESTS IN DER HAUSFORM.
+#
+# BEFUND: eine frueher gemessene Zahl nannte "27 CI-gerufene Wachen ohne Selbsttest".
+# Eine Wache, deren Biss niemand je geprueft hat, kann seit Monaten gruen melden, ohne
+# je etwas gemessen zu haben -- genau diese Klasse hat am 09.08. viermal an einem Tag
+# zugeschlagen.
+#
+# BAUFORM: Google Test, NICHT ein weiterer *.selbsttest.sh. Owner-KERN 09.08.2026:
+# "Ich sehe einen Haufen shells statt vernuenftiger google tests, was soll das? ...
+#  SKRIPTE SAGEN GAR NICHTS." Ein neuer Shell-Selbsttest vergroesserte genau die Menge,
+# die weg soll. Als ctest-Ziel fahren diese Pruefungen in Debug UND Release mit, ohne
+# einen eigenen CI-Job zu brauchen.
+#
+# ALLE VIER UNBEDINGT REGISTRIERT -- kein if() um diesen Block. Ein Selbsttest gegen
+# stilles Erblinden darf nicht selbst in einem bedingten Block sitzen; die
+# Windows-Ausnahme (die Wachen sind POSIX-sh) tragen die Tests intern als GTEST_SKIP.
+#
+# TIMEOUT 300 statt der 60 aus comdare_add_test: jeder Fall legt ein Wegwerf-Repo oder
+# einen praeparierten Bau-Baum an und faehrt darauf 'ctest -N' bzw. 'git ls-files'.
+# Das ist teurer als ein reiner In-Memory-Test und liegt auf keinem kritischen Pfad.
+# -----------------------------------------------------------------------------
+
+# (1) DIE ERHEBUNG. Der Nenner steht in der AUSGABE (V-1), nicht in einem Bericht.
+comdare_add_test(test_t6_wachen_inventar
+    SOURCES test_t6_wachen_inventar.cpp)
+target_compile_definitions(test_t6_wachen_inventar PRIVATE
+    "COMDARE_T6_QUELLBAUM=\"${PROJECT_SOURCE_DIR}\"")
+set_tests_properties(test_t6_wachen_inventar PROPERTIES
+    LABELS "wachen;t6;inventar;nenner" TIMEOUT 300)
+
+# (2) P3 der Priorisierung -- die einzige Wache mit literalem Nenner.
+comdare_add_test(test_t6_biss_achsen_roundtrip_wache
+    SOURCES test_t6_biss_achsen_roundtrip_wache.cpp)
+target_compile_definitions(test_t6_biss_achsen_roundtrip_wache PRIVATE
+    "COMDARE_T6_ACHSEN_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_achsen_roundtrip_wache.sh\""
+    "COMDARE_T6_CTEST_BIN=\"${CMAKE_CTEST_COMMAND}\"")
+set_tests_properties(test_t6_biss_achsen_roundtrip_wache PROPERTIES
+    LABELS "wachen;t6;selbsttest;achsen" TIMEOUT 300)
+
+# (3) P1 der Priorisierung -- die Stufe, deren Ausfall den Abdeckungs-Nenner leert.
+comdare_add_test(test_t6_biss_sichtbarkeits_wache
+    SOURCES test_t6_biss_sichtbarkeits_wache.cpp)
+target_compile_definitions(test_t6_biss_sichtbarkeits_wache PRIVATE
+    "COMDARE_T6_SICHT_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_sichtbarkeit_wache.sh\""
+    "COMDARE_T6_CTEST_BIN=\"${CMAKE_CTEST_COMMAND}\"")
+set_tests_properties(test_t6_biss_sichtbarkeits_wache PROPERTIES
+    LABELS "wachen;t6;selbsttest;sichtbarkeit" TIMEOUT 300)
+
+# (4) P2 der Priorisierung -- die unterste Stufe: Quelldatei gegen Bauweg.
+comdare_add_test(test_t6_biss_registrierungs_wache
+    SOURCES test_t6_biss_registrierungs_wache.cpp)
+target_compile_definitions(test_t6_biss_registrierungs_wache PRIVATE
+    "COMDARE_T6_REG_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\"")
+set_tests_properties(test_t6_biss_registrierungs_wache PROPERTIES
+    LABELS "wachen;t6;selbsttest;registrierung" TIMEOUT 300)
