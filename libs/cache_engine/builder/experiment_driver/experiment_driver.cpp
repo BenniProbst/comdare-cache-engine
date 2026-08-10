@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // ExperimentDriver — Implementation (REV 7.6 + Diagnose-Restore)
 
 #include "experiment_driver.hpp"

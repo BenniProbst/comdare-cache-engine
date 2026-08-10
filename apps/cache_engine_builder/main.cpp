@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // CacheEngineBuilder — Library-Wrapper (REV 7.6, 2026-05-13)
 //
 // Diese main.cpp ist ein duenner Wrapper um die

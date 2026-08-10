@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // Tests fuer ModuleLoader (Phase 7.2.D, 2026-05-13)
 
 #include "../../cache_engine/builder/module_loader/module_loader.hpp"

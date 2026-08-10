@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // REV 7.6 V10.4 — Tests fuer CodegenEngine::generate_module_from_profile (V9.3)
 //
 // Verifiziert:

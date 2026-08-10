@@ -1,6 +1,7 @@
 # comdare-cache-engine — Top-Level CMakeLists.txt
 # Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures
-# TU Dresden Diplomarbeit · BEP Venture UG / Marke Comdare · Apache 2.0
+# TU Dresden Diplomarbeit - BEP Venture UG (haftungsbeschraenkt), Marke Comdare
+# SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0  (siehe LICENSE)
 #
 # Phase 4.B Skelett — KEINE Implementation, nur Build-Struktur
 

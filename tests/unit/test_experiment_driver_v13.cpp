@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // REV 7.6 V14.2 — Tests fuer V13.2 + V13.3 ExperimentDriver-API
 //
 // Verifiziert die opt-in-Optionen aus V8.7 (jetzt operational in V13.2/V13.3):

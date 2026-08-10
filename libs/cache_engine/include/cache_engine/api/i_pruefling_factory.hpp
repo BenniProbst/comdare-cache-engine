@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.E11 Skeleton (2026-05-25) — Abstract-Factory-Slot fuer Prueflinge.
 //
 // User-Direktive: "PermutationsModul nimmt einen Pruefling wie den prt-art

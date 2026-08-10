@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.A5 (2026-05-24) - Echte Algorithmus-Implementierung (kein STL-Wrapper)
 //
 // LinearProbeHashSet: open-addressing Hash-Set mit Fibonacci-Hash und Linear

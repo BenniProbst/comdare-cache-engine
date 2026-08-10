@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.F.4 — ICacheEngineTools: Tools-Plugin-Concept-Facade.
 //
 // Vermittelt die bereits IN-REPO vorhandenen Analyse-/Codegen-/Workload-Werkzeuge über EIN

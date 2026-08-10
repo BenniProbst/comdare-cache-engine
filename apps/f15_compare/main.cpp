@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.F.6.1 R5.D — comdare-f15-compare: CLI-Treiber fuer den F15-Messlauf ueber materialisierte
 // Permutations-DLLs.
 //

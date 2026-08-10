@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // V41.E11 (2026-05-29) — Konkrete Plugin-Controller Pruefling-Registry (header-only).
 //
 // Implementiert das in i_pruefling_factory.hpp definierte Abstract-Factory-Slot-Pattern:

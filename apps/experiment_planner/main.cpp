@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Comdare-Research-1.0
 // apps/experiment_planner/main.cpp -- comdare-experiment-planner: die PLANER-ROLLE als EIGENE Binary (W1).
 //
 // OWNER-KERN (05.08.2026, F1-HART): "Der Planer ist ZWINGEND eine eigene Binary mit dem User-CLI-Interface
