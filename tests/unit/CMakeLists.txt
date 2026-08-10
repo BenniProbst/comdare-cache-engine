@@ -79,23 +79,54 @@ target_include_directories(comdare_cache_engine_concepts INTERFACE
 target_compile_features(comdare_cache_engine_concepts INTERFACE cxx_std_23)
 comdare_set_platform_defines(comdare_cache_engine_concepts)
 
-# Header-only INTERFACE-Library: PRT-ART Concepts
-add_library(comdare_prt_art_concepts INTERFACE)
-add_library(comdare::prt_art_concepts ALIAS comdare_prt_art_concepts)
-target_include_directories(comdare_prt_art_concepts INTERFACE
-    "${PROJECT_SOURCE_DIR}/prt_art/include")
-target_compile_features(comdare_prt_art_concepts INTERFACE cxx_std_23)
-target_link_libraries(comdare_prt_art_concepts INTERFACE comdare::cache_engine_concepts)
-comdare_set_platform_defines(comdare_prt_art_concepts)
+# W0a/S4 (2026-08-10): HIER STAND EIN GATTER AUF ANWESENHEIT -- ersatzlos entfernt.
+#
+# Entfernt wurden (a) die INTERFACE-Library comdare_prt_art_concepts, deren
+# target_include_directories auf "${PROJECT_SOURCE_DIR}/prt_art/include" zeigte,
+# und (b) das Gatter
+#     set(COMDARE_PRT_ART_LEGACY_AVAILABLE FALSE)
+#     if(EXISTS "${PROJECT_SOURCE_DIR}/prt_art/include/prt_art/prt_art.hpp") ...
+#
+# WARUM BEIDES FIKTION WAR, am Objekt gemessen (10.08.2026):
+#   prt_art.hpp: 0 Treffer in ce, 0 Treffer in comdare-prt-art, ueber die ganze
+#   Historie beider Repos. Gegenprobe cache_engine.hpp: 1 Treffer (das Werkzeug
+#   sucht). Der Pfad prt_art/ UNTER DER CE-WURZEL kann per Konstruktion nie
+#   entstehen: der Plugin-Weg haengt Pruefling-Header ausschliesslich ueber
+#   COMDARE_PRUEFLING_INCLUDE_DIRS (Geschwister-Pfad) an und kopiert nie etwas
+#   unter die CE-Wurzel. Gemessen mit GELADENEM echtem Pruefling: die vier
+#   gegatterten Tests erschienen in `ctest -N` 0 mal (Gegenprobe: der
+#   Pruefling-Integrationstest 1 mal, test_pressure_state 1 mal).
+#   Das Gatter war damit nicht "falsch konfiguriert", sondern unerfuellbar.
+#
+# DIE VIER .cpp-DATEIEN BLEIBEN LIEGEN. Ihre Disposition (neu verdrahten /
+# archivieren / loeschen) ist Ledger PA-3 und gehoert dem Owner; sie war ohne
+# diese Registrierung schon bisher ausserhalb jedes Bauwegs und bleibt es.
+#
+# ERSATZ ist keine zweite Pfad-Frage, sondern eine ZUSICHERUNG:
+# cmake/pruefling_kontrakt.cmake -- der Pruefling erklaert, was er liefert.
+include(registrierungs_protokoll)   # hochgezogen von :1104 -- der Block unten
+                                    # liegt davor und koennte sonst nicht vermerken
 
-# V41.F.6.1 E1 (2026-05-29) — Legacy-prt_art-Concept-Tests gaten: sie inkludieren
-# prt_art/concepts|page_structures-Header, die in der F.6-Migration nach cache-engine-Achsen
-# verschoben wurden und im STANDALONE-Build (ohne befuelltes prt-art-Submodul) NICHT vorhanden sind
-# → wuerden mit C1083 als _NOT_BUILT scheitern. Root-cause-korrekt: nur registrieren, wenn die
-# prt-art-Legacy-Header tatsaechlich da sind (mit COMDARE_CE_PRUEFLINGE/prt-art-Kontext bauen sie).
-set(COMDARE_PRT_ART_LEGACY_AVAILABLE FALSE)
-if(EXISTS "${PROJECT_SOURCE_DIR}/prt_art/include/prt_art/prt_art.hpp")
-    set(COMDARE_PRT_ART_LEGACY_AVAILABLE TRUE)
+comdare_pruefling_faehigkeit(pruefling_slots_v1 _pa_slots)
+if(_pa_slots)
+    get_property(_pa_namen GLOBAL PROPERTY COMDARE_PRUEFLING_NAMEN)
+    # Die Testnamen stehen noch nicht als Ziele fest (der Registrierungs-foreach
+    # laeuft weiter unten). Sie werden hier aus derselben Quelle abgeleitet, aus
+    # der er sie ableitet -- NAME_WE der zugesicherten Testquellen.
+    set(_pa_tests "")
+    foreach(_pa_src IN LISTS COMDARE_PRUEFLING_TEST_SOURCES)
+        get_filename_component(_pa_n "${_pa_src}" NAME_WE)
+        list(APPEND _pa_tests "${_pa_n}")
+    endforeach()
+    if(NOT _pa_tests)
+        set(_pa_tests "-")
+    endif()
+    comdare_registrierung_vermerken(BLOCK pruefling_slots_v1 STATUS AKTIV
+        TESTS ${_pa_tests}
+        GRUND "Pruefling ${_pa_namen} sichert pruefling_slots_v1 zu")
+else()
+    comdare_registrierung_vermerken(BLOCK pruefling_slots_v1 STATUS UEBERSPRUNGEN
+        TESTS - GRUND "kein geladener Pruefling sichert pruefling_slots_v1 zu")
 endif()
 
 # Tests anlegen via Helper aus gtest_setup.cmake
@@ -112,23 +143,16 @@ comdare_add_test(test_cpuid_probe
     # #265-b: die AP-3-Bruecke konsumiert die vendored foundation-Zelle comdare::platform (SIMDDetector).
     LIBRARIES comdare::cache_engine_concepts comdare::platform)
 
-# V41.F.6.1 E1: prt-art-Legacy-Concept-Tests nur mit verfuegbaren prt-art-Headern (sonst _NOT_BUILT).
-if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
-    comdare_add_test(test_concepts_compile
-        SOURCES test_concepts_compile.cpp
-        LIBRARIES comdare::prt_art_concepts)
-
-    comdare_add_test(test_value_handle
-        SOURCES test_value_handle.cpp
-        LIBRARIES comdare::prt_art_concepts)
-
-    comdare_add_test(test_three_layer_audit
-        SOURCES test_three_layer_audit.cpp
-        LIBRARIES comdare::prt_art_concepts)
-else()
-    message(STATUS "tests/unit: prt-art-Legacy-Concept-Tests (concepts_compile/value_handle/three_layer_audit) "
-        "uebersprungen — prt-art-Header nicht im Standalone-Build (mit COMDARE_CE_PRUEFLINGE verfuegbar).")
-endif()
+# W0a/S4: die drei Registrierungen test_concepts_compile / test_value_handle /
+# test_three_layer_audit sind hier entfallen. Sie hingen an
+# if(COMDARE_PRT_ART_LEGACY_AVAILABLE) -- einem Gatter, das per Konstruktion nie
+# TRUE werden konnte (Begruendung oben). Die drei Quelldateien liegen weiter im
+# Baum; ihre Disposition ist Ledger PA-3 (Owner). Sie gegen das heutige
+# Plugin-Modell neu zu verdrahten waere falsch: ihre Includes
+# (prt_art/concepts/..., prt_art/page_structures/...) existieren im heutigen
+# Pruefling nicht -- gemessen 0 Treffer fuer NodeRefKind/Encoding/IteratorMode
+# ausserhalb der Waisen selbst. Ein Gatter, das sie oeffnet, erzeugt einen
+# Daueralarm, der am gesunden Objekt nie gruen wird (T-1).
 
 # INK-1 (REV 6 Phase 6, 2026-05-12): PermutationFlags + Events + Observer
 comdare_add_test(test_permutation_flags
@@ -182,13 +206,17 @@ comdare_add_test(test_sub_engines
     SOURCES test_sub_engines.cpp
     LIBRARIES comdare::cache_engine_concepts)
 
-# 6 Pflicht-Seitentypen (REV 5 K05) — Legacy-prt_art-Test (page_structures); die migrierten 6
-# Seitentypen sind aktuell durch test_v41_axis_01_page_type abgedeckt. Nur mit prt-art-Headern bauen.
-if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
-    comdare_add_test(test_six_page_structures
-        SOURCES test_six_page_structures.cpp
-        LIBRARIES comdare::prt_art_concepts)
-endif()
+# W0a/S4: die Registrierung test_six_page_structures ist hier entfallen (gleiches
+# unerfuellbares Gatter, Begruendung oben). Die Quelldatei bleibt liegen -- PA-3.
+#
+# UND DIE ERSATZBEHAUPTUNG IST GESTRICHEN: hier stand, die 6 Seitentypen seien
+# "aktuell durch test_v41_axis_01_page_type abgedeckt". Nachgeprueft und FALSCH.
+# test_v41_axis_01_page_type deckt CE-eigene Seitentypen ab (DenseByte,
+# ExtendedDense, SparsePatricia, Redirect, CustomCache, BPlus); die Waise prueft
+# prt-arts Interpreter-Singletons mit eigenen SIMD-Flags. Die "6" ist die
+# Uebereinstimmung zweier verschiedener Zaehl-Domaenen, kein Nachfolge-Beleg.
+# Eine Fundstelle, die eine Abdeckung behauptet, die es nicht gibt, kostet mehr
+# als gar keine Fundstelle.
 
 # Phase 6.2.E (REV 7, 2026-05-13): Allokator-Bibliothek Concept-Wurzeln + 6 Family-Adapter
 comdare_add_test(test_allocator_concepts
@@ -1101,6 +1129,14 @@ include(anatomy_codegen_runner)
 # Registrierungs-Protokoll -- BEIDE Zweige. Die Abdeckungs-Wache liest es und
 # macht einen uebersprungenen Block ROT, statt ueber einem stillschweigend
 # kleineren Nenner Vollstaendigkeit zu melden (cmake/registrierungs_protokoll.cmake).
+#
+# W0a/S4 (10.08.2026): dieser include ist seit dem Hochziehen an den Dateikopf ein
+# No-op und bleibt als Lesehilfe stehen (Hausmuster, vgl. das zweite
+# enable_testing() in der Root-CMakeLists). Er MUSSTE hochgezogen werden: die
+# bedingten Bloecke am Dateianfang liegen davor und koennten comdare_registrierung_
+# vermerken() sonst gar nicht aufrufen -- ein Block, der sich nicht melden kann,
+# ist fuer die Abdeckungs-Wache unsichtbar. Die Init ist per GLOBAL PROPERTY
+# geschuetzt, ein zweiter include schreibt das Protokoll daher nicht neu.
 include(registrierungs_protokoll)
 set(_r5i_snippet "${PROJECT_BINARY_DIR}/generated/r5i_perm_list.cmake")
 set(_r5i_pilot_dir "${PROJECT_BINARY_DIR}/generated/r5i_anatomy_modules")
