@@ -388,7 +388,18 @@ test:coverage-guard:
       _CC=cc; _CXX=c++
       if command -v gcc-15 >/dev/null 2>&1; then _CC=gcc-15; fi
       if command -v g++-15 >/dev/null 2>&1; then _CXX=g++-15; fi
-      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard
+      # W0a/S6 (10.08.2026): DIESER BAUM LAEDT DEN FIXTURE-PRUEFLING. Der Plugin-Weg
+      # COMDARE_CE_PRUEFLINGE existiert seit 29.05.2026 und wurde von KEINEM Job je
+      # gefahren -- gemessen: 0 Treffer in jeder .yml/.yaml von ce, super und
+      # comdare-prt-art. Der Fall "Gatter = TRUE" war 73 Tage lang erschlossen und nie
+      # beobachtet; genau darin konnte die prt-art-Regression unbemerkt reifen.
+      # Das Fixture liegt in ce (tests/pruefling_fixture) -- kein Netz, kein Token,
+      # kein fremder Klon, KEIN zweiter Vollbau und kein neuer Pipeline-Slot: es haengt
+      # ein einzelnes Testziel an den Bau, den dieser Job ohnehin macht.
+      # Die Gegenrichtung (kein Pruefling -> Block UEBERSPRUNGEN) faehrt test:unit in
+      # derselben Pipeline; beide Zweige sind damit je Lauf belegt (T-4).
+      # configure.sh reicht -D<name>=<wert> durch (configure.sh:178, '-D*) anhaengen').
+      CC="$_CC" CXX="$_CXX" sh ./configure.sh --with-generator=Ninja --enable-build-tests --build-dir=build-covguard -DCOMDARE_CE_PRUEFLINGE="$CI_PROJECT_DIR/tests/pruefling_fixture"
       _built=0
       for _a in 1 2 3 4; do
         if make inventar BUILD_JOBS=2; then _built=1; break; fi   # halbe Parallelitaet: Druck senken statt serialisieren

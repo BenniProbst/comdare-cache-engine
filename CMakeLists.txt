@@ -720,17 +720,47 @@ add_subdirectory(libs/test_infra)         # REV 7.7 V23.F (2026-05-14): workload
 # Jedes Pruefling-Repo (parallel zur CE-Wurzel) stellt <dir>/comdare_pruefling.cmake bereit,
 # das seine Achsen-Slots (optional_prt_art_impl) + Targets registriert. NACH den Core-Libs,
 # damit der Pruefling gegen die cache-engine binden kann.
+# W0a/S1 (2026-08-10) FAIL-CLOSED. Vorher stand hier message(WARNING) und der
+# Lauf ging mit rc=0 weiter -- gemessen: ein Verzeichnis ohne Snippet lieferte
+# "CMake Warning at CMakeLists.txt:728" und trotzdem rc=0. Ein ANGEFORDERTER,
+# aber nicht ladbarer Pruefling ist kein gueltiger Zustand: der Anwender hat
+# -DCOMDARE_CE_PRUEFLINGE gesetzt und bekommt still einen Baum ohne ihn.
+# KEIN Pruefling angefordert bleibt dagegen gueltig (STATUS, siehe unten).
+include(pruefling_kontrakt)
 foreach(_pruefling_dir IN LISTS COMDARE_CE_PRUEFLINGE)
-    if(_pruefling_dir AND EXISTS "${_pruefling_dir}/comdare_pruefling.cmake")
-        message(STATUS "comdare Plugin-Controller: lade Pruefling ${_pruefling_dir}")
-        include("${_pruefling_dir}/comdare_pruefling.cmake")
-    elseif(_pruefling_dir)
-        message(WARNING "comdare Plugin-Controller: Pruefling-Dir '${_pruefling_dir}' hat kein comdare_pruefling.cmake — uebersprungen")
+    if(NOT _pruefling_dir)
+        continue()
+    endif()
+    if(NOT EXISTS "${_pruefling_dir}/comdare_pruefling.cmake")
+        message(FATAL_ERROR
+            "comdare Plugin-Controller: Pruefling-Dir '${_pruefling_dir}' hat kein "
+            "comdare_pruefling.cmake. Angefordert wurde er ueber COMDARE_CE_PRUEFLINGE; "
+            "ein angeforderter, aber nicht ladbarer Pruefling wird NICHT uebersprungen.")
+    endif()
+    message(STATUS "comdare Plugin-Controller: lade Pruefling ${_pruefling_dir}")
+    get_property(_dekl_vorher GLOBAL PROPERTY COMDARE_PRUEFLING_DEKLARATIONEN)
+    if(NOT _dekl_vorher)
+        set(_dekl_vorher 0)
+    endif()
+    include("${_pruefling_dir}/comdare_pruefling.cmake")
+    # REGEL 2 -- ein Snippet, das laeuft und nichts zusichert, ist kein Pruefling.
+    # Ohne diese Probe waere "geladen" wieder blosse Anwesenheit.
+    get_property(_dekl_nachher GLOBAL PROPERTY COMDARE_PRUEFLING_DEKLARATIONEN)
+    if(NOT _dekl_nachher)
+        set(_dekl_nachher 0)
+    endif()
+    if(NOT _dekl_nachher GREATER _dekl_vorher)
+        message(FATAL_ERROR
+            "comdare Plugin-Controller: '${_pruefling_dir}/comdare_pruefling.cmake' lief, "
+            "hat aber kein comdare_pruefling_deklarieren() aufgerufen. Ein Pruefling, der "
+            "nichts zusichert, ist keiner -- und ein Gatter auf blosse Anwesenheit ist "
+            "genau der Defekt, den W0a beseitigt.")
     endif()
 endforeach()
 if(NOT COMDARE_CE_PRUEFLINGE)
     message(STATUS "comdare Plugin-Controller: keine Pruefling-Repos konfiguriert (nur CE-Permutation, Stufe 1)")
 endif()
+comdare_pruefling_ort_kreuzprobe()
 
 add_subdirectory(tools)                   # Phase C (ycsb_cli, 2026-05-13)
 add_subdirectory(apps)                    # REV 7.7 V23.B (2026-05-14): Top-Level Executables
