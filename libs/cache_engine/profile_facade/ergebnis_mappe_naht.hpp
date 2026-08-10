@@ -462,7 +462,7 @@ public:
 
     /// Steht DIE MAPPE -- und nimmt sie noch an? Das ist die Frage, an der alles haengt; NICHT, ob
     /// eine Datei gewaehlt wurde. Ein csv-only-Lauf ist hier genauso scharf wie ein xlsx-Lauf.
-    [[nodiscard]] bool               scharf() const noexcept { return stamm_blatt_ != nullptr; }
+    [[nodiscard]] bool scharf() const noexcept { return stamm_blatt_ != nullptr; }
     /// Existiert das Mappen-OBJEKT noch (auch wenn es keine Zeile mehr annimmt)?
     [[nodiscard]] bool               mappe_lebt() const noexcept { return stamm_ != nullptr; }
     [[nodiscard]] FormatWahl const&  wahl() const noexcept { return wahl_; }
@@ -604,7 +604,7 @@ public:
             }
         }
 
-        kind_blatt_  = nullptr;
+        kind_blatt_ = nullptr;
         kind_.reset();
         stamm_blatt_ = nullptr;
         stamm_.reset(); // hier faellt der Dtor -- bei nicht-persistiertem Stamm samt tmp-Aufraeumen
@@ -667,7 +667,7 @@ private:
 
     FormatWahl               wahl_{};
     std::string              diagnose_ = "nicht geoeffnet";
-    std::vector<std::size_t> zeilen_je_blatt_;   ///< der BESTAND im Speicher, je Blatt der Mappe
+    std::vector<std::size_t> zeilen_je_blatt_;       ///< der BESTAND im Speicher, je Blatt der Mappe
     std::size_t              angeboten_         = 0; ///< Grundgesamtheit: hereingereichte Datenzeilen
     std::size_t              verworfen_         = 0; ///< angeboten, aber von der Mappe nicht angenommen
     std::size_t              zeilen_            = 0;
