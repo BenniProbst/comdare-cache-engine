@@ -509,13 +509,17 @@ struct RunExperimentResult {
 
     // A9-S5: die Mappe schliessen -- ihr einziger Datei-Schreibvorgang, NACH der Mess-Schleife.
     // Nicht exit-wirksam (additiv neben der offiziellen CSV), aber beobachtbar: mappe_ok + Grund unten.
+    // SCHWESTERSTELLE zu profile_run_entry.hpp (T-6): dieselbe Aussage, derselbe Nenner. Der Bestand
+    // wird VOR dem Schliessen gelesen -- danach ist das Mappen-Objekt freigegeben.
+    std::cout << "  [MAPPE-BESTAND] " << mappe.bestand() << "\n";
     bool mappe_ok = false;
-    if (mappe.scharf()) {
+    if (mappe.mappe_lebt()) {
         ::comdare::cache_engine::builder::lager_ablage::MaschinenSysinfo sysinfo;
         sysinfo.hostname = ::comdare::cache_engine::measurement::live_hostname();
         mappe_ok         = mappe.schliessen(sysinfo, {}, {});
     }
-    std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen()
+    std::cout << "  [MAPPE] ok=" << (mappe_ok ? "1" : "0") << " zeilen=" << mappe.zeilen() << "/" << mappe.angeboten()
+              << " (angenommen/angeboten) verworfen=" << mappe.verworfen()
               << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
               << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
 
