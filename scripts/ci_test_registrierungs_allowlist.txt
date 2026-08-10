@@ -36,7 +36,7 @@
 # scripts/ci_test_sichtbarkeit_allowlist.txt: dort fehlt ihr ctest-Eintrag,
 # hier ihre Uebersetzung. Zwei Stufen, ein Grund.
 # -----------------------------------------------------------------------------
-tests/unit/test_concepts_compile.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Concept-Test, nur mit dem Legacy-Baum baubar
-tests/unit/test_value_handle.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Concept-Test, nur mit dem Legacy-Baum baubar
-tests/unit/test_three_layer_audit.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Concept-Test, nur mit dem Legacy-Baum baubar
-tests/unit/test_six_page_structures.cpp | prt_art/include/prt_art/prt_art.hpp | prt-art-Legacy-Seitentypen-Test, nur mit dem Legacy-Baum baubar
+tests/unit/test_concepts_compile.cpp | prt_art/include/prt_art/prt_art.hpp | Legacy-Concept-Test, nur mit Legacy-Baum
+tests/unit/test_value_handle.cpp | prt_art/include/prt_art/prt_art.hpp | Legacy-Concept-Test, nur mit Legacy-Baum
+tests/unit/test_three_layer_audit.cpp | prt_art/include/prt_art/prt_art.hpp | Legacy-Concept-Test, nur mit Legacy-Baum
+tests/unit/test_six_page_structures.cpp | prt_art/include/prt_art/prt_art.hpp | Legacy-Seitentypen, nur mit Legacy-Baum
