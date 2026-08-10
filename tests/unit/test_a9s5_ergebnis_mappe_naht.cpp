@@ -415,8 +415,7 @@ namespace {
 /// in der Mitte (damit die Spaltentreue mitgeprueft ist). Von Hand gebaut, nicht vom Prueflung.
 std::string eingangs_csv(std::size_t n) {
     std::string s;
-    for (std::size_t i = 0; i < n; ++i)
-        s += "b" + std::to_string(i) + ";;" + std::to_string(100 + i) + "\n";
+    for (std::size_t i = 0; i < n; ++i) s += "b" + std::to_string(i) + ";;" + std::to_string(100 + i) + "\n";
     return s;
 }
 
@@ -431,9 +430,7 @@ std::size_t datenzeilen_im_eingang(std::string const& blob) {
 }
 
 /// Zeilen einer Datei auf der PLATTE (Gegenstand, nicht Ankuendigung).
-std::size_t zeilen_in_datei(std::filesystem::path const& p) {
-    return datenzeilen_im_eingang(read_file(p));
-}
+std::size_t zeilen_in_datei(std::filesystem::path const& p) { return datenzeilen_im_eingang(read_file(p)); }
 
 } // namespace
 
