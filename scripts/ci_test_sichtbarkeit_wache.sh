@@ -114,7 +114,19 @@ echo "==========================================================================
 # ext/allocator/A04-mimalloc (test-*), ext/traversal/P05-START (art_test).
 # Der Ausschluss ist ein SCHNITT, kein Zudecken: er steht hier, nicht in der Allowlist,
 # weil er eine Eigenschaft des Verzeichnisses ist und keine Einzelfall-Begruendung.
-git ls-files '*CMakeLists.txt' '*.cmake' | grep -v '^ext/' > "$TMP/cmakelisten.txt"
+# '|| true' IST HIER KEIN ZUDECKEN, SONDERN MACHT DIE FAIL-CLOSED-ZEILE DARUNTER ERST
+# ERREICHBAR (Befund T-6, 10.08.2026, am Objekt gemessen):
+# 'grep -v' liefert rc=1, wenn es NICHTS ausgibt. Unter 'set -eu' beendete diese Pipe
+# das Skript sofort -- mit Exit 1 und OHNE eine einzige Zeile Ausgabe. Exit 1 ist laut
+# dem Kopf dieser Datei aber der BEFUND-Code ("unsichtbare Registrierung ohne
+# Begruendung"); ein Repo ganz ohne CMake-Datei meldete also einen Befund, den es nicht
+# gab, und die ABBRUCH-Meldung in der naechsten Zeile war UNERREICHBAR. Das ist die
+# Klasse "verdeckter exit-Zweig": der Zweig stand da, wurde nie gefahren, und niemand
+# konnte es sehen. Gefunden hat ihn erst der Selbsttest
+# tests/unit/test_t6_biss_sichtbarkeits_wache.cpp, Fall OhneCMakeDateiIstAbbruch.
+# Die rc der Pipe war ohnehin die des LETZTEN Glieds und trug nie eine Aussage ueber
+# 'git ls-files'; verloren geht hier also nichts, was vorher gemessen worden waere.
+git ls-files '*CMakeLists.txt' '*.cmake' | grep -v '^ext/' > "$TMP/cmakelisten.txt" || true
 N_DATEIEN=$(awk 'END{print NR+0}' "$TMP/cmakelisten.txt")
 [ "$N_DATEIEN" -gt 0 ] || { echo "ABBRUCH: 0 CMakeLists.txt gefunden -- das kann nicht stimmen." >&2; exit 2; }
 
