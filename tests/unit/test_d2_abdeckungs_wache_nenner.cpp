@@ -143,8 +143,8 @@ struct Lauf {
 [[nodiscard]] Lauf wache_fahren(fs::path const& baum, std::string const& zusatz_env = "") {
     fs::path const    ctest_dir = fs::path{COMDARE_D2_CTEST_BIN}.parent_path();
     fs::path const    floor     = baum / "ci_test_inventory_floor.txt";
-    std::string const befehl = "PATH=\"" + ctest_dir.string() + ":$PATH\" COMDARE_D2_FLOOR_PFAD=\"" + floor.string()
-                             + "\" " + zusatz_env + "sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
+    std::string const befehl = "PATH=\"" + ctest_dir.string() + ":$PATH\" COMDARE_D2_FLOOR_PFAD=\"" + floor.string() +
+                               "\" " + zusatz_env + "sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
 
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -544,9 +544,9 @@ TEST(D2AbdeckungsWacheNenner, KaputteInventurIstWerkzeugFehlerKeinPhantomGate) {
     // Der aufgefangene Fehlerkanal MUSS sichtbar sein -- das ist der ganze Punkt.
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "Parse error")) << "ctest-stderr fehlt in der Ausgabe.\n" << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "PHANTOM-GATE")) << "Falsche Anschuldigung gegen den Selektor.\n"
-                                                        << lauf.ausgabe;
+                                                         << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "Untergrenze fehlt")) << "Der Werkzeug-Fehler muss zuerst greifen.\n"
-                                                             << lauf.ausgabe;
+                                                              << lauf.ausgabe;
 }
 
 // -- D2-G3.4: ein ungeprueftes Gate wird gezaehlt und genannt -------------------------------
