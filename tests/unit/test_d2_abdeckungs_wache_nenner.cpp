@@ -308,6 +308,25 @@ public:
         aus << "add_test(" << normal << " \"/bin/true\")\n";
     }
 
+    // HEILE, aber ausdruecklich NICHT TRIVIALE Partition -- der Gegeneingang zum Bruch
+    // darueber. Beide Klassen sind besetzt und kein Name kommt zweimal vor: 'ctest -N'
+    // zaehlt N, '-LE pmc' die ohne Label, '-L pmc' die mit; die Summe MUSS N sein.
+    //
+    // WARUM NICHT EINFACH inventur_schreiben(): ein Baum ohne einen einzigen 'pmc'-Test
+    // hat '-L pmc' = 0. Die Gleichung ginge dort auch bei einer Wache auf, die die zweite
+    // Zahl gar nicht erst erhebt (Mutant 'CE_MIT_PMC=0' -- gefahren, siehe Koeder-Protokoll
+    // im Bericht). Ein Freispruch ueber einer trivialen Partition belegt nichts; die
+    // Asymmetrie (mehr ohne als mit) faengt zusaetzlich den Vertauschungs-Mutanten.
+    void inventur_mit_heiler_partition_schreiben(std::vector<std::string> const& ohne_pmc,
+                                                 std::vector<std::string> const& mit_pmc) const {
+        std::ofstream aus{wurzel_ / "CTestTestfile.cmake"};
+        for (auto const& name : ohne_pmc) { aus << "add_test(" << name << " \"/bin/true\")\n"; }
+        for (auto const& name : mit_pmc) {
+            aus << "add_test(" << name << " \"/bin/true\")\n";
+            aus << "set_tests_properties(" << name << " PROPERTIES LABELS \"pmc\")\n";
+        }
+    }
+
     // Eine CTestTestfile.cmake, an der ctest SELBST scheitert (fehlende Klammer):
     // Exit 8 mit "Parse error." auf stderr. Das ist etwas anderes als "0 Treffer".
     void inventur_kaputt_schreiben(std::string const& name) const {
@@ -617,6 +636,74 @@ TEST(D2AbdeckungsWacheNenner, PartitionsWiderspruchIstNennerBefundMitBeidenZahle
     // muessen als getrennte Zahlen erscheinen, dazu die Differenz.
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "Summe")) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "Differenz")) << lauf.ausgabe;
+
+    // NACHGEZOGEN 2026-08-10: die zwei Zusicherungen darueber pruefen WOERTER, keine
+    // ZAHLEN -- ein Pruefling, der 'Summe' und 'Differenz' mit falschen Werten druckt,
+    // ueberlebt sie. Die Rechen-Zeile traegt beide Seiten des Widerspruchs als Zahlen,
+    // und sie ist DIESELBE Zeile, die der Gegeneingang unten mit differenz=0 verlangt.
+    // Am Objekt gemessen (ctest 4.3.4): alle=2, -LE pmc=2, -L pmc=1, Summe 3, Differenz 1.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "PARTITIONS-RECHNUNG: ohne=2 mit=1 summe=3 inventur=2 differenz=1"))
+        << lauf.ausgabe;
+}
+
+// -- D2-G3.2, T-4 GEGENEINGANG: eine HEILE Partition MUSS SCHWEIGEN -------------------------
+// Ohne diesen Fall war der Biss darueber auch von einer Wache erfuellt, die JEDEN Baum als
+// Partitions-Widerspruch meldet. Die Untergrenze und der Registrierungs-Block haben ihren
+// Gegeneingang seit dem 2026-08-09; die Partition hatte bis heute keinen.
+//
+// WARUM DIESER FALL NICHT AUS 'EXPECT_NE(code, 4) + EXPECT_FALSE(...)' BESTEHT -- und das
+// ist der ganze Punkt: eine solche Fassung haelt auch dann, wenn die Wache an dieser Stelle
+// gar nicht gerechnet hat. Sie haelt sogar, wenn das Werkzeug nie gestartet ist. Das ist die
+// Klasse "gruenes Gate ohne Gegenstand", und eine Luecke mit einem solchen Orakel zu
+// schliessen ist schlimmer, als sie offen zu lassen: danach gilt sie als gedeckt.
+// Deshalb steht hier ZUERST der DURCHLAUF-BELEG (Muster: GelaufenerBlockIstKeinNennerBefund
+// weiter oben, der 'BILANZ:' verlangt) und ERST DANN die Abwesenheit des Befunds.
+TEST(D2AbdeckungsWacheNenner, HeilePartitionSchweigtUndDieRechnungIstBelegt) {
+    std::string const marke = koeder_marke();
+
+    // T-3: der Nenner kommt aus DIESEM Fall, nicht aus dem Pruefling. Die Zusammensetzung
+    // ist asymmetrisch (2 ohne, 1 mit) -- eine 1:1-Aufteilung koennte ein Vertauschen der
+    // beiden Zahlen nicht von der Wahrheit unterscheiden.
+    std::vector<std::string> const ohne_pmc{grundstock(marke), "test_ohne_pmc_" + marke};
+    std::vector<std::string> const mit_pmc{"test_mit_pmc_" + marke};
+    int const                      kOhne = static_cast<int>(ohne_pmc.size());
+    int const                      kMit  = static_cast<int>(mit_pmc.size());
+    int const                      kAlle = kOhne + kMit;
+
+    PraeparierterBaum baum{marke};
+    baum.inventur_mit_heiler_partition_schreiben(ohne_pmc, mit_pmc);
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(kAlle);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("heile Partition", lauf, marke);
+    std::cout << "  [D2] Partition dieses Baums: ohne 'pmc' " << kOhne << " / mit 'pmc' " << kMit << " / Summe "
+              << kAlle << " / Inventur " << kAlle << " / Differenz 0"
+              << " -- erwartete Nenner-Befunde: 0 von 1 moeglichen (PARTITIONS-WIDERSPRUCH)\n";
+
+    // (1) DURCHLAUF-BELEG MIT ZAHLEN. Diese eine Zusicherung bindet dreierlei zusammen:
+    //     dass die Wache an der Partitions-Stelle ueberhaupt gelaufen ist, dass sie BEIDE
+    //     Teilmengen erhoben hat (ohne=2 UND mit=1 -- ein 'CE_MIT_PMC=0'-Mutant liest sich
+    //     hier als 'mit=0 summe=2'), und dass sie die Differenz gebildet hat.
+    std::string const beleg = "PARTITIONS-RECHNUNG: ohne=" + std::to_string(kOhne) + " mit=" + std::to_string(kMit)
+                              + " summe=" + std::to_string(kAlle) + " inventur=" + std::to_string(kAlle)
+                              + " differenz=0";
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, beleg))
+        << "Erwartet wurde woertlich '" << beleg
+        << "'. Fehlt sie, ist 'kein Widerspruch' die Abwesenheit jeder Aussage.\n"
+           "Und sie darf nicht am Gesamturteil haengen: ein praeparierter Baum ist nie gruen "
+           "(die -R-Selektoren des Manifests treffen dort nichts), das Gesamturteil dieses "
+           "Laufs war Exit "
+        << lauf.code << ". Genau deshalb reicht der PARTITIONS-BELEG im gruenen Schwanz nicht.\n"
+        << lauf.ausgabe;
+
+    // (2) ZWEITER, UNABHAENGIGER DURCHLAUF-BELEG (Muster des Nachbarfalls): 'BILANZ:' steht
+    //     hinter der Partitions-Rechnung. Wer sie liest, hat die Rechnung passiert.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "BILANZ:")) << lauf.ausgabe;
+
+    // (3) ERST JETZT die Abwesenheit des Befunds -- ueber einem belegten Gegenstand.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "PARTITIONS-WIDERSPRUCH")) << lauf.ausgabe;
+    EXPECT_NE(lauf.code, 4) << "Eine heile Partition ist KEIN Nenner-Befund.\n" << lauf.ausgabe;
 }
 
 // -- D2-G3.3: ein abgestuerztes ctest ist ein WERKZEUG-Fehler, kein Phantom-Gate ------------
