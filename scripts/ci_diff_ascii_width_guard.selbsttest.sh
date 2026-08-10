@@ -303,6 +303,36 @@ st_bewerte "11 md-Ausnahme haelt, sh geprueft" 0 \
     "1 Zusatzzeilen in selbst verfasstem Code geprueft" "$?" "$_st_out"
 rm -rf "$_st_repo"
 
+# --- Fall 12: die *.md-Ausnahme haelt AUCH bei Nicht-ASCII im DATEINAMEN ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-10, beim Umbau auf die Blacklist am
+# Objekt aufgeschlagen): git meldet Pfade mit Nicht-ASCII C-quotiert, also
+#     +++ "b/docs/sessions/...-\302\2478-PILOT-G1G3.md"
+# MIT Anfuehrungszeichen. Der Basename endet dann auf .md" statt auf .md, und die
+# Endungs-Ausnahme greift nicht mehr. Gemessen an ce-Commit 163db10d: eine reine
+# deutsche Session-Doku wurde dadurch mit 37 Verstoessen ROT.
+#
+# WARUM ES UNTER DER ALTEN WHITELIST NICHT AUFFIEL: dort war ".md\"" genauso
+# wenig gescoped wie ".md" -- Fehlbehandlung und gewollte Ausnahme sahen zufaellig
+# gleich aus. Erst die Blacklist trennt die beiden, weil sie zur anderen Seite
+# ausfaellt. Ein Beispiel dafuer, dass ein Richtungswechsel alte Stillstellungen
+# sichtbar macht, statt neue Fehler zu erfinden.
+#
+# Der Dateiname traegt das oben gewuerfelte Zeichen, ist also bei jedem Lauf ein
+# anderer. Wie Fall 11 liegt eine saubere .sh daneben, damit der Nenner nicht
+# null ist -- ein Gruen ueber null geprueften Zeilen waere kein Gruen.
+st_neues_repo
+_st_mdname="HANDBUCH-${_st_na}-${_st_kennzeichen}.md"
+printf 'Deutsche Doku-Prosa mit Umlaut %s im Text UND im Dateinamen.\n' "$_st_na" \
+    > "${_st_repo}/${_st_mdname}"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_quote.sh"
+git -C "$_st_repo" add -- "$_st_mdname" scripts/probe_quote.sh \
+    || st_abbruch "git add (Fall 12) fehlgeschlagen."
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "12 md-Ausnahme trotz Umlaut im Namen" 0 \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
 rm -f "$_st_out"
 
 echo ""

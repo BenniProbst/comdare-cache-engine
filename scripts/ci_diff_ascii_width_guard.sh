@@ -222,7 +222,14 @@ else
     echo ""
     echo "MODUS: git diff selbst ausgefuehrt (Repo: ${_ce_repo_root})"
     echo "ARGUMENTE: git diff -U0 --no-color --no-ext-diff $*"
-    git -C "$_ce_repo_root" diff -U0 --no-color --no-ext-diff "$@" > "$_ce_diff_datei" 2>"${_ce_diff_datei}.err"
+    # core.quotePath=false: sonst liefert git Pfade mit Nicht-ASCII als
+    # C-quotierte Zeichenkette samt Anfuehrungszeichen ("b/...\302\247....md").
+    # Die awk-Seite streift die Klammerung zwar ohnehin ab (s. dort), aber hier
+    # entsteht sie erst gar nicht -- und die Dateinamen im Nenner bleiben lesbar
+    # statt als Oktal-Wueste. Der untracked-Zweig unten setzt es bereits seit
+    # 09.08.2026; dass der Haupt-Aufruf es NICHT tat, war die Asymmetrie.
+    git -C "$_ce_repo_root" -c core.quotePath=false \
+        diff -U0 --no-color --no-ext-diff "$@" > "$_ce_diff_datei" 2>"${_ce_diff_datei}.err"
     _ce_rc=$?
     if [ "$_ce_rc" -ne 0 ]; then
         echo "" >&2
@@ -374,9 +381,29 @@ awk -v vendor_roots="$_ce_vendor_roots" '
         if (in_hunk == 0) {
             if (substr(line, 1, 4) == "+++ ") {
                 f = substr(line, 5)
-                if (substr(f, 1, 2) == "b/") f = substr(f, 3)
                 tabpos = index(f, "\t")
                 if (tabpos > 0) f = substr(f, 1, tabpos - 1)
+                # C-QUOTIERUNG ABSTREIFEN (git core.quotePath). Pfade mit
+                # Nicht-ASCII oder Sonderzeichen liefert git als
+                #     +++ "b/docs/sessions/...-\302\2478-PILOT-G1G3.md"
+                # also MIT Anfuehrungszeichen und mit Oktal-Escapes. Ohne dieses
+                # Abstreifen endet der Basename auf .md" statt auf .md -- die
+                # *.md-Ausnahme greift dann nicht mehr, und deutsche Doku-Prosa
+                # wird geprueft und rot. Am Objekt belegt (10.08.2026): der
+                # Commit 163db10d faerbte so 37 Verstoesse in einer reinen
+                # Session-Doku, obwohl an ihr nichts falsch ist.
+                # Unter der alten WHITELIST fiel das nicht auf: dort war ".md\""
+                # ebenso wenig gescoped wie ".md" -- die Fehlbehandlung und die
+                # gewollte Ausnahme sahen zufaellig gleich aus. Erst die
+                # Blacklist macht den Unterschied sichtbar, weil sie zur anderen
+                # Seite ausfaellt. Der Default- und der Bereichsmodus setzen
+                # zusaetzlich core.quotePath=false (s. unten); dieser Griff hier
+                # deckt den --stdin-Weg ab, wo der Aufrufer den Diff erzeugt hat.
+                if (length(f) >= 2 && substr(f, 1, 1) == "\"" \
+                    && substr(f, length(f), 1) == "\"") {
+                    f = substr(f, 2, length(f) - 2)
+                }
+                if (substr(f, 1, 2) == "b/") f = substr(f, 3)
                 if (f != "/dev/null") curfile = f
                 next
             }
