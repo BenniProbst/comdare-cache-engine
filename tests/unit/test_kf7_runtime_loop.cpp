@@ -62,7 +62,7 @@ int main() {
     {
         MockTier                        tier;
         ex::RuntimeVariableLoop         loop{}; // keine env-Grenze
-        std::vector<ex::DynamicDim>     dims = {{"concurrency", "thread_count", {"1", "2", "8"}}};
+        std::vector<ex::DynamicDim>     dims = {{"concurrency", "thread_count", {"1", "2", "8"}, ""}};
         std::vector<ex::RuntimeSetting> got;
         std::size_t n = loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
 
@@ -82,7 +82,7 @@ int main() {
         an::ComdareResourceControlV1 env{};
         env.thread_count = 2;
         ex::RuntimeVariableLoop         loop{env};
-        std::vector<ex::DynamicDim>     dims = {{"concurrency", "thread_count", {"1", "2", "8"}}};
+        std::vector<ex::DynamicDim>     dims = {{"concurrency", "thread_count", {"1", "2", "8"}, ""}};
         std::vector<ex::RuntimeSetting> got;
         loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
         check_eq("env-Limit: applied[2].thread_count (8 → clamp env 2)", got[2].applied.thread_count, std::uint64_t{2});
@@ -94,8 +94,8 @@ int main() {
         MockTier                    tier;
         ex::RuntimeVariableLoop     loop{};
         std::vector<ex::DynamicDim> dims = {
-            {"concurrency", "thread_count", {"1", "2"}},
-            {"traversal", "batch_size", {"10", "20"}},
+            {"concurrency", "thread_count", {"1", "2"}, ""},
+            {"traversal", "batch_size", {"10", "20"}, ""},
         };
         std::vector<ex::RuntimeSetting> got;
         std::size_t n = loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
@@ -110,7 +110,7 @@ int main() {
     {
         MockTier                        tier;
         ex::RuntimeVariableLoop         loop{};
-        std::vector<ex::DynamicDim>     dims = {{"cacheline", "hw_prefetcher", {"off", "l2"}}};
+        std::vector<ex::DynamicDim>     dims = {{"cacheline", "hw_prefetcher", {"off", "l2"}, ""}};
         std::vector<ex::RuntimeSetting> got;
         loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
         check_eq("hw_prefetcher: 2 Einstellungen (Label geführt)", got.size(), std::size_t{2});

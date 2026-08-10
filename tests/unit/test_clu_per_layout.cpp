@@ -139,9 +139,18 @@ static bool fuzz_one(char const* nname, char const* lname, std::uint64_t kN, std
         ref.emplace_back(k, v);
         store.append_slot(k, v);
     }
-    if (store.slot_count() != kN) return false;
+    // nname/lname waren deklariert, aber ungenutzt (-Wunused-parameter): ein Fehlschlag war stumm und
+    // liess nicht erkennen, WELCHE node_type/layout-Kombination divergiert. Jetzt diagnostizieren sie.
+    if (store.slot_count() != kN) {
+        std::cout << "  [ERR] fuzz " << nname << "/" << lname << ": slot_count=" << store.slot_count()
+                  << " erwartet=" << kN << "\n";
+        return false;
+    }
     for (std::size_t i = 0; i < ref.size(); ++i)
-        if (store.key_at(i) != ref[i].first || store.value_at(i) != ref[i].second) return false;
+        if (store.key_at(i) != ref[i].first || store.value_at(i) != ref[i].second) {
+            std::cout << "  [ERR] fuzz " << nname << "/" << lname << ": Round-Trip-Divergenz an Slot " << i << "\n";
+            return false;
+        }
     return true;
 }
 

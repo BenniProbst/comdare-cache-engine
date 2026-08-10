@@ -183,6 +183,9 @@ namespace latex_anhang {
 
 } // namespace latex_anhang
 
+// Lib-Variante (LATEX_ANHANG_TEST_NO_MAIN): main wird wegkompiliert -- print_help lebt im selben Guard,
+// damit der Helfer nur existiert, wo sein einziger Aufrufer existiert (-Wunused-function, MUTANT-Klasse).
+#ifndef LATEX_ANHANG_TEST_NO_MAIN
 namespace {
 
 void print_help() {
@@ -199,7 +202,6 @@ void print_help() {
 
 } // namespace
 
-#ifndef LATEX_ANHANG_TEST_NO_MAIN
 int main(int argc, char const* const* argv) {
     std::string input_path;
     std::string output_path;

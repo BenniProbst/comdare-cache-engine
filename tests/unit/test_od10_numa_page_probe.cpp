@@ -492,9 +492,10 @@ TEST(Od10NumaPageProbe, LinuxRealLiefertBeideAchsenUndStimmtMitEinerZweitLesungU
         std::size_t erwartete_knoten = 1;
         for (char const c : *online)
             if (c == ',') ++erwartete_knoten;
-        if (online->find('-') == std::string::npos)
+        if (online->find('-') == std::string::npos) {
             EXPECT_EQ(topology.numa_nodes->size(), erwartete_knoten)
                 << "online=" << *online << " ergibt eine andere Knoten-Zahl als die Erhebung.";
+        }
 
         ASSERT_TRUE(topology.page_sizes.has_value()) << "Live-Erhebung der Seiten fehlgeschlagen: "
                                                      << cem::numa_page_probe_error_label(topology.page_sizes.error());

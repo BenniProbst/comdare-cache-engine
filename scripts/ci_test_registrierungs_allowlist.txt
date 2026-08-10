@@ -20,16 +20,23 @@
 # Laufzeit; genau daran sind die vier unregistrierten Dateien 14 bzw. 68 Tage lang
 # nicht aufgefallen.
 #
-# ZWEI ARTEN VON GEGENSTAND, und das PRAEFIX benennt die Art (2026-08-10):
+# DREI ARTEN VON GEGENSTAND, und das PRAEFIX benennt die Art (2026-08-10):
 #
 #   datei:<pfad>                Die Ausnahme traegt, solange der Pfad NICHT existiert.
-#                               Geprueft mit '[ -e ]' im Arbeitsbaum.
+#                               Geprueft mit '[ -e ]' im Arbeitsbaum -- UND der Pfad muss
+#                               ueberhaupt entstehen koennen (s. TOTE AUSNAHME unten).
 #   isa:<merkmal>[+<merkmal>]   Die Ausnahme traegt, solange MINDESTENS EIN Merkmal auf
 #                               dem Bau-Host fehlt. Bekannt sind genau zwei: avx2 und
 #                               avx512f. Geprueft an COMDARE_HOST_RUNS_<GROSS> im
 #                               CMakeCache.txt DES GEMESSENEN BAUMS -- also an dem, was
 #                               der Bau vorgefunden hat, nicht an /proc/cpuinfo der
 #                               Maschine, auf der die Wache gerade laeuft.
+#   frist:<JJJJ-MM-TT>          Die Ausnahme traegt bis zu diesem Tag. Danach ROT. Fuer
+#                               den Fall, dass es KEINEN erreichbaren Gegenstand gibt --
+#                               ein geparkter Posten mit Ablaufdatum statt einer Adresse,
+#                               die niemand je belegen kann. Sie ist die SCHWAECHSTE Form:
+#                               wer sie benutzt, muss in Feld 3 sagen, wem der Posten
+#                               gehoert und woran er haengt.
 #
 # WARUM ES DIE ZWEITE ART GIBT (Pipeline 15517, ce/development ROT): Feld 2 kannte bis
 # dahin nur einen Pfad. Der erste echte Fang der Wache haengt aber an keiner Datei,
@@ -49,22 +56,82 @@
 # Bauweg, ist die Ausnahme ERLOSCHEN -- das ist der Fall, den ein Host mit AVX-512
 # erzeugt, wenn jemand die Registrierung entfernt.
 #
+# TOTE AUSNAHME -- die ZWEITE RICHTUNG von ERLOSCHEN (PA-1, 2026-08-10):
+# Bis heute fragte die Wache nur "existiert der Gegenstand WIEDER?". Damit faengt sie den
+# Fall, dass er zurueckkehrt -- aber nicht den, dass er NIE zurueckkehren kann. Der zweite
+# Fall lag genau hier vor, in allen vier prt-art-Zeilen (Einzelheiten im Block unten).
+# Eine 'datei:'-Zeile ist ab jetzt auch dann ROT, wenn KEINE Quelle dieses Repos den ZWEIG
+# kennt, in dem der Pfad liegt: weder der Git-Index (getrackte Datei oder Submodul-Gitlink)
+# noch eine .gitignore-Regel, und das vom Elternverzeichnis bis hinauf zur Wurzel. Dann hat
+# der Gegenstand in diesem Repo keinen Erzeuger, die Zeile koennte per Konstruktion nie
+# erloeschen -- und eine Ausnahme, die nie erlischt, ist die Freistellung mit unbegrenzter
+# Laufzeit, gegen die diese Liste gebaut wurde.
+# ERREICHBAR ist dagegen: ein Pfad unter einem ignorierten Verzeichnis (Bauprodukt), ein
+# Pfad unter einem Submodul-Gitlink (auch beliebig tief -- der Inhalt eines nicht
+# ausgecheckten Submoduls steht nie im Index), und eine neue Datei in einem vorhandenen
+# Verzeichnis. Alle drei sind mit Koeder belegt (tests/unit/test_pa1_tote_ausnahme.cpp).
+# WAS DAS NICHT BEWEIST, ausdruecklich: nicht, dass der Gegenstand nie existieren KANN.
+# Jemand kann ihn morgen 'git add'en, ein Pruefling-Repo kann eingehaengt werden, ein
+# CI-Job kann ihn hineinkopieren. Gemessen ist nur, dass ihn HEUTE keine Quelle dieses
+# Repos nennt. Ein Pfad AUSSERHALB des Repos (absolut oder mit '..'-Segment) wird gar
+# nicht beurteilt und nie als tot gemeldet; die Wache weist ihre Zahl im Nenner aus.
+#
 # -----------------------------------------------------------------------------
-# prt-art-Legacy-Baum: vier Tests haengen an if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
-# in tests/unit/CMakeLists.txt:116 bzw. :187. Diese Variable wird bei :96-99 aus
-# EINEM Gegenstand gesetzt -- der Existenz von prt_art/include/prt_art/prt_art.hpp.
-# Im Standalone-Bau von ce fehlt dieser Baum (gemessen 09.08.2026: das Verzeichnis
-# prt_art/ existiert nicht), mit COMDARE_CE_PRUEFLINGE ist er da. Genau dieselbe
-# Datei prueft die Wache nach: kommt der Legacy-Baum zurueck und die Tests bleiben
-# trotzdem ungebaut, ist das ein Befund und kein Normalzustand.
-# Dieselben vier stehen aus dem SPIEGELBILDLICHEN Grund in
-# scripts/ci_test_sichtbarkeit_allowlist.txt: dort fehlt ihr ctest-Eintrag,
-# hier ihre Uebersetzung. Zwei Stufen, ein Grund.
+# prt-art-Legacy: VIER GEPARKTE POSTEN. Frueher stand hier
+# 'datei:prt_art/include/prt_art/prt_art.hpp' -- eine Adresse, die NIEMAND je belegen
+# kann. Sie war damit die Freistellung mit unbegrenzter Laufzeit, vor der der Kopf
+# dieser Datei warnt, und zwar in genau der Liste, die das verhindern sollte.
+#
+# WAS AM OBJEKT GEMESSEN WURDE (2026-08-10, dieser Worktree):
+#   prt_art.hpp .................. 0 Treffer unter /home/comdare (find -name)
+#   Gegenprobe cache_engine.hpp .. 45 Treffer -- das Werkzeug sucht, der Nullbefund gilt
+#   in ce je getrackt ............ JA, aber nur vom 2026-05-12 (5c210581) bis zum
+#                                  2026-05-14: 'git mv' schob alle 44 Pfade nach
+#                                  libs/deprecated/prt_art_legacy/ (b9abc720, R100 --
+#                                  KEINE Datei wurde dabei geloescht), und dieser Baum
+#                                  fiel am 2026-06-01 komplett (6b3ed0d9).
+#   im Nachbarrepo comdare-prt-art  NEIN -- dort war der Pfad NIE getrackt
+#                                  (git log --all --diff-filter=A: leer).
+#
+# UND ES GIBT AUCH KEINEN ERSATZ-GEGENSTAND. Die vier Dateien inkludieren
+# prt_art/prt_art.hpp, prt_art/concepts/*.hpp, prt_art/page_structures/*.hpp und
+# prt_art/interpreters/*.hpp. Im Nachbarrepo existiert KEINER dieser Header -- die
+# Verzeichnisse concepts/, page_structures/ und interpreters/ gibt es dort gar nicht
+# (gemessen: 38 .hpp unter prt_art/include/prt_art/, alle in anderen Unterordnern).
+# Es gibt also keine Datei auf dieser Maschine, deren Auftauchen "der Legacy-Baum ist
+# zurueck" bedeuten wuerde. Die Praemisse "optionaler Fremdbaum, der wiederkommen kann"
+# ist am Objekt widerlegt; ein cleverer zweiter Pfad waere nur die naechste Fiktion.
+#
+# DESHALB 'frist:' UND NICHT 'datei:'. Der Posten ist ehrlich unbeweisbar, also traegt
+# er ein Ablaufdatum statt einer Adresse. Er gehoert dem Owner (Ledger PA-3: neu
+# verdrahten / archivieren / loeschen) und ist seit 8a8f6877 auch im CMake sichtbar
+# geparkt -- E-1 hat das unerfuellbare if(COMDARE_PRT_ART_LEGACY_AVAILABLE) dort
+# entfernt und durch die Pruefling-Zusicherung ersetzt. Die vier .cpp bleiben liegen und
+# sind damit ausserhalb jedes Bauwegs; genau das steht hier.
+# Laeuft die Frist ab, ohne dass entschieden wurde, wird diese Wache ROT -- gewollt.
+# Das ist der Unterschied zu vorher: der Posten kann nicht mehr lautlos alt werden.
+#
+# T-6 SCHWESTERPFLICHT, mit einer BERICHTIGUNG: frueher stand hier, dieselben vier
+# stuenden "aus dem spiegelbildlichen Grund" auch in
+# scripts/ci_test_sichtbarkeit_allowlist.txt. Das gilt seit dem 2026-08-10 NICHT MEHR,
+# und zwar zu Recht -- am Objekt nachgezaehlt: dort stehen heute 2 wirksame Zeilen, KEINE
+# davon ist eine dieser vier. Die beiden Stufen haben verschiedene SOLL-Quellen:
+#   Stufe 1 (hier)   SOLL = git ls-files  -> die vier .cpp liegen weiter im Baum,
+#                                            werden nie uebersetzt, brauchen also je
+#                                            eine Zeile.
+#   Stufe 2 (dort)   SOLL = die Registrierungs-AUFRUFE im CMake-Quelltext -> die sind
+#                                            seit 8a8f6877 entfernt, die vier tauchen
+#                                            dort gar nicht mehr auf. Eine Zeile waere
+#                                            eine Ausnahme OHNE Anlass und faenge nur
+#                                            das naechste echte Verschwinden desselben
+#                                            Namens lautlos weg.
+# Die Listen laufen hier also nicht auseinander, sie antworten auf verschiedene Fragen.
+# Der Google Test test_pa1_tote_ausnahme, Fall (9), haelt genau das fest.
 # -----------------------------------------------------------------------------
-tests/unit/test_concepts_compile.cpp | datei:prt_art/include/prt_art/prt_art.hpp | Legacy-Concept-Test
-tests/unit/test_value_handle.cpp | datei:prt_art/include/prt_art/prt_art.hpp | Legacy-Concept-Test
-tests/unit/test_three_layer_audit.cpp | datei:prt_art/include/prt_art/prt_art.hpp | Legacy-Concept-Test
-tests/unit/test_six_page_structures.cpp | datei:prt_art/include/prt_art/prt_art.hpp | Legacy-Seitentypen
+tests/unit/test_concepts_compile.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877)
+tests/unit/test_value_handle.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877)
+tests/unit/test_three_layer_audit.cpp | frist:2026-09-15 | Legacy-Concept-Test, geparkt: PA-3 (E-1 8a8f6877)
+tests/unit/test_six_page_structures.cpp | frist:2026-09-15 | Legacy-Seitentypen, geparkt: PA-3 (E-1 8a8f6877)
 
 # -----------------------------------------------------------------------------
 # HOST-ISA-GATTER: EINE Test-QUELLDATEI haengt an der ISA des Bau-Hosts.

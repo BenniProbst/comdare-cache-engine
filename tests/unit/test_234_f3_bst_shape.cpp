@@ -47,7 +47,7 @@ void expect_matches_reference(Organ const& organ, std::map<std::uint64_t, std::u
         auto const it  = ref.find(key);
         auto const got = organ.lookup(key);
         EXPECT_EQ(got.has_value(), it != ref.end()) << "Praesenzabweichung fuer Probe " << key;
-        if (it != ref.end() && got.has_value()) EXPECT_EQ(*got, it->second) << "Probe-Wertabweichung " << key;
+        if (it != ref.end() && got.has_value()) { EXPECT_EQ(*got, it->second) << "Probe-Wertabweichung " << key; }
     }
 
     std::set<std::uint64_t> seen;
@@ -122,7 +122,7 @@ void run_bst_shape_conformance(std::size_t target_count) {
         EXPECT_FALSE(organ.lookup(key).has_value()) << "geloeschter Key noch auffindbar: " << key;
     }
     for (std::uint64_t key : probes) {
-        if (ref.find(key) == ref.end()) EXPECT_FALSE(organ.erase(key)) << "erase-Miss muss false liefern: " << key;
+        if (ref.find(key) == ref.end()) { EXPECT_FALSE(organ.erase(key)) << "erase-Miss muss false liefern: " << key; }
     }
     expect_matches_reference(organ, ref, probes);
 

@@ -8,12 +8,13 @@
 //   - BFS-Reihenfolge: fuer jeden Knoten N mit d Kindern -> d "1"-Bits + ein "0"-Bit
 //   - Bit-Position i in der BitVector entspricht der BFS-Position des Knotens
 //
-// Beispiel-Baum:           BFS:  A, B, C, D, E
-//      A                   degree: 2, 2, 0, 0, 0
-//     / \                  LOUDS: 11 0 11 0 0 0 0 0 = "1101100000"
-//    B   C
-//   / \
-//  D   E
+/* Beispiel-Baum:           BFS:  A, B, C, D, E
+ *      A                   degree: 2, 2, 0, 0, 0
+ *     / \                  LOUDS: 11 0 11 0 0 0 0 0 = "1101100000"
+ *    B   C
+ *   / \
+ *  D   E
+ */
 //
 // Operationen:
 //   first_child(v)  -> first child node-id, oder 0 falls keine Kinder

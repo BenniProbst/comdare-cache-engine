@@ -664,7 +664,7 @@ TEST(SearchAlgo_BTree, SplitMergeAndRootShrinkStress) {
     for (std::uint32_t k = 1; k <= N; ++k) {
         auto v = s.lookup(static_cast<std::uint16_t>(k));
         ASSERT_TRUE(v.has_value()) << "key=" << k;
-        if (k != 1234u) EXPECT_EQ(*v, k * 3u);
+        if (k != 1234u) { EXPECT_EQ(*v, k * 3u); }
     }
     // alle geraden Keys loeschen ⇒ massiv Borrows/Merges + mehrfache Wurzel-Schrumpfung.
     std::uint16_t erased = 0;

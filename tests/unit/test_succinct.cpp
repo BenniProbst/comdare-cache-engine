@@ -111,9 +111,10 @@ TEST(Louds, EmptyOnInit) {
 }
 
 TEST(Louds, BuildFromBfsDegreesSetsNodeCount) {
-    // Baum:    A (2 Kinder)
-    //         / \
-    //        B   C  (0,0)
+    /* Baum:    A (2 Kinder)
+     *         / \
+     *        B   C  (0,0)
+     */
     su::Louds                  l;
     std::vector<std::uint32_t> degrees{2, 0, 0};
     l.build_from_bfs_degrees(degrees);
@@ -121,11 +122,12 @@ TEST(Louds, BuildFromBfsDegreesSetsNodeCount) {
 }
 
 TEST(Louds, DegreeMatchesInput) {
-    // Baum:       A (2 Kinder)
-    //            / \
-    //           B   C
-    //          / \
-    //         D   E   (B hat 2 Kinder, C/D/E je 0)
+    /* Baum:       A (2 Kinder)
+     *            / \
+     *           B   C
+     *          / \
+     *         D   E   (B hat 2 Kinder, C/D/E je 0)
+     */
     su::Louds                  l;
     std::vector<std::uint32_t> degrees{2, 2, 0, 0, 0};
     l.build_from_bfs_degrees(degrees);

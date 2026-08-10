@@ -36,8 +36,7 @@ namespace mp  = boost::mp11;
 // ---------------------------------------------------------------------------
 static_assert(cep::PrueflingSlotConcept<fx::SlotMin>,
               "SlotMin erfuellt PrueflingSlotConcept nicht -- die Naht nimmt ihn nicht an.");
-static_assert(cep::HasPruefling_v<fx::SlotMin>,
-              "HasPruefling_v<SlotMin> ist false, obwohl has_pruefling = true.");
+static_assert(cep::HasPruefling_v<fx::SlotMin>, "HasPruefling_v<SlotMin> ist false, obwohl has_pruefling = true.");
 
 // GEGENEINGANG (T-4): derselbe Bau, has_pruefling = false. Das Concept gilt
 // weiter (die Form stimmt), das Praedikat nicht (der Slot ist unbelegt).
@@ -65,8 +64,7 @@ using Stufe3Doppelt = cep::StufeThreeAxis<fx::DefaultVariants, fx::SlotDoppelt>;
 
 static_assert(mp::mp_size<fx::DefaultVariants>::value == 1,
               "Der Nenner stimmt nicht: die Default-Liste hat nicht 1 Element.");
-static_assert(mp::mp_size<Stufe3Fremd>::value == 2,
-              "Stufe 3 waechst bei fremdem Typ nicht um genau 1.");
+static_assert(mp::mp_size<Stufe3Fremd>::value == 2, "Stufe 3 waechst bei fremdem Typ nicht um genau 1.");
 static_assert(mp::mp_size<Stufe3Doppelt>::value == 1,
               "Stufe 3 waechst bei bereits enthaltenem Typ nicht um 0 -- mp_unique greift nicht.");
 

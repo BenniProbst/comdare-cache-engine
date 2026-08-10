@@ -25,3 +25,15 @@ vollqualifiziert verwenden, keine `using namespace`-Mischung. Konsumenten-Verdra
 
 **Update-Prozedur:** Quelle im Matrix-Klon auf origin/development ziehen → byte-treu neu kopieren (gleiche
 Artefakt-Liste) → SHA-Spalte hier aktualisieren → diff -r-Beweis in den Commit-Text.
+
+**Warn-Doktrin (10.08.2026, -Wall/-Wextra/-Wpedantic-Behebung):** Die Zellen-Header werden als
+SYSTEM-Includes konsumiert (`INTERFACE_SYSTEM_INCLUDE_DIRECTORIES` in `libs/common/platform/CMakeLists.txt`)
+— Warnungen aus dem Vendor-Baum erscheinen nicht in Consumer-TUs, weil Quell-Fixes per Byte-Identitaets-
+Invariante ins Upstream-Repo gehoeren, nicht in die Kopie (analog `ext/`).
+
+**Offener Upstream-Befund (10.08.2026, NICHT in der Kopie fixen):** `SIMDDetect.hpp:340/348` vergleicht
+`int max_ext_id` gegen `0x80000004`/`0x80000001` (unsigned) — 2x `-Wsign-compare`, Ergebnis via
+unsigned-Konversion zufaellig korrekt. Zeile 354 traegt dagegen `static_cast<int>(0x8000001D)`: bei einer
+CPU OHNE Extended-Leaves (`max_ext_id == 0`) ist `0 >= -2147483619` WAHR und `detect_x86_cache_amd` liest
+einen nicht vorhandenen CPUID-Leaf. Sauberer Upstream-Fix: `max_ext_id` als `unsigned` fuehren und alle
+drei Vergleiche unsigned ausfuehren.

@@ -65,7 +65,7 @@ void expect_matches_oracle(SwissTableOrgan const& organ, std::map<std::uint64_t,
         EXPECT_EQ(*got, kv.second) << phase << " key=" << kv.first;
     }
     for (std::uint64_t k : touched) {
-        if (!oracle.contains(k)) EXPECT_FALSE(organ.lookup(k).has_value()) << phase << " erased key=" << k;
+        if (!oracle.contains(k)) { EXPECT_FALSE(organ.lookup(k).has_value()) << phase << " erased key=" << k; }
     }
     expect_for_each_exactly_once(organ, oracle, phase);
 }

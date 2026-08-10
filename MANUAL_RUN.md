@@ -169,3 +169,49 @@ build/tools/mess_report/comdare-mess-report render --realm-root=<dir> --out=<zie
   Pflichtspalten. Ausgaben: Daten/Emissionen -> stdout, Diagnose/Fehler -> stderr (clig.dev).
 
 Detail-Hilfe: `comdare-mess-report help render` bzw. `help plan`.
+
+## 9. Vor dem Push: `vor-push-gate` -- welche CI-Jobs sind lokal gefahren? (2026-08-10)
+
+Beantwortet **eine** Frage, und zwar mit **beiden** Mengen: *welche der CI-Jobs habe ich lokal
+gefahren, welche nicht, und was war ihr Ergebnis?* Anlass: die ce-Sammellandung fiel mit 4 von 24
+Jobs rot -- und von diesen 24 war vor dem Push **keiner** lokal gefahren worden. Zwei der vier
+roten Jobs (`lint:format`, `lint:static`) waren ohne jeden Bau erkennbar.
+
+Das Werkzeug braucht **kein Bauverzeichnis** -- das ist seine tragende Eigenschaft, denn es laeuft
+*vor* dem Bau. Es zieht nur die Standardbibliothek:
+
+```bash
+# Gebrauchsweg (kein konfigurierter Baum noetig):
+g++ -std=c++23 -O1 -o vor-push-gate tools/vor_push_gate/main.cpp
+./vor-push-gate                       # voller Lauf aus der Repo-Wurzel
+./vor-push-gate --nenner              # nur die Job-Liste mit Bau-Klassifikation
+./vor-push-gate --ausfuehrlich        # auch die Ausgabe gruener Jobs zeigen
+
+# Hausweg, wenn ohnehin ein Baum konfiguriert ist:
+cmake --build build --target comdare_vor_push_gate
+```
+
+- **Der Nenner kommt aus `.gitlab-ci.yml` selbst**, nicht aus einer Liste im Werkzeug. Kommt ein Job
+  in die Datei, waechst der Nenner von allein und der neue Job steht automatisch in der Menge der
+  *nicht* gefahrenen. Ein Nenner, den man nicht bewegen kann, ist eine Konstante und kein Nenner.
+- **Die Ausgabe nennt immer beide Mengen**: `N von M CI-Jobs lokal gefahren; die uebrigen M-N
+  namentlich: ...`. Ein Gate, das nur "alles gruen" meldet, ohne zu sagen *welche* Jobs es gefahren
+  hat, waere genau der Fehler, den dieses Werkzeug verhindern soll -- eine Ebene hoeher.
+- **Fail-closed**: Jobs, deren Skript in einer `ci-templates`-Vorlage liegt, und Jobs, die ein
+  Bauverzeichnis brauchen, gelten als *nicht gefahren* und werden namentlich aufgelistet -- nie
+  stillschweigend uebersprungen.
+- **Werkzeuge** ueber `COMDARE_CLANG_FORMAT` / `COMDARE_CPPCHECK` / `COMDARE_GITLEAKS`
+  ueberschreibbar. Fehlt eines, ist das betroffene Gate *offen* (nicht gruen) und wird so gemeldet.
+- Exit-Codes: `0` die hier gefahrenen Jobs sind gruen (**keine** Aussage ueber die anderen),
+  `1` mindestens ein gefahrener Job rot, `2` Abbruch (kein Repo / keine `.gitlab-ci.yml` /
+  Nenner 0 -- ein Nenner 0 ist niemals ein Gruen).
+
+**Verhaeltnis zu `scripts/vor_push_alle_wachen.sh`**: die beiden stellen verschiedene Fragen und
+ersetzen einander nicht. Das Skript misst die **Diff-Menge** (`$BASIS...HEAD`, die beruehrten
+Dateien) und traegt als einziges die Diff-Hygiene (ASCII + Spaltenbreite) -- die ist gar kein
+eigener CI-Job. `vor-push-gate` misst die **CI-Menge**: `lint:format`/`lint:static` fahren im Job
+ueber `git ls-files` (am 10.08.2026 waren das 1849 Dateien gegen 55 im Diff), und genau in dieser
+Luecke kann das Skript gruen sein, waehrend die CI rot ist. Vor einer Landung beide fahren.
+
+**Grenze, ausdruecklich**: es ersetzt die CI nicht. Es faengt die Fehlerklasse, die *ohne Bau*
+erkennbar ist -- am 10.08.2026 waren das 2 der 4 roten Jobs.

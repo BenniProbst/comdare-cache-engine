@@ -109,6 +109,16 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
            s.filled_axis_count == 18u);
         tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount (store-backed)").c_str(),
            s.filled_axis_count == an::kV3FilledAxisCount);
+        // is_filled war toter Code (ueberlebender Mutant): die Schema-Zusicherung, die er prueft, lief nie.
+        // Jetzt verdrahtet -- jede Achse T0..T17 muss eine Schema-Zeile mit Namen tragen, sonst waere die
+        // row_sum-Ausgabe oben fuer eine leere Schema-Zeile blind.
+        {
+            int schema_filled = 0;
+            for (int t = 0; t < static_cast<int>(an::kV3AxisCount); ++t)
+                if (is_filled(t)) ++schema_filled;
+            tr((std::string{name} + ": Schema-Zeilen T0..T17 vollstaendig benannt (is_filled je Achse)").c_str(),
+               schema_filled == static_cast<int>(an::kV3AxisCount));
+        }
         // Bau-INC-2d: index_org/io/migration/filter sind von T12-T15 auf T11-T14 gerueckt (isa raus, Indizes >=11 -1);
         // path_compression (T3) bleibt unveraendert.
         for (int t : {3, 11, 12, 13, 14}) {

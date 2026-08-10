@@ -20,11 +20,12 @@
 // Flags-Wurzel <build>/generated fuer Teil 4 und die vendored boost_mp11-Wurzel. xml_reader ist
 // header-only -- die EINZIGE mitzugebende .cpp ist der Parser. Literal gelaufenes Kommando (26.07.):
 //
-//   g++ -std=c++23 -O0 -I libs/cache_engine -I libs/cache_engine/include \
-//       -I libs/common/serialization -I libs/common -I <build>/generated \
-//       -I cmake/third_party/boost_mp11/include \
-//       tests/unit/test_a9b_active_deklaration_inert.cpp \
-//       libs/common/serialization/xml_config_parser/xml_config_parser.cpp -o <build>/test_a9b_guard
+/*   g++ -std=c++23 -O0 -I libs/cache_engine -I libs/cache_engine/include \
+ *       -I libs/common/serialization -I libs/common -I <build>/generated \
+ *       -I cmake/third_party/boost_mp11/include \
+ *       tests/unit/test_a9b_active_deklaration_inert.cpp \
+ *       libs/common/serialization/xml_config_parser/xml_config_parser.cpp -o <build>/test_a9b_guard
+ */
 //
 // WAS HIER BEWIESEN WIRD:
 // A9b baut einen KANAL fuer die dritte Aussage, die eine Anwender-XML bisher nicht treffen konnte:

@@ -152,14 +152,14 @@ public:
 #endif
 
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
-        std::size_t bytes = n * size;
-        void*       p;
+        void* p;
         if constexpr (enabled) {
             p = ::hoard_calloc(n, size);
         } else {
             p = std::calloc(n, size);
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t bytes = n * size;
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += bytes;

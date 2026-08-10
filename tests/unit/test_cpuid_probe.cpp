@@ -104,20 +104,20 @@ TEST(CpuidProbe, AvxFlagsAreOsEnablementGated) {
         bool const          os_avx = (xcr0 & 0x6u) == 0x6u;               // XCR0[1] XMM + [2] YMM
         bool const os_avx512       = os_avx && ((xcr0 & 0xE0u) == 0xE0u); // + [5] OPMASK, [6] ZMM_Hi256, [7] Hi16_ZMM
         // has_avx ⟹ OS rettet XMM+YMM; ohne YMM-State darf weder AVX noch AVX2 gemeldet werden.
-        if (raw.has_avx) EXPECT_TRUE(os_avx) << "has_avx, aber XCR0[1,2] nicht gesetzt";
+        if (raw.has_avx) { EXPECT_TRUE(os_avx) << "has_avx, aber XCR0[1,2] nicht gesetzt"; }
         if (!os_avx) {
             EXPECT_FALSE(raw.has_avx) << "has_avx trotz fehlendem OS-YMM-State";
             EXPECT_FALSE(raw.has_avx2) << "has_avx2 trotz fehlendem OS-YMM-State";
         }
         // has_avx512f ⟹ OS rettet zusätzlich OPMASK+ZMM_Hi256+Hi16_ZMM.
-        if (raw.has_avx512f) EXPECT_TRUE(os_avx512) << "has_avx512f, aber XCR0[5,6,7] nicht gesetzt";
-        if (!os_avx512) EXPECT_FALSE(raw.has_avx512f) << "has_avx512f trotz fehlendem OS-ZMM-State";
+        if (raw.has_avx512f) { EXPECT_TRUE(os_avx512) << "has_avx512f, aber XCR0[5,6,7] nicht gesetzt"; }
+        if (!os_avx512) { EXPECT_FALSE(raw.has_avx512f) << "has_avx512f trotz fehlendem OS-ZMM-State"; }
     }
 
     // Monotonie des Gates: AVX-512F ⟹ AVX2 ⟹ AVX (jede breitere ISA impliziert die schmalere UND deren
     // OS-State — os_saves_avx512 ⊆ os_saves_avx, und die CPUID-Bits sind architektonisch geschachtelt).
-    if (raw.has_avx512f) EXPECT_TRUE(raw.has_avx2) << "has_avx512f ohne has_avx2 — Gate inkonsistent";
-    if (raw.has_avx2) EXPECT_TRUE(raw.has_avx) << "has_avx2 ohne has_avx — Gate inkonsistent";
+    if (raw.has_avx512f) { EXPECT_TRUE(raw.has_avx2) << "has_avx512f ohne has_avx2 -- Gate inkonsistent"; }
+    if (raw.has_avx2) { EXPECT_TRUE(raw.has_avx) << "has_avx2 ohne has_avx -- Gate inkonsistent"; }
 }
 #endif
 
@@ -143,7 +143,7 @@ TEST(SysfsCacheProbe, LinuxHierarchyRealAndPlausible) {
     EXPECT_LT(info.l1_data_kb, 4096u); // L1d > 4 MiB gibt es nicht — Parser-Plausibilitaet
     // Kreuzcheck: liefern CPUID und sysfs BEIDE eine Line-Size, muessen sie uebereinstimmen.
     auto const raw = pp::probe_cpuid();
-    if (raw.cache_line_bytes != 0u && info.line_bytes != 0u) EXPECT_EQ(raw.cache_line_bytes, info.line_bytes);
+    if (raw.cache_line_bytes != 0u && info.line_bytes != 0u) { EXPECT_EQ(raw.cache_line_bytes, info.line_bytes); }
 }
 #endif
 

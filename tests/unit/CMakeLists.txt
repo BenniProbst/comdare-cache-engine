@@ -3490,6 +3490,18 @@ target_compile_definitions(test_mt_l3_wide_schema_orakel PRIVATE
 set_tests_properties(test_mt_l3_wide_schema_orakel PROPERTIES
     LABELS "contract;gtest;schema_freeze;mt_l3")
 
+# VOR-PUSH-GATE (2026-08-10): die Testwerkbank des Werkzeugs tools/vor_push_gate.
+# KEIN LIBRARIES-Satz und KEIN generated-Include -- der Kern vor_push_gate.hpp zieht nur die
+# Standardbibliothek. Das ist die tragende Eigenschaft des Werkzeugs (es laeuft VOR einem Bau)
+# und macht diesen Test zugleich zu einem der billigsten der Suite.
+# Die Auswahl von test:unit ist '-LE pmc' -- dieser Test traegt kein pmc-Label und ist damit
+# ohne Eintrag im Abdeckungs-Manifest (scripts/ci_test_coverage_manifest.sh) gedeckt.
+comdare_add_test(test_vor_push_gate SOURCES test_vor_push_gate.cpp)
+target_include_directories(test_vor_push_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/tools/vor_push_gate")
+set_tests_properties(test_vor_push_gate PROPERTIES
+    LABELS "gtest;ci_wache;vor_push_gate")
+
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
 target_include_directories(test_lazy_resume_binary PRIVATE
@@ -6655,6 +6667,22 @@ target_compile_definitions(test_t6_biss_registrierungs_wache PRIVATE
     "COMDARE_T6_REG_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\"")
 set_tests_properties(test_t6_biss_registrierungs_wache PROPERTIES
     LABELS "wachen;t6;selbsttest;registrierung" TIMEOUT 300)
+
+# PA-1 (2026-08-10) -- die ZWEITE ERLOSCHEN-RICHTUNG derselben Wache.
+# Der Nachbar oben deckt Richtung 1 ("der Gegenstand kehrt zurueck"). Diese TU deckt
+# Richtung 2 ("der Gegenstand kann NIE zurueckkehren") -- die Klasse, an der vier
+# Allowlist-Zeilen eine Freistellung mit unbegrenzter Laufzeit waren. Zwei Ziele und
+# nicht eines, weil die Faelle verschiedene Gegenstaende brauchen: der Nachbar praepariert
+# Waisen und Bauwege, dieser hier praepariert INDEX-Zustaende (Gitlink, .gitignore) und
+# faehrt zusaetzlich die ECHTE committete Allowlist.
+# COMDARE_PA1_REPO ist noetig, weil Fall (8) und (9) am echten Objekt messen.
+comdare_add_test(test_pa1_tote_ausnahme
+    SOURCES test_pa1_tote_ausnahme.cpp)
+target_compile_definitions(test_pa1_tote_ausnahme PRIVATE
+    "COMDARE_PA1_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\""
+    "COMDARE_PA1_REPO=\"${PROJECT_SOURCE_DIR}\"")
+set_tests_properties(test_pa1_tote_ausnahme PROPERTIES
+    LABELS "wachen;t6;selbsttest;registrierung;pa1" TIMEOUT 300)
 # ===================================================================================================
 # W0b / ##25 DURCHSTICH (2026-08-10) -- die kleinste EHRLICHE Kette bis ins PDF, als Google Test.
 #
