@@ -6515,3 +6515,19 @@ comdare_add_test(test_warn1_d2_fingerprint_koeder
     LIBRARIES comdare_experiment)
 set_tests_properties(test_warn1_d2_fingerprint_koeder PROPERTIES
     LABELS "warnungen;speicher;koeder" TIMEOUT 60)
+
+# -----------------------------------------------------------------------------
+# D2-G1 (10.08.2026) -- DIE REGISTRIERUNG IST TEIL DES TESTS (T-7).
+# Die Wache gegen die Klasse, die test_commands/test_engine_adapters unsichtbar gemacht hat:
+# eine gtest-Binary, die gebaut wird, deren ctest-Eintrag aber fehlt oder ein NOT_BUILT-Platzhalter
+# ist. Sie liest den QUELLBAUM als fremden Nenner (T-3) und die generierten CTestTestfile.cmake als
+# Zaehler -- das Objekt auf der Platte, nicht eine Log-Zeile (V-8).
+# Kein target_link_libraries noetig: die TU zieht nur <filesystem> und gtest.
+# -----------------------------------------------------------------------------
+comdare_add_test(test_d2g1_ctest_registrierung
+    SOURCES test_d2g1_ctest_registrierung.cpp)
+target_compile_definitions(test_d2g1_ctest_registrierung PRIVATE
+    "COMDARE_D2G1_QUELLBAUM=\"${PROJECT_SOURCE_DIR}\""
+    "COMDARE_D2G1_BAUBAUM=\"${PROJECT_BINARY_DIR}\"")
+set_tests_properties(test_d2g1_ctest_registrierung PROPERTIES
+    LABELS "d2g1;registrierung;ctest" TIMEOUT 120)

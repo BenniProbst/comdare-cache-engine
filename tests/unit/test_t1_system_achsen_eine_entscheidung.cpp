@@ -210,7 +210,24 @@ int main(int argc, char** argv) {
               << " Modus=" << (modus.empty() ? std::string_view{"(wache)"} : modus) << "\n";
 
     std::error_code ec;
-    fs::path const  base = fs::temp_directory_path(ec) / "comdare_t1_eine_entscheidung";
+    // D2-G1-Nachtrag (10.08.2026): das Arbeitsverzeichnis traegt den MODUS im Namen.
+    //
+    // WARUM -- am Objekt gemessen, 10.08.2026 auf prod1: diese Binary steht ZWEIMAL in ctest
+    // (test_t1_system_achsen_eine_entscheidung und ..._selbstbiss, tests/unit/CMakeLists.txt:4580-4583).
+    // Beide Laeufe benutzten denselben festen Pfad, und Zeile 214 raeumt ihn per remove_all ab. Laesst
+    // ctest sie NEBENEINANDER laufen, loescht der eine Lauf die Profil-XML, die der andere gerade liest.
+    // Gemessen, ohne jede andere Aenderung am Baum:
+    //     ctest -j2 -R '^test_t1_system_achsen_eine_entscheidung(_selbstbiss)?$'   ROT in 10 von 10 Runden
+    //     dieselben zwei seriell (-j1)                                             ROT in  0 von 10 Runden
+    // Der Fehler sah dabei wie ein inhaltlicher aus ("SELBSTBISS VERFEHLT: der Mutant reisst nicht genau
+    // die Trennungs-Faelle") -- er war keiner. Genau das macht die Klasse teuer: sie zeigt auf die
+    // Aussage des Tests statt auf seine Umgebung, und sie erscheint nur bei bestimmter ctest-Reihenfolge.
+    // Die Reihenfolge haengt an der Gesamtzahl der Tests, also aendert JEDER neu hinzugefuegte Test sie.
+    //
+    // KEIN RESOURCE_LOCK: das serialisiert nur und laesst die geteilte Schreibstelle stehen. Getrennte
+    // Verzeichnisse nehmen die Ursache weg -- die beiden Laeufe teilen danach keinen Schreibpfad mehr.
+    std::string const modus_kennung = biss ? "selbstbiss" : (mutant ? "mutant" : "wache");
+    fs::path const    base          = fs::temp_directory_path(ec) / ("comdare_t1_eine_entscheidung_" + modus_kennung);
     fs::remove_all(base, ec);
     fs::create_directories(base, ec);
     fs::path const p = base / "t1.profile.xml";
