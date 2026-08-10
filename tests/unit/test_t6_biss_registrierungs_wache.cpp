@@ -217,8 +217,26 @@ TEST(T6BissRegistrierungsWache, BegruendeteWaiseIstKeinBefund) {
 
     ASSERT_TRUE(fall.init());
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(waise, "// nie gebaut\n"));
+    // NACHGEZOGEN 2026-08-10 (PA-1): der Fremdbaum muss als SUBMODUL angemeldet sein.
+    // Seit der zweiten ERLOSCHEN-Richtung fragt die Wache nicht mehr nur, ob der
+    // Gegenstand fehlt, sondern auch, ob dieses Repo seinen Zweig ueberhaupt kennt.
+    // "Optionaler Fremdbaum, der wiederkommen kann" heisst in diesem Repository genau
+    // eines von zwei Dingen: ein Submodul-Gitlink oder eine .gitignore-Regel. Ein
+    // unangemeldetes Verzeichnis unter ext/ waere KEIN erklaerter Baum -- die Wache
+    // meldete es zu Recht als TOTE AUSNAHME (am Objekt gesehen, bevor diese Zeile hier
+    // stand). Die Fixture bildet damit ab, wie ext/queuing/Q01-concurrentqueue im echten
+    // Baum wirklich angemeldet ist, statt der Wache auszuweichen.
+    ASSERT_EQ(fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() +
+                    " git update-index --add --cacheinfo 160000,"
+                    "0000000000000000000000000000000000000001,ext/fremdbaum_" +
+                    marke)
+                  .code,
+              0)
+        << "Gitlink fuer den optionalen Fremdbaum konnte nicht angelegt werden.";
+    // Feld 2 traegt seit 461776ef ein PRAEFIX, das die ART benennt ('datei:'/'isa:').
+    // Ohne Praefix ist die Zeile UNPRUEFBAR und der Fall waere aus dem falschen Grund rot.
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
-                                     "# Wegwerf-Allowlist des Falls\n" + waise + " | " + grund +
+                                     "# Wegwerf-Allowlist des Falls\n" + waise + " | datei:" + grund +
                                          " | braucht den optionalen Fremdbaum\n"));
     ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));
 
@@ -247,8 +265,19 @@ TEST(T6BissRegistrierungsWache, ErloscheneAusnahmeWirdROT) {
 
     ASSERT_TRUE(fall.init());
     ASSERT_TRUE(fall.repo().schreibe_und_verfolge(waise, "// nie gebaut\n"));
+    // Gitlink wie in Fall (2) -- hier zwar nicht noetig (der Gegenstand ist ja da und
+    // Richtung 1 greift zuerst), aber die beiden Faelle duerfen sich NUR in dem einen
+    // Punkt unterscheiden, der unten benannt ist. Sonst waere der Vergleich keiner.
+    ASSERT_EQ(fahre("cd " + zitiert(fall.repo().pfad()) + " && " + WegwerfRepo::umgebung() +
+                    " git update-index --add --cacheinfo 160000,"
+                    "0000000000000000000000000000000000000001,ext/fremdbaum_" +
+                    marke)
+                  .code,
+              0)
+        << "Gitlink fuer den optionalen Fremdbaum konnte nicht angelegt werden.";
+    // 'datei:'-Praefix seit 461776ef Pflicht, s. Fall (2).
     ASSERT_TRUE(fall.repo().schreibe("scripts/ci_test_registrierungs_allowlist.txt",
-                                     waise + " | " + grund + " | braucht den optionalen Fremdbaum\n"));
+                                     waise + " | datei:" + grund + " | braucht den optionalen Fremdbaum\n"));
     // DER EINZIGE UNTERSCHIED ZU FALL (2): der Gegenstand ist wieder da.
     ASSERT_TRUE(fall.repo().schreibe(grund, "# der Fremdbaum ist zurueck\n"));
     ASSERT_TRUE(fall.bauweg_schreiben({kGegenprobe}));

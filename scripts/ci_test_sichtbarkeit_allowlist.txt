@@ -47,6 +47,29 @@
 # Verschwinden desselben Namens lautlos weg -- genau die Fehlerform, gegen die
 # diese Datei gebaut ist. Die vier Quelldateien liegen weiter im Baum; ihre
 # Disposition ist Ledger PA-3 (Owner) und beruehrt diese Wache nicht.
+#
+# NACHTRAG PA-1 (2026-08-10): DIESELBE FRAGE FUER DIESE LISTE -- und die Antwort ist
+# unbequem. In scripts/ci_test_registrierungs_allowlist.txt hat Feld 2 einen GEGENSTAND,
+# und die Wache prueft bei jedem Lauf nach, ob die Begruendung noch traegt: ist der
+# Gegenstand wieder da -> ERLOSCHEN; kann er per Konstruktion nie entstehen -> TOTE
+# AUSNAHME. Beide Richtungen sind ROT.
+# DIESE Liste hat kein Gegenstand-Feld. Ihr Format ist '<name> <begruendung>', und die
+# Begruendung ist Prosa -- nachpruefbar fuer einen Menschen, nicht fuer die Wache. Am
+# Objekt gezaehlt (2026-08-10, nach dem Entfall der vier oben): 2 wirksame Zeilen, davon
+# 0 mit einem Gegenstand, den die Wache nachpruefen koennte. Struktur-Nenner also 2/2
+# ohne jede Ablaufprobe.
+# WAS SIE STATTDESSEN HAT und was das deckt: die Meldung "in diesem Baum WIRKUNGSLOS".
+# Die faengt eine Zeile, die gerade nichts mehr deckt -- sie faengt NICHT eine Zeile,
+# deren Begruendung nie mehr gelten kann. Das sind verschiedene Fragen, und die zweite
+# ist hier heute unbeantwortet.
+# WARUM DAS HIER NICHT GEHEILT WIRD: es braucht ein Gegenstand-Feld in dieser Datei UND
+# seine Auswertung in scripts/ci_test_sichtbarkeit_wache.sh -- ein eigenes Paket mit
+# eigenem Rot-zuerst und eigenem Koeder, keine Beifang-Aenderung an einer Datei, die
+# gerade aus einem anderen Grund angefasst wird. Als offener Posten hier vermerkt, damit
+# er nicht wieder nur in einem Bericht steht.
+# Bis dahin gilt: der Google Test test_pa1_tote_ausnahme, Fall (9), haelt fest, dass die
+# vier oben hier NICHT wieder auftauchen, und weist den Struktur-Nenner bei jedem Lauf
+# aus -- damit die Luecke sichtbar bleibt statt vergessen zu werden.
 
 # -- Bedingung: if(COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F) -----
 # tests/unit/CMakeLists.txt:3829. HARDWARE-GATTER, kein Defekt -- am Objekt belegt.
