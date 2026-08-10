@@ -33,6 +33,39 @@
 # wuerfelt seinen Koeder bei JEDEM Lauf neu, damit kein Fall ueber einen fest
 # eingetragenen Beispielwert gruen werden kann.
 #
+# =============================================================================
+# JE SCHICHT EIN FALL -- die Bauregel dieses Selbsttests (2026-08-10)
+# =============================================================================
+# BEFUND, DER SIE ERZWINGT (Pruefer, am Objekt mutationsgemessen): ein Fall darf
+# nicht die zusammengesetzte WIRKUNG mehrerer Schichten pruefen, sondern muss die
+# einzelne BEDINGUNG pinnen. Sonst traegt beim Wegfall einer Schicht die jeweils
+# andere den Fall, und er bleibt gruen -- genau die Klasse von Test, gegen die
+# die Wache selbst gebaut ist.
+#
+# GEMESSEN am Stand 5bd90986 (jede Mutation einzeln, Selbsttest mit 12 Faellen):
+#     Mutation                                        Selbsttest    Befund
+#     is_vendor()-Zweig aus skip_grund() gestrichen    12 von 12     UEBERLEBT
+#     *.md-Zweig aus skip_grund() gestrichen           10 von 12     gefangen
+#     awk-Entklammerung (4 Zeilen) gestrichen          12 von 12     UEBERLEBT
+#     core.quotePath=false am Haupt-Aufruf gestrichen  12 von 12     UEBERLEBT
+# Drei von vier Schichten waren ungedeckt. Reproduzierbar: Wache und Selbsttest
+# in ein Wegwerf-Verzeichnis kopieren, EINE Schicht aus der Kopie streichen, den
+# Selbsttest gegen die Kopie fahren -- der Arbeitsbaum bleibt dabei unberuehrt.
+#
+# WELCHER FALL WELCHE SCHICHT PINNT (bei Umbauten mitzufuehren):
+#     Schicht                                     Fall   faellt sie, wird rot
+#     skip_grund(): *.md, Sprachdoktrin           11     11 (und 12)
+#     skip_grund(): Vendor-Baum via Provenance    13     13, nicht 11/12/15
+#     Quotierung: core.quotePath=false            12     12, nicht 15
+#     Quotierung: awk streift Klammerung ab       15     15, nicht 12
+# Zu Fall 13 gehoert Fall 14 als GEGENEINGANG: derselbe Verstoss OHNE die
+# Provenance-Datei muss gemeldet werden. Ohne ihn waere Fall 13 auch von einer
+# Wache zu bestehen, die pauschal alles unter ext/ ueberspringt.
+#
+# ZAHLEN IN DIESEM KOPF TRAGEN IHREN ANKER (Stand + Kommando) oder sie stehen
+# nicht hier. Eine nackte Zahl ueber einen lebenden Gegenstand verjaehrt zwischen
+# Messung und Landung; die Zahl der Faelle druckt dieses Skript ohnehin selbst.
+#
 # AUFRUF:  sh scripts/ci_diff_ascii_width_guard.selbsttest.sh
 # EXIT:    0 = alle Faelle wie erwartet
 #          1 = mindestens ein Fall weicht ab (Details je Fall im Log)
@@ -122,27 +155,55 @@ st_neues_repo() {
         || st_abbruch "git commit im Wegwerf-Repo fehlgeschlagen."
 }
 
-# st_bewerte <fallname> <erwarteter_exit> <erwartetes_muster_oder_leer> <tatsaechlicher_exit> <ausgabedatei>
+# st_bewerte <fallname> <erwarteter_exit> <zusicherungen> <tatsaechlicher_exit> <ausgabedatei>
+#
+# <zusicherungen> traegt KEINE, EINE oder MEHRERE Zeilen -- je Zeile eine
+# Fixed-String-Zusicherung an die Ausgabe des Falls, und ALLE muessen gelten.
+# Baue die Liste mit `printf '%s\n%s\n' "..." "..."`, dann bleibt die Einrueckung
+# der Quelldatei aus dem Muster heraus.
+#
+# WARUM MEHRERE (2026-08-10, Pruefer-Befund am Objekt): ein Fall, der nur den
+# EXIT prueft, ist auch von einer Wache zu bestehen, die gar nichts angesehen hat
+# -- und ein Fall mit genau EINER Zusicherung prueft die zusammengesetzte
+# WIRKUNG, nicht die BEDINGUNG. Fall 12 war so gebaut und blieb gruen, wenn eine
+# seiner beiden Schichten wegfiel (mutationsgemessen, s. Kopf). Erst eine zweite,
+# auf die Bedingung gerichtete Zusicherung (der GRUND der Ausnahme, der lesbare
+# Dateiname) pinnt die einzelne Schicht.
+#
+# V-1: die ZAHL der belegten Zusicherungen wird mitgedruckt. Ohne sie sieht ein
+# Fall ohne jede Zusicherung im Log genauso aus wie ein scharf pruefender -- der
+# Nenner gehoert in die Ausgabe des Werkzeugs, nicht in den Bericht darueber.
 st_bewerte() {
     _st_fall="$1"; _st_soll="$2"; _st_muster="$3"; _st_ist="$4"; _st_datei="$5"
     _st_gesamt=$(( _st_gesamt + 1 ))
     _st_ok=1
+    _st_grund=""
+    _st_zusi=0
     if [ "$_st_ist" -ne "$_st_soll" ]; then
         _st_ok=0
         _st_grund="Exit ${_st_ist}, erwartet ${_st_soll}"
     elif [ -n "$_st_muster" ]; then
-        if LC_ALL=C grep -q -F -- "$_st_muster" "$_st_datei"; then
-            _st_grund=""
-        else
+        printf '%s\n' "$_st_muster" > "$_st_muster_datei" \
+            || st_abbruch "Schreiben der Zusicherungsliste fehlgeschlagen."
+        # KEINE Pipe: `while ... done < datei` laeuft in POSIX sh in DERSELBEN
+        # Shell, die Zaehler ueberleben die Schleife also. Ueber eine Pipe
+        # gelesen laegen sie in einer Subshell und waeren danach verloren --
+        # der Fall waere still gruen. Dieselbe Klasse wie die Falle im Kopf.
+        while IFS= read -r _st_m; do
+            [ -n "$_st_m" ] || continue
+            if LC_ALL=C grep -q -F -- "$_st_m" "$_st_datei"; then
+                _st_zusi=$(( _st_zusi + 1 ))
+                continue
+            fi
             _st_ok=0
-            _st_grund="Exit stimmt (${_st_ist}), aber die Ausgabe enthaelt nicht: '${_st_muster}'"
-        fi
-    else
-        _st_grund=""
+            _st_grund="Exit stimmt (${_st_ist}), aber die Ausgabe enthaelt nicht: '${_st_m}'"
+            break
+        done < "$_st_muster_datei"
     fi
     if [ "$_st_ok" -eq 1 ]; then
         _st_gruen=$(( _st_gruen + 1 ))
-        printf '  [ok ] %-34s Exit %d wie erwartet\n' "$_st_fall" "$_st_ist"
+        printf '  [ok ] %-34s Exit %d wie erwartet, %d Zusicherung(en)\n' \
+            "$_st_fall" "$_st_ist" "$_st_zusi"
     else
         _st_rot=$(( _st_rot + 1 ))
         printf '  [ROT] %-34s %s\n' "$_st_fall" "$_st_grund"
@@ -154,6 +215,10 @@ st_bewerte() {
 
 _st_out="$(mktemp "${TMPDIR:-/tmp}/ce_wache_selbsttest_out.XXXXXX")" \
     || st_abbruch "mktemp fuer die Ausgabedatei fehlgeschlagen."
+_st_muster_datei="$(mktemp "${TMPDIR:-/tmp}/ce_wache_selbsttest_mus.XXXXXX")" \
+    || st_abbruch "mktemp fuer die Zusicherungsliste fehlgeschlagen."
+_st_diff="$(mktemp "${TMPDIR:-/tmp}/ce_wache_selbsttest_diff.XXXXXX")" \
+    || st_abbruch "mktemp fuer den vorgefertigten Diff fehlgeschlagen."
 
 echo "FAELLE:"
 
@@ -251,7 +316,221 @@ st_neues_repo
 st_bewerte "9 leerer Bereich bleibt Exit 0" 0 "GRUEN" "$?" "$_st_out"
 rm -rf "$_st_repo"
 
-rm -f "$_st_out"
+# --- Fall 10: SHELL-DECKUNG -- ein Koeder in einer .sh-Datei muss beissen ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-10, am Objekt gemessen): is_scoped()
+# war eine WHITELIST (.cpp/.hpp/.h/.hh/.cc/.cxx/.tpp/.ipp/.inl/.cmake plus
+# CMakeLists.txt). ALLES andere fiel lautlos heraus -- .sh, .c, .txt, .yml, .py.
+# Die Wache meldete GRUEN, ohne die Datei je angesehen zu haben. Ihr Nenner nannte
+# die Zeilen zwar als "ausserhalb des Scopes", aber unter dem Etikett
+# "(Doku-Prosa/Sonstiges)" -- das liest sich wie Prosa und war in Wahrheit
+# Quelltext: 143 getrackte .sh-Dateien mit 10.084 Zeilen.
+#
+# DER SCHADEN WAR REAL, nicht bloss potenziell: ein Strang kuerzte seine
+# Bilanz-Zeile von 159 auf 121 und dann auf 122 Byte, ohne nachzumessen, und kam
+# durch alle Tore -- das GRUEN ueber seinen Bereich war kein Urteil ueber die
+# Datei, die er geaendert hatte.
+#
+# Der Fall wuerfelt BEIDE Verstossklassen in EINE Shell-Datei: das nicht-ASCII-
+# Zeichen (oben frisch gewuerfelt) und eine ueberlange Zeile. Vor der Reparatur
+# lief er Exit 0 GRUEN durch -- protokolliert im Paket zu diesem Fall.
+st_neues_repo
+printf '# KOEDER %s %s Bilanz-Zeile\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/scripts/probe_bilanz.sh"
+printf '# %s\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    >> "${_st_repo}/scripts/probe_bilanz.sh"
+git -C "$_st_repo" add scripts/probe_bilanz.sh || st_abbruch "git add (Fall 10) fehlgeschlagen."
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "10 .sh-Deckung beisst" 1 "NICHT-ASCII" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 11: GEGENEINGANG -- die *.md-Ausnahme haelt, und .sh bleibt geprueft ---
+# Ohne diesen Fall waere Fall 10 auch von einer Wache zu bestehen, die schlicht
+# JEDE Datei rot faerbt -- dann waere deutsche Doku-Prosa unbenutzbar. Die
+# Ausnahme fuer *.md ist die urspruengliche, richtige Begruendung des Scopes:
+# deutsche Prosa traegt per Sprachdoktrin korrekte Umlaute.
+# Der Fall stellt beides gleichzeitig: eine .md-Datei mit demselben gewuerfelten
+# Zeichen (muss uebersprungen werden) UND eine saubere .sh-Datei (muss GEPRUEFT
+# werden, damit der Nenner nicht null ist -- sonst waere das Gruen wertlos).
+st_neues_repo
+printf 'Deutsche Doku-Prosa mit Umlaut %s und Kennzeichen %s.\n' "$_st_na" "$_st_kennzeichen" \
+    > "${_st_repo}/HANDBUCH.md"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_sauber.sh"
+git -C "$_st_repo" add HANDBUCH.md scripts/probe_sauber.sh \
+    || st_abbruch "git add (Fall 11) fehlgeschlagen."
+# Die erste Zusicherung ist bewusst die NENNER-Zeile und nicht bloss "GRUEN":
+# genau EINE der beiden Zusatzzeilen darf geprueft worden sein (die .sh), die
+# andere (die .md) gehoert in die uebersprungene Menge. Ein blosses "Exit 0"
+# waere auch von einer Wache zu bestehen, die BEIDE Dateien uebersieht -- also
+# von genau dem Defekt, den Fall 10 aufdeckt.
+# Die ZWEITE Zusicherung (2026-08-10, Pruefer-Befund) nennt den GRUND: nicht
+# "die Datei wurde uebersprungen", sondern "sie wurde als *.md uebersprungen".
+# Das trennt die *.md-Schicht von der Vendor-Schicht -- ohne sie wuerde der Fall
+# auch dann gruen bleiben, wenn die .md aus irgendeinem anderen Grund herausfiele.
+_st_erw=$(printf '%s\n%s\n' \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" \
+    "- HANDBUCH.md  [Doku-Prosa *.md, Sprachdoktrin]")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "11 md-Ausnahme haelt, sh geprueft" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 12: die *.md-Ausnahme haelt AUCH bei Nicht-ASCII im DATEINAMEN ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-10, beim Umbau auf die Blacklist am
+# Objekt aufgeschlagen): git meldet Pfade mit Nicht-ASCII C-quotiert, also
+#     +++ "b/docs/sessions/...-\302\2478-PILOT-G1G3.md"
+# MIT Anfuehrungszeichen. Der Basename endet dann auf .md" statt auf .md, und die
+# Endungs-Ausnahme greift nicht mehr. Gemessen an ce-Commit 163db10d: eine reine
+# deutsche Session-Doku wurde dadurch mit 37 Verstoessen ROT.
+#
+# WARUM ES UNTER DER ALTEN WHITELIST NICHT AUFFIEL: dort war ".md\"" genauso
+# wenig gescoped wie ".md" -- Fehlbehandlung und gewollte Ausnahme sahen zufaellig
+# gleich aus. Erst die Blacklist trennt die beiden, weil sie zur anderen Seite
+# ausfaellt. Ein Beispiel dafuer, dass ein Richtungswechsel alte Stillstellungen
+# sichtbar macht, statt neue Fehler zu erfinden.
+#
+# Der Dateiname traegt das oben gewuerfelte Zeichen, ist also bei jedem Lauf ein
+# anderer. Wie Fall 11 liegt eine saubere .sh daneben, damit der Nenner nicht
+# null ist -- ein Gruen ueber null geprueften Zeilen waere kein Gruen.
+#
+# WELCHE SCHICHT DIESER FALL PINNT (2026-08-10 nachgeschaerft, Pruefer-Befund):
+# der Griff gegen die C-Quotierung hat ZWEI Schichten -- core.quotePath=false am
+# git-Aufruf, und das Abstreifen der Klammerung auf der awk-Seite. Bis heute
+# prueft Fall 12 nur ihre ZUSAMMENGESETZTE Wirkung: mutationsgemessen blieb er
+# 12 von 12 gruen, wenn EINE der beiden wegfiel -- die jeweils andere trug ihn.
+# Ein Test, der die Anwesenheit der Wirkung prueft statt der Bedingung, ist genau
+# die Klasse, gegen die diese Wache gebaut ist.
+# Dieser Fall pinnt jetzt AUSSCHLIESSLICH core.quotePath=false, ueber den
+# LESBAREN Dateinamen in der uebersprungenen Menge: faellt die Option weg,
+# streift die awk-Seite die Anfuehrungszeichen zwar noch ab und der Exit bleibt
+# 0, aber der Name erscheint als Oktal-Wueste ("HANDBUCH-\303\244-...") statt
+# lesbar -- und die zweite Zusicherung faellt. Die awk-Schicht pinnt Fall 15
+# ueber den --stdin-Weg, auf dem core.quotePath des Aufrufers nicht gilt.
+st_neues_repo
+_st_mdname="HANDBUCH-${_st_na}-${_st_kennzeichen}.md"
+printf 'Deutsche Doku-Prosa mit Umlaut %s im Text UND im Dateinamen.\n' "$_st_na" \
+    > "${_st_repo}/${_st_mdname}"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_quote.sh"
+git -C "$_st_repo" add -- "$_st_mdname" scripts/probe_quote.sh \
+    || st_abbruch "git add (Fall 12) fehlgeschlagen."
+_st_erw=$(printf '%s\n%s\n' \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" \
+    "- ${_st_mdname}  [Doku-Prosa *.md, Sprachdoktrin]")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "12 md-Ausnahme trotz Umlaut im Namen" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 13: die VENDOR-Ausnahme haelt -- Fremdcode bleibt ungeprueft ---
+# BEFUND, DER DIESEN FALL ERZWINGT (2026-08-10, Pruefer-Befund, mutationsgemessen):
+# skip_grund() hat ZWEI Schichten -- (a) *.md und (b) Vendor-Baeume mit
+# COMDARE-VENDOR-PROVENANCE.md. Von den zwoelf Faellen deckten ELF die Schicht (a)
+# und KEINER die Schicht (b). Gemessen, nicht vermutet: streicht man die Zeile
+# `if (is_vendor(fname)) return ...` aus der Wache, blieb der Selbsttest 12 von 12
+# GRUEN. Eine Ausnahme ohne Test verschwindet beim naechsten Umbau lautlos -- oder
+# laesst lautlos alles durch.
+#
+# DER FIXTURE-BAUM IST ECHT, kein Attrappen-Pfad: ein Verzeichnis mit einer
+# wirklichen COMDARE-VENDOR-PROVENANCE.md, wie das Haus sie fuer jeden Snapshot
+# anlegt (im ce-Baum heute ext/io/liburing, ext/io/libxlsxwriter, ext/io/zlib).
+#
+# DER VERSTOSS LIEGT BEWUSST IN EINER .c-DATEI, nicht in einer .md: laege er in
+# einer .md, truege die Schicht (a) den Fall und er saehe nur so aus, als pruefe
+# er die Vendor-Schicht. So ist er von (a) UNABHAENGIG -- streicht man die
+# *.md-Zeile, bleibt dieser Fall gruen; streicht man die Vendor-Zeile, wird er
+# rot. Das ist die geforderte EINZELNE Deckung, nicht die gemeinsame.
+# Wie in den Faellen 11 und 12 liegt eine saubere .sh daneben, damit der Nenner
+# nicht null ist -- ein Gruen ueber null geprueften Zeilen waere kein Gruen.
+st_neues_repo
+mkdir -p "${_st_repo}/ext/io/fremd_paket" \
+    || st_abbruch "mkdir des Vendor-Fixtures (Fall 13) fehlgeschlagen."
+printf 'Herkunft: Fremd-Snapshot, Stufe faithful. Kennzeichen %s.\n' "$_st_kennzeichen" \
+    > "${_st_repo}/ext/io/fremd_paket/COMDARE-VENDOR-PROVENANCE.md"
+printf '/* upstream comment %s %s */\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/ext/io/fremd_paket/upstream_modul.c"
+printf '/* %s */\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    >> "${_st_repo}/ext/io/fremd_paket/upstream_modul.c"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_vendor.sh"
+git -C "$_st_repo" add -- ext scripts/probe_vendor.sh \
+    || st_abbruch "git add (Fall 13) fehlgeschlagen."
+# Die zweite Zusicherung nennt den GRUND und die DATEI: nicht "irgendetwas wurde
+# uebersprungen", sondern "genau diese Fremddatei, und zwar als Vendor-Baum".
+_st_erw=$(printf '%s\n%s\n' \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" \
+    "- ext/io/fremd_paket/upstream_modul.c  [Vendor-Baum, COMDARE-VENDOR-PROVENANCE.md]")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "13 Vendor-Ausnahme haelt" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 14: GEGENEINGANG zu Fall 13 -- ohne die Provenance-Datei MUSS es beissen ---
+# T-4/K13: zu jeder Zusicherung ein Eingang, bei dem sie NICHT gilt. Ohne diesen
+# Fall waere Fall 13 auch von einer Wache zu bestehen, die pauschal alles unter
+# ext/ ueberspringt -- und genau diese pauschale ext/-Ausnahme lehnt der Kopf der
+# Wache ausdruecklich ab, weil sie comdare-EIGENE Dateien dort (ext/CMakeLists.txt,
+# die Vendor-Wrapper) mit blind stellen wuerde.
+# Der Baum ist BIS AUF DIE PROVENANCE-DATEI identisch mit Fall 13: derselbe Pfad,
+# dieselbe Datei, derselbe gewuerfelte Koeder. Genau EINE Variable unterscheidet
+# die beiden Faelle -- damit ist der Unterschied im Verdikt dieser Variable
+# zurechenbar und keiner Begleitumstaendlichkeit.
+st_neues_repo
+mkdir -p "${_st_repo}/ext/io/fremd_paket" \
+    || st_abbruch "mkdir des Vendor-Fixtures (Fall 14) fehlgeschlagen."
+printf '/* upstream comment %s %s */\n' "$_st_kennzeichen" "$_st_na" \
+    > "${_st_repo}/ext/io/fremd_paket/upstream_modul.c"
+printf '/* %s */\n' "$(od -An -N70 -tx1 /dev/urandom | tr -d ' \n')" \
+    >> "${_st_repo}/ext/io/fremd_paket/upstream_modul.c"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_vendor.sh"
+git -C "$_st_repo" add -- ext scripts/probe_vendor.sh \
+    || st_abbruch "git add (Fall 14) fehlgeschlagen."
+# BEIDE Verstossklassen muessen gemeldet werden, und zwar NAMENTLICH an dieser
+# Datei -- ein blosses "Exit 1" waere auch von einer Wache zu haben, die etwas
+# ganz anderes anmeckert.
+_st_erw=$(printf '%s\n%s\n%s\n' \
+    "NICHT-ASCII" \
+    ">120-SPALTEN" \
+    "ext/io/fremd_paket/upstream_modul.c")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh ) > "$_st_out" 2>&1
+st_bewerte "14 ohne Provenance beisst es" 1 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+# --- Fall 15: die awk-Entklammerung, EINZELN gepinnt (--stdin) ---
+# Zweite Haelfte des Pruefer-Befunds zu Fall 12 (s. dort): der Griff gegen die
+# C-Quotierung hat zwei Schichten, und Fall 12 pinnt nur core.quotePath=false.
+# Die awk-Seite ist genau dort die einzige Verteidigung, wo die Wache die
+# git-Konfiguration des Aufrufers NICHT kennt -- im --stdin-Betrieb. Also wird
+# der Diff hier ABSICHTLICH mit core.quotePath=true erzeugt, so wie ihn ein
+# Aufrufer mit Vorgabe-Konfiguration liefert, und in die Wache gefuettert.
+# Mutationsgemessen: streicht man die vier awk-Zeilen, die die Klammerung
+# abstreifen, blieb der Selbsttest 12 von 12 gruen. Dieser Fall wird dabei rot.
+st_neues_repo
+_st_mdname="HANDBUCH-${_st_na}-${_st_kennzeichen}.md"
+printf 'Deutsche Doku-Prosa mit Umlaut %s im Text UND im Dateinamen.\n' "$_st_na" \
+    > "${_st_repo}/${_st_mdname}"
+printf '# saubere Shell-Zeile, reines ASCII (%s)\n' "$_st_kennzeichen" \
+    > "${_st_repo}/scripts/probe_stdin.sh"
+git -C "$_st_repo" add -- "$_st_mdname" scripts/probe_stdin.sh \
+    || st_abbruch "git add (Fall 15) fehlgeschlagen."
+git -C "$_st_repo" -c core.quotePath=true \
+    diff -U0 --no-color --no-ext-diff HEAD > "$_st_diff"
+_st_rc=$?
+[ "$_st_rc" -eq 0 ] \
+    || st_abbruch "Erzeugen des quotierten Diffs (Fall 15) fehlgeschlagen (rc=${_st_rc})."
+# KOEDER-KONTROLLE (V-8): "Was waere der Zustand, in dem dieser Fall gruen ist
+# und die Sache trotzdem nicht existiert?" -- ein Diff OHNE Klammerung. Dann
+# haette die awk-Entklammerung nie etwas zu tun gehabt und das Gruen waere leer.
+# Also wird hier am OBJEKT geprueft, dass die Eingabe den Koeder wirklich traegt.
+LC_ALL=C grep -q -F -- '+++ "b/' "$_st_diff" \
+    || st_abbruch "Fall 15: der erzeugte Diff traegt KEINE C-Quotierung -- der Koeder beisst nicht."
+_st_erw=$(printf '%s\n%s\n' \
+    "1 Zusatzzeilen in selbst verfasstem Code geprueft" \
+    "[Doku-Prosa *.md, Sprachdoktrin]")
+( cd "$_st_repo" && sh scripts/ci_diff_ascii_width_guard.sh --stdin < "$_st_diff" ) \
+    > "$_st_out" 2>&1
+st_bewerte "15 awk-Entklammerung haelt (stdin)" 0 "$_st_erw" "$?" "$_st_out"
+rm -rf "$_st_repo"
+
+rm -f "$_st_out" "$_st_muster_datei" "$_st_diff"
 
 echo ""
 echo "-----------------------------------------------------------------------------"

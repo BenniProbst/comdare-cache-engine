@@ -56,6 +56,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -140,11 +141,49 @@ struct Lauf {
 // 'zusatz_env' wird VOR den Aufruf gesetzt (z.B. "COMDARE_WACHE_STRIKT=1 "). Es steht
 // bewusst als Zeichenkette da und nicht als putenv(): der Prozess dieses Tests darf die
 // Variable nicht behalten, sonst faerbte ein Fall den naechsten ein.
+//
+// DIE UMGEBUNG WIRD GESCHEUERT (2026-08-10) -- und das ist kein Feinschliff, sondern die
+// Heilung eines Fehlers, der die ce-Pipeline 15515 rot gemacht hat:
+//   popen() startet die Prueflings-Subshell ueber 'sh -c' und vererbt ihr die VOLLE
+//   Prozessumgebung. In GitLab steht COMDARE_PMC_LANES pipeline-weit auf "amd intel"
+//   (.gitlab-ci.yml, variables:-Block -- nicht job-lokal). Die zwei Faelle, die einen
+//   UNGESETZTEN Deklarations-Schalter brauchen, sahen dort deshalb "14 von 14 Gate(n)
+//   gegen eine gesetzte Variable GEPRUEFT" und fielen -- lokal gruen, in der CI rot,
+//   ohne dass am Pruefling irgendetwas defekt gewesen waere.
+//   Literal aus dem Job-Trace (Job 371127, prod2, 2026-08-10T03:28:14):
+//     [deckt ]  pmc   -L pmc   0 Tests   (COMDARE_PMC_LANES='amd intel')
+//     14 von 14 Gate(n) gegen eine gesetzte Variable GEPRUEFT.
+//
+// WARUM EINE LISTE UND NICHT NUR DIESE EINE VARIABLE (T-6 SCHWESTERPFLICHT): der Riss
+// ist nicht 'COMDARE_PMC_LANES', sondern 'die Umgebung entscheidet mit'. Gescheuert wird
+// deshalb JEDE Variable, die das Urteil der Wache von aussen verschieben kann --
+// die Gate-Variablen des Manifests (declared:/optin:) und die Schalter der Wache selbst.
+// Dass die Liste vollstaendig BLEIBT, prueft nicht der gute Wille, sondern der Fall
+// ScheuerlisteDecktJedeGateVariableDesManifests: er liest die Namen aus dem MANIFEST
+// (fremde Quelle, T-3) und faellt, sobald dort eine Variable dazukommt, die hier fehlt.
+inline constexpr std::array<std::string_view, 4> kUmgebungsScheuerliste{
+    "COMDARE_PMC_LANES",     // declared:-Gate 'pmc'      -- steht pipeline-weit in der CI
+    "COMDARE_ISA_MATRIX",    // optin:-Gate 'arm64_smoke' -- heute nur in rules:, morgen vielleicht global
+    "COMDARE_WACHE_STRIKT",  // WEICH/STRENG -- ein geerbtes '1' machte jeden weichen Fall rot
+    "COMDARE_FREMD_INVENTUR" // schaltet Befund (e) scharf, gegen eine Datei, die kein Fall geschrieben hat
+};
+
 [[nodiscard]] Lauf wache_fahren(fs::path const& baum, std::string const& zusatz_env = "") {
-    fs::path const    ctest_dir = fs::path{COMDARE_D2_CTEST_BIN}.parent_path();
-    fs::path const    floor     = baum / "ci_test_inventory_floor.txt";
-    std::string const befehl = "PATH=\"" + ctest_dir.string() + ":$PATH\" COMDARE_D2_FLOOR_PFAD=\"" + floor.string() +
-                               "\" " + zusatz_env + "sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
+    fs::path const ctest_dir = fs::path{COMDARE_D2_CTEST_BIN}.parent_path();
+    fs::path const floor     = baum / "ci_test_inventory_floor.txt";
+
+    // 'env -u' entfernt ZUERST, die Zuweisungen dahinter wirken DANACH: ein Fall, der eine
+    // dieser Variablen bewusst SETZT (zusatz_env), bekommt sie also weiterhin -- er bekommt
+    // sie nur nicht mehr geschenkt.
+    std::string scheuern{"env"};
+    for (std::string_view const variable : kUmgebungsScheuerliste) {
+        scheuern += " -u ";
+        scheuern += variable;
+    }
+
+    std::string const befehl = scheuern + " PATH=\"" + ctest_dir.string() + ":$PATH\" COMDARE_D2_FLOOR_PFAD=\"" +
+                               floor.string() + "\" " + zusatz_env + "sh \"" + wachen_pfad() + "\" \"" + baum.string() +
+                               "\" 2>&1";
 
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -165,10 +204,16 @@ struct Lauf {
 // ---------------------------------------------------------------------------
 class PraeparierterBaum {
 public:
+    // Der Baum ist per Vorgabe ein Baum der REICHSTEN Klasse (avx512f). Das ist keine
+    // Bequemlichkeit, sondern die Fortschreibung des Zustands, den alle Faelle vor
+    // D2-G5 stillschweigend hatten: gebaut auf prod1, beide ISA-Proben positiv. Faelle,
+    // die eine ANDERE Klasse brauchen, sagen das ausdruecklich (cmakecache_schreiben);
+    // der Fall, der die fehlende Klasse prueft, loescht sie ausdruecklich.
     explicit PraeparierterBaum(std::string const& marke)
         : wurzel_{comdare::test::user_tmp_dir() / ("d2_nenner_" + marke)} {
         std::error_code ec;
         fs::create_directories(wurzel_, ec);
+        cmakecache_schreiben("1", "1");
     }
 
     PraeparierterBaum(PraeparierterBaum const&)            = delete;
@@ -192,11 +237,57 @@ public:
         for (auto const& z : zeilen) { aus << z << "\n"; }
     }
 
+    // Die HOST-KLASSE dieses Baums -- in GENAU der Form, in der CMake sie wirklich
+    // hinterlegt. AM OBJEKT GEMESSEN (2026-08-10, CMake 4.3.4, /tmp/d2probe_483e0110),
+    // und im Quelltext des Moduls bestaetigt (Modules/Internal/CheckSourceRuns.cmake:95
+    // try_run -> _EXITCODE + _COMPILED, :112-121 -> der Wert ist 1 ODER LEER, nie 0):
+    //     Probe laeuft, Exit 0 ..... VAR:INTERNAL=1  VAR_COMPILED=TRUE   VAR_EXITCODE=0
+    //     Probe laeuft, Exit 1 ..... VAR:INTERNAL=   VAR_COMPILED=TRUE   VAR_EXITCODE=1
+    //     Probe kompiliert nicht ... VAR:INTERNAL=   VAR_COMPILED=FALSE  (KEINE EXITCODE-Zeile)
+    // Alle drei Zeilen gehoeren deshalb dazu. Die _EXITCODE-Zeile ist nicht Beiwerk: sie
+    // ist die einzige Angabe, die einen leeren Wert ("diese CPU kann es nicht") von einem
+    // untergeschobenen leeren Wert unterscheidet -- siehe die Faelle ab
+    // ErzwungeneKlasseUeberlebtDieCompiledZeile.
+    void cmakecache_schreiben(char const* avx2, char const* avx512f) const {
+        std::ofstream aus{wurzel_ / "CMakeCache.txt"};
+        aus << "# praepariert von test_d2_abdeckungs_wache_nenner\n";
+        isa_probe_schreiben(aus, "COMDARE_HOST_RUNS_AVX2", avx2);
+        isa_probe_schreiben(aus, "COMDARE_HOST_RUNS_AVX512F", avx512f);
+    }
+
+    // Eine EHRLICHE Probe in drei Zeilen. Der Exit-Code folgt dem Wert und wird nicht frei
+    // gewaehlt: genau diese Kopplung ist es, die CMake herstellt.
+    static void isa_probe_schreiben(std::ofstream& aus, char const* name, std::string const& wert) {
+        aus << name << ":INTERNAL=" << wert << "\n"
+            << name << "_COMPILED:INTERNAL=TRUE\n"
+            << name << "_EXITCODE:INTERNAL=" << (wert == "1" ? "0" : "1") << "\n";
+    }
+
+    // Roher Cache-Inhalt, fuer die Faelle, in denen gerade die FORM das Pruefstueck ist.
+    void cmakecache_roh_schreiben(std::string const& inhalt) const {
+        std::ofstream aus{wurzel_ / "CMakeCache.txt"};
+        aus << inhalt;
+    }
+
+    void cmakecache_loeschen() const {
+        std::error_code ec;
+        fs::remove(wurzel_ / "CMakeCache.txt", ec);
+    }
+
     // Die committete Untergrenze dieses Baums. Format wie die echte Datei:
-    // '#'-Kommentare erlaubt, GENAU EINE Wertzeile.
-    void floor_schreiben(int untergrenze) const {
+    // '#'-Kommentare erlaubt, GENAU EINE Wertzeile JE HOST-KLASSE, alle drei da.
+    //
+    // Die einstellige Form setzt alle drei Klassen auf DIESELBE Zahl. Sie ist fuer die
+    // Faelle da, denen die Klasse gleichgueltig ist -- sie pruefen etwas anderes, und
+    // ein Klassenunterschied waere dort nur eine zweite, unbeteiligte Ursache.
+    void floor_schreiben(int untergrenze) const { floor_schreiben(untergrenze, untergrenze, untergrenze); }
+
+    void floor_schreiben(int avx512f, int avx2, int basis) const {
         std::ofstream aus{wurzel_ / "ci_test_inventory_floor.txt"};
-        aus << "# praepariert von test_d2_abdeckungs_wache_nenner\n" << untergrenze << "\n";
+        aus << "# praepariert von test_d2_abdeckungs_wache_nenner\n"
+            << "avx512f " << avx512f << "\n"
+            << "avx2 " << avx2 << "\n"
+            << "basis " << basis << "\n";
     }
 
     // Roher Inhalt, fuer die Formatfaelle (keine Ganzzahl / zwei Wertzeilen).
@@ -476,7 +567,8 @@ TEST(D2AbdeckungsWacheNenner, UntergrenzeOhneGanzzahlIstAbbruch) {
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
     baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
-    baum.floor_roh_schreiben("# praepariert\n" + marke + "\n"); // Hex-Marke, keine Zahl
+    // Klasse richtig, WERT unbrauchbar: die Hex-Marke ist keine Zahl.
+    baum.floor_roh_schreiben("# praepariert\navx512f " + marke + "\n");
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("Untergrenze keine Ganzzahl", lauf, marke);
@@ -492,7 +584,9 @@ TEST(D2AbdeckungsWacheNenner, UntergrenzeMitZweiWertzeilenIstAbbruch) {
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
     baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
-    baum.floor_roh_schreiben("1\n2\n");
+    // Zwei Zahlen fuer DIESELBE Klasse. Vor D2-G5 hiess derselbe Fall "1\n2\n" -- die
+    // Zweideutigkeit ist dieselbe geblieben, sie hat jetzt nur einen Gegenstand.
+    baum.floor_roh_schreiben("avx512f 1\navx512f 2\n");
 
     Lauf const lauf = wache_fahren(baum.pfad());
     lauf_berichten("Untergrenze zweideutig", lauf, marke);
@@ -635,6 +729,631 @@ TEST(D2AbdeckungsWacheNenner, UnlesbarerStrengSchalterIstAbbruchStattWeich) {
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_WACHE_STRIKT")) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, marke)) << "Der unbrauchbare Wert gehoert in die Meldung.\n" << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// D2-G5 (2026-08-10): DIE UNTERGRENZE IST HOST-KLASSEN-FAEHIG
+// ===========================================================================================
+// WAS VORHER FALSCH WAR -- und zwar nachrechenbar, nicht dem Gefuehl nach: es gab GENAU EINE
+// committete Zahl, und der Kopf der Datei behauptete, sie gelte "auf JEDER Hardware-Klasse".
+// Sechs ctest-Registrierungen dieses Repos haengen an der ISA des BAU-HOSTS; vier fallen beim
+// Schritt avx512f -> avx2, zwei weitere beim Schritt avx2 -> basis. Die alte Zahl zog VIER ab
+// und galt damit fuer 'avx2' -- auf einer Maschine ganz ohne AVX2 haette sie ROT gemeldet, an
+// einem voellig gesunden Baum.
+//
+// GEGENORAKEL (V-7, die Zahl kommt aus einer anderen Quelle als der Rechnung): denselben Baum
+// mit erzwungener Klasse NEU KONFIGURIEREN und die Namensmengen vergleichen. Gemessen am
+// 2026-08-10, Stand 9f932e91, Bau-Baum build-p, Host prod1:
+//     avx512f .......................................... 496 Tests
+//     -DCOMDARE_HOST_RUNS_AVX512F=0            -> avx2 ... 492 Tests  (-4)
+//     -DCOMDARE_HOST_RUNS_AVX2=0 -D...AVX512F=0 -> basis .. 490 Tests  (-2)
+// Beide Gegenrichtungen waren LEER -- es kommt bei keinem Schritt etwas hinzu.
+//
+// WORAN DIE KLASSE HAENGT -- und warum nicht an /proc/cpuinfo: gefragt ist nicht, was die
+// Maschine kann, auf der die Wache gerade laeuft, sondern was der BAU dieses Baums vorgefunden
+// hat. Nur die CMakeCache.txt DESSELBEN Baums haelt das fest.
+
+// -- D2-G5 ABNAHME: die avx512f-Zahl gegen einen avx2-Baum MUSS rot sein --------------------
+// Das ist der Fall, den die alte Bauform nicht haben KONNTE: sie kannte nur eine Zahl, also
+// gab es keine "falsche Klasse", gegen die man haette halten koennen.
+TEST(D2AbdeckungsWacheNenner, Avx512fZahlGegenAvx2BaumIstNennerBefund) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("1", ""); // AVX2 ja, AVX-512F nein -> Klasse avx2
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+
+    // Frisch gewuerfelt (K13), garantiert oberhalb der 2 Tests des Baums.
+    int const avx512f_zahl = 1000 + (static_cast<int>(std::strtoul(marke.substr(0, 4).c_str(), nullptr, 16)) % 5000);
+    // Die avx2-ZEILE traegt die avx512f-ZAHL -- genau der Irrtum, den D2-G5 heilt.
+    baum.floor_schreiben(avx512f_zahl, avx512f_zahl, 1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("avx512f-Zahl gegen avx2-Baum", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 4) << "Eine unterschrittene Klassen-Untergrenze ist ein NENNER-Befund.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+    // V-1: die Zahl OHNE die Klasse waere eine Zahl ohne Gegenstand. Beides muss dastehen.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, std::to_string(avx512f_zahl))) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Klasse avx2")) << "Die Klasse fehlt in der Meldung.\n" << lauf.ausgabe;
+}
+
+// -- T-4 GEGENEINGANG zum Fall darueber: dieselbe Lage, NUR die avx2-Zahl richtig -----------
+// Ohne ihn waere die Zusicherung oben auch von einer Wache erfuellt, die auf einem avx2-Baum
+// grundsaetzlich rot meldet. Die beiden Faelle unterscheiden sich in GENAU EINER Zahl.
+TEST(D2AbdeckungsWacheNenner, Avx2ZahlGegenAvx2BaumIstKeinBefund) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("1", "");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+
+    int const avx512f_zahl = 1000 + (static_cast<int>(std::strtoul(marke.substr(0, 4).c_str(), nullptr, 16)) % 5000);
+    baum.floor_schreiben(avx512f_zahl, 2, 1); // avx2-Zeile jetzt die RICHTIGE Zahl
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("avx2-Zahl gegen avx2-Baum", lauf, marke);
+
+    EXPECT_NE(lauf.code, 4) << "Die avx512f-Zahl darf einen avx2-Baum nicht mehr treffen.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Klasse avx2")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+    // Die grosse Zahl steht in der Datei, wird hier aber NICHT angewendet -- sonst haette
+    // die Wache nur zufaellig die richtige Zeile getroffen.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "fuer Klasse avx2: " + std::to_string(avx512f_zahl))) << lauf.ausgabe;
+}
+
+// -- D2-G5: der 'basis'-Baum, an dem die ALTE Zahl zerbrochen waere -------------------------
+// Historisch konkret: 492 gemessen, 488 committet, und ein Host ohne AVX2 haette 486 gehabt.
+// Hier in klein nachgebaut -- der Baum liegt UNTER der avx2-Zahl und GENAU auf der basis-Zahl.
+TEST(D2AbdeckungsWacheNenner, BasisBaumNutztDieBasisZeileNichtDieAvx2Zeile) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("", ""); // weder AVX2 noch AVX-512F -> Klasse basis
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(6, 4, 2); // die Leiter im Kleinen: -2 und -2
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("basis-Baum gegen basis-Zeile", lauf, marke);
+
+    EXPECT_NE(lauf.code, 4) << "Ein gesunder basis-Baum ist kein Nenner-Befund.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Klasse basis")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "genau erreicht")) << lauf.ausgabe;
+    // Die avx2-Zahl (4) liegt ueber den 2 Tests des Baums. Haette die Wache SIE genommen,
+    // stuende hier UNTERSCHRITTEN -- genau das war der alte Defekt.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+}
+
+// -- V-1: die Klasse und ihre Herkunft stehen in der AUSGABE --------------------------------
+// Eine Testzahl ohne Host-Angabe ist eine Zahl ohne Gegenstand. Geprueft wird nicht, DASS
+// gerechnet wurde, sondern dass das Ergebnis nachpruefbar beschriftet ist.
+TEST(D2AbdeckungsWacheNenner, HostKlasseUndIhreQuelleStehenInDerAusgabe) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("1", "");
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Klasse in der Ausgabe", lauf, marke);
+
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "HOST-KLASSE")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "avx2")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_HOST_RUNS_AVX512F=nein")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_HOST_RUNS_AVX2=ja")) << lauf.ausgabe;
+    // Die QUELLE gehoert dazu: ohne sie ist die Klasse eine Behauptung.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "CMakeCache.txt")) << lauf.ausgabe;
+}
+
+// -- FAIL-CLOSED: keine bestimmbare Klasse ist ABBRUCH, nicht 'dann eben basis' -------------
+TEST(D2AbdeckungsWacheNenner, FehlenderCmakeCacheIstAbbruchStattAnnahme) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_loeschen(); // genau das ist der Pruefgegenstand
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("CMakeCache fehlt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Host-Klasse")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- FAIL-CLOSED, DIE SCHAERFERE HAELFTE: leerer Wert MIT _COMPILED=FALSE -------------------
+// Hier trennt sich eine ehrliche von einer bequemen Umsetzung. 'VAR:INTERNAL=' heisst NICHT
+// "diese CPU kann es nicht" -- es heisst das nur, wenn die Probe auch wirklich uebersetzt hat.
+// Wer bloss den Wert liest, stuft einen kaputten Werkzeugkasten als 'basis' ein und vergleicht
+// gegen die NIEDRIGSTE Zahl: ein stilles Durchwinken, genau falschherum.
+TEST(D2AbdeckungsWacheNenner, NichtKompilierteProbeIstAbbruchStattBasisKlasse) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:INTERNAL=\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=FALSE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:INTERNAL=\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=FALSE\n");
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("ISA-Probe nicht kompiliert", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Eine nicht uebersetzte Probe ist 'unbekannt', nicht 'basis'.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "_COMPILED")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Klasse basis")) << "Die Klasse wurde geraten.\n" << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- FAIL-CLOSED: eine von aussen gesetzte Klasse ist keine gemessene -----------------------
+// AM OBJEKT GEMESSEN: 'cmake -DCOMDARE_HOST_RUNS_AVX2=0' hinterlaesst
+// 'COMDARE_HOST_RUNS_AVX2:UNINITIALIZED=0' und KEINE _COMPILED-Zeile -- die Probe lief nie.
+TEST(D2AbdeckungsWacheNenner, VonAussenGesetzteKlasseIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:UNINITIALIZED=1\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:UNINITIALIZED=0\n");
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Klasse von aussen gesetzt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "_COMPILED")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// DER FUND DES PRUEFERS (2026-08-10, Nachbesserung): _COMPILED UEBERLEBT DAS ERZWINGEN.
+// ===========================================================================================
+// Der Fall darueber deckt nur einen FRISCHEN Baum ab. Faehrt jemand das Verfahren, das der
+// Kopf von scripts/ci_test_inventory_floor.txt als Gegenorakel VORSCHREIBT -- erst ehrlich
+// konfigurieren, DANN die Klasse per -D erzwingen --, sieht der Cache anders aus.
+//
+// AM OBJEKT GEMESSEN, CMake 4.3.4, Marke 483e0110d81153e9, /tmp/d2probe_483e0110:
+//   Schritt 1  cmake -S src -B b
+//              COMDARE_HOST_RUNS_AVX2:INTERNAL=1
+//              COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE
+//              COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0
+//   Schritt 2  cmake -S src -B b -DCOMDARE_HOST_RUNS_AVX2=0 -DCOMDARE_HOST_RUNS_AVX512F=0
+//              COMDARE_HOST_RUNS_AVX2:UNINITIALIZED=0        <- neu geschrieben, von aussen
+//              COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE <- UEBERLEBT
+//              COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0    <- UEBERLEBT
+//
+// CMake entfernt die _COMPILED-Zeile NIEMALS. Wer nur ihre ANWESENHEIT prueft, nimmt eine
+// ERZWUNGENE Klasse als gemessene und vergleicht gegen die NIEDRIGSTE Untergrenze. Damit
+// darf der Baum beliebig viele Tests verlieren, ohne dass irgendetwas klappert.
+//
+// DAS UNTERSCHEIDENDE MERKMAL IST DER TYP DER ZEILE, nicht die Anwesenheit von _COMPILED:
+// check_cxx_source_runs schreibt 'CACHE INTERNAL' (Modules/Internal/CheckSourceRuns.cmake:113
+// und :121). Jede Form von aussen schreibt einen anderen Typ -- gemessen: '-DVAR=0' gibt
+// UNINITIALIZED, '-DVAR:BOOL=0' gibt BOOL.
+//
+// DIESER FALL BAUT DEN SCHADEN NACH, in klein: der Baum haelt die basis-Zeile, aber NICHT die
+// avx512f-Zeile, die ihm nach seinem ehrlichen Cache zustuende. Vor der Heilung endete er mit
+// 0 statt 2 -- der Nenner-Befund verschwand lautlos.
+TEST(D2AbdeckungsWacheNenner, ErzwungeneKlasseUeberlebtDieCompiledZeile) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:UNINITIALIZED=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:UNINITIALIZED=0\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=0\n");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    // 2 Tests im Baum: die basis-Zeile haelt (2 >= 2), die avx512f-Zeile nicht (2 < 4).
+    baum.floor_schreiben(4, 3, 2);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("erzwungene Klasse, _COMPILED ueberlebt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Eine ERZWUNGENE Klasse ist keine gemessene -- das ist Abbruch.\n" << lauf.ausgabe;
+    // Der Typ gehoert in die Meldung: sonst weiss der Mensch nicht, WORAN es lag.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "UNINITIALIZED")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "HOST-KLASSE (gemessen"))
+        << "Eine erzwungene Klasse als 'gemessen' auszugeben ist "
+           "genau der Defekt.\n"
+        << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- DAS DRITTE BEIN: derselbe Baum, ehrlicher avx512f-Cache -> NENNER-BEFUND ---------------
+// Hier wird der Schaden sichtbar, den der Fall darueber anrichtet. Die Bytes des Baums sind
+// bis auf die zwei Wertzeilen des Caches IDENTISCH -- Inventur, Protokoll, Untergrenze. Der
+// ehrlich gemessene Baum reisst seine Untergrenze (2 < 4) und faellt mit 4. Derselbe Baum mit
+// erzwungener Klasse fiel vor der Heilung auf die basis-Zeile (2 >= 2) und meldete den Befund
+// NICHT. Genau so verschwinden im echten Repo sechs Tests lautlos.
+TEST(D2AbdeckungsWacheNenner, EhrlicherAvx512fCacheMitDenselbenBytesIstNennerBefund) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("1", "1"); // ehrlich gemessen: die Probe lief und sagte 'ja'
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2); // dieselben drei Zahlen wie in den Nachbarfaellen
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("ehrlicher avx512f-Cache, gleiche Bytes", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 4) << "2 Tests gegen die avx512f-Untergrenze 4 ist ein NENNER-Befund.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Klasse avx512f")) << lauf.ausgabe;
+}
+
+// -- T-4 GEGENEINGANG: derselbe Baum, dieselbe Untergrenze, NUR der Cache ehrlich -----------
+// Die Faelle unterscheiden sich in GENAU den zwei Wertzeilen des Caches. Ohne diesen Fall
+// waere die Zusicherung oben auch von einer Wache erfuellt, die jeden basis-Baum ablehnt --
+// und die waere unbrauchbar, denn es gibt echte basis-Maschinen.
+// EXIT 0 ist hier NICHT zu haben und waere ein falscher Anspruch: der praeparierte Baum hat
+// zwei Tests, das echte CI-Manifest nennt Hunderte, also findet die Wache zu Recht tote
+// Namen (Exit 1). Gemessen wird deshalb, was dieser Fall wirklich behauptet: KEIN Abbruch
+// (2) und KEIN Nenner-Befund (4).
+TEST(D2AbdeckungsWacheNenner, EhrlicherBasisCacheMitDenselbenBytesTraegtDieBasisZeile) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("", ""); // ehrlich gemessen: die Probe lief und sagte 'nein'
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2); // dieselben drei Zahlen wie in den Nachbarfaellen
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("ehrlicher basis-Cache, gleiche Bytes", lauf, marke);
+
+    EXPECT_NE(lauf.code, 2) << "Ein ehrlich gemessener basis-Baum ist bestimmbar, nicht unbekannt.\n" << lauf.ausgabe;
+    EXPECT_NE(lauf.code, 4) << "Auf seiner eigenen Zeile haelt dieser Baum.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "HOST-KLASSE (gemessen")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "basis")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+}
+
+// -- Der TYP ist das Merkmal, nicht das Wort 'UNINITIALIZED' --------------------------------
+// AM OBJEKT GEMESSEN: 'cmake -B b -DCOMDARE_HOST_RUNS_AVX2:BOOL=0' auf den konfigurierten
+// Baum hinterlaesst 'COMDARE_HOST_RUNS_AVX2:BOOL=0' -- _COMPILED und _EXITCODE ueberleben
+// genauso. Eine Wache, die bloss die Zeichenkette 'UNINITIALIZED' auf eine schwarze Liste
+// setzt, besteht den Fall darueber und faellt hier. Deshalb steht er da.
+TEST(D2AbdeckungsWacheNenner, ErzwungeneKlasseAlsBoolIstEbensoAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:BOOL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:BOOL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=0\n");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("erzwungene Klasse als BOOL", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "BOOL")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "HOST-KLASSE (gemessen")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- V-8 AM GEGENSTAND: der Typ allein reicht NICHT -----------------------------------------
+// "Welcher Zustand erzeugt diese Ausgabe, ohne dass die Sache existiert?" -- eine Wache, die
+// nur den Typ prueft, wird von EINEM Zusatz auf derselben Kommandozeile besiegt. AM OBJEKT
+// GEMESSEN: 'cmake -B b -DCOMDARE_HOST_RUNS_AVX2:INTERNAL=' hinterlaesst
+//     COMDARE_HOST_RUNS_AVX2:INTERNAL=            <- Typ INTERNAL, Wert leer: sieht ehrlich aus
+//     COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE
+//     COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0  <- die Probe LIEF und war ERFOLGREICH
+// Der leere Wert behauptet "diese CPU kann kein AVX2", der Exit-Code sagt das Gegenteil. Nur
+// die Wertzeile ist gefaelscht, der Beleg daneben nicht -- CMake koppelt beide (:112-121).
+TEST(D2AbdeckungsWacheNenner, LeererWertMitErfolgreichemExitCodeIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:INTERNAL=\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:INTERNAL=\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=0\n");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("leerer Wert, Exit-Code 0", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Wert und Exit-Code widersprechen sich -- das ist kein Messergebnis.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "_EXITCODE")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "HOST-KLASSE (gemessen")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- Und die Gegenrichtung: '1' mit einem Exit-Code, der nie erfolgreich war -----------------
+// Ohne diesen Fall waere die Zusicherung oben auch von einer Wache erfuellt, die schlicht
+// jeden Exit-Code 0 ablehnt -- und die haette keinen einzigen avx512f-Baum mehr durchgelassen.
+TEST(D2AbdeckungsWacheNenner, WertEinsMitGescheitertemExitCodeIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=1\n");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Wert 1, Exit-Code 1", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "_EXITCODE")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- Der Wert '0' ist bei Typ INTERNAL kein Messergebnis ------------------------------------
+// Der Modul-Quelltext laesst nur zwei Werte zu -- 1 (CheckSourceRuns.cmake:113) und LEER
+// (:121). Eine 0 hat also nie eine Probe geschrieben, egal wie ehrlich die Nachbarzeilen
+// aussehen.
+//
+// DIESER FALL TRAEGT SEINEN EXIT-CODE ABSICHTLICH KONSISTENT (1 zu 'kann es nicht'). Die
+// erste Fassung setzte ihn auf 0 -- und wurde damit schon von Merkmal (3) erschlagen, also
+// von einer Zusicherung, die gar nicht seine ist. Der Wegwerf-Mutant, der bloss den Wert 0
+// wieder durchwinkt, UEBERLEBTE ihn. Erst so beisst er auf seine eigene Regel.
+// AM OBJEKT GEMESSEN und mit einem realen Befehl erreichbar: auf einem Baum, dessen ehrliche
+// Probe mit Exit 1 lief (echte basis-Maschine), hinterlaesst
+// 'cmake -B e -DCOMDARE_HOST_RUNS_AVX2:INTERNAL=0' genau
+//     COMDARE_HOST_RUNS_AVX2:INTERNAL=0
+//     COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE
+//     COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=1
+TEST(D2AbdeckungsWacheNenner, WertNullBeiTypInternalIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=1\n");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Wert 0 bei Typ INTERNAL", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "HOST-KLASSE (gemessen")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- V-8, dieselbe Fehlerklasse: DIE Zeile ist nicht EINE Zeile -----------------------------
+// "Welcher Zustand erzeugt diese Ausgabe, ohne dass die Sache existiert?" -- ein Cache mit
+// ZWEI Wertzeilen. Die Wache liest die erste (sed '1p'); AM OBJEKT GEMESSEN nimmt CMake beim
+// Laden aber die LETZTE: an einen ehrlichen Cache 'COMDARE_HOST_RUNS_AVX2:UNINITIALIZED=0'
+// angehaengt, meldete der naechste Konfigurationslauf 'AVX2=0' und schrieb die Datei mit
+// genau dieser einen Zeile neu. Die ehrliche Zeile oben haette die Wache also beruhigt,
+// waehrend der Bau nach der unteren gefahren ist. CMake selbst legt jeden Eintrag nur einmal
+// an -- zwei Zeilen heisst: von Hand bearbeitet, und das ist kein Messergebnis.
+TEST(D2AbdeckungsWacheNenner, ZweiWertzeilenImCacheSindAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX2_EXITCODE:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_EXITCODE:INTERNAL=0\n"
+                                  "COMDARE_HOST_RUNS_AVX2:UNINITIALIZED=0\n");
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(4, 3, 2);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("zwei Wertzeilen im Cache", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Die erste Zeile zu lesen und die zweite zu uebersehen ist "
+                               "derselbe Riss wie der Fund oben.\n"
+                            << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "HOST-KLASSE (gemessen")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- FAIL-CLOSED: ein unverstandener Wert wird nicht zu 'nein' gerundet ---------------------
+TEST(D2AbdeckungsWacheNenner, UnverstandenerKlassenWertIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    // Der Wert ist die frisch gewuerfelte Marke: garantiert weder 1 noch 0 noch leer.
+    baum.cmakecache_roh_schreiben("COMDARE_HOST_RUNS_AVX2:INTERNAL=" + marke +
+                                  "\n"
+                                  "COMDARE_HOST_RUNS_AVX2_COMPILED:INTERNAL=TRUE\n"
+                                  "COMDARE_HOST_RUNS_AVX512F:INTERNAL=1\n"
+                                  "COMDARE_HOST_RUNS_AVX512F_COMPILED:INTERNAL=TRUE\n");
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Klassenwert unverstanden", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, marke)) << "Der unbrauchbare Wert gehoert in die Meldung.\n" << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- Die Leiter hat drei Sprossen und keine vierte ------------------------------------------
+TEST(D2AbdeckungsWacheNenner, Avx512fOhneAvx2WidersprichtDerLeiter) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("", "1"); // AVX-512F ohne AVX2 -- gibt es auf keiner Maschine
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("AVX-512F ohne AVX2", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "widerspruechlich")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- Die ALTE Bauform wird nicht stillschweigend weitergelesen ------------------------------
+// Sie ist im Kopf der echten Datei als Historie erhalten -- als WERT ist sie ungueltig,
+// denn genau ihr Anspruch ("gilt ueberall") war der Defekt.
+TEST(D2AbdeckungsWacheNenner, AlteNackteZahlIstAbbruchMitMigrationsHinweis) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_roh_schreiben("# alte Bauform\n1\n");
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("alte nackte Zahl", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ohne Host-Klasse")) << lauf.ausgabe;
+    // Die Meldung muss sagen, WAS statt dessen zu tun ist -- sonst ist sie nur beunruhigend.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "avx512f")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- Eine fehlende Klasse faellt SOFORT auf, nicht erst auf der Maschine, die sie braucht ---
+TEST(D2AbdeckungsWacheNenner, FehlendeKlassenZeileIstAbbruchAuchWennDieEigeneDaSteht) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.cmakecache_schreiben("1", "1"); // avx512f -- die eigene Zeile ist vorhanden
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_roh_schreiben("avx512f 1\navx2 1\n"); // 'basis' fehlt
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Klassenzeile fehlt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Eine unvollstaendige Leiter ist keine Leiter.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "basis")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// DAS UMGEBUNGS-LECK, DAS DIE ce-PIPELINE 15515 ROT GEMACHT HAT (2026-08-10)
+// ===========================================================================================
+
+// -- Der Rueckfall-Waechter: eine geerbte COMDARE_PMC_LANES darf nichts mehr aendern --------
+// Dieser Fall REPRODUZIERT den CI-Riss lokal. Ohne die Scheuerliste in wache_fahren() faellt
+// er hier genauso wie er in Job 371127 auf prod2 gefallen ist -- und zwar in der Zeile, die
+// 'UNGEPRUEFT' erwartet. Er ist damit der Koeder, der vor der Heilung BEISST.
+TEST(D2AbdeckungsWacheNenner, GeerbtesPmcLanesAendertDasUrteilNicht) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    // Genau der Zustand, den GitLab herstellt (.gitlab-ci.yml, variables:-Block).
+    //
+    // ZWEITER, EIGENER KOEDER -- und das ist keine Umstaendlichkeit: 'marke' steckt bereits
+    // im Pfad des praeparierten Baums und in seinen Testnamen und taucht deshalb voellig zu
+    // Recht in der Ausgabe auf. Ein Koeder, der mit der Identitaet des Baums zusammenfaellt,
+    // kann ein Leck nicht von normalem Betrieb unterscheiden -- er ist immer 'gefunden'.
+    // 'leck' wird frisch gewuerfelt und kommt sonst NIRGENDS vor: steht er in der Ausgabe,
+    // kann er nur aus der geerbten Umgebung stammen.
+    std::string const leck = koeder_marke();
+    ASSERT_NE(leck, marke) << "Zwei Wuerfe aus /dev/urandom waren gleich -- der Koeder taugt nicht.";
+
+    ::setenv("COMDARE_PMC_LANES", leck.c_str(), 1);
+    Lauf const lauf = wache_fahren(baum.pfad());
+    ::unsetenv("COMDARE_PMC_LANES");
+    lauf_berichten("PMC_LANES geerbt", lauf, marke);
+    std::cout << "  [D2] Umgebungs-Koeder (darf NICHT durchschlagen): " << leck << "\n";
+
+    // Die Wache darf die geerbte Variable GAR NICHT gesehen haben.
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, leck)) << "Die geerbte Umgebung ist in den Pruefling durchgeschlagen.\n"
+                                               << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "UNGEPRUEFT")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ANNAHME")) << lauf.ausgabe;
+    EXPECT_NE(lauf.code, 4) << lauf.ausgabe;
+}
+
+// -- T-4 GEGENEINGANG: die Variable BEWUSST gesetzt wirkt weiterhin -------------------------
+// Ohne ihn waere die Zusicherung oben auch von einem 'env -i' erfuellt, das jede Absicht
+// mitloescht -- dann koennte kein Fall mehr etwas ueber gesetzte Gates aussagen.
+TEST(D2AbdeckungsWacheNenner, AusdruecklichGesetztesPmcLanesWirktTrotzScheuerung) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    // Geerbt (muss verschwinden) UND ausdruecklich gesetzt (muss ankommen) -- verschiedene
+    // Werte, damit die Ausgabe zeigt, welcher von beiden gewonnen hat.
+    std::string const geerbt = "geerbt_" + marke;
+    ::setenv("COMDARE_PMC_LANES", geerbt.c_str(), 1);
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_PMC_LANES=gesetzt_" + marke + " ");
+    ::unsetenv("COMDARE_PMC_LANES");
+    lauf_berichten("PMC_LANES ausdruecklich gesetzt", lauf, marke);
+
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "gesetzt_" + marke)) << "Die ABSICHT ist mitgescheuert worden.\n"
+                                                            << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "geerbt_" + marke)) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNGEPRUEFT")) << lauf.ausgabe;
+}
+
+// -- T-6: die Scheuerliste bleibt vollstaendig, weil eine PRUEFUNG sie dazu zwingt ----------
+// T-3 FREMDER NENNER: die Grundgesamtheit der Gate-Variablen kommt aus dem MANIFEST, nicht
+// aus diesem Test. Kommt dort ein 'declared:'- oder 'optin:'-Gate mit einer neuen Variablen
+// dazu, faellt dieser Fall -- und niemand muss daran gedacht haben.
+TEST(D2AbdeckungsWacheNenner, ScheuerlisteDecktJedeGateVariableDesManifests) {
+    fs::path const manifest = fs::path{COMDARE_D2_GUARD_SH}.parent_path() / "ci_test_coverage_manifest.sh";
+    std::ifstream  quelle{manifest};
+    ASSERT_TRUE(quelle.good()) << "Manifest nicht lesbar: " << manifest;
+
+    std::vector<std::string> gefunden;
+    std::string              zeile;
+    while (std::getline(quelle, zeile)) {
+        if (zeile.rfind("CE_COV_GATE_", 0) != 0) { continue; }
+        std::size_t const gleich = zeile.find('=');
+        if (gleich == std::string::npos) { continue; }
+        std::string wert = zeile.substr(gleich + 1);
+        // Anfuehrungszeichen und angehaengte Kommentare weg.
+        if (std::size_t const auf = wert.find('"'); auf != std::string::npos) {
+            std::size_t const zu = wert.find('"', auf + 1);
+            wert = (zu == std::string::npos) ? wert.substr(auf + 1) : wert.substr(auf + 1, zu - auf - 1);
+        }
+        std::string variable;
+        if (wert.rfind("declared:", 0) == 0) {
+            variable = wert.substr(std::string_view{"declared:"}.size());
+        } else if (wert.rfind("optin:", 0) == 0) {
+            variable = wert.substr(std::string_view{"optin:"}.size());
+            if (std::size_t const gl = variable.find('='); gl != std::string::npos) {
+                variable = variable.substr(0, gl);
+            }
+        } else {
+            continue; // 'always' haengt an keiner Variablen
+        }
+        gefunden.push_back(variable);
+    }
+
+    // T-2 AUSSAGE STATT ANWESENHEIT: eine leere Fundmenge waere kein Freispruch, sondern
+    // ein kaputter Parser -- dann sagte dieser Fall gar nichts.
+    ASSERT_FALSE(gefunden.empty()) << "Im Manifest wurde KEINE Gate-Variable gefunden. Der Parser dieses Falls "
+                                      "ist defekt oder das Manifest hat seine Form geaendert: "
+                                   << manifest;
+    std::cout << "  [D2] Gate-Variablen im Manifest (fremde Quelle): " << gefunden.size() << "\n";
+
+    for (std::string const& variable : gefunden) {
+        bool gescheuert = false;
+        for (std::string_view const bekannt : kUmgebungsScheuerliste) {
+            if (bekannt == variable) { gescheuert = true; }
+        }
+        EXPECT_TRUE(gescheuert) << "Das Manifest deklariert das Gate '" << variable
+                                << "', aber wache_fahren() scheuert es nicht aus der Umgebung. Genau so hat "
+                                   "COMDARE_PMC_LANES am 2026-08-10 die ce-Pipeline 15515 rot gemacht: der "
+                                   "Pruefling erbte einen Wert, den kein Fall gesetzt hatte.";
+    }
 }
 
 #endif // !_WIN32

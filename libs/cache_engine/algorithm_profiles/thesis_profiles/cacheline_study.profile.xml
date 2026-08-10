@@ -168,6 +168,9 @@
   <measurement_framework name="ycsb"/>
   <writeback_methods>
     <method value="csv"/>
+    <!-- W0b ##25 (2026-08-10): xlsx ADDITIV. Owner-KERN "xlsx ist Standard, CSV waehlbar, beide zugleich".
+         Ohne diesen Eintrag entsteht KEINE Mappe auf Platte; Wache: tests/unit/test_w0b_durchstich_kette.cpp G1. -->
+    <method value="xlsx"/>
   </writeback_methods>
   <measurement_tooling>
     <combo tools="wallclock"/>

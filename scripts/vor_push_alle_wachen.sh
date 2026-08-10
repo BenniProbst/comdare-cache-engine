@@ -19,6 +19,18 @@
 #   sh scripts/vor_push_alle_wachen.sh                 # gegen origin/<branch>
 #   sh scripts/vor_push_alle_wachen.sh <basis-ref>     # gegen einen eigenen Anker
 #
+# WAS DIESES SKRIPT NICHT BEANTWORTET (Posten #48, 10.08.2026 -- die Schwesterstelle
+# ausdruecklich benannt statt stillschweigend mitgemeint): es misst den PUSH, also
+# "$BASIS...HEAD" -- die Menge, die DIESER Push uebertraegt. Es beantwortet damit
+# NICHT die Frage vor einem main-Fast-Forward: "ist der ganze STAND sauber, der nach
+# main geht?" Beide Fragen sind legitim, und dieses Skript stellt bewusst die erste.
+# Am 09.08.2026 kostete der Unterschied 58 Verstoesse auf einen Schlag (ce-Pipeline
+# 15501, 86 Commits, gleicher Baum wie die gruene 15498 mit 1 Commit).
+# Die zweite Frage stellt seit 10.08.2026 die CI selbst (test:coverage-guard, Schritt
+# 0.6) auf jedem Zweig ausser dem Basis-Zweig. Wer sie lokal stellen will:
+#     sh scripts/ci_diff_ascii_width_guard.sh --bereich origin/main origin/development
+# Dieser Hinweis ist DOKUMENTATION, kein Gate -- was hier haelt, haelt der CI-Schritt.
+#
 # EXIT: 0 = alle Wachen gruen. 1 = mindestens eine rot (Details oben im Log).
 #       2 = ABBRUCH (Werkzeug fehlt / kein Repo / Bereich unbestimmbar) -- das ist
 #       ausdruecklich KEIN Gruen: ein nicht gelaufener Test ist kein bestandener.

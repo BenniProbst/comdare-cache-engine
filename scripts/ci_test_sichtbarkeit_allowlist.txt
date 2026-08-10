@@ -31,15 +31,22 @@
 # heute entfernt worden, s. NACHRUF am Dateiende.
 # ---------------------------------------------------------------------------------------
 
-# -- Bedingung: if(COMDARE_PRT_ART_LEGACY_AVAILABLE) -------------------------
-# Der prt-art-Legacy-Baum ist ein optionales Nachbarrepo (tests/unit/CMakeLists.txt:95).
-# Fehlt es, bauen diese vier Tests nicht -- das ist gewollt und kein Defekt.
-# Am Objekt 09.08.2026: in BEIDEN gemessenen Baeumen unsichtbar (lokal build-xml und
-# CI build-covguard) -- das Nachbarrepo liegt auf prod1 also ebenfalls nicht vor.
-test_concepts_compile   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:117 -- optionaler prt-art-Legacy-Baum
-test_three_layer_audit   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:125 -- optionaler prt-art-Legacy-Baum
-test_value_handle   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:121 -- optionaler prt-art-Legacy-Baum
-test_six_page_structures   Bedingung `if(COMDARE_PRT_ART_LEGACY_AVAILABLE)`, tests/unit/CMakeLists.txt:188 -- optionaler prt-art-Legacy-Baum
+# -- ENTFALLEN am 10.08.2026 (W0a/S4): if(COMDARE_PRT_ART_LEGACY_AVAILABLE) --
+# Hier standen vier Zeilen fuer test_concepts_compile, test_three_layer_audit,
+# test_value_handle und test_six_page_structures. Ihre Begruendung lautete
+# "optionaler prt-art-Legacy-Baum" -- also: der Gegenstand kann wiederkommen.
+# Er kann NICHT. Nachgemessen (10.08.2026): die Bedingung haengt an der Existenz
+# von prt_art/include/prt_art/prt_art.hpp UNTER DER CE-WURZEL; diese Datei hat
+# 0 Treffer in ce und 0 in comdare-prt-art, ueber die ganze Historie beider
+# Repos (Gegenprobe cache_engine.hpp: 1 Treffer). Der Plugin-Weg kopiert nie
+# etwas unter die CE-Wurzel. Auch MIT geladenem echtem Pruefling blieben die
+# vier in `ctest -N` bei 0 Treffern.
+# Die vier Registrierungen sind deshalb aus tests/unit/CMakeLists.txt entfernt;
+# damit stehen die Namen nicht mehr im SOLL dieser Wache und diese Ausnahmen
+# decken nichts mehr. Eine Ausnahme auf Vorrat faengt nur das naechste echte
+# Verschwinden desselben Namens lautlos weg -- genau die Fehlerform, gegen die
+# diese Datei gebaut ist. Die vier Quelldateien liegen weiter im Baum; ihre
+# Disposition ist Ledger PA-3 (Owner) und beruehrt diese Wache nicht.
 
 # -- Bedingung: if(COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F) -----
 # tests/unit/CMakeLists.txt:3829. HARDWARE-GATTER, kein Defekt -- am Objekt belegt.

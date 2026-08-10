@@ -30,6 +30,19 @@
 // BEVOR die Korrektur fiel (Commits d2e20e7c/f82707bc/d5e2da59, alle vor 16:31), und blieb seither
 // unveraendert stehen. Sie ist hiermit ersetzt -- in der BEGRUENDUNG und im BAU (Abschnitt 4).
 //
+// ZAHLEN-WIDERRUF (2026-08-10) zu Commit 579ec9f1: dessen Commit-Text sagt "Bei einem reinen
+// csv-Profil (9 von 12 getrackten Profilen, darunter das golden-Profil ...)". BEIDE Zahlen sind
+// falsch. Nachgemessen am Bestand (Schleife ueber algorithm_profiles/thesis_profiles/*.profile.xml,
+// je Datei <writeback_methods> / method value="csv" / method value="xlsx" ausgezaehlt):
+//     11 Profile gesamt -- 8 mit <writeback_methods> UND csv, 3 ganz OHNE <writeback_methods>
+//                          (base_pilot, m3v2_smoke, wdk_fairness_example), 0 mit xlsx.
+// Ausserhalb von thesis_profiles/ traegt KEINE .profile.xml einen <writeback_methods>-Block --
+// "getrackt" bezeichnet also genau diese 11 Dateien. Die Zeile 8-9 oben ("in 8 Profilen") ist damit
+// die richtige Teilzahl und bleibt. Der Commit-Text selbst wird NICHT umgeschrieben: 579ec9f1 ist
+// auf origin/development bereits von weiteren Commits ueberbaut, und die Projekt-Doktrin verbietet
+// das Umschreiben geteilter Historie. Der Widerruf lebt deshalb HIER, im Artefakt -- nach demselben
+// Muster wie der Vermerk darueber, und nicht nur in einem Bericht, den spaeter niemand liest.
+//
 // I/O-LAGE (Contention-Doktrin, Design-Dossier 20260803-a9_xlsx_writer_f3_soll_design.md V-A9-4):
 // im Mess-Fenster nimmt der STAMM Zeilen nur ENTGEGEN (libxlsxwriter haelt sie im Speicher, kein
 // Datei-Zugriff); der EINZIGE Datei-Schreibvorgang der Mappe liegt in schliessen(), das der Aufrufer
@@ -502,6 +515,28 @@ public:
     /// Der BESTAND im Speicher, fuer die Lauf-AUSGABE -- nie eine nackte Zahl: angenommene Zeilen je
     /// Blatt IMMER gegen die angebotenen. Trennt sichtbar, was im RAM liegt, von dem, was persistiert
     /// wird -- genau die Unterscheidung, die der Owner-KERN verlangt.
+    ///
+    /// V-8, EHRLICH BEANTWORTET (2026-08-10) -- "Was waere der Zustand, in dem diese Ausgabe erscheint
+    /// und die Sache trotzdem nicht existiert?" Antwort: genau der, den ein adversarischer Pruefer am
+    /// 10.08. gewuerfelt hat (Koeder M3s). Macht man den Aufruf `stamm_blatt_->zeile(felder)` in
+    /// schreibe() zu einem No-op, OHNE dass er wirft, dann laeuft der Erfolgspfad darunter unveraendert
+    /// weiter: zeilen_je_blatt_ waechst, verworfen_ bleibt 0, und diese Zeile meldet "S1:7/7 angeboten
+    /// verworfen=0" -- waehrend im Blatt der Mappe NULL Datenzeilen stehen. Die csv rettet dabei nicht,
+    /// denn sie haengt am KIND-Zweig derselben Funktion und bewegt sich mit dem Zaehler gemeinsam.
+    ///
+    /// DARAUS FOLGT, WAS DIESE ZAHL IST UND WAS NICHT: sie ist die Buchhaltung DER NAHT ueber den
+    /// Handschlag mit der Mappe ("die Mappe hat nicht abgelehnt"), NICHT eine Messung des
+    /// Blatt-INHALTS. Beides faellt nur zusammen, solange kopf()/zeile() ihren Vertrag halten -- und
+    /// genau das kann diese Klasse nicht selbst bezeugen, weil IErgebnisBlatt::zeile() `void`
+    /// zurueckgibt (ergebnis_mappe.hpp:376) und es keinen Getter fuer die tatsaechlich angenommene
+    /// Zeilenzahl gibt. Die Ausgabe sagt ihre Herkunft deshalb selbst an (quelle=naht-buchhaltung),
+    /// damit ein Leser sie nicht fuer eine Inhalts-Aussage haelt.
+    ///
+    /// WER DEN INHALT PRUEFT (V-7, fremder Nenner): tests/unit/test_a9s5_ergebnis_mappe_naht.cpp,
+    /// Suite A9S5MappenInhalt -- sie liest die erzeugte .xlsx als ZIP zurueck, holt `dimension ref`
+    /// und die <row>-Zahl aus xl/worksheets/sheet1.xml (beides von libxlsxwriter selbst gefuehrt, also
+    /// aus einer ANDEREN Quelle als dieser Zaehler) und haelt sie gegen zeilen_im_blatt(). Diese Zeile
+    /// hier ist damit kein unverbrauchtes Angebot mehr: eine Wache liest sie und vergleicht sie.
     [[nodiscard]] std::string bestand() const {
         std::string s = "mappe=";
         s += (stamm_ != nullptr ? "xlsx-im-speicher" : "FEHLT");
@@ -525,6 +560,9 @@ public:
             if (wahl_.xlsx && wahl_.csv) s += "+";
             if (wahl_.csv) s += "csv";
         }
+        // HERKUNFT DER ZAHL, in der Ausgabe selbst (s. V-8-Absatz oben): alles links davon ist die
+        // Buchhaltung DIESER Klasse ueber den Handschlag mit der Mappe -- keine Messung am Blatt.
+        s += " quelle=naht-buchhaltung";
         return s;
     }
 
@@ -632,7 +670,21 @@ private:
         } catch (std::exception const& e) {
             diagnose_ += " -- die MAPPE nahm nicht mehr an (" + stamm_ziel_.string() + "): " + e.what();
             stamm_blatt_ = nullptr;
-            kind_blatt_  = nullptr; // das Kind faellt MIT -- ohne Stamm keine gueltige Ableitung
+            // Das Kind faellt MIT -- ohne Stamm keine gueltige Ableitung.
+            //
+            // DIESE ZUWEISUNG IST REDUNDANT, UND ZWAR NACHWEISBAR (2026-08-10): kind_blatt_ wird
+            // ausschliesslich weiter unten in dieser Funktion gelesen, und dorthin fuehrt kein Weg
+            // mehr, sobald stamm_blatt_ null ist -- der Frueh-Ausgang ganz oben faengt jeden weiteren
+            // Aufruf ab. Ein Koeder, der NUR diese Zeile loescht, ist deshalb ein AEQUIVALENTER
+            // MUTANT: er kann von keinem Test rot gemacht werden, weil er nichts Beobachtbares
+            // aendert. Sie bleibt trotzdem stehen (Tiefenverteidigung: wer den Frueh-Ausgang oben
+            // spaeter umbaut, soll das Kind nicht versehentlich weiterlaufen lassen) -- aber sie wird
+            // hier ausdruecklich NICHT als abgesichert ausgegeben.
+            //
+            // DIE SEMANTIK dagegen -- "legt der Stamm die Annahme nieder, faellt das Kind im selben
+            // Zug mit" -- ist sehr wohl beobachtbar und ist gedeckt: A9S5Ablehnung im Testfile prueft
+            // sie am GEGENSTAND, naemlich an der Zeilenzahl der erzeugten csv-Datei auf der Platte.
+            kind_blatt_ = nullptr;
             if (!ist_kopf) ++verworfen_;
             return;
         }

@@ -79,23 +79,54 @@ target_include_directories(comdare_cache_engine_concepts INTERFACE
 target_compile_features(comdare_cache_engine_concepts INTERFACE cxx_std_23)
 comdare_set_platform_defines(comdare_cache_engine_concepts)
 
-# Header-only INTERFACE-Library: PRT-ART Concepts
-add_library(comdare_prt_art_concepts INTERFACE)
-add_library(comdare::prt_art_concepts ALIAS comdare_prt_art_concepts)
-target_include_directories(comdare_prt_art_concepts INTERFACE
-    "${PROJECT_SOURCE_DIR}/prt_art/include")
-target_compile_features(comdare_prt_art_concepts INTERFACE cxx_std_23)
-target_link_libraries(comdare_prt_art_concepts INTERFACE comdare::cache_engine_concepts)
-comdare_set_platform_defines(comdare_prt_art_concepts)
+# W0a/S4 (2026-08-10): HIER STAND EIN GATTER AUF ANWESENHEIT -- ersatzlos entfernt.
+#
+# Entfernt wurden (a) die INTERFACE-Library comdare_prt_art_concepts, deren
+# target_include_directories auf "${PROJECT_SOURCE_DIR}/prt_art/include" zeigte,
+# und (b) das Gatter
+#     set(COMDARE_PRT_ART_LEGACY_AVAILABLE FALSE)
+#     if(EXISTS "${PROJECT_SOURCE_DIR}/prt_art/include/prt_art/prt_art.hpp") ...
+#
+# WARUM BEIDES FIKTION WAR, am Objekt gemessen (10.08.2026):
+#   prt_art.hpp: 0 Treffer in ce, 0 Treffer in comdare-prt-art, ueber die ganze
+#   Historie beider Repos. Gegenprobe cache_engine.hpp: 1 Treffer (das Werkzeug
+#   sucht). Der Pfad prt_art/ UNTER DER CE-WURZEL kann per Konstruktion nie
+#   entstehen: der Plugin-Weg haengt Pruefling-Header ausschliesslich ueber
+#   COMDARE_PRUEFLING_INCLUDE_DIRS (Geschwister-Pfad) an und kopiert nie etwas
+#   unter die CE-Wurzel. Gemessen mit GELADENEM echtem Pruefling: die vier
+#   gegatterten Tests erschienen in `ctest -N` 0 mal (Gegenprobe: der
+#   Pruefling-Integrationstest 1 mal, test_pressure_state 1 mal).
+#   Das Gatter war damit nicht "falsch konfiguriert", sondern unerfuellbar.
+#
+# DIE VIER .cpp-DATEIEN BLEIBEN LIEGEN. Ihre Disposition (neu verdrahten /
+# archivieren / loeschen) ist Ledger PA-3 und gehoert dem Owner; sie war ohne
+# diese Registrierung schon bisher ausserhalb jedes Bauwegs und bleibt es.
+#
+# ERSATZ ist keine zweite Pfad-Frage, sondern eine ZUSICHERUNG:
+# cmake/pruefling_kontrakt.cmake -- der Pruefling erklaert, was er liefert.
+include(registrierungs_protokoll)   # hochgezogen von :1104 -- der Block unten
+                                    # liegt davor und koennte sonst nicht vermerken
 
-# V41.F.6.1 E1 (2026-05-29) — Legacy-prt_art-Concept-Tests gaten: sie inkludieren
-# prt_art/concepts|page_structures-Header, die in der F.6-Migration nach cache-engine-Achsen
-# verschoben wurden und im STANDALONE-Build (ohne befuelltes prt-art-Submodul) NICHT vorhanden sind
-# → wuerden mit C1083 als _NOT_BUILT scheitern. Root-cause-korrekt: nur registrieren, wenn die
-# prt-art-Legacy-Header tatsaechlich da sind (mit COMDARE_CE_PRUEFLINGE/prt-art-Kontext bauen sie).
-set(COMDARE_PRT_ART_LEGACY_AVAILABLE FALSE)
-if(EXISTS "${PROJECT_SOURCE_DIR}/prt_art/include/prt_art/prt_art.hpp")
-    set(COMDARE_PRT_ART_LEGACY_AVAILABLE TRUE)
+comdare_pruefling_faehigkeit(pruefling_slots_v1 _pa_slots)
+if(_pa_slots)
+    get_property(_pa_namen GLOBAL PROPERTY COMDARE_PRUEFLING_NAMEN)
+    # Die Testnamen stehen noch nicht als Ziele fest (der Registrierungs-foreach
+    # laeuft weiter unten). Sie werden hier aus derselben Quelle abgeleitet, aus
+    # der er sie ableitet -- NAME_WE der zugesicherten Testquellen.
+    set(_pa_tests "")
+    foreach(_pa_src IN LISTS COMDARE_PRUEFLING_TEST_SOURCES)
+        get_filename_component(_pa_n "${_pa_src}" NAME_WE)
+        list(APPEND _pa_tests "${_pa_n}")
+    endforeach()
+    if(NOT _pa_tests)
+        set(_pa_tests "-")
+    endif()
+    comdare_registrierung_vermerken(BLOCK pruefling_slots_v1 STATUS AKTIV
+        TESTS ${_pa_tests}
+        GRUND "Pruefling ${_pa_namen} sichert pruefling_slots_v1 zu")
+else()
+    comdare_registrierung_vermerken(BLOCK pruefling_slots_v1 STATUS UEBERSPRUNGEN
+        TESTS - GRUND "kein geladener Pruefling sichert pruefling_slots_v1 zu")
 endif()
 
 # Tests anlegen via Helper aus gtest_setup.cmake
@@ -112,23 +143,16 @@ comdare_add_test(test_cpuid_probe
     # #265-b: die AP-3-Bruecke konsumiert die vendored foundation-Zelle comdare::platform (SIMDDetector).
     LIBRARIES comdare::cache_engine_concepts comdare::platform)
 
-# V41.F.6.1 E1: prt-art-Legacy-Concept-Tests nur mit verfuegbaren prt-art-Headern (sonst _NOT_BUILT).
-if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
-    comdare_add_test(test_concepts_compile
-        SOURCES test_concepts_compile.cpp
-        LIBRARIES comdare::prt_art_concepts)
-
-    comdare_add_test(test_value_handle
-        SOURCES test_value_handle.cpp
-        LIBRARIES comdare::prt_art_concepts)
-
-    comdare_add_test(test_three_layer_audit
-        SOURCES test_three_layer_audit.cpp
-        LIBRARIES comdare::prt_art_concepts)
-else()
-    message(STATUS "tests/unit: prt-art-Legacy-Concept-Tests (concepts_compile/value_handle/three_layer_audit) "
-        "uebersprungen — prt-art-Header nicht im Standalone-Build (mit COMDARE_CE_PRUEFLINGE verfuegbar).")
-endif()
+# W0a/S4: die drei Registrierungen test_concepts_compile / test_value_handle /
+# test_three_layer_audit sind hier entfallen. Sie hingen an
+# if(COMDARE_PRT_ART_LEGACY_AVAILABLE) -- einem Gatter, das per Konstruktion nie
+# TRUE werden konnte (Begruendung oben). Die drei Quelldateien liegen weiter im
+# Baum; ihre Disposition ist Ledger PA-3 (Owner). Sie gegen das heutige
+# Plugin-Modell neu zu verdrahten waere falsch: ihre Includes
+# (prt_art/concepts/..., prt_art/page_structures/...) existieren im heutigen
+# Pruefling nicht -- gemessen 0 Treffer fuer NodeRefKind/Encoding/IteratorMode
+# ausserhalb der Waisen selbst. Ein Gatter, das sie oeffnet, erzeugt einen
+# Daueralarm, der am gesunden Objekt nie gruen wird (T-1).
 
 # INK-1 (REV 6 Phase 6, 2026-05-12): PermutationFlags + Events + Observer
 comdare_add_test(test_permutation_flags
@@ -182,13 +206,17 @@ comdare_add_test(test_sub_engines
     SOURCES test_sub_engines.cpp
     LIBRARIES comdare::cache_engine_concepts)
 
-# 6 Pflicht-Seitentypen (REV 5 K05) — Legacy-prt_art-Test (page_structures); die migrierten 6
-# Seitentypen sind aktuell durch test_v41_axis_01_page_type abgedeckt. Nur mit prt-art-Headern bauen.
-if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
-    comdare_add_test(test_six_page_structures
-        SOURCES test_six_page_structures.cpp
-        LIBRARIES comdare::prt_art_concepts)
-endif()
+# W0a/S4: die Registrierung test_six_page_structures ist hier entfallen (gleiches
+# unerfuellbares Gatter, Begruendung oben). Die Quelldatei bleibt liegen -- PA-3.
+#
+# UND DIE ERSATZBEHAUPTUNG IST GESTRICHEN: hier stand, die 6 Seitentypen seien
+# "aktuell durch test_v41_axis_01_page_type abgedeckt". Nachgeprueft und FALSCH.
+# test_v41_axis_01_page_type deckt CE-eigene Seitentypen ab (DenseByte,
+# ExtendedDense, SparsePatricia, Redirect, CustomCache, BPlus); die Waise prueft
+# prt-arts Interpreter-Singletons mit eigenen SIMD-Flags. Die "6" ist die
+# Uebereinstimmung zweier verschiedener Zaehl-Domaenen, kein Nachfolge-Beleg.
+# Eine Fundstelle, die eine Abdeckung behauptet, die es nicht gibt, kostet mehr
+# als gar keine Fundstelle.
 
 # Phase 6.2.E (REV 7, 2026-05-13): Allokator-Bibliothek Concept-Wurzeln + 6 Family-Adapter
 comdare_add_test(test_allocator_concepts
@@ -1101,6 +1129,14 @@ include(anatomy_codegen_runner)
 # Registrierungs-Protokoll -- BEIDE Zweige. Die Abdeckungs-Wache liest es und
 # macht einen uebersprungenen Block ROT, statt ueber einem stillschweigend
 # kleineren Nenner Vollstaendigkeit zu melden (cmake/registrierungs_protokoll.cmake).
+#
+# W0a/S4 (10.08.2026): dieser include ist seit dem Hochziehen an den Dateikopf ein
+# No-op und bleibt als Lesehilfe stehen (Hausmuster, vgl. das zweite
+# enable_testing() in der Root-CMakeLists). Er MUSSTE hochgezogen werden: die
+# bedingten Bloecke am Dateianfang liegen davor und koennten comdare_registrierung_
+# vermerken() sonst gar nicht aufrufen -- ein Block, der sich nicht melden kann,
+# ist fuer die Abdeckungs-Wache unsichtbar. Die Init ist per GLOBAL PROPERTY
+# geschuetzt, ein zweiter include schreibt das Protokoll daher nicht neu.
 include(registrierungs_protokoll)
 set(_r5i_snippet "${PROJECT_BINARY_DIR}/generated/r5i_perm_list.cmake")
 set(_r5i_pilot_dir "${PROJECT_BINARY_DIR}/generated/r5i_anatomy_modules")
@@ -3418,6 +3454,41 @@ target_compile_definitions(test_b3_schema_freeze_stufe1 PRIVATE
 add_test(NAME test_b3_schema_freeze_stufe1 COMMAND test_b3_schema_freeze_stufe1)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_b3_schema_freeze_stufe1)
 set_tests_properties(test_b3_schema_freeze_stufe1 PROPERTIES LABELS "contract;standalone;schema_freeze;b3")
+
+# MT-L3 (2026-08-10) -- das UNABHAENGIGE Schema-Orakel der WIDE-Mess-CSV, als GOOGLE TEST.
+#
+# BEFUND, am Objekt mit zwei Werkzeugen gemessen: 33 Stellen in 19 TUs unter tests/ rufen
+# lazy_csv_header(), und JEDE zieht ihr Soll aus dem Erzeuger selbst. Genau 1 Testdatei fuehrt den
+# Voll-Header als Literal -- und das ist ein absichtlich VERALTETES Resume-Koeder-Schema, kein Orakel.
+#
+# ZWEI QUELLEN, ABSICHTLICH ZWEI UEBERSETZUNGSEINHEITEN:
+#   mt_l3_wide_schema_gefroren.cpp  traegt das eingefrorene Byte-Literal und inkludiert <cstddef> und
+#                                   <string_view> -- SONST NICHTS. Der Erzeuger ist dort weder direkt
+#                                   noch mittelbar sichtbar. Genau das macht `soll = lazy_csv_header()`
+#                                   nicht nur verboten, sondern unmoeglich: wer es doch wollte, muesste
+#                                   erst die Include-Liste aendern, und das steht im Diff.
+#   test_mt_l3_wide_schema_orakel.cpp  zieht den ECHTEN Erzeuger und haelt ihn dagegen.
+# Waeren beide EINE TU, koennte der Erzeuger ueber den gemeinsamen Include-Baum in das Orakel
+# zurueckwandern -- die Trennung ist die Zusicherung, nicht der Kommentar darueber.
+#
+# Include-/Link-Satz wie test_b3_schema_freeze_stufe1 (identische Erzeuger-Kette), zusaetzlich gtest
+# ueber comdare_add_test -- Debug UND Release, kein Shell-Skript.
+comdare_add_test(test_mt_l3_wide_schema_orakel
+    SOURCES test_mt_l3_wide_schema_orakel.cpp mt_l3_wide_schema_gefroren.cpp)
+target_include_directories(test_mt_l3_wide_schema_orakel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_mt_l3_wide_schema_orakel PRIVATE Boost::mp11
+    comdare::workload_driver)
+target_compile_definitions(test_mt_l3_wide_schema_orakel PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_mt_l3_wide_schema_orakel PROPERTIES
+    LABELS "contract;gtest;schema_freeze;mt_l3")
 
 add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
 target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
@@ -6152,6 +6223,48 @@ target_compile_definitions(test_d2_abdeckungs_wache_nenner PRIVATE
 set_tests_properties(test_d2_abdeckungs_wache_nenner PROPERTIES
     LABELS "wachen;d2;nenner;selbsttest")
 
+# MT-L4/W0a (2026-08-10): SELBSTTEST DER ZWEITEN GEGENSTANDSART der Test-Registrierungs-
+# Wache. Anlass war ce-Pipeline 15517: die Wache meldete zu Recht ROT, weil das Format
+# ihrer Allowlist eine ISA-Gattierung strukturell nicht ausdruecken konnte -- Feld 2 nannte
+# immer eine DATEI, der Fall haengt aber an einer HOST-EIGENSCHAFT.
+#
+# UNBEDINGT registriert -- kein if() um diesen Block, und ausdruecklich NICHT hinter
+# COMDARE_HOST_RUNS_*. Ein Selbsttest der ISA-Erloschen-Pruefung, der selbst nur auf
+# AVX-512-Hosts liefe, waere genau auf der Host-Klasse blind, fuer die er gebaut ist.
+# Er wuerfelt seine Baeume und faehrt beide Richtungen; die Windows-Ausnahme traegt er
+# intern als GTEST_SKIP.
+comdare_add_test(test_mt_l4_registrierungs_wache_isa
+    SOURCES test_mt_l4_registrierungs_wache_isa.cpp)
+target_compile_definitions(test_mt_l4_registrierungs_wache_isa PRIVATE
+    "COMDARE_MTL4_WACHE_SH=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\""
+    "COMDARE_MTL4_ALLOWLIST=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_allowlist.txt\""
+    "COMDARE_MTL4_TESTS_CMAKE=\"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt\"")
+set_tests_properties(test_mt_l4_registrierungs_wache_isa PROPERTIES
+    LABELS "wachen;mt_l4;registrierung;selbsttest")
+# -----------------------------------------------------------------------------
+# Posten #48 (2026-08-10) -- DIE KUMULATIVE ACHSE DER DIFF-HYGIENE-WACHE (T-6).
+#
+# Prueft scripts/ci_diff_ascii_width_guard.sh gegen Wegwerf-Repos, in denen der
+# Koeder IM BEREICH liegt und NICHT IM PUSH: der push-lokale Lauf ist dann gruen,
+# der kumulative (--bereich) rot -- auf DEMSELBEN Baum. Das ist die Lage vom
+# 09.08.2026 (ce-Pipeline 15498 gruen / 15501 rot, beide auf aebc4f2c, 58
+# Verstoesse), hier auf Knopfdruck herstellbar statt einmal beobachtet.
+# Die Marken wuerfelt der Test frisch aus /dev/urandom (K13).
+#
+# WARUM ALS GOOGLE TEST und nicht als weitere Shell-Probe: Owner-Entscheid
+# 2026-08-09 ("Skripte sagen gar nichts"). Damit faehrt der Biss-Beweis in Debug
+# UND Release ueber ctest mit, ohne eigenen CI-Job; die Shell-Menge waechst nicht.
+#
+# UNBEDINGT registriert -- kein if() um diesen Block, aus demselben Grund wie beim
+# D2-Selbsttest darueber. Die Windows-Ausnahme traegt der Test intern als
+# GTEST_SKIP (die Wache ist ein POSIX-sh-Skript).
+comdare_add_test(test_hyg_kumulativer_bereich
+    SOURCES test_hyg_kumulativer_bereich.cpp)
+target_compile_definitions(test_hyg_kumulativer_bereich PRIVATE
+    "COMDARE_HYG_GUARD_SH=\"${PROJECT_SOURCE_DIR}/scripts/ci_diff_ascii_width_guard.sh\"")
+set_tests_properties(test_hyg_kumulativer_bereich PROPERTIES
+    LABELS "wachen;hygiene;kumulativ;bereich;selbsttest")
+
 # A9-S4: der Konsument (tools/mess_report/). Die drei Header sind self-contained (relative Includes
 # "../../tools/mess_report/..." loesen unabhaengig von den Include-Dirs auf); nur der Render-Test
 # zieht ergebnis_mappe.hpp (lager_ablage) und braucht deshalb denselben Vendor-Link wie oben.
@@ -6164,6 +6277,16 @@ comdare_add_test(test_a9s4_realm_scan_stale
     SOURCES test_a9s4_realm_scan_stale.cpp)
 set_tests_properties(test_a9s4_realm_scan_stale PROPERTIES
     LABELS "a9;mess_report;stale;wachen")
+
+# D3-6 (2026-08-10) -- die SCHWESTERSTELLE des anhang:forward-Selektors, hier in ce: der
+# --realm-root-Scan suchte NUR den Archiv-Suffix ".result.csv" und konnte die Produktions-Ablage
+# (bin_dir/"result.csv", cache_engine_builder_iterator.hpp:2950) rechnerisch nie treffen. Der Test
+# holt seinen Nenner aus dem ERZEUGER, nicht aus dem Pruefling -- deshalb steht er neben, nicht in
+# test_a9s4_realm_scan_stale.cpp (dessen Faelle fuettern ausschliesslich die Archivform).
+comdare_add_test(test_d3_6_realm_selektor_produktionsablage
+    SOURCES test_d3_6_realm_selektor_produktionsablage.cpp)
+set_tests_properties(test_d3_6_realm_selektor_produktionsablage PROPERTIES
+    LABELS "d3;mess_report;selektor;nenner;wachen")
 
 comdare_add_test(test_a9s4_dynamic_axis_filter
     SOURCES test_a9s4_dynamic_axis_filter.cpp)
@@ -6196,12 +6319,17 @@ set_tests_properties(test_a9s4_skip_manifest PROPERTIES
 # detail::erzeuge_xlsx_ergebnis_mappe auch im csv-Zweig -- s. Kommentar bei test_a9s3_ergebnis_mappe_csv).
 comdare_add_test(test_a9s5_ergebnis_mappe_naht
     SOURCES test_a9s5_ergebnis_mappe_naht.cpp)
+# W0b-Nachbesserung 2026-08-10: Abschnitt E liest die erzeugte .xlsx als ZIP zurueck (dimension ref
+# und <row>-Zahl aus xl/worksheets/sheet1.xml) -- das Orakel am INHALT statt am Zaehler. Dafuer
+# braucht dieses Ziel denselben Vendor-Link wie test_a9s3_xlsx_ergebnis_writer: zlib zum Inflaten.
 target_include_directories(test_a9s5_ergebnis_mappe_naht PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade")
-target_link_libraries(test_a9s5_ergebnis_mappe_naht PRIVATE comdare::lager_ablage)
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/ext/io/zlib")
+target_link_libraries(test_a9s5_ergebnis_mappe_naht PRIVATE
+    comdare::lager_ablage comdare::vendored_zlib)
 set_tests_properties(test_a9s5_ergebnis_mappe_naht PROPERTIES
     LABELS "a9;xlsx;lager;naht;format_wahl")
 
@@ -6456,3 +6584,149 @@ comdare_add_test(test_warn1_d2_fingerprint_koeder
     LIBRARIES comdare_experiment)
 set_tests_properties(test_warn1_d2_fingerprint_koeder PROPERTIES
     LABELS "warnungen;speicher;koeder" TIMEOUT 60)
+
+# -----------------------------------------------------------------------------
+# D2-G1 (10.08.2026) -- DIE REGISTRIERUNG IST TEIL DES TESTS (T-7).
+# Die Wache gegen die Klasse, die test_commands/test_engine_adapters unsichtbar gemacht hat:
+# eine gtest-Binary, die gebaut wird, deren ctest-Eintrag aber fehlt oder ein NOT_BUILT-Platzhalter
+# ist. Sie liest den QUELLBAUM als fremden Nenner (T-3) und die generierten CTestTestfile.cmake als
+# Zaehler -- das Objekt auf der Platte, nicht eine Log-Zeile (V-8).
+# Kein target_link_libraries noetig: die TU zieht nur <filesystem> und gtest.
+# -----------------------------------------------------------------------------
+comdare_add_test(test_d2g1_ctest_registrierung
+    SOURCES test_d2g1_ctest_registrierung.cpp)
+target_compile_definitions(test_d2g1_ctest_registrierung PRIVATE
+    "COMDARE_D2G1_QUELLBAUM=\"${PROJECT_SOURCE_DIR}\""
+    "COMDARE_D2G1_BAUBAUM=\"${PROJECT_BINARY_DIR}\"")
+set_tests_properties(test_d2g1_ctest_registrierung PROPERTIES
+    LABELS "d2g1;registrierung;ctest" TIMEOUT 120)
+# T-6 (2026-08-10) -- DIE WACHEN-SELBSTTESTS IN DER HAUSFORM.
+#
+# BEFUND: eine frueher gemessene Zahl nannte "27 CI-gerufene Wachen ohne Selbsttest".
+# Eine Wache, deren Biss niemand je geprueft hat, kann seit Monaten gruen melden, ohne
+# je etwas gemessen zu haben -- genau diese Klasse hat am 09.08. viermal an einem Tag
+# zugeschlagen.
+#
+# BAUFORM: Google Test, NICHT ein weiterer *.selbsttest.sh. Owner-KERN 09.08.2026:
+# "Ich sehe einen Haufen shells statt vernuenftiger google tests, was soll das? ...
+#  SKRIPTE SAGEN GAR NICHTS." Ein neuer Shell-Selbsttest vergroesserte genau die Menge,
+# die weg soll. Als ctest-Ziel fahren diese Pruefungen in Debug UND Release mit, ohne
+# einen eigenen CI-Job zu brauchen.
+#
+# ALLE VIER UNBEDINGT REGISTRIERT -- kein if() um diesen Block. Ein Selbsttest gegen
+# stilles Erblinden darf nicht selbst in einem bedingten Block sitzen; die
+# Windows-Ausnahme (die Wachen sind POSIX-sh) tragen die Tests intern als GTEST_SKIP.
+#
+# TIMEOUT 300 statt der 60 aus comdare_add_test: jeder Fall legt ein Wegwerf-Repo oder
+# einen praeparierten Bau-Baum an und faehrt darauf 'ctest -N' bzw. 'git ls-files'.
+# Das ist teurer als ein reiner In-Memory-Test und liegt auf keinem kritischen Pfad.
+# -----------------------------------------------------------------------------
+
+# (1) DIE ERHEBUNG. Der Nenner steht in der AUSGABE (V-1), nicht in einem Bericht.
+comdare_add_test(test_t6_wachen_inventar
+    SOURCES test_t6_wachen_inventar.cpp)
+target_compile_definitions(test_t6_wachen_inventar PRIVATE
+    "COMDARE_T6_QUELLBAUM=\"${PROJECT_SOURCE_DIR}\"")
+set_tests_properties(test_t6_wachen_inventar PROPERTIES
+    LABELS "wachen;t6;inventar;nenner" TIMEOUT 300)
+
+# (2) P3 der Priorisierung -- die einzige Wache mit literalem Nenner.
+comdare_add_test(test_t6_biss_achsen_roundtrip_wache
+    SOURCES test_t6_biss_achsen_roundtrip_wache.cpp)
+target_compile_definitions(test_t6_biss_achsen_roundtrip_wache PRIVATE
+    "COMDARE_T6_ACHSEN_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_achsen_roundtrip_wache.sh\""
+    "COMDARE_T6_CTEST_BIN=\"${CMAKE_CTEST_COMMAND}\"")
+set_tests_properties(test_t6_biss_achsen_roundtrip_wache PROPERTIES
+    LABELS "wachen;t6;selbsttest;achsen" TIMEOUT 300)
+
+# (3) P1 der Priorisierung -- die Stufe, deren Ausfall den Abdeckungs-Nenner leert.
+comdare_add_test(test_t6_biss_sichtbarkeits_wache
+    SOURCES test_t6_biss_sichtbarkeits_wache.cpp)
+target_compile_definitions(test_t6_biss_sichtbarkeits_wache PRIVATE
+    "COMDARE_T6_SICHT_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_sichtbarkeit_wache.sh\""
+    "COMDARE_T6_CTEST_BIN=\"${CMAKE_CTEST_COMMAND}\"")
+set_tests_properties(test_t6_biss_sichtbarkeits_wache PROPERTIES
+    LABELS "wachen;t6;selbsttest;sichtbarkeit" TIMEOUT 300)
+
+# (4) P2 der Priorisierung -- die unterste Stufe: Quelldatei gegen Bauweg.
+comdare_add_test(test_t6_biss_registrierungs_wache
+    SOURCES test_t6_biss_registrierungs_wache.cpp)
+target_compile_definitions(test_t6_biss_registrierungs_wache PRIVATE
+    "COMDARE_T6_REG_WACHE=\"${PROJECT_SOURCE_DIR}/scripts/ci_test_registrierungs_wache.sh\"")
+set_tests_properties(test_t6_biss_registrierungs_wache PROPERTIES
+    LABELS "wachen;t6;selbsttest;registrierung" TIMEOUT 300)
+# ===================================================================================================
+# W0b / ##25 DURCHSTICH (2026-08-10) -- die kleinste EHRLICHE Kette bis ins PDF, als Google Test.
+#
+# LOEST AB (nicht: loescht): die Shell-Deckung ci/durchstich_wache.sh + ci/durchstich_bissprobe.sh im
+# super-Repo. Owner 09.08. woertlich: "Ich sehe einen Haufen shells statt vernuenftiger google tests
+# ... Skripte sagen gar nichts." Diese TU deckt den Teil der Kette, den das ce BESITZT:
+#   format_csv_row -> MappenNaht -> .xlsx + .csv auf Platte -> LaTeX-Tabelle -> pdflatex -> PDF.
+#
+# WARUM DER INCLUDE-/LINK-SATZ SO GROSS IST: die Kette hat vier Erzeuger, und der Test greift jeden
+# von ihnen im ORIGINAL ab, statt ihn nachzubauen --
+#   * cache_engine_builder_iterator.hpp  (lazy_csv_header / format_csv_row / LazyMeasuredRow),
+#     deshalb der a8s3-Bauzuschnitt inkl. COMDARE_MEASUREMENT_ON=1 und der generierten Achsen-Dirs;
+#   * ergebnis_mappe_naht.hpp + comdare::lager_ablage (die Format-Wahl und die Mappe);
+#   * comdare_builder_xml_config_parser (der PRODUKTIONS-Parser fuer die getrackten Profile --
+#     der Nenner von G1 kommt so aus einer FREMDEN Quelle, nicht aus dem Prueflung);
+#   * comdare::latex_anhang_lib (das einzige tex-erzeugende Werkzeug des ce);
+#   * comdare_vendored_zlib -- die .xlsx wird ENTPACKT und der Lauf-Token im Klartext gesucht.
+#     Ohne zlib bliebe nur "die Datei faengt mit PK an", also Anwesenheit statt Aussage (T-2/V-8).
+#
+# COMDARE_DURCHSTICH_PROFIL_DIR: der Test soll den Profil-Ort nicht raten. Fehlt das Define, ist die
+# Wache ROT (fail-closed) -- sie faellt nicht auf ein leises Gruen zurueck.
+#
+# COMDARE_DURCHSTICH_PDFLATEX: find_program zur CONFIGURE-Zeit. Ist pdflatex da, ist das PDF-Glied
+# HART; ist es nicht da (ce-Bau-Image traegt kein TeX -- 0 Treffer auf latexmk|pdflatex|texlive in
+# .gitlab-ci.yml, gemessen 10.08.2026), meldet der Test die Luecke MIT NENNER und ueberspringt genau
+# dieses eine Glied. COMDARE_DURCHSTICH_PDF_PFLICHT=1 in der Umgebung macht daraus ein hartes Rot,
+# ohne dass jemand die Quelle anfassen muss -- der Hebel liegt damit in der YAML (Lead), nicht hier.
+# ===================================================================================================
+# ZWEITES Profil-Inventar: wird das ce als Unterprojekt des super gebaut, liegt unter
+# <super>/Code/experiment_config/thesis_profiles das F1-Durchstich-Profil -- genau die Datei, die den
+# Mini-Lauf der F1-Lieferung konfiguriert. Sie ist NICHT Teil des ce, wird aber vom selben Owner-KERN
+# regiert. Das Define entsteht NUR, wenn das Verzeichnis zur Configure-Zeit wirklich da ist (V-8: der
+# Gegenstand entscheidet, kein Schalter). Im ce-Alleinbau bleibt es leer und der Nenner sagt das.
+# Ein explizites -DCOMDARE_DURCHSTICH_PROFIL_DIR2=<pfad> hat Vorrang: so laesst sich die Wache auch
+# ohne Unterprojekt-Bau auf ein fremdes Inventar richten (und genau so wurde sie belegt).
+if(NOT DEFINED COMDARE_DURCHSTICH_PROFIL_DIR2)
+    set(COMDARE_DURCHSTICH_PROFIL_DIR2 "")
+    if(NOT CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/Code/experiment_config/thesis_profiles")
+            set(COMDARE_DURCHSTICH_PROFIL_DIR2 "${CMAKE_SOURCE_DIR}/Code/experiment_config/thesis_profiles")
+            message(STATUS "Durchstich: zweites Profil-Inventar gefunden: ${COMDARE_DURCHSTICH_PROFIL_DIR2}")
+        endif()
+    endif()
+endif()
+
+find_program(COMDARE_DURCHSTICH_PDFLATEX_EXE NAMES pdflatex)
+if(NOT COMDARE_DURCHSTICH_PDFLATEX_EXE)
+    set(COMDARE_DURCHSTICH_PDFLATEX_EXE "")
+    message(STATUS "Durchstich: pdflatex NICHT gefunden (0 von 1) -- das PDF-Glied laeuft nur mit TeX.")
+else()
+    message(STATUS "Durchstich: pdflatex gefunden (1 von 1): ${COMDARE_DURCHSTICH_PDFLATEX_EXE}")
+endif()
+
+comdare_add_test(test_w0b_durchstich_kette
+    SOURCES test_w0b_durchstich_kette.cpp)
+target_include_directories(test_w0b_durchstich_kette PRIVATE
+    ${COMDARE_MCE24_INCLUDES}
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${PROJECT_SOURCE_DIR}/tools/latex_anhang")
+target_link_libraries(test_w0b_durchstich_kette PRIVATE
+    Boost::mp11
+    comdare::lager_ablage
+    comdare_builder_xml_config_parser
+    comdare::latex_anhang_lib
+    comdare_vendored_zlib)
+comdare_set_platform_defines(test_w0b_durchstich_kette)
+target_compile_definitions(test_w0b_durchstich_kette PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    COMDARE_DURCHSTICH_PROFIL_DIR="${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles"
+    COMDARE_DURCHSTICH_PROFIL_DIR2="${COMDARE_DURCHSTICH_PROFIL_DIR2}"
+    COMDARE_DURCHSTICH_PDFLATEX="${COMDARE_DURCHSTICH_PDFLATEX_EXE}")
+# TIMEOUT 300 statt der 60 aus comdare_add_test: ein pdflatex-Erstlauf zieht sein Format-File und
+# braucht auf einem kalten Container mehr als eine Minute. Die 60 waeren ein Falsch-Rot.
+set_tests_properties(test_w0b_durchstich_kette PROPERTIES
+    LABELS "w0b;durchstich;kette;xlsx;pdf;koeder" TIMEOUT 300)

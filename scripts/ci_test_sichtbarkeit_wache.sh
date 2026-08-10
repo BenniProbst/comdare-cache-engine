@@ -28,6 +28,23 @@
 # stehen beide Ziele seit W-1 in COMDARE_TEST_TARGETS -- sichtbar allein genuegt nicht, sie muessen
 # auch gebaut werden.
 #
+# NACHTRAG D2-G1 (10.08.2026) -- die vier Zahlen oben bleiben als Messung vom 08.08. stehen, sie sind
+# ab heute aber nicht mehr reproduzierbar, und zwar aus einem guten Grund:
+#   * Die Platzhalter-Klasse (+2 bei 431) ist ERLOSCHEN. libs/cache_engine/builder/commands/tests/
+#     CMakeLists.txt registriert seit D2-G1 mit add_test statt gtest_discover_tests; ein
+#     add_test-Eintrag traegt den Zielnamen unabhaengig davon, ob die Binary gebaut wurde.
+#     Damit gibt es im Repo keinen Erzeuger von *_NOT_BUILT mehr (gemessen: 0 echte Aufrufe von
+#     gtest_discover_tests im ganzen Baum).
+#   * Der Sprung "+27 nach dem Bau" faellt ebenfalls weg: ctest zaehlt dort jetzt 2 Eintraege statt
+#     30 gtest-Faelle (die Granularitaet ist pro Binary, wie im ganzen uebrigen Repo). Die Faelle
+#     LAUFEN unveraendert -- gtest_main fuehrt beim Start der Binary alle aus.
+#   * Und die Fallzahl war 30, nicht 27: "20 + 7" ist der Stand von 759b695a (06.07.2026); am
+#     09.08. kamen drei Welch-Faelle dazu (cc9c233e, 905bd1aa). Am 10.08. per --gtest_list_tests
+#     ausgezaehlt: 23 + 7.
+# Gemessen am 10.08.2026 auf prod1 (AVX2+AVX-512), Baum mit 'all': ctest -N = 469.
+# Was das Halten erzwingt, ist jetzt zusaetzlich ein Google Test:
+# tests/unit/test_d2g1_ctest_registrierung.cpp (Quellbaum als fremder Nenner gegen CTestTestfile).
+#
 # WARUM EINE WACHE UND NICHT NUR DIE HEILUNG:
 # Die Heilung deckt den heutigen Baum. Sie deckt NICHT den naechsten Unterbaum, den
 # jemand hinzufuegt, und nicht den naechsten Test hinter einer neuen if()-Bedingung.
@@ -114,7 +131,19 @@ echo "==========================================================================
 # ext/allocator/A04-mimalloc (test-*), ext/traversal/P05-START (art_test).
 # Der Ausschluss ist ein SCHNITT, kein Zudecken: er steht hier, nicht in der Allowlist,
 # weil er eine Eigenschaft des Verzeichnisses ist und keine Einzelfall-Begruendung.
-git ls-files '*CMakeLists.txt' '*.cmake' | grep -v '^ext/' > "$TMP/cmakelisten.txt"
+# '|| true' IST HIER KEIN ZUDECKEN, SONDERN MACHT DIE FAIL-CLOSED-ZEILE DARUNTER ERST
+# ERREICHBAR (Befund T-6, 10.08.2026, am Objekt gemessen):
+# 'grep -v' liefert rc=1, wenn es NICHTS ausgibt. Unter 'set -eu' beendete diese Pipe
+# das Skript sofort -- mit Exit 1 und OHNE eine einzige Zeile Ausgabe. Exit 1 ist laut
+# dem Kopf dieser Datei aber der BEFUND-Code ("unsichtbare Registrierung ohne
+# Begruendung"); ein Repo ganz ohne CMake-Datei meldete also einen Befund, den es nicht
+# gab, und die ABBRUCH-Meldung in der naechsten Zeile war UNERREICHBAR. Das ist die
+# Klasse "verdeckter exit-Zweig": der Zweig stand da, wurde nie gefahren, und niemand
+# konnte es sehen. Gefunden hat ihn erst der Selbsttest
+# tests/unit/test_t6_biss_sichtbarkeits_wache.cpp, Fall OhneCMakeDateiIstAbbruch.
+# Die rc der Pipe war ohnehin die des LETZTEN Glieds und trug nie eine Aussage ueber
+# 'git ls-files'; verloren geht hier also nichts, was vorher gemessen worden waere.
+git ls-files '*CMakeLists.txt' '*.cmake' | grep -v '^ext/' > "$TMP/cmakelisten.txt" || true
 N_DATEIEN=$(awk 'END{print NR+0}' "$TMP/cmakelisten.txt")
 [ "$N_DATEIEN" -gt 0 ] || { echo "ABBRUCH: 0 CMakeLists.txt gefunden -- das kann nicht stimmen." >&2; exit 2; }
 

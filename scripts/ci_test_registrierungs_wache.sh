@@ -51,14 +51,55 @@
 # Begruendung noch gilt.
 #
 # DIE BEGRUENDUNG WIRD AM GEGENSTAND NACHGEPRUEFT (V-8), nicht geglaubt: jede
-# Allowlist-Zeile nennt eine DATEI, deren ABWESENHEIT die Ausnahme traegt. Existiert
-# diese Datei im Baum, ist die Ausnahme erloschen und die Zeile wird ROT -- auch wenn
+# Allowlist-Zeile nennt einen GEGENSTAND, dessen ABWESENHEIT die Ausnahme traegt. Ist
+# der Gegenstand da, ist die Ausnahme erloschen und die Zeile wird ROT -- auch wenn
 # niemand die Allowlist angefasst hat. Eine Allowlist ohne diese Gegenprobe waere ein
 # Freibrief mit unbegrenzter Laufzeit.
 #
+# ZWEI GEGENSTANDSARTEN, WEIL EINE NICHT REICHTE (2026-08-10, Pipeline 15517).
+# Bis heute kannte Feld 2 genau eine Art: einen PFAD, geprueft mit '[ -e ]'. Das setzt
+# eine Datei voraus -- und der erste echte Fang der Wache haengt an gar keiner Datei:
+#   tests/unit/test_ap5_simd_extension_coherence.cpp steht in tests/unit/CMakeLists.txt
+#   in einem add_executable() (:4174) INNERHALB von
+#   'if(COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F)' (:4165). Auf einem Host
+#   ohne AVX-512 entsteht das Ziel nie, die Quelldatei wird nie uebersetzt -- und es gibt
+#   keine Datei, deren Abwesenheit man dafuer nennen koennte.
+# Feld 2 traegt deshalb ab hier ein PRAEFIX, das die ART benennt:
+#   datei:<pfad>              Ausnahme traegt, solange der Pfad NICHT existiert.
+#   isa:<merkmal>[+<merkmal>] Ausnahme traegt, solange MINDESTENS EIN Merkmal auf dem
+#                             Bau-Host fehlt -- die Negation des CMake-UND-Gatters.
+# Eine Art, die diese Wache nicht kennt, ist NICHT pruefbar: die Zeile wird ROT (Abschnitt
+# UNPRUEFBARE BEGRUENDUNG). Dasselbe gilt fuer ein leeres Feld 2 und fuer ein unbekanntes
+# ISA-Merkmal. Fail-closed heisst hier woertlich: eine Begruendung, die niemand nachpruefen
+# kann, ist keine Begruendung, sondern ein Freibrief -- und Freibriefe sind der Zustand,
+# gegen den diese Wache gebaut ist.
+#
+# WORAN 'isa:' NACHGEPRUEFT WIRD -- und warum NICHT an /proc/cpuinfo: gefragt ist nicht,
+# was die Maschine kann, auf der die Wache gerade laeuft, sondern was der BAU DIESES BAUMS
+# vorgefunden hat. Das faellt auseinander, sobald Container, Cross-Build oder ein zweiter
+# Compiler im Spiel sind. Die einzige Quelle, die genau das festhaelt, ist der CMakeCache
+# DESSELBEN Baums: dort steht das Ergebnis von check_cxx_source_runs mit
+# __builtin_cpu_supports (tests/unit/CMakeLists.txt:4129-4130).
+# DAS IST BEWUSST DIESELBE QUELLE UND DASSELBE VOKABULAR wie in
+# scripts/ci_test_coverage_guard.sh (Host-Klassen avx512f/avx2/basis, D2-G5) -- zwei Wachen
+# duerfen nicht zwei verschiedene Begriffe fuer dieselbe Host-Klasse fuehren. Die Merkmale
+# heissen hier klein (avx2, avx512f) und bilden auf COMDARE_HOST_RUNS_<GROSS> ab.
+# OFFEN, ausdruecklich: die Cache-Lesung steht damit in ZWEI Skripten. Ein geteilter Helfer
+# ist die richtige Auflaufsung, aber ein eigenes Paket -- und die Shell-Menge waechst dafuer
+# nicht (Owner-Kern 2026-08-09).
+#
+# DER BLOSSE WERT IM CACHE GENUEGT NICHT (D2-G5, am Objekt gemessen 2026-08-10): CMake
+# entfernt beim Erzwingen per '-D' weder _COMPILED noch _EXITCODE -- sie ueberleben aus dem
+# ehrlichen Lauf davor. Eine Wache, die nur den Wert liest, nimmt eine BEHAUPTETE Klasse
+# fuer eine gemessene. Geprueft werden deshalb vier Merkmale, alle Pflicht: die Wertzeile
+# steht GENAU EINMAL im Cache, ihr Typ ist INTERNAL (nur check_cxx_source_runs schreibt den),
+# _COMPILED ist TRUE, und Wert und _EXITCODE decken sich. Faellt eines davon, ist die
+# ISA-Frage UNBEANTWORTBAR -- und das ist Exit 2, nicht 'Merkmal fehlt' und damit gruen.
+#
 # AUFRUF:  sh scripts/ci_test_registrierungs_wache.sh <build-verzeichnis>
 # EXIT:    0 = jede getrackte Test-Quelldatei ist im Bauweg oder begruendet abwesend
-#          1 = mindestens eine Test-Quelldatei OHNE gueltige Begruendung ausserhalb
+#          1 = mindestens eine Test-Quelldatei OHNE gueltige Begruendung ausserhalb --
+#              ohne Allowlist-Zeile, mit ERLOSCHENER oder mit UNPRUEFBARER Begruendung
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen)
 #
 # GRENZE, EHRLICH BENANNT -- was diese Wache NICHT deckt:
@@ -192,14 +233,124 @@ done < "$TMP/soll.txt"
 FEHLEND_N=$(wc -l < "$TMP/fehlend.txt" | tr -d ' ')
 
 # ---------------------------------------------------------------------------
+# DIE ISA-GEGENPROBE. Setzt ISA_ANTWORT auf 'ja' oder 'nein'; kann sie das nicht
+# verantworten, bricht sie mit Exit 2 ab.
+#
+# SIE WIRD BEWUSST NICHT IN EINER KOMMANDO-SUBSTITUTION AUFGERUFEN. Ein 'exit 2'
+# in $( ) beendet nur die Subshell -- die Wache liefe mit leerer Antwort weiter und
+# waere genau an der Stelle fail-OPEN, an der sie fail-closed sein muss. Deshalb
+# gibt sie ihr Ergebnis ueber eine Variable zurueck und nicht ueber stdout.
+# ---------------------------------------------------------------------------
+ISA_QUELLE="$BUILD_ABS/CMakeCache.txt"
+ISA_ANTWORT=""
+ISA_AVX2=""     # leer = noch nicht ermittelt (Merkung, damit der Cache je Lauf
+ISA_AVX512F=""  #        einmal statt je Zeile gelesen wird)
+ISA_GEFRAGT=nein
+
+isa_abbruch() {
+    echo "ABBRUCH: $1" >&2
+    echo "         Die ISA-Frage ist damit UNBEANTWORTBAR. Fail-closed: das ist Exit 2," >&2
+    echo "         nicht 'Merkmal fehlt' und damit eine stillschweigend gehaltene Ausnahme." >&2
+    exit 2
+}
+
+isa_cache_lesen() {
+    # $1 = CMake-Variablenname (COMDARE_HOST_RUNS_...)
+    _iv="$1"
+    if [ ! -f "$ISA_QUELLE" ]; then
+        isa_abbruch "eine Allowlist-Zeile begruendet mit 'isa:', aber '$ISA_QUELLE' fehlt."
+    fi
+    _in=$(sed -n "/^${_iv}:/p" "$ISA_QUELLE" | wc -l | tr -d ' ')
+    if [ "$_in" -eq 0 ]; then
+        _im="'${_iv}' steht nicht in '$ISA_QUELLE' -- dieser Baum wurde"
+        isa_abbruch "$_im ohne die ISA-Probe konfiguriert (Cross-Build?)."
+    fi
+    # GENAU EINMAL: CMake legt jeden Eintrag einmal an und nimmt beim Lesen die LETZTE
+    # Zeile; diese Wache liest die erste. Zwei Zeilen heisst von Hand bearbeitet.
+    if [ "$_in" -gt 1 ]; then
+        _im="'${_iv}' steht ${_in}-mal in '$ISA_QUELLE' -- ein von Hand"
+        isa_abbruch "$_im bearbeiteter Cache ist kein Messergebnis."
+    fi
+    _iz=$(sed -n "/^${_iv}:/p" "$ISA_QUELLE" | sed -n '1p')
+
+    # MERKMAL (1) TYP: 'NAME:TYP=WERT'. Nur INTERNAL stammt aus check_cxx_source_runs;
+    # jedes '-D' von aussen schreibt einen anderen Typ (UNINITIALIZED, BOOL, ...).
+    _it=${_iz#*:}
+    _it=${_it%%=*}
+    if [ "$_it" != "INTERNAL" ]; then
+        _im="'${_iv}' hat in '$ISA_QUELLE' den Typ '${_it}', nicht INTERNAL --"
+        isa_abbruch "$_im das hat ein '-D' geschrieben, keine Probe."
+    fi
+
+    # MERKMAL (2) _COMPILED: fehlt sie, lief die Probe nie. Ist sie nicht TRUE, ist ein
+    # leerer Wert zweideutig -- 'diese CPU kann es nicht' und 'die Probe uebersetzte
+    # nicht' saehen identisch aus.
+    _ic_n=$(sed -n "/^${_iv}_COMPILED:/p" "$ISA_QUELLE" | wc -l | tr -d ' ')
+    if [ "$_ic_n" -eq 0 ]; then
+        isa_abbruch "'${_iv}' steht in '$ISA_QUELLE', aber '${_iv}_COMPILED' fehlt -- die Probe wurde nie gefahren."
+    fi
+    _ic=$(sed -n "s/^${_iv}_COMPILED:[^=]*=//p" "$ISA_QUELLE" | sed -n '1p')
+    if [ "$_ic" != "TRUE" ]; then
+        isa_abbruch "'${_iv}_COMPILED' ist '${_ic}', nicht TRUE -- die ISA-Probe hat nicht einmal uebersetzt."
+    fi
+
+    # DER WERT. check_cxx_source_runs schreibt 1 oder LEER; eine 0 hat nie eine Probe
+    # geschrieben, auch wenn der Typ INTERNAL lautet.
+    _iw=$(sed -n "s/^${_iv}:[^=]*=//p" "$ISA_QUELLE" | sed -n '1p')
+    case "$_iw" in
+        1)  ISA_ANTWORT=ja ;;
+        '') ISA_ANTWORT=nein ;;
+        *)  _im="'${_iv}' hat den Wert '${_iw}'; erwartet ist 1 oder leer."
+            isa_abbruch "$_im Ein unverstandener Wert wird nicht zu 'nein' gerundet." ;;
+    esac
+
+    # MERKMAL (3) WERT GEGEN _EXITCODE -- der zweite, unabhaengige Beleg. Er steht in
+    # einer Zeile, die das Erzwingen nicht mitschreibt, und deckt deshalb auch eine
+    # Faelschung ab, die den Typ INTERNAL korrekt trifft.
+    _ie_n=$(sed -n "/^${_iv}_EXITCODE:/p" "$ISA_QUELLE" | wc -l | tr -d ' ')
+    if [ "$_ie_n" -eq 0 ]; then
+        isa_abbruch "'${_iv}_COMPILED' ist TRUE, aber '${_iv}_EXITCODE' fehlt -- try_run legt beide gemeinsam an."
+    fi
+    _ie=$(sed -n "s/^${_iv}_EXITCODE:[^=]*=//p" "$ISA_QUELLE" | sed -n '1p')
+    if [ "$ISA_ANTWORT" = ja ] && [ "$_ie" != "0" ]; then
+        isa_abbruch "'${_iv}' ist 1, aber '${_iv}_EXITCODE' ist '${_ie}' -- Wert und Beleg widersprechen sich."
+    fi
+    if [ "$ISA_ANTWORT" = nein ] && [ "$_ie" = "0" ]; then
+        isa_abbruch "'${_iv}' ist leer, aber '${_iv}_EXITCODE' ist 0: die Probe lief und war ERFOLGREICH."
+    fi
+}
+
+# Die Liste der bekannten Merkmale ist ABSCHLIESSEND. Genau diese zwei gattern in
+# diesem Repo (tests/unit/CMakeLists.txt:4165/5330/5343/5372/5375); jedes andere Wort
+# in einem 'isa:' ist ein Tippfehler oder eine Erfindung -- und wird nicht geraten.
+isa_merkmal() {
+    ISA_GEFRAGT=ja
+    case "$1" in
+        avx2)
+            [ -n "$ISA_AVX2" ] || { isa_cache_lesen COMDARE_HOST_RUNS_AVX2; ISA_AVX2="$ISA_ANTWORT"; }
+            ISA_ANTWORT="$ISA_AVX2"
+            ;;
+        avx512f)
+            [ -n "$ISA_AVX512F" ] || { isa_cache_lesen COMDARE_HOST_RUNS_AVX512F; ISA_AVX512F="$ISA_ANTWORT"; }
+            ISA_ANTWORT="$ISA_AVX512F"
+            ;;
+        *)  ISA_ANTWORT="" ;;   # unbekannt -- der Aufrufer macht daraus ROT, nicht gruen
+    esac
+}
+
+# ---------------------------------------------------------------------------
 # Allowlist auswerten. Format je Zeile, drei Felder, '|'-getrennt:
-#   <test-quelldatei> | <gegenstand-der-fehlen-muss> | <begruendung>
-# Feld 2 ist die Gegenprobe der Begruendung: existiert diese Datei, traegt die
-# Ausnahme nicht mehr und die Zeile wird ROT.
+#   <test-quelldatei> | <art>:<gegenstand-der-fehlen-muss> | <begruendung>
+# Feld 2 ist die Gegenprobe der Begruendung. Zwei Arten, s. Kopf:
+#   datei:<pfad>              existiert der Pfad -> ERLOSCHEN
+#   isa:<merkmal>[+<merkmal>] sind ALLE Merkmale auf dem Bau-Host da -> ERLOSCHEN
+# Alles andere (unbekannte Art, kein Praefix, leeres Feld, unbekanntes Merkmal) ist
+# UNPRUEFBAR und damit ROT.
 # ---------------------------------------------------------------------------
 : > "$TMP/begruendet.txt"
 : > "$TMP/unbegruendet.txt"
 : > "$TMP/erloschen.txt"
+: > "$TMP/unpruefbar.txt"
 
 allow_zeile() {
     # $1 = gesuchte Datei; gibt die Allowlist-Zeile aus oder nichts
@@ -222,17 +373,69 @@ while IFS= read -r f; do
     fi
     geg=$(printf '%s' "$z" | cut -d'|' -f2 | sed 's/[[:space:]]*$//;s/^[[:space:]]*//')
     txt=$(printf '%s' "$z" | cut -d'|' -f3- | sed 's/^[[:space:]]*//')
-    if [ -n "$geg" ] && [ -e "$geg" ]; then
-        printf '%s -- ERLOSCHEN: "%s" existiert wieder, die Ausnahme traegt nicht mehr\n' \
-            "$f" "$geg" >> "$TMP/erloschen.txt"
-    else
-        printf '%s -- %s (Gegenstand abwesend: %s)\n' "$f" "$txt" "$geg" >> "$TMP/begruendet.txt"
-    fi
+
+    case "$geg" in
+        *:*) art=${geg%%:*}; wert=${geg#*:} ;;
+        *)   art=""; wert="$geg" ;;
+    esac
+
+    case "$art" in
+    datei)
+        if [ -z "$wert" ]; then
+            printf '%s -- UNPRUEFBAR: "datei:" ohne Pfad\n' "$f" >> "$TMP/unpruefbar.txt"
+        elif [ -e "$wert" ]; then
+            printf '%s -- ERLOSCHEN: "%s" existiert wieder, die Ausnahme traegt nicht mehr\n' \
+                "$f" "$wert" >> "$TMP/erloschen.txt"
+        else
+            printf '%s -- %s (datei abwesend: %s)\n' "$f" "$txt" "$wert" >> "$TMP/begruendet.txt"
+        fi
+        ;;
+    isa)
+        # ALLE Merkmale da -> das CMake-UND-Gatter waere WAHR gewesen und die Datei
+        # haette uebersetzt werden muessen: ERLOSCHEN. Fehlt eines, traegt die Ausnahme.
+        _rest="$wert"; _alle_da=ja; _unbek=""; _bericht=""
+        while [ -n "$_rest" ]; do
+            case "$_rest" in
+                *+*) _m=${_rest%%+*}; _rest=${_rest#*+} ;;
+                *)   _m="$_rest";     _rest="" ;;
+            esac
+            [ -n "$_m" ] || continue
+            isa_merkmal "$_m"
+            if [ -z "$ISA_ANTWORT" ]; then
+                _unbek="$_unbek $_m"
+            else
+                _bericht="$_bericht ${_m}=${ISA_ANTWORT}"
+                [ "$ISA_ANTWORT" = ja ] || _alle_da=nein
+            fi
+        done
+        if [ -n "$_unbek" ]; then
+            printf '%s -- UNPRUEFBAR: unbekannte(s) ISA-Merkmal(e):%s (bekannt: avx2, avx512f)\n' \
+                "$f" "$_unbek" >> "$TMP/unpruefbar.txt"
+        elif [ -z "$_bericht" ]; then
+            printf '%s -- UNPRUEFBAR: "isa:" ohne Merkmal\n' "$f" >> "$TMP/unpruefbar.txt"
+        elif [ "$_alle_da" = ja ]; then
+            # GENAU EINE ZEILE je Eintrag -- die Zaehler unten sind 'wc -l'. Eine
+            # zweizeilige Meldung machte aus EINEM Befund ZWEI; der NENNER waere falsch.
+            # Am Objekt gemessen (2026-08-10): die erste Fassung meldete "2 mit
+            # ERLOSCHENER Begruendung" fuer eine einzige Datei.
+            _emsg="ERLOSCHEN: der Bau-Host hat ALLE genannten ISA-Merkmale ($_bericht ) --"
+            _emsg="$_emsg das Gatter waere wahr gewesen, die Datei haette uebersetzt werden muessen"
+            printf '%s -- %s\n' "$f" "$_emsg" >> "$TMP/erloschen.txt"
+        else
+            printf '%s -- %s (ISA am Bau-Host:%s )\n' "$f" "$txt" "$_bericht" >> "$TMP/begruendet.txt"
+        fi
+        ;;
+    *)
+        printf '%s -- UNPRUEFBAR: Feld 2 ist "%s" -- keine bekannte Art (erwartet "datei:" oder "isa:")\n' \
+            "$f" "$geg" >> "$TMP/unpruefbar.txt"
+        ;;
+    esac
 done < "$TMP/fehlend.txt"
 
 BEGR_N=$(wc -l < "$TMP/begruendet.txt" | tr -d ' ')
 UNBEGR_N=$(wc -l < "$TMP/unbegruendet.txt" | tr -d ' ')
 ERL_N=$(wc -l < "$TMP/erloschen.txt" | tr -d ' ')
+UNPR_N=$(wc -l < "$TMP/unpruefbar.txt" | tr -d ' ')
 
 echo "-----------------------------------------------------------------------------"
 echo "TEST-REGISTRIERUNGS-WACHE (MT-L4) -- Quelldatei gegen Bauweg"
@@ -250,6 +453,11 @@ if [ "$ERL_N" -gt 0 ]; then
     echo "AUSNAHME ERLOSCHEN -- die Begruendung gilt am Gegenstand nicht mehr:"
     sed 's/^/  /' "$TMP/erloschen.txt"
 fi
+if [ "$UNPR_N" -gt 0 ]; then
+    echo ""
+    echo "UNPRUEFBARE BEGRUENDUNG -- Feld 2 nennt nichts, was diese Wache nachpruefen kann:"
+    sed 's/^/  /' "$TMP/unpruefbar.txt"
+fi
 if [ "$BEGR_N" -gt 0 ]; then
     echo ""
     echo "ABWESEND, ABER BEGRUENDET (Allowlist $ALLOWLIST):"
@@ -261,14 +469,24 @@ echo "--------------------------------------------------------------------------
 echo "NENNER (nie eine nackte Zahl):"
 echo "  $SOLL_N getrackte Test-Quelldatei(en) im Baum (ohne ext/) -- SOLL."
 echo "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
-echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER Begruendung, $UNBEGR_N ohne Begruendung."
+echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $UNPR_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
 echo "  Gegenprobe des Messgeraets: '$GEGENPROBE' trifft in $IST_ART (das Muster sucht)."
+if [ "$ISA_GEFRAGT" = ja ]; then
+    echo "  ISA-Gegenprobe: $ISA_QUELLE"
+    echo "                  avx2=${ISA_AVX2:-nicht gefragt}, avx512f=${ISA_AVX512F:-nicht gefragt}"
+    echo "                  (vier Merkmale je Variable geprueft: einmalig, Typ INTERNAL,"
+    echo "                   _COMPILED=TRUE, Wert deckt _EXITCODE)"
+else
+    echo "  ISA-Gegenprobe: nicht gefragt -- keine abwesende Datei ist mit 'isa:' begruendet."
+fi
 echo "-----------------------------------------------------------------------------"
 
-if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ]; then
-    echo "TEST-REGISTRIERUNGS-WACHE: ROT ($UNBEGR_N von $SOLL_N ohne Begruendung, $ERL_N erloschen)."
+if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ] || [ "$UNPR_N" -gt 0 ]; then
+    echo "TEST-REGISTRIERUNGS-WACHE: ROT ($UNBEGR_N von $SOLL_N ohne Begruendung," \
+         "$ERL_N erloschen, $UNPR_N unpruefbar)."
     echo "Abhilfe: die Datei per comdare_add_test()/add_test() in den Bauweg nehmen -- ODER"
-    echo "         sie mit einem nachpruefbaren Gegenstand in $ALLOWLIST begruenden."
+    echo "         sie mit einem nachpruefbaren Gegenstand in $ALLOWLIST begruenden"
+    echo "         ('datei:<pfad>' oder 'isa:<merkmal>[+<merkmal>]', s. Kopf der Allowlist)."
     exit 1
 fi
 
