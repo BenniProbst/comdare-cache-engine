@@ -1025,7 +1025,7 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
     // (fehlende/unlesbare Registry) -> graceful Default-Ctor (INERT-Annotation resolved=0), NIE Crash. E-1: reine
     // Plan-Kopf-Annotation, KEIN Exit!=0 im run/build-Pfad (kein harter --validate-Gate hier) -> golden-neutral.
     // Guaranteed copy elision (C++17): der IIFE-Prvalue initialisiert `director` direkt, kein Move noetig.
-    auto const director = []() -> planner::ExperimentPlanDirector {
+    auto director = []() -> planner::ExperimentPlanDirector {
 #if defined(COMDARE_CE_AXIS_REGISTRY) && defined(COMDARE_SYSTEM_AXIS_REGISTRY) &&                                      \
     defined(COMDARE_MEASUREMENT_AXIS_REGISTRY)
         if (auto trio = tlz::read_axis_registry_trio(COMDARE_CE_AXIS_REGISTRY, COMDARE_SYSTEM_AXIS_REGISTRY,
@@ -1034,6 +1034,30 @@ int construct_plan_into(std::filesystem::path const& profile_path, planner::IPla
 #endif
         return planner::ExperimentPlanDirector{};
     }();
+    // ============================================================================================
+    // I-PMC-2 (Owner 10.08.2026) -- DIE EINE ERHEBUNG JE PLANER-LAUF.
+    // ============================================================================================
+    // OWNER-WORTLAUT (verbatim): "Dabei erkennt jeder Planer auf jeder Maschine fuer sich, ob PMC
+    // existiert und ob daher das PMC in der CEB verbaut wird."
+    // OWNER-PRAEZISIERUNG (verbatim): "Moment mal JEDER Planer? Es gibt ja nur einen Planer" -- richtig,
+    // GENAU EINER (apps/experiment_planner). "Auf jeder Maschine" meint deshalb jeden LAUF dieses einen
+    // Programms: HIER, an dieser Zeile, entscheidet sich, ob dieselbe Binary auf prod1 und prod2
+    // Verschiedenes emittiert. Ohne diesen Aufruf waere die gesamte Erkennung toter Code.
+    //
+    // GENAU EINMAL, und nicht je Emissionsstelle: vier Erhebungen koennten vier Antworten geben (die
+    // Rechte-Lage kann sich zwischen zwei Syscalls aendern) und die Emission in sich widerspruechlich
+    // machen. Der Befund reist ab hier als Wert im Plan-Kopf.
+    //
+    // KOSTEN: ein Pointer-Chase ueber 64 MiB je Event, einmal je Planer-Lauf (gemessen ~20 ms auf prod1
+    // fuer alle vier). Gegen einen Planer-Lauf, der danach eine mehrtaegige Messstrecke emittiert, ist
+    // das nichts -- und es ist der Preis dafuer, dass der Koeder wirklich BEISST statt nur zu oeffnen.
+    {
+        planner::PmcHostBefund const befund = planner::probe_pmc_host<>();
+        // Die Zeile geht ins Planer-Log, nicht nur in die Emission: wer den Planer-Lauf liest, sieht die
+        // Grundlage seiner Entscheidung, samt Nenner und samt der Grenze der Aussage.
+        os << "[" << what << "] " << befund.nenner_zeile() << "\n";
+        director.set_pmc_befund(befund);
+    }
     // smoke=>debug-Entkopplung (2026-07-22): das METHODIK-Profil (COMDARE_PLAN_METHODIK_PROFILE) liefert -- falls
     // gesetzt -- die run_methodology (steuert Bau-Typ + (j3)-Dual-Compile im emittierten Mess-Job), waehrend
     // profile_path den Bau-Katalog (Achsen/Perms) stellt. Single-Source-Resolver (resolve_methodik_override, oben);

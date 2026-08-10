@@ -82,6 +82,44 @@ option(COMDARE_ENABLE_PMC
        "Reale HW-PMC-Quelle: Linux perf_event_open / Windows Intel PCM (BSD-3). OFF => NullPmcSource, HW-Spalten 0"
        OFF)
 set(COMDARE_PCM_DIR "" CACHE PATH "Wurzel der Intel-PCM-Installation (enthält cpucounters.h + PCM-Lib)")
+
+# -- PMC-VENDOR (Owner 10.08.2026): DIE HARDWAREFORM, NICHT NUR "PMC JA/NEIN" -----------------------------
+# OWNER-WORTLAUT (verbatim): "JEDE HARDWAREFORM EINER PMC AMD/INTEL IST ZU UNTERSCHEIDEN, ES SIND 2
+# VERSCHIEDENE HARDWARE KOMPONENTEN NICHT EIN PMC."
+# Der Wert kommt vom PLANER, der ihn auf DEM HOST GEMESSEN hat (profile_facade/planner/pmc_host_probe.hpp),
+# nie aus einer Konfigurations-Konstante. Er speist das Glied "pmc=<id>@X.Y.Z" im CEB-Selbst-Stempel
+# (libs/cache_engine/builder/ceb_version_stamp.hpp) und damit die PMC-Permutation des CEB-Raums.
+set(COMDARE_PMC_VENDOR "" CACHE STRING
+    "PMC-Hardwareform dieses Bau-Hosts: amd | intel (leer = UEBERGANG, s.u.). Vom Planer gemessen gesetzt.")
+set_property(CACHE COMDARE_PMC_VENDOR PROPERTY STRINGS "" "amd" "intel")
+if(COMDARE_PMC_VENDOR STREQUAL "amd")
+    add_compile_definitions(COMDARE_PMC_VENDOR_AMD=1)
+    message(STATUS "COMDARE_PMC_VENDOR: amd -- der CEB-Selbst-Stempel traegt pmc=amd.")
+elseif(COMDARE_PMC_VENDOR STREQUAL "intel")
+    add_compile_definitions(COMDARE_PMC_VENDOR_INTEL=1)
+    message(STATUS "COMDARE_PMC_VENDOR: intel -- der CEB-Selbst-Stempel traegt pmc=intel.")
+elseif(NOT COMDARE_PMC_VENDOR STREQUAL "")
+    # FAIL-CLOSED: ein Tippfehler darf keine stille Ersatz-Identitaet erzeugen. Genau dieselbe Politik wie
+    # bei einer unbekannten Mess-Tooling-id in ceb_version_stamp.hpp -- dort wirft die consteval-Zerlegung.
+    message(FATAL_ERROR
+        "fehlerklasse=konfiguration_widerspruch: COMDARE_PMC_VENDOR='${COMDARE_PMC_VENDOR}' ist keine "
+        "bekannte PMC-Hardwareform. Gueltig sind ausschliesslich die ids aus kPmcVendorRegistry "
+        "(libs/cache_engine/include/cache_engine/measurement/pmc_vendor_registry.hpp): amd | intel. "
+        "Ein unbekannter Wert wuerde den CEB-Selbst-Stempel still ohne PMC-Glied lassen -- die CEB behauptete "
+        "dann eine Ausstattung, die ihr Fingerprint nicht nennt.")
+elseif(COMDARE_ENABLE_PMC)
+    # UEBERGANGSZUSTAND, bewusst WARNUNG und nicht FATAL: die zwei super-Altaufrufer (.gitlab-ci.yml
+    # measure:smoke / measure:golden-320) setzen heute COMDARE_ENABLE_PMC=ON OHNE Vendor. Ein FATAL hier
+    # machte die Super-Pipeline sofort hart rot -- und "die gesamte Pipeline immer hart gruen" schlaegt in
+    # diesem Fenster. DER FLIP AUF FATAL GEHOERT IN DASSELBE FENSTER WIE DER SUPER-NACHZUG (Folgepaket).
+    message(WARNING
+        "PMC OHNE VENDOR -- UEBERGANGSZUSTAND: COMDARE_ENABLE_PMC=ON, aber COMDARE_PMC_VENDOR ist leer. "
+        "Der CEB-Selbst-Stempel traegt damit KEIN pmc-Glied, obwohl die Messfuehler einkompiliert werden -- "
+        "die Ergebnisse dieser CEB sind gegen vendor-gestempelte NICHT zellgleich zuordenbar. "
+        "Abhilfe: -DCOMDARE_PMC_VENDOR=<amd|intel> (der Planer setzt es gemessen). "
+        "NACH dem Super-Nachzug wird diese Warnung ein FATAL_ERROR.")
+endif()
+
 if(COMDARE_ENABLE_PMC)
     if(UNIX AND NOT APPLE)
         # ── Linux-Zweig (CE-DL2): LinuxPerfPmcSource via perf_event_open(2) ──

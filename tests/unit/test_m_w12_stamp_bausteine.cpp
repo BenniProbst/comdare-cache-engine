@@ -14,10 +14,12 @@
 #include <cache_engine/abi/system_axis_code_versions.hpp>            // A2: kSystemAxisCodeVersions (Single-Source)
 #include <cache_engine/measurement/measurement_tooling_registry.hpp> // A2: version-Feld + tooling_version_for_id
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // S2: Bestands-Probe der Katalog-Wache
+#include <cache_engine/measurement/pmc_vendor_registry.hpp> // I-PMC-2 (10.08.2026): die ZWEI PMC-Hardware-Komponenten
 #include <sha512/ctsha512.hpp> // K7b-3: Referenz-SHA-512 fuer den Fingerprint-Korrektheitstest
 #include <cache_engine/measurement/algo_semver.hpp>
 #include <cache_engine/measurement/axis_version_stamp.hpp>
 #include "builder/ceb_version_stamp.hpp"              // A5: CEB-Selbst-Stempel (consteval Mess-Array + SHA-512)
+#include "pmc_ceb_asymmetrie.hpp"                     // I-PMC-2: DIE EINE Stelle der deklarierten CEB/TIER-Asymmetrie
 #include <cache_engine/abi/toolchain_stamp_glied.hpp> // O-2/C-2: Renderer + kToolchainAxisVersions
 #include <profile_facade/planner/planner_version.hpp>
 #include <profile_facade/system_version_suffix.hpp>    // O-2/C-2: Doppel-Wahrheits-Wache gegen den Suffix
@@ -1436,19 +1438,23 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     // Wuerde man die Erwartungen einfach an kCebMeasurementStamp haengen lassen, waeren sie in einem
     // -DCOMDARE_MEASUREMENT_COMBO=<spezifisch> konfigurierten Verzeichnis rot -- und man haette die
     // Wache dann vermutlich gelockert statt sie richtig zu stellen.
-    EXPECT_EQ((ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>),
-              std::string_view{"measurement_tooling=wallclock@1.0.0.c;"
-                               "measurement_tooling=macro@1.0.0.c;"
-                               "measurement_tooling=micro@1.0.0.c;"
-                               "[load_framework=ycsb@1.0.0.c]"});
+    // I-PMC-2: die Verbatim-Erwartung ist der Vor-10.08.-Text, durch die EINE Asymmetrie-Stelle gereicht.
+    // In einem Verzeichnis OHNE Vendor-Makro ist das byte-identisch der alte Text -- das ist der
+    // Additivitaets-Beweis an genau der Wache, die ihn tragen muss.
+    EXPECT_EQ((std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}),
+              comdare_test_pmc::ceb_erwartung_aus_tier_zeile("measurement_tooling=wallclock@1.0.0.c;"
+                                                             "measurement_tooling=macro@1.0.0.c;"
+                                                             "measurement_tooling=micro@1.0.0.c;"
+                                                             "[load_framework=ycsb@1.0.0.c]"));
     // DRIFT-GUARD: die consteval-CEB-Zeile deckt sich EXAKT mit der Runtime-Tier-Binary-Mengen-Form -> EINE Wahrheit,
     // keine Parallel-Ableitung. [all] und die Vollmengen-Form sind derselbe Text (Section-64-Vollmengen-Provenienz).
     EXPECT_EQ((std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}),
-              abi::measurement_stamp_line_full_set());
+              comdare_test_pmc::ceb_erwartung_aus_tier_zeile(abi::measurement_stamp_line_full_set()));
     // DRIFT-GUARD AN DER EINKOMPILIERTEN LEGENDE: das ist die Form, die auch in einem combo-hart
     // konfigurierten Verzeichnis gilt. Sie ist die eigentliche "EINE Wahrheit"-Zusage.
     EXPECT_EQ(std::string{ceb::kCebMeasurementStamp},
-              abi::measurement_stamp_line_from_combo_legend(ceb::kCebCtComboLegend));
+              comdare_test_pmc::ceb_erwartung_aus_tier_zeile(
+                  abi::measurement_stamp_line_from_combo_legend(ceb::kCebCtComboLegend)));
     // SHA-512-Provenienz: 128 hex, == Host-Nachrechnung via anatomy_fingerprint_hex ("","",mess).
     // A13-M3/K-1: hier stand die 4-arg-Form mit dem merge-"" -- genau der Alt-Aufruf, den die Sperre faengt.
     // Sie hat literal gefeuert ("die merge-ZEILE existiert nicht mehr ... das 4. Argument ist der
@@ -1472,9 +1478,139 @@ TEST(MW12StampBausteine, A5CebVersionStampComposesMeasurementArrayAndSha512) {
     std::string const stamp = ceb::ceb_version_stamp();
     EXPECT_NE(stamp.find("ceb-measurement=" + std::string{ceb::kCebMeasurementStamp}), std::string::npos)
         << "stamp=" << stamp;
-    EXPECT_NE(stamp.find(";[load_framework=ycsb@1.0.0.c];sha512="), std::string::npos) << "stamp=" << stamp;
+    // I-PMC-2: die Klammer schliesst unmittelbar vor der SHA-Zeile -- unabhaengig davon, WIE VIELE Glieder
+    // sie fuehrt. Der alte Pin nannte den Klammer-INHALT und waere damit bei jeder Meta-Meta-Erweiterung rot
+    // geworden, ohne dass etwas driftet; die Aussage, um die es geht, ist die STELLUNG des Anhangs.
+    EXPECT_NE(stamp.find("load_framework=ycsb@1.0.0.c"), std::string::npos) << "stamp=" << stamp;
+    EXPECT_NE(stamp.find(std::string{abi::kMetaMetaGroupClose} + ";sha512="), std::string::npos) << "stamp=" << stamp;
     EXPECT_NE(stamp.find(";sha512="), std::string::npos);
     EXPECT_EQ(stamp.find("@v1"), std::string::npos);
+}
+
+// =====================================================================================================
+// PMC ALS META-META-MESS-ACHSE (Owner 10.08.2026) -- REGISTRY, CEB-GLIED, UND DIE TIER-SEITIGE NULL.
+// =====================================================================================================
+
+// (1) DIE ZWEI KOMPONENTEN. Der Nenner ist FREMD (T-3): die erwartete id-Menge steht hier als Literal,
+//     die Registry-Menge wird dagegen in BEIDE Richtungen geprueft. Ein Test, der die Registry gegen sich
+//     selbst prueft, ist gruen, egal was drinsteht.
+TEST(MW12StampBausteine, PmcVendorRegistryFuehrtGenauZweiHardwareKomponenten) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    // OWNER-WORTLAUT (10.08.2026): "JEDE HARDWAREFORM EINER PMC AMD/INTEL IST ZU UNTERSCHEIDEN, ES SIND 2
+    // VERSCHIEDENE HARDWARE KOMPONENTEN NICHT EIN PMC."
+    std::vector<std::string> const erwartet{"amd", "intel"};
+    ASSERT_EQ(cm::kPmcVendorCount, erwartet.size())
+        << "die Zahl der Hardware-Komponenten hat sich geaendert -- das ist eine Owner-Frage, keine "
+           "Nebenwirkung (eine dritte Form braucht eine eigene Version und eine eigene Erkennung)";
+
+    // Richtung 1: jede erwartete id existiert.
+    for (auto const& id : erwartet)
+        EXPECT_NE(cm::pmc_vendor_from_id(id), nullptr) << "erwartete Hardwareform fehlt in der Registry: " << id;
+    // Richtung 2: keine unerwartete id existiert (sonst waere ein stiller dritter Wert moeglich).
+    std::vector<std::string> gefunden;
+    cm::for_each_pmc_vendor([&gefunden](auto const& e) { gefunden.emplace_back(e.id); });
+    EXPECT_EQ(gefunden, erwartet) << "Registry-Menge != erwartete Menge (Reihenfolge ist Teil der Zusage: "
+                                     "Index == Enum-Wert)";
+
+    // Die Versionen laufen ueber DIE Grammatik des Hauses, nicht ueber einen String-Vergleich.
+    for (auto const& id : erwartet) {
+        auto const* const e = cm::pmc_vendor_from_id(id);
+        ASSERT_NE(e, nullptr);
+        auto const parsed = cm::parse_algo_semver(e->version);
+        EXPECT_FALSE(parsed.is_sentinel())
+            << "die Version der Komponente '" << id << "' steht auf dem Sentinel -- sie wuerde still als "
+            << "@0.0.0 stempeln";
+    }
+
+    // FAIL-CLOSED: eine unbekannte Hardwareform liefert nullptr, nie einen Default.
+    EXPECT_EQ(cm::pmc_vendor_from_id("via"), nullptr);
+    EXPECT_EQ(cm::pmc_vendor_from_cpuid("CentaurHauls"), nullptr);
+    // ... und die GEGENPROBE, dass die Suche ueberhaupt findet:
+    EXPECT_NE(cm::pmc_vendor_from_cpuid("AuthenticAMD"), nullptr);
+    EXPECT_NE(cm::pmc_vendor_from_cpuid("GenuineIntel"), nullptr);
+}
+
+// (2) DAS CEB-GLIED -- und der ADDITIVITAETS-BEWEIS in derselben Wache.
+//     OHNE Vendor-Makro MUSS die Zeile byte-identisch zum Vor-10.08.-Stand sein; MIT Vendor-Makro traegt
+//     sie GENAU EIN zusaetzliches Glied im BESTEHENDEN Klammer-Anhang. Die erwartete Zeile wird aus dem
+//     RUNTIME-Renderer + der Registry KONSTRUIERT (fremder Nenner), nicht aus dem CEB-Header abgeschrieben.
+TEST(MW12StampBausteine, PmcGliedImCebStempelUndByteIdentitaetOhnePmc) {
+    namespace ceb = ::comdare::cache_engine::builder;
+    namespace abi = ::comdare::cache_engine::abi;
+    namespace cm  = ::comdare::cache_engine::measurement;
+
+    std::string const gebaut{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>};
+
+#if COMDARE_CEB_HAT_PMC_GLIED
+    // Die Erwartung kommt aus der EINEN Asymmetrie-Stelle (pmc_ceb_asymmetrie.hpp) -- gespeist aus dem
+    // RUNTIME-Renderer, nicht aus dem CEB-Header.
+    EXPECT_EQ(gebaut, comdare_test_pmc::ceb_erwartung_aus_tier_zeile(abi::measurement_stamp_line_full_set()))
+        << "das PMC-Glied steht als ';'-Geschwister HINTER load_framework, INNERHALB derselben Klammer "
+           "(Owner-E2 'ans Ende der Kette', RF-7 keine neue Zeile)";
+    // ... und dieselbe Sache noch einmal als LITERALE Aussage ueber den Inhalt, damit die Zeile oben nicht
+    // die einzige Quelle ihrer eigenen Erwartung ist: der Token steht woertlich da.
+    auto const* const v = comdare_test_pmc::eingebauter_vendor();
+    ASSERT_NE(v, nullptr);
+    EXPECT_NE(gebaut.find(std::string{cm::kPmcStampName} + "=" + std::string{v->id} + "@"), std::string::npos)
+        << "gebaut=" << gebaut;
+    // Die ZWEITE Hardwareform darf NICHT zugleich dastehen -- eine CEB wird auf genau EINEM Host gebaut.
+    auto const& andere = v->vendor == cm::PmcVendor::Amd ? cm::pmc_vendor_info(cm::PmcVendor::Intel)
+                                                         : cm::pmc_vendor_info(cm::PmcVendor::Amd);
+    EXPECT_EQ(gebaut.find(std::string{cm::kPmcStampName} + "=" + std::string{andere.id} + "@"), std::string::npos)
+        << "gebaut=" << gebaut;
+#else
+    // ADDITIVITAETS-BEWEIS: OHNE Vendor-Makro rendert der Header BYTE FUER BYTE den Vor-10.08.-Stand.
+    // Diese Bytes sind dieselben, die der A5-Test oben pinnt -- der gesamte Nicht-PMC-Bestand behaelt
+    // seinen ceb_key_sha512, es faellt keine Migration und keine Neumessung an.
+    EXPECT_EQ(gebaut, std::string{"measurement_tooling=wallclock@1.0.0.c;"
+                                  "measurement_tooling=macro@1.0.0.c;"
+                                  "measurement_tooling=micro@1.0.0.c;"
+                                  "[load_framework=ycsb@1.0.0.c]"});
+    EXPECT_EQ(gebaut.find("pmc="), std::string::npos)
+        << "ohne Vendor-Makro darf KEIN pmc-Glied entstehen -- sonst waere der Bestand still entwertet";
+    // GEGENPROBE, dass die Suche findet: das load_framework-Glied IST da (Trefferzahl 1).
+    EXPECT_NE(gebaut.find("load_framework="), std::string::npos);
+    EXPECT_EQ(comdare_test_pmc::eingebauter_vendor(), nullptr);
+#endif
+}
+
+// (3) T-6 SCHWESTERPFLICHT -- DIE GRENZE, DIE NICHT UEBERSCHRITTEN WERDEN DARF.
+//     OWNER-WORTLAUT (10.08.2026, verbatim): "binary_id identifiziert das TIER-Binary; die Varianten sind
+//     CEB-Binaries. Eine aus-/eingebaute Messeinrichtung erzeugt eine andere CEB, NICHT ein anderes
+//     Tier-Binary. Wer beides gleichsetzt, kommt auf einen ABI-Bump, der nicht anfaellt."
+//     Diese Wache haelt genau das: die TIER-seitigen Renderer fuehren in KEINER Konfiguration ein
+//     pmc-Glied. Waere es dort, kippten emittierte Tier-Quellen, Tier-SHA512, golden-CRC und binary_id --
+//     524.288 Phantom-Binaries verdoppelt, ohne dass sich eine einzige .so aendert.
+//     AUSSAGE STATT ANWESENHEIT (T-2): die 0 kommt mit einer Gegenprobe, die 1 findet.
+TEST(MW12StampBausteine, TierSeiteFuehrtNiemalsEinPmcGlied) {
+    namespace abi = ::comdare::cache_engine::abi;
+
+    std::vector<std::pair<char const*, std::string>> const tier_zeilen{
+        {"measurement_stamp_line_full_set()", abi::measurement_stamp_line_full_set()},
+        {"measurement_stamp_line_from_combo_legend(\"[wallclock]\")",
+         abi::measurement_stamp_line_from_combo_legend("[wallclock]")},
+        {"measurement_stamp_line_from_combo_legend(\"[all]\")", abi::measurement_stamp_line_from_combo_legend("[all]")},
+        {"measurement_stamp_line(\"micro\")", abi::measurement_stamp_line(std::string_view{"micro"})},
+        {"measurement_meta_meta_suffix()", abi::measurement_meta_meta_suffix()},
+    };
+
+    std::size_t pmc_treffer = 0;
+    std::size_t lf_treffer  = 0; // GEGENPROBE-Nenner: dieselbe Suchart findet das load_framework-Glied
+    for (auto const& [wo, zeile] : tier_zeilen) {
+        if (zeile.find("pmc=") != std::string::npos) {
+            ++pmc_treffer;
+            ADD_FAILURE() << wo << " fuehrt ein pmc-Glied: " << zeile
+                          << "\n  Das verschiebt den TIER-Fingerprint und erzwingt einen ABI-Bump, der nicht "
+                             "anfaellt (Owner 10.08.2026). Das Glied gehoert AUSSCHLIESSLICH in "
+                             "builder/ceb_version_stamp.hpp.";
+        }
+        if (zeile.find("load_framework=") != std::string::npos) ++lf_treffer;
+    }
+    EXPECT_EQ(pmc_treffer, 0u) << "TIER-seitige pmc-Glieder gefunden";
+    // Die 0 oben ist nur dann eine Aussage, wenn dieselbe Suche ueberhaupt etwas findet.
+    EXPECT_EQ(lf_treffer, tier_zeilen.size())
+        << "GEGENPROBE LEER: von " << tier_zeilen.size() << " Tier-Zeilen fuehren nur " << lf_treffer
+        << " ein load_framework-Glied. Dann sagt die pmc-Null NICHTS -- die Suche greift ins Leere.";
 }
 
 // -- NB/CX-3: DIE COMPILER-REAL-VERSIONS-ERHEBUNG (compile-time) ---------------------------------------

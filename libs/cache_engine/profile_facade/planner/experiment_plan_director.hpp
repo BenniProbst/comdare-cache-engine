@@ -59,6 +59,7 @@
 // Include-Kette, die ein spaeterer Umbau still kappen koennte -- sie zieht ihre Operanden selbst.
 #include <builder/bestandslog/planer_driven_build.hpp> // LAG-P4: bestandslog::kBuildSliceGrain (+ kGnBatchSlice)
 #include <cache_engine/measurement/run_methodology_registry.hpp> // S5-P1: RunMethodology-Registry (Build-Semantik-Single-Source)
+#include "planner/pmc_host_probe.hpp" // 10.08.2026: die LAUFZEIT-Erkennung der PMC-Hardwareform dieses Hosts
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
 
@@ -182,6 +183,12 @@ struct PlanHeader {
     // 0 Leser und sind fuer den S6-Fanout reserviert -- die Zaehlung steht an der Struct-Doku. Default
     // (measure => Release) haelt den tier:build-Teil byte-identisch zu HEAD.
     PlanBuildSemantic build_semantic;
+    // I-PMC-2 (Owner 10.08.2026): der auf DIESEM Host GEMESSENE PMC-Befund. Er sitzt im Plan-KOPF und nicht
+    // an den vier Emissionsstellen, weil es genau EINE Erhebung je Planer-Lauf gibt -- vier Erhebungen
+    // koennten vier verschiedene Antworten geben (Rechte-Wechsel zwischen den Aufrufen) und die Emission in
+    // sich widerspruechlich machen. Default = Unbrauchbar/probe_gefahren=false: wer nicht gefragt hat,
+    // behauptet kein PMC (fail-closed). Der Planer-Einstieg (apps/experiment_planner) fragt einmal.
+    PmcHostBefund pmc_befund;
 };
 
 /// EINE opt x simd Permutation (system_config => NIE binary_id, NIE N; nur BAU-/MESS-Matrix + build_version-Suffix).
@@ -314,10 +321,61 @@ public:
 // STELLUNG IM KOMMANDO: direkt hinter -DCOMDARE_V32_ENABLE=ON und VOR -DCMAKE_BUILD_TYPE -- exakt die
 // Reihenfolge der beiden super-Jobs, und sie laesst die Nachbarschaft (BUILD_TYPE + Combo-Define)
 // unangetastet, an der die W2-Pins haengen.
-[[nodiscard]] inline std::string ceb_pmc_compile_define() { return " -DCOMDARE_ENABLE_PMC=ON"; }
+//
+// ================================================================================================
+// I-PMC-2 (Owner 10.08.2026) -- DIE PFLICHT WIRD ERKANNT, NICHT BEHAUPTET.
+// ================================================================================================
+// OWNER-WORTLAUT (verbatim): "Dabei erkennt jeder Planer auf jeder Maschine fuer sich, ob PMC existiert und
+// ob daher das PMC in der CEB verbaut wird. Es entsteht hier WIEDER EINE PERMUTATION [...] JEDE
+// HARDWAREFORM EINER PMC AMD/INTEL IST ZU UNTERSCHEIDEN."
+//
+// WAS SICH GEGENUEBER I-PMC-1 AENDERT, UND WAS NICHT. Die Funktion nahm KEIN Argument und lieferte
+// unbedingt " -DCOMDARE_ENABLE_PMC=ON". Der Planer erkannte damit nichts: auf einem Host ohne benutzbare
+// PMU emittierte er byte-gleich dasselbe wie auf prod1, und die dort gebaute CEB trug den vollen
+// Messfuehler-Overhead bei pmc_available=0. Genau die Ununterscheidbarkeit, die der Owner-Satz
+// ausschliesst.
+//
+// RANGFOLGE-MERGE (OWNER > PLAN), nicht Verdraengung: F9 ("PFLICHT fuer Vollstaendigkeit aller
+// perf-Messwerte", 16.07.) gilt UNVERAENDERT WEITER -- fuer jeden Host, auf dem PMC benutzbar ist. Der
+// Owner-Satz vom 10.08. fuegt hinzu, was F9 nicht regeln konnte: auf einem Host OHNE benutzbare PMU ist
+// "ohne PMC" die EHRLICHE Permutation und kein Pflichtverstoss. Das unbedingte ON war die einzige Lesart,
+// solange es keine Erkennung gab; jetzt gibt es sie.
+//
+// DIE PERMUTATION, DIE HIER ENTSTEHT: {ohne, amd, intel} -- der CEB-Raum wird dreifach. Der
+// TIER-Fingerprint bleibt unberuehrt (Owner 10.08.: "Eine aus-/eingebaute Messeinrichtung erzeugt eine
+// andere CEB, NICHT ein anderes Tier-Binary. Wer beides gleichsetzt, kommt auf einen ABI-Bump, der nicht
+// anfaellt."). Mechanisch gedeckt: add_compile_definitions wirkt auf den CMAKE-Teilbaum, also auf den
+// Treiber; die Tier-.so entsteht ueber einen eigenen g++-Subprozess des Treibers (build_orchestrator.hpp)
+// und traegt weder COMDARE_ENABLE_PMC noch ein Vendor-Makro.
+//
+// ERWEITERUNG, KEIN NEUBAU (Owner 10.08., verbatim): "Eine Erweiterung der ISA und System, Meta-Meta-Achsen
+// zur Hardware-Erweiterung ist STETS ZULAESSIG [...] werden einfach nur die NEU MOEGLICHEN FEHLENDEN
+// PERMUTATIONEN ZUSAETZLICH gebaut." Der Bestand bleibt gueltig; es faellt kein Neubau an.
+//
+// FAIL-CLOSED: ein Befund, der nicht gefahren wurde (Default-konstruiert), ist "unbrauchbar" und emittiert
+// KEIN Flag. Lieber eine ehrliche Ohne-PMC-Permutation als ein behauptetes ON -- die umgekehrte Wahl war
+// exakt der Defekt.
+[[nodiscard]] inline std::string ceb_pmc_compile_define(PmcHostBefund const& befund) {
+    if (befund.lage == PmcLage::Unbrauchbar) return {};
+    std::string s{" -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR="};
+    s += befund.vendor_id();
+    return s;
+}
+
+/// Die BEFUND-Zeile, die JEDER Treiber-Bau-Emission vorangeht -- auch der flaglosen (V-1: der Nenner
+/// gehoert in die Ausgabe). Sie ist ein YAML-Kommentar und damit fuer die Kind-Pipeline folgenlos; ihr
+/// Zweck ist, dass der Leser eines emittierten Jobs unterscheiden kann, ob der Planer GEMESSEN oder
+/// GERATEN hat. Eine Emission, die zu PMC schweigt, kann das nicht.
+/// `einzug` traegt die YAML-Einrueckung der Nachbarzeile, damit der Kommentar im Block steht.
+[[nodiscard]] inline std::string pmc_befund_zeile(PmcHostBefund const& befund, char const* einzug = "    ") {
+    return std::string{einzug} + "# " + befund.nenner_zeile() + "\n";
+}
 
 // ── PlanTextBuilder — ConcreteBuilder + der --dump-plan-Traeger. Deterministische Zeilen-Textform. ──────────
-//    Format (stabil, byte-reproduzierbar; keine host-abhaengigen Felder):
+//    Format (stabil, byte-reproduzierbar; keine host-abhaengigen Felder AUSSER der einen deklarierten
+//    Owner-Ausnahme `pmc_befund=` -- Owner 10.08.2026: "erkennt jeder Planer auf jeder Maschine fuer sich".
+//    Diese eine Zeile MUSS sich zwischen prod1 und prod2 unterscheiden duerfen; waere sie es nicht,
+//    gaebe es die Erkennung nicht. Alle uebrigen Felder bleiben host-unabhaengig.):
 //      # comdare-experiment-plan v1.1
 //      source_kind=<thesis|experiment>
 //      profile_id=<id>
@@ -349,6 +407,15 @@ public:
                 " measurement_axes=" + std::to_string(h.registries.measurement.axis_count) +
                 " measurement_offers=" + std::to_string(h.registries.measurement.baustein_count) + "\n";
         out_ += "measurement_combo_count=" + std::to_string(h.measurement_combo_count) + "\n";
+        // I-PMC-2 (Owner 10.08.2026): der GEMESSENE PMC-Befund dieses Hosts. Er ist damit die EINZIGE
+        // host-abhaengige Zeile des --dump-plan -- und das ist die deklarierte Owner-Ausnahme zur
+        // Format-Zusage im Kopf: der Plan MUSS hier host-abhaengig sein, denn genau das ist die Sache
+        // ("erkennt jeder Planer auf jeder Maschine fuer sich"). Ein Plan, der auf prod1 und prod2
+        // byte-gleich waere, haette die Erkennung nicht.
+        out_ += "pmc_befund=" + std::string{h.pmc_befund.lage_label()} +
+                " events=" + std::to_string(h.pmc_befund.events_gebissen) + "/" +
+                std::to_string(h.pmc_befund.events_geprueft) +
+                " erhoben=" + std::string(h.pmc_befund.probe_gefahren ? "1" : "0") + "\n";
         out_ += "perm_count=" + std::to_string(h.perm_count) + "\n";
         // S3 P-RESOLVER: der Organ-Position-Reject/Route-Report sichtbar im --dump-plan (INERT-Default: resolved=0).
         out_ += "resolver resolved=" + std::string(h.resolver.resolved ? "1" : "0") +
@@ -886,10 +953,10 @@ public:
         out_ += "\n# =================================================================================\n";
         out_ += "# measurement_combo " + std::to_string(c.index) + " legend=" + c.legend + " (CEB-Typ)\n";
         out_ += "# =================================================================================\n";
-        out_ += emit_ceb_build_job(c, header_.profile_basename);
+        out_ += emit_ceb_build_job(c, header_.profile_basename, header_.pmc_befund);
         // A5 (§56-T2-FANOUT D4): der Selektor-Naht ist NUR bei N>1 CEB-Konfigs aktiv (measurement_combo_count > 1);
         // count==1 (heutige Live-Strecke) => KEIN --measurement-combo => byte-identisch zu vor A5.
-        out_ += emit_ceb_emit_job(c, header_.measurement_combo_count > 1, header_.profile_basename);
+        out_ += emit_ceb_emit_job(c, header_.measurement_combo_count > 1, header_.profile_basename, header_.pmc_befund);
         out_ += emit_ceb_trigger_job(c);
     }
     void begin_perm(PlanPerm const& p) override {
@@ -916,8 +983,12 @@ public:
 private:
     // STUFE 1a: der CEB-Bau-Job dieser Mess-Kombination. Baut die CEB (heute: comdare-messung-driver). Tag amd64
     // (broadest: der CEB-Bau ist compiler-only; die SIMD-Wahl faellt erst in der CEB-Rolle je System-Perm).
+    // I-PMC-2: der Host-Befund kommt als PARAMETER herein, nicht aus einem statischen Zugriff -- diese
+    // Emitter sind static, und ein globaler/statischer Befund waere genau der versteckte Zustand, der
+    // die vier Emissionsstellen wieder auseinanderlaufen liesse.
     [[nodiscard]] static std::string emit_ceb_build_job(PlanMeasurementCombo const& c,
-                                                        std::string const&          profile_basename) {
+                                                        std::string const&          profile_basename,
+                                                        PmcHostBefund const&        pmc_befund) {
         std::string const slug = legend::cmake_slug(c.legend);
         std::string       s;
         s += "# JOB ceb-build combo " + std::to_string(c.index) + " (STUFE 1: Planer steuert CEB-Bau, CEB-Typ " +
@@ -939,7 +1010,10 @@ private:
         // NUR VOR F-B1.
         // M-2/B1: PMC-Pflicht (F9). Diese Zeile konfiguriert den Bau des comdare-messung-driver in der
         // Folgezeile -- damit greift die Invariante aus ceb_pmc_compile_define().
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+        // I-PMC-2 (10.08.2026): der Befund kommt aus dem Plan-KOPF (eine Erhebung je Lauf) und steht als
+        // Kommentar VOR dem Configure -- auch wenn er flaglos ausfaellt.
+        s += pmc_befund_zeile(pmc_befund);
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(pmc_befund) +
              " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
@@ -957,7 +1031,8 @@ private:
 
     // STUFE 1b: die GEBAUTE CEB emittiert SELBST Child-2 ("tier ci", CEB-Rolle) -> Artefakt. §40.b-Hoheit.
     [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c, bool emit_combo_selector,
-                                                       std::string const& profile_basename) {
+                                                       std::string const&   profile_basename,
+                                                       PmcHostBefund const& pmc_befund) {
         std::string const slug = legend::cmake_slug(c.legend);
         std::string const art  = "tier-child-" + slug + ".yml";
         std::string       s;
@@ -977,7 +1052,9 @@ private:
         // sticky Cache-Var, s. F-B1-Block ueber ceb_combo_is_full_set).
         // M-2/B1: PMC-Pflicht (F9) -- Spiegel des ceb:build-Jobs. Auch dieser Job baut den Mess-Treiber neu,
         // also gilt hier dieselbe Invariante (ceb_pmc_compile_define()).
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+        // I-PMC-2: derselbe Befund aus demselben Plan-Kopf -- die vier Stellen koennen nicht auseinanderlaufen.
+        s += pmc_befund_zeile(pmc_befund);
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(pmc_befund) +
              " -DCMAKE_BUILD_TYPE=Release" + ceb_combo_compile_define(c.legend) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
         s += "    - |\n";
@@ -1298,7 +1375,10 @@ private:
         // DASSELBE Code/build (emit_gn_out_persistence_variables). Traegt nur EINER der beiden das Flag,
         // rekonfiguriert der jeweils andere das Verzeichnis zurueck und der Treiber-Neubau faellt bei JEDEM
         // Job-Wechsel an -- ueber einen 7-Tage-Batch die eigentliche Kostenfalle. Deshalb beide oder keiner.
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+        // I-PMC-2: dasselbe gilt fuer die VENDOR-Wahl -- ein Vendor-Unterschied zwischen Bau- und Mess-Batch
+        // rekonfigurierte dasselbe Code/build hin und her und erzwaenge denselben Dauer-Neubau.
+        s += pmc_befund_zeile(header_.pmc_befund);
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(header_.pmc_befund) +
              " -DCMAKE_BUILD_TYPE=" + header_.build_semantic.cmake_build_type +
              ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -1485,7 +1565,9 @@ private:
         // Flag liefert pmc_source_factory.hpp die NullPmcSource und ALLE HW-Spalten sind strukturell 0; der
         // #37-Preflight zwei Bloecke weiter unten wertete genau diesen Ausfall als Erfolg (pmc=ok).
         // Spiegel des Bau-Batches: dasselbe geteilte Code/build, deshalb dasselbe Configure-Kommando.
-        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define() +
+        // I-PMC-2: und derselbe Befund -- Spiegel heisst hier auch Vendor-Spiegel.
+        s += pmc_befund_zeile(header_.pmc_befund);
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON" + ceb_pmc_compile_define(header_.pmc_befund) +
              " -DCMAKE_BUILD_TYPE=" + header_.build_semantic.cmake_build_type +
              ceb_combo_compile_define(combo_legend_) + "\n";
         s += "    - cmake --build build --target comdare-messung-driver\n";
@@ -1977,6 +2059,15 @@ public:
     explicit ExperimentPlanDirector(tlz::RegistryTrio trio)
         : trio_(make_plan_registry_annotation(trio)), full_trio_(std::move(trio)) {}
 
+    /// I-PMC-2 (Owner 10.08.2026): den auf DIESEM Host gemessenen PMC-Befund setzen. Getrennt vom
+    /// Konstruktor und ausdruecklich NICHT im Konstruktor GEMESSEN -- ein Konstruktor, der still
+    /// perf_event_open ruft, machte jeden Director-Test host-abhaengig und die Erhebung unbeobachtbar.
+    /// Der Planer-Einstieg (apps/experiment_planner/main.cpp) fragt EINMAL und setzt hier; die Tests
+    /// setzen erzwungene Befunde und pruefen damit alle drei Lagen auf jeder Maschine.
+    /// NICHT GESETZT == Unbrauchbar == "ohne PMC" (fail-closed).
+    void                               set_pmc_befund(PmcHostBefund befund) { pmc_befund_ = std::move(befund); }
+    [[nodiscard]] PmcHostBefund const& pmc_befund() const noexcept { return pmc_befund_; }
+
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
     void construct(cx::ThesisProfile const& tp, IPlanBuilder& b, std::string const& combo_selector = {},
@@ -2212,6 +2303,9 @@ private:
         header.registries              = trio_;
         header.resolver                = resolver; // S3 P-RESOLVER: Organ-Position-Report im Plan-Kopf (Annotation)
         header.build_semantic          = build_semantic; // S5-P1: measure-Methodik-Build-/Mess-Semantik (Tier-Emitter)
+        // I-PMC-2: EINE Erhebung je Planer-Lauf, in den Plan-Kopf. Alle vier Emissionsstellen lesen von hier
+        // -- sie koennen damit strukturell nicht auseinanderlaufen.
+        header.pmc_befund = pmc_befund_;
         b.begin_plan(header);
 
         std::size_t perm_index = 0;
@@ -2247,6 +2341,8 @@ private:
         b.end_plan(header);
     }
 
+    // I-PMC-2: der gemessene Host-Befund. Default = Unbrauchbar/nicht erhoben (fail-closed).
+    PmcHostBefund              pmc_befund_;
     PlanRegistryTrioAnnotation trio_; // leer/loaded=false, wenn ohne Registry-Trio konstruiert
     // S3 P-RESOLVER: das VOLLE RegistryTrio (Achsen-Namen-Mengen) fuer die Organ-Position-Aufloesung. nullopt =>
     // der Resolver ist INERT (resolved=false) -- Default-/Annotation-Konstruktor-Pfad, Vor-S3-Verhalten byte-identisch.

@@ -98,6 +98,7 @@
 #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
 
 #include <cache_engine/measurement/pmc_counter_outcome.hpp> // B-5: PmcCounterOutcome + errno-Klassifikation
+#include <cache_engine/measurement/pmc_event_set.hpp>       // 10.08.2026: DIE EINE Event-Liste (Probe + Quelle)
 #include <cache_engine/measurement/pmc_source.hpp> // measurement::IPmcSource / PmcCounters (nach A2-Neben Stufe 1)
 
 // Kernel-/POSIX-Header NUR hier (innerhalb des Guards) — sonst würde ein Nicht-Linux-Build sie anfordern.
@@ -129,9 +130,12 @@ inline long perf_event_open(struct ::perf_event_attr* attr, ::pid_t pid, int cpu
 }
 
 /// PERF_TYPE_HW_CACHE config-Kodierung (man7): config = cache_id | (op_id<<8) | (result_id<<16).
+/// SEIT DER PMC-META-META-ACHSE (10.08.2026) NUR NOCH EINE WEITERLEITUNG: die Kodierung selbst steht in
+/// measurement/pmc_event_set.hpp, weil die Host-Probe des Planers denselben Event-Satz pruefen muss, den
+/// diese Quelle spaeter oeffnet. Zwei Kodierungen waeren zwei Wahrheiten -- und die Drift zwischen ihnen
+/// waere unsichtbar, weil beide Seiten fuer sich plausibel blieben.
 inline std::uint64_t cache_cfg(std::uint32_t id, std::uint32_t op, std::uint32_t res) noexcept {
-    return static_cast<std::uint64_t>(id) | (static_cast<std::uint64_t>(op) << 8) |
-           (static_cast<std::uint64_t>(res) << 16);
+    return ::comdare::cache_engine::measurement::pmc_cache_cfg(id, op, res);
 }
 
 /// EIN perf-Counter-fd mit RAII (Resource Acquisition Is Initialization): besitzt genau einen fd, schließt ihn
@@ -445,14 +449,18 @@ public:
         // Auf uniformen Maschinen ist das der bisherige Weg, Byte fuer Byte; auf Hybrid-Intel ist es der
         // einzige, der ueberhaupt oeffnet -- dort kennt der generische PERF_TYPE_HW_CACHE die getrennten
         // Domaenen cpu_core/cpu_atom nicht und liefert fuer ALLE VIER Zaehler nichts.
-        l1d_oc_ = oeffne_generisch_(
-            c_l1d_, PERF_TYPE_HW_CACHE,
-            cache_cfg(PERF_COUNT_HW_CACHE_L1D, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
-            "cache_misses_l1", l1d_domaene_);
-        ll_oc_ = oeffne_generisch_(
-            c_ll_, PERF_TYPE_HW_CACHE,
-            cache_cfg(PERF_COUNT_HW_CACHE_LL, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
-            "cache_misses_l3_ll", ll_domaene_);
+        // 10.08.2026 (PMC-Meta-Meta-Achse): type/config/Name kommen aus measurement::kPmcEvents -- DEM
+        // Satz, den die Host-Probe des Planers prueft. Vorher standen sie hier als Literale und dort als
+        // Abschrift; ein Event-Wechsel haette den Planer still am alten Satz entscheiden lassen.
+        // .data() ist hier NUL-terminiert: jedes kPmcEvents[i].name ist im Event-Set-Header aus einem
+        // String-LITERAL initialisiert (die static_asserts dort verankern genau diese Namen).
+        namespace cme = ::comdare::cache_engine::measurement;
+        l1d_oc_       = oeffne_generisch_(c_l1d_, cme::kPmcEvents[cme::kPmcEventIndexL1d].type,
+                                          cme::kPmcEvents[cme::kPmcEventIndexL1d].config,
+                                          cme::kPmcEvents[cme::kPmcEventIndexL1d].name.data(), l1d_domaene_);
+        ll_oc_        = oeffne_generisch_(c_ll_, cme::kPmcEvents[cme::kPmcEventIndexLl].type,
+                                          cme::kPmcEvents[cme::kPmcEventIndexLl].config,
+                                          cme::kPmcEvents[cme::kPmcEventIndexLl].name.data(), ll_domaene_);
         // B-5: der AMD-ZWEITPFAD. Er wird NUR betreten, wenn der generische Weg das Event auf dieser CPU
         // gar nicht kennt -- also genau im ENOENT-Fall von Zen 5. Auf Intel oeffnet der generische Weg,
         // damit ist ll_oc_ dort Offen und dieser Block strukturell unerreichbar (kein Intel-Risiko).
@@ -471,10 +479,9 @@ public:
                          static_cast<int>(measurement::pmc_outcome_label(l3_pmu_oc_).size()),
                          measurement::pmc_outcome_label(l3_pmu_oc_).data());
         }
-        dtlb_oc_ = oeffne_generisch_(
-            c_dtlb_, PERF_TYPE_HW_CACHE,
-            cache_cfg(PERF_COUNT_HW_CACHE_DTLB, PERF_COUNT_HW_CACHE_OP_READ, PERF_COUNT_HW_CACHE_RESULT_MISS),
-            "dtlb_misses", dtlb_domaene_);
+        dtlb_oc_ = oeffne_generisch_(c_dtlb_, cme::kPmcEvents[cme::kPmcEventIndexDtlb].type,
+                                     cme::kPmcEvents[cme::kPmcEventIndexDtlb].config,
+                                     cme::kPmcEvents[cme::kPmcEventIndexDtlb].name.data(), dtlb_domaene_);
         // M-3a (2026-08-07): vierter Zaehler, exakt nach dem Muster der drei obigen -- ABER unter einer
         // anderen type-Klasse. PERF_COUNT_HW_BRANCH_MISSES ist ein PERF_TYPE_HARDWARE-Event, kein
         // PERF_TYPE_HW_CACHE-Event; es gibt deshalb KEINE cache_cfg()-Kodierung (id|op<<8|res<<16), die
@@ -484,8 +491,9 @@ public:
         // Auch der HARDWARE-Zaehler laeuft durch die Kette: der Kernel-Header dokumentiert den
         // PMU-Typ-Praefix fuer PERF_TYPE_HARDWARE genauso wie fuer PERF_TYPE_HW_CACHE (am Objekt
         // verifiziert: config=0x400000005 oeffnete und zaehlte).
-        branch_oc_ = oeffne_generisch_(c_branch_, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES, "branch_misses",
-                                       branch_domaene_);
+        branch_oc_ = oeffne_generisch_(c_branch_, cme::kPmcEvents[cme::kPmcEventIndexBranch].type,
+                                       cme::kPmcEvents[cme::kPmcEventIndexBranch].config,
+                                       cme::kPmcEvents[cme::kPmcEventIndexBranch].name.data(), branch_domaene_);
         // L2 + coherence_invalidations: KEIN portabler generischer Counter → bewusst NICHT geöffnet, Feld 0.
         // RAPL: best-effort sysfs-Snapshot; Verfügbarkeit erst bei begin() (Lesbarkeit kann variieren).
         ready_ = l1d_offen_() || ll_offen_() || dtlb_offen_() || branch_offen_();

@@ -162,7 +162,15 @@ build:clang:
   timeout: 15m   # Härtung 2026-07-09: fail-fast statt 60min-Default. Ein hängender bare-metal-Node (prod2-configure-Hang 08.07., 3×60min verbrannt) failt so nach 15min statt eine Stunde je Pipeline zu blockieren. Normal-Lauf < 3min (configure 0.7s + smoke-Build + ctest).
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
   script:
-    - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
+    # I-PMC-2 (Owner 10.08.2026): die Hardwareform reist als Lane-Variable mit. Beide Lanes sind bereits
+    # vendor-getaggt (pmc:amd -> tags [baremetal,amd] -> nur Runner id=16/prod1; pmc:intel -> id=17/prod2),
+    # also faehrt hier real AMD- gegen Intel-Hardware -- und damit wird der pmc=<vendor>-Stempel im
+    # CEB-Selbst-Stempel auf ECHTER Hardware beider Komponenten gebaut. Ohne den Vendor liefe die
+    # Konfiguration in den UEBERGANGS-Warnpfad der Wurzel-CMakeLists (ON ohne Vendor: Messfuehler drin,
+    # Stempel schweigt) -- gruen, aber unehrlich.
+    # (unquoted: der Wert stammt aus einer GESCHLOSSENEN Menge {amd,intel,leer}, kein Wortbruch moeglich;
+    #  leer ist der deklarierte Uebergangszustand und wird von der Wurzel-CMakeLists als solcher gemeldet)
+    - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=$COMDARE_PMC_VENDOR
     # Build-Parallelität via CMAKE_BUILD_PARALLEL_LEVEL=4 (Runner-Core-Budget, User 2026-06-25), NICHT -j nproc
     # M-CE-25 (Muster-F, 2026-07-13): m3v2_pmc_smoke (Label pmc) lief in KEINEM Job — test:unit schliesst es per
     # -LE pmc aus, kein dedizierter -R matchte es. Es beweist die geschlossene PMC-Naht im Lazy-WIDE-Pfad und
@@ -207,6 +215,8 @@ build:clang:
 pmc:amd:
   extends: .pmc
   tags: [baremetal, amd]
+  variables:
+    COMDARE_PMC_VENDOR: "amd"   # I-PMC-2: die Hardwareform DIESER Lane (Tag amd == prod1 == AuthenticAMD)
   resource_group: pmu-prod1   # Host-Beleg: Tag 'amd' -> nur Runner id=16 (prod1/AMD) nimmt den Job an
   rules:
     - if: '$COMDARE_PMC_LANES =~ /amd/'
@@ -214,6 +224,8 @@ pmc:amd:
 pmc:intel:
   extends: .pmc
   tags: [baremetal, intel]
+  variables:
+    COMDARE_PMC_VENDOR: "intel" # I-PMC-2: die Hardwareform DIESER Lane (Tag intel == prod2 == GenuineIntel)
   resource_group: pmu-prod2   # Host-Beleg: Tag 'intel' -> nur Runner id=17 (prod2/Intel) nimmt den Job an
   rules:
     - if: '$COMDARE_PMC_LANES =~ /intel/'

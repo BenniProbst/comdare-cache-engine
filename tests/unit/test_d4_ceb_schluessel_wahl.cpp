@@ -21,6 +21,7 @@
 // ASCII-only.
 
 #include "builder/ceb_version_stamp.hpp"            // D-4: kCebFingerprintFor<L> / kCebMeasurementStampFor<L>
+#include "pmc_ceb_asymmetrie.hpp"                   // I-PMC-2 (10.08.2026): DIE EINE Stelle der CEB/TIER-Asymmetrie
 #include <cache_engine/abi/anatomy_fingerprint.hpp> // anatomy_fingerprint_hex (Zweitweg-Nachrechnung)
 // measurement_stamp_line_from_combo_legend -- der Runtime-Zwilling des consteval-Renderers
 #include <cache_engine/abi/anatomy_version_stamp.hpp>
@@ -150,7 +151,12 @@ TEST(D4CebSchluesselWahl, GleicheComboLiefertDenselbenSchluesselUeberZweiUnabhae
     for (auto const& e : tab) {
         // (a) Zeile: consteval-Zwilling == Runtime-Renderer an derselben Legende (der Drift-Guard, jetzt
         //     ueber ALLE sieben Teilmengen statt nur ueber die Vollmenge).
-        EXPECT_EQ(std::string{e.zeile}, cabi::measurement_stamp_line_from_combo_legend(e.legende))
+        // I-PMC-2 (10.08.2026): die CEB-Zeile ist die Tier-Zeile PLUS GENAU EIN deklariertes pmc-Glied --
+        // und sonst nichts. Die Ausnahme lebt an EINER Stelle (tests/unit/pmc_ceb_asymmetrie.hpp), die
+        // BEIDE Drift-Guards teilen; ohne Vendor-Makro ist sie die Identitaet und dieser Vergleich Byte
+        // fuer Byte der von vorher. Der Guard bleibt eine GLEICHHEIT: ein ZWEITES Glied faellt hier rot.
+        EXPECT_EQ(std::string{e.zeile}, comdare_test_pmc::ceb_erwartung_aus_tier_zeile(
+                                            cabi::measurement_stamp_line_from_combo_legend(e.legende)))
             << "Drift zwischen consteval-CEB-Zeile und Runtime-Renderer bei '" << e.legende << "'";
         // (b) Schluessel: aus der Zeile neu gerechnet == der gespeicherte Schluessel.
         std::string const preimage_hash = runtime_ceb_key(std::string{e.zeile});
@@ -187,10 +193,32 @@ TEST(D4CebSchluesselWahl, VollmengeIstByteStabilZumVorD4Stand) {
     constexpr std::string_view kFormat4Vollmenge =
         "9f8802514f7a5e5ee4a4229844d83eaabf0b8860652691a2238819e346bcd48b223b297f057b7ea747cf6cac993cd7ad"
         "a926af71de1fd9ea188e09176f5c4fe8";
+#if COMDARE_CEB_HAT_PMC_GLIED
+    // I-PMC-2 (Owner 10.08.2026) -- DAS DEKLARIERTE BYTE-EREIGNIS, UND SEINE GENAUE REICHWEITE.
+    //
+    // Eine CEB, die MIT PMC UND Vendor gebaut wird, traegt das Glied "pmc=<vendor>@X.Y.Z" und hat damit
+    // einen ANDEREN Schluessel als die vendorlose. DAS IST DER ZWECK, nicht der Kollateralschaden: ohne
+    // die Verschiebung waeren eine PMC-CEB und eine PMC-lose CEB unter einem Schluessel -- exakt die
+    // Injektivitaets-Verletzung, gegen die D-4 gebaut ist, nur eine Achse weiter.
+    //
+    // WELCHER BESTAND DAVON BETROFFEN IST: KEINER. Jeder heutige Bestandslog-Eintrag stammt von einer CEB
+    // OHNE Vendor-Makro (das Makro existiert erst seit dem 10.08.2026), faellt also in den #else-Zweig und
+    // behaelt den Anker unten Byte fuer Byte. Alt-Records werden NIE umgeschrieben (BU additiv).
+    EXPECT_NE((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat4Vollmenge)
+        << "Die PMC-CEB traegt denselben Schluessel wie die PMC-lose -- dann waere die Permutation "
+           "gebaut und unsichtbar (Owner 10.08.2026: 'was die Ergebnisse wiederum NICHT VERGLEICHBAR "
+           "macht'). Genau diese Ununterscheidbarkeit soll das Glied beenden.";
+    // Und die AUSSAGE zum Nicht-Gleich: es liegt am Glied, nicht an irgendetwas.
+    EXPECT_NE(std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}.find("pmc="), std::string::npos);
+#else
     EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>), kFormat4Vollmenge)
         << "Der Vollmengen-Schluessel ist gewandert -- damit sind ALLE bestehenden Bestandslog-Eintraege "
            "entwertet. Das ist erlaubt, aber nur als deklariertes Byte-Ereignis mit Owner-Entscheid, nie "
-           "als Nebenprodukt.";
+           "als Nebenprodukt. I-PMC-2 (10.08.2026) beruehrt DIESEN Zweig ausdruecklich NICHT: das "
+           "pmc-Glied entsteht nur mit gesetztem Vendor-Makro, und kein Bestandseintrag stammt von einer "
+           "solchen CEB.";
+    EXPECT_EQ(std::string{ceb::kCebMeasurementStampFor<ceb::CebComboLegend{"[all]"}>}.find("pmc="), std::string::npos);
+#endif
     // "[all]" und die ausgeschriebene Vollmenge sind derselbe Schluessel (Section 64-D1-B).
     EXPECT_EQ((ceb::kCebFingerprintFor<ceb::CebComboLegend{"[all]"}>),
               (ceb::kCebFingerprintFor<ceb::CebComboLegend{"[wallclock,macro,micro]"}>));

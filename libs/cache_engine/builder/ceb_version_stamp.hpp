@@ -123,6 +123,56 @@
 // "der Vollmengen-Schluessel ist unveraendert": das ist ab R-3 HISTORIE.
 //
 // ------------------------------------------------------------------------------------------------
+// PMC ALS META-META-MESS-ACHSE (Owner 10.08.2026) -- DEKLARIERTES BYTE-EREIGNIS, NUR FUER PMC-BAUE
+// ------------------------------------------------------------------------------------------------
+// OWNER-WORTLAUT (verbatim): "Das PMC ist eine Meta-Meta-Mess-Achse und wird daher IN DER CEB UND DEREN
+// FINGERPRINT VERBAUT, wenn damit gebaut wird. [...] Es entsteht hier WIEDER EINE PERMUTATION, weil ohne in
+// die CEB eingebaute PMC, auch die Tier-Binaries keine PMC messen und sich daher der Binary Overhead
+// eingebauter Messfuehler unterscheidet/reduziert, was die Ergebnisse wiederum NICHT VERGLEICHBAR macht.
+// JEDE HARDWAREFORM EINER PMC AMD/INTEL IST ZU UNTERSCHEIDEN, ES SIND 2 VERSCHIEDENE HARDWARE KOMPONENTEN
+// NICHT EIN PMC."
+//
+// WAS HIER ENTSTEHT: GENAU EIN Glied "pmc=<amd|intel>@X.Y.Z" im BESTEHENDEN Meta-Meta-Klammer-Anhang, als
+// ';'-Geschwister HINTER load_framework:
+//     ...;[load_framework=ycsb@1.0.0.c;pmc=amd@1.0.0.c]
+// Keine neue Array-Zeile (RF-7: je Achsen-Typ EINE Zeile), keine neue Klammer-Ebene, kein Struktur-Bump --
+// Owner-E2 (02.08.2026): eine Meta-Meta-Achse wird "dynamisch ans Ende der Kette in den bestehenden Zeilen
+// angehaengt". Dieselbe Grammatik wie load_framework (<name>=<marker>@<version>), derselbe Renderer.
+//
+// NICHT Ja/Nein: ein blosses "pmc=on" kollabierte die ZWEI Hardware-Komponenten zu einer und widerspraeche
+// dem Owner-Satz direkt. NICHT die Zaehler-Liste: ein Event-Set-Wechsel laeuft ueber die VERSION des
+// jeweiligen Vendor-Eintrags (kPmcVendorRegistry) -- ein deklariertes Byte-Ereignis statt einer
+// Permutations-Explosion ueber Event-Teilmengen.
+//
+// DIE GRENZE, DIE HIER NICHT UEBERSCHRITTEN WIRD (Owner 10.08.2026, verbatim): "binary_id identifiziert das
+// TIER-Binary; die Varianten sind CEB-Binaries. Eine aus-/eingebaute Messeinrichtung erzeugt eine andere
+// CEB, NICHT ein anderes Tier-Binary. Wer beides gleichsetzt, kommt auf einen ABI-Bump, der nicht anfaellt."
+// Das Glied steht deshalb AUSSCHLIESSLICH hier und AUSDRUECKLICH NICHT in abi::measurement_stamp_line /
+// abi::measurement_meta_meta_suffix. Die emittierten Tier-Quellen bleiben byte-identisch, Tier-SHA512,
+// golden-CRC und binary_id unveraendert. Die Asymmetrie "CEB-Zeile != abi-Zeile" ist der KERN dieses
+// Schnitts, nicht sein Schoenheitsfehler -- ein Glied in der gemeinsamen Suffix-Stelle haette 524.288
+// Phantom-Binaries verdoppelt, ohne dass sich eine einzige .so aendert. Die Wache dagegen ist ein eigener
+// Test (test_m_w12_stamp_bausteine, "TierSeiteFuehrtNiemalsEinPmcGlied").
+//
+// ADDITIVITAET, in drei Aussagen:
+//   (a) OHNE die Vendor-Makros: dieser Header rendert BYTE-IDENTISCH zum Vor-10.08.-Stand. Der gesamte
+//       Nicht-PMC-Bestand behaelt seinen ceb_key_sha512.
+//   (b) Die Tier-Seite bewegt sich in KEINER Konfiguration (s.o.).
+//   (c) DIE EINE VERSCHIEBUNG: eine CEB, die MIT PMC UND Vendor gebaut wird, stempelt kuenftig das Glied --
+//       ihr kCebFingerprint weicht damit vom heutigen PMC=ON-Bestand ab. Das ist die in diesem Kopf schon
+//       dreimal praezedierte Klasse "deklariertes Byte-Ereignis, golden-/binary_id-neutral" (A13-M2,
+//       A13-M3/K-1, O-2/C-2, R-3). Tragbar aus demselben Grund wie dort: ceb_key_sha512 hat GEMESSEN null
+//       Lese-Stellen, es ist Provenienz und kein Schluessel, auf dem etwas nachschlaegt. Alt-Records
+//       behalten ihren alten Key und werden NIE umgeschrieben (BU additiv). Kein xlsx-Bestand wird
+//       entwertet, keine Neumessung faellt an.
+//
+// UEBERGANGSZUSTAND, benannt statt verschwiegen: COMDARE_ENABLE_PMC OHNE Vendor-Makro rendert KEIN Glied.
+// Das ist heute der Zustand der beiden super-Altaufrufer (.gitlab-ci.yml), die ON ohne Vendor setzen. Die
+// Wurzel-CMakeLists warnt dort laut; der Flip auf FATAL gehoert in dasselbe Fenster wie der Super-Nachzug
+// und ist dort als Folgepaket markiert. Solange er aussteht, ist "ON ohne Vendor" ein Bau, dessen Stempel
+// die PMC-Ausstattung NICHT nennt -- fail-loud in der Konfiguration, nicht still im Byte.
+//
+// ------------------------------------------------------------------------------------------------
 // BESTANDSLOG-BILANZ (Auftrag Punkt 4): DER ALT-BESTAND WIRD NICHT ENTWERTET
 // ------------------------------------------------------------------------------------------------
 // Jeder heute existierende Bestandslog-Eintrag stammt von einer CEB OHNE COMDARE_MEASUREMENT_COMBO_CT
@@ -163,6 +213,7 @@
 #include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver + render_algo_semver (die EINE Grammatik)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
+#include <cache_engine/measurement/pmc_vendor_registry.hpp>            // 10.08.2026: die ZWEI PMC-Hardware-Komponenten
 
 #include <array>
 #include <cstddef>
@@ -213,6 +264,44 @@ struct CebComboLegend {
 };
 
 namespace detail {
+
+// -- PMC-META-META-ACHSE (10.08.2026): die EINE Lesung der Vendor-Makros auf der CEB-Seite ---------------
+//
+// DREI ZUSTAENDE, und nur drei: kein PMC / PMC+amd / PMC+intel. Ein VIERTER Zustand ("beide Vendor-Makros
+// gesetzt") ist keine Hardware-Lage, sondern ein Konfigurations-Widerspruch -- eine CEB wird auf GENAU
+// EINEM Host gebaut. Er bricht deshalb den Bau, statt still einen der beiden zu gewinnen.
+#if defined(COMDARE_ENABLE_PMC) && defined(COMDARE_PMC_VENDOR_AMD) && defined(COMDARE_PMC_VENDOR_INTEL)
+#error "fehlerklasse=konfiguration_widerspruch: COMDARE_PMC_VENDOR_AMD UND COMDARE_PMC_VENDOR_INTEL sind \
+BEIDE gesetzt. Eine CEB wird auf GENAU EINEM Host gebaut und traegt daher GENAU EINE PMC-Hardwareform \
+(Owner 10.08.2026: 'ES SIND 2 VERSCHIEDENE HARDWARE KOMPONENTEN NICHT EIN PMC'). Abhilfe: genau ein \
+-DCOMDARE_PMC_VENDOR=<amd|intel> an der Wurzel-Konfiguration."
+#endif
+
+/// COMDARE_CEB_HAT_PMC_GLIED -- das EINE Praedikat, an dem Laengen-Rechnung und Renderer haengen. Zwei
+/// getrennte #if-Bedingungen waeren die Falle, die dieser Header an anderer Stelle schon beschreibt: eine
+/// zu grosse Puffer-Zusage bei zu kurzem Render (oder umgekehrt) ist ein abgeschnittener Stempel und damit
+/// eine stille Fehl-Identitaet. Es gibt deshalb genau EINE Bedingung, und beide Seiten lesen sie.
+#if defined(COMDARE_ENABLE_PMC) && (defined(COMDARE_PMC_VENDOR_AMD) || defined(COMDARE_PMC_VENDOR_INTEL))
+#define COMDARE_CEB_HAT_PMC_GLIED 1
+#else
+#define COMDARE_CEB_HAT_PMC_GLIED 0
+#endif
+
+namespace detail_pmc {
+#if COMDARE_CEB_HAT_PMC_GLIED
+/// Die einkompilierte Hardwareform, aus der REGISTRY geholt -- nicht aus einem Literal an dieser Stelle.
+[[nodiscard]] consteval ::comdare::cache_engine::measurement::PmcVendorInfo const& ceb_pmc_vendor() {
+    using ::comdare::cache_engine::measurement::pmc_vendor_info;
+    using ::comdare::cache_engine::measurement::PmcVendor;
+#if defined(COMDARE_PMC_VENDOR_AMD)
+    return pmc_vendor_info(PmcVendor::Amd);
+#else
+    return pmc_vendor_info(PmcVendor::Intel);
+#endif
+}
+#endif
+} // namespace detail_pmc
+
 /// consteval: die gerenderte Laenge EINER Version -- ueber DENSELBEN Renderer, den auch der Laufzeit-Weg
 /// benutzt (measurement::render_algo_semver).
 ///
@@ -235,6 +324,22 @@ namespace detail {
     auto const& fw = kMeasurementFrameworkRegistry[0];
     return std::string_view{"load_framework="}.size() + fw.id.size() + 1 // '@'
            + ceb_version_len(fw.version);
+}
+
+/// consteval: Laenge des PMC-Segments INKLUSIVE seines fuehrenden ';' -- also der GESAMTE Zuwachs, den das
+/// Glied im Klammer-Anhang kostet. 0, wenn diese CEB ohne PMC-Vendor gebaut wird (dann ist der Anhang
+/// byte-identisch zum Vor-10.08.-Stand). Der fuehrende Trenner steckt bewusst IN dieser Zahl: so gibt es
+/// keine zweite Stelle, an der jemand ihn vergessen oder doppelt zaehlen kann.
+[[nodiscard]] consteval std::size_t ceb_pmc_segment_len() noexcept {
+#if COMDARE_CEB_HAT_PMC_GLIED
+    auto const& v = detail_pmc::ceb_pmc_vendor();
+    return 1                                                                // ';'
+           + ::comdare::cache_engine::measurement::kPmcStampName.size() + 1 // '='
+           + v.id.size() + 1                                                // '@'
+           + ceb_version_len(v.version);
+#else
+    return 0;
+#endif
 }
 
 /// Kapazitaets-Deckel der Tooling-Liste. Grosszuegig gegen die drei Registry-Eintraege, weil eine Legende
@@ -334,7 +439,10 @@ struct CebToolingList {
     // (eine sonst leere Mess-Zeile bleibt leer und wird nie zu einem einsamen Rahmen-Segment). Der
     // Wurf in ceb_tooling_list macht count==0 heute unerreichbar; die Bedingung bleibt trotzdem stehen,
     // damit die Leer-Semantik an der Zeile ablesbar ist und nicht nur an einer Fernwirkung.
-    if (l.count != 0) n += ceb_load_framework_segment_len() + 3; // ';' + '[' + ']'
+    // 10.08.2026: das PMC-Glied ist ein ';'-GESCHWISTER von load_framework INNERHALB derselben Klammer --
+    // es kostet daher nur sein eigenes Segment (der Trenner steckt schon in ceb_pmc_segment_len()) und
+    // KEINE weiteren Rahmen-Zeichen. Ohne Vendor-Makro ist die Zahl 0 und diese Zeile ein No-Op.
+    if (l.count != 0) n += ceb_load_framework_segment_len() + ceb_pmc_segment_len() + 3; // ';' + '[' + ']'
     return n;
 }
 
@@ -398,6 +506,20 @@ template <CebComboLegend L>
         put(fw.id);
         out[p++] = '@';
         put_version(fw.version);
+        // 10.08.2026 (Owner: PMC ist eine Meta-Meta-Mess-Achse): das PMC-Glied als ';'-Geschwister HINTER
+        // load_framework, INNERHALB derselben Klammer -- "ans Ende der Kette" (Owner-E2), keine zweite
+        // Klammer-Ebene und keine neue Zeile (RF-7). Ohne Vendor-Makro entsteht hier kein einziges Byte.
+#if COMDARE_CEB_HAT_PMC_GLIED
+        {
+            auto const& pv = detail::detail_pmc::ceb_pmc_vendor();
+            out[p++]       = ';';
+            put(::comdare::cache_engine::measurement::kPmcStampName);
+            out[p++] = '=';
+            put(pv.id);
+            out[p++] = '@';
+            put_version(pv.version);
+        }
+#endif
         out[p++] = ::comdare::cache_engine::abi::kMetaMetaGroupClose;
     }
     out[p] = '\0';

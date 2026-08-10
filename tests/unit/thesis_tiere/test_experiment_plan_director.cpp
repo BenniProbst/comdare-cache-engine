@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <cstdlib> // (i) Byte-Wache: setenv/unsetenv (COMDARE_BUILD_TYPE)
 #include <filesystem>
+#include <fstream> // I-PMC-2: /proc/cpuinfo als FREMDER Nenner der Real-Probe (T-3)
 #include <optional>
 #include <stdexcept> // (R5) EXPECT_THROW std::invalid_argument (exactly-one-Haertung)
 #include <string>
@@ -2921,12 +2922,18 @@ std::vector<std::string> split_lines(std::string const& text) {
     return lines;
 }
 
-// Der Befund einer Emission. Alle drei Zahlen beziehen sich auf DENSELBEN Nenner (driver_builds).
+// Der Befund einer Emission. Alle Zahlen beziehen sich auf DENSELBEN Nenner (driver_builds).
+// I-PMC-2 (10.08.2026): `vendor_flagged` ist neu -- seit der Erkennung ist "ON" allein keine vollstaendige
+// Aussage mehr. Eine Konfiguration mit ON aber OHNE Vendor baut die Messfuehler ein, ohne dass der
+// CEB-Selbst-Stempel die Hardwareform nennt: die Zellen dieser CEB sind gegen vendor-gestempelte nicht
+// zuordenbar. Der Zaehler macht genau diesen Zwischenzustand sichtbar, statt ihn unter "flagged" zu
+// verstecken.
 struct PmcInvariantReport {
-    std::size_t              driver_builds = 0; // NENNER: Zeilen, die den Mess-Treiber bauen
-    std::size_t              configured    = 0; // davon: unmittelbar hinter einer `cmake -B build`-Zeile
-    std::size_t              flagged       = 0; // davon: deren Configure -DCOMDARE_ENABLE_PMC=ON traegt
-    std::vector<std::string> violations;        // die verletzenden Configure-/Treiber-Zeilen, woertlich
+    std::size_t              driver_builds  = 0; // NENNER: Zeilen, die den Mess-Treiber bauen
+    std::size_t              configured     = 0; // davon: unmittelbar hinter einer `cmake -B build`-Zeile
+    std::size_t              flagged        = 0; // davon: deren Configure -DCOMDARE_ENABLE_PMC=ON traegt
+    std::size_t              vendor_flagged = 0; // davon: deren Configure ZUSAETZLICH einen Vendor nennt
+    std::vector<std::string> violations;         // STRUKTURELLE Brueche (Nachbarschaft), woertlich
 };
 
 // Der EINE Pruefer. Ausgangspunkt ist die Treiber-Bau-Zeile (der Nenner), nicht die Configure-Zeile --
@@ -2935,6 +2942,7 @@ PmcInvariantReport pmc_invariant(std::string const& emitted) {
     static constexpr char const* kDriverBuild = "cmake --build build --target comdare-messung-driver";
     static constexpr char const* kConfigure   = "cmake -B build";
     static constexpr char const* kPmcFlag     = "-DCOMDARE_ENABLE_PMC=ON";
+    static constexpr char const* kVendorFlag  = "-DCOMDARE_PMC_VENDOR=";
 
     PmcInvariantReport             rep;
     std::vector<std::string> const lines = split_lines(emitted);
@@ -2946,21 +2954,47 @@ PmcInvariantReport pmc_invariant(std::string const& emitted) {
             continue;
         }
         ++rep.configured;
-        if (lines[i - 1].find(kPmcFlag) == std::string::npos) {
-            rep.violations.push_back("Mess-Treiber-Bau ohne PMC-Flag (F9-PFLICHT 2026-07-16): " + lines[i - 1]);
-            continue;
-        }
+        // I-PMC-2: das FEHLENDE Flag ist seit dem 10.08. KEIN struktureller Bruch mehr -- auf einem Host
+        // ohne benutzbare PMU ist "ohne PMC" die ehrliche Permutation. Ob die Zahl stimmt, entscheidet der
+        // Aufrufer GEGEN DEN BEFUND; der Pruefer zaehlt nur noch.
+        if (lines[i - 1].find(kPmcFlag) == std::string::npos) continue;
         ++rep.flagged;
+        if (lines[i - 1].find(kVendorFlag) != std::string::npos) ++rep.vendor_flagged;
     }
     return rep;
 }
 
+// Erzwungene Befunde -- die drei Lagen, auf JEDER Maschine herstellbar. Genau das ist der Punkt der
+// Strategy-Form der Probe: die intel-Seite ist auf prod1 (AuthenticAMD) real nicht erzeugbar, als Wert
+// aber sehr wohl -- und die Emission haengt am WERT, nicht an der Hardware.
+planner::PmcHostBefund befund_mit(planner::PmcLage lage, char const* vendor) {
+    planner::PmcHostBefund b;
+    b.lage            = lage;
+    b.probe_gefahren  = true;
+    b.cpuid_vendor    = vendor;
+    b.events_geprueft = 4;
+    b.events_gebissen = lage == planner::PmcLage::Unbrauchbar ? 0u : 3u;
+    b.biss_vektor     = lage == planner::PmcLage::Unbrauchbar
+                            ? "cache_misses_l1=0;cache_misses_l3_ll=0;dtlb_misses=0;branch_misses=0"
+                            : "cache_misses_l1=1;cache_misses_l3_ll=0;dtlb_misses=1;branch_misses=1";
+    if (lage == planner::PmcLage::Unbrauchbar) b.fehlgrund = "koeder_hat_nicht_gebissen";
+    return b;
+}
+
 // Die EINE Abnahme je Emission. `wo` benennt Kanal + Builder, damit ein roter Lauf sofort sagt, WELCHE
 // der Emissionen gebrochen ist.
-void expect_pmc_invariant(std::string const& emitted, char const* wo) {
+//
+// I-PMC-2 (Owner 10.08.2026): die Abnahme prueft ab jetzt die UEBEREINSTIMMUNG MIT DEM BEFUND, nicht mehr
+// ein unbedingtes ON. F9 gilt darin unveraendert weiter -- fuer jeden Host mit benutzbarer PMU ist die
+// Deckung wieder 100%. Neu ist nur, dass die Wache auch die GEGENRICHTUNG haelt: ein Host ohne PMU darf
+// KEIN Flag bekommen. Ohne diese zweite Haelfte waere die Erkennung gebaut und unbewacht -- man koennte
+// sie entfernen, und der Test bliebe gruen.
+void expect_pmc_invariant(std::string const& emitted, char const* wo, planner::PmcHostBefund const& befund) {
     PmcInvariantReport const rep = pmc_invariant(emitted);
     std::string              verstoesse;
     for (auto const& v : rep.violations) verstoesse += "\n    - " + v;
+    bool const        erwartet_pmc = befund.lage != planner::PmcLage::Unbrauchbar;
+    std::size_t const soll         = erwartet_pmc ? rep.driver_builds : 0u;
 
     EXPECT_GT(rep.driver_builds, 0u)
         << wo << ": Wache leer gelaufen -- kein `" << "cmake --build build --target comdare-messung-driver"
@@ -2969,12 +3003,23 @@ void expect_pmc_invariant(std::string const& emitted, char const* wo) {
     EXPECT_EQ(rep.configured, rep.driver_builds)
         << wo << ": " << rep.driver_builds << " Treiber-Bau-Zeilen geprueft, davon " << rep.configured
         << " mit unmittelbar vorangehendem `cmake -B build`." << verstoesse;
-    EXPECT_EQ(rep.flagged, rep.driver_builds)
-        << wo << ": " << rep.driver_builds << " Treiber-Bau-Zeilen geprueft, davon " << rep.flagged
-        << " mit -DCOMDARE_ENABLE_PMC=ON konfiguriert. Ohne das Flag liefert pmc_source_factory.hpp die "
-           "NullPmcSource -- ALLE HW-Zaehler sind dann strukturell 0 und der #37-Preflight testiert diesen "
-           "Ausfall als pmc=ok."
+    EXPECT_EQ(rep.flagged, soll)
+        << wo << " [befund=" << befund.lage_label() << "]: " << rep.driver_builds
+        << " Treiber-Bau-Zeilen geprueft, davon " << rep.flagged << " mit -DCOMDARE_ENABLE_PMC=ON (SOLL " << soll
+        << "). Bei brauchbarer PMU gilt F9 unveraendert (Deckung 100%); bei unbrauchbarer MUSS die Emission "
+           "flaglos bleiben -- ein ON auf einem Host ohne PMU baut den vollen Messfuehler-Overhead ein und "
+           "misst nichts (pmc_available=0), und genau diese CEB ist gegen eine echte nicht vergleichbar."
         << verstoesse;
+    EXPECT_EQ(rep.vendor_flagged, soll)
+        << wo << " [befund=" << befund.lage_label() << "]: " << rep.flagged << " geflaggte Configure-Zeilen, davon "
+        << rep.vendor_flagged << " mit -DCOMDARE_PMC_VENDOR= (SOLL " << soll
+        << "). Owner 10.08.2026: 'JEDE HARDWAREFORM EINER PMC AMD/INTEL IST ZU UNTERSCHEIDEN, ES SIND 2 "
+           "VERSCHIEDENE HARDWARE KOMPONENTEN NICHT EIN PMC.' Ein ON ohne Vendor nennt die Komponente nicht.";
+    if (erwartet_pmc) {
+        std::string const erwartet = std::string{"-DCOMDARE_PMC_VENDOR="} + std::string{befund.vendor_id()};
+        EXPECT_NE(emitted.find(erwartet), std::string::npos)
+            << wo << ": die Emission nennt nicht die GEMESSENE Hardwareform (" << erwartet << ").";
+    }
 }
 
 } // namespace
@@ -2984,34 +3029,44 @@ void expect_pmc_invariant(std::string const& emitted, char const* wo) {
 //       und BEIDE Kanaele (Thesis + Experiment). Ein Test, der nur EINEN Builder konstruiert, saehe die
 //       beiden teuersten Stellen (die 7d-Batches der Stufe 2) NICHT.
 TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
-    // (0) GEGENPROBE ZUERST: findet das Verfahren ueberhaupt? Handgebauter Text, EIN Verstoss.
+    // (0) GEGENPROBE ZUERST: findet das Verfahren ueberhaupt? Handgebauter Text, DREI Sorten Zeile.
     //     Ohne diesen Schritt waere ein spaeteres "0 Verstoesse" nicht unterscheidbar von "der Pruefer
-    //     sucht am falschen Ort".
-    std::string const kunstlich = std::string{} +
-                                  "    - cmake -B build -G Ninja -DCOMDARE_ENABLE_PMC=ON -DCMAKE_BUILD_TYPE=Release\n"
-                                  "    - cmake --build build --target comdare-messung-driver\n"
-                                  "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
-                                  "    - cmake --build build --target comdare-messung-driver\n"
-                                  "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
-                                  "    - cmake --build build --target comdare_experiment_planner\n";
+    //     sucht am falschen Ort". Seit I-PMC-2 traegt der Kunsttext auch die ON-OHNE-VENDOR-Zeile: sie
+    //     MUSS als geflaggt, aber NICHT als vendor_flagged gezaehlt werden -- genau dieser Zwischenzustand
+    //     ist der heutige Super-Altaufrufer, und ein Pruefer, der ihn nicht sieht, uebersieht ihn spaeter
+    //     auch in der echten Emission.
+    std::string const kunstlich =
+        std::string{} +
+        "    - cmake -B build -G Ninja -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=amd -DCMAKE_BUILD_TYPE=Release\n"
+        "    - cmake --build build --target comdare-messung-driver\n"
+        "    - cmake -B build -G Ninja -DCOMDARE_ENABLE_PMC=ON -DCMAKE_BUILD_TYPE=Release\n"
+        "    - cmake --build build --target comdare-messung-driver\n"
+        "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
+        "    - cmake --build build --target comdare-messung-driver\n"
+        "    - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\n"
+        "    - cmake --build build --target comdare_experiment_planner\n";
     PmcInvariantReport const probe = pmc_invariant(kunstlich);
-    ASSERT_EQ(probe.driver_builds, 2u) << "Gegenprobe: der Pruefer muss GENAU die 2 Treiber-Bau-Zeilen sehen "
-                                          "(die dritte Konfiguration baut ein anderes Target)";
-    ASSERT_EQ(probe.configured, 2u) << "Gegenprobe: beide stehen unmittelbar hinter einer Konfiguration";
-    ASSERT_EQ(probe.flagged, 1u) << "Gegenprobe: GENAU eine der beiden traegt das Flag";
-    ASSERT_EQ(probe.violations.size(), 1u) << "Gegenprobe: der Pruefer BEISST -- er meldet die flaglose Stelle";
+    ASSERT_EQ(probe.driver_builds, 3u) << "Gegenprobe: der Pruefer muss GENAU die 3 Treiber-Bau-Zeilen sehen "
+                                          "(die vierte Konfiguration baut ein anderes Target)";
+    ASSERT_EQ(probe.configured, 3u) << "Gegenprobe: alle drei stehen unmittelbar hinter einer Konfiguration";
+    ASSERT_EQ(probe.flagged, 2u) << "Gegenprobe: GENAU zwei der drei tragen -DCOMDARE_ENABLE_PMC=ON";
+    ASSERT_EQ(probe.vendor_flagged, 1u) << "Gegenprobe: der Pruefer BEISST am Zwischenzustand -- nur EINE der "
+                                           "beiden geflaggten nennt auch die Hardwareform";
 
-    planner::ExperimentPlanDirector const director;
+    // (1) Thesis-Kanal, all_axes_golden (die Live-/golden-Strecke, Combo [all]) -- mit einem BRAUCHBAREN
+    //     amd-Befund. F9 gilt hier unveraendert: Deckung 100%.
+    planner::PmcHostBefund const    amd = befund_mit(planner::PmcLage::Amd, "AuthenticAMD");
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(amd);
 
-    // (1) Thesis-Kanal, all_axes_golden (die Live-/golden-Strecke, Combo [all]).
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::CiYamlBuilder cb;
     director.construct(*tp, cb);
-    expect_pmc_invariant(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)");
+    expect_pmc_invariant(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)", amd);
     planner::TierCiYamlBuilder tb;
     director.construct(*tp, tb);
-    expect_pmc_invariant(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
+    expect_pmc_invariant(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)", amd);
 
     // (2) Derselbe Thesis-Kanal GEFANNT (drei Mess-Combos): der Fanout vervielfacht die Stufe-1-Stellen.
     //     Die Invariante darf davon nicht abhaengen -- genau das ist ihr Punkt gegenueber einer festen Zahl.
@@ -3020,20 +3075,20 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     tp_fan->measurement_tooling = {{"wallclock"}, {"macro"}, {"micro"}};
     planner::CiYamlBuilder cb_fan;
     director.construct(*tp_fan, cb_fan);
-    expect_pmc_invariant(cb_fan.text(), "Thesis/Stufe1 GEFANNT (3 Combos)");
+    expect_pmc_invariant(cb_fan.text(), "Thesis/Stufe1 GEFANNT (3 Combos)", amd);
     planner::TierCiYamlBuilder tb_fan;
     director.construct(*tp_fan, tb_fan);
-    expect_pmc_invariant(tb_fan.text(), "Thesis/Stufe2 GEFANNT (3 Combos)");
+    expect_pmc_invariant(tb_fan.text(), "Thesis/Stufe2 GEFANNT (3 Combos)", amd);
 
     // (3) Minimal-Profil: die kleinste Emission ueberhaupt. Auch sie baut den Treiber.
     auto const tp_min = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
     ASSERT_TRUE(tp_min.has_value());
     planner::CiYamlBuilder cb_min;
     director.construct(*tp_min, cb_min);
-    expect_pmc_invariant(cb_min.text(), "Thesis-min/Stufe1");
+    expect_pmc_invariant(cb_min.text(), "Thesis-min/Stufe1", amd);
     planner::TierCiYamlBuilder tb_min;
     director.construct(*tp_min, tb_min);
-    expect_pmc_invariant(tb_min.text(), "Thesis-min/Stufe2");
+    expect_pmc_invariant(tb_min.text(), "Thesis-min/Stufe2", amd);
 
     // (4) Experiment-Kanal (eigene Schrittzahl, eigener Zwilling -- im Haus schon einmal als "Fix fehlt im
     //     Experiment-Zwilling" aufgefallen).
@@ -3041,29 +3096,358 @@ TEST(PmcPflichtInvariante, JedeTreiberKonfigurationTraegtDasPmcFlag) {
     ASSERT_TRUE(ep.has_value()) << "experiment_golden.xml nicht parsbar: " << COMDARE_EXPERIMENT_GOLDEN;
     planner::CiYamlBuilder cb_exp;
     director.construct(*ep, cb_exp);
-    expect_pmc_invariant(cb_exp.text(), "Experiment/Stufe1");
+    expect_pmc_invariant(cb_exp.text(), "Experiment/Stufe1", amd);
     planner::TierCiYamlBuilder tb_exp;
     director.construct(*ep, tb_exp);
-    expect_pmc_invariant(tb_exp.text(), "Experiment/Stufe2");
+    expect_pmc_invariant(tb_exp.text(), "Experiment/Stufe2", amd);
+
+    // (5) DIE GEGENRICHTUNG, die es vor dem 10.08. nicht gab: ein Host OHNE benutzbare PMU bekommt KEIN
+    //     Flag -- in ALLEN vier Emissionen. Ohne diese Haelfte koennte man die Erkennung wieder ausbauen
+    //     (unbedingtes ON) und der Test bliebe gruen.
+    planner::PmcHostBefund const    ohne = befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor");
+    planner::ExperimentPlanDirector director_ohne;
+    director_ohne.set_pmc_befund(ohne);
+    planner::CiYamlBuilder cb_ohne;
+    director_ohne.construct(*tp, cb_ohne);
+    expect_pmc_invariant(cb_ohne.text(), "Thesis/Stufe1 OHNE PMU", ohne);
+    planner::TierCiYamlBuilder tb_ohne;
+    director_ohne.construct(*tp, tb_ohne);
+    expect_pmc_invariant(tb_ohne.text(), "Thesis/Stufe2 OHNE PMU", ohne);
 }
 
 // (M-2/B2, Zusatz) Die Invariante haengt an der SACHE, nicht an der Konfigurations-Nachbarschaft: der
 //       PMC-Zusatz sitzt VOR -DCMAKE_BUILD_TYPE und laesst damit die W2-Nachbarschaft (BUILD_TYPE direkt
 //       gefolgt vom Combo-Define) unberuehrt. Das ist keine Kosmetik -- die W2-Pins oben lesen genau diese
 //       Nachbarschaft und wuerden bei einer Einschiebung dazwischen still ihre Aussage verlieren.
+//       I-PMC-2: der Vendor haengt sich HINTER das ON und bleibt damit innerhalb desselben Blocks; die
+//       Nachbarschaft BUILD_TYPE/Combo ist unveraendert.
 TEST(PmcPflichtInvariante, FlagStehtVorDemBuildTypUndLaesstDieComboNachbarschaftIntakt) {
     auto tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     tp->measurement_tooling = {{"wallclock"}};
-    planner::ExperimentPlanDirector const director;
-    planner::CiYamlBuilder                cb;
+    planner::ExperimentPlanDirector director;
+    director.set_pmc_befund(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
+    planner::CiYamlBuilder cb;
     director.construct(*tp, cb);
     std::string const& s1 = cb.text();
 
-    EXPECT_NE(s1.find("-DCOMDARE_V32_ENABLE=ON -DCOMDARE_ENABLE_PMC=ON -DCMAKE_BUILD_TYPE=Release"), std::string::npos)
+    EXPECT_NE(s1.find("-DCOMDARE_V32_ENABLE=ON -DCOMDARE_ENABLE_PMC=ON -DCOMDARE_PMC_VENDOR=amd "
+                      "-DCMAKE_BUILD_TYPE=Release"),
+              std::string::npos)
         << "PMC-Zusatz steht zwischen V32-Schalter und Build-Typ (Reihenfolge der beiden super-Mess-Jobs)";
     EXPECT_NE(s1.find("-DCMAKE_BUILD_TYPE=Release \"-DCOMDARE_MEASUREMENT_COMBO=[wallclock]\""), std::string::npos)
         << "die W2-Nachbarschaft (Build-Typ direkt gefolgt vom Combo-Define) bleibt unangetastet";
+}
+
+// =============================================================================
+// PMC ALS META-META-MESS-ACHSE (Owner 10.08.2026) -- DIE ERKENNUNG, DIE HEUTE FEHLT.
+// =============================================================================
+// OWNER-WORTLAUT (10.08.2026, verbatim): "Dabei erkennt jeder Planer auf jeder Maschine fuer sich, ob PMC
+// existiert und ob daher das PMC in der CEB verbaut wird."
+// OWNER-PRAEZISIERUNG (10.08.2026): "Moment mal JEDER Planer? Es gibt ja nur einen Planer" -- am Objekt
+// gezaehlt gibt es GENAU EINEN (apps/experiment_planner, ein add_executable). "Jeder Planer auf jeder
+// Maschine" meint also jeden LAUF dieses EINEN Programms auf einem Host: DIESELBE Binary muss auf prod1
+// und prod2 zu VERSCHIEDENEN Ergebnissen kommen.
+//
+// DER DEFEKT IN EINEM SATZ: ceb_pmc_compile_define() nahm KEIN Argument und lieferte unbedingt
+// " -DCOMDARE_ENABLE_PMC=ON" -- der Planer ERKANNTE also nichts, er BEHAUPTETE. Auf einem Host ohne
+// benutzbare PMU emittierte er exakt dieselben Bytes wie auf prod1, und die dort gebaute CEB meldete
+// pmc_available=0 bei vollem Messfuehler-Overhead. Zwei nicht vergleichbare Ergebnisse unter einem Namen.
+//
+// DIESE WACHE PRUEFT DIE AUSSAGE, NICHT DIE ANWESENHEIT (T-2): sie zaehlt von den TREIBER-BAU-Zeilen aus
+// (derselbe Nenner wie die F9-Invariante darueber) und verlangt, dass JEDE von ihnen eine PMC-BEFUND-Zeile
+// traegt, die die gemessene Lage NENNT -- auch und gerade im Fall "unbrauchbar" (V-1: der Nenner gehoert in
+// die Ausgabe; eine Emission, die zu PMC schweigt, ist von einer ungeprueften nicht unterscheidbar).
+namespace {
+
+// Der Befund der Befund-Annotation. Beide Zahlen beziehen sich auf DENSELBEN Nenner (driver_builds).
+struct PmcBefundReport {
+    std::size_t              driver_builds = 0; // NENNER: Zeilen, die den Mess-Treiber bauen
+    std::size_t              annotiert     = 0; // davon: mit PMC-BEFUND-Zeile im Block davor
+    std::vector<std::string> fehlstellen;       // die unannotierten Treiber-Bau-Zeilen, woertlich
+};
+
+// Der EINE Pruefer. Ausgangspunkt ist wieder die Treiber-Bau-Zeile (der Nenner). Die Befund-Zeile wird im
+// FENSTER der drei Zeilen davor gesucht -- sie steht als YAML-Kommentar unmittelbar vor dem Configure,
+// darf aber nicht daran kleben (sonst braeche jede Umformulierung des Configure die Wache aus dem
+// falschen Grund).
+PmcBefundReport pmc_befund_annotation(std::string const& emitted) {
+    static constexpr char const* kDriverBuild = "cmake --build build --target comdare-messung-driver";
+    static constexpr char const* kBefund      = "PMC-BEFUND";
+
+    PmcBefundReport                rep;
+    std::vector<std::string> const lines = split_lines(emitted);
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (lines[i].find(kDriverBuild) == std::string::npos) continue;
+        ++rep.driver_builds;
+        bool              gefunden = false;
+        std::size_t const von      = i >= 3 ? i - 3 : 0;
+        for (std::size_t j = von; j < i; ++j)
+            if (lines[j].find(kBefund) != std::string::npos) gefunden = true;
+        if (gefunden)
+            ++rep.annotiert;
+        else
+            rep.fehlstellen.push_back("Treiber-Bau ohne PMC-BEFUND-Zeile: " + lines[i]);
+    }
+    return rep;
+}
+
+void expect_pmc_befund_annotation(std::string const& emitted, char const* wo) {
+    PmcBefundReport const rep = pmc_befund_annotation(emitted);
+    std::string           fehl;
+    for (auto const& f : rep.fehlstellen) fehl += "\n    - " + f;
+    EXPECT_GT(rep.driver_builds, 0u) << wo << ": Wache leer gelaufen -- kein Treiber-Bau in der Emission.";
+    EXPECT_EQ(rep.annotiert, rep.driver_builds)
+        << wo << ": " << rep.driver_builds << " Treiber-Bau-Zeilen geprueft, davon " << rep.annotiert
+        << " mit einer PMC-BEFUND-Zeile. Ohne sie behauptet die Emission ihre PMC-Lage, statt sie zu "
+           "nennen -- der Leser der Kind-Pipeline kann nicht unterscheiden, ob der Planer gemessen hat "
+           "oder ob er geraten hat (Owner 10.08.2026: 'erkennt ... fuer sich')."
+        << fehl;
+}
+
+} // namespace
+
+// GEGENPROBE ZUERST (Regel 6 in Testform): findet das Verfahren ueberhaupt? Ohne diesen Schritt waere ein
+// spaeteres "0 Fehlstellen" nicht von "der Pruefer sucht am falschen Ort" zu unterscheiden.
+TEST(PmcMetaMetaAchse, DerBefundPrueferBeisstAmKunsttext) {
+    std::string const     kunstlich = std::string{} + "    # PMC-BEFUND lage=amd quelle=perf_event_open+cpuid\n"
+                                                      "    - cmake -B build -G Ninja -DCOMDARE_ENABLE_PMC=ON\n"
+                                                      "    - cmake --build build --target comdare-messung-driver\n"
+                                                      "    - cmake -B build -G Ninja\n"
+                                                      "    - cmake --build build --target comdare-messung-driver\n";
+    PmcBefundReport const probe     = pmc_befund_annotation(kunstlich);
+    ASSERT_EQ(probe.driver_builds, 2u) << "Gegenprobe: der Pruefer muss GENAU die 2 Treiber-Bau-Zeilen sehen";
+    ASSERT_EQ(probe.annotiert, 1u) << "Gegenprobe: GENAU eine der beiden traegt die Befund-Zeile";
+    ASSERT_EQ(probe.fehlstellen.size(), 1u) << "Gegenprobe: der Pruefer BEISST -- er meldet die stumme Stelle";
+}
+
+TEST(PmcMetaMetaAchse, JedeTreiberEmissionNenntDenGemessenenHostBefund) {
+    planner::ExperimentPlanDirector const director;
+
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::CiYamlBuilder cb;
+    director.construct(*tp, cb);
+    expect_pmc_befund_annotation(cb.text(), "Thesis/Stufe1 CiYamlBuilder (ceb:build + ceb:emit)");
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    expect_pmc_befund_annotation(tb.text(), "Thesis/Stufe2 TierCiYamlBuilder (tier-build-batch + measure-batch)");
+
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+    planner::CiYamlBuilder cb_exp;
+    director.construct(*ep, cb_exp);
+    expect_pmc_befund_annotation(cb_exp.text(), "Experiment/Stufe1");
+    planner::TierCiYamlBuilder tb_exp;
+    director.construct(*ep, tb_exp);
+    expect_pmc_befund_annotation(tb_exp.text(), "Experiment/Stufe2");
+}
+
+// ================================================================================================
+// DER DEFEKT IN EINEM SATZ -- und sein Gegenbeweis.
+// ================================================================================================
+// VOR DEM 10.08.2026 emittierte DIESELBE Planer-Binary auf einem Host MIT PMU und auf einem Host OHNE
+// PMU BYTE-GLEICH dasselbe: ceb_pmc_compile_define() nahm kein Argument. Die beiden entstehenden CEBs
+// unterschieden sich im Messfuehler-Overhead, hiessen aber gleich -- Owner 10.08.2026: "was die
+// Ergebnisse wiederum NICHT VERGLEICHBAR macht".
+// DIESER TEST IST DER GEGENBEWEIS: drei Lagen, drei paarweise VERSCHIEDENE Emissionen. Er ist die
+// Wache, die verhindert, dass die Erkennung wieder still zu einer Behauptung zurueckgebaut wird.
+TEST(PmcMetaMetaAchse, DreiBefundeErzeugenDreiVerschiedeneEmissionen) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    auto emission = [&tp](planner::PmcHostBefund const& b) {
+        planner::ExperimentPlanDirector d;
+        d.set_pmc_befund(b);
+        planner::CiYamlBuilder cb;
+        d.construct(*tp, cb);
+        return cb.text();
+    };
+    std::string const amd   = emission(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
+    std::string const intel = emission(befund_mit(planner::PmcLage::Intel, "GenuineIntel"));
+    std::string const ohne  = emission(befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor"));
+
+    // PAARWEISE verschieden -- nicht nur "irgendwie anders". Zwei gleiche Emissionen aus zwei Lagen
+    // waeren exakt der Alt-Zustand, nur an einer anderen Stelle.
+    EXPECT_NE(amd, intel) << "amd und intel emittieren gleich -- die ZWEI Hardware-Komponenten sind zu "
+                             "einer kollabiert (Owner 10.08.2026: 'ES SIND 2 VERSCHIEDENE HARDWARE "
+                             "KOMPONENTEN NICHT EIN PMC').";
+    EXPECT_NE(amd, ohne) << "PMU-Host und PMU-loser Host emittieren gleich -- DAS ist der Defekt, gegen den "
+                            "diese Achse gebaut ist.";
+    EXPECT_NE(intel, ohne) << "PMU-Host und PMU-loser Host emittieren gleich (intel-Seite).";
+
+    // Und die Aussage, nicht nur die Ungleichheit: WAS steht drin.
+    EXPECT_NE(amd.find("-DCOMDARE_PMC_VENDOR=amd"), std::string::npos);
+    EXPECT_EQ(amd.find("-DCOMDARE_PMC_VENDOR=intel"), std::string::npos);
+    EXPECT_NE(intel.find("-DCOMDARE_PMC_VENDOR=intel"), std::string::npos);
+    EXPECT_EQ(intel.find("-DCOMDARE_PMC_VENDOR=amd"), std::string::npos);
+    EXPECT_EQ(ohne.find("-DCOMDARE_ENABLE_PMC=ON"), std::string::npos) << "der PMU-lose Host darf KEIN ON emittieren";
+    // ... und er schweigt trotzdem nicht (T-2: Aussage statt Abwesenheit).
+    EXPECT_NE(ohne.find("PMC-BEFUND lage=unbrauchbar"), std::string::npos)
+        << "der PMU-lose Host muss seine Lage NENNEN -- sonst ist er von einem ungeprueften nicht zu "
+           "unterscheiden";
+}
+
+// --dump-plan: dieselbe Sache eine Ebene hoeher. Der Plan-Text ist die Form, in der ein Mensch den Plan
+// liest; wenn DORT die Lage fehlt, ist die Erkennung fuer den Leser nicht existent.
+TEST(PmcMetaMetaAchse, DumpPlanNenntDieLageUndUnterscheidetSichGenauDarin) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_MIN);
+    ASSERT_TRUE(tp.has_value());
+    auto plan = [&tp](planner::PmcHostBefund const& b) {
+        planner::ExperimentPlanDirector d;
+        d.set_pmc_befund(b);
+        planner::PlanTextBuilder pb;
+        d.construct(*tp, pb);
+        return pb.text();
+    };
+    std::string const amd  = plan(befund_mit(planner::PmcLage::Amd, "AuthenticAMD"));
+    std::string const ohne = plan(befund_mit(planner::PmcLage::Unbrauchbar, "SomeOtherVendor"));
+    EXPECT_NE(amd.find("pmc_befund=amd events=3/4 erhoben=1\n"), std::string::npos) << "amd-Plan:\n" << amd;
+    EXPECT_NE(ohne.find("pmc_befund=unbrauchbar events=0/4 erhoben=1\n"), std::string::npos) << "ohne-Plan:\n" << ohne;
+
+    // GENAU DARIN unterschiedlich: alle uebrigen Zeilen bleiben host-unabhaengig (Format-Zusage des
+    // PlanTextBuilder-Kopfs). Der Nenner steht in der Diagnose -- eine nackte "1" waere kein Befund.
+    std::vector<std::string> const la = split_lines(amd);
+    std::vector<std::string> const lo = split_lines(ohne);
+    ASSERT_EQ(la.size(), lo.size()) << "Zeilenzahl unterscheidet sich -- die Aenderung ist nicht EINE Zeile";
+    std::size_t              abweichungen = 0;
+    std::vector<std::string> welche;
+    for (std::size_t i = 0; i < la.size(); ++i)
+        if (la[i] != lo[i]) {
+            ++abweichungen;
+            welche.push_back(la[i] + "   |   " + lo[i]);
+        }
+    std::string sicht;
+    for (auto const& w : welche) sicht += "\n    - " + w;
+    EXPECT_EQ(abweichungen, 1u) << la.size() << " Plan-Zeilen verglichen, " << abweichungen
+                                << " abweichend (SOLL 1: nur pmc_befund=)." << sicht;
+}
+
+// ================================================================================================
+// DIE HOST-PROBE SELBST (I-PMC-2) -- vier Fake-Lagen + eine REALE.
+// ================================================================================================
+// Die Syscall-Schicht ist ein statischer Strategy-Parameter. Genau deshalb sind alle Lagen auf JEDER
+// Maschine pruefbar -- auch die, die hier physisch nicht herstellbar ist (intel auf prod1/AuthenticAMD).
+namespace {
+
+// (a) Der Zaehler oeffnet gar nicht -- Rechte, Container, paranoid=3.
+struct FakeOeffnetNicht {
+    static std::string cpuid_vendor() { return "AuthenticAMD"; }
+    static bool event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const&) noexcept { return false; }
+};
+// (b) Der Zaehler oeffnet, liefert aber nichts (t_running==0 / Multiplexing / Kern-Migration).
+//     FUER DEN TEST IST DAS DASSELBE SIGNAL WIE (a): der Koeder hat nicht gebissen. Die Strategie
+//     unterscheidet die beiden Ursachen bewusst NICHT -- sie sind fuer die Frage "kann diese Maschine
+//     PMC messen" dieselbe Antwort, und eine Unterscheidung waere eine Behauptung ueber die Ursache.
+using FakeOeffnetOhneWert = FakeOeffnetNicht;
+// (c) Alles beisst, Vendor Intel.
+struct FakeIntelBeisst {
+    static std::string cpuid_vendor() { return "GenuineIntel"; }
+    static bool        event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const&) noexcept { return true; }
+};
+// (d) Alles beisst -- aber die Hardwareform ist unbekannt.
+struct FakeFremdeHardware {
+    static std::string cpuid_vendor() { return "SomeRiscVThing"; }
+    static bool        event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const&) noexcept { return true; }
+};
+// Teilverfuegbarkeit: NUR der L1D-Zaehler beisst. Das ist die reale prod1-Lage (Zen 5 kennt den
+// generischen Last-Level-Zaehler nicht) und MUSS brauchbar sein -- ein UND-Kriterium erklaerte hier
+// ausgerechnet die Maschine fuer PMC-los, auf der PMC beweisbar laeuft.
+struct FakeNurL1dBeisst {
+    static std::string cpuid_vendor() { return "AuthenticAMD"; }
+    static bool        event_beisst(::comdare::cache_engine::measurement::PmcEventSpec const& ev) noexcept {
+        return ev.name == std::string_view{"cache_misses_l1"};
+    }
+};
+
+// FREMDER NENNER (T-3): der Vendor kommt fuer die Real-Probe NICHT aus derselben cpuid-Quelle, die die
+// Probe benutzt, sondern aus /proc/cpuinfo -- vom Test selbst gelesen. Sonst prueft die Probe sich selbst.
+std::string vendor_aus_proc_cpuinfo() {
+    std::ifstream f{"/proc/cpuinfo"};
+    std::string   zeile;
+    while (std::getline(f, zeile)) {
+        if (zeile.rfind("vendor_id", 0) != 0) continue;
+        std::size_t const dp = zeile.find(':');
+        if (dp == std::string::npos) return {};
+        std::string v = zeile.substr(dp + 1);
+        while (!v.empty() && (v.front() == ' ' || v.front() == '\t')) v.erase(v.begin());
+        while (!v.empty() && (v.back() == ' ' || v.back() == '\t' || v.back() == '\r')) v.pop_back();
+        return v;
+    }
+    return {};
+}
+
+} // namespace
+
+TEST(PmcHostProbe, KeinBissIstUnbrauchbarUndNenntDenGrund) {
+    auto const b = planner::probe_pmc_host<FakeOeffnetNicht>();
+    EXPECT_EQ(b.lage, planner::PmcLage::Unbrauchbar);
+    EXPECT_TRUE(b.probe_gefahren) << "die Probe LIEF -- das ist etwas anderes als 'nicht erhoben'";
+    EXPECT_EQ(b.events_gebissen, 0u);
+    EXPECT_GT(b.events_geprueft, 0u) << "der Nenner darf nie 0 sein, sonst ist die 0 im Zaehler bedeutungslos";
+    EXPECT_FALSE(b.fehlgrund.empty()) << "fail-loud: ein unbrauchbarer Befund MUSS seinen Grund nennen";
+    EXPECT_EQ(b.fehlgrund, std::string{"koeder_hat_nicht_gebissen"});
+    EXPECT_TRUE(b.vendor_id().empty()) << "es gibt keinen Default-Vendor";
+}
+
+// K13 IN TESTFORM: oeffnen genuegt NICHT. Wer hier lockert (Biss-Pruefung raus), bekommt auf einer
+// Maschine mit Zaehlern-ohne-Hardware-Zeit ein ON und misst strukturell Nullen.
+TEST(PmcHostProbe, OeffnenOhneWertZaehltNichtAlsBiss) {
+    auto const b = planner::probe_pmc_host<FakeOeffnetOhneWert>();
+    EXPECT_EQ(b.lage, planner::PmcLage::Unbrauchbar);
+    EXPECT_EQ(b.events_gebissen, 0u);
+}
+
+TEST(PmcHostProbe, IntelMitBissWirdIntel) {
+    auto const b = planner::probe_pmc_host<FakeIntelBeisst>();
+    EXPECT_EQ(b.lage, planner::PmcLage::Intel);
+    EXPECT_EQ(b.vendor_id(), std::string_view{"intel"});
+    EXPECT_EQ(b.events_gebissen, b.events_geprueft);
+    EXPECT_TRUE(b.fehlgrund.empty());
+    EXPECT_NE(b.nenner_zeile().find("lage=intel"), std::string::npos) << b.nenner_zeile();
+    EXPECT_NE(b.nenner_zeile().find("beweist-nicht=runner-host"), std::string::npos)
+        << "die Zeile MUSS ihre eigene Grenze nennen: der Planer-Host ist nicht der Runner-Host";
+}
+
+TEST(PmcHostProbe, UnbekannteHardwareformIstUnbrauchbarObwohlDieZaehlerBeissen) {
+    auto const b = planner::probe_pmc_host<FakeFremdeHardware>();
+    EXPECT_EQ(b.lage, planner::PmcLage::Unbrauchbar) << "fail-closed: eine Hardwareform, die die Registry "
+                                                        "nicht kennt, kann im CEB-Stempel nicht benannt werden";
+    EXPECT_EQ(b.events_gebissen, b.events_geprueft) << "die Zaehler HABEN gebissen -- der Grund ist der Vendor";
+    EXPECT_EQ(b.fehlgrund, std::string{"unbekannte_hardwareform"});
+}
+
+// DIE KORREKTUR AM ENTWURF, als Test: Teilverfuegbarkeit ist BRAUCHBAR. Die reale Quelle definiert ihre
+// Ehrlichkeit als ODER (ready_ = l1d || ll || dtlb || branch), und prod1 (Zen 5) hat strukturell keinen
+// generischen Last-Level-Zaehler -- misst aber nachweislich PMC (Job 189916).
+TEST(PmcHostProbe, TeilverfuegbarkeitIstBrauchbarUndDerBissVektorSagtWelche) {
+    auto const b = planner::probe_pmc_host<FakeNurL1dBeisst>();
+    EXPECT_EQ(b.lage, planner::PmcLage::Amd);
+    EXPECT_EQ(b.events_gebissen, 1u);
+    EXPECT_EQ(b.events_geprueft, 4u);
+    EXPECT_NE(b.biss_vektor.find("cache_misses_l1=1"), std::string::npos) << b.biss_vektor;
+    EXPECT_NE(b.biss_vektor.find("cache_misses_l3_ll=0"), std::string::npos) << b.biss_vektor;
+    // Der Vektor nennt ALLE vier -- eine Teilaussage waere schlimmer als keine.
+    EXPECT_EQ(std::count(b.biss_vektor.begin(), b.biss_vektor.end(), '='), 4);
+}
+
+// (e) DIE REALE PROBE auf DIESER Maschine. Sie darf nicht behaupten, was der fremde Nenner nicht deckt.
+TEST(PmcHostProbe, RealeProbeStimmtMitProcCpuinfoUeberein) {
+    auto const        b     = planner::probe_pmc_host<>();
+    std::string const fremd = vendor_aus_proc_cpuinfo();
+    ASSERT_FALSE(fremd.empty()) << "Gegenprobe: /proc/cpuinfo liefert keinen vendor_id -- der fremde Nenner "
+                                   "existiert nicht, der Test kann nichts aussagen";
+    EXPECT_TRUE(b.probe_gefahren);
+    EXPECT_EQ(b.events_geprueft, 4u) << "der Event-Satz ist die EINE Liste (measurement::kPmcEvents)";
+    if (b.lage == planner::PmcLage::Unbrauchbar) {
+        EXPECT_FALSE(b.fehlgrund.empty()) << "unbrauchbar OHNE Grund waere eine stille Null";
+        GTEST_SKIP() << "diese Maschine meldet PMC unbrauchbar (" << b.fehlgrund << "); die Vendor-Aussage "
+                     << "ist dann gegenstandslos. Nenner-Zeile: " << b.nenner_zeile();
+    }
+    EXPECT_EQ(b.cpuid_vendor, fremd) << "die cpuid-Probe widerspricht /proc/cpuinfo -- eine der beiden luegt";
+    EXPECT_GT(b.events_gebissen, 0u) << "brauchbar OHNE Biss ist konstruktiv unmoeglich; wenn das hier "
+                                        "faellt, ist das Kriterium gebrochen";
+    std::cout << "[REALE PROBE] " << b.nenner_zeile() << "\n";
 }
 
 // (S6-P1 g/h) §61-MODI: der Mess-Job traegt (g) den smoke=Debug-Branch (parallel/schnell) + measure=Release (sonst),
