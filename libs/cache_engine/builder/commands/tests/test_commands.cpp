@@ -341,9 +341,9 @@ TEST(MultiAxisAutoPermutator, EmptyAxisListGivesEmptyPlan) {
     EXPECT_EQ(plan.cartesian_size(), 0u);
 }
 
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
 // D4-Schwesterstelle (T-6), SECHSTE Fundstelle derselben Klasse (2026-08-09)
-// ═════════════════════════════════════════════════════════════════════════════════════════════
+// =================================================================================================
 //
 // Das Suchmuster war "die Null wird als DIVISIONS-Gefahr gerettet und nicht als DATEN-Aussage
 // behandelt". Der Fallback-Pfad ohne Latenz-Samples rettet throughput_ratio_ bei Nenner 0 auf

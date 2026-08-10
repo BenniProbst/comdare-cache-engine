@@ -58,7 +58,7 @@ template <class T>
 
 } // namespace
 
-// ── DER GEGENEINGANG ZUERST (T-4): beisst die Probe ueberhaupt? ────────────────────────────────
+// -- DER GEGENEINGANG ZUERST (T-4): beisst die Probe ueberhaupt? ----------------------------------
 // Ohne diesen Nachweis koennte der eigentliche Test konstant gruen sein.
 TEST(Warn1D2FingerprintKoeder, DieProbeUnterscheidetIhreZweiHypothesen) {
     std::uint64_t const erwartetes_muster = []() {
@@ -77,7 +77,7 @@ TEST(Warn1D2FingerprintKoeder, DieProbeUnterscheidetIhreZweiHypothesen) {
         << "Die Wache ist konstant rot -- dann unterscheidet sie ebenfalls nichts.";
 }
 
-// ── DIE ZUSICHERUNG AM ECHTEN TYP ──────────────────────────────────────────────────────────────
+// -- DIE ZUSICHERUNG AM ECHTEN TYP ----------------------------------------------------------------
 TEST(Warn1D2FingerprintKoeder, PermutationResultNulltSeineSkalareAuchAufSchmutzigemSpeicher) {
     using comdare::experiment::PermutationResult;
 

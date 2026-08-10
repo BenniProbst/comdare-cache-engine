@@ -4,7 +4,7 @@
 //
 // WARUM DIESE DATEI ENTSTEHT (der Befund, gemessen am 09.08. gegen 3454 verfolgte C/C++-Dateien):
 // dieselbe 16-spaltige Kopfzeile stand als LITERAL an vier Stellen des cache-engine-Baums --
-//   * builder/measurement_snapshot.hpp:191  (volle Sicht, 16 + 9 Zusatzspalten)
+//   * builder/measurement_snapshot.hpp:192  (volle Sicht, 16 + 9 Zusatzspalten)
 //   * builder/measurement_snapshot.hpp:223  (serialize_measurements_pipeline16_csv)
 //   * libs/execution_engine/src/result_aggregator.cpp:63 (ResultAggregator::export_csv)
 //   * apps/f15_compare/main.cpp:496         (--pipeline-csv)
