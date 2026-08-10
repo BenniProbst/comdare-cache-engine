@@ -131,8 +131,9 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
 
     // (b4) miss: nie eingefügte Keys → kein Treffer.
     for (std::uint64_t k : {2ull, 100ull, 65534ull, 0x1234567800000000ull}) {
-        if (oracle.find(k) == oracle.end())
+        if (oracle.find(k) == oracle.end()) {
             EXPECT_FALSE(c.lookup(k).has_value()) << name << ": miss erwartet key=" << k;
+        }
     }
 
     // (b5) erase jeden zweiten Key: bool-Rückgabe + occupied_count bit-identisch.

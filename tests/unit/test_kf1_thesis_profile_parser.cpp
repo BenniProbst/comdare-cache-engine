@@ -3,9 +3,10 @@
 // Liest das echte cacheline_study.profile.xml und prueft die geparste Struktur.
 //
 // Build (standalone):
-//   g++ -std=c++23 test_kf1_thesis_profile_parser.cpp \
-//       ../../libs/common/serialization/xml_config_parser/xml_config_parser.cpp \
-//       -I../../libs/common/serialization/xml_config_parser -o test_kf1.exe
+/*   g++ -std=c++23 test_kf1_thesis_profile_parser.cpp \
+ *       ../../libs/common/serialization/xml_config_parser/xml_config_parser.cpp \
+ *       -I../../libs/common/serialization/xml_config_parser -o test_kf1.exe
+ */
 
 #include "xml_config_parser.hpp"
 #include "xml_reader.hpp"

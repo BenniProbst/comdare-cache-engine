@@ -96,9 +96,10 @@ TEST(C3bKanalMerge, BaselineUndGateExtrasBildenEINEZeile) {
         std::string const line = facade_compile_line("-O3", march);
 
         EXPECT_NE(line.find("-O3"), std::string::npos) << "opt-Baseline fehlt fuer simd=" << simd_id;
-        if (!march.empty())
+        if (!march.empty()) {
             EXPECT_NE(line.find(march), std::string::npos)
                 << "march-Baseline " << march << " fehlt auf der Zeile fuer simd=" << simd_id;
+        }
         // EINE Zeile: kein Zeilenumbruch, keine zweite Compile-Anweisung.
         EXPECT_EQ(line.find('\n'), std::string::npos) << "Die Compile-Zeile darf nie mehrzeilig werden.";
     }

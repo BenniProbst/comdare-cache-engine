@@ -27,7 +27,7 @@ void expect_matches_oracle(SwissTableSearchAlgo const& table, std::map<std::uint
         EXPECT_EQ(*got, kv.second) << phase << " key=" << static_cast<std::uint32_t>(kv.first);
     }
     for (std::uint16_t k : touched) {
-        if (!oracle.contains(k)) EXPECT_FALSE(table.lookup(k).has_value()) << phase << " erased key=" << k;
+        if (!oracle.contains(k)) { EXPECT_FALSE(table.lookup(k).has_value()) << phase << " erased key=" << k; }
     }
 }
 

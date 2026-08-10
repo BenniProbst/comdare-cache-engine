@@ -406,7 +406,7 @@ TEST(MSystemAxisWurzel, CluIstInvariantGegenDieCachelineUnterachse) {
         // Test beisst statt nur gruen zu sein. Diese Zeile faellt, sobald jemand das Literal zurueckholt.
         std::uint64_t const alt = (kFieldBytes * 100u) / (f.cache_lines * 64u);
         EXPECT_EQ(alt, f.alt_erwartung) << "line_bytes=" << f.line_bytes;
-        if (f.line_bytes != 64) EXPECT_NE(alt, clu.value) << "line_bytes=" << f.line_bytes;
+        if (f.line_bytes != 64) { EXPECT_NE(alt, clu.value) << "line_bytes=" << f.line_bytes; }
     }
 }
 
@@ -430,7 +430,7 @@ TEST(MSystemAxisWurzel, StatusInvarianteGiltUeberAlleKategorienUndAchsen) {
         // (1) valid() ist NICHTS anderes als status==Ok -- kein zweiter, abweichender Gueltigkeitsbegriff.
         EXPECT_EQ(sample.valid(), sample.status == m::SampleStatus::Ok);
         // (2) Ein nicht gueltiger Zustand traegt NIE einen Restwert (sonst wanderte eine Zahl in eine n/a-Zelle).
-        if (!sample.valid()) EXPECT_EQ(sample.value, 0u);
+        if (!sample.valid()) { EXPECT_EQ(sample.value, 0u); }
         // (3) Der Status liegt immer im deklarierten Wertebereich der Taxonomie (kein Cast-Loch).
         EXPECT_LT(static_cast<std::size_t>(sample.status), m::kSampleStatusCount);
         // (4) Das Zell-Token ist nie leer -- jede Zelle sagt etwas.

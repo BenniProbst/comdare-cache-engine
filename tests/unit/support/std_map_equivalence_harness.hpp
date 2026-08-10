@@ -82,7 +82,7 @@ void compare_one_variant(Anchor const& anchor, std::uint32_t key_mod, std::uint3
         auto const va = anchor.lookup(static_cast<KA>(q));
         auto const vo = other.lookup(static_cast<KO>(q));
         EXPECT_EQ(va.has_value(), vo.has_value()) << "has_value-Mismatch q=" << q;
-        if (va.has_value() && vo.has_value()) EXPECT_EQ(*va, *vo) << "value-Mismatch q=" << q;
+        if (va.has_value() && vo.has_value()) { EXPECT_EQ(*va, *vo) << "value-Mismatch q=" << q; }
     }
 }
 } // namespace detail

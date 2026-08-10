@@ -105,7 +105,7 @@ void verify_shape_matches_std_map_234_f4(char const* name) {
         EXPECT_EQ(*ov, kv.second) << name << ": Wert key=" << kv.first;
     }
     for (std::uint64_t k : {2ull, 100ull, 65534ull, 0x1234567800000000ull, 0xCAFED00D00000000ull}) {
-        if (!oracle.contains(k)) EXPECT_FALSE(organ.lookup(k).has_value()) << name << ": miss erwartet key=" << k;
+        if (!oracle.contains(k)) { EXPECT_FALSE(organ.lookup(k).has_value()) << name << ": miss erwartet key=" << k; }
     }
     expect_for_each_matches_234_f4(organ, oracle, name, "nach insert/update");
 

@@ -67,7 +67,7 @@ TEST(SurfLoudsFilter, CrossProofS2GeS1) {
     S2R8 s2;
     s2.build_from_sorted_keys(keys);
     for (std::uint64_t q = 0; q <= 100000u; ++q) {
-        if (s1.contains(q)) ASSERT_TRUE(s2.contains(q)) << "S2 FALSE NEGATIVE bei q=" << q;
+        if (s1.contains(q)) { ASSERT_TRUE(s2.contains(q)) << "S2 FALSE NEGATIVE bei q=" << q; }
     }
 }
 
@@ -116,7 +116,9 @@ TEST(SurfLoudsFilter, RangeNoFalseNegativeAgainstStdSet) {
             std::uint64_t const hi    = lo + w;
             auto                it    = gt.lower_bound(lo);
             bool const          truth = (it != gt.end() && *it <= hi);
-            if (truth) ASSERT_TRUE(s2.range_may_exist(lo, hi)) << "RANGE FALSE NEGATIVE [" << lo << "," << hi << "]";
+            if (truth) {
+                ASSERT_TRUE(s2.range_may_exist(lo, hi)) << "RANGE FALSE NEGATIVE [" << lo << "," << hi << "]";
+            }
         }
     }
 }

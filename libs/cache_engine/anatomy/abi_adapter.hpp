@@ -508,7 +508,6 @@ public:
         *out                 = ComdareAllocatorProxyV1{};
         out->format_version  = kAllocatorProxyFormatVersion;
         constexpr auto idbit = std::uint64_t{1} << 0u;
-        constexpr auto stbit = std::uint64_t{1} << 1u;
         constexpr auto orbit = std::uint64_t{1} << 2u;
 
         if constexpr (requires { typename Composition::allocator::family_id; }) {
@@ -520,6 +519,9 @@ public:
         }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+        // Bit 1 (Statistikroute) hat nur hier einen Nutzer -- ohne einkompilierte Statistik ist die
+        // Konstante toter Code (-Wunused-variable, MUTANT-Klasse), darum lebt sie im ifdef-Block.
+        constexpr auto stbit = std::uint64_t{1} << 1u;
         if constexpr (ObservableAxis<typename Composition::allocator> &&
                       requires { container_algorithm_.store_allocator_statistics(); }) {
             auto const a = container_algorithm_.store_allocator_statistics();

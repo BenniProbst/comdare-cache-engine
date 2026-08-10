@@ -405,6 +405,15 @@ void* operator new[](std::size_t n, std::align_val_t a, std::nothrow_t const&) n
     return ms_wache::roh_holen_ausgerichtet(n, static_cast<std::size_t>(a));
 }
 
+// BEGRUENDETE UNTERDRUECKUNG -- die Warnung gilt hier nicht, sie ist ein bewiesenes Falsch-Positiv:
+// Das globale operator new ist in dieser TU durch std::malloc/std::aligned_alloc ersetzt (roh_holen*
+// oben), std::free ist damit der KORREKTE Partner -- ein Fehlpaar ist konstruktiv unmoeglich. GCC 15.3
+// paart die Herkunft aber gegen das DEKLARIERTE operator new, nicht gegen die ersetzte Implementierung;
+// die Meldung entsteht erst unter -O2/-O3, wenn Inlining plus die Mess-Schranke (asm-volatile-Escape in
+// roh_holen) GCC die malloc-Herkunft verdecken. Beleg (10.08.2026): Minimal-Nachbau /tmp/repro3.cpp gibt
+// 3 Meldungen bei -O2/-O3 und 0 bei -O0; ASan-Lauf ohne alloc-dealloc-mismatch.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
 void operator delete(void* p) noexcept { std::free(p); }
 void operator delete[](void* p) noexcept { std::free(p); }
 void operator delete(void* p, std::size_t) noexcept { std::free(p); }
@@ -417,6 +426,7 @@ void operator delete(void* p, std::nothrow_t const&) noexcept { std::free(p); }
 void operator delete[](void* p, std::nothrow_t const&) noexcept { std::free(p); }
 void operator delete(void* p, std::align_val_t, std::nothrow_t const&) noexcept { std::free(p); }
 void operator delete[](void* p, std::align_val_t, std::nothrow_t const&) noexcept { std::free(p); }
+#pragma GCC diagnostic pop
 
 namespace {
 

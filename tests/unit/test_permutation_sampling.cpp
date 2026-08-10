@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -38,7 +39,9 @@ static_assert(stable_id_hash("cache:search:alloc:tds") == 0x3A46BA38E7032099ULL)
 } // namespace
 
 TEST(PermutationSampling, RateOneOrZeroKeepsAll) {
-    for (std::string const& id : {"", "perm_0", "cache:search:alloc:tds"}) {
+    // string_view statt string const&: die Referenz band je Runde ein frisch gebautes std::string-Temporary
+    // (-Wrange-loop-construct); sample_keep nimmt ohnehin string_view -- keine Allokation mehr.
+    for (std::string_view id : {"", "perm_0", "cache:search:alloc:tds"}) {
         EXPECT_TRUE(sample_keep(id, kRateDisabledZero, kSeedA));
         EXPECT_TRUE(sample_keep(id, kRateDisabledOne, kSeedA));
         EXPECT_TRUE(sample_keep(id, kRateDisabledZero, kSeedB));

@@ -144,9 +144,10 @@ TEST(C3aScharfschaltung, EinmalBelegungMitBenanntemVerhalten) {
     EXPECT_EQ(meas::set_active_machine_declaration("intel_avx2", "ddr5_2x32"),
               meas::MachineDeclarationSetResult::AbgelehntAbweichend);
     // Der ALTWERT haelt -- die Ablehnung ist wirksam, nicht bloss eine Meldung.
-    if (meas::live_hostname() == "prod1")
+    if (meas::live_hostname() == "prod1") {
         EXPECT_EQ(meas::active_machine_verdict(), meas::MachineIdentityVerdict::Match)
             << "Nach der Ablehnung muss prod1s Deklaration weiter gelten.";
+    }
 }
 
 // =================================================================================================

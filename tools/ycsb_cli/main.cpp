@@ -211,6 +211,9 @@ inline constexpr std::uint32_t kBinaryVersion = 1u;
 
 } // namespace ycsb_cli
 
+// Lib-Variante (YCSB_CLI_TEST_NO_MAIN): main wird wegkompiliert -- print_help lebt im selben Guard,
+// damit der Helfer nur existiert, wo sein einziger Aufrufer existiert (-Wunused-function, MUTANT-Klasse).
+#ifndef YCSB_CLI_TEST_NO_MAIN
 namespace {
 
 void print_help() {
@@ -232,7 +235,6 @@ void print_help() {
 
 } // namespace
 
-#ifndef YCSB_CLI_TEST_NO_MAIN
 int main(int argc, char const* const* argv) {
     ycsb_cli::CliConfig cfg;
     int                 parse_status = ycsb_cli::parse_args(argc, argv, cfg);
