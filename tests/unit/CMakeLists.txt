@@ -4070,6 +4070,37 @@ add_test(NAME test_buildvariant_dll COMMAND test_buildvariant_dll
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_buildvariant_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
+# MT-L4 (09.08.2026): D4b.2 nachregistriert -- der ECHTE Container-DLL-Round-Trip. Er lag seit
+# 02.06.2026 unregistriert im Baum, 68 Tage, laenger als jede andere unregistrierte Testdatei.
+# DASS ER FEHLTE, STAND SEIT DEM ERSTEN TAG IM REPO: der Kopf seines bereits registrierten
+# Zwillings test_d4b_container_adapter.cpp (D4b.1, in-process, tests/unit/CMakeLists.txt:2351)
+# sagt woertlich "der echte .dll-Round-Trip folgt in D4b.2 (test_d4b_container_dll via
+# AnatomyModuleLoader)". D4b.1 wurde verdrahtet, D4b.2 nicht -- die Schwesterstelle blieb liegen.
+# Der Unterschied ist nicht kosmetisch: D4b.1 prueft den ABI-Adapter IN-PROCESS, D4b.2 prueft
+# dieselbe Gattungs-API ueber die REALE .so-Grenze. Nur der zweite faengt einen Bruch, der erst
+# beim Laden auftritt.
+# DAS PILOT-MODUL EXISTIERT BEREITS und musste nicht gebaut werden: perm_adapter_d12 (:3972/:3983)
+# ist die Adapter-Genus-Permutations-DLL, die test_e24_c10_genus_dll_roundtrip bei :4048 schon als
+# "--gut="-Argument faehrt. Wiring-Muster deshalb 1:1 von dort: Pflicht-Argument per
+# $<TARGET_FILE:...>, add_dependencies auf das DLL-Ziel. Der Test hat ein Pflicht-CLI-Argument
+# (ohne Pfad Exit 2) -- ein add_test ohne Argument waere ein Daueralarm.
+add_executable(test_d4b_container_dll "test_d4b_container_dll.cpp")
+target_compile_features(test_d4b_container_dll PRIVATE cxx_std_23)
+target_include_directories(test_d4b_container_dll PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_d4b_container_dll PRIVATE Boost::mp11 comdare::anatomy_module_loader)
+comdare_set_platform_defines(test_d4b_container_dll)
+add_dependencies(test_d4b_container_dll perm_adapter_d12)
+add_test(NAME test_d4b_container_dll COMMAND test_d4b_container_dll
+    "$<TARGET_FILE:perm_adapter_d12>")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d4b_container_dll)
+set_tests_properties(test_d4b_container_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip;d4b" TIMEOUT 60)
+
 # L-74a — Build-Varianten-DLLs mit den ECHTEN axis_01/09b/12-Wrapper-KLASSEN (DenseBytePageType/Avx512SimdExtension/
 # X86_64HardwareProfile) statt real-geformter Stubs. Brauchen die generierten flags.hpp-Dirs + Boost::mp11 → eigene
 # Registrierung (nicht in der boost-freien Schleife oben). Beweist: die REALEN Library-Wrapper sind DLL-einbaubar.
@@ -4504,6 +4535,31 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e4_contract_xml_to
 # contract-Gates matchen nur explizite -R-Listen -- mit 'contract'-Label waere der Test CI-tot.
 set_tests_properties(test_e4_contract_xml_to_axislevels PROPERTIES LABELS "profiles;e4")
 
+# MT-L4 (09.08.2026): A9b-Guard nachregistriert. Er lag seit 26.07. unregistriert im Baum -- getrackt,
+# uebersetzbar, in KEINER CMakeLists.txt genannt (gemessen: 0 Treffer). Die im Dateikopf genannte
+# Begruendung ("Sammel-Registrierung am Join, laufende Welle ist Konflikt-Zone") ist mit dem Join
+# erledigt; sein Nachbar RF-3 wurde aus demselben Grund am 02.08. nachgezogen (Owner-Entscheid E6).
+# HIER, weil sein Kopf die Include-Wurzeln ausdruecklich als "die des Muster-Blocks von
+# test_e4_contract_xml_to_axislevels" bezeichnet -- der steht direkt darueber. Zusaetzlich zu jenem
+# Block braucht er cache_engine/include (validate_profile.hpp zieht cache_engine/measurement/*), die
+# GENERIERTE Flags-Wurzel fuer Teil 4 und Boost::mp11. Der xml_reader ist header-only; die einzige
+# fremde Uebersetzungseinheit ist der Parser, hier ueber sein Bibliotheks-Ziel statt als roher .cpp-Pfad.
+# Kein gtest (eigenes main, Exit 0/1).
+add_executable(test_a9b_active_deklaration_inert "test_a9b_active_deklaration_inert.cpp")
+target_compile_features(test_a9b_active_deklaration_inert PRIVATE cxx_std_23)
+target_include_directories(test_a9b_active_deklaration_inert PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_BINARY_DIR}/generated")
+target_link_libraries(test_a9b_active_deklaration_inert PRIVATE
+    Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_a9b_active_deklaration_inert)
+add_test(NAME test_a9b_active_deklaration_inert COMMAND test_a9b_active_deklaration_inert)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a9b_active_deklaration_inert)
+set_tests_properties(test_a9b_active_deklaration_inert PROPERTIES LABELS "profiles;a9b;registry" TIMEOUT 60)
+
 # T-1 (2026-08-09): DIE ZWEI PARSES DESSELBEN PROFILS, DIE DASSELBE SAGEN MUESSEN.
 # profile_run_facade.cpp entscheidet aus SEINEM Parse ueber compile_for_perm, profile_run_entry.hpp aus
 # SEINEM ueber die opt x simd-Perm-Schleife. Ueber EINEN Parse sind die beiden Ausdruecke De-Morgan-Duale
@@ -4768,6 +4824,31 @@ foreach(_ident_test test_o4_machine_identity test_c3a_gate_scharfschaltung)
     set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_ident_test})
     set_tests_properties(${_ident_test} PROPERTIES LABELS "identitaet;measurement")
 endforeach()
+
+# MT-L4 (09.08.2026): C-3b nachregistriert -- die SCHWESTERSTELLE, die beim Wiring von C-3a liegen blieb.
+# Der Block darueber holte C-3a mit der Begruendung "ein Identitaets-Test ohne Gate ist ein unsichtbarer
+# Test" in den Bauweg; C-3b prueft DIESELBE Header-Familie (simd_build_gate/simd_organ_requirement/
+# simd_organ_sensibility/simd_sub_axis/machine_simd_signature) und blieb dabei aussen vor. Am Objekt
+# gemessen (09.08.2026): 0 Treffer in dieser Datei, 0 Zeilen in build.ninja -- seit 26.07. nie gebaut.
+# Gleicher Bau-Zuschnitt wie der Nachbar, denn es ist derselbe Include-Kegel; anders als C-3a ist C-3b
+# ein ECHTER gtest (8 TEST()-Faelle), gtest/gtest_main werden also wirklich gezogen.
+# Eigenes Label statt "identitaet": C-3b belegt nicht die Maschinen-IDENTITAET, sondern dass Baseline-march
+# und Gate-Extras auf DERSELBEN Compile-Zeile zusammenlaufen (Bauplan-v3 D2.2) -- ein Beleg-Paket, das
+# nichts aendert und die Vorbedingung jeder Scharfschaltung ist.
+add_executable(test_c3b_kanal_merge_beleg "test_c3b_kanal_merge_beleg.cpp")
+target_compile_features(test_c3b_kanal_merge_beleg PRIVATE cxx_std_23)
+target_include_directories(test_c3b_kanal_merge_beleg PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated")
+target_link_libraries(test_c3b_kanal_merge_beleg PRIVATE gtest gtest_main)
+comdare_set_platform_defines(test_c3b_kanal_merge_beleg)
+target_compile_definitions(test_c3b_kanal_merge_beleg PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_c3b_kanal_merge_beleg COMMAND test_c3b_kanal_merge_beleg)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_c3b_kanal_merge_beleg)
+set_tests_properties(test_c3b_kanal_merge_beleg PROPERTIES LABELS "simd;kanal_merge;measurement" TIMEOUT 60)
 
 # Querschnitt M - W12-A (§43): X.Y.Z-Parse-Helfer + Planer-Selbst-Stempel (leichte TU, keine Registries).
 add_executable(test_m_w12_stamp_bausteine "test_m_w12_stamp_bausteine.cpp")
@@ -5826,6 +5907,35 @@ target_compile_definitions(test_a8s3_csv_klasse_c PRIVATE
 add_test(NAME test_a8s3_csv_klasse_c COMMAND test_a8s3_csv_klasse_c)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a8s3_csv_klasse_c)
 set_tests_properties(test_a8s3_csv_klasse_c PROPERTIES LABELS "a8;csv;standalone;measured")
+
+# MT-L4 (09.08.2026): RF-2 nachregistriert (Kanon-Abschnitt 70.2). Er lag seit 26.07. unregistriert und
+# prueft GENAU DENSELBEN Renderer wie seine beiden Nachbarn hier (format_csv_row/lazy_csv_header,
+# reiner Host-Pfad, kein Tier) -- deshalb steht er hier und nicht bei den Fehlerklassen-Guards.
+# Bau-Zuschnitt identisch zum Nachbarn darueber, inklusive der Mess-Defines: sie beschreiben die
+# uebersetzende TU (der Iterator-Header zieht den Mess-Pfad mit), nicht die geprueften Zeilen.
+# WAS DIE REGISTRIERUNG SOFORT EINGEBRACHT HAT -- der Erstlauf war ROT, an genau EINER Zusicherung:
+# der Test stand auf "18 Latenz-Zellen (6 Op-Arten x 3)", der Renderer schreibt inzwischen eine
+# vierte Zelle je Op-Art (op_<art>_p999_ns) und damit 24. Die Zusicherung war seit dem Tag jener
+# Erweiterung falsch und ist 14 Tage niemandem aufgefallen, weil die Datei nie gebaut wurde.
+# Die Stelle ist repariert und holt ihren Nenner jetzt aus dem D2-Pendant statt aus einem Literal.
+add_executable(test_rf2_admission_marker_inert "test_rf2_admission_marker_inert.cpp")
+target_compile_features(test_rf2_admission_marker_inert PRIVATE cxx_std_23)
+target_include_directories(test_rf2_admission_marker_inert PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_rf2_admission_marker_inert PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_rf2_admission_marker_inert)
+target_compile_definitions(test_rf2_admission_marker_inert PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_rf2_admission_marker_inert COMMAND test_rf2_admission_marker_inert)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_rf2_admission_marker_inert)
+set_tests_properties(test_rf2_admission_marker_inert PROPERTIES
+    LABELS "fehlerklassen;csv;standalone;measured" TIMEOUT 60)
 
 # M-1/H-B (06.08.2026): die Observer-Zellen der CSV sind "n/a" statt 0, wenn die Tier-Binary ohne
 # Observer-Gate gebaut ist. Gleicher Bau-Zuschnitt wie der Nachbar oben (reiner Host-Pfad ueber
