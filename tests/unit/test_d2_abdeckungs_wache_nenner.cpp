@@ -130,10 +130,21 @@ struct Lauf {
 // den PATH gehoben -- die Wache bricht sonst mit "ctest ist nicht im PATH" (Exit 2) ab und
 // wir haetten einen ununterscheidbaren zweiten Grund fuer ein Nicht-0.
 // ---------------------------------------------------------------------------
-[[nodiscard]] Lauf wache_fahren(fs::path const& baum) {
+// Die UNTERGRENZE wird IMMER in den praeparierten Baum umgelenkt (D2, 2026-08-09).
+// Die committete Zahl in scripts/ci_test_inventory_floor.txt gilt fuer den echten
+// Baum (dort 492 Tests, Untergrenze 488). Ein praeparierter Baum hat zwei Tests --
+// er risse jede echte Untergrenze, und JEDER Fall dieser Datei waere rot aus dem
+// falschen Grund. COMDARE_D2_FLOOR_PFAD zeigt deshalb auf eine Datei IM Baum, die
+// der jeweilige Fall selbst schreibt. Schreibt er sie nicht, prueft er damit gerade
+// den fail-closed-Zweig: eine Wache ohne Untergrenze meldet nicht gruen.
+// 'zusatz_env' wird VOR den Aufruf gesetzt (z.B. "COMDARE_WACHE_STRIKT=1 "). Es steht
+// bewusst als Zeichenkette da und nicht als putenv(): der Prozess dieses Tests darf die
+// Variable nicht behalten, sonst faerbte ein Fall den naechsten ein.
+[[nodiscard]] Lauf wache_fahren(fs::path const& baum, std::string const& zusatz_env = "") {
     fs::path const    ctest_dir = fs::path{COMDARE_D2_CTEST_BIN}.parent_path();
-    std::string const befehl =
-        "PATH=\"" + ctest_dir.string() + ":$PATH\" sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
+    fs::path const    floor     = baum / "ci_test_inventory_floor.txt";
+    std::string const befehl = "PATH=\"" + ctest_dir.string() + ":$PATH\" COMDARE_D2_FLOOR_PFAD=\"" + floor.string() +
+                               "\" " + zusatz_env + "sh \"" + wachen_pfad() + "\" \"" + baum.string() + "\" 2>&1";
 
     Lauf  ergebnis;
     FILE* rohr = ::popen(befehl.c_str(), "r");
@@ -181,6 +192,38 @@ public:
         for (auto const& z : zeilen) { aus << z << "\n"; }
     }
 
+    // Die committete Untergrenze dieses Baums. Format wie die echte Datei:
+    // '#'-Kommentare erlaubt, GENAU EINE Wertzeile.
+    void floor_schreiben(int untergrenze) const {
+        std::ofstream aus{wurzel_ / "ci_test_inventory_floor.txt"};
+        aus << "# praepariert von test_d2_abdeckungs_wache_nenner\n" << untergrenze << "\n";
+    }
+
+    // Roher Inhalt, fuer die Formatfaelle (keine Ganzzahl / zwei Wertzeilen).
+    void floor_roh_schreiben(std::string const& inhalt) const {
+        std::ofstream aus{wurzel_ / "ci_test_inventory_floor.txt"};
+        aus << inhalt;
+    }
+
+    // PARTITIONSBRUCH: ein DOPPELNAME, von dem nur EINE Registrierung 'pmc' traegt.
+    // 'ctest -N' zaehlt den Namen einmal (sort -u), '-L pmc' und '-LE pmc' zaehlen ihn
+    // BEIDE -- die Summe wird groesser als die Inventur. Am Objekt gemessen, ctest
+    // 4.3.4: alle=2, -LE pmc=2, -L pmc=1, Summe 3 != 2.
+    void inventur_mit_partitionsbruch_schreiben(std::string const& zwilling, std::string const& normal) const {
+        std::ofstream aus{wurzel_ / "CTestTestfile.cmake"};
+        aus << "add_test(" << zwilling << " \"/bin/true\")\n";
+        aus << "set_tests_properties(" << zwilling << " PROPERTIES LABELS \"pmc\")\n";
+        aus << "add_test(" << zwilling << " \"/bin/true\")\n";
+        aus << "add_test(" << normal << " \"/bin/true\")\n";
+    }
+
+    // Eine CTestTestfile.cmake, an der ctest SELBST scheitert (fehlende Klammer):
+    // Exit 8 mit "Parse error." auf stderr. Das ist etwas anderes als "0 Treffer".
+    void inventur_kaputt_schreiben(std::string const& name) const {
+        std::ofstream aus{wurzel_ / "CTestTestfile.cmake"};
+        aus << "add_test(" << name << " \"/bin/true\"\n";
+    }
+
     [[nodiscard]] fs::path const& pfad() const { return wurzel_; }
 
 private:
@@ -211,6 +254,7 @@ TEST(D2AbdeckungsWacheNenner, UebersprungenerBlockIstRotUndWirdNamentlichGenannt
     // Der Koeder-Test steht NICHT in der Inventur -- genau das ist der Zustand, den ein
     // uebersprungener Registrierungs-Block erzeugt.
     baum.inventur_schreiben({grundstock(marke)});
+    baum.floor_schreiben(1);
     baum.protokoll_schreiben(
         {"BLOCK|" + block + "|UEBERSPRUNGEN|" + fehlt + "|Werkzeug fehlt (praepariert)", "ENDE|1"});
 
@@ -239,6 +283,7 @@ TEST(D2AbdeckungsWacheNenner, GelaufenerBlockIstKeinNennerBefund) {
     PraeparierterBaum baum{marke};
 
     baum.inventur_schreiben({grundstock(marke), gibtes});
+    baum.floor_schreiben(1);
     baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + gibtes + "|Werkzeug vorhanden (praepariert)", "ENDE|1"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
@@ -265,6 +310,7 @@ TEST(D2AbdeckungsWacheNenner, AktivOhneRegistriertenTestIstEinWiderspruch) {
     PraeparierterBaum baum{marke};
 
     baum.inventur_schreiben({grundstock(marke)});
+    baum.floor_schreiben(1);
     baum.protokoll_schreiben(
         {"BLOCK|" + block + "|AKTIV|" + behauptet + "|behauptet gelaufen (praepariert)", "ENDE|1"});
 
@@ -285,6 +331,7 @@ TEST(D2AbdeckungsWacheNenner, FehlendesProtokollIstAbbruchStattGruen) {
     std::string const marke = koeder_marke();
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
+    baum.floor_schreiben(1);
     // kein protokoll_schreiben()
 
     Lauf const lauf = wache_fahren(baum.pfad());
@@ -304,6 +351,7 @@ TEST(D2AbdeckungsWacheNenner, ProtokollOhneEndmarkeIstAbbruch) {
     std::string const block = "koederblock_" + marke;
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
+    baum.floor_schreiben(1);
     baum.protokoll_schreiben({"BLOCK|" + block + "|AKTIV|" + grundstock(marke) + "|abgerissen (praepariert)"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
@@ -318,6 +366,7 @@ TEST(D2AbdeckungsWacheNenner, EndmarkeMitFalscherZahlIstAbbruch) {
     std::string const block = "koederblock_" + marke;
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
+    baum.floor_schreiben(1);
     // Zwei Bloecke geschrieben, Endmarke behauptet drei -- so sieht ein Lauf aus, der nach
     // dem Abschluss noch etwas angehaengt bekommen hat oder unterwegs Zeilen verloren hat.
     baum.protokoll_schreiben({"BLOCK|" + block + "_a|AKTIV|" + grundstock(marke) + "|praepariert",
@@ -338,6 +387,7 @@ TEST(D2AbdeckungsWacheNenner, ProtokollOhneJedenBlockIstAbbruch) {
     std::string const marke = koeder_marke();
     PraeparierterBaum baum{marke};
     baum.inventur_schreiben({grundstock(marke)});
+    baum.floor_schreiben(1);
     baum.protokoll_schreiben({"ENDE|0"});
 
     Lauf const lauf = wache_fahren(baum.pfad());
@@ -345,6 +395,245 @@ TEST(D2AbdeckungsWacheNenner, ProtokollOhneJedenBlockIstAbbruch) {
 
     EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
     EXPECT_TRUE(enthaelt(lauf.ausgabe, "ohne einen einzigen Block")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// ===========================================================================================
+// AB HIER: D2 (Untergrenze) und D2-G3 (drei Wege zu "gruen ohne Vergleich"), 2026-08-09.
+//
+// WARUM DIESE FAELLE HIER STEHEN UND NICHT IN EINER ZWEITEN SHELL-PROBE: derselbe
+// Owner-Entscheid, der oben zitiert ist. Die alte Datei
+// scripts/ci_test_coverage_guard.selbsttest.sh bleibt als Altlast liegen, bekommt aber
+// keine neue Pruefung mehr -- die neuen Faelle sind ctest-Ziele, in Debug wie in Release.
+//
+// GEMEINSAMER NENNER ALLER FAELLE (T-3): der praeparierte Baum hat eine BEKANNTE
+// Testzahl, die der Fall selbst schreibt -- nicht eine, die er vorfindet. Die
+// Untergrenze wird gegen genau diese Zahl gesetzt, nie gegen die echte 488.
+// ===========================================================================================
+
+// -- D2: die Untergrenze beisst -------------------------------------------------------------
+// Der Baum hat 2 Tests, die Untergrenze fordert eine GEWUERFELTE, deutlich groessere
+// Zahl. Vor D2 gab es diese Pruefung nicht: die Wache verlangte nur '> 0'.
+TEST(D2AbdeckungsWacheNenner, UntergrenzeUnterschrittenIstNennerBefundMitBeidenZahlen) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+
+    // Frisch gewuerfelt (K13), garantiert oberhalb der 2 Tests des Baums.
+    int const untergrenze = 1000 + (static_cast<int>(std::strtoul(marke.substr(0, 4).c_str(), nullptr, 16)) % 5000);
+    baum.floor_schreiben(untergrenze);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Untergrenze unterschritten", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 4) << "Eine unterschrittene Untergrenze ist ein NENNER-Befund.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+    // BEIDE Zahlen muessen dastehen -- eine nackte Meldung "zu wenige Tests" waere
+    // nicht nachpruefbar (V-1).
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, std::to_string(untergrenze))) << "Die geforderte Zahl fehlt.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "2")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ROT (NENNER)")) << lauf.ausgabe;
+}
+
+// -- D2, T-4 GEGENEINGANG: genau erreicht ist KEIN Befund -----------------------------------
+// Ohne diesen Fall waere die Zusicherung oben auch von einer Wache erfuellt, die JEDE
+// Untergrenze als unterschritten meldet.
+TEST(D2AbdeckungsWacheNenner, UntergrenzeGenauErreichtIstKeinBefund) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke), "test_zweiter_" + marke});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(2); // exakt die Zahl der geschriebenen Tests
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Untergrenze genau erreicht", lauf, marke);
+
+    EXPECT_NE(lauf.code, 4) << "Gleichstand ist kein Nenner-Befund.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "genau erreicht")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "UNTERSCHRITTEN")) << lauf.ausgabe;
+}
+
+// -- D2 FAIL-CLOSED: keine Untergrenze ist kein "dann eben ohne" ----------------------------
+TEST(D2AbdeckungsWacheNenner, FehlendeUntergrenzeIstAbbruchStattGruen) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    // kein floor_schreiben() -- genau das ist der Pruefgegenstand.
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Untergrenze fehlt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Untergrenze fehlt")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// -- D2 FAIL-CLOSED: unlesbare Untergrenze wird nicht als "keine" behandelt ------------------
+TEST(D2AbdeckungsWacheNenner, UntergrenzeOhneGanzzahlIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_roh_schreiben("# praepariert\n" + marke + "\n"); // Hex-Marke, keine Zahl
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Untergrenze keine Ganzzahl", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "keine reine Ganzzahl")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, marke)) << "Der unbrauchbare Wert gehoert NAMENTLICH in die Meldung.\n"
+                                               << lauf.ausgabe;
+}
+
+TEST(D2AbdeckungsWacheNenner, UntergrenzeMitZweiWertzeilenIstAbbruch) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_roh_schreiben("1\n2\n");
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Untergrenze zweideutig", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "GENAU EINE")) << lauf.ausgabe;
+}
+
+// -- D2-G3.2: der Partitions-Beleg rechnet, statt '==' zu drucken ---------------------------
+// Konstruktion des Widerspruchs: ein DOPPELNAME, von dem eine Registrierung 'pmc' traegt.
+// 'ctest -N' zaehlt den Namen einmal, '-L pmc' und '-LE pmc' zaehlen ihn beide.
+TEST(D2AbdeckungsWacheNenner, PartitionsWiderspruchIstNennerBefundMitBeidenZahlen) {
+    std::string const marke    = koeder_marke();
+    std::string const zwilling = "test_zwilling_" + marke;
+    std::string const normal   = "test_normal_" + marke;
+    PraeparierterBaum baum{marke};
+    baum.inventur_mit_partitionsbruch_schreiben(zwilling, normal);
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + normal + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("Partitions-Widerspruch", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 4) << "Ein Partitions-Widerspruch ist ein NENNER-Befund, kein Abdeckungs-Befund.\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "PARTITIONS-WIDERSPRUCH")) << lauf.ausgabe;
+    // Die Zeile darf nicht wieder nur eine Zeichenkette sein: Summe UND Inventur
+    // muessen als getrennte Zahlen erscheinen, dazu die Differenz.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Summe")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Differenz")) << lauf.ausgabe;
+}
+
+// -- D2-G3.3: ein abgestuerztes ctest ist ein WERKZEUG-Fehler, kein Phantom-Gate ------------
+// Vor der Heilung verschluckte '2>/dev/null' den Grund, und null Namen sahen aus wie
+// "der Selektor trifft nichts".
+TEST(D2AbdeckungsWacheNenner, KaputteInventurIstWerkzeugFehlerKeinPhantomGate) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_kaputt_schreiben(grundstock(marke));
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    // BEWUSST OHNE Untergrenze: der Werkzeug-Fehler muss VOR ihr greifen. Faende die
+    // Wache hier zuerst die fehlende Untergrenze, waere die Diagnose wieder die falsche.
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("ctest abgestuerzt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Ein abgestuerztes Werkzeug ist Umgebung (2), nicht Abdeckung (1).\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "DAS WERKZEUG SELBST HAT VERSAGT")) << lauf.ausgabe;
+    // Der aufgefangene Fehlerkanal MUSS sichtbar sein -- das ist der ganze Punkt.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Parse error")) << "ctest-stderr fehlt in der Ausgabe.\n" << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "PHANTOM-GATE")) << "Falsche Anschuldigung gegen den Selektor.\n"
+                                                         << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "Untergrenze fehlt")) << "Der Werkzeug-Fehler muss zuerst greifen.\n"
+                                                              << lauf.ausgabe;
+}
+
+// -- D2-G3.4: ein ungeprueftes Gate wird gezaehlt und genannt -------------------------------
+// KEINE Rot-Haerte: der Lauf ausserhalb der CI hat diese Variablen zu Recht nicht
+// gesetzt. Geprueft wird, dass die Annahme SICHTBAR ist -- und dass sie den Exit-Code
+// gerade NICHT veraendert (sonst waere jeder lokale Lauf rot).
+TEST(D2AbdeckungsWacheNenner, UngepruefteGatesWerdenGezaehltUndAendernDenRcNicht) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad());
+    lauf_berichten("ungepruefte Gates", lauf, marke);
+
+    // Der Zaehler steht in der Ausgabe, MIT Nenner (V-1: nie eine nackte Zahl).
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "UNGEPRUEFT")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "ANNAHME")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Gate(n)")) << lauf.ausgabe;
+    // Und er macht gerade KEINEN Nenner-Befund daraus.
+    EXPECT_NE(lauf.code, 4) << "Ein ungesetztes Deklarations-Gate ist kein Nenner-Defekt.\n" << lauf.ausgabe;
+    // Der MODUS steht in der Ausgabe -- ohne ihn waere einem gruenen Ergebnis nicht
+    // anzusehen, nach welchem Massstab es zustande kam.
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "Modus")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "WEICH")) << lauf.ausgabe;
+}
+
+// -- STRENG-MODUS (Lead-Entscheid 2026-08-09) -----------------------------------------------
+// Der Schalter beantwortet "wird hier Vollstaendigkeit erwartet?" -- ausdruecklich NICHT
+// "laufe ich in GitLab?". $CI_JOB_ID waere ein Stellvertreter: auf dem baremetal-Zweig des
+// Par. 61 Dual-Wegs waere er leer, die Wache liefe weich, und die Abnahme saehe aus wie ein
+// Freispruch. Diese drei Faelle halten den Schalter an seiner Bedeutung fest.
+TEST(D2AbdeckungsWacheNenner, StrengModusMachtUngepruefteGatesZumFehler) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_WACHE_STRIKT=1 ");
+    lauf_berichten("streng, Variable ungesetzt", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << "Fehlende Auskunft ist ein VERDRAHTUNGS-Fehler (2), kein Befund (1/4).\n"
+                            << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "STRENG")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "OHNE AUSKUNFT")) << lauf.ausgabe;
+    // Die betroffene Variable MUSS namentlich dastehen -- sonst waere die Meldung
+    // nicht behebbar, nur beunruhigend (V-1).
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_PMC_LANES")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
+}
+
+// T-4 GEGENEINGANG: mit gesetzter Variable ist der strenge Lauf gerade NICHT rot.
+// Ohne diesen Fall waere die Zusicherung oben auch von einer Wache erfuellt, die im
+// strengen Modus immer abbricht -- also von Daueralarm.
+TEST(D2AbdeckungsWacheNenner, StrengModusMitGesetzterVariableBrichtNichtAb) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_WACHE_STRIKT=1 COMDARE_PMC_LANES=amd ");
+    lauf_berichten("streng, Variable gesetzt", lauf, marke);
+
+    EXPECT_NE(lauf.code, 2) << "Mit gesetzter Variable darf der strenge Modus nicht abbrechen.\n" << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "STRENG")) << lauf.ausgabe;
+    EXPECT_FALSE(enthaelt(lauf.ausgabe, "OHNE AUSKUNFT")) << lauf.ausgabe;
+}
+
+// Ein unlesbarer Schalter wird nicht als "weich" gelesen -- dieselbe Doktrin wie bei der
+// Untergrenze. Wer 'COMDARE_WACHE_STRIKT=ja' schreibt, meinte streng.
+TEST(D2AbdeckungsWacheNenner, UnlesbarerStrengSchalterIstAbbruchStattWeich) {
+    std::string const marke = koeder_marke();
+    PraeparierterBaum baum{marke};
+    baum.inventur_schreiben({grundstock(marke)});
+    baum.protokoll_schreiben({"BLOCK|kb_" + marke + "|AKTIV|" + grundstock(marke) + "|praepariert", "ENDE|1"});
+    baum.floor_schreiben(1);
+
+    // Der Wert ist die frisch gewuerfelte Marke: garantiert weder '1' noch leer.
+    Lauf const lauf = wache_fahren(baum.pfad(), "COMDARE_WACHE_STRIKT=" + marke + " ");
+    lauf_berichten("Schalter unlesbar", lauf, marke);
+
+    EXPECT_EQ(lauf.code, 2) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, "COMDARE_WACHE_STRIKT")) << lauf.ausgabe;
+    EXPECT_TRUE(enthaelt(lauf.ausgabe, marke)) << "Der unbrauchbare Wert gehoert in die Meldung.\n" << lauf.ausgabe;
     EXPECT_FALSE(enthaelt(lauf.ausgabe, "ABDECKUNGS-WACHE: GRUEN")) << lauf.ausgabe;
 }
 
