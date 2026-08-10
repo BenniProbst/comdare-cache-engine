@@ -96,10 +96,84 @@
 # _COMPILED ist TRUE, und Wert und _EXITCODE decken sich. Faellt eines davon, ist die
 # ISA-Frage UNBEANTWORTBAR -- und das ist Exit 2, nicht 'Merkmal fehlt' und damit gruen.
 #
+# ERLOESCHEN HAT ZWEI RICHTUNGEN -- bis 2026-08-10 kannte diese Wache nur EINE (PA-1).
+# Die alte Frage war: "existiert der Gegenstand WIEDER?" Sie faengt den Fall, dass der
+# Gegenstand zurueckkehrt. Sie faengt NICHT den Fall, dass er NIE zurueckkehren kann --
+# und genau der lag vier Zeilen lang vor:
+#   Alle vier prt-art-Zeilen banden an 'datei:prt_art/include/prt_art/prt_art.hpp'.
+#   Am Objekt gemessen (2026-08-10): 0 Treffer fuer 'prt_art.hpp' unter /home/comdare,
+#   Gegenprobe 'cache_engine.hpp' 45 Treffer -- das Werkzeug sucht. Der Pfad war 2 Tage
+#   lang getrackt (angelegt 2026-05-12 in 5c210581), zog am 2026-05-14 mit 'git mv' nach
+#   libs/deprecated/prt_art_legacy/ (b9abc720, R100, alle 44 Pfade umbenannt) und fiel dort
+#   am 2026-06-01 mit dem ganzen Baum (6b3ed0d9). Seither kann ihn nichts mehr erzeugen.
+#   FOLGE: '[ -e ]' war auf ewig falsch, die vier Zeilen konnten per Konstruktion nie
+#   erloeschen -- eine Freistellung mit unbegrenzter Laufzeit, also genau der Zustand,
+#   gegen den diese Wache gebaut ist. Der Erstlauf gegen einen Baum, dem GENAU diese vier
+#   Dateien fehlten, meldete woertlich "OK (470 Quelldateien, 0 ohne Begruendung)".
+#
+# DIE ZWEITE RICHTUNG heisst hier TOTE AUSNAHME und ist ROT, nicht Warnung: eine Warnung
+# reproduziert exakt die Fehlerklasse (14 bzw. 68 Tage lang ist niemandem etwas aufgefallen),
+# und die Hausregel kennt nur ZELLE=Warnung, JOB=hart rot.
+#
+# WAS DIE WACHE DAFUER WIRKLICH MISST -- und was das NICHT beweist:
+# "Kann nie entstehen" ist nicht entscheidbar, solange man nur den eigenen Baum kennt.
+# Gemessen wird deshalb etwas Engeres und Nachpruefbares: DIESES REPOSITORY ERKLAERT NICHTS
+# UEBER DEN GEGENSTAND. Erklaert ist ein Pfad genau dann, wenn eine der drei Quellen ihn
+# kennt -- der Git-Index (getrackte Datei ODER Submodul-Gitlink), eine .gitignore-Regel
+# (also ein angemeldeter Ablageort fuer Erzeugtes), oder der Index/eine Ignore-Regel fuer
+# sein ELTERNVERZEICHNIS. Kennt keine davon ihn, hat der Gegenstand in diesem Repository
+# keinen Erzeuger.
+# DAS BEWEIST NICHT, dass er nie existieren kann. Jemand kann ihn morgen 'git add'en, ein
+# Pruefling-Repo kann irgendwo eingehaengt werden, ein CI-Job kann ihn hineinkopieren.
+# Bewiesen ist nur: heute nennt ihn keine Quelle dieses Repos. Das genuegt fuer den Zweck --
+# eine Begruendung, deren Gegenstand kein Erzeuger dieses Baums kennt, ist keine
+# Begruendung, sondern ein Freibrief.
+# WEITERE GRENZEN, ausdruecklich: (a) ein Pfad AUSSERHALB des Repos (absolut oder mit einem
+# '..'-Segment) ist so nicht beurteilbar -- er zaehlt als NICHT BEURTEILBAR und wird nie als
+# tot gemeldet; (b) ein Gegenstand OHNE Verzeichnisanteil hat die Repo-Wurzel als Elternteil,
+# und die ist immer bekannt -- er kann deshalb nie als tot auffallen; (c) ein Gegenstand
+# DIREKT in einem vorhandenen Verzeichnis ist immer erreichbar, auch wenn ihn dort nie jemand
+# anlegen wird -- 'tests/unit/erfunden.hpp' faellt nicht auf. Die Regel faengt den Fall, dass
+# ein ganzer ZWEIG fehlt, nicht den, dass ein einzelner Name erfunden ist.
+#
+# WARUM DIE VERZEICHNISSE UND NICHT NUR DER PFAD: ein nicht existierender Pfad ist per
+# Definition weder getrackt noch (meist) ignoriert -- die Frage waere fuer JEDEN abwesenden
+# Gegenstand mit 'ja' zu beantworten und die Regel unbrauchbar. Entschieden wird deshalb an
+# der AHNENREIHE, vom direkten Elternteil aufwaerts, und der ERSTE bekannte Vorfahr gibt die
+# Antwort:
+#   ignoriert       -> erreichbar. 'build/tools/y' darf bei jedem Bau entstehen.
+#   Gitlink (160000)-> erreichbar. Ein nicht ausgechecktes Submodul kann beliebig tief
+#                      etwas mitbringen; sein Inhalt steht nie im Index des Obenprojekts.
+#   getrackter Inhalt, und es ist der DIREKTE Elternteil -> erreichbar. Eine neue Datei in
+#                      einem vorhandenen Verzeichnis ist der Normalfall.
+#   getrackter Inhalt, aber WEITER OBEN -> tot. git zaehlt dieses Verzeichnis vollstaendig
+#                      auf, und der Zweig, den der Gegenstand darunter braucht, ist nicht
+#                      dabei.
+#   gar kein bekannter Vorfahr bis zur Wurzel -> tot.
+# WARUM NICHT NUR DER DIREKTE ELTERNTEIL, am Objekt gefunden (2026-08-10, beim ersten Lauf
+# des Google Tests): der direkte Elternteil von 'ext/<submodul>/include/kopf.hpp' ist
+# 'ext/<submodul>/include' -- und der steht NICHT im Index, weil dort nur der GITLINK
+# 'ext/<submodul>' steht. Die erste Fassung erklaerte diesen Pfad faelschlich fuer tot. Der
+# Fall SubmodulGitlinkIstErreichbar in tests/unit/test_pa1_tote_ausnahme.cpp haelt ihn fest.
+# ACHTUNG, ebenfalls am Objekt gefunden: 'git check-ignore build' meldet NICHT ignoriert,
+# 'git check-ignore build/' meldet ignoriert -- ein Verzeichnismuster braucht den
+# Schraegstrich. Die Abfrage unten stellt beide Formen.
+#
+# DIE DRITTE ART 'frist:' -- fuer die ehrlich unbeweisbare Ausnahme. Es gibt Faelle, in denen
+# es KEINEN erreichbaren Gegenstand gibt, den man nennen koennte; die vier prt-art-Dateien
+# sind genau das (am Objekt gemessen 2026-08-10: KEINER der Header, die sie inkludieren --
+# prt_art/prt_art.hpp, prt_art/concepts/*, prt_art/page_structures/*, prt_art/interpreters/*
+# -- liegt im Nachbarrepo comdare-prt-art; die Verzeichnisse concepts/, page_structures/ und
+# interpreters/ existieren dort nicht). Eine solche Ausnahme darf nicht als Pfad-Fiktion
+# getarnt werden, sie muss als das auftreten, was sie ist: ein geparkter Posten. 'frist:'
+# bindet sie an ein DATUM statt an einen Gegenstand -- danach wird sie ROT. Damit kann auch
+# sie keine unbegrenzte Laufzeit haben.
+#
 # AUFRUF:  sh scripts/ci_test_registrierungs_wache.sh <build-verzeichnis>
 # EXIT:    0 = jede getrackte Test-Quelldatei ist im Bauweg oder begruendet abwesend
 #          1 = mindestens eine Test-Quelldatei OHNE gueltige Begruendung ausserhalb --
-#              ohne Allowlist-Zeile, mit ERLOSCHENER oder mit UNPRUEFBARER Begruendung
+#              ohne Allowlist-Zeile, mit ERLOSCHENER, mit TOTER oder mit UNPRUEFBARER
+#              Begruendung
 #          2 = die Wache konnte nicht pruefen (fail-closed, ausdruecklich KEIN Gruen)
 #
 # GRENZE, EHRLICH BENANNT -- was diese Wache NICHT deckt:
@@ -339,11 +413,133 @@ isa_merkmal() {
 }
 
 # ---------------------------------------------------------------------------
+# DIE ERREICHBARKEITS-PROBE (PA-1, zweite ERLOSCHEN-Richtung).
+# Setzt ERR_ANTWORT auf
+#   nein      -- dieses Repo erklaert den Gegenstand (Index, Gitlink oder .gitignore).
+#                Er kann entstehen; die Ausnahme darf getragen werden.
+#   ja        -- KEINE Quelle dieses Repos kennt ihn. TOTE AUSNAHME.
+#   unbekannt -- der Pfad liegt ausserhalb des Repos; so nicht beurteilbar.
+# Was das NICHT beweist, steht im Kopf. Hier nur die Mechanik.
+# ---------------------------------------------------------------------------
+# JEDE PRUEFUNG STEHT IN EINEM 'if'. Ein blankes '[ ... ] && return 0' waere unter
+# 'set -e' eine Falle: schlaegt der Test fehl, ist der Status der AND-Liste ungleich 0
+# und die ganze Wache braeche wortlos ab -- mit Exit 1, also als "Befund".
+#
+# ':(literal)' schaltet die Pathspec-Magie ab: ein '*' im Gegenstand darf hier nicht
+# als Glob wirken.
+ist_ignoriert() {
+    # Verzeichnismuster in .gitignore ('build/') greifen NUR mit Schraegstrich -- am
+    # Objekt gemessen 2026-08-10: 'check-ignore build' = nicht ignoriert,
+    # 'check-ignore build/' = ignoriert. Beide Formen fragen.
+    if git check-ignore -q -- "$1" 2>/dev/null; then return 0; fi
+    if git check-ignore -q -- "$1/" 2>/dev/null; then return 0; fi
+    return 1
+}
+
+ist_gitlink() {
+    # Modus 160000 = 'commit', also ein Submodul-Eintrag. Der Inhalt eines nicht
+    # ausgecheckten Submoduls steht NICHT im Index -- der Gitlink schon.
+    _s=$(git ls-files -s -- ":(literal)$1" 2>/dev/null || true)
+    case "$_s" in 160000\ *) return 0 ;; esac
+    return 1
+}
+
+hat_getrackten_inhalt() {
+    _t=$(git ls-files -- ":(literal)$1" 2>/dev/null || true)
+    if [ -n "$_t" ]; then return 0; fi
+    return 1
+}
+
+erreichbarkeit() {
+    # $1 = repo-relativer Pfad aus Feld 2. Setzt ERR_ANTWORT.
+    _p="$1"
+    case "$_p" in
+        /*) ERR_ANTWORT=unbekannt; return 0 ;;
+    esac
+    # '..' SEGMENTWEISE pruefen, nicht als Teilzeichenkette: 'libs/a..b/x' ist ein
+    # ganz normaler Pfad im Repo. (Fallen-Register: '/build' frisst sonst '/builds'.)
+    _rest="$_p"
+    while [ -n "$_rest" ]; do
+        case "$_rest" in
+            */*) _seg=${_rest%%/*}; _rest=${_rest#*/} ;;
+            *)   _seg="$_rest";     _rest="" ;;
+        esac
+        if [ "$_seg" = ".." ]; then ERR_ANTWORT=unbekannt; return 0; fi
+    done
+    # Der Gegenstand selbst: getrackt oder als Bauprodukt angemeldet?
+    if hat_getrackten_inhalt "$_p"; then ERR_ANTWORT=nein; return 0; fi
+    if ist_ignoriert "$_p"; then ERR_ANTWORT=nein; return 0; fi
+    # Ohne Verzeichnisanteil ist der Elternteil die Repo-Wurzel -- immer bekannt.
+    case "$_p" in
+        */*) _a=${_p%/*} ;;
+        *)   ERR_ANTWORT=nein; return 0 ;;
+    esac
+    # ---------------------------------------------------------------------
+    # DIE AHNENREIHE HOCHLAUFEN, nicht nur den direkten Elternteil fragen.
+    # Am Objekt gefunden (2026-08-10, Fall SubmodulGitlinkIstErreichbar): der
+    # direkte Elternteil von 'ext/<submodul>/include/kopf.hpp' ist
+    # 'ext/<submodul>/include' -- und der steht NICHT im Index, weil nur der
+    # GITLINK 'ext/<submodul>' dort steht. Die erste Fassung erklaerte den Pfad
+    # deshalb faelschlich fuer tot. Ein nicht ausgechecktes Submodul kann ihn
+    # aber jederzeit bringen.
+    # ---------------------------------------------------------------------
+    _erster=ja
+    while :; do
+        # Ein ignoriertes Verzeichnis darf beliebig tief Erzeugtes aufnehmen.
+        if ist_ignoriert "$_a"; then ERR_ANTWORT=nein; return 0; fi
+        # Ein Gitlink darf beliebig tief Ausgechecktes aufnehmen.
+        if ist_gitlink "$_a"; then ERR_ANTWORT=nein; return 0; fi
+        if hat_getrackten_inhalt "$_a"; then
+            if [ "$_erster" = ja ]; then
+                # Eine NEUE Datei in einem Verzeichnis, das es schon gibt, ist der
+                # Normalfall -- daraus darf nie 'tot' werden.
+                ERR_ANTWORT=nein
+            else
+                # git zaehlt dieses Verzeichnis VOLLSTAENDIG auf, und der Zweig, den
+                # der Gegenstand darunter braucht, ist nicht dabei. Kein Erzeuger.
+                ERR_ANTWORT=ja
+            fi
+            return 0
+        fi
+        _erster=nein
+        case "$_a" in
+            */*) _a=${_a%/*} ;;
+            *)   break ;;   # der naechste waere die Wurzel
+        esac
+    done
+    # Bis zur Wurzel hoch kannte kein Verzeichnis den Zweig.
+    ERR_ANTWORT=ja
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# HEUTE. Fuer 'frist:'. Der Wert ist ueberschreibbar, damit der Google Test beide
+# Seiten des Datums fahren kann, ohne die Systemuhr zu stellen -- und er wird im
+# NENNER ausgewiesen, samt Herkunft: eine Wache, deren Zeitbegriff man lautlos
+# verschieben kann, waere selbst wieder ein Freibrief (V-1).
+# ---------------------------------------------------------------------------
+HEUTE_HERKUNFT="Systemuhr"
+if [ -n "${COMDARE_WACHE_HEUTE:-}" ]; then
+    HEUTE="$COMDARE_WACHE_HEUTE"
+    HEUTE_HERKUNFT="COMDARE_WACHE_HEUTE (ueberschrieben)"
+else
+    HEUTE=$(date +%Y-%m-%d)
+fi
+case "$HEUTE" in
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+    *)  echo "ABBRUCH: '$HEUTE' ist kein Datum JJJJ-MM-TT (Herkunft: $HEUTE_HERKUNFT)." >&2
+        echo "         Ohne belastbares Heute ist keine 'frist:'-Zeile pruefbar. Fail-closed." >&2
+        exit 2 ;;
+esac
+
+# ---------------------------------------------------------------------------
 # Allowlist auswerten. Format je Zeile, drei Felder, '|'-getrennt:
 #   <test-quelldatei> | <art>:<gegenstand-der-fehlen-muss> | <begruendung>
-# Feld 2 ist die Gegenprobe der Begruendung. Zwei Arten, s. Kopf:
+# Feld 2 ist die Gegenprobe der Begruendung. Drei Arten, s. Kopf:
 #   datei:<pfad>              existiert der Pfad -> ERLOSCHEN
+#                             kennt ihn keine Quelle des Repos -> TOTE AUSNAHME
 #   isa:<merkmal>[+<merkmal>] sind ALLE Merkmale auf dem Bau-Host da -> ERLOSCHEN
+#   frist:<JJJJ-MM-TT>        ist das Datum verstrichen -> ABGELAUFEN
 # Alles andere (unbekannte Art, kein Praefix, leeres Feld, unbekanntes Merkmal) ist
 # UNPRUEFBAR und damit ROT.
 # ---------------------------------------------------------------------------
@@ -351,6 +547,8 @@ isa_merkmal() {
 : > "$TMP/unbegruendet.txt"
 : > "$TMP/erloschen.txt"
 : > "$TMP/unpruefbar.txt"
+: > "$TMP/tot.txt"
+NBEURT_N=0
 
 allow_zeile() {
     # $1 = gesuchte Datei; gibt die Allowlist-Zeile aus oder nichts
@@ -387,7 +585,41 @@ while IFS= read -r f; do
             printf '%s -- ERLOSCHEN: "%s" existiert wieder, die Ausnahme traegt nicht mehr\n' \
                 "$f" "$wert" >> "$TMP/erloschen.txt"
         else
-            printf '%s -- %s (datei abwesend: %s)\n' "$f" "$txt" "$wert" >> "$TMP/begruendet.txt"
+            # ZWEITE RICHTUNG (PA-1): abwesend genuegt nicht. Ein Gegenstand, den keine
+            # Quelle dieses Repos kennt, kann nicht wiederkommen -- die Ausnahme koennte
+            # dann per Konstruktion nie erloeschen und waere eine Freistellung ohne Ende.
+            erreichbarkeit "$wert"
+            if [ "$ERR_ANTWORT" = ja ]; then
+                _tmsg="TOTE AUSNAHME: \"$wert\" existiert nicht, und keine Quelle dieses Repos"
+                _tmsg="$_tmsg kennt den Zweig, in dem er liegt (weder Index noch Submodul-Gitlink"
+                _tmsg="$_tmsg noch .gitignore, bis hinauf zur Wurzel) -- diese Zeile koennte nie erloeschen"
+                printf '%s -- %s\n' "$f" "$_tmsg" >> "$TMP/tot.txt"
+            elif [ "$ERR_ANTWORT" = unbekannt ]; then
+                NBEURT_N=$((NBEURT_N + 1))
+                printf '%s -- %s (datei abwesend: %s -- ausserhalb des Repos, Erreichbarkeit NICHT beurteilt)\n' \
+                    "$f" "$txt" "$wert" >> "$TMP/begruendet.txt"
+            else
+                printf '%s -- %s (datei abwesend: %s)\n' "$f" "$txt" "$wert" >> "$TMP/begruendet.txt"
+            fi
+        fi
+        ;;
+    frist)
+        # Eine Ausnahme OHNE erreichbaren Gegenstand. Sie ist ehrlich unbeweisbar und
+        # deshalb an ein Datum gebunden statt an eine Pfad-Fiktion. Der Vergleich ist
+        # ein reiner Zeichenkettenvergleich -- JJJJ-MM-TT sortiert lexikografisch wie
+        # chronologisch, und genau darum ist das Format Pflicht.
+        case "$wert" in
+            [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+            *)  printf '%s -- UNPRUEFBAR: "frist:%s" ist kein Datum JJJJ-MM-TT\n' \
+                    "$f" "$wert" >> "$TMP/unpruefbar.txt"
+                continue ;;
+        esac
+        if [ "$HEUTE" \> "$wert" ]; then
+            printf '%s -- ABGELAUFEN: die Frist %s ist am %s verstrichen -- %s\n' \
+                "$f" "$wert" "$HEUTE" "$txt" >> "$TMP/erloschen.txt"
+        else
+            printf '%s -- %s (Frist laeuft bis %s, heute %s)\n' \
+                "$f" "$txt" "$wert" "$HEUTE" >> "$TMP/begruendet.txt"
         fi
         ;;
     isa)
@@ -436,6 +668,7 @@ BEGR_N=$(wc -l < "$TMP/begruendet.txt" | tr -d ' ')
 UNBEGR_N=$(wc -l < "$TMP/unbegruendet.txt" | tr -d ' ')
 ERL_N=$(wc -l < "$TMP/erloschen.txt" | tr -d ' ')
 UNPR_N=$(wc -l < "$TMP/unpruefbar.txt" | tr -d ' ')
+TOT_N=$(wc -l < "$TMP/tot.txt" | tr -d ' ')
 
 echo "-----------------------------------------------------------------------------"
 echo "TEST-REGISTRIERUNGS-WACHE (MT-L4) -- Quelldatei gegen Bauweg"
@@ -453,6 +686,11 @@ if [ "$ERL_N" -gt 0 ]; then
     echo "AUSNAHME ERLOSCHEN -- die Begruendung gilt am Gegenstand nicht mehr:"
     sed 's/^/  /' "$TMP/erloschen.txt"
 fi
+if [ "$TOT_N" -gt 0 ]; then
+    echo ""
+    echo "TOTE AUSNAHME -- der Gegenstand kann in KEINEM erklaerten Baum entstehen:"
+    sed 's/^/  /' "$TMP/tot.txt"
+fi
 if [ "$UNPR_N" -gt 0 ]; then
     echo ""
     echo "UNPRUEFBARE BEGRUENDUNG -- Feld 2 nennt nichts, was diese Wache nachpruefen kann:"
@@ -469,7 +707,11 @@ echo "--------------------------------------------------------------------------
 echo "NENNER (nie eine nackte Zahl):"
 echo "  $SOLL_N getrackte Test-Quelldatei(en) im Baum (ohne ext/) -- SOLL."
 echo "  $FEHLEND_N davon NICHT im Bauweg des Baums '$BUILD'."
-echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $UNPR_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
+echo "  davon $BEGR_N begruendet, $ERL_N mit ERLOSCHENER, $TOT_N TOTE AUSNAHME," \
+     "$UNPR_N mit UNPRUEFBARER Begruendung, $UNBEGR_N ohne."
+echo "  Erreichbarkeit: $NBEURT_N der $BEGR_N begruendeten nennen einen Gegenstand AUSSERHALB"
+echo "                  des Repos -- fuer die ist 'kann nie entstehen' NICHT beurteilt worden."
+echo "  Heute (fuer 'frist:'): $HEUTE -- Herkunft: $HEUTE_HERKUNFT."
 echo "  Gegenprobe des Messgeraets: '$GEGENPROBE' trifft in $IST_ART (das Muster sucht)."
 if [ "$ISA_GEFRAGT" = ja ]; then
     echo "  ISA-Gegenprobe: $ISA_QUELLE"
@@ -481,12 +723,17 @@ else
 fi
 echo "-----------------------------------------------------------------------------"
 
-if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ] || [ "$UNPR_N" -gt 0 ]; then
+if [ "$UNBEGR_N" -gt 0 ] || [ "$ERL_N" -gt 0 ] || [ "$UNPR_N" -gt 0 ] || [ "$TOT_N" -gt 0 ]; then
     echo "TEST-REGISTRIERUNGS-WACHE: ROT ($UNBEGR_N von $SOLL_N ohne Begruendung," \
-         "$ERL_N erloschen, $UNPR_N unpruefbar)."
+         "$ERL_N erloschen, $TOT_N tot, $UNPR_N unpruefbar)."
     echo "Abhilfe: die Datei per comdare_add_test()/add_test() in den Bauweg nehmen -- ODER"
     echo "         sie mit einem nachpruefbaren Gegenstand in $ALLOWLIST begruenden"
     echo "         ('datei:<pfad>' oder 'isa:<merkmal>[+<merkmal>]', s. Kopf der Allowlist)."
+    if [ "$TOT_N" -gt 0 ]; then
+        echo "Bei einer TOTEN AUSNAHME hilft kein anderer Pfad: gibt es keinen erreichbaren"
+        echo "         Gegenstand, gehoert die Zeile auf 'frist:<JJJJ-MM-TT>' -- eine geparkte"
+        echo "         Ausnahme mit Ablaufdatum statt einer Adresse, die nie jemand belegt."
+    fi
     exit 1
 fi
 

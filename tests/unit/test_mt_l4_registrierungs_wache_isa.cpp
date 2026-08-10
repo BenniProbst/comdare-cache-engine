@@ -370,7 +370,14 @@ TEST(MtL4RegistrierungsWacheIsa, UnpruefbaresFeldZweiIstRotUndNichtGruen) {
 
     // GEGENKOEDER (K13): dieselbe Maschinerie, eine WOHLGEFORMTE Zeile -- gruen. Ohne
     // diesen Fall belegten die sechs oben nur, dass die Wache immer rot ist.
-    baum.allowlist("datei:gibt/es/nicht/" + marke + ".hpp");
+    // NACHGEZOGEN 2026-08-10 (PA-1): der Gegenstand muss ABWESEND, aber ERREICHBAR sein.
+    // Seit der zweiten ERLOSCHEN-Richtung genuegt "existiert nicht" nicht mehr -- ein Pfad,
+    // dessen ganzer Zweig dem Repo unbekannt ist, ist eine TOTE AUSNAHME und damit ROT.
+    // 'gibt/es/nicht/...' war genau das; der Fall waere aus dem falschen Grund rot geworden.
+    // 'tests/unit/' kennt das Wegwerf-Repo (dort liegt die Gegenprobe-Datei), der Gegenstand
+    // ist dort also abwesend UND koennte jederzeit entstehen -- die neutrale Lage, die dieser
+    // Fall braucht.
+    baum.allowlist("datei:tests/unit/gibt_es_nicht_" + marke + ".hpp");
     Lauf const gegen = baum.fahren();
     berichten("GEGENKOEDER wohlgeformt -> GRUEN", gegen, baum);
     EXPECT_EQ(gegen.code, 0) << "Eine wohlgeformte Zeile muss tragen. Ausgabe:\n" << gegen.ausgabe;
@@ -386,7 +393,14 @@ TEST(MtL4RegistrierungsWacheIsa, DateiArtTraegtAbwesendUndErlischtAnwesend) {
     SynthBaum         baum{marke};
     baum.cache_ehrlich(/*avx2=*/true, /*avx512f=*/true);
 
-    baum.allowlist("datei:gibt/es/nicht/" + marke + ".hpp");
+    // NACHGEZOGEN 2026-08-10 (PA-1): der Gegenstand muss ABWESEND, aber ERREICHBAR sein.
+    // Seit der zweiten ERLOSCHEN-Richtung genuegt "existiert nicht" nicht mehr -- ein Pfad,
+    // dessen ganzer Zweig dem Repo unbekannt ist, ist eine TOTE AUSNAHME und damit ROT.
+    // 'gibt/es/nicht/...' war genau das; der Fall waere aus dem falschen Grund rot geworden.
+    // 'tests/unit/' kennt das Wegwerf-Repo (dort liegt die Gegenprobe-Datei), der Gegenstand
+    // ist dort also abwesend UND koennte jederzeit entstehen -- die neutrale Lage, die dieser
+    // Fall braucht.
+    baum.allowlist("datei:tests/unit/gibt_es_nicht_" + marke + ".hpp");
     Lauf const abwesend = baum.fahren();
     berichten("datei: abwesend -> GRUEN", abwesend, baum);
     EXPECT_EQ(abwesend.code, 0) << abwesend.ausgabe;
@@ -475,7 +489,14 @@ TEST(MtL4RegistrierungsWacheIsa, OhneIsaZeileWirdDerCacheNichtVerlangt) {
     std::string const marke = koeder_marke();
     SynthBaum         baum{marke};
     baum.cache_entfernen();
-    baum.allowlist("datei:gibt/es/nicht/" + marke + ".hpp");
+    // NACHGEZOGEN 2026-08-10 (PA-1): der Gegenstand muss ABWESEND, aber ERREICHBAR sein.
+    // Seit der zweiten ERLOSCHEN-Richtung genuegt "existiert nicht" nicht mehr -- ein Pfad,
+    // dessen ganzer Zweig dem Repo unbekannt ist, ist eine TOTE AUSNAHME und damit ROT.
+    // 'gibt/es/nicht/...' war genau das; der Fall waere aus dem falschen Grund rot geworden.
+    // 'tests/unit/' kennt das Wegwerf-Repo (dort liegt die Gegenprobe-Datei), der Gegenstand
+    // ist dort also abwesend UND koennte jederzeit entstehen -- die neutrale Lage, die dieser
+    // Fall braucht.
+    baum.allowlist("datei:tests/unit/gibt_es_nicht_" + marke + ".hpp");
 
     Lauf const lauf = baum.fahren();
     berichten("kein isa:, kein Cache -> GRUEN", lauf, baum);
@@ -520,6 +541,7 @@ TEST(MtL4RegistrierungsWacheIsa, EchteAllowlistNutztNurBekannteArten) {
 
     std::size_t datei_n = 0;
     std::size_t isa_n   = 0;
+    std::size_t frist_n = 0;
     for (auto const& zeile : zeilen) {
         auto const felder = zerlegen(zeile, '|');
         ASSERT_GE(felder.size(), 3U) << "Zeile mit weniger als drei Feldern: '" << zeile << "'";
@@ -538,13 +560,31 @@ TEST(MtL4RegistrierungsWacheIsa, EchteAllowlistNutztNurBekannteArten) {
                        "(tests/unit/CMakeLists.txt:4165/5330/5343/5372/5375).";
             }
             ++isa_n;
+        } else if (feld2.rfind("frist:", 0) == 0) {
+            // DRITTE ART seit PA-1 (2026-08-10): die ehrlich unbeweisbare Ausnahme. Sie
+            // gibt es, weil es Faelle ohne JEDEN erreichbaren Gegenstand gibt -- die vier
+            // prt-art-Posten. Statt einer Pfad-Fiktion tragen sie ein Ablaufdatum.
+            // Geprueft wird hier die FORM: nur JJJJ-MM-TT sortiert lexikografisch wie
+            // chronologisch, und genau darauf beruht der Vergleich in der Wache.
+            std::string const tag = feld2.substr(std::string_view{"frist:"}.size());
+            EXPECT_EQ(tag.size(), 10U) << "'frist:' erwartet JJJJ-MM-TT: '" << zeile << "'";
+            if (tag.size() == 10U) {
+                bool form = tag[4] == '-' && tag[7] == '-';
+                for (std::size_t i = 0; form && i < tag.size(); ++i) {
+                    if (i == 4U || i == 7U) { continue; }
+                    form = tag[i] >= '0' && tag[i] <= '9';
+                }
+                EXPECT_TRUE(form) << "'frist:" << tag << "' ist kein Datum JJJJ-MM-TT in '" << zeile << "'";
+            }
+            ++frist_n;
         } else {
             ADD_FAILURE() << "Feld 2 ohne bekannte Art: '" << feld2 << "' in Zeile '" << zeile
-                          << "'. Erwartet 'datei:<pfad>' oder 'isa:<merkmal>[+<merkmal>]'.";
+                          << "'. Erwartet 'datei:<pfad>', 'isa:<merkmal>[+<merkmal>]' oder "
+                             "'frist:<JJJJ-MM-TT>'.";
         }
     }
     std::cout << "  [MT-L4] Allowlist " << COMDARE_MTL4_ALLOWLIST << ": " << zeilen.size() << " Wertzeile(n), davon "
-              << datei_n << " mit 'datei:' und " << isa_n << " mit 'isa:'.\n";
+              << datei_n << " mit 'datei:', " << isa_n << " mit 'isa:' und " << frist_n << " mit 'frist:'.\n";
 }
 
 // ===========================================================================================
