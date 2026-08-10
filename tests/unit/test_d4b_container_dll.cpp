@@ -108,10 +108,10 @@ int main(int argc, char** argv) {
         // eigentliche Zusicherung eines Round-Trip-Tests -- und keine der beiden Seiten kann sie allein
         // erfuellen. Frueher stand hier die feste 13, waehrend oben die feste 12 stand: zwei Literale,
         // die sich gegenseitig nie geprueft haben und beide falsch waren.
-        check_eq("tier_observe_container: organ_count == das der Gattungs-API (beide Wege einig)",
-                 pod.organ_count, static_cast<std::uint64_t>(a->organ_count()));
-        check_eq("tier_observe_container: organ_count == 11 (INC-2c, wie der Zwilling D4b.1)",
-                 pod.organ_count, std::uint64_t{11});
+        check_eq("tier_observe_container: organ_count == das der Gattungs-API (beide Wege einig)", pod.organ_count,
+                 static_cast<std::uint64_t>(a->organ_count()));
+        check_eq("tier_observe_container: organ_count == 11 (INC-2c, wie der Zwilling D4b.1)", pod.organ_count,
+                 std::uint64_t{11});
         check_eq("tier_observe_container: peak_occupancy == 20 (unbeschränkter Adapter über DLL)", pod.peak_occupancy,
                  std::uint64_t{20});
         std::uint64_t out = 0;
