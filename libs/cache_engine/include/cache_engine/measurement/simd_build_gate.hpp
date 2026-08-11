@@ -359,7 +359,23 @@ inline constexpr auto kSensibilityUnion = detail::make_sensibility_union();
 // ABSICHTLICH NICHT hier: der Suffix ist Lane-F-Gebiet (profile_run_facade.cpp:369-405,
 // artifact_cache.hpp:245-249) und R3 fuehrt ihn gerade auf die EINE Traeger-Datei
 // system_version_suffix.hpp zusammen. Ein fuenfter Beitragsort unmittelbar davor waere gegen §73.1.
-// >>> O-8-PUNKT (Lane F / R3): diese Funktion als Suffix-/Stempel-Beitrag einhaengen. <<<
+//
+// [NACHGEFUEHRT 2026-08-11, Task #61 -- DER O-8-PUNKT IST GESCHLOSSEN. Der Absatz darueber beschreibt
+// weiter richtig, WARUM die Einhaengung nicht hier steht; seine offene Marke ist ueberholt. Die
+// Einhaengung existiert seit dbdd2f9b8 ("T2-B", 2026-08-06) DREIFACH, und zwar genau dort, wo dieser
+// Absatz sie verortet hat -- in Lane-F-Gebiet, nicht als fuenfter Beitragsort hier:
+//   (1) system_version_suffix.hpp:70/88 -- der Suffix-Beitrag (O-8 Schritt 10),
+//   (2) das Toolchain-Glied [5] Key[7]="gate" (abi/toolchain_stamp_glied.hpp) ueber
+//       compose_toolchain_stamp_glied_for_perm (profile_facade/toolchain_stamp_naht.hpp),
+//   (3) derselbe Wert im CEB-Laufzeit-Zwilling -- aus EINEM Aufruf, damit Bau-Kanal und Zwilling nicht
+//       driften koennen (profile_run_entry.hpp, Perm-Schleife).
+// Gebildet wird der Beitrag PER PERMUTATION (gate_contribution_identity_text), nicht lauf-konstant.
+//
+// DASS DER WERT HEUTE LEER IST, IST KEINE LUECKE, SONDERN DIE KORREKTE IDENTITAET: active_organ_required()
+// ist {} und der C-3a-TRIPWIRE oben (:272-278) macht diese Gleichung compile-hart -- die erste
+// required-Deklaration bricht den Bau, statt einen falschen Stempel entstehen zu lassen. Ein LEERES
+// Segment ist damit die wahre Aussage "das Gate hat nichts beigetragen", nicht eine fehlende Aussage.
+// Wer den Wert befuellen will, braucht laut Tripwire-Text zuerst den Owner-Paket-Entscheid.]
 //
 // STABILITAET: die Ausgabe ist SORTIERT (nach cpuinfo-Namen), damit sie nicht von der Katalog- oder
 // Signatur-Reihenfolge abhaengt -- eine Stempel-Variable darf nicht wackeln, wenn jemand eine
