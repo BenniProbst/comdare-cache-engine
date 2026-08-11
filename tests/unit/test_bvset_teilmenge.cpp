@@ -22,8 +22,8 @@
 // (-> false), zu "gleiches Element -> gefunden" steht dasselbe Element mit anderen Feldwerten
 // (-> false), zu "wohlgeformt -> parsebar" stehen sechs Verstuemmelungen (-> nullopt).
 
-#include "builder/bvset_teilmenge.hpp"                  // der Prueflig
-#include "builder/driver_build_variant_signature.hpp"   // (3): die ECHTE Signatur dieses Treibers
+#include "builder/bvset_teilmenge.hpp"                // der Prueflig
+#include "builder/driver_build_variant_signature.hpp" // (3): die ECHTE Signatur dieses Treibers
 
 #include <cstddef>
 #include <fstream>
@@ -128,8 +128,7 @@ TEST(BvsetTeilmenge, UnparsebaresIstFailClosed) {
         {"Achsen-Reihenfolge vertauscht",
          "bvset=1;bv=3;page_type[{a;page_kind=1}];general_hardware[];simd_extension[]"},
         {"unbalancierte Klammer", "bvset=1;bv=3;page_type[{a;page_kind=1];simd_extension[];general_hardware[]"},
-        {"Rest hinter der letzten Achse",
-         "bvset=1;bv=3;page_type[];simd_extension[];general_hardware[]MUELL"},
+        {"Rest hinter der letzten Achse", "bvset=1;bv=3;page_type[];simd_extension[];general_hardware[]MUELL"},
     };
     std::size_t const nenner = sizeof(faelle) / sizeof(faelle[0]);
     ASSERT_EQ(nenner, 6u) << "NENNER: 6 Verstuemmelungen erwartet";
@@ -230,7 +229,7 @@ TEST(BvsetTeilmenge, EchteSignaturPlusKoederIstEinseitig) {
     // Der Erweiterungs-Fall am REALEN String: ein zufaelliges Element in die simd-Achse der echten
     // Signatur einhaengen. Das ist der Fall, den die Flotte trifft, wenn eine SIMD-Variante hinzukommt.
     std::string const echt{ex::kDriverBuildVariantSignature};
-    auto const        x = koeder_token();
+    auto const        x     = koeder_token();
     auto const        marke = std::string{";simd_extension["};
     auto const        pos   = echt.find(marke);
     ASSERT_NE(pos, std::string::npos) << "NENNER: die echte Signatur traegt keine simd_extension-Achse";

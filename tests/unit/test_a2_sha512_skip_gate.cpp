@@ -674,15 +674,15 @@ TEST(A2SkipGate, K6WriterSchreibtV1OhneBvsetUndV2Mit) {
 // Muster wie OrchestratorSkipHaengtAmFingerprintProvider oben: die Zusicherung gilt erst, wenn sie am
 // echten Bau-Kern gilt und nicht nur an der freistehenden Funktion.
 TEST(A2SkipGate, K7OrchestratorErweiterungSkiptEinschraenkungBaut) {
-    fs::path const d  = fresh_dir("k7_orchestrator");
-    auto const     x  = koeder_token_a2();
+    fs::path const    d = fresh_dir("k7_orchestrator");
+    auto const        x = koeder_token_a2();
     std::string const A = bvset_mit(simd_elem_a2("se_basis"));
     std::string const B = bvset_mit(simd_elem_a2("se_basis") + simd_elem_a2(x));
 
     auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
-    tree.build({ex::AxisLevel{"traversal", {"ART"}, true, "", ""},
-                ex::AxisLevel{"node", {"v0", "v1", "v2"}, true, "", ""}});
+    tree.build(
+        {ex::AxisLevel{"traversal", {"ART"}, true, "", ""}, ex::AxisLevel{"node", {"v0", "v1", "v2"}, true, "", ""}});
     auto const        view = tree.static_binary_view();
     std::size_t const n    = view.size();
     ASSERT_EQ(n, std::size_t{3}) << "NENNER: drei Bau-Jobs";

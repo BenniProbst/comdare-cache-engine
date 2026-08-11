@@ -722,9 +722,9 @@ struct RunProfileResult {
     ex::BvsetFingerprintFn const lauf_bvset_fingerprint =
         lazy_fingerprint ? make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env() : ex::BvsetFingerprintFn{};
     ex::BvsetFingerprintFn perm_bvset_fingerprint = lauf_bvset_fingerprint;
-    auto              make_cfg         = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
-                                             std::string const& sweep_axis, std::string const& pruefling_type,
-                                             std::string const& fairness_mode, std::string const& h2_score) {
+    auto                   make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
+                                          std::string const& sweep_axis, std::string const& pruefling_type,
+                                          std::string const& fairness_mode, std::string const& h2_score) {
         ex::LazyRunConfig cfg;
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
@@ -759,8 +759,8 @@ struct RunProfileResult {
         // Fingerprint-Provider (beide werden im `na`-Fall gemeinsam geleert): eine Bindungs-Pruefung, die
         // ueber eine ANDERE Zelle rechnet als der erwartete Hash, wuerde jeden Skip verweigern und den
         // Teilmengen-Pfad still wirkungslos machen.
-        cfg.bvset_glied          = lauf_bvset_glied;
-        cfg.bvset_fingerprint_fn = perm_bvset_fingerprint;
+        cfg.bvset_glied               = lauf_bvset_glied;
+        cfg.bvset_fingerprint_fn      = perm_bvset_fingerprint;
         cfg.build_variant_sig         = variant_gate_sig; // A7-B: opt-in Build-Varianten-Gate (leer = byte-neutral)
         cfg.bestand_zelle             = bestand_zelle;    // G4a(3)/§62-N4: [d,e,f] des Lager-Schluessel-Tupels
         cfg.marker_kontext            = marker_kontext;   // E-04-P1: Pflicht-Koordinaten der Marker-Familie v2
@@ -1205,8 +1205,8 @@ struct RunProfileResult {
                     // des Sidecars, und keine der drei Stellen leitet ihn selbst ab.
                     perm_fingerprint = make_lazy_adhoc_fingerprint_fn_from_env(
                         perm_cell_values, perm_toolchain_glied.value, lauf_bvset_glied);
-                    perm_bvset_fingerprint = make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(
-                        perm_cell_values, perm_toolchain_glied.value);
+                    perm_bvset_fingerprint =
+                        make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(perm_cell_values, perm_toolchain_glied.value);
                 }
                 // Lane F R3 (O-8 Schritt 10): diese Kette WAR die bindende Form -- jetzt kommt sie aus der
                 // EINEN Suffix-Quelle, statt sie hier ein zweites Mal zu buchstabieren. Die erzeugten Bytes

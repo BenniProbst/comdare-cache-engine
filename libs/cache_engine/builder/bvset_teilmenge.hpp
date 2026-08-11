@@ -57,8 +57,8 @@ struct BvsetAchsenSektion {
 /// Teilmengen-Rechnung, sondern eine Vorbedingung: ein Format- oder POD-Versions-Bump aendert die BEDEUTUNG der
 /// Elemente, damit ist ein Element-fuer-Element-Vergleich ueber die Bump-Grenze hinweg sinnlos.
 struct BvsetGeparst {
-    std::string_view                    kopf{};
-    std::array<BvsetAchsenSektion, 3>   achsen{};
+    std::string_view                  kopf{};
+    std::array<BvsetAchsenSektion, 3> achsen{};
 };
 
 namespace detail {
@@ -75,7 +75,8 @@ namespace detail {
     std::size_t const start = i;
     std::size_t       tiefe = 0;
     for (; i < s.size(); ++i) {
-        if (s[i] == '{') ++tiefe;
+        if (s[i] == '{')
+            ++tiefe;
         else if (s[i] == '}') {
             --tiefe;
             if (tiefe == 0) {
