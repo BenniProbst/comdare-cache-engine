@@ -342,6 +342,14 @@ struct LazyRunConfig {
     // weiter; der Orchestrator vergleicht sie beim Skip-Check gegen das `.variant`-Sidecar und schreibt sie bei Erfolg.
     // Leer (Default) = Variant-Gate AUS (byte-neutral: exakt der bisherige Versions-/Organ-Skip).
     std::string build_variant_sig;
+    // Task #59 (Additiv-Vertrag GLIED [6]) -- die DREI Traeger des Teilmengen-Pfads. Alle drei muessen belegt
+    // sein, damit er scharf wird; jeder einzelne leer = exakt das Skip-Verhalten von vorher (byte-neutral).
+    //   bvset_glied            der Klartext des Preimage-Glieds [6] dieses Laufs. Er reist an ZWEI Stellen
+    //                          weiter (Soll des Gates + Zeile 2 des Sidecars) -- der Host reicht EINEN String,
+    //                          damit Aufzeichnung und Erwartung nicht auseinanderlaufen koennen.
+    //   bvset_fingerprint_fn   die Bindungs-Pruefung (binary_id, aufgezeichnetes bvset) -> 128-hex.
+    std::string        bvset_glied;
+    BvsetFingerprintFn bvset_fingerprint_fn;
     // E-04-P1 (Marker-Familie v2): die PFLICHT-Koordinaten des Live-Fortschritts-Kanals. Der Host
     // (Facade) belegt sie aus DERSELBEN Env, aus der die CI-Emission ihre Testat-Zelle bildet
     // (COMDARE_LANE / COMDARE_GN_OPT+COMDARE_GN_SIMD / COMDARE_MEASUREMENT_COMBO) und rendert die
@@ -2034,6 +2042,12 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
     bcfg.build_parallelism       = cfg.build_parallelism;  // W6 (§32-F7): expliziter Bau-Pool-Worker-Override (0=heute)
     bcfg.build_variant_sig       = cfg.build_variant_sig;  // A7-B: Treiber-Mengen-Signatur; leer = Variant-Gate AUS
+    // Task #59: DERSELBE String in beide Felder -- Glied [6] ist run-konstant (build_orchestrator.hpp:311-312),
+    // das Soll des Gates und die Aufzeichnung neben der Binary sind heute derselbe Wert. Die Felder bleiben
+    // getrennt, weil sie verschiedene Fragen beantworten (s. BuildConfig); sie hier aus EINER Quelle zu
+    // belegen ist die Zusage, dass sie nicht driften.
+    bcfg.current_bvset_glied = cfg.bvset_glied;
+    bcfg.sidecar_bvset_glied = cfg.bvset_glied;
 
     // Storage #51 / S2 (#46a) — PULL-HOOK (AKTIV): die BATCH-Warm-Cache-Hydrierung (minio->local) laeuft GENAU HIER in
     // Phase A, VOR dem Bau. Sie zieht den ganzen Objekt-Store-Praefix DIESER Perm rekursiv ins output_dir (unter
@@ -2115,6 +2129,8 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
     BuildOrchestrator orch{bcfg, std::move(compile), std::move(gen), std::move(ram), std::move(algo_sig)};
     // I2: den Fingerprint-Provider (Lager-Anker je Binary) durchreichen. Leer = kein .fingerprint-Sidecar (byte-neutral).
     orch.set_fingerprint_provider(cfg.bestand_fingerprint_fn);
+    // Task #59: der Recompute-Provider des Teilmengen-Pfads. Leer = Pfad AUS = Skip-Verhalten wie bisher.
+    orch.set_bvset_fingerprint_provider(cfg.bvset_fingerprint_fn);
 
     // W11 (Ledger §43.c): der BAU-MODUS async Push-Pump. NUR im provision_only-Bau (der Mess-Modus bleibt STRIKT
     // synchron -- er baut hier NICHT mit cache_push, sondern pusht per-Binary im 1-Thread-Mess-Loop unten). Gated auf

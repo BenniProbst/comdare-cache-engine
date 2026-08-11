@@ -451,4 +451,48 @@ template <class List>
     };
 }
 
+/// make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env() -- Task #59: derselbe Fingerprint, aber mit dem
+/// bvset-Glied als AUFRUF-Parameter statt als vorab aufgeloester Konstante.
+///
+/// WOZU EIN ZWEITER MAKER: die Bindungs-Pruefung des Skip-Gates (dll_is_current, Punkt (9)) muss fragen
+/// koennen "welchen Hash haette diese Binary mit der AUFGEZEICHNETEN Enable-Menge?". Der Bestands-Maker
+/// darueber kann das nicht: er loest das bvset EINMAL beim Bau des Providers auf (bewusst -- der Provider
+/// ueberlebt den Perm-Schleifen-Durchlauf, NB2-5) und rechnet danach fuer jede binary_id mit demselben Wert.
+///
+/// KEINE ZWEITE ABLEITUNG -- das ist die Bedingung, unter der dieser Maker ueberhaupt zulaessig ist. Er ruft
+/// DIESELBE lazy_adhoc_fingerprint_for-Komposition mit DENSELBEN Tabellen, demselben measurement_stamp und
+/// denselben uebrigen Gliedern; einzig das bvset wandert vom Kapsel-Wert zum Parameter. Waere hier eine
+/// eigene Preimage-Zusammensetzung entstanden, haette die Bindungs-Pruefung ein anderes Preimage geprueft
+/// als das, welches die Binary traegt -- und der Nachweis waere ein Zirkelschluss ueber die eigene Formel.
+///
+/// DIE ABNAHME DAZU (V-7, fremder Nenner): fuer dieselbe binary_id muss
+///   make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(...)(id, live_build_variant_set_signature_glied())
+/// byte-gleich zu
+///   make_lazy_adhoc_fingerprint_fn_from_env(...)(id)
+/// sein. Zwei Wege, ein Hash -- sonst ist einer der beiden falsch.
+[[nodiscard]] inline std::function<std::string(std::string const&, std::string const&)>
+make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(std::string                system_cell_values = {},
+                                                  std::optional<std::string> toolchain_glied    = std::nullopt,
+                                                  std::optional<std::string> mess_gates_glied   = std::nullopt) {
+    namespace pfn = ::comdare::cache_engine::profile_facade;
+    // Identische Aufloesungs-Regel wie im Bestands-Maker (NB2-5): nullopt == LIVE, ein uebergebener Wert
+    // gewinnt IMMER -- auch der leere. Das bvset fehlt hier bewusst: es ist der Parameter.
+    std::string tc_wert =
+        toolchain_glied.has_value() ? std::move(*toolchain_glied) : pfn::compose_live_toolchain_stamp_glied();
+    std::string mg_wert = mess_gates_glied.has_value() ? std::move(*mess_gates_glied) : pfn::live_mess_gates_glied();
+    auto        tables  = std::make_shared<LazySlotTables const>(lazy_slot_type_tables());
+    auto        version_table =
+        std::make_shared<std::vector<ex::AxisVariantVersion> const>(ex::build_axis_variant_version_table());
+    std::string measurement_stamp = measurement_stamp_from_env(); // dieselbe EINE Env-Bruecke wie oben
+    return [tables, version_table, measurement_stamp = std::move(measurement_stamp),
+            cell_values = std::move(system_cell_values), toolchain = std::move(tc_wert),
+            mess_gates = std::move(mg_wert)](std::string const& binary_id, std::string const& bvset_glied) {
+        auto const tc = ::comdare::cache_engine::abi::ToolchainGlied{toolchain};
+        auto const bv = ::comdare::cache_engine::abi::BvsetGlied{bvset_glied};
+        auto const mg = ::comdare::cache_engine::abi::MessGatesGlied{mess_gates};
+        return lazy_adhoc_fingerprint_for(*tables, binary_id, *version_table, measurement_stamp,
+                                          ::comdare::cache_engine::abi::SystemCellValues{cell_values}, tc, bv, mg);
+    };
+}
+
 } // namespace comdare::cache_engine::thesis_lazy

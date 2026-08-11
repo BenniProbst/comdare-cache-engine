@@ -480,6 +480,23 @@ struct RunProfileResult {
     // Source-Gen (make_lazy_adhoc_source_gen_from_env) -> die je-Combo-Bauten stempeln ihre DLLs REAL. UNGESETZT/[all]
     // => "" => byte-identische Quellen (der golden-320-/Sweep-/SOTA-Pfad bleibt unberuehrt, s. union_gen unten).
     ex::SourceGenFn const lazy_gen = make_lazy_adhoc_source_gen_from_env();
+    // Task #59 (Additiv-Vertrag GLIED [6]) -- DER bvset-KLARTEXT DIESES LAUFS, EINMAL AUFGELOEST.
+    //
+    // EINMAL und nicht viermal: derselbe String reist an vier Stellen (in BEIDE Fingerprint-Maker als
+    // expliziter Wert, in cfg.bvset_glied als Soll des Skip-Gates UND als Zeile 2 des Sidecars). Wuerde jede
+    // Stelle live_build_variant_set_signature_glied() selbst rufen, waeren das vier Aufrufe derselben reinen
+    // Funktion -- heute byte-gleich, aber die Gleichheit waere eine Behauptung ueber die Funktion statt eine
+    // Eigenschaft des Codes. EIN Wert, vier Verwendungen: die Gleichheit ist dann nicht mehr zu pruefen,
+    // sondern strukturell. Genau diese Begruendung traegt schon die Toolchain-Naht fuer das Glied [5]
+    // (toolchain_stamp_naht.hpp:12-19: "koennte diese Gleichheit nicht mehr strukturell garantieren,
+    // sondern nur behaupten").
+    //
+    // NB2-5: an die Maker geht er EXPLIZIT, obwohl er byte-identisch zum Live-Default ist. Ein uebergebener
+    // Wert gewinnt dort IMMER -- damit steht im Code, welchen Wert diese Binary traegt, statt dass es sich
+    // aus einem Default ergibt. Die Abnahme dazu ist ein Differenztest mit fremdem Nenner: derselbe Hash
+    // ueber beide Wege.
+    std::string const lauf_bvset_glied =
+        ::comdare::cache_engine::profile_facade::live_build_variant_set_signature_glied();
     // I2 (Lager-Gate): opt-in Fingerprint-Provider fuer das .fingerprint-Sidecar (Lager-Index-Anker), EINMAL gebaut wie
     // lazy_gen. Gated auf COMDARE_BESTANDSLOG (Default aus => leer => kein Sidecar => byte-neutral). Drift-frei: fasst
     // dieselbe Combo (COMDARE_MEASUREMENT_COMBO) + version_table wie lazy_gen -> der Fingerprint deckt sich byte-genau
@@ -492,7 +509,7 @@ struct RunProfileResult {
     // keinen Skip tragen: der Provider faellt weg, damit kein `.fingerprint` entsteht, und dll_is_current
     // gibt bei leerer Erwartung IMMER false zurueck (build_orchestrator.hpp:305). Ehrlicher Neubau statt
     // geratener Wiederverwendung -- dieselbe Mechanik und dieselbe Begruendung wie beim `na`-Zellwert.
-    ex::FingerprintFn const lazy_fingerprint = [] {
+    ex::FingerprintFn const lazy_fingerprint = [&lauf_bvset_glied] {
         char const* const bl = std::getenv("COMDARE_BESTANDSLOG");
         if (bl == nullptr || std::string_view{bl} != std::string_view{"true"}) return ex::FingerprintFn{};
         if (!::comdare::cache_engine::profile_facade::tier_realversion_ist_bekannt()) {
@@ -508,7 +525,10 @@ struct RunProfileResult {
                          "Skip).\n";
             return ex::FingerprintFn{};
         }
-        return make_lazy_adhoc_fingerprint_fn_from_env();
+        // Task #59: das bvset-Glied EXPLIZIT (NB2-5) -- byte-identisch zum Live-Default, aber jetzt derselbe
+        // String, der auch als Soll und als Sidecar-Zeile-2 reist. Der No-Perm-Pfad wird damit genauso
+        // behandelt wie der Perm-Pfad unten: eine Naht, keine zwei.
+        return make_lazy_adhoc_fingerprint_fn_from_env({}, std::nullopt, lauf_bvset_glied);
     }();
     // A7-B (Lager-Gate, G2 Folge-B): das BUILD-VARIANTEN-Gate, gleiches opt-in-Muster wie COMDARE_BESTANDSLOG darueber.
     // Gated auf COMDARE_VARIANT_GATE=true; Default AUS => leerer String => Variant-Gate AUS => byte-neutral (exakt der
@@ -696,6 +716,12 @@ struct RunProfileResult {
     // ZUGLEICH der FAIL-CLOSED-Schalter: bei einem `na`-Zellwert wird er geleert (kein .fingerprint-Sidecar =>
     // bestand_key_of liefert nullopt => kein Lager-Rueckschrieb). Identitaets-Default = der lauf-weite Provider.
     ex::FingerprintFn perm_fingerprint = lazy_fingerprint;
+    // Der Recompute-Provider (Bindungs-Pruefung). Er haengt am GLEICHEN opt-in wie der Fingerprint-Provider:
+    // ohne Fingerprint-Provider ist expected_fp leer, das Gate ist per Punkt (1) fail-closed, und ein
+    // Teilmengen-Pfad haette nichts zu pruefen. Leer = Pfad AUS (byte-neutral).
+    ex::BvsetFingerprintFn const lauf_bvset_fingerprint =
+        lazy_fingerprint ? make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env() : ex::BvsetFingerprintFn{};
+    ex::BvsetFingerprintFn perm_bvset_fingerprint = lauf_bvset_fingerprint;
     auto              make_cfg         = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
                                              std::string const& sweep_axis, std::string const& pruefling_type,
                                              std::string const& fairness_mode, std::string const& h2_score) {
@@ -728,6 +754,13 @@ struct RunProfileResult {
         cfg.build_parallelism         = a.build_parallelism; // W6 (§32-F7): Bau-Pool-Worker-Override (0 = byte-neutral)
         cfg.per_binary_subdirs        = true;
         cfg.bestand_fingerprint_fn    = perm_fingerprint; // I2/W10-C4: per-Perm-Anker (leer = byte-neutral)
+        // Task #59: derselbe EINE String, den auch der Fingerprint-Maker bekommen hat -- Soll des Gates UND
+        // Zeile 2 des Sidecars. Der Recompute-Provider folgt derselben per-Perm-Umschaltung wie der
+        // Fingerprint-Provider (beide werden im `na`-Fall gemeinsam geleert): eine Bindungs-Pruefung, die
+        // ueber eine ANDERE Zelle rechnet als der erwartete Hash, wuerde jeden Skip verweigern und den
+        // Teilmengen-Pfad still wirkungslos machen.
+        cfg.bvset_glied          = lauf_bvset_glied;
+        cfg.bvset_fingerprint_fn = perm_bvset_fingerprint;
         cfg.build_variant_sig         = variant_gate_sig; // A7-B: opt-in Build-Varianten-Gate (leer = byte-neutral)
         cfg.bestand_zelle             = bestand_zelle;    // G4a(3)/§62-N4: [d,e,f] des Lager-Schluessel-Tupels
         cfg.marker_kontext            = marker_kontext;   // E-04-P1: Pflicht-Koordinaten der Marker-Familie v2
@@ -1130,6 +1163,9 @@ struct RunProfileResult {
                 // zugleich die riscv64-Auflage (ISA ohne Achsen-Glied => na => kein Rueckschrieb), ohne dass
                 // irgendwo eine ISA-Sonderregel steht.
                 perm_fingerprint = lazy_fingerprint;
+                // Task #59: der Recompute-Provider folgt dem Fingerprint-Provider Zweig fuer Zweig. Er ist
+                // KEIN eigener Schalter -- wo kein Fingerprint gilt, gilt auch keine Bindungs-Pruefung.
+                perm_bvset_fingerprint = lauf_bvset_fingerprint;
                 if (::comdare::cache_engine::abi::system_cell_values_contain_na(perm_cell_values)) {
                     std::cerr << "[Compiler-Compiler-Fehler: "
                               << cm::error_class_label(cm::CompilerCompilerErrorClass::HardwareErweiterungFehlt)
@@ -1137,7 +1173,8 @@ struct RunProfileResult {
                               << ") -- die Binaries dieser Perm werden gebaut und gemessen, aber NICHT ins Lager "
                                  "zurueckgeschrieben (kein Fingerprint-Anker: ein `na`-Stempel ist nicht "
                                  "zuordbar).\n";
-                    perm_fingerprint = ex::FingerprintFn{};
+                    perm_fingerprint       = ex::FingerprintFn{};
+                    perm_bvset_fingerprint = ex::BvsetFingerprintFn{}; // Task #59: derselbe fail-closed-Schnitt
                 } else if (lazy_fingerprint && perm_bau_je_zelle) {
                     // T2-A/H1 (Codex-Befund, 2026-08-06) -- DIE UMSCHALTUNG HAENGT NICHT MEHR AN `.empty()`.
                     // Die fruehere Bedingung war `lazy_fingerprint && !perm_cell_values.empty()`. Leere
@@ -1161,8 +1198,15 @@ struct RunProfileResult {
                     // der oben als Define an die Tier-Uebersetzung ging (derselbe Wert, nicht derselbe Weg
                     // noch einmal gegangen). Ohne diese zweite Haelfte rechnete der Lager-Key ueber das
                     // run-konstante Glied, waehrend die Binary das per-Perm-Glied traegt: garantierter Miss.
-                    perm_fingerprint =
-                        make_lazy_adhoc_fingerprint_fn_from_env(perm_cell_values, perm_toolchain_glied.value);
+                    // Task #59: das bvset-Glied geht ab hier EXPLIZIT herein (NB2-5: ein uebergebener Wert
+                    // gewinnt IMMER). Es ist byte-identisch zum Live-Default -- genau das ist die Abnahme
+                    // (V-7): zwei Wege, ein Hash. Der Gewinn ist nicht ein anderer Wert, sondern ein
+                    // SICHTBARER: derselbe String steht jetzt im Preimage, in cfg.bvset_glied und in Zeile 2
+                    // des Sidecars, und keine der drei Stellen leitet ihn selbst ab.
+                    perm_fingerprint = make_lazy_adhoc_fingerprint_fn_from_env(
+                        perm_cell_values, perm_toolchain_glied.value, lauf_bvset_glied);
+                    perm_bvset_fingerprint = make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env(
+                        perm_cell_values, perm_toolchain_glied.value);
                 }
                 // Lane F R3 (O-8 Schritt 10): diese Kette WAR die bindende Form -- jetzt kommt sie aus der
                 // EINEN Suffix-Quelle, statt sie hier ein zweites Mal zu buchstabieren. Die erzeugten Bytes

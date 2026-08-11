@@ -32,6 +32,27 @@
 // bleiben als Provenienz-Legende bzw. Transport-Vollstaendigkeits-Marke
 // bestehen, entscheiden aber ueber KEINEN Skip mehr.
 //
+// SIDECAR-FORMAT v2 (Task #59, GLIED [6] richtungsblind) -- ZWEI ZEILEN statt einer:
+//   Zeile 1  128-hex  -- der Fingerprint. UNVERAENDERT in Bedeutung und Formwache; alle vier Konsumenten
+//                        lesen weiter genau diesen Wert und merken vom Format-Bump nichts.
+//   Zeile 2  bvset    -- der KLARTEXT des Preimage-Glieds [6] (die Enabled-Mengen-Signatur des Treibers,
+//                        der diese Binary gebaut hat). Optional: fehlt sie, ist das Sidecar in der v1-Form.
+//
+// WARUM EINE ZWEITE ZEILE UND NICHT EIN ZWEITES SIDECAR: der Vergleich in dll_is_current braucht Hash UND
+// Klartext ATOMAR aus demselben Schreibvorgang. Laegen sie in zwei Dateien, waere der Zustand "Hash neu,
+// Klartext alt" nach einem abgebrochenen Bau ein moeglicher Dateisystem-Zustand -- und genau der wuerde eine
+// Binary als gueltig ausweisen, die es nicht ist.
+//
+// WARUM ZEILE 2 UND NICHT DAS `.variant`-SIDECAR (das den Wert schon traegt): `.variant` ist opt-in
+// (COMDARE_VARIANT_GATE, Default AUS), wird bei AUS aktiv GEPRUNED und beim Skip-Check nie gelesen. Es ist
+// deprecated-nicht-tot mit dokumentierter Entfernungs-Vorbedingung (AP-11). Ein Skip-Kriterium an eine
+// Variable zu haengen, deren Entfernung schon geplant ist, waere die naechste stille Luecke.
+//
+// WARUM DAS SICHER IST ('\n'-FREIHEIT): die bvset-Signatur besteht per Konstruktion nur aus Namen, Ziffern
+// und den Trennern ;=[]{} -- driver_build_variant_signature.hpp sichert das mit einem static_assert gegen
+// '\n' (Injektivitaets-Pflicht des Preimage-Glieds). Die Zeilen-Trennung kann also nicht durch den Inhalt
+// zerbrechen; sie ist keine Konvention, sondern compile-hart gedeckt.
+//
 // DOKTRIN: header-only C++23, ASCII-Kommentare (§ erlaubt), nur stdlib.
 // -----------------------------------------------------------------------------
 
@@ -77,6 +98,33 @@ namespace detail {
     return true;
 }
 
+// v2: die erste Zeile des Roh-Inhalts (alles vor dem ersten '\n'; ohne '\n' ist das der ganze Inhalt).
+// Damit liest derselbe Leser BEIDE Formen: v1 hat keine zweite Zeile, v2 hat eine.
+[[nodiscard]] inline std::string_view fp_erste_zeile(std::string_view roh) noexcept {
+    auto const nl = roh.find('\n');
+    return (nl == std::string_view::npos) ? roh : roh.substr(0, nl);
+}
+
+// v2: die zweite Zeile -- alles zwischen dem ersten und dem zweiten '\n' (bzw. dem Ende). Existiert kein
+// erstes '\n', gibt es keine zweite Zeile.
+[[nodiscard]] inline std::string_view fp_zweite_zeile(std::string_view roh) noexcept {
+    auto const nl = roh.find('\n');
+    if (nl == std::string_view::npos) return {};
+    auto const rest = roh.substr(nl + 1);
+    auto const nl2  = rest.find('\n');
+    return (nl2 == std::string_view::npos) ? rest : rest.substr(0, nl2);
+}
+
+// Beidseitiger Trim auf einer SICHT (der Aufrufer haelt den Puffer). Gleiche Regel wie fp_trim_view, nur ohne
+// die std::string-Bindung -- die Zeilen-Zerlegung arbeitet auf Sichten in den Roh-Puffer.
+[[nodiscard]] inline std::string_view fp_trim_sicht(std::string_view s) noexcept {
+    std::size_t b = 0;
+    std::size_t e = s.size();
+    while (b < e && fp_is_trimmable(s[b])) ++b;
+    while (e > b && fp_is_trimmable(s[e - 1])) --e;
+    return s.substr(b, e - b);
+}
+
 } // namespace detail
 
 // A2-EICHUNG (GATE 5): die EINE LESE-WAHRHEIT des `.fingerprint`-Sidecars. Beide Leser der Naht
@@ -107,10 +155,45 @@ namespace detail {
     std::ifstream f{sidecar, std::ios::binary};
     if (!f) return std::nullopt; // sidecar_fehlt
     std::string const raw{std::istreambuf_iterator<char>{f}, std::istreambuf_iterator<char>{}};
-    auto const        v = detail::fp_trim_view(raw);
-    if (v.empty()) return std::nullopt;                 // sidecar_leer
+    // v2-NACHZUG: erst der bisherige Gesamt-Trim (er deckt die AUF-A3-Toleranz gegen fremd erzeugte Dateien
+    // mit fuehrendem/abschliessendem Whitespace unveraendert ab), DANN die erste Zeile. Fuer ein v1-Sidecar
+    // ist die erste Zeile nach dem Trim der ganze Inhalt -- dieser Leser verhaelt sich dort byte-genau wie
+    // vorher. Fuer ein v2-Sidecar liest er den Hash und ignoriert die bvset-Zeile: die drei Konsumenten neben
+    // dem Skip-Gate (bestandslog/fingerprint_key_source.hpp, bestandslog/messwert_key_source.hpp,
+    // planner/planner_status_reader.hpp) sehen den Format-Bump damit gar nicht. Das ist Absicht und keine
+    // Bequemlichkeit: das Lager muss Alt-Bestand weiter identifizieren koennen (Messdaten-Doktrin), und ein
+    // Lager-Schluessel, der sich mit dem Sidecar-Format aendert, verloere genau diese Faehigkeit.
+    auto const ganz = detail::fp_trim_view(raw);
+    if (ganz.empty()) return std::nullopt; // sidecar_leer
+    auto const v = detail::fp_trim_sicht(detail::fp_erste_zeile(ganz));
+    if (v.empty()) return std::nullopt;                 // sidecar_leer (v2-Kopf fehlt)
     if (!detail::fp_is_hex_128(v)) return std::nullopt; // laenge_verstoss / zeichen_verstoss
     return std::string{v};
+}
+
+/// v2, Zeile 2: der KLARTEXT des Preimage-Glieds [6] dieser Binary -- die bvset-Mengen-Signatur des Treibers,
+/// der sie gebaut hat. nullopt heisst genau eine Sache: DIESES Sidecar ist in der v1-Form (oder gar nicht da).
+///
+/// GETRENNTE FUNKTION statt eines zweiten Rueckgabewerts von read_fingerprint_sidecar: die vier Konsumenten
+/// des Hashes sollen sich nicht aendern muessen, nur weil ein fuenfter Konsument etwas anderes braucht. Wer
+/// den Hash will, ruft den Hash-Leser; wer die Menge will, ruft diesen. Zwei Fragen, zwei Funktionen, EIN
+/// Dateiformat.
+///
+/// KEINE FORMWACHE HIER (im Unterschied zum Hash): ob die Zeile eine wohlgeformte bvset-Signatur ist,
+/// entscheidet der Parser in bvset_teilmenge.hpp -- er ist die EINE Stelle, die die Grammatik kennt. Dieser
+/// Leser liefert die Bytes und erfindet nichts dazu. Leer nach dem Trim = nullopt (eine leere Menge waere
+/// keine Aussage, sondern ein abgebrochener Schreibvorgang).
+[[nodiscard]] inline std::optional<std::string> read_bvset_glied_sidecar(std::filesystem::path const& output) {
+    std::error_code ec;
+    auto const      sidecar = fingerprint_sidecar_path(output);
+    if (!std::filesystem::exists(sidecar, ec) || ec) return std::nullopt;
+    std::ifstream f{sidecar, std::ios::binary};
+    if (!f) return std::nullopt;
+    std::string const raw{std::istreambuf_iterator<char>{f}, std::istreambuf_iterator<char>{}};
+    auto const        ganz = detail::fp_trim_view(raw);
+    auto const        z2   = detail::fp_trim_sicht(detail::fp_zweite_zeile(ganz));
+    if (z2.empty()) return std::nullopt; // v1-Form (oder abgebrochener Schreibvorgang)
+    return std::string{z2};
 }
 
 } // namespace comdare::cache_engine::builder::experiment

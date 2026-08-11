@@ -17,6 +17,7 @@
 
 #include "../experiment_tree/experiment_tree.hpp"
 #include "../experiment_tree/progress_heartbeat.hpp" // S1 (§62-B Log-Flush): geflushtes Bau-Fortschritts-Testat
+#include "../bvset_teilmenge.hpp"  // Task #59: bvset_ist_teilmenge (registry-frei, kennt nur die Grammatik)
 #include "fingerprint_sidecar.hpp" // G4b-1/AUF-A2: fingerprint_sidecar_path (hierher extrahiert, Single Source)
 #include <cache_engine/measurement/axis_error.hpp> // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
 #include <cache_engine/measurement/simd_build_gate.hpp>        // Section 40.a-E4: flag-genaues Bau-Gate (Pruef-Dock)
@@ -76,6 +77,17 @@ struct BuildConfig {
     // die zwei Strings waren die einzigen ohne, obwohl "leer = Gate AUS" ihr dokumentierter
     // Default ist. Semantisch identisch (Aggregat-Auslassung wertinitialisiert ohnehin).
     std::string build_variant_sig{};
+    // Task #59 (Additiv-Vertrag GLIED [6]) -- ZWEI GETRENNTE FELDER, obwohl heute derselbe String hineingeht.
+    // Sie beantworten verschiedene Fragen und duerfen deshalb nicht zu einem verschmelzen:
+    //   current_bvset_glied  = das SOLL des Skip-Gates ("was fuehrt der Treiber HEUTE?").
+    //   sidecar_bvset_glied  = was beim Neubau als Zeile 2 neben die Binary geschrieben wird ("was traegt
+    //                          GENAU DIESE Binary?").
+    // Heute sind beide die Treiber-Signatur, weil [6] run-konstant ist. Wuerde [6] je per Permutation
+    // gebildet, waere das SOLL weiter run-konstant und die Aufzeichnung per Binary -- ein gemeinsames Feld
+    // muesste dann getrennt werden, und zwar an einer Stelle, an der beide Bedeutungen schon vermischt sind.
+    // Leer = das jeweilige Verhalten von vorher (kein Teilmengen-Pfad / v1-Sidecar), byte-neutral.
+    std::string current_bvset_glied{};
+    std::string sidecar_bvset_glied{};
     // (E) 2026-06-04: je Tier-Binary ein eigener Unterordner output_dir/<stem>/ (DLL + Source + .obj + .cl.log
     // + .version landen alle darin). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
     bool per_binary_subdirs = false;
@@ -205,6 +217,13 @@ using AlgoSigFn = std::function<std::string(std::vector<std::pair<std::string, s
 // aus DENSELBEN Zeilen wie der Emitter (compose_organ_stamp_line + system/measurement/merge) -> drift-frei. Leer/
 // ungesetzt = kein .fingerprint-Sidecar (byte-neutral). Der achsen-blinde Orchestrator bleibt load-/registry-frei.
 using FingerprintFn = std::function<std::string(std::string const&)>;
+// Task #59 (Additiv-Vertrag GLIED [6]): (binary_id, AUFGEZEICHNETES bvset) -> 128-hex. Der ZWEITE Provider ist
+// noetig, weil FingerprintFn per Konstruktion immer mit dem HEUTIGEN bvset rechnet -- er kann die Frage "welchen
+// Hash haette diese Binary mit der damals gefuehrten Enable-Menge?" gar nicht stellen. Genau die beantwortet die
+// Bindungs-Pruefung von dll_is_current. KEINE ZWEIT-ABLEITUNG: die Facade baut ihn aus DERSELBEN
+// lazy_adhoc_fingerprint_for-Komposition wie den Bestands-Provider, nur mit dem bvset als Parameter statt als
+// vorab aufgeloester Konstante. Leer/ungesetzt = Teilmengen-Pfad AUS (byte-neutral).
+using BvsetFingerprintFn = std::function<std::string(std::string const&, std::string const&)>;
 // W11 (Ledger §43.c, 2026-07-19): Completion-Hook -- feuert je Binary SOFORT nach der Finalisierung von results[j]
 // (aus dem Build-Worker-Thread, in COMPLETION-Reihenfolge, NICHT index-geordnet). Zweck: der BAU-Modus (provision_only)
 // haengt hier einen asynchronen Push-Pump ein, der die fertige perm.dll ueberlappend mit dem weiterlaufenden Bau in den
@@ -346,13 +365,97 @@ inline constexpr std::size_t     kStemMax = 120;
 /// diese Bedingung ist mit dieser Zeile eingetreten. Sein Gegenstand (Define-Verkabelungsfehler) liegt seit
 /// W10-C4 im Fingerprint-Glied [2] selbst: die Bau-ZELLE (OS-Familie + ISA + simd) steht IM Preimage, ein
 /// verkabelungsfalscher Bau hat damit einen anderen SHA512 und faellt an genau diesem einen Vergleich durch.
-[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& expected_fingerprint) {
+///
+/// [NACHGEFUEHRT 2026-08-11, Task #59 -- DER SATZ "DER EINE VERGLEICH" IST HISTORIK.] Der Absatz oben
+/// beschreibt weiter richtig, WAS verglichen wird (der Fingerprint, nicht .version/.algos/.variant), aber
+/// seine Relation war fuer das Glied [6] die falsche. Gleichheit ist eine symmetrische Relation; der
+/// Vertrag, den sie durchsetzen soll, ist es nicht:
+///
+///   ERWEITERUNG   der Treiber fuehrt heute MEHR Achsen-Varianten als beim Bau der vorhandenen Binary.
+///                 Die Binary bleibt gueltig -- sie wurde aus einer TEILMENGE der heutigen Faehigkeiten
+///                 gebaut. Unter Gleichheit fiel sie durch: die gesamte Flotte wurde neu gebaut, weil
+///                 IRGENDWO eine Variante hinzukam, die die meisten Binaries nie beruehrt haetten.
+///   EINSCHRAENKUNG der Treiber fuehrt WENIGER. Die Binary ist NICHT mehr gueltig.
+///
+/// Beide Faelle waren ununterscheidbar. Das ist der Defekt, den diese Ueberladung heilt, und zwar an der
+/// Relation -- nicht an der Glied-Natur ([6] bleibt RUN-KONSTANT) und nicht an der Glied-Ordnung
+/// (kAnatomyFingerprintGliedCount bleibt 9, das bvset bleibt im SHA-512-Preimage).
+///
+/// DIE ZWEI ZUSICHERUNGEN, DIE ZUSAMMEN GELTEN MUESSEN -- eine allein waere ein Loch:
+///   (a) TEILMENGE: die aufgezeichnete Menge steckt in der heutigen (bvset_teilmenge.hpp).
+///   (b) BINDUNG:   der aufgezeichnete Hash ist NACHWEISLICH ueber genau diese aufgezeichnete Menge
+///                  gerechnet -- geprueft per Neuberechnung mit dem aufgezeichneten bvset. Ohne (b) waere
+///                  Zeile 2 des Sidecars eine unbeglaubigte Behauptung: wer sie um ein Element erweitert,
+///                  bekaeme jede beliebige Binary als "Teilmenge" durchgewunken, waehrend die Binary
+///                  selbst unveraendert die alte Menge traegt. (a) prueft die Richtung, (b) prueft, dass
+///                  ueberhaupt die richtige Menge geprueft wird.
+///
+/// ZIRKULARITAETS-VERBOT, PRAEZISIERT (driver_build_variant_signature.hpp:16-17): das Sidecar-bvset wird als
+/// IST gelesen -- als Aussage darueber, was die vorhandene Binary traegt -- und per (b) kryptographisch an
+/// ihren Hash gebunden. Es wird NIEMALS zum SOLL: die Erwartungsseite kommt unveraendert aus der aktuellen
+/// Treiber-Konfiguration, und die uebrigen acht Glieder werden ueberhaupt nicht aus dem Sidecar gelesen.
+///
+/// WARUM DER TEILMENGEN-PFAD OPT-IN IST (und nicht der Default): ohne gesetzten Kontext verhaelt sich diese
+/// Funktion BYTE-GENAU wie vorher -- reine Hash-Gleichheit. Jeder Bestands-Aufrufer und jeder Test, der den
+/// Kontext nicht setzt, aendert damit sein Verhalten um kein Bit. Das ist die Bedingung dafuer, dass die
+/// EINMAL-Invalidierung unten nicht versehentlich jeden Pfad trifft, der sie gar nicht braucht.
+struct SkipBvsetKontext {
+    /// Das SOLL: die bvset-Signatur des HEUTIGEN Treibers. Leer = Teilmengen-Pfad AUS.
+    std::string current_glied{};
+    /// Die Bindungs-Pruefung: (aufgezeichnetes bvset) -> 128-hex fuer GENAU die binary_id dieses Jobs.
+    /// Der Aufrufer bindet die binary_id in die Closure -- diese Funktion kennt keine binary_id und soll
+    /// keine kennen. Leer = Teilmengen-Pfad AUS.
+    std::function<std::string(std::string const&)> recompute{};
+
+    /// Beide Haelften noetig: eine Teilmenge ohne Bindung waere faelschbar, eine Bindung ohne Soll-Menge
+    /// haette nichts, wogegen sie prueft.
+    [[nodiscard]] bool aktiv() const noexcept { return !current_glied.empty() && static_cast<bool>(recompute); }
+};
+
+[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& expected_fingerprint,
+                                         SkipBvsetKontext const& bvset_ctx) {
     if (expected_fingerprint.empty()) return false; // (1) ohne CT-Erwartung nie ueberspringen (fail-closed)
     std::error_code ec;
     if (!std::filesystem::exists(output, ec) || ec) return false; // (2) DLL fehlt -> bauen
     auto const vorhanden = read_fingerprint_sidecar(output);      // (3)+(4) fehlt/leer/nicht-128-hex -> nullopt
     if (!vorhanden) return false;
-    return *vorhanden == expected_fingerprint; // DER EINE VERGLEICH
+
+    // (5) TEILMENGEN-PFAD AUS -> exakt der Vergleich von vorher. KEIN v1-Nachteil, kein neues Verhalten.
+    if (!bvset_ctx.aktiv()) return *vorhanden == expected_fingerprint;
+
+    // (6) v1-SIDECAR AUF DEM SCHARFEN PFAD -> false. DIE EINMAL-INVALIDIERUNG, ausdruecklich und nicht
+    //     nebenbei: ein Sidecar ohne bvset-Zeile kann seine Menge nicht ausweisen, also kann fuer es weder
+    //     (a) noch (b) entschieden werden. Es fail-closed durchzuwinken hiesse, den Vertrag genau fuer den
+    //     Bestand auszusetzen, fuer den er gebaut wurde. Die Invalidierung ist EINMALIG UND SELBSTHEILEND:
+    //     der ausgeloeste Neubau schreibt v2, jeder Folgelauf skippt wieder. Sie steht VOR dem
+    //     Gleichheits-Schnellpfad -- sonst bliebe ein v1-Bestand mit zufaellig passendem Hash unbemerkt
+    //     liegen und faende erst Monate spaeter, beim ersten echten Erweiterungs-Fall, seine Grenze.
+    //     TERMINIERUNG: dieser eine Flotten-Neubau gehoert bewusst gesetzt, nicht in einen laufenden
+    //     Mess-Betrieb hinein (286er-Mehrtagesexperiment).
+    auto const recorded_bvset = read_bvset_glied_sidecar(output);
+    if (!recorded_bvset) return false;
+
+    // (7) SCHNELLPFAD: gleicher Hash heisst gleiche Identitaet in ALLEN neun Gliedern -- das schliesst den
+    //     Fall recorded == current ein und braucht keine Neuberechnung.
+    if (*vorhanden == expected_fingerprint) return true;
+
+    // (8) RICHTUNG: nur ERWEITERUNG passiert hier. Einschraenkung (recorded traegt etwas, das current nicht
+    //     mehr fuehrt) faellt durch -- das ist der Fall, fuer den der Neubau richtig ist.
+    if (!bvset_ist_teilmenge(*recorded_bvset, bvset_ctx.current_glied)) return false;
+
+    // (9) BINDUNG: der aufgezeichnete Hash muss sich aus dem aufgezeichneten bvset REPRODUZIEREN lassen.
+    //     Schlaegt das fehl, weicht die Binary in mindestens einem der uebrigen acht Glieder ab (andere
+    //     Toolchain, andere Zelle, anderes Mess-Tooling) ODER Zeile 2 wurde manipuliert. Beides ist ein
+    //     Neubau-Grund, und beide sind hier bewusst nicht unterscheidbar: der Skip haengt am Nachweis,
+    //     nicht an der Diagnose.
+    return bvset_ctx.recompute(*recorded_bvset) == *vorhanden;
+}
+
+/// Bestands-Ueberladung: ohne Kontext ist der Teilmengen-Pfad AUS und dies ist byte-genau der Vergleich, den
+/// die A2-Eichung 2026-08-05 gesetzt hat. Sie bleibt, damit kein Aufrufer eine leere Struktur mitschleppen
+/// muss, um das Verhalten von gestern zu bekommen.
+[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& expected_fingerprint) {
+    return dll_is_current(output, expected_fingerprint, SkipBvsetKontext{});
 }
 // TP1FK1-B2 (Codex-Befund CX-W3): der Schreibfehler wird NICHT mehr verschluckt. Frueher hiess
 // 'if (f) f << version;' -- misslang das Anlegen oder Schreiben, entstand STILL keine .version, und
@@ -410,13 +513,21 @@ inline void write_variant_sidecar(std::filesystem::path const& output, std::stri
 /// fail-closed), aber sie kostet BEI JEDEM FOLGELAUF einen vollen Neubau derselben Binary -- eine Regression,
 /// die sich als "der Cache greift nie" zeigt und deren Ursache ohne diese Zeile nirgends steht. Byte-neutral
 /// fuer den Erfolgspfad (dieselbe klassifizierte ArtefaktIo-Zeile wie beim `.version`-Zwilling).
-inline void write_fingerprint_sidecar(std::filesystem::path const& output, std::string const& fingerprint) {
+///
+/// [NACHGEFUEHRT 2026-08-11, Task #59 -- SIDECAR-FORMAT v2] Der Schreiber legt jetzt ZWEI Zeilen an, sobald
+/// `bvset_glied` gefuellt ist: Zeile 1 der Hash (unveraendert), Zeile 2 der Klartext des Preimage-Glieds [6].
+/// Ist `bvset_glied` leer, entsteht byte-genau die v1-Form von vorher -- kein Aufrufer, der das Argument nicht
+/// setzt, aendert ein einziges Byte auf der Platte. Das ist die Bedingung dafuer, dass diese Scheibe additiv
+/// bleibt: die neue Faehigkeit kostet nichts, wo sie nicht bestellt ist.
+inline void write_fingerprint_sidecar(std::filesystem::path const& output, std::string const& fingerprint,
+                                      std::string const& bvset_glied = {}) {
     if (fingerprint.empty()) return;
     auto const    p = fingerprint_sidecar_path(output);
     std::ofstream f{p, std::ios::binary | std::ios::trunc};
     bool          geschrieben = false;
     if (f) {
         f << fingerprint;
+        if (!bvset_glied.empty()) f << '\n' << bvset_glied;
         f.flush();
         geschrieben = f.good();
     }
@@ -506,6 +617,17 @@ public:
     /// I2: den Fingerprint-Provider setzen (Lager-Index-Anker je Binary). VOR provision_all aufrufen; leer = kein
     /// .fingerprint-Sidecar (byte-neutral). Opt-in wie set_on_binary_done -> die ctor-Signatur bleibt unveraendert.
     void set_fingerprint_provider(FingerprintFn fn) { fingerprint_ = std::move(fn); }
+
+    /// Task #59: der RECOMPUTE-Provider (binary_id, aufgezeichnetes bvset) -> 128-hex. Er beantwortet die eine
+    /// Frage, die der normale Fingerprint-Provider NICHT beantworten kann: "welchen Hash haette diese Binary,
+    /// wenn man sie mit der aufgezeichneten Enable-Menge statt der heutigen rechnet?" Genau daran haengt die
+    /// Bindungs-Pruefung (9) in dll_is_current.
+    ///
+    /// NICHT GESETZT = Teilmengen-Pfad AUS, auch wenn cfg.current_bvset_glied gefuellt ist. Das ist Absicht:
+    /// eine Teilmengen-Pruefung ohne Bindung waere schwaecher als die Gleichheit, die sie ersetzt -- lieber
+    /// gar nicht scharf als scheinbar scharf. VOR provision_all aufrufen, gleiches opt-in-Muster wie
+    /// set_fingerprint_provider.
+    void set_bvset_fingerprint_provider(BvsetFingerprintFn fn) { bvset_fingerprint_ = std::move(fn); }
 
     /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit (rückwärtskompatibel): je Binary Source (KF-8)
     /// + DLL kompilieren — INKREMENTELL, RAM-gewahr, MULTITHREADED. ⚠️ results-Vektor O(view.size()): nur für
@@ -663,7 +785,17 @@ private:
                 // (A) INKREMENTELL: bestehende, fingerprint-aktuelle DLL ueberspringen (Resume nach Absturz).
                 // DER EINE VERGLEICH (F7 "NUR"): `.fingerprint`-Sidecar == expected_fp. .version/.algos/.variant
                 // werden weiter geschrieben (Provenienz-/Transport-Marken), entscheiden hier aber nichts mehr.
-                if (dll_is_current(job.output, expected_fp)) {
+                // Task #59: der Teilmengen-Kontext wird HIER gebaut, weil nur hier die binary_id bekannt ist.
+                // Die Bindungs-Pruefung muss an GENAU DIESE Binary gebunden sein -- ein Provider, der die id
+                // nicht mitfuehrt, koennte den Hash einer anderen Binary reproduzieren und damit einen Skip
+                // begruenden, der nichts ueber die vorliegende Datei aussagt.
+                SkipBvsetKontext skip_ctx;
+                skip_ctx.current_glied = cfg_.current_bvset_glied;
+                if (bvset_fingerprint_)
+                    skip_ctx.recompute = [this, id = spec.binary_id](std::string const& bvset) {
+                        return bvset_fingerprint_(id, bvset);
+                    };
+                if (dll_is_current(job.output, expected_fp, skip_ctx)) {
                     r.status  = 0;
                     r.skipped = true;
                     r.message = "uebersprungen (Fingerprint aktuell)";
@@ -748,7 +880,11 @@ private:
                         // I2 Lager-Anker; leer=no-op. A2-EICHUNG: DERSELBE Wert, den (A) als Skip-Erwartung
                         // gelesen hat -- nicht neu berechnet. Damit ist "was das Gate erwartet" und "was neben
                         // der Binary liegt" EINE Quelle, und der naechste Lauf skippt genau diese Binary.
-                        write_fingerprint_sidecar(job.output, expected_fp);
+                        // Task #59: Zeile 2 = die bvset-Menge, mit der GENAU DIESE Binary gebaut wurde. Der
+                        // Wert kommt aus cfg_ und wird NICHT hier abgeleitet -- die Facade reicht denselben
+                        // String, den sie auch in den Fingerprint-Maker gegeben hat, damit Zeile 2 und das
+                        // Preimage-Glied [6] nicht auseinanderlaufen koennen. Leer = v1-Form wie bisher.
+                        write_fingerprint_sidecar(job.output, expected_fp, cfg_.sidecar_bvset_glied);
                     }
                 }
                 finalize(j, std::move(r));
@@ -791,6 +927,7 @@ private:
     AlgoSigFn     algo_sig_;       // Bauplan §3: spec.axes → algo_sig; leer = Organ-Gate aus (byte-neutral)
     BinaryDoneFn  on_binary_done_; // W11: per-Binary Completion-Hook (BAU-Modus async Push-Feed); leer = byte-neutral
     FingerprintFn fingerprint_;    // I2: binary_id -> 128-hex K7b-Fingerprint (.fingerprint-Sidecar); leer=byte-neutral
+    BvsetFingerprintFn bvset_fingerprint_; // Task #59: (binary_id, bvset) -> 128-hex; leer = Teilmengen-Pfad AUS
 };
 
 namespace detail {

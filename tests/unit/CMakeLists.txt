@@ -5795,6 +5795,20 @@ add_test(NAME test_a2_sha512_skip_gate COMMAND test_a2_sha512_skip_gate)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_a2_sha512_skip_gate)
 set_tests_properties(test_a2_sha512_skip_gate PROPERTIES LABELS "a2;blut")
 
+# Task #59 (Additiv-Vertrag GLIED [6]): der RICHTUNGS-BEHAFTETE bvset-Vergleich. Eigene TU statt eines
+# Anbaus an die A2-Suite, weil sie einen ANDEREN Gegenstand hat: A2 beweist das Skip-GATE, diese hier den
+# MENGEN-VERGLEICH, auf dem es seit #59 aufsetzt. Include-/Link-Satz identisch zum A2-Block -- der Pin auf
+# die echte kDriverBuildVariantSignature zieht die drei CMake-generierten Achsen-Registries nach
+# (driver_build_variant_signature.hpp), genau wie test_g2_variant_sidecar.
+add_executable(test_bvset_teilmenge "test_bvset_teilmenge.cpp")
+target_compile_features(test_bvset_teilmenge PRIVATE cxx_std_23)
+target_include_directories(test_bvset_teilmenge PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_bvset_teilmenge PRIVATE gtest gtest_main Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_bvset_teilmenge)
+add_test(NAME test_bvset_teilmenge COMMAND test_bvset_teilmenge)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_bvset_teilmenge)
+set_tests_properties(test_bvset_teilmenge PROPERTIES LABELS "a2;blut")
+
 # G3-B3 (S2): Factory + SHA512-Index (bestandslog_factory.hpp, bestandslog_index.hpp). Braucht
 # zusaetzlich libs/cache_engine/src fuer <sha512/ctsha512.hpp> (die EINE SHA512-Wahrheit gegen A1).
 comdare_add_test(test_g3_sha512_index

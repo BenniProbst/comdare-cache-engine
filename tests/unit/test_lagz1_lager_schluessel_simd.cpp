@@ -278,6 +278,44 @@ int main(int argc, char** argv) {
         return gebissen ? 0 : 1;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // TASK #59 -- DIFFERENZTEST MIT FREMDEM NENNER (V-7): ZWEI WEGE, EIN HASH.
+    //
+    // Der neue Maker make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env nimmt das bvset-Glied als
+    // AUFRUF-Parameter, der Bestands-Maker loest es einmal vorab auf. Beide muessen fuer dieselbe
+    // binary_id denselben Hash liefern, sobald der Parameter der LIVE-Wert ist -- sonst prueft die
+    // Bindungs-Pruefung des Skip-Gates ein anderes Preimage als das, welches die Binary traegt, und
+    // der ganze Teilmengen-Pfad waere ein Zirkelschluss ueber die eigene Formel.
+    //
+    // DER FREMDE NENNER ist hier der Bestands-Weg: er existiert seit NB/CX-4 und ist durch die
+    // Faelle oben unabhaengig gedeckt. Der neue Weg wird GEGEN ihn gemessen, nicht gegen sich selbst.
+    // BEIDE Hex-Werte werden genannt (V-4) -- eine Gleichheits-Zusage ohne die zwei Zahlen waere
+    // genau die Erfolgsmarke ohne literale Ausgabe, die der Vertrag verbietet.
+    {
+        std::string const bvset_live = pfn::live_build_variant_set_signature_glied();
+        std::string const id         = ids.front();
+        std::string const weg_alt    = tlz::make_lazy_adhoc_fingerprint_fn_from_env()(id);
+        std::string const weg_neu    = tlz::make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env()(id, bvset_live);
+        std::cout << "\n  [#59 V-7] binary_id=" << id << "\n"
+                  << "            bvset (" << bvset_live.size() << " Byte) = " << bvset_live << "\n"
+                  << "            Bestands-Maker (bvset implizit live) = " << weg_alt << "\n"
+                  << "            Neuer Maker    (bvset explizit)      = " << weg_neu << "\n";
+        if (weg_alt != weg_neu) {
+            std::cout << "  [#59 V-7] FEHLER: die zwei Wege liefern verschiedene Hashes\n";
+            ++gerissen;
+        }
+        // GEGENEINGANG (T-4): ein ANDERES bvset MUSS einen anderen Hash ergeben -- sonst waere der
+        // Parameter wirkungslos und die Bindungs-Pruefung eine leere Geste, die jeden Wert bestaetigt.
+        std::string const bvset_fremd = bvset_live + "X";
+        std::string const weg_fremd   = tlz::make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env()(id, bvset_fremd);
+        std::cout << "            Neuer Maker    (bvset VERAENDERT)    = " << weg_fremd << "\n";
+        if (weg_fremd == weg_neu) {
+            std::cout << "  [#59 V-7] FEHLER: ein veraendertes bvset aendert den Hash NICHT -- der Parameter "
+                         "ist wirkungslos\n";
+            ++gerissen;
+        }
+    }
+
     std::cout << "\n==== LAG-Z1: "
               << (gerissen == 0 ? std::string{"ALLE FAELLE GEHALTEN"} : std::to_string(gerissen) + " FEHLER")
               << "  (Koeder=" << kKoeder << ") ====\n";
