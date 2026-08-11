@@ -235,7 +235,19 @@ struct LazyRunConfig {
     // S3 (§62-B COMDARE_PRUEF_ONLY): NUR das Konformitaets-Gate je bereits gebauter .so -- KEINE Messung, KEIN Neubau
     // (provision_all laeuft im Resume-Modus -> versions-aktuelle .so werden uebersprungen). Kehrt in
     // run_lazy_static_then_dynamic nach provision_all VOR der Mess-Phase zurueck. Default false = byte-identisch.
-    // Gegenseitig ausschliessend mit provision_only (das zuerst greift). Nur wirksam mit per_binary_subdirs.
+    // Nur wirksam mit per_binary_subdirs.
+    //
+    // D3-7b-RIEGEL (2026-08-11): DASS SICH DIE BEIDEN MODI AUSSCHLIESSEN, IST AB HIER EINE EIGENSCHAFT DES
+    // CODES UND KEINE BITTE AN DEN AUFRUFER. Bis zur Heilung stand an dieser Stelle "gegenseitig
+    // ausschliessend mit provision_only (das zuerst greift)" -- ein Satz, der BEIDES zugleich behauptete:
+    // die Kombination gaebe es nicht, und wenn es sie gaebe, gewaenne provision_only. Durchgesetzt hat ihn
+    // NICHTS (am Objekt gemessen 11.08.: zwei unabhaengige bool, 0 Pruefungen auf dem Weg vom Host bis
+    // hierher). Der zweite Halbsatz beschrieb die Wahrheit genauer als der erste: der provision_only-Zweig
+    // in run_lazy_static_then_dynamic kehrt vor dem pruef_only-Zweig zurueck, also fuhr die Kombination
+    // still einen Provision-Lauf und meldete ihn als Pruef-Lauf.
+    // JETZT: lauf_modus_konflikt (unten) ist das Praedikat, und run_lazy_static_then_dynamic verweigert
+    // fail-closed, BEVOR irgendetwas gebaut oder geladen wird. Wer den Riegel entfernt, muss diesen
+    // Kommentar mit entfernen -- sonst luegt er wieder.
     bool pruef_only = false;
     // Storage #51 (Naht-Injektion, No-Op-Default => byte-neutral; Muster wie CompileFn/AlgoSigFn). Der Iterator ruft
     // sie SYNCHRON an der per-Binary-Naht (NACH result.csv+stamp, VOR RAII-DLL-Unload) — nie async/detached (I/O-
@@ -370,6 +382,31 @@ struct LazyRunConfig {
     // genau das war der Zustand, den T-15 beendet.
     DriftGateConfig drift_gate{};
 };
+
+// -- D3-7b-RIEGEL: DAS PRAEDIKAT DER GEGENSEITIGEN AUSSCHLIESSUNG --------------------------------
+// EINE Quelle fuer eine Frage, die vorher an DREI Stellen als Kommentar behauptet und an KEINER
+// geprueft wurde (am Objekt gezaehlt, 11.08.2026, Nenner = alle *.hpp/*.cpp ausserhalb der
+// Bauverzeichnisse): 3 Kommentar-Stellen, 0 Code-Stellen.
+//   RunProfileArgs   profile_run_entry.hpp   :233/:245 -- zwei unabhaengige bool
+//   LazyRunConfig    hier                    :234/:251 -- zwei unabhaengige bool
+//   Durchreichung    profile_run_facade.cpp  :750/:751 -- zwei Zuweisungen, 0 Pruefungen
+// (Die Zeilennummern sind der Stand NACH dieser Heilung; massgeblich sind die genannten Bezeichner.)
+// WARUM DIE KOMBINATION KEIN THEORETISCHER ZUSTAND IST: die zwei Schalter kommen im Betrieb aus zwei
+// GETRENNTEN Umgebungsvariablen (COMDARE_GOLDEN_N_PROVISION_ONLY / COMDARE_PRUEF_ONLY) und der Planer
+// setzt sie in zwei getrennten `cmake -E env`-Bloecken, ohne eine davon je zu `--unset`en. Ein von
+// aussen gesetztes Provision-Flag reist damit in den Pruef-Schritt.
+// WAS OHNE RIEGEL PASSIERTE (V-8, am Objekt nachgemessen): der provision_only-Zweig kehrt VOR dem
+// pruef_only-Zweig zurueck. Der Lauf fuhr also eine Provisionierung, gatete 0 .so -- und die
+// Bilanz-Zeile der Fassade trug trotzdem das Token "(pruef-only)" und der Exit-Code kam aus dem
+// Pruef-Zweig (pruef_ok==0 => exit 1), obwohl die Provisionierung erfolgreich war. Beides sind
+// Aussagen ueber einen Modus, den der Lauf nie gefahren ist.
+// FAIL-CLOSED IST HIER DIE RICHTIGE RICHTUNG, nicht ein Vorrang: welcher Modus gemeint war, weiss der
+// Aufrufer, nicht der Iterator. Einen davon zu waehlen waere Raten mit Stempel.
+[[nodiscard]] constexpr bool lauf_modus_konflikt(bool provision_only, bool pruef_only) noexcept {
+    return provision_only && pruef_only;
+}
+/// Die EINE Marke, an der der Riegel im Log erkennbar ist (Iterator- wie Fassaden-Ebene benutzen sie).
+inline constexpr char const* kLaufModusKonfliktMarke = "[lauf-modus-konflikt]";
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
 struct LazyMeasuredRow {
@@ -2016,7 +2053,26 @@ run_planer_driven_provision(BuildOrchestrator& orch, StaticBinaryView const& vie
 [[nodiscard]] inline LazyRunResult run_lazy_static_then_dynamic(ExperimentTree& tree, BuildSelection const& sel,
                                                                 CompileFn compile, SourceGenFn gen, FreeRamFn ram,
                                                                 LazyRunConfig const& cfg, AlgoSigFn algo_sig = {}) {
-    LazyRunResult                 result;
+    LazyRunResult result;
+
+    // -- D3-7b-RIEGEL: VOR ALLEM ANDEREN. -----------------------------------------------------------
+    // Hier steht er und nicht weiter unten, weil "fail-closed" sonst nur die halbe Wahrheit waere: der
+    // provision_only-Zweig unten haette bis zu seinem `return` bereits gebaut, gepusht und registriert.
+    // Der Riegel verweigert, BEVOR ein Verzeichnis angelegt, eine Quelle erzeugt oder ein Compiler
+    // gerufen wird -- der Lauf hinterlaesst nichts, was ein Folgelauf als Bestand missdeuten koennte.
+    // ZURUECK KOMMT DAS UNANGETASTETE result: selected=0, built=0, pruef_ok=0, pruef_failed=0. Damit
+    // ist JEDES Erfolgsmass jedes bekannten Aufrufers 0 -> exit!=0. Der Riegel muss dafuer nichts
+    // wissen; er muss nur nichts tun.
+    if (lauf_modus_konflikt(cfg.provision_only, cfg.pruef_only)) {
+        std::cerr << kLaufModusKonfliktMarke
+                  << " provision_only=1 UND pruef_only=1 -- die beiden Lauf-Modi schliessen sich aus."
+                     " ABBRUCH VOR jedem Bau und jedem Lade-Versuch (fail-closed): welcher der beiden Modi"
+                     " gemeint war, weiss nur der Aufrufer. Genau EINEN der beiden Schalter setzen"
+                     " (im Betrieb: COMDARE_GOLDEN_N_PROVISION_ONLY oder COMDARE_PRUEF_ONLY, nie beide).\n"
+                  << std::flush;
+        return result;
+    }
+
     StaticBinaryView const        view     = tree.static_binary_view();
     std::vector<DynamicDim> const dyn_dims = tree.dynamic_filter(); // der dynamische Sub-Filterbaum (LAZY-Quelle)
 
