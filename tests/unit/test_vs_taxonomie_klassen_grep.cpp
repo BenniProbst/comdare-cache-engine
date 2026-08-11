@@ -117,8 +117,8 @@ constexpr std::string_view kDefinitionsDatei = "algo_semver.hpp";
 
 [[nodiscard]] std::vector<std::string> zeilen(std::string const& text) {
     std::vector<std::string> raus;
-    std::string             zeile;
-    std::istringstream      in(text);
+    std::string              zeile;
+    std::istringstream       in(text);
     while (std::getline(in, zeile)) raus.push_back(zeile);
     return raus;
 }
@@ -133,14 +133,14 @@ constexpr std::string_view kDefinitionsDatei = "algo_semver.hpp";
 // -- DIE LISTE -------------------------------------------------------------------------------------
 
 struct Liste {
-    bool                     gefunden = false;
-    std::string              block;   ///< der Text zwischen den beiden Ankern
-    std::vector<char>        klassen; ///< die Klassen-Buchstaben in Auftretens-Reihenfolge
-    std::string              fehler;  ///< nicht leer, wenn die Anker nicht sitzen
+    bool              gefunden = false;
+    std::string       block;   ///< der Text zwischen den beiden Ankern
+    std::vector<char> klassen; ///< die Klassen-Buchstaben in Auftretens-Reihenfolge
+    std::string       fehler;  ///< nicht leer, wenn die Anker nicht sitzen
 };
 
 [[nodiscard]] Liste liste_lesen(fs::path const& quelle) {
-    Liste       raus;
+    Liste             raus;
     std::string const text = datei_lesen(quelle);
     if (text.empty()) {
         raus.fehler = "Quelle nicht lesbar oder leer: " + quelle.string();
@@ -167,8 +167,7 @@ struct Liste {
         // weiter unten in der Datei liegen ausserhalb des Blocks und werden von der Bereichs-Grenze
         // ausgeschlossen -- deshalb reicht hier die Form-Pruefung.
         std::string const& z = alle[i];
-        if (z.size() >= 10 && z.rfind("///   (", 0) == 0 && z[8] == ')' && z[9] == ' ' && z[7] >= 'a' &&
-            z[7] <= 'z') {
+        if (z.size() >= 10 && z.rfind("///   (", 0) == 0 && z[8] == ')' && z[9] == ' ' && z[7] >= 'a' && z[7] <= 'z') {
             raus.klassen.push_back(z[7]);
         }
     }
@@ -210,7 +209,7 @@ void stellen_in(fs::path const& wurzel, fs::path const& relativ_zu, bool nur_auf
         std::size_t const n      = zaehle(inhalt, w1) + zaehle(inhalt, w2);
         if (n == 0) continue;
 
-        Stelle s;
+        Stelle          s;
         std::error_code rel_ec;
         fs::path const  rel = fs::relative(p, relativ_zu, rel_ec);
         s.relpfad           = rel_ec ? p.string() : rel.generic_string();
@@ -281,7 +280,7 @@ void stellen_in(fs::path const& wurzel, fs::path const& relativ_zu, bool nur_auf
 }
 
 [[nodiscard]] fs::path wegwerf_wurzel(std::string const& kennung) {
-    fs::path     p = fs::temp_directory_path() / ("comdare_tax_" + kennung);
+    fs::path        p = fs::temp_directory_path() / ("comdare_tax_" + kennung);
     std::error_code ec;
     fs::create_directories(p, ec);
     return p;
@@ -317,8 +316,8 @@ TEST(VsTaxonomieKlassenGrep, KlassenLeiterIstLueckenlosUndWaechstNurNachHinten) 
     constexpr std::size_t kKlassenUntergrenze = 10;
 
     std::cout << "[TAXONOMIE] Liste: " << quelle_pfad() << "\n";
-    std::cout << "[TAXONOMIE] klassen gefunden " << k.size() << ", untergrenze " << kKlassenUntergrenze
-              << ", erste '" << k.front() << "', letzte '" << k.back() << "'\n";
+    std::cout << "[TAXONOMIE] klassen gefunden " << k.size() << ", untergrenze " << kKlassenUntergrenze << ", erste '"
+              << k.front() << "', letzte '" << k.back() << "'\n";
 
     EXPECT_GE(k.size(), kKlassenUntergrenze)
         << "die Klassen-Liste ist unter die Ratsche gefallen -- eine Klasse wurde gestrichen";
@@ -333,8 +332,8 @@ TEST(VsTaxonomieKlassenGrep, KlassenLeiterIstLueckenlosUndWaechstNurNachHinten) 
                           << "', gefunden '" << k[i] << "'";
         }
     }
-    std::cout << "[TAXONOMIE] leiter zusammenhaengend: " << (k.size() - luecken) << "/" << k.size()
-              << " positionen, " << luecken << " luecken\n";
+    std::cout << "[TAXONOMIE] leiter zusammenhaengend: " << (k.size() - luecken) << "/" << k.size() << " positionen, "
+              << luecken << " luecken\n";
     EXPECT_EQ(luecken, 0u);
 }
 
@@ -389,8 +388,8 @@ TEST(VsTaxonomieKlassenGrep, GenerischerGrepNennerWirdBerichtetNichtGepinnt) {
         ausserhalb_treffer += s.treffer;
     }
 
-    std::cout << "[TAXONOMIE] generischer wachen-grep (ohne Klammer, ganzer Baum " << baum_pfad()
-              << "): " << summe << " treffer in " << generisch.size() << " dateien\n";
+    std::cout << "[TAXONOMIE] generischer wachen-grep (ohne Klammer, ganzer Baum " << baum_pfad() << "): " << summe
+              << " treffer in " << generisch.size() << " dateien\n";
     std::cout << "[TAXONOMIE] NICHT gegenstand dieses riegels: " << ausserhalb_dateien
               << " aufruf-dateien ausserhalb libs/ mit " << ausserhalb_treffer << " aufrufen\n";
     std::cout << "[TAXONOMIE] die trefferzahl wird BERICHTET, nie gepinnt (algo_semver.hpp:122: "
@@ -430,7 +429,7 @@ TEST(VsTaxonomieKlassenGrep, KoederNeueQuelleOhneEintragBeisstBeidseitig) {
     EXPECT_EQ(biss.front().basisname, koedername) << "gebissen hat er, aber an der falschen Datei";
 
     // GEGENEINGANG: dieselbe Datei gegen eine Liste, die genau diesen gewuerfelten Namen nennt -> kein Biss.
-    std::string const block_mit = echt.block + "///   (z) KOEDER-GEGENEINGANG: " + koedername + "\n";
+    std::string const         block_mit = echt.block + "///   (z) KOEDER-GEGENEINGANG: " + koedername + "\n";
     std::vector<Stelle> const kein_biss = unbenannte(gefunden, block_mit);
     std::cout << "[KOEDER-A] gegen eine liste MIT dem eintrag: " << kein_biss.size() << "/1 unbenannt (erwartet 0)\n";
     EXPECT_EQ(kein_biss.size(), 0u)
@@ -469,8 +468,8 @@ TEST(VsTaxonomieKlassenGrep, KoederGestricheneQuelleBeisstBeidseitig) {
     std::size_t const  idx      = wuerfel_index(benannt.size());
     std::string const& gestrich = benannt[idx].basisname;
 
-    std::string block_ohne = echt.block;
-    std::string const ersatz = "<gestrichen-durch-koeder-" + kennung + ">";
+    std::string       block_ohne = echt.block;
+    std::string const ersatz     = "<gestrichen-durch-koeder-" + kennung + ">";
     for (std::size_t i = block_ohne.find(gestrich); i != std::string::npos; i = block_ohne.find(gestrich, i)) {
         block_ohne.replace(i, gestrich.size(), ersatz);
         i += ersatz.size();

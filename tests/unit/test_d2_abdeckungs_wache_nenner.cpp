@@ -685,9 +685,8 @@ TEST(D2AbdeckungsWacheNenner, HeilePartitionSchweigtUndDieRechnungIstBelegt) {
     //     dass die Wache an der Partitions-Stelle ueberhaupt gelaufen ist, dass sie BEIDE
     //     Teilmengen erhoben hat (ohne=2 UND mit=1 -- ein 'CE_MIT_PMC=0'-Mutant liest sich
     //     hier als 'mit=0 summe=2'), und dass sie die Differenz gebildet hat.
-    std::string const beleg = "PARTITIONS-RECHNUNG: ohne=" + std::to_string(kOhne) + " mit=" + std::to_string(kMit)
-                              + " summe=" + std::to_string(kAlle) + " inventur=" + std::to_string(kAlle)
-                              + " differenz=0";
+    std::string const beleg = "PARTITIONS-RECHNUNG: ohne=" + std::to_string(kOhne) + " mit=" + std::to_string(kMit) +
+                              " summe=" + std::to_string(kAlle) + " inventur=" + std::to_string(kAlle) + " differenz=0";
     EXPECT_TRUE(enthaelt(lauf.ausgabe, beleg))
         << "Erwartet wurde woertlich '" << beleg
         << "'. Fehlt sie, ist 'kein Widerspruch' die Abwesenheit jeder Aussage.\n"

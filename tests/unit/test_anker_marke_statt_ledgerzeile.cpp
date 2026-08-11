@@ -185,9 +185,9 @@ struct Ernte {
     /// eine umbenannte Null-Zonen-Datei blieb gruen. Das war dieselbe stille Null wie die in
     /// ist_ausgeschlossen() dokumentierte -- an zweiter Stelle, im selben Test.
     std::vector<std::string> gelesene;
-    std::size_t marken{0};                    ///< §-Marken -- die erlaubte Form, als Gegenprobe
-    std::size_t dateien{0};
-    std::size_t zeilen{0};
+    std::size_t              marken{0}; ///< §-Marken -- die erlaubte Form, als Gegenprobe
+    std::size_t              dateien{0};
+    std::size_t              zeilen{0};
 };
 
 /// Wurde diese Datei vom Scan WIRKLICH gelesen? Der Unterschied zwischen "0 Treffer" und "nie
@@ -200,7 +200,7 @@ bool wurde_gelesen(Ernte const& e, std::string_view const relativ) {
 /// exakt dieselbe Logik fahren kann wie der Baum-Scan -- ein zweiter, nachgebauter Erkenner waere
 /// die Drift-Quelle, gegen die diese Datei an jeder anderen Stelle argumentiert.
 std::size_t zeilenverweise_in(std::string const& zeile) {
-    std::string const wort  = marken_wort();
+    std::string const wort       = marken_wort();
     std::string const klein_wort = [&] {
         std::string s = wort;
         std::transform(s.begin(), s.end(), s.begin(), klein);
@@ -210,8 +210,7 @@ std::size_t zeilenverweise_in(std::string const& zeile) {
     std::transform(kleinzeile.begin(), kleinzeile.end(), kleinzeile.begin(), klein);
 
     std::size_t treffer = 0;
-    for (std::size_t p = kleinzeile.find(klein_wort); p != std::string::npos;
-         p              = kleinzeile.find(klein_wort, p + 1)) {
+    for (std::size_t p = kleinzeile.find(klein_wort); p != std::string::npos; p = kleinzeile.find(klein_wort, p + 1)) {
         if (ist_zeilenverweis_ab(kleinzeile, p, klein_wort.size())) { ++treffer; }
     }
     return treffer;
@@ -232,8 +231,8 @@ bool ist_quellendung(fs::path const& p) {
     if (p.filename() == "CMakeLists.txt") { return true; }
     std::string e = p.extension().string();
     std::transform(e.begin(), e.end(), e.begin(), klein);
-    return e == ".hpp" || e == ".cpp" || e == ".h" || e == ".hh" || e == ".cc" || e == ".cxx" ||
-           e == ".tpp" || e == ".ipp" || e == ".inl" || e == ".cmake";
+    return e == ".hpp" || e == ".cpp" || e == ".h" || e == ".hh" || e == ".cc" || e == ".cxx" || e == ".tpp" ||
+           e == ".ipp" || e == ".inl" || e == ".cmake";
 }
 
 /// Ausschluss ueber PFAD-KOMPONENTEN des RELATIVEN Pfades, nie ueber Teilstrings und nie ueber den
@@ -252,8 +251,8 @@ bool ist_quellendung(fs::path const& p) {
 bool ist_ausgeschlossen(fs::path const& relativ) {
     for (auto const& teil : relativ) {
         std::string const s = teil.string();
-        if (s == "ext" || s == "vendor" || s == "third_party" || s == "_deps" || s == "googletest" ||
-            s == ".git" || s == "build" || s.rfind("build-", 0) == 0 || s.rfind("cmake-build", 0) == 0) {
+        if (s == "ext" || s == "vendor" || s == "third_party" || s == "_deps" || s == "googletest" || s == ".git" ||
+            s == "build" || s.rfind("build-", 0) == 0 || s.rfind("cmake-build", 0) == 0) {
             return true;
         }
     }
@@ -261,10 +260,10 @@ bool ist_ausgeschlossen(fs::path const& relativ) {
 }
 
 Ernte ernte_baum() {
-    Ernte e{};
+    Ernte          e{};
     fs::path const wurzel{COMDARE_ANKER_QUELLBAUM};
     for (std::string_view const zweig : {"libs", "apps", "tools", "tests"}) {
-        fs::path const start = wurzel / zweig;
+        fs::path const  start = wurzel / zweig;
         std::error_code ec{};
         if (!fs::is_directory(start, ec)) { continue; }
         for (fs::recursive_directory_iterator it{start, fs::directory_options::skip_permission_denied, ec}, ende;
@@ -290,9 +289,7 @@ Ernte ernte_baum() {
                 ++e.zeilen;
                 e.marken += marken_in(zeile);
                 std::size_t const n = zeilenverweise_in(zeile);
-                for (std::size_t k = 0; k < n; ++k) {
-                    e.zeilenverweise.push_back({rel_s, nr, zeile.substr(0, 110)});
-                }
+                for (std::size_t k = 0; k < n; ++k) { e.zeilenverweise.push_back({rel_s, nr, zeile.substr(0, 110)}); }
             }
         }
     }
@@ -370,10 +367,10 @@ TEST(AnkerWache, DerScanSiehtUeberhauptEtwas) {
 // TEIL 1: die NULL-ZONE. Hart, ohne Spielraum.
 // ------------------------------------------------------------------------------------------------
 TEST(AnkerWache, GeheilteDateienTragenKeinenZeilenverweis) {
-    Ernte const& e = ernte();
-    std::size_t beobachtet  = 0; ///< vom Scan WIRKLICH gelesen -- der einzige zulaessige Nenner
-    std::size_t fehlend     = 0; ///< in kNullZone benannt, aber nie angesehen
-    std::size_t verstoesse  = 0;
+    Ernte const& e          = ernte();
+    std::size_t  beobachtet = 0; ///< vom Scan WIRKLICH gelesen -- der einzige zulaessige Nenner
+    std::size_t  fehlend    = 0; ///< in kNullZone benannt, aber nie angesehen
+    std::size_t  verstoesse = 0;
     for (std::string_view const soll : kNullZone) {
         if (!wurde_gelesen(e, soll)) {
             ++fehlend;
@@ -394,8 +391,8 @@ TEST(AnkerWache, GeheilteDateienTragenKeinenZeilenverweis) {
         }
     }
     std::cout << "[NENNER] null-zone: " << beobachtet << "/" << std::size(kNullZone)
-              << " Dateien GELESEN (nicht bloss gewuenscht), " << fehlend << " nicht gescannt, "
-              << verstoesse << " Verstoesse (Soll 0)\n";
+              << " Dateien GELESEN (nicht bloss gewuenscht), " << fehlend << " nicht gescannt, " << verstoesse
+              << " Verstoesse (Soll 0)\n";
     // Der Vergleich ist erst jetzt eine Aussage: beobachtet wird NUR hochgezaehlt, wenn die Datei in
     // e.gelesene steht. Vor dem 11.08.2026 stand hier ein Zaehler, der im selben Schleifendurchlauf
     // bedingungslos wuchs -- die Gleichung war eine Tautologie und konnte nicht fallen.
@@ -409,7 +406,7 @@ TEST(AnkerWache, GeheilteDateienTragenKeinenZeilenverweis) {
 // TEIL 2: die RATSCHE. Faengt JEDEN neuen Verweis, egal wo.
 // ------------------------------------------------------------------------------------------------
 TEST(AnkerWache, GesamtbestandUeberschreitetDieRatscheNicht) {
-    Ernte const& e = ernte();
+    Ernte const&      e   = ernte();
     std::size_t const ist = e.zeilenverweise.size();
     std::cout << "[NENNER] ratsche: " << ist << " von hoechstens " << kObergrenze
               << "  (Stand 10.08.2026 nach Heilung: 94; vorher 100)\n";
@@ -438,13 +435,13 @@ TEST(AnkerWache, KoederBeisstBeidseitig) {
 
     // Seite A -- der Koeder MUSS beissen. Zahl und Schreibweise gewuerfelt, damit kein Sonderfall
     // die Wache traegt: mal ohne Leerraum, mal mit, mal in Kleinschreibung.
-    std::size_t gefangen = 0;
-    constexpr std::size_t kProben = 32;
+    std::size_t           gefangen = 0;
+    constexpr std::size_t kProben  = 32;
     for (std::size_t i = 0; i < kProben; ++i) {
-        unsigned const nr    = zufall(19310) + 1; // Ledger-Zeilenraum von heute
-        unsigned const stil  = zufall(4);
-        std::string koeder   = "// irgendein Kommentar (";
-        std::string w        = wort;
+        unsigned const nr     = zufall(19310) + 1; // Ledger-Zeilenraum von heute
+        unsigned const stil   = zufall(4);
+        std::string    koeder = "// irgendein Kommentar (";
+        std::string    w      = wort;
         if (stil == 3) { std::transform(w.begin(), w.end(), w.begin(), klein); }
         koeder += w;
         koeder += (stil == 1) ? " :" : ((stil == 2) ? ": " : ":");
@@ -457,17 +454,21 @@ TEST(AnkerWache, KoederBeisstBeidseitig) {
 
     // Seite B -- die ERLAUBTE Form darf NICHT beissen. Ohne diese Seite waere ein Erkenner, der
     // einfach immer 'true' sagt, gruen: er faenge jeden Koeder und jede Marke gleich mit.
-    std::size_t falsch_positiv = 0;
-    std::vector<std::string> const erlaubt = {
-        "// Vertrag aus " + wort + " \xC2\xA7" "62-B (KOMPILATIONS-STATUS-KOPPLUNG, Owner 21.07.)",
+    std::size_t                    falsch_positiv = 0;
+    std::vector<std::string> const erlaubt        = {
+        "// Vertrag aus " + wort +
+            " \xC2\xA7"
+            "62-B (KOMPILATIONS-STATUS-KOPPLUNG, Owner 21.07.)",
         "// STUFEN-DOKTRIN (" + wort + " Nachtrag 05.08.2026 mittag-9/-10, Owner-Abnahme mittag-11)",
         "// s. " + wort + " KON2-22 -- der Bau hat entschieden, der Entscheid ist undokumentiert",
-        "// \xC2\xA7" "43.b und \xC2\xA7" "58-V, beide ohne jede Zahl",
+        "// \xC2\xA7"
+        "43.b und \xC2\xA7"
+        "58-V, beide ohne jede Zahl",
         "// " + wort + "-Nachtrag ohne Doppelpunkt 3319",
     };
     for (auto const& gut : erlaubt) { falsch_positiv += zeilenverweise_in(gut); }
-    std::cout << "[KOEDER B] falsch-positiv auf erlaubten Formen: " << falsch_positiv << "/"
-              << erlaubt.size() << " Proben (Soll 0)\n";
+    std::cout << "[KOEDER B] falsch-positiv auf erlaubten Formen: " << falsch_positiv << "/" << erlaubt.size()
+              << " Proben (Soll 0)\n";
     EXPECT_EQ(falsch_positiv, 0u) << "Die Wache beanstandet die erlaubte Marken-Form -- sie beisst blind.";
 }
 
@@ -485,19 +486,18 @@ TEST(AnkerWache, KoederBeisstBeidseitig) {
 // seine eigene Fallhoehe -- genau das war ja der Defekt.
 // ------------------------------------------------------------------------------------------------
 TEST(AnkerWache, NullZonenNennerFaengtDieNichtGescannteDatei) {
-    Ernte const& e = ernte();
+    Ernte const&          e       = ernte();
     constexpr std::size_t kProben = 32;
 
     // Seite A -- was NICHT gescannt wurde, MUSS als nicht gescannt erkannt werden.
     // Gewuerfelt, damit kein einzelner Sonderfall die Aussage traegt.
     std::size_t erkannt_fehlend = 0;
     for (std::size_t i = 0; i < kProben; ++i) {
-        std::string const erfunden =
-            "libs/cache_engine/gibt_es_nicht_" + std::to_string(zufall(1000000000u)) + ".hpp";
+        std::string const erfunden = "libs/cache_engine/gibt_es_nicht_" + std::to_string(zufall(1000000000u)) + ".hpp";
         erkannt_fehlend += wurde_gelesen(e, erfunden) ? 0u : 1u;
     }
-    std::cout << "[KOEDER C] erfundene Pfade als 'nicht gescannt' erkannt: " << erkannt_fehlend << "/"
-              << kProben << "\n";
+    std::cout << "[KOEDER C] erfundene Pfade als 'nicht gescannt' erkannt: " << erkannt_fehlend << "/" << kProben
+              << "\n";
     EXPECT_EQ(erkannt_fehlend, kProben) << "wurde_gelesen() haelt einen erfundenen Pfad fuer gelesen.";
 
     // Seite B -- was WIRKLICH gescannt wurde, darf NICHT als fehlend gelten. Ohne diese Seite waere
@@ -509,8 +509,8 @@ TEST(AnkerWache, NullZonenNennerFaengtDieNichtGescannteDatei) {
         std::string const& treffer = e.gelesene[zufall(static_cast<unsigned>(e.gelesene.size()))];
         erkannt_vorhanden += wurde_gelesen(e, treffer) ? 1u : 0u;
     }
-    std::cout << "[KOEDER D] gewuerfelte gelesene Pfade als 'gelesen' erkannt: " << erkannt_vorhanden
-              << "/" << kProben << " (aus " << e.gelesene.size() << " gelesenen Dateien)\n";
+    std::cout << "[KOEDER D] gewuerfelte gelesene Pfade als 'gelesen' erkannt: " << erkannt_vorhanden << "/" << kProben
+              << " (aus " << e.gelesene.size() << " gelesenen Dateien)\n";
     EXPECT_EQ(erkannt_vorhanden, kProben) << "wurde_gelesen() verneint eine tatsaechlich gelesene Datei.";
 
     // Seite C -- DIE SCHARFE PROBE: die Umbenennung, exakt wie sie die zweite Lens vorfuehrte.
