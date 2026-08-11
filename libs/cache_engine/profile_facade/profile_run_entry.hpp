@@ -231,8 +231,17 @@ struct RunProfileArgs {
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
     bool        provision_only     = false; // true = nur bauen, nicht messen
-    // S3 (§62-B COMDARE_PRUEF_ONLY): true = NUR das Konformitaets-Gate je gebauter .so (kein Bau, keine Messung).
-    // Gegenseitig ausschliessend mit provision_only. Reist bis LazyRunConfig::pruef_only durch.
+    // S3 (§62-B COMDARE_PRUEF_ONLY): true = NUR das Konformitaets-Gate je gebauter .so (keine Messung; der
+    // Bau laeuft als provision_all im Resume-Modus mit, s. lauf_modus_zusatz unten). Reist bis
+    // LazyRunConfig::pruef_only durch.
+    //
+    // D3-7b-RIEGEL (2026-08-11): hier stand "Gegenseitig ausschliessend mit provision_only." -- eine
+    // Zusage ohne Werkzeug. Am Objekt gemessen war es ein ZIRKELZITAT: die einzige Quelle, die der
+    // Nachbar-Kommentar in profile_run_entry.hpp:1272 fuer die Ausschliessung anfuehrte ("siehe
+    // RunProfileArgs"), war genau DIESE Zeile. Zwei Kommentare belegten einander, 0 Zeilen Code setzten
+    // etwas durch. Durchgesetzt wird es jetzt von run_profile (unten, exit_code 7) und -- fuer jeden
+    // Aufrufer, der an der Fassade vorbei direkt eine LazyRunConfig baut -- von
+    // run_lazy_static_then_dynamic. Beide fragen dasselbe Praedikat: ex::lauf_modus_konflikt.
     bool pruef_only = false;
     // W6 (Ledger §32-F7): expliziter Bau-Pool-Worker-Override (COMDARE_BUILD_PARALLEL). 0 = ungesetzt =>
     // parallel_jobs()-Heuristik = byte-neutrales Ist. >0 = harte parallele Compile-Zahl (KOMPILATION parallel,
@@ -360,6 +369,29 @@ struct RunProfileResult {
     return ex::organ_fingerprint_preimage_from_pairs(std::move(pairs));
 }
 
+/// D3-7b: DIE EINE QUELLE DES MODUS-TOKENS DER BILANZ-ZEILE.
+///
+/// WARUM ALS FUNKTION UND NICHT INLINE IM cout: die Zeile "RUN_PROFILE fertig: ..." ist eine
+/// SCHNITTSTELLE, kein Log-Text. Ein Leser draussen (der Lauf-Marker der super-CI) zerlegt sie in
+/// Felder und leitet daraus einen Modus ab. Solange die Token-Wahl als zwei unabhaengige ternaere
+/// Ausdruecke mitten in der Ausgabe-Verkettung stand, konnte niemand die Zusage pruefen, die diese
+/// Schnittstelle traegt: DIE ZEILE FUEHRT HOECHSTENS EIN MODUS-TOKEN. Zwei Token nebeneinander waeren
+/// fuer jeden Feld-Zerleger mehrdeutig -- er nimmt das erste, das er kennt, und meldet einen Modus,
+/// den der Lauf nicht gefahren hat. Als Funktion ist die Zusage ueber alle VIER Schalter-Belegungen
+/// pruefbar, und der Test tut das (Nenner 4 von 4).
+///
+/// DER KONFLIKT-FALL KANN AUS DEM LAUF NICHT KOMMEN -- run_profile verweigert ihn oben mit exit 7.
+/// Er ist hier trotzdem ausgeschrieben, statt per Vorrang auf einen der beiden Modi abgebildet zu
+/// werden: eine Abbildung waere genau das Raten, das der Riegel abgeschafft hat. Das Konflikt-Token
+/// ist KEIN Modus-Token; ein Zerleger, der es nicht kennt, findet ueberhaupt keinen Modus -- was in
+/// dieser Lage die ehrliche Antwort ist.
+[[nodiscard]] inline std::string lauf_modus_zusatz(bool provision_only, bool pruef_only) {
+    if (ex::lauf_modus_konflikt(provision_only, pruef_only)) return std::string{" "} + ex::kLaufModusKonfliktMarke;
+    if (provision_only) return " (provision-only)";
+    if (pruef_only) return " (pruef-only)";
+    return {};
+}
+
 /// run_profile — DIE EINE deklarative CEB-Eintritts-API (S7c). Faehrt aus EINEM Profil BEIDE Subsets:
 ///   (1) den BASIS-Pass (permute_axes → source_catalog) und
 ///   (2) je <sota_series> einen SOTA-Reihen-Pass (sota_catalog), getaggt A/B/C,
@@ -368,6 +400,37 @@ struct RunProfileResult {
 /// Treiber (run_lazy_static_then_dynamic je Pass; #139-Stamp pro Pass).
 [[nodiscard]] inline RunProfileResult run_profile(RunProfileArgs const& a) {
     RunProfileResult res;
+
+    // -- (0-) D3-7b-RIEGEL: DIE ZWEI LAUF-MODI SCHLIESSEN SICH AUS -- durchgesetzt, nicht zugesagt. ---
+    // VOR dem Profil-Parse, und das ist die Aussage dieser Position: die Ablehnung haengt an NICHTS
+    // ausser den zwei Schaltern. Kein Profil, kein Dateisystem, kein Host-Zustand kann sie kippen oder
+    // verdecken -- und der Test kann sie ohne jede Fixture belegen (ein unlesbarer Pfad liefert mit
+    // Konflikt trotzdem 7, ohne Konflikt 5; das trennt Riegel und Parse-Fehler sauber).
+    //
+    // WAS DAVOR GALT (am Objekt gemessen 11.08.2026, nicht aus einer Doku uebernommen): drei Kommentare
+    // behaupteten die Ausschliessung, KEINE Zeile Code stellte sie her -- die Fassade kopierte beide
+    // Schalter unveraendert weiter (profile_run_facade.cpp:750/:751). Der Zustand war erreichbar, weil
+    // die beiden Schalter im Betrieb aus zwei getrennten Umgebungsvariablen kommen und der Planer die
+    // erste nie zurueckzieht. Er war zugleich UNBEOBACHTBAR, weil der Iterator den Provision-Zweig fuhr
+    // und die Bilanz-Zeile trotzdem den Pruef-Modus meldete.
+    //
+    // EIGENER EXIT-CODE 7: der Aufrufer soll "widerspruechlicher Auftrag" von "Profil unlesbar" (5) und
+    // von "Profil hat sich zwischen den Parsen bewegt" (6) unterscheiden koennen. Ein gemeinsamer Code
+    // machte drei verschiedene Ursachen im CI zu einer Zahl.
+    if (::comdare::cache_engine::builder::experiment::lauf_modus_konflikt(a.provision_only, a.pruef_only)) {
+        std::cerr << "[Compiler-Compiler-Fehler: "
+                  << ::comdare::cache_engine::measurement::error_class_label(
+                         ::comdare::cache_engine::measurement::CompilerCompilerErrorClass::KonfigXmlParse)
+                  << "] " << ::comdare::cache_engine::builder::experiment::kLaufModusKonfliktMarke
+                  << " provision_only=1 UND pruef_only=1. Die beiden Lauf-Modi schliessen sich aus:"
+                     " provision_only baut und misst nicht, pruef_only misst nicht und gatet nur die"
+                     " fertigen .so. Welcher gemeint war, weiss nur der Aufrufer -- deshalb ABBRUCH VOR"
+                     " dem Profil-Parse und VOR jedem Bau (fail-closed) statt eines geratenen Vorrangs."
+                     " Genau EINEN der beiden Schalter setzen (im Betrieb:"
+                     " COMDARE_GOLDEN_N_PROVISION_ONLY oder COMDARE_PRUEF_ONLY, nie beide).\n";
+        res.exit_code = 7;
+        return res;
+    }
 
     // ── (0) Profil EINMAL parsen (die EINZIGE WHAT-Quelle). ──
     std::optional<cx::ThesisProfile> const tp_opt = load_thesis_profile(a.profile_path);
@@ -1262,22 +1325,47 @@ struct RunProfileResult {
               << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
               << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
 
-    // D3-7b (2026-08-10): DER MODUS GEHOERT IN DIE BILANZ-ZEILE, weil nur DIESE Funktion ihn sicher
-    // weiss. Der Lauf-Marker der super-CI (ci/lauf_marker.sh) zitiert diese Zeile und stellt daraus
-    // modus= fuer ci/mess_ausbeute_wache.sh; ein Modus, den der Aufrufer danebenlegt, waere eine
-    // Behauptung ueber den Lauf statt seiner Aussage. Bis hierher trug die Zeile nur den
-    // provision_only-Zusatz -- der pruef_only-Lauf (unten: baut nicht, misst nicht, faehrt nur das
-    // Gate je fertiger .so) sah von aussen aus wie ein Voll-Lauf, der nichts gemessen hat, und die
-    // Ausbeute-Wache haette ihn mit "0 Datenzeilen" rot gefaerbt.
-    // BEIDE ZUSAETZE ZUGLEICH KANN ES NICHT GEBEN: die zwei Schalter sind gegenseitig ausschliessend
-    // (siehe RunProfileArgs). Der Marker faellt fuer den Fall trotzdem fail-closed aus, statt einen
-    // der beiden Modi zu raten.
-    // INERT bei pruef_only==false: der Zusatz ist dann der leere String, die Zeile byte-identisch.
+    // D3-7b (2026-08-10, KOMMENTAR GEHEILT 2026-08-11): DER MODUS GEHOERT IN DIE BILANZ-ZEILE, weil nur
+    // DIESE Funktion ihn sicher weiss. Ein Modus, den der Aufrufer danebenlegt, waere eine Behauptung
+    // ueber den Lauf statt seiner Aussage.
+    //
+    // WAS DIESE ZEILE HEUTE WIRKLICH BEDIENT -- und was NOCH NICHT (am super-Objekt gemessen 11.08.2026,
+    // Worktree /home/comdare/wt-super-landung, Zweig development, HEAD 2388afdc):
+    //   ci/lauf_marker.sh zerlegt die Zeile wirklich (Feld-awk auf measured=/resumed=/provisioned=/
+    //   csv_ok=) und bildet daraus modus= fuer ci/mess_ausbeute_wache.sh. ABER: er kennt genau EIN
+    //   Modus-Token, "(provision-only)" (:177), und setzt daraus MODUS=voll bzw. provision_only
+    //   (:238-239). Treffer fuer "pruef-only" in dieser Datei: 0. Damit die 0 kein Werkzeug-Fehler ist,
+    //   die Gegenprobe im SELBEN File mit demselben Werkzeug: "provision-only" = 2 Treffer -- es beisst.
+    //   Die super-Haelfte, die "(pruef-only)" liest, EXISTIERT als Arbeit -- aber nicht auf
+    //   development: sie liegt allein auf refs/heads/worktree-wf_bc389245-884-2 (3 Treffer), und
+    //   `git merge-base --is-ancestor` gegen development liefert dort rc=1.
+    // DESHALB STEHT HIER KEIN PRAESENS: bis diese super-Haelfte gelandet ist, ist der pruef-only-Zusatz
+    // fuer den Marker ein UNBEKANNTES Feld -- er wird ignoriert, nicht gelesen. Das ist die Vorbereitung
+    // der Kopplung, nicht die Kopplung. Wer die super-Haelfte landet, streicht diesen Absatz.
+    // (Die vorige Fassung sagte "zitiert diese Zeile und stellt daraus modus= fuer die Ausbeute-Wache"
+    //  im Praesens und schrieb dem Marker ausserdem ein Fail-closed-Verhalten fuer den Doppel-Fall zu.
+    //  Beides war am Objekt falsch: der Marker kennt das Token nicht, und einen Doppel-Fall-Zweig hat er
+    //  nicht -- er haette schlicht das erste bekannte Token genommen und provision_only gemeldet.)
+    //
+    // WAS DER pruef_only-LAUF WIRKLICH TUT (B4, Selbstwiderspruch geheilt): er MISST nicht und er gatet
+    // jede fertige .so -- aber er "baut nicht" ist FALSCH. cache_engine_builder_iterator.hpp haelt an
+    // seinem Fallback-Kanal ausdruecklich fest, dass AUCH der pruef_only-Lauf real einen provision_all
+    // faehrt, im Resume-Modus, VOR dem Pruef-Zweig; und dass gebaut_neu>0 dort ein diagnostizierbarer
+    // Ausgang ist (die still negierte Lager-Skip-Entscheidung). Die Vereinfachung "baut nicht" definierte
+    // genau den Fall weg, den die Nachbarstelle als Warnsignal fuehrt. Richtig ist: baut im Resume-Modus
+    // nichts NEU (Soll: gebaut_neu=0), misst nicht, gatet je fertiger .so.
+    // Ohne diesen Zusatz sah der pruef_only-Lauf von aussen aus wie ein Voll-Lauf, der nichts gemessen
+    // hat -- die Ausbeute-Wache haette ihn mit "0 Datenzeilen" rot gefaerbt.
+    //
+    // BEIDE ZUSAETZE ZUGLEICH KANN ES NICHT GEBEN -- und das ist seit dem D3-7b-Riegel oben (exit_code 7)
+    // eine Eigenschaft des Codes, nicht mehr eine Bitte an den Aufrufer. lauf_modus_zusatz haelt die
+    // Zusage zusaetzlich an ihrer eigenen Stelle: HOECHSTENS EIN Modus-Token je Zeile, ueber alle vier
+    // Schalter-Belegungen geprueft.
+    // INERT bei beiden Schaltern false: der Zusatz ist dann der leere String, die Zeile byte-identisch.
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
-              << " provisioned=" << res.any_provisioned << (a.provision_only ? " (provision-only)" : "")
-              << (a.pruef_only ? " (pruef-only)" : "")
+              << " provisioned=" << res.any_provisioned << lauf_modus_zusatz(a.provision_only, a.pruef_only)
               << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
@@ -1290,8 +1378,15 @@ struct RunProfileResult {
     // INC-G6: im provision_only-Lauf misst NICHTS -> Erfolg = mind. 1 DLL bereitgestellt (gebaut/resumiert).
     // Ohne provision_only unveraendert (any_provisioned floss zwar mit, wird aber nur in diesem Modus gewertet).
     bool const provision_ok = a.provision_only && res.any_provisioned > 0;
-    // S3 (§62-B COMDARE_PRUEF_ONLY): im Pruef-only-Lauf misst/baut NICHTS -> Erfolg = mind. 1 .so gepueft UND KEIN
-    // Gate-Fehler (nicht-ladbar zaehlt als Fehler). exit!=0 bei JEDEM Gate-Fail (User-Vertrag). CSV irrelevant (leer).
+    // S3 (§62-B COMDARE_PRUEF_ONLY): im Pruef-only-Lauf wird NICHT gemessen und nichts NEU gebaut -> Erfolg = mind.
+    // 1 .so geprueft UND KEIN Gate-Fehler (nicht-ladbar zaehlt als Fehler). exit!=0 bei JEDEM Gate-Fail
+    // (User-Vertrag). CSV irrelevant (leer).
+    // DIESER ZWEIG SETZT DIE AUSSCHLIESSUNG VORAUS und darf das seit dem D3-7b-Riegel oben auch: bei
+    // provision_only=1 UND pruef_only=1 kam der Lauf frueher bis hierher, nahm diesen Zweig, fand
+    // any_pruef_ok==0 (der Iterator war im Provision-Zweig zurueckgekehrt, bevor ein einziges Gate lief)
+    // und meldete exit 1 -- fuer eine Provisionierung, die erfolgreich war und deren Erfolgsmass
+    // provision_ok (Zeile darueber) einfach uebersprungen wurde. Der Riegel bricht diese Konstellation
+    // jetzt VOR dem Profil-Parse ab; hier ist a.pruef_only deshalb eindeutig.
     if (a.pruef_only) {
         res.exit_code = (res.any_pruef_ok > 0 && res.any_pruef_failed == 0) ? 0 : 1;
         return res;

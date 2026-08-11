@@ -3365,6 +3365,37 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_t2a_f4_facade_plan
 set_tests_properties(test_t2a_f4_facade_plan_durchreichung PROPERTIES
     LABELS "bestandslog;bau_filter;facade;standalone")
 
+# D3-7b-RIEGEL (2026-08-11) -- die GEGENSEITIGE AUSSCHLIESSUNG der zwei Lauf-Modi, als Code statt als
+# Kommentar. Bis zur Heilung behaupteten DREI Kommentar-Stellen (RunProfileArgs, LazyRunConfig, die
+# Bilanz-Zeile), provision_only und pruef_only koennten nicht zugleich gesetzt sein -- 0 Zeilen Code
+# setzten das durch, und der erreichbare Doppel-Zustand fuhr still einen Provision-Lauf, der sich als
+# Pruef-Lauf meldete. Der Test faehrt BEIDE Ebenen (Fassade run_profile / Iterator
+# run_lazy_static_then_dynamic) und BEIDE Richtungen (verweigert im Konflikt / verweigert NICHT ohne).
+# Include-/Link-/Define-Satz = test_t2a_f4_facade_plan_durchreichung direkt darueber (er zieht
+# denselben Entry-Header samt Katalog und Ergebnis-Mappe); der einzige Unterschied ist gtest statt
+# eigenem main, deshalb comdare_add_test.
+comdare_add_test(test_d37b_modus_riegel
+    SOURCES test_d37b_modus_riegel.cpp)
+target_include_directories(test_d37b_modus_riegel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${PROJECT_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_d37b_modus_riegel PRIVATE Boost::mp11
+    comdare::anatomy_module_loader comdare::workload_driver comdare_builder_xml_config_parser
+    comdare::lager_ablage)
+target_compile_definitions(test_d37b_modus_riegel PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_d37b_modus_riegel)
+set_tests_properties(test_d37b_modus_riegel PROPERTIES
+    LABELS "facade;iterator;d3-7b;riegel")
+
 # F3-Testschuld (Ledger D-04, :3720-3721) -- der ITERATOR-LAUF mit dem EINEN REALEN
 # bestand_key_of-Provider (bestandslog::make_fingerprint_key_fn ueber das real geschriebene
 # .fingerprint-Sidecar) und einem WERFENDEN CachePushFn (at::ArtefaktPushFehler, der Kontrakt-Typ

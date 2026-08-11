@@ -749,6 +749,12 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.golden_range_count         = args.golden_range_count;
     a.provision_only             = args.provision_only; // INC-G6: provision-only durchreichen (inert bei false)
     a.pruef_only                 = args.pruef_only;     // S3 (§62-B): pruef-only durchreichen (inert bei false)
+    // D3-7b: die beiden Schalter reisen hier BEWUSST ungeprueft weiter. Die Fassade urteilt nicht ueber
+    // den Auftrag (gleiche Linie wie beim Env-Doppel-Gate, s. Kommentar unten bei bestand_transport);
+    // durchgesetzt wird die gegenseitige Ausschliessung EINMAL, in run_profile (der Aufruf steht unten;
+    // fail-closed mit exit_code 7) -- und noch einmal eine Schicht tiefer in run_lazy_static_then_dynamic,
+    // fuer jeden Aufrufer, der ohne diese Fassade direkt eine LazyRunConfig baut.
+    // Ein dritter Abgleich hier waere eine ABSCHRIFT derselben Regel -- sie kann driften, der Aufruf nicht.
     a.build_parallelism   = args.build_parallelism; // W6 (§32-F7): Bau-Pool-Override durchreichen (0 = byte-neutral)
     a.gn_cell_opt         = args.gn_cell_opt;       // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
     a.gn_cell_simd        = args.gn_cell_simd;      // W5-C+ (§36.1): GN-Zellen-Filter (leer = kein Filter)
