@@ -361,6 +361,24 @@ test:coverage-guard:
     # contract:axis-version-lock stand zweimal in dieser Datei -- die zweite, INERT-gegatete
     # Fassung ueberschrieb das unbedingte Gate und legte den Tripwire drei Wochen lang still.
     - sh scripts/ci_yaml_key_guard.sh .gitlab-ci.yml
+    # (0.1) STUFEN-TOPOLOGIE (2026-08-11), unmittelbar nach der Schluessel-Wache: dieselbe
+    # Familie -- nicht "Test ungedeckt", sondern "die Datei beschreibt eine Pipeline, die es
+    # so nicht gibt". Sie rechnet nach, was der Stufen-Tausch dieses Commits behauptet:
+    # jede needs-Kante zeigt auf eine Stufe, die nicht SPAETER ist. Gemeldet wird es mit
+    # Nenner ("N von M Kanten zeigen VORWAERTS"), damit die Zahl nicht im Kommentar altert.
+    #
+    # EHRLICH ZUR PLATZIERUNG: eine echte Vorwaerts-Kante weist GitLab schon bei der
+    # PIPELINE-ERZEUGUNG ab -- dann laeuft dieser Job gar nicht erst, und die Wache kann
+    # nichts melden. Ihr Wert liegt deshalb woanders: sie ist VOR dem Push lokal fahrbar
+    # (sh scripts/ci_stage_topologie_wache.sh) und haelt die Kantenbilanz als gefahrene
+    # Zahl fest statt als Behauptung. Der Selbsttest direkt darunter beweist ihren Biss.
+    - sh scripts/ci_stage_topologie_wache.sh .gitlab-ci.yml
+    # (0.2) SELBSTTEST der Stufen-Topologie-Wache. Er dreht die beiden Stufen in einer KOPIE
+    # zurueck und FORDERT dort ein Rot mit Namen; danach dreht er sie zurueck und fordert
+    # wieder Gruen (Gegenkoeder gegen Dauer-Rot). Dazu drei fail-closed-Faelle: 0 Kanten,
+    # unaufloesbare Stufe (gewuerfelter Phantom-Job), Allowlist-Zeile ohne Begruendung.
+    # Er braucht keinen Bau-Baum und kostet nichts -- deshalb hier und nicht in einem Job.
+    - sh scripts/ci_stage_topologie_wache.selbsttest.sh
     # (0.5) DIFF-HYGIENE-WACHE (2026-08-06, Bestandsaufnahme "ugrep-Gate-Falle"): dieselbe
     # Fehlerklasse eine Stufe hoeher am Objekt -- nicht "Job verschluckt" oder "Test ungedeckt",
     # sondern "der Selbstcheck selbst hat nie gemessen". Das bisherige ASCII/Breite-Verfahren war

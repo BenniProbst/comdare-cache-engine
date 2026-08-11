@@ -10,25 +10,35 @@
 # Reihenfolge auf -- (1) eigener 'stage:'-Schluessel, (2) 'extends' auf ein
 # Template, das IN DIESER Datei steht, (3) diese Allowlist. Schritt (3) gibt es,
 # weil ein Teil der Templates aus einem FREMDEN Projekt kommt
-# (include: comdare/cluster/ci-templates, base-pipeline.yml). Deren Text liegt im
-# CI-Lauf nicht als Datei vor; die Wache kann ihn also nicht lesen.
+# (include: comdare/cluster/ci-templates, base-pipeline.yml). Dessen Text liegt
+# im CI-Lauf nicht als Datei vor; die Wache kann ihn also nicht lesen.
 #
 # WAS HIER NICHT HINEINGEHOERT: die Stufe eines Jobs, der einfach seinen
 # 'stage:'-Schluessel vergessen hat. Dafuer gibt es die eine Zeile im Job.
-# Eine Zeile hier ist eine AUSSAGE UEBER EIN FREMDES TEMPLATE -- sie muss dort
-# nachgeprueft worden sein, und die Begruendung sagt, wo.
+# Eine Zeile hier ist eine AUSSAGE UEBER EIN FREMDES TEMPLATE.
 #
 # WAS PASSIERT, WENN DIESE DATEI FALSCH IST: die Wache rechnet dann mit einer
-# falschen Stufe und koennte eine Vorwaerts-Kante uebersehen. Deshalb steht in
-# jeder Zeile die FUNDSTELLE, an der die Zahl herkommt -- nachpruefbar, nicht
-# geglaubt. Der Selbsttest der Wache faehrt zusaetzlich eine Kopie der YAML mit
+# falschen Stufe und koennte eine Vorwaerts-Kante uebersehen. Der Selbsttest
+# der Wache faehrt deshalb zusaetzlich eine Kopie der YAML mit
 # zurueckgetauschten Stufen und FORDERT dort ein Rot; eine Allowlist, die alle
 # Stufen gleichsetzte, faellt daran auf.
+#
+# FUNDSTELLEN, alle am 2026-08-11 in Cluster-ci-templates/base-pipeline.yml
+# nachgelesen (Zweig development):
+#   .lint-base     Zeile 72-73, traegt 'stage: lint'
+#   .lint-secrets  Zeile 156-157, 'extends: .lint-base', kein eigenes stage
+#   .lint-format   Zeile 282-283, 'extends: .lint-base', kein eigenes stage
+#   .lint-static   Zeile 298-299, 'extends: .lint-base', kein eigenes stage
+#   .contract      traegt 'stage: contract'
+#   .test          Zeile 455-456, traegt 'stage: test'
+# .lint-secrets steht ausdruecklich drin und nicht nur ueber die Kette, weil
+# es das Ziel von 17 der 18 needs-Kanten dieser Datei ist -- die Zeile traegt
+# die ganze Rechnung.
 # =============================================================================
 
-.lint-base lint gemessen 2026-08-11 in Cluster-ci-templates/base-pipeline.yml Zeile 72-73: '.lint-base:' traegt 'stage: lint'. Die drei Jobs lint:secrets, lint:format und lint:static erben ueber .lint-secrets/.lint-format/.lint-static, die alle 'extends: .lint-base' tragen und selbst kein stage setzen.
-.lint-secrets lint erbt von .lint-base (base-pipeline.yml Zeile 156-157, kein eigenes stage). Ziel von allen needs-Kanten dieser Datei -- die Zeile traegt die Rechnung, deshalb ausdruecklich und nicht nur ueber die Kette.
-.lint-format lint erbt von .lint-base (base-pipeline.yml Zeile 282-283, kein eigenes stage).
-.lint-static lint erbt von .lint-base (base-pipeline.yml Zeile 298-299, kein eigenes stage).
-.contract contract gemessen 2026-08-11 in base-pipeline.yml: '.contract:' traegt 'stage: contract'.
-.test test gemessen 2026-08-11 in base-pipeline.yml Zeile 455-456: '.test:' traegt 'stage: test'.
+.lint-base lint fremdes Template, base-pipeline.yml Z.72-73 traegt stage lint
+.lint-secrets lint fremdes Template, erbt .lint-base (Z.156), Ziel von 17 Kanten
+.lint-format lint fremdes Template, erbt .lint-base (Z.282), kein eigenes stage
+.lint-static lint fremdes Template, erbt .lint-base (Z.298), kein eigenes stage
+.contract contract fremdes Template, traegt stage contract
+.test test fremdes Template, base-pipeline.yml Z.455-456 traegt stage test
