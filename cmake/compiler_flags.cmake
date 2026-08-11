@@ -28,6 +28,31 @@ function(COMDARE_set_default_warnings target)
             -Wold-style-cast
             -Woverloaded-virtual
             -Wmissing-declarations
+            # S1 NULL-KOSTEN-RATSCHE: zu Fehlern werden NUR Kategorien, die am
+            # Objekt nachweislich treffer-frei sind. Gemessen am Vollbau ueber
+            # gcc 15.3 und clang 22.1 x Debug/Release: 0 Treffer je Kategorie in
+            # 4 von 4 Zellen, Nenner je 594 kompilierte CXX-Objekte. Jede Zeile
+            # hier hat einen Koeder, der sie zum Beissen bringt, und einen
+            # konformen Gegenkoeder, der gruen bleibt.
+            #
+            # KEIN globales -Werror. Das machte auch Kategorien mit heutigen
+            # Treffern hart rot, namentlich -Wstringop-overflow= (Aufgabe #71,
+            # heute 1 Treffer unter gcc-Release). Solche Kategorien werden
+            # verifiziert und festgeschrieben, NICHT gehaertet.
+            #
+            # -Wcast-align fehlt hier mit Absicht, und NICHT weil es Treffer
+            # haette: auf x86-64 meldet ein Koeder (reinterpret_cast char* nach
+            # int*) weder unter g++ noch unter clang++ etwas, 0 in beiden
+            # Stufen. Derselbe Koeder unter -Wcast-align=strict meldet g++ 2 und
+            # clang++ 1 -- der Koeder ist also scharf, die Null ist ein
+            # Plattform-Artefakt. Damit ist die Kategorie hier nicht bewertbar,
+            # und eine Haertung waere keine Zusicherung, sondern nur Dekoration.
+            # Bewertbar wird sie erst auf einer Architektur mit echten
+            # Ausrichtungs-Anforderungen.
+            -Werror=non-virtual-dtor
+            -Werror=overloaded-virtual
+            -Werror=pedantic
+            -Werror=old-style-cast
             $<$<CONFIG:Debug>:-O0 -g3>
             $<$<CONFIG:Release>:-O3>
             $<$<CONFIG:RelWithDebInfo>:-O2 -g>)
