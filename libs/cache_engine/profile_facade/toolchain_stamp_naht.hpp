@@ -18,6 +18,15 @@
 // (make_lazy_adhoc_fingerprint_fn_from_env) byte-identische Strings. Eine Signatur mit per-Perm-Argumenten
 // koennte diese Gleichheit nicht mehr strukturell garantieren, sondern nur behaupten.
 //
+// [HISTORIK, GESCHLOSSEN MIT dbdd2f9b8 ("T2-B", 2026-08-06) -- der folgende Absatz beschreibt den Stand
+// BIS zu jenem Commit und bleibt als Begruendung der Bau-Reihenfolge stehen (Doku-Doktrin: nicht
+// loeschen, nachfuehren). LEBENDER STAND: opt, ext UND gate stehen im Live-Glied. Sie kommen per
+// Permutation ueber compose_toolchain_stamp_glied_for_perm (unten, :368-393) herein und gehen aus EINEM
+// Aufruf gleichzeitig in den Bau-Kanal UND in den CEB-Laufzeit-Zwilling -- also genau in der Form, die
+// der Absatz darunter als Bedingung nennt ("in EINEN Schnitt mit der Perm-Schleife"). Die
+// Zweit-Ableitung, vor der er warnt, ist damit weiterhin nicht noetig und findet nicht statt: der Wert
+// wird DURCHGEREICHT, nicht aus opt_flag/march_flag zurueckgerechnet. Task #61.]
+//
 // WAS BEWUSST (NOCH) NICHT IM LIVE-GLIED STEHT -- ehrlich benannt statt still weggelassen: die
 // PER-PERM-Felder opt/ext/gate. Sie entstehen in der optxsimd-Schleife (profile_run_entry.hpp /
 // experiment_run_entry.hpp) und erreichen diese Naht nur ueber die compile_for_perm-Signatur; der
