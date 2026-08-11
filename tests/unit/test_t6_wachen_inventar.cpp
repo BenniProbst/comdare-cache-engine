@@ -136,9 +136,17 @@ constexpr Eintrag kTabelle[] = {
      "NICHT auf dem kritischen Pfad (lint auf .gitlab-ci.yml)."},
     {"scripts/lint_layer_includes.sh", Art::Wache, Deckung::Keine, "", "",
      "NICHT auf dem kritischen Pfad (Schichten-Lint)."},
+    // Nachgetragen 11.08.2026: kam mit dem Stage-Topologie-Paket (#21) in die CI und wurde
+    // von DIESEM Inventar rot gemeldet ("NEUE WACHE OHNE EINTRAG"), ce-Pipeline 15665.
+    // Deckung SHELL, nicht Gtest: der Selbsttest daneben ist die abzuloesende Form -- sie zaehlt
+    // hier bewusst NICHT als Hausform, damit die Warteliste ehrlich bleibt.
+    {"scripts/ci_stage_topologie_wache.sh", Art::Wache, Deckung::Shell,
+     "scripts/ci_stage_topologie_wache.selbsttest.sh", "",
+     "Umbau nach gtest offen -- Warteliste. Prueft die Stufen-Ordnung: keine needs-Kante vorwaerts."},
 
     // -- keine Wachen: sie stehen hier, damit der Abgleich beidseitig aufgeht ------
     {"scripts/ci_diff_ascii_width_guard.selbsttest.sh", Art::Selbsttest, Deckung::Keine, "", "", ""},
+    {"scripts/ci_stage_topologie_wache.selbsttest.sh", Art::Selbsttest, Deckung::Keine, "", "", ""},
     {"scripts/ci_test_bauweg_wache.selbsttest.sh", Art::Selbsttest, Deckung::Keine, "", "", ""},
     {"scripts/ci_test_coverage_guard.selbsttest.sh", Art::Selbsttest, Deckung::Keine, "", "", ""},
     {"scripts/ci_test_coverage_manifest.sh", Art::Datenquelle, Deckung::Keine, "", "",

@@ -321,6 +321,30 @@
 ///       Fingerprint ist NICHT die binary_id, und diese Klasse ist der Ort, an dem das auffaellt.
 ///       VERWEIS #67: auch diese drei stehen heute auf "1.0.0.c" -- BEFUND, keine Ordnung.
 ///       Erhebung: der generische Wachen-grep oben faengt sie (toolchain_stamp_glied.hpp).
+///
+///   (k) I-PMC-2 (nachgetragen 11.08.2026): die PMC-VENDOR-KOMPONENTEN-VERSIONEN.
+///       measurement/pmc_vendor_registry.hpp fuehrt kPmcVendorRegistry mit einer EIGENEN Version je
+///       Vendor-Komponente (:56 "bump-bare Code-Version DIESER Komponente"). Zwei Werte, zwei
+///       Versionen -- ausdruecklich unabhaengig: "ein Event-Set-Wechsel auf der AMD-Seite bewegt die
+///       intel-Version nicht" (:15-16). Kuenftige Raw-Encodings (P-/E-Core je Mikroarchitektur)
+///       faechern sie ADDITIV auf (:22); die Klasse ist also von Anfang an auf Wachstum angelegt.
+///       WACHEN-STATUS: MECHANISCH GESICHERT -- beide B12-Wachen als static_assert,
+///       pmc_vendor_versionen_wohlgeformt() (:79) und pmc_vendor_versionen_cpu_pflicht() (:86),
+///       dazu die Leer-Wache (:98).
+///       ABGRENZUNG ZU (a): die Registry ist die IDENTITAETS-Quelle (id/name/version), NICHT die
+///       Erkennung (:24) -- sie ist eine Meta-Meta-MESS-Achse, keine System-Haupt-Achse.
+///       Herkunft: f4dcc234 "I-PMC-2: PMC als Meta-Meta-Mess-Achse -- Erkennung zur Planer-Laufzeit,
+///       Vendor im CEB-Fingerprint".
+///       Erhebung: der generische Wachen-grep oben faengt sie (pmc_vendor_registry.hpp).
+///
+///       WARUM DIESE KLASSE HIER ERST NACHTRAEGLICH STEHT -- und was das ueber den Riegel sagt:
+///       sie ist mit dem PMC-Paket in den Baum gekommen, ohne dass jemand diese Liste anfasste.
+///       Aufgefallen ist es NICHT beim Lesen, sondern in ce-Pipeline 15665: der P14-Riegel
+///       test_vs_taxonomie_klassen_grep wurde rot und nannte die Datei beim Namen
+///       ("11/12 in der liste benannt, 1 unbenannt, 36 aufrufe gesamt"). Das ist der DRITTE Eintritt
+///       der Klasse "(e)/(f)" -- und der erste, bei dem nicht ein Mensch, sondern der Riegel ihn fand.
+///       Der Absatz oben ("sonst entsteht wieder eine Luecke wie bei (e)/(f)") hat sich damit selbst
+///       bestaetigt, in beide Richtungen: die Luecke entsteht weiter, aber sie bleibt nicht liegen.
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif
