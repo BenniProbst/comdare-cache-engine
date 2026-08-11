@@ -165,6 +165,24 @@
 #       HEAD. Typischer Aufruf vor einem main-Fast-Forward:
 #           sh scripts/ci_diff_ascii_width_guard.sh --bereich origin/main origin/development
 #
+#   sh scripts/ci_diff_ascii_width_guard.sh --seit-basis [<branch-ref>]
+#       DERSELBE kumulative Modus mit zwei Zusatzregeln (2026-08-10, Paket
+#       r7-wachen-divergenz): die Basis darf entfallen und wird dann selbst
+#       bestimmt ($COMDARE_GUARD_BASIS_REF, origin/main, main,
+#       origin/development, development -- der erste, der aufloest), und ein
+#       blanker SHA als Basis ist ein FEHLER (Exit 2). Der Name ist der der
+#       super-Fassung; er ist hier gebaut, damit derselbe Aufruf in beiden
+#       Repos dasselbe tut statt in einem abzubrechen.
+#
+#   sh scripts/ci_diff_ascii_width_guard.sh --bestand
+#       ERKANNT, ABER IN DIESER FASSUNG NICHT GEBAUT (Exit 2 mit Begruendung).
+#       Die super-Fassung hat einen Bestandsmodus; hier ist der Bestand ein
+#       ausdruecklich UNGEDECKTER Posten (s.u.). Das Wort wird abgewiesen statt
+#       an git durchgereicht -- ein "NEIN" ist eine Antwort, ein GRUEN nicht.
+#
+#   JEDES ANDERE --wort ist ein FEHLER (Exit 2). Revisionsbereiche ohne
+#   fuehrende Striche und Pfade nach '--' bleiben durchgereicht.
+#
 # WARUM DIESER MODUS AM 10.08.2026 DAZUKAM (Befund am Objekt, Posten #48):
 # Diese Wache konnte einen Bereich schon immer messen -- aber nur, wenn ihr jemand
 # einen mitgab. Die CI gibt ihr CI_COMMIT_BEFORE_SHA..HEAD, also den PUSH. Damit
@@ -250,30 +268,111 @@ _ce_bereich_modus=0
 _ce_bereich_basis=""
 _ce_bereich_spitze=""
 _ce_bereich_satz=""
-if [ "${1:-}" = "--stdin" ]; then
+_ce_basis_auto=0
+# ---------------------------------------------------------------------------
+# ARGUMENT-ZWEIG. Genau EIN case/esac -- und ein --*-Auffangzweig am Ende.
+#
+# WARUM DER AUFFANGZWEIG AM 10.08.2026 DAZUKAM (Befund am Objekt, Paket
+# r7-wachen-divergenz): bis heute stand hier ein if/elif ohne Auffangzweig.
+# Jedes andere --wort fiel damit ungelesen in den Durchreich-Modus und landete
+# bei `git diff`. Solange git das Wort NICHT kennt, sieht das nach einem
+# sauberen Abbruch aus -- das ist Glueck, keine Konstruktion, und das Glueck
+# endet bei jedem Wort, das git KENNT. Gemessen am Stand e114cabd:
+#     sh scripts/ci_diff_ascii_width_guard.sh --name-only
+#         -> rc=0, "DIFF-HYGIENE-WACHE: GRUEN.", Nenner 0
+#     sh scripts/ci_diff_ascii_width_guard.sh --cached
+#         -> rc=0, "DIFF-HYGIENE-WACHE: GRUEN.", Nenner 0
+# `--name-only` unterdrueckt den Diff-Inhalt, `--cached` misst den Index statt
+# des Arbeitsstands; in beiden Faellen sieht die Zustandsmaschine unten keine
+# einzige "+"-Zeile. Der Nenner-0-Abbruch weiter unten greift bewusst NUR im
+# Default-Modus (ohne Argumente) -- mit einem Argument war der Aufruf ja
+# "ausdruecklich", also blieb genau die Quittung uebrig, gegen die diese Wache
+# gebaut ist: GRUEN, ohne hingesehen zu haben. Die super-Fassung hatte den
+# Auffangzweig von Anfang an; das war der einzige Grund, warum ihre
+# Optionsnamen dort nicht durchfielen.
+#
+# WAS WEITERHIN DURCHGEREICHT WIRD (und warum das kein Widerspruch ist): alles
+# OHNE fuehrende zwei Striche -- Revisionsbereiche wie `origin/main...HEAD`
+# oder `9f932e91..5bd90986` -- sowie der Pfad-Trenner `--` selbst. Der
+# Durchreich-Modus ist ein dokumentierter Aufrufweg (s. Kopf) und bleibt
+# unveraendert; abgewiesen wird nur, was wie eine OPTION aussieht und keine
+# dieser Wache ist. Beide CI-Aufrufe und vor_push_alle_wachen.sh uebergeben
+# Revisionen ohne fuehrende Striche und sind davon nicht beruehrt.
+# ---------------------------------------------------------------------------
+case "${1:-}" in
+--stdin)
     _ce_stdin_modus=1
     shift
-elif [ "${1:-}" = "--bereich" ]; then
+    ;;
+
+--bereich|--seit-basis)
     # KUMULATIVER MODUS. Die Argumente werden hier NUR eingesammelt; aufgeloest
     # wird erst unten, wo die Repo-Wurzel feststeht -- eine Ref-Aufloesung ohne
     # bekanntes Repo waere eine Aussage ueber das falsche Verzeichnis.
+    #
+    # --seit-basis IST DERSELBE MODUS mit zwei Zusatzregeln, nicht ein zweiter
+    # (Paket r7-wachen-divergenz, 10.08.2026). Der Name kommt aus der
+    # super-Fassung, wo er der einzige kumulative Modus ist; wer zwischen den
+    # Repos wechselt, soll nicht am Wort scheitern. Die beiden Zusatzregeln
+    # sind (1) die Basis darf entfallen und wird dann aus einer Kandidatenliste
+    # SELBST bestimmt, und (2) ein blanker SHA als Basis ist verboten. Regel (2)
+    # traegt einen gemessenen Befund: ein zu eng geschnittener Bereich aus einem
+    # Zwischen-SHA hat am 06.08.2026 61 Prozent einer Aenderung verborgen.
+    # --bereich bleibt die allgemeinere Form und nimmt weiterhin jede Revision.
     _ce_bereich_modus=1
+    [ "$1" = "--seit-basis" ] && _ce_basis_auto=1
     shift
-    [ "$#" -ge 1 ] \
-        || ce_abbruch "--bereich braucht eine BASIS (z.B. 'origin/main'), optional eine SPITZE \
-(Default HEAD). Aufruf: --bereich <basis> [<spitze>]"
-    _ce_bereich_basis="$1"
-    shift
-    if [ "$#" -ge 1 ]; then
-        _ce_bereich_spitze="$1"
-        shift
-    else
+    if [ "$_ce_basis_auto" -eq 1 ]; then
+        if [ "$#" -ge 1 ]; then
+            _ce_bereich_basis="$1"
+            shift
+        fi
         _ce_bereich_spitze="HEAD"
-    fi
-    [ "$#" -eq 0 ] \
-        || ce_abbruch "--bereich nimmt hoechstens zwei Argumente (basis, spitze) -- \
+        [ "$#" -eq 0 ] \
+            || ce_abbruch "--seit-basis nimmt hoechstens ein Argument (die Basis-Referenz) -- \
+uebrig geblieben: $*. Wer BASIS und SPITZE frei waehlen will, nimmt --bereich <basis> [<spitze>]."
+    else
+        [ "$#" -ge 1 ] \
+            || ce_abbruch "--bereich braucht eine BASIS (z.B. 'origin/main'), optional eine SPITZE \
+(Default HEAD). Aufruf: --bereich <basis> [<spitze>]"
+        _ce_bereich_basis="$1"
+        shift
+        if [ "$#" -ge 1 ]; then
+            _ce_bereich_spitze="$1"
+            shift
+        else
+            _ce_bereich_spitze="HEAD"
+        fi
+        [ "$#" -eq 0 ] \
+            || ce_abbruch "--bereich nimmt hoechstens zwei Argumente (basis, spitze) -- \
 uebrig geblieben: $*. Pfad-Einschraenkungen gehoeren in den Durchreich-Modus."
-fi
+    fi
+    ;;
+
+--bestand)
+    # ERKANNT, ABER IN DIESER FASSUNG NICHT GEBAUT -- und das wird GESAGT, nicht
+    # verschwiegen. Die super-Fassung hat einen Bestandsmodus; diese hier nennt
+    # den Bestand in ihrem eigenen Kopf einen "eigenen Posten, ausdruecklich
+    # UNGEDECKT". Beides bleibt wahr. Wichtig ist nur, dass das Wort nicht
+    # ungelesen an git durchfaellt: ein benannter Abbruch sagt dem Aufrufer die
+    # Wahrheit, ein Durchreichen hat ihm bis heute GRUEN gesagt.
+    ce_abbruch "--bestand ist in DIESER Fassung nicht gebaut (die super-Fassung hat ihn). \
+Der Bestand ist hier ein ausdruecklich UNGEDECKTER Posten, s. Kopf dieser Datei: diese Wache \
+ist ein DIFF-Gate und urteilt ueber HINZUGEFUEGTE Zeilen. KEIN Gruen daraus -- das Wort ist \
+erkannt und die Antwort ist NEIN, nicht 0."
+    ;;
+
+--)
+    # Pfad-Trenner von git. Er gehoert dem Durchreich-Modus und wird NICHT
+    # abgewiesen -- er ist keine Option dieser Wache, sondern ihre Grenze.
+    : ;;
+
+--*)
+    ce_abbruch "Unbekannte Option '$1'. Erlaubt: --bereich, --bestand, --seit-basis, --stdin. \
+Revisionsbereiche (z.B. 'origin/main...HEAD') und Pfade nach '--' werden weiterhin \
+durchgereicht; abgewiesen wird nur, was wie eine Option aussieht. KEINE stille Null."
+    ;;
+esac
 
 _ce_diff_datei="$(mktemp "${TMPDIR:-/tmp}/ce_diff_guard.XXXXXX")" \
     || ce_abbruch "mktemp fuer die Diff-Datei fehlgeschlagen."
@@ -312,6 +411,46 @@ else
     # Fussnote. (V-1: der Pruefbereich ist Teil der Aussage.)
     # -----------------------------------------------------------------------
     if [ "$_ce_bereich_modus" -eq 1 ]; then
+        # --seit-basis, ZUSATZREGEL (1): die Basis darf entfallen und wird dann
+        # SELBST bestimmt. Die Kandidatenliste ist dieselbe wie in der
+        # super-Fassung, damit derselbe Aufruf in beiden Repos dieselbe Basis
+        # waehlt. Findet sich keine, ist das ABBRUCH -- in der CI ist die
+        # haeufigste Ursache ein flacher Klon (GIT_DEPTH: 0 setzen).
+        if [ "$_ce_basis_auto" -eq 1 ] && [ -z "$_ce_bereich_basis" ]; then
+            for _ce_kand in "${COMDARE_GUARD_BASIS_REF:-}" origin/main main \
+                            origin/development development; do
+                [ -n "$_ce_kand" ] || continue
+                if git -C "$_ce_repo_root" rev-parse --verify --quiet \
+                        "${_ce_kand}^{commit}" >/dev/null 2>&1; then
+                    _ce_bereich_basis="$_ce_kand"
+                    break
+                fi
+            done
+            [ -n "$_ce_bereich_basis" ] || ce_abbruch "$(
+                echo "Keine Basis-Referenz aufloesbar. Probiert wurden:"
+                echo "  \$COMDARE_GUARD_BASIS_REF, origin/main, main, origin/development, development."
+                echo "In der CI ist die haeufigste Ursache ein flacher Klon -- GIT_DEPTH: 0 setzen."
+                echo "KEINE stille Null."
+            )"
+        fi
+        # --seit-basis, ZUSATZREGEL (2): BARE-SHA-VERBOT. Fuer einen blanken SHA
+        # liefert --symbolic-full-name eine LEERE Ausgabe bei rc=0 -- geprueft
+        # wird deshalb auf refs/ und nicht auf den Exit-Code. --bereich bleibt
+        # ausdruecklich frei: dort ist ein SHA-Paar der dokumentierte, beidseitig
+        # gepinnte Aufrufweg (s. Kopf, "9f932e91..5bd90986").
+        if [ "$_ce_basis_auto" -eq 1 ]; then
+            _ce_sym=$(git -C "$_ce_repo_root" rev-parse --symbolic-full-name \
+                "$_ce_bereich_basis" 2>/dev/null)
+            case "$_ce_sym" in
+                refs/*) : ;;
+                *) ce_abbruch "$(
+                       echo "Basis '${_ce_bereich_basis}' ist keine Branch-Referenz, sondern ein Zwischen-SHA."
+                       echo "Bei --seit-basis MUSS der Bereich aus einer Branch-Referenz kommen: ein zu eng"
+                       echo "geschnittener Bereich hat am 06.08.2026 61 Prozent einer Aenderung verborgen."
+                       echo "Wer bewusst zwei SHAs pinnen will, nimmt --bereich <basis> [<spitze>]."
+                   )" ;;
+            esac
+        fi
         _ce_basis_sha=$(git -C "$_ce_repo_root" rev-parse --verify --quiet "${_ce_bereich_basis}^{commit}") \
             || ce_abbruch "BASIS '${_ce_bereich_basis}' ist in diesem Repo nicht aufloesbar. \
 Kein Gruen daraus: erst 'git fetch origin', in der CI zusaetzlich GIT_DEPTH=0 (ein flacher Klon \
@@ -329,8 +468,10 @@ bestimmbar (zusammenhanglose Historien oder abgeschnittener Klon). Fail-closed: 
         _ce_n_diverg=$(git -C "$_ce_repo_root" rev-list --count "${_ce_mb}..${_ce_basis_sha}") \
             || ce_abbruch "Divergenz auf der Basis nicht bestimmbar -- ohne Nenner kein Urteil."
         _ce_bereich_satz="${_ce_mb}..${_ce_spitze_sha} (${_ce_n_bereich} Commits)"
+        _ce_modus_wort="--bereich"
+        [ "$_ce_basis_auto" -eq 1 ] && _ce_modus_wort="--seit-basis"
         echo ""
-        echo "MODUS: --bereich (KUMULATIV -- der ganze Stand, der nach '${_ce_bereich_basis}' ginge,"
+        echo "MODUS: ${_ce_modus_wort} (KUMULATIV -- der ganze Stand, der nach '${_ce_bereich_basis}' ginge,"
         echo "       NICHT ein einzelner Push)"
         echo "BEREICH (Teil der Aussage, nicht Beiwerk):"
         echo "  BASIS      ${_ce_bereich_basis} = ${_ce_basis_sha}"
@@ -349,10 +490,26 @@ bestimmbar (zusammenhanglose Historien oder abgeschnittener Klon). Fail-closed: 
         # verdrahteter Aufruf (`--bereich HEAD`, eine leere CI-Variable, zweimal
         # derselbe Ref) endete sonst mit genau der Quittung, gegen die diese
         # Wache gebaut ist: gruen, ohne hingesehen zu haben.
+        #
+        # UND ER GILT NUR FUER --bereich, NICHT FUER --seit-basis (10.08.2026,
+        # Paket r7-wachen-divergenz). Der Grund ist kein Nachlassen, sondern die
+        # PARITAET der Namen: --seit-basis laeuft in der super-CI UNBEDINGT, auf
+        # jedem Zweig, auch auf der Basis selbst -- dort sind 0 Commits der
+        # regulaere Fall und ein Abbruch waere Dauer-Rot ohne Befund. Wuerde
+        # dieselbe Option in den beiden Fassungen verschieden ausgehen, waere
+        # genau die Divergenz zurueck, gegen die dieses Paket gebaut ist: ein
+        # Bericht koennte "GRUEN" zitieren, ohne zu sagen, welche Fassung das
+        # gesagt hat. Der leere Bereich wird deshalb in BEIDEN Fassungen LAUT
+        # benannt statt still gruen -- gepinnt von ci/wachen_paritaet.sh, Teil C.
         if [ "$_ce_n_bereich" -eq 0 ]; then
-            ce_abbruch "0 Commits zwischen Abzweigung und SPITZE -- es wurde NICHTS geprueft, \
+            if [ "$_ce_basis_auto" -eq 0 ]; then
+                ce_abbruch "0 Commits zwischen Abzweigung und SPITZE -- es wurde NICHTS geprueft, \
 also ist nichts bestanden. Sind BASIS und SPITZE wirklich derselbe Stand, dann gibt es auch \
 nichts zu uebertragen und dieser Aufruf ist ueberfluessig, nicht gruen."
+            fi
+            echo "  HINWEIS: SPITZE ist Vorfahr der Basis -- kein eigener Beitrag im Bereich."
+            echo "  ACHTUNG: der Nenner unten ist dann 0. Ein GRUEN darauf ist KEIN Urteil"
+            echo "  ueber den Baum, sondern nur ueber einen leeren Bereich."
         fi
         # Gemessen wird mit den SHAs, die oben gedruckt stehen -- Endpunkt-Form
         # ueber die AUFGELOESTE Abzweigung ist exakt der Drei-Punkt-Bereich, nur
