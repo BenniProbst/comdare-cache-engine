@@ -1262,10 +1262,22 @@ struct RunProfileResult {
               << " feld_abweichungen=" << mappe.feld_abweichungen() << "/" << mappe.kopf_spalten()
               << " (Abweichungen/Kopfspalten) " << mappe.diagnose() << "\n";
 
+    // D3-7b (2026-08-10): DER MODUS GEHOERT IN DIE BILANZ-ZEILE, weil nur DIESE Funktion ihn sicher
+    // weiss. Der Lauf-Marker der super-CI (ci/lauf_marker.sh) zitiert diese Zeile und stellt daraus
+    // modus= fuer ci/mess_ausbeute_wache.sh; ein Modus, den der Aufrufer danebenlegt, waere eine
+    // Behauptung ueber den Lauf statt seiner Aussage. Bis hierher trug die Zeile nur den
+    // provision_only-Zusatz -- der pruef_only-Lauf (unten: baut nicht, misst nicht, faehrt nur das
+    // Gate je fertiger .so) sah von aussen aus wie ein Voll-Lauf, der nichts gemessen hat, und die
+    // Ausbeute-Wache haette ihn mit "0 Datenzeilen" rot gefaerbt.
+    // BEIDE ZUSAETZE ZUGLEICH KANN ES NICHT GEBEN: die zwei Schalter sind gegenseitig ausschliessend
+    // (siehe RunProfileArgs). Der Marker faellt fuer den Fall trotzdem fail-closed aus, statt einen
+    // der beiden Modi zu raten.
+    // INERT bei pruef_only==false: der Zusatz ist dann der leere String, die Zeile byte-identisch.
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
               << " provisioned=" << res.any_provisioned << (a.provision_only ? " (provision-only)" : "")
+              << (a.pruef_only ? " (pruef-only)" : "")
               << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
