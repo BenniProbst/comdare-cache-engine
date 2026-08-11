@@ -22,8 +22,11 @@
 // welche gibt; bei der Mess-Zeile gab es keine.
 //
 // EINORDNUNG, ehrlich: D-2 ist damit KEIN Regressionsschaden, sondern eine NIE GEBAUTE BRUECKE. Der
-// Vertrag aus LEDGER:3319 ("welche Pruef-Tools in die CEB EINKOMPILIERT sind [...] bestimmt, was auch das
-// Tier-Binary beinhalten MUSS") war nie Code. Diese Datei baut ihn.
+// Vertrag aus LEDGER §62-B (KOMPILATIONS-STATUS-KOPPLUNG, Owner 21.07.: "welche Pruef-Tools in die CEB
+// EINKOMPILIERT sind [...] bestimmt, was auch das Tier-Binary beinhalten MUSS") war nie Code. Diese
+// Datei baut ihn. -- ANKER-REGEL 10.08.2026: hier stand die Ledger-Zeile 3319, tot; Marke
+// statt Zeile, s. profile_facade/mess_achsen_naht.hpp Kopf und tests/unit/
+// test_anker_marke_statt_ledgerzeile.cpp.
 //
 // ------------------------------------------------------------------------------------------------
 // WAS GENAU VERGLICHEN WIRD -- UND WARUM DIE ZEILE UND NICHT EINE MENGE

@@ -6758,3 +6758,19 @@ target_compile_definitions(test_w0b_durchstich_kette PRIVATE
 # braucht auf einem kalten Container mehr als eine Minute. Die 60 waeren ein Falsch-Rot.
 set_tests_properties(test_w0b_durchstich_kette PROPERTIES
     LABELS "w0b;durchstich;kette;xlsx;pdf;koeder" TIMEOUT 300)
+
+# ------------------------------------------------------------------------------------------------
+# ANKER-WACHE (10.08.2026): Marke statt Ledger-Zeilennummer.
+# Reiner Quellbaum-Scan -- KEINE Projekt-Bibliothek, KEIN Projekt-Header. Der Test haengt damit an
+# nichts, was ihn stillegen koennte, und laeuft in JEDEM Baum (Debug wie Release, GCC wie clang).
+# SELBSTCHECK: der Pfad steht ueber eine Zwischenvariable, nicht ausgeschrieben -- eine
+# ausgeschriebene Definitions-Zeile risse die Diff-Hygiene-Wache (>120 Spalten), s. die Notiz zu
+# _t15_tree weiter oben in dieser Datei.
+comdare_add_test(test_anker_marke_statt_ledgerzeile
+    SOURCES test_anker_marke_statt_ledgerzeile.cpp)
+set(_anker_baum "${PROJECT_SOURCE_DIR}")
+target_compile_definitions(test_anker_marke_statt_ledgerzeile PRIVATE
+    "COMDARE_ANKER_QUELLBAUM=\"${_anker_baum}\"")
+unset(_anker_baum)
+set_tests_properties(test_anker_marke_statt_ledgerzeile PROPERTIES
+    LABELS "anker;marke;ledger;hygiene;ratsche;koeder")

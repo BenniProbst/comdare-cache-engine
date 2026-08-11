@@ -13,9 +13,35 @@
 // ignorierte. Eine [wallclock]-Binary und eine [micro]-Binary bekamen byte-gleiche Compile-Kommandos
 // und damit identische Mess-Ausstattung -- ihr Stempel behauptete Verschiedenes. Der Stempel log.
 //
-// Plan-Soll dagegen (LEDGER:3319): "welche Pruef-Tools in die CEB EINKOMPILIERT sind [...] bestimmt,
-// was auch das Tier-Binary beinhalten MUSS". Owner-KERN F2: "bei einem neuen Messsystem [muessen] auch
-// die CEB und ALLE Binaries fuer die Mess-Achsen-Einstellung neu gebaut werden".
+// Plan-Soll dagegen (LEDGER §62-B, KOMPILATIONS-STATUS-KOPPLUNG, Owner 21.07.): "welche Pruef-Tools in
+// die CEB EINKOMPILIERT sind [...] bestimmt, was auch das Tier-Binary beinhalten MUSS". Owner-KERN F2
+// (LEDGER Nachtrag 06.08.2026 abend-4, Abschnitt 1): "eine Mess-Achsen-Aenderung baut CEB UND alle
+// Binaries neu" -- bei einem neuen Messsystem muessen also auch die CEB und ALLE Binaries fuer die
+// Mess-Achsen-Einstellung neu gebaut werden.
+//
+// ANKER-REGEL (10.08.2026 an genau dieser Stelle erhoben, 11.08.2026 nachgeschaerft):
+// MARKE STATT ZEILENNUMMER.
+// Hier stand ein Verweis auf Ledger-Zeile 3319. Der Satz ist unveraendert, die Zahl war tot: der
+// Ledger wuchs von 16.785 auf 19.310 Zeilen, Zeile 3319 traegt heute den work_mode/--debug-Entscheid.
+// Der Ledger hatte den Bruch selbst bemerkt -- in KON2-15, das die Verschiebung der im Code zitierten
+// Zeilennummer 3319 ausdruecklich vermerkt -- und auf Zeile 9077 korrigiert. Auch diese Zahl war
+// binnen Tagen tot; dort steht heute die §19.C/§19.D-Dock-Topologie.
+//
+// VIER ZAHLEN FUER EINEN UNVERAENDERTEN SATZ -- die vierte starb, waehrend dieser Absatz entstand.
+// Die Fassung vom 10.08.2026 schrieb hier "am Objekt wohnt der Satz heute bei Zeile 10409". Das war
+// am 10.08. richtig und ist am 11.08. falsch: der Ledger wuchs ueber Nacht von 19.310 auf 19.589
+// Zeilen, Zeile 10409 traegt jetzt den §52-B13-Rest, der Satz wohnt bei 10688. Die Kette lautet also
+// 3319 -> 9077 -> 10409 -> 10688; drei dieser vier Zahlen schrieb jemand, der GERADE EINE TOTE ZAHL
+// REPARIERTE. Eine Zeilennummer laesst sich nicht pflegen, nur ersetzen.
+//
+// DARAUS DIE REGEL: Code verweist auf die MARKE (§62-B, KON2-15, "Nachtrag 05.08.2026 mittag-9"), nie
+// auf eine Zeile -- auch nicht auf eine, die heute stimmt. Eine Gegenwarts-Zeilennummer ist keine
+// Ausnahme von der Regel; sie ist der naechste Fall der Regel. Die Zahlen oben stehen als HISTORIE
+// (was wann tot war), nicht als Nachschlage-Anker -- das ist der Unterschied, der sie zulaessig macht.
+// Wache: tests/unit/test_anker_marke_statt_ledgerzeile.cpp.
+// SELBSTCHECK: dieser Absatz nennt die toten Zahlen bewusst OHNE die Doppelpunkt-Form, sonst zaehlte
+// die Wache ihre eigene Begruendung als Verstoss. Eine Ausnahme-Liste waere die schlechtere Loesung
+// gewesen: sie waere die naechste Sache, die still verrottet.
 //
 // ------------------------------------------------------------------------------------------------
 // DIE HARTE BEDINGUNG DIESER NAHT -- EINE AUFLOESUNG, ZWEI VERBRAUCHER
@@ -127,9 +153,19 @@
 //       auf der Host-Seite der Modulgrenze und braucht vom Tier-Kompilat nichts.
 //   (c) Ein -DCOMDARE_ENABLE_PMC im Tier-Compile-Kommando waere damit ein Flag ohne Wirkung, das
 //       eine Ausstattung behauptet, die die Binary nicht traegt -- die exakte Spiegelung von D-1.
-//   (d) STUFEN-DOKTRIN (LEDGER:4082-4095): MESS ist DREISTUFIG Planer -> CEB -> Tier. Die Wahl der
-//       PMC-Quelle ist Stufe-2-Ware (CEB-Einbau + Pruefdock-Konfiguration) und endet dort; sie hat
-//       auf Stufe 3 kein Objekt, an dem sie wirken koennte.
+//   (d) STUFEN-DOKTRIN (LEDGER Nachtrag 05.08.2026 mittag-9/-10, Owner-Abnahme mittag-11; Tabellen-
+//       form im Nachtrag 06.08.2026 abend-4 Abschnitt 1): MESS ist DREISTUFIG DEHNBAR
+//       Planer (Stufe 1 = RT-Freigabe) -> CEB (CT-Einbau: Mess-Design + Pruefdock-Konfiguration)
+//       -> [Hybrid (CT)] -> Tier (CT-Einbau: Observer/Ausstattung). SYSTEM ist ZWEISTUFIG DEHNBAR
+//       (CEB = RT-Freigabe -> [Hybrid CT] -> Tier CT), ORGAN ZWEISTUFIG und hybrid-unberuehrt.
+//       GESETZ: Stufe 1 ist IMMER die RT-Freigabe in der Traeger-Binary, jede Folgestufe ist
+//       CT-Einbau entlang Planer -> CEB -> Tier.
+//       Die Wahl der PMC-Quelle ist danach Stufe-2-Ware (CEB-Einbau + Pruefdock-Konfiguration) und
+//       endet dort; sie hat auf Stufe 3 kein Objekt, an dem sie wirken koennte.
+//       ANKER-REGEL (10.08.2026, s. Kopf dieser Datei): hier standen die Ledger-Zeilen 4082-4095. Tot --
+//       Zeilen tragen heute den Landungsstand des Tages (super/ce-SHAs). Der Nachtrag ist eine
+//       datierte MARKE und waechst nicht mit dem Dokument. NICHT zu verwechseln mit §61-STUFEN: das
+//       ist die MODI-Leiter (measure liegt in release), eine andere Doktrin mit demselben Wort.
 // FOLGE FUER DIE REGISTRY-ZEILE: measurement_axis_registry.xml ordnet PmcSystemAxis dem micro-Tooling
 // zu. Das bleibt richtig -- aber es ist eine HOST-Kollektor-Wahl. Der TIER-Beitrag von micro ist G3
 // (die Segment-Timer), nicht PMC. Wer das anders entscheidet, aendert eine Owner-Frage, nicht diese
