@@ -292,8 +292,10 @@ int main(int argc, char** argv) {
     // BEIDE Hex-Werte werden genannt (V-4) -- eine Gleichheits-Zusage ohne die zwei Zahlen waere
     // genau die Erfolgsmarke ohne literale Ausgabe, die der Vertrag verbietet.
     {
+        // `id` ist die AEUSSERE Bindung (:182, ebenfalls ids.front()). Eine eigene Deklaration hier waere
+        // eine Verdeckung (-Wshadow) UND eine zweite Wahrheit ueber dieselbe binary_id -- der Differenztest
+        // muss beide Wege ueber DENSELBEN Eingang fahren, sonst vergleicht er zwei Dinge statt zwei Wege.
         std::string const bvset_live = pfn::live_build_variant_set_signature_glied();
-        std::string const id         = ids.front();
         std::string const weg_alt    = tlz::make_lazy_adhoc_fingerprint_fn_from_env()(id);
         std::string const weg_neu    = tlz::make_lazy_adhoc_fingerprint_mit_bvset_fn_from_env()(id, bvset_live);
         std::cout << "\n  [#59 V-7] binary_id=" << id << "\n"
