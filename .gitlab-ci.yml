@@ -27,8 +27,22 @@ stages:
   - lint
   - build
   - sanitize
-  - contract
+  # STUFEN-TAUSCH test <-> contract (2026-08-11). Bis hierher lief 'contract' VOR 'test', und
+  # genau daran scheiterte die Verdrahtung der dritten Achse der Abdeckungs-Wache: test:unit
+  # veroeffentlicht seine Inventur (build/Testing/ctest_unit_inventar.txt), der Verbraucher
+  # test:coverage-guard liegt in 'contract' -- und ein 'needs' darf nicht auf eine SPAETERE
+  # Stufe zeigen. Der Kommentar in test:unit hielt das seit dem 09.08. als offenen Posten fest
+  # ("Die Verdrahtung braucht eine Topologie-Entscheidung, keine Zeile hier").
+  # WARUM DER TAUSCH UND NICHT ZWEI PIPELINES: am Objekt nachgerechnet, alle needs-Kanten dieser
+  # Datei zeigen auf lint:secrets (Stufe 'lint'), also auf die ERSTE Stufe. Der Tausch macht
+  # daher KEINE Kante vorwaerts. Nachgerechnet wird das nicht behauptet, sondern gefahren:
+  # scripts/ci_stage_topologie_wache.sh zaehlt Kanten und Vorwaerts-Kanten mit Nenner, und
+  # ihr Selbsttest dreht die beiden Stufen in einer Kopie zurueck und FORDERT dort ein Rot.
+  # OOM: der Tausch macht die zwei Vollbauten (test:unit, test:coverage-guard) ueber das neue
+  # needs strikt seriell statt gleichzeitig -- er verschaerft den dokumentierten Fall nicht,
+  # er entschaerft ihn.
   - test           # CI-2 (#264): Voll-Suite via Sammel-Target comdare_tests (Probelauf, s. test:unit)
+  - contract
   - chaos          # Stufe 6 (#197, EPIC #186): Mess-Drift-Detektor + Rerun-Gate (Selbstheilung)
 
 # #277/#21 (User 06.07.): ccache-Bestand auf dev-MinIO via runners.cache; projektlokales CCACHE_DIR fuer cache:-Sync.
@@ -323,7 +337,21 @@ test:coverage-guard:
   # cc1plus; mit 2 hier bleibt Luft. Zusammen mit der 4x-Wiederaufnahme unten ist ein
   # einzelner earlyoom-Treffer ueberlebbar statt toedlich -- genau dafuer gibt es sie.
   # Der Job ist eine Wache und liegt auf keinem kritischen Pfad: langsamer ist hier billig.
-  needs: ["lint:secrets"]   # Konvention der contract-Familie
+  # DIE ZWEITE KANTE (2026-08-11) -- der VERBRAUCHER, den test:unit seit dem 09.08. als offenen
+  # Posten in seinem eigenen Kommentar fuehrt. test:unit schreibt seine Inventur nach
+  # build/Testing/ctest_unit_inventar.txt; das .test-Template veroeffentlicht
+  # "${COMDARE_TEST_CMAKE_BUILD_DIR}/Testing/" mit 'when: always' als Artefakt, und test:unit
+  # setzt diese Variable auf 'build'. 'artifacts: true' holt die Datei also in DIESEN Job.
+  # Sie landet unter build/Testing/ -- dieser Job baut in build-covguard, es gibt keine Kollision.
+  # 'when: always' ist wichtig: die Inventur beschreibt die REGISTRIERTE Menge, nicht den Ausgang;
+  # sie muss auch dann ankommen, wenn ein Test faellt, sonst waere ein rotes test:unit zugleich
+  # ein blinder Nenner hier.
+  # DIE ERSTE KANTE BLEIBT: lint:secrets ist die Konvention der contract-Familie und ein
+  # Secrets-Gate, das man nicht gegen eine Inventur eintauscht.
+  needs:
+    - job: lint:secrets           # Konvention der contract-Familie
+    - job: test:unit              # Gegenquelle der dritten Achse (Fremd-Inventur)
+      artifacts: true
   script:
     # (0) SCHLUESSEL-WACHE ZUERST -- billig (kein Bau, kein Configure) und eine Stufe FRUEHER als
     # die Abdeckungs-Rechnung: ein doppelt vergebener Top-Level-Schluessel loescht kommentarlos
@@ -470,7 +498,18 @@ test:coverage-guard:
         echo "Bau-Versuch $_a fehlgeschlagen -> ninja-Resume-Retry"
       done
       [ "$_built" = 1 ] || { echo "FEHLER: 'make inventar' nach 4 Versuchen nicht erfolgreich"; exit 4; }
-    - sh scripts/ci_test_coverage_guard.sh build-covguard
+    # DIE DRITTE ACHSE WIRD SCHARF GESCHALTET (2026-08-11). Die Wache kann die Fremd-Inventur
+    # seit dem 09.08. auswerten (COMDARE_FREMD_INVENTUR, fail-closed bei fehlender oder leerer
+    # Datei, Abweichung rot MIT NAMEN, eigene Exit-Klasse 4). Gefahren wurde sie NIE: die
+    # Variable kam in dieser Datei 0 mal vor (gemessen 11.08., Gegenprobe: 'COMDARE_' 51 mal).
+    # Auf jeder bisherigen Pipeline stand deshalb "DRITTE ACHSE (Fremd-Inventur): NICHT
+    # GEFAHREN" -- ehrlich gemeldet, aber eben ungefahren. Es fehlte NICHT die Rechnung,
+    # es fehlte die LEITUNG: der Erzeuger (test:unit) lag hinter dieser Stufe. Der
+    # Stufen-Tausch oben und das needs mit 'artifacts: true' legen sie.
+    # HIER am Aufruf und NICHT als Job-Variable: der Selbsttest direkt darunter faehrt den
+    # Fall "Variable ungesetzt" als eigenen Fall. Eine Job-Variable waere sein Gegenteil.
+    - COMDARE_FREMD_INVENTUR=build/Testing/ctest_unit_inventar.txt
+      sh scripts/ci_test_coverage_guard.sh build-covguard
     # D1c (2026-08-09): SELBSTTEST der zweiten Achse der Wache oben. Er wuerfelt seinen
     # Koeder bei JEDEM Lauf neu (Schrumpf-Menge aus der echten Inventur) und prueft, dass
     # eine abweichende, eine fehlende und eine leere Gegenquelle je ROT ergeben -- und dass
