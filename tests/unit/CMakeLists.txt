@@ -6774,3 +6774,29 @@ target_compile_definitions(test_anker_marke_statt_ledgerzeile PRIVATE
 unset(_anker_baum)
 set_tests_properties(test_anker_marke_statt_ledgerzeile PROPERTIES
     LABELS "anker;marke;ledger;hygiene;ratsche;koeder")
+# P14 (2026-08-10): DER RIEGEL UNTER DER SELBSTWARTENDEN VERSIONS-TAXONOMIE.
+#
+# Die Klassen-Liste (a)..(j) im Kopf von measurement/algo_semver.hpp fuehrt alle ce-eigenen
+# Versions-Quellen und erklaert sich selbst fuer "AUS DEM DIFF/GREP ABZULEITEN, NIE HANDGEPFLEGT"
+# (algo_semver.hpp:119-120). Erzwungen war das bis heute NICHT -- gemessen an 95cb3039 fehlten DREI
+# produktive Quellen in der Liste, obwohl sie beide Politik-Wachen tragen. Ab hier ist die Zusage ein
+# Riegel: faellt eine Quelle aus der Liste oder kommt eine neue dazu, wird dieser Test rot und nennt
+# die Datei.
+#
+# UNBEDINGT registriert -- kein if() um diesen Block. Eine Wache gegen stille Listen-Luecken darf
+# nicht selbst in einem bedingten Block sitzen (dieselbe Lehre wie bei der D2-Abdeckungs-Wache).
+#
+# Der Test liest QUELLTEXT, nicht Bau-Artefakte: er braucht keine Bibliothek, nur die drei Pfade und
+# den Header selbst als Prueflig (Kommentar-Defekte in der Liste brechen damit hier).
+set(_tax_semver "${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement")
+comdare_add_test(test_vs_taxonomie_klassen_grep
+    SOURCES test_vs_taxonomie_klassen_grep.cpp)
+target_include_directories(test_vs_taxonomie_klassen_grep PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_definitions(test_vs_taxonomie_klassen_grep PRIVATE
+    "COMDARE_TAX_QUELLE=\"${_tax_semver}/algo_semver.hpp\""
+    "COMDARE_TAX_LIBS=\"${PROJECT_SOURCE_DIR}/libs\""
+    "COMDARE_TAX_BAUM=\"${PROJECT_SOURCE_DIR}\"")
+unset(_tax_semver)
+set_tests_properties(test_vs_taxonomie_klassen_grep PROPERTIES
+    LABELS "wachen;taxonomie;versionierung;selbstwartung;koeder")
