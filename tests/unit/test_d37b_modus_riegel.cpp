@@ -102,7 +102,7 @@ TEST(D37bModusRiegel, RunProfileLehntDenDoppelAuftragVorDemProfilParseAb) {
     fs::remove_all(kein_profil.parent_path(), ec);
     ASSERT_FALSE(fs::exists(kein_profil)) << "Vorbedingung verletzt: der Pfad darf NICHT existieren";
 
-    std::size_t geprueft = 0;
+    std::size_t geprueft     = 0;
     std::size_t wie_erwartet = 0;
     for (auto const& b : kBelegungen) {
         tlz::RunProfileArgs a;
@@ -126,9 +126,9 @@ TEST(D37bModusRiegel, RunProfileLehntDenDoppelAuftragVorDemProfilParseAb) {
     // DIE EIGENTLICHE POSITIONS-AUSSAGE, noch einmal als eigener Satz: die zwei Codes sind
     // VERSCHIEDEN. Waere der Riegel hinter dem Parse, waeren beide 5 -- und diese Zeile riesse.
     tlz::RunProfileArgs nur_pruef;
-    nur_pruef.profile_path = kein_profil;
-    nur_pruef.out_csv      = kein_profil.parent_path() / "result.csv";
-    nur_pruef.pruef_only   = true;
+    nur_pruef.profile_path    = kein_profil;
+    nur_pruef.out_csv         = kein_profil.parent_path() / "result.csv";
+    nur_pruef.pruef_only      = true;
     tlz::RunProfileArgs beide = nur_pruef;
     beide.provision_only      = true;
     EXPECT_NE(tlz::run_profile(beide).exit_code, tlz::run_profile(nur_pruef).exit_code)
@@ -142,10 +142,9 @@ TEST(D37bModusRiegel, RunProfileLehntDenDoppelAuftragVorDemProfilParseAb) {
 TEST(D37bModusRiegel, BilanzZeileFuehrtHoechstensEinModusToken) {
     std::size_t hoechstens_eins = 0;
     for (auto const& b : kBelegungen) {
-        std::string const zusatz = tlz::lauf_modus_zusatz(b.provision_only, b.pruef_only);
-        std::size_t const treffer =
-            (zusatz.find("(provision-only)") != std::string::npos ? 1u : 0u) +
-            (zusatz.find("(pruef-only)") != std::string::npos ? 1u : 0u);
+        std::string const zusatz  = tlz::lauf_modus_zusatz(b.provision_only, b.pruef_only);
+        std::size_t const treffer = (zusatz.find("(provision-only)") != std::string::npos ? 1u : 0u) +
+                                    (zusatz.find("(pruef-only)") != std::string::npos ? 1u : 0u);
         std::cout << "  [TOKEN] " << b.name << " -> '" << zusatz << "' (Modus-Token: " << treffer << ")\n";
         if (treffer <= 1) ++hoechstens_eins;
         EXPECT_LE(treffer, 1u) << "Belegung '" << b.name
@@ -176,8 +175,8 @@ TEST(D37bModusRiegel, IteratorVerweigertDenDoppelAuftragVorJedemBau) {
     std::error_code ec;
     fs::remove_all(basis, ec);
 
-    auto           factory = std::make_shared<ex::ExperimentNodeFactory>();
-    ex::ExperimentTree baum = mach_baum(factory);
+    auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
+    ex::ExperimentTree baum    = mach_baum(factory);
     ASSERT_EQ(baum.static_binary_view().size(), std::size_t{2}) << "Vorbedingung: 2 statische Blaetter";
 
     ex::BuildSelection sel;
@@ -190,7 +189,7 @@ TEST(D37bModusRiegel, IteratorVerweigertDenDoppelAuftragVorJedemBau) {
     // Ein Lauf mit gezaehlten Compile-Aufrufen. Die ZAHL ist die Aussage: 0 heisst "nichts gebaut".
     auto fahre = [&](bool provision_only, bool pruef_only, char const* unterordner) {
         std::size_t compile_aufrufe = 0;
-        auto compile_zaehler = [&compile_aufrufe](ex::BuildJob const&) -> int {
+        auto        compile_zaehler = [&compile_aufrufe](ex::BuildJob const&) -> int {
             ++compile_aufrufe;
             return 0;
         };
