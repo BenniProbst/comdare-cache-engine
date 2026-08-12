@@ -27,6 +27,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <string_view> // KON47-01/Option a: measurement_stamp-Durchreichung (Default {} = 2-arg byte-identisch)
 #include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
@@ -37,8 +38,13 @@ namespace comdare::cache_engine::builder::experiment {
 /// laufend (nur Doku — der Round-Trip-Key ist der Pfad). Die map deckt GENAU die Pilot-Kompositionen ab; ein
 /// binary_id außerhalb (z.B. größerer Baum als der Pilot) liefert keine Quelle (→ Orchestrator-Source-Fehler,
 /// ehrlich sichtbar). O(count()) Einträge — der Pilot ist klein gehalten (sonst C1060; Doc 27 §6).
+/// KON47-01/Option a (12.08.2026): measurement_stamp = die Mess-Tooling-Stempel-Zeile DIESES Laufs, als
+/// 5. Arg an render_adhoc_module_source durchgereicht (dieselbe Weiche wie der lazy Pfad; adhoc_emitter.hpp:122).
+/// Default {} => EXAKT die bisherige 2-arg-Form => alle Alt-Aufrufer byte-identisch. string_view ist gefahrlos:
+/// die map materialisiert EAGER innerhalb dieses Aufrufs; make_source_gen_from_map kapselt nur die fertige map.
 template <class Engine>
-[[nodiscard]] inline std::map<std::string, std::string> build_pilot_source_map() {
+[[nodiscard]] inline std::map<std::string, std::string>
+build_pilot_source_map(std::string_view measurement_stamp = {}) {
     std::map<std::string, std::string> by_path;
     int                                idx = 0;
     // W12-A2 (Section 43): die {axis,variant->version}-Tabelle EINMAL vor der Schleife bauen (Registry-Reflexion,
@@ -53,7 +59,8 @@ template <class Engine>
         by_path.emplace(
             path, codegen::render_adhoc_module_source(idx, codegen::adhoc_macro_args<Comp>(),
                                                       compose_organ_stamp_line(ceb_parse_path(path), version_table),
-                                                      ::comdare::cache_engine::abi::system_stamp_line()));
+                                                      ::comdare::cache_engine::abi::system_stamp_line(),
+                                                      measurement_stamp));
         ++idx;
     });
     return by_path;

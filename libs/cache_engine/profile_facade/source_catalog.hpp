@@ -57,6 +57,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view> // KON47-01/Option a: measurement_stamp-Durchreichung (Default {} = 2-arg byte-identisch)
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -250,8 +251,10 @@ template <class Catalog>
 // KOMPLETTIERT PermutationEngine<...> und materialisiert damit AllPermutations (mp_product). Der Default-Katalog
 // MUSS deshalb der kleine/kuratierte golden_320_catalog sein, NIE der 2^17-FullSourceCatalog (das waere ein GB-Compile
 // / g++-ICE). Der Referenz-Count der 2^17-Grundlage laeuft ausschliesslich lazy (catalog_axis_product/view.size()).
+// KON47-01/Option a (12.08.2026): measurement_stamp reist bis in build_pilot_source_map -> render_adhoc_module_
+// source (5. Arg). Default {} => 2-arg-Form, alle Alt-Aufrufer byte-identisch; nicht-leer => 3-arg _M-Vollform.
 template <class Catalog = golden_320_catalog>
-[[nodiscard]] inline ex::SourceGenFn make_catalog_source_gen() {
+[[nodiscard]] inline ex::SourceGenFn make_catalog_source_gen(std::string_view measurement_stamp = {}) {
     // GN-2 / §26.6: DER negative Instanziierungs-Guard (Definition s. kMaxMaterializableCatalogCardinality oben).
     // build_pilot_source_map<FullSourceCatalog::Engine> ist VERBOTEN -- und jede andere Katalog-Form jenseits
     // der Materialisierungs-Grenze ebenso. Beide Checks sind explosionsfrei (reines ∏ mp_size). Der heisse
@@ -261,7 +264,7 @@ template <class Catalog = golden_320_catalog>
     constexpr bool within_materialization_bound =
         catalog_axis_product<Catalog>() <= kMaxMaterializableCatalogCardinality;
     if constexpr (!is_forbidden_full_form && within_materialization_bound) {
-        return ex::make_source_gen_from_map(ex::build_pilot_source_map<typename Catalog::Engine>());
+        return ex::make_source_gen_from_map(ex::build_pilot_source_map<typename Catalog::Engine>(measurement_stamp));
     } else {
         static_assert(!is_forbidden_full_form,
                       "GN-2/§26.6: build_pilot_source_map<FullSourceCatalog::Engine> ist VERBOTEN -- die 2^17-"
@@ -493,30 +496,33 @@ using PrefetchSweepCatalog =
 /// diese Achse variiert). Unbekannte Achse → leere map (Caller faellt auf Basis-320 zurueck). KEINE Selektion —
 /// reine Materialisierungs-Domaene EINER Achse. Seit #26/GO-5 fuer ALLE 18 Kompositions-Achsen (4 Basis +
 /// 4 vertiefte + 10 uebrige; INC-2c: telemetry ist System-Achse).
-[[nodiscard]] inline std::map<std::string, std::string> axis_sweep_source_map(std::string const& axis_name) {
+/// KON47-01/Option a: measurement_stamp wird in JEDEN Sweep-Zweig durchgereicht (Default {} = 2-arg) --
+/// sonst traefe jede Sweep-Zelle spaeter dasselbe Gate-Rot (KON44-01: deklaration_leer am fail-closed-Gate).
+[[nodiscard]] inline std::map<std::string, std::string>
+axis_sweep_source_map(std::string const& axis_name, std::string_view measurement_stamp = {}) {
     if (axis_name == "persistence_target")
-        return ex::build_pilot_source_map<typename PersistenceTargetSweepCatalog::Engine>();
-    if (axis_name == "search_algo") return ex::build_pilot_source_map<typename SearchAlgoSweepCatalog::Engine>();
-    if (axis_name == "node_type") return ex::build_pilot_source_map<typename NodeTypeSweepCatalog::Engine>();
-    if (axis_name == "memory_layout") return ex::build_pilot_source_map<typename MemoryLayoutSweepCatalog::Engine>();
-    if (axis_name == "prefetch") return ex::build_pilot_source_map<typename PrefetchSweepCatalog::Engine>();
-    if (axis_name == "migration_policy") return ex::build_pilot_source_map<typename MigrationSweepCatalog::Engine>();
-    if (axis_name == "filter") return ex::build_pilot_source_map<typename FilterSweepCatalog::Engine>();
-    if (axis_name == "value_handle") return ex::build_pilot_source_map<typename ValueHandleSweepCatalog::Engine>();
+        return ex::build_pilot_source_map<typename PersistenceTargetSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "search_algo") return ex::build_pilot_source_map<typename SearchAlgoSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "node_type") return ex::build_pilot_source_map<typename NodeTypeSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "memory_layout") return ex::build_pilot_source_map<typename MemoryLayoutSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "prefetch") return ex::build_pilot_source_map<typename PrefetchSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "migration_policy") return ex::build_pilot_source_map<typename MigrationSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "filter") return ex::build_pilot_source_map<typename FilterSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "value_handle") return ex::build_pilot_source_map<typename ValueHandleSweepCatalog::Engine>(measurement_stamp);
     if (axis_name == "path_compression")
-        return ex::build_pilot_source_map<typename PathCompressionSweepCatalog::Engine>();
+        return ex::build_pilot_source_map<typename PathCompressionSweepCatalog::Engine>(measurement_stamp);
     if (axis_name == "cache_traversal")
-        return ex::build_pilot_source_map<typename CacheTraversalSweepCatalog::Engine>();
-    if (axis_name == "mapping") return ex::build_pilot_source_map<typename MappingSweepCatalog::Engine>();
-    if (axis_name == "allocator") return ex::build_pilot_source_map<typename AllocatorSweepCatalog::Engine>();
-    if (axis_name == "concurrency") return ex::build_pilot_source_map<typename ConcurrencySweepCatalog::Engine>();
-    if (axis_name == "serialization") return ex::build_pilot_source_map<typename SerializationSweepCatalog::Engine>();
+        return ex::build_pilot_source_map<typename CacheTraversalSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "mapping") return ex::build_pilot_source_map<typename MappingSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "allocator") return ex::build_pilot_source_map<typename AllocatorSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "concurrency") return ex::build_pilot_source_map<typename ConcurrencySweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "serialization") return ex::build_pilot_source_map<typename SerializationSweepCatalog::Engine>(measurement_stamp);
     // (Bau-INC-2d: "isa" entfernt — Target-ISA-System-Achse, keine sweepbare Kompositions-Achse.)
     if (axis_name == "index_organization")
-        return ex::build_pilot_source_map<typename IndexOrganizationSweepCatalog::Engine>();
-    if (axis_name == "io_dispatch") return ex::build_pilot_source_map<typename IoDispatchSweepCatalog::Engine>();
-    if (axis_name == "queuing_q1") return ex::build_pilot_source_map<typename QueuingQ1SweepCatalog::Engine>();
-    if (axis_name == "queuing_q2") return ex::build_pilot_source_map<typename QueuingQ2SweepCatalog::Engine>();
+        return ex::build_pilot_source_map<typename IndexOrganizationSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "io_dispatch") return ex::build_pilot_source_map<typename IoDispatchSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "queuing_q1") return ex::build_pilot_source_map<typename QueuingQ1SweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "queuing_q2") return ex::build_pilot_source_map<typename QueuingQ2SweepCatalog::Engine>(measurement_stamp);
     return {};
 }
 
@@ -568,12 +574,14 @@ using PrefetchSweepCatalog =
 /// 1 Baseline + Sum(je Achse USE-Enabled − 1); enable-/HAVE-abhaengig (ce-Default-Baum: 72 — Gate:
 /// test_smoke_coverage_profile pinnt den Wert). Die Eintraege der 4 Basis-Achsen ueberlappen die
 /// Basis-320-Quelle idempotent (union_gen fragt die Basis-320 zuerst).
-[[nodiscard]] inline std::map<std::string, std::string> make_all_axis_sweeps_source_map() {
+/// KON47-01/Option a: measurement_stamp reist in jeden der 17 Achsen-Sweeps (Default {} = 2-arg byte-identisch).
+[[nodiscard]] inline std::map<std::string, std::string>
+make_all_axis_sweeps_source_map(std::string_view measurement_stamp = {}) {
     std::map<std::string, std::string> all;
     for (char const* ax : {"search_algo", "node_type", "memory_layout", "prefetch", "migration_policy", "filter",
                            "value_handle", "path_compression", "cache_traversal", "mapping", "allocator", "concurrency",
                            "serialization", "index_organization", "io_dispatch", "queuing_q1", "queuing_q2"}) {
-        auto m = axis_sweep_source_map(ax);
+        auto m = axis_sweep_source_map(ax, measurement_stamp);
         for (auto& [k, v] : m) all.emplace(k, std::move(v)); // Baseline-Key kollidiert idempotent
     }
     return all;
@@ -626,8 +634,10 @@ struct KaryPerKCatalog {
 /// kary_perk_source_map() — die per-K Sweep-Quellen-map (binary_id → reale Modul-Quelle): genau 4 Eintraege
 /// (KArySearchAlgoK2/4/8/16 × Baseline), je eine reale AdHocComposition (COMDARE_DEFINE_ANATOMY_MODULE_ADHOC).
 /// Analog axis_sweep_source_map, aber fuer die NICHT-vertiefte search_algo-Achse ueber die explizite per-K-Liste.
-[[nodiscard]] inline std::map<std::string, std::string> kary_perk_source_map() {
-    return ex::build_pilot_source_map<typename KaryPerKCatalog::Engine>();
+/// KON47-01/Option a: measurement_stamp auch in den per-K-Sweep (Default {} = 2-arg byte-identisch).
+[[nodiscard]] inline std::map<std::string, std::string>
+kary_perk_source_map(std::string_view measurement_stamp = {}) {
+    return ex::build_pilot_source_map<typename KaryPerKCatalog::Engine>(measurement_stamp);
 }
 
 /// kary_perk_levels() — die 17 STATISCHEN AxisLevels des per-K-Sweep-Baums (17-Slot-Komposition; A11 2026-07-20:
