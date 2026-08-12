@@ -28,7 +28,7 @@
 // jeder Wache. Eine Kopie einer Zahl, die anderswo lebt, veraltet genau so lautlos.
 //   Stand 2026-07-26, ABI-HISTORIE gegen SHA 42b34354: aktuell Major 6 (anatomy_module_abi_v1_decl.hpp:54)
 //   Stand 2026-08-04, ABI-HISTORIE gegen SHA 0f08fab5: Major 8 (E-24 C8)
-//   LEBEND seit 2026-08-09: Major 9 -- Beleg anatomy_module_abi_v1_decl.hpp:108 (NAHT-1)
+//   LEBEND seit 2026-08-09: Major 9 -- Beleg anatomy_module_abi_v1_decl.hpp:109 (NAHT-1)
 // Die Zahl gehoert in den Decl-Header und nur dorthin; hier steht ab jetzt der VERWEIS statt einer
 // Kopie. scripts/ci_hy_label_gate.sh (ctest: hy_label_gate) haelt beide Zeilen gegen den Header:
 // Teil B der Wache sucht repo-weit nach genau dieser Klasse (Wort "aktuell" plus eigene Major-Zahl).

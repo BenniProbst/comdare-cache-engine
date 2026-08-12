@@ -34,7 +34,8 @@
 // 300-311 stuenden auf dem Spiel). Die Anbindung laeuft deshalb OHNE Basisklassen-Einbau ueber das
 // Trait ist_stempel_baustein<T> mit Rollen-Tag; die Pins und Wachen bleiben byte-unberuehrt.
 
-#include <cache_engine/measurement/algo_semver.hpp> // ce_owned_version_is_wellformed + gated CPU-Politik
+#include <cache_engine/abi/stempel_baustein_trait.hpp> // P1.4-Trait (ausgelagert 12.08.: Rolle/Trait/Tag/Concept)
+#include <cache_engine/measurement/algo_semver.hpp>    // ce_owned_version_is_wellformed + gated CPU-Politik
 
 #include <array>
 #include <concepts>
@@ -208,9 +209,13 @@ template <auto TeileFn>
 /// Der angeschlossene()-Vertrag (NUR Hybrid): ein RT-Hook, der die angeschlossenen Stempel-Zeilen als
 /// Span liefert. S-1 definiert AUSSCHLIESSLICH diese Signatur; der Datenbestand ist der
 /// KON47-02-Init-Cache am Dock, der Bau ist HY-A2 (WARTE-Liste W-D).
+/// EXAKTER Span-Rueckgabetyp (same_as, nicht convertible_to): convertible_to liesse auch ein per Wert
+/// zurueckgegebenes temporaeres std::array zu, dessen implizit erzeugter Span nach dem Vollausdruck
+/// haengt (Zweitlens-Befund 12.08.). API-INVARIANTE dazu: der Backing-Storage des Spans ist statisch
+/// langlebig (der Init-Cache am Dock), nie ein Temporaer der Aufruf-Stelle.
 template <class E>
 concept AngeschlosseneVertrag = requires(E const& e) {
-    { e.angeschlossene() } noexcept -> std::convertible_to<std::span<std::string_view const>>;
+    { e.angeschlossene() } noexcept -> std::same_as<std::span<std::string_view const>>;
 };
 
 namespace vertrag_detail {
@@ -576,45 +581,10 @@ concept StempelVertrag = std::is_class_v<Erbin> && std::derived_from<Erbin, Stem
 // ================================================================================================
 // P1.4 -- Baustein-Ebene: Anbindung des Bestands OHNE Basisklassen-Einbau
 // ================================================================================================
-
-/// Die Rollen der angebundenen Bestands-Bausteine (KON6-03 + Naht/Legende/ToolingListe).
-enum class StempelBausteinRolle : std::uint8_t {
-    Keine = 0,
-    Segment,                ///< detail::StampSegment (anatomy_stamp_entries.hpp)
-    ZeilenLiteral,          ///< detail::StampLineLiteral<N> (anatomy_stamp_entries.hpp)
-    VervollstaendigteZeile, ///< CompletedSystemStampLine<N> (system_cell_values.hpp)
-    GliedParts,             ///< ToolchainStampParts (toolchain_stamp_glied.hpp)
-    AbiPod,                 ///< AnatomyStampEntryV1 + AnatomyVersionLines (anatomy_module_abi_v1_decl.hpp)
-    Legende,                ///< builder::CebComboLegend<N> (ceb_version_stamp.hpp)
-    ToolingListe,           ///< builder::detail::CebToolingList (ceb_version_stamp.hpp)
-    NahtGlied               ///< profile_facade::PermToolchainGliedWert/-Achsen (toolchain_stamp_naht.hpp)
-};
-
-/// Primaertrait: KEIN Baustein. Die Anbindung ist je Typ eine Spezialisierung UNTER seiner Definition --
-/// OHNE Basisklassen-Einbau: alle fuenf KON6-03-Strukturen sind positional-init-Aggregate bzw.
-/// NTTP-Traeger; eine leere Basis fraesse den ERSTEN positionellen Initialisierer (Pins
-/// anatomy_module_abi_v1_decl.hpp:191/:254/:261; Feld-Ordnungs-Wache toolchain_stamp_glied.hpp:300-311
-/// bleibt dadurch UNVERAENDERT).
-template <class T>
-struct ist_stempel_baustein {
-    static constexpr bool                 wert  = false;
-    static constexpr StempelBausteinRolle rolle = StempelBausteinRolle::Keine;
-};
-
-/// Kurzform der Spezialisierungen (haelt jede Anbindung bei +2 Zeilen).
-template <StempelBausteinRolle R>
-struct StempelBausteinTag {
-    static constexpr bool                 wert  = R != StempelBausteinRolle::Keine;
-    static constexpr StempelBausteinRolle rolle = R;
-};
-
-/// concept StempelBaustein -- die Frage "ist dieser Typ ein angebundener Stempel-Baustein?".
-template <class T>
-concept StempelBaustein = ist_stempel_baustein<std::remove_cvref_t<T>>::wert;
-
-static_assert(!StempelBaustein<int>, "der Primaertrait bindet NICHTS an -- Anbindung ist je Typ explizit.");
-static_assert(StempelBausteinTag<StempelBausteinRolle::Segment>::wert);
-static_assert(!StempelBausteinTag<StempelBausteinRolle::Keine>::wert,
-              "eine Spezialisierung mit Rolle 'Keine' waere eine Anbindungs-Luege.");
+// AUSGELAGERT 12.08.2026 nach stempel_baustein_trait.hpp (leichter Trait-Header, oben inkludiert):
+// Rolle + Primaertrait + Tag + Concept stehen dort, damit die ABI-POD-Spezialisierungen direkt beim
+// Eigentuemer (anatomy_module_abi_v1_decl.hpp) veroeffentlicht werden koennen -- die Include-Order-
+// Falle "Trait vor entries.hpp instanziiert => still false/Keine bzw. specialization after
+// instantiation" (Zweitlens-Befund 12.08.) ist damit strukturell geschlossen.
 
 } // namespace comdare::cache_engine::abi

@@ -94,13 +94,18 @@ TEST(Warn1D2FingerprintKoeder, PermutationResultNulltSeineSkalareAuchAufSchmutzi
     if (r->succeeded == false) ++erfuellt;
     bool record_genullt = true;
     {
-        // record{} ist wertinitialisiert -> die gesamte Byte-Darstellung muss frei vom Muster sein.
-        unsigned char const* rec = reinterpret_cast<unsigned char const*>(&r->record);
-        for (std::size_t i = 0; i < sizeof(r->record); ++i)
-            if (rec[i] == kSchmutzMuster) {
-                record_genullt = false;
-                break;
-            }
+        // record{} wertinitialisiert die MITGLIEDER -- geprueft werden deshalb die 13 Felder, NICHT die
+        // rohe Byte-Darstellung: comdare_measurement_record_v1 traegt 4 Padding-Bytes nach version
+        // (uint32 vor uint64), und deren Nullung sichert kein Initialisierer zu. Der fruehere Byte-Scan
+        // war die V7-Klasse "Zusicherung, die das Design nicht gibt": gcc nullte das Padding zufaellig
+        // mit, clang/Debug liess das Muster legal stehen -- der Test war compiler-abhaengig rot
+        // (#84-Vorbestand 09.-12.08., von der KON55-2x2-Matrix reproduziert).
+        auto const& rec = r->record;
+        record_genullt  = rec.version == 0u && rec.op_count == 0u && rec.total_cycles == 0u &&
+                          rec.cache_misses_l1 == 0u && rec.cache_misses_l2 == 0u && rec.cache_misses_l3 == 0u &&
+                          rec.dtlb_misses == 0u && rec.coherence_invalidations == 0u && rec.energy_micro_joules == 0u &&
+                          rec.bytes_allocated == 0u && rec.bytes_in_use_peak == 0u &&
+                          rec.external_fragmentation == 0.0 && rec.internal_fragmentation == 0.0;
     }
     if (record_genullt) ++erfuellt;
 
