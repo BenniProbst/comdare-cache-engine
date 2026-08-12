@@ -209,7 +209,9 @@
 // (ceb_version_stamp()) ist Runtime. Ausgabe im CEB-Log-Kopf (apps/cache_engine_builder).
 
 #include <cache_engine/abi/anatomy_fingerprint.hpp>    // anatomy_fingerprint_hex (consteval SHA-512)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp>  // S-1: der EINE Zeilen-Scanner (CebStempel-Mess-Pflicht)
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: kMetaMetaGroupOpen/Close (EINE Klammer-Wahrheit)
+#include <cache_engine/abi/stempel_basis.hpp>          // S-1: StempelBasis/StempelVertrag + ist_stempel_baustein
 #include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver + render_algo_semver (die EINE Grammatik)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
@@ -617,3 +619,17 @@ inline constexpr std::string_view kCebFingerprint           = kCebFingerprintFor
 }
 
 } // namespace comdare::cache_engine::builder
+
+// -- S-1 (P3): Baustein-Anbindung von Legende und Tooling-Liste UNTER ihren Definitionen (die
+//    Spezialisierung gehoert in den abi-Namensraum, deshalb steht sie hier am Datei-Ende) -- OHNE
+//    Basisklassen-Einbau: CebComboLegend ist ein struktureller NTTP-Traeger (eine Basis braeche die
+//    NTTP-Faehigkeit), CebToolingList ein positional befuellbares Aggregat.
+namespace comdare::cache_engine::abi {
+template <std::size_t N>
+struct ist_stempel_baustein<builder::CebComboLegend<N>> : StempelBausteinTag<StempelBausteinRolle::Legende> {};
+static_assert(StempelBaustein<builder::CebComboLegend<6>>); // "[all]" traegt N == 6
+template <>
+struct ist_stempel_baustein<builder::detail::CebToolingList>
+    : StempelBausteinTag<StempelBausteinRolle::ToolingListe> {};
+static_assert(StempelBaustein<builder::detail::CebToolingList>);
+} // namespace comdare::cache_engine::abi
