@@ -345,6 +345,17 @@
 ///       der Klasse "(e)/(f)" -- und der erste, bei dem nicht ein Mensch, sondern der Riegel ihn fand.
 ///       Der Absatz oben ("sonst entsteht wieder eine Luecke wie bei (e)/(f)") hat sich damit selbst
 ///       bestaetigt, in beide Richtungen: die Luecke entsteht weiter, aber sie bleibt nicht liegen.
+///
+///   (l) S-1 (12.08.2026, im Bau-Commit selbst nachgetragen -- der P14-Riegel hat die Datei beim
+///       Anlegen sofort genannt): der WACHEN-DELEGAT DER STEMPEL-BASIS.
+///       abi/stempel_basis.hpp fuehrt KEIN eigenes Versions-Literal; seine zwei Aufruf-Stellen sind
+///       ist_versions_literal_baustein() -- die Buendelung BEIDER B12-Wachen zu EINEM Praedikat fuer
+///       Wert-Bausteine der Stempel-Strecke (Konsument: pruef_dock_version.hpp, Klasse (i)) und
+///       zugleich die version_xyz-PFLICHT des CRTP-Stempel-Vertrags (Traeger PLANER, Klasse (e)).
+///       ABGRENZUNG ZU (e)/(i): die LITERALE bleiben dort und tragen dort ihre eigenen Wachen; diese
+///       Klasse ist der gemeinsame DURCHSETZUNGS-Punkt, keine neue Quelle -- ein drittes Literal
+///       entstuende hier nie (die Basis ist leer, KON7-08).
+///       Erhebung: der generische Wachen-grep oben faengt sie (stempel_basis.hpp).
 #ifndef COMDARE_VERSION_HW_FLAG_ENFORCE
 #define COMDARE_VERSION_HW_FLAG_ENFORCE 1
 #endif

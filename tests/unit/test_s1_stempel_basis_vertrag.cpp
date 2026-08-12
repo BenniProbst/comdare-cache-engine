@@ -3,7 +3,7 @@
 //
 // WAS DIESER TEST BEWEIST (Abnahmen A-P1..A-P7 des S-1-Schnitts):
 //   A-P1  Die dreiwertige Zulassungsmatrix (7 KON7-04-Interfaces x 4 Traeger = 28 Zellen) stimmt Zelle
-//         fuer Zelle mit der FREMDEN Quelle ueberein (KON7-04, Ledger:5762-5774; Tabelle unten ist eine
+//         fuer Zelle mit der FREMDEN Quelle ueberein (Marke KON7-04; Tabelle unten ist eine
 //         UNABHAENGIGE Abschrift, kein Re-Read des Prueflings). ASSERT der 7/4/28 VOR jeder Schleife.
 //   T-4   Gegeneingaenge: absichtlich vertragslose/teilvertragliche Probe-Structs werden ABGELEHNT --
 //         je Pflicht-Klasse einer (fehlender sha ohne BewusstLeer, unparsbare Zeile, stille Leere,
@@ -86,7 +86,7 @@ namespace pl  = ::comdare::cache_engine::planner;
 using std::string_view;
 
 // ================================================================================================
-// A-P1 / T-3: die 28 Matrixzellen gegen die FREMDE Quelle (KON7-04, Ledger:5762-5774)
+// A-P1 / T-3: die 28 Matrixzellen gegen die FREMDE Quelle (Marke KON7-04)
 // ================================================================================================
 // UNABHAENGIGE Abschrift der Owner-Zuordnung -- bewusst NICHT aus kStempelZulassungsMatrix abgelesen:
 //   version_xyz NUR Planer -- mess+system CEB/Tier/Hybrid -- organ Tier/Hybrid -- fingerprint_sha +

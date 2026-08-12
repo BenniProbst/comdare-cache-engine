@@ -94,7 +94,7 @@ enum class StempelInterface : std::uint8_t {
 inline constexpr std::size_t kStempelInterfaceAnzahl = 7;
 
 /// Die dreiwertige Zulassungsmatrix (KON8-07), Zeilen = Interfaces, Spalten = Traeger in
-/// Stufen-Reihenfolge Planer/Ceb/Tier/Hybrid. Quelle der Belegung: KON7-04 (Ledger:5762-5774).
+/// Stufen-Reihenfolge Planer/Ceb/Tier/Hybrid. Quelle der Belegung: die Marke KON7-04.
 inline constexpr std::array<std::array<StempelZulassung, kStempelTraegerAnzahl>, kStempelInterfaceAnzahl>
     kStempelZulassungsMatrix{{
         // Planer                     Ceb                         Tier                        Hybrid
