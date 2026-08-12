@@ -502,27 +502,41 @@ using PrefetchSweepCatalog =
 axis_sweep_source_map(std::string const& axis_name, std::string_view measurement_stamp = {}) {
     if (axis_name == "persistence_target")
         return ex::build_pilot_source_map<typename PersistenceTargetSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "search_algo") return ex::build_pilot_source_map<typename SearchAlgoSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "node_type") return ex::build_pilot_source_map<typename NodeTypeSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "memory_layout") return ex::build_pilot_source_map<typename MemoryLayoutSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "prefetch") return ex::build_pilot_source_map<typename PrefetchSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "migration_policy") return ex::build_pilot_source_map<typename MigrationSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "filter") return ex::build_pilot_source_map<typename FilterSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "value_handle") return ex::build_pilot_source_map<typename ValueHandleSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "search_algo")
+        return ex::build_pilot_source_map<typename SearchAlgoSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "node_type")
+        return ex::build_pilot_source_map<typename NodeTypeSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "memory_layout")
+        return ex::build_pilot_source_map<typename MemoryLayoutSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "prefetch")
+        return ex::build_pilot_source_map<typename PrefetchSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "migration_policy")
+        return ex::build_pilot_source_map<typename MigrationSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "filter")
+        return ex::build_pilot_source_map<typename FilterSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "value_handle")
+        return ex::build_pilot_source_map<typename ValueHandleSweepCatalog::Engine>(measurement_stamp);
     if (axis_name == "path_compression")
         return ex::build_pilot_source_map<typename PathCompressionSweepCatalog::Engine>(measurement_stamp);
     if (axis_name == "cache_traversal")
         return ex::build_pilot_source_map<typename CacheTraversalSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "mapping") return ex::build_pilot_source_map<typename MappingSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "allocator") return ex::build_pilot_source_map<typename AllocatorSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "concurrency") return ex::build_pilot_source_map<typename ConcurrencySweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "serialization") return ex::build_pilot_source_map<typename SerializationSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "mapping")
+        return ex::build_pilot_source_map<typename MappingSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "allocator")
+        return ex::build_pilot_source_map<typename AllocatorSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "concurrency")
+        return ex::build_pilot_source_map<typename ConcurrencySweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "serialization")
+        return ex::build_pilot_source_map<typename SerializationSweepCatalog::Engine>(measurement_stamp);
     // (Bau-INC-2d: "isa" entfernt — Target-ISA-System-Achse, keine sweepbare Kompositions-Achse.)
     if (axis_name == "index_organization")
         return ex::build_pilot_source_map<typename IndexOrganizationSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "io_dispatch") return ex::build_pilot_source_map<typename IoDispatchSweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "queuing_q1") return ex::build_pilot_source_map<typename QueuingQ1SweepCatalog::Engine>(measurement_stamp);
-    if (axis_name == "queuing_q2") return ex::build_pilot_source_map<typename QueuingQ2SweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "io_dispatch")
+        return ex::build_pilot_source_map<typename IoDispatchSweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "queuing_q1")
+        return ex::build_pilot_source_map<typename QueuingQ1SweepCatalog::Engine>(measurement_stamp);
+    if (axis_name == "queuing_q2")
+        return ex::build_pilot_source_map<typename QueuingQ2SweepCatalog::Engine>(measurement_stamp);
     return {};
 }
 
