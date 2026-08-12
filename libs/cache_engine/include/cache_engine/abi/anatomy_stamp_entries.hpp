@@ -104,6 +104,19 @@
 
 namespace comdare::cache_engine::abi {
 
+// -- S-1 (P2): Baustein-Anbindung der beiden ABI-PODs (Definitionen: anatomy_module_abi_v1_decl.hpp
+//    :178/:200) -- NUR Trait, KEIN Basisklassen-Einbau (beide sind positional-init-PODs; die
+//    sizeof-/align-/Layout-Pins der decl bleiben byte-unberuehrt). Sie steht HIER und nicht in der decl,
+//    weil die decl die bewusst LEICHTE, selbstgenuegsame Loader-Seite ist (relative Includes, minimale
+//    TUs ohne include-Roots) -- dieser Parser-Header ist die naechste Stelle, die decl + stempel_basis
+//    ohnehin beide sieht.
+template <>
+struct ist_stempel_baustein<AnatomyStampEntryV1> : StempelBausteinTag<StempelBausteinRolle::AbiPod> {};
+static_assert(StempelBaustein<AnatomyStampEntryV1>);
+template <>
+struct ist_stempel_baustein<AnatomyVersionLines> : StempelBausteinTag<StempelBausteinRolle::AbiPod> {};
+static_assert(StempelBaustein<AnatomyVersionLines>);
+
 /// FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): BITS 0-2 SIND FREI. Bis zur v2 trug Bit 0 die Markierung
 /// "experimenteller Achsen-Algorithmus" und die Bits 1-2 das EINE Hardware-Flag als 4-Werte-Code. Beides
 /// gibt es nicht mehr: 'e' bedeutet EFFICIENCY CORE (das Konzept "experimental" ist ersatzlos deprecated),
