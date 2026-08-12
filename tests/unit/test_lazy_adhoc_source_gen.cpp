@@ -33,6 +33,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <random> // KON47-01 Wache (g): std::random_device wuerfelt den K13-Koeder {wallclock|macro}
 #include <set>
 #include <span> // I2: std::span fuer die SHA-512-Primitive im Drift-Beweis
 #include <string>
@@ -399,6 +400,57 @@ void check_measurement_combo_env_bridge(std::vector<std::string> const& g320_ids
                src_unset != src_noarg);
 }
 
+// -- (g) KON47-01/Option a (12.08.2026): der KATALOG-Gen stempelt die Mess-Zeile ------------------------------
+//    Schliesst die KON44-Luecke "fuer (B)/(C) gibt es KEINE Wache" (profile_run_entry.hpp, Befund-Kommentar):
+//    base_union bediente die Basis-320-/Sweep-ids aus dem Katalog in der 2-arg-Form OHNE Mess-Zeile, waehrend
+//    das Pruefdock die Vollmengen-Zeile als SOLL fuehrte -> fehlerklasse=mess_konsistenz status=deklaration_leer
+//    (haupt_ist=0, haupt_soll=3), Treiber-Exit 1 (KON44-01). Gefordert wird hier:
+//      (1) cat(full_set-Stamp) == lazy(gleicher Stamp) byte-identisch modulo Index-Zeile (wie (a), nur MIT Stamp),
+//      (2) die Katalog-Quelle traegt die 3-arg _M-Vollform (COMDARE_ANATOMY_VERSION_STAMP_M),
+//      (3) K13, Koeder GEWUERFELT und BEIDSEITIG: der Lauf wuerfelt die Combo aus {wallclock,macro}
+//          (std::random_device, der Wurf wird AUSGEGEBEN) -- die gewaehlte measurement_tooling-Zeile MUSS in
+//          cat(stamp)(id) stehen, die NICHT gewaehlte DARF NICHT.
+//    ETIKETT: der Design-Schnitt (wf11-design-3) nannte diese Wache "(f)"; (f) ist am Objekt seit K7b-2 belegt
+//    (check_measurement_combo_env_bridge oben) -- naechster freier Buchstabe, gleiche Kollisionsregel wie
+//    F27/F28 statt F20/F21 in der Bissprobe. (a)/(a2)/(e) bleiben WOERTLICH unveraendert (No-Arg-Default "").
+void check_catalog_stamp_roundtrip(std::vector<std::string> const& g320_ids) {
+    std::cout << "\n---- (g) KON47-01: Katalog-Gen stempelt die Mess-Zeile (== lazy, modulo Index-Zeile) ----\n";
+    namespace abi               = ::comdare::cache_engine::abi;
+    std::string const     stamp = abi::measurement_stamp_line_full_set();
+    ex::SourceGenFn const cat   = tlz::generated_make_catalog_source_gen(stamp);
+    ex::SourceGenFn const lazy  = tlz::make_lazy_adhoc_source_gen(stamp);
+
+    std::size_t const sample = g320_ids.size() < 8 ? g320_ids.size() : 8; // wie (a): 8 ueber den Indexraum
+    std::size_t       nonempty = 0, matched = 0, m_form = 0;
+    for (std::size_t k = 0; k < sample; ++k) {
+        std::size_t const i = (g320_ids.size() * k) / sample;
+        std::string const a = cat(g320_ids[i]);
+        std::string const b = lazy(g320_ids[i]);
+        if (!a.empty() && !b.empty()) ++nonempty;
+        if (!a.empty() && body_after_first_line(a) == body_after_first_line(b)) ++matched;
+        if (a.find("COMDARE_ANATOMY_VERSION_STAMP_M(") != std::string::npos) ++m_form;
+    }
+    check_eq("(g) beide Gens nicht-leer (Stichprobe, full_set-Stamp)", nonempty, sample);
+    check_eq("(g) Katalog- == lazy-Quelle byte-identisch (modulo Index-Zeile) MIT Mess-Zeile", matched, sample);
+    check_eq("(g) Katalog-Quelle traegt die 3-arg _M-Vollform", m_form, sample);
+
+    // (3) K13-Wuerfel: der Koeder wird erzeugt, nie abgeschrieben -- und er beisst in BEIDE Richtungen.
+    char const* const  toolings[2] = {"wallclock", "macro"};
+    std::random_device rd;
+    std::size_t const  wurf     = static_cast<std::size_t>(rd()) % 2u;
+    char const* const  gewaehlt = toolings[wurf];
+    char const* const  andere   = toolings[1u - wurf];
+    std::cout << "  (g) K13-Wurf: gewaehlte Combo = " << gewaehlt << "  (nicht gewaehlt: " << andere << ")\n";
+    std::string const id     = g320_ids.front();
+    std::string const src    = tlz::generated_make_catalog_source_gen(abi::measurement_stamp_line(gewaehlt))(id);
+    std::string const muss   = std::string{"measurement_tooling="} + gewaehlt + "@1.0.0.c";
+    std::string const verbot = std::string{"measurement_tooling="} + andere + "@1.0.0.c";
+    check_true(("(g) gewaehlte Zeile MUSS in cat(stamp)(id): " + muss).c_str(),
+               src.find(muss) != std::string::npos);
+    check_true(("(g) NICHT gewaehlte Zeile DARF NICHT in cat(stamp)(id): " + verbot).c_str(),
+               src.find(verbot) == std::string::npos);
+}
+
 // -- (a3) I2 Fingerprint-Drift-Beweis: der FingerprintFn == sha512 der EMITTIERTEN Stempel-Zeilen ---------------
 // Unabhaengige Referenz = der emittierte Makro-Text (den die DLL kompiliert): parse die gequoteten organ/system-
 // Argumente aus COMDARE_ANATOMY_VERSION_STAMP(...) + runtime-sha512(concat) == lazy_adhoc_fingerprint_for. Damit deckt
@@ -487,6 +539,7 @@ int main() {
     check_stamp_injected(g320_ids);
     check_measurement_stamp_wiring(g320_ids);
     check_measurement_combo_env_bridge(g320_ids);
+    check_catalog_stamp_roundtrip(g320_ids); // (g) KON47-01: Katalog-Gen stempelt (KON44-Luecke geschlossen)
     check_golden_n_nonempty(g320_ids, full_ids);
     check_fingerprint_drift_free(g320_ids); // I2: der .fingerprint-Sidecar-Provider deckt sich mit dem DLL-sha512_line
     check_crc64_and_lazy_cover(full_ids);

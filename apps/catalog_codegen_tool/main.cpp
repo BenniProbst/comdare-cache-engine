@@ -302,8 +302,12 @@ bool write_header(fs::path const& out_path, std::vector<SelectedSlot> const& sel
            "[[nodiscard]] inline std::vector<ex::AxisLevel> generated_catalog_static_levels() {\n"
            "    return catalog_static_levels<GeneratedFullSourceCatalog>();\n"
            "}\n\n"
-           "[[nodiscard]] inline ex::SourceGenFn generated_make_catalog_source_gen() {\n"
-           "    return make_catalog_source_gen<GeneratedFullSourceCatalog>();\n"
+           // KON47-01/Option a (12.08.2026): der generierte Katalog-Gen reicht measurement_stamp durch
+           // (Default {} = 2-arg byte-identisch fuer alle Alt-Aufrufer; std::string_view kommt via
+           // source_catalog.hpp). Header ist UNGETRACKT und entsteht beim RE-CONFIGURE (catalog_codegen.cmake).
+           "[[nodiscard]] inline ex::SourceGenFn generated_make_catalog_source_gen(std::string_view "
+           "measurement_stamp = {}) {\n"
+           "    return make_catalog_source_gen<GeneratedFullSourceCatalog>(measurement_stamp);\n"
            "}\n\n"
            "} // namespace comdare::cache_engine::thesis_lazy\n";
     return static_cast<bool>(out);

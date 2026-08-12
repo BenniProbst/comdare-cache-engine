@@ -510,29 +510,37 @@ struct RunProfileResult {
     //    …/migration_policy=migration_hot_cold/…, die im Basis-320 NICHT vorkommen) sind ueberlappungsfrei (bis auf
     //    die Baseline-DLL + die Basis-Achsen-Sweep-ids, die identisch sind → idempotent; union_gen fragt die
     //    Basis-320 zuerst). SOTA liegt im disjunkten "sota_tier=…"-Raum.
-    std::map<std::string, std::string> fused =
-        make_all_axis_sweeps_source_map(); // alle 17 Achsen-Sweeps (#26/GO-5, INC-2d; Eintragszahl USE-Enable-abhaengig)
-    // A13-M3/C1 (K-3): die SOTA-Quellen tragen ab jetzt die VOLLEN Stempel-Zeilen. Die Mess-Combo kommt aus
-    // DERSELBEN Env-Bruecke (measurement_stamp_from_env), die zehn Zeilen tiefer den lazy Source-Gen speist --
-    // die SOTA-DLLs eines Laufs stempeln damit dieselbe Tooling-Wahl wie die adhoc-DLLs desselben Laufs.
     // M-1/D-2 (06.08.2026): DIE EINE Lesung der Mess-Zeile dieses Laufs. Sie hatte bis hierher genau zwei
-    // Konsumenten (SOTA-Quellen + lazy Source-Gen, beide unten); ab jetzt drei -- der dritte ist die SOLL-Seite
-    // des Mess-Vertrags am Pruefdock (LazyRunConfig::erwartete_mess_zeile). Sie steht bewusst als EIN benanntes
-    // Objekt da und wird nicht dreimal gerufen: measurement_stamp_from_env() ist zwar deterministisch, aber ein
-    // dritter Aufruf waere ein dritter Ableitungsweg in Wartestellung -- genau die O-8-Schritt-12-Falle, und
-    // genau der Mechanismus, aus dem D-1 entstanden ist.
+    // Konsumenten (SOTA-Quellen + lazy Source-Gen, beide unten); seit M-1 der dritte -- die SOLL-Seite
+    // des Mess-Vertrags am Pruefdock (LazyRunConfig::erwartete_mess_zeile) --, und seit KON47-01/Option a
+    // (12.08.2026) der vierte: die Katalog-Emission (generated_make_catalog_source_gen + Achsen-Sweeps,
+    // s. fused/base_union unten). Sie steht bewusst als EIN benanntes
+    // Objekt da und wird nicht mehrfach gerufen: measurement_stamp_from_env() ist zwar deterministisch, aber
+    // jeder weitere Aufruf waere ein weiterer Ableitungsweg in Wartestellung -- genau die O-8-Schritt-12-Falle,
+    // und genau der Mechanismus, aus dem D-1 entstanden ist.
     // M-1/H-2 (06.08.2026): die PMC-Ausstattung gehoert zur Mess-Achse. Der Wurf steht VOR der ersten
     // gestempelten Quelle -- ein Lauf, dessen einkompilierte Mess-Achse und PMC-Ausstattung sich
     // widersprechen, darf gar nicht erst Binaries erzeugen. Herleitung + Messwerte: mess_achsen_naht.hpp.
     // Ohne einkompilierte Combo (der gesamte heutige Bestand) ist der Aufruf ein No-op.
+    // KON47-01/Option a: der Block steht seit 12.08.2026 VOR der fused-Zeile -- die Sweep-map ist jetzt selbst
+    // eine gestempelte Quelle, der H-2-Satz "Wurf VOR der ersten gestempelten Quelle" bleibt damit wahr.
     ::comdare::cache_engine::profile_facade::pruefe_pmc_gegen_mess_achse();
     std::string const live_mess_zeile        = measurement_stamp_from_env();
     std::string const sota_measurement_stamp = live_mess_zeile;
     // M-1/H-B (06.08.2026): traegt die Tier-Binary dieses Laufs den Observer? Aus DERSELBEN Aufloesung.
     bool const live_observer_ausstattung = ::comdare::cache_engine::profile_facade::live_mess_observer_ausstattung();
+    std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map(
+        live_mess_zeile); // alle 17 Achsen-Sweeps (#26/GO-5, INC-2d; Eintragszahl USE-Enable-abhaengig),
+                          // seit KON47-01/Option a mit der Mess-Zeile DIESES Laufs gestempelt
+    // A13-M3/C1 (K-3): die SOTA-Quellen tragen ab jetzt die VOLLEN Stempel-Zeilen. Die Mess-Combo kommt aus
+    // DERSELBEN Aufloesung (live_mess_zeile oben, EINE Env-Bruecke measurement_stamp_from_env), die auch den
+    // lazy Source-Gen unten speist -- die SOTA-DLLs eines Laufs stempeln damit dieselbe Tooling-Wahl wie die
+    // adhoc-DLLs desselben Laufs. Diese Schleife KONSUMIERT sota_measurement_stamp und gehoert zur
+    // FUSED-Befuellung -- sie steht bewusst NACH der fused-Erzeugung (Verify 12.08.2026).
     for (auto& [k, v] : build_sota_view_source_map(tp, sota_measurement_stamp))
         fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
-    ex::SourceGenFn base_union = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
+    ex::SourceGenFn base_union =
+        make_union_source_gen(generated_make_catalog_source_gen(live_mess_zeile), std::move(fused));
     // INC-G6 (33/34): der lazy Per-Index-Emitter als ZUSAETZLICHE Fallback-Quelle HINTER den bestehenden
     // (Basis-320 / Sweeps / SOTA). Die Reihenfolge ist byte-kritisch: fuer die 320er/Sweep/SOTA-ids liefert
     // base_union eine NICHT-leere Quelle -> der lazy Gen wird NIE konsultiert (golden-320 byte-identisch). Erst
@@ -553,25 +561,32 @@ struct RunProfileResult {
     //     live_mess_zeile oben ist also die VOLLE 3-Tool-Zeile. Genau sie wird zum SOLL des Mess-Vertrags am
     //     Pruefdock (LazyRunConfig::erwartete_mess_zeile, s. Block weiter oben).
     //
-    // (B) WAS DARAUS NICHT FOLGT: dass die emittierte DLL diese Zeile auch TRAEGT. Der lazy_gen unten steht per
-    //     INC-G6 HINTER base_union. Fuer jede id, die base_union bedient (Basis-320 / Sweeps / SOTA), wird der
-    //     lazy Gen NIE konsultiert (s. INC-G6-Block direkt darunter) -- die Quelle kommt aus dem Katalog und
-    //     traegt die 2-arg-Form OHNE Mess-Zeile.
+    // (B) [BEHOBEN 12.08.2026, KON47-01/Option a] HISTORISCHER BEFUND: die emittierte DLL trug diese Zeile
+    //     NICHT. Der lazy_gen unten steht per INC-G6 HINTER base_union; fuer jede id, die base_union bedient
+    //     (Basis-320 / Sweeps / SOTA), wird der lazy Gen NIE konsultiert (s. INC-G6-Block direkt darunter) --
+    //     die Quelle kam aus dem Katalog und trug die 2-arg-Form OHNE Mess-Zeile.
+    //     SEIT DEM FIX: generated_make_catalog_source_gen(live_mess_zeile) + make_all_axis_sweeps_source_map(
+    //     live_mess_zeile) stempeln die Katalog-/Sweep-Quellen mit DERSELBEN Zeile, die das Pruefdock als SOLL
+    //     fuehrt -- IST und SOLL kommen aus EINEM benannten Objekt (live_mess_zeile, s. M-1/D-2 oben).
     //
     // (C) GEMESSEN 12.08.2026 auf dem gepinnten Stand 670483c0, Profil f1_durchstich (Zelle label=basis-320):
     //     emittierte perm.cpp  -> COMDARE_ANATOMY_VERSION_STAMP(<organ>, <system>)  [2-arg, KEINE Mess-Zeile]
     //     Lauf                 -> fehlerklasse=mess_konsistenz status=deklaration_leer
     //                             (haupt_ist=0, haupt_soll=3), measured=0, Treiber-Exit 1
-    //     SOLL-Seite (Vollmengen-Zeile aus (A)) und IST-Seite (Katalog-2-arg aus (B)) widersprechen sich also
-    //     fuer genau die Zellen, die base_union bedient. Das ist der offene F1-Durchstich-Blocker. Er wird hier
-    //     NICHT behoben: 2-vs-3-arg und die Stempel-Reihenfolge sind preimage-wirksam und gehoeren ins
-    //     S-6-Fenster. Dieser Kommentar HAELT den Befund fest, statt ihn erneut als "byte-identisch" zu tarnen.
+    //     SOLL-Seite (Vollmengen-Zeile aus (A)) und IST-Seite (Katalog-2-arg aus (B)) widersprachen sich also
+    //     fuer genau die Zellen, die base_union bedient. Das WAR der offene F1-Durchstich-Blocker (KON44-01).
+    //     [BEHOBEN 12.08.2026] Der Satz "gehoert ins S-6-Fenster" ist per KON47-01/Option a UEBERSTEUERT
+    //     (OWNER>PLAN): der Fix aendert nur den WERT des Mess-Glieds der emittierten Stempel-Zeile (leer ->
+    //     Vollmenge/Combo), NIE die Glieder-ORDNUNG -- die S-6-Sperre (Glieder-Reihenfolge) bleibt unberuehrt.
+    //     Preimage-Wirkung ist GEWOLLT ("heute kostenlos", KON47-01): sha512_line + .fingerprint-Sidecar der
+    //     Basis-320-/Sweep-/per-K-Zellen wandern mit; KEIN fingerprint_format-Bump.
     //
     // WAS RICHTIG BLEIBT: byte-stabil ist der Lauf INNERHALB der [all]-Lane -- alle [all]-Laeufe rendern dieselbe
-    // Zeile --, nicht weil die Zeile leer waere. Der golden-320-/Sweep-/SOTA-Pfad bleibt unberuehrt (s. union_gen
-    // unten). GEDECKT ist nur (A): test_m1h_stufen_und_pmc_wache Fall (a), "env UNGESETZT == '[all]'" (:110-111);
-    // fuer (B)/(C) gibt es heute KEINE Wache -- dieser Kommentar ist keine und wird auch nicht als eine ausgegeben.
-    // NUR KOMMENTAR -- an dieser Scheibe wurde KEIN Code geaendert.
+    // Zeile --, nicht weil die Zeile leer waere. Der No-Arg-/Default-Pfad des Katalogs (2-arg) bleibt fuer alle
+    // Alt-Aufrufer byte-identisch (Default {}); im LIVE-Lauf hier wird er seit dem Fix mit live_mess_zeile
+    // gerufen. GEDECKT: (A) durch test_m1h_stufen_und_pmc_wache Fall (a), "env UNGESETZT == '[all]'" (:110-111);
+    // (B)/(C) seit 12.08.2026 durch test_lazy_adhoc_source_gen Wache (g) (cat(stamp) == lazy(stamp) modulo
+    // Index-Zeile, _M-Vollform, gewuerfelter Koeder beidseitig).
     ex::SourceGenFn const lazy_gen = make_lazy_adhoc_source_gen_from_env();
     // Task #59 (Additiv-Vertrag GLIED [6]) -- DER bvset-KLARTEXT DIESES LAUFS, EINMAL AUFGELOEST.
     //

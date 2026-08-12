@@ -202,7 +202,12 @@ struct RunExperimentResult {
     std::map<std::string, std::string> fused;
     for (auto const& proj : projections)
         for (auto const& [view_id, src] : proj.source_by_view_id) fused.emplace(view_id, src);
-    ex::SourceGenFn const union_gen = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
+    // KON47-01/Option a (12.08.2026): auch der Basis-320-Katalog dieses Wegs stempelt die Mess-Zeile DIESES
+    // Laufs -- live_mess_zeile (dieselbe EINE Lesung von :176) reist als measurement_stamp in den Katalog-Gen.
+    // Sonst traefen Katalog-Zellen das fail-closed-Gate als deklaration_leer (KON44-01), waehrend die
+    // Experiment-Paesse laengst gestempelt sind.
+    ex::SourceGenFn const union_gen =
+        make_union_source_gen(generated_make_catalog_source_gen(live_mess_zeile), std::move(fused));
     ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
 
     // ── (4) Die DynDims der Experiment-Pässe: Achse 2 (workload) + Wiederholungs-Achse (repetition). Beide
