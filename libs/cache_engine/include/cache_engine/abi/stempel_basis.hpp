@@ -48,7 +48,7 @@ namespace comdare::cache_engine::abi {
 
 namespace detail {
 // VORWAERTSDEKLARATION statt #include <cache_engine/abi/anatomy_stamp_entries.hpp>: entries.hpp
-// inkludiert die decl.hpp (AnatomyStampEntryV1), und die decl.hpp inkludiert DIESEN Header (S-1/P2-
+// inkludiert die decl.hpp (AnatomyStampEntryV1), und die entries.hpp inkludiert DIESEN Header (S-1/P2-
 // Anbindung der beiden ABI-PODs) -- ein entries-Include hier waere der Zyklus. Die Definition liefert
 // anatomy_stamp_entries.hpp (der EINE Zeilen-Scanner); jede TU, die einen Traeger mit Mess-/System-/
 // Organ-PFLICHT schliesst, zieht sie VOR dem static_assert -- sonst bricht die Konstantauswertung LAUT
