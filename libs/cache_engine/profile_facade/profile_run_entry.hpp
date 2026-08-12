@@ -540,8 +540,38 @@ struct RunProfileResult {
     // (O(17), umgeht build_pilot_source_map -> GN-2-Guard unberuehrt). Ohne golden-N-Fenster wird der lazy Gen
     // im Ist-Lauf nie erreicht (alle selektierten ids liegen in base_union) -> byte-identisch.
     // S6-P1b Env-Bruecke (e): die vom Planer gewaehlte Mess-Combo reist via COMDARE_MEASUREMENT_COMBO in den lazy
-    // Source-Gen (make_lazy_adhoc_source_gen_from_env) -> die je-Combo-Bauten stempeln ihre DLLs REAL. UNGESETZT/[all]
-    // => "" => byte-identische Quellen (der golden-320-/Sweep-/SOTA-Pfad bleibt unberuehrt, s. union_gen unten).
+    // Source-Gen (make_lazy_adhoc_source_gen_from_env) -> die je-Combo-Bauten stempeln ihre DLLs REAL.
+    //
+    // [KORREKTUR 12.08.2026, AM OBJEKT GEMESSEN] Hier stand: "UNGESETZT/[all] => \"\" => byte-identische Quellen".
+    // Der mittlere Pfeil ist FALSCH -- und die Kurzform verdeckt genau den Fall, an dem der F1-Durchstich heute
+    // scheitert. Beides gehoert an diese Stelle, weil hier die Mess-Zeile DIESES Laufs entsteht.
+    //
+    // (A) WAS DIE AUFLOESUNG WIRKLICH LIEFERT -- nicht "":
+    //     UNGESETZT -> "[all]"                          (mess_achsen_naht.hpp:317, CT-loser #else-Zweig)
+    //     "[all]"   -> measurement_stamp_line_full_set() (anatomy_version_stamp.hpp:378, Section 64-D1-B 22.07.2026;
+    //                  dort woertlich "NICHT mehr \"\" (das war die Regression)")
+    //     live_mess_zeile oben ist also die VOLLE 3-Tool-Zeile. Genau sie wird zum SOLL des Mess-Vertrags am
+    //     Pruefdock (LazyRunConfig::erwartete_mess_zeile, s. Block weiter oben).
+    //
+    // (B) WAS DARAUS NICHT FOLGT: dass die emittierte DLL diese Zeile auch TRAEGT. Der lazy_gen unten steht per
+    //     INC-G6 HINTER base_union. Fuer jede id, die base_union bedient (Basis-320 / Sweeps / SOTA), wird der
+    //     lazy Gen NIE konsultiert (s. INC-G6-Block direkt darunter) -- die Quelle kommt aus dem Katalog und
+    //     traegt die 2-arg-Form OHNE Mess-Zeile.
+    //
+    // (C) GEMESSEN 12.08.2026 auf dem gepinnten Stand 670483c0, Profil f1_durchstich (Zelle label=basis-320):
+    //     emittierte perm.cpp  -> COMDARE_ANATOMY_VERSION_STAMP(<organ>, <system>)  [2-arg, KEINE Mess-Zeile]
+    //     Lauf                 -> fehlerklasse=mess_konsistenz status=deklaration_leer
+    //                             (haupt_ist=0, haupt_soll=3), measured=0, Treiber-Exit 1
+    //     SOLL-Seite (Vollmengen-Zeile aus (A)) und IST-Seite (Katalog-2-arg aus (B)) widersprechen sich also
+    //     fuer genau die Zellen, die base_union bedient. Das ist der offene F1-Durchstich-Blocker. Er wird hier
+    //     NICHT behoben: 2-vs-3-arg und die Stempel-Reihenfolge sind preimage-wirksam und gehoeren ins
+    //     S-6-Fenster. Dieser Kommentar HAELT den Befund fest, statt ihn erneut als "byte-identisch" zu tarnen.
+    //
+    // WAS RICHTIG BLEIBT: byte-stabil ist der Lauf INNERHALB der [all]-Lane -- alle [all]-Laeufe rendern dieselbe
+    // Zeile --, nicht weil die Zeile leer waere. Der golden-320-/Sweep-/SOTA-Pfad bleibt unberuehrt (s. union_gen
+    // unten). GEDECKT ist nur (A): test_m1h_stufen_und_pmc_wache Fall (a), "env UNGESETZT == '[all]'" (:110-111);
+    // fuer (B)/(C) gibt es heute KEINE Wache -- dieser Kommentar ist keine und wird auch nicht als eine ausgegeben.
+    // NUR KOMMENTAR -- an dieser Scheibe wurde KEIN Code geaendert.
     ex::SourceGenFn const lazy_gen = make_lazy_adhoc_source_gen_from_env();
     // Task #59 (Additiv-Vertrag GLIED [6]) -- DER bvset-KLARTEXT DIESES LAUFS, EINMAL AUFGELOEST.
     //
