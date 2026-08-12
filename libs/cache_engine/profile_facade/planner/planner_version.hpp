@@ -23,9 +23,11 @@
 
 #pragma once
 
+#include <cache_engine/abi/stempel_basis.hpp>                    // S-1: StempelBasis/StempelVertrag (Erbin PLANER)
 #include <cache_engine/measurement/algo_semver.hpp>              // CX-W5: ce-Politik-Wachen + render-neutraler Semver
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp> // Section40.a: Amd64HostIsaAxis::host_isa()
 
+#include <array>
 #include <string>
 #include <string_view>
 
@@ -53,20 +55,55 @@ inline constexpr std::string_view kPlannerVersion = "1.0.0.c";
 #endif
 }
 
+// -- S-1 (P4): DIE PLANER-ERBIN DES STEMPEL-VERTRAGS ---------------------------------------------------
+
+/// Die Teile des gesamt_stempel-Kompositums in ERBIN-genannter Reihenfolge (S-6-Sperre: die Basis kennt
+/// keine Ordnung). BYTE-IDENTISCH zur bisherigen planner_version_stamp()-Konkatenation: dort lief
+/// kPlannerVersion durch algo_semver_string, und Render==Identitaet ist fuer dieses Literal durch die
+/// Roundtrip-Wache unten (render_algo_semver(parse_algo_semver(kPlannerVersion)).view() == kPlannerVersion)
+/// BEWIESEN -- das Kompositum traegt deshalb das Roh-Literal selbst.
+[[nodiscard]] constexpr std::array<std::string_view, 6> planer_gesamt_stempel_teile() noexcept {
+    return {"planner@", kPlannerVersion, " isa=", planner_target_isa(), " os=", planner_target_os()};
+}
+inline constexpr auto kPlanerGesamtStempelKompositum =
+    ::comdare::cache_engine::abi::stempel_kompositum<&planer_gesamt_stempel_teile>();
+
+/// PlanerStempel -- die Erbin des CRTP-Stempel-Vertrags fuer den Traeger PLANER (S-1). Sie DELEGIERT auf
+/// die Werte, die diese Datei schon traegt (S-1 aendert KEINEN Stempel-WERT, kein X.Y.Z-Bump).
+struct PlanerStempel
+    : ::comdare::cache_engine::abi::StempelBasis<PlanerStempel, ::comdare::cache_engine::abi::StempelTraeger::Planer> {
+    /// version_xyz (KON7-04: NUR der Planer): das EINE Roh-Literal.
+    [[nodiscard]] static constexpr std::string_view version_xyz() noexcept { return kPlannerVersion; }
+
+    /// fingerprint_sha: DEKLARIERTE LUECKE -- die KON6-03-IST-Luecke "Planer-SHA fehlt" wird hiermit LAUT
+    /// statt still. Die Fuellung ist ein EIGENER Posten; der Preimage-/Glied-Entscheid faellt NICHT in S-1.
+    [[nodiscard]] static constexpr std::string_view fingerprint_sha() noexcept { return {}; }
+    static constexpr bool             kFingerprintShaBewusstLeer = true;
+    static constexpr std::string_view kFingerprintShaBewusstLeerGrund =
+        "KON6-03-IST-Luecke, laut deklariert: der Planer traegt noch keinen SHA-512-Fingerprint; "
+        "Fuellung = eigener Posten (Preimage-/Glied-Entscheid nicht in S-1)";
+
+    /// gesamt_stempel: das consteval-Kompositum "planner@<X.Y.Z[.flag]*> isa=<isa> os=<os>".
+    [[nodiscard]] static constexpr std::string_view gesamt_stempel() noexcept {
+        return kPlanerGesamtStempelKompositum.view();
+    }
+};
+/// DER ZWANG (S-1/P1.2): die Erbin schliesst direkt unter ihrer Definition mit dem Vertrag. Die
+/// bestehenden Wachen unten bleiben VOLLSTAENDIG stehen -- die Erbin verschaerft, sie ersetzt nichts.
+static_assert(::comdare::cache_engine::abi::StempelVertrag<PlanerStempel,
+                                                           ::comdare::cache_engine::abi::StempelTraeger::Planer>,
+              "S-1: PlanerStempel verletzt den Stempel-Vertrag des Traegers PLANER (Zulassungsmatrix "
+              "kStempelZulassungsMatrix, stempel_basis.hpp)");
+
 /// Die Planer-Stempel-Zeile fuer den --dump-plan-Header: "planner@X.Y.Z[.flag]* isa=<isa> os=<os>".
 /// FLAG-GRAMMATIK v2: das 'v'-Praefix ist entfallen, rohe und gerenderte Form fallen damit zusammen --
-/// algo_semver_string ist fuer ein wohlgeformtes Literal die Identitaet. Der Aufruf bleibt trotzdem
-/// stehen: er erzwingt die kanonische Form und faengt ein Fehl-Literal als "0.0.0", statt es roh
-/// durchzureichen. Die Zeile lautet "planner@1.0.0.c ...".
-[[nodiscard]] inline std::string planner_version_stamp() {
-    std::string s{"planner@"};
-    s += ::comdare::cache_engine::measurement::algo_semver_string(kPlannerVersion);
-    s += " isa=";
-    s += planner_target_isa();
-    s += " os=";
-    s += planner_target_os();
-    return s;
-}
+/// algo_semver_string ist fuer ein wohlgeformtes Literal die Identitaet. S-1 (P4): die Funktion
+/// DELEGIERT auf das consteval-Kompositum der Erbin, byte-identisch zur frueheren Laufzeit-Konkatenation
+/// (Beweis: die Roundtrip-Wache unten haelt Render==Identitaet fest, und der Vertragstest friert das
+/// Byte-Orakel mit dem Praefix-Anker ein). Der Fehl-Literal-Fang der frueheren algo_semver_string-Stufe
+/// ist dabei NICHT entfallen, sondern VORVERLEGT: die static_asserts unten brechen ein Fehl-Literal
+/// compile-hart, bevor irgendein Aufrufer eine Zeile sieht.
+[[nodiscard]] inline std::string planner_version_stamp() { return std::string{PlanerStempel::gesamt_stempel()}; }
 
 static_assert(kPlannerVersion == std::string_view{"1.0.0.c"});
 // RENDER-TREUE (Byte-Wache): das Literal parst auf {1,0,0} mit CPU-Basis, und es rendert VERBATIM zurueck.

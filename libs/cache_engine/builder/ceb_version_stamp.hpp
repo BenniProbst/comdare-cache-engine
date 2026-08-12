@@ -209,7 +209,9 @@
 // (ceb_version_stamp()) ist Runtime. Ausgabe im CEB-Log-Kopf (apps/cache_engine_builder).
 
 #include <cache_engine/abi/anatomy_fingerprint.hpp>    // anatomy_fingerprint_hex (consteval SHA-512)
+#include <cache_engine/abi/anatomy_stamp_entries.hpp>  // S-1: der EINE Zeilen-Scanner (CebStempel-Mess-Pflicht)
 #include <cache_engine/abi/meta_meta_stamp_suffix.hpp> // A13-M2: kMetaMetaGroupOpen/Close (EINE Klammer-Wahrheit)
+#include <cache_engine/abi/stempel_basis.hpp>          // S-1: StempelBasis/StempelVertrag + ist_stempel_baustein
 #include <cache_engine/measurement/algo_semver.hpp>    // parse_algo_semver + render_algo_semver (die EINE Grammatik)
 #include <cache_engine/measurement/measurement_framework_registry.hpp> // O-8 Schritt 12: load_framework-Segment
 #include <cache_engine/measurement/measurement_tooling_registry.hpp>   // kMeasurementToolingRegistry (Single-Source)
@@ -605,15 +607,68 @@ inline constexpr std::string_view kCebMeasurementStamp      = kCebMeasurementSta
 inline constexpr auto const&      kCebFingerprintArray      = kCebFingerprintArrayFor<kCebCtLegend>;
 inline constexpr std::string_view kCebFingerprint           = kCebFingerprintFor<kCebCtLegend>;
 
+// -- S-1 (P5): DIE CEB-ERBIN DES STEMPEL-VERTRAGS ------------------------------------------------------
+
+/// Die Teile des gesamt_stempel-Kompositums in ERBIN-genannter Reihenfolge (S-6-Sperre: die Basis kennt
+/// keine Ordnung). BYTE-IDENTISCH zur bisherigen ceb_version_stamp()-Konkatenation.
+[[nodiscard]] constexpr std::array<std::string_view, 4> ceb_gesamt_stempel_teile() noexcept {
+    return {"ceb-measurement=", kCebMeasurementStamp, ";sha512=", kCebFingerprint};
+}
+inline constexpr auto kCebGesamtStempelKompositum =
+    ::comdare::cache_engine::abi::stempel_kompositum<&ceb_gesamt_stempel_teile>();
+
+/// CebStempel -- die Erbin des CRTP-Stempel-Vertrags fuer den Traeger CEB (S-1). Sie DELEGIERT auf die
+/// einkompilierten Werte dieser Datei (S-1 aendert KEINEN Stempel-WERT, kein X.Y.Z-Bump).
+struct CebStempel
+    : ::comdare::cache_engine::abi::StempelBasis<CebStempel, ::comdare::cache_engine::abi::StempelTraeger::Ceb> {
+    /// mess_zeile: die einkompilierte Mess-WAHL (M-1/D-4) -- die Identitaet der CEB.
+    [[nodiscard]] static constexpr std::string_view mess_zeile() noexcept { return kCebMeasurementStamp; }
+
+    /// system_zeile: DEKLARIERTE LUECKE -- die W10-C3-KOMMENTAR-Wache ("der CEB-Selbst-Stempel bleibt
+    /// zellwertfrei", s. Fingerprint-Block oben) wird hier zur RIEGEL-KONSTANTE: die Leere ist benannt
+    /// und begruendet statt still. Die FUELLUNG der System-Zeile ist der KON8-03-Bauauftrag, nicht S-1.
+    [[nodiscard]] static constexpr std::string_view system_zeile() noexcept { return {}; }
+    static constexpr bool             kSystemZeileBewusstLeer = true;
+    static constexpr std::string_view kSystemZeileBewusstLeerGrund =
+        "W10-C3: der CEB-Selbst-Stempel bleibt zellwertfrei -- die CEB ist KEIN Tier-Binary; die "
+        "Fuellung der System-Zeile ist der KON8-03-Bauauftrag, nicht S-1";
+
+    /// fingerprint_sha: die 128-hex-SHA-512-Provenienz der Mess-Wahl.
+    [[nodiscard]] static constexpr std::string_view fingerprint_sha() noexcept { return kCebFingerprint; }
+
+    /// gesamt_stempel: das consteval-Kompositum "ceb-measurement=<mess>;sha512=<sha>".
+    [[nodiscard]] static constexpr std::string_view gesamt_stempel() noexcept {
+        return kCebGesamtStempelKompositum.view();
+    }
+
+    // KEIN organ_zeile -- die ABSENZ ist der maschinelle Riegel "CEB traegt keine Organ-Achsen"
+    // (KON7-07, Matrixzelle organ@CEB == VERBOTEN): wer hier eine organ_zeile() einbaut, macht den
+    // static_assert direkt unter dieser Definition ROT (Absenz-Assert der Zulassungsmatrix).
+};
+/// DER ZWANG (S-1/P1.2): die Erbin schliesst direkt unter ihrer Definition mit dem Vertrag.
+static_assert(::comdare::cache_engine::abi::StempelVertrag<CebStempel,
+                                                           ::comdare::cache_engine::abi::StempelTraeger::Ceb>,
+              "S-1: CebStempel verletzt den Stempel-Vertrag des Traegers CEB (Zulassungsmatrix "
+              "kStempelZulassungsMatrix, stempel_basis.hpp) -- u.a. ist organ_zeile hier VERBOTEN (KON7-07)");
+
 /// ceb_version_stamp() -- der CEB-Selbst-Stempel fuer den Log-Kopf/--version: die Mess-Array-Zeile + ihre SHA-512-
 /// Provenienz. Runtime-String (nur Ausgabe-Formatierung); beide Bestandteile sind consteval (registry- und
-/// legenden-abgeleitet).
-[[nodiscard]] inline std::string ceb_version_stamp() {
-    std::string s{"ceb-measurement="};
-    s += kCebMeasurementStamp;
-    s += ";sha512=";
-    s += kCebFingerprint;
-    return s;
-}
+/// legenden-abgeleitet). S-1 (P5): DELEGIERT byte-identisch auf das Kompositum der Erbin (dieselben zwei
+/// consteval-Konstanten, derselbe Rahmen "ceb-measurement=...;sha512=...").
+[[nodiscard]] inline std::string ceb_version_stamp() { return std::string{CebStempel::gesamt_stempel()}; }
 
 } // namespace comdare::cache_engine::builder
+
+// -- S-1 (P3): Baustein-Anbindung von Legende und Tooling-Liste UNTER ihren Definitionen (die
+//    Spezialisierung gehoert in den abi-Namensraum, deshalb steht sie hier am Datei-Ende) -- OHNE
+//    Basisklassen-Einbau: CebComboLegend ist ein struktureller NTTP-Traeger (eine Basis braeche die
+//    NTTP-Faehigkeit), CebToolingList ein positional befuellbares Aggregat.
+namespace comdare::cache_engine::abi {
+template <std::size_t N>
+struct ist_stempel_baustein<builder::CebComboLegend<N>> : StempelBausteinTag<StempelBausteinRolle::Legende> {};
+static_assert(StempelBaustein<builder::CebComboLegend<6>>); // "[all]" traegt N == 6
+template <>
+struct ist_stempel_baustein<builder::detail::CebToolingList>
+    : StempelBausteinTag<StempelBausteinRolle::ToolingListe> {};
+static_assert(StempelBaustein<builder::detail::CebToolingList>);
+} // namespace comdare::cache_engine::abi

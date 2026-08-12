@@ -94,6 +94,7 @@
 // bleibt ausdruecklich zulaessig -- verboten ist der UNPARSBARE Rest, nicht die Null-Version.
 
 #include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // AnatomyStampEntryV1
+#include <cache_engine/abi/stempel_basis.hpp>              // S-1: ist_stempel_baustein (Baustein-Anbindung)
 #include <cache_engine/measurement/algo_semver.hpp>        // parse_algo_semver + render_flag_tail
 
 #include <array>
@@ -102,6 +103,19 @@
 #include <string_view>
 
 namespace comdare::cache_engine::abi {
+
+// -- S-1 (P2): Baustein-Anbindung der beiden ABI-PODs (Definitionen: anatomy_module_abi_v1_decl.hpp
+//    :178/:200) -- NUR Trait, KEIN Basisklassen-Einbau (beide sind positional-init-PODs; die
+//    sizeof-/align-/Layout-Pins der decl bleiben byte-unberuehrt). Sie steht HIER und nicht in der decl,
+//    weil die decl die bewusst LEICHTE, selbstgenuegsame Loader-Seite ist (relative Includes, minimale
+//    TUs ohne include-Roots) -- dieser Parser-Header ist die naechste Stelle, die decl + stempel_basis
+//    ohnehin beide sieht.
+template <>
+struct ist_stempel_baustein<AnatomyStampEntryV1> : StempelBausteinTag<StempelBausteinRolle::AbiPod> {};
+static_assert(StempelBaustein<AnatomyStampEntryV1>);
+template <>
+struct ist_stempel_baustein<AnatomyVersionLines> : StempelBausteinTag<StempelBausteinRolle::AbiPod> {};
+static_assert(StempelBaustein<AnatomyVersionLines>);
 
 /// FLAG-GRAMMATIK v2 (Owner-KERN 07.08.2026): BITS 0-2 SIND FREI. Bis zur v2 trug Bit 0 die Markierung
 /// "experimenteller Achsen-Algorithmus" und die Bits 1-2 das EINE Hardware-Flag als 4-Werte-Code. Beides
@@ -207,6 +221,15 @@ struct StampSegment {
     std::size_t   end   = 0;
     std::uint32_t level = 0;
 };
+
+// -- S-1 (P2): Baustein-Anbindung UNTER der Definition -- OHNE Basisklassen-Einbau (StampSegment ist ein
+//    positional-init-Aggregat; eine leere Basis fraesse den ersten Initialisierer). Die Spezialisierung
+//    gehoert in den abi-Namensraum, deshalb das kurze Anbindungs-Fenster.
+} // namespace detail (S-1-Anbindungs-Fenster)
+template <>
+struct ist_stempel_baustein<detail::StampSegment> : StempelBausteinTag<StempelBausteinRolle::Segment> {};
+static_assert(StempelBaustein<detail::StampSegment>);
+namespace detail {
 
 /// Der EINE Zeilen-Scanner der A13-M2-Klammer-Grammatik. Beide Konsumenten (count_stamp_entries UND
 /// parse_stamp_entries) teilen ihn sich -- die Grammatik existiert genau EINMAL und kann zwischen Zaehlung
@@ -450,6 +473,14 @@ struct StampLineLiteral {
 };
 template <std::size_t N>
 StampLineLiteral(char const (&)[N]) -> StampLineLiteral<N>;
+
+// -- S-1 (P2): Baustein-Anbindung UNTER der Definition (NTTP-Traeger; kein Basisklassen-Einbau, das
+//    braeche die strukturelle NTTP-Form). Partielle Spezialisierung ueber alle Laengen N.
+} // namespace detail (S-1-Anbindungs-Fenster)
+template <std::size_t N>
+struct ist_stempel_baustein<detail::StampLineLiteral<N>> : StempelBausteinTag<StempelBausteinRolle::ZeilenLiteral> {};
+static_assert(StempelBaustein<detail::StampLineLiteral<1>>);
+namespace detail {
 
 template <StampLineLiteral L, bool = stamp_line_is_wellformed(L.view())>
 consteval bool stamp_line_is_parsable_impl(int) {

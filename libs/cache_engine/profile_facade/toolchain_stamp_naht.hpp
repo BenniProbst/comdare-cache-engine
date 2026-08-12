@@ -50,6 +50,7 @@
 // einheit etwas anderes behauptet -- die Drift-Klasse, gegen die diese Naht gebaut ist.
 #include <axes/alloc/axis_06_allocator_flags.hpp> // COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
+#include <cache_engine/abi/stempel_basis.hpp>                    // S-1: ist_stempel_baustein (Baustein-Anbindung)
 #include <cache_engine/abi/toolchain_stamp_glied.hpp>            // Renderer + die CT-Compiler-Realversions-Erhebung
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp> // T2-B: Cx16Option/-mcx16 (Single-Source)
 #include <cache_engine/measurement/compiler_system_axis.hpp>     // Dialekt-Ids + driver_default (Single-Source)
@@ -206,6 +207,22 @@ struct PermToolchainAchsen {
     std::string_view target_isa{};        ///< Ziel-ISA-Segment, falls der Pfad eines fuehrt
     std::string_view telemetry{};         ///< Telemetrie-Segment, falls der Pfad eines fuehrt
 };
+
+// -- S-1 (P3): Baustein-Anbindung der beiden Naht-Glieder UNTER ihren Definitionen -- OHNE
+//    Basisklassen-Einbau (beide sind positional-init-Aggregate; eine leere Basis fraesse den ersten
+//    Initialisierer). Die Spezialisierung gehoert in den abi-Namensraum, deshalb das kurze Fenster.
+} // namespace comdare::cache_engine::profile_facade (S-1-Anbindungs-Fenster)
+namespace comdare::cache_engine::abi {
+template <>
+struct ist_stempel_baustein<profile_facade::PermToolchainGliedWert>
+    : StempelBausteinTag<StempelBausteinRolle::NahtGlied> {};
+template <>
+struct ist_stempel_baustein<profile_facade::PermToolchainAchsen>
+    : StempelBausteinTag<StempelBausteinRolle::NahtGlied> {};
+static_assert(StempelBaustein<profile_facade::PermToolchainGliedWert> &&
+              StempelBaustein<profile_facade::PermToolchainAchsen>);
+} // namespace comdare::cache_engine::abi
+namespace comdare::cache_engine::profile_facade {
 
 /// T2-B: die atomic128-Wahl DIESES Baus -- die EINE Quelle fuer Glied und Compile-Flag zugleich.
 ///

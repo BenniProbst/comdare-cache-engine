@@ -49,6 +49,7 @@
 // TU tests/unit/test_w10_system_cell_values.cpp, wo Boost/Achsen-Header erlaubt sind).
 
 #include "anatomy_stamp_entries.hpp" // die EINE Zeilen-Grammatik (count_stamp_entries / stamp_line_is_wellformed)
+#include "stempel_basis.hpp"         // S-1: ist_stempel_baustein (Baustein-Anbindung)
 #include "system_axis_order.hpp"     // kSystemAxisOrder: die EINE Ordnung der System-Haupt-Achsen
 
 #include <array>
@@ -367,6 +368,13 @@ struct CompletedSystemStampLine {
     [[nodiscard]] constexpr std::string_view   view() const noexcept { return std::string_view{chars, N - 1}; }
     [[nodiscard]] static constexpr std::size_t size() noexcept { return N - 1; }
 };
+
+// -- S-1 (P2): Baustein-Anbindung UNTER der Definition (Trait, kein Basisklassen-Einbau -- der Traeger
+//    wird u.a. aggregat-/array-artig befuellt und ist zugleich das Muster des S-1-Kompositums).
+template <std::size_t N>
+struct ist_stempel_baustein<CompletedSystemStampLine<N>>
+    : StempelBausteinTag<StempelBausteinRolle::VervollstaendigteZeile> {};
+static_assert(StempelBaustein<CompletedSystemStampLine<1>>);
 
 namespace detail {
 

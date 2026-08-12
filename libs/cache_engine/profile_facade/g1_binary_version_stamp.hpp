@@ -11,6 +11,20 @@
 // Der system_build_version-Anteil (Single-Source system_axes_version_suffix, TU-lokal im Facade-.cpp) wird
 // HEREINGEREICHT, damit dieser Header .cpp-frei + leicht unit-testbar bleibt (kein Link gegen die schwere Facade-Lib).
 // Rein additiv, golden-/binary_id-neutral (ein reiner --version-Ausgabe-Stempel, kein Cache-Key, kein Bau-Input).
+//
+// == S-1 (P7): EINORDNUNGS-ANKER IN DER STEMPEL-STRECKE (NUR Einordnung, KEIN Funktionsumbau) ============
+// Dieser Block ist ein reiner AUSGABE-Block ZWEIER Stempel-Traeger-ROLLEN in EINEM Treiber-Binary:
+//   * Zeile 1 ist die PLANER-Rolle -- sie kommt seit S-1/P4 TRANSITIV aus dem consteval-Kompositum der
+//     Erbin PlanerStempel (planner_version_stamp() delegiert; Vertrag static_assert(StempelVertrag<
+//     PlanerStempel, Planer>), planner/planner_version.hpp). Es gibt hier keinen zweiten Ableitungsweg.
+//   * Zeile 2 ist die CEB-VERTRAGS-Rolle (ceb-contract=MAJOR.minor) desselben Binaries; der volle
+//     CEB-Selbst-Stempel der Erbin CebStempel (mess+sha512) lebt im CEB-Log-Kopf/--version
+//     (builder/ceb_version_stamp.hpp), nicht in diesem Block.
+// In der 5-Rollen-Sprache des Stempels traegt dieser Block AUSSCHLIESSLICH die Rolle EINORDNUNG:
+// er ist "kein Cache-Key, kein Bau-Input" (Kopfzusage oben) -- also weder Identitaet noch Cache-/
+// Lager-Schluessel noch Skip-Marke. Deshalb ist er KEINE Erbin der Stempel-Basis und bekommt keinen
+// eigenen Vertrag; sein Beleg ist der Vertragstest (A-P7: vier gelabelte Zeilen, jede non-empty,
+// Zeile 1 == PlanerStempel::gesamt_stempel()).
 
 #include <profile_facade/build_type_stamp.hpp>        // build_type_version_suffix()
 #include <profile_facade/planner/planner_version.hpp> // planner_version_stamp()

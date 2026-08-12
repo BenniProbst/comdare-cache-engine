@@ -36,6 +36,7 @@
 // keine Laufzeit-Probe, sondern die Praeprozessor-Wahrheit der uebersetzenden Toolchain -- exakt der Weg, den
 // G-C4 fuer den CT-Stempel verlangt. Alle uebrigen WERTE kommen weiter von aussen herein.]
 
+#include <cache_engine/abi/stempel_basis.hpp>                // S-1: ist_stempel_baustein (Baustein-Anbindung)
 #include <cache_engine/measurement/algo_semver.hpp>          // algo_semver_string (X.Y.Z[Flag]-Voll-Form, Owner-Q10)
 #include <cache_engine/measurement/compiler_system_axis.hpp> // NB/CX-3: die Dialekt-Ids als Single-Source
 
@@ -309,6 +310,13 @@ static_assert(
     "das Glied [5] behauptet danach eine andere Toolchain als die gebaute. NEUE Felder werden ANGEHAENGT, "
     "nie eingeschoben; wer wirklich umsortieren muss, zieht diese Wache im selben Commit nach und weist die "
     "Aenderung als Preimage-Ereignis aus.");
+
+// -- S-1 (P2): Baustein-Anbindung UNTER Definition und Wache -- ausdruecklich OHNE Basisklassen-Einbau:
+//    genau die Feld-Ordnungs-Wache direkt hierueber (positionelle 13-Marker-Belegung) fraesse eine leere
+//    Basis als ERSTEN Initialisierer. Sie bleibt deshalb byte-unveraendert; die Anbindung ist das Trait.
+template <>
+struct ist_stempel_baustein<ToolchainStampParts> : StempelBausteinTag<StempelBausteinRolle::GliedParts> {};
+static_assert(StempelBaustein<ToolchainStampParts>);
 
 // -- NB/CX-2: DIE INTERNE INJEKTIVITAET DES RENDERERS --------------------------------------------------
 //

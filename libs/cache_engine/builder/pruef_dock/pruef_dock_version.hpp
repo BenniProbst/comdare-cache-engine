@@ -36,8 +36,10 @@
 // abi/*_decl.hpp oder den Stempel-/Fingerprint-Flaechen.
 
 #include <anatomy/anatomy_base.hpp>                 // AnatomyGenus
+#include <cache_engine/abi/stempel_basis.hpp>       // S-1: ist_versions_literal_baustein (Wert-Baustein)
 #include <cache_engine/measurement/algo_semver.hpp> // ce-Politik-Wachen + render-neutraler Semver
 
+#include <array>
 #include <string>
 #include <string_view>
 
@@ -204,5 +206,40 @@ static_assert(pruef_dock_version_for(anatomy::AnatomyGenus::FunctionInterfaceRer
               "E-1 'Weg C': FunctionInterfaceReroute ist ein KLASSIFIKATIONS-Genus und hat KEIN eigenes "
               "Pruef-Dock. Wer hier eine Version eintraegt, macht die Hybrid-Gattung zu einer eigenen "
               "Dock-Familie und bricht den transparenten Pass-through -- der leere Stempel ist Absicht.");
+
+// ================================================================================================
+// (5) S-1 (P6): die fuenf Dock-Literale als VERSIONS-LITERAL-BAUSTEINE der Stempel-Strecke
+// ================================================================================================
+// Die Literale sind WERTE, keine Typen -- ihre Baustein-Anbindung laeuft deshalb ueber das
+// consteval-Praedikat abi::ist_versions_literal_baustein (dieselbe EINE ce-Politik wie die Wachen (1)
+// und (2) oben; beide BLEIBEN vollstaendig stehen -- die Anbindung verschaerft, sie ersetzt nichts).
+//
+// AUSDRUECKLICH NICHT S-1: die Genus-ZUSAMMENSETZUNG (SOLL "Genus ZUSAMMENGESETZT" der
+// Versionierungs-Uebersicht) ist ein EIGENER Posten -- diese Liste beziffert die fuenf Docks einzeln
+// und setzt nichts zusammen.
+//
+// KON47-02-ANKER: der angeschlossene()-DATENBESTAND lebt am Dock (Init-Cache der angeschlossenen
+// Stempel; Hybrid-RT-Hook der Stempel-Basis). S-1 definiert dafuer NUR den Vertrag
+// (abi::AngeschlosseneVertrag, stempel_basis.hpp); Datenbestand und Bau sind HY-A2/W-D.
+inline constexpr std::array<std::string_view, 5> kPruefDockVersionsLiteralBausteine{
+    kSearchAlgorithmDockVersion, kSetDockVersion, kSequenceDockVersion, kAdapterDockVersion, kViewDockVersion};
+
+/// NENNER-Wache: GENAU die fuenf andockenden Genus-Docks (KON6-03). Ein sechstes Literal gehoert erst
+/// dann in diese Liste, wenn sein Genus WIRKLICH andockt -- und dann bricht der Nenner hier und im
+/// Vertragstest (fremdquelliger ASSERT ==5) LAUT, statt still mitzulaufen.
+static_assert(kPruefDockVersionsLiteralBausteine.size() == 5,
+              "S-1/P6: der Dock-Nenner ist FUENF (die fuenf andockenden Ebene-2-Genera, KON6-03) -- wer "
+              "ihn bewegt, zieht den Vertragstest test_s1_stempel_basis_vertrag im selben Commit nach.");
+
+/// Jedes Dock-Literal ist ein wohlgeformter Versions-Baustein (ungated Politik + gated CPU-Basis --
+/// exakt die Wachen (1)/(2), hier als EIN Praedikat der Stempel-Basis gebuendelt).
+static_assert(
+    [] {
+        for (std::string_view const v : kPruefDockVersionsLiteralBausteine)
+            if (!::comdare::cache_engine::abi::ist_versions_literal_baustein(v)) return false;
+        return true;
+    }(),
+    "S-1/P6: ein Dock-Literal besteht die ce-Versions-Politik nicht (ist_versions_literal_baustein, "
+    "stempel_basis.hpp) -- zulaessig ist X.Y.Z[.flag]* mit Katalog-Flags und (scharf) der CPU-Basis 'c'.");
 
 } // namespace comdare::cache_engine::builder::pruef_dock
