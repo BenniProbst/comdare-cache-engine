@@ -51,6 +51,16 @@
 #   Umgebung: COMDARE_FREMD_INVENTUR=<datei>  aktiviert Befund (e). Die Datei ist
 #   eine Zeile-je-Testname-Inventur, wie test:unit sie nach
 #   build/Testing/ctest_unit_inventar.txt schreibt.
+#   COMDARE_FREMD_HOST_PROBE=<datei>  (F1b, 2026-08-12) PFLICHT, sobald
+#   COMDARE_FREMD_INVENTUR gesetzt ist: die Cache-Zeilen des fremden Baums
+#   (COMDARE_HOST_RUNS_* samt _COMPILED/_EXITCODE) plus 'HOST=<hostname>', wie
+#   test:unit sie nach build/Testing/ctest_unit_host_probe.txt schreibt. Damit
+#   vergleicht die Achse KLASSEN, nicht blind Mengen. Fehlt/inkonsistent = ROT (4).
+#   COMDARE_FREMD_SOLL_DELTA_BLOECKE="<kennung ...>"  (F1a) deklariert GEWOLLTE
+#   Differenzen als Block-Kennungen des Registrierungs-Protokolls (Leerzeichen-
+#   Liste). Abgezogen wird nur deklariert+AKTIV+nur-hier; fehlender/inaktiver
+#   Block und stale Deklaration sind benannte ROT-Befunde (4). Abzug immer
+#   ausgewiesen. Details am Achsen-Block unten.
 #   COMDARE_WACHE_STRIKT=1  macht aus 'declared:VAR ungesetzt' einen Fehler statt
 #   einer Annahme (s.u.). Ungesetzt/leer = weich; jeder andere Wert = Abbruch.
 #   COMDARE_D2_FLOOR_PFAD=<datei>  lenkt die Untergrenze um (Selbsttest).
@@ -378,127 +388,176 @@ if [ ! -f "$_ce_cache" ]; then
     ce_abbruch "$_ce_m" 2
 fi
 
-# Die Schleife laeuft ABSICHTLICH in der aktuellen Shell und nicht in $( ): ein
-# ce_abbruch in einer Kommando-Substitution beendete nur die Subshell, und die
-# Wache liefe mit leerer Klasse weiter -- derselbe Riss, den ce_namen() oben
-# bereits einmal hatte.
-CE_HOST_AVX2=""
-CE_HOST_AVX512F=""
-for _ce_hv in COMDARE_HOST_RUNS_AVX2 COMDARE_HOST_RUNS_AVX512F; do
-    _ce_hv_zeile=$(sed -n "/^${_ce_hv}:/p" "$_ce_cache" | sed -n '1p')
-    _ce_hv_da=$(sed -n "/^${_ce_hv}:/p" "$_ce_cache" | wc -l | tr -d ' ')
-    if [ "$_ce_hv_da" -eq 0 ]; then
-        _ce_m="'${_ce_hv}' steht nicht in '${_ce_cache}'. Dieser Baum wurde ohne die"
-        _ce_m="${_ce_m} ISA-Probe konfiguriert (Cross-Build?) -- die Host-Klasse ist damit"
-        _ce_m="${_ce_m} UNBEKANNT, nicht 'basis'."
-        ce_abbruch "$_ce_m" 2
+# =============================================================================
+# DIE KLASSEN-ABLEITUNG ALS FUNKTION (F1b, 2026-08-12): ZWEI SEITEN, EIN VERFAHREN
+# =============================================================================
+# Bis heute lief diese Ableitung inline und kannte genau EINEN Gegenstand: den
+# CMakeCache DIESES Baums. Die dritte Achse unten braucht dieselbe Ableitung fuer
+# die GEGENSEITE -- test:unit veroeffentlicht seine Cache-Zeilen als Host-Probe
+# (COMDARE_FREMD_HOST_PROBE), und zwei Abschriften desselben Verfahrens waeren
+# die Bauform, aus der Drift entsteht. Deshalb EINE Funktion mit zwei Modi:
+#   eigen -> jeder Defekt ist ABBRUCH (Exit 2), wie bisher: ohne die eigene
+#            Klasse hat KEINE Zahl dieses Laufs einen Gegenstand.
+#   fremd -> jeder Defekt ist ein BENANNTER BEFUND (Rueckgabe 1, Meldung auf
+#            stdout); der Rufer macht daraus CE_FREMD_ROT und damit Exit 4.
+#            Eine kaputte Probe faellt der dritten Achse zur Last, nicht dem
+#            ganzen Lauf -- aber sie faellt (fail-closed), sie verschwindet nie.
+# Alle Merkmals-Pruefungen (Typ INTERNAL, _COMPILED, Wert<->_EXITCODE, Leiter)
+# gelten fuer BEIDE Seiten unveraendert: die Probe ist eine woertliche Abschrift
+# der Cache-Zeilen, also gilt fuer sie derselbe Faelschungs-Schutz.
+# Ergebnis steht in CE_HK_KLASSE / CE_HK_AVX2 / CE_HK_AVX512F.
+ce_hk_befund() {
+    if [ "$_ce_hk_modus" = eigen ]; then
+        ce_abbruch "$1" 2
     fi
-    # ... und GENAU EINMAL. AM OBJEKT GEMESSEN (2026-08-10): haengt man eine zweite
-    # Wertzeile an, nimmt CMake beim Laden die LETZTE -- diese Wache liest die erste.
-    # Ein Cache mit einer ehrlichen Zeile oben und einer erzwungenen unten liefe hier
-    # als 'gemessen' durch, waehrend der Bau die untere benutzt hat. CMake selbst legt
-    # jeden Eintrag nur einmal an; zwei Zeilen heisst von Hand bearbeitet.
-    if [ "$_ce_hv_da" -gt 1 ]; then
-        _ce_m="'${_ce_hv}' steht ${_ce_hv_da}-mal in '${_ce_cache}'. CMake schreibt jeden"
-        _ce_m="${_ce_m} Eintrag genau einmal und nimmt beim Lesen die LETZTE Zeile; welche"
-        _ce_m="${_ce_m} davon den Bau bestimmt hat, ist von aussen nicht mehr entscheidbar."
-        _ce_m="${_ce_m} Ein von Hand bearbeiteter Cache ist kein Messergebnis."
-        ce_abbruch "$_ce_m" 2
-    fi
+    echo "  HOST-PROBE (fremd) UNBRAUCHBAR: $1"
+    return 1
+}
 
-    # MERKMAL (1): DER TYP. 'NAME:TYP=WERT' -- alles zwischen dem ersten ':' und dem
-    # ersten '=' ist der Typ. Nur 'INTERNAL' stammt aus check_cxx_source_runs; jede
-    # andere Angabe kommt von aussen. Das wird VOR _COMPILED geprueft, denn _COMPILED
-    # ueberlebt das Erzwingen und beweist deshalb fuer sich genommen gar nichts.
-    _ce_hv_typ=${_ce_hv_zeile#*:}
-    _ce_hv_typ=${_ce_hv_typ%%=*}
-    if [ "$_ce_hv_typ" != "INTERNAL" ]; then
-        _ce_m="'${_ce_hv}' steht in '${_ce_cache}' mit dem Typ '${_ce_hv_typ}', nicht"
-        _ce_m="${_ce_m} INTERNAL. check_cxx_source_runs schreibt ausschliesslich INTERNAL --"
-        _ce_m="${_ce_m} diese Zeile hat also ein '-D' geschrieben, keine Probe. Eine daneben"
-        _ce_m="${_ce_m} stehende '${_ce_hv}_COMPILED'-Zeile aendert daran NICHTS: sie ueberlebt"
-        _ce_m="${_ce_m} das Erzwingen aus dem ehrlichen Lauf davor. Eine behauptete Host-Klasse"
-        _ce_m="${_ce_m} ist keine gemessene."
-        ce_abbruch "$_ce_m" 2
-    fi
+ce_host_klasse_lesen() {   # $1 = Datei mit CMakeCache-Zeilen, $2 = eigen|fremd
+    _ce_hk_datei=$1
+    _ce_hk_modus=$2
+    CE_HK_KLASSE=""
+    CE_HK_AVX2=""
+    CE_HK_AVX512F=""
+    # Die Schleife laeuft ABSICHTLICH in der aktuellen Shell und nicht in $( ): ein
+    # ce_abbruch in einer Kommando-Substitution beendete nur die Subshell, und die
+    # Wache liefe mit leerer Klasse weiter -- derselbe Riss, den ce_namen() oben
+    # bereits einmal hatte. (Als Funktion unveraendert wahr: der Funktionsrumpf
+    # laeuft in der aktuellen Shell, 'return 1' erreicht den Rufer.)
+    for _ce_hv in COMDARE_HOST_RUNS_AVX2 COMDARE_HOST_RUNS_AVX512F; do
+        _ce_hv_zeile=$(sed -n "/^${_ce_hv}:/p" "$_ce_hk_datei" | sed -n '1p')
+        _ce_hv_da=$(sed -n "/^${_ce_hv}:/p" "$_ce_hk_datei" | wc -l | tr -d ' ')
+        if [ "$_ce_hv_da" -eq 0 ]; then
+            _ce_m="'${_ce_hv}' steht nicht in '${_ce_hk_datei}'. Dieser Baum wurde ohne die"
+            _ce_m="${_ce_m} ISA-Probe konfiguriert (Cross-Build?) -- die Host-Klasse ist damit"
+            _ce_m="${_ce_m} UNBEKANNT, nicht 'basis'."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
+        # ... und GENAU EINMAL. AM OBJEKT GEMESSEN (2026-08-10): haengt man eine zweite
+        # Wertzeile an, nimmt CMake beim Laden die LETZTE -- diese Wache liest die erste.
+        # Ein Cache mit einer ehrlichen Zeile oben und einer erzwungenen unten liefe hier
+        # als 'gemessen' durch, waehrend der Bau die untere benutzt hat. CMake selbst legt
+        # jeden Eintrag nur einmal an; zwei Zeilen heisst von Hand bearbeitet.
+        if [ "$_ce_hv_da" -gt 1 ]; then
+            _ce_m="'${_ce_hv}' steht ${_ce_hv_da}-mal in '${_ce_hk_datei}'. CMake schreibt jeden"
+            _ce_m="${_ce_m} Eintrag genau einmal und nimmt beim Lesen die LETZTE Zeile; welche"
+            _ce_m="${_ce_m} davon den Bau bestimmt hat, ist von aussen nicht mehr entscheidbar."
+            _ce_m="${_ce_m} Ein von Hand bearbeiteter Cache ist kein Messergebnis."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
 
-    # MERKMAL (2): _COMPILED. Fehlt sie, lief die Probe nie (frischer Baum + -D).
-    _ce_hv_comp_da=$(sed -n "/^${_ce_hv}_COMPILED:/p" "$_ce_cache" | wc -l | tr -d ' ')
-    if [ "$_ce_hv_comp_da" -eq 0 ]; then
-        _ce_m="'${_ce_hv}' steht in '${_ce_cache}', aber '${_ce_hv}_COMPILED' fehlt."
-        _ce_m="${_ce_m} Die Probe wurde also nie gefahren -- die Variable ist von aussen"
-        _ce_m="${_ce_m} gesetzt worden. Eine behauptete Host-Klasse ist keine gemessene."
-        ce_abbruch "$_ce_m" 2
-    fi
-    _ce_hv_comp=$(sed -n "s/^${_ce_hv}_COMPILED:[^=]*=//p" "$_ce_cache" | sed -n '1p')
-    if [ "$_ce_hv_comp" != "TRUE" ]; then
-        _ce_m="'${_ce_hv}_COMPILED' ist '${_ce_hv_comp}', nicht TRUE: die ISA-Probe hat"
-        _ce_m="${_ce_m} nicht einmal uebersetzt. Ihr leeres Ergebnis heisst deshalb 'unbekannt',"
-        _ce_m="${_ce_m} nicht 'diese CPU kann es nicht'."
-        ce_abbruch "$_ce_m" 2
-    fi
+        # MERKMAL (1): DER TYP. 'NAME:TYP=WERT' -- alles zwischen dem ersten ':' und dem
+        # ersten '=' ist der Typ. Nur 'INTERNAL' stammt aus check_cxx_source_runs; jede
+        # andere Angabe kommt von aussen. Das wird VOR _COMPILED geprueft, denn _COMPILED
+        # ueberlebt das Erzwingen und beweist deshalb fuer sich genommen gar nichts.
+        _ce_hv_typ=${_ce_hv_zeile#*:}
+        _ce_hv_typ=${_ce_hv_typ%%=*}
+        if [ "$_ce_hv_typ" != "INTERNAL" ]; then
+            _ce_m="'${_ce_hv}' steht in '${_ce_hk_datei}' mit dem Typ '${_ce_hv_typ}', nicht"
+            _ce_m="${_ce_m} INTERNAL. check_cxx_source_runs schreibt ausschliesslich INTERNAL --"
+            _ce_m="${_ce_m} diese Zeile hat also ein '-D' geschrieben, keine Probe. Eine daneben"
+            _ce_m="${_ce_m} stehende '${_ce_hv}_COMPILED'-Zeile aendert daran NICHTS: sie ueberlebt"
+            _ce_m="${_ce_m} das Erzwingen aus dem ehrlichen Lauf davor. Eine behauptete Host-Klasse"
+            _ce_m="${_ce_m} ist keine gemessene."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
 
-    # Der WERT. Eine Probe schreibt 1 (CheckSourceRuns.cmake:113) oder LEER (:121) --
-    # eine 0 hat nie eine geschrieben, auch wenn der Typ INTERNAL lautet.
-    _ce_hv_wert=$(sed -n "s/^${_ce_hv}:[^=]*=//p" "$_ce_cache" | sed -n '1p')
-    case "$_ce_hv_wert" in
-        1)  _ce_hf=ja ;;
-        '') _ce_hf=nein ;;
-        *)
-            _ce_m="'${_ce_hv}' hat den Wert '${_ce_hv_wert}'. Erwartet ist 1 oder leer --"
-            _ce_m="${_ce_m} etwas anderes schreibt check_cxx_source_runs nicht. Ein"
-            _ce_m="${_ce_m} unverstandener Wert wird nicht zu 'nein' gerundet."
-            ce_abbruch "$_ce_m" 2
-            ;;
+        # MERKMAL (2): _COMPILED. Fehlt sie, lief die Probe nie (frischer Baum + -D).
+        _ce_hv_comp_da=$(sed -n "/^${_ce_hv}_COMPILED:/p" "$_ce_hk_datei" | wc -l | tr -d ' ')
+        if [ "$_ce_hv_comp_da" -eq 0 ]; then
+            _ce_m="'${_ce_hv}' steht in '${_ce_hk_datei}', aber '${_ce_hv}_COMPILED' fehlt."
+            _ce_m="${_ce_m} Die Probe wurde also nie gefahren -- die Variable ist von aussen"
+            _ce_m="${_ce_m} gesetzt worden. Eine behauptete Host-Klasse ist keine gemessene."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
+        _ce_hv_comp=$(sed -n "s/^${_ce_hv}_COMPILED:[^=]*=//p" "$_ce_hk_datei" | sed -n '1p')
+        if [ "$_ce_hv_comp" != "TRUE" ]; then
+            _ce_m="'${_ce_hv}_COMPILED' ist '${_ce_hv_comp}', nicht TRUE: die ISA-Probe hat"
+            _ce_m="${_ce_m} nicht einmal uebersetzt. Ihr leeres Ergebnis heisst deshalb 'unbekannt',"
+            _ce_m="${_ce_m} nicht 'diese CPU kann es nicht'."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
+
+        # Der WERT. Eine Probe schreibt 1 (CheckSourceRuns.cmake:113) oder LEER (:121) --
+        # eine 0 hat nie eine geschrieben, auch wenn der Typ INTERNAL lautet.
+        _ce_hv_wert=$(sed -n "s/^${_ce_hv}:[^=]*=//p" "$_ce_hk_datei" | sed -n '1p')
+        case "$_ce_hv_wert" in
+            1)  _ce_hf=ja ;;
+            '') _ce_hf=nein ;;
+            *)
+                _ce_m="'${_ce_hv}' hat den Wert '${_ce_hv_wert}'. Erwartet ist 1 oder leer --"
+                _ce_m="${_ce_m} etwas anderes schreibt check_cxx_source_runs nicht. Ein"
+                _ce_m="${_ce_m} unverstandener Wert wird nicht zu 'nein' gerundet."
+                ce_hk_befund "$_ce_m" || return 1
+                ;;
+        esac
+
+        # MERKMAL (3): WERT GEGEN _EXITCODE. Der zweite, unabhaengige Beleg -- er liegt in
+        # einer Zeile, die das Erzwingen NICHT mitschreibt, und deckt deshalb auch eine
+        # Faelschung ab, die den Typ INTERNAL korrekt trifft.
+        _ce_hv_ec_da=$(sed -n "/^${_ce_hv}_EXITCODE:/p" "$_ce_hk_datei" | wc -l | tr -d ' ')
+        if [ "$_ce_hv_ec_da" -eq 0 ]; then
+            _ce_m="'${_ce_hv}_COMPILED' ist TRUE, aber '${_ce_hv}_EXITCODE' fehlt in"
+            _ce_m="${_ce_m} '${_ce_hk_datei}'. try_run legt beide gemeinsam an -- fehlt eine,"
+            _ce_m="${_ce_m} ist dieser Cache von Hand bearbeitet und kein Messergebnis."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
+        _ce_hv_ec=$(sed -n "s/^${_ce_hv}_EXITCODE:[^=]*=//p" "$_ce_hk_datei" | sed -n '1p')
+        if [ "$_ce_hf" = ja ] && [ "$_ce_hv_ec" != "0" ]; then
+            _ce_m="'${_ce_hv}' ist 1, aber '${_ce_hv}_EXITCODE' ist '${_ce_hv_ec}'."
+            _ce_m="${_ce_m} CMake setzt den Wert GENAU DANN auf 1, wenn der Exit-Code 0 war"
+            _ce_m="${_ce_m} (CheckSourceRuns.cmake:112-113). Wert und Beleg widersprechen sich --"
+            _ce_m="${_ce_m} das ist kein Messergebnis."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
+        if [ "$_ce_hf" = nein ] && [ "$_ce_hv_ec" = "0" ]; then
+            _ce_m="'${_ce_hv}' ist leer, aber '${_ce_hv}_EXITCODE' ist 0: die Probe lief und"
+            _ce_m="${_ce_m} war ERFOLGREICH. Dann haette CMake 1 geschrieben"
+            _ce_m="${_ce_m} (CheckSourceRuns.cmake:112-113). Der leere Wert behauptet 'diese CPU"
+            _ce_m="${_ce_m} kann es nicht' und wird vom Beleg daneben widerlegt -- Klasse UNBEKANNT."
+            ce_hk_befund "$_ce_m" || return 1
+        fi
+
+        case "$_ce_hv" in
+            COMDARE_HOST_RUNS_AVX2)    CE_HK_AVX2=$_ce_hf ;;
+            COMDARE_HOST_RUNS_AVX512F) CE_HK_AVX512F=$_ce_hf ;;
+        esac
+    done
+
+    # Die Leiter hat drei Sprossen und KEINE vierte. 'AVX-512F ohne AVX2' gibt es auf
+    # keiner x86-Maschine; stuende es da, waere nicht die Klasse ungewoehnlich, sondern
+    # der Cache unglaubwuerdig -- und dann taugt auch die andere Zeile nichts.
+    if [ "$CE_HK_AVX2" = ja ] && [ "$CE_HK_AVX512F" = ja ]; then
+        CE_HK_KLASSE=avx512f
+    elif [ "$CE_HK_AVX2" = ja ] && [ "$CE_HK_AVX512F" = nein ]; then
+        CE_HK_KLASSE=avx2
+    elif [ "$CE_HK_AVX2" = nein ] && [ "$CE_HK_AVX512F" = nein ]; then
+        CE_HK_KLASSE=basis
+    else
+        _ce_m="widerspruechliche Host-Klasse in '${_ce_hk_datei}': AVX-512F=${CE_HK_AVX512F},"
+        _ce_m="${_ce_m} AVX2=${CE_HK_AVX2}. AVX-512F ohne AVX2 existiert nicht -- dieser Cache"
+        _ce_m="${_ce_m} beschreibt keine reale Maschine."
+        ce_hk_befund "$_ce_m" || return 1
+    fi
+    return 0
+}
+
+# Die Sprossen-Ordnung der Leiter als Zahl -- fuer den Klassen-VERGLEICH der
+# dritten Achse (wer steht hoeher?). KEINE vierte Sprosse, wie oben.
+ce_klasse_rang() {
+    case "$1" in
+        avx512f) echo 3 ;;
+        avx2)    echo 2 ;;
+        basis)   echo 1 ;;
+        *)       echo 0 ;;
     esac
+}
 
-    # MERKMAL (3): WERT GEGEN _EXITCODE. Der zweite, unabhaengige Beleg -- er liegt in
-    # einer Zeile, die das Erzwingen NICHT mitschreibt, und deckt deshalb auch eine
-    # Faelschung ab, die den Typ INTERNAL korrekt trifft.
-    _ce_hv_ec_da=$(sed -n "/^${_ce_hv}_EXITCODE:/p" "$_ce_cache" | wc -l | tr -d ' ')
-    if [ "$_ce_hv_ec_da" -eq 0 ]; then
-        _ce_m="'${_ce_hv}_COMPILED' ist TRUE, aber '${_ce_hv}_EXITCODE' fehlt in"
-        _ce_m="${_ce_m} '${_ce_cache}'. try_run legt beide gemeinsam an -- fehlt eine,"
-        _ce_m="${_ce_m} ist dieser Cache von Hand bearbeitet und kein Messergebnis."
-        ce_abbruch "$_ce_m" 2
-    fi
-    _ce_hv_ec=$(sed -n "s/^${_ce_hv}_EXITCODE:[^=]*=//p" "$_ce_cache" | sed -n '1p')
-    if [ "$_ce_hf" = ja ] && [ "$_ce_hv_ec" != "0" ]; then
-        _ce_m="'${_ce_hv}' ist 1, aber '${_ce_hv}_EXITCODE' ist '${_ce_hv_ec}'."
-        _ce_m="${_ce_m} CMake setzt den Wert GENAU DANN auf 1, wenn der Exit-Code 0 war"
-        _ce_m="${_ce_m} (CheckSourceRuns.cmake:112-113). Wert und Beleg widersprechen sich --"
-        _ce_m="${_ce_m} das ist kein Messergebnis."
-        ce_abbruch "$_ce_m" 2
-    fi
-    if [ "$_ce_hf" = nein ] && [ "$_ce_hv_ec" = "0" ]; then
-        _ce_m="'${_ce_hv}' ist leer, aber '${_ce_hv}_EXITCODE' ist 0: die Probe lief und"
-        _ce_m="${_ce_m} war ERFOLGREICH. Dann haette CMake 1 geschrieben"
-        _ce_m="${_ce_m} (CheckSourceRuns.cmake:112-113). Der leere Wert behauptet 'diese CPU"
-        _ce_m="${_ce_m} kann es nicht' und wird vom Beleg daneben widerlegt -- Klasse UNBEKANNT."
-        ce_abbruch "$_ce_m" 2
-    fi
-
-    case "$_ce_hv" in
-        COMDARE_HOST_RUNS_AVX2)    CE_HOST_AVX2=$_ce_hf ;;
-        COMDARE_HOST_RUNS_AVX512F) CE_HOST_AVX512F=$_ce_hf ;;
-    esac
-done
-
-# Die Leiter hat drei Sprossen und KEINE vierte. 'AVX-512F ohne AVX2' gibt es auf
-# keiner x86-Maschine; stuende es da, waere nicht die Klasse ungewoehnlich, sondern
-# der Cache unglaubwuerdig -- und dann taugt auch die andere Zeile nichts.
-if [ "$CE_HOST_AVX2" = ja ] && [ "$CE_HOST_AVX512F" = ja ]; then
-    CE_HOST_KLASSE=avx512f
-elif [ "$CE_HOST_AVX2" = ja ] && [ "$CE_HOST_AVX512F" = nein ]; then
-    CE_HOST_KLASSE=avx2
-elif [ "$CE_HOST_AVX2" = nein ] && [ "$CE_HOST_AVX512F" = nein ]; then
-    CE_HOST_KLASSE=basis
-else
-    _ce_m="widerspruechliche Host-Klasse in '${_ce_cache}': AVX-512F=${CE_HOST_AVX512F},"
-    _ce_m="${_ce_m} AVX2=${CE_HOST_AVX2}. AVX-512F ohne AVX2 existiert nicht -- dieser Cache"
-    _ce_m="${_ce_m} beschreibt keine reale Maschine."
-    ce_abbruch "$_ce_m" 2
-fi
+ce_host_klasse_lesen "$_ce_cache" eigen
+CE_HOST_AVX2=$CE_HK_AVX2
+CE_HOST_AVX512F=$CE_HK_AVX512F
+CE_HOST_KLASSE=$CE_HK_KLASSE
 
 _ce_hostname=$( (hostname 2>/dev/null || echo unbekannt) | sed -n '1p')
 echo ""
@@ -527,6 +586,13 @@ fi
 } | sed '/^$/d' > "${_ce_tmp}/floor.txt"
 
 CE_FLOOR=""
+# F1b (2026-08-12): ALLE DREI Sprossen werden behalten, nicht nur die eigene.
+# Die dritte Achse vergleicht unten zwei KLASSEN miteinander; die erwartete
+# Differenz zweier Klassen ist die Differenz ihrer Leiter-Zahlen -- dieselbe
+# committete Quelle, NUR GELESEN, nie fortgeschrieben.
+CE_FLOOR_AVX512F=""
+CE_FLOOR_AVX2=""
+CE_FLOOR_BASIS=""
 _ce_floor_gesehen=""
 while IFS= read -r _ce_fz; do
     _ce_fk=${_ce_fz%% *}
@@ -566,8 +632,24 @@ while IFS= read -r _ce_fz; do
             ;;
     esac
     _ce_floor_gesehen="${_ce_floor_gesehen} ${_ce_fk}"
+    case "$_ce_fk" in
+        avx512f) CE_FLOOR_AVX512F=$_ce_fw ;;
+        avx2)    CE_FLOOR_AVX2=$_ce_fw ;;
+        basis)   CE_FLOOR_BASIS=$_ce_fw ;;
+    esac
     [ "$_ce_fk" = "$CE_HOST_KLASSE" ] && CE_FLOOR=$_ce_fw
 done < "${_ce_tmp}/floor.txt"
+
+# Nachschlagen einer Sprosse fuer den Klassen-Vergleich der dritten Achse --
+# NACH der Schleife definiert, damit klar ist: es liest nur, was oben bereits
+# vollstaendig validiert wurde (alle drei Klassen, genau eine Zahl je Klasse).
+ce_klasse_floor() {
+    case "$1" in
+        avx512f) echo "$CE_FLOOR_AVX512F" ;;
+        avx2)    echo "$CE_FLOOR_AVX2" ;;
+        basis)   echo "$CE_FLOOR_BASIS" ;;
+    esac
+}
 
 # ALLE DREI muessen dastehen, nicht nur die, die dieser Host gerade braucht.
 # Sonst faellt eine fehlende Klasse erst auf der Maschine auf, die sie braucht --
@@ -792,11 +874,68 @@ echo "  Quelle: ${_ce_protokoll}"
 # "rot, weil ein Test ungedeckt ist" unterscheidbar bleiben -- sonst beweist
 # ein Koeder, der nur 'nicht 0' prueft, nichts ueber den Nenner.
 # =============================================================================
+# -----------------------------------------------------------------------------
+# F1 (2026-08-12): DIE ACHSE WIRD KLASSENBEWUSST UND KENNT EIN DEKLARIERTES DELTA.
+# Der nackte Mengen-Vergleich oben (jede Differenz = rot) hatte zwei blinde
+# Flecken, beide am Objekt aufgetreten:
+#   * GEWOLLTE Differenz: der Guard-Baum laedt den Fixture-Pruefling (T-4),
+#     test:unit absichtlich nicht -- ein Test Unterschied, fuer immer, by design.
+#     Ohne Deklaration waere JEDE Pipeline am Guard rot (W3).
+#     -> COMDARE_FREMD_SOLL_DELTA_BLOECKE: Block-Kennungen (Leerzeichen-Liste)
+#        aus dem Registrierungs-Protokoll. Abgezogen wird NUR, was (a) deklariert,
+#        (b) im Protokoll AKTIV gemeldet und (c) wirklich 'nur hier' ist -- alles
+#        andere ist ein benannter Befund (fehlender Block, inaktiver Block,
+#        stale Deklaration), kein stiller Abzug.
+#   * KLASSEN-Differenz: bauen beide Jobs auf verschiedenen Hardware-Klassen
+#     (avx512f/avx2/basis), registriert der reichere Baum mehr ISA-gebundene
+#     Tests -- voellig zu Recht. Die erwartete Groesse dieser Differenz steht in
+#     der committeten Klassenleiter (ci_test_inventory_floor.txt, NUR GELESEN).
+#     -> COMDARE_FREMD_HOST_PROBE: die Cache-Zeilen des fremden Baums (test:unit
+#        publiziert sie neben der Inventur). PFLICHT, sobald die Inventur-Achse
+#        faehrt: ohne Klasse der Gegenseite ist eine ISA-Differenz von einem
+#        Defekt nicht unterscheidbar. Fehlt/inkonsistent = benannter Befund.
+# VERGLEICHSREGELN (fail-closed, kein Skip-Zweig):
+#   Klassen GLEICH  -> nur_hier == SOLL-DELTA exakt UND nur_fremd leer.
+#   eigen REICHER   -> nur_fremd leer UND |nur_hier ohne SOLL-DELTA| ==
+#                      floor(eigen) - floor(fremd); Restnamen ausgewiesen.
+#   eigen AERMER    -> spiegelbildlich: nur_hier ohne SOLL-DELTA leer UND
+#                      |nur_fremd| == floor(fremd) - floor(eigen); Namen ausgewiesen.
+# Jede Abweichung ist ROT (Exit 4). Die Bilanzzeile nennt IMMER beide Klassen,
+# beide Hosts und beide Zahlen -- ein Freispruch ohne Massstab ist keiner.
+# -----------------------------------------------------------------------------
 CE_FREMD_STATUS="NICHT GEFAHREN"
 CE_FREMD_ROT=0
 _ce_fremd=${COMDARE_FREMD_INVENTUR-}
+_ce_fremd_probe=${COMDARE_FREMD_HOST_PROBE-}
+_ce_fremd_delta=${COMDARE_FREMD_SOLL_DELTA_BLOECKE-}
+CE_FREMD_KLASSE=""
+CE_FREMD_HOST=""
+: > "${_ce_tmp}/fremd_befunde.txt"
+: > "${_ce_tmp}/solldelta.txt"
+: > "${_ce_tmp}/solldelta_abgezogen.txt"
+: > "${_ce_tmp}/nur_hier_rest.txt"
+: > "${_ce_tmp}/nur_fremd.txt"
+
+# Ein benannter Befund der dritten Achse: sofort sichtbar UND fuer den
+# Befund-(e)-Block unten gesammelt -- eine Meldung, zwei Leser.
+ce_fremd_befund() {
+    echo "  ! $1"
+    echo "$1" >> "${_ce_tmp}/fremd_befunde.txt"
+    CE_FREMD_ROT=1
+}
+
 echo ""
 if [ -z "$_ce_fremd" ]; then
+    # HALBER ANSCHLUSS IST VERDRAHTUNG, KEIN BETRIEBSZUSTAND: Delta oder Probe
+    # ohne die Inventur-Achse liefe als stilles Nichts durch -- wer deklariert,
+    # meint die Achse, und eine ungefahrene Achse darf seine Deklaration nicht
+    # kommentarlos schlucken.
+    if [ -n "$_ce_fremd_probe" ] || [ -n "$_ce_fremd_delta" ]; then
+        _ce_m="COMDARE_FREMD_HOST_PROBE bzw. COMDARE_FREMD_SOLL_DELTA_BLOECKE sind gesetzt,"
+        _ce_m="${_ce_m} aber COMDARE_FREMD_INVENTUR ist es nicht. Ein halber Anschluss ist ein"
+        _ce_m="${_ce_m} Verdrahtungsfehler, kein 'dann eben ohne Achse' (fail-closed)."
+        ce_abbruch "$_ce_m" 2
+    fi
     echo "DRITTE ACHSE (Fremd-Inventur): NICHT GEFAHREN -- COMDARE_FREMD_INVENTUR ist"
     echo "  ungesetzt. Der Nenner ist damit nur gegen den eigenen Quelltext belegt"
     echo "  (Protokoll oben), nicht gegen den Baum eines anderen Jobs."
@@ -821,13 +960,160 @@ else
         _ce_nf=$(wc -l < "${_ce_tmp}/nur_fremd.txt" | tr -d ' ')
         echo "DRITTE ACHSE (Fremd-Inventur): dieser Baum ${CE_GESAMT}, fremder Baum ${CE_FREMD_N}"
         echo "  Quelle: ${_ce_fremd}"
-        if [ "$_ce_nh" -eq 0 ] && [ "$_ce_nf" -eq 0 ]; then
-            echo "  -> deckungsgleich (${CE_GESAMT} == ${CE_FREMD_N}), Namen identisch."
-            CE_FREMD_STATUS="GRUEN (${CE_GESAMT} == ${CE_FREMD_N})"
+
+        # -- (i) HOST-PROBE: PFLICHT, sobald diese Achse faehrt --------------------
+        if [ -z "$_ce_fremd_probe" ]; then
+            _ce_m="HOST-PROBE FEHLT: COMDARE_FREMD_HOST_PROBE ist ungesetzt. PFLICHT, sobald"
+            _ce_m="${_ce_m} COMDARE_FREMD_INVENTUR gesetzt ist -- ohne die Klasse der Gegenseite"
+            _ce_m="${_ce_m} ist eine ISA-Differenz von einem Defekt nicht unterscheidbar."
+            ce_fremd_befund "$_ce_m"
+        elif [ ! -f "$_ce_fremd_probe" ]; then
+            _ce_m="HOST-PROBE FEHLT: angekuendigt ('${_ce_fremd_probe}'), aber nicht da."
+            _ce_m="${_ce_m} Angekuendigt und fehlend wird NICHT uebersprungen (fail-closed)."
+            ce_fremd_befund "$_ce_m"
         else
-            echo "  -> ABWEICHUNG: ${_ce_nh} nur hier, ${_ce_nf} nur im fremden Baum."
-            CE_FREMD_STATUS="ROT (${CE_GESAMT} != ${CE_FREMD_N})"
-            CE_FREMD_ROT=1
+            if ce_host_klasse_lesen "$_ce_fremd_probe" fremd; then
+                CE_FREMD_KLASSE=$CE_HK_KLASSE
+                _ce_fh_da=$(sed -n '/^HOST=/p' "$_ce_fremd_probe" | wc -l | tr -d ' ')
+                if [ "$_ce_fh_da" -ne 1 ]; then
+                    _ce_m="HOST-PROBE INKONSISTENT: '${_ce_fremd_probe}' hat ${_ce_fh_da}"
+                    _ce_m="${_ce_m} 'HOST='-Zeilen, erwartet GENAU EINE (der Erzeuger schreibt"
+                    _ce_m="${_ce_m} sie hinter die Cache-Zeilen)."
+                    ce_fremd_befund "$_ce_m"
+                else
+                    CE_FREMD_HOST=$(sed -n 's/^HOST=//p' "$_ce_fremd_probe" | sed -n '1p')
+                    _ce_m="  HOST-PROBE (fremd, ${_ce_fremd_probe}):"
+                    echo "${_ce_m} Klasse ${CE_FREMD_KLASSE}, Host ${CE_FREMD_HOST}"
+                fi
+            else
+                _ce_m="HOST-PROBE UNBRAUCHBAR: '${_ce_fremd_probe}' -- Grund unmittelbar"
+                _ce_m="${_ce_m} darueber. Eine Klasse, die nicht gemessen vorliegt, wird nicht geraten."
+                ce_fremd_befund "$_ce_m"
+            fi
+        fi
+
+        # -- (ii) SOLL-DELTA: nur deklariert UND AKTIV UND 'nur hier' zaehlt -------
+        if [ -n "$_ce_fremd_delta" ]; then
+            echo "  SOLL-DELTA (COMDARE_FREMD_SOLL_DELTA_BLOECKE):${_ce_fremd_delta:+ }${_ce_fremd_delta}"
+            for _ce_db in $_ce_fremd_delta; do
+                _ce_db_zeile=$(awk -F'|' -v k="$_ce_db" '$1==k {print; exit}' "${_ce_tmp}/bloecke.txt")
+                if [ -z "$_ce_db_zeile" ]; then
+                    _ce_m="SOLL-DELTA-BLOCK FEHLT: '${_ce_db}' steht nicht im Registrierungs-"
+                    _ce_m="${_ce_m}Protokoll dieses Baums -- die Deklaration zeigt ins Leere."
+                    ce_fremd_befund "$_ce_m"
+                    continue
+                fi
+                _ce_db_status=$(printf '%s\n' "$_ce_db_zeile" | awk -F'|' '{print $2}')
+                if [ "$_ce_db_status" != "AKTIV" ]; then
+                    _ce_m="SOLL-DELTA-BLOCK NICHT AKTIV: '${_ce_db}' meldet '${_ce_db_status}'"
+                    _ce_m="${_ce_m} -- ein Delta aus einem Block, der gar nicht lief, ist keins."
+                    ce_fremd_befund "$_ce_m"
+                    continue
+                fi
+                printf '%s\n' "$_ce_db_zeile" | awk -F'|' '{print $3}' | tr ',' '\n' \
+                    | sed '/^$/d;/^-$/d' >> "${_ce_tmp}/solldelta_roh.txt"
+            done
+            if [ -s "${_ce_tmp}/solldelta_roh.txt" ]; then
+                LC_ALL=C sort -u "${_ce_tmp}/solldelta_roh.txt" > "${_ce_tmp}/solldelta.txt"
+            fi
+            while IFS= read -r _ce_dn; do
+                [ -n "$_ce_dn" ] || continue
+                if awk -v n="$_ce_dn" 'BEGIN{f=1} $0==n {f=0} END{exit f}' "${_ce_tmp}/nur_hier.txt"; then
+                    echo "$_ce_dn" >> "${_ce_tmp}/solldelta_abgezogen.txt"
+                else
+                    _ce_m="STALE DEKLARATION: '${_ce_dn}' (SOLL-DELTA) ist NICHT 'nur hier'"
+                    _ce_m="${_ce_m} -- der Name steht auch im fremden Baum oder fehlt in diesem."
+                    _ce_m="${_ce_m} Eine Deklaration, die nichts mehr abzieht, gehoert entfernt,"
+                    _ce_m="${_ce_m} nicht mitgeschleppt."
+                    ce_fremd_befund "$_ce_m"
+                fi
+            done < "${_ce_tmp}/solldelta.txt"
+            # ABGEZOGENE NAMEN IMMER AUSWEISEN -- ein stiller Abzug waere ein
+            # zweiter Blindfleck an genau der Stelle, die den ersten heilt.
+            if [ -s "${_ce_tmp}/solldelta_abgezogen.txt" ]; then
+                echo "  SOLL-DELTA abgezogen (deklariert, AKTIV und nur hier):"
+                while IFS= read -r _ce_dn; do
+                    echo "    ~ ${_ce_dn}"
+                done < "${_ce_tmp}/solldelta_abgezogen.txt"
+            fi
+        fi
+        LC_ALL=C comm -23 "${_ce_tmp}/nur_hier.txt" "${_ce_tmp}/solldelta_abgezogen.txt" \
+            > "${_ce_tmp}/nur_hier_rest.txt"
+        _ce_nhr=$(wc -l < "${_ce_tmp}/nur_hier_rest.txt" | tr -d ' ')
+
+        # -- BILANZZEILE: IMMER beide Klassen, beide Hosts, beide Zahlen -----------
+        # (EINE Ausgabezeile; nur der Quelltext ist umbrochen.)
+        _ce_m="  BILANZ: eigen=${CE_GESAMT} (Klasse ${CE_HOST_KLASSE}, Host ${_ce_hostname})"
+        _ce_m="${_ce_m} gegen fremd=${CE_FREMD_N} (Klasse ${CE_FREMD_KLASSE:-unbestimmt},"
+        _ce_m="${_ce_m} Host ${CE_FREMD_HOST:-unbestimmt})"
+        echo "$_ce_m"
+
+        # -- (iii) VERGLEICHSREGELN -- nur ueber einem sauberen Fundament ----------
+        if [ "$CE_FREMD_ROT" -ne 0 ]; then
+            echo "  -> KEIN URTEIL nach den Vergleichsregeln: erst die benannten Befunde"
+            echo "     oben beheben -- ueber kaputter Probe/Deklaration waere jede Regel"
+            echo "     eine Rechnung ohne Gegenstand."
+            CE_FREMD_STATUS="ROT (Probe/SOLL-DELTA, benannte Befunde)"
+        else
+            _ce_er=$(ce_klasse_rang "$CE_HOST_KLASSE")
+            _ce_fr=$(ce_klasse_rang "$CE_FREMD_KLASSE")
+            if [ "$_ce_er" -eq "$_ce_fr" ]; then
+                if [ "$_ce_nhr" -eq 0 ] && [ "$_ce_nf" -eq 0 ]; then
+                    if [ -s "${_ce_tmp}/solldelta_abgezogen.txt" ]; then
+                        _ce_abz=$(wc -l < "${_ce_tmp}/solldelta_abgezogen.txt" | tr -d ' ')
+                        _ce_m="  -> deckungsgleich nach SOLL-DELTA: ${CE_GESAMT} - ${_ce_abz}"
+                        echo "${_ce_m} == ${CE_FREMD_N} (Klassen gleich: ${CE_HOST_KLASSE})."
+                        CE_FREMD_STATUS="GRUEN (${CE_GESAMT} - ${_ce_abz} == ${CE_FREMD_N}, klassengleich)"
+                    else
+                        echo "  -> deckungsgleich (${CE_GESAMT} == ${CE_FREMD_N}), Namen identisch."
+                        CE_FREMD_STATUS="GRUEN (${CE_GESAMT} == ${CE_FREMD_N})"
+                    fi
+                else
+                    _ce_m="  -> ABWEICHUNG (Klassen gleich: ${CE_HOST_KLASSE}): ${_ce_nhr} nur"
+                    echo "${_ce_m} hier (nach SOLL-DELTA), ${_ce_nf} nur im fremden Baum -- erwartet 0 und 0."
+                    CE_FREMD_STATUS="ROT (klassengleich, ${_ce_nhr} nur hier / ${_ce_nf} nur fremd)"
+                    CE_FREMD_ROT=1
+                fi
+            else
+                if [ "$_ce_er" -gt "$_ce_fr" ]; then
+                    _ce_reich=$CE_HOST_KLASSE; _ce_arm=$CE_FREMD_KLASSE
+                    _ce_soll_diff=$(( $(ce_klasse_floor "$_ce_reich") - $(ce_klasse_floor "$_ce_arm") ))
+                    _ce_ist_diff=$_ce_nhr
+                    _ce_gegen_leer=$_ce_nf
+                    _ce_seite="nur hier (nach SOLL-DELTA)"
+                    _ce_gegen="nur fremd"
+                    _ce_rest_datei="${_ce_tmp}/nur_hier_rest.txt"
+                    _ce_rest_marke="+"
+                else
+                    _ce_reich=$CE_FREMD_KLASSE; _ce_arm=$CE_HOST_KLASSE
+                    _ce_soll_diff=$(( $(ce_klasse_floor "$_ce_reich") - $(ce_klasse_floor "$_ce_arm") ))
+                    _ce_ist_diff=$_ce_nf
+                    _ce_gegen_leer=$_ce_nhr
+                    _ce_seite="nur fremd"
+                    _ce_gegen="nur hier (nach SOLL-DELTA)"
+                    _ce_rest_datei="${_ce_tmp}/nur_fremd.txt"
+                    _ce_rest_marke="-"
+                fi
+                _ce_m="  Leiter-Ausweis: floor(${_ce_reich})=$(ce_klasse_floor "$_ce_reich")"
+                _ce_m="${_ce_m} - floor(${_ce_arm})=$(ce_klasse_floor "$_ce_arm")"
+                echo "${_ce_m} = ${_ce_soll_diff} erwartete klassengebundene Differenz."
+                if [ "$_ce_gegen_leer" -eq 0 ] && [ "$_ce_ist_diff" -eq "$_ce_soll_diff" ]; then
+                    _ce_m="  -> KLASSEN-DIFFERENZ ERKLAERT: genau ${_ce_ist_diff} Name(n)"
+                    echo "${_ce_m} ${_ce_seite}, 0 ${_ce_gegen}:"
+                    while IFS= read -r _ce_t; do
+                        echo "    ${_ce_rest_marke} ${_ce_t}"
+                    done < "$_ce_rest_datei"
+                    _ce_m="GRUEN (Klassen-Differenz ${_ce_soll_diff} erklaert,"
+                    CE_FREMD_STATUS="${_ce_m} ${CE_HOST_KLASSE} gegen ${CE_FREMD_KLASSE})"
+                else
+                    _ce_m="  -> ABWEICHUNG (Klassen ${CE_HOST_KLASSE} gegen ${CE_FREMD_KLASSE}):"
+                    _ce_m="${_ce_m} erwartet ${_ce_soll_diff} Name(n) ${_ce_seite} und 0 ${_ce_gegen};"
+                    echo "${_ce_m} gefunden ${_ce_ist_diff} ${_ce_seite}, ${_ce_gegen_leer} ${_ce_gegen}."
+                    _ce_m="ROT (Klassen-Differenz ${_ce_soll_diff} erwartet,"
+                    CE_FREMD_STATUS="${_ce_m} ${_ce_ist_diff}/${_ce_gegen_leer} gefunden)"
+                    CE_FREMD_ROT=1
+                fi
+            fi
         fi
     fi
 fi
@@ -1086,10 +1372,20 @@ if [ "$CE_FREMD_ROT" -ne 0 ]; then
     echo "Achse belegt ihn gegen einen ANDEREN Baum, der denselben Quellstand baut."
     echo "Weichen die ab, ist mindestens einer der beiden nicht so gebaut wie gedacht --"
     echo "und eine Abdeckung ueber einem zu kleinen Nenner deckt nichts."
-    if [ -s "${_ce_tmp}/nur_hier.txt" ]; then
+    if [ -s "${_ce_tmp}/fremd_befunde.txt" ]; then
         echo ""
-        echo "  NUR IN DIESEM Baum registriert (im fremden fehlend):"
-        while read -r _ce_t; do echo "    + ${_ce_t}"; done < "${_ce_tmp}/nur_hier.txt"
+        echo "  BENANNTE BEFUNDE der dritten Achse (Wortlaut wie oben):"
+        while IFS= read -r _ce_t; do echo "    ! ${_ce_t}"; done < "${_ce_tmp}/fremd_befunde.txt"
+    fi
+    if [ -s "${_ce_tmp}/solldelta_abgezogen.txt" ]; then
+        echo ""
+        echo "  SOLL-DELTA abgezogen (deklariert, AKTIV und nur hier -- auch im Fehlerfall ausgewiesen):"
+        while IFS= read -r _ce_t; do echo "    ~ ${_ce_t}"; done < "${_ce_tmp}/solldelta_abgezogen.txt"
+    fi
+    if [ -s "${_ce_tmp}/nur_hier_rest.txt" ]; then
+        echo ""
+        echo "  NUR IN DIESEM Baum registriert (nach SOLL-DELTA-Abzug; im fremden fehlend):"
+        while read -r _ce_t; do echo "    + ${_ce_t}"; done < "${_ce_tmp}/nur_hier_rest.txt"
     fi
     if [ -s "${_ce_tmp}/nur_fremd.txt" ]; then
         echo ""
@@ -1098,9 +1394,17 @@ if [ "$CE_FREMD_ROT" -ne 0 ]; then
     fi
     echo ""
     echo "SO WIRD DAS BEHOBEN (nicht durch Abschalten der Achse):"
-    echo "  * Beide Jobs muessen denselben Bauweg fahren (./configure.sh && make bzw."
-    echo "    'make inventar'). Fehlt in einem Baum das Reconfigure nach dem"
-    echo "    Codegen-Bau, registriert CMake dort weniger Tests."
+    echo "  * Ist die Differenz GEWOLLT (ein Registrierungs-Block, der nur in DIESEM"
+    echo "    Baum laedt), gehoert sie DEKLARIERT: COMDARE_FREMD_SOLL_DELTA_BLOECKE am"
+    echo "    Aufruf um die Block-Kennung ergaenzen bzw. eine stale Deklaration"
+    echo "    entfernen -- die Namen kommen aus dem Registrierungs-Protokoll, nie von Hand."
+    echo "  * Die HOST-PROBE pruefen (COMDARE_FREMD_HOST_PROBE): weichen die KLASSEN ab,"
+    echo "    erklaert die Klassenleiter die erwartete Differenz -- nicht jede Differenz"
+    echo "    ist ein Defekt, aber jede unerklaerte ist einer."
+    echo "  * Bei ISA-ZUWACHS (neue klassengebundene Tests) die Klassenleiter"
+    echo "    scripts/ci_test_inventory_floor.txt in einem EIGENEN Commit nachziehen --"
+    echo "    alle drei Klassen im selben Zug (dieselbe Doktrin wie beim"
+    echo "    Untergrenzen-Ausweis oben)."
     echo "  * Fehlt die Datei, ist das Artefakt verlorengegangen oder 'needs:' zieht"
     echo "    es nicht -- ein CI-Verdrahtungsfehler, kein Test-Befund."
     echo "-----------------------------------------------------------------------------"

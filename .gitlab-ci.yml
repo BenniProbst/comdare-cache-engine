@@ -338,20 +338,29 @@ test:coverage-guard:
   # einzelner earlyoom-Treffer ueberlebbar statt toedlich -- genau dafuer gibt es sie.
   # Der Job ist eine Wache und liegt auf keinem kritischen Pfad: langsamer ist hier billig.
   # DIE ZWEITE KANTE (2026-08-11) -- der VERBRAUCHER, den test:unit seit dem 09.08. als offenen
-  # Posten in seinem eigenen Kommentar fuehrt. test:unit schreibt seine Inventur nach
-  # build/Testing/ctest_unit_inventar.txt; das .test-Template veroeffentlicht
-  # "${COMDARE_TEST_CMAKE_BUILD_DIR}/Testing/" mit 'when: always' als Artefakt, und test:unit
-  # setzt diese Variable auf 'build'. 'artifacts: true' holt die Datei also in DIESEN Job.
-  # Sie landet unter build/Testing/ -- dieser Job baut in build-covguard, es gibt keine Kollision.
-  # 'when: always' ist wichtig: die Inventur beschreibt die REGISTRIERTE Menge, nicht den Ausgang;
-  # sie muss auch dann ankommen, wenn ein Test faellt, sonst waere ein rotes test:unit zugleich
-  # ein blinder Nenner hier.
+  # Posten in seinem eigenen Kommentar fuehrte. test:unit schreibt seine Inventur nach
+  # build/Testing/ctest_unit_inventar.txt (seit F1b liegt die Host-Probe daneben); das
+  # .test-Template veroeffentlicht "${COMDARE_TEST_CMAKE_BUILD_DIR}/Testing/" mit
+  # artifacts:when 'always', und test:unit setzt diese Variable auf 'build'. 'artifacts: true'
+  # holt die Dateien also in DIESEN Job. Sie landen unter build/Testing/ -- dieser Job baut
+  # in build-covguard, es gibt keine Kollision.
+  # RICHTIGSTELLUNG (F2, 2026-08-12) -- hier stand, das artifacts-'always' des Templates
+  # sichere die Inventur eines ROTEN test:unit. Das verwechselte zwei Mechanismen:
+  # artifacts:when regelt NUR den UPLOAD im Erzeuger-Job, es ist KEIN Job-Scheduling.
+  # Das Scheduling DIESES Jobs haengt am needs-Default ('on_success'): ein rotes test:unit
+  # haette diesen Job samt seiner FUENF vorgelagerten Wachen (Schluessel, Topologie samt
+  # Selbsttest, Diff-Hygiene samt Selbsttest, kumulatives Gate, Abdeckung samt Selbsttest)
+  # kommentarlos GESKIPPT -- ausgerechnet dann, wenn die Inventur des roten Laufs den
+  # Nenner belegen soll. Deshalb der Job-Schluessel direkt unter needs: er laesst diesen
+  # Job IMMER fahren; die hochgeladene Inventur des roten test:unit liegt dank des
+  # Template-Uploads (s.o.) trotzdem vor.
   # DIE ERSTE KANTE BLEIBT: lint:secrets ist die Konvention der contract-Familie und ein
   # Secrets-Gate, das man nicht gegen eine Inventur eintauscht.
   needs:
     - job: lint:secrets           # Konvention der contract-Familie
     - job: test:unit              # Gegenquelle der dritten Achse (Fremd-Inventur)
       artifacts: true
+  when: always
   script:
     # (0) SCHLUESSEL-WACHE ZUERST -- billig (kein Bau, kein Configure) und eine Stufe FRUEHER als
     # die Abdeckungs-Rechnung: ein doppelt vergebener Top-Level-Schluessel loescht kommentarlos
@@ -526,7 +535,18 @@ test:coverage-guard:
     # Stufen-Tausch oben und das needs mit 'artifacts: true' legen sie.
     # HIER am Aufruf und NICHT als Job-Variable: der Selbsttest direkt darunter faehrt den
     # Fall "Variable ungesetzt" als eigenen Fall. Eine Job-Variable waere sein Gegenteil.
+    # F1 (2026-08-12): dieselbe Leitung traegt jetzt DREI Auskuenfte -- die Inventur, das
+    # SOLL-DELTA und die HOST-PROBE (alle drei am Aufruf, Begruendung oben gilt fort):
+    #   * SOLL-DELTA pruefling_slots_v1: DIESER Baum laedt den Fixture-Pruefling (T-4,
+    #     Configure oben), test:unit ABSICHTLICH nicht -- test_pruefling_fixture_ladung
+    #     ist ein gewollter Unterschied und wird als Block-Kennung DEKLARIERT statt
+    #     totgeschwiegen. Ohne die Deklaration waere JEDE Pipeline am Guard rot (W3).
+    #   * HOST-PROBE: die Cache-Zeilen des test:unit-Baums (reist im selben Testing/-
+    #     Artefakt wie die Inventur). Damit vergleicht die Wache KLASSEN, nicht blind
+    #     Mengen -- auf Mischklassen-Runnern erklaert die Klassenleiter die Differenz.
     - COMDARE_FREMD_INVENTUR=build/Testing/ctest_unit_inventar.txt
+      COMDARE_FREMD_SOLL_DELTA_BLOECKE=pruefling_slots_v1
+      COMDARE_FREMD_HOST_PROBE=build/Testing/ctest_unit_host_probe.txt
       sh scripts/ci_test_coverage_guard.sh build-covguard
     # D1c (2026-08-09): SELBSTTEST der zweiten Achse der Wache oben. Er wuerfelt seinen
     # Koeder bei JEDEM Lauf neu (Schrumpf-Menge aus der echten Inventur) und prueft, dass
@@ -999,6 +1019,24 @@ test:unit:
       ctest --test-dir build -N | sed -n 's/^ *Test *#[0-9][0-9]*: *//p' | LC_ALL=C sort -u \
         > build/Testing/ctest_unit_inventar.txt
       echo "D1c: Inventur veroeffentlicht -- $(wc -l < build/Testing/ctest_unit_inventar.txt) Tests"
+      # F1b (2026-08-12): DIE HOST-PROBE REIST NEBEN DER INVENTUR. Die Abdeckungs-Wache
+      # vergleicht die Inventur seither KLASSENBEWUSST (avx512f/avx2/basis): eine Differenz,
+      # die die Klassenleiter erklaert, ist kein Defekt -- dafuer muss sie die Klasse DIESES
+      # Baums kennen, GEMESSEN, nicht behauptet. Publiziert werden exakt die CMakeCache-
+      # Zeilen, die die Klassen-Ableitung liest (COMDARE_HOST_RUNS_{AVX2,AVX512F} samt
+      # _COMPILED und _EXITCODE) plus HOST=<hostname>. Sie reist im Testing/-Verzeichnis,
+      # das das .test-Template ohnehin als Artefakt einsammelt -- bewusst KEINE zweite
+      # artifacts-Liste (dieselbe Begruendung wie bei der Inventur direkt darueber).
+      # Fail-closed: findet grep keine Zeile, ist dieser Job ROT (set -e) -- eine leere
+      # Probe wuerde die Wache sonst mit einer Zahl ohne Gegenstand rechnen lassen.
+      grep -E '^COMDARE_HOST_RUNS_(AVX2|AVX512F)(_COMPILED|_EXITCODE)?:' build/CMakeCache.txt \
+        > build/Testing/ctest_unit_host_probe.txt
+      echo "HOST=$(hostname 2>/dev/null || echo unbekannt)" >> build/Testing/ctest_unit_host_probe.txt
+      echo "F1b: Host-Probe veroeffentlicht -- $(wc -l < build/Testing/ctest_unit_host_probe.txt) Zeilen"
+      # [HISTORIE] (F4-Nachzug, 2026-08-12) -- der folgende OFFEN-Vermerk ist ERLEDIGT,
+      # Wortlaut bewahrt (Doku wird deprecated, nie geloescht): der VERBRAUCHER existiert.
+      # Der Stufen-Tausch (Kommentar am stages:-Block oben) legte 'test' vor 'contract',
+      # und test:coverage-guard zieht Inventur+Host-Probe seither per needs 'artifacts: true'.
       # OFFEN (eigenes Paket, s. Commit-Bogen): der VERBRAUCHER fehlt noch. test:coverage-guard
       # liegt in Stage 'contract', dieser Job in Stage 'test' -- 'needs' darf nicht auf eine
       # SPAETERE Stage zeigen (nachgerechnet: 17 needs-Kanten im File, 0 vorwaerts). Die
